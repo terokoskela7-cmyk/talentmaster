@@ -117,6 +117,11 @@ TalentMaster tekee valmentajakehityksestä yhtä mitattavaa kuin pelaajakehityks
 - **Mentorointi-loop.** Lähetä valmentajalle viesti suoraan järjestelmässä → se näkyy hänen Viestit-välilehdellään.
 - **Coach-paneeli:** valmentajan profiili (lisenssitaso, CPD-tunnit, koulutukset), VAI+, harjoituslaatu ja
   mentorointihistoria yhdessä näkymässä.
+- **IDP: sinä olet vahvistaja, et portinvartija.** Valmentaja omistaa **oman joukkueensa** kehityssuunnitelmat
+  (IDP) — hän luo, muokkaa ja **aktivoi** tavoitteet itse, eikä aktivointi odota sinun hyväksyntääsi. Sinä näet
+  kaikki tavoitteet, **kalibroit ja kommentoit** näkemyksiä. Kun kommentoit, valmentaja saa ilmoituksen
+  *"VP vahvisti näkemyksesi"* tai *"VP ehdottaa kalibrointia"* — ei "hyväksytty/hylätty". Voit itse muokata
+  minkä tahansa pelaajan IDP:tä, mutta arki on valmentajan.
 
 **Johtamiskysymys:** *"Kehittyvätkö valmentajani — ja tukevatko he pelaajaa oikein?"*
 
@@ -131,6 +136,14 @@ TalentMaster tekee valmentajakehityksestä yhtä mitattavaa kuin pelaajakehityks
 - **TKI (tekniikka) ja H-H (fyysinen).** Indeksit kertovat tason; kehitysvauhti (delta) kertoo kehittyykö pelaaja.
   **Periaate:** kehitys mitataan absoluuttisesta parannuksesta, ei pelkästä indeksiluvusta (vaatimus kovenee iän myötä).
 - **PHV / biologinen ikä.** Kasvupyrähdyksen vaihe ohittaa kronologisen iän kaikessa tulkinnassa. Ks. Bio-banding (1.6).
+- **Arviointi — kolme lähdettä, yksi näkymä.** Pelaajan Arviointi-välilehti jakaa rivit sen mukaan **mistä tieto
+  tulee:** 🟢 **Mitattu** (TM-testistä, lukittu) · 🔵 **Havaittu** (oma 1–5-arviosi, tallentuu automaattisesti
+  klikatessa) · 👁 **Pelihavainnosta** (kenttähavainnosta johdettu ADAR 1–3; klikkaa 1–5 antaaksesi oman arvion,
+  yliajaa johdetun). Coverage-tilastopalkki (D1–D5) näyttää kuinka kattavasti pelaaja on arvioitu.
+- **IDP-silta — havainnosta tavoitteeksi yhdellä klikkauksella.** Kun arvioitu arvo on **≤ 2** (havaittu tai
+  pelihavainto), rivin viereen tulee oranssi **＋ IDP-tavoite** -pilleri. Klikkaus luo kausitavoite-ehdotuksen
+  suoraan havainnosta ja avaa Kehitys-välilehden. Tavoite säilyttää alkuperän — kortissa näkyy lähdesiru
+  *"◎ Lähde: pelihavainto · pvm"*, joten näet mistä kehityskohde nousi.
 
 **Johtamiskysymys:** *"Tunnistanko lupaukset oikein — myös ne jotka eivät vielä näytä fyysisesti valmiilta?"*
 
@@ -225,6 +238,14 @@ suuntaan ja millä tavoitteella pelaaja kehittyy.**
 > **Miksi sulkeminen on tärkeää:** avoin jakso ei jätä jälkeä. Vasta suljettu jakso tuottaa annos–vaste-rivin,
 > josta trendi ja per-ohjelma-oppi syntyvät. Sulje jaksot — se on pieni teko, joka pitää tarinan elossa.
 
+**Kausitavoite (IDP) — sinä omistat oman joukkueesi suunnitelmat.** Pelaajaraportin kausitavoite-kortissa
+**luot, muokkaat ja aktivoit** kehitystavoitteet suoraan omille pelaajillesi — aktivointi ei odota VP:n
+hyväksyntää. Voit ehdottaa tavoitetta datasta (↻ Ehdota), asettaa fokuksen itse, kuvata tavoitteen pelissä,
+kirjata reviewejä ja seurata kehityskaarta. Toisen joukkueen pelaajan kortin näet **vain luku** -muodossa. VP
+näkee tavoitteesi ja voi vahvistaa tai kalibroida — te keskustelette näkökulmista, mutta arjen omistat sinä.
+> **Jaksofokus (meso) vs kausitavoite (makro):** jaksofokus on 4–6 viikon operatiivinen teema (yllä); kausitavoite
+> on koko kauden suunta. Molemmat ovat sinun työkalujasi omalle joukkueellesi.
+
 ## 2.4 Fyysinen kehitys ilman fysiikkavalmentajaa — kevyt polku (OTO-valmentaja)
 
 Jos seurassasi **ei ole erillistä fysiikkavalmentajaa**, hoidat myös fyysisen kehityksen — kevennetysti:
@@ -250,6 +271,9 @@ Jos seurassasi **ei ole erillistä fysiikkavalmentajaa**, hoidat myös fyysisen 
   **pelaajaraportin pelihavainto-lähde** (OSA 4).
 - Havaintosi näkyvät pelaajan näkymässä **omalla, kannustavalla kielellään** — sinä hyväksyt viestin ennen kuin
   pelaaja näkee sen.
+- **Pelihavainto johtaa arviointiin ja tavoitteeseen.** Kenttähavainto (ADAR 1–3) johtaa automaattisesti
+  pelaajan peliäly-arvioon (D4, 👁-lähderyhmä). Jos havaittu taso on heikko (≤ 2), Arviointi-rivin **＋ IDP-tavoite**
+  -silta luo kehitystavoitteen suoraan siitä havainnosta — tavoite muistaa lähteen ("◎ Lähde: pelihavainto · pvm").
 
 ## 2.6 Kuorma & fiilis + viestit — pelaajan oma ääni
 
@@ -380,6 +404,12 @@ Se on kehotus: *"vahvista pelitilanteessa."* Suora vastalääke silmämääräis
 3. **Mentorointi-loop:** VP:n viesti → valmentajan Viestit-välilehti. Jatkuva, kontekstissa pysyvä dialogi.
 4. **Talenttipäätös:** signaali → VP:n vahvistus. Kenttähavainto + strateginen kuva + fyysinen vaste yhdessä.
 5. **Pelaajalle ja perheelle päin:** valmentaja omistaa päivittäisen viestinnän, VP varmistaa lapsiturvallisuuden.
+
+> **Kausitavoite (IDP) — omistajuus vs. vahvistus:** valmentaja **omistaa oman joukkueensa** kausitavoitteet:
+> luo, muokkaa ja **aktivoi** ne itse (aktivointi ei jää odottamaan hyväksyntää). VP on **vahvistaja** — näkee
+> kaikki tavoitteet, vahvistaa tai ehdottaa kalibrointia (*"VP vahvisti näkemyksesi"* / *"VP ehdottaa
+> kalibrointia"*), ei portinvartija. Toisen joukkueen pelaajan IDP näkyy valmentajalle **vain luku** -muodossa.
+> Strateginen kausisuunta sovitaan yhdessä kehityspalaverissa; operatiivinen jaksofokus on valmentajan arkea.
 
 ---
 

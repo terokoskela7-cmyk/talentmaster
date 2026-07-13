@@ -23,7 +23,7 @@
 <script src="lib/tm_arviointi_taksonomia.js?v=5"></script>   <!-- Vaihe 2: arviointitaksonomia + pääteemat + kehysrekisteri (mitattu + havaittu 1–5) -->
 <script src="lib/tm_pelialy_yksilo.js?v=1"></script>   <!-- P1: pelihavainto peliäly → yksilöteema (oversight tilanne-jakauma) -->
 <script src="lib/tm_arviointi_silta.js?v=1"></script>   <!-- Vaihe 5: arviointi→resepti-silta (heikoin havaittu D2 → ehdotettu jaksofokus) -->
-<script src="lib/tm_idp.js?v=3"></script>   <!-- Vaihe 3a+3b: IDP ehdotusmoottori + VP-fokusvalinta + review-sykli/kehityskaari/elinkaari -->
+<script src="lib/tm_idp.js?v=4"></script>   <!-- I2: + lahde+pvm säilytys (fokus.lahdeTieto) + idp_lahde + idpKohdeKandidaatti lahde-param + idpVahvinDim 1–3 -->
 <script src="lib/tm_teknistaktiset.js?v=4"></script>   <!-- Vaihe 4a: teknis-taktinen curriculum (VP:n jaksofokus talenteille) · v4 = parseri-korjaus (pelimuoto-saaste) -->
 <script src="lib/tm_jaksofokus.js?v=1"></script>   <!-- Vaihe 4c: jaksofokus-oversight PURE-ydin (kattavuus/umpeutunut/teemakeskittymä, §26) -->
 <script src="lib/tm_treeniteema.js?v=1"></script>   <!-- Vaihe 4d: teemakattavuus PURE-ydin (jaksofokus vs suunnitellut teemaharjoitukset) -->
@@ -1345,6 +1345,53 @@ body {
 .jsp-arv-btn.on { background: rgba(42,93,176,.22); border-color: rgba(42,93,176,.5); color: var(--ink); font-weight: 600; }
 .jsp-arv-na { width: auto; padding: 0 6px; }
 .jsp-arv-na.on { background: var(--ov-1); border-color: var(--border); color: var(--ink3); }
+/* I2 (A) — Arviointi-välilehden selkeytys: otsikko + tilastopalkki-coverage + lähderyhmät + mittaripalkki + segmentoitu 1–5. */
+.jsp-arv-hdr { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
+.jsp-arv-kpill { display: inline-flex; align-items: baseline; gap: 6px; font-size: 11px; color: var(--ink2); background: var(--ov-1); border: .5px solid var(--border); border-radius: 999px; padding: 3px 11px; }
+.jsp-arv-kpill b { color: var(--teal); font-weight: 600; }
+.jsp-arv-hmeta { font-size: 10.5px; color: var(--ink3); }
+.jsp-arv-cov { display: flex; gap: 5px; margin: 8px 0; }
+.jsp-arv-covcell { flex: 1; min-width: 0; background: var(--ov-1); border: .5px solid var(--border); border-radius: 8px; padding: 6px 4px 7px; text-align: center; cursor: pointer; transition: border-color .15s; }
+.jsp-arv-covcell:hover { border-color: rgba(40,176,144,.4); }
+.jsp-arv-covcell.sel { border-color: rgba(40,176,144,.55); background: rgba(40,176,144,.08); }
+.jsp-arv-covdim { font-size: 10px; font-weight: 700; letter-spacing: .04em; color: var(--ink2); }
+.jsp-arv-covn { font-size: 10px; color: var(--ink3); margin-top: 1px; }
+.jsp-arv-covn b { color: var(--ink); font-weight: 600; }
+.jsp-arv-covbar { height: 4px; border-radius: 3px; background: var(--ov-3); margin-top: 5px; overflow: hidden; }
+.jsp-arv-covfill { height: 100%; background: linear-gradient(90deg,rgba(42,93,176,.7),rgba(40,176,144,.8)); border-radius: 3px; }
+.jsp-arv-legend { font-size: 10.5px; color: var(--ink3); margin: 4px 0 8px; line-height: 1.6; }
+.jsp-arv-grp { margin-top: 12px; }
+.jsp-arv-ghd { display: flex; align-items: center; gap: 6px; font-size: 10px; letter-spacing: .06em; text-transform: uppercase; font-weight: 700; padding-bottom: 5px; margin-bottom: 3px; border-bottom: .5px solid var(--border); }
+.jsp-arv-ghd.mit { color: var(--teal); }
+.jsp-arv-ghd.hav { color: var(--blue); }
+.jsp-arv-ghd.peli { color: #c060a8; }
+.jsp-arv-ghd .sub { font-weight: 400; letter-spacing: 0; text-transform: none; color: var(--ink3); font-size: 10.5px; }
+.jsp-arv-r { display: flex; align-items: center; gap: 9px; padding: 6px 0; flex-wrap: wrap; }
+.jsp-arv-rn { flex: 1 1 130px; min-width: 0; font-size: 12.5px; color: var(--ink2); }
+.jsp-arv-rn .ref { font-size: 10px; color: var(--ink3); margin-left: 4px; }
+.jsp-arv-gauge { flex: 0 0 92px; height: 8px; border-radius: 5px; background: var(--ov-3); overflow: hidden; }
+.jsp-arv-gfill { height: 100%; border-radius: 5px; transition: width .2s; }
+.jsp-arv-gfill.mit { background: linear-gradient(90deg,rgba(40,176,144,.55),var(--teal)); }
+.jsp-arv-gfill.hav { background: linear-gradient(90deg,rgba(42,93,176,.55),var(--blue)); }
+.jsp-arv-gfill.peli { background: linear-gradient(90deg,rgba(192,96,168,.5),#c060a8); }
+.jsp-arv-num { flex: 0 0 auto; min-width: 34px; text-align: center; font-weight: 600; font-size: 12.5px; }
+.jsp-arv-num.mut { color: var(--ink3); font-weight: 400; }
+.jsp-arv-lock { flex: 0 0 auto; font-size: 10px; color: var(--ink3); }
+.jsp-arv-seg { display: inline-flex; gap: 0; border: .5px solid var(--border); border-radius: 7px; overflow: hidden; }
+.jsp-arv-segbtn { min-width: 30px; height: 30px; border: none; border-right: .5px solid var(--border); background: transparent; color: var(--ink3); font-size: 12px; cursor: pointer; font-family: var(--font-sans); padding: 0; }
+.jsp-arv-segbtn:last-child { border-right: none; }
+.jsp-arv-segbtn:hover { background: var(--ov-1); color: var(--ink); }
+.jsp-arv-segbtn.on.hav { background: rgba(42,93,176,.28); color: var(--ink); font-weight: 700; box-shadow: inset 0 0 0 1px rgba(42,93,176,.5); }
+.jsp-arv-segbtn.on.peli { background: rgba(192,96,168,.28); color: var(--ink); font-weight: 700; box-shadow: inset 0 0 0 1px rgba(192,96,168,.5); }
+.jsp-arv-segbtn.na { min-width: auto; padding: 0 8px; font-size: 11px; }
+.jsp-arv-segbtn.na.on { background: var(--ov-1); color: var(--ink3); }
+.jsp-arv-idp { flex: 0 0 auto; display: inline-flex; align-items: center; gap: 3px; font-size: 10.5px; font-weight: 600; color: var(--amber); background: rgba(224,160,64,.13); border: .5px solid rgba(224,160,64,.4); border-radius: 999px; padding: 3px 9px; cursor: pointer; }
+.jsp-arv-idp:hover { background: rgba(224,160,64,.22); }
+.jsp-arv-pelih { display: inline-block; font-size: 8.5px; font-weight: 700; letter-spacing: .05em; color: #c060a8; background: rgba(192,96,168,.12); border: .5px solid rgba(192,96,168,.35); border-radius: 4px; padding: 0 4px; margin-left: 5px; vertical-align: middle; cursor: help; }
+.jsp-arv-src { font-size: 10px; color: var(--ink3); flex-basis: 100%; margin: -2px 0 2px; }
+.jsp-arv-save { font-size: 10.5px; color: var(--ink3); margin-top: 10px; padding-top: 8px; border-top: .5px solid var(--border); }
+.jsp-arv-save b { color: var(--teal); }
+.jsp-arv-gempty { font-size: 11.5px; color: var(--ink3); padding: 6px 0; }
 /* Vaihe 3a — Kausitavoite-kortti (IDP-ydin). §5 tokenit, §7.22 aikuisnäkymä. */
 .jsp-kt { margin-top: 16px; padding-top: 12px; border-top: .5px solid var(--border); }
 .jsp-kt-hd { margin-bottom: 8px; }
@@ -4139,61 +4186,127 @@ function _vpArviointiHTML(p) {
   const _d1Silta = (typeof _vpD1SiltaPaneeliHTML === 'function') ? _vpD1SiltaPaneeliHTML(p) : '';
   const _d1Prio = (typeof _vpFyysEhdotus === 'function') && (function () { const e = _vpFyysEhdotus(p); return e && e.prioriteetti; })();
   let h = _d1Prio ? (_d1Silta + _d2Silta) : (_d2Silta + _d1Silta);
-  h += '<div class="jsp-arv-topbar">';
-  if (kehysAvaimet.length > 1 || (typeof superAdmin !== 'undefined' && superAdmin)) {
-    h += '<label class="jsp-arv-lbl">Kehys</label><select class="jsp-arv-select" onchange="_vpArvValitseKehys(this.value)">'
-      + kehysAvaimet.map(function(k){ return '<option value="' + k + '"' + (k === kehysAvain ? ' selected' : '') + '>' + _jsvEsc(ARVIOINTI_KEHYKSET[k].nimi) + '</option>'; }).join('') + '</select>';
-  } else {
-    h += '<span class="jsp-arv-lbl" style="opacity:.8">' + _jsvEsc(kehys.nimi) + '</span>';
-  }
-  h += '<label class="jsp-arv-lbl">Pääteema</label><select class="jsp-arv-select" onchange="_vpArvValitseTeema(this.value)">'
-    + teemat.map(function(t){ return '<option value="' + t.avain + '"' + (t.avain === teema ? ' selected' : '') + '>' + _jsvEsc(t.nimi) + ' (' + t.n + ')</option>'; }).join('') + '</select>';
-  h += '</div>';
+  const pid = p.id;
+  const round1 = function (v) { return Math.round(v * 10) / 10; };
+  // Mittaripalkki (lähdeväri: mit/hav/peli) — täyttö = arvo / max (mitattu/havaittu 5, pelihavainto 3, §I1).
+  const gauge = function (cls, arvo, max) {
+    const pct = (arvo == null) ? 0 : Math.max(3, Math.min(100, Math.round(arvo / (max || 5) * 100)));
+    return '<span class="jsp-arv-gauge"><span class="jsp-arv-gfill ' + cls + '" style="width:' + pct + '%"></span></span>';
+  };
+  // Segmentoitu 1–5 (lähdeväri hav/peli). valittu = korostettu; klik → autosave (_vpTallennaHavaittu). naOn = N/A korostettu.
+  const seg = function (cls, avain, valittu, naOn) {
+    let s = '<span class="jsp-arv-seg">';
+    for (let v = 1; v <= 5; v++) {
+      const ast = A[v] ? (A[v].koodi + ' · ' + A[v].fi) : '';
+      s += '<button class="jsp-arv-segbtn ' + cls + (valittu === v ? ' on' : '') + '" aria-pressed="' + (valittu === v) + '" onclick="event.stopPropagation();_vpTallennaHavaittu(\'' + pid + '\',\'' + avain + '\',' + v + ')" title="' + ast + '">' + v + '</button>';
+    }
+    s += '<button class="jsp-arv-segbtn na ' + cls + (naOn ? ' on' : '') + '" onclick="event.stopPropagation();_vpTallennaHavaittu(\'' + pid + '\',\'' + avain + '\',null)" title="En nähnyt / ei arviota (validi)">N/A</button></span>';
+    return s;
+  };
+  // ＋ IDP-tavoite -silta (B1): arvo ≤2 → oranssi pilleri. Handler re-derivaa lähteen (havaittu/pelihavainto) pelaajasta.
+  const idpSilta = function (avain) {
+    return '<span class="jsp-arv-idp" onclick="event.stopPropagation();_vpTeeIdpTavoiteHavainnosta(\'' + pid + '\',\'' + avain + '\')" title="Luo IDP-kehitystavoite tästä havainnosta (arvo ≤ 2)">＋ IDP-tavoite</span>';
+  };
 
-  // 5D-kattavuuskooste (yhteenveto koko taksonomiasta) — säilyy teemavalinnasta riippumatta.
-  h += '<div class="jsp-arv-kooste">';
+  // A1 — Otsikkorivi: arviointikehys-pilleri + meta (kohdemäärä · dimensiot). Kehys-select vain jos >1 kehys tai SA.
+  h += '<div class="jsp-arv-hdr">';
+  if (kehysAvaimet.length > 1 || (typeof superAdmin !== 'undefined' && superAdmin)) {
+    h += '<div class="jsp-arv-kpill">Arviointikehys · <select class="jsp-arv-select" style="padding:1px 6px;font-size:11px" onchange="_vpArvValitseKehys(this.value)">'
+      + kehysAvaimet.map(function(k){ return '<option value="' + k + '"' + (k === kehysAvain ? ' selected' : '') + '>' + _jsvEsc(ARVIOINTI_KEHYKSET[k].nimi) + '</option>'; }).join('') + '</select></div>';
+  } else {
+    h += '<div class="jsp-arv-kpill">Arviointikehys · <b>' + _jsvEsc(kehys.nimi) + '</b></div>';
+  }
+  h += '<span class="jsp-arv-hmeta">' + taks.length + ' kohdetta · 5 dimensiota' + ((typeof window._tmIBtn === 'function') ? window._tmIBtn('arviointi_lahderyhmat') : '') + '</span></div>';
+
+  // A1 — Teema-valikko erikseen (label "Teema"; optioteksti dim · kategoria + "N kohdetta").
+  h += '<div class="jsp-arv-topbar"><label class="jsp-arv-lbl">Teema</label><select class="jsp-arv-select" onchange="_vpArvValitseTeema(this.value)">'
+    + teemat.map(function(t){ return '<option value="' + t.avain + '"' + (t.avain === teema ? ' selected' : '') + '>' + _jsvEsc(t.nimi) + ' · ' + t.n + ' kohdetta</option>'; }).join('') + '</select></div>';
+
+  // A1 — Coverage-tilastopalkki: 5 solua D1–D5 (arvioitu/yhteensä + mini-palkki). Valittu teeman dim korostettu; klik hyppää dimeen.
+  const teemaDim = teema ? teema.split('_')[0] : null;
+  h += '<div class="jsp-arv-cov">';
   ['D1','D2','D3','D4','D5'].forEach(function(dim){
     const its = taks.filter(function(i){ return i.dim === dim; });
     let a = 0; its.forEach(function(it){ if (_arvo(it).arvo != null) a++; });
-    h += '<span class="jsp-arv-kchip" title="' + (TM_DIMENSIOT[dim] ? _jsvEsc(TM_DIMENSIOT[dim].nimi_fi) : dim) + '">' + dim + ' <b style="color:' + (a ? 'var(--ink)' : 'var(--ink3)') + '">' + a + '</b>/' + its.length + '</span>';
+    const pct = its.length ? Math.round(a / its.length * 100) : 0;
+    h += '<div class="jsp-arv-covcell' + (dim === teemaDim ? ' sel' : '') + '" onclick="_vpArvHyppaaDim(\'' + dim + '\')" title="' + (TM_DIMENSIOT[dim] ? _jsvEsc(TM_DIMENSIOT[dim].nimi_fi) : dim) + ' — ' + a + '/' + its.length + ' arvioitu">'
+      + '<div class="jsp-arv-covdim">' + dim + '</div><div class="jsp-arv-covn"><b>' + a + '</b>/' + its.length + '</div>'
+      + '<div class="jsp-arv-covbar"><div class="jsp-arv-covfill" style="width:' + pct + '%"></div></div></div>';
   });
   h += '</div>';
-  h += '<div style="font-size:10.5px;color:var(--ink3);margin:4px 0 8px;line-height:1.5"><span style="color:var(--teal)">🟢 mitattu</span> (TM-testi, lukittu) · <span style="color:var(--blue)">🔵 havaittu</span> (klikkaa 1–5) · <span style="color:var(--teal)">Pelihavainto</span> = kenttähavainnosta johdettu (klikkaa yliajaaksesi). §7.22: aikuisten työkalu.</div>';
+  // A1 — Selite (kerran).
+  h += '<div class="jsp-arv-legend"><span style="color:var(--teal)">🟢 Mitattu</span> = TM-testistä (lukittu) · <span style="color:var(--blue)">🔵 Havaittu</span> = arvioi 1–5 · <span style="color:#c060a8">👁 Pelihavainnosta</span> = kenttähavainnosta johdettu (klikkaa yliajaaksesi). <span style="color:var(--amber)">＋ IDP-tavoite</span> = luo kehitystavoite (arvo ≤ 2). §7.22: aikuisten työkalu.</div>';
   h += _phTilLbl;
 
-  // Valitun teeman kohteet
+  // A2 — Valitun teeman kohteet jaettuna LÄHDERYHMIIN (mitattu · havaittu · pelihavainto). Nimitörmäys pois: teeman nimi vain valikossa.
   const items = teema ? taks.filter(function(i){ return (i.dim + '_' + i.kategoria) === teema; }) : [];
-  const teemaObj = teemat.find(function(t){ return t.avain === teema; });
+  const gMit = [], gHav = [], gPeli = [];
   let arvioituja = 0;
-  const rows = items.map(function(item){
+  items.forEach(function(item){
     const av = _arvo(item);
-    const arvo = av.arvo, lahde = av.lahde, hav = havaittu[item.avain];
-    const onAdar = (lahde === 'adar');   // ADAR-johdettu (ei tallennettu 'silma') → himmennetty + badge
-    if (arvo != null) arvioituja++;
-    const ast = (arvo != null && A[Math.round(arvo)]) ? A[Math.round(arvo)] : null;
-    const badge = (arvo != null)
-      ? '<span title="' + (ast ? ast.koodi + ' · ' + ast.fi : '') + '" style="display:inline-block;min-width:30px;text-align:center;font-weight:600;color:' + (onAdar ? 'var(--ink3)' : V5(arvo)) + (onAdar ? ';opacity:.75' : '') + '">' + (Math.round(arvo*10)/10) + '</span>'
-      : '<span style="min-width:30px;text-align:center;color:var(--ink3)">—</span>';
-    const mark = (lahde === 'mitattu') ? '<span title="Mitattu (TM-testi, lukittu)">🟢</span>'
-               : (lahde === 'havaittu') ? '<span title="Havaittu (VP/valmentaja)">🔵</span>'
-               : (lahde === 'adar') ? '<span title="Pelihavainnosta johdettu — klikkaa arvioidaksesi itse">🔵</span>'
-               : '<span style="opacity:.35">○</span>';
-    const adarBadge = onAdar ? '<span class="jsp-arv-adar" title="Pelihavainnosta johdettu (kenttähavainto) — klikkaa 1–5 antaaksesi oman arvion (yliajaa)">PELIH.</span>' : '';
-    let sel = '';
-    if (!item.mitattavissa) {
-      let btns = '';
-      for (let v = 1; v <= 5; v++) {
-        btns += '<button class="jsp-arv-btn' + (hav === v ? ' on' : '') + '" onclick="event.stopPropagation();_vpTallennaHavaittu(\'' + p.id + '\',\'' + item.avain + '\',' + v + ')" title="' + A[v].koodi + ' · ' + A[v].fi + '">' + v + '</button>';
-      }
-      // N/A "on" vain kun ei tallennettua eikä ADAR-johdettua (muuten ADAR-arvo näkyy badge-himmennyksellä, N/A ei korostu).
-      btns += '<button class="jsp-arv-btn jsp-arv-na' + (hav == null && !onAdar ? ' on' : '') + '" onclick="event.stopPropagation();_vpTallennaHavaittu(\'' + p.id + '\',\'' + item.avain + '\',null)" title="En nähnyt / ei arviota (validi)">N/A</button>';
-      sel = '<span class="jsp-arv-sel">' + btns + '</span>';
-    }
-    return '<div class="jsp-arv-rivi"><span class="jsp-arv-nimi">' + mark + ' ' + item.nimi_fi + adarBadge + '</span>' + badge + sel + '</div>';
-  }).join('');
-  h += '<div class="jsp-arv-dim">' + (teemaObj ? _jsvEsc(teemaObj.nimi) : '—') + ' <span style="color:var(--ink3);font-weight:400;text-transform:none;letter-spacing:0">· ' + arvioituja + '/' + items.length + ' arvioitu</span></div>' + (rows || '<div style="font-size:12px;color:var(--ink3);padding:8px 0">Ei kohteita.</div>');
+    if (av.arvo != null) arvioituja++;
+    if (item.mitattavissa || av.lahde === 'mitattu') gMit.push({ item: item, av: av });
+    else if (av.lahde === 'adar') gPeli.push({ item: item, av: av });
+    else gHav.push({ item: item, av: av });
+  });
+
+  // 🟢 MITATTU · TESTEISTÄ — lukittu numero + 🔒 + testiviite + mittaripalkki (ei 1–5-nappeja).
+  if (gMit.length) {
+    h += '<div class="jsp-arv-grp"><div class="jsp-arv-ghd mit">🟢 Mitattu <span class="sub">· testeistä (lukittu)</span></div>';
+    gMit.forEach(function(g){
+      const item = g.item, arvo = g.av.arvo;
+      const ref = (item.mitta && (item.mitta.laji || item.mitta.avain)) ? '<span class="ref">· ' + _jsvEsc(item.mitta.laji || item.mitta.avain) + '</span>' : '';
+      const ast = (arvo != null && A[Math.round(arvo)]) ? A[Math.round(arvo)] : null;
+      h += '<div class="jsp-arv-r"><span class="jsp-arv-rn">' + item.nimi_fi + ref + '</span>'
+        + gauge('mit', arvo, 5)
+        + (arvo != null
+            ? '<span class="jsp-arv-num" style="color:' + V5(arvo) + '" title="' + (ast ? ast.koodi + ' · ' + ast.fi : '') + '">' + round1(arvo) + '</span><span class="jsp-arv-lock" title="Mitattu TM-testistä — lukittu">🔒</span>'
+            : '<span class="jsp-arv-num mut">ei testiä</span>')
+        + '</div>';
+    });
+    h += '</div>';
+  }
+  // 🔵 HAVAITTU · ARVIOI 1–5 — mittaripalkki + numero + segmentoitu 1–5 (klik = autosave). IDP-silta jos ≤2.
+  if (gHav.length) {
+    h += '<div class="jsp-arv-grp"><div class="jsp-arv-ghd hav">🔵 Havaittu <span class="sub">· arvioi 1–5</span></div>';
+    gHav.forEach(function(g){
+      const item = g.item, arvo = g.av.arvo, hav = havaittu[item.avain];
+      const num = (arvo != null) ? '<span class="jsp-arv-num" style="color:' + V5(arvo) + '">' + round1(arvo) + '</span>' : '<span class="jsp-arv-num mut">—</span>';
+      h += '<div class="jsp-arv-r"><span class="jsp-arv-rn">' + item.nimi_fi + '</span>'
+        + gauge('hav', arvo, 5) + num + seg('hav', item.avain, hav, hav == null)
+        + ((arvo != null && arvo <= 2) ? idpSilta(item.avain) : '')
+        + '</div>';
+    });
+    h += '</div>';
+  }
+  // 👁 PELIHAVAINNOSTA · JOHDETTU ADAR:STA — himmeä PELIH. + havaintopvm + pinkki palkki + segmentoitu 1–5 yliajoon. IDP-silta jos ≤2.
+  if (gPeli.length) {
+    const havPvm = (p.adar_viimeisin && p.adar_viimeisin.pvm) ? _pvmLyhyt(p.adar_viimeisin.pvm) : '';
+    h += '<div class="jsp-arv-grp"><div class="jsp-arv-ghd peli">👁 Pelihavainnosta <span class="sub">· johdettu ADAR:sta (1–3) — klikkaa 1–5 yliajaaksesi</span></div>';
+    gPeli.forEach(function(g){
+      const item = g.item, arvo = g.av.arvo;
+      h += '<div class="jsp-arv-r"><span class="jsp-arv-rn">' + item.nimi_fi + '<span class="jsp-arv-pelih" title="Pelihavainnosta johdettu (kenttähavainto) — klikkaa 1–5 antaaksesi oman arvion (yliajaa)">PELIH.</span></span>'
+        + gauge('peli', arvo, 3)
+        + '<span class="jsp-arv-num" title="ADAR-asteikko 1–3">' + round1(arvo) + '<span style="font-size:9px;color:var(--ink3)">/3</span></span>'
+        + seg('peli', item.avain, null, false)
+        + ((arvo != null && arvo <= 2) ? idpSilta(item.avain) : '')
+        + (havPvm ? '<span class="jsp-arv-src">👁 Havainto ' + havPvm + '</span>' : '')
+        + '</div>';
+    });
+    h += '</div>';
+  }
+  if (!items.length) h += '<div class="jsp-arv-gempty">Ei kohteita tässä teemassa.</div>';
+  // Autosave-indikaattori (§A3).
+  h += '<div class="jsp-arv-save">✓ Arviot tallentuvat <b>automaattisesti</b> klikatessa · teema ' + arvioituja + '/' + items.length + ' arvioitu.</div>';
   return h;
 }
+// A1 — Coverage-solun klikkaus: hyppää dimensioon (valitse sen ensimmäinen teema).
+window._vpArvHyppaaDim = function (dim) {
+  const p = window._vpArvPelaaja; if (!p || typeof tmTeemat !== 'function') return;
+  const teemat = tmTeemat((typeof ARVIOINTI_TAKSONOMIA !== 'undefined') ? ARVIOINTI_TAKSONOMIA : null);
+  const t = teemat.find(function (x) { return x.avain.indexOf(dim + '_') === 0; });
+  if (t) { window._vpArvTeema = t.avain; _vpArvReRender(); }
+};
 // Re-renderöi Arviointi-välilehti paikallaan (dropdown-vaihto tai tallennus). Säilyttää valitun teeman/kehyksen.
 function _vpArvReRender() {
   const slot = document.getElementById('_jspTab5'); const p = window._vpArvPelaaja;   // Arviointi = tab 5 (Aloitus lisätty tab 0:ksi)
@@ -4262,6 +4375,31 @@ window._vpEhdotaTavoite = function (pid) {
 window._vpArvFokusTeema = function (pid, teemaAvain) {
   const p = _vpIdpPelaaja(pid); if (!p) return;
   p._idpFokusTeema = teemaAvain; _vpKausitavoiteReRender();
+};
+// B1 — IDP-silta: luo tavoite-ehdotus arviointirivin havainnosta → Kehitys-välilehti. Re-derivaa lähteen pelaajan tilasta:
+// tallennettu havaittu (silma) → 'havaittu' (pvm=arviointi_pvm); muuten ADAR-johdettu → 'pelihavainto' (pvm=adar_viimeisin.pvm).
+window._vpTeeIdpTavoiteHavainnosta = function (pid, avain) {
+  const p = _vpIdpPelaaja(pid);
+  if (!p || !avain || typeof idpKohdeKandidaatti !== 'function' || typeof idpRakennaTavoite !== 'function') return;
+  const opts = _vpIdpOpts(p);
+  const hav = p.arviointi_havaittu || {};
+  const havArvo = (hav[avain] && hav[avain].arvo != null) ? hav[avain].arvo : hav[avain];
+  let lahde, lahdePvm, arvo;
+  if (havArvo != null && !isNaN(havArvo)) {
+    lahde = 'havaittu'; lahdePvm = p.arviointi_pvm || null; arvo = +havArvo;
+  } else {
+    const adarHav = (typeof tmAdarHavaittu === 'function') ? (tmAdarHavaittu(p.adar_viimeisin) || {}) : {};
+    const ah = adarHav[avain];
+    if (!ah) { if (typeof toast === 'function') toast('Ei havaintoa tälle kohteelle', 'ok'); return; }
+    lahde = 'pelihavainto'; lahdePvm = (p.adar_viimeisin && p.adar_viimeisin.pvm) || null; arvo = ah.arvo;
+  }
+  const k = idpKohdeKandidaatti(p, avain, Object.assign({}, opts, { lahde: lahde, lahdePvm: lahdePvm, arvo: arvo }));
+  const t = idpRakennaTavoite(p, k, opts);
+  if (!t) { if (typeof toast === 'function') toast('Tavoitteen luonti epäonnistui', 'error'); return; }
+  p._idpTavoite = t; p._idpMuokkaus = true; p._idpValitseFokus = false; p._idpKandN = null;
+  if (typeof _jspVaihda === 'function') _jspVaihda(4);   // Kehitys-välilehti (Kausitavoite-kortti)
+  _vpKausitavoiteReRender();
+  if (typeof toast === 'function') toast('IDP-tavoite luotu havainnosta — tarkista ja hyväksy', 'ok');
 };
 // VP asettaa fokuksen taksonomia-kohteesta → rakentaa tavoitteen (lahde:'valmentaja', §4 kypsyysvaroitus fyysiselle ilman PHV:tä).
 window._vpAsetaFokus = function (pid, avain) {
@@ -4343,7 +4481,8 @@ function _vpKausitavoiteHTML(p) {
   const t = p._idpTavoite;
   const pid = _jsvEsc(p.id);
   const fmt = function (v, yks) { return (v == null) ? '—' : ((typeof _fmtTestiArvo === 'function' ? _fmtTestiArvo(v, yks) : v) + (yks && yks !== 'taso' ? ' ' + yks : '')); };
-  let h = '<div class="jsp-kt-hd"><span class="jsp-kt-t">Kausitavoite <span style="text-transform:none;letter-spacing:0;color:var(--ink3);font-weight:400">· IDP-ydin</span></span></div>';
+  let h = '<div class="jsp-kt-hd"><span class="jsp-kt-t">Kausitavoite <span style="text-transform:none;letter-spacing:0;color:var(--ink3);font-weight:400">· IDP-ydin</span></span>'
+    + ((typeof window._tmIBtn === 'function') ? (window._tmIBtn('idp_silta') + window._tmIBtn('idp_roolit')) : '') + '</div>';
   if (!t && !p.idp_tila) {
     // Tyhjä tila → ehdotus-CTA (johdetaan Vaihe 2 -arvioinnista)
     h += '<div class="jsp-kt-empty">Ei kausitavoitetta. Johdetaan heikoimmasta ominaisuudesta (arviointi + §28-kypsyysvahti).'
@@ -4353,8 +4492,10 @@ function _vpKausitavoiteHTML(p) {
   if (!t && p.idp_tila) {
     // Pikakenttä-summary (täysi tavoite latautuu taustalla) — §26 ei pakota alikokoelmakyselyä listaan
     const f = p.idp_fokus || {};
+    const _il = p.idp_lahde || null;   // B3 — lähdemerkintä pikakentästä (summary-tila)
     h += '<div class="jsp-kt-summary"><span class="jsp-kt-pill ' + (p.idp_tila === 'aktiivinen' ? 'akt' : 'ehd') + '">' + _jsvEsc(p.idp_tila) + '</span> '
       + '<span class="chip" style="margin-left:6px">🎯 ' + _jsvEsc(f.nimi || f.alue || '—') + (f.dim ? ' · ' + f.dim : '') + '</span>'
+      + (_il && _il.tyyppi === 'pelihavainto' ? '<span class="chip" style="color:#c060a8;margin-left:4px">◎ pelihavainto' + (_il.pvm ? ' · ' + _jsvEsc(_pvmLyhyt(_il.pvm)) : '') + '</span>' : '')
       + (p.idp_edistyma ? ' <span class="jsp-kt-edist">' + _jsvEsc(p.idp_edistyma) + '</span>' : '') + '</div>';
     return h;
   }
@@ -4367,8 +4508,14 @@ function _vpKausitavoiteHTML(p) {
     + '<span class="jsp-kt-kausi">' + _jsvEsc((t.aikaraami && t.aikaraami.kausi) || '') + (t.aikaraami && t.aikaraami.kesto_vk ? ' · ' + t.aikaraami.kesto_vk + ' vk' : '') + '</span></div>';
   // fokus-chipit
   const f = t.fokus || {};
+  // B3 — lähdesiru: näytä havainnon alkuperä (pelihavainto → ottelu/harjoitus + pvm) fokus-chippien joukossa.
+  const _lt = f.lahdeTieto || null;
+  const _lahdeSiru = (_lt && _lt.tyyppi === 'pelihavainto')
+    ? '<span class="chip" style="color:#c060a8;border-color:rgba(192,96,168,.4)">◎ Lähde: pelihavainto' + (_lt.pvm ? ' · ' + _jsvEsc(_pvmLyhyt(_lt.pvm)) : '') + '</span>'
+    : (_lt && _lt.tyyppi === 'havaittu') ? '<span class="chip" style="color:var(--blue)">◎ Lähde: havainto' + (_lt.pvm ? ' · ' + _jsvEsc(_pvmLyhyt(_lt.pvm)) : '') + '</span>' : '';
   h += '<div class="jsp-kt-chips"><span class="chip">🎯 Fokus: <b>' + _jsvEsc(f.nimi || f.alue || '—') + '</b></span>'
     + (f.dim ? '<span class="chip">' + f.dim + '</span>' : '')
+    + _lahdeSiru
     + (t.perustelu && t.perustelu.kultaikkuna ? '<span class="chip" style="color:var(--teal)">🔥 Kultaikkuna auki</span>' : '') + '</div>';
   // §7b — pelaaminen-linkitys: pelisovelluslause fokus-chippien alle (aikuisnäkymä; ei irrallinen testisuoritus)
   if (t.perustelu && t.perustelu.pelilause) h += '<div class="jsp-kt-peli">⚽ Pelillinen sovellus: ' + _jsvEsc(t.perustelu.pelilause) + '</div>';
@@ -5253,11 +5400,15 @@ function _vpAloitusHTML(p) {
   const tilaLbl = tila === 'aktiivinen' ? '● Aktiivinen' : tila === 'ehdotettu' ? '○ Ehdotettu' : (tila ? _jsvEsc(tila) : '');
   const pelilause = (t && t.perustelu && t.perustelu.pelilause) || null;
   const kausi = (t && t.aikaraami && t.aikaraami.kausi) || null;
+  // B3 — lähdemerkintä (pelihavainto → näkyy kausifokuksessa). Pikakentästä idp_lahde tai ladatusta tavoitteesta.
+  const _al = p.idp_lahde || (t && t.fokus && t.fokus.lahdeTieto) || null;
+  const _alPvm = _al && _al.pvm ? _pvmFi(_al.pvm) : null;
   let h = '<div class="vpal-fokus">';
   // Kausifokus (makro)
   h += '<div class="vpal-fk kausi"><div class="vpal-k teal">🎯 Kausifokus' + (kausi ? ' <span class="vpal-pill">makro · ' + _jsvEsc(kausi) + '</span>' : '') + '</div>'
     + '<h3 class="vpal-h3">' + _jsvEsc((fokus && fokus.nimi) || '—') + (fokus && fokus.dim ? ' · ' + fokus.dim : '') + '</h3>'
     + (tilaLbl ? '<div class="vpal-meta">' + tilaLbl + (t && t.aikaraami && t.aikaraami.kesto_vk ? ' · ' + t.aikaraami.kesto_vk + ' vk' : '') + '</div>' : '')
+    + (_al && _al.tyyppi === 'pelihavainto' ? '<div class="vpal-meta" style="color:#c060a8">◎ Lähde: pelihavainto' + (_alPvm ? ' · ' + _jsvEsc(_alPvm) : '') + '</div>' : '')
     + (pelilause ? '<div class="vpal-peli">⚽ Näkyy pelissä: ' + _jsvEsc(pelilause) + '</div>' : '') + '</div>';
   // Jaksofokus (meso) — täyttyy valmentajan "Vie jakson treeniin" -pikakentästä (§26 jaksofokus, Vaihe 4a). Muuten placeholder.
   const _jf = p.jaksofokus || null;
@@ -6843,7 +6994,10 @@ window.TM_TESTI_OHJEET = {
   tsi: { otsikko: 'TSI · Tekninen suunnanmuutosindeksi', mita: 'TSI = SM-pallo − SM-juoksu (sekuntia). Mittaa kuinka paljon pallonkäsittely hidastaa pelaajaa suunnanmuutoksessa — erottaa lajitekniikan fysiikasta.', tulkinta: 'Lähellä nollaa (≤0.5 s) = tekniikka erittäin vahva, pallo ei hidasta.<br>0.5–1.5 s = normaali kansallinen taso.<br>&gt;1.5 s = tekninen kehityskohde, fysiikka edellä tekniikkaa.<br>Hyvä nuori pelaaja häviää ~0.3–0.6 s pallon kanssa.', vinkki: 'Korkea TSI + hyvä SM-juoksu → pelaaja on nopea, mutta pallonkäsittely vauhdissa kaipaa työtä (kuljetus, suojaus, suunnanvaihto pallollisena).' },
   tki: { otsikko: 'TKI · Tekniikkakilpailuindeksi', mita: 'Palloliiton 5-lajisen tekniikkakilpailun (ponnauttelu, syöttö, pujottelu, kuljetus-laukaus, pituuspotku) kokonaistuloksesta laskettu indeksi 0–99. Vain ikä 8–13.', tulkinta: 'Kulta 80–99 · Hopea 60–80 · Pronssi 40–60 · alle 40 kehityskohde. Merkki (🥇🥈🥉) tulee kokonaistuloksen aikarajasta, ei lajeittain.' },
   flei: { otsikko: 'Kehon valmiusindeksi', mita: 'Viiden liikehallintaketjun (SBL, SFL, LL, DIAG, DFL) liikkuvuus ja hallinta, 0–100. Liikevalmiuden ja loukkaantumisriskin mittari.', tulkinta: 'Alle 40 → automaattinen klinikkalähetys. Heikoin ketju ohjaa yksilöllistä S-harjoitetta.' },
-  adar: { otsikko: 'Pelihavainto · Peliäly', mita: 'Valmentajan kenttähavainto: Awareness (havainnointi), Decision (päätöksenteko), Action (toteutus), Reaction (reagointi), kukin 1–3. Ei testilaboratorio vaan jatkuva havainnointi.', tulkinta: 'Kokonais 0–12. Vaatii ≥3 havaintoa luotettavuuteen. Vahvin/heikoin osa-alue ohjaa peliharjoittelun painotusta.' },
+  adar: { otsikko: 'Pelihavainto · Peliäly', mita: 'Valmentajan kenttähavainto: Awareness (havainnointi), Decision (päätöksenteko), Action (toteutus), Reaction (reagointi), kukin 1–3. Ei testilaboratorio vaan jatkuva havainnointi.', tulkinta: 'Kokonaistaso = arvioitujen osa-alueiden keskiarvo (1–3, I1-kaanon). Vaatii ≥3 havaintoa luotettavuuteen. Vahvin/heikoin osa-alue ohjaa peliharjoittelun painotusta.' },
+  arviointi_lahderyhmat: { otsikko: 'Arviointi · lähderyhmät', mita: 'Arviointirivit on jaettu kolmeen lähteeseen sen mukaan MISTÄ tieto tulee.', tulkinta: '<strong style="color:var(--teal)">🟢 Mitattu</strong> = TM-testistä laskettu — lukittu (🔒), et voi muuttaa käsin.<br><strong style="color:var(--blue)">🔵 Havaittu</strong> = sinun 1–5-arviosi (klikkaa → tallentuu automaattisesti).<br><strong style="color:#c060a8">👁 Pelihavainnosta</strong> = kenttähavainnosta (ADAR 1–3) johdettu; klikkaa 1–5 antaaksesi oman arvion (yliajaa johdetun).', vinkki: 'Mitattu on faktaa testistä; havaittu ja pelihavainto ovat asiantuntija-arvioita. §7.22: nämä ovat aikuisten työkaluja — pelaajalle ei näytetä tasolukuja.' },
+  idp_silta: { otsikko: 'IDP-silta · ＋IDP-tavoite', mita: 'Kun arvioitu arvo on ≤ 2 (havaittu tai pelihavainto), rivin viereen ilmestyy oranssi ＋ IDP-tavoite -pilleri.', tulkinta: 'Klikkaus luo kausitavoite-ehdotuksen suoraan tästä havainnosta ja avaa Kehitys-välilehden, jossa tarkistat ja hyväksyt. Tavoite säilyttää alkuperän — lähdesiru näyttää esim. "◎ Lähde: pelihavainto · pvm".', vinkki: 'Silta yhdistää havainnon ja kehityssuunnitelman yhdellä klikkauksella — ei tarvitse aloittaa tavoitetta tyhjästä.' },
+  idp_roolit: { otsikko: 'IDP · roolit (valmentaja / VP)', mita: 'Kuka omistaa kehityssuunnitelman (IDP)?', tulkinta: '<strong>Valmentaja</strong> omistaa oman joukkueensa pelaajien IDP:t — luo, muokkaa ja aktivoi tavoitteet itse, ja käy kehityskeskustelut.<br><strong>VP</strong> ei ole portinvartija vaan <strong>vahvistaja</strong>: näkee tavoitteet, kalibroi ja kommentoi näkemyksiä. Valmentajan aktivointi ei odota VP:n hyväksyntää.', vinkki: 'Strateginen kausitavoite (IDP-makro) sovitaan yhdessä; operatiivinen jaksofokus on valmentajan päivittäistä työtä.' },
   phv: { otsikko: 'PHV · Biologinen kypsyys', mita: 'Kasvupyrähdyksen vaihe (Mirwald 2002) — kuinka kaukana pelaaja on pituuskasvun huipusta. Ohjaa harjoittelun kuormitusta, EI kalenteri-ikä.', tulkinta: 'PRE ennen · LAH lähestyy · <strong style="color:var(--amber)">PH kasvupyrähdyksessä — varotila</strong> · POST jälkeen · AN jälki-PHV.<br>PH-tilassa: voimaharjoittelu max 80 % 1RM, hyppyvolyymi −20 %, juoksuvolyymi seurattava (kohonnut loukkaantumisriski).' }
 };
 window._tmIBtn = function(avain) {
