@@ -175,7 +175,59 @@ describe('idpPikakentat (§26 lista+kortti)', () => {
     expect(idpPikakentat(t).idp_edistyma).toBe('50 %');
   });
   it('null tavoite → null-kentät', () => {
-    expect(idpPikakentat(null)).toEqual({ idp_tila: null, idp_edistyma: null, idp_fokus: null, idp_viim_review: null });
+    expect(idpPikakentat(null)).toEqual({ idp_tila: null, idp_edistyma: null, idp_fokus: null, idp_viim_review: null, idp_lahde: null });
+  });
+  it('idp_lahde = fokus.lahdeTieto (tyyppi + pvm)', () => {
+    const t = { status: 'aktiivinen', fokus: { alue: 'positioning', dim: 'D4', nimi: 'Sijoittuminen', lahdeTieto: { tyyppi: 'pelihavainto', pvm: '2026-06-01' } }, arviot: [] };
+    expect(idpPikakentat(t).idp_lahde).toEqual({ tyyppi: 'pelihavainto', pvm: '2026-06-01' });
+  });
+});
+
+describe('B2 — lahde+pvm säilyy moottorissa (IDP-silta lähdemerkintä)', () => {
+  it('idpKeraaKandidaatit: pelihavainto-kandidaatti kantaa lahdePvm:n adar_viimeisin.pvm:stä', () => {
+    const p = { adar_viimeisin: { a: 1, pvm: '2026-06-01' } };
+    const k = idpKeraaKandidaatit(p, baseOpts).find(c => c.avain === 'anticipation');
+    expect(k.lahde).toBe('pelihavainto');
+    expect(k.lahdePvm).toBe('2026-06-01');
+  });
+  it('idpKeraaKandidaatit: havaittu-kandidaatti kantaa arviointi_pvm:n', () => {
+    const p = { arviointi_havaittu: { vision: 2 }, arviointi_pvm: '2026-05-10' };
+    const k = idpKeraaKandidaatit(p, baseOpts).find(c => c.avain === 'vision');
+    expect(k.lahde).toBe('havaittu');
+    expect(k.lahdePvm).toBe('2026-05-10');
+  });
+  it('idpRakennaTavoite: fokus.lahde säilyttää alkuperän (ei romahda moottoriksi) + fokus.lahdeTieto', () => {
+    const p = { adar_viimeisin: { a: 1, pvm: '2026-06-01' } };
+    const k = idpKeraaKandidaatit(p, baseOpts).find(c => c.avain === 'anticipation');
+    const t = idpRakennaTavoite(p, k, baseOpts);
+    expect(t.fokus.lahde).toBe('pelihavainto');            // EI 'moottori'
+    expect(t.fokus.lahdeTieto).toEqual({ tyyppi: 'pelihavainto', pvm: '2026-06-01' });
+    expect(t.lahde).toBe('moottori');                       // top-level = kuka rakensi (säilyy)
+    expect(idpPikakentat(t).idp_lahde).toEqual({ tyyppi: 'pelihavainto', pvm: '2026-06-01' });
+  });
+  it('idpKohdeKandidaatti: opts.lahde + opts.lahdePvm + opts.arvo (pelihavainto-silta)', () => {
+    const p = {};   // ei arviointi_havaittu — arvo tulee ADAR:sta silta-handlerissa
+    const k = idpKohdeKandidaatti(p, 'positioning', Object.assign({}, baseOpts, { lahde: 'pelihavainto', lahdePvm: '2026-06-01', arvo: 2 }));
+    expect(k.lahde).toBe('pelihavainto');
+    expect(k.lahdePvm).toBe('2026-06-01');
+    expect(k.taso).toBe(2);
+    const t = idpRakennaTavoite(p, k, baseOpts);
+    expect(t.fokus.lahdeTieto).toEqual({ tyyppi: 'pelihavainto', pvm: '2026-06-01' });
+  });
+  it('idpKohdeKandidaatti: oletus-lahde säilyy valmentajana (ei opts.lahde)', () => {
+    const p = { arviointi_havaittu: { vision: 3 } };
+    const k = idpKohdeKandidaatti(p, 'vision', baseOpts);
+    expect(k.lahde).toBe('valmentaja');
+    expect(k.lahdePvm).toBeNull();
+  });
+});
+
+describe('B2 — idpVahvinDim ADAR 1–3-kaanon (I1)', () => {
+  it('adar_viimeisin.yht 1–3 skaalataan /3*5 (ei /12)', () => {
+    const p = { d1_taso: 2, adar_viimeisin: { yht: 3 } };   // yht=3 (max) → 5.0, voittaa d1_taso 2
+    const v = idpVahvinDim(p, baseOpts);
+    expect(v.dim).toBe('D4');
+    expect(Math.round(v.taso * 10) / 10).toBe(5);
   });
 });
 
