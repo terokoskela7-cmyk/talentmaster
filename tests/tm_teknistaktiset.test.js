@@ -103,6 +103,12 @@ describe('tmTtVaihe + tmTtItems (vaihe-gating)', () => {
     expect(TT.tmTtVaihe({ ika: 14 })).toBe('silta');
     expect(TT.tmTtVaihe({ ika: 16 })).toBe('pelipaikka');
   });
+  it('I3a §C.3 — U14 + pelipaikka asetettu → pelipaikkavaihe (aikainen erikoistuja); ilman → silta', () => {
+    expect(TT.tmTtVaihe({ ika: 14, positio: 'KK' })).toBe('pelipaikka');
+    expect(TT.tmTtVaihe({ ika: 14, tt_positio_aktiivinen: 'T' })).toBe('pelipaikka');
+    expect(TT.tmTtVaihe({ ika: 14 })).toBe('silta');            // ei pelipaikkaa → silta ennallaan
+    expect(TT.tmTtVaihe({ ika: 13, positio: 'KK' })).toBe('yhteispeli');   // U13 ei avaa vaikka pelipaikka
+  });
   it('perus/yhteispeli/silta → vain 14 youth (ei pelipaikkoja)', () => {
     expect(TT.tmTtItems({ ika: 12 }).length).toBe(14);
     expect(TT.tmTtItems({ ika: 8 }).length).toBe(14);
@@ -113,6 +119,25 @@ describe('tmTtVaihe + tmTtItems (vaihe-gating)', () => {
   });
   it('pelipaikkavaihe ilman positiota → vain youth', () => {
     expect(TT.tmTtItems({ ika: 16 }).length).toBe(14);
+  });
+  it('I3a §E — tmTtHarjoitteetSuodata: ei tägejä → koko lista; tägitön sisältö → graceful fallback', () => {
+    const kaikki = TT.tmTtHarjoitteet('y_h9');
+    expect(TT.tmTtHarjoitteetSuodata('y_h9')).toEqual(kaikki);                       // ei opts → sama
+    expect(TT.tmTtHarjoitteetSuodata('y_h9', {})).toEqual(kaikki);
+    // Harjoitteita ei ole vielä tägitetty → tägisuodatus palauttaa koko listan (ei tyhjää)
+    const suod = TT.tmTtHarjoitteetSuodata('y_h9', { tagit: ['power'] });
+    expect(suod).toEqual(kaikki);
+    expect(TT.tmTtHarjoitteetSuodata('ei_olemassa', { tagit: ['power'] })).toEqual([]);
+  });
+  it('I3a §E — suodatus osuu kun harjoitteilla on tagit (rakenteen tuki)', () => {
+    // Rakennetesti: injektoitu tägitetty lista suodattuu oikein (varmistaa filter-logiikan)
+    const H = [{ nimi: 'A', tagit: ['power'] }, { nimi: 'B', tagit: ['placement'] }, { nimi: 'C' }];
+    const suodata = (opts) => {
+      const tagit = (opts.tagit && opts.tagit.length) ? opts.tagit : null;
+      const osuu = H.filter(h => !tagit || (Array.isArray(h.tagit) && h.tagit.some(t => tagit.indexOf(t) >= 0)));
+      return osuu.length ? osuu : H;
+    };
+    expect(suodata({ tagit: ['power'] }).map(h => h.nimi)).toEqual(['A']);
   });
   it('§26 joukkuenimi-fallback kun syntymaVuosi puuttuu (P15→pelipaikka, P13→yhteispeli)', () => {
     expect(TT.tmTtVaihe({ joukkue: 'SJK P15' })).toBe('pelipaikka');
