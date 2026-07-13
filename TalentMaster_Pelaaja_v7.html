@@ -4913,6 +4913,28 @@ function _p6KaynnistakuuntelIja(seuraId, pelaajaId) {
   }
 }
 
+// Juurisyy 1 (raaka aikaleima): pvm voi olla Firestore Timestamp (.toDate()), Timestamp-tyyppinen plain-objekti
+// (seconds/_seconds, cachesta), ISO-string, Date tai ms/sek-numero. Muotoile aina pp.kk.vvvv; tuntematon → '' (EI raakaa).
+function _p6MuotoilePvm(v) {
+  if (v == null || v === '') return '';
+  var d = null;
+  if (typeof v.toDate === 'function') { d = v.toDate(); }
+  else if (typeof v === 'object' && (v.seconds != null || v._seconds != null)) { d = new Date((v.seconds != null ? v.seconds : v._seconds) * 1000); }
+  else if (v instanceof Date) { d = v; }
+  else if (typeof v === 'number') { d = new Date(v < 1e12 ? v * 1000 : v); }   // sek vs ms
+  else if (typeof v === 'string') { var s = v.trim(); if (!s) return ''; d = new Date(s); }
+  if (!d || isNaN(d.getTime())) return '';
+  return d.getDate() + '.' + (d.getMonth() + 1) + '.' + d.getFullYear();
+}
+// Juurisyy 2 (tyhjät kortit): pelaajalle näytetään VAIN havainnot joilla on pelaajapinnalle renderöityvää sisältöä
+// (narratiivi/teksti/oppimisnäkökohta). ADAR-pistehavainnot ilman hyväksyttyä narratiivia (esim. pelkät pisteet /
+// ai_narratiivi ennen hyväksyntää §15) EIVÄT näy — muuten tyhjä UUSI-kortti + väärä laskuri. Ei datamallin muutosta.
+function _p6NakyyPelaajalle(d) {
+  if (!d) return false;
+  var t = function (x) { return (x != null && String(x).trim() !== ''); };
+  return t(d.narratiivi) || t(d.teksti) || t(d.oppimisnakokohta);
+}
+
 // P6 onSnapshot-tilaus (eroteltu omaksi funktioksi retryä varten). yritys = retry-laskuri.
 function _p6Tilaa(seuraId, pelaajaId, yritys) {
   const db = window._db;
@@ -4930,7 +4952,9 @@ function _p6Tilaa(seuraId, pelaajaId, yritys) {
     .limit(50)
     .onSnapshot(function(snap) {
       var lukemattomat = snap.docs.filter(function(d) {
-        return d.data().pelaaja_lukenut === false;
+        var data = d.data();
+        // Juurisyy 2: lukematon JA pelaajalle näytettävää sisältöä (ei tyhjiä ADAR-pistehavaintoja).
+        return data.pelaaja_lukenut === false && _p6NakyyPelaajalle(data);
       });
       window._havLkm  = lukemattomat.length;
       window._havData = lukemattomat.map(function(d) {
@@ -4974,7 +4998,7 @@ function _avaaHavainnot() {
   const { seuraId, pelaajaId } = window._p7Pelaaja;
 
   const kortit = window._havData.map(function(h) {
-    const pvm    = h.pvm || h.luotu || '';
+    const pvm    = _p6MuotoilePvm(h.pvm || h.luotu);   // Juurisyy 1: muotoile (Timestamp/ISO/Date), ei raakaa arvoa
     const tekija = h.tekija_nimi || h.valmentajaNimi || 'Valmentaja';
     const narr   = h.narratiivi || h.teksti || '';
     const oppim  = h.oppimisnakokohta || '';
