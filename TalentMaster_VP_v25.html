@@ -4515,7 +4515,7 @@ window._vpTeeIdpTavoiteHavainnosta = function (pid, avain) {
   const t = idpRakennaTavoite(p, k, opts);
   if (!t) { if (typeof toast === 'function') toast('Tavoitteen luonti epäonnistui', 'error'); return; }
   p._idpTavoite = t; p._idpMuokkaus = true; p._idpValitseFokus = false; p._idpKandN = null;
-  if (typeof _jspVaihda === 'function') _jspVaihda(4);   // Kehitys-välilehti (Kausitavoite-kortti)
+  if (typeof _jspVaihda === 'function') _jspVaihda(3);   // Vaihe B: Kehitys-välilehti = tab 3 (Kausitavoite-kortti)
   _vpKausitavoiteReRender();
   if (typeof toast === 'function') toast('IDP-tavoite luotu havainnosta — tarkista ja hyväksy', 'ok');
 };
@@ -4900,6 +4900,9 @@ function _vpIdpNarratiiviHTML(p) {
     h += '<div style="margin-top:12px;font-size:11.5px;color:var(--amber)">🟠 Jakso umpeutunut — sulje ja valitse seuraava fokus Kehitys-välilehdellä.</div>';
   }
   h += '</div>';
+  // ── 3b MESO-KEHITYSKAARI (Vaihe B) — suljetut jaksot (jaksofokus_historia). Nostettu vanhasta Aloituksesta
+  //    (_vpMesoKaariHTML) ettei sisältöä hukata 7→5-sulautuksessa. Tyhjä → funktio palauttaa vähän/ei mitään. ──
+  if (typeof _vpMesoKaariHTML === 'function') h += _vpMesoKaariHTML(p);
   // ── 4 SMART-TAVOITTEET ──
   h += _stitle('SMART-tavoitteet') + '<div style="background:var(--surface);border:.5px solid var(--border);border-radius:10px;padding:18px 20px;margin-bottom:26px">';
   const rivit = _vpIdpSmartRivit(p, t);
@@ -6056,7 +6059,7 @@ function _vpAloitusHTML(p) {
     return '<div style="background:linear-gradient(150deg,#18211e,#161614);border:.5px solid rgba(40,176,144,.25);border-radius:12px;padding:18px 16px;text-align:center">'
       + '<div style="font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--teal);font-weight:600">🎯 Kausifokus</div>'
       + '<div style="font-size:14px;color:var(--ink2);margin:8px 0 12px">Ei kausitavoitetta vielä — johdetaan heikoimmasta ominaisuudesta (arviointi + §28-kypsyysvahti).</div>'
-      + '<button class="jsp-kt-btn primary" onclick="_jspVaihda(4)">Ehdota kausitavoite →</button></div>';
+      + '<button class="jsp-kt-btn primary" onclick="_jspVaihda(3)">Ehdota kausitavoite →</button></div>';
   }
   const tilaLbl = tila === 'aktiivinen' ? '● Aktiivinen' : tila === 'ehdotettu' ? '○ Ehdotettu' : (tila ? _jsvEsc(tila) : '');
   const pelilause = (t && t.perustelu && t.perustelu.pelilause) || null;
@@ -6114,8 +6117,8 @@ function _vpAloitusHTML(p) {
   // Seuraava askel -CTA:t
   h += '<div class="vpal-next">'
     + '<button class="vpal-nbtn" onclick="_vpKirjaaReview(\'' + pid + '\')"><div class="vpal-nh">＋ Kirjaa review</div><div class="vpal-ns">päivitä kehityskaari</div></button>'
-    + '<button class="vpal-nbtn ghost" onclick="_jspVaihda(4)"><div class="vpal-nh">Avaa tavoite</div><div class="vpal-ns">muokkaa / hyväksy</div></button>'
-    + '<button class="vpal-nbtn ghost" onclick="_jspVaihda(5)"><div class="vpal-nh">Arvioi (havaittu)</div><div class="vpal-ns">Valm / Itse / Ero</div></button>'
+    + '<button class="vpal-nbtn ghost" onclick="_jspVaihda(3)"><div class="vpal-nh">Avaa tavoite</div><div class="vpal-ns">muokkaa / hyväksy</div></button>'
+    + '<button class="vpal-nbtn ghost" onclick="_jspVaihda(2)"><div class="vpal-nh">Arvioi (havaittu)</div><div class="vpal-ns">Valm / Itse / Ero</div></button>'
     + '</div>';
   // Mini-kehityskaari (kausifokus) — arviot[] sparkline; täysi kaari Kehitys-välilehdellä.
   h += _vpMiniKaariHTML(t);
@@ -7640,7 +7643,7 @@ window._suoritaKorjaaTestipvm = _suoritaKorjaaTestipvm;
 
 // ═══ KERROS 2: per-pelaaja pikakatsaus (drill-down joukkuepopupista) — 4 dimensiovälilehteä ═══
 window._jspVaihda = function(n) {
-  for (let i = 0; i < (window._jspTabN || 6); i++) {   // 0 Aloitus · 1 Fyysinen · 2 Tekninen · 3 Peli · 4 Kehitys · 5 Arviointi · (IDP viim., 1b)
+  for (let i = 0; i < (window._jspTabN || 5); i++) {   // Vaihe B (5 tab): 0 Aloitus · 1 Mittaus · 2 Arviointi · 3 Kehitys · 4 Viikko
     const tab = document.getElementById('_jspTab' + i);
     const btn = document.getElementById('_jspBtn' + i);
     if (tab) tab.style.display = (i === n) ? 'block' : 'none';
@@ -8252,8 +8255,9 @@ window._avaaPerPelaajaPikakatsaus = function(idx, joukkueNimi) {
   // Vaihe 2 — Arviointi-välilehti (arviointitaksonomia: mitattu + havaittu 1–5). Vain kun lib ladattu.
   if (typeof _vpLataaArviointiKehys === 'function') _vpLataaArviointiKehys();   // best-effort: aktiivinen kehys seurakonfiguraatiosta
   const f5 = (typeof _vpArviointiHTML === 'function') ? _vpArviointiHTML(p) : '';
-  // (B) ALOITUS — oletusvälilehti (fokus johtaa). Rakennetaan ennen tavoitteen latausta; re-render kun tavoite saapuu.
-  const f0 = (typeof _vpAloitusHTML === 'function') ? _vpAloitusHTML(p) : '';
+  // Vaihe B — Aloitus = IDP-narratiivi (fIdp). Vanha _vpAloitusHTML (fokus/jaksofokus/ladder) on narratiivissa
+  // kattavammin; meso-kaari (_vpMesoKaariHTML) nostettu narratiiviin ettei sisältöä hukata. (_vpAloitusHTML jää
+  // määritellyksi — _vpAloitusReRender no-oppaa jos _jspAloitus puuttuu.)
   // (C) Katso vs. tee — kausitavoitteen muokkaus + D3-kalibraatio siirtyvät KEHITYS-välilehteen (f4). Fyysinen/Tekninen = luku.
   if (typeof _vpLataaTavoite === 'function') _vpLataaTavoite(p);   // best-effort: lataa täysi tavoite jos idp_tila asetettu
   let _kehExtra = '';
@@ -8273,10 +8277,8 @@ window._avaaPerPelaajaPikakatsaus = function(idx, joukkueNimi) {
   }
   let hR = '';
   hR += '<div style="display:flex;gap:6px;padding-bottom:4px;border-bottom:.5px solid var(--border);flex-wrap:wrap">';
-  const _jspTabit = [['ti-home','● Aloitus'],['ti-bolt','Fyysinen'],['ti-ball-football','Tekninen'],['ti-compass','Peli'],['ti-trending-up','Kehitys']];
-  if (f5) _jspTabit.push(['ti-clipboard-check','Arviointi']);
-  // IDP-kortti 1b — narratiivi-välilehti (esityskerros). Liitetään viimeiseksi → ei renumeroi olemassa olevia paneeleja.
-  const _idpIdx = _jspTabit.length; _jspTabit.push(['ti-target','IDP']);
+  // Vaihe B — 7→5 sulautus. IDP-välilehti POISTUI → sen narratiivi on nyt Aloitus (Vaihe A). Kiinteä 5-tab.
+  const _jspTabit = [['ti-home','● Aloitus'],['ti-ruler-2','Mittaus'],['ti-clipboard-check','Arviointi'],['ti-trending-up','Kehitys'],['ti-calendar-week','Viikko']];
   const fIdp = (typeof _vpIdpNarratiiviHTML === 'function') ? _vpIdpNarratiiviHTML(p) : '';
   window._jspTabN = _jspTabit.length;
   _jspTabit.forEach(function(t,i) {
@@ -8285,13 +8287,15 @@ window._avaaPerPelaajaPikakatsaus = function(idx, joukkueNimi) {
   hR += '</div>';
   // Tab-sisältö kasvaa sisällön korkuiseksi; ulompi .jsp-box (max-height:90vh; overflow-y:auto) hoitaa skrollauksen.
   hR += '<div style="padding:16px 0">';
-  hR += '<div id="_jspAloitus_wrap"><div id="_jspTab0"><div id="_jspAloitus">' + f0 + '</div></div></div>';
-  hR += '<div id="_jspTab1" style="display:none">' + f1 + '</div>';
-  hR += '<div id="_jspTab2" style="display:none">' + f2 + '</div>';
-  hR += '<div id="_jspTab3" style="display:none">' + f3 + '</div>';
-  hR += '<div id="_jspTab4" style="display:none">' + f4 + _kehExtra + '</div>';
-  if (f5) hR += '<div id="_jspTab5" style="display:none">' + f5 + '</div>';
-  hR += '<div id="_jspTab' + _idpIdx + '" style="display:none"><div id="_jspIdpNarratiivi">' + fIdp + '</div></div>';
+  const _mSub = function(txt){ return '<div style="font-family:var(--font-serif);font-size:16px;color:var(--ink);margin:0 0 10px">' + txt + '</div>'; };
+  const _mErot = '<div style="border-top:.5px solid var(--border);margin:18px 0"></div>';
+  // 0 Aloitus = IDP-narratiivi (Vaihe A). 1 Mittaus = Fyysinen+Tekninen (mitattu). 2 Arviointi = Peliäly + arviointi-
+  // taksonomia (havaittu; _jspTab5-SISÄSLOT → _vpArvReRender-koukut ennallaan). 3 Kehitys (pysyy). 4 Viikko (Vaihe D).
+  hR += '<div id="_jspTab0"><div id="_jspIdpNarratiivi">' + fIdp + '</div></div>';
+  hR += '<div id="_jspTab1" style="display:none">' + _mSub('Fyysinen · mitattu') + f1 + _mErot + _mSub('Tekninen · mitattu') + f2 + '</div>';
+  hR += '<div id="_jspTab2" style="display:none">' + _mSub('Peliäly · havainto') + f3 + _mErot + '<div id="_jspTab5">' + (f5 || '') + '</div></div>';
+  hR += '<div id="_jspTab3" style="display:none">' + f4 + _kehExtra + '</div>';
+  hR += '<div id="_jspTab4" style="display:none"><div style="text-align:center;padding:28px 16px">' + _mSub('Viikko') + '<div style="font-size:12.5px;color:var(--ink3);line-height:1.6">Kuormitus · RPE · viikon sessiot · läsnäolo — tulossa (Vaihe D).</div></div></div>';
   hR += '</div>';
   // Kaksisarakkeinen runko (header ja nav täysleveinä sen ulkopuolella; mobiilissa pinoutuu §6)
   h += '<div class="jsp-grid"><div class="jsp-left">' + hL + '</div><div class="jsp-right">' + hR + '</div></div>';
