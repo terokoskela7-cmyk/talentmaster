@@ -32,7 +32,7 @@ Täysi kuvaus: **`docs/CODE_OHJE_IDP_AUKOT_PAKETTI.md`** ja **`docs/CODE_BRIEF_I
 - **Ei normia tyhjille akseleille** (D3/D5 0-data).
 
 ### P2 (samaan tai heti perään)
-- **Saatavuus/terveys-chip** headeriin (`● saatavilla`/`rajoitettu`/`loukkaantunut`). GDPR: vain status-lippu, terveystieto `terveys/`-alikokoelmaan (Art. 9).
+- **Saatavuus-chip (2.1) — LYKÄTTY, erotettu kahdeksi kerrokseksi:** (1) **operatiivinen saatavuus-status** (saatavilla/rajoitettu/poissa) = VP/valmentaja kirjoittaa, joka seura, **EI fysioterapeutti-lukittu** — chipin oikea koti kun rakennetaan; (2) **kliininen detalji + kuntoutus** (diagnoosi/HPP/`phv_ok`) = fysioterapeutti/kliininen rooli, `terveys/`-alikokoelmaan (Art. 9), valinnainen §4-visio. GDPR: kortilla vain paljas status. Seura ilman fysioterapeuttia saa silti saatavuus-statuksen. Ks. `docs/CODE_OHJE_IDP_P2.md`.
 - **Pelipaikkafundamentit** (cue/harjoite/kpi per rooli, U14+).
 - **Välitavoitteet-porras** (Kausitavoite → välitavoitteet → jaksofokus). Valinnainen.
 
