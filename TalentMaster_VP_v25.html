@@ -26,7 +26,7 @@
 <script src="lib/tm_idp.js?v=6"></script>   <!-- I3a: + kesto valmentajan asetettavaksi (opts.kestoVk) · I2: lahde+pvm/idp_lahde/idpVahvinDim 1–3 -->
 <script src="lib/tm_teknistaktiset.js?v=5"></script>   <!-- Vaihe 4a: teknis-taktinen curriculum (VP:n jaksofokus talenteille) · v5 = I3a pelipaikkaportti U14+ + harjoite-tägit/jalka -->
 <script src="lib/tm_kehityspolku.js?v=1"></script>   <!-- I3a: looginen silta -resolver (idp_fokus → konsepti/fundamentti → harjoite) -->
-<script src="lib/tm_jaksofokus.js?v=1"></script>   <!-- Vaihe 4c: jaksofokus-oversight PURE-ydin (kattavuus/umpeutunut/teemakeskittymä, §26) -->
+<script src="lib/tm_jaksofokus.js?v=2"></script>   <!-- Vaihe 4c: jaksofokus-oversight PURE-ydin (kattavuus/umpeutunut/teemakeskittymä, §26) -->
 <script src="lib/tm_treeniteema.js?v=1"></script>   <!-- Vaihe 4d: teemakattavuus PURE-ydin (jaksofokus vs suunnitellut teemaharjoitukset) -->
 <script src="lib/tm_jaksokooste.js?v=1"></script>   <!-- Vaihe 6: jakson sulku (meso-sykli) PURE-ydin — prosessi+kalibraatio+historia (geneerinen §8) -->
 <script src="lib/tm_fyysteemat.js?v=1"></script>   <!-- Vaihe 7: fyysinen teemaluettelo + D1-fokuslähde + evidenssi (delta §29 + PHV-portti §28) -->
@@ -4068,12 +4068,14 @@ window._vpAsetaFyysFokus = async function (pid, teemaAvain) {
       luotu: new Date().toISOString() };
   }
   const jf = { konsepti_avain: teemaAvain, konsepti_nimi: teema ? teema.nimi : teemaAvain, konsepti_koodi: null, domeeni: 'fyysinen', lahde: 'silta_d1', alkoi: new Date().toISOString(), kesto_vk: 4, ohjelma: ohjelma };
+  const _jfArk = _vpJfArkistoiVaihdossa(p, 'fyysinen');   // 1a: arkistoi vanha teknis-taktinen jakso ennen ylikirjoitusta
+  if (_jfArk.arkistoitu) p.jaksofokus_historia = _jfArk.historia;
   p.jaksofokus = jf;
   document.getElementById('_vpFyysModal')?.remove();
   if (typeof _vpArvReRender === 'function' && document.getElementById('_jspTab5')) _vpArvReRender();
   if (typeof _vpAloitusReRender === 'function') _vpAloitusReRender();
   if (typeof renderJaksofokus === 'function' && _currentWs === 'jaksofokus') renderJaksofokus();
-  await _vpTtKirjoita(pid, { jaksofokus: jf }, 'Fysiikkajakso asetettu' + (ohjelma ? ' + ohjelma' : ''));
+  await _vpTtKirjoita(pid, _jfArk.arkistoitu ? { jaksofokus: jf, jaksofokus_historia: _jfArk.historia } : { jaksofokus: jf }, 'Fysiikkajakso asetettu' + (ohjelma ? ' + ohjelma' : ''));
 };
 // Sulkukortin "Suunnittele mittaus" → Testaus_v9 (mittaus, EI harjoitus — 4d §2.0-jako). Ei sekoiteta.
 window._vpFyysSuunnitteleMittaus = function (pid) {
@@ -4180,10 +4182,12 @@ window._vpOhjKaytaOhjelma = async function (pid, teemaAvain, ohjelmaId) {
     ohjelma_id: ohjelmaId, ohjelma_versio: (lib.versio || 1), luotu: new Date().toISOString() };
   const jf = (p.jaksofokus && p.jaksofokus.domeeni === 'fyysinen') ? Object.assign({}, p.jaksofokus, { ohjelma: ohjelma })
     : { konsepti_avain: tAvain, konsepti_nimi: teema ? teema.nimi : tAvain, konsepti_koodi: null, domeeni: 'fyysinen', lahde: 'silta_d1', alkoi: new Date().toISOString(), kesto_vk: 4, ohjelma: ohjelma };
+  const _jfArk = _vpJfArkistoiVaihdossa(p, 'fyysinen');   // 1a: arkistoi vanha teknis-taktinen jakso (merge-haara = sama domeeni → ei arkistoa)
+  if (_jfArk.arkistoitu) p.jaksofokus_historia = _jfArk.historia;
   p.jaksofokus = jf;
   document.getElementById('_vpOhjModal')?.remove(); document.getElementById('_vpFyysModal')?.remove();
   if (typeof _vpAloitusReRender === 'function') _vpAloitusReRender();
-  await _vpTtKirjoita(pid, { jaksofokus: jf }, 'Fysiikkajakso + kirjasto-ohjelma asetettu');
+  await _vpTtKirjoita(pid, _jfArk.arkistoitu ? { jaksofokus: jf, jaksofokus_historia: _jfArk.historia } : { jaksofokus: jf }, 'Fysiikkajakso + kirjasto-ohjelma asetettu');
 };
 
 // §26 pikakentät (arviointi_havaittu), §5 tokenit, §7.22 aikuisnäkymä (VP-facing → 1–5 + värit sallittu). Taksonomia lib = standardi.
@@ -4634,13 +4638,16 @@ window._vpValitavoiteAktivoi = function (pid, i) {
   t.valitavoitteet.forEach(function (v, j) { v.tila = (j === i) ? 'aktiivinen' : (v.tila === 'saavutettu' ? 'saavutettu' : 'avoin'); });
   const v = t.valitavoitteet[i];
   const jf = { konsepti_avain: v.konsepti_avain || ('vt_' + i), konsepti_nimi: v.nimi, konsepti_koodi: null,
+    domeeni: 'teknis_taktinen',
     alkoi: new Date().toISOString(), kesto_vk: v.kesto_vk || (t.aikaraami && t.aikaraami.kesto_vk) || 6, lahde: 'vp',
     tavoite_alue: (t.fokus && t.fokus.alue) || null, valitavoite_idx: i };
+  const _jfArk = _vpJfArkistoiVaihdossa(p, 'teknis_taktinen');   // 1a: arkistoi vanha fyysinen jakso ennen ylikirjoitusta
+  if (_jfArk.arkistoitu) p.jaksofokus_historia = _jfArk.historia;
   p.jaksofokus = jf;
   _vpKausitavoiteReRender();
   if (typeof _vpAloitusReRender === 'function') _vpAloitusReRender();
   _vpTallennaIdpDok(p, 'Välitavoite aktivoitu jaksoksi');
-  if (typeof _vpTtKirjoita === 'function') _vpTtKirjoita(p.id, { jaksofokus: jf }, 'Jaksofokus (välitavoite)');
+  if (typeof _vpTtKirjoita === 'function') _vpTtKirjoita(p.id, _jfArk.arkistoitu ? { jaksofokus: jf, jaksofokus_historia: _jfArk.historia } : { jaksofokus: jf }, 'Jaksofokus (välitavoite)');
 };
 // v2 §4 — Pelaajan ääni & sitoumus (design: itsearviolauseet + sitoumus ✓/◔). Pelaaja kirjaa Pelaaja-appissa
 // (idp_kausi/<vuosi>.pelaaja_sitoumus); VP näkee ja vahvistaa. Kaksivaiheinen: pelaaja sitoutuu → VP vahvistaa.
@@ -5250,7 +5257,7 @@ window._vpTtVieTreeniin = async function (pid, avain) {
   // I3a §C.1 — käsin asetettu kesto (oletus 6). §B.3 — takaisinlinkki tavoitteeseen + poikkeama-lippu.
   const kestoEl = document.getElementById('_vpTtKesto' + p.id);
   const kestoVk = (kestoEl && +kestoEl.value > 0) ? +kestoEl.value : ((p.jaksofokus && p.jaksofokus.kesto_vk) || 6);
-  const jaksofokus = { konsepti_avain: avain, konsepti_nimi: item ? item.nimi : avain, konsepti_koodi: item ? item.koodi : null, alkoi: new Date().toISOString(), kesto_vk: kestoVk, lahde: lahde };
+  const jaksofokus = { konsepti_avain: avain, konsepti_nimi: item ? item.nimi : avain, konsepti_koodi: item ? item.koodi : null, domeeni: 'teknis_taktinen', alkoi: new Date().toISOString(), kesto_vk: kestoVk, lahde: lahde };
   // §B.3 takaisinlinkki: mistä IDP-tavoitteesta jakso juontaa + poikkeaako valittu konsepti resolverin ehdotuksesta.
   if (p.idp_fokus && p.idp_fokus.alue) {
     jaksofokus.tavoite_alue = p.idp_fokus.alue;
@@ -5260,6 +5267,8 @@ window._vpTtVieTreeniin = async function (pid, avain) {
     if (ehdKons2 && ehdKons2 !== avain) jaksofokus.poikkeama = true;
   }
   window._vpTtLahde = 'vp';
+  const _jfArk = _vpJfArkistoiVaihdossa(p, 'teknis_taktinen');   // 1a: arkistoi vanha fyysinen jakso ennen ylikirjoitusta
+  if (_jfArk.arkistoitu) p.jaksofokus_historia = _jfArk.historia;
   p.jaksofokus = jaksofokus;
   if (typeof _vpAloitusReRender === 'function') _vpAloitusReRender();
   // Vaihe 4c: jos ohjaus tapahtui jaksofokus-oversight-modaalista → sulje + päivitä taulukko.
@@ -5267,8 +5276,28 @@ window._vpTtVieTreeniin = async function (pid, avain) {
   if (_jfM) { _jfM.remove(); window._jfOhjausP = null; if (typeof renderJaksofokus === 'function') renderJaksofokus(); }
   // Vaihe 5: jos ohjaus tapahtui arviointi-välisivulta → re-renderöi arviointi (silta katoaa kun fokus asetettu).
   if (typeof _vpArvReRender === 'function' && document.getElementById('_jspTab5')) _vpArvReRender();
-  await _vpTtKirjoita(pid, { jaksofokus: jaksofokus }, 'Jaksofokus tallennettu');
+  await _vpTtKirjoita(pid, _jfArk.arkistoitu ? { jaksofokus: jaksofokus, jaksofokus_historia: _jfArk.historia } : { jaksofokus: jaksofokus }, 'Jaksofokus tallennettu');
 };
+// IDP-kortti 1a (domeeni-fix) — arkistoi aktiivinen jaksofokus jaksofokus_historiaan JOS uusi fokus on
+// ERI domeenia (tmJfVaihtaaDomeenin) → ei hiljaista ylikirjoitusta ("Emil-törmäys": fyysinen ja teknis
+// jakso eivät saa hukata toisiaan yhdestä slotista). Palauttaa { arkistoitu, historia }; historia
+// kirjoitetaan jaksofokuksen kanssa yhdessä (Rules §12 sallii jaksofokus + jaksofokus_historia). Kutsu
+// ENNEN p.jaksofokus-uudelleenasetusta (lukee vanhan). Lib puuttuessa: no-op (arkistoitu:false). Sama
+// domeeni = normaali muokkaus → ei arkistoa (predikaatti false).
+function _vpJfArkistoiVaihdossa(p, uusiDomeeni) {
+  const vaihtaa = !!(window.TM_JAKSOFOKUS && typeof window.TM_JAKSOFOKUS.tmJfVaihtaaDomeenin === 'function'
+    && window.TM_JAKSOFOKUS.tmJfVaihtaaDomeenin(p && p.jaksofokus, uusiDomeeni));
+  if (!vaihtaa) return { arkistoitu: false, historia: null };
+  const vanha = p.jaksofokus, nyt = new Date().toISOString();
+  const perus = { domeeni: vanha.domeeni || 'teknis_taktinen', konsepti_avain: vanha.konsepti_avain,
+    konsepti_nimi: vanha.konsepti_nimi || null, alkoi: vanha.alkoi || null, paattyi: nyt,
+    ohjelma: vanha.ohjelma || null, tulos: 'vaihdettu', lahde_seuraava: uusiDomeeni, suljettu: nyt };
+  const entry = (window.TM_JAKSOKOOSTE && typeof window.TM_JAKSOKOOSTE.tmHistoriaEntry === 'function')
+    ? window.TM_JAKSOKOOSTE.tmHistoriaEntry(perus) : perus;
+  const hist = (Array.isArray(p.jaksofokus_historia) ? p.jaksofokus_historia.slice() : []);
+  hist.push(entry);
+  return { arkistoitu: true, historia: hist };
+}
 async function _vpTtKirjoita(pid, data, viesti) {
   if (_isDemoMode || !_seuraId) { if (typeof toast === 'function') toast(viesti + ' (demo — ei kirjoitettu)', 'ok'); return; }
   try {

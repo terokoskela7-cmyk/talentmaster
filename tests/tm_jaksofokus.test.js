@@ -15,6 +15,32 @@ const fokus = (avain, nimi, opt = {}) => ({
   talenttiOhjelma: opt.talentti || false
 });
 
+describe('tmJfVaihtaaDomeenin (IDP-kortti 1a domeeni-fix)', () => {
+  const jf = (dom) => ({ konsepti_avain: 'x', konsepti_nimi: 'X', domeeni: dom });
+  it('fyysinen → teknis_taktinen = vaihtuu (arkistoi)', () => {
+    expect(JF.tmJfVaihtaaDomeenin(jf('fyysinen'), 'teknis_taktinen')).toBe(true);
+  });
+  it('teknis_taktinen → fyysinen = vaihtuu (arkistoi)', () => {
+    expect(JF.tmJfVaihtaaDomeenin(jf('teknis_taktinen'), 'fyysinen')).toBe(true);
+  });
+  it('sama domeeni = EI vaihdu (normaali muokkaus, ei arkistoa)', () => {
+    expect(JF.tmJfVaihtaaDomeenin(jf('fyysinen'), 'fyysinen')).toBe(false);
+  });
+  it('tagiton vanha jf tulkitaan teknis_taktinen → fyysinen vaihtaa', () => {
+    expect(JF.tmJfVaihtaaDomeenin({ konsepti_avain: 'x' }, 'fyysinen')).toBe(true);
+  });
+  it('tagiton vanha jf + uusi teknis_taktinen = EI vaihdu', () => {
+    expect(JF.tmJfVaihtaaDomeenin({ konsepti_avain: 'x' }, 'teknis_taktinen')).toBe(false);
+  });
+  it('ei aktiivista fokusta (ei konsepti_avainta) = EI vaihdu (ei mitä arkistoida)', () => {
+    expect(JF.tmJfVaihtaaDomeenin(null, 'fyysinen')).toBe(false);
+    expect(JF.tmJfVaihtaaDomeenin({ domeeni: 'fyysinen' }, 'teknis_taktinen')).toBe(false);
+  });
+  it('uusiDomeeni puuttuu = EI vaihdu (defensiivinen)', () => {
+    expect(JF.tmJfVaihtaaDomeenin(jf('fyysinen'), null)).toBe(false);
+  });
+});
+
 describe('tmJfUmpeutunut', () => {
   it('tuore jakso (7 pv sitten, 4 vk) = aktiivinen', () => {
     expect(JF.tmJfUmpeutunut(fokus('y_h0', 'A').jaksofokus, NYT)).toBe(false);
