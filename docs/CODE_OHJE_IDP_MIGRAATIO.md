@@ -14,6 +14,8 @@
 
 `Aloitus · Mittaus · Arviointi · Kehitys · Viikko`. **"IDP" ei ole välilehti — IDP on kortti.** Nykyinen 7-välilehtinen modaali (Aloitus·Fyysinen·Tekninen·Peli·Kehitys·Arviointi·IDP) konvergoituu näihin viiteen.
 
+**Kokonaisuus:** IDP-kortti on **yksi määränpää, monta sisääntuloa.** Työ jakautuu kahteen: (1) **reititys + työtilat** = mistä korttiin tullaan (Vaihe 0 + Talentit-työtila), (2) **kortin sisältö** = 5 välilehteä (Vaihe A–D).
+
 ## LÄPILEIKKAAVAT PERIAATTEET (joka vaihe noudattaa)
 
 1. **X-Factor ensiluokkainen.** Kortti vastaa näkyvästi "mikä tekee tästä pelaajasta erityisen?". Infrastruktuuri on jo: X-Factor-signaali (`signaali:'xfactor'`), vahvuus-moottori (`idpValitseVahvin`/`idpKeraaVahvuudet`, `tm_idp.js`), 70/30-ankkuri. Nosta ne piilosta esiin.
@@ -24,7 +26,17 @@
 
 ---
 
-## VAIHE A — Aloitus-etusivu (ensin, oma PR)
+## VAIHE 0 — Reititys: kaikki sisääntulot → kortti (TEHDÄÄN ENSIN, oma PR)
+
+Kortti on saavutettava jokaisesta pelaajaa näyttävästä pinnasta. Nyt osa reiteistä on kytketty, osa on kuolleita tynkiä.
+
+**Nykytila:** oikea avaaja `_avaaPerPelaajaPikakatsaus(idx, joukkueNimi)` — kytketty Pelaajat-listaan (rivi ~12905) + joukkuepopupiin (~7338). **MUTTA** `avaaPelaaja(pid)` (rivi ~3175) on tynkä: `function(id){ _sigStub('Pelaaja: '+id+' — tulossa'); }`. Siihen on kytketty **Tilanne-Talentit-taulukko** (~12051), **Hidden Gem -lista** (~12088) ja **Koti-signaalien "Katso profiili"** (~3065) → kaikki kuolleita päitä.
+
+**Tee:** korjaa `avaaPelaaja(pid)` avaamaan oikea kortti — ratkaise pid → pelaaja (esim. `window._jsvPelaajat`) ja avaa kortti (kutsu `_avaaPerPelaajaPikakatsaus` oikealla idx+joukkueella, tai refaktoroi avaaja ottamaan pid). Älä jätä yhtään "tulossa"-tynkää pelaajan avaukseen.
+
+**Hyväksymiskriteeri:** Tilanne-Talentit, Hidden Gem -lista ja Koti-signaalien "Katso profiili" avaavat saman pelaajakortin. Ei regressiota Pelaajat-listaan.
+
+## VAIHE A — Aloitus-etusivu (oma PR)
 
 Kasvata nykyinen `_vpIdpNarratiiviHTML` (1b) kortin **etusivuksi**. Lisää:
 
@@ -54,9 +66,26 @@ Ryhmittele olemassa oleva sisältö uudelleen — **älä poista dataa, järjest
 
 **Hyväksymiskriteeri:** joukkuetaulukosta pääsee korttiin; "kaksi samannimistä Jaksofokusta" -sekavuus poistuu; ryhmäharjoite säilyy.
 
-## VAIHE D — Viikko (viimeisenä, oma PR)
+## VAIHE D — Viikko (viimeisenä kortin sisällössä, oma PR)
 
 Kuormitus/RPE-kooste + viikon sessiot + läsnäolo. Additiivinen, kun runko vakaa.
+
+## VAIHE E — Talentit-työtila (uusi vasemman navin työtila; oma PR, aikataulu joustava)
+
+Talenttien hallinta = tuotteen ydinarvo (KV-rekrytointi), nyt hajallaan. Nosta omaksi työtilaksi ja kokoa yhteen. Jokainen rivi → yksi klikkaus → IDP-kortti (Vaihe 0 reititys).
+
+**Kokoa yhteen:**
+- **IDP-jono** — ehdotettu / aktiivinen / hyväksyntää odottava (nyt Pelaajissa).
+- **Signaalit** — X-Factor · Hidden Gem · Underdog -ehdokkaat.
+- **Extra-valmennuksen kohteet** — ikäluokka→kehitysvaihe (kypsyyskorjattu §28) -taulukko → **SIIRRÄ Tilanteesta tänne** (`_talentit*`-render).
+- **Siirtopäätökset** — rekrytointi/siirto-päätösjono.
+
+**Rajat:**
+- **Tilanne PYSYY** — joukkueen 5D-terveys. Siistitään VAIN talent-taulukosta (extra-valmennus siirtyy Talentit-työtilaan).
+- **Ero Pelaajat-välilehteen:** Pelaajat = koko kortisto (hakemisto, kaikki). Talentit = päätös/pipeline-ohjaamo (kuratoitu, toiminnallinen). Ei kahta samaa listaa — eri kysymys, sama kortti määränpäänä.
+- X-Factor etualalle (rekrytoinnin tärkein signaali).
+
+**Hyväksymiskriteeri:** uusi Talentit-työtila kokoaa IDP-jonon + signaalit + extra-valmennuksen + siirtopäätökset; Tilanne siistiytyy 5D-terveydeksi; kaikki rivit avaavat kortin. Molemmat teemat.
 
 ---
 
