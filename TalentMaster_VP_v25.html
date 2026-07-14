@@ -4706,7 +4706,7 @@ function _vpIdpSmartRivit(p, t) {
   }
   rivit.push({ nimi: (t.fokus && (t.fokus.nimi || t.fokus.alue)) || t.kuvaus || 'Kausitavoite',
     tyyppi: t.tyyppi || 'heikkous', mittari: mitTxt, deadline: (t.aikaraami && t.aikaraami.arvio_pvm) || null, pct: pct, pctCol: pctCol });
-  (t.valitavoitteet || []).forEach(function (v) { if (v && v.nimi) rivit.push({ nimi: v.nimi, valitavoite: true, tila: v.tila || 'avoin' }); });
+  // P2.3: välitavoitteet EIVÄT enää SMART-alarivinä — ne saavat oman porras-osion (_vpValitavoitteetHTML) Kausitavoite→Jaksofokus-väliin.
   return rivit;
 }
 function _vpIdpSmartRiviHTML(r, i, viim) {
@@ -4728,6 +4728,41 @@ function _vpIdpSmartRiviHTML(r, i, viim) {
     h += '<div style="width:120px;flex-shrink:0"><div style="font-family:var(--font-mono);font-size:11px;color:var(--ink3);text-align:right;margin-bottom:5px">' + r.pct + ' %</div>'
       + '<div style="height:5px;border-radius:3px;background:var(--bg3);overflow:hidden"><div style="height:100%;width:' + r.pct + '%;background:' + r.pctCol + ';border-radius:3px"></div></div></div>';
   }
+  h += '</div>';
+  return h;
+}
+// P2.2 — pelipaikkafundamentit (sisältökerros, U14+). Nostaa olemassa olevan TM_TT_FUNDAMENTIT-sisällön
+// (VPTT vaihe:'pelipaikka') korttiin: rooli + cue (ohjaava kysymys) + harjoite + KPI per fundamentti. §0 pehmeä:
+// näytä VAIN kun pelipaikkavaihe (U14+); pelipaikka asettamatta / ei sisältöä = haalea vihje, ei virhe. Ei uutta
+// datamallia — kuratoitu slice (top 3 detaljilla, loput laskurina; kaikki cue/harjoite jaksofokus-editorissa).
+function _vpPelipaikkaFundamentitHTML(p) {
+  if (typeof tmTtItems !== 'function' || typeof tmTtVaihe !== 'function' || typeof TM_TT_PELIPAIKAT === 'undefined') return '';
+  const esc = _jsvEsc;
+  const isp = (typeof _dimIkaSp === 'function') ? _dimIkaSp(p.joukkue || '', p) : { ika: null };
+  const posCode = p.tt_positio_aktiivinen || (typeof _vpTtNormPositio === 'function' ? _vpTtNormPositio(p.positio || p.pelipaikka) : null);
+  const pp = { ika: isp.ika, joukkue: p.joukkue, positio: posCode, tt_positio_aktiivinen: posCode, syntymaVuosi: p.syntymaVuosi };
+  if (tmTtVaihe(pp) !== 'pelipaikka') return '';   // vain U14+ pelipaikkavaihe (joustava gate, ei pakotus)
+  if (!posCode) return '<div style="font-size:12.5px;color:var(--ink3);background:var(--ov-1);border:.5px solid var(--border);border-radius:10px;padding:14px 16px">Pelipaikka asettamatta — aseta pelipaikka nähdäksesi roolifundamentit (cue · harjoite · KPI).</div>';
+  const posNimi = (TM_TT_PELIPAIKAT[posCode] || {}).nimi || posCode;
+  const fund = tmTtItems(pp).filter(function (it) { return it.koodi && it.koodi.charAt(0) !== 'Y'; });
+  if (!fund.length) return '<div style="font-size:12.5px;color:var(--ink3);background:var(--ov-1);border:.5px solid var(--border);border-radius:10px;padding:14px 16px">Ei roolifundamentteja tälle pelipaikalle vielä.</div>';
+  const faasiLbl = { puolustus: 'Puolustus', hyokkays: 'Hyökkäys', siirtyma: 'Siirtymä' };
+  const NAYTA = Math.min(3, fund.length);
+  let h = '<div style="background:var(--surface);border:.5px solid var(--border);border-radius:10px;padding:18px 20px;margin-bottom:26px">';
+  h += '<div style="font-size:11px;color:var(--ink2);margin-bottom:10px"><span style="color:var(--teal);font-weight:600">' + esc(posNimi) + '</span> · ' + fund.length + ' roolifundamenttia (U14+)</div>';
+  fund.slice(0, NAYTA).forEach(function (it, i) {
+    const cue = (typeof tmTtKysymykset === 'function') ? tmTtKysymykset(it.avain) : [];
+    const harj = (typeof tmTtHarjoitteet === 'function') ? tmTtHarjoitteet(it.koodi) : [];
+    const kpi = Array.isArray(it.kpi) ? it.kpi : [];
+    h += '<div style="padding:12px 0;' + (i < NAYTA - 1 ? 'border-bottom:.5px solid var(--border);' : '') + '">';
+    h += '<div style="font-size:13px;font-weight:600;color:var(--ink)">' + esc(it.nimi) + (it.faasi ? ' <span style="font-size:9px;font-weight:500;letter-spacing:.08em;text-transform:uppercase;color:var(--ink3)">· ' + esc(faasiLbl[it.faasi] || it.faasi) + '</span>' : '') + '</div>';
+    if (it.pelitilanne) h += '<div style="font-family:var(--font-serif);font-style:italic;font-size:13px;color:var(--ink2);margin-top:3px">' + esc(it.pelitilanne) + '</div>';
+    if (cue.length) h += '<div style="font-size:11.5px;color:var(--blue);margin-top:6px"><b>? </b>' + esc(cue[0]) + '</div>';
+    if (harj.length) { const ht = harj[0].painopisteet || harj[0].konseptipeli || harj[0].teema || ''; if (ht) h += '<div style="font-size:11.5px;color:var(--amber);margin-top:5px">🎯 ' + esc(String(ht).slice(0, 90)) + '</div>'; }
+    if (kpi.length) h += '<div style="font-size:11.5px;color:var(--ink2);margin-top:5px;line-height:1.5">' + kpi.slice(0, 2).map(function (k) { return '<div><b style="color:var(--ink3)">' + esc(k.koodi) + '</b> ' + esc(k.teksti) + '</div>'; }).join('') + '</div>';
+    h += '</div>';
+  });
+  if (fund.length > NAYTA) h += '<div style="font-size:11px;color:var(--ink3);margin-top:10px">+ ' + (fund.length - NAYTA) + ' lisää — kaikki cue/harjoite-sisällöt "✎ Muokkaa jaksofokus" -paneelissa.</div>';
   h += '</div>';
   return h;
 }
@@ -4757,6 +4792,9 @@ function _vpIdpNarratiiviHTML(p) {
   if (lause) h += '<div style="font-family:var(--font-serif);font-weight:300;font-size:26px;line-height:1.28;color:var(--ink);max-width:760px;margin-top:8px">' + esc(lause) + '</div>';
   else h += '<div style="font-size:13px;color:var(--ink3);margin-top:8px">Ei vielä kausitavoitetta — aseta se Kehitys-välilehdellä (moottori ehdottaa datasta).</div>';
   h += '</div>';
+  // ── 2b VÄLITAVOITTEET (P2.3) — porras Kausitavoite → välitavoitteet → Jaksofokus. Olemassa oleva
+  //    _vpValitavoitteetHTML (+ _vpValitavoiteLisaa/Poista/Aktivoi/Saavuta) — additiivinen, tyhjä = pehmeä vihje.
+  if (t && typeof _vpValitavoitteetHTML === 'function') h += '<div style="margin-bottom:26px">' + _vpValitavoitteetHTML(t, pid) + '</div>';
   // ── 3 JAKSOFOKUS · "✎ Muokkaa jaksofokus" → konsolidoitu paneeli (_jfOhjaa, 1a) ──
   const jf = p.jaksofokus || null;
   h += '<div style="background:var(--bg2);border:.5px solid var(--border);border-left:2px solid var(--teal);border-radius:10px;padding:18px 20px;margin-bottom:26px">';
@@ -4783,6 +4821,9 @@ function _vpIdpNarratiiviHTML(p) {
   // ── 5 SILTA (olemassa oleva render, näytetään kun tarjolla) ──
   const silta = (typeof _vpSiltaPaneeliHTML === 'function') ? _vpSiltaPaneeliHTML(p) : '';
   if (silta) h += _stitle('Silta · teemasta harjoitteeksi') + '<div style="margin-bottom:26px">' + silta + '</div>';
+  // ── 5b PELIPAIKKAFUNDAMENTIT (P2.2, U14+ · vain kun pelipaikkavaihe) ──
+  const pfund = (typeof _vpPelipaikkaFundamentitHTML === 'function') ? _vpPelipaikkaFundamentitHTML(p) : '';
+  if (pfund) h += _stitle('Pelipaikkafundamentit · rooli') + pfund;
   // ── 6 PELAAJAN ÄÄNI & SITOUMUS (olemassa oleva render) ──
   const sit = (typeof _vpSitoumusHTML === 'function') ? _vpSitoumusHTML(p, pid) : '';
   if (sit) h += _stitle('Pelaajan ääni & sitoumus') + '<div>' + sit + '</div>';
@@ -4894,8 +4935,8 @@ function _vpKausitavoiteHTML(p) {
   // pelaajan ääni (omistajuus)
   h += '<div class="jsp-kt-box" style="border-color:rgba(40,176,144,.3);margin-top:10px"><div class="jsp-kt-bt">Pelaajan ääni (omistajuus)</div>'
     + '<textarea id="_jspTavAani" class="jsp-kt-aani" placeholder="Pelaajan oma tavoite omin sanoin…" onclick="event.stopPropagation()">' + _jsvEsc(t.pelaajan_tavoite || '') + '</textarea></div>';
-  // I3a §C.2 — valinnaiset välitavoitteet (katselutila). Tyhjä → toimii kuten tänään.
-  if (!p._idpMuokkaus && typeof _vpValitavoitteetHTML === 'function') h += _vpValitavoitteetHTML(t, pid);
+  // I3a §C.2 — välitavoitteet siirretty IDP-narratiiviin (P2.3, Kausitavoite→välitavoitteet→Jaksofokus). Yksi
+  //    koti → ei duplikaatti-ID:tä (_vpVtInp). Kehitys-editori keskittyy tavoitemoottoriin + arviointiin/kaareen.
   // v2 §4 — pelaajan ääni & sitoumus (pelaaja kirjaa Pelaaja-appissa; VP näkee + vahvistaa).
   if (!p._idpMuokkaus && typeof _vpSitoumusHTML === 'function') h += _vpSitoumusHTML(p, pid);
   // ── 3b: kehityskaari-timeline (katselutila; muokkaustilassa piilossa) ──
