@@ -7563,6 +7563,31 @@ window._tmInfo = function(avain) {
 
 // ── 5D-tutkakaavio (profiilikartta) — kevyt SVG, ei kirjastoja. dims=[{key,label,arvo(0–5|null),lahde?}] N=5.
 // Akselit: D1 ylhäällä, myötäpäivään. Puuttuvat ulottuvuudet → "tulossa", ei pistettä. Katkoviiva = profiili kesken.
+// AUKOT P1.2 — normi-overlay PHV-korjaus + kehitysvaihe-bändi (per-pelaaja 5D-radar). Palauttaa
+// { normi, bandHTML }. KRIITTINEN (§28): normivertailu tehdään PHV-tilaa vasten, EI kalenteri-ikää — myöhään
+// kehittyvä (pre-PHV) ei saa näyttää heikolta kypsymättömyyden takia. Normi (ikäluokan keskitaso = taso 3)
+// näytetään VAIN Showcase-iässä (16+) JA kun PHV ei ole kesken (PRE/LAH/PH → piiloon). Nuoremmille/kesken =
+// "kehityskaista" (ei vertailuviivaa). Normi vain akseleille joilla on pelaajadataa (tyhjät D3/D5 → null).
+function _vpRadarNormiJaVaihe(p, ika, radarDims) {
+  const phv = p.phv_tila || null;
+  const kesken = (phv === 'PRE' || phv === 'LAH' || phv === 'PH');   // ennen/kesken kasvupyrähdystä
+  const showcase = (ika != null && ika >= 16);
+  const naytaNormi = showcase && !kesken;   // PHV-korjaus: kesken-PHV Showcase-pelaaja (late developer) → normi piiloon
+  const normi = naytaNormi ? radarDims.map(function (rd) { return (rd.arvo != null) ? { arvo: 3 } : null; }) : null;
+  const vaiheTxt = { PRE: 'Ennen kasvupyrähdystä · taitoikkuna auki', LAH: 'Lähestyy kasvupyrähdystä', PH: '⚠️ Kasvupyrähdyksessä · kuormaseuranta', POST: 'Kasvupyrähdyksen jälkeen · voima/nopeus-ikkuna auki', AN: 'Jälki-PHV · aikuisharjoittelu' };
+  const ikavaiheLbl = (ika == null) ? '' : (ika <= 12 ? 'Leikkijä (8–12)' : ika <= 15 ? 'Rakentaja (13–15)' : 'Showcase (16–19)');
+  const bandParts = [];
+  if (ikavaiheLbl) bandParts.push(ikavaiheLbl);
+  bandParts.push(phv ? (vaiheTxt[phv] || _jsvEsc(phv)) : 'PHV-dataa ei ole (kypsyys tuntematon)');
+  let normiNote;
+  if (naytaNormi) normiNote = 'Normi = ikäluokan keskitaso (taso 3, katkoviiva) — PHV ohitettu, vertailu kelpaa.';
+  else if (showcase && kesken) normiNote = 'Kehityskaista: normivertailu piilotettu (PHV kesken) — ettei kypsymättömyys näytä heikkoudelta.';
+  else normiNote = 'Kehityskaista: normivertailu vasta Showcase-iässä (16+) kypsyyden varmistuttua.';
+  const bandHTML = '<div style="font-size:10px;color:var(--ink3);background:var(--ov-1);border:.5px solid var(--border);border-radius:8px;padding:7px 10px;margin-bottom:8px;line-height:1.5">'
+    + '<span style="color:var(--ink2);font-weight:500">Kehitysvaihe:</span> ' + bandParts.join(' · ')
+    + '<div style="margin-top:3px">' + normiNote + '</div></div>';
+  return { normi: normi, bandHTML: bandHTML };
+}
 window._tmRadar5D = function(dims, opts) {
   opts = opts || {};
   const N = dims.length;
@@ -7583,6 +7608,21 @@ window._tmRadar5D = function(dims, opts) {
     let rp = '';
     for (let i = 0; i < N; i++) { const xy = pt(i, opts.referenssi); rp += (i ? ' ' : '') + xy[0].toFixed(1) + ',' + xy[1].toFixed(1); }
     svg += '<polygon points="' + rp + '" fill="none" stroke="' + (opts.referenssiVari || 'var(--blue)') + '" stroke-width="1" stroke-dasharray="4 3"/>';
+  }
+  // AUKOT P1.2 — NORMI-overlay PER AKSELI (haalea katkoviiva): opts.normi = taulukko dims-järjestyksessä,
+  // {arvo} tai null. OHITTAA tyhjät akselit (null) → EI piirrä normia akselille jolla ei ole pelaajadataa
+  // (D3/D5 0-data → harhaanjohtava). Additiivinen, taaksepäin-yhteensopiva (ilman opts.normi käytös ennallaan).
+  if (opts.normi && Array.isArray(opts.normi)) {
+    const nv = opts.normiVari || 'var(--ink3)';
+    const np = [];
+    for (let i = 0; i < N; i++) { const a = opts.normi[i]; if (a && a.arvo != null) np.push(pt(i, a.arvo)); }
+    if (np.length >= 3) {
+      let npp = '';
+      for (let k = 0; k < np.length; k++) { npp += (k ? ' ' : '') + np[k][0].toFixed(1) + ',' + np[k][1].toFixed(1); }
+      svg += '<polygon points="' + npp + '" fill="none" stroke="' + nv + '" stroke-width="1" stroke-dasharray="4 3" opacity="0.75"/>';
+    } else if (np.length === 2) {
+      svg += '<line x1="' + np[0][0].toFixed(1) + '" y1="' + np[0][1].toFixed(1) + '" x2="' + np[1][0].toFixed(1) + '" y2="' + np[1][1].toFixed(1) + '" stroke="' + nv + '" stroke-width="1" stroke-dasharray="4 3" opacity="0.75"/>';
+    }
   }
   // Akselilinjat + skaalanumerot D1-akselille (ylös)
   for (let i = 0; i < N; i++) {
@@ -8040,8 +8080,12 @@ window._avaaPerPelaajaPikakatsaus = function(idx, joukkueNimi) {
   }
   // D3-varmuusmerkki (sama kuin Master): estää pelaajan itsearvion lukemisen kovana talenttiarviona (§7.22-henki aikuispuolella)
   if (p.d3_taso != null && p.d3_varmuus && typeof d3VarmuusChip === 'function') hL += '<div style="margin-top:6px;font-size:10px;color:var(--ink3)">D3 ' + d3VarmuusChip(p.d3_varmuus) + '</div>';
-  // Iso 5D-radar (290px) — akselinimet hengittävät verrattuna aiempaan 220px:iin
-  hL += '<div class="jsp-radar">' + window._tmRadar5D(radarDims, { maxW: 290 }) + '</div>';
+  // Iso 5D-radar (290px) — akselinimet hengittävät verrattuna aiempaan 220px:iin.
+  // AUKOT P1.2 — PHV-korjattu normi-overlay (Showcase-only, tyhjät akselit ohitetaan) + kehitysvaihe-bändi.
+  const _rn = _vpRadarNormiJaVaihe(p, ika, radarDims);
+  const _radarOpts = _rn.normi ? { maxW: 290, normi: _rn.normi, normiVari: 'var(--ink3)' } : { maxW: 290 };
+  hL += '<div class="jsp-radar">' + window._tmRadar5D(radarDims, _radarOpts) + '</div>';
+  if (_rn.bandHTML) hL += _rn.bandHTML;
   const _kehysP = _ikavaiheBanneri(ika);
   if (_kehysP) hL += '<div style="margin-bottom:8px">' + _kehysP + '</div>';
   // ── (C) VASEN TIIVIS: 5D-snapshot + signaalit — EI täyttä testilistaa (se on Fyysinen/Tekninen-välilehdellä; ei toistoa).
