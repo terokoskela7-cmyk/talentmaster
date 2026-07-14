@@ -4021,28 +4021,13 @@ function _vpD1SiltaPaneeliHTML(p) {
   h += '</div>';
   return h;
 }
-// Fyysisen fokuksen asetusmodaali — kevyt polku (§10.1): valinnainen ohjelma-tyyppi esitäyttää ohjelma-slotin templaatilla.
+// Fyysisen fokuksen asetus — 1a Part B: konsolidoitu YHTEEN paneeliin (_jfOhjaa, domeeni-toggle). Tämä on
+// nyt ohut wrapper joka esivalitsee fyysisen teeman + avaa paneelin fyysisellä domeenilla (kevyt ohjelma-polku
+// + kirjasto-ohjelma säilyvät paneelin fyysisessä näkymässä _vpJfFyysHTML).
 window._vpFyysFokusModal = function (pid, teemaAvain) {
-  const p = (typeof _vpTtPelaaja === 'function') ? _vpTtPelaaja(pid) : (_pelaajat || []).find(function (x) { return x.id === pid; });
-  const LIB = window.TM_FYYSTEEMAT_LIB; if (!p || !LIB) return;
-  const teema = LIB.tmFyysTeema(teemaAvain); const esc = _jsvEsc;
-  document.getElementById('_vpFyysModal')?.remove();
-  const TYYPIT = Object.keys(LIB.TM_OHJELMA_TEMPLAATIT);
-  let h = '<div id="_vpFyysModal" style="position:fixed;inset:0;background:rgba(17,17,16,.92);z-index:340;display:flex;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(8px)" onclick="if(event.target===this)this.remove()">';
-  h += '<div style="background:var(--bg2);border:.5px solid var(--border);border-radius:14px;padding:22px;width:480px;max-width:96vw;max-height:90vh;overflow-y:auto" onclick="event.stopPropagation()">';
-  h += '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px"><div style="font-family:\'Cormorant Garamond\',serif;font-size:20px;color:var(--ink)">🏃 Fysiikkajakso · ' + esc(teema ? teema.nimi : teemaAvain) + '</div>'
-    + '<button onclick="document.getElementById(\'_vpFyysModal\').remove()" style="background:none;border:none;color:var(--ink3);font-size:22px;cursor:pointer;padding:0 6px">×</button></div>';
-  h += '<div style="font-size:11px;color:var(--ink3);margin-bottom:12px">' + esc(_jfNimi(p)) + ' · 4 vk · evidenssi mittauksesta jakson lopussa (§29)</div>';
-  h += '<div style="font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink3);margin-bottom:5px">Henkilökohtainen ohjelma (valinnainen)</div>';
-  h += '<select id="_vpFyysOhjelma" onchange="_vpFyysOhjelmaPreview()" style="width:100%;background:var(--surface);border:.5px solid var(--border);border-radius:8px;color:var(--ink);padding:8px 10px;font-size:13px;font-family:inherit"><option value="">— Ei ohjelmaa (pelkkä fokus) —</option>';
-  TYYPIT.forEach(function (t) { const tpl = LIB.TM_OHJELMA_TEMPLAATIT[t]; h += '<option value="' + t + '">' + esc(tpl.nimi) + '</option>'; });
-  h += '</select>';
-  h += '<div id="_vpFyysOhjelmaPrev" style="margin-top:8px"></div>';
-  // Vaihe 7.2a — kirjaston tallennettu ohjelma (oversight-liitos; kevyt polku yllä ennallaan).
-  if (typeof _vpOhjKirjastoModal === 'function') h += '<div style="margin-top:8px"><button onclick="_vpOhjKirjastoModal(\'' + esc(pid) + '\',\'' + esc(teemaAvain) + '\')" style="width:100%;font-size:12px;border-radius:8px;padding:8px 10px;cursor:pointer;border:.5px solid var(--border);background:var(--ov-1);color:var(--ink2)">📚 Käytä kirjaston ohjelmaa</button></div>';
-  h += '<div style="margin-top:14px"><button class="jsp-kt-btn primary" style="width:100%" onclick="_vpAsetaFyysFokus(\'' + esc(pid) + '\',\'' + esc(teemaAvain) + '\')">✓ Aseta fysiikkajakso</button></div>';
-  h += '</div></div>';
-  const wrap = document.createElement('div'); wrap.innerHTML = h; document.body.appendChild(wrap.firstChild);
+  window._vpJfFyysTeema = window._vpJfFyysTeema || {};
+  if (teemaAvain) window._vpJfFyysTeema[pid] = teemaAvain;
+  if (typeof _jfOhjaa === 'function') _jfOhjaa(pid, null, 'vp', 'fyysinen');
 };
 window._vpFyysOhjelmaPreview = function () {
   const sel = document.getElementById('_vpFyysOhjelma'); const box = document.getElementById('_vpFyysOhjelmaPrev'); if (!sel || !box) return;
@@ -4072,6 +4057,9 @@ window._vpAsetaFyysFokus = async function (pid, teemaAvain) {
   if (_jfArk.arkistoitu) p.jaksofokus_historia = _jfArk.historia;
   p.jaksofokus = jf;
   document.getElementById('_vpFyysModal')?.remove();
+  // 1a Part B: fyysinen fokus asetetaan konsolidoidusta paneelista → sulje myös _jfModal + nollaa ohjaus-ref.
+  const _jfM = document.getElementById('_jfModal');
+  if (_jfM) { _jfM.remove(); window._jfOhjausP = null; }
   if (typeof _vpArvReRender === 'function' && document.getElementById('_jspTab5')) _vpArvReRender();
   if (typeof _vpAloitusReRender === 'function') _vpAloitusReRender();
   if (typeof renderJaksofokus === 'function' && _currentWs === 'jaksofokus') renderJaksofokus();
@@ -4186,6 +4174,8 @@ window._vpOhjKaytaOhjelma = async function (pid, teemaAvain, ohjelmaId) {
   if (_jfArk.arkistoitu) p.jaksofokus_historia = _jfArk.historia;
   p.jaksofokus = jf;
   document.getElementById('_vpOhjModal')?.remove(); document.getElementById('_vpFyysModal')?.remove();
+  const _jfM = document.getElementById('_jfModal');   // 1a Part B: sulje myös konsolidoitu paneeli
+  if (_jfM) { _jfM.remove(); window._jfOhjausP = null; }
   if (typeof _vpAloitusReRender === 'function') _vpAloitusReRender();
   await _vpTtKirjoita(pid, _jfArk.arkistoitu ? { jaksofokus: jf, jaksofokus_historia: _jfArk.historia } : { jaksofokus: jf }, 'Fysiikkajakso + kirjasto-ohjelma asetettu');
 };
@@ -5485,26 +5475,93 @@ function _jfTaulukko(lista, JF, talentti) {
   return h + '</table>';
 }
 
-// [Ohjaa]/[Aseta] → modaali jossa _vpTtKorttiHTML (konsepti→cue→harjoite, lahde 'vp').
+// IDP-kortti 1a Part B — YKSI jaksofokus-paneeli (konsolidoi _jfOhjaa + _vpTtSlot + _vpFyysModal).
+// Domeeni = ENSILUOKKAINEN, EKSPLISIITTINEN valinta (ei implisiittinen "kummalla pinnalla olen"): toggle
+// vaihtaa näkymän — fyysinen → TM_FYYSTEEMAT-teemat, teknis-taktinen → konseptivalitsin. Toggle = valinta,
+// EI lukko (§0 asiantuntija päättää); vaihto laukaisee tallennuksessa Part A:n archive-before-overwrite
+// -turvan (_vpJfArkistoiVaihdossa domeeni-turvallisissa writereissä _vpTtVieTreeniin / _vpAsetaFyysFokus).
+window._vpJfDomeeni = window._vpJfDomeeni || {};   // pid → 'fyysinen' | 'teknis_taktinen' (paneelin aktiivinen näkymä)
+window._vpJfFyysTeema = window._vpJfFyysTeema || {};   // pid → fyysinen teema-avain (esivalinta)
+
+// Domeeni-toggle (segmentti). Aktiivinen = _vpJfDomeeni[pid].
+function _vpJfToggleHTML(p) {
+  const dom = window._vpJfDomeeni[p.id] || 'teknis_taktinen';
+  const pid = _jsvEsc(p.id);
+  const seg = function (val, lbl) {
+    const on = (dom === val);
+    return '<span onclick="_vpJfSetDomeeni(\'' + pid + '\',\'' + val + '\')" style="flex:1;text-align:center;padding:8px 10px;font-size:12px;font-weight:500;cursor:pointer;'
+      + (on ? 'background:rgba(40,176,144,.14);color:var(--teal)' : 'background:transparent;color:var(--ink3)') + '">' + lbl + '</span>';
+  };
+  return '<div style="margin-bottom:12px"><div style="font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink3);margin-bottom:5px">Domeeni · kumpaa jakso kehittää</div>'
+    + '<div style="display:flex;border:.5px solid var(--border);border-radius:8px;overflow:hidden">' + seg('fyysinen', '🏃 Fyysinen · D1') + seg('teknis_taktinen', '⚽ Teknis-taktinen · D2/D4') + '</div></div>';
+}
+
+// Fyysinen näkymä — teemavalinta (TM_FYYSTEEMAT) + valinnainen ohjelma. Save → _vpAsetaFyysFokus (domeeni-turva).
+function _vpJfFyysHTML(p) {
+  const LIB = window.TM_FYYSTEEMAT_LIB;
+  if (!LIB || !Array.isArray(LIB.TM_FYYSTEEMAT)) return '<div style="color:var(--ink3);font-size:13px">Fyysinen teemakirjasto ei latautunut.</div>';
+  const esc = _jsvEsc; const pid = esc(p.id);
+  const ehd = (typeof _vpFyysEhdotus === 'function') ? _vpFyysEhdotus(p, true) : null;
+  const oletus = window._vpJfFyysTeema[p.id]
+    || (p.jaksofokus && p.jaksofokus.domeeni === 'fyysinen' && p.jaksofokus.konsepti_avain)
+    || (ehd && ehd.avain) || LIB.TM_FYYSTEEMAT[0].avain;
+  let h = '<div class="jsp-kt-box"><div class="jsp-kt-bt">Fyysinen teema</div>';
+  h += '<select id="_vpJfFyysSel" class="jsp-arv-select" style="width:100%" onclick="event.stopPropagation()" onchange="window._vpJfFyysTeema[\'' + pid + '\']=this.value">';
+  LIB.TM_FYYSTEEMAT.forEach(function (t) { h += '<option value="' + esc(t.avain) + '"' + (t.avain === oletus ? ' selected' : '') + '>' + esc((t.ikoni ? t.ikoni + ' ' : '') + t.nimi) + '</option>'; });
+  h += '</select>';
+  if (ehd) h += '<div style="font-size:10.5px;color:' + (ehd.prioriteetti ? 'var(--amber)' : 'var(--ink3)') + ';margin-top:5px">' + (ehd.prioriteetti ? '⚠ FLEI-prioriteetti: ' : '🏃 Heikoin D1: ') + esc(ehd.nimi) + (ehd.peruste ? ' — ' + esc(ehd.peruste) : '') + '</div>';
+  h += '</div>';
+  const TYYPIT = LIB.TM_OHJELMA_TEMPLAATIT ? Object.keys(LIB.TM_OHJELMA_TEMPLAATIT) : [];
+  h += '<div class="jsp-kt-box" style="margin-top:8px"><div class="jsp-kt-bt">Henkilökohtainen ohjelma (valinnainen)</div>';
+  h += '<select id="_vpFyysOhjelma" onchange="_vpFyysOhjelmaPreview()" onclick="event.stopPropagation()" class="jsp-arv-select" style="width:100%"><option value="">— Ei ohjelmaa (pelkkä fokus) —</option>';
+  TYYPIT.forEach(function (t) { const tpl = LIB.TM_OHJELMA_TEMPLAATIT[t]; h += '<option value="' + esc(t) + '">' + esc(tpl.nimi) + '</option>'; });
+  h += '</select><div id="_vpFyysOhjelmaPrev" style="margin-top:8px"></div>';
+  if (typeof _vpOhjKirjastoModal === 'function') h += '<div style="margin-top:8px"><button onclick="_vpOhjKirjastoModal(\'' + pid + '\',document.getElementById(\'_vpJfFyysSel\').value)" style="width:100%;font-size:12px;border-radius:8px;padding:8px 10px;cursor:pointer;border:.5px solid var(--border);background:var(--ov-1);color:var(--ink2)">📚 Käytä kirjaston ohjelmaa</button></div>';
+  h += '</div>';
+  h += '<div style="font-size:10.5px;color:var(--ink3);margin-top:8px">4 vk · evidenssi mittauksesta jakson lopussa (§29)</div>';
+  h += '<div class="jsp-kt-btns"><button class="jsp-kt-btn primary" onclick="_vpAsetaFyysFokus(\'' + pid + '\',document.getElementById(\'_vpJfFyysSel\').value)">＋ Tallenna jaksofokus</button></div>';
+  return h;
+}
+
+// Paneelin runko domeenin mukaan.
+function _vpJfBodyHTML(p) {
+  const dom = window._vpJfDomeeni[p.id] || 'teknis_taktinen';
+  if (dom === 'fyysinen') return _vpJfFyysHTML(p);
+  return (typeof _vpTtKorttiHTML === 'function') ? (_vpTtKorttiHTML(p) || '<div style="color:var(--ink3);font-size:13px">Konseptivalikko ei saatavilla tälle pelaajalle (ikä/pelipaikka).</div>') : '';
+}
+
+// Toggle-käsittelijä — vaihda aktiivinen domeeni + re-renderöi toggle + runko (dropdown-valinta elää).
+window._vpJfSetDomeeni = function (pid, dom) {
+  window._vpJfDomeeni[pid] = dom;
+  const p = (window._jfOhjausP && window._jfOhjausP.id === pid) ? window._jfOhjausP
+    : (typeof _vpTtPelaaja === 'function' ? _vpTtPelaaja(pid) : null);
+  if (!p) return;
+  const tog = document.getElementById('_vpJfToggle'); if (tog) tog.innerHTML = _vpJfToggleHTML(p);
+  const body = document.getElementById('_jfOhjausSlot'); if (body) body.innerHTML = _vpJfBodyHTML(p);
+};
+
+// [Ohjaa]/[Aseta]/[✎ Muokkaa jaksofokus] → YKSI paneeli (domeeni-toggle + runko). esiValinta = teknis-konsepti-avain
+// (silta), lahde ('arviointi' sillasta, muuten 'vp'), domeeni = esivalittu näkymä ('fyysinen'|'teknis_taktinen').
 // §4: talenteille aina; ei-talenteille override (ei estä valmentajan omaa jaksofokusta).
-// Vaihe 5: valinnaiset esiValinta (konsepti-avain) + lahde ('arviointi' sillasta) — muuten 'vp'.
-window._jfOhjaa = function (pid, esiValinta, lahde) {
+window._jfOhjaa = function (pid, esiValinta, lahde, domeeni) {
   const p = (typeof _vpTtPelaaja === 'function') ? _vpTtPelaaja(pid) : ((typeof _pelaajat !== 'undefined' && _pelaajat) || []).find(function (x) { return x.id === pid; });
   if (!p) { if (typeof toast === 'function') toast('Pelaajaa ei löytynyt', 'error'); return; }
-  if (typeof _vpTtKorttiHTML !== 'function') return;
-  window._vpArvPelaaja = p;      // sama objekti jonka _vpTtVieTreeniin mutatoi + dropdown re-renderöi
+  window._vpArvPelaaja = p;      // sama objekti jonka writerit mutatoivat + dropdown re-renderöi
   window._jfOhjausP = p;
   window._vpTtLahde = lahde || 'vp';
+  // Domeeni-oletus: eksplisiittinen param voittaa; teknis-konseptin esivalinta (silta) → teknis; muuten
+  // säilytä aktiivisen jakson domeeni; muuten teknis. (D1-silta antaa domeeni='fyysinen' wrapperista.)
+  window._vpJfDomeeni[p.id] = domeeni || (esiValinta ? 'teknis_taktinen' : ((p.jaksofokus && p.jaksofokus.domeeni) || 'teknis_taktinen'));
   if (esiValinta) window._vpTtValinta[p.id] = esiValinta; else delete window._vpTtValinta[p.id];
   document.getElementById('_jfModal')?.remove();
-  const kortti = _vpTtKorttiHTML(p);
   const yli = (p.talenttiOhjelma !== true) ? '<div style="font-size:11px;color:var(--blue);background:rgba(42,93,176,.1);border:.5px solid rgba(42,93,176,.3);border-radius:8px;padding:8px 11px;margin-bottom:10px">ℹ️ Override: valmentaja omistaa kentän — asetat/muutat VP-oversightina (§4).</div>' : '';
   let h = '<div id="_jfModal" style="position:fixed;inset:0;background:rgba(17,17,16,.92);z-index:300;display:flex;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(8px)" onclick="if(event.target===this)this.remove()">';
   h += '<div style="background:var(--bg2);border:.5px solid var(--border);border-radius:14px;padding:22px;width:520px;max-width:96vw;max-height:90vh;overflow-y:auto" onclick="event.stopPropagation()">';
   h += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px"><div style="font-family:\'Cormorant Garamond\',serif;font-size:20px;color:var(--ink)">' + (p.talenttiOhjelma === true ? '⭐ ' : '') + _jsvEsc(_jfNimi(p)) + ' — jaksofokus</div>'
     + '<button onclick="document.getElementById(\'_jfModal\').remove()" style="background:none;border:none;color:var(--ink3);font-size:22px;cursor:pointer;padding:0 6px">×</button></div>';
   h += yli;
-  h += '<div id="_jfOhjausSlot">' + (kortti || '<div style="color:var(--ink3);font-size:13px">Konseptivalikko ei saatavilla tälle pelaajalle (ikä/pelipaikka).</div>') + '</div>';
+  h += '<div id="_vpJfToggle">' + _vpJfToggleHTML(p) + '</div>';
+  h += '<div id="_jfOhjausSlot">' + _vpJfBodyHTML(p) + '</div>';
   h += '</div></div>';
   const wrap = document.createElement('div'); wrap.innerHTML = h;
   document.body.appendChild(wrap.firstChild);
@@ -5797,10 +5854,11 @@ function _vpAloitusHTML(p) {
   // Vaihe 6 — meso-kehityskaari (suljetut jaksot, jaksofokus_historia §26).
   if (typeof _vpMesoKaariHTML === 'function') h += _vpMesoKaariHTML(p);
   // Vaihe 4a — VP asettaa jaksofokuksen TALENTTIPELAAJILLE (§4: VP hallinnoi talentteja). Muille = valmentaja (Master).
-  if (p.talenttiOhjelma === true && typeof _vpTtKorttiHTML === 'function') {
+  // 1a Part B: talentin jaksofokus asetetaan KONSOLIDOIDUSTA paneelista (domeeni-toggle) — ei enää erillistä
+  // inline-editoria (_vpTtSlot poistettu, yksi pinta). Nappi avaa saman _jfOhjaa-paneelin kuin oversight/silta.
+  if (p.talenttiOhjelma === true) {
     h += '<div style="margin-top:12px;border-top:.5px solid var(--border);padding-top:10px">'
-      + '<span onclick="var b=document.getElementById(\'_vpTtSlot\');var o=b.style.display===\'none\';b.style.display=o?\'block\':\'none\';this.textContent=(o?\'▾\':\'▸\')+\' Aseta / muokkaa jaksofokus (talentti)\'" style="font-size:12px;color:var(--blue);cursor:pointer;font-weight:600">▸ Aseta / muokkaa jaksofokus (talentti)</span>'
-      + '<div id="_vpTtSlot" style="display:none;margin-top:10px">' + _vpTtKorttiHTML(p) + '</div></div>';
+      + '<button onclick="_jfOhjaa(\'' + _jsvEsc(p.id) + '\')" style="font-size:12px;color:var(--blue);cursor:pointer;font-weight:600;background:var(--ov-1);border:.5px solid rgba(42,93,176,.3);border-radius:8px;padding:8px 12px">✎ Muokkaa jaksofokus</button></div>';
   }
   // Status-nauha
   const _viimMit = [p.hh_pvm, p.tki_pvm].filter(Boolean).sort().pop();
@@ -5853,9 +5911,9 @@ function _vpMiniKaariHTML(t) {
 function _vpAloitusReRender() {
   const slot = document.getElementById('_jspAloitus'); const p = window._vpArvPelaaja;
   if (slot && p && typeof _vpAloitusHTML === 'function') slot.innerHTML = _vpAloitusHTML(p);
-  // Vaihe 4c — jos jaksofokus-ohjausmodaali on auki, re-renderöi sen konseptikortti (dropdown-valinta elää).
+  // Vaihe 4c — jos jaksofokus-paneeli on auki, re-renderöi runko domeenin mukaan (dropdown-valinta elää).
   const jfSlot = document.getElementById('_jfOhjausSlot');
-  if (jfSlot && window._jfOhjausP && typeof _vpTtKorttiHTML === 'function') jfSlot.innerHTML = _vpTtKorttiHTML(window._jfOhjausP);
+  if (jfSlot && window._jfOhjausP && typeof _vpJfBodyHTML === 'function') jfSlot.innerHTML = _vpJfBodyHTML(window._jfOhjausP);
 }
 
 // 2b — tallenna havaittu arvio (1–5 tai N/A). §26 pikakenttä arviointi_havaittu + alikokoelma arviointi/{kausi} (audit: arvioija+pvm).
