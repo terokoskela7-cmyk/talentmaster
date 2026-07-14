@@ -3172,7 +3172,17 @@ window.avaaHarjoitettavuus     = window.avaaHarjoitettavuus     || function(jk){
 window.avaaHarjoitussuositukset = window.avaaHarjoitussuositukset || function(jk){ _sigStub('Harjoitussuositukset: ' + jk + ' — tulossa'); };
 window.avaaIdpJono             = window.avaaIdpJono             || function(){ _sigStub('IDP-jono — avaa Pelaajat-välilehti'); };
 window.avaaKutsut              = window.avaaKutsut              || function(){ _sigStub('Kutsut — avaa Seurahallinta'); };
-window.avaaPelaaja             = window.avaaPelaaja             || function(id){ _sigStub('Pelaaja: ' + id + ' — tulossa'); };
+// Vaihe 0 (reititys) — pid → pelaaja → OIKEA pelaajakortti (ei enää tynkä). _avaaPerPelaajaPikakatsaus lukee
+// window._jsvPelaajat[idx] + joukkuenimen (ika/sp). Ratkaise idx koko kortistosta (_pelaajat, authoritative) ja
+// aseta se listaksi → nav (← →) cyclaa sen. Pelaajat-lista asettaa OMAN listansa erikseen → ei regressiota.
+// Kytkee: Tilanne-Talentit-taulukko · Hidden Gem -lista · Koti-signaalien "Katso profiili".
+window.avaaPelaaja             = window.avaaPelaaja             || function(pid){
+  const kaikki = (typeof _pelaajat !== 'undefined' && _pelaajat && _pelaajat.length) ? _pelaajat : (window._jsvPelaajat || []);
+  const idx = kaikki.findIndex(function(x){ return x && x.id === pid; });
+  if (idx < 0) { if (typeof toast === 'function') toast('Pelaajaa ei löytynyt', 'error'); return; }
+  window._jsvPelaajat = kaikki;
+  if (typeof _avaaPerPelaajaPikakatsaus === 'function') _avaaPerPelaajaPikakatsaus(idx, kaikki[idx].joukkue || '');
+};
 window.avaaUusiTestiModaali    = window.avaaUusiTestiModaali    || function(){ _sigStub('Luo testi — avaa Testaus_v9 / Kalenteri'); };
 window.avaaKutsuValmentaja     = window.avaaKutsuValmentaja     || function(){ _sigStub('Kutsu valmentaja — avaa Seurahallinta'); };
 // ADAR-kenttätyökalu — avaa ADAR_Pikakortti.html (ainoa työkalu joka persistoi havainnot).
