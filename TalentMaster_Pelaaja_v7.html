@@ -405,7 +405,7 @@ input::placeholder,textarea::placeholder{color:#8C8B86;opacity:1}
 <script src="tm-bus.js?v=3"></script>
 <script src="tm-demo.js?v=3"></script>
 <script src="tm_why_lauseet.js?v=3"></script>
-<script src="lib/tm_idp.js?v=1"></script>   <!-- Vaihe 3c-a: pelaajan aikajana (idpPelaajaKaari/Konsepti, §7.22-turvallinen) -->
+<script src="lib/tm_idp.js?v=2"></script>   <!-- Vaihe 3c-a: pelaajan aikajana (idpPelaajaKaari/Konsepti, §7.22-turvallinen) -->
 <script src="lib/tm_teknistaktiset.js?v=4"></script>   <!-- Vaihe 4b: pelaajan cue-kerros (tmTtPelaaja, §0b/§7.22) · v4 = parseri-korjaus (pelimuoto-saaste) -->
 </head>
 <body>
@@ -1754,12 +1754,15 @@ async function _p7LataaTavoite() {
     var vuosi = idpKausivuosi(new Date());
     var snap = await window._db.collection('seurat').doc(_pelaaja.seuraId)
       .collection('pelaajat').doc(_pelaaja.id).collection('idp_kausi').doc(vuosi).get();
-    var arr = snap.exists ? (snap.data() || {}).tavoitteet : null;
+    var data = snap.exists ? (snap.data() || {}) : {};
+    var arr = data.tavoitteet;
     if (arr && arr.length) {
       // Aktiivinen (aktiivinen/jatkuu/saavutettu) etusijalla, muuten viimeisin. Hylätty ohitetaan (§3).
       var akt = arr.filter(function (t) { return t && t.status !== 'hylatty'; });
       _p7Tavoite = window._p7Tavoite = akt.length ? akt[akt.length - 1] : null;
     }
+    // v2 §4 — pelaajan itsearvio + sitoumus (kaksivaiheinen: pelaaja sitoutuu, valmentaja vahvistaa).
+    if (data.pelaaja_sitoumus) window._p7Sitoumus = data.pelaaja_sitoumus;
   } catch (e) { /* best-effort — tyhjä tila jos ei saada */ }
   if (_tab === 'mina' && _sc === 'main') draw();
 }
@@ -1900,6 +1903,101 @@ async function _tallennaItsearvio() {
 window.rMinaItsearvio = rMinaItsearvio;
 window._minaD3Valitse = _minaD3Valitse;
 window._tallennaItsearvio = _tallennaItsearvio;
+
+// ── IDP-kortti v2 §4 — pelaajan itsearvio (3 kysymystä) + "Sitoudun tähän jaksoon" (kaksivaiheinen: pelaaja → valmentaja vahvistaa) ──
+// §7.22 EHDOTON: ei tasoja/arvosanoja/vertailua/deltoja/uhkaa — vain pelaajan oma ääni + sitoutuminen. Tallennus idp_kausi/<vuosi>.
+window._p7Sitoumus = window._p7Sitoumus || null;
+// Äänirekisteri ikävaiheesta (design-handoff renderVals): showcase U16+ · rakentaja U13–15 ja nuoremmat.
+function _p7SitoumusRekisteri() {
+  var stage = (typeof _laskeStage === 'function') ? _laskeStage(_pelaaja && _pelaaja.syntymaVuosi, _pelaaja && _pelaaja.phv_tila) : '2_rakentaja';
+  if (stage === '3_showcase') {
+    return { rekisteri: 'showcase', q1: 'Vaikeinta juuri nyt', q2: 'Viime jaksolla onnistui', q3: 'Oma tavoitteeni' };
+  }
+  return { rekisteri: 'rakentaja', q1: 'Mikä tuntuu nyt vaikealta?', q2: 'Missä onnistuit viime jaksolla?', q3: 'Mitä sinä haluat?' };
+}
+function _p7SitoumusPvmFi(iso) {
+  if (!iso) return '';
+  var d = new Date(iso); if (isNaN(d.getTime())) return '';
+  return d.getDate() + '.' + (d.getMonth() + 1) + '.' + d.getFullYear();
+}
+function rMinaSitoumus() {
+  var d = _pelaaja; if (!d) return '';
+  // Aktiivinen jakso/fokus (pelaajaturvallinen nimi). Ei fokusta → lempeä tyhjä tila.
+  var fokusNimi = (_p7Tavoite && _p7Tavoite.fokus && _p7Tavoite.fokus.nimi)
+    || (d.idp_fokus && d.idp_fokus.nimi)
+    || (d.jaksofokus && d.jaksofokus.konsepti_nimi) || null;
+  var reg = _p7SitoumusRekisteri();
+  // Demo/ei-Firestore: palauta localStorage-varmuudesta jos muistissa ei ole.
+  if (!window._p7Sitoumus) { try { var ls = localStorage.getItem('tm_p7_sitoumus'); if (ls) window._p7Sitoumus = JSON.parse(ls); } catch (e) { /* estetty */ } }
+  var sit = window._p7Sitoumus || {};
+  var ia = sit.itsearvio || {};
+  var esc = _thEsc;
+  var h = '<div style="background:var(--bg3);padding:20px;margin:14px 20px 0;border:.5px solid rgba(242,239,230,.08);border-radius:14px">';
+  h += '<div style="font-family:\'Cormorant Garamond\',serif;font-size:18px;font-weight:400;color:var(--text);margin-bottom:4px">Sinun äänesi & sitoumus</div>';
+  if (!fokusNimi) {
+    h += '<div style="font-size:12.5px;color:#8C8B86;line-height:1.5;margin-top:6px">Kun sinulle asetetaan jaksofokus, voit sitoutua siihen täällä ja kertoa oman näkemyksesi. 💚</div></div>';
+    return h;
+  }
+  h += '<div style="font-size:12px;color:#8C8B86;margin-bottom:12px">Tälle jaksolle: <b style="color:#28B090">' + esc(fokusNimi) + '</b> — kerro rehellisesti, se auttaa eniten.</div>';
+  // 3 kysymystä (äänirekisteri)
+  var kysy = [{ id: 'q1', label: reg.q1 }, { id: 'q2', label: reg.q2 }, { id: 'q3', label: reg.q3 }];
+  kysy.forEach(function (k) {
+    h += '<div style="padding:10px 0;border-top:.5px solid rgba(242,239,230,.06)">'
+      + '<div style="font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:#8C8B86;margin-bottom:6px">' + esc(k.label) + '</div>'
+      + '<textarea id="p7sit_' + k.id + '" placeholder="Omin sanoin…" '
+      + 'style="width:100%;min-height:52px;background:var(--bg);color:var(--text);border:.5px solid rgba(242,239,230,.15);border-radius:9px;padding:10px 12px;'
+      + 'font-family:\'Cormorant Garamond\',serif;font-style:italic;font-size:15.5px;line-height:1.35;resize:vertical">' + esc(ia[k.id] || '') + '</textarea></div>';
+  });
+  // Sitoumus-tila
+  if (sit.sitoumus_pvm) {
+    var vahv = sit.vahvistettu_pvm
+      ? '<span style="color:#28B090">· valmentaja vahvisti ' + esc(_p7SitoumusPvmFi(sit.vahvistettu_pvm)) + '</span>'
+      : '<span style="color:#8C8B86">· odottaa valmentajan vahvistusta</span>';
+    var ikoni = sit.vahvistettu_pvm ? '✓' : '◔';
+    h += '<div style="display:flex;align-items:center;gap:10px;background:rgba(40,176,144,.08);border:.5px solid rgba(40,176,144,.28);border-radius:10px;padding:12px 14px;margin-top:14px">'
+      + '<span style="width:24px;height:24px;border-radius:50%;background:#28B090;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;flex-shrink:0">' + ikoni + '</span>'
+      + '<span style="font-size:12.5px;color:#C9C7BE;line-height:1.4">Sitouduit jaksoon ' + esc(_p7SitoumusPvmFi(sit.sitoumus_pvm)) + ' ' + vahv + '</span></div>';
+    h += '<button onclick="_tallennaSitoumus()" style="display:block;width:100%;margin-top:10px;background:transparent;color:#28B090;border:.5px solid rgba(40,176,144,.4);border-radius:10px;padding:12px;font-size:13.5px;font-weight:600;cursor:pointer;min-height:44px;font-family:\'DM Sans\',sans-serif">Päivitä vastaukseni</button>';
+  } else {
+    h += '<button onclick="_tallennaSitoumus()" style="display:block;width:100%;margin-top:14px;background:#28B090;color:#fff;border:none;border-radius:10px;padding:14px;font-size:15px;font-weight:600;cursor:pointer;min-height:48px;font-family:\'DM Sans\',sans-serif">Sitoudun tähän jaksoon 💚</button>';
+  }
+  h += '<div style="font-size:9.5px;color:#8A887F;text-align:center;margin-top:8px">Sinun sanasi, sinun sitoumuksesi — valmentaja näkee ja tukee.</div>';
+  h += '</div>';
+  return h;
+}
+async function _tallennaSitoumus() {
+  var reg = _p7SitoumusRekisteri();
+  var val = function (id) { var el = document.getElementById('p7sit_' + id); return el ? el.value.trim() : ''; };
+  var prev = window._p7Sitoumus || {};
+  var sit = {
+    itsearvio: { q1: val('q1'), q2: val('q2'), q3: val('q3') },
+    rekisteri: reg.rekisteri,
+    sitoumus_pvm: prev.sitoumus_pvm || new Date().toISOString(),   // säilytä alkuperäinen sitoutumispäivä päivityksissä
+    vahvistettu_pvm: prev.vahvistettu_pvm || null                  // vain valmentaja asettaa (VP) — pelaaja ei koskaan
+  };
+  window._p7Sitoumus = sit;
+  // Demo / ei-Firestore → localStorage-varmuus + toast (kuten muut Pelaaja-kirjoitukset degradoivat).
+  if (!_pelaaja || !_pelaaja.id || !_pelaaja.seuraId || !window._db || typeof idpKausivuosi !== 'function') {
+    try { localStorage.setItem('tm_p7_sitoumus', JSON.stringify(sit)); } catch (e) { /* estetty */ }
+    if (typeof draw === 'function') draw();
+    alert('Kiitos! 💚 Sitoumuksesi on tallennettu.');
+    return;
+  }
+  try {
+    var cu = (typeof firebase !== 'undefined' && firebase.auth) ? firebase.auth().currentUser : null;
+    if (cu) { try { await cu.getIdToken(true); } catch (e) { /* jatka silti */ } }
+    var vuosi = idpKausivuosi(new Date());
+    var ref = window._db.collection('seurat').doc(_pelaaja.seuraId).collection('pelaajat').doc(_pelaaja.id);
+    await ref.collection('idp_kausi').doc(vuosi).set({ pelaaja_sitoumus: sit }, { merge: true });
+    // Kevyt pikakenttä pelaajadokkiin (VP-lista/kortti voi lukea ilman alikokoelmakyselyä).
+    try { await ref.set({ idp_sitoumus_pvm: sit.sitoumus_pvm }, { merge: true }); } catch (e) { /* ei-kriittinen */ }
+    _pelaaja.idp_sitoumus_pvm = sit.sitoumus_pvm;
+    if (typeof draw === 'function') draw();
+    alert('Kiitos! 💚 Sitouduit jaksoon. Valmentaja näkee sanasi ja vahvistaa.');
+  } catch (e) { console.warn('[sitoumus]', e && e.message); alert('Sitoumusta ei juuri nyt saatu tallennettua — yritä hetken päästä uudelleen.'); }
+}
+window.rMinaSitoumus = rMinaSitoumus;
+window._tallennaSitoumus = _tallennaSitoumus;
 
 /* ══════════════════════════════════════════════════════════
    KORTTI Vaihe 1a — datavetoinen kokoelma (docs/KORTTI_KATALOGI.md).
@@ -2056,6 +2154,7 @@ function rMina() {
     + hdr('Minä')
     + rMinaProfiili()
     + rMinaTavoite()
+    + rMinaSitoumus()
     + rMinaKokoelma()
     + rMinaKehitysvaihe()
     + rMinaKonseptiFokus()

@@ -23,7 +23,7 @@
 <script src="lib/tm_arviointi_taksonomia.js?v=5"></script>   <!-- Vaihe 2: arviointitaksonomia + pääteemat + kehysrekisteri (mitattu + havaittu 1–5) -->
 <script src="lib/tm_pelialy_yksilo.js?v=1"></script>   <!-- P1: pelihavainto peliäly → yksilöteema (oversight tilanne-jakauma) -->
 <script src="lib/tm_arviointi_silta.js?v=2"></script>   <!-- Vaihe 5: arviointi→resepti-silta (heikoin havaittu D2 → ehdotettu jaksofokus) · v2 = I3a SSOT-osoitin tm_kehityspolku -->
-<script src="lib/tm_idp.js?v=5"></script>   <!-- I3a: + kesto valmentajan asetettavaksi (opts.kestoVk) · I2: lahde+pvm/idp_lahde/idpVahvinDim 1–3 -->
+<script src="lib/tm_idp.js?v=6"></script>   <!-- I3a: + kesto valmentajan asetettavaksi (opts.kestoVk) · I2: lahde+pvm/idp_lahde/idpVahvinDim 1–3 -->
 <script src="lib/tm_teknistaktiset.js?v=5"></script>   <!-- Vaihe 4a: teknis-taktinen curriculum (VP:n jaksofokus talenteille) · v5 = I3a pelipaikkaportti U14+ + harjoite-tägit/jalka -->
 <script src="lib/tm_kehityspolku.js?v=1"></script>   <!-- I3a: looginen silta -resolver (idp_fokus → konsepti/fundamentti → harjoite) -->
 <script src="lib/tm_jaksofokus.js?v=1"></script>   <!-- Vaihe 4c: jaksofokus-oversight PURE-ydin (kattavuus/umpeutunut/teemakeskittymä, §26) -->
@@ -4457,9 +4457,16 @@ function _vpIdpOpts(p, ehdotusIdx) {
     hhSeuraavaTaso: g('hhSeuraavaTaso'), tkSekuntibudjetti: g('tkSekuntibudjetti'),
     tkLajiViite: g('tkLajiViite'), tkLajiTaso: g('tkLajiTaso'),
     tklajiAvain: (typeof tmMitattuMappaus === 'function') ? tmMitattuMappaus().tklaji : null,
-    ika: isp.ika, sp: spMN, spTk: spPT, nyt: new Date(), ehdotusIdx: (ehdotusIdx || 0)
+    ika: isp.ika, sp: spMN, spTk: spPT, nyt: new Date(), ehdotusIdx: (ehdotusIdx || 0),
+    modus: p._idpModus || 'heikkous'   // v2 §1 — moottorin painopiste (heikkous/vahvuus/pelipaikka)
   };
 }
+// v2 §1 — aseta IDP-moottorin painopiste (segmentti) → ehdota uudelleen valitulla moduksella.
+window._vpAsetaModus = function (pid, modus) {
+  const p = _vpIdpPelaaja(pid); if (!p) return;
+  p._idpModus = modus; p._idpEhdotusIdx = 0;
+  if (typeof _vpEhdotaTavoite === 'function') _vpEhdotaTavoite(pid);   // rakentaa uuden ehdotuksen moduksella
+};
 // "↻ Ehdota (moottori)" — moottori luo luonnoksen pikakentistä. >1 kandidaatti → kierrä seuraavaan (p._idpEhdotusIdx).
 window._vpEhdotaTavoite = function (pid) {
   const p = _vpIdpPelaaja(pid);
@@ -4569,12 +4576,16 @@ async function _vpLataaTavoite(p) {
   try {
     const vuosi = (typeof idpKausivuosi === 'function') ? idpKausivuosi(new Date()) : String(new Date().getFullYear());
     const s = await db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(p.id).collection('idp_kausi').doc(vuosi).get();
-    const arr = s.exists ? (s.data() || {}).tavoitteet : null;
+    const sdata = s.exists ? (s.data() || {}) : {};
+    const arr = sdata.tavoitteet || null;
+    const tgt = (window._vpArvPelaaja && window._vpArvPelaaja.id === p.id) ? window._vpArvPelaaja : p;
+    if (sdata.pelaaja_sitoumus) tgt._idpSitoumus = sdata.pelaaja_sitoumus;   // v2 §4 — pelaajan itsearvio + sitoumus
     if (arr && arr.length) {
       // §33: aseta SAMAAN objektiin jonka kortti renderöi (voi vaihtua await:n aikana); re-render vain jos vielä auki.
-      const tgt = (window._vpArvPelaaja && window._vpArvPelaaja.id === p.id) ? window._vpArvPelaaja : p;
       tgt._idpTavoite = arr[arr.length - 1]; tgt._idpLadattu = true;
       if (window._vpArvPelaaja === tgt) { _vpKausitavoiteReRender(); if (typeof _vpAloitusReRender === 'function') _vpAloitusReRender(); }
+    } else if (sdata.pelaaja_sitoumus && window._vpArvPelaaja === tgt) {
+      _vpKausitavoiteReRender();
     }
   } catch (e) { /* best-effort */ }
 }
@@ -4631,6 +4642,45 @@ window._vpValitavoiteAktivoi = function (pid, i) {
   _vpTallennaIdpDok(p, 'Välitavoite aktivoitu jaksoksi');
   if (typeof _vpTtKirjoita === 'function') _vpTtKirjoita(p.id, { jaksofokus: jf }, 'Jaksofokus (välitavoite)');
 };
+// v2 §4 — Pelaajan ääni & sitoumus (design: itsearviolauseet + sitoumus ✓/◔). Pelaaja kirjaa Pelaaja-appissa
+// (idp_kausi/<vuosi>.pelaaja_sitoumus); VP näkee ja vahvistaa. Kaksivaiheinen: pelaaja sitoutuu → VP vahvistaa.
+function _vpSitoumusHTML(p, pid) {
+  const s = p._idpSitoumus;
+  if (!s) return '';
+  const esc = _jsvEsc;
+  const ia = s.itsearvio || {};
+  const _pvm = function (iso) { return iso ? _pvmLyhyt(iso) : ''; };
+  let h = '<div class="jsp-kt-box" style="margin-top:10px;border-color:rgba(40,176,144,.3)"><div class="jsp-kt-bt">Pelaajan ääni &amp; sitoumus</div>';
+  const rivit = [ia.q1, ia.q2, ia.q3].filter(function (x) { return x && String(x).trim(); });
+  if (rivit.length) {
+    h += rivit.map(function (q) { return '<div style="font-family:var(--font-serif,\'Cormorant Garamond\');font-style:italic;font-size:14px;color:var(--ink2);margin:3px 0">”' + esc(q) + '”</div>'; }).join('');
+  } else {
+    h += '<div style="font-size:11.5px;color:var(--ink3)">Pelaaja ei ole vielä täyttänyt itsearviota.</div>';
+  }
+  if (s.sitoumus_pvm) {
+    const vahv = !!s.vahvistettu_pvm;
+    h += '<div style="display:flex;align-items:center;gap:10px;margin-top:10px;padding:9px 12px;border-radius:8px;background:rgba(40,176,144,.06);border:.5px solid rgba(40,176,144,.28)">'
+      + '<span style="width:22px;height:22px;border-radius:50%;background:var(--teal);color:var(--bg2,#161614);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;flex-shrink:0">' + (vahv ? '✓' : '◔') + '</span>'
+      + '<span style="font-size:12px;color:var(--ink2)">Pelaaja sitoutui jaksoon ' + esc(_pvm(s.sitoumus_pvm)) + (vahv ? ' · VP vahvisti ' + esc(_pvm(s.vahvistettu_pvm)) : ' · odottaa VP:n vahvistusta') + '</span></div>';
+    if (!vahv) h += '<div style="margin-top:8px"><button class="jsp-kt-btn primary" onclick="event.stopPropagation();_vpVahvistaSitoumus(\'' + pid + '\')">✓ Vahvista sitoumus</button></div>';
+  }
+  h += '</div>';
+  return h;
+}
+// VP vahvistaa pelaajan sitoumuksen → pelaaja_sitoumus.vahvistettu_pvm (idp_kausi-olio, ei uutta taulua).
+window._vpVahvistaSitoumus = async function (pid) {
+  const p = _vpIdpPelaaja(pid); if (!p || !p._idpSitoumus) return;
+  p._idpSitoumus = Object.assign({}, p._idpSitoumus, { vahvistettu_pvm: new Date().toISOString() });
+  _vpKausitavoiteReRender();
+  if (_isDemoMode || !_seuraId) { if (typeof toast === 'function') toast('Sitoumus vahvistettu (demo)', 'ok'); return; }
+  try {
+    const cu = firebase.auth().currentUser; if (cu) await cu.getIdToken(true);
+    const vuosi = (typeof idpKausivuosi === 'function') ? idpKausivuosi(new Date()) : String(new Date().getFullYear());
+    await db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(p.id).collection('idp_kausi').doc(vuosi)
+      .set({ pelaaja_sitoumus: p._idpSitoumus, paivitetty: new Date().toISOString() }, { merge: true });
+    if (typeof toast === 'function') toast('Sitoumus vahvistettu ✓', 'ok');
+  } catch (e) { console.warn('[vahvistaSitoumus]', e && e.message); if (typeof toast === 'function') toast('Vahvistus epäonnistui', 'error'); }
+};
 // Kausitavoite-kortti (mockup: fokus-chipit · lähtö→tavoite-palkki · 70/30 · perustelu · pelaajan ääni · status-pill).
 function _vpKausitavoiteHTML(p) {
   if (!p) return '';
@@ -4663,8 +4713,26 @@ function _vpKausitavoiteHTML(p) {
   const la = t.lahto ? t.lahto.arvo : null, tv = t.tavoitearvo;
   h += '<div class="jsp-kt-row"><span class="jsp-kt-pill ' + pillCls + '">' + (st === 'aktiivinen' ? '● Aktiivinen' : st === 'ehdotettu' ? '○ Ehdotettu' : _jsvEsc(st)) + '</span>'
     + '<span class="jsp-kt-kausi">' + _jsvEsc((t.aikaraami && t.aikaraami.kausi) || '') + (t.aikaraami && t.aikaraami.kesto_vk ? ' · ' + t.aikaraami.kesto_vk + ' vk' : '') + '</span></div>';
+  // v2 §3 — 8 viikon sääntö: pehmeä banneri jos tavoite ei ole edennyt (>56 vrk). Ei automaattista muutosta.
+  if (typeof idpJumissa === 'function' && idpJumissa(t)) {
+    h += '<div class="jsp-kt-varo" style="color:var(--amber)">⏳ Tavoite ei ole edennyt 8 viikkoon — harkitse harjoitteen/konseptin vaihtoa · katso ohjelma-analytiikka (7.2b).</div>';
+  }
+  // v2 §1 — IDP-moottorin painopiste (segmentti): moottori EHDOTTAA, asiantuntija päättää. Näkyy ehdotus-/muokkaustilassa.
+  if (st === 'ehdotettu' || p._idpMuokkaus) {
+    const _mod = p._idpModus || t.tyyppi || 'heikkous';
+    const _modBtn = function (key, lbl) {
+      const on = (_mod === key);
+      return '<button class="jsp-kt-btn" style="padding:5px 10px;font-size:10.5px' + (on ? ';background:rgba(40,176,144,.16);border-color:rgba(40,176,144,.45);color:var(--teal)' : '') + '" onclick="event.stopPropagation();_vpAsetaModus(\'' + pid + '\',\'' + key + '\')">' + lbl + '</button>';
+    };
+    h += '<div style="margin:4px 0 10px"><div class="jsp-kt-bt">IDP-moottorin painopiste</div><div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px">'
+      + _modBtn('heikkous', 'Korjaa heikkous') + _modBtn('vahvuus', 'Jalosta vahvuus') + _modBtn('pelipaikka', 'Pelipaikka') + '</div></div>';
+  }
   // fokus-chipit
   const f = t.fokus || {};
+  // v2 §1 — tavoitetyyppi-chip (heikkous=amber · vahvuus=teal · pelipaikka=blue).
+  const _ty = t.tyyppi || 'heikkous';
+  const _tyMap = { heikkous: { c: 'var(--amber)', b: 'rgba(224,160,64,.4)' }, vahvuus: { c: 'var(--teal)', b: 'rgba(40,176,144,.4)' }, pelipaikka: { c: 'var(--blue)', b: 'rgba(42,93,176,.4)' } };
+  const _tyc = _tyMap[_ty] || _tyMap.heikkous;
   // B3 — lähdesiru: näytä havainnon alkuperä (pelihavainto → ottelu/harjoitus + pvm) fokus-chippien joukossa.
   const _lt = f.lahdeTieto || null;
   const _lahdeSiru = (_lt && _lt.tyyppi === 'pelihavainto')
@@ -4672,6 +4740,7 @@ function _vpKausitavoiteHTML(p) {
     : (_lt && _lt.tyyppi === 'havaittu') ? '<span class="chip" style="color:var(--blue)">◎ Lähde: havainto' + (_lt.pvm ? ' · ' + _jsvEsc(_pvmLyhyt(_lt.pvm)) : '') + '</span>' : '';
   h += '<div class="jsp-kt-chips"><span class="chip">🎯 Fokus: <b>' + _jsvEsc(f.nimi || f.alue || '—') + '</b></span>'
     + (f.dim ? '<span class="chip">' + f.dim + '</span>' : '')
+    + '<span class="chip" style="color:' + _tyc.c + ';border-color:' + _tyc.b + '" title="Tavoitetyyppi (v2 vahvuus-moodi)">' + _ty + '</span>'
     + _lahdeSiru
     + (t.perustelu && t.perustelu.kultaikkuna ? '<span class="chip" style="color:var(--teal)">🔥 Kultaikkuna auki</span>' : '') + '</div>';
   // §7b — pelaaminen-linkitys: pelisovelluslause fokus-chippien alle (aikuisnäkymä; ei irrallinen testisuoritus)
@@ -4686,9 +4755,13 @@ function _vpKausitavoiteHTML(p) {
     const pct = Math.max(4, Math.min(100, Math.round(((pienempi ? (la - nyk) : (nyk - la)) / (Math.abs(tv - la) || 1)) * 100)));
     h += '<div class="jsp-kt-sec">Mitattava tavoite — lähtö → tavoite</div>'
       + '<div class="jsp-kt-prow"><span>Lähtö ' + fmt(la, yks) + (t.lahto.pvm ? ' · ' + _jsvEsc(t.lahto.pvm) : '') + '</span><span>Tavoite ' + (pienempi ? '≤ ' : '≥ ') + fmt(tv, yks) + '</span></div>'
-      + '<div class="jsp-kt-track"><div class="jsp-kt-zone"></div><div class="jsp-kt-now" style="width:' + pct + '%"></div></div>';
+      + '<div class="jsp-kt-track"><div class="jsp-kt-zone"></div><div class="jsp-kt-now" style="width:' + pct + '%"></div></div>'
+      + '<div class="jsp-kt-prow" style="margin-top:4px"><span>Mittari: ' + _jsvEsc(mit.testId || yks || '—') + '</span><span>Deadline ' + _jsvEsc((t.aikaraami && t.aikaraami.arvio_pvm) ? _pvmLyhyt(t.aikaraami.arvio_pvm) : '—') + '</span></div>';
   } else if (la != null && tv != null) {
-    h += '<div class="jsp-kt-sec">Tavoite (havaittu 1–5)</div><div class="jsp-kt-prow"><span>Lähtö taso ' + la + '/5</span><span>Tavoite ' + tv + '/5</span></div>';
+    h += '<div class="jsp-kt-sec">Tavoite (havaittu 1–5)</div><div class="jsp-kt-prow"><span>Lähtö taso ' + la + '/5</span><span>Tavoite ' + tv + '/5' + ((t.aikaraami && t.aikaraami.arvio_pvm) ? ' · deadline ' + _jsvEsc(_pvmLyhyt(t.aikaraami.arvio_pvm)) : '') + '</span></div>';
+  } else if (yks !== 'vapaa') {
+    // v2 §2 — SMART-mittari pehmeä vihje (EI tallennuseste): lisää mittari + tavoitearvo kun tiedossa.
+    h += '<div class="jsp-kt-sec" style="color:var(--ink3);text-transform:none;letter-spacing:0">◔ SMART-mittari puuttuu — voit lisätä mittarin ja tavoitearvon (ei pakollinen).</div>';
   }
   // 70/30 + perustelu
   h += '<div class="jsp-kt-grid2">';
@@ -4717,6 +4790,8 @@ function _vpKausitavoiteHTML(p) {
     + '<textarea id="_jspTavAani" class="jsp-kt-aani" placeholder="Pelaajan oma tavoite omin sanoin…" onclick="event.stopPropagation()">' + _jsvEsc(t.pelaajan_tavoite || '') + '</textarea></div>';
   // I3a §C.2 — valinnaiset välitavoitteet (katselutila). Tyhjä → toimii kuten tänään.
   if (!p._idpMuokkaus && typeof _vpValitavoitteetHTML === 'function') h += _vpValitavoitteetHTML(t, pid);
+  // v2 §4 — pelaajan ääni & sitoumus (pelaaja kirjaa Pelaaja-appissa; VP näkee + vahvistaa).
+  if (!p._idpMuokkaus && typeof _vpSitoumusHTML === 'function') h += _vpSitoumusHTML(p, pid);
   // ── 3b: kehityskaari-timeline (katselutila; muokkaustilassa piilossa) ──
   if (!p._idpMuokkaus) h += _vpKehityskaariHTML(t, pid);
   // napit

@@ -352,6 +352,9 @@ service cloud.firestore {
                       // 'itsearvio'/'trianguloitu' lahteet[]:stä → kuuluu sallittuihin avaimiin.
                       || (onAnonymous() && request.resource.data.diff(resource.data).affectedKeys()
                           .hasOnly(['d3_viimeisin', 'd3_taso', 'd3_pvm', 'd3_varmuus']))
+                      // IDP-kortti v2 §4 — PIN-pelaaja: oma sitoumus-pikakenttä (idp_sitoumus_pvm). Sama anon-luottamusmalli.
+                      || (onAnonymous() && request.resource.data.diff(resource.data).affectedKeys()
+                          .hasOnly(['idp_sitoumus_pvm']))
                       // Vaihe 4a — jaksofokus + tt_positio_aktiivinen (operatiivinen teknis-taktinen pelitavoite, §4
                       // roolimalli). Kenttäomistajuus: valmentaja/talenttivalmentaja/VP (onValmentajaRooli) saavat
                       // jo koko-dokin updaten (yllä); tämä tekee EKSPLISIITTISEKSI että myös johto (onJohtoRooli =
@@ -544,11 +547,19 @@ service cloud.firestore {
                         || onAnonymous();   // pelaaja lukee oman kausitavoitteensa (3c-peili)
           allow create: if onSuperAdmin()
                         || onOmanSeuranValmentaja(seuraId)
-                        || (onOmaSeura(seuraId) && onJohtoRooli());
+                        || (onOmaSeura(seuraId) && onJohtoRooli())
+                        // IDP-kortti v2 §4 — PIN-pelaaja saa luoda OMAN sitoumuksensa jos dokkia ei vielä ole (vain pelaaja_sitoumus).
+                        || (onAnonymous() && request.resource.data.keys().hasOnly(['pelaaja_sitoumus'])
+                            && request.resource.data.pelaaja_sitoumus.vahvistettu_pvm == null);
           allow update: if onSuperAdmin()
                         || onOmanSeuranValmentaja(seuraId)
-                        || (onOmaSeura(seuraId) && onJohtoRooli());
-          // (3b: pelaajan self-arvio arviot[]-osaan lisätään omana field-level-sääntönä.)
+                        || (onOmaSeura(seuraId) && onJohtoRooli())
+                        // IDP-kortti v2 §4 — PIN-pelaaja: OMA sitoumus (vain pelaaja_sitoumus + paivitetty). EI tavoitteita,
+                        // EI VP-vahvistusta (vahvistettu_pvm pysyy nykyisenä/null — vain VP/johto asettaa sen).
+                        || (onAnonymous()
+                            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['pelaaja_sitoumus', 'paivitetty'])
+                            && request.resource.data.pelaaja_sitoumus.vahvistettu_pvm ==
+                               (('pelaaja_sitoumus' in resource.data) ? resource.data.pelaaja_sitoumus.get('vahvistettu_pvm', null) : null));
           allow delete: if onSuperAdmin();
         }
 
