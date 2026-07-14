@@ -4435,6 +4435,9 @@ function _vpLoytaPelaaja(pid) {
 function _vpKausitavoiteReRender() {
   const slot = document.getElementById('_jspKausitavoite'); const p = window._vpArvPelaaja;
   if (slot && p && typeof _vpKausitavoiteHTML === 'function') slot.innerHTML = _vpKausitavoiteHTML(p);
+  // 1b — päivitä myös narratiivi-IDP-välilehti (sama data; täysi tavoite latautuu taustalla).
+  const idpSlot = document.getElementById('_jspIdpNarratiivi');
+  if (idpSlot && p && typeof _vpIdpNarratiiviHTML === 'function') idpSlot.innerHTML = _vpIdpNarratiiviHTML(p);
 }
 // §33: operoi SAMAAN objektiin jonka kortti renderöi (_vpArvPelaaja) — muuten mutaatio osuu eri _idpTavoite-refiin.
 function _vpIdpPelaaja(pid) {
@@ -4679,6 +4682,112 @@ window._vpVahvistaSitoumus = async function (pid) {
   } catch (e) { console.warn('[vahvistaSitoumus]', e && e.message); if (typeof toast === 'function') toast('Vahvistus epäonnistui', 'error'); }
 };
 // Kausitavoite-kortti (mockup: fokus-chipit · lähtö→tavoite-palkki · 70/30 · perustelu · pelaajan ääni · status-pill).
+// ═══════════ IDP-kortti 1b — NARRATIIVINEN ESITYSKERROS (design/idp-kortti/IDP-kortti.dc.html §1) ═══════════
+// Presentaatio: lukee olemassa olevaa dataa (_idpTavoite + p.jaksofokus + sitoumus) ja esittää 6 osaa handoff-
+// järjestyksessä DS-tokeneilla — Header · Kausitavoite · Jaksofokus · SMART · Silta · Ääni&sitoumus. EI uutta
+// moottoria/taulua/rules-muutosta. "✎ Muokkaa jaksofokus" kytkee KONSOLIDOITUUN paneeliin (_jfOhjaa, 1a Part B).
+// §0 kaikki pehmeää (puuttuva = vihje, ei estettä). §7.22 EI koske (VP-aikuisnäkymä). Muut osat reuse: silta =
+// _vpSiltaPaneeliHTML, ääni&sitoumus = _vpSitoumusHTML (ei duplikoida logiikkaa). Kehitys-välilehden täysi
+// editori (_vpKausitavoiteHTML) säilyy ennallaan — tämä on lisäävä lukukerros.
+function _vpIdpSmartRivit(p, t) {
+  if (!t) return [];
+  const rivit = [];
+  const mit = t.mittari || {}, yks = mit.yksikko || '';
+  const la = t.lahto ? t.lahto.arvo : null, tv = t.tavoitearvo;
+  let pct = null, pctCol = 'var(--ink3)', mitTxt = null;
+  if (la != null && tv != null) {
+    const pienempi = mit.suunta === 'pienempi';
+    const nyk = (t.arviot && t.arviot.length) ? t.arviot[t.arviot.length - 1].arvo : la;
+    pct = Math.max(4, Math.min(100, Math.round(((pienempi ? (la - nyk) : (nyk - la)) / (Math.abs(tv - la) || 1)) * 100)));
+    pctCol = pct >= 67 ? 'var(--teal)' : pct >= 34 ? 'var(--amber)' : 'var(--red)';
+    const _fmt = function (v) { return (typeof _fmtTestiArvo === 'function') ? _fmtTestiArvo(v, yks) : v; };
+    const unit = (yks && yks !== 'taso' && yks !== 'vapaa') ? ' ' + yks : '', suff = (yks === 'taso') ? '/5' : '';
+    mitTxt = (mit.testId || yks || 'mittari') + ' · ' + _fmt(la) + unit + suff + (pienempi ? ' → ≤ ' : ' → ≥ ') + _fmt(tv) + unit + suff;
+  }
+  rivit.push({ nimi: (t.fokus && (t.fokus.nimi || t.fokus.alue)) || t.kuvaus || 'Kausitavoite',
+    tyyppi: t.tyyppi || 'heikkous', mittari: mitTxt, deadline: (t.aikaraami && t.aikaraami.arvio_pvm) || null, pct: pct, pctCol: pctCol });
+  (t.valitavoitteet || []).forEach(function (v) { if (v && v.nimi) rivit.push({ nimi: v.nimi, valitavoite: true, tila: v.tila || 'avoin' }); });
+  return rivit;
+}
+function _vpIdpSmartRiviHTML(r, i, viim) {
+  const esc = _jsvEsc;
+  const nro = ('0' + (i + 1)).slice(-2);
+  const _tyMap = { heikkous: { c: 'var(--amber)', b: 'rgba(224,160,64,.4)' }, vahvuus: { c: 'var(--teal)', b: 'rgba(40,176,144,.4)' }, pelipaikka: { c: 'var(--blue)', b: 'rgba(42,93,176,.4)' } };
+  const reuna = viim ? '' : 'border-bottom:.5px solid var(--border);';
+  let chip = '';
+  if (r.tyyppi) { const c = _tyMap[r.tyyppi] || _tyMap.heikkous; chip = '<span style="font-size:9px;font-weight:500;letter-spacing:.1em;text-transform:uppercase;padding:2px 7px;color:' + c.c + ';border:.5px solid ' + c.b + ';margin-left:8px;vertical-align:middle">' + esc(r.tyyppi) + '</span>'; }
+  else if (r.valitavoite) { const sc = r.tila === 'saavutettu' ? 'var(--teal)' : r.tila === 'aktiivinen' ? 'var(--blue)' : 'var(--ink3)'; chip = '<span style="font-size:9px;font-weight:500;letter-spacing:.1em;text-transform:uppercase;padding:2px 7px;color:' + sc + ';border:.5px solid var(--border);margin-left:8px;vertical-align:middle">välitavoite · ' + esc(r.tila) + '</span>'; }
+  let meta = '';
+  if (r.mittari) meta = esc(r.mittari) + (r.deadline ? ' · deadline ' + esc((typeof _pvmLyhyt === 'function') ? _pvmLyhyt(r.deadline) : r.deadline) : '');
+  else if (!r.valitavoite) meta = '◔ SMART-mittari puuttuu — voit lisätä sen Kehitys-välilehdellä (ei pakollinen)';
+  let h = '<div style="display:flex;align-items:center;gap:14px;padding:13px 0;' + reuna + '">';
+  h += '<div style="width:28px;height:28px;border-radius:6px;background:var(--bg3);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-family:var(--font-mono);font-size:12px;color:var(--ink2)">' + nro + '</div>';
+  h += '<div style="flex:1;min-width:0"><div style="font-size:14px;font-weight:500;color:var(--ink);margin-bottom:3px">' + esc(r.nimi) + chip + '</div>';
+  h += '<div style="font-size:11px;color:var(--ink3);font-family:var(--font-mono)">' + meta + '</div></div>';
+  if (r.pct != null) {
+    h += '<div style="width:120px;flex-shrink:0"><div style="font-family:var(--font-mono);font-size:11px;color:var(--ink3);text-align:right;margin-bottom:5px">' + r.pct + ' %</div>'
+      + '<div style="height:5px;border-radius:3px;background:var(--bg3);overflow:hidden"><div style="height:100%;width:' + r.pct + '%;background:' + r.pctCol + ';border-radius:3px"></div></div></div>';
+  }
+  h += '</div>';
+  return h;
+}
+function _vpIdpNarratiiviHTML(p) {
+  if (!p) return '';
+  const esc = _jsvEsc, pid = esc(p.id);
+  const t = p._idpTavoite || null;
+  const _eyebrow = function (txt, col) { return '<div style="font-size:9px;font-weight:600;letter-spacing:.16em;text-transform:uppercase;color:' + (col || 'var(--ink3)') + '">' + txt + '</div>'; };
+  const _stitle = function (txt) { return '<div style="font-family:var(--font-serif);font-size:17px;color:var(--ink);margin:0 0 12px">' + txt + '</div>'; };
+  let h = '';
+  // ── 1 HEADER (kevyt IDP-konteksti; identiteetti on jo modaalin otsikossa/vasemmassa sarakkeessa) ──
+  const kausi = (t && t.aikaraami && t.aikaraami.kausi) || (typeof idpKausivuosi === 'function' ? idpKausivuosi(new Date()) : '');
+  const ika = (typeof _dimIkaSp === 'function') ? _dimIkaSp(p.joukkue || '', p).ika : null;
+  const ikavaihe = (ika == null) ? '' : (ika <= 12 ? 'ikävaihe 8–12' : ika <= 15 ? 'ikävaihe 13–15' : 'ikävaihe 16+');
+  const flei = (typeof p.flei_viimeisin === 'number') ? p.flei_viimeisin : (p.flei_viimeisin && p.flei_viimeisin.pct) || null;
+  const metaOsat = [p.joukkue, (p.pelipaikka || p.positio), ikavaihe].filter(Boolean).map(esc);
+  const idpAkt = (p.idp_tila === 'aktiivinen' || (t && t.status === 'aktiivinen'));
+  h += '<div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap;padding-bottom:14px;margin-bottom:18px;border-bottom:.5px solid var(--border)">';
+  h += '<div>' + _eyebrow('TalentMaster · Kehityssuunnitelma', 'var(--teal)')
+    + '<div style="font-size:12px;color:var(--ink2);margin-top:6px">' + (metaOsat.join(' · ') || '—') + (flei != null ? ' · <span style="color:var(--teal)">💎 Valmius ' + flei + '</span>' : '') + '</div></div>';
+  h += '<div style="display:flex;gap:6px;flex-wrap:wrap">'
+    + '<span style="font-family:var(--font-sans);font-size:9px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;padding:4px 10px;' + (idpAkt ? 'background:rgba(40,176,144,.12);color:var(--teal);border:.5px solid rgba(40,176,144,.3)' : 'background:var(--bg3);color:var(--ink3);border:.5px solid var(--border)') + '">' + (idpAkt ? '● IDP aktiivinen' : '○ IDP luonnos') + '</span>'
+    + '<span style="font-family:var(--font-mono);font-size:10px;color:var(--ink3);padding:4px 10px;background:var(--bg3);border:.5px solid var(--border)">Kausi ' + esc(kausi) + '</span></div></div>';
+  // ── 2 KAUSITAVOITE ──
+  const lause = (t && (t.kuvaus || t.pelaajan_tavoite || (t.fokus && (t.fokus.nimi || t.fokus.alue)))) || null;
+  h += '<div style="border-left:2px solid var(--teal);padding:2px 0 2px 20px;margin-bottom:26px">' + _eyebrow('🎯 Kausitavoite · pitkä horisontti 6–12 kk');
+  if (lause) h += '<div style="font-family:var(--font-serif);font-weight:300;font-size:26px;line-height:1.28;color:var(--ink);max-width:760px;margin-top:8px">' + esc(lause) + '</div>';
+  else h += '<div style="font-size:13px;color:var(--ink3);margin-top:8px">Ei vielä kausitavoitetta — aseta se Kehitys-välilehdellä (moottori ehdottaa datasta).</div>';
+  h += '</div>';
+  // ── 3 JAKSOFOKUS · "✎ Muokkaa jaksofokus" → konsolidoitu paneeli (_jfOhjaa, 1a) ──
+  const jf = p.jaksofokus || null;
+  h += '<div style="background:var(--bg2);border:.5px solid var(--border);border-left:2px solid var(--teal);border-radius:10px;padding:18px 20px;margin-bottom:26px">';
+  h += '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:14px;flex-wrap:wrap"><div style="min-width:0">' + _eyebrow('📍 Jaksofokus · aktiivinen · meso 4–8 vk', 'var(--teal)');
+  if (jf && jf.konsepti_nimi) {
+    const domLbl = (jf.domeeni === 'fyysinen') ? '🏃 Fyysinen · D1' : '⚽ Teknis-taktinen · D2/D4';
+    const _pill = function (txt) { return '<span style="font-family:var(--font-sans);font-size:9px;font-weight:500;letter-spacing:.12em;text-transform:uppercase;padding:5px 10px;background:var(--bg3);color:var(--ink2);border:.5px solid var(--border)">' + txt + '</span>'; };
+    h += '<div style="font-family:var(--font-serif);font-size:27px;line-height:1;color:var(--ink);margin:8px 0 12px">' + esc(jf.konsepti_nimi) + '</div>'
+      + '<div style="display:flex;gap:7px;flex-wrap:wrap">' + _pill(domLbl) + _pill('Kesto ' + (jf.kesto_vk || 4) + ' vk') + _pill('Ohjelma · ' + esc((jf.ohjelma && jf.ohjelma.nimi) || '—')) + '</div>';
+  } else {
+    h += '<div style="font-family:var(--font-serif);font-size:24px;color:var(--ink3);margin:8px 0 4px">Jakso tulossa</div><div style="font-size:12px;color:var(--ink3)">Aseta jaksofokus (fyysinen tai teknis-taktinen).</div>';
+  }
+  h += '</div><button onclick="event.stopPropagation();_jfOhjaa(\'' + pid + '\')" style="flex-shrink:0;font-family:var(--font-sans);font-size:10px;font-weight:500;letter-spacing:.1em;text-transform:uppercase;padding:9px 14px;border-radius:6px;background:transparent;color:var(--teal);border:.5px solid rgba(40,176,144,.4);cursor:pointer">✎ Muokkaa jaksofokus</button></div>';
+  if (jf && jf.konsepti_nimi && window.TM_JAKSOFOKUS && typeof window.TM_JAKSOFOKUS.tmJfUmpeutunut === 'function' && window.TM_JAKSOFOKUS.tmJfUmpeutunut(jf)) {
+    h += '<div style="margin-top:12px;font-size:11.5px;color:var(--amber)">🟠 Jakso umpeutunut — sulje ja valitse seuraava fokus Kehitys-välilehdellä.</div>';
+  }
+  h += '</div>';
+  // ── 4 SMART-TAVOITTEET ──
+  h += _stitle('SMART-tavoitteet') + '<div style="background:var(--surface);border:.5px solid var(--border);border-radius:10px;padding:18px 20px;margin-bottom:26px">';
+  const rivit = _vpIdpSmartRivit(p, t);
+  if (rivit.length) h += rivit.map(function (r, i) { return _vpIdpSmartRiviHTML(r, i, i === rivit.length - 1); }).join('');
+  else h += '<div style="font-size:12.5px;color:var(--ink3)">Ei vielä SMART-tavoitteita. Aseta kausitavoite + mittari Kehitys-välilehdellä (puuttuva mittari ei estä tallennusta).</div>';
+  h += '</div>';
+  // ── 5 SILTA (olemassa oleva render, näytetään kun tarjolla) ──
+  const silta = (typeof _vpSiltaPaneeliHTML === 'function') ? _vpSiltaPaneeliHTML(p) : '';
+  if (silta) h += _stitle('Silta · teemasta harjoitteeksi') + '<div style="margin-bottom:26px">' + silta + '</div>';
+  // ── 6 PELAAJAN ÄÄNI & SITOUMUS (olemassa oleva render) ──
+  const sit = (typeof _vpSitoumusHTML === 'function') ? _vpSitoumusHTML(p, pid) : '';
+  if (sit) h += _stitle('Pelaajan ääni & sitoumus') + '<div>' + sit + '</div>';
+  return h;
+}
 function _vpKausitavoiteHTML(p) {
   if (!p) return '';
   window._vpArvPelaaja = p;
@@ -5914,6 +6023,9 @@ function _vpAloitusReRender() {
   // Vaihe 4c — jos jaksofokus-paneeli on auki, re-renderöi runko domeenin mukaan (dropdown-valinta elää).
   const jfSlot = document.getElementById('_jfOhjausSlot');
   if (jfSlot && window._jfOhjausP && typeof _vpJfBodyHTML === 'function') jfSlot.innerHTML = _vpJfBodyHTML(window._jfOhjausP);
+  // 1b — päivitä narratiivi-IDP-välilehden jaksofokus-kortti kun fokus asetetaan/vaihdetaan.
+  const idpSlot = document.getElementById('_jspIdpNarratiivi');
+  if (idpSlot && p && typeof _vpIdpNarratiiviHTML === 'function') idpSlot.innerHTML = _vpIdpNarratiiviHTML(p);
 }
 
 // 2b — tallenna havaittu arvio (1–5 tai N/A). §26 pikakenttä arviointi_havaittu + alikokoelma arviointi/{kausi} (audit: arvioija+pvm).
@@ -7399,7 +7511,7 @@ window._suoritaKorjaaTestipvm = _suoritaKorjaaTestipvm;
 
 // ═══ KERROS 2: per-pelaaja pikakatsaus (drill-down joukkuepopupista) — 4 dimensiovälilehteä ═══
 window._jspVaihda = function(n) {
-  for (let i = 0; i < 6; i++) {   // 0 Aloitus · 1 Fyysinen · 2 Tekninen · 3 Peli · 4 Kehitys · 5 Arviointi
+  for (let i = 0; i < (window._jspTabN || 6); i++) {   // 0 Aloitus · 1 Fyysinen · 2 Tekninen · 3 Peli · 4 Kehitys · 5 Arviointi · (IDP viim., 1b)
     const tab = document.getElementById('_jspTab' + i);
     const btn = document.getElementById('_jspBtn' + i);
     if (tab) tab.style.display = (i === n) ? 'block' : 'none';
@@ -7990,6 +8102,10 @@ window._avaaPerPelaajaPikakatsaus = function(idx, joukkueNimi) {
   hR += '<div style="display:flex;gap:6px;padding-bottom:4px;border-bottom:.5px solid var(--border);flex-wrap:wrap">';
   const _jspTabit = [['ti-home','● Aloitus'],['ti-bolt','Fyysinen'],['ti-ball-football','Tekninen'],['ti-compass','Peli'],['ti-trending-up','Kehitys']];
   if (f5) _jspTabit.push(['ti-clipboard-check','Arviointi']);
+  // IDP-kortti 1b — narratiivi-välilehti (esityskerros). Liitetään viimeiseksi → ei renumeroi olemassa olevia paneeleja.
+  const _idpIdx = _jspTabit.length; _jspTabit.push(['ti-target','IDP']);
+  const fIdp = (typeof _vpIdpNarratiiviHTML === 'function') ? _vpIdpNarratiiviHTML(p) : '';
+  window._jspTabN = _jspTabit.length;
   _jspTabit.forEach(function(t,i) {
     hR += '<button id="_jspBtn' + i + '" class="dim-tab ' + (i===0?'on':'') + '" onclick="_jspVaihda(' + i + ')"><i class="ti ' + t[0] + '"></i>' + t[1] + '</button>';
   });
@@ -8002,6 +8118,7 @@ window._avaaPerPelaajaPikakatsaus = function(idx, joukkueNimi) {
   hR += '<div id="_jspTab3" style="display:none">' + f3 + '</div>';
   hR += '<div id="_jspTab4" style="display:none">' + f4 + _kehExtra + '</div>';
   if (f5) hR += '<div id="_jspTab5" style="display:none">' + f5 + '</div>';
+  hR += '<div id="_jspTab' + _idpIdx + '" style="display:none"><div id="_jspIdpNarratiivi">' + fIdp + '</div></div>';
   hR += '</div>';
   // Kaksisarakkeinen runko (header ja nav täysleveinä sen ulkopuolella; mobiilissa pinoutuu §6)
   h += '<div class="jsp-grid"><div class="jsp-left">' + hL + '</div><div class="jsp-right">' + hR + '</div></div>';
