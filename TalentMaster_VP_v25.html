@@ -26,7 +26,7 @@
 <script src="lib/tm_idp.js?v=6"></script>   <!-- I3a: + kesto valmentajan asetettavaksi (opts.kestoVk) · I2: lahde+pvm/idp_lahde/idpVahvinDim 1–3 -->
 <script src="lib/tm_teknistaktiset.js?v=5"></script>   <!-- Vaihe 4a: teknis-taktinen curriculum (VP:n jaksofokus talenteille) · v5 = I3a pelipaikkaportti U14+ + harjoite-tägit/jalka -->
 <script src="lib/tm_kehityspolku.js?v=1"></script>   <!-- I3a: looginen silta -resolver (idp_fokus → konsepti/fundamentti → harjoite) -->
-<script src="lib/tm_jaksofokus.js?v=3"></script>   <!-- Vaihe 4c: jaksofokus-oversight PURE-ydin (kattavuus/umpeutunut/teemakeskittymä, §26) -->
+<script src="lib/tm_jaksofokus.js?v=4"></script>   <!-- Vaihe 4c: jaksofokus-oversight PURE-ydin (kattavuus/umpeutunut/teemakeskittymä, §26) -->
 <script src="lib/tm_treeniteema.js?v=1"></script>   <!-- Vaihe 4d: teemakattavuus PURE-ydin (jaksofokus vs suunnitellut teemaharjoitukset) -->
 <script src="lib/tm_jaksokooste.js?v=1"></script>   <!-- Vaihe 6: jakson sulku (meso-sykli) PURE-ydin — prosessi+kalibraatio+historia (geneerinen §8) -->
 <script src="lib/tm_fyysteemat.js?v=1"></script>   <!-- Vaihe 7: fyysinen teemaluettelo + D1-fokuslähde + evidenssi (delta §29 + PHV-portti §28) -->
@@ -4065,6 +4065,7 @@ window._vpAsetaFyysFokus = async function (pid, teemaAvain) {
       luotu: new Date().toISOString() };
   }
   const jf = { konsepti_avain: teemaAvain, konsepti_nimi: teema ? teema.nimi : teemaAvain, konsepti_koodi: null, domeeni: 'fyysinen', lahde: 'silta_d1', alkoi: new Date().toISOString(), kesto_vk: 4, ohjelma: ohjelma };
+  if (typeof _vpJfMergeLisakentat === 'function') _vpJfMergeLisakentat(jf, p.id);   // JF-2: linkitetyt + Opittu kun
   const _jfArk = _vpJfArkistoiVaihdossa(p, 'fyysinen');   // 1a: arkistoi vanha teknis-taktinen jakso ennen ylikirjoitusta
   if (_jfArk.arkistoitu) p.jaksofokus_historia = _jfArk.historia;
   p.jaksofokus = jf;
@@ -4182,6 +4183,7 @@ window._vpOhjKaytaOhjelma = async function (pid, teemaAvain, ohjelmaId) {
     ohjelma_id: ohjelmaId, ohjelma_versio: (lib.versio || 1), luotu: new Date().toISOString() };
   const jf = (p.jaksofokus && p.jaksofokus.domeeni === 'fyysinen') ? Object.assign({}, p.jaksofokus, { ohjelma: ohjelma })
     : { konsepti_avain: tAvain, konsepti_nimi: teema ? teema.nimi : tAvain, konsepti_koodi: null, domeeni: 'fyysinen', lahde: 'silta_d1', alkoi: new Date().toISOString(), kesto_vk: 4, ohjelma: ohjelma };
+  if (typeof _vpJfMergeLisakentat === 'function') _vpJfMergeLisakentat(jf, p.id);   // JF-2: linkitetyt + Opittu kun
   const _jfArk = _vpJfArkistoiVaihdossa(p, 'fyysinen');   // 1a: arkistoi vanha teknis-taktinen jakso (merge-haara = sama domeeni → ei arkistoa)
   if (_jfArk.arkistoitu) p.jaksofokus_historia = _jfArk.historia;
   p.jaksofokus = jf;
@@ -4899,6 +4901,8 @@ function _vpIdpNarratiiviHTML(p) {
     h += '<div style="font-family:var(--font-serif);font-size:24px;color:var(--ink3);margin:8px 0 4px">Jakso tulossa</div><div style="font-size:12px;color:var(--ink3)">Aseta jaksofokus (fyysinen tai teknis-taktinen).</div>';
   }
   h += '</div><button onclick="event.stopPropagation();_jfOhjaa(\'' + pid + '\')" style="flex-shrink:0;font-family:var(--font-sans);font-size:10px;font-weight:500;letter-spacing:.1em;text-transform:uppercase;padding:9px 14px;border-radius:6px;background:transparent;color:var(--teal);border:.5px solid rgba(40,176,144,.4);cursor:pointer">✎ Muokkaa jaksofokus</button></div>';
+  // JF-2 — pääfokus → tukena: linkitetyt + "✓ Opittu kun". Tyhjä → ei mitään (additiivinen).
+  if (jf && jf.konsepti_nimi && typeof _vpJfTukiHTML === 'function') h += _vpJfTukiHTML(jf);
   if (jf && jf.konsepti_nimi && window.TM_JAKSOFOKUS && typeof window.TM_JAKSOFOKUS.tmJfUmpeutunut === 'function' && window.TM_JAKSOFOKUS.tmJfUmpeutunut(jf)) {
     h += '<div style="margin-top:12px;font-size:11.5px;color:var(--amber)">🟠 Jakso umpeutunut — sulje ja valitse seuraava fokus Kehitys-välilehdellä.</div>';
   }
@@ -5536,6 +5540,7 @@ window._vpTtVieTreeniin = async function (pid, avain) {
     if (ehdKons2 && ehdKons2 !== avain) jaksofokus.poikkeama = true;
   }
   window._vpTtLahde = 'vp';
+  if (typeof _vpJfMergeLisakentat === 'function') _vpJfMergeLisakentat(jaksofokus, p.id);   // JF-2: linkitetyt + Opittu kun
   const _jfArk = _vpJfArkistoiVaihdossa(p, 'teknis_taktinen');   // 1a: arkistoi vanha fyysinen jakso ennen ylikirjoitusta
   if (_jfArk.arkistoitu) p.jaksofokus_historia = _jfArk.historia;
   p.jaksofokus = jaksofokus;
@@ -5855,6 +5860,7 @@ window._vpJfAsetaKehitysFokus = async function (pid, domeeni, avain) {
   const kestoVk = (kestoEl && +kestoEl.value > 0) ? +kestoEl.value : ((p.jaksofokus && p.jaksofokus.kesto_vk) || 6);
   const jaksofokus = { konsepti_avain: k.avain, konsepti_nimi: k.nimi, konsepti_koodi: k.koodi || null, domeeni: domeeni, alkoi: new Date().toISOString(), kesto_vk: kestoVk, lahde: window._vpTtLahde || 'vp' };
   window._vpTtLahde = 'vp';
+  if (typeof _vpJfMergeLisakentat === 'function') _vpJfMergeLisakentat(jaksofokus, p.id);   // JF-2: linkitetyt + Opittu kun
   const _jfArk = _vpJfArkistoiVaihdossa(p, domeeni);   // JF-1: arkistoi vanha eri-domeeni-jakso ennen ylikirjoitusta
   if (_jfArk.arkistoitu) p.jaksofokus_historia = _jfArk.historia;
   p.jaksofokus = jaksofokus;
@@ -5887,6 +5893,12 @@ window._jfOhjaa = function (pid, esiValinta, lahde, domeeni) {
   // säilytä aktiivisen jakson domeeni; muuten teknis. (D1-silta antaa domeeni='fyysinen' wrapperista.)
   window._vpJfDomeeni[p.id] = domeeni || (esiValinta ? 'teknis_taktinen' : ((p.jaksofokus && p.jaksofokus.domeeni) || 'teknis_taktinen'));
   if (esiValinta) window._vpTtValinta[p.id] = esiValinta; else delete window._vpTtValinta[p.id];
+  // JF-2 — linkitetyt tukikonseptit + "Opittu kun" -kriteeri: alusta editointitila aktiivisesta jaksofokuksesta.
+  // Additiivinen: tyhjä = kuten ennen. Writerit lukevat tämän tilan (source of truth kun editori auki).
+  window._vpJfLinkit = window._vpJfLinkit || {}; window._vpJfKriteeri = window._vpJfKriteeri || {}; window._vpJfLinkitDom = window._vpJfLinkitDom || {};
+  const _jfLib = window.TM_JAKSOFOKUS;
+  window._vpJfLinkit[p.id] = (_jfLib && typeof _jfLib.tmJfNormLinkit === 'function') ? _jfLib.tmJfNormLinkit(p.jaksofokus && p.jaksofokus.linkitetyt) : ((p.jaksofokus && Array.isArray(p.jaksofokus.linkitetyt)) ? p.jaksofokus.linkitetyt.slice() : []);
+  window._vpJfKriteeri[p.id] = (p.jaksofokus && p.jaksofokus.onnistumiskriteeri) || '';
   document.getElementById('_jfModal')?.remove();
   const yli = (p.talenttiOhjelma !== true) ? '<div style="font-size:11px;color:var(--blue);background:rgba(42,93,176,.1);border:.5px solid rgba(42,93,176,.3);border-radius:8px;padding:8px 11px;margin-bottom:10px">ℹ️ Override: valmentaja omistaa kentän — asetat/muutat VP-oversightina (§4).</div>' : '';
   let h = '<div id="_jfModal" style="position:fixed;inset:0;background:rgba(17,17,16,.92);z-index:360;display:flex;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(8px)" onclick="if(event.target===this)this.remove()">';
@@ -5896,10 +5908,134 @@ window._jfOhjaa = function (pid, esiValinta, lahde, domeeni) {
   h += yli;
   h += '<div id="_vpJfToggle">' + _vpJfToggleHTML(p) + '</div>';
   h += '<div id="_jfOhjausSlot">' + _vpJfBodyHTML(p) + '</div>';
+  h += '<div id="_jfLinkitSlot">' + _vpJfLinkitHTML(p) + '</div>';   // JF-2 — jaettu (domeenin yli): linkitetyt + Opittu kun
   h += '</div></div>';
   const wrap = document.createElement('div'); wrap.innerHTML = h;
   document.body.appendChild(wrap.firstChild);
 };
+
+// JF-2 — konseptilista mille tahansa 4 domeenille (linkitys-pickeriä varten). [{avain, nimi}].
+function _vpJfDomeeniKonseptit(p, dom) {
+  const LIB = window.TM_JAKSOFOKUS;
+  if (dom === 'psyykkinen' || dom === 'sosiaalinen') return (LIB && typeof LIB.tmJfKonseptit === 'function') ? LIB.tmJfKonseptit(dom).map(function (k) { return { avain: k.avain, nimi: k.nimi }; }) : [];
+  if (dom === 'fyysinen') { const F = window.TM_FYYSTEEMAT_LIB; return (F && Array.isArray(F.TM_FYYSTEEMAT)) ? F.TM_FYYSTEEMAT.map(function (t) { return { avain: t.avain, nimi: t.nimi }; }) : []; }
+  // teknis_taktinen — ikä/pelipaikka-gitatut konseptit pelaajalle
+  if (typeof tmTtItems === 'function') {
+    const isp = (typeof _dimIkaSp === 'function') ? _dimIkaSp(p.joukkue || '', p) : { ika: null };
+    const posCode = p.tt_positio_aktiivinen || (typeof _vpTtNormPositio === 'function' ? _vpTtNormPositio(p.positio || p.pelipaikka) : null);
+    return tmTtItems({ ika: isp.ika, joukkue: p.joukkue, positio: posCode, tt_positio_aktiivinen: posCode, syntymaVuosi: p.syntymaVuosi }).map(function (it) { return { avain: it.avain, nimi: it.nimi }; });
+  }
+  return [];
+}
+
+// JF-2 — jaettu editointipinta (domeenin yli): linkitetyt tukikonseptit (max 3) + "Opittu kun" -kriteeri.
+function _vpJfLinkitHTML(p) {
+  const esc = _jsvEsc; const pid = esc(p.id);
+  const LIB = window.TM_JAKSOFOKUS;
+  const MAX = (LIB && LIB.LINKIT_MAX) || 3;
+  const linkit = (window._vpJfLinkit && window._vpJfLinkit[p.id]) || [];
+  const kriteeri = (window._vpJfKriteeri && window._vpJfKriteeri[p.id]) || '';
+  const domeenit = (LIB && Array.isArray(LIB.TM_JF_DOMEENIT)) ? LIB.TM_JF_DOMEENIT : [];
+  const domIkoni = function (d) { const m = (LIB && typeof LIB.tmJfDomeeni === 'function') ? LIB.tmJfDomeeni(d) : null; return m ? m.ikoni : '•'; };
+  let h = '<div style="margin-top:14px;border-top:.5px solid var(--border);padding-top:12px">';
+  h += '<div style="font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink3);margin-bottom:6px">Tukikonseptit · linkitetyt (max ' + MAX + ')</div>';
+  if (linkit.length) {
+    h += '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px">';
+    linkit.forEach(function (l, i) {
+      h += '<span style="display:inline-flex;align-items:center;gap:5px;font-size:11.5px;background:var(--ov-1);border:.5px solid var(--border);border-radius:999px;padding:4px 6px 4px 10px;color:var(--ink2)">'
+        + domIkoni(l.domeeni) + ' ' + esc(l.konsepti_nimi)
+        + '<span onclick="_vpJfPoistaLinkki(\'' + pid + '\',' + i + ')" title="Poista" style="cursor:pointer;color:var(--ink3);font-size:15px;line-height:1;padding:0 3px">×</span></span>';
+    });
+    h += '</div>';
+  } else {
+    h += '<div style="font-size:11.5px;color:var(--ink3);font-style:italic;margin-bottom:8px">Ei tukikonsepteja — pääfokus toimii yksin. Voit linkittää tukevan konseptin miltä tahansa alueelta.</div>';
+  }
+  if (linkit.length < MAX) {
+    const dsel = (window._vpJfLinkitDom && window._vpJfLinkitDom[p.id]) || (domeenit[0] && domeenit[0].avain) || 'teknis_taktinen';
+    const konseptit = _vpJfDomeeniKonseptit(p, dsel);
+    h += '<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">';
+    h += '<select id="_vpJfLinkDom" class="jsp-arv-select" style="flex:0 0 auto;min-width:118px" onclick="event.stopPropagation()" onchange="_vpJfLinkitDomVaihda(\'' + pid + '\',this.value)">'
+      + domeenit.map(function (d) { return '<option value="' + esc(d.avain) + '"' + (d.avain === dsel ? ' selected' : '') + '>' + esc(d.ikoni + ' ' + d.nimi) + '</option>'; }).join('') + '</select>';
+    h += '<select id="_vpJfLinkKons" class="jsp-arv-select" style="flex:1 1 130px;min-width:120px" onclick="event.stopPropagation()">'
+      + (konseptit.length ? konseptit.map(function (k) { return '<option value="' + esc(k.avain) + '">' + esc(k.nimi) + '</option>'; }).join('') : '<option value="">— ei konsepteja —</option>') + '</select>';
+    h += '<button onclick="_vpJfLisaaLinkki(\'' + pid + '\')" style="flex:0 0 auto;font-size:12px;border-radius:8px;padding:8px 12px;cursor:pointer;border:.5px solid rgba(40,176,144,.4);background:rgba(40,176,144,.08);color:var(--teal)">＋ Linkitä konsepti</button>';
+    h += '</div>';
+  } else {
+    h += '<div style="font-size:11px;color:var(--ink3)">Maksimi ' + MAX + ' tukikonseptia saavutettu.</div>';
+  }
+  h += '<div style="margin-top:14px"><div style="font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink3);margin-bottom:6px">✓ Opittu kun · onnistumiskriteeri</div>';
+  h += '<textarea id="_vpJfKriteeriInp" oninput="_vpJfKriteeriSync(\'' + pid + '\',this.value)" onclick="event.stopPropagation()" placeholder="Havaittava kriteeri — esim. ”Kääntyy paineessa ja etenee eteenpäin 3/5 tilanteessa ottelussa.”" style="width:100%;min-height:56px;resize:vertical;font-family:inherit;font-size:12.5px;color:var(--ink);background:var(--surface);border:.5px solid var(--border);border-radius:8px;padding:9px 11px;box-sizing:border-box">' + esc(kriteeri) + '</textarea>';
+  h += '<div style="font-size:10.5px;color:var(--ink3);margin-top:5px">📏 Kirjaa mitattavassa muodossa (SMART) — sama tavoite, havaittava kriteeri.</div></div>';
+  h += '</div>';
+  return h;
+}
+
+// JF-2 linkitys-handlerit (re-renderöi vain jaettu _jfLinkitSlot; runko + kriteeri-teksti eivät katoa).
+window._vpJfLinkitDomVaihda = function (pid, dom) {
+  window._vpJfLinkitDom = window._vpJfLinkitDom || {}; window._vpJfLinkitDom[pid] = dom;
+  const p = _vpTtPelaaja(pid); const slot = document.getElementById('_jfLinkitSlot');
+  if (p && slot) slot.innerHTML = _vpJfLinkitHTML(p);
+};
+window._vpJfLisaaLinkki = function (pid) {
+  const p = _vpTtPelaaja(pid); if (!p) return;
+  const LIB = window.TM_JAKSOFOKUS;
+  const domEl = document.getElementById('_vpJfLinkDom'), konsEl = document.getElementById('_vpJfLinkKons');
+  const dom = domEl && domEl.value, avain = konsEl && konsEl.value;
+  if (!dom || !avain) return;
+  const kons = _vpJfDomeeniKonseptit(p, dom).find(function (k) { return k.avain === avain; });
+  if (!kons) return;
+  window._vpJfLinkit = window._vpJfLinkit || {};
+  const nyt = window._vpJfLinkit[pid] || [];
+  const uusi = { domeeni: dom, konsepti_avain: avain, konsepti_nimi: kons.nimi };
+  const tulos = (LIB && typeof LIB.tmJfLisaaLinkki === 'function') ? LIB.tmJfLisaaLinkki(nyt, uusi) : nyt.concat([uusi]);
+  if (tulos.length === nyt.length && typeof toast === 'function') toast('Jo linkitetty tai maksimi täynnä', 'ok');
+  window._vpJfLinkit[pid] = tulos;
+  const slot = document.getElementById('_jfLinkitSlot'); if (slot) slot.innerHTML = _vpJfLinkitHTML(p);
+};
+window._vpJfPoistaLinkki = function (pid, idx) {
+  const p = _vpTtPelaaja(pid); if (!p) return;
+  const arr = (window._vpJfLinkit && window._vpJfLinkit[pid]) || [];
+  arr.splice(idx, 1);
+  const slot = document.getElementById('_jfLinkitSlot'); if (slot) slot.innerHTML = _vpJfLinkitHTML(p);
+};
+window._vpJfKriteeriSync = function (pid, val) {
+  window._vpJfKriteeri = window._vpJfKriteeri || {}; window._vpJfKriteeri[pid] = val;
+};
+
+// JF-2 — sulauta linkitetyt + onnistumiskriteeri jaksofokus-objektiin ENNEN tallennusta. Editointitila (jos
+// olemassa pid:lle) on source of truth → tyhjä poistaa kentän (Firestore set korvaa koko jaksofokus-mapin).
+function _vpJfMergeLisakentat(jf, pid) {
+  const LIB = window.TM_JAKSOFOKUS;
+  if (window._vpJfLinkit && Object.prototype.hasOwnProperty.call(window._vpJfLinkit, pid)) {
+    const arr = (LIB && typeof LIB.tmJfNormLinkit === 'function') ? LIB.tmJfNormLinkit(window._vpJfLinkit[pid]) : (window._vpJfLinkit[pid] || []).slice(0, 3);
+    if (arr.length) jf.linkitetyt = arr; else delete jf.linkitetyt;
+  }
+  if (window._vpJfKriteeri && Object.prototype.hasOwnProperty.call(window._vpJfKriteeri, pid)) {
+    const kr = String(window._vpJfKriteeri[pid] || '').trim();
+    if (kr) jf.onnistumiskriteeri = kr; else delete jf.onnistumiskriteeri;
+  }
+  return jf;
+}
+
+// JF-2 — kortin "→ Tukena: linkitetyt" + "✓ Opittu kun" (jaettu narratiivi + meso). Tyhjä → '' (additiivinen).
+function _vpJfTukiHTML(jf, opts) {
+  opts = opts || {};
+  if (!jf) return '';
+  const LIB = window.TM_JAKSOFOKUS;
+  const domIkoni = function (d) { const m = (LIB && typeof LIB.tmJfDomeeni === 'function') ? LIB.tmJfDomeeni(d) : null; return m ? m.ikoni : '•'; };
+  const linkit = Array.isArray(jf.linkitetyt) ? jf.linkitetyt : [];
+  const kr = jf.onnistumiskriteeri ? String(jf.onnistumiskriteeri).trim() : '';
+  if (!linkit.length && !kr) return '';
+  let h = '';
+  if (linkit.length) {
+    h += '<div style="margin-top:' + (opts.tight ? '6' : '10') + 'px;font-size:11.5px;color:var(--ink3)">→ Tukena: '
+      + linkit.map(function (l) { return '<span style="display:inline-block;background:var(--ov-1);border:.5px solid var(--border);border-radius:999px;padding:2px 9px;margin:2px 4px 2px 0;color:var(--ink2)">' + domIkoni(l.domeeni) + ' ' + _jsvEsc(l.konsepti_nimi) + '</span>'; }).join('') + '</div>';
+  }
+  if (kr) {
+    h += '<div style="margin-top:8px;font-size:12px;color:var(--ink2);background:rgba(40,176,144,.07);border:.5px solid rgba(40,176,144,.25);border-radius:8px;padding:8px 11px"><span style="color:var(--teal);font-weight:600">✓ Opittu kun:</span> ' + _jsvEsc(kr) + '</div>';
+  }
+  return h;
+}
 
 // ≥3 samaa konseptia → ryhmäharjoite-CTA → 4d-silta: esitäytetty harjoitus (teema + klusterin pelaajat_id).
 window._jfRyhmaharjoite = function (avain) {
@@ -6177,6 +6313,7 @@ function _vpAloitusHTML(p) {
     h += '<div class="vpal-fk jakso"><div class="vpal-k amber">📍 Jaksofokus <span class="vpal-pill">meso' + _jfVk + '</span>' + (_ump ? ' <span style="color:var(--amber)">🟠 umpeutunut</span>' : '') + '</div>'
       + '<h3 class="vpal-h3">' + _jsvEsc(_jf.konsepti_nimi) + '</h3>'
       + '<div class="vpal-meta">viemä jakso' + (_jf.lahde ? ' · ' + _jsvEsc(_jf.lahde) : '') + '</div>'
+      + (typeof _vpJfTukiHTML === 'function' ? _vpJfTukiHTML(_jf, { tight: true }) : '')   // JF-2: tukena + Opittu kun
       + (_ump ? '<div style="margin-top:8px"><button class="jsp-kt-btn primary" onclick="_vpSuljeJakso(\'' + _jsvEsc(p.id) + '\')">↻ Sulje jakso → seuraava fokus</button></div>' : '') + '</div>';
   } else {
     h += '<div class="vpal-fk jakso"><div class="vpal-k amber">📍 Jaksofokus <span class="vpal-pill">meso</span></div>'

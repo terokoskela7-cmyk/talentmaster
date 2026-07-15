@@ -94,6 +94,63 @@ describe('JF-1 nelikulmamalli — domeenit + seed-konseptit', () => {
   });
 });
 
+describe('JF-2 linkitetyt konseptit (tmJfNormLinkit / tmJfLisaaLinkki)', () => {
+  const L = (dom, avain, nimi) => ({ domeeni: dom, konsepti_avain: avain, konsepti_nimi: nimi });
+  it('LINKIT_MAX = 3', () => {
+    expect(JF.LINKIT_MAX).toBe(3);
+  });
+  it('tmJfNormLinkit siivoaa invalidit + dedup domeeni+avain', () => {
+    const r = JF.tmJfNormLinkit([
+      L('psyykkinen', 'rohkeus', 'Rohkeus'),
+      L('psyykkinen', 'rohkeus', 'Rohkeus'),   // dup
+      { domeeni: 'fyysinen' },                 // invalidi (ei avainta)
+      null,                                    // invalidi
+      L('sosiaalinen', 'johtajuus', 'Johtajuus')
+    ]);
+    expect(r.map((x) => x.domeeni + ':' + x.konsepti_avain)).toEqual(['psyykkinen:rohkeus', 'sosiaalinen:johtajuus']);
+  });
+  it('tmJfNormLinkit cappaa 3:een', () => {
+    const r = JF.tmJfNormLinkit([L('a', '1'), L('b', '2'), L('c', '3'), L('d', '4'), L('e', '5')]);
+    expect(r.length).toBe(3);
+  });
+  it('tmJfNormLinkit täydentää puuttuvan nimen avaimella', () => {
+    expect(JF.tmJfNormLinkit([{ domeeni: 'psyykkinen', konsepti_avain: 'rohkeus' }])[0].konsepti_nimi).toBe('rohkeus');
+  });
+  it('tmJfNormLinkit ei-taulukko → []', () => {
+    expect(JF.tmJfNormLinkit(null)).toEqual([]);
+    expect(JF.tmJfNormLinkit(undefined)).toEqual([]);
+  });
+  it('tmJfLisaaLinkki lisää + palauttaa uuden taulukon (ei mutatoi)', () => {
+    const a = [];
+    const b = JF.tmJfLisaaLinkki(a, L('psyykkinen', 'rohkeus', 'Rohkeus'));
+    expect(a.length).toBe(0);
+    expect(b.length).toBe(1);
+  });
+  it('tmJfLisaaLinkki hylkää duplikaatin (sama domeeni+avain)', () => {
+    let a = JF.tmJfLisaaLinkki([], L('fyysinen', 'x', 'X'));
+    a = JF.tmJfLisaaLinkki(a, L('fyysinen', 'x', 'X'));
+    expect(a.length).toBe(1);
+  });
+  it('sama avain eri domeeni = erillinen (ei dup)', () => {
+    let a = JF.tmJfLisaaLinkki([], L('fyysinen', 'x', 'X'));
+    a = JF.tmJfLisaaLinkki(a, L('psyykkinen', 'x', 'X2'));
+    expect(a.length).toBe(2);
+  });
+  it('tmJfLisaaLinkki hylkää yli maksimin (cap 3)', () => {
+    let a = [];
+    a = JF.tmJfLisaaLinkki(a, L('a', '1'));
+    a = JF.tmJfLisaaLinkki(a, L('b', '2'));
+    a = JF.tmJfLisaaLinkki(a, L('c', '3'));
+    a = JF.tmJfLisaaLinkki(a, L('d', '4'));
+    expect(a.length).toBe(3);
+    expect(a.map((x) => x.domeeni)).toEqual(['a', 'b', 'c']);
+  });
+  it('tmJfLisaaLinkki hylkää invalidin (ei domeenia/avainta)', () => {
+    expect(JF.tmJfLisaaLinkki([], null).length).toBe(0);
+    expect(JF.tmJfLisaaLinkki([], { domeeni: 'x' }).length).toBe(0);
+  });
+});
+
 describe('tmJfUmpeutunut', () => {
   it('tuore jakso (7 pv sitten, 4 vk) = aktiivinen', () => {
     expect(JF.tmJfUmpeutunut(fokus('y_h0', 'A').jaksofokus, NYT)).toBe(false);
