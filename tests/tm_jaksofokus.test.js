@@ -39,6 +39,59 @@ describe('tmJfVaihtaaDomeenin (IDP-kortti 1a domeeni-fix)', () => {
   it('uusiDomeeni puuttuu = EI vaihdu (defensiivinen)', () => {
     expect(JF.tmJfVaihtaaDomeenin(jf('fyysinen'), null)).toBe(false);
   });
+  // JF-1 nelikulmamalli — arkistointi toimii kaikilla 4 domeenilla (predikaatti domeeni-agnostinen).
+  it('JF-1: eri domeeni psyykkinen/sosiaalinen mukaan lukien = vaihtuu', () => {
+    expect(JF.tmJfVaihtaaDomeenin(jf('teknis_taktinen'), 'psyykkinen')).toBe(true);
+    expect(JF.tmJfVaihtaaDomeenin(jf('psyykkinen'), 'sosiaalinen')).toBe(true);
+    expect(JF.tmJfVaihtaaDomeenin(jf('sosiaalinen'), 'fyysinen')).toBe(true);
+  });
+  it('JF-1: sama uusi domeeni (psyykkinen/sosiaalinen) = EI arkistoa', () => {
+    expect(JF.tmJfVaihtaaDomeenin(jf('psyykkinen'), 'psyykkinen')).toBe(false);
+    expect(JF.tmJfVaihtaaDomeenin(jf('sosiaalinen'), 'sosiaalinen')).toBe(false);
+  });
+});
+
+describe('JF-1 nelikulmamalli — domeenit + seed-konseptit', () => {
+  it('4 domeenia oikeassa järjestyksessä (5D-täsmäys)', () => {
+    expect(JF.TM_JF_DOMEENIT.map((d) => d.avain)).toEqual(['fyysinen', 'teknis_taktinen', 'psyykkinen', 'sosiaalinen']);
+  });
+  it('jokaisella domeenilla ikoni + nimi + dim', () => {
+    JF.TM_JF_DOMEENIT.forEach((d) => {
+      expect(d.ikoni).toBeTruthy();
+      expect(d.nimi).toBeTruthy();
+      expect(d.dim).toBeTruthy();
+    });
+  });
+  it('tmJfDomeeni palauttaa metan avaimella, null tuntemattomalle', () => {
+    expect(JF.tmJfDomeeni('psyykkinen').nimi).toBe('Henkinen');
+    expect(JF.tmJfDomeeni('sosiaalinen').dim).toBe('D5');
+    expect(JF.tmJfDomeeni('ei_ole')).toBe(null);
+  });
+  it('psyykkinen + sosiaalinen seed-konseptit (≥3 kumpikin), fyysinen/teknis = oma lib (tyhjä)', () => {
+    expect(JF.tmJfKonseptit('psyykkinen').length).toBeGreaterThanOrEqual(3);
+    expect(JF.tmJfKonseptit('sosiaalinen').length).toBeGreaterThanOrEqual(3);
+    expect(JF.tmJfKonseptit('fyysinen')).toEqual([]);
+    expect(JF.tmJfKonseptit('teknis_taktinen')).toEqual([]);
+  });
+  it('konseptilla avain + koodi + nimi + cue (kehityskonsepti, ei kliininen kenttä)', () => {
+    JF.tmJfKonseptit('psyykkinen').concat(JF.tmJfKonseptit('sosiaalinen')).forEach((k) => {
+      expect(k.avain).toBeTruthy();
+      expect(k.koodi).toBeTruthy();
+      expect(k.nimi).toBeTruthy();
+      expect(k.cue).toBeTruthy();
+    });
+  });
+  it('tmJfKonsepti hakee avaimella tai koodilla, null tuntemattomalle', () => {
+    expect(JF.tmJfKonsepti('psyykkinen', 'rohkeus').nimi).toBe('Rohkeus');
+    expect(JF.tmJfKonsepti('sosiaalinen', 'S1').nimi).toBe('Johtajuus');
+    expect(JF.tmJfKonsepti('psyykkinen', 'ei_ole')).toBe(null);
+    expect(JF.tmJfKonsepti('fyysinen', 'mikä_vaan')).toBe(null);
+  });
+  it('tmJfKonseptit palauttaa kopion (ei mutatoi kirjastoa)', () => {
+    const a = JF.tmJfKonseptit('psyykkinen');
+    a.push({ avain: 'roska' });
+    expect(JF.tmJfKonseptit('psyykkinen').length).toBe(4);
+  });
 });
 
 describe('tmJfUmpeutunut', () => {
