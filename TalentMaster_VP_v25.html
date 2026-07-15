@@ -819,6 +819,8 @@ body {
   color: var(--ink);
 }
 .player-table tr:hover td { background: var(--ov-1); }
+.jf-prow { cursor: pointer; transition: background .12s; }
+.jf-prow:hover td { background: var(--ov-1); }
 .tag {
   display: inline-flex; align-items: center;
   border-radius: 20px; padding: 2px 9px;
@@ -5642,8 +5644,8 @@ function renderJaksofokus() {
   talentit.sort(_sort); muut.sort(_sort);
 
   h += '<div style="background:var(--bg2);border:.5px solid var(--border);border-radius:14px;padding:16px;margin-bottom:14px">';
-  h += '<h3 style="font-family:\'Cormorant Garamond\',serif;font-weight:400;font-size:16px;margin-bottom:2px">Pelaajakohtainen ohjaus</h3>';
-  h += '<div style="font-size:11px;color:var(--ink3);margin-bottom:6px">Talentit ensin (VP-vastuu §37). Ohjaa = aseta/muokkaa jaksofokus (konsepti→cue→harjoite).</div>';
+  h += '<h3 style="font-family:\'Cormorant Garamond\',serif;font-weight:400;font-size:16px;margin-bottom:2px">Pelaajakohtainen kattavuus</h3>';
+  h += '<div style="font-size:11px;color:var(--ink3);margin-bottom:6px">Talentit ensin (VP-vastuu §37). Klikkaa riviä → pelaajan kortti, jossa asetat/muokkaat jaksofokuksen (konsepti→cue→harjoite).</div>';
   if (talentit.length) {
     h += '<div style="font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink3);margin:14px 2px 5px">⭐ Talentit (' + talentit.length + ')</div>';
     h += _jfTaulukko(talentit, JF, true);
@@ -5655,7 +5657,7 @@ function renderJaksofokus() {
   if (!pel.length) h += '<div style="padding:14px;color:var(--ink3);font-size:13px">Ei pelaajia valitussa joukkueessa.</div>';
   h += '</div>';
 
-  h += '<div style="font-size:11px;color:var(--ink3);line-height:1.7;padding:0 2px"><b style="color:var(--ink2)">Kolme kysymystä, yksi näkymä.</b> Kattavuus (onko suunta) · Teemakeskittymä (≥' + JF.RYHMA_KYNNYS + ' samaa → ryhmäharjoite) · Talentit ohjattu (VP-vastuu §37). Kaikki jaksofokus-pikakentästä (§26). Ohjaa/Aseta → konsepti→cue→harjoite (VP-lähde).</div>';
+  h += '<div style="font-size:11px;color:var(--ink3);line-height:1.7;padding:0 2px"><b style="color:var(--ink2)">Kolme kysymystä, yksi näkymä.</b> Kattavuus (onko suunta) · Teemakeskittymä (≥' + JF.RYHMA_KYNNYS + ' samaa → ryhmäharjoite) · Talentit ohjattu (VP-vastuu §37). Kaikki jaksofokus-pikakentästä (§26). Rivi → pelaajan kortti, jossa yksi jaettu jaksofokus-editori (konsepti→cue→harjoite, VP-lähde).</div>';
 
   host.innerHTML = h;
 }
@@ -5676,27 +5678,28 @@ function _jfTaulukko(lista, JF, talentti) {
     + '<th style="text-align:left;font-size:9.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink3);font-weight:600;padding:6px 8px;border-bottom:.5px solid var(--border)">Lähde</th>'
     + '<th style="text-align:left;font-size:9.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink3);font-weight:600;padding:6px 8px;border-bottom:.5px solid var(--border)">Jakso</th>'
     + '<th style="text-align:left;font-size:9.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink3);font-weight:600;padding:6px 8px;border-bottom:.5px solid var(--border)">Tila</th><th style="border-bottom:.5px solid var(--border)"></th></tr>';
+  // Vaihe C — joukkuenäkymä = kattavuus + tila (read). Rivi → pelaajakortti (avaaPelaaja, Vaihe 0 -reititys);
+  // editointi (aseta/muokkaa/sulje jakso) tapahtuu kortin _jfOhjaa-paneelissa (YKSI jaettu editori). Ei enää
+  // inline-editointinappeja sivupalkissa → "kaksi samannimistä Jaksofokusta" -duplikaatti poistuu.
+  const _navSol = '<td style="padding:9px 8px;border-bottom:.5px solid var(--ov-3);text-align:right;color:var(--ink3)"><span style="font-size:15px" title="Avaa pelaajakortti">→</span></td>';
   lista.forEach(function (p) {
     const jf = p.jaksofokus;
     const on = !!(jf && jf.konsepti_avain);
     const pid = _jsvEsc(p.id);
     const nimi = (talentti ? '<span style="color:var(--amber)">⭐</span> ' : '') + _jsvEsc(_jfNimi(p));
-    h += '<tr><td style="padding:9px 8px;border-bottom:.5px solid var(--ov-3);color:var(--ink);font-weight:500;vertical-align:middle">' + nimi + '</td>';
+    h += '<tr class="jf-prow" onclick="avaaPelaaja(\'' + pid + '\')" title="Avaa pelaajakortti — aseta/muokkaa jaksofokus siellä"><td style="padding:9px 8px;border-bottom:.5px solid var(--ov-3);color:var(--ink);font-weight:500;vertical-align:middle">' + nimi + '</td>';
     if (!on) {
-      // Vaihe 5: arviointi olemassa → silta-ehdotus rivillä (yksi klik → _jfOhjaa esivalittuna, lahde 'arviointi').
+      // Vaihe 5: arviointi olemassa → silta-ehdotus näkyy rivillä READ-tietona (asettaminen kortin editorissa).
       const _sEhd = (typeof _vpSiltaEhdotukset === 'function') ? _vpSiltaEhdotukset(p) : [];
       const _s1 = _sEhd.length ? _sEhd[0] : null;
       const _konseptiSol = _s1
         ? '<span style="color:var(--teal)" title="' + _jsvEsc(_s1.syy) + '">Ehdota: ' + _jsvEsc(_s1.konsepti_nimi) + '</span>'
         : '—';
-      const _asetaBtn = _s1
-        ? '<button onclick="_jfOhjaa(\'' + pid + '\',\'' + _jsvEsc(_s1.konsepti_avain) + '\',\'arviointi\')" style="font-size:11px;color:var(--teal);background:rgba(40,176,144,.08);border:.5px solid rgba(40,176,144,.4);border-radius:7px;padding:5px 11px;cursor:pointer" title="' + _jsvEsc(_s1.syy) + '">Aseta ehdotus</button>'
-        : '<button onclick="_jfOhjaa(\'' + pid + '\')" style="font-size:11px;color:var(--teal);background:rgba(40,176,144,.08);border:.5px solid rgba(40,176,144,.4);border-radius:7px;padding:5px 11px;cursor:pointer">Aseta</button>';
       h += '<td style="padding:9px 8px;border-bottom:.5px solid var(--ov-3);color:var(--ink3)">' + _konseptiSol + '</td>'
         + '<td style="padding:9px 8px;border-bottom:.5px solid var(--ov-3);color:var(--ink3)">' + (_s1 ? '<span style="font-size:9.5px;border-radius:999px;padding:2px 8px;border:.5px solid rgba(40,176,144,.35);color:var(--teal);background:var(--ov-1)">arviointi</span>' : '—') + '</td>'
         + '<td style="padding:9px 8px;border-bottom:.5px solid var(--ov-3);color:var(--ink3)">—</td>'
         + '<td style="padding:9px 8px;border-bottom:.5px solid var(--ov-3);color:var(--ink3);font-size:11.5px">ei fokusta</td>'
-        + '<td style="padding:9px 8px;border-bottom:.5px solid var(--ov-3);text-align:right">' + _asetaBtn + '</td></tr>';
+        + _navSol + '</tr>';
       return;
     }
     const umpeutunut = JF.tmJfUmpeutunut(jf);
@@ -5709,9 +5712,7 @@ function _jfTaulukko(lista, JF, talentti) {
       + '<td style="padding:9px 8px;border-bottom:.5px solid var(--ov-3)">' + _jfLahdeBadge(jf.lahde) + '</td>'
       + '<td style="padding:9px 8px;border-bottom:.5px solid var(--ov-3);color:var(--ink2)"><div style="display:flex;align-items:center;gap:7px"><span style="width:60px;height:5px;border-radius:3px;background:var(--ov-3);overflow:hidden;display:inline-block"><i style="display:block;height:100%;background:' + (umpeutunut ? 'var(--amber)' : 'var(--teal)') + ';width:' + prog + '%"></i></span> vk ' + kulunut + '/' + vk + '</div></td>'
       + '<td style="padding:9px 8px;border-bottom:.5px solid var(--ov-3);font-size:11.5px;color:' + (umpeutunut ? 'var(--amber)' : 'var(--teal)') + '">' + (umpeutunut ? '🟠 umpeutunut' : '🟢 aktiivinen') + '</td>'
-      + '<td style="padding:9px 8px;border-bottom:.5px solid var(--ov-3);text-align:right">' + (umpeutunut
-        ? '<button onclick="_vpSuljeJakso(\'' + pid + '\')" style="font-size:11px;color:var(--amber);background:rgba(224,160,64,.1);border:.5px solid rgba(224,160,64,.4);border-radius:7px;padding:5px 11px;cursor:pointer" title="Sulje jakso: prosessi + arvio → seuraava fokus (Vaihe 6)">Sulje jakso</button>'
-        : '<button onclick="_jfOhjaa(\'' + pid + '\')" style="font-size:11px;color:var(--ink);background:var(--ov-1);border:.5px solid var(--border);border-radius:7px;padding:5px 11px;cursor:pointer">Ohjaa</button>') + '</td></tr>';
+      + _navSol + '</tr>';
   });
   return h + '</table>';
 }
