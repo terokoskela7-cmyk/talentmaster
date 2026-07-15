@@ -26,7 +26,7 @@
 <script src="lib/tm_idp.js?v=6"></script>   <!-- I3a: + kesto valmentajan asetettavaksi (opts.kestoVk) · I2: lahde+pvm/idp_lahde/idpVahvinDim 1–3 -->
 <script src="lib/tm_teknistaktiset.js?v=5"></script>   <!-- Vaihe 4a: teknis-taktinen curriculum (VP:n jaksofokus talenteille) · v5 = I3a pelipaikkaportti U14+ + harjoite-tägit/jalka -->
 <script src="lib/tm_kehityspolku.js?v=1"></script>   <!-- I3a: looginen silta -resolver (idp_fokus → konsepti/fundamentti → harjoite) -->
-<script src="lib/tm_jaksofokus.js?v=2"></script>   <!-- Vaihe 4c: jaksofokus-oversight PURE-ydin (kattavuus/umpeutunut/teemakeskittymä, §26) -->
+<script src="lib/tm_jaksofokus.js?v=3"></script>   <!-- Vaihe 4c: jaksofokus-oversight PURE-ydin (kattavuus/umpeutunut/teemakeskittymä, §26) -->
 <script src="lib/tm_treeniteema.js?v=1"></script>   <!-- Vaihe 4d: teemakattavuus PURE-ydin (jaksofokus vs suunnitellut teemaharjoitukset) -->
 <script src="lib/tm_jaksokooste.js?v=1"></script>   <!-- Vaihe 6: jakson sulku (meso-sykli) PURE-ydin — prosessi+kalibraatio+historia (geneerinen §8) -->
 <script src="lib/tm_fyysteemat.js?v=1"></script>   <!-- Vaihe 7: fyysinen teemaluettelo + D1-fokuslähde + evidenssi (delta §29 + PHV-portti §28) -->
@@ -4890,7 +4890,8 @@ function _vpIdpNarratiiviHTML(p) {
   h += '<div style="background:var(--bg2);border:.5px solid var(--border);border-left:2px solid var(--teal);border-radius:10px;padding:18px 20px;margin-bottom:26px">';
   h += '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:14px;flex-wrap:wrap"><div style="min-width:0">' + _eyebrow('📍 Jaksofokus · aktiivinen · meso 4–8 vk', 'var(--teal)');
   if (jf && jf.konsepti_nimi) {
-    const domLbl = (jf.domeeni === 'fyysinen') ? '🏃 Fyysinen · D1' : '⚽ Teknis-taktinen · D2/D4';
+    const _dm = (window.TM_JAKSOFOKUS && typeof window.TM_JAKSOFOKUS.tmJfDomeeni === 'function') ? window.TM_JAKSOFOKUS.tmJfDomeeni(jf.domeeni || 'teknis_taktinen') : null;
+    const domLbl = _dm ? (_dm.ikoni + ' ' + _dm.nimi + ' · ' + _dm.dim) : ((jf.domeeni === 'fyysinen') ? '🏃 Fyysinen · D1' : '⚽ Teknis-taktinen · D2/D4');
     const _pill = function (txt) { return '<span style="font-family:var(--font-sans);font-size:9px;font-weight:500;letter-spacing:.12em;text-transform:uppercase;padding:5px 10px;background:var(--bg3);color:var(--ink2);border:.5px solid var(--border)">' + txt + '</span>'; };
     h += '<div style="font-family:var(--font-serif);font-size:27px;line-height:1;color:var(--ink);margin:8px 0 12px">' + esc(jf.konsepti_nimi) + '</div>'
       + '<div style="display:flex;gap:7px;flex-wrap:wrap">' + _pill(domLbl) + _pill('Kesto ' + (jf.kesto_vk || 4) + ' vk') + _pill('Ohjelma · ' + esc((jf.ohjelma && jf.ohjelma.nimi) || '—')) + '</div>';
@@ -5402,29 +5403,58 @@ function _vpTtKorttiHTML(p) {
   const items = tmTtItems(pp);
   if (!items.length) return '';
   const pid = _jsvEsc(p.id);
+  const esc = _jsvEsc;
   // I3a §B.1 — esivalinta TAVOITTEESTA: resolver kääntää idp_fokuksen youth-konseptiksi. Prioriteetti:
   // valmentajan manuaalivalinta > olemassa oleva jaksofokus > tavoitteesta ehdotettu > items[0].
   const ehd = _vpTtEhdotus(p, pp);
   const ehdKons = (ehd && ehd.tyyppi === 'teknis_taktinen' && ehd.konsepti_avain) ? ehd.konsepti_avain : null;
   const ehdInItems = !!(ehdKons && items.some(function (it) { return it.avain === ehdKons; }));
-  const valittu = _vpTtValinta[p.id] || (p.jaksofokus && p.jaksofokus.konsepti_avain) || (ehdInItems ? ehdKons : items[0].avain);
-  const item = items.find(function (it) { return it.avain === valittu; }) || items[0];
-  const esc = _jsvEsc;
+  // JF-1 — YKSILÖ vs PELIPAIKKA näkyvänä toggleina. Yksilökonsepti = Y-koodit (ei vaadi pelipaikkaa, ovat aina
+  // olemassa). Pelipaikkakonsepti = fundamentit (TM_TT_PELIPAIKAT, aktivoituu kun pelipaikka asetettu U14+).
+  const youthI = items.filter(function (it) { return it.koodi.charAt(0) === 'Y'; });
+  const fundI = items.filter(function (it) { return it.koodi.charAt(0) !== 'Y'; });
+  window._vpTtNakyma = window._vpTtNakyma || {};
+  const _savedAvain = (p.jaksofokus && p.jaksofokus.domeeni !== 'fyysinen' && p.jaksofokus.domeeni !== 'psyykkinen' && p.jaksofokus.domeeni !== 'sosiaalinen') ? p.jaksofokus.konsepti_avain : null;
+  const _isFund = function (a) { return !!(a && fundI.some(function (it) { return it.avain === a; })); };
+  let nakyma = window._vpTtNakyma[p.id];
+  if (nakyma !== 'yksilo' && nakyma !== 'pelipaikka') {
+    nakyma = _isFund(_savedAvain) ? 'pelipaikka' : (_savedAvain ? 'yksilo' : (_isFund(ehdKons) ? 'pelipaikka' : (fundI.length ? 'pelipaikka' : 'yksilo')));
+  }
+  const aktItems = (nakyma === 'pelipaikka') ? fundI : youthI;
+  const _inAkt = function (a) { return !!(a && aktItems.some(function (it) { return it.avain === a; })); };
+  let valittu = _vpTtValinta[p.id];
+  if (!_inAkt(valittu)) valittu = _inAkt(_savedAvain) ? _savedAvain : (_inAkt(ehdKons) ? ehdKons : (aktItems[0] ? aktItems[0].avain : null));
+  const item = aktItems.find(function (it) { return it.avain === valittu; }) || aktItems[0] || null;
   const ehdItem = ehdKons ? items.find(function (it) { return it.avain === ehdKons; }) : null;
   const ehdNimi = ehdItem ? ehdItem.nimi : (ehd && ehd.konsepti_nimi) || '';
-  const kys = (typeof tmTtKysymykset === 'function') ? tmTtKysymykset(item.avain) : [];
-  const harj = (typeof tmTtHarjoitteet === 'function') ? tmTtHarjoitteet(item.avain) : [];
-  const pelimuoto = (item.pelimuoto && item.pelimuoto.length) ? item.pelimuoto.join(' → ') : '';
-  const dimLbl = item.faasi === 'hyokkays' ? 'hyökkäys' : item.faasi === 'puolustus' ? 'puolustus' : (item.ryhma || '');
   let h = '';
-  h += '<div style="font-size:11px;color:var(--ink3);margin-bottom:4px">' + esc(_VPTT_VAIHE_LBL[vaihe] || vaihe) + (vaihe === 'pelipaikka' ? (posCode ? ' · ' + esc((TM_TT_PELIPAIKAT[posCode] || {}).nimi || posCode) : ' · pelipaikka asettamatta') : ' · yksilökonsepti') + '</div>';
-  // Aseta pelipaikka (pelipaikkavaihe ilman positiota)
-  if (vaihe === 'pelipaikka' && !posCode) {
+  // Yksilö/pelipaikka-toggle (näkyvä valinta + vihje kummastakin).
+  const _canPos = (vaihe === 'pelipaikka' || vaihe === 'silta');   // U14+ → pelipaikkakonseptit relevantteja
+  const _nseg = function (val, ik, lbl) {
+    const on = (nakyma === val);
+    return '<span onclick="_vpTtSetNakyma(\'' + pid + '\',\'' + val + '\')" style="flex:1;text-align:center;padding:6px 8px;font-size:11.5px;font-weight:500;cursor:pointer;'
+      + (on ? 'background:rgba(40,176,144,.14);color:var(--teal)' : 'background:transparent;color:var(--ink3)') + '">' + ik + ' ' + lbl + '</span>';
+  };
+  h += '<div style="display:flex;border:.5px solid var(--border);border-radius:8px;overflow:hidden;margin-bottom:5px">' + _nseg('yksilo', '🧍', 'Yksilökonsepti') + _nseg('pelipaikka', '📍', 'Pelipaikkakonsepti') + '</div>';
+  h += '<div style="font-size:10.5px;color:var(--ink3);margin-bottom:8px">' + (nakyma === 'pelipaikka'
+    ? (posCode ? '📍 ' + esc((TM_TT_PELIPAIKAT[posCode] || {}).nimi || posCode) + ' — pelipaikan fundamentit.' : 'Pelipaikkakonseptit aktivoituvat kun pelaajalle asetetaan pelipaikka' + (_canPos ? '.' : ' (U14+).'))
+    : '🧍 Yksilökonseptit — perustaidot, eivät vaadi pelipaikkaa.') + '</div>';
+  // Aseta pelipaikka (pelipaikka-näkymä ilman positiota, kun pelaaja on U14+).
+  if (nakyma === 'pelipaikka' && !posCode && _canPos) {
     h += '<div style="background:rgba(224,160,64,.1);border:.5px solid rgba(224,160,64,.35);border-radius:9px;padding:9px 11px;margin-bottom:8px">'
       + '<div style="font-size:11.5px;color:var(--ink);font-weight:600;margin-bottom:6px">🎯 Aseta pelipaikka aktivoidaksesi pelipaikkakonseptit</div>'
       + '<select onchange="if(this.value)_vpTtAsetaPositio(\'' + pid + '\',this.value)" class="jsp-kt-vapaainp" onclick="event.stopPropagation()"><option value="">Valitse pelipaikka…</option>'
       + Object.keys(TM_TT_PELIPAIKAT).map(function (k) { return '<option value="' + k + '">' + esc(TM_TT_PELIPAIKAT[k].nimi) + ' (' + k + ')</option>'; }).join('') + '</select></div>';
   }
+  // Ei konsepteja aktiivisessa näkymässä (esim. pelipaikka ilman fundamentteja) → näytä vihje, ei konseptikorttia.
+  if (!item) {
+    h += '<div style="font-size:12px;color:var(--ink3);padding:6px 2px">Ei konsepteja tässä näkymässä. ' + (nakyma === 'pelipaikka' ? 'Aseta pelipaikka tai valitse yksilökonsepti.' : '') + '</div>';
+    return h;
+  }
+  const kys = (typeof tmTtKysymykset === 'function') ? tmTtKysymykset(item.avain) : [];
+  const harj = (typeof tmTtHarjoitteet === 'function') ? tmTtHarjoitteet(item.avain) : [];
+  const pelimuoto = (item.pelimuoto && item.pelimuoto.length) ? item.pelimuoto.join(' → ') : '';
+  const dimLbl = item.faasi === 'hyokkays' ? 'hyökkäys' : item.faasi === 'puolustus' ? 'puolustus' : (item.ryhma || '');
   // I3a §B.1 — "Tavoitteesta ehdotettu" -baneri (looginen silta: havainto → tavoite → konsepti).
   if (ehd && p.idp_fokus) {
     const tavNimi = esc((p.idp_fokus && p.idp_fokus.nimi) || (p.idp_fokus && p.idp_fokus.alue) || 'tavoite');
@@ -5442,10 +5472,8 @@ function _vpTtKorttiHTML(p) {
         + '<div style="font-size:10.5px;color:var(--ink3);margin-top:2px">' + esc(ehd.syy || '') + '</div></div>';
     }
   }
-  // Konseptivalinta (custom-dropdown, ryhmitelty)
-  const youthI = items.filter(function (it) { return it.koodi.charAt(0) === 'Y'; });
-  const fundI = items.filter(function (it) { return it.koodi.charAt(0) !== 'Y'; });
-  const groups = fundI.length ? [{ label: 'Pelipaikka: ' + ((TM_TT_PELIPAIKAT[posCode] || {}).nimi || posCode), items: fundI }, { label: 'Youth (kertaus)', items: youthI }] : [{ label: null, items: items }];
+  // Konseptivalinta (custom-dropdown, aktiivisen näkymän konseptit).
+  const groups = [{ label: null, items: aktItems }];
   h += _ttDropdownHTML('vp' + pid, groups, item, esc, '_vpTtPick');
   // I3a §B.2 — hillitty poikkeamavaroitus (asiantuntijan valta §0: sallitaan aina, ei perustelupakkoa).
   if (ehdKons && ehdInItems && valittu !== ehdKons) {
@@ -5474,6 +5502,14 @@ function _vpTtKorttiHTML(p) {
   return h;
 }
 window._vpTtPick = function (uid, avain) { const pid = uid.replace(/^vp/, ''); window._vpTtValinta[pid] = avain; if (typeof _vpAloitusReRender === 'function') _vpAloitusReRender(); };
+// JF-1 — yksilö/pelipaikka-näkymän vaihto (teknis-taktinen editori). Nollaa manuaalivalinta → uusi näkymä
+// resolvoi oman oletuskonseptinsa. Re-renderöi runko (_vpAloitusReRender kattaa auki olevan jf-slotin).
+window._vpTtSetNakyma = function (pid, nakyma) {
+  window._vpTtNakyma = window._vpTtNakyma || {};
+  window._vpTtNakyma[pid] = nakyma;
+  delete window._vpTtValinta[pid];
+  if (typeof _vpAloitusReRender === 'function') _vpAloitusReRender();
+};
 window._vpTtAsetaPositio = async function (pid, code) {
   const p = _vpTtPelaaja(pid); if (!p || !code) return;
   p.tt_positio_aktiivinen = code; delete window._vpTtValinta[pid];
@@ -5725,17 +5761,21 @@ function _jfTaulukko(lista, JF, talentti) {
 window._vpJfDomeeni = window._vpJfDomeeni || {};   // pid → 'fyysinen' | 'teknis_taktinen' (paneelin aktiivinen näkymä)
 window._vpJfFyysTeema = window._vpJfFyysTeema || {};   // pid → fyysinen teema-avain (esivalinta)
 
-// Domeeni-toggle (segmentti). Aktiivinen = _vpJfDomeeni[pid].
+// Domeeni-toggle (nelikulmamalli, JF-1). 4-tie-segmentti 🏃/⚽/🧠/🤝 — arvot + labelit lib TM_JF_DOMEENIT:sta.
+// Aktiivinen = _vpJfDomeeni[pid]. tmJfVaihtaaDomeenin arkistoi vanhan kun domeeni vaihtuu (!==, domeeni-agnostinen).
 function _vpJfToggleHTML(p) {
   const dom = window._vpJfDomeeni[p.id] || 'teknis_taktinen';
   const pid = _jsvEsc(p.id);
-  const seg = function (val, lbl) {
-    const on = (dom === val);
-    return '<span onclick="_vpJfSetDomeeni(\'' + pid + '\',\'' + val + '\')" style="flex:1;text-align:center;padding:8px 10px;font-size:12px;font-weight:500;cursor:pointer;'
-      + (on ? 'background:rgba(40,176,144,.14);color:var(--teal)' : 'background:transparent;color:var(--ink3)') + '">' + lbl + '</span>';
+  const LIB = window.TM_JAKSOFOKUS;
+  const domeenit = (LIB && Array.isArray(LIB.TM_JF_DOMEENIT)) ? LIB.TM_JF_DOMEENIT
+    : [{ avain: 'fyysinen', ikoni: '🏃', nimi: 'Fyysinen', dim: 'D1' }, { avain: 'teknis_taktinen', ikoni: '⚽', nimi: 'Teknis-taktinen', dim: 'D2/D4' }];
+  const seg = function (d) {
+    const on = (dom === d.avain);
+    return '<span onclick="_vpJfSetDomeeni(\'' + pid + '\',\'' + d.avain + '\')" title="' + _jsvEsc(d.nimi + ' · ' + d.dim) + '" style="flex:1;text-align:center;padding:8px 6px;font-size:12px;font-weight:500;cursor:pointer;'
+      + (on ? 'background:rgba(40,176,144,.14);color:var(--teal)' : 'background:transparent;color:var(--ink3)') + '"><span style="font-size:15px">' + d.ikoni + '</span><br><span style="font-size:9.5px;letter-spacing:.02em">' + _jsvEsc(d.nimi) + '</span></span>';
   };
-  return '<div style="margin-bottom:12px"><div style="font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink3);margin-bottom:5px">Domeeni · kumpaa jakso kehittää</div>'
-    + '<div style="display:flex;border:.5px solid var(--border);border-radius:8px;overflow:hidden">' + seg('fyysinen', '🏃 Fyysinen · D1') + seg('teknis_taktinen', '⚽ Teknis-taktinen · D2/D4') + '</div></div>';
+  return '<div style="margin-bottom:12px"><div style="font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink3);margin-bottom:5px">Domeeni · mitä jakso kehittää</div>'
+    + '<div style="display:flex;border:.5px solid var(--border);border-radius:8px;overflow:hidden">' + domeenit.map(seg).join('') + '</div></div>';
 }
 
 // Fyysinen näkymä — teemavalinta (TM_FYYSTEEMAT) + valinnainen ohjelma. Save → _vpAsetaFyysFokus (domeeni-turva).
@@ -5765,12 +5805,64 @@ function _vpJfFyysHTML(p) {
   return h;
 }
 
-// Paneelin runko domeenin mukaan.
+// Paneelin runko domeenin mukaan (nelikulmamalli, JF-1).
 function _vpJfBodyHTML(p) {
   const dom = window._vpJfDomeeni[p.id] || 'teknis_taktinen';
   if (dom === 'fyysinen') return _vpJfFyysHTML(p);
+  if (dom === 'psyykkinen' || dom === 'sosiaalinen') return _vpJfKehitysHTML(p, dom);
   return (typeof _vpTtKorttiHTML === 'function') ? (_vpTtKorttiHTML(p) || '<div style="color:var(--ink3);font-size:13px">Konseptivalikko ei saatavilla tälle pelaajalle (ikä/pelipaikka).</div>') : '';
 }
+
+// Henkinen (D3) / Sosiaalinen (D5) — yksilökonseptivalinta (EI vaadi pelipaikkaa). Seed-konseptit lib
+// TM_JF_KONSEPTIT:sta (JF-1). Kehityskonsepteja — EI kliinistä/terveystietoa (reunaehto). Konsepti + cue +
+// kesto → Tallenna. Rakenne kuin fyysinen/teknis (jsp-kt-box), sama tallennuspolku (_vpJfArkistoiVaihdossa).
+function _vpJfKehitysHTML(p, domeeni) {
+  const LIB = window.TM_JAKSOFOKUS;
+  const lista = (LIB && typeof LIB.tmJfKonseptit === 'function') ? LIB.tmJfKonseptit(domeeni) : [];
+  const dMeta = (LIB && typeof LIB.tmJfDomeeni === 'function') ? LIB.tmJfDomeeni(domeeni) : null;
+  if (!lista.length) return '<div style="color:var(--ink3);font-size:13px">' + (dMeta ? _jsvEsc(dMeta.nimi) : 'Domeeni') + '-konseptikirjasto ei latautunut.</div>';
+  const esc = _jsvEsc; const pid = esc(p.id);
+  window._vpJfKehitysValinta = window._vpJfKehitysValinta || {};
+  const valittu = (window._vpJfKehitysValinta[p.id] && lista.some(function (k) { return k.avain === window._vpJfKehitysValinta[p.id]; })) ? window._vpJfKehitysValinta[p.id]
+    : ((p.jaksofokus && p.jaksofokus.domeeni === domeeni && p.jaksofokus.konsepti_avain && lista.some(function (k) { return k.avain === p.jaksofokus.konsepti_avain; })) ? p.jaksofokus.konsepti_avain : lista[0].avain);
+  const item = lista.find(function (k) { return k.avain === valittu; }) || lista[0];
+  let h = '';
+  h += '<div style="font-size:11px;color:var(--ink3);margin-bottom:6px">' + (dMeta ? esc(dMeta.ikoni + ' ' + dMeta.nimi + ' · ' + dMeta.dim) : '') + ' · yksilökonsepti (ei vaadi pelipaikkaa)</div>';
+  h += '<div class="jsp-kt-box"><div class="jsp-kt-bt">Konsepti</div>';
+  h += '<select id="_vpJfKehSel" class="jsp-arv-select" style="width:100%" onclick="event.stopPropagation()" onchange="window._vpJfKehitysValinta[\'' + pid + '\']=this.value;if(typeof _vpAloitusReRender===\'function\')_vpAloitusReRender()">';
+  lista.forEach(function (k) { h += '<option value="' + esc(k.avain) + '"' + (k.avain === valittu ? ' selected' : '') + '>' + esc(k.nimi) + '</option>'; });
+  h += '</select>';
+  h += '<div style="font-size:13.5px;font-weight:600;color:var(--ink);margin-top:8px">' + esc(item.nimi) + '</div>';
+  if (item.kuvaus) h += '<div style="font-size:12px;color:var(--ink2);margin-top:3px;line-height:1.5">' + esc(item.kuvaus) + '</div>';
+  h += '</div>';
+  if (item.cue) h += '<div class="jsp-kt-box" style="margin-top:8px"><div class="jsp-kt-bt" style="color:var(--blue)">Cue (kysymys, ei käsky)</div><div style="font-size:12.5px;color:var(--ink2);padding:2px 0 2px 14px;position:relative"><span style="position:absolute;left:0;color:var(--blue);font-weight:700">?</span>' + esc(item.cue) + '</div></div>';
+  const _kestoNyt = (p.jaksofokus && p.jaksofokus.kesto_vk) || 6;
+  h += '<div class="jsp-kt-edit" style="margin-top:10px"><label>Jakson kesto</label><select id="_vpJfKehKesto' + pid + '" class="jsp-arv-select" onclick="event.stopPropagation()">'
+    + [4, 6, 8, 10, 12].map(function (vk) { return '<option value="' + vk + '"' + (vk === _kestoNyt ? ' selected' : '') + '>' + vk + ' vk</option>'; }).join('') + '</select></div>';
+  h += '<div style="font-size:10.5px;color:var(--ink3);margin-top:8px">Kehityskonsepti — havaitaan pelissä ja harjoituksessa, ei kliininen mittari.</div>';
+  h += '<div class="jsp-kt-btns"><button class="jsp-kt-btn primary" onclick="_vpJfAsetaKehitysFokus(\'' + pid + '\',\'' + esc(domeeni) + '\',document.getElementById(\'_vpJfKehSel\').value)">＋ Tallenna jaksofokus</button></div>';
+  return h;
+}
+
+// Tallenna henkisen/sosiaalisen jaksofokus. Rakenne + domeeni-turva (arkistoi vanha eri domeeni) kuten
+// _vpTtVieTreeniin / _vpAsetaFyysFokus. Yksilökonsepti — ei pelipaikkaa.
+window._vpJfAsetaKehitysFokus = async function (pid, domeeni, avain) {
+  const p = _vpTtPelaaja(pid); if (!p) return;
+  const LIB = window.TM_JAKSOFOKUS;
+  const k = (LIB && typeof LIB.tmJfKonsepti === 'function') ? LIB.tmJfKonsepti(domeeni, avain) : null;
+  if (!k) { if (typeof toast === 'function') toast('Konseptia ei löytynyt', 'error'); return; }
+  const kestoEl = document.getElementById('_vpJfKehKesto' + p.id);
+  const kestoVk = (kestoEl && +kestoEl.value > 0) ? +kestoEl.value : ((p.jaksofokus && p.jaksofokus.kesto_vk) || 6);
+  const jaksofokus = { konsepti_avain: k.avain, konsepti_nimi: k.nimi, konsepti_koodi: k.koodi || null, domeeni: domeeni, alkoi: new Date().toISOString(), kesto_vk: kestoVk, lahde: window._vpTtLahde || 'vp' };
+  window._vpTtLahde = 'vp';
+  const _jfArk = _vpJfArkistoiVaihdossa(p, domeeni);   // JF-1: arkistoi vanha eri-domeeni-jakso ennen ylikirjoitusta
+  if (_jfArk.arkistoitu) p.jaksofokus_historia = _jfArk.historia;
+  p.jaksofokus = jaksofokus;
+  if (typeof _vpAloitusReRender === 'function') _vpAloitusReRender();
+  const _jfM = document.getElementById('_jfModal');
+  if (_jfM) { _jfM.remove(); window._jfOhjausP = null; if (typeof renderJaksofokus === 'function') renderJaksofokus(); }
+  await _vpTtKirjoita(pid, _jfArk.arkistoitu ? { jaksofokus: jaksofokus, jaksofokus_historia: _jfArk.historia } : { jaksofokus: jaksofokus }, 'Jaksofokus tallennettu');
+};
 
 // Toggle-käsittelijä — vaihda aktiivinen domeeni + re-renderöi toggle + runko (dropdown-valinta elää).
 window._vpJfSetDomeeni = function (pid, dom) {
@@ -6022,7 +6114,7 @@ function _vpMesoKaariHTML(p) {
   if (!hist.length && !(p && p.jaksofokus)) return '';
   const esc = _jsvEsc;
   const TIC = { parani: '↑', ennallaan: '→', vaihda: '⟳' };
-  const _dIc = function (dom) { return dom === 'fyysinen' ? '🏃' : '⚽'; };   // Vaihe 6/7: domeeni-ikoni
+  const _dIc = function (dom) { const m = (window.TM_JAKSOFOKUS && typeof window.TM_JAKSOFOKUS.tmJfDomeeni === 'function') ? window.TM_JAKSOFOKUS.tmJfDomeeni(dom) : null; return m ? m.ikoni : (dom === 'fyysinen' ? '🏃' : '⚽'); };   // domeeni-ikoni (nelikulmamalli JF-1)
   let h = '<div style="margin-top:12px;border-top:.5px solid var(--border);padding-top:10px">';
   h += '<div style="font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink3);margin-bottom:8px">Kehityskaari · jaksot (meso)</div>';
   h += '<div style="display:flex;align-items:stretch;gap:0;overflow-x:auto;padding:4px 0">';
