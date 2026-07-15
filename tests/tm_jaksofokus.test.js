@@ -2,6 +2,7 @@
 // §26 pikakenttä-aggregaatti: kattavuus, umpeutunut-jakso, teemakeskittymä, lähdejakauma, talentit.
 import { describe, it, expect } from 'vitest';
 const JF = require('../lib/tm_jaksofokus.js');
+const TAK = require('../lib/tm_arviointi_taksonomia.js');   // P0: seed ⊂ taksonomia -linjaustesti
 
 // Kiinteä "nyt" testeille (2026-07-08). alkoi-pvm:t suhteessa tähän.
 const NYT = new Date('2026-07-08T12:00:00Z').getTime();
@@ -67,30 +68,45 @@ describe('JF-1 nelikulmamalli — domeenit + seed-konseptit', () => {
     expect(JF.tmJfDomeeni('sosiaalinen').dim).toBe('D5');
     expect(JF.tmJfDomeeni('ei_ole')).toBe(null);
   });
-  it('psyykkinen + sosiaalinen seed-konseptit (≥3 kumpikin), fyysinen/teknis = oma lib (tyhjä)', () => {
-    expect(JF.tmJfKonseptit('psyykkinen').length).toBeGreaterThanOrEqual(3);
-    expect(JF.tmJfKonseptit('sosiaalinen').length).toBeGreaterThanOrEqual(3);
+  it('P0: psyykkinen = 12 (taksonomia D3), sosiaalinen = 2 (taksonomia D5), fyysinen/teknis = oma lib (tyhjä)', () => {
+    expect(JF.tmJfKonseptit('psyykkinen').length).toBe(12);
+    expect(JF.tmJfKonseptit('sosiaalinen').length).toBe(2);
     expect(JF.tmJfKonseptit('fyysinen')).toEqual([]);
     expect(JF.tmJfKonseptit('teknis_taktinen')).toEqual([]);
   });
-  it('konseptilla avain + koodi + nimi + cue (kehityskonsepti, ei kliininen kenttä)', () => {
+  it('P0: konseptilla avain + nimi + kuvaus + cue, EI koodia (kehityskonsepti, ei kliininen kenttä)', () => {
     JF.tmJfKonseptit('psyykkinen').concat(JF.tmJfKonseptit('sosiaalinen')).forEach((k) => {
       expect(k.avain).toBeTruthy();
-      expect(k.koodi).toBeTruthy();
       expect(k.nimi).toBeTruthy();
+      expect(k.kuvaus).toBeTruthy();
       expect(k.cue).toBeTruthy();
+      expect(k.koodi).toBeUndefined();
     });
   });
-  it('tmJfKonsepti hakee avaimella tai koodilla, null tuntemattomalle', () => {
-    expect(JF.tmJfKonsepti('psyykkinen', 'rohkeus').nimi).toBe('Rohkeus');
-    expect(JF.tmJfKonsepti('sosiaalinen', 'S1').nimi).toBe('Johtajuus');
+  it('P0: tmJfKonsepti hakee avaimella (taksonomia-avaimet), null tuntemattomalle/koodille', () => {
+    expect(JF.tmJfKonsepti('psyykkinen', 'leadership').nimi).toBe('Johtajuus');
+    expect(JF.tmJfKonsepti('sosiaalinen', 'team_role').nimi).toBe('Joukkuerooli');
     expect(JF.tmJfKonsepti('psyykkinen', 'ei_ole')).toBe(null);
+    expect(JF.tmJfKonsepti('psyykkinen', 'S1')).toBe(null);   // koodit poistettu
     expect(JF.tmJfKonsepti('fyysinen', 'mikä_vaan')).toBe(null);
   });
   it('tmJfKonseptit palauttaa kopion (ei mutatoi kirjastoa)', () => {
     const a = JF.tmJfKonseptit('psyykkinen');
     a.push({ avain: 'roska' });
-    expect(JF.tmJfKonseptit('psyykkinen').length).toBe(4);
+    expect(JF.tmJfKonseptit('psyykkinen').length).toBe(12);
+  });
+  // P0 avain-linjaus: jokainen seed-avain löytyy arviointitaksonomiasta samalla dim:llä (yksi sanasto per ulottuvuus).
+  it('P0 sanastolinjaus: psyykkinen-seed ⊂ taksonomia D3, sosiaalinen-seed ⊂ taksonomia D5', () => {
+    JF.tmJfKonseptit('psyykkinen').forEach((k) => {
+      const t = TAK.tmTaksonomiaByAvain(k.avain);
+      expect(t, 'psyykkinen-avain puuttuu taksonomiasta: ' + k.avain).toBeTruthy();
+      expect(t.dim).toBe('D3');
+    });
+    JF.tmJfKonseptit('sosiaalinen').forEach((k) => {
+      const t = TAK.tmTaksonomiaByAvain(k.avain);
+      expect(t, 'sosiaalinen-avain puuttuu taksonomiasta: ' + k.avain).toBeTruthy();
+      expect(t.dim).toBe('D5');
+    });
   });
 });
 
@@ -101,20 +117,20 @@ describe('JF-2 linkitetyt konseptit (tmJfNormLinkit / tmJfLisaaLinkki)', () => {
   });
   it('tmJfNormLinkit siivoaa invalidit + dedup domeeni+avain', () => {
     const r = JF.tmJfNormLinkit([
-      L('psyykkinen', 'rohkeus', 'Rohkeus'),
-      L('psyykkinen', 'rohkeus', 'Rohkeus'),   // dup
-      { domeeni: 'fyysinen' },                 // invalidi (ei avainta)
-      null,                                    // invalidi
-      L('sosiaalinen', 'johtajuus', 'Johtajuus')
+      L('psyykkinen', 'leadership', 'Johtajuus'),
+      L('psyykkinen', 'leadership', 'Johtajuus'),   // dup
+      { domeeni: 'fyysinen' },                       // invalidi (ei avainta)
+      null,                                          // invalidi
+      L('sosiaalinen', 'team_role', 'Joukkuerooli')
     ]);
-    expect(r.map((x) => x.domeeni + ':' + x.konsepti_avain)).toEqual(['psyykkinen:rohkeus', 'sosiaalinen:johtajuus']);
+    expect(r.map((x) => x.domeeni + ':' + x.konsepti_avain)).toEqual(['psyykkinen:leadership', 'sosiaalinen:team_role']);
   });
   it('tmJfNormLinkit cappaa 3:een', () => {
     const r = JF.tmJfNormLinkit([L('a', '1'), L('b', '2'), L('c', '3'), L('d', '4'), L('e', '5')]);
     expect(r.length).toBe(3);
   });
   it('tmJfNormLinkit täydentää puuttuvan nimen avaimella', () => {
-    expect(JF.tmJfNormLinkit([{ domeeni: 'psyykkinen', konsepti_avain: 'rohkeus' }])[0].konsepti_nimi).toBe('rohkeus');
+    expect(JF.tmJfNormLinkit([{ domeeni: 'psyykkinen', konsepti_avain: 'leadership' }])[0].konsepti_nimi).toBe('leadership');
   });
   it('tmJfNormLinkit ei-taulukko → []', () => {
     expect(JF.tmJfNormLinkit(null)).toEqual([]);
@@ -122,7 +138,7 @@ describe('JF-2 linkitetyt konseptit (tmJfNormLinkit / tmJfLisaaLinkki)', () => {
   });
   it('tmJfLisaaLinkki lisää + palauttaa uuden taulukon (ei mutatoi)', () => {
     const a = [];
-    const b = JF.tmJfLisaaLinkki(a, L('psyykkinen', 'rohkeus', 'Rohkeus'));
+    const b = JF.tmJfLisaaLinkki(a, L('psyykkinen', 'leadership', 'Johtajuus'));
     expect(a.length).toBe(0);
     expect(b.length).toBe(1);
   });
