@@ -4897,9 +4897,50 @@ function _vpKaksiPolkuaHTML(p, pid) {
     b += '<button onclick="event.stopPropagation();_vpAsetaModus(\'' + pid + '\',\'' + modus + '\')" style="font-family:var(--font-sans);font-size:11px;font-weight:500;padding:8px 13px;border-radius:6px;background:transparent;color:' + vari + ';border:.5px solid ' + reuna + ';cursor:pointer">→ Tee tästä tavoite</button>';
     return b + '</div>';
   };
-  return '<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:26px">'
+  return '<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px">'
     + kortti(heik, 'heikkous', '🎯 Korjaa heikkous', 'var(--amber)', 'rgba(224,160,64,.35)')
     + kortti(vah, 'vahvuus', '💎 Jalosta supervoima', 'var(--teal)', 'rgba(40,176,144,.35)') + '</div>';
+}
+// P4a — Kehitys-työpöydän MOOTTORI-lohko: 2 selkeää polkua (uudelleenkäyttää _vpKaksiPolkuaHTML) + "ei pakota" +
+// 70/30-ankkuri + §28-portti-note + 💎 käsin-supervoima (olemassaoleva _vpAsetaModus('vahvuus') → fokus-valinta editorissa).
+// Ei uutta moottorilogiikkaa — vain esittää idpValitseHeikoin/Vahvin-tulokset selkeästi työpöydän kärkeen.
+function _vpMoottoriKortitHTML(p, pid) {
+  const esc = _jsvEsc;
+  const kaksi = (typeof _vpKaksiPolkuaHTML === 'function') ? _vpKaksiPolkuaHTML(p, pid) : '';
+  let h = '<div style="margin-bottom:6px"><div style="font-family:var(--font-serif);font-size:18px;color:var(--ink);margin:0 0 3px">Moottorin ehdotus · valitse polku</div>';
+  h += '<div style="font-size:11px;color:var(--ink3);margin-bottom:12px">Moottori <b style="color:var(--ink2)">ei pakota</b> — hyväksy ehdotus TAI valitse itse. 🔗 70/30: heikkoustyö integroidaan vahvuuden pohjalle, ei irrallisena.</div>';
+  h += kaksi || '<div style="font-size:12px;color:var(--ink3);margin-bottom:12px">Ei ehdotusta datasta — mittaa lisää tai aseta fokus käsin kausitavoitteesta.</div>';
+  h += '<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:22px">';
+  h += '<span style="font-size:10.5px;color:var(--ink3);flex:1;min-width:200px">🌱 §28: heikko fyysinen ei tule ehdolle ennen PHV:tä; ilman PHV-dataa moottori suosii D2:ta.</span>';
+  h += '<button onclick="event.stopPropagation();_vpAsetaModus(\'' + esc(pid) + '\',\'vahvuus\')" style="flex-shrink:0;font-size:11px;color:var(--teal);background:rgba(40,176,144,.08);border:.5px solid rgba(40,176,144,.35);border-radius:6px;padding:7px 13px;cursor:pointer" title="Aseta erottava ase käsin (asiantuntija tietää vahvuuden ennen dataa) — avaa fokus-valinnan">💎 Erottava ase käsin</button>';
+  h += '</div>';
+  return h + '</div>';
+}
+// P4a — Kehitys-työpöydän JAKSOFOKUS-lohko: read-only näyttö + "✎ Muokkaa jaksofokus" (avaa _jfOhjaa-editorin).
+// Työpöytä = jaksofokuksen ainoa selkeä muokkauskoti (Aloitus reitittää tänne). Kirjoittaja/arkistointi ennallaan.
+function _vpTyopoytaJaksofokusHTML(p) {
+  const esc = _jsvEsc, pid = esc(p.id);
+  const jf = p.jaksofokus || null;
+  const _jfLib = window.TM_JAKSOFOKUS;
+  let h = '<div style="background:var(--bg2);border:.5px solid var(--border);border-left:2px solid var(--teal);border-radius:10px;padding:18px 20px;margin-top:14px">';
+  h += '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:14px;flex-wrap:wrap"><div style="min-width:0">'
+    + '<div style="font-size:9px;font-weight:600;letter-spacing:.16em;text-transform:uppercase;color:var(--teal)">📍 Jaksofokus · editori · meso 4–8 vk</div>';
+  if (jf && jf.konsepti_nimi) {
+    const _dm = (_jfLib && typeof _jfLib.tmJfDomeeni === 'function') ? _jfLib.tmJfDomeeni(jf.domeeni || 'teknis_taktinen') : null;
+    const domLbl = _dm ? (_dm.ikoni + ' ' + _dm.nimi + ' · ' + _dm.dim) : ((jf.domeeni === 'fyysinen') ? '🏃 Fyysinen · D1' : '⚽ Teknis-taktinen · D2/D4');
+    const _pill = function (txt) { return '<span style="font-family:var(--font-sans);font-size:9px;font-weight:500;letter-spacing:.12em;text-transform:uppercase;padding:5px 10px;background:var(--bg3);color:var(--ink2);border:.5px solid var(--border)">' + txt + '</span>'; };
+    h += '<div style="font-family:var(--font-serif);font-size:24px;line-height:1;color:var(--ink);margin:8px 0 12px">' + esc(jf.konsepti_nimi) + '</div>'
+      + '<div style="display:flex;gap:7px;flex-wrap:wrap">' + _pill(domLbl) + _pill('Kesto ' + (jf.kesto_vk || 4) + ' vk') + _pill('Ohjelma · ' + esc((jf.ohjelma && jf.ohjelma.nimi) || '—')) + '</div>';
+  } else {
+    h += '<div style="font-family:var(--font-serif);font-size:22px;color:var(--ink3);margin:8px 0 4px">Ei jaksofokusta</div><div style="font-size:12px;color:var(--ink3)">Aseta jaksofokus moottorin ehdotuksesta tai suoraan editorista.</div>';
+  }
+  h += '</div><button onclick="event.stopPropagation();_jfOhjaa(\'' + pid + '\')" style="flex-shrink:0;font-family:var(--font-sans);font-size:10px;font-weight:500;letter-spacing:.1em;text-transform:uppercase;padding:9px 14px;border-radius:6px;background:rgba(40,176,144,.1);color:var(--teal);border:.5px solid rgba(40,176,144,.4);cursor:pointer">✎ Muokkaa jaksofokus</button></div>';
+  if (jf && jf.konsepti_nimi && typeof _vpJfTukiHTML === 'function') h += _vpJfTukiHTML(jf);
+  if (jf && jf.konsepti_nimi && _jfLib && typeof _jfLib.tmJfUmpeutunut === 'function' && _jfLib.tmJfUmpeutunut(jf)) {
+    h += '<div style="margin-top:12px;font-size:11.5px;color:var(--amber)">🟠 Jakso umpeutunut — ↻ sulje/vaihda jakso muokkaus-paneelista.</div>';
+  }
+  h += '<div style="font-size:10px;color:var(--ink3);margin-top:10px">👁 Jaksofokus näkyy pelaajalle (Pelaaja-app) · domeenin vaihto arkistoi vanhan jakson automaattisesti.</div>';
+  return h + '</div>';
 }
 // P1 — Pelaajan ääni (Kimin lämpö): "Miksi pelaan?" (kursiivi-serif) + "Minkälainen pelaaja haluan olla?".
 // Kentät p.miksi_pelaan / p.pelaajatyyppi (VP/valmentaja asettaa; pelaajan oma kirjoitus = P5). Tyhjä = pehmeä
@@ -4996,13 +5037,10 @@ function _vpIdpNarratiiviHTML(p) {
   if (lause) h += '<div style="font-family:var(--font-serif);font-weight:300;font-size:26px;line-height:1.28;color:var(--ink);max-width:760px;margin-top:8px">' + esc(lause) + '</div>';
   else h += '<div style="font-size:13px;color:var(--ink3);margin-top:8px">Ei vielä kausitavoitetta — aseta se Kehitys-välilehdellä (moottori ehdottaa datasta).</div>';
   h += '</div>';
-  // ── 2a MOOTTORIN KAKSI POLKUA (Vaihe A) — Korjaa heikkous + Jalosta supervoima rinnakkain (§läpileikkaava 2) ──
-  const _kaksi = _vpKaksiPolkuaHTML(p, pid);
-  if (_kaksi) h += _stitle('Moottorin ehdotus · valitse polku') + _kaksi;
-  // ── 2b VÄLITAVOITTEET (P2.3) — porras Kausitavoite → välitavoitteet → Jaksofokus. Olemassa oleva
-  //    _vpValitavoitteetHTML (+ _vpValitavoiteLisaa/Poista/Aktivoi/Saavuta) — additiivinen, tyhjä = pehmeä vihje.
-  if (t && typeof _vpValitavoitteetHTML === 'function') h += '<div style="margin-bottom:26px">' + _vpValitavoitteetHTML(t, pid) + '</div>';
-  // ── 3 JAKSOFOKUS · "✎ Muokkaa jaksofokus" → konsolidoitu paneeli (_jfOhjaa, 1a) ──
+  // ── P4a — MOOTTORIN 2 POLKUA + VÄLITAVOITTEET siirtyivät KEHITYS-työpöydälle (Aloitus = read-only yhteenveto).
+  //    Aloitus näyttää suunnan (tavoite-yhteenveto yllä); rakentaminen tapahtuu Kehityksessä. Kevyt CTA suunnalle.
+  if (t || p.idp_tila) h += '<div class="idp-seg" style="margin-bottom:26px"><span class="idp-node"></span><div style="font-size:11px;color:var(--ink3)">🎯 Moottorin ehdotus (korjaa heikkous · jalosta supervoima) + välitavoitteet → <span style="color:var(--teal);cursor:pointer;font-weight:600" onclick="event.stopPropagation();_jspVaihda(3)">Kehitys-työpöytä</span></div></div>';
+  // ── 3 JAKSOFOKUS · read-only näyttö; muokkaus reititetään Kehitykseen (P4a) ──
   const jf = p.jaksofokus || null;
   h += '<div class="idp-seg" style="background:var(--bg2);border:.5px solid var(--border);border-left:2px solid var(--teal);border-radius:10px;padding:18px 20px;margin-bottom:26px"><span class="idp-node"></span>';
   h += '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:14px;flex-wrap:wrap"><div style="min-width:0">' + _eyebrow('📍 Jaksofokus · aktiivinen · meso 4–8 vk', 'var(--teal)');
@@ -5015,7 +5053,8 @@ function _vpIdpNarratiiviHTML(p) {
   } else {
     h += '<div style="font-family:var(--font-serif);font-size:24px;color:var(--ink3);margin:8px 0 4px">Jakso tulossa</div><div style="font-size:12px;color:var(--ink3)">Aseta jaksofokus (fyysinen tai teknis-taktinen).</div>';
   }
-  h += '</div><button onclick="event.stopPropagation();_jfOhjaa(\'' + pid + '\')" style="flex-shrink:0;font-family:var(--font-sans);font-size:10px;font-weight:500;letter-spacing:.1em;text-transform:uppercase;padding:9px 14px;border-radius:6px;background:transparent;color:var(--teal);border:.5px solid rgba(40,176,144,.4);cursor:pointer">✎ Muokkaa jaksofokus</button></div>';
+  // P4a — Aloitus = read-only: muokkaus reititetään Kehitys-työpöydälle (ainoa muokkauskoti), EI avaa modaalia.
+  h += '</div><button onclick="event.stopPropagation();_jspVaihda(3)" style="flex-shrink:0;font-family:var(--font-sans);font-size:10px;font-weight:500;letter-spacing:.1em;text-transform:uppercase;padding:9px 14px;border-radius:6px;background:transparent;color:var(--teal);border:.5px solid rgba(40,176,144,.4);cursor:pointer">→ Kehitä jaksofokusta</button></div>';
   // JF-2 — pääfokus → tukena: linkitetyt + "✓ Opittu kun". Tyhjä → ei mitään (additiivinen).
   if (jf && jf.konsepti_nimi && typeof _vpJfTukiHTML === 'function') h += _vpJfTukiHTML(jf);
   if (jf && jf.konsepti_nimi && window.TM_JAKSOFOKUS && typeof window.TM_JAKSOFOKUS.tmJfUmpeutunut === 'function' && window.TM_JAKSOFOKUS.tmJfUmpeutunut(jf)) {
@@ -5149,8 +5188,9 @@ function _vpKausitavoiteHTML(p) {
   // pelaajan ääni (omistajuus)
   h += '<div class="jsp-kt-box" style="border-color:rgba(40,176,144,.3);margin-top:10px"><div class="jsp-kt-bt">Pelaajan ääni (omistajuus)</div>'
     + '<textarea id="_jspTavAani" class="jsp-kt-aani" placeholder="Pelaajan oma tavoite omin sanoin…" onclick="event.stopPropagation()">' + _jsvEsc(t.pelaajan_tavoite || '') + '</textarea></div>';
-  // I3a §C.2 — välitavoitteet siirretty IDP-narratiiviin (P2.3, Kausitavoite→välitavoitteet→Jaksofokus). Yksi
-  //    koti → ei duplikaatti-ID:tä (_vpVtInp). Kehitys-editori keskittyy tavoitemoottoriin + arviointiin/kaareen.
+  // P4a — VÄLITAVOITTEET Kehitys-työpöydälle (kausitavoitteen jälkeen, ennen sitoumusta): yksi koti kausitavoite-slotissa
+  //    → _vpKausitavoiteReRender kattaa lisää/poista (ei duplikaatti-ID; Aloituksesta poistettu). Kausitavoite → välitavoitteet → jaksofokus.
+  if (!p._idpMuokkaus && typeof _vpValitavoitteetHTML === 'function') h += '<div style="margin-top:12px">' + _vpValitavoitteetHTML(t, pid) + '</div>';
   // v2 §4 — pelaajan ääni & sitoumus (pelaaja kirjaa Pelaaja-appissa; VP näkee + vahvistaa).
   if (!p._idpMuokkaus && typeof _vpSitoumusHTML === 'function') h += _vpSitoumusHTML(p, pid);
   // ── 3b: kehityskaari-timeline (katselutila; muokkaustilassa piilossa) ──
@@ -8785,12 +8825,21 @@ window._avaaPerPelaajaPikakatsaus = function(idx, joukkueNimi) {
   // määritellyksi — _vpAloitusReRender no-oppaa jos _jspAloitus puuttuu.)
   // (C) Katso vs. tee — kausitavoitteen muokkaus + D3-kalibraatio siirtyvät KEHITYS-välilehteen (f4). Fyysinen/Tekninen = luku.
   if (typeof _vpLataaTavoite === 'function') _vpLataaTavoite(p);   // best-effort: lataa täysi tavoite jos idp_tila asetettu
+  // ── P4a — KEHITYS-TYÖPÖYTÄ · looginen selkäranka: moottori → kausitavoite (+välitavoitteet +kaari) → jaksofokus-editori
+  //    → D3-linkki → diagnostiikka (reveal). Työpöytä johtaa TOIMINNALLA, ei raakadatalla. Kaikki uudelleenkäytettyä. ──
   let _kehExtra = '';
-  // P3 — D3-kalibraatio siirretty Arviointi-välilehteen (yksi koti, _vpD3KalibraatioHTML). Kevyt viittaus Kehityksessä.
-  _kehExtra += '<div style="padding-top:12px;margin-top:12px;border-top:.5px solid var(--border);font-size:11px;color:var(--ink3)">🧠 D3-kalibraatio (itse × valmentaja × VP) → <span style="color:var(--blue);cursor:pointer;font-weight:600" onclick="_jspVaihda(2)">Arviointi-välilehti</span></div>';
-  if (typeof _vpKausitavoiteHTML === 'function') {
-    _kehExtra += '<div class="jsp-kt" id="_jspKausitavoite" style="margin-top:14px">' + _vpKausitavoiteHTML(p) + '</div>';
-  }
+  // 1) Moottorin ehdotus · 2 polkua (design-totuus): idpValitseHeikoin/Vahvin-kortit + notes + käsin-supervoima.
+  if (typeof _vpMoottoriKortitHTML === 'function') _kehExtra += _vpMoottoriKortitHTML(p, p.id);
+  // 2) Kausitavoite (IDP-ydin) — sisältää välitavoitteet + kehityskaari (view). Slot uudelleenrenderöityy _vpKausitavoiteReRender:llä.
+  if (typeof _vpKausitavoiteHTML === 'function') _kehExtra += '<div class="jsp-kt" id="_jspKausitavoite">' + _vpKausitavoiteHTML(p) + '</div>';
+  // 3) Jaksofokus-editori — työpöydän ainoa selkeä muokkauskoti (Aloitus reitittää tänne).
+  if (typeof _vpTyopoytaJaksofokusHTML === 'function') _kehExtra += _vpTyopoytaJaksofokusHTML(p);
+  // 4) D3-kalibraatio siirretty Arviointi-välilehteen (P3, yksi koti). Kevyt viittaus.
+  _kehExtra += '<div style="padding-top:12px;margin-top:14px;border-top:.5px solid var(--border);font-size:11px;color:var(--ink3)">🧠 D3-kalibraatio (itse × valmentaja × VP) → <span style="color:var(--blue);cursor:pointer;font-weight:600" onclick="_jspVaihda(2)">Arviointi-välilehti</span></div>';
+  // 5) Diagnostiikka (PHV-vaihe · kehitysvaihe · testipäivät · TK-kokonaisaika) → ▸ reveal (ei työpöydän kärjessä).
+  _kehExtra += '<div style="margin-top:16px;border-top:.5px solid var(--border);padding-top:10px">'
+    + '<span onclick="var b=document.getElementById(\'_jspKehDiag\');var o=b.style.display===\'none\';b.style.display=o?\'block\':\'none\';this.textContent=(o?\'▾\':\'▸\')+\' Diagnostiikka (PHV · testipäivät)\'" style="font-size:12px;color:var(--blue);cursor:pointer;font-weight:600">▸ Diagnostiikka (PHV · testipäivät)</span>'
+    + '<div id="_jspKehDiag" style="display:none;margin-top:12px">' + f4 + '</div></div>';
   let hR = '';
   hR += '<div style="display:flex;gap:6px;padding-bottom:4px;border-bottom:.5px solid var(--border);flex-wrap:wrap">';
   // Vaihe B — 7→5 sulautus. IDP-välilehti POISTUI → sen narratiivi on nyt Aloitus (Vaihe A). Kiinteä 5-tab.
@@ -8810,7 +8859,7 @@ window._avaaPerPelaajaPikakatsaus = function(idx, joukkueNimi) {
   hR += '<div id="_jspTab0"><div id="_jspIdpNarratiivi">' + fIdp + '</div></div>';
   hR += '<div id="_jspTab1" style="display:none">' + _mSub('Fyysinen · mitattu') + f1 + _mErot + _mSub('Tekninen · mitattu') + f2 + '</div>';
   hR += '<div id="_jspTab2" style="display:none">' + _mSub('Peliäly · havainto') + f3 + _mErot + '<div id="_jspTab5">' + (f5 || '') + '</div></div>';
-  hR += '<div id="_jspTab3" style="display:none">' + f4 + _kehExtra + '</div>';
+  hR += '<div id="_jspTab3" style="display:none">' + _kehExtra + '</div>';   // P4a: f4-diagnostiikka nyt _kehExtra:n reveal-osiossa
   hR += '<div id="_jspTab4" style="display:none"><div style="text-align:center;padding:28px 16px">' + _mSub('Viikko') + '<div style="font-size:12.5px;color:var(--ink3);line-height:1.6">Kuormitus · RPE · viikon sessiot · läsnäolo — tulossa (Vaihe D).</div></div></div>';
   hR += '</div>';
   // Kaksisarakkeinen runko (header ja nav täysleveinä sen ulkopuolella; mobiilissa pinoutuu §6)
