@@ -8273,11 +8273,15 @@ window._avaaPerPelaajaPikakatsaus = function(idx, joukkueNimi) {
   const _mcardFys = function (lbl, taso, arvo, yks, ib, trend, spark) {
     const kt = _kt(taso, true);
     const neutraali = (kt === 'kasvu' || kt === 'epavarma');
-    const badgeVal = (kt === 'kasvu') ? '🌱' : (taso != null ? taso : '–');
+    // P2.1 (Tero): taso näytetään AINA — myös 🌱 (kasvu) -tilassa. 🌱 = huomio luvun rinnalla, ei korvaaja.
+    const badgeVal = (taso != null ? taso : '–');
     const badgeBg = neutraali ? 'var(--ov-3)' : (taso == null ? 'var(--ink3)' : hhTasoVari(taso));
     const badgeCol = neutraali ? 'var(--ink3)' : '#fff';
-    const foot = (kt === 'kasvu') ? '🌱 kehittyy PHV:n jälkeen' : (kt === 'epavarma') ? 'kypsyysdataa puuttuu' : 'kehitystaso · norm 16+';
-    return '<div class="mcard"><div class="mcard-top"><span class="mcard-lbl">' + lbl + (ib || '') + '</span>'
+    const seed = (kt === 'kasvu') ? '<span style="font-size:11px" title="Kasvupyrähdys — taso tarkentuu kasvumittauksella"> 🌱</span>' : '';
+    const foot = (kt === 'kasvu') ? '🌱 kehittyy PHV:n jälkeen · tarkempi analyysi kasvumittauksella'
+      : (kt === 'epavarma') ? 'kypsyysdataa puuttuu'
+      : 'kehitystaso · norm 16+';
+    return '<div class="mcard"><div class="mcard-top"><span class="mcard-lbl">' + lbl + (ib || '') + seed + '</span>'
       + '<span class="mcard-badge" style="background:' + badgeBg + ';color:' + badgeCol + '">' + badgeVal + '</span></div>'
       + '<div class="mcard-val">' + (arvo != null ? (typeof _fmtTestiArvo === 'function' ? _fmtTestiArvo(arvo, yks) : arvo) + '<span class="mcard-yks"> ' + yks + '</span>' : '<span class="mcard-yks">—</span>') + (trend || '') + '</div>'
       + (spark ? '<div class="mcard-spark">' + spark + '</div>' : '')
