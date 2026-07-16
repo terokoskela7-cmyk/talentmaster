@@ -20,7 +20,7 @@
 <script src="lib/tm_harjoitusarviointi.js?v=4"></script>
 <script src="lib/tm_kalenteri.js?v=1"></script>
 <script src="lib/tm_pvm.js?v=3"></script>   <!-- pvm-helperit: tmOnVanhaMittaus / tmKuukausiaMittauksesta / tmPvmFi (datan tuoreus) -->
-<script src="lib/tm_arviointi_taksonomia.js?v=5"></script>   <!-- Vaihe 2: arviointitaksonomia + pääteemat + kehysrekisteri (mitattu + havaittu 1–5) -->
+<script src="lib/tm_arviointi_taksonomia.js?v=6"></script>   <!-- Vaihe 2: arviointitaksonomia + pääteemat + kehysrekisteri (mitattu + havaittu 1–5) -->
 <script src="lib/tm_pelialy_yksilo.js?v=1"></script>   <!-- P1: pelihavainto peliäly → yksilöteema (oversight tilanne-jakauma) -->
 <script src="lib/tm_arviointi_silta.js?v=2"></script>   <!-- Vaihe 5: arviointi→resepti-silta (heikoin havaittu D2 → ehdotettu jaksofokus) · v2 = I3a SSOT-osoitin tm_kehityspolku -->
 <script src="lib/tm_idp.js?v=6"></script>   <!-- I3a: + kesto valmentajan asetettavaksi (opts.kestoVk) · I2: lahde+pvm/idp_lahde/idpVahvinDim 1–3 -->
@@ -4250,8 +4250,9 @@ function _vpArviointiHTML(p) {
     }
     return null;
   };
-  // 2c — ADAR-johdettu havaittu peliäly (render-ajassa pikakentästä adar_viimeisin; ei uutta kirjoitusta §26).
-  const adarHav = (typeof tmAdarHavaittu === 'function') ? tmAdarHavaittu(p.adar_viimeisin) : null;
+  // 2c/P3 — ADAR-johdettu havaittu peliäly (render-ajassa pikakentästä; ei uutta kirjoitusta §26). P3-ikäportti:
+  // vain ikävaiheen ADAR-dimit (≤12 Assess · ≤15 +Decide+Act · 16+ täysi, §7) + aktiivisen kehyksen adarMap (pluggability).
+  const adarHav = (typeof tmAdarHavaittu === 'function') ? tmAdarHavaittu(p.adar_viimeisin, { ika: ika, adarMap: kehys.adarMap }) : null;
   // P1 oversight (§6): pelihavaintojen tilanne-jakauma (n ottelusta, m harjoituksesta) pikakentästä.
   const _phTilLbl = (function () {
     const tj = p.adar_tilanne_jakauma; if (!tj) return '';
@@ -4308,7 +4309,8 @@ function _vpArviointiHTML(p) {
   } else {
     h += '<div class="jsp-arv-kpill">📋 <span class="jsp-arv-plname">' + _kortinNimi + '</span></div>';
   }
-  h += '<div class="jsp-arv-ksub">Arviointikehys · D1–D5 · ' + taks.length + ' kohdetta</div></div>';
+  h += '<div class="jsp-arv-ksub">Arviointikehys · D1–D5 · ' + taks.length + ' kohdetta</div>'
+    + '<div style="font-size:9.5px;color:var(--ink3);margin-top:2px">🔧 Kehys vaihdettavissa — seuran oma taksonomia + asteikko + KPI-mittarit + ADAR-mäppäys.</div></div>';
   h += '<div class="jsp-arv-tmbadge">analytiikka<b>◆ TalentMaster</b></div></div>';
   // §1 Attribuutio-selite (kerran): kumpi brändi omistaa minkä lähteen.
   h += '<div class="jsp-arv-attrib"><span style="color:var(--blue)">🔵 <b>Palloliitto</b></span>: havaittu-arvio 1–5 · <span style="color:var(--teal)">🟢◆ <b>TalentMaster</b></span>: mittaus · pelihavainto · kehityssuunnitelma' + ((typeof window._tmIBtn === 'function') ? window._tmIBtn('brandijako') : '') + '</div>';
@@ -4331,6 +4333,11 @@ function _vpArviointiHTML(p) {
   h += '</div>';
   // A1 — Selite (kerran).
   h += '<div class="jsp-arv-legend"><span style="color:var(--teal)">🟢 Mitattu</span> = TM-testistä (lukittu) · <span style="color:var(--blue)">🔵 Havaittu</span> = arvioi 1–5 · <span style="color:#c060a8">👁 Pelihavainnosta</span> = kenttähavainnosta johdettu (klikkaa yliajaaksesi). <span style="color:var(--amber)">＋ IDP-tavoite</span> = luo kehitystavoite (arvo ≤ 2). §7.22: aikuisten työkalu.</div>';
+  // P3.4 — aktiivisen kehyksen 1–5-asteikkolabelit legendana (nyt vain tooltipeissä). Lukee kehys.asteikko:sta → seuran oma asteikko adaptoituu.
+  if (A) {
+    const _astLbl = [1, 2, 3, 4, 5].filter(function (v) { return A[v]; }).map(function (v) { return '<b style="color:var(--ink2)">' + v + '</b> ' + _jsvEsc(A[v].fi); }).join(' · ');
+    if (_astLbl) h += '<div class="jsp-arv-legend" style="margin-top:-2px">📏 Asteikko (' + _jsvEsc(kehys.nimi) + '): ' + _astLbl + '</div>';
+  }
   h += _phTilLbl;
 
   // A2 — Valitun teeman kohteet jaettuna LÄHDERYHMIIN (mitattu · havaittu · pelihavainto). Nimitörmäys pois: teeman nimi vain valikossa.
@@ -4377,7 +4384,10 @@ function _vpArviointiHTML(p) {
   // 👁 PELIHAVAINNOSTA · JOHDETTU ADAR:STA — himmeä PELIH. + havaintopvm + pinkki palkki + segmentoitu 1–5 yliajoon. IDP-silta jos ≤2.
   if (gPeli.length) {
     const havPvm = (p.adar_viimeisin && p.adar_viimeisin.pvm) ? _pvmLyhyt(p.adar_viimeisin.pvm) : '';
+    // P3 — ADAR-ikäportti-note: mitkä ADAR-vaiheet ikävaihe avaa (§7 kolmiportainen).
+    const _adarTierLbl = (ika == null) ? 'täysi (ikä tuntematon)' : (ika <= 12 ? 'ikävaihe 8–12 → Assess' : ika <= 15 ? 'ikävaihe 13–15 → Assess · Decide · Act' : 'ikävaihe 16+ → täysi (Assess · Decide · Act · Reassess)');
     h += '<div class="jsp-arv-grp"><div class="jsp-arv-ghd peli">👁 Pelihavainnosta <span class="sub">· johdettu ADAR:sta (1–3) — klikkaa 1–5 yliajaaksesi</span><span class="jsp-arv-prov tm" title="TalentMaster-havaintomalli (ADAR)">TM ANALYTICS</span></div>';
+    h += '<div style="font-size:10px;color:var(--ink3);margin:-2px 2px 6px">🎯 ADAR-ikäportti: ' + _adarTierLbl + '</div>';
     gPeli.forEach(function(g){
       const item = g.item, arvo = g.av.arvo;
       h += '<div class="jsp-arv-r"><span class="jsp-arv-rn">' + item.nimi_fi + '<span class="jsp-arv-pelih" title="Pelihavainnosta johdettu (kenttähavainto) — klikkaa 1–5 antaaksesi oman arvion (yliajaa)">PELIH.</span></span>'
@@ -4393,10 +4403,29 @@ function _vpArviointiHTML(p) {
   if (!items.length) h += '<div class="jsp-arv-gempty">Ei kohteita tässä teemassa.</div>';
   // Autosave-indikaattori (§A3).
   h += '<div class="jsp-arv-save">✓ Arviot tallentuvat <b>automaattisesti</b> klikatessa · teema ' + arvioituja + '/' + items.length + ' arvioitu.</div>';
+  // P3 — D3-KALIBRAATIO (relokaatio Kehityksestä → yksi koti Arvioinnissa). Kompakti: itse × valmentaja × VP
+  // (renderD3VertailuHTML) + Aukko⚠ + varmuus-lippu (d3VarmuusChip) + 1-klik Arvioi (_avaaVpD3Arvio). Ei uutta kirjoitusta.
+  if (typeof _vpD3KalibraatioHTML === 'function') h += _vpD3KalibraatioHTML(p);
   // §3 — "TalentMaster Analytics — kehityskerros" -vyöhyke: merkitsee TM:n oman älyn kortin päällä (näkyväksi vs. Palloliiton kortti).
   h += '<div class="jsp-arv-kerros"><div class="jsp-arv-kerros-hd">◆ TalentMaster Analytics — kehityskerros</div>'
     + '<div class="jsp-arv-kerros-body"><span class="k">IDP-tavoite</span> (kausifokus) · <span class="k">Jaksofokus</span> + konseptit · <span class="k">5D-radar</span> · <span class="k">Peliäly/ADAR</span> · <span class="k">Kehityspolku</span></div>'
     + '<div><span class="jsp-arv-palaute" onclick="event.stopPropagation();_vpBrandiPalaute(\'' + p.id + '\')">💬 Palaute brändijaosta</span></div></div>';
+  return h;
+}
+// P3 — D3-kalibraatio kompakti lohko (yksi koti Arvioinnissa). Uudelleenkäyttää renderD3VertailuHTML + d3VarmuusChip +
+// _avaaVpD3Arvio (kaikki olemassa). §D3: VP-arvio EI muuta d3_taso:a — kolmiomittaus (itse × valmentaja × VP) + Aukko⚠.
+function _vpD3KalibraatioHTML(p) {
+  if (!p) return '';
+  const _d3pt = (p.d3_viimeisin && p.d3_viimeisin.pisteet) || null;
+  const _onVp = _d3pt && Object.keys(_d3pt).some(function (k) { return _d3pt[k] && _d3pt[k].vp != null; });
+  let h = '<div class="jsp-arv-grp" style="border-top:.5px solid var(--border);margin-top:14px;padding-top:12px">';
+  h += '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:4px">'
+    + '<span style="font-size:11px;letter-spacing:.04em;color:var(--ink2);text-transform:uppercase">🧠 D3-kalibraatio · itse × valmentaja × VP'
+    + (p.d3_taso != null && p.d3_varmuus && typeof d3VarmuusChip === 'function' ? ' ' + d3VarmuusChip(p.d3_varmuus) : '') + '</span>'
+    + '<button onclick="event.stopPropagation();_avaaVpD3Arvio(\'' + p.id + '\')" style="background:var(--blue);color:#fff;border:none;border-radius:5px;padding:4px 12px;font-size:11px;cursor:pointer;font-family:\'DM Sans\',sans-serif">' + (_onVp ? 'Päivitä VP-arvio' : 'Arvioi (VP)') + '</button></div>';
+  h += '<div style="font-size:10px;color:var(--ink3);margin-bottom:8px">Aukko ≥1.5 = keskustelunaihe · varmuus-lippu kertoo luotettavuuden (ei kliininen mittari).</div>';
+  h += '<div id="_jspD3Vertailu">' + (_d3pt && typeof renderD3VertailuHTML === 'function' ? renderD3VertailuHTML(_d3pt) : '<div style="font-size:11px;color:var(--ink3)">Ei vielä D3-arvioita. VP-arvio aloittaa kalibraation.</div>') + '</div>';
+  h += '</div>';
   return h;
 }
 // A1 — Coverage-solun klikkaus: hyppää dimensioon (valitse sen ensimmäinen teema).
@@ -8757,17 +8786,8 @@ window._avaaPerPelaajaPikakatsaus = function(idx, joukkueNimi) {
   // (C) Katso vs. tee — kausitavoitteen muokkaus + D3-kalibraatio siirtyvät KEHITYS-välilehteen (f4). Fyysinen/Tekninen = luku.
   if (typeof _vpLataaTavoite === 'function') _vpLataaTavoite(p);   // best-effort: lataa täysi tavoite jos idp_tila asetettu
   let _kehExtra = '';
-  {   // §D3 VP-kalibraatio (malli A) — VP-arvio EI muuta d3_taso:a; kolmen näkökulman vertailu + VP-arviointinappi.
-    const _d3pt = (p.d3_viimeisin && p.d3_viimeisin.pisteet) || null;
-    const _onVp = _d3pt && Object.keys(_d3pt).some(function(k){ return _d3pt[k] && _d3pt[k].vp != null; });
-    _kehExtra += '<div style="padding-top:12px;margin-top:12px;border-top:.5px solid var(--border)">';
-    _kehExtra += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">'
-      + '<span style="font-size:11px;letter-spacing:.04em;color:var(--ink2);text-transform:uppercase">D3 Psyykkinen — kalibraatio'
-      + (p.d3_taso != null && p.d3_varmuus && typeof d3VarmuusChip === 'function' ? ' ' + d3VarmuusChip(p.d3_varmuus) : '') + '</span>'
-      + '<button onclick="_avaaVpD3Arvio(\'' + p.id + '\')" style="background:var(--blue);color:#fff;border:none;border-radius:5px;padding:4px 12px;font-size:11px;cursor:pointer;font-family:\'DM Sans\',sans-serif">' + (_onVp ? 'Päivitä VP-arvio' : 'Arvioi (VP)') + '</button></div>';
-    _kehExtra += '<div id="_jspD3Vertailu">' + (_d3pt && typeof renderD3VertailuHTML === 'function' ? renderD3VertailuHTML(_d3pt) : '<div style="font-size:11px;color:var(--ink3)">Ei vielä D3-arvioita. VP-arvio aloittaa kalibraation.</div>') + '</div>';
-    _kehExtra += '</div>';
-  }
+  // P3 — D3-kalibraatio siirretty Arviointi-välilehteen (yksi koti, _vpD3KalibraatioHTML). Kevyt viittaus Kehityksessä.
+  _kehExtra += '<div style="padding-top:12px;margin-top:12px;border-top:.5px solid var(--border);font-size:11px;color:var(--ink3)">🧠 D3-kalibraatio (itse × valmentaja × VP) → <span style="color:var(--blue);cursor:pointer;font-weight:600" onclick="_jspVaihda(2)">Arviointi-välilehti</span></div>';
   if (typeof _vpKausitavoiteHTML === 'function') {
     _kehExtra += '<div class="jsp-kt" id="_jspKausitavoite" style="margin-top:14px">' + _vpKausitavoiteHTML(p) + '</div>';
   }
