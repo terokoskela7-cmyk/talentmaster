@@ -7,7 +7,7 @@ const {
   tmTaksonomiaDim, tmTaksonomiaByAvain, tmTaksonomiaMitattavat, tmTaksonomiaHavaittavat, tmMitattuMappaus,
   tmTeemat, tmTeemaKohteet, tmKategoriaNimi,
   ARVIOINTI_KEHYKSET, ARVIOINTI_KEHYS_OLETUS, tmKehys, tmKehysTaksonomia,
-  ADAR_HAVAITTU_MAP, tmAdarHavaittu
+  ADAR_HAVAITTU_MAP, tmAdarHavaittu, tmAdarIkaTier
 } = require('../lib/tm_arviointi_taksonomia.js');
 
 describe('ARVIOINTI_TAKSONOMIA — rakenteen eheys', () => {
@@ -159,5 +159,46 @@ describe('2c — tmAdarHavaittu (ADAR → havaittu peliäly D4)', () => {
   it('mäppäys osuu vain olemassa oleviin D4 football_sense -avaimiin', () => {
     const kohteet = new Set(ARVIOINTI_TAKSONOMIA.filter(i => i.dim === 'D4').map(i => i.avain));
     Object.values(ADAR_HAVAITTU_MAP).flat().forEach(avain => expect(kohteet.has(avain)).toBe(true));
+  });
+});
+
+describe('P3 — ADAR-ikäportti (kolmiportainen ikävaiheittain, §7)', () => {
+  it('tmAdarIkaTier: ≤12 Assess · 13–15 +Decide+Act · 16+ täysi · null=täysi', () => {
+    expect(tmAdarIkaTier(10)).toEqual(['a']);
+    expect(tmAdarIkaTier(12)).toEqual(['a']);
+    expect(tmAdarIkaTier(13)).toEqual(['a', 'd', 'ac']);
+    expect(tmAdarIkaTier(15)).toEqual(['a', 'd', 'ac']);
+    expect(tmAdarIkaTier(16)).toEqual(['a', 'd', 'ac', 'r']);
+    expect(tmAdarIkaTier(17)).toEqual(['a', 'd', 'ac', 'r']);
+    expect(tmAdarIkaTier(null)).toEqual(['a', 'd', 'ac', 'r']);
+  });
+  const adar = { a: 2, d: 3, ac: 1, r: 2 };
+  it('U8–12 → vain Assess (anticipation/vision), ei Decide/Act/Reassess', () => {
+    const r = tmAdarHavaittu(adar, { ika: 10 });
+    expect(Object.keys(r).sort()).toEqual(['anticipation', 'vision']);
+    expect(r.decision_making).toBeUndefined();
+    expect(r.positioning).toBeUndefined();
+  });
+  it('U13–15 → Assess+Decide+Act, EI positioning (Reassess)', () => {
+    const r = tmAdarHavaittu(adar, { ika: 14 });
+    expect(Object.keys(r).sort()).toEqual(['anticipation', 'decision_making', 'play_under_pressure', 'vision']);
+    expect(r.positioning).toBeUndefined();
+  });
+  it('U16+ → kaikki dimit', () => {
+    const r = tmAdarHavaittu(adar, { ika: 17 });
+    expect(r.positioning.arvo).toBe(2);
+    expect(Object.keys(r).length).toBe(5);
+  });
+  it('taaksepäin-yhteensopiva: ilman opts → kaikki (regressiovahti)', () => {
+    expect(Object.keys(tmAdarHavaittu(adar)).length).toBe(5);
+  });
+  it('opts.adarMap ohittaa globaalin (kehys-pluggability)', () => {
+    const oma = { a: ['oma_avain'] };
+    const r = tmAdarHavaittu({ a: 2 }, { ika: 10, adarMap: oma });
+    expect(r.oma_avain.arvo).toBe(2);
+    expect(r.vision).toBeUndefined();
+  });
+  it('ika==null (opts annettu muttei ikää) → kaikki dimit', () => {
+    expect(Object.keys(tmAdarHavaittu(adar, { adarMap: ADAR_HAVAITTU_MAP })).length).toBe(5);
   });
 });
