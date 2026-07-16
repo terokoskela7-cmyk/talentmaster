@@ -1360,6 +1360,22 @@ body {
 .diag-foot { font-size: 9.5px; color: var(--ink3); }
 .gate { background: linear-gradient(150deg, rgba(40,176,144,.07), var(--bg2)); border: .5px solid rgba(40,176,144,.25); border-radius: 10px; padding: 11px 13px; margin: 4px 0 12px; font-size: 11.5px; color: var(--ink2); line-height: 1.5; }
 .gate b { color: var(--teal); }
+/* P4a.1 — Kehityssuunnitelma-haitari (progressiivinen avaus · yksi fonttijärjestelmä · useampi auki kerralla). */
+.acc-row { border: .5px solid var(--border); border-radius: 10px; margin-bottom: 10px; background: var(--bg2); overflow: hidden; }
+.acc-head { display: flex; align-items: center; gap: 11px; padding: 13px 16px; cursor: pointer; -webkit-user-select: none; user-select: none; }
+.acc-head:hover { background: var(--ov-1); }
+.acc-ico { font-size: 17px; flex-shrink: 0; }
+.acc-main { flex: 1; min-width: 0; }
+.acc-eyebrow { font-family: var(--font-sans), 'DM Sans', sans-serif; font-size: 9px; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; color: var(--ink3); }
+.acc-title { font-family: var(--font-serif), 'Cormorant Garamond', serif; font-size: 18px; color: var(--ink); line-height: 1.15; }
+.acc-sum { font-family: var(--font-mono), 'DM Mono', monospace; font-size: 10.5px; color: var(--ink3); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.acc-chip { flex-shrink: 0; font-family: var(--font-sans), 'DM Sans', sans-serif; font-size: 10px; border-radius: 999px; padding: 3px 10px; border: .5px solid var(--border); color: var(--ink2); background: var(--ov-1); white-space: nowrap; }
+.acc-chip.on { color: var(--teal); border-color: rgba(40,176,144,.4); }
+.acc-chev { flex-shrink: 0; color: var(--ink3); font-size: 15px; transition: transform .18s; }
+.acc-row.open .acc-chev { transform: rotate(90deg); }
+.acc-body { display: none; padding: 4px 16px 16px; border-top: .5px solid var(--border); }
+.acc-row.open .acc-body { display: block; }
+.idp-breadcrumb { font-family: var(--font-mono), 'DM Mono', monospace; font-size: 10px; color: var(--ink3); margin: 2px 0 12px; letter-spacing: .04em; }
 /* Vaihe 2 — Arviointi-välilehti (Palloliitto-taksonomia): mitattu 🟢 + havaittu 🔵 1–5. §7.22 aikuisnäkymä. */
 .jsp-arv-topbar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 8px; }
 .jsp-arv-lbl { font-size: 10px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink3); }
@@ -4505,7 +4521,17 @@ function _vpLoytaPelaaja(pid) {
 }
 function _vpKausitavoiteReRender() {
   const slot = document.getElementById('_jspKausitavoite'); const p = window._vpArvPelaaja;
-  if (slot && p && typeof _vpKausitavoiteHTML === 'function') slot.innerHTML = _vpKausitavoiteHTML(p);
+  if (slot && p && typeof _vpKausitavoiteHTML === 'function') {
+    slot.innerHTML = _vpKausitavoiteHTML(p);
+  } else if (p && typeof _vpKehSuunnitelmaHTML === 'function') {
+    // P4a.1 — slot puuttuu (tyhjä→täysi -siirtymä haitarissa, tai kausitavoite-rivin body oli CTA): rakenna koko
+    //   Kehityssuunnitelma-haitari uudelleen sen wrapperiin, jotta juuri luotu tavoite näkyy.
+    const acc = document.getElementById('_accKausitavoite');
+    const cont = acc && acc.parentNode;
+    if (cont) cont.innerHTML = _vpKehSuunnitelmaHTML(p);
+  }
+  // P4a.1 — avaa kausitavoite-haitarirvi, jotta re-render (moottori/ehdota/muokkaa) näkyy vaikka rivi oli kiinni.
+  const _accK = document.getElementById('_accKausitavoite'); if (_accK) _accK.classList.add('open');
   // 1b — päivitä myös narratiivi-IDP-välilehti (sama data; täysi tavoite latautuu taustalla).
   const idpSlot = document.getElementById('_jspIdpNarratiivi');
   if (idpSlot && p && typeof _vpIdpNarratiiviHTML === 'function') idpSlot.innerHTML = _vpIdpNarratiiviHTML(p);
@@ -4942,6 +4968,52 @@ function _vpTyopoytaJaksofokusHTML(p) {
   h += '<div style="font-size:10px;color:var(--ink3);margin-top:10px">👁 Jaksofokus näkyy pelaajalle (Pelaaja-app) · domeenin vaihto arkistoi vanhan jakson automaattisesti.</div>';
   return h + '</div>';
 }
+// P4a.1 — KEHITYSSUUNNITELMA-HAITARI: kausitavoite (TASO 1) · jaksofokus (TASO 2) · kehityskaari (TASO 3) yhteen
+// progressiiviseen haitariin. Suljettu rivi = 1-rivin yhteenveto + tila-chip; klikkaus togglaa OMAN rivin (useampi
+// voi olla auki). Bodyt = olemassaolevat renderöijät sellaisenaan (ei uutta dataa/logiikkaa). IDP-hierarkia näkyväksi.
+function _vpKehSuunnitelmaHTML(p) {
+  const esc = _jsvEsc, pid = esc(p.id);
+  const t = p._idpTavoite || null, jf = p.jaksofokus || null, _jfLib = window.TM_JAKSOFOKUS;
+  const row = function (accId, ico, eyebrow, title, sum, chip, chipOn, body, avoin) {
+    return '<div class="acc-row' + (avoin ? ' open' : '') + '" id="' + accId + '">'
+      + '<div class="acc-head" onclick="this.parentNode.classList.toggle(\'open\')">'
+      + '<span class="acc-ico">' + ico + '</span>'
+      + '<div class="acc-main"><div class="acc-eyebrow">' + eyebrow + '</div><div class="acc-title">' + title + '</div>' + (sum ? '<div class="acc-sum">' + sum + '</div>' : '') + '</div>'
+      + (chip ? '<span class="acc-chip' + (chipOn ? ' on' : '') + '">' + chip + '</span>' : '')
+      + '<span class="acc-chev">›</span></div>'
+      + '<div class="acc-body">' + body + '</div></div>';
+  };
+  let h = '<div style="font-family:var(--font-serif),\'Cormorant Garamond\',serif;font-size:18px;color:var(--ink);margin:2px 0 2px">Kehityssuunnitelma</div>';
+  h += '<div class="idp-breadcrumb">🎯 kausi › 📍 jakso › 🗺 kaari</div>';
+  // ── TASO 1 · Kausitavoite ──
+  const ktFokus = (t && t.fokus && (t.fokus.nimi || t.fokus.alue)) || (p.idp_fokus && (p.idp_fokus.nimi || p.idp_fokus.alue)) || null;
+  const ktKausi = (t && t.aikaraami && t.aikaraami.kausi) || null;
+  const ktTila = (t && t.status) || p.idp_tila || null;
+  const ktSum = ktFokus ? (esc(ktFokus) + (ktKausi ? ' · ' + esc(ktKausi) : '')) : '';
+  const ktChip = ktTila ? ((ktTila === 'aktiivinen' ? '● ' : ktTila === 'saavutettu' ? '✓ ' : '○ ') + esc(ktTila)) : null;
+  const ktBody = (ktFokus || ktTila)
+    ? '<div class="jsp-kt" id="_jspKausitavoite">' + (typeof _vpKausitavoiteHTML === 'function' ? _vpKausitavoiteHTML(p) : '') + '</div>'
+    : '<div style="padding:6px 0"><button class="jsp-kt-btn primary" onclick="event.stopPropagation();_vpEhdotaTavoite(\'' + pid + '\')">＋ Tee kausitavoite</button><div style="font-family:var(--font-sans),\'DM Sans\',sans-serif;font-size:11px;color:var(--ink3);margin-top:6px">Moottori ehdottaa datasta — tai valitse kärjen korteista.</div></div>';
+  h += row('_accKausitavoite', '🎯', 'TASO 1 · KOKO KAUSI', 'Kausitavoite', ktSum, ktChip, ktTila === 'aktiivinen', ktBody, !(ktFokus || ktTila));
+  // ── TASO 2 · Jaksofokus ──
+  const jfNimi = (jf && jf.konsepti_nimi) || null;
+  const jfDom = jf ? ((_jfLib && typeof _jfLib.tmJfDomeeni === 'function' && _jfLib.tmJfDomeeni(jf.domeeni || 'teknis_taktinen')) || null) : null;
+  const jfUmp = !!(jf && _jfLib && typeof _jfLib.tmJfUmpeutunut === 'function' && _jfLib.tmJfUmpeutunut(jf));
+  const jfSum = jfNimi ? ((jfDom ? jfDom.ikoni + ' ' + esc(jfDom.nimi) + ' · ' : '') + 'kesto ' + (jf.kesto_vk || 4) + ' vk') : '';
+  const jfChip = jfNimi ? (jfUmp ? '🟠 umpeutunut' : '● aktiivinen') : null;
+  const jfBody = jfNimi ? (typeof _vpTyopoytaJaksofokusHTML === 'function' ? _vpTyopoytaJaksofokusHTML(p) : '')
+    : '<div style="padding:6px 0"><button class="jsp-kt-btn primary" onclick="event.stopPropagation();_jfOhjaa(\'' + pid + '\')">＋ Aseta jaksofokus</button><div style="font-family:var(--font-sans),\'DM Sans\',sans-serif;font-size:11px;color:var(--ink3);margin-top:6px">Nelikulmamalli: fyysinen · teknis-taktinen · henkinen · sosiaalinen.</div></div>';
+  h += row('_accJaksofokus', '📍', 'TASO 2 · TÄMÄ JAKSO · MESO 4–8 VK', 'Jaksofokus', jfSum, jfChip, jfNimi && !jfUmp, jfBody, false);
+  // ── TASO 3 · Kehityskaari (historia): tavoitteen review-sykli + suljetut jaksofokus-jaksot (meso). ──
+  const kaari = (t && typeof _vpKehityskaariHTML === 'function') ? _vpKehityskaariHTML(t, pid) : '';
+  const meso = (typeof _vpMesoKaariHTML === 'function') ? _vpMesoKaariHTML(p) : '';
+  const nRev = (t && Array.isArray(t.arviot)) ? t.arviot.length : 0;
+  const nHist = Array.isArray(p.jaksofokus_historia) ? p.jaksofokus_historia.length : 0;
+  const kaariSum = (nRev || nHist) ? [nRev ? nRev + ' review' : '', nHist ? nHist + ' suljettua jaksoa' : ''].filter(Boolean).join(' · ') : 'ei vielä historiaa';
+  const kaariBody = (kaari || meso) ? (kaari + meso) : '<div style="font-family:var(--font-sans),\'DM Sans\',sans-serif;font-size:12px;color:var(--ink3);padding:6px 0">Historia täyttyy kun tavoitteita reviewataan ja jaksoja suljetaan.</div>';
+  h += row('_accKaari', '🗺', 'TASO 3 · HISTORIA', 'Kehityskaari', kaariSum, null, false, kaariBody, false);
+  return h;
+}
 // P1 — Pelaajan ääni (Kimin lämpö): "Miksi pelaan?" (kursiivi-serif) + "Minkälainen pelaaja haluan olla?".
 // Kentät p.miksi_pelaan / p.pelaajatyyppi (VP/valmentaja asettaa; pelaajan oma kirjoitus = P5). Tyhjä = pehmeä
 // vihje, ei laatikkoa väkisin. Additiivinen — selkärangan ensimmäinen solmu.
@@ -5117,16 +5189,9 @@ function _vpKausitavoiteHTML(p) {
   if (typeof idpJumissa === 'function' && idpJumissa(t)) {
     h += '<div class="jsp-kt-varo" style="color:var(--amber)">⏳ Tavoite ei ole edennyt 8 viikkoon — harkitse harjoitteen/konseptin vaihtoa · katso ohjelma-analytiikka (7.2b).</div>';
   }
-  // v2 §1 — IDP-moottorin painopiste (segmentti): moottori EHDOTTAA, asiantuntija päättää. Näkyy ehdotus-/muokkaustilassa.
-  if (st === 'ehdotettu' || p._idpMuokkaus) {
-    const _mod = p._idpModus || t.tyyppi || 'heikkous';
-    const _modBtn = function (key, lbl) {
-      const on = (_mod === key);
-      return '<button class="jsp-kt-btn" style="padding:5px 10px;font-size:10.5px' + (on ? ';background:rgba(40,176,144,.16);border-color:rgba(40,176,144,.45);color:var(--teal)' : '') + '" onclick="event.stopPropagation();_vpAsetaModus(\'' + pid + '\',\'' + key + '\')">' + lbl + '</button>';
-    };
-    h += '<div style="margin:4px 0 10px"><div class="jsp-kt-bt">IDP-moottorin painopiste</div><div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px">'
-      + _modBtn('heikkous', 'Korjaa heikkous') + _modBtn('vahvuus', 'Jalosta vahvuus') + _modBtn('pelipaikka', 'Pelipaikka') + '</div></div>';
-  }
+  // P4a.1 — IDP-moottorin painopiste-segmentti POISTETTU: painopiste valitaan VAIN kärjen 2 kortista
+  //   (_vpMoottoriKortitHTML). Kausitavoite näyttää VALITUN fokuksen (ei valitsinta uudelleen). Fokuksen vaihto
+  //   muokkaustilassa hoituu _vpFokusValintaHTML:llä (alla) — ei koko painopiste-segmenttiä (duplikaatti pois).
   // fokus-chipit
   const f = t.fokus || {};
   // v2 §1 — tavoitetyyppi-chip (heikkous=amber · vahvuus=teal · pelipaikka=blue).
@@ -5193,8 +5258,8 @@ function _vpKausitavoiteHTML(p) {
   if (!p._idpMuokkaus && typeof _vpValitavoitteetHTML === 'function') h += '<div style="margin-top:12px">' + _vpValitavoitteetHTML(t, pid) + '</div>';
   // v2 §4 — pelaajan ääni & sitoumus (pelaaja kirjaa Pelaaja-appissa; VP näkee + vahvistaa).
   if (!p._idpMuokkaus && typeof _vpSitoumusHTML === 'function') h += _vpSitoumusHTML(p, pid);
-  // ── 3b: kehityskaari-timeline (katselutila; muokkaustilassa piilossa) ──
-  if (!p._idpMuokkaus) h += _vpKehityskaariHTML(t, pid);
+  // P4a.1 — kehityskaari EI enää kausitavoitteen sisällä: se on oma haitarirvi (TASO 3 · HISTORIA) työpöydällä
+  //   (_vpKehSuunnitelmaHTML). Näin IDP-hierarkia (kausi › jakso › kaari) erottuu selkeästi. (Muokkaustilassa oli jo piilossa.)
   // napit
   h += '<div class="jsp-kt-btns">';
   const kn = (p._idpKandN != null) ? p._idpKandN : null;
@@ -8830,10 +8895,9 @@ window._avaaPerPelaajaPikakatsaus = function(idx, joukkueNimi) {
   let _kehExtra = '';
   // 1) Moottorin ehdotus · 2 polkua (design-totuus): idpValitseHeikoin/Vahvin-kortit + notes + käsin-supervoima.
   if (typeof _vpMoottoriKortitHTML === 'function') _kehExtra += _vpMoottoriKortitHTML(p, p.id);
-  // 2) Kausitavoite (IDP-ydin) — sisältää välitavoitteet + kehityskaari (view). Slot uudelleenrenderöityy _vpKausitavoiteReRender:llä.
-  if (typeof _vpKausitavoiteHTML === 'function') _kehExtra += '<div class="jsp-kt" id="_jspKausitavoite">' + _vpKausitavoiteHTML(p) + '</div>';
-  // 3) Jaksofokus-editori — työpöydän ainoa selkeä muokkauskoti (Aloitus reitittää tänne).
-  if (typeof _vpTyopoytaJaksofokusHTML === 'function') _kehExtra += _vpTyopoytaJaksofokusHTML(p);
+  // 2) P4a.1 — KEHITYSSUUNNITELMA-HAITARI: kausitavoite (TASO 1 · #_jspKausitavoite säilyy re-renderiä varten) ·
+  //    jaksofokus (TASO 2) · kehityskaari (TASO 3). Progressiivinen avaus (useampi auki), IDP-hierarkia näkyväksi.
+  if (typeof _vpKehSuunnitelmaHTML === 'function') _kehExtra += '<div style="margin-top:6px">' + _vpKehSuunnitelmaHTML(p) + '</div>';
   // 4) D3-kalibraatio siirretty Arviointi-välilehteen (P3, yksi koti). Kevyt viittaus.
   _kehExtra += '<div style="padding-top:12px;margin-top:14px;border-top:.5px solid var(--border);font-size:11px;color:var(--ink3)">🧠 D3-kalibraatio (itse × valmentaja × VP) → <span style="color:var(--blue);cursor:pointer;font-weight:600" onclick="_jspVaihda(2)">Arviointi-välilehti</span></div>';
   // 5) Diagnostiikka (PHV-vaihe · kehitysvaihe · testipäivät · TK-kokonaisaika) → ▸ reveal (ei työpöydän kärjessä).
