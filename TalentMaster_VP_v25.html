@@ -1337,6 +1337,28 @@ body {
 .idp-spine::before { content: ''; position: absolute; left: 7px; top: 6px; bottom: 6px; width: 1px; background: linear-gradient(180deg, rgba(40,176,144,.5), rgba(40,176,144,.1)); }
 .idp-seg { position: relative; }
 .idp-seg > .idp-node { position: absolute; left: -21px; top: 4px; width: 9px; height: 9px; border-radius: 50%; background: var(--bg2); border: 1.5px solid var(--teal); box-shadow: 0 0 0 3px var(--bg2); }
+/* P2 — Mittaus-korttiruudukko (display-only): ydintestikortit + koontikortti + diagnostiikka + §28-portti + sparkline. */
+.mrow { display: grid; grid-template-columns: repeat(auto-fit, minmax(118px, 1fr)); gap: 8px; margin: 4px 0 10px; }
+.mcard { background: var(--bg2); border: .5px solid var(--border); border-radius: 10px; padding: 11px 12px; display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+.mcard.mtotal { background: linear-gradient(150deg, rgba(40,176,144,.09), var(--bg2)); border-color: rgba(40,176,144,.3); }
+.mcard-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.mcard-lbl { font-size: 10px; text-transform: uppercase; letter-spacing: .05em; color: var(--ink3); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mcard-badge { flex-shrink: 0; width: 22px; height: 22px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; font-family: var(--font-mono, 'DM Mono', monospace); }
+.mcard-val { font-size: 21px; font-weight: 600; font-family: 'Cormorant Garamond', serif; color: var(--ink); line-height: 1; }
+.mcard-yks { font-size: 11px; color: var(--ink3); font-weight: 400; font-family: var(--font-sans, 'DM Sans', sans-serif); }
+.mcard-trend { margin-left: 4px; }
+.mcard-spark { height: 20px; margin: 1px 0; }
+.mcard-foot { font-size: 9.5px; color: var(--ink3); }
+.jsp-spark { width: 100%; height: 20px; display: block; }
+.sparkfoot { font-size: 9.5px; color: var(--ink3); margin-top: 2px; }
+.diaglabel { font-size: 10px; text-transform: uppercase; letter-spacing: .05em; color: var(--ink3); font-weight: 600; margin: 8px 0 6px; }
+.diag { background: var(--ov-1); border: .5px solid var(--border); border-radius: 9px; padding: 9px 11px; display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.diag-tag { font-size: 8.5px; text-transform: uppercase; letter-spacing: .05em; color: var(--ink3); border: .5px solid var(--border); border-radius: 999px; padding: 1px 7px; align-self: flex-start; }
+.diag-lbl { font-size: 11.5px; color: var(--ink2); font-weight: 500; }
+.diag-val { font-size: 15px; font-weight: 600; color: var(--ink); font-family: 'Cormorant Garamond', serif; }
+.diag-foot { font-size: 9.5px; color: var(--ink3); }
+.gate { background: linear-gradient(150deg, rgba(40,176,144,.07), var(--bg2)); border: .5px solid rgba(40,176,144,.25); border-radius: 10px; padding: 11px 13px; margin: 4px 0 12px; font-size: 11.5px; color: var(--ink2); line-height: 1.5; }
+.gate b { color: var(--teal); }
 /* Vaihe 2 — Arviointi-välilehti (Palloliitto-taksonomia): mitattu 🟢 + havaittu 🔵 1–5. §7.22 aikuisnäkymä. */
 .jsp-arv-topbar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 8px; }
 .jsp-arv-lbl { font-size: 10px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink3); }
@@ -8020,6 +8042,25 @@ const _TM_RADAR_LAHDE_LEGENDA = '<div style="display:flex;gap:12px;flex-wrap:wra
   + '<span><span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:#3DA35D;vertical-align:middle;margin-right:4px"></span>mitattu</span>'
   + '<span><span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--blue);vertical-align:middle;margin-right:4px"></span>havaittu</span>'
   + '<span><span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--amber);vertical-align:middle;margin-right:4px"></span>itsearvio</span></div>';
+// P2 — sparkline (inline, EI lib → ei cache-bumppia). Renderöi VAIN aidosta ≥3 pisteen historiasta (ei fabrikointia).
+// pienempiParempi=true → 30m/suunnanmuutos ym.: pienenevä arvo = nouseva trendi (väri + viivan suunta käännetään).
+// Palauttaa '' jos <3 pistettä → säiliö jää tyhjäksi kunnes P1b tuo historian.
+function _tmSpark(points, opts) {
+  opts = opts || {};
+  const pts = (points || []).filter(function (v) { return v != null && !isNaN(v); }).map(Number);
+  if (pts.length < 3) return '';
+  const lo = Math.min.apply(null, pts), hi = Math.max.apply(null, pts), span = (hi - lo) || 1;
+  const W = 100, Hh = 20, n = pts.length, pien = !!opts.pienempiParempi;
+  const coords = pts.map(function (v, i) {
+    const x = (i / (n - 1)) * W;
+    let norm = (v - lo) / span; if (pien) norm = 1 - norm;
+    const y = Hh - norm * (Hh - 3) - 1.5;
+    return x.toFixed(1) + ',' + y.toFixed(1);
+  }).join(' ');
+  let dir = pts[n - 1] - pts[0]; if (pien) dir = -dir;
+  const col = (Math.abs(pts[n - 1] - pts[0]) < span * 0.05) ? 'var(--ink3)' : (dir > 0 ? 'var(--teal)' : 'var(--amber)');
+  return '<svg class="jsp-spark" viewBox="0 0 ' + W + ' ' + Hh + '" preserveAspectRatio="none"><polyline points="' + coords + '" fill="none" stroke="' + col + '" stroke-width="1.5" vector-effect="non-scaling-stroke" stroke-linejoin="round" stroke-linecap="round"/></svg>';
+}
 window._tmRadar5D = function(dims, opts) {
   opts = opts || {};
   const N = dims.length;
@@ -8216,27 +8257,71 @@ window._avaaPerPelaajaPikakatsaus = function(idx, joukkueNimi) {
       + '</div></div>';
   };
 
-  let f1 = '';
-  if (hv.lin5m  != null) f1 += friv('Nopeus (5m)',  tasoEk('nopeus_5m',  hv.lin5m),  hv.lin5m,  's', false, 'nopeus_5m');
-  if (hv.lin10m != null) f1 += friv('Nopeus (10m) · kiihdytys', tasoEk('nopeus_10m', hv.lin10m), hv.lin10m, 's', false, 'nopeus_10m');
-  // 30m/CMJ/MAS = §28-kypsyysgeitatut (gated=true) → neutraali pre-PHV. 5m/10m (kiihdytys) EI geitattu (neuraalinen).
-  f1 += friv('Nopeus (30m)', tasoOf('30m', hv.lin30m), hv.lin30m, 's', false, 'nopeus_30m', true)
-    + friv('Räjähtävyys (CMJ)', tasoOf('cmj', hv.cmj), hv.cmj, 'cm', false, 'cmj', true)
-    + friv('Kestävyys (MAS)', tasoOf('mas', hv.mas), hv.mas, 'km/h', false, 'mas', true)
-    // (MAS-vyöhykeanalyysi siirtyy ▸ Syväanalyysiin, ei enää inline)
-    // Ketteryys (kasirata, D1-fyysinen §30 FYS) — taso eerikkilaTaso-libistä (HH_NORMIT_PIKA ei sisällä kasirataa)
-    + (hv.kasirata != null ? friv('Ketteryys', tasoEk('kasirata', hv.kasirata), hv.kasirata, 's', false, 'kasirata') : '')
-    + friv('H-H kokonais', d1, (d1 != null ? d1 : null), '/5', true, 'hh_taso', true);   // D1-aggregaatti = gated (sama kypsyystila kuin snapshot D1 → ei ristiriitaa)
-  // Kiihdytysprofiili — valmennusvipu. Ensisijaisesti 5m-FVP; fallback 10m+30m (lentävä väliaika) datalla joka useimmilla on.
+  // ── P2 — FYYSINEN KORTTIRUUDUKKO (display-only) — kaikki laskenta olemassa (tasoOf/kypsyysTila/hhTasoVari/_fmtTestiArvo). ──
+  // FVP säilyy (syväanalyysi käyttää). Kiihdytysprofiili-fallback siirtyi syväanalyysin sub-indekseihin (ei inline).
   const fvp = (typeof laskeFVP === 'function' && hv.lin5m != null && hv.lin30m != null) ? laskeFVP(hv.lin5m, hv.lin30m) : null;
-  if (fvp != null) {
-    const fvpTyyppi = fvp < 0.90 ? 'nopeusprofiili — huippunopeus vahvuus' : fvp <= 1.10 ? 'tasapainoinen profiili' : 'voimaprofiili — kiihdytys vahvuus';
-    f1 += '<div style="font-size:11px;color:var(--ink3);margin-top:8px">FVP ' + fvp.toFixed(2) + ' · ' + fvpTyyppi + window._tmIBtn('kiihdytysprofiili') + '</div>';
-  } else {
-    const kp = (typeof laskeKiihdytysprofiili === 'function' && hv.lin10m != null && hv.lin30m != null) ? laskeKiihdytysprofiili(hv.lin10m, hv.lin30m) : null;
-    if (kp != null) f1 += '<div style="font-size:11px;color:var(--ink3);margin-top:8px">Kiihdytysprofiili (10–30m) ' + kp.suhde.toFixed(2) + ' · ' + kp.tyyppi + window._tmIBtn('kiihdytysprofiili') + '</div>';
+  // Trendinuoli 2-piste-pikakentästä (suurempi taso = parempi). Tyhjä → '' (ei fabrikointia).
+  const _trendNuoli = function (nyt, edel) {
+    if (nyt == null || edel == null) return '';
+    const d = Math.round((nyt - edel) * 10) / 10;
+    const up = d > 0.05, down = d < -0.05;
+    const col = up ? 'var(--teal)' : down ? 'var(--amber)' : 'var(--ink3)';
+    return '<span class="mcard-trend" style="color:' + col + ';font-size:12px;font-weight:600">' + (up ? '↑ +' + d : down ? '↓ ' + d : '→ 0') + '</span>';
+  };
+  // Yksi ydinkortti (§28-geittaus säilyy: kasvu→🌱 · epavarma→himmennys · normaali→hhTasoVari). spark = _tmSpark(historia)
+  // → tyhjä kunnes P1b tuo per-testi-historian (säiliö syttyy automaattisesti). trend = 2-piste-nuoli tai ''.
+  const _mcardFys = function (lbl, taso, arvo, yks, ib, trend, spark) {
+    const kt = _kt(taso, true);
+    const neutraali = (kt === 'kasvu' || kt === 'epavarma');
+    const badgeVal = (kt === 'kasvu') ? '🌱' : (taso != null ? taso : '–');
+    const badgeBg = neutraali ? 'var(--ov-3)' : (taso == null ? 'var(--ink3)' : hhTasoVari(taso));
+    const badgeCol = neutraali ? 'var(--ink3)' : '#fff';
+    const foot = (kt === 'kasvu') ? '🌱 kehittyy PHV:n jälkeen' : (kt === 'epavarma') ? 'kypsyysdataa puuttuu' : 'kehitystaso · norm 16+';
+    return '<div class="mcard"><div class="mcard-top"><span class="mcard-lbl">' + lbl + (ib || '') + '</span>'
+      + '<span class="mcard-badge" style="background:' + badgeBg + ';color:' + badgeCol + '">' + badgeVal + '</span></div>'
+      + '<div class="mcard-val">' + (arvo != null ? (typeof _fmtTestiArvo === 'function' ? _fmtTestiArvo(arvo, yks) : arvo) + '<span class="mcard-yks"> ' + yks + '</span>' : '<span class="mcard-yks">—</span>') + (trend || '') + '</div>'
+      + (spark ? '<div class="mcard-spark">' + spark + '</div>' : '')
+      + '<div class="mcard-foot">' + foot + '</div></div>';
+  };
+  let f1 = '';
+  let _fysCards = '', _anyGate = false;
+  [ { lbl: '30 m', k: '30m', arvo: hv.lin30m, yks: 's', ib: 'nopeus_30m' },
+    { lbl: 'CMJ', k: 'cmj', arvo: hv.cmj, yks: 'cm', ib: 'cmj' },
+    { lbl: 'MAS', k: 'mas', arvo: hv.mas, yks: 'km/h', ib: 'mas' }
+  ].forEach(function (c) {
+    if (c.arvo == null) return;
+    const taso = tasoOf(c.k, c.arvo);
+    const kt = _kt(taso, true); if (kt === 'kasvu' || kt === 'epavarma') _anyGate = true;
+    // spark tyhjä: ei per-testi-historiaa (P1b). trend tyhjä: ei per-testi-_edellinen-arvoa (P1b).
+    _fysCards += _mcardFys(c.lbl, taso, c.arvo, c.yks, window._tmIBtn(c.ib), '', _tmSpark(undefined));
+  });
+  // H-H-koontikortti (.mtotal) — 30m·CMJ·MAS → keskiarvo + trendinuoli hh_taso_edellinen:stä (aito 2-piste-data).
+  if (d1 != null) {
+    const kt = _kt(d1, true); if (kt === 'kasvu' || kt === 'epavarma') _anyGate = true;
+    const col = (kt === 'kasvu' || kt === 'epavarma') ? 'var(--ink3)' : hhTasoVari(d1);
+    _fysCards += '<div class="mcard mtotal"><div class="mcard-top"><span class="mcard-lbl">H-H taso</span></div>'
+      + '<div class="mcard-val" style="color:' + col + '">' + (Math.round(d1 * 10) / 10) + '<span class="mcard-yks"> /5</span>' + _trendNuoli(d1, p.hh_taso_edellinen) + '</div>'
+      + '<div class="mcard-foot">30m · CMJ · MAS → keskiarvo</div></div>';
   }
-  f1 += '<div style="font-size:11px;color:var(--ink3);margin-top:10px">Suunta (↑↓→) vaatii testihistorian — Sprint 2. Ikä/sp: ' + (ika||'?') + ' · ' + (spMN||'?') + '</div>';
+  if (_fysCards) f1 += '<div class="mrow">' + _fysCards + '</div>';
+  // §28-kypsyysporttilaatikko — VAIN herkässä ikkunassa (preP tai gated-testi kasvu/epavarma). Muuten piilossa.
+  if (_preP || _anyGate) {
+    f1 += '<div class="gate">🌱 <b>Kypsyysportti (§28):</b> Heikko fyysinen ei nouse kehitystavoitteeksi ennen PHV:tä, eikä normivertailua näytetä ennen Showcase-ikää (16+) — vain kehityskaista.</div>';
+  }
+  // Lisädiagnostiikka — erotettu osio ("ei H-H:ssa · ilman palloa"), vain testeistä joita on (§26). Ei 1–5 H-H-tasoa.
+  const _diagKortti = function (lbl, arvo, yks, selite) {
+    return '<div class="diag"><span class="diag-tag">diagnostiikka</span><div class="diag-lbl">' + lbl + '</div>'
+      + '<div class="diag-val">' + (arvo != null ? (typeof _fmtTestiArvo === 'function' ? _fmtTestiArvo(arvo, yks) : arvo) + ' ' + yks : '—') + '</div>'
+      + '<div class="diag-foot">' + selite + '</div></div>';
+  };
+  let _diagCards = '';
+  if (hv.lin5m != null || hv.lin10m != null) {
+    const _a5 = (hv.lin5m != null) ? hv.lin5m : hv.lin10m;
+    _diagCards += _diagKortti((hv.lin5m != null) ? '5 m kiihdytys' : '10 m kiihdytys', _a5, 's', 'räjähtävä lähtö');
+  }
+  if (hv.sm_juoksu != null) _diagCards += _diagKortti('Suunnanmuutos', hv.sm_juoksu, 's', 'ilman palloa');
+  if (hv.kasirata != null) _diagCards += _diagKortti('Ketteryys', hv.kasirata, 's', 'reaktiivinen · T-testi');
+  if (_diagCards) f1 += '<div class="diaglabel">Lisädiagnostiikka · ei H-H:ssa (ilman palloa)</div><div class="mrow">' + _diagCards + '</div>';
 
   // ── (A) PER-TESTI-RADAR (Fyysinen) — 10m/30m/CMJ/MAS/kasirata, tavoiteviiva taso 3, §28 epavarma himmennetty ──
   const _mkFysAks = function(key, taso, gated) {
@@ -8319,24 +8404,56 @@ window._avaaPerPelaajaPikakatsaus = function(idx, joukkueNimi) {
   const tsiKtx = (tsi == null) ? null : (tsi < 1.2 ? 'Teknisesti vahva' : tsi < 1.6 ? 'Kansallinen taso' : tsi < 2.0 ? 'Kehitettävää' : 'Prioriteetti');
   const m2 = _tkiMerkkiVP(p.tki_viimeisin, p.tki_merkki);
   const tRiv = function(lbl, val) { return '<tr style="border-top:.5px solid var(--border)"><td style="padding:6px 8px;color:var(--ink2)">' + lbl + '</td><td style="padding:6px 8px;font-family:var(--font-m);color:var(--ink)">' + val + '</td></tr>'; };
-  // SM-juoksu/SM-pallo Eerikkilä-tasot — sama hh-testirivi-tyyli kuin Fyysinen (friv: badge + palkki + arvo)
-  let f2 = '';
-  if (p.sm_juoksu_taso != null || p.sm_juoksu_viimeisin != null)
-    f2 += friv('Nopeus (SM-juoksu)', (p.sm_juoksu_taso != null ? p.sm_juoksu_taso : null), (p.sm_juoksu_viimeisin != null ? p.sm_juoksu_viimeisin : null), 's', false, 'sm_juoksu');
-  if (p.sm_pallo_taso != null || p.sm_pallo_viimeisin != null)
-    f2 += friv('Tekniikka (SM-pallo)', (p.sm_pallo_taso != null ? p.sm_pallo_taso : null), (p.sm_pallo_viimeisin != null ? p.sm_pallo_viimeisin : null), 's', false, 'sm_pallo');
-  // TSI-rivi VAIN kun SM-dataa on (§26 näytä mitä on, piilota mitä ei — ei turhaa "—")
-  // COD raakadata (Tero-pyyntö): suunnanmuutos ilman palloa → pallolla (hh_viimeisin, fallback pikakentät §26).
+  // COD raakadata: suunnanmuutos ilman palloa → pallolla (hh_viimeisin, fallback pikakentät §26).
   // TSI-väri §21 (yhtenäinen Talentit-listan kanssa): ≤0.5 teal · ≤1.5 amber · >1.5 red.
   const _codJ = (hv && hv.sm_juoksu != null) ? hv.sm_juoksu : (p.sm_juoksu_viimeisin != null ? p.sm_juoksu_viimeisin : null);
   const _codP = (hv && hv.sm_pallo != null) ? hv.sm_pallo : (p.sm_pallo_viimeisin != null ? p.sm_pallo_viimeisin : null);
   const _tsiVari = (tsi == null) ? 'var(--ink)' : tsi <= 0.5 ? 'var(--teal)' : tsi <= 1.5 ? 'var(--amber)' : 'var(--red)';
-  f2 += '<table style="width:100%;border-collapse:collapse;font-size:12px;margin-top:10px"><tbody>'
-    + ((_codJ != null && _codP != null) ? tRiv('Suunnanmuutos (ilman → pallolla)', '<span style="color:var(--ink3)">' + _codJ + ' → ' + _codP + ' s</span>') : '')
-    + (tsi != null ? tRiv('TSI (pallon hidastus)' + window._tmIBtn('tsi'), '<span style="color:' + _tsiVari + '">' + tsi + ' s</span>' + (tsiKtx ? ' · ' + tsiKtx : '')) : '')
-    + tRiv('TKI' + window._tmIBtn('tki'), p.tki_viimeisin != null ? p.tki_viimeisin : '—')
-    + tRiv('Merkki', m2 ? (m2.emoji + ' ' + m2.nimi) : '—')
-    + '</tbody></table>';
+  // ── P2 — TEKNINEN KORTTIRUUDUKKO (display-only): TKI/TSI-kortit + per-taito + D2-koontikortti. Laskenta olemassa. ──
+  let f2 = '';
+  let _d2Cards = '';
+  // TKI-kortti (badge = laskeD2Taso n/5; trendinuoli tki_edellinen→tki_viimeisin; sparkline-säiliö tyhjä kunnes P1b).
+  if (p.tki_viimeisin != null) {
+    const _d2b = (d2 != null) ? Math.round(d2) : '–';
+    const _d2c = (d2 != null) ? hhTasoVari(d2) : 'var(--ink3)';
+    _d2Cards += '<div class="mcard"><div class="mcard-top"><span class="mcard-lbl">TKI' + window._tmIBtn('tki') + '</span>'
+      + '<span class="mcard-badge" style="background:' + _d2c + ';color:#fff">' + _d2b + '</span></div>'
+      + '<div class="mcard-val">' + p.tki_viimeisin + _trendNuoli(p.tki_viimeisin, p.tki_edellinen) + '</div>'
+      + (_tmSpark(undefined) ? '<div class="mcard-spark">' + _tmSpark(undefined) + '</div>' : '')
+      + '<div class="mcard-foot">' + (m2 ? m2.emoji + ' ' + m2.nimi : 'tekniikkaindeksi') + '</div></div>';
+  }
+  // TSI-kortti (ei _edellinen-kenttää → EI nuolta, graceful). §21-väri säilyy.
+  if (tsi != null) {
+    _d2Cards += '<div class="mcard"><div class="mcard-top"><span class="mcard-lbl">TSI' + window._tmIBtn('tsi') + '</span></div>'
+      + '<div class="mcard-val" style="color:' + _tsiVari + '">' + tsi + '<span class="mcard-yks"> s</span></div>'
+      + '<div class="mcard-foot">suunnanmuutos pallon kanssa' + (tsiKtx ? ' · ' + tsiKtx : '') + '</div></div>';
+  }
+  // Per-taito (TKI-lajit) — vain jos tk_lajit_viimeisin (§26). Muuten kortti pois (graceful, ei keksitä taitoja).
+  if (p.tk_lajit_viimeisin) {
+    const _L = p.tk_lajit_viimeisin;
+    const _lrows = [['syotto_s', 'Syöttö'], ['pujottelu_s', 'Pujottelu'], ['ponnauttelu_s', 'Ponnauttelu'], ['kuljetus_laukaus_s', 'Kuljetus-laukaus']]
+      .filter(function (x) { return _L[x[0]] != null; })
+      .map(function (x) { return '<div style="display:flex;justify-content:space-between;gap:8px;font-size:11px;color:var(--ink2)"><span>' + x[1] + '</span><span style="font-family:var(--font-mono,monospace)">' + _L[x[0]] + ' s</span></div>'; }).join('');
+    if (_lrows) _d2Cards += '<div class="mcard"><div class="mcard-top"><span class="mcard-lbl">Per taito · TKI</span></div>'
+      + '<div style="display:flex;flex-direction:column;gap:2px;margin:2px 0">' + _lrows + '</div>'
+      + '<div class="mcard-foot">sekuntia · pienempi parempi</div></div>';
+  }
+  // D2-koontikortti (.mtotal): laskeD2Taso → radar D2.
+  if (d2 != null) {
+    _d2Cards += '<div class="mcard mtotal"><div class="mcard-top"><span class="mcard-lbl">D2 taso</span></div>'
+      + '<div class="mcard-val" style="color:' + hhTasoVari(d2) + '">' + (Math.round(d2 * 10) / 10) + '<span class="mcard-yks"> /5</span></div>'
+      + '<div class="mcard-foot">→ radar D2</div></div>';
+  }
+  if (_d2Cards) f2 += '<div class="mrow d2b">' + _d2Cards + '</div>';
+  // SM-tasot (D1→D2-silta) säilyvät testiriveinä (eivät korteissa).
+  if (p.sm_juoksu_taso != null || p.sm_juoksu_viimeisin != null)
+    f2 += friv('Nopeus (SM-juoksu)', (p.sm_juoksu_taso != null ? p.sm_juoksu_taso : null), (p.sm_juoksu_viimeisin != null ? p.sm_juoksu_viimeisin : null), 's', false, 'sm_juoksu');
+  if (p.sm_pallo_taso != null || p.sm_pallo_viimeisin != null)
+    f2 += friv('Tekniikka (SM-pallo)', (p.sm_pallo_taso != null ? p.sm_pallo_taso : null), (p.sm_pallo_viimeisin != null ? p.sm_pallo_viimeisin : null), 's', false, 'sm_pallo');
+  // Suunnanmuutos (ilman → pallolla) + Merkki säilyvät (TSI/TKI nyt korteissa → poistettu taulukosta, §5).
+  const _tekTaul = ((_codJ != null && _codP != null) ? tRiv('Suunnanmuutos (ilman → pallolla)', '<span style="color:var(--ink3)">' + _codJ + ' → ' + _codP + ' s</span>') : '')
+    + (m2 ? tRiv('Merkki', m2.emoji + ' ' + m2.nimi) : '');
+  if (_tekTaul) f2 += '<table style="width:100%;border-collapse:collapse;font-size:12px;margin-top:10px"><tbody>' + _tekTaul + '</tbody></table>';
   // H-H lajitekniikka (syöttö/pujottelu 3-port) — näkyy myös ilman TKI-dataa (Pallo-Iirot ym.). Eri asteikko (1–3)
   // kuin fyysinen 1–5 → oma rivi, ei friv-badgea (joka olisi 1–5). Pienempi aika = parempi.
   if (typeof eerikkilaTaso === 'function' && ika != null && hv && (hv.syotto != null || hv.pujottelu != null)) {
@@ -12195,6 +12312,11 @@ function renderFleiKortti(p) {
   const flei = (p.flei_viimeisin != null) ? p.flei_viimeisin : null;
   const ketjut = [p.sbl, p.sfl, p.ll, p.diag, p.dfl].filter(function(v){ return v != null && v > 0; }).length;
   const cta = "window._avaaHarjoitettavuus ? window._avaaHarjoitettavuus() : (typeof toast===&quot;function&quot; && toast(&quot;Harjoitettavuuslomake — tulossa&quot;,&quot;ok&quot;))";
+  // P2 — sparkline elävänä esimerkkinä: flei_historia on tänään ainoa aito ≥3 pisteen lähde (bigger-better).
+  // _tmSpark palauttaa '' jos <3 pistettä → säiliö jää pois (ei fabrikointia). Sama säiliö täyttyy muille P1b:ssä.
+  const _fleiHist = Array.isArray(p.flei_historia) ? p.flei_historia.map(function (e) { return e && e.flei != null ? e.flei : null; }).filter(function (v) { return v != null; }) : [];
+  const _fleiSpark = (typeof _tmSpark === 'function') ? _tmSpark(_fleiHist) : '';
+  const _fleiSparkHTML = _fleiSpark ? '<div class="mcard-spark" style="margin-top:6px">' + _fleiSpark + '</div><div class="sparkfoot">' + _fleiHist.length + ' mittausta · ' + (_fleiHist[_fleiHist.length - 1] > _fleiHist[0] ? '↑ nouseva' : _fleiHist[_fleiHist.length - 1] < _fleiHist[0] ? '↓ laskeva' : '→ tasainen') + '</div>' : '';
 
   // TILA A — ei dataa
   if (flei == null || ketjut === 0) {
@@ -12214,6 +12336,7 @@ function renderFleiKortti(p) {
       + '<div class="flei-palkki-iso"><div style="width:' + fleiPct + '%"></div></div>'
       + '<span class="flei-arvo">' + fleiPct + ' / 100</span>'
       + (p.flei_pvm ? '<span class="flei-pvm">Viimeisin: ' + (typeof tmPvmFi === 'function' ? (tmPvmFi(p.flei_pvm) || _jsvEsc(p.flei_pvm)) : _jsvEsc(p.flei_pvm)) + ((typeof tmOnVanhaMittaus === 'function' && tmOnVanhaMittaus(p.flei_pvm)) ? ' · 📍 päivitä' : '') + '</span>' : '')
+      + _fleiSparkHTML
       + '<button class="flei-cta" onclick="' + cta + '"><i class="ti ti-plus"></i> Täydennä profiili →</button>'
       + '</div>';
   }
@@ -12230,6 +12353,7 @@ function renderFleiKortti(p) {
     + '<div class="flei-header"><span class="flei-label">Kehon valmius -profiili</span><span class="flei-kokonais">' + fleiPct + ' / 100</span></div>'
     + '<div class="flei-ketjut">' + ketjuHtml + '</div>'
     + (p.flei_pvm ? '<span class="flei-pvm">Päivitetty: ' + (typeof tmPvmFi === 'function' ? (tmPvmFi(p.flei_pvm) || _jsvEsc(p.flei_pvm)) : _jsvEsc(p.flei_pvm)) + ((typeof tmOnVanhaMittaus === 'function' && tmOnVanhaMittaus(p.flei_pvm)) ? ' · 📍 päivitä' : '') + '</span>' : '')
+    + _fleiSparkHTML
     + '</div>';
 }
 
