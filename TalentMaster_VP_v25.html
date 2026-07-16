@@ -4315,27 +4315,39 @@ function _vpArviointiHTML(p) {
     return '<span class="jsp-arv-idp" onclick="event.stopPropagation();_vpTeeIdpTavoiteHavainnosta(\'' + pid + '\',\'' + avain + '\')" title="Luo IDP-kehitystavoite tästä havainnosta (arvo ≤ 2)">＋ IDP-tavoite</span>';
   };
 
-  // §1 Kaksois-brändäys: Palloliitto Player Development Card (arviointikehys) × TalentMaster Analytics (älykerros).
-  // Sama data, selkeä alkuperä. Havaintopsykologinen muutos → pilottipalaute ennen lukitsemista (§4).
-  const _kortinNimi = (kehysAvain === 'palloliitto') ? 'Palloliitto Player Development Card' : _jsvEsc(kehys.nimi);
-  h += '<div class="jsp-arv-hdr"><div class="jsp-arv-brand">';
-  if (kehysAvaimet.length > 1 || (typeof superAdmin !== 'undefined' && superAdmin)) {
-    h += '<div class="jsp-arv-kpill">📋 <select class="jsp-arv-select" style="padding:1px 6px;font-size:11px" onchange="_vpArvValitseKehys(this.value)">'
-      + kehysAvaimet.map(function(k){ return '<option value="' + k + '"' + (k === kehysAvain ? ' selected' : '') + '>' + _jsvEsc(ARVIOINTI_KEHYKSET[k].nimi) + '</option>'; }).join('') + '</select></div>';
-  } else {
-    h += '<div class="jsp-arv-kpill">📋 <span class="jsp-arv-plname">' + _kortinNimi + '</span></div>';
+  // §1 Kaksois-brändäys (Palloliitto × TalentMaster) — P3.1: kompakti tagi otsikossa; täysi attribuutio ⓘ-paneelissa.
+  // ── P3.1 — KOMPAKTI OTSIKKO (johda arvioinnilla): eyebrow · serif-otsikko · mono-meta · pieni kaksoisbrändi-tagi. ──
+  h += '<div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:2px">'
+    + '<div><div style="font-family:var(--font-sans),\'DM Sans\',sans-serif;font-size:9px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--ink3)">Arviointi · havainto-kehys</div>'
+    + '<div style="font-family:var(--font-serif),\'Cormorant Garamond\',serif;font-size:21px;color:var(--ink);line-height:1.1">Arviointi</div>'
+    + '<div style="font-family:var(--font-mono),\'DM Mono\',monospace;font-size:10px;color:var(--ink3);margin-top:1px">' + _jsvEsc(kehys.nimi) + '-kehys · D1–D5 · ' + taks.length + ' kohdetta</div></div>'
+    + '<span style="font-family:var(--font-mono),\'DM Mono\',monospace;font-size:9.5px;color:var(--ink3);white-space:nowrap">📋 ' + _jsvEsc(kehysAvain === 'palloliitto' ? 'Palloliitto' : kehys.nimi) + ' × ◆ TalentMaster</span></div>';
+  // ── ⓘ Tietoa kehyksestä -katkaisin (KAIKKI selittävä scaffolding kootusti, oletuksena KIINNI). ──
+  const _selitToggle = 'var b=document.getElementById(\'_jspArvSelit\');var o=b.style.display===\'none\';b.style.display=o?\'block\':\'none\'';
+  h += '<div style="margin:6px 0 10px"><span onclick="' + _selitToggle + '" style="font-family:var(--font-sans),\'DM Sans\',sans-serif;font-size:11px;color:var(--blue);cursor:pointer;-webkit-user-select:none;user-select:none">ⓘ Tietoa kehyksestä · selitteet</span>';
+  h += '<div id="_jspArvSelit" style="display:none;margin-top:8px;padding:11px 13px;background:var(--ov-1);border:.5px solid var(--border);border-radius:10px;font-family:var(--font-sans),\'DM Sans\',sans-serif">';
+  h += '<div style="font-size:10.5px;color:var(--ink3);margin-bottom:7px">🔧 Kehys vaihdettavissa — seuran oma taksonomia + asteikko + KPI-mittarit + ADAR-mäppäys.</div>';
+  h += '<div class="jsp-arv-attrib" style="margin:0 0 7px"><span style="color:var(--blue)">🔵 <b>Palloliitto</b></span>: havaittu-arvio 1–5 · <span style="color:var(--teal)">🟢◆ <b>TalentMaster</b></span>: mittaus · pelihavainto · kehityssuunnitelma' + ((typeof window._tmIBtn === 'function') ? window._tmIBtn('brandijako') : '') + '</div>';
+  h += '<div class="jsp-arv-legend" style="margin:0 0 7px"><span style="color:var(--teal)">🟢 Mitattu</span> = TM-testistä (lukittu) · <span style="color:var(--blue)">🔵 Havaittu</span> = arvioi 1–5 · <span style="color:#c060a8">👁 Pelihavainnosta</span> = kenttähavainnosta johdettu (klikkaa yliajaaksesi). <span style="color:var(--amber)">＋ IDP-tavoite</span> = luo kehitystavoite (arvo ≤ 2). §7.22: aikuisten työkalu.</div>';
+  if (A) {
+    const _astLbl = [1, 2, 3, 4, 5].filter(function (v) { return A[v]; }).map(function (v) { return '<b style="color:var(--ink2)">' + v + '</b> ' + _jsvEsc(A[v].fi); }).join(' · ');
+    if (_astLbl) h += '<div class="jsp-arv-legend" style="margin:0 0 7px">📏 Asteikko (' + _jsvEsc(kehys.nimi) + '): ' + _astLbl + '</div>';
   }
-  h += '<div class="jsp-arv-ksub">Arviointikehys · D1–D5 · ' + taks.length + ' kohdetta</div>'
-    + '<div style="font-size:9.5px;color:var(--ink3);margin-top:2px">🔧 Kehys vaihdettavissa — seuran oma taksonomia + asteikko + KPI-mittarit + ADAR-mäppäys.</div></div>';
-  h += '<div class="jsp-arv-tmbadge">analytiikka<b>◆ TalentMaster</b></div></div>';
-  // §1 Attribuutio-selite (kerran): kumpi brändi omistaa minkä lähteen.
-  h += '<div class="jsp-arv-attrib"><span style="color:var(--blue)">🔵 <b>Palloliitto</b></span>: havaittu-arvio 1–5 · <span style="color:var(--teal)">🟢◆ <b>TalentMaster</b></span>: mittaus · pelihavainto · kehityssuunnitelma' + ((typeof window._tmIBtn === 'function') ? window._tmIBtn('brandijako') : '') + '</div>';
-
-  // A1 — Teema-valikko erikseen (label "Teema"; optioteksti dim · kategoria + "N kohdetta").
-  h += '<div class="jsp-arv-topbar"><label class="jsp-arv-lbl">Teema</label><select class="jsp-arv-select" onchange="_vpArvValitseTeema(this.value)">'
+  if (_phTilLbl) h += _phTilLbl;
+  h += '<div class="jsp-arv-kerros" style="margin-top:8px"><div class="jsp-arv-kerros-hd">◆ TalentMaster Analytics — kehityskerros</div>'
+    + '<div class="jsp-arv-kerros-body"><span class="k">IDP-tavoite</span> (kausifokus) · <span class="k">Jaksofokus</span> + konseptit · <span class="k">5D-radar</span> · <span class="k">Peliäly/ADAR</span> · <span class="k">Kehityspolku</span></div>'
+    + '<div><span class="jsp-arv-palaute" onclick="event.stopPropagation();_vpBrandiPalaute(\'' + p.id + '\')">💬 Palaute brändijaosta</span></div></div>';
+  h += '</div></div>';   // /_jspArvSelit + wrapper
+  // ── KONTROLLIT: Teema + Kehys (kompakti rivi). Kehys-valitsin näkyy kun >1 kehys tai SA. ──
+  h += '<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:8px">';
+  h += '<div class="jsp-arv-topbar" style="margin:0"><label class="jsp-arv-lbl">Teema</label><select class="jsp-arv-select" onchange="_vpArvValitseTeema(this.value)">'
     + teemat.map(function(t){ return '<option value="' + t.avain + '"' + (t.avain === teema ? ' selected' : '') + '>' + _jsvEsc(t.nimi) + ' · ' + t.n + ' kohdetta</option>'; }).join('') + '</select></div>';
-
-  // A1 — Coverage-tilastopalkki: 5 solua D1–D5 (arvioitu/yhteensä + mini-palkki). Valittu teeman dim korostettu; klik hyppää dimeen.
+  if (kehysAvaimet.length > 1 || (typeof superAdmin !== 'undefined' && superAdmin)) {
+    h += '<div class="jsp-arv-topbar" style="margin:0"><label class="jsp-arv-lbl">Kehys</label><select class="jsp-arv-select" onchange="_vpArvValitseKehys(this.value)">'
+      + kehysAvaimet.map(function(k){ return '<option value="' + k + '"' + (k === kehysAvain ? ' selected' : '') + '>' + _jsvEsc(ARVIOINTI_KEHYKSET[k].nimi) + '</option>'; }).join('') + '</select></div>';
+  }
+  h += '</div>';
+  // ── KATTAVUUSPALKKI D1–D5 (säilyy) + MIKROLEGENDA (yksi rivi; täysi selitys ⓘ:n takana). ──
   const teemaDim = teema ? teema.split('_')[0] : null;
   h += '<div class="jsp-arv-cov">';
   ['D1','D2','D3','D4','D5'].forEach(function(dim){
@@ -4347,14 +4359,7 @@ function _vpArviointiHTML(p) {
       + '<div class="jsp-arv-covbar"><div class="jsp-arv-covfill" style="width:' + pct + '%"></div></div></div>';
   });
   h += '</div>';
-  // A1 — Selite (kerran).
-  h += '<div class="jsp-arv-legend"><span style="color:var(--teal)">🟢 Mitattu</span> = TM-testistä (lukittu) · <span style="color:var(--blue)">🔵 Havaittu</span> = arvioi 1–5 · <span style="color:#c060a8">👁 Pelihavainnosta</span> = kenttähavainnosta johdettu (klikkaa yliajaaksesi). <span style="color:var(--amber)">＋ IDP-tavoite</span> = luo kehitystavoite (arvo ≤ 2). §7.22: aikuisten työkalu.</div>';
-  // P3.4 — aktiivisen kehyksen 1–5-asteikkolabelit legendana (nyt vain tooltipeissä). Lukee kehys.asteikko:sta → seuran oma asteikko adaptoituu.
-  if (A) {
-    const _astLbl = [1, 2, 3, 4, 5].filter(function (v) { return A[v]; }).map(function (v) { return '<b style="color:var(--ink2)">' + v + '</b> ' + _jsvEsc(A[v].fi); }).join(' · ');
-    if (_astLbl) h += '<div class="jsp-arv-legend" style="margin-top:-2px">📏 Asteikko (' + _jsvEsc(kehys.nimi) + '): ' + _astLbl + '</div>';
-  }
-  h += _phTilLbl;
+  h += '<div class="jsp-arv-legend" style="margin:4px 0 10px"><span style="color:var(--teal)">🟢 mitattu</span> · <span style="color:var(--blue)">🔵 havaittu</span> · <span style="color:#c060a8">👁 pelihavainto</span> · asteikko 1–5 → <span onclick="' + _selitToggle + '" style="color:var(--blue);cursor:pointer;font-weight:600">ⓘ</span></div>';
 
   // A2 — Valitun teeman kohteet jaettuna LÄHDERYHMIIN (mitattu · havaittu · pelihavainto). Nimitörmäys pois: teeman nimi vain valikossa.
   const items = teema ? taks.filter(function(i){ return (i.dim + '_' + i.kategoria) === teema; }) : [];
@@ -4422,10 +4427,8 @@ function _vpArviointiHTML(p) {
   // P3 — D3-KALIBRAATIO (relokaatio Kehityksestä → yksi koti Arvioinnissa). Kompakti: itse × valmentaja × VP
   // (renderD3VertailuHTML) + Aukko⚠ + varmuus-lippu (d3VarmuusChip) + 1-klik Arvioi (_avaaVpD3Arvio). Ei uutta kirjoitusta.
   if (typeof _vpD3KalibraatioHTML === 'function') h += _vpD3KalibraatioHTML(p);
-  // §3 — "TalentMaster Analytics — kehityskerros" -vyöhyke: merkitsee TM:n oman älyn kortin päällä (näkyväksi vs. Palloliiton kortti).
-  h += '<div class="jsp-arv-kerros"><div class="jsp-arv-kerros-hd">◆ TalentMaster Analytics — kehityskerros</div>'
-    + '<div class="jsp-arv-kerros-body"><span class="k">IDP-tavoite</span> (kausifokus) · <span class="k">Jaksofokus</span> + konseptit · <span class="k">5D-radar</span> · <span class="k">Peliäly/ADAR</span> · <span class="k">Kehityspolku</span></div>'
-    + '<div><span class="jsp-arv-palaute" onclick="event.stopPropagation();_vpBrandiPalaute(\'' + p.id + '\')">💬 Palaute brändijaosta</span></div></div>';
+  // P3.1 — "TalentMaster Analytics — kehityskerros" -vyöhyke + brändipalaute SIIRRETTY ⓘ Tietoa kehyksestä -paneeliin
+  //   (metaa, ei tarvitse olla joka katselukerralla esillä). Johda arvioinnilla: kohteet + kalibraatio kärjessä.
   return h;
 }
 // P3 — D3-kalibraatio kompakti lohko (yksi koti Arvioinnissa). Uudelleenkäyttää renderD3VertailuHTML + d3VarmuusChip +
