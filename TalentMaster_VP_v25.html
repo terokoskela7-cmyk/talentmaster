@@ -8161,12 +8161,14 @@ window._tmRadar5D = function(dims, opts) {
 function _p1bSarjat(docs) {
   const arr = (docs || []).filter(function (d) { return d && d.testauspvm; });
   const sortPvm = function (a, b) { return String(a.testauspvm).localeCompare(String(b.testauspvm)); };
-  const hh = arr.filter(function (d) { return d.testit && (d.testit.lin30m != null || d.testit.cmj != null || d.testit.mas != null); }).slice().sort(sortPvm);
+  // P1b.1 — testitulokset-dokin testit-objekti tallentaa CMJ:n avaimella 'hyppy_cj' (Excel-tuonti; remap 'cmj' vain
+  // hh_viimeisin-pikakentässä). Lue hyppy_cj (fallback 'cmj' yhteensopivuudelle). 30m=lin30m, MAS=mas ovat jo oikein.
+  const hh = arr.filter(function (d) { return d.testit && (d.testit.lin30m != null || d.testit.hyppy_cj != null || d.testit.cmj != null || d.testit.mas != null); }).slice().sort(sortPvm);
   const tk = arr.filter(function (d) { return d.protokolla === 'tekniikkakilpailu' && (d.tki != null || (d.testit && d.testit.tki != null)); }).slice().sort(sortPvm);
   const pick = function (list, f) { return list.map(f).filter(function (v) { return v != null && !isNaN(v); }).map(Number); };
   return {
     '30m': pick(hh, function (d) { return d.testit.lin30m; }),
-    cmj: pick(hh, function (d) { return d.testit.cmj; }),
+    cmj: pick(hh, function (d) { return d.testit.hyppy_cj != null ? d.testit.hyppy_cj : d.testit.cmj; }),
     mas: pick(hh, function (d) { return d.testit.mas; }),
     tki: pick(tk, function (d) { return d.tki != null ? d.tki : d.testit.tki; })
   };
