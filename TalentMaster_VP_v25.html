@@ -1332,6 +1332,11 @@ body {
 .jsp-left { min-width: 0; }
 .jsp-right { min-width: 0; }
 .jsp-radar { width: 290px; max-width: 100%; margin: 6px auto 10px; }
+/* P1 — Aloitus selkäranka: ohut teal-hiusviiva vasemmassa reunassa + solmut osioiden alussa. Additiivinen. */
+.idp-spine { position: relative; padding-left: 24px; }
+.idp-spine::before { content: ''; position: absolute; left: 7px; top: 6px; bottom: 6px; width: 1px; background: linear-gradient(180deg, rgba(40,176,144,.5), rgba(40,176,144,.1)); }
+.idp-seg { position: relative; }
+.idp-seg > .idp-node { position: absolute; left: -21px; top: 4px; width: 9px; height: 9px; border-radius: 50%; background: var(--bg2); border: 1.5px solid var(--teal); box-shadow: 0 0 0 3px var(--bg2); }
 /* Vaihe 2 — Arviointi-välilehti (Palloliitto-taksonomia): mitattu 🟢 + havaittu 🔵 1–5. §7.22 aikuisnäkymä. */
 .jsp-arv-topbar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 8px; }
 .jsp-arv-lbl { font-size: 10px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink3); }
@@ -4844,6 +4849,58 @@ function _vpKaksiPolkuaHTML(p, pid) {
     + kortti(heik, 'heikkous', '🎯 Korjaa heikkous', 'var(--amber)', 'rgba(224,160,64,.35)')
     + kortti(vah, 'vahvuus', '💎 Jalosta supervoima', 'var(--teal)', 'rgba(40,176,144,.35)') + '</div>';
 }
+// P1 — Pelaajan ääni (Kimin lämpö): "Miksi pelaan?" (kursiivi-serif) + "Minkälainen pelaaja haluan olla?".
+// Kentät p.miksi_pelaan / p.pelaajatyyppi (VP/valmentaja asettaa; pelaajan oma kirjoitus = P5). Tyhjä = pehmeä
+// vihje, ei laatikkoa väkisin. Additiivinen — selkärangan ensimmäinen solmu.
+function _vpPelaajanAaniHTML(p) {
+  const esc = _jsvEsc;
+  const miksi = (p.miksi_pelaan != null && String(p.miksi_pelaan).trim()) ? String(p.miksi_pelaan).trim() : '';
+  const tyyppi = (p.pelaajatyyppi != null && String(p.pelaajatyyppi).trim()) ? String(p.pelaajatyyppi).trim() : '';
+  let h = '<div class="idp-seg" style="margin-bottom:22px"><span class="idp-node"></span>';
+  h += '<div style="font-size:9px;font-weight:600;letter-spacing:.16em;text-transform:uppercase;color:var(--teal);margin-bottom:8px">🎙 Pelaajan ääni</div>';
+  if (!miksi && !tyyppi) {
+    h += '<div style="font-size:12px;color:var(--ink3);font-style:italic">— ei vielä asetettu (VP/valmentaja täydentää: miksi pelaan · millainen pelaaja haluan olla)</div>';
+    return h + '</div>';
+  }
+  h += '<div style="margin-bottom:' + (tyyppi ? '12px' : '0') + '"><div style="font-size:10.5px;color:var(--ink3);margin-bottom:3px">Miksi pelaan?</div>'
+    + (miksi ? '<div style="font-family:var(--font-serif);font-style:italic;font-size:19px;line-height:1.35;color:var(--ink)">”' + esc(miksi) + '”</div>'
+             : '<div style="font-size:12px;color:var(--ink3);font-style:italic">— ei asetettu</div>') + '</div>';
+  h += '<div><div style="font-size:10.5px;color:var(--ink3);margin-bottom:3px">Minkälainen pelaaja haluan olla?</div>'
+    + (tyyppi ? '<div style="font-family:var(--font-serif);font-size:17px;color:var(--ink2)">' + esc(tyyppi) + '</div>'
+             : '<div style="font-size:12px;color:var(--ink3);font-style:italic">— ei asetettu</div>') + '</div>';
+  return h + '</div>';
+}
+// P1 — Tavoitteet-yhteenveto (read-only "suunta"): sama data kuin _vpKausitavoiteHTML (p._idpTavoite / idp_*-pikakentät),
+// kevyt luettava versio ILMAN editointikontrolleja. Tyhjä = pehmeä vihje. Additiivinen (ei korvaa §2-kausitavoitetta).
+function _vpTavoiteYhteenvetoHTML(p) {
+  const esc = _jsvEsc;
+  const t = p._idpTavoite || null;
+  const f = (t && t.fokus) || p.idp_fokus || null;
+  const tila = (t && t.status) || p.idp_tila || null;
+  let h = '<div class="idp-seg" style="margin-bottom:26px"><span class="idp-node"></span>';
+  h += '<div style="font-size:9px;font-weight:600;letter-spacing:.16em;text-transform:uppercase;color:var(--teal);margin-bottom:8px">🧭 Suunta · tavoitteet</div>';
+  if (!f && !tila) {
+    h += '<div style="font-size:12px;color:var(--ink3);font-style:italic">Aseta kausitavoite Kehityksessä — moottori ehdottaa datasta.</div>';
+    return h + '</div>';
+  }
+  const _tyMap = { heikkous: 'var(--amber)', vahvuus: 'var(--teal)', pelipaikka: 'var(--blue)' };
+  const _ty = (t && t.tyyppi) || null;
+  const chip = function (txt, col) { return '<span style="font-size:10.5px;border-radius:999px;padding:3px 10px;border:.5px solid ' + (col ? col + '66' : 'var(--border)') + ';color:' + (col || 'var(--ink2)') + ';background:var(--ov-1)">' + txt + '</span>'; };
+  h += '<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">';
+  if (tila) h += chip((tila === 'aktiivinen' ? '● ' : '○ ') + esc(tila), tila === 'aktiivinen' ? 'var(--teal)' : null);
+  if (f) h += chip('🎯 ' + esc(f.nimi || f.alue || '—') + (f.dim ? ' · ' + esc(f.dim) : ''), null);
+  if (_ty) h += chip(esc(_ty), _tyMap[_ty] || null);
+  if (t && t.perustelu && t.perustelu.kultaikkuna) h += chip('🔥 Kultaikkuna auki', 'var(--teal)');
+  h += '</div>';
+  const hor = [];
+  const ar = t && t.aikaraami;
+  if (ar && ar.kausi) hor.push('Kausi ' + esc(ar.kausi));
+  if (ar && ar.kesto_vk) hor.push(ar.kesto_vk + ' vk');
+  if (ar && ar.arvio_pvm) { const m = String(ar.arvio_pvm).match(/^(\d{4})-(\d{2})-(\d{2})/); hor.push('arvioidaan ' + (m ? (+m[3]) + '.' + (+m[2]) + '.' + m[1] : esc(ar.arvio_pvm))); }
+  if (hor.length) h += '<div style="font-size:11px;color:var(--ink3);margin-top:8px">' + hor.join(' · ') + '</div>';
+  h += '<div style="font-size:10px;color:var(--ink3);margin-top:4px">Muokkaa Kehitys-välilehdellä.</div>';
+  return h + '</div>';
+}
 function _vpIdpNarratiiviHTML(p) {
   if (!p) return '';
   const esc = _jsvEsc, pid = esc(p.id);
@@ -4864,10 +4921,14 @@ function _vpIdpNarratiiviHTML(p) {
   h += '<div style="display:flex;gap:6px;flex-wrap:wrap">'
     + '<span style="font-family:var(--font-sans);font-size:9px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;padding:4px 10px;' + (idpAkt ? 'background:rgba(40,176,144,.12);color:var(--teal);border:.5px solid rgba(40,176,144,.3)' : 'background:var(--bg3);color:var(--ink3);border:.5px solid var(--border)') + '">' + (idpAkt ? '● IDP aktiivinen' : '○ IDP luonnos') + '</span>'
     + '<span style="font-family:var(--font-mono);font-size:10px;color:var(--ink3);padding:4px 10px;background:var(--bg3);border:.5px solid var(--border)">Kausi ' + esc(kausi) + '</span></div></div>';
+  // ── P1 SELKÄRANKA alkaa (header jää ulkopuolelle) — kaikki alla kääritään .idp-spine:iin (return-vaiheessa). ──
+  h += '<!--IDP_SPINE-->';
+  // ── P1 PELAAJAN ÄÄNI — "Miksi pelaan?" + "Minkälainen pelaaja haluan olla?" (additiivinen, ennen X-factoria) ──
+  h += _vpPelaajanAaniHTML(p);
   // ── 1b X-FACTOR-IDENTITEETTI (Vaihe A) — nimetty erottava ase heti otsikon alle (§läpileikkaava 1) ──
   const _xf = _vpXFactorAse(p), _xfSig = (p.signaali === 'xfactor');
   if (_xf || _xfSig) {
-    h += '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:rgba(40,176,144,.07);border:.5px solid rgba(40,176,144,.28);border-radius:10px;padding:11px 15px;margin-bottom:22px">'
+    h += '<div class="idp-seg" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:rgba(40,176,144,.07);border:.5px solid rgba(40,176,144,.28);border-radius:10px;padding:11px 15px;margin-bottom:22px"><span class="idp-node"></span>'
       + '<span style="font-size:9px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--teal)">⭐ Erottava ase</span>'
       + '<span style="font-family:var(--font-serif);font-size:20px;color:var(--ink)">' + esc(_xf ? _xf.nimi : 'X-Factor') + '</span>'
       + (_xf && _xf.taso != null ? '<span style="font-family:var(--font-mono);font-size:10px;color:var(--ink3)">' + esc(_xf.lahde) + ' · taso ' + esc(_xf.taso) + '</span>' : (_xf ? '<span style="font-family:var(--font-mono);font-size:10px;color:var(--ink3)">' + esc(_xf.lahde) + '</span>' : ''))
@@ -4875,9 +4936,11 @@ function _vpIdpNarratiiviHTML(p) {
   }
   // ── 1c STAT-TIIVISTE (Vaihe A) — 3 mittausta + suunta vs ikäluokka (silmäiltävä ~10 s) ──
   h += _vpStatTiivisteHTML(p);
+  // ── P1 TAVOITTEET-YHTEENVETO (read-only "suunta") — selkärangan suuntasolmu, ennen detaljikausitavoitetta ──
+  h += _vpTavoiteYhteenvetoHTML(p);
   // ── 2 KAUSITAVOITE ──
   const lause = (t && (t.kuvaus || t.pelaajan_tavoite || (t.fokus && (t.fokus.nimi || t.fokus.alue)))) || null;
-  h += '<div style="border-left:2px solid var(--teal);padding:2px 0 2px 20px;margin-bottom:26px">' + _eyebrow('🎯 Kausitavoite · pitkä horisontti 6–12 kk');
+  h += '<div class="idp-seg" style="border-left:2px solid var(--teal);padding:2px 0 2px 20px;margin-bottom:26px"><span class="idp-node"></span>' + _eyebrow('🎯 Kausitavoite · pitkä horisontti 6–12 kk');
   if (lause) h += '<div style="font-family:var(--font-serif);font-weight:300;font-size:26px;line-height:1.28;color:var(--ink);max-width:760px;margin-top:8px">' + esc(lause) + '</div>';
   else h += '<div style="font-size:13px;color:var(--ink3);margin-top:8px">Ei vielä kausitavoitetta — aseta se Kehitys-välilehdellä (moottori ehdottaa datasta).</div>';
   h += '</div>';
@@ -4889,7 +4952,7 @@ function _vpIdpNarratiiviHTML(p) {
   if (t && typeof _vpValitavoitteetHTML === 'function') h += '<div style="margin-bottom:26px">' + _vpValitavoitteetHTML(t, pid) + '</div>';
   // ── 3 JAKSOFOKUS · "✎ Muokkaa jaksofokus" → konsolidoitu paneeli (_jfOhjaa, 1a) ──
   const jf = p.jaksofokus || null;
-  h += '<div style="background:var(--bg2);border:.5px solid var(--border);border-left:2px solid var(--teal);border-radius:10px;padding:18px 20px;margin-bottom:26px">';
+  h += '<div class="idp-seg" style="background:var(--bg2);border:.5px solid var(--border);border-left:2px solid var(--teal);border-radius:10px;padding:18px 20px;margin-bottom:26px"><span class="idp-node"></span>';
   h += '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:14px;flex-wrap:wrap"><div style="min-width:0">' + _eyebrow('📍 Jaksofokus · aktiivinen · meso 4–8 vk', 'var(--teal)');
   if (jf && jf.konsepti_nimi) {
     const _dm = (window.TM_JAKSOFOKUS && typeof window.TM_JAKSOFOKUS.tmJfDomeeni === 'function') ? window.TM_JAKSOFOKUS.tmJfDomeeni(jf.domeeni || 'teknis_taktinen') : null;
@@ -4925,7 +4988,8 @@ function _vpIdpNarratiiviHTML(p) {
   // ── 6 PELAAJAN ÄÄNI & SITOUMUS (olemassa oleva render) ──
   const sit = (typeof _vpSitoumusHTML === 'function') ? _vpSitoumusHTML(p, pid) : '';
   if (sit) h += _stitle('Pelaajan ääni & sitoumus') + '<div>' + sit + '</div>';
-  return h;
+  // P1 — kääri kaikki header-jälkeinen sisältö selkärankaan (.idp-spine): jatkuva teal-hiusviiva + solmut.
+  return h.replace('<!--IDP_SPINE-->', '<div class="idp-spine">') + '</div>';
 }
 function _vpKausitavoiteHTML(p) {
   if (!p) return '';
@@ -7950,6 +8014,12 @@ function _vpRadarNormiJaVaihe(p, ika, radarDims) {
     + '<div style="margin-top:3px">' + normiNote + '</div></div>';
   return { normi: normi, bandHTML: bandHTML };
 }
+// P1 — 5D alkuperä-värit (staattinen lähdemappaus D-avaimesta): 🟢 mitattu · 🟠 itsearvio · 🔵 havaittu.
+const _TM_RADAR_LAHDE = { D1: '#3DA35D', D2: '#3DA35D', D3: 'var(--amber)', D4: 'var(--blue)', D5: 'var(--blue)' };
+const _TM_RADAR_LAHDE_LEGENDA = '<div style="display:flex;gap:12px;flex-wrap:wrap;justify-content:center;font-size:9.5px;color:var(--ink3);margin:-2px 0 8px">'
+  + '<span><span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:#3DA35D;vertical-align:middle;margin-right:4px"></span>mitattu</span>'
+  + '<span><span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--blue);vertical-align:middle;margin-right:4px"></span>havaittu</span>'
+  + '<span><span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--amber);vertical-align:middle;margin-right:4px"></span>itsearvio</span></div>';
 window._tmRadar5D = function(dims, opts) {
   opts = opts || {};
   const N = dims.length;
@@ -8004,6 +8074,12 @@ window._tmRadar5D = function(dims, opts) {
     const _valFill = (_epv || !has) ? 'var(--ink3)' : 'var(--teal)';
     svg += '<text x="' + lp[0].toFixed(1) + '" y="' + (lp[1] + ydy).toFixed(1) + '" text-anchor="' + anchor + '" font-size="11" font-weight="500" font-family="DM Sans,sans-serif" fill="' + (has ? 'var(--ink)' : 'var(--ink3)') + '">' + d.key + ' ' + d.label + '</text>';
     svg += '<text x="' + lp[0].toFixed(1) + '" y="' + (lp[1] + ydy + 13).toFixed(1) + '" text-anchor="' + anchor + '" font-size="11" font-weight="600" font-family="DM Mono,monospace" fill="' + _valFill + '">' + _valTxt + '</text>';
+    // P1 — alkuperäpiste per ulottuvuus (opt-in, vain 5D-profiiliradar): staattinen lähdemappaus D-avaimesta.
+    // 🟢 mitattu (D1/D2) · 🟠 itsearvio (D3) · 🔵 havaittu/pelihavainto (D4/D5). Vain akselille jolla on dataa.
+    if (opts.lahdePisteet && has) {
+      const _lc = _TM_RADAR_LAHDE[d.key];
+      if (_lc) { const dp = pt(i, 5.35); svg += '<circle cx="' + dp[0].toFixed(1) + '" cy="' + dp[1].toFixed(1) + '" r="3.4" fill="' + _lc + '" stroke="var(--bg2)" stroke-width="1"/>'; }
+    }
   }
   // Datapisteet — monikulmio
   const av = [];
@@ -8445,8 +8521,9 @@ window._avaaPerPelaajaPikakatsaus = function(idx, joukkueNimi) {
   // Iso 5D-radar (290px) — akselinimet hengittävät verrattuna aiempaan 220px:iin.
   // AUKOT P1.2 — PHV-korjattu normi-overlay (Showcase-only, tyhjät akselit ohitetaan) + kehitysvaihe-bändi.
   const _rn = _vpRadarNormiJaVaihe(p, ika, radarDims);
-  const _radarOpts = _rn.normi ? { maxW: 290, normi: _rn.normi, normiVari: 'var(--ink3)' } : { maxW: 290 };
+  const _radarOpts = _rn.normi ? { maxW: 290, normi: _rn.normi, normiVari: 'var(--ink3)', lahdePisteet: true } : { maxW: 290, lahdePisteet: true };
   hL += '<div class="jsp-radar">' + window._tmRadar5D(radarDims, _radarOpts) + '</div>';
+  hL += _TM_RADAR_LAHDE_LEGENDA;   // P1 — alkuperä-legenda (numeroiden luotettavuus)
   if (_rn.bandHTML) hL += _rn.bandHTML;
   const _kehysP = _ikavaiheBanneri(ika);
   if (_kehysP) hL += '<div style="margin-bottom:8px">' + _kehysP + '</div>';
