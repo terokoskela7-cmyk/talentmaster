@@ -4783,13 +4783,38 @@ function _vpSitoumusHTML(p, pid) {
   return h;
 }
 // VP vahvistaa pelaajan sitoumuksen → pelaaja_sitoumus.vahvistettu_pvm (idp_kausi-olio, ei uutta taulua).
+// Resolvoi vahvistavan käyttäjän rooli best-effort (EI heitä, ei estä vahvistusta). Prioriteetti: token-claim →
+// _valmentajat[uid].rooli (seurat/{sid}/kayttajat, doc-ID = Firebase UID) → VP/johto-konteksti (VP-dashboard) → null.
+// #207-korjaus: _rooli-globaali oli VP-sessiossa undefined → vahvistaja_rooli jäi nulliksi (label aina "valmentaja").
+async function _vpVahvistajaRooli() {
+  try {
+    const cu = (typeof firebase !== 'undefined' && firebase.auth) ? firebase.auth().currentUser : null;
+    // 1. Token-claim (auktoritatiivinen; cached token, ei pakotettua refetchiä)
+    if (cu && typeof cu.getIdTokenResult === 'function') {
+      const tr = await cu.getIdTokenResult().catch(function () { return null; });
+      const cl = tr && tr.claims;
+      const rc = cl && (cl.rooli || cl.role || cl.seuraRooli);
+      if (rc) return String(rc);
+    }
+    // 2. _valmentajat[uid].rooli — kayttajat-tietue kantaa oman roolin (id === Firebase UID)
+    const uid = (cu && cu.uid) || _uid || null;
+    if (uid && Array.isArray(_valmentajat)) {
+      const me = _valmentajat.find(function (v) { return v && v.id === uid; });
+      if (me && me.rooli) return String(me.rooli);
+    }
+    // 3. VP/johto-konteksti — VP-dashboard, ei-demo → 'vp' (SA/VP-oversight; tarkempi rooli ei resolvoitunut)
+    if (!_isDemoMode && _seuraId) return 'vp';
+  } catch (e) { /* best-effort — vahvistus jatkuu ilman roolia */ }
+  return null;   // näyttö pysyy oletuksessa "valmentaja vahvisti" (ei regressiota)
+}
 window._vpVahvistaSitoumus = async function (pid) {
   const p = _vpIdpPelaaja(pid); if (!p || !p._idpSitoumus) return;
-  // E1 — omistava valmentaja (VP oversightina) vahvistaa; kirjaa vahvistajan rooli. Sama top-level-avain
+  // E1 — omistava valmentaja (VP oversightina) vahvistaa; kirjaa vahvistajan rooli + uid (audit). Sama top-level-avain
   // (pelaaja_sitoumus) → ei Rules-muutosta. Best-effort omistajuus (ei blokkia datan varaan, brief §Omistajuusmalli).
-  const _vahvRooli = (typeof _rooli !== 'undefined' && _rooli) ? _rooli : null;
+  const _vahvRooli = await _vpVahvistajaRooli();   // #207-korjaus: resolveri (claim → _valmentajat[uid] → 'vp'), ei _rooli-globaali
+  const _vahvUid = (typeof firebase !== 'undefined' && firebase.auth && firebase.auth().currentUser) ? firebase.auth().currentUser.uid : (_uid || null);
   const _vahvJakso = (p.jaksofokus && p.jaksofokus.alkoi) || null;   // sido vahvistus nykyjaksoon (per-jakso-scope, E)
-  p._idpSitoumus = Object.assign({}, p._idpSitoumus, { vahvistettu_pvm: new Date().toISOString(), vahvistettu_jakso_alkoi: _vahvJakso, vahvistaja_rooli: _vahvRooli });
+  p._idpSitoumus = Object.assign({}, p._idpSitoumus, { vahvistettu_pvm: new Date().toISOString(), vahvistettu_jakso_alkoi: _vahvJakso, vahvistaja_rooli: _vahvRooli, vahvistaja_uid: _vahvUid });
   _vpKausitavoiteReRender();
   if (_isDemoMode || !_seuraId) { if (typeof toast === 'function') toast('Sitoumus vahvistettu (demo)', 'ok'); return; }
   try {
@@ -5894,7 +5919,8 @@ function _vpJfArkistoiVaihdossa(p, uusiDomeeni, uusiAlkoi) {
     entry.sitoumus_snapshot = { q1: ia.q1 || null, q2: ia.q2 || null, q3: ia.q3 || null,
       sitoumus_pvm: _sit.sitoumus_pvm || null, vahvistettu_pvm: _sit.vahvistettu_pvm || null,
       vahvistettu_jakso_alkoi: _sit.vahvistettu_jakso_alkoi || null,
-      vahvistaja_rooli: _sit.vahvistaja_rooli || null, jakso_alkoi: _sit.jakso_alkoi || null };
+      vahvistaja_rooli: _sit.vahvistaja_rooli || null, vahvistaja_uid: _sit.vahvistaja_uid || null,
+      jakso_alkoi: _sit.jakso_alkoi || null };
   }
   if (p && p.d3_viimeisin && p.d3_viimeisin.pisteet) entry.d3_snapshot = p.d3_viimeisin.pisteet;
   const hist = (Array.isArray(p.jaksofokus_historia) ? p.jaksofokus_historia.slice() : []);
