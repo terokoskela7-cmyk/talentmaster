@@ -8372,6 +8372,356 @@ async function _suoritaKorjaaTestipvm() {
 window._avaaKorjaaTestipvm = _avaaKorjaaTestipvm;
 window._suoritaKorjaaTestipvm = _suoritaKorjaaTestipvm;
 
+// ═══════════════════════════════════════════════════════════════════════════
+// P6a — VIIKKO-VÄLILEHTI: valmentajan kevyt viikkosyöttö + IDP-kytkös. Viikko = IDP:n
+// TOTEUTUSKERROS (kausitavoite → jaksofokus → sessiot). Sessiot tagataan jaksofokuksen
+// tavoitteisiin (A/B/C, P4b tavoite_tarkenteet) → tavoitejakautuma + kuorma koostuvat IDP:hen.
+// Kirjoitus ADDITIIVINEN: kirjaukset/{pvm} (litteä + sessiot[] + audit) + lasnaolijat.tila.
+// GDPR Art.9: terveys-SYYT eivät koskaan kirjauksiin/lasnaolijoihin — vain paljas 🩹-lippu + Terveys-linkki.
+// Rules: EI muutosta (coach kirjoittaa kirjaukset/lasnaolijat; luotu=serverTimestamp create-vartijalle §A5).
+// Mikään ei ole pakotettua — esitäyttö/kuorma/§28 ovat ehdotuksia, valmentaja vahvistaa.
+// ═══════════════════════════════════════════════════════════════════════════
+window._vpViikko = null;   // { pid, p, jf, tavoitteet, days:[{iso,nimi,pvm}], rows:{iso:row}, ladattu }
+const _VKO_PAIVAT = ['Ma', 'Ti', 'Ke', 'To', 'Pe', 'La', 'Su'];
+// Läsnäolo-enum — K2-yhteensopiva tila-arvo (laajennettu, ei uutta polkua). ei_tietoa = ei kirjoiteta.
+const _VKO_LASNA = [
+  { tila: null, ikoni: '–', lbl: 'ei tietoa', col: 'var(--ink3)' },
+  { tila: 'paikalla', ikoni: '✓', lbl: 'paikalla', col: 'var(--teal)' },
+  { tila: 'osittain', ikoni: '½', lbl: 'osittain', col: 'var(--amber)' },
+  { tila: 'lepo', ikoni: '🌙', lbl: 'vahvistettu lepo', col: 'var(--blue)' },
+  { tila: 'poissa', ikoni: '🩹', lbl: 'poissa (terveys)', col: 'var(--amber)', terveys: true }
+];
+function _vkoLasnaIdx(tila) { for (var i = 0; i < _VKO_LASNA.length; i++) { if (_VKO_LASNA[i].tila === (tila || null)) return i; } return 0; }
+function _vkoLasnaByTila(tila) { return _VKO_LASNA[_vkoLasnaIdx(tila)]; }
+
+// Jaksofokuksen tavoitteet A/B/C… (pääfokus = A teal · linkitetyt = B amber · C blue). P4b-avaimet.
+function _vpViikkoTavoitteet(jf) {
+  const out = [];
+  if (jf && jf.konsepti_avain) out.push({ tag: 'A', avain: jf.konsepti_avain, nimi: jf.konsepti_nimi || jf.konsepti_avain, col: 'var(--teal)', dim: 'rgba(40,176,144,.12)', brd: 'rgba(40,176,144,.4)' });
+  const meta = [{ tag: 'B', col: 'var(--amber)', dim: 'rgba(224,160,64,.12)', brd: 'rgba(224,160,64,.4)' }, { tag: 'C', col: 'var(--blue)', dim: 'rgba(42,93,176,.12)', brd: 'rgba(42,93,176,.4)' }, { tag: 'D', col: 'var(--ink2)', dim: 'var(--ov-1)', brd: 'var(--border)' }];
+  (jf && Array.isArray(jf.linkitetyt) ? jf.linkitetyt : []).forEach(function (l, i) { const m = meta[i] || meta[2]; out.push({ tag: m.tag, avain: l.konsepti_avain, nimi: l.konsepti_nimi || l.konsepti_avain, col: m.col, dim: m.dim, brd: m.brd }); });
+  return out;
+}
+function _vpViikkoTagMeta(tav, tag) { for (var i = 0; i < tav.length; i++) { if (tav[i].tag === tag) return tav[i]; } return null; }
+
+// Nykyisen viikon Ma–Su (paikallinen aika). new Date() sallittu selaimessa.
+function _vpViikkoPaivat(refDate) {
+  const now = refDate || new Date();
+  const d = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const dow = (d.getDay() + 6) % 7;   // Ma = 0
+  const ma = new Date(d); ma.setDate(d.getDate() - dow);
+  const out = [];
+  for (var i = 0; i < 7; i++) {
+    const x = new Date(ma); x.setDate(ma.getDate() + i);
+    const iso = x.getFullYear() + '-' + String(x.getMonth() + 1).padStart(2, '0') + '-' + String(x.getDate()).padStart(2, '0');
+    out.push({ iso: iso, nimi: _VKO_PAIVAT[i], pvm: x.getDate() + '.' + (x.getMonth() + 1) + '.' });
+  }
+  return out;
+}
+function _vpViikkoSrpe(rpe, kesto) { const r = +rpe, k = +kesto; return (r > 0 && k > 0) ? Math.round(r * k) : 0; }
+
+// State-init pelaajalle (sync). rows tyhjät kunnes _vpViikkoLataa hydratoi tallennetut kirjaukset.
+function _vpViikkoInit(p) {
+  const st = { pid: p.id, p: p, jf: p.jaksofokus || null, tavoitteet: _vpViikkoTavoitteet(p.jaksofokus || null), days: _vpViikkoPaivat(), rows: {}, ladattu: false };
+  st.days.forEach(function (d) { st.rows[d.iso] = { iso: d.iso, kesto_min: null, rpe: null, tavoite_tag: null, fokus_nimi: null, konsepti_avain: null, lepo: false, lahde: 'valmentaja', lasna: null, terveys_lippu: false, vahvistettu: false, sessioId: null }; });
+  window._vpViikko = st;
+  return st;
+}
+function _vpViikkoState(p) { return (window._vpViikko && window._vpViikko.pid === (p && p.id)) ? window._vpViikko : _vpViikkoInit(p); }
+function _vpViikkoReRender() {
+  const slot = document.getElementById('_vpViikkoGrid');
+  const st = window._vpViikko;
+  if (slot && st && st.p) slot.innerHTML = _vpViikkoGridHTML(st.p);
+}
+
+// ── Näyttö: koko välilehti (_jspTab4) ──
+function _vpViikkoHTML(p) {
+  const esc = _jsvEsc, pid = esc(p.id);
+  const jf = p.jaksofokus || null;
+  const _eb = function (t, c) { return '<div style="font-size:10px;font-weight:600;letter-spacing:.16em;text-transform:uppercase;color:' + (c || 'var(--ink3)') + '">' + t + '</div>'; };
+  const _st = function (t) { return '<div style="font-family:var(--font-serif);font-weight:400;font-size:20px;color:var(--ink);margin:2px 0 4px">' + t + '</div>'; };
+  _vpViikkoInit(p);   // tuore state joka avauksella
+  let h = '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;margin-bottom:8px"><div style="min-width:0">'
+    + _eb('📅 Viikko · IDP:n toteutus', 'var(--teal)') + _st('Tämän viikon sessiot')
+    + (jf && jf.konsepti_nimi
+      ? '<div style="font-size:10.5px;color:var(--ink3);font-family:var(--font-mono)">Jaksofokus: ' + esc(jf.konsepti_nimi) + ' · napauta säädöt</div>'
+      : '<div style="font-size:11px;color:var(--ink3)">Ei jaksofokusta — aseta Kehityksessä ennen viikkosyöttöä.</div>')
+    + '</div>';
+  if (jf) h += '<button onclick="event.stopPropagation();_vpViikkoTayta(\'' + pid + '\')" style="flex-shrink:0;font-family:var(--font-sans);font-size:11px;font-weight:500;letter-spacing:.02em;padding:9px 14px;border-radius:6px;background:rgba(40,176,144,.1);color:var(--teal);border:.5px solid rgba(40,176,144,.4);cursor:pointer" title="Esitäytä viikko jaksofokuksesta + joukkueen aikataulusta (ehdotus)">✨ Täytä viikko</button>';
+  h += '</div><div id="_vpViikkoGrid">' + _vpViikkoGridHTML(p) + '</div>';
+  return h;
+}
+
+function _vpViikkoGridHTML(p) {
+  const esc = _jsvEsc, pid = esc(p.id);
+  const jf = p.jaksofokus || null;
+  if (!jf) return '<div style="font-size:12px;color:var(--ink3);padding:14px 0;line-height:1.5">Aseta jaksofokus Kehitys-välilehdellä — silloin viikon sessiot kertyvät sen tavoitteille (A/B/C) ja koostuvat IDP-katselmukseen.</div>';
+  const st = _vpViikkoState(p);
+  let h = '<div style="display:grid;grid-template-columns:58px 1fr 52px 40px;gap:6px;align-items:center;padding:6px 4px;font-size:9px;letter-spacing:.07em;text-transform:uppercase;color:var(--ink3);border-bottom:.5px solid var(--border)"><span>Päivä</span><span>Fokus · kesto</span><span style="text-align:center">RPE</span><span style="text-align:center">Läsnä</span></div>';
+  st.days.forEach(function (day) { h += _vpViikkoRiviHTML(pid, day, st.rows[day.iso] || {}, st.tavoitteet); });
+  if (!st.ladattu) h += '<div style="font-size:10px;color:var(--ink3);text-align:center;margin-top:6px">⋯ ladataan tallennettuja kirjauksia</div>';
+  h += _vpViikkoTavoitejakaumaHTML(p, st);
+  h += _vpViikkoKuormaHTML(p, st);
+  h += _vpViikkoPelaajaViiteHTML();
+  return h;
+}
+
+function _vpViikkoRiviHTML(pid, day, row, tav) {
+  const esc = _jsvEsc;
+  const haal = row.vahvistettu ? '' : 'opacity:.5;';
+  const tm = row.tavoite_tag ? _vpViikkoTagMeta(tav, row.tavoite_tag) : null;
+  let fokus;
+  if (row.lepo) fokus = '<span style="' + haal + 'font-size:11.5px;color:var(--blue)">🌙 Lepo</span>';
+  else if (tm) fokus = '<span style="' + haal + 'display:inline-flex;align-items:center;gap:5px;flex-wrap:wrap"><span style="font-size:9px;font-weight:700;color:' + tm.col + ';background:' + tm.dim + ';border:.5px solid ' + tm.brd + ';border-radius:4px;padding:1px 5px">' + tm.tag + '</span><span style="font-size:12px;color:var(--ink)">' + esc(tm.nimi) + '</span></span>';
+  else fokus = '<span style="' + haal + 'font-size:11px;color:var(--ink3)">＋ napauta fokus</span>';
+  const kesto = (row.kesto_min != null && row.kesto_min !== '')
+    ? '<input type="number" min="0" step="5" value="' + esc(row.kesto_min) + '" onclick="event.stopPropagation()" onchange="_vpViikkoSetKesto(\'' + pid + '\',\'' + day.iso + '\',this.value)" style="width:44px;font-size:10.5px;padding:2px 4px;border:.5px solid var(--border);border-radius:5px;background:var(--surface);color:var(--ink);font-family:var(--font-mono)"> min'
+    : '<span onclick="event.stopPropagation();_vpViikkoSetKesto(\'' + pid + '\',\'' + day.iso + '\',60)" style="font-size:10px;color:var(--ink3);cursor:pointer">+ kesto</span>';
+  const rpeMerkki = row.lahde === 'pelaaja' ? '📱' : '';
+  let rpeOpts = '<option value="">–</option>';
+  for (var r = 1; r <= 10; r++) rpeOpts += '<option value="' + r + '"' + (String(row.rpe) === String(r) ? ' selected' : '') + '>' + r + '</option>';
+  const rpe = '<select onclick="event.stopPropagation()" onchange="_vpViikkoSetRpe(\'' + pid + '\',\'' + day.iso + '\',this.value)" style="width:46px;font-size:11px;padding:2px;border:.5px solid var(--border);border-radius:5px;background:var(--surface);color:' + (row.rpe ? 'var(--ink)' : 'var(--ink3)') + '">' + rpeOpts + '</select>' + (rpeMerkki ? '<span style="font-size:9px" title="pelaajan kirjaama">' + rpeMerkki + '</span>' : '');
+  const l = _vkoLasnaByTila(row.lasna);
+  const lasna = '<span onclick="event.stopPropagation();_vpViikkoCycleLasna(\'' + pid + '\',\'' + day.iso + '\')" title="' + l.lbl + ' — napauta vaihtaa" style="display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:6px;border:.5px solid ' + (l.tila ? l.col : 'var(--border)') + ';color:' + l.col + ';background:var(--ov-1);cursor:pointer;font-size:13px">' + l.ikoni + '</span>';
+  const terv = row.terveys_lippu ? ' <span onclick="event.stopPropagation();_jspVaihda(1)" title="Terveyssyy — katso Terveys/Mittaus-välilehti (syytä ei kirjata tähän, GDPR)" style="cursor:pointer;font-size:11px">🩹</span>' : '';
+  return '<div style="display:grid;grid-template-columns:58px 1fr 52px 40px;gap:6px;align-items:center;padding:7px 4px;border-bottom:.5px solid var(--ov-1)">'
+    + '<div style="font-size:11px;color:var(--ink2)"><b style="color:var(--ink);font-weight:600">' + day.nimi + '</b> <span style="font-family:var(--font-mono);font-size:9.5px;color:var(--ink3)">' + day.pvm + '</span></div>'
+    + '<div onclick="event.stopPropagation();_vpViikkoCycleFokus(\'' + pid + '\',\'' + day.iso + '\')" style="cursor:pointer;min-width:0">' + fokus + (row.kesto_min != null || (!row.lepo && tm) ? '<span style="font-size:10px;color:var(--ink3);font-family:var(--font-mono);margin-left:6px">' + kesto + '</span>' : '') + terv + '</div>'
+    + '<div style="text-align:center;display:flex;align-items:center;gap:2px;justify-content:center">' + rpe + '</div>'
+    + '<div style="text-align:center">' + lasna + '</div></div>';
+}
+
+// ── Tavoitejakauma: sessiot per jaksofokuksen tavoite (A/B/C) + edistymä-% + IDP-viittaus ──
+function _vpViikkoTavoitejakaumaHTML(p, st) {
+  const esc = _jsvEsc;
+  if (!st.tavoitteet.length) return '';
+  const jf = st.jf;
+  const kestoVk = (jf && jf.kesto_vk) || 6;
+  const tavoiteSessiot = kestoVk * 3;   // suuntaa-antava: ~3 session/vk (ei kova raja)
+  // Laske TÄMÄN viikon sessiot per tag + jakson kertymä (jaksofokus_historia + tämä viikko additiivisesti ei saatavilla → näytä tämä viikko + arvio).
+  const viikko = {}, jakso = {};
+  st.tavoitteet.forEach(function (t) { viikko[t.tag] = 0; jakso[t.tag] = (p._viikkoJaksoKertyma && p._viikkoJaksoKertyma[t.tag]) || 0; });
+  Object.keys(st.rows).forEach(function (iso) { const r = st.rows[iso]; if (r && r.tavoite_tag && !r.lepo && viikko[r.tavoite_tag] != null) viikko[r.tavoite_tag]++; });
+  let h = '<div style="margin-top:16px;border:.5px solid var(--border);border-left:2px solid var(--teal);border-radius:10px;padding:13px 15px">'
+    + '<div style="font-size:10px;font-weight:600;letter-spacing:.16em;text-transform:uppercase;color:var(--teal);margin-bottom:3px">🎯 Tavoitejakauma · sessiot → IDP</div>'
+    + '<div style="font-size:10.5px;color:var(--ink3);font-family:var(--font-mono);margin-bottom:9px">Kukin sessio kertyy jaksofokuksen tavoitteelle · koostuu automaattisesti</div>';
+  st.tavoitteet.forEach(function (t) {
+    const ker = jakso[t.tag] + viikko[t.tag];
+    const pct = Math.max(0, Math.min(100, Math.round(ker / tavoiteSessiot * 100)));
+    h += '<div style="margin:7px 0"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:11px;margin-bottom:3px">'
+      + '<span style="display:inline-flex;align-items:center;gap:5px"><span style="font-size:9px;font-weight:700;color:' + t.col + ';background:' + t.dim + ';border:.5px solid ' + t.brd + ';border-radius:4px;padding:1px 5px">' + t.tag + '</span><span style="color:var(--ink2)">' + esc(t.nimi) + '</span></span>'
+      + '<span style="font-family:var(--font-mono);font-size:10.5px;color:var(--ink3)">' + ker + '/' + tavoiteSessiot + ' sess.' + (viikko[t.tag] ? ' · +' + viikko[t.tag] + ' tällä vk' : '') + '</span></div>'
+      + '<div style="height:5px;border-radius:3px;background:var(--bg3);overflow:hidden"><div style="height:100%;width:' + pct + '%;background:' + t.col + ';border-radius:3px"></div></div></div>';
+  });
+  h += '<div style="font-size:10.5px;color:var(--ink3);margin-top:8px">Seuraava IDP-katselmus: jakson lopussa (' + kestoVk + ' vk) — <span onclick="event.stopPropagation();_jspVaihda(3)" style="color:var(--teal);cursor:pointer;font-weight:600">avaa Kehitys →</span></div>';
+  return h + '</div>';
+}
+
+// ── Kuormajakauma: sRPE-palkit Ma–Su + viikkokuorma AU + ACWR (suuntaa-antava) + §28 kuormaehdotus ──
+function _vpViikkoKuormaHTML(p, st) {
+  const esc = _jsvEsc, pid = esc(p.id);
+  const srpet = st.days.map(function (d) { const r = st.rows[d.iso] || {}; return { nimi: d.nimi, au: _vpViikkoSrpe(r.rpe, r.kesto_min), suunn: !r.vahvistettu }; });
+  const viikkoAU = srpet.reduce(function (a, b) { return a + b.au; }, 0);
+  const maxAU = Math.max(1, srpet.reduce(function (a, b) { return Math.max(a, b.au); }, 0));
+  const krono = (p._viikkoKrono4 != null) ? p._viikkoKrono4 : null;   // 4vk keskiviikkokuorma (async, jos saatavilla)
+  const acwr = (krono && krono > 0) ? Math.round(viikkoAU / krono * 100) / 100 : null;
+  const acwrCol = acwr == null ? 'var(--ink3)' : (acwr > 1.5 || acwr < 0.8) ? 'var(--amber)' : 'var(--teal)';
+  let h = '<div style="margin-top:12px;border:.5px solid var(--border);border-radius:10px;padding:13px 15px">'
+    + '<div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap;margin-bottom:9px">'
+    + '<span style="font-size:10px;font-weight:600;letter-spacing:.16em;text-transform:uppercase;color:var(--ink2)">📊 Kuorma · sRPE (rpe × min)</span>'
+    + '<span style="font-family:var(--font-mono);font-size:10.5px;color:var(--ink3)">viikko ' + viikkoAU + ' AU' + (acwr != null ? ' · ACWR <span style="color:' + acwrCol + '">' + acwr + '</span>' : '') + '</span></div>';
+  h += '<div style="display:flex;align-items:flex-end;gap:5px;height:52px">';
+  srpet.forEach(function (s) {
+    const hpx = Math.round(s.au / maxAU * 46);
+    h += '<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px"><div style="width:100%;height:' + Math.max(2, hpx) + 'px;background:' + (s.au ? 'var(--teal)' : 'var(--ov-2)') + ';border-radius:3px 3px 0 0;' + (s.suunn && s.au ? 'opacity:.45;border:1px dashed var(--teal)' : '') + '"></div><span style="font-size:8.5px;color:var(--ink3)">' + s.nimi + '</span></div>';
+  });
+  h += '</div>';
+  h += '<div style="font-size:9.5px;color:var(--ink3);margin-top:6px">▨ katkoviiva = suunniteltu · täysi = toteutunut · ACWR suuntaa-antava (ei absoluuttinen totuus)</div>';
+  // §28 kasvutahti → kuormaehdotus (valmentajan päätettäväksi, ei auto-rajoitus)
+  const kt = (p.kasvutahti_vyohyke) || (p.biologinenIka_viimeisin && p.biologinenIka_viimeisin.kasvutahti_vyohyke) || null;
+  const phv = p.phv_tila || null;
+  if (kt === 'nopea' || phv === 'PH') {
+    h += '<div style="margin-top:10px;background:rgba(224,160,64,.09);border:.5px solid rgba(224,160,64,.32);border-radius:8px;padding:9px 11px">'
+      + '<div style="font-size:11px;color:var(--ink2);line-height:1.4">🌱 <b>§28 kuormaehdotus:</b> ' + (phv === 'PH' ? 'PHV-kasvupyrähdys (varotila)' : 'nopea kasvutahti') + ' — harkitse kevyempää viikkoa (loukkaantumisriski koholla). <b>Sinä päätät.</b></div>'
+      + '<div style="display:flex;gap:6px;margin-top:7px;flex-wrap:wrap">'
+      + '<button onclick="event.stopPropagation();_vpViikkoKevenna(\'' + pid + '\')" style="font-family:var(--font-sans);font-size:10.5px;font-weight:500;padding:6px 11px;border-radius:6px;background:rgba(224,160,64,.12);color:var(--amber);border:.5px solid rgba(224,160,64,.4);cursor:pointer">✓ Kevennä esitäyttöä</button>'
+      + '<button onclick="event.stopPropagation();toast(\'Kuorma pidetty ennallaan\',\'ok\')" style="font-family:var(--font-sans);font-size:10.5px;font-weight:500;padding:6px 11px;border-radius:6px;background:var(--ov-1);color:var(--ink2);border:.5px solid var(--border);cursor:pointer">Pidä ennallaan</button></div></div>';
+  }
+  return h + '</div>';
+}
+
+// ── Pelaajan puoli = vain kompakti viittaus (pulssi/reflektio = P6b, Pelaaja_v7) ──
+function _vpViikkoPelaajaViiteHTML() {
+  return '<div style="margin-top:12px;display:flex;align-items:center;gap:9px;padding:10px 13px;border:.5px dashed var(--border);border-radius:9px;color:var(--ink3)">'
+    + '<span style="font-size:15px">📱</span><span style="font-size:11px;line-height:1.4">→ Pelaajalle viikkopulssi (Pelaaja-appi) — mikroreflektio + oma fiilis <b style="color:var(--ink2)">tulossa (P6b)</b></span></div>';
+}
+
+// ── Interaktiot (mutatoi state → tallenna best-effort → re-render) ──
+window._vpViikkoCycleFokus = function (pid, iso) {
+  const st = window._vpViikko; if (!st || st.pid !== pid) return;
+  const row = st.rows[iso]; if (!row) return;
+  // Kierto: (tyhjä) → A → B → C… → Lepo → tyhjä
+  const seq = st.tavoitteet.map(function (t) { return { tag: t.tag, avain: t.avain, nimi: t.nimi }; });
+  seq.push({ lepo: true }); seq.push({ tyhja: true });
+  let cur = -1;
+  if (row.lepo) cur = seq.length - 2;
+  else if (row.tavoite_tag) { for (var i = 0; i < seq.length; i++) if (seq[i].tag === row.tavoite_tag) { cur = i; break; } }
+  const nxt = seq[(cur + 1) % seq.length];
+  if (nxt.tyhja) { row.tavoite_tag = null; row.konsepti_avain = null; row.fokus_nimi = null; row.lepo = false; row.vahvistettu = false; }
+  else if (nxt.lepo) { row.lepo = true; row.tavoite_tag = null; row.konsepti_avain = null; row.fokus_nimi = 'Lepo'; row.vahvistettu = true; if (row.kesto_min == null) row.kesto_min = 0; }
+  else { row.lepo = false; row.tavoite_tag = nxt.tag; row.konsepti_avain = nxt.avain; row.fokus_nimi = nxt.nimi; row.vahvistettu = true; if (!row.kesto_min) row.kesto_min = 60; }
+  _vpViikkoReRender();
+  _vpViikkoTallennaRivi(pid, iso);
+};
+window._vpViikkoSetKesto = function (pid, iso, val) {
+  const st = window._vpViikko; if (!st || st.pid !== pid) return;
+  const row = st.rows[iso]; if (!row) return;
+  const n = Number(val); row.kesto_min = (isNaN(n) || n < 0) ? null : n; row.vahvistettu = true;
+  _vpViikkoReRender(); _vpViikkoTallennaRivi(pid, iso);
+};
+window._vpViikkoSetRpe = function (pid, iso, val) {
+  const st = window._vpViikko; if (!st || st.pid !== pid) return;
+  const row = st.rows[iso]; if (!row) return;
+  const n = Number(val); row.rpe = (val === '' || isNaN(n)) ? null : n; row.lahde = 'valmentaja'; row.vahvistettu = true;
+  _vpViikkoReRender(); _vpViikkoTallennaRivi(pid, iso);
+};
+window._vpViikkoCycleLasna = function (pid, iso) {
+  const st = window._vpViikko; if (!st || st.pid !== pid) return;
+  const row = st.rows[iso]; if (!row) return;
+  const nxt = _VKO_LASNA[(_vkoLasnaIdx(row.lasna) + 1) % _VKO_LASNA.length];
+  row.lasna = nxt.tila; row.terveys_lippu = !!nxt.terveys;
+  _vpViikkoReRender(); _vpViikkoTallennaLasna(pid, iso);
+};
+window._vpViikkoKevenna = function (pid) {
+  const st = window._vpViikko; if (!st || st.pid !== pid) return;
+  let muutettu = 0;
+  Object.keys(st.rows).forEach(function (iso) { const r = st.rows[iso]; if (r && !r.lepo && r.kesto_min > 0) { r.kesto_min = Math.max(20, Math.round(r.kesto_min * 0.8 / 5) * 5); muutettu++; if (r.rpe > 6) r.rpe = 6; } });
+  _vpViikkoReRender();
+  Object.keys(st.rows).forEach(function (iso) { if (st.rows[iso].vahvistettu) _vpViikkoTallennaRivi(pid, iso); });
+  if (typeof toast === 'function') toast('Esitäyttö kevennetty (' + muutettu + ' sessiota −20 %) — säädä vapaasti', 'ok');
+};
+
+// ── Esitäyttö: jaksofokus (pääfokus) + joukkueen toistuva aikataulu (kalenteri) ──
+window._vpViikkoTayta = async function (pid) {
+  const st = window._vpViikko; if (!st || st.pid !== pid || !st.jf) return;
+  const p = st.p;
+  // Kalenteritapahtumat viikolle (lataa jos tyhjä). Käytä _kalenteriTapahtumia (K3 toistot = aitoja dokkeja).
+  if (!_isDemoMode && _seuraId && (!_kalenteriTapahtumat || !_kalenteriTapahtumat.length) && typeof lataaKalenteriTapahtumat === 'function') {
+    try { await lataaKalenteriTapahtumat(); } catch (e) { /* graceful */ }
+  }
+  const jkl = String(p.joukkue || '').toLowerCase();
+  const paaTag = st.tavoitteet[0];
+  const viikonIsot = {}; st.days.forEach(function (d) { viikonIsot[d.iso] = true; });
+  // Kartoita treenipäivät kalenterista (oma joukkue/roster tällä viikolla).
+  const treeniPvm = {};
+  (_kalenteriTapahtumat || []).forEach(function (t) {
+    if (t.poistettu) return;
+    const iso = (t.alkaa && t.alkaa.toDate) ? t.alkaa.toDate().toISOString().slice(0, 10) : (t.pvm || '');
+    if (!viikonIsot[iso]) return;
+    const kuuluu = (t.joukkue && String(t.joukkue).toLowerCase() === jkl) || (Array.isArray(t.pelaajat_id) && t.pelaajat_id.indexOf(p.id) >= 0);
+    if (!kuuluu) return;
+    const teemaAvain = (t.treeniteema && t.treeniteema.avain) || null;
+    treeniPvm[iso] = { kesto: t.kesto_min || 75, teemaAvain: teemaAvain, sessioId: t.id };
+  });
+  const onKalenteria = Object.keys(treeniPvm).length > 0;
+  st.days.forEach(function (d, i) {
+    const row = st.rows[d.iso];
+    if (row.vahvistettu) return;   // älä ylikirjoita valmentajan jo vahvistamaa
+    if (onKalenteria) {
+      const ev = treeniPvm[d.iso];
+      if (ev) {
+        // tag = jaksofokuksen tavoite jonka konsepti = teeman avain, muuten pääfokus (A)
+        let tg = paaTag;
+        if (ev.teemaAvain) { const m = st.tavoitteet.find(function (t) { return t.avain === ev.teemaAvain; }); if (m) tg = m; }
+        row.lepo = false; row.tavoite_tag = tg.tag; row.konsepti_avain = tg.avain; row.fokus_nimi = tg.nimi; row.kesto_min = ev.kesto; row.sessioId = ev.sessioId; row.vahvistettu = false;
+      } else { row.lepo = true; row.fokus_nimi = 'Lepo'; row.kesto_min = 0; row.tavoite_tag = null; row.vahvistettu = false; }
+    } else {
+      // Ei kalenteridataa → neutraali oletusrytmi: Ma/Ke/Pe/La treeni (pääfokus), muut lepo. Ehdotus, haalea.
+      const treeni = (i === 0 || i === 2 || i === 4 || i === 5);
+      if (treeni) { row.lepo = false; row.tavoite_tag = paaTag.tag; row.konsepti_avain = paaTag.avain; row.fokus_nimi = paaTag.nimi; row.kesto_min = 70; row.vahvistettu = false; }
+      else { row.lepo = true; row.fokus_nimi = 'Lepo'; row.kesto_min = 0; row.tavoite_tag = null; row.vahvistettu = false; }
+    }
+  });
+  _vpViikkoReRender();
+  if (typeof toast === 'function') toast('Viikko esitäytetty ' + (onKalenteria ? 'aikataulusta' : 'jaksofokuksesta') + ' — vahvista/säädä (haalea = ehdotus)', 'ok');
+};
+
+// ── Async hydraatio: tallennetut kirjaukset (7 pv) + läsnäolo → state ──
+async function _vpViikkoLataa(p) {
+  const st = _vpViikkoState(p);
+  if (_isDemoMode || !_seuraId || !p || !p.id || typeof db === 'undefined') { st.ladattu = true; _vpViikkoReRender(); return; }
+  try {
+    const base = db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(p.id).collection('kirjaukset');
+    const reads = st.days.map(function (d) { return base.doc(d.iso).get().then(function (s) { return { iso: d.iso, data: s.exists ? s.data() : null }; }).catch(function () { return { iso: d.iso, data: null }; }); });
+    const res = await Promise.all(reads);
+    res.forEach(function (r) {
+      const row = st.rows[r.iso]; if (!row || !r.data) return;
+      const d = r.data;
+      const sess = Array.isArray(d.sessiot) && d.sessiot.length ? d.sessiot[0] : null;
+      row.rpe = (sess && sess.rpe != null) ? sess.rpe : (d.rpe != null ? d.rpe : null);
+      row.kesto_min = (sess && sess.kesto_min != null) ? sess.kesto_min : (d.kesto_min != null ? d.kesto_min : row.kesto_min);
+      row.lahde = (sess && sess.lahde) || d.lahde || 'valmentaja';
+      const tag = (sess && sess.tavoite_tag) || d.tavoite_tag || null;
+      row.tavoite_tag = tag; row.konsepti_avain = (sess && sess.konsepti_avain) || d.konsepti_avain || null;
+      row.fokus_nimi = (sess && sess.fokus_nimi) || null;
+      row.lepo = (d.tyyppi === 'lepo') || (sess && sess.tyyppi === 'lepo') || false;
+      if (row.rpe != null || row.tavoite_tag || row.lepo || row.kesto_min != null) row.vahvistettu = true;
+      if (row.tavoite_tag && !row.fokus_nimi) { const m = _vpViikkoTagMeta(st.tavoitteet, row.tavoite_tag); if (m) { row.fokus_nimi = m.nimi; row.konsepti_avain = row.konsepti_avain || m.avain; } }
+    });
+  } catch (e) { /* graceful — säilytä tyhjä grid */ }
+  // Läsnäolo: hae viikon kalenteri-sessioiden lasnaolijat (best-effort, ei render-polku §26)
+  try {
+    (_kalenteriTapahtumat || []).forEach(function (t) {
+      const iso = (t.alkaa && t.alkaa.toDate) ? t.alkaa.toDate().toISOString().slice(0, 10) : (t.pvm || '');
+      if (st.rows[iso] && !st.rows[iso].sessioId) st.rows[iso].sessioId = t.id;
+    });
+  } catch (e) { /* ei kriittinen */ }
+  st.ladattu = true;
+  _vpViikkoReRender();
+}
+
+// ── Kirjoitus: kirjaukset/{pvm} additiivinen (litteä + sessiot[] + audit). sRPE johdettu (ei tallenneta). ──
+async function _vpViikkoTallennaRivi(pid, iso) {
+  const st = window._vpViikko; if (!st || st.pid !== pid) return;
+  const row = st.rows[iso]; if (!row) return;
+  if (_isDemoMode || !_seuraId || typeof db === 'undefined') { if (typeof toast === 'function') toast('Sessio päivitetty (demo — ei kirjoitettu)', 'ok'); return; }
+  const cu = (typeof firebase !== 'undefined' && firebase.auth) ? firebase.auth().currentUser : null;
+  const uid = _uid || (cu ? cu.uid : null);
+  const sessio = { fokus_nimi: row.fokus_nimi || null, konsepti_avain: row.konsepti_avain || null, tavoite_tag: row.tavoite_tag || null, kesto_min: (row.kesto_min != null ? row.kesto_min : null), rpe: (row.rpe != null ? row.rpe : null), konteksti: row.konteksti || 'joukkue', lahde: row.lahde || 'valmentaja', tyyppi: row.lepo ? 'lepo' : 'treeni' };
+  const data = {
+    tyyppi: row.lepo ? 'lepo' : 'treeni',
+    tavoite_tag: row.tavoite_tag || null, konsepti_avain: row.konsepti_avain || null,
+    kesto_min: (row.kesto_min != null ? row.kesto_min : null), rpe: (row.rpe != null ? row.rpe : null),
+    lahde: row.lahde || 'valmentaja', sessiot: [sessio],
+    editedBy: uid || null, paivitetty: new Date().toISOString(),
+    luotu: firebase.firestore.FieldValue.serverTimestamp()   // A5-vartija (create); update ei muuta jos jo timestamp
+  };
+  try {
+    if (cu) await cu.getIdToken(true);
+    const ref = db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(pid).collection('kirjaukset').doc(iso);
+    const snap = await ref.get().catch(function () { return null; });
+    if (snap && snap.exists) { delete data.luotu; data.createdBy = (snap.data() || {}).createdBy || null; }   // säilytä alkuperäinen luotu (update ei koske luotua)
+    else { data.createdBy = uid || null; }
+    await ref.set(data, { merge: true });
+    if (typeof toast === 'function') toast('✓ ' + iso.slice(5) + ' tallennettu', 'ok');
+  } catch (e) { console.warn('[viikko]', e && e.message); if (typeof toast === 'function') toast('Session tallennus ei onnistunut', 'error'); }
+}
+async function _vpViikkoTallennaLasna(pid, iso) {
+  const st = window._vpViikko; if (!st || st.pid !== pid) return;
+  const row = st.rows[iso]; if (!row) return;
+  if (!row.sessioId) { if (typeof toast === 'function') toast('Ei kalenteritapahtumaa tälle päivälle — läsnäolo kirjataan kun sessio on kalenterissa', 'ok'); return; }
+  if (_isDemoMode || !_seuraId || typeof db === 'undefined') { if (typeof toast === 'function') toast('Läsnäolo päivitetty (demo)', 'ok'); return; }
+  const cu = (typeof firebase !== 'undefined' && firebase.auth) ? firebase.auth().currentUser : null;
+  const uid = _uid || (cu ? cu.uid : null);
+  try {
+    if (cu) await cu.getIdToken(true);
+    // GDPR: EI syytä (terveyssyy → terveys/-alikokoelma erikseen). Vain paljas tila + terveys-lippu.
+    await db.collection('seurat').doc(_seuraId).collection('kalenteri').doc(row.sessioId).collection('lasnaolijat').doc(pid)
+      .set({ tila: row.lasna, terveys_lippu: !!row.terveys_lippu, nimi: (st.p.etunimi || '') + ' ' + (st.p.sukunimi || ''), merkitsija_uid: uid, merkitty: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true });
+    if (typeof toast === 'function') toast('✓ Läsnäolo: ' + _vkoLasnaByTila(row.lasna).lbl, 'ok');
+  } catch (e) { console.warn('[viikko-lasna]', e && e.message); if (typeof toast === 'function') toast('Läsnäolon tallennus ei onnistunut', 'error'); }
+}
+
 // ═══ KERROS 2: per-pelaaja pikakatsaus (drill-down joukkuepopupista) — 4 dimensiovälilehteä ═══
 window._jspVaihda = function(n) {
   for (let i = 0; i < (window._jspTabN || 5); i++) {   // Vaihe B (5 tab): 0 Aloitus · 1 Mittaus · 2 Arviointi · 3 Kehitys · 4 Viikko
@@ -9204,7 +9554,7 @@ window._avaaPerPelaajaPikakatsaus = function(idx, joukkueNimi) {
   hR += '<div id="_jspTab1" style="display:none">' + _mSub('Fyysinen · mitattu') + f1 + _mErot + _mSub('Tekninen · mitattu') + f2 + '</div>';
   hR += '<div id="_jspTab2" style="display:none">' + _mSub('Peliäly · havainto') + f3 + _mErot + '<div id="_jspTab5">' + (f5 || '') + '</div></div>';
   hR += '<div id="_jspTab3" style="display:none">' + _kehExtra + '</div>';   // P4a: f4-diagnostiikka nyt _kehExtra:n reveal-osiossa
-  hR += '<div id="_jspTab4" style="display:none"><div style="text-align:center;padding:28px 16px">' + _mSub('Viikko') + '<div style="font-size:12.5px;color:var(--ink3);line-height:1.6">Kuormitus · RPE · viikon sessiot · läsnäolo — tulossa (Vaihe D).</div></div></div>';
+  hR += '<div id="_jspTab4" style="display:none">' + ((typeof _vpViikkoHTML === 'function') ? _vpViikkoHTML(p) : '') + '</div>';   // P6a — viikkosyöttö + IDP-kytkös
   hR += '</div>';
   // Kaksisarakkeinen runko (header ja nav täysleveinä sen ulkopuolella; mobiilissa pinoutuu §6)
   h += '<div class="jsp-grid"><div class="jsp-left">' + hL + '</div><div class="jsp-right">' + hR + '</div></div>';
@@ -9231,6 +9581,8 @@ window._avaaPerPelaajaPikakatsaus = function(idx, joukkueNimi) {
         }).catch(function () { /* jätä säiliöt tyhjiksi */ });
     } catch (e) { /* offline / db puuttuu → ei sparklineja */ }
   }
+  // P6a — Viikko-välilehden async hydraatio (tallennetut kirjaukset + läsnäolo). Grid on jo renderöity (skeleton).
+  if (typeof _vpViikkoLataa === 'function' && p && p.jaksofokus) { try { _vpViikkoLataa(p); } catch (e) { /* graceful */ } }
 };
 
 /* ── §D3 VP-KALIBRAATIOARVIO (D3_KALIBRAATIO_SPEC malli A) ──────────────────────
