@@ -1832,6 +1832,32 @@ function rMinaTavoite() {
   return h;
 }
 
+// ── Jakso-sidonnainen nollaus (A) — jakson identiteetti = jaksofokus.alkoi (ISO). Jaettu VP:n _vpJaksoVanhentunut-
+// predikaatin kanssa. Tietue (sitoumus/itsearvio) on VANHENTUNUT vain jos sen tallennettu jakso_alkoi on olemassa
+// JA eri kuin nykyinen. Legacy-puuttuva jakso_alkoi = EI vanhentunut (adoptoidaan nykyjaksoon → nykyiset pelaajat
+// eivät saa väärää "uusi jakso" -kehotetta deployssä). Nykyinen alkoi puuttuu → ei pakoteta vanhentumista.
+function _p7JaksoAlkoi() { return (_pelaaja && _pelaaja.jaksofokus && _pelaaja.jaksofokus.alkoi) || null; }
+function _p7Vanhentunut(tietueAlkoi) {
+  var nyt = _p7JaksoAlkoi();
+  if (!nyt || tietueAlkoi == null) return false;
+  return tietueAlkoi !== nyt;
+}
+function _p7FokusNimi() {
+  return (_p7Tavoite && _p7Tavoite.fokus && _p7Tavoite.fokus.nimi)
+    || (_pelaaja && _pelaaja.idp_fokus && _pelaaja.idp_fokus.nimi)
+    || (_pelaaja && _pelaaja.jaksofokus && _pelaaja.jaksofokus.konsepti_nimi) || null;
+}
+// Kuuluuko vahvistus NYKYISEEN jaksoon (E/per-jakso-scope). PIN-pelaaja ei saa Rules-vartijan takia nollata
+// vahvistettu_pvm:ää → vahvistus sidotaan jaksoon vahvistettu_jakso_alkoi-leimalla ja invalidoituu näytössä kun
+// jakso vaihtuu (→ "odottaa"), kunnes valmentaja vahvistaa uudelleen. Legacy-puuttuva leima → luota (ei rikota vanhaa).
+function _p7VahvistusNyky(sit) {
+  if (!sit || !sit.vahvistettu_pvm) return false;
+  if (sit.vahvistettu_jakso_alkoi == null) return true;   // legacy vahvistus ilman jakso-leimaa
+  var nyt = _p7JaksoAlkoi();
+  if (!nyt) return true;                                   // ei nykyjakso-identiteettiä → älä invalidoi
+  return sit.vahvistettu_jakso_alkoi === nyt;
+}
+
 function rMinaItsearvio() {
   var d = _pelaaja;
   if (d && d.d3_viimeisin && d.d3_viimeisin.pisteet) {
@@ -1840,9 +1866,16 @@ function rMinaItsearvio() {
       if (pt && pt.pelaaja != null && _minaD3[k.key] == null) _minaD3[k.key] = pt.pelaaja;
     });
   }
+  // C2 — vanhentunut itsearvio: arvot PYSYVÄT näkyvissä ja muokattavina (ei tyhjennystä), vain pehmeä kehote.
+  var vanhentunut = _p7Vanhentunut(d && d.d3_viimeisin && d.d3_viimeisin.jakso_alkoi);
   var h = '<div style="background:var(--bg3);padding:20px;margin:14px 20px 0;border:.5px solid rgba(242,239,230,.08)">';
   h += '<div style="font-family:\'Cormorant Garamond\',serif;font-size:18px;font-weight:400;color:var(--text);margin-bottom:6px;letter-spacing:.01em">Miten sinä koet itsesi?</div>';
   h += '<div style="font-family:\'DM Sans\',sans-serif;font-size:12px;color:#8C8B86;margin-bottom:14px;line-height:1.5">⭐ Tämä ei ole testi eikä arvosana — vain sinun oma fiiliksesi. Rehellinen vastaus auttaa eniten.</div>';
+  if (vanhentunut) {
+    h += '<div style="display:flex;align-items:flex-start;gap:9px;background:rgba(224,160,64,.1);border:.5px solid rgba(224,160,64,.32);border-radius:12px;padding:11px 13px;margin-bottom:14px">'
+      + '<span style="font-size:15px;flex-shrink:0">🔶</span>'
+      + '<span style="font-size:12.5px;color:var(--text);line-height:1.45">Tämä arvio on edelliseltä jaksolta. Se näkyy yhä — käy katsomassa tuntuuko jokin kohta nyt erilaiselta ja päivitä halutessasi.</span></div>';
+  }
   _MINA_D3_KYS.forEach(function (k) {
     h += '<div style="padding:12px 0;border-top:.5px solid rgba(242,239,230,.06)">';
     h += '<div style="font-size:14px;color:var(--text);margin-bottom:9px">' + k.q + '</div>';
@@ -1856,7 +1889,7 @@ function rMinaItsearvio() {
     });
     h += '</div></div>';
   });
-  h += '<button onclick="_tallennaItsearvio()" style="display:block;width:100%;margin-top:16px;background:#28B090;color:#fff;border:none;border-radius:10px;padding:14px;font-size:15px;font-weight:600;cursor:pointer;min-height:48px;font-family:\'DM Sans\',sans-serif">Valmis! 🎉</button>';
+  h += '<button onclick="_tallennaItsearvio()" style="display:block;width:100%;margin-top:16px;background:#28B090;color:#fff;border:none;border-radius:10px;padding:14px;font-size:15px;font-weight:600;cursor:pointer;min-height:48px;font-family:\'DM Sans\',sans-serif">' + (vanhentunut ? 'Päivitä arvioni' : 'Valmis! 🎉') + '</button>';
   h += '</div>';
   return h;
 }
@@ -1886,7 +1919,8 @@ async function _tallennaItsearvio() {
   var onV = false, onP = false;
   Object.keys(pisteet).forEach(function (k) { if (pisteet[k].valmentaja != null) onV = true; if (pisteet[k].pelaaja != null) onP = true; });
   var lahteet = []; if (onV) lahteet.push('valmentaja'); if (onP) lahteet.push('pelaaja');
-  var d3v = { pisteet: pisteet, pvm: new Date().toISOString().slice(0, 10), lahteet: lahteet };
+  // C1 — leimaa jakson identiteetti snapshotiin (d3_viimeisin-olion sisään → Rules sallii jo, ei muutosta).
+  var d3v = { pisteet: pisteet, pvm: new Date().toISOString().slice(0, 10), lahteet: lahteet, jakso_alkoi: _p7JaksoAlkoi() };
   // d3_varmuus pikakenttä (§26) — 'itsearvio' kun vain pelaaja, 'trianguloitu' jos valmentaja jo arvioinut.
   // EI näytetä pelaajalle (§7.22); aikuisnäkymät (Master/VP) lukevat tästä.
   var d3_varmuus = (typeof d3Varmuus === 'function') ? d3Varmuus(lahteet)
@@ -1930,15 +1964,26 @@ function rMinaSitoumus() {
   // Demo/ei-Firestore: palauta localStorage-varmuudesta jos muistissa ei ole.
   if (!window._p7Sitoumus) { try { var ls = localStorage.getItem('tm_p7_sitoumus'); if (ls) window._p7Sitoumus = JSON.parse(ls); } catch (e) { /* estetty */ } }
   var sit = window._p7Sitoumus || {};
-  var ia = sit.itsearvio || {};
+  var vanhentunut = _p7Vanhentunut(sit.jakso_alkoi);   // B3 — uusi jakso: tyhjä lomake + arkistobanneri
+  var ia = vanhentunut ? {} : (sit.itsearvio || {});   // ei esitäyttöä vanhoilla vastauksilla uudella jaksolla
   var esc = _thEsc;
   var h = '<div style="background:var(--bg3);padding:20px;margin:14px 20px 0;border:.5px solid rgba(242,239,230,.08);border-radius:14px">';
-  h += '<div style="font-family:\'Cormorant Garamond\',serif;font-size:18px;font-weight:400;color:var(--text);margin-bottom:4px">Sinun äänesi & sitoumus</div>';
+  h += '<div style="font-family:\'Cormorant Garamond\',serif;font-size:18px;font-weight:400;color:var(--text);margin-bottom:4px">🤝 Sinun äänesi & sitoumus</div>';
   if (!fokusNimi) {
     h += '<div style="font-size:12.5px;color:#8C8B86;line-height:1.5;margin-top:6px">Kun sinulle asetetaan jaksofokus, voit sitoutua siihen täällä ja kertoa oman näkemyksesi. 💚</div></div>';
     return h;
   }
-  h += '<div style="font-size:12px;color:#8C8B86;margin-bottom:12px">Tälle jaksolle: <b style="color:#28B090">' + esc(fokusNimi) + '</b> — kerro rehellisesti, se auttaa eniten.</div>';
+  if (vanhentunut) {
+    var edFokus = sit.fokus_nimi ? (esc(sit.fokus_nimi) + ' -jaksolle') : 'edelliselle jaksolle';
+    var jAlkoi = _p7SitoumusPvmFi(_p7JaksoAlkoi());
+    h += '<div style="font-size:12.5px;color:var(--text);font-weight:600;margin-bottom:3px">Uusi jakso alkoi — sitoudu tähän</div>';
+    h += '<div style="font-size:11px;color:#8C8B86;margin-bottom:10px">📍 Jaksofokus: <b style="color:#28B090">' + esc(fokusNimi) + '</b>' + (jAlkoi ? ' · alkoi ' + esc(jAlkoi) : '') + '</div>';
+    h += '<div style="display:flex;align-items:flex-start;gap:9px;background:rgba(40,176,144,.09);border:.5px solid rgba(40,176,144,.3);border-radius:12px;padding:11px 13px;margin-bottom:14px">'
+      + '<span style="font-size:15px;flex-shrink:0">✨</span>'
+      + '<span style="font-size:12.5px;color:var(--text);line-height:1.45">Edellinen sitoumuksesi (' + edFokus + ') on arkistoitu talteen. Tämä on uusi jakso — vastaa uudestaan omin sanoin.</span></div>';
+  } else {
+    h += '<div style="font-size:12px;color:#8C8B86;margin-bottom:12px">Tälle jaksolle: <b style="color:#28B090">' + esc(fokusNimi) + '</b> — kerro rehellisesti, se auttaa eniten.</div>';
+  }
   // 3 kysymystä (äänirekisteri)
   var kysy = [{ id: 'q1', label: reg.q1 }, { id: 'q2', label: reg.q2 }, { id: 'q3', label: reg.q3 }];
   kysy.forEach(function (k) {
@@ -1948,12 +1993,13 @@ function rMinaSitoumus() {
       + 'style="width:100%;min-height:52px;background:var(--bg);color:var(--text);border:.5px solid rgba(242,239,230,.15);border-radius:9px;padding:10px 12px;'
       + 'font-family:\'Cormorant Garamond\',serif;font-style:italic;font-size:15.5px;line-height:1.35;resize:vertical">' + esc(ia[k.id] || '') + '</textarea></div>';
   });
-  // Sitoumus-tila
-  if (sit.sitoumus_pvm) {
-    var vahv = sit.vahvistettu_pvm
+  // Sitoumus-tila — vanhentuneella (uusi jakso) EI vanhaa tilalaatikkoa: näytä tuore "Sitoudun tähän jaksoon".
+  if (!vanhentunut && sit.sitoumus_pvm) {
+    var _vahvNyky = _p7VahvistusNyky(sit);   // per-jakso-scope: vanhan jakson vahvistus näkyy "odottaa" (E)
+    var vahv = _vahvNyky
       ? '<span style="color:#28B090">· valmentaja vahvisti ' + esc(_p7SitoumusPvmFi(sit.vahvistettu_pvm)) + '</span>'
       : '<span style="color:#8C8B86">· odottaa valmentajan vahvistusta</span>';
-    var ikoni = sit.vahvistettu_pvm ? '✓' : '◔';
+    var ikoni = _vahvNyky ? '✓' : '◔';
     h += '<div style="display:flex;align-items:center;gap:10px;background:rgba(40,176,144,.08);border:.5px solid rgba(40,176,144,.28);border-radius:10px;padding:12px 14px;margin-top:14px">'
       + '<span style="width:24px;height:24px;border-radius:50%;background:#28B090;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;flex-shrink:0">' + ikoni + '</span>'
       + '<span style="font-size:12.5px;color:#C9C7BE;line-height:1.4">Sitouduit jaksoon ' + esc(_p7SitoumusPvmFi(sit.sitoumus_pvm)) + ' ' + vahv + '</span></div>';
@@ -1969,11 +2015,21 @@ async function _tallennaSitoumus() {
   var reg = _p7SitoumusRekisteri();
   var val = function (id) { var el = document.getElementById('p7sit_' + id); return el ? el.value.trim() : ''; };
   var prev = window._p7Sitoumus || {};
+  // B2 — sama jakso (tai legacy-puuttuva jakso_alkoi) → säilytä alkuperäinen sitoutumispäivä. Uusi jakso
+  // (vanhentunut per A) → tuore sitoumus_pvm (itsearvio-tekstit tulevat tyhjistä kentistä, B3).
+  var samaJakso = !_p7Vanhentunut(prev.jakso_alkoi);
   var sit = {
     itsearvio: { q1: val('q1'), q2: val('q2'), q3: val('q3') },
     rekisteri: reg.rekisteri,
-    sitoumus_pvm: prev.sitoumus_pvm || new Date().toISOString(),   // säilytä alkuperäinen sitoutumispäivä päivityksissä
-    vahvistettu_pvm: prev.vahvistettu_pvm || null                  // vain valmentaja asettaa (VP) — pelaaja ei koskaan
+    fokus_nimi: _p7FokusNimi(),                                    // arkistobannerin "edellinen fokus" (B3)
+    jakso_alkoi: _p7JaksoAlkoi(),                                  // B1 — jakson identiteetti (pelaaja_sitoumus-olion sisällä)
+    sitoumus_pvm: samaJakso ? (prev.sitoumus_pvm || new Date().toISOString()) : new Date().toISOString(),
+    // Rules-turva: PIN-pelaaja EI saa muuttaa vahvistettu_pvm:ää (idp_kausi anonymous-update-vartija) → säilytä prev AINA.
+    // Vahvistuksen per-jakso-reset hoidetaan vahvistettu_jakso_alkoi-vertailulla näytössä (_p7VahvistusNyky): uudella
+    // jaksolla leima ≠ nykyinen → "odottaa valmentajan vahvistusta" kunnes valmentaja vahvistaa uudelleen.
+    vahvistettu_pvm: prev.vahvistettu_pvm || null,
+    vahvistettu_jakso_alkoi: prev.vahvistettu_jakso_alkoi || null,
+    vahvistaja_rooli: prev.vahvistaja_rooli || null
   };
   window._p7Sitoumus = sit;
   // Demo / ei-Firestore → localStorage-varmuus + toast (kuten muut Pelaaja-kirjoitukset degradoivat).
