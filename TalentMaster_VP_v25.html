@@ -5069,6 +5069,73 @@ function _vpTavoiteYhteenvetoHTML(p) {
   h += '<div style="font-size:10px;color:var(--ink3);margin-top:4px">Muokkaa Kehitys-välilehdellä.</div>';
   return h + '</div>';
 }
+// P1.1 — Aloituksen YKSI tavoite-solmu (dedupe: yhdistää Suunta-yhteenvedon + Kausitavoitteen + SMART-edistymän).
+// Lukee samaa dataa (p._idpTavoite + _vpIdpSmartRivit-edistymä) — vain yksi kevyt read-only-solmu. Linkki → Kehitys.
+function _vpAloitusTavoiteHTML(p) {
+  const esc = _jsvEsc;
+  const t = p._idpTavoite || null;
+  const f = (t && t.fokus) || p.idp_fokus || null;
+  const tila = (t && t.status) || p.idp_tila || null;
+  const _link = '<div style="margin-top:12px"><span onclick="event.stopPropagation();_jspVaihda(3)" style="font-size:11px;color:var(--teal);cursor:pointer;font-weight:600">→ Kehitä suunnitelmaa · Kehitys-työpöytä</span></div>';
+  let h = '<div class="idp-seg" style="background:var(--bg2);border:.5px solid var(--border);border-left:2px solid var(--teal);border-radius:10px;padding:16px 20px;margin-bottom:22px"><span class="idp-node"></span>';
+  h += '<div style="font-size:9px;font-weight:600;letter-spacing:.16em;text-transform:uppercase;color:var(--teal);margin-bottom:6px">🎯 Suunta · kausitavoite</div>';
+  if (!f && !tila) {
+    h += '<div style="font-size:12px;color:var(--ink3);font-style:italic">Aseta kausitavoite Kehityksessä — moottori ehdottaa datasta.</div>';
+    return h + _link + '</div>';
+  }
+  const nimi = (f && (f.nimi || f.alue)) || (t && t.kuvaus) || '—';
+  const ty = t && t.tyyppi;
+  const _tyCol = { heikkous: 'var(--amber)', vahvuus: 'var(--teal)', pelipaikka: 'var(--blue)' }[ty] || 'var(--ink2)';
+  h += '<div style="font-family:var(--font-serif);font-weight:300;font-size:24px;line-height:1.2;color:var(--ink)">' + esc(nimi) + '</div>';
+  h += '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:7px">';
+  if (tila) h += '<span style="font-size:10px;border-radius:999px;padding:3px 10px;border:.5px solid ' + (tila === 'aktiivinen' ? 'rgba(40,176,144,.4)' : 'var(--border)') + ';color:' + (tila === 'aktiivinen' ? 'var(--teal)' : 'var(--ink2)') + ';background:var(--ov-1)">' + (tila === 'aktiivinen' ? '● ' : tila === 'saavutettu' ? '✓ ' : '○ ') + esc(tila) + '</span>';
+  if (f && f.dim) h += '<span style="font-size:10px;color:var(--ink3);font-family:var(--font-mono)">' + esc(f.dim) + '</span>';
+  if (ty) h += '<span style="font-size:9px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:' + _tyCol + '">' + esc(ty) + '</span>';
+  if (t && t.perustelu && t.perustelu.kultaikkuna) h += '<span style="font-size:10px;color:var(--teal)">🔥 Kultaikkuna auki</span>';
+  h += '</div>';
+  const hor = [];
+  const ar = t && t.aikaraami;
+  if (ar && ar.kausi) hor.push('Kausi ' + esc(ar.kausi));
+  if (ar && ar.kesto_vk) hor.push(ar.kesto_vk + ' vk');
+  if (ar && ar.arvio_pvm) { const m = String(ar.arvio_pvm).match(/^(\d{4})-(\d{2})-(\d{2})/); hor.push('arvioidaan ' + (m ? (+m[3]) + '.' + (+m[2]) + '.' + m[1] : esc(ar.arvio_pvm))); }
+  if (hor.length) h += '<div style="font-size:10.5px;color:var(--ink3);font-family:var(--font-mono);margin-top:7px">' + hor.join(' · ') + '</div>';
+  // Edistymä-palkki + % (SMART-rivin data, sama lähde) — tavoite näkyy KERRAN, edistymä mukana.
+  const rivit = (typeof _vpIdpSmartRivit === 'function') ? _vpIdpSmartRivit(p, t) : [];
+  const r0 = rivit.length ? rivit[0] : null;
+  if (r0 && r0.pct != null) {
+    h += '<div style="display:flex;align-items:center;gap:10px;margin-top:10px"><div style="flex:1;height:6px;border-radius:3px;background:var(--bg3);overflow:hidden"><div style="height:100%;width:' + r0.pct + '%;background:' + r0.pctCol + ';border-radius:3px"></div></div>'
+      + '<span style="font-family:var(--font-mono);font-size:11px;color:' + r0.pctCol + '">' + r0.pct + ' %</span></div>';
+    if (r0.mittari) h += '<div style="font-size:10px;color:var(--ink3);font-family:var(--font-mono);margin-top:4px">' + esc(r0.mittari) + '</div>';
+  } else if (r0 && !r0.mittari) {
+    h += '<div style="font-size:10px;color:var(--ink3);margin-top:8px">◔ SMART-mittari puuttuu — lisää Kehityksessä (ei pakollinen).</div>';
+  }
+  if (t && t.perustelu && t.perustelu.pelilause) h += '<div style="font-size:11.5px;color:var(--ink2);line-height:1.45;margin-top:8px">⚽ ' + esc(t.perustelu.pelilause) + '</div>';
+  return h + _link + '</div>';
+}
+// P1.1 — Aloituksen jaksofokus YHTENÄ RIVINÄ (konsepti + domeeni/dim/kesto + tukikonsepti + linkki). Iso lohko + ohjelma
+// -detaljit + editointi ovat Kehitys-työpöydällä (P4a) — Aloitus vain näyttää missä mennään.
+function _vpAloitusJaksofokusHTML(p) {
+  const esc = _jsvEsc, pid = esc(p.id);
+  const jf = p.jaksofokus || null, _jfLib = window.TM_JAKSOFOKUS;
+  let h = '<div class="idp-seg" style="margin-bottom:22px"><span class="idp-node"></span>';
+  h += '<div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap"><div style="min-width:0">'
+    + '<div style="font-size:9px;font-weight:600;letter-spacing:.16em;text-transform:uppercase;color:var(--teal);margin-bottom:4px">📍 Jaksofokus · tämä jakso</div>';
+  if (jf && jf.konsepti_nimi) {
+    const _dm = (_jfLib && typeof _jfLib.tmJfDomeeni === 'function') ? _jfLib.tmJfDomeeni(jf.domeeni || 'teknis_taktinen') : null;
+    const domLbl = _dm ? (_dm.ikoni + ' ' + _dm.nimi + ' · ' + _dm.dim) : ((jf.domeeni === 'fyysinen') ? '🏃 Fyysinen · D1' : '⚽ Teknis-taktinen · D2/D4');
+    const _ump = _jfLib && typeof _jfLib.tmJfUmpeutunut === 'function' && _jfLib.tmJfUmpeutunut(jf);
+    h += '<div style="font-family:var(--font-serif);font-size:19px;color:var(--ink);line-height:1.15">' + esc(jf.konsepti_nimi) + '</div>'
+      + '<div style="font-size:10.5px;color:var(--ink3);font-family:var(--font-mono);margin-top:2px">' + esc(domLbl) + ' · kesto ' + (jf.kesto_vk || 4) + ' vk' + (_ump ? ' · 🟠 umpeutunut' : '') + '</div>';
+  } else {
+    h += '<div style="font-size:13px;color:var(--ink3);font-style:italic">Aseta jaksofokus Kehityksessä.</div>';
+  }
+  h += '</div><span onclick="event.stopPropagation();_jspVaihda(3)" style="flex-shrink:0;font-family:var(--font-sans);font-size:10px;font-weight:500;letter-spacing:.1em;text-transform:uppercase;color:var(--teal);cursor:pointer;border:.5px solid rgba(40,176,144,.4);border-radius:6px;padding:8px 12px">→ Kehitä jaksofokusta</span></div>';
+  if (jf && Array.isArray(jf.linkitetyt) && jf.linkitetyt.length) {
+    const domIkoni = function (d) { const m = (_jfLib && typeof _jfLib.tmJfDomeeni === 'function') ? _jfLib.tmJfDomeeni(d) : null; return m ? m.ikoni : '•'; };
+    h += '<div style="font-size:10.5px;color:var(--ink3);margin-top:8px">→ Tukena: ' + jf.linkitetyt.map(function (l) { return domIkoni(l.domeeni) + ' ' + esc(l.konsepti_nimi); }).join(' · ') + '</div>';
+  }
+  return h + '</div>';
+}
 function _vpIdpNarratiiviHTML(p) {
   if (!p) return '';
   const esc = _jsvEsc, pid = esc(p.id);
@@ -5104,56 +5171,23 @@ function _vpIdpNarratiiviHTML(p) {
   }
   // ── 1c STAT-TIIVISTE (Vaihe A) — 3 mittausta + suunta vs ikäluokka (silmäiltävä ~10 s) ──
   h += _vpStatTiivisteHTML(p);
-  // ── P1 TAVOITTEET-YHTEENVETO (read-only "suunta") — selkärangan suuntasolmu, ennen detaljikausitavoitetta ──
-  h += _vpTavoiteYhteenvetoHTML(p);
-  // ── 2 KAUSITAVOITE ──
-  const lause = (t && (t.kuvaus || t.pelaajan_tavoite || (t.fokus && (t.fokus.nimi || t.fokus.alue)))) || null;
-  h += '<div class="idp-seg" style="border-left:2px solid var(--teal);padding:2px 0 2px 20px;margin-bottom:26px"><span class="idp-node"></span>' + _eyebrow('🎯 Kausitavoite · pitkä horisontti 6–12 kk');
-  if (lause) h += '<div style="font-family:var(--font-serif);font-weight:300;font-size:26px;line-height:1.28;color:var(--ink);max-width:760px;margin-top:8px">' + esc(lause) + '</div>';
-  else h += '<div style="font-size:13px;color:var(--ink3);margin-top:8px">Ei vielä kausitavoitetta — aseta se Kehitys-välilehdellä (moottori ehdottaa datasta).</div>';
-  h += '</div>';
-  // ── P4a — MOOTTORIN 2 POLKUA + VÄLITAVOITTEET siirtyivät KEHITYS-työpöydälle (Aloitus = read-only yhteenveto).
-  //    Aloitus näyttää suunnan (tavoite-yhteenveto yllä); rakentaminen tapahtuu Kehityksessä. Kevyt CTA suunnalle.
-  if (t || p.idp_tila) h += '<div class="idp-seg" style="margin-bottom:26px"><span class="idp-node"></span><div style="font-size:11px;color:var(--ink3)">🎯 Moottorin ehdotus (korjaa heikkous · jalosta supervoima) + välitavoitteet → <span style="color:var(--teal);cursor:pointer;font-weight:600" onclick="event.stopPropagation();_jspVaihda(3)">Kehitys-työpöytä</span></div></div>';
-  // ── 3 JAKSOFOKUS · read-only näyttö; muokkaus reititetään Kehitykseen (P4a) ──
-  const jf = p.jaksofokus || null;
-  h += '<div class="idp-seg" style="background:var(--bg2);border:.5px solid var(--border);border-left:2px solid var(--teal);border-radius:10px;padding:18px 20px;margin-bottom:26px"><span class="idp-node"></span>';
-  h += '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:14px;flex-wrap:wrap"><div style="min-width:0">' + _eyebrow('📍 Jaksofokus · aktiivinen · meso 4–8 vk', 'var(--teal)');
-  if (jf && jf.konsepti_nimi) {
-    const _dm = (window.TM_JAKSOFOKUS && typeof window.TM_JAKSOFOKUS.tmJfDomeeni === 'function') ? window.TM_JAKSOFOKUS.tmJfDomeeni(jf.domeeni || 'teknis_taktinen') : null;
-    const domLbl = _dm ? (_dm.ikoni + ' ' + _dm.nimi + ' · ' + _dm.dim) : ((jf.domeeni === 'fyysinen') ? '🏃 Fyysinen · D1' : '⚽ Teknis-taktinen · D2/D4');
-    const _pill = function (txt) { return '<span style="font-family:var(--font-sans);font-size:9px;font-weight:500;letter-spacing:.12em;text-transform:uppercase;padding:5px 10px;background:var(--bg3);color:var(--ink2);border:.5px solid var(--border)">' + txt + '</span>'; };
-    h += '<div style="font-family:var(--font-serif);font-size:27px;line-height:1;color:var(--ink);margin:8px 0 12px">' + esc(jf.konsepti_nimi) + '</div>'
-      + '<div style="display:flex;gap:7px;flex-wrap:wrap">' + _pill(domLbl) + _pill('Kesto ' + (jf.kesto_vk || 4) + ' vk') + _pill('Ohjelma · ' + esc((jf.ohjelma && jf.ohjelma.nimi) || '—')) + '</div>';
-  } else {
-    h += '<div style="font-family:var(--font-serif);font-size:24px;color:var(--ink3);margin:8px 0 4px">Jakso tulossa</div><div style="font-size:12px;color:var(--ink3)">Aseta jaksofokus (fyysinen tai teknis-taktinen).</div>';
-  }
-  // P4a — Aloitus = read-only: muokkaus reititetään Kehitys-työpöydälle (ainoa muokkauskoti), EI avaa modaalia.
-  h += '</div><button onclick="event.stopPropagation();_jspVaihda(3)" style="flex-shrink:0;font-family:var(--font-sans);font-size:10px;font-weight:500;letter-spacing:.1em;text-transform:uppercase;padding:9px 14px;border-radius:6px;background:transparent;color:var(--teal);border:.5px solid rgba(40,176,144,.4);cursor:pointer">→ Kehitä jaksofokusta</button></div>';
-  // JF-2 — pääfokus → tukena: linkitetyt + "✓ Opittu kun". Tyhjä → ei mitään (additiivinen).
-  if (jf && jf.konsepti_nimi && typeof _vpJfTukiHTML === 'function') h += _vpJfTukiHTML(jf);
-  if (jf && jf.konsepti_nimi && window.TM_JAKSOFOKUS && typeof window.TM_JAKSOFOKUS.tmJfUmpeutunut === 'function' && window.TM_JAKSOFOKUS.tmJfUmpeutunut(jf)) {
-    h += '<div style="margin-top:12px;font-size:11.5px;color:var(--amber)">🟠 Jakso umpeutunut — sulje ja valitse seuraava fokus Kehitys-välilehdellä.</div>';
-  }
-  h += '</div>';
-  // ── 3b MESO-KEHITYSKAARI (Vaihe B) — suljetut jaksot (jaksofokus_historia). Nostettu vanhasta Aloituksesta
-  //    (_vpMesoKaariHTML) ettei sisältöä hukata 7→5-sulautuksessa. Tyhjä → funktio palauttaa vähän/ei mitään. ──
-  if (typeof _vpMesoKaariHTML === 'function') h += _vpMesoKaariHTML(p);
-  // ── 4 SMART-TAVOITTEET ──
-  h += _stitle('SMART-tavoitteet') + '<div style="background:var(--surface);border:.5px solid var(--border);border-radius:10px;padding:18px 20px;margin-bottom:26px">';
-  const rivit = _vpIdpSmartRivit(p, t);
-  if (rivit.length) h += rivit.map(function (r, i) { return _vpIdpSmartRiviHTML(r, i, i === rivit.length - 1); }).join('');
-  else h += '<div style="font-size:12.5px;color:var(--ink3)">Ei vielä SMART-tavoitteita. Aseta kausitavoite + mittari Kehitys-välilehdellä (puuttuva mittari ei estä tallennusta).</div>';
-  h += '</div>';
-  // ── 5 SILTA (olemassa oleva render, näytetään kun tarjolla) ──
-  const silta = (typeof _vpSiltaPaneeliHTML === 'function') ? _vpSiltaPaneeliHTML(p) : '';
-  if (silta) h += _stitle('Silta · teemasta harjoitteeksi') + '<div style="margin-bottom:26px">' + silta + '</div>';
-  // ── 5b PELIPAIKKAFUNDAMENTIT (P2.2, U14+ · vain kun pelipaikkavaihe) ──
+  // ── P1.1 — TAVOITE KERRAN: yksi "🎯 Suunta · kausitavoite" -solmu (dedupe: Suunta-yhteenveto + Kausitavoite + SMART
+  //    yhdistetty; sama tavoite ei toistu 3×). Nimi + dim/tyyppi + status + horisontti + edistymä-% + linkki Kehitykseen. ──
+  h += _vpAloitusTavoiteHTML(p);
+  // ── P1.1 — JAKSOFOKUS = yksi rivi (konsepti + domeeni/dim/kesto + tukikonsepti + "→ Kehitä jaksofokusta"). ──
+  h += _vpAloitusJaksofokusHTML(p);
+  // P1.1 — POISTETTU Aloituksesta (elävät Kehitys-työpöydällä P4a/P4a.1): meso-kehityskaari (_vpMesoKaariHTML, TASO 3),
+  //   silta (_vpSiltaPaneeliHTML, valmennus-detalji), erillinen moottori-CTA-rivi. Funktiot säilyvät Kehityksen käytössä.
+  // ── P1.1 — PELIPAIKKAFUNDAMENTIT ▸ revealin taakse (viitesisältö, ei 10 s katsauksessa). ──
   const pfund = (typeof _vpPelipaikkaFundamentitHTML === 'function') ? _vpPelipaikkaFundamentitHTML(p) : '';
-  if (pfund) h += _stitle('Pelipaikkafundamentit · rooli') + pfund;
-  // ── 6 PELAAJAN ÄÄNI & SITOUMUS (olemassa oleva render) ──
+  if (pfund) h += '<div class="idp-seg" style="margin-bottom:22px"><span class="idp-node"></span>'
+    + '<span onclick="var b=document.getElementById(\'_jspAloPfund\');var o=b.style.display===\'none\';b.style.display=o?\'block\':\'none\';this.textContent=(o?\'▾\':\'▸\')+\' Rooli · pelipaikkafundamentit\'" style="font-size:11px;color:var(--blue);cursor:pointer;font-weight:600">▸ Rooli · pelipaikkafundamentit</span>'
+    + '<div id="_jspAloPfund" style="display:none;margin-top:10px">' + pfund + '</div></div>';
+  // ── 6 SITOUMUS (pelaajan omistajuus) — säilyy, kompakti ──
   const sit = (typeof _vpSitoumusHTML === 'function') ? _vpSitoumusHTML(p, pid) : '';
-  if (sit) h += _stitle('Pelaajan ääni & sitoumus') + '<div>' + sit + '</div>';
+  if (sit) h += '<div class="idp-seg"><span class="idp-node"></span>' + _stitle('🤝 Sitoumus') + '<div>' + sit + '</div></div>';
+  // ── P1.1 — LOPPU-CTA: Aloitus = rauhallinen yhteenveto → muokkaus Kehitys-työpöydällä. ──
+  h += '<div style="margin-top:8px;padding-top:14px;border-top:.5px solid var(--border)"><button onclick="event.stopPropagation();_jspVaihda(3)" style="font-family:var(--font-sans);font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;padding:10px 16px;border-radius:8px;background:rgba(40,176,144,.1);color:var(--teal);border:.5px solid rgba(40,176,144,.4);cursor:pointer">→ Avaa Kehitys-työpöytä · muokkaa suunnitelmaa</button></div>';
   // P1 — kääri kaikki header-jälkeinen sisältö selkärankaan (.idp-spine): jatkuva teal-hiusviiva + solmut.
   return h.replace('<!--IDP_SPINE-->', '<div class="idp-spine">') + '</div>';
 }
