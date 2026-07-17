@@ -202,3 +202,18 @@ describe('P3 — ADAR-ikäportti (kolmiportainen ikävaiheittain, §7)', () => {
     expect(Object.keys(tmAdarHavaittu(adar, { adarMap: ADAR_HAVAITTU_MAP })).length).toBe(5);
   });
 });
+
+describe('P4b — mittaus-moodin autotunnistus (konsepti mäppäytyy taksonomiaan → arviointi, muuten numeerinen)', () => {
+  // Editorin _vpJfMittausOletus-sääntö: tmTaksonomiaByAvain(avain) totuusarvo ratkaisee.
+  const oletus = (a) => (tmTaksonomiaByAvain(a) ? 'arviointi' : 'numeerinen');
+  it('taksonomia-avaimet (D3/D5/D4) → arviointi (nykyarvo luetaan Arvioinnista, ei tuplakirjausta)', () => {
+    expect(oletus('leadership')).toBe('arviointi');      // D3
+    expect(oletus('scoring_drive')).toBe('arviointi');   // D3 (P0-seed = taksonomia-avain)
+    expect(oletus('team_role')).toBe('arviointi');       // D5
+    expect(oletus('vision')).toBe('arviointi');          // D4 (ADAR)
+  });
+  it('ei-taksonomia-avaimet → numeerinen (Lähtö→Tavoite)', () => {
+    expect(oletus('y_h0')).toBe('numeerinen');           // teknis-taktinen youth-konsepti (ei arviointikohtaa)
+    expect(oletus('laskettava_mittari')).toBe('numeerinen');
+  });
+});
