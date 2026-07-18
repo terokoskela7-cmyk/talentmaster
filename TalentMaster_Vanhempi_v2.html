@@ -449,7 +449,7 @@ const _VANH_TT = { harjoitus: { i: '⚽', c: 'var(--ink2)' }, treeni: { i: '⚽'
 const _VANH_VKOPV = ['Su', 'Ma', 'Ti', 'Ke', 'To', 'Pe', 'La'];
 function _vanhEvPvm(ev) { var d = (ev.alkaa && ev.alkaa.toDate) ? ev.alkaa.toDate() : (ev.alkaa && typeof ev.alkaa === 'string') ? new Date(ev.alkaa) : (ev.pvm ? new Date(String(ev.pvm).slice(0, 10) + 'T00:00:00') : null); return (d && !isNaN(d.getTime())) ? d : null; }
 function _vanhEvKuuluu(ev) { var L = window._lapsi || {}; var jk = String(L.joukkue || L.joukkueId || '').toLowerCase(); if (jk && String(ev.joukkue || '').toLowerCase() === jk) return true; if (jk && Array.isArray(ev.joukkueet) && ev.joukkueet.some(function (x) { return String(x).toLowerCase() === jk; })) return true; if (Array.isArray(ev.pelaajat_id) && L.id && ev.pelaajat_id.indexOf(L.id) >= 0) return true; return false; }
-function _vanhDemoKalenteri() { var mk = function (n, t, pd, hh, pk) { var d = new Date(); d.setDate(d.getDate() + pd); d.setHours(hh, 0, 0, 0); return { id: 'd' + pd, nimi: n, tyyppi: t, _d: d, paikka: pk }; }; return [mk('Joukkueharjoitus', 'harjoitus', 1, 18, 'Keskuskenttä'), mk('Ottelu vs FC Naapuri', 'ottelu', 3, 12, 'Kotikenttä'), mk('Nopeustestit', 'testitapahtuma', 6, 17, 'Halli')]; }
+function _vanhDemoKalenteri() { var mk = function (n, t, pd, hh, pk) { var d = new Date(); d.setDate(d.getDate() + pd); d.setHours(hh, 0, 0, 0); return { id: 'd' + pd, nimi: n, tyyppi: t, _d: d, paikka: pk }; }; var ottelu = mk('Ottelu vs FC Naapuri', 'ottelu', 3, 12, 'Kotikenttä'); ottelu.logistiikka = { saapumisaika: '11:15', peliasu: 'kotipaita', kartta_url: 'https://maps.google.com/?q=Kotikentt%C3%A4', kimppakyyti: true }; return [mk('Joukkueharjoitus', 'harjoitus', 1, 18, 'Keskuskenttä'), ottelu, mk('Nopeustestit', 'testitapahtuma', 6, 17, 'Halli')]; }
 async function _vanhLataaKalenteri() {
   if (window._vanhKalLadattu) return; window._vanhKalLadattu = true;
   var L = window._lapsi;
@@ -462,14 +462,28 @@ async function _vanhLataaKalenteri() {
   } catch (e) { console.warn('[vanh kalenteri]', e && e.message); window._vanhKalenteri = []; }
   if (typeof draw === 'function') draw();
 }
+// P7-c.2 — logistiikka-chipit (vain olemassa olevat kentät). Vanhemmalle myös 🚗 kimppakyyti.
+function _vanhLogistiikkaChipit(lg) {
+  if (!lg) return '';
+  var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); };
+  var peliasuLbl = { kotipaita: 'Kotipaita', vieraspaita: 'Vieraspaita' };
+  var chip = function (txt) { return '<span style="display:inline-flex;align-items:center;font-size:10.5px;color:var(--ink2);background:var(--surface);border:.5px solid var(--border);border-radius:999px;padding:3px 9px">' + txt + '</span>'; };
+  var out = [];
+  if (lg.saapumisaika) out.push(chip('🕐 Saavu ' + esc(lg.saapumisaika)));
+  if (lg.peliasu) out.push(chip('👕 ' + esc(peliasuLbl[lg.peliasu] || lg.peliasu)));
+  if (lg.kartta_url && /^https?:\/\//i.test(lg.kartta_url)) out.push('<a href="' + esc(lg.kartta_url) + '" target="_blank" rel="noopener" style="text-decoration:none">' + chip('📍 Kartta') + '</a>');
+  if (lg.kimppakyyti) out.push(chip('🚗 Kimppakyyti'));
+  return out.length ? '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px">' + out.join('') + '</div>' : '';
+}
 function _vanhTapahtumaKortti(ev) {
   var tt = _VANH_TT[ev.tyyppi] || _VANH_TT.muu; var d = ev._d || _vanhEvPvm(ev);
   var aika = d ? (_VANH_VKOPV[d.getDay()] + ' ' + d.getDate() + '.' + (d.getMonth() + 1) + '. klo ' + String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0')) : '';
   var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); };
-  return '<div style="display:flex;align-items:center;gap:12px;padding:12px 14px;background:var(--surface);border:.5px solid var(--border);border-left:2px solid ' + tt.c + ';border-radius:10px;margin-bottom:8px">'
-    + '<div style="font-size:18px;flex-shrink:0;width:22px;text-align:center">' + tt.i + '</div>'
+  return '<div style="display:flex;align-items:flex-start;gap:12px;padding:12px 14px;background:var(--surface);border:.5px solid var(--border);border-left:2px solid ' + tt.c + ';border-radius:10px;margin-bottom:8px">'
+    + '<div style="font-size:18px;flex-shrink:0;width:22px;text-align:center;line-height:1.4">' + tt.i + '</div>'
     + '<div style="flex:1;min-width:0"><div style="font-family:var(--font-d);font-size:16px;color:var(--text);line-height:1.2">' + esc(ev.nimi || 'Tapahtuma') + '</div>'
-    + '<div style="font-size:11px;color:var(--ink3);margin-top:2px">' + aika + (ev.paikka ? ' · ' + esc(ev.paikka) : '') + '</div></div></div>';
+    + '<div style="font-size:11px;color:var(--ink3);margin-top:2px">' + aika + (ev.paikka ? ' · ' + esc(ev.paikka) : '') + '</div>'
+    + _vanhLogistiikkaChipit(ev.logistiikka) + '</div></div>';
 }
 function _vanhTapahtumatHTML() {
   if (window._vanhKalenteri === null && !window._vanhKalLadattu) _vanhLataaKalenteri();

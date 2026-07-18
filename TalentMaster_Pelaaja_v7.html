@@ -1799,7 +1799,9 @@ function _p7EvKuuluu(ev) {
 }
 function _p7DemoKalenteri() {
   var mk = function (n, tyyppi, plusDays, hh, paikka) { var d = new Date(); d.setDate(d.getDate() + plusDays); d.setHours(hh, 0, 0, 0); return { id: 'demo' + plusDays, nimi: n, tyyppi: tyyppi, _d: d, paikka: paikka }; };
-  return [mk('Joukkueharjoitus', 'harjoitus', 1, 18, 'Keskuskenttä'), mk('Ottelu vs FC Naapuri', 'ottelu', 3, 12, 'Kotikenttä'), mk('Nopeustestit', 'testitapahtuma', 6, 17, 'Halli')];
+  var ottelu = mk('Ottelu vs FC Naapuri', 'ottelu', 3, 12, 'Kotikenttä');
+  ottelu.logistiikka = { saapumisaika: '11:15', peliasu: 'kotipaita', kartta_url: 'https://maps.google.com/?q=Kotikentt%C3%A4', kimppakyyti: true };
+  return [mk('Joukkueharjoitus', 'harjoitus', 1, 18, 'Keskuskenttä'), ottelu, mk('Nopeustestit', 'testitapahtuma', 6, 17, 'Halli')];
 }
 async function _p7LataaKalenteri() {
   if (_ladattu.kalenteri) return; _ladattu.kalenteri = true;
@@ -1820,16 +1822,30 @@ async function _p7LataaKalenteri() {
   } catch (e) { console.warn('[p7 kalenteri]', e && e.message); window._p7Kalenteri = []; }
   _rerender();
 }
+// P7-c.2 — logistiikka-chipit (vain olemassa olevat kentät). vanhempi=true → myös 🚗 kimppakyyti.
+function _p7LogistiikkaChipit(lg, vanhempi) {
+  if (!lg) return '';
+  var esc = (typeof _thEsc === 'function') ? _thEsc : function (s) { return s; };
+  var peliasuLbl = { kotipaita: 'Kotipaita', vieraspaita: 'Vieraspaita' };
+  var chip = function (txt) { return '<span style="display:inline-flex;align-items:center;font-size:10.5px;color:var(--ink2);background:rgba(242,239,230,.05);border:.5px solid rgba(242,239,230,.12);border-radius:999px;padding:3px 9px">' + txt + '</span>'; };
+  var out = [];
+  if (lg.saapumisaika) out.push(chip('🕐 Saavu ' + esc(lg.saapumisaika)));
+  if (lg.peliasu) out.push(chip('👕 ' + esc(peliasuLbl[lg.peliasu] || lg.peliasu)));
+  if (lg.kartta_url && /^https?:\/\//i.test(lg.kartta_url)) out.push('<a href="' + esc(lg.kartta_url) + '" target="_blank" rel="noopener" onclick="event.stopPropagation()" style="text-decoration:none">' + chip('📍 Kartta') + '</a>');
+  if (vanhempi && lg.kimppakyyti) out.push(chip('🚗 Kimppakyyti'));
+  return out.length ? '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px">' + out.join('') + '</div>' : '';
+}
 function _p7AikatauluKortti(ev) {
   var tt = _P7_TT[ev.tyyppi] || _P7_TT.muu;
   var d = ev._d || _p7EvPvm(ev);
   var aika = d ? (_P7_VKOPV[d.getDay()] + ' ' + d.getDate() + '.' + (d.getMonth() + 1) + '. klo ' + String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0')) : '';
   var esc = (typeof _thEsc === 'function') ? _thEsc : function (s) { return s; };
-  return '<div style="display:flex;align-items:center;gap:12px;padding:12px 14px;background:var(--bg3);border:.5px solid rgba(242,239,230,.08);border-left:2px solid ' + tt.col + ';border-radius:10px;margin-bottom:8px">'
-    + '<div style="font-size:19px;flex-shrink:0;width:24px;text-align:center">' + tt.ikoni + '</div>'
+  return '<div style="display:flex;align-items:flex-start;gap:12px;padding:12px 14px;background:var(--bg3);border:.5px solid rgba(242,239,230,.08);border-left:2px solid ' + tt.col + ';border-radius:10px;margin-bottom:8px">'
+    + '<div style="font-size:19px;flex-shrink:0;width:24px;text-align:center;line-height:1.4">' + tt.ikoni + '</div>'
     + '<div style="flex:1;min-width:0">'
     + '<div style="font-family:\'Cormorant Garamond\',serif;font-size:16px;color:var(--text);line-height:1.2">' + esc(ev.nimi || 'Tapahtuma') + '</div>'
     + '<div style="font-size:11px;color:#8C8B86;font-family:\'DM Sans\',sans-serif;margin-top:2px">' + aika + (ev.paikka ? ' · ' + esc(ev.paikka) : '') + '</div>'
+    + _p7LogistiikkaChipit(ev.logistiikka, false)
     + '</div></div>';
 }
 function _p7AikatauluHTML() {
