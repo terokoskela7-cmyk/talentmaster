@@ -928,6 +928,9 @@ function rA1(){
     </div>`;
   })()}
 
+  <!-- P7-c.1 — Seuran aikataulu (tulevat tapahtumat omasta joukkueesta, read-only) -->
+  ${(typeof _p7AikatauluHTML === 'function') ? _p7AikatauluHTML() : ''}
+
   <!-- Vanhemman kehu — näkyy jos on uusi kehu odottamassa -->
   ${_viimeisinKehu ? `
   <div style="margin:14px 20px;padding:14px 16px;background:rgba(184,92,56,.08);border:.5px solid rgba(184,92,56,.3);border-radius:10px;display:flex;align-items:center;gap:12px">
@@ -1766,6 +1769,80 @@ async function _p7LataaTavoite() {
   } catch (e) { /* best-effort — tyhjä tila jos ei saada */ }
   if (_tab === 'mina' && _sc === 'main') draw();
 }
+
+// ── P7-c.1 — SEURAN AIKATAULU (read-only): tulevat kalenteritapahtumat pelaajan joukkueesta. ──
+// Lukee seurat/{sid}/kalenteri (Rules: anon-read c.1). Suodatus APISSA (oma joukkue/roster) — Rules sallii laajan
+// anon-luvun, mutta näytetään vain relevantit. §6.2 tyyppi-ikonit/värit. Read-only (poissaolo-write = c.3).
+window._p7Kalenteri = null;   // null = ei ladattu · [] = ladattu tyhjä · [ev…] = tulevat
+const _P7_TT = {
+  harjoitus: { ikoni: '⚽', col: 'var(--ink2)' }, treeni: { ikoni: '⚽', col: 'var(--ink2)' },
+  ottelu: { ikoni: '🏟️', col: '#4E86D6' }, peli: { ikoni: '🏟️', col: '#4E86D6' },
+  testitapahtuma: { ikoni: '🧪', col: 'var(--teal)' }, testi: { ikoni: '🧪', col: 'var(--teal)' },
+  kasvumittaus: { ikoni: '📏', col: 'var(--teal)' },
+  palaveri: { ikoni: '📋', col: '#E0A040' }, palaverit: { ikoni: '📋', col: '#E0A040' },
+  muu: { ikoni: '○', col: 'var(--ink3)' }
+};
+const _P7_VKOPV = ['Su', 'Ma', 'Ti', 'Ke', 'To', 'Pe', 'La'];
+function _p7EvPvm(ev) {
+  var d = (ev.alkaa && ev.alkaa.toDate) ? ev.alkaa.toDate()
+    : (ev.alkaa && typeof ev.alkaa === 'string') ? new Date(ev.alkaa)
+      : (ev.pvm ? new Date(String(ev.pvm).slice(0, 10) + 'T00:00:00') : null);
+  return (d && !isNaN(d.getTime())) ? d : null;
+}
+function _p7EvKuuluu(ev) {
+  if (!_pelaaja) return false;
+  var jk = String(_pelaaja.joukkue || _pelaaja.joukkueId || '').toLowerCase();
+  if (jk && String(ev.joukkue || '').toLowerCase() === jk) return true;
+  if (jk && Array.isArray(ev.joukkueet) && ev.joukkueet.some(function (x) { return String(x).toLowerCase() === jk; })) return true;
+  if (Array.isArray(ev.pelaajat_id) && ev.pelaajat_id.indexOf(_pelaaja.id) >= 0) return true;
+  return false;
+}
+function _p7DemoKalenteri() {
+  var mk = function (n, tyyppi, plusDays, hh, paikka) { var d = new Date(); d.setDate(d.getDate() + plusDays); d.setHours(hh, 0, 0, 0); return { id: 'demo' + plusDays, nimi: n, tyyppi: tyyppi, _d: d, paikka: paikka }; };
+  return [mk('Joukkueharjoitus', 'harjoitus', 1, 18, 'Keskuskenttä'), mk('Ottelu vs FC Naapuri', 'ottelu', 3, 12, 'Kotikenttä'), mk('Nopeustestit', 'testitapahtuma', 6, 17, 'Halli')];
+}
+async function _p7LataaKalenteri() {
+  if (_ladattu.kalenteri) return; _ladattu.kalenteri = true;
+  var _rerender = function () { if (_tab !== 'mina' && _tab !== 'meista' && _sc === 'main') draw(); };
+  if (_isDemoUser) { window._p7Kalenteri = _p7DemoKalenteri(); _rerender(); return; }
+  if (!_pelaaja || !_pelaaja.seuraId || !window._db) { window._p7Kalenteri = []; _rerender(); return; }
+  try {
+    var snap = await window._db.collection('seurat').doc(_pelaaja.seuraId).collection('kalenteri').get();
+    var now = new Date(); var evs = [];
+    snap.forEach(function (doc) {
+      var ev = Object.assign({ id: doc.id }, doc.data());
+      if (ev.poistettu) return; if (!_p7EvKuuluu(ev)) return;
+      var d = _p7EvPvm(ev); if (!d || d < now) return;
+      ev._d = d; evs.push(ev);
+    });
+    evs.sort(function (a, b) { return a._d - b._d; });
+    window._p7Kalenteri = evs;
+  } catch (e) { console.warn('[p7 kalenteri]', e && e.message); window._p7Kalenteri = []; }
+  _rerender();
+}
+function _p7AikatauluKortti(ev) {
+  var tt = _P7_TT[ev.tyyppi] || _P7_TT.muu;
+  var d = ev._d || _p7EvPvm(ev);
+  var aika = d ? (_P7_VKOPV[d.getDay()] + ' ' + d.getDate() + '.' + (d.getMonth() + 1) + '. klo ' + String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0')) : '';
+  var esc = (typeof _thEsc === 'function') ? _thEsc : function (s) { return s; };
+  return '<div style="display:flex;align-items:center;gap:12px;padding:12px 14px;background:var(--bg3);border:.5px solid rgba(242,239,230,.08);border-left:2px solid ' + tt.col + ';border-radius:10px;margin-bottom:8px">'
+    + '<div style="font-size:19px;flex-shrink:0;width:24px;text-align:center">' + tt.ikoni + '</div>'
+    + '<div style="flex:1;min-width:0">'
+    + '<div style="font-family:\'Cormorant Garamond\',serif;font-size:16px;color:var(--text);line-height:1.2">' + esc(ev.nimi || 'Tapahtuma') + '</div>'
+    + '<div style="font-size:11px;color:#8C8B86;font-family:\'DM Sans\',sans-serif;margin-top:2px">' + aika + (ev.paikka ? ' · ' + esc(ev.paikka) : '') + '</div>'
+    + '</div></div>';
+}
+function _p7AikatauluHTML() {
+  if (window._p7Kalenteri === null && !_ladattu.kalenteri) _p7LataaKalenteri();
+  var evs = window._p7Kalenteri, inner;
+  if (evs === null) inner = '<div style="font-size:12px;color:#8C8B86;padding:4px 0">Ladataan aikataulua…</div>';
+  else if (!evs.length) inner = '<div style="font-size:12.5px;color:#8C8B86;line-height:1.5;padding:4px 0">Ei merkittyjä tapahtumia — valmentaja lisää ne kalenteriin.</div>';
+  else inner = evs.slice(0, 5).map(_p7AikatauluKortti).join('');
+  return '<section style="padding:2px 20px 8px">'
+    + '<div style="font-size:10px;font-weight:600;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin-bottom:10px">📅 Seuran aikataulu</div>'
+    + inner + '</section>';
+}
+
 // §7.22 EHDOTON: ei tasolukuja/arvosanoja/percentiilejä/vertailua/deltoja/uhkaa. Positiivinen matka + konsepti + kehu.
 function rMinaTavoite() {
   var d = _pelaaja; if (!d) return '';

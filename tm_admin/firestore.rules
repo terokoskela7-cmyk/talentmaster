@@ -748,8 +748,12 @@ service cloud.firestore {
       // muokkaus OMIIN (luoja_uid == auth.uid), MUIDEN tapahtumiin vain field-level
       // (muistiinpanot + läsnäolo-kooste + audit). Soft-delete: poistettu=true, EI hard-deletea.
       match /kalenteri/{tapahtumaId} {
+        // P7-c.1: anon-luku (PIN-pelaaja/vanhempi näkee seuran aikataulun). Peilaa pelaajat-dokin anon-read-mallia
+        // — anonyymillä ei ole seuraId-claimia Rules-skooppaukseen → luku on laaja; joukkue-/roster-suodatus tehdään
+        // APPISSA (query), ei Rulesissa (sama tietoinen kompromissi kuin pelaajat/harjoitusprioriteetti). Write ENNALLAAN.
         allow read:   if onSuperAdmin()
-                      || (onKirjautunut() && onOmaSeura(seuraId));
+                      || (onKirjautunut() && onOmaSeura(seuraId))
+                      || onAnonymous();
 
         // Luonti: VP/johto (vapaa) TAI valmentajarooli joka asettaa luoja_uid == oma uid.
         allow create: if onSuperAdmin()
@@ -779,7 +783,8 @@ service cloud.firestore {
         // Pelaaja vahvistaa OMAN läsnäolonsa (uid == osallistujaId).
         match /lasnaolijat/{osallistujaId} {
           allow read:   if onSuperAdmin()
-                        || (onKirjautunut() && onOmaSeura(seuraId));
+                        || (onKirjautunut() && onOmaSeura(seuraId))
+                        || onAnonymous();   // P7-c.1: PIN-pelaaja/vanhempi näkee läsnäolon (oma poissaolo-write vasta c.3)
           allow create: if onSuperAdmin()
                         || (onOmaSeura(seuraId) && onJohtoRooli())
                         || onOmanSeuranValmentaja(seuraId)

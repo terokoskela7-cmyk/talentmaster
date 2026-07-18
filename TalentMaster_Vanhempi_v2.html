@@ -442,6 +442,44 @@ function _renderLiveFeed(){
   </div>`;
 }
 
+// ── P7-c.1 — TULEVAT TAPAHTUMAT (read-only): lapsen joukkueen kalenteritapahtumat. Narratiivin ALLE (tarina säilyy).
+// Ikäadaptoitu (U19 harvempi). Ei numeroita/leimoja. Lukee seurat/{sid}/kalenteri (anon-read c.1); suodatus apissa.
+window._vanhKalenteri = null; window._vanhKalLadattu = false;
+const _VANH_TT = { harjoitus: { i: '⚽', c: 'var(--ink2)' }, treeni: { i: '⚽', c: 'var(--ink2)' }, ottelu: { i: '🏟️', c: '#4E86D6' }, peli: { i: '🏟️', c: '#4E86D6' }, testitapahtuma: { i: '🧪', c: 'var(--teal)' }, testi: { i: '🧪', c: 'var(--teal)' }, kasvumittaus: { i: '📏', c: 'var(--teal)' }, palaveri: { i: '📋', c: '#E0A040' }, palaverit: { i: '📋', c: '#E0A040' }, muu: { i: '○', c: 'var(--ink3)' } };
+const _VANH_VKOPV = ['Su', 'Ma', 'Ti', 'Ke', 'To', 'Pe', 'La'];
+function _vanhEvPvm(ev) { var d = (ev.alkaa && ev.alkaa.toDate) ? ev.alkaa.toDate() : (ev.alkaa && typeof ev.alkaa === 'string') ? new Date(ev.alkaa) : (ev.pvm ? new Date(String(ev.pvm).slice(0, 10) + 'T00:00:00') : null); return (d && !isNaN(d.getTime())) ? d : null; }
+function _vanhEvKuuluu(ev) { var L = window._lapsi || {}; var jk = String(L.joukkue || L.joukkueId || '').toLowerCase(); if (jk && String(ev.joukkue || '').toLowerCase() === jk) return true; if (jk && Array.isArray(ev.joukkueet) && ev.joukkueet.some(function (x) { return String(x).toLowerCase() === jk; })) return true; if (Array.isArray(ev.pelaajat_id) && L.id && ev.pelaajat_id.indexOf(L.id) >= 0) return true; return false; }
+function _vanhDemoKalenteri() { var mk = function (n, t, pd, hh, pk) { var d = new Date(); d.setDate(d.getDate() + pd); d.setHours(hh, 0, 0, 0); return { id: 'd' + pd, nimi: n, tyyppi: t, _d: d, paikka: pk }; }; return [mk('Joukkueharjoitus', 'harjoitus', 1, 18, 'Keskuskenttä'), mk('Ottelu vs FC Naapuri', 'ottelu', 3, 12, 'Kotikenttä'), mk('Nopeustestit', 'testitapahtuma', 6, 17, 'Halli')]; }
+async function _vanhLataaKalenteri() {
+  if (window._vanhKalLadattu) return; window._vanhKalLadattu = true;
+  var L = window._lapsi;
+  if (!_db || !L || !L.seuraId) { window._vanhKalenteri = _vanhDemoKalenteri(); if (typeof draw === 'function') draw(); return; }
+  try {
+    var snap = await _db.collection('seurat').doc(L.seuraId).collection('kalenteri').get();
+    var now = new Date(), evs = [];
+    snap.forEach(function (doc) { var ev = Object.assign({ id: doc.id }, doc.data()); if (ev.poistettu) return; if (!_vanhEvKuuluu(ev)) return; var d = _vanhEvPvm(ev); if (!d || d < now) return; ev._d = d; evs.push(ev); });
+    evs.sort(function (a, b) { return a._d - b._d; }); window._vanhKalenteri = evs;
+  } catch (e) { console.warn('[vanh kalenteri]', e && e.message); window._vanhKalenteri = []; }
+  if (typeof draw === 'function') draw();
+}
+function _vanhTapahtumaKortti(ev) {
+  var tt = _VANH_TT[ev.tyyppi] || _VANH_TT.muu; var d = ev._d || _vanhEvPvm(ev);
+  var aika = d ? (_VANH_VKOPV[d.getDay()] + ' ' + d.getDate() + '.' + (d.getMonth() + 1) + '. klo ' + String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0')) : '';
+  var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); };
+  return '<div style="display:flex;align-items:center;gap:12px;padding:12px 14px;background:var(--surface);border:.5px solid var(--border);border-left:2px solid ' + tt.c + ';border-radius:10px;margin-bottom:8px">'
+    + '<div style="font-size:18px;flex-shrink:0;width:22px;text-align:center">' + tt.i + '</div>'
+    + '<div style="flex:1;min-width:0"><div style="font-family:var(--font-d);font-size:16px;color:var(--text);line-height:1.2">' + esc(ev.nimi || 'Tapahtuma') + '</div>'
+    + '<div style="font-size:11px;color:var(--ink3);margin-top:2px">' + aika + (ev.paikka ? ' · ' + esc(ev.paikka) : '') + '</div></div></div>';
+}
+function _vanhTapahtumatHTML() {
+  if (window._vanhKalenteri === null && !window._vanhKalLadattu) _vanhLataaKalenteri();
+  var evs = window._vanhKalenteri; var max = (_age === 'u19') ? 3 : 5; var inner;
+  if (evs === null) inner = '<div style="font-size:12px;color:var(--ink3);padding:2px 0">Ladataan…</div>';
+  else if (!evs.length) inner = '<div style="font-size:12px;color:var(--ink3);line-height:1.5;padding:2px 0">Ei merkittyjä tapahtumia — valmentaja lisää ne kalenteriin.</div>';
+  else inner = evs.slice(0, max).map(_vanhTapahtumaKortti).join('');
+  return '<div style="margin:16px 0 4px"><div class="ey" style="margin-bottom:10px">📅 Tulevat tapahtumat</div>' + inner + '</div>';
+}
+
 function rKoti(){
   const d=IKA[_age];
   // U12: agentti, voi kirjata. U15: tuki. U19: vieras.
@@ -480,6 +518,9 @@ function rKoti(){
       </button>
     </div>` : ''}
   </div>
+
+  <!-- P7-c.1 — Tulevat tapahtumat (lapsen joukkueen kalenteri, narratiivin alle, read-only) -->
+  ${(typeof _vanhTapahtumatHTML === 'function') ? _vanhTapahtumatHTML() : ''}
 
   ${_age==='u12'?_kotiU12(d):_age==='u15'?_kotiU15(d):_kotiU19(d)}
 
