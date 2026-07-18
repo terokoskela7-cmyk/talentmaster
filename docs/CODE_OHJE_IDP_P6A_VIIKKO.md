@@ -30,7 +30,8 @@ Renderöi nykyisen jaksofokuksen viikko 7 rivinä (Ma–Su). Kukin rivi: **Päiv
 Yksi nappi: täytä viikko **jaksofokuksesta + joukkueen toistuvasta aikataulusta** (`toistuvuus`). Ehdota fokus + tavoitetagi + oletuskesto per treenipäivä; lepopäivät merkitään. Käyttäjä vahvistaa/säätää. **Ehdotus, ei pakotus** — rivit jäävät "vahvistamaton" kunnes napautetaan.
 
 ### 3. Kirjoitusmalli (additiivinen, ei migraatiota)
-- Kaksoissessiot: lisää **`sessiot:[]`-taulukko** `kirjaukset/{pvm}`-dokin sisään (EI nested-alikokoelmaa). Sessio: `{ fokus_nimi, konsepti_avain, tavoite_tag, kesto_min, rpe, konteksti, lahde }`. Yksi sessio/pv → voi kirjata myös suoraan päivätason kenttiin (backward-compat nykyisen `rpe/kesto_min` kanssa).
+- Kaksoissessiot: lisää **`sessiot:[]`-taulukko** `kirjaukset/{pvm}`-dokin sisään (EI nested-alikokoelmaa). Sessio: `{ tapahtuma_id, fokus_nimi, konsepti_avain, tavoite_tag, kesto_min, rpe, konteksti, lahde }`. Yksi sessio/pv → voi kirjata myös suoraan päivätason kenttiin (backward-compat nykyisen `rpe/kesto_min` kanssa).
+- **Kalenteri-koherenssi (tärkeä — tuleva P7 kalenteriuudistus):** kun päivälle on olemassa **kalenteritapahtuma** (`seurat/{sid}/kalenteri/{tapahtumaId}`, tyyppi `harjoitus`/`ottelu`), sessio **linkittää siihen `tapahtuma_id`:llä** eikä duplikoi tapahtumaa. Joukkuetason sessio = **yksi totuus kalenterissa** (nimi/aika/kesto/toistuvuus); P6a-sessio overlaa vain **per-pelaaja-toteutuksen** (fokus-tarkennus, tavoite_tag, RPE, läsnäolo, konteksti). Esitäyttö lukee kalenterin tapahtumat + `toistuvuus` ja täyttää `tapahtuma_id`:n automaattisesti. Jos päivälle EI ole kalenteritapahtumaa (esim. oma harjoitus), `tapahtuma_id: null` ja sessio elää itsenäisesti kirjauksissa. Näin P6a ei luo rinnakkaista "sessio"-käsitettä kalenterin kanssa, ja P7-uudistus pysyy koherenttina.
 - **sRPE = rpe × kesto_min** (AU) — laske, älä tallenna erikseen (johdettu).
 - **Audit (alaikäissuoja):** `createdBy` / `editedBy` (uid) + aikaleima jokaiseen kirjoitukseen. Muokkaus jää näkyviin (✏️).
 - Kaikki `kirjaukset`-alikentät → coach-kirjoitusoikeus jo olemassa (top-level `kirjaukset` sallittu) → **ei Rules-muutosta** (verifioi affectedKeys).
@@ -64,6 +65,7 @@ Näytä kompakti "→ Pelaajalle viikkopulssi (Pelaaja-appi, P6b)" -esikatselu; 
 2. **Esitäyttö** täyttää viikon jaksofokuksesta + joukkueen `toistuvuus`-aikataulusta ehdotuksina; käyttäjä vahvistaa/säätää.
 3. Kirjoitus additiivinen `kirjaukset/{pvm}` (litteä + `sessiot:[]`) + `lasnaolijat.tila`; sRPE = rpe×kesto laskettuna; audit createdBy/editedBy + aikaleima. **Ei migraatiota, ei Rules-muutosta** (verifioitu; jos ei → pysähdy).
 4. **Tavoitejakautuma** ryhmittää sessiot jaksofokuksen A/B/C-tavoitteisiin (P4b `tavoite_tarkenteet`-avaimet) + edistymä-%; linkki IDP-katselmukseen.
+4b. **Kalenteri-koherenssi:** olemassa oleviin kalenteritapahtumiin sidotut sessiot kantavat `tapahtuma_id`:n eivätkä duplikoi tapahtumaa (yksi totuus kalenterissa); esitäyttö täyttää linkin. Ei rinnakkaista sessio-käsitettä (P7-yhteensopivuus).
 5. Kuormajakauma sRPE:llä (suunniteltu vs toteutunut) + ACWR suuntaa-antavana + §28 kuormaehdotus **valmentajan päätettäväksi** (ei auto-pakotus).
 6. **GDPR:** terveyssyyt eivät esiinny `kirjaukset`/`lasnaolijat`-datassa; gridissä vain 🩹-lippu + linkki Terveys-välilehteen.
 7. Pelaajan viikkopulssi vain kompaktina viittauksena (ei toteutettu — P6b).
