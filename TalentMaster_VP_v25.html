@@ -8665,6 +8665,7 @@ async function _vpViikkoLataa(p) {
       row.tavoite_tag = tag; row.konsepti_avain = (sess && sess.konsepti_avain) || d.konsepti_avain || null;
       row.fokus_nimi = (sess && sess.fokus_nimi) || null;
       row.lepo = (d.tyyppi === 'lepo') || (sess && sess.tyyppi === 'lepo') || false;
+      if (sess && sess.tapahtuma_id) row.sessioId = sess.tapahtuma_id;   // #214 — palauta kalenterilinkki tallennetusta sessiosta
       if (row.rpe != null || row.tavoite_tag || row.lepo || row.kesto_min != null) row.vahvistettu = true;
       if (row.tavoite_tag && !row.fokus_nimi) { const m = _vpViikkoTagMeta(st.tavoitteet, row.tavoite_tag); if (m) { row.fokus_nimi = m.nimi; row.konsepti_avain = row.konsepti_avain || m.avain; } }
     });
@@ -8687,7 +8688,9 @@ async function _vpViikkoTallennaRivi(pid, iso) {
   if (_isDemoMode || !_seuraId || typeof db === 'undefined') { if (typeof toast === 'function') toast('Sessio päivitetty (demo — ei kirjoitettu)', 'ok'); return; }
   const cu = (typeof firebase !== 'undefined' && firebase.auth) ? firebase.auth().currentUser : null;
   const uid = _uid || (cu ? cu.uid : null);
-  const sessio = { fokus_nimi: row.fokus_nimi || null, konsepti_avain: row.konsepti_avain || null, tavoite_tag: row.tavoite_tag || null, kesto_min: (row.kesto_min != null ? row.kesto_min : null), rpe: (row.rpe != null ? row.rpe : null), konteksti: row.konteksti || 'joukkue', lahde: row.lahde || 'valmentaja', tyyppi: row.lepo ? 'lepo' : 'treeni' };
+  // #214 — sessio linkittää kalenteritapahtumaan (tapahtuma_id, null jos ei tapahtumaa). Joukkueen sessio =
+  // yksi totuus kalenterissa; P6a lisää vain per-pelaaja-toteutuksen (fokus/tavoite_tag/RPE/läsnä) päälle. P7-koherenssi.
+  const sessio = { fokus_nimi: row.fokus_nimi || null, konsepti_avain: row.konsepti_avain || null, tavoite_tag: row.tavoite_tag || null, kesto_min: (row.kesto_min != null ? row.kesto_min : null), rpe: (row.rpe != null ? row.rpe : null), konteksti: row.konteksti || 'joukkue', lahde: row.lahde || 'valmentaja', tapahtuma_id: row.sessioId || null, tyyppi: row.lepo ? 'lepo' : 'treeni' };
   const data = {
     tyyppi: row.lepo ? 'lepo' : 'treeni',
     tavoite_tag: row.tavoite_tag || null, konsepti_avain: row.konsepti_avain || null,
