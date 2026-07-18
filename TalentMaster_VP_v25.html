@@ -10702,6 +10702,31 @@ function avaaUusiTapahtuma(oletusPvm, prefill) {
   paikkaInp.style.cssText = 'padding:9px;border:0.5px solid var(--border);border-radius:6px;background:var(--surface);color:var(--ink);font-size:14px;';
   box.appendChild(_vpModalLbl('Paikka')); box.appendChild(paikkaInp);
 
+  // ── P7-c.2 — Logistiikka (ensisijaisesti ottelu; puuttuva kenttä = ei näytetä kuluttajalle). Additiivinen. ──
+  var logWrap = document.createElement('div');
+  logWrap.id = 'vpTapLogWrap';
+  logWrap.style.display = (tyyppiSel.value === 'ottelu') ? 'block' : 'none';
+  logWrap.appendChild(_vpModalLbl('Logistiikka (ottelu · valinnainen)'));
+  var logGrid = document.createElement('div'); logGrid.style.cssText = 'display:grid;grid-template-columns:1fr 1fr;gap:8px;';
+  var saapInp = document.createElement('input'); saapInp.type = 'time';
+  saapInp.style.cssText = pvmInp.style.cssText;
+  var peliasuSel = document.createElement('select');
+  peliasuSel.style.cssText = 'padding:9px;border:0.5px solid var(--border);border-radius:6px;background:var(--surface);color:var(--ink2);font-size:14px;width:100%;';
+  ['', 'kotipaita', 'vieraspaita'].forEach(function (v) { var o = document.createElement('option'); o.value = v; o.textContent = v === '' ? 'Peliasu —' : (v === 'kotipaita' ? 'Kotipaita' : 'Vieraspaita'); peliasuSel.appendChild(o); });
+  var wSaap = document.createElement('div'); wSaap.appendChild(_vpModalLbl('Saavu klo')); wSaap.appendChild(saapInp);
+  var wAsu = document.createElement('div'); wAsu.appendChild(_vpModalLbl('Peliasu')); wAsu.appendChild(peliasuSel);
+  logGrid.appendChild(wSaap); logGrid.appendChild(wAsu);
+  logWrap.appendChild(logGrid);
+  var karttaInp = document.createElement('input'); karttaInp.type = 'url'; karttaInp.maxLength = 300;
+  karttaInp.placeholder = 'Kartta-linkki (https://maps…)';
+  karttaInp.style.cssText = paikkaInp.style.cssText + 'margin-top:8px;';
+  logWrap.appendChild(_vpModalLbl('Kartta-linkki')); logWrap.appendChild(karttaInp);
+  var kimppaLbl = document.createElement('label'); kimppaLbl.style.cssText = 'display:flex;align-items:center;gap:8px;margin-top:10px;font-size:13px;color:var(--ink2);cursor:pointer;';
+  var kimppaChk = document.createElement('input'); kimppaChk.type = 'checkbox';
+  kimppaLbl.appendChild(kimppaChk); kimppaLbl.appendChild(document.createTextNode('🚗 Näytä kimppakyyti-kysely vanhemmille'));
+  logWrap.appendChild(kimppaLbl);
+  box.appendChild(logWrap);
+
   // Muistiinpanot
   var muistInp = document.createElement('textarea'); muistInp.rows = 3; muistInp.maxLength = 500;
   muistInp.placeholder = 'Muistiinpanot (vapaaehtoinen)';
@@ -10744,6 +10769,7 @@ function avaaUusiTapahtuma(oletusPvm, prefill) {
     testiInfo.style.display = tyyppiSel.value === 'testitapahtuma' ? 'block' : 'none';
     valmentajaWrap.style.display = tyyppiSel.value === 'mentorointitapaaminen' ? 'block' : 'none';
     teemaWrap.style.display = tyyppiSel.value === 'harjoitus' ? 'block' : 'none';
+    logWrap.style.display = tyyppiSel.value === 'ottelu' ? 'block' : 'none';   // P7-c.2
   };
   // Esitäyttö: harjoituksen nimi = teeman nimi (jos esitäytetty), muuten "Harjoitus".
   if (prefill.tyyppi === 'harjoitus' && !nimiInp.value) {
@@ -10817,6 +10843,13 @@ function avaaUusiTapahtuma(oletusPvm, prefill) {
         pelaajat_id: Array.isArray(window._jsvUusiPelaajatId) ? window._jsvUusiPelaajatId.slice() : []
       };
     }
+    // P7-c.2: logistiikka (additiivinen; vain ei-tyhjät kentät → puuttuva = ei näytetä kuluttajalle). Sama kalenteri-dokki → ei Rules-muutosta.
+    var _log = {};
+    if (saapInp.value) _log.saapumisaika = saapInp.value;
+    if (peliasuSel.value) _log.peliasu = peliasuSel.value;
+    var _ku = (karttaInp.value || '').trim(); if (/^https?:\/\//i.test(_ku)) _log.kartta_url = _ku.slice(0, 300);
+    if (kimppaChk.checked) _log.kimppakyyti = true;
+    if (Object.keys(_log).length) doc.logistiikka = _log;
 
     try {
       if (_toistCadence === 'kerran' || typeof TM_KALENTERI === 'undefined') {
@@ -11120,6 +11153,26 @@ function _vpMuokkaaTapahtuma(t) {
   aikaR.appendChild(wA); aikaR.appendChild(wP); box.appendChild(aikaR);
   var paikkaI = document.createElement('input'); paikkaI.type = 'text'; paikkaI.value = t.paikka || ''; paikkaI.style.cssText = inpCss;
   box.appendChild(lbl('Paikka')); box.appendChild(paikkaI);
+  // P7-c.2 — logistiikka (näytä ottelulle tai jos jo asetettu); esitäyttö t.logistiikka:sta.
+  var _elg = t.logistiikka || {};
+  var showLog = (t.tyyppi === 'ottelu') || !!t.logistiikka;
+  var eSaap, ePeliasu, eKartta, eKimppa;
+  if (showLog) {
+    box.appendChild(lbl('Logistiikka (ottelu · valinnainen)'));
+    var eGrid = document.createElement('div'); eGrid.style.cssText = 'display:grid;grid-template-columns:1fr 1fr;gap:8px;';
+    eSaap = document.createElement('input'); eSaap.type = 'time'; eSaap.value = _elg.saapumisaika || ''; eSaap.style.cssText = inpCss;
+    ePeliasu = document.createElement('select'); ePeliasu.style.cssText = inpCss;
+    ['', 'kotipaita', 'vieraspaita'].forEach(function (v) { var o = document.createElement('option'); o.value = v; o.textContent = v === '' ? 'Peliasu —' : (v === 'kotipaita' ? 'Kotipaita' : 'Vieraspaita'); if ((_elg.peliasu || '') === v) o.selected = true; ePeliasu.appendChild(o); });
+    var weS = document.createElement('div'); weS.appendChild(lbl('Saavu klo')); weS.appendChild(eSaap);
+    var weA = document.createElement('div'); weA.appendChild(lbl('Peliasu')); weA.appendChild(ePeliasu);
+    eGrid.appendChild(weS); eGrid.appendChild(weA); box.appendChild(eGrid);
+    eKartta = document.createElement('input'); eKartta.type = 'url'; eKartta.value = _elg.kartta_url || ''; eKartta.maxLength = 300; eKartta.placeholder = 'Kartta-linkki (https://…)'; eKartta.style.cssText = inpCss;
+    box.appendChild(lbl('Kartta-linkki')); box.appendChild(eKartta);
+    var eKimLbl = document.createElement('label'); eKimLbl.style.cssText = 'display:flex;align-items:center;gap:8px;font-size:13px;color:var(--ink2);cursor:pointer;';
+    eKimppa = document.createElement('input'); eKimppa.type = 'checkbox'; eKimppa.checked = !!_elg.kimppakyyti;
+    eKimLbl.appendChild(eKimppa); eKimLbl.appendChild(document.createTextNode('🚗 Näytä kimppakyyti vanhemmille'));
+    box.appendChild(eKimLbl);
+  }
   var tilaI = document.createElement('select'); tilaI.style.cssText = inpCss;
   ['suunniteltu', 'vahvistettu', 'valmis', 'peruttu'].forEach(function(v) { var o = document.createElement('option'); o.value = v; o.textContent = v; if ((t.tila || 'suunniteltu') === v) o.selected = true; tilaI.appendChild(o); });
   box.appendChild(lbl('Tila')); box.appendChild(tilaI);
@@ -11144,6 +11197,15 @@ function _vpMuokkaaTapahtuma(t) {
           paivitetty: firebase.firestore.FieldValue.serverTimestamp(),
           muokkaaja_uid: muid
         };
+        // P7-c.2: logistiikka (vain ei-tyhjät kentät; tyhjennetty → null = ei näytetä).
+        if (showLog) {
+          var _elog = {};
+          if (eSaap.value) _elog.saapumisaika = eSaap.value;
+          if (ePeliasu.value) _elog.peliasu = ePeliasu.value;
+          var _ek = (eKartta.value || '').trim(); if (/^https?:\/\//i.test(_ek)) _elog.kartta_url = _ek.slice(0, 300);
+          if (eKimppa.checked) _elog.kimppakyyti = true;
+          yhteiset.logistiikka = Object.keys(_elog).length ? _elog : null;
+        }
         var docit = await _vpSkooppiDocit(t, scope);
         var batch = db.batch();
         var col = db.collection('seurat').doc(_seuraId).collection('kalenteri');
