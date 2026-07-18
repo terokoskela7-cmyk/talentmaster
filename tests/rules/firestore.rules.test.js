@@ -861,6 +861,17 @@ describe('Kalenteri (v3.5 — omistajuus + läsnäolo)', () => {
     });
   });
 
+  // ── P7-c.1: anon-luku (PIN-pelaaja/vanhempi näkee seuran aikataulun) ──
+  it('Anon lukee kalenterin (P7-c.1)', async () => {
+    const db = anonContext().firestore();
+    await assertSucceeds(getDoc(doc(db, 'seurat', SEURA_A, 'kalenteri', 'kal1')));
+  });
+
+  it('Anon lukee kalenterin läsnäolijat (P7-c.1)', async () => {
+    const db = anonContext().firestore();
+    await assertSucceeds(getDoc(doc(db, 'seurat', SEURA_A, 'kalenteri', 'kal1', 'lasnaolijat', PELAAJA_UID)));
+  });
+
   // ── Field-level MUIDEN tapahtumaan ──
   it('Valmentaja päivittää muistiinpanot muiden tapahtumaan (field-level, sallittu)', async () => {
     const db = valmentajaContext(VALM_A_UID, SEURA_A).firestore();
