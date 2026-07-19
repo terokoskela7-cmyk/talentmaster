@@ -462,15 +462,22 @@ function _vanhEvKuuluu(ev) {
 }
 function _vanhDemoKalenteri() { var mk = function (n, t, pd, hh, pk) { var d = new Date(); d.setDate(d.getDate() + pd); d.setHours(hh, 0, 0, 0); return { id: 'd' + pd, nimi: n, tyyppi: t, _d: d, paikka: pk }; }; var ottelu = mk('Ottelu vs FC Naapuri', 'ottelu', 3, 12, 'Kotikenttä'); ottelu.logistiikka = { saapumisaika: '11:15', peliasu: 'kotipaita', kartta_url: 'https://maps.google.com/?q=Kotikentt%C3%A4', kimppakyyti: true }; return [mk('Joukkueharjoitus', 'harjoitus', 1, 18, 'Keskuskenttä'), ottelu, mk('Nopeustestit', 'testitapahtuma', 6, 17, 'Halli')]; }
 async function _vanhLataaKalenteri() {
-  if (window._vanhKalLadattu) return; window._vanhKalLadattu = true;
+  // P7-c-fix (A): demo VAIN ?demo=1:llä (ei yleisenä fallbackina); odota _lapsi + anon-auth; älä latchaa not-ready-
+  // tilassa; virhe/tyhjä → pehmeä tyhjä tila, EI feikkitapahtumia. Peilaa Pelaaja_v7:n loaderi.
+  if (window._vanhKalLadattu) return;
+  var _demo = false; try { _demo = new URLSearchParams(location.search).get('demo') === '1'; } catch (e) { /* ei estä */ }
+  if (_demo) { window._vanhKalLadattu = true; window._vanhKalenteri = _vanhDemoKalenteri(); if (typeof draw === 'function') draw(); return; }
   var L = window._lapsi;
-  if (!_db || !L || !L.seuraId) { window._vanhKalenteri = _vanhDemoKalenteri(); if (typeof draw === 'function') draw(); return; }
+  var authReady = !!(typeof firebase !== 'undefined' && firebase.auth && firebase.auth().currentUser);
+  // Ei valmis → älä latchaa, älä näytä demoa: pidä 'ladataan'-tila (null) ja yritä uudelleen kun _lapsi/auth valmistuu.
+  if (!_db || !L || !L.seuraId || !authReady) return;
+  window._vanhKalLadattu = true;   // vasta kun oikea yritys tehdään
   try {
     var snap = await _db.collection('seurat').doc(L.seuraId).collection('kalenteri').get();
     var now = new Date(), evs = [];
     snap.forEach(function (doc) { var ev = Object.assign({ id: doc.id }, doc.data()); if (ev.poistettu) return; if (!_vanhEvKuuluu(ev)) return; var d = _vanhEvPvm(ev); if (!d || d < now) return; ev._d = d; evs.push(ev); });
     evs.sort(function (a, b) { return a._d - b._d; }); window._vanhKalenteri = evs;
-  } catch (e) { console.warn('[vanh kalenteri]', e && e.message); window._vanhKalenteri = []; }
+  } catch (e) { console.warn('[vanh kalenteri]', e && e.message); window._vanhKalenteri = []; }   // virhe → tyhjä, EI demo
   if (typeof draw === 'function') draw();
 }
 // P7-c.2 — logistiikka-chipit (vain olemassa olevat kentät). Vanhemmalle myös 🚗 kimppakyyti.
@@ -1420,6 +1427,8 @@ window._naytaVanhOpasUudelleen = function (){
 function _kasitteleLapsi(lapsi) {
   if (!lapsi) return;
   window._lapsi = lapsi;
+  // P7-c-fix (A): kalenterilataus saattoi bailata ennen _lapsi/auth-valmiutta (ei latchattu) → yritä nyt.
+  window._vanhKalLadattu = false; if (typeof _vanhLataaKalenteri === 'function') _vanhLataaKalenteri();
   const ika = new Date().getFullYear() - (lapsi.syntymaVuosi || 2012);
   _age = ika <= 12 ? 'u12' : ika <= 15 ? 'u15' : 'u19';
   const _realNimi = lapsi.etunimi || IKA[_age].nimi;
