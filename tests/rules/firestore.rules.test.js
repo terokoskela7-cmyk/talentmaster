@@ -1071,6 +1071,48 @@ describe('Kalenteri (v3.5 — omistajuus + läsnäolo)', () => {
 });
 
 // ═══════════════════════════════════════════════════════════════════════════
+// P7-c.4a — KULUTTAJA-NOTIFIKAATIOT (pelaajat/{pid}/notifikaatiot) + opt-out
+// ═══════════════════════════════════════════════════════════════════════════
+describe('P7-c.4a kuluttaja-notifikaatiot', () => {
+  beforeEach(async () => {
+    await seedSeuraAndPelaaja();
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'notifikaatiot', 'n1'),
+        { tyyppi: 'peruttu', teksti: 'Peruttu: ottelu', luettu: false, luotu: new Date().toISOString() });
+    });
+  });
+
+  it('Anon lukee oman notifin', async () => {
+    const db = anonContext().firestore();
+    await assertSucceeds(getDoc(doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'notifikaatiot', 'n1')));
+  });
+
+  it('Anon EI voi LUODA notifia (väärennössuoja — vain CF/SA)', async () => {
+    const db = anonContext().firestore();
+    await assertFails(setDoc(doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'notifikaatiot', 'vaara'),
+      { tyyppi: 'muistutus', teksti: 'väärennös', luettu: false }));
+  });
+
+  it('Anon merkitsee oman notifin luetuksi (vain luettu)', async () => {
+    const db = anonContext().firestore();
+    await assertSucceeds(updateDoc(doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'notifikaatiot', 'n1'),
+      { luettu: true, luettu_pvm: new Date().toISOString() }));
+  });
+
+  it('Anon EI muuta notifin tekstiä', async () => {
+    const db = anonContext().firestore();
+    await assertFails(updateDoc(doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'notifikaatiot', 'n1'),
+      { teksti: 'hakkeroitu' }));
+  });
+
+  it('Anon kirjoittaa oman notif_asetuksen (opt-out)', async () => {
+    const db = anonContext().firestore();
+    await assertSucceeds(updateDoc(doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID),
+      { notif_asetukset: { inapp: { enabled: false } } }));
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
 // 9. SUOSTUMUKSET — julkinen lomake
 // ═══════════════════════════════════════════════════════════════════════════
 

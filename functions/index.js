@@ -2340,3 +2340,114 @@ exports.viePelaajanDataGDPR = functions
     console.log(`[viePelaajanDataGDPR] ${seuraId}/${pelaajaId} → ${polku} (${muoto})`);
     return { url, vanhenee, muoto, lukumaarat: manifesti.lukumaarat, varoituksia: manifesti.varoitukset.length };
   });
+
+// ═══════════════════════════════════════════════════════════════════════════
+// P7-c.4a — KULUTTAJA-KALENTERINOTIFIT (NOTIFIKAATIOT_JA_MOBIILI.md §B, T5–T6).
+// CF (admin SDK) kirjoittaa seurat/{sid}/pelaajat/{pid}/notifikaatiot; pelaaja/vanhempi lukee + merkitsee luetuksi.
+// ⚠️ Roster-kohdennus NORMALISOIDULLA slug-täsmäyksellä (kuin _p7EvKuuluu c.1-fix) + pelaajat_id — tapahtuman
+// joukkue on slug ("kpv_u13"), pelaajan joukkue näyttönimi ("KPV U13") mutta joukkueet[] slug → normalisoi molemmat.
+// GDPR: notifin teksti = tapahtuman nimi/aika/paikka; EI terveys-/poissaolosyytä.
+// ═══════════════════════════════════════════════════════════════════════════
+function _c4Norm(s) { return String(s == null ? '' : s).toLowerCase().replace(/[\s_]+/g, ''); }
+
+async function _c4Roster(sid, ev) {
+  const eKeys = new Set([ev.joukkue].concat(ev.joukkueet || []).filter(Boolean).map(_c4Norm));
+  const pids = new Set(ev.pelaajat_id || []);
+  const snap = await db.collection('seurat').doc(sid).collection('pelaajat').get();
+  const roster = [];
+  snap.forEach(function (doc) {
+    const p = doc.data() || {};
+    if (pids.has(doc.id)) { roster.push(Object.assign({ id: doc.id }, p)); return; }
+    const pKeys = [p.joukkue, p.joukkueId].concat(p.joukkueet || []).filter(Boolean).map(_c4Norm);
+    if (pKeys.some(function (k) { return eKeys.has(k); })) roster.push(Object.assign({ id: doc.id }, p));
+  });
+  return roster;
+}
+
+// Opt-out (per käyttäjä / per tyyppi). Oletus päällä. Hiljaiset tunnit koskevat push/email (c.4b/c) — in-app
+// kirjoitetaan aina (badge), joten hiljaiset tunnit eivät pudota in-app-notifia.
+function _c4OptOut(p, tyyppi) {
+  const a = (p && p.notif_asetukset && p.notif_asetukset.inapp) || {};
+  if (a.enabled === false) return true;
+  if (a.tyypit && a.tyypit[tyyppi] === false) return true;
+  return false;
+}
+
+// Kirjoita notif. dedupeKey → freq-cap: ei uutta jos samasta tapahtumasta+tyypistä on jo LUKEMATON notif.
+async function _c4Notif(sid, pid, notif, dedupeKey) {
+  const col = db.collection('seurat').doc(sid).collection('pelaajat').doc(pid).collection('notifikaatiot');
+  if (dedupeKey) {
+    const dup = await col.where('dedupe', '==', dedupeKey).limit(5).get().catch(function () { return { docs: [] }; });
+    if (dup.docs && dup.docs.some(function (d) { return (d.data() || {}).luettu === false; })) return false;
+  }
+  await col.add({
+    tyyppi: notif.tyyppi, teksti: String(notif.teksti || '').slice(0, 200), linkki: notif.linkki || null,
+    dedupe: dedupeKey || null, luotu: admin.firestore.FieldValue.serverTimestamp(), luettu: false,
+  });
+  return true;
+}
+
+// T5 · Tuleva tapahtuma -muistutus — joka päivä klo 17 (Europe/Helsinki) → huomisen tapahtumat rosterille.
+exports.notifTapahtumaMuistutus = functions
+  .region('europe-west1')
+  .pubsub.schedule('0 17 * * *')
+  .timeZone('Europe/Helsinki')
+  .onRun(async () => {
+    const now = new Date();
+    const alku = admin.firestore.Timestamp.fromDate(new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 0));
+    const loppu = admin.firestore.Timestamp.fromDate(new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 23, 59, 59));
+    const seurat = await db.collection('seurat').get();
+    for (const s of seurat.docs) {
+      const sid = s.id;
+      const kal = await db.collection('seurat').doc(sid).collection('kalenteri')
+        .where('alkaa', '>=', alku).where('alkaa', '<=', loppu).get().catch(function () { return { docs: [] }; });
+      for (const evDoc of kal.docs) {
+        const e = evDoc.data() || {};
+        if (e.poistettu) continue;
+        const roster = await _c4Roster(sid, e);
+        if (!roster.length) continue;
+        const aika = (e.alkaa && e.alkaa.toDate) ? e.alkaa.toDate() : null;
+        const klo = aika ? (String(aika.getHours()).padStart(2, '0') + ':' + String(aika.getMinutes()).padStart(2, '0')) : '';
+        const teksti = 'Huomenna: ' + (e.nimi || 'tapahtuma') + (klo ? ' klo ' + klo : '') + (e.paikka ? ' · ' + e.paikka : '');
+        for (const p of roster) {
+          if (_c4OptOut(p, 'muistutus')) continue;
+          await _c4Notif(sid, p.id, { tyyppi: 'muistutus', teksti: teksti, linkki: 'kalenteri:' + evDoc.id }, 'muistutus_' + evDoc.id).catch(function (err) { console.warn('[c4 muistutus]', err && err.message); });
+        }
+      }
+    }
+    return null;
+  });
+
+// T6 · Tapahtuma peruttu / muuttunut — onUpdate: poistettu:true TAI alkaa/paikka muuttuu → notif rosterille.
+exports.notifKalenteriMuutos = functions
+  .region('europe-west1')
+  .firestore.document('seurat/{sid}/kalenteri/{tapahtumaId}')
+  .onUpdate(async (change, context) => {
+    const before = change.before.data() || {};
+    const after = change.after.data() || {};
+    const sid = context.params.sid;
+    const evId = context.params.tapahtumaId;
+    const aika = (after.alkaa && after.alkaa.toDate) ? after.alkaa.toDate() : null;
+    if (aika && aika < new Date()) return null;   // mennyt → ei ilmoiteta
+    const peruttu = !before.poistettu && after.poistettu === true;
+    const bMs = (before.alkaa && before.alkaa.toMillis) ? before.alkaa.toMillis() : null;
+    const aMs = (after.alkaa && after.alkaa.toMillis) ? after.alkaa.toMillis() : null;
+    const aikaMuuttui = !after.poistettu && bMs !== aMs;
+    const paikkaMuuttui = !after.poistettu && (before.paikka || '') !== (after.paikka || '');
+    if (!peruttu && !aikaMuuttui && !paikkaMuuttui) return null;   // vain muistiinpanot/kooste ym. → ei notifia
+    let tyyppi, teksti, dedupe;
+    if (peruttu) {
+      tyyppi = 'peruttu'; teksti = 'Peruttu: ' + (after.nimi || 'tapahtuma'); dedupe = 'peruttu_' + evId;
+    } else {
+      tyyppi = 'muutos';
+      const klo = aika ? (String(aika.getHours()).padStart(2, '0') + ':' + String(aika.getMinutes()).padStart(2, '0')) : '';
+      teksti = 'Muutos: ' + (after.nimi || 'tapahtuma') + (aikaMuuttui && klo ? ' → klo ' + klo : '') + (paikkaMuuttui && after.paikka ? ' · ' + after.paikka : '');
+      dedupe = null;   // muutoksesta saa ilmoittaa toistuvasti (aika voi muuttua uudelleen)
+    }
+    const roster = await _c4Roster(sid, after);
+    for (const p of roster) {
+      if (_c4OptOut(p, tyyppi)) continue;
+      await _c4Notif(sid, p.id, { tyyppi: tyyppi, teksti: teksti, linkki: 'kalenteri:' + evId }, dedupe).catch(function (err) { console.warn('[c4 muutos]', err && err.message); });
+    }
+    return null;
+  });

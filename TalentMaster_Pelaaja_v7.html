@@ -928,6 +928,9 @@ function rA1(){
     </div>`;
   })()}
 
+  <!-- P7-c.4a — Ilmoitukset (kalenterimuistutus/muutos/peruutus, CF kirjoittaa) -->
+  ${(typeof _p7NotifHTML === 'function') ? _p7NotifHTML() : ''}
+
   <!-- P7-c.1 — Seuran aikataulu (tulevat tapahtumat omasta joukkueesta, read-only) -->
   ${(typeof _p7AikatauluHTML === 'function') ? _p7AikatauluHTML() : ''}
 
@@ -1810,6 +1813,65 @@ function _p7DemoKalenteri() {
   ottelu.pelaajaviesti = 'Muistakaa juomapullo ja säärisuojat!';
   return [mk('Joukkueharjoitus', 'harjoitus', 1, 18, 'Keskuskenttä'), ottelu, mk('Nopeustestit', 'testitapahtuma', 6, 17, 'Halli')];
 }
+// ── P7-c.4a — kuluttaja-notif-keskus (CF kirjoittaa pelaajat/{pid}/notifikaatiot; client lukee + merkitsee luetuksi). ──
+window._p7Notif = null;
+var _P7_NOTIF_IKO = { muistutus: '🔔', muutos: '🔄', peruttu: '❌' };
+function _p7DemoNotif() {
+  return [
+    { id: 'dn1', tyyppi: 'peruttu', teksti: 'Peruttu: Nopeustestit', linkki: 'kalenteri:demo6', luettu: false },
+    { id: 'dn2', tyyppi: 'muistutus', teksti: 'Huomenna: Joukkueharjoitus klo 18:00 · Keskuskenttä', linkki: 'kalenteri:demo1', luettu: false }
+  ];
+}
+async function _p7LataaNotif() {
+  if (_ladattu.notif) return; _ladattu.notif = true;
+  if (_isDemoUser) { window._p7Notif = _p7DemoNotif(); if (typeof draw === 'function') draw(); return; }
+  if (!_pelaaja || !_pelaaja.seuraId || !_pelaaja.id || !window._db) { window._p7Notif = []; return; }
+  try {
+    var snap = await window._db.collection('seurat').doc(_pelaaja.seuraId).collection('pelaajat').doc(_pelaaja.id)
+      .collection('notifikaatiot').orderBy('luotu', 'desc').limit(20).get();
+    var arr = []; snap.forEach(function (d) { arr.push(Object.assign({ id: d.id }, d.data())); });
+    window._p7Notif = arr;
+  } catch (e) { console.warn('[p7 notif]', e && e.message); window._p7Notif = []; }
+  if (typeof draw === 'function') draw();
+}
+function _p7NotifHTML() {
+  if (window._p7Notif === null && !_ladattu.notif) _p7LataaNotif();
+  var arr = window._p7Notif || [];
+  if (!arr.length) return '';
+  var unread = arr.filter(function (n) { return !n.luettu; }).length;
+  var esc = (typeof _thEsc === 'function') ? _thEsc : function (s) { return s; };
+  var rows = arr.slice(0, 6).map(function (n) {
+    return '<div onclick="_p7NotifTap(\'' + n.id + '\',\'' + (n.linkki || '') + '\')" style="display:flex;align-items:flex-start;gap:10px;padding:10px 12px;border-radius:9px;background:' + (n.luettu ? 'transparent' : 'rgba(40,176,144,.06)') + ';border:.5px solid ' + (n.luettu ? 'rgba(242,239,230,.06)' : 'rgba(40,176,144,.22)') + ';margin-bottom:6px;cursor:pointer">'
+      + '<span style="font-size:15px;flex-shrink:0">' + (_P7_NOTIF_IKO[n.tyyppi] || '🔔') + '</span>'
+      + '<span style="flex:1;min-width:0;font-size:12.5px;color:var(--text);line-height:1.4">' + esc(String(n.teksti || '')) + '</span>'
+      + (n.luettu ? '' : '<span style="width:7px;height:7px;border-radius:50%;background:#28B090;flex-shrink:0;margin-top:5px"></span>') + '</div>';
+  }).join('');
+  return '<section style="padding:10px 20px 4px"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:9px">'
+    + '<div style="font-size:10px;font-weight:600;letter-spacing:.18em;text-transform:uppercase;color:var(--teal)">🔔 Ilmoitukset' + (unread ? ' <span style="background:#28B090;color:#fff;border-radius:999px;padding:1px 7px;font-size:9px;margin-left:4px">' + unread + '</span>' : '') + '</div>'
+    + (unread ? '<span onclick="_p7NotifKaikkiLuetuksi()" style="font-size:10px;color:#8C8B86;cursor:pointer">Merkitse luetuiksi</span>' : '') + '</div>'
+    + rows + '</section>';
+}
+function _p7NotifTap(id, linkki) {
+  _p7MerkitseLuettu(id);
+  if (linkki && linkki.indexOf('kalenteri:') === 0) {
+    setTimeout(function () { var el = [].slice.call(document.querySelectorAll('section')).find(function (s) { return /Seuran aikataulu/.test(s.textContent); }); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' }); }, 80);
+  }
+}
+async function _p7MerkitseLuettu(id) {
+  var n = (window._p7Notif || []).find(function (x) { return x.id === id; });
+  if (!n) return;
+  if (n.luettu) { if (typeof draw === 'function') draw(); return; }
+  n.luettu = true; if (typeof draw === 'function') draw();   // optimistinen
+  if (_isDemoUser || !_pelaaja || !_pelaaja.seuraId || !_pelaaja.id || !window._db) return;
+  try {
+    var cu = (typeof firebase !== 'undefined' && firebase.auth) ? firebase.auth().currentUser : null; if (cu) await cu.getIdToken(true);
+    await window._db.collection('seurat').doc(_pelaaja.seuraId).collection('pelaajat').doc(_pelaaja.id)
+      .collection('notifikaatiot').doc(id).set({ luettu: true, luettu_pvm: new Date().toISOString() }, { merge: true });
+  } catch (e) { console.warn('[p7 notif read]', e && e.message); }
+}
+function _p7NotifKaikkiLuetuksi() { (window._p7Notif || []).slice().forEach(function (n) { if (!n.luettu) _p7MerkitseLuettu(n.id); }); }
+window._p7NotifTap = _p7NotifTap; window._p7MerkitseLuettu = _p7MerkitseLuettu; window._p7NotifKaikkiLuetuksi = _p7NotifKaikkiLuetuksi;
+
 async function _p7LataaKalenteri() {
   if (_ladattu.kalenteri) return; _ladattu.kalenteri = true;
   var _rerender = function () { if (_tab !== 'mina' && _tab !== 'meista' && _sc === 'main') draw(); };
