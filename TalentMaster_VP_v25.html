@@ -11152,6 +11152,10 @@ function _vpMuokkaaTapahtuma(t) {
   var inpCss = 'width:100%;padding:9px 12px;border:0.5px solid var(--border);border-radius:6px;background:var(--surface);color:var(--ink);font-size:14px;box-sizing:border-box;';
   var nimiI = document.createElement('input'); nimiI.type = 'text'; nimiI.value = t.nimi || ''; nimiI.style.cssText = inpCss;
   box.appendChild(lbl('Nimi')); box.appendChild(nimiI);
+  // Bugi 2 — muokattava päivämäärä (esitäyttö pvmISO). Toistuvassa sarjassa päivämuutos vain "vain tämä" -skoopissa.
+  var pvmI = document.createElement('input'); pvmI.type = 'date'; pvmI.value = pvmISO; pvmI.style.cssText = inpCss;
+  box.appendChild(lbl('Päivä')); box.appendChild(pvmI);
+  if (t.toistuvuus_sarja_id) { var pvmVihje = document.createElement('div'); pvmVihje.style.cssText = 'font-size:10.5px;color:var(--ink3);margin:-4px 0 4px'; pvmVihje.textContent = 'Toistuva sarja — päivän vaihto koskee vain "tätä tapahtumaa".'; box.appendChild(pvmVihje); }
   var aikaR = document.createElement('div'); aikaR.style.cssText = 'display:grid;grid-template-columns:1fr 1fr;gap:8px;';
   var alkaaI = document.createElement('input'); alkaaI.type = 'time'; alkaaI.value = hhmm(alkaaD); alkaaI.style.cssText = inpCss;
   var paattyyI = document.createElement('input'); paattyyI.type = 'time'; paattyyI.value = hhmm(paattyyD); paattyyI.style.cssText = inpCss;
@@ -11224,8 +11228,10 @@ function _vpMuokkaaTapahtuma(t) {
           var upd = Object.assign({}, yhteiset);
           var dDate = (d.alkaa && d.alkaa.toDate) ? d.alkaa.toDate() : null;
           var dISO = dDate ? (dDate.getFullYear() + '-' + pad(dDate.getMonth() + 1) + '-' + pad(dDate.getDate())) : pvmISO;
-          if (alkaaI.value) upd.alkaa = firebase.firestore.Timestamp.fromDate(new Date(dISO + 'T' + alkaaI.value + ':00'));
-          if (paattyyI.value) upd.paattyy = firebase.firestore.Timestamp.fromDate(new Date(dISO + 'T' + paattyyI.value + ':00'));
+          // Bugi 2 — päivämuutos: yksittäinen tapahtuma / "vain tämä" -skooppi → valittu pvm; sarjaskooppi → per-esiintymä-pvm (dISO).
+          var uusiPvm = ((!t.toistuvuus_sarja_id || scope === 'vain') && pvmI.value) ? pvmI.value : dISO;
+          if (alkaaI.value) upd.alkaa = firebase.firestore.Timestamp.fromDate(new Date(uusiPvm + 'T' + alkaaI.value + ':00'));
+          if (paattyyI.value) upd.paattyy = firebase.firestore.Timestamp.fromDate(new Date(uusiPvm + 'T' + paattyyI.value + ':00'));
           if (scope === 'vain' && t.toistuvuus_sarja_id) upd.sarja_poikkeus = true;
           batch.set(col.doc(d.id), upd, { merge: true });
         });
