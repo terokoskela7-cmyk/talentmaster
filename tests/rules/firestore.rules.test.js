@@ -1027,6 +1027,47 @@ describe('Kalenteri (v3.5 — omistajuus + läsnäolo)', () => {
       { tila: 'paikalla', merkitsija_uid: VALM_B_UID }
     ));
   });
+
+  // ── P7-c.3: anon (PIN-pelaaja/vanhempi) ilmoittaa oman saatavuutensa — vain tila/rooli/paivitetty ──
+  it('Anon luo oman läsnäolon (vain tila/rooli/paivitetty) — P7-c.3', async () => {
+    const db = anonContext().firestore();
+    await assertSucceeds(setDoc(
+      doc(db, 'seurat', SEURA_A, 'kalenteri', 'kal1', 'lasnaolijat', PELAAJA_UID),
+      { tila: 'peruttu', rooli: 'pelaaja', paivitetty: new Date().toISOString() }
+    ));
+  });
+
+  it('Anon EI saa kirjoittaa syytä läsnäoloon (GDPR) — P7-c.3', async () => {
+    const db = anonContext().firestore();
+    await assertFails(setDoc(
+      doc(db, 'seurat', SEURA_A, 'kalenteri', 'kal1', 'lasnaolijat', PELAAJA_UID),
+      { tila: 'peruttu', rooli: 'pelaaja', paivitetty: new Date().toISOString(), syy: 'sairaus' }
+    ));
+  });
+
+  it('Anon päivittää oman läsnäolon tilan (coach-luotu doc) — P7-c.3', async () => {
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), 'seurat', SEURA_A, 'kalenteri', 'kal1', 'lasnaolijat', PELAAJA_UID),
+        { tila: 'kutsuttu', merkitsija_uid: VALM_A_UID, nimi: 'Pelaaja' });
+    });
+    const db = anonContext().firestore();
+    await assertSucceeds(updateDoc(
+      doc(db, 'seurat', SEURA_A, 'kalenteri', 'kal1', 'lasnaolijat', PELAAJA_UID),
+      { tila: 'vahvistettu', rooli: 'pelaaja', paivitetty: new Date().toISOString() }
+    ));
+  });
+
+  it('Anon EI muuta läsnäolon muita kenttiä (esim. nimi) — P7-c.3', async () => {
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), 'seurat', SEURA_A, 'kalenteri', 'kal1', 'lasnaolijat', PELAAJA_UID),
+        { tila: 'kutsuttu', nimi: 'Pelaaja' });
+    });
+    const db = anonContext().firestore();
+    await assertFails(updateDoc(
+      doc(db, 'seurat', SEURA_A, 'kalenteri', 'kal1', 'lasnaolijat', PELAAJA_UID),
+      { nimi: 'Hakkeroitu' }
+    ));
+  });
 });
 
 // ═══════════════════════════════════════════════════════════════════════════

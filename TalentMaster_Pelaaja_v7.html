@@ -1825,6 +1825,14 @@ async function _p7LataaKalenteri() {
       ev._d = d; evs.push(ev);
     });
     evs.sort(function (a, b) { return a._d - b._d; });
+    // P7-c.3 — read-back oma saatavuus näytettäville tapahtumille (best-effort, rinnakkain).
+    try {
+      await Promise.all(evs.slice(0, 5).map(function (ev) {
+        return window._db.collection('seurat').doc(_pelaaja.seuraId).collection('kalenteri').doc(ev.id)
+          .collection('lasnaolijat').doc(_pelaaja.id).get()
+          .then(function (s) { if (s.exists) { ev._omaTila = (s.data() || {}).tila || null; } }).catch(function () { });
+      }));
+    } catch (e) { /* ei kriittinen */ }
     window._p7Kalenteri = evs;
   } catch (e) { console.warn('[p7 kalenteri]', e && e.message); window._p7Kalenteri = []; }
   _rerender();
@@ -1842,6 +1850,29 @@ function _p7LogistiikkaChipit(lg, vanhempi) {
   if (vanhempi && lg.kimppakyyti) out.push(chip('🚗 Kimppakyyti'));
   return out.length ? '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px">' + out.join('') + '</div>' : '';
 }
+// P7-c.3 — etukäteinen saatavuus: "Pääsetkö?" → ✓ Tulossa (vahvistettu) / ✕ Estynyt (peruttu). Kirjoittaa
+// lasnaolijat/{pelaajaId}.tila (vain tila+rooli+paivitetty; ei syytä, GDPR). Demo → vain UI. Read-back _omaTila.
+function _p7SaatavuusHTML(ev) {
+  var tila = ev._omaTila || null;
+  var b = function (val, label, col) {
+    var on = tila === val;
+    return '<button onclick="event.stopPropagation();_p7MerkitseLasna(\'' + ev.id + '\',\'' + val + '\')" style="flex:1;padding:7px 6px;border-radius:8px;border:.5px solid ' + (on ? col : 'rgba(242,239,230,.15)') + ';background:' + (on ? col + '22' : 'transparent') + ';color:' + (on ? col : 'var(--ink2)') + ';font-size:12px;font-weight:600;cursor:pointer;font-family:\'DM Sans\',sans-serif">' + label + '</button>';
+  };
+  return '<div style="margin-top:10px"><div style="font-size:10px;color:#8C8B86;margin-bottom:5px">Pääsetkö paikalle?</div>'
+    + '<div style="display:flex;gap:6px">' + b('vahvistettu', '✓ Tulossa', '#28B090') + b('peruttu', '✕ Estynyt', '#B85C38') + '</div></div>';
+}
+async function _p7MerkitseLasna(evId, tila) {
+  var ev = (window._p7Kalenteri || []).find(function (e) { return e.id === evId; }); if (!ev) return;
+  ev._omaTila = tila; if (typeof draw === 'function') draw();   // optimistinen UI
+  if (_isDemoUser || !_pelaaja || !_pelaaja.seuraId || !_pelaaja.id || !window._db) return;   // demo/ei-Firestore → vain UI
+  try {
+    var cu = (typeof firebase !== 'undefined' && firebase.auth) ? firebase.auth().currentUser : null;
+    if (cu) await cu.getIdToken(true);
+    await window._db.collection('seurat').doc(_pelaaja.seuraId).collection('kalenteri').doc(evId)
+      .collection('lasnaolijat').doc(_pelaaja.id)
+      .set({ tila: tila, rooli: 'pelaaja', paivitetty: new Date().toISOString() }, { merge: true });   // vain sallitut avaimet (Rules c.3)
+  } catch (e) { console.warn('[p7 lasna]', e && e.message); }
+}
 function _p7AikatauluKortti(ev) {
   var tt = _P7_TT[ev.tyyppi] || _P7_TT.muu;
   var d = ev._d || _p7EvPvm(ev);
@@ -1854,6 +1885,7 @@ function _p7AikatauluKortti(ev) {
     + '<div style="font-size:11px;color:#8C8B86;font-family:\'DM Sans\',sans-serif;margin-top:2px">' + aika + (ev.paikka ? ' · ' + esc(ev.paikka) : '') + '</div>'
     + _p7LogistiikkaChipit(ev.logistiikka, false)
     + _p7PelaajaviestiHTML(ev.pelaajaviesti)
+    + _p7SaatavuusHTML(ev)
     + '</div></div>';
 }
 // P7-c fix2 (B) — valmentajan viesti pelaajalle/vanhemmalle (erillinen kentästä muistiinpanot, joka pysyy sisäisenä).
