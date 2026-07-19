@@ -785,14 +785,20 @@ service cloud.firestore {
           allow read:   if onSuperAdmin()
                         || (onKirjautunut() && onOmaSeura(seuraId))
                         || onAnonymous();   // P7-c.1: PIN-pelaaja/vanhempi näkee läsnäolon (oma poissaolo-write vasta c.3)
+          // P7-c.3: PIN-pelaaja/vanhempi (anon) ilmoittaa oman saatavuutensa. Anon-token ei kanna pelaajaId:tä
+          // (uid ≠ osallistujaId) → ei uid-skooppausta; sama laaja anon-luottamusmalli kuin kirjaukset/pelaajat-anon-write,
+          // rajattuna affectedKeysilla VAIN tila (+ paivitetty/rooli). Syy-kenttää EI sallita anonille (GDPR Art. 9).
+          // create: resource.data == null → diff ei toimi → keys().hasOnly. update: diff().affectedKeys().hasOnly.
           allow create: if onSuperAdmin()
                         || (onOmaSeura(seuraId) && onJohtoRooli())
                         || onOmanSeuranValmentaja(seuraId)
-                        || (onOmaSeura(seuraId) && request.auth.uid == osallistujaId);
+                        || (onOmaSeura(seuraId) && request.auth.uid == osallistujaId)
+                        || (onAnonymous() && request.resource.data.keys().hasOnly(['tila', 'paivitetty', 'rooli']));
           allow update: if onSuperAdmin()
                         || (onOmaSeura(seuraId) && onJohtoRooli())
                         || onOmanSeuranValmentaja(seuraId)
-                        || (onOmaSeura(seuraId) && request.auth.uid == osallistujaId);
+                        || (onOmaSeura(seuraId) && request.auth.uid == osallistujaId)
+                        || (onAnonymous() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['tila', 'paivitetty', 'rooli']));
           allow delete: if onSuperAdmin() || (onOmaSeura(seuraId) && onJohtoRooli());
         }
       }

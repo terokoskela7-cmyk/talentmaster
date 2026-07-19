@@ -476,7 +476,10 @@ async function _vanhLataaKalenteri() {
     var snap = await _db.collection('seurat').doc(L.seuraId).collection('kalenteri').get();
     var now = new Date(), evs = [];
     snap.forEach(function (doc) { var ev = Object.assign({ id: doc.id }, doc.data()); if (ev.poistettu) return; if (!_vanhEvKuuluu(ev)) return; var d = _vanhEvPvm(ev); if (!d || d < now) return; ev._d = d; evs.push(ev); });
-    evs.sort(function (a, b) { return a._d - b._d; }); window._vanhKalenteri = evs;
+    evs.sort(function (a, b) { return a._d - b._d; });
+    // P7-c.3 — read-back lapsen oma saatavuus näytettäville tapahtumille (best-effort, rinnakkain).
+    if (L.id) { try { await Promise.all(evs.slice(0, 5).map(function (ev) { return _db.collection('seurat').doc(L.seuraId).collection('kalenteri').doc(ev.id).collection('lasnaolijat').doc(L.id).get().then(function (s) { if (s.exists) ev._omaTila = (s.data() || {}).tila || null; }).catch(function () { }); })); } catch (e) { /* ei kriittinen */ } }
+    window._vanhKalenteri = evs;
   } catch (e) { console.warn('[vanh kalenteri]', e && e.message); window._vanhKalenteri = []; }   // virhe → tyhjä, EI demo
   if (typeof draw === 'function') draw();
 }
@@ -493,6 +496,33 @@ function _vanhLogistiikkaChipit(lg) {
   if (lg.kimppakyyti) out.push(chip('🚗 Kimppakyyti'));
   return out.length ? '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px">' + out.join('') + '</div>' : '';
 }
+// P7-c.3 — etukäteinen saatavuus lapsen puolesta: "Pääseekö [lapsi]?" → ✓ Tulossa (vahvistettu) / ✕ Estynyt (peruttu).
+// Kirjoittaa lasnaolijat/{lapsiId}.tila (vain tila+rooli+paivitetty; ei syytä, GDPR). Demo → vain UI.
+function _vanhSaatavuusHTML(ev) {
+  var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); };
+  var tila = ev._omaTila || null;
+  var nimi = (window._lapsi && window._lapsi.etunimi) ? esc(window._lapsi.etunimi) : 'lapsi';
+  var b = function (val, label, col) {
+    var on = tila === val;
+    return '<button onclick="_vanhMerkitseLasna(\'' + ev.id + '\',\'' + val + '\')" style="flex:1;padding:7px 6px;border-radius:8px;border:.5px solid ' + (on ? col : 'var(--border)') + ';background:' + (on ? col + '22' : 'transparent') + ';color:' + (on ? col : 'var(--ink2)') + ';font-size:12px;font-weight:600;cursor:pointer">' + label + '</button>';
+  };
+  return '<div style="margin-top:10px"><div style="font-size:10px;color:var(--ink3);margin-bottom:5px">Pääseekö ' + nimi + ' paikalle?</div>'
+    + '<div style="display:flex;gap:6px">' + b('vahvistettu', '✓ Tulossa', 'var(--teal)') + b('peruttu', '✕ Estynyt', '#B85C38') + '</div></div>';
+}
+async function _vanhMerkitseLasna(evId, tila) {
+  var ev = (window._vanhKalenteri || []).find(function (e) { return e.id === evId; }); if (!ev) return;
+  ev._omaTila = tila; if (typeof draw === 'function') draw();   // optimistinen UI
+  var _demo = false; try { _demo = new URLSearchParams(location.search).get('demo') === '1'; } catch (e) { /* ei estä */ }
+  var L = window._lapsi;
+  if (_demo || !_db || !L || !L.seuraId || !L.id) return;   // demo/ei-Firestore → vain UI
+  try {
+    var cu = (typeof firebase !== 'undefined' && firebase.auth) ? firebase.auth().currentUser : null;
+    if (cu) await cu.getIdToken(true);
+    await _db.collection('seurat').doc(L.seuraId).collection('kalenteri').doc(evId)
+      .collection('lasnaolijat').doc(L.id)
+      .set({ tila: tila, rooli: 'vanhempi', paivitetty: new Date().toISOString() }, { merge: true });   // vain sallitut avaimet (Rules c.3)
+  } catch (e) { console.warn('[vanh lasna]', e && e.message); }
+}
 function _vanhTapahtumaKortti(ev) {
   var tt = _VANH_TT[ev.tyyppi] || _VANH_TT.muu; var d = ev._d || _vanhEvPvm(ev);
   var aika = d ? (_VANH_VKOPV[d.getDay()] + ' ' + d.getDate() + '.' + (d.getMonth() + 1) + '. klo ' + String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0')) : '';
@@ -503,6 +533,7 @@ function _vanhTapahtumaKortti(ev) {
     + '<div style="font-size:11px;color:var(--ink3);margin-top:2px">' + aika + (ev.paikka ? ' · ' + esc(ev.paikka) : '') + '</div>'
     + _vanhLogistiikkaChipit(ev.logistiikka)
     + (ev.pelaajaviesti ? '<div style="display:flex;align-items:flex-start;gap:6px;margin-top:8px;font-size:12px;color:var(--text);line-height:1.4"><span style="flex-shrink:0">💬</span><span>' + esc(String(ev.pelaajaviesti)) + '</span></div>' : '')
+    + _vanhSaatavuusHTML(ev)
     + '</div></div>';
 }
 function _vanhTapahtumatHTML() {
