@@ -448,7 +448,18 @@ window._vanhKalenteri = null; window._vanhKalLadattu = false;
 const _VANH_TT = { harjoitus: { i: '⚽', c: 'var(--ink2)' }, treeni: { i: '⚽', c: 'var(--ink2)' }, ottelu: { i: '🏟️', c: '#4E86D6' }, peli: { i: '🏟️', c: '#4E86D6' }, testitapahtuma: { i: '🧪', c: 'var(--teal)' }, testi: { i: '🧪', c: 'var(--teal)' }, kasvumittaus: { i: '📏', c: 'var(--teal)' }, palaveri: { i: '📋', c: '#E0A040' }, palaverit: { i: '📋', c: '#E0A040' }, muu: { i: '○', c: 'var(--ink3)' } };
 const _VANH_VKOPV = ['Su', 'Ma', 'Ti', 'Ke', 'To', 'Pe', 'La'];
 function _vanhEvPvm(ev) { var d = (ev.alkaa && ev.alkaa.toDate) ? ev.alkaa.toDate() : (ev.alkaa && typeof ev.alkaa === 'string') ? new Date(ev.alkaa) : (ev.pvm ? new Date(String(ev.pvm).slice(0, 10) + 'T00:00:00') : null); return (d && !isNaN(d.getTime())) ? d : null; }
-function _vanhEvKuuluu(ev) { var L = window._lapsi || {}; var jk = String(L.joukkue || L.joukkueId || '').toLowerCase(); if (jk && String(ev.joukkue || '').toLowerCase() === jk) return true; if (jk && Array.isArray(ev.joukkueet) && ev.joukkueet.some(function (x) { return String(x).toLowerCase() === jk; })) return true; if (Array.isArray(ev.pelaajat_id) && L.id && ev.pelaajat_id.indexOf(L.id) >= 0) return true; return false; }
+function _vanhEvKuuluu(ev) {
+  // P7-c.1-fix: normalisoitu joukkueavainjoukko (ml. joukkueet[]-slug) — näyttönimi vs slug ei osu suoralla vertailulla.
+  var L = window._lapsi || {};
+  var norm = function (s) { return String(s == null ? '' : s).toLowerCase().replace(/[\s_]+/g, ''); };
+  var pKeys = {};
+  [L.joukkue, L.joukkueId].concat(L.joukkueet || [])
+    .filter(Boolean).forEach(function (x) { pKeys[norm(x)] = 1; });
+  var eKeys = [ev.joukkue].concat(ev.joukkueet || []).filter(Boolean).map(norm);
+  if (eKeys.some(function (k) { return pKeys[k]; })) return true;
+  if (Array.isArray(ev.pelaajat_id) && L.id && ev.pelaajat_id.indexOf(L.id) >= 0) return true;
+  return false;
+}
 function _vanhDemoKalenteri() { var mk = function (n, t, pd, hh, pk) { var d = new Date(); d.setDate(d.getDate() + pd); d.setHours(hh, 0, 0, 0); return { id: 'd' + pd, nimi: n, tyyppi: t, _d: d, paikka: pk }; }; var ottelu = mk('Ottelu vs FC Naapuri', 'ottelu', 3, 12, 'Kotikenttä'); ottelu.logistiikka = { saapumisaika: '11:15', peliasu: 'kotipaita', kartta_url: 'https://maps.google.com/?q=Kotikentt%C3%A4', kimppakyyti: true }; return [mk('Joukkueharjoitus', 'harjoitus', 1, 18, 'Keskuskenttä'), ottelu, mk('Nopeustestit', 'testitapahtuma', 6, 17, 'Halli')]; }
 async function _vanhLataaKalenteri() {
   if (window._vanhKalLadattu) return; window._vanhKalLadattu = true;

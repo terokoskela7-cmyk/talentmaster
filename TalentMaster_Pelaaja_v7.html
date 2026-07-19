@@ -1790,10 +1790,16 @@ function _p7EvPvm(ev) {
   return (d && !isNaN(d.getTime())) ? d : null;
 }
 function _p7EvKuuluu(ev) {
+  // P7-c.1-fix: normalisoitu joukkueavainjoukko (ml. joukkueet[]-slug). Pelaajan joukkue = näyttönimi ("KPV U13"),
+  // tapahtuman joukkue = slug ("kpv_u13") → suora vertailu ei osu; normalisointi (lowercase + poista väli/alaviiva)
+  // → "kpvu13" molemmilla. Kanoninen avain on joukkueet[]-slug kummallakin puolella.
   if (!_pelaaja) return false;
-  var jk = String(_pelaaja.joukkue || _pelaaja.joukkueId || '').toLowerCase();
-  if (jk && String(ev.joukkue || '').toLowerCase() === jk) return true;
-  if (jk && Array.isArray(ev.joukkueet) && ev.joukkueet.some(function (x) { return String(x).toLowerCase() === jk; })) return true;
+  var norm = function (s) { return String(s == null ? '' : s).toLowerCase().replace(/[\s_]+/g, ''); };
+  var pKeys = {};
+  [_pelaaja.joukkue, _pelaaja.joukkueId].concat(_pelaaja.joukkueet || [])
+    .filter(Boolean).forEach(function (x) { pKeys[norm(x)] = 1; });
+  var eKeys = [ev.joukkue].concat(ev.joukkueet || []).filter(Boolean).map(norm);
+  if (eKeys.some(function (k) { return pKeys[k]; })) return true;
   if (Array.isArray(ev.pelaajat_id) && ev.pelaajat_id.indexOf(_pelaaja.id) >= 0) return true;
   return false;
 }
