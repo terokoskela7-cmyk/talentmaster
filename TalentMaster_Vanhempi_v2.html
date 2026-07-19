@@ -460,7 +460,7 @@ function _vanhEvKuuluu(ev) {
   if (Array.isArray(ev.pelaajat_id) && L.id && ev.pelaajat_id.indexOf(L.id) >= 0) return true;
   return false;
 }
-function _vanhDemoKalenteri() { var mk = function (n, t, pd, hh, pk) { var d = new Date(); d.setDate(d.getDate() + pd); d.setHours(hh, 0, 0, 0); return { id: 'd' + pd, nimi: n, tyyppi: t, _d: d, paikka: pk }; }; var ottelu = mk('Ottelu vs FC Naapuri', 'ottelu', 3, 12, 'Kotikenttä'); ottelu.logistiikka = { saapumisaika: '11:15', peliasu: 'kotipaita', kartta_url: 'https://maps.google.com/?q=Kotikentt%C3%A4', kimppakyyti: true }; return [mk('Joukkueharjoitus', 'harjoitus', 1, 18, 'Keskuskenttä'), ottelu, mk('Nopeustestit', 'testitapahtuma', 6, 17, 'Halli')]; }
+function _vanhDemoKalenteri() { var mk = function (n, t, pd, hh, pk) { var d = new Date(); d.setDate(d.getDate() + pd); d.setHours(hh, 0, 0, 0); return { id: 'd' + pd, nimi: n, tyyppi: t, _d: d, paikka: pk }; }; var ottelu = mk('Ottelu vs FC Naapuri', 'ottelu', 3, 12, 'Kotikenttä'); ottelu.logistiikka = { saapumisaika: '11:15', peliasu: 'kotipaita', kartta_url: 'https://maps.google.com/?q=Kotikentt%C3%A4', kimppakyyti: true }; ottelu.pelaajaviesti = 'Muistakaa juomapullo ja säärisuojat!'; return [mk('Joukkueharjoitus', 'harjoitus', 1, 18, 'Keskuskenttä'), ottelu, mk('Nopeustestit', 'testitapahtuma', 6, 17, 'Halli')]; }
 async function _vanhLataaKalenteri() {
   // P7-c-fix (A): demo VAIN ?demo=1:llä (ei yleisenä fallbackina); odota _lapsi + anon-auth; älä latchaa not-ready-
   // tilassa; virhe/tyhjä → pehmeä tyhjä tila, EI feikkitapahtumia. Peilaa Pelaaja_v7:n loaderi.
@@ -501,7 +501,9 @@ function _vanhTapahtumaKortti(ev) {
     + '<div style="font-size:18px;flex-shrink:0;width:22px;text-align:center;line-height:1.4">' + tt.i + '</div>'
     + '<div style="flex:1;min-width:0"><div style="font-family:var(--font-d);font-size:16px;color:var(--text);line-height:1.2">' + esc(ev.nimi || 'Tapahtuma') + '</div>'
     + '<div style="font-size:11px;color:var(--ink3);margin-top:2px">' + aika + (ev.paikka ? ' · ' + esc(ev.paikka) : '') + '</div>'
-    + _vanhLogistiikkaChipit(ev.logistiikka) + '</div></div>';
+    + _vanhLogistiikkaChipit(ev.logistiikka)
+    + (ev.pelaajaviesti ? '<div style="display:flex;align-items:flex-start;gap:6px;margin-top:8px;font-size:12px;color:var(--text);line-height:1.4"><span style="flex-shrink:0">💬</span><span>' + esc(String(ev.pelaajaviesti)) + '</span></div>' : '')
+    + '</div></div>';
 }
 function _vanhTapahtumatHTML() {
   if (window._vanhKalenteri === null && !window._vanhKalLadattu) _vanhLataaKalenteri();

@@ -1807,6 +1807,7 @@ function _p7DemoKalenteri() {
   var mk = function (n, tyyppi, plusDays, hh, paikka) { var d = new Date(); d.setDate(d.getDate() + plusDays); d.setHours(hh, 0, 0, 0); return { id: 'demo' + plusDays, nimi: n, tyyppi: tyyppi, _d: d, paikka: paikka }; };
   var ottelu = mk('Ottelu vs FC Naapuri', 'ottelu', 3, 12, 'Kotikenttä');
   ottelu.logistiikka = { saapumisaika: '11:15', peliasu: 'kotipaita', kartta_url: 'https://maps.google.com/?q=Kotikentt%C3%A4', kimppakyyti: true };
+  ottelu.pelaajaviesti = 'Muistakaa juomapullo ja säärisuojat!';
   return [mk('Joukkueharjoitus', 'harjoitus', 1, 18, 'Keskuskenttä'), ottelu, mk('Nopeustestit', 'testitapahtuma', 6, 17, 'Halli')];
 }
 async function _p7LataaKalenteri() {
@@ -1852,7 +1853,14 @@ function _p7AikatauluKortti(ev) {
     + '<div style="font-family:\'Cormorant Garamond\',serif;font-size:16px;color:var(--text);line-height:1.2">' + esc(ev.nimi || 'Tapahtuma') + '</div>'
     + '<div style="font-size:11px;color:#8C8B86;font-family:\'DM Sans\',sans-serif;margin-top:2px">' + aika + (ev.paikka ? ' · ' + esc(ev.paikka) : '') + '</div>'
     + _p7LogistiikkaChipit(ev.logistiikka, false)
+    + _p7PelaajaviestiHTML(ev.pelaajaviesti)
     + '</div></div>';
+}
+// P7-c fix2 (B) — valmentajan viesti pelaajalle/vanhemmalle (erillinen kentästä muistiinpanot, joka pysyy sisäisenä).
+function _p7PelaajaviestiHTML(v) {
+  if (!v) return '';
+  var esc = (typeof _thEsc === 'function') ? _thEsc : function (s) { return s; };
+  return '<div style="display:flex;align-items:flex-start;gap:6px;margin-top:8px;font-size:12px;color:var(--text);line-height:1.4"><span style="flex-shrink:0">💬</span><span>' + esc(String(v)) + '</span></div>';
 }
 function _p7AikatauluHTML() {
   if (window._p7Kalenteri === null && !_ladattu.kalenteri) _p7LataaKalenteri();
