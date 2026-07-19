@@ -355,6 +355,9 @@ service cloud.firestore {
                       // IDP-kortti v2 §4 — PIN-pelaaja: oma sitoumus-pikakenttä (idp_sitoumus_pvm). Sama anon-luottamusmalli.
                       || (onAnonymous() && request.resource.data.diff(resource.data).affectedKeys()
                           .hasOnly(['idp_sitoumus_pvm']))
+                      // P7-c.4a — PIN-pelaaja/vanhempi: oma notif-asetus (opt-out / hiljaiset tunnit). Sama anon-luottamusmalli.
+                      || (onAnonymous() && request.resource.data.diff(resource.data).affectedKeys()
+                          .hasOnly(['notif_asetukset']))
                       // Vaihe 4a — jaksofokus + tt_positio_aktiivinen (operatiivinen teknis-taktinen pelitavoite, §4
                       // roolimalli). Kenttäomistajuus: valmentaja/talenttivalmentaja/VP (onValmentajaRooli) saavat
                       // jo koko-dokin updaten (yllä); tämä tekee EKSPLISIITTISEKSI että myös johto (onJohtoRooli =
@@ -442,6 +445,18 @@ service cloud.firestore {
                         || (onOmaSeura(seuraId) && request.auth.token.rooli == 'talenttivalmentaja')
                         || onU12Huoltaja(seuraId, pelaajaId))
                         && luotuPaivitysKelpaa();                     // A5
+        }
+
+        // ── P7-c.4a — KULUTTAJA-NOTIFIKAATIOT (kalenterimuistutus/muutos/peruutus, NOTIFIKAATIOT_JA_MOBIILI.md §B) ──
+        // CF (admin SDK) kirjoittaa; anon-PIN (pelaaja/vanhempi) lukee + merkitsee luetuksi OMAT. Anon-uid ≠ pelaajaId
+        // → ei uid-skooppausta (sama laaja anon-malli kuin c.1/c.3). CREATE vain SA/CF → client (myös anon) EI voi
+        // väärentää toisen notifia (turvakriittinen). Anon-update rajattu affectedKeysilla vain 'luettu'-merkintään.
+        match /notifikaatiot/{notifId} {
+          allow read:   if onSuperAdmin() || onOmaSeura(seuraId) || onAnonymous() || onLapsenHuoltaja(seuraId, pelaajaId);
+          allow update: if onSuperAdmin()
+                        || (onAnonymous() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['luettu', 'luettu_pvm']));
+          allow create: if onSuperAdmin();   // vain CF/SA (admin-SDK) — client ei väärennä
+          allow delete: if onSuperAdmin();
         }
 
         // ── Tapahtumat (LEGACY — käytä mieluummin testitapahtumat) ────────
