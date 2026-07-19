@@ -10733,6 +10733,12 @@ function avaaUusiTapahtuma(oletusPvm, prefill) {
   muistInp.style.cssText = 'padding:9px;border:0.5px solid var(--border);border-radius:6px;background:var(--surface);color:var(--ink);font-size:14px;resize:vertical;';
   box.appendChild(_vpModalLbl('Muistiinpanot')); box.appendChild(muistInp);
 
+  // P7-c fix2 (B) — erillinen pelaajille/vanhemmille NÄKYVÄ viesti (muistiinpanot pysyy sisäisenä, ei vuoda kuluttajalle).
+  var pviestiInp = document.createElement('textarea'); pviestiInp.rows = 2; pviestiInp.maxLength = 200;
+  pviestiInp.placeholder = 'Näkyy pelaajalle & vanhemmalle (esim. Muistakaa säärisuojat)';
+  pviestiInp.style.cssText = muistInp.style.cssText;
+  box.appendChild(_vpModalLbl('Viesti pelaajille / vanhemmille')); box.appendChild(pviestiInp);
+
   // ── Toistuvuus (K3 §13) ──
   var _toistCadence = 'kerran';
   box.appendChild(_vpModalLbl('Toistuvuus'));
@@ -10826,6 +10832,7 @@ function avaaUusiTapahtuma(oletusPvm, prefill) {
       poistettu_uid: null,
       poistettu_pvm: null,
       muistiinpanot: muistInp.value.trim().slice(0, 500) || null,
+      pelaajaviesti: pviestiInp.value.trim().slice(0, 200) || null,   // P7-c fix2 (B)
       lahde: 'manuaalinen',
       lahde_id: null,
       viimeisin_synkka: null,
@@ -11178,6 +11185,9 @@ function _vpMuokkaaTapahtuma(t) {
   box.appendChild(lbl('Tila')); box.appendChild(tilaI);
   var muistI = document.createElement('textarea'); muistI.rows = 3; muistI.value = t.muistiinpanot || ''; muistI.style.cssText = inpCss + 'resize:vertical;';
   box.appendChild(lbl('Muistiinpanot')); box.appendChild(muistI);
+  // P7-c fix2 (B) — erillinen kuluttajalle näkyvä viesti (muistiinpanot pysyy sisäisenä).
+  var pviestiI = document.createElement('textarea'); pviestiI.rows = 2; pviestiI.maxLength = 200; pviestiI.value = t.pelaajaviesti || ''; pviestiI.style.cssText = inpCss + 'resize:vertical;';
+  box.appendChild(lbl('Viesti pelaajille / vanhemmille')); box.appendChild(pviestiI);
 
   var btnRivi = document.createElement('div'); btnRivi.style.cssText = 'display:flex;gap:8px;margin-top:6px;';
   var peru = document.createElement('button'); peru.textContent = 'Peruuta'; peru.style.cssText = 'flex:1;padding:10px;background:var(--surface);border:0.5px solid var(--border);border-radius:6px;color:var(--ink2);cursor:pointer;';
@@ -11194,6 +11204,7 @@ function _vpMuokkaaTapahtuma(t) {
           paikka: paikkaI.value.trim() || null,
           tila: tilaI.value,
           muistiinpanot: muistI.value.trim().slice(0, 500) || null,
+          pelaajaviesti: pviestiI.value.trim().slice(0, 200) || null,   // P7-c fix2 (B); tyhjennetty → null
           paivitetty: firebase.firestore.FieldValue.serverTimestamp(),
           muokkaaja_uid: muid
         };
