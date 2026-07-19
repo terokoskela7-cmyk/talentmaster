@@ -8336,7 +8336,7 @@ function setCalMode(m) {
 
 function calNav(dir) {
   _calWkOffset += dir;
-  toast((dir>0?'Seuraava':'Edellinen') + ' viikko', 'cal-nav');
+  if (typeof renderCal === 'function') renderCal();   // Bugi 1a — puuttui: näkymä ei liikkunut (viikkolabel + gridi ei päivittynyt)
 }
 
 function calEventClick(tapahtumaId) {
@@ -8912,6 +8912,14 @@ function _avaaUusiTapahtuma(pvm, klo) {
   // (Näkyvyystoggle hoidetaan btn.onclickissä yllä — ei build-aikaista getElementById-uudelleenkääriä,
   //  joka ei löytänyt vielä-DOM:iin-liittämättömiä nappeja → mentWrap/logWrap eivät auenneet.)
 
+  // Bugi 1b — muokattava päivämäärä (esitäyttö pvm-parametrista; "Lisää harjoitus/ottelu" -nappi ei enää lukitse tähän päivään).
+  var pvmL = document.createElement('label'); pvmL.style.cssText = 'font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.06em;color:var(--ink3);display:block;margin-bottom:4px'; pvmL.textContent = 'Päivä';
+  box.appendChild(pvmL);
+  var pvmInp = document.createElement('input'); pvmInp.type = 'date'; pvmInp.id = 'tapahtumaPvm'; pvmInp.value = pvm || new Date().toISOString().slice(0, 10);
+  pvmInp.style.cssText = 'width:100%;padding:9px 12px;border:0.5px solid var(--border);border-radius:6px;background:var(--surface);color:var(--ink);font-size:14px;box-sizing:border-box';
+  pvmInp.onchange = function () { if (typeof _calToistEsik === 'function') _calToistEsik(); };   // toistuvuus-esikatselu päivittyy
+  box.appendChild(pvmInp);
+
   // Kellonaika
   const aikaRivi = document.createElement('div');
   aikaRivi.style.cssText = 'display:grid;grid-template-columns:1fr 1fr;gap:8px';
@@ -8943,7 +8951,8 @@ function _avaaUusiTapahtuma(pvm, klo) {
   function _calToistEsik() {
     if (_calCadence === 'kerran' || typeof TM_KALENTERI === 'undefined') { paattyyWrap.style.display = 'none'; toistEsik.textContent = ''; return; }
     paattyyWrap.style.display = 'block';
-    var r = TM_KALENTERI.tmKalenteriOccurrences(pvm, _calCadence, toistPaattyyInp.value || _calKaudenLoppuISO(), 60);
+    var _pvmNyt = (document.getElementById('tapahtumaPvm') || {}).value || pvm;   // Bugi 1b — esikatselu valitusta päivästä
+    var r = TM_KALENTERI.tmKalenteriOccurrences(_pvmNyt, _calCadence, toistPaattyyInp.value || _calKaudenLoppuISO(), 60);
     toistEsik.innerHTML = 'Luodaan <b>' + r.pvmt.length + '</b> tapahtumaa' + (r.katkaistu ? ' <span style="color:var(--amber,#E0A040)">(katkaistu 60:een)</span>' : '') + '<br>' + r.pvmt.slice(0, 5).join(' · ') + (r.pvmt.length > 5 ? ' …' : '');
   }
   [['kerran','Kerran'],['viikoittain','Viikoittain'],['2_viikottain','Joka 2. vko'],['kuukausittain','Kuukausittain']].forEach(function(c) {
@@ -8972,6 +8981,7 @@ function _avaaUusiTapahtuma(pvm, klo) {
     const nimi = nimiInput.value.trim() || (tyypit.find(t=>t.id===valittuTyyppi)?.label || 'Tapahtuma').replace(/^\S+\s/,'');
     const alkaa = document.getElementById('tapahtumaAlkaa').value;
     const paattyy = document.getElementById('tapahtumaPaattyy').value;
+    var pvmVal = (document.getElementById('tapahtumaPvm') || {}).value || pvm;   // Bugi 1b — valittu päivä (ei parametri-lukko)
     var mSel = document.getElementById('mentValmentajaSel');
     var mentUid = (mSel && mSel.value) || null;
     var mentNimi = null;
@@ -8988,8 +8998,8 @@ function _avaaUusiTapahtuma(pvm, klo) {
     if (!_demo && _seuraId) {
       tallBtn.disabled = true; tallBtn.textContent = 'Tallennetaan…';
       try {
-        var alkaaTs = new Date(pvm + 'T' + (alkaa || '00:00') + ':00');
-        var paattyyTs = new Date(pvm + 'T' + (paattyy || alkaa || '00:00') + ':00');
+        var alkaaTs = new Date(pvmVal + 'T' + (alkaa || '00:00') + ':00');
+        var paattyyTs = new Date(pvmVal + 'T' + (paattyy || alkaa || '00:00') + ':00');
         var uid = (firebase.auth().currentUser && firebase.auth().currentUser.uid) || '';
         var doc = {
           nimi: nimi,
@@ -9037,9 +9047,9 @@ function _avaaUusiTapahtuma(pvm, klo) {
           toast('✓ Tapahtuma tallennettu: ' + nimi, 'ok');
         } else {
           var _pv = toistPaattyyInp.value || _calKaudenLoppuISO();
-          var _rr = TM_KALENTERI.tmKalenteriOccurrences(pvm, _calCadence, _pv, 60);
+          var _rr = TM_KALENTERI.tmKalenteriOccurrences(pvmVal, _calCadence, _pv, 60);   // Bugi 1b — valittu alkupäivä
           var _sid = TM_KALENTERI.tmSarjaId(Date.now(), Math.random().toString(36).slice(2, 8));
-          var _pn = TM_KALENTERI.tmToistuvuusPaiva(pvm);
+          var _pn = TM_KALENTERI.tmToistuvuusPaiva(pvmVal);
           var _batch = _db.batch();
           var _col = _db.collection('seurat').doc(_seuraId).collection('kalenteri');
           _rr.pvmt.forEach(function(op) {
