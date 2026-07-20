@@ -103,6 +103,27 @@ ennätys = **puhdas itsevertailu** (ei mitään ulkoista vertailua).
 
 > **Arvostetuin = Sisukas** (sinnikkyys > lahjakkuus) = tuotteen filosofia keräilykorttina (Dweck).
 
+### ✅ RAKENNETTU 2026-07 (rarity-tier-nauha, `rMinaKokoelma` strip) — MINÄ-kevennys
+Korttikokoelma renderöityy nyt **vaakascrollattavana rarity-nauhana** MINÄ-heron alla (`_kkStripKortit`/`_kkStripKorttiHTML`).
+Neljä rarity-tasoa: **★ Legenda** (FUT-premium) · **◆ Harvinainen** (§28-signaalit) · **● Merkki** (saavutukset/tekniikkamerkit/liekki) ·
+**Lukittu** (näyttää avautumispolun = koukku). Edistymä-otsikko `ansaitut / kaikki · uusi 🔥`. Ansaitut loistavat, lukitut himmeitä (dashed).
+Datavetoinen kuten muutkin — `KORTTI_KATALOGI.legendat[]` + `.harvinaiset[]` (ansainta(p) lukee pikakentät, §26). §7.22: ansainta OMASTA
+huipputasosta/kehityksestä, EI vertailusta muihin.
+
+**Ensimmäiset datavetoiset entryt** (silta täyteen `leg_*`-arkkityyppivisioon — loput arkkityypit tulevat vaiheittain):
+
+| id | tier | nimi | ansaintaehto (pikakenttä) | lukittu-polku |
+|---|---|---|---|---|
+| `legend_tekniikka` | ★ Legenda | Tekniikka-legenda | `tki_merkki === 'kulta'` | "tekn. kulta →" |
+| `legend_nopeus` | ★ Legenda | Nopeus-legenda | 30 m Eerikkilä-taso 5 (`hh_viimeisin.lin30m`) | "30 m huipputaso →" |
+| `idol` | ★ Idoli | Idolikortti ("Kuin X") | idolirinnastus (viikkoteema, `_fcKorttiData`) | — |
+| `rare_piilohelmi` | ◆ Harvinainen | Piilohelmi | `hidden_gem` (§28) | "tekniikka edellä →" |
+| `rare_varhais` | ◆ Harvinainen | Varhaiskehittäjä | `tekninen_varhaiskehitys` (§28) | "tekniikkamitali U8–12 →" |
+| `rare_xfactor` | ◆ Harvinainen | X-Factor | `x_factor` (mikä tahansa testi taso 5) | "testi taso 5 →" |
+
+> Nämä tarkentavat aspiraatiotaulun (`leg_maestro`/`leg_railgun`/…) ansaintaehdot toteutettaviksi pikakenttäehdoiksi.
+> Loput arkkityyppikortit (Maestro/Railgun/Shadowstep/Titan/Sisukas) rakennetaan additiivisesti samaan `legendat[]`-rekisteriin.
+
 ---
 
 ## VAIHE 3 — Tähtikokoelma (aspiraatio; `Kortit.html`-pohja)
@@ -127,4 +148,4 @@ jota kokoelmanäkymä renderöi. Ansaintafunktio lukee **pikakentät** (§26) �
 (paitsi mahdollinen kerran-luku kuten tavoitteet). Lukittu kortti = siisti "Treeni avaa" -tila. Uusi kortti = pack-open.
 **Vaihe 1 toteutetaan ensin** (saavutukset + tekniikkamerkit + liekki/lepo) — loput vaiheittain.
 
-> **Tila 2026-06-24:** ✅ Vaihe 0 (tasokortti) · ✅ Vaihe 1 (matkamerkit) · ✅ Vaihe 1.5 (Ennätykset). **Jäljellä:** Vaihe 2 legendat · Vaihe 3 tähtikokoelma · Vaihe 4 paljastus+kausi.
+> **Tila 2026-07:** ✅ Vaihe 0 (tasokortti) · ✅ Vaihe 1 (matkamerkit) · ✅ Vaihe 1.5 (Ennätykset) · ✅ Vaihe 2 **osittain** (rarity-tier-nauha + ensimmäiset legenda/harvinainen-entryt, `rMinaKokoelma` strip; MINÄ-kortit keskiöön). **Jäljellä:** loput Vaihe 2 -arkkityypit (Maestro/Railgun/…/Sisukas) · Vaihe 3 tähtikokoelma · Vaihe 4 paljastus+kausi.
