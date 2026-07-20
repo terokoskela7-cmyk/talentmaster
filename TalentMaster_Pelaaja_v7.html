@@ -2435,32 +2435,58 @@ function rMinaHero() {
   var esc = _thEsc;
   var ac = _minaTierVari(F.tier);
   var acDim = F.tier === 'elite' ? 'rgba(224,160,64,' : F.tier === 'sharp' ? 'rgba(40,176,144,' : 'rgba(42,93,176,';
-  // 5D-statti kompaktina (measured→luku · grow→🌱 · muut→🔒)
+  var vyoh = F.ikavyohyke;            // 'showcase' (U16–19) · 'rakentaja' (U13–15) · 'leikkija' (U8–12)
+  var naytaOvr = (vyoh === 'showcase' && !F.rakentuu);  // aggregaatti-OVR-luku VAIN U16–19 (§58)
+  // 5D-statti ikäadaptoituna: showcase→luku · rakentaja→taso X/5 · leikkija→✓ · tilat: tulossa (sininen) / seura-avaa (🔒)
   var stat = function (d) {
-    var v = (d.state === 'measured' || d.state === 'early') ? d.val : (d.state === 'grow' ? '🌱' : '🔒');
-    var col = (d.state === 'measured') ? 'var(--text)' : (d.state === 'grow') ? '#28B090' : (d.state === 'early') ? '#E0A040' : '#8C8B86';
+    var big, col, tag = '';
+    if (d.tila === 'seura-avaa') { big = '🔒'; col = '#8C8B86'; tag = 'seura avaa'; }
+    else if (d.tila === 'tulossa') { big = '⏳'; col = '#5A8DD0'; tag = 'tulossa'; }
+    else if (d.state === 'grow') { big = '🌱'; col = '#28B090'; }               // pre-PHV fyysinen (§28)
+    else if (vyoh === 'leikkija') { big = '✓'; col = '#28B090'; }
+    else if (vyoh === 'rakentaja') { big = (d.taso5 != null ? (d.taso5 + '<span style="font-size:9px;color:#8C8B86">/5</span>') : '✓'); col = 'var(--text)'; }
+    else { big = (d.val != null ? d.val : '✓'); col = 'var(--text)'; }           // showcase → luku
+    var fs = (d.tila === 'mitattu' && d.state !== 'grow' && vyoh !== 'leikkija') ? (naytaOvr ? '18px' : '17px') : '14px';
     return '<div style="flex:1;text-align:center;padding:2px">'
-      + '<div style="font-family:\'Cormorant Garamond\',serif;font-size:' + ((d.state === 'measured' || d.state === 'early') ? '18px' : '14px') + ';line-height:1;color:' + col + '">' + v + '</div>'
-      + '<div style="font-size:8px;letter-spacing:.08em;text-transform:uppercase;color:#8C8B86;margin-top:3px">' + d.key + '</div></div>';
+      + '<div style="font-family:\'Cormorant Garamond\',serif;font-size:' + fs + ';line-height:1;color:' + col + '">' + big + '</div>'
+      + '<div style="font-size:8px;letter-spacing:.08em;text-transform:uppercase;color:#8C8B86;margin-top:3px">' + d.key + '</div>'
+      + (tag ? '<div style="font-size:7px;color:' + (d.tila === 'tulossa' ? '#5A8DD0' : '#8C8B86') + ';margin-top:1px">' + tag + '</div>' : '')
+      + '</div>';
   };
-  var headNum = F.rakentuu
-    ? '<div style="font-family:\'Cormorant Garamond\',serif;font-size:24px;font-weight:400;color:' + ac + ';line-height:1.05">Kortti<br>rakentuu</div>'
-      + '<div style="font-family:\'DM Mono\',monospace;font-size:8px;letter-spacing:.12em;text-transform:uppercase;color:#8C8B86;margin-top:4px">' + F.mitatut.length + '/5 avattu · hieno alku</div>'
-    : '<div style="font-family:\'Cormorant Garamond\',serif;font-size:44px;font-weight:400;color:' + ac + ';line-height:.95">' + F.ovr + '</div>'
+  // Otsikkolohko (vasen): showcase→OVR · rakentaja→kehityskaari-rengas (ei lukua) · muu→"Kortti rakentuu"
+  var headBlock;
+  if (naytaOvr) {
+    headBlock = '<div style="font-family:\'Cormorant Garamond\',serif;font-size:44px;font-weight:400;color:' + ac + ';line-height:.95">' + F.ovr + '</div>'
       + '<div style="font-family:\'DM Mono\',monospace;font-size:8px;letter-spacing:.12em;text-transform:uppercase;color:#8C8B86;margin-top:2px">OVR · ' + F.mitatut.length + ' osa-aluetta</div>';
+  } else if (vyoh === 'rakentaja') {
+    headBlock = '<div style="display:flex;flex-direction:column;align-items:center;gap:5px">'
+      + '<div style="position:relative;width:66px;height:66px">' + _fcRengasSVG(F.rengas.mitatut, F.rengas.nimittaja, 66, 3)
+      +   '<div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center"><span style="font-size:18px;color:#28B090;line-height:1">↗</span><span style="font-family:\'Cormorant Garamond\',serif;font-size:11px;color:#C9C7BE">kehittyy</span></div></div>'
+      + '<div style="font-family:\'DM Mono\',monospace;font-size:8px;letter-spacing:.08em;text-transform:uppercase;color:#8C8B86;text-align:center;line-height:1.25">Kehityskaari<br><b style="color:#28B090;font-weight:500">' + F.rengas.mitatut + ' / ' + F.rengas.nimittaja + ' mitattu</b></div>'
+      + '</div>';
+  } else {
+    headBlock = '<div style="font-family:\'Cormorant Garamond\',serif;font-size:24px;font-weight:400;color:' + ac + ';line-height:1.05">Kortti<br>rakentuu</div>'
+      + '<div style="font-family:\'DM Mono\',monospace;font-size:8px;letter-spacing:.12em;text-transform:uppercase;color:#8C8B86;margin-top:4px">' + F.mitatut.length + '/5 avattu · hieno alku</div>';
+  }
   var posTxt = F.naytaPaikka ? ('⚡ ' + esc(p.pelipaikka)) : '🔥 Monipuolinen';
   var h = '<div onclick="naytaFcOverlay()" style="margin:14px 20px 0;border:1px solid ' + acDim + '.42);border-radius:12px;overflow:hidden;cursor:pointer;'
     + 'box-shadow:0 0 0 .5px ' + acDim + '.14),0 8px 26px rgba(0,0,0,.4);background:radial-gradient(130% 80% at 50% -10%,' + acDim + '.16),transparent 55%),linear-gradient(180deg,var(--bg3),#141311)">';
   // top
   h += '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;padding:14px 16px 4px">'
-    + '<div>' + headNum + '</div>'
+    + '<div>' + headBlock + '</div>'
     + '<div style="text-align:right;display:flex;flex-direction:column;align-items:flex-end;gap:5px">'
     +   '<span style="font-family:\'DM Mono\',monospace;font-size:10px;font-weight:500;color:' + ac + ';border:.5px solid ' + acDim + '.4);background:' + acDim + '.10);padding:2px 8px;border-radius:3px">' + posTxt + '</span>'
     +   '<span style="font-family:\'DM Mono\',monospace;font-size:9px;letter-spacing:.1em;color:' + ac + ';border:.5px solid ' + acDim + '.45);background:' + acDim + '.12);padding:3px 9px;border-radius:3px">⭐ ' + esc(F.tierNimi) + '</span>'
     +   '<span style="font-family:\'DM Mono\',monospace;font-size:9px;color:#8C8B86">🇫🇮 FIN' + (F.ika != null ? (' · ' + F.ika + ' v') : '') + '</span>'
     + '</div></div>';
+  // ↗-kasvusiru (C) — vain rakentaja + kun jotain nousi
+  if (vyoh === 'rakentaja' && F.nousiAlueet.length) {
+    h += '<div style="margin:8px 16px 0;display:flex;align-items:center;gap:8px;padding:8px 11px;border-radius:9px;background:rgba(40,176,144,.08);border:.5px solid rgba(40,176,144,.28)">'
+      + '<span style="font-family:\'DM Mono\',monospace;color:#28B090;font-size:13px">↗</span>'
+      + '<span style="font-size:11.5px;color:#C9C7BE;line-height:1.35"><b style="color:var(--text);font-weight:500">' + F.nousiAlueet.length + ' osa-aluetta nousi</b> tänä jaksona — ' + esc(F.nousiAlueet.join(' & ')) + '. Hienoa työtä!</span></div>';
+  }
   // avatar + nimi
-  h += '<div style="text-align:center;padding:2px 16px 8px">'
+  h += '<div style="text-align:center;padding:8px 16px 6px">'
     + '<div style="width:52px;height:52px;border-radius:50%;margin:2px auto 6px;background:radial-gradient(circle at 35% 30%,#2a2a24,#141310);border:1px solid ' + acDim + '.3);display:flex;align-items:center;justify-content:center;font-family:\'Cormorant Garamond\',serif;font-size:20px;color:' + ac + '">' + esc(F.ini) + '</div>'
     + '<div style="font-family:\'Cormorant Garamond\',serif;font-weight:500;font-size:21px;letter-spacing:.03em;text-transform:uppercase;color:var(--text)">' + esc(F.nimi) + '</div>'
     + '<div style="font-family:\'Cormorant Garamond\',serif;font-style:italic;font-size:13px;color:#8C8B86;margin-top:1px">🏆 Kohti ' + esc(F.seuraavaTier) + ' — idoli ' + esc(F.idoli) + '</div>'
@@ -2475,8 +2501,15 @@ function rMinaHero() {
   }
   // foot
   h += '<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 16px;border-top:.5px solid ' + acDim + '.18);font-family:\'DM Mono\',monospace;font-size:10px;color:' + ac + '">'
-    + '<span>↗ ' + (F.rakentuu ? 'Miksi tämä kortti?' : ('Miksi ' + F.ovr + '?')) + '</span><span>Avaa kortti →</span></div>';
+    + '<span>↗ ' + (naytaOvr ? ('Miksi ' + F.ovr + '?') : 'Miksi tämä kortti?') + '</span><span>Avaa kortti →</span></div>';
   h += '</div>';
+  // Seura-avaa-huomautus (rakentaja) — nimittäjän ULKOPUOLELLA olevat osa-alueet, §82: "ei sinusta kiinni".
+  var seuraAvaa = F.dims.filter(function (d) { return d.tila === 'seura-avaa'; });
+  if (vyoh === 'rakentaja' && seuraAvaa.length) {
+    h += '<div style="margin:10px 20px 0;display:flex;gap:9px;align-items:flex-start;padding:10px 12px;border-radius:10px;background:rgba(242,239,230,.03);border:.5px solid rgba(242,239,230,.07)">'
+      + '<span style="font-size:14px">🤝</span>'
+      + '<span style="font-size:11px;color:#C9C7BE;line-height:1.45"><b style="color:var(--text);font-weight:500">' + esc(seuraAvaa.map(function (d) { return d.key; }).join(' · ')) + ' odottaa seuraa</b> — aukeaa kun seurasi ottaa työkalun käyttöön. Ei sinusta kiinni, eikä pienennä kehityskaartasi.</span></div>';
+  }
   h += '<div style="font-size:9px;color:#8C8B86;font-family:\'DM Mono\',monospace;margin:8px 20px 0;text-align:center">Kortti kehittyy matkalla · napautus avaa flip-kortin</div>';
   return h;
 }
@@ -4561,6 +4594,33 @@ function _fcKorttiData(p) {
   const mitatut = dims.filter(d => d.counts);
   const rakentuu = mitatut.length < 3;
 
+  // ── OSA B — ikäadaptoitu tasomalli: tila + per-dim taso 1–5 + kehityskaari-rengas ──
+  // tila: measured/grow/early → 'mitattu' · soon → 'tulossa' (valmentaja/fysiikkavalm. mittaa) · club → 'seura-avaa'.
+  // §97: konservatiivinen — testien avaaminen on henkilökunnan tehtävä, EI pelaajan → mittaamaton ei rankaise.
+  const _dimTaso5 = (d) => {
+    if (d.key === 'FYS' && p.d1_taso != null) return Math.max(1, Math.min(5, Math.round(p.d1_taso)));
+    if (d.key === 'TEK') { if (p.d2_taso != null) return Math.max(1, Math.min(5, Math.round(p.d2_taso))); if (p.tki_viimeisin != null) return Math.max(1, Math.min(5, Math.round(p.tki_viimeisin / 20))); }
+    if (d.key === 'PSY' && p.d3_taso != null) return Math.max(1, Math.min(5, Math.round(p.d3_taso)));
+    if (d.key === 'ÄLY' && ad && ad.yht != null) return Math.max(1, Math.min(5, Math.round(ad.yht / 12 * 5)));
+    if (d.val != null) return Math.max(1, Math.min(5, Math.round(d.val / 20)));
+    return null;
+  };
+  dims.forEach(d => {
+    d.tila = (d.state === 'measured' || d.state === 'grow' || d.state === 'early') ? 'mitattu'
+           : (d.state === 'club') ? 'seura-avaa' : 'tulossa';
+    // grow (pre-PHV fyysinen) → ei tasolukua (§28: raakaa pre-PHV-fyysistä ei näytetä tasona)
+    d.taso5 = (d.state === 'measured' || d.state === 'early') ? _dimTaso5(d) : null;
+  });
+  // Rengas (U13–15): mitatut / (mitatut + tulossa). Seura-avaa EI nimittäjässä (ei paina pelaajaa, §82/§85).
+  const rengas = { mitatut: dims.filter(d => d.tila === 'mitattu').length, nimittaja: dims.filter(d => d.tila !== 'seura-avaa').length };
+  // ↗-kasvusiru (C, §88): montako osa-aluetta nousi tänä jaksona — puhtaasti ipsatiivinen (oma vs oma edellinen).
+  const nousiAlueet = [];
+  if (p.tki_edellinen != null && p.tki_viimeisin != null && p.tki_viimeisin > p.tki_edellinen) nousiAlueet.push('tekniikka');
+  if (p.hh_taso_edellinen != null && p.hh_taso != null && p.hh_taso > p.hh_taso_edellinen) nousiAlueet.push('vauhti');
+  // Ikävyöhyke (§39): _laskeStage → showcase (U16–19) / rakentaja (U13–15) / leikkija (U8–12).
+  const _stage = (typeof _laskeStage === 'function') ? _laskeStage(p.syntymaVuosi, p.phv_tila) : '2_rakentaja';
+  const ikavyohyke = _stage === '3_showcase' ? 'showcase' : _stage === '1_leikkija' ? 'leikkija' : 'rakentaja';
+
   // ── OVR (data-aware + RAE, §2/§30) ──
   let ovr = null;
   if (!rakentuu) {
@@ -4600,7 +4660,19 @@ function _fcKorttiData(p) {
   let jDelta = '';
   if (p.tki_edellinen != null && p.tki_viimeisin != null) { const dd = Math.round(p.tki_viimeisin - p.tki_edellinen); if (dd > 0) jDelta = '↗ Tekniikka +' + dd; }
 
-  return { ika, dims, mitatut, rakentuu, ovr, tier, tierNimi, seuraavaTier, naytaPaikka, idoli, idolTeema, ini, nimi, goal, goalKey, synttari, traits, jDelta };
+  return { ika, dims, mitatut, rakentuu, ovr, tier, tierNimi, seuraavaTier, naytaPaikka, idoli, idolTeema, ini, nimi, goal, goalKey, synttari, traits, jDelta,
+           ikavyohyke, rengas, nousiAlueet };
+}
+// Kehityskaari-rengas (SVG) — U13–15 aggregaatti-OVR-luvun tilalla. Teal-kaari = mitatut/nimittaja (§84).
+function _fcRengasSVG(mitatut, nimittaja, size, sw) {
+  size = size || 78; sw = sw || 3;
+  var r = (size / 2) - sw - 1, c = 2 * Math.PI * r;
+  var frac = nimittaja > 0 ? Math.max(0, Math.min(1, mitatut / nimittaja)) : 0;
+  var cx = size / 2;
+  return '<svg width="' + size + '" height="' + size + '" viewBox="0 0 ' + size + ' ' + size + '" style="transform:rotate(-90deg)">'
+    + '<circle cx="' + cx + '" cy="' + cx + '" r="' + r.toFixed(1) + '" fill="none" stroke="rgba(242,239,230,.10)" stroke-width="' + sw + '"></circle>'
+    + '<circle cx="' + cx + '" cy="' + cx + '" r="' + r.toFixed(1) + '" fill="none" stroke="#28B090" stroke-width="' + sw + '" stroke-linecap="round" stroke-dasharray="' + c.toFixed(1) + '" stroke-dashoffset="' + (c * (1 - frac)).toFixed(1) + '"></circle>'
+    + '</svg>';
 }
 window._fcKorttiData = _fcKorttiData;
 
@@ -4609,27 +4681,47 @@ function naytaFcOverlay() {
   if (!el) return;
   const p = _pelaaja || {};
   const F = _fcKorttiData(p);
-  const { ika, dims, mitatut, rakentuu, ovr, tier, tierNimi, seuraavaTier, naytaPaikka, idoli, idolTeema, ini, nimi, goal, synttari, traits, jDelta } = F;
+  const { ika, dims, mitatut, rakentuu, ovr, tier, tierNimi, seuraavaTier, naytaPaikka, idoli, idolTeema, ini, nimi, goal, synttari, traits, jDelta, ikavyohyke, rengas } = F;
+  const naytaOvr = (ikavyohyke === 'showcase' && !rakentuu);  // aggregaatti-OVR-luku VAIN U16–19 (§58)
 
-  // ── 5D-statti (etupuoli) ──
+  // ── 5D-statti (etupuoli) — ikäadaptoitu: showcase→luku · rakentaja→taso X/5 · leikkija→✓ · tilat tulossa/seura-avaa ──
   const st = d => {
-    if (d.state === 'measured') return '<div class="fc-st measured"><div class="sv">' + d.val + '</div><div class="sk">' + d.key + '</div><div class="sd">' + d.lbl + '</div></div>';
-    if (d.state === 'grow')     return '<div class="fc-st grow"><div class="sv">🌱</div><div class="sk">' + d.key + '</div><div class="sd">' + d.lbl + '</div></div>';
-    if (d.state === 'early')    return '<div class="fc-st early"><div class="sv">' + d.val + '</div><div class="sk">' + d.key + '</div><div class="sd">' + d.lbl + '</div></div>';
-    return '<div class="fc-st locked"><div class="sv">🔒</div><div class="sk">' + d.key + '</div><div class="sd">' + d.lbl + '</div></div>';
+    let sv, cls;
+    if (d.tila === 'seura-avaa') { sv = '🔒'; cls = 'locked'; }
+    else if (d.tila === 'tulossa') { sv = '⏳'; cls = 'locked'; }
+    else if (d.state === 'grow') { sv = '🌱'; cls = 'grow'; }                       // pre-PHV fyysinen (§28)
+    else if (ikavyohyke === 'leikkija') { sv = '✓'; cls = 'measured'; }
+    else if (ikavyohyke === 'rakentaja') { sv = (d.taso5 != null ? (d.taso5 + '<span style="font-size:9px;opacity:.55">/5</span>') : '✓'); cls = 'measured'; }
+    else { sv = (d.val != null ? d.val : '✓'); cls = (d.state === 'early' ? 'early' : 'measured'); }  // showcase
+    return '<div class="fc-st ' + cls + '"><div class="sv">' + sv + '</div><div class="sk">' + d.key + '</div><div class="sd">' + d.lbl + '</div></div>';
   };
-  // ── 5D-palkki (takapuoli) ──
+  // ── 5D-palkki (takapuoli) — showcase: arvo-palkki · rakentaja/leikkija: per-osa-alue taso + "seuraavaan" (kriteeri, §7.22) ──
   const bar = d => {
-    if (d.state === 'club') return '<div class="fc-bar"><span class="bk">' + d.key + '</span><div style="grid-column:span 2;font-size:9px;color:var(--ink3)">Seurasi ei ole vielä avannut tätä</div></div>';
-    if (d.state === 'soon') return '<div class="fc-bar"><span class="bk">' + d.key + '</span><div style="grid-column:span 2;font-size:9px;color:var(--ink3)">🔒 Tulossa — mittaus avaa</div></div>';
-    const v = (d.ovrVal != null) ? d.ovrVal : d.val;
-    const lbl = d.state === 'grow' ? '🌱' : v;
-    return '<div class="fc-bar"><span class="bk">' + d.key + '</span><div class="bt"><div class="bf" style="width:' + (v||0) + '%"></div></div><span class="bv">' + lbl + '</span></div>';
+    if (d.tila === 'seura-avaa') return '<div class="fc-bar"><span class="bk">' + d.key + '</span><div style="grid-column:span 2;font-size:9px;color:var(--ink3)">🤝 Seura avaa myöhemmin — ei sinusta kiinni</div></div>';
+    if (d.tila === 'tulossa')    return '<div class="fc-bar"><span class="bk">' + d.key + '</span><div style="grid-column:span 2;font-size:9px;color:#5A8DD0">⏳ Tulossa — valmentaja mittaa</div></div>';
+    if (d.state === 'grow')      return '<div class="fc-bar"><span class="bk">' + d.key + '</span><div style="grid-column:span 2;font-size:9px;color:#28B090">🌱 Kasvuvaiheessa — vahvistuu kun keho kehittyy</div></div>';
+    if (naytaOvr) {              // showcase → arvo-palkki (ennallaan)
+      const v = (d.ovrVal != null) ? d.ovrVal : d.val;
+      return '<div class="fc-bar"><span class="bk">' + d.key + '</span><div class="bt"><div class="bf" style="width:' + (v||0) + '%"></div></div><span class="bv">' + v + '</span></div>';
+    }
+    // rakentaja/leikkija → oma taso + seuraava kynnys (kriteeripohjainen, EI vertailua muihin)
+    const t = d.taso5;
+    if (t == null) return '<div class="fc-bar"><span class="bk">' + d.key + '</span><div style="grid-column:span 2;font-size:9px;color:var(--ink3)">Mitattu ✓</div></div>';
+    const seuraava = t < 5 ? ('seuraavaan: taso ' + (t + 1) + '/5') : 'huipputasolla — pidä yllä!';
+    return '<div class="fc-bar"><span class="bk">' + d.key + '</span><div style="grid-column:span 2;font-size:10px;color:var(--text)">Nyt taso <b style="color:var(--cf-main,#28B090)">' + t + '/5</b> · <span style="color:var(--ink3)">' + seuraava + '</span></div></div>';
   };
 
-  const headHtml = rakentuu
-    ? '<div class="fc-build">Kortti<br>rakentuu</div><div class="fc-buildsub">' + mitatut.length + '/5 avattu · hieno alku</div>'
-    : '<div class="fc-num">' + ovr + '</div><div class="fc-numtag">OVR · ' + mitatut.length + ' osa-aluetta</div>';
+  let headHtml;
+  if (naytaOvr) headHtml = '<div class="fc-num">' + ovr + '</div><div class="fc-numtag">OVR · ' + mitatut.length + ' osa-aluetta</div>';
+  else if (ikavyohyke === 'rakentaja') headHtml =
+    '<div style="display:flex;align-items:center;gap:9px">'
+    + '<div style="position:relative;width:58px;height:58px;flex-shrink:0">' + _fcRengasSVG(rengas.mitatut, rengas.nimittaja, 58, 3)
+    +   '<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center"><span style="font-size:17px;color:var(--cf-main,#28B090);line-height:1">↗</span></div></div>'
+    + '<div><div style="font-family:\'DM Sans\';font-size:8.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink3)">Kehityskaari</div>'
+    +   '<div style="font-family:\'Cormorant Garamond\',serif;font-size:17px;color:var(--text);line-height:1.1">kehittyy</div>'
+    +   '<div style="font-family:\'DM Sans\';font-size:9px;color:var(--cf-main,#28B090)">' + rengas.mitatut + ' / ' + rengas.nimittaja + ' mitattu</div></div>'
+    + '</div>';
+  else headHtml = '<div class="fc-build">Kortti<br>rakentuu</div><div class="fc-buildsub">' + mitatut.length + '/5 avattu · hieno alku</div>';
   const posHtml = naytaPaikka
     ? '<div class="fc-pill">⚡ ' + p.pelipaikka + '</div>'
     : '<div class="fc-pill">🔥 Monipuolinen</div><div style="font-family:\'DM Sans\';font-size:8px;color:var(--ink3);margin-top:3px;text-align:right">kokeilee kaikkia paikkoja</div>';
@@ -4670,8 +4762,8 @@ function naytaFcOverlay() {
         '</div>' +
       '</div>' +
       '<div class="fc-face fc-back tier-' + tier + '">' +
-        '<div style="font-family:\'DM Sans\';font-size:9px;font-weight:600;letter-spacing:.18em;text-transform:uppercase;color:var(--cf-main)">' + (rakentuu ? 'Miksi tämä kortti?' : ('Miksi ' + ovr + '?')) + '</div>' +
-        '<div style="font-family:\'Cormorant Garamond\',serif;font-size:16px;font-style:italic;line-height:1.35;margin:7px 0 12px;color:var(--text)">' + (rakentuu ? 'Korttisi rakentuu mittaus kerrallaan — joka treeni avaa uuden osa-alueen. Tämä on sinun matkasi, ei kilpailu muita vastaan.' : 'Numero kertoo missä olet juuri nyt. Vahvuutesi vievät eteenpäin — kortti kirkastuu kun kehityt.') + '</div>' +
+        '<div style="font-family:\'DM Sans\';font-size:9px;font-weight:600;letter-spacing:.18em;text-transform:uppercase;color:var(--cf-main)">' + (naytaOvr ? ('Miksi ' + ovr + '?') : 'Oma tasosi &amp; seuraava askel') + '</div>' +
+        '<div style="font-family:\'Cormorant Garamond\',serif;font-size:16px;font-style:italic;line-height:1.35;margin:7px 0 12px;color:var(--text)">' + (naytaOvr ? 'Numero kertoo missä olet juuri nyt. Vahvuutesi vievät eteenpäin — kortti kirkastuu kun kehityt.' : 'Tässä oma tasosi osa-alueittain ja seuraava askel — sinun matkasi, ei vertailu muihin.') + '</div>' +
         dims.map(bar).join('') +
         (traits.length ? ('<div style="margin-top:10px"><div style="font-family:\'DM Sans\';font-size:8px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink3);margin-bottom:5px">Erikoismerkit</div>' + traits.map(t => '<span class="fc-trait">' + t + '</span>').join('') + '</div>') : '') +
         '<div style="margin-top:auto;font-family:\'DM Sans\';font-size:9px;color:var(--ink3);line-height:1.4;padding-top:10px">Lukitut osa-alueet (Pää · Joukkue) avautuvat kun seurasi ottaa työkalut käyttöön — ei sinusta kiinni.</div>' +
