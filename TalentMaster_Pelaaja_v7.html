@@ -1898,7 +1898,7 @@ async function _p7LataaKalenteri() {
       await Promise.all(evs.slice(0, 5).map(function (ev) {
         return window._db.collection('seurat').doc(_pelaaja.seuraId).collection('kalenteri').doc(ev.id)
           .collection('lasnaolijat').doc(_pelaaja.id).get()
-          .then(function (s) { if (s.exists) { ev._omaTila = (s.data() || {}).tila || null; } }).catch(function () { });
+          .then(function (s) { if (s.exists) { ev._omaSaatavuus = (s.data() || {}).saatavuus || null; } }).catch(function () { });
       }));
     } catch (e) { /* ei kriittinen */ }
     window._p7Kalenteri = evs;
@@ -1918,27 +1918,27 @@ function _p7LogistiikkaChipit(lg, vanhempi) {
   if (vanhempi && lg.kimppakyyti) out.push(chip('🚗 Kimppakyyti'));
   return out.length ? '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px">' + out.join('') + '</div>' : '';
 }
-// P7-c.3 — etukäteinen saatavuus: "Pääsetkö?" → ✓ Tulossa (vahvistettu) / ✕ Estynyt (peruttu). Kirjoittaa
-// lasnaolijat/{pelaajaId}.tila (vain tila+rooli+paivitetty; ei syytä, GDPR). Demo → vain UI. Read-back _omaTila.
+// P7-c.3 + RSVP-erotus — etukäteinen SAATAVUUS (RSVP): "Pääsetkö?" → ✓ Tulossa / ✕ Estynyt. Kirjoittaa
+// lasnaolijat/{pelaajaId}.saatavuus (EI tila = valmentajan toteutunut läsnäolo; ei syytä, GDPR). Demo → vain UI.
 function _p7SaatavuusHTML(ev) {
-  var tila = ev._omaTila || null;
+  var s = ev._omaSaatavuus || null;
   var b = function (val, label, col) {
-    var on = tila === val;
+    var on = s === val;
     return '<button onclick="event.stopPropagation();_p7MerkitseLasna(\'' + ev.id + '\',\'' + val + '\')" style="flex:1;padding:7px 6px;border-radius:8px;border:.5px solid ' + (on ? col : 'rgba(242,239,230,.15)') + ';background:' + (on ? col + '22' : 'transparent') + ';color:' + (on ? col : 'var(--ink2)') + ';font-size:12px;font-weight:600;cursor:pointer;font-family:\'DM Sans\',sans-serif">' + label + '</button>';
   };
   return '<div style="margin-top:10px"><div style="font-size:10px;color:#8C8B86;margin-bottom:5px">Pääsetkö paikalle?</div>'
-    + '<div style="display:flex;gap:6px">' + b('vahvistettu', '✓ Tulossa', '#28B090') + b('peruttu', '✕ Estynyt', '#B85C38') + '</div></div>';
+    + '<div style="display:flex;gap:6px">' + b('tulossa', '✓ Tulossa', '#28B090') + b('estynyt', '✕ Estynyt', '#B85C38') + '</div></div>';
 }
-async function _p7MerkitseLasna(evId, tila) {
+async function _p7MerkitseLasna(evId, saatavuus) {
   var ev = (window._p7Kalenteri || []).find(function (e) { return e.id === evId; }); if (!ev) return;
-  ev._omaTila = tila; if (typeof draw === 'function') draw();   // optimistinen UI
+  ev._omaSaatavuus = saatavuus; if (typeof draw === 'function') draw();   // optimistinen UI
   if (_isDemoUser || !_pelaaja || !_pelaaja.seuraId || !_pelaaja.id || !window._db) return;   // demo/ei-Firestore → vain UI
   try {
     var cu = (typeof firebase !== 'undefined' && firebase.auth) ? firebase.auth().currentUser : null;
     if (cu) await cu.getIdToken(true);
     await window._db.collection('seurat').doc(_pelaaja.seuraId).collection('kalenteri').doc(evId)
       .collection('lasnaolijat').doc(_pelaaja.id)
-      .set({ tila: tila, rooli: 'pelaaja', paivitetty: new Date().toISOString() }, { merge: true });   // vain sallitut avaimet (Rules c.3)
+      .set({ saatavuus: saatavuus, rooli: 'pelaaja', paivitetty: new Date().toISOString() }, { merge: true });   // vain saatavuus (Rules RSVP-erotus)
   } catch (e) { console.warn('[p7 lasna]', e && e.message); }
 }
 function _p7AikatauluKortti(ev) {

@@ -8529,8 +8529,11 @@ function _calLasnaoloPaint(container, state) {
   var sum = container.querySelector('.la-sum');
   if (sum) {
     var k = { paikalla: 0, myohassa: 0, poissa: 0, n: 0 };
-    Object.keys(state).forEach(function(pid) { k.n++; var st = state[pid].tila; if (st) k[st]++; });
-    sum.textContent = '✓ ' + k.paikalla + ' paikalla · ' + k.myohassa + ' myöhässä · ' + k.poissa + ' poissa / ' + k.n;
+    var rsvp = { tulossa: 0, estynyt: 0 };
+    Object.keys(state).forEach(function(pid) { k.n++; var st = state[pid].tila; if (st) k[st]++; var sa = state[pid].saatavuus; if (sa === 'tulossa') rsvp.tulossa++; else if (sa === 'estynyt') rsvp.estynyt++; });
+    // RSVP-erotus: ennakkoilmoitus (saatavuus) toteutuneen läsnäolon rinnalla.
+    var rsvpTxt = (rsvp.tulossa || rsvp.estynyt) ? ('  ·  RSVP: ' + rsvp.tulossa + ' tulossa · ' + rsvp.estynyt + ' estynyt') : '';
+    sum.textContent = '✓ ' + k.paikalla + ' paikalla · ' + k.myohassa + ' myöhässä · ' + k.poissa + ' poissa / ' + k.n + rsvpTxt;
   }
 }
 
@@ -8546,7 +8549,7 @@ async function _calRenderLasnaolo(t, container) {
     return;
   }
   var state = {};
-  roster.forEach(function(pl) { var ex = existing[pl.id]; state[pl.id] = { tila: (ex && ex.tila) || null, syy: (ex && ex.syy) || '' }; });
+  roster.forEach(function(pl) { var ex = existing[pl.id]; state[pl.id] = { tila: (ex && ex.tila) || null, syy: (ex && ex.syy) || '', saatavuus: (ex && ex.saatavuus) || null }; });   // RSVP-erotus: saatavuus (pelaajan ennakkoilmoitus) read-only
 
   container.innerHTML = '';
   var otsikko = document.createElement('div');
@@ -8566,10 +8569,16 @@ async function _calRenderLasnaolo(t, container) {
   var rivBtn = function(pid, tila, lbl) {
     return '<button class="la-btn" data-pid="' + pid + '" data-tila="' + tila + '" style="padding:4px 8px;border:0.5px solid var(--border);border-radius:5px;background:var(--surface);color:var(--ink3);cursor:pointer;font-size:11px">' + lbl + '</button>';
   };
+  // RSVP-erotus — read-only saatavuus-siru (pelaajan ennakkoilmoitus, ei ylikirjoita valmentajan tila:aa).
+  var rsvpChip = function(sa) {
+    if (sa === 'tulossa') return '<span title="Pelaaja ilmoitti tulevansa" style="font-size:9.5px;font-weight:600;color:#3DA35D;background:rgba(61,163,93,.12);border:.5px solid rgba(61,163,93,.4);border-radius:999px;padding:1px 7px;margin-right:5px">✓ Tulossa</span>';
+    if (sa === 'estynyt') return '<span title="Pelaaja ilmoitti olevansa estynyt" style="font-size:9.5px;font-weight:600;color:#F04E4E;background:rgba(240,78,78,.12);border:.5px solid rgba(240,78,78,.4);border-radius:999px;padding:1px 7px;margin-right:5px">✕ Estynyt</span>';
+    return '';
+  };
   rows.innerHTML = roster.map(function(pl) {
     return '<div style="padding:5px 0;border-bottom:0.5px solid var(--border)">'
       + '<div style="display:flex;align-items:center;gap:5px">'
-      + '<div style="flex:1;font-size:13px;color:var(--ink)">' + _mEsc(pl.nimi) + '</div>'
+      + '<div style="flex:1;font-size:13px;color:var(--ink);min-width:0">' + rsvpChip(state[pl.id].saatavuus) + _mEsc(pl.nimi) + '</div>'
       + rivBtn(pl.id, 'paikalla', 'Paikalla') + rivBtn(pl.id, 'myohassa', 'Myöhässä') + rivBtn(pl.id, 'poissa', 'Poissa')
       + '</div>'
       + '<input class="la-syy" data-pid="' + pl.id + '" placeholder="syy (vapaaehtoinen)…" value="' + _mEsc(state[pl.id].syy || '') + '" style="display:none;width:100%;margin-top:4px;padding:5px 8px;border:0.5px solid var(--border);border-radius:5px;background:var(--surface);color:var(--ink);font-size:12px;box-sizing:border-box">'
