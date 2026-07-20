@@ -67,3 +67,31 @@ Heron napautus avaa overlayn, mutta se **jää selitys-kääntöpuolelle** ("Mik
 ## Reunaehdot
 - Ei Rules-/skeemamuutosta; kaikki johdettua pikakentistä. Demo-polku ennallaan. Topias = testi-OK.
 - **A on kiireellinen ja itsenäinen** (pieni CSS) — sen voi mergata ennen B:tä. B vaatii Teron OK:n mallille (portitus ikä, ei OVR-lukua U13–15) — malli on tässä ehdotus, säädä tarvittaessa.
+
+---
+
+## OSA B — LUKITTU MALLI (Teron linjaus): kehityskaari-rengas B+C
+
+**Päätös:** U13–15:n heron aggregaatti-OVR-luku korvataan **kehityskaari-renkaalla** (malli B) + **↗-kasvusirulla** (malli C). Mockup: `docs/mockups/kehityskaari_rengas_mockup.html` (toimitettu myös artefaktina).
+
+**Ydinsääntö (ehdoton):** **Testien avaaminen on valmentajan, VP:n tai fysiikkavalmentajan tehtävä — ei koskaan pelaajan.** Pelaajaa ei rankaista mistään mittaamattomasta. Ei siis "avaa itse" -kehotetta pelaajalle.
+
+### Renkaan kolme osa-aluetilaa
+1. **Mitattu** (teal) — mittaus tehty → **täyttää rengasta**.
+2. **Tulossa** (sininen, neutraali) — testi on seurassa käytössä, **valmentaja/fysiikkavalmentaja mittaa** sen. **Kuuluu nimittäjään**, mutta esitetään neutraalina "tulossa · valm. mittaa" — ei pelaajan syy/vastuu.
+3. **Seura avaa** (slate, ulkopuolella) — seura ei ole ottanut testiä käyttöön → **jää renkaan nimittäjän ULKOPUOLELLE** (ei paina). Esitetään "🤝 seura avaa myöhemmin — ei sinusta kiinni".
+
+### Renkaan laskenta
+- **Rengas = mitatut / (seuran käyttöön ottamat osa-alueet)**. Ts. nimittäjä = mitatut + tulossa-tilaiset. **Seuran avaamattomat (tila 3) EIVÄT ole nimittäjässä.**
+- Esim. Topias: mitattu 3 (tekn/psyy/äly), tulossa 1 (fys), seura-avaa 1 (sos) → **rengas 3/4, EI 3/5**.
+- Renkaan keskellä **ei lukua** — glyfi (↗) + "kehittyy". Alalabel "Kehityskaari · N/M mitattu".
+- **↗-kasvusiru (C):** "N osa-aluetta nousi tänä jaksona" (oma vs. oma edellinen; `tki_edellinen`, hh-historia). Puhtaasti ipsatiivinen.
+
+### §7.22 & ikä
+- Pelaajalle vain oma taso + oma seuraava kynnys (kääntöpuoli) + oma kehitys. Ei percentiiliä/vertailua/aggregaattilukua U13–15:lle. **Aggregaatti-OVR palaa vain U16–19:lle.** U8–12 = merkit/"rakentuu".
+- Sävy kannustava (Rakentaja). Ei leimoja.
+
+### DoD-lisä (B)
+- U13–15 hero: rengas (mitatut/seuran-käytössä), ei kovaa lukua; ↗-kasvusiru; per-testi taso + "seuraavaan" kääntöpuolella.
+- **Nimittäjä ei sisällä seuran avaamattomia** (verifioi: pelaaja jonka seura ei aja fysiikkatestejä EI näe niitä renkaan aukkona).
+- Tila-attribuutit johdetaan pikakentistä (mitattu vs. testi-käytössä-lippu vs. ei-käytössä). Ei uutta datamallia jos vältettävissä; jos "testi käytössä seurassa" -tieto puuttuu, käytä konservatiivista oletusta (tuntematon → tila 3 "seura avaa", ei paina pelaajaa).
