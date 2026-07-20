@@ -3571,8 +3571,12 @@ function _kaynnistaAppUI() {
   if (!p) { go('pin'); return; }
   setTimeout(function () { _tmPwaKehote('pelaajan sivu'); }, 1500);   // kirjautumisen jälkeen, ei login-ruudussa
   // P7 latch/race-fix: _pelaaja + anon-auth nyt valmiit → nollaa kalenteri/notif-latch + yritä (1. render saattoi bailata not-ready).
-  _ladattu.kalenteri = false; window._p7Kalenteri = null; if (typeof _p7LataaKalenteri === 'function') _p7LataaKalenteri();
-  _ladattu.notif = false; window._p7Notif = null; if (typeof _p7LataaNotif === 'function') _p7LataaNotif();
+  // Render-fix: piirrä latauksen resolvoiduttua RIIPPUMATTA hetkellisestä _tab/_sc:stä (loaderin _rerender-ehto saattoi
+  // ohittaa draw()in transientissa käynnistystilassa → UI jäi "Ladataan…"-tilaan vaikka data oli jo haettu).
+  _ladattu.kalenteri = false; window._p7Kalenteri = null;
+  if (typeof _p7LataaKalenteri === 'function') Promise.resolve(_p7LataaKalenteri()).then(function () { if (typeof draw === 'function') draw(); });
+  _ladattu.notif = false; window._p7Notif = null;
+  if (typeof _p7LataaNotif === 'function') Promise.resolve(_p7LataaNotif()).then(function () { if (typeof draw === 'function') draw(); });
 
   // Laske FLEI ja stage
   _flei  = _laskeFlei(p);
