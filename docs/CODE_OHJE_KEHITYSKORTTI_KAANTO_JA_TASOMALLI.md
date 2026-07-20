@@ -95,3 +95,24 @@ Heron napautus avaa overlayn, mutta se **jää selitys-kääntöpuolelle** ("Mik
 - U13–15 hero: rengas (mitatut/seuran-käytössä), ei kovaa lukua; ↗-kasvusiru; per-testi taso + "seuraavaan" kääntöpuolella.
 - **Nimittäjä ei sisällä seuran avaamattomia** (verifioi: pelaaja jonka seura ei aja fysiikkatestejä EI näe niitä renkaan aukkona).
 - Tila-attribuutit johdetaan pikakentistä (mitattu vs. testi-käytössä-lippu vs. ei-käytössä). Ei uutta datamallia jos vältettävissä; jos "testi käytössä seurassa" -tieto puuttuu, käytä konservatiivista oletusta (tuntematon → tila 3 "seura avaa", ei paina pelaajaa).
+
+---
+
+## OSA B — LISÄYS: kortin etupuolen clippaus-korjaus (löytyi livenä OSA A:n jälkeen)
+
+**Tyyppi:** Layout-korjaus, osa OSA B:tä (#239). **Ei Rules-/skeemamuutosta.**
+**Kohde:** `naytaFcOverlay` kortin **etupuoli** (`.fc-front`) + tarvittaessa `.fc-wrap`/`.fc-face`-mitat.
+
+### Bugi (verifioitu livenä, Topias U13)
+Kääntökorjauksen (OSA A, #238) jälkeen etupuoli näkyy vihdoin — ja paljastui vanha layout-ongelma: **etupuolen sisältö on ~569px, mutta kortti on kiinteä 470px** (`.fc-face { overflow:hidden }`) → **alaosa (~99px) leikkautuu pois.** Mittaus: "SINUN MATKASI" -porraspalkki ulottuu 390→506px, eli sen alareuna + alapehmuste jää kortin reunan alle piiloon. Ei kääntökorjauksen aiheuttama — sisältö on aina ollut liian korkea, mutta se ei ennen näkynyt (kääntöpuoli peitti etupuolen).
+
+### Korjaus
+**Etupuolen sisältö mahtuu 470px:ään KAIKILLA ikävyöhykkeillä** (showcase-OVR / rakentaja-rengas / leikkija-rakentuu). Ei overflow-leikkausta. Valitse siistein (mielusummin sisältöä tiivistäen, ei korttia venyttäen — FUT-kortin kiinteä mittasuhde säilyy):
+- Tiivistä pystyvälit: avatar-marginaali, UNELMA-laatikon padding, 5D-rivin korkeus, ja erityisesti **"SINUN MATKASI" -porraspalkki kompaktimmaksi** (pienempi pystytila / tiiviimmät stepit).
+- Rakentaja-rengas-otsikko on jo matalampi kuin 44px OVR-luku — hyödynnä se; varmista silti että showcase-OVR-versiokin mahtuu.
+- Jos välttämätöntä, harkitse `.fc-wrap` korkeutta vain hienosäätönä, mutta ensisijaisesti sisältö mahtumaan nykyiseen 470px:ään.
+
+### DoD (clippaus)
+- **Kaikilla kolmella ikävyöhykkeellä** kortin etupuoli näkyy kokonaan: pää-otsikko (OVR/rengas/rakentuu), pelipaikkapill, avatar+nimi, UNELMA, 5D-rivi ja **SINUN MATKASI kokonaan** — mikään ei leikkaudu.
+- Mitattu: `.fc-front`-sisällön `scrollHeight ≤ 470` (ei overflow-clippausta). Verifioi Topiaalla (U13) + yhdellä U16+ pelaajalla (OVR-versio on korkein → kriittisin).
+- 790 vitest vihreä, 0 konsolivirhettä. Kääntö toimii yhä molempiin suuntiin (OSA A ennallaan).
