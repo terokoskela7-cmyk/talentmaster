@@ -441,7 +441,7 @@ input::placeholder,textarea::placeholder{color:#8C8B86;opacity:1}
 <script src="tm_why_lauseet.js?v=3"></script>
 <script src="lib/tm_idp.js?v=2"></script>   <!-- Vaihe 3c-a: pelaajan aikajana (idpPelaajaKaari/Konsepti, §7.22-turvallinen) -->
 <script src="lib/tm_teknistaktiset.js?v=4"></script>   <!-- Vaihe 4b: pelaajan cue-kerros (tmTtPelaaja, §0b/§7.22) · v4 = parseri-korjaus (pelimuoto-saaste) -->
-<script src="lib/tm_adar_rubriikki.js?v=1"></script>   <!-- Kortin ÄLY-tasokuvaus: kanoninen ADAR-rubriikki (TM_ADAR_RUBRIIKKI, §7.22) -->
+<script src="lib/tm_adar_rubriikki.js?v=2"></script>   <!-- Kortin ÄLY-tasokuvaus: kanoninen ADAR-rubriikki (TM_ADAR_RUBRIIKKI, §7.22) · v2 = taso 4 Re-assess-korjaus -->
 </head>
 <body>
 <div class="wrap">
@@ -1508,6 +1508,32 @@ function _minaValitavoite(arvo, viite, kaant) {
   let t = (gap <= 3) ? viite.hyva : (kaant ? (arvo + 3) : (arvo - 3));
   return Math.round(t * 2) / 2;
 }
+// JAETTU tekniikkadata (⭐ vahvuus + 🎯 kehityskohde + sekuntitavoite) pikakentistä (§26). YKSI LÄHDE:
+// sekä MINÄ-tekniikkarivit (_minaTavoiteRivit) että kortin kääntöpuolen TEK-rivi (naytaFcOverlay) käyttävät
+// tätä → ei kahdennettua tavoitelaskentaa/copya. null jos ei tk-lajidataa → kutsuja käyttää geneeristä fallbackia.
+function _tekKorttiData(p) {
+  const lajit = p && p.tk_lajit_viimeisin;
+  if (!lajit) return null;
+  const T = window.TM_TESTIT;
+  const sp = (String(p.sukupuoli || '').toUpperCase() === 'N') ? 'T' : 'P';
+  const ika = p.syntymaVuosi ? (new Date().getFullYear() - p.syntymaVuosi) : null;
+  const viiteOf = function (laji) { return (T && T.tkLajiViite && ika != null) ? T.tkLajiViite(laji, ika, sp) : null; };
+  let vahvuus = null, kehitys = null;
+  if (p.tki_vahvuus && _minaTekLajiNimi(p.tki_vahvuus) !== p.tki_vahvuus) {
+    const va = lajit[p.tki_vahvuus + '_s'], vv = viiteOf(p.tki_vahvuus);
+    const kaantV = (p.tki_vahvuus === 'pituuspotku_bonus');
+    const karki = !!(vv && va != null && (kaantV ? va >= vv.erinomainen : va <= vv.erinomainen));
+    vahvuus = { laji: p.tki_vahvuus, nimi: _minaTekLajiNimi(p.tki_vahvuus), karki: karki };
+  }
+  if (p.tki_kehityskohde && _minaTekLajiNimi(p.tki_kehityskohde) !== p.tki_kehityskohde) {
+    const kk = p.tki_kehityskohde, arvo = lajit[kk + '_s'], kv = viiteOf(kk);
+    let nyt = null, tavoite = null;
+    if (arvo != null && kv) { const kaant = (kk === 'pituuspotku_bonus'); tavoite = _minaValitavoite(arvo, kv, kaant); nyt = Math.round(arvo * 10) / 10; }
+    kehitys = { laji: kk, nimi: _minaTekLajiNimi(kk), nyt: nyt, tavoite: tavoite };
+  }
+  if (!vahvuus && !kehitys) return null;
+  return { vahvuus: vahvuus, kehitys: kehitys };
+}
 function _minaTavoiteRivit(p, d) {
   const lajit = p && p.tk_lajit_viimeisin;
   // Fallback: ei pikakenttä-lajidataa → vanhat yksinkertaiset rivit (nykyinen käytös säilyy)
@@ -1522,30 +1548,20 @@ function _minaTavoiteRivit(p, d) {
   const T = window.TM_TESTIT;
   const sp = (String(p.sukupuoli || '').toUpperCase() === 'N') ? 'T' : 'P';
   const ika = p.syntymaVuosi ? (new Date().getFullYear() - p.syntymaVuosi) : null;
-  const viiteOf = function (laji) { return (T && T.tkLajiViite && ika != null) ? T.tkLajiViite(laji, ika, sp) : null; };
   let h = '';
+  const tek = _tekKorttiData(p);   // JAETTU lähde ⭐/🎯-riveille (sama kuin kortin TEK-rivi)
 
   // ★ Vahvuus (pikakenttä) — AINA ensin. "kärkitasoa" vain jos taso erinomainen.
-  if (p.tki_vahvuus && _minaTekLajiNimi(p.tki_vahvuus)) {
-    const va = lajit[p.tki_vahvuus + '_s'];
-    const vv = viiteOf(p.tki_vahvuus);
-    const kaantV = (p.tki_vahvuus === 'pituuspotku_bonus');
-    const karki = (vv && va != null && (kaantV ? va >= vv.erinomainen : va <= vv.erinomainen));
-    h += '<div style="font-size:13px;color:var(--text);margin-top:10px">⭐ <b>Vahvuutesi:</b> ' + _minaTekLajiNimi(p.tki_vahvuus)
-      + '<div style="font-size:12px;color:#8C8B86;margin-top:2px">' + (karki ? 'Olet tässä kärkitasoa — hieno juttu!' : 'Tämä on vahvin lajisi — pidä siitä kiinni!') + '</div></div>';
+  if (tek && tek.vahvuus) {
+    h += '<div style="font-size:13px;color:var(--text);margin-top:10px">⭐ <b>Vahvuutesi:</b> ' + tek.vahvuus.nimi
+      + '<div style="font-size:12px;color:#8C8B86;margin-top:2px">' + (tek.vahvuus.karki ? 'Olet tässä kärkitasoa — hieno juttu!' : 'Tämä on vahvin lajisi — pidä siitä kiinni!') + '</div></div>';
   }
 
   // 🎯 Seuraava askel (yksi kehityskohde) — saavutettava sekuntitavoite
-  if (p.tki_kehityskohde && _minaTekLajiNimi(p.tki_kehityskohde)) {
-    const kk = p.tki_kehityskohde;
-    const arvo = lajit[kk + '_s'];
-    const kv = viiteOf(kk);
-    h += '<div style="font-size:13px;color:var(--text);margin-top:10px">🎯 <b>Seuraava askel:</b> ' + _minaTekLajiNimi(kk);
-    if (arvo != null && kv) {
-      const kaant = (kk === 'pituuspotku_bonus');
-      const tavoite = _minaValitavoite(arvo, kv, kaant);
-      const nyt = Math.round(arvo * 10) / 10;
-      h += '<div style="font-size:12px;color:#8C8B86;margin-top:2px">Nyt: ' + nyt + ' s → Tavoite: ' + tavoite + ' s</div>'
+  if (tek && tek.kehitys) {
+    h += '<div style="font-size:13px;color:var(--text);margin-top:10px">🎯 <b>Seuraava askel:</b> ' + tek.kehitys.nimi;
+    if (tek.kehitys.nyt != null && tek.kehitys.tavoite != null) {
+      h += '<div style="font-size:12px;color:#8C8B86;margin-top:2px">Nyt: ' + tek.kehitys.nyt + ' s → Tavoite: ' + tek.kehitys.tavoite + ' s</div>'
         + '<div style="font-size:12px;color:#8C8B86">Pieni parannus joka treenissä riittää.</div>';
     }
     h += '</div>';
@@ -4714,10 +4730,26 @@ function naytaFcOverlay() {
       const r = window.TM_ADAR_RUBRIIKKI.alyTaso(t);
       if (r) return '<div class="fc-bar" style="align-items:flex-start">'
         + '<span class="bk">' + d.key + '</span>'
-        + '<div style="grid-column:span 2;font-size:10px;color:var(--text);line-height:1.35">'
+        + '<div style="grid-column:span 2;font-size:10px;color:var(--text);line-height:1.3">'
         +   '<div>Nyt: <b style="color:var(--cf-main,#28B090)">' + r.nyt + '</b> <span style="color:var(--ink3);font-size:8px">taso ' + r.taso + '/5</span></div>'
         +   '<div style="color:var(--ink3);margin-top:1px">Seuraava askel: ' + r.askel + '</div>'
         + '</div></div>';
+    }
+    // TEK (tekniikka) — jaettu _tekKorttiData (sama kuin MINÄ-tekniikkarivit): ⭐ vahvuus + 🎯 seuraava askel
+    // (nyt X s → tavoite Y s). Fallback geneeriseen jos ei tk-lajidataa (§21). §7.22: oma vahvuus/askel, ei vertailua.
+    if (d.key === 'TEK') {
+      const tek = _tekKorttiData(p);
+      if (tek && (tek.vahvuus || tek.kehitys)) {
+        let rows = '';
+        if (tek.vahvuus) rows += '<div>⭐ Vahvuutesi: <b style="color:var(--cf-main,#28B090)">' + tek.vahvuus.nimi + '</b></div>';
+        if (tek.kehitys) {
+          let seur = '🎯 Seuraava askel: ' + tek.kehitys.nimi;
+          if (tek.kehitys.nyt != null && tek.kehitys.tavoite != null) seur += ' <span style="color:var(--ink3)">(' + tek.kehitys.nyt + ' s → ' + tek.kehitys.tavoite + ' s)</span>';
+          rows += '<div style="margin-top:1px">' + seur + '</div>';
+        }
+        return '<div class="fc-bar" style="align-items:flex-start"><span class="bk">' + d.key + '</span>'
+          + '<div style="grid-column:span 2;font-size:10px;color:var(--text);line-height:1.3">' + rows + '</div></div>';
+      }
     }
     const seuraava = t < 5 ? ('seuraavaan: taso ' + (t + 1) + '/5') : 'huipputasolla — pidä yllä!';
     return '<div class="fc-bar"><span class="bk">' + d.key + '</span><div style="grid-column:span 2;font-size:10px;color:var(--text)">Nyt taso <b style="color:var(--cf-main,#28B090)">' + t + '/5</b> · <span style="color:var(--ink3)">' + seuraava + '</span></div></div>';
