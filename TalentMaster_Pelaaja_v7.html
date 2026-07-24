@@ -441,6 +441,7 @@ input::placeholder,textarea::placeholder{color:#8C8B86;opacity:1}
 <script src="tm_why_lauseet.js?v=3"></script>
 <script src="lib/tm_idp.js?v=2"></script>   <!-- Vaihe 3c-a: pelaajan aikajana (idpPelaajaKaari/Konsepti, §7.22-turvallinen) -->
 <script src="lib/tm_teknistaktiset.js?v=4"></script>   <!-- Vaihe 4b: pelaajan cue-kerros (tmTtPelaaja, §0b/§7.22) · v4 = parseri-korjaus (pelimuoto-saaste) -->
+<script src="lib/tm_adar_rubriikki.js?v=1"></script>   <!-- Kortin ÄLY-tasokuvaus: kanoninen ADAR-rubriikki (TM_ADAR_RUBRIIKKI, §7.22) -->
 </head>
 <body>
 <div class="wrap">
@@ -4707,6 +4708,17 @@ function naytaFcOverlay() {
     // rakentaja/leikkija → oma taso + seuraava kynnys (kriteeripohjainen, EI vertailua muihin)
     const t = d.taso5;
     if (t == null) return '<div class="fc-bar"><span class="bk">' + d.key + '</span><div style="grid-column:span 2;font-size:9px;color:var(--ink3)">Mitattu ✓</div></div>';
+    // ÄLY (peliäly/ADAR) — pelihavainto-työkalun kanoninen tasokuvaus (TM_ADAR_RUBRIIKKI, yksi lähde).
+    // Kuvaus + kannustava seuraava askel pääosassa, tasonumero toissijainen; fallback geneeriseen (§21).
+    if (d.key === 'ÄLY' && window.TM_ADAR_RUBRIIKKI) {
+      const r = window.TM_ADAR_RUBRIIKKI.alyTaso(t);
+      if (r) return '<div class="fc-bar" style="align-items:flex-start">'
+        + '<span class="bk">' + d.key + '</span>'
+        + '<div style="grid-column:span 2;font-size:10px;color:var(--text);line-height:1.35">'
+        +   '<div>Nyt: <b style="color:var(--cf-main,#28B090)">' + r.nyt + '</b> <span style="color:var(--ink3);font-size:8px">taso ' + r.taso + '/5</span></div>'
+        +   '<div style="color:var(--ink3);margin-top:1px">Seuraava askel: ' + r.askel + '</div>'
+        + '</div></div>';
+    }
     const seuraava = t < 5 ? ('seuraavaan: taso ' + (t + 1) + '/5') : 'huipputasolla — pidä yllä!';
     return '<div class="fc-bar"><span class="bk">' + d.key + '</span><div style="grid-column:span 2;font-size:10px;color:var(--text)">Nyt taso <b style="color:var(--cf-main,#28B090)">' + t + '/5</b> · <span style="color:var(--ink3)">' + seuraava + '</span></div></div>';
   };
