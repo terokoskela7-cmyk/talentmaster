@@ -1,117 +1,124 @@
 # TalentMaster — Vaihe 1: Perustan kovetus (hosting-vaihto + modularisointi)
 
-_Tarkka toteutussuunnitelma · annettavaksi koodarille TAI ajettavaksi itse · spec-and-verify_
+_Tarkka toteutussuunnitelma · v2 (täydennetty turvaverkoilla) · solo-vetäjälle & tulevalle partnerille · spec-and-verify_
 
-## Miten tätä käytetään
+## Miten tätä käytetään + solo-realismi
 
-Jokainen **vaihe** = yksi `CODE_OHJE`-briiffi (minä kirjoitan) → yksi PR → verifiointi → merge.
-**Ei big-bangia:** jokainen vaihe on itsenäisesti tuotantoon vietävä JA peruutettava. Voit pysähtyä
-minkä tahansa vaiheen jälkeen ilman että mikään jää kesken.
+Jokainen **vaihe** = yksi `CODE_OHJE`-briiffi (arkkitehti kirjoittaa) → yksi PR → verifiointi → merge.
+**Ei big-bangia:** jokainen vaihe on itsenäisesti tuotantoon vietävä JA peruutettava.
 
-### Prosessi (toistuu joka vaiheessa)
+**Prosessi (toistuu joka vaiheessa):**
 1. **Arkkitehti (Claude)** kirjoittaa briiffin: mitä, miksi, DoD, verifiointitapa.
-2. **Koodari (Code tai sinä)** toteuttaa branchilla → PR (base `main`).
-3. **Arkkitehti** verifioi: **L1** git-diff · **L2** testit (`npm test`) · **L3** elävä selaimessa.
+2. **Koodari (AI Code tai partneri)** toteuttaa branchilla → PR (base `main`).
+3. **Arkkitehti** verifioi: **L1** git-diff · **L2** testit · **L3** elävä selaimessa.
 4. **Sinä** mergeät. Deploy.
-5. Seuraava vaihe vasta kun edellinen on vihreä.
 
-### Kultaiset säännöt (suojaavat migraatiossa — nämä estävät rikkomisen)
-- **Behavior-preserving:** ekstraktiossa käytös ei muutu, logiikka vain *siirtyy* uuteen paikkaan.
-- **Säilytä testattu ydin + invariantit** (CLAUDE.md §3/§7) — älä kirjoita niitä uusiksi.
+**Solo-realismi (tärkeä):** et kirjoita ekstraktioita käsin. **AI-koodari tekee koodin, sinä ajat
+silmukkaa** — hyväksy briiffi → käske Code toteuttamaan → Claude verifioi → sinä mergeät.
+Ei vaadi teknistä syväosaamista; vaatii luotettavan prosessin, joka on tässä.
+
+**Solo-vyöhyke:** **1.0–1.4 on turvallinen yksin** (perusta + pieni pilotti). **1.5–1.6 (kalenteri,
+kortti/5D) ovat isoimmat/riskisimmät → tee partnerin kanssa tai erityishuolella.** Voit pysähtyä
+minkä tahansa vaiheen jälkeen — jo 1.0:n jälkeen olet paljon vahvemmalla.
+
+## Kultaiset säännöt (suojaavat migraatiossa)
+- **Behavior-preserving:** ekstraktiossa käytös ei muutu, logiikka vain *siirtyy*.
+- **Säilytä testattu ydin + invariantit** (CLAUDE.md §3/§7) — älä kirjoita uusiksi.
 - **Yksi huoli per PR.** Testit ekstraktion mukana. Ei Rules-/skeemamuutosta ellei vaihe on juuri se.
-- **Verifioi ennen mergeä.** Pidä vanha polku kunnes uusi on todistettu.
-
-### Tärkeä tekninen valinta (miksi tämä on matalariskinen)
-Modularisointi **ei vaadi bundleria eikä build-vaihetta.** `lib/`-moduulit ladataan jo nyt tavallisella
-`<script src>`-tagilla (dual-export: `module.exports || window.TM_*`). Ekstraktio = siirrä logiikka
-inline-HTML:stä `lib/tm_*.js`:ään, lataa se scriptinä, kutsu appista. **Sama kuvio jonka verifioimme
-juuri tässä sessiossa** (`tm_adar_rubriikki.js`, `_tekKorttiData`). Bundleri (esbuild) on
-*myöhempi, valinnainen* optimointi — ei estä eikä tarvita.
+- **Verifioi ennen mergeä.** Pidä vanha polku kunnes uusi todistettu.
+- **Ei bundleria/build-vaihetta tarvita:** `lib/`-moduulit ladataan `<script src>`-tagilla
+  (dual-export). Ekstraktio = siirrä logiikka inline-HTML:stä `lib/tm_*.js`:ään. Sama kuvio jonka
+  verifioimme (`tm_adar_rubriikki.js`, `_tekKorttiData`). Esbuild-bundleri = myöhempi, valinnainen.
 
 ---
 
-## Vaiheet järjestyksessä
+## VAIHE 1.0 — Turvaverkko (LAAJENNETTU) · ennen kuin mitään koodia liikutetaan
+Tämä on nyt suunnitelman **tärkein perusta** — se tekee kaiken muun turvalliseksi yksin tekevälle.
 
-### 1.0 — Turvaverkko & valmistelu · koko: S · riski: mitätön
-**Ennen kuin mitään koodia liikutetaan.** Tavoite: kukaan ei lennä sokkona.
+### 1.0a — Ympäristö & ajettavuus
+- **Erillinen staging-Firebase-projekti** (tai vähintään Firestore-emulaattori paikalliseen kehitykseen)
+  → refaktoroinnit/kokeilut EIVÄT osu tuotanto-dataan (oikeiden alaikäisten data). ⚠️ Isoin
+  yksittäinen turvaverkko solo-refaktoroinnille — nyt apit osuvat suoraan tuotantoon.
 - Node-versio pinnattu (`package.json` `engines` — nyt tyhjä).
 - `README.md` + `docs/DEV_ONBOARDING.md` (kloonaa → `npm install` → `npm test` → esikatsele → deploy).
-- CI vihreä baseline; varmuuskopiot päälle (Firestore export / PITR); Sentry-kattavuus tarkistettu.
-- **Verifiointi:** uusi kone saa repon pystyyn pelkän dokumentin avulla; backupit päällä.
-- **Valmis kun:** kuka tahansa (myös sinä) saa ympäristön pystyyn ohjeesta.
+  Ratkaisee samalla "toisen koodaajan onboarding" -kysymyksen.
 
-### 1.1 — Firebase Hosting -siirto · koko: M · riski: matala, täysin peruutettavissa
-Tavoite: atomiset deployt, rollback, **preview-kanavat**, cache-headerit. **Ei koske sovelluslogiikkaa.**
-- `firebase.json` hosting-konfig; deploy **rinnakkain** GitHub Pagesin kanssa (ei vielä cutoveria).
-- `Cache-Control`-headerit → poistaa `?v=`-käsityön tarpeen operatiivisesti.
-- **Preview-kanava per PR** → L3-verifiointi oikeasta URL:sta *ennen* mergeä (parantaa kaikkea muuta).
-- Verifioi että Firebase Hosting -versio käyttäytyy identtisesti; **sitten cutover** (domain).
-- **Verifiointi:** L3 — molemmat hostit rinnan, identtinen käytös; GitHub Pages jää varalle.
-- **Valmis kun:** tuotanto Firebase Hostingissa, vanha jää fallbackiksi, preview-kanavat käytössä.
+### 1.0b — Pääsy, jatkuvuus & bus-factor (solo-riski)
+- **Kirjaa kuka-omistaa-mitä + palautuspolut:** Firebase/GCP-omistajuus, domain, GitHub, super-admin,
+  laskutus; recovery-sähköpostit, 2FA-varakoodit. **Bus-factor = 1** nyt → tämä on halpa vakuutus.
+- **Turvallisen luovutuksen suunnitelma** partnerille (secretit, IAM-roolit) valmiiksi.
+- **Dokumentit = projektin aivot:** AI:lla ei ole muistia yli sessioiden → CLAUDE.md + briiffit +
+  nämä suunnitelmat *ovat* muisti. Pidä ajan tasalla. Lisää kevyt **päätösloki (ADR)**: *miksi*
+  valittiin hosting-vaihto eikä rewrite, jne.
 
-### 1.2 — Versiointi kuntoon · koko: S · riski: matala
-Tavoite: sama jaettu kirjasto ei aja eri versioina eri apeissa (velka V5/V7).
-- Skripti joka synkkaa `?v=` kaikkiin 6 appiin yhdestä lähteestä (`version.json`).
-- `bump-version` kattamaan **VP + Seura** (nyt vain 4/6 → ne jäävät jälkeen).
-- **Verifiointi:** L1 (kaikki apit sama lib-versio) + L2.
-- **Valmis kun:** yksi versio per lib, kaikki 6 appia synkassa.
+### 1.0c — Turva & kustannus
+- **Varmuuskopiot päälle:** Firestore-export + Point-in-Time Recovery.
+- **Kova budjettikatto** (ei vain hälytys) — solo-vetäjä ei saa yllätyslaskua jos huono kysely pääsee läpi.
+- **Anonyymin pääsyn väärinkäyttöpinnan tarkistus** (näimme RSVP:n anon-polun) — 10k + anon-kirjoitus
+  = luku-/kustannuspiikin riski.
+- Sentry-kattavuus tarkistettu (virhemonitorointi).
 
-### 1.3 — Kustannus-baseline · koko: S · riski: mitätön (vain mittaus)
-Tavoite: tiedä mistä Firestore-kustannus syntyy ennen kuin optimoit.
-- Kartoita: 16 reaaliaikaista listeneriä, rajaamattomat kokoelmaluvut, kalenterin koko-luku.
-- Firestore-käyttömittarit + **budjettihälytys** päälle.
-- **Tuotos:** priorisoitu lista optimoitavista hot-poluista (syöte Vaiheelle 2).
-- **Valmis kun:** baseline mitattu, hälytykset päällä, optimointilista olemassa.
+### 1.0d — Appien varmistusverkko (koska automaattitestit eivät kata appeja)
+- **Manuaalinen savutesti-checklista per app** (5 min: kirjaudu → kalenteri näkyy → kortti aukeaa →
+  RSVP toimii → tallennus onnistuu…), jonka **sinä** voit ajaa itse ennen mergeä. Vähentää yhden
+  pisteen riippuvuutta siitä että arkkitehti on aina paikalla L3:een.
 
-### 1.4 — Pilotti-ekstraktio · koko: S–M · riski: matala
-Tavoite: **todista strangler-kuvio pienellä palalla** — rakenna luottamus (etenkin jos teet itse /
-uusi koodari aloittaa). Valitse pieni, korkean duplikaation, matalan kytköksen logiikka
-(esim. auth/PIN-helper `tm_auth.js`:iin, tai pieni jaettu laskenta).
-- Ekstraktoi `lib/tm_*.js`:ään (dual-export) + vitest-testit; **yksi app** käyttämään.
-- **Verifiointi:** L1/L2/L3, käytös ennallaan.
-- **Valmis kun:** yksi huoli jaettuna + testattuna → malli todistettu ja toistettavissa.
+### 1.0e — GDPR-perusteet (juridis-operatiivinen, ei tekninen)
+- Dokumentoi: **kuka on rekisterinpitäjä**, **DPA-malli seuroille**, **poistoprosessi**. `terveys/`-
+  eristys on jo hyvä pohja. 10 000 alaikäistä + solo-omistaja = tämä ei saa olla jälkiajatus.
 
-### 1.5 — Kalenteri-ydin ekstraktio · koko: L (jaettu moneen PR:ään) · riski: keski
-Tavoite: poista **suurin bugipinta** (kalenteri/RSVP duplikaatio, velka V2 — siellä viime bugit elivät).
-- Laajenna `lib/tm_kalenteri.js`: lataus + saatavuus/tila render + save.
-- **Migroi yksi app kerrallaan:** Pelaaja → Vanhempi → Master → VP. Behavior-preserving. Testit mukana.
-- **Verifiointi:** L1/L2/L3 **per app** — erityisesti elävä kalenteri/RSVP (Topias).
-- **Valmis kun:** kaikki 4 appia käyttävät jaettua kalenteria; `_p7`/`_vanh`-copy-paste + kaksi
-  läsnäolotallenninta poistettu.
-
-### 1.6 — Kortti/5D-ydin ekstraktio · koko: L (jaettu) · riski: keski
-Tavoite: yhtenäistä kortti/5D-laskenta (velka V1) — kun kortti-featuret ovat vakiintuneet.
-- Ekstraktoi `_fcKorttiData`/`_laskeStage`/`_dimTaso5`/OVR `lib/`-moduuliin + **testit ENSIN**.
-- Migroi Pelaaja → VP/Master/Admin. Elvytä/korvaa kuollut `tm-kortit.js`/`tm-profile.js`.
-- **Verifiointi:** L1/L2/L3; kortti-render Topiaalla.
-- **Valmis kun:** yksi testattu kortti/5D-lähde, kaikki apit käyttävät sitä.
-
-### 1.7 — Ohut data-kerros · koko: M–L · riski: keski · (valinnainen, kun 1.5+1.6 tehty)
-Tavoite: keskitä hot-polkujen kirjoitukset (velka V3/V4) → poista "tallennin ajautuu" -luokka.
-- `lib/tm_data.js` repository: kayttajat, kalenteri, lasnaolijat, idp.
-- **Valmis kun:** hot-polkujen kirjoitukset kulkevat yhden kerroksen läpi.
+**Riski:** matala (enimmäkseen konfiguraatio + dokumentointi). **Valmis kun:** staging olemassa,
+pääsyt/recovery kirjattu, backupit + budjettikatto päällä, savutesti-checklistat + GDPR-perusteet
+dokumentoitu, repo pystyyn ohjeesta.
+**Huom:** osa 1.0:sta on **console/ops-työtä** (Firebase/GCP-konsoli) — tässä sinä tarvitset eniten
+kädestä pitäen -ohjausta; koodiosuudet (README, Node-pin, checklistat) AI hoitaa.
 
 ---
 
-## Aikajana & päätöspisteet
+## VAIHE 1.1 — Firebase Hosting -siirto · M · riski matala, peruutettavissa
+Atomiset deployt, rollback, **preview-kanavat**, cache-headerit. Ei koske sovelluslogiikkaa.
+- `firebase.json` hosting; deploy **rinnakkain** GitHub Pagesin kanssa; `Cache-Control` (poistaa
+  `?v=`-käsityön); **preview-kanava per PR** (L3 oikeasta URL:sta ennen mergeä).
+- Verifioi identtinen käytös → cutover. GitHub Pages jää fallbackiksi.
 
+## VAIHE 1.2 — Versiointi kuntoon · S · riski matala
+Sama lib ei aja eri versioina eri apeissa (V5/V7). Synkkaus-skripti `?v=` yhdestä lähteestä;
+`bump-version` kattamaan VP + Seura (nyt 4/6).
+
+## VAIHE 1.3 — Kustannus-baseline · S · riski mitätön (mittaus)
+Kartoita 16 listeneriä + rajaamattomat luvut + kalenterin koko-luku; käyttömittarit päälle;
+**tuotos:** priorisoitu optimointilista (syöte Vaiheelle 2). (Budjettikatto tuli jo 1.0c:ssä.)
+
+## VAIHE 1.4 — Pilotti-ekstraktio · S–M · riski matala
+Todista strangler-kuvio pienellä, hyvin rajatulla palalla (esim. auth/PIN-helper tai pieni jaettu
+laskenta) → `lib/tm_*.js` (dual-export) + testit; yksi app käyttämään. **Turvallinen ensiaskel solona.**
+
+## VAIHE 1.5 — Kalenteri-ydin ekstraktio · L (jaettu) · riski keski · ⚠️ partneri/erityishuolella
+Suurin bugipinta (V2). Laajenna `lib/tm_kalenteri.js`; migroi app kerrallaan (Pelaaja→Vanhempi→
+Master→VP), behavior-preserving, testit + savutesti per app.
+
+## VAIHE 1.6 — Kortti/5D-ydin ekstraktio · L (jaettu) · riski keski · ⚠️ partneri/erityishuolella
+Yhtenäistä kortti/5D-laskenta (V1) kun kortti-featuret vakiintuneet. Testit ENSIN. Migroi
+Pelaaja→VP/Master/Admin.
+
+## VAIHE 1.7 — Ohut data-kerros · M–L · valinnainen, kun 1.5+1.6 tehty
+Keskitä hot-polkujen kirjoitukset (V3/V4) → poista "tallennin ajautuu" -luokka.
+
+---
+
+## Aikajana
 ```
-1.0 turvaverkko → 1.1 hosting → 1.2 versiointi → 1.3 kustannus-baseline
-   → 1.4 pilotti-ekstraktio → 1.5 kalenteri → 1.6 kortti/5D → (1.7 data-kerros)
+1.0 turvaverkko (laaja) → 1.1 hosting → 1.2 versiointi → 1.3 kustannus-baseline
+   → 1.4 pilotti-ekstraktio  |  [SOLO-VYÖHYKE PÄÄTTYY TÄHÄN]
+   → 1.5 kalenteri → 1.6 kortti/5D → (1.7 data-kerros)   [partnerin kanssa / erityishuolella]
 ```
 
-- **1.0–1.3 = perusta** (nopeita, matalariskisiä). Näiden jälkeen olet valmiimpi kasvuun jo paljon.
-- **1.4 = mallin todistus.** Pieni, turvallinen — hyvä ensimmäinen jos teet itse.
-- **1.5–1.7 = varsinainen modularisointi**, app kerrallaan, ei koskaan monta yhtä aikaa samassa alueessa.
+## "Valmis kasvuun" -kriteeri (milloin voi alkaa kasvattaa seuramäärää)
+✅ Staging olemassa · ✅ hosting + rollback · ✅ varmuuskopiot + budjettikatto ·
+✅ kustannus-hot-polut rajattu · ✅ GDPR-perusteet dokumentoitu · ✅ savutesti-checklistat ·
+✅ pääsyt/recovery kirjattu.
 
-**Voit pysähtyä minkä tahansa vaiheen jälkeen.** Jos kasvu ei ole akuutti, 1.0–1.3 riittää pitkälle.
-
-## Sinun roolisi joka portilla (ei vaadi syväkokemusta)
-- Hyväksyt briiffin ennen toteutusta · mergeät PR:n verifioinnin jälkeen · päätät priorisoinnin.
-- Jos teet itse: seuraa briiffiä, aja `npm test` + `npm run lint`, avaa PR — **minä verifioin L1/L2/L3.**
-- **Aloita 1.0:sta** (turvaverkko) — se tekee kaiken muun turvalliseksi.
-
-## Rinnakkaisuus (jos löydät toisen koodarin)
-Turvallista rinnakkaistaa VAIN ei-päällekkäiset alueet: esim. 1.1 (hosting) + 1.3 (mittaus) yhtä
-aikaa OK. **Älä koskaan aja kahta koodaria samassa tiedostossa/alueessa** (esim. molemmat
-kalenterissa) — se synnyttää juuri ne ajautumabugit joita poistamme. Minä pidän sekvenssin.
+## Sinun roolisi joka portilla
+Hyväksyt briiffin → (käsket Coden toteuttaa) → ajat savutesti-checklistan → **Claude verifioi
+L1/L2/L3** → mergeät. **Aloita 1.0:sta.** Rinnakkaisuus (jos löytyy partneri): vain ei-päällekkäiset
+alueet yhtä aikaa; ei koskaan kahta samassa tiedostossa — arkkitehti pitää sekvenssin.
