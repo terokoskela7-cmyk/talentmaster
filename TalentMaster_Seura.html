@@ -741,30 +741,8 @@ tbody td:first-child { font-weight:600; color:var(--ink); }
 </div>
 
 <!-- ══ JOUKKUEEN VAIHTO -MODAL ══ -->
-<div class="modalTausta" id="joukkueMuutosModal">
-  <div class="modalKortti" style="max-width:400px;">
-    <button class="modalSuljeNappi" onclick="suljeModal('joukkueMuutosModal')">✕ Sulje</button>
-    <div class="modalOtsikko" id="joukkueMuutosOtsikko">Muuta joukkue</div>
-    <div class="modalKuvaus">
-      Valitse henkilölle uusi joukkue. Muutos päivittää myös Custom Claims:in
-      automaattisesti — valmentaja näkee uuden joukkueen kirjautuessaan uudelleen.
-    </div>
-    <div class="kenttaRyhma">
-      <label class="kenttaLabel">Joukkueet (voi valita useamman)</label>
-      <div id="muutos_joukkueet_lista" style="display:flex;flex-direction:column;gap:8px;
-        background:var(--bg3);border:1px solid var(--bord2);border-radius:8px;padding:12px;
-        max-height:220px;overflow-y:auto;">
-        <!-- Täytetään JS:ssä -->
-      </div>
-      <span style="font-size:11px;color:var(--ink3);margin-top:4px;display:block;">
-        Rastita kaikki joukkueet joita valmentaja vetää
-      </span>
-    </div>
-    <button class="nappi" id="tallennaJoukkueMuutosNappi" onclick="tallennaJoukkueMuutos()" style="margin-top:8px;">
-      Tallenna
-    </button>
-  </div>
-</div>
+<!-- Joukkuevalinta on yhdistetty "Muokkaa henkilön tietoja" -dialogiin (avaaHenkiloMuokkaus) — erillinen
+     #joukkueMuutosModal poistettu, yksi jaettu tallennuslogiikka (_keraaJoukkueKentat + tallennaHenkiloMuutos). -->
 
 
 <!-- ══ VALMENTAJAKUTSU-MODAL ══════════════════════════════════════ -->
@@ -2452,6 +2430,7 @@ async function renderHenkilosto(alue) {
                     data-suuntakoodi="${(h.suuntakoodi||'+358').replace(/"/g,'&quot;')}"
                     data-puhelin="${(h.puhelin||'').replace(/"/g,'&quot;')}"
                     data-rooli="${(h.rooli||'').replace(/"/g,'&quot;')}"
+                    data-joukkueet="${JSON.stringify(h.joukkueet||[h.joukkue].filter(Boolean)).replace(/"/g,'&quot;')}"
                     onclick="avaaHenkiloMuokkausNapista(this)">
                     Muokkaa
                   </button>
@@ -2463,13 +2442,6 @@ async function renderHenkilosto(alue) {
                     data-puhelin="${(h.puhelin||'').replace(/"/g,'&quot;')}"
                     onclick="lahetaSalasanaResetNapista(this)">
                     Salasana
-                  </button>
-                  <button class="toimNappi"
-                    data-uid="${h.id}"
-                    data-email="${(h.email||'').replace(/"/g,'&quot;')}"
-                    data-joukkueet="${JSON.stringify(h.joukkueet||[h.joukkue].filter(Boolean)).replace(/"/g,'&quot;')}"
-                    onclick="avaaJoukkueMuutosNapista(this)">
-                    Joukkueet
                   </button>
                   <button class="toimNappi vaara" onclick="deaktivoiKayttaja('${h.id}','${(h.email||'').replace(/'/g,"\\'")}')">Deaktivoi</button>
                 </div>
@@ -3822,6 +3794,8 @@ function lahetaSalasanaResetNapista(btn) {
 
 // ── Henkilön (toimihenkilön) tietojen muokkaus — puhelin ym. kayttajat-dokumenttiin ──
 function avaaHenkiloMuokkausNapista(btn) {
+  let joukkueet = [];
+  try { joukkueet = JSON.parse(btn.getAttribute('data-joukkueet') || '[]'); } catch (e) { joukkueet = []; }
   avaaHenkiloMuokkaus(
     btn.getAttribute('data-uid'),
     btn.getAttribute('data-etunimi') || '',
@@ -3829,10 +3803,38 @@ function avaaHenkiloMuokkausNapista(btn) {
     btn.getAttribute('data-email') || '',
     btn.getAttribute('data-suuntakoodi') || '+358',
     btn.getAttribute('data-puhelin') || '',
-    btn.getAttribute('data-rooli') || ''
+    btn.getAttribute('data-rooli') || '',
+    joukkueet
   );
 }
-function avaaHenkiloMuokkaus(uid, etunimi, sukunimi, email, suuntakoodi, puhelin, rooli) {
+// Jaettu joukkue-checkbox-lista (tila.joukkueet), esivalinta nykyisistä id:istä. Käytetään Muokkaa-dialogissa.
+function _renderJoukkueValinta(containerId, nykyisetIds) {
+  const lista = document.getElementById(containerId);
+  if (!lista) return;
+  const valitut = Array.isArray(nykyisetIds) ? nykyisetIds : [];
+  const joukkueet = tila.joukkueet || [];
+  if (!joukkueet.length) { lista.innerHTML = '<div style="font-size:12px;color:var(--ink3);">Ei joukkueita — luo joukkueita ensin.</div>'; return; }
+  lista.innerHTML = joukkueet.map(j => `
+    <label style="display:flex;align-items:center;gap:10px;cursor:pointer;padding:6px 4px;border-radius:6px;transition:background .15s;"
+      onmouseover="this.style.background='rgba(42,93,176,.06)'" onmouseout="this.style.background='transparent'">
+      <input type="checkbox" value="${j.id}" ${valitut.includes(j.id) ? 'checked' : ''}
+        style="width:16px;height:16px;accent-color:var(--teal);cursor:pointer;flex-shrink:0;">
+      <span style="font-size:13px;color:var(--ink2);">${j.nimi || j.id}</span>
+    </label>`).join('');
+}
+// Jaettu: kerää valitut joukkueet checkbox-listasta → Firestore-kentät (uusi + legacy). YKSI tallennuslogiikka.
+function _keraaJoukkueKentat(listaSelector) {
+  const checkboxes = document.querySelectorAll(listaSelector + ' input[type=checkbox]');
+  const valitutIds = Array.from(checkboxes).filter(cb => cb.checked).map(cb => cb.value);
+  const valitutNimet = valitutIds.map(id => { const j = (tila.joukkueet || []).find(x => x.id === id); return (j && j.nimi) || id; });
+  return {
+    joukkueet: valitutIds,
+    joukkueetNimet: valitutNimet,
+    joukkue: valitutNimet[0] || valitutIds[0] || null,   // legacy — valmentajan näkymä lukee tätä
+    joukkueNimi: valitutNimet[0] || null                 // legacy
+  };
+}
+function avaaHenkiloMuokkaus(uid, etunimi, sukunimi, email, suuntakoodi, puhelin, rooli, joukkueet) {
   let modal = document.getElementById('henkiloMuokkausModal');
   if (!modal) {
     modal = document.createElement('div');
@@ -3875,6 +3877,11 @@ function avaaHenkiloMuokkaus(uid, etunimi, sukunimi, email, suuntakoodi, puhelin
             '<input class="kenttaInput" type="tel" id="hm_puhelin" value="' + esc(puhelin) + '" placeholder="40 123 4567" style="flex:1;"></div>' +
           '<span style="font-size:11px;color:var(--ink3);">Mahdollistaa WhatsApp-jaon suoraan numeroon (kutsu + salasanalinkki).</span>' +
         '</div>' +
+        '<div class="kenttaRyhma" style="margin-bottom:8px;">' +
+          '<label class="kenttaLabel">Joukkueet joita valmentaa</label>' +
+          '<div id="hm_joukkueet_lista" style="display:flex;flex-direction:column;gap:8px;background:var(--bg3);border:1px solid var(--bord2);border-radius:8px;padding:12px;max-height:200px;overflow-y:auto;"></div>' +
+          '<span style="font-size:11px;color:var(--ink3);">Rastita kaikki joukkueet joita henkilö vetää. Tallentuu heti — ei vaadi uudelleenkirjautumista.</span>' +
+        '</div>' +
         '<div id="hm_status" style="font-size:12px;color:var(--ink3);margin:8px 0;min-height:16px;"></div>' +
         '<div style="display:flex;gap:10px;justify-content:flex-end;">' +
           '<button class="toimNappi" onclick="document.getElementById(\'henkiloMuokkausModal\').classList.remove(\'auki\')">Peruuta</button>' +
@@ -3885,6 +3892,7 @@ function avaaHenkiloMuokkaus(uid, etunimi, sukunimi, email, suuntakoodi, puhelin
   modal.classList.add('auki');
   const sel = document.getElementById('hm_suunta');
   if (sel) sel.value = suuntakoodi || '+358';
+  _renderJoukkueValinta('hm_joukkueet_lista', joukkueet || []);   // esivalinta henkilön nykyisistä joukkueista
   setTimeout(function(){ const e = document.getElementById('hm_puhelin'); if (e) e.focus(); }, 100);
 }
 async function tallennaHenkiloMuutos() {
@@ -3897,8 +3905,13 @@ async function tallennaHenkiloMuutos() {
   const status = document.getElementById('hm_status');
   if (status) status.textContent = 'Tallennetaan...';
   try {
+    // Joukkueet + yhteystiedot samaan set-merge-kirjoitukseen (Rules sallii johdolle ei-rooli/seuraId-kentät).
+    // Joukkuejäsenyys EI ole custom claimseissa → ei vaadi uudelleenkirjautumista (vain rooli vaatii, CF alla).
+    const jk = _keraaJoukkueKentat('#hm_joukkueet_lista');
     await db.collection('seurat').doc(tila.seuraId).collection('kayttajat').doc(uid)
-      .set({ etunimi: etunimi, sukunimi: sukunimi, suuntakoodi: suuntakoodi, puhelin: puhelin }, { merge: true });
+      .set({ etunimi: etunimi, sukunimi: sukunimi, suuntakoodi: suuntakoodi, puhelin: puhelin,
+             joukkueet: jk.joukkueet, joukkueetNimet: jk.joukkueetNimet, joukkue: jk.joukkue, joukkueNimi: jk.joukkueNimi,
+             muokattu: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true });
     // OSA 2 — roolinvaihto AINA vaihdaKayttajanRooli-CF:n kautta (Firestore + claims + revoke).
     // Suora Firestore-kirjoitus EI päivitä Rules-oikeuksia (CLAUDE.md: roolinvaihto-invariantit).
     const uusiRooli = (document.getElementById('muokkaus-rooli') || {}).value;
@@ -4751,112 +4764,11 @@ async function suoritaPelaajanPoisto(pelaajaId, pelaajanNimi) {
 // JOUKKUEEN VAIHTO HENKILÖLLE
 // PERMISSION_MATRIX: VP ja super-admin voivat muokata käyttäjien tietoja
 // ─────────────────────────────────────────────────────────────────
-let _muokattavaUid   = null;
-let _muokattavaEmail = null;
-
-// Apufunktio joka lukee data-attribuuteista turvallisesti
-// Välttää JSON.stringify-ongelmat onclick-attribuuteissa
-function avaaJoukkueMuutosNapista(nappi) {
-  const uid     = nappi.dataset.uid;
-  const email   = nappi.dataset.email;
-  let joukkueet = [];
-  try {
-    joukkueet = JSON.parse(nappi.dataset.joukkueet || '[]');
-  } catch (e) {
-    joukkueet = [];
-  }
-  avaaJoukkueMuutos(uid, email, joukkueet);
-}
-
-function avaaJoukkueMuutos(uid, email, nykyisetJoukkueet) {
-  _muokattavaUid   = uid;
-  _muokattavaEmail = email;
-
-  // nykyisetJoukkueet voi olla joko merkkijono (vanha formaatti)
-  // tai JSON-taulukko (uusi formaatti) — tuetaan molempia
-  let nykyinenLista = [];
-  if (Array.isArray(nykyisetJoukkueet)) {
-    nykyinenLista = nykyisetJoukkueet;
-  } else if (typeof nykyisetJoukkueet === 'string' && nykyisetJoukkueet) {
-    try { nykyinenLista = JSON.parse(nykyisetJoukkueet); }
-    catch { nykyinenLista = [nykyisetJoukkueet]; } // vanha yksittäinen joukkue
-  }
-
-  // Rakennetaan checkbox-lista kaikista seuran joukkueista
-  const lista = document.getElementById('muutos_joukkueet_lista');
-  if (lista) {
-    lista.innerHTML = tila.joukkueet.map(j => `
-      <label style="display:flex;align-items:center;gap:10px;cursor:pointer;
-        padding:6px 4px;border-radius:6px;transition:background .15s;"
-        onmouseover="this.style.background='rgba(42,93,176,.06)'"
-        onmouseout="this.style.background='transparent'">
-        <input type="checkbox" value="${j.id}"
-          ${nykyinenLista.includes(j.id) ? 'checked' : ''}
-          style="width:16px;height:16px;accent-color:var(--teal);cursor:pointer;flex-shrink:0;">
-        <span style="font-size:13px;color:var(--ink2);">${j.nimi || j.id}</span>
-      </label>`).join('');
-  }
-
-  const otsikko = document.getElementById('joukkueMuutosOtsikko');
-  if (otsikko) otsikko.textContent = `Joukkueet: ${email}`;
-
-  document.getElementById('joukkueMuutosModal').classList.add('auki');
-}
-
-async function tallennaJoukkueMuutos() {
-  if (!_muokattavaUid) return;
-
-  // Kerätään valitut joukkueet checkboxeista
-  const checkboxes = document.querySelectorAll('#muutos_joukkueet_lista input[type=checkbox]');
-  const valitutIds = Array.from(checkboxes)
-    .filter(cb => cb.checked)
-    .map(cb => cb.value);
-
-  // Rakennetaan myös nimet tallennusta varten
-  const valitutNimet = valitutIds.map(id => {
-    const j = tila.joukkueet.find(j => j.id === id);
-    return j?.nimi || id;
-  });
-
-  const nappi = document.getElementById('tallennaJoukkueMuutosNappi');
-  nappi.disabled    = true;
-  nappi.textContent = 'Tallennetaan...';
-
-  try {
-    // Tallennetaan Firestoreen uudessa taulukkomuodossa.
-    // Säilytetään myös vanha joukkue-kenttä yhteensopivuuden vuoksi
-    // — asetetaan ensimmäinen joukkue siihen jos lista ei ole tyhjä.
-    await db.collection('seurat').doc(tila.seuraId)
-      .collection('kayttajat').doc(_muokattavaUid)
-      .update({
-        joukkueet:     valitutIds,
-        joukkueetNimet: valitutNimet,
-        // Yhteensopivuus vanhan koodin kanssa — poistetaan kun kaikki on päivitetty
-        joukkue:     valitutNimet[0] || valitutIds[0] || null,
-        joukkueNimi: valitutNimet[0] || null,
-        muokattu:    firebase.firestore.FieldValue.serverTimestamp(),
-      });
-
-    // Cloud Function paivitaClaimsRoolimuutoksessa triggeröityy automaattisesti
-    // ja päivittää JWT-tokenin joukkueet-listan
-
-    nappi.disabled    = false;
-    nappi.textContent = 'Tallenna';
-    suljeModal('joukkueMuutosModal');
-
-    const nimiLista = valitutNimet.length > 0
-      ? valitutNimet.join(', ')
-      : 'ei joukkueita';
-    naytaToast(`${_muokattavaEmail}: ${nimiLista}`, 'ok');
-
-    renderHenkilosto(document.getElementById('nakymaAlue'));
-
-  } catch (e) {
-    nappi.disabled    = false;
-    nappi.textContent = 'Tallenna';
-    naytaToast('Tallennus epäonnistui: ' + e.message, 'virhe');
-  }
-}
+// Henkilön joukkuevalinta on yhdistetty "Muokkaa henkilön tietoja" -dialogiin (avaaHenkiloMuokkaus +
+// _renderJoukkueValinta + _keraaJoukkueKentat + tallennaHenkiloMuutos). Erillinen avaaJoukkueMuutos/
+// tallennaJoukkueMuutos()-pari + #joukkueMuutosModal poistettu → yksi jaettu tallennuslogiikka.
+// (Sivuvaikutus: nimikonflikti team-rename tallennaJoukkueMuutos(joukkueId,vanhanimi):n kanssa poistui.)
+// Joukkuejäsenyys EI ole custom claimseissa → suora Firestore-kirjoitus, ei uudelleenkirjautumista (vain rooli vaatii).
 
 // ─────────────────────────────────────────────────────────────────
 // EXCEL-POHJAN GENEROINTI — SheetJS
@@ -6087,10 +5999,10 @@ function naytaToast(teksti, tyyppi = 'ok') {
 // Esc sulkee modalit
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape') {
-    ['rekisteriModal','joukkueModal','joukkueMuutosModal','rekisteriOhjeModal'].forEach(id => suljeModal(id));
+    ['rekisteriModal','joukkueModal','rekisteriOhjeModal'].forEach(id => suljeModal(id));
   }
 });
-['rekisteriModal','joukkueModal','joukkueMuutosModal','rekisteriOhjeModal'].forEach(id => {
+['rekisteriModal','joukkueModal','rekisteriOhjeModal'].forEach(id => {
   document.getElementById(id).addEventListener('click', function(e) {
     if (e.target === this) suljeModal(id);
   });
