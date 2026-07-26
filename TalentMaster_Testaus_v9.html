@@ -13,6 +13,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 <script src="src/lib/tm_bioika.js?v=3"></script>
+<script src="lib/tm_historia.js?v=1"></script>   <!-- Trendi Vaihe 1b: H-H/TKI-historia online-tallennuksessa (tmHhSnapshot/tmTkiSnapshot/tmHistoriaLisaa) -->
 
 <style>
 /* ═══════════════════════════════════════════════════════════════
@@ -2924,6 +2925,37 @@ async function _v6TallennaEnnatykset() {
   }
 }
 
+// Trendi Vaihe 1b — H-H/TKI-historia (aikasarja) online-testauksesta. Best-effort (ei kaada valmiiksi-merkintää),
+// sama kuvio kuin _v6TallennaEnnatykset. Snapshot ottaa VAIN mitatut RAAKA-avaimet (§26, jaettu tm_historia-lib);
+// tasot (hh_taso/d1_taso) lasketaan tuonnissa/recalcHH:ssa/backfillissä (ei eerikkilä-libiä tässä apissa) → upsert
+// pvm:llä täydentää saman pisteen myöhemmin. Testijoukko-agnostinen. Testaus_v9-testi-id:t → snapshot-avaimet.
+async function _v6TallennaHistoria() {
+  if (typeof tmHhSnapshot !== 'function' || typeof tmHistoriaLisaa !== 'function' || typeof tmTkiSnapshot !== 'function') return;
+  var pvm = (_aktiivinenTapahtuma && _aktiivinenTapahtuma.pvm) ? String(_aktiivinenTapahtuma.pvm).slice(0, 10) : new Date().toISOString().slice(0, 10);
+  var pelaajat = (_aktiivinenTapahtuma && _aktiivinenTapahtuma.pelaajatData) || [];
+  // Testaus_v9-testi-id → hh_viimeisin-muotoinen snapshot-avain (alaviivat pois; hyppy_cj→cmj; *_hh → laji)
+  var HH_MAP = { lin_5m: 'lin5m', lin_10m: 'lin10m', lin_30m: 'lin30m', hyppy_cj: 'cmj', mas: 'mas', kasirata: 'kasirata', sm_juoksu: 'sm_juoksu', sm_pallo: 'sm_pallo', pujottelu_hh: 'pujottelu', syotto_hh: 'syotto' };
+  var TK_MAP = { ponnauttelu: 'ponnauttelu', syotto: 'syotto', pujottelu: 'pujottelu', kuljetus_laukaus: 'kuljetus_laukaus', pituuspotku: 'pituuspotku_bonus' };
+  var num = function (v) { if (v == null) return null; if (typeof v === 'object') v = (v.tulos != null ? v.tulos : v.paras); var n = parseFloat(v); return isNaN(n) ? null : n; };
+  for (var i = 0; i < pelaajat.length; i++) {
+    var pl = pelaajat[i];
+    try {
+      var tul = _tulokset[pl.id] || {};
+      var hv = {}, tkLajit = {};
+      Object.keys(HH_MAP).forEach(function (k) { var v = num(tul[k]); if (v != null) hv[HH_MAP[k]] = v; });
+      Object.keys(TK_MAP).forEach(function (k) { var v = num(tul[k]); if (v != null) tkLajit[TK_MAP[k]] = v; });
+      if (!Object.keys(hv).length && !Object.keys(tkLajit).length) continue;
+      var ref = _db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(pl.id);
+      var snap = await ref.get();
+      var d = (snap.exists && snap.data()) || {};
+      var upd = {};
+      if (Object.keys(hv).length) upd.hh_historia = tmHistoriaLisaa(d.hh_historia || [], tmHhSnapshot(pvm, { hv: hv }));
+      if (Object.keys(tkLajit).length) upd.tki_historia = tmHistoriaLisaa(d.tki_historia || [], tmTkiSnapshot(pvm, { tkLajit: tkLajit }));
+      if (Object.keys(upd).length) await ref.update(upd);
+    } catch (e) { console.warn('[historia]', pl.id, e && e.message); }
+  }
+}
+
 window._v6MerkitseValmiiksi = async function _v6MerkitseValmiiksi() {
   if (!_aktiivinenTapahtuma) return;
   // Varmuussynkronointi ensin
@@ -2945,6 +2977,8 @@ window._v6MerkitseValmiiksi = async function _v6MerkitseValmiiksi() {
 
     // KORTTI 1c-A — päivitä ennätykset (PB) pikakenttä (best-effort, ei kaada valmiiksi-merkintää).
     try { await _v6TallennaEnnatykset(); } catch (e) { console.warn('[ennatykset]', e && e.message); }
+    // Trendi Vaihe 1b — H-H/TKI-historia (aikasarja) online-testauksesta (best-effort).
+    try { await _v6TallennaHistoria(); } catch (e) { console.warn('[historia]', e && e.message); }
 
     _v6Renderoi();
     await _lataaTapahtumat();

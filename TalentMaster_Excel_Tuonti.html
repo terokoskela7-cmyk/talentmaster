@@ -3062,6 +3062,19 @@ async function tallennaFirestoreen() {
             tallennettu: NYT_ISO  // ISO-string — EI serverTimestamp (kielletty array:n sisällä)
           });
         }
+        // Trendi Vaihe 1b — H-H/TKI-historia (aikasarja): liitä snapshot jokaiseen mittaukseen (jaettu tm_historia-lib).
+        // Upsert pvm:llä → re-import samalle pvm:lle EI duplikaattia; katko 20; testijoukko-agnostinen (vain mitatut).
+        // d1_taso/d2_taso ovat jo laskettu tässä profiiliUpdate:ssa (yllä). Backfill jää idempotentiksi varaverkoksi.
+        if (hhViimeisin && typeof tmHhSnapshot === 'function' && typeof tmHistoriaLisaa === 'function') {
+          const _hhEdell = (p._firestoreData && p._firestoreData.hh_historia) || [];
+          profiiliUpdate.hh_historia = tmHistoriaLisaa(_hhEdell, tmHhSnapshot(pvmIso, {
+            hh_taso: hhTaso, d1_taso: profiiliUpdate.d1_taso, d2_taso: profiiliUpdate.d2_taso, hv: hhViimeisin
+          }));
+        }
+        if (tki !== null && typeof tmTkiSnapshot === 'function' && typeof tmHistoriaLisaa === 'function') {
+          const _tkiEdell = (p._firestoreData && p._firestoreData.tki_historia) || [];
+          profiiliUpdate.tki_historia = tmHistoriaLisaa(_tkiEdell, tmTkiSnapshot(pvmIso, { tki: tki, tkLajit: _tkLajit || {} }));
+        }
         // KORTTI 1c-A — päivitä ennätykset (PB) pikakenttä varmoista pikakentistä (best-effort, ei kaada tuontia).
         try {
           const _ennatKand = _ennatysKandidaatit(hhViimeisin, _tkLajit, fleiPct, pvmIso);
@@ -4269,14 +4282,15 @@ window.backfillHistoria = async function(seuraIdArg, dryRun) {
     muutokset.push({ ref: pd.ref, nimi: (p.sukunimi||'') + ', ' + (p.etunimi||''), hh: hh_historia, tki: tki_historia });
   }
 
+  // Loki tulostaa SNAPSHOTIN KAIKKI mitatut avaimet (ei kovakoodattu 30m/kasirata) → luettava kaikilla
+  // seuroilla myös SJK-tyypillä (cmj/lin10m/sm_juoksu/sm_pallo). pvm + avaimet=arvot per piste.
+  const _pisteTxt = function(pts){ return pts.map(function(x){
+    return x.pvm + ':' + Object.keys(x).filter(function(k){ return k !== 'pvm'; }).map(function(k){ return k + '=' + x[k]; }).join(',');
+  }).join(' | '); };
   muutokset.forEach(function(m){
-    let hhInfo = '';
-    if (m.hh.length) {
-      const s30 = m.hh.map(function(x){ return x.lin30m != null ? x.lin30m : '·'; }).join('/');
-      const sKas = m.hh.map(function(x){ return x.kasirata != null ? x.kasirata : '·'; }).join('/');
-      hhInfo = ' · hh ' + m.hh.length + ' pt (30m: ' + s30 + ' · kasirata: ' + sKas + ')';
-    }
-    console.log((dryRun ? '[DRY-RUN] ' : '[backfillHistoria] ') + m.nimi + hhInfo + (m.tki.length ? (' · tki ' + m.tki.length + ' pt') : ''));
+    const hhInfo = m.hh.length ? (' · hh ' + m.hh.length + ' pt [' + _pisteTxt(m.hh) + ']') : '';
+    const tkiInfo = m.tki.length ? (' · tki ' + m.tki.length + ' pt [' + _pisteTxt(m.tki) + ']') : '';
+    console.log((dryRun ? '[DRY-RUN] ' : '[backfillHistoria] ') + m.nimi + hhInfo + tkiInfo);
   });
 
   if (dryRun) {
