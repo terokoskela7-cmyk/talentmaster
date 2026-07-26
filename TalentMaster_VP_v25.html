@@ -13132,8 +13132,11 @@ function _dimSegRivi(taso) {
 // D2-taso prioriteetilla: TKI (0–100 → 1–5) > SM-pohjainen d2_taso (jo 1–5) > null.
 // Skaalautuu: kun TKI joskus täyttyy, se korvaa SM-pohjaisen automaattisesti.
 function laskeD2Taso(p) {
-  if (p.tki_viimeisin != null) return Math.round((p.tki_viimeisin / 20) * 10) / 10;
+  // D2 = per-laji Eerikkilä-keskiarvo (d2_taso, kanoninen 1–5) ENSIN — vastaa per-laji-erittelyä.
+  // TKI (0–99 kokonaisaikaindeksi) EI määrää D2:ta: lineaarinen TKI/20 ei vastaa per-laji-asteikkoa
+  // (Topias: TKI 34 → 1.7 ristiriidassa per-laji-tasojen 2/5/4/5 kanssa). TKI näkyy edelleen omana indeksinään.
   if (p.d2_taso != null) return p.d2_taso;
+  if (p.tki_viimeisin != null) return Math.round((p.tki_viimeisin / 20) * 10) / 10;  // fallback jos d2_taso puuttuu
   return null;
 }
 function _d2Lahde(p) { return (p.tki_viimeisin != null) ? 'tki' : (p.d2_taso != null) ? (p.d2_lahde || 'sm') : null; }   // §30 joustava: sm/hh/tk
