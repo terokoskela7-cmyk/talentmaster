@@ -8741,6 +8741,7 @@ window.TM_TESTI_OHJEET = {
   nopeus_30m: { otsikko: 'Nopeus 30m', mita: '30 metrin juoksu — kiihdytyksen jälkeinen maksiminopeus (lentävä vaihe). Toimii kiihdytysprofiilin ja TSI-indeksin perustana.', tulkinta: 'Taso 1–5 Eerikkilä-normista, pienempi aika = parempi. Yhdessä 10m:n kanssa kertoo onko pelaaja kiihdytys- vai huippunopeustyyppi.' },
   cmj: { otsikko: 'Räjähtävyys · CMJ', mita: 'Kevennyshyppy (Counter-Movement Jump) senttimetreinä — alaraajojen räjähtävä voima ja elastinen energia.', tulkinta: 'Taso 1–5, suurempi = parempi. Korreloi kiihdytyksen ja suunnanmuutosvoiman kanssa.', vinkki: 'Matala CMJ + matala nopeus → voimaharjoittelu. Korkea CMJ + matala nopeus → juoksutekniikka / nopeusharjoittelu.' },
   mas: { otsikko: 'Kestävyys · MAS', mita: 'Maksimaalinen aerobinen nopeus (km/h) — kestävyyden ja toistuvista kiihdytyksistä palautumisen perusta.', tulkinta: 'Taso 1–5, suurempi = parempi.' },
+  kasirata: { otsikko: 'Ketteryys · kasirata', mita: 'Kasirata (8-muotoinen suunnanmuutosrata) sekunteina — ennalta suunniteltu ketteryys: jarrutus, käännös ja uudelleenkiihdytys ilman palloa. Liikehallintaketju LL (lateraalinen). Osa H-H laaja -patteristoa.', tulkinta: 'Taso 1–5 Eerikkilä-normista, pienempi aika = parempi. Ei mukana 30m·CMJ·MAS-kokonaistasossa (hh_taso) vaan erillinen ketteryys-osaindeksi (§30). Eroaa suunnanmuutoksesta (SM-juoksu / SM-pallo): kasirata = suljettu ketteryysrata, SM = suunnanmuutos ilman / pallon kanssa.', vinkki: 'Kehittyy suunnanmuutostekniikalla (jarrutus, matala painopiste, ensimmäinen askel ulos käännöksestä) ja lyhyillä ketteryyssukkuloilla — ei pitkillä juoksuilla.' },
   hh_taso: { otsikko: 'H-H kokonaistaso (D1 Fyysinen)', mita: 'Hyvinvointi & harjoitettavuus -kokonaistaso — kolmen avaintestin (30m, CMJ, MAS) keskiarvo asteikolla 1–5. Pelaajan D1 Fyysinen -ulottuvuus.', tulkinta: '5 = ikäluokan fyysinen huippu, 3 = keskitaso, 1 = laaja-alainen kehitystarve. 10m/5m ovat lisädiagnostiikkaa eivätkä muuta kokonaistasoa.' },
   kiihdytysprofiili: { otsikko: 'Kiihdytysprofiili', mita: 'Vertaa kiihdytysvaihetta (0–10m) huippunopeusvaiheeseen (lentävä 10–30m) — tai 5m-pohjainen FVP. Kertoo MILLAINEN nopeustyyppi pelaaja on, ei pelkkää nopeustasoa.', tulkinta: '<strong>Kiihdytysprofiili</strong> (suhde &lt;1.35): vahva startti, saavuttaa huippunopeuden nopeasti — erinomainen 1v1-tilanteissa ja ahtaassa tilassa.<br><strong>Tasapainoinen</strong> (1.35–1.50).<br><strong>Huippunopeusprofiili</strong> (&gt;1.50): suuri ero startista huippuun — vaarallinen avoimessa tilassa ja juoksuissa selän taakse.', vinkki: 'Kiihdytystyyppi hyötyy maksiminopeustyöstä (lentävät 20–30m); huippunopeustyyppi lähtökiihdytyksestä ja reaktiosta.' },
   sm_juoksu: { otsikko: 'Suunnanmuutos ilman palloa', mita: 'Suunnanmuutos ilman palloa (sekunteina) — ketteryys sekä jarrutus- ja uudelleenkiihdytyskyky suunnanvaihdossa.', tulkinta: 'Taso 1–5 Eerikkilä-normista, pienempi aika = parempi. Edustaa puhdasta liikkumistekniikkaa ilman pallon vaatimusta.' },
@@ -9140,8 +9141,8 @@ window._avaaPerPelaajaPikakatsaus = function(idx, joukkueNimi) {
     _diagCards += _diagKortti((hv.lin5m != null) ? '5 m kiihdytys' : '10 m kiihdytys', _a5, 's', 'räjähtävä lähtö');
   }
   if (hv.sm_juoksu != null) _diagCards += _diagKortti('Suunnanmuutos', hv.sm_juoksu, 's', 'ilman palloa');
-  if (hv.kasirata != null) _diagCards += _diagKortti('Ketteryys', hv.kasirata, 's', 'reaktiivinen · T-testi');
-  if (_diagCards) f1 += '<div class="diaglabel">Lisädiagnostiikka · ei H-H:ssa (ilman palloa)</div><div class="mrow">' + _diagCards + '</div>';
+  if (hv.kasirata != null) _diagCards += _diagKortti('Ketteryys', hv.kasirata, 's', 'kasirata (8-rata) · suunnanmuutos ilman palloa');
+  if (_diagCards) f1 += '<div class="diaglabel">Lisädiagnostiikka · ei mukana 1–5 kokonaistasossa (30m·CMJ·MAS)</div><div class="mrow">' + _diagCards + '</div>';
 
   // ── (A) PER-TESTI-RADAR (Fyysinen) — 10m/30m/CMJ/MAS/kasirata, tavoiteviiva taso 3, §28 epavarma himmennetty ──
   const _mkFysAks = function(key, taso, gated) {
@@ -9170,7 +9171,7 @@ window._avaaPerPelaajaPikakatsaus = function(idx, joukkueNimi) {
     { lbl: 'Nopeus 30m', ek: 'nopeus_30m', arvo: hv.lin30m, yks: 's', pien: true, gated: true },
     { lbl: 'CMJ', ek: 'hyppy_cj', arvo: hv.cmj, yks: 'cm', pien: false, gated: true },
     { lbl: 'MAS', ek: 'mas', arvo: hv.mas, yks: 'km/h', pien: false, gated: true },
-    { lbl: 'Kasirata', ek: 'kasirata', arvo: hv.kasirata, yks: 's', pien: false, gated: false }
+    { lbl: 'Kasirata', ek: 'kasirata', arvo: hv.kasirata, yks: 's', pien: true, gated: false }
   ];
   let _nrows = '';
   _fysNormit.forEach(function(t){
