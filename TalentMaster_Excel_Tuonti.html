@@ -21,6 +21,7 @@
 <script src="lib/tm_eerikkila_normit.js?v=40"></script>
 <script src="lib/tm_joukkue.js?v=3"></script>
 <script src="lib/tm_pvm.js?v=3"></script>
+<script src="lib/tm_historia.js?v=1"></script>   <!-- Trendi Vaihe 1a: mittaushistorian selkäranka (tmHhSnapshot/tmTkiSnapshot/tmHistoriaLisaa) -->
 
 <style>
 :root {
@@ -4193,6 +4194,110 @@ window.recalcHH = async function(seuraIdArg, dryRun, force) {
     + ohitettu + ' · skipattu (ei ikä/sp): ' + eiLaskettavissa + ' · virheitä: ' + virhe);
   if (typeof toast === 'function') toast('recalcHH: ' + paivitetty + ' päivitetty' + (virhe ? ' · ' + virhe + ' virhe' : ''), virhe ? 'err' : 'ok');
   return { dryRun: false, paivitetty: paivitetty, ohitettu: ohitettu, eiLaskettavissa: eiLaskettavissa, virhe: virhe };
+};
+
+// backfillHistoria(seuraId, dryRun=true) — Trendi Vaihe 1a KERTATÄYTTÖ: rakentaa hh_historia + tki_historia
+// kunkin pelaajan testitulokset-dokumenteista (SA-konsoli, malli recalcHH). Idempotentti — rakentaa AINA
+// lähteestä uudelleen, upsert pvm:llä (tm_historia-lib). Vain data: kirjoittaa vain hh_historia/tki_historia,
+// ei muuta kenttiä eikä UI:ta. Testijoukko-agnostinen (Sibbo kasirata+30m · SJK 10m/30m/cmj/sm_juoksu/sm_pallo).
+window.backfillHistoria = async function(seuraIdArg, dryRun) {
+  if (dryRun === undefined) dryRun = true;                    // turvallinen oletus
+  if (!superAdmin) { console.warn('[backfillHistoria] Vain Super Admin'); return; }
+  const sid = seuraIdArg || seuraId;
+  if (!sid) { console.warn('[backfillHistoria] Käyttö: backfillHistoria(seuraId, dryRun=true)'); return; }
+  if (typeof tmHhSnapshot !== 'function' || typeof tmHistoriaLisaa !== 'function' || typeof tmTkiSnapshot !== 'function') {
+    console.warn('[backfillHistoria] lib/tm_historia.js ei ladattu'); return;
+  }
+
+  // testit-mäpin skalaari (string TAI {paras,tulos}) → numero
+  const skal = function(v){ if (v == null) return null; if (typeof v === 'object') { const x = (v.tulos != null ? v.tulos : v.paras); return x != null ? parseFloat(x) : null; } const n = parseFloat(v); return isNaN(n) ? null : n; };
+  // testit-mäppi → hh_viimeisin-muotoinen hv (cmj ← hyppy_cj)
+  const hvOf = function(testit){ testit = testit || {}; const hv = {};
+    ['lin5m','lin10m','lin30m','mas','kasirata','sm_juoksu','sm_pallo','pujottelu','syotto'].forEach(function(k){ const v = skal(testit[k]); if (v != null) hv[k] = v; });
+    const cmj = skal(testit.hyppy_cj != null ? testit.hyppy_cj : testit.cmj); if (cmj != null) hv.cmj = cmj;
+    return hv; };
+  // TK-lajit testit-mäpistä (aikapohjaiset) → tkLajit
+  const tkLajitOf = function(testit, d){ testit = testit || {}; const tk = {};
+    ['ponnauttelu','syotto','pujottelu','kuljetus_laukaus','pituuspotku_bonus','kokonaistulos'].forEach(function(k){ const v = skal(testit[k]); if (v != null) tk[k] = v; });
+    if (tk.kokonaistulos == null && d && d.kokonaistulos_s != null) { const v = skal(d.kokonaistulos_s); if (v != null) tk.kokonaistulos = v; }
+    return tk; };
+  const pvmOf = function(id, d){
+    const iso = (d && d.testauspvm) ? (typeof _paivaIso === 'function' ? _paivaIso(d.testauspvm) : String(d.testauspvm).slice(0,10)) : null;
+    if (iso) return iso;
+    const m = String(id||'').match(/(\d{4}-\d{2}-\d{2})/); return m ? m[1] : (String(id||'').split('_')[0] || null);
+  };
+
+  const pelSnap = await db.collection('seurat').doc(sid).collection('pelaajat').get();
+  const muutokset = [];
+  let ohitettu = 0;
+
+  for (let pi = 0; pi < pelSnap.docs.length; pi++) {
+    const pd = pelSnap.docs[pi];
+    const p = pd.data();
+    const ttSnap = await pd.ref.collection('testitulokset').get().catch(function(){ return { docs: [] }; });
+    if (!ttSnap.docs.length) { ohitettu++; continue; }
+    // Ikä/sp per pelaaja (tasojen best-effort-laskentaan; sama lähde kuin recalcHH: syntymaVuosi + testin pvm).
+    const joukkue = p.joukkue || (Array.isArray(p.joukkueet) ? p.joukkueet[0] : '') || '';
+    const jm = String(joukkue).match(/\b([PTU])\s?(\d{1,2})\b/i);
+    const spRaaka = (jm && /[PT]/i.test(jm[1])) ? jm[1].toUpperCase() : (p.sukupuoli || null);
+    const sp = (spRaaka === 'P' || spRaaka === 'M') ? 'M' : (spRaaka === 'T' || spRaaka === 'N') ? 'N' : null;
+
+    let hh_historia = [], tki_historia = [];
+    ttSnap.docs.forEach(function(td){
+      const d = td.data() || {};
+      const pvm = pvmOf(td.id, d);
+      if (!pvm) return;
+      if (d.protokolla === 'tekniikkakilpailu') {
+        const snapT = tmTkiSnapshot(pvm, { tki: skal(d.tki), tkLajit: tkLajitOf(d.testit, d) });
+        if (Object.keys(snapT).length > 1) tki_historia = tmHistoriaLisaa(tki_historia, snapT);   // pvm + ≥1 mitattu
+      } else {
+        const hv = hvOf(d.testit);
+        if (!Object.keys(hv).length) return;                  // ei fyysistä dataa tässä docissa
+        let hh_taso = null, d1_taso = null;                    // tasot best-effort (samat helperit kuin recalcHH)
+        if (sp && p.syntymaVuosi && typeof normiIka === 'function') {
+          const ika = normiIka(p.syntymaVuosi, pvm, joukkue);
+          if (ika) {
+            if (typeof laskeHHTaso === 'function') hh_taso = laskeHHTaso({ lin30m: hv.lin30m, hyppy_cj: hv.cmj, mas: hv.mas }, ika, sp);
+            if (typeof laskeD1Joustava === 'function') { const o = laskeD1Joustava(hv, ika, sp); d1_taso = o ? o.taso : null; }
+          }
+        }
+        hh_historia = tmHistoriaLisaa(hh_historia, tmHhSnapshot(pvm, { hv: hv, hh_taso: hh_taso, d1_taso: d1_taso }));
+      }
+    });
+
+    if (!hh_historia.length && !tki_historia.length) { ohitettu++; continue; }
+    muutokset.push({ ref: pd.ref, nimi: (p.sukunimi||'') + ', ' + (p.etunimi||''), hh: hh_historia, tki: tki_historia });
+  }
+
+  muutokset.forEach(function(m){
+    let hhInfo = '';
+    if (m.hh.length) {
+      const s30 = m.hh.map(function(x){ return x.lin30m != null ? x.lin30m : '·'; }).join('/');
+      const sKas = m.hh.map(function(x){ return x.kasirata != null ? x.kasirata : '·'; }).join('/');
+      hhInfo = ' · hh ' + m.hh.length + ' pt (30m: ' + s30 + ' · kasirata: ' + sKas + ')';
+    }
+    console.log((dryRun ? '[DRY-RUN] ' : '[backfillHistoria] ') + m.nimi + hhInfo + (m.tki.length ? (' · tki ' + m.tki.length + ' pt') : ''));
+  });
+
+  if (dryRun) {
+    console.log('[DRY-RUN] backfillHistoria: ' + muutokset.length + ' pelaajaa saisi historian · ' + ohitettu + ' ilman testituloksia.');
+    console.log('[DRY-RUN] Aja oikeasti: backfillHistoria(\'' + sid + '\', false)');
+    return { dryRun: true, kpl: muutokset.length, ohitettu: ohitettu };
+  }
+
+  const ERA = Math.min(400, (typeof BATCH_KOKO !== 'undefined' ? BATCH_KOKO : 400));
+  let paivitetty = 0, virhe = 0;
+  const eria = Math.ceil(muutokset.length / ERA);
+  for (let e = 0; e < eria; e++) {
+    const era = muutokset.slice(e * ERA, (e + 1) * ERA);
+    const batch = db.batch();
+    era.forEach(function(m){ const u = {}; if (m.hh.length) u.hh_historia = m.hh; if (m.tki.length) u.tki_historia = m.tki; batch.set(m.ref, u, { merge: true }); });
+    try { await batch.commit(); paivitetty += era.length; }
+    catch (err) { console.error('[backfillHistoria batch ' + (e+1) + ']', err); virhe += era.length; }
+  }
+  console.log('[backfillHistoria] valmis: ' + paivitetty + ' / ' + muutokset.length + ' pelaajaa · virheitä ' + virhe);
+  if (typeof toast === 'function') toast('backfillHistoria: ' + paivitetty + ' päivitetty' + (virhe ? ' · ' + virhe + ' virhe' : ''), virhe ? 'err' : 'ok');
+  return { dryRun: false, paivitetty: paivitetty, ohitettu: ohitettu, virhe: virhe };
 };
 
 // migroiJoukkueNimet(seuraId, dryRun=true) — normalisoi pienellä/alaviivalla kirjoitetut joukkue-NÄYTTÖnimet
