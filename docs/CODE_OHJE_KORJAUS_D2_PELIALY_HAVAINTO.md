@@ -90,3 +90,19 @@ Arkkitehti voi auttaa toistamaan elävänä (Topias/KPV, sanktioitu testipelaaja
 - **C:** L1 diff = korjattu tallennus/virhe; L3 Topias → uusi pelihavainto tallentuu, `adar_havaintoja` kasvaa,
   `adar_viimeisin` päivittyy. Konsolissa 0 virhettä.
 - ~805 vitest vihreä, lint clean. Pienet erilliset commitit (A / B / C) jos mahdollista; verifioi elävänä.
+
+---
+
+## PÄIVITYS (Tero vahvisti)
+
+- **Bug A — VAHVISTETTU:** D2 = per-laji (`d2_taso`), TKI jää omaksi indeksikseen. Toteuta yllä kuvattu
+  `laskeD2Taso`-prioriteetin vaihto. Verifioi Hidden Gem / X-Factor -reunavaikutus.
+- **Bug B — koskee MYÖS Pelaaja-appia (vahvistettu):** korjaa PELIÄLY-skaala sekä VP:ssä että
+  `TalentMaster_Pelaaja_v7.html`:ssä (`_fcKorttiData` ÄLY `yht/12` → `yht/3`). Molemmat.
+- **Bug C — TARKENNUS (juurisyy todennäköisesti tässä):** virhe on **"narratiivi tarvitaan"** -tyyppinen
+  validointi, joka laukeaa **vaikka valmentaja on kirjoittanut/tallentanut narratiivitekstin**. Eli
+  tallennus vaatii narratiivin, mutta pakollisuustarkistus **ei tunnista syötettyä/tallennettua tekstiä**
+  → tallennus estyy. Etsi review-/pelihavainto-tallennuksen narratiivi-pakollisuustarkistus (valmentajan
+  työkalu) ja korjaa se lukemaan oikea narratiivikenttä (todennäköisesti: kenttä luetaan eri nimellä/eri
+  paikasta kuin mihin teksti tallennetaan, tai tarkistus ajetaan ennen kuin tila päivittyy). Kaappaa
+  konsolivirhe toistossa. Arkkitehti voi toistaa elävänä (Topias/KPV) jos kohta ei löydy.
