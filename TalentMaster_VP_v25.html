@@ -9498,8 +9498,9 @@ window._avaaPerPelaajaPikakatsaus = function(idx, joukkueNimi) {
     const _isD1 = rd.key === 'D1';
     const _dkt = _isD1 ? _d1kt : 'normaali';
     const _neut = (_dkt === 'kasvu' || _dkt === 'epavarma');
-    // epavarma → näytä taso-luku himmennettynä (yhtenäinen friv-badgen + radarin kanssa, Tero 2026-07-05); kasvu 🌱.
-    const _val = (rd.arvo != null) ? (_dkt === 'kasvu' ? '🌱' : rd.arvo) : '–';
+    // Luku näkyy AINA myös kasvu-tilassa (yhtenäinen radarin _tmRadar5D-kuvion kanssa, Tero 2026-07-05):
+    // taso + pieni 🌱 = kypsyyskonteksti (ei piilota lukua), väri jo ink3 (_neut). epavarma näyttää luvun himmennettynä.
+    const _val = (rd.arvo != null) ? (_dkt === 'kasvu' ? (rd.arvo + '<span style="font-size:10px"> 🌱</span>') : rd.arvo) : '–';
     hL += '<div style="flex:1;text-align:center;background:var(--ov-1);border:.5px solid var(--border);border-radius:8px;padding:6px 2px">'
       + '<div style="font-size:9px;color:var(--ink3)">' + rd.key + '</div>'
       + '<div style="font-size:15px;font-weight:600;color:' + _d5col(rd.arvo, _neut) + '">' + _val + '</div></div>';
@@ -14286,7 +14287,20 @@ function _tekninenSoluVP(p) {
 // H-H-solu pelaajalistaan — pikakentästä hh_taso (1–5), näytetään vain jos hh_viimeisin olemassa. Ei alikokoelmakyselyä.
 // VAIHE 2 -delta: hh_taso vs hh_taso_edellinen, 1 desimaali, kynnys ±0.05 (sama kuin laskeJoukkueSuunta).
 function _hhSoluVP(p) {
-  if (!p.hh_viimeisin || p.hh_taso == null) return '<span style="color:var(--ink3)">—</span>';
+  if (!p.hh_viimeisin || p.hh_taso == null) {
+    // Ei H-H-kokonaistasoa, mutta d1_taso olemassa (esim. Sibbo P2014: 30m+kasirata → d1, ei cmj/mas) → näytä LUKU,
+    // ei "—". Yhtenäinen _tmRadar5D-kuvion kanssa: kypsyysvarmentamaton (kasvu/epavarma) → ink3-harmaa + pieni 🌱
+    // (§28: kypsyys huomioitu, ei rankaise); muuten hhTasoVari. "—" jää vain aidosti mittaamattomille (d1_taso == null).
+    if (p.d1_taso != null) {
+      const _preP = (typeof onNeutraaliPrePHV === 'function') ? onNeutraaliPrePHV(p) : (p.phv_tila === 'PRE' || p.phv_tila === 'LAH');
+      const _kt = (typeof kypsyysTila === 'function') ? kypsyysTila(p.phv_tila, p.d1_taso, true, _preP) : 'normaali';
+      const _neut = (_kt === 'kasvu' || _kt === 'epavarma');
+      const _vari = _neut ? 'var(--ink3)' : hhTasoVari(p.d1_taso);
+      const _leaf = _neut ? '<span style="font-size:11px" title="Kypsyys huomioitu (§28) — taso näkyy, ei rankaise"> 🌱</span>' : '';
+      return '<strong style="color:' + _vari + '" title="D1 fyysinen (d1_taso) — ei 30m·CMJ·MAS-kokonaistasoa">' + p.d1_taso + '</strong>' + _leaf;
+    }
+    return '<span style="color:var(--ink3)">—</span>';
+  }
   let deltaHtml = '';
   if (p.hh_taso_edellinen != null) {
     const d = p.hh_taso - p.hh_taso_edellinen;
