@@ -20,7 +20,7 @@
 <script src="lib/tm_teknistaktiset.js?v=5"></script>   <!-- Vaihe 4a: teknis-taktinen curriculum (konsepti→cue→harjoite) · v5 = I3a pelipaikkaportti U14+ + harjoite-tägit/jalka -->
 <script src="lib/tm_arviointi_taksonomia.js?v=6"></script>   <!-- P1: TM_ARVIOINTI_ASTEIKKO + D4-taksonomia + tmAdarHavaittu (Pelihavainto-talteenotto) -->
 <script src="lib/tm_idp.js?v=6"></script>   <!-- I3a: + kesto valmentajan asetettavaksi (opts.kestoVk) · I2 (C): valmentajan IDP-kausitavoite-kortti -->
-<script src="lib/tm_pelialy_yksilo.js?v=1"></script>   <!-- P1: pelihavainto peliäly → yksilöteema (Kartta A) -->
+<script src="lib/tm_pelialy_yksilo.js?v=2"></script>   <!-- P1: pelihavainto peliäly → yksilöteema (Kartta A) · v2: ADAR §4-ikäportitus (Malli A, tmAdarBand/Yht/BonusOsat, PR #266) -->
 <script src="lib/tm_arviointi_silta.js?v=2"></script>   <!-- Vaihe 5: arviointi→resepti-silta (4a lähde-vihje: arvioinnin heikoin havaittu) · v2 = I3a SSOT-osoitin tm_kehityspolku -->
 <script src="lib/tm_jaksofokus.js?v=5"></script>   <!-- Vaihe 4c/6: tmJfUmpeutunut (jakson sulku -laukaisin) -->
 <script src="lib/tm_kehityspolku.js?v=1"></script>   <!-- I3a: looginen silta -resolver (idp_fokus → konsepti/fundamentti → harjoite) -->
@@ -6724,24 +6724,35 @@ function _renderPinfoFirestore(p) {
   let _adarHtml = '';
   const _av = p.adar_viimeisin;
   if (_av && (_av.a != null || _av.d != null || _av.ac != null || _av.r != null)) {
-    const _osat = [['Havaitse', _av.a], ['Päätä', _av.d], ['Toimi', _av.ac], ['Arvioi', _av.r]].filter(o => o[1] != null);
+    // §4 Malli A (PR #266): jaa osat ikätason (band) ja ikätason yli menevään (bonus). yht laskee vain band-osista.
+    const _ikaC = (typeof _devIkaSp === 'function') ? _devIkaSp(p).ika : null;
+    const _band = (typeof tmAdarBand === 'function') ? tmAdarBand(_ikaC) : ['a', 'd', 'ac', 'r'];
+    const _NIMET = { a: 'Havaitse', d: 'Päätä', ac: 'Toimi', r: 'Arvioi' };
+    const _osatAll = ['a', 'd', 'ac', 'r'].filter(k => _av[k] != null).map(k => [k, _NIMET[k], _av[k]]);
+    const _osat  = _osatAll.filter(o => _band.indexOf(o[0]) >= 0);   // lasketaan D4:ään
+    const _bonus = _osatAll.filter(o => _band.indexOf(o[0]) < 0);    // ikätason yli — ei laske D4:ään
     const _gate = (p.adar_havaintoja || 0) >= 3;
+    const _tasoMerkki = _osatAll.length >= 4 ? 'Taso 3' : _osatAll.length >= 3 ? 'Taso 2' : 'Taso 1';
     const _bar = o => {
-      const v = o[1], pct = Math.max(8, Math.min(100, v / 3 * 100));
+      const v = o[2], pct = Math.max(8, Math.min(100, v / 3 * 100));
       const col = v >= 2.5 ? 'var(--teal)' : v >= 1.8 ? 'var(--amber)' : 'var(--red)';
-      return '<div style="flex:1;min-width:68px"><div style="font-size:9px;color:var(--ink3);margin-bottom:2px">' + o[0] + '</div>'
+      return '<div style="flex:1;min-width:68px"><div style="font-size:9px;color:var(--ink3);margin-bottom:2px">' + o[1] + '</div>'
         + '<div style="height:5px;border-radius:3px;background:rgba(255,255,255,.05)"><div style="height:5px;border-radius:3px;width:' + pct + '%;background:' + col + '"></div></div>'
         + '<div style="font-size:10px;color:' + col + ';margin-top:1px;font-family:var(--font-m,monospace)">' + v + '/3</div></div>';
     };
     let _vah = null, _heik = null;
-    _osat.forEach(o => { if (!_vah || o[1] > _vah[1]) _vah = o; if (!_heik || o[1] < _heik[1]) _heik = o; });
+    _osat.forEach(o => { if (!_vah || o[2] > _vah[2]) _vah = o; if (!_heik || o[2] < _heik[2]) _heik = o; });
+    const _bonusHtml = _bonus.length
+      ? '<div style="font-size:10px;color:var(--amber);margin-top:7px">🌟 Ikätason yli: ' + _bonus.map(o => o[1] + ' <span style="font-family:var(--font-m,monospace)">' + o[2] + '/3</span>').join(' · ') + ' <span style="color:var(--ink3)">— ei laske D4:ään (§4)</span></div>'
+      : '';
     _adarHtml = '<div style="grid-column:1/-1;margin-top:10px;padding-top:10px;border-top:.5px solid rgba(242,239,230,.1)">'
       + '<div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:6px;flex-wrap:wrap">'
-      + '<span style="font-size:11px;letter-spacing:.04em;color:var(--ink2);text-transform:uppercase">Peliäly' + (_av.yht != null ? ' <span style="color:var(--teal);font-family:\'Cormorant Garamond\',serif;font-size:15px">' + _av.yht + '<span style="font-size:11px;color:var(--ink3)">/3</span></span>' : '') + '</span>'
+      + '<span style="font-size:11px;letter-spacing:.04em;color:var(--ink2);text-transform:uppercase">Peliäly' + (_av.yht != null ? ' <span style="color:var(--teal);font-family:\'Cormorant Garamond\',serif;font-size:15px">' + _av.yht + '<span style="font-size:11px;color:var(--ink3)">/3</span></span>' : '') + ' <span style="font-size:9px;color:var(--ink3);border:.5px solid var(--border);border-radius:10px;padding:1px 7px;letter-spacing:.02em">' + _tasoMerkki + '</span></span>'
       + '<span style="font-size:10px;color:var(--ink3)">' + (p.adar_havaintoja || 0) + ' havaintoa' + (_gate ? '' : ' · ⚠ ≥3 luotettavuuteen') + ' · <span style="color:var(--teal);cursor:pointer" onclick="openDrill(\'adar\')">Peliälytyökalu →</span></span></div>'
       + (_gate
           ? '<div style="display:flex;gap:10px;flex-wrap:wrap">' + _osat.map(_bar).join('') + '</div>'
-            + (_vah && _heik && _vah !== _heik ? '<div style="font-size:10px;color:var(--ink3);margin-top:7px">💪 Vahvin: <span style="color:var(--teal)">' + _vah[0] + '</span> · 🎯 Kehitä: <span style="color:var(--amber)">' + _heik[0] + '</span></div>' : '')
+            + (_vah && _heik && _vah !== _heik ? '<div style="font-size:10px;color:var(--ink3);margin-top:7px">💪 Vahvin: <span style="color:var(--teal)">' + _vah[1] + '</span> · 🎯 Kehitä: <span style="color:var(--amber)">' + _heik[1] + '</span></div>' : '')
+            + _bonusHtml
           : '<div style="font-size:11px;color:var(--ink3)">Peliälyarvio tarkentuu kun havaintoja on ≥3 (' + (p.adar_havaintoja || 0) + '/3). Yksittäiset havainnot ovat peliälytyökalussa.</div>')
       + '</div>';
   }
@@ -9279,8 +9290,18 @@ async function paivitaAdarPikakentat(pelaajaId) {
     });
     const v0 = viim10[0];
     const a = dim(v0, 'A'), d = dim(v0, 'D'), ac = dim(v0, 'Act'), r = dim(v0, 'R');
+    // §4 Malli A (PR #266): yht lasketaan VAIN ikätason osista → ikä pelaajadokumentista (syntymaVuosi;
+    // sama kaava kuin Pelaaja_v7 _ika). Ikätason yli menevä osa (esim. U13:n Reading) säilyy datassa, ei nosta lukua.
+    let _ikaAdar = null;
+    try {
+      const _pdoc = await _db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(pelaajaId).get();
+      const _pd = _pdoc.exists ? _pdoc.data() : {};
+      _ikaAdar = _pd.syntymaVuosi ? (new Date().getFullYear() - _pd.syntymaVuosi) : (_pd.ika != null ? _pd.ika : null);
+    } catch (e) { /* ikä tuntematon → tmAdarYht turvaverkko (kaikki osat) */ }
     const dims = [a, d, ac, r].filter(x => x != null);
-    const yht = dims.length ? Math.round((dims.reduce((s, x) => s + x, 0) / dims.length) * 10) / 10 : null;
+    const yht = (typeof tmAdarYht === 'function')
+      ? tmAdarYht({ a: a, d: d, ac: ac, r: r }, _ikaAdar)
+      : (dims.length ? Math.round((dims.reduce((s, x) => s + x, 0) / dims.length) * 10) / 10 : null);   // fallback jos lib puuttuu
     // A5: adar_pvm pidetään ISO-stringinä (historiallinen tyyppi) — VP lukee sen
     // `new Date(p.adar_pvm)`:llä, joka rikkoutuisi Timestamp-objektista. _luotuToMs
     // normalisoi sekä Timestampin että vanhan ISO-stringin.
@@ -9296,6 +9317,44 @@ async function paivitaAdarPikakentat(pelaajaId) {
   } catch (e) { console.warn('[paivitaAdarPikakentat]', e.message); }
 }
 window.paivitaAdarPikakentat = paivitaAdarPikakentat;
+
+// backfillAdarPikakentat(seuraId, dryRun=true) — SA-konsoli: laskee adar_viimeisin.yht UUDELLEEN §4-ikäportituksella
+// (Malli A, PR #266) olemassa olevista adar_viimeisin.{a,d,ac,r} + pelaajan iästä. Ei re-lue havaintoja (a,d,ac,r
+// jo tallessa). Idempotentti, additiivinen (vain yht muuttuu). dryRun tulostaa yht vanha→uusi. Tero ajaa.
+window.backfillAdarPikakentat = async function(seuraIdArg, dryRun) {
+  if (dryRun === undefined) dryRun = true;
+  if (!_superAdmin) { console.warn('[backfillAdarPikakentat] Vain Super Admin'); return; }
+  const sid = seuraIdArg || _seuraId;
+  if (!sid) { console.warn('[backfillAdarPikakentat] Käyttö: backfillAdarPikakentat(seuraId, dryRun=true)'); return; }
+  if (typeof tmAdarYht !== 'function') { console.warn('[backfillAdarPikakentat] lib/tm_pelialy_yksilo.js ei ladattu'); return; }
+  const snap = await _db.collection('seurat').doc(sid).collection('pelaajat').get();
+  const muutokset = [];
+  snap.docs.forEach(function(pd) {
+    const p = pd.data(); const av = p.adar_viimeisin;
+    if (!av || (av.a == null && av.d == null && av.ac == null && av.r == null)) return;
+    const ika = p.syntymaVuosi ? (new Date().getFullYear() - p.syntymaVuosi) : (p.ika != null ? p.ika : null);
+    const uusi = tmAdarYht(av, ika);
+    if (uusi !== (av.yht == null ? null : av.yht)) {
+      muutokset.push({ ref: pd.ref, nimi: (p.sukunimi||'') + ', ' + (p.etunimi||''), ika: ika, vanha: av.yht, uusi: uusi, av: av });
+    }
+  });
+  muutokset.forEach(function(m) {
+    console.log((dryRun ? '[DRY-RUN] ' : '[backfillAdar] ') + m.nimi + ' (U' + (m.ika != null ? m.ika : '?') + ') · yht ' + m.vanha + ' → ' + m.uusi);
+  });
+  if (dryRun) {
+    console.log('[DRY-RUN] backfillAdarPikakentat: ' + muutokset.length + ' pelaajan yht muuttuisi (§4-ikäportitus). Aja: backfillAdarPikakentat(\'' + sid + '\', false)');
+    return { dryRun: true, kpl: muutokset.length };
+  }
+  const ERA = 400; let paivitetty = 0, virhe = 0;
+  for (let e = 0; e < Math.ceil(muutokset.length / ERA); e++) {
+    const era = muutokset.slice(e * ERA, (e + 1) * ERA);
+    const batch = _db.batch();
+    era.forEach(function(m) { batch.set(m.ref, { adar_viimeisin: Object.assign({}, m.av, { yht: m.uusi }) }, { merge: true }); });
+    try { await batch.commit(); paivitetty += era.length; } catch (err) { console.error('[backfillAdar batch ' + (e+1) + ']', err); virhe += era.length; }
+  }
+  console.log('[backfillAdarPikakentat] valmis: ' + paivitetty + ' / ' + muutokset.length + ' · virheitä ' + virhe);
+  return { dryRun: false, paivitetty: paivitetty, virhe: virhe };
+};
 
 // ══════════════════════════════════════════════════════════════════════════
 // I1 — ADAR-PIKAKORTTI KAANON: upota iframeen, injektoi konteksti (_tmDB/_tmAuth/_tmSeuraId +

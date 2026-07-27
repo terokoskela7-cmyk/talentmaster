@@ -61,6 +61,8 @@ const APP_GLOBALS = {
   tmKalenteriOccurrences: 'readonly', tmToistuvuusPaiva: 'readonly', tmSarjaId: 'readonly', tmCadenceNimi: 'readonly',
   // lib/tm_historia.js (Trendi Vaihe 1 — mittaushistorian selkäranka)
   TM_HISTORIA: 'readonly', tmHhSnapshot: 'readonly', tmTkiSnapshot: 'readonly', tmHistoriaLisaa: 'readonly',
+  // lib/tm_pelialy_yksilo.js (ADAR §4-ikäportitus, Malli A)
+  TM_PELIALY_YKSILO: 'readonly', tmAdarBand: 'readonly', tmAdarYht: 'readonly', tmAdarBonusOsat: 'readonly',
   tm_bioika: 'readonly', laskeMirwald: 'readonly', laskeBioIkaDokumentti: 'readonly',
   PANKKI: 'readonly', valitsePaivanHarjoite: 'readonly', generoiMiksiteksti: 'readonly',
   // globaalit lib-objektit (väylä/moduulit, ladataan erillisillä <script>-tageilla)
