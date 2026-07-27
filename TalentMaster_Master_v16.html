@@ -14,7 +14,7 @@
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-storage-compat.js"></script>
-<script src="lib/tm_eerikkila_normit.js?v=41"></script>   <!-- v41: + d3OdottaaKalibrointia -->
+<script src="lib/tm_eerikkila_normit.js?v=43"></script>   <!-- v43: D2-kortti d2_taso-ensin (renderKehityskorttiHTML, PR #264 · §30/#262) -->
 <script src="lib/tm_harjoitusarviointi.js?v=4"></script>
 <script src="lib/tm_kalenteri.js?v=1"></script>
 <script src="lib/tm_teknistaktiset.js?v=5"></script>   <!-- Vaihe 4a: teknis-taktinen curriculum (konsepti→cue→harjoite) · v5 = I3a pelipaikkaportti U14+ + harjoite-tägit/jalka -->
@@ -4472,7 +4472,7 @@ function renderHavainnot() {
     h += '<div class="koti-kortit">' + havaitut.map(p => {
       const ms = _iaMs(p.adar_pvm);
       const pvmTxt = ms ? _pvmFiM(new Date(ms).toISOString().slice(0,10)) : '';
-      const yht = (p.adar_viimeisin && p.adar_viimeisin.yht != null) ? p.adar_viimeisin.yht + '/12' : '—';
+      const yht = (p.adar_viimeisin && p.adar_viimeisin.yht != null) ? p.adar_viimeisin.yht + '/3' : '—';
       return '<div class="koti-kortti" style="cursor:pointer" onclick="pickPlayer(\'' + p.id + '\');setWs(\'dev\')">'
         + '<div class="kk-ikoni">🧠</div>'
         + '<div class="kk-txt"><b>' + _iaNimi(p) + '</b> · Peliäly ' + yht + ' · ' + p.adar_havaintoja + ' havaintoa' + (pvmTxt ? ' · ' + pvmTxt : '') + '</div>'
@@ -6737,7 +6737,7 @@ function _renderPinfoFirestore(p) {
     _osat.forEach(o => { if (!_vah || o[1] > _vah[1]) _vah = o; if (!_heik || o[1] < _heik[1]) _heik = o; });
     _adarHtml = '<div style="grid-column:1/-1;margin-top:10px;padding-top:10px;border-top:.5px solid rgba(242,239,230,.1)">'
       + '<div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:6px;flex-wrap:wrap">'
-      + '<span style="font-size:11px;letter-spacing:.04em;color:var(--ink2);text-transform:uppercase">Peliäly' + (_av.yht != null ? ' <span style="color:var(--teal);font-family:\'Cormorant Garamond\',serif;font-size:15px">' + _av.yht + '<span style="font-size:11px;color:var(--ink3)">/12</span></span>' : '') + '</span>'
+      + '<span style="font-size:11px;letter-spacing:.04em;color:var(--ink2);text-transform:uppercase">Peliäly' + (_av.yht != null ? ' <span style="color:var(--teal);font-family:\'Cormorant Garamond\',serif;font-size:15px">' + _av.yht + '<span style="font-size:11px;color:var(--ink3)">/3</span></span>' : '') + '</span>'
       + '<span style="font-size:10px;color:var(--ink3)">' + (p.adar_havaintoja || 0) + ' havaintoa' + (_gate ? '' : ' · ⚠ ≥3 luotettavuuteen') + ' · <span style="color:var(--teal);cursor:pointer" onclick="openDrill(\'adar\')">Peliälytyökalu →</span></span></div>'
       + (_gate
           ? '<div style="display:flex;gap:10px;flex-wrap:wrap">' + _osat.map(_bar).join('') + '</div>'
@@ -7037,7 +7037,7 @@ function _renderTimeline(p) {
     { date: D(p.tki_pvm), val: p.tki_viimeisin }
   ], tkiDelta);
   if ((p.adar_havaintoja||0) >= 3 && p.adar_viimeisin && p.adar_viimeisin.yht != null) {
-    pushLayer('Peliäly', 'var(--teal)', 12, [{ date: D(p.adar_pvm), val: p.adar_viimeisin.yht }]);
+    pushLayer('Peliäly', 'var(--teal)', 3, [{ date: D(p.adar_pvm), val: p.adar_viimeisin.yht }]);   // yht = ka 1–3 (ei summa /12)
   }
   if (p.flei_pvm && (p.flei_viimeisin||0) > 0) {
     pushLayer('Valmius', 'var(--amber)', 100, [{ date: D(p.flei_pvm), val: p.flei_viimeisin }]);
@@ -7167,7 +7167,7 @@ function _renderNarrative(p) {
   }
   if (p.adar_pvm && (p.adar_havaintoja || 0) >= 1) {
     erikoisNarr.push({ kk: _pvmFiX(p.adar_pvm), _d: _pvmMs(p.adar_pvm),
-      txt: 'Peliälyhavainto · ' + p.adar_havaintoja + ' yhteensä' + (p.adar_viimeisin && p.adar_viimeisin.yht != null ? ' (yht ' + p.adar_viimeisin.yht + '/12)' : '') });
+      txt: 'Peliälyhavainto · ' + p.adar_havaintoja + ' yhteensä' + (p.adar_viimeisin && p.adar_viimeisin.yht != null ? ' (yht ' + p.adar_viimeisin.yht + '/3)' : '') });
   }
   if (p.phv_tila === 'PH') {
     const _phvPvm = p.biologinenIka_pvm || p.phv_pvm || p.hh_pvm || null;
