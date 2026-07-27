@@ -200,6 +200,20 @@ service cloud.firestore {
       return onOmaSeura(seuraId) && onValmentajaRooli();
     }
 
+    // Permissio-joukkulukko — valmentajan oma joukkue säännöistä (self-contained, rules-get; ei claims-riippuvuutta).
+    // kayttajat/{uid}.joukkueet = ID-lista (Seura-näkymä; VP:llä tyhjä → hoitaa kaikkia johto-ohituksella).
+    function valmentajanJoukkueet(seuraId) {
+      return get(/databases/$(database)/documents/seurat/$(seuraId)/kayttajat/$(request.auth.uid)).data.get('joukkueet', []);
+    }
+    // Valmentaja saa kirjoittaa VAIN oman joukkueensa pelaajiin (ID-täsmäys pelaajan joukkueet[] ∩ valmentajan joukkueet[]).
+    // Johto (VP/urheilutoimenjohtaja, onJohtoRooli) ohittaa joukkuerajauksen → koko seura. SA erikseen kutsupaikoissa.
+    // Fail-closed: pelaajalla/valmentajalla ei joukkueet-kenttää → [] → hasAny false → estetty (ellei johto).
+    function onOmanJoukkueenValmentaja(seuraId, pelaajaId) {
+      return onOmanSeuranValmentaja(seuraId)
+          && ( onJohtoRooli()
+            || pelaajaData(seuraId, pelaajaId).get('joukkueet', []).hasAny(valmentajanJoukkueet(seuraId)) );
+    }
+
     // v2.3 — pelaajan dokumentti getterillä (Firestore välimuistittaa)
     function pelaajaData(seuraId, pelaajaId) {
       return get(
@@ -338,7 +352,7 @@ service cloud.firestore {
                           && request.auth.token.email.lower()
                              == resource.data.huoltajaEmail.lower());
         allow create: if onSuperAdmin() || onOmanSeuranValmentaja(seuraId);
-        allow update: if onSuperAdmin() || onOmanSeuranValmentaja(seuraId)
+        allow update: if onSuperAdmin() || onOmanJoukkueenValmentaja(seuraId, pelaajaId)   // permissio-joukkulukko: ADAR-pikakentät ym. vain oman joukkueen pelaajaan (johto ohittaa)
                       || onTestivastaava(seuraId)   // testituonnin profiili-pikakentät (hh_taso/hh_viimeisin/mas_kmh)
                       || (onOmaSeura(seuraId) && request.auth.uid == pelaajaId)
                       // PIN-pelaaja (anonyymi) saa päivittää VAIN oman xp/streak-pelillistyksen
@@ -389,9 +403,9 @@ service cloud.firestore {
                         || onOmaSeura(seuraId)
                         || onAnonymous()
                         || onLapsenHuoltaja(seuraId, pelaajaId);
-          allow create: if (onSuperAdmin() || onOmanSeuranValmentaja(seuraId))
+          allow create: if (onSuperAdmin() || onOmanJoukkueenValmentaja(seuraId, pelaajaId))   // permissio-joukkulukko (johto ohittaa)
                         && luotuLuontiKelpaa();                       // A5
-          allow update: if (onSuperAdmin() || onOmanSeuranValmentaja(seuraId)
+          allow update: if (onSuperAdmin() || onOmanJoukkueenValmentaja(seuraId, pelaajaId)
                         || onAnonymous())
                         && luotuPaivitysKelpaa();                     // A5
           allow delete: if onSuperAdmin() || (onOmaSeura(seuraId) && onJohtoRooli());
@@ -543,10 +557,10 @@ service cloud.firestore {
           allow read:   if onSuperAdmin()
                         || (onOmaSeura(seuraId) && (onJohtoRooli() || onValmentajaRooli()));
           allow create: if onSuperAdmin()
-                        || onOmanSeuranValmentaja(seuraId)
+                        || onOmanJoukkueenValmentaja(seuraId, pelaajaId)   // permissio-joukkulukko (johto ohittaa)
                         || (onOmaSeura(seuraId) && onJohtoRooli());
           allow update: if onSuperAdmin()
-                        || onOmanSeuranValmentaja(seuraId)
+                        || onOmanJoukkueenValmentaja(seuraId, pelaajaId)
                         || (onOmaSeura(seuraId) && onJohtoRooli());
           allow delete: if onSuperAdmin();
         }
@@ -607,8 +621,8 @@ service cloud.firestore {
                         || onOmaSeura(seuraId)
                         || (resource.data.nakyvyys == 'pelaaja'
                             && (onAnonymous() || onLapsenHuoltaja(seuraId, pelaajaId)));
-          allow create: if onSuperAdmin() || onOmanSeuranValmentaja(seuraId);
-          allow update: if onSuperAdmin() || onOmanSeuranValmentaja(seuraId);
+          allow create: if onSuperAdmin() || onOmanJoukkueenValmentaja(seuraId, pelaajaId);   // permissio-joukkulukko (johto ohittaa)
+          allow update: if onSuperAdmin() || onOmanJoukkueenValmentaja(seuraId, pelaajaId);
           allow delete: if onSuperAdmin() || (onOmaSeura(seuraId) && onJohtoRooli());
         }
       }

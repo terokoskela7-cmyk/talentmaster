@@ -40,6 +40,9 @@ const ANON_UID = 'anon-pin-001';
 const HUOLTAJA_UID = 'huoltaja-001';
 const PELAAJA_UID = 'pelaaja-001';
 const PELAAJA_B_UID = 'pelaaja-kpv-001';
+const PELAAJA_A2_UID = 'pelaaja-fcl-002';   // seura A, ERI joukkue kuin PELAAJA_UID (permissio-joukkulukko L2)
+const JOUKKUE_A1 = 'fcl_u12';               // VALM_A_UID + PELAAJA_UID kuuluvat tähän
+const JOUKKUE_A2 = 'fcl_u14';               // PELAAJA_A2_UID kuuluu tähän (muu joukkue)
 const SIHTEERI_UID = 'sihteeri-fcl-001';
 const TESTI_UID = 'testi-fcl-001';
 const RANDOM_UID = 'random-user-001';
@@ -83,17 +86,35 @@ async function seedSeuraAndPelaaja() {
     // Seurat
     await setDoc(doc(db, 'seurat', SEURA_A), { nimi: 'FC Lahti', aktiivinen: true });
     await setDoc(doc(db, 'seurat', SEURA_B), { nimi: 'KPV', aktiivinen: true });
-    // Pelaaja seura A:ssa — huoltajaEmail matchaa
+    // Pelaaja seura A:ssa — huoltajaEmail matchaa. joukkueet[] = ID-täsmäys (§18, permissio-joukkulukko)
     await setDoc(doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID), {
       etunimi: 'Testi', sukunimi: 'Pelaaja', syntymaVuosi: 2014,
-      joukkue: 'FCL U12', huoltajaEmail: 'Huoltaja@Test.fi',
+      joukkue: 'FCL U12', joukkueet: [JOUKKUE_A1], huoltajaEmail: 'Huoltaja@Test.fi',
       pin: '1234', sukupuoli: 'M',
+    });
+    // Pelaaja seura A:ssa mutta ERI joukkueessa (JOUKKUE_A2) — VALM_A ei saa kirjoittaa tähän
+    await setDoc(doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_A2_UID), {
+      etunimi: 'Muu', sukunimi: 'Joukkue', syntymaVuosi: 2012,
+      joukkue: 'FCL U14', joukkueet: [JOUKKUE_A2], huoltajaEmail: 'muu@test.fi',
+      pin: '4321', sukupuoli: 'M',
     });
     // Pelaaja seura B:ssä
     await setDoc(doc(db, 'seurat', SEURA_B, 'pelaajat', PELAAJA_B_UID), {
       etunimi: 'Toinen', sukunimi: 'Pelaaja', syntymaVuosi: 2013,
-      joukkue: 'KPV U13', huoltajaEmail: 'other@test.fi',
+      joukkue: 'KPV U13', joukkueet: ['kpv_u13'], huoltajaEmail: 'other@test.fi',
       pin: '5678', sukupuoli: 'M',
+    });
+    // Valmentajien kayttaja-dokumentit — permissio-joukkulukko lukee joukkueet[]:n säännöissä
+    // (valmentajanJoukkueet → get(kayttajat/{uid})). VALM_A + talval kuuluvat JOUKKUE_A1:een.
+    await setDoc(doc(db, 'seurat', SEURA_A, 'kayttajat', VALM_A_UID), {
+      email: 'valm@fcl.fi', rooli: 'valmentaja', seuraId: SEURA_A, joukkueet: [JOUKKUE_A1], aktiivinen: true,
+    });
+    await setDoc(doc(db, 'seurat', SEURA_A, 'kayttajat', 'talval-fcl-001'), {
+      email: 'talval@fcl.fi', rooli: 'talenttivalmentaja', seuraId: SEURA_A, joukkueet: [JOUKKUE_A1], aktiivinen: true,
+    });
+    // Valmentaja B (seura B) — tenant-eristys estää jo ilman joukkuetta, mutta doc olemassa realismin vuoksi
+    await setDoc(doc(db, 'seurat', SEURA_B, 'kayttajat', VALM_B_UID), {
+      email: 'valm@kpv.fi', rooli: 'valmentaja', seuraId: SEURA_B, joukkueet: ['kpv_u13'], aktiivinen: true,
     });
   });
 }
@@ -551,6 +572,103 @@ describe('Roolipohjainen kirjoitus', () => {
       doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'testitulokset', '2026-05-13_hh_laaja'),
       { testit: { lin_30m: 4.92 }, lahde: 'historiapohja' }
     ));
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 4c. PERMISSIO-JOUKKULUKKO (L2, turvakorjaus) — valmentaja kirjoittaa VAIN oman
+//     joukkueensa pelaajiin; johto (VP/UTJ) + SA ohittavat; toinen seura estetty.
+//     Vahvistaa: pelaaja.joukkueet[] ∩ valmentaja.joukkueet[] (get kayttajat/{uid}).
+//     Kohteet: havainnot (ADAR) · arviointi · palautteet · pelaajadok ADAR-pikakenttä-update.
+// ═══════════════════════════════════════════════════════════════════════════
+
+describe('Permissio-joukkulukko (L2 — turvakorjaus)', () => {
+  beforeEach(async () => {
+    await seedAdminDoc();
+    await seedSeuraAndPelaaja();
+  });
+
+  const HAV = { tyyppi: 'adar', tila: 'valmis', narratiivi: 'ADAR-havainto', luotu: new Date() };
+  const ARV = { kehys: 'palloliitto', havaittu: { anticipation: 4 }, luotu: new Date() };
+  const PAL = { nakyvyys: 'pelaaja', teksti: 'Hyvä kehitys', pvm: '2026-07-15' };
+  const ADAR_PIKA = { adar_viimeisin: { a: 3, d: 2, ac: 2, r: 2, yht: 2.3, pvm: '2026-07-15' } };
+
+  // (a) OMA joukkue → sallittu
+  it('(a) Valmentaja luo ADAR-havainnon OMAN joukkueen pelaajaan → sallittu', async () => {
+    const db = valmentajaContext(VALM_A_UID, SEURA_A).firestore();
+    await assertSucceeds(setDoc(
+      doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'havainnot', 'hav-oma'), HAV));
+  });
+  it('(a) Valmentaja päivittää OMAN joukkueen pelaajan ADAR-pikakentät → sallittu', async () => {
+    const db = valmentajaContext(VALM_A_UID, SEURA_A).firestore();
+    await assertSucceeds(updateDoc(
+      doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID), ADAR_PIKA));
+  });
+  it('(a) Valmentaja luo arvioinnin + palautteen OMAN joukkueen pelaajaan → sallittu', async () => {
+    const db = valmentajaContext(VALM_A_UID, SEURA_A).firestore();
+    await assertSucceeds(setDoc(
+      doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'arviointi', '2026-27'), ARV));
+    await assertSucceeds(setDoc(
+      doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'palautteet', '2026-07-15_tki'), PAL));
+  });
+
+  // (b) MUU joukkue (sama seura) → estetty
+  it('(b) Valmentaja EI luo ADAR-havaintoa MUUN joukkueen pelaajaan → estetty', async () => {
+    const db = valmentajaContext(VALM_A_UID, SEURA_A).firestore();
+    await assertFails(setDoc(
+      doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_A2_UID, 'havainnot', 'hav-muu'), HAV));
+  });
+  it('(b) Valmentaja EI päivitä MUUN joukkueen pelaajan ADAR-pikakenttiä → estetty', async () => {
+    const db = valmentajaContext(VALM_A_UID, SEURA_A).firestore();
+    await assertFails(updateDoc(
+      doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_A2_UID), ADAR_PIKA));
+  });
+  it('(b) Valmentaja EI luo arviointia/palautetta MUUN joukkueen pelaajaan → estetty', async () => {
+    const db = valmentajaContext(VALM_A_UID, SEURA_A).firestore();
+    await assertFails(setDoc(
+      doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_A2_UID, 'arviointi', '2026-27'), ARV));
+    await assertFails(setDoc(
+      doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_A2_UID, 'palautteet', '2026-07-15_tki'), PAL));
+  });
+
+  // (c) Johto (VP) ohittaa joukkuerajauksen → mikä tahansa seuran pelaaja sallittu
+  it('(c) VP luo havainnon + arvioinnin MUUN joukkueen pelaajaan (johto-ohitus) → sallittu', async () => {
+    const db = vpContext(SEURA_A).firestore();
+    await assertSucceeds(setDoc(
+      doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_A2_UID, 'havainnot', 'hav-vp'), HAV));
+    await assertSucceeds(setDoc(
+      doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_A2_UID, 'arviointi', '2026-27'), ARV));
+  });
+  it('(c) VP päivittää MUUN joukkueen pelaajan ADAR-pikakentät (johto-ohitus) → sallittu', async () => {
+    const db = vpContext(SEURA_A).firestore();
+    await assertSucceeds(updateDoc(
+      doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_A2_UID), ADAR_PIKA));
+  });
+
+  // (d) SA → sallittu (mihin tahansa)
+  it('(d) SA luo havainnon MUUN joukkueen pelaajaan → sallittu', async () => {
+    const db = saContext().firestore();
+    await assertSucceeds(setDoc(
+      doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_A2_UID, 'havainnot', 'hav-sa'), HAV));
+  });
+
+  // (e) Toisen seuran valmentaja → estetty (seura-lukko ennallaan)
+  it('(e) Toisen seuran valmentaja EI luo havaintoa seura A:n pelaajaan → estetty', async () => {
+    const db = valmentajaContext(VALM_B_UID, SEURA_B).firestore();
+    await assertFails(setDoc(
+      doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'havainnot', 'hav-crossclub'), HAV));
+  });
+
+  // (f) LUKU ennallaan — joukkuerajaus EI koske lukua
+  it('(f) Valmentaja LUKEE MUUN joukkueen pelaajan (luku ennallaan) → sallittu', async () => {
+    const db = valmentajaContext(VALM_A_UID, SEURA_A).firestore();
+    await assertSucceeds(getDoc(doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_A2_UID)));
+  });
+  it('(f) Valmentaja LUKEE MUUN joukkueen pelaajan havainnot (luku ennallaan) → sallittu', async () => {
+    await seedHavainto();  // hav1 PELAAJA_UID:lle; luku sallittu myös eri joukkue
+    const db = valmentajaContext(VALM_A_UID, SEURA_A).firestore();
+    await assertSucceeds(getDoc(
+      doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'havainnot', 'hav1')));
   });
 });
 
