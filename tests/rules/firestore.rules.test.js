@@ -670,6 +670,38 @@ describe('Permissio-joukkulukko (L2 — turvakorjaus)', () => {
     await assertSucceeds(getDoc(
       doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'havainnot', 'hav1')));
   });
+
+  // ── Talenttivalmentaja: joukkuerajauksen ohitus (PR #270) — koko oma seura, seura-lukko ennallaan ──
+  // Talval EI ole onJohtoRooli:ssa, mutta ohittaa joukkulukon (vastuu ulottuu kaikkiin talentteihin/joukkueisiin).
+  it('Talenttivalmentaja luo havainnon OMAN joukkueen pelaajaan → sallittu', async () => {
+    const db = talenttivalmentajaContext('talval-fcl-001', SEURA_A).firestore();
+    await assertSucceeds(setDoc(
+      doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'havainnot', 'hav-talval-oma'), HAV));
+  });
+  it('Talenttivalmentaja luo havainnon MUUN joukkueen (saman seuran) pelaajaan → sallittu', async () => {
+    const db = talenttivalmentajaContext('talval-fcl-001', SEURA_A).firestore();
+    await assertSucceeds(setDoc(
+      doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_A2_UID, 'havainnot', 'hav-talval-muu'), HAV));
+  });
+  it('Talenttivalmentaja päivittää MUUN joukkueen pelaajan ADAR-pikakentät + arviointi/palaute → sallittu', async () => {
+    const db = talenttivalmentajaContext('talval-fcl-001', SEURA_A).firestore();
+    await assertSucceeds(updateDoc(
+      doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_A2_UID), ADAR_PIKA));
+    await assertSucceeds(setDoc(
+      doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_A2_UID, 'arviointi', '2026-27'), ARV));
+    await assertSucceeds(setDoc(
+      doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_A2_UID, 'palautteet', '2026-07-15_tki'), PAL));
+  });
+  it('Toisen seuran talenttivalmentaja EI kirjoita seura A:n pelaajaan (seura-lukko) → estetty', async () => {
+    const db = talenttivalmentajaContext('talval-kpv-001', SEURA_B).firestore();
+    await assertFails(setDoc(
+      doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'havainnot', 'hav-talval-crossclub'), HAV));
+  });
+  it('Regressio #269: tavallinen valmentaja EI kirjoita MUUN joukkueen pelaajaan (ei ohitusta) → estetty', async () => {
+    const db = valmentajaContext(VALM_A_UID, SEURA_A).firestore();
+    await assertFails(setDoc(
+      doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_A2_UID, 'havainnot', 'hav-valm-muu-regr'), HAV));
+  });
 });
 
 // ═══════════════════════════════════════════════════════════════════════════

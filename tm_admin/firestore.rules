@@ -206,11 +206,16 @@ service cloud.firestore {
       return get(/databases/$(database)/documents/seurat/$(seuraId)/kayttajat/$(request.auth.uid)).data.get('joukkueet', []);
     }
     // Valmentaja saa kirjoittaa VAIN oman joukkueensa pelaajiin (ID-täsmäys pelaajan joukkueet[] ∩ valmentajan joukkueet[]).
-    // Johto (VP/urheilutoimenjohtaja, onJohtoRooli) ohittaa joukkuerajauksen → koko seura. SA erikseen kutsupaikoissa.
-    // Fail-closed: pelaajalla/valmentajalla ei joukkueet-kenttää → [] → hasAny false → estetty (ellei johto).
+    // Joukkuerajauksen OHITTAA → koko seura (seura-lukko onOmanSeuranValmentaja säilyy silti):
+    //   · johto (VP/urheilutoimenjohtaja, onJohtoRooli)
+    //   · talenttivalmentaja — vastuu ulottuu seuran kaikkiin joukkueisiin/talentteihin (ei joukkuerajattu).
+    //     EI lisätä onJohtoRooli:on (talenttivalmentaja ei ole hallintorooli); ohitus vain tässä joukkulukossa.
+    // SA erikseen kutsupaikoissa.
+    // Fail-closed: pelaajalla/valmentajalla ei joukkueet-kenttää → [] → hasAny false → estetty (ellei ohittava rooli).
     function onOmanJoukkueenValmentaja(seuraId, pelaajaId) {
       return onOmanSeuranValmentaja(seuraId)
           && ( onJohtoRooli()
+            || request.auth.token.rooli == 'talenttivalmentaja'
             || pelaajaData(seuraId, pelaajaId).get('joukkueet', []).hasAny(valmentajanJoukkueet(seuraId)) );
     }
 
