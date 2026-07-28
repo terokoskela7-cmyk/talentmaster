@@ -14,7 +14,7 @@
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-storage-compat.js"></script>
-<script src="lib/tm_eerikkila_normit.js?v=43"></script>   <!-- v43: D2-kortti d2_taso-ensin (renderKehityskorttiHTML, PR #264 · §30/#262) -->
+<script src="lib/tm_eerikkila_normit.js?v=44"></script>   <!-- v43: D2-kortti d2_taso-ensin (renderKehityskorttiHTML, PR #264 · §30/#262) -->
 <script src="lib/tm_harjoitusarviointi.js?v=4"></script>
 <script src="lib/tm_kalenteri.js?v=1"></script>
 <script src="lib/tm_teknistaktiset.js?v=5"></script>   <!-- Vaihe 4a: teknis-taktinen curriculum (konsepti→cue→harjoite) · v5 = I3a pelipaikkaportti U14+ + harjoite-tägit/jalka -->
@@ -5140,7 +5140,7 @@ function _buildTKIDetail(p) {
       if (g.viite && g.viite.n != null) nMin = (nMin == null) ? g.viite.n : Math.min(nMin, g.viite.n);
       const kaanteinen = (g.laji === 'pituuspotku_bonus');
       const yks = kaanteinen ? '' : 's';   // Osa2.2: pituuspotku_bonus ei ole aikayksikkö käyttäjälle → ei 's'
-      const viiteTeksti = kaanteinen ? ('hyvä ≥' + g.viite.hyva + yks) : ('hyvä ≤' + g.viite.hyva + yks);
+      const viiteTeksti = kaanteinen ? ('huipputaso ≥' + g.viite.hyva + yks) : ('huipputaso ≤' + g.viite.hyva + yks);
       const onErin = (g.taso === 'erinomainen');
       const onKohde = (g.gap_s === maxGap && maxGap > 0);
       const mvari = onErin ? 'var(--teal)' : (onKohde ? 'var(--amber)' : 'var(--ink3)');
@@ -5151,8 +5151,15 @@ function _buildTKIDetail(p) {
       const tkTaso = (typeof tkLajiTaso === 'function') ? tkLajiTaso(g.laji, g.arvo, ika, tkSp) : null;
       const tasoVari = (tkTaso == null) ? 'var(--ink3)' : tkTaso >= 3.5 ? 'var(--teal)' : tkTaso >= 2.5 ? 'var(--amber)' : 'var(--red)';
       const tasoBadge = (tkTaso != null) ? ('<span class="detail-taso-badge" style="background:' + tasoVari + '" onclick="_mSelInfo(\'tk_lajitaso\')">T' + tkTaso + '</span>') : '';
-      rivit += '<div class="' + rowClass + '"><span>' + (NIMET[g.laji] || g.laji) + ' <span class="detail-arvo">' + g.arvo + yks + '</span></span>'
-        + '<span><span class="detail-viite">' + viiteTeksti + '</span> <span class="detail-gap" style="color:' + mvari + '">' + gapTeksti + merkinta + '</span>' + tasoBadge + '</span></div>';
+      // Kaksirivinen wrap-turvallinen layout (renderKehityskorttiHTML-malli): rivi 1 = laji · arvo · T-merkki
+      // oikealle; rivi 2 = huipputaso + gap himmeänä. Ei sarakkeita jotka puristuvat kapeassa modaalissa yhteen.
+      const _tBadge2 = (tkTaso != null) ? ('<span class="detail-taso-badge" style="background:' + tasoVari + ';margin-left:auto" onclick="_mSelInfo(\'tk_lajitaso\')">T' + tkTaso + '</span>') : '<span style="margin-left:auto"></span>';
+      rivit += '<div class="' + rowClass + '" style="display:block;padding:6px 0 5px">'
+        + '<div style="display:flex;align-items:center;gap:10px">'
+        + '<span style="flex:1 1 auto;color:var(--ink)">' + (NIMET[g.laji] || g.laji) + '</span>'
+        + '<span class="detail-arvo" style="font-family:var(--font-m,monospace);color:var(--ink)">' + g.arvo + yks + '</span>'
+        + _tBadge2 + '</div>'
+        + '<div style="font-size:10px;color:var(--ink3);margin-top:2px"><span class="detail-viite">' + viiteTeksti + '</span> · <span class="detail-gap" style="color:' + mvari + '">' + gapTeksti + merkinta + '</span></div></div>';
     });
     // Dynaaminen viite-label _lahde-kentästä (valtakunnallinen vs alueellinen). nMin = pienin n (suuntaa-antava < 10).
     const _vref = (function(){ for (var i = 0; i < gapit.length; i++) { if (gapit[i].viite) return gapit[i].viite; } return null; })();
@@ -5161,10 +5168,10 @@ function _buildTKIDetail(p) {
       ? ('Alueellinen huipputaso 2023–25' + _nStr)
       : ('Loppukilpailutaso 2023–25' + _nStr);
     const tasoInfo = (typeof TM_SELITTEET !== 'undefined' && TM_SELITTEET.tk_lajitaso)
-      ? ' · Taso 1–5 <span title="' + TM_SELITTEET.tk_lajitaso + '" onclick="_mSelInfo(\'tk_lajitaso\')" style="cursor:pointer;opacity:.65">ℹ️</span>' : '';
+      ? ' · TK-lajitaso 1–5 <span title="' + TM_SELITTEET.tk_lajitaso + '" onclick="_mSelInfo(\'tk_lajitaso\')" style="cursor:pointer;opacity:.65">ℹ️</span>' : '';
     taulukkoHtml = '<div class="detail-yhteenveto" style="margin-top:10px">' + otsikko + tasoInfo + '</div>'
-      // Osa2.1 — väriselite: ★/← + gap ovat eri asteikko kuin T-merkki (ilman selitettä luetaan ristiriitaisina).
-      + '<div style="font-size:10px;color:var(--ink3);margin:2px 0 6px;line-height:1.4">★ huipputasolla · ← suurin kehityskohde · <b>+</b> = ero huipputasoon · <b>T</b> = Eerikkilä-taso 1–5 (valtakunnallinen, eri asteikko)</div>'
+      // Väriselite: ★/← + gap ovat ERI asteikko kuin T-merkki. T = TK-lajitaso (kilpailukohortti), EI Eerikkilä.
+      + '<div style="font-size:10px;color:var(--ink3);margin:2px 0 6px;line-height:1.45">★ huipputasolla · ← suurin kehityskohde · <b>+</b> = ero huipputasoon · <b>T</b> = TK-lajitaso 1–5 · kilpailukohortti (ei väestönormi)</div>'
       + '<div class="detail-taulukko">' + rivit + '</div>';
 
     // Sekuntibudjetti seuraavaan saavuttamattomaan mitaliin + 2–3 suurinta gappia.

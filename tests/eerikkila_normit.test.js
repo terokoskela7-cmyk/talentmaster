@@ -53,6 +53,7 @@ const {
   taydennaHvSm,
   laskeD2Joustava,
   perTestTasot,
+  renderKehityskorttiHTML,
   normiIka,
   raeKvartaali,
   RAE_KERROIN,
@@ -1490,5 +1491,53 @@ describe('valitseKohortti (#76 — kohortti-valitsin, komposiitti kokonaistaso)'
   it('tyhjä/null → []', () => {
     expect(valitseKohortti([], 'top5')).toEqual([]);
     expect(valitseKohortti(null, 'paras')).toEqual([]);
+  });
+});
+
+// Syväanalyysi v2 (§28) — renderKehityskorttiHTML: neutraali-fyysinen näyttää tason harmaana + 🌱
+// (ei enää "ei vielä arvioida"); ei punaista, ei gap-vihjettä; oletus-haara ennallaan; footer 3 asteikkoa.
+describe('renderKehityskorttiHTML — §28 kypsyys näkyviin (Osa B)', () => {
+  const prePlayer = { hh_viimeisin: { lin30m: 5.5 }, phv_tila: 'PRE' };
+
+  it('neutraali-fyysinen (pre-PHV) → perTestTasot palauttaa tason (ei null), neutraali:true', () => {
+    const rows = perTestTasot(prePlayer, 11, 'M');
+    const r30 = rows.find(r => r.label === '30m');
+    expect(r30).toBeTruthy();
+    expect(r30.neutraali).toBe(true);
+    expect(r30.taso).not.toBe(null);   // taso lasketaan silti
+  });
+
+  it('render näyttää 🌱 + taso/asteikko, EI "ei vielä arvioida"', () => {
+    const html = renderKehityskorttiHTML(prePlayer, 11, 'M');
+    expect(html).toContain('🌱');
+    expect(html).toContain('/ 5');                 // taso näkyy
+    expect(html).not.toContain('ei vielä arvioida');
+  });
+
+  it('neutraali-rivi: EI gap-vihjettä ("→ taso") eikä punaista väriä', () => {
+    const html = renderKehityskorttiHTML(prePlayer, 11, 'M');
+    expect(html).not.toContain('→ taso');          // §28: ei gap-vihjettä neutraalille
+    // neutraali-badge on ink3 (harmaa), ei teal/punainen — badge sisältää 🌱 + ink3
+    expect(html).toContain('var(--ink3)');
+  });
+
+  it('ikä≥13 ilman PHV → oletus-haara ENNALLAAN (ikäoletus-tagi, taso näkyy)', () => {
+    const html = renderKehityskorttiHTML({ hh_viimeisin: { lin30m: 5.0 }, phv_tila: null }, 14, 'M');
+    expect(html).toContain('ikäoletus');       // oletus-haara ennallaan (taso + amber-tagi)
+    expect(html).toContain('/ 5');
+    expect(html).toContain('→ taso');          // oletus EI ole neutraali → gap-vihje näkyy (ennallaan)
+  });
+
+  it('footer erottaa kolme asteikkoa (fyysinen 1–5 · Eerikkilä H-H 1–3 · TK kilpailukohortti 1–5)', () => {
+    const html = renderKehityskorttiHTML(prePlayer, 11, 'M');
+    expect(html).toContain('lajitekniikka (Eerikkilä H-H) 1–3');
+    expect(html).toContain('TK-lajitaso (kilpailukohortti) 1–5');
+    expect(html).not.toContain('tekniikka 1–3, fyysinen 1–5');   // vanha harhaanjohtava teksti pois
+  });
+
+  it('tekniikka 3-portainen ennallaan (asteikko 3)', () => {
+    const rows = perTestTasot({ hh_viimeisin: { syotto: 8.0 } }, 12, 'M');
+    const syo = rows.find(r => r.label === 'Syöttö');
+    if (syo) expect(syo.asteikko).toBe(3);   // H-H syöttö = 1–3
   });
 });

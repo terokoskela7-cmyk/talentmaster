@@ -15,7 +15,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-functions-compat.js"></script>
 <!-- Eerikkilä-normit + universaali testirekisteri (eerikkilaTaso, laskeFVP) — 10m/5m-tasot + FVP-profiili -->
-<script src="lib/tm_eerikkila_normit.js?v=43"></script>   <!-- v43: D2-kortti d2_taso-ensin (renderKehityskorttiHTML, PR #264 · §30/#262) -->
+<script src="lib/tm_eerikkila_normit.js?v=44"></script>   <!-- v43: D2-kortti d2_taso-ensin (renderKehityskorttiHTML, PR #264 · §30/#262) -->
 
 <script src="lib/tm_harjoitusarviointi.js?v=4"></script>
 <script src="lib/tm_kalenteri.js?v=1"></script>
@@ -7269,31 +7269,35 @@ function _jsvPerLajiHTML(lajit, ika, sp, otsikko) {
   let viiteRef = null;
   for (var i = 0; i < data.length; i++) { if (data[i].viite) { viiteRef = data[i].viite; break; } }
   if (viiteRef) h += '<div class="jsv-an-lahde">' + _jsvViiteLabel(viiteRef) + '</div>';
-  // Osa 2.1 — väriselite kahdelle eri asteikolle (ilman tätä "+s" ja "T" luetaan ristiriitaisina).
-  h += '<div class="jsv-an-lahde" style="margin-top:-4px"><b style="color:var(--ink2)">+</b> = ero huipputasoon (★ saavutettu · <span style="color:var(--amber)">🟡 ≤20 %</span> · <span style="color:var(--red)">🔴 &gt;20 %</span>) · <b style="color:var(--ink2)">T</b> = Eerikkilä-taso 1–5 (valtakunnallinen, eri asteikko)</div>';
+  // Väriselite kahdelle ERI asteikolle (T = TK-lajitaso, EI Eerikkilä — TM_SELITTEET.tk_lajitaso).
+  h += '<div class="jsv-an-lahde" style="margin-top:-4px;line-height:1.5">'
+    + '<b style="color:var(--ink2)">+</b> = ero alueelliseen huipputasoon (★ saavutettu · <span style="color:var(--amber)">🟡 ≤20 %</span> · <span style="color:var(--red)">🔴 &gt;20 %</span>)<br>'
+    + '<b style="color:var(--ink2)">T</b> = TK-lajitaso 1–5 · kilpailukohortti 2023–25 (ei väestönormi; 3 = keskitaso, 5 = paras 20 %)</div>';
   let maxGap = null;
   data.forEach(function(d){ if (d.viite && d.gap != null && d.gap > 0 && (maxGap == null || d.gap > maxGap)) maxGap = d.gap; });
   let suurinGapLaji = null;
   data.forEach(function(d){
-    let vari, gapTxt, bar, merkki = '';
-    if (!d.viite) {
-      vari = 'var(--ink3)'; gapTxt = '<span class="jsv-an-ctx">—</span>'; bar = '<span class="jsv-an-bar"></span>';
-    } else {
+    // Kaksirivinen, wrap-turvallinen layout (renderKehityskorttiHTML-malli): rivi 1 = laji · arvo · T-merkki
+    // (oikealle). Rivi 2 = huipputaso + gap himmeänä (ink3). EI inline-palkkia (poistettu — ahtauden juurisyy).
+    let vari = 'var(--ink3)', gapTxt = '—', merkki = '';
+    if (d.viite) {
       const onKohde = (maxGap != null && d.gap === maxGap && maxGap > 0);
       vari = (d.gap <= 0) ? 'var(--teal)' : (d.gapPct <= 0.20 ? 'var(--amber)' : 'var(--red)');
       gapTxt = (d.gap <= 0) ? '★' : '+' + d.gap + d.yks;
-      const w = (d.gap <= 0) ? 100 : Math.max(6, Math.min(100, Math.round(100 - d.gapPct*100)));
-      bar = '<span class="jsv-an-bar"><span class="jsv-an-fill" style="width:' + w + '%;background:' + vari + '"></span></span>';
       if (onKohde) { merkki = ' ←'; suurinGapLaji = d.laji; }
     }
-    const viiteTxt = d.viite ? ((d.kaant ? 'hyvä ≥' : 'hyvä ≤') + d.viite.hyva + d.yks) : 'viite ei saatavilla';
+    const viiteTxt = d.viite ? ((d.kaant ? 'huipputaso ≥' : 'huipputaso ≤') + d.viite.hyva + d.yks) : 'viite ei saatavilla';
     const tasoBadge = (d.tkTaso != null)
-      ? '<span class="jsv-taso-badge" style="background:' + _jsvTasoVari5(d.tkTaso) + '"' + _vpSelTip('tk_lajitaso') + '>T' + d.tkTaso + '</span>'
-      : '';
-    h += '<div class="jsv-an-lajirivi"><span class="jsv-an-laji"' + _vpSelTip(d.laji) + '>' + d.nimi + '</span>'
-      + '<span class="jsv-an-ka">' + d.arvo + d.yks + '</span>'
-      + '<span class="jsv-an-viite">' + viiteTxt + '</span>' + bar
-      + '<span class="jsv-an-gap" style="color:' + vari + '">' + gapTxt + merkki + '</span>' + tasoBadge + '</div>';
+      ? '<span class="jsv-taso-badge" style="background:' + _jsvTasoVari5(d.tkTaso) + ';margin-left:auto"' + _vpSelTip('tk_lajitaso') + '>T' + d.tkTaso + '</span>'
+      : '<span style="margin-left:auto"></span>';
+    h += '<div style="border-top:.5px solid var(--ov-3,rgba(255,255,255,.06));padding:6px 0 5px">'
+      + '<div style="display:flex;align-items:center;gap:10px">'
+      + '<span class="jsv-an-laji"' + _vpSelTip(d.laji) + ' style="width:auto;flex:1 1 auto">' + d.nimi + '</span>'
+      + '<span style="font-family:var(--font-m);color:var(--ink);font-size:12px">' + d.arvo + d.yks + '</span>'
+      + tasoBadge + '</div>'
+      + '<div style="font-size:10px;color:var(--ink3);margin-top:2px">' + viiteTxt
+      + (d.viite ? (' · <span style="color:' + vari + ';font-family:var(--font-m);font-weight:600">' + gapTxt + merkki + '</span>') : '')
+      + '</div></div>';
   });
   if (ika != null && (ika < 8 || ika > 13)) h += '<div class="jsv-an-huom">Viite saatavilla vain ikäluokille 8–13.</div>';
   return { html: h, suurinGapLaji: suurinGapLaji };
