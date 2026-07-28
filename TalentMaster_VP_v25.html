@@ -28,6 +28,7 @@
 <script src="lib/tm_kehityspolku.js?v=1"></script>   <!-- I3a: looginen silta -resolver (idp_fokus → konsepti/fundamentti → harjoite) -->
 <script src="lib/tm_jaksofokus.js?v=5"></script>   <!-- Vaihe 4c: jaksofokus-oversight PURE-ydin (kattavuus/umpeutunut/teemakeskittymä, §26) -->
 <script src="lib/tm_vp_seuranta.js?v=1"></script>   <!-- Vaihe C: VP-seuranta koonti/kuittaus/IDP-feed (nojaa VAI+-indeksiin, ei uutta mittaria) -->
+<script src="lib/tm_kehityskaari.js?v=1"></script>   <!-- Trendi Vaihe 2: yksilön kehityskaari (render) -->
 <script src="lib/tm_treeniteema.js?v=1"></script>   <!-- Vaihe 4d: teemakattavuus PURE-ydin (jaksofokus vs suunnitellut teemaharjoitukset) -->
 <script src="lib/tm_jaksokooste.js?v=1"></script>   <!-- Vaihe 6: jakson sulku (meso-sykli) PURE-ydin — prosessi+kalibraatio+historia (geneerinen §8) -->
 <script src="lib/tm_fyysteemat.js?v=1"></script>   <!-- Vaihe 7: fyysinen teemaluettelo + D1-fokuslähde + evidenssi (delta §29 + PHV-portti §28) -->
@@ -9467,6 +9468,22 @@ window._avaaPerPelaajaPikakatsaus = function(idx, joukkueNimi) {
       + (edPvm && nyPvm ? ' · ' + edPvm + ' → ' + nyPvm : '') + '</div>';
   } else if (p.tk_kokonaistulos_viimeisin != null) {
     f4 += '<div class="jsv-an-rivi" style="margin-top:8px;color:var(--ink3)">Tekniikan kehitysvauhti syttyy 2. mittauksella.</div>';
+  }
+
+  // Trendi Vaihe 2 — KEHITYSKAARI (mittaushistoria). Puhdas render hh_historia/tki_historia:sta:
+  // per-testi-sparkline (mitatut avaimet) · suunta pienempi_parempi:stä · ⚡ nopeus Δ/Δt · per-D taso RAAOISTA
+  // (laskeD1/D2Joustava per piste, ikä mittaushetkellä) · jaksofokus-sidos · <2 pistettä → fallback. §28 pre-PHV.
+  if (typeof tmKaariRenderFull === 'function'
+      && ((p.hh_historia && p.hh_historia.length) || (p.tki_historia && p.tki_historia.length))) {
+    const _ksIsp = (typeof _dimIkaSp === 'function') ? _dimIkaSp(p.joukkue || '', p) : { ika: null, sp: 'M' };
+    const _ksSp = (_ksIsp.sp === 'P' || _ksIsp.sp === 'M') ? 'M' : (_ksIsp.sp === 'T' || _ksIsp.sp === 'N') ? 'N' : 'M';
+    const _ksTasoFn = (fn) => (pt) => { try { const ika = (typeof normiIka === 'function') ? normiIka(p.syntymaVuosi, pt.pvm, p.joukkue) : _ksIsp.ika; return fn(pt, ika, _ksSp); } catch (e) { return null; } };
+    const _ksCtx = { esc: _jsvEsc, phvTila: p.phv_tila || null, pvmFn: (typeof tmPvmFi === 'function' ? tmPvmFi : null),
+      tasoFns: { d1_taso: (typeof laskeD1Joustava === 'function') ? _ksTasoFn(laskeD1Joustava) : null,
+                 d2_taso: (typeof laskeD2Joustava === 'function') ? _ksTasoFn(laskeD2Joustava) : null } };
+    f4 += '<div style="margin-top:12px;padding-top:10px;border-top:.5px solid var(--border)">'
+      + '<div style="font-size:11px;letter-spacing:.04em;color:var(--ink2);text-transform:uppercase;margin-bottom:4px">🗺 Kehityskaari <span style="color:var(--ink3);text-transform:none;letter-spacing:0">· mihin suuntaan</span></div>'
+      + tmKaariRenderFull(p, _ksCtx) + '</div>';
   }
 
   // ── Modaali (_jspModal, z 320 → Kerros 1:n päälle) ──

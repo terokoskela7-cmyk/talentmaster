@@ -21,6 +21,7 @@
 <script src="lib/tm_arviointi_taksonomia.js?v=6"></script>   <!-- P1: TM_ARVIOINTI_ASTEIKKO + D4-taksonomia + tmAdarHavaittu (Pelihavainto-talteenotto) -->
 <script src="lib/tm_idp.js?v=6"></script>   <!-- I3a: + kesto valmentajan asetettavaksi (opts.kestoVk) · I2 (C): valmentajan IDP-kausitavoite-kortti -->
 <script src="lib/tm_pelialy_yksilo.js?v=3"></script>   <!-- P1: pelihavainto peliäly → yksilöteema (Kartta A) · v3: Vaihe B multi-rater konsensus (tmAdarKonsensus/RistiinarvioAvoin/TalenttiSignaali) -->
+<script src="lib/tm_kehityskaari.js?v=1"></script>   <!-- Trendi Vaihe 2: yksilön kehityskaari (render hh_historia/tki_historia:sta) -->
 <script src="lib/tm_arviointi_silta.js?v=2"></script>   <!-- Vaihe 5: arviointi→resepti-silta (4a lähde-vihje: arvioinnin heikoin havaittu) · v2 = I3a SSOT-osoitin tm_kehityspolku -->
 <script src="lib/tm_jaksofokus.js?v=5"></script>   <!-- Vaihe 4c/6: tmJfUmpeutunut (jakson sulku -laukaisin) -->
 <script src="lib/tm_kehityspolku.js?v=1"></script>   <!-- I3a: looginen silta -resolver (idp_fokus → konsepti/fundamentti → harjoite) -->
@@ -6796,6 +6797,31 @@ function _renderPinfoFirestore(p) {
       + '</div>';
   }
 
+  // ── Trendi Vaihe 2 — KEHITYSKAARI (mittaushistoria). Puhdas render p.hh_historia/tki_historia:sta.
+  // Suunta pienempi_parempi:stä, ⚡ nopeus Δ/Δt, per-D taso RAAOISTA (laskeD1/D2Joustava per piste,
+  // ikä mittaushetkellä → johdonmukainen kortin kanssa), jaksofokus-sidos, <2 pistettä → fallback. §28 pre-PHV.
+  let _kehityskaariHtml = '';
+  if (typeof tmKaariRenderFull === 'function'
+      && ((p.hh_historia && p.hh_historia.length) || (p.tki_historia && p.tki_historia.length))) {
+    const _ksIsp = _devIkaSp(p);
+    const _ksTasoFn = (fn) => (pt) => {
+      try {
+        const ika = (typeof normiIka === 'function') ? normiIka(p.syntymaVuosi, pt.pvm, p.joukkue) : _ksIsp.ika;
+        return fn(pt, ika, _ksIsp.sp);
+      } catch (e) { return null; }
+    };
+    const _ksCtx = {
+      esc: _mEsc, phvTila: p.phv_tila || null, pvmFn: _pvmFiM,
+      tasoFns: {
+        d1_taso: (typeof laskeD1Joustava === 'function') ? _ksTasoFn(laskeD1Joustava) : null,
+        d2_taso: (typeof laskeD2Joustava === 'function') ? _ksTasoFn(laskeD2Joustava) : null
+      }
+    };
+    _kehityskaariHtml = '<div style="grid-column:1/-1;margin-top:10px;padding-top:10px;border-top:.5px solid rgba(242,239,230,.1)">'
+      + '<div style="font-size:11px;letter-spacing:.04em;color:var(--ink2);text-transform:uppercase;margin-bottom:4px">🗺 Kehityskaari <span style="color:var(--ink3);text-transform:none;letter-spacing:0">· mihin suuntaan</span></div>'
+      + tmKaariRenderFull(p, _ksCtx) + '</div>';
+  }
+
   // ── §B1/B3 RESEPTI — "mitä tehdä" -ulostulo diagnoosista: T-harjoite moottorista (harjoitelogiikka_v4).
   // Näytä kun tekninen kehityskohde on dataa (TKI/TSI/H-H). null pankki → moottorin sisäinen PANKKI (§A7). try/catch.
   let _reseptiHtml = '';
@@ -6868,6 +6894,7 @@ function _renderPinfoFirestore(p) {
     ${_kehHtml}
     ${_adarHtml}
     ${_ristiinHtml}
+    ${_kehityskaariHtml}
     ${_d3Html}
     ${_sekHtml}`;
   // I2 (C) — renderöi valmentajan IDP-kortti pikakentistä + lataa täysi tavoite idp_kausi:sta (kerran).

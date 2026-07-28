@@ -91,6 +91,11 @@ const APP_GLOBALS = {
   TM_VP_SEURANTA: 'readonly', tmSeurantaTilaDot: 'readonly', tmSeurantaKuittausAvain: 'readonly',
   tmSeurantaRosterSort: 'readonly', tmSeurantaAktiivisetHalytykset: 'readonly',
   tmSeurantaOnKuitattu: 'readonly', tmSeurantaIdpFeed: 'readonly',
+  // lib/tm_kehityskaari.js (Trendi Vaihe 2 — yksilön kehityskaari render)
+  TM_KEHITYSKAARI: 'readonly', tmKaariPienempiParempi: 'readonly', tmKaariMitatutAvaimet: 'readonly',
+  tmKaariSarja: 'readonly', tmKaariSuunta: 'readonly', tmKaariNopeus: 'readonly', tmKaariTasoSarja: 'readonly',
+  tmKaariKattavuusOk: 'readonly', tmKaariJaksot: 'readonly', tmKaariJaksoSidos: 'readonly',
+  tmKaariNimi: 'readonly', tmKaariYksikko: 'readonly', tmKaariRenderFull: 'readonly', tmKaariRenderPelaaja: 'readonly',
 };
 
 const COMMON = {
