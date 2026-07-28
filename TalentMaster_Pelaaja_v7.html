@@ -443,6 +443,7 @@ input::placeholder,textarea::placeholder{color:#8C8B86;opacity:1}
 <script src="lib/tm_teknistaktiset.js?v=4"></script>   <!-- Vaihe 4b: pelaajan cue-kerros (tmTtPelaaja, §0b/§7.22) · v4 = parseri-korjaus (pelimuoto-saaste) -->
 <script src="lib/tm_adar_rubriikki.js?v=2"></script>   <!-- Kortin ÄLY-tasokuvaus: kanoninen ADAR-rubriikki (TM_ADAR_RUBRIIKKI, §7.22) · v2 = taso 4 Re-assess-korjaus -->
 <script src="lib/tm_pelialy_yksilo.js?v=3"></script>   <!-- Peliäly-lohko: ADAR §4-ikäportitus (Malli A, tmAdarBand/Yht/BonusOsat, PR #266) -->
+<script src="lib/tm_kehityskaari.js?v=1"></script>   <!-- Trendi Vaihe 2: kehityskaari (§7.22 kannustava) -->
 </head>
 <body>
 <div class="wrap">
@@ -2578,6 +2579,20 @@ function _kkStripKorttiHTML(c) {
     + '<div class="kcl">' + esc(c.nimi) + '</div>'
     + alaTxt + '</div>';
 }
+// Trendi Vaihe 2 — Kehityskaari (§7.22 KANNUSTAVA): mittaushistorian positiivinen suunta, EI kovia
+// lukuja/normivertailua. §28: pre-PHV vain positiivinen suunta. Render lib/tm_kehityskaari.js (tmKaariRenderPelaaja).
+function rMinaKehityskaari() {
+  const p = _pelaaja || {};
+  if (typeof tmKaariRenderPelaaja !== 'function') return '';
+  const onHist = (p.hh_historia && p.hh_historia.length) || (p.tki_historia && p.tki_historia.length);
+  if (!onHist) return '';
+  const inner = tmKaariRenderPelaaja(p, {});   // sisältö = vakiofraasit + sparkline-numerot (ei käyttäjäsyötettä)
+  if (!inner) return '';
+  return '<div style="margin-top:12px;padding:12px 14px;background:rgba(40,176,144,.05);border:.5px solid rgba(40,176,144,.15);border-radius:12px">'
+    + '<div style="font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:#8C8B86;margin-bottom:6px">🗺 Kehityskaari</div>'
+    + inner + '</div>';
+}
+
 function rMinaKokoelma() {
   var p = _pelaaja; if (!p) return '';
   var sets = _kkStripKortit(p);
@@ -2679,7 +2694,7 @@ function rMina() {
         body: rMinaItsearvio() + rMinaFLEI() })
     + _minaGrp({ id: 'g_edist', ic: '🏅', ey: 'Edistyminen', ti: 'Streak · testit · ennätykset',
         sub: streak > 0 ? (streak + ' pv putki') : 'Liekki · testihistoria · ennätykset',
-        body: rMinaEdistyminen() })
+        body: rMinaEdistyminen() + rMinaKehityskaari() })
     + _minaGrp({ id: 'g_aset', ic: '⚙️', ey: 'Asetukset', ti: 'Kieli · ilmoitukset · ulos',
         sub: 'Profiili · opas · kirjaudu ulos',
         body: rMinaProfiili() + rMinaAsetukset() });
