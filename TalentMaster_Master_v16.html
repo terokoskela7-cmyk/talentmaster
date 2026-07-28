@@ -21,7 +21,7 @@
 <script src="lib/tm_arviointi_taksonomia.js?v=6"></script>   <!-- P1: TM_ARVIOINTI_ASTEIKKO + D4-taksonomia + tmAdarHavaittu (Pelihavainto-talteenotto) -->
 <script src="lib/tm_idp.js?v=6"></script>   <!-- I3a: + kesto valmentajan asetettavaksi (opts.kestoVk) · I2 (C): valmentajan IDP-kausitavoite-kortti -->
 <script src="lib/tm_pelialy_yksilo.js?v=3"></script>   <!-- P1: pelihavainto peliäly → yksilöteema (Kartta A) · v3: Vaihe B multi-rater konsensus (tmAdarKonsensus/RistiinarvioAvoin/TalenttiSignaali) -->
-<script src="lib/tm_kehityskaari.js?v=1"></script>   <!-- Trendi Vaihe 2: yksilön kehityskaari (render hh_historia/tki_historia:sta) -->
+<script src="lib/tm_kehityskaari.js?v=2"></script>   <!-- Trendi Vaihe 2: yksilön kehityskaari (render hh_historia/tki_historia:sta) -->
 <script src="lib/tm_arviointi_silta.js?v=2"></script>   <!-- Vaihe 5: arviointi→resepti-silta (4a lähde-vihje: arvioinnin heikoin havaittu) · v2 = I3a SSOT-osoitin tm_kehityspolku -->
 <script src="lib/tm_jaksofokus.js?v=5"></script>   <!-- Vaihe 4c/6: tmJfUmpeutunut (jakson sulku -laukaisin) -->
 <script src="lib/tm_kehityspolku.js?v=1"></script>   <!-- I3a: looginen silta -resolver (idp_fokus → konsepti/fundamentti → harjoite) -->
@@ -5139,18 +5139,19 @@ function _buildTKIDetail(p) {
     gapit.forEach(function(g) {
       if (g.viite && g.viite.n != null) nMin = (nMin == null) ? g.viite.n : Math.min(nMin, g.viite.n);
       const kaanteinen = (g.laji === 'pituuspotku_bonus');
-      const viiteTeksti = kaanteinen ? ('hyvä ≥' + g.viite.hyva + 's') : ('hyvä ≤' + g.viite.hyva + 's');
+      const yks = kaanteinen ? '' : 's';   // Osa2.2: pituuspotku_bonus ei ole aikayksikkö käyttäjälle → ei 's'
+      const viiteTeksti = kaanteinen ? ('hyvä ≥' + g.viite.hyva + yks) : ('hyvä ≤' + g.viite.hyva + yks);
       const onErin = (g.taso === 'erinomainen');
       const onKohde = (g.gap_s === maxGap && maxGap > 0);
       const mvari = onErin ? 'var(--teal)' : (onKohde ? 'var(--amber)' : 'var(--ink3)');
-      const gapTeksti = (g.gap_s > 0) ? ('+' + g.gap_s + 's') : '★';
+      const gapTeksti = (g.gap_s > 0) ? ('+' + g.gap_s + yks) : '★';
       const merkinta = onErin ? ' ★' : (onKohde ? ' ←' : '');
       const rowClass = onKohde ? 'detail-rivi detail-kohde' : 'detail-rivi';
       // TK-lajitaso 1–5 populaatiokohortista (vari5; pituuspotku → null → ei badgea). Lennossa pikakentästä (§26).
       const tkTaso = (typeof tkLajiTaso === 'function') ? tkLajiTaso(g.laji, g.arvo, ika, tkSp) : null;
       const tasoVari = (tkTaso == null) ? 'var(--ink3)' : tkTaso >= 3.5 ? 'var(--teal)' : tkTaso >= 2.5 ? 'var(--amber)' : 'var(--red)';
       const tasoBadge = (tkTaso != null) ? ('<span class="detail-taso-badge" style="background:' + tasoVari + '" onclick="_mSelInfo(\'tk_lajitaso\')">T' + tkTaso + '</span>') : '';
-      rivit += '<div class="' + rowClass + '"><span>' + (NIMET[g.laji] || g.laji) + ' <span class="detail-arvo">' + g.arvo + 's</span></span>'
+      rivit += '<div class="' + rowClass + '"><span>' + (NIMET[g.laji] || g.laji) + ' <span class="detail-arvo">' + g.arvo + yks + '</span></span>'
         + '<span><span class="detail-viite">' + viiteTeksti + '</span> <span class="detail-gap" style="color:' + mvari + '">' + gapTeksti + merkinta + '</span>' + tasoBadge + '</span></div>';
     });
     // Dynaaminen viite-label _lahde-kentästä (valtakunnallinen vs alueellinen). nMin = pienin n (suuntaa-antava < 10).
@@ -5162,6 +5163,8 @@ function _buildTKIDetail(p) {
     const tasoInfo = (typeof TM_SELITTEET !== 'undefined' && TM_SELITTEET.tk_lajitaso)
       ? ' · Taso 1–5 <span title="' + TM_SELITTEET.tk_lajitaso + '" onclick="_mSelInfo(\'tk_lajitaso\')" style="cursor:pointer;opacity:.65">ℹ️</span>' : '';
     taulukkoHtml = '<div class="detail-yhteenveto" style="margin-top:10px">' + otsikko + tasoInfo + '</div>'
+      // Osa2.1 — väriselite: ★/← + gap ovat eri asteikko kuin T-merkki (ilman selitettä luetaan ristiriitaisina).
+      + '<div style="font-size:10px;color:var(--ink3);margin:2px 0 6px;line-height:1.4">★ huipputasolla · ← suurin kehityskohde · <b>+</b> = ero huipputasoon · <b>T</b> = Eerikkilä-taso 1–5 (valtakunnallinen, eri asteikko)</div>'
       + '<div class="detail-taulukko">' + rivit + '</div>';
 
     // Sekuntibudjetti seuraavaan saavuttamattomaan mitaliin + 2–3 suurinta gappia.

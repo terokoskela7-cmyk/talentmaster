@@ -109,6 +109,32 @@ describe('tmKaariKattavuusOk / jaksot', () => {
     const j = K.tmKaariJaksot(jh);
     expect(j.map(x => x.nimi)).toEqual(['Ketteryys', 'Kiihdytys']);
   });
+  it('render näyttää raaka-arvot max 2 desimaaliin (6.179→6.18, ei 3 des)', () => {
+    const p = { hh_historia: [{ pvm: '2024-04-10', lin30m: 6.179 }, { pvm: '2025-10-20', lin30m: 5.377 }] };
+    const html = K.tmKaariRenderFull(p, { phvTila: null });
+    expect(html).toContain('6.18');
+    expect(html).toContain('5.38');
+    expect(html).not.toContain('6.179');
+    expect(html).not.toContain('5.377');
+  });
+
+  it('tasainen arvo (Δ=0) → neutraali →, EI punaista ↓', () => {
+    // ponnauttelu on aikalaji (pienempi=parempi), mutta 40→40 = flat, ei lasku
+    const p = { tki_historia: [{ pvm: '2024-04-10', ponnauttelu: 40 }, { pvm: '2025-04-10', ponnauttelu: 40 }] };
+    const html = K.tmKaariRenderFull(p, { phvTila: null });
+    expect(html).toContain('→');
+    expect(html).not.toContain('↓');
+    expect(html).not.toContain('#C94040');   // punainen lasku-väri ei saa esiintyä flatilla
+    // tmKaariSuunta-sopimus ennallaan (vitestit nojaavat)
+    expect(K.tmKaariSuunta('ponnauttelu', K.tmKaariSarja(p.tki_historia, 'ponnauttelu')).suunta).toBe('flat');
+  });
+
+  it('ponnauttelu on aikalaji (pienempi=parempi) — ennallaan', () => {
+    expect(K.tmKaariPienempiParempi('ponnauttelu')).toBe(true);
+    const s = K.tmKaariSuunta('ponnauttelu', [{ ms: 1, arvo: 44 }, { ms: 2, arvo: 40 }]);
+    expect(s.parani).toBe(true);   // 44→40 = nopeampi = parannus
+  });
+
   it('tmKaariJaksoSidos — arvo ennen/jälkeen jakson', () => {
     const sarja = K.tmKaariSarja(HIST, 'lin30m');
     // jakso alkoi 2024-09-01, paattyi 2025-06-01. Pisteet: 04-10, 10-05, 05-13(2025), 10-20(2025).
