@@ -21,7 +21,7 @@
 <script src="lib/tm_kalenteri.js?v=1"></script>
 <script src="lib/tm_pvm.js?v=3"></script>   <!-- pvm-helperit: tmOnVanhaMittaus / tmKuukausiaMittauksesta / tmPvmFi (datan tuoreus) -->
 <script src="lib/tm_arviointi_taksonomia.js?v=6"></script>   <!-- Vaihe 2: arviointitaksonomia + pääteemat + kehysrekisteri (mitattu + havaittu 1–5) -->
-<script src="lib/tm_pelialy_yksilo.js?v=1"></script>   <!-- P1: pelihavainto peliäly → yksilöteema (oversight tilanne-jakauma) -->
+<script src="lib/tm_pelialy_yksilo.js?v=3"></script>   <!-- P1: pelihavainto peliäly → yksilöteema · v3: Vaihe B ristiinarvio-konsensus -->
 <script src="lib/tm_arviointi_silta.js?v=2"></script>   <!-- Vaihe 5: arviointi→resepti-silta (heikoin havaittu D2 → ehdotettu jaksofokus) · v2 = I3a SSOT-osoitin tm_kehityspolku -->
 <script src="lib/tm_idp.js?v=6"></script>   <!-- I3a: + kesto valmentajan asetettavaksi (opts.kestoVk) · I2: lahde+pvm/idp_lahde/idpVahvinDim 1–3 -->
 <script src="lib/tm_teknistaktiset.js?v=5"></script>   <!-- Vaihe 4a: teknis-taktinen curriculum (VP:n jaksofokus talenteille) · v5 = I3a pelipaikkaportti U14+ + harjoite-tägit/jalka -->
@@ -2546,6 +2546,10 @@ auth.onAuthStateChanged(async user => {
 
   if (!_seuraId) { naytaLogin(); return; }
 
+  // Vaihe B — rooli + SA-lippu globaaleiksi (ristiinarvio-gate + tekija_rooli pikakortti-embedille).
+  window._vpRooli = token.claims.rooli || null;
+  window._vpSA = isSuperAdmin;
+
   naytaDash(user, isSuperAdmin);
 });
 
@@ -3977,6 +3981,42 @@ function _vpFokusNimi(p) {
 // V1 IDP-elinkaari: idp_tila-pikakenttää EI vielä ole (V3) → JOHDETAAN ladatusta datasta: idpAktiivinen-lippu →
 // 'aktiivinen'; _idpJono:ssa (odottava ehdotus, pelaajaId) → 'ehdotettu'; muuten 'puuttuu'. §26: ei uutta kyselyä.
 function _vpIdpTila(p, jonoIds) { if (!p) return 'puuttuu'; if (p.idpAktiivinen) return 'aktiivinen'; if (jonoIds && jonoIds.has(p.id)) return 'ehdotettu'; return 'puuttuu'; }
+
+// Vaihe B — RISTIINARVIO-lohko VP:lle (multi-rater). Arvioijat + yhtenevyys + talenttinosto,
+// anti-anchoring-gate (nykyinen uid näkee muiden pisteet vasta kun on itse arvioinut tässä kuussa; SA ohittaa).
+// VAIN VP + Master (§7.22 — ei pelaajalle). Pisteitä ei renderöidä DOMiin lukossa.
+function _vpRistiinarvio(p) {
+  const arvioijat = Array.isArray(p.adar_arvioijat) ? p.adar_arvioijat : [];
+  if (!arvioijat.length) return '';
+  const ROOLIM = { valmentaja: 'Valmentaja', talenttivalmentaja: 'Talenttiv.', vp: 'VP', urheilutoimenjohtaja: 'UTJ', fysiikkavalmentaja: 'Fys.val.', fysioterapeutti: 'Fysiot.' };
+  const DIMK = { a: 'H', d: 'P', ac: 'T', r: 'A' };
+  const avoin = window._vpSA || (typeof tmAdarRistiinarvioAvoin === 'function'
+    ? tmAdarRistiinarvioAvoin(arvioijat, _uid, Date.now()) : true);
+  const yhtTaso = p.adar_yhtenevyys_taso || null;
+  const yhtLbl = { korkea: '🤝 Yhtenevyys korkea', keskiverto: '≈ Yhtenevyys keskiverto', matala: '⚠ Yhtenevyys hajoaa' }[yhtTaso] || '';
+  const sig = (typeof tmAdarTalenttiSignaali === 'function')
+    ? tmAdarTalenttiSignaali({ arvioijia: p.adar_arvioijia || arvioijat.length, yhtenevyysTaso: yhtTaso, yht: (p.adar_viimeisin ? p.adar_viimeisin.yht : null) })
+    : false;
+  let rows;
+  if (avoin) {
+    rows = arvioijat.map(function (a) {
+      const dims = ['a', 'd', 'ac', 'r'].filter(function (k) { return a.pisteet && a.pisteet[k] != null; })
+        .map(function (k) { return DIMK[k] + a.pisteet[k]; }).join(' ');
+      const rlbl = ROOLIM[a.rooli] || (a.rooli || 'Arvioija');
+      return '<div style="display:flex;justify-content:space-between;gap:8px;font-size:12px;padding:3px 0">'
+        + '<span style="color:var(--ink2)">' + _jsvEsc(a.nimi || 'Arvioija') + ' <span style="color:var(--ink3);font-size:10px">' + _jsvEsc(rlbl) + '</span></span>'
+        + '<span style="font-family:var(--font-m);color:var(--teal);white-space:nowrap">' + dims + '</span></div>';
+    }).join('');
+  } else {
+    rows = '<div style="font-size:12px;color:var(--amber)">🔒 Arvioi ensin — näet muiden arviot oman tallennuksen jälkeen (' + arvioijat.length + ' arvioija' + (arvioijat.length === 1 ? '' : 'a') + ' tässä kuussa).</div>';
+  }
+  return '<div style="margin-top:12px;padding:11px 13px;background:rgba(42,93,176,.06);border:.5px solid rgba(42,93,176,.2);border-radius:8px">'
+    + '<div style="font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--blue);margin-bottom:6px">Ristiinarvio · ' + (p.adar_arvioijia || arvioijat.length) + ' arvioija' + ((p.adar_arvioijia || arvioijat.length) === 1 ? '' : 'a') + '</div>'
+    + rows
+    + (avoin && yhtLbl ? '<div style="font-size:11px;color:var(--ink3);margin-top:6px">' + yhtLbl + '</div>' : '')
+    + (avoin && sig ? '<div style="font-size:12px;color:var(--teal);margin-top:7px;font-weight:600">💎 Vahva ristiinarvio — peruste talenttinostolle</div>' : '')
+    + '</div>';
+}
 // 2d — pelipaikkalyhenteen näyttönimi (sama lista kuin Seura.html muokkausmodaali). Tuntematon vapaateksti → sellaisenaan.
 const _VP_POS_NIMI = { MV:'Maalivahti', KP:'Keskuspuolustaja', LP:'Laitapuolustaja', KK:'Keskikenttä', HM:'Hyökkäävä keskik.', LH:'Laitahyökkääjä', KH:'Keskushyökkääjä' };
 function _vpPosNimi(v) { if (!v) return ''; const k = String(v).trim().toUpperCase(); return _VP_POS_NIMI[k] || String(v).trim(); }
@@ -9343,7 +9383,7 @@ window._avaaPerPelaajaPikakatsaus = function(idx, joukkueNimi) {
     // §75 tyhjätila-CTA (ei bare "ei havaintoja"): ohjaa ADAR-kenttätyökaluun (§26 launcher-malli).
     f3 = '<div style="padding:16px 12px;text-align:center">'
       + '<div style="font-size:13px;color:var(--ink3);margin-bottom:10px">Ei pelihavaintoja vielä</div>'
-      + '<a href="TalentMaster_ADAR_Pikakortti.html?seuraId=' + encodeURIComponent(_seuraId || '') + '" style="font-size:12px;color:var(--teal);text-decoration:none;border:.5px solid rgba(40,176,144,.4);border-radius:6px;padding:6px 12px;display:inline-block">Avaa Pelihavainto →</a>'
+      + '<a href="TalentMaster_ADAR_Pikakortti.html?seuraId=' + encodeURIComponent(_seuraId || '') + '&pelaajaId=' + encodeURIComponent(p.id || '') + '" target="_blank" style="font-size:12px;color:var(--teal);text-decoration:none;border:.5px solid rgba(40,176,144,.4);border-radius:6px;padding:6px 12px;display:inline-block">➕ Lisää pelihavainto</a>'
       + '</div>';
   }
   else {
@@ -9371,7 +9411,10 @@ window._avaaPerPelaajaPikakatsaus = function(idx, joukkueNimi) {
       + _naytettavat.map(function (d) { return ar(d[1], av[d[0]]); }).join('')
       + '<tr style="border-top:1px solid var(--border)"><td style="padding:8px;color:var(--ink);font-weight:600">Pelihavainto kokonais' + window._tmIBtn('adar') + '</td>'
       + '<td style="padding:8px;font-family:var(--font-m);color:var(--ink)">' + _summa + '/' + _max + '</td><td></td></tr>'
-      + '</tbody></table>';
+      + '</tbody></table>'
+      // Vaihe B — ristiinarvio-lohko (multi-rater, gate) + entry point
+      + _vpRistiinarvio(p)
+      + '<div style="margin-top:10px;text-align:center"><a href="TalentMaster_ADAR_Pikakortti.html?seuraId=' + encodeURIComponent(_seuraId || '') + '&pelaajaId=' + encodeURIComponent(p.id || '') + '" target="_blank" style="font-size:12px;color:var(--teal);text-decoration:none;border:.5px solid rgba(40,176,144,.4);border-radius:6px;padding:6px 12px;display:inline-block">➕ Lisää pelihavainto</a></div>';
   }
 
   // ── TAB 4: KEHITYS ──
