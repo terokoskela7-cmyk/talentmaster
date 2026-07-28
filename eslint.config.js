@@ -87,6 +87,10 @@ const APP_GLOBALS = {
   laskeHiddenGem: 'readonly', laskeValmentajaHarjoitusKooste: 'readonly',
   // tm_lang.js (kielilib)
   tmAsetaKieli: 'readonly', tmKieli: 'readonly', tmT: 'readonly',
+  // lib/tm_vp_seuranta.js (Vaihe C — VP-seuranta koonti/kuittaus/IDP-feed)
+  TM_VP_SEURANTA: 'readonly', tmSeurantaTilaDot: 'readonly', tmSeurantaKuittausAvain: 'readonly',
+  tmSeurantaRosterSort: 'readonly', tmSeurantaAktiivisetHalytykset: 'readonly',
+  tmSeurantaOnKuitattu: 'readonly', tmSeurantaIdpFeed: 'readonly',
 };
 
 const COMMON = {

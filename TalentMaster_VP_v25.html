@@ -27,6 +27,7 @@
 <script src="lib/tm_teknistaktiset.js?v=5"></script>   <!-- Vaihe 4a: teknis-taktinen curriculum (VP:n jaksofokus talenteille) · v5 = I3a pelipaikkaportti U14+ + harjoite-tägit/jalka -->
 <script src="lib/tm_kehityspolku.js?v=1"></script>   <!-- I3a: looginen silta -resolver (idp_fokus → konsepti/fundamentti → harjoite) -->
 <script src="lib/tm_jaksofokus.js?v=5"></script>   <!-- Vaihe 4c: jaksofokus-oversight PURE-ydin (kattavuus/umpeutunut/teemakeskittymä, §26) -->
+<script src="lib/tm_vp_seuranta.js?v=1"></script>   <!-- Vaihe C: VP-seuranta koonti/kuittaus/IDP-feed (nojaa VAI+-indeksiin, ei uutta mittaria) -->
 <script src="lib/tm_treeniteema.js?v=1"></script>   <!-- Vaihe 4d: teemakattavuus PURE-ydin (jaksofokus vs suunnitellut teemaharjoitukset) -->
 <script src="lib/tm_jaksokooste.js?v=1"></script>   <!-- Vaihe 6: jakson sulku (meso-sykli) PURE-ydin — prosessi+kalibraatio+historia (geneerinen §8) -->
 <script src="lib/tm_fyysteemat.js?v=1"></script>   <!-- Vaihe 7: fyysinen teemaluettelo + D1-fokuslähde + evidenssi (delta §29 + PHV-portti §28) -->
@@ -2188,6 +2189,9 @@ input::placeholder, textarea::placeholder { color: var(--ink3); opacity: 1; }
     <div class="ws-view" id="ws-valmentajat">
       <div class="page-title">Valmentajat</div>
       <div class="page-sub">Profiilit · mentorointi · harjoitusten arviointi</div>
+      <!-- Vaihe C — VP-seuranta (roster VAI+ · hälytykset + kuittaus · IDP-feed). Read-only paitsi kuittaus. -->
+      <div class="section-hd">Seuranta</div>
+      <div id="vpSeurantaSektio"></div>
       <div class="section-hd">Valmentajatiimi</div>
       <div class="coach-grid" id="coachGrid">
         <div class="empty-state">
@@ -2442,6 +2446,7 @@ const db   = firebase.firestore();
 // ─── STATE ───────────────────────────────────────────────
 let _seuraId = null, _uid = null, _isDemoMode = false;
 let _pelaajat = [], _valmentajat = [], _tapahtumat = [], _idpJono = [];
+let _seurantaKuittaukset = [];   // Vaihe C — VP-seurannan hälytyskuittaukset (audit, ei hard-delete)
 let _tilanneSkooppi = 'seura';   // Tilanne-KPI-skooppi: 'seura'|'talentit'|'top10'|'top5' (client-side suodatus, ei uutta hakua)
 let _currentWs = 'koti';   // §IA oletusnäkymä = Koti
 const SUPER_ADMIN_UID = 'dqUzvJA61Wb9fgj5UiK0riSA4NI2';
@@ -2626,7 +2631,7 @@ function getViikko() {
 
 // ─── DATA LOADING ────────────────────────────────────────
 async function lataaKaikki() {
-  await Promise.all([lataaPelaajat(), lataaValmentajat(), lataaTapahtumat(), lataaIdpJono(), lataaJoukkueNimet(), lataaKalenteriTapahtumat()]);
+  await Promise.all([lataaPelaajat(), lataaValmentajat(), lataaTapahtumat(), lataaIdpJono(), lataaJoukkueNimet(), lataaKalenteriTapahtumat(), lataaSeurantaKuittaukset()]);
   renderTilanne();
   renderTeamPulse();
   renderValmentajat();
@@ -9791,7 +9796,118 @@ function renderValmentajat() {
   const eraantyneet = _valmentajat.filter(v => (v.mentorointiPvt??999) >= 30).length;
   const mb = document.getElementById('sb-mentor-badge');
   if (mb) { mb.textContent = eraantyneet||''; mb.style.display = eraantyneet>0?'inline-flex':'none'; }
+
+  renderVpSeuranta();   // Vaihe C — koontinäkymä valmentajatiimin yläpuolelle
 }
+
+// ════════════════════════════════════════════════════════════════════════
+// Vaihe C — VP-SEURANTA: roster (VAI+) · hälytykset + kuittaus · IDP-feed.
+// Nojaa olemassa olevaan VAI+-indeksiin (v._vai) + hälytyslogiikkaan (laskeVAI).
+// Read-only oversight paitsi hälytyskuittaus (VP/johto). Koontilogiikka lib/tm_vp_seuranta.js.
+// ════════════════════════════════════════════════════════════════════════
+async function lataaSeurantaKuittaukset() {
+  _seurantaKuittaukset = [];
+  if (_isDemoMode || !_seuraId || typeof db === 'undefined') return;
+  try {
+    const snap = await db.collection('seurat').doc(_seuraId).collection('seuranta_kuittaukset').get();
+    _seurantaKuittaukset = snap.docs.map(d => Object.assign({ _id: d.id }, d.data()));
+  } catch (e) { console.warn('[seuranta_kuittaukset]', e.message); }
+}
+
+function _vpSeurantaOnJohto() {
+  return !!window._vpSA || ['vp', 'urheilutoimenjohtaja', 'seurasihteeri'].indexOf(window._vpRooli) >= 0;
+}
+
+function renderVpSeuranta() {
+  const el = document.getElementById('vpSeurantaSektio');
+  if (!el) return;
+  if (_isDemoMode) { el.innerHTML = '<div style="color:var(--ink3);font-size:12px;padding:10px 2px">Seuranta näkyy tuotantodatalla (VAI+ · hälytykset · IDP-aktivoinnit).</div>'; return; }
+  const roster = (typeof tmSeurantaRosterSort === 'function') ? tmSeurantaRosterSort(_valmentajat) : (_valmentajat || []);
+  const halyt = (typeof tmSeurantaAktiivisetHalytykset === 'function') ? tmSeurantaAktiivisetHalytykset(_valmentajat, _seurantaKuittaukset) : [];
+  const feed = (typeof tmSeurantaIdpFeed === 'function') ? tmSeurantaIdpFeed(_pelaajat, Date.now(), 14, 3) : [];
+  const johto = _vpSeurantaOnJohto();
+
+  // ── 🔔 Hälytykset + kuittaus ──
+  let hal = '<div style="margin-bottom:14px"><div style="font-size:12px;font-weight:600;color:var(--ink2);margin-bottom:6px">🔔 Hälytykset' + (halyt.length ? ' (' + halyt.length + ')' : '') + '</div>';
+  if (!halyt.length) {
+    hal += '<div style="font-size:12px;color:var(--ink3);padding:8px 10px;background:var(--card2,rgba(255,255,255,.03));border-radius:8px">Ei aktiivisia hälytyksiä ✓</div>';
+  } else {
+    hal += halyt.map(function (a) {
+      const vari = a.taso === 'red' ? '#C94040' : '#E0A040';
+      const dot = a.taso === 'red' ? '🔴' : '🟡';
+      const kuittaa = johto
+        ? '<button onclick="vpKuittaaHalytys(\'' + _jsvEsc(a.valmentaja_uid) + '\',\'' + _jsvEsc(String(a.tyyppi).replace(/'/g, "\\'")) + '\')" style="font-size:11px;padding:3px 10px;border-radius:6px;border:.5px solid var(--border);background:transparent;color:var(--ink2);cursor:pointer">Kuittaa</button>'
+        : '';
+      return '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px 10px;border:.5px solid ' + vari + '33;border-left:3px solid ' + vari + ';border-radius:8px;margin-bottom:5px;background:' + vari + '0d">'
+        + '<div style="font-size:12px;color:var(--ink)"><span style="color:' + vari + '">' + dot + ' ' + _jsvEsc(a.tyyppi) + '</span> · <span style="color:var(--ink2);cursor:pointer" onclick="_vpSeurantaAvaaCoach(\'' + _jsvEsc(a.valmentaja_uid) + '\')">' + _jsvEsc(a.valmentaja_nimi) + (a.joukkue ? ' (' + _jsvEsc(a.joukkue) + ')' : '') + '</span></div>'
+        + kuittaa + '</div>';
+    }).join('');
+  }
+  hal += '</div>';
+
+  // ── 👥 Valmentajaroster (VAI+ · tila · hälytysliput · viim. kirjaus) — hälyttävät ensin ──
+  let ros = '<div style="margin-bottom:14px"><div style="font-size:12px;font-weight:600;color:var(--ink2);margin-bottom:6px">👥 Valmentajaroster</div>'
+    + '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px">'
+    + '<thead><tr style="color:var(--ink3);text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.04em">'
+    + '<th style="padding:5px 8px">Valmentaja</th><th style="padding:5px 8px">Joukkue</th><th style="padding:5px 8px;text-align:center">VAI+</th><th style="padding:5px 8px;text-align:center">Tila</th><th style="padding:5px 8px">Hälytykset</th><th style="padding:5px 8px">Viim. kirjaus</th></tr></thead><tbody>';
+  ros += roster.map(function (v) {
+    const vd = v._vai || {};
+    const dot = (typeof tmSeurantaTilaDot === 'function') ? tmSeurantaTilaDot(vd.vai) : { dot: '⚫', vari: 'var(--ink3)' };
+    const lippu = (vd.halytykset || []).map(function (h) { return h.taso === 'red' ? '🔴' : '🟡'; }).join('');
+    return '<tr onclick="_vpSeurantaAvaaCoach(\'' + _jsvEsc(v.id) + '\')" style="cursor:pointer;border-top:.5px solid var(--border)">'
+      + '<td style="padding:7px 8px;color:var(--ink)">' + _jsvEsc(v.nimi || '?') + '</td>'
+      + '<td style="padding:7px 8px;color:var(--ink2)">' + _jsvEsc(v.joukkue || '—') + '</td>'
+      + '<td style="padding:7px 8px;text-align:center;font-family:var(--font-m);font-weight:600;color:' + dot.vari + '">' + (vd.vai != null ? vd.vai : '—') + '</td>'
+      + '<td style="padding:7px 8px;text-align:center">' + dot.dot + '</td>'
+      + '<td style="padding:7px 8px">' + (lippu || '<span style="color:var(--ink3)">—</span>') + '</td>'
+      + '<td style="padding:7px 8px;color:var(--ink2)">' + _jsvEsc(v.viimKirjaus || '—') + '</td></tr>';
+  }).join('');
+  ros += '</tbody></table></div></div>';
+
+  // ── 📋 IDP-aktivoinnit-feed (pikakentistä, viim. 14 vrk) ──
+  let idp = '<div><div style="font-size:12px;font-weight:600;color:var(--ink2);margin-bottom:6px">📋 IDP-aktivoinnit <span style="color:var(--ink3);font-weight:400">· viim. 14 vrk</span></div>';
+  if (!feed.length) {
+    idp += '<div style="font-size:12px;color:var(--ink3);padding:8px 10px;background:var(--card2,rgba(255,255,255,.03));border-radius:8px">Ei tuoreita IDP-aktivointeja</div>';
+  } else {
+    idp += feed.map(function (f) {
+      const uusi = f.uusi ? '<span style="font-size:9px;font-weight:600;color:var(--teal);border:.5px solid var(--teal);border-radius:8px;padding:1px 6px;margin-right:6px">Uusi</span>' : '';
+      const pvmFi = (typeof tmPvmFi === 'function') ? tmPvmFi(f.pvm) : String(f.pvm).slice(0, 10);
+      return '<div onclick="avaaPelaaja(\'' + _jsvEsc(f.pelaajaId) + '\')" style="display:flex;align-items:center;gap:8px;padding:7px 10px;border-top:.5px solid var(--border);cursor:pointer">'
+        + uusi + '<div style="flex:1;font-size:12px;color:var(--ink)">' + _jsvEsc(f.nimi) + (f.joukkue ? ' <span style="color:var(--ink3)">· ' + _jsvEsc(f.joukkue) + '</span>' : '') + (f.fokus ? ' <span style="color:var(--ink2)">· ' + _jsvEsc(f.fokus) + '</span>' : '') + '</div>'
+        + '<div style="font-size:11px;color:var(--ink3)">' + _jsvEsc(pvmFi) + '</div></div>';
+    }).join('');
+  }
+  idp += '</div>';
+
+  el.innerHTML = hal + ros + idp;
+}
+
+// Roster-/hälytysrivi → olemassa oleva valmentajakortti, VAI+-tabille (idx 1).
+function _vpSeurantaAvaaCoach(uid) {
+  if (typeof avaaCoachPanel !== 'function') return;
+  avaaCoachPanel(uid);
+  setTimeout(function () { if (typeof _cmTab === 'function') try { _cmTab(1); } catch (e) {} }, 60);
+}
+
+// Hälytyskuittaus (VP/johto): audit-jälki seurat/{sid}/seuranta_kuittaukset/{avain}. EI hard-delete.
+// Kuitattu poistuu aktiivilistalta (renderVpSeuranta suodattaa), jää audittiin.
+window.vpKuittaaHalytys = async function (valmentajaUid, tyyppi) {
+  if (!_vpSeurantaOnJohto()) { if (typeof toast === 'function') toast('Kuittaus on VP:n/johdon oikeus', 'virhe'); return; }
+  if (_isDemoMode || !_seuraId || typeof db === 'undefined') { if (typeof toast === 'function') toast('Kuittaus ei onnistunut (ei yhteyttä)', 'virhe'); return; }
+  const avain = tmSeurantaKuittausAvain(valmentajaUid, tyyppi);
+  try {
+    const cu = firebase.auth().currentUser; if (cu) await cu.getIdToken(true);
+    const dokki = { tyyppi: tyyppi, valmentaja_uid: valmentajaUid, kuittaaja_uid: _uid || null, pvm: new Date().toISOString() };
+    await db.collection('seurat').doc(_seuraId).collection('seuranta_kuittaukset').doc(avain).set(dokki, { merge: true });
+    _seurantaKuittaukset = _seurantaKuittaukset.filter(function (k) { return k._id !== avain; });
+    _seurantaKuittaukset.push(Object.assign({ _id: avain, avain: avain }, dokki));
+    renderVpSeuranta();
+    if (typeof toast === 'function') toast('Hälytys kuitattu ✓', 'ok');
+  } catch (e) {
+    if (typeof toast === 'function') toast('Kuittaus epäonnistui: ' + (e.message || e), 'virhe');
+    else console.warn('[vpKuittaaHalytys]', e && e.message);
+  }
+};
 
 function avaaCoachPanel(id) {
   var v = _valmentajat.find(function(c) { return c.id === id; });
