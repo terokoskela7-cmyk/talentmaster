@@ -15,7 +15,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-functions-compat.js"></script>
 <!-- Eerikkilä-normit + universaali testirekisteri (eerikkilaTaso, laskeFVP) — 10m/5m-tasot + FVP-profiili -->
-<script src="lib/tm_eerikkila_normit.js?v=44"></script>   <!-- v43: D2-kortti d2_taso-ensin (renderKehityskorttiHTML, PR #264 · §30/#262) -->
+<script src="lib/tm_eerikkila_normit.js?v=45"></script>   <!-- v43: D2-kortti d2_taso-ensin (renderKehityskorttiHTML, PR #264 · §30/#262) -->
 
 <script src="lib/tm_harjoitusarviointi.js?v=4"></script>
 <script src="lib/tm_kalenteri.js?v=1"></script>
@@ -4988,7 +4988,7 @@ function _vpStatTiivisteHTML(p) {
     h += '<div style="flex:1;background:var(--surface);border:.5px solid var(--border);border-radius:10px;padding:12px 14px;text-align:center">'
       + '<div style="font-family:var(--font-mono);font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink3)">' + esc(c.lbl) + '</div>';
     if (c.tyhja) h += '<div style="font-family:var(--font-serif);font-size:24px;color:var(--ink3);margin-top:3px">–</div>';
-    else h += '<div style="font-family:var(--font-serif);font-size:24px;color:var(--ink);margin-top:2px">' + esc(c.arvo) + '<span style="font-size:11px;color:var(--ink3)"> ' + esc(c.yks) + '</span></div>'
+    else h += '<div style="font-family:var(--font-serif);font-size:24px;color:var(--ink);margin-top:2px">' + (typeof _fmtTestiArvo === 'function' ? _fmtTestiArvo(c.arvo, c.yks) : esc(c.arvo)) + '<span style="font-size:11px;color:var(--ink3)"> ' + esc(c.yks) + '</span></div>'
       + '<div style="font-family:var(--font-mono);font-size:10px;color:' + c.col + ';margin-top:2px">' + c.arrow + (c.taso != null ? ' taso ' + c.taso : '') + ' <span style="color:var(--ink3)">vs ikäl.</span></div>';
     h += '</div>';
   });
@@ -9064,7 +9064,7 @@ window._avaaPerPelaajaPikakatsaus = function(idx, joukkueNimi) {
     const w = (taso != null) ? Math.max(0, Math.min(100, (taso / 5) * 100)) : 0;
     const ib = infoKey ? window._tmIBtn(infoKey) : '';
     const grow = (kt === 'kasvu') ? ' <span style="font-size:10.5px;color:var(--ink3);font-style:italic">· 🌱 kehittyy PHV:n jälkeen</span>'
-      : (kt === 'epavarma') ? ' <span style="font-size:10.5px;color:var(--ink3);font-style:italic">· kypsyysdataa puuttuu — epävarma</span>' : '';
+      : (kt === 'epavarma') ? ' <span style="font-size:10.5px;color:var(--ink3);font-style:italic">· taso viitteellinen — tarkentuu kasvumittauksella</span>' : '';
     return '<div class="hh-testirivi"' + (korostus ? ' style="border-bottom:none"' : '') + '>'
       + '<div class="hh-testirivi-header">'
       + '<span class="hh-label"' + (korostus ? ' style="color:var(--ink);font-weight:600"' : '') + '>' + lbl + ib + grow + '</span>'
@@ -9148,7 +9148,7 @@ window._avaaPerPelaajaPikakatsaus = function(idx, joukkueNimi) {
     const badgeCol = neutraali ? 'var(--ink3)' : '#fff';
     const seed = (kt === 'kasvu') ? '<span style="font-size:11px" title="Kasvupyrähdys — taso tarkentuu kasvumittauksella"> 🌱</span>' : '';
     const foot = (kt === 'kasvu') ? '🌱 kehittyy PHV:n jälkeen · tarkempi analyysi kasvumittauksella'
-      : (kt === 'epavarma') ? 'kypsyysdataa puuttuu'
+      : (kt === 'epavarma') ? 'taso viitteellinen · tarkentuu kasvumittauksella'
       : 'kehitystaso · norm 16+';
     // P1b — trend + spark ovat tyhjiä säiliöitä id:llä; async testitulokset-luku täyttää ne (progressiivinen).
     // Empty-säiliöt romahtavat (.mcard-spark:empty). metric = '30m'/'cmj'/'mas'.
@@ -9159,6 +9159,12 @@ window._avaaPerPelaajaPikakatsaus = function(idx, joukkueNimi) {
       + '<div class="mcard-foot">' + foot + '</div></div>';
   };
   let f1 = '';
+  // §28 (Selkeys 1): kasvumittaus-ohjaus kun PHV puuttuu — taso + kehityskohteet näkyvät silti, tämä ohjaa mittaukseen.
+  if (p.phv_tila == null || p.phv_tila === '') {
+    f1 += '<div style="margin-bottom:12px;font-size:11px;line-height:1.5;color:var(--amber);background:rgba(224,160,64,.08);border:.5px solid rgba(224,160,64,.28);border-radius:9px;padding:9px 11px">'
+      + '⚠️ <b>Kasvumittaus puuttuu</b> — fyysiset arviot perustuvat ikäoletukseen. Tee kasvumittaus (Testaus, ~3 min/pelaaja) → kehityskohteet tarkentuvat ja PHV-korjaus huomioi kypsyyden. '
+      + '<a href="TalentMaster_Testaus_v9.html" style="color:var(--teal);text-decoration:none;font-weight:600;white-space:nowrap">→ Tee kasvumittaus</a></div>';
+  }
   let _fysCards = '', _anyGate = false;
   [ { lbl: '30 m', k: '30m', arvo: hv.lin30m, yks: 's', ib: 'nopeus_30m' },
     { lbl: 'CMJ', k: 'cmj', arvo: hv.cmj, yks: 'cm', ib: 'cmj' },
@@ -9215,7 +9221,7 @@ window._avaaPerPelaajaPikakatsaus = function(idx, joukkueNimi) {
   if (_fysAks.length >= 3 && typeof window._tmRadar5D === 'function') {
     _fysRadar = '<div style="margin-bottom:8px">' + window._tmRadar5D(_fysAks, { referenssi: 3, referenssiVari: 'var(--blue)', maxW: 320 })
       + '<div style="font-size:11px;color:var(--ink3);text-align:center;margin-top:2px">● <b style="color:var(--teal)">pelaaja</b> · – – tavoite (ikäluokan keskitaso, taso 3)</div>'
-      + (_fysEpav ? '<div style="font-size:10.5px;color:var(--ink3);text-align:center;font-style:italic;margin-top:3px">§28: kypsyysdataa puuttuu → 🌱 epävarma, ei punainen.</div>' : '') + '</div>';
+      + (_fysEpav ? '<div style="font-size:10.5px;color:var(--ink3);text-align:center;font-style:italic;margin-top:3px">§28: PHV mittaamatta → 🌱 kypsyys huomioitu, ei rankaisua. Tarkentuu kasvumittauksella.</div>' : '') + '</div>';
   }
   // ── (B) ▸ SYVÄANALYYSI — normivertailu + sub-indeksit + kehitysvauhti + MAS-vyöhyke (progressiivinen paljastus) ──
   let _fysSyva = '';
@@ -9235,7 +9241,13 @@ window._avaaPerPelaajaPikakatsaus = function(idx, joukkueNimi) {
     const taso = t.ek === 'kasirata' ? tasoEk('kasirata', t.arvo) : (t.ek === 'nopeus_10m' ? tasoEk('nopeus_10m', t.arvo) : tasoOf(t.ek === 'hyppy_cj' ? 'cmj' : t.ek === 'nopeus_30m' ? '30m' : t.ek, t.arvo));
     const epav = (t.gated && typeof kypsyysTila === 'function' && kypsyysTila(p.phv_tila, taso, true, _preP) === 'epavarma');
     const edella = t.pien ? (t.arvo < normi) : (t.arvo > normi);
-    const arvio = epav ? '<span style="color:var(--ink3)">kypsyysdataa puuttuu</span>' : (edella ? '<span style="color:var(--teal)">olet edellä</span>' : '<span style="color:var(--ink3)">kehityskohde</span>');
+    // §28 (Selkeys 1): näytä tulkinta AINA (ei "kypsyysdataa puuttuu" -piilotusta). "olet edellä" ennallaan;
+    // pre-PHV-kehityskohde pehmeänä amber-sävyllä "tarkentuu kasvumittauksella" (ei kova punainen leima).
+    const arvio = edella
+      ? '<span style="color:var(--teal)">olet edellä</span>'
+      : (epav
+          ? '<span style="color:var(--amber)">kehityskohde · tarkentuu kasvumittauksella</span>'
+          : '<span style="color:var(--ink3)">kehityskohde</span>');
     _nrows += '<tr style="border-top:.5px solid var(--border)"><td style="padding:5px 6px;color:var(--ink2)">' + t.lbl + '</td>'
       + '<td style="padding:5px 6px;color:var(--ink)">' + (typeof _fmtTestiArvo === 'function' ? _fmtTestiArvo(t.arvo, t.yks) : t.arvo) + ' ' + t.yks + '</td>'
       + '<td style="padding:5px 6px;color:var(--ink3)">' + (typeof _fmtTestiArvo === 'function' ? _fmtTestiArvo(normi, t.yks) : normi) + ' ' + t.yks + '</td>'
