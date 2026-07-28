@@ -1541,3 +1541,33 @@ describe('renderKehityskorttiHTML — §28 kypsyys näkyviin (Osa B)', () => {
     if (syo) expect(syo.asteikko).toBe(3);   // H-H syöttö = 1–3
   });
 });
+
+// Selkeys 1/3 — desimaalit + §28 kasvumittaus-ohjaus (render, ei laskentamuutosta).
+describe('Selkeys 1 — _fmtTestiArvo desimaalit + kasvumittaus-ohjaus', () => {
+  it('_fmtTestiArvo: sekunnit 2 des (4.937 → 4.94), cm/km-h 1 des', () => {
+    expect(_fmtTestiArvo(4.937, 's')).toBe('4.94');
+    expect(_fmtTestiArvo(5.377, 's')).toBe('5.38');
+    expect(_fmtTestiArvo(28.44, 'cm')).toBe('28.4');
+    expect(_fmtTestiArvo(14.27, 'km/h')).toBe('14.3');
+    expect(_fmtTestiArvo(null, 's')).toBe('');
+  });
+
+  it('kasvumittaus-ohjaus näkyy kun PHV puuttuu (phv_tila null) + on D1-dataa', () => {
+    const html = renderKehityskorttiHTML({ hh_viimeisin: { lin30m: 5.5 }, phv_tila: null }, 11, 'M');
+    expect(html).toContain('Kasvumittaus puuttuu');
+    expect(html).toContain('Tee kasvumittaus');
+    expect(html).toContain('TalentMaster_Testaus_v9.html');
+  });
+
+  it('ohjaus EI näy kun PHV on mitattu (phv_tila asetettu)', () => {
+    const html = renderKehityskorttiHTML({ hh_viimeisin: { lin30m: 5.5 }, phv_tila: 'POST' }, 14, 'M');
+    expect(html).not.toContain('Kasvumittaus puuttuu');
+  });
+
+  it('taso + kehityskohde näkyvät edelleen PHV puuttuessa (ohjaus ei korvaa)', () => {
+    const html = renderKehityskorttiHTML({ hh_viimeisin: { lin30m: 5.5 }, phv_tila: null }, 11, 'M');
+    expect(html).toContain('🌱');          // taso harmaana + 🌱 (#279)
+    expect(html).toContain('/ 5');         // taso näkyy
+    expect(html).toContain('Kasvumittaus puuttuu');   // + ohjaus rinnalla
+  });
+});
