@@ -28,7 +28,7 @@
 <script src="lib/tm_kehityspolku.js?v=1"></script>   <!-- I3a: looginen silta -resolver (idp_fokus → konsepti/fundamentti → harjoite) -->
 <script src="lib/tm_jaksofokus.js?v=5"></script>   <!-- Vaihe 4c: jaksofokus-oversight PURE-ydin (kattavuus/umpeutunut/teemakeskittymä, §26) -->
 <script src="lib/tm_vp_seuranta.js?v=1"></script>   <!-- Vaihe C: VP-seuranta koonti/kuittaus/IDP-feed (nojaa VAI+-indeksiin, ei uutta mittaria) -->
-<script src="lib/tm_kehityskaari.js?v=1"></script>   <!-- Trendi Vaihe 2: yksilön kehityskaari (render) -->
+<script src="lib/tm_kehityskaari.js?v=2"></script>   <!-- Trendi Vaihe 2: yksilön kehityskaari (render) -->
 <script src="lib/tm_treeniteema.js?v=1"></script>   <!-- Vaihe 4d: teemakattavuus PURE-ydin (jaksofokus vs suunnitellut teemaharjoitukset) -->
 <script src="lib/tm_jaksokooste.js?v=1"></script>   <!-- Vaihe 6: jakson sulku (meso-sykli) PURE-ydin — prosessi+kalibraatio+historia (geneerinen §8) -->
 <script src="lib/tm_fyysteemat.js?v=1"></script>   <!-- Vaihe 7: fyysinen teemaluettelo + D1-fokuslähde + evidenssi (delta §29 + PHV-portti §28) -->
@@ -7228,12 +7228,14 @@ function _jsvViiteLabel(viite) {
   if (viite.lahde === 'alueellinen') return 'Alueellinen huipputaso 2023–25' + nStr;
   return 'Loppukilpailutaso 2023–25' + nStr;
 }
+// yks = näyttöyksikkö. Aikalajit = 's'. pituuspotku_bonus (kaant:true) = aikabonus jonka yksikkö on
+// epäselvä käyttäjälle (§ Osa2.2) → EI 's'-liitettä (pelkkä luku), jottei näytä väärää aikayksikköä.
 const _JSV_TKLAJIT = [
-  { kentta:'ponnauttelu_s',       laji:'ponnauttelu',       nimi:'Ponnauttelu',         kaant:false },
-  { kentta:'syotto_s',            laji:'syotto',            nimi:'Syöttö',              kaant:false },
-  { kentta:'pujottelu_s',         laji:'pujottelu',         nimi:'Pujottelu',           kaant:false },
-  { kentta:'kuljetus_laukaus_s',  laji:'kuljetus_laukaus',  nimi:'Kulj-laukaus',        kaant:false },
-  { kentta:'pituuspotku_bonus_s', laji:'pituuspotku_bonus', nimi:'Pituuspotku (bonus)', kaant:true  },
+  { kentta:'ponnauttelu_s',       laji:'ponnauttelu',       nimi:'Ponnauttelu',         kaant:false, yks:'s' },
+  { kentta:'syotto_s',            laji:'syotto',            nimi:'Syöttö',              kaant:false, yks:'s' },
+  { kentta:'pujottelu_s',         laji:'pujottelu',         nimi:'Pujottelu',           kaant:false, yks:'s' },
+  { kentta:'kuljetus_laukaus_s',  laji:'kuljetus_laukaus',  nimi:'Kulj-laukaus',        kaant:false, yks:'s' },
+  { kentta:'pituuspotku_bonus_s', laji:'pituuspotku_bonus', nimi:'Pituuspotku (bonus)', kaant:true,  yks:''  },
 ];
 // Per-laji-data (arvo vs viite) — joukkueen ka TAI yksi pelaaja. Järjestetty gap laskevasti.
 function _jsvLajiData(lajit, ika, sp) {
@@ -7252,7 +7254,7 @@ function _jsvLajiData(lajit, ika, sp) {
                      : (arvo <= viite.erinomainen ? 'erinomainen' : arvo <= viite.hyva ? 'hyva' : 'kehitettava');
     }
     const tkTaso = (ika != null && !L.kaant) ? tkLajiTaso(L.laji, arvo, ika, sp) : null;   // TK-lajitaso 1–5 (ei pituuspotku)
-    out.push({ laji:L.laji, nimi:L.nimi, arvo:arvo, viite:viite, gap:gap, gapPct:gapPct, kaant:L.kaant, taso:taso, tkTaso:tkTaso });
+    out.push({ laji:L.laji, nimi:L.nimi, arvo:arvo, viite:viite, gap:gap, gapPct:gapPct, kaant:L.kaant, taso:taso, tkTaso:tkTaso, yks:(L.yks != null ? L.yks : 's') });
   });
   out.sort(function(a,b){ return (b.gap == null ? -Infinity : b.gap) - (a.gap == null ? -Infinity : a.gap); });
   return out;
@@ -7267,6 +7269,8 @@ function _jsvPerLajiHTML(lajit, ika, sp, otsikko) {
   let viiteRef = null;
   for (var i = 0; i < data.length; i++) { if (data[i].viite) { viiteRef = data[i].viite; break; } }
   if (viiteRef) h += '<div class="jsv-an-lahde">' + _jsvViiteLabel(viiteRef) + '</div>';
+  // Osa 2.1 — väriselite kahdelle eri asteikolle (ilman tätä "+s" ja "T" luetaan ristiriitaisina).
+  h += '<div class="jsv-an-lahde" style="margin-top:-4px"><b style="color:var(--ink2)">+</b> = ero huipputasoon (★ saavutettu · <span style="color:var(--amber)">🟡 ≤20 %</span> · <span style="color:var(--red)">🔴 &gt;20 %</span>) · <b style="color:var(--ink2)">T</b> = Eerikkilä-taso 1–5 (valtakunnallinen, eri asteikko)</div>';
   let maxGap = null;
   data.forEach(function(d){ if (d.viite && d.gap != null && d.gap > 0 && (maxGap == null || d.gap > maxGap)) maxGap = d.gap; });
   let suurinGapLaji = null;
@@ -7277,17 +7281,17 @@ function _jsvPerLajiHTML(lajit, ika, sp, otsikko) {
     } else {
       const onKohde = (maxGap != null && d.gap === maxGap && maxGap > 0);
       vari = (d.gap <= 0) ? 'var(--teal)' : (d.gapPct <= 0.20 ? 'var(--amber)' : 'var(--red)');
-      gapTxt = (d.gap <= 0) ? '★' : '+' + d.gap + 's';
+      gapTxt = (d.gap <= 0) ? '★' : '+' + d.gap + d.yks;
       const w = (d.gap <= 0) ? 100 : Math.max(6, Math.min(100, Math.round(100 - d.gapPct*100)));
       bar = '<span class="jsv-an-bar"><span class="jsv-an-fill" style="width:' + w + '%;background:' + vari + '"></span></span>';
       if (onKohde) { merkki = ' ←'; suurinGapLaji = d.laji; }
     }
-    const viiteTxt = d.viite ? ((d.kaant ? 'hyvä ≥' : 'hyvä ≤') + d.viite.hyva + 's') : 'viite ei saatavilla';
+    const viiteTxt = d.viite ? ((d.kaant ? 'hyvä ≥' : 'hyvä ≤') + d.viite.hyva + d.yks) : 'viite ei saatavilla';
     const tasoBadge = (d.tkTaso != null)
       ? '<span class="jsv-taso-badge" style="background:' + _jsvTasoVari5(d.tkTaso) + '"' + _vpSelTip('tk_lajitaso') + '>T' + d.tkTaso + '</span>'
       : '';
     h += '<div class="jsv-an-lajirivi"><span class="jsv-an-laji"' + _vpSelTip(d.laji) + '>' + d.nimi + '</span>'
-      + '<span class="jsv-an-ka">' + d.arvo + 's</span>'
+      + '<span class="jsv-an-ka">' + d.arvo + d.yks + '</span>'
       + '<span class="jsv-an-viite">' + viiteTxt + '</span>' + bar
       + '<span class="jsv-an-gap" style="color:' + vari + '">' + gapTxt + merkki + '</span>' + tasoBadge + '</div>';
   });
@@ -7739,10 +7743,10 @@ const _JSV_TYYLIT = '<style>'
   + '#_jsvModal .jsv-hist-fill{display:block;height:100%}'
   + '#_jsvModal .jsv-hist-n{width:56px;text-align:right;color:var(--ink2);flex-shrink:0}'
   + '#_jsvModal .jsv-medal{font-family:var(--font-m);font-size:12px;color:var(--ink2);margin-top:6px;letter-spacing:.02em}'
-  + '.jsv-an-lajirivi{display:flex;align-items:center;gap:8px;margin-bottom:5px;font-size:11px}'
+  + '.jsv-an-lajirivi{display:flex;align-items:center;gap:11px;margin-bottom:7px;font-size:11px}'   /* Osa2.3: väljempi rivi (ei lue yhteen juoksevana) */
   + '.jsv-an-laji{width:96px;color:var(--ink);flex-shrink:0}'
-  + '.jsv-an-ka{width:60px;font-family:var(--font-m);color:var(--ink2);flex-shrink:0}'
-  + '.jsv-an-viite{width:88px;color:var(--ink3);flex-shrink:0}'
+  + '.jsv-an-ka{width:56px;font-family:var(--font-m);color:var(--ink);flex-shrink:0}'   /* arvo korostettu (ink) */
+  + '.jsv-an-viite{width:84px;color:var(--ink3);font-size:10px;flex-shrink:0}'   /* viite himmeämpi + pienempi (erottuu arvosta) */
   + '.jsv-an-bar{flex:1;height:6px;background:var(--ov-2);border-radius:2px;overflow:hidden;min-width:24px}'
   + '.jsv-an-fill{display:block;height:100%}'
   + '.jsv-an-gap{width:48px;text-align:right;font-family:var(--font-m);font-weight:600;flex-shrink:0}'
