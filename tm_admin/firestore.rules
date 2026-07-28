@@ -773,6 +773,16 @@ service cloud.firestore {
         allow write: if onSuperAdmin() || (onOmaSeura(seuraId) && onJohtoRooli());
       }
 
+      // ── SEURANTA_KUITTAUKSET (Vaihe C) — VP:n hälytyskuittaukset (audit-jälki). ─────
+      // VP-seurantanäkymä: johto kuittaa valmentajan hälytyksen (Ei havaintoja 30pv ym.).
+      // Kirjoitus = VP/johto (onJohtoRooli); luku = oman seuran jäsenet (oversight).
+      // EI hard-deletea (audit-linja) → delete vain SA. Valmentaja EI saa kuitata itseään.
+      match /seuranta_kuittaukset/{kuittausId} {
+        allow read:           if onSuperAdmin() || onOmaSeura(seuraId);
+        allow create, update: if onSuperAdmin() || (onOmaSeura(seuraId) && onJohtoRooli());
+        allow delete:         if onSuperAdmin();
+      }
+
       // ── KALENTERI (v3.5) — seuran pääkalenteri (KALENTERI_ARKKITEHTUURI.md §3/§7) ──
       // Korvaa legacy tapahtumat + vp_kalenteri + joukkueet/{jid}/kalenteri yhdellä
       // kokoelmalla. Kaikki tapahtumatyypit: testi, ottelu, harjoitus, palaveri,

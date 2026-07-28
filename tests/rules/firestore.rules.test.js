@@ -1759,3 +1759,54 @@ describe('Ohjelmakirjasto (v3.12 — seurat/{sid}/ohjelmat)', () => {
     await assertFails(deleteDoc(ohjRef(db, SEURA_A, 'ohj1')));
   });
 });
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SEURANTA_KUITTAUKSET (Vaihe C) — VP-hälytyskuittaus: johto kirjoittaa, valmentaja ei,
+// oman seuran jäsen lukee, EI hard-deletea (vain SA). seurat/{sid}/seuranta_kuittaukset/{id}
+// ═══════════════════════════════════════════════════════════════════════════
+describe('Seuranta-kuittaukset (Vaihe C)', () => {
+  beforeEach(async () => {
+    await seedAdminDoc();
+    await seedSeuraAndPelaaja();
+  });
+  const kRef = (db, sid, id) => doc(db, 'seurat', sid, 'seuranta_kuittaukset', id);
+  const KUITTAUS = { tyyppi: 'Ei havaintoja 30pv', valmentaja_uid: VALM_A_UID, kuittaaja_uid: VP_A_UID, pvm: '2026-07-28' };
+
+  it('VP (johto) kuittaa hälytyksen → sallittu', async () => {
+    const db = vpContext(SEURA_A).firestore();
+    await assertSucceeds(setDoc(kRef(db, SEURA_A, VALM_A_UID + '__ei_havaintoja_30pv'), KUITTAUS));
+  });
+  it('Seurasihteeri (johto) kuittaa → sallittu', async () => {
+    const db = sihteeriContext(SEURA_A).firestore();
+    await assertSucceeds(setDoc(kRef(db, SEURA_A, 'k-siht'), KUITTAUS));
+  });
+  it('Valmentaja EI kuittaa (ei johtoa) → estetty', async () => {
+    const db = valmentajaContext(VALM_A_UID, SEURA_A).firestore();
+    await assertFails(setDoc(kRef(db, SEURA_A, 'k-valm'), KUITTAUS));
+  });
+  it('Toisen seuran johto EI kuittaa seura A:han (tenant-eristys) → estetty', async () => {
+    const db = vpContext('kpv').firestore();   // vpContext käyttää VP_A_UID:ta mutta seuraId kpv → onOmaSeura(fcl) false
+    await assertFails(setDoc(kRef(db, SEURA_A, 'k-cross'), KUITTAUS));
+  });
+  it('Oman seuran jäsen lukee kuittaukset (oversight) → sallittu', async () => {
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(kRef(ctx.firestore(), SEURA_A, 'k-luku'), KUITTAUS);
+    });
+    const db = valmentajaContext(VALM_A_UID, SEURA_A).firestore();
+    await assertSucceeds(getDoc(kRef(db, SEURA_A, 'k-luku')));
+  });
+  it('KOVA DELETE estetty VP:ltä (audit — vain SA) → estetty', async () => {
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(kRef(ctx.firestore(), SEURA_A, 'k-del'), KUITTAUS);
+    });
+    const db = vpContext(SEURA_A).firestore();
+    await assertFails(deleteDoc(kRef(db, SEURA_A, 'k-del')));
+  });
+  it('SA poistaa kuittauksen → sallittu', async () => {
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(kRef(ctx.firestore(), SEURA_A, 'k-sa-del'), KUITTAUS);
+    });
+    const db = saContext().firestore();
+    await assertSucceeds(deleteDoc(kRef(db, SEURA_A, 'k-sa-del')));
+  });
+});
