@@ -1571,3 +1571,22 @@ describe('Selkeys 1 — _fmtTestiArvo desimaalit + kasvumittaus-ohjaus', () => {
     expect(html).toContain('Kasvumittaus puuttuu');   // + ohjaus rinnalla
   });
 });
+
+// Selkeys 2/3 — Mittaus-normivertailun Taso-sarake = SAMA taso kuin valmentajan kortti (johdonmukaisuus).
+// Molemmat lukevat kanonisen eerikkilaTaso:n → Taso-sarake ei saa poiketa kortin per-testi-tasosta.
+describe('Selkeys 2 — normivertailu Taso-sarake johdonmukainen kortin kanssa', () => {
+  it('lin30m: perTestTasot-taso == eerikkilaTaso (sama minkä normivertailu tasoOf laskee)', () => {
+    const p = { hh_viimeisin: { lin30m: 5.2 }, phv_tila: 'POST' };
+    const ika = 13, sp = 'M';
+    const kortti30 = perTestTasot(p, ika, sp).find(r => r.label === '30m');
+    const suora = eerikkilaTaso(5.2, 'nopeus_30m', ika, sp);
+    expect(kortti30.taso).toBe(suora > 0 ? suora : null);
+  });
+  it('cmj: sama johdonmukaisuus (suurempi parempi)', () => {
+    const p = { hh_viimeisin: { cmj: 30 }, phv_tila: 'POST' };
+    const ika = 14, sp = 'N';
+    const korttiCmj = perTestTasot(p, ika, sp).find(r => r.label === 'CMJ');
+    const suora = eerikkilaTaso(30, 'hyppy_cj', ika, sp);
+    expect(korttiCmj.taso).toBe(suora > 0 ? suora : null);
+  });
+});

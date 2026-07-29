@@ -9248,13 +9248,21 @@ window._avaaPerPelaajaPikakatsaus = function(idx, joukkueNimi) {
       : (epav
           ? '<span style="color:var(--amber)">kehityskohde · tarkentuu kasvumittauksella</span>'
           : '<span style="color:var(--ink3)">kehityskohde</span>');
+    // Selkeys 2 — Taso-sarake (N/5): SAMA taso + väri kuin valmentajan kortissa (5-port: 4–5 teal · 3 amber ·
+    // 1–2 red). Pre-PHV (epav) → ink3-harmaa + 🌱 (yhtenäinen #279/kehityskortin kanssa, ei punaista).
+    const tasoSolu = (taso == null)
+      ? '<span style="color:var(--ink3)">—</span>'
+      : (epav
+          ? '<span style="color:var(--ink3);font-family:var(--font-m)">🌱 ' + taso + '/5</span>'
+          : '<span style="color:' + (taso >= 4 ? 'var(--teal)' : taso === 3 ? 'var(--amber)' : 'var(--red)') + ';font-family:var(--font-m);font-weight:600">' + taso + '/5</span>');
     _nrows += '<tr style="border-top:.5px solid var(--border)"><td style="padding:5px 6px;color:var(--ink2)">' + t.lbl + '</td>'
-      + '<td style="padding:5px 6px;color:var(--ink)">' + (typeof _fmtTestiArvo === 'function' ? _fmtTestiArvo(t.arvo, t.yks) : t.arvo) + ' ' + t.yks + '</td>'
-      + '<td style="padding:5px 6px;color:var(--ink3)">' + (typeof _fmtTestiArvo === 'function' ? _fmtTestiArvo(normi, t.yks) : normi) + ' ' + t.yks + '</td>'
+      + '<td style="padding:5px 6px;color:var(--ink);font-family:var(--font-m)">' + (typeof _fmtTestiArvo === 'function' ? _fmtTestiArvo(t.arvo, t.yks) : t.arvo) + ' ' + t.yks + '</td>'
+      + '<td style="padding:5px 6px;color:var(--ink3);font-family:var(--font-m)">' + (typeof _fmtTestiArvo === 'function' ? _fmtTestiArvo(normi, t.yks) : normi) + ' ' + t.yks + '</td>'
+      + '<td style="padding:5px 6px">' + tasoSolu + '</td>'
       + '<td style="padding:5px 6px">' + arvio + '</td></tr>';
   });
   if (_nrows) _fysSyva += '<div style="font-size:11px;color:var(--ink2);font-weight:600;margin-bottom:4px">Normivertailu (Eerikkilä, taso-3 = ikäluokan keskitaso)</div>'
-    + '<table style="width:100%;border-collapse:collapse;font-size:11.5px"><thead><tr style="color:var(--ink3);font-size:10px;text-transform:uppercase"><td style="padding:2px 6px">Testi</td><td style="padding:2px 6px">Arvo</td><td style="padding:2px 6px">Normi</td><td style="padding:2px 6px"></td></tr></thead><tbody>' + _nrows + '</tbody></table>';
+    + '<table style="width:100%;border-collapse:collapse;font-size:11.5px"><thead><tr style="color:var(--ink3);font-size:10px;text-transform:uppercase"><td style="padding:2px 6px">Testi</td><td style="padding:2px 6px">Arvo</td><td style="padding:2px 6px">Normi</td><td style="padding:2px 6px">Taso</td><td style="padding:2px 6px"></td></tr></thead><tbody>' + _nrows + '</tbody></table>';
   // Sub-indeksit (§30): EI (CMJ−SJ) · FVP (5m/30m) · Profiili (VNE tai FVP-tyyppi). Näytä kun data riittää, muuten "vaatii SJ/5m".
   const _ei = (hv.cmj != null && hv.sj != null) ? Math.round((hv.cmj - hv.sj) * 10) / 10 : null;
   const _fvpProfiili = (fvp != null) ? (fvp < 0.90 ? 'Nopeus' : fvp <= 1.10 ? 'Tasapaino' : 'Voima') : null;
@@ -9262,11 +9270,15 @@ window._avaaPerPelaajaPikakatsaus = function(idx, joukkueNimi) {
     ? (function(){ try { const v = laskeVNE({ cmj: hv.cmj, sj: hv.sj, m5: hv.lin5m, m30: hv.lin30m, ika: ika }); return v && (v.profiili || v.tyyppi || v.nimi) ? (v.profiili || v.tyyppi || v.nimi) : null; } catch(e){ return null; } })()
     : null;
   const _siCard = function(l, v, d){ return '<div style="background:var(--ov-1);border:.5px solid var(--border);border-radius:9px;padding:9px 10px"><div style="font-size:9.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink3)">' + l + '</div><div style="font-size:15px;font-weight:600;margin:2px 0;color:var(--ink)">' + v + '</div><div style="font-size:10px;color:var(--ink3)">' + d + '</div></div>'; };
-  _fysSyva += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:12px">'
+  // Selkeys 2 — osaindeksit (EI/FVP/Profiili) taittuvan "Syvempi tasoanalyysi" -osion alle (hybridi).
+  // EI uutta laskentaa — luetaan olemassa olevasta (_ei/fvp/_vne). Ei riittävää dataa → "vaatii SJ/5m".
+  _fysSyva += '<div style="margin-top:12px;border-top:.5px solid var(--border);padding-top:8px">'
+    + '<span onclick="var b=document.getElementById(\'_jspSyvaTaso\');var o=b.style.display===\'none\';b.style.display=o?\'block\':\'none\';this.textContent=(o?\'▾\':\'▸\')+\' Syvempi tasoanalyysi\'" style="font-size:11px;color:var(--blue);cursor:pointer;font-weight:600">▸ Syvempi tasoanalyysi</span>'
+    + '<div id="_jspSyvaTaso" style="display:none;margin-top:10px"><div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">'
     + _siCard('EI (kimmo)', _ei != null ? (_ei > 0 ? '+' : '') + _ei + ' cm' : '—', _ei != null ? 'CMJ − SJ' : 'vaatii SJ')
     + _siCard('FVP', fvp != null ? fvp.toFixed(2) : '—', fvp != null ? (_fvpProfiili + '-painotteinen') : 'vaatii 5m')
     + _siCard('Profiili', _vne || _fvpProfiili || '—', _vne ? 'VNE (§30)' : _fvpProfiili ? 'FVP-tyyppi' : 'vaatii SJ/5m')
-    + '</div>';
+    + '</div></div></div>';
   // Kehitysvauhti (§29): H-H-taso delta 2. mittauksesta. Abs-parannus kypsyysneutraali (positiivinen ei punainen).
   if (p.hh_taso_edellinen != null && d1 != null) {
     const _hd = Math.round((d1 - p.hh_taso_edellinen) * 10) / 10;
