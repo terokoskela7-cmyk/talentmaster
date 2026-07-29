@@ -144,3 +144,57 @@ describe('tmKaariKattavuusOk / jaksot', () => {
     expect(sidos.parani).toBe(true);     // 6.18→5.38, aikatesti laskee → parannus
   });
 });
+
+// Selkeys 4 — järjestys (aggregaatit erillään) + TKI-divergenssin selitys (§34 §3.2) + Pelaaja ei vuoda.
+describe('Selkeys 4 — aggregaattijärjestys + TKI-divergenssi', () => {
+  // tki laskee (31→20) mutta kokonaistulos paranee (144.3→131 = aikatesti pienempi=parempi → up).
+  const pDiv = { tki_historia: [
+    { pvm: '2024-04-10', lin30m: 6.1, kokonaistulos: 144.3, tki: 31, syotto: 10.6, ponnauttelu: 45 },
+    { pvm: '2025-04-10', lin30m: 5.6, kokonaistulos: 131.0, tki: 20, syotto: 9.8, ponnauttelu: 42 },
+  ], hh_historia: [
+    { pvm: '2024-04-10', lin30m: 6.1 }, { pvm: '2025-04-10', lin30m: 5.6 },
+  ] };
+
+  it('aggregaatit (Tekniikka yht. + TKI) tulevat "Kooste"-lohkossa yksittäisten testien JÄLKEEN', () => {
+    const html = K.tmKaariRenderFull(pDiv, { phvTila: null });
+    const iKooste = html.indexOf('Kooste');
+    const iPonn = html.indexOf('Ponnauttelu');   // yksittäinen tekniikka-laji
+    const iTki = html.indexOf('TKI');
+    const iKok = html.indexOf('Tekniikka yht.');
+    expect(iKooste).toBeGreaterThan(-1);
+    expect(iPonn).toBeGreaterThan(-1);
+    expect(iPonn).toBeLessThan(iKooste);   // yksittäinen laji ennen Koostetta
+    expect(iTki).toBeGreaterThan(iKooste); // TKI kooste-lohkossa
+    expect(iKok).toBeGreaterThan(iKooste); // Tekniikka yht. kooste-lohkossa
+  });
+
+  it('TKI↓ + Tekniikka yht.↑ → ⓘ-selitysrivi + TKI ei punaisena', () => {
+    const html = K.tmKaariRenderFull(pDiv, { phvTila: null, tkiVuosivauhti: 8.2 });
+    expect(html).toContain('ikävaatimus kovenee');
+    expect(html).toContain('(~8.2 s/v)');
+    // TKI-rivin lasku ei saa olla punainen (#C94040) — divergenssissä käytetään amberia
+    expect(html).not.toContain('#C94040');
+  });
+
+  it('ilman vuosivauhtia: selitys ilman lukua', () => {
+    const html = K.tmKaariRenderFull(pDiv, { phvTila: null });
+    expect(html).toContain('ikävaatimus kovenee');
+    expect(html).not.toContain('s/v)');   // ei "(~X s/v)" kun lukua ei injektoitu
+  });
+
+  it('EI selitysriviä kun tki + kokonaistulos samaan suuntaan (molemmat paranee)', () => {
+    const pSame = { tki_historia: [
+      { pvm: '2024-04-10', kokonaistulos: 144, tki: 31 },
+      { pvm: '2025-04-10', kokonaistulos: 131, tki: 40 },   // tki nousee (paranee) + kokonaistulos paranee
+    ] };
+    const html = K.tmKaariRenderFull(pSame, { phvTila: null });
+    expect(html).not.toContain('ikävaatimus kovenee');
+  });
+
+  it('Pelaaja-versio EI näytä TKI-laskua eikä divergenssi-selitystä (§7.22/§16)', () => {
+    const html = K.tmKaariRenderPelaaja(pDiv, {});
+    expect(html).not.toContain('ikävaatimus kovenee');
+    expect(html).not.toContain('TKI');
+    expect(html).not.toContain('laski');
+  });
+});
