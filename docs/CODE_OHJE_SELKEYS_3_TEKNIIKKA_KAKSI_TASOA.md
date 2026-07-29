@@ -19,23 +19,28 @@ taso-saraketta + matka kärkeen sekunteina** (ei "huipputaso"-sanaa joka luetaan
 
 ## Työ
 
-### 3.1 — `_jsvPerLajiHTML` → per-laji-taulu (VP)
-Korvaa nykyinen kaksirivinen +gap/T-merkki-render **taululla** (design osa 03):
+### 3.1 — `_jsvPerLajiHTML` (VP) — SÄILYTÄ kompakti muoto (kuva 1) + lisää valtakunnallinen taso
+**Tero: valmentajan tekniikkaprofiili-popup (kuva 1) on tiivis ja hyvä → ÄLÄ muuta layoutia leveäksi tauluksi.**
+Säilytä nykyinen kompakti kaksirivinen muoto (nimi · aika · huipputaso ≤X · +gap · T-merkki) ja **lisää
+toinen taso-merkki: valtakunnallinen (Eerikkilä 1–3) syötölle & pujottelulle** T-merkin viereen.
 
-| Laji | Aika | Alueellinen taso `ⓘ` | Valtakunnallinen taso `ⓘ` |
-|---|---|---|---|
-| Syöttö | 48.1 s | **3/5** · kärkeen −2.1 s | **2/3** · tasoon 3 −Y s |
-| Ponnauttelu | 40 s | **1/5** | — *Eerikkilä ei testaa* |
+Per laji (kompakti, kuva 1 -tiheys — EI väljennystä):
+- Rivi 1: laji · aika (oik.) · **`Alue T?/5`** · **`Valtak ?/3`** (jälkimmäinen VAIN syöttö/pujottelu)
+- Rivi 2 (himmeä): huipputaso ≤X · +gap ←
 
-- **Aika:** `_fmtTestiArvo(d.arvo, 's')`.
-- **Alueellinen taso:** `d.tkTaso` + `/5`, väri `_jsvTasoVari5(d.tkTaso)`; alle himmeä "kärkeen −`d.gap` s"
-  (jos `d.gap>0`; jos ≤0 → "★ kärjessä").
-- **Valtakunnallinen taso:** `eerikkilaTaso(d.arvo, d.laji, ika, sp)` **jos laji ∈ {syotto,pujottelu} ja tulos 1–3**
-  → `N/3` + himmeä "tasoon 3 −Y s" (Y = `d.arvo − taso3-kynnys`, sama kaava kuin kehityskortin "→ taso N+1");
-  muuten **"— *Eerikkilä ei testaa*"** (ink3). Ei keksitä Eerikkilä-tasoa lajille jolla ei ole kynnyksiä.
-- **ⓘ-tooltipit:** alueellinen = `TM_SELITTEET.tk_lajitaso`; valtakunnallinen = "Eerikkilä-lajitekniikka 1–3,
-  3 = valtakunnan kärki. Vain syöttö & pujottelu."
-- **Selite-rivi** taulun alle: "Alueellinen = TK-lajitaso 1–5 (kaikki lajit) · Valtakunnallinen = Eerikkilä 1–3
+- **Alueellinen (nykyinen T-merkki, ennallaan):** `d.tkTaso` /5 (`tkLajiTaso`), väri `_jsvTasoVari5(d.tkTaso)`.
+  Merkitse selitteessä **"Alue"** (nyt pelkkä "T").
+- **Valtakunnallinen (UUSI merkki):** `eerikkilaTaso(arvo, laji, ika, sp)` /3 **VAIN jos laji ∈ {syotto,pujottelu}
+  ja tulos 1–3**; muille lajeille **ei toista merkkiä lainkaan** (ei "—"-täytettä joka rikkoo tiheyden — jätä pois).
+  - **Protokolla (§23/§26-invariantti):** käytä syöttö/pujottelu-mittausta jolle **Eerikkilä-H-H-normi on
+    kalibroitu** — `hv.syotto`/`hv.pujottelu` (sama laskenta kuin olemassa oleva "Lajitekniikka (H-H, taso 1–3)"
+    ~9358). Sama rata, eri protokolla — **älä sekoita TK-kilpailuarvoa H-H-normiin.** Jos H-H-mittaus puuttuu →
+    ei valtakunnallista merkkiä (ei laske TK-arvosta).
+  - Erota merkit visuaalisesti: **Alue** = nykyinen tyyli · **Valtak** = eri reunaväri/tausta + "V"-etuliite tai
+    pikkulabel, ettei /5 ja /3 sekoitu.
+- **ⓘ-tooltipit:** Alue = `TM_SELITTEET.tk_lajitaso`; Valtak = "Eerikkilä-lajitekniikka 1–3, 3 = valtakunnan
+  kärki. Vain syöttö & pujottelu (Eerikkilä ei testaa muita)."
+- **Selite-rivi:** "**Alue** = TK-lajitaso 1–5 (kilpailukohortti, kaikki lajit) · **Valtak** = Eerikkilä 1–3
   (vain syöttö & pujottelu)."
 
 ### 3.2 — Mitalirivin korjaus (`_jsvBudjettiRivi`)
@@ -45,23 +50,25 @@ kokonaisaikaero + lajien nimet ilman sekunteja**:
 > ⏱ Pronssitaso — kokonaisaika **1 s** päässä · suurin aikasäästö: ponnauttelu, syöttö
 Per-laji-sekunnit ovat taulussa (matka kärkeen) — ei toisteta eri viitteellä.
 
-### 3.3 — Master-sisar (`Master_v16` ~5140)
-Sama taulu-rakenne + mitalirivin korjaus Masterin omaan tkLajiGapit-lohkoon (design-lukko molemmat teemat).
-Master näyttää saman kahden tason taulun. Pelaaja_v7:ää **ei** koske (§7.22 — ei kovia lukuja pelaajalle).
+### 3.3 — Master-sisar (`Master_v16` ~5140, tekniikkaprofiili-popup = kuva 1)
+Sama kompakti muoto ennallaan + **lisää valtakunnallinen Eerikkilä-merkki** (syöttö/pujottelu) + mitalirivin
+korjaus Masterin omaan tkLajiGapit-lohkoon. Kuva 1 on jo hyvä — vain toinen taso-merkki + mitalirivi muuttuvat.
+Pelaaja_v7:ää **ei** koske (§7.22 — ei kovia lukuja pelaajalle).
 
 ## Reunaehdot
 - **Ei laskentamuutosta, ei skeemaa.** `tkLajiTaso`/`eerikkilaTaso`/`d.gap` luetaan olemassa olevasta laskennasta.
 - **Eerikkilä vain syöttö/pujottelu** — muille "—". Älä pakota 1–3:a lajille jolla ei ole kynnyksiä, äläkä
   nimeä TK-lajitasoa Eerikkiläksi.
-- **Design-lukko + molemmat teemat** (taulukko, DM Mono luvuille, hiusviivat, teal/amber/red taso-värit).
+- **Design-lukko + molemmat teemat** — säilytä kuva 1 -tiheys (DM Mono luvuille, hiusviivat, teal/amber/red taso-värit).
 - **`?v=`-bump** muutettuihin appeihin.
 
 ## Definition of Done
-- **L1:** `_jsvPerLajiHTML` (VP) + Master-sisar renderöivät per-laji-taulun: Aika · Alueellinen taso (TK 1–5 +
-  matka kärkeen) · Valtakunnallinen taso (Eerikkilä 1–3 vain syöttö/pujottelu, muuten "—"); mitalirivi vain
-  kokonaisaika + lajinimet (ei per-laji-sekunteja).
+- **L1:** `_jsvPerLajiHTML` (VP) + Master-sisar **säilyttävät kompaktin kuva 1 -muodon** ja lisäävät toisen
+  taso-merkin: **Alue** (TK-lajitaso 1–5, kaikki lajit) + **Valtak** (Eerikkilä 1–3, VAIN syöttö/pujottelu H-H-arvosta;
+  muille ei merkkiä); selite "Alue/Valtak"; mitalirivi vain kokonaisaika + lajinimet (ei per-laji-sekunteja).
 - **L2 (vitest):** syöttö/pujottelu → valtakunnallinen 1–3 näkyy; ponnauttelu/kuljetus-laukaus → "—" (ei
   Eerikkilä-tasoa); alueellinen TK 1–5 kaikille; matka kärkeen = `d.gap`. ~870+ vihreä.
-- **L3 (elävä, molemmat teemat):** tekniikkataulu näyttää molemmat tasot; syöttö/pujottelu molemmat, ponnauttelu/
-  kuljetus-laukaus vain alueellinen + "—"; mitalirivi selkeä (1 s ei sekoitu 18.9 s:aan); luettava, ei run-on.
+- **L3 (elävä, molemmat teemat):** tekniikkaprofiili (kompakti, kuva 1 -tiheys) näyttää syötölle/pujottelulle
+  **Alue + Valtak** -merkit, ponnauttelulle/kuljetus-laukaukselle vain Alue; mitalirivi selkeä (1 s ei sekoitu
+  18.9 s:aan); pysyy tiiviinä (ei "ilmavaa").
 - Pieni PR. Lataa VP/Master uudelleen deployn jälkeen.
