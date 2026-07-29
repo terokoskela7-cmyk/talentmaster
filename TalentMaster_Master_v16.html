@@ -21,7 +21,7 @@
 <script src="lib/tm_arviointi_taksonomia.js?v=6"></script>   <!-- P1: TM_ARVIOINTI_ASTEIKKO + D4-taksonomia + tmAdarHavaittu (Pelihavainto-talteenotto) -->
 <script src="lib/tm_idp.js?v=6"></script>   <!-- I3a: + kesto valmentajan asetettavaksi (opts.kestoVk) · I2 (C): valmentajan IDP-kausitavoite-kortti -->
 <script src="lib/tm_pelialy_yksilo.js?v=3"></script>   <!-- P1: pelihavainto peliäly → yksilöteema (Kartta A) · v3: Vaihe B multi-rater konsensus (tmAdarKonsensus/RistiinarvioAvoin/TalenttiSignaali) -->
-<script src="lib/tm_kehityskaari.js?v=2"></script>   <!-- Trendi Vaihe 2: yksilön kehityskaari (render hh_historia/tki_historia:sta) -->
+<script src="lib/tm_kehityskaari.js?v=3"></script>   <!-- Trendi Vaihe 2: yksilön kehityskaari (render hh_historia/tki_historia:sta) -->
 <script src="lib/tm_arviointi_silta.js?v=2"></script>   <!-- Vaihe 5: arviointi→resepti-silta (4a lähde-vihje: arvioinnin heikoin havaittu) · v2 = I3a SSOT-osoitin tm_kehityspolku -->
 <script src="lib/tm_jaksofokus.js?v=5"></script>   <!-- Vaihe 4c/6: tmJfUmpeutunut (jakson sulku -laukaisin) -->
 <script src="lib/tm_kehityspolku.js?v=1"></script>   <!-- I3a: looginen silta -resolver (idp_fokus → konsepti/fundamentti → harjoite) -->
@@ -6831,8 +6831,10 @@ function _renderPinfoFirestore(p) {
         return fn(pt, ika, _ksIsp.sp);
       } catch (e) { return null; }
     };
+    const _ksVv = (typeof tkVaadittuVuosivauhti === 'function' && _ksIsp.ika != null)   // §4.2 TKI-divergenssin "~X s/v"
+      ? tkVaadittuVuosivauhti(_ksIsp.ika, (_ksIsp.sp === 'N' ? 'T' : 'P'), 'hopea') : null;
     const _ksCtx = {
-      esc: _mEsc, phvTila: p.phv_tila || null, pvmFn: _pvmFiM,
+      esc: _mEsc, phvTila: p.phv_tila || null, pvmFn: _pvmFiM, tkiVuosivauhti: _ksVv,
       tasoFns: {
         d1_taso: (typeof laskeD1Joustava === 'function') ? _ksTasoFn(laskeD1Joustava) : null,
         d2_taso: (typeof laskeD2Joustava === 'function') ? _ksTasoFn(laskeD2Joustava) : null
