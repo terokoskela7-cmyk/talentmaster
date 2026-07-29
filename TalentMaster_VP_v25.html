@@ -1889,6 +1889,10 @@ input::placeholder, textarea::placeholder { color: var(--ink3); opacity: 1; }
     <input type="password" class="field-input" id="lPass" placeholder="Salasana" autocomplete="current-password">
     <div id="lErr"></div>
     <button class="btn-primary" onclick="kirjaudu()">Kirjaudu sisään</button>
+    <div style="text-align:center;margin-top:10px">
+      <span onclick="_unohditSalasana()" style="color:var(--teal);font-size:12px;cursor:pointer">Unohditko salasanan?</span>
+      <div style="font-size:11px;color:var(--text3,#6B7280);margin-top:6px;line-height:1.4">Jos työsähköposti estää linkin, pyydä valmennuspäällikköä jakamaan se WhatsAppilla.</div>
+    </div>
     <div style="display:flex;align-items:center;gap:10px;margin:8px 0;">
       <div style="flex:1;height:1px;background:var(--ov-3);"></div>
       <span style="font-size:11px;color:var(--text3,#6B7280);">tai</span>
@@ -13110,6 +13114,19 @@ function kirjauduGooglella() {
     document.getElementById('loginErr').style.display = 'block';
   });
 }
+
+// Self-service salasanan palautus login-sivulta (olemassa oleva sendPasswordResetEmail; ei uutta logiikkaa).
+// Skanneri-vinkki (WhatsApp) on staattisena login-ruudussa. Tyhjä email → ohje.
+window._unohditSalasana = function () {
+  var _el = document.getElementById('lEmail');
+  var _email = ((_el && _el.value) || '').trim();
+  if (!_email) { if (typeof toast === 'function') toast('Syötä ensin sähköpostiosoite kenttään', 'error'); return; }
+  try {
+    firebase.auth().sendPasswordResetEmail(_email)
+      .then(function () { if (typeof toast === 'function') toast('Salasanalinkki lähetetty: ' + _email + ' — avaa se heti.', 'ok'); })
+      .catch(function (e) { if (typeof toast === 'function') toast('Lähetys epäonnistui: ' + ((e && (e.message || e.code)) || e), 'error'); });
+  } catch (e) { if (typeof toast === 'function') toast('Lähetys epäonnistui', 'error'); }
+};
 
 function kirjaudu() {
   const email = document.getElementById('lEmail').value;

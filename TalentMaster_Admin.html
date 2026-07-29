@@ -222,6 +222,10 @@ tbody td:first-child{font-weight:600;color:var(--ink);}
     <button class="nappi" id="kirjauduNappi" onclick="kirjauduSisaan()">
       Kirjaudu sisään
     </button>
+    <div style="text-align:center;margin-top:10px">
+      <span onclick="_unohditSalasana()" style="color:var(--teal);font-size:12px;cursor:pointer">Unohditko salasanan?</span>
+      <div style="font-size:11px;color:var(--ink3);margin-top:6px;line-height:1.4">Jos työsähköposti estää linkin, pyydä valmennuspäällikköä jakamaan se WhatsAppilla.</div>
+    </div>
     <div class="virheViesti" id="kirjautumisVirhe"></div>
   </div>
 </div>
@@ -881,6 +885,18 @@ async function lataaAdminExcelMalli() {
 }
 
 // ══ ALKUPERÄINEN FUNKTIO ═══════════════════════════════════════
+// Self-service salasanan palautus login-sivulta (olemassa oleva sendPasswordResetEmail; ei uutta logiikkaa).
+window._unohditSalasana = function () {
+  var _el = document.getElementById('emailInput');
+  var _email = ((_el && _el.value) || '').trim();
+  if (!_email) { if (typeof naytaToast === 'function') naytaToast('Syötä ensin sähköpostiosoite kenttään', 'virhe'); return; }
+  try {
+    firebase.auth().sendPasswordResetEmail(_email)
+      .then(function () { if (typeof naytaToast === 'function') naytaToast('Salasanalinkki lähetetty: ' + _email + ' — avaa se heti.', 'ok'); })
+      .catch(function (e) { if (typeof naytaToast === 'function') naytaToast('Lähetys epäonnistui: ' + ((e && (e.message || e.code)) || e), 'virhe'); });
+  } catch (e) { if (typeof naytaToast === 'function') naytaToast('Lähetys epäonnistui', 'virhe'); }
+};
+
 async function kirjauduSisaan() {
   const email    = document.getElementById('emailInput').value.trim();
   const salasana = document.getElementById('salasanaInput').value;

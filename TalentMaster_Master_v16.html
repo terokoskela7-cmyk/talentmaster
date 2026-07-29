@@ -1303,6 +1303,10 @@ textarea.jsp-rv-inp { resize: vertical; min-height: 44px; }
     <input class="login-input" id="lEmail" type="email" placeholder="Sähköposti" autocomplete="email">
     <input class="login-input" id="lPass"  type="password" placeholder="Salasana">
     <button class="login-btn" onclick="login()">Kirjaudu sisään</button>
+    <div style="text-align:center;margin-top:10px">
+      <span onclick="_unohditSalasana()" style="color:var(--teal);font-size:12px;cursor:pointer">Unohditko salasanan?</span>
+      <div style="font-size:11px;color:var(--ink3);margin-top:6px;line-height:1.4">Jos työsähköposti estää linkin, pyydä valmennuspäällikköä jakamaan se WhatsAppilla.</div>
+    </div>
     <div class="login-err" id="lErr"></div>
     <div style="display:flex;align-items:center;gap:12px;margin:8px 0">
       <div style="flex:1;height:0.5px;background:var(--line2)"></div>
@@ -2090,6 +2094,18 @@ function _naytaDash() {
   document.getElementById('sLogin').classList.add('hidden');
   document.getElementById('sDash').classList.remove('hidden');
 }
+
+// Self-service salasanan palautus login-sivulta (olemassa oleva sendPasswordResetEmail; ei uutta logiikkaa).
+window._unohditSalasana = function () {
+  var _el = document.getElementById('lEmail');
+  var _email = ((_el && _el.value) || '').trim();
+  if (!_email) { if (typeof toast === 'function') toast('Syötä ensin sähköpostiosoite kenttään', 'error'); return; }
+  try {
+    firebase.auth().sendPasswordResetEmail(_email)
+      .then(function () { if (typeof toast === 'function') toast('Salasanalinkki lähetetty: ' + _email + ' — avaa se heti.', 'ok'); })
+      .catch(function (e) { if (typeof toast === 'function') toast('Lähetys epäonnistui: ' + ((e && (e.message || e.code)) || e), 'error'); });
+  } catch (e) { if (typeof toast === 'function') toast('Lähetys epäonnistui', 'error'); }
+};
 
 async function login() {
   if (_kirjautuminenKesken) return;
