@@ -5147,18 +5147,28 @@ function _buildTKIDetail(p) {
       const gapTeksti = (g.gap_s > 0) ? ('+' + g.gap_s + yks) : '★';
       const merkinta = onErin ? ' ★' : (onKohde ? ' ←' : '');
       const rowClass = onKohde ? 'detail-rivi detail-kohde' : 'detail-rivi';
-      // TK-lajitaso 1–5 populaatiokohortista (vari5; pituuspotku → null → ei badgea). Lennossa pikakentästä (§26).
+      // ALUE-taso = TK-lajitaso 1–5 populaatiokohortista (kaikki lajit; pituuspotku → null → ei badgea). §26.
       const tkTaso = (typeof tkLajiTaso === 'function') ? tkLajiTaso(g.laji, g.arvo, ika, tkSp) : null;
       const tasoVari = (tkTaso == null) ? 'var(--ink3)' : tkTaso >= 3.5 ? 'var(--teal)' : tkTaso >= 2.5 ? 'var(--amber)' : 'var(--red)';
-      const tasoBadge = (tkTaso != null) ? ('<span class="detail-taso-badge" style="background:' + tasoVari + '" onclick="_mSelInfo(\'tk_lajitaso\')">T' + tkTaso + '</span>') : '';
-      // Kaksirivinen wrap-turvallinen layout (renderKehityskorttiHTML-malli): rivi 1 = laji · arvo · T-merkki
-      // oikealle; rivi 2 = huipputaso + gap himmeänä. Ei sarakkeita jotka puristuvat kapeassa modaalissa yhteen.
-      const _tBadge2 = (tkTaso != null) ? ('<span class="detail-taso-badge" style="background:' + tasoVari + ';margin-left:auto" onclick="_mSelInfo(\'tk_lajitaso\')">T' + tkTaso + '</span>') : '<span style="margin-left:auto"></span>';
+      const alueBadge = (tkTaso != null) ? ('<span class="detail-taso-badge" style="background:' + tasoVari + '" onclick="_mSelInfo(\'tk_lajitaso\')">A' + tkTaso + '</span>') : '';
+      // VALTAK-taso = Eerikkilä-lajitekniikka 1–3, VAIN syöttö/pujottelu H-H-mittauksesta (hh_viimeisin, EI TK-arvosta).
+      let valtakBadge = '';
+      if ((g.laji === 'syotto' || g.laji === 'pujottelu') && typeof eerikkilaTaso === 'function' && ika != null) {
+        const _hvv = p.hh_viimeisin && p.hh_viimeisin[g.laji];
+        if (_hvv != null && !isNaN(_hvv)) {
+          const _vt = eerikkilaTaso(Number(_hvv), g.laji, ika, (tkSp === 'T') ? 'N' : 'M');
+          if (_vt >= 1 && _vt <= 3) {
+            const _vv = _vt >= 3 ? 'var(--teal)' : _vt >= 2 ? 'var(--amber)' : 'var(--red)';
+            valtakBadge = '<span style="font-family:var(--font-m,monospace);font-size:10px;font-weight:700;padding:1px 5px;border-radius:4px;border:.5px solid ' + _vv + ';color:' + _vv + '" title="Eerikkilä-lajitekniikka 1–3, 3 = valtakunnan kärki. Vain syöttö &amp; pujottelu.">V' + _vt + '/3</span>';
+          }
+        }
+      }
+      // Kompakti kaksirivinen (kuva 1): rivi 1 = laji · arvo · Valtak · Alue (oikealle, laji flex:1 työntää ryhmän).
       rivit += '<div class="' + rowClass + '" style="display:block;padding:6px 0 5px">'
-        + '<div style="display:flex;align-items:center;gap:10px">'
+        + '<div style="display:flex;align-items:center;gap:8px">'
         + '<span style="flex:1 1 auto;color:var(--ink)">' + (NIMET[g.laji] || g.laji) + '</span>'
         + '<span class="detail-arvo" style="font-family:var(--font-m,monospace);color:var(--ink)">' + g.arvo + yks + '</span>'
-        + _tBadge2 + '</div>'
+        + valtakBadge + alueBadge + '</div>'
         + '<div style="font-size:10px;color:var(--ink3);margin-top:2px"><span class="detail-viite">' + viiteTeksti + '</span> · <span class="detail-gap" style="color:' + mvari + '">' + gapTeksti + merkinta + '</span></div></div>';
     });
     // Dynaaminen viite-label _lahde-kentästä (valtakunnallinen vs alueellinen). nMin = pienin n (suuntaa-antava < 10).
@@ -5168,22 +5178,23 @@ function _buildTKIDetail(p) {
       ? ('Alueellinen huipputaso 2023–25' + _nStr)
       : ('Loppukilpailutaso 2023–25' + _nStr);
     const tasoInfo = (typeof TM_SELITTEET !== 'undefined' && TM_SELITTEET.tk_lajitaso)
-      ? ' · TK-lajitaso 1–5 <span title="' + TM_SELITTEET.tk_lajitaso + '" onclick="_mSelInfo(\'tk_lajitaso\')" style="cursor:pointer;opacity:.65">ℹ️</span>' : '';
+      ? ' <span title="' + TM_SELITTEET.tk_lajitaso + '" onclick="_mSelInfo(\'tk_lajitaso\')" style="cursor:pointer;opacity:.65">ℹ️</span>' : '';
     taulukkoHtml = '<div class="detail-yhteenveto" style="margin-top:10px">' + otsikko + tasoInfo + '</div>'
-      // Väriselite: ★/← + gap ovat ERI asteikko kuin T-merkki. T = TK-lajitaso (kilpailukohortti), EI Eerikkilä.
-      + '<div style="font-size:10px;color:var(--ink3);margin:2px 0 6px;line-height:1.45">★ huipputasolla · ← suurin kehityskohde · <b>+</b> = ero huipputasoon · <b>T</b> = TK-lajitaso 1–5 · kilpailukohortti (ei väestönormi)</div>'
+      // Selite: KAKSI nimettyä tasoa (eri asteikko). Alue = TK-lajitaso 1–5 (kaikki lajit) · Valtak = Eerikkilä 1–3 (vain syöttö/pujottelu).
+      + '<div style="font-size:10px;color:var(--ink3);margin:2px 0 6px;line-height:1.45"><b>Alue</b> = TK-lajitaso 1–5 (kilpailukohortti, kaikki lajit) · <b>Valtak</b> = Eerikkilä 1–3 (vain syöttö &amp; pujottelu) · ★ huipputasolla · ← suurin kehityskohde · <b>+</b> = matka alueen kärkeen</div>'
       + '<div class="detail-taulukko">' + rivit + '</div>';
 
     // Sekuntibudjetti seuraavaan saavuttamattomaan mitaliin + 2–3 suurinta gappia.
     const kok = p.tk_kokonaistulos_viimeisin;
     if (kok != null && typeof tkSekuntibudjetti === 'function') {
       const budj = tkSekuntibudjetti(kok, ika, tkSp);
-      const MITALI = { kulta: 'Kultaan', hopea: 'Hopeaan', pronssi: 'Pronssiin' };
+      // Selkeys 3.2 — VAIN kokonaisaikaero mitaliin + lajinimet (ei per-laji-sekunteja: sekoittuivat kokonaisaikaeroon).
+      const MITALI = { kulta: 'Kultataso', hopea: 'Hopeataso', pronssi: 'Pronssitaso' };
       if (budj) {
         const top = gapit.filter(function(g) { return g.gap_s > 0; }).slice(0, 3)
-          .map(function(g) { return (NIMET[g.laji] || g.laji) + ' ' + g.gap_s + 's'; }).join(' · ');
-        budjettiHtml = '<div class="detail-suositus">⏱ ' + (MITALI[budj.tavoite] || budj.tavoite) + ' puuttuu <strong>' + budj.gap_s + 's</strong>'
-          + (top ? ' → ' + top : '') + '</div>';
+          .map(function(g) { return (NIMET[g.laji] || g.laji).toLowerCase(); }).join(', ');
+        budjettiHtml = '<div class="detail-suositus">⏱ ' + (MITALI[budj.tavoite] || budj.tavoite) + ' — kokonaisaika <strong>' + budj.gap_s + 's</strong> päässä'
+          + (top ? ' · suurin aikasäästö: ' + top : '') + '</div>';
       } else {
         budjettiHtml = '<div class="detail-suositus" style="color:var(--teal)">⏱ Huipputaso — ylläpidä tekniikkaa.</div>';
       }

@@ -1590,3 +1590,19 @@ describe('Selkeys 2 — normivertailu Taso-sarake johdonmukainen kortin kanssa',
     expect(korttiCmj.taso).toBe(suora > 0 ? suora : null);
   });
 });
+
+// Selkeys 3/3 — Tekniikan kaksi tasoa: Valtakunnallinen Eerikkilä 1–3 VAIN syöttö/pujottelu.
+// Alue (TK-lajitaso 1–5) = kaikki lajit (eri funktio). Valtak-merkin dataperusta = eerikkilaTaso;
+// ponnauttelu/kuljetus-laukaus EIVÄT ole Eerikkilä-normistossa → 0 → ei valtakunnallista merkkiä ("—").
+describe('Selkeys 3 — valtakunnallinen Eerikkilä 1–3 vain syöttö/pujottelu', () => {
+  it('syöttö & pujottelu → Eerikkilä 1–3 (valtakunnallinen merkki näkyy)', () => {
+    expect(eerikkilaTaso(8.0, 'syotto', 12, 'M')).toBeGreaterThanOrEqual(1);
+    expect(eerikkilaTaso(8.0, 'syotto', 12, 'M')).toBeLessThanOrEqual(3);
+    expect(eerikkilaTaso(9.0, 'pujottelu', 12, 'N')).toBeGreaterThanOrEqual(1);
+  });
+  it('ponnauttelu & kuljetus-laukaus → 0 (ei Eerikkilä-normia → EI valtakunnallista merkkiä)', () => {
+    expect(eerikkilaTaso(40, 'ponnauttelu', 12, 'M')).toBe(0);
+    expect(eerikkilaTaso(25, 'kuljetus_laukaus', 12, 'M')).toBe(0);
+    expect(eerikkilaTaso(30, 'pituuspotku_bonus', 12, 'M')).toBe(0);
+  });
+});

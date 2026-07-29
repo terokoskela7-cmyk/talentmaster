@@ -7262,23 +7262,32 @@ function _jsvLajiData(lajit, ika, sp) {
 // TK-lajitaso 1–5 → vari5-väri (4–5 teal, 3 amber, 1–2 red, null ink3). Yhteinen A1/A2.
 function _jsvTasoVari5(t) { return (t == null) ? 'var(--ink3)' : t >= 3.5 ? 'var(--teal)' : t >= 2.5 ? 'var(--amber)' : 'var(--red)'; }
 // Yhteinen per-laji-renderöinti (A2 joukkueprofiili + per-pelaaja Tekninen). → {html, suurinGapLaji}.
-function _jsvPerLajiHTML(lajit, ika, sp, otsikko) {
+function _jsvPerLajiHTML(lajit, ika, sp, otsikko, hv) {
   const data = _jsvLajiData(lajit, ika, sp);
   if (!data.length) return { html: '', suurinGapLaji: null };
+  const spMN = (sp === 'T' || sp === 'N') ? 'N' : 'M';   // eerikkilaTaso odottaa M/N (tkLajiTaso käyttää P/T)
+  // Valtakunnallinen Eerikkilä-lajitekniikka 1–3 (VAIN syöttö/pujottelu, H-H-mittauksesta — EI TK-arvosta).
+  const _valtak = function (laji) {
+    if (!hv || (laji !== 'syotto' && laji !== 'pujottelu') || ika == null || typeof eerikkilaTaso !== 'function') return null;
+    const v = hv[laji];
+    if (v == null || isNaN(v)) return null;               // H-H-mittaus puuttuu → ei valtakunnallista merkkiä
+    const t = eerikkilaTaso(Number(v), laji, ika, spMN);
+    return (t >= 1 && t <= 3) ? t : null;
+  };
   let h = '<div class="jsv-an-otsikko">' + otsikko + '</div>';
   let viiteRef = null;
   for (var i = 0; i < data.length; i++) { if (data[i].viite) { viiteRef = data[i].viite; break; } }
   if (viiteRef) h += '<div class="jsv-an-lahde">' + _jsvViiteLabel(viiteRef) + '</div>';
-  // Väriselite kahdelle ERI asteikolle (T = TK-lajitaso, EI Eerikkilä — TM_SELITTEET.tk_lajitaso).
+  // Selite: KAKSI nimettyä tasoa. Alue = TK-lajitaso 1–5 (kaikki lajit) · Valtak = Eerikkilä 1–3 (vain syöttö/pujottelu).
   h += '<div class="jsv-an-lahde" style="margin-top:-4px;line-height:1.5">'
-    + '<b style="color:var(--ink2)">+</b> = ero alueelliseen huipputasoon (★ saavutettu · <span style="color:var(--amber)">🟡 ≤20 %</span> · <span style="color:var(--red)">🔴 &gt;20 %</span>)<br>'
-    + '<b style="color:var(--ink2)">T</b> = TK-lajitaso 1–5 · kilpailukohortti 2023–25 (ei väestönormi; 3 = keskitaso, 5 = paras 20 %)</div>';
+    + '<b style="color:var(--ink2)">Alue</b> = TK-lajitaso 1–5 (kilpailukohortti, kaikki lajit) · <b style="color:var(--ink2)">Valtak</b> = Eerikkilä 1–3 (vain syöttö &amp; pujottelu)<br>'
+    + '<b style="color:var(--ink2)">+</b> = matka alueen kärkeen (★ saavutettu · <span style="color:var(--amber)">🟡 ≤20 %</span> · <span style="color:var(--red)">🔴 &gt;20 %</span>)</div>';
   let maxGap = null;
   data.forEach(function(d){ if (d.viite && d.gap != null && d.gap > 0 && (maxGap == null || d.gap > maxGap)) maxGap = d.gap; });
   let suurinGapLaji = null;
   data.forEach(function(d){
-    // Kaksirivinen, wrap-turvallinen layout (renderKehityskorttiHTML-malli): rivi 1 = laji · arvo · T-merkki
-    // (oikealle). Rivi 2 = huipputaso + gap himmeänä (ink3). EI inline-palkkia (poistettu — ahtauden juurisyy).
+    // Kompakti kaksirivinen (kuva 1 -tiheys): rivi 1 = laji · aika · Valtak-merkki · Alue-merkki (oikealle).
+    // Rivi 2 = huipputaso + gap himmeänä. Alue = täytetty T-badge (TK 1–5); Valtak = reunustettu V-badge (Eerikkilä 1–3).
     let vari = 'var(--ink3)', gapTxt = '—', merkki = '';
     if (d.viite) {
       const onKohde = (maxGap != null && d.gap === maxGap && maxGap > 0);
@@ -7287,14 +7296,19 @@ function _jsvPerLajiHTML(lajit, ika, sp, otsikko) {
       if (onKohde) { merkki = ' ←'; suurinGapLaji = d.laji; }
     }
     const viiteTxt = d.viite ? ((d.kaant ? 'huipputaso ≥' : 'huipputaso ≤') + d.viite.hyva + d.yks) : 'viite ei saatavilla';
-    const tasoBadge = (d.tkTaso != null)
-      ? '<span class="jsv-taso-badge" style="background:' + _jsvTasoVari5(d.tkTaso) + ';margin-left:auto"' + _vpSelTip('tk_lajitaso') + '>T' + d.tkTaso + '</span>'
-      : '<span style="margin-left:auto"></span>';
+    const alueBadge = (d.tkTaso != null)
+      ? '<span class="jsv-taso-badge" style="background:' + _jsvTasoVari5(d.tkTaso) + '"' + _vpSelTip('tk_lajitaso') + '>A' + d.tkTaso + '</span>'
+      : '';
+    const vt = _valtak(d.laji);
+    const vVari = (vt == null) ? 'var(--ink3)' : vt >= 3 ? 'var(--teal)' : vt >= 2 ? 'var(--amber)' : 'var(--red)';
+    const valtakBadge = (vt != null)
+      ? '<span style="font-family:var(--font-m);font-size:10px;font-weight:700;padding:1px 5px;border-radius:4px;border:.5px solid ' + vVari + ';color:' + vVari + '" title="Eerikkilä-lajitekniikka 1–3, 3 = valtakunnan kärki. Vain syöttö &amp; pujottelu (Eerikkilä ei testaa muita).">V' + vt + '/3</span>'
+      : '';
     h += '<div style="border-top:.5px solid var(--ov-3,rgba(255,255,255,.06));padding:6px 0 5px">'
-      + '<div style="display:flex;align-items:center;gap:10px">'
+      + '<div style="display:flex;align-items:center;gap:8px">'
       + '<span class="jsv-an-laji"' + _vpSelTip(d.laji) + ' style="width:auto;flex:1 1 auto">' + d.nimi + '</span>'
       + '<span style="font-family:var(--font-m);color:var(--ink);font-size:12px">' + d.arvo + d.yks + '</span>'
-      + tasoBadge + '</div>'
+      + valtakBadge + alueBadge + '</div>'
       + '<div style="font-size:10px;color:var(--ink3);margin-top:2px">' + viiteTxt
       + (d.viite ? (' · <span style="color:' + vari + ';font-family:var(--font-m);font-weight:600">' + gapTxt + merkki + '</span>') : '')
       + '</div></div>';
@@ -7307,11 +7321,13 @@ function _jsvBudjettiRivi(kok, lajit, ika, sp) {
   if (kok == null) return '';
   const budj = tkSekuntibudjetti(kok, ika, sp);
   if (!budj) return '<div class="jsv-an-rivi" style="color:var(--teal)">⏱ Huipputaso — ylläpito</div>';
-  const MITALI = { kulta:'Kultaan', hopea:'Hopeaan', pronssi:'Pronssiin' };
+  // Selkeys 3.2 — näytä VAIN kokonaisaikaero mitaliin + lajien nimet (EI per-laji-sekunteja: ne sekoittuivat
+  // kokonaisaikaeroon eri viitteellä). Per-laji-matka kärkeen on tekniikkataulussa (+gap).
+  const MITALI = { kulta:'Kultataso', hopea:'Hopeataso', pronssi:'Pronssitaso' };
   const top = _jsvLajiData(lajit, ika, sp).filter(function(d){ return d.viite && d.gap > 0; }).slice(0, 2)
-    .map(function(d){ return d.nimi.toLowerCase() + ' ' + d.gap + 's'; });
-  return '<div class="jsv-an-rivi">⏱ ' + MITALI[budj.tavoite] + ' puuttuu <strong>' + budj.gap_s + 's</strong>'
-    + (top.length ? ' → ' + top.join(' · ') : '') + '</div>';
+    .map(function(d){ return d.nimi.toLowerCase(); });
+  return '<div class="jsv-an-rivi">⏱ ' + (MITALI[budj.tavoite] || budj.tavoite) + ' — kokonaisaika <strong>' + budj.gap_s + 's</strong> päässä'
+    + (top.length ? ' · suurin aikasäästö: ' + top.join(', ') : '') + '</div>';
 }
 
 // ── YHTEENVETO-välilehti (A1–A5) — laskenta vain pikakentistä (§26), string concat (§7.1) ──
@@ -9382,7 +9398,7 @@ window._avaaPerPelaajaPikakatsaus = function(idx, joukkueNimi) {
   // ── (B) ▸ SYVÄANALYYSI (Tekninen) — per-laji-sekuntibudjetti + eliittiviite (§34) + TKI-kehitysvauhti (abs erillään, §3.2) + FLEI.
   let _tekSyva = '';
   if (p.tk_lajit_viimeisin) {
-    const _pl = _jsvPerLajiHTML(p.tk_lajit_viimeisin, ika, sp, 'Tekniikka lajeittain');
+    const _pl = _jsvPerLajiHTML(p.tk_lajit_viimeisin, ika, sp, 'Tekniikka lajeittain', p.hh_viimeisin);   // hv → valtakunnallinen Eerikkilä 1–3 (syöttö/pujottelu)
     _tekSyva += '<div style="margin-top:8px">' + _pl.html;
     _tekSyva += _jsvBudjettiRivi(p.tk_kokonaistulos_viimeisin, p.tk_lajit_viimeisin, ika, sp);
     if (p.tki_edellinen != null && p.tki_viimeisin != null) {
