@@ -455,6 +455,10 @@ tbody td:first-child { font-weight:600; color:var(--ink); }
     <button class="nappi" id="kirjauduNappi" onclick="kirjauduSisaan()">
       Kirjaudu sisään
     </button>
+    <div style="text-align:center;margin-top:10px">
+      <span onclick="_unohditSalasana()" style="color:var(--teal);font-size:12px;cursor:pointer">Unohditko salasanan?</span>
+      <div style="font-size:11px;color:var(--ink3);margin-top:6px;line-height:1.4">Jos työsähköposti estää linkin, pyydä valmennuspäällikköä jakamaan se WhatsAppilla.</div>
+    </div>
     <div class="virheDiv" id="kirjautumisVirhe"></div>
   </div>
 </div>
@@ -694,10 +698,12 @@ tbody td:first-child { font-weight:600; color:var(--ink); }
       <div class="linkkiBoksiOtsikko">🔑 Salasanan asetuslinkki luotu</div>
       <div style="font-size:15px;font-weight:600;margin-bottom:2px;" id="reset-jako-nimi">—</div>
       <div style="font-size:12px;color:var(--ink3);margin-bottom:12px;" id="reset-jako-email">—</div>
+      <!-- Osa 2: WhatsApp-suositus (näkyvä vain kun henkilöllä on tallennettu puhelin, _resetPuhelin) -->
+      <div id="reset-jako-suositus" style="display:none;font-size:11.5px;color:var(--ink2);background:rgba(37,211,102,.10);border:.5px solid rgba(37,211,102,.35);border-radius:8px;padding:8px 10px;margin-bottom:10px;line-height:1.45">💡 <b>Suositus: jaa WhatsAppilla.</b> Työsähköposti voi estää kertakäyttölinkin (skanneri avaa sen ennen käyttäjää → 'expired/already used').</div>
       <div class="linkkiBoksiOtsikko" style="margin-top:4px;">Jaa kirjautumislinkki</div>
       <div class="linkkiNapit">
-        <button class="linkkiNappi teal" onclick="window._resetJaaSahkoposti()">📧 Sähköposti</button>
-        <button class="linkkiNappi" style="background:rgba(37,211,102,.15);border-color:rgba(37,211,102,.4);color:#25d366;" onclick="window._resetJaaWhatsapp()">💬 WhatsApp</button>
+        <button class="linkkiNappi teal" id="reset-btn-email" onclick="window._resetJaaSahkoposti()">📧 Sähköposti</button>
+        <button class="linkkiNappi" id="reset-btn-wa" style="background:rgba(37,211,102,.15);border-color:rgba(37,211,102,.4);color:#25d366;" onclick="window._resetJaaWhatsapp()">💬 WhatsApp</button>
         <button class="linkkiNappi" onclick="window._resetKopioi()">📋 Kopioi</button>
       </div>
     </div>
@@ -3753,6 +3759,21 @@ window._lahetaSalasanaReset = async function(uid, email, etunimi, suuntakoodi, p
     window._resetPuhelin = _pRaaka ? (_maa + _pRaaka.replace(/^0+/, '')) : null;
     document.getElementById('reset-jako-nimi').textContent = etunimi || email;
     document.getElementById('reset-jako-email').textContent = email;
+    // Osa 2: kun puhelin on tallennettu → suosittele WhatsAppia (skanneri estää kertakäyttölinkin). Korosta 💬,
+    // himmennä 📧. Puhelin puuttuu → ennallaan (yleinen wa.me/?text=). Vain nappien painotus + vihje, ei uutta jakoa.
+    (function () {
+      var _nudge = document.getElementById('reset-jako-suositus');
+      var _wa = document.getElementById('reset-btn-wa');
+      var _em = document.getElementById('reset-btn-email');
+      var _onPuh = !!window._resetPuhelin;
+      if (_nudge) _nudge.style.display = _onPuh ? 'block' : 'none';
+      if (_wa) {   // puhelin → WhatsApp ensisijaiseksi (teal-täyttö); muuten ennallaan (vihreä-himmeä)
+        _wa.style.cssText = _onPuh
+          ? 'background:var(--teal);border-color:var(--teal);color:#fff;font-weight:600'
+          : 'background:rgba(37,211,102,.15);border-color:rgba(37,211,102,.4);color:#25d366;';
+      }
+      if (_em) { _em.classList.toggle('teal', !_onPuh); _em.style.opacity = _onPuh ? '.75' : ''; }   // sähköposti toissijaiseksi kun puhelin on
+    })();
     document.getElementById('reset-jako-modal').classList.add('auki');
   } catch (e) {
     naytaToast('Reset epäonnistui: ' + e.message, 'virhe');
@@ -5392,6 +5413,18 @@ async function tallennaPelaajaPIN(pelaajaId) {
 // ─────────────────────────────────────────────────────────────────
 // KIRJAUTUMINEN
 // ─────────────────────────────────────────────────────────────────
+// Self-service salasanan palautus login-sivulta (olemassa oleva sendPasswordResetEmail; ei uutta logiikkaa).
+window._unohditSalasana = function () {
+  var _el = document.getElementById('emailInput');
+  var _email = ((_el && _el.value) || '').trim();
+  if (!_email) { if (typeof naytaToast === 'function') naytaToast('Syötä ensin sähköpostiosoite kenttään', 'virhe'); return; }
+  try {
+    firebase.auth().sendPasswordResetEmail(_email)
+      .then(function () { if (typeof naytaToast === 'function') naytaToast('Salasanalinkki lähetetty: ' + _email + ' — avaa se heti.', 'ok'); })
+      .catch(function (e) { if (typeof naytaToast === 'function') naytaToast('Lähetys epäonnistui: ' + ((e && (e.message || e.code)) || e), 'virhe'); });
+  } catch (e) { if (typeof naytaToast === 'function') naytaToast('Lähetys epäonnistui', 'virhe'); }
+};
+
 async function kirjauduSisaan() {
   const email    = document.getElementById('emailInput').value.trim();
   const salasana = document.getElementById('salasanaInput').value;
