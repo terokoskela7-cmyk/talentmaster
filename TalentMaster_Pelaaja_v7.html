@@ -442,6 +442,7 @@ input::placeholder,textarea::placeholder{color:#8C8B86;opacity:1}
 <script src="lib/tm_idp.js?v=2"></script>   <!-- Vaihe 3c-a: pelaajan aikajana (idpPelaajaKaari/Konsepti, §7.22-turvallinen) -->
 <script src="lib/tm_teknistaktiset.js?v=4"></script>   <!-- Vaihe 4b: pelaajan cue-kerros (tmTtPelaaja, §0b/§7.22) · v4 = parseri-korjaus (pelimuoto-saaste) -->
 <script src="lib/tm_adar_rubriikki.js?v=2"></script>   <!-- Kortin ÄLY-tasokuvaus: kanoninen ADAR-rubriikki (TM_ADAR_RUBRIIKKI, §7.22) · v2 = taso 4 Re-assess-korjaus -->
+<script src="lib/tm_kortti_rubriikit.js?v=1"></script> <!-- Kortin FYS+PSY-tasokuvaus (TM_KORTTI_RUBRIIKIT, §7.22/§28) · sama kuvio kuin ÄLY/TEK -->
 <script src="lib/tm_pelialy_yksilo.js?v=3"></script>   <!-- Peliäly-lohko: ADAR §4-ikäportitus (Malli A, tmAdarBand/Yht/BonusOsat, PR #266) -->
 <script src="lib/tm_kehityskaari.js?v=3"></script>   <!-- Trendi Vaihe 2: kehityskaari (§7.22 kannustava) -->
 </head>
@@ -4763,6 +4764,30 @@ function naytaFcOverlay() {
           if (tek.kehitys.nyt != null && tek.kehitys.tavoite != null) seur += ' <span style="color:var(--ink3)">(' + tek.kehitys.nyt + ' s → ' + tek.kehitys.tavoite + ' s)</span>';
           rows += '<div style="margin-top:1px">' + seur + '</div>';
         }
+        return '<div class="fc-bar" style="align-items:flex-start"><span class="bk">' + d.key + '</span>'
+          + '<div style="grid-column:span 2;font-size:10px;color:var(--text);line-height:1.3">' + rows + '</div></div>';
+      }
+    }
+    // FYS (fyysiset taidot, D1) — kanoninen rubriikki (TM_KORTTI_RUBRIIKIT, yksi lähde). §28: grow/tulossa-tilat
+    // palasivat jo yllä → tänne vain MITATTU FYS (pre-PHV 🌱 ei kutsu fysTaso:a). Fallback geneeriseen jos null (§21).
+    if (d.key === 'FYS' && window.TM_KORTTI_RUBRIIKIT) {
+      const r = window.TM_KORTTI_RUBRIIKIT.fysTaso(t);
+      if (r) return '<div class="fc-bar" style="align-items:flex-start">'
+        + '<span class="bk">' + d.key + '</span>'
+        + '<div style="grid-column:span 2;font-size:10px;color:var(--text);line-height:1.3">'
+        +   '<div>Nyt: <b style="color:var(--cf-main,#28B090)">' + r.nyt + '</b> <span style="color:var(--ink3);font-size:8px">taso ' + r.taso + '/5</span></div>'
+        +   '<div style="color:var(--ink3);margin-top:1px">Seuraava askel: ' + r.askel + '</div>'
+        + '</div></div>';
+    }
+    // PSY (mielen taidot, D3) — kanoninen rubriikki + valinnainen ⭐vahvuus (korkein D3-osa-alue, kuten TEK).
+    // seura-avaa-tila palasi jo yllä → tänne vain MITATTU PSY. Fallback geneeriseen jos null (§21). §7.22.
+    if (d.key === 'PSY' && window.TM_KORTTI_RUBRIIKIT) {
+      const r = window.TM_KORTTI_RUBRIIKIT.psyTaso(t, p.d3_viimeisin && p.d3_viimeisin.pisteet);
+      if (r) {
+        let rows = '';
+        if (r.vahvuus) rows += '<div>⭐ Vahvuutesi: <b style="color:var(--cf-main,#28B090)">' + r.vahvuus + '</b></div>';
+        rows += '<div' + (r.vahvuus ? ' style="margin-top:1px"' : '') + '>Nyt: <b style="color:var(--cf-main,#28B090)">' + r.nyt + '</b> <span style="color:var(--ink3);font-size:8px">taso ' + r.taso + '/5</span></div>';
+        rows += '<div style="color:var(--ink3);margin-top:1px">Seuraava askel: ' + r.askel + '</div>';
         return '<div class="fc-bar" style="align-items:flex-start"><span class="bk">' + d.key + '</span>'
           + '<div style="grid-column:span 2;font-size:10px;color:var(--text);line-height:1.3">' + rows + '</div></div>';
       }
