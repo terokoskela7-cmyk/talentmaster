@@ -22,6 +22,7 @@
 <script src="lib/tm_joukkue.js?v=3"></script>
 <script src="lib/tm_pvm.js?v=3"></script>
 <script src="lib/tm_historia.js?v=1"></script>   <!-- Trendi Vaihe 1a: mittaushistorian selkäranka (tmHhSnapshot/tmTkiSnapshot/tmHistoriaLisaa) -->
+<script src="lib/tm_pohja.js?v=1"></script>   <!-- P1.2: itsekuvaava tuontipohja — TM_POHJA.sarakkeetTesteista/metaLehtiAoa/lueMetaLehti (joustava testivalitsin + Meta-lehti) -->
 
 <style>
 :root {
@@ -450,6 +451,44 @@ tbody tr:hover { background: rgba(46,213,115,0.04); }
 
     <!-- ════ EXCEL-OSIO ════ -->
     <div id="osio-excel">
+
+    <!-- P1.2: JOUSTAVA TESTIVALITSIN — lataa tuontipohja valituille testeille (protokolla-esitäyttö + karsi/lisää) -->
+    <details id="pohja-valitsin" class="card" open>
+      <summary style="cursor:pointer;list-style:none;">
+        <span class="card-title">📥 Lataa tuontipohja</span>
+        <div class="card-sub">Valitse protokolla-esitäyttö tai poimi yksittäiset testit — pohja generoidaan vain valituille testeille.</div>
+      </summary>
+      <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;margin:14px 0 6px;">
+        <label style="font-size:12px;color:var(--text2);">Esitäyttö
+          <select id="pv-proto" onchange="_pvEsitayta(this.value)" style="display:block;margin-top:4px;min-width:220px;padding:8px 10px;border:1px solid var(--border);border-radius:6px;background:var(--bg3);color:var(--text);font-family:inherit;font-size:13px;">
+            <option value="">— Valitse esitäyttö —</option>
+            <option value="hh_laaja">HH-testi laaja</option>
+            <option value="hh_suppea">HH-testi suppea</option>
+            <option value="tekniikkakilpailu">Tekniikkakilpailu</option>
+            <option value="harjoitettavuus_u12">Harjoitettavuus U10–12</option>
+            <option value="harjoitettavuus_u15">Harjoitettavuus U13–15</option>
+            <option value="harjoitettavuus_u19">Harjoitettavuus U15–19</option>
+          </select>
+        </label>
+        <label style="font-size:12px;color:var(--text2);">Joukkue (valinnainen)
+          <input id="pv-joukkue" type="text" placeholder="esim. SJK P13" style="display:block;margin-top:4px;padding:8px 10px;border:1px solid var(--border);border-radius:6px;background:var(--bg3);color:var(--text);font-family:inherit;font-size:13px;">
+        </label>
+      </div>
+      <div id="pv-testit" style="margin:8px 0;"></div>
+      <div id="pv-alusta-wrap" style="display:none;margin:8px 0;font-size:12px;color:var(--text2);">
+        Alusta (§22 — nopeus-/ketteryystestejä valittu)
+        <select id="pv-alusta" style="margin-left:8px;padding:6px 10px;border:1px solid var(--border);border-radius:6px;background:var(--bg3);color:var(--text);font-family:inherit;font-size:13px;">
+          <option value="">(täytä pohjaan käsin)</option>
+          <option>Tekonurmi</option><option>Luonnonnurmi</option><option>Hiekkatekonurmi</option>
+          <option>Halli / parketti</option><option>Muu</option>
+        </select>
+      </div>
+      <div style="display:flex;gap:12px;align-items:center;margin-top:10px;flex-wrap:wrap;">
+        <button class="btn btn-primary btn-sm" onclick="_pvLataa()">📥 Lataa pohja</button>
+        <button class="btn btn-ghost btn-sm" onclick="_pvTyhjenna()">Tyhjennä valinnat</button>
+        <span id="pv-count" style="font-size:12px;color:var(--text3);"></span>
+      </div>
+    </details>
 
     <!-- Stepit -->
     <div class="stepit">
@@ -1018,6 +1057,61 @@ const PROTOKOLLAT = {
   }
 };
 
+// ════════════════════════════════════════════════════════════════════════════════════════════════
+// P1.2 — JOUSTAVA TESTIVALITSIN: kanoninen testikatalogi (Excel-id-avaruus)
+// ⚠ PIDÄ SYNKASSA: PROTOKOLLAT + pohjaSarakkeet (generointi) + prosessoiExcel/HH_TESTI_MAP (luku).
+// H-H-splitit (lin5m/lin10m) + fyysiset (mas/sm/kasirata) + H-H-tekniikka (pujottelu_hh/syotto_hh) EIVÄT ole
+// PROTOKOLLAT.testit-listalla erillisinä (pohjaSarakkeet generoi ne kovakoodatusti) → curated meta tässä.
+// Harjoitettavuustestit johdetaan PROTOKOLLAT:ista (ne ovat siellä erillisinä id:inä). Kanoninen id = Excel-muoto
+// (lin30m), EI Testaus_v9 VAPAA_TESTIPANKKI (lin_5m, eri avaruus + ei H-H-fyysisiä). Meta-lehti takaa round-tripin.
+// ════════════════════════════════════════════════════════════════════════════════════════════════
+const KATALOGI_META = {
+  lin5m:    { nimi: 'Lineaarinopeus 5m',        yksikko: 's',    yritykset: 3, kategoria: 'Nopeus & voima',   alustaherka: true },
+  lin10m:   { nimi: 'Lineaarinopeus 10m',       yksikko: 's',    yritykset: 3, kategoria: 'Nopeus & voima',   alustaherka: true },
+  lin30m:   { nimi: 'Lineaarinopeus 30m',       yksikko: 's',    yritykset: 3, kategoria: 'Nopeus & voima',   alustaherka: true },
+  kasirata: { nimi: 'Kasirata',                 yksikko: 's',    yritykset: 2, kategoria: 'Nopeus & voima',   alustaherka: true },
+  sm_juoksu:{ nimi: 'SM-juoksu (ilman palloa)', yksikko: 's',    yritykset: 2, kategoria: 'Nopeus & voima',   alustaherka: true },
+  hyppy_sj: { nimi: 'Staattinen hyppy (SJ)',    yksikko: 'cm',   yritykset: 3, kategoria: 'Nopeus & voima' },
+  hyppy_cj: { nimi: 'Kevennyshyppy (CMJ)',      yksikko: 'cm',   yritykset: 3, kategoria: 'Nopeus & voima' },
+  mas:      { nimi: 'MAS-juoksutesti',          yksikko: 'km/h', yritykset: 1, kategoria: 'Nopeus & voima',   alustaherka: true },
+  sm_pallo: { nimi: 'SM-pallo',                 yksikko: 's',    yritykset: 2, kategoria: 'Tekniikka (H-H)',  alustaherka: true },
+  pujottelu_hh: { nimi: 'Pujottelu (H-H)',      yksikko: 's',    yritykset: 2, kategoria: 'Tekniikka (H-H)',  alustaherka: true },
+  syotto_hh:{ nimi: 'Syöttö (H-H)',             yksikko: 's',    yritykset: 2, kategoria: 'Tekniikka (H-H)',  alustaherka: true },
+  ponnauttelu: { nimi: 'Ponnauttelu',           yksikko: 's',    yritykset: 2, kategoria: 'Tekniikkakilpailu' },
+  syotto:   { nimi: 'Syöttö',                   yksikko: 's',    yritykset: 2, kategoria: 'Tekniikkakilpailu', alustaherka: true },
+  pujottelu:{ nimi: 'Pujottelu',                yksikko: 's',    yritykset: 2, kategoria: 'Tekniikkakilpailu', alustaherka: true },
+  kuljetus_laukaus: { nimi: 'Kuljetus-laukaus', yksikko: 's',    yritykset: 2, kategoria: 'Tekniikkakilpailu', lajiLogiikka: 'kuljetus_laukaus', alustaherka: true },
+  pituuspotku: { nimi: 'Pituuspotku',           yksikko: 'm',    yritykset: 4, kategoria: 'Tekniikkakilpailu', lajiLogiikka: 'pituuspotku' }
+};
+// Protokolla-esitäytöt = pohjaSarakkeet:n TODELLISET testId:t (ei PROTOKOLLAT.valiajat, joka on epäjohdonmukainen).
+function _protoEsitaytto(protokolla) {
+  try { return [...new Set((pohjaSarakkeet(protokolla) || []).map(s => s.testId))]; } catch (e) { return []; }
+}
+// Yhden testin katalogimeta id:n perusteella: KATALOGI_META → PROTOKOLLAT (harjoitettavuus) → synteettinen.
+function _katalogiTesti(id) {
+  if (!id) return null;
+  if (KATALOGI_META[id]) return Object.assign({ id: id }, KATALOGI_META[id]);
+  for (const pk of Object.keys(PROTOKOLLAT)) {
+    const t = (PROTOKOLLAT[pk].testit || []).find(x => x.id === id);
+    if (t) {
+      const yks = (PROTOKOLLAT[pk].tyyppi === '1-3') ? '1-3p' : (t.yksikko || 's');
+      return { id: id, nimi: t.nimi, yksikko: yks, yritykset: t.yritykset || 1, lajiLogiikka: t.lajiLogiikka || null, kategoria: 'Harjoitettavuus', alustaherka: false };
+    }
+  }
+  return { id: id, nimi: id, yksikko: 's', yritykset: 1, kategoria: 'Muu', alustaherka: false };
+}
+// Koko valittava katalogi (curated H-H/TK + johdetut harjoitettavuustestit), kategorioittain UI:lle.
+function _kaikkiKatalogiTestit() {
+  const nahdyt = {}, ulos = [];
+  Object.keys(KATALOGI_META).forEach(id => { nahdyt[id] = true; ulos.push(_katalogiTesti(id)); });
+  ['harjoitettavuus_u12', 'harjoitettavuus_u15', 'harjoitettavuus_u19'].forEach(pk => {
+    (PROTOKOLLAT[pk] && PROTOKOLLAT[pk].testit || []).forEach(t => {
+      if (nahdyt[t.id]) return; nahdyt[t.id] = true; ulos.push(_katalogiTesti(t.id));
+    });
+  });
+  return ulos;
+}
+
 // ════════════════════════════════════════
 // EXCEL-POHJAGENERAATTORI — protokollakohtaiset sarakkeet (SheetJS)
 // Sama sarakeskeema ohjaa sekä pohjan generointia että lukua (prosessoiExcel).
@@ -1034,6 +1128,10 @@ function _pohjaTestiNimi(nimi) {
 // Palauttaa sarakemääritykset: { header, testId, kind, yritys }
 // kind: 'arvo' | 'kl_raaka' | 'kl_vahennys' | 'pp_oikea' | 'pp_vasen'
 function pohjaSarakkeet(protokolla) {
+  // P1.2: mukautettu testilista (joustava valitsin) → geneerinen generointi lib:llä (TM_POHJA). Round-trip Meta-lehdellä.
+  if (protokolla && typeof protokolla === 'object' && Array.isArray(protokolla.testit)) {
+    return (typeof TM_POHJA !== 'undefined') ? TM_POHJA.sarakkeetTesteista(protokolla.testit) : [];
+  }
   const aika = (base, testId, yrit) => {
     const arr = [];
     for (let i = 1; i <= yrit; i++) arr.push({ header: base + '_' + i, testId: testId, kind: 'arvo', yritys: i });
@@ -1110,11 +1208,32 @@ function _pohjaPakotaTekstisarake(ws, colIdx, bufferRivit) {
   ws['!ref'] = XLSX.utils.encode_range(range);
 }
 
-function generoiExcelPohja(protokolla, joukkueNimi) {
+// P1.2: hyväksyy joko protokolla-avaimen (string) TAI mukautetun listan ({nimi,testit[]} / testit[]).
+// alusta = valinnainen §22-alusta (kirjataan Ohjeet-lehteen kun alustaherka testejä mukana). Kaikki pohjat saavat
+// itsekuvaavan Meta-lehden (tuonti tunnistaa sarakkeet siitä — ei URL-/tapahtuma-riippuvuutta, ei pakota koko protokollaa).
+function generoiExcelPohja(protoTaiTestit, joukkueNimi, alusta) {
   if (typeof XLSX === 'undefined') { toast('Excel-kirjasto ei latautunut', 'err'); return; }
-  const proto = PROTOKOLLAT[protokolla];
-  if (!proto) { toast('Tuntematon protokolla: ' + protokolla, 'err'); return; }
-  const sar = pohjaSarakkeet(protokolla);
+  let protokolla = null, protoNimi = '', sar = [], tiedostoNimiOsa = 'mukautettu';
+  if (typeof protoTaiTestit === 'string') {
+    protokolla = protoTaiTestit;
+    const proto = PROTOKOLLAT[protokolla];
+    if (!proto) { toast('Tuntematon protokolla: ' + protokolla, 'err'); return; }
+    protoNimi = proto.nimi; tiedostoNimiOsa = protokolla;
+    sar = pohjaSarakkeet(protokolla);
+  } else {
+    const testit = Array.isArray(protoTaiTestit) ? protoTaiTestit : (protoTaiTestit && protoTaiTestit.testit) || [];
+    if (!testit.length) { toast('Valitse vähintään yksi testi', 'err'); return; }
+    protoNimi = (protoTaiTestit && protoTaiTestit.nimi) || 'Mukautettu tuontipohja';
+    sar = pohjaSarakkeet({ testit: testit });   // → TM_POHJA.sarakkeetTesteista
+  }
+  if (!sar.length) { toast('Pohjan sarakkeita ei voitu muodostaa', 'err'); return; }
+  // Mitä testejä pohjassa on → ohje-vinkit lipuilla (ei protokolla-avaimeen sidottu → toimii myös mukautetuille).
+  const idt = new Set(sar.map(s => s.testId));
+  const onMas = idt.has('mas');
+  const onTk  = ['ponnauttelu','syotto','pujottelu','kuljetus_laukaus','pituuspotku'].some(x => idt.has(x));
+  const onHhPujSyo = idt.has('pujottelu_hh') || idt.has('syotto_hh');
+  const alustaherkkaMukana = sar.some(s => (_katalogiTesti(s.testId) || {}).alustaherka);
+
   const otsikot = POHJA_YLEISET.concat(sar.map(s => s.header));
   const rivit = [otsikot];
   if (protokolla === 'tekniikkakilpailu') {
@@ -1125,21 +1244,22 @@ function generoiExcelPohja(protokolla, joukkueNimi) {
   // PalloID = POHJA_YLEISET[0] → sarake A tekstimuotoon (estää numeroluvun)
   _pohjaPakotaTekstisarake(wsData, 0, 300);
   const ohje = [
-    ['TalentMaster — tuontipohja: ' + proto.nimi],
+    ['TalentMaster — tuontipohja: ' + protoNimi],
     ['Joukkue', joukkueNimi || '(täytä halutessasi)'],
-    [''],
-    ['OHJEET'],
-    ['• Suorituksia voi olla 1-3 (sarakkeet _1, _2, _3). Jätä tyhjäksi jos suoritusta ei tehty.'],
-    ['• Järjestelmä valitsee parhaan tuloksen automaattisesti.'],
-    ['• Sukupuoli: P = poika/mies, T = tyttö/nainen'],
-    ['• Päivämäärä muodossa pp.kk.vvvv (esim. 15.05.2026)'],
-    ['• PalloID löytyy Palloliiton pelaajasivulta'],
   ];
-  if (protokolla === 'tekniikkakilpailu') {
+  if (alustaherkkaMukana) ohje.push(['Alusta', alusta || '(täytä — nopeus-/ketteryystestit eivät ole vertailukelpoisia eri alustoilla, §22)']);
+  ohje.push(['']);
+  ohje.push(['OHJEET']);
+  ohje.push(['• Suorituksia voi olla 1-3 (sarakkeet _1, _2, _3). Jätä tyhjäksi jos suoritusta ei tehty.']);
+  ohje.push(['• Järjestelmä valitsee parhaan tuloksen automaattisesti.']);
+  ohje.push(['• Sukupuoli: P = poika/mies, T = tyttö/nainen']);
+  ohje.push(['• Päivämäärä muodossa pp.kk.vvvv (esim. 15.05.2026)']);
+  ohje.push(['• PalloID löytyy Palloliiton pelaajasivulta']);
+  if (onTk) {
     ohje.push(['• Pituuspotku vain U12-U13 — jätä tyhjäksi nuoremmilla.']);
     ohje.push(['• Kuljetus-laukaus: raaka = suoritusaika, vahennys = tarkkuusvähennys sekunteina.']);
   }
-  if (protokolla === 'hh_laaja' || protokolla === 'hh_suppea') {
+  if (onMas) {
     ohje.push(['']);
     ohje.push(['MAS-testi (aerobinen kestävyys):']);
     ohje.push(['Syötä testirata-aika muodossa minuutit,sekunnit']);
@@ -1148,9 +1268,9 @@ function generoiExcelPohja(protokolla, joukkueNimi) {
     ohje.push(['Järjestelmä muuntaa ajan automaattisesti. ÄLÄ kirjoita km/h-arvoa.']);
     ohje.push(['Testiohje: 1200m Bronco-testi Palloliiton protokollan mukaisesti.']);
   }
-  if (protokolla === 'hh_laaja') {
+  if (onHhPujSyo) {
     ohje.push(['']);
-    ohje.push(['Pujottelu (H-H-protokolla):']);
+    ohje.push(['Pujottelu/Syöttö (H-H-protokolla):']);
     ohje.push(['Aika sekunteina, yhden desimaalin tarkkuudella. Esim. 22,5 sekuntia → kirjoita 22,5']);
     ohje.push(['Käytä H-H-testimanuaalin protokollaa. (Tekniikkakilpailun pujottelu on eri lomake.)']);
   }
@@ -1158,8 +1278,72 @@ function generoiExcelPohja(protokolla, joukkueNimi) {
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, wsData, 'Tulokset');
   XLSX.utils.book_append_sheet(wb, wsOhje, 'Ohjeet');
-  XLSX.writeFile(wb, 'TM_pohja_' + protokolla + '_' + new Date().toISOString().slice(0,10) + '.xlsx');
-  toast('Ladattu pohja: ' + proto.nimi, 'ok');
+  // P1.2 — itsekuvaava Meta-lehti: tuonti (prosessoiExcel) lukee sarakeskeeman tästä. Piilotettu.
+  if (typeof TM_POHJA !== 'undefined') {
+    const yksById = {};
+    sar.forEach(s => { yksById[s.testId] = (_katalogiTesti(s.testId) || {}).yksikko || _yksikkoOtsikosta(s.header) || ''; });
+    const wsMeta = XLSX.utils.aoa_to_sheet(TM_POHJA.metaLehtiAoa(sar, yksById));
+    XLSX.utils.book_append_sheet(wb, wsMeta, 'Meta');
+    wb.Workbook = wb.Workbook || {};
+    wb.Workbook.Sheets = [{ Hidden: 0 }, { Hidden: 0 }, { Hidden: 1 }];   // piilota Meta (indeksi 2)
+  }
+  XLSX.writeFile(wb, 'TM_pohja_' + tiedostoNimiOsa + '_' + new Date().toISOString().slice(0,10) + '.xlsx');
+  toast('Ladattu pohja: ' + protoNimi, 'ok');
+}
+
+// ════════════════════════════════════════════════════════════════════════════════════════════════
+// P1.2 — JOUSTAVA TESTIVALITSIN (UI-logiikka). Protokolla-esitäyttö → karsi/lisää → generoi pohja valituille.
+// Onclick/onchange-kutsujat ovat globaaleja (skripti ei IIFE-käärössä, kuten muutkin handlerit).
+// ════════════════════════════════════════════════════════════════════════════════════════════════
+let _pvValitut = new Set();
+function _pvEsitayta(protokolla) {
+  _pvValitut = new Set(protokolla ? _protoEsitaytto(protokolla) : []);
+  _pvRenderTestit();
+}
+function _pvTyhjenna() {
+  _pvValitut = new Set();
+  const sel = document.getElementById('pv-proto'); if (sel) sel.value = '';
+  _pvRenderTestit();
+}
+function _pvToggle(id) {
+  if (_pvValitut.has(id)) _pvValitut.delete(id); else _pvValitut.add(id);
+  _pvPaivitaTila();
+}
+function _pvRenderTestit() {
+  const host = document.getElementById('pv-testit');
+  if (!host) return;
+  const ryhmat = {};
+  _kaikkiKatalogiTestit().forEach(t => { (ryhmat[t.kategoria] = ryhmat[t.kategoria] || []).push(t); });
+  const jarjestys = ['Nopeus & voima', 'Tekniikka (H-H)', 'Tekniikkakilpailu', 'Harjoitettavuus', 'Muu'];
+  let h = '';
+  jarjestys.forEach(kat => {
+    const arr = ryhmat[kat]; if (!arr || !arr.length) return;
+    h += '<div style="margin:10px 0 4px;font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--text3);">' + kat + '</div>';
+    h += '<div style="display:flex;flex-wrap:wrap;gap:6px 14px;">';
+    arr.forEach(t => {
+      const on = _pvValitut.has(t.id) ? 'checked' : '';
+      const alusta = t.alustaherka ? ' <span title="alustaherkkä (§22)" style="color:var(--text3);font-size:11px;">·alusta</span>' : '';
+      h += '<label style="display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--text);cursor:pointer;">'
+        + '<input type="checkbox" ' + on + ' onclick="_pvToggle(\'' + t.id + '\')"> ' + t.nimi + alusta + '</label>';
+    });
+    h += '</div>';
+  });
+  host.innerHTML = h;
+  _pvPaivitaTila();
+}
+function _pvPaivitaTila() {
+  const cnt = document.getElementById('pv-count');
+  if (cnt) cnt.textContent = _pvValitut.size ? (_pvValitut.size + ' testiä valittu') : 'Ei valittuja testejä';
+  const alustaherka = [..._pvValitut].some(id => (_katalogiTesti(id) || {}).alustaherka);
+  const wrap = document.getElementById('pv-alusta-wrap');
+  if (wrap) wrap.style.display = alustaherka ? 'block' : 'none';
+}
+function _pvLataa() {
+  if (!_pvValitut.size) { toast('Valitse vähintään yksi testi', 'err'); return; }
+  const testit = [..._pvValitut].map(_katalogiTesti).filter(Boolean);
+  const joukkue = (document.getElementById('pv-joukkue') || {}).value || '';
+  const alustaEl = document.getElementById('pv-alusta');
+  generoiExcelPohja({ nimi: 'Mukautettu tuontipohja', testit: testit }, joukkue, (alustaEl && alustaEl.value) || '');
 }
 
 // Apufunktio: etsi testi-ID otsikkotekstistä
@@ -1225,10 +1409,16 @@ function _yksikkoOtsikosta(h) {
   return null;
 }
 
-// Parsi yksittäisen sarakeotsikon metatieto: ensin eksakti pohjaSarakkeet-osuma,
+// P1.2 — Meta-lehti-override (per tuonti): kun ladatussa pohjassa on TM Meta-lehti, se on AUKTORITEETTI
+// sarakeskeemalle (mielivaltainen testilista). null kun pohjassa ei ole Meta-lehteä → vanha polku ennallaan
+// (0 regressioriski). Asetetaan _lueMetaLehtiPohjasta():ssa prosessoiExcel:n alussa.
+let _metaLehtiMap = null;
+
+// Parsi yksittäisen sarakeotsikon metatieto: ensin Meta-lehti (P1.2), sitten eksakti pohjaSarakkeet-osuma,
 // sitten fallback tunnistaTestiId() + _1/_2/_3-suffiksin riisunta (vanhat pohjat).
 function _parsiSarakeMeta(otsikko) {
   const lower = String(otsikko).trim().toLowerCase();
+  if (_metaLehtiMap && _metaLehtiMap[lower]) return _metaLehtiMap[lower];
   const map = _pohjaHeaderMap();
   if (map[lower]) return map[lower];
   // Fallback — riisu yrityssuffiksi _1/_2/_3 ja tunnista perusnimestä
@@ -1240,6 +1430,30 @@ function _parsiSarakeMeta(otsikko) {
   if (!tunnistettu) tunnistettu = tunnistaTestiId(otsikko);
   if (!tunnistettu) return null;
   return { testId: tunnistettu.id, kind: 'arvo', yritys: yritys, testiData: tunnistettu.testi, protoKey: tunnistettu.proto };
+}
+
+// P1.2 — lue Meta-lehti ladatusta pohjasta → _metaLehtiMap. Nollaa AINA ensin (per tuonti) → jos pohjassa ei ole
+// Meta-lehteä, vanha polku (PROTOKOLLAT-osuma + fuzzy) toimii ennallaan. testiData rekonstruoidaan katalogista
+// (kanoninen yksikkö/suunta) → validointi/suunta/pikakenttälaskenta identtinen protokollapohjien kanssa.
+function _lueMetaLehtiPohjasta(wb) {
+  _metaLehtiMap = null;
+  if (typeof TM_POHJA === 'undefined' || !wb || !wb.SheetNames) return;
+  const metaName = wb.SheetNames.find(n => String(n).trim().toLowerCase() === 'meta');
+  if (!metaName) return;
+  let maoa;
+  try { maoa = XLSX.utils.sheet_to_json(wb.Sheets[metaName], { header: 1, defval: '' }); } catch (e) { return; }
+  const parsed = TM_POHJA.lueMetaLehti(maoa);
+  if (!parsed) return;
+  const map = {};
+  for (const hdr of Object.keys(parsed)) {
+    const m = parsed[hdr];
+    const kat = _katalogiTesti(m.testId);
+    const testiData = kat
+      ? { id: m.testId, nimi: kat.nimi, yksikko: kat.yksikko || m.yksikko, pienempi_parempi: _testiPienempiParempi(m.testId, kat) }
+      : { id: m.testId, nimi: m.testId, yksikko: m.yksikko, pienempi_parempi: (m.yksikko === 's') };
+    map[hdr] = { testId: m.testId, kind: m.kind, yritys: m.yritys, testiData: testiData, protoKey: null };
+  }
+  _metaLehtiMap = map;
 }
 
 // Onko pienempi parempi: TK_LAJIT_META → testiData → yksikön päättely.
@@ -1618,6 +1832,9 @@ function prosessoiExcel(wb) {
   const tulosSheetName = wb.SheetNames.find(n => n.includes('Testitulos') || n.includes('testi') || n.includes('📝'));
   const ohjeSheetName = wb.SheetNames.find(n => n.includes('Ohje') || n.includes('ohje') || n.includes('📋'));
   const ws = tulosSheetName ? wb.Sheets[tulosSheetName] : wb.Sheets[wb.SheetNames[0]];
+
+  // P1.2 — jos pohjassa on itsekuvaava Meta-lehti, se ohjaa sarakeskeeman (mielivaltainen testilista).
+  _lueMetaLehtiPohjasta(wb);
 
   // Muunna AOA (array of arrays)
   const aoa = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
@@ -4861,6 +5078,8 @@ document.addEventListener('DOMContentLoaded', () => {
   if (pdfDz) pdfDz.addEventListener('click', () => document.getElementById('pdf-file-input').click());
   // Oletustyyppi: Excel
   vaihtoTuontityyppi('excel');
+  // P1.2 — renderöi joustava testivalitsin (staattinen katalogi, ei riipu authista/seurasta)
+  if (typeof _pvRenderTestit === 'function') _pvRenderTestit();
 });
 </script>
 </body>
