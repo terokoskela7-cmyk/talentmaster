@@ -1482,6 +1482,21 @@ async function lataaKayttajatiedot(u) {
   if (urlLataa && PROTOKOLLAT[urlLataa]) {
     setTimeout(() => generoiExcelPohja(urlLataa, urlParams.get('joukkue') || ''), 700);
   }
+  // P1.1 — Testit-hubin "Tuo tiedostosta" -korttien esivalinta (docs/CODE_OHJE_TESTIT_HUB_P1.md):
+  //   ?tab=pdf → PDF-tab · ?moodi=historia → Excel-tab + historia-moodi. Vain esivalinta OLEMASSA OLEVILLA
+  //   toggle-funktioilla (vaihtoTuontityyppi/valitseMoodi) — ei uutta tuontilogiikkaa. Oletus (ei paramia) ennallaan.
+  const urlTab = urlParams.get('tab');
+  const urlMoodi = urlParams.get('moodi');
+  if (urlTab === 'pdf' || urlMoodi === 'historia') {
+    setTimeout(() => {
+      if (urlTab === 'pdf') {
+        if (typeof vaihtoTuontityyppi === 'function') vaihtoTuontityyppi('pdf');
+      } else if (urlMoodi === 'historia') {
+        if (typeof vaihtoTuontityyppi === 'function') vaihtoTuontityyppi('excel');   // varmista Excel-tab ensin
+        if (typeof valitseMoodi === 'function') valitseMoodi('historia');
+      }
+    }, 700);
+  }
 }
 
 async function tarkistaTapahtuma(tapahtumaId) {
