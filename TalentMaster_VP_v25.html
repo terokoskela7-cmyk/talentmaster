@@ -1966,6 +1966,7 @@ input::placeholder, textarea::placeholder { color: var(--ink3); opacity: 1; }
     <button class="tabbar-item" data-ws="pelaajat" onclick="setWs('pelaajat')"><span class="tb-ic">👥</span><span class="tb-lbl">Joukkueet</span></button>
     <button class="tabbar-item" data-ws="valmentajat" onclick="setWs('valmentajat')"><span class="tb-ic">🧑‍🏫</span><span class="tb-lbl">Valmentajat</span></button>
     <button class="tabbar-item" data-ws="raportointi" onclick="setWs('raportointi')"><span class="tb-ic">📊</span><span class="tb-lbl">Raportit</span></button>
+    <button class="tabbar-item" data-ws="testit" onclick="setWs('testit')"><span class="tb-ic">🧪</span><span class="tb-lbl">Testit</span></button>
     <button class="tabbar-item" onclick="_toggleSivupalkki()"><span class="tb-ic">⋯</span><span class="tb-lbl">Lisää</span></button>
   </nav>
 
@@ -2007,6 +2008,13 @@ input::placeholder, textarea::placeholder { color: var(--ink3); opacity: 1; }
       </svg>
       Pelaajat
       <span class="sb-badge amber" id="sb-idp-badge" style="display:none">0</span>
+    </div>
+    <div class="sb-item" data-ws="testit" onclick="setWs('testit')">
+      <svg class="sb-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5">
+        <path d="M8 2h4M9 2v5l-4.4 7.9A1.4 1.4 0 0 0 5.9 17h8.2a1.4 1.4 0 0 0 1.3-2.1L11 7V2"/>
+        <path d="M7 13h6"/>
+      </svg>
+      Testit
     </div>
     <div class="sb-item" data-ws="kalenteri" onclick="setWs('kalenteri')">
       <svg class="sb-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5">
@@ -2292,6 +2300,9 @@ input::placeholder, textarea::placeholder { color: var(--ink3); opacity: 1; }
       <div class="section-hd" style="margin-top:24px;">Tapahtumat</div>
       <div class="event-list" id="eventList"></div>
     </div>
+
+    <!-- ── TESTIT (P0 hub — Kirjaa nyt / Tuo tiedostosta; reitittää olemassa oleviin työkaluihin) ── -->
+    <div class="ws-view" id="ws-testit"></div>
 
     <!-- ── JAKSOFOKUS (Vaihe 4c — VP-oversight) ── -->
     <div class="ws-view" id="ws-jaksofokus">
@@ -3243,7 +3254,8 @@ window.avaaPelaaja             = window.avaaPelaaja             || function(pid)
   window._jsvPelaajat = kaikki;
   if (typeof _avaaPerPelaajaPikakatsaus === 'function') _avaaPerPelaajaPikakatsaus(idx, kaikki[idx].joukkue || '');
 };
-window.avaaUusiTestiModaali    = window.avaaUusiTestiModaali    || function(){ _sigStub('Luo testi — avaa Testaus_v9 / Kalenteri'); };
+// P0: rikki stub → ohjaa Testit-hubiin (onboardingin "Luo testi →" -kutsujat ~2991/~3013). Ei enää placeholder-signaalia.
+window.avaaUusiTestiModaali    = function(){ if (typeof setWs === 'function') setWs('testit'); };
 window.avaaKutsuValmentaja     = window.avaaKutsuValmentaja     || function(){ _sigStub('Kutsu valmentaja — avaa Seurahallinta'); };
 // ADAR-kenttätyökalu — avaa ADAR_Pikakortti.html (ainoa työkalu joka persistoi havainnot).
 // seuraId-konteksti välitetään; valmentajalla resolvoituu myös claimista, SA:lla seuravalitsimesta.
@@ -11731,6 +11743,98 @@ function avaaTapahtumaV9(tapahtumaId) {
   window.open(url, '_blank');
 }
 
+/* ═══ TESTIT-HUB (P0, docs/CODE_OHJE_TESTIT_HUB_P0.md) ═══════════════════════════════════════════════
+   Yksi koti testidatalle: "Kirjaa nyt" (Kirjaa kentällä · Pikakirjaus[tulossa]) + "Tuo tiedostosta"
+   (Excel-pohja · Historiatuonti · Palloliiton PDF) + "Viimeksi testattu". REITITYS, ei uutta logiikkaa —
+   kortit avaavat olemassa olevat Testaus_v9 / Excel_Tuonti -työkalut. Design-lukko: jaetut Koti-hubin
+   kortti-classit (.vpkoti-kortti/.vkk-*), CSS-var-tokenit → molemmat teemat. §7.1 string concat. */
+
+// Reitittimet (olemassa oleviin työkaluihin — ei uutta kirjaus-/tuontikoodia).
+function _vpTestitKirjaaKentalla() { window.open('TalentMaster_Testaus_v9.html?seura=' + encodeURIComponent(_seuraId || ''), '_blank'); }
+function _vpTestitTuo()            { window.open('TalentMaster_Excel_Tuonti.html?seuraId=' + encodeURIComponent(_seuraId || ''), '_blank'); }
+function _vpTestitTulossa()        { if (typeof toast === 'function') toast('Pikakirjaus tulossa pian', 'ok'); }
+window._vpTestitKirjaaKentalla = _vpTestitKirjaaKentalla;
+window._vpTestitTuo = _vpTestitTuo;
+window._vpTestitTulossa = _vpTestitTulossa;
+
+// PUHDAS helper (§26: lukee jo ladatun _tapahtumat-taulukon, ei uutta kyselyä) — viimeksi testatut, pvm laskevasti.
+// ISO 'YYYY-MM-DD' -string vertailu = kronologinen. Tyhjä/pvm-puuttuva → suodattuu pois. Testattavissa (DoD L2).
+function _vpTestitViimeksi(tapahtumat, n) {
+  var arr = (tapahtumat || []).filter(function (t) { return t && t.pvm; });
+  arr = arr.slice().sort(function (a, b) { return String(b.pvm).localeCompare(String(a.pvm)); });
+  return arr.slice(0, n || 5);
+}
+window._vpTestitViimeksi = _vpTestitViimeksi;
+
+function _vpTestitPvm(pvm) {
+  var d = new Date(pvm);
+  return (pvm && !isNaN(d.getTime()) && typeof _pvmFiVP === 'function') ? _pvmFiVP(d) : (pvm || '');
+}
+
+function renderVpTestit() {
+  var host = document.getElementById('ws-testit');
+  if (!host) return;
+  var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); };
+
+  // Kortti: ikoni + otsikko/kuvaus + oikea CTA/pill. tulossa=true → himmennetty + "tulossa"-pill (ei kuollut nappi).
+  var kortti = function (ik, otsikko, kuvaus, ctaLabel, onclick, tulossa) {
+    // tulossa: himmennetty + "tulossa"-pill; koko kortin klikki → lempeä toast (ei kuollut nappi, selkeästi tuleva).
+    var dim = tulossa ? 'opacity:.6;cursor:pointer;' : '';
+    var kortinOnclick = tulossa ? ' onclick="_vpTestitTulossa()"' : '';
+    var oikea = tulossa
+      ? '<span style="background:var(--surface-2);color:var(--ink3);font-size:10px;letter-spacing:.04em;text-transform:uppercase;padding:3px 9px;border-radius:20px;border:.5px solid var(--border);white-space:nowrap">tulossa</span>'
+      : '<button class="vkk-cta" onclick="' + onclick + '">' + esc(ctaLabel) + '</button>';
+    return '<div class="vpkoti-kortti" style="' + dim + '"' + kortinOnclick + '>'
+      + '<div class="vkk-ik">' + ik + '</div>'
+      + '<div class="vkk-txt"><div style="font-weight:600">' + esc(otsikko) + '</div>'
+      + '<div style="font-size:12px;color:var(--ink3);margin-top:3px;line-height:1.4">' + esc(kuvaus) + '</div></div>'
+      + oikea + '</div>';
+  };
+
+  var h = '';
+  h += '<div style="font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:var(--teal);font-weight:600;margin-bottom:6px">🧪 Testit</div>';
+  h += '<div class="page-title">Kirjaa ja tuo testituloksia</div>';
+  h += '<div class="page-sub">Kaikki testidatan kirjaaminen samasta paikasta. Testitapahtumat näkyvät edelleen myös kalenterissa.</div>';
+
+  // ── Ryhmä: Kirjaa nyt ──
+  h += '<div class="section-hd" style="margin-top:22px">Kirjaa nyt</div>';
+  h += '<div class="vpkoti-kortit">';
+  h += kortti('📝', 'Kirjaa kentällä', 'Testaustyökalu: valitse protokolla/testit ja syötä tulokset pelaaja kerrallaan. Toimii myös offline.', 'Avaa →', '_vpTestitKirjaaKentalla()', false);
+  h += kortti('⚡', 'Pikakirjaus', 'Kevyt lomake yhden tai useamman pelaajan tulokselle ilman tapahtumaa. Rakenteilla.', '', '', true);
+  h += '</div>';
+
+  // ── Ryhmä: Tuo tiedostosta ──
+  h += '<div class="section-hd" style="margin-top:24px">Tuo tiedostosta</div>';
+  h += '<div class="vpkoti-kortit">';
+  h += kortti('📊', 'Excel-pohja', 'Lataa seuran Excel-pohja, täytä tulokset ja tuo ne järjestelmään.', 'Avaa →', '_vpTestitTuo()', false);
+  h += kortti('🗂️', 'Historiatuonti', 'Aiempien vuosien testitulokset Excelistä (historiapohja, ei vaadi tapahtumaa).', 'Avaa →', '_vpTestitTuo()', false);
+  h += kortti('📄', 'Palloliiton PDF', 'Tuo viralliset tekniikkakilpailutulokset Palloliiton PDF-tulosteesta.', 'Avaa →', '_vpTestitTuo()', false);
+  h += '</div>';
+
+  // ── Viimeksi testattu (jo ladatusta _tapahtumat:sta) ──
+  h += '<div class="section-hd" style="margin-top:24px">Viimeksi testattu</div>';
+  var lista = _vpTestitViimeksi(typeof _tapahtumat !== 'undefined' ? _tapahtumat : [], 5);
+  if (!lista.length) {
+    h += '<div class="vpkoti-kortti"><div class="vkk-ik">🧪</div>'
+      + '<div class="vkk-txt"><div style="font-weight:600">Ei vielä testejä</div>'
+      + '<div style="font-size:12px;color:var(--ink3);margin-top:3px">Kirjaa ensimmäinen tulos kentällä tai tuo tiedostosta.</div></div>'
+      + '<button class="vkk-cta" onclick="_vpTestitKirjaaKentalla()">Kirjaa →</button></div>';
+  } else {
+    for (var i = 0; i < lista.length; i++) {
+      var t = lista[i];
+      var otsikko = (typeof jNimi === 'function' ? jNimi(t) : (t.joukkue || '—')) + ' · ' + (t.nimi || t.protokolla || 'Testi');
+      var n = (t.pelaajatData && t.pelaajatData.length) || 0;
+      h += '<div onclick="avaaTapahtumaV9(\'' + esc(t.id) + '\')" style="display:flex;align-items:center;gap:12px;padding:12px 14px;border:.5px solid var(--border);border-radius:10px;background:var(--bg3);cursor:pointer;margin-bottom:8px">'
+        + '<div style="flex:1;min-width:0"><div style="font-weight:600;font-size:14px;color:var(--ink)">' + esc(otsikko) + '</div>'
+        + '<div style="font-size:12px;color:var(--ink3);margin-top:2px">' + n + ' pelaajaa · ' + esc(_vpTestitPvm(t.pvm)) + '</div></div>'
+        + '<div style="color:var(--ink3);flex:0 0 auto">→</div></div>';
+    }
+  }
+
+  host.innerHTML = h;
+}
+window.renderVpTestit = renderVpTestit;
+
 // ─── RENDER RAPORTOINTI ──────────────────────────────────
 /* ═══ MDT-RAPORTTI (P0b-1, docs/MDT_RAPORTTI_SPEC.md) — yhden sivun profiili: signs · samples · SEO ═══
    Vain pikakentät (§26), data-tietoinen (§29). Carbon §5, string concat §7.1. Termi: "pelihavainto". */
@@ -13093,6 +13197,7 @@ function setWs(ws) {
   if (ws === 'koti') renderKotiVP();
   if (ws === 'reviewit' && typeof renderReviewit === 'function') renderReviewit();
   if (ws === 'jaksofokus' && typeof renderJaksofokus === 'function') renderJaksofokus();
+  if (ws === 'testit' && typeof renderVpTestit === 'function') renderVpTestit();
   document.querySelectorAll('.tabbar-item[data-ws]').forEach(t => t.classList.toggle('active', t.dataset.ws === ws));
   document.getElementById('sidebar')?.classList.remove('auki');
   document.getElementById('sivupalkkiOverlay')?.classList.remove('auki');
