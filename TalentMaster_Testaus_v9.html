@@ -14,6 +14,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 <script src="src/lib/tm_bioika.js?v=3"></script>
 <script src="lib/tm_historia.js?v=1"></script>   <!-- Trendi Vaihe 1b: H-H/TKI-historia online-tallennuksessa (tmHhSnapshot/tmTkiSnapshot/tmHistoriaLisaa) -->
+<script src="lib/tm_eerikkila_normit.js?v=1"></script>   <!-- Kenttätyökalu Vaihe 1: §26-pikakentät valmiiksi-merkinnässä (normiIka/eerikkilaTaso/laskeD1Joustava/laskeD2HH/normSukupuoliMN) -->
 
 <style>
 /* ═══════════════════════════════════════════════════════════════
@@ -2956,6 +2957,146 @@ async function _v6TallennaHistoria() {
   }
 }
 
+// ── Kenttätyökalu Vaihe 1 — §26-PIKAKENTÄT valmiiksi-merkinnässä ──────────────────────────────────────────
+// Kentällä kirjattu tulos EI näkynyt VP-/valmentaja-mittaristossa ennen erillistä recalcHH-ajoa (Testaus_v9 kirjoitti
+// vain tila/ennätykset/historia/PHV). Tämä kirjoittaa per pelaaja täyden §26-pikakenttäsetin heti → tulos näkyy
+// mittaristossa ilman recalcHH:ta. Best-effort (try/catch per pelaaja + call-siten wrap; ei kaada valmiiksi-merkintää).
+//
+// ⚠ PIDÄ SYNKASSA: TalentMaster_Excel_Tuonti.html prosessoiExcel/recalcHH (§26 pikakentät). Käyttää KANONISIA
+// leaf-funktioita lib/tm_eerikkila_normit.js:stä (normiIka/eerikkilaTaso/laskeD1Joustava/laskeD2HH/normSukupuoliMN)
+// + Testaus_v9:n inline-TKI:tä (laskeKokonaistulos/tkLaskeTKI/tkLaskeMerkki). Vaihe 3 konsolidoi jaettuun helperiin.
+// §26 PARI-INVARIANTTI: jokainen *_viimeisin kirjoitetaan YHDESSÄ *_pvm:n kanssa (tapahtuman pvm), atomisesti samaan
+// .update()-kutsuun. hh_viimeisin MERGEtään olemassa olevaan (30 m -kirjaus ei pyyhi cmj:tä). Ikä = normiIka (§26
+// IKAKONVENTIO — EI Date.now / EI kuukausivähennys). Ennätykset/historia/PHV kirjoitetaan erikseen (ennallaan).
+//
+// Vahvuus/kehityskohde (tki_vahvuus/tki_kehityskohde) jätetty pois tästä vaiheesta: vaatii _laskeVahvuudetJaKehityskohteet
+// (ei ladattu Testaus_v9:ään) — ei DoD-pakollisia. recalcHH täydentää ne. tk_lajit_viimeisin kirjoitetaan (alla).
+
+// Testaus_v9-testi-id → hh_viimeisin-avain (sama kuin _v6TallennaHistoria HH_MAP).
+var _V6_HH_MAP = { lin_5m: 'lin5m', lin_10m: 'lin10m', lin_30m: 'lin30m', hyppy_cj: 'cmj', mas: 'mas', kasirata: 'kasirata', sm_juoksu: 'sm_juoksu', sm_pallo: 'sm_pallo', pujottelu_hh: 'pujottelu', syotto_hh: 'syotto' };
+
+// hh_taso (avaintestit 30m/cmj/mas — Eerikkilä-tasojen ka) kanonisella eerikkilaTaso:lla (mas km/h → m/s ÷3.6).
+// PIDÄ SYNKASSA: Excel_Tuonti laskeHHTaso (sama SSOT EERIKKILA_NORMIT, vain avaintestit 30m/cmj/mas). sp = 'M'/'N'.
+function _v6HhTaso(hv, ika, sp) {
+  if (!hv || ika == null || !sp || typeof eerikkilaTaso !== 'function') return null;
+  var MAP = { lin30m: { e: 'nopeus_30m' }, cmj: { e: 'hyppy_cj' }, mas: { e: 'mas', kmh: true } };
+  var summa = 0, n = 0;
+  Object.keys(MAP).forEach(function (k) {
+    var a = hv[k]; if (a == null || isNaN(a)) return;
+    var t = eerikkilaTaso(MAP[k].kmh ? a / 3.6 : a, MAP[k].e, ika, sp);
+    if (t) { summa += t; n++; }
+  });
+  return n ? Math.round(summa / n * 10) / 10 : null;
+}
+
+// TK-laji-pikakentät (tk_lajit_viimeisin) kokonaistuloksen komponenteista. INLINE-KOPIO Excel_Tuonti _tkLajitPikakentat:ista
+// (kanoninen lähde docs/testit_indeksit.js: TK_LAJIVIITTEET/tkLajiGapit) — PIDÄ SYNKASSA. kuljetus_laukaus = netto;
+// pituuspotku_bonus = aikabonus sekunteina (suurempi=parempi) vain ika>=12. Odottaa normalisoitua testit-mappia (skalaarit).
+function _v6TkLajitPikakentat(testit, ika) {
+  if (!testit) return null;
+  var aikaArvo = function (id) {
+    var v = testit[id];
+    if (v == null) return null;
+    if (typeof v === 'object') return (v.tulos != null ? v.tulos : v.paras);
+    var n = parseFloat(v); return isNaN(n) ? null : n;
+  };
+  var out = {};
+  var p1 = aikaArvo('ponnauttelu');      if (p1 != null) out.ponnauttelu_s = p1;
+  var s1 = aikaArvo('syotto');           if (s1 != null) out.syotto_s = s1;
+  var pu = aikaArvo('pujottelu');        if (pu != null) out.pujottelu_s = pu;
+  var kl = aikaArvo('kuljetus_laukaus'); if (kl != null) out.kuljetus_laukaus_s = kl;
+  if (ika != null && ika >= 12) {
+    var pp = testit.pituuspotku, bonus = null;
+    if (pp && typeof pp === 'object' && pp.aikabonus_s != null) bonus = parseFloat(pp.aikabonus_s);
+    else {
+      var metrit = (pp && typeof pp === 'object') ? (pp.metrit != null ? pp.metrit : (pp.paras_m != null ? pp.paras_m : pp.paras)) : pp;
+      if (metrit != null && !isNaN(parseFloat(metrit))) bonus = tkPituuspotkuBonus(parseFloat(metrit));
+    }
+    if (bonus != null && !isNaN(bonus)) out.pituuspotku_bonus_s = Math.round(bonus * 100) / 100;
+  }
+  return (Object.keys(out).length > 0) ? out : null;
+}
+
+// Kirjoita §26-pikakentät jokaiselle tapahtuman pelaajalle (best-effort). Lukee jo synkatun datan (_synkronoiOfflineData
+// on ajettu ennen valmiiksi-merkintää) → laskee pikakentät sen päälle, ennallaan.
+async function _v6TallennaPikakentat() {
+  if (typeof normiIka !== 'function' || typeof laskeKokonaistulos !== 'function') { console.warn('[pikakentat] kanoniset funktiot puuttuvat (lib lataamatta?)'); return; }
+  var pvm = (_aktiivinenTapahtuma && _aktiivinenTapahtuma.pvm) ? String(_aktiivinenTapahtuma.pvm).slice(0, 10) : new Date().toISOString().slice(0, 10);
+  var pelaajat = (_aktiivinenTapahtuma && _aktiivinenTapahtuma.pelaajatData) || [];
+  var num = function (v) { if (v == null) return null; if (typeof v === 'object') v = (v.tulos != null ? v.tulos : v.paras); var n = parseFloat(v); return isNaN(n) ? null : n; };
+  for (var i = 0; i < pelaajat.length; i++) {
+    var pl = pelaajat[i];
+    try {
+      var tul = _tulokset[pl.id] || {};
+      var ref = _db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(pl.id);
+      var snap = await ref.get();
+      if (!snap.exists) continue;                        // vain löydetyt profiilit (kuten Excel _loytyyFirestoresta)
+      var d = snap.data() || {};
+
+      // Ikä (normiIka §26 — ikäluokka = year(pvm) − syntymaVuosi) + sukupuoli. Joukkuenimi-fallback kuten Excel.
+      var syntV = d.syntymaVuosi || null;
+      if (syntV == null) {
+        var sa = d.syntymaaika || d.syntymapaiva;
+        if (sa && typeof sa.toDate === 'function') { try { syntV = sa.toDate().getFullYear(); } catch (e) {} }
+        else if (sa) { var my = String(sa).match(/(\d{4})/); if (my) syntV = parseInt(my[1], 10); }
+      }
+      var ika = normiIka(syntV, pvm, d.joukkue);
+      var spMN = (typeof normSukupuoliMN === 'function') ? normSukupuoliMN(d.sukupuoli) : null;
+      if (spMN == null && d.joukkue) { var jm = String(d.joukkue).match(/\b([PT])\s?\d/i); if (jm) spMN = (jm[1].toUpperCase() === 'P') ? 'M' : 'N'; }
+      var spPT = (spMN === 'M') ? 'P' : (spMN === 'N') ? 'T' : null;
+
+      var upd = {};
+
+      // ── H-H pikakentät: hh_viimeisin (MERGE) + hh_pvm/hh_taso + d1_taso + d2_taso ──────────────────────
+      var hvUusi = {};
+      Object.keys(_V6_HH_MAP).forEach(function (k) { var v = num(tul[k]); if (v != null) hvUusi[_V6_HH_MAP[k]] = v; });
+      if (Object.keys(hvUusi).length) {
+        // MERGE olemassa olevaan (30 m -kirjaus ei pyyhi cmj:tä). update() korvaa kentän → esimergetään JS:ssä.
+        var hvMerged = Object.assign({}, (d.hh_viimeisin && typeof d.hh_viimeisin === 'object') ? d.hh_viimeisin : {}, hvUusi);
+        upd.hh_viimeisin = hvMerged;                      // §26 pari-invariantti: arvo + pvm yhdessä
+        upd.hh_pvm = pvm;
+        var hhTaso = _v6HhTaso(hvMerged, ika, spMN);
+        if (hhTaso != null) upd.hh_taso = hhTaso;
+        if (ika != null && spMN && typeof laskeD1Joustava === 'function') {
+          var d1 = laskeD1Joustava(hvMerged, ika, spMN);   // fyysisten H-H-tasojen ka (sm_pallo pois)
+          if (d1) { upd.d1_taso = d1.taso; upd.d1_lahde = d1.lahde; upd.d1_kattavuus = d1.kattavuus; upd.d1_pvm = pvm; }
+        }
+        // D2 H-H-fallback (syöttö/pujottelu): ÄLÄ ylikirjoita parempaa stored-lähdettä (TKI/TK). Kuten Excel-guardi.
+        if (ika != null && spMN && typeof laskeD2HH === 'function' && (d.d2_taso == null || d.d2_lahde === 'hh' || d.d2_lahde === 'sm' || d.d2_lahde === 'sm_pallo' || d.d2_lahde === 'tk')) {
+          var d2 = laskeD2HH(hvMerged, ika, spMN);
+          if (d2) { upd.d2_taso = d2.taso; upd.d2_lahde = d2.lahde; upd.d2_kattavuus = d2.kattavuus; upd.d2_pvm = pvm; }
+        }
+      }
+
+      // ── TKI pikakentät: tki_viimeisin/tki_pvm/tki_merkki + tk_lajit_viimeisin + tk_kokonaistulos_viimeisin ──
+      // Vain ika 8–13 tuottaa TKI:n (muuten laskeKokonaistulos/tkLaskeTKI → null, kuten kanoni). sp = P/T.
+      if (ika != null && spPT) {
+        var tkTestit = {};   // normalisoi TK-lajiarvot sekunteina (sama kuvio kuin _v5LaskeTKIPelaaja)
+        ['ponnauttelu', 'syotto', 'pujottelu', 'kuljetus_laukaus'].forEach(function (laji) {
+          var a = tul[laji];
+          if (a && typeof a === 'object') a = (laji === 'kuljetus_laukaus') ? _kuljetusLaukausTulos(a) : a.paras;
+          if (a != null && a !== '' && !isNaN(parseFloat(a))) tkTestit[laji] = parseFloat(a);
+        });
+        var pp2 = tul.pituuspotku, ppM = (pp2 && typeof pp2 === 'object') ? pp2.paras : pp2;
+        if (ppM != null && !isNaN(parseFloat(ppM))) tkTestit.pituuspotku = parseFloat(ppM);
+
+        var kt = laskeKokonaistulos(tkTestit, ika, spPT);
+        var tki = (kt != null) ? tkLaskeTKI(kt, ika, spPT) : null;
+        if (tki != null) {
+          upd.tki_viimeisin = tki; upd.tki_pvm = pvm;      // §26 pari-invariantti
+          var merkki = tkLaskeMerkki(kt, ika, spPT);
+          if (merkki) upd.tki_merkki = merkki;
+          var tkLajit = _v6TkLajitPikakentat(tkTestit, ika);
+          if (tkLajit) { upd.tk_lajit_viimeisin = tkLajit; upd.tk_lajit_pvm = pvm; }
+          if (kt != null) upd.tk_kokonaistulos_viimeisin = kt;
+        }
+      }
+
+      if (Object.keys(upd).length) await ref.update(upd);
+    } catch (e) { console.warn('[pikakentat]', pl.id, e && e.message); }
+  }
+}
+
 window._v6MerkitseValmiiksi = async function _v6MerkitseValmiiksi() {
   if (!_aktiivinenTapahtuma) return;
   // Varmuussynkronointi ensin
@@ -2979,6 +3120,8 @@ window._v6MerkitseValmiiksi = async function _v6MerkitseValmiiksi() {
     try { await _v6TallennaEnnatykset(); } catch (e) { console.warn('[ennatykset]', e && e.message); }
     // Trendi Vaihe 1b — H-H/TKI-historia (aikasarja) online-testauksesta (best-effort).
     try { await _v6TallennaHistoria(); } catch (e) { console.warn('[historia]', e && e.message); }
+    // Kenttätyökalu Vaihe 1 — §26-pikakentät (hh/d1/d2/tki) → näkyvät VP:llä ilman recalcHH:ta (best-effort).
+    try { await _v6TallennaPikakentat(); } catch (e) { console.warn('[pikakentat]', e && e.message); }
 
     _v6Renderoi();
     await _lataaTapahtumat();
