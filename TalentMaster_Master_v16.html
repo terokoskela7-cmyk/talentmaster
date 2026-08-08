@@ -30,6 +30,10 @@
 <script src="lib/tm_ohjelma.js?v=1"></script>   <!-- Vaihe 7.2a: fysiikkaohjelmakirjasto (validoi/versioi/templaatista, deterministinen) -->
 <script src="lib/tm_ohjelma_analytiikka.js?v=1"></script>   <!-- Vaihe 7.2b: per-ohjelma-analytiikka (tmOhjelmaKooste — mikä ohjelma toimii kenelle) -->
 <script src="docs/testit_indeksit.js?v=9"></script>
+<script src="lib/tm_historia.js?v=1"></script>          <!-- P2.1: hh_historia/tki_historia Pikakirjauksessa -->
+<script src="lib/tm_pikakentat.js?v=1"></script>       <!-- P2.0: §26-pikakenttien kanoninen laskenta (tmLaskePikakentat) — Master: H-H + TKI (TM_TESTIT) -->
+<script src="lib/tm_testikatalogi.js?v=1"></script>    <!-- P2.1: jaettu testikatalogi (Pikakirjaus-valitsin) -->
+<script src="lib/tm_pikakirjaus.js?v=1"></script>      <!-- P2.1: Pikakirjaus-lomake (TM_PIKAKIRJAUS.avaa) -->
 <!-- §B Resepti-moottorit (T-harjoite + S-pre-harkka). Latausjärjestys: methodology→profile→microcycles→prescription -->
 <script src="harjoitelogiikka_v4.js?v=7"></script>
 <script src="lib/tm-methodology.js?v=2"></script>
@@ -1707,6 +1711,9 @@ textarea.jsp-rv-inp { resize: vertical; min-height: 44px; }
       <div style="margin-bottom:18px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
         <button class="testit-btn primary" onclick="_avaaTestausV9()">
           <svg width="12" height="12"><use href="#ic-plus"/></svg>+ Uusi tapahtuma
+        </button>
+        <button class="testit-btn" onclick="_masterPikakirjaus()" title="Kirjaa testituloksia 1–N pelaajalle ilman tapahtumaa (valitse testipäivä vapaasti)">
+          ⚡ Pikakirjaus
         </button>
         <select onchange="_lataaPohjaMaster(this.value); this.selectedIndex=0;" class="testit-btn" style="cursor:pointer;">
           <option value="">📥 Lataa Excel-pohja ▾</option>
@@ -3515,6 +3522,15 @@ function _avaaTestausV9(tapahtumaId) {
   if (tapahtumaId) url += '&t=' + encodeURIComponent(tapahtumaId);
   window.open(url, '_blank');
 }
+
+// P2.1 — Pikakirjaus-lomake (jaettu lib). Master lataa testit_indeksit.js (TM_TESTIT) → H-H + TKI.
+function _masterPikakirjaus() {
+  if (!window.TM_PIKAKIRJAUS) { if (typeof toast === 'function') toast('Pikakirjaus-lomake ei latautunut', 'error'); return; }
+  if (!_seuraId) { if (typeof toast === 'function') toast('Valitse ensin seura', 'error'); return; }
+  var uid = (typeof firebase !== 'undefined' && firebase.auth().currentUser && firebase.auth().currentUser.uid) || null;
+  window.TM_PIKAKIRJAUS.avaa({ db: _db, seuraId: _seuraId, uid: uid, pelaajat: _pelaajatData, joukkueNimet: {}, toast: (typeof toast === 'function') ? toast : null });
+}
+window._masterPikakirjaus = _masterPikakirjaus;
 
 // Lataa protokollakohtainen Excel-pohja (joukkue esitäyttyy Ohjeet-välilehdelle)
 function _lataaPohjaMaster(protokolla) {

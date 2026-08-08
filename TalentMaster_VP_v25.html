@@ -16,6 +16,11 @@
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-functions-compat.js"></script>
 <!-- Eerikkilä-normit + universaali testirekisteri (eerikkilaTaso, laskeFVP) — 10m/5m-tasot + FVP-profiili -->
 <script src="lib/tm_eerikkila_normit.js?v=45"></script>   <!-- v43: D2-kortti d2_taso-ensin (renderKehityskorttiHTML, PR #264 · §30/#262) -->
+<script src="lib/tm_historia.js?v=1"></script>          <!-- P2.1: hh_historia/tki_historia Pikakirjauksessa (tmHhSnapshot/tmTkiSnapshot/tmHistoriaLisaa) -->
+<script src="lib/tm_tki_core.js?v=1"></script>         <!-- P2.1: TKI-ytimen extrakti (IIFE → TM_TESTIT); antaa VP:lle TKI-pariteetin (VP ei voi ladata testit_indeksit.js:ää — const-törmäys). ENNEN tm_pikakentat.js:ää. -->
+<script src="lib/tm_pikakentat.js?v=1"></script>       <!-- P2.0: §26-pikakenttien kanoninen laskenta (tmLaskePikakentat) — VP: H-H + TKI (tm_tki_core.js → TM_TESTIT) -->
+<script src="lib/tm_testikatalogi.js?v=1"></script>    <!-- P2.1: jaettu testikatalogi (Pikakirjaus-valitsin) -->
+<script src="lib/tm_pikakirjaus.js?v=1"></script>      <!-- P2.1: Pikakirjaus-lomake (TM_PIKAKIRJAUS.avaa) -->
 
 <script src="lib/tm_harjoitusarviointi.js?v=4"></script>
 <script src="lib/tm_kalenteri.js?v=1"></script>
@@ -11754,6 +11759,14 @@ function _vpTestitKirjaaKentalla() { window.open('TalentMaster_Testaus_v9.html?s
 // P1.1: lisaparam reitittää Excel_Tuonnin oikeaan moodiin ('moodi=historia' | 'tab=pdf'); tyhjä = oletusnäkymä (Excel + tapahtuma/lataus).
 function _vpTestitTuo(lisaparam)  { window.open('TalentMaster_Excel_Tuonti.html?seuraId=' + encodeURIComponent(_seuraId || '') + (lisaparam ? '&' + lisaparam : ''), '_blank'); }
 function _vpTestitTulossa()        { if (typeof toast === 'function') toast('Pikakirjaus tulossa pian', 'ok'); }
+// P2.1 — Pikakirjaus-lomake (jaettu lib). VP-konteksti: db/_seuraId/_uid/_pelaajat/_joukkueNimet/toast.
+// VP ei lataa testit_indeksit.js → TKI-funktiot puuttuvat → lib laskee H-H-pikakentät; TKI ohittuu hiljaa (Master hoitaa TKI:n).
+function _vpPikakirjaus() {
+  if (!window.TM_PIKAKIRJAUS) { if (typeof toast === 'function') toast('Pikakirjaus-lomake ei latautunut', 'err'); return; }
+  if (!_seuraId) { if (typeof toast === 'function') toast('Valitse ensin seura', 'err'); return; }
+  window.TM_PIKAKIRJAUS.avaa({ db: db, seuraId: _seuraId, uid: _uid, pelaajat: _pelaajat, joukkueNimet: _joukkueNimet, toast: (typeof toast === 'function') ? toast : null });
+}
+window._vpPikakirjaus = _vpPikakirjaus;
 window._vpTestitKirjaaKentalla = _vpTestitKirjaaKentalla;
 window._vpTestitTuo = _vpTestitTuo;
 window._vpTestitTulossa = _vpTestitTulossa;
@@ -11801,7 +11814,7 @@ function renderVpTestit() {
   h += '<div class="section-hd" style="margin-top:22px">Kirjaa nyt</div>';
   h += '<div class="vpkoti-kortit">';
   h += kortti('📝', 'Kirjaa kentällä', 'Testaustyökalu: valitse protokolla/testit ja syötä tulokset pelaaja kerrallaan. Toimii myös offline.', 'Avaa →', '_vpTestitKirjaaKentalla()', false);
-  h += kortti('⚡', 'Pikakirjaus', 'Kevyt lomake yhden tai useamman pelaajan tulokselle ilman tapahtumaa. Rakenteilla.', '', '', true);
+  h += kortti('⚡', 'Pikakirjaus', 'Kevyt lomake yhden tai useamman pelaajan tulokselle ilman tapahtumaa. Valitse testipäivä vapaasti.', 'Avaa →', '_vpPikakirjaus()', false);
   h += '</div>';
 
   // ── Ryhmä: Tuo tiedostosta ──

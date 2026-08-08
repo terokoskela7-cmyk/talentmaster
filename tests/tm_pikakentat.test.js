@@ -108,6 +108,26 @@ describe('tmLaskePikakentat — VIIMEISIN-VARTIJA (P-EDIT)', () => {
   });
 });
 
+describe('tmLaskePikakentat — graceful degradation (ympäristö ilman TKI-funktioita, esim. VP)', () => {
+  // VP lataa eerikkilä-libin mutta EI testit_indeksit.js:ää → normiIka/eerikkilaTaso/laskeD1Joustava läsnä, TKI-funktiot ei.
+  const E = require('../lib/tm_eerikkila_normit.js');
+  const vainHH = { normiIka: E.normiIka, normSukupuoliMN: E.normSukupuoliMN, eerikkilaTaso: E.eerikkilaTaso, laskeD1Joustava: E.laskeD1Joustava, laskeD2HH: E.laskeD2HH };
+
+  it('H-H lasketaan vaikka TKI-funktiot puuttuvat', () => {
+    const upd = tmLaskePikakentat({ syntymaVuosi: 2013, sukupuoli: 'M', joukkue: 'KPV U13' }, { lin_30m: { paras: 5.0 } }, PVM, vainHH);
+    expect(upd.hh_viimeisin).toEqual({ lin30m: 5.0 });
+    expect(upd.hh_pvm).toBe(PVM);
+    expect(typeof upd.d1_taso).toBe('number');
+  });
+
+  it('TKI ohitetaan hiljaa kun laskeKokonaistulos puuttuu (ei kaadu, ei tki-kenttiä)', () => {
+    const upd = tmLaskePikakentat({ syntymaVuosi: 2014, sukupuoli: 'P' },
+      { ponnauttelu: { paras: 10 }, syotto: { paras: 14 }, pujottelu: { paras: 12 } }, PVM, vainHH);
+    expect(upd.tki_viimeisin).toBeUndefined();
+    expect(upd.tk_lajit_viimeisin).toBeUndefined();
+  });
+});
+
 describe('tmLaskePikakentat — reunatapaukset', () => {
   it('tyhjä tulokset → {}', () => {
     expect(tmLaskePikakentat({ syntymaVuosi: 2013, sukupuoli: 'M' }, {}, PVM)).toEqual({});
