@@ -9058,6 +9058,151 @@ function _p1bInjektoi(sarjat) {
 }
 window._p1bSarjat = _p1bSarjat; window._p1bInjektoi = _p1bInjektoi;
 
+/* ═══ E2.1 — MITTAUSLISTA (luku + render, docs/E2_CODE_BRIEF.md §E2.1) ══════════════════════════════════
+   Muokattava mittauslista pelaajakortin Mittaus-välilehdellä (yhteenvedon ALLE). VAIN luku/render tässä
+   vaiheessa — Korjaa/Poista/Palauta renderöidään mutta ovat no-op (kytketään E2.2/E2.3). Ei Firestore-
+   kirjoituksia. Uudelleenkäyttää olemassa olevan testitulokset-luvun (~9718, ei toista hakua) + tm_testikatalogi
+   (nimet/yksiköt). Design-tokenit docs/E2_design_kartta.html (molemmat teemat). */
+var _vpMittausCache = {};   // pid → [{ __id, data }] (asetetaan olemassa olevassa testitulokset-luvussa)
+
+// Katalogitesti stored-avaimesta. testitulokset-testit-avaimet ovat SEKAMUOTOA: import→'lin30m', Pikakirjaus→'lin_30m'.
+// Suora osuma (Excel-id) TAI käänteinen lin_ → lin. Johdannaiset (mas_kmh, *_protokolla) → null (ohitetaan listalta).
+function _vpMittausKatTesti(avain) {
+  var K = window.TM_TESTIKATALOGI; if (!K) return null;
+  var t = K.tmKatalogiTesti(avain);
+  if (t) return t;
+  var rev = { lin_5m: 'lin5m', lin_10m: 'lin10m', lin_30m: 'lin30m' };
+  return rev[avain] ? K.tmKatalogiTesti(rev[avain]) : null;
+}
+function _vpMittausArvo(v) {
+  if (v == null) return null;
+  if (typeof v === 'object') v = (v.tulos != null ? v.tulos : (v.paras != null ? v.paras : (v.netto != null ? v.netto : null)));
+  var n = parseFloat(v); return isNaN(n) ? null : n;
+}
+function _vpMittausLahdeLabel(lahde) { return /pikakirjaus/i.test(String(lahde || '')) ? 'Pikakirjaus' : 'Testitapahtuma'; }
+function _vpMittausKatLvl(kategoria) { return kategoria === 'Tekniikkakilpailu' ? 'TKI' : 'H-H'; }
+function _vpMittausPvmFi(pvm) { try { var d = new Date(pvm); return (pvm && !isNaN(d.getTime()) && typeof _pvmFiVP === 'function') ? _pvmFiVP(d) : (pvm || '—'); } catch (e) { return pvm || '—'; } }
+
+// Merkinnät-rakentaja: laajenna cachetut dokit riveiksi (yksi rivi per katalogitesti-avain). EI toista hakua.
+function _vpMittausMerkinnat(pel) {
+  var dwid = (pel && _vpMittausCache[pel.id]) || [];
+  var rows = [];
+  dwid.forEach(function (w) {
+    var data = w.data || {}, testit = data.testit || {}, mit = data.mitatoidut || {};
+    var lahde = data.lahde || data.protokolla || '';
+    Object.keys(testit).forEach(function (avain) {
+      var kat = _vpMittausKatTesti(avain); if (!kat) return;   // ei-katalogitesti / johdannainen → ohita
+      var arvo = _vpMittausArvo(testit[avain]); if (arvo == null) return;
+      rows.push({
+        dokkiId: w.__id, pvm: data.testauspvm || '', avain: avain,
+        nimi: kat.nimi, yksikko: kat.yksikko, kategoria: kat.kategoria,
+        arvo: arvo, lahde: lahde, mitatoituMeta: mit[avain] || null
+      });
+    });
+  });
+  return rows;
+}
+
+// Oikeus muokata: VP + johto + SA (VP_v25:n käyttäjät). Muut → read-only (ei muokkausnappeja). Oman joukkueen
+// valmentajan portti tulee Master-porttauksessa (E2-jatko); VP_v25:ssä käyttäjä on VP/johto.
+function _vpVoiMuokata() {
+  if (window._vpSA) return true;
+  var r = window._vpRooli || null;
+  return (r === 'vp' || r === 'urheilutoimenjohtaja' || r === 'seurasihteeri');
+}
+
+var _VPM = {   // design-kartan tokenit → VP-tokenit (molemmat teemat)
+  eyebrow: 'font-size:10px;font-weight:600;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin:22px 0 12px',
+  ghd: 'display:flex;align-items:center;gap:8px;margin:16px 0 6px',
+  gd: 'font-family:var(--font-m);font-size:11px;color:var(--ink2)',
+  src: 'font-family:var(--font-m);font-size:9px;color:var(--ink3);border:.5px solid var(--border);padding:1px 6px;border-radius:2px;text-transform:uppercase;letter-spacing:.08em',
+  row: 'display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:9px 12px;border:.5px solid var(--border);border-radius:3px;background:var(--surface);margin-top:6px',
+  name: 'flex:0 0 150px;font-size:13px;color:var(--ink)',
+  val: 'font-family:var(--font-serif);font-size:19px;color:var(--ink);flex:0 0 82px',
+  small: 'font-size:10px;color:var(--ink3)',
+  lvl: 'font-family:var(--font-m);font-size:10px;color:var(--teal);flex:1;min-width:60px',
+  acts: 'display:flex;gap:6px',
+  abtn: 'font-family:\'DM Sans\',sans-serif;font-size:10.5px;font-weight:500;padding:6px 11px;border-radius:3px;cursor:pointer;border:.5px solid rgba(40,176,144,.30);color:var(--teal);background:rgba(40,176,144,.10)',
+  abtnD: 'font-family:\'DM Sans\',sans-serif;font-size:10.5px;font-weight:500;padding:6px 11px;border-radius:3px;cursor:pointer;border:.5px solid rgba(201,64,64,.28);color:var(--red);background:rgba(201,64,64,.10)',
+  abtnG: 'font-family:\'DM Sans\',sans-serif;font-size:10.5px;font-weight:500;padding:6px 11px;border-radius:3px;cursor:pointer;border:.5px solid var(--border);color:var(--ink2);background:transparent',
+  vtoggle: 'font-size:12px;color:var(--blue);font-weight:600;cursor:pointer;margin-top:20px;display:inline-block',
+  vtag: 'font-family:var(--font-m);font-size:9px;color:var(--ink3);flex:1;min-width:120px',
+  empty: 'font-size:12.5px;color:var(--ink3);font-family:var(--font-m);padding:14px 12px;border:.5px dashed var(--border);border-radius:3px;margin-top:6px'
+};
+function _esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+
+function _vpMittausRiviHTML(r, voiMuokata, void_) {
+  var arvo = (Math.round(r.arvo * 100) / 100);
+  var h = '<div style="' + _VPM.row + (void_ ? ';opacity:.5' : '') + '">';
+  h += '<span style="' + _VPM.name + '">' + _esc(r.nimi) + '</span>';
+  h += '<span style="' + _VPM.val + (void_ ? ';text-decoration:line-through;text-decoration-thickness:.5px' : '') + '">' + arvo + '<small style="' + _VPM.small + '"> ' + _esc(r.yksikko) + '</small></span>';
+  if (void_) {
+    var m = r.mitatoituMeta || {};
+    var mt = 'mitätöity ' + _vpMittausPvmFi(m.milloin) + (m.syy ? ' · ' + _esc(m.syy) : '');
+    h += '<span style="' + _VPM.vtag + '">' + mt + '</span>';
+    if (voiMuokata) h += '<span style="' + _VPM.acts + '"><button style="' + _VPM.abtnG + '" onclick="_vpMittausTulossa(\'palauta\')">Palauta</button></span>';
+  } else {
+    h += '<span style="' + _VPM.lvl + '">' + _vpMittausKatLvl(r.kategoria) + '</span>';
+    if (voiMuokata) h += '<span style="' + _VPM.acts + '">' +
+      '<button style="' + _VPM.abtn + '" onclick="_vpMittausTulossa(\'korjaa\')">Korjaa</button>' +
+      '<button style="' + _VPM.abtnD + '" onclick="_vpMittausTulossa(\'poista\')">Poista</button></span>';
+  }
+  return h + '</div>';
+}
+
+function _vpMittausListaHTML(rows, voiMuokata) {
+  var aktiiviset = rows.filter(function (r) { return !r.mitatoituMeta; });
+  var voidatut = rows.filter(function (r) { return r.mitatoituMeta; });
+  var h = '<div style="' + _VPM.eyebrow + '">📏 Mittaukset · ' + (voiMuokata ? 'muokattavissa' : 'luku') + '</div>';
+
+  if (!aktiiviset.length && !voidatut.length) {
+    return h + '<div style="' + _VPM.empty + '">Ei kirjattuja mittauksia — lisää Pikakirjauksella.</div>';
+  }
+
+  // Ryhmittele pvm + lähde, uusin ensin.
+  var ryhmat = {}, jarj = [];
+  aktiiviset.forEach(function (r) {
+    var lab = _vpMittausLahdeLabel(r.lahde);
+    var key = (r.pvm || '') + '|' + lab;
+    if (!ryhmat[key]) { ryhmat[key] = { pvm: r.pvm, lahde: lab, rows: [] }; jarj.push(key); }
+    ryhmat[key].rows.push(r);
+  });
+  jarj.sort(function (a, b) { return String(ryhmat[b].pvm).localeCompare(String(ryhmat[a].pvm)); });   // uusin ensin
+  jarj.forEach(function (key) {
+    var g = ryhmat[key];
+    h += '<div style="' + _VPM.ghd + '"><span style="' + _VPM.gd + '">' + _vpMittausPvmFi(g.pvm) + '</span><span style="' + _VPM.src + '">' + _esc(g.lahde) + '</span></div>';
+    g.rows.forEach(function (r) { h += _vpMittausRiviHTML(r, voiMuokata, false); });
+  });
+
+  if (voidatut.length) {
+    h += '<div style="' + _VPM.vtoggle + '" onclick="_vpMittausToggleVoid(this)" data-open="0">▾ Mitätöidyt (' + voidatut.length + ')</div>';
+    h += '<div id="_vpMittausVoid" style="display:none">';
+    voidatut.sort(function (a, b) { return String(b.pvm).localeCompare(String(a.pvm)); });
+    voidatut.forEach(function (r) { h += _vpMittausRiviHTML(r, voiMuokata, true); });
+    h += '</div>';
+  }
+  return h;
+}
+
+function _vpRenderMittausLista(p) {
+  var host = document.getElementById('_jspMittausLista'); if (!host) return;
+  var rows = _vpMittausMerkinnat(p);
+  host.innerHTML = _vpMittausListaHTML(rows, _vpVoiMuokata());
+}
+window._vpRenderMittausLista = _vpRenderMittausLista;
+window._vpMittausToggleVoid = function (el) {
+  var box = document.getElementById('_vpMittausVoid'); if (!box) return;
+  var open = el.getAttribute('data-open') === '1';
+  box.style.display = open ? 'none' : 'block';
+  el.setAttribute('data-open', open ? '0' : '1');
+  el.textContent = (open ? '▾' : '▴') + el.textContent.slice(1);
+};
+// E2.1: napit renderöity mutta ei-mutatoivia → kytketään E2.2 (Poista/Palauta) / E2.3 (Korjaa).
+window._vpMittausTulossa = function (mita) {
+  var t = { korjaa: 'Korjaa kytketään seuraavassa vaiheessa (E2.3)', poista: 'Poista kytketään seuraavassa vaiheessa (E2.2)', palauta: 'Palauta kytketään seuraavassa vaiheessa (E2.2)' };
+  if (typeof toast === 'function') toast(t[mita] || 'Tulossa', 'ok');
+};
+
 window._avaaPerPelaajaPikakatsaus = function(idx, joukkueNimi) {
   const lista = window._jsvPelaajat || [];
   const nP = lista.length;
@@ -9692,7 +9837,8 @@ window._avaaPerPelaajaPikakatsaus = function(idx, joukkueNimi) {
   // 0 Aloitus = IDP-narratiivi (Vaihe A). 1 Mittaus = Fyysinen+Tekninen (mitattu). 2 Arviointi = Peliäly + arviointi-
   // taksonomia (havaittu; _jspTab5-SISÄSLOT → _vpArvReRender-koukut ennallaan). 3 Kehitys (pysyy). 4 Viikko (Vaihe D).
   hR += '<div id="_jspTab0"><div id="_jspIdpNarratiivi">' + fIdp + '</div></div>';
-  hR += '<div id="_jspTab1" style="display:none">' + _mSub('Fyysinen · mitattu') + f1 + _mErot + _mSub('Tekninen · mitattu') + f2 + '</div>';
+  hR += '<div id="_jspTab1" style="display:none">' + _mSub('Fyysinen · mitattu') + f1 + _mErot + _mSub('Tekninen · mitattu') + f2
+    + '<div id="_jspMittausLista" style="margin-top:6px"></div></div>';   // E2.1 — muokattava mittauslista (async-hydratoitu; renderöi yhteenvedon alle)
   hR += '<div id="_jspTab2" style="display:none">' + _mSub('Peliäly · havainto') + f3 + _mErot + '<div id="_jspTab5">' + (f5 || '') + '</div></div>';
   hR += '<div id="_jspTab3" style="display:none">' + _kehExtra + '</div>';   // P4a: f4-diagnostiikka nyt _kehExtra:n reveal-osiossa
   hR += '<div id="_jspTab4" style="display:none">' + ((typeof _vpViikkoHTML === 'function') ? _vpViikkoHTML(p) : '') + '</div>';   // P6a — viikkosyöttö + IDP-kytkös
@@ -9717,8 +9863,12 @@ window._avaaPerPelaajaPikakatsaus = function(idx, joukkueNimi) {
     try {
       db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(p.id).collection('testitulokset').get()
         .then(function (snap) {
-          const docs = []; snap.forEach(function (d) { docs.push(d.data()); });
+          const docs = []; const dwid = [];
+          snap.forEach(function (d) { const data = d.data(); docs.push(data); dwid.push({ __id: d.id, data: data }); });
           _p1bInjektoi(_p1bSarjat(docs));
+          // E2.1 — SAMA luku uudelleen (ei toista hakua): tallenna dokit id:llä cacheen + renderöi mittauslista.
+          try { _vpMittausCache[p.id] = dwid; if (typeof _vpRenderMittausLista === 'function') _vpRenderMittausLista(p); }
+          catch (e) { console.warn('[mittauslista]', e && e.message); }
         }).catch(function () { /* jätä säiliöt tyhjiksi */ });
     } catch (e) { /* offline / db puuttuu → ei sparklineja */ }
   }
