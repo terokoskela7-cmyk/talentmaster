@@ -12398,6 +12398,121 @@ window._vpTapahtumaAvaaKortti = function (idx) {
 // E1a: bulk + per-pelaaja Mitätöi/Palauta renderöidään mutta ovat no-op (kytketään E1b).
 window._vpTapahtumaTulossa = function () { if (typeof toast === 'function') toast('Siivoustoiminnot kytketään seuraavassa vaiheessa (E1b)', 'ok'); };
 
+/* ═══ E1b — BULK MITÄTÖI / PALAUTA (docs/E1_CODE_BRIEF.md §E1b, design §2–§3) ══════════════════════════
+   Koko tapahtuman (tai yhden pelaajan) pehmeä mitätöinti/palautus. Per pelaaja: merkitse tapahtuma-dokin
+   testiavaimet mitatoidut-mappiin → aja JAETTU _vpMittausRebuildKirjoita(p) (E2.2.1-suojattu → datahukkasuoja
+   periytyy; EI suoraa pikakenttä-pyyhintää, EI tmLaskePikakentatia). Eräajo rinnakkaisuus rajattu + edistymis-
+   ja virheraportti (ei hiljaista osittaista tulosta). Vain pehmeä mitätöinti (mitatoidut). Joukkuerajattu. */
+var _vpTapahtumaBulkKesken = false;
+
+// PUHDAS: tapahtuman mitätöinti-kenttäpolut yhdelle dokille (kaikki testiavaimet, joita ei vielä mitätöity). meta = {kuka, milloin}.
+function _vpTapahtumaMitatoiKentat(testitDoc, joMit, meta) {
+  var kentat = {}; joMit = joMit || {};
+  Object.keys(testitDoc || {}).forEach(function (a) { if (!joMit[a]) kentat['mitatoidut.' + a] = meta; });
+  return kentat;
+}
+// PUHDAS: tapahtuman palautus-kenttäpolut (poista kaikki mitätöinnit). deleteSentinel = FieldValue.delete() (testissä sentinel).
+function _vpTapahtumaPalautaKentat(joMit, deleteSentinel) {
+  var kentat = {}; Object.keys(joMit || {}).forEach(function (a) { kentat['mitatoidut.' + a] = deleteSentinel; });
+  return kentat;
+}
+window._vpTapahtumaMitatoiKentat = _vpTapahtumaMitatoiKentat;
+window._vpTapahtumaPalautaKentat = _vpTapahtumaPalautaKentat;
+
+// Yksi pelaaja: kirjoita mitatoidut lähdedokkiin (pehmeä) → päivitä cache → recompute VAIN suojatun rebuildin kautta.
+async function _vpTapahtumaKirjoitaYksi(mode, k, meta, deleteSentinel) {
+  var p = k.p, w = k.w; if (!p || !w) throw new Error('puuttuva pelaaja/dokki');
+  var testit = w.data.testit || {}, joMit = w.data.mitatoidut || {};
+  var kentat = (mode === 'mitatoi') ? _vpTapahtumaMitatoiKentat(testit, joMit, meta) : _vpTapahtumaPalautaKentat(joMit, deleteSentinel);
+  if (Object.keys(kentat).length) {
+    var ttRef = db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(p.id).collection('testitulokset').doc(w.__id);
+    await ttRef.update(kentat);                                          // vain mitatoidut-map — EI kovaa poistoa
+    w.data.mitatoidut = w.data.mitatoidut || {};
+    if (mode === 'mitatoi') Object.keys(testit).forEach(function (a) { if (!joMit[a]) w.data.mitatoidut[a] = meta; });
+    else Object.keys(joMit).forEach(function (a) { delete w.data.mitatoidut[a]; });
+  }
+  await _vpMittausRebuildKirjoita(p);                                    // E2.2.1-suojattu: pikakentät + Kehityskaari
+}
+
+function _vpTapahtumaEdistysHTML(done, yht) {
+  var pct = yht ? Math.round(done / yht * 100) : 0;
+  return '<div style="margin:10px 0 2px"><div style="font-family:var(--font-m);font-size:11px;color:var(--ink2);margin-bottom:4px">Käsitellään ' + done + '/' + yht + '…</div>'
+    + '<div style="height:6px;background:var(--ov-2);border-radius:3px;overflow:hidden"><div style="height:100%;width:' + pct + '%;background:var(--teal);transition:width .2s"></div></div></div>';
+}
+// Virheraportti (näytetään re-renderissä kun epäonnistuneita) — ei hiljaista osittaista tulosta; uudelleenyritys.
+function _vpTapahtumaTulosHTML(tulos) {
+  if (!tulos || !tulos.fail) return '';
+  var yht = tulos.ok + tulos.fail;
+  return '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:10px 0 2px;font-size:12px;color:var(--red);background:rgba(201,64,64,.08);border:.5px solid rgba(201,64,64,.28);border-radius:6px;padding:9px 11px">'
+    + '<span>' + tulos.ok + '/' + yht + ' onnistui · <b>' + tulos.fail + ' epäonnistui</b></span>'
+    + '<button onclick="_vpTapahtumaYritaUudelleen()" style="font-family:\'DM Sans\',sans-serif;font-size:11px;font-weight:600;padding:6px 12px;border-radius:6px;cursor:pointer;border:.5px solid rgba(201,64,64,.3);color:var(--red);background:transparent;margin-left:auto">Yritä uudelleen (' + tulos.fail + ')</button></div>';
+}
+
+// Suorita eräajo (rinnakkaisuus ~5) + edistymispalkki → tulos ctx:iin → re-render.
+async function _vpTapahtumaSuoritaBulk(mode, kohteet) {
+  var yht = kohteet.length, ok = 0, fail = 0, epaonnistuneet = [];
+  var edEl = document.getElementById('_vpTapahtumaEdistys');
+  if (edEl) edEl.innerHTML = _vpTapahtumaEdistysHTML(0, yht);
+  var meta = { kuka: _uid || null, milloin: new Date().toISOString() };   // GDPR: vain uid + aikaleima
+  var deleteSentinel = (typeof firebase !== 'undefined' && firebase.firestore && firebase.firestore.FieldValue) ? firebase.firestore.FieldValue.delete() : null;
+  try { var cu = firebase.auth().currentUser; if (cu) await cu.getIdToken(true); } catch (e) {}
+  var i = 0;
+  async function worker() {
+    while (i < kohteet.length) {
+      var k = kohteet[i++];
+      try { await _vpTapahtumaKirjoitaYksi(mode, k, meta, deleteSentinel); ok++; }
+      catch (e) { fail++; epaonnistuneet.push(k); console.warn('[e1b]', (k.p && k.p.id) || '?', e && e.message); }
+      if (edEl) edEl.innerHTML = _vpTapahtumaEdistysHTML(ok + fail, yht);
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(5, yht) }, worker));
+  if (_vpTapahtumaCtx) _vpTapahtumaCtx.viimMode = mode;
+  if (_vpTapahtumaCtx) _vpTapahtumaCtx.viimTulos = { ok: ok, fail: fail, epaonnistuneet: epaonnistuneet };
+  _vpTapahtumaRenderModaali(false);                                       // mitätöidyt himmennetään; virheraportti jos fail
+  if (typeof toast === 'function') toast(ok + '/' + yht + ' onnistui' + (fail ? ' · ' + fail + ' epäonnistui' : ''), fail ? 'err' : 'ok');
+}
+
+// Kokoa kohteet (osallistuja + pelaaja + cache-dokki), suodata moodin mukaan (mitatoi: on ei-mitätöity avain; palauta: on mitätöity).
+function _vpTapahtumaKohteet(mode, vainIdx) {
+  var ctx = _vpTapahtumaCtx; if (!ctx) return [];
+  var osallistujat = _vpTapahtumaRivit(ctx.pelaajat, _vpMittausCache, ctx.pvm, ctx.lahde);
+  return osallistujat.filter(function (o) { return vainIdx == null || o.idx === vainIdx; }).map(function (o) {
+    var p = ctx.pelaajat[o.idx];
+    var w = (_vpMittausCache[p.id] || []).find(function (x) { return x.__id === o.dokkiId; });
+    return { o: o, p: p, w: w };
+  }).filter(function (k) {
+    if (!k.w) return false;
+    var testit = k.w.data.testit || {}, mit = k.w.data.mitatoidut || {};
+    if (mode === 'mitatoi') return Object.keys(testit).some(function (a) { return !mit[a]; });
+    return Object.keys(mit).length > 0;
+  });
+}
+
+async function _vpTapahtumaBulkAloita(mode, kohteet) {
+  if (!_vpVoiMuokata() || _vpTapahtumaBulkKesken) return;
+  if (!kohteet.length) { if (typeof toast === 'function') toast(mode === 'mitatoi' ? 'Ei mitätöitävää' : 'Ei palautettavaa', 'ok'); return; }
+  var n = kohteet.length;
+  var ok = await _vpVahvista(mode === 'mitatoi'
+    ? { otsikko: 'Mitätöi tapahtuma?', teksti: n + ' pelaajan mittaukset piilotetaan ja mittaristo lasketaan uudelleen. Voit palauttaa myöhemmin.', vahvista: 'Mitätöi (' + n + ')', tyyli: 'danger' }
+    : { otsikko: 'Palauta tapahtuma?', teksti: n + ' pelaajan mittaukset palautetaan ja mittaristo lasketaan uudelleen.', vahvista: 'Palauta (' + n + ')' });
+  if (!ok) return;
+  _vpTapahtumaBulkKesken = true;
+  try { await _vpTapahtumaSuoritaBulk(mode, kohteet); } finally { _vpTapahtumaBulkKesken = false; }
+}
+
+// Koko tapahtuma (kaikki osallistujat).
+window._vpTapahtumaBulk = function (mode) { return _vpTapahtumaBulkAloita(mode, _vpTapahtumaKohteet(mode, null)); };
+// Yksi pelaaja (koko tapahtuma yhdelle).
+window._vpTapahtumaYksi = function (mode, idx) { return _vpTapahtumaBulkAloita(mode, _vpTapahtumaKohteet(mode, idx)); };
+// Uudelleenyritys epäonnistuneille.
+window._vpTapahtumaYritaUudelleen = function () {
+  var t = _vpTapahtumaCtx && _vpTapahtumaCtx.viimTulos;
+  if (!t || !t.epaonnistuneet || !t.epaonnistuneet.length || _vpTapahtumaBulkKesken) return;
+  _vpTapahtumaBulkKesken = true;
+  var mode = _vpTapahtumaCtx.viimMode || 'mitatoi';
+  Promise.resolve(_vpTapahtumaSuoritaBulk(mode, t.epaonnistuneet.slice())).finally(function () { _vpTapahtumaBulkKesken = false; });
+};
+
 function _vpTapahtumaRenderModaali(lataa) {
   var ctx = _vpTapahtumaCtx; if (!ctx) return;
   var voiMuokata = _vpVoiMuokata();
@@ -12421,13 +12536,17 @@ function _vpTapahtumaRenderModaali(lataa) {
   h += '<div style="font-family:var(--font-m);font-size:11px;color:var(--ink3);margin-top:3px">' + _esc(pvmFi) + ' · ' + _esc(lahdeLbl) + ' · ' + osallistujat.length + ' pelaajaa</div></div>';
   h += '<button onclick="_vpTapahtumaSulje()" style="background:none;border:none;color:var(--ink3);font-size:24px;cursor:pointer;line-height:1">×</button></div>';
 
-  // Bulk-toiminnot (E1a: no-op)
-  if (voiMuokata) {
-    h += '<div style="display:flex;gap:8px;margin:14px 0 4px;flex-wrap:wrap">'
-      + '<button style="' + A.abtn + '" onclick="_vpTapahtumaTulossa()">Mitätöi tapahtuma</button>'
-      + '<button style="' + A.abtnG + '" onclick="_vpTapahtumaTulossa()">Palauta tapahtuma</button>'
-      + '<span style="font-family:var(--font-m);font-size:10px;color:var(--ink3);align-self:center">bulk kytketään E1b:ssä</span></div>';
+  // Bulk-toiminnot (E1b) — koko tapahtuman pehmeä mitätöinti/palautus (per pelaaja suojattu rebuild).
+  if (voiMuokata && osallistujat.length) {
+    var abtnDanger = A.abtn.replace('rgba(40,176,144,.30)', 'rgba(201,64,64,.28)').replace('var(--teal)', 'var(--red)').replace('rgba(40,176,144,.10)', 'rgba(201,64,64,.10)');
+    h += '<div style="display:flex;gap:8px;margin:14px 0 2px;flex-wrap:wrap;align-items:center">'
+      + '<span style="font-family:var(--font-m);font-size:10px;color:var(--ink3)">Koko tapahtuma:</span>'
+      + '<button style="' + abtnDanger + '" onclick="_vpTapahtumaBulk(\'mitatoi\')">Mitätöi tapahtuma</button>'
+      + '<button style="' + A.abtnG + '" onclick="_vpTapahtumaBulk(\'palauta\')">Palauta tapahtuma</button>'
+      + '<span style="font-family:var(--font-m);font-size:10px;color:var(--ink3)">pehmeä · peruttava · per pelaaja rebuild</span></div>';
   }
+  h += '<div id="_vpTapahtumaEdistys"></div>';                                  // eräajon edistymispalkki
+  h += _vpTapahtumaTulosHTML(ctx.viimTulos);                                    // virheraportti + uudelleenyritys (jos fail)
 
   h += '<div style="border-top:.5px solid var(--border);margin:12px 0 4px"></div>';
 
@@ -12445,9 +12564,12 @@ function _vpTapahtumaRenderModaali(lataa) {
       h += '<span style="' + A.name + '">' + _esc(o.nimi) + '</span>';
       h += '<span style="flex:1;display:flex;gap:6px;flex-wrap:wrap">' + chips + '</span>';
       if (voiMuokata) {
+        var perNap = o.kaikkiMitatoitu
+          ? '<button style="' + A.abtnG + '" onclick="_vpTapahtumaYksi(\'palauta\',' + o.idx + ')">Palauta</button>'
+          : '<button style="' + A.abtn.replace('rgba(40,176,144,.30)', 'rgba(201,64,64,.28)').replace('var(--teal)', 'var(--red)').replace('rgba(40,176,144,.10)', 'rgba(201,64,64,.10)') + '" onclick="_vpTapahtumaYksi(\'mitatoi\',' + o.idx + ')">Mitätöi</button>';
         h += '<span style="display:flex;gap:6px">'
           + '<button style="' + A.abtn + '" onclick="_vpTapahtumaAvaaKortti(' + o.idx + ')">Avaa kortti</button>'
-          + '<button style="' + A.abtnG + '" onclick="_vpTapahtumaTulossa()">' + (o.kaikkiMitatoitu ? 'Palauta' : 'Mitätöi') + '</button></span>';
+          + perNap + '</span>';
       } else {
         h += '<button style="' + A.abtn + '" onclick="_vpTapahtumaAvaaKortti(' + o.idx + ')">Avaa kortti</button>';
       }
