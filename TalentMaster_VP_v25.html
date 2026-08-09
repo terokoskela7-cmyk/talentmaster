@@ -9130,22 +9130,24 @@ var _VPM = {   // design-kartan tokenit → VP-tokenit (molemmat teemat)
   empty: 'font-size:12.5px;color:var(--ink3);font-family:var(--font-m);padding:14px 12px;border:.5px dashed var(--border);border-radius:3px;margin-top:6px'
 };
 function _esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+function _jesc(s) { return String(s == null ? '' : s).replace(/[\\']/g, '\\$&'); }   // JS-string-escape (onclick-argumentit)
 
 function _vpMittausRiviHTML(r, voiMuokata, void_) {
   var arvo = (Math.round(r.arvo * 100) / 100);
   var h = '<div style="' + _VPM.row + (void_ ? ';opacity:.5' : '') + '">';
   h += '<span style="' + _VPM.name + '">' + _esc(r.nimi) + '</span>';
   h += '<span style="' + _VPM.val + (void_ ? ';text-decoration:line-through;text-decoration-thickness:.5px' : '') + '">' + arvo + '<small style="' + _VPM.small + '"> ' + _esc(r.yksikko) + '</small></span>';
+  var idA = _jesc(r.dokkiId), avA = _jesc(r.avain);   // rivi-identiteetti (dokkiId, testiavain) nappeihin
   if (void_) {
     var m = r.mitatoituMeta || {};
     var mt = 'mitätöity ' + _vpMittausPvmFi(m.milloin) + (m.syy ? ' · ' + _esc(m.syy) : '');
     h += '<span style="' + _VPM.vtag + '">' + mt + '</span>';
-    if (voiMuokata) h += '<span style="' + _VPM.acts + '"><button style="' + _VPM.abtnG + '" onclick="_vpMittausTulossa(\'palauta\')">Palauta</button></span>';
+    if (voiMuokata) h += '<span style="' + _VPM.acts + '"><button style="' + _VPM.abtnG + '" onclick="_vpMittausPalauta(\'' + idA + '\',\'' + avA + '\')">Palauta</button></span>';
   } else {
     h += '<span style="' + _VPM.lvl + '">' + _vpMittausKatLvl(r.kategoria) + '</span>';
     if (voiMuokata) h += '<span style="' + _VPM.acts + '">' +
-      '<button style="' + _VPM.abtn + '" onclick="_vpMittausTulossa(\'korjaa\')">Korjaa</button>' +
-      '<button style="' + _VPM.abtnD + '" onclick="_vpMittausTulossa(\'poista\')">Poista</button></span>';
+      '<button style="' + _VPM.abtn + '" onclick="_vpMittausTulossa(\'korjaa\')">Korjaa</button>' +   // Korjaa jää no-opiksi (E2.3)
+      '<button style="' + _VPM.abtnD + '" onclick="_vpMittausPoista(\'' + idA + '\',\'' + avA + '\')">Poista</button></span>';
   }
   return h + '</div>';
 }
@@ -9185,6 +9187,7 @@ function _vpMittausListaHTML(rows, voiMuokata) {
 }
 
 function _vpRenderMittausLista(p) {
+  window._vpMittausPelaaja = p;   // nappikäsittelijät (Poista/Palauta) tarvitsevat nykyisen pelaajan
   var host = document.getElementById('_jspMittausLista'); if (!host) return;
   var rows = _vpMittausMerkinnat(p);
   host.innerHTML = _vpMittausListaHTML(rows, _vpVoiMuokata());
@@ -9197,11 +9200,133 @@ window._vpMittausToggleVoid = function (el) {
   el.setAttribute('data-open', open ? '0' : '1');
   el.textContent = (open ? '▾' : '▴') + el.textContent.slice(1);
 };
-// E2.1: napit renderöity mutta ei-mutatoivia → kytketään E2.2 (Poista/Palauta) / E2.3 (Korjaa).
+// E2.1→E2.3: Korjaa jää no-opiksi (kytketään E2.3). Poista/Palauta kytketty E2.2:ssa (alla).
 window._vpMittausTulossa = function (mita) {
-  var t = { korjaa: 'Korjaa kytketään seuraavassa vaiheessa (E2.3)', poista: 'Poista kytketään seuraavassa vaiheessa (E2.2)', palauta: 'Palauta kytketään seuraavassa vaiheessa (E2.2)' };
+  var t = { korjaa: 'Korjaa kytketään seuraavassa vaiheessa (E2.3)' };
   if (typeof toast === 'function') toast(t[mita] || 'Tulossa', 'ok');
 };
+
+/* ═══ E2.2 — POISTA + PALAUTA (pehmeä mitätöinti → rebuild-kirjoitus, docs/E2_2_CODE_BRIEF.md) ═════════
+   Pehmeä mitätöinti (lähdedokin mitatoidut-map, per testiavain) → tmRakennaPikakentatArkistosta (P-EDIT.0,
+   muuttumaton) → pelaajadokin pikakentät korvaten + FieldValue.delete(poistetut). EI kovaa poistoa. Poista ja
+   Palauta eroavat VAIN lähde-mutaatiossa; sen jälkeen identtinen rebuild+kirjoitus+re-render.
+   Re-render (v1): koko Mittaus-välilehti rakennetaan uudelleen (_avaaPerPelaajaPikakatsaus) → tasotiilet +
+   Kehityskaari + lista regressoivat p:n päivitetyistä pikakentistä; käyttäjä pidetään Mittaus-välilehdellä
+   (_jspVaihda(1)). f1/f2-tasotiilet ovat syvästi inline → in-place-osaus olisi kohtuuttoman kietoutunut. */
+
+// Lin-splittien avainnormalisointi: tuonti-dokit tallentavat 'lin30m'/'lin10m'/'lin5m', mutta primitiivi/_HH_MAP
+// odottaa Testaus_v9/Pikakirjaus-muotoa 'lin_30m' jne. Ilman tätä tuontidokin 30 m katoaisi hh_viimeisin:istä
+// rebuildissa (datahukka). EI katalogimuunnos — vain primitiivin odottama raaka-avain. Muut avaimet täsmäävät jo.
+var _VPM_KEYNORM = { lin30m: 'lin_30m', lin10m: 'lin_10m', lin5m: 'lin_5m' };
+
+// PUHDAS (Node-testattava): cache-dokit → primitiivin syöte [{pvm, tulokset}], mitätöidyt avaimet karsittuina.
+function _vpMittausRebuildMerkinnat(cacheDocs) {
+  return (cacheDocs || []).map(function (w) {
+    var d = (w && w.data) || {}, testit = d.testit || {}, mit = d.mitatoidut || {};
+    var tulokset = {};
+    Object.keys(testit).forEach(function (k) {
+      if (mit[k]) return;                                        // karsi mitätöity (mitatoidut avaimet = stored testit-avaimet)
+      tulokset[_VPM_KEYNORM[k] || k] = testit[k];                // normalisoi lin-splitit primitiivin raaka-avaimeen
+    });
+    return { pvm: d.testauspvm || '', tulokset: tulokset };      // täysin mitätöity dokki → tulokset:{}
+  });
+}
+window._vpMittausRebuildMerkinnat = _vpMittausRebuildMerkinnat;
+
+// Jaettu rebuild + kirjoitus (Poista JA Palauta). Kirjoittaa pelaajadokin pikakentät + poistot; päivittää in-memory p.
+async function _vpMittausRebuildKirjoita(p) {
+  if (typeof tmRakennaPikakentatArkistosta !== 'function') { console.warn('[mittaus] rebuild-primitiivi puuttuu'); return null; }
+  var cu = firebase.auth().currentUser; if (cu) { try { await cu.getIdToken(true); } catch (e) {} }   // §2 sessio tuore
+  var pelRef = db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(p.id);
+  var merkinnat = _vpMittausRebuildMerkinnat(_vpMittausCache[p.id]);
+  var res = tmRakennaPikakentatArkistosta(p, merkinnat) || { upd: {}, poistetut: [] };
+  if (res.upd && Object.keys(res.upd).length) await pelRef.set(res.upd, { merge: true });             // pikakentät korvaten (hh_viimeisin = map)
+  if (res.poistetut && res.poistetut.length) {
+    var del = {}; res.poistetut.forEach(function (f) { del[f] = firebase.firestore.FieldValue.delete(); });
+    await pelRef.update(del);                                                                          // merge ei poista → FieldValue.delete
+  }
+  if (res.upd) Object.assign(p, res.upd);                                                              // in-memory p → UI regressoi ilman uutta hakua
+  if (res.poistetut) res.poistetut.forEach(function (f) { try { delete p[f]; } catch (e) {} });
+  return res;
+}
+
+// Re-render rebuildin jälkeen: rakenna Mittaus-välilehti uudelleen p:n päivitetyistä pikakentistä, pysy välilehdellä.
+function _vpMittausPaivitaNakyma(p) {
+  var lista = window._jsvPelaajat || [];
+  var idx = lista.indexOf(p);
+  if (idx < 0) idx = lista.findIndex(function (x) { return x && x.id === p.id; });
+  if (idx >= 0 && typeof _avaaPerPelaajaPikakatsaus === 'function') {
+    _avaaPerPelaajaPikakatsaus(idx, p.joukkue || '');            // tasotiilet + Kehityskaari + lista p:n päivitetyistä pikakentistä
+    if (typeof _jspVaihda === 'function') _jspVaihda(1);         // säilytä Mittaus-välilehti (ei hyppyä Aloitukseen)
+  } else if (typeof _vpRenderMittausLista === 'function') {
+    _vpRenderMittausLista(p);
+  }
+}
+
+// Minimaalinen brändätty vahvistusdialogi (VP:ssä ei ollut jaettua) → Promise<boolean>. Molemmat teemat (VP-tokenit).
+function _vpVahvista(opts) {
+  opts = opts || {};
+  return new Promise(function (resolve) {
+    var ov = document.createElement('div');
+    ov.style.cssText = 'position:fixed;inset:0;background:rgba(17,17,16,.72);z-index:500;display:flex;align-items:center;justify-content:center;padding:16px;backdrop-filter:blur(6px)';
+    var vahvBg = (opts.tyyli === 'danger') ? 'var(--red)' : 'var(--teal)';
+    var h = '<div style="background:var(--bg2);border:.5px solid var(--border);border-radius:8px;width:min(420px,94vw);padding:22px 22px 18px;box-shadow:0 20px 60px rgba(0,0,0,.4)">';
+    h += '<div style="font-family:var(--font-serif);font-size:21px;font-weight:400;color:var(--ink);margin-bottom:8px">' + _esc(opts.otsikko || 'Vahvista') + '</div>';
+    h += '<div style="font-family:\'DM Sans\',sans-serif;font-size:13px;line-height:1.55;color:var(--ink2);margin-bottom:18px">' + _esc(opts.teksti || '') + '</div>';
+    h += '<div style="display:flex;gap:10px;justify-content:flex-end">';
+    h += '<button data-act="peru" style="font-family:\'DM Sans\',sans-serif;font-size:13px;padding:9px 16px;border-radius:6px;cursor:pointer;background:transparent;border:.5px solid var(--border);color:var(--ink2)">Peruuta</button>';
+    h += '<button data-act="ok" style="font-family:\'DM Sans\',sans-serif;font-size:13px;font-weight:600;padding:9px 18px;border-radius:6px;cursor:pointer;border:none;background:' + vahvBg + ';color:#fff">' + _esc(opts.vahvista || 'Vahvista') + '</button>';
+    h += '</div></div>';
+    ov.innerHTML = h;
+    var done = function (v) { if (ov.parentNode) ov.parentNode.removeChild(ov); document.removeEventListener('keydown', onKey); resolve(v); };
+    var onKey = function (e) { if (e.key === 'Escape') done(false); else if (e.key === 'Enter') done(true); };
+    ov.addEventListener('click', function (e) { if (e.target === ov) done(false); });
+    ov.querySelector('[data-act=peru]').addEventListener('click', function () { done(false); });
+    ov.querySelector('[data-act=ok]').addEventListener('click', function () { done(true); });
+    document.addEventListener('keydown', onKey);
+    document.body.appendChild(ov);
+    var okb = ov.querySelector('[data-act=ok]'); if (okb) okb.focus();
+  });
+}
+window._vpVahvista = _vpVahvista;
+
+// Poista: varmistus → pehmeä mitätöinti (mitatoidut-map, per avain) → rebuild → re-render.
+window._vpMittausPoista = async function (dokkiId, avain) {
+  if (!_vpVoiMuokata()) return;
+  var p = window._vpMittausPelaaja; if (!p || !dokkiId || !avain) return;
+  var ok = await _vpVahvista({ otsikko: 'Poistetaanko mittaus?', teksti: 'Mittaus piilotetaan ja mittaristo lasketaan uudelleen. Voit palauttaa sen myöhemmin.', vahvista: 'Poista', tyyli: 'danger' });
+  if (!ok) return;
+  try {
+    var pelRef = db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(p.id);
+    var meta = { kuka: _uid || null, milloin: new Date().toISOString() };   // GDPR: vain uid + aikaleima (syy myöhemmin, valinnainen)
+    var mm = {}; mm[avain] = meta;
+    await pelRef.collection('testitulokset').doc(dokkiId).set({ mitatoidut: mm }, { merge: true });   // pehmeä, ei kovaa poistoa
+    var w = (_vpMittausCache[p.id] || []).find(function (x) { return x.__id === dokkiId; });
+    if (w) { w.data.mitatoidut = w.data.mitatoidut || {}; w.data.mitatoidut[avain] = meta; }           // cache paikallisesti (ei toista hakua)
+    await _vpMittausRebuildKirjoita(p);
+    _vpMittausPaivitaNakyma(p);
+    if (typeof toast === 'function') toast('Mittaus poistettu', 'ok');
+  } catch (e) { console.warn('[mittaus poista]', e && e.message); if (typeof toast === 'function') toast('Poisto epäonnistui', 'err'); }
+};
+
+// Palauta: varmistus → poista mitatoidut-avain → sama rebuild + kirjoitus + re-render.
+window._vpMittausPalauta = async function (dokkiId, avain) {
+  if (!_vpVoiMuokata()) return;
+  var p = window._vpMittausPelaaja; if (!p || !dokkiId || !avain) return;
+  var ok = await _vpVahvista({ otsikko: 'Palautetaanko mittaus?', teksti: 'Mittaus palautetaan listaan ja mittaristo lasketaan uudelleen.', vahvista: 'Palauta' });
+  if (!ok) return;
+  try {
+    var pelRef = db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(p.id);
+    var kentta = {}; kentta['mitatoidut.' + avain] = firebase.firestore.FieldValue.delete();
+    await pelRef.collection('testitulokset').doc(dokkiId).update(kentta);
+    var w = (_vpMittausCache[p.id] || []).find(function (x) { return x.__id === dokkiId; });
+    if (w && w.data.mitatoidut) { delete w.data.mitatoidut[avain]; }
+    await _vpMittausRebuildKirjoita(p);
+    _vpMittausPaivitaNakyma(p);
+    if (typeof toast === 'function') toast('Mittaus palautettu', 'ok');
+  } catch (e) { console.warn('[mittaus palauta]', e && e.message); if (typeof toast === 'function') toast('Palautus epäonnistui', 'err'); }
+};
+// TODO (Master-porttaus): oman joukkueen valmentaja -kirjoitusportti; VP_v25:ssä kirjoitus vain VP/johto/SA (_vpVoiMuokata).
 
 window._avaaPerPelaajaPikakatsaus = function(idx, joukkueNimi) {
   const lista = window._jsvPelaajat || [];
