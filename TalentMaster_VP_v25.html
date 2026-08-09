@@ -9233,6 +9233,43 @@ function _vpMittausRebuildMerkinnat(cacheDocs) {
 }
 window._vpMittausRebuildMerkinnat = _vpMittausRebuildMerkinnat;
 
+/* ═══ E2.2.1 — DATAHUKKA-FIX (docs/E2_2_1_CODE_BRIEF.md) ══════════════════════════════════════════════
+   Primitiivin `poistetut` sisältää kentät jotka olivat pelaajadokissa muttei rebuild-tuloksessa. Rebuild
+   näkee VAIN testitulokset-arkiston → muualta tulleet pikakentät (esim. recalcHH kirjoitti hh_taso/d1_*
+   suoraan pelaajadokkiin hh_viimeisin:istä ILMAN H-H-testitulos-dokkia) päätyisivät FieldValue.delete():en.
+   Suojaa ne: älä poista kenttää jonka DOMAIN (hh/tki) ei ole edustettuna raa'assa arkistossa (ml. mitätöidyt).
+   Korjaus KUTSUJASSA — primitiiviä ei muuteta. */
+// Domain-luokitin: hh_/d1_/d2_ → 'hh' · tki_/tk_ → 'tki' · muu → null (suojattu). Prefiksipohjainen → kattaa
+// primitiivin _OMISTETUT_YDIN + _D2_KENTAT + hh_historia/tki_historia ja pysyy synkassa uusillekin kentille.
+function _vpMittausKenttaDomain(f) {
+  if (/^(hh_|d1_|d2_)/.test(f)) return 'hh';
+  if (/^(tki_|tk_)/.test(f)) return 'tki';
+  return null;
+}
+// Raaka-avainten domain-edustus (ml. mitätöidyt → luetaan w.data.testit suoraan, EI karsittua).
+var _VPM_HH_AVAIMET = { lin5m: 1, lin_5m: 1, lin10m: 1, lin_10m: 1, lin30m: 1, lin_30m: 1, hyppy_cj: 1, cmj: 1, mas: 1, kasirata: 1, sm_juoksu: 1, sm_pallo: 1, pujottelu_hh: 1, syotto_hh: 1 };
+var _VPM_TK_AVAIMET = { ponnauttelu: 1, syotto: 1, pujottelu: 1, kuljetus_laukaus: 1, pituuspotku: 1 };
+
+// PUHDAS: suodata poistetut → poista vain kentät joiden domain on edustettu arkistossa (muuten rakentumaton → suojaa).
+function _vpMittausSuodataPoistetut(poistetut, cacheDocs) {
+  if (!poistetut || !poistetut.length) return poistetut || [];
+  var hhEdustettu = false, tkiEdustettu = false;
+  (cacheDocs || []).forEach(function (w) {
+    var testit = (w && w.data && w.data.testit) || {};
+    Object.keys(testit).forEach(function (k) {
+      if (_VPM_HH_AVAIMET[k]) hhEdustettu = true;
+      if (_VPM_TK_AVAIMET[k]) tkiEdustettu = true;
+    });
+  });
+  return poistetut.filter(function (f) {
+    var dom = _vpMittausKenttaDomain(f);
+    if (dom === 'hh') return hhEdustettu;    // poista vain jos H-H edustettu (dokki olemassa, myös mitätöity)
+    if (dom === 'tki') return tkiEdustettu;  // poista vain jos TKI edustettu
+    return false;                            // kartoittamaton kenttä → suojataan (fail-safe)
+  });
+}
+window._vpMittausSuodataPoistetut = _vpMittausSuodataPoistetut;
+
 // Jaettu rebuild + kirjoitus (Poista JA Palauta). Kirjoittaa pelaajadokin pikakentät + poistot; päivittää in-memory p.
 async function _vpMittausRebuildKirjoita(p) {
   if (typeof tmRakennaPikakentatArkistosta !== 'function') { console.warn('[mittaus] rebuild-primitiivi puuttuu'); return null; }
@@ -9240,6 +9277,7 @@ async function _vpMittausRebuildKirjoita(p) {
   var pelRef = db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(p.id);
   var merkinnat = _vpMittausRebuildMerkinnat(_vpMittausCache[p.id]);
   var res = tmRakennaPikakentatArkistosta(p, merkinnat) || { upd: {}, poistetut: [] };
+  res.poistetut = _vpMittausSuodataPoistetut(res.poistetut, _vpMittausCache[p.id]);   // E2.2.1 — älä poista rakentumattomia (muualta tulleita) pikakenttiä
   if (res.upd && Object.keys(res.upd).length) await pelRef.set(res.upd, { merge: true });             // pikakentät korvaten (hh_viimeisin = map)
   if (res.poistetut && res.poistetut.length) {
     var del = {}; res.poistetut.forEach(function (f) { del[f] = firebase.firestore.FieldValue.delete(); });
