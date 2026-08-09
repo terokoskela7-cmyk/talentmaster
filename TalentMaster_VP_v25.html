@@ -9389,8 +9389,30 @@ function _vpMittausKorjaaArvo(vanha, uusi) {
 }
 window._vpMittausKorjaaArvo = _vpMittausKorjaaArvo;
 
-// Brändätty Korjaa-dialogi → Promise<number|null>. Ei-komposiitti: number-input esitäytettynä + lukittu testipäivä.
-// Komposiitti: read-only + "Korjaa Pikakirjauksella" -vihje, vain Sulje. Molemmat teemat (VP-tokenit).
+// ── E2.3.1 — kuljetus_laukaus-komposiitti (korjattava) ──────────────────────────────────────────────
+// PUHDAS: parsi rangaistuslista "5, 10, -2" → [5,10,-2] (tyhjät/NaN pois). Negatiiviset sallitaan.
+function _vpKuljetusRangaistukset(str) {
+  return String(str == null ? '' : str).split(',').map(function (s) { return parseFloat(String(s).trim()); }).filter(function (n) { return !isNaN(n); });
+}
+// PUHDAS: netto s — REPLIKA lib/tm_pikakentat.js _kuljetusLaukausTulos (⚠ PIDÄ SYNKASSA; primitiivi = totuuslähde).
+// max(0, raaka + ennenaikaiset*10 − Σrangaistukset), 2 desimaalia. NaN raaka → null.
+function _vpKuljetusNetto(raaka, ennenaikaiset, rangaistukset) {
+  var r = parseFloat(raaka); if (isNaN(r)) return null;
+  var sum = (rangaistukset || []).reduce(function (a, x) { return a + (parseFloat(x) || 0); }, 0);
+  var ennen = parseInt(ennenaikaiset) || 0;
+  return Math.max(0, +(r + ennen * 10 - sum).toFixed(2));
+}
+// PUHDAS: rakenna komposiittiobjekti dialogin syötteestä. Raaka pakollinen (NaN → null). Ennen/rang oletus 0/[].
+function _vpKomposiittiSyotteesta(raakaStr, ennenStr, rangStr) {
+  var r = parseFloat(raakaStr); if (isNaN(r)) return null;
+  var ennen = parseInt(ennenStr); if (isNaN(ennen) || ennen < 0) ennen = 0;
+  return { raaka: r, rangaistukset: _vpKuljetusRangaistukset(rangStr), ennenaikaiset: ennen };
+}
+window._vpKuljetusNetto = _vpKuljetusNetto;
+window._vpKomposiittiSyotteesta = _vpKomposiittiSyotteesta;
+
+// Brändätty Korjaa-dialogi → Promise<number | {raaka,rangaistukset,ennenaikaiset} | null>. Skalaari: number-input.
+// Komposiitti (opts.komposiitti = stored-objekti): raaka/ennenaikaiset/rangaistukset-kentät + livenä netto-esikatselu.
 function _vpMittausKorjaaDialog(opts) {
   opts = opts || {};
   return new Promise(function (resolve) {
@@ -9401,9 +9423,17 @@ function _vpMittausKorjaaDialog(opts) {
     h += '<div style="font-family:var(--font-serif);font-size:21px;font-weight:400;color:var(--ink);margin-bottom:4px">Korjaa mittaus</div>';
     h += '<div style="font-family:var(--font-m);font-size:11px;color:var(--ink3);margin-bottom:16px">' + _esc(opts.nimi || '') + (opts.yksikko ? ' · ' + _esc(opts.yksikko) : '') + ' · testipäivä ' + _esc(pvmFi) + ' <span style="opacity:.7">🔒</span></div>';
     if (opts.komposiitti) {
-      h += '<div style="font-size:13px;color:var(--ink);margin-bottom:6px">Nykyinen arvo: <b>' + _esc(opts.arvo != null ? opts.arvo : '—') + '</b></div>';
-      h += '<div style="font-size:12px;line-height:1.5;color:var(--amber);background:rgba(224,160,64,.08);border:.5px solid rgba(224,160,64,.28);border-radius:6px;padding:9px 11px;margin-bottom:16px">Tämä on koostettu tulos (raaka + rangaistukset). Korjaa se Pikakirjauksella — yksittäisarvon muokkaus ei ole mahdollista tässä.</div>';
-      h += '<div style="display:flex;justify-content:flex-end"><button data-act="sulje" style="font-family:\'DM Sans\',sans-serif;font-size:13px;font-weight:600;padding:9px 18px;border-radius:6px;border:none;background:var(--teal);color:#fff;cursor:pointer">Sulje</button></div>';
+      var k0 = opts.komposiitti || {};
+      var _in = 'box-sizing:border-box;background:var(--bg3);border:.5px solid var(--border);border-radius:6px;color:var(--ink);padding:9px 11px;font-family:var(--font-serif);font-size:18px';
+      var _lbl = 'display:block;font-size:12px;color:var(--ink2);margin:0 0 5px';
+      h += '<div style="font-size:12px;line-height:1.45;color:var(--ink3);margin-bottom:12px">Koostettu tulos — korjaa osat. Netto lasketaan kaavalla max(0, raaka + ennenaikaiset·10 − Σrangaistukset).</div>';
+      h += '<div style="display:flex;gap:10px;margin-bottom:12px">'
+        + '<label style="flex:1"><span style="' + _lbl + '">Raaka (s)</span><input data-act="raaka" type="number" step="any" inputmode="decimal" value="' + _esc(k0.raaka != null ? k0.raaka : '') + '" style="width:100%;' + _in + '"></label>'
+        + '<label style="flex:0 0 108px"><span style="' + _lbl + '">Ennenaikaiset</span><input data-act="ennen" type="number" step="1" min="0" inputmode="numeric" value="' + _esc(k0.ennenaikaiset != null ? k0.ennenaikaiset : 0) + '" style="width:100%;' + _in + '"></label></div>';
+      h += '<label style="display:block;margin-bottom:12px"><span style="' + _lbl + '">Rangaistukset (pilkuin eroteltu, esim. 5, 10)</span><input data-act="rang" type="text" inputmode="decimal" value="' + _esc((k0.rangaistukset || []).join(', ')) + '" style="width:100%;' + _in + ';font-family:var(--font-m);font-size:15px"></label>';
+      h += '<div style="font-family:var(--font-m);font-size:13px;color:var(--teal);margin-bottom:6px">Netto: <b data-act="netto">—</b> s</div>';
+      h += '<div data-act="err" style="display:none;font-size:12px;color:var(--red);margin-bottom:10px">Raaka-aika on pakollinen (numero).</div>';
+      h += '<div style="display:flex;gap:10px;justify-content:flex-end"><button data-act="peru" style="font-family:\'DM Sans\',sans-serif;font-size:13px;padding:9px 16px;border-radius:6px;cursor:pointer;background:transparent;border:.5px solid var(--border);color:var(--ink2)">Peruuta</button><button data-act="ok" style="font-family:\'DM Sans\',sans-serif;font-size:13px;font-weight:600;padding:9px 18px;border-radius:6px;cursor:pointer;border:none;background:var(--teal);color:#fff">Tallenna korjaus</button></div>';
     } else {
       h += '<label style="display:block;font-size:12px;color:var(--ink2);margin-bottom:6px">Korjattu arvo (' + _esc(opts.yksikko || '') + ')</label>';
       h += '<input data-act="arvo" type="number" step="any" inputmode="decimal" value="' + _esc(opts.arvo != null ? opts.arvo : '') + '" style="width:100%;box-sizing:border-box;background:var(--bg3);border:.5px solid var(--border);border-radius:6px;color:var(--ink);padding:10px 12px;font-family:var(--font-serif);font-size:20px;margin-bottom:18px">';
@@ -9413,16 +9443,30 @@ function _vpMittausKorjaaDialog(opts) {
     ov.innerHTML = h;
     var done = function (v) { if (ov.parentNode) ov.parentNode.removeChild(ov); document.removeEventListener('keydown', onKey); resolve(v); };
     var inp = ov.querySelector('[data-act=arvo]');
-    var talleta = function () { if (!inp) return done(null); var n = parseFloat(inp.value); done(isNaN(n) ? null : n); };
-    var onKey = function (e) { if (e.key === 'Escape') done(null); else if (e.key === 'Enter' && !opts.komposiitti) talleta(); };
+    var raakaEl = ov.querySelector('[data-act=raaka]'), ennenEl = ov.querySelector('[data-act=ennen]'), rangEl = ov.querySelector('[data-act=rang]');
+    var nettoEl = ov.querySelector('[data-act=netto]'), errEl = ov.querySelector('[data-act=err]');
+    var paivitaNetto = function () {
+      if (!nettoEl) return;
+      var netto = _vpKuljetusNetto(raakaEl.value, ennenEl.value, _vpKuljetusRangaistukset(rangEl.value));
+      nettoEl.textContent = (netto == null) ? '—' : netto;
+    };
+    var talleta = function () {
+      if (opts.komposiitti) {
+        var komp = _vpKomposiittiSyotteesta(raakaEl.value, ennenEl.value, rangEl.value);
+        if (!komp) { if (errEl) errEl.style.display = 'block'; if (raakaEl) raakaEl.focus(); return; }   // raaka pakollinen
+        return done(komp);
+      }
+      if (!inp) return done(null); var n = parseFloat(inp.value); done(isNaN(n) ? null : n);
+    };
+    var onKey = function (e) { if (e.key === 'Escape') done(null); else if (e.key === 'Enter') talleta(); };
     ov.addEventListener('click', function (e) { if (e.target === ov) done(null); });
     var b;
-    if ((b = ov.querySelector('[data-act=sulje]'))) b.addEventListener('click', function () { done(null); });
     if ((b = ov.querySelector('[data-act=peru]'))) b.addEventListener('click', function () { done(null); });
     if ((b = ov.querySelector('[data-act=ok]'))) b.addEventListener('click', talleta);
+    if (opts.komposiitti) { [raakaEl, ennenEl, rangEl].forEach(function (el) { if (el) el.addEventListener('input', paivitaNetto); }); paivitaNetto(); }
     document.addEventListener('keydown', onKey);
     document.body.appendChild(ov);
-    if (inp) { inp.focus(); inp.select(); } else if ((b = ov.querySelector('[data-act=sulje]'))) b.focus();
+    if (inp) { inp.focus(); inp.select(); } else if (raakaEl) { raakaEl.focus(); raakaEl.select(); }
   });
 }
 
@@ -9434,10 +9478,17 @@ window._vpMittausKorjaa = async function (dokkiId, avain) {
   if (!w) return;
   var vanha = (w.data.testit || {})[avain];
   var kat = _vpMittausKatTesti(avain) || {};
-  var uusi = await _vpMittausKorjaaDialog({ nimi: kat.nimi || avain, yksikko: kat.yksikko || '', arvo: _vpMittausArvo(vanha), pvm: w.data.testauspvm || '', komposiitti: _vpMittausOnkoKomposiitti(vanha) });
-  if (uusi == null) return;                                   // peruttu / komposiitti (ei tallennusta)
-  var uusiArvo = _vpMittausKorjaaArvo(vanha, uusi);
-  if (uusiArvo == null) return;                               // komposiitti-suoja (varmuus)
+  var onKomp = _vpMittausOnkoKomposiitti(vanha);
+  var uusi = await _vpMittausKorjaaDialog({ nimi: kat.nimi || avain, yksikko: kat.yksikko || '', arvo: _vpMittausArvo(vanha), pvm: w.data.testauspvm || '', komposiitti: onKomp ? vanha : null });
+  if (uusi == null) return;                                   // peruttu
+  var uusiArvo;
+  if (onKomp) {
+    // E2.3.1: dialogi palauttaa komposiittiobjektin — säilytä muut kentät, päivitä osat. Rebuild laskee netton (primitiivi).
+    uusiArvo = Object.assign({}, vanha, { raaka: uusi.raaka, rangaistukset: uusi.rangaistukset, ennenaikaiset: uusi.ennenaikaiset });
+  } else {
+    uusiArvo = _vpMittausKorjaaArvo(vanha, uusi);
+    if (uusiArvo == null) return;                             // skalaari-suoja
+  }
   try {
     var pelRef = db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(p.id);
     var cu = firebase.auth().currentUser; if (cu) { try { await cu.getIdToken(true); } catch (e) {} }
