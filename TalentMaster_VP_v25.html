@@ -9146,7 +9146,7 @@ function _vpMittausRiviHTML(r, voiMuokata, void_) {
   } else {
     h += '<span style="' + _VPM.lvl + '">' + _vpMittausKatLvl(r.kategoria) + '</span>';
     if (voiMuokata) h += '<span style="' + _VPM.acts + '">' +
-      '<button style="' + _VPM.abtn + '" onclick="_vpMittausTulossa(\'korjaa\')">Korjaa</button>' +   // Korjaa jää no-opiksi (E2.3)
+      '<button style="' + _VPM.abtn + '" onclick="_vpMittausKorjaa(\'' + idA + '\',\'' + avA + '\')">Korjaa</button>' +   // E2.3
       '<button style="' + _VPM.abtnD + '" onclick="_vpMittausPoista(\'' + idA + '\',\'' + avA + '\')">Poista</button></span>';
   }
   return h + '</div>';
@@ -9365,6 +9365,93 @@ window._vpMittausPalauta = async function (dokkiId, avain) {
   } catch (e) { console.warn('[mittaus palauta]', e && e.message); if (typeof toast === 'function') toast('Palautus epäonnistui', 'err'); }
 };
 // TODO (Master-porttaus): oman joukkueen valmentaja -kirjoitusportti; VP_v25:ssä kirjoitus vain VP/johto/SA (_vpVoiMuokata).
+
+/* ═══ E2.3 — KORJAA (yksittäisen mittauksen korjaus paikallaan, docs/E2_3_CODE_BRIEF.md) ═══════════════
+   Ylikirjoittaa LÄHDEdokin testit[avain] paikallaan (update, EI uutta dokkia) + korjattu-audit → recompute
+   VAIN jaetun _vpMittausRebuildKirjoita (E2.2.1-suojattu) kautta. EI tmLaskePikakentatia, EI TM_PIKAKIRJAUSta. */
+
+// Komposiitti = objekti jolla raaka/rangaistukset/ennenaikaiset (esim. kuljetus_laukaus) → read-only (ei yksittäisarvo-korjausta).
+function _vpMittausOnkoKomposiitti(v) {
+  return v != null && typeof v === 'object' &&
+    (Object.prototype.hasOwnProperty.call(v, 'raaka') ||
+     Object.prototype.hasOwnProperty.call(v, 'rangaistukset') ||
+     Object.prototype.hasOwnProperty.call(v, 'ennenaikaiset'));
+}
+// PUHDAS: säilytä arvon muoto — objekti → päivitä tulos (tai paras); skalaari → korvaa; komposiitti → null (ei tallenneta).
+function _vpMittausKorjaaArvo(vanha, uusi) {
+  if (_vpMittausOnkoKomposiitti(vanha)) return null;
+  if (vanha != null && typeof vanha === 'object') {
+    var o = Object.assign({}, vanha);
+    if (Object.prototype.hasOwnProperty.call(o, 'tulos')) o.tulos = uusi; else o.paras = uusi;
+    return o;
+  }
+  return uusi;
+}
+window._vpMittausKorjaaArvo = _vpMittausKorjaaArvo;
+
+// Brändätty Korjaa-dialogi → Promise<number|null>. Ei-komposiitti: number-input esitäytettynä + lukittu testipäivä.
+// Komposiitti: read-only + "Korjaa Pikakirjauksella" -vihje, vain Sulje. Molemmat teemat (VP-tokenit).
+function _vpMittausKorjaaDialog(opts) {
+  opts = opts || {};
+  return new Promise(function (resolve) {
+    var ov = document.createElement('div');
+    ov.style.cssText = 'position:fixed;inset:0;background:rgba(17,17,16,.72);z-index:500;display:flex;align-items:center;justify-content:center;padding:16px;backdrop-filter:blur(6px)';
+    var pvmFi = _vpMittausPvmFi(opts.pvm);
+    var h = '<div style="background:var(--bg2);border:.5px solid var(--border);border-radius:8px;width:min(400px,94vw);padding:22px 22px 18px;box-shadow:0 20px 60px rgba(0,0,0,.4)">';
+    h += '<div style="font-family:var(--font-serif);font-size:21px;font-weight:400;color:var(--ink);margin-bottom:4px">Korjaa mittaus</div>';
+    h += '<div style="font-family:var(--font-m);font-size:11px;color:var(--ink3);margin-bottom:16px">' + _esc(opts.nimi || '') + (opts.yksikko ? ' · ' + _esc(opts.yksikko) : '') + ' · testipäivä ' + _esc(pvmFi) + ' <span style="opacity:.7">🔒</span></div>';
+    if (opts.komposiitti) {
+      h += '<div style="font-size:13px;color:var(--ink);margin-bottom:6px">Nykyinen arvo: <b>' + _esc(opts.arvo != null ? opts.arvo : '—') + '</b></div>';
+      h += '<div style="font-size:12px;line-height:1.5;color:var(--amber);background:rgba(224,160,64,.08);border:.5px solid rgba(224,160,64,.28);border-radius:6px;padding:9px 11px;margin-bottom:16px">Tämä on koostettu tulos (raaka + rangaistukset). Korjaa se Pikakirjauksella — yksittäisarvon muokkaus ei ole mahdollista tässä.</div>';
+      h += '<div style="display:flex;justify-content:flex-end"><button data-act="sulje" style="font-family:\'DM Sans\',sans-serif;font-size:13px;font-weight:600;padding:9px 18px;border-radius:6px;border:none;background:var(--teal);color:#fff;cursor:pointer">Sulje</button></div>';
+    } else {
+      h += '<label style="display:block;font-size:12px;color:var(--ink2);margin-bottom:6px">Korjattu arvo (' + _esc(opts.yksikko || '') + ')</label>';
+      h += '<input data-act="arvo" type="number" step="any" inputmode="decimal" value="' + _esc(opts.arvo != null ? opts.arvo : '') + '" style="width:100%;box-sizing:border-box;background:var(--bg3);border:.5px solid var(--border);border-radius:6px;color:var(--ink);padding:10px 12px;font-family:var(--font-serif);font-size:20px;margin-bottom:18px">';
+      h += '<div style="display:flex;gap:10px;justify-content:flex-end"><button data-act="peru" style="font-family:\'DM Sans\',sans-serif;font-size:13px;padding:9px 16px;border-radius:6px;cursor:pointer;background:transparent;border:.5px solid var(--border);color:var(--ink2)">Peruuta</button><button data-act="ok" style="font-family:\'DM Sans\',sans-serif;font-size:13px;font-weight:600;padding:9px 18px;border-radius:6px;cursor:pointer;border:none;background:var(--teal);color:#fff">Tallenna korjaus</button></div>';
+    }
+    h += '</div>';
+    ov.innerHTML = h;
+    var done = function (v) { if (ov.parentNode) ov.parentNode.removeChild(ov); document.removeEventListener('keydown', onKey); resolve(v); };
+    var inp = ov.querySelector('[data-act=arvo]');
+    var talleta = function () { if (!inp) return done(null); var n = parseFloat(inp.value); done(isNaN(n) ? null : n); };
+    var onKey = function (e) { if (e.key === 'Escape') done(null); else if (e.key === 'Enter' && !opts.komposiitti) talleta(); };
+    ov.addEventListener('click', function (e) { if (e.target === ov) done(null); });
+    var b;
+    if ((b = ov.querySelector('[data-act=sulje]'))) b.addEventListener('click', function () { done(null); });
+    if ((b = ov.querySelector('[data-act=peru]'))) b.addEventListener('click', function () { done(null); });
+    if ((b = ov.querySelector('[data-act=ok]'))) b.addEventListener('click', talleta);
+    document.addEventListener('keydown', onKey);
+    document.body.appendChild(ov);
+    if (inp) { inp.focus(); inp.select(); } else if ((b = ov.querySelector('[data-act=sulje]'))) b.focus();
+  });
+}
+
+// Korjaa-käsittelijä: LÄHDEdokki paikallaan (INV1) → recompute vain jaetun (E2.2.1-suojatun) kautta (INV2).
+window._vpMittausKorjaa = async function (dokkiId, avain) {
+  if (!_vpVoiMuokata()) return;
+  var p = window._vpMittausPelaaja; if (!p || !dokkiId || !avain) return;
+  var w = (_vpMittausCache[p.id] || []).find(function (x) { return x.__id === dokkiId; });
+  if (!w) return;
+  var vanha = (w.data.testit || {})[avain];
+  var kat = _vpMittausKatTesti(avain) || {};
+  var uusi = await _vpMittausKorjaaDialog({ nimi: kat.nimi || avain, yksikko: kat.yksikko || '', arvo: _vpMittausArvo(vanha), pvm: w.data.testauspvm || '', komposiitti: _vpMittausOnkoKomposiitti(vanha) });
+  if (uusi == null) return;                                   // peruttu / komposiitti (ei tallennusta)
+  var uusiArvo = _vpMittausKorjaaArvo(vanha, uusi);
+  if (uusiArvo == null) return;                               // komposiitti-suoja (varmuus)
+  try {
+    var pelRef = db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(p.id);
+    var cu = firebase.auth().currentUser; if (cu) { try { await cu.getIdToken(true); } catch (e) {} }
+    var kentat = {};
+    kentat['testit.' + avain] = uusiArvo;                     // INV1: ylikirjoita lähdedokki paikallaan (ei uutta dokkia)
+    kentat['korjattu.' + avain] = { kuka: _uid || null, milloin: new Date().toISOString() };   // audit (GDPR: vain uid+aikaleima)
+    await pelRef.collection('testitulokset').doc(dokkiId).update(kentat);
+    w.data.testit = w.data.testit || {}; w.data.testit[avain] = uusiArvo;                       // cache paikallisesti (ei toista hakua)
+    w.data.korjattu = w.data.korjattu || {}; w.data.korjattu[avain] = kentat['korjattu.' + avain];
+    await _vpMittausRebuildKirjoita(p);                       // INV2: recompute vain jaetun (E2.2.1-suojatun) kautta
+    _vpMittausPaivitaNakyma(p);
+    if (typeof toast === 'function') toast('Mittaus korjattu', 'ok');
+  } catch (e) { console.warn('[mittaus korjaa]', e && e.message); if (typeof toast === 'function') toast('Korjaus epäonnistui', 'err'); }
+};
 
 window._avaaPerPelaajaPikakatsaus = function(idx, joukkueNimi) {
   const lista = window._jsvPelaajat || [];
