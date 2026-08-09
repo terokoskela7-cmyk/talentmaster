@@ -12238,16 +12238,160 @@ function renderVpTestit() {
       var t = lista[i];
       var otsikko = (typeof jNimi === 'function' ? jNimi(t) : (t.joukkue || '—')) + ' · ' + (t.nimi || t.protokolla || 'Testi');
       var n = (t.pelaajatData && t.pelaajatData.length) || 0;
-      h += '<div onclick="avaaTapahtumaV9(\'' + esc(t.id) + '\')" style="display:flex;align-items:center;gap:12px;padding:12px 14px;border:.5px solid var(--border);border-radius:10px;background:var(--bg3);cursor:pointer;margin-bottom:8px">'
-        + '<div style="flex:1;min-width:0"><div style="font-weight:600;font-size:14px;color:var(--ink)">' + esc(otsikko) + '</div>'
+      var _js = (typeof _jesc === 'function') ? _jesc : function (s) { return String(s == null ? '' : s).replace(/[\\']/g, '\\$&'); };
+      var _jk = _js(t.joukkue || (typeof jNimi === 'function' ? jNimi(t) : '')), _jp = _js(t.pvm), _jl = _js(t.protokolla || '');
+      h += '<div style="display:flex;align-items:center;gap:12px;padding:12px 14px;border:.5px solid var(--border);border-radius:10px;background:var(--bg3);margin-bottom:8px">'
+        + '<div onclick="avaaTapahtumaV9(\'' + esc(t.id) + '\')" style="flex:1;min-width:0;cursor:pointer"><div style="font-weight:600;font-size:14px;color:var(--ink)">' + esc(otsikko) + '</div>'
         + '<div style="font-size:12px;color:var(--ink3);margin-top:2px">' + n + ' pelaajaa · ' + esc(_vpTestitPvm(t.pvm)) + '</div></div>'
-        + '<div style="color:var(--ink3);flex:0 0 auto">→</div></div>';
+        + '<button onclick="_vpTapahtumaAvaa(\'' + _jp + '\',\'' + _jl + '\',\'' + _jk + '\')" style="flex:0 0 auto;font-family:\'DM Sans\',sans-serif;font-size:11px;font-weight:500;padding:7px 12px;border-radius:6px;cursor:pointer;border:.5px solid rgba(40,176,144,.30);color:var(--teal);background:rgba(40,176,144,.10)">Avaa siivoukseen →</button></div>';
     }
   }
 
   host.innerHTML = h;
 }
 window.renderVpTestit = renderVpTestit;
+
+/* ═══ E1a — TAPAHTUMAN DETALJINÄKYMÄ + REITITYS (docs/E1_CODE_BRIEF.md) ════════════════════════════════
+   Hub-rivin "Avaa siivoukseen →" → tapahtuman (pvm + lähde/protokolla) osallistujat valitusta joukkueesta,
+   arvot (tm_testikatalogi). Rivikohtainen "Avaa kortti" → pelaajakortin Mittaus-välilehti (E2). Bulk/per-pelaaja
+   Mitätöi/Palauta renderöidään mutta ovat E1a:ssa no-op (kytketään E1b). VAIN LUKU — ei Firestore-kirjoituksia.
+   Osallistujat luetaan per pelaajan testitulokset-alikokoelmasta (sama lähde kuin E2/E1b:n suojattu rebuild).
+   ⚠ Huom: tapahtumapohjaiset (Moodi A) tulokset ovat testitapahtumat/{id}/tulokset:issa, EIVÄT per-pelaaja
+   testitulokset:issa → ne eivät näy tässä (ei myöskään E2/E1b:n rebuild-polulla). Vahvista design-kartasta. */
+
+// PUHDAS: kokoa tapahtuman osallistujarivit ladatuista cache-dokeista. cacheByPid = { pid: [{__id, data}] }.
+// pelaajat = [{id, etunimi, sukunimi}] (joukkuejärjestyksessä → idx = kortin avausindeksi). lahde = disambiguaattori
+// (match data.lahde TAI data.protokolla; tyhjä = match vain pvm:llä).
+function _vpTapahtumaRivit(pelaajat, cacheByPid, pvm, lahde) {
+  var out = [];
+  (pelaajat || []).forEach(function (p, idx) {
+    var docs = (cacheByPid && cacheByPid[p.id]) || [];
+    docs.forEach(function (w) {
+      var d = (w && w.data) || {};
+      if (d.testauspvm !== pvm) return;
+      if (lahde && d.lahde !== lahde && d.protokolla !== lahde) return;
+      var testit = d.testit || {}, mit = d.mitatoidut || {};
+      var rivit = [];
+      Object.keys(testit).forEach(function (avain) {
+        var kat = _vpMittausKatTesti(avain); if (!kat) return;
+        var arvo = _vpMittausArvo(testit[avain]); if (arvo == null) return;
+        rivit.push({ avain: avain, nimi: kat.nimi, yksikko: kat.yksikko, arvo: arvo, mitatoitu: !!mit[avain] });
+      });
+      if (!rivit.length) return;
+      out.push({
+        pid: p.id, idx: idx, dokkiId: w.__id,
+        nimi: ((p.etunimi || '') + ' ' + (p.sukunimi || '')).trim() || p.id,
+        rivit: rivit, kaikkiMitatoitu: rivit.every(function (r) { return r.mitatoitu; })
+      });
+    });
+  });
+  return out;
+}
+window._vpTapahtumaRivit = _vpTapahtumaRivit;
+
+// Lataa (on-demand) joukkueen pelaajien testitulokset _vpMittausCacheen (vain puuttuvat). Ei kirjoituksia.
+async function _vpTapahtumaLataaCache(pelaajat) {
+  if (_isDemoMode || !_seuraId || typeof db === 'undefined') return;
+  var puuttuvat = (pelaajat || []).filter(function (p) { return p && p.id && !_vpMittausCache[p.id]; });
+  await Promise.all(puuttuvat.map(function (p) {
+    return db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(p.id).collection('testitulokset').get()
+      .then(function (snap) { var dwid = []; snap.forEach(function (d) { dwid.push({ __id: d.id, data: d.data() }); }); _vpMittausCache[p.id] = dwid; })
+      .catch(function () { _vpMittausCache[p.id] = []; });   // virhe → tyhjä (ei estä muita)
+  }));
+}
+
+var _vpTapahtumaCtx = null;   // { pvm, lahde, joukkue, pelaajat }
+
+window._vpTapahtumaAvaa = async function (pvm, lahde, joukkue) {
+  if (!pvm) return;
+  var pelaajat = (typeof _pelaajat !== 'undefined' ? _pelaajat : []).filter(function (p) { return (p.joukkue || '') === joukkue; });
+  _vpTapahtumaCtx = { pvm: pvm, lahde: lahde || '', joukkue: joukkue || '', pelaajat: pelaajat };
+  _vpTapahtumaRenderModaali(true);                 // lataustila
+  try { await _vpTapahtumaLataaCache(pelaajat); } catch (e) { /* graceful */ }
+  _vpTapahtumaRenderModaali(false);
+};
+
+function _vpTapahtumaSulje() { var m = document.getElementById('_vpTapahtumaModal'); if (m) m.remove(); }
+window._vpTapahtumaSulje = _vpTapahtumaSulje;
+
+// Avaa pelaajakortti Mittaus-välilehdelle (E2). Asettaa joukkuelistan _jsvPelaajat:iin (kuten syvänäkymä).
+window._vpTapahtumaAvaaKortti = function (idx) {
+  var ctx = _vpTapahtumaCtx; if (!ctx) return;
+  window._jsvPelaajat = ctx.pelaajat;
+  _vpTapahtumaSulje();
+  if (typeof _avaaPerPelaajaPikakatsaus === 'function') _avaaPerPelaajaPikakatsaus(idx, ctx.joukkue);
+  if (typeof _jspVaihda === 'function') setTimeout(function () { _jspVaihda(1); }, 0);   // Mittaus-välilehti
+};
+// E1a: bulk + per-pelaaja Mitätöi/Palauta renderöidään mutta ovat no-op (kytketään E1b).
+window._vpTapahtumaTulossa = function () { if (typeof toast === 'function') toast('Siivoustoiminnot kytketään seuraavassa vaiheessa (E1b)', 'ok'); };
+
+function _vpTapahtumaRenderModaali(lataa) {
+  var ctx = _vpTapahtumaCtx; if (!ctx) return;
+  var voiMuokata = _vpVoiMuokata();
+  var osallistujat = lataa ? [] : _vpTapahtumaRivit(ctx.pelaajat, _vpMittausCache, ctx.pvm, ctx.lahde);
+  var pvmFi = _vpMittausPvmFi(ctx.pvm);
+  var lahdeLbl = ctx.lahde ? _vpMittausLahdeLabel(ctx.lahde) : 'Testitapahtuma';
+
+  var A = {
+    row: 'display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:10px 12px;border:.5px solid var(--border);border-radius:4px;background:var(--surface);margin-top:8px',
+    name: 'flex:0 0 150px;font-size:13px;font-weight:600;color:var(--ink)',
+    chip: 'font-family:var(--font-m);font-size:10.5px;color:var(--ink2);border:.5px solid var(--border);border-radius:20px;padding:2px 9px',
+    chipV: 'font-family:var(--font-m);font-size:10.5px;color:var(--ink3);border:.5px solid var(--border);border-radius:20px;padding:2px 9px;text-decoration:line-through',
+    abtn: 'font-family:\'DM Sans\',sans-serif;font-size:10.5px;font-weight:500;padding:6px 11px;border-radius:3px;cursor:pointer;border:.5px solid rgba(40,176,144,.30);color:var(--teal);background:rgba(40,176,144,.10)',
+    abtnG: 'font-family:\'DM Sans\',sans-serif;font-size:10.5px;font-weight:500;padding:6px 11px;border-radius:3px;cursor:pointer;border:.5px solid var(--border);color:var(--ink2);background:transparent'
+  };
+
+  var h = '<div style="background:var(--bg2);border:.5px solid var(--border);border-radius:8px;width:min(660px,96vw);max-height:90vh;overflow-y:auto;padding:22px 24px 18px;box-shadow:0 20px 60px rgba(0,0,0,.45)" onclick="event.stopPropagation()">';
+  h += '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:2px">';
+  h += '<div><div style="font-size:10px;font-weight:600;letter-spacing:.18em;text-transform:uppercase;color:var(--teal)">🧹 Tapahtuman siivous</div>';
+  h += '<div style="font-family:var(--font-serif);font-size:23px;font-weight:400;color:var(--ink);line-height:1.1;margin-top:2px">' + _esc(ctx.joukkue || '—') + '</div>';
+  h += '<div style="font-family:var(--font-m);font-size:11px;color:var(--ink3);margin-top:3px">' + _esc(pvmFi) + ' · ' + _esc(lahdeLbl) + ' · ' + osallistujat.length + ' pelaajaa</div></div>';
+  h += '<button onclick="_vpTapahtumaSulje()" style="background:none;border:none;color:var(--ink3);font-size:24px;cursor:pointer;line-height:1">×</button></div>';
+
+  // Bulk-toiminnot (E1a: no-op)
+  if (voiMuokata) {
+    h += '<div style="display:flex;gap:8px;margin:14px 0 4px;flex-wrap:wrap">'
+      + '<button style="' + A.abtn + '" onclick="_vpTapahtumaTulossa()">Mitätöi tapahtuma</button>'
+      + '<button style="' + A.abtnG + '" onclick="_vpTapahtumaTulossa()">Palauta tapahtuma</button>'
+      + '<span style="font-family:var(--font-m);font-size:10px;color:var(--ink3);align-self:center">bulk kytketään E1b:ssä</span></div>';
+  }
+
+  h += '<div style="border-top:.5px solid var(--border);margin:12px 0 4px"></div>';
+
+  if (lataa) {
+    h += '<div style="font-family:var(--font-m);font-size:12px;color:var(--ink3);padding:18px 4px">Ladataan osallistujia…</div>';
+  } else if (!osallistujat.length) {
+    h += '<div style="font-size:12.5px;color:var(--ink3);font-family:var(--font-m);padding:16px 12px;border:.5px dashed var(--border);border-radius:4px">Ei osallistujia tässä näkymässä. (Pikakirjaus- ja historiatuonti-tulokset näkyvät; tapahtumapohjaiset tulokset ovat pelaajakortilla.)</div>';
+  } else {
+    osallistujat.forEach(function (o) {
+      var chips = o.rivit.map(function (r) {
+        var a = Math.round(r.arvo * 100) / 100;
+        return '<span style="' + (r.mitatoitu ? A.chipV : A.chip) + '">' + _esc(r.nimi.replace(/\s*\(.*?\)/, '')) + ' ' + a + ' ' + _esc(r.yksikko) + '</span>';
+      }).join(' ');
+      h += '<div style="' + A.row + (o.kaikkiMitatoitu ? ';opacity:.5' : '') + '">';
+      h += '<span style="' + A.name + '">' + _esc(o.nimi) + '</span>';
+      h += '<span style="flex:1;display:flex;gap:6px;flex-wrap:wrap">' + chips + '</span>';
+      if (voiMuokata) {
+        h += '<span style="display:flex;gap:6px">'
+          + '<button style="' + A.abtn + '" onclick="_vpTapahtumaAvaaKortti(' + o.idx + ')">Avaa kortti</button>'
+          + '<button style="' + A.abtnG + '" onclick="_vpTapahtumaTulossa()">' + (o.kaikkiMitatoitu ? 'Palauta' : 'Mitätöi') + '</button></span>';
+      } else {
+        h += '<button style="' + A.abtn + '" onclick="_vpTapahtumaAvaaKortti(' + o.idx + ')">Avaa kortti</button>';
+      }
+      h += '</div>';
+    });
+  }
+  h += '</div>';
+
+  var m = document.getElementById('_vpTapahtumaModal');
+  if (!m) {
+    m = document.createElement('div'); m.id = '_vpTapahtumaModal';
+    m.style.cssText = 'position:fixed;inset:0;background:rgba(17,17,16,.72);z-index:460;display:flex;align-items:flex-start;justify-content:center;padding:24px 12px;overflow:auto;backdrop-filter:blur(6px)';
+    m.addEventListener('click', function (e) { if (e.target === m) _vpTapahtumaSulje(); });
+    document.body.appendChild(m);
+  }
+  m.innerHTML = h;
+}
 
 // ─── RENDER RAPORTOINTI ──────────────────────────────────
 /* ═══ MDT-RAPORTTI (P0b-1, docs/MDT_RAPORTTI_SPEC.md) — yhden sivun profiili: signs · samples · SEO ═══
