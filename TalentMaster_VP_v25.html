@@ -12225,6 +12225,19 @@ function renderVpTestit() {
   h += kortti('📄', 'Palloliiton PDF', 'Tuo viralliset tekniikkakilpailutulokset Palloliiton PDF-tulosteesta.', 'Avaa →', "_vpTestitTuo('tab=pdf')", false);
   h += '</div>';
 
+  // ── Siivoa mittauksia (E1a — koottu per-pelaaja testituloksista, joukkuerajattu; design-kartta §1) ──
+  h += '<div class="section-hd" style="margin-top:24px">Siivoa mittauksia</div>';
+  h += '<div style="font-size:12px;color:var(--ink3);margin-bottom:8px;line-height:1.4">Muokattava arkisto (Pikakirjaus + historia/Excel-tuonti) joukkueittain — avaa tapahtuma, mitätöi tai korjaa kirjattuja mittauksia.</div>';
+  var _joukkueet = {};
+  (typeof _pelaajat !== 'undefined' ? _pelaajat : []).forEach(function (p) { if (p && p.joukkue) _joukkueet[p.joukkue] = true; });
+  var _jlista = Object.keys(_joukkueet).sort();
+  h += '<select onchange="_vpSiivousValitseJoukkue(this.value)" style="min-width:220px;padding:8px 10px;border:.5px solid var(--border);border-radius:6px;background:var(--bg3);color:var(--ink);font-family:inherit;font-size:13px">'
+    + '<option value="">— Valitse joukkue —</option>'
+    + _jlista.map(function (j) { return '<option>' + esc(j) + '</option>'; }).join('')
+    + (_jlista.length ? '' : '<option value="" disabled>(ei joukkueita)</option>')
+    + '</select>';
+  h += '<div id="_vpSiivousLista" style="margin-top:8px"></div>';
+
   // ── Viimeksi testattu (jo ladatusta _tapahtumat:sta) ──
   h += '<div class="section-hd" style="margin-top:24px">Viimeksi testattu</div>';
   var lista = _vpTestitViimeksi(typeof _tapahtumat !== 'undefined' ? _tapahtumat : [], 5);
@@ -12238,12 +12251,12 @@ function renderVpTestit() {
       var t = lista[i];
       var otsikko = (typeof jNimi === 'function' ? jNimi(t) : (t.joukkue || '—')) + ' · ' + (t.nimi || t.protokolla || 'Testi');
       var n = (t.pelaajatData && t.pelaajatData.length) || 0;
-      var _js = (typeof _jesc === 'function') ? _jesc : function (s) { return String(s == null ? '' : s).replace(/[\\']/g, '\\$&'); };
-      var _jk = _js(t.joukkue || (typeof jNimi === 'function' ? jNimi(t) : '')), _jp = _js(t.pvm), _jl = _js(t.protokolla || '');
-      h += '<div style="display:flex;align-items:center;gap:12px;padding:12px 14px;border:.5px solid var(--border);border-radius:10px;background:var(--bg3);margin-bottom:8px">'
-        + '<div onclick="avaaTapahtumaV9(\'' + esc(t.id) + '\')" style="flex:1;min-width:0;cursor:pointer"><div style="font-weight:600;font-size:14px;color:var(--ink)">' + esc(otsikko) + '</div>'
+      // E1a-revisio: "Avaa siivoukseen" poistettu näiltä riveiltä — siivous tulee "Siivoa mittauksia" -listasta
+      // (koottu per-pelaaja testituloksista). Rivi säilyy: koko rivi → avaaTapahtumaV9 (Testaus_v9).
+      h += '<div onclick="avaaTapahtumaV9(\'' + esc(t.id) + '\')" style="display:flex;align-items:center;gap:12px;padding:12px 14px;border:.5px solid var(--border);border-radius:10px;background:var(--bg3);cursor:pointer;margin-bottom:8px">'
+        + '<div style="flex:1;min-width:0"><div style="font-weight:600;font-size:14px;color:var(--ink)">' + esc(otsikko) + '</div>'
         + '<div style="font-size:12px;color:var(--ink3);margin-top:2px">' + n + ' pelaajaa · ' + esc(_vpTestitPvm(t.pvm)) + '</div></div>'
-        + '<button onclick="_vpTapahtumaAvaa(\'' + _jp + '\',\'' + _jl + '\',\'' + _jk + '\')" style="flex:0 0 auto;font-family:\'DM Sans\',sans-serif;font-size:11px;font-weight:500;padding:7px 12px;border-radius:6px;cursor:pointer;border:.5px solid rgba(40,176,144,.30);color:var(--teal);background:rgba(40,176,144,.10)">Avaa siivoukseen →</button></div>';
+        + '<div style="color:var(--ink3);flex:0 0 auto">→</div></div>';
     }
   }
 
@@ -12251,13 +12264,73 @@ function renderVpTestit() {
 }
 window.renderVpTestit = renderVpTestit;
 
-/* ═══ E1a — TAPAHTUMAN DETALJINÄKYMÄ + REITITYS (docs/E1_CODE_BRIEF.md) ════════════════════════════════
-   Hub-rivin "Avaa siivoukseen →" → tapahtuman (pvm + lähde/protokolla) osallistujat valitusta joukkueesta,
+/* ═══ E1a — "SIIVOA MITTAUKSIA" -LISTA (design-kartta v2 §1) ═════════════════════════════════════════
+   Siivouslista koostetaan JOUKKUEEN pelaajien per-pelaaja testitulokset-dokeista: distinktit (testauspvm, lähde).
+   EI hubin _tapahtumat/testitapahtumat-listasta — Pikakirjaus ei luo testitapahtumat-dokkia, ja kenttätapahtumat
+   (Moodi A) eivät kirjoita per-pelaaja testituloksia (rebuild ei näe). Siivouslähde = sama minkä rebuild lukee =
+   muokattava arkisto (Pikakirjaus + historia/Excel-tuonti). Sama joukkueen testitulokset-luku ruokkii listan JA
+   detaljin (yksi luku, _vpMittausCache). VAIN LUKU — ei kirjoituksia (bulk = E1b). */
+
+// lähde → ikoni + näyttönimi (siivouslistan rivit).
+function _vpSiivousLahde(lahde) {
+  var l = String(lahde || '').toLowerCase();
+  if (l.indexOf('pikakirjaus') >= 0) return { ikoni: '⚡', nimi: 'Pikakirjaus' };
+  if (l.indexOf('historia') >= 0)    return { ikoni: '🗂️', nimi: 'Historiatuonti' };
+  if (l.indexOf('pdf') >= 0 || l.indexOf('palloliitto') >= 0) return { ikoni: '📄', nimi: 'Palloliiton PDF' };
+  if (l.indexOf('tapahtuma') >= 0)   return { ikoni: '📋', nimi: 'Testitapahtuma' };
+  return { ikoni: '🧪', nimi: lahde ? (String(lahde).charAt(0).toUpperCase() + String(lahde).slice(1)) : 'Mittaus' };
+}
+
+// PUHDAS: aggregoi joukkueen cache-dokeista distinktit (testauspvm, lähde) + osallistujamäärä. Vain dokit joissa on
+// vähintään yksi katalogitesti (= muokattava mittaus; sama filtteri kuin detaljin _vpTapahtumaRivit). Uusin ensin.
+function _vpSiivousTapahtumat(pelaajat, cacheByPid) {
+  var ryhmat = {};
+  (pelaajat || []).forEach(function (p) {
+    var docs = (cacheByPid && cacheByPid[p.id]) || [];
+    docs.forEach(function (w) {
+      var d = (w && w.data) || {}; if (!d.testauspvm) return;
+      var testit = d.testit || {};
+      var onKat = Object.keys(testit).some(function (a) { return _vpMittausKatTesti(a); });
+      if (!onKat) return;                                        // ei katalogimittausta → ei siivouslistalle
+      var lahde = d.lahde || d.protokolla || '';
+      var key = d.testauspvm + '|' + lahde;
+      if (!ryhmat[key]) ryhmat[key] = { pvm: d.testauspvm, lahde: lahde, pids: {} };
+      ryhmat[key].pids[p.id] = true;
+    });
+  });
+  return Object.keys(ryhmat).map(function (k) { var g = ryhmat[k]; return { pvm: g.pvm, lahde: g.lahde, pelaajaMaara: Object.keys(g.pids).length }; })
+    .sort(function (a, b) { var c = String(b.pvm).localeCompare(String(a.pvm)); return c !== 0 ? c : String(a.lahde).localeCompare(String(b.lahde)); });
+}
+window._vpSiivousTapahtumat = _vpSiivousTapahtumat;
+
+function _vpSiivousListaHTML(tapahtumat, joukkue) {
+  if (!tapahtumat.length) return '<div style="font-size:12.5px;color:var(--ink3);font-family:var(--font-m);padding:14px 12px;border:.5px dashed var(--border);border-radius:6px">Ei muokattavia mittauksia tälle joukkueelle (Pikakirjaus / historia- tai Excel-tuonti).</div>';
+  var jk = _jesc(joukkue);
+  return tapahtumat.map(function (t) {
+    var L = _vpSiivousLahde(t.lahde);
+    return '<div onclick="_vpTapahtumaAvaa(\'' + _jesc(t.pvm) + '\',\'' + _jesc(t.lahde) + '\',\'' + jk + '\')" style="display:flex;align-items:center;gap:12px;padding:12px 14px;border:.5px solid var(--border);border-radius:10px;background:var(--bg3);cursor:pointer;margin-bottom:8px">'
+      + '<div style="font-size:18px;flex:0 0 auto">' + L.ikoni + '</div>'
+      + '<div style="flex:1;min-width:0"><div style="font-weight:600;font-size:14px;color:var(--ink)">' + _esc(L.nimi) + '</div>'
+      + '<div style="font-size:12px;color:var(--ink3);margin-top:2px">' + _esc(_vpMittausPvmFi(t.pvm)) + ' · ' + t.pelaajaMaara + ' pelaajaa</div></div>'
+      + '<div style="color:var(--ink3);flex:0 0 auto">→</div></div>';
+  }).join('');
+}
+
+// Joukkuevalinta → lataa joukkueen testitulokset (yksi luku, cache-aware) → aggregoi + renderöi lista.
+window._vpSiivousValitseJoukkue = async function (joukkue) {
+  var host = document.getElementById('_vpSiivousLista'); if (!host) return;
+  if (!joukkue) { host.innerHTML = ''; return; }
+  host.innerHTML = '<div style="font-family:var(--font-m);font-size:12px;color:var(--ink3);padding:12px 4px">Ladataan…</div>';
+  var pelaajat = (typeof _pelaajat !== 'undefined' ? _pelaajat : []).filter(function (p) { return (p.joukkue || '') === joukkue; });
+  try { await _vpTapahtumaLataaCache(pelaajat); } catch (e) { /* graceful */ }
+  host.innerHTML = _vpSiivousListaHTML(_vpSiivousTapahtumat(pelaajat, _vpMittausCache), joukkue);
+};
+
+/* ═══ E1a — TAPAHTUMAN DETALJINÄKYMÄ + REITITYS (klikataan "Siivoa mittauksia" -rivistä) ═══════════════
+   _vpTapahtumaAvaa(pvm, lahde, joukkue): tapahtuman (testauspvm + lähde) osallistujat valitusta joukkueesta +
    arvot (tm_testikatalogi). Rivikohtainen "Avaa kortti" → pelaajakortin Mittaus-välilehti (E2). Bulk/per-pelaaja
    Mitätöi/Palauta renderöidään mutta ovat E1a:ssa no-op (kytketään E1b). VAIN LUKU — ei Firestore-kirjoituksia.
-   Osallistujat luetaan per pelaajan testitulokset-alikokoelmasta (sama lähde kuin E2/E1b:n suojattu rebuild).
-   ⚠ Huom: tapahtumapohjaiset (Moodi A) tulokset ovat testitapahtumat/{id}/tulokset:issa, EIVÄT per-pelaaja
-   testitulokset:issa → ne eivät näy tässä (ei myöskään E2/E1b:n rebuild-polulla). Vahvista design-kartasta. */
+   Osallistujat luetaan per pelaajan testitulokset-alikokoelmasta (sama lähde kuin E2/E1b:n suojattu rebuild). */
 
 // PUHDAS: kokoa tapahtuman osallistujarivit ladatuista cache-dokeista. cacheByPid = { pid: [{__id, data}] }.
 // pelaajat = [{id, etunimi, sukunimi}] (joukkuejärjestyksessä → idx = kortin avausindeksi). lahde = disambiguaattori
