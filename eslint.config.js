@@ -64,7 +64,7 @@ const APP_GLOBALS = {
   // lib/tm_pohja.js (P1.2 — itsekuvaava tuontipohja: sarakegenerointi + Meta-lehti)
   TM_POHJA: 'readonly',
   // lib/tm_pikakentat.js (P2.0) · tm_testikatalogi.js + tm_pikakirjaus.js (P2.1)
-  TM_PIKAKENTAT: 'readonly', tmLaskePikakentat: 'readonly',
+  TM_PIKAKENTAT: 'readonly', tmLaskePikakentat: 'readonly', tmRakennaPikakentatArkistosta: 'readonly',
   TM_TESTIKATALOGI: 'readonly', TM_PIKAKIRJAUS: 'readonly',
   // lib/tm_pelialy_yksilo.js (ADAR §4-ikäportitus, Malli A)
   TM_PELIALY_YKSILO: 'readonly', tmAdarBand: 'readonly', tmAdarYht: 'readonly', tmAdarBonusOsat: 'readonly',
