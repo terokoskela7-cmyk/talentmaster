@@ -28,9 +28,9 @@ Tapahtuma = `testauspvm` + `lähde/protokolla`. Pelaajan osallistuminen = hänen
 ## VAIHE E1a — Tapahtuman detaljinäkymä + reititys (oma PR, TEE ENSIN, ei kirjoituksia)
 
 ### Työ
-- **Hub-rivit:** `ws-testit`-listan tapahtumarivit (`_vpTestitViimeksi`) saavat **Avaa siivoukseen →** -toiminnon → `_vpTapahtumaAvaa(pvm, lahde)`.
-- **Detaljimodaali** (brändätty, z-index kortin yläpuolelle kuten E2-modaalit ~300–500): otsikko = tapahtuman nimi + pvm + lähde + pelaajamäärä.
-- **Pelaajien haku (joukkuerajattu):** lue valitun joukkueen pelaajat (olemassa oleva roster/joukkuevalinta), ja kullekin `testitulokset`-dokki jonka `testauspvm===pvm` (+ lähde match). Kokoa lista: pelaaja → tapahtuman testiavaimet+arvot (nimet `tm_testikatalogi`). Näytä mitätöidyt himmennettyinä (jos jo `mitatoidut`).
+- **Siivouslistan lähde (KORJATTU — ks. design-kartta v2 §1):** **ÄLÄ** ota listaa hubin `_vpTestitViimeksi`/`testitapahtumat`-listasta. Syy: Pikakirjaus ei luo `testitapahtumat`-dokkia (puuttuisi), ja kenttätapahtumat (Testaus_v9) eivät kirjoita per-pelaaja `testitulokset`ia (rebuild ei näe → tyhjä siivous). Rakenna **"Siivoa mittauksia" -lista aggregoimalla joukkueen pelaajien `testitulokset`-dokeista** distinktit `(testauspvm, lähde)` → rivit ("lähde · N pelaajaa · pvm"). Näin lista = muokattava arkisto (Pikakirjaus + historia/Excel-tuonti) yhtenäisesti. Rivi → `_vpTapahtumaAvaa(pvm, lahde, joukkue)`.
+- **Detaljimodaali** (brändätty, z-index kortin yläpuolelle kuten E2-modaalit ~300–500): otsikko = tapahtuman lähde + pvm + pelaajamäärä.
+- **Pelaajien haku (joukkuerajattu):** valitun joukkueen pelaajat, kullekin `testitulokset`-dokki jonka `testauspvm===pvm` (+ lähde match). Kokoa lista: pelaaja → tapahtuman testiavaimet+arvot (nimet `tm_testikatalogi`). Näytä mitätöidyt himmennettyinä (jos jo `mitatoidut`). (Sama luku voi ruokkia myös listan aggregoinnin — yksi joukkueen testitulokset-luku.)
 - **Rivikohtaiset toiminnot (E1a: näkyvät, kirjoitus E1b):** **Avaa kortti** → `_avaaPerPelaajaPikakatsaus(idx, joukkue)` + `_jspVaihda(1)` (Mittaus-välilehti, E2 = yksi määränpää). **Mitätöi/Palauta** renderöidään mutta ovat E1a:ssa no-op/disabled (kytketään E1b).
 - **Tyhjä tila / lataus:** hillitty vihje + latausindikaattori (haku voi olla monta lukua).
 
