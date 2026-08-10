@@ -76,6 +76,34 @@ describe('kirjoitusportti — JOHTO-only (_vpSeurantaOnJohto, täsmää Firestor
   });
 });
 
+describe('R2-A — potentiaali-projektio "Talenttisuositukset kv-tasolle" -listaan', () => {
+  let R;
+  beforeAll(() => {
+    const lines = readFileSync(join(__dir, '..', 'TalentMaster_VP_v25.html'), 'utf8').split('\n');
+    const s = lines.findIndex((l) => l.includes('var SCOUT_POTENTIAALI = ['));
+    const e = lines.findIndex((l) => l.includes('window._vpPotentiaaliBadgeHTML = _vpPotentiaaliBadgeHTML;'));
+    if (s < 0 || e < 0) throw new Error('R2-A-lohkoa ei löytynyt');
+    R = new Function('_jsvEsc', 'var window = {};\n' + lines.slice(s, e + 1).join('\n') +
+      '\n return { _vpPotTahtiStr: _vpPotTahtiStr, _vpPotentiaaliBadgeHTML: _vpPotentiaaliBadgeHTML };')(function (x) { return String(x == null ? '' : x); });
+  });
+  it('_vpPotTahtiStr — täytetyt/tyhjät tähdet', () => {
+    expect(R._vpPotTahtiStr(2)).toBe('★★☆☆☆');
+    expect(R._vpPotTahtiStr(5)).toBe('★★★★★');
+    expect(R._vpPotTahtiStr(0)).toBe('☆☆☆☆☆');
+    expect(R._vpPotTahtiStr(null)).toBe('☆☆☆☆☆');
+  });
+  it('badge — asetettu: tähdet + taso-label (SCOUT_POTENTIAALI-mäppäys, sama single source)', () => {
+    const h = R._vpPotentiaaliBadgeHTML({ scout_potentiaali: 2 });
+    expect(h).toContain('★★☆☆☆');
+    expect(h).toContain('Veikkausliiga');
+    expect(R._vpPotentiaaliBadgeHTML({ scout_potentiaali: 5 })).toContain('TOP 5 -liigat');
+  });
+  it('badge — tyhjä → "ei arvioitu"', () => {
+    expect(R._vpPotentiaaliBadgeHTML({})).toContain('ei arvioitu');
+    expect(R._vpPotentiaaliBadgeHTML({ scout_potentiaali: null })).toContain('ei arvioitu');
+  });
+});
+
 describe('label-tekstit', () => {
   it('_vpPotRivi palauttaa oikean portaan tekstit', () => {
     expect(A._vpPotRivi(2).lyhyt).toBe('Veikkausliiga');
