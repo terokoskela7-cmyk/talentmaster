@@ -25,7 +25,7 @@
 <script src="lib/tm_harjoitusarviointi.js?v=4"></script>
 <script src="lib/tm_kalenteri.js?v=1"></script>
 <script src="lib/tm_pvm.js?v=3"></script>   <!-- pvm-helperit: tmOnVanhaMittaus / tmKuukausiaMittauksesta / tmPvmFi (datan tuoreus) -->
-<script src="lib/tm_arviointi_taksonomia.js?v=6"></script>   <!-- Vaihe 2: arviointitaksonomia + pääteemat + kehysrekisteri (mitattu + havaittu 1–5) -->
+<script src="lib/tm_arviointi_taksonomia.js?v=7"></script>   <!-- Vaihe 2: arviointitaksonomia + pääteemat + kehysrekisteri (mitattu + havaittu 1–5) -->
 <script src="lib/tm_pelialy_yksilo.js?v=3"></script>   <!-- P1: pelihavainto peliäly → yksilöteema · v3: Vaihe B ristiinarvio-konsensus -->
 <script src="lib/tm_arviointi_silta.js?v=2"></script>   <!-- Vaihe 5: arviointi→resepti-silta (heikoin havaittu D2 → ehdotettu jaksofokus) · v2 = I3a SSOT-osoitin tm_kehityspolku -->
 <script src="lib/tm_idp.js?v=6"></script>   <!-- I3a: + kesto valmentajan asetettavaksi (opts.kestoVk) · I2: lahde+pvm/idp_lahde/idpVahvinDim 1–3 -->
@@ -4441,6 +4441,14 @@ function _vpArviointiHTML(p) {
   const idpSilta = function (avain) {
     return '<span class="jsp-arv-idp" onclick="event.stopPropagation();_vpTeeIdpTavoiteHavainnosta(\'' + pid + '\',\'' + avain + '\')" title="Luo IDP-kehitystavoite tästä havainnosta (arvo ≤ 2)">＋ IDP-tavoite</span>';
   };
+  // R-selitteet — ⓘ-vihje: näyttää attribuutin kuvaus_fi:n (hover title = työpöytä; klik/tap = popover, kosketuslaitteet).
+  const itag = function (item) {
+    if (!item || !item.kuvaus_fi) return '';
+    return ' <span tabindex="0" role="button" aria-label="Selite: ' + _jsvEsc(item.nimi_fi) + '" title="' + _jsvEsc(item.kuvaus_fi) + '"'
+      + ' onclick="event.stopPropagation();_vpArvKuvaus(event,\'' + item.avain + '\')"'
+      + ' onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();_vpArvKuvaus(event,\'' + item.avain + '\');}"'
+      + ' style="cursor:help;color:var(--blue);font-size:11px;margin-left:3px;-webkit-user-select:none;user-select:none">ⓘ</span>';
+  };
 
   // §1 Kaksois-brändäys (Palloliitto × TalentMaster) — P3.1: kompakti tagi otsikossa; täysi attribuutio ⓘ-paneelissa.
   // ── P3.1 — KOMPAKTI OTSIKKO (johda arvioinnilla): eyebrow · serif-otsikko · mono-meta · pieni kaksoisbrändi-tagi. ──
@@ -4507,7 +4515,7 @@ function _vpArviointiHTML(p) {
       const item = g.item, arvo = g.av.arvo;
       const ref = (item.mitta && (item.mitta.laji || item.mitta.avain)) ? '<span class="ref">· ' + _jsvEsc(item.mitta.laji || item.mitta.avain) + '</span>' : '';
       const ast = (arvo != null && A[Math.round(arvo)]) ? A[Math.round(arvo)] : null;
-      h += '<div class="jsp-arv-r"><span class="jsp-arv-rn">' + item.nimi_fi + ref + '</span>'
+      h += '<div class="jsp-arv-r"><span class="jsp-arv-rn">' + item.nimi_fi + itag(item) + ref + '</span>'
         + gauge('mit', arvo, 5)
         + (arvo != null
             ? '<span class="jsp-arv-num" style="color:' + V5(arvo) + '" title="' + (ast ? ast.koodi + ' · ' + ast.fi : '') + '">' + round1(arvo) + '</span><span class="jsp-arv-lock" title="Mitattu TM-testistä — lukittu">🔒</span>'
@@ -4522,7 +4530,7 @@ function _vpArviointiHTML(p) {
     gHav.forEach(function(g){
       const item = g.item, arvo = g.av.arvo, hav = havaittu[item.avain];
       const num = (arvo != null) ? '<span class="jsp-arv-num" style="color:' + V5(arvo) + '">' + round1(arvo) + '</span>' : '<span class="jsp-arv-num mut">—</span>';
-      h += '<div class="jsp-arv-r"><span class="jsp-arv-rn">' + item.nimi_fi + '</span>'
+      h += '<div class="jsp-arv-r"><span class="jsp-arv-rn">' + item.nimi_fi + itag(item) + '</span>'
         + gauge('hav', arvo, 5) + num + seg('hav', item.avain, hav, hav == null)
         + ((arvo != null && arvo <= 2) ? idpSilta(item.avain) : '')
         + '</div>';
@@ -4538,7 +4546,7 @@ function _vpArviointiHTML(p) {
     h += '<div style="font-size:10px;color:var(--ink3);margin:-2px 2px 6px">🎯 ADAR-ikäportti: ' + _adarTierLbl + '</div>';
     gPeli.forEach(function(g){
       const item = g.item, arvo = g.av.arvo;
-      h += '<div class="jsp-arv-r"><span class="jsp-arv-rn">' + item.nimi_fi + '<span class="jsp-arv-pelih" title="Pelihavainnosta johdettu (kenttähavainto) — klikkaa 1–5 antaaksesi oman arvion (yliajaa)">PELIH.</span></span>'
+      h += '<div class="jsp-arv-r"><span class="jsp-arv-rn">' + item.nimi_fi + itag(item) + '<span class="jsp-arv-pelih" title="Pelihavainnosta johdettu (kenttähavainto) — klikkaa 1–5 antaaksesi oman arvion (yliajaa)">PELIH.</span></span>'
         + gauge('peli', arvo, 3)
         + '<span class="jsp-arv-num" title="ADAR-asteikko 1–3">' + round1(arvo) + '<span style="font-size:9px;color:var(--ink3)">/3</span></span>'
         + seg('peli', item.avain, null, false)
@@ -4558,6 +4566,28 @@ function _vpArviointiHTML(p) {
   //   (metaa, ei tarvitse olla joka katselukerralla esillä). Johda arvioinnilla: kohteet + kalibraatio kärjessä.
   return h;
 }
+// R-selitteet — ⓘ tap/klik-popover: näyttää attribuutin kuvaus_fi:n (title hoitaa hoverin työpöydällä; tämä kosketuslaitteet).
+// Lukee kuvauksen taksonomiasta avaimella (ei escaping-riskiä pitkälle tekstille attribuutissa). Molemmat teemat (tokenit).
+window._vpArvKuvaus = function (ev, avain) {
+  if (ev && ev.stopPropagation) ev.stopPropagation();
+  var it = (typeof tmTaksonomiaByAvain === 'function') ? tmTaksonomiaByAvain(avain) : null;
+  var teksti = (it && it.kuvaus_fi) || '';
+  if (!teksti) return;
+  var tip = document.getElementById('_vpArvTip');
+  if (!tip) {
+    tip = document.createElement('div'); tip.id = '_vpArvTip';
+    tip.style.cssText = 'position:absolute;z-index:9400;max-width:240px;background:var(--bg2);color:var(--ink);border:.5px solid var(--border);border-radius:8px;padding:9px 12px;font-family:var(--font-sans),\'DM Sans\',sans-serif;font-size:12px;line-height:1.45;box-shadow:0 6px 24px rgba(0,0,0,.28)';
+    document.body.appendChild(tip);
+  }
+  tip.textContent = teksti; tip.style.display = 'block';
+  var t = (ev && (ev.currentTarget || ev.target)) || null;
+  var r = t && t.getBoundingClientRect ? t.getBoundingClientRect() : { left: 20, bottom: 20 };
+  var w = tip.offsetWidth || 240;
+  tip.style.left = Math.max(8, Math.min((window.pageXOffset || 0) + r.left, (window.pageXOffset || 0) + document.documentElement.clientWidth - w - 8)) + 'px';
+  tip.style.top = ((window.pageYOffset || 0) + r.bottom + 6) + 'px';
+  setTimeout(function () { document.addEventListener('click', _vpArvKuvausPiilota, { once: true }); document.addEventListener('scroll', _vpArvKuvausPiilota, { once: true, capture: true }); }, 0);
+};
+function _vpArvKuvausPiilota() { var t = document.getElementById('_vpArvTip'); if (t) t.style.display = 'none'; }
 // P3 — D3-kalibraatio kompakti lohko (yksi koti Arvioinnissa). Uudelleenkäyttää renderD3VertailuHTML + d3VarmuusChip +
 // _avaaVpD3Arvio (kaikki olemassa). §D3: VP-arvio EI muuta d3_taso:a — kolmiomittaus (itse × valmentaja × VP) + Aukko⚠.
 function _vpD3KalibraatioHTML(p) {
@@ -8362,7 +8392,7 @@ function avaaJoukkueSyvanakyma(joukkueNimi) {
     { key: 'D2', label: 'Tekninen',   arvo: _dimKa(KP.map(p => laskeD2Taso(p))), lahde: _teamD2Lahde },
     { key: 'D3', label: 'Psyykkinen', arvo: _dimKa(KP.map(p => p.d3_taso)) },
     { key: 'D4', label: 'Peliäly',    arvo: _dimKa(KP.map(p => _dimNorm5Adar(p.adar_viimeisin && p.adar_viimeisin.yht))) },
-    { key: 'D5', label: 'Sosiaal.',   arvo: _dimKa(KP.map(p => p.d5_taso)) }
+    { key: 'D5', label: 'Sosiaal.',   arvo: _dimKa(KP.map(p => laskeD5Taso(p))) }
   ];
   const _hhKa = teamRadarDims[0].arvo, _teknKa = teamRadarDims[1].arvo;
   const _hgN = KP.filter(function(p){ return _onTalenttisuositus(p); }).length;
@@ -10105,7 +10135,7 @@ window._avaaPerPelaajaPikakatsaus = function(idx, joukkueNimi) {
     { key: 'D2', label: 'Tekninen',    arvo: (d2 != null ? d2 : null), lahde: _d2Lahde(p) },
     { key: 'D3', label: 'Psyykkinen',  arvo: (p.d3_taso != null ? p.d3_taso : null) },
     { key: 'D4', label: 'Peliäly',     arvo: (d4 != null ? d4 : null) },
-    { key: 'D5', label: 'Sosiaal.', arvo: (p.d5_taso != null ? p.d5_taso : null) }
+    { key: 'D5', label: 'Sosiaal.', arvo: laskeD5Taso(p) }
   ];
   // ── VASEN sarake: nimi + badget + iso 5D-radar + ikävaihe-banneri + D1/D2-kehityskortti ──
   let hL = '';
@@ -12935,7 +12965,7 @@ function _renderMDTProfiili() {
   var d3 = (p.d3_taso != null) ? p.d3_taso : null;
   var av = p.adar_viimeisin || null, adarYht = av && av.yht;
   var d4 = (typeof _dimNorm5Adar === 'function') ? _dimNorm5Adar(adarYht) : null;
-  var d5 = (p.d5_taso != null) ? p.d5_taso : null;
+  var d5 = (typeof laskeD5Taso === 'function') ? laskeD5Taso(p) : (p.d5_taso != null ? p.d5_taso : null);
   var adarN = p.adar_havaintoja || 0;
   var V5 = _mdtVari5, PURPLE = '#8B5CF6';
 
@@ -14715,6 +14745,20 @@ function laskeD2Taso(p) {
   if (p.d2_taso != null) return p.d2_taso;
   if (p.tki_viimeisin != null) return Math.round((p.tki_viimeisin / 20) * 10) / 10;  // fallback jos d2_taso puuttuu
   return null;
+}
+// R-selitteet VAIHE 3 — D5-roll-up (bugikorjaus: d5_taso luettiin muttei koskaan koottu → kortti/tutka näytti "D5 —"
+// vaikka sosiaaliset attribuutit oli arvioitu, esim. Topias social_interaction/team_role = 4/4). Sama dim-keskiarvo-
+// pattern kuin D2:lla; EI uutta kaavaa. Olemassa oleva d5_taso VOITTAA (ei kosketa muihin lähteisiin); muuten keskiarvo
+// niistä arviointi_havaittu-attribuuteista joiden taksonomia-dim === 'D5'. Tyhjä (ei arvioita) pysyy null → "—" (empty ≠ 0).
+function laskeD5Taso(p) {
+  if (!p) return null;
+  if (p.d5_taso != null) return p.d5_taso;                       // olemassa oleva lähde ensin (ei regressiota)
+  var hav = p.arviointi_havaittu; if (!hav) return null;
+  var d5 = (typeof tmTaksonomiaDim === 'function') ? tmTaksonomiaDim('D5') : null;
+  if (!d5 || !d5.length) return null;
+  var summa = 0, n = 0;
+  d5.forEach(function (it) { var v = hav[it.avain]; if (v != null && !isNaN(Number(v))) { summa += Number(v); n++; } });
+  return n ? Math.round((summa / n) * 10) / 10 : null;           // ei D5-attribuutteja arvioitu → null (ei 0)
 }
 function _d2Lahde(p) { return (p.tki_viimeisin != null) ? 'tki' : (p.d2_taso != null) ? (p.d2_lahde || 'sm') : null; }   // §30 joustava: sm/hh/tk
 function _d2LahdeLbl(l) { return { tki:'TKI', sm:'SM-pohjainen', hh:'H-H (syöttö/pujottelu)', tk:'TK-lajit' }[l] || ''; }
