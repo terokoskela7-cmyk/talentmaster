@@ -55,6 +55,27 @@ describe('tähdet ↔ enum -parimappaus (yksi lähde, ei ristiriitaa)', () => {
   });
 });
 
+describe('kirjoitusportti — JOHTO-only (_vpSeurantaOnJohto, täsmää Firestore-sääntöön onJohtoRooli)', () => {
+  let api;
+  beforeAll(() => {
+    const lines = readFileSync(join(__dir, '..', 'TalentMaster_VP_v25.html'), 'utf8').split('\n');
+    const s = lines.findIndex((l) => l.includes('function _vpSeurantaOnJohto()'));
+    let e = s + 1; while (e < lines.length && lines[e].indexOf('}') < 0) e++;
+    api = new Function('var window = {};\n' + lines.slice(s, e + 1).join('\n') + '\n return { fn: _vpSeurantaOnJohto, win: window };')();
+  });
+  it('ei-johto (valmentaja / talenttivalmentaja) → portti false → kontrolli ei näy', () => {
+    api.win._vpSA = false; api.win._vpRooli = 'valmentaja';
+    expect(api.fn()).toBe(false);
+    api.win._vpRooli = 'talenttivalmentaja';
+    expect(api.fn()).toBe(false);
+  });
+  it('VP / johto / SA → portti true → kontrolli näkyy + kirjoitus sallittu', () => {
+    api.win._vpSA = false; api.win._vpRooli = 'vp'; expect(api.fn()).toBe(true);
+    api.win._vpRooli = 'urheilutoimenjohtaja'; expect(api.fn()).toBe(true);
+    api.win._vpRooli = null; api.win._vpSA = true; expect(api.fn()).toBe(true);
+  });
+});
+
 describe('label-tekstit', () => {
   it('_vpPotRivi palauttaa oikean portaan tekstit', () => {
     expect(A._vpPotRivi(2).lyhyt).toBe('Veikkausliiga');

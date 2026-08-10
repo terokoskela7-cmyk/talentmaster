@@ -4594,8 +4594,9 @@ function _vpArvKuvausPiilota() { var t = document.getElementById('_vpArvTip'); i
 /* ═══════════ FA-POTENTIAALI (uran kattoarvio) · Scouting-linssin ala-osio ═══════════
    FA Player Scouting Template 2026 §6: potentiaali = tähdet 1–5 (uran kattoarvio JOS pysyy terveenä).
    SCOUTIN PROJEKTIO, ei johdettu luku (ei uutta laskentaa) — namespaced scout_* erilleen 5D-arvioinnista.
-   EI vaikuta 5D/D-tasoihin/IDP:hen. EI näy pelaaja-apissa (VP_v25-only render + uusi kenttä). Kirjoitus VP/johto/SA
-   (_vpVoiMuokata) — ei scout-roolia. Firestore-sääntö: scout_potentiaali*-field-level (ks. PR-kuvaus, Console-deploy). */
+   EI vaikuta 5D/D-tasoihin/IDP:hen. EI näy pelaaja-apissa (VP_v25-only render + uusi kenttä). Kirjoitus JOHTO-only
+   VP/johto/SA (_vpSeurantaOnJohto — täsmää sääntöön; EI _vpVoiMuokata joka päästää oman joukkueen valmentajan R1:n
+   jälkeen), ei scout-roolia. Firestore-sääntö: scout_potentiaali*-field-level (ks. PR-kuvaus, Console-deploy). */
 var SCOUT_POTENTIAALI = [   // tähdet ↔ taso (enum) parina — YKSI lähde (ei kahta ristiriitaista)
   { tahdet: 5, taso: 'TOP_5_LEAGUES',          lyhyt: 'TOP 5 -liigat',              kuvaus: 'EPL · La Liga · Bundesliga · Serie A · Ligue 1' },
   { tahdet: 4, taso: 'OTHER_TOP_LEAGUES',      lyhyt: 'Muut huippuliigat',          kuvaus: 'esim. Eredivisie · Primeira · MLS' },
@@ -4612,7 +4613,9 @@ window.SCOUT_POTENTIAALI = SCOUT_POTENTIAALI; window._vpPotTaso = _vpPotTaso; wi
 // valtuutetuille (rungit klikattavia + huomiot). Ei-valtuutetulle read-only. §7.22 ei koske (VP/scout-facing).
 function _vpPotentiaaliHTML(p) {
   if (!p) return '';
-  var voi = (typeof _vpVoiMuokata === 'function') ? _vpVoiMuokata(p) : false;
+  // Portti = JOHTO-only (VP/johto/SA) — täsmää Firestore-sääntöön (onJohtoRooli). EI _vpVoiMuokata(p): se päästää
+  // R1:n jälkeen myös oman joukkueen valmentajan → kontrolli näkyisi mutta kirjoitus permission-failaisi (#319 L1).
+  var voi = (typeof _vpSeurantaOnJohto === 'function') ? _vpSeurantaOnJohto() : false;
   var val = (p.scout_potentiaali != null) ? Number(p.scout_potentiaali) : null;
   var huom = p.scout_potentiaali_huomiot || '';
   var pid = _jesc(p.id);
@@ -4665,7 +4668,7 @@ function _vpPotReRender(p) {
 // Tallenna potentiaali (tähdet + huomiot) → scout_*-pikakentät. huomioVain=true → päivitä vain huomiot (säilytä tähdet).
 window._vpTallennaPotentiaali = async function (pid, tahdet, huomioVain) {
   var p = (typeof _vpIdpPelaaja === 'function') ? _vpIdpPelaaja(pid) : null; if (!p) return;
-  if (!_vpVoiMuokata(p)) { if (typeof toast === 'function') toast('Ei kirjoitusoikeutta potentiaaliin', 'error'); return; }
+  if (!_vpSeurantaOnJohto()) { if (typeof toast === 'function') toast('Potentiaali on VP:n/johdon oikeus', 'error'); return; }   // johto-only (täsmää sääntöön)
   var huomEl = document.getElementById('_vpPotHuomiot');
   var huom = huomEl ? huomEl.value : (p.scout_potentiaali_huomiot || '');
   var t = huomioVain ? (p.scout_potentiaali != null ? Number(p.scout_potentiaali) : null) : Number(tahdet);
@@ -4684,7 +4687,7 @@ window._vpTallennaPotentiaali = async function (pid, tahdet, huomioVain) {
   } catch (e) { console.warn('[potentiaali]', e && e.message); if (typeof toast === 'function') toast('Tallennus epäonnistui (tarkista Firestore-säännöt: scout_potentiaali*)', 'error'); }
 };
 window._vpPoistaPotentiaali = async function (pid) {
-  var p = (typeof _vpIdpPelaaja === 'function') ? _vpIdpPelaaja(pid) : null; if (!p || !_vpVoiMuokata(p)) return;
+  var p = (typeof _vpIdpPelaaja === 'function') ? _vpIdpPelaaja(pid) : null; if (!p || !_vpSeurantaOnJohto()) return;   // johto-only (täsmää sääntöön)
   p.scout_potentiaali = null; p.scout_potentiaali_taso = null; p.scout_potentiaali_huomiot = ''; p.scout_potentiaali_pvm = null; p.scout_potentiaali_arvioija = null;
   _vpPotReRender(p);
   if (_isDemoMode || !_seuraId) { if (typeof toast === 'function') toast('Arvio poistettu (demo)', 'ok'); return; }
