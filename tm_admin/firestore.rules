@@ -393,7 +393,13 @@ service cloud.firestore {
                       // jaksofokus_historia (EI tt_positio_aktiivinen — ei kuulu fysioterapeutille). §4/§37.
                       || (onOmaSeura(seuraId) && request.auth.token.rooli == 'fysioterapeutti'
                           && request.resource.data.diff(resource.data).affectedKeys()
-                             .hasOnly(['jaksofokus', 'jaksofokus_historia']));
+                             .hasOnly(['jaksofokus', 'jaksofokus_historia']))
+                      // FA-potentiaali (Scouting-linssi) — scoutin projektio uran katosta, VP/johto asettaa
+                      // (_vpVoiMuokata; SA kattaa yllä). EI scout-roolia (myöhempi identiteettimuutos). Field-level:
+                      // vain scout_potentiaali*-pikakentät (ei koske 5D/IDP:tä). ⏳ ODOTTAA CONSOLE-DEPLOYTA (§12).
+                      || (onOmaSeura(seuraId) && onJohtoRooli()
+                          && request.resource.data.diff(resource.data).affectedKeys()
+                             .hasOnly(['scout_potentiaali', 'scout_potentiaali_taso', 'scout_potentiaali_huomiot', 'scout_potentiaali_pvm', 'scout_potentiaali_arvioija']));
         // GDPR (#96): pelaajan pääDocin poisto VAIN SA (client). Aiempi johto-client-delete poisti vain
         // pääDocin → JÄTTI orvoiksi alikokoelmat + ristiviitteet + Storage-media + Auth (GDPR-rikkomus,
         // spec §0.1/§0.5). Johto poistaa nyt RTBF-CF:n (poistaPelaajaGDPR) kautta, joka tekee TÄYDEN

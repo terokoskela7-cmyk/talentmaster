@@ -4564,6 +4564,8 @@ function _vpArviointiHTML(p) {
   if (typeof _vpD3KalibraatioHTML === 'function') h += _vpD3KalibraatioHTML(p);
   // P3.1 — "TalentMaster Analytics — kehityskerros" -vyöhyke + brändipalaute SIIRRETTY ⓘ Tietoa kehyksestä -paneeliin
   //   (metaa, ei tarvitse olla joka katselukerralla esillä). Johda arvioinnilla: kohteet + kalibraatio kärjessä.
+  // FA-potentiaali — Scouting-linssin ala-osio (gold), SELVÄSTI 5D-arvioinnin ulkopuolella (ei osa 5D:tä/IDP:tä).
+  if (typeof _vpPotentiaaliHTML === 'function') h += _vpPotentiaaliHTML(p);
   return h;
 }
 // R-selitteet — ⓘ tap/klik-popover: näyttää attribuutin kuvaus_fi:n (title hoitaa hoverin työpöydällä; tämä kosketuslaitteet).
@@ -4588,6 +4590,112 @@ window._vpArvKuvaus = function (ev, avain) {
   setTimeout(function () { document.addEventListener('click', _vpArvKuvausPiilota, { once: true }); document.addEventListener('scroll', _vpArvKuvausPiilota, { once: true, capture: true }); }, 0);
 };
 function _vpArvKuvausPiilota() { var t = document.getElementById('_vpArvTip'); if (t) t.style.display = 'none'; }
+
+/* ═══════════ FA-POTENTIAALI (uran kattoarvio) · Scouting-linssin ala-osio ═══════════
+   FA Player Scouting Template 2026 §6: potentiaali = tähdet 1–5 (uran kattoarvio JOS pysyy terveenä).
+   SCOUTIN PROJEKTIO, ei johdettu luku (ei uutta laskentaa) — namespaced scout_* erilleen 5D-arvioinnista.
+   EI vaikuta 5D/D-tasoihin/IDP:hen. EI näy pelaaja-apissa (VP_v25-only render + uusi kenttä). Kirjoitus VP/johto/SA
+   (_vpVoiMuokata) — ei scout-roolia. Firestore-sääntö: scout_potentiaali*-field-level (ks. PR-kuvaus, Console-deploy). */
+var SCOUT_POTENTIAALI = [   // tähdet ↔ taso (enum) parina — YKSI lähde (ei kahta ristiriitaista)
+  { tahdet: 5, taso: 'TOP_5_LEAGUES',          lyhyt: 'TOP 5 -liigat',              kuvaus: 'EPL · La Liga · Bundesliga · Serie A · Ligue 1' },
+  { tahdet: 4, taso: 'OTHER_TOP_LEAGUES',      lyhyt: 'Muut huippuliigat',          kuvaus: 'esim. Eredivisie · Primeira · MLS' },
+  { tahdet: 3, taso: 'TOP_LEAGUES_NORDIC',     lyhyt: 'Pohjoismaiden huippuliigat', kuvaus: 'Allsvenskan · Eliteserien · Superliga' },
+  { tahdet: 2, taso: 'FINNISH_PREMIER_LEAGUE', lyhyt: 'Veikkausliiga',               kuvaus: 'Suomen pääsarja' },
+  { tahdet: 1, taso: 'OTHER',                  lyhyt: 'Muut',                       kuvaus: 'alemmat sarjat' }
+];
+function _vpPotRivi(tahdet) { var n = Number(tahdet); for (var i = 0; i < SCOUT_POTENTIAALI.length; i++) if (SCOUT_POTENTIAALI[i].tahdet === n) return SCOUT_POTENTIAALI[i]; return null; }
+function _vpPotTaso(tahdet) { var r = _vpPotRivi(tahdet); return r ? r.taso : null; }                                    // 1↔OTHER … 5↔TOP_5_LEAGUES
+function _vpPotTahdet(taso) { for (var i = 0; i < SCOUT_POTENTIAALI.length; i++) if (SCOUT_POTENTIAALI[i].taso === taso) return SCOUT_POTENTIAALI[i].tahdet; return null; }
+window.SCOUT_POTENTIAALI = SCOUT_POTENTIAALI; window._vpPotTaso = _vpPotTaso; window._vpPotTahdet = _vpPotTahdet; window._vpPotRivi = _vpPotRivi;
+
+// Gold-alaosio (mockupin .pot-visuaali): 5-portainen asteikko + valittu korostettuna TAI tyhjä tila. Asetuskontrolli
+// valtuutetuille (rungit klikattavia + huomiot). Ei-valtuutetulle read-only. §7.22 ei koske (VP/scout-facing).
+function _vpPotentiaaliHTML(p) {
+  if (!p) return '';
+  var voi = (typeof _vpVoiMuokata === 'function') ? _vpVoiMuokata(p) : false;
+  var val = (p.scout_potentiaali != null) ? Number(p.scout_potentiaali) : null;
+  var huom = p.scout_potentiaali_huomiot || '';
+  var pid = _jesc(p.id);
+  var GB = 'rgba(217,164,65,.4)', GD = 'rgba(217,164,65,.13)';
+  var h = '<div style="margin-top:16px;background:' + GD + ';border:.5px solid ' + GB + ';border-radius:12px;padding:16px 18px">';
+  h += '<div style="font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--gold);margin-bottom:3px">💎 Scouting-linssi · Potentiaali</div>';
+  h += '<div style="font-family:var(--font-serif),\'Cormorant Garamond\',serif;font-size:18px;color:var(--ink);line-height:1.15">Uran kattoarvio <span style="font-size:11px;color:var(--ink3);font-family:var(--font-m)">· FA-tähdet 1–5</span></div>';
+  h += '<div style="display:flex;flex-direction:column;gap:2px;margin:11px 0">';
+  SCOUT_POTENTIAALI.forEach(function (r) {
+    var on = (val === r.tahdet), tahtiStr = '';
+    for (var s = 1; s <= 5; s++) tahtiStr += (s <= r.tahdet ? '★' : '☆');
+    var rowStyle = on ? ('background:' + GD + ';border:.5px solid ' + GB) : 'border:.5px solid transparent';
+    var wrap = voi ? ('<div role="button" tabindex="0" onclick="event.stopPropagation();_vpTallennaPotentiaali(\'' + pid + '\',' + r.tahdet + ')" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();_vpTallennaPotentiaali(\'' + pid + '\',' + r.tahdet + ');}" style="cursor:pointer;')
+                   : '<div style="';
+    h += wrap + 'display:flex;align-items:center;gap:12px;padding:6px 9px;border-radius:7px;' + rowStyle + ';flex-wrap:wrap">'
+      + '<span style="font-family:var(--font-m);letter-spacing:2px;color:' + (on ? 'var(--gold)' : 'var(--ink3)') + '">' + tahtiStr + '</span>'
+      + '<span style="font-size:12.5px;color:' + (on ? 'var(--ink)' : 'var(--ink2)') + ';font-weight:' + (on ? '600' : '400') + '">' + _jsvEsc(r.lyhyt) + '</span>'
+      + '<span style="font-family:var(--font-m);font-size:10px;color:var(--ink3)">' + _jsvEsc(r.kuvaus) + '</span>'
+      + (on ? '<span style="margin-left:auto;font-size:10px;color:var(--gold)">● valittu</span>' : '')
+      + '</div>';
+  });
+  h += '</div>';
+  if (val == null) {
+    h += '<div style="font-size:12px;color:var(--ink2);line-height:1.5"><b style="color:var(--gold)">Ei vielä arvioitu</b> — ' + (voi ? 'valitse porras yltä.' : 'scout / VP asettaa.') + ' Potentiaali = uran parhaat vuodet jos pysyy terveenä. <span style="color:var(--ink3)">(Scouting-linssi · ei osa 5D-arviointia.)</span></div>';
+  } else {
+    var rr = _vpPotRivi(val);
+    h += '<div style="font-size:12px;color:var(--ink2);line-height:1.5"><b style="color:var(--gold)">' + val + '★ · ' + _jsvEsc(rr ? rr.lyhyt : '') + '</b>'
+      + (p.scout_potentiaali_arvioija ? ' <span style="color:var(--ink3)">· ' + _jsvEsc(p.scout_potentiaali_arvioija) + (p.scout_potentiaali_pvm ? ' · ' + _jsvEsc(_pvmLyhyt(p.scout_potentiaali_pvm)) : '') + '</span>' : '') + '</div>';
+  }
+  if (voi) {
+    h += '<div style="margin-top:10px"><textarea id="_vpPotHuomiot" onclick="event.stopPropagation()" placeholder="Perustelu / huomiot (scouttausprojektio — ei terveystietoa)" style="width:100%;min-height:52px;background:var(--surface);border:.5px solid var(--border);border-radius:8px;color:var(--ink);font-family:var(--font-sans),\'DM Sans\',sans-serif;font-size:12px;padding:8px;resize:vertical">' + _jsvEsc(huom) + '</textarea>'
+      + '<div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">'
+      + '<button onclick="event.stopPropagation();_vpTallennaPotentiaali(\'' + pid + '\',null,true)" style="font-size:11px;font-weight:500;padding:7px 13px;border-radius:7px;border:.5px solid ' + GB + ';color:var(--gold);background:' + GD + ';cursor:pointer">Tallenna huomio</button>'
+      + (val != null ? '<button onclick="event.stopPropagation();_vpPoistaPotentiaali(\'' + pid + '\')" style="font-size:11px;font-weight:500;padding:7px 13px;border-radius:7px;border:.5px solid var(--border);color:var(--ink2);background:transparent;cursor:pointer">Poista arvio</button>' : '')
+      + '</div></div>';
+  } else if (huom) {
+    h += '<div style="margin-top:9px;font-size:12px;color:var(--ink2);font-style:italic;line-height:1.5">”' + _jsvEsc(huom) + '”</div>';
+  }
+  h += '</div>';
+  return h;
+}
+window._vpPotentiaaliHTML = _vpPotentiaaliHTML;
+
+// Re-render arviointi-slotti (jossa potentiaali-osio elää); käyttää olemassa olevaa _vpArvReRender:iä jos on.
+function _vpPotReRender(p) {
+  if (typeof _vpArvReRender === 'function' && document.getElementById('_jspTab5')) { _vpArvReRender(); return; }
+  var slot = document.getElementById('_jspTab5');
+  if (slot && typeof _vpArviointiHTML === 'function') slot.innerHTML = _vpArviointiHTML(p);
+}
+// Tallenna potentiaali (tähdet + huomiot) → scout_*-pikakentät. huomioVain=true → päivitä vain huomiot (säilytä tähdet).
+window._vpTallennaPotentiaali = async function (pid, tahdet, huomioVain) {
+  var p = (typeof _vpIdpPelaaja === 'function') ? _vpIdpPelaaja(pid) : null; if (!p) return;
+  if (!_vpVoiMuokata(p)) { if (typeof toast === 'function') toast('Ei kirjoitusoikeutta potentiaaliin', 'error'); return; }
+  var huomEl = document.getElementById('_vpPotHuomiot');
+  var huom = huomEl ? huomEl.value : (p.scout_potentiaali_huomiot || '');
+  var t = huomioVain ? (p.scout_potentiaali != null ? Number(p.scout_potentiaali) : null) : Number(tahdet);
+  if (t != null && !(t >= 1 && t <= 5)) return;                      // validointi: vain 1–5 (tai null huomio-vain-tilassa ilman tähtiä)
+  var taso = (t != null) ? _vpPotTaso(t) : null;
+  var arvioija = (window._vpNimi) || ((firebase.auth().currentUser || {}).displayName) || 'VP';
+  var pvm = new Date().toISOString();
+  p.scout_potentiaali = t; p.scout_potentiaali_taso = taso; p.scout_potentiaali_huomiot = huom; p.scout_potentiaali_pvm = pvm; p.scout_potentiaali_arvioija = arvioija;
+  _vpPotReRender(p);
+  if (_isDemoMode || !_seuraId) { if (typeof toast === 'function') toast('Potentiaali tallennettu (demo)', 'ok'); return; }
+  try {
+    var cu = firebase.auth().currentUser; if (cu) await cu.getIdToken(true);
+    await db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(p.id)
+      .set({ scout_potentiaali: t, scout_potentiaali_taso: taso, scout_potentiaali_huomiot: huom, scout_potentiaali_pvm: pvm, scout_potentiaali_arvioija: arvioija }, { merge: true });
+    if (typeof toast === 'function') toast('💎 Potentiaali tallennettu', 'ok');
+  } catch (e) { console.warn('[potentiaali]', e && e.message); if (typeof toast === 'function') toast('Tallennus epäonnistui (tarkista Firestore-säännöt: scout_potentiaali*)', 'error'); }
+};
+window._vpPoistaPotentiaali = async function (pid) {
+  var p = (typeof _vpIdpPelaaja === 'function') ? _vpIdpPelaaja(pid) : null; if (!p || !_vpVoiMuokata(p)) return;
+  p.scout_potentiaali = null; p.scout_potentiaali_taso = null; p.scout_potentiaali_huomiot = ''; p.scout_potentiaali_pvm = null; p.scout_potentiaali_arvioija = null;
+  _vpPotReRender(p);
+  if (_isDemoMode || !_seuraId) { if (typeof toast === 'function') toast('Arvio poistettu (demo)', 'ok'); return; }
+  try {
+    var cu = firebase.auth().currentUser; if (cu) await cu.getIdToken(true);
+    var D = firebase.firestore.FieldValue.delete();
+    await db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(p.id)
+      .set({ scout_potentiaali: D, scout_potentiaali_taso: D, scout_potentiaali_huomiot: D, scout_potentiaali_pvm: D, scout_potentiaali_arvioija: D }, { merge: true });
+    if (typeof toast === 'function') toast('Potentiaaliarvio poistettu', 'ok');
+  } catch (e) { console.warn('[potentiaali-poisto]', e && e.message); if (typeof toast === 'function') toast('Poisto epäonnistui', 'error'); }
+};
 // P3 — D3-kalibraatio kompakti lohko (yksi koti Arvioinnissa). Uudelleenkäyttää renderD3VertailuHTML + d3VarmuusChip +
 // _avaaVpD3Arvio (kaikki olemassa). §D3: VP-arvio EI muuta d3_taso:a — kolmiomittaus (itse × valmentaja × VP) + Aukko⚠.
 function _vpD3KalibraatioHTML(p) {
