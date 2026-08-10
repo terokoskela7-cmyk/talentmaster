@@ -2429,8 +2429,8 @@ input::placeholder, textarea::placeholder { color: var(--ink3); opacity: 1; }
       </style>
       <div class="page-title">Reviewit</div>
       <div class="page-sub">Arviointi-cockpit · tarkistusrytmi ≥12 v 6 vk · 9–11 v 12 vk</div>
+      <!-- KISS R1.1 — ensinäkymä = päätös-KPI:t → ohjausbanneri → suodattimet → työlista. Tuloskortti romahdettuna alle. -->
       <div id="reviewScope" class="rvc-scope"></div>
-      <div id="vpTuloskortti"></div>
       <div class="rapport-kpi" id="reviewKpis"></div>
       <div id="reviewGuide"></div>
       <div id="reviewSuodattimet"></div>
@@ -2438,6 +2438,11 @@ input::placeholder, textarea::placeholder { color: var(--ink3); opacity: 1; }
       <div id="reviewJoukkueet"></div>
       <div id="reviewLista"></div>
       <div id="reviewOthers"></div>
+      <!-- Oversight-tuloskortti = syvennys (romahdettu, oletus kiinni; tila muistetaan istunnon ajan) -->
+      <div id="reviewTuloskorttiKaari" style="margin-top:20px;border-top:.5px solid var(--border);padding-top:16px">
+        <button id="reviewTuloskorttiToggle" onclick="_reviewToggleTuloskortti()" style="font-family:var(--font-m);font-size:12px;color:var(--ink2);background:transparent;border:.5px solid var(--border);border-radius:8px;padding:9px 14px;cursor:pointer;letter-spacing:.02em">▸ Näytä tuloskortti</button>
+        <div id="vpTuloskortti" style="display:none;margin-top:14px"></div>
+      </div>
     </div>
 
     <!-- ── ASETUKSET ── -->
@@ -13319,10 +13324,21 @@ window._reviewCockpitAvaa = function (pid, tab) {
   if (typeof _jspVaihda === 'function') setTimeout(function () { _jspVaihda(tab == null ? 3 : tab); }, 0);   // 3 = Kehitys (review/sitoumus/jaksofokus), 1 = Mittaus
 };
 
+// KISS R1.1 — oversight-tuloskortti on syvennys (romahdettu). Tila muistetaan istunnon ajan (sivun sisäinen muuttuja,
+// ei localStorage). Sisältö = renderVPTuloskortti sellaisenaan; renderöidään VAIN kun avattu (raskain lohko ei etusivulla).
+var _reviewTuloskorttiAuki = false;
+function _reviewSyncTuloskortti() {
+  var kaari = document.getElementById('vpTuloskortti'), nappi = document.getElementById('reviewTuloskorttiToggle');
+  if (kaari) kaari.style.display = _reviewTuloskorttiAuki ? 'block' : 'none';
+  if (nappi) nappi.textContent = (_reviewTuloskorttiAuki ? '▾ Piilota tuloskortti' : '▸ Näytä tuloskortti');
+  if (_reviewTuloskorttiAuki && typeof renderVPTuloskortti === 'function') renderVPTuloskortti();
+}
+window._reviewToggleTuloskortti = function () { _reviewTuloskorttiAuki = !_reviewTuloskorttiAuki; _reviewSyncTuloskortti(); };
+
 function renderReviewit() {
   if (typeof laskeReviewKadenssi !== 'function') return;
   var nyt = Date.now();
-  if (typeof renderVPTuloskortti === 'function') renderVPTuloskortti();
+  _reviewSyncTuloskortti();   // KISS R1.1 — tuloskortti renderöidään vain avattuna (ei enää ylimpänä pakotettuna)
   var ly = function (j) { return (typeof lyhennaNimi === 'function') ? lyhennaNimi(j || '') : (j || '—'); };
   var set = function (id, v) { var e = document.getElementById(id); if (e) e.textContent = v; };
   var roolit = _vpCockpitRoolitila();
