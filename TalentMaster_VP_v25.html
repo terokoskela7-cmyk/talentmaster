@@ -2328,7 +2328,10 @@ input::placeholder, textarea::placeholder { color: var(--ink3); opacity: 1; }
       <div class="rap-seg mdt-no-print" style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap">
         <button id="rapSegBtn-mdt" onclick="_rapSeg('mdt')" style="padding:8px 16px;border-radius:8px;border:.5px solid var(--teal);background:rgba(40,176,144,.12);color:var(--teal);cursor:pointer;font-size:13px;font-weight:600">Pelaajaraportti</button>
         <button id="rapSegBtn-laatu" onclick="_rapSeg('laatu')" style="padding:8px 16px;border-radius:8px;border:.5px solid var(--border);background:var(--surface);color:var(--ink2);cursor:pointer;font-size:13px;font-weight:600">Harjoittelun laatu</button>
+        <button id="rapSegBtn-joukkuealy" onclick="_rapSeg('joukkuealy')" style="padding:8px 16px;border-radius:8px;border:.5px solid var(--border);background:var(--surface);color:var(--ink2);cursor:pointer;font-size:13px;font-weight:600">Joukkueäly</button>
       </div>
+      <!-- R2-B J1 — Joukkueäly (seuratason aggregaatti, read-only) -->
+      <div id="rapSeg-joukkuealy" style="display:none"><div id="joukkuealy"></div></div>
       <div id="rapSeg-mdt">
       <div class="rapport-section mdt-no-print" id="mdtPickerSec" style="margin-bottom:14px">
         <h3>Pelaajaraportti</h3>
@@ -13916,12 +13919,14 @@ function _hlMax(k) { return _HL_PCT[k] ? 100 : (_hlMalli === 'valmennustaidot' ?
 function _hlOverallNat(kans) { var ks = ['a1', 'a3', 'a4', 'a5', 'a7'], vs = ks.map(function (k) { return kans[k]; }).filter(function (x) { return x != null && !isNaN(x); }); return vs.length ? Math.round(vs.reduce(function (s, x) { return s + x; }, 0) / vs.length * 10) / 10 : null; }
 
 window._rapSeg = function (seg) {
-  var mdt = document.getElementById('rapSeg-mdt'), laatu = document.getElementById('rapSeg-laatu');
-  var bM = document.getElementById('rapSegBtn-mdt'), bL = document.getElementById('rapSegBtn-laatu');
-  var on = function (b) { b.style.borderColor = 'var(--teal)'; b.style.background = 'rgba(40,176,144,.12)'; b.style.color = 'var(--teal)'; };
-  var off = function (b) { b.style.borderColor = 'var(--border)'; b.style.background = 'var(--surface)'; b.style.color = 'var(--ink2)'; };
-  if (seg === 'laatu') { mdt.style.display = 'none'; laatu.style.display = 'block'; on(bL); off(bM); if (!_hlLadattu) _hlLataaJaRender(); }
-  else { mdt.style.display = 'block'; laatu.style.display = 'none'; on(bM); off(bL); }
+  var mdt = document.getElementById('rapSeg-mdt'), laatu = document.getElementById('rapSeg-laatu'), ja = document.getElementById('rapSeg-joukkuealy');
+  var bM = document.getElementById('rapSegBtn-mdt'), bL = document.getElementById('rapSegBtn-laatu'), bJ = document.getElementById('rapSegBtn-joukkuealy');
+  var on = function (b) { if (!b) return; b.style.borderColor = 'var(--teal)'; b.style.background = 'rgba(40,176,144,.12)'; b.style.color = 'var(--teal)'; };
+  var off = function (b) { if (!b) return; b.style.borderColor = 'var(--border)'; b.style.background = 'var(--surface)'; b.style.color = 'var(--ink2)'; };
+  var naytto = function (s) { if (mdt) mdt.style.display = (s === 'mdt') ? 'block' : 'none'; if (laatu) laatu.style.display = (s === 'laatu') ? 'block' : 'none'; if (ja) ja.style.display = (s === 'joukkuealy') ? 'block' : 'none'; off(bM); off(bL); off(bJ); };
+  if (seg === 'laatu') { naytto('laatu'); on(bL); if (!_hlLadattu) _hlLataaJaRender(); }
+  else if (seg === 'joukkuealy') { naytto('joukkuealy'); on(bJ); if (typeof renderJoukkuealy === 'function') renderJoukkuealy(); }
+  else { naytto('mdt'); on(bM); }
 };
 
 async function _hlLataaJaRender() {
@@ -14370,6 +14375,210 @@ window._hlLisaaPalaute = async function () {
     _hlLataaPalaute(_hlAvoinId);
   } catch (e) { if (typeof toast === 'function') toast('Tallennus epäonnistui: ' + ((e && e.message) || 'tuntematon'), 'error'); }
 };
+
+/* ═══════════ R2-B J1 — JOUKKUEÄLY · seuratason talenttiraportti (aggregaatti, READ-ONLY) ═══════════
+   Kokoaa olemassa olevat per-pelaaja-kentät (5D · FLEI · signaalit · PHV · RAE-kvartaali · potentiaali #319 ·
+   IDP · DVI · sitoumus). Uusi laskenta = VAIN lkm/ka/jakauma — ei uusia mittareita, ei kirjoituksia. Design:
+   docs/JOUKKUEALY_SEURARAPORTTI_mockup.html. Aika-akseli (G polku/kehityskäyrä) + kuormitus (F) = J2 (data-riippuvaisia:
+   ei kausi-snapshotteja eikä availability-tilalippukenttää → EI keksitä, jää J2:een). Puhtaat aggregointifunktiot: */
+function _jaKohortti(pelaajat, token) {
+  if (!token) return (pelaajat || []).slice();
+  var t = String(token).toLowerCase();
+  return (pelaajat || []).filter(function (p) { return String(p.joukkue || '').toLowerCase().replace(/\s/g, '').indexOf(t.replace(/\s/g, '')) >= 0; });
+}
+function _jaKohorttiTokenit(pelaajat) {
+  var seen = {}, out = [];
+  (pelaajat || []).forEach(function (p) { var m = String(p.joukkue || '').match(/\b([PTU]\s?\d{1,2})\b/i); if (m) { var tok = m[1].replace(/\s/g, '').toUpperCase(); if (!seen[tok]) { seen[tok] = 1; out.push(tok); } } });
+  return out.sort();
+}
+function _jaTalenttiportaat(pelaajat, hgFn, heikkoFn) {   // signaaleista: X-Factor > Hidden Gem > Kehityskohde > Seuranta
+  var r = { xfactor: 0, hiddengem: 0, seuranta: 0, kehityskohde: 0 };
+  (pelaajat || []).forEach(function (p) {
+    if (p.signaali === 'xfactor') { r.xfactor++; return; }
+    var hg = hgFn ? hgFn(p) : null;
+    if (hg && (hg.dHG || hg.fleiHG)) { r.hiddengem++; return; }
+    if (heikkoFn && heikkoFn(p)) { r.kehityskohde++; return; }
+    r.seuranta++;
+  });
+  return r;
+}
+function _jaValmiusJakauma(pelaajat) {   // FLEI 5 ämpäriä → summautuu N:ään (flei ei-null)
+  var b = [{ lb: '85–100', min: 85, n: 0 }, { lb: '70–84', min: 70, n: 0 }, { lb: '55–69', min: 55, n: 0 }, { lb: '40–54', min: 40, n: 0 }, { lb: '<40', min: -Infinity, n: 0 }];
+  var n = 0;
+  (pelaajat || []).forEach(function (p) { var f = p.flei_viimeisin; if (f == null || isNaN(Number(f))) return; n++; f = Number(f); for (var i = 0; i < b.length; i++) { if (f >= b[i].min) { b[i].n++; break; } } });
+  return { ampat: b, n: n };
+}
+function _ja5DKa(pelaajat, dim5Fn) {   // seuran 5D-ka; dim5Fn(p)→{d1..d5} (null-turvallinen)
+  var K = ['d1', 'd2', 'd3', 'd4', 'd5'], sum = {}, cnt = {};
+  K.forEach(function (k) { sum[k] = 0; cnt[k] = 0; });
+  (pelaajat || []).forEach(function (p) { var d = dim5Fn(p) || {}; K.forEach(function (k) { if (d[k] != null && !isNaN(Number(d[k]))) { sum[k] += Number(d[k]); cnt[k]++; } }); });
+  var out = {}; K.forEach(function (k) { out[k] = cnt[k] ? Math.round(sum[k] / cnt[k] * 10) / 10 : null; });
+  return out;
+}
+function _jaPotentiaaliJakauma(pelaajat, skaala, nimiFn) {   // #319 SCOUT_POTENTIAALI-mäppäys
+  var portaat = (skaala || []).map(function (r) { return { tahdet: r.tahdet, taso: r.taso, lyhyt: r.lyhyt, n: 0, nimet: [] }; });
+  var eiArvioitu = { n: 0, nimet: [] }, byT = {};
+  portaat.forEach(function (r) { byT[r.tahdet] = r; });
+  (pelaajat || []).forEach(function (p) {
+    var t = (p.scout_potentiaali != null) ? Number(p.scout_potentiaali) : null;
+    var nimi = nimiFn ? nimiFn(p) : (((p.etunimi || '') + ' ' + (p.sukunimi || '')).trim() || p.id);
+    if (t != null && byT[t]) { byT[t].n++; byT[t].nimet.push(nimi); } else { eiArvioitu.n++; eiArvioitu.nimet.push(nimi); }
+  });
+  return { portaat: portaat, eiArvioitu: eiArvioitu };
+}
+function _jaRaeJakauma(pelaajat, qFn) {   // syntymäkvartaali Q1–Q4; summautuu kvartaalillisten N:ään
+  var r = { Q1: 0, Q2: 0, Q3: 0, Q4: 0, n: 0 };
+  (pelaajat || []).forEach(function (p) { var q = qFn ? qFn(p) : null; if (q && r[q] != null) { r[q]++; r.n++; } });
+  return r;
+}
+var _JA_PHV = { PRE: 'ennen', LAH: 'ennen', PH: 'aikana', POST: 'jalkeen', AN: 'jalkeen' };   // §25 koodit → ennen/aikana/jälkeen
+function _jaPhvJakauma(pelaajat) {
+  var r = { ennen: 0, aikana: 0, jalkeen: 0, n: 0 };
+  (pelaajat || []).forEach(function (p) { var v = _JA_PHV[String(p.phv_tila || '').toUpperCase()]; if (v) { r[v]++; r.n++; } });
+  return r;
+}
+var _JA_POSRYHMA = { MV: 'Maalivahti', KP: 'Puolustus', LP: 'Puolustus', KK: 'Keskikenttä', HM: 'Keskikenttä', LH: 'Laita', KH: 'Kärki' };
+function _jaPelipaikkaSyvyys(pelaajat, posFn) {
+  var jarj = ['Maalivahti', 'Puolustus', 'Keskikenttä', 'Laita', 'Kärki'], ryhmat = {}, tuntematon = 0;
+  jarj.forEach(function (r) { ryhmat[r] = 0; });
+  (pelaajat || []).forEach(function (p) { var c = String((posFn ? posFn(p) : (p.positio || p.pelipaikka)) || '').trim().toUpperCase(); var ryhma = _JA_POSRYHMA[c]; if (ryhma) ryhmat[ryhma]++; else tuntematon++; });
+  var status = function (ryhma, n) { if (ryhma === 'Maalivahti') return n === 0 ? 'aukko' : n === 1 ? 'ohut' : 'ok'; return n === 0 ? 'aukko' : n <= 2 ? 'ohut' : n >= 5 ? 'vahva' : 'ok'; };
+  return { ryhmat: jarj.map(function (r) { return { ryhma: r, n: ryhmat[r], status: status(r, ryhmat[r]) }; }), tuntematon: tuntematon };
+}
+window._jaKohortti = _jaKohortti; window._jaKohorttiTokenit = _jaKohorttiTokenit; window._jaTalenttiportaat = _jaTalenttiportaat; window._jaValmiusJakauma = _jaValmiusJakauma; window._ja5DKa = _ja5DKa; window._jaPotentiaaliJakauma = _jaPotentiaaliJakauma; window._jaRaeJakauma = _jaRaeJakauma; window._jaPhvJakauma = _jaPhvJakauma; window._jaPelipaikkaSyvyys = _jaPelipaikkaSyvyys;
+
+// Per-pelaaja 5D (uudelleenkäyttö: hh_taso/d1_taso · laskeD2Taso · d3_taso · _dimNorm5Adar(adar) · laskeD5Taso). Ei uutta laskentaa.
+function _jaDim5(p) {
+  return {
+    d1: (p.hh_taso != null) ? p.hh_taso : (p.d1_taso != null ? p.d1_taso : null),
+    d2: (typeof laskeD2Taso === 'function') ? laskeD2Taso(p) : (p.d2_taso != null ? p.d2_taso : null),
+    d3: (p.d3_taso != null) ? p.d3_taso : null,
+    d4: (typeof _dimNorm5Adar === 'function') ? _dimNorm5Adar(p.adar_viimeisin && p.adar_viimeisin.yht) : null,
+    d5: (typeof laskeD5Taso === 'function') ? laskeD5Taso(p) : (p.d5_taso != null ? p.d5_taso : null)
+  };
+}
+function _jaHeikko(p) { var d = _jaDim5(p); var v = ['d1', 'd2', 'd3', 'd5'].map(function (k) { return d[k]; }).filter(function (x) { return x != null; }); return (p.flei_viimeisin != null && Number(p.flei_viimeisin) < 40) || (v.length && Math.min.apply(null, v) < 2.5); }
+function _jaNimi(p) { return ((p.etunimi || '') + ' ' + (p.sukunimi || '')).trim() || p.id; }
+function _jaQ(p) { return (typeof raeChip === 'function') ? (raeChip(p).q || null) : (p.rae_kvartaali || null); }
+function _jaPos(p) { return (typeof _vpTtNormPositio === 'function') ? (p.tt_positio_aktiivinen || _vpTtNormPositio(p.positio || p.pelipaikka)) : (p.positio || p.pelipaikka); }
+
+var _jaIka = null;   // ikäluokka-suodatin (null = koko seura)
+window._jaSuodata = function (token) { _jaIka = token || null; renderJoukkuealy(); };
+function renderJoukkuealy() {
+  var el = document.getElementById('joukkuealy'); if (!el) return;
+  var kaikki = _pelaajat || [];
+  var P = _jaKohortti(kaikki, _jaIka);
+  var johto = (typeof _vpSeurantaOnJohto === 'function') && _vpSeurantaOnJohto();
+  var V5 = (typeof _mdtVari5 === 'function') ? _mdtVari5 : function () { return 'var(--ink)'; };
+  var esc = _jsvEsc, poik = function (ehto, v) { return ehto ? v : 'var(--ink)'; };
+
+  // Aggregaatit
+  var reviewKooste = (typeof laskeJoukkueReviewKooste === 'function') ? laskeJoukkueReviewKooste(P, Date.now()) : { onTime_pct: null, myohassa_n: 0, eraantymassa_n: 0 };
+  var portaat = _jaTalenttiportaat(P, (typeof laskeHiddenGem === 'function') ? laskeHiddenGem : null, _jaHeikko);
+  var talenttiHot = portaat.xfactor + portaat.hiddengem;
+  var fleiat = P.filter(function (p) { return p.flei_viimeisin != null; }).map(function (p) { return Number(p.flei_viimeisin); });
+  var fleiKa = fleiat.length ? Math.round(fleiat.reduce(function (a, b) { return a + b; }, 0) / fleiat.length) : null;
+  var valmius = _jaValmiusJakauma(P);
+  var d5ka = _ja5DKa(P, _jaDim5);
+  var rae = _jaRaeJakauma(P, _jaQ);
+  var phv = _jaPhvJakauma(P);
+  var syvyys = _jaPelipaikkaSyvyys(P, _jaPos);
+  var potti = johto ? _jaPotentiaaliJakauma(P, (typeof SCOUT_POTENTIAALI !== 'undefined') ? SCOUT_POTENTIAALI : [], _jaNimi) : null;
+
+  var STYLE = '<style>'
+    + '#joukkuealy .ja-filt{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}#joukkuealy .ja-fp{font-size:11px;padding:6px 13px;border:.5px solid var(--border);border-radius:20px;cursor:pointer;background:transparent;color:var(--ink2)}#joukkuealy .ja-fp.on{background:var(--teal);color:#0c1a15;border-color:var(--teal)}'
+    + '#joukkuealy .ja-sek{background:var(--surface);border:.5px solid var(--border);border-radius:14px;padding:18px 20px;margin-bottom:14px}#joukkuealy .ja-sek.scout{border-color:rgba(217,164,65,.4);background:rgba(217,164,65,.06)}'
+    + '#joukkuealy .ja-h{font-family:\'Cormorant Garamond\',serif;font-size:20px;color:var(--ink);margin-bottom:2px}#joukkuealy .ja-sub{font-size:11.5px;color:var(--ink3);margin-bottom:12px}'
+    + '#joukkuealy .ja-mini{font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--teal);margin-bottom:8px}'
+    + '#joukkuealy .ja-kpirow{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px}#joukkuealy .ja-kpi{background:var(--bg2);border:.5px solid var(--border);border-radius:10px;padding:12px 14px}#joukkuealy .ja-kpi .k{font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink3)}#joukkuealy .ja-kpi .n{font-family:\'Cormorant Garamond\',serif;font-size:30px;line-height:1.1;margin-top:2px}#joukkuealy .ja-kpi .n small{font-size:12px;color:var(--ink3)}#joukkuealy .ja-kpi .t{font-size:10px;color:var(--ink3);margin-top:2px}'
+    + '#joukkuealy .ja-grid2{display:grid;grid-template-columns:1fr 1fr;gap:18px}@media(max-width:760px){#joukkuealy .ja-grid2{grid-template-columns:1fr}}'
+    + '#joukkuealy .ja-bar{display:flex;align-items:center;gap:10px;font-size:12px;margin:5px 0}#joukkuealy .ja-bar .lb{flex:0 0 74px;color:var(--ink2)}#joukkuealy .ja-bar .tr{flex:1;height:9px;border-radius:5px;background:var(--ov-2,rgba(255,255,255,.06));overflow:hidden}#joukkuealy .ja-bar .tr b{display:block;height:9px;border-radius:5px}#joukkuealy .ja-bar .vn{flex:0 0 26px;text-align:right;font-family:\'DM Mono\',monospace;font-size:11px;color:var(--ink3)}'
+    + '#joukkuealy .ja-tiers{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}#joukkuealy .ja-tier{background:var(--bg2);border:.5px solid var(--border);border-radius:9px;padding:9px;text-align:center}#joukkuealy .ja-tier .tn{font-family:\'Cormorant Garamond\',serif;font-size:22px}#joukkuealy .ja-tier .tl{font-size:9.5px;color:var(--ink3);text-transform:uppercase;letter-spacing:.04em}'
+    + '#joukkuealy .ja-dpos{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:.5px solid var(--border);font-size:13px}#joukkuealy .ja-dpos:last-child{border-bottom:none}#joukkuealy .ja-dpos .pn{flex:1}#joukkuealy .ja-dpos .cnt{font-family:\'Cormorant Garamond\',serif;font-size:18px;flex:0 0 30px;text-align:center}#joukkuealy .ja-st{font-family:\'DM Mono\',monospace;font-size:10px;padding:2px 8px;border-radius:20px}'
+    + '#joukkuealy .ja-qbars{display:flex;align-items:flex-end;gap:12px;height:96px;padding:0 6px}#joukkuealy .ja-qcol{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%}#joukkuealy .ja-qbar{width:100%;max-width:38px;background:var(--teal);border-radius:5px 5px 0 0;min-height:3px}#joukkuealy .ja-qcol.under .ja-qbar{background:var(--amber)}#joukkuealy .ja-qv{font-family:\'DM Mono\',monospace;font-size:11px;margin-bottom:4px}#joukkuealy .ja-ql{font-family:\'DM Mono\',monospace;font-size:10px;color:var(--ink3);margin-top:5px}'
+    + '#joukkuealy .ja-potrow{display:flex;align-items:center;gap:12px;padding:7px 2px;border-bottom:.5px solid var(--border);font-size:12.5px}#joukkuealy .ja-potrow .st{font-family:\'DM Mono\',monospace;letter-spacing:1px;color:var(--gold)}#joukkuealy .ja-potrow .lb{flex:0 0 150px;color:var(--ink2)}#joukkuealy .ja-potrow .who{flex:1;color:var(--ink3);font-size:11px}#joukkuealy .ja-potrow .cn{font-family:\'Cormorant Garamond\',serif;font-size:18px}'
+    + '#joukkuealy .ja-act{display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:.5px solid var(--border)}#joukkuealy .ja-act:last-child{border-bottom:none}#joukkuealy .ja-dot{width:9px;height:9px;border-radius:50%;flex:0 0 auto}#joukkuealy .ja-act .body{flex:1;font-size:13px}#joukkuealy .ja-act .sub{font-size:11px;color:var(--ink3);margin-top:2px}#joukkuealy .ja-go{font-size:11px;font-weight:500;padding:7px 12px;border-radius:7px;border:.5px solid var(--teal);color:var(--teal);background:rgba(40,176,144,.1);cursor:pointer;white-space:nowrap}'
+    + '#joukkuealy .ja-chip{display:inline-flex;font-size:10px;font-weight:600;padding:3px 9px;border-radius:20px;border:.5px solid var(--border);color:var(--ink2)}#joukkuealy .ja-chip.amber{border-color:var(--amber);color:var(--amber);background:rgba(224,160,64,.12)}'
+    + '#joukkuealy .ja-empty{font-size:12.5px;color:var(--ink3);padding:12px;border:.5px dashed var(--border);border-radius:9px}'
+    + '#joukkuealy .ja-exp{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px}#joukkuealy .ja-btn{font-size:11.5px;font-weight:500;padding:9px 14px;border-radius:8px;border:.5px solid var(--teal);color:var(--teal);background:rgba(40,176,144,.12);cursor:pointer}#joukkuealy .ja-btn.ghost{border-color:var(--border);color:var(--ink2);background:transparent}#joukkuealy .ja-btn.gold{border-color:rgba(217,164,65,.4);color:var(--gold);background:rgba(217,164,65,.13)}'
+    + '</style>';
+
+  // Ikäluokka-suodatin
+  var tokenit = _jaKohorttiTokenit(kaikki);
+  var fp = function (tok, lbl) { return '<button class="ja-fp' + ((_jaIka === tok || (!tok && !_jaIka)) ? ' on' : '') + '" onclick="_jaSuodata(' + (tok ? ('\'' + tok + '\'') : 'null') + ')">' + esc(lbl) + '</button>'; };
+  var h = STYLE + '<div class="ja-filt mdt-no-print">' + fp(null, 'Koko seura') + tokenit.map(function (t) { return fp(t, t); }).join('') + '</div>';
+
+  // A · SEURAKOOSTE
+  var kpi = function (k, n, sm, cls, s) { return '<div class="ja-kpi"><div class="k">' + k + '</div><div class="n"' + (cls ? ' style="color:' + cls + '"' : '') + '>' + n + (sm ? '<small>' + sm + '</small>' : '') + '</div><div class="t">' + s + '</div></div>'; };
+  h += '<div class="ja-sek"><div class="ja-mini">Seurakooste' + (_jaIka ? ' · ' + esc(_jaIka) : '') + '</div><div class="ja-h">Talenttitilanne</div>'
+    + '<div class="ja-sub">' + P.length + ' pelaajaa' + (tokenit.length > 1 && !_jaIka ? ' · ' + tokenit.length + ' ikäluokkaa' : '') + ' · aggregaatti nykydatasta</div>'
+    + '<div class="ja-kpirow">'
+    + kpi('Pelaajia', P.length, '', '', tokenit.slice(0, 3).join(' · ') || '—')
+    + kpi('Valmius ka', (fleiKa != null ? fleiKa : '—'), (fleiKa != null ? '/100' : ''), '', (fleiKa != null ? '▸ aseta kansallinen vertailu' : 'ei FLEI-dataa'))
+    + kpi('Talenttia HOT:lle', talenttiHot, '', (talenttiHot > 0 ? 'var(--teal)' : ''), portaat.xfactor + ' X-Factor · ' + portaat.hiddengem + ' Hidden Gem')
+    + kpi('Review ajan tasalla', (reviewKooste.onTime_pct != null ? reviewKooste.onTime_pct : '—'), (reviewKooste.onTime_pct != null ? '%' : ''), poik(reviewKooste.onTime_pct != null && reviewKooste.onTime_pct < 70, 'var(--amber)'), (reviewKooste.myohassa_n + reviewKooste.eraantymassa_n) + ' vaatii huomiota')
+    + '</div></div>';
+
+  // B · TALENTTIJAKAUMA
+  var radarDims = [{ key: 'D1', label: 'Fyys', arvo: d5ka.d1 }, { key: 'D2', label: 'Tekn', arvo: d5ka.d2 }, { key: 'D3', label: 'Psyy', arvo: d5ka.d3 }, { key: 'D4', label: 'Peliäly', arvo: d5ka.d4 }, { key: 'D5', label: 'Sos', arvo: d5ka.d5 }];
+  var radar = (typeof window._tmRadar5D === 'function') ? window._tmRadar5D(radarDims, { referenssi: 3, referenssiVari: 'var(--ink3)', maxW: 250 }) : '';
+  var valBars = valmius.ampat.map(function (a) { var w = valmius.n ? Math.round(a.n / valmius.n * 100) : 0; var amber = (a.lb === '40–54' || a.lb === '<40'); return '<div class="ja-bar"><span class="lb">' + a.lb + '</span><span class="tr"><b style="width:' + w + '%;background:' + (amber ? 'var(--amber)' : 'var(--teal)') + '"></b></span><span class="vn">' + a.n + '</span></div>'; }).join('');
+  var tier = function (n, l, col) { return '<div class="ja-tier"><div class="tn"' + (col ? ' style="color:' + col + '"' : '') + '>' + n + '</div><div class="tl">' + l + '</div></div>'; };
+  h += '<div class="ja-sek"><div class="ja-h">Talenttijakauma</div><div class="ja-sub">Keitä meillä on — 5D-profiili vs. kansallinen normi (taso 3), valmiusjakauma ja talenttiportaat.</div>'
+    + '<div class="ja-grid2"><div><div class="ja-mini" style="text-align:center">Joukkueen 5D vs. normi (taso 3)</div>' + (radar || '<div class="ja-empty">Ei 5D-dataa.</div>') + '<div style="font-family:\'DM Mono\',monospace;font-size:9px;color:var(--ink3);text-align:center;margin-top:4px">katkoviiva = ikäluokkanormi (taso 3) · ▸ aseta kansallinen vertailu</div></div>'
+    + '<div><div class="ja-mini">Valmiusjakauma (FLEI)</div>' + (valmius.n ? valBars : '<div class="ja-empty">Ei FLEI-dataa.</div>') + '<div class="ja-mini" style="margin-top:16px">Talenttiportaat</div><div class="ja-tiers">' + tier(portaat.xfactor, 'X-Factor', 'var(--gold)') + tier(portaat.hiddengem, 'Hidden Gem', 'var(--teal)') + tier(portaat.seuranta, 'Seuranta') + tier(portaat.kehityskohde, 'Kehityskohde', 'var(--amber)') + '</div></div></div></div>';
+
+  // C · PELIPAIKKA-SYVYYS
+  var stCol = { aukko: ['var(--red)', 'rgba(201,64,64,.14)', 'aukko'], ohut: ['var(--amber)', 'rgba(224,160,64,.14)', 'ohut'], ok: ['var(--teal)', 'rgba(40,176,144,.12)', 'syvyys ok'], vahva: ['var(--teal)', 'rgba(40,176,144,.12)', 'vahva'] };
+  var depthRows = syvyys.ryhmat.map(function (r) { var s = stCol[r.status]; return '<div class="ja-dpos"><span class="pn">' + r.ryhma + '</span><span class="cnt">' + r.n + '</span><span class="ja-st" style="color:' + s[0] + ';background:' + s[1] + '">' + s[2] + '</span></div>'; }).join('');
+  var posN = syvyys.ryhmat.reduce(function (a, r) { return a + r.n; }, 0);
+  h += '<div class="ja-sek"><div class="ja-h">Pelipaikka-syvyys</div><div class="ja-sub">Missä on syvyyttä ja missä aukko — depth chart pelipaikoittain' + (_jaIka ? ' (' + esc(_jaIka) + ')' : '') + '. Aukko = toimenpide.</div>'
+    + (posN ? depthRows + (syvyys.tuntematon ? '<div class="ja-dpos"><span class="pn" style="color:var(--ink3)">Pelipaikka kirjaamatta</span><span class="cnt">' + syvyys.tuntematon + '</span><span class="ja-st" style="color:var(--ink3)">—</span></div>' : '') : '<div class="ja-empty">Pelipaikkoja ei ole kirjattu pelaajille — lisää pelipaikka Seurahallinnassa, niin depth chart täyttyy. (' + syvyys.tuntematon + ' ilman pelipaikkaa)</div>') + '</div>';
+
+  // D · SUHTEELLINEN IKÄ & KYPSYYS
+  var qmax = Math.max(rae.Q1, rae.Q2, rae.Q3, rae.Q4, 1);
+  var qcol = function (q, key) { var under = (key === 'Q4' && rae.Q4 < rae.Q1 && rae.n >= 6); return '<div class="ja-qcol' + (under ? ' under' : '') + '"><span class="ja-qv">' + q + '</span><span class="ja-qbar" style="height:' + Math.round(q / qmax * 100) + '%"></span><span class="ja-ql">' + key + '</span></div>'; };
+  var phvBar = function (lb, n, key) { var w = phv.n ? Math.round(n / Math.max(phv.ennen, phv.aikana, phv.jalkeen, 1) * 100) : 0; return '<div class="ja-bar"><span class="lb">' + lb + '</span><span class="tr"><b style="width:' + w + '%;background:var(--teal)"></b></span><span class="vn">' + n + '</span></div>'; };
+  var raeVinouma = (rae.n >= 6 && rae.Q4 < rae.Q1);
+  h += '<div class="ja-sek"><div class="ja-h">Suhteellinen ikä &amp; kypsyys</div><div class="ja-sub">Onko valinnassa vinoumaa — syntymäkvartaali (RAE) ja PHV-vaihe' + (rae.n ? ' · n=' + rae.n : '') + '. §28-kypsyyskorjaus jo pelaajatasolla.</div>'
+    + '<div class="ja-grid2"><div><div class="ja-mini">Syntymäkvartaali</div>' + (rae.n ? ('<div class="ja-qbars">' + qcol(rae.Q1, 'Q1') + qcol(rae.Q2, 'Q2') + qcol(rae.Q3, 'Q3') + qcol(rae.Q4, 'Q4') + '</div>' + (raeVinouma ? '<div style="margin-top:10px"><span class="ja-chip amber">RAE-vinouma: Q1 yliedustettu, Q4 aliedustettu</span></div>' : '')) : '<div class="ja-empty">Ei syntymäaikadataa (kvartaali).</div>') + '</div>'
+    + '<div><div class="ja-mini">PHV-vaihe (kypsyys)</div>' + (phv.n ? (phvBar('Ennen', phv.ennen, 'ennen') + phvBar('Kasvupyrähdyksessä', phv.aikana, 'aikana') + phvBar('Jälkeen', phv.jalkeen, 'jalkeen') + '<div style="margin-top:12px"><span class="ja-chip">§28 kypsyyskorjaus käytössä</span></div>') : '<div class="ja-empty">Ei PHV-dataa (kasvumittaus puuttuu).</div>') + '</div></div></div>';
+
+  // E · POTENTIAALI-JAKAUMA (johto-only)
+  if (johto && potti) {
+    var potRows = potti.portaat.map(function (r) { var nayta = r.nimet.slice(0, 2).join(' · ') + (r.nimet.length > 2 ? ' · +' + (r.nimet.length - 2) : ''); return '<div class="ja-potrow"><span class="st">' + (typeof _vpPotTahtiStr === 'function' ? _vpPotTahtiStr(r.tahdet) : r.tahdet) + '</span><span class="lb">' + esc(r.lyhyt) + '</span><span class="who">' + (r.n ? esc(nayta) : '—') + '</span><span class="cn">' + r.n + '</span></div>'; }).join('');
+    h += '<div class="ja-sek scout"><div class="ja-mini" style="color:var(--gold)">💎 Scouting-linssi · johto-only</div><div class="ja-h">Potentiaali-jakauma · uran kattoarvio</div><div class="ja-sub">FA-tähdet seuratasolla (#319) — montako projisoitu mille tasolle. Ei näy pelaaja-/vanhempi-apissa.</div>'
+      + potRows + '<div class="ja-potrow"><span class="st" style="opacity:.35">— — —</span><span class="lb" style="color:var(--ink3)">Ei vielä arvioitu</span><span class="who">' + (potti.eiArvioitu.n ? esc(potti.eiArvioitu.nimet.slice(0, 2).join(' · ') + (potti.eiArvioitu.nimet.length > 2 ? ' mm.' : '')) : '—') + '</span><span class="cn" style="color:var(--ink3)">' + potti.eiArvioitu.n + '</span></div>'
+      + '<div style="font-size:11px;color:var(--ink3);margin-top:10px">Scouttausprojektio, ei kehitysarvio. ' + potti.eiArvioitu.n + '/' + P.length + ' vielä arvioimatta = itsessään toimenpide. Asetus pelaajakortin Scouting-osiossa (#319).</div></div>';
+  }
+
+  // H · KEHITYSMOMENTUM & TUKI SEURALLE (toimenpiderivit → linkittävät olemassa oleviin toimintoihin)
+  var act = function (sev, teksti, sub, nappi, toiminto) { var dc = { red: 'var(--red)', amber: 'var(--amber)', teal: 'var(--teal)' }[sev]; return '<div class="ja-act"><span class="ja-dot" style="background:' + dc + '"></span><div class="body"><b>' + teksti + '</b><div class="sub">' + sub + '</div></div><button class="ja-go" onclick="' + toiminto + '">' + nappi + '</button></div>'; };
+  var rivit = '';
+  var katveet = (Array.isArray(_valmentajat) ? _valmentajat : []).filter(function (v) { return (v.mentorointiPvt != null ? v.mentorointiPvt : 999) >= 14; }).length;
+  if (katveet) rivit += act('red', katveet + ' valmentajaa ilman mentorointikirjausta (14 pv)', 'oversight-signaali · vaikuttaa review-terveyteen', 'Mentoroi →', 'setWs(\'valmentajat\')');
+  var idpN = P.filter(function (p) { return p.idp_tila; }).length; var idpPct = P.length ? Math.round(idpN / P.length * 100) : 0;
+  if (P.length && idpPct < 100) rivit += act(idpPct < 70 ? 'amber' : 'teal', 'IDP-kattavuus ' + idpPct + ' %', (P.length - idpN) + ' pelaajaa ilman aktiivista kehityssuunnitelmaa', 'Avaa jono →', 'setWs(\'jaksofokus\')');
+  var kohteet = {}; P.forEach(function (p) { var k = p.tki_kehityskohde || p.hh_kehityskohde; if (k) kohteet[k] = (kohteet[k] || 0) + 1; });
+  var heikoin = Object.keys(kohteet).sort(function (a, b) { return kohteet[b] - kohteet[a]; })[0];
+  if (heikoin && kohteet[heikoin] >= 2) rivit += act('amber', esc((typeof _vpTkLaji === 'function' ? _vpTkLaji(heikoin) : heikoin)) + ' = yleisin kehityskohde (' + kohteet[heikoin] + ' pelaajalla)', 'joukkuetason teema → yhteinen treeniteema tehokkaampi', 'Luo treeniteema →', 'setWs(\'jaksofokus\')');
+  var jumit = P.filter(function (p) { return p.idp_dvi && p.idp_dvi.suunta === 'down'; }).length;
+  if (jumit) rivit += act('amber', jumit + ' pelaajaa jumissa — DVI ei etene', 'vaativat kehityskeskustelun (Review-cockpit)', 'Katso →', 'setWs(\'reviewit\')');
+  var odottaa = P.filter(function (p) { return p.idp_sitoumus_pvm && (p.idp_sitoumus_vahv_jakso || null) !== ((p.jaksofokus && p.jaksofokus.alkoi) || null); }).length;
+  if (odottaa) rivit += act('teal', odottaa + ' pelaajaa odottaa sitoumuksen vahvistusta', 'pelaaja sitoutui → valmentaja/VP vahvistaa', 'Vahvista →', 'setWs(\'reviewit\')');
+  h += '<div class="ja-sek"><div class="ja-h">Kehitysmomentum &amp; tuki seuralle</div><div class="ja-sub">Ei pelkkä raportti — jokainen rivi on toimenpide-ehdotus, tärkein ensin. Napit avaavat olemassa olevan toiminnon.</div>' + (rivit || '<div class="ja-empty">Ei avoimia toimenpiteitä — momentum kunnossa tällä kohortilla.</div>') + '</div>';
+
+  // I · ULOSRAPORTTI (ilman AI-koostetta = J2)
+  h += '<div class="ja-sek"><div class="ja-h">Ulosraportti</div><div class="ja-sub">Seuratason koosto Head of Talentille / Palloliitolle — sama totuus tiivistettynä.</div>'
+    + '<div class="ja-exp mdt-no-print"><button class="ja-btn" onclick="_mdtPrint()">▾ Vie PDF (seurakooste)</button>'
+    + '<button class="ja-btn ghost" onclick="if(typeof lahetaRaportti===\'function\')lahetaRaportti()">✉ Lähetä Head of Talentille</button>'
+    + (johto ? '<button class="ja-btn gold" onclick="_mdtPrint()">💎 Scouting-liite (johto-only)</button>' : '')
+    + '<button class="ja-btn ghost" onclick="_mdtPrint()">📋 Palloliitto-koosto</button></div>'
+    + '<div style="font-size:10px;color:var(--ink3);margin-top:8px">AI-koosto (3 lauseen automaattikoosto) + editorial-kärki tulevat J2:ssa (tm_ai). Aika-akseli (pelaajapolku + kehityskäyrä) ja kuormitus/käytettävyys vaativat kausi-snapshotit / tilalippudatan → J2.</div></div>';
+
+  el.innerHTML = h;
+}
+window.renderJoukkuealy = renderJoukkuealy;
 
 function renderRaportointi() {
   if (typeof _mdtTaytaPicker === 'function') _mdtTaytaPicker();   // P0b-1: MDT-pelaajavalitsin
