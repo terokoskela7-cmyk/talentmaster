@@ -2036,11 +2036,11 @@ input::placeholder, textarea::placeholder { color: var(--ink3); opacity: 1; }
       Raportointi
     </div>
 
-    <div class="sb-item" data-ws="reviewit" onclick="setWs('reviewit')">
+    <div class="sb-item" data-ws="reviewit" onclick="setWs('reviewit')" title="Seuranta — katselmusrytmi + jakson sulku (EPPP-työnkulku)">
       <svg class="sb-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5">
         <path d="M9 11l3 3L17 6"/><circle cx="10" cy="10" r="8"/>
       </svg>
-      Reviewit
+      Seuranta
     </div>
 
     <div class="sb-divider"></div>
@@ -2430,8 +2430,8 @@ input::placeholder, textarea::placeholder { color: var(--ink3); opacity: 1; }
         #ws-reviewit .rvc-others{display:flex;align-items:center;gap:10px;margin-top:12px;padding:10px 14px;border:.5px dashed var(--border);border-radius:9px;font-family:var(--font-m);font-size:11px;color:var(--ink3)}
         @media(max-width:720px){#ws-reviewit .rvc-corners{grid-template-columns:1fr 1fr}#ws-reviewit .rvc-prow{grid-template-columns:14px 1fr}#ws-reviewit .rvc-pright{grid-column:2;align-items:flex-start;text-align:left;margin-top:9px}}
       </style>
-      <div class="page-title">Reviewit</div>
-      <div class="page-sub">Arviointi-cockpit · tarkistusrytmi ≥12 v 6 vk · 9–11 v 12 vk</div>
+      <div class="page-title">Seuranta</div>
+      <div class="page-sub">Katselmus-cockpit · EPPP-rytmi ≥12 v 6 vk · 9–11 v 12 vk · avaa katselmus jakson sulkuun</div>
       <!-- KISS R1.1 — ensinäkymä = päätös-KPI:t → ohjausbanneri → suodattimet → työlista. Tuloskortti romahdettuna alle. -->
       <div id="reviewScope" class="rvc-scope"></div>
       <div class="rapport-kpi" id="reviewKpis"></div>
@@ -13740,10 +13740,11 @@ function _vpCockpitRivi(x) {
   // Oikea meta + napit
   var rmeta = r.status === 'ei_reviewia' ? 'aloita →' : (r.status === 'myohassa' ? ('erääntyi ' + r.eraantyyPvm + ' · ' + r.ylimaaraPv + ' pv yli') : ('erääntyy ' + r.eraantyyPvm));
   var napit = '';
-  if (r.status === 'ei_reviewia') napit += '<button class="rvc-btn" onclick="event.stopPropagation();_reviewCockpitAvaa(\'' + pid + '\',3)">＋ Aloita review</button>';
+  // S1 — katselmusvuoro johdottaa jakson sulkuun (_vpSuljeJakso, YKSI KOHDE). Ei jaksofokusta → aloita kortissa.
+  if (r.status === 'ei_reviewia') napit += '<button class="rvc-btn" onclick="event.stopPropagation();_reviewCockpitAvaa(\'' + pid + '\',3)">＋ Aloita seuranta</button>';
   else {
     if (voiMuokata && x.sit) napit += '<button class="rvc-btn rvc-btn--vp" onclick="event.stopPropagation();_reviewCockpitAvaa(\'' + pid + '\',3)">✓ Vahvista sitoumus</button>';
-    napit += '<button class="rvc-btn' + (r.status === 'myohassa' ? '' : ' rvc-btn--ghost') + '" onclick="event.stopPropagation();_reviewCockpitAvaa(\'' + pid + '\',3)">＋ Kirjaa review</button>';
+    napit += '<button class="rvc-btn' + (r.status === 'myohassa' ? '' : ' rvc-btn--ghost') + '" onclick="event.stopPropagation();' + (p.jaksofokus ? '_vpSuljeJakso(\'' + pid + '\')' : '_reviewCockpitAvaa(\'' + pid + '\',3)') + '">Avaa katselmus →</button>';
   }
   napit += '<button class="rvc-btn rvc-btn--ghost" onclick="event.stopPropagation();_reviewCockpitAvaa(\'' + pid + '\',1)">Avaa kortti</button>';
 
