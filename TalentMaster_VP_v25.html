@@ -4699,6 +4699,22 @@ window._vpPoistaPotentiaali = async function (pid) {
     if (typeof toast === 'function') toast('Potentiaaliarvio poistettu', 'ok');
   } catch (e) { console.warn('[potentiaali-poisto]', e && e.message); if (typeof toast === 'function') toast('Poisto epäonnistui', 'error'); }
 };
+
+// R2-A V1 — potentiaali-projektio seuratason "Talenttisuositukset kv-tasolle" -listaan. LUKEE olemassa olevat
+// scout_potentiaali*-pikakentät (#319 single source SCOUT_POTENTIAALI); EI uutta kenttää, EI uutta laskentaa.
+function _vpPotTahtiStr(tahdet) { var n = Number(tahdet) || 0, s = ''; for (var i = 1; i <= 5; i++) s += (i <= n ? '★' : '☆'); return s; }
+window._vpPotTahtiStr = _vpPotTahtiStr;
+// Gold-badge nominee-riville: tähdet + taso (SCOUT_POTENTIAALI-mäppäys) TAI tyhjä → "ei arvioitu". Kutsutaan vain
+// johto-tilassa (_vpSeurantaOnJohto, kutsupaikassa); read-only projektio (kirjoitus edelleen vain #319-kortissa).
+function _vpPotentiaaliBadgeHTML(p) {
+  var GB = 'rgba(217,164,65,.4)', GD = 'rgba(217,164,65,.13)';
+  var r = (p && p.scout_potentiaali != null && typeof _vpPotRivi === 'function') ? _vpPotRivi(p.scout_potentiaali) : null;
+  var sisalto = r
+    ? '💎 <span style="font-family:var(--font-m);letter-spacing:1px">' + _vpPotTahtiStr(r.tahdet) + '</span> ' + _jsvEsc(r.lyhyt)
+    : '💎 <span style="color:var(--ink3)">ei arvioitu</span>';
+  return '<span class="tag" style="border-color:' + GB + ';background:' + GD + ';color:var(--gold)" title="Potentiaali · uran kattoarvio (scoutin projektio, FA §6) — asetetaan pelaajakortin Scouting-osiossa">' + sisalto + '</span>';
+}
+window._vpPotentiaaliBadgeHTML = _vpPotentiaaliBadgeHTML;
 // P3 — D3-kalibraatio kompakti lohko (yksi koti Arvioinnissa). Uudelleenkäyttää renderD3VertailuHTML + d3VarmuusChip +
 // _avaaVpD3Arvio (kaikki olemassa). §D3: VP-arvio EI muuta d3_taso:a — kolmiomittaus (itse × valmentaja × VP) + Aukko⚠.
 function _vpD3KalibraatioHTML(p) {
@@ -14283,10 +14299,13 @@ function renderRaportointi() {
   if (talents.length === 0) {
     nomEl.innerHTML = '<div style="color:var(--ink3);font-size:13px">Ei tunnistettuja talenttisuosituksia</div>';
   } else {
+    // R2-A V1 — potentiaali-projektio (gold) vain johto-tilassa (_vpSeurantaOnJohto); read-only pikakentistä.
+    const _potJohto = (typeof _vpSeurantaOnJohto === 'function') && _vpSeurantaOnJohto();
     nomEl.innerHTML = talents.map(p => `
       <div class="nominee-row">
         <div class="nom-name"><strong>${p.etunimi} ${p.sukunimi}</strong> · ${p.joukkue}</div>
         ${p.signaali==='xfactor' ? '<span class="tag xfactor">X-Factor</span>' : (_hgBadge(p) || '<span class="tag hidden">Hidden Gem</span>')}
+        ${_potJohto ? _vpPotentiaaliBadgeHTML(p) : ''}
         <div class="nom-detail">${p.flei_viimeisin != null ? ("Valmius " + p.flei_viimeisin) : "—"}</div>
       </div>`).join('');
   }
