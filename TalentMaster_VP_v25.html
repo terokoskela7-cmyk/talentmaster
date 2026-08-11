@@ -2036,11 +2036,11 @@ input::placeholder, textarea::placeholder { color: var(--ink3); opacity: 1; }
       Raportointi
     </div>
 
-    <div class="sb-item" data-ws="reviewit" onclick="setWs('reviewit')">
+    <div class="sb-item" data-ws="reviewit" onclick="setWs('reviewit')" title="Seuranta — katselmusrytmi + jakson sulku (EPPP-työnkulku)">
       <svg class="sb-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5">
         <path d="M9 11l3 3L17 6"/><circle cx="10" cy="10" r="8"/>
       </svg>
-      Reviewit
+      Seuranta
     </div>
 
     <div class="sb-divider"></div>
@@ -2430,8 +2430,8 @@ input::placeholder, textarea::placeholder { color: var(--ink3); opacity: 1; }
         #ws-reviewit .rvc-others{display:flex;align-items:center;gap:10px;margin-top:12px;padding:10px 14px;border:.5px dashed var(--border);border-radius:9px;font-family:var(--font-m);font-size:11px;color:var(--ink3)}
         @media(max-width:720px){#ws-reviewit .rvc-corners{grid-template-columns:1fr 1fr}#ws-reviewit .rvc-prow{grid-template-columns:14px 1fr}#ws-reviewit .rvc-pright{grid-column:2;align-items:flex-start;text-align:left;margin-top:9px}}
       </style>
-      <div class="page-title">Reviewit</div>
-      <div class="page-sub">Arviointi-cockpit · tarkistusrytmi ≥12 v 6 vk · 9–11 v 12 vk</div>
+      <div class="page-title">Seuranta</div>
+      <div class="page-sub">Katselmus-cockpit · EPPP-rytmi ≥12 v 6 vk · 9–11 v 12 vk · avaa katselmus jakson sulkuun</div>
       <!-- KISS R1.1 — ensinäkymä = päätös-KPI:t → ohjausbanneri → suodattimet → työlista. Tuloskortti romahdettuna alle. -->
       <div id="reviewScope" class="rvc-scope"></div>
       <div class="rapport-kpi" id="reviewKpis"></div>
@@ -6880,6 +6880,27 @@ function _vpSulkuSessiot(jf, alkoi, loppu) {
   }).map(function (t) { return { id: t.id, treeniteema: t.treeniteema, pelaajat_id: t.pelaajat_id || [], pvm: (t.alkaa && t.alkaa.toDate) ? t.alkaa.toDate().toISOString().slice(0, 10) : (t.pvm || '') }; });
 }
 
+// S2 — EPPP "peli edellä" -edistymäkooste (PUHDAS, testattava). Teknis-taktinen konsepti + D4 ADAR +
+// pelipaikkakonseptit (tmTtItems) JOHTAVAT; D1/D2 (hh_taso/laskeD2Taso/TKI) = §28-portitettu KONTEKSTI (ei kärki,
+// konsepti ≠ D2 tekninen). Lukee olemassa olevaa dataa, ei uutta laskentaa. opts injektoi lib-fns. Tyhjä → tyhjät kentät.
+function _vpEdistymaKooste(p, opts) {
+  opts = opts || {}; p = p || {};
+  var jf = p.jaksofokus || {}, av = p.adar_viimeisin || null;
+  var posFn = opts.ttNormPositio, ttFn = opts.tmTtItems, d2Fn = opts.laskeD2Taso;
+  var posCode = p.tt_positio_aktiivinen || (posFn ? posFn(p.positio || p.pelipaikka) : (p.positio || p.pelipaikka)) || null;
+  var ppKonseptit = [];
+  if (ttFn) { try { (ttFn({ ika: opts.ika != null ? opts.ika : null, joukkue: p.joukkue, positio: posCode, tt_positio_aktiivinen: posCode, syntymaVuosi: p.syntymaVuosi }) || []).slice(0, 4).forEach(function (it) { var n = it && (it.nimi || it.nimi_fi || it.avain); if (n) ppKonseptit.push(n); }); } catch (e) {} }
+  return {
+    konseptiNimi: jf.konsepti_nimi || null, konseptiAvain: jf.konsepti_avain || null, domeeni: jf.domeeni || null,
+    adar: av ? { a: av.a != null ? av.a : null, d: av.d != null ? av.d : null, ac: av.ac != null ? av.ac : null, r: av.r != null ? av.r : null, yht: av.yht != null ? av.yht : null } : null,
+    pelipaikka: { koodi: posCode || null, konseptit: ppKonseptit },
+    konteksti: { d1: (p.hh_taso != null ? p.hh_taso : (p.d1_taso != null ? p.d1_taso : null)), d2: (d2Fn ? d2Fn(p) : (p.d2_taso != null ? p.d2_taso : null)), tki: (p.tki_viimeisin != null ? p.tki_viimeisin : null), phvNeutraali: !!opts.phvNeutraali }
+  };
+}
+var _VP_KATSELMUS_TULOS = { parani: 'Parani', ennallaan: 'Ennallaan', vaihda: 'Vaihda' };
+function _vpKatselmusTulos(t) { return _VP_KATSELMUS_TULOS[t] || null; }
+window._vpEdistymaKooste = _vpEdistymaKooste; window._vpKatselmusTulos = _vpKatselmusTulos;
+
 window._vpSuljeJakso = async function (pid) {
   const p = (typeof _vpTtPelaaja === 'function') ? _vpTtPelaaja(pid) : (_pelaajat || []).find(function (x) { return x.id === pid; });
   if (!p || !p.jaksofokus) { if (typeof toast === 'function') toast('Ei suljettavaa jaksoa', 'error'); return; }
@@ -6947,6 +6968,16 @@ function _vpSulkuRender() {
   h += '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:2px"><div style="font-family:\'Cormorant Garamond\',serif;font-size:21px;color:var(--ink)">Sulje jakso · ' + esc(knimi) + '</div>'
     + '<button onclick="document.getElementById(\'_vpSulkuModal\').remove()" style="background:none;border:none;color:var(--ink3);font-size:22px;cursor:pointer;padding:0 6px">×</button></div>';
   h += '<div style="font-size:11px;color:var(--ink3);margin-bottom:12px">' + esc(_jfNimi(p)) + ' · ' + _pvmFi(S.alkoi) + '–' + _pvmFi(S.loppu) + '</div>';
+  // S2 ① — EDISTYMÄ · PELI EDELLÄ: teknis-taktinen konsepti + D4 ADAR + pelipaikka johtavat; D1/D2 = §28-konteksti.
+  var _ek = _vpEdistymaKooste(p, { tmTtItems: (typeof tmTtItems === 'function' ? tmTtItems : null), ttNormPositio: (typeof _vpTtNormPositio === 'function' ? _vpTtNormPositio : null), laskeD2Taso: (typeof laskeD2Taso === 'function' ? laskeD2Taso : null), ika: (typeof _dimIkaSp === 'function' ? _dimIkaSp(p.joukkue || '', p).ika : null), phvNeutraali: (typeof onNeutraaliPrePHV === 'function' ? onNeutraaliPrePHV(p) : false) });
+  h += '<div style="background:linear-gradient(150deg,rgba(40,176,144,.08),var(--deep,#1C1C1A));border:.5px solid rgba(40,176,144,.28);border-radius:10px;padding:13px;margin-bottom:10px">';
+  h += '<div style="font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--teal);margin-bottom:6px">① Edistymä — peli edellä</div>';
+  h += '<div style="font-family:\'Cormorant Garamond\',serif;font-size:17px;color:var(--ink)">' + esc(_ek.konseptiNimi || knimi) + ' <span style="font-size:11px;font-family:\'DM Mono\',monospace;color:var(--ink3)">· teknis-taktinen konsepti' + (_ek.domeeni ? ' (' + esc(_ek.domeeni) + ')' : '') + '</span></div>';
+  if (_ek.adar) h += '<div style="font-size:12px;color:var(--ink2);margin-top:6px">🎯 <b>Peliäly (ADAR)</b>: Havaitse ' + (_ek.adar.a != null ? _ek.adar.a : '—') + ' · Päätä ' + (_ek.adar.d != null ? _ek.adar.d : '—') + ' · Toimi ' + (_ek.adar.ac != null ? _ek.adar.ac : '—') + ' · Arvioi ' + (_ek.adar.r != null ? _ek.adar.r : '—') + (_ek.adar.yht != null ? ' · yht ' + _ek.adar.yht + '/3' : '') + '</div>';
+  else h += '<div style="font-size:11.5px;color:var(--ink3);margin-top:6px">🎯 Peliäly (ADAR): ei pelihavaintoja vielä — lähtötaso kerätään havainnoimalla.</div>';
+  if (_ek.pelipaikka.konseptit.length) h += '<div style="font-size:12px;color:var(--ink2);margin-top:5px">🧭 <b>Pelipaikkaosaaminen</b>' + (_ek.pelipaikka.koodi ? ' (' + esc(_ek.pelipaikka.koodi) + ')' : '') + ': ' + _ek.pelipaikka.konseptit.map(esc).join(' · ') + '</div>';
+  h += '<div style="font-size:10.5px;color:var(--ink3);margin-top:8px;padding-top:7px;border-top:.5px solid var(--border)">Konteksti (tukeva, ei kärki): D1 ' + (_ek.konteksti.d1 != null ? _ek.konteksti.d1 : '—') + ' · D2 ' + (_ek.konteksti.d2 != null ? _ek.konteksti.d2 : '—') + (_ek.konteksti.tki != null ? ' · TKI ' + _ek.konteksti.tki : '') + (_ek.konteksti.phvNeutraali ? ' · 🌱 pre-PHV: fyysinen neutraali (§28)' : '') + '</div>';
+  h += '</div>';
   // Prosessi
   h += '<div style="background:var(--deep,#1C1C1A);border:.5px solid var(--border);border-radius:10px;padding:13px;margin-bottom:10px">';
   h += '<div style="font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink3);margin-bottom:6px">Tehtiinkö suunnitelma (prosessi)</div>';
@@ -6982,7 +7013,26 @@ function _vpSulkuRender() {
   if (kal != null) h += '<div style="display:flex;align-items:center;gap:7px;margin-top:9px;background:rgba(224,160,64,.08);border:.5px solid rgba(224,160,64,.28);border-radius:7px;padding:6px 9px"><span style="font-size:11px;color:var(--amber);font-weight:600">Kalibraatio: ero ' + kal + '</span><span style="font-size:10.5px;color:var(--ink3)">— hyvä hetki keskustella (VP-työkalu, ei pelaajalle syyllistävänä)</span></div>';
   // Video-placeholder (rakenne valmis, §15 media[])
   h += '<div style="display:flex;align-items:center;gap:8px;margin-top:9px;border:.5px dashed var(--ov-3);border-radius:7px;padding:8px 10px;color:var(--ink3)"><span style="font-size:14px">📹</span><span style="font-size:11.5px">Liitä video <b style="color:var(--ink2)">(tulossa)</b> — taidon näyte ennen/jälkeen</span></div>';
+  // S2 ② — monialainen: fysioterapeutti §4 = PAIKANPITÄJÄ "tulossa" (ei rakenneta ennen §4-käytettävyysdataa).
+  h += '<div style="display:flex;align-items:center;gap:8px;margin-top:7px;border:.5px dashed var(--ov-3);border-radius:7px;padding:8px 10px;color:var(--ink3)"><span style="font-size:14px">🩺</span><span style="font-size:11.5px">Fysioterapeutti · käytettävyys/kuorma <b style="color:var(--ink2)">(tulossa · §4)</b> — ei kliinistä dataa katselmukseen (GDPR Art. 9, terveys/ erillään)</span></div>';
   h += '</div>';
+  // S2 ③ — PELAAJAN ÄÄNI (read-only; pelaaja kirjoittaa Pelaaja-apissa). itsearvio q1–q3 + miksi_pelaan.
+  var _sit = p._idpSitoumus, _ia = (_sit && _sit.itsearvio) || {};
+  var _aani = [_ia.q1, _ia.q2, _ia.q3].filter(function (x) { return x && String(x).trim(); });
+  if (_aani.length || p.miksi_pelaan) {
+    h += '<div style="background:var(--deep,#1C1C1A);border:.5px solid rgba(40,176,144,.3);border-radius:10px;padding:13px;margin-bottom:10px">';
+    h += '<div style="font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink3);margin-bottom:6px">③ Pelaajan ääni <span style="text-transform:none">· read-only</span></div>';
+    if (p.miksi_pelaan) h += '<div style="font-size:12px;color:var(--ink2);margin-bottom:5px">⚽ Miksi pelaan: <i>' + esc(p.miksi_pelaan) + '</i></div>';
+    _aani.forEach(function (q) { h += '<div style="font-family:\'Cormorant Garamond\',serif;font-style:italic;font-size:14px;color:var(--ink2);margin:3px 0">”' + esc(q) + '”</div>'; });
+    h += '</div>';
+  }
+  // S2 ④ — sitoumuksen vahvistus (olemassa oleva _vpVahvistaSitoumus), jos pelaaja sitoutui muttei vahvistettu tälle jaksolle.
+  var _curJakso = (jf && jf.alkoi) || null;
+  if (_sit && _sit.sitoumus_pvm && (_sit.vahvistettu_jakso_alkoi || null) !== _curJakso) {
+    h += '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;background:rgba(40,176,144,.06);border:.5px solid rgba(40,176,144,.28);border-radius:10px;padding:10px 13px;margin-bottom:10px">'
+      + '<span style="font-size:12px;color:var(--ink2)">◔ Pelaaja sitoutui — odottaa vahvistusta tälle jaksolle</span>'
+      + '<button class="jsp-kt-btn primary" onclick="_vpVahvistaSitoumus(\'' + esc(p.id) + '\')">✓ Vahvista sitoumus</button></div>';
+  }
   // Tulos
   const TULOKSET = [['parani', '↑ Parani'], ['ennallaan', '→ Ennallaan — jatka samaa'], ['vaihda', '⟳ Vaihda fokus']];
   h += '<div style="display:flex;gap:7px;flex-wrap:wrap;margin-bottom:8px">';
@@ -6998,7 +7048,8 @@ function _vpSulkuRender() {
       h += '<div style="font-size:11px;color:var(--amber);margin-bottom:4px">↻ Seuraava fokus (' + (seur.jatka ? 'jatka samaa' : 'silta: seuraavaksi heikoin') + ')</div>';
       h += '<div style="font-family:\'Cormorant Garamond\',serif;font-size:18px;color:var(--ink)">' + esc(seur.konsepti_nimi) + '</div>';
       if (cue.length) h += '<div style="font-size:12px;color:var(--teal);margin-top:3px">Cue: ' + esc(cue[0]) + '</div>';
-      h += '<div style="display:flex;gap:8px;margin-top:11px"><button class="jsp-kt-btn primary" style="flex:1" onclick="_vpSulkuTallenna(\'' + esc(seur.konsepti_avain) + '\')">✓ Aseta seuraava jakso</button>'
+      h += '<div style="display:flex;gap:8px;margin-top:11px;flex-wrap:wrap"><button class="jsp-kt-btn primary" style="flex:1;min-width:150px" onclick="_vpSulkuTallenna(\'' + esc(seur.konsepti_avain) + '\')">✓ Aseta seuraava jakso</button>'
+        + '<button style="flex:0 0 auto;font-size:12px;border-radius:8px;padding:8px 12px;cursor:pointer;border:.5px solid var(--border);background:var(--ov-1);color:var(--ink2)" onclick="document.getElementById(\'_vpSulkuModal\').remove();if(typeof _jfOhjaa===\'function\')_jfOhjaa(\'' + esc(p.id) + '\')">✎ Muuta fokus</button>'
         + '<button style="flex:0 0 auto;font-size:12px;border-radius:8px;padding:8px 12px;cursor:pointer;border:.5px solid var(--border);background:var(--ov-1);color:var(--ink2)" onclick="_vpSulkuTallenna(\'\')">Sulje ilman uutta</button></div>';
     } else {
       h += '<div style="font-size:12px;color:var(--ink3);margin-bottom:9px">Ei silta-ehdotusta (ei D2-arviointia) — voit sulkea jakson ilman uutta fokusta.</div>';
@@ -7006,6 +7057,9 @@ function _vpSulkuRender() {
     }
     h += '</div>';
   }
+  // S3 — Katselmushistoria · Player Journey: jaksofokus_historia (via _vpMesoKaariHTML) — pvm · konsepti ·
+  // tulos (Parani ↑ / Ennallaan → / Vaihda ⟳) · itse×VP. Ei uutta dataa; näkyy kun historiaa on.
+  if (typeof _vpMesoKaariHTML === 'function') { var _mk = _vpMesoKaariHTML(p); if (_mk) h += _mk; }
   h += '</div></div>';
   document.getElementById('_vpSulkuModal')?.remove();
   const wrap = document.createElement('div'); wrap.innerHTML = h; document.body.appendChild(wrap.firstChild);
@@ -13740,10 +13794,11 @@ function _vpCockpitRivi(x) {
   // Oikea meta + napit
   var rmeta = r.status === 'ei_reviewia' ? 'aloita →' : (r.status === 'myohassa' ? ('erääntyi ' + r.eraantyyPvm + ' · ' + r.ylimaaraPv + ' pv yli') : ('erääntyy ' + r.eraantyyPvm));
   var napit = '';
-  if (r.status === 'ei_reviewia') napit += '<button class="rvc-btn" onclick="event.stopPropagation();_reviewCockpitAvaa(\'' + pid + '\',3)">＋ Aloita review</button>';
+  // S1 — katselmusvuoro johdottaa jakson sulkuun (_vpSuljeJakso, YKSI KOHDE). Ei jaksofokusta → aloita kortissa.
+  if (r.status === 'ei_reviewia') napit += '<button class="rvc-btn" onclick="event.stopPropagation();_reviewCockpitAvaa(\'' + pid + '\',3)">＋ Aloita seuranta</button>';
   else {
     if (voiMuokata && x.sit) napit += '<button class="rvc-btn rvc-btn--vp" onclick="event.stopPropagation();_reviewCockpitAvaa(\'' + pid + '\',3)">✓ Vahvista sitoumus</button>';
-    napit += '<button class="rvc-btn' + (r.status === 'myohassa' ? '' : ' rvc-btn--ghost') + '" onclick="event.stopPropagation();_reviewCockpitAvaa(\'' + pid + '\',3)">＋ Kirjaa review</button>';
+    napit += '<button class="rvc-btn' + (r.status === 'myohassa' ? '' : ' rvc-btn--ghost') + '" onclick="event.stopPropagation();' + (p.jaksofokus ? '_vpSuljeJakso(\'' + pid + '\')' : '_reviewCockpitAvaa(\'' + pid + '\',3)') + '">Avaa katselmus →</button>';
   }
   napit += '<button class="rvc-btn rvc-btn--ghost" onclick="event.stopPropagation();_reviewCockpitAvaa(\'' + pid + '\',1)">Avaa kortti</button>';
 
