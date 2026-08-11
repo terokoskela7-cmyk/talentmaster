@@ -4611,11 +4611,12 @@ window.SCOUT_POTENTIAALI = SCOUT_POTENTIAALI; window._vpPotTaso = _vpPotTaso; wi
 
 // Gold-alaosio (mockupin .pot-visuaali): 5-portainen asteikko + valittu korostettuna TAI tyhjä tila. Asetuskontrolli
 // valtuutetuille (rungit klikattavia + huomiot). Ei-valtuutetulle read-only. §7.22 ei koske (VP/scout-facing).
-function _vpPotentiaaliHTML(p) {
+function _vpPotentiaaliHTML(p, opts) {
   if (!p) return '';
   // Portti = JOHTO-only (VP/johto/SA) — täsmää Firestore-sääntöön (onJohtoRooli). EI _vpVoiMuokata(p): se päästää
   // R1:n jälkeen myös oman joukkueen valmentajan → kontrolli näkyisi mutta kirjoitus permission-failaisi (#319 L1).
-  var voi = (typeof _vpSeurantaOnJohto === 'function') ? _vpSeurantaOnJohto() : false;
+  // R2-A V2: opts.readonly → read-only näyttö (raporttikortti; asetus pysyy VP-cockpitissa) — piilottaa asetuskontrollin.
+  var voi = (opts && opts.readonly) ? false : ((typeof _vpSeurantaOnJohto === 'function') ? _vpSeurantaOnJohto() : false);
   var val = (p.scout_potentiaali != null) ? Number(p.scout_potentiaali) : null;
   var huom = p.scout_potentiaali_huomiot || '';
   var pid = _jesc(p.id);
@@ -12906,6 +12907,11 @@ function _vpTapahtumaRenderModaali(lataa) {
 /* ═══ MDT-RAPORTTI (P0b-1, docs/MDT_RAPORTTI_SPEC.md) — yhden sivun profiili: signs · samples · SEO ═══
    Vain pikakentät (§26), data-tietoinen (§29). Carbon §5, string concat §7.1. Termi: "pelihavainto". */
 var _mdtPid = null, _mdtSkin = 'johtaja', _mdtPalaveri = false;
+// R2-A V2 — Player Development Card korvaa 3-sarakeraportin. Linssi 🎯 Kehitys / 💎 Scouting (yleisölinssit
+// Johtaja/Valmentaja/Vanhempi poistuvat kortista — vanhempi hoidetaan player/vanhempi-apissa). _mdtChap = auki oleva syvennys.
+var _mdtLinssi = 'kehitys', _mdtChap = 'idp';
+window._mdtVaihdaLinssi = function (l) { _mdtLinssi = (l === 'scouting') ? 'scouting' : 'kehitys'; _mdtChap = (_mdtLinssi === 'scouting') ? 'pelialy' : 'idp'; _renderMDTProfiili(); };
+window._mdtAvaaChap = function (id) { _mdtChap = id; _renderMDTProfiili(); };
 var _mdtTavoitteet = {};   // pid → array | 'loading' — per-pelaaja on-demand raporttiluku (§26)
 var _mdtVanhMuokkaus = {}, _mdtVanhEdit = false;   // sessio-paikallinen vanhempiviestin muokkaus (pid → teksti)
 function _mdtEsc(s){ return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
@@ -13073,110 +13079,193 @@ function _mdtVanhempiRunko(p, ika, spMN) {
   return h;
 }
 
+// R2-A V2 — Player Development Card -osiot (read-only). Pelipaikka-piirros + FA 1–5 -lista lukevat olemassa
+// olevaa dataa (positio/pelipaikka · arviointi_havaittu + kuvaus_fi #315); EI uutta laskentaa.
+var _MDT_POS = { MV: [60, 158], KP: [60, 128], LP: [30, 124], KK: [60, 92], HM: [60, 62], LH: [30, 52], KH: [60, 34] };
+function _mdtPelipaikkaSVG(p) {
+  var code = String(p.tt_positio_aktiivinen || p.positio || p.pelipaikka || '').trim().toUpperCase();
+  var nimi = (typeof _vpPosNimi === 'function') ? _vpPosNimi(code) : code;
+  var xy = _MDT_POS[code] || null;
+  var dot = xy ? '<circle cx="' + xy[0] + '" cy="' + xy[1] + '" r="8.5" fill="var(--teal)"/><text x="' + xy[0] + '" y="' + (xy[1] + 3) + '" font-family="DM Mono,monospace" font-size="7.5" fill="#0c1a15" text-anchor="middle">' + _jsvEsc(code) + '</text>' : '';
+  var svg = '<svg width="118" height="176" viewBox="0 0 120 180" role="img" aria-label="pelipaikka"><g fill="none" stroke="var(--ov-3,rgba(255,255,255,.14))" stroke-width="1.2">'
+    + '<rect x="6" y="6" width="108" height="168" rx="3"/><line x1="6" y1="90" x2="114" y2="90"/><circle cx="60" cy="90" r="16"/><rect x="34" y="6" width="52" height="26"/><rect x="34" y="148" width="52" height="26"/></g>' + dot + '</svg>';
+  return '<div class="pdc-mini-h" style="text-align:center">Pelipaikka</div><div style="text-align:center">' + svg + '</div>'
+    + '<div class="pdc-note">' + (code ? _jsvEsc(nimi) : 'ei kirjattu') + '</div>';
+}
+// FA 1–5 -lista (read-only) — grupoi arvioidut attribuutit dimeittäin, nimi + ⓘ (kuvaus_fi #315) + arvo. Ei muokkausta
+// (arviointi tehdään pelaajakortin Arviointi-osiossa). Reuse: taksonomia + arviointi_havaittu + _vpArvKuvaus-popover.
+function _mdtFaLista(p) {
+  var kehys = (typeof tmKehys === 'function') ? tmKehys(window._vpArvKehys || 'palloliitto') : null;
+  var taks = (kehys && kehys.taksonomia) || (typeof ARVIOINTI_TAKSONOMIA !== 'undefined' ? ARVIOINTI_TAKSONOMIA : []);
+  var hav = p.arviointi_havaittu || {};
+  var DN = (typeof TM_DIMENSIOT !== 'undefined') ? TM_DIMENSIOT : {};
+  var out = '', n = 0;
+  ['D1', 'D2', 'D3', 'D4', 'D5'].forEach(function (dim) {
+    var its = taks.filter(function (i) { return i.dim === dim && hav[i.avain] != null; });
+    if (!its.length) return;
+    out += '<div class="pdc-fa-h">' + dim + ' ' + _jsvEsc((DN[dim] && DN[dim].nimi_fi) || '') + '</div>';
+    its.forEach(function (it) {
+      n++;
+      var v = hav[it.avain];
+      var itag = it.kuvaus_fi ? ' <span class="pdc-ii" role="button" tabindex="0" title="' + _jsvEsc(it.kuvaus_fi) + '" onclick="event.stopPropagation();_vpArvKuvaus(event,\'' + it.avain + '\')">ⓘ</span>' : '';
+      out += '<div class="pdc-fa-row"><span>' + _jsvEsc(it.nimi_fi) + itag + '</span><b style="color:' + _mdtVari5(v) + '">' + v + '</b></div>';
+    });
+  });
+  if (!n) return '<div class="pdc-empty">Ei vielä FA 1–5 -arvioita. Arviointi tehdään pelaajakortin Arviointi-osiossa.</div>';
+  return '<div style="font-size:11px;color:var(--ink3);margin-bottom:7px">' + n + ' arvioitua ominaisuutta · <b style="color:var(--teal)">ⓘ = mitä ominaisuus tarkoittaa</b> (kuvaus_fi) · asteikko 1–5 ikäluokkaan verraten. Read-only.</div>' + out;
+}
+
+// R2-A V2 — Pelaajaraportti = kanoninen Player Development Card (docs/PLAYER_CARD_TOPIAS.html). Esityskerroksen vaihto:
+// EI uutta dataa/laskentaa — uudelleenkäyttää _tmRadar5D · renderD3VertailuHTML · renderKehityskorttiHTML · _vpKehSuunnitelmaHTML ·
+// _vpKehityskaariHTML · laskeD1Osaindeksit/laskeD2Taso/laskeD5Taso/_dimNorm5Adar · _hgBadge/_vpRaeChip · _vpPotentiaaliHTML(readonly).
+// Linssi 🎯 Kehitys / 💎 Scouting (yleisölinssit poistuneet). Read-only; muokkaus + potentiaalin asetus pysyvät VP-cockpitissa.
 function _renderMDTProfiili() {
   var el = document.getElementById('mdtProfiili');
   if (!el) return;
   if (!_mdtPid) { el.innerHTML = ''; el.classList.remove('mdt-palaveri'); return; }
-  var p = (_pelaajat || []).find(function(x){ return x.id === _mdtPid; });
+  var p = (_pelaajat || []).find(function (x) { return x.id === _mdtPid; });
   if (!p) { el.innerHTML = '<div style="padding:16px;color:var(--ink3)">Pelaajaa ei löytynyt.</div>'; return; }
-  var isp = (typeof _jsvJoukkueIkaSp === 'function') ? _jsvJoukkueIkaSp(p.joukkue||'') : { ika:null, sp:'P' };
+  var isp = (typeof _jsvJoukkueIkaSp === 'function') ? _jsvJoukkueIkaSp(p.joukkue || '') : { ika: null, sp: 'P' };
   var ika = isp.ika, spMN = (isp.sp === 'T') ? 'N' : 'M';
-  var nimi = ((p.etunimi||'')+' '+(p.sukunimi||'')).trim() || p.id;
+  var nimi = ((p.etunimi || '') + ' ' + (p.sukunimi || '')).trim() || p.id;
   var _viimTestiIso = p.hh_pvm || p.tki_pvm || null;
   var viimTesti = _viimTestiIso ? (typeof tmPvmFi === 'function' ? (tmPvmFi(_viimTestiIso) || _viimTestiIso) : _viimTestiIso) : null;
   var _viimTestiVanha = _viimTestiIso && typeof tmOnVanhaMittaus === 'function' && tmOnVanhaMittaus(_viimTestiIso);
   var d1 = (p.hh_taso != null) ? p.hh_taso : (p.d1_taso != null ? p.d1_taso : null);
   var oi = (typeof laskeD1Osaindeksit === 'function') ? laskeD1Osaindeksit(p.hh_viimeisin, ika, spMN) : null;
   var d2 = (typeof laskeD2Taso === 'function') ? laskeD2Taso(p) : (p.d2_taso != null ? p.d2_taso : null);
-  var d2lahde = (typeof _d2Lahde === 'function') ? _d2Lahde(p) : null;
   var d3 = (p.d3_taso != null) ? p.d3_taso : null;
   var av = p.adar_viimeisin || null, adarYht = av && av.yht;
   var d4 = (typeof _dimNorm5Adar === 'function') ? _dimNorm5Adar(adarYht) : null;
   var d5 = (typeof laskeD5Taso === 'function') ? laskeD5Taso(p) : (p.d5_taso != null ? p.d5_taso : null);
   var adarN = p.adar_havaintoja || 0;
-  var V5 = _mdtVari5, PURPLE = '#8B5CF6';
+  var V5 = _mdtVari5;
+  var ikavaihe = (ika == null) ? '' : (ika <= 12 ? 'Leikkijä' : ika <= 15 ? 'Rakentaja' : 'Showcase');
+  var scout = (_mdtLinssi === 'scouting');
+  var GOLD = 'var(--gold)', GB = 'rgba(217,164,65,.4)', GD = 'rgba(217,164,65,.13)';
 
-  // HEADER
+  // Chip-rivi (identiteetti)
   var hgBadge = (typeof _hgBadge === 'function') ? _hgBadge(p) : null;
   var talBadge = (p.signaali === 'xfactor') ? '<span class="tag" style="background:var(--teal);color:#fff">✦ X-Factor</span>' : (hgBadge || '');
-  var phvChip = p.phv_tila ? '<span style="font-size:10px;padding:1px 7px;border-radius:20px;border:.5px solid var(--ink3);color:var(--ink3)">PHV ' + p.phv_tila + '</span>' : '';
+  var phvChip = p.phv_tila ? '<span class="pdc-chip">PHV ' + _jsvEsc(p.phv_tila) + '</span>' : '';
   var raeChipH = (typeof _vpRaeChip === 'function') ? _vpRaeChip(p, 'iso') : '';
-  var h = '<div class="mdt-card" style="margin-bottom:12px"><div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap">'
-    + '<div><div style="font-family:\'Cormorant Garamond\',serif;font-size:24px;color:var(--ink)">' + nimi + '</div>'
-    + '<div style="font-size:12px;color:var(--ink2);margin-top:2px">' + (p.joukkue||'—') + ' · ' + (ika!=null?ika+' v':'—') + (viimTesti?' · testattu '+viimTesti+(_viimTestiVanha?' <span style="color:var(--amber);font-weight:600" title="Yli 6 kk — päivitä mittaus">📍 päivitä</span>':''):'') + '</div></div>'
-    + '<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">' + (_mdtSkin==='vanhempi' ? '' : (phvChip + raeChipH + (talBadge||''))) + '</div></div></div>';
 
-  // SKIN-TOGGLE
-  h += '<div class="mdt-no-print" style="display:flex;gap:8px;margin-bottom:12px">'
-    + '<button class="mdt-skinbtn' + (_mdtSkin==='johtaja'?' on':'') + '" onclick="_mdtVaihdaSkin(\'johtaja\')">Johtaja</button>'
-    + '<button class="mdt-skinbtn' + (_mdtSkin==='valmentaja'?' on':'') + '" onclick="_mdtVaihdaSkin(\'valmentaja\')">Valmentaja</button>'
-    + '<button class="mdt-skinbtn' + (_mdtSkin==='vanhempi'?' on':'') + '" onclick="_mdtVaihdaSkin(\'vanhempi\')">Vanhempi</button></div>';
+  var h = '<style>'
+    + '#mdtProfiili .pdc-hero{background:var(--surface);border:.5px solid var(--border);border-radius:16px;padding:22px 24px;margin-bottom:14px}'
+    + '#mdtProfiili .pdc-eyebrow{font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--teal)}'
+    + '#mdtProfiili .pdc-name{font-family:\'Cormorant Garamond\',serif;font-weight:300;font-size:clamp(28px,4vw,42px);line-height:1.02;color:var(--ink)}'
+    + '#mdtProfiili .pdc-sub{font-family:\'DM Mono\',monospace;font-size:11.5px;color:var(--ink2);margin-top:6px}'
+    + '#mdtProfiili .pdc-chip{font-size:10px;padding:2px 8px;border-radius:20px;border:.5px solid var(--ink3);color:var(--ink2)}'
+    + '#mdtProfiili .pdc-lens{display:inline-flex;border:.5px solid var(--border);border-radius:9px;overflow:hidden}'
+    + '#mdtProfiili .pdc-lens button{font-size:12px;font-weight:600;padding:8px 14px;border:none;background:transparent;color:var(--ink3);cursor:pointer}'
+    + '#mdtProfiili .pdc-lens button.k.on{background:rgba(40,176,144,.12);color:var(--teal)}#mdtProfiili .pdc-lens button.s.on{background:' + GD + ';color:' + GOLD + '}'
+    + '#mdtProfiili .pdc-sig{font-family:\'Cormorant Garamond\',serif;font-style:italic;font-size:17px;line-height:1.4;color:var(--ink2);max-width:640px;margin:16px 0 4px}#mdtProfiili .pdc-sig b{color:var(--teal);font-style:normal;font-weight:500}'
+    + '#mdtProfiili .pdc-grid{display:grid;grid-template-columns:1fr 1.1fr .9fr;gap:20px;margin-top:18px;align-items:start}@media(max-width:820px){#mdtProfiili .pdc-grid{grid-template-columns:1fr}}'
+    + '#mdtProfiili .pdc-mini-h{font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--teal);margin-bottom:8px}'
+    + '#mdtProfiili .pdc-idrow{display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:.5px solid var(--border);font-size:12px}#mdtProfiili .pdc-idrow:last-child{border-bottom:none}#mdtProfiili .pdc-idrow .k{color:var(--ink3);font-family:\'DM Mono\',monospace;font-size:10.5px}'
+    + '#mdtProfiili .pdc-note{font-family:\'DM Mono\',monospace;font-size:9px;color:var(--ink3);text-align:center;margin-top:5px}'
+    + '#mdtProfiili .pdc-strip{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:18px;padding:13px 16px;border-radius:12px;font-size:13px}'
+    + '#mdtProfiili .pdc-strip.k{background:rgba(40,176,144,.10);border:.5px solid rgba(40,176,144,.32)}#mdtProfiili .pdc-strip.s{background:' + GD + ';border:.5px solid ' + GB + '}'
+    + '#mdtProfiili .pdc-strip .lab{font-family:\'DM Mono\',monospace;font-size:9px;letter-spacing:.12em;text-transform:uppercase}'
+    + '#mdtProfiili .pdc-rating{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:14px}@media(max-width:640px){#mdtProfiili .pdc-rating{grid-template-columns:1fr 1fr}}'
+    + '#mdtProfiili .pdc-rc{background:var(--surface);border:.5px solid var(--border);border-radius:10px;padding:11px 12px}#mdtProfiili .pdc-rc .d{font-family:\'DM Mono\',monospace;font-size:8.5px;color:var(--ink3)}#mdtProfiili .pdc-rc .n{font-family:\'Cormorant Garamond\',serif;font-size:26px;line-height:1.1;margin:2px 0 5px}#mdtProfiili .pdc-rc .n small{font-size:11px;color:var(--ink3)}'
+    + '#mdtProfiili .pdc-dots{display:flex;gap:3px}#mdtProfiili .pdc-dots i{height:4px;border-radius:2px;background:var(--border);flex:1}'
+    + '#mdtProfiili .pdc-chapters{display:flex;gap:6px;flex-wrap:wrap;border-bottom:.5px solid var(--border);padding-bottom:11px;margin-bottom:14px}'
+    + '#mdtProfiili .pdc-chapters button{font-size:12px;font-weight:500;padding:7px 12px;border:.5px solid transparent;border-radius:8px;background:transparent;color:var(--ink3);cursor:pointer}#mdtProfiili .pdc-chapters button.on{color:var(--teal);background:rgba(40,176,144,.12);border-color:rgba(40,176,144,.32)}'
+    + '#mdtProfiili .pdc-panel{background:var(--surface);border:.5px solid var(--border);border-radius:12px;padding:18px 20px;margin-bottom:14px}'
+    + '#mdtProfiili .pdc-fa-h{font-family:\'DM Mono\',monospace;font-size:9px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink3);margin:12px 0 3px}'
+    + '#mdtProfiili .pdc-fa-row{display:flex;justify-content:space-between;align-items:center;padding:5px 2px;border-bottom:.5px solid var(--border);font-size:12.5px}#mdtProfiili .pdc-fa-row b{font-family:\'Cormorant Garamond\',serif;font-size:16px;width:26px;text-align:center}'
+    + '#mdtProfiili .pdc-ii{font-size:11px;color:var(--blue);cursor:help}'
+    + '#mdtProfiili .pdc-empty{font-size:12.5px;color:var(--ink3);padding:12px;border:.5px dashed var(--border);border-radius:9px}'
+    + '</style>';
 
-  // VANHEMPI-SKINI (§7.22): piilota numeerinen runko + johtaja/valmentaja-paneelit → vain lapsen kielen runko.
-  if (_mdtSkin === 'vanhempi') {
-    h += _mdtVanhempiRunko(p, ika, spMN);
-    h += '<div class="mdt-no-print" style="display:flex;gap:8px;margin-top:14px">'
-      + '<button onclick="_mdtPrint()" style="padding:9px 16px;border:none;border-radius:6px;background:var(--teal);color:#fff;font-size:12px;cursor:pointer">Vie PDF vanhemmalle</button>'
-      + '<button onclick="_mdtPalaveritila()" style="padding:9px 16px;border:.5px solid var(--border);border-radius:6px;background:var(--surface);color:var(--ink2);font-size:12px;cursor:pointer">' + (_mdtPalaveri?'Sulje palaveritila':'Kehityspalaveri') + '</button></div>';
-    el.innerHTML = h;
-    return;
+  // HERO
+  h += '<div class="pdc-hero"><div style="display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap">'
+    + '<div><div class="pdc-eyebrow">Player Development Card' + (ikavaihe ? (' · ' + ikavaihe) : '') + '</div>'
+    + '<div class="pdc-name">' + _jsvEsc(nimi) + '</div>'
+    + '<div class="pdc-sub">' + _jsvEsc((typeof _vpPosNimi === 'function' && (p.positio || p.pelipaikka) ? _vpPosNimi(p.positio || p.pelipaikka) + ' · ' : '')) + _jsvEsc(p.joukkue || '—') + ' · ' + (ika != null ? ika + ' v' : '—') + (p.phv_tila ? ' · PHV ' + _jsvEsc(p.phv_tila) : '') + (p.flei_viimeisin != null ? ' · Valmius ' + p.flei_viimeisin : '') + (viimTesti ? ' · testattu ' + _jsvEsc(viimTesti) + (_viimTestiVanha ? ' 📍' : '') : '') + '</div></div>'
+    + '<div style="display:flex;flex-direction:column;gap:8px;align-items:flex-end">'
+    + '<div class="pdc-lens mdt-no-print"><button class="k' + (scout ? '' : ' on') + '" onclick="_mdtVaihdaLinssi(\'kehitys\')">🎯 Kehitys</button><button class="s' + (scout ? ' on' : '') + '" onclick="_mdtVaihdaLinssi(\'scouting\')">💎 Scouting</button></div>'
+    + '<div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">' + phvChip + raeChipH + (talBadge || '') + '</div></div></div>';
+
+  // Signature (linssikohtainen, datavetoinen + rehellinen)
+  if (scout) {
+    var erottaja = (d2 != null && d2 >= 3.5) ? ('tekniikka (D2 ' + d2 + (p.tki_viimeisin != null ? ' · TKI ' + p.tki_viimeisin : '') + ')') : (d1 != null && d1 >= 3.5) ? ('fyysinen (D1 ' + d1.toFixed(1) + ')') : 'ei vielä selkeää erottajaa';
+    h += '<div class="pdc-sig">Scouting-näkymä — vahvin erottaja: <b>' + erottaja + '</b>. ' + (p.signaali === 'xfactor' ? 'X-Factor tunnistettu.' : (hgBadge ? 'Hidden Gem -signaali.' : 'Ei X-Factoria vielä.')) + '</div>';
+  } else {
+    var jfNimi = (p.jaksofokus && p.jaksofokus.konsepti_nimi) || (p.idp_fokus && (p.idp_fokus.nimi || p.idp_fokus.alue)) || null;
+    h += '<div class="pdc-sig">' + (jfNimi ? ('Nykyfokus <b>' + _jsvEsc(jfNimi) + '</b>' + (p.idp_tila ? ' · IDP ' + _jsvEsc(p.idp_tila) : '') + '.') : 'Ei asetettua jaksofokusta — aseta cockpitissa.') + '</div>';
   }
 
-  // 3-LÄHDEKAISTA
-  var signs = _mdtRivi('D1 Fyysinen', d1!=null?d1.toFixed(1):'—', V5(d1));
-  if (oi) ['kiihdytys','maksinopeus','voima','ketteryys','suunnanmuutos','aerobinen'].forEach(function(k){ if (oi[k]!=null) signs += _mdtRivi('· '+_mdtOsaNimi(k), oi[k], V5(oi[k])); });
-  signs += _mdtRivi('D2 Tekninen', d2!=null?(d2+(d2lahde&&d2lahde!=='tki'?'¹':'')):'—', V5(d2));
-  signs += _mdtRivi('Kehon valmius', p.flei_viimeisin!=null?p.flei_viimeisin:'—', (p.flei_viimeisin>=65?'var(--teal)':p.flei_viimeisin>=50?'var(--amber)':'var(--ink)'));
-  signs += _mdtRivi('PHV', p.phv_tila||'—', 'var(--ink2)');
-  var samples = p.pelidata;
-  var samplesH = (samples && (samples.minuutit!=null || samples.arvosana!=null))
-    ? (_mdtRivi('Peliminuutit', samples.minuutit!=null?samples.minuutit:'—', 'var(--ink)') + _mdtRivi('Arvosana', samples.arvosana!=null?samples.arvosana:'—', 'var(--ink)'))
-    : '<div style="font-size:12px;color:var(--ink3);padding:8px 0">Ei otteludataa vielä.</div>';
-  var seoH;
-  if (av && av.yht != null) {
-    seoH = _mdtRivi('D4 Peliäly', av.yht + '/3' + (adarN<3?' · epävarma':''), V5(d4))
-      + _mdtRivi('· Havaitse', av.a!=null?av.a:'—', 'var(--ink2)') + _mdtRivi('· Päätä', av.d!=null?av.d:'—', 'var(--ink2)')
-      + _mdtRivi('· Toimi', av.ac!=null?av.ac:'—', 'var(--ink2)') + _mdtRivi('· Arvioi', av.r!=null?av.r:'—', 'var(--ink2)')
-      + '<div style="font-size:10px;color:var(--ink3);margin-top:4px">' + adarN + ' pelihavaintoa' + (adarN<3?' — epävarma (<3)':'') + '</div>';
-  } else seoH = '<div style="font-size:12px;color:var(--ink3);padding:8px 0">Ei pelihavaintoja vielä.</div>';
-  h += '<div class="mdt-kaista" style="margin-bottom:12px">'
-    + '<div class="mdt-card" style="border-top:3px solid var(--teal)"><div class="mdt-srchdr" style="color:var(--teal)">Mittaus · objektiivinen</div>' + signs + '</div>'
-    + '<div class="mdt-card" style="border-top:3px solid var(--amber)"><div class="mdt-srchdr" style="color:var(--amber)">Ottelu · pelisuoritus</div>' + samplesH + '</div>'
-    + '<div class="mdt-card" style="border-top:3px solid ' + PURPLE + '"><div class="mdt-srchdr" style="color:' + PURPLE + '">Pelihavainto · subjektiivinen</div>' + seoH + '</div></div>';
+  // HERO-GRID: perustiedot · 5D-tutka · pelipaikka
+  var idrow = function (k, v) { return '<div class="pdc-idrow"><span class="k">' + k + '</span><span>' + v + '</span></div>'; };
+  var perus = '<div class="pdc-mini-h">Perustiedot</div>'
+    + idrow('Joukkue', _jsvEsc(p.joukkue || '—'))
+    + idrow('Ikä / vaihe', (ika != null ? ika + ' v' : '—') + (ikavaihe ? ' · ' + ikavaihe : ''))
+    + idrow('PHV', p.phv_tila ? (_jsvEsc(p.phv_tila) + ' · normivertailu') : '—')
+    + idrow('Valmius (FLEI)', p.flei_viimeisin != null ? (p.flei_viimeisin + ' / 100') : '—')
+    + idrow('Viim. testi', viimTesti ? (_jsvEsc(viimTesti) + (_viimTestiVanha ? ' <span style="color:var(--amber)" title="Yli 6 kk">📍</span>' : '')) : 'ei testattu');
+  var radarDims = [{ key: 'D1', label: 'Fyys', arvo: d1 }, { key: 'D2', label: 'Tekn', arvo: d2 }, { key: 'D3', label: 'Psyy', arvo: d3 }, { key: 'D4', label: 'Peliäly', arvo: d4 }, { key: 'D5', label: 'Sos', arvo: d5 }];
+  var radar = (typeof window._tmRadar5D === 'function')
+    ? ('<div class="pdc-mini-h" style="text-align:center">5D-profiili</div>' + window._tmRadar5D(radarDims, { referenssi: 3, referenssiVari: 'var(--ink3)', maxW: 260 }) + '<div class="pdc-note">katkoviiva = ikäluokkanormi (taso 3) · D4 = ADAR 1–3 norm.</div>')
+    : '';
+  h += '<div class="pdc-grid"><div>' + perus + '</div><div>' + radar + '</div><div>' + _mdtPelipaikkaSVG(p) + '</div></div>';
 
-  // ERIMIELISYYS
-  var erim = [];
-  if (d2!=null && d2>=3.5 && (adarN<3 || !(av && av.yht!=null)) && !(samples && samples.minuutit!=null))
-    erim.push('Tekniset merkit vahvat (D2 ' + d2 + '), mutta pelihavaintoja/otteludataa niukasti → vahvista pelitilanteessa.');
-  if (d2!=null && d1!=null && (d2-d1)>=1.0)
-    erim.push('Tekniikka selvästi fysiikkaa edellä (D2 ' + d2 + ' vs D1 ' + d1.toFixed(1) + ') → Hidden Gem -signaali; fysiikka voi tulla PHV:n myötä.');
-  if (erim.length) h += '<div class="mdt-card" style="margin-bottom:12px;border-left:3px solid var(--amber)"><div style="font-size:11px;font-weight:600;color:var(--amber);margin-bottom:4px">⚠ Lähteet eroavat (ei verdiktiä)</div>' + erim.map(function(e){ return '<div style="font-size:12px;color:var(--ink2);line-height:1.4;margin-top:3px">' + e + '</div>'; }).join('') + '</div>';
+  // LINSSI-STRIP
+  if (scout) {
+    var status = (p.signaali === 'xfactor') ? 'X-Factor' : (hgBadge ? 'Hidden Gem' : 'Ei erityistä talent-signaalia');
+    h += '<div class="pdc-strip s"><div><div class="lab" style="color:' + GOLD + '">Talent-status</div><div>' + status + (p.talenttiOhjelma ? ' · talenttiohjelmassa' : '') + '</div></div>'
+      + '<span class="tag" style="border:.5px solid ' + GB + ';background:' + GD + ';color:' + GOLD + ';padding:3px 9px;border-radius:20px;font-size:10px;font-weight:600">Potentiaali: ' + (typeof _vpPotTahtiStr === 'function' && p.scout_potentiaali != null ? _vpPotTahtiStr(p.scout_potentiaali) : 'ei arvioitu') + '</span></div>';
+  } else {
+    var jfDom = (p.jaksofokus && p.jaksofokus.domeeni) || null;
+    h += '<div class="pdc-strip k"><div><div class="lab" style="color:var(--teal)">Jaksofokus · nyt</div><div>' + ((p.jaksofokus && p.jaksofokus.konsepti_nimi) ? (_jsvEsc(p.jaksofokus.konsepti_nimi) + (jfDom ? ' · ' + _jsvEsc(jfDom) : '')) : 'ei asetettu') + '</div></div>'
+      + '<span class="tag" style="border:.5px solid rgba(40,176,144,.32);background:rgba(40,176,144,.1);color:var(--teal);padding:3px 9px;border-radius:20px;font-size:10px;font-weight:600">IDP: ' + _jsvEsc(p.idp_tila || 'ei tavoitetta') + '</span></div>';
+  }
 
-  // 5D-PALKIT
-  var dims5 = [['D1 Fyysinen',d1],['D2 Tekninen',d2],['D3 Psyykkinen',d3],['D4 Peliäly',d4],['D5 Sosiaalinen',d5]];
-  h += '<div class="mdt-card" style="margin-bottom:12px"><div class="mdt-srchdr">5D-profiili (1–5)</div>'
-    + dims5.map(function(d){ var v = d[1], pct = v!=null?Math.round(v/5*100):0;
-        return '<div style="display:flex;align-items:center;gap:10px;margin:5px 0"><span style="flex:0 0 96px;font-size:11px;color:var(--ink2)">' + d[0] + '</span>'
-          + '<span style="flex:1;height:8px;border-radius:4px;background:var(--ov-2,rgba(255,255,255,.06));overflow:hidden"><span style="display:block;height:8px;width:' + pct + '%;background:' + V5(v) + '"></span></span>'
-          + '<span style="flex:0 0 42px;text-align:right;font-size:11px;color:' + V5(v) + '">' + (v!=null?v:'tulossa') + '</span></div>'; }).join('') + '</div>';
+  // 5D-RATING-SOLUT
+  var rc = function (d, val, max) {
+    var mx = max || 5, on = (val != null) ? Math.round(val / mx * 5) : 0, dots = '';
+    for (var i = 1; i <= 5; i++) dots += '<i' + (i <= on ? ' style="background:' + V5(val) + '"' : '') + '></i>';
+    return '<div class="pdc-rc"><div class="d">' + d + '</div><div class="n" style="color:' + (val != null ? V5(val) : 'var(--ink3)') + '">' + (val != null ? val : '—') + '<small>/' + mx + '</small></div><div class="pdc-dots">' + dots + '</div></div>';
+  };
+  h += '<div class="pdc-rating">' + rc('D1 FYYSINEN', d1) + rc('D2 TEKNINEN', d2) + rc('D3 PSYYKKINEN', d3) + rc('D4 PELIÄLY · ADAR', (av && av.yht != null) ? av.yht : null, 3) + rc('D5 SOSIAALINEN', d5) + '</div>';
 
-  // SKINIKOHTAINEN PANEELI
-  h += (_mdtSkin === 'valmentaja') ? _mdtValmentajaPaneeli(p, ika, spMN) : _mdtJohtajaPaneeli(p, ika, spMN, oi);
+  // POTENTIAALI (scouting-only, read-only)
+  if (scout && typeof _vpPotentiaaliHTML === 'function') h += _vpPotentiaaliHTML(p, { readonly: true });
 
-  // Review-status + merkintä (johtaja/valmentaja-skini)
+  // SYVENNYSKERROKSET (7 kappaletta)
+  var CHAPS = [['idp', 'Kehityssuunnitelma'], ['psyy', 'Psyykkinen'], ['mittaukset', 'Mittaukset'], ['pelialy', 'Peliäly · ADAR'], ['kaari', 'Kehityskaari'], ['fa', 'FA 1–5'], ['terveys', 'Terveys']];
+  if (!CHAPS.some(function (c) { return c[0] === _mdtChap; })) _mdtChap = 'idp';
+  h += '<div class="pdc-chapters mdt-no-print">' + CHAPS.map(function (c) { return '<button class="' + (_mdtChap === c[0] ? 'on' : '') + '" onclick="_mdtAvaaChap(\'' + c[0] + '\')">' + c[1] + '</button>'; }).join('') + '</div>';
+  var chap = '';
+  if (_mdtChap === 'idp') chap = (typeof _vpKehSuunnitelmaHTML === 'function') ? _vpKehSuunnitelmaHTML(p) : '<div class="pdc-empty">Kehityssuunnitelma ei saatavilla.</div>';
+  else if (_mdtChap === 'psyy') chap = (p.d3_viimeisin && p.d3_viimeisin.pisteet && typeof renderD3VertailuHTML === 'function') ? ('<div class="pdc-mini-h">Psyykkinen (D3) · itse × valmentaja × VP</div>' + renderD3VertailuHTML(p.d3_viimeisin.pisteet)) : '<div class="pdc-empty">Ei D3-kalibraatiota vielä.</div>';
+  else if (_mdtChap === 'mittaukset') chap = (typeof renderKehityskorttiHTML === 'function' && renderKehityskorttiHTML(p, ika, spMN)) ? renderKehityskorttiHTML(p, ika, spMN) : '<div class="pdc-empty">Ei mittausdataa vielä.</div>';
+  else if (_mdtChap === 'pelialy') {
+    if (av && av.yht != null) chap = '<div class="pdc-mini-h">Peliäly · pelihavainto (ADAR 1–3)</div><div style="font-size:13px;color:var(--ink2);line-height:1.9">Havaitse (a) <b>' + (av.a != null ? av.a : '—') + '</b> · Päätä (d) <b>' + (av.d != null ? av.d : '—') + '</b> · Toimi (ac) <b>' + (av.ac != null ? av.ac : '—') + '</b> · Arvioi (r) <b>' + (av.r != null ? av.r : '—') + '</b> · yht <b style="color:' + V5(d4) + '">' + av.yht + '/3</b></div><div style="font-size:10px;color:var(--ink3);margin-top:4px">' + adarN + ' pelihavaintoa' + (adarN < 3 ? ' — epävarma (<3)' : '') + '</div>';
+    else chap = '<div class="pdc-empty">Ei pelihavaintoja vielä.</div>';
+  }
+  else if (_mdtChap === 'kaari') chap = (p._idpTavoite && typeof _vpKehityskaariHTML === 'function') ? _vpKehityskaariHTML(p._idpTavoite, p.id) : '<div class="pdc-empty">Kehityskaari näkyy kun tavoite on asetettu ja reviewejä kertyy (avaa cockpitissa).</div>';
+  else if (_mdtChap === 'fa') chap = _mdtFaLista(p);
+  else if (_mdtChap === 'terveys') chap = '<div style="display:flex;align-items:center;gap:10px;font-size:13px;color:var(--ink2)"><span class="tag" style="border:.5px solid rgba(40,176,144,.32);background:rgba(40,176,144,.1);color:var(--teal);padding:3px 9px;border-radius:20px">● Käytettävissä</span><span>Kliininen data erillisessä <span style="font-family:\'DM Mono\',monospace">terveys/</span>-kokoelmassa (GDPR Art. 9). Kortilla vain tilalippu.</span></div>';
+  h += '<div class="pdc-panel">' + chap + '</div>';
+
+  // Review-status + merkintä
   if (typeof laskeReviewKadenssi === 'function') {
     var _rk = laskeReviewKadenssi(p, Date.now());
-    var _rkM = { ajantasalla:{v:'var(--teal)',t:'Review ajan tasalla'}, eraantymassa:{v:'var(--amber)',t:'Review erääntymässä'}, myohassa:{v:'var(--red)',t:'Review myöhässä'}, ei_reviewia:{v:'var(--ink3)',t:'Ei reviewia vielä'} }[_rk.status];
-    var _rkInfo = _rk.status==='myohassa' ? (' · ' + _rk.ylimaaraPv + ' pv yli') : ((_rk.status==='eraantymassa'||_rk.status==='ajantasalla') ? (' · erääntyy ' + _rk.eraantyyPvm) : '');
-    h += '<div class="mdt-card" style="margin-top:12px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">'
+    var _rkM = { ajantasalla: { v: 'var(--teal)', t: 'Review ajan tasalla' }, eraantymassa: { v: 'var(--amber)', t: 'Review erääntymässä' }, myohassa: { v: 'var(--red)', t: 'Review myöhässä' }, ei_reviewia: { v: 'var(--ink3)', t: 'Ei reviewia vielä' } }[_rk.status];
+    var _rkInfo = _rk.status === 'myohassa' ? (' · ' + _rk.ylimaaraPv + ' pv yli') : ((_rk.status === 'eraantymassa' || _rk.status === 'ajantasalla') ? (' · erääntyy ' + _rk.eraantyyPvm) : '');
+    h += '<div class="mdt-card" style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:12px">'
       + '<span style="font-size:12px;color:' + _rkM.v + '">● ' + _rkM.t + _rkInfo + (_rk.viimeisinPvm ? (' · viim. ' + _rk.viimeisinPvm) : '') + '</span>'
       + '<button onclick="_mdtMerkitseReview()" class="mdt-no-print" style="padding:8px 14px;border:none;border-radius:6px;background:var(--teal);color:#fff;font-size:12px;cursor:pointer">✓ Merkitse review tehdyksi</button></div>';
   }
 
-  // PDF + palaveritila
-  h += '<div class="mdt-no-print" style="display:flex;gap:8px;margin-top:14px">'
+  // Päätös / Huomiot Head of Talentille (per pelaaja) + ulosvienti
+  h += '<div class="mdt-no-print"><div class="pdc-mini-h">Päätös / huomiot Head of Talentille</div>'
+    + '<textarea id="mdtPaatos" class="mentor-textarea" style="min-height:64px;width:100%" placeholder="Päätös tai seurantamuistiinpano (tallentuu review-merkintään)..."></textarea>'
+    + '<div style="display:flex;gap:8px;margin-top:12px">'
     + '<button onclick="_mdtPrint()" style="padding:9px 16px;border:none;border-radius:6px;background:var(--teal);color:#fff;font-size:12px;cursor:pointer">Vie PDF</button>'
-    + '<button onclick="_mdtPalaveritila()" style="padding:9px 16px;border:.5px solid var(--border);border-radius:6px;background:var(--surface);color:var(--ink2);font-size:12px;cursor:pointer">' + (_mdtPalaveri?'Sulje palaveritila':'Kehityspalaveri') + '</button></div>';
+    + '<button onclick="_mdtPalaveritila()" style="padding:9px 16px;border:.5px solid var(--border);border-radius:6px;background:var(--surface);color:var(--ink2);font-size:12px;cursor:pointer">' + (_mdtPalaveri ? 'Sulje palaveritila' : 'Kehityspalaveri') + '</button></div></div>';
 
   el.innerHTML = h;
 }
@@ -13187,7 +13276,7 @@ window._reviewSetStatus = function(s){ _reviewStatusF = s; renderReviewit(); };
 window._reviewSetJoukkue = function(j){ _reviewJoukkueF = j || ''; renderReviewit(); };
 window._reviewAvaaMDT = function(pid){
   setWs('raportointi');
-  _mdtPid = pid; _mdtSkin = 'johtaja'; _mdtVanhEdit = false; _mdtPalaveri = false;
+  _mdtPid = pid; _mdtLinssi = 'kehitys'; _mdtChap = 'idp'; _mdtVanhEdit = false; _mdtPalaveri = false;
   if (typeof _mdtTaytaPicker === 'function') _mdtTaytaPicker();
   var sel = document.getElementById('mdtPelaajaSel'); if (sel) sel.value = pid;
   if (typeof _renderMDTProfiili === 'function') _renderMDTProfiili();
