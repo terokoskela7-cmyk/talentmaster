@@ -60,6 +60,42 @@ describe('tm_kypsyys — tmKypsyysGuard (vartijat)', () => {
   });
 });
 
+// Minimaalinen DOM-tynkä tmKehityskaari-renderöijän innerHTML-tarkastukseen (ei jsdom-riippuvuutta).
+function fakeEl() {
+  var doc = { getElementById: function () { return {}; }, createElement: function () { return {}; }, head: { appendChild: function () {} } };
+  return { innerHTML: '', ownerDocument: doc, querySelector: function () { return null; } };
+}
+
+describe('tm_kehityskaari — §7.22 pelaajavuoto (PR #332 verify-korjaus)', () => {
+  it("rooli='pelaaja' + laskeva arvo → EI 'db warn' eikä '↓' (vain oma abs+ positiivisena)", () => {
+    var el = fakeEl();
+    KK.tmKehityskaari(el, { arvo: 4.8, yksikko: 's', deltaAbs: -0.2, suunta: 'down', historia: [{ pvm: '2024', arvo: 4.6 }, { pvm: '2025', arvo: 4.8 }] }, { ominaisuus: 'fyysinen', rooli: 'pelaaja' });
+    expect(el.innerHTML).not.toContain('db warn');
+    expect(el.innerHTML).not.toContain('↓');
+    expect(el.innerHTML).not.toContain('db flat');   // ei myöskään neutraalia laskumerkkiä
+  });
+  it("rooli='pelaaja' + paraneva → näyttää '↑' (positiivinen kehys)", () => {
+    var el = fakeEl();
+    KK.tmKehityskaari(el, { arvo: 62, yksikko: '/100', deltaAbs: 8, suunta: 'up', historia: [{ pvm: '2024', arvo: 54 }, { pvm: '2025', arvo: 62 }] }, { ominaisuus: 'flei', rooli: 'pelaaja' });
+    expect(el.innerHTML).toContain('db up');
+    expect(el.innerHTML).toContain('↑');
+    expect(el.innerHTML).not.toContain('db warn');
+  });
+  it("rooli='pelaaja' + TKI laskeva (deltaNormi<0) → EI TKI-laskua/punaista, EI kaksi-deltaa-stripiä", () => {
+    var el = fakeEl();
+    KK.tmKehityskaari(el, { arvo: 61, yksikko: 'TKI', deltaAbs: 8, deltaNormi: -3, historia: [{ pvm: '2024', arvo: 44 }, { pvm: '2025', arvo: 61 }] }, { ominaisuus: 'tki', rooli: 'pelaaja' });
+    expect(el.innerHTML).not.toContain('db warn');
+    expect(el.innerHTML).not.toContain('Ikänormi');   // kaksi-deltaa-strip ei pelaajalle
+    expect(el.innerHTML).not.toContain('↓');
+  });
+  it("VP-rooli säilyttää ↓/warn (ei regressiota ei-pelaajalle)", () => {
+    var el = fakeEl();
+    KK.tmKehityskaari(el, { arvo: 4.8, yksikko: 's', deltaAbs: -0.2, suunta: 'down', historia: [{ pvm: '2024', arvo: 4.6 }, { pvm: '2025', arvo: 4.8 }] }, { ominaisuus: 'fyysinen', rooli: 'vp' });
+    expect(el.innerHTML).toContain('db warn');
+    expect(el.innerHTML).toContain('↓');
+  });
+});
+
 describe('tm_kehityskaari — datatasot + alustavartija + kaksi deltaa', () => {
   it('tmKaariDatataso: 0→tyhja · 1→lähtöpiste · 2→suunta · ≥3→kaari', () => {
     expect(KK.tmKaariDatataso([])).toBe('tyhja');
