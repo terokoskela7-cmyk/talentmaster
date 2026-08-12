@@ -33,7 +33,8 @@
 <script src="lib/tm_kehityspolku.js?v=1"></script>   <!-- I3a: looginen silta -resolver (idp_fokus → konsepti/fundamentti → harjoite) -->
 <script src="lib/tm_jaksofokus.js?v=5"></script>   <!-- Vaihe 4c: jaksofokus-oversight PURE-ydin (kattavuus/umpeutunut/teemakeskittymä, §26) -->
 <script src="lib/tm_vp_seuranta.js?v=1"></script>   <!-- Vaihe C: VP-seuranta koonti/kuittaus/IDP-feed (nojaa VAI+-indeksiin, ei uutta mittaria) -->
-<script src="lib/tm_kehityskaari.js?v=3"></script>   <!-- Trendi Vaihe 2: yksilön kehityskaari (render) -->
+<script src="lib/tm_kehityskaari.js?v=4"></script>   <!-- Trendi Vaihe 2 + IDP VAIHE 1: yksilön kehityskaari (data + tmKehityskaari-renderöijä) -->
+<script src="lib/tm_kypsyys.js?v=1"></script>   <!-- IDP VAIHE 1/2.0: Kypsyys/PHV -komponentti (tmKypsyys · korvaa paljaan "AN") -->
 <script src="lib/tm_treeniteema.js?v=1"></script>   <!-- Vaihe 4d: teemakattavuus PURE-ydin (jaksofokus vs suunnitellut teemaharjoitukset) -->
 <script src="lib/tm_jaksokooste.js?v=1"></script>   <!-- Vaihe 6: jakson sulku (meso-sykli) PURE-ydin — prosessi+kalibraatio+historia (geneerinen §8) -->
 <script src="lib/tm_fyysteemat.js?v=1"></script>   <!-- Vaihe 7: fyysinen teemaluettelo + D1-fokuslähde + evidenssi (delta §29 + PHV-portti §28) -->
@@ -7135,6 +7136,25 @@ function _vpMesoKaariHTML(p) {
   return h;
 }
 
+// VAIHE 2.0 — kokoa tmKypsyys-komponentin syöte PIKAKENTISTÄ (§26): biologinenIka_viimeisin (offset/phv_ika/pvm) +
+// phv_tila + kasvutahti_* + kasvuhistoria (jos pikakenttänä). PUHDAS (testattava). Ei uutta laskentaa — vain kokoaa.
+function _vpAloitusKypsyysData(p) {
+  p = p || {};
+  var bio = p.biologinenIka_viimeisin || {};
+  return {
+    phv_tila_koodi: p.phv_tila || bio.phv_tila_koodi || null,
+    maturity_offset: (bio.maturity_offset != null) ? bio.maturity_offset : (p.maturity_offset != null ? p.maturity_offset : null),
+    phv_ika: (bio.phv_ika != null) ? bio.phv_ika : null,
+    kronologinen_ika: (bio.kronologinen_ika != null) ? bio.kronologinen_ika : (bio.ika != null ? bio.ika : null),
+    kasvutahti_cm_v: (p.kasvutahti_cm_v != null) ? p.kasvutahti_cm_v : (bio.kasvutahti_cm_v != null ? bio.kasvutahti_cm_v : null),
+    kasvutahti_vyohyke: p.kasvutahti_vyohyke || bio.kasvutahti_vyohyke || null,
+    kasvuhistoria: Array.isArray(p.kasvuhistoria) ? p.kasvuhistoria : (Array.isArray(bio.kasvuhistoria) ? bio.kasvuhistoria : []),
+    yli_ikaisyys: bio.yli_ikaisyys || null,
+    mittaus_pvm: bio.pvm || null
+  };
+}
+window._vpAloitusKypsyysData = _vpAloitusKypsyysData;
+
 // ── (B) ALOITUS-VÄLILEHTI — fokus johtaa. Kaikki §26-pikakentistä (idp_fokus/idp_tila/idp_edistyma/phv_tila/hh_pvm/arviot[]).
 // Read-only fokus + status + CTA:t (editointi = Kehitys-välilehti). Kausi laddaa isoon tavoitteeseen; jakso = placeholder (Vaihe 4).
 function _vpAloitusHTML(p) {
@@ -7201,10 +7221,12 @@ function _vpAloitusHTML(p) {
     const _d = new Date(_arvioPvm), _now = new Date();
     if (!isNaN(_d.getTime())) { const _vk = Math.round((_d - _now) / (7 * 86400000)); _seurRev = _vk <= 0 ? 'nyt' : '~' + _vk + ' vk'; }
   }
-  const _kyps = p.phv_tila ? ((p.phv_tila === 'PRE' || p.phv_tila === 'LAH') ? 'PHV-herkkä 🌱' : ((typeof _PHV_LABEL !== 'undefined' && _PHV_LABEL[p.phv_tila]) || _jsvEsc(p.phv_tila))) : ((typeof onNeutraaliPrePHV === 'function' && onNeutraaliPrePHV(p)) ? 'PHV-herkkä 🌱' : 'Ei mittausta');
   const _st = function (l, v, cls) { return '<div class="vpal-st"><div class="vpal-stl">' + l + '</div><div class="vpal-stv' + (cls ? ' ' + cls : '') + '">' + v + '</div></div>'; };
   h += '<div class="vpal-status">' + _st('Viimeisin mittaus', _viimMit ? _pvmFi(_viimMit) : '—') + _st('Edistymä', _jsvEsc(_edist), 'teal')
-    + _st('Seuraava review', _seurRev, 'amber') + _st('Kypsyys', _kyps) + '</div>';
+    + _st('Seuraava review', _seurRev, 'amber') + '</div>';
+  // VAIHE 2.0 — Kypsyys-siru: jaettu tmKypsyys(el, data, {muoto:'siru'}) korvaa paljaan PHV-koodin ("AN"/"PHV-herkkä").
+  // Renderöidään _vpAloitusReRenderissä (komponentti tarvitsee DOM-elementin; ei kopioida — C2). Data pikakentistä (§26).
+  h += '<div style="margin-top:10px"><span style="font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink3);font-weight:600">Kypsyys · §28</span><div id="_vpAloitusKypSiru" style="margin-top:6px"></div></div>';
   // Seuraava askel -CTA:t
   h += '<div class="vpal-next">'
     + '<button class="vpal-nbtn" onclick="_vpKirjaaReview(\'' + pid + '\')"><div class="vpal-nh">＋ Kirjaa review</div><div class="vpal-ns">päivitä kehityskaari</div></button>'
@@ -7243,6 +7265,19 @@ function _vpMiniKaariHTML(t) {
 function _vpAloitusReRender() {
   const slot = document.getElementById('_jspAloitus'); const p = window._vpArvPelaaja;
   if (slot && p && typeof _vpAloitusHTML === 'function') slot.innerHTML = _vpAloitusHTML(p);
+  // VAIHE 2.0 — renderöi Kypsyys-siru jaetulla komponentilla (C2: kutsutaan, ei kopioida). Gate: vain jos kypsyysdataa;
+  // muuten rehellinen tyhjä (§28-linssi avautuu kasvumittauksesta). Klik → Mittaus-välilehti (täysi komponentti VAIHE 2.1).
+  if (slot && p) {
+    const _kySiru = slot.querySelector('#_vpAloitusKypSiru');
+    if (_kySiru) {
+      const _kd = (typeof _vpAloitusKypsyysData === 'function') ? _vpAloitusKypsyysData(p) : null;
+      if (_kd && (_kd.phv_tila_koodi || _kd.maturity_offset != null) && typeof tmKypsyys === 'function') {
+        tmKypsyys(_kySiru, _kd, { muoto: 'siru', onAvaa: function () { if (typeof _jspVaihda === 'function') _jspVaihda(1); } });
+      } else {
+        _kySiru.innerHTML = '<span style="font-family:var(--font-mono),\'DM Mono\',monospace;font-size:10.5px;color:var(--ink3)">Ei kypsyysmittausta — kasvumittaus avaa §28-linssin.</span>';
+      }
+    }
+  }
   // Vaihe 4c — jos jaksofokus-paneeli on auki, re-renderöi runko domeenin mukaan (dropdown-valinta elää).
   const jfSlot = document.getElementById('_jfOhjausSlot');
   if (jfSlot && window._jfOhjausP && typeof _vpJfBodyHTML === 'function') jfSlot.innerHTML = _vpJfBodyHTML(window._jfOhjausP);

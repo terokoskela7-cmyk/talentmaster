@@ -101,6 +101,8 @@ const APP_GLOBALS = {
   tmKaariSarja: 'readonly', tmKaariSuunta: 'readonly', tmKaariNopeus: 'readonly', tmKaariTasoSarja: 'readonly',
   tmKaariKattavuusOk: 'readonly', tmKaariJaksot: 'readonly', tmKaariJaksoSidos: 'readonly',
   tmKaariNimi: 'readonly', tmKaariYksikko: 'readonly', tmKaariRenderFull: 'readonly', tmKaariRenderPelaaja: 'readonly',
+  tmKehityskaari: 'readonly', tmKaariDatataso: 'readonly', tmKaariAlustaSuodata: 'readonly', tmKaariKaksiDeltaa: 'readonly',
+  tmKypsyys: 'readonly', tmKypsyysVaihe: 'readonly', tmKasvutahtiVyohyke: 'readonly', tmKypsyysGuard: 'readonly',
 };
 
 const COMMON = {
