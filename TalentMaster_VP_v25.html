@@ -7155,6 +7155,29 @@ function _vpAloitusKypsyysData(p) {
 }
 window._vpAloitusKypsyysData = _vpAloitusKypsyysData;
 
+// VAIHE 2.0b — 5D-radarin dimensiot PELI EDELLÄ (D4 Peliäly ylhäällä; peli-dim D4/D3/D5, testi D2/D1) design v7:n mukaan.
+// PUHDAS. Lukee pikakentät (§26). §28-gate: normivertailu (referenssirengas) VAIN Showcase 16+ EIKÄ PHV-keskellä (PH).
+function _vpAloitusRadarDims(p, ika) {
+  p = p || {};
+  var d1 = (p.hh_taso != null) ? p.hh_taso : (p.d1_taso != null ? p.d1_taso : null);
+  var d2 = (typeof laskeD2Taso === 'function') ? laskeD2Taso(p) : (p.d2_taso != null ? p.d2_taso : null);
+  var d3 = (p.d3_taso != null) ? p.d3_taso : null;
+  var d4 = (typeof _dimNorm5Adar === 'function') ? _dimNorm5Adar(p.adar_viimeisin && p.adar_viimeisin.yht) : null;
+  var d5 = (typeof laskeD5Taso === 'function') ? laskeD5Taso(p) : (p.d5_taso != null ? p.d5_taso : null);
+  return {
+    dims: [{ key: 'D4', label: 'Peliäly', arvo: d4 }, { key: 'D3', label: 'Psyy', arvo: d3 }, { key: 'D5', label: 'Sos', arvo: d5 }, { key: 'D2', label: 'Tekn', arvo: d2 }, { key: 'D1', label: 'Fyys', arvo: d1 }],
+    normiOk: (ika != null && ika >= 16 && p.phv_tila !== 'PH')
+  };
+}
+// VAIHE 2.0b — pelaajan OMA ääni (erillään tavoitteen pelilauseesta). PUHDAS. Lähteet: _idpSitoumus.itsearvio q1–q3 +
+// miksi_pelaan (pikakentät). Ei dataa → tyhjä (kutsuja näyttää rehellisen tyhjän, ei keksi pelaajan sanoja).
+function _vpAloitusAani(p) {
+  p = p || {};
+  var sit = p._idpSitoumus, ia = (sit && sit.itsearvio) || {};
+  return { miksi: p.miksi_pelaan || null, aanet: [ia.q1, ia.q2, ia.q3].filter(function (x) { return x && String(x).trim(); }) };
+}
+window._vpAloitusRadarDims = _vpAloitusRadarDims; window._vpAloitusAani = _vpAloitusAani;
+
 // ── (B) ALOITUS-VÄLILEHTI — fokus johtaa. Kaikki §26-pikakentistä (idp_fokus/idp_tila/idp_edistyma/phv_tila/hh_pvm/arviot[]).
 // Read-only fokus + status + CTA:t (editointi = Kehitys-välilehti). Kausi laddaa isoon tavoitteeseen; jakso = placeholder (Vaihe 4).
 function _vpAloitusHTML(p) {
@@ -7203,6 +7226,25 @@ function _vpAloitusHTML(p) {
   }
   h += '</div>';
   h += '<div class="vpal-ladder">⬆ jakso laddaa kausifokukseen · kausi laddaa isoon tavoitteeseen</div>';
+  // VAIHE 2.0b — 5D-radar PELI EDELLÄ (reuse _tmRadar5D, C2 — ei kopioida). Pikakentistä (§26); tyhjä dim → "tulossa".
+  if (typeof window._tmRadar5D === 'function') {
+    const _rIka = (typeof _dimIkaSp === 'function') ? _dimIkaSp(p.joukkue || '', p).ika : null;
+    const _rd = _vpAloitusRadarDims(p, _rIka);
+    const _rOpts = _rd.normiOk ? { referenssi: 3, referenssiVari: 'var(--ink3)', maxW: 250 } : { maxW: 250 };
+    h += '<div style="margin-top:12px;border-top:.5px solid var(--border);padding-top:10px"><div style="font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--teal);font-weight:600;text-align:center;margin-bottom:2px">5D-profiili · peli edellä</div>'
+      + window._tmRadar5D(_rd.dims, _rOpts)
+      + '<div style="font-family:var(--font-mono),\'DM Mono\',monospace;font-size:9px;color:var(--ink3);text-align:center;margin-top:2px">' + (_rd.normiOk ? 'katkoviiva = ikäluokkanormi (taso 3)' : 'kehitysvaihe-linssi · normivertailu Showcase 16+ (ei PHV-keskellä, §28)') + '</div></div>';
+  }
+  // VAIHE 2.0b — Pelaajan OMA ääni (erillään tavoitteen ⚽ pelilauseesta yllä). Ei dataa → rehellinen tyhjä (ei keksitä).
+  const _aani = _vpAloitusAani(p);
+  if (_aani.miksi || _aani.aanet.length) {
+    h += '<div style="margin-top:10px;background:rgba(40,176,144,.06);border:.5px solid rgba(40,176,144,.28);border-radius:10px;padding:11px 13px"><div style="font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--teal);font-weight:600;margin-bottom:4px">🗣 Pelaajan ääni</div>';
+    if (_aani.miksi) h += '<div style="font-size:12px;color:var(--ink2);margin-bottom:4px">⚽ Miksi pelaan: <i>' + _jsvEsc(_aani.miksi) + '</i></div>';
+    _aani.aanet.forEach(function (q) { h += '<div style="font-family:\'Cormorant Garamond\',serif;font-style:italic;font-size:14px;color:var(--ink2);margin:3px 0">”' + _jsvEsc(q) + '”</div>'; });
+    h += '</div>';
+  } else {
+    h += '<div style="margin-top:10px;font-family:var(--font-mono),\'DM Mono\',monospace;font-size:10px;color:var(--ink3)">🗣 Pelaajan ääni — ei vielä kirjattu (Pelaaja-appi)</div>';
+  }
   // Vaihe 6 — meso-kehityskaari (suljetut jaksot, jaksofokus_historia §26).
   if (typeof _vpMesoKaariHTML === 'function') h += _vpMesoKaariHTML(p);
   // Vaihe 4a — VP asettaa jaksofokuksen TALENTTIPELAAJILLE (§4: VP hallinnoi talentteja). Muille = valmentaja (Master).
