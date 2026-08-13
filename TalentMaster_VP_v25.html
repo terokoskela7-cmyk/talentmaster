@@ -4235,6 +4235,14 @@ function _jsvEsc(s) { return String(s == null ? '' : s).replace(/&/g,'&amp;').re
 function _vpSiltaKonsepti(avain) {
   if (!avain || typeof TM_TT_YOUTH === 'undefined') return null;
   for (let i = 0; i < TM_TT_YOUTH.length; i++) if (TM_TT_YOUTH[i].avain === avain) return TM_TT_YOUTH[i];
+  // R1.2-korjaus: hae myös pelipaikkakonseptit (TM_TT_FUNDAMENTIT) — muuten pelipaikka-avaimelle (esim. mv_p1)
+  // palautuu null → konseptin osat/miksi/harjoitteet katoavat. Sama rakenne (kpi/kysymykset/pelitilanne) kuin youth.
+  if (typeof TM_TT_FUNDAMENTIT !== 'undefined') {
+    for (const pos in TM_TT_FUNDAMENTIT) {
+      const arr = TM_TT_FUNDAMENTIT[pos];
+      for (let j = 0; j < arr.length; j++) if (arr[j].avain === avain) return arr[j];
+    }
+  }
   return null;
 }
 // Silta-ehdotukset pelaajalle (top-3). Tyhjä kun: ei libiä / ei arviointia / jaksofokus jo asetettu.
