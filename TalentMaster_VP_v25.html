@@ -1384,6 +1384,26 @@ body {
 .idp-dcard .dn .go { font-family: var(--font-mono); font-size: 12px; color: var(--ink3); }
 .idp-dstat { font-family: var(--font-mono); font-size: 9.5px; margin-top: 7px; color: var(--ink3); }
 .idp-dstat.empty { color: var(--teal); }
+/* R2 (pala 1) — Mittaus v4: tulkinta-ensin -kehys (tuoreus/luotettavuus · §28-kypsyyslinssi · nextstep · pelifoot). Teematietoiset tokenit. */
+.mit-fresh { padding: 13px 0; margin-bottom: 16px; border-bottom: .5px solid var(--border); }
+.mit-fresh .fr1 { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.mit-fresh .fl { font-family: var(--font-sans); font-weight: 600; font-size: 9px; letter-spacing: .15em; text-transform: uppercase; color: var(--ink3); }
+.mit-fresh .fv { font-size: 13px; color: var(--ink); } .mit-fresh .fv b { font-weight: 500; }
+.mit-fresh .fdays { font-family: var(--font-mono); font-size: 10.5px; color: var(--ink3); }
+.mit-fresh .upd { margin-left: auto; font-family: var(--font-sans); font-size: 11.5px; font-weight: 500; color: var(--teal); border: .5px solid rgba(40,176,144,.34); border-radius: 6px; padding: 6px 12px; cursor: pointer; }
+.mit-reliab { font-family: var(--font-mono); font-size: 10px; color: var(--ink3); margin-top: 8px; line-height: 1.6; }
+.mit-reliab .w { color: var(--amber); }
+.mit-lens { padding: 13px 15px; border-radius: 10px; margin-bottom: 20px; background: var(--surface); border: .5px solid var(--border); }
+.mit-lens .ll { font-family: var(--font-sans); font-weight: 600; font-size: 9.5px; letter-spacing: .15em; text-transform: uppercase; color: var(--teal); margin-bottom: 6px; }
+.mit-lens .lt { font-size: 12.5px; color: var(--ink2); line-height: 1.55; } .mit-lens .lt b { font-weight: 500; color: var(--ink); }
+.mit-next { margin-top: 22px; padding-top: 18px; border-top: .5px solid var(--border); }
+.mit-next .nh { font-family: var(--font-sans); font-weight: 600; font-size: 9.5px; letter-spacing: .15em; text-transform: uppercase; color: var(--teal); margin-bottom: 10px; }
+.mit-nstep { display: flex; gap: 12px; align-items: baseline; padding: 8px 0; font-size: 12.5px; color: var(--ink2); line-height: 1.45; cursor: pointer; border-bottom: .5px solid var(--border2); }
+.mit-nstep:last-of-type { border-bottom: none; }
+.mit-nstep b { color: var(--ink); font-weight: 500; }
+.mit-nstep .go { margin-left: auto; font-family: var(--font-mono); font-size: 9.5px; color: var(--teal); white-space: nowrap; }
+.mit-pelifoot { margin-top: 20px; font-size: 11.5px; color: var(--ink3); line-height: 1.55; }
+.mit-pelifoot b { color: var(--ink2); font-weight: 500; }
 /* P2 — Mittaus-korttiruudukko (display-only): ydintestikortit + koontikortti + diagnostiikka + §28-portti + sparkline. */
 .mrow { display: grid; grid-template-columns: repeat(auto-fit, minmax(118px, 1fr)); gap: 8px; margin: 4px 0 10px; }
 .mcard { background: var(--bg2); border: .5px solid var(--border); border-radius: 10px; padding: 11px 12px; display: flex; flex-direction: column; gap: 5px; min-width: 0; }
@@ -9950,6 +9970,53 @@ window._vpMittausKorjaa = async function (dokkiId, avain) {
   } catch (e) { console.warn('[mittaus korjaa]', e && e.message); if (typeof toast === 'function') toast('Korjaus epäonnistui', 'err'); }
 };
 
+// R2 (pala 1) — Mittaus v4 tulkinta-ensin -kehys. Kolme kääre-elementtiä olemassa olevan f1/f2-detaljin ympärille;
+// data pikakentistä (§26), EI uutta laskentaa. Standalone (testattava) — kutsutaan tab-1:n kokoonpanossa.
+// (1) TUOREUS + luotettavuus (§22): tuorein hh_pvm/tki_pvm + päiviä sitten + alusta + "1 testikerta → trendi vaatii 2".
+function _vpMittausTuoreusHTML(p, ika) {
+  const esc = _jsvEsc;
+  const _fi = function (s) { const m = String(s || '').match(/^(\d{4})-(\d{2})-(\d{2})/); return m ? (+m[3]) + '.' + (+m[2]) + '.' + m[1] : null; };
+  const _days = function (s) { const m = String(s || '').match(/^(\d{4})-(\d{2})-(\d{2})/); if (!m) return null; return Math.round((Date.now() - new Date(+m[1], +m[2] - 1, +m[3]).getTime()) / 86400000); };
+  const cand = [p.hh_pvm, p.tki_pvm].filter(Boolean).sort();
+  const pvm = cand.length ? cand[cand.length - 1] : null;
+  if (!pvm) {
+    return '<div class="mit-fresh"><div class="fr1"><span class="fl">Viimeisin</span><span class="fv">ei mittauksia vielä</span>'
+      + '<a class="upd" href="TalentMaster_Testaus_v9.html" onclick="event.stopPropagation()" style="text-decoration:none">Aloita mittaus →</a></div></div>';
+  }
+  const patteristo = (p.hh_pvm === pvm) ? 'H-H-patteristo' : (p.tki_pvm === pvm) ? 'tekniikkakilpailu' : 'mittaus';
+  const d = _days(pvm);
+  const on2 = (p.hh_taso_edellinen != null || p.tki_edellinen != null);
+  const alusta = p.hh_alusta || p.alusta || null;
+  const rel = [];
+  if (alusta) rel.push('alusta ' + esc(alusta));
+  rel.push(on2 ? 'trendi käytettävissä (≥2 mittausta)' : '<span class="w">1 testikerta — trendi vaatii 2.</span>');
+  rel.push('vertailukelpoinen vain samalla alustalla (§22)');
+  if (d != null && d > 180) rel.push('<span class="w">📍 yli 6 kk — suositellaan päivitystä.</span>');
+  return '<div class="mit-fresh"><div class="fr1"><span class="fl">Viimeisin</span>'
+    + '<span class="fv"><b>' + esc(_fi(pvm)) + '</b> · ' + esc(patteristo) + '</span>'
+    + (d != null ? '<span class="fdays">' + d + ' pv sitten</span>' : '')
+    + '<a class="upd" href="TalentMaster_Testaus_v9.html" onclick="event.stopPropagation()" style="text-decoration:none">📍 Päivitä mittaus</a></div>'
+    + '<div class="mit-reliab">' + rel.join(' · ') + '</div></div>';
+}
+// (2) §28 KYPSYYSLINSSI — PHV-tulkinta ohjaa fyysisen lukemista (tulkinta ennen lukuja). Pikakenttä phv_tila.
+function _vpMittausLinssiHTML(p, ika) {
+  const phv = p.phv_tila || null;
+  let txt;
+  if (phv === 'AN' || phv === 'POST') txt = 'PHV: <b>' + (phv === 'AN' ? 'jälki-PHV' : 'post-PHV') + '.</b> Fyysinen nousuvara on jo tullut → matala nopeus/aerobinen on <b>aito kehityskohde</b> (§28), ei biologisesti neutraali. Fyysinen ikkuna on auki nyt.';
+  else if (phv === 'PRE' || phv === 'LAH') txt = 'PHV: <b>' + (phv === 'PRE' ? 'ennen kasvupyrähdystä' : 'lähestyy kasvupyrähdystä') + '.</b> Matala 30 m / MAS / CMJ on biologisesti <b>odotettua, ei kehityskohde</b> (§28). Taito ja koordinaatio ovat nyt herkkiä ikkunoita.';
+  else if (phv === 'PH') txt = 'PHV: <b>kasvupyrähdyksessä ⚠️.</b> Kuormarajoitin (§28): voima max 80 % 1RM, hyppyvolyymi −20 %, juoksuvolyymi seurattava. Matala fyysinen ei ole kehityskohde nyt.';
+  else txt = 'PHV: <b>kypsyys mittaamatta.</b> Fyysiset luetaan ikäoletuksella — matalaa fyysistä ei tulkita kehityskohteeksi ennen kasvumittausta (§28). Kasvumittaus avaa kypsyyslinssin.';
+  return '<div class="mit-lens"><div class="ll">§28 · kypsyyslinssi</div><div class="lt">' + txt + '</div></div>';
+}
+// (3) NEXTSTEP + pelifoot — "mitä testit tarkoittavat suunnitelmalle" (CTA-rivit → tabit) + peli-edellä-muistutus.
+function _vpMittausNextStepHTML(p) {
+  let h = '<div class="mit-next"><div class="nh">Mitä testit tarkoittavat suunnitelmalle</div>';
+  h += '<div class="mit-nstep" onclick="event.stopPropagation();_jspVaihda(4)"><div><b>Fyysinen ikkuna</b> → nopeus ja aerobinen viikon tekemiseen.</div><span class="go">Viikko →</span></div>';
+  h += '<div class="mit-nstep" onclick="event.stopPropagation();_jspVaihda(3)"><div><b>Tekninen vahvuus</b> → vie peliin: jaksofokukseen Kehityksessä.</div><span class="go">Kehitys →</span></div>';
+  h += '<div class="mit-nstep" onclick="event.stopPropagation();_jspVaihda(2)"><div><b>Heikoin havaittu ominaisuus</b> → silta ehdottaa fokuksen.</div><span class="go">Arviointi →</span></div>';
+  h += '</div><div class="mit-pelifoot"><b>Peli edellä testi.</b> Nämä ovat suljettuja, §28-portitettuja mittauksia — ne tukevat suunnitelmaa, eivät ole kärki. Kärki asuu Aloitus-selkärangalla: teknis-taktinen konsepti, D4 peliäly ja pelipaikkaosaaminen.</div>';
+  return h;
+}
 window._avaaPerPelaajaPikakatsaus = function(idx, joukkueNimi) {
   const lista = window._jsvPelaajat || [];
   const nP = lista.length;
@@ -10594,7 +10661,13 @@ window._avaaPerPelaajaPikakatsaus = function(idx, joukkueNimi) {
   // 0 Aloitus = IDP-narratiivi (Vaihe A). 1 Mittaus = Fyysinen+Tekninen (mitattu). 2 Arviointi = Peliäly + arviointi-
   // taksonomia (havaittu; _jspTab5-SISÄSLOT → _vpArvReRender-koukut ennallaan). 3 Kehitys (pysyy). 4 Viikko (Vaihe D).
   hR += '<div id="_jspTab0"><div id="_jspIdpNarratiivi">' + fIdp + '</div></div>';
-  hR += '<div id="_jspTab1" style="display:none">' + _mSub('Fyysinen · mitattu') + f1 + _mErot + _mSub('Tekninen · mitattu') + f2
+  // R2 (pala 1) — Mittaus v4 tulkinta-ensin -kehys olemassa olevan f1/f2-detaljin ympärille (tuoreus/§28-linssi ennen,
+  // nextstep/pelifoot jälkeen). f1/f2 sisältö ennallaan (per-dim hero/trow-reflow = pala 2).
+  hR += '<div id="_jspTab1" style="display:none">'
+    + (typeof _vpMittausTuoreusHTML === 'function' ? _vpMittausTuoreusHTML(p, ika) : '')
+    + (typeof _vpMittausLinssiHTML === 'function' ? _vpMittausLinssiHTML(p, ika) : '')
+    + _mSub('Fyysinen · mitattu') + f1 + _mErot + _mSub('Tekninen · mitattu') + f2
+    + (typeof _vpMittausNextStepHTML === 'function' ? _vpMittausNextStepHTML(p) : '')
     + '<div id="_jspMittausLista" style="margin-top:6px"></div></div>';   // E2.1 — muokattava mittauslista (async-hydratoitu; renderöi yhteenvedon alle)
   hR += '<div id="_jspTab2" style="display:none">' + _mSub('Peliäly · havainto') + f3 + _mErot + '<div id="_jspTab5">' + (f5 || '') + '</div></div>';
   hR += '<div id="_jspTab3" style="display:none">' + _kehExtra + '</div>';   // P4a: f4-diagnostiikka nyt _kehExtra:n reveal-osiossa
