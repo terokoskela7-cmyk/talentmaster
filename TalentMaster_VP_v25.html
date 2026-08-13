@@ -7795,9 +7795,9 @@ function _jsvPerLajiHTML(lajit, ika, sp, otsikko, hv) {
   let viiteRef = null;
   for (var i = 0; i < data.length; i++) { if (data[i].viite) { viiteRef = data[i].viite; break; } }
   if (viiteRef) h += '<div class="jsv-an-lahde">' + _jsvViiteLabel(viiteRef) + '</div>';
-  // Selite: KAKSI nimettyä tasoa. Alue = TK-lajitaso 1–5 (kaikki lajit) · Valtak = Eerikkilä 1–3 (vain syöttö/pujottelu).
+  // R2-viimeistely (pala 5b): asteikot selviävät nyt badgesta ("5/5 alue" · "3/3 valtak.") → kevyt lähdemaininta riittää.
   h += '<div class="jsv-an-lahde" style="margin-top:-4px;line-height:1.5">'
-    + '<b style="color:var(--ink2)">Alue</b> = TK-lajitaso 1–5 (kilpailukohortti, kaikki lajit) · <b style="color:var(--ink2)">Valtak</b> = Eerikkilä 1–3 (vain syöttö &amp; pujottelu)<br>'
+    + '<b style="color:var(--ink2)">alue</b> = kilpailukohortti 1–5 · <b style="color:var(--ink2)">valtak.</b> = Eerikkilä 1–3 (syöttö/pujottelu)<br>'
     + '<b style="color:var(--ink2)">+</b> = matka alueen kärkeen (★ saavutettu · <span style="color:var(--amber)">🟡 ≤20 %</span> · <span style="color:var(--red)">🔴 &gt;20 %</span>)</div>';
   let maxGap = null;
   data.forEach(function(d){ if (d.viite && d.gap != null && d.gap > 0 && (maxGap == null || d.gap > maxGap)) maxGap = d.gap; });
@@ -7813,13 +7813,15 @@ function _jsvPerLajiHTML(lajit, ika, sp, otsikko, hv) {
       if (onKohde) { merkki = ' ←'; suurinGapLaji = d.laji; }
     }
     const viiteTxt = d.viite ? ((d.kaant ? 'huipputaso ≥' : 'huipputaso ≤') + d.viite.hyva + d.yks) : 'viite ei saatavilla';
+    // R2-viimeistely (pala 5b): asteikko selkokielelle (ei salakielinen "A5"/"V3/3"). Alue 1–5 ja Valtak 1–3 pysyvät
+    // ERI asteikkoina (§34/§30, ei yhdistetä) — vain label luettavampi. Väri/lähde/gap ennallaan.
     const alueBadge = (d.tkTaso != null)
-      ? '<span class="jsv-taso-badge" style="background:' + _jsvTasoVari5(d.tkTaso) + '"' + _vpSelTip('tk_lajitaso') + '>A' + d.tkTaso + '</span>'
+      ? '<span class="jsv-taso-badge" style="background:' + _jsvTasoVari5(d.tkTaso) + ';min-width:auto;padding:1px 6px"' + _vpSelTip('tk_lajitaso') + '>' + d.tkTaso + '/5 alue</span>'
       : '';
     const vt = _valtak(d.laji);
     const vVari = (vt == null) ? 'var(--ink3)' : vt >= 3 ? 'var(--teal)' : vt >= 2 ? 'var(--amber)' : 'var(--red)';
     const valtakBadge = (vt != null)
-      ? '<span style="font-family:var(--font-m);font-size:10px;font-weight:700;padding:1px 5px;border-radius:4px;border:.5px solid ' + vVari + ';color:' + vVari + '" title="Eerikkilä-lajitekniikka 1–3, 3 = valtakunnan kärki. Vain syöttö &amp; pujottelu (Eerikkilä ei testaa muita).">V' + vt + '/3</span>'
+      ? '<span style="font-family:var(--font-m);font-size:10px;font-weight:700;padding:1px 6px;border-radius:4px;border:.5px solid ' + vVari + ';color:' + vVari + '" title="Eerikkilä-lajitekniikka 1–3, 3 = valtakunnan kärki. Vain syöttö &amp; pujottelu (Eerikkilä ei testaa muita).">' + vt + '/3 valtak.</span>'
       : '';
     h += '<div style="border-top:.5px solid var(--ov-3,rgba(255,255,255,.06));padding:6px 0 5px">'
       + '<div style="display:flex;align-items:center;gap:8px">'
@@ -10085,6 +10087,25 @@ function _vpMittausSynthHTML(p, ika, d1, d2, tsi) {
   if (pattern) h += '<div class="mit-synth-pattern">' + pattern + '</div>';
   return h + '</div>';
 }
+// R2-viimeistely (pala 5a) — KEHON VALMIUS (FLEI) omana lohkona (§30: pohjavalmiusindeksi, EI tekninen dimensio).
+// Nostaa toimivan signaalin näkyviin: heikoin ketju (§14: S-harjoite kohdistuu tähän) + klinikkalippu kun <40 (§14).
+// Säilyttää renderFleiKortti:n 3 tilaa (tyhjä/osittain/täysi). §37 julkinen termi "Kehon valmius" (ei FLEI-jargonia).
+function _vpKehonValmiusHTML(p) {
+  let h = '';
+  const KETJUT = [['SBL', p.sbl], ['SFL', p.sfl], ['LL', p.ll], ['DIAG', p.diag], ['DFL', p.dfl]].filter(function (k) { return k[1] != null && k[1] > 0; });
+  const flei = (p.flei_viimeisin != null) ? p.flei_viimeisin : null;
+  if (KETJUT.length) {
+    let heikoin = KETJUT[0];
+    KETJUT.forEach(function (k) { if (k[1] < heikoin[1]) heikoin = k; });   // pienin raaka-arvo = heikoin ketju (bigger-better)
+    const klinikka = (flei != null && flei < 40);
+    h += '<div style="font-size:12px;color:var(--ink2);margin-bottom:10px;line-height:1.5">'
+      + '🎯 Heikoin ketju: <b style="color:var(--ink)">' + _jsvEsc(heikoin[0]) + '</b> — S-harjoite kohdistuu tähän (§14).'
+      + (klinikka ? ' <span style="color:var(--amber)">⚠️ Kehon valmius alle 40 → klinikkalähetys (§14).</span>' : '')
+      + '</div>';
+  }
+  h += (typeof renderFleiKortti === 'function') ? renderFleiKortti(p) : '';
+  return h;
+}
 window._avaaPerPelaajaPikakatsaus = function(idx, joukkueNimi) {
   const lista = window._jsvPelaajat || [];
   const nP = lista.length;
@@ -10464,9 +10485,10 @@ window._avaaPerPelaajaPikakatsaus = function(idx, joukkueNimi) {
     }
     _tekSyva += '</div>';
   }
-  _tekSyva += renderFleiKortti(p);   // dynaaminen FLEI-kortti (3 tilaa)
+  // R2-viimeistely (pala 5a): "Kehon valmius" (FLEI) IRROTETTU Teknisen revealista → oma lohko (§30: FLEI = pohja-
+  // valmiusindeksi, EI tekninen dimensio). renderFleiKortti kutsutaan nyt VAIN _vpKehonValmiusHTML:ssä (tab-1-kokoonpano).
   // R2 (pala 4) — v4: hero/trow ensisijainen → per-testi-radar Syväanalyysi-revealiin (peilaa Fyysinen). SM/TSI/TKI ja
-  // per-laji-sekuntibudjetti + kultaikkuna + FLEI ennallaan revealissa.
+  // per-laji-sekuntibudjetti + kultaikkuna ennallaan revealissa.
   if (_tekRadar) _tekSyva = _tekRadar + _tekSyva;
   const _tekReveal = _tekSyva ? ('<div style="margin-top:14px;border-top:.5px solid var(--border);padding-top:10px">'
     + '<span onclick="var b=document.getElementById(\'_jspSyvaTek\');var o=b.style.display===\'none\';b.style.display=o?\'block\':\'none\';this.textContent=(o?\'▾\':\'▸\')+\' Syväanalyysi\'" style="font-size:12px;color:var(--blue);cursor:pointer;font-weight:600">▸ Syväanalyysi</span>'
@@ -10731,6 +10753,7 @@ window._avaaPerPelaajaPikakatsaus = function(idx, joukkueNimi) {
     + (typeof _vpMittausLinssiHTML === 'function' ? _vpMittausLinssiHTML(p, ika) : '')
     + (typeof _vpMittausSynthHTML === 'function' ? _vpMittausSynthHTML(p, ika, d1, d2, tsi) : '')
     + _mSub('Fyysinen · mitattu') + f1 + _mErot + _mSub('Tekninen · mitattu') + f2
+    + _mErot + _mSub('Kehon valmius') + (typeof _vpKehonValmiusHTML === 'function' ? _vpKehonValmiusHTML(p) : '')
     + (typeof _vpMittausNextStepHTML === 'function' ? _vpMittausNextStepHTML(p) : '')
     + '<div id="_jspMittausLista" style="margin-top:6px"></div></div>';   // E2.1 — muokattava mittauslista (async-hydratoitu; renderöi yhteenvedon alle)
   hR += '<div id="_jspTab2" style="display:none">' + _mSub('Peliäly · havainto') + f3 + _mErot + '<div id="_jspTab5">' + (f5 || '') + '</div></div>';
