@@ -1340,6 +1340,9 @@ body {
    näkyvissä kun testejä selaa oikealla. Mobiilissa pinoutuu yhteen sarakkeeseen (§6, sama @media-lohko). */
 .jsp-box { background: var(--bg2); border: .5px solid var(--border); border-radius: 8px; width: min(1240px, 96vw); max-width: 96vw; max-height: 90vh; overflow-y: auto; display: flex; flex-direction: column; }
 .jsp-grid { display: grid; grid-template-columns: 290px 1fr; gap: 22px; padding: 10px 24px 4px; align-items: start; }
+/* R1.4-korjaus — Aloitus-mode: v7:n 2-sarake (narratiivi | tutka+kaari) → profiiliraili piiloon, tabit täysleveiksi. Muut välilehdet: raili takaisin. */
+.jsp-grid.jsp-aloitus { grid-template-columns: 1fr; }
+.jsp-grid.jsp-aloitus > .jsp-left { display: none; }
 .jsp-left { min-width: 0; }
 .jsp-right { min-width: 0; }
 .jsp-radar { width: 290px; max-width: 100%; margin: 6px auto 10px; }
@@ -5752,6 +5755,47 @@ function _vpAloitusKonseptiYdinHTML(p) {
   if (kys && kys.length) h += '<div class="idp-reflect">🗣 Reflektio: ”' + esc(kys[0]) + '”</div>';
   return h + '</div>';
 }
+// R1.4-korjaus — 5D-TUTKA Aloituksen OIKEAAN sarakkeeseen (v7 .col-r ylälaita). Itsenäinen (kestää narratiivin
+// re-renderin, joka kutsuu vain (p)): recompute radarDims pikakentistä (peli edellä D4·D3·D5·D2·D1) — sama logiikka
+// kuin profiiliraili, sama data. Rail piilotetaan Aloituksessa (aloitus-mode) → ei toistoa. §26 vain pikakentät.
+function _vpAloitusTutkaHTML(p) {
+  if (typeof window._tmRadar5D !== 'function' || typeof _vpRadarNormiJaVaihe !== 'function') return '';
+  const isp = (typeof _dimIkaSp === 'function') ? _dimIkaSp(p.joukkue || '', p) : { ika: null };
+  const ika = isp.ika;
+  const d1 = (p.hh_taso != null) ? p.hh_taso : null;
+  const d2 = (typeof laskeD2Taso === 'function') ? laskeD2Taso(p) : null;
+  const d4 = (typeof _dimNorm5Adar === 'function') ? _dimNorm5Adar(p.adar_viimeisin && p.adar_viimeisin.yht) : null;
+  const d5 = (typeof laskeD5Taso === 'function') ? laskeD5Taso(p) : null;
+  const radarDims = [
+    { key: 'D4', label: 'Peliäly',    arvo: (d4 != null ? d4 : null) },
+    { key: 'D3', label: 'Psyykkinen', arvo: (p.d3_taso != null ? p.d3_taso : null) },
+    { key: 'D5', label: 'Sosiaal.',   arvo: d5 },
+    { key: 'D2', label: 'Tekninen',   arvo: (d2 != null ? d2 : null), lahde: (typeof _d2Lahde === 'function' ? _d2Lahde(p) : null) },
+    { key: 'D1', label: 'Fyysinen',   arvo: (d1 != null ? d1 : null) }
+  ];
+  if (radarDims.filter(function (x) { return x.arvo != null; }).length < 3) return '';   // §30 OVR-portti: radar vaatii ≥3 dimensiota
+  const _rn = _vpRadarNormiJaVaihe(p, ika, radarDims);
+  const _radarOpts = _rn.normi ? { maxW: 300, normi: _rn.normi, normiVari: 'var(--ink3)', lahdePisteet: true } : { maxW: 300, lahdePisteet: true };
+  const _d1Prev = (p.hh_taso_edellinen != null) ? p.hh_taso_edellinen : null;
+  const _d2Prev = (p.tki_edellinen != null) ? Math.round((p.tki_edellinen / 20) * 10) / 10 : null;
+  const _prevByKey = { D1: _d1Prev, D2: _d2Prev };
+  if (_d1Prev != null || _d2Prev != null) {
+    _radarOpts.overlay = radarDims.map(function (d) { return { arvo: (_prevByKey[d.key] != null ? _prevByKey[d.key] : null) }; });
+    _radarOpts.overlayVari = 'var(--ink3)'; _radarOpts.overlayDash = true;
+  }
+  let h = '<div class="idp-seg idp-sec"><div class="idp-eyebrow">📊 5D-profiili · peli edellä</div>';
+  h += '<div class="jsp-radar" style="margin:0 auto 6px">' + window._tmRadar5D(radarDims, _radarOpts) + '</div>';
+  const _suuntaChip = function (nyt, edel, lbl) {
+    if (nyt == null || edel == null) return '';
+    const d = Math.round((nyt - edel) * 10) / 10, up = d > 0.05, down = d < -0.05;
+    return '<span style="color:' + (up ? 'var(--teal)' : down ? 'var(--amber)' : 'var(--ink3)') + '">' + lbl + ' ' + (up ? '↑ +' + d : down ? '↓ ' + d : '→ 0') + '</span>';
+  };
+  const _suunnat = [_suuntaChip(d1, _d1Prev, 'D1'), _suuntaChip(d2, _d2Prev, 'D2')].filter(Boolean);
+  if (_suunnat.length) h += '<div style="font-size:10px;color:var(--ink3);text-align:center;margin:-2px 0 6px;display:flex;gap:10px;justify-content:center;flex-wrap:wrap"><span style="color:var(--ink3)">– – edellinen ·</span> ' + _suunnat.join(' · ') + '</div>';
+  if (typeof _TM_RADAR_LAHDE_LEGENDA !== 'undefined') h += _TM_RADAR_LAHDE_LEGENDA;
+  if (_rn.bandHTML) h += _rn.bandHTML;
+  return h + '</div>';
+}
 function _vpIdpNarratiiviHTML(p) {
   if (!p) return '';
   const esc = _jsvEsc, pid = esc(p.id);
@@ -5798,7 +5842,8 @@ function _vpIdpNarratiiviHTML(p) {
   const sit = (typeof _vpSitoumusHTML === 'function') ? _vpSitoumusHTML(p, pid) : '';
   if (sit) h += '<div class="idp-seg idp-sec"><span class="idp-node"></span>' + _stitle('🤝 Sitoumus') + '<div>' + sit + '</div></div>';
   h += '</div><div class="idp-col-r">';
-  // OIKEA (1fr) — stat-glance · Suunnitelman kaari (tutka on profiilirailissa, ei toisteta).
+  // OIKEA (1fr) — v7 .col-r: 5D-TUTKA (ylhäällä) → stat → Suunnitelman kaari. Rail piilotettu Aloituksessa → ei toistoa.
+  if (typeof _vpAloitusTutkaHTML === 'function') h += _vpAloitusTutkaHTML(p);
   h += _vpStatTiivisteHTML(p);
   if (typeof _vpAloitusKaariHTML === 'function') h += _vpAloitusKaariHTML(p, ika);
   h += '</div></div>';
@@ -9424,6 +9469,10 @@ window._jspVaihda = function(n) {
     if (tab) tab.style.display = (i === n) ? 'block' : 'none';
     if (btn) btn.classList.toggle('on', i === n);
   }
+  // R1.4-korjaus — ALOITUS-MODE: Aloituksessa (tab 0) v7:n 2-sarake → piilota profiiliraili (tutka on nyt Aloituksen
+  // oikeassa sarakkeessa). Muut välilehdet: raili takaisin (jaettu profiili). Ei DOM-uudelleenrakennusta, vain luokka.
+  const _grid = document.querySelector('#_jspModal .jsp-grid');
+  if (_grid) _grid.classList.toggle('jsp-aloitus', n === 0);
 };
 // ── Testitulkinnan koulutus — ⓘ-info (avautuu pikakatsauksen päälle, z 360). Sisältö: mitä mittaa + miten tulkita + valmennusvihje ──
 window.TM_TESTI_OHJEET = {
@@ -10863,7 +10912,7 @@ window._avaaPerPelaajaPikakatsaus = function(idx, joukkueNimi) {
   hR += '<div id="_jspTab4" style="display:none">' + ((typeof _vpViikkoHTML === 'function') ? _vpViikkoHTML(p) : '') + '</div>';   // P6a — viikkosyöttö + IDP-kytkös
   hR += '</div>';
   // Kaksisarakkeinen runko (header ja nav täysleveinä sen ulkopuolella; mobiilissa pinoutuu §6)
-  h += '<div class="jsp-grid"><div class="jsp-left">' + hL + '</div><div class="jsp-right">' + hR + '</div></div>';
+  h += '<div class="jsp-grid jsp-aloitus"><div class="jsp-left">' + hL + '</div><div class="jsp-right">' + hR + '</div></div>';   // R1.4: oletus Aloitus (tab 0) → aloitus-mode (raili piiloon)
   h += '<div style="display:flex;justify-content:space-between;align-items:center;padding:12px 24px;border-top:.5px solid var(--border)">';
   h += '<button onclick="_avaaPerPelaajaPikakatsaus(' + (idx-1) + ',\'' + jesc + '\')" style="padding:8px 14px;background:transparent;color:var(--ink);border:.5px solid var(--border);border-radius:5px;font-size:12px;cursor:pointer;font-family:\'DM Sans\',sans-serif">← Edellinen</button>';
   h += '<span style="font-size:11px;color:var(--ink3);font-family:var(--font-m)">' + (idx+1) + ' / ' + nP + '</span>';
