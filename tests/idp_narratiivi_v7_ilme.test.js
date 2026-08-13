@@ -105,10 +105,12 @@ describe('C — narratiivin järjestys + data-loss-vartija + CSS', () => {
     ['_vpPelaajanAaniHTML(p)', '_vpXFactorAse(p)', '_vpStatTiivisteHTML(p)', '_vpAloitusTavoiteHTML(p)',
      '_vpAloitusJaksofokusHTML(p)', '_vpSitoumusHTML(p, pid)', '_vpPelipaikkaFundamentitHTML'].forEach((call) =>
       expect(HTML).toContain(call));
-    // ⭐ Erottava ase (X-factor) + Kehityssuunnitelma-header + spine ennallaan
+    // ⭐ Erottava ase (X-factor) + Kehityssuunnitelma-header ennallaan
     expect(HTML).toContain('⭐ Erottava ase');
     expect(HTML).toContain('TalentMaster · Kehityssuunnitelma');
-    expect(HTML).toContain("h.replace('<!--IDP_SPINE-->', '<div class=\"idp-spine\">')");
+    // R1.4: selkäranka korvattu v7 2-sarakkeella (.idp-cols) — spine-kääre poistettu
+    expect(HTML).toContain('<div class="idp-cols"><div class="idp-col-l">');
+    expect(HTML).not.toContain("h.replace('<!--IDP_SPINE-->'");
   });
 
   it('kausitavoite calmed .idp-sec (ei kilpaile fokus-heron kanssa)', () => {

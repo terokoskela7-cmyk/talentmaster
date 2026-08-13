@@ -1348,6 +1348,12 @@ body {
 .idp-spine::before { content: ''; position: absolute; left: 7px; top: 6px; bottom: 6px; width: 1px; background: linear-gradient(180deg, rgba(40,176,144,.5), rgba(40,176,144,.1)); }
 .idp-seg { position: relative; }
 .idp-seg > .idp-node { position: absolute; left: -21px; top: 4px; width: 9px; height: 9px; border-radius: 50%; background: var(--bg2); border: 1.5px solid var(--teal); box-shadow: 0 0 0 3px var(--bg2); }
+/* R1.4 — Aloitus v7 2-sarakeasettelu (kartta .cols 1.5fr 1fr). Tutka on modaalin profiilirailissa → oikea sarake = stat + kaari. */
+.idp-cols { display: grid; grid-template-columns: 1.5fr 1fr; gap: 22px; align-items: start; margin-bottom: 4px; }
+@media (max-width: 1000px) { .idp-cols { grid-template-columns: 1fr; gap: 0; } }
+.idp-col-l { min-width: 0; }
+.idp-col-r { min-width: 0; display: flex; flex-direction: column; }
+.idp-node { display: none; }   /* selkäranka korvattu 2-sarakkeella (v7-kartta on sarakepohjainen, ei spine) → orpo-solmut piiloon */
 /* R1 (pala 3a) — v7-ilme: rauhallinen hierarkia, YKSI teal-aksentti. Eyebrow (mono), ääni-kortti, fokus-hero, sektiokortti. */
 .idp-eyebrow { font-family: var(--font-mono); font-size: 9px; letter-spacing: .14em; text-transform: uppercase; color: var(--teal); margin-bottom: 8px; display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
 .idp-eyebrow .idp-eyebrow-sub { font-family: var(--font-mono); font-size: 8.5px; letter-spacing: .04em; color: var(--ink3); }
@@ -5768,11 +5774,13 @@ function _vpIdpNarratiiviHTML(p) {
   h += '<div style="display:flex;gap:6px;flex-wrap:wrap">'
     + '<span style="font-family:var(--font-sans);font-size:10px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;padding:4px 10px;' + (idpAkt ? 'background:rgba(40,176,144,.12);color:var(--teal);border:.5px solid rgba(40,176,144,.3)' : 'background:var(--bg3);color:var(--ink3);border:.5px solid var(--border)') + '">' + (idpAkt ? '● IDP aktiivinen' : '○ IDP luonnos') + '</span>'
     + '<span style="font-family:var(--font-mono);font-size:10px;color:var(--ink3);padding:4px 10px;background:var(--bg3);border:.5px solid var(--border)">Kausi ' + esc(kausi) + '</span></div></div>';
-  // ── P1 SELKÄRANKA alkaa (header jää ulkopuolelle) — kaikki alla kääritään .idp-spine:iin (return-vaiheessa). ──
-  h += '<!--IDP_SPINE-->';
-  // ── P1 PELAAJAN ÄÄNI — "Miksi pelaan?" + "Minkälainen pelaaja haluan olla?" (additiivinen, ennen X-factoria) ──
+  // ── R1.4 — v7 2-SARAKEASETTELU (kartta .cols 1.5fr 1fr). Aloitus omaan 2-sarakkeeseen. Sama data/kutsut, vain
+  //    sijoittelu. Täysleveä ylä (ääni + erottava ase) → cols [VASEN 1.5fr: fokus-hero + peili + kausitavoite + sitoumus ·
+  //    OIKEA 1fr: stat + Suunnitelman kaari] (tutka on jo modaalin profiilirailissa) → täysleveä ala (pelipaikkafund. +
+  //    syvyys + CTA). Selkäranka (.idp-spine) korvattu 2-sarakkeella (v7-kartta on sarakepohjainen, ei spine) → orpo-solmut piiloon.
+  // ── PELAAJAN ÄÄNI (täysleveä ylä) ──
   h += _vpPelaajanAaniHTML(p);
-  // ── 1b X-FACTOR-IDENTITEETTI (Vaihe A) — nimetty erottava ase heti otsikon alle (§läpileikkaava 1) ──
+  // ── 1b X-FACTOR-IDENTITEETTI (täysleveä ylä) ──
   const _xf = _vpXFactorAse(p), _xfSig = (p.signaali === 'xfactor');
   if (_xf || _xfSig) {
     h += '<div class="idp-seg" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:rgba(40,176,144,.07);border:.5px solid rgba(40,176,144,.28);border-radius:10px;padding:11px 15px;margin-bottom:22px"><span class="idp-node"></span>'
@@ -5781,34 +5789,27 @@ function _vpIdpNarratiiviHTML(p) {
       + (_xf && _xf.taso != null ? '<span style="font-family:var(--font-mono);font-size:10.5px;color:var(--ink3)">' + esc(_xf.lahde) + ' · taso ' + esc(_xf.taso) + '</span>' : (_xf ? '<span style="font-family:var(--font-mono);font-size:10.5px;color:var(--ink3)">' + esc(_xf.lahde) + '</span>' : ''))
       + (_xfSig ? '<span style="font-size:10px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--gold,#D9A441);border:.5px solid rgba(217,164,65,.4);padding:3px 8px;margin-left:auto">★ X-Factor</span>' : '') + '</div>';
   }
-  // ── R1 (pala 3a) v7-ilme: FOKUS-HERO ensin (yksi prioriteetti nostettuna) → kausitavoite tukikontekstina (arc jota
-  //    fokus palvelee) → kevyt stat-glance. Sama data/kutsut, vain esitysjärjestys + kääre v7:n rauhalliseen ilmeeseen. ──
-  // ── P1.1 — JAKSOFOKUS = fokus-hero (konsepti + domeeni/dim/kesto + tukikonseptit + "→ Kehitä jaksofokusta"). ──
+  // ── 2-SARAKE (kartta .cols) ──
+  h += '<div class="idp-cols"><div class="idp-col-l">';
+  // VASEN (1.5fr) — fokus-hero (+ konsepti-ydin sisällä) · peili · kausitavoite · sitoumus.
   h += _vpAloitusJaksofokusHTML(p);
-  // ── R1 (pala 3b) — PELAAJAN PEILI: sama fokus lapsen kielellä (konseptin cue, §7.22). Heti fokus-heron alle. ──
   if (typeof _vpAloitusPeiliHTML === 'function') h += _vpAloitusPeiliHTML(p);
-  // ── P1.1 — KAUSITAVOITE: suunta/arc jota fokus palvelee (dedupe: Suunta-yhteenveto + Kausitavoite + SMART yhdistetty). ──
   h += _vpAloitusTavoiteHTML(p);
-  // ── 1c STAT-TIIVISTE — 3 mittausta + suunta vs ikäluokka (silmäiltävä ~10 s). ──
+  const sit = (typeof _vpSitoumusHTML === 'function') ? _vpSitoumusHTML(p, pid) : '';
+  if (sit) h += '<div class="idp-seg idp-sec"><span class="idp-node"></span>' + _stitle('🤝 Sitoumus') + '<div>' + sit + '</div></div>';
+  h += '</div><div class="idp-col-r">';
+  // OIKEA (1fr) — stat-glance · Suunnitelman kaari (tutka on profiilirailissa, ei toisteta).
   h += _vpStatTiivisteHTML(p);
-  // ── R1 (pala 3b) — SUUNNITELMAN KAARI + katselmusrytmi: kompakti kausitavoite→jaksofokus→kehityskaari→seuraava katselmus. ──
   if (typeof _vpAloitusKaariHTML === 'function') h += _vpAloitusKaariHTML(p, ika);
-  // P1.1 — POISTETTU Aloituksesta (elävät Kehitys-työpöydällä P4a/P4a.1): meso-kehityskaari (_vpMesoKaariHTML, TASO 3),
-  //   silta (_vpSiltaPaneeliHTML, valmennus-detalji), erillinen moottori-CTA-rivi. Funktiot säilyvät Kehityksen käytössä.
-  // ── P1.1 — PELIPAIKKAFUNDAMENTIT ▸ revealin taakse (viitesisältö, ei 10 s katsauksessa). ──
+  h += '</div></div>';
+  // ── TÄYSLEVEÄ ALA: pelipaikkafundamentit-reveal · syvyys-kortit · loppu-CTA ──
   const pfund = (typeof _vpPelipaikkaFundamentitHTML === 'function') ? _vpPelipaikkaFundamentitHTML(p) : '';
   if (pfund) h += '<div class="idp-seg" style="margin-bottom:22px"><span class="idp-node"></span>'
     + '<span onclick="var b=document.getElementById(\'_jspAloPfund\');var o=b.style.display===\'none\';b.style.display=o?\'block\':\'none\';this.textContent=(o?\'▾\':\'▸\')+\' Rooli · pelipaikkafundamentit\'" style="font-size:11px;color:var(--blue);cursor:pointer;font-weight:600">▸ Rooli · pelipaikkafundamentit</span>'
     + '<div id="_jspAloPfund" style="display:none;margin-top:10px">' + pfund + '</div></div>';
-  // ── 6 SITOUMUS (pelaajan omistajuus) — säilyy, kompakti ──
-  const sit = (typeof _vpSitoumusHTML === 'function') ? _vpSitoumusHTML(p, pid) : '';
-  if (sit) h += '<div class="idp-seg idp-sec"><span class="idp-node"></span>' + _stitle('🤝 Sitoumus') + '<div>' + sit + '</div></div>';
-  // ── R1 (pala 3b) — DATATIETOISET SYVYYS-KORTIT: Mittaus/Arviointi/Kehitys/Viikko pikakentistä, klik → _jspVaihda(n). ──
   if (typeof _vpAloitusSyvyysKortitHTML === 'function') h += '<div class="idp-seg" style="margin-bottom:18px"><span class="idp-node"></span>' + _vpAloitusSyvyysKortitHTML(p) + '</div>';
-  // ── P1.1 — LOPPU-CTA: Aloitus = rauhallinen yhteenveto → muokkaus Kehitys-työpöydällä. ──
   h += '<div style="margin-top:8px;padding-top:14px;border-top:.5px solid var(--border)"><button onclick="event.stopPropagation();_jspVaihda(3)" style="font-family:var(--font-sans);font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;padding:10px 16px;border-radius:8px;background:rgba(40,176,144,.1);color:var(--teal);border:.5px solid rgba(40,176,144,.4);cursor:pointer">→ Avaa Kehitys-työpöytä · muokkaa suunnitelmaa</button></div>';
-  // P1 — kääri kaikki header-jälkeinen sisältö selkärankaan (.idp-spine): jatkuva teal-hiusviiva + solmut.
-  return h.replace('<!--IDP_SPINE-->', '<div class="idp-spine">') + '</div>';
+  return h;
 }
 function _vpKausitavoiteHTML(p) {
   if (!p) return '';
