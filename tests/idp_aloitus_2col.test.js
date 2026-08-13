@@ -67,10 +67,10 @@ describe('R1.4 — 2-sarakerakenne (kartta .cols)', () => {
     // tutka-helper on itsenäinen (recompute pikakentistä, ei riipu passatuista opts:eista)
     expect(HTML).toContain('function _vpAloitusTutkaHTML(p) {');
     expect(HTML).toContain('window._tmRadar5D(radarDims, _radarOpts)');
-    // aloitus-mode: _jspVaihda togglaa jsp-aloitus (tab 0 → raili piiloon)
-    expect(HTML).toContain("_grid.classList.toggle('jsp-aloitus', n === 0);");
-    expect(HTML).toContain('<div class="jsp-grid jsp-aloitus">');
-    expect(HTML).toContain('.jsp-grid.jsp-aloitus > .jsp-left { display: none; }');
+    // rail-vapaa-mode: _jspVaihda togglaa jsp-railvapaa (tab 0 Aloitus + tab 1 Mittaus → raili piiloon)
+    expect(HTML).toContain("_grid.classList.toggle('jsp-railvapaa', n === 0 || n === 1)");
+    expect(HTML).toContain('<div class="jsp-grid jsp-railvapaa">');
+    expect(HTML).toContain('.jsp-grid.jsp-railvapaa > .jsp-left { display: none; }');
   });
 
   it('R1.4-korjaus 2: tutka AINA esillä — ≥3-portti poistettu (rail-tutkassa ei ollut)', () => {
