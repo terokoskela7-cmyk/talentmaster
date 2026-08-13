@@ -91,6 +91,16 @@ describe('nextstep + pelifoot', () => {
   });
 });
 
+describe('CSS-tokenit — ei määrittelemättömiä (L3-korjaus)', () => {
+  it('--border2 ei ole käytössä (määrittelemätön VP:ssä → border putoaisi currentColoriin)', () => {
+    // --border2 ei ole VP:n tokeneissa; käyttö → hiusviiva ~5× liian tumma (mitattu rgba(28,28,26,.62)).
+    expect(HTML).not.toContain('var(--border2)');
+    // .mit-nstep-väliviiva käyttää samaa --border-tokenia kuin sisar-.mit-fresh/.mit-lens
+    expect(HTML).toContain('.mit-nstep { display: flex;');
+    expect(HTML).toMatch(/\.mit-nstep \{[^}]*border-bottom: \.5px solid var\(--border\)/);
+  });
+});
+
 describe('kytkentä tab-1:een (rakenteellinen)', () => {
   it('tuoreus + §28-linssi ENNEN f1, nextstep f2:n jälkeen', () => {
     const iTuoreus = HTML.indexOf('_vpMittausTuoreusHTML(p, ika) :');
