@@ -1340,9 +1340,13 @@ body {
    näkyvissä kun testejä selaa oikealla. Mobiilissa pinoutuu yhteen sarakkeeseen (§6, sama @media-lohko). */
 .jsp-box { background: var(--bg2); border: .5px solid var(--border); border-radius: 8px; width: min(1240px, 96vw); max-width: 96vw; max-height: 90vh; overflow-y: auto; display: flex; flex-direction: column; }
 .jsp-grid { display: grid; grid-template-columns: 290px 1fr; gap: 22px; padding: 10px 24px 4px; align-items: start; }
-/* R1.4-korjaus — Aloitus-mode: v7:n 2-sarake (narratiivi | tutka+kaari) → profiiliraili piiloon, tabit täysleveiksi. Muut välilehdet: raili takaisin. */
-.jsp-grid.jsp-aloitus { grid-template-columns: 1fr; }
-.jsp-grid.jsp-aloitus > .jsp-left { display: none; }
+/* R1.4 + Mittaus v4 — RAIL-VAPAA -mode: uudistetut välilehdet (Aloitus + Mittaus) ovat täysleveitä karttojensa mukaan
+   (Aloitus v7 2-sarake · Mittaus v4 D1|D2) → profiiliraili piiloon, tabit täysleveiksi. Muut välilehdet: raili takaisin. */
+.jsp-grid.jsp-railvapaa { grid-template-columns: 1fr; }
+.jsp-grid.jsp-railvapaa > .jsp-left { display: none; }
+/* Mittaus v4 — D1 Fyysinen | D2 Tekninen vierekkäin (kartta .cols 1fr 1fr). Tulkintakerros (tuoreus/§28/synth) + Kehon valmius + nextstep täysleveinä. */
+.mit-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 26px; align-items: start; margin-bottom: 4px; }
+@media (max-width: 900px) { .mit-cols { grid-template-columns: 1fr; gap: 0; } }
 .jsp-left { min-width: 0; }
 .jsp-right { min-width: 0; }
 .jsp-radar { width: 290px; max-width: 100%; margin: 6px auto 10px; }
@@ -9473,7 +9477,7 @@ window._jspVaihda = function(n) {
   // R1.4-korjaus — ALOITUS-MODE: Aloituksessa (tab 0) v7:n 2-sarake → piilota profiiliraili (tutka on nyt Aloituksen
   // oikeassa sarakkeessa). Muut välilehdet: raili takaisin (jaettu profiili). Ei DOM-uudelleenrakennusta, vain luokka.
   const _grid = document.querySelector('#_jspModal .jsp-grid');
-  if (_grid) _grid.classList.toggle('jsp-aloitus', n === 0);
+  if (_grid) _grid.classList.toggle('jsp-railvapaa', n === 0 || n === 1);   // Aloitus (v7) + Mittaus (v4) täysleveitä → raili piiloon; muut → raili takaisin
 };
 // ── Testitulkinnan koulutus — ⓘ-info (avautuu pikakatsauksen päälle, z 360). Sisältö: mitä mittaa + miten tulkita + valmennusvihje ──
 window.TM_TESTI_OHJEET = {
@@ -10904,7 +10908,7 @@ window._avaaPerPelaajaPikakatsaus = function(idx, joukkueNimi) {
     + (typeof _vpMittausTuoreusHTML === 'function' ? _vpMittausTuoreusHTML(p, ika) : '')
     + (typeof _vpMittausLinssiHTML === 'function' ? _vpMittausLinssiHTML(p, ika) : '')
     + (typeof _vpMittausSynthHTML === 'function' ? _vpMittausSynthHTML(p, ika, d1, d2, tsi) : '')
-    + _mSub('Fyysinen · mitattu') + f1 + _mErot + _mSub('Tekninen · mitattu') + f2
+    + '<div class="mit-cols"><div>' + _mSub('Fyysinen · mitattu') + f1 + '</div><div>' + _mSub('Tekninen · mitattu') + f2 + '</div></div>'
     + _mErot + _mSub('Kehon valmius') + (typeof _vpKehonValmiusHTML === 'function' ? _vpKehonValmiusHTML(p) : '')
     + (typeof _vpMittausNextStepHTML === 'function' ? _vpMittausNextStepHTML(p) : '')
     + '<div id="_jspMittausLista" style="margin-top:6px"></div></div>';   // E2.1 — muokattava mittauslista (async-hydratoitu; renderöi yhteenvedon alle)
@@ -10913,7 +10917,7 @@ window._avaaPerPelaajaPikakatsaus = function(idx, joukkueNimi) {
   hR += '<div id="_jspTab4" style="display:none">' + ((typeof _vpViikkoHTML === 'function') ? _vpViikkoHTML(p) : '') + '</div>';   // P6a — viikkosyöttö + IDP-kytkös
   hR += '</div>';
   // Kaksisarakkeinen runko (header ja nav täysleveinä sen ulkopuolella; mobiilissa pinoutuu §6)
-  h += '<div class="jsp-grid jsp-aloitus"><div class="jsp-left">' + hL + '</div><div class="jsp-right">' + hR + '</div></div>';   // R1.4: oletus Aloitus (tab 0) → aloitus-mode (raili piiloon)
+  h += '<div class="jsp-grid jsp-railvapaa"><div class="jsp-left">' + hL + '</div><div class="jsp-right">' + hR + '</div></div>';   // oletus Aloitus (tab 0) → rail-vapaa (raili piiloon)
   h += '<div style="display:flex;justify-content:space-between;align-items:center;padding:12px 24px;border-top:.5px solid var(--border)">';
   h += '<button onclick="_avaaPerPelaajaPikakatsaus(' + (idx-1) + ',\'' + jesc + '\')" style="padding:8px 14px;background:transparent;color:var(--ink);border:.5px solid var(--border);border-radius:5px;font-size:12px;cursor:pointer;font-family:\'DM Sans\',sans-serif">← Edellinen</button>';
   h += '<span style="font-size:11px;color:var(--ink3);font-family:var(--font-m)">' + (idx+1) + ' / ' + nP + '</span>';
