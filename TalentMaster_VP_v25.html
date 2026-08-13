@@ -1436,6 +1436,7 @@ body {
 .mit-meta .open { color: var(--teal); }
 .mit-meta .low { color: var(--amber); }
 .mit-spark { margin-top: 6px; }
+.mit-tkitag { font-family: var(--font-mono); font-size: 10px; color: var(--ink2); border: .5px solid var(--border); border-radius: 6px; padding: 3px 9px; display: inline-block; margin-bottom: 11px; }
 /* P2 — Mittaus-korttiruudukko (display-only): ydintestikortit + koontikortti + diagnostiikka + §28-portti + sparkline. */
 .mrow { display: grid; grid-template-columns: repeat(auto-fit, minmax(118px, 1fr)); gap: 8px; margin: 4px 0 10px; }
 .mcard { background: var(--bg2); border: .5px solid var(--border); border-radius: 10px; padding: 11px 12px; display: flex; flex-direction: column; gap: 5px; min-width: 0; }
@@ -10373,62 +10374,54 @@ window._avaaPerPelaajaPikakatsaus = function(idx, joukkueNimi) {
   const _codJ = (hv && hv.sm_juoksu != null) ? hv.sm_juoksu : (p.sm_juoksu_viimeisin != null ? p.sm_juoksu_viimeisin : null);
   const _codP = (hv && hv.sm_pallo != null) ? hv.sm_pallo : (p.sm_pallo_viimeisin != null ? p.sm_pallo_viimeisin : null);
   const _tsiVari = (tsi == null) ? 'var(--ink)' : tsi <= 0.5 ? 'var(--teal)' : tsi <= 1.5 ? 'var(--amber)' : 'var(--red)';
-  // ── P2 — TEKNINEN KORTTIRUUDUKKO (display-only): TKI/TSI-kortit + per-taito + D2-koontikortti. Laskenta olemassa. ──
+  // ── R2 (pala 4) — TEKNINEN v4 hero/trow (peilaa Fyysinen): tkitag (TKI-merkki) + iso Cormorant D2-taso (hero) +
+  //    per-testi trow (Syöttö/Pujottelu H-H · TSI). ⚠ Async TKI-sparkline-säiliö _spark_tki SÄILYY hero-alla → hydraatio ennallaan.
   let f2 = '';
-  let _d2Cards = '';
-  // TKI-kortti (badge = laskeD2Taso n/5; trendinuoli tki_edellinen→tki_viimeisin; sparkline-säiliö tyhjä kunnes P1b).
-  if (p.tki_viimeisin != null) {
-    const _d2b = (d2 != null) ? Math.round(d2) : '–';
-    const _d2c = (d2 != null) ? hhTasoVari(d2) : 'var(--ink3)';
-    _d2Cards += '<div class="mcard"><div class="mcard-top"><span class="mcard-lbl">TKI' + window._tmIBtn('tki') + '</span>'
-      + '<span class="mcard-badge" style="background:' + _d2c + ';color:#fff">' + _d2b + '</span></div>'
-      + '<div class="mcard-val">' + p.tki_viimeisin + _trendNuoli(p.tki_viimeisin, p.tki_edellinen) + '</div>'
-      + '<div class="mcard-spark" id="_spark_tki"></div>'   // P1b — async tekniikkahistoria (2-piste-nuoli säilyy pikakentästä)
-      + '<div class="mcard-foot">' + (m2 ? m2.emoji + ' ' + m2.nimi : 'tekniikkaindeksi') + '</div></div>';
-  }
-  // TSI-kortti (ei _edellinen-kenttää → EI nuolta, graceful). §21-väri säilyy.
-  if (tsi != null) {
-    _d2Cards += '<div class="mcard"><div class="mcard-top"><span class="mcard-lbl">TSI' + window._tmIBtn('tsi') + '</span></div>'
-      + '<div class="mcard-val" style="color:' + _tsiVari + '">' + tsi + '<span class="mcard-yks"> s</span></div>'
-      + '<div class="mcard-foot">suunnanmuutos pallon kanssa' + (tsiKtx ? ' · ' + tsiKtx : '') + '</div></div>';
-  }
-  // Per-taito (TKI-lajit) — vain jos tk_lajit_viimeisin (§26). Muuten kortti pois (graceful, ei keksitä taitoja).
-  if (p.tk_lajit_viimeisin) {
-    const _L = p.tk_lajit_viimeisin;
-    const _lrows = [['syotto_s', 'Syöttö'], ['pujottelu_s', 'Pujottelu'], ['ponnauttelu_s', 'Ponnauttelu'], ['kuljetus_laukaus_s', 'Kuljetus-laukaus']]
-      .filter(function (x) { return _L[x[0]] != null; })
-      .map(function (x) { return '<div style="display:flex;justify-content:space-between;gap:8px;font-size:11px;color:var(--ink2)"><span>' + x[1] + '</span><span style="font-family:var(--font-mono,monospace)">' + _L[x[0]] + ' s</span></div>'; }).join('');
-    if (_lrows) _d2Cards += '<div class="mcard"><div class="mcard-top"><span class="mcard-lbl">Per taito · TKI</span></div>'
-      + '<div style="display:flex;flex-direction:column;gap:2px;margin:2px 0">' + _lrows + '</div>'
-      + '<div class="mcard-foot">sekuntia · pienempi parempi</div></div>';
-  }
-  // D2-koontikortti (.mtotal): laskeD2Taso → radar D2.
+  // tkitag — TKI-merkki + arvo (kartan "TKI hopea · 72").
+  if (m2 && p.tki_viimeisin != null) f2 += '<div class="mit-tkitag">' + m2.emoji + ' TKI ' + m2.nimi + ' · ' + p.tki_viimeisin + window._tmIBtn('tki') + '</div>';
+  else if (p.tki_viimeisin != null) f2 += '<div class="mit-tkitag">TKI ' + p.tki_viimeisin + window._tmIBtn('tki') + '</div>';
+  // HERO — D2-taso (TKI + H-H-lajitekniikka). Trend TKI-deltasta (pikakenttä), muuten mittausmäärä.
   if (d2 != null) {
-    _d2Cards += '<div class="mcard mtotal"><div class="mcard-top"><span class="mcard-lbl">D2 taso</span></div>'
-      + '<div class="mcard-val" style="color:' + hhTasoVari(d2) + '">' + (Math.round(d2 * 10) / 10) + '<span class="mcard-yks"> /5</span></div>'
-      + '<div class="mcard-foot">→ radar D2</div></div>';
+    f2 += '<div class="mit-hero"><span class="tval" style="color:' + hhTasoVari(d2) + '">' + (Math.round(d2 * 10) / 10) + '</span><span class="tmax">/5</span>'
+      + '<span class="trend">' + (p.tki_edellinen != null && p.tki_viimeisin != null ? 'TKI' + _trendNuoli(p.tki_viimeisin, p.tki_edellinen) : 'D2-taso') + '</span></div>'
+      + '<div class="mit-tname">D2-taso · TKI + H-H-lajitekniikka</div>';
   }
-  if (_d2Cards) f2 += '<div class="mrow d2b">' + _d2Cards + '</div>';
+  // _spark_tki — async TKI-historia (SÄILYTETTY id → _p1bInjektoi täyttää; 2-piste-nuoli hero:ssa pikakentästä).
+  if (p.tki_viimeisin != null) f2 += '<div class="mit-spark" id="_spark_tki"></div>';
+  // Per-testi trow't: Syöttö/Pujottelu (H-H 3-port) + TSI. SAMA laskenta (eerikkilaTaso 1–3 · §21 TSI-väri).
+  const _tekTrow = function (lbl, small, arvoTxt, low, w, tickPct, mean, meta, col) {
+    return '<div class="mit-trow"><div class="mit-trh"><span class="tn">' + lbl + ' <small>' + small + '</small></span>'
+      + '<span class="tv' + (low ? ' low' : '') + '"' + (col ? ' style="color:' + col + '"' : '') + '>' + arvoTxt + '</span></div>'
+      + '<div class="mit-track"><b' + (low ? ' class="low"' : '') + ' style="width:' + w.toFixed(0) + '%' + (col && !low ? ';background:' + col : '') + '"></b><span class="mit-tick" style="left:' + tickPct + '%"></span></div>'
+      + '<div class="mit-mean"><span class="ball">⚽</span>' + mean + '</div><div class="mit-meta">' + meta + '</div></div>';
+  };
+  const _hhMeanit = { syotto: 'Pallonhallinta ja syöttö paineessa.', pujottelu: 'Pallon kuljetus ahtaassa, suunnanmuutokset.' };
+  if (typeof eerikkilaTaso === 'function' && ika != null && spMN && hv) {
+    [ { key: 'syotto', lbl: 'Syöttö' }, { key: 'pujottelu', lbl: 'Pujottelu' } ].forEach(function (t) {
+      if (hv[t.key] == null || isNaN(hv[t.key])) return;
+      const t3 = eerikkilaTaso(Number(hv[t.key]), t.key, ika, spMN);
+      const low = (t3 > 0 && t3 < 2);
+      const w = (t3 > 0) ? Math.max(8, t3 / 3 * 100) : 8;
+      f2 += _tekTrow(t.lbl, 'H-H', hv[t.key] + ' s', low, w, 66,
+        _hhMeanit[t.key], (t3 > 0 ? 'taso <span' + (low ? ' class="low"' : t3 >= 3 ? ' class="open"' : '') + '>' + t3 + '/3</span> · ' + (t3 >= 3 ? 'ikäluokan kärkeä' : t3 >= 2 ? 'ikäluokan tasoa' : 'kehitettävää') : 'taso —'), null);
+    });
+  }
+  if (tsi != null) {
+    const tsiLow = (tsi > 1.5);
+    const tsiW = (tsi <= 0.5) ? 90 : (tsi <= 1.5) ? 65 : 35;
+    f2 += _tekTrow('TSI', 'sm_pallo − sm_juoksu', tsi + ' s', false, tsiW, 75,
+      'Kuinka paljon hidastaa pallon kanssa. Lähellä 0 = ei lajitekniikkavajetta.',
+      'tekniikka ' + (tsiKtx ? tsiKtx.toLowerCase() : '—') + (tsi < 0.8 ? ' · <span class="open">automatisoitunut</span>' : ''), _tsiVari);
+  }
   // SM-tasot (D1→D2-silta) säilyvät testiriveinä (eivät korteissa).
   if (p.sm_juoksu_taso != null || p.sm_juoksu_viimeisin != null)
     f2 += friv('Nopeus (SM-juoksu)', (p.sm_juoksu_taso != null ? p.sm_juoksu_taso : null), (p.sm_juoksu_viimeisin != null ? p.sm_juoksu_viimeisin : null), 's', false, 'sm_juoksu');
   if (p.sm_pallo_taso != null || p.sm_pallo_viimeisin != null)
     f2 += friv('Tekniikka (SM-pallo)', (p.sm_pallo_taso != null ? p.sm_pallo_taso : null), (p.sm_pallo_viimeisin != null ? p.sm_pallo_viimeisin : null), 's', false, 'sm_pallo');
-  // Suunnanmuutos (ilman → pallolla) + Merkki säilyvät (TSI/TKI nyt korteissa → poistettu taulukosta, §5).
-  const _tekTaul = ((_codJ != null && _codP != null) ? tRiv('Suunnanmuutos (ilman → pallolla)', '<span style="color:var(--ink3)">' + _codJ + ' → ' + _codP + ' s</span>') : '')
-    + (m2 ? tRiv('Merkki', m2.emoji + ' ' + m2.nimi) : '');
+  // SM-tasot (D1→D2-silta) + suunnanmuutos = diagnostiikka trow'jen alla. Merkki on nyt tkitagissa (ei toisteta taulukossa).
+  // R2 (pala 4): Syöttö/Pujottelu H-H ovat nyt per-testi-trow'ja (yllä) → poistettu duplikaatti "Lajitekniikka (H-H)" -osio.
+  const _tekTaul = ((_codJ != null && _codP != null) ? tRiv('Suunnanmuutos (ilman → pallolla)', '<span style="color:var(--ink3)">' + _codJ + ' → ' + _codP + ' s</span>') : '');
   if (_tekTaul) f2 += '<table style="width:100%;border-collapse:collapse;font-size:12px;margin-top:10px"><tbody>' + _tekTaul + '</tbody></table>';
-  // H-H lajitekniikka (syöttö/pujottelu 3-port) — näkyy myös ilman TKI-dataa (Pallo-Iirot ym.). Eri asteikko (1–3)
-  // kuin fyysinen 1–5 → oma rivi, ei friv-badgea (joka olisi 1–5). Pienempi aika = parempi.
-  if (typeof eerikkilaTaso === 'function' && ika != null && hv && (hv.syotto != null || hv.pujottelu != null)) {
-    const _TT = [ { label:'Syöttö', key:'syotto' }, { label:'Pujottelu', key:'pujottelu' } ].filter(function(t){ return hv[t.key] != null && !isNaN(hv[t.key]); });
-    let _tr = '';
-    _TT.forEach(function(t){ const t3 = eerikkilaTaso(Number(hv[t.key]), t.key, ika, spMN);
-      const tvari = (t3>0) ? (t3>=3 ? 'var(--teal)' : t3>=2 ? 'var(--amber)' : 'var(--red)') : 'var(--ink3)';
-      _tr += '<div class="jsv-an-rivi"><span class="jsv-an-laji">' + t.label + ' (H-H)</span> ' + hv[t.key] + ' s'
-        + (t3>0 ? ' · <span style="color:' + tvari + '">taso ' + t3 + '/3</span>' : '') + '</div>'; });
-    if (_tr) f2 += '<div class="jsv-an-otsikko" style="margin-top:10px">Lajitekniikka (H-H, taso 1–3)</div>' + _tr;
-  }
   // ── (A) PER-TESTI-RADAR (Tekninen) — SM-juoksu/SM-pallo (1–5) + syöttö/pujottelu (3-port → 5-skaala). Tavoite taso 3.
   const _n5 = function(t3){ return (t3 != null && t3 > 0) ? (t3 - 1) * 2 + 1 : null; };   // 1–3 → 1/3/5
   const _syT = (hv && hv.syotto != null && ika != null && spMN && typeof eerikkilaTaso === 'function') ? _n5(eerikkilaTaso(Number(hv.syotto), 'syotto', ika, spMN)) : null;
@@ -10473,11 +10466,13 @@ window._avaaPerPelaajaPikakatsaus = function(idx, joukkueNimi) {
     _tekSyva += '</div>';
   }
   _tekSyva += renderFleiKortti(p);   // dynaaminen FLEI-kortti (3 tilaa)
-  // Kokoa Tekninen: radar (heti näkyvä) + SM-tasot/TSI/TKI (default, jo f2:ssa) + ▸ Syväanalyysi.
+  // R2 (pala 4) — v4: hero/trow ensisijainen → per-testi-radar Syväanalyysi-revealiin (peilaa Fyysinen). SM/TSI/TKI ja
+  // per-laji-sekuntibudjetti + kultaikkuna + FLEI ennallaan revealissa.
+  if (_tekRadar) _tekSyva = _tekRadar + _tekSyva;
   const _tekReveal = _tekSyva ? ('<div style="margin-top:14px;border-top:.5px solid var(--border);padding-top:10px">'
     + '<span onclick="var b=document.getElementById(\'_jspSyvaTek\');var o=b.style.display===\'none\';b.style.display=o?\'block\':\'none\';this.textContent=(o?\'▾\':\'▸\')+\' Syväanalyysi\'" style="font-size:12px;color:var(--blue);cursor:pointer;font-weight:600">▸ Syväanalyysi</span>'
     + '<div id="_jspSyvaTek" style="display:none;margin-top:12px">' + _tekSyva + '</div></div>') : '';
-  f2 = _tekRadar + f2 + _tekReveal;
+  f2 = f2 + _tekReveal;
 
   // ── TAB 3: PELI (ADAR) ──
   let f3;
