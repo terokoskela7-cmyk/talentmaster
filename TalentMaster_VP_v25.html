@@ -1338,7 +1338,7 @@ body {
 .hh-arvo { font-family: var(--font-mono); font-weight: 600; font-size: 16px; color: var(--ink); min-width: 62px; text-align: right; }
 /* Per-pelaaja Pikakatsaus (_jspModal) — kaksisarakkeinen dashboard (Vaihtoehto B): profiili vasemmalla pysyy
    näkyvissä kun testejä selaa oikealla. Mobiilissa pinoutuu yhteen sarakkeeseen (§6, sama @media-lohko). */
-.jsp-box { background: var(--bg2); border: .5px solid var(--border); border-radius: 8px; width: min(1040px, 96vw); max-width: 96vw; max-height: 90vh; overflow-y: auto; display: flex; flex-direction: column; }
+.jsp-box { background: var(--bg2); border: .5px solid var(--border); border-radius: 8px; width: min(1240px, 96vw); max-width: 96vw; max-height: 90vh; overflow-y: auto; display: flex; flex-direction: column; }
 .jsp-grid { display: grid; grid-template-columns: 290px 1fr; gap: 22px; padding: 10px 24px 4px; align-items: start; }
 .jsp-left { min-width: 0; }
 .jsp-right { min-width: 0; }
@@ -4246,8 +4246,11 @@ function _vpSiltaKonsepti(avain) {
   return null;
 }
 // Silta-ehdotukset pelaajalle (top-3). Tyhjä kun: ei libiä / ei arviointia / jaksofokus jo asetettu.
-function _vpSiltaEhdotukset(p) {
-  if (!p || p.jaksofokus) return [];
+function _vpSiltaEhdotukset(p, opts) {
+  opts = opts || {};
+  // R1.3: opts.ohitaPortti → ohita "ei ehdoteta kun jaksofokus jo asetettu" -portti, jotta Aloituksen konsepti-ydin saa
+  //   AIDON silta-lähteen (palloliittokohde + arvo) chainiin myös silloin kun fokus on jo valittu. SSOT-logiikka ennallaan.
+  if (!p || (p.jaksofokus && !opts.ohitaPortti)) return [];
   const LIB = window.TM_ARVIOINTI_SILTA; if (!LIB) return [];
   const hav = p.arviointi_havaittu; if (!hav) return [];
   const isp = (typeof _dimIkaSp === 'function') ? _dimIkaSp(p.joukkue || '', p) : { ika: null };
@@ -5690,40 +5693,57 @@ function _vpAloitusKonseptiYdinHTML(p) {
   const avain = jf.konsepti_avain || jf.konsepti_koodi;
   const item = (typeof _vpSiltaKonsepti === 'function') ? _vpSiltaKonsepti(avain) : null;
   let h = '<div class="idp-kyd">';
-  // 1) SILTA-ALKUPERÄ — mistä konsepti tuli (jf.lahde + arviointi_havaittu). Vajaa alkuperä täydennetty.
+  // 1) SILTA-ALKUPERÄ (A+B) — mistä konsepti tuli. Origin-kohtainen otsikko + AITO silta-lähde chainiin.
+  // DATAMALLI: arviointi_havaittu on avainnettu palloliitto-avaimella (EI konsepti-avaimella) → hav[konsepti_avain] on
+  // väärä avainavaruus. Aito lähde = _vpSiltaEhdotukset (tmSiltaEhdota SSOT) → {palloliitto_nimi, arvo, konsepti_avain}.
+  // Silta = D2-only (§28 tekninen ikkuna) → "D2" vakio. Lähdesolmu = palloliittokohde (EI konsepti). Honest-empty: ei matchia → ei lukua/chainia.
   const lahde = String(jf.lahde || '');
-  const hav = p.arviointi_havaittu || {};
-  const havTaso = (hav && hav[avain] != null) ? hav[avain] : null;
-  let originTxt = '', chain = '';
+  let wl, originTxt = '', chain = '';
   if (lahde === 'silta_d1' || jf.domeeni === 'fyysinen') {
+    wl = '↳ Miksi tämä · silta mittauksesta';
     originTxt = 'Silta ehdotti <b>fyysisestä mittauksesta</b> (D1) — heikoin fyysinen alue.';
   } else if (/silta|arviointi|havainto/.test(lahde)) {
-    originTxt = 'Havaittu <b>Arviointi-välilehdellä</b>' + (havTaso != null ? ': ' + esc(item ? item.nimi : sc(jf.konsepti_nimi)) + ' <b>' + havTaso + '/5</b> (🔵 havaittu, alle kynnyksen)' : '') + ' → silta ehdotti konseptin.';
-    chain = '<div class="idp-chain"><span class="node h">' + esc(sc(item ? item.nimi : jf.konsepti_nimi)) + (havTaso != null ? ' ' + havTaso + '/5' : '') + '</span><span class="ar">→</span><span class="node">silta</span><span class="ar">→</span><span class="node c">' + esc(sc(jf.konsepti_nimi)) + '</span></div>';
+    wl = '↳ Miksi tämä · silta arvioinnista';
+    let src = null;
+    if (typeof _vpSiltaEhdotukset === 'function') {
+      const ehd = _vpSiltaEhdotukset(p, { ohitaPortti: true }) || [];
+      for (let i = 0; i < ehd.length; i++) { if (ehd[i] && ehd[i].konsepti_avain === avain) { src = ehd[i]; break; } }
+    }
+    if (src && src.palloliitto_nimi != null && src.arvo != null) {
+      const lahdeLbl = 'D2 · ' + esc(src.palloliitto_nimi) + ' ' + src.arvo + '/5';
+      originTxt = 'Havaittu <b>Arviointi-välilehdellä</b>: <b>' + lahdeLbl + '</b> (🔵 havaittu, alle kynnyksen) → silta ehdotti konseptin.';
+      chain = '<div class="idp-chain"><span class="node h">' + lahdeLbl + '</span><span class="ar">→</span><span class="node">silta</span><span class="ar">→</span><span class="node c">' + esc(sc(item ? item.nimi : (src.konsepti_nimi || jf.konsepti_nimi))) + '</span></div>';
+    } else {
+      // HONEST-EMPTY: ei matchaavaa silta-ehdotusta (data muuttunut / ei enää alle kynnyksen) → ei kohdetta/lukua/chainia.
+      originTxt = 'Havaittu <b>Arviointi-välilehdellä</b> → silta ehdotti konseptin.';
+    }
   } else {
+    wl = '↳ Miksi tämä · asetettu käsin';
     originTxt = 'Asetettu <b>käsin</b> (VP/valmentaja) — ei sillan ehdotus.';
   }
-  h += '<div class="idp-why"><div class="idp-wl">↳ Miksi tämä · alkuperä</div><div class="idp-wt">' + originTxt + '</div>' + chain + '</div>';
+  h += '<div class="idp-why"><div class="idp-wl">' + wl + '</div><div class="idp-wt">' + originTxt + '</div>' + chain + '</div>';
   // 2) KONSEPTIN MIKSI — pelitilanne (rationale).
   if (item && item.pelitilanne) h += '<div class="idp-miksi">”' + esc(item.pelitilanne) + '”</div>';
-  // 3) KONSEPTIN OSAT (a–e) — item.kpi. Per-osa-tila rehellinen tyhjä (R4 kaappaa).
+  // 3) KONSEPTIN OSAT (a–e) + TEE TÄSTÄ osa b:n SISÄLLÄ (kartta-tarkka). Per-osa-tila rehellinen tyhjä (R4 kaappaa).
+  const harj = (typeof tmTtHarjoitteet === 'function' && item) ? tmTtHarjoitteet(item.koodi || avain) : [];
   if (item && Array.isArray(item.kpi) && item.kpi.length) {
+    // nextIdx = seuraava-askel-osa. Per-osa-näkyvyyttä ei ole tallennettu (R4 kaappaa) → oletus osa b (idx 1), muuten a.
+    const nextIdx = (item.kpi.length >= 2) ? 1 : 0;
     h += '<div class="idp-bh"><span>Konseptin osat · mitä katsotaan pelissä</span><span class="idp-sc">1 ei näy · 2 ohjatusti · 3 itsenäisesti</span></div>';
-    item.kpi.forEach(function (k) {
+    item.kpi.forEach(function (k, i) {
       h += '<div class="idp-kpi-row"><span class="idp-kc">' + esc(k.koodi || '·') + '</span><div class="idp-kbody"><div class="idp-kt">' + esc(k.teksti) + '</div>'
-        + '<div class="idp-kstate"><span class="idp-lab">arvioi Kehityksessä</span></div></div></div>';
+        + '<div class="idp-kstate"><span class="idp-lab">arvioi Kehityksessä</span></div>';
+      // TEE TÄSTÄ osan b (nextIdx) sisällä — cue = OSAN TOIMINTA (kpi.teksti, aito konseptidata), EI reflektiokysymys.
+      if (i === nextIdx) {
+        h += '<div class="idp-kaction"><span class="idp-kx">tee tästä</span><span>' + esc(k.teksti) + (harj.length ? ' · ' + harj.length + ' harjoitetta' : '') + '</span>'
+          + '<span class="idp-kgo" onclick="event.stopPropagation();_jspVaihda(4)">→ Viikko</span></div>';
+      }
+      h += '</div></div>';
     });
   }
-  // 4) CUE → VIIKKO — konseptiharjoitteet (tmTtHarjoitteet) + cue (tmTtKysymykset).
-  const harj = (typeof tmTtHarjoitteet === 'function' && item) ? tmTtHarjoitteet(item.koodi || avain) : [];
+  // 4) 🗣 REFLEKTIO erikseen osat-listan jälkeen = tmTtKysymykset[0] (kys vapautuu tänne; cue tuli osan tekstistä).
   const kys = (typeof tmTtKysymykset === 'function') ? tmTtKysymykset(avain) : [];
-  if ((harj && harj.length) || (kys && kys.length)) {
-    h += '<div class="idp-kaction"><span class="idp-kx">tee tästä</span><span>' + (kys.length ? 'Cue: ”' + esc(kys[0]) + '”' : 'Konseptiharjoite') + (harj.length ? ' · ' + harj.length + ' harjoitetta' : '') + '</span>'
-      + '<span class="idp-kgo" onclick="event.stopPropagation();_jspVaihda(4)">→ Viikko</span></div>';
-  }
-  // 5) REFLEKTIO — eri kysymys kuin pelaajan peili (kys[1]), muuten kys[0].
-  const refl = (kys && kys.length) ? (kys.length > 1 ? kys[1] : kys[0]) : null;
-  if (refl) h += '<div class="idp-reflect">🗣 Reflektio: ”' + esc(refl) + '”</div>';
+  if (kys && kys.length) h += '<div class="idp-reflect">🗣 Reflektio: ”' + esc(kys[0]) + '”</div>';
   return h + '</div>';
 }
 function _vpIdpNarratiiviHTML(p) {
