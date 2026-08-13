@@ -1404,6 +1404,15 @@ body {
 .mit-nstep .go { margin-left: auto; font-family: var(--font-mono); font-size: 9.5px; color: var(--teal); white-space: nowrap; }
 .mit-pelifoot { margin-top: 20px; font-size: 11.5px; color: var(--ink3); line-height: 1.55; }
 .mit-pelifoot b { color: var(--ink2); font-weight: 500; }
+/* R2 (pala 2) — synth "Mitä testit kertovat": data-johdettu §28-tietoinen tulkinta (tekniikka vs fyysinen · TSI · profiili). */
+.mit-synth { margin-bottom: 22px; }
+.mit-synth-h { font-family: var(--font-serif); font-weight: 400; font-size: 21px; margin-bottom: 10px; line-height: 1.15; color: var(--ink); }
+.mit-synth-r { display: flex; gap: 12px; padding: 8px 0; font-size: 13px; color: var(--ink2); line-height: 1.5; border-bottom: .5px solid var(--border); }
+.mit-synth-r:last-of-type { border-bottom: none; }
+.mit-synth-r .dot { flex: 0 0 auto; width: 5px; height: 5px; border-radius: 50%; background: var(--teal); margin-top: 8px; }
+.mit-synth-r b { color: var(--ink); font-weight: 500; }
+.mit-synth-pattern { margin-top: 12px; padding: 12px 15px; border-left: 2px solid var(--teal); background: var(--surface); border-radius: 0 8px 8px 0; font-size: 12.5px; color: var(--ink2); line-height: 1.55; }
+.mit-synth-pattern b { color: var(--ink); font-weight: 500; }
 /* P2 — Mittaus-korttiruudukko (display-only): ydintestikortit + koontikortti + diagnostiikka + §28-portti + sparkline. */
 .mrow { display: grid; grid-template-columns: repeat(auto-fit, minmax(118px, 1fr)); gap: 8px; margin: 4px 0 10px; }
 .mcard { background: var(--bg2); border: .5px solid var(--border); border-radius: 10px; padding: 11px 12px; display: flex; flex-direction: column; gap: 5px; min-width: 0; }
@@ -10017,6 +10026,41 @@ function _vpMittausNextStepHTML(p) {
   h += '</div><div class="mit-pelifoot"><b>Peli edellä testi.</b> Nämä ovat suljettuja, §28-portitettuja mittauksia — ne tukevat suunnitelmaa, eivät ole kärki. Kärki asuu Aloitus-selkärangalla: teknis-taktinen konsepti, D4 peliäly ja pelipaikkaosaaminen.</div>';
   return h;
 }
+// R2 (pala 2) — SYNTH "Mitä testit kertovat": data-johdettu §28-tietoinen tulkinta. Lukee vain jo laskettuja
+// arvoja (d1/d2/tsi/tki_merkki/phv_tila, §26) — EI uutta mittaria. Pattern = §28-invariantti #1 (Hidden Gem on
+// PHV-tilakohtainen: tekniikka edellä + fyysinen jäljessä → jälki-PHV aito kehityskohde vs pre-PHV mahdollinen gem).
+// Rehellinen tyhjä kun ei riitä dataa (ei d1 eikä d2).
+function _vpMittausSynthHTML(p, ika, d1, d2, tsi) {
+  const rows = [];
+  const merkki = p.tki_merkki || null;
+  const teknVahva = (d2 != null && d2 >= 3.5) || merkki === 'kulta' || merkki === 'hopea';
+  const fyysHeikko = (d1 != null && d1 < 3);
+  const phv = p.phv_tila || null, jalkiPhv = (phv === 'AN' || phv === 'POST'), prePhv = (phv === 'PRE' || phv === 'LAH');
+  const tsiVahva = (tsi != null && tsi < 1.2);
+  const r1 = function (v) { return Math.round(v * 10) / 10; };
+  // 1) Tekninen
+  if (teknVahva) rows.push('Teknisesti <b>ikäluokan kärkeä</b>' + (merkki ? ' (TKI ' + _jsvEsc(merkki) + ')' : '') + '. Pallonhallinta rakennettu oikeaan aikaan' + (ika != null && ika <= 12 ? ' — kultaikkunassa ≤12 v' : '') + '.');
+  else if (d2 != null) rows.push('Tekninen taso <b>' + r1(d2) + '/5</b>' + (d2 >= 3 ? ' — ikäluokan tasoa' : ' — kehitettävää') + '.');
+  // 2) Fyysinen (§28-tietoinen)
+  if (fyysHeikko) rows.push('Fyysisesti <b>jäljessä</b> (taso ' + r1(d1) + ')' + (jalkiPhv ? ' — mutta jälki-PHV on <b>juuri oikea ikkuna kehittää.</b> Nyt tehty nopeus- ja kestävyystyö tuottaa.' : prePhv ? ' — mutta pre-PHV tämä on <b>biologisesti odotettua</b> (§28), ei kehityskohde.' : ' — kypsyys mittaamatta, tulkinta varmistuu kasvumittauksella (§28).'));
+  else if (d1 != null) rows.push('Fyysinen taso <b>' + r1(d1) + '/5</b> — ikäluokan tasoa tai yli.');
+  // 3) TSI
+  if (tsiVahva) rows.push('TSI lähellä nollaa → <b>ei lajitekniikkavajetta.</b> Tekniikka automatisoitunut, pallo pysyy vauhdissa — vapauttaa kapasiteettia peliälylle.');
+  if (!rows.length) return '';
+  // Pattern — §28-invariantti #1 (vain kun sekä tekninen että fyysinen tiedossa)
+  let pattern = '';
+  if (teknVahva && fyysHeikko) {
+    pattern = jalkiPhv
+      ? '<b>Profiili:</b> tekniikka edellä, fyysinen jäljessä. Jälki-PHV → fyysinen nousu EI tule automaattisesti (§28) — aito kehityskohde, ei "jalostamaton timantti" jonka fysiikka korjaantuu itsestään.'
+      : prePhv
+        ? '<b>Profiili:</b> tekniikka edellä, fyysinen jäljessä. Pre-PHV → fysiikka tulee todennäköisesti kypsyessä (§28) — mahdollinen Hidden Gem, seuraa PHV:tä.'
+        : '<b>Profiili:</b> tekniikka edellä, fyysinen jäljessä. Kypsyys mittaamatta → tulkinta (aito kehityskohde vai Hidden Gem) varmistuu kasvumittauksella (§28).';
+  }
+  let h = '<div class="mit-synth"><div class="mit-synth-h">Mitä testit kertovat</div>';
+  rows.forEach(function (r) { h += '<div class="mit-synth-r"><span class="dot"></span><div>' + r + '</div></div>'; });
+  if (pattern) h += '<div class="mit-synth-pattern">' + pattern + '</div>';
+  return h + '</div>';
+}
 window._avaaPerPelaajaPikakatsaus = function(idx, joukkueNimi) {
   const lista = window._jsvPelaajat || [];
   const nP = lista.length;
@@ -10666,6 +10710,7 @@ window._avaaPerPelaajaPikakatsaus = function(idx, joukkueNimi) {
   hR += '<div id="_jspTab1" style="display:none">'
     + (typeof _vpMittausTuoreusHTML === 'function' ? _vpMittausTuoreusHTML(p, ika) : '')
     + (typeof _vpMittausLinssiHTML === 'function' ? _vpMittausLinssiHTML(p, ika) : '')
+    + (typeof _vpMittausSynthHTML === 'function' ? _vpMittausSynthHTML(p, ika, d1, d2, tsi) : '')
     + _mSub('Fyysinen · mitattu') + f1 + _mErot + _mSub('Tekninen · mitattu') + f2
     + (typeof _vpMittausNextStepHTML === 'function' ? _vpMittausNextStepHTML(p) : '')
     + '<div id="_jspMittausLista" style="margin-top:6px"></div></div>';   // E2.1 — muokattava mittauslista (async-hydratoitu; renderöi yhteenvedon alle)
