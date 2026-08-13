@@ -50,16 +50,27 @@ describe('R1.4 — 2-sarakerakenne (kartta .cols)', () => {
     expect(iSit).toBeLessThan(iColR);
   });
 
-  it('OIKEA sarake (1fr): stat + Suunnitelman kaari (EI tutkaa — se on profiilirailissa)', () => {
+  it('OIKEA sarake (1fr): 5D-TUTKA (ylhäällä) → stat → Suunnitelman kaari (v7 .col-r)', () => {
     const iColR = N.indexOf("h += '</div><div class=\"idp-col-r\">'");
+    const iTutka = N.indexOf('h += _vpAloitusTutkaHTML(p);');
     const iStat = N.indexOf('h += _vpStatTiivisteHTML(p);');
     const iKaari = N.indexOf('h += _vpAloitusKaariHTML(p, ika);');
     const iClose = N.indexOf("h += '</div></div>';");
-    expect(iColR).toBeLessThan(iStat);
+    // R1.4-korjaus: tutka on nyt OIKEAN sarakkeen ylälaidassa (ei enää profiilirailissa)
+    expect(iColR).toBeLessThan(iTutka);
+    expect(iTutka).toBeLessThan(iStat);
     expect(iStat).toBeLessThan(iKaari);
     expect(iKaari).toBeLessThan(iClose);
-    // tutkaa ei renderöidä narratiivissa (profiilirailissa)
-    expect(N).not.toContain('_tmRadar5D');
+  });
+
+  it('R1.4-korjaus: itsenäinen _vpAloitusTutkaHTML (kestää re-renderin) + aloitus-mode piilottaa railin', () => {
+    // tutka-helper on itsenäinen (recompute pikakentistä, ei riipu passatuista opts:eista)
+    expect(HTML).toContain('function _vpAloitusTutkaHTML(p) {');
+    expect(HTML).toContain('window._tmRadar5D(radarDims, _radarOpts)');
+    // aloitus-mode: _jspVaihda togglaa jsp-aloitus (tab 0 → raili piiloon)
+    expect(HTML).toContain("_grid.classList.toggle('jsp-aloitus', n === 0);");
+    expect(HTML).toContain('<div class="jsp-grid jsp-aloitus">');
+    expect(HTML).toContain('.jsp-grid.jsp-aloitus > .jsp-left { display: none; }');
   });
 
   it('TÄYSLEVEÄ ala (cols:n jälkeen): pelipaikkafund. + syvyys-kortit + loppu-CTA', () => {
