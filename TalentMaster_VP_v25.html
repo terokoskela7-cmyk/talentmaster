@@ -34,7 +34,7 @@
 <script src="lib/tm_jaksofokus.js?v=5"></script>   <!-- Vaihe 4c: jaksofokus-oversight PURE-ydin (kattavuus/umpeutunut/teemakeskittymä, §26) -->
 <script src="lib/tm_vp_seuranta.js?v=1"></script>   <!-- Vaihe C: VP-seuranta koonti/kuittaus/IDP-feed (nojaa VAI+-indeksiin, ei uutta mittaria) -->
 <script src="lib/tm_kehityskaari.js?v=4"></script>   <!-- Trendi Vaihe 2 + IDP VAIHE 1: yksilön kehityskaari (data + tmKehityskaari-renderöijä) -->
-<script src="lib/tm_kypsyys.js?v=1"></script>   <!-- IDP VAIHE 1/2.0: Kypsyys/PHV -komponentti (tmKypsyys · korvaa paljaan "AN") -->
+<script src="lib/tm_kypsyys.js?v=2"></script>   <!-- IDP R1: Kypsyys/PHV -komponentti (tmKypsyys) kytketty näkyviin per-pelaaja-kortin vasempaan paneeliin (korvaa kypsyysproosan) -->
 <script src="lib/tm_treeniteema.js?v=1"></script>   <!-- Vaihe 4d: teemakattavuus PURE-ydin (jaksofokus vs suunnitellut teemaharjoitukset) -->
 <script src="lib/tm_jaksokooste.js?v=1"></script>   <!-- Vaihe 6: jakson sulku (meso-sykli) PURE-ydin — prosessi+kalibraatio+historia (geneerinen §8) -->
 <script src="lib/tm_fyysteemat.js?v=1"></script>   <!-- Vaihe 7: fyysinen teemaluettelo + D1-fokuslähde + evidenssi (delta §29 + PHV-portti §28) -->
@@ -68,6 +68,7 @@
   --font-d: var(--font-serif);  --font-b: var(--font-sans);  --font-m: var(--font-mono);
   --ink-2: var(--ink2);  --ink-3: var(--ink3);  --ink-4: rgba(232,238,248,.30);
   --surface: var(--bg3);  --surface-2: var(--bg2);  --surface-3: #2A2A28;
+  --surface2: var(--bg2);   /* no-hyphen alias jaetuille lib-renderöijille (tm_kypsyys ym.): neutraali segmentti-/vyöhyketausta, teematietoinen */
   --gold-tint: rgba(217,164,65,.13);  --purple-tint: rgba(139,111,191,.12);
   /* Teema-tietoiset overlay-tokenit (välilyönnit → globaali no-space-korvaus ei osu näihin määrittelyihin). */
   --ov-1: rgba(255, 255, 255, .04);  --ov-2: rgba(255, 255, 255, .06);  --ov-3: rgba(255, 255, 255, .10);  --ov-4: rgba(255, 255, 255, .18);  --ov-5: rgba(255, 255, 255, .45);
@@ -96,6 +97,7 @@
   --font-d: var(--font-serif);  --font-b: var(--font-sans);  --font-m: var(--font-mono);
   --ink-2: var(--ink2);  --ink-3: var(--ink3);  --ink-4: rgba(28,28,26,.30);
   --surface: var(--bg3);  --surface-2: var(--bg2);  --surface-3: #EDEBE4;
+  --surface2: var(--bg2);   /* no-hyphen alias jaetuille lib-renderöijille (tm_kypsyys ym.) — light: #FAF9F4 (ilman tätä komponentin fallback #161614 = tumma näkyisi vaalealla) */
   --deep: #EDEBE4;   /* light-teema: sulkumodaalin "syvät" paneelit (var(--deep,#1C1C1A) fallback = tumma → näkymätön light-teemassa) */
   --gold-tint: rgba(217,164,65,.13);  --purple-tint: rgba(139,111,191,.12);
   --ov-1: rgba(28, 28, 26, .04);  --ov-2: rgba(28, 28, 26, .06);  --ov-3: rgba(28, 28, 26, .10);  --ov-4: rgba(28, 28, 26, .20);  --ov-5: rgba(28, 28, 26, .55);
@@ -9213,18 +9215,15 @@ function _vpRadarNormiJaVaihe(p, ika, radarDims) {
   const showcase = (ika != null && ika >= 16);
   const naytaNormi = showcase && !kesken;   // PHV-korjaus: kesken-PHV Showcase-pelaaja (late developer) → normi piiloon
   const normi = naytaNormi ? radarDims.map(function (rd) { return (rd.arvo != null) ? { arvo: 3 } : null; }) : null;
-  const vaiheTxt = { PRE: 'Ennen kasvupyrähdystä · taitoikkuna auki', LAH: 'Lähestyy kasvupyrähdystä', PH: '⚠️ Kasvupyrähdyksessä · kuormaseuranta', POST: 'Kasvupyrähdyksen jälkeen · voima/nopeus-ikkuna auki', AN: 'Jälki-PHV · aikuisharjoittelu' };
-  const ikavaiheLbl = (ika == null) ? '' : (ika <= 12 ? 'Leikkijä (8–12)' : ika <= 15 ? 'Rakentaja (13–15)' : 'Showcase (16–19)');
-  const bandParts = [];
-  if (ikavaiheLbl) bandParts.push(ikavaiheLbl);
-  bandParts.push(phv ? (vaiheTxt[phv] || _jsvEsc(phv)) : 'PHV-dataa ei ole (kypsyys tuntematon)');
+  // R1 — kypsyysvaiheen tulkinta (ent. "Kehitysvaihe: Rakentaja · Jälki-PHV") SIIRTYI tmKypsyys-komponenttiin
+  // (vasen paneeli, #_jspKypsyys). Tämä band selittää nyt VAIN radarin normi-renkaan §28-gaten (referenssirengas
+  // vain 16+ eikä PHV-keskellä) — ei kypsyysproosaa. Note KUULUU radarille, säilyy.
   let normiNote;
-  if (naytaNormi) normiNote = 'Normi = ikäluokan keskitaso (taso 3, katkoviiva) — PHV ohitettu, vertailu kelpaa.';
-  else if (showcase && kesken) normiNote = 'Kehityskaista: normivertailu piilotettu (PHV kesken) — ettei kypsymättömyys näytä heikkoudelta.';
-  else normiNote = 'Kehityskaista: normivertailu vasta Showcase-iässä (16+) kypsyyden varmistuttua.';
+  if (naytaNormi) normiNote = 'Radarin normirengas = ikäluokan keskitaso (taso 3, katkoviiva) — PHV ohitettu, vertailu kelpaa.';
+  else if (showcase && kesken) normiNote = 'Radarin normirengas piilotettu (PHV kesken) — ettei kypsymättömyys näytä heikkoudelta (§28).';
+  else normiNote = 'Radarin normirengas vasta Showcase-iässä (16+) kypsyyden varmistuttua (§28).';
   const bandHTML = '<div style="font-size:10px;color:var(--ink3);background:var(--ov-1);border:.5px solid var(--border);border-radius:8px;padding:7px 10px;margin-bottom:8px;line-height:1.5">'
-    + '<span style="color:var(--ink2);font-weight:500">Kehitysvaihe:</span> ' + bandParts.join(' · ')
-    + '<div style="margin-top:3px">' + normiNote + '</div></div>';
+    + '<span style="color:var(--ink2);font-weight:500">Radar-normi:</span> ' + normiNote + '</div>';
   return { normi: normi, bandHTML: bandHTML };
 }
 // P1 — 5D alkuperä-värit (staattinen lähdemappaus D-avaimesta): 🟢 mitattu · 🟠 itsearvio · 🔵 havaittu.
@@ -10409,8 +10408,10 @@ window._avaaPerPelaajaPikakatsaus = function(idx, joukkueNimi) {
   if (_suunnat.length) hL += '<div style="font-size:10px;color:var(--ink3);text-align:center;margin:-2px 0 6px;display:flex;gap:10px;justify-content:center;flex-wrap:wrap"><span style="color:var(--ink3)">– – edellinen ·</span> ' + _suunnat.join(' · ') + '</div>';
   hL += _TM_RADAR_LAHDE_LEGENDA;   // P1 — alkuperä-legenda (numeroiden luotettavuus)
   if (_rn.bandHTML) hL += _rn.bandHTML;
-  const _kehysP = _ikavaiheBanneri(ika);
-  if (_kehysP) hL += '<div style="margin-bottom:8px">' + _kehysP + '</div>';
+  // R1 — Kypsyys/PHV: jaettu tmKypsyys-komponentti korvaa kypsyysproosan (aikajana + kasvutahti + kasvuviiva +
+  // §28-tulkinta; aito lisä: proosassa EI ollut kasvutahtia/-viivaa). Kontti hydratoidaan modaalin appendChildin
+  // JÄLKEEN (ei kuollutta _vpAloitusReRenderiä). Ei-PHV (SJK/Sibbo) → §28 kronologinen ikävaihe-kehys fallbackina.
+  hL += '<div id="_jspKypsyys" style="margin-bottom:8px"></div>';
   // ── (C) VASEN TIIVIS: 5D-snapshot + signaalit — EI täyttä testilistaa (se on Fyysinen/Tekninen-välilehdellä; ei toistoa).
   // §28: D1 kypsyysneutraali (harmaa/🌱) kun _neutr && d1<3. Muut dimit normaali väri. Kaikki radarDims-pikakentistä (§26).
   const _fiPvm = s => { const m = String(s).match(/^(\d{4})-(\d{2})-(\d{2})/); return m ? (+m[3]) + '.' + (+m[2]) + '.' + m[1] : String(s); };
@@ -10503,6 +10504,21 @@ window._avaaPerPelaajaPikakatsaus = function(idx, joukkueNimi) {
   const modal = wrap.firstChild;
   modal.addEventListener('click', function(e) { if (e.target === modal) modal.remove(); });
   document.body.appendChild(modal);
+  // R1 — Kypsyys/PHV -komponentti (jaettu tmKypsyys) vasempaan paneeliin. Data pikakentistä (§26,
+  // _vpAloitusKypsyysData — sama pura-funktio, ei enää kuolleen _vpAloitusReRenderin varassa). PHV-data →
+  // täysi kortti (aikajana + kasvutahti ≥2 mittausta + kasvuviiva ≥3 + §28-tulkinta); ei PHV-dataa (SJK/Sibbo)
+  // → §28 kronologinen ikävaihe-kehys fallbackina (ei menetetä §28-tulkintaa enemmistöltä ilman kypsyysdataa).
+  try {
+    const _kySlot = modal.querySelector('#_jspKypsyys');
+    if (_kySlot) {
+      const _kd = (typeof _vpAloitusKypsyysData === 'function') ? _vpAloitusKypsyysData(p) : null;
+      if (_kd && (_kd.phv_tila_koodi || _kd.maturity_offset != null) && typeof tmKypsyys === 'function') {
+        tmKypsyys(_kySlot, _kd, { muoto: 'täysi' });
+      } else {
+        _kySlot.innerHTML = (typeof _ikavaiheBanneri === 'function') ? _ikavaiheBanneri(ika) : '';
+      }
+    }
+  } catch (e) { /* graceful — kortti on jo renderöity (progressiivinen parannus) */ }
   // P1b — best-effort async testitulokset-luku → sytytä Mittauksen sparkline-säiliöt (read-only, onOmaSeura).
   // Kortti on JO renderöity (progressiivinen parannus); virhe/tyhjä → säiliöt jäävät tyhjiksi. Yksi luku per avaus.
   if (!_isDemoMode && _seuraId && p && p.id && typeof db !== 'undefined') {
