@@ -73,6 +73,19 @@ describe('R1.4 — 2-sarakerakenne (kartta .cols)', () => {
     expect(HTML).toContain('.jsp-grid.jsp-aloitus > .jsp-left { display: none; }');
   });
 
+  it('R1.4-korjaus 2: tutka AINA esillä — ≥3-portti poistettu (rail-tutkassa ei ollut)', () => {
+    // _vpAloitusTutkaHTML ei saa palata tyhjänä dim-määrän perusteella (5-akselinen verkko täyttyy sitä mukaa)
+    const T = (function () {
+      const lines = HTML.split('\n');
+      const s = lines.findIndex((l) => l.includes('function _vpAloitusTutkaHTML(p) {'));
+      let e = -1;
+      for (let i = s + 1; i < lines.length; i++) { if (lines[i] === '}') { e = i; break; } }
+      return lines.slice(s, e + 1).join('\n');
+    })();
+    expect(T).not.toContain('.length < 3) return');   // ei OVR-porttia
+    expect(T).toContain('window._tmRadar5D(radarDims, _radarOpts)');   // renderöi aina
+  });
+
   it('TÄYSLEVEÄ ala (cols:n jälkeen): pelipaikkafund. + syvyys-kortit + loppu-CTA', () => {
     const iClose = N.indexOf("h += '</div></div>';");
     const iPfund = N.indexOf('_vpPelipaikkaFundamentitHTML');
