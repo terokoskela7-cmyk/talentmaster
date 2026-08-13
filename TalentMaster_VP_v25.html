@@ -1360,6 +1360,30 @@ body {
 .idp-focal .idp-konsepti { font-family: var(--font-serif); font-weight: 400; font-size: 28px; line-height: 1.06; color: var(--ink); }
 /* Sektiokortti: rauhallinen tukikonteksti (kausitavoite/sitoumus) — ei kilpaile fokuksen kanssa. */
 .idp-sec { background: var(--surface); border: .5px solid var(--border); border-radius: 12px; padding: 15px 18px; margin-bottom: 22px; }
+/* R1 (pala 3b) — v7:n loput: suunnitelman kaari, katselmusrytmi, pelaajan peili, datatietoiset syvyys-kortit. Teematietoiset tokenit. */
+.idp-kaari-row { display: flex; gap: 10px; padding: 8px 0; border-bottom: .5px solid var(--border); font-size: 12px; }
+.idp-kaari-row:last-of-type { border-bottom: none; }
+.idp-kaari-row .kk { font-family: var(--font-mono); font-size: 8px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink3); flex: 0 0 88px; margin-top: 2px; }
+.idp-kaari-row .kv b { font-weight: 500; color: var(--ink); }
+.idp-kaari-row .kv .s { font-size: 10.5px; color: var(--ink3); display: block; margin-top: 1px; }
+.idp-nextrev { display: flex; align-items: center; gap: 9px; margin-top: 12px; padding: 9px 12px; border-radius: 9px; background: var(--ov-1); border: .5px solid var(--border); font-size: 11.5px; color: var(--ink2); }
+.idp-nextrev .rl { font-family: var(--font-mono); font-size: 8.5px; letter-spacing: .06em; text-transform: uppercase; color: var(--teal); flex: 0 0 auto; }
+.idp-nextrev b { color: var(--ink); font-weight: 500; }
+/* Pelaajan peili — pelaaja-appi-konteksti (blue = sekundääri §5, kuten v7-kartta). */
+.idp-mirror { margin-top: 4px; margin-bottom: 22px; padding: 12px 15px; border-radius: 11px; background: rgba(42,93,176,.10); border: .5px solid rgba(42,93,176,.34); }
+.idp-mirror .ml { font-family: var(--font-mono); font-size: 9px; letter-spacing: .08em; text-transform: uppercase; color: var(--blue); margin-bottom: 6px; display: flex; align-items: center; gap: 6px; }
+.idp-mirror .mt { font-family: var(--font-serif); font-style: italic; font-size: 14px; color: var(--ink); line-height: 1.4; }
+.idp-mirror .mn { font-family: var(--font-mono); font-size: 8.5px; color: var(--ink3); margin-top: 6px; }
+/* Datatietoiset syvyys-kortit (Mittaus/Arviointi/Kehitys/Viikko) — "syvyys selkärangan takana". */
+.idp-depth-lab { font-family: var(--font-mono); font-size: 9px; letter-spacing: .1em; text-transform: uppercase; color: var(--ink3); margin: 4px 0 10px; text-align: center; }
+.idp-depth { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 8px; }
+@media (max-width: 820px) { .idp-depth { grid-template-columns: 1fr 1fr; } }
+.idp-dcard { background: var(--surface2, var(--bg2)); border: .5px solid var(--border); border-radius: 12px; padding: 12px 14px; cursor: pointer; }
+.idp-dcard .dk { font-family: var(--font-mono); font-size: 9px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink3); margin-bottom: 6px; }
+.idp-dcard .dn { font-family: var(--font-serif); font-size: 16px; color: var(--ink); display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+.idp-dcard .dn .go { font-family: var(--font-mono); font-size: 12px; color: var(--ink3); }
+.idp-dstat { font-family: var(--font-mono); font-size: 9.5px; margin-top: 7px; color: var(--ink3); }
+.idp-dstat.empty { color: var(--teal); }
 /* P2 — Mittaus-korttiruudukko (display-only): ydintestikortit + koontikortti + diagnostiikka + §28-portti + sparkline. */
 .mrow { display: grid; grid-template-columns: repeat(auto-fit, minmax(118px, 1fr)); gap: 8px; margin: 4px 0 10px; }
 .mcard { background: var(--bg2); border: .5px solid var(--border); border-radius: 10px; padding: 11px 12px; display: flex; flex-direction: column; gap: 5px; min-width: 0; }
@@ -5506,6 +5530,68 @@ function _vpAloitusJaksofokusHTML(p) {
   }
   return h + '</div>';
 }
+// R1 (pala 3b) — sentence-case näyttönormalisointi ("HALTUUNOTTO" → "Haltuunotto"). Jaettu Aloituksen v7-elementeille.
+function _vpAloitusSentence(s) { s = String(s || ''); return (s && s === s.toUpperCase() && s !== s.toLowerCase()) ? (s.charAt(0).toUpperCase() + s.slice(1).toLowerCase()) : s; }
+// R1 (pala 3b) — PELAAJAN PEILI: "Näin pelaaja näkee tämän" (§4b-henki). Reuse jaksofokus-konseptin lapsen-kielinen
+// cue (avaava kysymys, EI tasolukua/vertailua §7.22). Ei fokusta / ei cueta → rehellinen tyhjä (ei keksitä).
+function _vpAloitusPeiliHTML(p) {
+  const jf = p.jaksofokus || null;
+  if (!jf || !jf.konsepti_nimi) return '';
+  const avain = jf.konsepti_avain || jf.konsepti_koodi || jf.konsepti_nimi;
+  let cue = '', miksi = '';
+  // Ensisijainen: §4b teknis-taktinen youth-sisältö (tmTtPelaaja → {cue, miksi=pelaaja_miksi}).
+  if (typeof tmTtPelaaja === 'function') { const tp = tmTtPelaaja(avain); if (tp) { cue = tp.cue || ''; miksi = tp.miksi || ''; } }
+  // Fallback: muut domeenit (psyykkinen ym.) — jaksofokus-lib-konseptin cue.
+  if (!cue) { const _l = window.TM_JAKSOFOKUS; if (_l && typeof _l.tmJfKonsepti === 'function') { const k = _l.tmJfKonsepti(jf.domeeni || 'teknis_taktinen', avain); if (k && k.cue) cue = k.cue; } }
+  if (!cue && !miksi) return '';   // ei lapsen-kielistä sisältöä → ei keksitä (§7.22 rehellinen tyhjä)
+  return '<div class="idp-mirror"><div class="ml">🔭 Näin pelaaja näkee tämän · Pelaaja-appi</div>'
+    + '<div class="mt">' + (cue ? '”' + _jsvEsc(cue) + '”' : _jsvEsc(miksi)) + '</div>'
+    + (cue && miksi ? '<div style="font-size:11px;color:var(--ink2);margin-top:6px">' + _jsvEsc(miksi) + '</div>' : '')
+    + '<div class="mn">lapsen kieli · yksi cue · ei tasolukuja/vertailua (§7.22 · Vaihe 4b)</div></div>';
+}
+// R1 (pala 3b) — SUUNNITELMAN KAARI: kompakti summary kausitavoite → jaksofokus·nyt → kehityskaari → seuraava
+// katselmus (v7 oikea kolumni). Reuse pikakentät (§26); EI uutta laskentaa. Rauhallinen (.idp-sec), ei toista hero-fokusta.
+function _vpAloitusKaariHTML(p, ika) {
+  const esc = _jsvEsc, sc = _vpAloitusSentence;
+  const t = p._idpTavoite || null, f = (t && t.fokus) || p.idp_fokus || null, jf = p.jaksofokus || null;
+  const hist = Array.isArray(p.jaksofokus_historia) ? p.jaksofokus_historia : [];
+  let rows = '';
+  const tavNimi = (f && (f.nimi || f.alue)) || (t && t.kuvaus) || null;
+  rows += '<div class="idp-kaari-row"><span class="kk">Kausitavoite</span><span class="kv">'
+    + (tavNimi ? '<b>' + esc(tavNimi) + '</b>' + (f && f.dim ? '<span class="s">' + esc(f.dim) + '</span>' : '') : '<span style="color:var(--ink3)">— ei asetettu</span>') + '</span></div>';
+  rows += '<div class="idp-kaari-row"><span class="kk">Jaksofokus · nyt</span><span class="kv">'
+    + (jf && jf.konsepti_nimi ? '<b>' + esc(sc(jf.konsepti_nimi)) + '</b><span class="s">yksi prioriteetti (ILP)</span>' : '<span style="color:var(--ink3)">— ei fokusta</span>') + '</span></div>';
+  rows += '<div class="idp-kaari-row"><span class="kk">Kehityskaari</span><span class="kv">'
+    + (hist.length ? '<b>' + hist.length + ' suljettua jaksoa</b><span class="s">' + esc(hist.slice(-3).map(function (h) { return sc((h && h.konsepti_nimi) || 'jakso'); }).join(' · ')) + '</span>' : '<span style="color:var(--ink3)">ei suljettuja jaksoja vielä</span>') + '</span></div>';
+  // Seuraava katselmus — EPPP-kausirytmi (≥12 v 6 vk · 9–11 v 12 vk, sama kuin Seuranta-cockpit). arvio_pvm jos on.
+  const ar = t && t.aikaraami;
+  let next = null;
+  if (ar && ar.arvio_pvm) { const m = String(ar.arvio_pvm).match(/^(\d{4})-(\d{2})-(\d{2})/); if (m) next = (+m[3]) + '.' + (+m[2]) + '.' + m[1]; }
+  const rytmi = (ika != null && ika >= 12) ? '6 vk (EPPP ≥12 v)' : (ika != null && ika >= 9 ? '12 vk (EPPP 9–11 v)' : '6 vk');
+  if (!next) next = '~' + ((ika != null && ika >= 12) ? 6 : (ika != null && ika >= 9 ? 12 : 6)) + ' vk';
+  const nextrev = '<div class="idp-nextrev"><span class="rl">Seuraava katselmus</span><span><b>' + esc(next) + '</b> · kausirytmi ' + rytmi + ' → Seuranta</span></div>';
+  return '<div class="idp-seg idp-sec"><span class="idp-node"></span><div class="idp-eyebrow">📋 Suunnitelman kaari</div>' + rows + nextrev + '</div>';
+}
+// R1 (pala 3b) — DATATIETOISET SYVYYS-KORTIT: Mittaus/Arviointi/Kehitys/Viikko -esikatselut pikakentistä (§26),
+// klik → _jspVaihda(n). "Näytä mitä on, piilota mitä ei" (tyhjä → toimintakehote, ei "ei dataa"). EI alikokoelmakyselyjä.
+function _vpAloitusSyvyysKortitHTML(p) {
+  const esc = _jsvEsc;
+  const _pv = function (s) { const m = String(s || '').match(/^(\d{4})-(\d{2})-(\d{2})/); if (!m) return null; const days = Math.round((Date.now() - new Date(+m[1], +m[2] - 1, +m[3]).getTime()) / 86400000); return days; };
+  const mittPvm = p.hh_pvm || p.tki_pvm || null, mittPv = _pv(mittPvm);
+  const kort = [
+    { k: '📏 Mittaus', n: 'Testit', tab: 1, on: (mittPv != null), tila: (mittPv != null ? 'viimeisin ' + mittPv + ' pv' : '0 mittausta · aloita ▸') },
+    { k: '📋 Arviointi', n: 'Taksonomia', tab: 2, on: (p.d3_taso != null || p.arviointi_kattavuus != null), tila: (p.d3_taso != null || p.arviointi_kattavuus != null ? 'arvioitu' : '0 arvioitu · arvioi ▸') },
+    { k: '📈 Kehitys', n: 'Työpöytä', tab: 3, on: !!(p.jaksofokus && p.jaksofokus.konsepti_nimi), tila: (p.jaksofokus && p.jaksofokus.konsepti_nimi ? 'fokus aktiivinen' : 'ei fokusta · aseta ▸') },
+    { k: '🗓 Viikko', n: 'Sessiot', tab: 4, on: !!(p.jaksofokus && p.jaksofokus.konsepti_nimi), tila: (p.jaksofokus && p.jaksofokus.konsepti_nimi ? 'viikko-ohjelma' : 'ei viikkoa · suunnittele ▸') }
+  ];
+  let h = '<div class="idp-depth-lab">— syvyys selkärangan takana · datatietoiset sisääntulot —</div><div class="idp-depth">';
+  kort.forEach(function (c) {
+    h += '<div class="idp-dcard" onclick="event.stopPropagation();_jspVaihda(' + c.tab + ')"><div class="dk">' + esc(c.k) + '</div>'
+      + '<div class="dn">' + esc(c.n) + ' <span class="go">▸</span></div>'
+      + '<div class="idp-dstat' + (c.on ? '' : ' empty') + '">' + esc(c.tila) + '</div></div>';
+  });
+  return h + '</div>';
+}
 function _vpIdpNarratiiviHTML(p) {
   if (!p) return '';
   const esc = _jsvEsc, pid = esc(p.id);
@@ -5545,10 +5631,14 @@ function _vpIdpNarratiiviHTML(p) {
   //    fokus palvelee) → kevyt stat-glance. Sama data/kutsut, vain esitysjärjestys + kääre v7:n rauhalliseen ilmeeseen. ──
   // ── P1.1 — JAKSOFOKUS = fokus-hero (konsepti + domeeni/dim/kesto + tukikonseptit + "→ Kehitä jaksofokusta"). ──
   h += _vpAloitusJaksofokusHTML(p);
+  // ── R1 (pala 3b) — PELAAJAN PEILI: sama fokus lapsen kielellä (konseptin cue, §7.22). Heti fokus-heron alle. ──
+  if (typeof _vpAloitusPeiliHTML === 'function') h += _vpAloitusPeiliHTML(p);
   // ── P1.1 — KAUSITAVOITE: suunta/arc jota fokus palvelee (dedupe: Suunta-yhteenveto + Kausitavoite + SMART yhdistetty). ──
   h += _vpAloitusTavoiteHTML(p);
   // ── 1c STAT-TIIVISTE — 3 mittausta + suunta vs ikäluokka (silmäiltävä ~10 s). ──
   h += _vpStatTiivisteHTML(p);
+  // ── R1 (pala 3b) — SUUNNITELMAN KAARI + katselmusrytmi: kompakti kausitavoite→jaksofokus→kehityskaari→seuraava katselmus. ──
+  if (typeof _vpAloitusKaariHTML === 'function') h += _vpAloitusKaariHTML(p, ika);
   // P1.1 — POISTETTU Aloituksesta (elävät Kehitys-työpöydällä P4a/P4a.1): meso-kehityskaari (_vpMesoKaariHTML, TASO 3),
   //   silta (_vpSiltaPaneeliHTML, valmennus-detalji), erillinen moottori-CTA-rivi. Funktiot säilyvät Kehityksen käytössä.
   // ── P1.1 — PELIPAIKKAFUNDAMENTIT ▸ revealin taakse (viitesisältö, ei 10 s katsauksessa). ──
@@ -5559,6 +5649,8 @@ function _vpIdpNarratiiviHTML(p) {
   // ── 6 SITOUMUS (pelaajan omistajuus) — säilyy, kompakti ──
   const sit = (typeof _vpSitoumusHTML === 'function') ? _vpSitoumusHTML(p, pid) : '';
   if (sit) h += '<div class="idp-seg idp-sec"><span class="idp-node"></span>' + _stitle('🤝 Sitoumus') + '<div>' + sit + '</div></div>';
+  // ── R1 (pala 3b) — DATATIETOISET SYVYYS-KORTIT: Mittaus/Arviointi/Kehitys/Viikko pikakentistä, klik → _jspVaihda(n). ──
+  if (typeof _vpAloitusSyvyysKortitHTML === 'function') h += '<div class="idp-seg" style="margin-bottom:18px"><span class="idp-node"></span>' + _vpAloitusSyvyysKortitHTML(p) + '</div>';
   // ── P1.1 — LOPPU-CTA: Aloitus = rauhallinen yhteenveto → muokkaus Kehitys-työpöydällä. ──
   h += '<div style="margin-top:8px;padding-top:14px;border-top:.5px solid var(--border)"><button onclick="event.stopPropagation();_jspVaihda(3)" style="font-family:var(--font-sans);font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;padding:10px 16px;border-radius:8px;background:rgba(40,176,144,.1);color:var(--teal);border:.5px solid rgba(40,176,144,.4);cursor:pointer">→ Avaa Kehitys-työpöytä · muokkaa suunnitelmaa</button></div>';
   // P1 — kääri kaikki header-jälkeinen sisältö selkärankaan (.idp-spine): jatkuva teal-hiusviiva + solmut.
