@@ -1413,6 +1413,29 @@ body {
 .mit-synth-r b { color: var(--ink); font-weight: 500; }
 .mit-synth-pattern { margin-top: 12px; padding: 12px 15px; border-left: 2px solid var(--teal); background: var(--surface); border-radius: 0 8px 8px 0; font-size: 12.5px; color: var(--ink2); line-height: 1.55; }
 .mit-synth-pattern b { color: var(--ink); font-weight: 500; }
+/* R2 (pala 3) — per-dim hero + trow: iso Cormorant taso-arvo · per-testi track/tick/mean "⚽ pelissä" + meta. */
+.mit-hero { display: flex; align-items: baseline; gap: 10px; margin-bottom: 3px; }
+.mit-hero .tval { font-family: var(--font-serif); font-size: 40px; line-height: 1; font-weight: 300; }
+.mit-hero .tmax { font-family: var(--font-mono); font-size: 11px; color: var(--ink3); }
+.mit-hero .trend { font-family: var(--font-mono); font-size: 10.5px; color: var(--ink3); margin-left: auto; }
+.mit-tname { font-family: var(--font-mono); font-size: 10px; color: var(--ink3); margin-bottom: 12px; }
+.mit-trow { padding: 13px 0; border-bottom: .5px solid var(--border); }
+.mit-trow:last-of-type { border-bottom: none; }
+.mit-trh { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin-bottom: 8px; }
+.mit-trh .tn { color: var(--ink); font-family: var(--font-mono); font-size: 11px; }
+.mit-trh .tn small { color: var(--ink3); font-size: 9px; }
+.mit-trh .tv { font-family: var(--font-serif); font-size: 17px; color: var(--ink); }
+.mit-trh .tv.low { color: var(--amber); }
+.mit-track { position: relative; height: 5px; border-radius: 3px; background: var(--ov-1); margin-bottom: 9px; }
+.mit-track b { display: block; height: 5px; border-radius: 3px; background: var(--teal); }
+.mit-track b.low { background: var(--amber); }
+.mit-tick { position: absolute; top: -3px; width: 1.5px; height: 11px; background: var(--ink3); opacity: .55; }
+.mit-mean { font-size: 12.5px; color: var(--ink2); line-height: 1.45; margin-bottom: 6px; }
+.mit-mean .ball { color: var(--teal); font-size: 11px; margin-right: 5px; }
+.mit-meta { font-family: var(--font-mono); font-size: 9.5px; color: var(--ink3); line-height: 1.6; }
+.mit-meta .open { color: var(--teal); }
+.mit-meta .low { color: var(--amber); }
+.mit-spark { margin-top: 6px; }
 /* P2 — Mittaus-korttiruudukko (display-only): ydintestikortit + koontikortti + diagnostiikka + §28-portti + sparkline. */
 .mrow { display: grid; grid-template-columns: repeat(auto-fit, minmax(118px, 1fr)); gap: 8px; margin: 4px 0 10px; }
 .mcard { background: var(--bg2); border: .5px solid var(--border); border-radius: 10px; padding: 11px 12px; display: flex; flex-direction: column; gap: 5px; min-width: 0; }
@@ -10036,7 +10059,7 @@ function _vpMittausSynthHTML(p, ika, d1, d2, tsi) {
   const teknVahva = (d2 != null && d2 >= 3.5) || merkki === 'kulta' || merkki === 'hopea';
   const fyysHeikko = (d1 != null && d1 < 3);
   const phv = p.phv_tila || null, jalkiPhv = (phv === 'AN' || phv === 'POST'), prePhv = (phv === 'PRE' || phv === 'LAH');
-  const tsiVahva = (tsi != null && tsi < 1.2);
+  const tsiVahva = (tsi != null && tsi < 0.8);   // §14: hyvä pelaaja häviää ~0.3–0.6 s pallolla; <0.8 = aidosti automatisoitunut (0.8–1.5 = vain kohtalainen → ei "automatisoitunut"-kehystä)
   const r1 = function (v) { return Math.round(v * 10) / 10; };
   // 1) Tekninen
   if (teknVahva) rows.push('Teknisesti <b>ikäluokan kärkeä</b>' + (merkki ? ' (TKI ' + _jsvEsc(merkki) + ')' : '') + '. Pallonhallinta rakennettu oikeaan aikaan' + (ika != null && ika <= 12 ? ' — kultaikkunassa ≤12 v' : '') + '.');
@@ -10179,25 +10202,6 @@ window._avaaPerPelaajaPikakatsaus = function(idx, joukkueNimi) {
   };
   // Yksi ydinkortti (§28-geittaus säilyy: kasvu→🌱 · epavarma→himmennys · normaali→hhTasoVari). spark = _tmSpark(historia)
   // → tyhjä kunnes P1b tuo per-testi-historian (säiliö syttyy automaattisesti). trend = 2-piste-nuoli tai ''.
-  const _mcardFys = function (lbl, taso, arvo, yks, ib, metric) {
-    const kt = _kt(taso, true);
-    const neutraali = (kt === 'kasvu' || kt === 'epavarma');
-    // P2.1 (Tero): taso näytetään AINA — myös 🌱 (kasvu) -tilassa. 🌱 = huomio luvun rinnalla, ei korvaaja.
-    const badgeVal = (taso != null ? taso : '–');
-    const badgeBg = neutraali ? 'var(--ov-3)' : (taso == null ? 'var(--ink3)' : hhTasoVari(taso));
-    const badgeCol = neutraali ? 'var(--ink3)' : '#fff';
-    const seed = (kt === 'kasvu') ? '<span style="font-size:11px" title="Kasvupyrähdys — taso tarkentuu kasvumittauksella"> 🌱</span>' : '';
-    const foot = (kt === 'kasvu') ? '🌱 kehittyy PHV:n jälkeen · tarkempi analyysi kasvumittauksella'
-      : (kt === 'epavarma') ? 'taso viitteellinen · tarkentuu kasvumittauksella'
-      : 'kehitystaso · norm 16+';
-    // P1b — trend + spark ovat tyhjiä säiliöitä id:llä; async testitulokset-luku täyttää ne (progressiivinen).
-    // Empty-säiliöt romahtavat (.mcard-spark:empty). metric = '30m'/'cmj'/'mas'.
-    return '<div class="mcard"><div class="mcard-top"><span class="mcard-lbl">' + lbl + (ib || '') + seed + '</span>'
-      + '<span class="mcard-badge" style="background:' + badgeBg + ';color:' + badgeCol + '">' + badgeVal + '</span></div>'
-      + '<div class="mcard-val">' + (arvo != null ? (typeof _fmtTestiArvo === 'function' ? _fmtTestiArvo(arvo, yks) : arvo) + '<span class="mcard-yks"> ' + yks + '</span>' : '<span class="mcard-yks">—</span>') + '<span class="mcard-trend" id="_trend_' + metric + '"></span></div>'
-      + '<div class="mcard-spark" id="_spark_' + metric + '"></div>'
-      + '<div class="mcard-foot">' + foot + '</div></div>';
-  };
   let f1 = '';
   // §28 (Selkeys 1): kasvumittaus-ohjaus kun PHV puuttuu — taso + kehityskohteet näkyvät silti, tämä ohjaa mittaukseen.
   if (p.phv_tila == null || p.phv_tila === '') {
@@ -10205,7 +10209,23 @@ window._avaaPerPelaajaPikakatsaus = function(idx, joukkueNimi) {
       + '⚠️ <b>Kasvumittaus puuttuu</b> — fyysiset arviot perustuvat ikäoletukseen. Tee kasvumittaus (Testaus, ~3 min/pelaaja) → kehityskohteet tarkentuvat ja PHV-korjaus huomioi kypsyyden. '
       + '<a href="TalentMaster_Testaus_v9.html" style="color:var(--teal);text-decoration:none;font-weight:600;white-space:nowrap">→ Tee kasvumittaus</a></div>';
   }
-  let _fysCards = '', _anyGate = false;
+  // R2 (pala 3) — v4 hero/trow: mcard-ruudukko → iso Cormorant D1-taso (hero) + per-testi trow (track/tick/mean ⚽ + meta).
+  // ⚠ Async trend/spark-hydraation SÄILIÖ-ID:t (_trend_30m/_spark_30m jne.) SÄILYVÄT trow'ssa → _p1bInjektoi toimii ennallaan.
+  let _anyGate = false;
+  // HERO: D1-kokonaistaso (30m·CMJ·MAS ka). Gated (kasvu/epävarma) → ink3-harmaa (ei väärää arviota).
+  if (d1 != null) {
+    const _kd = _kt(d1, true); if (_kd === 'kasvu' || _kd === 'epavarma') _anyGate = true;
+    const _hc = (_kd === 'kasvu' || _kd === 'epavarma') ? 'var(--ink3)' : hhTasoVari(d1);
+    f1 += '<div class="mit-hero"><span class="tval" style="color:' + _hc + '">' + (Math.round(d1 * 10) / 10) + '</span><span class="tmax">/5</span>'
+      + '<span class="trend">' + (p.hh_taso_edellinen != null ? 'Δ 2. mittaus' + _trendNuoli(d1, p.hh_taso_edellinen) : '1 mittaus') + '</span></div>'
+      + '<div class="mit-tname">Eerikkilä-taso · ka(30m · CMJ · MAS)</div>';
+  }
+  // Per-testi trow't (30m/CMJ/MAS): SAMA data (tasoOf/_kt) + track(tick taso-3):lla + mean ⚽ + meta. Hydraatio-id:t säilytetty.
+  const _FYSMETA = {
+    '30m': { desc: 'maksiminopeus', mean: 'Pääseekö karkuun ja saa kiinni — puhdas huippunopeus.', ikk: 'nopeusikkuna' },
+    cmj: { desc: 'kimmovoima', mean: 'Räjähtävät irtiotot ja hyppytilanteet.', ikk: 'voimaikkuna' },
+    mas: { desc: 'aerobinen', mean: 'Jaksaako toistaa tehoa koko ottelun.', ikk: 'aerobinen ikkuna' }
+  };
   [ { lbl: '30 m', k: '30m', arvo: hv.lin30m, yks: 's', ib: 'nopeus_30m' },
     { lbl: 'CMJ', k: 'cmj', arvo: hv.cmj, yks: 'cm', ib: 'cmj' },
     { lbl: 'MAS', k: 'mas', arvo: hv.mas, yks: 'km/h', ib: 'mas' }
@@ -10213,18 +10233,21 @@ window._avaaPerPelaajaPikakatsaus = function(idx, joukkueNimi) {
     if (c.arvo == null) return;
     const taso = tasoOf(c.k, c.arvo);
     const kt = _kt(taso, true); if (kt === 'kasvu' || kt === 'epavarma') _anyGate = true;
-    // P1b — trend/spark-säiliöt id:llä ('_trend_30m'/'_spark_30m' jne.); async testitulokset täyttää.
-    _fysCards += _mcardFys(c.lbl, taso, c.arvo, c.yks, window._tmIBtn(c.ib), c.k);
+    const gated = (kt === 'kasvu' || kt === 'epavarma');
+    const low = (taso != null && taso < 3 && !gated);
+    const mo = _FYSMETA[c.k];
+    const w = (taso != null) ? Math.max(6, Math.min(100, taso / 5 * 100)) : 0;
+    const arvoTxt = (typeof _fmtTestiArvo === 'function' ? _fmtTestiArvo(c.arvo, c.yks) : c.arvo);
+    const metaTxt = gated
+      ? '🌱 taso ' + (taso != null ? taso : '—') + '/5 · kypsyys huomioitu (§28) · <span class="open">tarkentuu kasvumittauksella</span>'
+      : 'taso <span' + (low ? ' class="low"' : '') + '>' + (taso != null ? taso : '—') + '/5</span> · ' + (taso >= 3 ? 'ikäluokan tasoa' : 'alle ikäluokan') + ' · <span class="open">' + mo.ikk + ' auki</span>';
+    f1 += '<div class="mit-trow"><div class="mit-trh"><span class="tn">' + c.lbl + ' <small>' + mo.desc + '</small>' + window._tmIBtn(c.ib) + '</span>'
+      + '<span class="tv' + (low ? ' low' : '') + '">' + arvoTxt + ' ' + c.yks + '<span id="_trend_' + c.k + '"></span></span></div>'
+      + '<div class="mit-track"><b' + (low ? ' class="low"' : '') + ' style="width:' + w.toFixed(0) + '%"></b><span class="mit-tick" style="left:60%"></span></div>'
+      + '<div class="mit-mean"><span class="ball">⚽</span>' + mo.mean + '</div>'
+      + '<div class="mit-meta">' + metaTxt + '</div>'
+      + '<div class="mit-spark" id="_spark_' + c.k + '"></div></div>';
   });
-  // H-H-koontikortti (.mtotal) — 30m·CMJ·MAS → keskiarvo + trendinuoli hh_taso_edellinen:stä (aito 2-piste-data).
-  if (d1 != null) {
-    const kt = _kt(d1, true); if (kt === 'kasvu' || kt === 'epavarma') _anyGate = true;
-    const col = (kt === 'kasvu' || kt === 'epavarma') ? 'var(--ink3)' : hhTasoVari(d1);
-    _fysCards += '<div class="mcard mtotal"><div class="mcard-top"><span class="mcard-lbl">H-H taso</span></div>'
-      + '<div class="mcard-val" style="color:' + col + '">' + (Math.round(d1 * 10) / 10) + '<span class="mcard-yks"> /5</span>' + _trendNuoli(d1, p.hh_taso_edellinen) + '</div>'
-      + '<div class="mcard-foot">30m · CMJ · MAS → keskiarvo</div></div>';
-  }
-  if (_fysCards) f1 += '<div class="mrow">' + _fysCards + '</div>';
   // §28-kypsyysporttilaatikko — VAIN herkässä ikkunassa (preP tai gated-testi kasvu/epavarma). Muuten piilossa.
   if (_preP || _anyGate) {
     f1 += '<div class="gate">🌱 <b>Kypsyysportti (§28):</b> Heikko fyysinen ei nouse kehitystavoitteeksi ennen PHV:tä, eikä normivertailua näytetä ennen Showcase-ikää (16+) — vain kehityskaista.</div>';
@@ -10326,11 +10349,13 @@ window._avaaPerPelaajaPikakatsaus = function(idx, joukkueNimi) {
     _fysSyva += '<div style="font-size:12px;color:var(--ink2);background:var(--ov-1);border:.5px solid var(--border);border-radius:9px;padding:9px 11px;margin-top:10px">📈 Kehitysvauhti: H-H-taso <b style="color:' + _vari + '">' + (_hd > 0 ? '↑ +' : _hd < 0 ? '↓ ' : '→ ') + _hd + '</b> (2. mittaus)</div>';
   }
   _fysSyva += _masSyva();   // MAS-vyöhykeanalyysi (siirretty tänne "Näytä lisää"-tilalta)
-  // Kokoa: radar (heti näkyvä) + summapalkit (jo f1:ssä) + ▸ Syväanalyysi-reveal.
+  // R2 (pala 3) — v4: hero/trow on ensisijainen näkymä → per-testi-radar siirretty Syväanalyysi-revealiin (ei kilpaile
+  // hero-arvon kanssa; sama data, tutka on lisänäkymä). Normivertailu + indeksit + kehitysvauhti + MAS ennallaan revealissa.
+  if (_fysRadar) _fysSyva = _fysRadar + _fysSyva;
   const _fysReveal = '<div style="margin-top:14px;border-top:.5px solid var(--border);padding-top:10px">'
     + '<span onclick="var b=document.getElementById(\'_jspSyvaFys\');var o=b.style.display===\'none\';b.style.display=o?\'block\':\'none\';this.textContent=(o?\'▾\':\'▸\')+\' Syväanalyysi\'" style="font-size:12px;color:var(--blue);cursor:pointer;font-weight:600">▸ Syväanalyysi</span>'
     + '<div id="_jspSyvaFys" style="display:none;margin-top:12px">' + _fysSyva + '</div></div>';
-  f1 = _fysRadar + f1 + _fysReveal;
+  f1 = f1 + _fysReveal;
 
   // ── TAB 2: TEKNINEN (SM-tasot + TSI + TKI + FLEI) ──
   // TSI: pikakenttä ensin, muuten laske lennossa raakadatasta (sm_pallo − sm_juoksu, §22). Ei kirjoiteta Firestoreen.

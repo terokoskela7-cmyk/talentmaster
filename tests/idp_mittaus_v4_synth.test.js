@@ -57,11 +57,12 @@ describe('synth — fyysinen §28-tietoinen', () => {
   });
 });
 
-describe('synth — TSI', () => {
-  it('TSI < 1.2 → "ei lajitekniikkavajetta"', () => {
+describe('synth — TSI (§14: <0.8 = aidosti automatisoitunut)', () => {
+  it('TSI < 0.8 → "ei lajitekniikkavajetta"', () => {
     expect(S({}, 12, null, 4, 0.4)).toContain('ei lajitekniikkavajetta');
   });
-  it('TSI ≥ 1.2 → ei TSI-riviä', () => {
+  it('TSI 0.8–1.5 (vain kohtalainen §14) → EI "automatisoitunut"-kehystä', () => {
+    expect(S({}, 12, null, 4, 1.0)).not.toContain('ei lajitekniikkavajetta');
     expect(S({}, 12, null, 4, 1.8)).not.toContain('ei lajitekniikkavajetta');
   });
 });
