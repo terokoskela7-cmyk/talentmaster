@@ -10385,8 +10385,14 @@ window._avaaPerPelaajaPikakatsaus = function(idx, joukkueNimi) {
   // kuin laskeD2Taso). D3/D4/D5 → ei edellinen-pikakenttää → null (graceful, ei haamua sille piikille). Katkoviiva/haalea.
   const _d1Prev = (p.hh_taso_edellinen != null) ? p.hh_taso_edellinen : null;
   const _d2Prev = (p.tki_edellinen != null) ? Math.round((p.tki_edellinen / 20) * 10) / 10 : null;
+  // R1 KORJAUS — overlay JÄRJESTYSRIIPPUMATON: _tmRadar5D lukee overlay[i]:n INDEKSILLÄ, joten haamu on
+  // rakennettava radarDims-avaimista (ei kiinteästä D1..D5-indeksistä). Muuten reorder (D4 edellä) siirsi
+  // D1:n edellisen Peliäly-akselille. Kestää tulevatkin akselijärjestyksen muutokset.
+  const _prevByKey = { D1: _d1Prev, D2: _d2Prev };
   if (_d1Prev != null || _d2Prev != null) {
-    _radarOpts.overlay = [{ arvo: _d1Prev }, { arvo: _d2Prev }, { arvo: null }, { arvo: null }, { arvo: null }];
+    _radarOpts.overlay = radarDims.map(function (d) {
+      return { arvo: (_prevByKey[d.key] != null ? _prevByKey[d.key] : null) };
+    });
     _radarOpts.overlayVari = 'var(--ink3)';
     _radarOpts.overlayDash = true;
   }
