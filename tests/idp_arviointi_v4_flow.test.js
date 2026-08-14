@@ -43,6 +43,6 @@ describe('R3.A — flow-järjestys: kattavuus ENSIN, silta TOISEKSI', () => {
 
 describe('R3.A — rail-vapaa kattaa myös Arvioinnin (tab 2)', () => {
   it('_jspVaihda togglaa railvapaan tabeille 0/1/2', () => {
-    expect(HTML).toContain("_grid.classList.toggle('jsp-railvapaa', n === 0 || n === 1 || n === 2)");
+    expect(HTML).toContain("_grid.classList.toggle('jsp-railvapaa', n === 0 || n === 1 || n === 2 || n === 3)");
   });
 });

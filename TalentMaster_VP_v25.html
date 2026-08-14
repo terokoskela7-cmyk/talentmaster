@@ -1347,7 +1347,18 @@ body {
 /* Visuaalinen selkeys — rail-vapaan sisällön LUKUMITTA (kartan .wrap max-width): ei venytetä reunasta reunaan (~1240),
    vaan rajataan kartan mittaan ja keskitetään. Aloitus 1040 · Mittaus/Arviointi 940 (kartta-SSOT). CSS-only, ei rakennemuutosta. */
 .jsp-grid.jsp-railvapaa > .jsp-right { width: 100%; max-width: 1040px; margin-left: auto; margin-right: auto; }
-.jsp-grid.jsp-railvapaa #_jspTab1, .jsp-grid.jsp-railvapaa #_jspTab2 { width: 100%; max-width: 940px; margin-left: auto; margin-right: auto; }
+.jsp-grid.jsp-railvapaa #_jspTab1, .jsp-grid.jsp-railvapaa #_jspTab2, .jsp-grid.jsp-railvapaa #_jspTab3 { width: 100%; max-width: 940px; margin-left: auto; margin-right: auto; }
+/* R4 — Kehitys v2 jaksofokus-työpöytä (kartta KEHITYS_KISS_design_kartta_v2): TASO 2 = inline-focal editori (aina auki
+   työpöytänä, ei modaalia) · Oura-rauhallinen (teal ainoa aksentti). Focal = pehmeä surface + teal-vasenreuna. */
+.jsp-jf-focal { background: var(--surface); border-left: 2px solid var(--teal); border-radius: 8px; padding: 14px 16px 4px; margin-top: 2px; }
+.jsp-keh-fwh { margin: 2px 0 16px; }
+.jsp-keh-fwh .ft { font-family: var(--font-serif), 'Cormorant Garamond', serif; font-size: 22px; line-height: 1.1; color: var(--ink); }
+.jsp-keh-fwh .fs { font-family: var(--font-mono), 'DM Mono', monospace; font-size: 10.5px; color: var(--ink3); margin-top: 6px; }
+.jsp-keh-status { margin-bottom: 18px; padding-bottom: 14px; border-bottom: .5px solid var(--border); }
+.jsp-keh-status .strow { display: flex; gap: 8px 18px; flex-wrap: wrap; margin-top: 8px; font-family: var(--font-mono), 'DM Mono', monospace; font-size: 11px; color: var(--ink3); }
+.jsp-keh-status .stitem b { color: var(--ink2); font-weight: 500; }
+.jsp-keh-status .stitem.ok { color: var(--teal); }
+.jsp-keh-status .stitem.warn { color: var(--amber); }
 /* Mittaus v4 — D1 Fyysinen | D2 Tekninen vierekkäin (kartta .cols 1fr 1fr). Tulkintakerros (tuoreus/§28/synth) + Kehon valmius + nextstep täysleveinä. */
 .mit-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 26px; align-items: start; margin-bottom: 4px; }
 @media (max-width: 900px) { .mit-cols { grid-template-columns: 1fr; gap: 0; } }
@@ -5482,6 +5493,44 @@ function _vpKaksiPolkuaHTML(p, pid) {
     + kortti(heik, 'heikkous', '🎯 Korjaa heikkous', 'var(--amber)', 'rgba(224,160,64,.35)')
     + kortti(vah, 'vahvuus', '💎 Jalosta supervoima', 'var(--teal)', 'rgba(40,176,144,.35)') + '</div>';
 }
+// R4 (Kehitys v2) — työpöydän OTSIKKO (kartta .fwh): "Suunnitelman muokkauskoti". Staattinen, ei uutta dataa.
+function _vpKehOtsikkoHTML() {
+  return '<div class="jsp-keh-fwh"><div style="color:var(--teal);font-family:var(--font-sans),\'DM Sans\',sans-serif;font-size:9.5px;font-weight:600;letter-spacing:.15em;text-transform:uppercase">Jaksofokus-työpöytä</div>'
+    + '<div class="ft">Suunnitelman muokkauskoti</div>'
+    + '<div class="fs">kausitavoite → jaksofokus → kaari · aseta · muokkaa · sulje · näkyy pelaajalle</div></div>';
+}
+// R4 (Kehitys v2) — VP-OVERSIGHT status-nauha (kartta .status): tila yhdellä silmäyksellä. LASKETAAN olemassa
+// olevasta datasta (jaksofokus + _idpTavoite + idpJumissa + tmJfUmpeutunut) — ei uutta dataa/logiikkaa. Tyhjä
+// työpöytä (ei tavoitetta eikä fokusta) → '' (moottori/CTA ohjaa).
+function _vpKehStatusHTML(p) {
+  const t = p._idpTavoite || null, jf = p.jaksofokus || null, _jfLib = window.TM_JAKSOFOKUS;
+  if (!t && !(jf && jf.konsepti_nimi)) return '';
+  const items = [];
+  const umpeutunut = !!(jf && jf.konsepti_nimi && _jfLib && typeof _jfLib.tmJfUmpeutunut === 'function' && _jfLib.tmJfUmpeutunut(jf));
+  // 1) Aikataulussa / umpeutunut / ei fokusta
+  if (jf && jf.konsepti_nimi) items.push(umpeutunut ? '<span class="stitem warn">🟠 Jakso umpeutunut</span>' : '<span class="stitem ok">● Aikataulussa</span>');
+  else items.push('<span class="stitem warn">○ Ei jaksofokusta</span>');
+  // 2) Kausitavoite hyväksytty (§37: VP hyväksyy → status 'aktiivinen')
+  const ktStatus = (t && t.status) || p.idp_tila || null;
+  items.push('<span class="stitem">Kausitavoite <b>' + (ktStatus === 'aktiivinen' ? 'hyväksytty' : (ktStatus ? _jsvEsc(ktStatus) : '—')) + '</b></span>');
+  // 3) Montako viikkoa jaksossa jäljellä (alkoi + kesto_vk); ei alkoi-pvm:ää → näytä kesto
+  if (jf && jf.konsepti_nimi) {
+    const vk = jf.kesto_vk || 4;
+    if (jf.alkoi) {
+      const jaljella = Math.ceil((new Date(jf.alkoi).getTime() + vk * 7 * 86400000 - Date.now()) / (7 * 86400000));
+      items.push('<span class="stitem">Jaksofokus <b>' + (jaljella > 0 ? jaljella + ' vk jäljellä' : 'umpeutunut') + '</b></span>');
+    } else {
+      items.push('<span class="stitem">Jaksofokus <b>kesto ' + vk + ' vk</b></span>');
+    }
+  }
+  // 4) Review-vihje (EPPP): umpeutunut → review nyt; tavoite jumissa 8 vk → tarkista (ei keksittyä päivämäärää)
+  if (umpeutunut) items.push('<span class="stitem warn">Seuraava review <b>nyt</b></span>');
+  else if (t && typeof idpJumissa === 'function' && idpJumissa(t)) items.push('<span class="stitem warn">Tavoite <b>jumissa 8 vk</b></span>');
+  // 5) Periaate
+  items.push('<span class="stitem">Yksi prioriteetti · vähemmän on enemmän</span>');
+  return '<div class="jsp-keh-status"><div style="color:var(--teal);font-family:var(--font-sans),\'DM Sans\',sans-serif;font-size:9.5px;font-weight:600;letter-spacing:.15em;text-transform:uppercase">VP-oversight · tila yhdellä silmäyksellä</div>'
+    + '<div class="strow">' + items.join('') + '</div></div>';
+}
 // P4a — Kehitys-työpöydän MOOTTORI-lohko: 2 selkeää polkua (uudelleenkäyttää _vpKaksiPolkuaHTML) + "ei pakota" +
 // 70/30-ankkuri + §28-portti-note + 💎 käsin-supervoima (olemassaoleva _vpAsetaModus('vahvuus') → fokus-valinta editorissa).
 // Ei uutta moottorilogiikkaa — vain esittää idpValitseHeikoin/Vahvin-tulokset selkeästi työpöydän kärkeen.
@@ -5531,8 +5580,11 @@ function _vpTyopoytaJaksofokusHTML(p) {
 // P4a.1 — KEHITYSSUUNNITELMA-HAITARI: kausitavoite (TASO 1) · jaksofokus (TASO 2) · kehityskaari (TASO 3) yhteen
 // progressiiviseen haitariin. Suljettu rivi = 1-rivin yhteenveto + tila-chip; klikkaus togglaa OMAN rivin (useampi
 // voi olla auki). Bodyt = olemassaolevat renderöijät sellaisenaan (ei uutta dataa/logiikkaa). IDP-hierarkia näkyväksi.
-function _vpKehSuunnitelmaHTML(p) {
+function _vpKehSuunnitelmaHTML(p, opts) {
   const esc = _jsvEsc, pid = esc(p.id);
+  // R4 (Kehitys v2) — TASO 2 inline-focal editori vain interaktiivisessa per-pelaaja-työpöydässä (oletus). Pelaaja-
+  // raportti (PDC, opts.editori===false) käyttää read-only-yhteenvetoa → ei duplikaatti-slot-ID:itä, ei editoria raportissa.
+  const _inlineEditori = !opts || opts.editori !== false;
   const t = p._idpTavoite || null, jf = p.jaksofokus || null, _jfLib = window.TM_JAKSOFOKUS;
   const row = function (accId, ico, eyebrow, title, sum, chip, chipOn, body, avoin) {
     return '<div class="acc-row' + (avoin ? ' open' : '') + '" id="' + accId + '">'
@@ -5561,9 +5613,13 @@ function _vpKehSuunnitelmaHTML(p) {
   const jfUmp = !!(jf && _jfLib && typeof _jfLib.tmJfUmpeutunut === 'function' && _jfLib.tmJfUmpeutunut(jf));
   const jfSum = jfNimi ? ((jfDom ? jfDom.ikoni + ' ' + esc(jfDom.nimi) + ' · ' : '') + 'kesto ' + (jf.kesto_vk || 4) + ' vk') : '';
   const jfChip = jfNimi ? (jfUmp ? '🟠 umpeutunut' : '● aktiivinen') : null;
-  const jfBody = jfNimi ? (typeof _vpTyopoytaJaksofokusHTML === 'function' ? _vpTyopoytaJaksofokusHTML(p) : '')
-    : '<div style="padding:6px 0"><button class="jsp-kt-btn primary" onclick="event.stopPropagation();_jfOhjaa(\'' + pid + '\')">＋ Aseta jaksofokus</button><div style="font-family:var(--font-sans),\'DM Sans\',sans-serif;font-size:11px;color:var(--ink3);margin-top:6px">Nelikulmamalli: fyysinen · teknis-taktinen · henkinen · sosiaalinen.</div></div>';
-  h += row('_accJaksofokus', '📍', 'TASO 2 · TÄMÄ JAKSO · MESO 4–8 VK', 'Jaksofokus', jfSum, jfChip, jfNimi && !jfUmp, jfBody, false);
+  // R4 (Kehitys v2) — TASO 2: työpöydässä INLINE-FOCAL editori (aina auki, ei "✎ Muokkaa"-modaalia; hoitaa tyhjän
+  // ja täyden tilan) · raportissa read-only-yhteenveto (ennallaan). avoin=true (focal) vain editori-tilassa.
+  const jfBody = _inlineEditori
+    ? ((typeof _vpJfInlineHTML === 'function') ? _vpJfInlineHTML(p) : '')
+    : (jfNimi ? (typeof _vpTyopoytaJaksofokusHTML === 'function' ? _vpTyopoytaJaksofokusHTML(p) : '')
+      : '<div style="padding:6px 0"><button class="jsp-kt-btn primary" onclick="event.stopPropagation();_jfOhjaa(\'' + pid + '\')">＋ Aseta jaksofokus</button><div style="font-family:var(--font-sans),\'DM Sans\',sans-serif;font-size:11px;color:var(--ink3);margin-top:6px">Nelikulmamalli: fyysinen · teknis-taktinen · henkinen · sosiaalinen.</div></div>');
+  h += row('_accJaksofokus', '📍', 'TASO 2 · TÄMÄ JAKSO · MESO 4–8 VK', 'Jaksofokus', jfSum, jfChip, jfNimi && !jfUmp, jfBody, _inlineEditori);
   // ── TASO 3 · Kehityskaari (historia): tavoitteen review-sykli + suljetut jaksofokus-jaksot (meso). ──
   const kaari = (t && typeof _vpKehityskaariHTML === 'function') ? _vpKehityskaariHTML(t, pid) : '';
   const meso = (typeof _vpMesoKaariHTML === 'function') ? _vpMesoKaariHTML(p) : '';
@@ -5952,7 +6008,7 @@ function _vpKausitavoiteHTML(p) {
     const _il = p.idp_lahde || null;   // B3 — lähdemerkintä pikakentästä (summary-tila)
     h += '<div class="jsp-kt-summary"><span class="jsp-kt-pill ' + (p.idp_tila === 'aktiivinen' ? 'akt' : 'ehd') + '">' + _jsvEsc(p.idp_tila) + '</span> '
       + '<span class="chip" style="margin-left:6px">🎯 ' + _jsvEsc(f.nimi || f.alue || '—') + (f.dim ? ' · ' + f.dim : '') + '</span>'
-      + (_il && _il.tyyppi === 'pelihavainto' ? '<span class="chip" style="color:#c060a8;margin-left:4px">◎ pelihavainto' + (_il.pvm ? ' · ' + _jsvEsc(_pvmLyhyt(_il.pvm)) : '') + '</span>' : '')
+      + (_il && _il.tyyppi === 'pelihavainto' ? '<span class="chip" style="color:var(--ink3);margin-left:4px">◎ pelihavainto' + (_il.pvm ? ' · ' + _jsvEsc(_pvmLyhyt(_il.pvm)) : '') + '</span>' : '')
       + (p.idp_edistyma ? ' <span class="jsp-kt-edist">' + _jsvEsc(p.idp_edistyma) + '</span>' : '') + '</div>';
     return h;
   }
@@ -5979,7 +6035,7 @@ function _vpKausitavoiteHTML(p) {
   // B3 — lähdesiru: näytä havainnon alkuperä (pelihavainto → ottelu/harjoitus + pvm) fokus-chippien joukossa.
   const _lt = f.lahdeTieto || null;
   const _lahdeSiru = (_lt && _lt.tyyppi === 'pelihavainto')
-    ? '<span class="chip" style="color:#c060a8;border-color:rgba(192,96,168,.4)">◎ Lähde: pelihavainto' + (_lt.pvm ? ' · ' + _jsvEsc(_pvmLyhyt(_lt.pvm)) : '') + '</span>'
+    ? '<span class="chip" style="color:var(--ink3);border-color:var(--border)">◎ Lähde: pelihavainto' + (_lt.pvm ? ' · ' + _jsvEsc(_pvmLyhyt(_lt.pvm)) : '') + '</span>'
     : (_lt && _lt.tyyppi === 'havaittu') ? '<span class="chip" style="color:var(--blue)">◎ Lähde: havainto' + (_lt.pvm ? ' · ' + _jsvEsc(_pvmLyhyt(_lt.pvm)) : '') + '</span>' : '';
   h += '<div class="jsp-kt-chips"><span class="chip">🎯 Fokus: <b>' + _jsvEsc(f.nimi || f.alue || '—') + '</b></span>'
     + (f.dim ? '<span class="chip">' + f.dim + '</span>' : '')
@@ -6402,7 +6458,7 @@ function _vpMitaOsattavaHTML(p) {
   const puol = items.filter(function (it) { return it.faasi === 'puolustus'; });
   const muu = items.filter(function (it) { return it.faasi !== 'hyokkays' && it.faasi !== 'puolustus' && it.avain !== 'y_h0'; });
   let h = '<details class="vpal-mita" style="margin-top:12px"><summary style="cursor:pointer;font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--ink3);padding:4px 0">📚 Mitä pelaajan tulee osata (' + items.length + ')</summary><div style="margin-top:6px">';
-  if (hav.length) h += '<div style="font-size:10px;color:#c060a8;font-weight:700;text-transform:uppercase;margin:6px 0 2px">👁 Havainnointi (läpileikkaava)</div>' + hav.map(rivi).join('');
+  if (hav.length) h += '<div style="font-size:10px;color:var(--ink3);font-weight:700;text-transform:uppercase;margin:6px 0 2px">👁 Havainnointi (läpileikkaava)</div>' + hav.map(rivi).join('');
   if (hyok.length) h += '<div style="font-size:10px;color:var(--teal);font-weight:700;text-transform:uppercase;margin:10px 0 2px">Hyökkäys</div>' + hyok.map(rivi).join('');
   if (puol.length) h += '<div style="font-size:10px;color:var(--blue);font-weight:700;text-transform:uppercase;margin:10px 0 2px">Puolustus</div>' + puol.map(rivi).join('');
   if (muu.length) h += '<div style="font-size:10px;color:var(--amber);font-weight:700;text-transform:uppercase;margin:10px 0 2px">Pelipaikka</div>' + muu.map(rivi).join('');
@@ -6936,9 +6992,12 @@ window._vpJfSetDomeeni = function (pid, dom) {
 // [Ohjaa]/[Aseta]/[✎ Muokkaa jaksofokus] → YKSI paneeli (domeeni-toggle + runko). esiValinta = teknis-konsepti-avain
 // (silta), lahde ('arviointi' sillasta, muuten 'vp'), domeeni = esivalittu näkymä ('fyysinen'|'teknis_taktinen').
 // §4: talenteille aina; ei-talenteille override (ei estä valmentajan omaa jaksofokusta).
-window._jfOhjaa = function (pid, esiValinta, lahde, domeeni) {
+// R4 (Kehitys v2) — editointitilan ALUSTUS erotettu omaksi funktioksi, jotta sekä modaali (_jfOhjaa)
+// että inline-focal työpöytä (_vpJfInlineHTML) käyttävät SAMAA init-logiikkaa (REUSE, ei kahta versiota).
+// Palauttaa pelaajan (tai null). Sivuvaikutus: asettaa editointitilan window-globaaleihin (writerit lukevat).
+function _jfOhjausAlusta(pid, esiValinta, lahde, domeeni) {
   const p = (typeof _vpTtPelaaja === 'function') ? _vpTtPelaaja(pid) : ((typeof _pelaajat !== 'undefined' && _pelaajat) || []).find(function (x) { return x.id === pid; });
-  if (!p) { if (typeof toast === 'function') toast('Pelaajaa ei löytynyt', 'error'); return; }
+  if (!p) { if (typeof toast === 'function') toast('Pelaajaa ei löytynyt', 'error'); return null; }
   window._vpArvPelaaja = p;      // sama objekti jonka writerit mutatoivat + dropdown re-renderöi
   window._jfOhjausP = p;
   window._vpTtLahde = lahde || 'vp';
@@ -6955,6 +7014,39 @@ window._jfOhjaa = function (pid, esiValinta, lahde, domeeni) {
   // P4b — per-tavoite-tarkenteet (Opittu kun + mittaus) editointitila; alusta aktiivisesta jaksofokuksesta + pääfokus-fallback.
   window._vpJfTarkenteet = window._vpJfTarkenteet || {};
   window._vpJfTarkenteet[p.id] = (typeof _vpJfTarkenteetAlusta === 'function') ? _vpJfTarkenteetAlusta(p) : {};
+  return p;
+}
+
+// R4 (Kehitys v2) — INLINE-FOCAL jaksofokus-editori: sama kolmen slotin editori (toggle + runko + linkit) kuin modaali,
+// mountattuna suoraan Kehitys-työpöytään (TASO 2, aina auki). Käyttää SAMOJA slot-ID:itä (_vpJfToggle/_jfOhjausSlot/
+// _jfLinkitSlot) → kaikki olemassa olevat re-render-handlerit toimivat sellaisenaan. Ei modaalia, ei reimplementointia.
+function _vpJfInlineHTML(p) {
+  if (!p || !_jfOhjausAlusta(p.id)) return '';   // alusta editointitila (oletus aktiivisesta jaksofokuksesta)
+  const yli = (p.talenttiOhjelma !== true) ? '<div style="font-size:11px;color:var(--blue);background:rgba(42,93,176,.1);border:.5px solid rgba(42,93,176,.3);border-radius:8px;padding:8px 11px;margin-bottom:10px">ℹ️ Override: valmentaja omistaa kentän — asetat/muutat VP-oversightina (§4).</div>' : '';
+  return '<div id="_jfInlineEditor" class="jsp-jf-focal">' + yli
+    + '<div id="_vpJfToggle">' + _vpJfToggleHTML(p) + '</div>'
+    + '<div id="_jfOhjausSlot">' + _vpJfBodyHTML(p) + '</div>'
+    + '<div id="_jfLinkitSlot">' + _vpJfLinkitHTML(p) + '</div>'
+    + '<div style="font-size:10px;color:var(--ink3);margin-top:10px">👁 Jaksofokus näkyy pelaajalle (Pelaaja-app) · domeenin vaihto arkistoi vanhan jakson automaattisesti · yksi jaksofokus kerrallaan.</div>'
+    + '</div>';
+}
+
+window._jfOhjaa = function (pid, esiValinta, lahde, domeeni) {
+  const p = _jfOhjausAlusta(pid, esiValinta, lahde, domeeni);
+  if (!p) return;
+  // R4 — inline-focal työpöytä ensin: jos editori on jo mountattuna inline (Kehitys-välilehti), ohjaa sinne
+  // (ei modaalia) — re-renderöi slotit + vaihda Kehitys-välilehteen + avaa TASO 2 + scrollaa näkyviin.
+  const _inl = document.getElementById('_jfInlineEditor');
+  if (_inl) {
+    const tog = document.getElementById('_vpJfToggle'); if (tog) tog.innerHTML = _vpJfToggleHTML(p);
+    const body = document.getElementById('_jfOhjausSlot'); if (body) body.innerHTML = _vpJfBodyHTML(p);
+    const lk = document.getElementById('_jfLinkitSlot'); if (lk) lk.innerHTML = _vpJfLinkitHTML(p);
+    if (typeof _jspVaihda === 'function') _jspVaihda(3);           // → Kehitys-työpöytä
+    const acc = document.getElementById('_accJaksofokus'); if (acc) acc.classList.add('open');   // TASO 2 auki
+    try { _inl.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); } catch (e) {}
+    return;
+  }
+  // Fallback: modaali (jos inline-editoria ei ole mountattu tässä näkymässä).
   document.getElementById('_jfModal')?.remove();
   const yli = (p.talenttiOhjelma !== true) ? '<div style="font-size:11px;color:var(--blue);background:rgba(42,93,176,.1);border:.5px solid rgba(42,93,176,.3);border-radius:8px;padding:8px 11px;margin-bottom:10px">ℹ️ Override: valmentaja omistaa kentän — asetat/muutat VP-oversightina (§4).</div>' : '';
   let h = '<div id="_jfModal" style="position:fixed;inset:0;background:rgba(17,17,16,.92);z-index:360;display:flex;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(8px)" onclick="if(event.target===this)this.remove()">';
@@ -9548,7 +9640,7 @@ window._jspVaihda = function(n) {
   // R1.4-korjaus — ALOITUS-MODE: Aloituksessa (tab 0) v7:n 2-sarake → piilota profiiliraili (tutka on nyt Aloituksen
   // oikeassa sarakkeessa). Muut välilehdet: raili takaisin (jaettu profiili). Ei DOM-uudelleenrakennusta, vain luokka.
   const _grid = document.querySelector('#_jspModal .jsp-grid');
-  if (_grid) _grid.classList.toggle('jsp-railvapaa', n === 0 || n === 1 || n === 2);   // Aloitus (v7) + Mittaus (v4) + Arviointi (v4) täysleveitä → raili piiloon; muut → raili takaisin
+  if (_grid) _grid.classList.toggle('jsp-railvapaa', n === 0 || n === 1 || n === 2 || n === 3);   // Aloitus (v7) + Mittaus (v4) + Arviointi (v4) + Kehitys (v2 jaksofokus-työpöytä) täysleveitä → raili piiloon; muut → raili takaisin
 };
 // ── Testitulkinnan koulutus — ⓘ-info (avautuu pikakatsauksen päälle, z 360). Sisältö: mitä mittaa + miten tulkita + valmennusvihje ──
 window.TM_TESTI_OHJEET = {
@@ -10904,6 +10996,10 @@ window._avaaPerPelaajaPikakatsaus = function(idx, joukkueNimi) {
   // ── P4a — KEHITYS-TYÖPÖYTÄ · looginen selkäranka: moottori → kausitavoite (+välitavoitteet +kaari) → jaksofokus-editori
   //    → D3-linkki → diagnostiikka (reveal). Työpöytä johtaa TOIMINNALLA, ei raakadatalla. Kaikki uudelleenkäytettyä. ──
   let _kehExtra = '';
+  // 0) R4 (Kehitys v2) — työpöydän otsikko (kartta .fwh) + VP-oversight status-nauha (kartta .status). Molemmat
+  //    olemassa olevasta datasta; status tyhjenee kun ei tavoitetta/fokusta (moottori/CTA ohjaa).
+  if (typeof _vpKehOtsikkoHTML === 'function') _kehExtra += _vpKehOtsikkoHTML();
+  if (typeof _vpKehStatusHTML === 'function') _kehExtra += _vpKehStatusHTML(p);
   // 1) Moottorin ehdotus · 2 polkua (design-totuus): idpValitseHeikoin/Vahvin-kortit + notes + käsin-supervoima.
   if (typeof _vpMoottoriKortitHTML === 'function') _kehExtra += _vpMoottoriKortitHTML(p, p.id);
   // 2) P4a.1 — KEHITYSSUUNNITELMA-HAITARI: kausitavoite (TASO 1 · #_jspKausitavoite säilyy re-renderiä varten) ·
@@ -13813,7 +13909,7 @@ function _renderMDTProfiili() {
   if (!CHAPS.some(function (c) { return c[0] === _mdtChap; })) _mdtChap = 'idp';
   h += '<div class="pdc-chapters mdt-no-print">' + CHAPS.map(function (c) { return '<button class="' + (_mdtChap === c[0] ? 'on' : '') + '" onclick="_mdtAvaaChap(\'' + c[0] + '\')">' + c[1] + '</button>'; }).join('') + '</div>';
   var chap = '';
-  if (_mdtChap === 'idp') chap = (typeof _vpKehSuunnitelmaHTML === 'function') ? _vpKehSuunnitelmaHTML(p) : '<div class="pdc-empty">Kehityssuunnitelma ei saatavilla.</div>';
+  if (_mdtChap === 'idp') chap = (typeof _vpKehSuunnitelmaHTML === 'function') ? _vpKehSuunnitelmaHTML(p, { editori: false }) : '<div class="pdc-empty">Kehityssuunnitelma ei saatavilla.</div>';   // R4: raportti = read-only (ei inline-editoria/duplikaatti-ID:itä)
   else if (_mdtChap === 'psyy') chap = (p.d3_viimeisin && p.d3_viimeisin.pisteet && typeof renderD3VertailuHTML === 'function') ? ('<div class="pdc-mini-h">Psyykkinen (D3) · itse × valmentaja × VP</div>' + renderD3VertailuHTML(p.d3_viimeisin.pisteet)) : '<div class="pdc-empty">Ei D3-kalibraatiota vielä.</div>';
   else if (_mdtChap === 'mittaukset') chap = (typeof renderKehityskorttiHTML === 'function' && renderKehityskorttiHTML(p, ika, spMN)) ? renderKehityskorttiHTML(p, ika, spMN) : '<div class="pdc-empty">Ei mittausdataa vielä.</div>';
   else if (_mdtChap === 'pelialy') {
