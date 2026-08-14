@@ -68,14 +68,14 @@ describe('R1.4 — 2-sarakerakenne (kartta .cols)', () => {
     expect(HTML).toContain('function _vpAloitusTutkaHTML(p) {');
     expect(HTML).toContain('window._tmRadar5D(radarDims, _radarOpts)');
     // rail-vapaa-mode: _jspVaihda togglaa jsp-railvapaa (tab 0 Aloitus + tab 1 Mittaus → raili piiloon)
-    expect(HTML).toContain("_grid.classList.toggle('jsp-railvapaa', n === 0 || n === 1 || n === 2)");
+    expect(HTML).toContain("_grid.classList.toggle('jsp-railvapaa', n === 0 || n === 1 || n === 2 || n === 3)");
     expect(HTML).toContain('<div class="jsp-grid jsp-railvapaa">');
     expect(HTML).toContain('.jsp-grid.jsp-railvapaa > .jsp-left { display: none; }');
   });
 
-  it('rail-vapaan sisällön lukumitta rajattu kartan mittaan (Aloitus 1040 · Mittaus/Arviointi 940), keskitetty', () => {
+  it('rail-vapaan sisällön lukumitta rajattu kartan mittaan (Aloitus 1040 · Mittaus/Arviointi/Kehitys 940), keskitetty', () => {
     expect(HTML).toContain('.jsp-grid.jsp-railvapaa > .jsp-right { width: 100%; max-width: 1040px; margin-left: auto; margin-right: auto; }');
-    expect(HTML).toContain('.jsp-grid.jsp-railvapaa #_jspTab1, .jsp-grid.jsp-railvapaa #_jspTab2 { width: 100%; max-width: 940px; margin-left: auto; margin-right: auto; }');
+    expect(HTML).toContain('.jsp-grid.jsp-railvapaa #_jspTab1, .jsp-grid.jsp-railvapaa #_jspTab2, .jsp-grid.jsp-railvapaa #_jspTab3 { width: 100%; max-width: 940px; margin-left: auto; margin-right: auto; }');
   });
 
   it('R1.4-korjaus 2: tutka AINA esillä — ≥3-portti poistettu (rail-tutkassa ei ollut)', () => {

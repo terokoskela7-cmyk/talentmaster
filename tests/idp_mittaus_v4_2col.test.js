@@ -36,7 +36,7 @@ describe('Mittaus v4 — 2-sarake D1|D2 + rail-vapaa', () => {
   });
 
   it('rail-vapaa kattaa Aloituksen (0) + Mittauksen (1); muut välilehdet → raili takaisin', () => {
-    expect(HTML).toContain("_grid.classList.toggle('jsp-railvapaa', n === 0 || n === 1 || n === 2)");
+    expect(HTML).toContain("_grid.classList.toggle('jsp-railvapaa', n === 0 || n === 1 || n === 2 || n === 3)");
     expect(HTML).toContain('.jsp-grid.jsp-railvapaa > .jsp-left { display: none; }');
   });
 });
