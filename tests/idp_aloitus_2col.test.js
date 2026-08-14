@@ -73,6 +73,11 @@ describe('R1.4 — 2-sarakerakenne (kartta .cols)', () => {
     expect(HTML).toContain('.jsp-grid.jsp-railvapaa > .jsp-left { display: none; }');
   });
 
+  it('rail-vapaan sisällön lukumitta rajattu kartan mittaan (Aloitus 1040 · Mittaus/Arviointi 940), keskitetty', () => {
+    expect(HTML).toContain('.jsp-grid.jsp-railvapaa > .jsp-right { width: 100%; max-width: 1040px; margin-left: auto; margin-right: auto; }');
+    expect(HTML).toContain('.jsp-grid.jsp-railvapaa #_jspTab1, .jsp-grid.jsp-railvapaa #_jspTab2 { width: 100%; max-width: 940px; margin-left: auto; margin-right: auto; }');
+  });
+
   it('R1.4-korjaus 2: tutka AINA esillä — ≥3-portti poistettu (rail-tutkassa ei ollut)', () => {
     // _vpAloitusTutkaHTML ei saa palata tyhjänä dim-määrän perusteella (5-akselinen verkko täyttyy sitä mukaa)
     const T = (function () {
