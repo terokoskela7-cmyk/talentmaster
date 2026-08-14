@@ -1539,6 +1539,15 @@ body {
 .jsp-arv-covcell { flex: 1; min-width: 0; background: var(--ov-1); border: .5px solid var(--border); border-radius: 8px; padding: 6px 4px 7px; text-align: center; cursor: pointer; transition: border-color .15s; }
 .jsp-arv-covcell:hover { border-color: rgba(40,176,144,.4); }
 .jsp-arv-covcell.sel { border-color: rgba(40,176,144,.55); background: rgba(40,176,144,.08); }
+/* R3.B — D4 Peliäly ADAR-koostumus (v3 "koostumus näkyviin"): 4 osaa 1–3, ikäportitettu. Read-only näkymä (ei autosavea). */
+.jsp-adar-koostumus { margin: 14px 0; padding: 13px 15px; background: var(--surface); border: .5px solid var(--border); border-radius: 12px; }
+.jsp-adar-row { display: flex; align-items: center; gap: 12px; padding: 8px 0; border-bottom: .5px solid var(--border); font-size: 12.5px; flex-wrap: wrap; }
+.jsp-adar-row:last-of-type { border-bottom: none; }
+.jsp-adar-row.locked { opacity: .45; }
+.jsp-adar-an { color: var(--ink); flex: 0 0 200px; } .jsp-adar-an small { color: var(--ink3); font-size: 9px; }
+.jsp-scale3 { display: flex; gap: 4px; } .jsp-scale3 i { width: 20px; height: 6px; border-radius: 3px; background: var(--ov-2); }
+.jsp-scale3 i.on { background: var(--teal); } .jsp-scale3.low i.on { background: var(--amber); }
+.jsp-adar-av { margin-left: auto; font-family: var(--font-mono); font-size: 10px; color: var(--ink3); } .jsp-adar-av b { color: var(--ink2); font-weight: 500; }
 .jsp-arv-covdim { font-size: 10px; font-weight: 700; letter-spacing: .04em; color: var(--ink2); }
 .jsp-arv-covn { font-size: 10px; color: var(--ink3); margin-top: 1px; }
 .jsp-arv-covn b { color: var(--ink); font-weight: 600; }
@@ -4511,6 +4520,40 @@ window._vpOhjKaytaOhjelma = async function (pid, teemaAvain, ohjelmaId) {
 
 // §26 pikakentät (arviointi_havaittu), §5 tokenit, §7.22 aikuisnäkymä (VP-facing → 1–5 + värit sallittu). Taksonomia lib = standardi.
 // Mitattu 1–5: d1osa → laskeD1Osaindeksit, tklaji → tkLajiTaso. Mitattu voittaa havaitun (lukittu testiin). ika/sp johdetaan p:stä.
+// R3.B — D4 PELIÄLY · ADAR-KOOSTUMUS (v3 "koostumus näkyviin"): 4 osaa (Havaitse/Päätä/Toimi/Arvioi, 1–3),
+// ikäportitettu (tmAdarIkaTier — reuse, sama gate kuin tmAdarHavaittu). READ-ONLY näkymä: reuse p.adar_viimeisin
+// (a/d/ac/r), EI autosavea (ADAR-syöttö tapahtuu pelihavainnosta ennallaan). Ei pelihavaintoja → rehellinen tyhjä.
+function _vpArvAdarKoostumusHTML(p, ika) {
+  const av = p.adar_viimeisin;
+  if (!av) return '';
+  const sallitut = (typeof tmAdarIkaTier === 'function') ? tmAdarIkaTier(ika) : ['a', 'd', 'ac', 'r'];
+  const rLukossa = sallitut.indexOf('r') < 0;
+  const OSAT = [
+    { k: 'a', nimi: 'Havaitse', sel: 'a · näkeekö tilanteen' },
+    { k: 'd', nimi: 'Päätä', sel: 'd · valitseeko oikein' },
+    { k: 'ac', nimi: 'Toimi', sel: 'ac · toteuttaako' },
+    { k: 'r', nimi: 'Arvioi', sel: 'r · lukee uudelleen' }
+  ];
+  let rows = '', summa = 0, nAkt = 0;
+  OSAT.forEach(function (o) {
+    const locked = sallitut.indexOf(o.k) < 0;
+    const arvo = (!locked && av[o.k] != null) ? Math.max(1, Math.min(3, Math.round(av[o.k]))) : null;
+    let dots = '';
+    for (let i = 1; i <= 3; i++) dots += '<i class="' + ((arvo != null && i <= arvo) ? 'on' : '') + '"></i>';
+    const low = (arvo != null && arvo < 3);
+    const avLbl = locked ? 'avautuu 16 v'
+      : (arvo != null ? '<b>' + arvo + '</b>/3 · ' + (arvo >= 3 ? 'itsenäisesti' : arvo === 2 ? 'ohjatusti' : 'ei näy vielä') : '<span style="color:var(--ink3)">— ei havaintoa</span>');
+    if (arvo != null) { summa += arvo; nAkt++; }
+    rows += '<div class="jsp-adar-row' + (locked ? ' locked' : '') + '"><span class="jsp-adar-an">' + _jsvEsc(o.nimi) + ' <small>(' + _jsvEsc(o.sel) + ')</small></span>'
+      + '<span class="jsp-scale3' + (low ? ' low' : '') + '">' + dots + '</span><span class="jsp-adar-av">' + avLbl + '</span></div>';
+  });
+  const pvm = av.pvm ? (typeof _pvmLyhyt === 'function' ? _pvmLyhyt(av.pvm) : _jsvEsc(av.pvm)) : '';
+  let h = '<div class="jsp-adar-koostumus"><div class="jsp-arv-legend" style="margin:0 0 4px"><b style="color:var(--teal)">D4 Peliäly · pelihavainnosta (ADAR) · 1–3</b>' + (pvm ? ' <span style="color:var(--ink3);font-weight:400">· ' + pvm + '</span>' : '') + '</div>';
+  h += '<div style="font-size:10.5px;color:var(--ink3);margin-bottom:8px;line-height:1.5">Mitä "peliäly" -luvun takana on: neljä osaa, ikäportitettu.' + (rLukossa ? ' U13-portti → Havaitse · Päätä · Toimi (Arvioi avautuu 16 v).' : '') + ' Ei muunneta 1–5:een — pysyy 1–3.</div>';
+  h += rows;
+  h += '<div style="font-size:11px;color:var(--ink3);margin-top:8px;padding-top:6px;border-top:.5px solid var(--border)">Kokonais <b style="color:var(--ink2)">' + summa + '/' + (nAkt * 3) + '</b>' + (rLukossa ? ' · U13-portti (' + nAkt + ' osaa)' : '') + (av.yht != null ? ' · tutkassa ' + (Math.round(av.yht * 10) / 10) + '/5' : '') + '</div>';
+  return h + '</div>';
+}
 function _vpArviointiHTML(p) {
   if (!p || typeof ARVIOINTI_KEHYKSET === 'undefined') return '';
   window._vpArvPelaaja = p;   // dropdown-handlerit re-renderöivät tämän
@@ -4709,6 +4752,8 @@ function _vpArviointiHTML(p) {
   h += '<div class="jsp-arv-save">✓ Arviot tallentuvat <b>automaattisesti</b> klikatessa · teema ' + arvioituja + '/' + items.length + ' arvioitu.</div>';
   // P3 — D3-KALIBRAATIO (relokaatio Kehityksestä → yksi koti Arvioinnissa). Kompakti: itse × valmentaja × VP
   // (renderD3VertailuHTML) + Aukko⚠ + varmuus-lippu (d3VarmuusChip) + 1-klik Arvioi (_avaaVpD3Arvio). Ei uutta kirjoitusta.
+  // R3.B — D4 Peliäly · ADAR-koostumus (v3): ennen D3-kalibraatiota (kartta-järjestys D2 → D4 ADAR → D3). Read-only, reuse.
+  if (typeof _vpArvAdarKoostumusHTML === 'function') h += _vpArvAdarKoostumusHTML(p, ika);
   if (typeof _vpD3KalibraatioHTML === 'function') h += _vpD3KalibraatioHTML(p);
   // P3.1 — "TalentMaster Analytics — kehityskerros" -vyöhyke + brändipalaute SIIRRETTY ⓘ Tietoa kehyksestä -paneeliin
   //   (metaa, ei tarvitse olla joka katselukerralla esillä). Johda arvioinnilla: kohteet + kalibraatio kärjessä.
