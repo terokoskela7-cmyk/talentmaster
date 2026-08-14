@@ -23,6 +23,9 @@ beforeAll(() => {
   AK = new Function(
     'var _jsvEsc = function(s){return String(s==null?"":s);};\n' +
     'var _pvmLyhyt = function(s){return "1.6.2025";};\n' +
+    'var _seuraId = "kpv";\n' +
+    'var window = { _tmIBtn: function(){ return "<span class=\\"ibtn\\">ⓘ</span>"; } };\n' +
+    'var _vpRistiinarvio = function(p){ return "<div class=\\"jsp-ristiin\\">Yhtenevyys</div>"; };\n' +
     // reuse tmAdarIkaTier (kanoninen ikäportti): <13→[a] · 13–15→[a,d,ac] · 16+→[a,d,ac,r]
     'var tmAdarIkaTier = function(ika){ if(ika==null) return ["a","d","ac","r"]; if(ika<11) return ["a"]; if(ika<16) return ["a","d","ac"]; return ["a","d","ac","r"]; };\n' +
     extract('function _vpArvAdarKoostumusHTML(p, ika) {') + '\n return { ak: _vpArvAdarKoostumusHTML };'
@@ -55,8 +58,18 @@ describe('ADAR-koostumus — 4 osaa + ikäportti', () => {
   it('Kokonais-summa aktiivisista osista (U16 kaikki 4: 3+2+3+2 = 10/12)', () => {
     expect(AK({ adar_viimeisin: { a: 3, d: 2, ac: 3, r: 2 } }, 16)).toContain('Kokonais <b style="color:var(--ink2)">10/12</b>');
   });
-  it('ei ADAR-dataa → rehellinen tyhjä (lohko pois)', () => {
-    expect(AK({}, 13)).toBe('');
+  it('ei ADAR-dataa → tyhjätila-CTA (ent. f3:n empty-state konsolidoitu; entry point EI häviä)', () => {
+    const h = AK({}, 13);
+    expect(h).toContain('Ei pelihavaintoja');
+    expect(h).toContain('Lisää pelihavainto');   // add-CTA
+    expect(h).not.toContain('jsp-adar-row');      // ei osarivejä ilman dataa
+  });
+
+  it('R3.B-korjaus: f3:n arvokkaat osat taitettu (ristiinarvio + add-CTA + ⓘ) — ei hukata', () => {
+    const h = AK({ adar_viimeisin: { a: 3, d: 2, ac: 3, r: 2 } }, 16);
+    expect(h).toContain('jsp-ristiin');            // _vpRistiinarvio taitettu sisään
+    expect(h).toContain('Lisää pelihavainto');     // add-CTA
+    expect(h).toContain('ibtn');                   // ⓘ header
   });
 });
 
