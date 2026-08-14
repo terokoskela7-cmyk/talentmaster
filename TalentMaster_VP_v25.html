@@ -4525,7 +4525,14 @@ window._vpOhjKaytaOhjelma = async function (pid, teemaAvain, ohjelmaId) {
 // (a/d/ac/r), EI autosavea (ADAR-syöttö tapahtuu pelihavainnosta ennallaan). Ei pelihavaintoja → rehellinen tyhjä.
 function _vpArvAdarKoostumusHTML(p, ika) {
   const av = p.adar_viimeisin;
-  if (!av) return '';
+  // R3.B-korjaus: f3:n arvokkaat osat konsolidoitu tänne (yksi ADAR, suomeksi) — add-CTA + ⓘ + empty-state + ristiinarvio.
+  const _adarCta = '<div style="margin-top:12px;text-align:center"><a href="TalentMaster_ADAR_Pikakortti.html?seuraId=' + encodeURIComponent(_seuraId || '') + '&pelaajaId=' + encodeURIComponent(p.id || '') + '" target="_blank" style="font-size:12px;color:var(--teal);text-decoration:none;border:.5px solid rgba(40,176,144,.4);border-radius:6px;padding:6px 12px;display:inline-block">➕ Lisää pelihavainto</a></div>';
+  const _hdr = '<b style="color:var(--teal)">D4 Peliäly · pelihavainnosta (ADAR) · 1–3</b>' + ((typeof window._tmIBtn === 'function') ? window._tmIBtn('adar') : '');
+  if (!av) {
+    // Ei pelihavaintoja → tyhjätila-CTA (ent. f3:n empty-state, konsolidoitu). Entry point EI häviä.
+    return '<div class="jsp-adar-koostumus"><div class="jsp-arv-legend" style="margin:0 0 8px">' + _hdr + '</div>'
+      + '<div style="font-size:12.5px;color:var(--ink3);text-align:center;padding:8px 0 10px">Ei pelihavaintoja vielä — peliäly rakentuu ADAR-havainnoista.</div>' + _adarCta + '</div>';
+  }
   const sallitut = (typeof tmAdarIkaTier === 'function') ? tmAdarIkaTier(ika) : ['a', 'd', 'ac', 'r'];
   const rLukossa = sallitut.indexOf('r') < 0;
   const OSAT = [
@@ -4548,10 +4555,13 @@ function _vpArvAdarKoostumusHTML(p, ika) {
       + '<span class="jsp-scale3' + (low ? ' low' : '') + '">' + dots + '</span><span class="jsp-adar-av">' + avLbl + '</span></div>';
   });
   const pvm = av.pvm ? (typeof _pvmLyhyt === 'function' ? _pvmLyhyt(av.pvm) : _jsvEsc(av.pvm)) : '';
-  let h = '<div class="jsp-adar-koostumus"><div class="jsp-arv-legend" style="margin:0 0 4px"><b style="color:var(--teal)">D4 Peliäly · pelihavainnosta (ADAR) · 1–3</b>' + (pvm ? ' <span style="color:var(--ink3);font-weight:400">· ' + pvm + '</span>' : '') + '</div>';
+  let h = '<div class="jsp-adar-koostumus"><div class="jsp-arv-legend" style="margin:0 0 4px">' + _hdr + (pvm ? ' <span style="color:var(--ink3);font-weight:400">· ' + pvm + '</span>' : '') + '</div>';
   h += '<div style="font-size:10.5px;color:var(--ink3);margin-bottom:8px;line-height:1.5">Mitä "peliäly" -luvun takana on: neljä osaa, ikäportitettu.' + (rLukossa ? ' U13-portti → Havaitse · Päätä · Toimi (Arvioi avautuu 16 v).' : '') + ' Ei muunneta 1–5:een — pysyy 1–3.</div>';
   h += rows;
   h += '<div style="font-size:11px;color:var(--ink3);margin-top:8px;padding-top:6px;border-top:.5px solid var(--border)">Kokonais <b style="color:var(--ink2)">' + summa + '/' + (nAkt * 3) + '</b>' + (rLukossa ? ' · U13-portti (' + nAkt + ' osaa)' : '') + (av.yht != null ? ' · tutkassa ' + (Math.round(av.yht * 10) / 10) + '/5' : '') + '</div>';
+  // FOLD-IN (R3.B-korjaus): ristiinarvio (multi-rater konkordanssi) + add-CTA — ent. f3:n arvokkaat osat, ei hukata.
+  h += (typeof _vpRistiinarvio === 'function') ? _vpRistiinarvio(p) : '';
+  h += _adarCta;
   return h + '</div>';
 }
 function _vpArviointiHTML(p) {
@@ -10700,47 +10710,6 @@ window._avaaPerPelaajaPikakatsaus = function(idx, joukkueNimi) {
     + '<div id="_jspSyvaTek" style="display:none;margin-top:12px">' + _tekSyva + '</div></div>') : '';
   f2 = f2 + _tekReveal;
 
-  // ── TAB 3: PELI (ADAR) ──
-  let f3;
-  const av = p.adar_viimeisin;
-  if (!av) {
-    // §75 tyhjätila-CTA (ei bare "ei havaintoja"): ohjaa ADAR-kenttätyökaluun (§26 launcher-malli).
-    f3 = '<div style="padding:16px 12px;text-align:center">'
-      + '<div style="font-size:13px;color:var(--ink3);margin-bottom:10px">Ei pelihavaintoja vielä</div>'
-      + '<a href="TalentMaster_ADAR_Pikakortti.html?seuraId=' + encodeURIComponent(_seuraId || '') + '&pelaajaId=' + encodeURIComponent(p.id || '') + '" target="_blank" style="font-size:12px;color:var(--teal);text-decoration:none;border:.5px solid rgba(40,176,144,.4);border-radius:6px;padding:6px 12px;display:inline-block">➕ Lisää pelihavainto</a>'
-      + '</div>';
-  }
-  else {
-    // I1 (§4): ADAR 1–3-kaanon. Näytä vain ikätason osat (U8–U12 → Assess /3 · U13–U15 → A·D·Act /9 ·
-    // U16+ → täysi /12). Arvo capataan 1–3 (ei "4/3"); kokonais = summa / (osamäärä×3) (ei "3/12"-bugi).
-    const _c13 = function (v) { return (v == null || isNaN(v)) ? null : Math.max(1, Math.min(3, Math.round(v))); };
-    const _isp = (typeof _dimIkaSp === 'function') ? _dimIkaSp(p.joukkue || '', p) : { ika: null };
-    const _ika = _isp ? _isp.ika : null;
-    const DIMS_ALL = [['a', 'Awareness'], ['d', 'Decision'], ['ac', 'Action'], ['r', 'Reaction']];
-    let _naytettavat;
-    if (_ika != null && _ika <= 12) _naytettavat = DIMS_ALL.slice(0, 1);
-    else if (_ika != null && _ika <= 15) _naytettavat = DIMS_ALL.slice(0, 3);
-    else if (_ika != null) _naytettavat = DIMS_ALL;
-    else _naytettavat = DIMS_ALL.filter(function (d) { return av[d[0]] != null; });   // ikä tuntematon → olemassa olevat
-    if (!_naytettavat.length) _naytettavat = DIMS_ALL.slice(0, 1);
-    const ar = function (lbl, val) {
-      const cv = _c13(val);
-      return '<tr style="border-top:.5px solid var(--border)"><td style="padding:7px 8px;color:var(--ink2)">' + lbl + '</td>'
-        + '<td style="padding:7px 8px;font-family:var(--font-m);color:var(--ink)">' + (cv != null ? cv + '/3' : '—') + '</td>'
-        + '<td style="padding:7px 8px">' + _dimBar(cv, 3, 'var(--teal)') + '</td></tr>';
-    };
-    const _summa = _naytettavat.reduce(function (s, d) { const cv = _c13(av[d[0]]); return s + (cv != null ? cv : 0); }, 0);
-    const _max = _naytettavat.length * 3;
-    f3 = '<table style="width:100%;border-collapse:collapse;font-size:12px"><tbody>'
-      + _naytettavat.map(function (d) { return ar(d[1], av[d[0]]); }).join('')
-      + '<tr style="border-top:1px solid var(--border)"><td style="padding:8px;color:var(--ink);font-weight:600">Pelihavainto kokonais' + window._tmIBtn('adar') + '</td>'
-      + '<td style="padding:8px;font-family:var(--font-m);color:var(--ink)">' + _summa + '/' + _max + '</td><td></td></tr>'
-      + '</tbody></table>'
-      // Vaihe B — ristiinarvio-lohko (multi-rater, gate) + entry point
-      + _vpRistiinarvio(p)
-      + '<div style="margin-top:10px;text-align:center"><a href="TalentMaster_ADAR_Pikakortti.html?seuraId=' + encodeURIComponent(_seuraId || '') + '&pelaajaId=' + encodeURIComponent(p.id || '') + '" target="_blank" style="font-size:12px;color:var(--teal);text-decoration:none;border:.5px solid rgba(40,176,144,.4);border-radius:6px;padding:6px 12px;display:inline-block">➕ Lisää pelihavainto</a></div>';
-  }
-
   // ── TAB 4: KEHITYS ──
   const dRiv = function(lbl, val) { return '<tr style="border-top:.5px solid var(--border)"><td style="padding:7px 8px;color:var(--ink2)">' + lbl + '</td><td style="padding:7px 8px;color:var(--ink)">' + val + '</td></tr>'; };
   const phvTxt = p.phv_tila ? ('<span style="color:' + _phvVari(p.phv_tila) + '">' + _jsvEsc(p.phv_tila) + ' · ' + (_PHV_LABEL[p.phv_tila] || '') + '</span>') : 'Ei mittausta';
@@ -10961,7 +10930,9 @@ window._avaaPerPelaajaPikakatsaus = function(idx, joukkueNimi) {
     + _mErot + _mSub('Kehon valmius') + (typeof _vpKehonValmiusHTML === 'function' ? _vpKehonValmiusHTML(p) : '')
     + (typeof _vpMittausNextStepHTML === 'function' ? _vpMittausNextStepHTML(p) : '')
     + '<div id="_jspMittausLista" style="margin-top:6px"></div></div>';   // E2.1 — muokattava mittauslista (async-hydratoitu; renderöi yhteenvedon alle)
-  hR += '<div id="_jspTab2" style="display:none">' + _mSub('Peliäly · havainto') + f3 + _mErot + '<div id="_jspTab5">' + (f5 || '') + '</div></div>';
+  // R3.B-korjaus: f3 "Peliäly · havainto" (engl. ADAR-duplikaatti) POISTETTU — ADAR elää nyt _vpArviointiHTML:n
+  // suomalaisessa D4-koostumuslohkossa (yksi datapiste, yksi paikka, yksi kieli). Arvokkaat osat (ristiinarvio + CTA) taitettu sinne.
+  hR += '<div id="_jspTab2" style="display:none"><div id="_jspTab5">' + (f5 || '') + '</div></div>';
   hR += '<div id="_jspTab3" style="display:none">' + _kehExtra + '</div>';   // P4a: f4-diagnostiikka nyt _kehExtra:n reveal-osiossa
   hR += '<div id="_jspTab4" style="display:none">' + ((typeof _vpViikkoHTML === 'function') ? _vpViikkoHTML(p) : '') + '</div>';   // P6a — viikkosyöttö + IDP-kytkös
   hR += '</div>';
