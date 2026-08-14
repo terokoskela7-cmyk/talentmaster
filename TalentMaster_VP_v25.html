@@ -4563,7 +4563,9 @@ function _vpArviointiHTML(p) {
   const _d2Silta = (typeof _vpSiltaPaneeliHTML === 'function') ? _vpSiltaPaneeliHTML(p) : '';
   const _d1Silta = (typeof _vpD1SiltaPaneeliHTML === 'function') ? _vpD1SiltaPaneeliHTML(p) : '';
   const _d1Prio = (typeof _vpFyysEhdotus === 'function') && (function () { const e = _vpFyysEhdotus(p); return e && e.prioriteetti; })();
-  let h = _d1Prio ? (_d1Silta + _d2Silta) : (_d2Silta + _d1Silta);
+  // R3.A — v4 flow-järjestys: KATTAVUUS ensin, SILTA toiseksi (kartta). Silta siirretty kattavuusruudukon JÄLKEEN
+  // (ennen: ylimpänä). Silta-paneelit (_d1Silta/_d2Silta) + prioriteettijärjestys ennallaan — vain sijoittelu.
+  let h = '';
   const pid = p.id;
   const round1 = function (v) { return Math.round(v * 10) / 10; };
   // Mittaripalkki (lähdeväri: mit/hav/peli) — täyttö = arvo / max (mitattu/havaittu 5, pelihavainto 3, §I1).
@@ -4639,6 +4641,8 @@ function _vpArviointiHTML(p) {
   });
   h += '</div>';
   h += '<div class="jsp-arv-legend" style="margin:4px 0 10px"><span style="color:var(--teal)">🟢 mitattu</span> · <span style="color:var(--blue)">🔵 havaittu</span> · <span style="color:#c060a8">👁 pelihavainto</span> · asteikko 1–5 → <span onclick="' + _selitToggle + '" style="color:var(--blue);cursor:pointer;font-weight:600">ⓘ</span></div>';
+  // R3.A — SILTA (arviointi → suunnitelma) kattavuuden JÄLKEEN (v4). Sama sisältö/prioriteetti kuin ennen, vain sijainti.
+  h += _d1Prio ? (_d1Silta + _d2Silta) : (_d2Silta + _d1Silta);
 
   // A2 — Valitun teeman kohteet jaettuna LÄHDERYHMIIN (mitattu · havaittu · pelihavainto). Nimitörmäys pois: teeman nimi vain valikossa.
   const items = teema ? taks.filter(function(i){ return (i.dim + '_' + i.kategoria) === teema; }) : [];
@@ -9477,7 +9481,7 @@ window._jspVaihda = function(n) {
   // R1.4-korjaus — ALOITUS-MODE: Aloituksessa (tab 0) v7:n 2-sarake → piilota profiiliraili (tutka on nyt Aloituksen
   // oikeassa sarakkeessa). Muut välilehdet: raili takaisin (jaettu profiili). Ei DOM-uudelleenrakennusta, vain luokka.
   const _grid = document.querySelector('#_jspModal .jsp-grid');
-  if (_grid) _grid.classList.toggle('jsp-railvapaa', n === 0 || n === 1);   // Aloitus (v7) + Mittaus (v4) täysleveitä → raili piiloon; muut → raili takaisin
+  if (_grid) _grid.classList.toggle('jsp-railvapaa', n === 0 || n === 1 || n === 2);   // Aloitus (v7) + Mittaus (v4) + Arviointi (v4) täysleveitä → raili piiloon; muut → raili takaisin
 };
 // ── Testitulkinnan koulutus — ⓘ-info (avautuu pikakatsauksen päälle, z 360). Sisältö: mitä mittaa + miten tulkita + valmennusvihje ──
 window.TM_TESTI_OHJEET = {
