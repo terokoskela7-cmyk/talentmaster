@@ -5527,6 +5527,11 @@ function _vpKehStatusHTML(p) {
   if (umpeutunut) items.push('<span class="stitem warn">Seuraava review <b>nyt</b></span>');
   else if (t && typeof idpJumissa === 'function' && idpJumissa(t)) items.push('<span class="stitem warn">Tavoite <b>jumissa 8 vk</b></span>');
   // 5) Periaate
+  // R4.1 — osa-etenemä (curriculum): montako aktiivisen konseptin osaa itsenäisesti (arvo 3). Honest-empty jos ei arvioita.
+  if (jf && jf.konsepti_nimi && jf.osa_arviot && jf.osa_arviot[jf.konsepti_avain]) {
+    const oa = jf.osa_arviot[jf.konsepti_avain], kdt = Object.keys(oa);
+    if (kdt.length) items.push('<span class="stitem">Osat <b>' + kdt.filter(function (k) { return oa[k] === 3; }).length + '/' + kdt.length + ' itsenäisesti</b></span>');
+  }
   items.push('<span class="stitem">Yksi prioriteetti · vähemmän on enemmän</span>');
   return '<div class="jsp-keh-status"><div style="color:var(--teal);font-family:var(--font-sans),\'DM Sans\',sans-serif;font-size:9.5px;font-weight:600;letter-spacing:.15em;text-transform:uppercase">VP-oversight · tila yhdellä silmäyksellä</div>'
     + '<div class="strow">' + items.join('') + '</div></div>';
@@ -5826,6 +5831,17 @@ function _vpAloitusSyvyysKortitHTML(p) {
 // (pelitilanne) · konseptin osat a–e (item.kpi) · cue→Viikko (tmTtHarjoitteet/Kysymykset) · reflektio. Data lib+
 // pikakentistä (tm_teknistaktiset · jaksofokus.lahde · arviointi_havaittu), EI uutta laskentaa. Per-osa-tila =
 // rehellinen tyhjä "arvioi Kehityksessä" kunnes R4 kaappaa sen (§26). Ei fokusta / ei lib-konseptia → tyhjä.
+// R4.1 — Aloituksen konseptin osan NÄYTTÖ (read-only): osa-arvio (1–3 curriculum) → .jsp-scale3 + label, tai
+// honest-empty "arvioi Kehityksessä" kun ei arviota. §37: luetaan jaksofokus.osa_arviot:sta, EI Arvioinnin 1–5:stä.
+function _vpAloitusOsaArvioHTML(jf, avain, koodi) {
+  const arvo = jf && jf.osa_arviot && jf.osa_arviot[avain] && jf.osa_arviot[avain][koodi];
+  if (arvo == null) return '<span class="idp-lab">arvioi Kehityksessä</span>';   // honest-empty säilyy
+  const LBL = { 3: 'itsenäisesti', 2: 'ohjatusti', 1: 'ei näy' };
+  let dots = '';
+  for (let i = 1; i <= 3; i++) dots += '<i class="' + (i <= arvo ? 'on' : '') + '"></i>';
+  return '<span class="jsp-scale3' + (arvo === 1 ? ' low' : '') + '" style="display:inline-flex;vertical-align:middle">' + dots + '</span>'
+    + '<span style="font-family:var(--font-mono),\'DM Mono\',monospace;font-size:9px;color:var(--ink3);margin-left:7px"><b style="color:var(--ink2)">' + arvo + '</b>/3 · ' + LBL[arvo] + '</span>';
+}
 function _vpAloitusKonseptiYdinHTML(p) {
   const jf = p.jaksofokus || null;
   if (!jf || !jf.konsepti_nimi) return '';
@@ -5872,7 +5888,7 @@ function _vpAloitusKonseptiYdinHTML(p) {
     h += '<div class="idp-bh"><span>Konseptin osat · mitä katsotaan pelissä</span><span class="idp-sc">1 ei näy · 2 ohjatusti · 3 itsenäisesti</span></div>';
     item.kpi.forEach(function (k, i) {
       h += '<div class="idp-kpi-row"><span class="idp-kc">' + esc(k.koodi || '·') + '</span><div class="idp-kbody"><div class="idp-kt">' + esc(k.teksti) + '</div>'
-        + '<div class="idp-kstate"><span class="idp-lab">arvioi Kehityksessä</span></div>';
+        + '<div class="idp-kstate">' + ((typeof _vpAloitusOsaArvioHTML === 'function') ? _vpAloitusOsaArvioHTML(jf, avain, k.koodi) : '<span class="idp-lab">arvioi Kehityksessä</span>') + '</div>';
       // TEE TÄSTÄ osan b (nextIdx) sisällä — cue = OSAN TOIMINTA (kpi.teksti, aito konseptidata), EI reflektiokysymys.
       if (i === nextIdx) {
         h += '<div class="idp-kaction"><span class="idp-kx">tee tästä</span><span>' + esc(k.teksti) + (harj.length ? ' · ' + harj.length + ' harjoitetta' : '') + '</span>'
@@ -6465,6 +6481,30 @@ function _vpMitaOsattavaHTML(p) {
   h += '</div></details>';
   return h;
 }
+// R4.1 — KONSEPTIN OSAT interaktiivisina (per-osa 1–3 curriculum-arvio: 1 ei näy · 2 ohjatusti · 3 itsenäisesti).
+// §37: curriculum-kerros (OMA teknis-taktinen, "osaako pelissä"), EI arviointikehys (Palloliitto 1–5). Reuse .jsp-scale3
+// (sama kuin ADAR-koostumus). Klikkaus → _vpJfOsaArvioSet (autosave jaksofokus.osa_arviot:iin). Honest-empty: ei arviota → "arvioi".
+function _vpTtOsaArviotHTML(p, item) {
+  if (!item || !Array.isArray(item.kpi) || !item.kpi.length) return '';
+  const esc = _jsvEsc, pid = esc(p.id), avain = item.avain;
+  const oa = (window._vpJfOsaArviot && window._vpJfOsaArviot[p.id] && window._vpJfOsaArviot[p.id][avain])
+    || (p.jaksofokus && p.jaksofokus.osa_arviot && p.jaksofokus.osa_arviot[avain]) || {};
+  const LBL = { 3: 'itsenäisesti', 2: 'ohjatusti', 1: 'ei näy' };
+  let h = '<div class="jsp-kt-box" style="margin-top:8px"><div class="jsp-kt-bt">Konseptin osat · osaako pelissä <span style="font-weight:400;color:var(--ink3);text-transform:none;letter-spacing:0">(1 ei näy · 2 ohjatusti · 3 itsenäisesti)</span></div>';
+  item.kpi.forEach(function (k) {
+    const koodi = k.koodi || '·', arvo = oa[koodi];
+    let dots = '';
+    for (let i = 1; i <= 3; i++) dots += '<i class="' + (arvo != null && i <= arvo ? 'on' : '') + '" onclick="event.stopPropagation();_vpJfOsaArvioSet(\'' + pid + '\',\'' + esc(avain) + '\',\'' + esc(koodi) + '\',' + i + ')" style="cursor:pointer"></i>';
+    const lbl = (arvo != null) ? '<b style="color:var(--ink2)">' + arvo + '</b>/3 · ' + LBL[arvo] : '<span style="color:var(--ink3)">arvioi</span>';
+    h += '<div style="display:flex;align-items:flex-start;gap:10px;padding:6px 0;border-bottom:.5px solid var(--border)">'
+      + '<span style="font-family:var(--font-mono);font-size:11px;color:var(--ink3);flex:0 0 14px;margin-top:1px">' + esc(koodi) + '</span>'
+      + '<div style="flex:1;min-width:0"><div style="font-size:12px;color:var(--ink);line-height:1.4">' + esc(k.teksti) + '</div>'
+      + '<div style="display:flex;align-items:center;gap:8px;margin-top:5px"><span class="jsp-scale3' + (arvo === 1 ? ' low' : '') + '">' + dots + '</span>'
+      + '<span style="font-family:var(--font-mono);font-size:9.5px;color:var(--ink3)">' + lbl + '</span></div></div></div>';
+  });
+  h += '<div style="font-size:9.5px;color:var(--ink3);margin-top:7px;line-height:1.5">Curriculum-arvio (1–3) — miten osa näkyy pelissä. Eri kuin Arvioinnin 1–5 (§37).</div>';
+  return h + '</div>';
+}
 function _vpTtKorttiHTML(p) {
   if (!p || typeof tmTtItems !== 'function' || typeof tmTtVaihe !== 'function') return '';
   const isp = (typeof _dimIkaSp === 'function') ? _dimIkaSp(p.joukkue || '', p) : { ika: null };
@@ -6555,8 +6595,9 @@ function _vpTtKorttiHTML(p) {
   h += '<div class="jsp-kt-box" style="margin-top:10px"><div class="jsp-kt-bt">Konsepti</div>'
     + '<div style="font-size:13.5px;font-weight:600;color:var(--ink)">' + esc(item.nimi) + '</div>'
     + (item.pelitilanne ? '<div style="font-family:var(--font-serif,\'Cormorant Garamond\');font-style:italic;font-size:13.5px;color:var(--ink2);margin-top:3px">”' + esc(item.pelitilanne) + '”</div>' : '')
-    + '<div style="display:flex;gap:5px;flex-wrap:wrap;margin-top:6px">' + (pelimuoto ? '<span class="chip">' + esc(pelimuoto) + '</span>' : '') + (dimLbl ? '<span class="chip" style="color:var(--teal)">⚽ ' + esc(dimLbl) + '</span>' : '') + '</div>'
-    + (item.kpi && item.kpi.length ? '<div style="margin-top:6px;font-size:11.5px;color:var(--ink2);line-height:1.55">' + item.kpi.map(function (k) { return '<div><b style="color:var(--ink3)">' + k.koodi + '</b> ' + esc(k.teksti) + '</div>'; }).join('') + '</div>' : '') + '</div>';
+    + '<div style="display:flex;gap:5px;flex-wrap:wrap;margin-top:6px">' + (pelimuoto ? '<span class="chip">' + esc(pelimuoto) + '</span>' : '') + (dimLbl ? '<span class="chip" style="color:var(--teal)">⚽ ' + esc(dimLbl) + '</span>' : '') + '</div></div>';
+  // R4.1 — konseptin osat INTERAKTIIVISINA (per-osa 1–3 curriculum-arvio, autosave). Korvaa entisen read-only kpi-listan.
+  h += (typeof _vpTtOsaArviotHTML === 'function') ? _vpTtOsaArviotHTML(p, item) : '';
   if (kys.length) h += '<div class="jsp-kt-box" style="margin-top:8px"><div class="jsp-kt-bt" style="color:var(--blue)">Cue (kysymys, ei käsky)</div>' + kys.map(function (q) { return '<div style="font-size:12.5px;color:var(--ink2);padding:2px 0 2px 14px;position:relative"><span style="position:absolute;left:0;color:var(--blue);font-weight:700">?</span>' + esc(q) + '</div>'; }).join('') + '</div>';
   if (harj.length) { const hh = harj[0]; const ht = hh.painopisteet || hh.konseptipeli || ''; h += '<div class="jsp-kt-box" style="margin-top:8px"><div class="jsp-kt-bt" style="color:var(--amber)">Harjoite</div><div style="font-size:12.5px;color:var(--ink)">' + esc(ht) + '</div></div>'; }
   // I3a §B.4 — "ladder" todeksi: näytä oikea ketju tavoite → konsepti → seuraava harjoite (ei koristeteksti).
@@ -7014,6 +7055,12 @@ function _jfOhjausAlusta(pid, esiValinta, lahde, domeeni) {
   // P4b — per-tavoite-tarkenteet (Opittu kun + mittaus) editointitila; alusta aktiivisesta jaksofokuksesta + pääfokus-fallback.
   window._vpJfTarkenteet = window._vpJfTarkenteet || {};
   window._vpJfTarkenteet[p.id] = (typeof _vpJfTarkenteetAlusta === 'function') ? _vpJfTarkenteetAlusta(p) : {};
+  // R4.1 — konseptin osa-arviot (curriculum 1–3) editointitila; alusta aktiivisesta jaksofokus.osa_arviot:sta (deep-copy per konsepti).
+  // §37: oma kenttä, EI johdeta/muunneta Arvioinnin havaittu 1–5:stä. Avaintaso konsepti_avaimella → kestää konseptin vaihdon.
+  window._vpJfOsaArviot = window._vpJfOsaArviot || {};
+  const _oaSrc = (p.jaksofokus && p.jaksofokus.osa_arviot) || {};
+  const _oa = {}; Object.keys(_oaSrc).forEach(function (k) { _oa[k] = Object.assign({}, _oaSrc[k]); });
+  window._vpJfOsaArviot[p.id] = _oa;
   return p;
 }
 
@@ -7252,6 +7299,29 @@ window._vpJfTarkenneSync = function (pid, key, field, val) {
   const e = m[key] || (m[key] = {});
   if (val === '' || val == null) delete e[field]; else e[field] = val;
 };
+// R4.1 — konseptin osa-arvio (1–3 curriculum) napautus → editointitila + AUTOSAVE (jaksofokus.osa_arviot, deep-merge)
+// + re-render (editorin osa-pallot + Aloituksen konseptin osat). §37: oma kenttä, EI kosketa arviointi_havaittu 1–5:een.
+window._vpJfOsaArvioSet = function (pid, konseptiAvain, koodi, n) {
+  window._vpJfOsaArviot = window._vpJfOsaArviot || {};
+  const m = window._vpJfOsaArviot[pid] || (window._vpJfOsaArviot[pid] = {});
+  const c = m[konseptiAvain] || (m[konseptiAvain] = {});
+  c[koodi] = n;
+  const p = (typeof _vpTtPelaaja === 'function') ? _vpTtPelaaja(pid) : null;
+  if (!p) return;
+  // In-memory jaksofokus (näyttö heti Aloituksessa) + autosave — deep-merge kirjoittaa VAIN osa_arviot-alikentän,
+  // ei kosketa konsepti/kesto/linkit-kenttiin. Jos jaksofokusta ei vielä ole → arvio jää editointitilaan, sulautuu _vpJfMergessä.
+  if (p.jaksofokus) {
+    p.jaksofokus.osa_arviot = p.jaksofokus.osa_arviot || {};
+    p.jaksofokus.osa_arviot[konseptiAvain] = Object.assign({}, p.jaksofokus.osa_arviot[konseptiAvain], c);
+    if (typeof _vpTtKirjoita === 'function') {
+      const _w = {}; _w[konseptiAvain] = p.jaksofokus.osa_arviot[konseptiAvain];
+      _vpTtKirjoita(pid, { jaksofokus: { osa_arviot: _w } }, 'Osa-arvio tallennettu');
+    }
+  }
+  const slot = document.getElementById('_jfOhjausSlot');
+  if (slot && typeof _vpJfBodyHTML === 'function') slot.innerHTML = _vpJfBodyHTML(p);
+  if (typeof _vpAloitusReRender === 'function') _vpAloitusReRender();
+};
 // P4b — mittaus-moodin vaihto (🔗 arviointi ⇄ 📐 numeerinen) → re-renderöi tavoitepinta.
 window._vpJfMittausTyyppi = function (pid, key, tyyppi) {
   window._vpJfTarkenteet = window._vpJfTarkenteet || {};
@@ -7301,6 +7371,18 @@ function _vpJfMergeLisakentat(jf, pid) {
   } else if (window._vpJfKriteeri && Object.prototype.hasOwnProperty.call(window._vpJfKriteeri, pid)) {
     const kr = String(window._vpJfKriteeri[pid] || '').trim();
     if (kr) jf.onnistumiskriteeri = kr; else delete jf.onnistumiskriteeri;
+  }
+  // R4.1 — konseptin osa-arviot (curriculum 1–3) editointitilasta jaksofokukseen (§37: oma kenttä, EI arviointi_havaittu).
+  // Avaintaso konsepti_avaimella → vanhan konseptin arviot eivät sekoita uuteen; vain 1–3 sallitaan; tyhjät pois.
+  if (window._vpJfOsaArviot && Object.prototype.hasOwnProperty.call(window._vpJfOsaArviot, pid)) {
+    const oaSrc = window._vpJfOsaArviot[pid] || {};
+    const oaOut = {};
+    Object.keys(oaSrc).forEach(function (kavain) {
+      const parts = oaSrc[kavain] || {}, cleanParts = {};
+      Object.keys(parts).forEach(function (koodi) { const v = Number(parts[koodi]); if (v >= 1 && v <= 3) cleanParts[koodi] = v; });
+      if (Object.keys(cleanParts).length) oaOut[kavain] = cleanParts;
+    });
+    if (Object.keys(oaOut).length) jf.osa_arviot = oaOut; else delete jf.osa_arviot;
   }
   return jf;
 }
