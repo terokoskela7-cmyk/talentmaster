@@ -22,7 +22,7 @@ function extract(sig) {
 
 describe('(1) rail-vapaa kattaa Kehityksen (tab 3) + leveyskatto 940', () => {
   it('_jspVaihda togglaa railvapaan tabeille 0/1/2/3', () => {
-    expect(HTML).toContain("_grid.classList.toggle('jsp-railvapaa', n === 0 || n === 1 || n === 2 || n === 3)");
+    expect(HTML).toContain("_grid.classList.toggle('jsp-railvapaa', n === 0 || n === 1 || n === 2 || n === 3 || n === 4)");
   });
   it('#_jspTab3 mukana 940px-lukumitassa (kartan .wrap)', () => {
     expect(HTML).toContain('.jsp-grid.jsp-railvapaa #_jspTab1, .jsp-grid.jsp-railvapaa #_jspTab2, .jsp-grid.jsp-railvapaa #_jspTab3 { width: 100%; max-width: 940px;');
