@@ -9554,7 +9554,8 @@ function _vpViikkoNauhaHTML(p, st) {
         + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px"><span style="font-family:var(--font-sans);font-size:11px;font-weight:600;color:var(--teal)">✎ Muokkaa · ' + day.nimi + ' ' + day.pvm + '</span>'
         + '<span onclick="event.stopPropagation();_vpViikkoAvaaMuokkaus(\'' + pid + '\',\'' + st.auki + '\')" style="cursor:pointer;color:var(--ink3);font-size:16px;line-height:1">×</span></div>'
         + '<div style="display:grid;grid-template-columns:58px 1fr 52px 40px;gap:6px;align-items:center;padding:2px 0 4px;font-size:8.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink3)"><span>Päivä</span><span>Fokus · kesto</span><span style="text-align:center">RPE</span><span style="text-align:center">Läsnä</span></div>'
-        + _vpViikkoRiviHTML(pid, day, st.rows[st.auki], st.tavoitteet) + '</div>';
+        + _vpViikkoRiviHTML(pid, day, st.rows[st.auki], st.tavoitteet)
+        + ((typeof _vpViikkoOmaTeemaHTML === 'function') ? _vpViikkoOmaTeemaHTML(pid, day, p) : '') + '</div>';   // R5.1 — oma teema / muu domeeni → kalenteriin
     }
   }
   return h;
@@ -9564,6 +9565,61 @@ window._vpViikkoAvaaMuokkaus = function (pid, iso) {
   const st = window._vpViikko; if (!st || st.pid !== pid) return;
   st.auki = (st.auki === iso) ? null : iso;
   _vpViikkoReRender();
+};
+
+// R5.1 — OMA TEEMA / MUU DOMEENI → KALENTERIIN. Valmentaja lisää Viikon päivälle vapaan teeman tai muun domeenin
+// (🏃 fysiikka · ⚽ teknis-taktinen · 🧠 psyykkinen · 🤝 sosiaalinen) session → viedään seuran kalenteriin (§35, EI
+// pelkkiin kirjauksiin) → näkyy pelaajalle (P7-c.1 Seuran aikataulu) + joukkueelle + Viikossa, K2-läsnäolo kiinnittyy.
+// REUSE: _vpJfDomeeniKonseptit (4-domeeni-lista) + avaaUusiTapahtuma (olemassa oleva kalenteriluonti, Rules v3.5).
+function _vpViikkoOmaTeemaHTML(pid, day, p) {
+  const esc = _jsvEsc, st = window._vpViikko, sel = (st && st.teema) || {};
+  const dom = sel.dom || 'teknis_taktinen';
+  const DOMS = [{ a: 'fyysinen', i: '🏃', n: 'Fysiikka' }, { a: 'teknis_taktinen', i: '⚽', n: 'Teknis-takt.' }, { a: 'psyykkinen', i: '🧠', n: 'Psyykkinen' }, { a: 'sosiaalinen', i: '🤝', n: 'Sosiaalinen' }];
+  const konseptit = (typeof _vpJfDomeeniKonseptit === 'function') ? _vpJfDomeeniKonseptit(p, dom) : [];
+  const domNimi = (DOMS.find(function (d) { return d.a === dom; }) || {}).n || '';
+  let h = '<div style="margin-top:10px;border-top:.5px solid var(--border);padding-top:10px">';
+  h += '<div style="font-family:var(--font-sans),\'DM Sans\',sans-serif;font-size:10px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--teal);margin-bottom:6px">＋ Oma teema / muu domeeni → kalenteriin</div>';
+  h += '<div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:7px">';
+  DOMS.forEach(function (d) {
+    const on = (dom === d.a);
+    h += '<span onclick="event.stopPropagation();_vpViikkoTeemaDom(\'' + pid + '\',\'' + d.a + '\')" style="flex:1;min-width:74px;text-align:center;font-size:10.5px;padding:6px 4px;border-radius:6px;cursor:pointer;border:.5px solid ' + (on ? 'rgba(40,176,144,.4)' : 'var(--border)') + ';background:' + (on ? 'rgba(40,176,144,.1)' : 'transparent') + ';color:' + (on ? 'var(--teal)' : 'var(--ink3)') + '">' + d.i + ' ' + d.n + '</span>';
+  });
+  h += '</div>';
+  h += '<select onclick="event.stopPropagation()" onchange="_vpViikkoTeemaKonsepti(\'' + pid + '\',this.value)" style="width:100%;font-size:12px;padding:7px 9px;border:.5px solid var(--border);border-radius:6px;background:var(--surface);color:var(--ink);margin-bottom:6px">'
+    + '<option value="">— valitse ' + esc(domNimi) + '-konsepti —</option>';
+  konseptit.forEach(function (k) { h += '<option value="' + esc(k.avain) + '"' + (sel.avain === k.avain && !sel.vapaaMode ? ' selected' : '') + '>' + esc(k.nimi) + '</option>'; });
+  h += '<option value="__vapaa__"' + (sel.vapaaMode ? ' selected' : '') + '>✎ vapaa teksti…</option></select>';
+  if (sel.vapaaMode) h += '<input onclick="event.stopPropagation()" oninput="_vpViikkoTeemaVapaa(\'' + pid + '\',this.value)" placeholder="Oma teema (esim. koordinaatiorata)" value="' + esc(sel.vapaa || '') + '" style="width:100%;font-size:12px;padding:7px 9px;border:.5px solid var(--border);border-radius:6px;background:var(--surface);color:var(--ink);margin-bottom:6px">';
+  const kohde = sel.kohde || 'pelaaja';
+  h += '<div style="display:flex;gap:6px;align-items:center;font-size:10.5px;color:var(--ink3);margin-bottom:8px"><span>Kohde:</span>'
+    + '<span onclick="event.stopPropagation();_vpViikkoTeemaKohde(\'' + pid + '\',\'pelaaja\')" style="cursor:pointer;padding:4px 9px;border-radius:5px;border:.5px solid ' + (kohde === 'pelaaja' ? 'rgba(40,176,144,.4)' : 'var(--border)') + ';color:' + (kohde === 'pelaaja' ? 'var(--teal)' : 'var(--ink2)') + '">👤 Pelaajalle</span>'
+    + '<span onclick="event.stopPropagation();_vpViikkoTeemaKohde(\'' + pid + '\',\'joukkue\')" style="cursor:pointer;padding:4px 9px;border-radius:5px;border:.5px solid ' + (kohde === 'joukkue' ? 'rgba(40,176,144,.4)' : 'var(--border)') + ';color:' + (kohde === 'joukkue' ? 'var(--teal)' : 'var(--ink2)') + '">👥 Joukkueelle</span></div>';
+  h += '<button onclick="event.stopPropagation();_vpViikkoVieKalenteriin(\'' + pid + '\',\'' + day.iso + '\')" style="width:100%;font-family:var(--font-sans),\'DM Sans\',sans-serif;font-size:11px;font-weight:500;padding:8px;border-radius:6px;background:rgba(40,176,144,.12);color:var(--teal);border:.5px solid rgba(40,176,144,.4);cursor:pointer">＋ Vie kalenteriin (' + day.nimi + ' ' + day.pvm + ')</button>';
+  h += '<div style="font-family:var(--font-mono),\'DM Mono\',monospace;font-size:8.5px;color:var(--ink3);margin-top:6px;line-height:1.45">Luo tapahtuman seuran kalenteriin (§35) → näkyy pelaajalle (Seuran aikataulu) + joukkueelle + Viikossa · K2-läsnäolo kiinnittyy · roolit §37.</div>';
+  return h + '</div>';
+}
+window._vpViikkoTeemaDom = function (pid, dom) { const st = window._vpViikko; if (!st || st.pid !== pid) return; st.teema = st.teema || {}; st.teema.dom = dom; st.teema.avain = null; st.teema.nimi = null; st.teema.vapaaMode = false; _vpViikkoReRender(); };
+window._vpViikkoTeemaKonsepti = function (pid, avain) {
+  const st = window._vpViikko; if (!st || st.pid !== pid) return; st.teema = st.teema || {};
+  if (avain === '__vapaa__') { st.teema.vapaaMode = true; st.teema.avain = null; st.teema.nimi = null; }
+  else { st.teema.vapaaMode = false; const ks = (typeof _vpJfDomeeniKonseptit === 'function') ? _vpJfDomeeniKonseptit(st.p, st.teema.dom || 'teknis_taktinen') : []; const m = ks.find(function (k) { return k.avain === avain; }); st.teema.avain = avain || null; st.teema.nimi = m ? m.nimi : null; }
+  _vpViikkoReRender();
+};
+window._vpViikkoTeemaVapaa = function (pid, val) { const st = window._vpViikko; if (!st || st.pid !== pid) return; st.teema = st.teema || {}; st.teema.vapaa = val; };   // ei re-render → input-fokus säilyy
+window._vpViikkoTeemaKohde = function (pid, kohde) { const st = window._vpViikko; if (!st || st.pid !== pid) return; st.teema = st.teema || {}; st.teema.kohde = kohde; _vpViikkoReRender(); };
+// Vie valittu teema seuran kalenteriin olemassa olevan luontimodaalin kautta (REUSE avaaUusiTapahtuma; ei suoraa
+// Firestore-kirjoitusta, ei uutta kokoelmaa). Kohde: pelaaja (pelaajat_id) tai koko joukkue (joukkueNimi).
+window._vpViikkoVieKalenteriin = function (pid, iso) {
+  const st = window._vpViikko; if (!st || st.pid !== pid) return;
+  const p = st.p, sel = st.teema || {}, dom = sel.dom || 'teknis_taktinen';
+  let avain = sel.avain || null, nimi = sel.nimi || null;
+  if (sel.vapaaMode && sel.vapaa && String(sel.vapaa).trim()) { nimi = String(sel.vapaa).trim(); avain = 'vapaa_' + dom; }
+  if (!nimi) { if (typeof toast === 'function') toast('Valitse konsepti tai kirjoita oma teema', 'error'); return; }
+  const treeniteema = { tyyppi: dom, avain: avain, nimi: nimi, koodi: null, lahde: 'viikko' };
+  const prefill = { tyyppi: 'harjoitus', treeniteema: treeniteema };
+  if (sel.kohde === 'joukkue') prefill.joukkueNimi = p.joukkue || ''; else prefill.pelaajat_id = [p.id];
+  if (typeof avaaUusiTapahtuma === 'function') avaaUusiTapahtuma(iso, prefill);
+  else if (typeof toast === 'function') toast('Kalenteriluonti ei saatavilla', 'error');
 };
 
 function _vpViikkoRiviHTML(pid, day, row, tav) {
@@ -9784,7 +9840,7 @@ window._vpViikkoTayta = async function (pid) {
     const kuuluu = (t.joukkue && String(t.joukkue).toLowerCase() === jkl) || (Array.isArray(t.pelaajat_id) && t.pelaajat_id.indexOf(p.id) >= 0);
     if (!kuuluu) return;
     const teemaAvain = (t.treeniteema && t.treeniteema.avain) || null;
-    treeniPvm[iso] = { kesto: t.kesto_min || 75, teemaAvain: teemaAvain, sessioId: t.id };
+    treeniPvm[iso] = { kesto: t.kesto_min || 75, teemaAvain: teemaAvain, teemaNimi: (t.treeniteema && t.treeniteema.nimi) || null, sessioId: t.id };   // R5.1 — teemaNimi mukaan (monidomeeni)
   });
   const onKalenteria = Object.keys(treeniPvm).length > 0;
   st.days.forEach(function (d, i) {
@@ -9793,10 +9849,13 @@ window._vpViikkoTayta = async function (pid) {
     if (onKalenteria) {
       const ev = treeniPvm[d.iso];
       if (ev) {
-        // tag = jaksofokuksen tavoite jonka konsepti = teeman avain, muuten pääfokus (A)
-        let tg = paaTag;
-        if (ev.teemaAvain) { const m = st.tavoitteet.find(function (t) { return t.avain === ev.teemaAvain; }); if (m) tg = m; }
-        row.lepo = false; row.tavoite_tag = tg.tag; row.konsepti_avain = tg.avain; row.fokus_nimi = tg.nimi; row.kesto_min = ev.kesto; row.sessioId = ev.sessioId; row.vahvistettu = false;
+        // tag = jaksofokuksen tavoite jonka konsepti = teeman avain (A/B/C). R5.1 — muu domeeni / oma teema (ei matchaa
+        // jaksofokusta) → näytä teeman OMA nimi, ei pakoteta pääfokuksen (A) nimeä. Viimeisenä fallback pääfokus.
+        const m = ev.teemaAvain ? st.tavoitteet.find(function (t) { return t.avain === ev.teemaAvain; }) : null;
+        row.lepo = false; row.kesto_min = ev.kesto; row.sessioId = ev.sessioId; row.vahvistettu = false;
+        if (m) { row.tavoite_tag = m.tag; row.konsepti_avain = m.avain; row.fokus_nimi = m.nimi; }
+        else if (ev.teemaNimi) { row.tavoite_tag = null; row.konsepti_avain = ev.teemaAvain || null; row.fokus_nimi = ev.teemaNimi; }
+        else { row.tavoite_tag = paaTag.tag; row.konsepti_avain = paaTag.avain; row.fokus_nimi = paaTag.nimi; }
       } else { row.lepo = true; row.fokus_nimi = 'Lepo'; row.kesto_min = 0; row.tavoite_tag = null; row.vahvistettu = false; }
     } else {
       // Ei kalenteridataa → neutraali oletusrytmi: Ma/Ke/Pe/La treeni (pääfokus), muut lepo. Ehdotus, haalea.
