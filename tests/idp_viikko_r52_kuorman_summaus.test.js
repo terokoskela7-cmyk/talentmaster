@@ -100,8 +100,8 @@ describe('Pelaaja_v7-kirjoitus (pelaajan rasitus omaksi sessioksi, RMW)', () => 
 });
 
 describe('SW-cache-versio nostettu (§27, Pelaaja-app HTML muuttui)', () => {
-  it('tm-pelaaja-v10', () => {
-    expect(SW).toContain("const CACHE = 'tm-pelaaja-v10';");
+  it('tm-pelaaja-v10 tai uudempi (K5a nosti → v11)', () => {
+    expect(SW).toMatch(/const CACHE = 'tm-pelaaja-v(1[0-9]|[2-9][0-9])';/);   // ≥v10 (R5.2 v10, K5a v11)
     expect(SW).not.toContain("'tm-pelaaja-v9'");
   });
 });
