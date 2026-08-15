@@ -9394,11 +9394,12 @@ async function paivitaAdarPikakentat(pelaajaId) {
     havainnot.forEach(h => { const t = h.tilanne || 'muu'; tilJak[t] = (tilJak[t] || 0) + 1; });
     // §4 Malli A (PR #266): yht lasketaan VAIN ikätason osista → ikä pelaajadokumentista (syntymaVuosi;
     // sama kaava kuin Pelaaja_v7 _ika). Ikätason yli menevä osa (esim. U13:n Reading) säilyy datassa, ei nosta lukua.
-    let _ikaAdar = null;
+    let _ikaAdar = null, _oldAv = null;   // K5a — _oldAv = pre-write adar_viimeisin (adar_edellinen-kaappaus, §29-kuvio)
     try {
       const _pdoc = await _db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(pelaajaId).get();
       const _pd = _pdoc.exists ? _pdoc.data() : {};
       _ikaAdar = _pd.syntymaVuosi ? (new Date().getFullYear() - _pd.syntymaVuosi) : (_pd.ika != null ? _pd.ika : null);
+      _oldAv = _pd.adar_viimeisin || null;
     } catch (e) { /* ikä tuntematon → tmAdarYht turvaverkko (kaikki osat) */ }
     // Vaihe B — KONSENSUS (multi-rater): D4 = §4-ikäportitettu keskiarvo arvioijien VIIMEISIMMISTÄ
     // havainnoista (kukin uid painaa kerran, uusin). Ei "viimeisin voittaa". lib/tm_pelialy_yksilo.js.
@@ -9418,7 +9419,7 @@ async function paivitaAdarPikakentat(pelaajaId) {
     // adar_pvm = uusin arvio (arvioijat uusin-ensin) ISO-stringinä (A5: VP lukee new Date():llä).
     const uusinPvm = (kons.arvioijat && kons.arvioijat[0] && kons.arvioijat[0].pvm)
       || (havainnot[0].luotu ? new Date(_luotuToMs(havainnot[0].luotu)).toISOString() : null);
-    await _db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(pelaajaId).set({
+    const _adarKentat = {
       // adar_viimeisin.a/d/ac/r = KONSENSUS-dimit (radar D4 = konsensus, §4); yht = §4-konsensus.
       adar_viimeisin: { a: dc.a, d: dc.d, ac: dc.ac, r: dc.r, yht: kons.yht, pvm: uusinPvm },
       adar_pvm: uusinPvm,
@@ -9431,7 +9432,13 @@ async function paivitaAdarPikakentat(pelaajaId) {
       adar_vahvin: kons.vahvin,                        // konsensuksesta (band-dimit)
       adar_heikoin: kons.heikoin,
       adar_tilanne_jakauma: tilJak
-    }, { merge: true });
+    };
+    // K5a — kaappaa adar_edellinen (peliäly-kaari 2-piste) VAIN aidolla uudella havainnolla (eri pvm), §29-kuvio.
+    // EI clobbaa vanhaa uudelleenlaskennassa (sama pvm → kenttä jätetään pois → merge säilyttää edellisen).
+    if (_oldAv && _oldAv.pvm && uusinPvm && _oldAv.pvm !== uusinPvm) {
+      _adarKentat.adar_edellinen = { a: _oldAv.a, d: _oldAv.d, ac: _oldAv.ac, r: _oldAv.r, yht: _oldAv.yht, pvm: _oldAv.pvm };
+    }
+    await _db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(pelaajaId).set(_adarKentat, { merge: true });
   } catch (e) { console.warn('[paivitaAdarPikakentat]', e.message); }
 }
 window.paivitaAdarPikakentat = paivitaAdarPikakentat;
