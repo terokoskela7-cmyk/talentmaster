@@ -1348,6 +1348,18 @@ body {
    vaan rajataan kartan mittaan ja keskitetään. Aloitus 1040 · Mittaus/Arviointi 940 (kartta-SSOT). CSS-only, ei rakennemuutosta. */
 .jsp-grid.jsp-railvapaa > .jsp-right { width: 100%; max-width: 1040px; margin-left: auto; margin-right: auto; }
 .jsp-grid.jsp-railvapaa #_jspTab1, .jsp-grid.jsp-railvapaa #_jspTab2, .jsp-grid.jsp-railvapaa #_jspTab3 { width: 100%; max-width: 940px; margin-left: auto; margin-right: auto; }
+/* R5 — Viikko v1 morfosykli-työpöytä (kartta VIIKKO_KISS_design_kartta_v1): kapein 860px (viikko = tiiviste). */
+.jsp-grid.jsp-railvapaa #_jspTab4 { width: 100%; max-width: 860px; margin-left: auto; margin-right: auto; }
+.jsp-wk-strip { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
+.jsp-wk-duo { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 14px; }
+.jsp-wk-src { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-top: 12px; }
+@media (max-width: 760px) { .jsp-wk-strip { grid-template-columns: repeat(3, 1fr); } .jsp-wk-duo, .jsp-wk-src { grid-template-columns: 1fr; } }
+/* Morfosykli-päiväkortti — Oura-muotokoodaus: fokus teal-reuna · ottelu ⚽ neutraalireuna · lepo katkoviiva · muu kiinteä. */
+.jsp-wk-day { border: .5px solid var(--border); border-radius: 8px; padding: 9px 8px 8px; background: var(--surface); display: flex; flex-direction: column; gap: 4px; min-height: 116px; cursor: pointer; }
+.jsp-wk-day.foc { border-color: rgba(40,176,144,.32); }
+.jsp-wk-day.rest { background: var(--bg2); border-style: dashed; }
+.jsp-wk-day.open { border-color: var(--teal); box-shadow: 0 0 0 1px rgba(40,176,144,.3); }
+.jsp-wk-blk { border: .5px solid var(--border); border-radius: 10px; padding: 14px 16px; background: var(--surface); }
 /* R4 — Kehitys v2 jaksofokus-työpöytä (kartta KEHITYS_KISS_design_kartta_v2): TASO 2 = inline-focal editori (aina auki
    työpöytänä, ei modaalia) · Oura-rauhallinen (teal ainoa aksentti). Focal = pehmeä surface + teal-vasenreuna. */
 .jsp-jf-focal { background: var(--surface); border-left: 2px solid var(--teal); border-radius: 8px; padding: 14px 16px 4px; margin-top: 2px; }
@@ -9408,7 +9420,7 @@ function _vpViikkoSrpe(rpe, kesto) { const r = +rpe, k = +kesto; return (r > 0 &
 
 // State-init pelaajalle (sync). rows tyhjät kunnes _vpViikkoLataa hydratoi tallennetut kirjaukset.
 function _vpViikkoInit(p) {
-  const st = { pid: p.id, p: p, jf: p.jaksofokus || null, tavoitteet: _vpViikkoTavoitteet(p.jaksofokus || null), days: _vpViikkoPaivat(), rows: {}, ladattu: false };
+  const st = { pid: p.id, p: p, jf: p.jaksofokus || null, tavoitteet: _vpViikkoTavoitteet(p.jaksofokus || null), days: _vpViikkoPaivat(), rows: {}, ladattu: false, auki: null };
   st.days.forEach(function (d) { st.rows[d.iso] = { iso: d.iso, kesto_min: null, rpe: null, tavoite_tag: null, fokus_nimi: null, konsepti_avain: null, lepo: false, lahde: 'valmentaja', lasna: null, terveys_lippu: false, vahvistettu: false, sessioId: null }; });
   window._vpViikko = st;
   return st;
@@ -9420,37 +9432,139 @@ function _vpViikkoReRender() {
   if (slot && st && st.p) slot.innerHTML = _vpViikkoGridHTML(st.p);
 }
 
-// ── Näyttö: koko välilehti (_jspTab4) ──
+// ── Näyttö: koko välilehti (_jspTab4) — R5 morfosykli-työpöytä (kartta VIIKKO_KISS v1) ──
 function _vpViikkoHTML(p) {
   const esc = _jsvEsc, pid = esc(p.id);
   const jf = p.jaksofokus || null;
-  const _eb = function (t, c) { return '<div style="font-size:10px;font-weight:600;letter-spacing:.16em;text-transform:uppercase;color:' + (c || 'var(--ink3)') + '">' + t + '</div>'; };
-  const _st = function (t) { return '<div style="font-family:var(--font-serif);font-weight:400;font-size:20px;color:var(--ink);margin:2px 0 4px">' + t + '</div>'; };
   _vpViikkoInit(p);   // tuore state joka avauksella
-  let h = '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;margin-bottom:8px"><div style="min-width:0">'
-    + _eb('📅 Viikko · IDP:n toteutus', 'var(--teal)') + _st('Tämän viikon sessiot')
-    + (jf && jf.konsepti_nimi
-      ? '<div style="font-size:10.5px;color:var(--ink3);font-family:var(--font-mono)">Jaksofokus: ' + esc(jf.konsepti_nimi) + ' · napauta säädöt</div>'
-      : '<div style="font-size:11px;color:var(--ink3)">Ei jaksofokusta — aseta Kehityksessä ennen viikkosyöttöä.</div>')
-    + '</div>';
-  if (jf) h += '<button onclick="event.stopPropagation();_vpViikkoTayta(\'' + pid + '\')" style="flex-shrink:0;font-family:var(--font-sans);font-size:11px;font-weight:500;letter-spacing:.02em;padding:9px 14px;border-radius:6px;background:rgba(40,176,144,.1);color:var(--teal);border:.5px solid rgba(40,176,144,.4);cursor:pointer" title="Esitäytä viikko jaksofokuksesta + joukkueen aikataulusta (ehdotus)">✨ Täytä viikko</button>';
-  h += '</div><div id="_vpViikkoGrid">' + _vpViikkoGridHTML(p) + '</div>';
+  // MUUTOS 8 — empty-state: ei jaksofokusta → rehellinen .empty + CTA Kehitykseen (ei keksittyä viikkoa).
+  if (!jf || !jf.konsepti_nimi) {
+    return '<div style="border:.5px dashed var(--border);border-radius:10px;padding:40px 26px;text-align:center;background:var(--bg2)">'
+      + '<div style="font-family:var(--font-serif),\'Cormorant Garamond\',serif;font-size:23px;color:var(--ink);margin-bottom:8px">Ei viikkosuunnitelmaa vielä</div>'
+      + '<div style="font-size:12px;color:var(--ink2);max-width:470px;margin:0 auto 16px;line-height:1.55">Viikko rakentuu jaksofokuksesta. Aseta ensin jaksofokus Kehitys-näkymässä — se muuttuu tässä konkreettisiksi treeneiksi ottelupäivän ympärille. Kuormaseuranta (ACWR) tarkentuu ~4 viikon mittausten jälkeen.</div>'
+      + '<span onclick="event.stopPropagation();_jspVaihda(3)" style="display:inline-block;font-family:var(--font-sans),\'DM Sans\',sans-serif;font-weight:500;font-size:12px;color:var(--teal);border:.5px solid rgba(40,176,144,.4);border-radius:6px;padding:9px 16px;cursor:pointer">📍 Aseta jaksofokus (Kehitys) →</span></div>';
+  }
+  // MUUTOS 2 — fokus-header .foc (kannettu Kehityksestä): konsepti + "Opittu kun" + mono-lähde.
+  const _jfLib = window.TM_JAKSOFOKUS;
+  const dom = (_jfLib && typeof _jfLib.tmJfDomeeni === 'function') ? _jfLib.tmJfDomeeni(jf.domeeni || 'teknis_taktinen') : null;
+  const domLbl = dom ? String(dom.nimi).toLowerCase() : ((jf.domeeni === 'fyysinen') ? 'fyysinen' : 'teknis-taktinen');
+  const opittu = (jf.onnistumiskriteeri && String(jf.onnistumiskriteeri).trim()) ? esc(jf.onnistumiskriteeri) : 'konsepti näkyy pelissä itsenäisesti';
+  let h = '<div style="border:.5px solid rgba(40,176,144,.3);border-radius:10px;padding:15px 18px;background:rgba(40,176,144,.08);margin-bottom:16px">'
+    + '<div style="font-family:var(--font-sans),\'DM Sans\',sans-serif;font-weight:600;font-size:9px;letter-spacing:.13em;text-transform:uppercase;color:var(--teal);margin-bottom:5px">Tämän viikon fokus · kannettu jaksofokuksesta</div>'
+    + '<div style="font-family:var(--font-serif),\'Cormorant Garamond\',serif;font-size:21px;line-height:1.2;color:var(--ink);margin-bottom:5px">' + esc(jf.konsepti_nimi) + '</div>'
+    + '<div style="font-size:11.5px;color:var(--ink2);line-height:1.5">Opittu kun: ' + opittu + ' <span style="font-family:var(--font-mono),\'DM Mono\',monospace;font-size:10px;color:var(--teal)">↳ Kehitys · jaksofokus (' + (jf.kesto_vk || 4) + ' vk, ' + domLbl + ')</span></div></div>';
+  // Otsikkorivi + "✨ Täytä viikko" (MUUTOS 4: esitäyttö säilyy).
+  h += '<div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:2px"><div style="font-family:var(--font-sans),\'DM Sans\',sans-serif;font-weight:600;font-size:9.5px;letter-spacing:.15em;text-transform:uppercase;color:var(--teal)">Viikon rakenne · morfosykli</div>'
+    + '<button onclick="event.stopPropagation();_vpViikkoTayta(\'' + pid + '\')" style="margin-left:auto;font-family:var(--font-sans);font-size:10px;font-weight:500;color:var(--teal);border:.5px solid rgba(40,176,144,.4);background:rgba(40,176,144,.1);border-radius:6px;padding:5px 11px;cursor:pointer" title="Esitäytä viikko jaksofokuksesta + joukkueen aikataulusta (ehdotus)">✨ Täytä viikko</button></div>';
+  h += '<div style="font-family:var(--font-mono),\'DM Mono\',monospace;font-size:10px;color:var(--ink3);margin-bottom:12px">ottelupäivä-suhteinen · fokus jaettuna, ei tunkettu joka treeniin · napauta päivää muokataksesi</div>';
+  h += '<div id="_vpViikkoGrid">' + _vpViikkoGridHTML(p) + '</div>';
   return h;
+}
+// MD-ANKKUROINTI (§35 K2 -kalenterista, EI kovakoodattua lauantaita): ottelupäivät tälle viikolle omalle joukkueelle/rosterille.
+function _vpViikkoOttelut(p, st) {
+  const jkl = String(p.joukkue || '').toLowerCase();
+  const isot = {}; st.days.forEach(function (d) { isot[d.iso] = true; });
+  const out = [];
+  const src = (typeof _kalenteriTapahtumat !== 'undefined' && _kalenteriTapahtumat) ? _kalenteriTapahtumat : [];
+  src.forEach(function (t) {
+    if (t.poistettu || t.tyyppi !== 'ottelu') return;
+    const iso = (t.alkaa && t.alkaa.toDate) ? t.alkaa.toDate().toISOString().slice(0, 10) : (t.pvm || '');
+    if (!isot[iso]) return;
+    const kuuluu = (t.joukkue && String(t.joukkue).toLowerCase() === jkl) || (Array.isArray(t.pelaajat_id) && t.pelaajat_id.indexOf(p.id) >= 0);
+    if (kuuluu && out.indexOf(iso) < 0) out.push(iso);
+  });
+  return out;
+}
+// MD-leima: lähin ottelu → MD / MD−n / MD+n. 0 ottelua → null (honest-empty, ei keksitä MD:tä).
+function _vpViikkoMdLeima(dayIso, ottelutIsot) {
+  if (!ottelutIsot || !ottelutIsot.length) return null;
+  let best = null, bestAbs = 99;
+  ottelutIsot.forEach(function (m) {
+    const dd = Math.round((Date.parse(dayIso) - Date.parse(m)) / 86400000);
+    if (Math.abs(dd) < bestAbs) { bestAbs = Math.abs(dd); best = dd; }
+  });
+  if (best === 0) return 'MD';
+  return best < 0 ? 'MD' + best : 'MD+' + best;   // best<0 → "MD-2"
 }
 
 function _vpViikkoGridHTML(p) {
-  const esc = _jsvEsc, pid = esc(p.id);
   const jf = p.jaksofokus || null;
-  if (!jf) return '<div style="font-size:12px;color:var(--ink3);padding:14px 0;line-height:1.5">Aseta jaksofokus Kehitys-välilehdellä — silloin viikon sessiot kertyvät sen tavoitteille (A/B/C) ja koostuvat IDP-katselmukseen.</div>';
+  if (!jf) return '';
   const st = _vpViikkoState(p);
-  let h = '<div style="display:grid;grid-template-columns:58px 1fr 52px 40px;gap:6px;align-items:center;padding:6px 4px;font-size:9px;letter-spacing:.07em;text-transform:uppercase;color:var(--ink3);border-bottom:.5px solid var(--border)"><span>Päivä</span><span>Fokus · kesto</span><span style="text-align:center">RPE</span><span style="text-align:center">Läsnä</span></div>';
-  st.days.forEach(function (day) { h += _vpViikkoRiviHTML(pid, day, st.rows[day.iso] || {}, st.tavoitteet); });
+  // MUUTOS 3+4 — morfosykli-nauha (display-first) + edit-on-tap.
+  let h = _vpViikkoNauhaHTML(p, st);
   if (!st.ladattu) h += '<div style="font-size:10px;color:var(--ink3);text-align:center;margin-top:6px">⋯ ladataan tallennettuja kirjauksia</div>';
-  h += _vpViikkoTavoitejakaumaHTML(p, st);
-  h += _vpViikkoKuormaHTML(p, st);
-  h += _vpViikkoPelaajaViiteHTML();
+  // MUUTOS 5 — .duo #1: A/B/C tavoitejakauma + kuorma/§28/ACWR (reuse; kuorma restrukturoitu P1: §28 ensin).
+  h += '<div class="jsp-wk-duo"><div>' + _vpViikkoTavoitejakaumaHTML(p, st) + '</div><div>' + _vpViikkoKuormaHTML(p, st) + '</div></div>';
+  // MUUTOS 6 — .duo #2: läsnäolo (K2-kooste) + pelaajan ääni (honest-empty + cue).
+  h += '<div class="jsp-wk-duo"><div>' + _vpViikkoLasnaoloHTML(p, st) + '</div><div>' + _vpViikkoAaniHTML(p, st) + '</div></div>';
+  // MUUTOS 7 — katselmus-rivi (EPPP-rytmi).
+  h += _vpViikkoKatselmusHTML(p, st);
+  // MUUTOS 8 — lähdekortit + mokknote ⓘ-tapin takana.
+  h += _vpViikkoLahteetHTML();
   return h;
 }
+// MUUTOS 3 — MORFOSYKLI-KORTTINAUHA (Oura-muotokoodaus: teal ainoa vahva aksentti · ottelu ⚽ neutraalireuna · lepo
+// katkoviiva · muu himmeä). MD kalenterista johdettu. MUUTOS 4 — display-first: kortit luettavia, muokkaus napautuksesta.
+function _vpViikkoNauhaHTML(p, st) {
+  const esc = _jsvEsc, pid = esc(p.id);
+  const ottelut = _vpViikkoOttelut(p, st);
+  const srpeMax = Math.max(1, st.days.reduce(function (m, d) { const r = st.rows[d.iso] || {}; return Math.max(m, _vpViikkoSrpe(r.rpe, r.kesto_min)); }, 0));
+  let cards = '';
+  st.days.forEach(function (day) {
+    const row = st.rows[day.iso] || {};
+    const md = _vpViikkoMdLeima(day.iso, ottelut);
+    const onOttelu = ottelut.indexOf(day.iso) >= 0;
+    const tm = row.tavoite_tag ? _vpViikkoTagMeta(st.tavoitteet, row.tavoite_tag) : null;
+    const isFoc = !!(tm && tm.tag === 'A' && !onOttelu);
+    const au = _vpViikkoSrpe(row.rpe, row.kesto_min);
+    let cls = 'jsp-wk-day';
+    if (row.lepo && !onOttelu) cls += ' rest'; else if (isFoc) cls += ' foc';
+    if (st.auki === day.iso) cls += ' open';
+    let title, tag = '', src = '';
+    if (onOttelu) { title = '⚽ Ottelu'; tag = 'sovella fokus'; }
+    else if (row.lepo) { title = 'Lepo'; tag = 'palautuminen'; }
+    else if (tm) { title = esc(tm.nimi); tag = tm.tag + ' · ' + (isFoc ? 'fokus' : 'tuki'); }
+    else if (row.kesto_min != null || row.rpe != null) { title = esc(row.fokus_nimi || 'Harjoitus'); }
+    else { title = '<span style="color:var(--ink3)">＋ napauta</span>'; }
+    if (row.lahde === 'pelaaja') src = '<div style="font-family:var(--font-mono);font-size:7px;letter-spacing:.03em;text-transform:uppercase;color:var(--teal)">app · pelaaja 📱</div>';
+    else if (row.sessioId) src = '<div style="font-family:var(--font-mono);font-size:7px;letter-spacing:.03em;text-transform:uppercase;color:var(--ink3)">kalenteri</div>';
+    const barCol = isFoc ? 'var(--teal)' : 'var(--ink3)';
+    const barW = Math.round(au / srpeMax * 100);
+    const bar = (!row.lepo && au > 0)
+      ? '<div style="height:4px;border-radius:2px;background:var(--ov-2);overflow:hidden;margin-top:auto"><div style="height:100%;width:' + barW + '%;background:' + barCol + ';opacity:' + (isFoc ? '1' : '.6') + '"></div></div>'
+      : '<div style="margin-top:auto"></div>';
+    const ftag = isFoc ? '<span style="align-self:flex-start;font-family:var(--font-mono);font-size:7.5px;letter-spacing:.03em;color:var(--teal);border:.5px solid rgba(40,176,144,.3);border-radius:4px;padding:1px 4px;background:rgba(40,176,144,.1)">↳ fokus</span>' : '';
+    cards += '<div class="' + cls + '" onclick="event.stopPropagation();_vpViikkoAvaaMuokkaus(\'' + pid + '\',\'' + day.iso + '\')" title="napauta muokataksesi">'
+      + '<div style="font-family:var(--font-mono);font-size:8.5px;letter-spacing:.04em;color:var(--ink3);display:flex;justify-content:space-between;align-items:center"><span>' + day.nimi.toUpperCase() + '</span>' + (md ? '<span style="font-size:7.5px">' + md + '</span>' : '') + '</div>'
+      + '<div style="font-size:10.5px;color:var(--ink);line-height:1.3">' + title + '</div>'
+      + (tag ? '<div style="font-family:var(--font-mono);font-size:8px;color:var(--ink3);line-height:1.3">' + esc(tag) + '</div>' : '')
+      + src + ftag + bar + '</div>';
+  });
+  let h = '<div class="jsp-wk-strip">' + cards + '</div>';
+  h += '<div style="display:flex;gap:16px;flex-wrap:wrap;font-family:var(--font-mono);font-size:9px;color:var(--ink3);margin-top:10px">'
+    + '<span><span style="display:inline-block;width:9px;height:9px;border-radius:2px;vertical-align:middle;margin-right:4px;background:var(--teal)"></span><b style="color:var(--ink2);font-weight:500">fokus-treeni</b></span>'
+    + '<span>⚽ ottelu</span><span>┈ lepo</span><span>palkki = sRPE-kuorma</span>'
+    + (ottelut.length ? '' : '<span>· ei ottelua tällä viikolla</span>') + '</div>';
+  // MUUTOS 4 — avatun päivän editori nauhan alla (REUSE _vpViikkoRiviHTML-kontrollit + handlerit; vain mount-paikka muuttuu).
+  if (st.auki && st.rows[st.auki]) {
+    const day = st.days.find(function (d) { return d.iso === st.auki; });
+    if (day) {
+      h += '<div style="margin-top:12px;border:.5px solid var(--teal);border-radius:10px;padding:10px 14px;background:var(--bg2)">'
+        + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px"><span style="font-family:var(--font-sans);font-size:11px;font-weight:600;color:var(--teal)">✎ Muokkaa · ' + day.nimi + ' ' + day.pvm + '</span>'
+        + '<span onclick="event.stopPropagation();_vpViikkoAvaaMuokkaus(\'' + pid + '\',\'' + st.auki + '\')" style="cursor:pointer;color:var(--ink3);font-size:16px;line-height:1">×</span></div>'
+        + '<div style="display:grid;grid-template-columns:58px 1fr 52px 40px;gap:6px;align-items:center;padding:2px 0 4px;font-size:8.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink3)"><span>Päivä</span><span>Fokus · kesto</span><span style="text-align:center">RPE</span><span style="text-align:center">Läsnä</span></div>'
+        + _vpViikkoRiviHTML(pid, day, st.rows[st.auki], st.tavoitteet) + '</div>';
+    }
+  }
+  return h;
+}
+// MUUTOS 4 — edit-on-tap: avaa/sulje päiväkortin muokkaus (display-first). Ei muuta tallennuslogiikkaa.
+window._vpViikkoAvaaMuokkaus = function (pid, iso) {
+  const st = window._vpViikko; if (!st || st.pid !== pid) return;
+  st.auki = (st.auki === iso) ? null : iso;
+  _vpViikkoReRender();
+};
 
 function _vpViikkoRiviHTML(pid, day, row, tav) {
   const esc = _jsvEsc;
@@ -9488,7 +9602,7 @@ function _vpViikkoTavoitejakaumaHTML(p, st) {
   const viikko = {}, jakso = {};
   st.tavoitteet.forEach(function (t) { viikko[t.tag] = 0; jakso[t.tag] = (p._viikkoJaksoKertyma && p._viikkoJaksoKertyma[t.tag]) || 0; });
   Object.keys(st.rows).forEach(function (iso) { const r = st.rows[iso]; if (r && r.tavoite_tag && !r.lepo && viikko[r.tavoite_tag] != null) viikko[r.tavoite_tag]++; });
-  let h = '<div style="margin-top:16px;border:.5px solid var(--border);border-left:2px solid var(--teal);border-radius:10px;padding:13px 15px">'
+  let h = '<div style="border:.5px solid var(--border);border-left:2px solid var(--teal);border-radius:10px;padding:13px 15px">'
     + '<div style="font-size:10px;font-weight:600;letter-spacing:.16em;text-transform:uppercase;color:var(--teal);margin-bottom:3px">🎯 Tavoitejakauma · sessiot → IDP</div>'
     + '<div style="font-size:10.5px;color:var(--ink3);font-family:var(--font-mono);margin-bottom:9px">Kukin sessio kertyy jaksofokuksen tavoitteelle · koostuu automaattisesti</div>';
   st.tavoitteet.forEach(function (t) {
@@ -9512,34 +9626,97 @@ function _vpViikkoKuormaHTML(p, st) {
   const krono = (p._viikkoKrono4 != null) ? p._viikkoKrono4 : null;   // 4vk keskiviikkokuorma (async, jos saatavilla)
   const acwr = (krono && krono > 0) ? Math.round(viikkoAU / krono * 100) / 100 : null;
   const acwrCol = acwr == null ? 'var(--ink3)' : (acwr > 1.5 || acwr < 0.8) ? 'var(--amber)' : 'var(--teal)';
-  let h = '<div style="margin-top:12px;border:.5px solid var(--border);border-radius:10px;padding:13px 15px">'
-    + '<div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap;margin-bottom:9px">'
-    + '<span style="font-size:10px;font-weight:600;letter-spacing:.16em;text-transform:uppercase;color:var(--ink2)">📊 Kuorma · sRPE (rpe × min)</span>'
-    + '<span style="font-family:var(--font-mono);font-size:10.5px;color:var(--ink3)">viikko ' + viikkoAU + ' AU' + (acwr != null ? ' · ACWR <span style="color:' + acwrCol + '">' + acwr + '</span>' : '') + '</span></div>';
-  h += '<div style="display:flex;align-items:flex-end;gap:5px;height:52px">';
-  srpet.forEach(function (s) {
-    const hpx = Math.round(s.au / maxAU * 46);
-    h += '<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px"><div style="width:100%;height:' + Math.max(2, hpx) + 'px;background:' + (s.au ? 'var(--teal)' : 'var(--ov-2)') + ';border-radius:3px 3px 0 0;' + (s.suunn && s.au ? 'opacity:.45;border:1px dashed var(--teal)' : '') + '"></div><span style="font-size:8.5px;color:var(--ink3)">' + s.nimi + '</span></div>';
-  });
-  h += '</div>';
-  h += '<div style="font-size:9.5px;color:var(--ink3);margin-top:6px">▨ katkoviiva = suunniteltu · täysi = toteutunut · ACWR suuntaa-antava (ei absoluuttinen totuus)</div>';
-  // §28 kasvutahti → kuormaehdotus (valmentajan päätettäväksi, ei auto-rajoitus)
   const kt = (p.kasvutahti_vyohyke) || (p.biologinenIka_viimeisin && p.biologinenIka_viimeisin.kasvutahti_vyohyke) || null;
   const phv = p.phv_tila || null;
+  const acwrSana = acwr == null ? 'kertyy ~4 vk' : (acwr >= 0.8 && acwr <= 1.3) ? 'linjassa' : (acwr > 1.3) ? 'koholla' : 'matala';
+  let h = '<div class="jsp-wk-blk">'
+    + '<div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap;margin-bottom:3px">'
+    + '<span style="font-family:var(--font-sans),\'DM Sans\',sans-serif;font-weight:600;font-size:9px;letter-spacing:.13em;text-transform:uppercase;color:var(--ink2)">Kuorma · viikko + §28</span>'
+    + '<span style="font-family:var(--font-mono),\'DM Mono\',monospace;font-size:8.5px;color:var(--ink3)">session-RPE</span></div>';
+  // P1 — §28-PHV-kuorma ENSISIJAINEN: kasvupyrähdys/nopea kasvu → prominentti kuormaehdotus; muuten hienovarainen tila.
   if (kt === 'nopea' || phv === 'PH') {
-    h += '<div style="margin-top:10px;background:rgba(224,160,64,.09);border:.5px solid rgba(224,160,64,.32);border-radius:8px;padding:9px 11px">'
+    h += '<div style="background:rgba(224,160,64,.1);border:.5px solid rgba(224,160,64,.35);border-radius:8px;padding:9px 11px;margin-bottom:10px">'
       + '<div style="font-size:11px;color:var(--ink2);line-height:1.4">🌱 <b>§28 kuormaehdotus:</b> ' + (phv === 'PH' ? 'PHV-kasvupyrähdys (varotila)' : 'nopea kasvutahti') + ' — harkitse kevyempää viikkoa (loukkaantumisriski koholla). <b>Sinä päätät.</b></div>'
       + '<div style="display:flex;gap:6px;margin-top:7px;flex-wrap:wrap">'
       + '<button onclick="event.stopPropagation();_vpViikkoKevenna(\'' + pid + '\')" style="font-family:var(--font-sans);font-size:10.5px;font-weight:500;padding:6px 11px;border-radius:6px;background:rgba(224,160,64,.12);color:var(--amber);border:.5px solid rgba(224,160,64,.4);cursor:pointer">✓ Kevennä esitäyttöä</button>'
       + '<button onclick="event.stopPropagation();toast(\'Kuorma pidetty ennallaan\',\'ok\')" style="font-family:var(--font-sans);font-size:10.5px;font-weight:500;padding:6px 11px;border-radius:6px;background:var(--ov-1);color:var(--ink2);border:.5px solid var(--border);cursor:pointer">Pidä ennallaan</button></div></div>';
+  } else {
+    h += '<div style="font-family:var(--font-mono),\'DM Mono\',monospace;font-size:9.5px;color:var(--ink3);margin-bottom:9px">§28: ' + (phv ? (phv === 'PRE' || phv === 'LAH' ? 'pre-PHV' : 'jälki-PHV') : 'kypsyys mittaamatta') + ' — ei kuormarajoitinta.</div>';
   }
+  // Viikkokuorma (AU) + sRPE-palkit Ma–Su (kuorma-visualisointi ennallaan).
+  h += '<div style="font-family:var(--font-serif),\'Cormorant Garamond\',serif;font-size:24px;color:var(--ink);margin:2px 0">' + viikkoAU + ' <span style="font-family:var(--font-mono),\'DM Mono\',monospace;font-size:11px;color:var(--ink3)">AU · sRPE</span></div>';
+  h += '<div style="display:flex;align-items:flex-end;gap:5px;height:44px">';
+  srpet.forEach(function (s) {
+    const hpx = Math.round(s.au / maxAU * 38);
+    h += '<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px"><div style="width:100%;height:' + Math.max(2, hpx) + 'px;background:' + (s.au ? 'var(--teal)' : 'var(--ov-2)') + ';border-radius:3px 3px 0 0;' + (s.suunn && s.au ? 'opacity:.45;border:1px dashed var(--teal)' : '') + '"></div><span style="font-size:8px;color:var(--ink3)">' + s.nimi + '</span></div>';
+  });
+  h += '</div>';
+  // ACWR SUUNTAA-ANTAVA SEKUNDÄÄRI: yksi arvo + yksi sana; 4-vyöhykepalkki himmeänä. Guard säilyy (4vk pohja).
+  h += '<div style="font-size:11px;color:var(--ink2);margin-top:9px;line-height:1.4">ACWR ' + (acwr != null ? '<b style="color:' + acwrCol + '">' + acwr + '</b> · ' + acwrSana : '<span style="color:var(--ink3)">' + acwrSana + '</span>') + '</div>';
+  if (acwr != null) {
+    const mk = Math.max(0, Math.min(100, Math.round((acwr - 0.5) / 1.5 * 100)));
+    h += '<div style="position:relative;display:flex;height:10px;border-radius:5px;overflow:hidden;border:.5px solid var(--border);margin:6px 0 2px;opacity:.6">'
+      + '<div style="flex:2;background:var(--ov-2)"></div><div style="flex:2.5;background:rgba(40,176,144,.18)"></div><div style="flex:1.5;background:rgba(224,160,64,.18)"></div><div style="flex:1;background:rgba(201,64,64,.16)"></div>'
+      + '<div style="position:absolute;top:-2px;left:' + mk + '%;width:2px;height:14px;background:var(--ink)"></div></div>'
+      + '<div style="display:flex;justify-content:space-between;font-family:var(--font-mono);font-size:8px;color:var(--ink3)"><span>matala</span><span style="color:var(--teal)">turva 0.8–1.3</span><span style="color:var(--amber)">koholla &gt;1.5</span></div>';
+  }
+  h += '<div style="font-family:var(--font-mono),\'DM Mono\',monospace;font-size:9px;color:var(--ink3);margin-top:8px;line-height:1.45">▲ ACWR vaatii ~4 vk kroonista pohjaa · katkoviiva = suunniteltu · kuorma = valmentajan työkalu, ei pelaajalle (§7.22).</div>';
   return h + '</div>';
 }
 
-// ── Pelaajan puoli = vain kompakti viittaus (pulssi/reflektio = P6b, Pelaaja_v7) ──
-function _vpViikkoPelaajaViiteHTML() {
-  return '<div style="margin-top:12px;display:flex;align-items:center;gap:9px;padding:10px 13px;border:.5px dashed var(--border);border-radius:9px;color:var(--ink3)">'
-    + '<span style="font-size:15px">📱</span><span style="font-size:11px;line-height:1.4">→ Pelaajalle viikkopulssi (Pelaaja-appi) — mikroreflektio + oma fiilis <b style="color:var(--ink2)">tulossa (P6b)</b></span></div>';
+// MUUTOS 6 — LÄSNÄOLO (K2-kooste, toteutunut): reuse _VKO_LASNA/_vkoLasnaByTila. Honest-empty jos ei merkintöjä.
+function _vpViikkoLasnaoloHTML(p, st) {
+  const esc = _jsvEsc;
+  const merkityt = st.days.filter(function (d) { const r = st.rows[d.iso]; return r && r.lasna; });
+  let h = '<div class="jsp-wk-blk"><div style="display:flex;align-items:baseline;gap:8px;margin-bottom:3px">'
+    + '<span style="font-family:var(--font-sans),\'DM Sans\',sans-serif;font-weight:600;font-size:9px;letter-spacing:.13em;text-transform:uppercase;color:var(--ink2)">Läsnäolo · tämä viikko</span>'
+    + '<span style="margin-left:auto;font-family:var(--font-mono),\'DM Mono\',monospace;font-size:8.5px;color:var(--ink3)">K2 · kalenteri</span></div>';
+  if (!merkityt.length) {
+    return h + '<div style="font-size:11px;color:var(--ink3);line-height:1.5;margin-top:6px">Ei merkittyä läsnäoloa vielä. Merkitsee valmentaja/talenttivalmentaja/VP toteutuneista sessioista (§35 K2).</div></div>';
+  }
+  const paikalla = merkityt.filter(function (d) { return st.rows[d.iso].lasna === 'paikalla'; }).length;
+  h += '<div style="display:flex;gap:6px;margin:8px 0 2px;flex-wrap:wrap">';
+  merkityt.forEach(function (d) {
+    const l = _vkoLasnaByTila(st.rows[d.iso].lasna);
+    h += '<div style="flex:1;min-width:48px;text-align:center;border:.5px solid ' + (l.tila === 'paikalla' ? 'rgba(40,176,144,.3)' : 'var(--border)') + ';border-radius:6px;padding:7px 4px;background:var(--bg2)"><div style="font-size:14px;color:' + l.col + '">' + l.ikoni + '</div><div style="font-family:var(--font-mono);font-size:8px;color:var(--ink3);margin-top:3px;text-transform:uppercase">' + d.nimi + ' ' + esc(l.lbl.split(' ')[0]) + '</div></div>';
+  });
+  h += '</div><div style="font-size:10.5px;color:var(--ink2);margin-top:6px;line-height:1.45"><b style="color:var(--ink)">' + paikalla + ' / ' + merkityt.length + ' paikalla.</b> Toteutunut, ei suunniteltu — läsnäolo kytkee kuormaan.</div>';
+  h += '<div style="font-family:var(--font-mono),\'DM Mono\',monospace;font-size:9px;color:var(--ink3);margin-top:7px;line-height:1.4">Merkitsee valmentaja/talenttivalmentaja/VP (§35 K2). Poissaolo + syy, ei rankingia (GDPR: terveyssyy erikseen 🩹).</div>';
+  return h + '</div>';
+}
+// MUUTOS 6 — PELAAJAN ÄÄNI · viikkorefleksio (P4 honest-empty NYT) + cue (reuse tmTtKysymykset). EI fabrikoida lainausta.
+function _vpViikkoAaniHTML(p, st) {
+  const esc = _jsvEsc, jf = st.jf;
+  const refl = (p.viikko_refleksio && (p.viikko_refleksio.teksti || typeof p.viikko_refleksio === 'string')) ? (p.viikko_refleksio.teksti || p.viikko_refleksio) : null;
+  const cue = (jf && jf.konsepti_avain && typeof tmTtKysymykset === 'function') ? (tmTtKysymykset(jf.konsepti_avain) || [])[0] : null;
+  let h = '<div style="border:.5px solid var(--border);border-radius:10px;padding:14px 16px;background:var(--surface2,var(--bg2))">'
+    + '<div style="font-family:var(--font-sans),\'DM Sans\',sans-serif;font-weight:600;font-size:9px;letter-spacing:.13em;text-transform:uppercase;color:var(--teal);margin-bottom:8px">Pelaajan ääni · viikkorefleksio</div>';
+  h += refl
+    ? '<div style="font-family:var(--font-serif),\'Cormorant Garamond\',serif;font-style:italic;font-size:15px;line-height:1.4;color:var(--ink);margin-bottom:7px">”' + esc(refl) + '”</div>'
+    : '<div style="font-size:11.5px;color:var(--ink3);line-height:1.5;margin-bottom:7px">Ei pelaajan refleksiota vielä. Pelaajan viikkotuntuma näkyy tässä kun se on kirjattu (Pelaaja-app).</div>';
+  if (cue) h += '<div style="font-family:var(--font-mono),\'DM Mono\',monospace;font-size:9.5px;color:var(--ink3);line-height:1.5">Cue-kysymys (§4b): ”' + esc(cue) + '”</div>';
+  return h + '</div>';
+}
+// MUUTOS 7 — KATSELMUS-RIVI (EPPP-rytmi): viikkoa jäljellä jakson loppuun + linkki Kehitykseen. Ei arvosana.
+function _vpViikkoKatselmusHTML(p, st) {
+  const jf = st.jf, kestoVk = (jf && jf.kesto_vk) || 4;
+  let jaljella = kestoVk;
+  if (jf && jf.alkoi) { const j = Math.ceil((new Date(jf.alkoi).getTime() + kestoVk * 7 * 86400000 - Date.now()) / (7 * 86400000)); if (!isNaN(j)) jaljella = Math.max(0, j); }
+  return '<div style="display:flex;align-items:center;gap:12px;border:.5px dashed var(--border);border-radius:10px;padding:13px 16px;background:var(--bg2);margin-top:14px;flex-wrap:wrap">'
+    + '<div style="font-size:11.5px;color:var(--ink2);line-height:1.5"><b style="color:var(--ink);font-weight:500">Seuraava katselmus ~' + jaljella + ' vk</b> — jaksofokus (' + kestoVk + ' vk) päättyy. Katselmus = <b style="color:var(--ink);font-weight:500">keskustelu</b>, ei arvosana (EPPP-rytmi, §37).</div>'
+    + '<span onclick="event.stopPropagation();_jspVaihda(3)" style="margin-left:auto;font-family:var(--font-sans),\'DM Sans\',sans-serif;font-weight:500;font-size:11px;color:var(--teal);border:.5px solid rgba(40,176,144,.4);border-radius:6px;padding:7px 13px;white-space:nowrap;cursor:pointer">Avaa katselmus →</span></div>';
+}
+// MUUTOS 8 — LÄHDEKORTIT + mokknote ⓘ-tapin takana (default piilossa, sama kuvio kuin _jspArvSelit).
+function _vpViikkoSrcKortti(nimi, selite, foot) {
+  return '<div style="border:.5px solid var(--border);border-radius:8px;padding:10px 12px;background:var(--bg2)"><div style="font-family:var(--font-mono),\'DM Mono\',monospace;font-size:9px;letter-spacing:.04em;text-transform:uppercase;color:var(--teal);margin-bottom:4px">' + nimi + '</div><div style="font-size:10px;color:var(--ink2);line-height:1.45">' + selite + '</div><div style="font-family:var(--font-mono),\'DM Mono\',monospace;font-size:8px;color:var(--ink3);margin-top:5px">' + foot + '</div></div>';
+}
+function _vpViikkoLahteetHTML() {
+  return '<div style="margin-top:14px"><span onclick="var b=document.getElementById(\'_vpViikkoLahteet\');var o=b.style.display===\'none\';b.style.display=o?\'block\':\'none\';this.textContent=(o?\'▾\':\'ⓘ\')+\' Mistä viikko koostuu (3 lähdettä)\'" style="font-family:var(--font-mono),\'DM Mono\',monospace;font-size:10px;color:var(--ink3);cursor:pointer">ⓘ Mistä viikko koostuu (3 lähdettä)</span>'
+    + '<div id="_vpViikkoLahteet" style="display:none;margin-top:10px"><div class="jsp-wk-src">'
+    + _vpViikkoSrcKortti('Joukkuekalenteri', 'Joukkueharjoitukset + ottelut. Valmentaja luo tapahtuman → läsnäolo (K2).', '✓ olemassa · §35 · seurat/{id}/kalenteri')
+    + _vpViikkoSrcKortti('Pelaajan app', 'Omatoimiset T/S-harjoitteet: generaattori ehdottaa → pelaaja kirjaa (tehty · kesto · RPE · fiilis).', '✓ olemassa · kirjaukset · lahde:pelaaja')
+    + _vpViikkoSrcKortti('Kuorma &amp; kypsyys', 'Session-RPE summautuu kuormaksi + PHV-kypsyys (§28) sävyttää ACWR-vyöhykkeen.', '→ Viikko laskee näistä')
+    + '</div><div style="margin-top:11px;font-size:11px;color:var(--ink2);line-height:1.55;border-left:2px solid rgba(40,176,144,.3);padding-left:12px"><b style="color:var(--ink);font-weight:500">✎ Muokattava, ei lukittu.</b> Valmentaja / talenttivalmentaja / VP voi lisätä, siirtää tai poistaa harjoitteita (roolit §37). Pelaajan itse tekemät omatoimiset valuvat tänne automaattisesti (<span style="font-family:var(--font-mono),\'DM Mono\',monospace">lahde:pelaaja</span>) — kaksisuuntainen silta.</div></div></div>';
 }
 
 // ── Interaktiot (mutatoi state → tallenna best-effort → re-render) ──
@@ -9722,7 +9899,7 @@ window._jspVaihda = function(n) {
   // R1.4-korjaus — ALOITUS-MODE: Aloituksessa (tab 0) v7:n 2-sarake → piilota profiiliraili (tutka on nyt Aloituksen
   // oikeassa sarakkeessa). Muut välilehdet: raili takaisin (jaettu profiili). Ei DOM-uudelleenrakennusta, vain luokka.
   const _grid = document.querySelector('#_jspModal .jsp-grid');
-  if (_grid) _grid.classList.toggle('jsp-railvapaa', n === 0 || n === 1 || n === 2 || n === 3);   // Aloitus (v7) + Mittaus (v4) + Arviointi (v4) + Kehitys (v2 jaksofokus-työpöytä) täysleveitä → raili piiloon; muut → raili takaisin
+  if (_grid) _grid.classList.toggle('jsp-railvapaa', n === 0 || n === 1 || n === 2 || n === 3 || n === 4);   // KAIKKI IDP-välilehdet (Aloitus v7 · Mittaus v4 · Arviointi v4 · Kehitys v2 · Viikko v1 morfosykli) rail-vapaita → raili piiloon
 };
 // ── Testitulkinnan koulutus — ⓘ-info (avautuu pikakatsauksen päälle, z 360). Sisältö: mitä mittaa + miten tulkita + valmennusvihje ──
 window.TM_TESTI_OHJEET = {

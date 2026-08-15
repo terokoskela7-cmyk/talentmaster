@@ -68,7 +68,7 @@ describe('R1.4 — 2-sarakerakenne (kartta .cols)', () => {
     expect(HTML).toContain('function _vpAloitusTutkaHTML(p) {');
     expect(HTML).toContain('window._tmRadar5D(radarDims, _radarOpts)');
     // rail-vapaa-mode: _jspVaihda togglaa jsp-railvapaa (tab 0 Aloitus + tab 1 Mittaus → raili piiloon)
-    expect(HTML).toContain("_grid.classList.toggle('jsp-railvapaa', n === 0 || n === 1 || n === 2 || n === 3)");
+    expect(HTML).toContain("_grid.classList.toggle('jsp-railvapaa', n === 0 || n === 1 || n === 2 || n === 3 || n === 4)");
     expect(HTML).toContain('<div class="jsp-grid jsp-railvapaa">');
     expect(HTML).toContain('.jsp-grid.jsp-railvapaa > .jsp-left { display: none; }');
   });
