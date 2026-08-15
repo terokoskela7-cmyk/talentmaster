@@ -65,8 +65,9 @@ describe('summaus-logiikka suoritettuna (sk + merge + päivän AU)', () => {
 });
 
 describe('VP-kirjoitus/luku (RMW + summa)', () => {
-  it('_vpViikkoTallennaRivi: valmentaja-sessio (sk) + RMW sulautus (ei array-clobber)', () => {
-    expect(HTML).toContain("const sessio = { sk: 'valmentaja',");
+  it('_vpViikkoTallennaRivi: sessio-sk (R5.3: rivilahdeSk, oletus valmentaja) + RMW sulautus (ei array-clobber)', () => {
+    expect(HTML).toContain('const sessio = { sk: _rsk,');           // R5.3 — rivilahdeSk (oletus 'valmentaja')
+    expect(HTML).toContain("const _rsk = row.rivilahdeSk || 'valmentaja';");
     expect(HTML).toContain('data.sessiot = _vpViikkoMergeSessio((snap.data() || {}).sessiot, sessio);');
   });
   it('_vpViikkoLataa: säilyttää kaikki sessiot + muokattava rivi = valmentaja-sessio', () => {
