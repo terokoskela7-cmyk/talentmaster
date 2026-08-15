@@ -11872,6 +11872,8 @@ function avaaCoachPanel(id) {
   }
   // Harjoituskalibraatio (Vaihe 2.2): itsearvio vs havainnointi vahvistetuista pareista (täytetään async)
   t5 = '<div style="background:var(--card);border:.5px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:14px"><div style="font-size:10px;letter-spacing:.18em;color:var(--ink3);text-transform:uppercase;margin-bottom:8px">⚖️ Harjoituskalibraatio (itsearvio vs havainnointi)</div><div id="cmKalibHarj" style="font-size:12px;color:var(--ink3)">Ladataan…</div></div>' + t5;
+  // K5b MUUTOS 2 — valmentajan OMA peliäly-kalibraatio-CPD (havainnointi/kalibraatio/reflektio ajassa). Async, honest-empty.
+  t5 = '<div id="cmAdarCpd" style="background:var(--card);border:.5px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:14px;font-size:12px;color:var(--ink3)">⋯ ladataan peliäly-kalibraatiota</div>' + t5;
 
   // ═══════════ MODAALI ═══════════
   var h = '<div id="coachModal">' +
@@ -11903,6 +11905,41 @@ function avaaCoachPanel(id) {
   document.body.appendChild(modal);
   _lataaCoachHistoria(v.id);
   _cmLataaArvioinnit(v.id);
+  _cmLataaAdarCpd(v.id);   // K5b MUUTOS 2
+}
+// K5b — valmentajan OMA peliäly-kalibraatio-CPD (kehittävä, ei arvostelu). Läpinäkyvä ankkuri (VP / tiimi), honest-empty.
+function _cmLataaAdarCpd(uid) {
+  const el = document.getElementById('cmAdarCpd'); if (!el) return;
+  _lataaKalibHavainnot().then(function (hav) {
+    const k = (typeof tmValmennusKaari === 'function') ? tmValmennusKaari(hav || [], { omaUid: uid, vpUid: _uid || null }) : null;
+    el.innerHTML = _cmAdarCpdHTML(k);
+    el.style.borderLeft = '2px solid var(--teal)';
+  });
+}
+function _cmAdarCpdHTML(k) {
+  const esc = _jsvEsc;
+  const hdr = '<div style="font-size:10px;letter-spacing:.18em;color:var(--teal);text-transform:uppercase;margin-bottom:2px">🧠 Peliäly-kalibraatio · valmennusosaaminen (CPD)</div>';
+  if (!k || k.datataso === 'tyhja') return hdr + '<div style="font-size:12px;color:var(--ink3);margin-top:4px">Kaari kertyy — kirjaa pelihavaintoja pelaajistasi (ajassa, dimensioittain). Kehittävä näkymä, ei arvostelu.</div>';
+  const last = a => a.length ? a[a.length - 1] : null, first = a => a.length ? a[0] : null;
+  const hV = last(k.havainnointi), hE = first(k.havainnointi);
+  const havTxt = hV ? (hV.nHav + ' hav · ' + hV.nPelaaja + ' pelaajaa') + (k.havainnointi.length >= 2 && hV.nHav > hE.nHav ? ' · aktiivisuus kasvaa ↑' : '') : '—';
+  const kV = last(k.kalibraatio), kE = first(k.kalibraatio), ankLbl = _kalibAnkkuriLbl(k.kalibraatioAnkkuri);
+  let kalTxt, kalCol;
+  if (!kV || !ankLbl) { kalTxt = 'kalibraatio kertyy — tarvitsee VP- tai tiimivertailun'; kalCol = 'var(--ink3)'; }
+  else {
+    const kaventuu = (k.kalibraatio.length >= 2 && kV.arvo < kE.arvo);
+    kalTxt = 'Kalibraatiosi ' + ankLbl + (kaventuu ? ' kaventuu — yhteinen kieli tarkentuu ↓' : ' vakaa (ero ' + kV.arvo + ' = keskustelun avaus, ei virhe)');
+    kalCol = 'var(--teal)';
+  }
+  const rV = last(k.reflektio);
+  const reflTxt = rV ? (rV.paivitykset + ' pelaajaa arvioitu uudelleen · learn & reflect') : '—';
+  const rivi = (ik, ots, txt, vari) => '<div style="display:flex;gap:10px;padding:7px 0;border-top:.5px solid var(--border)"><span style="flex:0 0 92px;font-size:11px;color:var(--ink3)">' + ik + ' ' + ots + '</span><span style="flex:1;font-size:12px;color:' + vari + ';line-height:1.4">' + esc(txt) + '</span></div>';
+  return hdr
+    + '<div style="font-size:10px;color:var(--ink3);margin-bottom:4px">' + k.ikkunat.length + ' kautta · kehittävä, ei arvostelu</div>'
+    + rivi('👁', 'Havainnointi', havTxt, 'var(--ink2)')
+    + rivi('⚖️', 'Kalibraatio', kalTxt, kalCol)
+    + rivi('🔄', 'Reflektio', reflTxt, 'var(--ink2)')
+    + (k.datataso === 'lahtopiste' ? '<div style="font-size:10px;color:var(--ink3);margin-top:6px">Yksi kausi — suunta näkyy 2. kaudesta.</div>' : '');
 }
 
 // Coach-paneelin harjoitusarviointi-keskus: lataa valmentajan arvioinnit → historia + harjoituskalibraatio
@@ -17481,45 +17518,74 @@ function renderPelaajatFiltered() {
 }
 
 // ─── KALIBRAATIOPAJA ─────────────────────────────────────
+// K5b — kalibraation ADAR-havainnot (per-pelaaja alikokoelmista, VP-työpöytäkysely; §26 ei koske työpöytää). Ladataan
+// KERRAN kalibraatiosivulle; totuuslähde = raakadocit (ei fabrikointia). pelaajaId injektoidaan (subcol-doc ei sisällä sitä aina).
+window._kalibHavainnot = null; let _kalibHavPromise = null;
+function _lataaKalibHavainnot() {   // idempotentti + cached: palauttaa promisen joka resolvoi havaintotaulukkoon. Jaettu (cockpit + coach-CPD).
+  if (window._kalibHavainnot != null) return Promise.resolve(window._kalibHavainnot);
+  if (_kalibHavPromise) return _kalibHavPromise;
+  if (_isDemoMode || !_seuraId || typeof db === 'undefined') { window._kalibHavainnot = []; return Promise.resolve([]); }
+  _kalibHavPromise = (async () => {
+    try {
+      const pel = (typeof _pelaajat !== 'undefined' && _pelaajat) ? _pelaajat : [];
+      const snaps = await Promise.all(pel.map(p =>
+        db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(p.id).collection('havainnot').get()
+          .then(s => ({ pid: p.id, docs: s.docs })).catch(() => ({ pid: p.id, docs: [] }))));
+      const out = [];
+      snaps.forEach(s => s.docs.forEach(d => { const h = d.data(); if (h && h.pisteet) out.push(Object.assign({ pelaajaId: h.pelaajaId || s.pid }, h)); }));
+      window._kalibHavainnot = out;
+    } catch (e) { window._kalibHavainnot = []; console.warn('[kalib]', e && e.message); }
+    return window._kalibHavainnot;
+  })();
+  return _kalibHavPromise;
+}
+// K5b — poikkeamasta yhtenevyystaso (EI numeroa/rankingia): ≤0.5 korkea · ≤1.0 keskiverto · >1.0 matala.
+function _kalibTaso(poikkeama) { return poikkeama == null ? null : (poikkeama <= 0.5 ? 'korkea' : poikkeama <= 1.0 ? 'keskiverto' : 'matala'); }
+function _kalibAnkkuriLbl(a) { return a === 'vp' ? 'VP:n näkemykseen' : a === 'konsensus' ? 'tiimin yhteisnäkemykseen' : null; }
+// MUUTOS 3 — VP:n kalibraatio-cockpit: per valmentaja yhtenevyystaso + suunta + LÄPINÄKYVÄ ankkuri + "mentoroi →".
+// KEHITTÄVÄ, EI RANKAISEVA: ei rankinglistaa (alkuperäinen järjestys) · poikkeama ≠ virhe · honest-empty ("kertyy").
 function renderKalib() {
   const tbody = document.getElementById('kalibTableBody');
   const suosTxt = document.getElementById('kalibTarget');
   if (!tbody) return;
-
-  // Demo ADAR-data (tulee tulevaisuudessa Firestoresta)
-  const data = _valmentajat.map(v => ({
-    nimi: v.nimi || '?',
-    a1: Math.round(v.adar || 4),
-    d:  Math.round((v.adar || 4) - 0.5 + Math.random()),
-    a2: Math.round((v.adar || 4) + 0.2),
-    r:  Math.round((v.adar || 4) - 0.3),
-    delta: v.adar ? Math.abs(v.adar - 4).toFixed(2) : '0.50'
-  }));
-
-  if (data.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="7" style="color:var(--ink3);padding:20px;text-align:center">Ei valmentajatietoja</td></tr>';
+  if (!_valmentajat.length) { tbody.innerHTML = '<tr><td colspan="7" style="color:var(--ink3);padding:20px;text-align:center">Ei valmentajatietoja</td></tr>'; if (suosTxt) suosTxt.textContent = '—'; return; }
+  if (window._kalibHavainnot == null) {
+    _lataaKalibHavainnot().then(function () { renderKalib(); });
+    tbody.innerHTML = '<tr><td colspan="7" style="color:var(--ink3);padding:20px;text-align:center">⋯ ladataan havaintohistoriaa kalibraatiota varten</td></tr>';
     return;
   }
-
-  // Suositus: korkein delta
-  const maxDelta = data.reduce((a,b) => Number(a.delta) > Number(b.delta) ? a : b);
-  if (suosTxt) suosTxt.textContent = maxDelta.nimi;
-
-  tbody.innerHTML = data.map(v => {
-    const deltaWarn = Number(v.delta) >= 0.5 ? 'warn' : '';
-    return `
-    <tr>
-      <td>${v.nimi}</td>
-      <td><span class="kalib-score">${v.a1}</span></td>
-      <td><span class="kalib-score">${v.d}</span></td>
-      <td><span class="kalib-score">${v.a2}</span></td>
-      <td><span class="kalib-score">${v.r}</span></td>
-      <td><span class="kalib-score ${deltaWarn ? 'lo' : 'hi'}">Δ ${v.delta}</span></td>
-      <td>${Number(v.delta) >= 0.5
-        ? '<button class="btn-sm" onclick="kutsutaKalibraatioon()">Kutsu</button>'
-        : '<span style="color:var(--teal);font-size:12px">✓</span>'}</td>
-    </tr>`;
+  const esc = _jsvEsc, hav = window._kalibHavainnot || [];
+  // Per valmentaja: oma kaari (vain omat, permissio-linjassa) — VP-ankkuri ensisijainen, tiimikonsensus leave-one-out fallback.
+  const rivit = _valmentajat.map(v => {
+    const k = (typeof tmValmennusKaari === 'function') ? tmValmennusKaari(hav, { omaUid: v.id, vpUid: _uid || null }) : null;
+    const kal = (k && k.kalibraatio.length) ? k.kalibraatio : [];
+    const viim = kal.length ? kal[kal.length - 1] : null;
+    const taso = viim ? _kalibTaso(viim.arvo) : null;
+    // suunta: kaventuu (kehittävä) jos viimeisin < ensimmäinen; muuten vakaa. EI "heikkenee"-kehystä.
+    const suunta = (kal.length >= 2 && kal[kal.length - 1].arvo < kal[0].arvo) ? 'kaventuu' : (kal.length ? 'vakaa' : null);
+    const ankkuri = k ? _kalibAnkkuriLbl(k.kalibraatioAnkkuri) : null;
+    const nHav = (k && k.havainnointi.length) ? k.havainnointi.reduce((a, b) => a + b.nHav, 0) : 0;
+    let tila, col;
+    if (!taso || !ankkuri) { tila = 'kalibraatio kertyy'; col = 'var(--ink3)'; }   // honest-empty: ohut / ei ankkuria
+    else {
+      const tasoTxt = { korkea: 'yhtenäinen', keskiverto: 'lähenevä', matala: 'eriävä' }[taso];
+      col = taso === 'korkea' ? 'var(--teal)' : taso === 'keskiverto' ? 'var(--ink2)' : 'var(--amber)';
+      tila = tasoTxt + (suunta === 'kaventuu' ? ' · kaventuu ↓' : '');
+    }
+    const mentoroi = (taso === 'matala' || taso === 'keskiverto')
+      ? '<button class="btn-sm" onclick="kutsutaKalibraatioon()">Mentoroi →</button>'
+      : (taso === 'korkea' ? '<span style="color:var(--teal);font-size:12px">✓ yhteinen kieli</span>' : '<span style="color:var(--ink3);font-size:11px">—</span>');
+    return `<tr><td colspan="7" style="padding:12px">
+      <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+        <div style="min-width:150px"><div style="font-size:14px;color:var(--ink)">${esc(v.nimi || '?')}</div><div style="font-size:10px;color:var(--ink3);font-family:'DM Mono',monospace">${nHav} havaintoa · ${k ? k.ikkunat.length : 0} kautta</div></div>
+        <div style="min-width:150px"><div style="font-size:13px;color:${col}">${tila}</div>${ankkuri ? '<div style="font-size:10px;color:var(--ink3)">kalibraatio ' + esc(ankkuri) + '</div>' : '<div style="font-size:10px;color:var(--ink3)">tarvitsee VP- tai tiimivertailun</div>'}</div>
+        <div style="margin-left:auto">${mentoroi}</div>
+      </div></td></tr>`;
   }).join('');
+  tbody.innerHTML = rivit;
+  // "Suositeltu mentoroitava" (gentle, EI ranking): ensimmäinen jolla eriävä (matala) kalibraatio; muuten neutraali.
+  const eka = _valmentajat.find(v => { const k = (typeof tmValmennusKaari === 'function') ? tmValmennusKaari(hav, { omaUid: v.id, vpUid: _uid || null }) : null; const kk = k && k.kalibraatio.length ? k.kalibraatio[k.kalibraatio.length - 1] : null; return kk && _kalibTaso(kk.arvo) === 'matala'; });
+  if (suosTxt) suosTxt.textContent = eka ? (eka.nimi || '?') : '— (kalibraatiot yhtenäisiä tai kertyvät)';
 }
 
 // ─── KEHITYSINDEKSIT ─────────────────────────────────────
