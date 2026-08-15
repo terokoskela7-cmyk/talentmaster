@@ -4123,6 +4123,19 @@ async function _tallennaKirjaus(tyyppi, xp, kaikki, ekstra) {
   kirjausData['tehty_' + tyyppi] = true;   // KORJAUS 1: tyyppikohtainen dedup-merkintä (päivädoc = yksi, merge)
 
   try {
+    // R5.2 — KUORMAN KOOSTAMINEN: pelaajan rasitus omaksi sessioksi (sk='pelaaja:'+tyyppi) → sulautetaan päivän sessiot[]-
+    // taulukkoon (RMW), jotta valmentajan/joukkueen sessio SÄILYY rinnakkain (arrayt eivät merge:llä yhdisty) → päivän
+    // kokonaiskuorma (sRPE) summautuu Viikossa/kalenterissa. sRPE johdetaan (rpe×kesto), EI tallenneta. §7.22: pelaaja
+    // näkee oman rasituksensa, EI ACWR-lukua/kuormarankingia.
+    const _sk = 'pelaaja:' + tyyppi;
+    const _sessioP = { sk: _sk, lahde: 'pelaaja', tyyppi, konteksti: ekstra?.konteksti || null, kesto_min: ekstra?.kesto_min || null, rpe: ekstra?.rpe || null };
+    const _skOf = function (s) { return (s && (s.sk || (s.lahde === 'pelaaja' ? 'pelaaja:' + (s.tyyppi || 'x') : s.lahde))) || 'valmentaja'; };
+    try {
+      const _snap = await kirjausDok.get();
+      const _existing = (_snap.exists && Array.isArray((_snap.data() || {}).sessiot)) ? _snap.data().sessiot : [];
+      kirjausData.sessiot = _existing.filter(function (s) { return _skOf(s) !== _sk; }).concat([_sessioP]);
+    } catch (_) { kirjausData.sessiot = [_sessioP]; }
+
     const batch = db.batch();
 
     // 1. Päiväkirjausdokumentti (id = 'YYYY-MM-DD', merge koska sama päivä voi olla useita)
