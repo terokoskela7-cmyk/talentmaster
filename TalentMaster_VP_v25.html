@@ -9433,7 +9433,7 @@ function _vpViikkoPaivaAU(row) {   // päivän kokonaiskuorma = kaikkien sessioi
 // State-init pelaajalle (sync). rows tyhjät kunnes _vpViikkoLataa hydratoi tallennetut kirjaukset.
 function _vpViikkoInit(p) {
   const st = { pid: p.id, p: p, jf: p.jaksofokus || null, tavoitteet: _vpViikkoTavoitteet(p.jaksofokus || null), days: _vpViikkoPaivat(), rows: {}, ladattu: false, auki: null };
-  st.days.forEach(function (d) { st.rows[d.iso] = { iso: d.iso, kesto_min: null, rpe: null, tavoite_tag: null, fokus_nimi: null, konsepti_avain: null, lepo: false, lahde: 'valmentaja', lasna: null, terveys_lippu: false, vahvistettu: false, sessioId: null }; });
+  st.days.forEach(function (d) { st.rows[d.iso] = { iso: d.iso, kesto_min: null, rpe: null, tavoite_tag: null, fokus_nimi: null, konsepti_avain: null, lepo: false, lahde: 'valmentaja', lasna: null, terveys_lippu: false, vahvistettu: false, sessioId: null, sessiot: [], rivilahdeSk: 'valmentaja' }; });
   window._vpViikko = st;
   return st;
 }
@@ -9541,6 +9541,9 @@ function _vpViikkoNauhaHTML(p, st) {
     else { title = '<span style="color:var(--ink3)">＋ napauta</span>'; }
     if (row.lahde === 'pelaaja') src = '<div style="font-family:var(--font-mono);font-size:7px;letter-spacing:.03em;text-transform:uppercase;color:var(--teal)">app · pelaaja 📱</div>';
     else if (row.sessioId) src = '<div style="font-family:var(--font-mono);font-size:7px;letter-spacing:.03em;text-transform:uppercase;color:var(--ink3)">kalenteri</div>';
+    // R5.3 — monisessio-merkki: palkki on ≥2 kuormaa tuottavan session summa (valmentaja + pelaajan oma). Ei muuta Oura-koodausta.
+    const nLoad = (row.sessiot || []).filter(function (s) { return _vpViikkoSrpe(s.rpe, s.kesto_min) > 0; }).length;
+    const multi = (nLoad > 1) ? '<div style="font-family:var(--font-mono);font-size:7px;letter-spacing:.03em;color:var(--ink3)" title="Kuormapalkki = ' + nLoad + ' session summa (sRPE)">· ' + nLoad + ' sessiota</div>' : '';
     const barCol = isFoc ? 'var(--teal)' : 'var(--ink3)';
     const barW = Math.round(au / srpeMax * 100);
     const bar = (!row.lepo && au > 0)
@@ -9551,7 +9554,7 @@ function _vpViikkoNauhaHTML(p, st) {
       + '<div style="font-family:var(--font-mono);font-size:8.5px;letter-spacing:.04em;color:var(--ink3);display:flex;justify-content:space-between;align-items:center"><span>' + day.nimi.toUpperCase() + '</span>' + (md ? '<span style="font-size:7.5px">' + md + '</span>' : '') + '</div>'
       + '<div style="font-size:10.5px;color:var(--ink);line-height:1.3">' + title + '</div>'
       + (tag ? '<div style="font-family:var(--font-mono);font-size:8px;color:var(--ink3);line-height:1.3">' + esc(tag) + '</div>' : '')
-      + src + ftag + bar + '</div>';
+      + src + multi + ftag + bar + '</div>';
   });
   let h = '<div class="jsp-wk-strip">' + cards + '</div>';
   h += '<div style="display:flex;gap:16px;flex-wrap:wrap;font-family:var(--font-mono);font-size:9px;color:var(--ink3);margin-top:10px">'
@@ -9894,6 +9897,9 @@ async function _vpViikkoLataa(p) {
       // R5.2 — säilytä KAIKKI päivän sessiot (summaus _vpViikkoPaivaAU:ssa); muokattava rivi = valmentaja-sessio (fallback 1.).
       row.sessiot = Array.isArray(d.sessiot) ? d.sessiot : [];
       const sess = row.sessiot.length ? (row.sessiot.find(function (s) { return _vpViikkoSessioSk(s) === 'valmentaja'; }) || row.sessiot[0]) : null;
+      // R5.3 — muokattavan rivin sessio-avain: jos ei valmentaja-sessiota, rivi näyttää PELAAJAN session → tallennus
+      // kohdistuu siihen (ei uutta valmentaja-kopiota = tuplalaskenta-vartija). Ei sessiota → 'valmentaja' (uusi rivi).
+      row.rivilahdeSk = sess ? _vpViikkoSessioSk(sess) : 'valmentaja';
       row.rpe = (sess && sess.rpe != null) ? sess.rpe : (d.rpe != null ? d.rpe : null);
       row.kesto_min = (sess && sess.kesto_min != null) ? sess.kesto_min : (d.kesto_min != null ? d.kesto_min : row.kesto_min);
       row.lahde = (sess && sess.lahde) || d.lahde || 'valmentaja';
@@ -9927,7 +9933,11 @@ async function _vpViikkoTallennaRivi(pid, iso) {
   // #214 — sessio linkittää kalenteritapahtumaan (tapahtuma_id, null jos ei tapahtumaa). Joukkueen sessio =
   // yksi totuus kalenterissa; P6a lisää vain per-pelaaja-toteutuksen (fokus/tavoite_tag/RPE/läsnä) päälle. P7-koherenssi.
   // R5.2 — valmentajan/joukkueen sessio = 'valmentaja'-avain (sk); pelaajan omatoimiset säilyvät rinnakkain (RMW alla).
-  const sessio = { sk: 'valmentaja', fokus_nimi: row.fokus_nimi || null, konsepti_avain: row.konsepti_avain || null, tavoite_tag: row.tavoite_tag || null, kesto_min: (row.kesto_min != null ? row.kesto_min : null), rpe: (row.rpe != null ? row.rpe : null), konteksti: row.konteksti || 'joukkue', lahde: 'valmentaja', tapahtuma_id: row.sessioId || null, tyyppi: row.lepo ? 'lepo' : 'treeni' };
+  // R5.3 — tuplalaskenta-vartija: kirjoita rivin ESITTÄMÄÄN sessioon (rivilahdeSk). Jos rivi näyttää PELAAJAN session
+  // (ei valmentaja-sessiota päivällä), tallennus KORVAA sen — EI luo uutta 'valmentaja'-kopiota pelaajan arvoilla (= tupla).
+  const _rsk = row.rivilahdeSk || 'valmentaja';
+  const _rLahde = (_rsk === 'valmentaja') ? 'valmentaja' : (row.lahde || 'pelaaja');
+  const sessio = { sk: _rsk, fokus_nimi: row.fokus_nimi || null, konsepti_avain: row.konsepti_avain || null, tavoite_tag: row.tavoite_tag || null, kesto_min: (row.kesto_min != null ? row.kesto_min : null), rpe: (row.rpe != null ? row.rpe : null), konteksti: row.konteksti || 'joukkue', lahde: _rLahde, tapahtuma_id: row.sessioId || null, tyyppi: row.lepo ? 'lepo' : 'treeni' };
   const data = {
     tyyppi: row.lepo ? 'lepo' : 'treeni',
     tavoite_tag: row.tavoite_tag || null, konsepti_avain: row.konsepti_avain || null,
