@@ -38,6 +38,7 @@ beforeAll(() => {
 
   AANI = new Function(
     'var _jsvEsc = function(s){return String(s==null?"":s);};\n' +
+    'var window = {};\n' +   // IDP-vihjeet: _vpPelaajanAaniHTML viittaa window._tmIBtn:iin (tap-behind ⓘ) — guard → '' kun puuttuu
     extract('function _vpPelaajanAaniHTML(p) {') + '\n return { _vpPelaajanAaniHTML: _vpPelaajanAaniHTML };'
   )();
 });

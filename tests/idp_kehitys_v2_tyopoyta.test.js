@@ -74,7 +74,8 @@ describe('(4) jaksofokus = INLINE-FOCAL editori (aina auki, ei modaalia)', () =>
     expect(T).toContain('const _inlineEditori = !opts || opts.editori !== false;');
     expect(T).toContain('_vpJfInlineHTML(p)');
     expect(T).toContain('_vpTyopoytaJaksofokusHTML(p)');       // read-only fallback (raportti) säilyy
-    expect(T).toContain("h += row('_accJaksofokus', '📍', 'TASO 2 · TÄMÄ JAKSO · MESO 4–8 VK', 'Jaksofokus', jfSum, jfChip, jfNimi && !jfUmp, jfBody, _inlineEditori);");
+    expect(T).toContain("row('_accJaksofokus', '📍', 'TASO 2 · TÄMÄ JAKSO · MESO 4–8 VK', 'Jaksofokus'");   // IDP-vihje ⓘ voi olla otsikon perässä
+    expect(T).toContain("jfSum, jfChip, jfNimi && !jfUmp, jfBody, _inlineEditori);");
   });
   it('Pelaajaraportti (PDC) käyttää read-only-tilaa (ei inline-editoria/duplikaatti-ID:itä)', () => {
     expect(HTML).toContain("_vpKehSuunnitelmaHTML(p, { editori: false })");
