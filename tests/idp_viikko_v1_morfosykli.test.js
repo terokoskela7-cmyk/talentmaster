@@ -90,8 +90,8 @@ describe('(5) §28 ensin + ACWR yksi arvo+sana (laskenta ennallaan)', () => {
     expect(K).toContain('linjassa');
     expect(K).toContain('koholla');
     expect(K).toContain('ACWR vaatii ~4 vk kroonista pohjaa');   // guard säilyy
-    // laskenta koskematon (reuse)
-    expect(K).toContain('_vpViikkoSrpe(r.rpe, r.kesto_min)');
+    // laskenta koskematon (reuse) — R5.2: päivän AU summautuu sessioista (_vpViikkoPaivaAU → _vpViikkoSrpe sisäisesti)
+    expect(K).toContain('au: _vpViikkoPaivaAU(r)');
     expect(K).toContain('viikkoAU / krono');
   });
   it('§7.22: kuorma = valmentajan työkalu, ei pelaajalle', () => {
