@@ -7662,7 +7662,7 @@ function _vpAloitusHTML(p) {
   h += '<div class="vpal-fk kausi"><div class="vpal-k teal">🎯 Kausifokus' + (kausi ? ' <span class="vpal-pill">makro · ' + _jsvEsc(kausi) + '</span>' : '') + '</div>'
     + '<h3 class="vpal-h3">' + _jsvEsc((fokus && fokus.nimi) || '—') + (fokus && fokus.dim ? ' · ' + fokus.dim : '') + '</h3>'
     + (tilaLbl ? '<div class="vpal-meta">' + tilaLbl + (t && t.aikaraami && t.aikaraami.kesto_vk ? ' · ' + t.aikaraami.kesto_vk + ' vk' : '') + '</div>' : '')
-    + (_al && _al.tyyppi === 'pelihavainto' ? '<div class="vpal-meta" style="color:#c060a8">◎ Lähde: pelihavainto' + (_alPvm ? ' · ' + _jsvEsc(_alPvm) : '') + '</div>' : '')
+    + (_al && _al.tyyppi === 'pelihavainto' ? '<div class="vpal-meta" style="color:var(--ink3)">◎ Lähde: pelihavainto' + (_alPvm ? ' · ' + _jsvEsc(_alPvm) : '') + '</div>' : '')
     + (pelilause ? '<div class="vpal-peli">⚽ Näkyy pelissä: ' + _jsvEsc(pelilause) + '</div>' : '') + '</div>';
   // Jaksofokus (meso) — täyttyy valmentajan "Vie jakson treeniin" -pikakentästä (§26 jaksofokus, Vaihe 4a). Muuten placeholder.
   const _jf = p.jaksofokus || null;
@@ -11005,12 +11005,15 @@ window._avaaPerPelaajaPikakatsaus = function(idx, joukkueNimi) {
   // 2) P4a.1 — KEHITYSSUUNNITELMA-HAITARI: kausitavoite (TASO 1 · #_jspKausitavoite säilyy re-renderiä varten) ·
   //    jaksofokus (TASO 2) · kehityskaari (TASO 3). Progressiivinen avaus (useampi auki), IDP-hierarkia näkyväksi.
   if (typeof _vpKehSuunnitelmaHTML === 'function') _kehExtra += '<div style="margin-top:6px">' + _vpKehSuunnitelmaHTML(p) + '</div>';
-  // 4) D3-kalibraatio siirretty Arviointi-välilehteen (P3, yksi koti). Kevyt viittaus.
-  _kehExtra += '<div style="padding-top:12px;margin-top:14px;border-top:.5px solid var(--border);font-size:11px;color:var(--ink3)">🧠 D3-kalibraatio (itse × valmentaja × VP) → <span style="color:var(--blue);cursor:pointer;font-weight:600" onclick="_jspVaihda(2)">Arviointi-välilehti</span></div>';
-  // 5) Diagnostiikka (PHV-vaihe · kehitysvaihe · testipäivät · TK-kokonaisaika) → ▸ reveal (ei työpöydän kärjessä).
+  // 4) D3-kalibraatio siirretty Arviointi-välilehteen (P3, yksi koti). Kevyt viittaus. (R4-korjaus: teal ainoa aksentti, ei sininen linkki.)
+  _kehExtra += '<div style="padding-top:12px;margin-top:14px;border-top:.5px solid var(--border);font-size:11px;color:var(--ink3)">🧠 D3-kalibraatio (itse × valmentaja × VP) → <span style="color:var(--teal);cursor:pointer;font-weight:600" onclick="_jspVaihda(2)">Arviointi-välilehti</span></div>';
+  // 5) Diagnostiikka (PHV-vaihe · kehitysvaihe · testipäivät · TK-kokonaisaika) → ▸ reveal (ei työpöydän kärjessä). (R4-korjaus: toggle teal.)
   _kehExtra += '<div style="margin-top:16px;border-top:.5px solid var(--border);padding-top:10px">'
-    + '<span onclick="var b=document.getElementById(\'_jspKehDiag\');var o=b.style.display===\'none\';b.style.display=o?\'block\':\'none\';this.textContent=(o?\'▾\':\'▸\')+\' Diagnostiikka (PHV · testipäivät)\'" style="font-size:12px;color:var(--blue);cursor:pointer;font-weight:600">▸ Diagnostiikka (PHV · testipäivät)</span>'
+    + '<span onclick="var b=document.getElementById(\'_jspKehDiag\');var o=b.style.display===\'none\';b.style.display=o?\'block\':\'none\';this.textContent=(o?\'▾\':\'▸\')+\' Diagnostiikka (PHV · testipäivät)\'" style="font-size:12px;color:var(--teal);cursor:pointer;font-weight:600">▸ Diagnostiikka (PHV · testipäivät)</span>'
     + '<div id="_jspKehDiag" style="display:none;margin-top:12px">' + f4 + '</div></div>';
+  // 6) R4-korjaus (kartta .rolenote + .pelifoot) — hienovaraiset alaviitelohkot työpöydän alalaitaan (mono/ink3).
+  _kehExtra += '<div style="margin-top:20px;font-family:var(--font-mono),\'DM Mono\',monospace;font-size:9.5px;color:var(--ink3);line-height:1.6"><b style="color:var(--ink2);font-weight:500">Roolit §37:</b> valmentaja omistaa operatiivisen jaksofokuksen (omat pelaajat) · talenttivalmentaja talentit · VP asettaa kausitavoitteen + oversight/override.</div>';
+  _kehExtra += '<div style="margin-top:14px;font-size:11.5px;color:var(--ink3);line-height:1.55"><b style="color:var(--ink2);font-weight:500">Peli edellä, muut mukana.</b> Jaksofokus voi olla fyysinen, teknis-taktinen tai psyykkinen — peli on painotus. Aloitus lukee tämän ja linkkaa tänne; Arvioinnin silta syöttää ehdotuksen; Viikko vie jakson kentälle.</div>';
   let hR = '';
   hR += '<div style="display:flex;gap:6px;padding-bottom:4px;border-bottom:.5px solid var(--border);flex-wrap:wrap">';
   // Vaihe B — 7→5 sulautus. IDP-välilehti POISTUI → sen narratiivi on nyt Aloitus (Vaihe A). Kiinteä 5-tab.
