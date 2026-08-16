@@ -2934,6 +2934,10 @@ async function _v6TallennaHistoria() {
   if (typeof tmHhSnapshot !== 'function' || typeof tmHistoriaLisaa !== 'function' || typeof tmTkiSnapshot !== 'function') return;
   var pvm = (_aktiivinenTapahtuma && _aktiivinenTapahtuma.pvm) ? String(_aktiivinenTapahtuma.pvm).slice(0, 10) : new Date().toISOString().slice(0, 10);
   var pelaajat = (_aktiivinenTapahtuma && _aktiivinenTapahtuma.pelaajatData) || [];
+  // K1b §22 — koko kenttätestisessio = yksi alusta (raaka avain, esim. 'mondo_yleisurheilualusta'). Vain tämä
+  // kirjoituspolku tuottaa aidon per-piste-alustan (Excel-tuonti ei tunne mittausalustaa → jättää null =
+  // vertailukelpoinen). Tyhjä → tmHhSnapshot jättää merkitsemättä (null == null, ei regressiota vanhaan dataan).
+  var _sessioAlusta = (_aktiivinenTapahtuma && _aktiivinenTapahtuma.alusta) || '';
   // Testaus_v9-testi-id → hh_viimeisin-muotoinen snapshot-avain (alaviivat pois; hyppy_cj→cmj; *_hh → laji)
   var HH_MAP = { lin_5m: 'lin5m', lin_10m: 'lin10m', lin_30m: 'lin30m', hyppy_cj: 'cmj', mas: 'mas', kasirata: 'kasirata', sm_juoksu: 'sm_juoksu', sm_pallo: 'sm_pallo', pujottelu_hh: 'pujottelu', syotto_hh: 'syotto' };
   var TK_MAP = { ponnauttelu: 'ponnauttelu', syotto: 'syotto', pujottelu: 'pujottelu', kuljetus_laukaus: 'kuljetus_laukaus', pituuspotku: 'pituuspotku_bonus' };
@@ -2950,7 +2954,7 @@ async function _v6TallennaHistoria() {
       var snap = await ref.get();
       var d = (snap.exists && snap.data()) || {};
       var upd = {};
-      if (Object.keys(hv).length) upd.hh_historia = tmHistoriaLisaa(d.hh_historia || [], tmHhSnapshot(pvm, { hv: hv }));
+      if (Object.keys(hv).length) upd.hh_historia = tmHistoriaLisaa(d.hh_historia || [], tmHhSnapshot(pvm, { hv: hv, alusta: _sessioAlusta }));
       if (Object.keys(tkLajit).length) upd.tki_historia = tmHistoriaLisaa(d.tki_historia || [], tmTkiSnapshot(pvm, { tkLajit: tkLajit }));
       if (Object.keys(upd).length) await ref.update(upd);
     } catch (e) { console.warn('[historia]', pl.id, e && e.message); }

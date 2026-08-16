@@ -3299,6 +3299,10 @@ async function tallennaFirestoreen() {
         // d1_taso/d2_taso ovat jo laskettu tässä profiiliUpdate:ssa (yllä). Backfill jää idempotentiksi varaverkoksi.
         if (hhViimeisin && typeof tmHhSnapshot === 'function' && typeof tmHistoriaLisaa === 'function') {
           const _hhEdell = (p._firestoreData && p._firestoreData.hh_historia) || [];
+          // K1b §22 — EI alustaa: Excel-tuonti ei kanna per-mittaus-alustaa (`pv-alusta` on vain pohjageneraattorin
+          // valitsin, ei lueta takaisin; testitulokset-doceissa ei alustakenttää). Sama silmukka tuo myös Moodi B:n
+          // (historiapohja) = monta eri testipäivää → yksi julistettu alusta tageaisi ne VÄÄRIN → valhe-segmentointi.
+          // → jätä alusta null (== vertailukelpoinen, ei regressiota). Aito per-piste-alusta tulee vain Testaus_v9:stä.
           profiiliUpdate.hh_historia = tmHistoriaLisaa(_hhEdell, tmHhSnapshot(pvmIso, {
             hh_taso: hhTaso, d1_taso: profiiliUpdate.d1_taso, d2_taso: profiiliUpdate.d2_taso, hv: hhViimeisin
           }));
@@ -4506,6 +4510,7 @@ window.backfillHistoria = async function(seuraIdArg, dryRun) {
             if (typeof laskeD1Joustava === 'function') { const o = laskeD1Joustava(hv, ika, sp); d1_taso = o ? o.taso : null; }
           }
         }
+        // K1b §22 — EI alustaa: backfill lukee testitulokset-doceja joissa ei ole alustakenttää → null = vertailukelpoinen (ks. online-tuonnin selite yllä).
         hh_historia = tmHistoriaLisaa(hh_historia, tmHhSnapshot(pvm, { hv: hv, hh_taso: hh_taso, d1_taso: d1_taso }));
       }
     });
