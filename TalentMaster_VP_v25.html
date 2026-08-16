@@ -7529,8 +7529,9 @@ function _vpSulkuSeuraava(p, nykyAvain, tulos) {
 
 // ── K2 — Jaksosidos-evidenssi sulkuhetkeen (PUHDAS string-helper, testattava; EI DOM tmKehityskaari(el)). ──
 // "Taipuiko kohdennettu ominaisuus juuri tämän jakson aikana" — window-bounded ennen→jälkeen fokusikkunan yli
-// (tmKaariJaksoSidos, jo olemassa; sama domeeni→avain kuin tmKaariRenderFull:n jaksoHtml: fyysinen→lin30m/1. hh,
-// muu→tki/1. tki). Reuse yli reimplementoinnin — ei omaa delta-laskentaa. §37: kaari = peruste keskusteluun, EI
+// (tmKaariJaksoSidos, jo olemassa): fyysinen→lin30m/1. hh · teknis_taktinen→tki/1. tki · psyykkinen/sosiaalinen→
+// honest-empty-note (TKI ≠ niiden kohdennettu ominaisuus → ei liitetä väärään fokukseen, arvio keskustelussa).
+// Reuse yli reimplementoinnin — ei omaa delta-laskentaa. §37: kaari = peruste keskusteluun, EI
 // arvosana/tuomio. §28: PHV-herkkä avain + pre-PHV → "ennallaan" neutraali (ei epäonnistuminen). §29: vain mitatusta.
 // Palauttaa '' kun: ei libiä/dataa · ei window-sidosta · (fyysinen JA mitattu delta jo näytetty → ei tuplata kahta
 // kilpailevaa ennen→jälkeen-lukua, §0). Aito lisäarvo teknis-taktisilla (TKI-ikkuna, jolla ei muuten mitattua evidenssiä).
@@ -7545,7 +7546,9 @@ function _vpSulkuJaksosidosHTML(p, jakso, opts) {
   var hh = p.hh_historia || [], tki = p.tki_historia || [];
   var key = null, sarja = [];
   if (fyys) { key = K.tmKaariSarja(hh, 'lin30m').length ? 'lin30m' : (K.tmKaariMitatutAvaimet(hh)[0] || null); sarja = key ? K.tmKaariSarja(hh, key) : []; }
-  else { key = K.tmKaariSarja(tki, 'tki').length ? 'tki' : (K.tmKaariMitatutAvaimet(tki)[0] || null); sarja = key ? K.tmKaariSarja(tki, key) : []; }
+  else if (opts.domeeni === 'teknis_taktinen') { key = K.tmKaariSarja(tki, 'tki').length ? 'tki' : (K.tmKaariMitatutAvaimet(tki)[0] || null); sarja = key ? K.tmKaariSarja(tki, key) : []; }
+  // Psyykkinen/sosiaalinen (tai tuntematon domeeni): TKI ei ole kohdennettu ominaisuus → EI numeraalista kaarta (rehellinen note, §37).
+  else return '<div style="background:var(--deep,#1C1C1A);border:.5px solid var(--border);border-radius:10px;padding:13px;margin-bottom:10px"><div style="font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink3);margin-bottom:6px">Jaksosidos</div><div style="font-size:12px;color:var(--ink2)">Tälle jaksolle ei numeraalista kaarta — <b>arvio keskustelussa</b> (§37).</div></div>';
   if (!key || sarja.length < 2) return '';
   var sidos = K.tmKaariJaksoSidos(jakso, key, sarja);
   if (!sidos) return '';
@@ -7553,7 +7556,7 @@ function _vpSulkuJaksosidosHTML(p, jakso, opts) {
   var yks = (typeof K.tmKaariYksikko === 'function') ? K.tmKaariYksikko(key) : '';
   var _fmt = function (x) { return (typeof x === 'number' && isFinite(x)) ? String(Math.round(x * 100) / 100) : String(x == null ? '' : x); };
   var phvNeutraali = !!opts.phvNeutraali && !!_K2_PHV_HERKKA[key];   // §28: PHV-herkkä + pre-PHV → "ennallaan" ei rankaisu
-  var vari = sidos.parani ? '#3DA35D' : (phvNeutraali ? 'var(--ink3)' : 'var(--ink2)');
+  var vari = sidos.parani ? 'var(--teal,#28B090)' : (phvNeutraali ? 'var(--ink3)' : 'var(--ink2)');
   var merkki = sidos.parani ? '✓ taipui jakson aikana' : (phvNeutraali ? '🌱 ennallaan — odotettua (§28)' : '○ ennallaan tässä ikkunassa');
   var h = '<div style="background:var(--deep,#1C1C1A);border:.5px solid var(--border);border-radius:10px;padding:13px;margin-bottom:10px">';
   h += '<div style="font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink3);margin-bottom:6px">Jaksosidos — taipuiko kohdennettu ominaisuus jakson aikana</div>';

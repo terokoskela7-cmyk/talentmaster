@@ -95,6 +95,40 @@ describe('_vpSulkuJaksosidosHTML — honest-empty (§29: vain mitatusta)', () =>
   });
 });
 
+describe('_vpSulkuJaksosidosHTML — psyykkinen/sosiaalinen: TKI ei ole kohdennettu ominaisuus (honest-empty-note)', () => {
+  // TKI-data ON olemassa, mutta domeeni ≠ teknis_taktinen → EI saa liittää TKI-lukua väärään fokukseen.
+  const tkiP = { tki_historia: [{ pvm: '2026-01-01', tki: 70 }, { pvm: '2026-06-01', tki: 80 }] };
+  it('psyykkinen → "arvio keskustelussa" -note, EI TKI-lukua', () => {
+    const h = F(tkiP, JAKSO, { domeeni: 'psyykkinen' });
+    expect(h).toContain('ei numeraalista kaarta');
+    expect(h).toContain('arvio keskustelussa');
+    expect(h).not.toContain('TKI');
+    expect(h).not.toContain('80');
+    expect(h).not.toContain('✓ taipui jakson aikana');
+  });
+  it('sosiaalinen → sama honest-empty-note (ei TKI)', () => {
+    const h = F(tkiP, JAKSO, { domeeni: 'sosiaalinen' });
+    expect(h).toContain('arvio keskustelussa');
+    expect(h).not.toContain('TKI');
+  });
+  it('tuntematon/puuttuva domeeni → honest-empty-note (turvallinen oletus, ei fabrikoi TKI-linkkiä)', () => {
+    expect(F(tkiP, JAKSO, {})).toContain('arvio keskustelussa');
+  });
+  it('teknis_taktinen säilyy TKI-ikkunana (ei regressoitunut noteksi)', () => {
+    const h = F(tkiP, JAKSO, { domeeni: 'teknis_taktinen' });
+    expect(h).toContain('TKI');
+    expect(h).not.toContain('arvio keskustelussa');
+  });
+});
+
+describe('_vpSulkuJaksosidosHTML — teema-token yhtenäisyys (§5)', () => {
+  it('taipui-väri = var(--teal), EI kovakoodattu #3DA35D', () => {
+    const h = F({ tki_historia: [{ pvm: '2026-01-01', tki: 70 }, { pvm: '2026-06-01', tki: 80 }] }, JAKSO, { domeeni: 'teknis_taktinen' });
+    expect(h).toContain('var(--teal,#28B090)');
+    expect(h).not.toContain('#3DA35D');
+  });
+});
+
 describe('K2 wiring — _vpSulkuRender kutsuu helperiä oikeilla argumenteilla', () => {
   it('kutsu fokusikkunalla {alkoi:S.alkoi, paattyi:S.loppu} + domeeni', () => {
     expect(VP).toContain('_vpSulkuJaksosidosHTML(p, { alkoi: S.alkoi, paattyi: S.loppu }, {');
