@@ -98,7 +98,7 @@ describe('render-kytkentä (tmKaariRenderFull/Pelaaja + VP/Pelaaja-triggerit)', 
     expect(src).toContain('!_adarBlokki');                       // tyhjä-tarkistukset
   });
   it('VP-trigger: kaari myös adar-only + ika ctx:iin (§28)', () => {
-    expect(VP).toContain('|| p.adar_viimeisin)) {   // K5a');
+    expect(VP).toContain('|| p.adar_viimeisin');   // löysä: adar-only-trigger olemassa (ehtoa laajennettu K1a:ssa FLEI-only:lla)
     expect(VP).toContain('ika: _ksIsp.ika,');
   });
   it('Pelaaja-trigger: adar-only + ika', () => {
