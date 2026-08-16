@@ -7527,6 +7527,49 @@ function _vpSulkuSeuraava(p, nykyAvain, tulos) {
   return eri.length ? eri[0] : (ehd.length ? ehd[0] : null);
 }
 
+// ── K2 — Jaksosidos-evidenssi sulkuhetkeen (PUHDAS string-helper, testattava; EI DOM tmKehityskaari(el)). ──
+// "Taipuiko kohdennettu ominaisuus juuri tämän jakson aikana" — window-bounded ennen→jälkeen fokusikkunan yli
+// (tmKaariJaksoSidos, jo olemassa): fyysinen→lin30m/1. hh · teknis_taktinen→tki/1. tki · psyykkinen/sosiaalinen→
+// honest-empty-note (TKI ≠ niiden kohdennettu ominaisuus → ei liitetä väärään fokukseen, arvio keskustelussa).
+// Reuse yli reimplementoinnin — ei omaa delta-laskentaa. §37: kaari = peruste keskusteluun, EI
+// arvosana/tuomio. §28: PHV-herkkä avain + pre-PHV → "ennallaan" neutraali (ei epäonnistuminen). §29: vain mitatusta.
+// Palauttaa '' kun: ei libiä/dataa · ei window-sidosta · (fyysinen JA mitattu delta jo näytetty → ei tuplata kahta
+// kilpailevaa ennen→jälkeen-lukua, §0). Aito lisäarvo teknis-taktisilla (TKI-ikkuna, jolla ei muuten mitattua evidenssiä).
+function _vpSulkuJaksosidosHTML(p, jakso, opts) {
+  opts = opts || {};
+  var _K2_PHV_HERKKA = { lin30m: 1, lin10m: 1, lin5m: 1, cmj: 1, mas: 1, kasirata: 1, sm_juoksu: 1 };   // §28 PHV-herkät (yhtenevä lib PHV_HERKKA)
+  var esc = (typeof opts.esc === 'function') ? opts.esc : function (s) { return String(s == null ? '' : s); };
+  var K = window.TM_KEHITYSKAARI;
+  if (!K || !p || !jakso) return '';
+  var fyys = opts.domeeni === 'fyysinen';
+  if (fyys && opts.fyysDeltaNaytetty) return '';   // fyysinen mitattu delta on jo omassa lohkossaan → ei toista lukua (§0)
+  var hh = p.hh_historia || [], tki = p.tki_historia || [];
+  var key = null, sarja = [];
+  if (fyys) { key = K.tmKaariSarja(hh, 'lin30m').length ? 'lin30m' : (K.tmKaariMitatutAvaimet(hh)[0] || null); sarja = key ? K.tmKaariSarja(hh, key) : []; }
+  else if (opts.domeeni === 'teknis_taktinen') { key = K.tmKaariSarja(tki, 'tki').length ? 'tki' : (K.tmKaariMitatutAvaimet(tki)[0] || null); sarja = key ? K.tmKaariSarja(tki, key) : []; }
+  // Psyykkinen/sosiaalinen (tai tuntematon domeeni): TKI ei ole kohdennettu ominaisuus → EI numeraalista kaarta (rehellinen note, §37).
+  else return '<div style="background:var(--deep,#1C1C1A);border:.5px solid var(--border);border-radius:10px;padding:13px;margin-bottom:10px"><div style="font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink3);margin-bottom:6px">Jaksosidos</div><div style="font-size:12px;color:var(--ink2)">Tälle jaksolle ei numeraalista kaarta — <b>arvio keskustelussa</b> (§37).</div></div>';
+  if (!key || sarja.length < 2) return '';
+  var sidos = K.tmKaariJaksoSidos(jakso, key, sarja);
+  if (!sidos) return '';
+  var nimi = (typeof K.tmKaariNimi === 'function') ? K.tmKaariNimi(key) : key;
+  var yks = (typeof K.tmKaariYksikko === 'function') ? K.tmKaariYksikko(key) : '';
+  var _fmt = function (x) { return (typeof x === 'number' && isFinite(x)) ? String(Math.round(x * 100) / 100) : String(x == null ? '' : x); };
+  var phvNeutraali = !!opts.phvNeutraali && !!_K2_PHV_HERKKA[key];   // §28: PHV-herkkä + pre-PHV → "ennallaan" ei rankaisu
+  var vari = sidos.parani ? 'var(--teal,#28B090)' : (phvNeutraali ? 'var(--ink3)' : 'var(--ink2)');
+  var merkki = sidos.parani ? '✓ taipui jakson aikana' : (phvNeutraali ? '🌱 ennallaan — odotettua (§28)' : '○ ennallaan tässä ikkunassa');
+  var h = '<div style="background:var(--deep,#1C1C1A);border:.5px solid var(--border);border-radius:10px;padding:13px;margin-bottom:10px">';
+  h += '<div style="font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink3);margin-bottom:6px">Jaksosidos — taipuiko kohdennettu ominaisuus jakson aikana</div>';
+  h += '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><span style="font-size:12px;color:var(--ink2)">' + esc(nimi) + '</span>'
+    + '<span style="font-family:\'Cormorant Garamond\',serif;font-size:22px;color:var(--ink3)">' + _fmt(sidos.ennen) + esc(yks) + '</span><span style="color:var(--ink3)">→</span>'
+    + '<span style="font-family:\'Cormorant Garamond\',serif;font-size:22px;color:' + vari + '">' + _fmt(sidos.jalkeen) + esc(yks) + '</span>'
+    + '<span style="font-size:12px;color:' + vari + ';font-weight:600">' + esc(merkki) + '</span></div>';
+  h += '<div style="font-size:10.5px;color:var(--ink3);margin-top:4px">ennen fokusikkunaa → ensimmäinen mittaus ikkunan jälkeen · <span style="font-style:italic">peruste keskusteluun, ei arvosana (§37)</span></div>';
+  h += '</div>';
+  return h;
+}
+window._vpSulkuJaksosidosHTML = _vpSulkuJaksosidosHTML;
+
 function _vpSulkuRender() {
   const S = window._vpSulkuTila; if (!S) return;
   const esc = _jsvEsc, p = S.p, jf = S.jf;
@@ -7580,6 +7623,15 @@ function _vpSulkuRender() {
     }
     if (_phvPortti.neutraali) h += '<div style="display:flex;gap:9px;align-items:flex-start;background:rgba(224,160,64,.08);border:.5px solid rgba(224,160,64,.3);border-radius:8px;padding:9px 11px;margin-top:10px"><span style="font-size:15px">🌱</span><span style="font-size:11.5px;color:var(--ink2)"><b style="color:var(--amber)">PHV-vaihe (§28):</b> nopeus-/voimakehitys ennen kasvupyrähdystä on rajallista — <b>”ennallaan” on biologisesti odotettua</b>, ei epäonnistuminen.</span></div>';
     h += '</div>';
+  }
+  // K2 — Jaksosidos-evidenssi: taipuiko kohdennettu ominaisuus fokusikkunan aikana (§29/§37/§28). Reuse
+  // tmKaariJaksoSidos. Fyysinen mitattu delta (yllä) omistaa fyysisen luvun → jaksosidos ei tuplaa; teknis-taktisilla TKI-ikkuna.
+  if (!S.lataa) {
+    const _jsidos = _vpSulkuJaksosidosHTML(p, { alkoi: S.alkoi, paattyi: S.loppu }, {
+      esc: esc, domeeni: jf.domeeni, fyysDeltaNaytetty: !!(_fyys && _delta),
+      phvNeutraali: (typeof onNeutraaliPrePHV === 'function') ? onNeutraaliPrePHV(p) : false
+    });
+    if (_jsidos) h += _jsidos;
   }
   // Kaksi näkökulmaa (itsearvio + aikuisarvio)
   h += '<div style="background:var(--deep,#1C1C1A);border:.5px solid var(--border);border-radius:10px;padding:13px;margin-bottom:10px">';
