@@ -5597,6 +5597,64 @@ function _vpTyopoytaJaksofokusHTML(p) {
 // P4a.1 — KEHITYSSUUNNITELMA-HAITARI: kausitavoite (TASO 1) · jaksofokus (TASO 2) · kehityskaari (TASO 3) yhteen
 // progressiiviseen haitariin. Suljettu rivi = 1-rivin yhteenveto + tila-chip; klikkaus togglaa OMAN rivin (useampi
 // voi olla auki). Bodyt = olemassaolevat renderöijät sellaisenaan (ei uutta dataa/logiikkaa). IDP-hierarkia näkyväksi.
+// ── K3 — Kohdennetun ominaisuuden MITATTU kaari (siru + jaksosidos-delta). Domeeni→sarja SAMA mappaus kuin K2
+// (_vpSulkuJaksosidosHTML): fyysinen→lin30m/1. hh · teknis_taktinen→tki/1. tki · psyykkinen/sosiaalinen/tuntematon →
+// EI mitattavaa (TKI ≠ niiden kohdennettu ominaisuus → honest-empty, ei fabrikoida). Reuse lib: tmKaariSarja/Siru/
+// Suunta/JaksoSidos/Nimi. §7.22: VP/valmentaja-näkymä → mitatut trendit sallittuja (pelaajapinta = K4). §28/§37 kuten K2.
+function _vpKohdennettuSarja(p, domeeni) {
+  const K = window.TM_KEHITYSKAARI;
+  if (!K || !p) return { mitattava: false };
+  const hh = p.hh_historia || [], tki = p.tki_historia || [];
+  let key = null, sarja = [];
+  if (domeeni === 'fyysinen') { key = K.tmKaariSarja(hh, 'lin30m').length ? 'lin30m' : (K.tmKaariMitatutAvaimet(hh)[0] || null); sarja = key ? K.tmKaariSarja(hh, key) : []; }
+  else if (domeeni === 'teknis_taktinen') { key = K.tmKaariSarja(tki, 'tki').length ? 'tki' : (K.tmKaariMitatutAvaimet(tki)[0] || null); sarja = key ? K.tmKaariSarja(tki, key) : []; }
+  else return { mitattava: false };   // psyykkinen/sosiaalinen/tuntematon → ei numeraalista kaarta
+  return { mitattava: true, key: key, sarja: sarja, nimi: key ? K.tmKaariNimi(key) : null };
+}
+// K3 (A) — Aloitus-siru: kohdennetun ominaisuuden kompakti mittaustrendi fokus-heroon. Vain kun ≥2 mitattua pistettä;
+// ei-mitattava domeeni / <2 pistettä → '' (ei fabrikoida, ei "ei dataa"-melua narratiiviin).
+function _vpAloitusSiruHTML(p) {
+  const K = window.TM_KEHITYSKAARI, jf = p && p.jaksofokus;
+  if (!K || !jf || !jf.konsepti_nimi) return '';
+  const r = _vpKohdennettuSarja(p, jf.domeeni || 'teknis_taktinen');
+  if (!r.mitattava || r.sarja.length < 2) return '';
+  const s = K.tmKaariSuunta(r.key, r.sarja);
+  const nu = s.parani === true ? { m: '↑', c: 'var(--teal,#28B090)' } : { m: (s.suunta === 'flat' ? '→' : '↓'), c: 'var(--ink3)' };
+  return '<div style="display:flex;align-items:center;gap:7px;margin-top:8px">'
+    + '<span style="font-size:9.5px;color:var(--ink3);font-family:var(--font-mono),monospace;text-transform:uppercase;letter-spacing:.04em">' + _jsvEsc(r.nimi) + '</span>'
+    + K.tmKaariSiru(r.sarja, 72, 18)
+    + '<span style="font-size:11px;font-weight:600;color:' + nu.c + '">' + nu.m + '</span>'
+    + '<span style="font-size:9px;color:var(--ink3)">mitattu trendi (§26)</span></div>';
+}
+// K3 (B) — Kehitys-evidenssi (jfBody, TASO 2): kohdennetun ominaisuuden mini-kaari (siru) + jaksosidos-delta
+// (taipuiko juuri tämän jakson aikana). Ikkuna = _vpSulkuJaksovali(jf) (sama kuin K2). §28: PHV-herkkä + pre-PHV →
+// "ennallaan" neutraali. §37: peruste keskusteluun, ei arvosana. Ei-mitattava domeeni → honest-empty-note (ei TKI).
+function _vpJfEvidenssiHTML(p) {
+  const K = window.TM_KEHITYSKAARI, jf = p && p.jaksofokus;
+  if (!K || !jf || !jf.konsepti_nimi) return '';
+  const esc = _jsvEsc, dom = jf.domeeni || 'teknis_taktinen';
+  const wrap = function (inner) { return '<div style="background:var(--deep,#1C1C1A);border:.5px solid var(--border);border-radius:10px;padding:12px;margin-top:10px"><div style="font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink3);margin-bottom:6px">Kohdennetun ominaisuuden kaari (mitattu)</div>' + inner + '</div>'; };
+  const r = _vpKohdennettuSarja(p, dom);
+  if (!r.mitattava) return wrap('<div style="font-size:12px;color:var(--ink2)">Tälle domeenille ei numeraalista kaarta — <b>arvio katselmuksessa</b> (§37).</div>');
+  if (r.sarja.length < 2) return wrap('<div style="font-size:12px;color:var(--ink3)">' + esc(r.nimi) + ' — kaari täyttyy 2. mittauksesta (§29).</div>');
+  const _fmt = function (x) { return (typeof x === 'number' && isFinite(x)) ? String(Math.round(x * 100) / 100) : String(x == null ? '' : x); };
+  const s = K.tmKaariSuunta(r.key, r.sarja);
+  const nu = s.parani === true ? { m: '↑ paranee', c: 'var(--teal,#28B090)' } : { m: (s.suunta === 'flat' ? '→ ennallaan' : '↓ heikkeni'), c: 'var(--ink3)' };
+  let inner = '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span style="font-size:11px;color:var(--ink2)">' + esc(r.nimi) + '</span>' + K.tmKaariSiru(r.sarja, 88, 20) + '<span style="font-size:11.5px;font-weight:600;color:' + nu.c + '">' + nu.m + '</span></div>';
+  const vali = (typeof _vpSulkuJaksovali === 'function') ? _vpSulkuJaksovali(jf) : { alkoi: jf.alkoi ? String(jf.alkoi).slice(0, 10) : null, loppu: null };
+  const sidos = vali.alkoi ? K.tmKaariJaksoSidos({ alkoi: vali.alkoi, paattyi: vali.loppu }, r.key, r.sarja) : null;
+  if (sidos) {
+    const phvHerkka = { lin30m: 1, lin10m: 1, lin5m: 1, cmj: 1, mas: 1, kasirata: 1, sm_juoksu: 1 };
+    const neutr = !!phvHerkka[r.key] && (typeof onNeutraaliPrePHV === 'function' ? onNeutraaliPrePHV(p) : false);
+    const vari = sidos.parani ? 'var(--teal,#28B090)' : (neutr ? 'var(--ink3)' : 'var(--ink2)');
+    const mk = sidos.parani ? '✓ taipui jakson aikana' : (neutr ? '🌱 ennallaan — odotettua (§28)' : '○ ennallaan tässä ikkunassa');
+    inner += '<div style="font-size:11px;color:var(--ink3);margin-top:6px">Jaksosidos: <span style="color:var(--ink2)">' + _fmt(sidos.ennen) + '→' + _fmt(sidos.jalkeen) + '</span> <span style="color:' + vari + ';font-weight:600">' + mk + '</span> · <span style="font-style:italic">peruste keskusteluun, ei arvosana (§37)</span></div>';
+  } else {
+    inner += '<div style="font-size:10.5px;color:var(--ink3);margin-top:6px">Jaksosidos: delta näkyy kun jakson sisällä on ≥2 mittausta (§29).</div>';
+  }
+  return wrap(inner);
+}
+
 function _vpKehSuunnitelmaHTML(p, opts) {
   const esc = _jsvEsc, pid = esc(p.id);
   // R4 (Kehitys v2) — TASO 2 inline-focal editori vain interaktiivisessa per-pelaaja-työpöydässä (oletus). Pelaaja-
@@ -5636,15 +5694,17 @@ function _vpKehSuunnitelmaHTML(p, opts) {
     ? ((typeof _vpJfInlineHTML === 'function') ? _vpJfInlineHTML(p) : '')
     : (jfNimi ? (typeof _vpTyopoytaJaksofokusHTML === 'function' ? _vpTyopoytaJaksofokusHTML(p) : '')
       : '<div style="padding:6px 0"><button class="jsp-kt-btn primary" onclick="event.stopPropagation();_jfOhjaa(\'' + pid + '\')">＋ Aseta jaksofokus</button><div style="font-family:var(--font-sans),\'DM Sans\',sans-serif;font-size:11px;color:var(--ink3);margin-top:6px">Nelikulmamalli: fyysinen · teknis-taktinen · henkinen · sosiaalinen.</div></div>');
-  h += row('_accJaksofokus', '📍', 'TASO 2 · TÄMÄ JAKSO · MESO 4–8 VK', 'Jaksofokus' + ((typeof window._tmIBtn === 'function') ? window._tmIBtn('idp_jaksofokus') : ''), jfSum, jfChip, jfNimi && !jfUmp, jfBody, _inlineEditori);
-  // ── TASO 3 · Kehityskaari (historia): tavoitteen review-sykli + suljetut jaksofokus-jaksot (meso). ──
+  const jfEvid = jfNimi && typeof _vpJfEvidenssiHTML === 'function' ? _vpJfEvidenssiHTML(p) : '';   // K3 (B) — kohdennetun ominaisuuden mini-kaari + jaksosidos-delta
+  h += row('_accJaksofokus', '📍', 'TASO 2 · TÄMÄ JAKSO · MESO 4–8 VK', 'Jaksofokus' + ((typeof window._tmIBtn === 'function') ? window._tmIBtn('idp_jaksofokus') : ''), jfSum, jfChip, jfNimi && !jfUmp, jfBody + jfEvid, _inlineEditori);
+  // ── TASO 3 · Jaksohistoria (meso-historia): tavoitteen review-sykli + suljetut jaksofokus-jaksot. K3 nimikorjaus:
+  // "Jaksohistoria" ≠ Mittauksen kehityskaari (tmKaariRenderFull) — eri asia, ei sekoiteta. Vain label/kommentit. ──
   const kaari = (t && typeof _vpKehityskaariHTML === 'function') ? _vpKehityskaariHTML(t, pid) : '';
   const meso = (typeof _vpMesoKaariHTML === 'function') ? _vpMesoKaariHTML(p) : '';
   const nRev = (t && Array.isArray(t.arviot)) ? t.arviot.length : 0;
   const nHist = Array.isArray(p.jaksofokus_historia) ? p.jaksofokus_historia.length : 0;
   const kaariSum = (nRev || nHist) ? [nRev ? nRev + ' review' : '', nHist ? nHist + ' suljettua jaksoa' : ''].filter(Boolean).join(' · ') : 'ei vielä historiaa';
   const kaariBody = (kaari || meso) ? (kaari + meso) : '<div style="font-family:var(--font-sans),\'DM Sans\',sans-serif;font-size:12px;color:var(--ink3);padding:6px 0">Historia täyttyy kun tavoitteita reviewataan ja jaksoja suljetaan.</div>';
-  h += row('_accKaari', '🗺', 'TASO 3 · HISTORIA', 'Kehityskaari', kaariSum, null, false, kaariBody, false);
+  h += row('_accKaari', '🗺', 'TASO 3 · HISTORIA', 'Jaksohistoria', kaariSum, null, false, kaariBody, false);   // K3 nimikorjaus (ent. "Kehityskaari" → törmäsi Mittauksen kaareen)
   return h;
 }
 // P1 — Pelaajan ääni (Kimin lämpö): "Miksi pelaan?" (kursiivi-serif) + "Minkälainen pelaaja haluan olla?".
@@ -5765,6 +5825,7 @@ function _vpAloitusJaksofokusHTML(p) {
     const _knNimi = (function (s) { s = String(s || ''); return (s && s === s.toUpperCase() && s !== s.toLowerCase()) ? (s.charAt(0).toUpperCase() + s.slice(1).toLowerCase()) : s; })(jf.konsepti_nimi);
     h += '<div class="idp-konsepti">' + esc(_knNimi) + '</div>'
       + '<div style="font-size:10.5px;color:var(--ink2);font-family:var(--font-mono);margin-top:5px">' + esc(domLbl) + ' · kesto ' + (jf.kesto_vk || 4) + ' vk' + (_nTav > 1 ? ' · ' + _nTav + ' tavoitetta' : '') + (_ump ? ' · <span style="color:var(--amber)">🟠 umpeutunut</span>' : '') + '</div>';
+    if (typeof _vpAloitusSiruHTML === 'function') h += _vpAloitusSiruHTML(p);   // K3 (A) — kohdennetun ominaisuuden mitattu trendi-siru (§26)
   } else {
     h += '<div style="font-size:13px;color:var(--ink3);font-style:italic">Aseta jaksofokus Kehityksessä — silta ehdottaa datasta.</div>';
   }
@@ -5808,7 +5869,7 @@ function _vpAloitusKaariHTML(p, ika) {
     + (tavNimi ? '<b>' + esc(tavNimi) + '</b>' + (f && f.dim ? '<span class="s">' + esc(f.dim) + '</span>' : '') : '<span style="color:var(--ink3)">— ei asetettu</span>') + '</span></div>';
   rows += '<div class="idp-kaari-row"><span class="kk">Jaksofokus · nyt</span><span class="kv">'
     + (jf && jf.konsepti_nimi ? '<b>' + esc(sc(jf.konsepti_nimi)) + '</b><span class="s">yksi prioriteetti (ILP)</span>' : '<span style="color:var(--ink3)">— ei fokusta</span>') + '</span></div>';
-  rows += '<div class="idp-kaari-row"><span class="kk">Kehityskaari</span><span class="kv">'
+  rows += '<div class="idp-kaari-row"><span class="kk">Jaksohistoria</span><span class="kv">'   // K3 nimikorjaus (meso-historia, ei Mittauksen kaari)
     + (hist.length ? '<b>' + hist.length + ' suljettua jaksoa</b><span class="s">' + esc(hist.slice(-3).map(function (h) { return sc((h && h.konsepti_nimi) || 'jakso'); }).join(' · ')) + '</span>' : '<span style="color:var(--ink3)">ei suljettuja jaksoja vielä</span>') + '</span></div>';
   // Seuraava katselmus — EPPP-kausirytmi (≥12 v 6 vk · 9–11 v 12 vk, sama kuin Seuranta-cockpit). arvio_pvm jos on.
   const ar = t && t.aikaraami;
