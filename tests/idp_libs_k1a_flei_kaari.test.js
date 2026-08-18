@@ -46,9 +46,11 @@ describe('kytkentä tmKaariRenderFull:iin', () => {
     const full = L.tmKaariRenderFull({ flei_historia: [{ flei: 55 }, { flei: 62 }], hh_historia: [{ pvm: '2026-01-01', lin30m: 5.0 }, { pvm: '2026-06-01', lin30m: 4.8 }] }, { esc });
     expect(full).toContain('Kehon valmius · FLEI');
   });
-  it('§7.22 — tmKaariRenderPelaaja EI sisällä FLEI-blokkia (pelaajapinta ennallaan, K4 hoitaa variantin)', () => {
+  it('§7.22 — tmKaariRenderPelaaja EI vuoda VP-FLEI-blokin muotoa (raakaluvut/· FLEI/amber); §7.22-variantti = K4', () => {
     const pel = L.tmKaariRenderPelaaja({ flei_historia: [{ flei: 55 }, { flei: 62 }] }, { esc });
-    expect(pel).not.toContain('Kehon valmius · FLEI');
+    expect(pel).not.toContain('Kehon valmius · FLEI');   // VP-otsikko (luvut) EI pelaajalle
+    expect(pel).not.toContain('55→62');                   // ei raakalukuja pelaajapinnalle
+    expect(pel).not.toContain('var(--amber');             // ei amberia pelaajan kaareen (K4 §7.22-turva)
   });
 });
 
