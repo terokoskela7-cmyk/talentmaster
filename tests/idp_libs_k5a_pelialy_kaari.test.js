@@ -120,6 +120,6 @@ describe('kaappaus (adar_edellinen, §29 pvm-vahti — ei clobbaa uudelleenlaske
     expect(PIKAKORTTI).toContain('await _pRef.set(_adarSet, { merge: true });');
   });
   it('SW-cache nostettu (§27, Pelaaja-app muuttui)', () => {
-    expect(readFileSync(join(__dir, '..', 'sw_pelaaja.js'), 'utf8')).toContain("const CACHE = 'tm-pelaaja-v11';");
+    expect(readFileSync(join(__dir, '..', 'sw_pelaaja.js'), 'utf8')).toMatch(/const CACHE = 'tm-pelaaja-v(1[1-9]|[2-9]\d)';/);   // ≥v11 (löysä: kestää tulevat cache-bumpit, esim. i18n V0 → v12)
   });
 });

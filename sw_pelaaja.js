@@ -8,7 +8,7 @@
    - Omat JS-moduulit + manifest + ikonit + versioidut fontit/SDK → cache-first.
    - KAIKKI muu (toisten appien sivut, raw.githubusercontent, jne.) → suoraan verkkoon, EI cachea.
    Scopea ei voi kaventaa (SW juuressa) → allowlist hoitaa rajaamisen. CLAUDE.md §27.4. */
-const CACHE = 'tm-pelaaja-v11';
+const CACHE = 'tm-pelaaja-v12';   // i18n V0 — HTML lisäsi lib/tm_lang.js-script-tagin (§27.4 cache-bump)
 const SHELL = '/talentmaster/TalentMaster_Pelaaja_v7.html';
 // VAIN oma shell — JS-moduulit ovat ?v=-versioituja (bare-polku ei matchaisi), allowlist cachettaa ne
 // pyydettäessä. (Vanha PRECACHE viittasi /talentmaster/tm_eerikkila_normit.js → 404, jota Pelaaja ei lataa
@@ -61,6 +61,7 @@ function onAllowlist(url) {
   if (url.indexOf('/talentmaster/lib/tm-microcycles.js') !== -1) return true;
   if (url.indexOf('/talentmaster/lib/tm_eerikkila_normit.js') !== -1) return true;
   if (url.indexOf('/talentmaster/lib/tm_idp.js') !== -1) return true;   // 3c-a pelaajan aikajana
+  if (url.indexOf('/talentmaster/lib/tm_lang.js') !== -1) return true;   // i18n V0 — käännöstaulukko offline-cacheen
   if (url.indexOf('/talentmaster/lib/tm_teknistaktiset.js') !== -1) return true;   // 4b pelaajan cue-kerros
   if (url.indexOf('/talentmaster/docs/testit_indeksit.js') !== -1) return true;
   if (url.indexOf('gstatic.com/firebasejs/') !== -1) return true;         // Firebase SDK (versioitu URL)
