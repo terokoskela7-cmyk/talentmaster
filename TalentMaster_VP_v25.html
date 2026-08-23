@@ -11995,6 +11995,7 @@ function avaaCoachPanel(id) {
         '<div class="cm-header-left"><div class="cm-avatar">' + initials + '</div><div><div class="cm-name">' + nim + '</div><div class="cm-meta">' + rooliLabel + ' · ' + (v.joukkue||'—') + '</div></div></div>' +
         '<button class="cm-close" onclick="suljePaneeli()">×</button>' +
       '</div>' +
+      '<div id="cmKehityskortti" style="padding:0 18px"><div style="font-size:12px;color:var(--ink3);padding:10px 0">Valmentajan kehityskaari ladataan…</div></div>' +   // Briiffi 2 — Oura-kehityskortti (synteesi)
       '<div class="cm-tabs">' +
         '<button class="cm-tab active" onclick="_cmTab(0)">Profiili</button>' +
         '<button class="cm-tab" onclick="_cmTab(1)">VAI+</button>' +
@@ -12055,6 +12056,62 @@ function _cmAdarCpdHTML(k) {
     + (k.datataso === 'lahtopiste' ? '<div style="font-size:10px;color:var(--ink3);margin-top:6px">Yksi kausi — suunta näkyy 2. kaudesta.</div>' : '');
 }
 
+// Briiffi 2 — Valmentajan Oura-kehityskortti (PUHDAS string-helper): yksi tila-rengas (EI numeroa/arvosanaa) →
+// kontribuuttorit (tila + suunta + sparkline) → yksi jaksofokus. Synteesi olemassa olevista paloista (reuse
+// laskeValmentajaHarjoitusKooste · harjoitusKalibraatioHistoria · tmValmennusKaari · tmKaariSiru). Aikuisen
+// ammatillista dataa: kehittävä, EI rankaiseva — ei sijoitusta/arvosanaa/punaista; poikkeama = keskustelunavaus.
+// Teal ainoa aksentti, molemmat teemat (var-tokenit), 0 pinkkiä. valmKaari voi olla null (peliäly kertyy myöhemmin).
+function _cmKehityskorttiHTML(arvioinnit, valmKaari, uid) {
+  var esc = _jsvEsc, K = window.TM_KEHITYSKAARI;
+  var siru = function (s) { return (K && typeof K.tmKaariSiru === 'function' && s && s.length >= 2) ? K.tmKaariSiru(s, 72, 16) : ''; };
+  var kooste = (typeof laskeValmentajaHarjoitusKooste === 'function') ? laskeValmentajaHarjoitusKooste(arvioinnit || []) : {};
+  var kalibMap = (typeof harjoitusKalibraatioHistoria === 'function') ? harjoitusKalibraatioHistoria(arvioinnit || []) : {};
+  var kalib = kalibMap[uid] || null;
+  // Sparkline-sarjat: harjoituslaatu (A-overall ajassa) · kalibraatiokuilu (trendi) · peliäly-kalibraatio (ikkunat).
+  var aS = (arvioinnit || []).filter(function (a) { return a.malli === 'palloliitto' && a.pvm; }).sort(function (x, y) { return String(x.pvm).localeCompare(String(y.pvm)); })
+    .map(function (a) { return { arvo: (typeof laskeHarjoituslaatuPalloliitto === 'function') ? laskeHarjoituslaatuPalloliitto(a.vastaukset).ka_0_10 : null }; }).filter(function (p) { return p.arvo != null; });
+  var kalS = (kalib && kalib.trendi) ? kalib.trendi.map(function (t) { return { arvo: t.kuilu }; }) : [];
+  var vkS = (valmKaari && valmKaari.kalibraatio) ? valmKaari.kalibraatio.map(function (kk) { return { arvo: kk.arvo }; }) : [];
+  var hlOn = (kooste.harjoituslaatu_n || 0) > 0 || (kooste.valmennustaito_n || 0) > 0;
+  var kalOn = !!kalib;
+  var vkOn = !!(valmKaari && valmKaari.datataso && valmKaari.datataso !== 'tyhja');
+  var dataN = (hlOn ? 1 : 0) + (kalOn ? 1 : 0) + (vkOn ? 1 : 0);
+  var vkKaventuu = !!(valmKaari && valmKaari.kalibraatio && valmKaari.kalibraatio.length >= 2 && valmKaari.kalibraatio[valmKaari.kalibraatio.length - 1].arvo < valmKaari.kalibraatio[0].arvo);
+  // Tila-rengas: SANALLINEN (ei numeroa/arvosanaa). Linjassa jos kalibraatio linjassa/kaventuu; muuten Kehittyy; tyhjä → Kerää dataa.
+  var linjassa = (kalib && (kalib.suunta === 'linjassa' || kalib.kaventuu === true)) || vkKaventuu;
+  var tila = dataN === 0 ? 'Kerää dataa' : (linjassa ? 'Linjassa' : 'Kehittyy');
+  var tilaVari = dataN === 0 ? 'var(--ink3,#8C8B86)' : 'var(--teal,#28B090)';
+  var C = 163.36, dash = Math.round(C * (dataN / 3) * 10) / 10;   // kaari = data-kattavuus (EI arvosana)
+  var rengas = '<svg width="72" height="72" viewBox="0 0 72 72" style="flex:0 0 auto">'
+    + '<circle cx="36" cy="36" r="26" fill="none" stroke="var(--border)" stroke-width="6"/>'
+    + '<circle cx="36" cy="36" r="26" fill="none" stroke="' + tilaVari + '" stroke-width="6" stroke-linecap="round" stroke-dasharray="' + dash + ' ' + C + '" transform="rotate(-90 36 36)"/>'
+    + '<text x="36" y="34" text-anchor="middle" font-size="8" fill="var(--ink3,#8C8B86)">tila</text>'
+    + '<text x="36" y="46" text-anchor="middle" font-size="10" font-weight="600" fill="' + tilaVari + '">' + esc(tila) + '</text></svg>';
+  var rivi = function (ik, nimi, on, txt, spark) {
+    return '<div style="display:flex;align-items:center;gap:9px;padding:6px 0;border-top:.5px solid var(--border)">'
+      + '<span style="flex:0 0 auto;font-size:13px;opacity:' + (on ? '1' : '.4') + '">' + ik + '</span>'
+      + '<span style="flex:0 0 108px;font-size:11px;color:' + (on ? 'var(--ink2)' : 'var(--ink3)') + '">' + esc(nimi) + '</span>'
+      + '<span style="flex:0 0 auto">' + (on ? spark : '') + '</span>'
+      + '<span style="flex:1;font-size:11px;color:' + (on ? 'var(--ink2)' : 'var(--ink3)') + ';text-align:right;line-height:1.4">' + esc(txt) + '</span></div>';
+  };
+  var hlUp = aS.length >= 2 && aS[aS.length - 1].arvo > aS[0].arvo;
+  var hlTxt = hlOn ? ((kooste.harjoituslaatu_n || 0) + ' harjoitusarviota' + (aS.length >= 2 ? (hlUp ? ' · nousee ↑' : ' · vakaa →') : '')) : 'kertyy kun arvioit harjoituksia';
+  var kalTxt = kalOn
+    ? (kalib.kaventuu === true ? kalib.n_paria + ' paria · yhteinen kieli tarkentuu ↓' : (kalib.suunta === 'linjassa' ? kalib.n_paria + ' paria · linjassa havainnoijan kanssa' : kalib.n_paria + ' paria · ' + (kalib.suunta === 'yliarvio' ? 'itsearvio korkeammalla' : 'itsearvio matalammalla') + ' — keskustelunavaus'))
+    : 'kertyy vahvistetuista itsearvio↔havainnointi-pareista';
+  var vkTxt = vkOn ? (vkKaventuu ? 'kalibraatio kaventuu ↓' : 'kalibraatio kertyy — keskustelunavaus') : 'kertyy pelihavainnoista ajassa';
+  var jf = (kalib && kalib.suurin_kuilu_kriteeri) ? ((typeof _HL_KRIT_B !== 'undefined' && _HL_KRIT_B[kalib.suurin_kuilu_kriteeri]) || kalib.suurin_kuilu_kriteeri) : null;
+  var h = '<div style="background:var(--card);border:.5px solid var(--border);border-radius:12px;padding:14px 16px;margin:10px 0">'
+    + '<div style="font-size:10px;letter-spacing:.18em;color:var(--teal);text-transform:uppercase;margin-bottom:8px">Valmentajan kehityskaari · kehittävä, ei arvostelu</div>'
+    + '<div style="display:flex;align-items:center;gap:14px;margin-bottom:4px">' + rengas
+    + '<div style="flex:1;min-width:0;font-size:12px;color:var(--ink2);line-height:1.5">Yksi kuva osaamisesi kehityksestä — harjoituslaatu, kalibraatio ja peliäly-havainnointi ajassa. Ei sijoitusta eikä arvosanaa; poikkeama = keskustelun avaus.</div></div>'
+    + rivi('🎯', 'Harjoituslaatu', hlOn, hlTxt, siru(aS))
+    + rivi('⚖️', 'Kalibraatio', kalOn, kalTxt, siru(kalS))
+    + rivi('🧠', 'Peliäly-havainnointi', vkOn, vkTxt, siru(vkS));
+  if (jf) h += '<div style="margin-top:10px;padding:9px 11px;background:rgba(40,176,144,.08);border:.5px solid rgba(40,176,144,.3);border-radius:8px;font-size:12px;color:var(--ink2)"><span style="color:var(--teal);font-weight:600">Jaksofokus:</span> ' + esc(jf) + ' <span style="color:var(--ink3)">— suurin kalibraatioero, hyvä keskustelunavaus</span></div>';
+  else if (dataN) h += '<div style="margin-top:10px;font-size:11px;color:var(--ink3)">Jaksofokus tarkentuu kun kalibraatiopareja on vahvistettu.</div>';
+  return h + '</div>';
+}
 // Coach-paneelin harjoitusarviointi-keskus: lataa valmentajan arvioinnit → historia + harjoituskalibraatio
 async function _cmLataaArvioinnit(uid) {
   var histEl = document.getElementById('cmHarjHist'), kalEl = document.getElementById('cmKalibHarj');
@@ -12081,6 +12138,18 @@ async function _cmLataaArvioinnit(uid) {
         var suuntaTxt = r.suunta === 'yliarvio' ? 'arvioi itsensä korkeammalle' : r.suunta === 'aliarvio' ? 'arvioi itsensä matalammalle' : 'linjassa havainnoijan kanssa';
         kalEl.innerHTML = '<div style="color:var(--ink2)">' + r.n_paria + ' paria · keskikuilu <b>' + r.keskikuilu + '</b>' + (r.kaventuu == null ? '' : (r.kaventuu ? ' · kaventunut ↓' : ' · kasvanut ↑')) + '</div>'
           + '<div style="color:var(--ink3);font-size:11px;margin-top:3px">' + suuntaTxt + (r.suurin_kuilu_kriteeri ? ' · suurin ero: ' + _hlEsc(_HL_KRIT_B[r.suurin_kuilu_kriteeri] || r.suurin_kuilu_kriteeri) + ' (' + (r.suurin_kuilu_arvo > 0 ? '+' : '') + r.suurin_kuilu_arvo + ')' : '') + '</div>';
+      }
+    }
+    // Briiffi 2 — Oura-kehityskortti: synteesi (harjoituslaatu + kalibraatio) heti; peliäly-kontribuuttori päivittyy
+    // kun ADAR-havainnot latautuvat (reuse _lataaKalibHavainnot — sama cachetettu loader kuin K5b, ei tuplakyselyä).
+    var kortEl = document.getElementById('cmKehityskortti');
+    if (kortEl) {
+      kortEl.innerHTML = _cmKehityskorttiHTML(arvioinnit, null, uid);
+      if (typeof _lataaKalibHavainnot === 'function') {
+        _lataaKalibHavainnot().then(function (hav) {
+          var vk = (typeof tmValmennusKaari === 'function') ? tmValmennusKaari(hav || [], { omaUid: uid, vpUid: _uid || null }) : null;
+          var el2 = document.getElementById('cmKehityskortti'); if (el2) el2.innerHTML = _cmKehityskorttiHTML(arvioinnit, vk, uid);
+        }).catch(function () {});
       }
     }
   } catch (e) { if (histEl) histEl.textContent = 'Lataus epäonnistui.'; }
