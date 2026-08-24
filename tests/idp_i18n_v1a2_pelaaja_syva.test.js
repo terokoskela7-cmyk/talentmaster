@@ -57,6 +57,6 @@ describe('V1-A2 irrotus + cache-bust', () => {
   });
   it('tm_lang ?v=3 + SW-cache v14', () => {
     expect(PEL).toContain('lib/tm_lang.js?v=3');
-    expect(readFileSync(join(__dir, '..', 'sw_pelaaja.js'), 'utf8')).toContain("const CACHE = 'tm-pelaaja-v14'");
+    expect(readFileSync(join(__dir, '..', 'sw_pelaaja.js'), 'utf8')).toMatch(/const CACHE = 'tm-pelaaja-v(1[4-9]|[2-9]\d)'/);   // >=v14 (kestaa myohemmat bumpit, esim. S7.22 -> v15)
   });
 });

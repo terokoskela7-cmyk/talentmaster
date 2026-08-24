@@ -462,8 +462,6 @@ input::placeholder,textarea::placeholder{color:#8C8B86;opacity:1}
   <button class="sp on" data-s="pin" onclick="go('pin')">D · PIN</button>
   <button class="sp" data-s="a1" onclick="  if (_onkoSynttari(_pelaaja)) { setTimeout(function(){ _synttariKonfetti(); var el=document.querySelector('.koti-sisalto,#phBody'); if(el&&!el.querySelector('.synttari-banner')) el.insertAdjacentHTML('afterbegin',_synttariBanner(_pelaaja)); },800); }
   go('a1')">A1 Action</button>
-  <button class="sp" data-s="a2" onclick="go('a2')">A2 Signal</button>
-  <button class="sp" data-s="a3" onclick="go('a3')">A3 Grid</button>
   <button class="sp" data-s="train" onclick="go('train')">B · Harjoitus</button>
   <button class="sp" data-s="card" onclick="go('card')">C · Kortti</button>
   <button class="sp" data-s="haptic" onclick="go('haptic')">G · Haptics</button>
@@ -603,8 +601,6 @@ function draw(){
   let html='';
   if(_sc==='pin')        html=rPin();
   else if(_sc==='train') html=rTrain();
-  else if(_sc==='a2')    html=rA2();
-  else if(_sc==='a3')    html=rA3();
   else if(_sc==='haptic')html=rHaptic();
   else if(_sc==='offline')html=rOffline();
   else if(_sc==='parent')html=rParent();
@@ -712,8 +708,7 @@ function rPin(){
     if (vt && vt.idoliNimi) { idolNimi = vt.idoliNimi; idolTeema = vt.teema || idolTeema; }
   } catch(e) { /* fallback */ }
   const idolAlku = (String(idolNimi).trim()[0] || 'B').toUpperCase();
-  const hhTaso = (p && p.hh_taso != null) ? p.hh_taso : '—';
-  const xp = (p && p.xp != null) ? p.xp : '—';
+  // §7.22-korjaus: hhTaso/xp-KPI-arvot poistettu pelaajapinnalta (ei tasolukuja/XP:tä lapselle). Firestore-data ennallaan.
   return `
 <div style="height:100%;overflow-y:auto;display:flex;flex-direction:column;background:#1C1C1A;color:#F2EFE6">
 
@@ -762,17 +757,7 @@ function rPin(){
       <div style="width:40px;height:40px;border:1px solid rgba(40,176,144,.3);display:flex;align-items:center;justify-content:center;font-family:var(--font-d);font-size:20px;color:#28B090;flex-shrink:0">${idolAlku}</div>
     </div>
 
-    <!-- KPI-RIVIT -->
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px">
-      <div style="border:1px solid rgba(242,239,230,.08);padding:10px 12px">
-        <div style="font-family:var(--font-m);font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:rgba(242,239,230,.5)">Taso</div>
-        <div style="font-family:var(--font-d);font-size:20px;color:#F2EFE6;margin-top:2px;line-height:1">${hhTaso}</div>
-      </div>
-      <div style="border:1px solid rgba(242,239,230,.08);padding:10px 12px">
-        <div style="font-family:var(--font-m);font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:rgba(242,239,230,.5)">XP</div>
-        <div style="font-family:var(--font-d);font-size:20px;color:#F2EFE6;margin-top:2px;line-height:1">${xp}</div>
-      </div>
-    </div>
+    <!-- §7.22-korjaus: TASO- ja XP-KPI-ruudut poistettu — tasolukuja (1–5) ja XP:tä EI näytetä lapselle (§22/§16/§7.22). -->
 
     ${_isDemoUser ? `<div style="display:flex;gap:6px;margin-top:14px">
       <button onclick="demoKirjaudu('aleksi')" style="flex:1;background:rgba(40,176,144,.1);border:1px solid rgba(40,176,144,.22);color:#28B090;padding:7px;font-size:10px;font-weight:600;cursor:pointer;letter-spacing:.08em">⚡ ALEKSI DEMO</button>
@@ -1060,75 +1045,7 @@ function rA1(){
 </div>`;
 }
 
-/* A2 – Signal CTA */
-function rA2(){
-  return `
-<div class="scroll" style="background:var(--bg)">
-  ${hdr('A2 Signal = CTA')}
-  <section style="margin:24px 20px 20px;padding:28px 24px 24px;cursor:pointer" class="card-teal" data-train>
-    <div class="ey ac" style="margin-bottom:14px">▸ ${T('today')} · tap to start</div>
-    <div class="sig">${T('streak')}</div>
-    <div style="margin-top:18px;padding-top:14px;border-top:.5px solid rgba(26,122,94,.2);display:flex;justify-content:space-between;align-items:center">
-      <div>
-        <div class="ey" style="letter-spacing:.14em">Nopeusketju · kotona</div>
-        <div style="font-size:12px;color:rgba(242,239,230,.9);margin-top:3px">3 tehtävää · ~5 min · +40 XP</div>
-      </div>
-      <div style="width:44px;height:44px;border-radius:50%;background:var(--teal);display:flex;align-items:center;justify-content:center;box-shadow:0 4px 16px rgba(26,122,94,.35)">${ic('play',18,'#F2EFE6')}</div>
-    </div>
-  </section>
-  <div class="kgrid" style="margin:0 20px">
-    ${[{l:'Streak',v:'12',u:'päivää'},{l:'XP',v:'620',u:'/ 1000'},{l:'Rating',v:'87',u:'+1'}].map(x=>`
-      <div class="kcell">
-        <div class="ey">${x.l}</div>
-        <div class="kpi" style="font-size:26px;margin-top:4px">${x.v}</div>
-        <div class="meta" style="margin-top:2px">${x.u}</div>
-      </div>`).join('')}
-  </div>
-  <div style="padding:20px 20px 0">
-    <div class="card-gold" style="padding:12px 14px;cursor:pointer;display:flex;align-items:center;gap:14px" data-card>
-      <div style="font-family:var(--font-b);font-weight:900;font-size:30px;color:#B8860B">87</div>
-      <div style="flex:1;font-size:12px;color:var(--text)">★ Kortti · DRI +2 tämä viikko</div>
-      ${ic('cR',14,'rgba(184,134,11,.6)')}
-    </div>
-  </div>
-</div>`;
-}
-
-/* A3 – Today Grid */
-function rA3(){
-  return `
-<div class="scroll" style="background:var(--bg)">
-  ${hdr('A3 Today-grid')}
-  <section style="padding:22px 20px 16px">
-    <div class="ey ac" style="margin-bottom:10px">Kehityksen tila</div>
-    <div class="sig">Streak katkeamassa — pidä liekki palamassa.</div>
-  </section>
-  <div style="padding:0 20px;display:grid;grid-template-columns:1fr 1fr;gap:10px">
-    <div style="grid-column:1/3;padding:18px;background:var(--teal);border-radius:12px;cursor:pointer;color:var(--text);display:flex;align-items:center;gap:14px" data-train>
-      ${ic('play',22)}
-      <div>
-        <div class="ey" style="opacity:.75">Nyt</div>
-        <div style="font-family:var(--font-d);font-weight:400;font-size:19px;margin-top:2px">Nopeusketju · 5 min</div>
-      </div>
-      <div style="margin-left:auto;font-family:var(--font-m);font-size:11px;opacity:.8">+40 XP</div>
-    </div>
-    ${[{e:'Joukkue',t:'Ti 18:30',s:'Töölö',i:'users'},{e:'Testit',t:'CMJ avoinna',s:'Mittaa',i:'zap'},{e:'Oma',t:'Pihalla tänään?',s:'Kirjaa mitä teit',i:'user',s_:'vapaa'},{e:'Haaste',t:'1 uusi saapui',s:'Joonas haastoi',i:'flame',s_:'haaste'}].map(x=>`
-      <div class="card" style="padding:14px;display:flex;flex-direction:column;gap:4px;min-height:90px${x.s_?';cursor:pointer':''}" ${x.s_?`onclick="go('${x.s_}')"`:''}>
-        ${ic(x.i,16,'#8BA0BC')}
-        <div class="ey" style="margin-top:6px;letter-spacing:.2em">${x.e}</div>
-        <div style="font-size:13px;color:var(--text);font-weight:500">${x.t}</div>
-        <div class="meta">${x.s}</div>
-      </div>`).join('')}
-    <div class="card-gold" style="border-radius:var(--r-md);padding:14px;cursor:pointer;display:flex;flex-direction:column;gap:4px" data-card>
-      ${ic('star',16,'#B8860B')}
-      <div class="ey" style="color:rgba(184,134,11,.8);margin-top:6px;letter-spacing:.2em">★ Kortti</div>
-      <div style="font-family:var(--font-b);font-weight:900;font-size:26px;color:#B8860B;line-height:1">87</div>
-      <div class="meta">+1 · Elite</div>
-    </div>
-  </div>
-</div>`;
-}
-
+/* rA2/rA3-devstubit (A2 Signal / A3 Grid) poistettu §7.22: design-vertailunäkymiä, ei pelaajan polulla, sisälsivät XP-kieltä ("+40 XP") + kortti-OVR-teasereita. */
 
 /* JOUKKUE-tab */
 function rJoukkue(){
@@ -1249,7 +1166,7 @@ function rKortti(){
     <div class="ey ac" style="margin-bottom:10px">TILASTOT</div>
     ${[
       {l:'Streak',      v:(_streak||0)+' pv'},
-      {l:'Taso',        v:p?.taso||1},
+      // §7.22-korjaus: 'Taso' (p.taso = XP-taso) poistettu — ei tasolukua/XP-progressiota lapselle.
       {l:'Kehon valmius',v:(p?.flei_viimeisin||0)+' / 100'},
     ].map(s=>`
       <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:.5px solid rgba(242,239,230,.08)">
@@ -1466,7 +1383,7 @@ function rMinaMAS() {
   }
   if (stage === '2_rakentaja') {  // U13–U15 — rakentaja
     return box(ots
-      + '<div style="font-size:13px;color:var(--text);font-weight:600">Aerobinen kapasiteetti: taso ' + (taso != null ? taso : '–') + '/5</div>'
+      + '<div style="font-size:13px;color:var(--text);font-weight:600">Aerobinen kapasiteetti</div>'
       + '<div style="font-size:11px;color:#8C8B86;margin-top:10px;font-weight:600">Harjoitteluvyöhykkeesi tänään</div>'
       + '<div style="font-size:12px;color:var(--text);margin-top:4px">🟢 Kevyt: alle ' + r1(masKmh * 0.75) + ' km/h</div>'
       + '<div style="font-size:12px;color:var(--text)">🟡 Kehittävä: ' + r1(masKmh * 0.80) + '–' + r1(masKmh * 0.90) + ' km/h</div>'
@@ -1488,7 +1405,7 @@ function rMinaMAS() {
   return box(ots
     + '<div style="display:flex;align-items:baseline;gap:10px">'
     + '<div style="font-family:\'Cormorant Garamond\',serif;font-size:40px;font-weight:300;color:#28B090;line-height:1">' + masMs.toFixed(2) + '</div>'
-    + '<div style="font-size:11px;color:#8C8B86">m/s · ' + r1(masKmh) + ' km/h · taso ' + (taso != null ? taso : '–') + '/5</div></div>'
+    + '<div style="font-size:11px;color:#8C8B86">m/s · ' + r1(masKmh) + ' km/h</div></div>'
     + '<div style="font-size:11px;color:#8C8B86;margin-top:10px;font-weight:600">Harjoitteluvyöhykkeet</div>'
     + '<div style="font-size:12px;color:var(--text);margin-top:4px">🟢 Perus (65–75 %): ' + r1(masKmh * 0.65) + '–' + r1(masKmh * 0.75) + ' km/h</div>'
     + '<div style="font-size:12px;color:var(--text)">🟡 Kehitys (80–90 %): ' + r1(masKmh * 0.80) + '–' + r1(masKmh * 0.90) + ' km/h</div>'
@@ -2851,7 +2768,27 @@ function rTDone(){
         : 'Kirjaus ei tallentunut — tarkista verkkoyhteys ja yritä uudelleen.');
     });
   }
-  // RPE/kuormitus siirretty etusivulle (joukkuetreeni-gate) — rTDone näyttää vain valmis-palautteen
+  // §7.22 palkintohetki (KOHTA 2b) — korvaa poistetun XP-progressbarin paikan. Virstanpylväs (7/14 pv) = juhlistava
+  // saavutuskortti (KORTTI_KATALOGI.saavutukset: ach_liekki7/14), muuten positiivinen _streakViesti. §7.1 string-concat.
+  // EI XP:tä, progressbaria, menetyskehystä ("menetät liekin"), pakkonumeroa eikä tasolukua/vertailua. Päivä X = oma prosessi (OK).
+  var s = _haeStreak();
+  var _palkintoHtml;
+  if (s === 7 || s === 14) {
+    var _achId = (s === 7) ? 'ach_liekki7' : 'ach_liekki14';
+    var _ach = (typeof KORTTI_KATALOGI !== 'undefined' && KORTTI_KATALOGI.saavutukset)
+      ? KORTTI_KATALOGI.saavutukset.filter(function (k) { return k.id === _achId; })[0] : null;
+    var _achIkoni = (_ach && _ach.ikoni) ? _ach.ikoni : '🔥';
+    var _achNimi = (_ach && _ach.nimi) ? _ach.nimi : (s + ' päivän liekki');
+    _palkintoHtml = '<div style="margin-top:18px;padding:18px;background:rgba(40,176,144,.08);border:.5px solid rgba(40,176,144,.35);border-radius:10px;text-align:center;animation:cardPop .6s cubic-bezier(.34,1.56,.64,1)">'
+      + '<div style="font-size:34px;line-height:1">' + _achIkoni + '</div>'
+      + '<div style="font-family:var(--font-d);font-weight:300;font-size:20px;color:#28B090;margin-top:6px">Viikon liekki auennut!</div>'
+      + '<div style="font-size:12px;color:var(--text);margin-top:4px">' + _achNimi + '</div>'
+      + '<button onclick="go(\'mina\')" style="margin-top:14px;padding:9px 18px;background:rgba(40,176,144,.12);border:.5px solid rgba(40,176,144,.4);border-radius:8px;color:#28B090;font-size:12px;font-weight:600;cursor:pointer">Katso kokoelma →</button>'
+      + '</div>';
+  } else {
+    _palkintoHtml = '<div style="margin-top:18px;padding:14px 16px;background:rgba(40,176,144,.06);border:.5px solid rgba(40,176,144,.22);border-radius:10px;text-align:center">'
+      + '<div style="font-size:13px;color:var(--text);line-height:1.5">' + _streakViesti(s) + '</div></div>';
+  }
   return `
 <div style="padding:28px 20px;height:100%;display:flex;flex-direction:column;background:var(--bg)">
   <div style="margin-top:40px;text-align:center">
@@ -2859,18 +2796,10 @@ function rTDone(){
     <div class="ey ac" style="margin-top:18px;letter-spacing:.3em">${T('done')}</div>
     <div style="font-family:var(--font-d);font-weight:300;font-size:30px;margin-top:16px;line-height:1.1">Liekki pysyy.</div>
     <div class="meta" style="margin-top:10px;max-width:280px;margin-left:auto;margin-right:auto;line-height:1.6">Päivä ${_streak||1}.${lause3 ? ' ' + lause3 : ''}</div>
-    <div class="meta" style="margin-top:6px;font-size:11px;color:var(--ink3)">🔥 ${_streak||0} pv streak · +${tXP} XP</div>
+    <div class="meta" style="margin-top:6px;font-size:11px;color:var(--ink3)">🔥 ${_streak||0} pv streak</div>
   </div>
-  ${(()=>{ const xp=_pelaaja?.xp||0; const taso=_pelaaja?.taso||1; const xpNext=taso*1000; const pct=Math.min(100,Math.round((xp/xpNext)*100)); const newPct=Math.min(100,Math.round(((xp+40)/xpNext)*100)); return `
-  <div style="margin-top:28px;padding:16px 18px;background:var(--surface);border-radius:10px;border:.5px solid var(--border)">
-    <div style="display:flex;justify-content:space-between;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink2);margin-bottom:8px">
-      <span>Taso ${taso}</span><span style="font-family:var(--font-m)">${xp} → ${xp+40} / ${xpNext}</span>
-    </div>
-    <div style="height:8px;background:rgba(242,239,230,.08);border-radius:4px;overflow:hidden;position:relative">
-      <div style="position:absolute;left:0;top:0;bottom:0;width:${pct}%;background:rgba(26,122,94,.6)"></div>
-      <div style="position:absolute;left:${pct}%;top:0;bottom:0;width:${newPct-pct}%;background:#28B090;animation:fadeUp .8s ease"></div>
-    </div>`; })()}
-  </div>
+  <!-- §7.22 palkintohetki (KOHTA 2b) — poistetun XP-progressbarin paikalla: virstanpylväs-saavutuskortti tai _streakViesti. -->
+  ${_palkintoHtml}
   <div style="margin-top:18px;padding:14px 16px;background:rgba(26,122,94,.06);border:.5px solid rgba(26,122,94,.25);border-radius:10px">
     <div class="ey ac" style="font-weight:500">Valmentajalle</div>
     <div style="font-size:12px;color:var(--text);margin-top:4px;line-height:1.55">Kirjaus tallennettu — näkyy valmentajallesi${_pelaaja && _pelaaja.joukkue ? ' (' + _pelaaja.joukkue + ')' : ''}.</div>
@@ -3142,7 +3071,7 @@ function rVapaa(){
   </button>
 
   <div style="margin-top:16px;padding:10px 0;font-size:10px;color:var(--ink3);text-align:center;letter-spacing:.04em;line-height:1.5">
-    Saat <span style="color:var(--teal-d);font-weight:600">+${Math.round(_vaMin*0.5)} XP</span> ja streak jatkuu.<br>
+    Streak jatkuu.<br>
     Valmentaja näkee kirjauksen koosteessa.
   </div>
 </div>`;
@@ -3162,7 +3091,7 @@ function rVapaaDone(){
     ${_vaMin} min · ${_vaTyyppi==='pihapeli'?'pihapeli':_vaTyyppi==='kaveri'?'kaverin kanssa':_vaTyyppi==='keho'?'oma keho':_vaTyyppi==='pallo'?'pallo yksin':'muu treeni'}${_vaKavereita>0?` · ${_vaKavereita===5?'5+':_vaKavereita} kaveria`:''}
   </div>
   <div style="display:flex;gap:10px;align-items:center;margin-bottom:24px">
-    <div style="padding:6px 12px;background:rgba(26,122,94,.1);border:.5px solid rgba(26,122,94,.3);border-radius:20px;font-size:11px;color:#28B090;font-weight:600">+${Math.round(_vaMin*0.5)} XP</div>
+    <!-- §7.22-korjaus: "+X XP" -pilleri poistettu (ei XP:tä lapselle) -->
     <div style="padding:6px 12px;background:rgba(184,134,11,.1);border:.5px solid rgba(184,134,11,.3);border-radius:20px;font-size:11px;color:var(--gold);font-weight:600">🔥 Streak ${(_streak||0)+1}</div>
   </div>
   <button onclick="_vaReset();go('a1')" style="padding:12px 32px;background:transparent;color:var(--ink2);border:.5px solid var(--border2);border-radius:8px;font-size:11px;letter-spacing:.2em;text-transform:uppercase;font-weight:600;cursor:pointer">
