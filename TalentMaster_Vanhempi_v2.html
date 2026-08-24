@@ -119,7 +119,7 @@ body.demo-mode #devChrome{display:block}
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-functions-compat.js"></script>
-<script src="lib/tm_lang.js?v=2"></script>   <!-- i18n V0 putki · V1-B: +vanhempi./nav.-avaimet + kielivalitsin -->
+<script src="lib/tm_lang.js?v=3"></script>   <!-- i18n V0 putki · V1-B/B2: +vanhempi./nav.-avaimet + kielivalitsin + syväsisältö (nimen taivutus poistettu) -->
 <script src="docs/testit_indeksit.js?v=9"></script>
 <script src="tm-bus.js?v=3"></script>
 <script src="tm-demo.js?v=3"></script>
@@ -638,7 +638,7 @@ function rKoti(){
   <div style="padding:16px 4px 10px">
     <div class="ey" style="margin-bottom:4px"><span class="live-dot"></span>Live · ${d.ryhma.split(' · ')[0]||d.ryhma}</div>
     <div style="font-family:var(--font-d);font-weight:300;font-size:30px;line-height:1.1;color:var(--text)">
-      ${_genetiivi(d.nimi)} ${_age==='u19'?'kuukausi':'viikko'}
+      ${t(_age==='u19'?'vanhempi.koti_otsikko_u19':'vanhempi.koti_otsikko', {nimi: d.nimi})}
     </div>
     <div style="font-size:11px;color:var(--ink3);margin-top:4px;letter-spacing:.04em">${d.ryhma}</div>
   </div>
@@ -660,10 +660,10 @@ function rKoti(){
     ${_viimeisinKirjaus ? `
     <div style="margin-top:14px;display:flex;gap:8px">
       <button onclick="_lahetaKehu('❤️','Hienoa!')" style="flex:1;padding:10px 8px;background:${_kehuLahetetty?'rgba(242,239,230,.05)':'rgba(184,92,56,.12)'};border:.5px solid ${_kehuLahetetty?'rgba(242,239,230,.1)':'rgba(184,92,56,.35)'};border-radius:8px;color:${_kehuLahetetty?'var(--ink3)':'#B85C38'};font-size:11px;font-weight:600;cursor:${_kehuLahetetty?'default':'pointer'};letter-spacing:.08em;transition:all .2s">
-        ${_kehuLahetetty ? '✓ Kehu lähetetty' : '❤️  Hienoa!'}
+        ${_kehuLahetetty ? ('✓ ' + t('vanhempi.kehu_lahetetty')) : ('❤️  ' + t('vanhempi.kehu_hienoa'))}
       </button>
       <button onclick="_lahetaKehu('🔥','Upea treeni!')" ${_kehuLahetetty?'disabled':''} style="flex:1;padding:10px 8px;background:${_kehuLahetetty?'rgba(242,239,230,.05)':'rgba(26,122,94,.1)'};border:.5px solid ${_kehuLahetetty?'rgba(242,239,230,.1)':'rgba(26,122,94,.3)'};border-radius:8px;color:${_kehuLahetetty?'var(--ink3)':'var(--teal-d)'};font-size:11px;font-weight:600;cursor:${_kehuLahetetty?'default':'pointer'};letter-spacing:.08em;transition:all .2s">
-        🔥 Upea treeni!
+        🔥 ${t('vanhempi.kehu_upea')}
       </button>
     </div>` : ''}
   </div>
@@ -676,7 +676,7 @@ function rKoti(){
 
   ${_age==='u12'?_kotiU12(d):_age==='u15'?_kotiU15(d):_kotiU19(d)}
 
-  <div style="text-align:center;margin:18px 0 4px"><button onclick="_naytaVanhOpasUudelleen()" style="background:none;border:none;color:var(--ink3);font-size:12px;cursor:pointer;text-decoration:underline;font-family:inherit">📘 Näytä opas uudelleen</button></div>
+  <div style="text-align:center;margin:18px 0 4px"><button onclick="_naytaVanhOpasUudelleen()" style="background:none;border:none;color:var(--ink3);font-size:12px;cursor:pointer;text-decoration:underline;font-family:inherit">📘 ${t('vanhempi.nayta_opas')}</button></div>
 </div>`;
 }
 
@@ -684,18 +684,18 @@ function _kotiU12(d){
   return `
   <!-- Tämä viikko (oikea data tai tyhjä tila) -->
   <div style="padding:0 2px;margin-bottom:16px">
-    <div class="ey" style="margin-bottom:10px">Tämä viikko</div>
+    <div class="ey" style="margin-bottom:10px">${t('vanhempi.tama_viikko')}</div>
     ${(_viikkoKirjaukset && _viikkoKirjaukset.length)
-      ? `<div style="font-size:13px;color:var(--text)">${_viikkoKirjaukset.length} kirjausta tällä viikolla</div>`
-      : `<div style="font-size:12px;color:var(--ink3);line-height:1.5">Treenitiedot näkyvät kun valmentaja kirjaa harjoituksia.</div>`}
+      ? `<div style="font-size:13px;color:var(--text)">${_viikkoKirjaukset.length} ${t('vanhempi.kirjausta_viikolla')}</div>`
+      : `<div style="font-size:12px;color:var(--ink3);line-height:1.5">${t('vanhempi.treenitiedot_tyhja')}</div>`}
   </div>
 
   <!-- Kirjaus-nopeakiinnitys (VAIN U12) -->
   <button onclick="go('kirjaa')" style="width:100%;padding:14px 18px;background:var(--surface);border:.5px solid var(--border2);border-radius:10px;text-align:left;color:var(--text);display:flex;align-items:center;gap:12px;cursor:pointer">
     ${ic('plus',20,'#28B090',1.8)}
     <div style="flex:1">
-      <div style="font-size:12px;font-weight:600;color:var(--text)">Kirjaa ${_genetiivi(d.nimi)} puolesta</div>
-      <div style="font-size:10px;color:var(--ink3);margin-top:2px">Pihapeli, sovellus ei auki, syntymäpäivä...</div>
+      <div style="font-size:12px;font-weight:600;color:var(--text)">${t('vanhempi.kirjaa_puolesta')}</div>
+      <div style="font-size:10px;color:var(--ink3);margin-top:2px">${t('vanhempi.kirjaa_puolesta_selite')}</div>
     </div>
     <div style="color:var(--ink3)">›</div>
   </button>
@@ -1516,17 +1516,18 @@ function _naytaVanhTervetulo(){
   var kirjausTehty = (typeof _viimeisinKirjaus !== 'undefined' && !!_viimeisinKirjaus);
   function tick(done){ return done ? '<span class="vth-tick vth-on">✓</span>' : '<span class="vth-tick">○</span>'; }
   function rivi(done, txt, nakyma){ return '<button class="vth-rivi" onclick="_vthMene(\'' + nakyma + '\')">' + tick(done) + '<span class="vth-rivi-txt">' + txt + '</span><span class="vth-arrow">›</span></button>'; }
-  var lista = rivi(kehuTehty, 'Lähetä ' + (nimi ? (nimi + 'lle') : 'lapsellesi') + ' ensimmäinen kehu', 'koti')
-    + rivi(false, 'Katso kortti + "miten tukea kotona"', 'kortti')
-    + rivi(false, 'Lue valmentajan viestit', 'valmentaja')
-    + (alle13 ? rivi(kirjausTehty, 'Kirjaa ' + gen + ' treeni', 'kirjaa') : '');
+  // V1-B2 i18n: nimen taivutus poistettu — toimintorivit ilman nimen taivutusta (robusti, kestää mielivaltaiset nimet; ei suomen taivutushelperiä).
+  var lista = rivi(kehuTehty, t('vanhempi.tervetulo_kehu'), 'koti')
+    + rivi(false, t('vanhempi.tervetulo_kortti'), 'kortti')
+    + rivi(false, t('vanhempi.tervetulo_viestit'), 'valmentaja')
+    + (alle13 ? rivi(kirjausTehty, t('vanhempi.tervetulo_kirjaa'), 'kirjaa') : '');
   var ov = document.createElement('div');
   ov.id = 'vanhTervetuloOv'; ov.className = 'vth-ov';
   ov.onclick = function (e){ if (e.target === ov) window._suljeVanhTervetulo(); };
-  // V1-B i18n: staattiset tekstit t():hen. `lista`-toimintorivit (nimi-taivutus "{nimi}lle") jäävät fi — nimimorfologia → V4.
+  // V1-B2 i18n: johdanto ilman nimen taivutusta ("lapsesi" / "ditt barns" / "your child's") → ei {gen}-substituutiota.
   ov.innerHTML = '<div class="vth-panel" role="dialog" aria-label="Tervetuloa">'
     + '<div class="vth-otsikko">' + t('vanhempi.tervetulo_hei') + '</div>'
-    + '<div class="vth-johdanto">' + t('vanhempi.tervetulo_johdanto', { gen: gen }) + '</div>'
+    + '<div class="vth-johdanto">' + t('vanhempi.tervetulo_johdanto') + '</div>'
     + '<div class="vth-kultainen">⭐ <b>' + t('vanhempi.kultainen_otsikko') + '</b> ' + t('vanhempi.kultainen_teksti') + '</div>'
     + '<div class="vth-listaots">' + t('vanhempi.nain_mukana') + '</div>'
     + lista
