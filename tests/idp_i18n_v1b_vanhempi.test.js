@@ -27,9 +27,9 @@ describe('tm_lang — vanhempi.* + nav.* fi/sv/en', () => {
       expect(NAVKEYS.filter((x) => typeof L.TM_LANG[k].nav[x] !== 'string')).toEqual([]);
     });
   });
-  it('t() palauttaa oikean kielen + {gen}-substituutio', () => {
+  it('t() palauttaa oikean kielen (johdanto ilman nimen taivutusta, V1-B2)', () => {
     L.tmAsetaKieli('sv', false); expect(L.t('vanhempi.perhe_kirjautuminen')).toBe('Familj · Vårdnadshavarens inloggning');
-    expect(L.t('vanhempi.tervetulo_johdanto', { gen: 'Aleksin' })).toContain('Aleksin');
+    expect(L.t('vanhempi.tervetulo_johdanto')).toContain('ditt barns');   // V1-B2: nimen taivutus poistettu
     L.tmAsetaKieli('en', false); expect(L.t('nav.koti')).toBe('Home');
     L.tmAsetaKieli('fi', false); expect(L.t('vanhempi.kieli')).toBe('Kieli');
   });
@@ -53,7 +53,7 @@ describe('Vanhempi_v2 — irrotus t():hen', () => {
   });
   it('_naytaVanhTervetulo: staattiset tekstit t():hen (§7.1 string-concat)', () => {
     expect(V).toContain("t('vanhempi.tervetulo_hei')");
-    expect(V).toContain("t('vanhempi.tervetulo_johdanto', { gen: gen })");
+    expect(V).toContain("t('vanhempi.tervetulo_johdanto')");   // V1-B2: ilman { gen: gen } (nimen taivutus poistettu)
     expect(V).toContain("t('vanhempi.kultainen_teksti')");
     expect(V).toContain("t('vanhempi.selva')");
   });
@@ -79,7 +79,7 @@ describe('Vanhempi_v2 — kielivalitsin FI/SV/EN + cache-bust', () => {
     expect(V).toContain("nappi('en','EN')");
   });
   it('tm_lang ?v=2 + SW-cache v7', () => {
-    expect(V).toContain('lib/tm_lang.js?v=2');
-    expect(readFileSync(join(__dir, '..', 'sw_vanhempi.js'), 'utf8')).toContain("const CACHE = 'tm-vanhempi-v7'");
+    expect(V).toMatch(/lib\/tm_lang\.js\?v=[2-9]/);
+    expect(readFileSync(join(__dir, '..', 'sw_vanhempi.js'), 'utf8')).toMatch(/const CACHE = 'tm-vanhempi-v([7-9]|[1-9]\d)'/);
   });
 });
