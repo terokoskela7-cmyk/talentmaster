@@ -65,8 +65,8 @@ describe('lib/tm_lang.js — §5 väri-fix + tmKieliInitSeura-prioriteetti', () 
 
 describe('i18n V0 — putkitus kytketty 6 tiedostoon + 404-korjaus', () => {
   const apit = ['TalentMaster_VP_v25.html', 'TalentMaster_Master_v16.html', 'TalentMaster_Pelaaja_v7.html', 'TalentMaster_Vanhempi_v2.html', 'TalentMaster_Seura.html', 'TalentMaster_Rekisterointi_Suostumus.html'];
-  it('kaikki 6 lataavat lib/tm_lang.js?v=1', () => {
-    apit.forEach((f) => expect(root(f)).toContain('<script src="lib/tm_lang.js?v=1">'));
+  it('kaikki 6 lataavat versioidun lib/tm_lang.js (?v=N)', () => {
+    apit.forEach((f) => expect(root(f)).toMatch(/<script src="lib\/tm_lang\.js\?v=\d+">/));
   });
   it('Rekisterointi EI enää lataa rikkinäistä root-URLia (/talentmaster/tm_lang.js 404)', () => {
     expect(root('TalentMaster_Rekisterointi_Suostumus.html')).not.toContain('https://terokoskela7-cmyk.github.io/talentmaster/tm_lang.js');
