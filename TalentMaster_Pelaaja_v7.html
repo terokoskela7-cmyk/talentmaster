@@ -432,7 +432,7 @@ input::placeholder,textarea::placeholder{color:#8C8B86;opacity:1}
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
-<script src="lib/tm_lang.js?v=2"></script>   <!-- i18n V0 putki · V1-A: +pelaaja./nav./yleiset.-avaimet (STR migroitu, DE pois) -->
+<script src="lib/tm_lang.js?v=3"></script>   <!-- i18n V0 putki · V1-A/A2: +pelaaja./nav./yleiset.-avaimet (STR migroitu, syvänäkymät irrotettu) -->
 <script src="lib/tm_eerikkila_normit.js?v=40"></script>
 <script src="docs/testit_indeksit.js?v=9"></script>
 <script src="https://terokoskela7-cmyk.github.io/talentmaster/harjoitelogiikka_v4.js?v=9"></script>
@@ -3903,24 +3903,25 @@ function _naytaTervetulo(){
   var stage = (typeof _laskeStage === 'function') ? _laskeStage(p.syntymaVuosi, p.phv_tila) : '2_rakentaja';
   var nimi = _thEsc(p.etunimi || '');
   var otsikko, k1, k2, k3, alota;
+  // V1-A2 i18n — nimi NOMINATIIVISSA (ei taivutusta → robusti sv/en). §7.1 string-concat.
   if (stage === '1_leikkija') {            // U12 — leikinomaisin
-    otsikko = 'Moikka' + (nimi ? (' ' + nimi) : '') + '! 👋';
-    k1 = 'Yksi kiva juttu jonka voit tehdä tänään. Kokeile — 10 min riittää!';
-    k2 = 'Sinun oma korttisi ja juttusi. Se kasvaa kun treenaat ja pelaat.';
-    k3 = 'Paina kun haluat kertoa valmentajalle miltä tuntuu.';
-    alota = 'Aloitetaan! 🚀';
+    otsikko = t('pelaaja.th_terve_leikkija') + (nimi ? (' ' + nimi) : '') + '! 👋';
+    k1 = t('pelaaja.th_k1_leikkija');
+    k2 = t('pelaaja.th_k2_leikkija');
+    k3 = t('pelaaja.th_k3');
+    alota = t('pelaaja.th_alota_leikkija');
   } else if (stage === '3_showcase') {     // U16+ — hieman aikuisempi
-    otsikko = 'Tervetuloa' + (nimi ? (', ' + nimi) : '') + '.';
-    k1 = 'Yksi juttu jonka voit tehdä tänään. Kokeile — 10 min riittää.';
-    k2 = 'Oma korttisi ja juttusi. Se kasvaa kun treenaat.';
-    k3 = 'Paina kun haluat kertoa valmentajalle miltä tuntuu.';
-    alota = 'Aloitetaan';
+    otsikko = t('pelaaja.th_terve_showcase') + (nimi ? (', ' + nimi) : '') + '.';
+    k1 = t('pelaaja.th_k1_showcase');
+    k2 = t('pelaaja.th_k2_showcase');
+    k3 = t('pelaaja.th_k3');
+    alota = t('pelaaja.th_alota_showcase');
   } else {                                 // 2_rakentaja — perus
-    otsikko = 'Hei' + (nimi ? (' ' + nimi) : '') + '! 👋';
-    k1 = 'Yksi juttu jonka voit tehdä tänään. Kokeile — 10 min riittää!';
-    k2 = 'Sinun oma korttisi ja juttusi. Se kasvaa kun treenaat.';
-    k3 = 'Paina kun haluat kertoa valmentajalle miltä tuntuu.';
-    alota = 'Aloitetaan!';
+    otsikko = t('pelaaja.th_terve_rakentaja') + (nimi ? (' ' + nimi) : '') + '! 👋';
+    k1 = t('pelaaja.th_k1_rakentaja');
+    k2 = t('pelaaja.th_k2_rakentaja');
+    k3 = t('pelaaja.th_k3');
+    alota = t('pelaaja.th_alota_rakentaja');
   }
   function kortti(emoji, ots, txt){ return '<div class="th-card"><span class="th-emoji">' + emoji + '</span><div><div class="th-ots">' + ots + '</div><div class="th-txt">' + txt + '</div></div></div>'; }
   var ov = document.createElement('div');
@@ -3928,12 +3929,12 @@ function _naytaTervetulo(){
   ov.onclick = function (e){ if (e.target === ov) window._suljeTervetulo(); };
   ov.innerHTML = '<div class="th-panel" role="dialog" aria-label="Tervetuloa">'
     + '<div class="th-otsikko">' + otsikko + '</div>'
-    + kortti('⚽', 'Tänään', k1)
-    + kortti('🌟', 'Minä', k2)
-    + kortti('💬', 'Fiilis-nappi', k3)
+    + kortti('⚽', t('nav.tanaan'), k1)
+    + kortti('🌟', t('nav.mina'), k2)
+    + kortti('💬', t('pelaaja.th_kortti_fiilis'), k3)
     + '<div class="th-napit">'
     + '<button class="th-aloita" onclick="_suljeTervetulo()">' + alota + '</button>'
-    + '<button class="th-ohita" onclick="_suljeTervetulo()">Ohita</button>'
+    + '<button class="th-ohita" onclick="_suljeTervetulo()">' + t('pelaaja.ohita') + '</button>'
     + '</div></div>';
   document.body.appendChild(ov);
   requestAnimationFrame(function (){ ov.classList.add('th-auki'); });   // slide-in (ei display:none-bugi §6)

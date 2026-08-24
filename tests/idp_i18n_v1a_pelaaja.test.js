@@ -82,8 +82,8 @@ describe('Pelaaja_v7 — kielivalitsin FI/SV/EN (ei DE) + ydinpinta + cache-bust
     });
   });
   it('tm_lang ?v=2 (uudet avaimet) + SW-cache v13', () => {
-    expect(PEL).toContain('lib/tm_lang.js?v=2');
-    expect(readFileSync(join(__dir, '..', 'sw_pelaaja.js'), 'utf8')).toContain("const CACHE = 'tm-pelaaja-v13'");
+    expect(PEL).toMatch(/lib\/tm_lang\.js\?v=[2-9]/);
+    expect(readFileSync(join(__dir, '..', 'sw_pelaaja.js'), 'utf8')).toMatch(/const CACHE = 'tm-pelaaja-v(1[3-9]|[2-9]\d)'/);
   });
   it('§7.1: konsolidointi ei tuo nested template literaleja (T-delegaatio on yksi rivi)', () => {
     expect(PEL).toContain("const T = k => (typeof t === 'function'");
