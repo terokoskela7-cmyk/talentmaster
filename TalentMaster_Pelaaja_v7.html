@@ -432,7 +432,7 @@ input::placeholder,textarea::placeholder{color:#8C8B86;opacity:1}
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
-<script src="lib/tm_lang.js?v=1"></script>   <!-- i18n V0 — fi/sv/en käännöstaulukko + t() + kieli-init (putkitus) -->
+<script src="lib/tm_lang.js?v=2"></script>   <!-- i18n V0 putki · V1-A: +pelaaja./nav./yleiset.-avaimet (STR migroitu, DE pois) -->
 <script src="lib/tm_eerikkila_normit.js?v=40"></script>
 <script src="docs/testit_indeksit.js?v=9"></script>
 <script src="https://terokoskela7-cmyk.github.io/talentmaster/harjoitelogiikka_v4.js?v=9"></script>
@@ -452,10 +452,9 @@ input::placeholder,textarea::placeholder{color:#8C8B86;opacity:1}
 
 <div class="locale-bar">
   <div class="locale-inner" id="locBar">
-    <button class="loc-btn on" onclick="setLoc('fi')">FI</button>
-    <button class="loc-btn" onclick="setLoc('en')">EN</button>
+    <button class="loc-btn" onclick="setLoc('fi')">FI</button>
     <button class="loc-btn" onclick="setLoc('sv')">SV</button>
-    <button class="loc-btn" onclick="setLoc('de')">DE</button>
+    <button class="loc-btn" onclick="setLoc('en')">EN</button>
   </div>
 </div>
 
@@ -490,31 +489,30 @@ input::placeholder,textarea::placeholder{color:#8C8B86;opacity:1}
 /* ══════════════════════════════════════
    LOCALE
 ══════════════════════════════════════ */
-const STR = {
-  wBack:   {fi:'Tervetuloa takaisin',en:'Welcome back',sv:'Välkommen tillbaka',de:'Willkommen zurück'},
-  today:   {fi:'Tänään',en:'Today',sv:'Idag',de:'Heute'},
-  streak:  {fi:'🔥 Aloita putki tänään.',en:'🔥 Start your streak today.',sv:'🔥 Börja din serie idag.',de:'🔥 Starte deine Serie heute.'},
-  start5:  {fi:'Aloita · 5 min',en:'Start · 5 min',sv:'Starta · 5 min',de:'Starten · 5 Min'},
-  xpHint:  {fi:'+40 XP · pitää liekin palamassa',en:'+40 XP · keeps the flame alive',sv:'+40 XP · håller lågan brinnande',de:'+40 XP · hält die Flamme'},
-  speed:   {fi:'Päivän henkilökohtainen ohjelma',en:'Your personal program today',sv:'Dagens personliga program',de:'Dein persönliches Tagesprogramm'},
-  otherTdy:{fi:'Muuta tänään',en:'Other today',sv:'Övrigt idag',de:'Weiteres heute'},
-  tanaan:  {fi:'Tänään', en:'Today',    sv:'Idag',     de:'Heute'},
-  mina:    {fi:'Minä',   en:'Me',       sv:'Jag',      de:'Ich'},
-  meista:  {fi:'Meistä', en:'About us', sv:'Om oss',   de:'Über uns'},
-  forgotPw:{fi:'Unohtuiko salasana?',en:'Forgot PIN?',sv:'Glömt PIN?',de:'PIN vergessen?'},
-  back:    {fi:'Takaisin',en:'Back',sv:'Tillbaka',de:'Zurück'},
-  start:   {fi:'Aloita',en:'Start',sv:'Starta',de:'Starten'},
-  ready:   {fi:'Valmistaudu',en:'Get ready',sv:'Gör dig redo',de:'Mach dich bereit'},
-  done:    {fi:'Valmis',en:'Done',sv:'Klar',de:'Fertig'},
-  pause:   {fi:'Tauko',en:'Pause',sv:'Paus',de:'Pause'},
-  resume:  {fi:'Jatka',en:'Resume',sv:'Fortsätt',de:'Weiter'},
-  backHm:  {fi:'Takaisin kotiin',en:'Back home',sv:'Till startsidan',de:'Zurück'},
+// V1-A i18n — konsolidoitu jaettuun lib/tm_lang.js:ään (periaate #1: yksi käännöslähde). Vanha STR-taulukko + tm_loc
+// poistettu; T() delegoi t():hen avainmäppäyksellä. Yksi kielitila = tm_kieli (V0 kieli-init + kielivalitsin).
+// Kertamigraatio: vanha tm_loc → tm_kieli (kerran; 'de' → 'fi' koska DE pudotettu), ettei aiempi kielivalinta nollaudu.
+(function(){
+  try {
+    var vanhaLoc = localStorage.getItem('tm_loc');
+    if (vanhaLoc && !localStorage.getItem('tm_kieli')) localStorage.setItem('tm_kieli', vanhaLoc === 'de' ? 'fi' : vanhaLoc);
+    if (vanhaLoc != null) localStorage.removeItem('tm_loc');
+  } catch(e) { /* ei kriittinen */ }
+  if (typeof tmKieliInitSeura === 'function') tmKieliInitSeura(null);   // aktivoi tm_kieli (localStorage → 'fi'); seura.kieli asetetaan kirjautumisen jälkeen
+  // Synkkaa kielivalitsimen aktiivinen nappi tm_kieli:in (FI/SV/EN; DE pudotettu).
+  try { var _ak = (typeof tmNykyinenKieli === 'function' ? tmNykyinenKieli() : 'fi'); document.querySelectorAll('.loc-btn').forEach(function(b){ b.classList.toggle('on', b.textContent === String(_ak).toUpperCase()); }); } catch(e) {}
+})();
+// STR-avain → jaettu tm_lang-polku (fi/sv/en; fallback sv→en→fi t():ssä). xpHint jätetty pois (§7.22: ei renderöity, XP kielletty).
+var _TMAP = {
+  wBack:'pelaaja.tervetuloa_takaisin', today:'nav.tanaan', tanaan:'nav.tanaan', mina:'nav.mina', meista:'nav.meista',
+  streak:'pelaaja.streak', start5:'pelaaja.aloita_5min', speed:'pelaaja.paivan_ohjelma', otherTdy:'pelaaja.muuta_tanaan',
+  forgotPw:'pelaaja.unohtuiko_pin', back:'yleiset.takaisin', start:'yleiset.aloita', ready:'yleiset.valmistaudu',
+  done:'yleiset.valmis', pause:'yleiset.tauko', resume:'yleiset.jatka', backHm:'yleiset.takaisin_kotiin'
 };
-let loc = localStorage.getItem('tm_loc')||'fi';
-const T = k => (STR[k]&&STR[k][loc])||k;
+const T = k => (typeof t === 'function' ? t(_TMAP[k] || ('pelaaja.' + k)) : k);
 function setLoc(l){
-  loc=l; localStorage.setItem('tm_loc',l);
-  document.querySelectorAll('.loc-btn').forEach(b=>b.classList.toggle('on',b.textContent===l.toUpperCase()));
+  if (typeof tmAsetaKieli === 'function') tmAsetaKieli(l, true);   // yksi kielitila tm_kieli; käyttäjän valinta ohittaa seura-oletuksen
+  document.querySelectorAll('.loc-btn').forEach(b=>b.classList.toggle('on',b.textContent===String(l).toUpperCase()));
   draw();
 }
 
@@ -722,7 +720,7 @@ function rPin(){
   <!-- WORDMARK + TERVETULOA (selkeä hierarkia ylhäällä) -->
   <div style="padding:16px 20px 0">
     <div style="font-family:var(--font-m);font-size:10px;font-weight:500;letter-spacing:.15em;color:#28B090">TalentMaster™</div>
-    ${p?.etunimi ? `<div style="font-family:var(--font-b);font-size:13px;color:rgba(242,239,230,.45);margin-top:8px">Tervetuloa takaisin, ${p.etunimi}</div>` : ''}
+    ${p?.etunimi ? `<div style="font-family:var(--font-b);font-size:13px;color:rgba(242,239,230,.45);margin-top:8px">${t('pelaaja.tervetuloa_takaisin')}, ${p.etunimi}</div>` : ''}
   </div>
 
   <!-- HERO (flex:1 0 auto → ei sisäscrollia: KPI on aina layout-virrassa; lyhyellä näytöllä koko näkymä skrollaa) -->
@@ -735,7 +733,7 @@ function rPin(){
         <div style="font-family:var(--font-b);${streak>0?'font-size:68px;font-weight:600;color:#F2EFE6':'font-size:52px;font-weight:400;color:rgba(242,239,230,.45)'};letter-spacing:-1.5px;line-height:.9;background:none">${streak>0?streak:'—'}</div>
         <div style="font-family:var(--font-m);font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:rgba(242,239,230,.5);padding-bottom:4px;line-height:1.25">päivän<br>putki</div>
       </div>
-      <div style="font-family:var(--font-b);font-size:13px;color:#28B090;flex-shrink:0;padding-bottom:6px">Jatka →</div>
+      <div style="font-family:var(--font-b);font-size:13px;color:#28B090;flex-shrink:0;padding-bottom:6px">${t('pelaaja.jatka_nuoli')}</div>
     </div>
 
     <!-- VIIKKONAUHA (konkretisoi putken — johdettu streakista, _haeViikkoPaivat()) -->
@@ -784,7 +782,7 @@ function rPin(){
 
   <!-- PIN-ALUE (kiinteä alareuna; flex-shrink:0 → näppäimistö ei purista lyhyellä näytöllä) -->
   <div style="flex-shrink:0;background:#111110;border-top:1px solid rgba(242,239,230,.06);padding:14px 20px 20px">
-    <div style="font-family:var(--font-m);font-size:10px;text-align:center;color:rgba(242,239,230,.35);text-transform:uppercase;letter-spacing:.15em">Syötä PIN</div>
+    <div style="font-family:var(--font-m);font-size:10px;text-align:center;color:rgba(242,239,230,.35);text-transform:uppercase;letter-spacing:.15em">${t('pelaaja.syota_pin')}</div>
     <div class="pin-dots" style="margin:12px 0 12px">
       ${[0,1,2,3].map(i=>`<div class="pd${i<_pin.length?' on':''}"></div>`).join('')}
     </div>
@@ -797,7 +795,7 @@ function rPin(){
     <div id="emailLoginWrap" style="margin-top:16px">
       <button onclick="_toggleEmailLogin()"
         style="width:100%;background:transparent;border:none;font-family:var(--font-b);font-size:11px;color:rgba(242,239,230,.3);cursor:pointer;padding:2px 0;text-align:center">
-        ${T('forgotPw')} · <span style="color:rgba(40,176,144,.7)">KIRJAUDU SÄHKÖPOSTILLA</span>
+        ${T('forgotPw')} · <span style="color:rgba(40,176,144,.7);text-transform:uppercase">${t('pelaaja.kirjaudu_sahkopostilla')}</span>
       </button>
       <div id="emailLoginForm" style="display:none;margin-top:10px">
         <input id="pinEmail" type="email" placeholder="sähköposti@osoite.fi" autocomplete="email"

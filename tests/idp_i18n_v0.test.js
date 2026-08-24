@@ -89,7 +89,7 @@ describe('i18n V0 — keskitetty kieli-init seurat/{id}.kieli:stä', () => {
 describe('i18n V0 — SW-cache + allowlist + re-export + migraatioskripti', () => {
   it('SW cachet bumpattu + tm_lang allowlistissa (offline)', () => {
     const p = root('sw_pelaaja.js'), v = root('sw_vanhempi.js');
-    expect(p).toContain("const CACHE = 'tm-pelaaja-v12'");
+    expect(p).toMatch(/const CACHE = 'tm-pelaaja-v(1[2-9]|[2-9]\d)'/);   // ≥v12 (löysä: kestää V1-A→v13 ym. bumpit)
     expect(v).toContain("const CACHE = 'tm-vanhempi-v6'");
     expect(p).toContain('/talentmaster/lib/tm_lang.js');
     expect(v).toContain('/talentmaster/lib/tm_lang.js');
