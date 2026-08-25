@@ -73,7 +73,7 @@ describe('Logiikka + Firestore-kirjoitus ennallaan + cache-bump', () => {
     expect(PEL).toContain('xp: (_pelaaja.xp || 0) + (xp || 0)');
     expect(PEL).toContain('const tXP = taso===1 ? 20 : taso===2 ? 30 : 40');
   });
-  it('SW-cache v15', () => {
-    expect(readFileSync(join(__dir, '..', 'sw_pelaaja.js'), 'utf8')).toContain("const CACHE = 'tm-pelaaja-v15'");
+  it('SW-cache >= v15 (kestaa myohemmat bumpit, esim. i18n V4-A -> v16)', () => {
+    expect(readFileSync(join(__dir, '..', 'sw_pelaaja.js'), 'utf8')).toMatch(/const CACHE = 'tm-pelaaja-v(1[5-9]|[2-9]\d)'/);
   });
 });
