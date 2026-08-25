@@ -435,7 +435,7 @@ input::placeholder,textarea::placeholder{color:#8C8B86;opacity:1}
 <script src="lib/tm_lang.js?v=3"></script>   <!-- i18n V0 putki · V1-A/A2: +pelaaja./nav./yleiset.-avaimet (STR migroitu, syvänäkymät irrotettu) -->
 <script src="lib/tm_eerikkila_normit.js?v=40"></script>
 <script src="docs/testit_indeksit.js?v=9"></script>
-<script src="https://terokoskela7-cmyk.github.io/talentmaster/harjoitelogiikka_v4.js?v=9"></script>
+<script src="https://terokoskela7-cmyk.github.io/talentmaster/harjoitelogiikka_v4.js?v=10"></script>
 <script src="lib/tm-microcycles.js?v=3"></script>
 <script src="tm-bus.js?v=3"></script>
 <script src="tm-demo.js?v=3"></script>
@@ -881,10 +881,11 @@ function rA1(){
         if (paivanT) {
           const kk = laskeTekninenKehityskohde(_pelaaja);
           const iv = _laskeIkavaihe(_pelaaja);
-          const KOHDE_OTS = { pallonhallinta:'Pallonhallinta', koordinaatio:'Koordinaatio', nopeus:'Nopeus', syotto:'Syöttö', ponnauttelu:'Ponnauttelu' };
+          // V4-A: yläotsikko lokalisoituna generaattorista (tmKohdeOtsikko) — fallback kohde-avaimeen
+          const yloTeema = (typeof tmKohdeOtsikko === 'function') ? tmKohdeOtsikko(kk.kohde) : kk.kohde;
           // D-kortti: tarina/cue (inspiroiva) + ohje (konkreettinen) + saate (kytkös kehityskohde-tavoitteeseen, osatehtävä C)
           const why = paivanT.tarina || paivanT.cue || generoiMiksiteksti(_pelaaja, kk, iv).miksi_lause2;
-          return _dKortti(KOHDE_OTS[kk.kohde] || kk.kohde, paivanT.nimi, why, paivanT.ohje || null, _tekTavoiteSaate(_pelaaja));
+          return _dKortti(yloTeema, paivanT.nimi, why, paivanT.ohje || null, _tekTavoiteSaate(_pelaaja));
         }
       } catch(e){ console.warn('[KOTI kehityskohde-T]', e.message); }
     }
@@ -2654,8 +2655,8 @@ function rTIntro(){
   if (taso === 1) lista = [tH].filter(Boolean);
   else if (taso === 2) lista = [tH, (EX && EX[2])].filter(Boolean);
   else lista = (EX || []).map((e,i)=> (i===0 && tH) ? tH : e);
-  const KOHDE_OTS = { pallonhallinta:'Pallonhallinta', koordinaatio:'Koordinaatio', nopeus:'Nopeus', syotto:'Syöttö', ponnauttelu:'Ponnauttelu' };
-  const yloteema = kohde ? (KOHDE_OTS[kohde] || kohde) : 'Tänään · kotona';
+  // V4-A: yläotsikko lokalisoituna generaattorista (tmKohdeOtsikko) — fallback kohde-avaimeen
+  const yloteema = kohde ? ((typeof tmKohdeOtsikko === 'function') ? tmKohdeOtsikko(kohde) : kohde) : 'Tänään · kotona';
   const otsikkoIso = taso===1 ? 'Tänään yksi asia' : taso===2 ? 'Päivän kaksi asiaa' : 'Päivän ohjelma';
   // Leikkijälle yksinkertainen harjoitekohtainen lause (lause2) — täysi miksi-kortti olisi liian abstrakti.
   const alaTeksti = (iv==='leikkija' && miksi) ? miksi.miksi_lause2

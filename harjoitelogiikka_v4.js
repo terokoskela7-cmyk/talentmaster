@@ -2717,6 +2717,196 @@ function laskeTekninenKehityskohde(pelaaja) {
   return { kohde: 'pallonhallinta', lahde: 'ikavaihe', varmuus: 'oletus', rawKohde: null };
 }
 
+// ══════════════════════════════════════════════════════════════════
+// i18n — harjoitesisällön käännökset (V4-A). sv nyt; en triviaali lisäys
+// samaan karttaan (lisää HARJOITE_I18N.en.* → getterit poimivat sen automaattisesti).
+// Avain = KANONINEN fi-merkkijono → käännös. Puuttuva avain / puuttuva kieli → fi
+// (Suomi ei rikkoudu). Kielitila luetaan tmNykyinenKieli()-globaalista (fi-fallback).
+// ══════════════════════════════════════════════════════════════════
+var HARJOITE_I18N = {
+  sv: {
+    // PANKKI T-sisältö (nimi/ohje/tarina/cue) — pelaajalle näkyvä päivätehtävä
+    sisalto: {
+      'Maestro — Pysäytys sisäterällä': 'Maestro — Stopp med insidan',
+      '10 kertaa: pomppaa seinään ja pysäytä sisäterällä. Suuntaa pallo sinne mihin haluat juosta seuraavaksi.': '10 gånger: studsa mot väggen och stoppa med insidan. Rikta bollen dit du vill springa härnäst.',
+      '3×10, molemmat jalat. Sisäterä vastaanottaa — 1. kosketus osoittaa seuraavan suunnan ennen kuin puolustaja reagoi.': '3×10, båda fötterna. Insidan tar emot — första touchen pekar ut nästa riktning innan försvararen hinner reagera.',
+      '4×10, vaihda jalkaa sarjojen välissä. Automaatti: sisäterä kehon alle, jalkaterä pelattavaan suuntaan ennen pallonkosketusta.': '4×10, byt fot mellan seten. Automatik: insidan in under kroppen, foten mot spelriktningen redan innan du rör bollen.',
+      'Maestron sääntö: ensimmäinen kosketus on jo seuraava liike.': 'Maestros regel: första touchen är redan nästa rörelse.',
+      'Eräs nuori huippu nousi akatemiassa kaksi ikäluokkaa muita edellä jo teininä — ei koon takia, vaan koska hänen ensikosketuksensa oli niin varma, että hänelle jäi aina enemmän aikaa kuin muille.': 'En ung talang klev fram i akademin två åldersklasser före de andra redan som tonåring — inte tack vare storleken, utan för att hans första touch var så säker att han alltid hade mer tid än de andra.',
+      'Maestro — Vastaanota ja käännä': 'Maestro — Ta emot och vänd',
+      '12 kertaa: ota pallo seinästä ja käännä se heti uuteen suuntaan sisäterällä. Älä pysäytä paikalleen — pallo lähtee jo eteenpäin.': '12 gånger: ta bollen från väggen och vänd den direkt i en ny riktning med insidan. Stanna den inte på stället — bollen är redan på väg framåt.',
+      '3×12, vuorojaloin. Avaa lantio ennen kosketusta — 1. kosketus kääntää pallon pois sieltä mistä se tuli, niin saat aikaa ja tilaa.': '3×12, växelvis fot. Öppna höften före touchen — första touchen vänder bollen bort från där den kom ifrån, så du får tid och yta.',
+      '4×12, käännä molempiin suuntiin. Automaatti: skannaa olkapään yli ennen palloa, sisäterän kosketus avaa suoraan vapaaseen tilaan ilman lisäkosketusta.': '4×12, vänd åt båda hållen. Automatik: skanna över axeln före bollen, insidans touch öppnar direkt mot fri yta utan extra touch.',
+      'Vastaanotto on jo hyökkäys — käänny sinne missä on tilaa.': 'Mottagningen är redan en anfallshandling — vänd dit där det finns yta.',
+      'Eräs huipulle noussut pelaaja harjoitteli jo nuorena kuukausia aikuisten joukkueen mukana — vain seuratakseen läheltä, miten parhaat ottavat ensikosketuksen haltuun ennen kuin paine ehtii päälle.': 'En spelare som nådde toppen tränade redan som ung i månader med A-laget — bara för att på nära håll få se hur de bästa tar första touchen innan pressen hinner fram.',
+      'Maestro — Suojaa ja avaudu': 'Maestro — Skydda och vänd ut',
+      'Pyydä kaveri viereen (ei ota palloa). Ota pallo sisäterällä niin että kehosi on pallon ja kaverin välissä. 12 kertaa.': 'Be en kompis stå bredvid (utan att ta bollen). Ta bollen med insidan så att din kropp är mellan bollen och kompisen. 12 gånger.',
+      '3×12 passiivisen puolustajan kanssa. Vastaanota takajalalla, kallista keho puolustajan ja pallon väliin — 1. kosketus vie pallon turvaan paineesta pois.': '3×12 med en passiv försvarare. Ta emot med bortre foten, luta kroppen mellan försvararen och bollen — första touchen för bollen i säkerhet bort från pressen.',
+      '4×12, vaihda kumpi olkapää suojaa. Automaatti: tunnista paine ennen palloa, suojaa kehollasi ja avaudu sisäterällä vapaaseen tilaan yhdellä kosketuksella.': '4×12, byt vilken axel som skyddar. Automatik: känn av pressen före bollen, skydda med kroppen och vänd ut med insidan mot fri yta i en enda touch.',
+      'Keho pallon ja vastustajan väliin — silloin pallo on aina sinun.': 'Kroppen mellan bollen och motståndaren — då är bollen alltid din.',
+      'Eräs nuori pelaaja tuli vaihdosta kentälle joukkueensa hävitessä, ja vastustaja epäili ääneen mitä noin nuori siellä tekee. Puolessa tunnissa hän käänsi ottelun täysin — rauhallinen ensikosketus antoi hänelle ajan, jota muilla ei ollut.': 'En ung spelare kom in som avbytare medan hans lag låg under, och motståndarna undrade högt vad en så ung gjorde där. På en halvtimme vände han matchen helt — en lugn första touch gav honom tid som ingen annan hade.',
+      'Maestro — Mittaa ensikosketuksesi': 'Maestro — Mät din första touch',
+      'Tee 20 vastaanottoa. Laske montako kertaa pallo pysähtyy alle metrin päähän jalastasi. Kirjaa ennätys ja yritä päihittää se.': 'Gör 20 mottagningar. Räkna hur många gånger bollen stannar inom en meter från din fot. Skriv upp ditt rekord och försök slå det.',
+      '20 vastaanottoa: laske montako menee suoraan peliasentoon (pallo alle 1 m, keho jo menosuuntaan). Vertaa vk1:n tulokseen — paraniko 1. kosketuksen suunta?': '20 mottagningar: räkna hur många som går direkt till spelläge (bollen inom 1 m, kroppen redan i rörelseriktningen). Jämför med vecka 1 — blev första touchens riktning bättre?',
+      '20 vastaanottoa paineessa (passiivinen puolustaja): laske montako kääntyy suoraan vapaaseen tilaan ilman lisäkosketusta. Tavoite 16/20 — sillä tasolla 1. kosketus on ase.': '20 mottagningar under press (passiv försvarare): räkna hur många som vänds direkt mot fri yta utan extra touch. Mål 16/20 — på den nivån är första touchen ett vapen.',
+      'Ilman mittausta et tiedä, paraneeko ensikosketuksesi.': 'Utan att mäta vet du inte om din första touch blir bättre.',
+      'Eräs pelaaja nousi seuransa kaikkien aikojen nuorimmaksi pääsarjapelaajaksi vain 16-vuotiaana ja rikkoi ennätyksen joka oli kestänyt vuosikymmeniä — ja hänet valittiin heti ensiottelunsa parhaaksi pelaajaksi.': 'En spelare blev sin klubbs yngsta seriespelare någonsin vid bara 16 års ålder och slog ett rekord som stått i årtionden — och han utsågs direkt till bäste spelare i sin första match.',
+      'Palloleikki — tee mitä tykkäät': 'Bollek — gör det du gillar',
+      'Ota pallo ja mene ulos. Pompauta seinään, kuljeta, leiki! 15 minuuttia — ei sääntöjä.': 'Ta bollen och gå ut. Studsa mot väggen, för bollen, lek! 15 minuter — inga regler.',
+      'Valitse yksi: seinäsyöttö 100 × 1 kosketus | pujottelu kartioilla 15 min | ponnauttelu heikolla jalalla 5 min.': 'Välj en: väggpass 100 × 1 touch | slalom mellan koner 15 min | jonglering med svaga foten 5 min.',
+      'Vaativa tekniikka: seinäsyöttö 1-kosketuksella + samalla skannaa ympärillä — nimeä 3 asiaa ennen vastaanottoa. 20 min.': 'Krävande teknik: väggpass på 1 touch + skanna omgivningen samtidigt — namnge 3 saker före mottagningen. 20 min.',
+      '"Daily touches" — joka päivä pallo, myös lepopäivinä.': '"Daily touches" — bollen varje dag, även på vilodagar.',
+      'Maailman parhaissa akatemioissa jokainen pelaaja koskettaa palloa joka päivä — myös lepopäivinä. Sukupolvi toisensa jälkeen huiput ovat aloittaneet samasta säännöstä: pallo jalkaan joka ikinen päivä.': 'I världens bästa akademier rör varje spelare bollen varje dag — även på vilodagar. Generation efter generation har toppspelarna börjat med samma regel: bollen på foten varenda dag.',
+      'Dribbeli — katse ylhäällä': 'Dribbling — blicken uppe',
+      'Kuljeta palloa eteenpäin 20 metriä, katso YLHÄÄLLÄ! Älä katso palloon. Vaihda suuntaa äkillisesti 5 kertaa. Tee 5 kierrosta.': 'För bollen framåt 20 meter, titta UPP! Titta inte på bollen. Byt riktning tvärt 5 gånger. Gör 5 varv.',
+      '4 perustaitoa peräkkäin: 1) Kuljeta silmät yli pallon etsien tilaa. 2) Kiihdytä hitaasta täyteen vauhtiin kahdessa askeleessa — pallo ei saa lähteä yli 2 askeleen. 3) Pienet nopeat suunnanvaihdot ilman suuria kaaria. 4) Tarkista: katso eteenpäin. 3 kierrosta.': '4 grundfärdigheter i rad: 1) För bollen med blicken över den och sök yta. 2) Accelerera från långsamt till full fart på två steg — bollen får inte hamna mer än 2 steg bort. 3) Små snabba riktningsbyten utan stora bågar. 4) Kontrollera: titta framåt. 3 varv.',
+      'Shadowstepin perusta: nämä 4 taitoa ovat pohja, jolle kaikki muu rakennetaan.': 'Shadowsteps grund: dessa 4 färdigheter är basen som allt annat byggs på.',
+      'Moni huippudribbaaja aloitti lähiön kaduilta, palloa joka päivä jalassa. Katupeli opetti katseen noston ja nopeat suunnanvaihdot jo ennen kuin yksikään akatemia ehti mukaan.': 'Många toppdribblare började på förortens gator, med bollen på foten varje dag. Gatufotbollen lärde dem att lyfta blicken och byta riktning snabbt långt innan någon akademi kom in i bilden.',
+      'Dribbeli — kiihdytys pallon kanssa': 'Dribbling — acceleration med bollen',
+      'Seiso paikallasi, pallo edessä. Lähtölaukaus — kiihdytä maksimille niin nopeasti kuin pystyt, pallo mukana! 10 kertaa. Palautus kävellen.': 'Stå stilla, bollen framför dig. Startskott — accelerera till max så snabbt du kan, med bollen! 10 gånger. Vila genom att gå tillbaka.',
+      'Kiihdytysladder: 0–5m hidas | 5–10m keskinopeus | 10–15m maksimi — pallo mukana koko ajan. Mittaa: milloin pallo irtoaa liikaa? 8 toistoa.': 'Accelerationsstege: 0–5 m långsamt | 5–10 m medelfart | 10–15 m max — bollen med hela tiden. Mät: när tappar du bollen för långt? 8 repetitioner.',
+      'Kiihdytys + suunnanmuutos 45° ilman palloa pysähtymistä. 6 toistoa kumpaankin suuntaan. Mittaa reaktioaikaa: kuinka nopeasti olet täydessä vauhdissa?': 'Acceleration + riktningsförändring 45° utan att stanna bollen. 6 repetitioner åt varje håll. Mät reaktionstiden: hur snabbt är du i full fart?',
+      'Räjähtävyys: tärkeää ei ole mitä liikettä teet vaan milloin ja kuinka nopeasti kiihdytät sen jälkeen.': 'Explosivitet: det viktiga är inte vilken finta du gör, utan när och hur snabbt du accelererar efteråt.',
+      'Eräs huippu löydettiin akatemiaan 10-vuotiaana. Hän hioi dribblaustekniikkaansa samassa paikassa kymmenen vuotta, päivä päivältä — eikä kiirehtinyt eteenpäin ennen kuin taito oli valmis.': 'En toppspelare upptäcktes till akademin som 10-åring. Han slipade sin dribblingsteknik på samma ställe i tio år, dag för dag — och skyndade sig inte vidare förrän färdigheten satt.',
+      'Dribbeli — kaveria vastaan (passiivinen)': 'Dribbling — mot en kompis (passiv)',
+      'Kaveri seisoo edessä, ei liiku. Ohita hänet vasemmalta tai oikealta! Kiihdytä ohi. 15 kertaa kummastakin suunnasta.': 'Kompisen står framför, rör sig inte. Gå förbi till vänster eller höger! Accelerera förbi. 15 gånger åt varje håll.',
+      'Kaveri seisoo passiivisena puolustajana. Tee suunnanmuutos ohi hänestä — käytä lyhyttä liikettä, ei suurta kaarta. Ohituksen jälkeen välitön kiihdytys. 20 toistoa.': 'Kompisen står som passiv försvarare. Gör en riktningsförändring förbi honom — använd en kort finta, inte en stor båge. Direkt acceleration efter passeringen. 20 repetitioner.',
+      'Yhdistä dribblaus ja liike: dribblaa lähelle kaveria → vaihda suuntaa → kaveri seuraa passiivisesti. Katso ylös ennen liikettä. 20 min pelimäisesti.': 'Kombinera dribbling och finter: dribbla nära kompisen → byt riktning → kompisen följer passivt. Titta upp före finten. 20 min på ett spellikt sätt.',
+      'Hallitse liike ensin yksin, sitten passiivista vastaan, sitten täydessä 1v1:ssä.': 'Behärska finten först ensam, sedan mot passiv, sedan i full 1v1.',
+      'Teininä eräs pelaaja debytoi aikuisten pääsarjassa ja uskalsi heti kuljettaa kokeneita puolustajia päin. Vuosien hionta näkyi: tekniikka kesti paineen, joten rohkeus oli ansaittua.': 'Som tonåring debuterade en spelare i högsta serien bland vuxna och vågade genast dribbla mot rutinerade försvarare. Årens slit syntes: tekniken höll under press, så modet var förtjänat.',
+      'Dribbeli-mittaus': 'Dribblingsmätning',
+      'Pujottele 5 kartiota niin nopeasti kuin pystyt — ajanotto! Kirjaa aika. Yritä parantaa 3 kertaa.': 'Slalom mellan 5 koner så snabbt du kan — ta tid! Skriv upp tiden. Försök förbättra dig 3 gånger.',
+      'Ajanotto: pujottelu 5 kartio, 10 m. Tee 5 suoritusta. Laske paras aika. Vertaa: oletko nopeampi kuin lokakuun alussa?': 'Tidtagning: slalom 5 koner, 10 m. Gör 5 försök. Räkna bästa tiden. Jämför: är du snabbare än i början av oktober?',
+      '4 perustaitoa: mittaa kuinka moni onnistuu täydessä pelissä (pelin jälkeen arvioi). Katso ylös, kiihdytä, suunnanmuutos, rytmi.': '4 grundfärdigheter: mät hur många som lyckas i full match (utvärdera efter matchen). Titta upp, accelerera, riktningsförändring, rytm.',
+      'Mittaa kehitystä, älä vain harjoittele — ilman mittausta et tiedä, oletko kehittynyt.': 'Mät din utveckling, träna inte bara — utan att mäta vet du inte om du blivit bättre.',
+      'Erästä huippudribbaajaa kuvailtiin pelaajaksi joka "nöyryytti puolustajia hämmästyttävillä vedoilla". Se tyyli syntyi katupelistä ja akatemian lukemattomista toistoista — ei yhdessä yössä.': 'En toppdribblare beskrevs som en spelare som "förödmjukade försvarare med häpnadsväckande finter". Den stilen föddes ur gatufotbollen och akademins otaliga repetitioner — inte över en natt.',
+      'U-käännös — opitaan hitaasti': 'U-vändning — lär in långsamt',
+      'Jalkapohja pallon päälle, vedä taaksepäin, käänny 180°. Hidas ensin! 15 kertaa oikealla jalalla, 15 vasemmalla. Ei kiire.': 'Fotsulan på bollen, dra bakåt, vänd 180°. Långsamt först! 15 gånger med höger fot, 15 med vänster. Ingen brådska.',
+      'U-käännös: jalkapohja päälle → vedä taaksepäin → käänny 180° → kiihdytä. Tee 20 kertaa hitaasti ja oikein. Sitten: yliastuminen (saksi pallon yli). 20 kertaa. Ei vastustajaa.': 'U-vändning: fotsulan på → dra bakåt → vänd 180° → accelerera. Gör 20 gånger långsamt och rätt. Sedan: översteg (sax över bollen). 20 gånger. Ingen motståndare.',
+      'Liikesarja 1–4 hitaasti: U-käännös | yliastuminen | U + yliastuminen yhdistettynä | vetokäännös (jalka pallon yli ja taakse). 10 × kutakin, tekninen laatu ensin.': 'Fintserie 1–4 långsamt: U-vändning | översteg | U + översteg kombinerat | dragvändning (foten över bollen och bakåt). 10 × vardera, teknisk kvalitet först.',
+      'Perussääntö: koko sarja täytyy hallita ilman vastustajaa, ennen kuin siirrytään passiivista vastaan.': 'Grundregel: hela serien måste behärskas utan motståndare innan du går vidare till mot passiv.',
+      'Eräs huippu harjoitteli lapsena yksin seinää vasten, kunnes pimeys pakotti lopettamaan. Kun muut lapset leikkivät, hän toisti samaa liikettä yhä uudelleen.': 'En toppspelare tränade som barn ensam mot en vägg tills mörkret tvingade honom sluta. När de andra barnen lekte upprepade han samma rörelse om och om igen.',
+      '1v1-liike — nopeammin': '1v1-finter — snabbare',
+      'Nyt nopeammin! U-käännös + heti kiihdytys. Tee liike ja juokse ohi nopeasti. 15 kertaa kummallakin jalalla.': 'Nu snabbare! U-vändning + acceleration direkt. Gör finten och spring förbi snabbt. 15 gånger med vardera foten.',
+      'Valittu liike täydessä nopeudessa ilman vastustajaa: teeskentely + liike + kiihdytys alle 1 sekunnissa. 25 toistoa. Lisää: saksiliike — vie jalka pallon yli 20 kertaa.': 'Vald finta i full fart utan motståndare: låtsasrörelse + finta + acceleration på under 1 sekund. 25 repetitioner. Lägg till: saxfinta — för foten över bollen 20 gånger.',
+      'Liikkeet 1–7 täydessä nopeudessa yksin. Mittaa: kuinka nopeasti teet liikkeen + kiihdytys 5 metriin? Tavoite alle 2 s.': 'Finter 1–7 i full fart ensam. Mät: hur snabbt gör du finten + acceleration på 5 meter? Mål under 2 s.',
+      'Räjähtävyys: tärkeää ei ole mitä liikettä — vaan kuinka nopeasti kiihdytät sen jälkeen.': 'Explosivitet: det viktiga är inte vilken finta — utan hur snabbt du accelererar efteråt.',
+      'Eräs nuori pelaaja muutti 12-vuotiaana kauas kotoa akatemiaan ja oli niin koti-ikävissään, että harkitsi lopettamista. Hän purki kaiken harjoitteluun ja jäi aina viimeisenä kentälle.': 'En ung spelare flyttade som 12-åring långt hemifrån till en akademi och var så hemsjuk att han funderade på att sluta. Han lade all sin längtan i träningen och stannade alltid kvar sist på planen.',
+      '1v1 — passiivinen puolustaja': '1v1 — passiv försvarare',
+      'Kaveri seisoo edessä, ei liiku. Käytä U-käännöstä tai saksea ohittaaksesi hänet! 20 kertaa. Yllätä kaveri.': 'Kompisen står framför, rör sig inte. Använd U-vändning eller sax för att gå förbi honom! 20 gånger. Överraska kompisen.',
+      'Kaveri passiivisena: tee liike → ohita → kiihdytä. Kaveri voi liikkua hitaasti mutta ei ota palloa. 20 toistoa valitulla liikkeellä + 10 toistoa vapaasti valiten.': 'Kompisen passiv: gör finten → gå förbi → accelerera. Kompisen får röra sig långsamt men tar inte bollen. 20 repetitioner med vald finta + 10 repetitioner med fritt val.',
+      'Puoli-aktiivinen puolustaja (saa liikkua mutta ei taklata): ohita käyttäen opittuja liikkeitä. 25 toistoa. Mikä liike toimii parhaiten sinulle?': 'Halvaktiv försvarare (får röra sig men inte tackla): gå förbi med hjälp av de inlärda finterna. 25 repetitioner. Vilken finta fungerar bäst för dig?',
+      'Taso 2: liikkeen täytyy toimia täydessä nopeudessa, ennen kuin siirrytään täyteen 1v1:een.': 'Nivå 2: finten måste fungera i full fart innan du går vidare till full 1v1.',
+      'Eräs teini halusi harjoitella niin kovasti, että hiipi salaa kuntosalille jonka käyttö oli nuorilta kielletty — kunnes valmentajat huomasivat ja lukitsivat oven. Into oli sammumaton.': 'En tonåring ville träna så hårt att han i smyg tog sig in i gymmet som ungdomar inte fick använda — tills tränarna märkte det och låste dörren. Ivern gick inte att släcka.',
+      '1v1-mittaus — toimiiko pelissä?': '1v1-mätning — fungerar det i match?',
+      'Pelaa 1v1-peliä kaverin kanssa 10 min. Laske: montako kertaa ohitit? Mitä liikettä käytit parhaiten?': 'Spela 1v1 mot en kompis i 10 min. Räkna: hur många gånger gick du förbi? Vilken finta använde du bäst?',
+      'Täysi 1v1: 10 min peliä. Laske ohitukset. Arvioi: mikä liike toimi, mikä ei? Harjoittele heikkoa liikettä 10 min lisää.': 'Full 1v1: 10 min spel. Räkna passeringarna. Utvärdera: vilken finta fungerade, vilken inte? Träna den svaga finten 10 min till.',
+      'Täysi 1v1-peli 15 min + itsearvio: opituista liikkeistä mitkä 3 ovat jo omassa repertuaarissa? Mitkä tarvitsevat lisää työtä?': 'Full 1v1 15 min + självutvärdering: av de inlärda finterna, vilka 3 finns redan i din repertoar? Vilka behöver mer arbete?',
+      'Pelitesti: toimiiko liike oikeassa pelissä? Jos ei — palaa vk 1:een.': 'Speltest: fungerar finten i riktigt spel? Om inte — gå tillbaka till vecka 1.',
+      'Eräs nuori pelaaja esiintyi harjoitusottelussa niin vakuuttavasti — ohitti puolustajan toisensa jälkeen — että vastustajajoukkueen valmentaja ei suostunut lähtemään ilman, että pelaaja saatiin tämän seuraan.': 'En ung spelare imponerade så mycket i en träningsmatch — gick förbi den ena försvararen efter den andra — att motståndarlagets tränare vägrade lämna platsen förrän spelaren värvats till hans klubb.',
+      'Sisäteräsyöttö — tarkka ja toistettava': 'Insidepassning — precis och repeterbar',
+      'Lähetä pallo seinälle ja yritä osua samaan kohtaan 10 kertaa peräkkäin. Tukijalka pallon viereen — ei taakse! Laske ennätys.': 'Skicka bollen mot väggen och försök träffa samma punkt 10 gånger i rad. Stödbenet bredvid bollen — inte bakom! Räkna ditt rekord.',
+      'Sisäteräsyöttö 20 toistoa: tukijalka pallon viereen | nilkka lukossa | osuma pallon keskikohtaan. Sitten jalkapöytä maassa 20 toistoa: koko jalkapöydän yläpuoli osuu palloon. Mittaa tarkkuus.': 'Insidepassning 20 repetitioner: stödbenet bredvid bollen | vristen låst | träff mitt på bollen. Sedan vristspark längs marken 20 repetitioner: hela vristens ovansida träffar bollen. Mät precisionen.',
+      'Syöttösarja muodot 1–3: sisäterä | jalkapöytä maassa | suora ilmapassi. 15 × kutakin. Mittaa: osumakohta pallossa (pitää olla keskikohta).': 'Passningsserie form 1–3: insida | vristspark längs marken | rak luftpassning. 15 × vardera. Mät: träffpunkten på bollen (ska vara mitten).',
+      'Maestron sääntö: tukijalka ratkaisee suunnan, jalkapöytä ratkaisee nopeuden.': 'Maestros regel: stödbenet avgör riktningen, vristen avgör farten.',
+      'Erään huippusyöttäjän isä ohjasi häntä puistossa myöhään iltoihin asti ja antoi pienen palkinnon jokaisesta osumasta poikkipalkkiin. Poika toisti laukauksia satoja kertoja illassa — tarkkuus syntyi noista toistoista.': 'En stjärnpassares pappa tränade honom i parken till sent på kvällarna och gav en liten belöning för varje träff i ribban. Pojken upprepade skotten hundratals gånger per kväll — precisionen föddes ur de repetitionerna.',
+      'Syöttö — etäisyydet kasvavat': 'Passning — avstånden växer',
+      'Syötä 5 metriin, sitten 10 metriin, sitten 15 metriin. Sama liike, pallo seuraa! Kumpi jalka on tarkempi?': 'Passa på 5 meter, sedan 10 meter, sedan 15 meter. Samma rörelse, bollen följer med! Vilken fot är mest precis?',
+      'Syöttöprogressio: 10 m | 15 m | 20 m — sisäterä ja jalkapöytä. Mittaa tarkkuus joka etäisyydellä. Tavoite: 8/10 osuu kohteeseen.': 'Passningsprogression: 10 m | 15 m | 20 m — insida och vrist. Mät precisionen på varje avstånd. Mål: 8/10 träffar målet.',
+      'Pitkä syöttö (kaareva/kierteinen, muoto 5) + ulkojalkapassi maassa (muoto 6). 15 toistoa kutakin. Mittaa kaartuma ja tarkkuus.': 'Lång passning (skruvad/kurvig, form 5) + utsidepass längs marken (form 6). 15 repetitioner vardera. Mät kurvan och precisionen.',
+      'Teknisesti taitavat pelaajat pitävät pallon liikkeessä joka etäisyydellä.': 'Tekniskt skickliga spelare håller bollen i rörelse på alla avstånd.',
+      'Eräs huippusyöttäjä voitti 11-vuotiaana suuren taitokilpailun ja pääsi palkinnoksi ulkomaiselle leirille — siellä hänet huomattiin ja ohjattiin kohti huippuseuraa. Taitokisamenestys avasi oven.': 'En stjärnpassare vann en stor tekniktävling som 11-åring och fick som pris åka på ett läger utomlands — där uppmärksammades han och slussades mot en toppklubb. Framgången i tekniktävlingen öppnade dörren.',
+      'Syöttö kaverin kanssa — liikkuvaan kohteeseen': 'Passning med en kompis — till ett rörligt mål',
+      'Kaveri juoksee — syötä hänelle niin että pallo tulee hänen eteen! Ei perään. 15 kertaa kummallakin jalalla.': 'Kompisen springer — passa så att bollen kommer framför honom! Inte bakom. 15 gånger med vardera foten.',
+      'Kaveri juoksee ristiin — syötä eteen tilaan, ei pelaajalle itselleen. 20 syöttöä. Sitten: lyhyt vaihto (1/2-kombinaatio, muoto 10) — syötä, juokse, saa takaisin.': 'Kompisen springer i kryss — passa framför i ytan, inte till spelaren själv. 20 passningar. Sedan: kort växelspel (1/2-kombination, form 10) — passa, spring, få tillbaka.',
+      'Läpisyöttö ulkojalalla (muoto 11) + keskitys maaliin päin (muoto 9). 10 × kutakin. Tarkkuus: osuu käytävään?': 'Genomskärare med utsidan (form 11) + inlägg mot mål (form 9). 10 × vardera. Precision: träffar bollen rätt löpyta?',
+      'Syöttö on kommunikaatiota — pallo kertoo joukkuekaverille, minne mennä.': 'Passning är kommunikation — bollen talar om för lagkamraten vart han ska gå.',
+      'Teininä eräs pelaaja liittyi huippuseuraan ja harjoitteli lahjakkaan nuorisoryhmän kanssa, josta moni nousi myöhemmin maailman huipulle. He voittivat yhdessä nuorten arvokisan — yhdessä kasvaminen nosti kaikkia.': 'Som tonåring gick en spelare med i en toppklubb och tränade med en begåvad ungdomsgrupp där många senare nådde världstoppen. Tillsammans vann de ett ungdomsmästerskap — att växa tillsammans lyfte alla.',
+      'Syöttö-mittaus': 'Passningsmätning',
+      'Laske: montako kertaa lähetät pallon tarkasti 10 metriin? Tee 20 syöttöä ja laske pisteet.': 'Räkna: hur många gånger skickar du bollen exakt på 10 meter? Gör 20 passningar och räkna poängen.',
+      'Syöttöhaaste: 20 syöttöä, eri etäisyydet (10/15/20 m). Laske pisteet: tarkka osuma = 1 p. Vertaa: oletko parempi kuin joulukuun alussa?': 'Passningsutmaning: 20 passningar, olika avstånd (10/15/20 m). Räkna poäng: exakt träff = 1 p. Jämför: är du bättre än i början av december?',
+      'Syöttösarja 11 muotoa — montako hallitset jo? Käy läpi ja arvioi itsesi. Harjoittele 2 heikkointa 10 min.': 'Passningsserie 11 former — hur många behärskar du redan? Gå igenom och utvärdera dig själv. Träna de 2 svagaste 10 min.',
+      'Viidennen viikon periaate — harjoittele sitä, missä tulos jäi heikoimmaksi.': 'Femte veckans princip — träna det där resultatet blev svagast.',
+      'Erään huippusyöttäjän valmentaja neuvoi katsomaan, miten parhaat lyövät pallon: sulava liike molemmin jaloin. Hän harjoitteli laukaisua molemmilla jaloilla niin kauan, että oikea ja vasen olivat lopulta yhtä tarkat.': 'En stjärnpassares tränare rådde honom att se hur de bästa slår bollen: en mjuk rörelse med båda fötterna. Han tränade avslutet med båda fötterna så länge att höger och vänster till slut var lika precisa.',
+      'Pomppulaskuri': 'Studsräknare',
+      'Pomputa palloa jalalla — montako kertaa peräkkäin saat ennen kuin se tippuu? Laske ja kirjaa ennätys. Yritä päihittää eilinen!': 'Jonglera bollen med foten — hur många gånger i rad klarar du innan den faller? Räkna och skriv upp ditt rekord. Försök slå gårdagens!',
+      'Ponnauttelu vahvalla jalalla, tavoite 30 peräkkäistä. Pidä pallo matalalla (polven alapuolella), nilkka lukossa. Kun 30 onnistuu, vaihda heikkoon jalkaan.': 'Jonglering med starka foten, mål 30 i rad. Håll bollen lågt (under knähöjd), vristen låst. När 30 lyckas, byt till svaga foten.',
+      'Ponnauttelu molemmin jaloin vuorotellen, pallo polven korkeudella, tavoite 50 peräkkäistä. Lisää reisi- ja olkapääkosketukset sekaan rytmiä rikkomatta.': 'Jonglering växelvis med båda fötterna, bollen i knähöjd, mål 50 i rad. Lägg in lår- och axeltouchar utan att bryta rytmen.',
+      'Ronaldinho: ponnauttelu opettaa pallon kielen — kuinka se reagoi jokaiseen kosketukseen.': 'Ronaldinho: jongleringen lär dig bollens språk — hur den reagerar på varje touch.',
+      'Reisi–jalka-rytmi': 'Lår–fot-rytm',
+      'Pomputa näin: reisi → jalka → reisi → jalka. Pidä rytmi kuin laulussa. Montako kierrosta jaksat ilman tippumista?': 'Jonglera så här: lår → fot → lår → fot. Håll rytmen som i en sång. Hur många varv orkar du utan att tappa bollen?',
+      'Yhdistelmäponnauttelu: reisi–jalka–reisi yhdellä jalalla, sitten vaihto toiseen. 5 kierrosta ilman tippumista. Kontrolli ennen vauhtia.': 'Kombinationsjonglering: lår–fot–lår med en fot, sedan byte till den andra. 5 varv utan att tappa bollen. Kontroll före fart.',
+      'Vapaa ponnauttelusarja: reisi, sisäterä, ulkojalka, olkapää — vaihtele kosketuspintaa rytmiä menettämättä. 2 min yhtäjaksoisesti.': 'Fri jongleringsserie: lår, insida, utsida, axel — växla träffyta utan att tappa rytmen. 2 min i sträck.',
+      'Pallo tottelee sitä jolla on tuntuma jokaisesta pinnasta.': 'Bollen lyder den som har känsla för varje yta.',
+      'Seinäponnautus': 'Väggstuds',
+      'Potkaise pallo seinään ilmaan ja ota se haltuun ilmasta ennen kuin se osuu maahan. 10 onnistunutta!': 'Sparka upp bollen i luften mot väggen och ta den i luften innan den nuddar marken. 10 lyckade!',
+      'Seinäponnautus: syötä seinään ilmaan, vastaanota ilmasta yhdellä pehmeällä kosketuksella, ponnauta takaisin. 15 kosketusta ilman maahantippumista.': 'Väggstuds: passa upp i luften mot väggen, ta emot i luften med en mjuk touch, jonglera tillbaka. 15 touchar utan att bollen faller till marken.',
+      'Seinäponnautus vuorojaloin: ensimmäinen kosketus pehmentää, toinen syöttää. 20 toistoa + skannaa: nimeä kohde ennen jokaista syöttöä.': 'Väggstuds växelvis fot: första touchen dämpar, andra passar. 20 repetitioner + skanna: namnge målet före varje passning.',
+      'Ilmapallon hallinta erottaa pelaajan joka pelaa nopeudella.': 'Att behärska bollen i luften skiljer ut spelaren som spelar med fart.',
+      'Kiihdytys pallon kanssa': 'Acceleration med bollen',
+      'Kuljeta pallo niin nopeasti kuin pystyt 10 metriä, pysäytä, ja takaisin. Pallo pysyy lähellä! 6 kertaa täysillä, hengähdä välissä.': 'För bollen så snabbt du kan 10 meter, stanna, och tillbaka. Bollen håller sig nära! 6 gånger för fullt, andas ut emellan.',
+      'Kiihdytysvedot pallon kanssa: 0–15 m maksimivauhtia, pallo enintään askeleen päässä. 6 toistoa, täysi palautus välissä. Pysyykö pallo hallinnassa täydessä vauhdissa?': 'Accelerationsryck med bollen: 0–15 m i maxfart, bollen högst ett steg bort. 6 repetitioner, full vila emellan. Håller du bollen under kontroll i full fart?',
+      'Kiihdytys pallolla 20 m, viimeiset 5 m ilman katsetta palloon (skannaa eteen). 8 toistoa. Vertaa: kuljetus ilman palloa vs. pallon kanssa (TSI-erotus).': 'Acceleration med bollen 20 m, de sista 5 m utan att titta på bollen (skanna framåt). 8 repetitioner. Jämför: löpning utan boll mot med boll (TSI-skillnaden).',
+      'Nopeus pallon kanssa on eri taito kuin nopeus ilman — sitä harjoitellaan erikseen.': 'Fart med bollen är en annan färdighet än fart utan — den tränas separat.',
+      'Suunnanmuutos kartioilla': 'Riktningsförändring med koner',
+      '3 merkkiä lattiaan — kivi, reppu tai paita käy — 5 metrin välein. Kuljeta pallo, käänny terävästi jokaisella, kiihdytä. 8 kertaa.': '3 markeringar på marken — en sten, en ryggsäck eller en tröja duger — med 5 meters mellanrum. För bollen, vänd skarpt vid varje, accelerera. 8 gånger.',
+      'Suunnanmuutosrata: kartiot 5 m välein, terävä 90° käännös jokaisella + välitön kiihdytys ulos. Pallo lähellä käännöksessä. 8 läpimenoa, ajanotto.': 'Riktningsbana: koner med 5 m mellanrum, skarp 90°-vändning vid varje + direkt acceleration ut. Bollen nära i vändningen. 8 genomgångar, tidtagning.',
+      'Suunnanmuutos täydessä vauhdissa: 180° käännös pysäytyksellä + räjähtävä lähtö vastakkaiseen suuntaan, molemmat jalat. 10 toistoa, mittaa palautumisaika.': 'Riktningsförändring i full fart: 180°-vändning med stopp + explosiv start i motsatt riktning, båda fötterna. 10 repetitioner, mät återhämtningstiden.',
+      'Pelin nopeus on suunnanmuutosnopeutta, ei suoraa juoksua.': 'Spelets fart är fart i riktningsförändringar, inte rak löpning.',
+      'Reaktiolähtö': 'Reaktionsstart',
+      'Kaveri huutaa "NYT!" — lähde silloin pallon kanssa täysillä 5 metriä. Tai heittämäsi pallo pomppaa merkiksi — lähde heti! 8 kertaa.': 'Kompisen ropar "NU!" — starta då med bollen för fullt 5 meter. Eller en boll du kastar studsar som signal — starta direkt! 8 gånger.',
+      'Reaktiolähtö: odota merkkiä (kaverin huuto tai käsimerkki), lähde pallolla räjähtävästi 5–10 m. 8 toistoa. Kuinka nopeasti reagoit ja olet täydessä vauhdissa?': 'Reaktionsstart: vänta på en signal (kompisens rop eller handtecken), starta explosivt med bollen 5–10 m. 8 repetitioner. Hur snabbt reagerar du och är i full fart?',
+      'Reaktiolähtö valinnalla: kaveri osoittaa suunnan merkkihetkellä, lähde sinne pallolla. 10 toistoa. Yhdistä havainto + kiihdytys — tämä on pelin lähtö.': 'Reaktionsstart med val: kompisen pekar ut riktningen vid signalen, starta dit med bollen. 10 repetitioner. Kombinera perception + acceleration — det här är spelets start.',
+      'Ensimmäinen askel ratkaisee — reaktio + kiihdytys voittaa metrit.': 'Första steget avgör — reaktion + acceleration vinner metrarna.',
+    },
+    // KOHDE_NIMET (pienellä, interpoloituu miksi_lause1:een)
+    kohde_nimet: { pallonhallinta: 'bollkontroll', koordinaatio: 'koordination', nopeus: 'snabbhet', syotto: 'passning', ponnauttelu: 'jonglering' },
+    // Kortin yläotsikko (isolla) — tmKohdeOtsikko()
+    kohde_otsikko: { pallonhallinta: 'Bollkontroll', koordinaatio: 'Koordination', nopeus: 'Snabbhet', syotto: 'Passning', ponnauttelu: 'Jonglering' },
+    // generoiMiksiteksti: lause 2 (kohde × ikävaihe)
+    miksi_lause2: {
+      pallonhallinta: { leikkija: 'Varje touch gör bollen mer bekant.', rakentaja: 'När du automatiserar kontrollen frigör du tankarna till spelet.', showcase: 'Teknisk automatik är det som skiljer proffsnivå från amatörnivå.' },
+      koordinaatio:   { leikkija: 'Kroppen lär sig röra sig bättre tillsammans.', rakentaja: 'Koordination är grunden för allt annat.', showcase: 'Rörelsekontroll i full fart är det som tekniken vilar på.' },
+      nopeus:         { leikkija: 'Snabba fötter gör spelet roligare.', rakentaja: 'Fart med bollen är en egen färdighet — den går att träna.', showcase: 'Neuromuskulär träning bygger explosivitet.' },
+      syotto:         { leikkija: 'En precis passning håller bollen hos kompisarna.', rakentaja: 'Passningen är lagets språk — precision öppnar spelet.', showcase: 'Passningens precision och vikt avgör anfallets tempo.' },
+      ponnauttelu:    { leikkija: 'Jongleringen lär dig bollens rörelser.', rakentaja: 'Jongleringen bygger touch-precision mot varje yta.', showcase: 'Att behärska bollen i luften är grunden för första touchen under press.' },
+    },
+    // generoiMiksiteksti: lause 1 (mallit; {kohde} ja {s} korvataan)
+    miksi_l1: {
+      tki: 'Din tekniktävling visade att {kohde} är ett tillväxtområde.',
+      tsi: 'Mätningen visar att bollen saktar ner dig {s} sekunder.',
+      hh: 'Din fysiska profil visar var utveckling ger mest.',
+      leikkija: 'Du är precis i rätt ålder för att lära dig det här.',
+      rakentaja: 'Nu är stunden då den här färdigheten fastnar djupast.',
+      showcase: 'Det här är det område som skiljer en bra spelare från en utmärkt.',
+    },
+    // generoiMiksiteksti: lause 3
+    miksi_l3: { leikkija: 'Gör det här varje dag så börjar bollen lyda.', muu: 'Gör det här i 14 dagar → testa igen → se skillnaden.' },
+  },
+  // en: {} — lisää myöhemmin samalla rakenteella (V4-A-en)
+};
+// Aktiivinen kieli (browser: tmNykyinenKieli-globaali; node/testit: fi ellei asetettu).
+function _hKieli() {
+  try { return (typeof tmNykyinenKieli === 'function' && tmNykyinenKieli()) || 'fi'; }
+  catch (e) { return 'fi'; }
+}
+// Sisältökäännös KANONISELLA fi-merkkijonoavaimella. Puuttuva kieli/avain → fi (Suomi ei rikkoudu).
+function _hT(fi) {
+  if (fi == null) return fi;
+  var k = _hKieli();
+  if (k === 'fi') return fi;
+  var m = HARJOITE_I18N[k] && HARJOITE_I18N[k].sisalto;
+  return (m && typeof m[fi] === 'string') ? m[fi] : fi;
+}
+// Kortin yläotsikko (KOHDE_OTS) lokalisoituna — Pelaaja_v7 kutsuu tätä KOHDE_OTS-kartan sijaan.
+var KOHDE_OTS_FI = { pallonhallinta: 'Pallonhallinta', koordinaatio: 'Koordinaatio', nopeus: 'Nopeus', syotto: 'Syöttö', ponnauttelu: 'Ponnauttelu' };
+function tmKohdeOtsikko(kohde) {
+  var k = _hKieli();
+  var o = (k !== 'fi' && HARJOITE_I18N[k]) ? HARJOITE_I18N[k].kohde_otsikko : null;
+  return (o && o[kohde]) || KOHDE_OTS_FI[kohde] || kohde;
+}
+
+
 // ── 1B: Päivittäinen harjoitevalinta (teema pysyy, harjoite vaihtuu) ───
 // Palauttaa valitun harjoitteen normalisoituna, TAI null jos kohteelle ei harjoitteita
 // (kutsuja tekee tällöin EX-fallbackin ikävaiheella).
@@ -2758,10 +2948,11 @@ function valitsePaivanHarjoite(pelaaja, pankki, pvm) {
   else indeksi = paiviaAktiivinen % harjoitteet.length;                                // päivittäin
 
   var h = harjoitteet[indeksi];
+  // V4-A: pelaajalle näkyvä sisältö lokalisoidaan (sv nyt, en myöhemmin). Puuttuva → fi.
   return {
-    nimi: h.nimi, ohje: _ohjeIkavaiheelle(h, iv),
+    nimi: _hT(h.nimi), ohje: _hT(_ohjeIkavaiheelle(h, iv)),
     kesto: h.kesto || null, xp: h.xp || 20, yt: h.yt || null,
-    cue: h.cue || null, tarina: h.tarina || null, viikkotavoite: h.viikkotavoite || null,
+    cue: _hT(h.cue || null), tarina: _hT(h.tarina || null), viikkotavoite: _hT(h.viikkotavoite || null),
     kehityskohde: kohde, tyyppi: 'T', paiviaAktiivinen: paiviaAktiivinen,
   };
 }
@@ -2770,21 +2961,27 @@ function valitsePaivanHarjoite(pelaaja, pankki, pvm) {
 function generoiMiksiteksti(pelaaja, kehityskohde, ikavaihe) {
   pelaaja = pelaaja || {};
   var kohde = kehityskohde.kohde, lahde = kehityskohde.lahde;
-  var kohdeNimi = KOHDE_NIMET[kohde] || kohde;
+  // V4-A: kielitietoinen. i18 = aktiivisen kielen kartta tai null (→ fi-lähdetekstit).
+  var k = _hKieli();
+  var i18 = (k !== 'fi' && HARJOITE_I18N[k]) ? HARJOITE_I18N[k] : null;
+  var kohdeNimi = (i18 && i18.kohde_nimet && i18.kohde_nimet[kohde]) || KOHDE_NIMET[kohde] || kohde;
 
+  var L1 = i18 && i18.miksi_l1;
   var l1;
-  if (lahde === 'tki')      l1 = 'Tekniikkakilpailusi näytti että ' + kohdeNimi + ' on kasvun paikka.';
-  else if (lahde === 'tsi') { var s = (pelaaja.tsi_viimeisin != null) ? Number(pelaaja.tsi_viimeisin).toFixed(1) : '?'; l1 = 'Mittaus kertoo että pallo hidastaa sinua ' + s + ' sekuntia.'; }
-  else if (lahde === 'hh')  l1 = 'Fyysinen profiilisi kertoo missä kehittyminen tuottaa eniten.';
+  if (lahde === 'tki')      l1 = L1 ? L1.tki.replace('{kohde}', kohdeNimi) : ('Tekniikkakilpailusi näytti että ' + kohdeNimi + ' on kasvun paikka.');
+  else if (lahde === 'tsi') { var s = (pelaaja.tsi_viimeisin != null) ? Number(pelaaja.tsi_viimeisin).toFixed(1) : '?'; l1 = L1 ? L1.tsi.replace('{s}', s) : ('Mittaus kertoo että pallo hidastaa sinua ' + s + ' sekuntia.'); }
+  else if (lahde === 'hh')  l1 = L1 ? L1.hh : 'Fyysinen profiilisi kertoo missä kehittyminen tuottaa eniten.';
+  else if (L1)              l1 = L1[ikavaihe] || L1.rakentaja;
   else l1 = ikavaihe === 'leikkija' ? 'Olet juuri oikeassa iässä oppimaan tämän.'
           : ikavaihe === 'rakentaja' ? 'Nyt on se hetki jolloin tämä taito uppoaa syvimmälle.'
           : 'Tämä on se osa-alue joka erottaa hyvän pelaajan erinomaisesta.';
 
-  var m = MIKSI_LAUSE2[kohde] || MIKSI_LAUSE2.pallonhallinta;
+  var m = (i18 && i18.miksi_lause2 && i18.miksi_lause2[kohde]) || MIKSI_LAUSE2[kohde] || MIKSI_LAUSE2.pallonhallinta;
   var l2 = m[ikavaihe] || m.rakentaja;
 
-  var l3 = ikavaihe === 'leikkija' ? 'Tee tämä joka päivä ja pallo alkaa totella.'
-                                   : 'Tee tämä 14 päivää → testaat uudelleen → näet eron.';
+  var L3 = i18 && i18.miksi_l3;
+  var l3 = ikavaihe === 'leikkija' ? (L3 ? L3.leikkija : 'Tee tämä joka päivä ja pallo alkaa totella.')
+                                   : (L3 ? L3.muu : 'Tee tämä 14 päivää → testaat uudelleen → näet eron.');
 
   return { miksi_lause1: l1, miksi_lause2: l2, miksi_lause3: l3 };
 }
@@ -2801,5 +2998,8 @@ if (typeof module !== 'undefined' && module.exports) {
     _laskeIkavaihe: _laskeIkavaihe,
     T_MESOSYKLI_KOHDE: T_MESOSYKLI_KOHDE,
     T_KOHDE_PANKKI: T_KOHDE_PANKKI,
+    HARJOITE_I18N: HARJOITE_I18N,       // V4-A: harjoitesisällön käännökset (sv; en myöhemmin)
+    tmKohdeOtsikko: tmKohdeOtsikko,     // V4-A: lokalisoitu kortin yläotsikko
+    _hT: _hT,                          // V4-A: sisältökäännös-getter (testit)
   };
 }
