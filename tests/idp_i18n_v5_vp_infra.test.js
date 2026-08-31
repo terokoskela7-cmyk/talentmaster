@@ -100,7 +100,6 @@ describe('VP_v25 Vaihe 0 -täydennys: koko aina-näkyvä chrome reititetty (kiel
         const t = m[3].replace(/&[a-z]+;/gi, ' ').trim();
         if ((t.match(/[A-Za-zÀ-ÿ]/g) || []).length < 3) continue;
         if (t === 'Master' || t === 'Talent') continue;                 // brändilogo
-        if (t === 'Kirjaudu Google-tilillä') continue;                  // tunnettu sanktioimaton sv-aukko (reititetty, fi-fallback)
         if (stack.some((s) => s.i18n)) continue;
         orphan.push(t.slice(0, 40));
       }
@@ -129,5 +128,14 @@ describe('VP_v25 Vaihe 0 -täydennys: koko aina-näkyvä chrome reititetty (kiel
     expect(Mod.vpT('Arvioi harjoitus')).toBe('Bedöm träning');
     expect(Mod.vpT('Ohjelmakirjasto')).toBe('Programbibliotek');
     expect(Mod.vpT('Bio-banding')).toBe('Bio-banding');
+  });
+
+  it('V0-close: Google-login sanktioitu sv + en (ei enää fi-fallback-aukkoa)', () => {
+    const Mod = require('../lib/tm_vp_i18n.js');
+    global.tmNykyinenKieli = () => 'sv';
+    expect(Mod.vpT('Kirjaudu Google-tilillä')).toBe('Logga in med Google-konto');
+    global.tmNykyinenKieli = () => 'en';
+    expect(Mod.vpT('Kirjaudu Google-tilillä')).toBe('Log in with Google account');
+    expect(Mod.vpT('Pelaajat')).toBe('Pelaajat');   // en-kerros muuten kesken → fi-fallback
   });
 });
