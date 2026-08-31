@@ -116,6 +116,32 @@ describe('V4-B5 kielineutraalin portin 16 jäännettä fi/sv/en + kytkentä', ()
   });
 });
 
+describe('V4-B7 interpolointi-vierus + toast-kerros fi/sv/en + kytkentä', () => {
+  const B7 = ['kortti_matka_otsikko', 'huoltaja_otsikko', 'toast_treeni_kirjattu', 'toast_pallo_ok',
+    'toast_kehu_lahetetty', 'toast_kopioi_pin', 'toast_kirjauduttu_ulos', 'toast_valmentaja_reagoi', 'toast_kirjasi_treenin'];
+  it('9 avainta ei-tyhjinä fi/sv/en', () => {
+    ['fi', 'sv', 'en'].forEach((k) => B7.forEach((a) => expect(L.TM_LANG[k].vanhempi[a].trim().length).toBeGreaterThan(0)));
+    expect(L.TM_LANG.sv.vanhempi.toast_kirjauduttu_ulos).toBe('Utloggad');
+    expect(L.TM_LANG.sv.vanhempi.kortti_matka_otsikko).toBe('Spelarens resa');
+  });
+  it('interpolointi-vierus: kortti_matka/huoltaja sv/en ilman nimeä ({gen} vain fi:ssä)', () => {
+    ['kortti_matka_otsikko', 'huoltaja_otsikko'].forEach((a) => {
+      expect(/\{gen\}/.test(L.TM_LANG.fi.vanhempi[a])).toBe(true);
+      ['sv', 'en'].forEach((k) => expect(/\{gen\}|\{nimi\}/.test(L.TM_LANG[k].vanhempi[a])).toBe(false));
+    });
+    expect(V).toContain("t('vanhempi.kortti_matka_otsikko').replace('{gen}', _genetiivi(d.nimi))");
+    expect(V).toContain("t('vanhempi.huoltaja_otsikko').replace('{gen}', _genetiivi(d.nimi))");
+  });
+  it('toast-kerros reititetty t():hen (interpolointi .replace); ei kovakoodattua', () => {
+    expect(V).toContain("_toast(t('vanhempi.toast_kirjauduttu_ulos'))");
+    expect(V).toContain("_toast(t('vanhempi.toast_kopioi_pin'))");
+    expect(V).toContain("t('vanhempi.toast_valmentaja_reagoi').replace('{emoji}'");
+    expect(V).toContain("t('vanhempi.toast_kirjasi_treenin').replace('{nimi}', IKA[_age].nimi)");
+    expect(V).not.toContain("_toast('Kirjauduttu ulos')");
+    expect(V).not.toContain("_toast('Kopioi PIN manuaalisesti')");
+  });
+});
+
 describe('S7.22 + glossaari + nimen taivutus (V1-B2)', () => {
   it('sv/en: ei kiellettyä S7.22-kieltä (koko vanhempi-kategoria)', () => {
     const osumat = [];
