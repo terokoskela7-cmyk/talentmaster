@@ -119,7 +119,7 @@ body.demo-mode #devChrome{display:block}
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-functions-compat.js"></script>
-<script src="lib/tm_lang.js?v=8"></script>   <!-- i18n V0 putki · V1-B/B2: +vanhempi./nav.-avaimet + kielivalitsin + syväsisältö (nimen taivutus poistettu) -->
+<script src="lib/tm_lang.js?v=9"></script>   <!-- i18n V0 putki · V1-B/B2: +vanhempi./nav.-avaimet + kielivalitsin + syväsisältö (nimen taivutus poistettu) -->
 <script src="docs/testit_indeksit.js?v=9"></script>
 <script src="tm-bus.js?v=3"></script>
 <script src="tm-demo.js?v=3"></script>
@@ -1083,7 +1083,7 @@ async function _perheKirjaa(){
   _sc = 'koti';
   document.querySelectorAll('.sp').forEach(b=>b.classList.toggle('on',b.dataset.s==='koti'));
   draw();
-  _toast(`${_genetiivi(IKA[_age].nimi)} treeni kirjattu${onT?' · pallo ✓':''}!`);
+  _toast(t('vanhempi.toast_treeni_kirjattu') + (onT ? t('vanhempi.toast_pallo_ok') : '') + '!');
 }
 
 /* ══ VALMENTAJAN VIESTI ══ */
@@ -1212,7 +1212,7 @@ function rKortti(){
 <div class="scroll">
   <div style="padding:14px 2px 14px;text-align:center">
     <div class="ey ac" style="margin-bottom:6px">${t('vanhempi.kortti_kausi')} 2025/26</div>
-    <div style="font-family:var(--font-d);font-weight:400;font-size:26px;line-height:1.1;color:var(--text)">${_genetiivi(d.nimi)} matka</div>
+    <div style="font-family:var(--font-d);font-weight:400;font-size:26px;line-height:1.1;color:var(--text)">${t('vanhempi.kortti_matka_otsikko').replace('{gen}', _genetiivi(d.nimi))}</div>
   </div>
 
   <!-- Iso kortti -->
@@ -1305,7 +1305,7 @@ function rAsetukset(){
     <div style="width:48px;height:48px;border-radius:50%;background:var(--surface2);border:.5px solid var(--border2);display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:600;color:var(--ink2)">P</div>
     <div style="flex:1">
       <div style="font-size:13px;font-weight:600;color:var(--text)">${_vEsc(huoltajaNimi)}</div>
-      <div style="font-size:11px;color:var(--ink3)">${_genetiivi(d.nimi)} huoltaja</div>
+      <div style="font-size:11px;color:var(--ink3)">${t('vanhempi.huoltaja_otsikko').replace('{gen}', _genetiivi(d.nimi))}</div>
     </div>
     ${ic('edit',16,'#8BA0BC',1.5)}
   </div>
@@ -1725,7 +1725,7 @@ async function _lahetaKehu(emoji, teksti) {
         kirjausId: _viimeisinKirjaus.id,
       });
     _kehuLahetetty = true;
-    _toast(`${emoji} Kehu lähetetty ${d.nimi}:lle!`);
+    _toast(emoji + ' ' + t('vanhempi.toast_kehu_lahetetty'));
     draw();
   } catch(e) {
     console.warn('[lahetaKehu]', e.message);
@@ -1796,8 +1796,8 @@ function _kopioiPin(pin) {
   if (navigator.clipboard && navigator.clipboard.writeText) {
     navigator.clipboard.writeText(String(pin))
       .then(function(){ _toast(t('vanhempi.toast_pin_kopioitu')); })
-      .catch(function(){ _toast('Kopioi PIN manuaalisesti'); });
-  } else { _toast('Kopioi PIN manuaalisesti'); }
+      .catch(function(){ _toast(t('vanhempi.toast_kopioi_pin')); });
+  } else { _toast(t('vanhempi.toast_kopioi_pin')); }
 }
 
 /* ── Kirjaudu ulos ── */
@@ -1817,7 +1817,7 @@ function _kirjauduUlos() {
   _viikkoKirjaukset = [];
   _sc = 'login';
   draw();
-  _toast('Kirjauduttu ulos');
+  _toast(t('vanhempi.toast_kirjauduttu_ulos'));
 }
 
 // ── TMBus-yhteensopivuus: varmista että kaikki metodit ovat olemassa ──
@@ -1841,9 +1841,9 @@ if(window.TMBus){
     if(evt.type==='coach_message' && (evt.channel==='family'||evt.channel==='player')){
       _toast(t('vanhempi.toast_uusi_viesti'));
     } else if(evt.type==='coach_react'){
-      _toast(`Valmentaja ${evt.emoji||'❤️'} reagoi`);
+      _toast(t('vanhempi.toast_valmentaja_reagoi').replace('{emoji}', evt.emoji||'❤️'));
     } else if(evt.type==='training' && evt.source!=='parent'){
-      _toast(`${IKA[_age].nimi} kirjasi treenin`);
+      _toast(t('vanhempi.toast_kirjasi_treenin').replace('{nimi}', IKA[_age].nimi));
     }
     // Uudelleenrenderöi aktiivinen näkymä
     draw();
