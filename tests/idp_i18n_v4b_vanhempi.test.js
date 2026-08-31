@@ -54,6 +54,15 @@ describe('V4-B2 addendum: A–L klusterit fi/sv/en + typo-fix + MM-substantiivit
   it('addendum-avaimet ei-tyhjinä fi/sv/en', () => {
     ['fi', 'sv', 'en'].forEach((k) => ADD.forEach((a) => expect(L.TM_LANG[k].vanhempi[a].trim().length).toBeGreaterThan(0)));
   });
+  it('V4-B3 micro-fix: koti_kehityskaari_otsikko + aika_h/pv_sitten fi/sv/en', () => {
+    ['koti_kehityskaari_otsikko', 'aika_h_sitten', 'aika_pv_sitten'].forEach((a) =>
+      ['fi', 'sv', 'en'].forEach((k) => expect(L.TM_LANG[k].vanhempi[a].trim().length).toBeGreaterThan(0)));
+    expect(L.TM_LANG.sv.vanhempi.koti_kehityskaari_otsikko).toBe('Utvecklingskurva');
+    L.tmAsetaKieli('sv', false);
+    expect(L.t('vanhempi.aika_h_sitten', { n: 2 })).toBe('2 h sedan');
+    expect(L.t('vanhempi.aika_pv_sitten', { n: 3 })).toBe('3 dagar sedan');
+    L.tmAsetaKieli('fi', false);
+  });
   it('typo-fix: mikro_bola fi = "Bola Siempre" (ei "Sempre")', () => {
     expect(L.TM_LANG.fi.vanhempi.mikro_bola).toContain('Bola Siempre');
     expect(L.TM_LANG.fi.vanhempi.mikro_bola).not.toContain('Bola Sempre ');
