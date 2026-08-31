@@ -75,3 +75,59 @@ describe('VP_v25 chrome tagattu data-i18n:llä', () => {
     expect(VP).toContain('data-i18n="Ilmoitukset"');
   });
 });
+
+describe('VP_v25 Vaihe 0 -täydennys: koko aina-näkyvä chrome reititetty (kielineutraali portti)', () => {
+  // Chrome-blokki = #sLogin .. juuri ennen <!-- MAIN --> (login+topbar+tabbar+sidebar+notif).
+  const a = VP.indexOf('<div id="sLogin">');
+  const b = VP.indexOf('<!-- MAIN -->');
+  const block = VP.slice(a, b).replace(/<!--[\s\S]*?-->/g, '');   // HTML-kommentit näkymättömiä → pois
+
+  it('0 reitittämätöntä tekstisolmua chrome-kontainereissa (brändi pl.)', () => {
+    // Kevyt tekstisolmu-portti: >teksti< joka ei ole elementissä jolla data-i18n, ≥3 kirjainta.
+    const stack = [];
+    const orphan = [];
+    const tokRe = /<\/?([a-zA-Z][\w-]*)((?:[^<>]|"[^"]*")*)>|([^<]+)/g;
+    const voidT = new Set(['input', 'br', 'img', 'path', 'circle', 'rect', 'svg', 'line', 'polyline', 'polygon', 'use', 'meta', 'hr']);
+    let m;
+    while ((m = tokRe.exec(block))) {
+      if (m[1] !== undefined) {
+        const tag = m[1].toLowerCase();
+        const closing = m[0][1] === '/';
+        if (closing) { for (let i = stack.length - 1; i >= 0; i--) { if (stack[i].tag === tag) { stack.length = i; break; } } continue; }
+        if (voidT.has(tag)) continue;
+        stack.push({ tag, i18n: /\bdata-i18n(?:-ph|-title)?\s*=/.test(m[2]) });
+      } else {
+        const t = m[3].replace(/&[a-z]+;/gi, ' ').trim();
+        if ((t.match(/[A-Za-zÀ-ÿ]/g) || []).length < 3) continue;
+        if (t === 'Master' || t === 'Talent') continue;                 // brändilogo
+        if (t === 'Kirjaudu Google-tilillä') continue;                  // tunnettu sanktioimaton sv-aukko (reititetty, fi-fallback)
+        if (stack.some((s) => s.i18n)) continue;
+        orphan.push(t.slice(0, 40));
+      }
+    }
+    expect(orphan).toEqual([]);
+  });
+
+  it('sivupalkin nav-labelit + section-labelit reititetty', () => {
+    ['Työtilat', 'Työkalut', 'Koti', 'Seuranta', 'Raportointi', 'Kalenteri',
+      'Pelihavainto', 'Jaksofokus', 'Ohjelmakirjasto', 'Bio-banding', 'Arvioi harjoitus'].forEach((t) =>
+      expect(block).toContain('data-i18n="' + t + '"'));
+  });
+
+  it('login/breadcrumb/notif jäännökset reititetty', () => {
+    expect(block).toContain('data-i18n="tai"');
+    expect(block).toContain('data-i18n="Kokeile demona →"');
+    expect(block).toContain('data-i18n="Kirjaudu Google-tilillä"');   // reititetty vaikka sv-sanktio kesken
+    expect(block).toContain('data-i18n="Hae pelaajaa, joukkuetta..."');
+    expect(block).toContain('data-i18n-title="Ilmoitusasetukset"');
+    expect(block).toContain('<span class="bc-active" data-i18n="Tilanne">');
+  });
+
+  it('uudet Kim-poimitut sv-arvot (sanktioitu full-HTML-avaimista)', () => {
+    const Mod = require('../lib/tm_vp_i18n.js');
+    global.tmNykyinenKieli = () => 'sv';
+    expect(Mod.vpT('Arvioi harjoitus')).toBe('Bedöm träning');
+    expect(Mod.vpT('Ohjelmakirjasto')).toBe('Programbibliotek');
+    expect(Mod.vpT('Bio-banding')).toBe('Bio-banding');
+  });
+});
