@@ -35,6 +35,12 @@ function reachableS() {
     Object.keys(WL[ketju][ty]).forEach((st) => push(WL[ketju][ty][st]))));
   // S-kortin staattiset labelit
   ['Kohdennettu kehitys', 'Harjoite päivittyy'].forEach(push);
+  // V4-A3: Bola Siempre (getTHarjoiteWhy TEHTAVAT, 21) — sama pelaaja-alikartta (jaettu namespace)
+  const wlSrc = readFileSync(join(__dir, '..', 'tm_why_lauseet.js'), 'utf8').split('\n');
+  const ts = wlSrc.findIndex((l) => l.trim().startsWith('const TEHTAVAT'));
+  const te = wlSrc.findIndex((l, i) => i > ts && l.trim() === '};');
+  const teh = eval('(' + wlSrc.slice(ts, te + 1).join('\n').replace(/^\s*const TEHTAVAT\s*=\s*/, '').replace(/;\s*$/, '') + ')');
+  Object.keys(teh).forEach((st) => teh[st].forEach(push));
   return set;
 }
 
@@ -48,8 +54,8 @@ function withLang(lang, fn) {
 
 describe('HARJOITE_I18N.sv.pelaaja - S-pankki + D-fallback kattaa reachable-joukon', () => {
   const reachable = reachableS();
-  it('reachable-joukko on odotetun kokoinen (130 pankki + 30 why + 2 labelia = 162)', () => {
-    expect(reachable.size).toBe(162);
+  it('reachable-joukko on odotetun kokoinen (130 pankki + 30 why + 2 labelia + 21 Bola Siempre = 183)', () => {
+    expect(reachable.size).toBe(183);
   });
   it('sv.pelaaja: jokainen reachable fi-merkkijono on kaannetty (0 puuttuvaa)', () => {
     const map = H.HARJOITE_I18N.sv.pelaaja;

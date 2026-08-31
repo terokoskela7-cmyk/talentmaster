@@ -119,7 +119,7 @@ body.demo-mode #devChrome{display:block}
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-functions-compat.js"></script>
-<script src="lib/tm_lang.js?v=3"></script>   <!-- i18n V0 putki · V1-B/B2: +vanhempi./nav.-avaimet + kielivalitsin + syväsisältö (nimen taivutus poistettu) -->
+<script src="lib/tm_lang.js?v=5"></script>   <!-- i18n V0 putki · V1-B/B2: +vanhempi./nav.-avaimet + kielivalitsin + syväsisältö (nimen taivutus poistettu) -->
 <script src="docs/testit_indeksit.js?v=9"></script>
 <script src="tm-bus.js?v=3"></script>
 <script src="tm-demo.js?v=3"></script>
@@ -1553,6 +1553,10 @@ window._naytaVanhOpasUudelleen = function (){
 function _kasitteleLapsi(lapsi) {
   if (!lapsi) return;
   window._lapsi = lapsi;
+  // V4-A3 Osa B: sovella seuran oletuskieli lapsen pelaajadokin kieli-kentästä (denormalisoitu, reitti 1).
+  // tmKieliInitSeura: käyttäjän manuaalivalinta (localStorage['tm_kieli']) VOITTAA yhä seura-oletuksen.
+  if (typeof tmKieliInitSeura === 'function') tmKieliInitSeura(lapsi && lapsi.kieli ? lapsi.kieli : null);
+  if (typeof draw === 'function') draw();
   // P7-c-fix (A): kalenterilataus saattoi bailata ennen _lapsi/auth-valmiutta (ei latchattu) → yritä nyt.
   window._vanhKalLadattu = false; if (typeof _vanhLataaKalenteri === 'function') _vanhLataaKalenteri();
   // P7-c.4a: sama uudelleenyritys notifeille.

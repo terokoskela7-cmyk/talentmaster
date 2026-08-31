@@ -70,7 +70,7 @@ describe('S7.22 vanhempi sv/en ei kiellettya kielta; anti-vertailu sailyy', () =
 
 describe('V1-B2 cache-bust', () => {
   it('tm_lang ?v=3 + SW-cache v8', () => {
-    expect(V).toContain('lib/tm_lang.js?v=3');
-    expect(readFileSync(join(__dir, '..', 'sw_vanhempi.js'), 'utf8')).toContain("const CACHE = 'tm-vanhempi-v8'");
+    expect(V).toMatch(/lib\/tm_lang\.js\?v=([3-9]|\d\d)/);   // >=3 (kestaa myohemmat bumpit, esim. V4-A3 -> v5)
+    expect(readFileSync(join(__dir, '..', 'sw_vanhempi.js'), 'utf8')).toMatch(/const CACHE = 'tm-vanhempi-v([89]|\d\d)'/);   // >=v8
   });
 });
