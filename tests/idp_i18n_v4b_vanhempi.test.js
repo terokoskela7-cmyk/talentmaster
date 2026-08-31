@@ -46,6 +46,33 @@ describe('tm_lang vanhempi.* V4-B — kaikki 3 kieltä täydelliset', () => {
   });
 });
 
+describe('V4-B2 addendum: A–L klusterit fi/sv/en + typo-fix + MM-substantiivit', () => {
+  const ADD = ['valmentajalta', 'src_kirjasit', 'hero_tervetuloa', 'vinkki_u12', 'kirjaa_otsikko',
+    'tek_profiili', 'tek_mitattu', 'tek_seuraava_askel', 'tek_nyt_tavoite', 'tek_matka',
+    'mm_kulta', 'kortti_kausipassi', 'ilmoitukset', 'ilm1_l', 'toast_reset_linkki',
+    'osat_pisin', 'mikro_bola', 'aika_juuri_nyt', 'hero_tyhja', 'synttari_tanaan', 'rsvp_tulossa', 'pwa_ios'];
+  it('addendum-avaimet ei-tyhjinä fi/sv/en', () => {
+    ['fi', 'sv', 'en'].forEach((k) => ADD.forEach((a) => expect(L.TM_LANG[k].vanhempi[a].trim().length).toBeGreaterThan(0)));
+  });
+  it('typo-fix: mikro_bola fi = "Bola Siempre" (ei "Sempre")', () => {
+    expect(L.TM_LANG.fi.vanhempi.mikro_bola).toContain('Bola Siempre');
+    expect(L.TM_LANG.fi.vanhempi.mikro_bola).not.toContain('Bola Sempre ');
+  });
+  it('MM-mitalikartta = substantiivit sv/en (guld/gold, ei illatiivia)', () => {
+    expect(L.TM_LANG.sv.vanhempi.mm_kulta).toBe('guld');
+    expect(L.TM_LANG.en.vanhempi.mm_kulta).toBe('gold');
+    expect(L.TM_LANG.sv.vanhempi.tek_matka).toContain('Väg till {mitali}');
+  });
+  it('S7.22 D-lohko: mitalimatka/nyt-tavoite positiivisia, ei tasolukuja/vertailua/menetystä', () => {
+    ['sv', 'en'].forEach((k) => ['tek_matka', 'tek_nyt_tavoite', 'tek_seuraava_askel', 'tek_profiili'].forEach((a) => {
+      const v = L.TM_LANG[k].vanhempi[a];
+      expect(KIELLETTY.test(v)).toBe(false);
+      expect(/förlora|worse|sämre|jämför|better than|lose\b/i.test(v)).toBe(false);
+    }));
+    expect(L.TM_LANG.sv.vanhempi.tek_matka).toContain('💪');   // positiivinen kehys säilyy
+  });
+});
+
 describe('S7.22 + glossaari + nimen taivutus (V1-B2)', () => {
   it('sv/en: ei kiellettyä S7.22-kieltä (koko vanhempi-kategoria)', () => {
     const osumat = [];
