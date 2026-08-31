@@ -15,7 +15,9 @@
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-functions-compat.js"></script>
 <!-- Eerikkilä-normit + universaali testirekisteri (eerikkilaTaso, laskeFVP) — 10m/5m-tasot + FVP-profiili -->
-<script src="lib/tm_lang.js?v=1"></script>   <!-- i18n V0 — fi/sv/en käännöstaulukko + t() + kieli-init (putkitus) -->
+<script src="lib/tm_lang.js?v=9"></script>   <!-- i18n V0 — fi/sv/en käännöstaulukko + t() + kieli-init (putkitus) -->
+<script src="lib/tm_vp_i18n.js?v=1"></script>   <!-- i18n Vaihe 5 — VP sv (Kim, string-avainkartta): vpT(fi) + vpLokalisoi(data-i18n) -->
+
 <script src="lib/tm_eerikkila_normit.js?v=45"></script>   <!-- v43: D2-kortti d2_taso-ensin (renderKehityskorttiHTML, PR #264 · §30/#262) -->
 <script src="lib/tm_historia.js?v=1"></script>          <!-- P2.1: hh_historia/tki_historia Pikakirjauksessa (tmHhSnapshot/tmTkiSnapshot/tmHistoriaLisaa) -->
 <script src="lib/tm_tki_core.js?v=1"></script>         <!-- P2.1: TKI-ytimen extrakti (IIFE → TM_TESTIT); antaa VP:lle TKI-pariteetin (VP ei voi ladata testit_indeksit.js:ää — const-törmäys). ENNEN tm_pikakentat.js:ää. -->
@@ -2062,15 +2064,15 @@ input::placeholder, textarea::placeholder { color: var(--ink3); opacity: 1; }
 <div id="sLogin">
   <div class="login-box">
     <div class="login-logo">Talent<span>Master</span>™</div>
-    <div class="login-role">Valmennuspäällikkö</div>
-    <div class="field-label">Sähköposti</div>
-    <input type="email" class="field-input" id="lEmail" placeholder="sähköposti@talentmaster.fi" autocomplete="email">
-    <div class="field-label">Salasana</div>
-    <input type="password" class="field-input" id="lPass" placeholder="Salasana" autocomplete="current-password">
+    <div class="login-role" data-i18n="Valmennuspäällikkö">Valmennuspäällikkö</div>
+    <div class="field-label" data-i18n="Sähköposti">Sähköposti</div>
+    <input type="email" class="field-input" id="lEmail" placeholder="sähköposti@talentmaster.fi" data-i18n-ph="sähköposti@talentmaster.fi" autocomplete="email">
+    <div class="field-label" data-i18n="Salasana">Salasana</div>
+    <input type="password" class="field-input" id="lPass" placeholder="Salasana" data-i18n-ph="Salasana" autocomplete="current-password">
     <div id="lErr"></div>
-    <button class="btn-primary" onclick="kirjaudu()">Kirjaudu sisään</button>
+    <button class="btn-primary" onclick="kirjaudu()" data-i18n="Kirjaudu sisään">Kirjaudu sisään</button>
     <div style="text-align:center;margin-top:10px">
-      <span onclick="_unohditSalasana()" style="color:var(--teal);font-size:12px;cursor:pointer">Unohditko salasanan?</span>
+      <span onclick="_unohditSalasana()" style="color:var(--teal);font-size:12px;cursor:pointer" data-i18n="Unohditko salasanan?">Unohditko salasanan?</span>
       <div style="font-size:11px;color:var(--text3,#6B7280);margin-top:6px;line-height:1.4">Jos työsähköposti estää linkin, pyydä valmennuspäällikköä jakamaan se WhatsAppilla.</div>
     </div>
     <div style="display:flex;align-items:center;gap:10px;margin:8px 0;">
@@ -2121,14 +2123,14 @@ input::placeholder, textarea::placeholder { color: var(--ink3); opacity: 1; }
       </div>
       <button id="notifBell" class="notif-bell-vp" onclick="_notifToggle()" aria-label="Ilmoitukset" title="Ilmoitukset">🔔<span id="notifBadge" class="notif-badge"></span></button>
       <div id="notifPanel" class="notif-panel">
-        <div class="notif-head"><span>Ilmoitukset</span><span style="display:flex;gap:12px"><button class="notif-merkkaa" onclick="_notifAsetukset()" title="Ilmoitusasetukset">⚙ Asetukset</button><button class="notif-merkkaa" onclick="_notifKaikkiLuetuiksi()">Merkitse luetuiksi</button></span></div>
+        <div class="notif-head"><span data-i18n="Ilmoitukset">Ilmoitukset</span><span style="display:flex;gap:12px"><button class="notif-merkkaa" onclick="_notifAsetukset()" title="Ilmoitusasetukset">⚙ Asetukset</button><button class="notif-merkkaa" onclick="_notifKaikkiLuetuiksi()" data-i18n="Merkitse luetuiksi">Merkitse luetuiksi</button></span></div>
         <div id="notifLista"></div>
       </div>
       <button class="vp-theme-btn" id="vpThemeBtn" onclick="toggleTheme()" title="Vaihda teema (vaalea/tumma)">☀️</button>
       <div class="topbar-lang">
-        <span class="lang-active">FI</span><span class="lang-sep">·</span><span>EN</span><span class="lang-sep">·</span><span>SV</span>
+        <span class="lang-opt lang-active" data-lang="fi" onclick="vpVaihdaKieli('fi')">FI</span><span class="lang-sep">·</span><span class="lang-opt" data-lang="en" onclick="vpVaihdaKieli('en')">EN</span><span class="lang-sep">·</span><span class="lang-opt" data-lang="sv" onclick="vpVaihdaKieli('sv')">SV</span>
       </div>
-      <div class="topbar-user" onclick="kirjauduUlos()" title="Kirjaudu ulos">
+      <div class="topbar-user" onclick="kirjauduUlos()" title="Kirjaudu ulos" data-i18n-title="Kirjaudu ulos">
         <div class="user-avatar" id="topbar-avatar">—</div>
         <div class="user-info">
           <div class="user-name" id="topbar-name">—</div>
@@ -2142,12 +2144,12 @@ input::placeholder, textarea::placeholder { color: var(--ink3); opacity: 1; }
   <div id="sivupalkkiOverlay" onclick="_toggleSivupalkki()"></div>
 
   <nav class="tabbar">
-    <button class="tabbar-item" data-ws="koti" onclick="setWs('koti')"><span class="tb-ic">🏠</span><span class="tb-lbl">Koti</span></button>
-    <button class="tabbar-item" data-ws="pelaajat" onclick="setWs('pelaajat')"><span class="tb-ic">👥</span><span class="tb-lbl">Joukkueet</span></button>
-    <button class="tabbar-item" data-ws="valmentajat" onclick="setWs('valmentajat')"><span class="tb-ic">🧑‍🏫</span><span class="tb-lbl">Valmentajat</span></button>
-    <button class="tabbar-item" data-ws="raportointi" onclick="setWs('raportointi')"><span class="tb-ic">📊</span><span class="tb-lbl">Raportit</span></button>
-    <button class="tabbar-item" data-ws="testit" onclick="setWs('testit')"><span class="tb-ic">🧪</span><span class="tb-lbl">Testit</span></button>
-    <button class="tabbar-item" onclick="_toggleSivupalkki()"><span class="tb-ic">⋯</span><span class="tb-lbl">Lisää</span></button>
+    <button class="tabbar-item" data-ws="koti" onclick="setWs('koti')"><span class="tb-ic">🏠</span><span class="tb-lbl" data-i18n="Koti">Koti</span></button>
+    <button class="tabbar-item" data-ws="pelaajat" onclick="setWs('pelaajat')"><span class="tb-ic">👥</span><span class="tb-lbl" data-i18n="Joukkueet">Joukkueet</span></button>
+    <button class="tabbar-item" data-ws="valmentajat" onclick="setWs('valmentajat')"><span class="tb-ic">🧑‍🏫</span><span class="tb-lbl" data-i18n="Valmentajat">Valmentajat</span></button>
+    <button class="tabbar-item" data-ws="raportointi" onclick="setWs('raportointi')"><span class="tb-ic">📊</span><span class="tb-lbl" data-i18n="Raportit">Raportit</span></button>
+    <button class="tabbar-item" data-ws="testit" onclick="setWs('testit')"><span class="tb-ic">🧪</span><span class="tb-lbl" data-i18n="Testit">Testit</span></button>
+    <button class="tabbar-item" onclick="_toggleSivupalkki()"><span class="tb-ic">⋯</span><span class="tb-lbl" data-i18n="Lisää">Lisää</span></button>
   </nav>
 
   <!-- SIDEBAR -->
@@ -2380,7 +2382,7 @@ input::placeholder, textarea::placeholder { color: var(--ink3); opacity: 1; }
 
     <!-- ── VALMENTAJAT ── -->
     <div class="ws-view" id="ws-valmentajat">
-      <div class="page-title">Valmentajat</div>
+      <div class="page-title" data-i18n="Valmentajat">Valmentajat</div>
       <div class="page-sub">Profiilit · mentorointi · harjoitusten arviointi</div>
       <!-- Vaihe C — VP-seuranta (roster VAI+ · hälytykset + kuittaus · IDP-feed). Read-only paitsi kuittaus. -->
       <div class="section-hd">Seuranta</div>
@@ -2397,7 +2399,7 @@ input::placeholder, textarea::placeholder { color: var(--ink3); opacity: 1; }
 
     <!-- ── PELAAJAT ── -->
     <div class="ws-view" id="ws-pelaajat">
-      <div class="page-title">Pelaajat</div>
+      <div class="page-title" data-i18n="Pelaajat">Pelaajat</div>
       <div class="page-sub">Hidden Gem · X-Factor · IDP-jono · Kehon valmius -jakauma</div>
 
       <div class="section-hd">IDP-jono — odottaa hyväksyntää</div>
@@ -2434,7 +2436,7 @@ input::placeholder, textarea::placeholder { color: var(--ink3); opacity: 1; }
 
     <!-- ── KALENTERI ── -->
     <div class="ws-view" id="ws-kalenteri">
-      <div class="page-title">Kalenteri</div>
+      <div class="page-title" data-i18n="Kalenteri">Kalenteri</div>
       <div class="page-sub" id="vpCalSub">Testitapahtumat · kaikki joukkueet · protokollat</div>
 
       <!-- Vaihe 4d — teemakattavuus (jaksofokus vs suunnitellut teemaharjoitukset tällä jaksolla) -->
@@ -2486,7 +2488,7 @@ input::placeholder, textarea::placeholder { color: var(--ink3); opacity: 1; }
 
     <!-- ── JAKSOFOKUS (Vaihe 4c — VP-oversight) ── -->
     <div class="ws-view" id="ws-jaksofokus">
-      <div class="page-title">Jaksofokus — joukkueen toiminta</div>
+      <div class="page-title" data-i18n="Jaksofokus — joukkueen toiminta">Jaksofokus — joukkueen toiminta</div>
       <div class="page-sub">VP näkee koko joukkueen jaksofokukset yhdellä silmäyksellä: onko suunta (kattavuus), painottuuko teema (keskittymä → ryhmäharjoite), ovatko talentit ohjattu. Valmentaja omistaa kentän — VP näkee kaiken, ohjaa kun tarpeen.</div>
       <div style="display:flex;gap:8px;align-items:center;margin:14px 0 4px;flex-wrap:wrap">
         <select id="jfJoukkueSel" onchange="renderJaksofokus()" style="background:var(--surface);border:.5px solid var(--border);border-radius:8px;color:var(--ink);padding:7px 12px;font-size:13px;font-family:inherit"></select>
@@ -2497,7 +2499,7 @@ input::placeholder, textarea::placeholder { color: var(--ink3); opacity: 1; }
 
     <!-- ── RAPORTOINTI ── -->
     <div class="ws-view" id="ws-raportointi">
-      <div class="page-title">Raportointi</div>
+      <div class="page-title" data-i18n="Raportointi">Raportointi</div>
       <div class="page-sub" id="rapport-sub">Q2 / 2026 · automaattikoosto · lähetä Head of Talentille</div>
       <!-- Segmenttivalitsin: MDT-raportti / Harjoittelun laatu -->
       <div class="rap-seg mdt-no-print" style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap">
@@ -2605,7 +2607,7 @@ input::placeholder, textarea::placeholder { color: var(--ink3); opacity: 1; }
         #ws-reviewit .rvc-others{display:flex;align-items:center;gap:10px;margin-top:12px;padding:10px 14px;border:.5px dashed var(--border);border-radius:9px;font-family:var(--font-m);font-size:11px;color:var(--ink3)}
         @media(max-width:720px){#ws-reviewit .rvc-corners{grid-template-columns:1fr 1fr}#ws-reviewit .rvc-prow{grid-template-columns:14px 1fr}#ws-reviewit .rvc-pright{grid-column:2;align-items:flex-start;text-align:left;margin-top:9px}}
       </style>
-      <div class="page-title">Seuranta</div>
+      <div class="page-title" data-i18n="Seuranta">Seuranta</div>
       <div class="page-sub">Katselmus-cockpit · EPPP-rytmi ≥12 v 6 vk · 9–11 v 12 vk · avaa katselmus jakson sulkuun</div>
       <!-- KISS R1.1 — ensinäkymä = päätös-KPI:t → ohjausbanneri → suodattimet → työlista. Tuloskortti romahdettuna alle. -->
       <div id="reviewScope" class="rvc-scope"></div>
@@ -2625,7 +2627,7 @@ input::placeholder, textarea::placeholder { color: var(--ink3); opacity: 1; }
 
     <!-- ── ASETUKSET ── -->
     <div class="ws-view" id="ws-asetukset">
-      <div class="page-title">Asetukset</div>
+      <div class="page-title" data-i18n="Asetukset">Asetukset</div>
       <div class="page-sub">Metodologia · kalibraatio · kriteeristö · benchmark</div>
       <div class="settings-grid">
         <div class="settings-card" onclick="toast('Metodologia-näkymä — tulossa','ok')">
@@ -2814,8 +2816,34 @@ auth.onAuthStateChanged(async user => {
   window._vpRooli = token.claims.rooli || null;
   window._vpSA = isSuperAdmin;
 
+  // i18n Vaihe 5 Osa B: seuran oletuskieli (VP = autentikoitu, seuraId-claim → saa lukea seura-dokin). Manuaali (localStorage) voittaa.
+  try {
+    if (_seuraId && _seuraId !== 'demo' && typeof tmKieliInitSeura === 'function') {
+      const _seuraDoc = await firebase.firestore().collection('seurat').doc(_seuraId).get();
+      tmKieliInitSeura(_seuraDoc.exists ? (_seuraDoc.data().kieli || null) : null);
+    } else if (typeof tmKieliInitSeura === 'function') { tmKieliInitSeura(null); }
+  } catch (e) { if (typeof tmKieliInitSeura === 'function') tmKieliInitSeura(null); }
+
   naytaDash(user, isSuperAdmin);
+  if (typeof vpLokalisoi === 'function') vpLokalisoi();          // i18n Vaihe 5: lokalisoi staattinen chrome (data-i18n)
+  if (typeof vpPaivitaKielivalitsin === 'function') vpPaivitaKielivalitsin();
 });
+
+// i18n Vaihe 5 — kielivalitsin: FI/SV/EN → tmAsetaKieli + lokalisoi chrome + re-renderöi nykyinen näkymä.
+// Käyttäjän manuaalivalinta persistoituu (localStorage) ja voittaa seura-oletuksen (tmKieliInitSeura).
+function vpVaihdaKieli(lang) {
+  if (typeof tmAsetaKieli === 'function') tmAsetaKieli(lang, true);
+  vpPaivitaKielivalitsin();
+  if (typeof vpLokalisoi === 'function') vpLokalisoi();
+  try { if (typeof setWs === 'function' && _currentWs) setWs(_currentWs); } catch (e) {}   // renderX-funktiot tuottavat sisällön uudelleen
+}
+function vpPaivitaKielivalitsin() {
+  var cur = (typeof tmNykyinenKieli === 'function') ? tmNykyinenKieli() : 'fi';
+  document.querySelectorAll('.topbar-lang [data-lang]').forEach(function (el) {
+    el.classList.toggle('lang-active', el.getAttribute('data-lang') === cur);
+  });
+}
+window.vpVaihdaKieli = vpVaihdaKieli; window.vpPaivitaKielivalitsin = vpPaivitaKielivalitsin;
 
 // Super Admin — vaihda seura lennossa
 async function superAdminVaihdaSeura(uusiSeuraId) {
@@ -13769,7 +13797,7 @@ function renderVpTestit() {
 
   var h = '';
   h += '<div style="font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:var(--teal);font-weight:600;margin-bottom:6px">🧪 Testit</div>';
-  h += '<div class="page-title">Kirjaa ja tuo testituloksia</div>';
+  h += '<div class="page-title" data-i18n="Kirjaa ja tuo testituloksia">Kirjaa ja tuo testituloksia</div>';
   h += '<div class="page-sub">Kaikki testidatan kirjaaminen samasta paikasta. Testitapahtumat näkyvät edelleen myös kalenterissa.</div>';
 
   // ── Ryhmä: Kirjaa nyt ──
