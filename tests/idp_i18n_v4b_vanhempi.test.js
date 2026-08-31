@@ -63,6 +63,12 @@ describe('V4-B2 addendum: A–L klusterit fi/sv/en + typo-fix + MM-substantiivit
     expect(L.t('vanhempi.aika_pv_sitten', { n: 3 })).toBe('3 dagar sedan');
     L.tmAsetaKieli('fi', false);
   });
+  it('V4-B4 hero-fallback (no-kirjaus): hero_tervetuloa_app fi/sv/en + {nimi}', () => {
+    ['fi', 'sv', 'en'].forEach((k) => expect(L.TM_LANG[k].vanhempi.hero_tervetuloa_app.trim().length).toBeGreaterThan(0));
+    L.tmAsetaKieli('sv', false);
+    expect(L.t('vanhempi.hero_tervetuloa_app').replace('{nimi}', 'Topias')).toBe('Topias — välkommen till TalentMaster');
+    L.tmAsetaKieli('fi', false);
+  });
   it('typo-fix: mikro_bola fi = "Bola Siempre" (ei "Sempre")', () => {
     expect(L.TM_LANG.fi.vanhempi.mikro_bola).toContain('Bola Siempre');
     expect(L.TM_LANG.fi.vanhempi.mikro_bola).not.toContain('Bola Sempre ');
