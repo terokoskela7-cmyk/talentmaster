@@ -432,10 +432,10 @@ input::placeholder,textarea::placeholder{color:#8C8B86;opacity:1}
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
-<script src="lib/tm_lang.js?v=4"></script>   <!-- i18n V0 putki · V1-A/A2 · V4-A3: +pelaaja.nain_teet/kirjaa_tehdyksi/pallo_joka_paiva/rae_q4 (kotinäytön chrome sv) -->
+<script src="lib/tm_lang.js?v=5"></script>   <!-- i18n V0 putki · V1-A/A2 · V4-A3: +pelaaja.nain_teet/kirjaa_tehdyksi/pallo_joka_paiva/rae_q4 (kotinäytön chrome sv) -->
 <script src="lib/tm_eerikkila_normit.js?v=40"></script>
 <script src="docs/testit_indeksit.js?v=9"></script>
-<script src="https://terokoskela7-cmyk.github.io/talentmaster/harjoitelogiikka_v4.js?v=11"></script>
+<script src="https://terokoskela7-cmyk.github.io/talentmaster/harjoitelogiikka_v4.js?v=12"></script>
 <script src="lib/tm-microcycles.js?v=3"></script>
 <script src="tm-bus.js?v=3"></script>
 <script src="tm-demo.js?v=3"></script>
@@ -937,7 +937,8 @@ function rA1(){
   <!-- T-KORTTI / Bola Siempre — kevyin, dashed reunus, vakio (ei muutu) -->
   ${(()=>{
     const stage = _laskeStage(_pelaaja?.syntymaVuosi, _pelaaja?.phv_tila);
-    const tWhy = (typeof getTHarjoiteWhy === 'function') ? getTHarjoiteWhy(stage) : '';
+    const _tw = (typeof getTHarjoiteWhy === 'function') ? getTHarjoiteWhy(stage) : '';
+    const tWhy = (typeof _hT === 'function') ? _hT(_tw) : _tw;   // V4-A3: Bola Siempre -kannustus sv (getTHarjoiteWhy → _hT)
     return `
     <div style="margin:12px 20px;padding:14px 16px;background:rgba(40,176,144,.03);border:1px dashed rgba(40,176,144,.35);border-radius:10px">
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:${tWhy?'6px':'10px'}">
@@ -974,10 +975,10 @@ function rA1(){
   ${(()=>{
     const isLeikkija = _stage === '1_leikkija';
     const fiiEmojit = isLeikkija
-      ? [['😞','Väsynyt',1],['😐','OK',3],['🙂','Hyvä',5]]
-      : [['😞','Väsynyt',1],['😕','Vähän väsynyt',2],['😐','OK',3],['🙂','Hyvä',4],['🤩','Mahtavaa',5]];
+      ? [['😞',T('fiilis_vasynyt'),1],['😐',T('va_fiilis_ok'),3],['🙂',T('va_fiilis_hyva'),5]]
+      : [['😞',T('fiilis_vasynyt'),1],['😕',T('fiilis_vahan_vasynyt'),2],['😐',T('va_fiilis_ok'),3],['🙂',T('va_fiilis_hyva'),4],['🤩',T('fiilis_mahtavaa'),5]];
     return '<div style="margin:0 20px 14px;background:var(--surface2);border:.5px solid var(--border);padding:14px 16px;border-radius:10px">'
-      + '<div style="font-size:9px;font-weight:600;letter-spacing:.22em;text-transform:uppercase;color:var(--ink3);margin-bottom:12px">Miltä sinusta tuntuu?</div>'
+      + '<div style="font-size:9px;font-weight:600;letter-spacing:.22em;text-transform:uppercase;color:var(--ink3);margin-bottom:12px">' + T('fiilis_kysymys') + '</div>'
       + '<div style="display:flex;justify-content:space-between" id="fiiRow">'
       + fiiEmojit.map(function(e){ return '<button onclick="tmFiilinki('+e[2]+',this)" style="flex:1;background:none;border:none;display:flex;flex-direction:column;align-items:center;gap:4px;padding:8px 2px;border-radius:6px;transition:background .15s;cursor:pointer">'
         + '<span style="font-size:22px;line-height:1">'+e[0]+'</span>'
@@ -3776,6 +3777,9 @@ function _tmPwaKehote(appNimi) {
 function _kaynnistaAppUI() {
   const p = _pelaaja;
   if (!p) { go('pin'); return; }
+  // V4-A3 Osa B: sovella seuran oletuskieli pelaajadokin kieli-kentästä (denormalisoitu, reitti 1).
+  // tmKieliInitSeura: käyttäjän manuaalivalinta (localStorage['tm_kieli']) VOITTAA yhä seura-oletuksen.
+  if (typeof tmKieliInitSeura === 'function') tmKieliInitSeura(p && p.kieli ? p.kieli : null);
   setTimeout(function () { _tmPwaKehote('pelaajan sivu'); }, 1500);   // kirjautumisen jälkeen, ei login-ruudussa
   // P7 latch/race-fix: _pelaaja + anon-auth nyt valmiit → nollaa kalenteri/notif-latch + yritä (1. render saattoi bailata not-ready).
   // Render-fix: piirrä latauksen resolvoiduttua RIIPPUMATTA hetkellisestä _tab/_sc:stä (loaderin _rerender-ehto saattoi
@@ -3933,10 +3937,11 @@ window._haeViikkoPaivat = _haeViikkoPaivat;
    Brand-päätös 2026-05-12.
 ══════════════════════════════════════════════════════════ */
 function _streakViesti(streak) {
-  if (!streak)      return 'Aloita tänään — ensimmäinen askel on tärkein.';
-  if (streak <= 6)  return `🔥 ${streak} päivän putki — jatka huomenna!`;
-  if (streak <= 13) return `🔥 ${streak} päivää — olet jo sitoutunut.`;
-  return `🔥 ${streak} päivää — olet jo poikkeuksellinen.`;
+  // V4-A3: reititetty t():hen (fi/sv/en, {n}-interpolaatio). §7.22: positiivinen putki-kehys, EI menetyskieltä.
+  if (!streak)      return t('pelaaja.streak_0');
+  if (streak <= 6)  return t('pelaaja.streak_1_6',  { n: streak });
+  if (streak <= 13) return t('pelaaja.streak_7_13', { n: streak });
+  return t('pelaaja.streak_14', { n: streak });
 }
 
 function _laskeStage(sy, phv) {
@@ -5445,9 +5450,9 @@ function _signaaliLabel() {
   // Palauta signaalipalikka rA1/rA3:a varten
   const s = _pelaaja?.signaali;
   if (s === 'x-factor') return '<div style="display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:20px;background:rgba(40,176,144,.12);border:.5px solid rgba(40,176,144,.25);font-size:11px;font-weight:600;color:#28B090;margin-bottom:10px">⚡ X-Factor</div>';
-  if (s === 'gem')      return '<div style="display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:20px;background:rgba(184,134,11,.12);border:.5px solid rgba(184,134,11,.25);font-size:11px;font-weight:600;color:#B8860B;margin-bottom:10px">💎 Piilohelmi</div>';
-  if (s === 'phv')      return '<div style="display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:20px;background:rgba(216,90,90,.12);border:.5px solid rgba(216,90,90,.25);font-size:11px;font-weight:600;color:#D85A5A;margin-bottom:10px">⚠ PHV — kevennä kuormaa</div>';
-  if (_streak >= 7)     return '<div style="display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:20px;background:rgba(40,176,144,.12);border:.5px solid rgba(40,176,144,.25);font-size:11px;font-weight:600;color:#28B090;margin-bottom:10px">🔥 ' + _streak + ' pv putki</div>';
+  if (s === 'gem')      return '<div style="display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:20px;background:rgba(184,134,11,.12);border:.5px solid rgba(184,134,11,.25);font-size:11px;font-weight:600;color:#B8860B;margin-bottom:10px">💎 ' + t('pelaaja.sig_piilohelmi') + '</div>';
+  if (s === 'phv')      return '<div style="display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:20px;background:rgba(216,90,90,.12);border:.5px solid rgba(216,90,90,.25);font-size:11px;font-weight:600;color:#D85A5A;margin-bottom:10px">⚠ ' + t('pelaaja.sig_phv') + '</div>';
+  if (_streak >= 7)     return '<div style="display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:20px;background:rgba(40,176,144,.12);border:.5px solid rgba(40,176,144,.25);font-size:11px;font-weight:600;color:#28B090;margin-bottom:10px">🔥 ' + t('pelaaja.sig_putki', { n: _streak }) + '</div>';
   return '';
 }
 

@@ -2885,6 +2885,28 @@ var HARJOITE_I18N = {
     // V4-A2: Pelaaja_v7:n inline S-pankki (HARJOITEPANKKI v5) + why-lauseet (S/D) + S-kortin labelit.
     // Erillinen sisalto-kartasta → V4-A:n orpo-avain-invariantti sailyy; _hT tarkistaa molemmat.
     pelaaja: {
+      // V4-A3: Bola Siempre -kannustus (getTHarjoiteWhy TEHTAVAT, 21 riviä) — reititetty _hT:llä
+      'Mene pihalle pelaamaan! Pihapelit kavereiden kanssa tekevät sinusta taiturin.': 'Gå ut på gården och spela! Gårdsspel med kompisar gör dig till en bollkonstnär.',
+      'Jongleeraa pallolla — montako kosketusta saat putkeen?': 'Jonglera med bollen — hur många touch får du i rad?',
+      'Potki palloa seinään ja ota haltuun. Kaverin kanssa vielä hauskempaa.': 'Sparka bollen i väggen och ta emot. Med en kompis är det ännu roligare.',
+      'Pujottele pallo jalkojen välistä pihalla. Keksi oma rata!': 'Dribbla bollen mellan benen på gården. Hitta på en egen bana!',
+      'Pelaa pihapeliä — seinäfutis, kuningaspallo, mitä vaan. Pääasia: pallo jalassa.': 'Spela gårdsspel — väggfotboll, kungboll, vad som helst. Huvudsaken: bollen vid foten.',
+      'Kokeile molemmilla jaloilla. Heikko jalka oppii nyt leikkien helpoimmin.': 'Prova med båda fötterna. Svaga foten lär sig som lättast just nu, på lek.',
+      'Ulos pallon kanssa! Tässä iässä joka kosketus on kultaa.': 'Ut med bollen! I den här åldern är varje touch guld värd.',
+      'Pihapeli kavereiden kanssa — paras tapa pitää tekniikka terävänä.': 'Gårdsspel med kompisar — bästa sättet att hålla tekniken skarp.',
+      'Jongleeraus: tavoittele uutta ennätystä molemmilla jaloilla.': 'Jonglering: sikta på ett nytt rekord med båda fötterna.',
+      'Seinäsyötöt heikolla jalalla — montako vauhdilla?': 'Väggpassningar med svaga foten — hur många i fart?',
+      'Tee pihalle pujottelurata: nopeus ja hallinta yhtä aikaa.': 'Bygg en slalombana på gården: snabbhet och kontroll på samma gång.',
+      'Ota pallo mukaan ulos. Päivittäinen kosketus tekee siitä automaattista.': 'Ta med bollen ut. Daglig touch gör det automatiskt.',
+      'Pelaa pienpeliä ahtaassa tilassa — siellä tekniikka pakotetaan teräväksi.': 'Spela smålagsspel på trång yta — där tvingas tekniken bli skarp.',
+      'Tänään kaikki kosketukset heikolla jalalla. Sieltä ero syntyy.': 'Idag alla touch med svaga foten. Det är där skillnaden skapas.',
+      'Pihapeli tai pienpeli — tiukassa tilassa tekniikka testataan.': 'Gårdsspel eller smålagsspel — på trång yta testas tekniken.',
+      'Jongleeraus + terävä ensikosketus. Laatu ennen määrää.': 'Jonglering + skarp första touch. Kvalitet före kvantitet.',
+      'Heikko jalka aseeksi: tee tänään tietoisesti kaikki sillä.': 'Gör svaga foten till ett vapen: gör medvetet allt med den idag.',
+      'Seinäsyötöt vauhdilla, ensikosketus täsmälleen jalkaan.': 'Väggpassningar i fart, första touchen exakt till foten.',
+      'Pallonhallinta paineessa: nopea pujottelu, pää ylhäällä.': 'Bollkontroll under press: snabb dribbling, huvudet uppe.',
+      'Ota pallo ulos vaikka 15 min. Toistot ratkaisevat huipulla.': 'Ta ut bollen i till exempel 15 min. Repetitionerna avgör på toppnivå.',
+      'Pelaa kavereiden kanssa — pelistä oppii sen mitä harjoitus ei opeta.': 'Spela med kompisar — spelet lär dig det som träningen inte lär ut.',
       'Naruhypyt': 'Hopprep',
       'Hyppää hyppynarulla tasajalkaa 15 sekuntia, pidä tauko 15 s ja toista 3 kertaa. Pyri mahdollisimman lyhyeen maakosketukseen — pompi kevyesti päkiöillä.': 'Hoppa hopprep med samlade fötter i 15 sekunder, vila 15 s och upprepa 3 gånger. Sträva efter så kort markkontakt som möjligt — studsa lätt på trampdynorna.',
       'Pohjevenytys seinää vasten': 'Vadstretch mot vägg',

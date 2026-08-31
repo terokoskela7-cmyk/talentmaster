@@ -65,21 +65,56 @@ async function nykyKieli(seuraId) {
   }
 }
 
+// V4-A3 reitti 1: kieli denormalisoidaan pelaajadokeille (Pelaaja anon + Vanhempi huoltaja lukevat
+// pelaajadokin, EIVÄT seuradokia — rules onOmaSeura). Listaa seuran pelaajat (sivutus) → kieli-kenttä.
+async function listaaPelaajat(seuraId) {
+  const docs = [];
+  let pageToken = null;
+  do {
+    const q = 'pageSize=300' + (pageToken ? '&pageToken=' + encodeURIComponent(pageToken) : '');
+    const r = await api('GET', BASE + '/seurat/' + seuraId + '/pelaajat?' + q);
+    (r.documents || []).forEach((d) => docs.push(d));
+    pageToken = r.nextPageToken || null;
+  } while (pageToken);
+  return docs;
+}
+
+// Idempotentti: kirjoittaa kieli='sv' vain niille pelaajadokeille joissa ei ole jo 'sv'. Ei kosketa muihin kenttiin.
+async function asetaPelaajienKieli(seuraId, kieli, t) {
+  const pelaajat = await listaaPelaajat(seuraId);
+  let asetettu = 0, joOk = 0;
+  for (const d of pelaajat) {
+    const nyt = (d.fields && d.fields.kieli && 'stringValue' in d.fields.kieli) ? d.fields.kieli.stringValue : null;
+    if (nyt === kieli) { joOk++; continue; }
+    if (!DRY_RUN) {
+      const pid = d.name.split('/').pop();
+      await api('PATCH', BASE + '/seurat/' + seuraId + '/pelaajat/' + pid + '?updateMask.fieldPaths=kieli',
+        { fields: { kieli: { stringValue: kieli } } });
+    }
+    asetettu++;
+  }
+  t.pelaajaAsetettu += asetettu; t.pelaajaJoOk += joOk;
+  console.log(`     pelaajat: ${DRY_RUN ? 'asetettaisiin' : 'asetettu'} ${asetettu} · jo-ok ${joOk} (yht ${pelaajat.length})`);
+}
+
 (async () => {
   console.log(`i18n kieli='sv' -migraatio · projekti ${PROJECT_ID} · ${DRY_RUN ? 'KUIVAAJO (ei kirjoiteta)' : 'KIRJOITUS (--apply)'}`);
-  const t = { asetettu: 0, joOk: 0, puuttuu: 0, virhe: 0 };
+  const t = { asetettu: 0, joOk: 0, puuttuu: 0, virhe: 0, pelaajaAsetettu: 0, pelaajaJoOk: 0 };
   for (const seuraId of RUOTSISEURAT) {
     try {
       const nyt = await nykyKieli(seuraId);
       if (nyt === '__PUUTTUU__') { t.puuttuu++; console.warn(`  ⚠ ${seuraId}: seuradokumenttia ei löytynyt — ohitetaan`); continue; }
-      if (nyt === 'sv') { t.joOk++; console.log(`  ✓ ${seuraId}: kieli jo 'sv' (idempotentti skip)`); continue; }
-      console.log(`  → ${seuraId}: kieli ${nyt ? `'${nyt}'` : '(ei asetettu)'} → 'sv'` + (DRY_RUN ? '  [kuivaajo]' : ''));
-      if (!DRY_RUN) {
-        await api('PATCH', BASE + '/seurat/' + seuraId + '?updateMask.fieldPaths=kieli', { fields: { kieli: { stringValue: 'sv' } } });
-        t.asetettu++;
+      // 1) seuradokin kieli (idempotentti)
+      if (nyt === 'sv') { t.joOk++; console.log(`  ✓ ${seuraId}: seura.kieli jo 'sv' (idempotentti skip)`); }
+      else {
+        console.log(`  → ${seuraId}: seura.kieli ${nyt ? `'${nyt}'` : '(ei asetettu)'} → 'sv'` + (DRY_RUN ? '  [kuivaajo]' : ''));
+        if (!DRY_RUN) { await api('PATCH', BASE + '/seurat/' + seuraId + '?updateMask.fieldPaths=kieli', { fields: { kieli: { stringValue: 'sv' } } }); t.asetettu++; }
       }
+      // 2) V4-A3 reitti 1: kieli myös pelaajadokeille (idempotentti) — aina, myös kun seura.kieli oli jo 'sv'
+      await asetaPelaajienKieli(seuraId, 'sv', t);
     } catch (e) { t.virhe++; console.error(`  ✗ ${seuraId}: ${e.message}`); }
   }
-  console.log(`\nYhteenveto: ${DRY_RUN ? 'asetettaisiin' : 'asetettu'} ${DRY_RUN ? RUOTSISEURAT.length - t.joOk - t.puuttuu - t.virhe : t.asetettu} · jo-ok ${t.joOk} · puuttuu ${t.puuttuu} · virhe ${t.virhe}`);
+  console.log(`\nYhteenveto seurat: ${DRY_RUN ? 'asetettaisiin' : 'asetettu'} ${DRY_RUN ? RUOTSISEURAT.length - t.joOk - t.puuttuu - t.virhe : t.asetettu} · jo-ok ${t.joOk} · puuttuu ${t.puuttuu} · virhe ${t.virhe}`);
+  console.log(`Yhteenveto pelaajat: ${DRY_RUN ? 'asetettaisiin' : 'asetettu'} ${t.pelaajaAsetettu} · jo-ok ${t.pelaajaJoOk}`);
   if (DRY_RUN) console.log('Aja kirjoitus: node scripts/i18n_set_kieli_sv.js --apply');
 })();
