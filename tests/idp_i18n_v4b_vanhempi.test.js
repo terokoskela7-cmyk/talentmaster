@@ -88,6 +88,34 @@ describe('V4-B2 addendum: A–L klusterit fi/sv/en + typo-fix + MM-substantiivit
   });
 });
 
+describe('V4-B5 kielineutraalin portin 16 jäännettä fi/sv/en + kytkentä', () => {
+  const B5 = ['mark_luetuiksi', 'tulevat_tapahtumat', 'vinkki_otsikko_u12', 'vinkki_otsikko_u15',
+    'vinkki_otsikko_rooli', 'tek_miten_tukea', 'kortti_jaa_otsikko', 'kortti_jaa_nappi', 'aset_yksityisyys',
+    'aset_hallitsee_dataa', 'aset_lue_gdpr', 'aset_kirjaudu_ulos', 'tyyppi_treeni', 'tapahtuma_nimeton'];
+  it('14 uutta avainta ei-tyhjinä fi/sv/en', () => {
+    ['fi', 'sv', 'en'].forEach((k) => B5.forEach((a) => expect(L.TM_LANG[k].vanhempi[a].trim().length).toBeGreaterThan(0)));
+    expect(L.TM_LANG.sv.vanhempi.aset_kirjaudu_ulos).toBe('Logga ut');
+    expect(L.TM_LANG.sv.vanhempi.tyyppi_treeni).toBe('träning');
+  });
+  it('kortti_jaa_otsikko sv/en ilman nimeä (V1-B2, genetiivi pudotettu)', () => {
+    ['fi', 'sv', 'en'].forEach((k) => expect(/\{gen\}|\{nimi\}/.test(L.TM_LANG[k].vanhempi.kortti_jaa_otsikko)).toBe(false));
+  });
+  it('kehu-viesti (lähetettävä) reititetty t():hen onclickissa (ei kovakoodattua Hienoa!/Upea treeni!)', () => {
+    expect(V).toContain("_lahetaKehu('❤️','${t('vanhempi.kehu_hienoa')}')");
+    expect(V).toContain("_lahetaKehu('🔥','${t('vanhempi.kehu_upea')}')");
+    expect(V).not.toContain("_lahetaKehu('❤️','Hienoa!')");
+  });
+  it('kovakoodatut fi-otsikot/napit reititetty (ei jäännettä)', () => {
+    ['>Yksityisyys</div>', '>Kirjaudu ulos</button>', '>Roolisi</div>', '>JAA</button>',
+      'Merkitse luetuiksi</span>', '📅 Tulevat tapahtumat', '💛 Miten tukea kotona</div>'].forEach((frag) =>
+      expect(V).not.toContain(frag));
+  });
+  it('fallbackit reititetty (#15 treeni, #16 Tapahtuma)', () => {
+    expect(V).toContain("e.tyyppi || t('vanhempi.tyyppi_treeni')");
+    expect(V).toContain("ev.nimi || t('vanhempi.tapahtuma_nimeton')");
+  });
+});
+
 describe('S7.22 + glossaari + nimen taivutus (V1-B2)', () => {
   it('sv/en: ei kiellettyä S7.22-kieltä (koko vanhempi-kategoria)', () => {
     const osumat = [];
