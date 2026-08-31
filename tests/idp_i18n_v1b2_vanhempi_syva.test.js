@@ -31,9 +31,10 @@ describe('tm_lang vanhempi.* laajennettu (V1-B2) sv/en taydelliset', () => {
 });
 
 describe('V1-B2 nimen taivutus poistettu (nominatiivi-robusti)', () => {
-  it('ei {gen}-taivutusjaanteita missaan vanhempi-avaimessa', () => {
+  it('ei {gen}-taivutusjaanteita sv/en-vanhempi-avaimissa (fi saa kayttaa {gen}-placeholderia → _genetiivi replace, V4-B)', () => {
     const jaljet = [];
-    ['fi', 'sv', 'en'].forEach((l) => Object.entries(L.TM_LANG[l].vanhempi).forEach(([k, v]) => {
+    // V4-B: fi kayttaa {gen}-placeholderia (koodi korvaa _genetiivi():lla); sv/en EI nimen taivutusta.
+    ['sv', 'en'].forEach((l) => Object.entries(L.TM_LANG[l].vanhempi).forEach(([k, v]) => {
       if (typeof v === 'string' && /\{gen\}/.test(v)) jaljet.push(l + '.' + k);
     }));
     expect(jaljet).toEqual([]);
