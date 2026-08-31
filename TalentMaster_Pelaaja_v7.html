@@ -432,7 +432,7 @@ input::placeholder,textarea::placeholder{color:#8C8B86;opacity:1}
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
-<script src="lib/tm_lang.js?v=5"></script>   <!-- i18n V0 putki · V1-A/A2 · V4-A3: +pelaaja.nain_teet/kirjaa_tehdyksi/pallo_joka_paiva/rae_q4 (kotinäytön chrome sv) -->
+<script src="lib/tm_lang.js?v=6"></script>   <!-- i18n V0 putki · V1-A/A2 · V4-A3: +pelaaja.nain_teet/kirjaa_tehdyksi/pallo_joka_paiva/rae_q4 (kotinäytön chrome sv) -->
 <script src="lib/tm_eerikkila_normit.js?v=40"></script>
 <script src="docs/testit_indeksit.js?v=9"></script>
 <script src="https://terokoskela7-cmyk.github.io/talentmaster/harjoitelogiikka_v4.js?v=12"></script>
@@ -1044,7 +1044,7 @@ function rA1(){
   <a onclick="_avaaTakautuvaModal()"
     style="display:block;text-align:center;padding:18px;color:var(--ink3);font-size:12px;
            letter-spacing:.06em;text-decoration:none;cursor:pointer">
-    + Lisää mennyt päivä
+    ${T('takautuva_linkki')}
   </a>
 </div>`;
 }
@@ -4275,9 +4275,20 @@ async function _kirjaaTakautuva(pvm, tyyppi, kestoMin) {
   }
 }
 
+// V4-A4: takautuva-modaali on STAATTISTA body-HTML:ää → draw()/setLoc() ei re-renderöi sitä.
+// Lokalisoi data-i18n-solmut aina avattaessa (kattaa myös kielenvaihdon appin ollessa auki).
+// HUOM: napeissa (⚽<br>label) vain label-span on data-i18n → emoji + <br> säilyvät (textContent vain spaniin).
+function _takautuvaLokalisoi(ov) {
+  if (!ov || typeof t !== 'function') return;
+  ov.querySelectorAll('[data-i18n]').forEach(function (el) {
+    var k = el.getAttribute('data-i18n');
+    if (k) el.textContent = t(k);
+  });
+}
 function _avaaTakautuvaModal() {
   const ov = document.getElementById('takautuvaOv');
   if (!ov) return;
+  _takautuvaLokalisoi(ov);
   const today = new Date();
   const max = _paivaIso(today);
   const minDate = new Date(today.getTime() - 30*86400000);
@@ -4320,12 +4331,12 @@ window._valitseTakautuvaKesto = _valitseTakautuvaKesto;
 async function _tallennaTakautuva() {
   const inp = document.getElementById('takautuvaPvm');
   const pvm = inp?.value;
-  if (!pvm)              { alert('Valitse päivä'); return; }
-  if (!_takautuvaTyyppi) { alert('Valitse mitä teit'); return; }
+  if (!pvm)              { alert(t('pelaaja.takautuva_val_pvm')); return; }
+  if (!_takautuvaTyyppi) { alert(t('pelaaja.takautuva_val_mita')); return; }
   // Lepopäivälle kesto = 0, muille pakollinen
   const kesto = _takautuvaTyyppi === 'lepo' ? 0 : _takautuvaKesto;
   if (_takautuvaTyyppi !== 'lepo' && !kesto) {
-    alert('Valitse kesto'); return;
+    alert(t('pelaaja.takautuva_val_kesto')); return;
   }
   await _kirjaaTakautuva(pvm, _takautuvaTyyppi, kesto);
   _suljeTakautuva();
@@ -5544,20 +5555,20 @@ draw();
 <div id="takautuvaOv" style="display:none;position:fixed;inset:0;background:rgba(17,17,16,.96);z-index:200;flex-direction:column;align-items:center;justify-content:center;backdrop-filter:blur(10px);padding:20px">
   <div style="background:var(--bg2);border:.5px solid var(--border);border-radius:14px;padding:20px;max-width:340px;width:100%;max-height:90vh;overflow-y:auto">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px">
-      <div style="font-family:var(--font-d);font-size:18px;color:var(--text)">Lisää mennyt päivä</div>
+      <div style="font-family:var(--font-d);font-size:18px;color:var(--text)" data-i18n="pelaaja.takautuva_otsikko">Lisää mennyt päivä</div>
       <button onclick="_suljeTakautuva()" style="background:transparent;border:none;color:var(--ink3);font-size:22px;cursor:pointer;padding:0 4px">×</button>
     </div>
-    <div class="ey" style="margin-bottom:6px">Päivämäärä</div>
+    <div class="ey" style="margin-bottom:6px" data-i18n="pelaaja.takautuva_pvm">Päivämäärä</div>
     <input type="date" id="takautuvaPvm"
       style="width:100%;background:var(--surface2);border:.5px solid var(--border);border-radius:8px;padding:10px 12px;color:var(--text);font-family:var(--font-m);font-size:14px;margin-bottom:16px;color-scheme:dark;box-sizing:border-box">
-    <div class="ey" style="margin-bottom:6px">Mitä teit?</div>
+    <div class="ey" style="margin-bottom:6px" data-i18n="pelaaja.takautuva_mita">Mitä teit?</div>
     <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:16px">
-      <button data-tk-tyyppi="jalkapallo" onclick="_valitseTakautuvaTyyppi('jalkapallo',this)" class="tk-btn">⚽<br>Jalkapallo</button>
-      <button data-tk-tyyppi="muu_urheilu" onclick="_valitseTakautuvaTyyppi('muu_urheilu',this)" class="tk-btn">🏃<br>Muu urheilu</button>
-      <button data-tk-tyyppi="lepo" onclick="_valitseTakautuvaTyyppi('lepo',this)" class="tk-btn">🎮<br>Lepopäivä</button>
+      <button data-tk-tyyppi="jalkapallo" onclick="_valitseTakautuvaTyyppi('jalkapallo',this)" class="tk-btn">⚽<br><span data-i18n="pelaaja.takautuva_jalkapallo">Jalkapallo</span></button>
+      <button data-tk-tyyppi="muu_urheilu" onclick="_valitseTakautuvaTyyppi('muu_urheilu',this)" class="tk-btn">🏃<br><span data-i18n="pelaaja.takautuva_muu">Muu urheilu</span></button>
+      <button data-tk-tyyppi="lepo" onclick="_valitseTakautuvaTyyppi('lepo',this)" class="tk-btn">🎮<br><span data-i18n="pelaaja.takautuva_lepo">Lepopäivä</span></button>
     </div>
     <div id="takautuvaKesto">
-      <div class="ey" style="margin-bottom:6px">Kesto</div>
+      <div class="ey" style="margin-bottom:6px" data-i18n="pelaaja.takautuva_kesto">Kesto</div>
       <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:18px">
         <button data-tk-kesto="15" onclick="_valitseTakautuvaKesto(15,this)" class="tk-btn">15 min</button>
         <button data-tk-kesto="30" onclick="_valitseTakautuvaKesto(30,this)" class="tk-btn">30 min</button>
@@ -5565,7 +5576,7 @@ draw();
         <button data-tk-kesto="90" onclick="_valitseTakautuvaKesto(90,this)" class="tk-btn">90+ min</button>
       </div>
     </div>
-    <button onclick="_tallennaTakautuva()" class="btn-p" style="width:100%">
+    <button onclick="_tallennaTakautuva()" class="btn-p" style="width:100%" data-i18n="pelaaja.takautuva_tallenna">
       ✓ Lisää päivä
     </button>
   </div>
