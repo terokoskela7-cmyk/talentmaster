@@ -4,9 +4,8 @@
  * (3) drift-vartija (0 kiellettyä Kehon valmius -varianttia) · (4) resolvi-semantiikka (common voittaa → sivukartta → fi).
  */
 import { describe, it, expect, afterEach } from 'vitest';
-import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
-import { dirname, join } from 'path';
+import { dirname } from 'path';
 import { createRequire } from 'module';
 
 const __dir = dirname(fileURLToPath(import.meta.url));
@@ -14,7 +13,6 @@ const require = createRequire(import.meta.url);
 const C = require('../lib/tm_i18n_common.js');
 const VP = require('../lib/tm_vp_i18n.js');
 const L = require('../lib/tm_lang.js');
-const libDir = join(__dir, '..', 'lib');
 
 afterEach(() => { delete global.tmNykyinenKieli; });
 
@@ -41,15 +39,39 @@ describe('C2 — glossaari-konformi tm_lang.js:ään', () => {
       expect(C.TM_I18N_COMMON.sv[fi]).toBe(sv);
     });
   });
+  it('roolikanoni (V0.1): Valmennuspäällikkö → Utvecklingsansvarig', () => {
+    expect(C.TM_I18N_COMMON.sv['Valmennuspäällikkö']).toBe('Utvecklingsansvarig');
+  });
 });
 
-describe('C3 — drift-vartija: 0 kiellettyä Kehon valmius -varianttia i18n-libeissä', () => {
-  it('lib/tm_i18n_common.js + lib/tm_vp_i18n.js → /kroppens beredskap|kroppsberedskap/i = 0', () => {
-    const rx = /kroppens beredskap|kroppsberedskap/i;
-    ['tm_i18n_common.js', 'tm_vp_i18n.js'].forEach((f) => {
-      const src = readFileSync(join(libDir, f), 'utf8');
-      expect(rx.test(src)).toBe(false);
-    });
+describe('C3 — drift-vartija (laajennettu V0.1): 0 kiellettyä variantti AKTIIVISENA ARVONA', () => {
+  // Skannaa parsitut objektiarvot (EI lähdetekstiä) → kommentit/avaimet eivät laukaise väärää failia.
+  // Aja jokaiselle uudelle sivukartalle (Master/Seura) kun ne tulevat.
+  const MAPS = [['common', C.TM_I18N_COMMON], ['VP', VP.TM_VP_I18N]];
+  const KIELLETYT = [
+    { rx: /kroppens beredskap|kroppsberedskap/i, kanoni: 'Kroppslig beredskap' },
+    { rx: /Långspark/, kanoni: 'Längdspark' },
+    { rx: /Framdrift-skott/, kanoni: 'Föring och skott' },
+    { rx: /dribbling/i, kanoni: 'Slalom' },
+    { rx: /Träningsansvarig/, kanoni: 'Utvecklingsansvarig' },
+  ];
+  it('yksikään aktiivinen sv/en-arvo ei sisällä kiellettyä glossaari/laji/rooli-varianttia', () => {
+    const osumat = [];
+    MAPS.forEach(([n, o]) => ['sv', 'en'].forEach((l) => {
+      const m = o[l] || {};
+      Object.keys(m).forEach((k) => KIELLETYT.forEach((f) => {
+        if (typeof m[k] === 'string' && f.rx.test(m[k])) osumat.push(n + '.' + l + ' [' + k.slice(0, 30) + '] (kanoni: ' + f.kanoni + ')');
+      }));
+    }));
+    expect(osumat).toEqual([]);
+  });
+  it('Utkast sallittu (Luonnos→Utkast) paitsi Ponnauttelu-avaimen arvona (kanoni Jonglering)', () => {
+    const osumat = [];
+    MAPS.forEach(([n, o]) => ['sv', 'en'].forEach((l) => {
+      const v = (o[l] || {})['Ponnauttelu'];
+      if (v && /Utkast/.test(v)) osumat.push(n + '.' + l);
+    }));
+    expect(osumat).toEqual([]);
   });
 });
 
@@ -74,5 +96,7 @@ describe('C4 — resolvi-semantiikka (tmI18nResolve)', () => {
     expect(VP.vpT('Toimenpiteet')).toBe('Åtgärder');    // VP-sivukartta
     expect(VP.vpT('Kehon valmius')).toBe('Kroppslig beredskap');   // drift korjattu (common)
     expect(VP.vpT('Pujottelu')).toBe('Slalom');         // Kim-virhe korjattu (common)
+    expect(VP.vpT('Valmennuspäällikkö')).toBe('Utvecklingsansvarig');   // V0.1 roolikanoni (commonista)
+    expect(VP.vpT('Pituuspotku (bonus)')).toBe('Längdspark (bonus)');   // V0.1 laji-jäänne korjattu (VP-sivukartta)
   });
 });
