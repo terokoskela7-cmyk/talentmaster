@@ -79,9 +79,43 @@ describe('Master B2a: koti-klusteri (hero/greeting/date/Aloita tästä/signaalit
     // B1-jäänteet: ws-tab Inbox → Viestit(Meddelanden); tabbar Lisää → Valikko(Meny)
     expect(HTML).toContain('<span data-i18n="Viestit">Viestit</span>');
     expect(HTML).toContain('<span class="tb-lbl" data-i18n="Valikko">Valikko</span>');
-    expect(HTML).not.toContain('data-i18n="Inbox"');
+    // ws-TAB ei enää käytä Inbox-avainta (→ Viestit/Meddelanden); filtteri-tab SAA (→ Inkorg)
+    expect(HTML).not.toContain('<span data-i18n="Inbox">Inbox</span>');
   });
-  it('cache-bust tm_master_i18n.js?v=2', () => {
+  it('cache-bust tm_master_i18n.js?v=2+', () => {
     expect(HTML).toMatch(/tm_master_i18n\.js\?v=([2-9]|\d\d)/);
+  });
+});
+
+describe('Master B2b: ws-view STAATTINEN runko (data-i18n) — laajennettu gate (ei vain render-funktiot)', () => {
+  // Skannaa ws-view-skeletonin (section-otsikot + pika-linkit) staattisen HTML:n; demo-preview (§3) sallittu fi.
+  it('ws-view-lohkossa (r~1471-1770) 0 reitittämätöntä näkyvää fi-tekstiä (pl. demo-preview §3)', () => {
+    const lines = HTML.split('\n');
+    const DEMO = ['pelaajaa kirjannut', 'per pelaaja. Suurin', 'joukkuekaverien välistä', 'seinäsyötöt', 'Viikko 17 ·',
+      'Kausi 25/26 · 17', 'vs 3', '1 vs'];   // §3 demo-preview-captionit + kovakoodatut demo-arvot
+    const orphan = [];
+    for (let i = 1470; i < 1770 && i < lines.length; i++) {
+      const line = lines[i];
+      if (line.includes('data-i18n')) continue;
+      const re = />([^<>{}]+)</g; let m;
+      while ((m = re.exec(line))) {
+        const t = m[1].trim();
+        if ((t.match(/[A-Za-zÀ-ÿ]/g) || []).length < 3) continue;
+        if (DEMO.some((d) => t.includes(d))) continue;
+        if (/[äöåÄÖÅ]/.test(t) || (/[a-zäöå]{3}/i.test(t) && t.includes(' '))) orphan.push(t.slice(0, 40));
+      }
+    }
+    expect(orphan).toEqual([]);
+  });
+  it('ws-view chrome resolvoituu (Master + common); Inbox-otsikko→Meddelanden, filtteri→Inkorg', () => {
+    global.tmNykyinenKieli = () => 'sv';
+    expect(MA.masterT('Viimeiset havainnot')).toBe('Senaste observationer');
+    expect(MA.masterT('+ Uusi havainto')).toBe('+ Ny observation');
+    expect(MA.masterT('Live · Joukkueen pulssi')).toBe('Live · Lagets puls');
+    expect(MA.masterT('Inbox')).toBe('Inkorg');             // filtteri-tab
+    expect(MA.masterT('Viestit')).toBe('Meddelanden');      // otsikko (common)
+    // staattiset elementit tagattu
+    expect(HTML).toContain('data-i18n="Viimeiset havainnot"');
+    expect(HTML).toContain('<h1 class="inbox-h1" data-i18n="Viestit">');
   });
 });
