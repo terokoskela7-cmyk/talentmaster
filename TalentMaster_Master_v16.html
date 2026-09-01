@@ -16,7 +16,7 @@
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-storage-compat.js"></script>
 <script src="lib/tm_lang.js?v=1"></script>   <!-- i18n V0 — fi/sv/en käännöstaulukko + t() + kieli-init (putkitus) -->
 <script src="lib/tm_i18n_common.js?v=2"></script>   <!-- i18n Vaihe 0 — JAETTU henkilöstö-i18n + lukittu glossaari (ENNEN sivukarttaa) -->
-<script src="lib/tm_master_i18n.js?v=5"></script>   <!-- i18n Vaihe 5 Raita B — Master sv (sivukartta); masterT/masterLokalisoi delegoivat commoniin -->
+<script src="lib/tm_master_i18n.js?v=6"></script>   <!-- i18n Vaihe 5 Raita B — Master sv (sivukartta); masterT/masterLokalisoi delegoivat commoniin -->
 <script src="lib/tm_eerikkila_normit.js?v=45"></script>   <!-- v43: D2-kortti d2_taso-ensin (renderKehityskorttiHTML, PR #264 · §30/#262) -->
 <script src="lib/tm_harjoitusarviointi.js?v=4"></script>
 <script src="lib/tm_kalenteri.js?v=1"></script>
@@ -3073,8 +3073,8 @@ async function _renderTodayFokus() {
     const d = snap.data();
     if (d.voimassa_asti && d.voimassa_asti < new Date().toISOString()) { el.style.display = 'none'; return; }
     let html = '<div class="signal-block" style="border-color:var(--amber);background:rgba(224,160,64,.07);cursor:default;">';
-    html += '<div class="signal-caps"><div class="signal-dot" style="background:var(--amber);"></div><span class="caps">Tänään fokus</span></div>';
-    html += '<div class="signal-title">' + _tkLajiNimi(d.laji) + '</div>';
+    html += '<div class="signal-caps"><div class="signal-dot" style="background:var(--amber);"></div><span class="caps">' + masterT('Tänään fokus') + '</span></div>';
+    html += '<div class="signal-title">' + masterT(_tkLajiNimi(d.laji)) + '</div>';
     if (d.viesti) html += '<div class="signal-sub">' + _palauteEsc(d.viesti) + '</div>';
     html += '</div>';
     el.innerHTML = html;
@@ -3146,13 +3146,13 @@ function _renderOhjaavaSignaali() {
     (_kirjaukset || []).forEach(k => { const pid = k._pelaajaId || k.playerId; const t = k.t || 0; if (pid && (_nyt - t) <= _VKO) _kirjanneet.add(pid); });
     const aktivoitujen = _kirjanneet.size;
     const msg = aktivoitujen === 0
-      ? `Kutsutaan <em>${pelaajia} pelaajaa</em> mukaan — kukaan ei ole vielä kirjannut.`
-      : `${aktivoitujen}/${pelaajia} pelaajaa aloittanut omatoimikirjaukset${pelaajia - aktivoitujen > 0 ? ' — muistuta lopuille.' : ' — hyvä alku!'}`;
+      ? masterT('Kutsutaan <em>{n} pelaajaa</em> mukaan — kukaan ei ole vielä kirjannut.').replace('{n}', pelaajia)
+      : masterT('{a}/{b} pelaajaa aloittanut omatoimikirjaukset').replace('{a}', aktivoitujen).replace('{b}', pelaajia) + (pelaajia - aktivoitujen > 0 ? masterT(' — muistuta lopuille.') : masterT(' — hyvä alku!'));
   el.innerHTML = `
       <div class="signal-icon">💡</div>
       <div class="signal-body">
         <div class="signal-title">${msg}</div>
-        <div class="signal-sub">Pelaajat tarvitsevat PIN-koodinsa kirjautuakseen Pelaaja-sovellukseen.</div>
+        <div class="signal-sub">${masterT('Pelaajat tarvitsevat PIN-koodinsa kirjautuakseen Pelaaja-sovellukseen.')}</div>
       </div>`;
     el.style.display = '';
 
@@ -3163,18 +3163,18 @@ function _renderOhjaavaSignaali() {
 
     let msg = '', level = 'ok';
     if (riskissa > 0) {
-      msg = `${riskissa} pelaajalla matala fiilinki — tarkista heidän tilanteensa.`;
+      msg = `${riskissa}${masterT(' pelaajalla matala fiilinki — tarkista heidän tilanteensa.')}`;
       level = 'warning';
     } else if (aktiiviset > 0) {
-      msg = `${aktiiviset} pelaajaa kirjaa aktiivisesti. Streak käynnissä — vahvista tätä rytmiä.`;
+      msg = `${aktiiviset}${masterT(' pelaajaa kirjaa aktiivisesti. Streak käynnissä — vahvista tätä rytmiä.')}`;
     } else {
-      msg = `${kirjauksia} kirjausta kerätty ${paiviaKaytossa} päivässä. Jatka systemaattisesti.`;
+      msg = `${kirjauksia}${masterT(' kirjausta kerätty ')}${paiviaKaytossa}${masterT(' päivässä. Jatka systemaattisesti.')}`;
     }
     el.innerHTML = `
       <div class="signal-icon">${riskissa > 0 ? '⚠️' : '📈'}</div>
       <div class="signal-body">
         <div class="signal-title">${msg}</div>
-        <div class="signal-sub">Käyttöpäiviä: ${paiviaKaytossa} · Kirjauksia: ${kirjauksia}</div>
+        <div class="signal-sub">${masterT('Käyttöpäiviä: {d} · Kirjauksia: {k}').replace('{d}', paiviaKaytossa).replace('{k}', kirjauksia)}</div>
       </div>`;
     el.style.display = '';
 
@@ -3188,13 +3188,13 @@ function _renderOhjaavaSignaali() {
       return p.streak === 0 && (p.flei_viimeisin || 0) > 50;
     });
     const msg = poissa.length > 0
-      ? `${poissa.length} pelaajaa keskeyttänyt — heillä on hyvä kehitystaso. Tarkista syy.`
-      : `Dataa ${kirjauksia} kirjausta — järjestelmä analysoi kaavoja aktiivisesti.`;
+      ? `${poissa.length}${masterT(' pelaajaa keskeyttänyt — heillä on hyvä kehitystaso. Tarkista syy.')}`
+      : masterT('Dataa {k} kirjausta — järjestelmä analysoi kaavoja aktiivisesti.').replace('{k}', kirjauksia);
     el.innerHTML = `
       <div class="signal-icon">🤖</div>
       <div class="signal-body">
         <div class="signal-title">${msg}</div>
-        <div class="signal-sub">AI-analyysi aktivoitu · ${kirjauksia} kirjausta · ${paiviaKaytossa} pv</div>
+        <div class="signal-sub">${masterT('AI-analyysi aktivoitu · {k} kirjausta · {d} pv').replace('{k}', kirjauksia).replace('{d}', paiviaKaytossa)}</div>
       </div>`;
     el.style.display = '';
 
@@ -3214,23 +3214,19 @@ function _renderInboxOhjaus(el) {
     el.innerHTML = `
       <div style="padding:40px 24px;max-width:480px;margin:0 auto">
         <div style="font-size:32px;margin-bottom:16px;text-align:center">📬</div>
-        <div style="font-size:17px;font-weight:500;margin-bottom:12px;text-align:center">Inbox odottaa ensimmäisiä kirjauksia</div>
+        <div style="font-size:17px;font-weight:500;margin-bottom:12px;text-align:center">${masterT('Inbox odottaa ensimmäisiä kirjauksia')}</div>
         <div style="font-size:14px;color:var(--ink2);line-height:1.7;margin-bottom:20px">
-          Kun pelaajat kirjaavat omatoimiharjoittelujaan Pelaaja-sovellukseen,
-          ne ilmestyvät tähän reaaliajassa. Näet fiilingin, harjoitustyypin
-          ja voit reagoida sydämellä tai viestillä.
+          ${masterT('Kun pelaajat kirjaavat omatoimiharjoittelujaan Pelaaja-sovellukseen, ne ilmestyvät tähän reaaliajassa. Näet fiilingin, harjoitustyypin ja voit reagoida sydämellä tai viestillä.')}
         </div>
         <div style="background:var(--card);border-radius:8px;padding:16px 20px;border:0.5px solid var(--line)">
-          <div style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--ink3);margin-bottom:10px">Ensiaskeleet</div>
+          <div style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--ink3);margin-bottom:10px">${masterT('Ensiaskeleet')}</div>
           <div style="font-size:13px;color:var(--ink2);line-height:2">
-            1. Varmista että pelaajilla on PIN-koodi<br>
-            2. Pyydä pelaajia kirjaamaan yksi harjoitus tänään<br>
-            3. Reagoi heti kun kirjaus ilmestyy — se motivoi jatkamaan
+            ${masterT('1. Varmista että pelaajilla on PIN-koodi<br>2. Pyydä pelaajia kirjaamaan yksi harjoitus tänään<br>3. Reagoi heti kun kirjaus ilmestyy — se motivoi jatkamaan')}
           </div>
         </div>
         <div style="margin-top:16px;text-align:center">
           <button onclick="setWs('testit')" style="background:var(--teal);color:#fff;border:none;border-radius:6px;padding:10px 20px;font-size:13px;cursor:pointer;font-weight:500">
-            Katso testitapahtumat →
+            ${masterT('Katso testitapahtumat →')}
           </button>
         </div>
       </div>`;
@@ -3238,10 +3234,9 @@ function _renderInboxOhjaus(el) {
     el.innerHTML = `
       <div style="padding:32px 24px;text-align:center;color:var(--ink3)">
         <div style="font-size:28px;margin-bottom:10px">📭</div>
-        <div style="font-size:15px;color:var(--ink2);margin-bottom:6px">Ei uusia kirjauksia</div>
+        <div style="font-size:15px;color:var(--ink2);margin-bottom:6px">${masterT('Ei uusia kirjauksia')}</div>
         <div style="font-size:13px;line-height:1.6">
-          <strong>${_pelaajatData.length} pelaajaa</strong> rekisteröity ·
-          ${kirjauksia} kirjausta yhteensä
+          ${masterT('{n} pelaajaa rekisteröity · {k} kirjausta yhteensä').replace('{n}', '<strong>'+_pelaajatData.length+'</strong>').replace('{k}', kirjauksia)}
         </div>
       </div>`;
   } else {
@@ -3249,8 +3244,8 @@ function _renderInboxOhjaus(el) {
     el.innerHTML = `
       <div style="padding:32px 24px;text-align:center;color:var(--ink3)">
         <div style="font-size:28px;margin-bottom:10px">✓</div>
-        <div style="font-size:15px;color:var(--ink2)">Kaikki kirjaukset käsitelty</div>
-        <div style="font-size:12px;margin-top:6px">${kirjauksia} kirjausta analysoitu</div>
+        <div style="font-size:15px;color:var(--ink2)">${masterT('Kaikki kirjaukset käsitelty')}</div>
+        <div style="font-size:12px;margin-top:6px">${masterT('{k} kirjausta analysoitu').replace('{k}', kirjauksia)}</div>
       </div>`;
   }
 }
