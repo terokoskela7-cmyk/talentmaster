@@ -16,7 +16,7 @@
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-storage-compat.js"></script>
 <script src="lib/tm_lang.js?v=1"></script>   <!-- i18n V0 — fi/sv/en käännöstaulukko + t() + kieli-init (putkitus) -->
 <script src="lib/tm_i18n_common.js?v=2"></script>   <!-- i18n Vaihe 0 — JAETTU henkilöstö-i18n + lukittu glossaari (ENNEN sivukarttaa) -->
-<script src="lib/tm_master_i18n.js?v=1"></script>   <!-- i18n Vaihe 5 Raita B — Master sv (sivukartta); masterT/masterLokalisoi delegoivat commoniin -->
+<script src="lib/tm_master_i18n.js?v=2"></script>   <!-- i18n Vaihe 5 Raita B — Master sv (sivukartta); masterT/masterLokalisoi delegoivat commoniin -->
 <script src="lib/tm_eerikkila_normit.js?v=45"></script>   <!-- v43: D2-kortti d2_taso-ensin (renderKehityskorttiHTML, PR #264 · §30/#262) -->
 <script src="lib/tm_harjoitusarviointi.js?v=4"></script>
 <script src="lib/tm_kalenteri.js?v=1"></script>
@@ -1438,7 +1438,7 @@ textarea.jsp-rv-inp { resize: vertical; min-height: 44px; }
     <!-- WSBAR -->
     <div class="wsbar">
       <div class="ws-tab active" data-ws="inbox" onclick="setWs('inbox')">
-        <span class="ws-num">01</span><span data-i18n="Inbox">Inbox</span>
+        <span class="ws-num">01</span><span data-i18n="Viestit">Viestit</span>
         <span class="ws-badge" id="wsInboxBadge" style="display:none"></span>
       </div>
       <div class="ws-tab" data-ws="today" onclick="setWs('today')">
@@ -1762,7 +1762,7 @@ textarea.jsp-rv-inp { resize: vertical; min-height: 44px; }
     <button class="tabbar-item" data-ws="dev" onclick="setWs('dev')"><span class="tb-ic">👤</span><span class="tb-lbl" data-i18n="Pelaajat">Pelaajat</span></button>
     <button class="tabbar-item" data-ws="havainnot" onclick="setWs('havainnot')"><span class="tb-ic">👁</span><span class="tb-lbl" data-i18n="Havainnot">Havainnot</span></button>
     <button class="tabbar-item" data-ws="inbox" onclick="setWs('inbox')"><span class="tb-ic">✉️</span><span class="tb-lbl" data-i18n="Viestit">Viestit</span></button>
-    <button class="tabbar-item" onclick="toggleTyokalut()"><span class="tb-ic">⋯</span><span class="tb-lbl">Lisää</span></button>
+    <button class="tabbar-item" onclick="toggleTyokalut()"><span class="tb-ic">⋯</span><span class="tb-lbl" data-i18n="Valikko">Valikko</span></button>
   </nav>
   <div class="sb-backdrop" onclick="toggleTyokalut(false)"></div>
 
@@ -4126,7 +4126,7 @@ function _alusta(nimi) {
 
 function _setGreet(nimi) {
   const h = new Date().getHours();
-  const prefix = h < 11 ? 'Hyvää aamua' : h < 17 ? 'Hyvää päivää' : 'Hyvää iltaa';
+  const prefix = h < 11 ? masterT('Hyvää aamua') : h < 17 ? masterT('Hyvää päivää') : masterT('Hyvää iltaa');
   document.getElementById('hGreet').textContent = prefix + ', ' + nimi + '.';
 }
 
@@ -4137,7 +4137,7 @@ function _setDate() {
                'heinäkuuta','elokuuta','syyskuuta','lokakuuta','marraskuuta','joulukuuta'][d.getMonth()];
   const vk = _getVk(d);
   document.getElementById('hDate').textContent =
-    (pv.charAt(0).toUpperCase()+pv.slice(1)) + ', ' + d.getDate() + '. ' + kk + ' · VIIKKO ' + vk;
+    (function(w){return w.charAt(0).toUpperCase()+w.slice(1);})(masterT(pv)) + ', ' + d.getDate() + '. ' + masterT(kk) + ' · ' + masterT('VIIKKO') + ' ' + vk;
 }
 
 function _getVk(d) {
@@ -4424,28 +4424,28 @@ function renderKoti() {
   // §Job-Screen: jokainen signaali saa severity-prion → yksi dominoiva työ (pienin prio), loput sekundääreinä.
   const kortit = [];
   const ilmanAdar = P.filter(p => { const ms = _iaMs(p.adar_pvm); return (p.adar_havaintoja||0) === 0 || (ms && (nyt - ms) > KK); });
-  if (ilmanAdar.length) kortit.push({ prio:2, ikoni:'👁', txt: ilmanAdar.length + ' pelaajaa ilman tuoretta havaintoa (30 pv)', cta:'Havainnoi', fn:"openDrill('adar')", vari:'var(--amber)' });
+  if (ilmanAdar.length) kortit.push({ prio:2, ikoni:'👁', txt: ilmanAdar.length + masterT(' pelaajaa ilman tuoretta havaintoa (30 pv)'), cta:masterT('Havainnoi'), fn:"openDrill('adar')", vari:'var(--amber)' });
   const lukematta = (_vpViestit || []).filter(v => v.luettu === false).length;
-  if (lukematta) kortit.push({ prio:3, ikoni:'✉️', txt: lukematta + ' lukematon viesti valmennuspäälliköltä', cta:'Avaa', fn:"setWs('inbox')", vari:'var(--blue)' });
+  if (lukematta) kortit.push({ prio:3, ikoni:'✉️', txt: lukematta + masterT(' lukematon viesti valmennuspäälliköltä'), cta:masterT('Avaa'), fn:"setWs('inbox')", vari:'var(--blue)' });
   const passiiviset = P.filter(p => !kirjVko[p.id]);
-  if (P.length && passiiviset.length) kortit.push({ prio:6, ikoni:'💤', txt: passiiviset.length + ' pelaajaa ilman omatoimikirjausta tällä viikolla', cta:'Viestitä', fn:"setWs('inbox')", vari:'var(--ink2)' });
+  if (P.length && passiiviset.length) kortit.push({ prio:6, ikoni:'💤', txt: passiiviset.length + masterT(' pelaajaa ilman omatoimikirjausta tällä viikolla'), cta:masterT('Viestitä'), fn:"setWs('inbox')", vari:'var(--ink2)' });
   const kohdeLkm = {};
   P.forEach(p => { const k = p.tki_kehityskohde || p.hh_kehityskohde; if (k) kohdeLkm[k] = (kohdeLkm[k]||0) + 1; });
   const heikoinKohde = Object.keys(kohdeLkm).sort((a,b) => kohdeLkm[b] - kohdeLkm[a])[0];
-  if (heikoinKohde) kortit.push({ prio:5, ikoni:'🎯', txt: (typeof _tkLajiNimi === 'function' ? _tkLajiNimi(heikoinKohde) : heikoinKohde) + ' heikoin kehityskohde (' + kohdeLkm[heikoinKohde] + ' pelaajalla)', cta:'Avaa kehityskohde', fn:"setWs('dev')", vari:'var(--teal)' });
+  if (heikoinKohde) kortit.push({ prio:5, ikoni:'🎯', txt: masterT(typeof _tkLajiNimi === 'function' ? _tkLajiNimi(heikoinKohde) : heikoinKohde) + masterT(' heikoin kehityskohde (') + kohdeLkm[heikoinKohde] + masterT(' pelaajalla)'), cta:masterT('Avaa kehityskohde'), fn:"setWs('dev')", vari:'var(--teal)' });
   const klinikka = P.filter(p => p.flei_viimeisin != null && p.flei_viimeisin < 40);
-  if (klinikka.length) kortit.push({ prio:1, ikoni:'🏥', txt: klinikka.length + ' pelaajaa kehon valmius alle 40 (klinikkalähetys)', cta:'Lähetä klinikkaan', fn:"setWs('dev')", vari:'var(--red)' });
+  if (klinikka.length) kortit.push({ prio:1, ikoni:'🏥', txt: klinikka.length + masterT(' pelaajaa kehon valmius alle 40 (klinikkalähetys)'), cta:masterT('Lähetä klinikkaan'), fn:"setWs('dev')", vari:'var(--red)' });
   // D3-flag: pelaaja teki itsearvion mutta valmentaja ei ole vielä vahvistanut → trianguloi (d3_varmuus elää 'trianguloitu':ksi).
   // §26 pikakenttä d3_varmuus/d3_pvm (ei alikokoelmakyselyä); omat pelaajat P (§18). Poistuu kun 'trianguloitu'. §7.22 aikuisnäkymä.
   const d3Itse = P.filter(p => (typeof d3OdottaaKalibrointia === 'function') ? d3OdottaaKalibrointia(p) : (p && p.d3_varmuus === 'itsearvio'));
   if (d3Itse.length) {
     const _d3p = d3Itse[0];
-    const _d3nimi = ((_d3p.etunimi||'') + ' ' + (_d3p.sukunimi||'')).trim() || 'Pelaaja';
+    const _d3nimi = ((_d3p.etunimi||'') + ' ' + (_d3p.sukunimi||'')).trim() || masterT('Pelaaja');
     const _d3pvm = _d3p.d3_pvm ? (function(s){ const m = String(s).match(/^(\d{4})-(\d{2})-(\d{2})/); return m ? (+m[3])+'.'+(+m[2])+'.'+m[1] : String(s); })(_d3p.d3_pvm) : null;
     const _d3txt = (d3Itse.length === 1)
-      ? ('🧠 ' + _d3nimi + ' teki D3-itsearvion' + (_d3pvm ? ' (' + _d3pvm + ')' : '') + ' → lisää oma arviosi')
-      : (d3Itse.length + ' pelaajaa teki psyykkisen itsearvion — vahvista valmentajan näkemys');
-    kortit.push({ prio:4, ikoni:'🧠', txt: _d3txt, cta:'Arvioi', fn:"_avaaD3Arvio('" + _d3p.id + "')", vari:'var(--blue)' });
+      ? ('🧠 ' + _d3nimi + masterT(' teki D3-itsearvion') + (_d3pvm ? ' (' + _d3pvm + ')' : '') + masterT(' → lisää oma arviosi'))
+      : (d3Itse.length + masterT(' pelaajaa teki psyykkisen itsearvion — vahvista valmentajan näkemys'));
+    kortit.push({ prio:4, ikoni:'🧠', txt: _d3txt, cta:masterT('Arvioi'), fn:"_avaaD3Arvio('" + _d3p.id + "')", vari:'var(--blue)' });
   }
   kortit.sort((a,b) => a.prio - b.prio);   // severity nouseva → kortit[0] = kriittisin
 
@@ -4453,12 +4453,12 @@ function renderKoti() {
   const ka = a => a.length ? (Math.round(a.reduce((s,v)=>s+v,0)/a.length*10)/10) : '—';
   // Tilannestrippi = kontekstia (ei työ) → korttien ALLE, tiivis 1-rivinen.
   const strippiAlas = '<div class="koti-strippi-alas">'
-    + '<div><span class="ksa-luku">' + P.length + '</span><span class="ksa-lbl">pelaajaa</span></div>'
-    + '<div><span class="ksa-luku">' + aktiivisia + '</span><span class="ksa-lbl">aktiivista/vko</span></div>'
-    + '<div><span class="ksa-luku">' + ka(P.map(p=>p.d1_taso).filter(v=>v!=null)) + '</span><span class="ksa-lbl">D1 ka</span></div>'
-    + '<div><span class="ksa-luku">' + ka(P.map(p=>p.d2_taso).filter(v=>v!=null)) + '</span><span class="ksa-lbl">D2 ka</span></div></div>';
+    + '<div><span class="ksa-luku">' + P.length + '</span><span class="ksa-lbl">' + masterT('pelaajaa') + '</span></div>'
+    + '<div><span class="ksa-luku">' + aktiivisia + '</span><span class="ksa-lbl">' + masterT('aktiivista/vko') + '</span></div>'
+    + '<div><span class="ksa-luku">' + ka(P.map(p=>p.d1_taso).filter(v=>v!=null)) + '</span><span class="ksa-lbl">' + masterT('D1 ka') + '</span></div>'
+    + '<div><span class="ksa-luku">' + ka(P.map(p=>p.d2_taso).filter(v=>v!=null)) + '</span><span class="ksa-lbl">' + masterT('D2 ka') + '</span></div></div>';
 
-  let h = '<div class="koti-otsikko serif">Mitä sinun pitää tehdä</div>';
+  let h = '<div class="koti-otsikko serif">' + masterT('Mitä sinun pitää tehdä') + '</div>';
   if (kortit.length) {
     const k0 = kortit[0];   // dominoiva: iso kortti + täytetty CTA
     h += '<div class="koti-kortti-iso" style="border-left-color:' + k0.vari + '">'
@@ -4475,13 +4475,13 @@ function renderKoti() {
     h += strippiAlas;   // konteksti korttien alle
   } else if (P.length > 0) {
     // Dataa on, ei signaaleja → "kaikki kunnossa" (EI "aloita havainnoimalla") + konteksti
-    h += '<div class="koti-tyhja">✅ <b>Kaikki kunnossa tällä viikolla — ei toimenpiteitä.</b></div>';
+    h += '<div class="koti-tyhja">✅ <b>' + masterT('Kaikki kunnossa tällä viikolla — ei toimenpiteitä.') + '</b></div>';
     h += strippiAlas;
   } else {
     // Ei pelaajia → aloitusohje + ADAR-CTA, EI strippiä tyhjillä luvuilla
-    h += '<div class="koti-tyhja">⚽ <b>Aloita havainnoimalla pelaaja.</b><br>'
-      + '<span style="font-size:13px;color:var(--ink3)">Avaa peliälytyökalu ja kirjaa ensimmäinen peliälyhavainto — sitten näet täällä mitä tehdä seuraavaksi.</span><br>'
-      + '<button class="kk-cta" style="margin-top:12px" onclick="openDrill(\'adar\')">Havainnoi pelaaja →</button></div>';
+    h += '<div class="koti-tyhja">' + masterT('⚽ <b>Aloita havainnoimalla pelaaja.</b>') + '<br>'
+      + '<span style="font-size:13px;color:var(--ink3)">' + masterT('Avaa peliälytyökalu ja kirjaa ensimmäinen peliälyhavainto — sitten näet täällä mitä tehdä seuraavaksi.') + '</span><br>'
+      + '<button class="kk-cta" style="margin-top:12px" onclick="openDrill(\'adar\')">' + masterT('Havainnoi pelaaja →') + '</button></div>';
   }
   el.innerHTML = h;
 }
@@ -4493,27 +4493,27 @@ function renderHavainnot() {
   // Havainnoimatta = sama logiikka kuin renderKoti:n ilmanAdar (0 havaintoa TAI tuorein >30 pv)
   const ilmanAdar = P.filter(p => { const ms = _iaMs(p.adar_pvm); return (p.adar_havaintoja||0) === 0 || (ms && (nyt - ms) > KK); });
   const havaitut = P.filter(p => (p.adar_havaintoja||0) >= 1 && p.adar_pvm).sort((a,b) => (_iaMs(b.adar_pvm)||0) - (_iaMs(a.adar_pvm)||0));
-  let h = '<div class="koti-otsikko serif">Peliälyhavainnot</div>';
-  h += '<button class="kk-cta" style="font-size:15px;padding:12px 22px" onclick="openDrill(\'adar\')">👁 Avaa peliälytyökalu →</button>';
+  let h = '<div class="koti-otsikko serif">' + masterT('Peliälyhavainnot') + '</div>';
+  h += '<button class="kk-cta" style="font-size:15px;padding:12px 22px" onclick="openDrill(\'adar\')">' + masterT('👁 Avaa peliälytyökalu →') + '</button>';
 
   // ── Havainnoimatta-osio (ENNEN historiaa) — kohdista valmentajan työ ──
-  h += '<div class="koti-otsikko serif" style="font-size:18px;margin-top:26px">Havainnoimatta (' + ilmanAdar.length + ')</div>';
+  h += '<div class="koti-otsikko serif" style="font-size:18px;margin-top:26px">' + masterT('Havainnoimatta (') + ilmanAdar.length + ')</div>';
   if (ilmanAdar.length) {
-    h += '<div style="font-size:12px;color:var(--ink3);margin-bottom:10px">Ei tuoretta peliälyhavaintoa (0 tai yli 30 pv) — napauta havainnoidaksesi.</div>';
+    h += '<div style="font-size:12px;color:var(--ink3);margin-bottom:10px">' + masterT('Ei tuoretta peliälyhavaintoa (0 tai yli 30 pv) — napauta havainnoidaksesi.') + '</div>';
     h += '<div class="koti-kortit">' + ilmanAdar.map(p => {
       const ms = _iaMs(p.adar_pvm);
-      const tila = (p.adar_havaintoja||0) === 0 ? 'ei havaintoja' : 'viimeksi ' + (ms ? _pvmFiM(new Date(ms).toISOString().slice(0,10)) : '—');
+      const tila = (p.adar_havaintoja||0) === 0 ? masterT('ei havaintoja') : masterT('viimeksi ') + (ms ? _pvmFiM(new Date(ms).toISOString().slice(0,10)) : '—');
       return '<div class="koti-kortti" style="cursor:pointer" onclick="openDrill(\'adar\')">'
         + '<div class="kk-ikoni">👁</div>'
         + '<div class="kk-txt"><b>' + _iaNimi(p) + '</b> · ' + tila + '</div>'
-        + '<span style="color:var(--amber)">Havainnoi →</span></div>';
+        + '<span style="color:var(--amber)">' + masterT('Havainnoi →') + '</span></div>';
     }).join('') + '</div>';
   } else {
-    h += '<div class="koti-tyhja" style="font-size:13px">✅ Kaikki pelaajat havainnoitu tuoreesti (30 pv).</div>';
+    h += '<div class="koti-tyhja" style="font-size:13px">' + masterT('✅ Kaikki pelaajat havainnoitu tuoreesti (30 pv).') + '</div>';
   }
 
   // ── Havaintohistoria ──
-  h += '<div class="koti-otsikko serif" style="font-size:18px;margin-top:26px">Havaintohistoria</div>';
+  h += '<div class="koti-otsikko serif" style="font-size:18px;margin-top:26px">' + masterT('Havaintohistoria') + '</div>';
   if (havaitut.length) {
     h += '<div class="koti-kortit">' + havaitut.map(p => {
       const ms = _iaMs(p.adar_pvm);
@@ -4521,11 +4521,11 @@ function renderHavainnot() {
       const yht = (p.adar_viimeisin && p.adar_viimeisin.yht != null) ? p.adar_viimeisin.yht + '/3' : '—';
       return '<div class="koti-kortti" style="cursor:pointer" onclick="pickPlayer(\'' + p.id + '\');setWs(\'dev\')">'
         + '<div class="kk-ikoni">🧠</div>'
-        + '<div class="kk-txt"><b>' + _iaNimi(p) + '</b> · Peliäly ' + yht + ' · ' + p.adar_havaintoja + ' havaintoa' + (pvmTxt ? ' · ' + pvmTxt : '') + '</div>'
+        + '<div class="kk-txt"><b>' + _iaNimi(p) + '</b> · ' + masterT('Peliäly') + ' ' + yht + ' · ' + p.adar_havaintoja + masterT(' havaintoa') + (pvmTxt ? ' · ' + pvmTxt : '') + '</div>'
         + '<span style="color:var(--teal)">→</span></div>';
     }).join('') + '</div>';
   } else {
-    h += '<div class="koti-tyhja">Ei havaintoja vielä. Avaa peliälytyökalu ja kirjaa ensimmäinen peliälyhavainto.</div>';
+    h += '<div class="koti-tyhja">' + masterT('Ei havaintoja vielä. Avaa peliälytyökalu ja kirjaa ensimmäinen peliälyhavainto.') + '</div>';
   }
   el.innerHTML = h;
 }
@@ -4561,11 +4561,11 @@ function renderCoachAloitaKortti(){
   var s4 = (vd.valmennustaito_ka != null) || _vcaFlag('tm_valmentaja_itsearvio_' + _vcaUid());
   var s5 = _vcaVisited('inbox');
   var askeleet = [
-    { ok: s1, txt: 'Katso oman joukkueesi pelaajat', fn: "setWs('dev')" },
-    { ok: s2, txt: 'Tee ensimmäinen pelihavainto', fn: "setWs('havainnot')" },
-    { ok: s3, txt: 'Avaa Pelaajaraportti + kirjaa tavoite', fn: "setWs('dev')" },
-    { ok: s4, txt: 'Tee itsearvio (oma kehityksesi)', fn: "avaaHarjoitusarviointi()" },
-    { ok: s5, txt: 'Lue Viestit', fn: "setWs('inbox')" }
+    { ok: s1, txt: masterT('Katso oman joukkueesi pelaajat'), fn: "setWs('dev')" },
+    { ok: s2, txt: masterT('Tee ensimmäinen pelihavainto'), fn: "setWs('havainnot')" },
+    { ok: s3, txt: masterT('Avaa Pelaajaraportti + kirjaa tavoite'), fn: "setWs('dev')" },
+    { ok: s4, txt: masterT('Tee itsearvio (oma kehityksesi)'), fn: "avaaHarjoitusarviointi()" },
+    { ok: s5, txt: masterT('Lue Viestit'), fn: "setWs('inbox')" }
   ];
   var tehty = askeleet.filter(function (a) { return a.ok; }).length;
   function tick(ok){ return '<span class="vca-tick' + (ok ? ' on' : '') + '">' + (ok ? '✓' : '○') + '</span>'; }
@@ -4574,19 +4574,19 @@ function renderCoachAloitaKortti(){
   }).join('');
   // Opasosio — OPAS_VP_JA_VALMENTAJA.md OSA 2 -tiivistys.
   var opas = '<div class="vca-opas-sis">'
-    + '<div>Roolisi on <b>tuottaa elävää dataa ja sulkea silmukka</b> pelaajalle ja perheelle. Itsearviosi on sinun oma kehityksesi työkalu — valmennuspäällikkö ei käytä sitä arvosteluun.</div>'
-    + '<h4>Itsearvio · reflektio · CPD</h4>'
-    + '<ul><li>Itsearvio (malli B = valmennustaidot): arvioi omaa pedagogiikkaasi — näet oman kehityskäyräsi.</li><li>Kalibraatio: VP:n havainnointi vs. itsearviosi → peili itsetuntemukseen, ei arvostelu.</li><li>Reflektiopäiväkirja (kirjoita/nauhoita, yksityinen) + CPD-todiste lisenssien ylläpitoon.</li></ul>'
-    + '<h4>Testaus · havainnot</h4>'
-    + '<ul><li>Testaa kentällä (toimii offline) → indeksit + pikakentät päivittyvät → pulssi herää.</li><li>Havainnot: pelihavainto (peliäly/D4) jota mittari ei näe — pelaajaraportin lähde.</li></ul>'
-    + '<h4>Viestit · perhe</h4>'
-    + '<ul><li>Pelaajalle EI raakalukuja/vertailua — vain kannustava, lapsen kielellä (sinä hyväksyt ennen näkymistä).</li><li>Pelaaja kirjaa treenit/fiilikset + vanhempi kehut → näkyvät Viestit-syötteessäsi.</li><li>Avaa pelaajalta 📋 Pelaajaraportti + tavoitteet — kirjaa tavoitteita (näkyvät myös VP:lle).</li></ul>'
+    + masterT('<div>Roolisi on <b>tuottaa elävää dataa ja sulkea silmukka</b> pelaajalle ja perheelle. Itsearviosi on sinun oma kehityksesi työkalu — valmennuspäällikkö ei käytä sitä arvosteluun.</div>')
+    + '<h4>' + masterT('Itsearvio · reflektio · CPD') + '</h4>'
+    + masterT('<ul><li>Itsearvio (malli B = valmennustaidot): arvioi omaa pedagogiikkaasi — näet oman kehityskäyräsi.</li><li>Kalibraatio: VP:n havainnointi vs. itsearviosi → peili itsetuntemukseen, ei arvostelu.</li><li>Reflektiopäiväkirja (kirjoita/nauhoita, yksityinen) + CPD-todiste lisenssien ylläpitoon.</li></ul>')
+    + '<h4>' + masterT('Testaus · havainnot') + '</h4>'
+    + masterT('<ul><li>Testaa kentällä (toimii offline) → indeksit + pikakentät päivittyvät → pulssi herää.</li><li>Havainnot: pelihavainto (peliäly/D4) jota mittari ei näe — pelaajaraportin lähde.</li></ul>')
+    + '<h4>' + masterT('Viestit · perhe') + '</h4>'
+    + masterT('<ul><li>Pelaajalle EI raakalukuja/vertailua — vain kannustava, lapsen kielellä (sinä hyväksyt ennen näkymistä).</li><li>Pelaaja kirjaa treenit/fiilikset + vanhempi kehut → näkyvät Viestit-syötteessäsi.</li><li>Avaa pelaajalta 📋 Pelaajaraportti + tavoitteet — kirjaa tavoitteita (näkyvät myös VP:lle).</li></ul>')
     + '</div>';
   var h = '<div class="vca-kortti">'
-    + '<div class="vca-head"><h3>Aloita tästä</h3><button class="vca-piilota" onclick="_vcaPiilota()">Piilota opas</button></div>'
-    + '<div class="vca-edist">' + tehty + '/5 askelta — klikkaa askelta siirtyäksesi.</div>'
+    + '<div class="vca-head"><h3>' + masterT('Aloita tästä') + '</h3><button class="vca-piilota" onclick="_vcaPiilota()">' + masterT('Piilota opas') + '</button></div>'
+    + '<div class="vca-edist">' + tehty + masterT('/5 askelta — klikkaa askelta siirtyäksesi.') + '</div>'
     + rivit
-    + '<button class="vca-opasbtn" onclick="_vcaOpas(this)">📖 Näin teet TalentMasterilla arjessa</button>'
+    + '<button class="vca-opasbtn" onclick="_vcaOpas(this)">' + masterT('📖 Näin teet TalentMasterilla arjessa') + '</button>'
     + '<div class="vca-opas" id="vcaOpasPaneeli">' + opas + '</div>'
     + '</div>';
   el.innerHTML = h;
@@ -4595,12 +4595,12 @@ window.renderCoachAloitaKortti = renderCoachAloitaKortti;
 window._vcaOpas = function (btn){
   var pan = document.getElementById('vcaOpasPaneeli'); if (!pan) return;
   pan.classList.toggle('auki');
-  if (btn) btn.textContent = pan.classList.contains('auki') ? '📖 Piilota ohje' : '📖 Näin teet TalentMasterilla arjessa';
+  if (btn) btn.textContent = pan.classList.contains('auki') ? masterT('📖 Piilota ohje') : masterT('📖 Näin teet TalentMasterilla arjessa');
 };
 window._vcaPiilota = function (){
   try { localStorage.setItem(_vcaPiilotaAvain(), '1'); } catch (e) {}
   renderCoachAloitaKortti();   // tyhjentää kortin
-  if (typeof toast === 'function') toast('Aloitusopas piilotettu — palautat sen "Aloita tästä" -valikosta', 'ok');
+  if (typeof toast === 'function') toast(masterT('Aloitusopas piilotettu — palautat sen "Aloita tästä" -valikosta'), 'ok');
 };
 window._vcaNaytaUudelleen = function (){
   try { localStorage.removeItem(_vcaPiilotaAvain()); } catch (e) {}

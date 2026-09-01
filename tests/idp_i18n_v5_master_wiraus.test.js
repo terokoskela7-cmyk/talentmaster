@@ -42,7 +42,7 @@ describe('Master-kartta + masterT (delegoi commoniin)', () => {
 describe('Master B1 infra + chrome wiring', () => {
   it('latausjärjestys: tm_lang → tm_i18n_common?v=2 → tm_master_i18n?v=1', () => {
     expect(HTML).toContain('lib/tm_i18n_common.js?v=2');
-    expect(HTML).toContain('lib/tm_master_i18n.js?v=1');
+    expect(HTML).toMatch(/lib\/tm_master_i18n\.js\?v=[1-9]/);
     const iC = HTML.indexOf('tm_i18n_common.js'), iM = HTML.indexOf('tm_master_i18n.js');
     expect(iC).toBeGreaterThan(0); expect(iM).toBeGreaterThan(iC);   // common ENNEN sivukarttaa
   });
@@ -59,5 +59,29 @@ describe('Master B1 infra + chrome wiring', () => {
       expect(HTML).toContain('data-i18n="' + t + '"'));
     expect(HTML).toContain('data-i18n-ph="Sähköposti"');
     expect(HTML).toContain('data-i18n-title="Vaihda teema"');
+  });
+});
+
+describe('Master B2a: koti-klusteri (hero/greeting/date/Aloita tästä/signaalit) masterT', () => {
+  it('koti-avaimet + koti-spesifit fragmentit resolvoituvat sv:ksi', () => {
+    global.tmNykyinenKieli = () => 'sv';
+    [['Mitä sinun pitää tehdä', 'Vad du behöver göra'], ['Havainnoi', 'Observera'], ['Lähetä klinikkaan', 'Skicka till klinik'],
+      [' pelaajaa ilman tuoretta havaintoa (30 pv)', ' spelare utan färsk observation (30 dgr)'],
+      ['aktiivista/vko', 'aktiva/vecka'], ['Katso oman joukkueesi pelaajat', 'Se ditt lags spelare'],
+      ['Hyvää iltaa', 'God kväll'], ['tiistai', 'tisdag'], ['syyskuuta', 'september'], ['VIIKKO', 'VECKA']].forEach(([fi, sv]) =>
+      expect(MA.masterT(fi)).toBe(sv));
+  });
+  it('koti-render + coach-kortti kutsuvat masterT:tä; B1-jäänteet korjattu', () => {
+    expect(HTML).toContain("masterT(' pelaajaa kehon valmius alle 40 (klinikkalähetys)')");
+    expect(HTML).toContain("masterT('Mitä sinun pitää tehdä')");
+    expect(HTML).toContain("masterT('Katso oman joukkueesi pelaajat')");
+    expect(HTML).toContain('masterT(pv)');   // _setDate viikonpäivä
+    // B1-jäänteet: ws-tab Inbox → Viestit(Meddelanden); tabbar Lisää → Valikko(Meny)
+    expect(HTML).toContain('<span data-i18n="Viestit">Viestit</span>');
+    expect(HTML).toContain('<span class="tb-lbl" data-i18n="Valikko">Valikko</span>');
+    expect(HTML).not.toContain('data-i18n="Inbox"');
+  });
+  it('cache-bust tm_master_i18n.js?v=2', () => {
+    expect(HTML).toMatch(/tm_master_i18n\.js\?v=([2-9]|\d\d)/);
   });
 });
