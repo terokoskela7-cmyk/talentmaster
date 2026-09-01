@@ -16,7 +16,7 @@
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-storage-compat.js"></script>
 <script src="lib/tm_lang.js?v=1"></script>   <!-- i18n V0 — fi/sv/en käännöstaulukko + t() + kieli-init (putkitus) -->
 <script src="lib/tm_i18n_common.js?v=2"></script>   <!-- i18n Vaihe 0 — JAETTU henkilöstö-i18n + lukittu glossaari (ENNEN sivukarttaa) -->
-<script src="lib/tm_master_i18n.js?v=2"></script>   <!-- i18n Vaihe 5 Raita B — Master sv (sivukartta); masterT/masterLokalisoi delegoivat commoniin -->
+<script src="lib/tm_master_i18n.js?v=3"></script>   <!-- i18n Vaihe 5 Raita B — Master sv (sivukartta); masterT/masterLokalisoi delegoivat commoniin -->
 <script src="lib/tm_eerikkila_normit.js?v=45"></script>   <!-- v43: D2-kortti d2_taso-ensin (renderKehityskorttiHTML, PR #264 · §30/#262) -->
 <script src="lib/tm_harjoitusarviointi.js?v=4"></script>
 <script src="lib/tm_kalenteri.js?v=1"></script>
@@ -3637,7 +3637,7 @@ function renderInbox(){
   // Jos oikea käyttäjä mutta ei vielä dataa, näytä latausviesti
   if (!_demo && _seuraId && !_pelaajatData.length) {
     const el = document.getElementById('inboxList');
-    if (el) el.innerHTML = '<div style="padding:32px;text-align:center;color:var(--ink3);font-size:14px;">Ladataan joukkueen kirjauksia...</div>';
+    if (el) el.innerHTML = '<div style="padding:32px;text-align:center;color:var(--ink3);font-size:14px;">' + masterT('Ladataan joukkueen kirjauksia...') + '</div>';
     const empty = document.getElementById('inboxEmpty');
     if (empty) empty.style.display = 'none';
     // Ei returnata — jatkaa renderöintiä
@@ -3661,11 +3661,11 @@ function renderInbox(){
   if(wsB){wsB.textContent=unseenN;wsB.style.display=unseenN?'inline-flex':'none';}
   // "Kuittaa kaikki" -nappi: näkyy vain Inbox-välilehdellä kun näkemättömiä (toissijainen toiminto)
   const kkBtn=document.getElementById('kuittaaKaikkiBtn');
-  if(kkBtn){const _show=_inboxFilter!=='seen'&&unseenN>0;kkBtn.style.display=_show?'inline-flex':'none';kkBtn.textContent='Kuittaa kaikki ('+unseenN+')';}
+  if(kkBtn){const _show=_inboxFilter!=='seen'&&unseenN>0;kkBtn.style.display=_show?'inline-flex':'none';kkBtn.textContent=masterT('Kuittaa kaikki')+' ('+unseenN+')';}
   // sub
   if(sub){
     const total=_getInboxEvents().length;
-    sub.textContent=`${total} kirjausta · ${unseenN} näkemättä`;
+    sub.textContent=masterT('{total} kirjausta · {unseenN} näkemättä').replace('{total}',total).replace('{unseenN}',unseenN);
   }
 
   if(!evts.length){
@@ -3673,10 +3673,10 @@ function renderInbox(){
     const _total = _getInboxEvents().length;
     if (_inboxFilter==='seen') {
       // Arkisto tyhjä
-      list.innerHTML = '<div style="padding:32px;text-align:center;color:var(--ink3);font-size:14px;">Arkisto on tyhjä<br><span style="font-size:12px">Kuitatut kirjaukset siirtyvät tänne</span></div>';
+      list.innerHTML = '<div style="padding:32px;text-align:center;color:var(--ink3);font-size:14px;">' + masterT('Arkisto on tyhjä') + '<br><span style="font-size:12px">' + masterT('Kuitatut kirjaukset siirtyvät tänne') + '</span></div>';
     } else if (_total>0) {
       // Inbox tyhjä mutta kirjauksia on → kaikki kuitattu (löytyvät Arkistosta)
-      list.innerHTML = '<div style="padding:32px;text-align:center;color:var(--ink3);font-size:14px;">✓ Kaikki kuitattu<br><span style="font-size:12px">Kuitatut löytyvät <b>Arkisto</b>-välilehdeltä</span></div>';
+      list.innerHTML = '<div style="padding:32px;text-align:center;color:var(--ink3);font-size:14px;">' + masterT('✓ Kaikki kuitattu') + '<br><span style="font-size:12px">' + masterT('Kuitatut löytyvät <b>Arkisto</b>-välilehdeltä') + '</span></div>';
     } else if (!_demo && _seuraId) {
       _renderInboxOhjaus(list);   // vaihekohtainen ohje (ei vielä yhtään kirjausta)
     } else {
@@ -3722,31 +3722,31 @@ function renderInbox(){
     if(attn) cls.push('attention');
 
     const vpTagMap = {
-      'note.to_coach':'<span class="inbox-tag" style="background:rgba(107,63,160,.12);color:#6B3FA0">VP · huomio</span>',
-      'idp.approved':'<span class="inbox-tag" style="background:rgba(107,63,160,.12);color:#6B3FA0">VP · IDP vahvistettu</span>',
-      'idp.rejected':'<span class="inbox-tag" style="background:rgba(107,63,160,.12);color:#6B3FA0">VP · IDP kalibrointi</span>',
-      'intervention.requested':'<span class="inbox-tag" style="background:rgba(107,63,160,.12);color:#6B3FA0">VP · interventio</span>'
+      'note.to_coach':'<span class="inbox-tag" style="background:rgba(107,63,160,.12);color:#6B3FA0">' + masterT('VP · huomio') + '</span>',
+      'idp.approved':'<span class="inbox-tag" style="background:rgba(107,63,160,.12);color:#6B3FA0">' + masterT('VP · IDP vahvistettu') + '</span>',
+      'idp.rejected':'<span class="inbox-tag" style="background:rgba(107,63,160,.12);color:#6B3FA0">' + masterT('VP · IDP kalibrointi') + '</span>',
+      'intervention.requested':'<span class="inbox-tag" style="background:rgba(107,63,160,.12);color:#6B3FA0">' + masterT('VP · interventio') + '</span>'
     };
     const sourceTag = vpTagMap[e.type] || ({
-      parent:'<span class="inbox-tag parent">Vanhempi</span>',
-      player:'<span class="inbox-tag player">Pelaaja</span>',
-      coach: '<span class="inbox-tag coach">Joukkue</span>'
-    }[e.source]) || '<span class="inbox-tag">Omatoimi</span>';
+      parent:'<span class="inbox-tag parent">' + masterT('Vanhempi') + '</span>',
+      player:'<span class="inbox-tag player">' + masterT('Pelaaja') + '</span>',
+      coach: '<span class="inbox-tag coach">' + masterT('Joukkue') + '</span>'
+    }[e.source]) || '<span class="inbox-tag">' + masterT('Omatoimi') + '</span>';
 
-    const tyypit={pihapeli:'Pihapeli',uinti:'Uintia',pyora:'Pyöräily',pallo:'Palloleikki',metsa:'Metsässä',muu:'Muu liike',individual:'Omatoimi',team:'Joukkueharjoitus'};
+    const tyypit={pihapeli:masterT('Pihapeli'),uinti:masterT('Uintia'),pyora:masterT('Pyöräily'),pallo:masterT('Palloleikki'),metsa:masterT('Metsässä'),muu:masterT('Muu liike'),individual:masterT('Omatoimi'),team:masterT('Joukkueharjoitus')};
     const fiilisEmoji=['','🤕','😴','😐','😊','💪'];
-    const fiilisLabel=['','Loukkasi','Väsynyt','Neutraali','Iloinen','Innoissaan'];
+    const fiilisLabel=['',masterT('Loukkasi'),masterT('Väsynyt'),masterT('Neutraali'),masterT('Iloinen'),masterT('Innoissaan')];
 
     const reacts=_doneReacts[e.id]||{};
     const vpTitleMap = {
-      'note.to_coach':'Valmennuspäälliköltä huomio',
-      'idp.approved':'VP vahvisti näkemyksesi',
-      'idp.rejected':'VP ehdottaa kalibrointia',
-      'intervention.requested':'VP pyytää interventiota'
+      'note.to_coach':masterT('Valmennuspäälliköltä huomio'),
+      'idp.approved':masterT('VP vahvisti näkemyksesi'),
+      'idp.rejected':masterT('VP ehdottaa kalibrointia'),
+      'intervention.requested':masterT('VP pyytää interventiota')
     };
     const title = vpTitleMap[e.type]
-      || (e.type==='injury' ? 'Loukkaantumisesta ilmoitus'
-      : (tyypit[e.tyyppi]||e.tyyppi||'Kirjasi treenin'));
+      || (e.type==='injury' ? masterT('Loukkaantumisesta ilmoitus')
+      : (tyypit[e.tyyppi]||e.tyyppi||masterT('Kirjasi treenin')));
 
     // VP-era text on payloadissa
     const noteText = e.note || e.payload?.text || e.payload?.reason || e.payload?.note;
@@ -3754,9 +3754,9 @@ function renderInbox(){
     const chips=[];
     if(e.minutes) chips.push(`<span class="inbox-chip">${e.minutes} min</span>`);
     if(e.fiilis) chips.push(`<span class="inbox-chip">${fiilisEmoji[e.fiilis]} ${fiilisLabel[e.fiilis]}</span>`);
-    if(e.payload?.priority==='high') chips.push(`<span class="inbox-chip" style="background:rgba(184,58,58,.1);color:#B83A3A">Korkea prioriteetti</span>`);
+    if(e.payload?.priority==='high') chips.push(`<span class="inbox-chip" style="background:rgba(184,58,58,.1);color:#B83A3A">${masterT('Korkea prioriteetti')}</span>`);
     if(e.payload?.kind) chips.push(`<span class="inbox-chip">${e.payload.kind}</span>`);
-    if(e.payload?.due) chips.push(`<span class="inbox-chip">Takaraja ${e.payload.due}</span>`);
+    if(e.payload?.due) chips.push(`<span class="inbox-chip">${masterT('Takaraja ')}${e.payload.due}</span>`);
     if(p.ageBand) chips.push(`<span class="inbox-chip">${p.ageBand.toUpperCase()}</span>`);
 
     const evtTime = e.at || e.t || e.publishedAt || Date.now();
@@ -3775,15 +3775,15 @@ function renderInbox(){
         <div class="inbox-chips">${chips.join('')}</div>
         <div class="inbox-reactions" onclick="event.stopPropagation()">
           ${['❤️','💪','⭐','🔥'].map(em=>`
-            <button class="inbox-react ${reacts[em]?'done':''}" onclick="inboxReact('${e.id}','${em}','${p.name.split(' ')[0]}','${e.playerId}')" title="Reagoi ${em}">${em}</button>
+            <button class="inbox-react ${reacts[em]?'done':''}" onclick="inboxReact('${e.id}','${em}','${p.name.split(' ')[0]}','${e.playerId}')" title="${masterT('Reagoi ')}${em}">${em}</button>
           `).join('')}
         </div>
       </div>
       <div class="inbox-actions" onclick="event.stopPropagation()">
-        <button class="inbox-reply" onclick="openReply('${e.playerId}','${p.name}','${e.id}')">Viestitä perheelle →</button>
+        <button class="inbox-reply" onclick="openReply('${e.playerId}','${p.name}','${e.id}')">${masterT('Viestitä perheelle →')}</button>
         ${_seenEvents[e.id]
-          ? `<button onclick="palautaInbox('${e.id}')" title="Palauta Inboxiin" style="padding:6px 12px;background:transparent;border:.5px solid var(--line);border-radius:8px;color:var(--ink2);font-size:11px;cursor:pointer;white-space:nowrap">↩ Palauta</button>`
-          : `<button onclick="markSeen('${e.id}')" title="Kuittaa — siirrä Arkistoon" style="padding:6px 12px;background:var(--teal,#28B090);border:none;border-radius:8px;color:#fff;font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap">✓ Kuittaa</button>`}
+          ? `<button onclick="palautaInbox('${e.id}')" title="Palauta Inboxiin" style="padding:6px 12px;background:transparent;border:.5px solid var(--line);border-radius:8px;color:var(--ink2);font-size:11px;cursor:pointer;white-space:nowrap">${masterT('↩ Palauta')}</button>`
+          : `<button onclick="markSeen('${e.id}')" title="Kuittaa — siirrä Arkistoon" style="padding:6px 12px;background:var(--teal,#28B090);border:none;border-radius:8px;color:#fff;font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap">${masterT('✓ Kuittaa')}</button>`}
       </div>
     </div>`;
   }).join('');
@@ -3808,7 +3808,7 @@ function kuittaaKaikki(){
   var evts = _getInboxEvents();
   evts.forEach(function(e){ _seenEvents[e.id] = Date.now(); });
   localStorage.setItem('tm-inbox-seen',JSON.stringify(_seenEvents));
-  toast('Kaikki kuitattu');
+  toast(masterT('Kaikki kuitattu'));
   renderInbox();
 }
 
