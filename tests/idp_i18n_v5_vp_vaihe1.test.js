@@ -88,7 +88,55 @@ describe('V1 wiring — dynaaminen JS reititetty vpT():llä + staattiset KPI-lab
     expect(VP).toContain("vpT('viimeisin testi')");
     expect(VP).toContain("vpT('testitapahtumaa')");
   });
-  it('cache-bust tm_vp_i18n.js?v=4', () => {
-    expect(VP).toMatch(/tm_vp_i18n\.js\?v=([4-9]|\d\d)/);
+  it('cache-bust tm_vp_i18n.js?v=5 (V1.1)', () => {
+    expect(VP).toMatch(/tm_vp_i18n\.js\?v=([5-9]|\d\d)/);
+  });
+});
+
+describe('V1.1 Toimenpiteet: vpTToimenpide (käännös näyttöhetkellä, Firestore-teksti pysyy fi)', () => {
+  it('prefix + luvut säilyvät, häntä kääntyy, kiinteät luvut (2.5/35–54) verbatim', () => {
+    global.tmNykyinenKieli = () => 'sv';
+    expect(M.vpTToimenpide('SJK P12 — 3 pelaajaa alle Eerikkilä-tason (H-H < 2.5). Aloita yksilöllinen harjoitusohjelma.'))
+      .toBe('SJK P12 — 3 spelare under Eerikkilä-nivå (H-H < 2,5). Starta ett individuellt träningsprogram.');
+    // {n} keskellä hännässä
+    expect(M.vpTToimenpide('GrIFK — H-H taso laskussa 4 pelaajalla. Tarkista kuormitus.'))
+      .toBe('GrIFK — H-H-nivån sjunker hos 4 spelare. Kontrollera belastningen.');
+    // aggregaatti: 'Kaikki joukkueet' → 'Alla lag'; {n}:lta joukkueelta → {n} lag
+    expect(M.vpTToimenpide('Kaikki joukkueet — tekniikkamittaukset puuttuvat 3:lta joukkueelta. Suunnittele tekniikkakilpailu.'))
+      .toBe('Alla lag — tekniska mätningar saknas för 3 lag. Planera en tekniktävling.');
+    // glossaari: kroppslig beredskap (ei kroppens)
+    expect(M.vpTToimenpide('SJK — harjoitettavuuskartoitus (kehon valmius) tekemättä. Varaa kartoituspäivä, jotta harjoittelua voi yksilöllistää.'))
+      .toContain('kroppslig beredskap');
+  });
+  it('joukkuenimi-prefix säilyy verbatim (EI käänny)', () => {
+    global.tmNykyinenKieli = () => 'sv';
+    expect(M.vpTToimenpide('SJK, GrIFK — H-H taso laskussa. Tarkista kuormitus.')).toMatch(/^SJK, GrIFK — /);
+  });
+  it('fi-tila: teksti muuttumaton (invariantti); tuntematon häntä → häntä fi', () => {
+    global.tmNykyinenKieli = () => 'fi';
+    const t = 'SJK — 3 pelaajaa alle Eerikkilä-tason (H-H < 2.5). Aloita yksilöllinen harjoitusohjelma.';
+    expect(M.vpTToimenpide(t)).toBe(t);
+    global.tmNykyinenKieli = () => 'sv';
+    expect(M.vpTToimenpide('Kaikki joukkueet — jotain aivan uutta.')).toBe('Alla lag — jotain aivan uutta.');
+    expect(M.vpTToimenpide(null)).toBe(null);
+  });
+  it('plain-avaimet + templatet (Toimenpiteet/napit/tyhjä/modaali)', () => {
+    global.tmNykyinenKieli = () => 'sv';
+    [['Toimenpiteet', 'Åtgärder'], ['Kuittaa', 'Kvittera'], ['Muokkaa', 'Redigera'], ['Hylkää', 'Avvisa'],
+      ['Ei avoimia toimenpiteitä — hyvä työ.', 'Inga öppna åtgärder — bra jobbat.'], ['Kiireinen', 'Brådskande'],
+      ['Suunnittele', 'Planera'], ['Muokkaa toimenpidettä', 'Redigera åtgärd']].forEach(([fi, sv]) =>
+      expect(M.vpT(fi)).toBe(sv));
+    expect(M.vpT('Näytä kaikki {n} toimenpidettä →').replace('{n}', 7)).toBe('Visa alla 7 åtgärder →');
+    expect(M.vpT('{n} toimenpidettä kuitattu').replace('{n}', 3)).toBe('3 åtgärder kvitterade');
+  });
+  it('INVARIANTTI: generointipolku (TP_SIGNAALIT/dedup/tallennaToimenpide) EI kutsu vpT → teksti fi Firestoressa', () => {
+    const gen = VP.slice(VP.indexOf('const TP_SIGNAALIT'), VP.indexOf('function _tpKorttiHtml'));
+    expect(gen).not.toContain('vpT');   // generointi + dedup rakentavat fi-tekstin (käännös vasta renderissä)
+    // render KUTSUU vpTToimenpide
+    expect(VP).toContain('vpTToimenpide(g.teksti');
+  });
+  it('data-i18n-html: h2 säilyttää fi:n <em>:n, kääntyy sv:ksi tasaisena', () => {
+    expect(VP).toContain('data-i18n-html="Toimenpiteet"');
+    expect(VP).toContain('Toimen<em>piteet</em>');   // fi rich HTML säilyy lähteessä
   });
 });

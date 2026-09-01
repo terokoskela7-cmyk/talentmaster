@@ -16,7 +16,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-functions-compat.js"></script>
 <!-- Eerikkilä-normit + universaali testirekisteri (eerikkilaTaso, laskeFVP) — 10m/5m-tasot + FVP-profiili -->
 <script src="lib/tm_lang.js?v=9"></script>   <!-- i18n V0 — fi/sv/en käännöstaulukko + t() + kieli-init (putkitus) -->
-<script src="lib/tm_vp_i18n.js?v=4"></script>   <!-- i18n Vaihe 5 — VP sv (Kim, string-avainkartta): vpT(fi) + vpLokalisoi(data-i18n) -->
+<script src="lib/tm_vp_i18n.js?v=5"></script>   <!-- i18n Vaihe 5 — VP sv (Kim, string-avainkartta): vpT(fi) + vpLokalisoi(data-i18n) -->
 
 <script src="lib/tm_eerikkila_normit.js?v=45"></script>   <!-- v43: D2-kortti d2_taso-ensin (renderKehityskorttiHTML, PR #264 · §30/#262) -->
 <script src="lib/tm_historia.js?v=1"></script>          <!-- P2.1: hh_historia/tki_historia Pikakirjauksessa (tmHhSnapshot/tmTkiSnapshot/tmHistoriaLisaa) -->
@@ -2347,8 +2347,8 @@ input::placeholder, textarea::placeholder { color: var(--ink3); opacity: 1; }
       <section style="margin-top:8px">
         <div class="section-header">
           <span class="section-num">05</span>
-          <h2 class="section-title">Toimen<em>piteet</em></h2>
-          <span class="section-hint">TalentMaster ehdottaa — sinä päätät</span>
+          <h2 class="section-title" data-i18n-html="Toimenpiteet">Toimen<em>piteet</em></h2>
+          <span class="section-hint" data-i18n="TalentMaster ehdottaa — sinä päätät">TalentMaster ehdottaa — sinä päätät</span>
         </div>
         <div id="toimenpiteet-lista"></div>
       </section>
@@ -17419,11 +17419,11 @@ function _tpKorttiHtml(g) {
   h += '<div class="tp-ylarivi"><div class="tp-piste" style="background:' + vari + '"></div>';
   h += '<div class="tp-joukkue">' + _jsvEsc(g.joukkue || '') + '</div>';
   h += '<div class="tp-pvm">' + _tpPvm(g.luotu) + '</div></div>';
-  h += '<div class="tp-teksti">' + _jsvEsc(g.teksti || '') + '</div>';
+  h += '<div class="tp-teksti">' + _jsvEsc(vpTToimenpide(g.teksti || '')) + '</div>';   // teksti pysyy fi Firestoressa; käännä vain näytössä
   h += '<div class="tp-napit">';
-  h += '<button class="tp-kuittaa" onclick="_kuittaaToimenpide(\'' + idStr + '\')"><i class="ti ti-check"></i> Kuittaa</button>';
-  h += '<button class="tp-muokkaa" onclick="_muokkaaToimenpide(\'' + idStr + '\')"><i class="ti ti-edit"></i> Muokkaa</button>';
-  h += '<button class="tp-hylkaa" onclick="_hylkaaToimenpide(\'' + idStr + '\')" title="Hylkää"><i class="ti ti-x"></i></button>';
+  h += '<button class="tp-kuittaa" onclick="_kuittaaToimenpide(\'' + idStr + '\')"><i class="ti ti-check"></i> ' + vpT('Kuittaa') + '</button>';
+  h += '<button class="tp-muokkaa" onclick="_muokkaaToimenpide(\'' + idStr + '\')"><i class="ti ti-edit"></i> ' + vpT('Muokkaa') + '</button>';
+  h += '<button class="tp-hylkaa" onclick="_hylkaaToimenpide(\'' + idStr + '\')" title="' + vpT('Hylkää') + '"><i class="ti ti-x"></i></button>';
   h += '</div></div>';
   return h;
 }
@@ -17431,7 +17431,7 @@ function _tpKorttiHtml(g) {
 function renderToimenpiteet() {
   const cont = document.getElementById('toimenpiteet-lista');
   if (!cont) return;
-  if (!_toimenpiteet.length) { cont.innerHTML = '<div class="tp-tyhja">Ei avoimia toimenpiteitä — hyvä työ.</div>'; return; }
+  if (!_toimenpiteet.length) { cont.innerHTML = '<div class="tp-tyhja">' + vpT('Ei avoimia toimenpiteitä — hyvä työ.') + '</div>'; return; }
 
   const dedup = dedupToimenpiteet(_toimenpiteet).sort(function(a,b){
     const pa = (TP_PRIO_META[SIGNAALI_PRIORITEETTI[a.signaali] || 'suunnittele'] || {}).jarj;
@@ -17445,7 +17445,7 @@ function renderToimenpiteet() {
     let pala = '';
     if (prio !== edPrio) {
       const m = TP_PRIO_META[prio] || {};
-      pala += '<div class="tp-ryhma-otsikko"><div class="tp-ryhma-piste" style="background:' + (m.vari || 'var(--ink3)') + '"></div>' + (m.nimi || '') + '</div>';
+      pala += '<div class="tp-ryhma-otsikko"><div class="tp-ryhma-piste" style="background:' + (m.vari || 'var(--ink3)') + '"></div>' + vpT(m.nimi || '') + '</div>';
       edPrio = prio;
     }
     pala += _tpKorttiHtml(g);
@@ -17455,7 +17455,7 @@ function renderToimenpiteet() {
   let out = '<div id="tp-lista-lyhyt">' + lyhyt + '</div>';
   out += '<div id="tp-lista-loput" style="display:none">' + loput + '</div>';
   if (dedup.length > 3) {
-    out += '<button class="tp-nayta-kaikki" onclick="_naytaKaikkiTp()">Näytä kaikki ' + dedup.length + ' toimenpidettä →</button>';
+    out += '<button class="tp-nayta-kaikki" onclick="_naytaKaikkiTp()">' + vpT('Näytä kaikki {n} toimenpidettä →').replace('{n}', dedup.length) + '</button>';
   }
   cont.innerHTML = out;
 }
@@ -17468,14 +17468,14 @@ window._naytaKaikkiTp = function() {
 async function _alustaToimenpiteet() {
   const cont = document.getElementById('toimenpiteet-lista');
   if (!cont) return;
-  if (_seuraId === 'demo' || _isDemoMode) { cont.innerHTML = '<div class="tp-tyhja">Toimenpiteet näkyvät kirjautuneessa seurassa.</div>'; return; }
+  if (_seuraId === 'demo' || _isDemoMode) { cont.innerHTML = '<div class="tp-tyhja">' + vpT('Toimenpiteet näkyvät kirjautuneessa seurassa.') + '</div>'; return; }
   try {
     await generoimToimenpideEhdotukset(_pelaajat);
     _toimenpiteet = await lataaAvoimetToimenpiteet(_seuraId);
     renderToimenpiteet();
   } catch (e) {
     console.warn('[toimenpiteet]', e.message);
-    cont.innerHTML = '<div class="tp-tyhja">Toimenpiteitä ei voitu ladata — tarkista että Rules v3.1 on deployattu.</div>';
+    cont.innerHTML = '<div class="tp-tyhja">' + vpT('Toimenpiteitä ei voitu ladata — tarkista että Rules v3.1 on deployattu.') + '</div>';
   }
 }
 
@@ -17493,8 +17493,8 @@ window._kuittaaToimenpide = async function(id) {
     await batch.commit();
     _toimenpiteet = _toimenpiteet.filter(function(t){ return ids.indexOf(t.id) < 0; });
     renderToimenpiteet();
-    if (typeof toast === 'function') toast(ids.length > 1 ? (ids.length + ' toimenpidettä kuitattu') : 'Toimenpide kuitattu', 'ok');
-  } catch (e) { console.warn('[kuittaa]', e.message); if (typeof toast === 'function') toast('Kuittaus epäonnistui', 'err'); }
+    if (typeof toast === 'function') toast(ids.length > 1 ? vpT('{n} toimenpidettä kuitattu').replace('{n}', ids.length) : vpT('Toimenpide kuitattu'), 'ok');
+  } catch (e) { console.warn('[kuittaa]', e.message); if (typeof toast === 'function') toast(vpT('Kuittaus epäonnistui'), 'err'); }
 };
 
 window._hylkaaToimenpide = async function(id) {
@@ -17507,7 +17507,7 @@ window._hylkaaToimenpide = async function(id) {
     await batch.commit();
     _toimenpiteet = _toimenpiteet.filter(function(t){ return ids.indexOf(t.id) < 0; });
     renderToimenpiteet();
-  } catch (e) { console.warn('[hylkaa]', e.message); if (typeof toast === 'function') toast('Hylkäys epäonnistui', 'err'); }
+  } catch (e) { console.warn('[hylkaa]', e.message); if (typeof toast === 'function') toast(vpT('Hylkäys epäonnistui'), 'err'); }
 };
 
 window._muokkaaToimenpide = function(id) {
@@ -17523,12 +17523,12 @@ function renderMuokkaaModaali(id, alkuperainen) {
   const vanha = document.getElementById('tp-modaali'); if (vanha) vanha.remove();
   let h = '<div class="tp-modaali-tausta" id="tp-modaali">';
   h += '<div class="tp-modaali" onclick="event.stopPropagation()">';
-  h += '<div class="tp-modaali-otsikko">Muokkaa toimenpidettä</div>';
-  h += '<div class="tp-alkuperainen"><div class="tp-alkup-label">TalentMasterin ehdotus</div>';
-  h += '<div class="tp-alkup-teksti">' + _jsvEsc(alkuperainen) + '</div></div>';
-  h += '<textarea id="tp-muokkaa-textarea" rows="4" placeholder="Kirjoita oma versio..."></textarea>';
-  h += '<div class="tp-modaali-napit"><button onclick="_tallennaVpToimenpide(\'' + id + '\')">Tallenna</button>';
-  h += '<button onclick="_suljeTpModaali()">Peruuta</button></div>';
+  h += '<div class="tp-modaali-otsikko">' + vpT('Muokkaa toimenpidettä') + '</div>';
+  h += '<div class="tp-alkuperainen"><div class="tp-alkup-label">' + vpT('TalentMasterin ehdotus') + '</div>';
+  h += '<div class="tp-alkup-teksti">' + _jsvEsc(vpTToimenpide(alkuperainen)) + '</div></div>';   // näytä alkuperäinen käännettynä
+  h += '<textarea id="tp-muokkaa-textarea" rows="4" placeholder="' + vpT('Kirjoita oma versio...') + '"></textarea>';
+  h += '<div class="tp-modaali-napit"><button onclick="_tallennaVpToimenpide(\'' + id + '\')">' + vpT('Tallenna') + '</button>';
+  h += '<button onclick="_suljeTpModaali()">' + vpT('Peruuta') + '</button></div>';
   h += '</div></div>';
   const wrap = document.createElement('div'); wrap.innerHTML = h;
   const modal = wrap.firstChild;
@@ -17555,8 +17555,8 @@ window._tallennaVpToimenpide = async function(id) {
     _suljeTpModaali();
     _toimenpiteet = _toimenpiteet.filter(function(t){ return ids.indexOf(t.id) < 0; });
     renderToimenpiteet();
-    if (typeof toast === 'function') toast('Oma versio tallennettu', 'ok');
-  } catch (e) { console.warn('[muokkaa-tallenna]', e.message); if (typeof toast === 'function') toast('Tallennus epäonnistui', 'err'); }
+    if (typeof toast === 'function') toast(vpT('Oma versio tallennettu'), 'ok');
+  } catch (e) { console.warn('[muokkaa-tallenna]', e.message); if (typeof toast === 'function') toast(vpT('Tallennus epäonnistui'), 'err'); }
 };
 
 // renderBQPalkki poistettu (kuollutta koodia, kulutti poistettua laskeBQJakauma:aa).
