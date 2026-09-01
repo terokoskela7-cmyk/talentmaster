@@ -79,7 +79,8 @@ describe('Master B2a: koti-klusteri (hero/greeting/date/Aloita tästä/signaalit
     // B1-jäänteet: ws-tab Inbox → Viestit(Meddelanden); tabbar Lisää → Valikko(Meny)
     expect(HTML).toContain('<span data-i18n="Viestit">Viestit</span>');
     expect(HTML).toContain('<span class="tb-lbl" data-i18n="Valikko">Valikko</span>');
-    expect(HTML).not.toContain('data-i18n="Inbox"');
+    // ws-TAB ei enää käytä Inbox-avainta (→ Viestit/Meddelanden); filtteri-tab SAA (→ Inkorg)
+    expect(HTML).not.toContain('<span data-i18n="Inbox">Inbox</span>');
   });
   it('cache-bust tm_master_i18n.js?v=2+', () => {
     expect(HTML).toMatch(/tm_master_i18n\.js\?v=([2-9]|\d\d)/);
