@@ -12,6 +12,7 @@ const __dir = dirname(fileURLToPath(import.meta.url));
 const require = createRequire(import.meta.url);
 const C = require('../lib/tm_i18n_common.js');
 const VP = require('../lib/tm_vp_i18n.js');
+const MA = require('../lib/tm_master_i18n.js');
 const L = require('../lib/tm_lang.js');
 
 afterEach(() => { delete global.tmNykyinenKieli; });
@@ -23,6 +24,10 @@ describe('C1 — ei avainpäällekkäisyyttä sivukartan kanssa (dedupe pakotett
   });
   it('keys(TM_VP_I18N.en) ∩ keys(TM_I18N_COMMON.en) === ∅', () => {
     const overlap = Object.keys(VP.TM_VP_I18N.en).filter((k) => C.TM_I18N_COMMON.en[k] !== undefined);
+    expect(overlap).toEqual([]);
+  });
+  it('keys(TM_MASTER_I18N.sv) ∩ keys(TM_I18N_COMMON.sv) === ∅ (Raita B)', () => {
+    const overlap = Object.keys(MA.TM_MASTER_I18N.sv).filter((k) => C.TM_I18N_COMMON.sv[k] !== undefined);
     expect(overlap).toEqual([]);
   });
 });
@@ -47,12 +52,12 @@ describe('C2 — glossaari-konformi tm_lang.js:ään', () => {
 describe('C3 — drift-vartija (laajennettu V0.1): 0 kiellettyä variantti AKTIIVISENA ARVONA', () => {
   // Skannaa parsitut objektiarvot (EI lähdetekstiä) → kommentit/avaimet eivät laukaise väärää failia.
   // Aja jokaiselle uudelle sivukartalle (Master/Seura) kun ne tulevat.
-  const MAPS = [['common', C.TM_I18N_COMMON], ['VP', VP.TM_VP_I18N]];
+  const MAPS = [['common', C.TM_I18N_COMMON], ['VP', VP.TM_VP_I18N], ['Master', MA.TM_MASTER_I18N]];
   const KIELLETYT = [
     { rx: /kroppens beredskap|kroppsberedskap/i, kanoni: 'Kroppslig beredskap' },
     { rx: /Långspark/, kanoni: 'Längdspark' },
     { rx: /Framdrift-skott/, kanoni: 'Föring och skott' },
-    { rx: /dribbling/i, kanoni: 'Slalom' },
+    { rx: /\bDribbling\b/, kanoni: 'Slalom' },   // laji-NIMI (iso alkukirjain, itsenäinen); jalkapallo-verbi "dribblingar" OK
     { rx: /Träningsansvarig/, kanoni: 'Utvecklingsansvarig' },
   ];
   it('yksikään aktiivinen sv/en-arvo ei sisällä kiellettyä glossaari/laji/rooli-varianttia', () => {
