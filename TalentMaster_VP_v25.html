@@ -16,7 +16,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-functions-compat.js"></script>
 <!-- Eerikkilä-normit + universaali testirekisteri (eerikkilaTaso, laskeFVP) — 10m/5m-tasot + FVP-profiili -->
 <script src="lib/tm_lang.js?v=9"></script>   <!-- i18n V0 — fi/sv/en käännöstaulukko + t() + kieli-init (putkitus) -->
-<script src="lib/tm_vp_i18n.js?v=3"></script>   <!-- i18n Vaihe 5 — VP sv (Kim, string-avainkartta): vpT(fi) + vpLokalisoi(data-i18n) -->
+<script src="lib/tm_vp_i18n.js?v=4"></script>   <!-- i18n Vaihe 5 — VP sv (Kim, string-avainkartta): vpT(fi) + vpLokalisoi(data-i18n) -->
 
 <script src="lib/tm_eerikkila_normit.js?v=45"></script>   <!-- v43: D2-kortti d2_taso-ensin (renderKehityskorttiHTML, PR #264 · §30/#262) -->
 <script src="lib/tm_historia.js?v=1"></script>          <!-- P2.1: hh_historia/tki_historia Pikakirjauksessa (tmHhSnapshot/tmTkiSnapshot/tmHistoriaLisaa) -->
@@ -2355,22 +2355,22 @@ input::placeholder, textarea::placeholder { color: var(--ink3); opacity: 1; }
 
       <div class="kpi-row" id="tilanneKpis">
         <div class="kpi-card">
-          <div class="kpi-label">Pelaajia</div>
+          <div class="kpi-label" data-i18n="Pelaajia">Pelaajia</div>
           <div class="kpi-value teal" id="kpi-pelaajat">—</div>
           <div class="kpi-delta" id="kpi-pelaajat-d">ladataan...</div>
         </div>
         <div class="kpi-card">
-          <div class="kpi-label">Valmius ka.</div>
+          <div class="kpi-label" data-i18n="Valmius ka.">Valmius ka.</div>
           <div class="kpi-value" id="kpi-flei">—</div>
           <div class="kpi-delta" id="kpi-flei-d">viimeisin testi</div>
         </div>
         <div class="kpi-card">
-          <div class="kpi-label">IDP odottaa</div>
+          <div class="kpi-label" data-i18n="IDP odottaa">IDP odottaa</div>
           <div class="kpi-value amber" id="kpi-idp">—</div>
-          <div class="kpi-delta">hyväksyntää</div>
+          <div class="kpi-delta" data-i18n="hyväksyntää">hyväksyntää</div>
         </div>
         <div class="kpi-card">
-          <div class="kpi-label">Avoimet testit</div>
+          <div class="kpi-label" data-i18n="Avoimet testit">Avoimet testit</div>
           <div class="kpi-value" id="kpi-testit">—</div>
           <div class="kpi-delta" id="kpi-testit-d">testitapahtumaa</div>
         </div>
@@ -3100,12 +3100,12 @@ function _pvmFiVP(d) { return d.getDate() + '.' + (d.getMonth() + 1) + '.' + d.g
 function _renderKausipalkki() {
   const k = _laskeKausi(new Date());
   const set = (id, txt) => { const el = document.getElementById(id); if (el) el.textContent = txt; };
-  set('season-phase', 'Kausi ' + k.vuosiLabel);
+  set('season-phase', vpT('Kausi') + ' ' + k.vuosiLabel);
   set('season-label', k.label);
   set('season-meta', _pvmFiVP(k.alku) + ' — ' + _pvmFiVP(k.loppu));
   const fill = document.getElementById('season-fill');
   if (fill) fill.style.width = k.pct + '%';
-  set('season-prog-label', 'Viikko ' + k.nykyViikko + '/' + k.kokonaisViikot + ' · ' + k.pct + '% kaudesta käyty');
+  set('season-prog-label', vpT('Viikko') + ' ' + k.nykyViikko + '/' + k.kokonaisViikot + ' · ' + k.pct + vpT('% kaudesta käyty'));
 }
 
 // ─── KORJAUS 4: KPI-konteksti (vain jo ladatusta datasta — ei uusia kyselyjä) ───
@@ -3113,7 +3113,7 @@ function _kpiPelaajatKonteksti() {
   const map = {};
   _pelaajat.forEach(p => { const j = (p.joukkue && p.joukkue !== '—') ? p.joukkue : null; if (j) map[j] = (map[j] || 0) + 1; });
   const parit = Object.keys(map).map(j => ({ j: j, n: map[j] })).sort((a, b) => b.n - a.n);
-  if (!parit.length) return _pelaajat.length + ' rekisteröity';
+  if (!parit.length) return _pelaajat.length + ' ' + vpT('rekisteröity');
   return parit.slice(0, 3).map(x => x.n + ' ' + x.j).join(' · ');
 }
 function _kpiFleiTrendi() {
@@ -3126,9 +3126,9 @@ function _kpiFleiTrendi() {
     last += s[s.length - 1].flei; prev += s[s.length - 2].flei; n++;
   });
   if (n === 0) return null; // ei historiaa → jätä alateksti pois
-  if (last > prev) return '↑ edellisestä mittauksesta';
-  if (last < prev) return '↓ edellisestä mittauksesta';
-  return '→ ennallaan edellisestä';
+  if (last > prev) return vpT('↑ edellisestä mittauksesta');
+  if (last < prev) return vpT('↓ edellisestä mittauksesta');
+  return vpT('→ ennallaan edellisestä');
 }
 function _kpiTestitKonteksti() {
   const avoimet = _tapahtumat.filter(t => t.tila === 'avoin');
@@ -3143,7 +3143,7 @@ function _kpiTestitKonteksti() {
   });
   if (!vanhin) return null;
   const pv = Math.floor((Date.now() - vanhin.getTime()) / 86400000);
-  return pv >= 0 ? ('vanhin ' + pv + ' pv sitten') : null;
+  return pv >= 0 ? (vpT('vanhin') + ' ' + pv + ' ' + vpT('pv sitten')) : null;
 }
 
 function renderTilanne() {
@@ -3161,7 +3161,7 @@ function renderTilanne() {
   const _hiEl = document.getElementById('heroIndikaattorit');
   if (_hiEl) {
     const jt = {};
-    _pelaajat.forEach(function(p){ const j = p.joukkue || 'Tuntematon'; (jt[j] = jt[j] || []).push(p); });
+    _pelaajat.forEach(function(p){ const j = p.joukkue || vpT('Tuntematon'); (jt[j] = jt[j] || []).push(p); });
     let dots = '', vaatii = 0;
     Object.keys(jt).sort(function(a,b){ return joukkueJarjestys(a) - joukkueJarjestys(b); }).forEach(function(j){
       const hh = jt[j].filter(function(p){ return p.hh_taso != null; }).map(function(p){ return p.hh_taso; });
@@ -3170,8 +3170,8 @@ function renderTilanne() {
       dots += '<span class="hero-dot" title="' + lyhennaNimi(j).replace(/"/g, '') + '" style="background:' + (k == null ? 'var(--ink3)' : hhTasoVari(k)) + '"></span>';
     });
     _hiEl.innerHTML = dots + (vaatii > 0
-      ? '<span class="hero-vaatii">' + vaatii + ' vaatii toimenpiteitä</span>'
-      : '<span class="hero-vaatii ok">Ei kriittisiä havaintoja</span>');
+      ? '<span class="hero-vaatii">' + vaatii + ' ' + vpT('vaatii toimenpiteitä') + '</span>'
+      : '<span class="hero-vaatii ok">' + vpT('Ei kriittisiä havaintoja') + '</span>');
   }
 
   // KPI:t
@@ -3186,10 +3186,11 @@ function renderTilanne() {
 
   // KORJAUS 4 — kontekstialatekstit (vain jos laskettavissa; muuten oletusteksti säilyy)
   const fleiTrendi = _kpiFleiTrendi();
-  if (fleiTrendi) document.getElementById('kpi-flei-d').textContent = fleiTrendi;
+  const fleiDEl = document.getElementById('kpi-flei-d');
+  if (fleiDEl) fleiDEl.textContent = fleiTrendi || vpT('viimeisin testi');   // oletus sv:nä (ei data-i18n → ei vpLokalisoi-clobber)
   const testitKtx = _kpiTestitKonteksti();
   const testitDEl = document.getElementById('kpi-testit-d');
-  if (testitKtx && testitDEl) testitDEl.textContent = testitKtx;
+  if (testitDEl) testitDEl.textContent = testitKtx || vpT('testitapahtumaa');
   // IDP "käsitelty tällä viikolla" ei ole laskettavissa ladatusta datasta (vain odottavat ladattu) → oletusteksti säilyy
 
   // Vaihe 2 — toimenpidekeskeinen signaalimoottori (korvaa §26 renderSignals)
@@ -3204,7 +3205,7 @@ function renderTilanne() {
     if (_rl && typeof laskeJoukkueReviewKooste === 'function') {
       var _rk = laskeJoukkueReviewKooste(_pelaajat || [], Date.now());
       _rl.innerHTML = _rk.myohassa_n > 0
-        ? '<div onclick="setWs(\'reviewit\')" style="display:inline-flex;align-items:center;gap:8px;cursor:pointer;font-size:12px;padding:6px 12px;border-radius:20px;border:.5px solid var(--red);color:var(--red)">🕐 ' + _rk.myohassa_n + ' pelaajaa myöhässä reviewistä →</div>'
+        ? '<div onclick="setWs(\'reviewit\')" style="display:inline-flex;align-items:center;gap:8px;cursor:pointer;font-size:12px;padding:6px 12px;border-radius:20px;border:.5px solid var(--red);color:var(--red)">🕐 ' + _rk.myohassa_n + ' ' + vpT('pelaajaa myöhässä reviewistä →') + '</div>'
         : '';
     }
   } catch(e){ console.warn('[reviewLippu]', e.message); }
@@ -3227,17 +3228,17 @@ const HIDDEN_GEM_FLEI = 65;
 // ─── VAIHE 2 — DYNAAMINEN GREETING + TOIMENPIDEKESKEINEN SIGNAALIMOOTTORI ───
 function _greeting() {
   const h = new Date().getHours();
-  if (h < 5)  return 'Hyvää yötä';
-  if (h < 12) return 'Hyvää aamua';
-  if (h < 17) return 'Hyvää päivää';
-  if (h < 22) return 'Hyvää iltaa';
-  return 'Hyvää yötä';
+  if (h < 5)  return vpT('Hyvää yötä');
+  if (h < 12) return vpT('Hyvää aamua');
+  if (h < 17) return vpT('Hyvää päivää');
+  if (h < 22) return vpT('Hyvää iltaa');
+  return vpT('Hyvää yötä');
 }
 function _greetingNimi(user, onSuperAdmin) {
   if (onSuperAdmin) return 'Super Admin';
   if (user && user.displayName) return user.displayName.split(' ')[0];
   const etuosa = ((user && user.email) || '').split('@')[0];
-  return etuosa ? (etuosa.charAt(0).toUpperCase() + etuosa.slice(1)) : 'valmentaja';
+  return etuosa ? (etuosa.charAt(0).toUpperCase() + etuosa.slice(1)) : vpT('valmentaja');
 }
 
 // Käyttövaihe (kontekstiäly): 1 = uusi (alku), 2 = kasvava, 3 = vakiintunut
@@ -3264,16 +3265,16 @@ function renderDeadlinePalkki(vaihe, testitapahtumat, pelaajaMaara) {
   if (vaihe === 1) {
     el.innerHTML =
       '<div class="aloitus-askeleet">' +
-        '<div class="aloitus-otsikko">Aloita näistä kolmesta</div>' +
+        '<div class="aloitus-otsikko">' + vpT('Aloita näistä kolmesta') + '</div>' +
         '<div class="aloitus-askel"><span class="askel-num">①</span>' +
-          '<span class="askel-teksti">Tarkista joukkuelistasi</span>' +
-          '<span class="askel-status done">✓ ' + pelaajaMaara + ' pelaajaa tuotu</span></div>' +
+          '<span class="askel-teksti">' + vpT('Tarkista joukkuelistasi') + '</span>' +
+          '<span class="askel-status done">✓ ' + pelaajaMaara + ' ' + vpT('pelaajaa tuotu') + '</span></div>' +
         '<div class="aloitus-askel"><span class="askel-num">②</span>' +
-          '<span class="askel-teksti">Suunnittele ensimmäinen testipäivä</span>' +
-          '<button class="askel-cta" onclick="avaaUusiTestiModaali()">Luo testi →</button></div>' +
+          '<span class="askel-teksti">' + vpT('Suunnittele ensimmäinen testipäivä') + '</span>' +
+          '<button class="askel-cta" onclick="avaaUusiTestiModaali()">' + vpT('Luo testi →') + '</button></div>' +
         '<div class="aloitus-askel"><span class="askel-num">③</span>' +
-          '<span class="askel-teksti">Kutsu valmentajat järjestelmään</span>' +
-          '<button class="askel-cta" onclick="avaaKutsuValmentaja()">Kutsu →</button></div>' +
+          '<span class="askel-teksti">' + vpT('Kutsu valmentajat järjestelmään') + '</span>' +
+          '<button class="askel-cta" onclick="avaaKutsuValmentaja()">' + vpT('Kutsu →') + '</button></div>' +
       '</div>';
     el.style.display = 'block';
     if (seasonBar) seasonBar.style.display = 'none';
@@ -3285,14 +3286,14 @@ function renderDeadlinePalkki(vaihe, testitapahtumat, pelaajaMaara) {
     if (seuraavaTesti) {
       const pvJaljella = Math.round((new Date(seuraavaTesti.pvm_alku) - new Date()) / (1000*60*60*24));
       el.innerHTML =
-        '<span class="deadline-label">Seuraava testi</span>' +
-        '<span class="deadline-nimi">' + (seuraavaTesti.nimi || 'Testipäivä') + '</span>' +
-        '<span class="deadline-pv">' + pvJaljella + ' päivää</span>';
+        '<span class="deadline-label">' + vpT('Seuraava testi') + '</span>' +
+        '<span class="deadline-nimi">' + (seuraavaTesti.nimi || vpT('Testipäivä')) + '</span>' +
+        '<span class="deadline-pv">' + pvJaljella + ' ' + vpT('päivää') + '</span>';
     } else {
       el.innerHTML =
-        '<span class="deadline-label">Vinkki</span>' +
-        '<span class="deadline-nimi">Suunnittele toinen testipäivä vertailua varten</span>' +
-        '<button class="askel-cta" onclick="avaaUusiTestiModaali()">Luo testi →</button>';
+        '<span class="deadline-label">' + vpT('Vinkki') + '</span>' +
+        '<span class="deadline-nimi">' + vpT('Suunnittele toinen testipäivä vertailua varten') + '</span>' +
+        '<button class="askel-cta" onclick="avaaUusiTestiModaali()">' + vpT('Luo testi →') + '</button>';
     }
     el.style.display = 'block';
     if (seasonBar) seasonBar.style.display = 'none';
@@ -3322,7 +3323,7 @@ async function renderSignaalit(seuraId, pelaajatData, joukkueetData) {
              kk: (typeof tmKuukausiaMittauksesta === 'function' ? tmKuukausiaMittauksesta(mx) : null) };
   };
   const _sigTuoreusMerkki = function(t){
-    return (t && t.vanha) ? ' 📍 Mitattu ' + t.fi + (t.kk != null ? ' (' + t.kk + ' kk sitten)' : '') + ' — päivitä mittaus ennen johtopäätöksiä.' : '';
+    return (t && t.vanha) ? ' 📍 ' + vpT('Mitattu') + ' ' + t.fi + (t.kk != null ? ' (' + t.kk + ' ' + vpT('kk sitten') + ')' : '') + ' — ' + vpT('päivitä mittaus ennen johtopäätöksiä.') : '';
   };
 
   // 🔴 KRIITTISET
@@ -3334,9 +3335,9 @@ async function renderSignaalit(seuraId, pelaajatData, joukkueetData) {
       return joukkueMap[jk].every(function(p){ return p.flei_viimeisin == null; });
     }).length;
     signaalit.push({ tyyppi:'kriittinen', ikooni:'!',
-      otsikko: 'Harjoitettavuuskartoitus tekemättä — ' + joukkueetIlmanFlei + ' joukkuetta',
-      kuvaus: ilmanFlei.length + '/' + pelaajatData.length + ' pelaajalta puuttuu kehon valmius -profiili. Valmentajat eivät pysty yksilöllistämään harjoittelua ilman kartoitusta.',
-      cta:'Avaa kartoituslomake →', ctaFn:'avaaHarjoitettavuus()', prioriteetti:1 });
+      otsikko: vpT('Harjoitettavuuskartoitus tekemättä —') + ' ' + joukkueetIlmanFlei + ' ' + vpT('joukkuetta'),
+      kuvaus: ilmanFlei.length + '/' + pelaajatData.length + ' ' + vpT('pelaajalta puuttuu kehon valmius -profiili. Valmentajat eivät pysty yksilöllistämään harjoittelua ilman kartoitusta.'),
+      cta:vpT('Avaa kartoituslomake →'), ctaFn:'avaaHarjoitettavuus()', prioriteetti:1 });
   }
   // S2: TKI-keskiarvo kriittisen alhainen
   Object.keys(joukkueMap).forEach(function(jkNimi) {
@@ -3347,18 +3348,18 @@ async function renderSignaalit(seuraId, pelaajatData, joukkueetData) {
     if (tkiKa < 20) {
       const _tkiT = _sigTuoreus(pelaajat, 'tki_pvm');
       signaalit.push({ tyyppi:'kriittinen', ikooni:'!',
-        otsikko: lyhennaNimi(jkNimi) + ' — tekniikkataso tarvitsee tukea',
-        kuvaus:'TKI-keskiarvo ' + Math.round(tkiKa) + '/100. Suositus: omatoimiharjoittelu-ohjelma valmentajalle.' + _sigTuoreusMerkki(_tkiT),
-        cta:'Katso harjoitussuositukset →', ctaFn:"avaaHarjoitussuositukset('" + sj(jkNimi) + "')", prioriteetti:2,
-        ryhma:'tekniikka_tuki', ryhmaNimi:'Tekniikkataso tarvitsee tukea · {j} joukkuetta', ryhmaKuvaus:'omatoimiharjoittelu-ohjelma valmentajille', joukkue:jkNimi, detalji:'TKI '+Math.round(tkiKa), maara:1 });
+        otsikko: lyhennaNimi(jkNimi) + ' — ' + vpT('tekniikkataso tarvitsee tukea'),
+        kuvaus:vpT('TKI-keskiarvo') + ' ' + Math.round(tkiKa) + '/100. ' + vpT('Suositus: omatoimiharjoittelu-ohjelma valmentajalle.') + _sigTuoreusMerkki(_tkiT),
+        cta:vpT('Katso harjoitussuositukset →'), ctaFn:"avaaHarjoitussuositukset('" + sj(jkNimi) + "')", prioriteetti:2,
+        ryhma:'tekniikka_tuki', ryhmaNimi:vpT('Tekniikkataso tarvitsee tukea · {j} joukkuetta'), ryhmaKuvaus:vpT('omatoimiharjoittelu-ohjelma valmentajille'), joukkue:jkNimi, detalji:'TKI '+Math.round(tkiKa), maara:1 });
     }
   });
   // S3: IDP-jono odottaa (käytä jo ladattua _idpJono:a — ei uutta kyselyä)
   if (typeof _idpJono !== 'undefined' && _idpJono && _idpJono.length > 0) {
     signaalit.push({ tyyppi:'kriittinen', ikooni:'!',
-      otsikko: _idpJono.length + ' IDP-ehdotusta odottaa hyväksyntää',
-      kuvaus:'Valmentaja on ehdottanut kehityspolkua — vahvista tai hylkää.',
-      cta:'Avaa jono →', ctaFn:'avaaIdpJono()', prioriteetti:3 });
+      otsikko: _idpJono.length + ' ' + vpT('IDP-ehdotusta odottaa hyväksyntää'),
+      kuvaus:vpT('Valmentaja on ehdottanut kehityspolkua — vahvista tai hylkää.'),
+      cta:vpT('Avaa jono →'), ctaFn:'avaaIdpJono()', prioriteetti:3 });
   }
 
   // 🟡 SEURANTA
@@ -3368,10 +3369,10 @@ async function renderSignaalit(seuraId, pelaajatData, joukkueetData) {
     const tkiKatt = pelaajat.filter(function(p){ return p.tki_viimeisin != null; }).length / Math.max(pelaajat.length, 1);
     if (tkiKatt < 0.6 && tkiKatt >= 0.1) {
       signaalit.push({ tyyppi:'seuranta', ikooni:'i',
-        otsikko: lyhennaNimi(jkNimi) + ' — TKI-data puuttuu osalta',
-        kuvaus: Math.round(tkiKatt * 100) + '% pelaajista testattu. Lisää testipäivä ennen kauden loppua.',
+        otsikko: lyhennaNimi(jkNimi) + ' — ' + vpT('TKI-data puuttuu osalta'),
+        kuvaus: Math.round(tkiKatt * 100) + '% ' + vpT('pelaajista testattu. Lisää testipäivä ennen kauden loppua.'),
         cta:null, prioriteetti:4,
-        ryhma:'tki_kattavuus', ryhmaNimi:'TKI-data puuttuu osalta · {j} joukkuetta', ryhmaKuvaus:'lisää testipäivä ennen kauden loppua', joukkue:jkNimi, detalji:Math.round(tkiKatt*100)+'%', maara:1 });
+        ryhma:'tki_kattavuus', ryhmaNimi:vpT('TKI-data puuttuu osalta · {j} joukkuetta'), ryhmaKuvaus:vpT('lisää testipäivä ennen kauden loppua'), joukkue:jkNimi, detalji:Math.round(tkiKatt*100)+'%', maara:1 });
     }
   });
   // S5: lähellä pronssia (TKI 35–54, ei vielä merkkiä)
@@ -3380,19 +3381,19 @@ async function renderSignaalit(seuraId, pelaajatData, joukkueetData) {
     const lahella = pelaajat.filter(function(p){ return p.tki_viimeisin != null && p.tki_viimeisin >= 35 && p.tki_viimeisin < 55 && !p.tki_merkki; });
     if (lahella.length >= 2) {
       signaalit.push({ tyyppi:'seuranta', ikooni:'i',
-        otsikko: lyhennaNimi(jkNimi) + ' — ' + lahella.length + ' pelaajaa lähellä pronssia',
-        kuvaus:'TKI 35–54. Fokusoi omatoimiharjoittelu — pronssi on saavutettavissa seuraavassa kilpailussa.',
+        otsikko: lyhennaNimi(jkNimi) + ' — ' + lahella.length + ' ' + vpT('pelaajaa lähellä pronssia'),
+        kuvaus:vpT('TKI 35–54. Fokusoi omatoimiharjoittelu — pronssi on saavutettavissa seuraavassa kilpailussa.'),
         cta:null, prioriteetti:5,
-        ryhma:'lahella_pronssi', ryhmaNimi:'{n} pelaajaa lähellä pronssia · {j} joukkuetta', ryhmaKuvaus:'TKI 35–54, pronssi saavutettavissa seuraavassa kilpailussa', joukkue:jkNimi, detalji:lahella.length+' pel.', maara:lahella.length });
+        ryhma:'lahella_pronssi', ryhmaNimi:vpT('{n} pelaajaa lähellä pronssia · {j} joukkuetta'), ryhmaKuvaus:vpT('TKI 35–54, pronssi saavutettavissa seuraavassa kilpailussa'), joukkue:jkNimi, detalji:lahella.length+' '+vpT('pel.'), maara:lahella.length });
     }
   });
   // S6: ilman suostumusta
   const rekisteroimattomat = pelaajatData.filter(function(p){ return p.suostumusTila === 'odottaa' || !p.suostumusTila; });
   if (rekisteroimattomat.length > 5) {
     signaalit.push({ tyyppi:'seuranta', ikooni:'i',
-      otsikko: rekisteroimattomat.length + ' pelaajaa ilman suostumusta',
-      kuvaus:'Huoltajille ei ole lähetetty rekisteröintikutsua tai suostumus on kesken.',
-      cta:'Lähetä kutsut →', ctaFn:'avaaKutsut()', prioriteetti:6 });
+      otsikko: rekisteroimattomat.length + ' ' + vpT('pelaajaa ilman suostumusta'),
+      kuvaus:vpT('Huoltajille ei ole lähetetty rekisteröintikutsua tai suostumus on kesken.'),
+      cta:vpT('Lähetä kutsut →'), ctaFn:'avaaKutsut()', prioriteetti:6 });
   }
 
   // ✦ POSITIIVISET
@@ -3402,16 +3403,16 @@ async function renderSignaalit(seuraId, pelaajatData, joukkueetData) {
     const paras = kaikillaTki.reduce(function(a,b){ return a.tki_viimeisin > b.tki_viimeisin ? a : b; });
     if (paras.tki_viimeisin >= 50) {
       signaalit.push({ tyyppi:'positiivinen', ikooni:'✦',
-        otsikko: (paras.etunimi || '') + ' ' + (paras.sukunimi || '') + ' — seuran korkein TKI',
+        otsikko: (paras.etunimi || '') + ' ' + (paras.sukunimi || '') + ' — ' + vpT('seuran korkein TKI'),
         kuvaus:'TKI ' + paras.tki_viimeisin + (paras.tki_merkki ? ' · ' + paras.tki_merkki : '') + ' · ' + (paras.joukkue || ''),
-        cta:'Katso profiili →', ctaFn:"avaaPelaaja('" + sj(paras.id) + "')", prioriteetti:7 });
+        cta:vpT('Katso profiili →'), ctaFn:"avaaPelaaja('" + sj(paras.id) + "')", prioriteetti:7 });
     }
   }
   // S8: kulta/hopea-saavuttajat
   const merkkiSaavuttajat = pelaajatData.filter(function(p){ return p.tki_merkki === 'kulta' || p.tki_merkki === 'hopea'; });
   if (merkkiSaavuttajat.length > 0) {
     signaalit.push({ tyyppi:'positiivinen', ikooni:'✦',
-      otsikko: merkkiSaavuttajat.length + ' pelaajaa saavutti kulta- tai hopea-merkin',
+      otsikko: merkkiSaavuttajat.length + ' ' + vpT('pelaajaa saavutti kulta- tai hopea-merkin'),
       kuvaus: merkkiSaavuttajat.slice(0,3).map(function(p){ return (p.etunimi||'') + ' ' + (p.sukunimi||'') + ' (' + lyhennaNimi(p.joukkue||'') + ' · ' + p.tki_merkki + ')'; }).join(' · '),
       cta:null, prioriteetti:8 });
   }
@@ -3482,38 +3483,38 @@ function _renderSignaaliLista(signaalit) {
 
   const kriittiset = tasot.kriittinen.length;
   if (!kaikki.length) {
-    container.innerHTML = '<div class="signaali-tyhja">Ei avoimia signaaleja tänään.</div>';
+    container.innerHTML = '<div class="signaali-tyhja">' + vpT('Ei avoimia signaaleja tänään.') + '</div>';
   } else {
     let html = '';
     // 🔴 Kriittiset — aina auki
     if (tasot.kriittinen.length) {
-      html += '<div style="font-size:11px;font-weight:600;color:var(--red);letter-spacing:.05em;padding:0 4px 6px">KRIITTISET · ' + tasot.kriittinen.length + '</div>';
+      html += '<div style="font-size:11px;font-weight:600;color:var(--red);letter-spacing:.05em;padding:0 4px 6px">' + vpT('KRIITTISET') + ' · ' + tasot.kriittinen.length + '</div>';
       html += tasot.kriittinen.map(_sigRivi).join('');
     }
     // 🟡 Seuranta — suljettu oletuksena
     if (tasot.seuranta.length) {
-      html += _sigOsioHeader('seuranta', 'Seuranta', 'var(--amber)', tasot.seuranta.length);
+      html += _sigOsioHeader('seuranta', vpT('Seuranta'), 'var(--amber)', tasot.seuranta.length);
       html += '<div id="sig-osio-seuranta" style="display:none">' + tasot.seuranta.map(_sigRivi).join('') + '</div>';
     }
     // ✦ Onnistumiset — suljettu oletuksena
     if (tasot.positiivinen.length) {
-      html += _sigOsioHeader('pos', 'Onnistumiset', 'var(--teal)', tasot.positiivinen.length);
+      html += _sigOsioHeader('pos', vpT('Onnistumiset'), 'var(--teal)', tasot.positiivinen.length);
       html += '<div id="sig-osio-pos" style="display:none">' + tasot.positiivinen.map(_sigRivi).join('') + '</div>';
     }
     container.innerHTML = html;
   }
   const metaEl = document.getElementById('signaalit-meta');
-  if (metaEl) metaEl.textContent = kriittiset > 0 ? (kriittiset + ' vaatii toimenpidettä') : 'Ei kriittisiä';
+  if (metaEl) metaEl.textContent = kriittiset > 0 ? (kriittiset + ' ' + vpT('vaatii toimenpidettä')) : vpT('Ei kriittisiä');
   const badge = document.getElementById('tilanne-badge');
   if (badge) badge.textContent = kriittiset > 0 ? kriittiset : '';
 }
 
 // CTA-stubit — määritellään vain jos oikeaa funktiota ei ole (ei ylikirjoiteta olemassa olevia)
 function _sigStub(msg){ if (typeof toast === 'function') toast(msg, 'ok'); else console.log('[signaali]', msg); }
-window.avaaHarjoitettavuus     = window.avaaHarjoitettavuus     || function(jk){ _sigStub('Harjoitettavuuskartoitus: ' + jk + ' — tulossa'); };
-window.avaaHarjoitussuositukset = window.avaaHarjoitussuositukset || function(jk){ _sigStub('Harjoitussuositukset: ' + jk + ' — tulossa'); };
-window.avaaIdpJono             = window.avaaIdpJono             || function(){ _sigStub('IDP-jono — avaa Pelaajat-välilehti'); };
-window.avaaKutsut              = window.avaaKutsut              || function(){ _sigStub('Kutsut — avaa Seurahallinta'); };
+window.avaaHarjoitettavuus     = window.avaaHarjoitettavuus     || function(jk){ _sigStub(vpT('Harjoitettavuuskartoitus:') + ' ' + jk + ' — ' + vpT('tulossa')); };
+window.avaaHarjoitussuositukset = window.avaaHarjoitussuositukset || function(jk){ _sigStub(vpT('Harjoitussuositukset:') + ' ' + jk + ' — ' + vpT('tulossa')); };
+window.avaaIdpJono             = window.avaaIdpJono             || function(){ _sigStub(vpT('IDP-jono — avaa Pelaajat-välilehti')); };
+window.avaaKutsut              = window.avaaKutsut              || function(){ _sigStub(vpT('Kutsut — avaa Seurahallinta')); };
 // Vaihe 0 (reititys) — pid → pelaaja → OIKEA pelaajakortti (ei enää tynkä). _avaaPerPelaajaPikakatsaus lukee
 // window._jsvPelaajat[idx] + joukkuenimen (ika/sp). Ratkaise idx koko kortistosta (_pelaajat, authoritative) ja
 // aseta se listaksi → nav (← →) cyclaa sen. Pelaajat-lista asettaa OMAN listansa erikseen → ei regressiota.
@@ -15985,10 +15986,10 @@ function renderKotiVP() {
   const kortit = [];
   // 1. Valmentaja hiljaa (mentorointiPvt ≥ raja)
   const hiljaa = V.filter(v => (v.mentorointiPvt == null ? 999 : v.mentorointiPvt) >= VALMENTAJA_HILJAA_PV);
-  if (hiljaa.length) kortit.push({ ik:'🔴', sev:T.red, txt: hiljaa.length + ' valmentaja' + (hiljaa.length > 1 ? 'a' : '') + ' ilman mentorointikirjausta (' + VALMENTAJA_HILJAA_PV + ' pv)', cta:'Mentoroi', fn:"setWs('valmentajat')" });
+  if (hiljaa.length) kortit.push({ ik:'🔴', sev:T.red, txt: hiljaa.length + ' ' + vpT('valmentajaa ilman mentorointikirjausta') + ' (' + VALMENTAJA_HILJAA_PV + ' ' + vpT('pv') + ')', cta:vpT('Mentoroi'), fn:"setWs('valmentajat')" });
   // 2. Hidden Gem / X-Factor (FLEI ≥ kynnys, ei talenttiohjelmassa)
   const nostot = P.filter(p => (p.flei_viimeisin || 0) >= HIDDEN_GEM_FLEI && p.talenttiOhjelma !== true);
-  if (nostot.length) kortit.push({ ik:'✦', sev:T.amber, txt: nostot.length + ' Hidden Gem -nostoehdokasta (valmius ≥' + HIDDEN_GEM_FLEI + ')', cta:'Ehdota IDP', fn:"setWs('pelaajat')" });
+  if (nostot.length) kortit.push({ ik:'✦', sev:T.amber, txt: nostot.length + ' ' + vpT('Hidden Gem -nostoehdokasta (valmius ≥') + HIDDEN_GEM_FLEI + ')', cta:vpT('Ehdota IDP'), fn:"setWs('pelaajat')" });
   // 3. Joukkueen heikoin kehityskohde → treeniteema
   const kohdeLkm = {}, kohdeJoukkue = {};
   P.forEach(p => { const k = p.tki_kehityskohde || p.hh_kehityskohde; if (k) { kohdeLkm[k] = (kohdeLkm[k] || 0) + 1; (kohdeJoukkue[k] = kohdeJoukkue[k] || {}); const j = p.joukkue || ''; kohdeJoukkue[k][j] = (kohdeJoukkue[k][j] || 0) + 1; } });
@@ -15996,41 +15997,41 @@ function renderKotiVP() {
   if (heikoin) {
     const jk = Object.keys(kohdeJoukkue[heikoin] || {}).sort((a, b) => kohdeJoukkue[heikoin][b] - kohdeJoukkue[heikoin][a])[0] || '';
     const kn = (typeof _vpTkLaji === 'function' ? _vpTkLaji(heikoin) : heikoin);
-    kortit.push({ ik:'🎯', sev:T.teal, txt: kn + ' heikoin kehityskohde (' + kohdeLkm[heikoin] + ' pelaajalla' + (jk ? ', mm. ' + jk : '') + ')', cta:'Luo treeniteema', fn:"_jsvLuoHarjoitus('" + esc(jk) + "','" + esc(kn) + "',{lahde:'tki_gap'})" });
+    kortit.push({ ik:'🎯', sev:T.teal, txt: kn + ' ' + vpT('heikoin kehityskohde') + ' (' + kohdeLkm[heikoin] + ' ' + vpT('pelaajalla') + (jk ? ', ' + vpT('mm.') + ' ' + jk : '') + ')', cta:vpT('Luo treeniteema'), fn:"_jsvLuoHarjoitus('" + esc(jk) + "','" + esc(kn) + "',{lahde:'tki_gap'})" });
   }
   // 4. FLEI < 40 → klinikka
   const klinikka = P.filter(p => p.flei_viimeisin != null && p.flei_viimeisin < 40);
-  if (klinikka.length) kortit.push({ ik:'🏥', sev:T.red, txt: klinikka.length + ' pelaajaa kehon valmius alle 40 (klinikkalähetys)', cta:'Katso', fn:"setWs('pelaajat')" });
+  if (klinikka.length) kortit.push({ ik:'🏥', sev:T.red, txt: klinikka.length + ' ' + vpT('pelaajaa kehon valmius alle 40 (klinikkalähetys)'), cta:vpT('Katso'), fn:"setWs('pelaajat')" });
   // 5. Rekisteröintikonversio < 70 %
   const tuotu = P.filter(p => p.suostumusTila === 'pilotti').length;
   const odottaa = P.filter(p => p.suostumusTila === 'odottaa' || !p.suostumusTila).length;
   const annettu = P.filter(p => p.suostumusTila === 'annettu').length;
   const konv = (odottaa + annettu) > 0 ? Math.round(annettu / (odottaa + annettu) * 100) : null;
-  if (konv != null && konv < 70 && odottaa > 0) kortit.push({ ik:'📋', sev:T.amber, txt: 'Rekisteröintikonversio ' + konv + '% · ' + odottaa + ' odottaa vastausta', cta:'Muistuta odottavia', fn:"vpMuistutaOdottavia()" });
+  if (konv != null && konv < 70 && odottaa > 0) kortit.push({ ik:'📋', sev:T.amber, txt: vpT('Rekisteröintikonversio') + ' ' + konv + '% · ' + odottaa + ' ' + vpT('odottaa vastausta'), cta:vpT('Muistuta odottavia'), fn:"vpMuistutaOdottavia()" });
   // 6. D3-kalibraatiokuilu (malli A): valmentajan ja VP:n arvio eroaa ≥1.5 → kalibraatio/mentorointi
   const d3Kuilu = P.filter(p => p.d3_viimeisin && typeof d3VpKuiluPelaajalla === 'function' && d3VpKuiluPelaajalla(p.d3_viimeisin.pisteet));
-  if (d3Kuilu.length) kortit.push({ ik:'⚖️', sev:T.blue, txt: 'Valmentajan ja VP:n D3-arvio eroaa ' + d3Kuilu.length + ' pelaajalla → kalibraatio', cta:'Katso', fn:"setWs('pelaajat')" });
+  if (d3Kuilu.length) kortit.push({ ik:'⚖️', sev:T.blue, txt: vpT('Valmentajan ja VP:n D3-arvio eroaa') + ' ' + d3Kuilu.length + ' ' + vpT('pelaajalla → kalibraatio'), cta:vpT('Katso'), fn:"setWs('pelaajat')" });
 
   const strippi = '<div class="vpkoti-strippi">'
-    + '<div><div class="vks-luku">' + (tuotu + odottaa + annettu) + '</div><div class="vks-lbl">tuotu</div></div>'
+    + '<div><div class="vks-luku">' + (tuotu + odottaa + annettu) + '</div><div class="vks-lbl">' + vpT('tuotu') + '</div></div>'
     + '<div class="vks-arrow">→</div>'
-    + '<div><div class="vks-luku">' + odottaa + '</div><div class="vks-lbl">kutsuttu</div></div>'
+    + '<div><div class="vks-luku">' + odottaa + '</div><div class="vks-lbl">' + vpT('kutsuttu') + '</div></div>'
     + '<div class="vks-arrow">→</div>'
-    + '<div><div class="vks-luku" style="color:var(--teal)">' + annettu + '</div><div class="vks-lbl">suostumus</div></div>'
-    + (konv != null ? '<div><div class="vks-luku">' + konv + '%</div><div class="vks-lbl">konversio</div></div>' : '')
+    + '<div><div class="vks-luku" style="color:var(--teal)">' + annettu + '</div><div class="vks-lbl">' + vpT('suostumus') + '</div></div>'
+    + (konv != null ? '<div><div class="vks-luku">' + konv + '%</div><div class="vks-lbl">' + vpT('konversio') + '</div></div>' : '')
     + '</div>';
 
-  let h = '<div class="vpkoti-otsikko">Kriittiset signaalit</div>';
+  let h = '<div class="vpkoti-otsikko">' + vpT('Kriittiset signaalit') + '</div>';
   if (kortit.length) {
     h += '<div class="vpkoti-kortit">' + kortit.map(k =>
       '<div class="vpkoti-kortti" style="border-left:3px solid ' + k.sev + '">'
       + '<div class="vkk-ik">' + k.ik + '</div>'
       + '<div class="vkk-txt">' + k.txt + '</div>'
       + '<button class="vkk-cta" onclick="' + k.fn + '">' + k.cta + ' →</button></div>').join('') + '</div>';
-    h += '<div style="margin-top:14px"><span class="vkk-link" onclick="setWs(\'tilanne\')">Kaikki signaalit yksityiskohtaisesti →</span></div>';
+    h += '<div style="margin-top:14px"><span class="vkk-link" onclick="setWs(\'tilanne\')">' + vpT('Kaikki signaalit yksityiskohtaisesti →') + '</span></div>';
   } else {
-    h += '<div class="vpkoti-tyhja">✅ <b>Ei kriittisiä signaaleja juuri nyt.</b><br>'
-      + '<span style="font-size:13px;color:var(--ink3)">Kun valmentaja hiljenee, nostoehdokas ilmaantuu tai kehityskohteita kasaantuu, näet ne täällä toimenpiteinä.</span><br><button class="vkk-cta" style="margin-top:12px" onclick="_vpaNaytaUudelleen()">Aloita tästä →</button></div>';
+    h += '<div class="vpkoti-tyhja">✅ <b>' + vpT('Ei kriittisiä signaaleja juuri nyt.') + '</b><br>'
+      + '<span style="font-size:13px;color:var(--ink3)">' + vpT('Kun valmentaja hiljenee, nostoehdokas ilmaantuu tai kehityskohteita kasaantuu, näet ne täällä toimenpiteinä.') + '</span><br><button class="vkk-cta" style="margin-top:12px" onclick="_vpaNaytaUudelleen()">' + vpT('Aloita tästä') + ' →</button></div>';
   }
   h += '<div style="margin-top:14px">' + strippi + '</div>';   // status (tuotu→suostumus) toimintojen ALLE
   { var _bq = _vpRaeRakenneHTML(P); if (_bq) h += '<div style="margin-top:20px">' + _bq + '</div>'; }   // §RAE VAIHE B — BQ-rakenne Kotiin
@@ -16041,23 +16042,23 @@ function renderKotiVP() {
 // "Muistuta odottavia" → lahetaMuistutukset-CF (kuivaAjo→confirm alaikäisvaroitus→lähetys→toast). Replikoi Adminin muistutaSeuraa-flow.
 function _ohSyytVP(oh){ const m={}; (oh||[]).forEach(o=>{m[o.syy]=(m[o.syy]||0)+1;});
   const nimet={ei_emailia:'ei sähköpostia',liian_pian:'liian pian edellisestä',max_saavutettu:'max muistutukset täynnä',lahetys_epaonnistui:'lähetysvirhe'};
-  return Object.keys(m).map(s=>(nimet[s]||s)+' '+m[s]).join(', '); }
+  return Object.keys(m).map(s=>vpT(nimet[s]||s)+' '+m[s]).join(', '); }
 async function vpMuistutaOdottavia(){
   try{
     const fn=firebase.app().functions('europe-west1').httpsCallable('lahetaMuistutukset');   // KRIITTINEN: app().functions('europe-west1')
-    if(typeof toast==='function') toast('Tarkistetaan…','ok');
+    if(typeof toast==='function') toast(vpT('Tarkistetaan…'),'ok');
     const dry=await fn({seuraId:_seuraId,kuivaAjo:true}); const d=dry.data||{};
     const lah=d.lahetetty||0, oh=d.ohitettu||[];
-    if(lah===0){ alert('Ei muistutettavia juuri nyt: kaikki '+oh.length+' ohitetaan ('+_ohSyytVP(oh)+').'); return; }
-    let v='🔔 Lähettää sähköpostimuistutuksen '+lah+' huoltajalle (alaikäiset).';
-    if(oh.length) v+='\nOhitetaan '+oh.length+': '+_ohSyytVP(oh)+'.';
-    v+='\n\nJatketaanko?';
+    if(lah===0){ alert(vpT('Ei muistutettavia juuri nyt: kaikki')+' '+oh.length+' '+vpT('ohitetaan')+' ('+_ohSyytVP(oh)+').'); return; }
+    let v=vpT('🔔 Lähettää sähköpostimuistutuksen')+' '+lah+' '+vpT('huoltajalle (alaikäiset).');
+    if(oh.length) v+='\n'+vpT('Ohitetaan')+' '+oh.length+': '+_ohSyytVP(oh)+'.';
+    v+='\n\n'+vpT('Jatketaanko?');
     if(!confirm(v)) return;
-    if(typeof toast==='function') toast('Lähetetään muistutuksia…','ok');
+    if(typeof toast==='function') toast(vpT('Lähetetään muistutuksia…'),'ok');
     const res=await fn({seuraId:_seuraId,kuivaAjo:false}); const rd=res.data||{};
-    if(typeof toast==='function') toast('✓ Muistutus lähetetty '+(rd.lahetetty||0)+' huoltajalle'+((rd.ohitettu&&rd.ohitettu.length)?(' · '+rd.ohitettu.length+' ohitettu'):''),'ok');
+    if(typeof toast==='function') toast('✓ '+vpT('Muistutus lähetetty')+' '+(rd.lahetetty||0)+' '+vpT('huoltajalle')+((rd.ohitettu&&rd.ohitettu.length)?(' · '+rd.ohitettu.length+' '+vpT('ohitettu')):''),'ok');
     renderKotiVP();
-  }catch(e){ if(typeof toast==='function') toast('Muistutus epäonnistui: '+((e&&e.message)||'tuntematon')+((e&&e.code==='permission-denied')?' (ei oikeutta)':''),'virhe'); }
+  }catch(e){ if(typeof toast==='function') toast(vpT('Muistutus epäonnistui:')+' '+((e&&e.message)||'tuntematon')+((e&&e.code==='permission-denied')?' '+vpT('(ei oikeutta)'):''),'virhe'); }
 }
 window.vpMuistutaOdottavia = vpMuistutaOdottavia;
 window.renderKotiVP = renderKotiVP;
@@ -16082,19 +16083,19 @@ function renderVpAloitaKortti(){
   var s4 = _vpaVisited('raportointi');
   var s5 = _vpaFlag('tm_vp_mentori_sent') || V.some(function (v) { return v.mentorointiPvt === 0; });
   var askeleet = [
-    { ok: s1, txt: 'Joukkueessa mitattuja pelaajia', fn: "setWs('pelaajat')" },
-    { ok: s2, txt: 'Lue joukkuepulssi + signaalit', fn: "setWs('koti')" },
-    { ok: s3, txt: 'Tee harjoitusarviointi (malli A)', fn: "vpAvaaHarjoitusarviointi()" },
-    { ok: s4, txt: 'Avaa Pelaajaraportti', fn: "setWs('raportointi')" },
-    { ok: s5, txt: 'Lähetä mentorointiviesti valmentajalle', fn: "setWs('valmentajat')" }
+    { ok: s1, txt: vpT('Joukkueessa mitattuja pelaajia'), fn: "setWs('pelaajat')" },
+    { ok: s2, txt: vpT('Lue joukkuepulssi + signaalit'), fn: "setWs('koti')" },
+    { ok: s3, txt: vpT('Tee harjoitusarviointi (malli A)'), fn: "vpAvaaHarjoitusarviointi()" },
+    { ok: s4, txt: vpT('Avaa Pelaajaraportti'), fn: "setWs('raportointi')" },
+    { ok: s5, txt: vpT('Lähetä mentorointiviesti valmentajalle'), fn: "setWs('valmentajat')" }
   ];
   var tehty = askeleet.filter(function (a) { return a.ok; }).length;
   // #75: kun 4/5 tai 5/5 valmis → piilota opas oletuksena (slim-strip) → pulssi + signaalit nousevat kärkeen.
   // "Näytä opas" -nappi (sivulla) palauttaa sen (window._vpaPakotaNaytto, istuntokohtainen). Topbarin "Aloita tästä" → modaali.
   if (tehty >= 4 && !window._vpaPakotaNaytto) {
     el.innerHTML = '<div class="vpa-kortti" style="padding:10px 14px;display:flex;justify-content:space-between;align-items:center;gap:10px">'
-      + '<span style="font-size:12px;color:var(--ink3)">✓ Aloitusopas ' + tehty + '/5 — valmis</span>'
-      + '<button class="vpa-piilota" onclick="window._vpaPakotaNaytto=true;renderVpAloitaKortti()">Näytä opas</button></div>';
+      + '<span style="font-size:12px;color:var(--ink3)">✓ ' + vpT('Aloitusopas') + ' ' + tehty + '/5 — ' + vpT('valmis') + '</span>'
+      + '<button class="vpa-piilota" onclick="window._vpaPakotaNaytto=true;renderVpAloitaKortti()">' + vpT('Näytä opas') + '</button></div>';
     return;
   }
   function tick(ok){ return '<span class="vpa-tick' + (ok ? ' on' : '') + '">' + (ok ? '✓' : '○') + '</span>'; }
@@ -16103,19 +16104,19 @@ function renderVpAloitaKortti(){
   }).join('');
   // Opasosio — OPAS_VP_JA_VALMENTAJA.md OSA 1 -tiivistys (seura/joukkueet/valmentajat/pelaajat/perheet).
   var opas = '<div class="vpa-opas-sis">'
-    + '<div>Roolisi on <b>nähdä kokonaisuus ja ohjata</b> — et kirjaa yksittäisiä testituloksia, vaan johdat seuraa, joukkueita, valmentajia, pelaajia ja perheitä datan kautta.</div>'
-    + '<h4>1.1 Käynnistä datapolku</h4>'
-    + '<ul><li>Tuo pelaajat (Seurahallinta → Tuo Excel).</li><li>Kutsu huoltajat — <b>suostumus on portti</b>: ilman sitä syntymäaika, RAE-näkyvyys ja perheviestintä eivät aktivoidu.</li><li>Seuraa suostumussuppiloa (tuotu → kutsuttu → annettu), tavoite go-liveen yli 70 %.</li><li>Seuraa datakypsyyttä: montako mitattu/havainnoitu.</li></ul>'
-    + '<div><i>Johtamiskysymys: "Onko datapolkuni auki?"</i></div>'
-    + '<h4>1.2 Lue pulssi, tartu signaaleihin</h4>'
-    + '<ul><li>Joukkuepulssi: Kehon valmius · TKI · H-H · pelihavainto — kukin keskiarvo + kattavuus + suunta.</li><li>Signaalit nostavat sen mihin tarttua (hiljainen valmentaja, matala indeksi, vähän havaintoja).</li><li>Syntymäkvartaali-rakenne (RAE) — näe ikäharha; <i>muut mittaavat, me korjaamme</i>.</li><li>Klikkaa pulssikorttia → joukkueen syvänäkymä (ranking + kehityskohteet).</li></ul>'
-    + '<div><i>Johtamiskysymys: "Mikä joukkue tarvitsee huomiotani tällä viikolla?"</i></div>'
+    + '<div>' + vpT('Roolisi on <b>nähdä kokonaisuus ja ohjata</b> — et kirjaa yksittäisiä testituloksia, vaan johdat seuraa, joukkueita, valmentajia, pelaajia ja perheitä datan kautta.') + '</div>'
+    + '<h4>' + vpT('1.1 Käynnistä datapolku') + '</h4>'
+    + '<ul>' + vpT('<li>Tuo pelaajat (Seurahallinta → Tuo Excel).</li><li>Kutsu huoltajat — <b>suostumus on portti</b>: ilman sitä syntymäaika, RAE-näkyvyys ja perheviestintä eivät aktivoidu.</li><li>Seuraa suostumussuppiloa (tuotu → kutsuttu → annettu), tavoite go-liveen yli 70 %.</li><li>Seuraa datakypsyyttä: montako mitattu/havainnoitu.</li>') + '</ul>'
+    + '<div><i>' + vpT('Johtamiskysymys: "Onko datapolkuni auki?"') + '</i></div>'
+    + '<h4>' + vpT('1.2 Lue pulssi, tartu signaaleihin') + '</h4>'
+    + '<ul>' + vpT('<li>Joukkuepulssi: Kehon valmius · TKI · H-H · pelihavainto — kukin keskiarvo + kattavuus + suunta.</li><li>Signaalit nostavat sen mihin tarttua (hiljainen valmentaja, matala indeksi, vähän havaintoja).</li><li>Syntymäkvartaali-rakenne (RAE) — näe ikäharha; <i>muut mittaavat, me korjaamme</i>.</li><li>Klikkaa pulssikorttia → joukkueen syvänäkymä (ranking + kehityskohteet).</li>') + '</ul>'
+    + '<div><i>' + vpT('Johtamiskysymys: "Mikä joukkue tarvitsee huomiotani tällä viikolla?"') + '</i></div>'
     + '</div>';
   var h = '<div class="vpa-kortti">'
-    + '<div class="vpa-head"><h3>Aloita tästä</h3><button class="vpa-piilota" onclick="_vpaPiilota()">Piilota opas</button></div>'
-    + '<div class="vpa-edist">' + tehty + '/5 askelta — klikkaa askelta siirtyäksesi.</div>'
+    + '<div class="vpa-head"><h3>' + vpT('Aloita tästä') + '</h3><button class="vpa-piilota" onclick="_vpaPiilota()">' + vpT('Piilota opas') + '</button></div>'
+    + '<div class="vpa-edist">' + tehty + '/5 ' + vpT('askelta — klikkaa askelta siirtyäksesi.') + '</div>'
     + rivit
-    + '<button class="vpa-opasbtn" onclick="_vpaOpas(this)">📖 Näin johdat TalentMasterilla</button>'
+    + '<button class="vpa-opasbtn" onclick="_vpaOpas(this)">📖 ' + vpT('Näin johdat TalentMasterilla') + '</button>'
     + '<div class="vpa-opas" id="vpaOpasPaneeli">' + opas + '</div>'
     + '</div>';
   el.innerHTML = h;
@@ -16124,12 +16125,12 @@ window.renderVpAloitaKortti = renderVpAloitaKortti;
 window._vpaOpas = function (btn){
   var pan = document.getElementById('vpaOpasPaneeli'); if (!pan) return;
   pan.classList.toggle('auki');
-  if (btn) btn.textContent = pan.classList.contains('auki') ? '📖 Piilota ohje' : '📖 Näin johdat TalentMasterilla';
+  if (btn) btn.textContent = pan.classList.contains('auki') ? ('📖 ' + vpT('Piilota ohje')) : ('📖 ' + vpT('Näin johdat TalentMasterilla'));
 };
 window._vpaPiilota = function (){
   var avain = _vpaPiilotaAvain(); try { if (avain) localStorage.setItem(avain, '1'); } catch (e) {}
   renderVpAloitaKortti();   // tyhjentää kortin
-  if (typeof toast === 'function') toast('Aloitusopas piilotettu — palautat sen Asetuksista', 'ok');
+  if (typeof toast === 'function') toast(vpT('Aloitusopas piilotettu — palautat sen Asetuksista'), 'ok');
 };
 window._vpaNaytaUudelleen = function (){
   var avain = _vpaPiilotaAvain(); try { if (avain) localStorage.removeItem(avain); } catch (e) {}
@@ -17241,7 +17242,7 @@ function laskeHeroInsight(pelaajat) {
 
   const hhP = pelaajat.filter(function(p){ return p.hh_taso != null; });
   const tkiP = pelaajat.filter(function(p){ return p.tki_viimeisin != null; });
-  const DEFAULT = 'Ensimmäiset mittaukset kirjattu. Jatka mittauksia — suunta selviää seuraavalla kerralla.';
+  const DEFAULT = vpT('Ensimmäiset mittaukset kirjattu. Jatka mittauksia — suunta selviää seuraavalla kerralla.');
   if (hhP.length === 0) return DEFAULT;
 
   // Datan tuoreus (esityskerros §26): viimeisin H-H-mittauspvm hero-arviolle. Jos vanha → kehystä toiminnaksi,
@@ -17258,26 +17259,26 @@ function laskeHeroInsight(pelaajat) {
     const alleJ = joukkueKa.filter(function(j){ return j.ka < 2.5; }).length;
     if (_heroVanha) {
       // Vanha data → EI "pikahuomiota"-hälytystä. Toimenpide: päivitä mittaus ennen johtopäätöksiä.
-      return 'Fyysinen perustaso jäi alle kansallisen ' + alleJ + ' joukkueella — mutta viimeisin mittaus on ' + _heroFi
-        + (_heroKk != null ? ' (' + _heroKk + ' kk sitten)' : '') + '. 📍 Päivitä mittaus ennen johtopäätöksiä.';
+      return vpT('Fyysinen perustaso jäi alle kansallisen') + ' ' + alleJ + ' ' + vpT('joukkueella — mutta viimeisin mittaus on') + ' ' + _heroFi
+        + (_heroKk != null ? ' (' + _heroKk + ' ' + vpT('kk sitten') + ')' : '') + '. ' + vpT('📍 Päivitä mittaus ennen johtopäätöksiä.');
     }
-    return 'Fyysinen taso vaatii pikahuomiota. ' + alleJ + ' joukkuetta alle kansallisen tason.';
+    return vpT('Fyysinen taso vaatii pikahuomiota.') + ' ' + alleJ + ' ' + vpT('joukkuetta alle kansallisen tason.');
   }
   // 2: H-H saatavilla mutta TKI puuttuu kaikilta
   if (tkiP.length === 0) {
-    return 'Fyysinen perusta rakentumassa. Tekniikkamittaukset puuttuvat kaikilta joukkueilta.';
+    return vpT('Fyysinen perusta rakentumassa. Tekniikkamittaukset puuttuvat kaikilta joukkueilta.');
   }
   // 3: yksi joukkue selkeästi heikompi (ylin − alin > 1.0)
   if (joukkueKa.length >= 2) {
     const s = joukkueKa.slice().sort(function(a,b){ return a.ka - b.ka; });
     const alin = s[0], ylin = s[s.length - 1];
     if (ylin.ka - alin.ka > 1.0) {
-      return lyhennaNimi(alin.joukkue) + ' tarvitsee erityishuomiota — ' + (ylin.ka - alin.ka).toFixed(1) + ' pistettä muita heikompi.';
+      return lyhennaNimi(alin.joukkue) + ' ' + vpT('tarvitsee erityishuomiota') + ' — ' + (ylin.ka - alin.ka).toFixed(1) + ' ' + vpT('pistettä muita heikompi.');
     }
   }
   // 4: kaikki ≥ 3.0
   if (joukkueKa.length && joukkueKa.every(function(j){ return j.ka >= 3.0; })) {
-    return 'Fyysinen kehitys hyvällä tasolla. Seuraava askel: tekniikkamittaukset.';
+    return vpT('Fyysinen kehitys hyvällä tasolla. Seuraava askel: tekniikkamittaukset.');
   }
   return DEFAULT;
 }
