@@ -16,7 +16,7 @@
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-storage-compat.js"></script>
 <script src="lib/tm_lang.js?v=1"></script>   <!-- i18n V0 — fi/sv/en käännöstaulukko + t() + kieli-init (putkitus) -->
 <script src="lib/tm_i18n_common.js?v=2"></script>   <!-- i18n Vaihe 0 — JAETTU henkilöstö-i18n + lukittu glossaari (ENNEN sivukarttaa) -->
-<script src="lib/tm_master_i18n.js?v=3"></script>   <!-- i18n Vaihe 5 Raita B — Master sv (sivukartta); masterT/masterLokalisoi delegoivat commoniin -->
+<script src="lib/tm_master_i18n.js?v=4"></script>   <!-- i18n Vaihe 5 Raita B — Master sv (sivukartta); masterT/masterLokalisoi delegoivat commoniin -->
 <script src="lib/tm_eerikkila_normit.js?v=45"></script>   <!-- v43: D2-kortti d2_taso-ensin (renderKehityskorttiHTML, PR #264 · §30/#262) -->
 <script src="lib/tm_harjoitusarviointi.js?v=4"></script>
 <script src="lib/tm_kalenteri.js?v=1"></script>
@@ -4667,13 +4667,13 @@ function _renderTodayTestit() {
     <div class="signal-block" style="border-color:#8B5CF6;background:rgba(139,92,246,.05);" onclick="setWs('testit')">
       <div class="signal-caps">
         <div class="signal-dot" style="background:#8B5CF6;"></div>
-        <span class="caps">Testitapahtuma tänään</span>
+        <span class="caps">${masterT('Testitapahtuma tänään')}</span>
       </div>
-      <div class="signal-title">${t.nimi || PROTOKOLLAT[t.protokolla]?.nimi || 'Testi'}</div>
+      <div class="signal-title">${t.nimi || PROTOKOLLAT[t.protokolla]?.nimi || masterT('Testi')}</div>
       <div class="signal-sub">${t.paikka || ''} · ${PROTOKOLLAT[t.protokolla]?.nimi || t.protokolla || ''}</div>
       <div style="margin-top:12px;display:flex;gap:8px;">
-        <button class="td-signal-act" onclick="event.stopPropagation();_avaaKentta('${t.id}')">Avaa kenttänäkymä</button>
-        <button class="td-signal-act" onclick="event.stopPropagation();_avaaLomake('${t.id}')">Täytä lomake</button>
+        <button class="td-signal-act" onclick="event.stopPropagation();_avaaKentta('${t.id}')">${masterT('Avaa kenttänäkymä')}</button>
+        <button class="td-signal-act" onclick="event.stopPropagation();_avaaLomake('${t.id}')">${masterT('Täytä lomake')}</button>
       </div>
     </div>`;
 }
@@ -4686,9 +4686,9 @@ function _renderActions() {
     const testit = _todayTestit || [];
     const actions = [
       testit.length > 0
-        ? { priority:true, aika:'TÄNÄÄN', title: testit[0].nimi + ' — testipäivä', sub: testit[0].joukkue || '', key:'testi' }
-        : { priority:false, aika:'', title: 'Ei testitapahtumia tänään', sub: '', key:'' },
-      { priority:false, aika:'', title: 'Kirjaa peliälyhavainto harjoitusten jälkeen', sub:'4 min', key:'adar' },
+        ? { priority:true, aika:masterT('TÄNÄÄN'), title: testit[0].nimi + masterT(' — testipäivä'), sub: testit[0].joukkue || '', key:'testi' }
+        : { priority:false, aika:'', title: masterT('Ei testitapahtumia tänään'), sub: '', key:'' },
+      { priority:false, aika:'', title: masterT('Kirjaa peliälyhavainto harjoitusten jälkeen'), sub:'4 min', key:'adar' },
     ];
     el.innerHTML = actions.filter(a => a.title).map(a => {
       // Käytä data-key-attribuuttia onclick:n sijaan — turvallinen tapa
@@ -4733,8 +4733,8 @@ function _renderMetrics() {
   // Reaalidata jos kirjautunut
   if (!_demo && _seuraId) {
     el.innerHTML = [
-      { lbl:'Pelaajia', val:_pelaajatData.length||'—', ctx:_joukkue||_seuraId },
-      { lbl:'Avoimet testit', val:(_testitapahtumat||[]).filter(t=>t.tila!=='suljettu').length||'0', ctx:'' },
+      { lbl:masterT('Pelaajia'), val:_pelaajatData.length||'—', ctx:_joukkue||_seuraId },
+      { lbl:masterT('Avoimet testit'), val:(_testitapahtumat||[]).filter(t=>t.tila!=='suljettu').length||'0', ctx:'' },
     ].map(m => `<div class="metric-card"><div class="metric-lbl caps">${m.lbl}</div>` +
       `<div class="metric-val serif">${m.val}</div>` +
       `<div style="font-size:11px;color:var(--ink3)">${m.ctx}</div></div>`).join('');
@@ -4776,7 +4776,7 @@ function _renderAdar() {
   // Kirjautuneena EI demo-havaintoja. Oikeat havainnot tulevat ADAR-kirjauksista (ei vielä
   // lähdettä Masterissa) → tyhjätila kunnes ensimmäinen havainto on kirjattu.
   if (!_demo) {
-    el.innerHTML = '<div style="color:var(--ink3);font-size:13px;padding:18px 4px;text-align:center;line-height:1.5;">Ei havaintoja vielä — lisää ensimmäinen havainto harjoitusten jälkeen</div>';
+    el.innerHTML = '<div style="color:var(--ink3);font-size:13px;padding:18px 4px;text-align:center;line-height:1.5;">' + masterT('Ei havaintoja vielä — lisää ensimmäinen havainto harjoitusten jälkeen') + '</div>';
     return;
   }
   el.innerHTML = DEMO.adar.map(a => {
@@ -4820,16 +4820,16 @@ function _renderPlayersToday() {
     ).slice(0, 8);
 
     if (huomio.length === 0) {
-      el.innerHTML = '<div style="padding:16px;color:var(--ink3);font-size:13px;">Ei erityishuomioita tänään — joukkue OK.</div>';
+      el.innerHTML = '<div style="padding:16px;color:var(--ink3);font-size:13px;">' + masterT('Ei erityishuomioita tänään — joukkue OK.') + '</div>';
       return;
     }
 
     el.innerHTML = huomio.map(p => {
       const nimi = ((p.etunimi||'') + ' ' + (p.sukunimi||'')).trim() || p.id;
-      const signaali = p.fiilinki <= 2 ? { cls:'tag-warn', txt:'Matala fiilinki' }
-                     : p.streak === 0   ? { cls:'tag-warn', txt:'Ei kirjauksia' }
+      const signaali = p.fiilinki <= 2 ? { cls:'tag-warn', txt:masterT('Matala fiilinki') }
+                     : p.streak === 0   ? { cls:'tag-warn', txt:masterT('Ei kirjauksia') }
                      : p.signaali === 'xfactor' ? { cls:'tag-x', txt:'X-Factor' }
-                     : p.signaali === 'hidden'  ? { cls:'tag-gem', txt:'Piilohelmi' }
+                     : p.signaali === 'hidden'  ? { cls:'tag-gem', txt:masterT('Piilohelmi') }
                      : { cls:'', txt:'' };
       return `<div class="player-row">
         <div class="player-num" onclick="pickPlayer('${p.id}');setWs('dev')" style="cursor:pointer">#${p.numero||'?'}</div>
@@ -4851,7 +4851,7 @@ function _renderPlayersToday() {
   };
   // Demo-moodi — DEMO.players kovakoodattu data
   if (!_demo) {
-    el.innerHTML = '<div style="padding:16px;color:var(--ink3);font-size:13px;">Ei erityishuomioita tänään — joukkue OK.</div>';
+    el.innerHTML = '<div style="padding:16px;color:var(--ink3);font-size:13px;">' + masterT('Ei erityishuomioita tänään — joukkue OK.') + '</div>';
     return;
   }
   el.innerHTML = DEMO.players.map(p => {
