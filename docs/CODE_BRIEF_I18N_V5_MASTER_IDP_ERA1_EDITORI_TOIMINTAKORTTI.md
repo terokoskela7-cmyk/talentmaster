@@ -84,3 +84,53 @@ curriculum/konsepti-teksti (jos tulee `tm_teknistaktiset.js`:stä) jää fi — 
 
 ## Rajaus (Erä 2, oma brief)
 Pelaajaraportti (`_pr*` 6993–) · profiili-paneeli (coach) · notif-render (`_notif*` 7773–). Sama sanasto + malli.
+
+---
+
+## 🔒 B-lista — [—] uudet sv (Claude lukinnut Coden reconin pohjalta 2026-09-02)
+
+> Nämä ovat stringit joita EI ollut kartassa (`_mIdp*`/toimintakortti/jaksofokus). Käytä eksaktisti. `[K]`-stringit
+> (jo kartassa) → pelkkä `masterT`-kääre, ei tästä. Fraasit joita ei ollut yllä olevalla FRAASIT-listalla:
+
+```
+· review                              → · granskning
+· toteuma <b>                         → · utfall <b>
+· pelaaja johtaa, kaksisuuntainen     → · spelaren leder, tvåvägs
+· ei pelipaikkaa (yksilökonsepti)     → · ingen position (individkoncept)
+· pelipaikka asettamatta              → · position ej satt
+· ⬆ lataa kausifokukseen              → · ⬆ ladda till säsongsfokus
+· läsnä                               → · närvarande
+(konsepti) →                          → (koncept) →
+edellisestä                           → från föregående
+lähdöstä                              → från utgångsvärdet
+tavoitteeseen (                       → till målet (
+vaihetta ·                            → faser ·
+suljettua jaksoa · ka delta           → stängd period · medeldelta
+Fysiikkajakso asetettu ✓              → Fysikperiod satt ✓        (demo-haara jää fi §3)
+Jakso suljettu ✓                      → Period stängd ✓
+Ei uutta mittausta jaksolla —         → Ingen ny mätning under perioden —
+PHV-vaihe (§28):                      → PHV-fas (§28):
+nopeus-/voimakehitys ennen kasvupyrähdystä on rajallista —
+     → snabbhets-/styrkeutveckling före tillväxtspurten är begränsad —
+"ennallaan" on biologisesti odotettua → "oförändrad" är biologiskt förväntat
+— taidon näyte ennen/jälkeen          → — färdighetsprov före/efter
+— voi jäädä tyhjäksi (fiilis-review)  → — kan lämnas tomt (känslogranskning)
+subjektiivinen arvio riittää          → subjektiv bedömning räcker
+näkyy itsenäisesti                    → visas självständigt
+Kirjoita fokus-nimi                   → Skriv fokusnamn
+Liitä video                           → Bifoga video
+). Asiantuntijan valinta kirjataan.   → ). Expertens val registreras.
+✏️ Muokkaa:                           → ✏️ Redigera:
+🎯 Fokus:                             → 🎯 Fokus:
+🔵 Palloliitto-arvio                  → 🔵 Fotbollförbundets bedömning   (⚠ live-tarkistettava)
+🟢 TM-mittaus                         → 🟢 TM-mätning
+```
+
+### Kaksi huomiota
+1. **🔵 Palloliitto-arvio → Fotbollförbundets bedömning** — yhtenäisyys deployatun sv-kartan kanssa (VP tekniikkakisa-string käyttää jo "Fotbollförbundet"). **⚠ merkitse PR:ään:** Finlanssvenska-seurat (GrIFK/VIFK/Sibbo) voivat suosia "Bollförbundet" / "Finlands Bollförbund" → Tero vahvistaa livenä.
+2. **`Valitse kohde…` dedup:** jos JO kartassa ([K]) → käytä olemassa olevaa map-arvoa, ÄLÄ lisää "Välj fokus…":ta; flagaa vain jos [K]-arvo eroaa. Sama `↻ Ehdota (moottori` = [K]-prefiksi, varmista map-arvo "↻ Föreslå (motor ·".
+
+### ⚠ live-tarkistettavat termit (merkitse PR-kuvaukseen rivinumeroilla, Tero hienosäätää)
+Handlingskort (Toimintakortti) · ▶ Till period (Jaksoksi) · Välj fokus… (Valitse kohde) · För perioden till träning (Vie jakson treeniin) · att bemästra (osattava) · Fotbollförbundets bedömning (Palloliitto-arvio).
+
+> **Tämä sulkee B-listan → 0 aukkoa.** Etene: haara `i18n/v5-master-b2-idp-era1` → [K] masterT-kääre + [—] avaimet tämän + FRAASIT-listan mukaan (dup-check) → portit → commit (ei merge).
