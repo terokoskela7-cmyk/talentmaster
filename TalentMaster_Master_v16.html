@@ -16,7 +16,7 @@
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-storage-compat.js"></script>
 <script src="lib/tm_lang.js?v=1"></script>   <!-- i18n V0 — fi/sv/en käännöstaulukko + t() + kieli-init (putkitus) -->
 <script src="lib/tm_i18n_common.js?v=2"></script>   <!-- i18n Vaihe 0 — JAETTU henkilöstö-i18n + lukittu glossaari (ENNEN sivukarttaa) -->
-<script src="lib/tm_master_i18n.js?v=10"></script>   <!-- i18n Vaihe 5 Raita B — Master sv (sivukartta); masterT/masterLokalisoi delegoivat commoniin -->
+<script src="lib/tm_master_i18n.js?v=11"></script>   <!-- i18n Vaihe 5 Raita B — Master sv (sivukartta); masterT/masterLokalisoi delegoivat commoniin -->
 <script src="lib/tm_eerikkila_normit.js?v=45"></script>   <!-- v43: D2-kortti d2_taso-ensin (renderKehityskorttiHTML, PR #264 · §30/#262) -->
 <script src="lib/tm_harjoitusarviointi.js?v=4"></script>
 <script src="lib/tm_kalenteri.js?v=1"></script>
@@ -2824,11 +2824,11 @@ function renderTestit() {
 
   avoimetEl.innerHTML = avoimet.length
     ? avoimet.map(t => _testiCardHtml(t)).join('')
-    : '<div class="testit-empty">Ei avoimia testitapahtumia.</div>';
+    : '<div class="testit-empty">' + masterT('Ei avoimia testitapahtumia.') + '</div>';
 
   suljetutEl.innerHTML = suljetut.length
     ? suljetut.map(t => _testiCardHtml(t)).join('')
-    : '<div class="testit-empty">Ei päättyneitä tapahtumia.</div>';
+    : '<div class="testit-empty">' + masterT('Ei päättyneitä tapahtumia.') + '</div>';
 
   _renderTestitTulokset();
 }
@@ -2836,9 +2836,9 @@ function renderTestit() {
 // Status pvm + tila -logiikalla (sama kuin VP:llä): Tuleva / Kesken / Valmis
 function _testiStatus(t) {
   const today = new Date().toISOString().slice(0, 10);
-  if (t.tila === 'valmis' || t.tila === 'suljettu') return { label:'Valmis', color:'var(--teal)', btn:'Katso tulokset →' };
-  if (t.pvm && t.pvm < today)                       return { label:'Kesken', color:'var(--amber)', btn:'Jatka kirjausta →' };
-  return { label:'Tuleva', color:'#3DA35D', btn:'Avaa kenttänäkymä →' };
+  if (t.tila === 'valmis' || t.tila === 'suljettu') return { label:masterT('Valmis'), color:'var(--teal)', btn:masterT('Katso tulokset →') };
+  if (t.pvm && t.pvm < today)                       return { label:masterT('Kesken'), color:'var(--amber)', btn:masterT('Jatka kirjausta →') };
+  return { label:masterT('Tuleva'), color:'#3DA35D', btn:masterT('Avaa kenttänäkymä →') };
 }
 
 function _testiCardHtml(t) {
@@ -2851,7 +2851,7 @@ function _testiCardHtml(t) {
   return `<div class="testit-card">
     <div class="testit-card-header">
       <div>
-        <div class="testit-card-nimi serif">${t.nimi || proto.nimi || 'Nimetön testi'}</div>
+        <div class="testit-card-nimi serif">${t.nimi || proto.nimi || masterT('Nimetön testi')}</div>
         <div class="testit-card-meta">
           <span><b class="mono">${t.pvm || '—'}</b></span>
           <span>${t.paikka || ''}</span>
@@ -2860,7 +2860,7 @@ function _testiCardHtml(t) {
         </div>
       </div>
       <div style="font-size:11px;color:var(--ink2);">
-        ${pelaajia} pelaaja${pelaajia !== 1 ? 'a' : ''}
+        ${pelaajia} ${masterT(pelaajia !== 1 ? 'pelaajaa' : 'pelaaja')}
       </div>
     </div>
     <div style="font-size:11px;color:var(--ink3);">${proto.nimi || t.protokolla || ''}</div>
@@ -2869,21 +2869,21 @@ function _testiCardHtml(t) {
         <svg width="12" height="12"><use href="#ic-external"/></svg>${st.btn}
       </button>
       <button class="testit-btn" onclick="_avaaLomake('${t.id}')">
-        <svg width="12" height="12"><use href="#ic-form"/></svg>Täytä lomake
+        <svg width="12" height="12"><use href="#ic-form"/></svg>${masterT('Täytä lomake')}
       </button>
       <button class="testit-btn" onclick="_generoiExcel(_testiById('${t.id}'))">
-        <svg width="12" height="12"><use href="#ic-download"/></svg>Lataa Excel
+        <svg width="12" height="12"><use href="#ic-download"/></svg>${masterT('Lataa Excel')}
       </button>
       ${!suljettu ? `<button class="testit-btn danger" onclick="_suljeTapahtuma('${t.id}')">
-        <svg width="12" height="12"><use href="#ic-close"/></svg>Sulje tapahtuma
+        <svg width="12" height="12"><use href="#ic-close"/></svg>${masterT('Sulje tapahtuma')}
       </button>` : ''}
       <button class="testit-btn" style="background:rgba(26,122,94,.15);color:var(--teal);border-color:var(--teal);"
         onclick="event.stopPropagation();_avaaTuonti('${t.id}')">
-        <svg width="12" height="12"><use href="#ic-download"/></svg>Tuo tulokset
+        <svg width="12" height="12"><use href="#ic-download"/></svg>${masterT('Tuo tulokset')}
       </button>
       <button class="testit-btn" style="background:rgba(139,92,246,.1);color:#8B5CF6;border-color:#8B5CF6;"
         onclick="event.stopPropagation();_avaaVahvistus('${t.id}')">
-        <svg width="12" height="12"><use href="#ic-person"/></svg>Vahvista osallistujat
+        <svg width="12" height="12"><use href="#ic-person"/></svg>${masterT('Vahvista osallistujat')}
       </button>
     </div>
   </div>`;
@@ -2935,15 +2935,15 @@ function _renderTestitTulokset() {
   const el = document.getElementById('testitTulokset');
   if (!el) return;
   const y = _tkiYhteenveto();
-  if (!y) { el.innerHTML = '<div class="testit-empty">Ei testituloksia vielä.</div>'; return; }
+  if (!y) { el.innerHTML = '<div class="testit-empty">' + masterT('Ei testituloksia vielä.') + '</div>'; return; }
 
   let html = '';
   html += '<div style="background:var(--card2);border:.5px solid var(--line);border-radius:8px;padding:14px 18px;margin-bottom:14px;">';
-  if (y.viimeisinPvm) html += '<div class="caps" style="margin-bottom:8px;">Viimeisin mittaus · ' + _pvmFiM(y.viimeisinPvm) + '</div>';
+  if (y.viimeisinPvm) html += '<div class="caps" style="margin-bottom:8px;">' + masterT('Viimeisin mittaus · ') + _pvmFiM(y.viimeisinPvm) + '</div>';
   html += '<div style="font-size:13px;color:var(--ink);line-height:1.9;">';
-  html += 'TKI ka. <b style="color:var(--teal);">' + y.ka + '</b> · Paras: <b>' + _pelaajaNimi(y.paras) + '</b> (TKI ' + (+y.paras.tki_viimeisin) + ')<br>';
-  if (y.kehityskohde) html += 'Yleisin kehityskohde: <b style="color:var(--amber);">' + _tkLajiNimi(y.kehityskohde.id) + '</b> (' + y.kehityskohde.n + '/' + y.n + ' pelaajalla)<br>';
-  if (y.vahvuus) html += 'Yleisin vahvuus: <b style="color:var(--teal);">' + _tkLajiNimi(y.vahvuus.id) + '</b> (' + y.vahvuus.n + '/' + y.n + ' pelaajalla)';
+  html += masterT('TKI ka. ') + '<b style="color:var(--teal);">' + y.ka + '</b>' + masterT(' · Paras: ') + '<b>' + _pelaajaNimi(y.paras) + '</b> (TKI ' + (+y.paras.tki_viimeisin) + ')<br>';
+  if (y.kehityskohde) html += masterT('Yleisin kehityskohde: ') + '<b style="color:var(--amber);">' + _tkLajiNimi(y.kehityskohde.id) + '</b> (' + y.kehityskohde.n + '/' + y.n + masterT(' pelaajalla)') + '<br>';
+  if (y.vahvuus) html += masterT('Yleisin vahvuus: ') + '<b style="color:var(--teal);">' + _tkLajiNimi(y.vahvuus.id) + '</b> (' + y.vahvuus.n + '/' + y.n + masterT(' pelaajalla)');
   html += '</div></div>';
 
   const lista = (_pelaajatData || []).filter(p => p.tki_viimeisin != null)
@@ -2970,10 +2970,10 @@ function _renderTestitTulokset() {
 let _palautePid = null;
 function _avaaPalauteModal(pid) {
   const p = (_pelaajatData || []).find(x => x.id === pid);
-  if (!p) { toast('Pelaajaa ei löytynyt'); return; }
+  if (!p) { toast(masterT('Pelaajaa ei löytynyt')); return; }
   _palautePid = pid;
   const tki = (p.tki_viimeisin != null) ? p.tki_viimeisin : '—';
-  document.getElementById('palauteOtsikko').textContent = 'Palaute — ' + _pelaajaNimi(p) + ' · TKI ' + tki;
+  document.getElementById('palauteOtsikko').textContent = masterT('Palaute — ') + _pelaajaNimi(p) + ' · TKI ' + tki;
   document.getElementById('palauteVahvuus').textContent = p.tki_vahvuus ? _tkLajiNimi(p.tki_vahvuus) : '—';
   document.getElementById('palauteKehitys').textContent = p.tki_kehityskohde ? _tkLajiNimi(p.tki_kehityskohde) : '—';
   document.getElementById('palauteTeksti').value = '';
@@ -2987,10 +2987,10 @@ function _suljePalauteModal() {
   _palautePid = null;
 }
 async function _tallennaPalaute() {
-  if (!_seuraId || !_palautePid) { toast('Ei pelaajaa valittuna'); return; }
+  if (!_seuraId || !_palautePid) { toast(masterT('Ei pelaajaa valittuna')); return; }
   const p = (_pelaajatData || []).find(x => x.id === _palautePid);
   const teksti = (document.getElementById('palauteTeksti').value || '').trim();
-  if (!teksti) { toast('Kirjoita palaute ensin'); return; }
+  if (!teksti) { toast(masterT('Kirjoita palaute ensin')); return; }
   const nakEl = document.querySelector('input[name="palauteNak"]:checked');
   const nakyvyys = (nakEl && nakEl.value === 'vain_valmentaja') ? 'vain_valmentaja' : 'pelaaja';
   const pvm = new Date().toISOString();
@@ -3008,14 +3008,14 @@ async function _tallennaPalaute() {
   try {
     await _db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(_palautePid)
       .collection('palautteet').doc(docId).set(data, { merge: true });
-    toast('Palaute tallennettu');
+    toast(masterT('Palaute tallennettu'));
     _suljePalauteModal();
-  } catch (e) { console.warn('[v16 palaute]', e.message); toast('Tallennus epäonnistui — tarkista Rules (palautteet)'); }
+  } catch (e) { console.warn('[v16 palaute]', e.message); toast(masterT('Tallennus epäonnistui — tarkista Rules (palautteet)')); }
 }
 
 // KOKONAISUUS 3 — Joukkueen harjoitusprioriteetti testidatasta
 function _avaaPrioriteettiModal() {
-  if (!_joukkue) { toast('Valitse joukkue ensin'); return; }
+  if (!_joukkue) { toast(masterT('Valitse joukkue ensin')); return; }
   const y = _tkiYhteenveto();
   const LAJIT = ['ponnauttelu', 'syotto', 'pujottelu', 'kuljetus_laukaus', 'pituuspotku'];
   let opts = '';
@@ -3025,8 +3025,8 @@ function _avaaPrioriteettiModal() {
   sel.value = (y && y.kehityskohde) ? y.kehityskohde.id : 'syotto';
   const info = document.getElementById('prioInfo');
   info.textContent = (y && y.kehityskohde)
-    ? 'Joukkueessa yleisin kehityskohde: ' + _tkLajiNimi(y.kehityskohde.id) + ' — ' + y.kehityskohde.n + '/' + y.n + ' pelaajalla'
-    : 'Ei testidataa — valitse harjoitusprioriteetti manuaalisesti.';
+    ? masterT('Joukkueessa yleisin kehityskohde: ') + _tkLajiNimi(y.kehityskohde.id) + ' — ' + y.kehityskohde.n + '/' + y.n + masterT(' pelaajalla')
+    : masterT('Ei testidataa — valitse harjoitusprioriteetti manuaalisesti.');
   document.getElementById('prioViesti').value = '';
   const r = document.querySelector('input[name="prioVoimassa"][value="7"]');
   if (r) r.checked = true;
@@ -3038,7 +3038,7 @@ function _suljePrioriteettiModal() {
 }
 async function _tallennaPrioriteetti() {
   const tunniste = _joukkueTunniste();
-  if (!_seuraId || !tunniste) { toast('Joukkuetta ei tunnistettu (valitse joukkue)'); return; }
+  if (!_seuraId || !tunniste) { toast(masterT('Joukkuetta ei tunnistettu (valitse joukkue)')); return; }
   const laji = document.getElementById('prioLaji').value;
   const viesti = (document.getElementById('prioViesti').value || '').trim();
   const vEl = document.querySelector('input[name="prioVoimassa"]:checked');
@@ -3054,10 +3054,10 @@ async function _tallennaPrioriteetti() {
   try {
     await _db.collection('seurat').doc(_seuraId).collection('joukkueet').doc(tunniste)
       .collection('harjoitusprioriteetti').doc('aktiivinen').set(data, { merge: true });
-    toast('Harjoitusprioriteetti asetettu');
+    toast(masterT('Harjoitusprioriteetti asetettu'));
     _suljePrioriteettiModal();
     _renderTodayFokus();
-  } catch (e) { console.warn('[v16 prioriteetti]', e.message); toast('Tallennus epäonnistui — tarkista Rules (harjoitusprioriteetti)'); }
+  } catch (e) { console.warn('[v16 prioriteetti]', e.message); toast(masterT('Tallennus epäonnistui — tarkista Rules (harjoitusprioriteetti)')); }
 }
 
 // FOKUS — Tänään-näkymässä, lukee voimassa olevan harjoitusprioriteetin
