@@ -16,7 +16,7 @@
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-storage-compat.js"></script>
 <script src="lib/tm_lang.js?v=1"></script>   <!-- i18n V0 — fi/sv/en käännöstaulukko + t() + kieli-init (putkitus) -->
 <script src="lib/tm_i18n_common.js?v=2"></script>   <!-- i18n Vaihe 0 — JAETTU henkilöstö-i18n + lukittu glossaari (ENNEN sivukarttaa) -->
-<script src="lib/tm_master_i18n.js?v=6"></script>   <!-- i18n Vaihe 5 Raita B — Master sv (sivukartta); masterT/masterLokalisoi delegoivat commoniin -->
+<script src="lib/tm_master_i18n.js?v=8"></script>   <!-- i18n Vaihe 5 Raita B — Master sv (sivukartta); masterT/masterLokalisoi delegoivat commoniin -->
 <script src="lib/tm_eerikkila_normit.js?v=45"></script>   <!-- v43: D2-kortti d2_taso-ensin (renderKehityskorttiHTML, PR #264 · §30/#262) -->
 <script src="lib/tm_harjoitusarviointi.js?v=4"></script>
 <script src="lib/tm_kalenteri.js?v=1"></script>
@@ -3956,15 +3956,15 @@ function renderPulse(){
   const streakPids  = pids.filter(pid => matrix[pid].slice(0,wd+1).every(v => v > 0)).length;
   const viimTesti = (_testitapahtumat||[]).find(t=>t.tila==='suljettu');
   const viimTestiTxt = viimTesti
-    ? (PROTOKOLLAT[viimTesti.protokolla]?.nimi||viimTesti.protokolla||'Testi')+' · '+(viimTesti.pvm||'—')
+    ? (PROTOKOLLAT[viimTesti.protokolla]?.nimi||viimTesti.protokolla||masterT('Testi'))+' · '+(viimTesti.pvm||'—')
     : null;
   if(statsEl) statsEl.innerHTML=`
-    <div><div class="pulse-stat-v">${totalEvts}</div><div class="pulse-stat-l">Kirjausta viikolla</div></div>
-    <div><div class="pulse-stat-v">${activeToday}/${pids.length}</div><div class="pulse-stat-l">Aktiivinen tänään</div></div>
-    <div><div class="pulse-stat-v">${streakPids}</div><div class="pulse-stat-l">Streak käynnissä</div></div>
+    <div><div class="pulse-stat-v">${totalEvts}</div><div class="pulse-stat-l">${masterT('Kirjausta viikolla')}</div></div>
+    <div><div class="pulse-stat-v">${activeToday}/${pids.length}</div><div class="pulse-stat-l">${masterT('Aktiivinen tänään')}</div></div>
+    <div><div class="pulse-stat-v">${streakPids}</div><div class="pulse-stat-l">${masterT('Streak käynnissä')}</div></div>
     ${viimTestiTxt ? `<div style="grid-column:1/-1;margin-top:8px;padding-top:8px;border-top:0.5px solid var(--border);font-size:11px;color:var(--ink3);">
-      Viimeisin testi: <span style="color:var(--ink);font-weight:500">${viimTestiTxt}</span>
-      <span class="testit-btn" style="margin-left:8px;cursor:pointer;font-size:10px;" onclick="setWs('testit')">Näytä →</span>
+      ${masterT('Viimeisin testi:')} <span style="color:var(--ink);font-weight:500">${viimTestiTxt}</span>
+      <span class="testit-btn" style="margin-left:8px;cursor:pointer;font-size:10px;" onclick="setWs('testit')">${masterT('Näytä →')}</span>
     </div>` : ''}
   `;
 
@@ -3978,8 +3978,8 @@ function renderPulse(){
   });
   const fiilisVari = f => f==null?null:(f<=2?'var(--red)':f===3?'var(--amber)':'var(--teal)');
   let html='<div class="heat-grid">';
-  html+='<div class="heat-header" style="text-align:left">Pelaaja</div>';
-  days.forEach((dn,i)=>{ html+=`<div class="heat-header ${i===wd?'today':''}">${dn}</div>`; });
+  html+='<div class="heat-header" style="text-align:left">' + masterT('Pelaaja') + '</div>';
+  days.forEach((dn,i)=>{ html+=`<div class="heat-header ${i===wd?'today':''}">${masterT(dn)}</div>`; });
   html+='<div class="heat-header">Σ</div>';
   sortedPids.forEach(pid=>{
     const p=players[pid];
@@ -3994,12 +3994,12 @@ function renderPulse(){
       if(i<wd && v===0) cls.push('miss');
       const fv = fiilisVari(fiilisM[pid][i]);
       const fstyle = fv ? ` style="border-bottom:2px solid ${fv}"` : '';
-      html+=`<div class="${cls.join(' ')}"${fstyle} title="${p.name} · ${days[i]}: ${v} kirjausta${fiilisM[pid][i]!=null?' · fiilis '+fiilisM[pid][i]:''}"></div>`;
+      html+=`<div class="${cls.join(' ')}"${fstyle} title="${p.name} · ${masterT(days[i])}: ${v}${masterT(' kirjausta')}${fiilisM[pid][i]!=null?masterT(' · fiilis ')+fiilisM[pid][i]:''}"></div>`;
     }
     const n = weekN(pid);
     const streak = matrix[pid].slice(0,wd+1).every(x=>x>0);
-    const merkki = n===0 ? '<span style="color:var(--amber)" title="Ei kirjauksia tällä viikolla">⚠</span>'
-                 : streak ? '<span style="color:var(--teal)" title="Streak käynnissä">🔥</span>' : '';
+    const merkki = n===0 ? '<span style="color:var(--amber)" title="' + masterT('Ei kirjauksia tällä viikolla') + '">⚠</span>'
+                 : streak ? '<span style="color:var(--teal)" title="' + masterT('Streak käynnissä') + '">🔥</span>' : '';
     html+=`<div class="heat-sum">${n}/7 ${merkki}</div>`;
   });
   html+='</div>';
@@ -4012,15 +4012,15 @@ function renderPulse(){
   }).sort((a,b)=>b.at-a.at);
   if(todayEl){
     if(!todayEvts.length){
-      todayEl.innerHTML='<div style="padding:24px;text-align:center;color:var(--ink3);font-size:12px;background:var(--card);border:.5px solid var(--line);border-radius:8px">Ei kirjauksia tältä päivältä.</div>';
+      todayEl.innerHTML='<div style="padding:24px;text-align:center;color:var(--ink3);font-size:12px;background:var(--card);border:.5px solid var(--line);border-radius:8px">' + masterT('Ei kirjauksia tältä päivältä.') + '</div>';
     } else {
-      const tyypit={pihapeli:'pihapeli',uinti:'uinti',pyora:'pyöräily',pallo:'palloleikki',metsa:'metsä',muu:'muu',individual:'omatoimi',team:'joukkue'};
+      const tyypit={pihapeli:masterT('pihapeli'),uinti:masterT('uinti'),pyora:masterT('pyöräily'),pallo:masterT('palloleikki'),metsa:masterT('metsä'),muu:masterT('muu'),individual:masterT('omatoimi'),team:masterT('joukkue')};
       todayEl.innerHTML=todayEvts.map(e=>{
         const p=players[e.playerId]||{name:e.playerId,num:'?'};
-        const src=e.source==='parent'?'vanhempi kirjasi':e.source==='player'?'pelaaja kirjasi':'joukkue';
+        const src=e.source==='parent'?masterT('vanhempi kirjasi'):e.source==='player'?masterT('pelaaja kirjasi'):masterT('joukkue');
         return `<div class="pulse-today-card">
           <div class="who">${p.name} · <span style="color:var(--ink3)">#${p.num}</span></div>
-          <div class="what">${tyypit[e.tyyppi]||e.tyyppi||'treeni'}${e.minutes?' · '+e.minutes+' min':''}${e.fiilis?' · '+['','🤕','😴','😐','😊','💪'][e.fiilis]:''}</div>
+          <div class="what">${tyypit[e.tyyppi]||e.tyyppi||masterT('treeni')}${e.minutes?' · '+e.minutes+' min':''}${e.fiilis?' · '+['','🤕','😴','😐','😊','💪'][e.fiilis]:''}</div>
           <div class="when">${src} · ${_fmtTime(e.at)}</div>
         </div>`;
       }).join('');
@@ -4875,7 +4875,7 @@ function renderDev(pid) {
     if (!_pelaajatData.length) {
       // Ei (vielä) Firestore-pelaajia → lataustila, EI demoa. Varmista lataus kerran per konteksti.
       const pk = document.getElementById('playerPicker');
-      if (pk) pk.innerHTML = '<div style="padding:16px;color:var(--ink3);font-size:13px;">Ladataan pelaajia…</div>';
+      if (pk) pk.innerHTML = '<div style="padding:16px;color:var(--ink3);font-size:13px;">' + masterT('Ladataan pelaajia…') + '</div>';
       const pc = document.getElementById('pinfoCard');
       if (pc) pc.innerHTML = '';
       const avain = _seuraId + '|' + (_joukkue || '');
@@ -4927,7 +4927,7 @@ function _renderPlayerPickerFirestore() {
   }).join('');
   // Nimihaku vasta isolla listalla (>12) — pienellä joukkueella pillit riittävät
   const haku = _pelaajatData.length > 12
-    ? '<input type="text" id="pelHaku" placeholder="🔍 Hae pelaajaa…" oninput="_suodataPelaajat(this.value)" autocomplete="off" '
+    ? '<input type="text" id="pelHaku" placeholder="🔍 ' + masterT('Hae pelaajaa…') + '" oninput="_suodataPelaajat(this.value)" autocomplete="off" '
       + 'style="flex:1 1 100%;margin-bottom:4px;padding:8px 12px;background:var(--card);border:.5px solid var(--line2);border-radius:8px;color:var(--ink);font-size:13px;font-family:inherit">'
     : '';
   el.innerHTML = haku + pillit;
@@ -4945,15 +4945,15 @@ window._suodataPelaajat = _suodataPelaajat;
 // TKI-merkki: VAIN tallennettu tki_merkki (ei TKI-johdettua fallbackia — yhtenäinen <-rajalogiikan kanssa).
 function _tkiMerkkiM(tki, merkkiKentta) {
   const m = merkkiKentta || null;
-  if (m === 'kulta')   return { emoji:'🥇', nimi:'Kulta' };
-  if (m === 'hopea')   return { emoji:'🥈', nimi:'Hopea' };
-  if (m === 'pronssi') return { emoji:'🥉', nimi:'Pronssi' };
+  if (m === 'kulta')   return { emoji:'🥇', nimi:masterT('Kulta') };
+  if (m === 'hopea')   return { emoji:'🥈', nimi:masterT('Hopea') };
+  if (m === 'pronssi') return { emoji:'🥉', nimi:masterT('Pronssi') };
   return null;
 }
 // Tekniikkalajin luettava nimi (pikakenttä tallentaa laji-id:n).
 function _tkLajiNimi(id) {
   const MAP = { ponnauttelu:'Ponnauttelu', syotto:'Syöttö', pujottelu:'Pujottelu', kuljetus_laukaus:'Kuljetus-laukaus', pituuspotku:'Pituuspotku' };
-  return MAP[id] || id;
+  return masterT(MAP[id] || id);
 }
 function _pvmFiM(iso) {
   if (!iso) return '';
@@ -5040,7 +5040,7 @@ function _buildHHDetail(p) {
     vahvin  = validit.reduce((a,b) => b.taso > a.taso ? b : a);
     heikoin = validit.reduce((a,b) => b.taso < a.taso ? b : a);
   }
-  const suositus = heikoin ? (_HH_SUOSITUS[heikoin.key] || 'Kohdenna harjoittelu heikoimpaan osa-alueeseen.') : null;
+  const suositus = heikoin ? masterT(_HH_SUOSITUS[heikoin.key] || 'Kohdenna harjoittelu heikoimpaan osa-alueeseen.') : null;
   // SSOT-linjaus: räjähtävyysprofiili (EI/FVP/VNE) kun laaja H-H (SJ + lin5m + lin30m) saatavilla.
   let rajahtavyys = '';
   if (hv.sj != null && hv.lin5m != null && hv.lin30m != null && typeof laskeVNE === 'function') {
