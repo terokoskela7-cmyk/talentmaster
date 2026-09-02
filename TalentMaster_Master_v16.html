@@ -16,7 +16,7 @@
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-storage-compat.js"></script>
 <script src="lib/tm_lang.js?v=1"></script>   <!-- i18n V0 — fi/sv/en käännöstaulukko + t() + kieli-init (putkitus) -->
 <script src="lib/tm_i18n_common.js?v=2"></script>   <!-- i18n Vaihe 0 — JAETTU henkilöstö-i18n + lukittu glossaari (ENNEN sivukarttaa) -->
-<script src="lib/tm_master_i18n.js?v=6"></script>   <!-- i18n Vaihe 5 Raita B — Master sv (sivukartta); masterT/masterLokalisoi delegoivat commoniin -->
+<script src="lib/tm_master_i18n.js?v=7"></script>   <!-- i18n Vaihe 5 Raita B — Master sv (sivukartta); masterT/masterLokalisoi delegoivat commoniin -->
 <script src="lib/tm_eerikkila_normit.js?v=45"></script>   <!-- v43: D2-kortti d2_taso-ensin (renderKehityskorttiHTML, PR #264 · §30/#262) -->
 <script src="lib/tm_harjoitusarviointi.js?v=4"></script>
 <script src="lib/tm_kalenteri.js?v=1"></script>
@@ -3956,15 +3956,15 @@ function renderPulse(){
   const streakPids  = pids.filter(pid => matrix[pid].slice(0,wd+1).every(v => v > 0)).length;
   const viimTesti = (_testitapahtumat||[]).find(t=>t.tila==='suljettu');
   const viimTestiTxt = viimTesti
-    ? (PROTOKOLLAT[viimTesti.protokolla]?.nimi||viimTesti.protokolla||'Testi')+' · '+(viimTesti.pvm||'—')
+    ? (PROTOKOLLAT[viimTesti.protokolla]?.nimi||viimTesti.protokolla||masterT('Testi'))+' · '+(viimTesti.pvm||'—')
     : null;
   if(statsEl) statsEl.innerHTML=`
-    <div><div class="pulse-stat-v">${totalEvts}</div><div class="pulse-stat-l">Kirjausta viikolla</div></div>
-    <div><div class="pulse-stat-v">${activeToday}/${pids.length}</div><div class="pulse-stat-l">Aktiivinen tänään</div></div>
-    <div><div class="pulse-stat-v">${streakPids}</div><div class="pulse-stat-l">Streak käynnissä</div></div>
+    <div><div class="pulse-stat-v">${totalEvts}</div><div class="pulse-stat-l">${masterT('Kirjausta viikolla')}</div></div>
+    <div><div class="pulse-stat-v">${activeToday}/${pids.length}</div><div class="pulse-stat-l">${masterT('Aktiivinen tänään')}</div></div>
+    <div><div class="pulse-stat-v">${streakPids}</div><div class="pulse-stat-l">${masterT('Streak käynnissä')}</div></div>
     ${viimTestiTxt ? `<div style="grid-column:1/-1;margin-top:8px;padding-top:8px;border-top:0.5px solid var(--border);font-size:11px;color:var(--ink3);">
-      Viimeisin testi: <span style="color:var(--ink);font-weight:500">${viimTestiTxt}</span>
-      <span class="testit-btn" style="margin-left:8px;cursor:pointer;font-size:10px;" onclick="setWs('testit')">Näytä →</span>
+      ${masterT('Viimeisin testi:')} <span style="color:var(--ink);font-weight:500">${viimTestiTxt}</span>
+      <span class="testit-btn" style="margin-left:8px;cursor:pointer;font-size:10px;" onclick="setWs('testit')">${masterT('Näytä →')}</span>
     </div>` : ''}
   `;
 
@@ -3978,8 +3978,8 @@ function renderPulse(){
   });
   const fiilisVari = f => f==null?null:(f<=2?'var(--red)':f===3?'var(--amber)':'var(--teal)');
   let html='<div class="heat-grid">';
-  html+='<div class="heat-header" style="text-align:left">Pelaaja</div>';
-  days.forEach((dn,i)=>{ html+=`<div class="heat-header ${i===wd?'today':''}">${dn}</div>`; });
+  html+='<div class="heat-header" style="text-align:left">' + masterT('Pelaaja') + '</div>';
+  days.forEach((dn,i)=>{ html+=`<div class="heat-header ${i===wd?'today':''}">${masterT(dn)}</div>`; });
   html+='<div class="heat-header">Σ</div>';
   sortedPids.forEach(pid=>{
     const p=players[pid];
@@ -3994,12 +3994,12 @@ function renderPulse(){
       if(i<wd && v===0) cls.push('miss');
       const fv = fiilisVari(fiilisM[pid][i]);
       const fstyle = fv ? ` style="border-bottom:2px solid ${fv}"` : '';
-      html+=`<div class="${cls.join(' ')}"${fstyle} title="${p.name} · ${days[i]}: ${v} kirjausta${fiilisM[pid][i]!=null?' · fiilis '+fiilisM[pid][i]:''}"></div>`;
+      html+=`<div class="${cls.join(' ')}"${fstyle} title="${p.name} · ${masterT(days[i])}: ${v}${masterT(' kirjausta')}${fiilisM[pid][i]!=null?masterT(' · fiilis ')+fiilisM[pid][i]:''}"></div>`;
     }
     const n = weekN(pid);
     const streak = matrix[pid].slice(0,wd+1).every(x=>x>0);
-    const merkki = n===0 ? '<span style="color:var(--amber)" title="Ei kirjauksia tällä viikolla">⚠</span>'
-                 : streak ? '<span style="color:var(--teal)" title="Streak käynnissä">🔥</span>' : '';
+    const merkki = n===0 ? '<span style="color:var(--amber)" title="' + masterT('Ei kirjauksia tällä viikolla') + '">⚠</span>'
+                 : streak ? '<span style="color:var(--teal)" title="' + masterT('Streak käynnissä') + '">🔥</span>' : '';
     html+=`<div class="heat-sum">${n}/7 ${merkki}</div>`;
   });
   html+='</div>';
@@ -4012,15 +4012,15 @@ function renderPulse(){
   }).sort((a,b)=>b.at-a.at);
   if(todayEl){
     if(!todayEvts.length){
-      todayEl.innerHTML='<div style="padding:24px;text-align:center;color:var(--ink3);font-size:12px;background:var(--card);border:.5px solid var(--line);border-radius:8px">Ei kirjauksia tältä päivältä.</div>';
+      todayEl.innerHTML='<div style="padding:24px;text-align:center;color:var(--ink3);font-size:12px;background:var(--card);border:.5px solid var(--line);border-radius:8px">' + masterT('Ei kirjauksia tältä päivältä.') + '</div>';
     } else {
-      const tyypit={pihapeli:'pihapeli',uinti:'uinti',pyora:'pyöräily',pallo:'palloleikki',metsa:'metsä',muu:'muu',individual:'omatoimi',team:'joukkue'};
+      const tyypit={pihapeli:masterT('pihapeli'),uinti:masterT('uinti'),pyora:masterT('pyöräily'),pallo:masterT('palloleikki'),metsa:masterT('metsä'),muu:masterT('muu'),individual:masterT('omatoimi'),team:masterT('joukkue')};
       todayEl.innerHTML=todayEvts.map(e=>{
         const p=players[e.playerId]||{name:e.playerId,num:'?'};
-        const src=e.source==='parent'?'vanhempi kirjasi':e.source==='player'?'pelaaja kirjasi':'joukkue';
+        const src=e.source==='parent'?masterT('vanhempi kirjasi'):e.source==='player'?masterT('pelaaja kirjasi'):masterT('joukkue');
         return `<div class="pulse-today-card">
           <div class="who">${p.name} · <span style="color:var(--ink3)">#${p.num}</span></div>
-          <div class="what">${tyypit[e.tyyppi]||e.tyyppi||'treeni'}${e.minutes?' · '+e.minutes+' min':''}${e.fiilis?' · '+['','🤕','😴','😐','😊','💪'][e.fiilis]:''}</div>
+          <div class="what">${tyypit[e.tyyppi]||e.tyyppi||masterT('treeni')}${e.minutes?' · '+e.minutes+' min':''}${e.fiilis?' · '+['','🤕','😴','😐','😊','💪'][e.fiilis]:''}</div>
           <div class="when">${src} · ${_fmtTime(e.at)}</div>
         </div>`;
       }).join('');
