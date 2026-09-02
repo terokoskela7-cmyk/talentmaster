@@ -16,7 +16,7 @@
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-storage-compat.js"></script>
 <script src="lib/tm_lang.js?v=1"></script>   <!-- i18n V0 — fi/sv/en käännöstaulukko + t() + kieli-init (putkitus) -->
 <script src="lib/tm_i18n_common.js?v=2"></script>   <!-- i18n Vaihe 0 — JAETTU henkilöstö-i18n + lukittu glossaari (ENNEN sivukarttaa) -->
-<script src="lib/tm_master_i18n.js?v=7"></script>   <!-- i18n Vaihe 5 Raita B — Master sv (sivukartta); masterT/masterLokalisoi delegoivat commoniin -->
+<script src="lib/tm_master_i18n.js?v=8"></script>   <!-- i18n Vaihe 5 Raita B — Master sv (sivukartta); masterT/masterLokalisoi delegoivat commoniin -->
 <script src="lib/tm_eerikkila_normit.js?v=45"></script>   <!-- v43: D2-kortti d2_taso-ensin (renderKehityskorttiHTML, PR #264 · §30/#262) -->
 <script src="lib/tm_harjoitusarviointi.js?v=4"></script>
 <script src="lib/tm_kalenteri.js?v=1"></script>
@@ -4875,7 +4875,7 @@ function renderDev(pid) {
     if (!_pelaajatData.length) {
       // Ei (vielä) Firestore-pelaajia → lataustila, EI demoa. Varmista lataus kerran per konteksti.
       const pk = document.getElementById('playerPicker');
-      if (pk) pk.innerHTML = '<div style="padding:16px;color:var(--ink3);font-size:13px;">Ladataan pelaajia…</div>';
+      if (pk) pk.innerHTML = '<div style="padding:16px;color:var(--ink3);font-size:13px;">' + masterT('Ladataan pelaajia…') + '</div>';
       const pc = document.getElementById('pinfoCard');
       if (pc) pc.innerHTML = '';
       const avain = _seuraId + '|' + (_joukkue || '');
@@ -4927,7 +4927,7 @@ function _renderPlayerPickerFirestore() {
   }).join('');
   // Nimihaku vasta isolla listalla (>12) — pienellä joukkueella pillit riittävät
   const haku = _pelaajatData.length > 12
-    ? '<input type="text" id="pelHaku" placeholder="🔍 Hae pelaajaa…" oninput="_suodataPelaajat(this.value)" autocomplete="off" '
+    ? '<input type="text" id="pelHaku" placeholder="🔍 ' + masterT('Hae pelaajaa…') + '" oninput="_suodataPelaajat(this.value)" autocomplete="off" '
       + 'style="flex:1 1 100%;margin-bottom:4px;padding:8px 12px;background:var(--card);border:.5px solid var(--line2);border-radius:8px;color:var(--ink);font-size:13px;font-family:inherit">'
     : '';
   el.innerHTML = haku + pillit;
@@ -4945,15 +4945,15 @@ window._suodataPelaajat = _suodataPelaajat;
 // TKI-merkki: VAIN tallennettu tki_merkki (ei TKI-johdettua fallbackia — yhtenäinen <-rajalogiikan kanssa).
 function _tkiMerkkiM(tki, merkkiKentta) {
   const m = merkkiKentta || null;
-  if (m === 'kulta')   return { emoji:'🥇', nimi:'Kulta' };
-  if (m === 'hopea')   return { emoji:'🥈', nimi:'Hopea' };
-  if (m === 'pronssi') return { emoji:'🥉', nimi:'Pronssi' };
+  if (m === 'kulta')   return { emoji:'🥇', nimi:masterT('Kulta') };
+  if (m === 'hopea')   return { emoji:'🥈', nimi:masterT('Hopea') };
+  if (m === 'pronssi') return { emoji:'🥉', nimi:masterT('Pronssi') };
   return null;
 }
 // Tekniikkalajin luettava nimi (pikakenttä tallentaa laji-id:n).
 function _tkLajiNimi(id) {
   const MAP = { ponnauttelu:'Ponnauttelu', syotto:'Syöttö', pujottelu:'Pujottelu', kuljetus_laukaus:'Kuljetus-laukaus', pituuspotku:'Pituuspotku' };
-  return MAP[id] || id;
+  return masterT(MAP[id] || id);
 }
 function _pvmFiM(iso) {
   if (!iso) return '';
@@ -5040,7 +5040,7 @@ function _buildHHDetail(p) {
     vahvin  = validit.reduce((a,b) => b.taso > a.taso ? b : a);
     heikoin = validit.reduce((a,b) => b.taso < a.taso ? b : a);
   }
-  const suositus = heikoin ? (_HH_SUOSITUS[heikoin.key] || 'Kohdenna harjoittelu heikoimpaan osa-alueeseen.') : null;
+  const suositus = heikoin ? masterT(_HH_SUOSITUS[heikoin.key] || 'Kohdenna harjoittelu heikoimpaan osa-alueeseen.') : null;
   // SSOT-linjaus: räjähtävyysprofiili (EI/FVP/VNE) kun laaja H-H (SJ + lin5m + lin30m) saatavilla.
   let rajahtavyys = '';
   if (hv.sj != null && hv.lin5m != null && hv.lin30m != null && typeof laskeVNE === 'function') {
