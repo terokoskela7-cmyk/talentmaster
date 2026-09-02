@@ -16,7 +16,7 @@
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-storage-compat.js"></script>
 <script src="lib/tm_lang.js?v=1"></script>   <!-- i18n V0 — fi/sv/en käännöstaulukko + t() + kieli-init (putkitus) -->
 <script src="lib/tm_i18n_common.js?v=2"></script>   <!-- i18n Vaihe 0 — JAETTU henkilöstö-i18n + lukittu glossaari (ENNEN sivukarttaa) -->
-<script src="lib/tm_master_i18n.js?v=9"></script>   <!-- i18n Vaihe 5 Raita B — Master sv (sivukartta); masterT/masterLokalisoi delegoivat commoniin -->
+<script src="lib/tm_master_i18n.js?v=10"></script>   <!-- i18n Vaihe 5 Raita B — Master sv (sivukartta); masterT/masterLokalisoi delegoivat commoniin -->
 <script src="lib/tm_eerikkila_normit.js?v=45"></script>   <!-- v43: D2-kortti d2_taso-ensin (renderKehityskorttiHTML, PR #264 · §30/#262) -->
 <script src="lib/tm_harjoitusarviointi.js?v=4"></script>
 <script src="lib/tm_kalenteri.js?v=1"></script>
@@ -7936,7 +7936,7 @@ function renderSeason() {
 
     const _bw = document.getElementById('seasonBarWrap'); if (_bw) _bw.style.display = 'none';
     const subEl = document.getElementById('seasonSub');
-    if (subEl) subEl.textContent = 'Kausi ' + now.getFullYear() + '/' + (now.getFullYear()+1).toString().slice(-2) + ' · ' + P.length + ' pelaajaa';
+    if (subEl) subEl.textContent = masterT('Kausi ') + now.getFullYear() + '/' + (now.getFullYear()+1).toString().slice(-2) + ' · ' + P.length + masterT(' pelaajaa');
 
     // ── 1. KEHITYSPULSSI: % kehittynyt (abs §30/§3.2) + % taso ≥3 ──
     let parani = 0, mitattuKahdesti = 0;
@@ -7962,11 +7962,11 @@ function renderSeason() {
           + '<div style="font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink3)">' + lbl + (selite ? ' <span style="opacity:.6">ⓘ</span>' : '') + '</div>'
           + '<div style="font-family:\'Cormorant Garamond\',serif;font-size:38px;line-height:1.1;color:' + col + '">' + (pct == null ? '—' : pct + '%') + '</div>'
           + '<div style="font-size:11px;color:var(--ink3)">' + vihje + '</div>'
-          + (klikDim ? '<div style="font-size:10px;color:var(--teal);margin-top:6px">👥 Näytä pelaajat →</div>' : '') + '</div>';
+          + (klikDim ? '<div style="font-size:10px;color:var(--teal);margin-top:6px">' + masterT('👥 Näytä pelaajat →') + '</div>' : '') + '</div>';
       };
       pulseEl.innerHTML = '<div style="display:flex;gap:12px;flex-wrap:wrap">'
-        + metr('Kehittynyt (abs)', parani, mitattuKahdesti, mitattuKahdesti ? parani + '/' + mitattuKahdesti + ' kahdesti mitattua parani' : 'tarvitsee 2 mittausta/pelaaja', 'Osuus kahdesti mitatuista pelaajista, joiden taso nousi (absoluuttinen kehitys §30). Vaatii ≥2 mittausta/pelaaja — ei vertaa muihin, vaan pelaajan omaan lähtötasoon.')
-        + metr('Taso ≥3', taso3, onTasoN, onTasoN ? taso3 + '/' + onTasoN + ' ikäluokan keskitaso+' : 'ei tasodataa', 'Osuus pelaajista, joiden paras dimensiotaso (D1/D2/H-H) on ≥3 = ikäluokan keskitaso tai parempi (1–5-asteikko).', onTasoN ? 'taso' : null)
+        + metr(masterT('Kehittynyt (abs)'), parani, mitattuKahdesti, mitattuKahdesti ? parani + '/' + mitattuKahdesti + masterT(' kahdesti mitattua parani') : masterT('tarvitsee 2 mittausta/pelaaja'), masterT('Osuus kahdesti mitatuista pelaajista, joiden taso nousi (absoluuttinen kehitys §30). Vaatii ≥2 mittausta/pelaaja — ei vertaa muihin, vaan pelaajan omaan lähtötasoon.'))
+        + metr(masterT('Taso ≥3'), taso3, onTasoN, onTasoN ? taso3 + '/' + onTasoN + masterT(' ikäluokan keskitaso+') : masterT('ei tasodataa'), masterT('Osuus pelaajista, joiden paras dimensiotaso (D1/D2/H-H) on ≥3 = ikäluokan keskitaso tai parempi (1–5-asteikko).'), onTasoN ? 'taso' : null)
         + '</div>';
     }
 
@@ -7982,7 +7982,7 @@ function renderSeason() {
       const onD1 = P.some(p => p.d1_taso != null || p.hh_taso != null);
       const onD2 = P.some(p => d2Val(p) != null);
       const tyhjaMs = txt => '<div style="font-size:11px;color:var(--ink3);padding:6px 0">' + txt + '</div>';
-      const d2Alaviite = P.some(p => { const _is=_devIkaSp(p); const r=(typeof laskeD2Joustava==='function')&&laskeD2Joustava(p,_is.ika,_is.sp); return r && r.lahde==='tki'; }) ? '<div style="font-size:9px;color:var(--ink3);margin-top:4px">¹ TKI-pohjainen</div>' : '';
+      const d2Alaviite = P.some(p => { const _is=_devIkaSp(p); const r=(typeof laskeD2Joustava==='function')&&laskeD2Joustava(p,_is.ika,_is.sp); return r && r.lahde==='tki'; }) ? '<div style="font-size:9px;color:var(--ink3);margin-top:4px">' + masterT('¹ TKI-pohjainen') + '</div>' : '';
       // D1 osaindeksiprofiili: joukkueen ka per osa-alue (Kiihdytys/Maksiminopeus/Voima/Ketteryys/Aerobinen) mini-palkkeina, vain ei-null (§29).
       const _D1_OSAT = [['kiihdytys','Kiihdytys'],['maksinopeus','Maksiminopeus'],['voima','Voima'],['ketteryys','Ketteryys'],['suunnanmuutos','Suunnanmuutos'],['aerobinen','Aerobinen']];
       const d1OsaProfiili = () => {
@@ -7993,11 +7993,11 @@ function renderSeason() {
           const ka = Math.round(summa[k[0]] / lkm[k[0]] * 10) / 10;
           const col = ka >= 4 ? 'var(--teal)' : ka >= 3 ? 'var(--amber)' : 'var(--red)';
           return '<div style="display:flex;align-items:center;gap:8px;margin:4px 0">'
-            + '<span style="flex:0 0 84px;font-size:10px;color:var(--ink2)">' + k[1] + '</span>'
+            + '<span style="flex:0 0 84px;font-size:10px;color:var(--ink2)">' + masterT(k[1]) + '</span>'
             + '<span style="flex:1;height:7px;border-radius:4px;background:rgba(255,255,255,.06);overflow:hidden"><span style="display:block;height:7px;width:' + (ka/5*100).toFixed(0) + '%;background:' + col + '"></span></span>'
             + '<span style="flex:0 0 26px;font-size:11px;font-family:var(--font-m,monospace);color:' + col + ';text-align:right">' + ka + '</span></div>';
         });
-        return rivit.length ? rivit.join('') : tyhjaMs('Ei fyysistä osaindeksiä vielä (H-H raakatulokset puuttuvat).');
+        return rivit.length ? rivit.join('') : tyhjaMs(masterT('Ei fyysistä osaindeksiä vielä (H-H raakatulokset puuttuvat).'));
       };
       const phvVaiheet = ['PRE','LAH','PH','POST','AN'];
       const phvLkm = {}; phvVaiheet.forEach(v => phvLkm[v] = 0); let phvTuntematon = 0;
@@ -8010,7 +8010,7 @@ function renderSeason() {
       const nFlei = P.filter(p => (p.flei_viimeisin||0) > 0).length;
       const card = (t,inner,klikDim) => {
         const klik = klikDim ? ' class="kausi-klik" onclick="_avaaKausiPelaajat(\'' + klikDim + '\')"' : '';
-        const vihje = klikDim ? '<div style="font-size:10px;color:var(--teal);margin-top:8px">👥 Näytä pelaajat →</div>' : '';
+        const vihje = klikDim ? '<div style="font-size:10px;color:var(--teal);margin-top:8px">' + masterT('👥 Näytä pelaajat →') + '</div>' : '';
         return '<div' + klik + ' style="flex:1;min-width:208px;background:var(--card);border:.5px solid var(--line);border-radius:10px;padding:14px 16px"><div style="font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink3);margin-bottom:8px">' + t + '</div>' + inner + vihje + '</div>';
       };
       // RAE-rakenne (syntymäkvartaali Q1–Q4 + ikäharha Q1>40% + underdog) — raeChip:llä, sama logiikka kuin VP:n _vpRaeRakenneHTML.
@@ -8027,16 +8027,16 @@ function renderSeason() {
             + '<span style="flex:1;height:8px;border-radius:4px;background:rgba(255,255,255,.06);overflow:hidden"><span style="display:block;height:8px;width:' + pctQ(q) + '%;background:' + COL[q] + '"></span></span>'
             + '<span style="flex:0 0 56px;font-size:11px;color:var(--ink2);text-align:right">' + Q[q] + ' · ' + pctQ(q) + '%</span></div>').join('');
           let _raeInner = palkit;
-          if (pctQ('Q1') > 40) _raeInner += '<div style="font-size:10px;color:var(--amber);margin-top:6px">⚠ Ikäharha: Q1 ' + pctQ('Q1') + '% — valitaanko taitoa vai ikää?</div>';
-          if (underdogit.length) _raeInner += '<div style="font-size:10px;color:var(--teal);margin-top:6px">⭐ Underdog (Q4 + taso ≥3): ' + underdogit.join(', ') + '</div>';
-          _raeCardHtml = card('Syntymäkvartaali (RAE)' + _mSelBtn('rae'), _raeInner);
+          if (pctQ('Q1') > 40) _raeInner += '<div style="font-size:10px;color:var(--amber);margin-top:6px">' + masterT('⚠ Ikäharha: Q1 ') + pctQ('Q1') + masterT('% — valitaanko taitoa vai ikää?') + '</div>';
+          if (underdogit.length) _raeInner += '<div style="font-size:10px;color:var(--teal);margin-top:6px">' + masterT('⭐ Underdog (Q4 + taso ≥3): ') + underdogit.join(', ') + '</div>';
+          _raeCardHtml = card(masterT('Syntymäkvartaali (RAE)') + _mSelBtn('rae'), _raeInner);
         }
       }
       histEl.innerHTML = '<div style="display:flex;gap:12px;flex-wrap:wrap">'
-        + card('D1 Fyysinen — osaindeksit' + _mSelBtn('d1'), onD1 ? d1OsaProfiili() : tyhjaMs('Ei fyysistä mittausta (H-H) — tämä seura on TKI-pohjainen.'), onD1 ? 'd1' : null)
-        + card('D2 Tekninen — tasojakauma' + _mSelBtn('d2'), onD2 ? histBars(histF(d2Val),'var(--blue)') + d2Alaviite : tyhjaMs('Ei teknistä mittausta vielä.'), onD2 ? 'd2' : null)
-        + card('PHV-vaiheet', '<div style="display:flex;flex-wrap:wrap;gap:5px;align-items:center">' + phvVaiheet.map(v => phvChip(v, phvLkm[v])).join('') + (phvTuntematon ? '<span style="font-size:10px;color:var(--ink3)">' + phvTuntematon + ' ei mittausta</span>' : '') + '</div>' + (phvLkm.PH ? '<div style="font-size:10px;color:var(--amber);margin-top:6px">⚠ ' + phvLkm.PH + ' kuormarajoitettua (PH)</div>' : ''))
-        + card('Kattavuus (§26)', '<div style="display:flex;flex-direction:column;gap:4px">' + cov('Testattu', nTestattu) + cov('Peliäly ≥3', nAdar) + cov('PHV', nPhv) + cov('Valmius', nFlei) + '</div>')
+        + card(masterT('D1 Fyysinen — osaindeksit') + _mSelBtn('d1'), onD1 ? d1OsaProfiili() : tyhjaMs(masterT('Ei fyysistä mittausta (H-H) — tämä seura on TKI-pohjainen.')), onD1 ? 'd1' : null)
+        + card(masterT('D2 Tekninen — tasojakauma') + _mSelBtn('d2'), onD2 ? histBars(histF(d2Val),'var(--blue)') + d2Alaviite : tyhjaMs(masterT('Ei teknistä mittausta vielä.')), onD2 ? 'd2' : null)
+        + card(masterT('PHV-vaiheet'), '<div style="display:flex;flex-wrap:wrap;gap:5px;align-items:center">' + phvVaiheet.map(v => phvChip(v, phvLkm[v])).join('') + (phvTuntematon ? '<span style="font-size:10px;color:var(--ink3)">' + phvTuntematon + masterT(' ei mittausta') + '</span>' : '') + '</div>' + (phvLkm.PH ? '<div style="font-size:10px;color:var(--amber);margin-top:6px">⚠ ' + phvLkm.PH + masterT(' kuormarajoitettua (PH)') + '</div>' : ''))
+        + card(masterT('Kattavuus (§26)'), '<div style="display:flex;flex-direction:column;gap:4px">' + cov(masterT('Testattu'), nTestattu) + cov(masterT('Peliäly ≥3'), nAdar) + cov('PHV', nPhv) + cov(masterT('Valmius'), nFlei) + '</div>')
         + _raeCardHtml
         + '</div>';
     }
@@ -8046,7 +8046,7 @@ function renderSeason() {
     if (harkkaEl) {
       const onFlei = P.some(p => (p.flei_viimeisin || 0) > 0);
       if (!onFlei) {
-        harkkaEl.innerHTML = '<div style="background:var(--card);border:.5px solid var(--line);border-radius:10px;padding:16px;font-size:12px;color:var(--ink3)">🏃 <b style="color:var(--ink2)">Pre-harkka</b> vaatii kehon valmiusmittauksen — kun ketjudataa on, tähän generoituu joukkueen pre-harkka (aktivointi · vahvuus · kohdistettu · pelillinen).</div>';
+        harkkaEl.innerHTML = '<div style="background:var(--card);border:.5px solid var(--line);border-radius:10px;padding:16px;font-size:12px;color:var(--ink3)">' + masterT('🏃 <b style="color:var(--ink2)">Pre-harkka</b> vaatii kehon valmiusmittauksen — kun ketjudataa on, tähän generoituu joukkueen pre-harkka (aktivointi · vahvuus · kohdistettu · pelillinen).') + '</div>';
       } else if (typeof TM !== 'undefined' && TM.prescription && typeof TM.prescription.generoimPreHarkka === 'function') {
         try {
           const _ph = TM.prescription.generoimPreHarkka({ pelaajat: P }, { paiva: new Date() });
@@ -8056,7 +8056,7 @@ function renderSeason() {
               + '<div style="font-size:13px;color:var(--ink);font-weight:500;margin-top:3px">' + (b.nimi || b.otsikko || '') + '</div>'
               + (b.ohje ? '<div style="font-size:11px;color:var(--ink2);margin-top:3px;line-height:1.45">' + b.ohje + '</div>' : '')
               + (b.phv_muistutus ? '<div style="font-size:10px;color:var(--amber);margin-top:4px">' + b.phv_muistutus + '</div>' : '') + '</div>';
-            harkkaEl.innerHTML = '<div style="font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink3);margin-bottom:8px">Harjoitesuunnitelma · S-pre-harkka (heikoin ketju ohjaa)</div>'
+            harkkaEl.innerHTML = '<div style="font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink3);margin-bottom:8px">' + masterT('Harjoitesuunnitelma · S-pre-harkka (heikoin ketju ohjaa)') + '</div>'
               + '<div style="display:flex;gap:10px;flex-wrap:wrap">' + _ph.blokit.map(_bk).join('') + '</div>';
           } else harkkaEl.innerHTML = '';
         } catch (e) { console.warn('[preharkka B2]', e.message); harkkaEl.innerHTML = ''; }
@@ -8068,15 +8068,15 @@ function renderSeason() {
     if (xfl) {
       const ryhmat = [
         { otsikko:'⭐ X-Factor',                col:'var(--teal)',  pel: P.filter(p => p.signaali === 'xfactor') },
-        { otsikko:'💎 Piilohelmi',              col:'var(--blue)',  pel: P.filter(p => p.signaali === 'hidden') },
-        { otsikko:'🏥 Klinikka (valmius <40)',      col:'var(--red)',   pel: P.filter(p => p.flei_viimeisin != null && p.flei_viimeisin < 40) },
-        { otsikko:'⚠ Kuormarajoitin (PHV PH)',  col:'var(--amber)', pel: P.filter(p => p.phv_tila === 'PH') },
-        { otsikko:'⭐ Underdog (Q4 + taso ≥3)',  col:'var(--teal)',  pel: P.filter(p => typeof isUnderdog === 'function' && isUnderdog(p)) },   // §RAE-näkyvyys: ikäluokan nuorimmat jotka jo pärjäävät
+        { otsikko:'💎 ' + masterT('Piilohelmi'),              col:'var(--blue)',  pel: P.filter(p => p.signaali === 'hidden') },
+        { otsikko:masterT('🏥 Klinikka (valmius <40)'),      col:'var(--red)',   pel: P.filter(p => p.flei_viimeisin != null && p.flei_viimeisin < 40) },
+        { otsikko:masterT('⚠ Kuormarajoitin (PHV PH)'),  col:'var(--amber)', pel: P.filter(p => p.phv_tila === 'PH') },
+        { otsikko:masterT('⭐ Underdog (Q4 + taso ≥3)'),  col:'var(--teal)',  pel: P.filter(p => typeof isUnderdog === 'function' && isUnderdog(p)) },   // §RAE-näkyvyys: ikäluokan nuorimmat jotka jo pärjäävät
       ].filter(r => r.pel.length);
       xfl.innerHTML = ryhmat.length ? ryhmat.map(r =>
         '<div style="margin-bottom:10px"><div style="font-size:11px;color:' + r.col + ';margin-bottom:5px">' + r.otsikko + ' · ' + r.pel.length + '</div>'
         + '<div style="display:flex;flex-wrap:wrap;gap:6px">' + r.pel.map(p => '<span style="cursor:pointer;font-size:12px;padding:3px 10px;background:rgba(255,255,255,.04);border-radius:20px;color:var(--ink)" onclick="pickPlayer(\'' + p.id + '\');setWs(\'dev\')">' + nimi(p) + '</span>').join('') + '</div></div>'
-      ).join('') : '<div style="color:var(--ink3);font-size:12px;padding:8px 0">Signaaleja kertyy kun pelaajadata kasvaa (X-Factor, piilohelmi, klinikka, kuormarajoitin).</div>';
+      ).join('') : '<div style="color:var(--ink3);font-size:12px;padding:8px 0">' + masterT('Signaaleja kertyy kun pelaajadata kasvaa (X-Factor, piilohelmi, klinikka, kuormarajoitin).') + '</div>';
     }
 
     // ── Demotetut 4 laskuria → vaimea sekundäärinauha ──
@@ -8085,7 +8085,7 @@ function renderSeason() {
       const suljetut = (_testitapahtumat||[]).filter(t => t.tila === 'suljettu').length;
       const avoimet  = (_testitapahtumat||[]).filter(t => t.tila !== 'suljettu').length;
       const xfN = P.filter(p => p.signaali === 'xfactor' || p.signaali === 'hidden').length;
-      const sek = [P.length + ' pelaajaa', xfN + ' signaalia', suljetut + ' testiä (' + avoimet + ' avoinna)', (_kirjaukset||[]).length + ' kirjausta'];
+      const sek = [P.length + masterT(' pelaajaa'), xfN + masterT(' signaalia'), suljetut + masterT(' testiä (') + avoimet + masterT(' avoinna)'), (_kirjaukset||[]).length + masterT(' kirjausta')];
       grid.style.display = 'block';
       grid.innerHTML = '<div style="font-size:11px;color:var(--ink3);display:flex;gap:18px;flex-wrap:wrap;padding:4px 0">' + sek.map(s => '<span>' + s + '</span>').join('') + '</div>';
     }
@@ -8206,7 +8206,7 @@ function _calChip(sty, t, lisaaJoukkue, onclick, aika) {
 // ════════════════════════════════════════════════════════════
 function _fiilisEmoji(v) { return ['·','😞','🙁','😐','🙂','😄'][Math.max(0, Math.min(5, Math.round(v || 0)))] || '·'; }
 function _kuormaVari(a) { return a >= 1.5 ? '#F04E4E' : (a >= 0.8 ? '#E0A040' : '#3DA35D'); }
-function _kuormaTulkinta(kuilu) { var a = Math.abs(kuilu); if (a < 0.8) return 'Linjassa — arvio ja koettu vastaavat'; return kuilu > 0 ? 'Pelaajat kokivat kovemmaksi kuin arvioit' : 'Pelaajat kokivat kevyemmäksi kuin arvioit'; }
+function _kuormaTulkinta(kuilu) { var a = Math.abs(kuilu); if (a < 0.8) return masterT('Linjassa — arvio ja koettu vastaavat'); return kuilu > 0 ? masterT('Pelaajat kokivat kovemmaksi kuin arvioit') : masterT('Pelaajat kokivat kevyemmäksi kuin arvioit'); }
 
 // Valmentajan session-RPE -valitsin (1–10) tapahtumanäkymään.
 function _calSessioRpeHTML(t) {
@@ -8261,19 +8261,19 @@ function renderKuorma() {
   var evts = (_kalenteriTapahtumat || []).filter(function(t) { return HARJ[t.tyyppi] && t.valmentaja_rpe != null && sj(t); });
   evts.sort(function(a, b) { return (b.pvm || '').localeCompare(a.pvm || ''); });
   evts = evts.slice(0, 5);
-  var NIMET = { harjoitus: 'Harjoitus', ottelu: 'Ottelu', talenttileiri: 'Talenttileiri' };
+  var NIMET = { harjoitus: masterT('Harjoitus'), ottelu: masterT('Ottelu'), talenttileiri: masterT('Talenttileiri') };
   var rivit = evts.map(function(t) {
     var ids = {};
     (_kirjaukset || []).forEach(function(k) { if (k.joukkuetreeni === true && k.rpe != null && k._pv === t.pvm) ids[k._pelaajaId] = k.rpe; });
     var arvot = Object.keys(ids).map(function(id) { return ids[id]; });
     var ka = arvot.length ? avg(arvot) : null;
-    return { va: t.valmentaja_rpe, ka: ka, kuilu: ka != null ? (ka - t.valmentaja_rpe) : null, x: arvot.length, nimi: (t.nimi || NIMET[t.tyyppi] || 'Harjoitus'), pvm: t.pvm };
+    return { va: t.valmentaja_rpe, ka: ka, kuilu: ka != null ? (ka - t.valmentaja_rpe) : null, x: arvot.length, nimi: (t.nimi || NIMET[t.tyyppi] || masterT('Harjoitus')), pvm: t.pvm };
   });
 
   var h = '';
-  h += '<div class="caps" style="margin:6px 0 10px">Kuormakalibraatio — arviosi vs koettu</div>';
+  h += '<div class="caps" style="margin:6px 0 10px">' + masterT('Kuormakalibraatio — arviosi vs koettu') + '</div>';
   if (!rivit.length) {
-    h += '<div style="background:var(--card);border:.5px solid var(--line2);border-radius:10px;padding:18px;font-size:13px;color:var(--ink3)">Ei vielä arvioituja harjoituksia. Avaa kalenterista harjoitus → <b>Arvioi harjoituksen rasitus</b>, niin kalibraatio ilmestyy tähän.</div>';
+    h += '<div style="background:var(--card);border:.5px solid var(--line2);border-radius:10px;padding:18px;font-size:13px;color:var(--ink3)">' + masterT('Ei vielä arvioituja harjoituksia. Avaa kalenterista harjoitus → ') + '<b>' + masterT('Arvioi harjoituksen rasitus') + '</b>' + masterT(', niin kalibraatio ilmestyy tähän.') + '</div>';
   } else {
     rivit.forEach(function(r, i) {
       var on = (r.kuilu != null);
@@ -8283,12 +8283,12 @@ function renderKuorma() {
         h += '<div style="background:var(--card);border:.5px solid var(--line2);border-left:3px solid ' + vari + ';border-radius:10px;padding:16px;margin-bottom:10px">'
           + '<div style="display:flex;justify-content:space-between;align-items:baseline"><div class="serif" style="font-size:16px">' + _mEsc(r.nimi) + '</div><div class="muted" style="font-size:12px">' + pvmTxt + '</div></div>'
           + '<div style="display:flex;gap:18px;margin-top:12px;align-items:flex-end">'
-          + '<div><div class="muted" style="font-size:10px">Arviosi</div><div class="serif" style="font-size:28px">' + r.va + '</div></div>'
+          + '<div><div class="muted" style="font-size:10px">' + masterT('Arviosi') + '</div><div class="serif" style="font-size:28px">' + r.va + '</div></div>'
           + '<div style="font-size:16px;color:var(--ink3);padding-bottom:7px">vs</div>'
-          + '<div><div class="muted" style="font-size:10px">Pelaajat (ka)</div><div class="serif" style="font-size:28px;color:' + vari + '">' + (on ? r1(r.ka) : '—') + '</div></div>'
+          + '<div><div class="muted" style="font-size:10px">' + masterT('Pelaajat (ka)') + '</div><div class="serif" style="font-size:28px;color:' + vari + '">' + (on ? r1(r.ka) : '—') + '</div></div>'
           + (on ? ('<div style="margin-left:auto;text-align:right"><div style="font-size:18px;font-weight:600;color:' + vari + '">' + (r.kuilu > 0 ? '+' : '') + r1(r.kuilu) + '</div><div class="muted" style="font-size:11px;max-width:150px">' + _kuormaTulkinta(r.kuilu) + '</div></div>') : '')
           + '</div>'
-          + '<div class="muted" style="font-size:11px;margin-top:10px">' + r.x + '/' + rosterN + ' kirjasi RPE:n</div></div>';
+          + '<div class="muted" style="font-size:11px;margin-top:10px">' + r.x + '/' + rosterN + masterT(' kirjasi RPE:n') + '</div></div>';
       } else {
         h += '<div style="display:flex;align-items:center;gap:10px;padding:9px 12px;background:var(--card);border:.5px solid var(--line2);border-radius:8px;margin-bottom:6px">'
           + '<div class="muted" style="font-size:12px;min-width:42px">' + pvmTxt + '</div>'
@@ -8309,15 +8309,15 @@ function renderKuorma() {
   f7.forEach(function(k) { var id = k._pelaajaId; if (!perP[id]) perP[id] = { nimi: k._nimi, f: [], r: [], kpl: 0 }; perP[id].f.push(fA(k)); if (k.rpe != null) perP[id].r.push(k.rpe); perP[id].kpl++; });
   var pIds = Object.keys(perP);
 
-  h += '<div class="caps" style="margin:22px 0 10px">Joukkuefiilis — viim. 7 pv</div>';
+  h += '<div class="caps" style="margin:22px 0 10px">' + masterT('Joukkuefiilis — viim. 7 pv') + '</div>';
   if (ka7 == null) {
-    h += '<div style="background:var(--card);border:.5px solid var(--line2);border-radius:10px;padding:18px;font-size:13px;color:var(--ink3)">Ei fiiliskirjauksia viimeiseltä 7 päivältä.</div>';
+    h += '<div style="background:var(--card);border:.5px solid var(--line2);border-radius:10px;padding:18px;font-size:13px;color:var(--ink3)">' + masterT('Ei fiiliskirjauksia viimeiseltä 7 päivältä.') + '</div>';
   } else {
-    var trTxt = trendi == null ? '' : ((trendi >= 0 ? '▲ +' : '▼ ') + r1(trendi) + ' vs edell. vk');
+    var trTxt = trendi == null ? '' : ((trendi >= 0 ? '▲ +' : '▼ ') + r1(trendi) + masterT(' vs edell. vk'));
     var trCol = trendi == null ? 'var(--ink3)' : (trendi >= 0 ? '#3DA35D' : '#E0A040');
     h += '<div style="background:var(--card);border:.5px solid var(--line2);border-radius:10px;padding:16px;margin-bottom:10px">'
-      + '<div style="display:flex;align-items:baseline;gap:8px"><div class="serif" style="font-size:32px">' + r1(ka7) + '</div><div class="muted" style="font-size:13px">/5 ka</div><div style="margin-left:auto;font-size:12px;color:' + trCol + '">' + trTxt + '</div></div>'
-      + '<div class="muted" style="font-size:11px;margin-top:4px">' + pIds.length + '/' + rosterN + ' kirjasi fiiliksen</div></div>';
+      + '<div style="display:flex;align-items:baseline;gap:8px"><div class="serif" style="font-size:32px">' + r1(ka7) + '</div><div class="muted" style="font-size:13px">' + masterT('/5 ka') + '</div><div style="margin-left:auto;font-size:12px;color:' + trCol + '">' + trTxt + '</div></div>'
+      + '<div class="muted" style="font-size:11px;margin-top:4px">' + pIds.length + '/' + rosterN + masterT(' kirjasi fiiliksen') + '</div></div>';
     h += '<div style="display:flex;flex-direction:column;gap:5px">';
     pIds.map(function(id) { var pp = perP[id]; return { nimi: pp.nimi, fka: avg(pp.f), rka: avg(pp.r), kpl: pp.kpl }; })
       .sort(function(a, b) { return a.fka - b.fka; })
@@ -8327,8 +8327,8 @@ function renderKuorma() {
           + '<div style="font-size:18px">' + _fiilisEmoji(pp.fka) + '</div>'
           + '<div style="flex:1;font-size:13px' + (low ? ';color:#F04E4E' : '') + '">' + _mEsc(pp.nimi) + '</div>'
           + (pp.rka != null ? ('<div class="muted" style="font-size:11px">RPE ' + r1(pp.rka) + '</div>') : '')
-          + '<div class="muted" style="font-size:11px;min-width:60px;text-align:right">fiilis ' + r1(pp.fka) + '</div>'
-          + '<div class="muted" style="font-size:10px;min-width:42px;text-align:right">' + pp.kpl + ' kirj.</div></div>';
+          + '<div class="muted" style="font-size:11px;min-width:60px;text-align:right">' + masterT('fiilis ') + r1(pp.fka) + '</div>'
+          + '<div class="muted" style="font-size:10px;min-width:42px;text-align:right">' + pp.kpl + masterT(' kirj.') + '</div></div>';
       });
     h += '</div>';
   }
@@ -8339,9 +8339,9 @@ function renderKuorma() {
   (_kirjaukset || []).forEach(function(k) { if (k.t >= d14 && fA(k) > 0 && fA(k) <= 2) { var id = k._pelaajaId; if (!lowDays[id]) lowDays[id] = {}; lowDays[id][k._pv] = 1; } });
   var wellness = Object.keys(lowDays).filter(function(id) { return Object.keys(lowDays[id]).length >= 2; }).map(function(id) { var kk = (_kirjaukset || []).find(function(x) { return x._pelaajaId === id; }); return kk ? kk._nimi : id; });
   var sig = '';
-  if (kuormaLiput >= 2) sig += '<div style="display:flex;gap:10px;padding:11px 14px;background:rgba(240,78,78,.08);border:.5px solid rgba(240,78,78,.3);border-radius:8px;margin-bottom:6px"><span>⚖️</span><div style="font-size:13px"><b>Kuormakuilu toistuu</b> — ' + kuormaLiput + ' harjoituksessa koettu rasitus poikkesi arviostasi ≥1.5. Tarkista mitoitus tai viestintä pelaajien kanssa.</div></div>';
-  wellness.forEach(function(nimi) { sig += '<div style="display:flex;gap:10px;padding:11px 14px;background:rgba(224,160,64,.08);border:.5px solid rgba(224,160,64,.3);border-radius:8px;margin-bottom:6px"><span>💛</span><div style="font-size:13px"><b>' + _mEsc(nimi) + '</b> — matala fiilis kahtena päivänä. Hyvä hetki lyhyeen kuulumiskeskusteluun.</div></div>'; });
-  if (sig) h += '<div class="caps" style="margin:22px 0 10px">Signaalit</div>' + sig;
+  if (kuormaLiput >= 2) sig += '<div style="display:flex;gap:10px;padding:11px 14px;background:rgba(240,78,78,.08);border:.5px solid rgba(240,78,78,.3);border-radius:8px;margin-bottom:6px"><span>⚖️</span><div style="font-size:13px"><b>' + masterT('Kuormakuilu toistuu') + '</b> — ' + kuormaLiput + masterT(' harjoituksessa koettu rasitus poikkesi arviostasi ≥1.5. Tarkista mitoitus tai viestintä pelaajien kanssa.') + '</div></div>';
+  wellness.forEach(function(nimi) { sig += '<div style="display:flex;gap:10px;padding:11px 14px;background:rgba(224,160,64,.08);border:.5px solid rgba(224,160,64,.3);border-radius:8px;margin-bottom:6px"><span>💛</span><div style="font-size:13px"><b>' + _mEsc(nimi) + '</b>' + masterT(' — matala fiilis kahtena päivänä. Hyvä hetki lyhyeen kuulumiskeskusteluun.') + '</div></div>'; });
+  if (sig) h += '<div class="caps" style="margin:22px 0 10px">' + masterT('Signaalit') + '</div>' + sig;
 
   el.innerHTML = h;
 }
