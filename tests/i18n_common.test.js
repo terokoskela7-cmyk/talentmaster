@@ -58,7 +58,7 @@ describe('C3 — drift-vartija (laajennettu V0.1): 0 kiellettyä variantti AKTII
     { rx: /Långspark/, kanoni: 'Längdspark' },
     { rx: /Framdrift-skott/, kanoni: 'Föring och skott' },
     { rx: /\bDribbling\b/, kanoni: 'Slalom' },   // laji-NIMI (iso alkukirjain, itsenäinen); jalkapallo-verbi "dribblingar" OK
-    { rx: /Träningsansvarig/, kanoni: 'Utvecklingsansvarig' },
+    { rx: /träningsansvarig/i, kanoni: 'Utvecklingsansvarig' },
   ];
   it('yksikään aktiivinen sv/en-arvo ei sisällä kiellettyä glossaari/laji/rooli-varianttia', () => {
     const osumat = [];
