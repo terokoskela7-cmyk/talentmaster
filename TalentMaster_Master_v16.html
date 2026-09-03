@@ -16,7 +16,7 @@
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-storage-compat.js"></script>
 <script src="lib/tm_lang.js?v=1"></script>   <!-- i18n V0 — fi/sv/en käännöstaulukko + t() + kieli-init (putkitus) -->
 <script src="lib/tm_i18n_common.js?v=2"></script>   <!-- i18n Vaihe 0 — JAETTU henkilöstö-i18n + lukittu glossaari (ENNEN sivukarttaa) -->
-<script src="lib/tm_master_i18n.js?v=18"></script>   <!-- i18n Vaihe 5 Raita B — Master sv (sivukartta); masterT/masterLokalisoi delegoivat commoniin -->
+<script src="lib/tm_master_i18n.js?v=19"></script>   <!-- i18n Vaihe 5 Raita B — Master sv (sivukartta); masterT/masterLokalisoi delegoivat commoniin -->
 <script src="lib/tm_eerikkila_normit.js?v=45"></script>   <!-- v43: D2-kortti d2_taso-ensin (renderKehityskorttiHTML, PR #264 · §30/#262) -->
 <script src="lib/tm_harjoitusarviointi.js?v=4"></script>
 <script src="lib/tm_kalenteri.js?v=1"></script>
@@ -7097,7 +7097,7 @@ window._prTallennaTavoite = async function (pid){
   var ta = document.getElementById('prTavoiteTeksti'), pe = document.getElementById('prTavoitePvm'), btn = document.getElementById('prTavoiteBtn');
   var teksti = ((ta && ta.value) || '').trim();
   if (!teksti){ if (typeof toast === 'function') toast(masterT('Kirjoita tavoite ensin'), 'error'); return; }
-  if (!_seuraId){ if (typeof toast === 'function') toast('Kirjaudu ensin', 'error'); return; }
+  if (!_seuraId){ if (typeof toast === 'function') toast(masterT('Kirjaudu ensin'), 'error'); return; }
   if (btn){ btn.disabled = true; btn.textContent = 'Tallennetaan…'; }
   try {
     var cu = _auth.currentUser; if (cu) await cu.getIdToken(true);   // §7.2
@@ -7360,9 +7360,9 @@ function _renderNarrative(p) {
 // Harjoitusarviointi (HARJOITUSARVIOINTI_SPEC) — valmentajan itsearvio, oma sessio
 window.avaaHarjoitusarviointi = async function () {
   try { localStorage.setItem('tm_valmentaja_itsearvio_' + (typeof _vcaUid === 'function' ? _vcaUid() : 'anon'), '1'); } catch (e) {}   // Aloita tästä -checklist (itsearvio avattu)
-  if (typeof TM_HARJOITUS === 'undefined') { if (typeof toast === 'function') toast('Lomake ei latautunut — päivitä sivu', 'error'); return; }
+  if (typeof TM_HARJOITUS === 'undefined') { if (typeof toast === 'function') toast(masterT('Lomake ei latautunut — päivitä sivu'), 'error'); return; }
   const cu = _auth.currentUser;
-  if (!cu || !_seuraId) { if (typeof toast === 'function') toast('Kirjaudu ensin', 'error'); return; }
+  if (!cu || !_seuraId) { if (typeof toast === 'function') toast(masterT('Kirjaudu ensin'), 'error'); return; }
   const vd = window._valmentajaData || {};
   const nimi = ((vd.etunimi || '') + ' ' + (vd.sukunimi || '')).trim() || 'Valmentaja';
   let config = null;
@@ -7375,7 +7375,7 @@ window.avaaHarjoitusarviointi = async function () {
   TM_HARJOITUS.avaa({
     db: _db, firebase: firebase, seuraId: _seuraId, config: config, brandi: brandi,
     joukkueet: joukkueet.length ? joukkueet : null,
-    malliLukko: 'valmennustaidot', tapaLukko: true, otsikko: 'Itsearvio',
+    malliLukko: 'valmennustaidot', tapaLukko: true, otsikko: masterT('Itsearvio'),
     konteksti: { joukkue: _joukkue || '', valmentaja: nimi, valmentajaUid: cu.uid, arvioija: nimi, arvioijaUid: cu.uid, arviointitapa: 'itsearvio' }
   });
 };
@@ -7406,15 +7406,15 @@ function _mkPiirraTrendi(canvasId, trend, maxY, color, label) {
 }
 window.avaaValmentajaKehitys = async function () {
   const cu = _auth.currentUser;
-  if (!cu || !_seuraId) { if (typeof toast === 'function') toast('Kirjaudu ensin', 'error'); return; }
+  if (!cu || !_seuraId) { if (typeof toast === 'function') toast(masterT('Kirjaudu ensin'), 'error'); return; }
   try { _mkCharts.forEach(ch => { try { ch.destroy(); } catch (e) {} }); } catch (e) {} _mkCharts = [];
   const vanha = document.getElementById('mkModal'); if (vanha) vanha.remove();
   const m = document.createElement('div'); m.id = 'mkModal';
   m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9400;display:flex;align-items:flex-start;justify-content:center;padding:20px 16px;overflow-y:auto';
   m.onclick = e => { if (e.target === m) m.remove(); };
   m.innerHTML = '<div onclick="event.stopPropagation()" style="background:var(--card);border:.5px solid var(--line);border-radius:14px;width:min(680px,96vw);padding:20px 22px;margin:auto">'
-    + '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px"><div style="font-family:\'Cormorant Garamond\',serif;font-size:24px;color:var(--ink)">Valmentajana kehittyminen</div><button onclick="document.getElementById(\'mkModal\').remove()" style="background:none;border:none;color:var(--ink3);font-size:24px;cursor:pointer">×</button></div>'
-    + '<div style="font-size:12px;color:var(--ink3);margin-bottom:14px">Oma ammatillinen kehityksesi yhdessä paikassa — kasvun työkalu, ei arvosana.</div>'
+    + '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px"><div style="font-family:\'Cormorant Garamond\',serif;font-size:24px;color:var(--ink)">' + masterT('Valmentajana kehittyminen') + '</div><button onclick="document.getElementById(\'mkModal\').remove()" style="background:none;border:none;color:var(--ink3);font-size:24px;cursor:pointer">×</button></div>'
+    + '<div style="font-size:12px;color:var(--ink3);margin-bottom:14px">' + masterT('Oma ammatillinen kehityksesi yhdessä paikassa — kasvun työkalu, ei arvosana.') + '</div>'
     + '<div id="mkSisalto"><div style="font-size:13px;color:var(--ink3);padding:10px 0">Ladataan…</div></div></div>';
   document.body.appendChild(m);
   const sis = document.getElementById('mkSisalto');
@@ -7431,7 +7431,7 @@ window.avaaValmentajaKehitys = async function () {
     let cpdVaatimusKonf = null;
     try { const cs = await _db.collection('seurat').doc(_seuraId).collection('konfiguraatio').doc('harjoitusarviointi').get(); if (cs.exists) cpdVaatimusKonf = (cs.data() || {}).cpd_vaatimus_h || null; } catch (e) {}
 
-    if (!k.n_A && !k.n_B && !standalone.length) { sis.innerHTML = '<div style="font-size:13px;color:var(--ink3);padding:16px 0;text-align:center">Ei vielä harjoitusarviointeja tai reflektioita. Kun arvioit harjoituksiasi (tai VP havainnoi niitä) tai kirjoitat reflektion, oma kehityksesi näkyy täällä.</div>'; return; }
+    if (!k.n_A && !k.n_B && !standalone.length) { sis.innerHTML = '<div style="font-size:13px;color:var(--ink3);padding:16px 0;text-align:center">' + masterT('Ei vielä harjoitusarviointeja tai reflektioita. Kun arvioit harjoituksiasi (tai VP havainnoi niitä) tai kirjoitat reflektion, oma kehityksesi näkyy täällä.') + '</div>'; return; }
 
     let h = '';
     // 1) VAHVUUS ENSIN — sitoutuminen + nykytaso myönteisesti
@@ -7439,32 +7439,32 @@ window.avaaValmentajaKehitys = async function () {
       + '<div style="font-size:13px;color:var(--ink2);line-height:1.5;margin-bottom:10px">Olet arvioinut harjoittelua <b>' + (k.n_A + k.n_B) + '</b> kertaa — hieno sitoutuminen oman valmennuksesi kehittämiseen. 🌱</div>'
       + '<div style="display:flex;gap:18px;flex-wrap:wrap">'
       // ROOLIMALLI (SPEC §1): valmentaja EI näe omaa Malli A -numeroaan (harjoituslaatu) — vain B + laadullinen palaute.
-      + '<div><div style="font-size:10px;text-transform:uppercase;color:var(--ink3)">Valmennustaidot</div><div style="font-family:\'Cormorant Garamond\',serif;font-size:26px;color:var(--teal)">' + (vtKa != null ? vtKa + '<span style="font-size:12px;color:var(--ink3)">/5</span>' : '—') + '</div></div>'
+      + '<div><div style="font-size:10px;text-transform:uppercase;color:var(--ink3)">' + masterT('Valmennustaidot') + '</div><div style="font-family:\'Cormorant Garamond\',serif;font-size:26px;color:var(--teal)">' + (vtKa != null ? vtKa + '<span style="font-size:12px;color:var(--ink3)">/5</span>' : '—') + '</div></div>'
       + '</div></div>';
 
     // 2) SEURAAVA ASKEL — uusin sovittu kehityskohde nostettuna
     if (k.seuraavaAskel) {
       h += '<div style="background:var(--bg2);border:.5px solid var(--amber);border-radius:12px;padding:13px 16px;margin-bottom:16px">'
-        + '<div style="font-size:11px;font-weight:600;text-transform:uppercase;color:var(--amber);margin-bottom:4px">🎯 Seuraava askel</div>'
+        + '<div style="font-size:11px;font-weight:600;text-transform:uppercase;color:var(--amber);margin-bottom:4px">' + masterT('🎯 Seuraava askel') + '</div>'
         + '<div style="font-size:14px;color:var(--ink)">' + _mEsc(k.seuraavaAskel.teksti) + '</div>'
         + '<div style="font-size:10px;color:var(--ink3);margin-top:3px">Omasta reflektiostasi · ' + _mEsc((k.seuraavaAskel.pvm || '').slice(0, 10)) + '</div></div>';
     }
 
     // 3) OMAT TRENDIT — vain B (/5). ROOLIMALLI (SPEC §1): A-trendi ei näy valmentajalle.
-    h += '<div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--ink3);margin-bottom:8px">Oma trendi — valmennustaidot</div><div style="margin-bottom:18px">';
-    h += '<div style="background:var(--bg2);border:.5px solid var(--line);border-radius:10px;padding:12px 14px"><div style="font-size:11px;color:var(--ink2);margin-bottom:6px">Valmennustaidot (B) /5</div>' + (k.trendB.length ? '<div style="position:relative;height:160px"><canvas id="mkTrendB"></canvas></div>' : '<div style="font-size:11px;color:var(--ink3);padding:18px 0;text-align:center">Ei vielä itsearvioita.</div>') + '</div>';
+    h += '<div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--ink3);margin-bottom:8px">' + masterT('Oma trendi — valmennustaidot') + '</div><div style="margin-bottom:18px">';
+    h += '<div style="background:var(--bg2);border:.5px solid var(--line);border-radius:10px;padding:12px 14px"><div style="font-size:11px;color:var(--ink2);margin-bottom:6px">' + masterT('Valmennustaidot (B) /5') + '</div>' + (k.trendB.length ? '<div style="position:relative;height:160px"><canvas id="mkTrendB"></canvas></div>' : '<div style="font-size:11px;color:var(--ink3);padding:18px 0;text-align:center">' + masterT('Ei vielä itsearvioita.') + '</div>') + '</div>';
     h += '</div>';
 
     // 4) OMA KALIBRAATIO — myönteinen kehys (§7.22)
     if (k.kalib && k.kalib.n_paria) {
       const r = k.kalib;
-      const krit = r.suurin_kuilu_kriteeri ? (_HA_KRIT_B[r.suurin_kuilu_kriteeri] || r.suurin_kuilu_kriteeri) : null;
+      const krit = r.suurin_kuilu_kriteeri ? masterT(_HA_KRIT_B[r.suurin_kuilu_kriteeri] || r.suurin_kuilu_kriteeri) : null;
       const viesti = (r.suunta === 'linjassa')
-        ? 'Itsearviosi ja havainnoijan näkemys ovat hyvin linjassa — vahva itsetuntemus.'
-        : ('Havainnoija näki ' + (krit ? ('etenkin kohdan “' + krit + '”') : 'muutaman asian') + ' hieman eri tavalla kuin sinä — hyvä keskustelunaihe yhdessä.');
-      const kav = r.kaventuu === true ? ' Näkemyksenne ovat lähentyneet ajan myötä — kasvava itsetuntemus. 👏' : '';
+        ? masterT('Itsearviosi ja havainnoijan näkemys ovat hyvin linjassa — vahva itsetuntemus.')
+        : (masterT('Havainnoija näki ') + (krit ? (masterT('etenkin kohdan “') + krit + '”') : masterT('muutaman asian')) + masterT(' hieman eri tavalla kuin sinä — hyvä keskustelunaihe yhdessä.'));
+      const kav = r.kaventuu === true ? masterT(' Näkemyksenne ovat lähentyneet ajan myötä — kasvava itsetuntemus. 👏') : '';
       h += '<div style="background:rgba(40,176,144,.08);border:.5px solid var(--teal);border-radius:12px;padding:13px 16px;margin-bottom:16px">'
-        + '<div style="font-size:11px;font-weight:600;text-transform:uppercase;color:var(--teal);margin-bottom:6px">⚖️ Itsearvio &amp; havainnointi</div>'
+        + '<div style="font-size:11px;font-weight:600;text-transform:uppercase;color:var(--teal);margin-bottom:6px">' + masterT('⚖️ Itsearvio &amp; havainnointi') + '</div>'
         + '<div style="font-size:13px;color:var(--ink2);line-height:1.5">' + viesti + kav + '</div>'
         + '<div style="font-size:11px;color:var(--ink3);margin-top:6px">' + r.n_paria + ' yhteistä harjoitusta verrattu — kalibraatio on kasvun työkalu, ei arvosana.</div></div>';
     }
@@ -7479,15 +7479,15 @@ window.avaaValmentajaKehitys = async function () {
     const _saaAsettaa = (typeof _superAdmin !== 'undefined' && _superAdmin) || ['vp', 'urheilutoimenjohtaja', 'seurasihteeri'].indexOf(_rooli) >= 0;
     h += '<div style="background:var(--bg2);border:.5px solid var(--line);border-radius:12px;padding:14px 16px;margin-bottom:16px">'
       + '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:8px"><div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--ink3)">CPD-kertymä' + (_lis ? ' · ' + (_LIS_NIMI[_lis] || _lis) : '') + '</div>'
-      + '<div style="display:flex;gap:6px">' + (_saaAsettaa ? '<button onclick="_cpdAsetaVaatimus()" style="font-size:11px;padding:4px 10px;border:.5px solid var(--border);background:var(--surface);color:var(--ink2);border-radius:6px;cursor:pointer">⚙ Vaatimukset</button>' : '') + '<button onclick="_cpdTodistePDF()" style="font-size:11px;padding:4px 10px;border:.5px solid var(--teal);background:rgba(40,176,144,.1);color:var(--teal);border-radius:6px;cursor:pointer">📄 CPD-todiste</button></div></div>'
+      + '<div style="display:flex;gap:6px">' + (_saaAsettaa ? '<button onclick="_cpdAsetaVaatimus()" style="font-size:11px;padding:4px 10px;border:.5px solid var(--border);background:var(--surface);color:var(--ink2);border-radius:6px;cursor:pointer">' + masterT('⚙ Vaatimukset') + '</button>' : '') + '<button onclick="_cpdTodistePDF()" style="font-size:11px;padding:4px 10px;border:.5px solid var(--teal);background:rgba(40,176,144,.1);color:var(--teal);border-radius:6px;cursor:pointer">' + masterT('📄 CPD-todiste') + '</button></div></div>'
       + '<div style="display:flex;gap:18px;flex-wrap:wrap;margin-bottom:' + (cpd.vaatimus_h ? '10' : '0') + 'px">'
-      + '<div><div style="font-size:10px;text-transform:uppercase;color:var(--ink3)">Kertynyt</div><div style="font-family:\'Cormorant Garamond\',serif;font-size:26px;color:var(--teal)">' + cpd.kertynyt_h + '<span style="font-size:12px;color:var(--ink3)"> h</span></div></div>'
-      + '<div style="align-self:center;font-size:11px;color:var(--ink3)">Reflektiot ' + cpd.reflektio_h + ' h · Koulutukset/kurssit ' + cpd.koulutus_h + ' h</div></div>';
+      + '<div><div style="font-size:10px;text-transform:uppercase;color:var(--ink3)">' + masterT('Kertynyt') + '</div><div style="font-family:\'Cormorant Garamond\',serif;font-size:26px;color:var(--teal)">' + cpd.kertynyt_h + '<span style="font-size:12px;color:var(--ink3)"> h</span></div></div>'
+      + '<div style="align-self:center;font-size:11px;color:var(--ink3)">' + masterT('Reflektiot ') + cpd.reflektio_h + masterT(' h · Koulutukset/kurssit ') + cpd.koulutus_h + ' h</div></div>';
     if (cpd.vaatimus_h) {
       h += '<div style="height:8px;background:var(--card);border-radius:4px;overflow:hidden;margin-bottom:4px"><div style="height:8px;width:' + cpd.edistyma_pct + '%;background:' + (cpd.edistyma_pct >= 100 ? 'var(--teal)' : 'var(--amber)') + '"></div></div>'
-        + '<div style="font-size:11px;color:var(--ink3)">' + cpd.edistyma_pct + ' % vaatimuksesta (' + cpd.vaatimus_h + ' h ' + (_LIS_NIMI[_lis] || _lis) + ')</div>';
+        + '<div style="font-size:11px;color:var(--ink3)">' + cpd.edistyma_pct + masterT(' % vaatimuksesta (') + cpd.vaatimus_h + ' h ' + (_LIS_NIMI[_lis] || _lis) + ')</div>';
     } else {
-      h += '<div style="font-size:11px;color:var(--ink3);margin-top:6px">CPD-vaatimusta ei asetettu' + (_lis ? '' : ' (lisenssitaso puuttuu profiilista)') + ' — näytetään kertynyt ilman tavoitepalkkia.</div>';
+      h += '<div style="font-size:11px;color:var(--ink3);margin-top:6px">CPD-vaatimusta ei asetettu' + (_lis ? '' : masterT(' (lisenssitaso puuttuu profiilista)')) + ' — näytetään kertynyt ilman tavoitepalkkia.</div>';
     }
     h += '</div>';
 
@@ -7499,11 +7499,11 @@ window.avaaValmentajaKehitys = async function () {
       return { a, palaute };
     }));
     const withFb = blokit.filter(b => b.palaute.length);
-    h += '<div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--ink3);margin-bottom:8px">Saatu palaute</div>';
-    if (!withFb.length) h += '<div style="font-size:12px;color:var(--ink3);padding:6px 0;margin-bottom:14px">Ei jaettua palautetta vielä. VP / mentori voi jakaa palautetta harjoitusarvioinneistasi.</div>';
+    h += '<div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--ink3);margin-bottom:8px">' + masterT('Saatu palaute') + '</div>';
+    if (!withFb.length) h += '<div style="font-size:12px;color:var(--ink3);padding:6px 0;margin-bottom:14px">' + masterT('Ei jaettua palautetta vielä. VP / mentori voi jakaa palautetta harjoitusarvioinneistasi.') + '</div>';
     else withFb.forEach(b => {
       h += '<div style="background:var(--bg2);border:.5px solid var(--line);border-radius:10px;padding:11px 14px;margin-bottom:8px">'
-        + '<div style="font-size:12px;color:var(--ink)">' + _mEsc(b.a.joukkue || '—') + ' <span style="color:var(--ink3);font-size:11px">· ' + _mEsc(b.a.pvm || '') + ' · ' + (_HA_KRIT_NIMI[b.a.malli] || b.a.malli) + '</span></div>'
+        + '<div style="font-size:12px;color:var(--ink)">' + _mEsc(b.a.joukkue || '—') + ' <span style="color:var(--ink3);font-size:11px">· ' + _mEsc(b.a.pvm || '') + ' · ' + masterT(_HA_KRIT_NIMI[b.a.malli] || b.a.malli) + '</span></div>'
         + b.palaute.map(p => '<div style="font-size:12px;color:var(--ink2);padding:5px 0 0"><span style="color:var(--teal)">💬</span> ' + _mEsc(p.teksti) + '<div style="font-size:10px;color:var(--ink3);margin-top:2px">' + _mEsc(p.tekija_rooli || '') + ' · ' + _mEsc((p.pvm || '').slice(0, 10)) + '</div></div>').join('')
         + '</div>';
     });
@@ -7514,19 +7514,19 @@ window.avaaValmentajaKehitys = async function () {
     k.reflektiot.forEach(rf => aikajana.push({ kind: 'arviointi', pvm: rf.pvm, joukkue: rf.joukkue, onnistui: rf.onnistui, toisin: rf.toisin, kehityskohde: rf.kehityskohde }));
     aikajana.sort((a, b) => String(b.pvm || '').localeCompare(String(a.pvm || '')));
 
-    h += '<div style="display:flex;justify-content:space-between;align-items:center;margin:16px 0 8px"><div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--ink3)">Oma reflektiopäiväkirja</div>'
-      + '<button onclick="_refUusi()" style="font-size:11px;padding:5px 12px;border:.5px solid var(--teal);background:rgba(40,176,144,.12);color:var(--teal);border-radius:7px;cursor:pointer">+ Uusi merkintä</button></div>';
-    if (!aikajana.length) h += '<div style="font-size:12px;color:var(--ink3);padding:6px 0">Ei reflektioita vielä. Kirjoita tai nauhoita ensimmäinen merkintä — tai täytä malli B -arvioinnin reflektio. Tämä on oma yksityinen kasvupäiväkirjasi.</div>';
+    h += '<div style="display:flex;justify-content:space-between;align-items:center;margin:16px 0 8px"><div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--ink3)">' + masterT('Oma reflektiopäiväkirja') + '</div>'
+      + '<button onclick="_refUusi()" style="font-size:11px;padding:5px 12px;border:.5px solid var(--teal);background:rgba(40,176,144,.12);color:var(--teal);border-radius:7px;cursor:pointer">' + masterT('+ Uusi merkintä') + '</button></div>';
+    if (!aikajana.length) h += '<div style="font-size:12px;color:var(--ink3);padding:6px 0">' + masterT('Ei reflektioita vielä. Kirjoita tai nauhoita ensimmäinen merkintä — tai täytä malli B -arvioinnin reflektio. Tämä on oma yksityinen kasvupäiväkirjasi.') + '</div>';
     else aikajana.forEach(rf => {
       const oma = rf.kind === 'oma';
-      const lahdeLbl = oma ? 'oma' : 'arvioinnista';
+      const lahdeLbl = oma ? masterT('oma') : masterT('arvioinnista');
       const cpdChip = (rf.cpd_minuutit != null && rf.cpd_minuutit !== '') ? '<span style="font-size:9px;color:var(--amber);border:.5px solid var(--amber);padding:0 5px;border-radius:8px;margin-left:6px">CPD ' + _mEsc(String(rf.cpd_minuutit)) + ' min</span>' : '';
       const audioHtml = rf.audio_url ? '<audio controls preload="none" src="' + _mEsc(rf.audio_url) + '" style="width:100%;margin-top:6px;height:36px"></audio>' + (rf.audio_kesto_s ? '<span style="font-size:10px;color:var(--ink3);margin-left:4px">🎙 ' + _refFmt(rf.audio_kesto_s) + '</span>' : '') + (rf.transkriptio ? '<div style="font-size:12px;color:var(--ink2);margin-top:4px"><span style="color:var(--ink3)">📝</span> ' + _mEsc(rf.transkriptio) + '</div>' : '') : '';
       const delBtn = oma ? '<button onclick="_refPoista(\'' + rf.id + '\')" title="Poista merkintä" style="background:none;border:none;color:var(--ink3);font-size:11px;cursor:pointer">🗑</button>' : '';
       h += '<div style="border-left:2px solid ' + (oma ? 'var(--teal)' : 'var(--ink3)') + ';padding:4px 0 8px 12px;margin-bottom:8px">'
         + '<div style="display:flex;justify-content:space-between;align-items:center"><div style="font-size:10px;color:var(--ink3)">' + _mEsc((rf.pvm || '').slice(0, 10)) + (rf.joukkue ? ' · ' + _mEsc(rf.joukkue) : '') + ' · ' + lahdeLbl + cpdChip + '</div>' + delBtn + '</div>'
-        + (rf.onnistui ? '<div style="font-size:12px;color:var(--ink2)"><b style="color:var(--teal)">Onnistui:</b> ' + _mEsc(rf.onnistui) + '</div>' : '')
-        + (rf.toisin ? '<div style="font-size:12px;color:var(--ink2)"><b>Toisin:</b> ' + _mEsc(rf.toisin) + '</div>' : '')
+        + (rf.onnistui ? '<div style="font-size:12px;color:var(--ink2)"><b style="color:var(--teal)">' + masterT('Onnistui:') + '</b> ' + _mEsc(rf.onnistui) + '</div>' : '')
+        + (rf.toisin ? '<div style="font-size:12px;color:var(--ink2)"><b>' + masterT('Toisin:') + '</b> ' + _mEsc(rf.toisin) + '</div>' : '')
         + (rf.kehityskohde ? '<div style="font-size:12px;color:var(--ink2)"><b style="color:var(--amber)">Kehityskohde:</b> ' + _mEsc(rf.kehityskohde) + '</div>' : '')
         + (rf.teksti ? '<div style="font-size:12px;color:var(--ink2);white-space:pre-wrap">' + _mEsc(rf.teksti) + '</div>' : '')
         + audioHtml + '</div>';
@@ -7566,15 +7566,15 @@ function _refReset() {
 function _refRenderRec() {
   const btn = document.getElementById('refRecBtn'), aika = document.getElementById('refRecAika'), prev = document.getElementById('refPreview');
   if (!btn) return;
-  if (_refTila === 'recording') { btn.textContent = '■ Lopeta'; btn.style.background = 'var(--red)'; btn.style.color = '#fff'; btn.style.border = 'none'; if (prev) prev.innerHTML = ''; }
+  if (_refTila === 'recording') { btn.textContent = masterT('■ Lopeta'); btn.style.background = 'var(--red)'; btn.style.color = '#fff'; btn.style.border = 'none'; if (prev) prev.innerHTML = ''; }
   else if (_refTila === 'recorded') {
-    btn.textContent = '↻ Nauhoita uudelleen'; btn.style.background = 'var(--surface)'; btn.style.color = 'var(--ink2)'; btn.style.border = '.5px solid var(--border)';
+    btn.textContent = masterT('↻ Nauhoita uudelleen'); btn.style.background = 'var(--surface)'; btn.style.color = 'var(--ink2)'; btn.style.border = '.5px solid var(--border)';
     if (aika) aika.textContent = '🎙 ' + _refFmt(_refSeconds);
     if (prev && _refBlob) {
       const url = URL.createObjectURL(_refBlob);
       let pv = '<audio controls src="' + url + '" style="width:100%;height:36px"></audio>';
-      if (_refTranskriptio) pv += '<div style="font-size:12px;color:var(--ink2);background:var(--card);border:.5px solid var(--line);border-radius:8px;padding:8px 10px;margin-top:6px"><b style="color:var(--teal)">Litterointi:</b> ' + _mEsc(_refTranskriptio) + '</div>';
-      else pv += '<div style="margin-top:6px;display:flex;align-items:center;gap:8px;flex-wrap:wrap"><button type="button" onclick="_refLitteroi()" id="refLitteroiBtn" style="font-size:11px;padding:5px 12px;border:.5px solid var(--teal);background:rgba(40,176,144,.1);color:var(--teal);border-radius:7px;cursor:pointer">✍ Litteroi (valinnainen)</button><span style="font-size:10px;color:var(--ink3)">ääni lähetetään litteroitavaksi (opt-in)</span></div>';
+      if (_refTranskriptio) pv += '<div style="font-size:12px;color:var(--ink2);background:var(--card);border:.5px solid var(--line);border-radius:8px;padding:8px 10px;margin-top:6px"><b style="color:var(--teal)">' + masterT('Litterointi:') + '</b> ' + _mEsc(_refTranskriptio) + '</div>';
+      else pv += '<div style="margin-top:6px;display:flex;align-items:center;gap:8px;flex-wrap:wrap"><button type="button" onclick="_refLitteroi()" id="refLitteroiBtn" style="font-size:11px;padding:5px 12px;border:.5px solid var(--teal);background:rgba(40,176,144,.1);color:var(--teal);border-radius:7px;cursor:pointer">' + masterT('✍ Litteroi (valinnainen)') + '</button><span style="font-size:10px;color:var(--ink3)">' + masterT('ääni lähetetään litteroitavaksi (opt-in)') + '</span></div>';
       prev.innerHTML = pv;
     }
   } else { btn.textContent = '● Nauhoita'; btn.style.background = 'var(--teal)'; btn.style.color = '#fff'; btn.style.border = 'none'; if (aika) aika.textContent = ''; if (prev) prev.innerHTML = ''; }
@@ -7587,7 +7587,7 @@ window._refRecToggle = async function () {   // käyttäjäele (iOS-vaatimus): g
   if (_refTila === 'recording') { _refStop(); return; }
   if (_refTila === 'recorded') { _refReset(); _refRenderRec(); }
   try { _refStream = await navigator.mediaDevices.getUserMedia({ audio: true }); }
-  catch (e) { if (typeof toast === 'function') toast('Mikrofonin käyttö estetty', 'error'); return; }
+  catch (e) { if (typeof toast === 'function') toast(masterT('Mikrofonin käyttö estetty'), 'error'); return; }
   _refMime = _refValitseMime(); _refExt = _refExtFor(_refMime);
   try { _refRecorder = _refMime ? new MediaRecorder(_refStream, { mimeType: _refMime }) : new MediaRecorder(_refStream); }
   catch (e) { _refRecorder = new MediaRecorder(_refStream); }
@@ -7605,8 +7605,8 @@ window._refRecToggle = async function () {   // käyttäjäele (iOS-vaatimus): g
 };
 window._refLitteroi = async function () {   // opt-in Whisper-litterointi (aiProxy voice_transcribe — olemassa oleva CF §13)
   if (!_refBlob) return;
-  const cu = _auth.currentUser; if (!cu) { if (typeof toast === 'function') toast('Kirjaudu ensin', 'error'); return; }
-  const btn = document.getElementById('refLitteroiBtn'); if (btn) { btn.disabled = true; btn.textContent = 'Litteroidaan…'; }
+  const cu = _auth.currentUser; if (!cu) { if (typeof toast === 'function') toast(masterT('Kirjaudu ensin'), 'error'); return; }
+  const btn = document.getElementById('refLitteroiBtn'); if (btn) { btn.disabled = true; btn.textContent = masterT('Litteroidaan…'); }
   try {
     const base64 = await _blobToBase64(_refBlob);
     const idToken = await cu.getIdToken();
@@ -7620,9 +7620,9 @@ window._refLitteroi = async function () {   // opt-in Whisper-litterointi (aiPro
     _refTranskriptio = String((j && (j.text || j.transkriptio)) || '').trim();
     if (!_refTranskriptio) throw new Error('tyhjä litterointi');
     _refRenderRec();
-    if (typeof toast === 'function') toast('✓ Litteroitu', 'ok');
+    if (typeof toast === 'function') toast(masterT('✓ Litteroitu'), 'ok');
   } catch (e) {
-    if (typeof toast === 'function') toast('Litterointi epäonnistui — äänireflektio toimii silti.', 'error');
+    if (typeof toast === 'function') toast(masterT('Litterointi epäonnistui — äänireflektio toimii silti.'), 'error');
     if (btn) { btn.disabled = false; btn.textContent = '✍ Litteroi (valinnainen)'; }
   }
 };
@@ -7634,21 +7634,21 @@ window._refUusi = function () {
   m.onclick = e => { if (e.target === m) _refSulje(); };
   const audioTuettu = !!_refValitseMime() && !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
   let h = '<div onclick="event.stopPropagation()" style="background:var(--card);border:.5px solid var(--line);border-radius:14px;width:min(540px,96vw);padding:20px 22px;margin:auto">'
-    + '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px"><div style="font-family:\'Cormorant Garamond\',serif;font-size:20px;color:var(--ink)">Uusi reflektiomerkintä</div><button onclick="_refSulje()" style="background:none;border:none;color:var(--ink3);font-size:24px;cursor:pointer">×</button></div>'
-    + '<div style="font-size:11px;color:var(--ink3);margin-bottom:12px">Oma yksityinen kasvupäiväkirja — vain sinä näet tämän.</div>'
-    + '<div style="display:flex;gap:8px;margin-bottom:12px"><button type="button" id="refTyyppiOhjattu" onclick="_refTyyppi(\'ohjattu\')" style="flex:1;padding:8px;border-radius:7px;border:.5px solid var(--teal);background:rgba(40,176,144,.12);color:var(--teal);cursor:pointer;font-size:12px">Ohjattu (Plan-Do-Review)</button>'
-    + '<button type="button" id="refTyyppiVapaa" onclick="_refTyyppi(\'vapaa\')" style="flex:1;padding:8px;border-radius:7px;border:.5px solid var(--border);background:var(--surface);color:var(--ink3);cursor:pointer;font-size:12px">Vapaa teksti</button></div>'
+    + '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px"><div style="font-family:\'Cormorant Garamond\',serif;font-size:20px;color:var(--ink)">' + masterT('Uusi reflektiomerkintä') + '</div><button onclick="_refSulje()" style="background:none;border:none;color:var(--ink3);font-size:24px;cursor:pointer">×</button></div>'
+    + '<div style="font-size:11px;color:var(--ink3);margin-bottom:12px">' + masterT('Oma yksityinen kasvupäiväkirja — vain sinä näet tämän.') + '</div>'
+    + '<div style="display:flex;gap:8px;margin-bottom:12px"><button type="button" id="refTyyppiOhjattu" onclick="_refTyyppi(\'ohjattu\')" style="flex:1;padding:8px;border-radius:7px;border:.5px solid var(--teal);background:rgba(40,176,144,.12);color:var(--teal);cursor:pointer;font-size:12px">' + masterT('Ohjattu (Plan-Do-Review)') + '</button>'
+    + '<button type="button" id="refTyyppiVapaa" onclick="_refTyyppi(\'vapaa\')" style="flex:1;padding:8px;border-radius:7px;border:.5px solid var(--border);background:var(--surface);color:var(--ink3);cursor:pointer;font-size:12px">' + masterT('Vapaa teksti') + '</button></div>'
     + '<div id="refOhjattu">'
-    + '<div style="font-size:10px;color:var(--ink3);margin-bottom:6px">Plan-Do-Review — reflektoi harjoitus kolmessa vaiheessa.</div>'
-    + '<label style="font-size:11px;color:var(--ink3)">Mikä onnistui?</label><textarea id="ref_onnistui" maxlength="600" rows="2" style="width:100%;margin:3px 0 8px;padding:7px 9px;border:.5px solid var(--border);border-radius:6px;background:var(--bg2);color:var(--ink);font-size:12px;resize:vertical"></textarea>'
-    + '<label style="font-size:11px;color:var(--ink3)">Mitä tekisin toisin?</label><textarea id="ref_toisin" maxlength="600" rows="2" style="width:100%;margin:3px 0 8px;padding:7px 9px;border:.5px solid var(--border);border-radius:6px;background:var(--bg2);color:var(--ink);font-size:12px;resize:vertical"></textarea>'
-    + '<label style="font-size:11px;color:var(--ink3)">Kehityskohde</label><textarea id="ref_kehityskohde" maxlength="400" rows="2" style="width:100%;margin:3px 0 8px;padding:7px 9px;border:.5px solid var(--border);border-radius:6px;background:var(--bg2);color:var(--ink);font-size:12px;resize:vertical"></textarea></div>'
-    + '<div id="refVapaa" style="display:none"><label style="font-size:11px;color:var(--ink3)">Reflektio</label><textarea id="ref_teksti" maxlength="2000" rows="4" style="width:100%;margin:3px 0 8px;padding:7px 9px;border:.5px solid var(--border);border-radius:6px;background:var(--bg2);color:var(--ink);font-size:12px;resize:vertical"></textarea></div>'
-    + '<div style="background:var(--bg2);border:.5px solid var(--line);border-radius:10px;padding:12px 14px;margin:8px 0 12px"><div style="font-size:11px;font-weight:600;color:var(--ink2);margin-bottom:8px">🎙 Äänireflektio <span style="font-weight:400;color:var(--ink3)">(valinnainen, max 3 min)</span></div>'
-    + (audioTuettu ? '<div id="refRecAlue"><button type="button" id="refRecBtn" onclick="_refRecToggle()" style="padding:8px 16px;border-radius:8px;border:none;background:var(--teal);color:#fff;font-size:12px;cursor:pointer">● Nauhoita</button> <span id="refRecAika" style="font-size:12px;color:var(--ink3)"></span></div><div id="refPreview" style="margin-top:8px"></div>' : '<div style="font-size:11px;color:var(--ink3)">Äänitallennus ei ole tuettu tässä selaimessa — voit silti kirjoittaa reflektion.</div>')
+    + '<div style="font-size:10px;color:var(--ink3);margin-bottom:6px">' + masterT('Plan-Do-Review — reflektoi harjoitus kolmessa vaiheessa.') + '</div>'
+    + '<label style="font-size:11px;color:var(--ink3)">' + masterT('Mikä onnistui?') + '</label><textarea id="ref_onnistui" maxlength="600" rows="2" style="width:100%;margin:3px 0 8px;padding:7px 9px;border:.5px solid var(--border);border-radius:6px;background:var(--bg2);color:var(--ink);font-size:12px;resize:vertical"></textarea>'
+    + '<label style="font-size:11px;color:var(--ink3)">' + masterT('Mitä tekisin toisin?') + '</label><textarea id="ref_toisin" maxlength="600" rows="2" style="width:100%;margin:3px 0 8px;padding:7px 9px;border:.5px solid var(--border);border-radius:6px;background:var(--bg2);color:var(--ink);font-size:12px;resize:vertical"></textarea>'
+    + '<label style="font-size:11px;color:var(--ink3)">' + masterT('Kehityskohde') + '</label><textarea id="ref_kehityskohde" maxlength="400" rows="2" style="width:100%;margin:3px 0 8px;padding:7px 9px;border:.5px solid var(--border);border-radius:6px;background:var(--bg2);color:var(--ink);font-size:12px;resize:vertical"></textarea></div>'
+    + '<div id="refVapaa" style="display:none"><label style="font-size:11px;color:var(--ink3)">' + masterT('Reflektio') + '</label><textarea id="ref_teksti" maxlength="2000" rows="4" style="width:100%;margin:3px 0 8px;padding:7px 9px;border:.5px solid var(--border);border-radius:6px;background:var(--bg2);color:var(--ink);font-size:12px;resize:vertical"></textarea></div>'
+    + '<div style="background:var(--bg2);border:.5px solid var(--line);border-radius:10px;padding:12px 14px;margin:8px 0 12px"><div style="font-size:11px;font-weight:600;color:var(--ink2);margin-bottom:8px">' + masterT('🎙 Äänireflektio') + '<span style="font-weight:400;color:var(--ink3)">' + masterT('(valinnainen, max 3 min)') + '</span></div>'
+    + (audioTuettu ? '<div id="refRecAlue"><button type="button" id="refRecBtn" onclick="_refRecToggle()" style="padding:8px 16px;border-radius:8px;border:none;background:var(--teal);color:#fff;font-size:12px;cursor:pointer">' + masterT('● Nauhoita') + '</button> <span id="refRecAika" style="font-size:12px;color:var(--ink3)"></span></div><div id="refPreview" style="margin-top:8px"></div>' : '<div style="font-size:11px;color:var(--ink3)">' + masterT('Äänitallennus ei ole tuettu tässä selaimessa — voit silti kirjoittaa reflektion.') + '</div>')
     + '</div>'
-    + '<div style="display:flex;align-items:center;gap:8px;margin-bottom:14px"><label style="font-size:12px;color:var(--ink2)">CPD-minuutit</label><input type="number" id="ref_cpd" min="0" max="600" placeholder="—" style="width:80px;padding:6px 8px;border:.5px solid var(--border);border-radius:6px;background:var(--bg2);color:var(--ink);font-size:12px"><span style="font-size:10px;color:var(--ink3)">(tallennetaan; CPD-koonti tulossa)</span></div>'
-    + '<button onclick="_refTallenna()" id="refTallennaBtn" style="width:100%;padding:11px;border:none;border-radius:9px;background:var(--teal);color:#fff;font-size:14px;font-weight:600;cursor:pointer">Tallenna merkintä</button></div>';
+    + '<div style="display:flex;align-items:center;gap:8px;margin-bottom:14px"><label style="font-size:12px;color:var(--ink2)">' + masterT('CPD-minuutit') + '</label><input type="number" id="ref_cpd" min="0" max="600" placeholder="—" style="width:80px;padding:6px 8px;border:.5px solid var(--border);border-radius:6px;background:var(--bg2);color:var(--ink);font-size:12px"><span style="font-size:10px;color:var(--ink3)">' + masterT('(tallennetaan; CPD-koonti tulossa)') + '</span></div>'
+    + '<button onclick="_refTallenna()" id="refTallennaBtn" style="width:100%;padding:11px;border:none;border-radius:9px;background:var(--teal);color:#fff;font-size:14px;font-weight:600;cursor:pointer">' + masterT('Tallenna merkintä') + '</button></div>';
   m.innerHTML = h; m.dataset.tyyppi = 'ohjattu'; document.body.appendChild(m);
 };
 window._refTyyppi = function (t) {
@@ -7662,7 +7662,7 @@ window._refTyyppi = function (t) {
 };
 window._refSulje = function () { _refReset(); const m = document.getElementById('refModal'); if (m) m.remove(); };
 window._refTallenna = async function () {
-  const cu = _auth.currentUser; if (!cu || !_seuraId) { if (typeof toast === 'function') toast('Kirjaudu ensin', 'error'); return; }
+  const cu = _auth.currentUser; if (!cu || !_seuraId) { if (typeof toast === 'function') toast(masterT('Kirjaudu ensin'), 'error'); return; }
   const m = document.getElementById('refModal'); const tyyppi = (m && m.dataset.tyyppi) || 'ohjattu';
   const val = id => { const e = document.getElementById(id); return e ? e.value.trim() : ''; };
   const doc = { pvm: new Date().toISOString().slice(0, 10), lahde: 'oma', prompt_tyyppi: tyyppi, luotu: firebase.firestore.FieldValue.serverTimestamp() };
@@ -7670,8 +7670,8 @@ window._refTallenna = async function () {
   else { const txt = val('ref_teksti'); if (txt) doc.teksti = txt; }
   const cpdEl = document.getElementById('ref_cpd'); const cpd = cpdEl && cpdEl.value !== '' ? Number(cpdEl.value) : null; if (cpd != null && !isNaN(cpd)) doc.cpd_minuutit = cpd;
   const onTekstia = !!(doc.onnistui || doc.toisin || doc.kehityskohde || doc.teksti);
-  if (!onTekstia && !_refBlob) { if (typeof toast === 'function') toast('Kirjoita tai nauhoita reflektio', 'error'); return; }
-  if (_refBlob && _refBlob.size > _REF_MAX_BYTES) { if (typeof toast === 'function') toast('Äänitiedosto liian iso (max ~12 MB)', 'error'); return; }
+  if (!onTekstia && !_refBlob) { if (typeof toast === 'function') toast(masterT('Kirjoita tai nauhoita reflektio'), 'error'); return; }
+  if (_refBlob && _refBlob.size > _REF_MAX_BYTES) { if (typeof toast === 'function') toast(masterT('Äänitiedosto liian iso (max ~12 MB)'), 'error'); return; }
   const btn = document.getElementById('refTallennaBtn'); if (btn) { btn.disabled = true; btn.textContent = masterT('Tallennetaan…'); }
   try {
     if (cu) await cu.getIdToken(true);   // §7.2
@@ -7686,7 +7686,7 @@ window._refTallenna = async function () {
       if (_refTranskriptio) doc.transkriptio = _refTranskriptio;   // litterointi audion rinnalle (hakukelpoinen)
     }
     await refDoc.set(doc);
-    if (typeof toast === 'function') toast('✓ Reflektio tallennettu', 'ok');
+    if (typeof toast === 'function') toast(masterT('✓ Reflektio tallennettu'), 'ok');
     _refReset();
     const mm = document.getElementById('refModal'); if (mm) mm.remove();
     avaaValmentajaKehitys();   // päivitä näkymä
@@ -7702,10 +7702,10 @@ window._cpdAsetaVaatimus = function () {
   m.onclick = e => { if (e.target === m) m.remove(); };
   const LIS = [['grassroots', 'Grassroots'], ['c', 'UEFA C'], ['b', 'UEFA B'], ['a', 'UEFA A'], ['pro', 'UEFA Pro']];
   let h = '<div onclick="event.stopPropagation()" style="background:var(--card);border:.5px solid var(--line);border-radius:14px;width:min(420px,96vw);padding:20px 22px;margin:auto">'
-    + '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px"><div style="font-size:16px;font-weight:600;color:var(--ink)">CPD-vuosivaatimukset (h)</div><button onclick="document.getElementById(\'cpdVaatModal\').remove()" style="background:none;border:none;color:var(--ink3);font-size:22px;cursor:pointer">×</button></div>'
-    + '<div style="font-size:11px;color:var(--ink3);margin-bottom:12px">Lisenssitasokohtainen CPD-tuntivaatimus. Tyhjä → ei tavoitepalkkia kyseiselle tasolle.</div>';
+    + '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px"><div style="font-size:16px;font-weight:600;color:var(--ink)">' + masterT('CPD-vuosivaatimukset (h)') + '</div><button onclick="document.getElementById(\'cpdVaatModal\').remove()" style="background:none;border:none;color:var(--ink3);font-size:22px;cursor:pointer">×</button></div>'
+    + '<div style="font-size:11px;color:var(--ink3);margin-bottom:12px">' + masterT('Lisenssitasokohtainen CPD-tuntivaatimus. Tyhjä → ei tavoitepalkkia kyseiselle tasolle.') + '</div>';
   LIS.forEach(l => { const cur = (konf[l[0]] != null) ? konf[l[0]] : ''; h += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px"><span style="flex:1;font-size:12px;color:var(--ink2)">' + l[1] + '</span><input type="number" id="cpdv_' + l[0] + '" value="' + cur + '" min="0" max="200" placeholder="—" style="width:80px;padding:5px;border:.5px solid var(--border);border-radius:6px;background:var(--bg2);color:var(--ink);font-size:12px;text-align:center"></div>'; });
-  h += '<button onclick="_cpdTallennaVaatimus()" style="width:100%;margin-top:12px;padding:10px;border:none;border-radius:9px;background:var(--teal);color:#fff;font-size:13px;font-weight:600;cursor:pointer">Tallenna vaatimukset</button></div>';
+  h += '<button onclick="_cpdTallennaVaatimus()" style="width:100%;margin-top:12px;padding:10px;border:none;border-radius:9px;background:var(--teal);color:#fff;font-size:13px;font-weight:600;cursor:pointer">' + masterT('Tallenna vaatimukset') + '</button></div>';
   m.innerHTML = h; document.body.appendChild(m);
 };
 window._cpdTallennaVaatimus = async function () {
@@ -7714,14 +7714,14 @@ window._cpdTallennaVaatimus = async function () {
     await cu.getIdToken(true);   // §7.2
     const v = {}; ['grassroots', 'c', 'b', 'a', 'pro'].forEach(k => { const e = document.getElementById('cpdv_' + k); const n = e && e.value !== '' ? Number(e.value) : null; if (n != null && !isNaN(n)) v[k] = n; });
     await _db.collection('seurat').doc(_seuraId).collection('konfiguraatio').doc('harjoitusarviointi').set({ cpd_vaatimus_h: v }, { merge: true });
-    if (typeof toast === 'function') toast('✓ CPD-vaatimukset tallennettu', 'ok');
+    if (typeof toast === 'function') toast(masterT('✓ CPD-vaatimukset tallennettu'), 'ok');
     const m = document.getElementById('cpdVaatModal'); if (m) m.remove();
     avaaValmentajaKehitys();
   } catch (e) { if (typeof toast === 'function') toast('Tallennus epäonnistui: ' + ((e && e.message) || 'tuntematon'), 'error'); }
 };
 // PDF "CPD-todiste" — selain-print, Carbon→valkoinen (oma ikkuna, ei kosketa päänäkymän tyyleihin)
 window._cpdTodistePDF = async function () {
-  const D = window._mkCpdData; if (!D) { if (typeof toast === 'function') toast('CPD-data ei ladattu', 'error'); return; }
+  const D = window._mkCpdData; if (!D) { if (typeof toast === 'function') toast(masterT('CPD-data ei ladattu'), 'error'); return; }
   let brandiForPdf = null; try { const sbp = await _db.collection('seurat').doc(_seuraId).collection('konfiguraatio').doc('brandi').get(); if (sbp.exists) brandiForPdf = sbp.data(); } catch(e){}
   const _bv = (window.TM_HARJOITUS && TM_HARJOITUS._brandiVars) ? TM_HARJOITUS._brandiVars(brandiForPdf) : {acc:'var(--teal)'};
   const PDF_ACC = (_bv.acc === 'var(--teal)') ? '#1D9E75' : _bv.acc;
@@ -7730,32 +7730,32 @@ window._cpdTodistePDF = async function () {
   const esc = s => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   const c = D.cpd;
   let rivit = (D.merkinnat || []).slice().sort((a, b) => String(b.pvm || '').localeCompare(String(a.pvm || ''))).map(r => {
-    const teksti = r.transkriptio || r.teksti || [r.onnistui, r.toisin, r.kehityskohde].filter(Boolean).join(' · ') || (r.audio_url ? '(äänireflektio)' : '');
+    const teksti = r.transkriptio || r.teksti || [r.onnistui, r.toisin, r.kehityskohde].filter(Boolean).join(' · ') || (r.audio_url ? masterT('(äänireflektio)') : '');
     return '<tr><td>' + esc((r.pvm || '').slice(0, 10)) + '</td><td>' + (r.cpd_minuutit != null ? esc(String(r.cpd_minuutit)) + ' min' : '—') + '</td><td>' + esc(teksti.slice(0, 120)) + '</td></tr>';
   }).join('');
-  if (!rivit) rivit = '<tr><td colspan="3" style="color:#888">Ei reflektiomerkintöjä.</td></tr>';
+  if (!rivit) rivit = '<tr><td colspan="3" style="color:#888">' + masterT('Ei reflektiomerkintöjä.') + '</td></tr>';
   let koul = (D.koulutukset || []).map(k => '<li>' + esc(k.nimi || '') + (k.vuosi ? ' (' + esc(String(k.vuosi)) + ')' : '') + '</li>').join('');
-  const tavoiteRivi = c.vaatimus_h ? ('<p><b>Vaatimus:</b> ' + c.vaatimus_h + ' h (' + (LIS_NIMI[D.lisenssitaso] || D.lisenssitaso) + ') · <b>Edistymä:</b> ' + c.edistyma_pct + ' %</p>') : '<p style="color:#666">CPD-vaatimusta ei asetettu — todiste näyttää kertyneen.</p>';
-  const html = '<!DOCTYPE html><html lang="fi"><head><meta charset="utf-8"><title>CPD-todiste</title>'
+  const tavoiteRivi = c.vaatimus_h ? ('<p><b>' + masterT('Vaatimus:') + '</b> ' + c.vaatimus_h + ' h (' + (LIS_NIMI[D.lisenssitaso] || D.lisenssitaso) + ') · <b>' + masterT('Edistymä:') + '</b> ' + c.edistyma_pct + ' %</p>') : '<p style="color:#666">' + masterT('CPD-vaatimusta ei asetettu — todiste näyttää kertyneen.') + '</p>';
+  const html = '<!DOCTYPE html><html lang="fi"><head><meta charset="utf-8"><title>' + masterT('CPD-todiste') + '</title>'
     + '<style>body{font-family:Georgia,serif;color:#111;background:#fff;max-width:720px;margin:24px auto;padding:0 20px;line-height:1.5}'
     + 'h1{font-size:24px;margin-bottom:2px}h2{font-size:14px;text-transform:uppercase;letter-spacing:.05em;color:#555;margin-top:24px}'
     + 'table{width:100%;border-collapse:collapse;font-size:12px;margin-top:8px}td,th{border-bottom:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top}'
     + '.kpi{font-size:30px;color:' + PDF_ACC + '}@media print{button{display:none}}</style></head><body>'
     + (_logoUrl ? '<img src="' + esc(_logoUrl) + '" style="height:34px;max-width:160px;object-fit:contain;margin-bottom:8px">' : '')
-    + '<h1>CPD-todiste</h1><div style="color:#666;font-size:13px">Continuing Professional Development · TalentMaster™</div>'
-    + '<p style="margin-top:16px"><b>Valmentaja:</b> ' + esc(D.nimi || '—') + '<br><b>Lisenssitaso:</b> ' + esc(LIS_NIMI[D.lisenssitaso] || D.lisenssitaso || '—') + '<br><b>Kausi:</b> ' + _mkKausi() + '</p>'
-    + '<h2>Kertynyt CPD</h2><div class="kpi">' + c.kertynyt_h + ' h</div>'
+    + '<h1>' + masterT('CPD-todiste') + '</h1><div style="color:#666;font-size:13px">Continuing Professional Development · TalentMaster™</div>'
+    + '<p style="margin-top:16px"><b>' + masterT('Valmentaja:') + '</b> ' + esc(D.nimi || '—') + '<br><b>' + masterT('Lisenssitaso:') + '</b> ' + esc(LIS_NIMI[D.lisenssitaso] || D.lisenssitaso || '—') + '<br><b>' + masterT('Kausi:') + '</b> ' + _mkKausi() + '</p>'
+    + '<h2>' + masterT('Kertynyt CPD') + '</h2><div class="kpi">' + c.kertynyt_h + ' h</div>'
     + '<p>Reflektiot ' + c.reflektio_h + ' h · Koulutukset/kurssit ' + c.koulutus_h + ' h</p>' + tavoiteRivi
-    + (koul ? '<h2>Koulutukset</h2><ul>' + koul + '</ul>' : '')
-    + '<h2>Reflektiomerkinnät</h2><table><thead><tr><th>Päivä</th><th>CPD</th><th>Sisältö</th></tr></thead><tbody>' + rivit + '</tbody></table>'
+    + (koul ? '<h2>' + masterT('Koulutukset') + '</h2><ul>' + koul + '</ul>' : '')
+    + '<h2>' + masterT('Reflektiomerkinnät') + '</h2><table><thead><tr><th>Päivä</th><th>CPD</th><th>' + masterT('Sisältö') + '</th></tr></thead><tbody>' + rivit + '</tbody></table>'
     + '<p style="margin-top:28px;font-size:11px;color:#888">Luotu ' + new Date().toISOString().slice(0, 10) + ' · reflektio-CPD ei korvaa virallista lisenssikirjanpitoa.</p>'
-    + '<button onclick="window.print()" style="margin-top:16px;padding:8px 16px;font-size:13px;cursor:pointer">Tulosta / Tallenna PDF</button>'
+    + '<button onclick="window.print()" style="margin-top:16px;padding:8px 16px;font-size:13px;cursor:pointer">' + masterT('Tulosta / Tallenna PDF') + '</button>'
     + '</body></html>';
-  const w = window.open('', '_blank'); if (!w) { if (typeof toast === 'function') toast('Salli ponnahdusikkunat tulostaaksesi', 'error'); return; }
+  const w = window.open('', '_blank'); if (!w) { if (typeof toast === 'function') toast(masterT('Salli ponnahdusikkunat tulostaaksesi'), 'error'); return; }
   w.document.open(); w.document.write(html); w.document.close();
 };
 window._refPoista = async function (id) {   // GDPR: valmentaja poistaa oman merkinnän (audio Storagesta + doc)
-  if (typeof confirm === 'function' && !confirm('Poista tämä reflektiomerkintä pysyvästi? Tätä ei voi perua.')) return;
+  if (typeof confirm === 'function' && !confirm(masterT('Poista tämä reflektiomerkintä pysyvästi? Tätä ei voi perua.'))) return;
   const cu = _auth.currentUser; if (!cu || !_seuraId) return;
   try {
     await cu.getIdToken(true);   // §7.2
@@ -7763,7 +7763,7 @@ window._refPoista = async function (id) {   // GDPR: valmentaja poistaa oman mer
     let d = {}; try { const s = await ref.get(); d = s.exists ? s.data() : {}; } catch (e) {}
     if (d.audio_path) { try { await firebase.storage().ref(d.audio_path).delete(); } catch (e) { /* tiedosto voi jo puuttua */ } }
     await ref.delete();
-    if (typeof toast === 'function') toast('Merkintä poistettu', 'ok');
+    if (typeof toast === 'function') toast(masterT('Merkintä poistettu'), 'ok');
     avaaValmentajaKehitys();
   } catch (e) { if (typeof toast === 'function') toast('Poisto epäonnistui: ' + ((e && e.message) || 'tuntematon'), 'error'); }
 };
