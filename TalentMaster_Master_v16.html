@@ -16,7 +16,7 @@
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-storage-compat.js"></script>
 <script src="lib/tm_lang.js?v=1"></script>   <!-- i18n V0 — fi/sv/en käännöstaulukko + t() + kieli-init (putkitus) -->
 <script src="lib/tm_i18n_common.js?v=2"></script>   <!-- i18n Vaihe 0 — JAETTU henkilöstö-i18n + lukittu glossaari (ENNEN sivukarttaa) -->
-<script src="lib/tm_master_i18n.js?v=15"></script>   <!-- i18n Vaihe 5 Raita B — Master sv (sivukartta); masterT/masterLokalisoi delegoivat commoniin -->
+<script src="lib/tm_master_i18n.js?v=16"></script>   <!-- i18n Vaihe 5 Raita B — Master sv (sivukartta); masterT/masterLokalisoi delegoivat commoniin -->
 <script src="lib/tm_eerikkila_normit.js?v=45"></script>   <!-- v43: D2-kortti d2_taso-ensin (renderKehityskorttiHTML, PR #264 · §30/#262) -->
 <script src="lib/tm_harjoitusarviointi.js?v=4"></script>
 <script src="lib/tm_kalenteri.js?v=1"></script>
@@ -2119,12 +2119,12 @@ function _naytaDash() {
 window._unohditSalasana = function () {
   var _el = document.getElementById('lEmail');
   var _email = ((_el && _el.value) || '').trim();
-  if (!_email) { if (typeof toast === 'function') toast('Syötä ensin sähköpostiosoite kenttään', 'error'); return; }
+  if (!_email) { if (typeof toast === 'function') toast(masterT('Syötä ensin sähköpostiosoite kenttään'), 'error'); return; }
   try {
     firebase.auth().sendPasswordResetEmail(_email)
-      .then(function () { if (typeof toast === 'function') toast('Salasanalinkki lähetetty: ' + _email + ' — avaa se heti.', 'ok'); })
-      .catch(function (e) { if (typeof toast === 'function') toast('Lähetys epäonnistui: ' + ((e && (e.message || e.code)) || e), 'error'); });
-  } catch (e) { if (typeof toast === 'function') toast('Lähetys epäonnistui', 'error'); }
+      .then(function () { if (typeof toast === 'function') toast(masterT('Salasanalinkki lähetetty: ') + _email + masterT(' — avaa se heti.'), 'ok'); })
+      .catch(function (e) { if (typeof toast === 'function') toast(masterT('Lähetys epäonnistui: ') + ((e && (e.message || e.code)) || e), 'error'); });
+  } catch (e) { if (typeof toast === 'function') toast(masterT('Lähetys epäonnistui'), 'error'); }
 };
 
 async function login() {
@@ -2140,7 +2140,7 @@ async function login() {
     _kirjautuminenKesken = false;
   } catch(e) {
     _kirjautuminenKesken = false;
-    err.textContent = 'Virheellinen sähköposti tai salasana.';
+    err.textContent = masterT('Virheellinen sähköposti tai salasana.');
   }
 }
 
@@ -2166,7 +2166,7 @@ async function kirjauduGooglella() {
       await firebase.auth().signInWithRedirect(provider2);
       return;
     }
-    if (err) err.textContent = 'Google-kirjautuminen epäonnistui: ' + (e.message || e.code);
+    if (err) err.textContent = masterT('Google-kirjautuminen epäonnistui: ') + (e.message || e.code);
   }
 }
 
@@ -2289,7 +2289,7 @@ async function _lataaValmentaja(uid) {
     const seuraIdToUse = claims.seuraId;
     if (!seuraIdToUse) {
       console.error('[Master] seuraId puuttuu claimsista:', claims);
-      naytaVirhe('Istunto vanhentunut tai käyttöoikeudet puuttuvat. Kirjaudu uudelleen sisään.');
+      naytaVirhe(masterT('Istunto vanhentunut tai käyttöoikeudet puuttuvat. Kirjaudu uudelleen sisään.'));
       await _auth.signOut();
       return;
     }
@@ -9627,7 +9627,7 @@ function cpCmds() {
     const nimi = ((p.etunimi||'') + ' ' + (p.sukunimi||'')).trim() || p.nimi || p.id;
     const sub = [p.pelipaikka || p.positio, p.joukkue].filter(Boolean).join(' · ');
     const id = p.id;
-    return { section:'Pelaajat', label:'Avaa ' + nimi + ' — aikajana', sub: sub, ico:'ic-dev',
+    return { section:'Pelaajat', label:masterT('Avaa ') + nimi + masterT(' — aikajana'), sub: sub, ico:'ic-dev',
       fn: function(){ setWs('dev'); pickPlayer(id); } };
   });
   const tyotilat = CP_BASE.filter(c => c.section === 'Työtilat');
@@ -9674,12 +9674,12 @@ function renderCp(q) {
   el.innerHTML = sections.map(sec => {
     const items = _cpFiltered.filter(c=>c.section===sec);
     return `
-      <div class="cp-section-hdr">${sec}</div>
+      <div class="cp-section-hdr">${masterT(sec)}</div>
       ${items.map((c,i) => `
         <div class="cp-item" onclick="execCmd(${_cpFiltered.indexOf(c)})">
           <div class="cp-item-icon"><svg width="13" height="13"><use href="#${c.ico}"/></svg></div>
           <div class="cp-item-label">
-            <div style="font-size:13px">${c.label}</div>
+            <div style="font-size:13px">${masterT(c.label)}</div>
             ${c.sub?`<div style="font-size:11px;color:var(--ink3)">${c.sub}</div>`:''}
           </div>
         </div>`).join('')}`;
