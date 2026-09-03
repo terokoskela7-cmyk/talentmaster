@@ -3401,7 +3401,7 @@ async function _avaaVahvistus(tapahtumaId) {
   hdr.style.cssText = 'display:flex;justify-content:space-between;align-items:center';
   const otsikko = document.createElement('b');
   otsikko.style.fontSize = '15px';
-  otsikko.textContent = 'Vahvista osallistuvat pelaajat';
+  otsikko.textContent = masterT('Vahvista osallistuvat pelaajat');
   const suljeBtn = document.createElement('button');
   suljeBtn.style.cssText = 'background:none;border:none;cursor:pointer;font-size:20px;color:var(--ink3);line-height:1';
   suljeBtn.textContent = '✕';
@@ -3421,11 +3421,11 @@ async function _avaaVahvistus(tapahtumaId) {
   napit.style.cssText = 'display:flex;gap:8px;align-items:center';
   const kaikkiBtn = document.createElement('button');
   kaikkiBtn.style.cssText = 'font-size:11px;padding:4px 10px;border-radius:6px;border:0.5px solid var(--border);cursor:pointer;background:var(--surface)';
-  kaikkiBtn.textContent = 'Kaikki (' + kaikki.length + ')';
+  kaikkiBtn.textContent = masterT('Kaikki (') + kaikki.length + ')';
   kaikkiBtn.onclick = () => { document.querySelectorAll('#vahvistusLista input').forEach(c => c.checked = true); _paiVahvLkm(); };
   const tyhjennaBtn = document.createElement('button');
   tyhjennaBtn.style.cssText = kaikkiBtn.style.cssText;
-  tyhjennaBtn.textContent = 'Tyhjennä';
+  tyhjennaBtn.textContent = masterT('Tyhjennä');
   tyhjennaBtn.onclick = () => { document.querySelectorAll('#vahvistusLista input').forEach(c => c.checked = false); _paiVahvLkm(); };
   const lkm = document.createElement('span');
   lkm.id = 'vahvistusLkm';
@@ -3473,7 +3473,7 @@ async function _avaaVahvistus(tapahtumaId) {
   peruBtn.onclick = () => modal.remove();
   const tallBtn = document.createElement('button');
   tallBtn.style.cssText = 'font-size:13px;padding:7px 18px;border-radius:6px;border:none;background:var(--teal);color:#fff;cursor:pointer;font-weight:500;margin-left:auto';
-  tallBtn.textContent = 'Tallenna ja lataa Excel →';
+  tallBtn.textContent = masterT('Tallenna ja lataa Excel →');
   tallBtn.onclick = () => _tallennaVahvistus(tapahtumaId);
   footer.appendChild(peruBtn);
   footer.appendChild(tallBtn);
@@ -3533,8 +3533,8 @@ function _avaaTestausV9(tapahtumaId) {
 
 // P2.1 — Pikakirjaus-lomake (jaettu lib). Master lataa testit_indeksit.js (TM_TESTIT) → H-H + TKI.
 function _masterPikakirjaus() {
-  if (!window.TM_PIKAKIRJAUS) { if (typeof toast === 'function') toast('Pikakirjaus-lomake ei latautunut', 'error'); return; }
-  if (!_seuraId) { if (typeof toast === 'function') toast('Valitse ensin seura', 'error'); return; }
+  if (!window.TM_PIKAKIRJAUS) { if (typeof toast === 'function') toast(masterT('Pikakirjaus-lomake ei latautunut'), 'error'); return; }
+  if (!_seuraId) { if (typeof toast === 'function') toast(masterT('Valitse ensin seura'), 'error'); return; }
   var uid = (typeof firebase !== 'undefined' && firebase.auth().currentUser && firebase.auth().currentUser.uid) || null;
   window.TM_PIKAKIRJAUS.avaa({ db: _db, seuraId: _seuraId, uid: uid, pelaajat: _pelaajatData, joukkueNimet: {}, toast: (typeof toast === 'function') ? toast : null });
 }
@@ -3564,10 +3564,10 @@ async function _suljeTapahtuma(tapahtumaId) {
       await _db.collection('seurat').doc(_seuraId).collection('testitapahtumat')
         .doc(tapahtumaId).update({ tila: 'suljettu', paivitetty: firebase.firestore.FieldValue.serverTimestamp() });
     }
-    toast('Tapahtuma suljettu', 'success');
+    toast(masterT('Tapahtuma suljettu'), 'success');
     _lataaTestitapahtumat();
   } catch(e) {
-    toast('Virhe sulkemisessa: ' + e.message, 'error');
+    toast(masterT('Virhe sulkemisessa: ') + e.message, 'error');
   }
 }
 
@@ -3615,11 +3615,11 @@ function _getInboxEvents(){
 
 function _fmtTime(ts){
   const diff=Date.now()-ts;
-  if(diff<60000) return 'juuri nyt';
-  if(diff<3600000) return Math.floor(diff/60000)+' min sitten';
-  if(diff<86400000) return Math.floor(diff/3600000)+' h sitten';
+  if(diff<60000) return masterT('juuri nyt');
+  if(diff<3600000) return Math.floor(diff/60000)+masterT(' min sitten');
+  if(diff<86400000) return Math.floor(diff/3600000)+masterT(' h sitten');
   const pv=Math.floor(diff/86400000);
-  return pv===1?'eilen':pv+' pv sitten';
+  return pv===1?masterT('eilen'):pv+masterT(' pv sitten');
 }
 
 function _initials(name){
@@ -5364,7 +5364,7 @@ window._ttAsetaPositio = async function (pid, code) {
   try {
     const cu = firebase.auth().currentUser; if (cu) await cu.getIdToken(true);
     await _db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(pid).set({ tt_positio_aktiivinen: code }, { merge: true });
-    if (typeof toast === 'function') toast('Pelipaikka aktivoitu ✓ — pelipaikkakonseptit käytössä', 'ok');
+    if (typeof toast === 'function') toast(masterT('Pelipaikka aktivoitu ✓ — pelipaikkakonseptit käytössä'), 'ok');
   } catch (e) { console.warn('[ttPositio]', e && e.message); if (typeof toast === 'function') toast('Tallennus epäonnistui', 'error'); }
 };
 
@@ -9470,16 +9470,16 @@ window.paivitaAdarPikakentat = paivitaAdarPikakentat;
 // Vaihe B — talenttinosto-ehdotus vahvasta ristiinarviosta. PEHMEÄ signaali (audit-pikakenttä
 // talentti_ehdotus), EI kova promootioportti — VP päättää. Kirjoitus pelaajadokumenttiin (permissio #269/#270).
 window._ehdotaTalentti = async function (pid) {
-  if (!pid || !_seuraId || !_db) { if (typeof toast === 'function') toast('Talenttiehdotus ei onnistunut (ei yhteyttä)', 'virhe'); return; }
+  if (!pid || !_seuraId || !_db) { if (typeof toast === 'function') toast(masterT('Talenttiehdotus ei onnistunut (ei yhteyttä)'), 'virhe'); return; }
   try {
     const cu = firebase.auth().currentUser; if (cu) await cu.getIdToken(true);
     await _db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(pid).set({
       talentti_ehdotus: { lahde: 'ristiinarvio', pvm: new Date().toISOString(), ehdottaja_uid: _uid || null, ehdottaja_rooli: _rooli || null }
     }, { merge: true });
-    if (typeof toast === 'function') toast('💎 Talenttiehdotus lähetetty VP:lle', 'ok');
+    if (typeof toast === 'function') toast(masterT('💎 Talenttiehdotus lähetetty VP:lle'), 'ok');
   } catch (e) {
     // §silent-failure: näytä virhe, älä niele (kirjoitusoikeus voi puuttua muun joukkueen pelaajaan).
-    if (typeof toast === 'function') toast('Talenttiehdotus epäonnistui: ' + (e.message || e), 'virhe');
+    if (typeof toast === 'function') toast(masterT('Talenttiehdotus epäonnistui: ') + (e.message || e), 'virhe');
     else console.warn('[ehdotaTalentti]', e && e.message);
   }
 };
@@ -9600,7 +9600,7 @@ window.addEventListener('message', function (ev) {
   var pid = window._pikakorttiPid || (d && d.pelaajaId) || null;
   document.getElementById('_pkModal')?.remove();
   _pikakorttiRefresh(pid);
-  if (typeof toast === 'function') toast('Pelihavainto tallennettu ✓', 'ok');
+  if (typeof toast === 'function') toast(masterT('Pelihavainto tallennettu ✓'), 'ok');
 });
 
 /* ════════════════════════════════════════════════════════════
@@ -9713,7 +9713,7 @@ function toast(msg, actionKey) {
 
 function undoAction(key) {
   document.querySelectorAll('.toast-item').forEach(t=>t.remove());
-  toast('Toiminto peruttu', null);
+  toast(masterT('Toiminto peruttu'), null);
 }
 
 // Selitteen näyttö klikkauksella (kosketusystävällinen). EI undo-nappia → ei käytä toast():ia.
