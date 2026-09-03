@@ -16,7 +16,7 @@
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-storage-compat.js"></script>
 <script src="lib/tm_lang.js?v=1"></script>   <!-- i18n V0 — fi/sv/en käännöstaulukko + t() + kieli-init (putkitus) -->
 <script src="lib/tm_i18n_common.js?v=2"></script>   <!-- i18n Vaihe 0 — JAETTU henkilöstö-i18n + lukittu glossaari (ENNEN sivukarttaa) -->
-<script src="lib/tm_master_i18n.js?v=16"></script>   <!-- i18n Vaihe 5 Raita B — Master sv (sivukartta); masterT/masterLokalisoi delegoivat commoniin -->
+<script src="lib/tm_master_i18n.js?v=18"></script>   <!-- i18n Vaihe 5 Raita B — Master sv (sivukartta); masterT/masterLokalisoi delegoivat commoniin -->
 <script src="lib/tm_eerikkila_normit.js?v=45"></script>   <!-- v43: D2-kortti d2_taso-ensin (renderKehityskorttiHTML, PR #264 · §30/#262) -->
 <script src="lib/tm_harjoitusarviointi.js?v=4"></script>
 <script src="lib/tm_kalenteri.js?v=1"></script>
@@ -5671,7 +5671,7 @@ function _msSessiot(jf, alkoi, loppu) {
 
 window._msSuljeJakso = async function (pid) {
   var p = (typeof _ttPelaaja === 'function') ? _ttPelaaja(pid) : (_pelaajatData || []).find(function (x) { return x.id === pid; });
-  if (!p || !p.jaksofokus) { if (typeof toast === 'function') toast('Ei suljettavaa jaksoa', 'error'); return; }
+  if (!p || !p.jaksofokus) { if (typeof toast === 'function') toast(masterT('Ei suljettavaa jaksoa'), 'error'); return; }
   var jf = p.jaksofokus;
   var vali = _msJaksovali(jf);
   var sessiot = _msSessiot(jf, vali.alkoi, vali.loppu);
@@ -5696,7 +5696,7 @@ function _msDots(current, fn) {
 }
 // ══════════ VAIHE 7 — Master D1-silta (fysiikkavalmentaja/fysioterapeutti: fyysinen fokus + evidenssi) ══════════
 function _msRooliLabel() {
-  return ({ fysiikkavalmentaja: 'Fysiikkavalmentaja-arvio', fysioterapeutti: 'Fysioterapeutti-arvio', talenttivalmentaja: 'Talenttivalmentaja-arvio', vp: 'VP-arvio' })[_rooli] || 'Valmentaja-arvio';
+  return ({ fysiikkavalmentaja: masterT('Fysiikkavalmentaja-arvio'), fysioterapeutti: masterT('Fysioterapeutti-arvio'), talenttivalmentaja: masterT('Talenttivalmentaja-arvio'), vp: masterT('VP-arvio') })[_rooli] || masterT('Valmentaja-arvio');
 }
 function _msFyysEhdotus(p, ohitaGuard) {
   var LIB = window.TM_FYYSTEEMAT_LIB; if (!LIB || !p) return null;
@@ -5774,7 +5774,7 @@ window._msAsetaFyysFokus = async function (pid, teemaAvain) {
   if (_demo || !_seuraId || typeof _db === 'undefined' || !_db) { if (typeof toast === 'function') toast('Fysiikkajakso asetettu (demo)', 'ok'); return; }
   try { var cu = firebase.auth().currentUser; if (cu) await cu.getIdToken(true);
     await _db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(pid).set({ jaksofokus: jf }, { merge: true });
-    if (typeof toast === 'function') toast('Fysiikkajakso asetettu ✓' + (ohjelma ? ' + ohjelma' : ''), 'ok');
+    if (typeof toast === 'function') toast(masterT('Fysiikkajakso asetettu ✓') + (ohjelma ? ' + ohjelma' : ''), 'ok');
   } catch (e) { console.warn('[msAsetaFyysFokus]', e && e.message); if (typeof toast === 'function') toast('Tallennus epäonnistui', 'error'); }
 };
 window._msFyysSuunnitteleMittaus = function (pid) {
@@ -5829,7 +5829,7 @@ async function _ohjLataaPelaajatCache(force) {
   } catch (e) { /* best-effort */ }
   return window._ohjPelaajatCache;
 }
-var _OHJ_PHV_NIMI = { PRE: 'Ennen PHV', LAH: 'Lähestyy', PH: 'Kasvupyrähdys', POST: 'Jälkeen', AN: 'Jälki-PHV', tuntematon: 'PHV tuntematon' };
+var _OHJ_PHV_NIMI = { PRE: masterT('Ennen PHV'), LAH: masterT('Lähestyy'), PH: masterT('Kasvupyrähdys'), POST: masterT('Jälkeen'), AN: masterT('Jälki-PHV'), tuntematon: masterT('PHV tuntematon') };
 // Kooste → HTML (rehellisyysmerkki jos mitattu_n < yhteensa_n §29 · PHV-erittely = "mikä ohjelma toimii kenelle").
 function _ohjAnalKoosteHTML(k) {
   if (!k || !k.n) return '<div style="font-size:11.5px;color:var(--ink3);padding:6px 0">Ei suljettuja jaksoja tällä ohjelmalla vielä.</div>';
@@ -5838,9 +5838,9 @@ function _ohjAnalKoosteHTML(k) {
   var mitattuTxt = (k.mitattu_n < k.yhteensa_n) ? (' <span style="color:var(--amber)" title="Kaikkia jaksoja ei ole mitattu — delta vain mitatuista (§29)">(' + k.mitattu_n + '/' + k.yhteensa_n + ' mitattu)</span>') : '';
   var h = '<div style="margin-top:8px;padding:9px 11px;background:var(--ov-1,rgba(255,255,255,.03));border:.5px solid var(--border);border-radius:9px;font-size:11.5px;color:var(--ink2);line-height:1.6">';
   h += '<div><b style="color:var(--ink)">' + k.n + '</b> suljettua jaksoa · ka delta <b style="color:var(--teal)">' + deltaTxt + '</b>' + mitattuTxt
-    + (k.toteuma_pct != null ? ' · toteuma <b>' + k.toteuma_pct + ' %</b>' : '') + '</div>';
+    + (k.toteuma_pct != null ? masterT(' · toteuma <b>') + k.toteuma_pct + ' %</b>' : '') + '</div>';
   var tj = k.tulosjakauma || {};
-  h += '<div style="margin-top:3px">tulos: <span style="color:var(--teal)">🟢 parani ' + (tj.parani || 0) + '</span> · <span style="color:var(--ink3)">→ ennallaan ' + (tj.ennallaan || 0) + '</span> · <span style="color:var(--amber)">🔄 vaihda ' + (tj.vaihda || 0) + '</span></div>';
+  h += masterT('<div style="margin-top:3px">tulos: <span style="color:var(--teal)">🟢 parani ') + (tj.parani || 0) + masterT('</span> · <span style="color:var(--ink3)">→ ennallaan ') + (tj.ennallaan || 0) + masterT('</span> · <span style="color:var(--amber)">🔄 vaihda ') + (tj.vaihda || 0) + '</span></div>';
   var pe = k.phv_erittely || {};
   if (Object.keys(pe).length) {
     h += '<div style="margin-top:5px;padding-top:5px;border-top:.5px solid var(--border)"><span style="font-size:9.5px;letter-spacing:.04em;text-transform:uppercase;color:var(--ink3)">PHV-erittely · mikä toimii kenelle</span>';
@@ -5880,16 +5880,16 @@ function _ohjValitseRender(pid, teemaAvain, naytaArkisto) {
   h += '<div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">';
   if (_ohjSaaKirjoittaa() && pid) h += '<button onclick="_ohjEditori(\'\',\'' + esc(pid) + '\',\'' + esc(teemaAvain || '') + '\')" style="font-size:12px;font-weight:600;border-radius:8px;padding:8px 12px;cursor:pointer;border:.5px solid rgba(40,176,144,.4);background:rgba(40,176,144,.14);color:var(--teal)">＋ Uusi ohjelma</button>';
   else if (_ohjSaaKirjoittaa()) h += '<button onclick="_ohjEditori(\'\',\'\',\'\')" style="font-size:12px;font-weight:600;border-radius:8px;padding:8px 12px;cursor:pointer;border:.5px solid rgba(40,176,144,.4);background:rgba(40,176,144,.14);color:var(--teal)">＋ Uusi ohjelma</button>';
-  h += '<button onclick="_ohjValitseRender(\'' + esc(pid || '') + '\',\'' + esc(teemaAvain || '') + '\',' + (!naytaArkisto) + ')" style="font-size:12px;border-radius:8px;padding:8px 12px;cursor:pointer;border:.5px solid var(--border);background:var(--ov-1,rgba(255,255,255,.04));color:var(--ink2)">' + (naytaArkisto ? '↩ Aktiiviset' : '🗄 Arkistoidut') + '</button>';
+  h += '<button onclick="_ohjValitseRender(\'' + esc(pid || '') + '\',\'' + esc(teemaAvain || '') + '\',' + (!naytaArkisto) + ')" style="font-size:12px;border-radius:8px;padding:8px 12px;cursor:pointer;border:.5px solid var(--border);background:var(--ov-1,rgba(255,255,255,.04));color:var(--ink2)">' + (naytaArkisto ? masterT('↩ Aktiiviset') : masterT('🗄 Arkistoidut')) + '</button>';
   h += '</div>';
-  if (!lista.length) h += '<div style="padding:18px;text-align:center;color:var(--ink3);font-size:13px">' + (naytaArkisto ? 'Ei arkistoituja ohjelmia.' : 'Ei ohjelmia vielä — luo ensimmäinen.') + '</div>';
+  if (!lista.length) h += '<div style="padding:18px;text-align:center;color:var(--ink3);font-size:13px">' + (naytaArkisto ? masterT('Ei arkistoituja ohjelmia.') : masterT('Ei ohjelmia vielä — luo ensimmäinen.')) + '</div>';
   lista.sort(function (a, b) { return String(a.nimi || '').localeCompare(String(b.nimi || '')); }).forEach(function (o) {
     var N = (window._ohjKirjastoN && window._ohjKirjastoN[o.id]) || 0;
     h += '<div style="border:.5px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:9px;background:var(--ov-1,rgba(255,255,255,.03))">';
-    h += '<div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px"><div style="font-size:14px;font-weight:600;color:var(--ink)">' + esc(o.nimi || '(nimetön)') + ' <span style="font-size:10px;color:var(--ink3);font-weight:400">v' + (o.versio || 1) + '</span></div>'
+    h += '<div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px"><div style="font-size:14px;font-weight:600;color:var(--ink)">' + esc(o.nimi || masterT('(nimetön)')) + ' <span style="font-size:10px;color:var(--ink3);font-weight:400">v' + (o.versio || 1) + '</span></div>'
       + '<span style="font-size:10px;color:var(--ink3);background:var(--ov-1);border:.5px solid var(--border);border-radius:999px;padding:2px 8px">' + esc(o.tyyppi || '—') + '</span></div>';
     if (o.kuvaus) h += '<div style="font-size:11.5px;color:var(--ink2);margin-top:3px">' + esc(String(o.kuvaus).slice(0, 120)) + '</div>';
-    h += '<div style="font-size:10.5px;color:var(--ink3);margin-top:4px">' + ((o.vaiheet || []).length) + ' vaihetta · ' + (o.kesto_vk || '?') + ' vk · <b style="color:var(--ink2)">ajettu ' + N + ' pelaajalla</b></div>';
+    h += '<div style="font-size:10.5px;color:var(--ink3);margin-top:4px">' + ((o.vaiheet || []).length) + masterT(' vaihetta · ') + (o.kesto_vk || '?') + ' vk · <b style="color:var(--ink2)">ajettu ' + N + ' pelaajalla</b></div>';
     h += '<div style="display:flex;gap:7px;margin-top:9px;flex-wrap:wrap">';
     if (pid && !o.arkistoitu) h += '<button onclick="_ohjKaytaOhjelma(\'' + esc(pid) + '\',\'' + esc(teemaAvain || '') + '\',\'' + esc(o.id) + '\')" style="font-size:11.5px;font-weight:600;border-radius:7px;padding:6px 11px;cursor:pointer;border:.5px solid rgba(40,176,144,.4);background:rgba(40,176,144,.14);color:var(--teal)">✓ Käytä jaksossa</button>';
     if (_ohjSaaKirjoittaa()) h += '<button onclick="_ohjEditori(\'' + esc(o.id) + '\',\'' + esc(pid || '') + '\',\'' + esc(teemaAvain || '') + '\')" style="font-size:11.5px;border-radius:7px;padding:6px 11px;cursor:pointer;border:.5px solid var(--border);background:var(--ov-1,rgba(255,255,255,.04));color:var(--ink2)">✏️ Muokkaa (uusi versio)</button>';
@@ -5908,7 +5908,7 @@ window._ohjKaytaOhjelma = async function (pid, teemaAvain, ohjelmaId) {
   var p = (typeof _ttPelaaja === 'function') ? _ttPelaaja(pid) : (_pelaajatData || []).find(function (x) { return x.id === pid; });
   var FL = window.TM_FYYSTEEMAT_LIB;
   var lib = (window._ohjKirjasto || []).find(function (o) { return o.id === ohjelmaId; });
-  if (!p || !FL || !lib) { if (typeof toast === 'function') toast('Ohjelmaa ei löytynyt', 'error'); return; }
+  if (!p || !FL || !lib) { if (typeof toast === 'function') toast(masterT('Ohjelmaa ei löytynyt'), 'error'); return; }
   var teema = FL.tmFyysTeema(teemaAvain) || (p.jaksofokus && FL.tmFyysTeema(p.jaksofokus.konsepti_avain));
   var tAvain = teema ? teema.avain : (teemaAvain || (p.jaksofokus && p.jaksofokus.konsepti_avain));
   var fokusTesti = (teema && teema.testit.length) ? teema.testit[teema.testit.length - 1] : null;
@@ -5931,13 +5931,13 @@ window._ohjKaytaOhjelma = async function (pid, teemaAvain, ohjelmaId) {
   } catch (e) { console.warn('[ohjKayta]', e && e.message); if (typeof toast === 'function') toast('Tallennus epäonnistui', 'error'); }
 };
 window._ohjArkistoi = async function (ohjelmaId, pid, teemaAvain) {
-  if (!confirm('Arkistoi ohjelma? (Pehmeä poisto — historia + käynnissä olevat jaksot säilyvät)')) return;
+  if (!confirm(masterT('Arkistoi ohjelma? (Pehmeä poisto — historia + käynnissä olevat jaksot säilyvät)'))) return;
   if (_demo || !_seuraId || typeof _db === 'undefined' || !_db) { var o = (window._ohjKirjasto || []).find(function (x) { return x.id === ohjelmaId; }); if (o) o.arkistoitu = true; _ohjValitseRender(pid, teemaAvain, false); return; }
   try { var cu = firebase.auth().currentUser; if (cu) await cu.getIdToken(true);
     await _db.collection('seurat').doc(_seuraId).collection('ohjelmat').doc(ohjelmaId).set({ arkistoitu: true, paivitetty: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true });
     await _ohjLataaKirjasto(true); _ohjValitseRender(pid, teemaAvain, false);
-    if (typeof toast === 'function') toast('Ohjelma arkistoitu', 'ok');
-  } catch (e) { if (typeof toast === 'function') toast('Arkistointi epäonnistui', 'error'); }
+    if (typeof toast === 'function') toast(masterT('Ohjelma arkistoitu'), 'ok');
+  } catch (e) { if (typeof toast === 'function') toast(masterT('Arkistointi epäonnistui'), 'error'); }
 };
 
 // ── Editori (state window._ohjEdit; strukturaaliset opit synkkaavat DOM:ista, tekstikentät luetaan tallennettaessa) ──
@@ -5979,7 +5979,7 @@ function _ohjEditRender() {
   var lbl = 'font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink3);margin:8px 0 3px';
   var h = '<div id="_ohjEditModal" style="position:fixed;inset:0;background:rgba(0,0,0,.82);z-index:9500;display:flex;align-items:center;justify-content:center;padding:16px" onclick="if(event.target===this)this.remove()">';
   h += '<div style="background:var(--card);border:.5px solid var(--border);border-radius:12px;padding:22px;width:640px;max-width:100%;max-height:94vh;overflow-y:auto" onclick="event.stopPropagation()">';
-  h += '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px"><div style="font-family:\'Cormorant Garamond\',serif;font-size:20px;color:var(--ink)">' + (E.id ? ('✏️ Muokkaa: ' + esc(E.nimi) + ' (v' + E.versio + ' → v' + (E.versio + 1) + ')') : '＋ Uusi ohjelma') + '</div>'
+  h += '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px"><div style="font-family:\'Cormorant Garamond\',serif;font-size:20px;color:var(--ink)">' + (E.id ? (masterT('✏️ Muokkaa: ') + esc(E.nimi) + ' (v' + E.versio + ' → v' + (E.versio + 1) + ')') : masterT('＋ Uusi ohjelma')) + '</div>'
     + '<button onclick="document.getElementById(\'_ohjEditModal\').remove()" style="background:none;border:none;color:var(--ink3);font-size:22px;cursor:pointer;padding:0 6px">×</button></div>';
   h += '<div style="' + lbl + '">Nimi</div><input id="ohjNimi" value="' + esc(E.nimi) + '" style="' + inp + '">';
   h += '<div style="display:flex;gap:10px"><div style="flex:1"><div style="' + lbl + '">Tyyppi</div><select id="ohjTyyppi" onchange="_ohjEditTyyppiVaihto()" style="' + inp + '">' + TYYPIT.map(function (t) { return '<option value="' + t + '"' + (t === E.tyyppi ? ' selected' : '') + '>' + t + '</option>'; }).join('') + '</select></div>'
@@ -5999,7 +5999,7 @@ function _ohjEditRender() {
   });
   h += '<button onclick="_ohjEditVaiheAdd()" style="font-size:12px;border-radius:7px;padding:7px 12px;cursor:pointer;border:.5px dashed var(--border);background:none;color:var(--ink2);width:100%">＋ Lisää vaihe</button>';
   if (E.virheet && E.virheet.length) h += '<div style="margin-top:10px;background:rgba(201,64,64,.1);border:.5px solid rgba(201,64,64,.35);border-radius:8px;padding:9px 11px;font-size:12px;color:#c94040">' + E.virheet.map(function (x) { return '⚠ ' + esc(x); }).join('<br>') + '</div>';
-  h += '<div style="display:flex;gap:8px;margin-top:14px"><button onclick="_ohjEditTallenna()" style="flex:1;font-size:13px;font-weight:600;border-radius:9px;padding:10px;border:.5px solid rgba(40,176,144,.4);background:rgba(40,176,144,.14);color:var(--teal);cursor:pointer">' + (E.id ? '💾 Tallenna uutena versiona' : '💾 Tallenna kirjastoon') + '</button>'
+  h += '<div style="display:flex;gap:8px;margin-top:14px"><button onclick="_ohjEditTallenna()" style="flex:1;font-size:13px;font-weight:600;border-radius:9px;padding:10px;border:.5px solid rgba(40,176,144,.4);background:rgba(40,176,144,.14);color:var(--teal);cursor:pointer">' + (E.id ? masterT('💾 Tallenna uutena versiona') : masterT('💾 Tallenna kirjastoon')) + '</button>'
     + '<button onclick="document.getElementById(\'_ohjEditModal\').remove()" style="font-size:12px;border-radius:8px;padding:10px 14px;cursor:pointer;border:.5px solid var(--border);background:var(--ov-1,rgba(255,255,255,.04));color:var(--ink2)">Peruuta</button></div>';
   h += '</div></div>';
   document.getElementById('_ohjEditModal')?.remove();
@@ -6027,7 +6027,7 @@ window._ohjEditTallenna = async function () {
     doc.luotu = doc.luotu || firebase.firestore.FieldValue.serverTimestamp();
     doc.paivitetty = firebase.firestore.FieldValue.serverTimestamp();
     var ref = await _db.collection('seurat').doc(_seuraId).collection('ohjelmat').add(doc);
-    if (typeof toast === 'function') toast(E.id ? ('Uusi versio tallennettu (v' + doc.versio + ')') : 'Ohjelma tallennettu kirjastoon ✓', 'ok');
+    if (typeof toast === 'function') toast(E.id ? (masterT('Uusi versio tallennettu (v') + doc.versio + ')') : masterT('Ohjelma tallennettu kirjastoon ✓'), 'ok');
     document.getElementById('_ohjEditModal')?.remove();
     await _ohjLataaKirjasto(true);
     if (document.getElementById('_ohjValitseModal')) _ohjValitseRender(E.pid || '', E.teemaAvain || '', false);
@@ -6076,7 +6076,7 @@ function _msRender() {
   if (S.lataa) h += '<div style="font-size:12px;color:var(--ink3)">Lasketaan harjoituksia + läsnäoloa…</div>';
   else if (S.harjoituksia === 0) h += '<div style="font-size:13px;color:var(--amber)">Jakso ei toteutunut treeneissä — vaikutusta ei voi lukea ilman harjoittelua.</div>';
   else { h += '<div style="display:flex;gap:8px;align-items:baseline"><span style="font-family:\'Cormorant Garamond\',serif;font-size:26px;color:var(--teal)">' + S.harjoituksia + '</span><span style="font-size:11px;color:var(--ink3)">teemaharjoitusta jaksolla</span></div>'
-    + '<div style="font-size:11.5px;color:var(--ink2);margin-top:4px">' + (S.lasnaolo.tiedossa ? ('läsnä ' + S.lasnaolo.paikalla + '/' + S.harjoituksia) : 'läsnäoloa ei kirjattu') + '</div>'; }
+    + '<div style="font-size:11.5px;color:var(--ink2);margin-top:4px">' + (S.lasnaolo.tiedossa ? ('läsnä ' + S.lasnaolo.paikalla + '/' + S.harjoituksia) : masterT('läsnäoloa ei kirjattu')) + '</div>'; }
   h += '</div>';
   // Vaihe 7 — mitattu vaikutus (fyysinen domeeni, §29) + PHV-portti (§28)
   if (_fyys && !S.lataa) {
@@ -6085,7 +6085,7 @@ function _msRender() {
     if (_delta) {
       var _sv = _delta.muutos > 0 ? '#3DA35D' : (_delta.muutos < 0 ? 'var(--amber)' : 'var(--ink3)');
       var _su = _delta.muutos > 0 ? '↑' : (_delta.muutos < 0 ? '↓' : '→');
-      var _lbl2 = _delta.lahde === 'flei' ? 'Kehon valmius' : 'H-H-taso';
+      var _lbl2 = _delta.lahde === 'flei' ? masterT('Kehon valmius') : masterT('H-H-taso');
       h += '<div style="display:flex;align-items:center;gap:10px"><span style="font-family:\'Cormorant Garamond\',serif;font-size:24px;color:var(--ink3)">' + _delta.ennen + '</span><span style="color:var(--ink3)">→</span><span style="font-family:\'Cormorant Garamond\',serif;font-size:24px;color:' + _sv + '">' + _delta.jalkeen + '</span><span style="font-size:12px;color:' + _sv + ';font-weight:600">' + _su + ' ' + _lbl2 + '</span></div>';
       h += '<div style="font-size:10.5px;color:var(--ink3);margin-top:3px">mittaukset ' + (_delta.pvm_ennen ? _pvmFi(_delta.pvm_ennen) : '—') + ' → ' + _pvmFi(_delta.pvm_jalkeen) + (_delta.testi ? (' · ' + esc(_delta.testi) + ' ' + esc(String(_delta.raaka_jalkeen))) : '') + '</div>';
     } else {
@@ -6102,17 +6102,17 @@ function _msRender() {
   if (kal != null) h += '<div style="display:flex;align-items:center;gap:7px;margin-top:9px;background:rgba(224,160,64,.08);border:.5px solid rgba(224,160,64,.28);border-radius:7px;padding:6px 9px"><span style="font-size:11px;color:var(--amber);font-weight:600">Kalibraatio: ero ' + kal + '</span><span style="font-size:10.5px;color:var(--ink3)">— hyvä hetki keskustella (ei pelaajalle syyllistävänä)</span></div>';
   h += '<div style="display:flex;align-items:center;gap:8px;margin-top:9px;border:.5px dashed var(--ov-3,rgba(255,255,255,.08));border-radius:7px;padding:8px 10px;color:var(--ink3)"><span style="font-size:14px">📹</span><span style="font-size:11.5px">Liitä video <b style="color:var(--ink2)">(tulossa)</b> — taidon näyte ennen/jälkeen</span></div>';
   h += '</div>';
-  var TUL = [['parani', '↑ Parani'], ['ennallaan', '→ Ennallaan — jatka samaa'], ['vaihda', '⟳ Vaihda fokus']];
+  var TUL = [['parani', masterT('↑ Parani')], ['ennallaan', masterT('→ Ennallaan — jatka samaa')], ['vaihda', masterT('⟳ Vaihda fokus')]];
   h += '<div style="display:flex;gap:7px;flex-wrap:wrap;margin-bottom:8px">';
   TUL.forEach(function (t) { var sel = S.tulos === t[0]; h += '<button onclick="_msSetTulos(\'' + t[0] + '\')" style="flex:1;min-width:120px;font-size:11.5px;border-radius:8px;padding:8px 6px;cursor:pointer;border:.5px solid ' + (sel ? 'rgba(61,163,93,.5)' : 'var(--border)') + ';background:' + (sel ? 'rgba(61,163,93,.12)' : 'var(--ov-1,rgba(255,255,255,.04))') + ';color:' + (sel ? '#3DA35D' : 'var(--ink2)') + ';font-weight:' + (sel ? '600' : '400') + '">' + t[1] + '</button>'; });
   h += '</div>';
-  h += '<div style="font-size:10.5px;color:var(--ink3);font-style:italic;margin-bottom:12px">' + (_fyys ? 'Tulos-kehys: parani / ennallaan — jatka / vaihda. §28: kypsyysvaihe huomioitu — pre-PHV ”ennallaan” on odotettua, ei ”epäonnistui”.' : '§28: tekniikka kehittyy hitaasti — 4 vk harvoin näyttää mitattavaa muutosta. ”Ennallaan” ei ole epäonnistuminen.') + '</div>';
+  h += '<div style="font-size:10.5px;color:var(--ink3);font-style:italic;margin-bottom:12px">' + (_fyys ? masterT('Tulos-kehys: parani / ennallaan — jatka / vaihda. §28: kypsyysvaihe huomioitu — pre-PHV ”ennallaan” on odotettua, ei ”epäonnistui”.') : masterT('§28: tekniikka kehittyy hitaasti — 4 vk harvoin näyttää mitattavaa muutosta. ”Ennallaan” ei ole epäonnistuminen.')) + '</div>';
   var seur = S.tulos ? _msSeuraava(p, jf.konsepti_avain, S.tulos) : null;
   if (S.tulos) {
     h += '<div style="background:linear-gradient(150deg,rgba(40,176,144,.1),var(--surface,#1C1C1A));border:.5px solid rgba(40,176,144,.3);border-radius:10px;padding:13px">';
     if (seur) {
       var cue = (!seur.fyysinen && typeof tmTtKysymykset === 'function') ? tmTtKysymykset(seur.konsepti_avain) : [];
-      h += '<div style="font-size:11px;color:var(--amber);margin-bottom:4px">↻ Seuraava fokus (' + (seur.jatka ? 'jatka samaa' : 'silta: seuraavaksi heikoin') + ')</div>'
+      h += '<div style="font-size:11px;color:var(--amber);margin-bottom:4px">↻ Seuraava fokus (' + (seur.jatka ? masterT('jatka samaa') : masterT('silta: seuraavaksi heikoin')) + ')</div>'
         + '<div style="font-family:\'Cormorant Garamond\',serif;font-size:18px;color:var(--ink)">' + esc(seur.konsepti_nimi) + '</div>'
         + (cue.length ? '<div style="font-size:12px;color:var(--teal);margin-top:3px">Cue: ' + esc(cue[0]) + '</div>' : '')
         + '<div style="display:flex;gap:8px;margin-top:11px"><button style="flex:1;font-size:12.5px;font-weight:600;border-radius:9px;padding:9px;border:.5px solid rgba(40,176,144,.4);background:rgba(40,176,144,.14);color:var(--teal);cursor:pointer" onclick="_msTallenna(\'' + esc(seur.konsepti_avain) + '\')">✓ Aseta seuraava jakso</button>'
@@ -6157,7 +6157,7 @@ window._msTallenna = async function (uusiAvain) {
   try {
     var cu = firebase.auth().currentUser; if (cu) await cu.getIdToken(true);
     await _db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(p.id).set({ jaksofokus: uusiJf, jaksofokus_historia: hist }, { merge: true });
-    if (typeof toast === 'function') toast(uusiAvain ? 'Jakso suljettu · uusi fokus asetettu ✓' : 'Jakso suljettu ✓', 'ok');
+    if (typeof toast === 'function') toast(uusiAvain ? masterT('Jakso suljettu · uusi fokus asetettu ✓') : masterT('Jakso suljettu ✓'), 'ok');
   } catch (e) { console.warn('[msTallenna]', e && e.message); if (typeof toast === 'function') toast('Tallennus epäonnistui', 'error'); }
 };
 // Meso-kehityskaari (jaksofokus_historia §26). Valmentaja-näkymä (§7.22 ei koske).
