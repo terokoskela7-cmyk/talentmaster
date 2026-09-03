@@ -16,7 +16,7 @@
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-storage-compat.js"></script>
 <script src="lib/tm_lang.js?v=1"></script>   <!-- i18n V0 — fi/sv/en käännöstaulukko + t() + kieli-init (putkitus) -->
 <script src="lib/tm_i18n_common.js?v=2"></script>   <!-- i18n Vaihe 0 — JAETTU henkilöstö-i18n + lukittu glossaari (ENNEN sivukarttaa) -->
-<script src="lib/tm_master_i18n.js?v=14"></script>   <!-- i18n Vaihe 5 Raita B — Master sv (sivukartta); masterT/masterLokalisoi delegoivat commoniin -->
+<script src="lib/tm_master_i18n.js?v=15"></script>   <!-- i18n Vaihe 5 Raita B — Master sv (sivukartta); masterT/masterLokalisoi delegoivat commoniin -->
 <script src="lib/tm_eerikkila_normit.js?v=45"></script>   <!-- v43: D2-kortti d2_taso-ensin (renderKehityskorttiHTML, PR #264 · §30/#262) -->
 <script src="lib/tm_harjoitusarviointi.js?v=4"></script>
 <script src="lib/tm_kalenteri.js?v=1"></script>
@@ -7010,50 +7010,50 @@ function _prRaporttiHTML(p){
   var ika = (isp && isp.ika != null) ? (isp.ika + ' v') : '—';
   var chips = [];
   if (p.phv_tila){ var pv = { PRE:'var(--ink3)', LAH:'var(--blue)', PH:'var(--amber)', POST:'var(--teal)', AN:'var(--teal)' }[p.phv_tila] || 'var(--ink3)'; chips.push(_prChip((p.phv_tila === 'PH' ? '⚠ ' : '') + 'PHV ' + p.phv_tila, pv)); }
-  if (typeof raeChip === 'function'){ var rc = raeChip(p); if (rc.q){ var qv = rc.q === 'Q1' ? 'var(--amber)' : rc.q === 'Q4' ? 'var(--teal)' : 'var(--ink3)'; chips.push(_prChip(rc.q + ' synt.', qv)); if (rc.underdog) chips.push(_prChip('⭐ Underdog', 'var(--teal)')); } }
+  if (typeof raeChip === 'function'){ var rc = raeChip(p); if (rc.q){ var qv = rc.q === 'Q1' ? 'var(--amber)' : rc.q === 'Q4' ? 'var(--teal)' : 'var(--ink3)'; chips.push(_prChip(rc.q + masterT(' synt.'), qv)); if (rc.underdog) chips.push(_prChip(masterT('⭐ Underdog'), 'var(--teal)')); } }
   var header = '<div style="margin-bottom:12px">'
     + '<div style="font-family:\'Cormorant Garamond\',serif;font-size:24px;color:var(--ink);line-height:1.1">' + _prEsc((p.etunimi || '') + ' ' + (p.sukunimi || '')) + '</div>'
     + '<div style="font-size:12px;color:var(--ink2);margin:3px 0 6px">' + _prEsc(p.joukkue || _joukkue || '—') + ' · ' + ika + (p.pelipaikka ? (' · ' + _prEsc(p.pelipaikka)) : '') + '</div>'
     + (chips.length ? '<div style="display:flex;gap:6px;flex-wrap:wrap">' + chips.join('') + '</div>' : '')
     + '</div>';
   function nv(x){ return (x == null || x === '') ? '—' : x; }
-  var mittaus = _prRivi('Kehon valmius', nv(p.flei_viimeisin))
-    + _prRivi('Tekniikka (TKI)', nv(p.tki_viimeisin))
-    + _prRivi('Fyysinen (H-H)', p.hh_taso != null ? (p.hh_taso + '/5') : '—')
-    + _prRivi('D1 taso', p.d1_taso != null ? (p.d1_taso + '/5') : '—')
-    + _prRivi('D2 taso', p.d2_taso != null ? (p.d2_taso + '/5') : '—');
-  var ottelu = '<div style="font-size:12px;color:var(--ink3)">Ei dataa</div>';   // TASO-pelidata ei vielä integroitu Masteriin
+  var mittaus = _prRivi(masterT('Kehon valmius'), nv(p.flei_viimeisin))
+    + _prRivi(masterT('Tekniikka (TKI)'), nv(p.tki_viimeisin))
+    + _prRivi(masterT('Fyysinen (H-H)'), p.hh_taso != null ? (p.hh_taso + '/5') : '—')
+    + _prRivi(masterT('D1 taso'), p.d1_taso != null ? (p.d1_taso + '/5') : '—')
+    + _prRivi(masterT('D2 taso'), p.d2_taso != null ? (p.d2_taso + '/5') : '—');
+  var ottelu = '<div style="font-size:12px;color:var(--ink3)">' + masterT('Ei dataa') + '</div>';   // TASO-pelidata ei vielä integroitu Masteriin
   var adar = p.adar_viimeisin;
   var pelihav = (adar && adar.yht != null)
-    ? (_prRivi('Pelihavainto-kokonaisuus', adar.yht) + _prRivi('Havaintoja', nv(p.adar_havaintoja)))
-    : '<div style="font-size:12px;color:var(--ink3)">Ei dataa</div>';
-  var lahteet = _prLahde('Mittaus', 'objektiivinen', 'var(--teal)', mittaus)
-    + _prLahde('Ottelu', 'pelisuoritus', 'var(--amber)', ottelu)
-    + _prLahde('Pelihavainto', 'subjektiivinen', 'var(--blue)', pelihav);
+    ? (_prRivi(masterT('Pelihavainto-kokonaisuus'), adar.yht) + _prRivi(masterT('Havaintoja'), nv(p.adar_havaintoja)))
+    : '<div style="font-size:12px;color:var(--ink3)">' + masterT('Ei dataa') + '</div>';
+  var lahteet = _prLahde(masterT('Mittaus'), masterT('objektiivinen'), 'var(--teal)', mittaus)
+    + _prLahde(masterT('Ottelu'), masterT('pelisuoritus'), 'var(--amber)', ottelu)
+    + _prLahde(masterT('Pelihavainto'), masterT('subjektiivinen'), 'var(--blue)', pelihav);
   var resepti = p.tki_kehityskohde
-    ? ('Seuraavan harjoituksen painopiste: <b>' + _prEsc(p.tki_kehityskohde) + '</b>')
-    : 'Aseta kehityskohde nähdäksesi harjoitusreseptin.';
+    ? (masterT('Seuraavan harjoituksen painopiste: ') + '<b>' + _prEsc(p.tki_kehityskohde) + '</b>')
+    : masterT('Aseta kehityskohde nähdäksesi harjoitusreseptin.');
   var vkr = '<div style="border:.5px solid var(--border);border-radius:8px;padding:10px 12px;margin-bottom:10px">'
-    + '<div style="font-size:12px;color:var(--ink2);margin-bottom:4px"><b style="color:var(--teal)">Vahvuus:</b> ' + (p.tki_vahvuus ? _prEsc(p.tki_vahvuus) : '—') + '</div>'
-    + '<div style="font-size:12px;color:var(--ink2);margin-bottom:4px"><b style="color:var(--amber)">Kehityskohde:</b> ' + (p.tki_kehityskohde ? _prEsc(p.tki_kehityskohde) : '—') + '</div>'
-    + '<div style="font-size:12px;color:var(--ink2)"><b>Resepti:</b> ' + resepti + '</div></div>';
+    + '<div style="font-size:12px;color:var(--ink2);margin-bottom:4px"><b style="color:var(--teal)">' + masterT('Vahvuus:') + '</b> ' + (p.tki_vahvuus ? _prEsc(p.tki_vahvuus) : '—') + '</div>'
+    + '<div style="font-size:12px;color:var(--ink2);margin-bottom:4px"><b style="color:var(--amber)">' + masterT('Kehityskohde:') + '</b> ' + (p.tki_kehityskohde ? _prEsc(p.tki_kehityskohde) : '—') + '</div>'
+    + '<div style="font-size:12px;color:var(--ink2)"><b>' + masterT('Resepti:') + '</b> ' + resepti + '</div></div>';
   return header + lahteet + vkr;
 }
 window._avaaPelaajaraportti = function (pid){
   var p = (_pelaajatData || []).find(function (x){ return x.id === pid; });
-  if (!p){ if (typeof toast === 'function') toast('Pelaajaa ei löydy', 'error'); return; }
-  if (!window._prVoiNahda(p)){ if (typeof toast === 'function') toast('Ei oikeutta tähän pelaajaan', 'error'); return; }
+  if (!p){ if (typeof toast === 'function') toast(masterT('Pelaajaa ei löydy'), 'error'); return; }
+  if (!window._prVoiNahda(p)){ if (typeof toast === 'function') toast(masterT('Ei oikeutta tähän pelaajaan'), 'error'); return; }
   var vanha = document.getElementById('prModal'); if (vanha) vanha.remove();
   var m = document.createElement('div'); m.id = 'prModal';
   m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9400;display:flex;align-items:flex-start;justify-content:center;padding:20px 16px;overflow-y:auto';
   m.onclick = function (e){ if (e.target === m) window._prSulje(); };
   var goals = '<div style="margin-top:14px;border-top:.5px solid var(--border);padding-top:12px">'
-    + '<div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--ink2);margin-bottom:8px">Tavoitteet</div>'
-    + '<div id="prTavoitteet" style="margin-bottom:10px"><div style="font-size:12px;color:var(--ink3)">Ladataan…</div></div>'
-    + '<textarea id="prTavoiteTeksti" maxlength="300" rows="2" placeholder="Uusi tavoite pelaajalle…" style="width:100%;padding:8px;border:.5px solid var(--border);border-radius:7px;background:var(--surface);color:var(--ink);font-size:13px;resize:vertical"></textarea>'
+    + '<div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--ink2);margin-bottom:8px">' + masterT('Tavoitteet') + '</div>'
+    + '<div id="prTavoitteet" style="margin-bottom:10px"><div style="font-size:12px;color:var(--ink3)">' + masterT('Ladataan…') + '</div></div>'
+    + '<textarea id="prTavoiteTeksti" maxlength="300" rows="2" placeholder="' + masterT('Uusi tavoite pelaajalle…') + '" style="width:100%;padding:8px;border:.5px solid var(--border);border-radius:7px;background:var(--surface);color:var(--ink);font-size:13px;resize:vertical"></textarea>'
     + '<div style="display:flex;gap:8px;align-items:center;margin-top:8px;flex-wrap:wrap">'
-    + '<label style="font-size:11px;color:var(--ink3)">Tavoitepvm <input type="date" id="prTavoitePvm" style="padding:6px 8px;border:.5px solid var(--border);border-radius:6px;background:var(--surface);color:var(--ink);font-size:12px"></label>'
-    + '<button onclick="_prTallennaTavoite(\'' + pid + '\')" id="prTavoiteBtn" style="margin-left:auto;background:var(--teal);color:#fff;border:none;border-radius:7px;padding:9px 16px;font-size:13px;font-weight:600;cursor:pointer">Tallenna tavoite</button>'
+    + '<label style="font-size:11px;color:var(--ink3)">' + masterT('Tavoitepvm') + ' <input type="date" id="prTavoitePvm" style="padding:6px 8px;border:.5px solid var(--border);border-radius:6px;background:var(--surface);color:var(--ink);font-size:12px"></label>'
+    + '<button onclick="_prTallennaTavoite(\'' + pid + '\')" id="prTavoiteBtn" style="margin-left:auto;background:var(--teal);color:#fff;border:none;border-radius:7px;padding:9px 16px;font-size:13px;font-weight:600;cursor:pointer">' + masterT('Tallenna tavoite') + '</button>'
     + '</div></div>';
   m.innerHTML = '<div onclick="event.stopPropagation()" style="background:var(--bg2);border:.5px solid var(--border);border-radius:14px;width:min(640px,96vw);padding:20px 22px;margin:auto">'
     + '<div style="display:flex;justify-content:flex-end"><button onclick="_prSulje()" style="background:none;border:none;color:var(--ink3);font-size:24px;cursor:pointer;line-height:1">×</button></div>'
@@ -7073,17 +7073,17 @@ window._prLataaTavoitteet = async function (pid){
     var snap = await _db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(pid).collection('tavoitteet').get();
     var rows = []; snap.forEach(function (d){ rows.push(Object.assign({ id: d.id }, d.data())); });
     rows.sort(function (a, b){ return ((b.luotu && b.luotu.seconds) || 0) - ((a.luotu && a.luotu.seconds) || 0); });
-    if (!rows.length){ cont.innerHTML = '<div style="font-size:12px;color:var(--ink3)">Ei tavoitteita vielä.</div>'; return; }
+    if (!rows.length){ cont.innerHTML = '<div style="font-size:12px;color:var(--ink3)">' + masterT('Ei tavoitteita vielä.') + '</div>'; return; }
     cont.innerHTML = rows.map(function (t){
       var sel = ['kaynnissa', 'saavutettu', 'kesken'].map(function (s){ return '<option value="' + s + '"' + (t.tila === s ? ' selected' : '') + '>' + masterT({ kaynnissa:'Käynnissä', saavutettu:'Saavutettu', kesken:'Kesken' }[s]) + '</option>'; }).join('');
       return '<div style="border:.5px solid var(--border);border-radius:7px;padding:8px 10px;margin-bottom:6px">'
         + '<div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline"><span style="font-size:13px;color:var(--ink);flex:1">' + _prEsc(t.teksti || '') + '</span>' + _prTilaBadge(t.tila) + '</div>'
         + '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:5px">'
-        + '<span style="font-size:10px;color:var(--ink3)">' + (t.tavoitepvm ? ('Tavoite ' + _prEsc(t.tavoitepvm)) : '') + (t.valmentajaNimi ? (' · ' + _prEsc(t.valmentajaNimi)) : '') + '</span>'
+        + '<span style="font-size:10px;color:var(--ink3)">' + (t.tavoitepvm ? (masterT('Tavoite ') + _prEsc(t.tavoitepvm)) : '') + (t.valmentajaNimi ? (' · ' + _prEsc(t.valmentajaNimi)) : '') + '</span>'
         + '<select onchange="_prVaihdaTila(\'' + pid + '\',\'' + t.id + '\',this.value)" style="font-size:11px;padding:3px 6px;border:.5px solid var(--border);border-radius:5px;background:var(--surface);color:var(--ink2)">' + sel + '</select>'
         + '</div></div>';
     }).join('');
-  } catch (e){ cont.innerHTML = '<div style="font-size:12px;color:var(--red)">Tavoitteiden lataus epäonnistui.</div>'; }
+  } catch (e){ cont.innerHTML = '<div style="font-size:12px;color:var(--red)">' + masterT('Tavoitteiden lataus epäonnistui.') + '</div>'; }
 };
 // Pikakenttä tavoite_aktiivinen_kpl = count(tila==='kaynnissa') → pelaajadokumenttiin (§26).
 async function _prPaivitaAktiiviset(pid){
@@ -7096,7 +7096,7 @@ async function _prPaivitaAktiiviset(pid){
 window._prTallennaTavoite = async function (pid){
   var ta = document.getElementById('prTavoiteTeksti'), pe = document.getElementById('prTavoitePvm'), btn = document.getElementById('prTavoiteBtn');
   var teksti = ((ta && ta.value) || '').trim();
-  if (!teksti){ if (typeof toast === 'function') toast('Kirjoita tavoite ensin', 'error'); return; }
+  if (!teksti){ if (typeof toast === 'function') toast(masterT('Kirjoita tavoite ensin'), 'error'); return; }
   if (!_seuraId){ if (typeof toast === 'function') toast('Kirjaudu ensin', 'error'); return; }
   if (btn){ btn.disabled = true; btn.textContent = 'Tallennetaan…'; }
   try {
@@ -7112,7 +7112,7 @@ window._prTallennaTavoite = async function (pid){
     });
     await _prPaivitaAktiiviset(pid);
     if (ta) ta.value = ''; if (pe) pe.value = '';
-    if (typeof toast === 'function') toast('✓ Tavoite tallennettu', 'ok');
+    if (typeof toast === 'function') toast(masterT('✓ Tavoite tallennettu'), 'ok');
     window._prLataaTavoitteet(pid);
   } catch (e){ if (typeof toast === 'function') toast('Tallennus epäonnistui: ' + ((e && e.message) || 'tuntematon'), 'error'); }
   if (btn){ btn.disabled = false; btn.textContent = 'Tallenna tavoite'; }
@@ -7790,11 +7790,11 @@ function _notifBadge() {
   b.style.display = n > 0 ? 'flex' : 'none';
 }
 function _notifAikaSitten(luotu) {
-  try { const ms = (luotu && luotu.toDate) ? luotu.toDate().getTime() : Date.parse(luotu); if (!ms || isNaN(ms)) return ''; const d = Math.floor((Date.now() - ms) / 86400000); return d <= 0 ? 'tänään' : d === 1 ? 'eilen' : d + ' pv sitten'; } catch (e) { return ''; }
+  try { const ms = (luotu && luotu.toDate) ? luotu.toDate().getTime() : Date.parse(luotu); if (!ms || isNaN(ms)) return ''; const d = Math.floor((Date.now() - ms) / 86400000); return d <= 0 ? masterT('tänään') : d === 1 ? masterT('eilen') : d + masterT(' pv sitten'); } catch (e) { return ''; }
 }
 function _notifRender() {
   const el = document.getElementById('notifLista'); if (!el) return;
-  if (!_notifLista.length) { el.innerHTML = '<div style="padding:18px;text-align:center;color:var(--ink3);font-size:13px">Ei ilmoituksia.</div>'; return; }
+  if (!_notifLista.length) { el.innerHTML = '<div style="padding:18px;text-align:center;color:var(--ink3);font-size:13px">' + masterT('Ei ilmoituksia.') + '</div>'; return; }
   const ico = { palaute: '💬', review: '🔔', tee_itsearvio: '✍' };
   el.innerHTML = _notifLista.map(function (x) {
     return '<div onclick="_notifAvaa(\'' + x._id + '\')" class="notif-item' + (x.luettu ? '' : ' uusi') + '">'
@@ -7830,12 +7830,12 @@ window._notifAsetukset = function () {
   m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9600;display:flex;align-items:flex-start;justify-content:center;padding:20px 16px;overflow-y:auto';
   m.onclick = e => { if (e.target === m) m.remove(); };
   m.innerHTML = '<div onclick="event.stopPropagation()" style="background:var(--card);border:.5px solid var(--line);border-radius:14px;width:min(380px,94vw);padding:20px 22px;margin:auto">'
-    + '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px"><div style="font-size:16px;font-weight:600;color:var(--ink)">Ilmoitusasetukset</div><button onclick="document.getElementById(\'notifAsModal\').remove()" style="background:none;border:none;color:var(--ink3);font-size:22px;cursor:pointer">×</button></div>'
-    + '<div style="font-size:11px;color:var(--ink3);margin-bottom:14px">Sähköpostikooste omista ilmoituksistasi (ei pelaajatietoja).</div>'
-    + '<label style="display:flex;align-items:center;gap:10px;margin-bottom:14px;cursor:pointer;font-size:13px;color:var(--ink2)"><input type="checkbox" id="notifAsEmail"' + (enabled ? ' checked' : '') + ' style="width:18px;height:18px;accent-color:var(--teal)"> Sähköpostikooste käytössä</label>'
-    + '<label style="font-size:12px;color:var(--ink3);display:block;margin-bottom:4px">Kadenssi</label>'
-    + '<select id="notifAsKad" style="width:100%;padding:8px 10px;border:.5px solid var(--line);border-radius:8px;background:var(--bg2);color:var(--ink);font-size:13px;margin-bottom:16px"><option value="paivittain"' + (kad === 'paivittain' ? ' selected' : '') + '>Päivittäin</option><option value="viikoittain"' + (kad === 'viikoittain' ? ' selected' : '') + '>Viikoittain</option></select>'
-    + '<button onclick="_notifTallennaAsetukset()" style="width:100%;padding:11px;border:none;border-radius:9px;background:var(--teal);color:#fff;font-size:14px;font-weight:600;cursor:pointer">Tallenna</button></div>';
+    + '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px"><div style="font-size:16px;font-weight:600;color:var(--ink)">' + masterT('Ilmoitusasetukset') + '</div><button onclick="document.getElementById(\'notifAsModal\').remove()" style="background:none;border:none;color:var(--ink3);font-size:22px;cursor:pointer">×</button></div>'
+    + '<div style="font-size:11px;color:var(--ink3);margin-bottom:14px">' + masterT('Sähköpostikooste omista ilmoituksistasi (ei pelaajatietoja).') + '</div>'
+    + '<label style="display:flex;align-items:center;gap:10px;margin-bottom:14px;cursor:pointer;font-size:13px;color:var(--ink2)"><input type="checkbox" id="notifAsEmail"' + (enabled ? ' checked' : '') + ' style="width:18px;height:18px;accent-color:var(--teal)"> ' + masterT('Sähköpostikooste käytössä') + '</label>'
+    + '<label style="font-size:12px;color:var(--ink3);display:block;margin-bottom:4px">' + masterT('Kadenssi') + '</label>'
+    + '<select id="notifAsKad" style="width:100%;padding:8px 10px;border:.5px solid var(--line);border-radius:8px;background:var(--bg2);color:var(--ink);font-size:13px;margin-bottom:16px"><option value="paivittain"' + (kad === 'paivittain' ? ' selected' : '') + '>' + masterT('Päivittäin') + '</option><option value="viikoittain"' + (kad === 'viikoittain' ? ' selected' : '') + '>' + masterT('Viikoittain') + '</option></select>'
+    + '<button onclick="_notifTallennaAsetukset()" style="width:100%;padding:11px;border:none;border-radius:9px;background:var(--teal);color:#fff;font-size:14px;font-weight:600;cursor:pointer">' + masterT('Tallenna') + '</button></div>';
   document.body.appendChild(m);
 };
 window._notifTallennaAsetukset = async function () {
@@ -7846,9 +7846,9 @@ window._notifTallennaAsetukset = async function () {
     await _db.collection('seurat').doc(_seuraId).collection('kayttajat').doc(cu.uid).set({ notif_asetukset: { email: { enabled: enabled, kadenssi: kad } } }, { merge: true });
     window._valmentajaData = window._valmentajaData || {};
     window._valmentajaData.notif_asetukset = Object.assign({}, window._valmentajaData.notif_asetukset, { email: { enabled: enabled, kadenssi: kad } });
-    if (typeof toast === 'function') toast('✓ Asetukset tallennettu', 'ok');
+    if (typeof toast === 'function') toast('✓ ' + masterT('Asetukset tallennettu'), 'ok');
     const mm = document.getElementById('notifAsModal'); if (mm) mm.remove();
-  } catch (e) { if (typeof toast === 'function') toast('Tallennus epäonnistui', 'error'); }
+  } catch (e) { if (typeof toast === 'function') toast(masterT('Tallennus epäonnistui'), 'error'); }
 };
 // Sulje paneeli klikistä ulkopuolelle
 document.addEventListener('click', function (e) {
