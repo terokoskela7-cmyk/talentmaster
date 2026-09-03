@@ -2851,7 +2851,7 @@ function _testiCardHtml(t) {
   return `<div class="testit-card">
     <div class="testit-card-header">
       <div>
-        <div class="testit-card-nimi serif">${t.nimi || proto.nimi || masterT('Nimetön testi')}</div>
+        <div class="testit-card-nimi serif">${t.nimi || (proto.nimi ? masterT(proto.nimi) : '') || masterT('Nimetön testi')}</div>
         <div class="testit-card-meta">
           <span><b class="mono">${t.pvm || '—'}</b></span>
           <span>${t.paikka || ''}</span>
@@ -2863,7 +2863,7 @@ function _testiCardHtml(t) {
         ${pelaajia} ${masterT(pelaajia !== 1 ? 'pelaajaa' : 'pelaaja')}
       </div>
     </div>
-    <div style="font-size:11px;color:var(--ink3);">${proto.nimi || t.protokolla || ''}</div>
+    <div style="font-size:11px;color:var(--ink3);">${(proto.nimi ? masterT(proto.nimi) : '') || t.protokolla || ''}</div>
     <div class="testit-actions">
       <button class="testit-btn primary" onclick="_avaaKentta('${t.id}')">
         <svg width="12" height="12"><use href="#ic-external"/></svg>${st.btn}
@@ -3122,7 +3122,7 @@ function _renderOhjaavaSignaali() {
     el.innerHTML = `
       <div class="signal-caps">
         <div class="signal-dot"></div>
-        <span class="caps">Joukkueen tila · klikkaa syventääksesi</span>
+        <span class="caps">${masterT('Joukkueen tila · klikkaa syventääksesi')}</span>
       </div>
       <div class="signal-title">Kuormitus nousussa viikon kolmannella päivällä — <em>kevennä 20&nbsp;% tänään.</em></div>
       <div class="signal-sub">Perustuu RPE-trendiin (7&nbsp;pv&nbsp;ka&nbsp;7.2, baseline&nbsp;5.8) ja kolmen pelaajan poissaoloon. Kolme keinoa: lyhennä tehot, vähennä toistoja, siirrä tekniikkaosuus alkuun.</div>`;
@@ -3401,7 +3401,7 @@ async function _avaaVahvistus(tapahtumaId) {
   hdr.style.cssText = 'display:flex;justify-content:space-between;align-items:center';
   const otsikko = document.createElement('b');
   otsikko.style.fontSize = '15px';
-  otsikko.textContent = 'Vahvista osallistuvat pelaajat';
+  otsikko.textContent = masterT('Vahvista osallistuvat pelaajat');
   const suljeBtn = document.createElement('button');
   suljeBtn.style.cssText = 'background:none;border:none;cursor:pointer;font-size:20px;color:var(--ink3);line-height:1';
   suljeBtn.textContent = '✕';
@@ -3421,11 +3421,11 @@ async function _avaaVahvistus(tapahtumaId) {
   napit.style.cssText = 'display:flex;gap:8px;align-items:center';
   const kaikkiBtn = document.createElement('button');
   kaikkiBtn.style.cssText = 'font-size:11px;padding:4px 10px;border-radius:6px;border:0.5px solid var(--border);cursor:pointer;background:var(--surface)';
-  kaikkiBtn.textContent = 'Kaikki (' + kaikki.length + ')';
+  kaikkiBtn.textContent = masterT('Kaikki (') + kaikki.length + ')';
   kaikkiBtn.onclick = () => { document.querySelectorAll('#vahvistusLista input').forEach(c => c.checked = true); _paiVahvLkm(); };
   const tyhjennaBtn = document.createElement('button');
   tyhjennaBtn.style.cssText = kaikkiBtn.style.cssText;
-  tyhjennaBtn.textContent = 'Tyhjennä';
+  tyhjennaBtn.textContent = masterT('Tyhjennä');
   tyhjennaBtn.onclick = () => { document.querySelectorAll('#vahvistusLista input').forEach(c => c.checked = false); _paiVahvLkm(); };
   const lkm = document.createElement('span');
   lkm.id = 'vahvistusLkm';
@@ -3473,7 +3473,7 @@ async function _avaaVahvistus(tapahtumaId) {
   peruBtn.onclick = () => modal.remove();
   const tallBtn = document.createElement('button');
   tallBtn.style.cssText = 'font-size:13px;padding:7px 18px;border-radius:6px;border:none;background:var(--teal);color:#fff;cursor:pointer;font-weight:500;margin-left:auto';
-  tallBtn.textContent = 'Tallenna ja lataa Excel →';
+  tallBtn.textContent = masterT('Tallenna ja lataa Excel →');
   tallBtn.onclick = () => _tallennaVahvistus(tapahtumaId);
   footer.appendChild(peruBtn);
   footer.appendChild(tallBtn);
@@ -3533,8 +3533,8 @@ function _avaaTestausV9(tapahtumaId) {
 
 // P2.1 — Pikakirjaus-lomake (jaettu lib). Master lataa testit_indeksit.js (TM_TESTIT) → H-H + TKI.
 function _masterPikakirjaus() {
-  if (!window.TM_PIKAKIRJAUS) { if (typeof toast === 'function') toast('Pikakirjaus-lomake ei latautunut', 'error'); return; }
-  if (!_seuraId) { if (typeof toast === 'function') toast('Valitse ensin seura', 'error'); return; }
+  if (!window.TM_PIKAKIRJAUS) { if (typeof toast === 'function') toast(masterT('Pikakirjaus-lomake ei latautunut'), 'error'); return; }
+  if (!_seuraId) { if (typeof toast === 'function') toast(masterT('Valitse ensin seura'), 'error'); return; }
   var uid = (typeof firebase !== 'undefined' && firebase.auth().currentUser && firebase.auth().currentUser.uid) || null;
   window.TM_PIKAKIRJAUS.avaa({ db: _db, seuraId: _seuraId, uid: uid, pelaajat: _pelaajatData, joukkueNimet: {}, toast: (typeof toast === 'function') ? toast : null });
 }
@@ -3564,10 +3564,10 @@ async function _suljeTapahtuma(tapahtumaId) {
       await _db.collection('seurat').doc(_seuraId).collection('testitapahtumat')
         .doc(tapahtumaId).update({ tila: 'suljettu', paivitetty: firebase.firestore.FieldValue.serverTimestamp() });
     }
-    toast('Tapahtuma suljettu', 'success');
+    toast(masterT('Tapahtuma suljettu'), 'success');
     _lataaTestitapahtumat();
   } catch(e) {
-    toast('Virhe sulkemisessa: ' + e.message, 'error');
+    toast(masterT('Virhe sulkemisessa: ') + e.message, 'error');
   }
 }
 
@@ -3615,11 +3615,11 @@ function _getInboxEvents(){
 
 function _fmtTime(ts){
   const diff=Date.now()-ts;
-  if(diff<60000) return 'juuri nyt';
-  if(diff<3600000) return Math.floor(diff/60000)+' min sitten';
-  if(diff<86400000) return Math.floor(diff/3600000)+' h sitten';
+  if(diff<60000) return masterT('juuri nyt');
+  if(diff<3600000) return Math.floor(diff/60000)+masterT(' min sitten');
+  if(diff<86400000) return Math.floor(diff/3600000)+masterT(' h sitten');
   const pv=Math.floor(diff/86400000);
-  return pv===1?'eilen':pv+' pv sitten';
+  return pv===1?masterT('eilen'):pv+masterT(' pv sitten');
 }
 
 function _initials(name){
@@ -4153,7 +4153,7 @@ function renderCoachSelfCard() {
 
   var nimi = _superAdmin ? 'Super Admin' : ((d.etunimi || '') + ' ' + (d.sukunimi || '')).trim() || 'Valmentaja';
   var rooli = _superAdmin ? 'super_admin' : (_rooli || d.rooli || 'valmentaja');
-  var rooliTxt = {'vp':'Vastuuvalmentaja','valmentaja':'Valmentaja','talenttivalmentaja':'Talenttivalmentaja','fysiikkavalmentaja':'Fysiikkavalmentaja','testivastaava':'Testivastaava','super_admin':'Super Admin'}[rooli] || rooli;
+  var rooliTxt = masterT({'vp':'Vastuuvalmentaja','valmentaja':'Valmentaja','talenttivalmentaja':'Talenttivalmentaja','fysiikkavalmentaja':'Fysiikkavalmentaja','testivastaava':'Testivastaava','super_admin':'Super Admin'}[rooli] || rooli);
 
   // Lisenssi
   var lis = d ? (d.lisenssitaso || '') : '';
@@ -4250,7 +4250,7 @@ window.avaaCoachProfiili = function avaaCoachProfiili() {
   var d = window._valmentajaData || {};
   var nimi = _superAdmin ? 'Super Admin' : ((d.etunimi || '') + ' ' + (d.sukunimi || '')).trim() || 'Valmentaja';
   var rooli = _superAdmin ? 'super_admin' : (_rooli || d.rooli || 'valmentaja');
-  var rooliTxt = {'vp':'Vastuuvalmentaja','valmentaja':'Valmentaja','talenttivalmentaja':'Talenttivalmentaja','fysiikkavalmentaja':'Fysiikkavalmentaja','testivastaava':'Testivastaava','super_admin':'Super Admin'}[rooli] || rooli;
+  var rooliTxt = masterT({'vp':'Vastuuvalmentaja','valmentaja':'Valmentaja','talenttivalmentaja':'Talenttivalmentaja','fysiikkavalmentaja':'Fysiikkavalmentaja','testivastaava':'Testivastaava','super_admin':'Super Admin'}[rooli] || rooli);
 
   var lis = d.lisenssitaso || '';
   var lisMap = {'grassroots':{'t':'Grassroots','c':'#5a8f7b'},'c':{'t':'UEFA C','c':'#4a7ed9'},'b':{'t':'UEFA B','c':'#8b6cc1'},'a':{'t':'UEFA A','c':'#c9a040'},'pro':{'t':'UEFA Pro','c':'#c94040'}};
@@ -4781,11 +4781,11 @@ function _renderAdar() {
       return v > 0 ? `<span class="on">${lbl}·${v}</span>` : `<span>${lbl}</span>`;
     }).join('');
     const badge = a.xfactor ? `<span class="xf">★ X-FACTOR</span>`
-                 : a.gem   ? `<span style="color:var(--purple);font-weight:600">◆ PIILOHELMI</span>`
-                 : a.warn  ? `<span style="color:var(--amber);font-weight:600">⚠ HUOMIO</span>` : '';
+                 : a.gem   ? `<span style="color:var(--purple);font-weight:600">${masterT('◆ PIILOHELMI')}</span>`
+                 : a.warn  ? `<span style="color:var(--amber);font-weight:600">${masterT('⚠ HUOMIO')}</span>` : '';
     const videoBtn = a.video
       ? `<button class="adar-video" onclick="event.stopPropagation();toast('Videoklippi · ${a.video}','video')"><svg><use href="#ic-video"/></svg>${a.video}</button>`
-      : `<button class="adar-video" onclick="event.stopPropagation();toast('Lisää video','video')"><svg><use href="#ic-plus"/></svg>VIDEO</button>`;
+      : `<button class="adar-video" onclick="event.stopPropagation();toast(masterT('Lisää video'),'video')"><svg><use href="#ic-plus"/></svg>VIDEO</button>`;
     return `
       <div class="adar-item">
         <div class="adar-date">${a.date}<br>${a.time}</div>
@@ -4842,7 +4842,7 @@ function _renderPlayersToday() {
     x:   { cls:'tag-x',   txt:'X-Factor' },
     gem: { cls:'tag-gem', txt:'Piilohelmi' },
     warn:{ cls:'tag-warn', txt:'Poissa' },
-    inj: { cls:'tag-inj', txt:'Loukk.' },
+    inj: { cls:'tag-inj', txt:masterT('Loukk.') },
   };
   // Demo-moodi — DEMO.players kovakoodattu data
   if (!_demo) {
@@ -5364,7 +5364,7 @@ window._ttAsetaPositio = async function (pid, code) {
   try {
     const cu = firebase.auth().currentUser; if (cu) await cu.getIdToken(true);
     await _db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(pid).set({ tt_positio_aktiivinen: code }, { merge: true });
-    if (typeof toast === 'function') toast('Pelipaikka aktivoitu ✓ — pelipaikkakonseptit käytössä', 'ok');
+    if (typeof toast === 'function') toast(masterT('Pelipaikka aktivoitu ✓ — pelipaikkakonseptit käytössä'), 'ok');
   } catch (e) { console.warn('[ttPositio]', e && e.message); if (typeof toast === 'function') toast('Tallennus epäonnistui', 'error'); }
 };
 
@@ -7123,7 +7123,7 @@ window._prVaihdaTila = async function (pid, tid, tila){
     await _db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(pid).collection('tavoitteet').doc(tid).update({ tila: tila });
     await _prPaivitaAktiiviset(pid);
     window._prLataaTavoitteet(pid);
-  } catch (e){ if (typeof toast === 'function') toast('Päivitys epäonnistui', 'error'); }
+  } catch (e){ if (typeof toast === 'function') toast(masterT('Päivitys epäonnistui'), 'error'); }
 };
 
 function _renderPlayerPicker() {
@@ -7140,10 +7140,10 @@ function _renderPinfo(p) {
   if (!el) return;
   const stats = [
     { lbl:'Kehon valmius', val:p.flei, delta:p.fleiDelta, color: p.flei>=65?'var(--teal)':p.flei>=55?'var(--amber)':'var(--red)' },
-    { lbl:'Peliälyhavaintoja', val:p.adar, delta:p.xfactor+' X-Factor', color:'var(--ink)' },
-    { lbl:'Testit', val:p.testit, delta:'suoritettu', color:'var(--ink)' },
-    { lbl:'Fiilinki', val:p.fiilinki.split(' ')[0], delta:p.fiilinki.split(' ').slice(1).join(' '), color:'var(--ink)' },
-    { lbl:'Ottelut / loukk.', val:p.ottelut+'/'+p.loukk, delta:p.loukk>0?'Huomio':'Kaikki ok', color:'var(--ink)' },
+    { lbl:masterT('Peliälyhavaintoja'), val:p.adar, delta:p.xfactor+' X-Factor', color:'var(--ink)' },
+    { lbl:masterT('Testit'), val:p.testit, delta:masterT('suoritettu'), color:'var(--ink)' },
+    { lbl:masterT('Fiilinki'), val:p.fiilinki.split(' ')[0], delta:p.fiilinki.split(' ').slice(1).join(' '), color:'var(--ink)' },
+    { lbl:masterT('Ottelut / loukk.'), val:p.ottelut+'/'+p.loukk, delta:p.loukk>0?masterT('Huomio'):masterT('Kaikki ok'), color:'var(--ink)' },
   ];
   el.innerHTML = `
     <div style="grid-column:1/-1">
@@ -7875,7 +7875,7 @@ window._avaaKausiPelaajat = function(dim) {
                 ['ketteryys','Ketteryys', hv.kasirata!=null?(hv.kasirata+'s'):''],
                 ['suunnanmuutos','Suunnanmuutos', hv.sm_juoksu!=null?('SM '+hv.sm_juoksu+'s'):''],
                 ['aerobinen','Aerobinen', hv.mas!=null?('MAS '+hv.mas+'km/h'):'']];
-      chips = oi ? CH.filter(c=>oi[c[0]]!=null).map(c=>{ const lv=oi[c[0]], col=_vari(lv); return '<span style="display:inline-block;font-size:9px;padding:1px 7px;margin:2px 3px 0 0;border-radius:10px;border:.5px solid '+col+';color:'+col+'">'+c[1]+' '+lv+(c[2]?' <span style="color:var(--ink3)">· '+c[2]+'</span>':'')+'</span>'; }).join('') : '';
+      chips = oi ? CH.filter(c=>oi[c[0]]!=null).map(c=>{ const lv=oi[c[0]], col=_vari(lv); return '<span style="display:inline-block;font-size:9px;padding:1px 7px;margin:2px 3px 0 0;border-radius:10px;border:.5px solid '+col+';color:'+col+'">'+masterT(c[1])+' '+lv+(c[2]?' <span style="color:var(--ink3)">· '+c[2]+'</span>':'')+'</span>'; }).join('') : '';
     } else if (dim==='d2') {
       const _is=_devIkaSp(p); const r=(typeof laskeD2Joustava==='function')?laskeD2Joustava(p,_is.ika,_is.sp):null;
       taso = r ? r.taso : (p.d2_taso!=null?p.d2_taso:null);
@@ -8114,12 +8114,12 @@ function renderSeason() {
   const grid = document.getElementById('seasonGrid');
   if (grid) {
     const cards = [
-      { lbl:'Harjoitustapahtumia', val:s.harjoitukset.tehty,
+      { lbl:masterT('Harjoitustapahtumia'), val:s.harjoitukset.tehty,
         desc:s.harjoitukset.tavoite+' suunniteltu · '+Math.round(s.harjoitukset.tehty/s.harjoitukset.tavoite*100)+'% · laatu '+s.harjoitukset.laatu+'/5' },
       { lbl:'X-Factor-pelaajia', val:xfNimet.length,
-        desc: xfNimet.length > 0 ? xfNimet.join(' · ') : 'Ei vielä signaaleja' },
-      { lbl:'Joukkueen fiilinki', val:s.fiilinki.ka, desc:s.fiilinki.info },
-      { lbl:'ACWR kausikeskim.', val:s.acwr.ka, desc:s.acwr.info },
+        desc: xfNimet.length > 0 ? xfNimet.join(' · ') : masterT('Ei vielä signaaleja') },
+      { lbl:masterT('Joukkueen fiilinki'), val:s.fiilinki.ka, desc:s.fiilinki.info },
+      { lbl:masterT('ACWR kausikeskim.'), val:s.acwr.ka, desc:s.acwr.info },
     ];
     grid.innerHTML = cards.map(c=>`
       <div class="season-card">
@@ -8158,11 +8158,11 @@ let _calWkOffset = 0; // 0 = nykyinen, -1 = edellinen jne.
 // ── Värikoodi + teksti kalenteritapahtumalle (KORJAUS 2) ──
 function _protokollaLyhenne(p) {
   if (!p) return 'Testi';
-  if (p.indexOf('harjoitettavuus') === 0) return 'Harjoitettavuus';
+  if (p.indexOf('harjoitettavuus') === 0) return masterT('Harjoitettavuus');
   if (p === 'hh_laaja' || p === 'hh_suppea') return 'H-H';
   if (p === 'tekniikkakilpailu') return 'TK';
-  if (p === 'kasvumittaus') return 'Kasvu';
-  if (p === 'vapaa') return 'Vapaa';
+  if (p === 'kasvumittaus') return masterT('Kasvu');
+  if (p === 'vapaa') return masterT('Vapaa');
   return p;
 }
 function _calEvtTyyli(t, src) {
@@ -8173,11 +8173,11 @@ function _calEvtTyyli(t, src) {
   if (ty === 'testitapahtuma')         return { vari:'#28B090', teksti:'🧪 ' + (t.nimi || 'Testi') };
   if (ty === 'mentorointi' || ty === 'mentorointitapaaminen') return { vari:'#2A5DB0', teksti:'🎓 Mentorointi' };
   if (ty === 'kokous' || ty === 'valmentajapalaveri' || ty === 'jaksopalaveri' || ty === 'tiimipalaveri')
-    return { vari:'var(--amber)', teksti:'👥 ' + (t.nimi || 'Palaveri') };
-  if (ty === 'kalibraatiopaja')        return { vari:'#2A5DB0', teksti:'⚖️ Kalibraatiopaja' };
-  if (ty === 'idp_seuranta')           return { vari:'#28B090', teksti:'📊 IDP-seuranta' };
-  if (ty === 'talenttileiri')          return { vari:'#28B090', teksti:'⭐ Talenttileiri' };
-  return { vari:'#7A8B99', teksti: t.nimi || 'Muu' };
+    return { vari:'var(--amber)', teksti:'👥 ' + (t.nimi || masterT('Palaveri')) };
+  if (ty === 'kalibraatiopaja')        return { vari:'#2A5DB0', teksti:masterT('⚖️ Kalibraatiopaja') };
+  if (ty === 'idp_seuranta')           return { vari:'#28B090', teksti:masterT('📊 IDP-seuranta') };
+  if (ty === 'talenttileiri')          return { vari:'#28B090', teksti:masterT('⭐ Talenttileiri') };
+  return { vari:'#7A8B99', teksti: t.nimi || masterT('Muu') };
 }
 // Kalenterichip — pale tausta + värillinen (tumma) teksti; joukkueen nimi jos useita näkyvissä
 function _calChip(sty, t, lisaaJoukkue, onclick, aika) {
@@ -8245,9 +8245,9 @@ async function _calTallennaSessioRPE(t, n, container) {
 // ── Kuorma & fiilis -näkymä (oma joukkue) ──
 function renderKuorma() {
   var el = document.getElementById('kuormaView'); if (!el) return;
-  if (_demo) { el.innerHTML = '<div class="muted" style="padding:24px 4px">Kuorma & fiilis näkyy kirjautuneena oikealla joukkuedatalla.</div>'; return; }
-  if (!_seuraId) { el.innerHTML = '<div class="muted" style="padding:24px 4px">Valitse joukkue nähdäksesi kuorma & fiilis.</div>'; return; }
-  if (!_kirjauksetLadattu) { el.innerHTML = '<div class="muted" style="padding:24px 4px">Ladataan kirjauksia…</div>'; _lataaKirjaukset().then(function() { renderKuorma(); }); return; }
+  if (_demo) { el.innerHTML = '<div class="muted" style="padding:24px 4px">'+masterT('Kuorma & fiilis näkyy kirjautuneena oikealla joukkuedatalla.')+'</div>'; return; }
+  if (!_seuraId) { el.innerHTML = '<div class="muted" style="padding:24px 4px">'+masterT('Valitse joukkue nähdäksesi kuorma & fiilis.')+'</div>'; return; }
+  if (!_kirjauksetLadattu) { el.innerHTML = '<div class="muted" style="padding:24px 4px">'+masterT('Ladataan kirjauksia…')+'</div>'; _lataaKirjaukset().then(function() { renderKuorma(); }); return; }
 
   var now = Date.now(), d7 = now - 7 * 86400000, d14 = now - 14 * 86400000;
   var HARJ = { harjoitus: 1, ottelu: 1, talenttileiri: 1 };
@@ -8487,7 +8487,7 @@ function setCalMode(m) {
   _calMode = m;
   document.querySelectorAll('.cal-mode').forEach(b => b.classList.toggle('on', b.dataset.mode === m));
   if (m !== 'week') {
-    toast('Näkymä: ' + (m==='month'?'Kuukausi':'Kausi') + ' — tulossa', 'cal-mode');
+    toast('Näkymä: ' + (m==='month'?masterT('Kuukausi'):masterT('Kausi')) + ' — tulossa', 'cal-mode');
   }
 }
 
@@ -9345,7 +9345,7 @@ function openDrill(type) {
   if (type === 'signal') {
     // Kuormitussignaali-drill (RPE 7.2/ACWR/poissaolot) on §21 Sprint 6 — demo-mockup VAIN demo-tilassa,
     // ei tuotannossa (estää demo-vuodon kirjautuneelle, esim. SA/SJK).
-    if (!_demo) { if (typeof toast === 'function') toast('Kuormitusseuranta tulossa (§21)'); return; }
+    if (!_demo) { if (typeof toast === 'function') toast(masterT('Kuormitusseuranta tulossa (§21)')); return; }
     titleEl.textContent = masterT('Signaalin syy — miksi tämä suositus');
     contentEl.innerHTML = `
       <div class="drill-section" style="padding-bottom:16px">
@@ -9470,16 +9470,16 @@ window.paivitaAdarPikakentat = paivitaAdarPikakentat;
 // Vaihe B — talenttinosto-ehdotus vahvasta ristiinarviosta. PEHMEÄ signaali (audit-pikakenttä
 // talentti_ehdotus), EI kova promootioportti — VP päättää. Kirjoitus pelaajadokumenttiin (permissio #269/#270).
 window._ehdotaTalentti = async function (pid) {
-  if (!pid || !_seuraId || !_db) { if (typeof toast === 'function') toast('Talenttiehdotus ei onnistunut (ei yhteyttä)', 'virhe'); return; }
+  if (!pid || !_seuraId || !_db) { if (typeof toast === 'function') toast(masterT('Talenttiehdotus ei onnistunut (ei yhteyttä)'), 'virhe'); return; }
   try {
     const cu = firebase.auth().currentUser; if (cu) await cu.getIdToken(true);
     await _db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(pid).set({
       talentti_ehdotus: { lahde: 'ristiinarvio', pvm: new Date().toISOString(), ehdottaja_uid: _uid || null, ehdottaja_rooli: _rooli || null }
     }, { merge: true });
-    if (typeof toast === 'function') toast('💎 Talenttiehdotus lähetetty VP:lle', 'ok');
+    if (typeof toast === 'function') toast(masterT('💎 Talenttiehdotus lähetetty VP:lle'), 'ok');
   } catch (e) {
     // §silent-failure: näytä virhe, älä niele (kirjoitusoikeus voi puuttua muun joukkueen pelaajaan).
-    if (typeof toast === 'function') toast('Talenttiehdotus epäonnistui: ' + (e.message || e), 'virhe');
+    if (typeof toast === 'function') toast(masterT('Talenttiehdotus epäonnistui: ') + (e.message || e), 'virhe');
     else console.warn('[ehdotaTalentti]', e && e.message);
   }
 };
@@ -9554,7 +9554,7 @@ function _avaaPikakorttiIframe(pid) {
   hdr.appendChild(sulje); box.appendChild(hdr);
   var ifr = document.createElement('iframe');
   ifr.src = src; ifr.style.cssText = 'flex:1;width:100%;border:0;background:#111110';
-  ifr.setAttribute('title', 'ADAR-pikakortti');
+  ifr.setAttribute('title', masterT('ADAR-pikakortti'));
   ifr.onload = function () {
     // Same-origin: injektoi konteksti pikakortin ikkunaan (se lukee näitä globaaleja; ei seura-porttia upotettuna).
     try {
@@ -9600,7 +9600,7 @@ window.addEventListener('message', function (ev) {
   var pid = window._pikakorttiPid || (d && d.pelaajaId) || null;
   document.getElementById('_pkModal')?.remove();
   _pikakorttiRefresh(pid);
-  if (typeof toast === 'function') toast('Pelihavainto tallennettu ✓', 'ok');
+  if (typeof toast === 'function') toast(masterT('Pelihavainto tallennettu ✓'), 'ok');
 });
 
 /* ════════════════════════════════════════════════════════════
@@ -9713,7 +9713,7 @@ function toast(msg, actionKey) {
 
 function undoAction(key) {
   document.querySelectorAll('.toast-item').forEach(t=>t.remove());
-  toast('Toiminto peruttu', null);
+  toast(masterT('Toiminto peruttu'), null);
 }
 
 // Selitteen näyttö klikkauksella (kosketusystävällinen). EI undo-nappia → ei käytä toast():ia.
