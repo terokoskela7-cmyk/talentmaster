@@ -9283,7 +9283,7 @@ function _laskeD3Avg(pisteet) {
 }
 function _avaaD3Arvio(pid) {
   const p = (_pelaajatData || []).find(x => x.id === pid);
-  if (!p) { toast('Valitse pelaaja ensin'); return; }
+  if (!p) { toast(masterT('Valitse pelaaja ensin')); return; }
   _d3Vastaukset = {};
   const nyk = (p.d3_viimeisin && p.d3_viimeisin.pisteet) || {};
   _D3_DIMS.forEach(d => { _d3Vastaukset[d.key] = (nyk[d.key] && nyk[d.key].valmentaja != null) ? nyk[d.key].valmentaja : null; });
@@ -9292,15 +9292,15 @@ function _avaaD3Arvio(pid) {
   m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9200;display:flex;align-items:center;justify-content:center;padding:16px';
   m.onclick = e => { if (e.target === m) m.remove(); };
   let h = '<div class="d3-card" onclick="event.stopPropagation()">'
-    + '<div class="d3-head"><div class="d3-otsikko">D3 Psykologinen — ' + ((p.etunimi||'') + ' ' + (p.sukunimi||'')).trim() + '</div>'
+    + '<div class="d3-head"><div class="d3-otsikko">' + masterT('D3 Psykologinen — ') + ' + ((p.etunimi||'') + ' ' + (p.sukunimi||'')).trim() + '</div>'
     + '<button onclick="document.getElementById(\'d3Modal\').remove()" style="background:none;border:none;color:var(--ink3);font-size:22px;cursor:pointer">×</button></div>'
-    + '<div style="font-size:12px;color:var(--ink3);margin-bottom:14px">Valmentaja-arvio · 1 (harvoin) – 5 (lähes aina). Yhdistyy pelaajan itsearvioon keskiarvona.</div>';
+    + '<div style="font-size:12px;color:var(--ink3);margin-bottom:14px">' + masterT('Valmentaja-arvio · 1 (harvoin) – 5 (lähes aina). Yhdistyy pelaajan itsearvioon keskiarvona.') + '</div>';
   _D3_DIMS.forEach(d => {
-    h += '<div class="d3-rivi"><div class="d3-q"><b>' + d.nimi + '</b><br><span style="font-size:11px;color:var(--ink3)">' + d.vQ + '</span></div>'
+    h += '<div class="d3-rivi"><div class="d3-q"><b>' + masterT(d.nimi) + '</b><br><span style="font-size:11px;color:var(--ink3)">' + masterT(d.vQ) + '</span></div>'
       + '<div class="d3-likert">' + [1,2,3,4,5].map(n =>
         '<button class="d3-nap" data-dim="' + d.key + '" data-n="' + n + '" onclick="_d3Valitse(\'' + d.key + '\',' + n + ')"' + (_d3Vastaukset[d.key] === n ? ' style="background:var(--teal);color:#fff;border-color:var(--teal)"' : '') + '>' + n + '</button>').join('') + '</div></div>';
   });
-  h += '<button class="d3-tallenna" onclick="_tallennaD3(\'' + pid + '\')">Tallenna arvio</button></div>';
+  h += '<button class="d3-tallenna" onclick="_tallennaD3(\'' + pid + '\')">' + masterT('Tallenna arvio') + '</button></div>';
   m.innerHTML = h; document.body.appendChild(m);
 }
 function _d3Valitse(dim, n) {
@@ -9313,7 +9313,7 @@ function _d3Valitse(dim, n) {
 async function _tallennaD3(pid) {
   const p = (_pelaajatData || []).find(x => x.id === pid); if (!p) return;
   const annettu = _D3_DIMS.filter(d => _d3Vastaukset[d.key] != null);
-  if (!annettu.length) { toast('Anna vähintään yksi arvio'); return; }
+  if (!annettu.length) { toast(masterT('Anna vähintään yksi arvio')); return; }
   const pisteet = JSON.parse(JSON.stringify((p.d3_viimeisin && p.d3_viimeisin.pisteet) || {}));
   _D3_DIMS.forEach(d => {
     if (_d3Vastaukset[d.key] != null) { pisteet[d.key] = pisteet[d.key] || {}; pisteet[d.key].valmentaja = _d3Vastaukset[d.key]; }
@@ -9329,10 +9329,10 @@ async function _tallennaD3(pid) {
     await _db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(pid)
       .set({ d3_viimeisin: d3v, d3_taso: d3_taso, d3_pvm: d3v.pvm, d3_varmuus: d3_varmuus }, { merge: true });
     p.d3_viimeisin = d3v; p.d3_taso = d3_taso; p.d3_pvm = d3v.pvm; p.d3_varmuus = d3_varmuus;   // päivitä lokaali
-    toast('D3-arvio tallennettu ✓', 'ok');
+    toast(masterT('D3-arvio tallennettu ✓'), 'ok');
     document.getElementById('d3Modal')?.remove();
     if (_activePelaaja === pid) _renderPinfoFirestore(p);
-  } catch (e) { toast('Tallennus epäonnistui: ' + e.message); console.warn('[d3]', e); }
+  } catch (e) { toast(masterT('Tallennus epäonnistui: ') + e.message); console.warn('[d3]', e); }
 }
 window._avaaD3Arvio = _avaaD3Arvio; window._d3Valitse = _d3Valitse; window._tallennaD3 = _tallennaD3;
 
