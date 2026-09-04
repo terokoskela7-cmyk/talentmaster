@@ -36,7 +36,7 @@ const acorn = require('acorn');
 const HTML = readFileSync(join(__dir, '..', 'TalentMaster_VP_v25.html'), 'utf8');
 
 const RLO = 2679, RHI = 17921;              // VP pääscript (1-idx)
-const RANGES = [[8040, 9221], [12600, 13750]]; // reititetyt alueet: V3 _jsv · V4 kalenteri. V5–V8: lisää tähän.
+const RANGES = [[8040, 9221], [12600, 13750], [11661, 12400]]; // V3 _jsv · V4 kalenteri · V5 valmentajat. V6–V8: lisää tähän.
 const ROUTED_FNS = new Set(['vpT', 'vpTToimenpide']);
 
 // §7 lib-curriculum-nimet (jäävät fi → allowlist)
@@ -122,14 +122,23 @@ function scanLeaks(src, ranges, lineOffset, LIB) {
       const c = node[k]; if (c && typeof c === 'object') wst.push([c, node]); }
   }
 
-  // display-konteksti zero-markup-literaalille: '+' -konkatenaatioketju jossa markup/vpT, TAI toast()-argumentti
+  // display-konteksti zero-markup-literaalille: '+' -ketju markup/vpT · toast/_setTxt/_dSet-arg · .textContent=/.innerText=/.innerHTML=
+  const SETTER_FNS = new Set(['toast', '_setTxt', '_dSet']);
+  const TXT_PROPS = new Set(['textContent', 'innerText', 'innerHTML']);
   const inDisplayContext = (node) => {
     let n = node, top = null;
     while (parentOf.get(n) && parentOf.get(n).type === 'BinaryExpression' && parentOf.get(n).operator === '+') { top = parentOf.get(n); n = top; }
     if (top && subtreeHasMarkupOrVpt(top)) return true;
+    // 0B: AssignmentExpression RHS jossa LHS = *.textContent/innerText/innerHTML (V4-live-oppi: viikko-otsikko vuoti)
+    const ct = top || node;
+    const ctp = parentOf.get(ct);
+    if (ctp && ctp.type === 'AssignmentExpression' && ctp.right === ct &&
+        ctp.left && ctp.left.type === 'MemberExpression' && ctp.left.property &&
+        ((ctp.left.property.type === 'Identifier' && TXT_PROPS.has(ctp.left.property.name)) ||
+         (ctp.left.property.type === 'Literal' && TXT_PROPS.has(ctp.left.property.value)))) return true;
     let p = parentOf.get(node);
     for (let i = 0; p && i < 8; i++, p = parentOf.get(p)) {
-      if (p.type === 'CallExpression' && p.callee && p.callee.type === 'Identifier' && p.callee.name === 'toast') return true;
+      if (p.type === 'CallExpression' && p.callee && p.callee.type === 'Identifier' && SETTER_FNS.has(p.callee.name)) return true;
     }
     return false;
   };
@@ -192,6 +201,11 @@ describe('VP_v25 render-kielineutraali-gate (step G · AST)', () => {
     // vpT-kääre poistaa vuodon (routed):
     const ok = "function _t(x){ return '<span>' + x + vpT('/5 ok') + '</span>'; }";
     expect(scanLeaks(ok, [[1, 99]], 0, new Set()).length).toBe(0);
+    // 0B: .textContent= / _setTxt() display-konteksti (V4-live-oppi)
+    const txt = "function _u(el,x){ el.textContent = 'Viikkovuoto ' + x; _setTxt('id', 'Setter-vuoto'); }";
+    const th = scanLeaks(txt, [[1, 99]], 0, new Set()).map((l) => l.p);
+    expect(th.some((p) => p.includes('Viikkovuoto'))).toBe(true);
+    expect(th).toContain('Setter-vuoto');
   });
 
   // ── Object-property-display-guard ──────────────────────────────────────────────
