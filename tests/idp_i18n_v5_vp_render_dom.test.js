@@ -84,7 +84,6 @@ describe('VP_v25 render-kielineutraali-gate (step G)', () => {
     const PRODUCT = /X-Factor|Hidden Gem|Underdog/;
     const ABBR = 'TKI|TSI|H-H|PHV|D[1-5]|RPE|ADAR|CPD|DVI|MAS|CMJ|SJ|FLEI|VAI\\+?|RAE|OVR|EI|FVP|VNE|SM|TK|IDP|VP|UA|meso|makro|mikro|Cue|cue|ka|cm|kg|min|vk|pv|kk|km/h|m/s';
     const ABBR_ONLY = new RegExp('^(?:\\s|[·—–\\-/:()%.,+↑↓→▾▴◆⚠★☆●○≥≤<>&;0-9]|&amp;|&nbsp;|(?:' + ABBR + '))+$');
-    const C_ALLOW = new Set(['/5 alue', '/3 valtak.', 'alue', 'valtak.']); // PROVISORINEN (Tero)
 
     const hasWord = (t) => /[A-Za-zÄÖÅäöå]{3,}/.test(t) && !ABBR_ONLY.test(t);
     const codeLike = (t) =>
@@ -109,9 +108,15 @@ describe('VP_v25 render-kielineutraali-gate (step G)', () => {
         for (const [kind, raw] of cands) {
           const t = raw.trim();
           if (!t || codeLike(t) || !hasWord(t)) continue;
-          if (routed(t) || C_ALLOW.has(t) || PRODUCT.test(t) || isLib(t)) continue;
+          if (routed(t) || PRODUCT.test(t) || isLib(t)) continue;
           leaks.push(`  ${ln} [${kind}] ${JSON.stringify(t.slice(0, 70))}`);
         }
+        // TUNNETTU BLIND-SPOT (ei V3-blokkeri, Tero 2026-09): jos vuoto on muodossa
+        // >' + 'text' + '< (teksti omassa literaalissaan konkatenaatio-op:ien välissä),
+        // codeLike ohittaa spanin (`.includes(' + ')`). Aidot vuodot eivät ota tätä muotoa
+        // (ne ovat tekstiä suoraan template-stringissä → gate nappaa). Kovettaminen vaatii
+        // spanin oikean tokenisoinnin (naiivi ' + '-jako pareutuu väärin vpT('…')-kutsuissa
+        // → 122 väärää positiivista). Lykätty: tee vasta oikealla lexerillä.
       }
     }
 
