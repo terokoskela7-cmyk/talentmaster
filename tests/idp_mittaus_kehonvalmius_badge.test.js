@@ -72,11 +72,13 @@ describe('5a — kytkentä: FLEI oma lohko, EI Teknisessä (renderFleiKortti tas
 
 describe('5b — tekniikkabadge selkokielelle (Alue 1–5 ≠ Valtak 1–3, §34/§30)', () => {
   it('alue-badge "X/5 alue" (ei salakielinen "A"+taso)', () => {
-    expect(HTML).toContain("+ d.tkTaso + '/5 alue</span>'");
+    // i18n V5 (VP V3-korjaus, decision-C): suffiksi reititetty vpT:llä (fi '/5 alue' → sv '/5 omr.').
+    // Selkokielinen muoto säilyy (vpT('/5 alue') resolvoituu fi:ssä '/5 alue':ksi), ei salakielinen "A5".
+    expect(HTML).toContain("+ d.tkTaso + vpT('/5 alue') + '</span>'");
     expect(HTML).not.toContain("'>A' + d.tkTaso + '</span>'");
   });
   it('valtak-badge "X/3 valtak." (ei salakielinen "V"+/3)', () => {
-    expect(HTML).toContain("+ vt + '/3 valtak.</span>'");
+    expect(HTML).toContain("+ vt + vpT('/3 valtak.') + '</span>'");
     expect(HTML).not.toContain("+ vt + '/3</span>'");
   });
   it('selite kevennetty lähdemaininnaksi, asteikot yhä erillään (ei yhdistetä)', () => {
