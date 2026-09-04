@@ -193,4 +193,35 @@ describe('VP_v25 render-kielineutraali-gate (step G · AST)', () => {
     const ok = "function _t(x){ return '<span>' + x + vpT('/5 ok') + '</span>'; }";
     expect(scanLeaks(ok, [[1, 99]], 0, new Set()).length).toBe(0);
   });
+
+  // ── Object-property-display-guard ──────────────────────────────────────────────
+  // Enum/meta-NÄYTTÖ member-lausekkeina (esim. meta.nimi = KALENTERI_TYYPIT-tyyppinimi) EIVÄT ole
+  // string-literaaleja → AST-render-gate (yllä) EIKÄ resolvi-todiste näe niitä. Pinnataan routed-muoto
+  // lähdeskannauksella (kuten badge-testi 5b pinnasi /5 alue -suffiksit): jokainen listattu member-näyttö
+  // ON aina vpT(...):n sisällä alueellaan. Sulkee saman aukon V5–V8:n enum-display-labeleille (roolit ym.)
+  // — uusi alaerä lisää oman member-näyttönsä tähän.
+  const MEMBER_DISPLAY = [
+    { expr: 'meta.nimi', ranges: [[12600, 13750]] }, // V4 kalenteri: KALENTERI_TYYPIT-tyyppinimi (§1 enum-avain fi, näyttö vpT)
+    // V5+: esim. { expr: 'roolimap[rooli]', ranges: [[...]] }
+  ];
+  it('enum/object-property-display reititetty vpT:llä (AST-gaten sokea piste)', () => {
+    const lines = HTML.split('\n');
+    const bad = [];
+    for (const { expr, ranges } of MEMBER_DISPLAY) {
+      for (const [lo, hi] of ranges) for (let ln = lo; ln <= hi; ln++) {
+        const line = lines[ln - 1];
+        if (!line) continue;
+        let i = 0;
+        while ((i = line.indexOf(expr, i)) !== -1) {
+          if (line.slice(Math.max(0, i - 4), i) !== 'vpT(') bad.push(`${ln}: bare ${expr} (kääri vpT(${expr}))`);
+          i += expr.length;
+        }
+      }
+    }
+    // Ei-vacuous: skanneri nappaa bare-muodon (synteettinen todiste)
+    const probe = ['x = meta.nimi + "y"', 'x = vpT(meta.nimi)'];
+    const pbad = probe.filter((l, idx) => { const i = l.indexOf('meta.nimi'); return l.slice(i - 4, i) !== 'vpT(' && idx === 0; });
+    expect(pbad.length).toBe(1); // rivi 0 (bare) napataan, rivi 1 (vpT) ei
+    expect(bad).toEqual([]);
+  });
 });
