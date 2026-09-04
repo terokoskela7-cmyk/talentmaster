@@ -25,9 +25,10 @@ beforeAll(() => {
   if (s < 0) throw new Error('_cmKehityskorttiHTML ei löytynyt');
   let e = -1;
   for (let i = s + 1; i < lines.length; i++) { if (lines[i] === '}') { e = i; break; } }
-  F = new Function('_jsvEsc', 'window', 'laskeValmentajaHarjoitusKooste', 'harjoitusKalibraatioHistoria', 'laskeHarjoituslaatuPalloliitto', '_HL_KRIT_B',
+  // i18n V5: _cmKehityskorttiHTML käyttää nyt vpT:tä → injektoi fi-passthrough-stub (kieli=fi säilyttää fi-assertiot)
+  F = new Function('_jsvEsc', 'window', 'laskeValmentajaHarjoitusKooste', 'harjoitusKalibraatioHistoria', 'laskeHarjoituslaatuPalloliitto', '_HL_KRIT_B', 'vpT',
     lines.slice(s, e + 1).join('\n') + '\nreturn _cmKehityskorttiHTML;'
-  )((x) => String(x == null ? '' : x), { TM_KEHITYSKAARI: KK }, E.laskeValmentajaHarjoitusKooste, E.harjoitusKalibraatioHistoria, E.laskeHarjoituslaatuPalloliitto, KRIT);
+  )((x) => String(x == null ? '' : x), { TM_KEHITYSKAARI: KK }, E.laskeValmentajaHarjoitusKooste, E.harjoitusKalibraatioHistoria, E.laskeHarjoituslaatuPalloliitto, KRIT, (x) => x);
 });
 
 const ARV = () => [

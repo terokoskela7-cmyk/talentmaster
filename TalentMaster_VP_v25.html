@@ -17,7 +17,7 @@
 <!-- Eerikkilä-normit + universaali testirekisteri (eerikkilaTaso, laskeFVP) — 10m/5m-tasot + FVP-profiili -->
 <script src="lib/tm_lang.js?v=9"></script>   <!-- i18n V0 — fi/sv/en käännöstaulukko + t() + kieli-init (putkitus) -->
 <script src="lib/tm_i18n_common.js?v=2"></script>   <!-- i18n Vaihe 0 — JAETTU henkilöstö-i18n + lukittu glossaari (ENNEN sivukarttaa) -->
-<script src="lib/tm_vp_i18n.js?v=14"></script>   <!-- i18n Vaihe 5 — VP sv (sivukartta); vpT/vpLokalisoi delegoivat commoniin -->
+<script src="lib/tm_vp_i18n.js?v=15"></script>   <!-- i18n Vaihe 5 — VP sv (sivukartta); vpT/vpLokalisoi delegoivat commoniin -->
 
 
 <script src="lib/tm_eerikkila_normit.js?v=45"></script>   <!-- v43: D2-kortti d2_taso-ensin (renderKehityskorttiHTML, PR #264 · §30/#262) -->
@@ -11663,7 +11663,7 @@ function renderValmentajat() {
   if (!grid) return;
 
   if (_valmentajat.length === 0) {
-    grid.innerHTML = '<div style="color:var(--ink3);padding:40px;text-align:center;">Ei henkilöstöä — lisää kayttajat-kokoelmaan</div>';
+    grid.innerHTML = vpT('<div style="color:var(--ink3);padding:40px;text-align:center;">Ei henkilöstöä — lisää kayttajat-kokoelmaan</div>');
     return;
   }
 
@@ -11681,7 +11681,7 @@ function renderValmentajat() {
       const _k = _cp.length ? laskeValmentajaKalibraatio(_cp, _klubiAdar) : null;
       if (_k && _k.headline !== 'Linjassa' && _k.headline !== 'Ei riittävästi dataa') {
         const _cv = { punainen:'var(--red)', amber:'var(--amber)', info:'var(--ink3)' }[(_k.chips[0] || {}).vakavuus] || 'var(--amber)';
-        _kalChip = '<div style="margin-top:6px;display:inline-flex;align-items:center;gap:5px;font-size:10px;padding:2px 8px;border-radius:20px;border:.5px solid ' + _cv + ';color:' + _cv + '">⚖️ Kalibrointia</div>';
+        _kalChip = '<div style="margin-top:6px;display:inline-flex;align-items:center;gap:5px;font-size:10px;padding:2px 8px;border-radius:20px;border:.5px solid ' + _cv + ';color:' + _cv + vpT('">⚖️ Kalibrointia</div>');
       }
     }
     const initials = nim.split(' ').filter(Boolean).map(n=>n[0]).join('').substring(0,2).toUpperCase();
@@ -11689,15 +11689,15 @@ function renderValmentajat() {
     const trendIcon = (v.adarTrendi||0) > 0 ? '↑' : (v.adarTrendi||0) < 0 ? '↓' : '→';
     const actClass  = v.aktiivinen !== false ? '' : 'warn';
     const rooliLabel = {
-      valmentaja:'Valmentaja', talenttivalmentaja:'Talenttivalmentaja',
-      fysiikkavalmentaja:'Fysiikkavalmentaja', testivastaava:'Testivastaava',
-      vp:'Valmennuspäällikkö', seurasihteeri:'Seurasihteeri'
-    }[v.rooli] || v.rooli || 'Valmentaja';
+      valmentaja:vpT('Valmentaja'), talenttivalmentaja:vpT('Talenttivalmentaja'),
+      fysiikkavalmentaja:vpT('Fysiikkavalmentaja'), testivastaava:vpT('Testivastaava'),
+      vp:vpT('Valmennuspäällikkö'), seurasihteeri:vpT('Seurasihteeri')
+    }[v.rooli] || v.rooli || vpT('Valmentaja');
 
     // Mentorointistatus
     const pvt = v.mentorointiPvt ?? 999;
     const mentorStatus = pvt === 999
-      ? { txt: 'Ei mentoroitu', cls: 'warn', dot: '🔴' }
+      ? { txt: vpT('Ei mentoroitu'), cls: 'warn', dot: '🔴' }
       : pvt >= 30
       ? { txt: `${pvt} pv — erääntynyt`, cls: 'warn', dot: '🔴' }
       : pvt >= 25
@@ -11732,12 +11732,12 @@ function renderValmentajat() {
         </div>
         <div class="cs-item">
           <div class="cs-val ${actClass}" style="font-size:11px;margin-top:2px">${v.email||'—'}</div>
-          <div class="cs-lbl">Sähköposti</div>
+          <div class="cs-lbl">${vpT('Sähköposti')}</div>
         </div>
       </div>
       <div class="coach-actions">
         <button class="btn-sm primary-sm" onclick="event.stopPropagation();avaaCoachPanel('${v.id}')">Mentoroi</button>
-        <button class="btn-sm" onclick="event.stopPropagation();vpAvaaHarjoitusarviointi('${v.id}','${(nim||'').replace(/'/g,"\\'")}')">Arvioi</button>
+        <button class="btn-sm" onclick="event.stopPropagation();vpAvaaHarjoitusarviointi('${v.id}','${(nim||'').replace(/'/g,"\\'")}')">${vpT('Arvioi')}</button>
       </div>
     </div>`;
   }).join('');
@@ -11776,16 +11776,16 @@ function _vpSeurantaOnJohto() {
 function renderVpSeuranta() {
   const el = document.getElementById('vpSeurantaSektio');
   if (!el) return;
-  if (_isDemoMode) { el.innerHTML = '<div style="color:var(--ink3);font-size:12px;padding:10px 2px">Seuranta näkyy tuotantodatalla (VAI+ · hälytykset · IDP-aktivoinnit).</div>'; return; }
+  if (_isDemoMode) { el.innerHTML = vpT('<div style="color:var(--ink3);font-size:12px;padding:10px 2px">Seuranta näkyy tuotantodatalla (VAI+ · hälytykset · IDP-aktivoinnit).</div>'); return; }
   const roster = (typeof tmSeurantaRosterSort === 'function') ? tmSeurantaRosterSort(_valmentajat) : (_valmentajat || []);
   const halyt = (typeof tmSeurantaAktiivisetHalytykset === 'function') ? tmSeurantaAktiivisetHalytykset(_valmentajat, _seurantaKuittaukset) : [];
   const feed = (typeof tmSeurantaIdpFeed === 'function') ? tmSeurantaIdpFeed(_pelaajat, Date.now(), 14, 3) : [];
   const johto = _vpSeurantaOnJohto();
 
   // ── 🔔 Hälytykset + kuittaus ──
-  let hal = '<div style="margin-bottom:14px"><div style="font-size:12px;font-weight:600;color:var(--ink2);margin-bottom:6px">🔔 Hälytykset' + (halyt.length ? ' (' + halyt.length + ')' : '') + '</div>';
+  let hal = vpT('<div style="margin-bottom:14px"><div style="font-size:12px;font-weight:600;color:var(--ink2);margin-bottom:6px">🔔 Hälytykset') + (halyt.length ? ' (' + halyt.length + ')' : '') + '</div>';
   if (!halyt.length) {
-    hal += '<div style="font-size:12px;color:var(--ink3);padding:8px 10px;background:var(--card2,rgba(255,255,255,.03));border-radius:8px">Ei aktiivisia hälytyksiä ✓</div>';
+    hal += vpT('<div style="font-size:12px;color:var(--ink3);padding:8px 10px;background:var(--card2,rgba(255,255,255,.03));border-radius:8px">Ei aktiivisia hälytyksiä ✓</div>');
   } else {
     hal += halyt.map(function (a) {
       const vari = a.taso === 'red' ? '#C94040' : '#E0A040';
@@ -11801,10 +11801,10 @@ function renderVpSeuranta() {
   hal += '</div>';
 
   // ── 👥 Valmentajaroster (VAI+ · tila · hälytysliput · viim. kirjaus) — hälyttävät ensin ──
-  let ros = '<div style="margin-bottom:14px"><div style="font-size:12px;font-weight:600;color:var(--ink2);margin-bottom:6px">👥 Valmentajaroster</div>'
+  let ros = vpT('<div style="margin-bottom:14px"><div style="font-size:12px;font-weight:600;color:var(--ink2);margin-bottom:6px">👥 Valmentajaroster</div>')
     + '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px">'
     + '<thead><tr style="color:var(--ink3);text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.04em">'
-    + '<th style="padding:5px 8px">Valmentaja</th><th style="padding:5px 8px">Joukkue</th><th style="padding:5px 8px;text-align:center">VAI+</th><th style="padding:5px 8px;text-align:center">Tila</th><th style="padding:5px 8px">Hälytykset</th><th style="padding:5px 8px">Viim. kirjaus</th></tr></thead><tbody>';
+    + vpT('<th style="padding:5px 8px">Valmentaja</th><th style="padding:5px 8px">Joukkue</th><th style="padding:5px 8px;text-align:center">VAI+</th><th style="padding:5px 8px;text-align:center">Tila</th><th style="padding:5px 8px">Hälytykset</th><th style="padding:5px 8px">Viim. kirjaus</th></tr></thead><tbody>');
   ros += roster.map(function (v) {
     const vd = v._vai || {};
     const dot = (typeof tmSeurantaTilaDot === 'function') ? tmSeurantaTilaDot(vd.vai) : { dot: '⚫', vari: 'var(--ink3)' };
@@ -11820,12 +11820,12 @@ function renderVpSeuranta() {
   ros += '</tbody></table></div></div>';
 
   // ── 📋 IDP-aktivoinnit-feed (pikakentistä, viim. 14 vrk) ──
-  let idp = '<div><div style="font-size:12px;font-weight:600;color:var(--ink2);margin-bottom:6px">📋 IDP-aktivoinnit <span style="color:var(--ink3);font-weight:400">· viim. 14 vrk</span></div>';
+  let idp = vpT('<div><div style="font-size:12px;font-weight:600;color:var(--ink2);margin-bottom:6px">📋 IDP-aktivoinnit <span style="color:var(--ink3);font-weight:400">· viim. 14 vrk</span></div>');
   if (!feed.length) {
-    idp += '<div style="font-size:12px;color:var(--ink3);padding:8px 10px;background:var(--card2,rgba(255,255,255,.03));border-radius:8px">Ei tuoreita IDP-aktivointeja</div>';
+    idp += vpT('<div style="font-size:12px;color:var(--ink3);padding:8px 10px;background:var(--card2,rgba(255,255,255,.03));border-radius:8px">Ei tuoreita IDP-aktivointeja</div>');
   } else {
     idp += feed.map(function (f) {
-      const uusi = f.uusi ? '<span style="font-size:9px;font-weight:600;color:var(--teal);border:.5px solid var(--teal);border-radius:8px;padding:1px 6px;margin-right:6px">Uusi</span>' : '';
+      const uusi = f.uusi ? vpT('<span style="font-size:9px;font-weight:600;color:var(--teal);border:.5px solid var(--teal);border-radius:8px;padding:1px 6px;margin-right:6px">Uusi</span>') : '';
       const pvmFi = (typeof tmPvmFi === 'function') ? tmPvmFi(f.pvm) : String(f.pvm).slice(0, 10);
       return '<div onclick="avaaPelaaja(\'' + _jsvEsc(f.pelaajaId) + '\')" style="display:flex;align-items:center;gap:8px;padding:7px 10px;border-top:.5px solid var(--border);cursor:pointer">'
         + uusi + '<div style="flex:1;font-size:12px;color:var(--ink)">' + _jsvEsc(f.nimi) + (f.joukkue ? ' <span style="color:var(--ink3)">· ' + _jsvEsc(f.joukkue) + '</span>' : '') + (f.fokus ? ' <span style="color:var(--ink2)">· ' + _jsvEsc(f.fokus) + '</span>' : '') + '</div>'
@@ -11847,8 +11847,8 @@ function _vpSeurantaAvaaCoach(uid) {
 // Hälytyskuittaus (VP/johto): audit-jälki seurat/{sid}/seuranta_kuittaukset/{avain}. EI hard-delete.
 // Kuitattu poistuu aktiivilistalta (renderVpSeuranta suodattaa), jää audittiin.
 window.vpKuittaaHalytys = async function (valmentajaUid, tyyppi) {
-  if (!_vpSeurantaOnJohto()) { if (typeof toast === 'function') toast('Kuittaus on VP:n/johdon oikeus', 'virhe'); return; }
-  if (_isDemoMode || !_seuraId || typeof db === 'undefined') { if (typeof toast === 'function') toast('Kuittaus ei onnistunut (ei yhteyttä)', 'virhe'); return; }
+  if (!_vpSeurantaOnJohto()) { if (typeof toast === 'function') toast(vpT('Kuittaus on VP:n/johdon oikeus'), 'virhe'); return; }
+  if (_isDemoMode || !_seuraId || typeof db === 'undefined') { if (typeof toast === 'function') toast(vpT('Kuittaus ei onnistunut (ei yhteyttä)'), 'virhe'); return; }
   const avain = tmSeurantaKuittausAvain(valmentajaUid, tyyppi);
   try {
     const cu = firebase.auth().currentUser; if (cu) await cu.getIdToken(true);
@@ -11857,9 +11857,9 @@ window.vpKuittaaHalytys = async function (valmentajaUid, tyyppi) {
     _seurantaKuittaukset = _seurantaKuittaukset.filter(function (k) { return k._id !== avain; });
     _seurantaKuittaukset.push(Object.assign({ _id: avain, avain: avain }, dokki));
     renderVpSeuranta();
-    if (typeof toast === 'function') toast('Hälytys kuitattu ✓', 'ok');
+    if (typeof toast === 'function') toast(vpT('Hälytys kuitattu ✓'), 'ok');
   } catch (e) {
-    if (typeof toast === 'function') toast('Kuittaus epäonnistui: ' + (e.message || e), 'virhe');
+    if (typeof toast === 'function') toast(vpT('Kuittaus epäonnistui:') + ' ' + (e.message || e), 'virhe');
     else console.warn('[vpKuittaaHalytys]', e && e.message);
   }
 };
@@ -11870,18 +11870,18 @@ function avaaCoachPanel(id) {
   var vanha = document.getElementById('coachModal'); if (vanha) vanha.remove();
   var nim = v.nimi || '?';
   var initials = nim.split(' ').filter(Boolean).map(function(n){ return n[0]; }).join('').substring(0,2).toUpperCase();
-  var adarTrend = (v.adarTrendi||0) > 0 ? '↑ +' + v.adarTrendi : (v.adarTrendi||0) < 0 ? '↓ ' + v.adarTrendi : '→ vakaa';
-  var rooliLabel = {valmentaja:'Valmentaja',talenttivalmentaja:'Talenttivalmentaja',fysiikkavalmentaja:'Fysiikkavalmentaja',testivastaava:'Testivastaava',vp:'Valmennuspäällikkö',seurasihteeri:'Seurasihteeri'}[v.rooli] || v.rooli || 'Valmentaja';
+  var adarTrend = (v.adarTrendi||0) > 0 ? '↑ +' + v.adarTrendi : (v.adarTrendi||0) < 0 ? '↓ ' + v.adarTrendi : vpT('→ vakaa');
+  var rooliLabel = {valmentaja:vpT('Valmentaja'),talenttivalmentaja:vpT('Talenttivalmentaja'),fysiikkavalmentaja:vpT('Fysiikkavalmentaja'),testivastaava:vpT('Testivastaava'),vp:vpT('Valmennuspäällikkö'),seurasihteeri:vpT('Seurasihteeri')}[v.rooli] || v.rooli || vpT('Valmentaja');
 
   // ── Profiili-data ──
   var _LT = [{id:'grassroots',n:'Grassroots',c:'#6B7280'},{id:'c',n:'UEFA C',c:'#E0A040'},{id:'b',n:'UEFA B',c:'#2A5DB0'},{id:'a',n:'UEFA A',c:'#28B090'},{id:'pro',n:'UEFA Pro',c:'#C9A040'}];
   var lisTaso = _LT.find(function(t){ return t.id === (v.lisenssitaso||''); });
-  var lisLabel = lisTaso ? lisTaso.n : 'Ei asetettu';
+  var lisLabel = lisTaso ? lisTaso.n : vpT('Ei asetettu');
   var lisVari  = lisTaso ? lisTaso.c : 'var(--ink3)';
   var erik = v.erikoistuminen || '';
   var cpdT = v.cpd_tunnit_kausi || 0;
   var koul = v.koulutukset || [];
-  var lisOpts = '<option value="">— Valitse —</option>';
+  var lisOpts = vpT('<option value="">— Valitse —</option>');
   for (var li = 0; li < _LT.length; li++) { lisOpts += '<option value="' + _LT[li].id + '"' + (_LT[li].id===(v.lisenssitaso||'')?'" selected':'"') + '>' + _LT[li].n + '</option>'; }
   var koulHtml = '';
   for (var ki = 0; ki < koul.length; ki++) { koulHtml += '<div style="font-size:10px;color:var(--ink2)">• ' + (koul[ki].nimi||'') + ' (' + (koul[ki].vuosi||'') + ')</div>'; }
@@ -11907,7 +11907,7 @@ function avaaCoachPanel(id) {
   }
 
   // SPL-lomake rivit (string concat §7)
-  var splKriteerit = ['1. Toiminta on innostavaa (8)','2. Pelaajat liikkeessä harjoitusajasta (8)','3. Toistot — pallokosketukset (7)','4. Toistot — teknis-taktinen (7)','5. Pelaajat yrittävät täysillä (8)','6. Toiminta pelin vaatimusten mukaan (7)','7. Seuran painopiste näkyy (7)'];
+  var splKriteerit = [vpT('1. Toiminta on innostavaa (8)'),vpT('2. Pelaajat liikkeessä harjoitusajasta (8)'),vpT('3. Toistot — pallokosketukset (7)'),vpT('4. Toistot — teknis-taktinen (7)'),vpT('5. Pelaajat yrittävät täysillä (8)'),vpT('6. Toiminta pelin vaatimusten mukaan (7)'),vpT('7. Seuran painopiste näkyy (7)')];
   var splRows = '';
   for (var si = 0; si < splKriteerit.length; si++) {
     splRows += '<div style="display:flex;align-items:center;gap:8px"><span style="flex:1;font-size:11px;color:var(--ink2)">' + splKriteerit[si] + '</span><input type="number" min="1" max="10" class="spl-score" data-idx="' + si + '" style="width:44px;padding:3px 6px;border:.5px solid var(--border);border-radius:4px;background:var(--surface);color:var(--ink);font-size:12px;text-align:center" placeholder="—"></div>';
@@ -11915,73 +11915,73 @@ function avaaCoachPanel(id) {
 
   // ═══════════ TAB 1: PROFIILI ═══════════
   var t1 = '<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">' +
-    '<div style="font-size:12px;color:var(--ink2)">Lisenssi:</div>' +
+    vpT('<div style="font-size:12px;color:var(--ink2)">Lisenssi:</div>') +
     '<div style="font-size:12px;font-weight:600;color:' + lisVari + ';padding:2px 10px;border:.5px solid ' + lisVari + ';border-radius:10px">' + lisLabel + '</div></div>' +
-    '<div style="font-size:12px;color:var(--ink2);margin-bottom:6px">Erikoistuminen: <span style="color:var(--ink)">' + (erik||'—') + '</span></div>' +
-    '<div style="font-size:12px;color:var(--ink2);margin-bottom:6px">CPD-tunnit (kausi): <span style="color:var(--ink);font-weight:500">' + cpdT + ' h</span></div>' +
-    '<div style="font-size:12px;color:var(--ink2);margin-bottom:6px">Joukkue: <span style="color:var(--ink)">' + (v.joukkue||'—') + '</span></div>' +
-    (koulHtml ? '<div style="font-size:10px;letter-spacing:.1em;color:var(--ink3);text-transform:uppercase;margin:12px 0 4px">Koulutushistoria</div>' + koulHtml : '') +
-    '<button onclick="toggleProfiiliMuokkaus()" id="profMuokkausBtn" style="margin-top:14px;width:100%;padding:7px;border-radius:6px;border:.5px solid var(--border);background:var(--surface);color:var(--ink2);font-size:12px;cursor:pointer">✏️ Muokkaa profiilia</button>' +
+    vpT('<div style="font-size:12px;color:var(--ink2);margin-bottom:6px">Erikoistuminen: <span style="color:var(--ink)">') + (erik||'—') + '</span></div>' +
+    vpT('<div style="font-size:12px;color:var(--ink2);margin-bottom:6px">CPD-tunnit (kausi): <span style="color:var(--ink);font-weight:500">') + cpdT + ' h</span></div>' +
+    vpT('<div style="font-size:12px;color:var(--ink2);margin-bottom:6px">Joukkue: <span style="color:var(--ink)">') + (v.joukkue||'—') + '</span></div>' +
+    (koulHtml ? vpT('<div style="font-size:10px;letter-spacing:.1em;color:var(--ink3);text-transform:uppercase;margin:12px 0 4px">Koulutushistoria</div>') + koulHtml : '') +
+    vpT('<button onclick="toggleProfiiliMuokkaus()" id="profMuokkausBtn" style="margin-top:14px;width:100%;padding:7px;border-radius:6px;border:.5px solid var(--border);background:var(--surface);color:var(--ink2);font-size:12px;cursor:pointer">✏️ Muokkaa profiilia</button>') +
     '<div id="profNakyma" style="display:none"></div>' +
     '<div id="profMuokkaus" style="display:none;margin-top:10px">' +
       '<div style="display:flex;flex-direction:column;gap:8px">' +
-        '<div style="display:flex;align-items:center;gap:8px"><label style="width:100px;font-size:11px;color:var(--ink2)">Lisenssi</label><select id="profLisenssi" style="flex:1;padding:5px 8px;border:.5px solid var(--border);border-radius:4px;background:var(--surface);color:var(--ink);font-size:12px">' + lisOpts + '</select></div>' +
-        '<div style="display:flex;align-items:center;gap:8px"><label style="width:100px;font-size:11px;color:var(--ink2)">Erikoistuminen</label><input id="profErik" type="text" value="' + (erik||'').replace(/"/g,'&quot;') + '" placeholder="esim. Maalivahti" style="flex:1;padding:5px 8px;border:.5px solid var(--border);border-radius:4px;background:var(--surface);color:var(--ink);font-size:12px"></div>' +
-        '<div style="display:flex;align-items:center;gap:8px"><label style="width:100px;font-size:11px;color:var(--ink2)">CPD-tunnit</label><input id="profCpd" type="number" min="0" max="999" value="' + cpdT + '" style="width:70px;padding:5px 8px;border:.5px solid var(--border);border-radius:4px;background:var(--surface);color:var(--ink);font-size:12px;text-align:center"></div>' +
-        '<div style="display:flex;align-items:center;gap:8px"><label style="width:100px;font-size:11px;color:var(--ink2)">Koulutus</label><input id="profKoulutusNimi" type="text" placeholder="Nimi" style="flex:1;padding:5px 8px;border:.5px solid var(--border);border-radius:4px;background:var(--surface);color:var(--ink);font-size:12px"><input id="profKoulutusVuosi" type="number" min="2000" max="2030" placeholder="Vuosi" style="width:70px;padding:5px 8px;border:.5px solid var(--border);border-radius:4px;background:var(--surface);color:var(--ink);font-size:12px;text-align:center"><button onclick="lisaaKoulutus()" style="background:var(--teal);color:#fff;border:none;font-size:11px;padding:5px 10px;border-radius:4px;cursor:pointer">+</button></div>' +
+        vpT('<div style="display:flex;align-items:center;gap:8px"><label style="width:100px;font-size:11px;color:var(--ink2)">Lisenssi</label><select id="profLisenssi" style="flex:1;padding:5px 8px;border:.5px solid var(--border);border-radius:4px;background:var(--surface);color:var(--ink);font-size:12px">') + lisOpts + '</select></div>' +
+        vpT('<div style="display:flex;align-items:center;gap:8px"><label style="width:100px;font-size:11px;color:var(--ink2)">' + vpT('Erikoistuminen') + '</label><input id="profErik" type="text" value="') + (erik||'').replace(/"/g,'&quot;') + '" placeholder="' + vpT('esim. Maalivahti') + '" style="flex:1;padding:5px 8px;border:.5px solid var(--border);border-radius:4px;background:var(--surface);color:var(--ink);font-size:12px"></div>' +
+        vpT('<div style="display:flex;align-items:center;gap:8px"><label style="width:100px;font-size:11px;color:var(--ink2)">CPD-tunnit</label><input id="profCpd" type="number" min="0" max="999" value="') + cpdT + '" style="width:70px;padding:5px 8px;border:.5px solid var(--border);border-radius:4px;background:var(--surface);color:var(--ink);font-size:12px;text-align:center"></div>' +
+        vpT('<div style="display:flex;align-items:center;gap:8px"><label style="width:100px;font-size:11px;color:var(--ink2)">Koulutus</label><input id="profKoulutusNimi" type="text" placeholder="Nimi" style="flex:1;padding:5px 8px;border:.5px solid var(--border);border-radius:4px;background:var(--surface);color:var(--ink);font-size:12px"><input id="profKoulutusVuosi" type="number" min="2000" max="2030" placeholder="Vuosi" style="width:70px;padding:5px 8px;border:.5px solid var(--border);border-radius:4px;background:var(--surface);color:var(--ink);font-size:12px;text-align:center"><button onclick="lisaaKoulutus()" style="background:var(--teal);color:#fff;border:none;font-size:11px;padding:5px 10px;border-radius:4px;cursor:pointer">+</button></div>') +
         '<div id="profKoulutuslista">' + koulHtml + '</div>' +
       '</div>' +
-      '<button onclick="tallennaProfiili(\'' + v.id + '\')" style="width:100%;margin-top:10px;padding:8px;border-radius:6px;border:none;background:var(--teal);color:#fff;font-size:12px;cursor:pointer">Tallenna profiili</button>' +
+      '<button onclick="tallennaProfiili(\'' + v.id + '\')" style="width:100%;margin-top:10px;padding:8px;border-radius:6px;border:none;background:var(--teal);color:#fff;font-size:12px;cursor:pointer">' + vpT('Tallenna profiili') + '</button>' +
     '</div>';
 
   // ═══════════ TAB 2: VAI+ ═══════════
   var t2 = '<div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:14px">' +
-    '<div style="font-size:10px;letter-spacing:.18em;color:var(--ink3);text-transform:uppercase">VAI+ Aktiivisuusindeksi</div>' +
+    vpT('<div style="font-size:10px;letter-spacing:.18em;color:var(--ink3);text-transform:uppercase">VAI+ Aktiivisuusindeksi</div>') +
     '<div style="font-family:\'Cormorant Garamond\',serif;font-size:36px;color:' + vaiVari + ';line-height:1">' + (vd.vai!=null?vd.vai:'—') + '</div></div>' +
-    compRow('Pelihavainto 30%', vd.adar) + compRow('Käynnit 20%', vd.kaynti) + compRow('Harjoittelu 20%', vd.harjoittelu) + compRow('Kontakti 15%', vd.kontakti) + compRow('Kehitys 15%', vd.kehitys||0) +
+    compRow(vpT('Pelihavainto 30%'), vd.adar) + compRow(vpT('Käynnit 20%'), vd.kaynti) + compRow(vpT('Harjoittelu 20%'), vd.harjoittelu) + compRow(vpT('Kontakti 15%'), vd.kontakti) + compRow(vpT('Kehitys 15%'), vd.kehitys||0) +
     halHtml +
     '<div style="margin-top:16px;display:grid;grid-template-columns:repeat(3,1fr);gap:8px">' +
-      '<div class="psr-item"><div class="psr-val">' + (v.adar ? v.adar.toFixed(1) : '—') + '</div><div class="psr-lbl">Pelihavainto ' + adarTrend + '</div></div>' +
-      '<div class="psr-item"><div class="psr-val">' + (v.harjoituksia||0) + '</div><div class="psr-lbl">Harjoitusta/vko</div></div>' +
-      '<div class="psr-item"><div class="psr-val" style="font-size:14px;margin-top:4px">' + (v.viimKirjaus||'—') + '</div><div class="psr-lbl">Viim. kirjaus</div></div></div>' +
+      '<div class="psr-item"><div class="psr-val">' + (v.adar ? v.adar.toFixed(1) : '—') + vpT('</div><div class="psr-lbl">Pelihavainto') + ' ' + adarTrend + '</div></div>' +
+      '<div class="psr-item"><div class="psr-val">' + (v.harjoituksia||0) + vpT('</div><div class="psr-lbl">Harjoitusta/vko</div></div>') +
+      '<div class="psr-item"><div class="psr-val" style="font-size:14px;margin-top:4px">' + (v.viimKirjaus||'—') + vpT('</div><div class="psr-lbl">Viim. kirjaus</div></div></div>') +
     '<div style="margin-top:14px;padding:10px;background:rgba(242,239,230,.04);border:.5px solid var(--border)">' +
-      '<div style="font-size:10px;letter-spacing:.18em;color:var(--ink3);text-transform:uppercase;margin-bottom:6px">Joukkueen kehitys</div>' +
-      '<div style="font-size:12px;color:var(--ink2)">Parantunut: <span style="font-weight:600;color:' + ((vd.kehitysInfo&&vd.kehitysInfo.parantunut>0)?'var(--teal)':'var(--ink3)') + '">' + (vd.kehitysInfo?vd.kehitysInfo.parantunut:0) + '/' + (vd.kehitysInfo?vd.kehitysInfo.mitattu:0) + '</span> mittausta · ' + (vd.kehitysInfo&&vd.kehitysInfo.joukkue?vd.kehitysInfo.joukkue:'—') + '</div>' +
-      '<div style="font-size:10px;color:var(--ink3);margin-top:4px">TKI + H-H delta · ≥2 mittausta per pelaaja</div></div>';
+      vpT('<div style="font-size:10px;letter-spacing:.18em;color:var(--ink3);text-transform:uppercase;margin-bottom:6px">Joukkueen kehitys</div>') +
+      vpT('<div style="font-size:12px;color:var(--ink2)">Parantunut: <span style="font-weight:600;color:') + ((vd.kehitysInfo&&vd.kehitysInfo.parantunut>0)?'var(--teal)':'var(--ink3)') + '">' + (vd.kehitysInfo?vd.kehitysInfo.parantunut:0) + '/' + (vd.kehitysInfo?vd.kehitysInfo.mitattu:0) + vpT('</span> mittausta ·') + ' ' + (vd.kehitysInfo&&vd.kehitysInfo.joukkue?vd.kehitysInfo.joukkue:'—') + '</div>' +
+      vpT('<div style="font-size:10px;color:var(--ink3);margin-top:4px">TKI + H-H delta · ≥2 mittausta per pelaaja</div></div>');
 
   // ═══════════ TAB 3: HARJOITUSLAATU ═══════════
   // Harjoitusarviointi-keskus (Vaihe 2.2): pikakentät + "+ Arvioi harjoitus" + historia (täytetään async)
   var _cmHlPika = '<div style="background:var(--card);border:.5px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:14px">'
     + '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:8px">'
     + '<div style="display:flex;gap:18px">'
-    + '<div><div style="font-size:10px;text-transform:uppercase;color:var(--ink3)">Harjoituslaatu (A)</div><div style="font-family:\'Cormorant Garamond\',serif;font-size:24px;color:var(--teal)">' + (v.harjoituslaatu_ka != null ? v.harjoituslaatu_ka + '<span style="font-size:12px;color:var(--ink3)">/10</span>' : '—') + '</div><div style="font-size:10px;color:var(--ink3)">n=' + (v.harjoituslaatu_n || 0) + '</div></div>'
-    + '<div><div style="font-size:10px;text-transform:uppercase;color:var(--ink3)">Valmennustaito (B)</div><div style="font-family:\'Cormorant Garamond\',serif;font-size:24px;color:var(--teal)">' + (v.valmennustaito_ka != null ? v.valmennustaito_ka + '<span style="font-size:12px;color:var(--ink3)">/5</span>' : '—') + '</div><div style="font-size:10px;color:var(--ink3)">n=' + (v.valmennustaito_n || 0) + '</div></div>'
+    + '<div><div style="font-size:10px;text-transform:uppercase;color:var(--ink3)">' + vpT('Harjoituslaatu (A)') + '</div><div style="font-family:\'Cormorant Garamond\',serif;font-size:24px;color:var(--teal)">' + (v.harjoituslaatu_ka != null ? v.harjoituslaatu_ka + '<span style="font-size:12px;color:var(--ink3)">/10</span>' : '—') + '</div><div style="font-size:10px;color:var(--ink3)">n=' + (v.harjoituslaatu_n || 0) + '</div></div>'
+    + '<div><div style="font-size:10px;text-transform:uppercase;color:var(--ink3)">' + vpT('Valmennustaito (B)') + '</div><div style="font-family:\'Cormorant Garamond\',serif;font-size:24px;color:var(--teal)">' + (v.valmennustaito_ka != null ? v.valmennustaito_ka + '<span style="font-size:12px;color:var(--ink3)">/5</span>' : '—') + '</div><div style="font-size:10px;color:var(--ink3)">n=' + (v.valmennustaito_n || 0) + '</div></div>'
     + '</div>'
-    + '<button onclick="vpAvaaHarjoitusarviointi(\'' + v.id + '\',\'' + (nim || '').replace(/'/g, "\\'") + '\')" style="padding:7px 14px;border:.5px solid var(--teal);background:rgba(40,176,144,.12);color:var(--teal);border-radius:7px;font-size:12px;cursor:pointer">+ Arvioi harjoitus</button>'
+    + '<button onclick="vpAvaaHarjoitusarviointi(\'' + v.id + '\',\'' + (nim || '').replace(/'/g, "\\'") + '\')" style="padding:7px 14px;border:.5px solid var(--teal);background:rgba(40,176,144,.12);color:var(--teal);border-radius:7px;font-size:12px;cursor:pointer">' + vpT('+ Arvioi harjoitus') + '</button>'
     + '</div>'
-    + '<div style="font-size:10px;text-transform:uppercase;color:var(--ink3);margin-bottom:4px">Arviointihistoria</div>'
-    + '<div id="cmHarjHist" style="font-size:12px;color:var(--ink3)">Ladataan…</div></div>';
-  var t3 = _cmHlPika + '<div class="mentor-label">SPL-kenttäkäynti (7 kriteeriä, 1–10)</div>' +
-    '<button onclick="toggleSplArvio()" id="splToggleBtn" style="width:100%;padding:8px;border-radius:6px;border:.5px solid var(--border);background:var(--surface);color:var(--ink2);font-size:12px;cursor:pointer;margin-bottom:10px">+ Lisää kenttäkäynti-arviointi</button>' +
+    + vpT('<div style="font-size:10px;text-transform:uppercase;color:var(--ink3);margin-bottom:4px">Arviointihistoria</div>')
+    + vpT('<div id="cmHarjHist" style="font-size:12px;color:var(--ink3)">Ladataan…</div></div>');
+  var t3 = _cmHlPika + vpT('<div class="mentor-label">SPL-kenttäkäynti (7 kriteeriä, 1–10)</div>') +
+    vpT('<button onclick="toggleSplArvio()" id="splToggleBtn" style="width:100%;padding:8px;border-radius:6px;border:.5px solid var(--border);background:var(--surface);color:var(--ink2);font-size:12px;cursor:pointer;margin-bottom:10px">+ Lisää kenttäkäynti-arviointi</button>') +
     '<div id="splArvio" style="display:none;margin-bottom:14px">' +
       '<div style="display:flex;flex-direction:column;gap:6px;margin-bottom:10px">' + splRows + '</div>' +
       '<label style="display:flex;align-items:center;gap:8px;margin-bottom:10px;cursor:pointer;font-size:12px;color:var(--ink2)">' +
         '<input type="checkbox" id="splJaaValmentajalle" style="accent-color:var(--teal);width:16px;height:16px">' +
-        '<span>Jaa arviointi valmentajalle <span style="font-size:10px;color:var(--ink3)">(näkyy valmentajan Inboxissa)</span></span>' +
+        vpT('<span>Jaa arviointi valmentajalle <span style="font-size:10px;color:var(--ink3)">(näkyy valmentajan Inboxissa)</span></span>') +
       '</label>' +
-      '<button onclick="tallennaSplArvio(\'' + v.id + '\')" style="width:100%;padding:8px;border-radius:6px;border:none;background:var(--teal);color:#fff;font-size:12px;cursor:pointer">Tallenna kenttäkäynti</button>' +
+      '<button onclick="tallennaSplArvio(\'' + v.id + '\')" style="width:100%;padding:8px;border-radius:6px;border:none;background:var(--teal);color:#fff;font-size:12px;cursor:pointer">' + vpT('Tallenna kenttäkäynti') + '</button>' +
     '</div>';
 
   // ═══════════ TAB 4: MENTOROINTI ═══════════
-  var t4 = '<div class="mentor-label">Mentorointiviesti valmentajalle</div>' +
-    '<textarea class="mentor-textarea" id="mentorMsg" placeholder="Kirjoita palaute tai kehitysehdotus..."></textarea>' +
+  var t4 = vpT('<div class="mentor-label">Mentorointiviesti valmentajalle</div>') +
+    vpT('<textarea class="mentor-textarea" id="mentorMsg" placeholder="Kirjoita palaute tai kehitysehdotus..."></textarea>') +
     '<label style="display:flex;align-items:center;gap:8px;margin:8px 0 10px;cursor:pointer;font-size:12px;color:var(--ink2)">' +
       '<input type="checkbox" id="mentorSisainen" style="accent-color:var(--amber,#E0A040);width:16px;height:16px">' +
-      '<span>Sisäinen muistiinpano <span style="font-size:10px;color:var(--ink3)">(ei näy valmentajalle)</span></span>' +
+      vpT('<span>Sisäinen muistiinpano <span style="font-size:10px;color:var(--ink3)">(ei näy valmentajalle)</span></span>') +
     '</label>' +
-    '<button class="mentor-send" onclick="lahetaMentorointiViesti(\'' + v.id + '\',\'' + nim.replace(/'/g,"\\'") + '\')">Lähetä</button>' +
-    '<div class="mentor-label" style="margin-top:20px">Mentorointi-historia</div>' +
-    '<div class="mentor-history" id="mentorHistoria"><div style="color:var(--ink3);font-size:12px;text-align:center;padding:16px">Ladataan...</div></div>';
+    '<button class="mentor-send" onclick="lahetaMentorointiViesti(\'' + v.id + '\',\'' + nim.replace(/'/g,"\\'") + '\')">' + vpT('Lähetä') + '</button>' +
+    vpT('<div class="mentor-label" style="margin-top:20px">Mentorointi-historia</div>') +
+    vpT('<div class="mentor-history" id="mentorHistoria"><div style="color:var(--ink3);font-size:12px;text-align:center;padding:16px">Ladataan...</div></div>');
 
   // ═══════════ TAB 5: KALIBRAATIO (mentorointi) ═══════════
   var _vJ = (v.joukkue || '').toLowerCase();
@@ -11993,32 +11993,32 @@ function avaaCoachPanel(id) {
   if (!_coachPel.length || !_kal || _kal.headline === 'Ei riittävästi dataa') {
     t5 = '<div style="padding:32px 16px;text-align:center;color:var(--ink3);font-size:13px">'
       + '<div style="font-size:30px;margin-bottom:10px">📊</div>'
-      + 'Ei riittävästi dataa kalibraatioon.<br><span style="font-size:11px">Tarvitaan tämän joukkueen pelaajien RAE-, D3- tai pelihavaintodataa.</span></div>';
+      + vpT('Ei riittävästi dataa kalibraatioon.<br><span style="font-size:11px">Tarvitaan tämän joukkueen pelaajien RAE-, D3- tai pelihavaintodataa.</span></div>');
   } else {
     var _CV = { punainen:'var(--red)', amber:'var(--amber)', info:'var(--ink3)' };
     var _hVari = _kal.chips.length ? _CV[_kal.chips[0].vakavuus] : 'var(--teal)';
     var _kr = function(lbl, val, vari){ return '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 0;border-bottom:.5px solid var(--border)"><span style="font-size:12px;color:var(--ink2)">' + lbl + '</span><span style="font-size:12px;font-weight:600;color:' + vari + ';text-align:right">' + val + '</span></div>'; };
-    var _raeVal = _kal.rae.tila === 'ei_dataa' ? '—' : (_kal.rae.tila === 'bias' ? ('⚠ Q1 ' + _kal.rae.ydinQ1 + '% vs ' + _kal.rae.joukkueQ1 + '%') : ('Linjassa · ' + _kal.rae.ydinQ1 + '% / ' + _kal.rae.joukkueQ1 + '%'));
-    var _d3Val = _kal.d3.tila === 'ei_dataa' ? '—' : (_kal.d3.tila === 'ok' ? ('Linjassa · ka ' + _kal.d3.ka) : ('⚠ ka ' + _kal.d3.ka + ' (' + _kal.d3.n + ' pel.)'));
-    var _lenVal = _kal.leniency.tila === 'ei_dataa' ? '—' : ('Δ ' + (_kal.leniency.delta > 0 ? '+' : '') + _kal.leniency.delta + (_kal.leniency.tila === 'poikkeaa' ? ' ⓘ' : ' · linjassa'));
+    var _raeVal = _kal.rae.tila === 'ei_dataa' ? '—' : (_kal.rae.tila === 'bias' ? ('⚠ Q1 ' + _kal.rae.ydinQ1 + '% vs ' + _kal.rae.joukkueQ1 + '%') : (vpT('Linjassa ·') + ' ' + _kal.rae.ydinQ1 + '% / ' + _kal.rae.joukkueQ1 + '%'));
+    var _d3Val = _kal.d3.tila === 'ei_dataa' ? '—' : (_kal.d3.tila === 'ok' ? (vpT('Linjassa · ka') + ' ' + _kal.d3.ka) : (vpT('⚠ ka') + ' ' + _kal.d3.ka + ' (' + _kal.d3.n + ' ' + vpT('pel.)')));
+    var _lenVal = _kal.leniency.tila === 'ei_dataa' ? '—' : ('Δ ' + (_kal.leniency.delta > 0 ? '+' : '') + _kal.leniency.delta + (_kal.leniency.tila === 'poikkeaa' ? ' ⓘ' : ' ' + vpT('· linjassa')));
     var _chipHtml = _kal.chips.map(function(c){
       var cv = _CV[c.vakavuus];
       return '<div style="margin-top:8px;padding:9px 11px;border:.5px solid ' + cv + ';border-radius:8px;background:rgba(242,239,230,.03)">'
         + '<div style="font-size:12px;color:' + cv + ';font-weight:600">' + c.teksti + '</div>'
         + '<div style="font-size:11px;color:var(--ink2);margin-top:3px;line-height:1.45">💡 ' + c.vinkki + '</div></div>';
     }).join('');
-    t5 = '<div style="font-size:10px;letter-spacing:.18em;color:var(--ink3);text-transform:uppercase;margin-bottom:8px">Valmentajan kalibraatio</div>'
+    t5 = vpT('<div style="font-size:10px;letter-spacing:.18em;color:var(--ink3);text-transform:uppercase;margin-bottom:8px">Valmentajan kalibraatio</div>')
       + '<div style="font-family:\'Cormorant Garamond\',serif;font-size:18px;color:' + _hVari + ';line-height:1.3;margin-bottom:14px">' + _kal.headline + '</div>'
-      + _kr('RAE-valintabias', _raeVal, _kal.rae.tila === 'bias' ? 'var(--amber)' : 'var(--ink)')
-      + _kr('D3-kuilu vs VP', _d3Val, _kal.d3.tila === 'red' ? 'var(--red)' : (_kal.d3.tila === 'amber' ? 'var(--amber)' : 'var(--ink)'))
-      + _kr('Pelihavainto-leniency', _lenVal, _kal.leniency.tila === 'poikkeaa' ? 'var(--ink3)' : 'var(--ink)')
+      + _kr(vpT('RAE-valintabias'), _raeVal, _kal.rae.tila === 'bias' ? 'var(--amber)' : 'var(--ink)')
+      + _kr(vpT('D3-kuilu vs VP'), _d3Val, _kal.d3.tila === 'red' ? 'var(--red)' : (_kal.d3.tila === 'amber' ? 'var(--amber)' : 'var(--ink)'))
+      + _kr(vpT('Pelihavainto-leniency'), _lenVal, _kal.leniency.tila === 'poikkeaa' ? 'var(--ink3)' : 'var(--ink)')
       + _chipHtml
-      + '<button onclick="_cmTab(3)" style="width:100%;margin-top:16px;padding:9px;border-radius:6px;border:none;background:var(--teal);color:#fff;font-size:12px;cursor:pointer">Vie mentorointiin →</button>';
+      + vpT('<button onclick="_cmTab(3)" style="width:100%;margin-top:16px;padding:9px;border-radius:6px;border:none;background:var(--teal);color:#fff;font-size:12px;cursor:pointer">Vie mentorointiin →</button>');
   }
   // Harjoituskalibraatio (Vaihe 2.2): itsearvio vs havainnointi vahvistetuista pareista (täytetään async)
-  t5 = '<div style="background:var(--card);border:.5px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:14px"><div style="font-size:10px;letter-spacing:.18em;color:var(--ink3);text-transform:uppercase;margin-bottom:8px">⚖️ Harjoituskalibraatio (itsearvio vs havainnointi)</div><div id="cmKalibHarj" style="font-size:12px;color:var(--ink3)">Ladataan…</div></div>' + t5;
+  t5 = vpT('<div style="background:var(--card);border:.5px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:14px"><div style="font-size:10px;letter-spacing:.18em;color:var(--ink3);text-transform:uppercase;margin-bottom:8px">⚖️ Harjoituskalibraatio (itsearvio vs havainnointi)</div><div id="cmKalibHarj" style="font-size:12px;color:var(--ink3)">Ladataan…</div></div>') + t5;
   // K5b MUUTOS 2 — valmentajan OMA peliäly-kalibraatio-CPD (havainnointi/kalibraatio/reflektio ajassa). Async, honest-empty.
-  t5 = '<div id="cmAdarCpd" style="background:var(--card);border:.5px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:14px;font-size:12px;color:var(--ink3)">⋯ ladataan peliäly-kalibraatiota</div>' + t5;
+  t5 = '<div id="cmAdarCpd" style="background:var(--card);border:.5px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:14px;font-size:12px;color:var(--ink3)">' + vpT('⋯ ladataan peliäly-kalibraatiota') + '</div>' + t5;
 
   // ═══════════ MODAALI ═══════════
   var h = '<div id="coachModal">' +
@@ -12027,13 +12027,13 @@ function avaaCoachPanel(id) {
         '<div class="cm-header-left"><div class="cm-avatar">' + initials + '</div><div><div class="cm-name">' + nim + '</div><div class="cm-meta">' + rooliLabel + ' · ' + (v.joukkue||'—') + '</div></div></div>' +
         '<button class="cm-close" onclick="suljePaneeli()">×</button>' +
       '</div>' +
-      '<div id="cmKehityskortti" style="padding:0 18px"><div style="font-size:12px;color:var(--ink3);padding:10px 0">Valmentajan kehityskaari ladataan…</div></div>' +   // Briiffi 2 — Oura-kehityskortti (synteesi)
+      '<div id="cmKehityskortti" style="padding:0 18px"><div style="font-size:12px;color:var(--ink3);padding:10px 0">' + vpT('Valmentajan kehityskaari ladataan…') + '</div></div>' +   // Briiffi 2 — Oura-kehityskortti (synteesi)
       '<div class="cm-tabs">' +
-        '<button class="cm-tab active" onclick="_cmTab(0)">Profiili</button>' +
+        vpT('<button class="cm-tab active" onclick="_cmTab(0)">Profiili</button>') +
         '<button class="cm-tab" onclick="_cmTab(1)">VAI+</button>' +
-        '<button class="cm-tab" onclick="_cmTab(2)">Harjoituslaatu</button>' +
-        '<button class="cm-tab" onclick="_cmTab(3)">Mentorointi</button>' +
-        '<button class="cm-tab" onclick="_cmTab(4)">Kalibraatio</button>' +
+        vpT('<button class="cm-tab" onclick="_cmTab(2)">Harjoituslaatu</button>') +
+        vpT('<button class="cm-tab" onclick="_cmTab(3)">Mentorointi</button>') +
+        vpT('<button class="cm-tab" onclick="_cmTab(4)">Kalibraatio</button>') +
       '</div>' +
       '<div class="cm-body">' +
         '<div class="cm-section active" id="cmSec0">' + t1 + '</div>' +
@@ -12064,8 +12064,8 @@ function _cmLataaAdarCpd(uid) {
 }
 function _cmAdarCpdHTML(k) {
   const esc = _jsvEsc;
-  const hdr = '<div style="font-size:10px;letter-spacing:.18em;color:var(--teal);text-transform:uppercase;margin-bottom:2px">🧠 Peliäly-kalibraatio · valmennusosaaminen (CPD)</div>';
-  if (!k || k.datataso === 'tyhja') return hdr + '<div style="font-size:12px;color:var(--ink3);margin-top:4px">Kaari kertyy — kirjaa pelihavaintoja pelaajistasi (ajassa, dimensioittain). Kehittävä näkymä, ei arvostelu.</div>';
+  const hdr = '<div style="font-size:10px;letter-spacing:.18em;color:var(--teal);text-transform:uppercase;margin-bottom:2px">' + vpT('🧠 Peliäly-kalibraatio · valmennusosaaminen (CPD)') + '</div>';
+  if (!k || k.datataso === 'tyhja') return hdr + '<div style="font-size:12px;color:var(--ink3);margin-top:4px">' + vpT('Kaari kertyy — kirjaa pelihavaintoja pelaajistasi (ajassa, dimensioittain). Kehittävä näkymä, ei arvostelu.') + '</div>';
   const last = a => a.length ? a[a.length - 1] : null, first = a => a.length ? a[0] : null;
   const hV = last(k.havainnointi), hE = first(k.havainnointi);
   const havTxt = hV ? (hV.nHav + ' hav · ' + hV.nPelaaja + ' pelaajaa') + (k.havainnointi.length >= 2 && hV.nHav > hE.nHav ? ' · aktiivisuus kasvaa ↑' : '') : '—';
@@ -12081,11 +12081,11 @@ function _cmAdarCpdHTML(k) {
   const reflTxt = rV ? (rV.paivitykset + ' pelaajaa arvioitu uudelleen · learn & reflect') : '—';
   const rivi = (ik, ots, txt, vari) => '<div style="display:flex;gap:10px;padding:7px 0;border-top:.5px solid var(--border)"><span style="flex:0 0 92px;font-size:11px;color:var(--ink3)">' + ik + ' ' + ots + '</span><span style="flex:1;font-size:12px;color:' + vari + ';line-height:1.4">' + esc(txt) + '</span></div>';
   return hdr
-    + '<div style="font-size:10px;color:var(--ink3);margin-bottom:4px">' + k.ikkunat.length + ' kautta · kehittävä, ei arvostelu</div>'
-    + rivi('👁', 'Havainnointi', havTxt, 'var(--ink2)')
-    + rivi('⚖️', 'Kalibraatio', kalTxt, kalCol)
+    + '<div style="font-size:10px;color:var(--ink3);margin-bottom:4px">' + k.ikkunat.length + ' ' + vpT('kautta · kehittävä, ei arvostelu') + '</div>'
+    + rivi('👁', vpT('Havainnointi'), havTxt, 'var(--ink2)')
+    + rivi('⚖️', vpT('Kalibraatio'), kalTxt, kalCol)
     + rivi('🔄', 'Reflektio', reflTxt, 'var(--ink2)')
-    + (k.datataso === 'lahtopiste' ? '<div style="font-size:10px;color:var(--ink3);margin-top:6px">Yksi kausi — suunta näkyy 2. kaudesta.</div>' : '');
+    + (k.datataso === 'lahtopiste' ? '<div style="font-size:10px;color:var(--ink3);margin-top:6px">' + vpT('Yksi kausi — suunta näkyy 2. kaudesta.') + '</div>' : '');
 }
 
 // Briiffi 2 — Valmentajan Oura-kehityskortti (PUHDAS string-helper): yksi tila-rengas (EI numeroa/arvosanaa) →
@@ -12117,7 +12117,7 @@ function _cmKehityskorttiHTML(arvioinnit, valmKaari, uid) {
   var rengas = '<svg width="72" height="72" viewBox="0 0 72 72" style="flex:0 0 auto">'
     + '<circle cx="36" cy="36" r="26" fill="none" stroke="var(--border)" stroke-width="6"/>'
     + '<circle cx="36" cy="36" r="26" fill="none" stroke="' + tilaVari + '" stroke-width="6" stroke-linecap="round" stroke-dasharray="' + dash + ' ' + C + '" transform="rotate(-90 36 36)"/>'
-    + '<text x="36" y="34" text-anchor="middle" font-size="8" fill="var(--ink3,#8C8B86)">tila</text>'
+    + '<text x="36" y="34" text-anchor="middle" font-size="8" fill="var(--ink3,#8C8B86)">' + vpT('tila') + '</text>'
     + '<text x="36" y="46" text-anchor="middle" font-size="10" font-weight="600" fill="' + tilaVari + '">' + esc(tila) + '</text></svg>';
   var rivi = function (ik, nimi, on, txt, spark) {
     return '<div style="display:flex;align-items:center;gap:9px;padding:6px 0;border-top:.5px solid var(--border)">'
@@ -12134,14 +12134,14 @@ function _cmKehityskorttiHTML(arvioinnit, valmKaari, uid) {
   var vkTxt = vkOn ? (vkKaventuu ? 'kalibraatio kaventuu ↓' : 'kalibraatio kertyy — keskustelunavaus') : 'kertyy pelihavainnoista ajassa';
   var jf = (kalib && kalib.suurin_kuilu_kriteeri) ? ((typeof _HL_KRIT_B !== 'undefined' && _HL_KRIT_B[kalib.suurin_kuilu_kriteeri]) || kalib.suurin_kuilu_kriteeri) : null;
   var h = '<div style="background:var(--card);border:.5px solid var(--border);border-radius:12px;padding:14px 16px;margin:10px 0">'
-    + '<div style="font-size:10px;letter-spacing:.18em;color:var(--teal);text-transform:uppercase;margin-bottom:8px">Valmentajan kehityskaari · kehittävä, ei arvostelu</div>'
+    + '<div style="font-size:10px;letter-spacing:.18em;color:var(--teal);text-transform:uppercase;margin-bottom:8px">' + vpT('Valmentajan kehityskaari · kehittävä, ei arvostelu') + '</div>'
     + '<div style="display:flex;align-items:center;gap:14px;margin-bottom:4px">' + rengas
-    + '<div style="flex:1;min-width:0;font-size:12px;color:var(--ink2);line-height:1.5">Yksi kuva osaamisesi kehityksestä — harjoituslaatu, kalibraatio ja peliäly-havainnointi ajassa. Ei sijoitusta eikä arvosanaa; poikkeama = keskustelun avaus.</div></div>'
+    + '<div style="flex:1;min-width:0;font-size:12px;color:var(--ink2);line-height:1.5">' + vpT('Yksi kuva osaamisesi kehityksestä — harjoituslaatu, kalibraatio ja peliäly-havainnointi ajassa. Ei sijoitusta eikä arvosanaa; poikkeama = keskustelun avaus.') + '</div></div>'
     + rivi('🎯', 'Harjoituslaatu', hlOn, hlTxt, siru(aS))
-    + rivi('⚖️', 'Kalibraatio', kalOn, kalTxt, siru(kalS))
+    + rivi('⚖️', vpT('Kalibraatio'), kalOn, kalTxt, siru(kalS))
     + rivi('🧠', 'Peliäly-havainnointi', vkOn, vkTxt, siru(vkS));
-  if (jf) h += '<div style="margin-top:10px;padding:9px 11px;background:rgba(40,176,144,.08);border:.5px solid rgba(40,176,144,.3);border-radius:8px;font-size:12px;color:var(--ink2)"><span style="color:var(--teal);font-weight:600">Jaksofokus:</span> ' + esc(jf) + ' <span style="color:var(--ink3)">— suurin kalibraatioero, hyvä keskustelunavaus</span></div>';
-  else if (dataN) h += '<div style="margin-top:10px;font-size:11px;color:var(--ink3)">Jaksofokus tarkentuu kun kalibraatiopareja on vahvistettu.</div>';
+  if (jf) h += '<div style="margin-top:10px;padding:9px 11px;background:rgba(40,176,144,.08);border:.5px solid rgba(40,176,144,.3);border-radius:8px;font-size:12px;color:var(--ink2)"><span style="color:var(--teal);font-weight:600">' + vpT('Jaksofokus:') + '</span> ' + esc(jf) + ' <span style="color:var(--ink3)">' + vpT('— suurin kalibraatioero, hyvä keskustelunavaus') + '</span></div>';
+  else if (dataN) h += '<div style="margin-top:10px;font-size:11px;color:var(--ink3)">' + vpT('Jaksofokus tarkentuu kun kalibraatiopareja on vahvistettu.') + '</div>';
   return h + '</div>';
 }
 // Coach-paneelin harjoitusarviointi-keskus: lataa valmentajan arvioinnit → historia + harjoituskalibraatio
@@ -12155,11 +12155,11 @@ async function _cmLataaArvioinnit(uid) {
     _hlArvioinnit = _hlArvioinnit || [];
     arvioinnit.forEach(function (a) { if (!_hlArvioinnit.some(function (x) { return x._id === a._id; })) _hlArvioinnit.push(a); });
     if (histEl) {
-      if (!arvioinnit.length) histEl.innerHTML = 'Ei harjoitusarviointeja vielä.';
+      if (!arvioinnit.length) histEl.innerHTML = vpT('Ei harjoitusarviointeja vielä.');
       else histEl.innerHTML = arvioinnit.slice().sort(function (x, y) { return String(y.pvm || '').localeCompare(String(x.pvm || '')); }).slice(0, 12).map(function (a) {
         var isB = a.malli === 'valmennustaidot';
         var ov = isB ? laskeValmennustaitoIndeksi(a.vastaukset) : laskeHarjoituslaatuPalloliitto(a.vastaukset).ka_0_10;
-        return '<div onclick="_hlAvaaTapahtuma(\'' + _hlEsc(a._id) + '\')" style="display:flex;justify-content:space-between;padding:6px 0;border-top:.5px solid var(--border);cursor:pointer"><span style="color:var(--ink2)">' + _hlEsc(a.pvm || '') + ' · ' + (isB ? 'B' : 'A') + ' · ' + (a.arviointitapa === 'itsearvio' ? 'Itse' : 'Hav') + '</span><span style="color:var(--teal)">' + (ov != null ? ov + (isB ? '/5' : '/10') : '—') + '</span></div>';
+        return '<div onclick="_hlAvaaTapahtuma(\'' + _hlEsc(a._id) + '\')" style="display:flex;justify-content:space-between;padding:6px 0;border-top:.5px solid var(--border);cursor:pointer"><span style="color:var(--ink2)">' + _hlEsc(a.pvm || '') + ' · ' + (isB ? 'B' : 'A') + ' · ' + (a.arviointitapa === 'itsearvio' ? vpT('Itse') : vpT('Hav')) + '</span><span style="color:var(--teal)">' + (ov != null ? ov + (isB ? '/5' : '/10') : '—') + '</span></div>';
       }).join('');
     }
     if (kalEl) {
@@ -12167,9 +12167,9 @@ async function _cmLataaArvioinnit(uid) {
       var r = kalib[uid];
       if (!r) kalEl.innerHTML = _hlKalibTyhjaViesti(arvioinnit);   // Briiffi 1 — rehellinen tyhjä: kerro mitä puuttuu
       else {
-        var suuntaTxt = r.suunta === 'yliarvio' ? 'arvioi itsensä korkeammalle' : r.suunta === 'aliarvio' ? 'arvioi itsensä matalammalle' : 'linjassa havainnoijan kanssa';
-        kalEl.innerHTML = '<div style="color:var(--ink2)">' + r.n_paria + ' paria · keskikuilu <b>' + r.keskikuilu + '</b>' + (r.kaventuu == null ? '' : (r.kaventuu ? ' · kaventunut ↓' : ' · kasvanut ↑')) + '</div>'
-          + '<div style="color:var(--ink3);font-size:11px;margin-top:3px">' + suuntaTxt + (r.suurin_kuilu_kriteeri ? ' · suurin ero: ' + _hlEsc(_HL_KRIT_B[r.suurin_kuilu_kriteeri] || r.suurin_kuilu_kriteeri) + ' (' + (r.suurin_kuilu_arvo > 0 ? '+' : '') + r.suurin_kuilu_arvo + ')' : '') + '</div>';
+        var suuntaTxt = r.suunta === 'yliarvio' ? vpT('arvioi itsensä korkeammalle') : r.suunta === 'aliarvio' ? vpT('arvioi itsensä matalammalle') : vpT('linjassa havainnoijan kanssa');
+        kalEl.innerHTML = '<div style="color:var(--ink2)">' + r.n_paria + ' ' + vpT('paria · keskikuilu <b>') + r.keskikuilu + '</b>' + (r.kaventuu == null ? '' : (r.kaventuu ? ' ' + vpT('· kaventunut ↓') : ' ' + vpT('· kasvanut ↑'))) + '</div>'
+          + '<div style="color:var(--ink3);font-size:11px;margin-top:3px">' + suuntaTxt + (r.suurin_kuilu_kriteeri ? ' ' + vpT('· suurin ero:') + ' ' + _hlEsc(_HL_KRIT_B[r.suurin_kuilu_kriteeri] || r.suurin_kuilu_kriteeri) + ' (' + (r.suurin_kuilu_arvo > 0 ? '+' : '') + r.suurin_kuilu_arvo + ')' : '') + '</div>';
       }
     }
     // Briiffi 2 — Oura-kehityskortti: synteesi (harjoituslaatu + kalibraatio) heti; peliäly-kontribuuttori päivittyy
@@ -12184,7 +12184,7 @@ async function _cmLataaArvioinnit(uid) {
         }).catch(function () {});
       }
     }
-  } catch (e) { if (histEl) histEl.textContent = 'Lataus epäonnistui.'; }
+  } catch (e) { if (histEl) histEl.textContent = vpT('Lataus epäonnistui.'); }
 }
 
 function _cmTab(idx) {
@@ -12204,15 +12204,15 @@ function toggleSplArvio() {
   const btn = document.getElementById('splToggleBtn');
   const open = el.style.display === 'none';
   el.style.display = open ? 'block' : 'none';
-  btn.textContent = open ? '− Sulje kenttäkäynti-arviointi' : '+ Lisää kenttäkäynti-arviointi';
+  btn.textContent = open ? vpT('− Sulje kenttäkäynti-arviointi') : vpT('+ Lisää kenttäkäynti-arviointi');
 }
 
 async function tallennaSplArvio(valmentajaId) {
   const pisteet = [...document.querySelectorAll('.spl-score')].map(el => parseInt(el.value)||null);
   const puuttuu = pisteet.filter(p => p === null).length;
-  if (puuttuu > 0) { toast(`Täytä kaikki ${puuttuu} puuttuvaa kriteeriä`, 'warn'); return; }
+  if (puuttuu > 0) { toast(`${vpT('Täytä kaikki')} ${puuttuu} ${vpT('puuttuvaa kriteeriä')}`, 'warn'); return; }
 
-  const kriteerit = ['Toiminta on innostavaa','Pelaajat liikkeessä','Toistot — pallokosketukset','Toistot — teknis-taktinen','Pelaajat yrittävät täysillä','Toiminta pelin vaatimusten mukaan','Seuran painopiste näkyy'];
+  const kriteerit = [vpT('Toiminta on innostavaa'),vpT('Pelaajat liikkeessä'),vpT('Toistot — pallokosketukset'),vpT('Toistot — teknis-taktinen'),vpT('Pelaajat yrittävät täysillä'),vpT('Toiminta pelin vaatimusten mukaan'),vpT('Seuran painopiste näkyy')];
   const keskiarvo = pisteet.reduce((a,b)=>a+b,0) / pisteet.length;
   const heikoin = pisteet.indexOf(Math.min(...pisteet));
 
@@ -12233,7 +12233,7 @@ async function tallennaSplArvio(valmentajaId) {
     heikoinPisteet: pisteet[heikoin],
     vpUid: _uid,
     aika: firebase.firestore.FieldValue.serverTimestamp(),
-    teksti: 'SPL-arviointi · ka ' + (Math.round(keskiarvo*10)/10) + '/10 · Heikoin: "' + kriteerit[heikoin] + '" (' + pisteet[heikoin] + ')',
+    teksti: vpT('SPL-arviointi · ka') + ' ' + (Math.round(keskiarvo*10)/10) + vpT('/10 · Heikoin: "') + kriteerit[heikoin] + '" (' + pisteet[heikoin] + ')',
     nakyvyys: jaaValmentajalle ? 'valmentajalle' : 'sisainen'
   };
   try {
@@ -12249,7 +12249,7 @@ async function tallennaSplArvio(valmentajaId) {
         tyyppi: 'kenttäkäynti',
         teksti: splData.teksti,
         fromRole: 'vp',
-        fromNimi: 'VP',
+        fromNimi: vpT('VP'),
         vpUid: _uid,
         lahettajaUid: _uid,
         vastaanottajaUid: valmentajaId,
@@ -12260,8 +12260,8 @@ async function tallennaSplArvio(valmentajaId) {
     }
 
     toast(jaaValmentajalle
-      ? '✓ Kenttäkäynti tallennettu + jaettu valmentajalle · ka ' + (Math.round(keskiarvo*10)/10) + '/10'
-      : '✓ Kenttäkäynti tallennettu (sisäinen) · ka ' + (Math.round(keskiarvo*10)/10) + '/10', 'ok');
+      ? vpT('✓ Kenttäkäynti tallennettu + jaettu valmentajalle · ka') + ' ' + (Math.round(keskiarvo*10)/10) + '/10'
+      : vpT('✓ Kenttäkäynti tallennettu (sisäinen) · ka') + ' ' + (Math.round(keskiarvo*10)/10) + '/10', 'ok');
     toggleSplArvio();
     if (jaaEl) jaaEl.checked = false;
     _lataaCoachHistoria(valmentajaId);
@@ -12284,7 +12284,7 @@ async function _lataaCoachHistoria(valmentajaId) {
     const docs = snap.docs.filter(function(d) { return d.data().valmentajaId === valmentajaId; }).slice(0, 10);
 
     if (docs.length === 0) {
-      el.innerHTML = '<div style="color:var(--ink3);font-size:12px;text-align:center;padding:16px;">Ei mentorointihistoriaa — tee ensimmäinen kenttäkäynti tai lähetä viesti</div>';
+      el.innerHTML = vpT('<div style="color:var(--ink3);font-size:12px;text-align:center;padding:16px;">Ei mentorointihistoriaa — tee ensimmäinen kenttäkäynti tai lähetä viesti</div>');
       return;
     }
 
@@ -12295,18 +12295,18 @@ async function _lataaCoachHistoria(valmentajaId) {
       // Näkyvyystagi
       var nakTag = '';
       if (m.nakyvyys === 'sisainen') {
-        nakTag = '<span style="display:inline-block;padding:1px 6px;border-radius:3px;font-size:9px;font-weight:600;letter-spacing:.08em;background:rgba(224,160,64,.15);color:#E0A040;margin-left:6px">SISÄINEN</span>';
+        nakTag = vpT('<span style="display:inline-block;padding:1px 6px;border-radius:3px;font-size:9px;font-weight:600;letter-spacing:.08em;background:rgba(224,160,64,.15);color:#E0A040;margin-left:6px">SISÄINEN</span>');
       } else if (m.nakyvyys === 'valmentajalle') {
-        nakTag = '<span style="display:inline-block;padding:1px 6px;border-radius:3px;font-size:9px;font-weight:600;letter-spacing:.08em;background:rgba(40,176,144,.12);color:var(--teal);margin-left:6px">JAETTU</span>';
+        nakTag = vpT('<span style="display:inline-block;padding:1px 6px;border-radius:3px;font-size:9px;font-weight:600;letter-spacing:.08em;background:rgba(40,176,144,.12);color:var(--teal);margin-left:6px">JAETTU</span>');
       }
 
       if (onKenttakaynti) {
         const pisteet = m.pisteet || [];
         const kriteerit = m.kriteerit || [];
         return '<div class="msg-bubble vp" style="border-left-color:var(--teal);">' +
-          '<div class="msg-from">Kenttäkäynti · VP · ' + aika + nakTag + '</div>' +
+          vpT('<div class="msg-from">Kenttäkäynti · VP ·') + ' ' + aika + nakTag + '</div>' +
           '<div class="msg-text" style="font-size:12px;">' +
-            '<strong>Ka ' + m.keskiarvo + '/10</strong> · Heikoin: "' + (m.heikoinKriteeri||'') + '" (' + (m.heikoinPisteet||0) + '/10)' +
+            vpT('<strong>Ka') + ' ' + m.keskiarvo + vpT('/10</strong> · Heikoin: "') + (m.heikoinKriteeri||'') + '" (' + (m.heikoinPisteet||0) + '/10)' +
             '<div style="margin-top:6px;display:grid;grid-template-columns:1fr 1fr;gap:2px 8px;">' +
               kriteerit.map(function(k,i) {
                 var pisteVari = pisteet[i]>=8 ? 'var(--teal)' : pisteet[i]<=5 ? 'var(--red)' : 'var(--ink)';
@@ -12318,11 +12318,11 @@ async function _lataaCoachHistoria(valmentajaId) {
 
       const isVp = m.fromRole === 'vp';
       return '<div class="msg-bubble ' + (isVp?'vp':'coach') + '">' +
-        '<div class="msg-from">' + (isVp ? 'Sinä · VP' : (m.fromNimi || 'Valmentaja')) + ' · ' + aika + nakTag + '</div>' +
+        '<div class="msg-from">' + (isVp ? vpT('Sinä · VP') : (m.fromNimi || 'Valmentaja')) + ' · ' + aika + nakTag + '</div>' +
         '<div class="msg-text">' + (m.teksti||'') + '</div></div>';
     }).join('');
   } catch(e) {
-    el.innerHTML = '<div style="color:var(--ink3);font-size:12px;text-align:center;padding:16px;">Historian lataus epäonnistui</div>';
+    el.innerHTML = vpT('<div style="color:var(--ink3);font-size:12px;text-align:center;padding:16px;">Historian lataus epäonnistui</div>');
     console.warn('Historia:', e.message);
   }
 }
@@ -12344,13 +12344,13 @@ function toggleProfiiliMuokkaus() {
   var open = muokkaus.style.display === 'none';
   nakyma.style.display = open ? 'none' : 'block';
   muokkaus.style.display = open ? 'block' : 'none';
-  btn.textContent = open ? '✕ Peruuta' : '✏️ Muokkaa';
+  btn.textContent = open ? vpT('✕ Peruuta') : '✏️ Muokkaa';
 }
 
 function lisaaKoulutus() {
   var nimiEl = document.getElementById('profKoulutusNimi');
   var vuosiEl = document.getElementById('profKoulutusVuosi');
-  if (!nimiEl || !nimiEl.value.trim()) { toast('Syötä koulutuksen nimi', 'warn'); return; }
+  if (!nimiEl || !nimiEl.value.trim()) { toast(vpT('Syötä koulutuksen nimi'), 'warn'); return; }
   _profiiliKoulutuksetTemp.push({ nimi: nimiEl.value.trim(), vuosi: parseInt(vuosiEl.value) || new Date().getFullYear() });
   nimiEl.value = ''; vuosiEl.value = '';
   var lista = document.getElementById('profKoulutuslista');
@@ -12361,14 +12361,14 @@ function lisaaKoulutus() {
     }
     lista.innerHTML = h + '</div>';
   }
-  toast('Koulutus lisätty — tallenna profiili', 'ok');
+  toast(vpT('Koulutus lisätty — tallenna profiili'), 'ok');
 }
 
 async function tallennaProfiili(uid) {
   var lisenssi = document.getElementById('profLisenssi');
   var erik = document.getElementById('profErik');
   var cpd = document.getElementById('profCpd');
-  if (!lisenssi || !uid || !_seuraId) { toast('Profiilia ei voitu tallentaa', 'error'); return; }
+  if (!lisenssi || !uid || !_seuraId) { toast(vpT('Profiilia ei voitu tallentaa'), 'error'); return; }
 
   var updateData = {
     lisenssitaso: lisenssi.value || null,
@@ -12393,7 +12393,7 @@ async function tallennaProfiili(uid) {
       v.cpd_tunnit_kausi = updateData.cpd_tunnit_kausi;
       if (updateData.koulutukset) v.koulutukset = updateData.koulutukset;
     }
-    toast('✓ Profiili tallennettu', 'ok');
+    toast(vpT('✓ Profiili tallennettu'), 'ok');
     toggleProfiiliMuokkaus();
     renderValmentajat();
     avaaCoachPanel(uid); // refresh panel

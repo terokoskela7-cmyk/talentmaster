@@ -36,7 +36,7 @@ const acorn = require('acorn');
 const HTML = readFileSync(join(__dir, '..', 'TalentMaster_VP_v25.html'), 'utf8');
 
 const RLO = 2679, RHI = 17921;              // VP pääscript (1-idx)
-const RANGES = [[8040, 9221], [12600, 13750]]; // reititetyt alueet: V3 _jsv · V4 kalenteri. V5–V8: lisää tähän.
+const RANGES = [[8040, 9221], [12600, 13750], [11661, 12400]]; // V3 _jsv · V4 kalenteri · V5 valmentajat. V6–V8: lisää tähän.
 const ROUTED_FNS = new Set(['vpT', 'vpTToimenpide']);
 
 // §7 lib-curriculum-nimet (jäävät fi → allowlist)
