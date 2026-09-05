@@ -88,7 +88,7 @@ describe('(5) off-palette-pinkki (#c060a8) pois Kehitys-lähdechipeistä', () =>
     expect(T).not.toContain('#c060a8');
     expect(T).not.toContain('rgba(192,96,168');
     expect(T).toContain("<span class=\"chip\" style=\"color:var(--ink3);margin-left:4px\">◎ pelihavainto");
-    expect(T).toContain("<span class=\"chip\" style=\"color:var(--ink3);border-color:var(--border)\">◎ Lähde: pelihavainto");
+    expect(T).toContain("<span class=\"chip\" style=\"color:var(--ink3);border-color:var(--border)\">' + vpT('◎ Lähde: pelihavainto')");  // i18n V6: teksti vpT-reititetty; väri-guard säilyy
   });
   it('"Mitä pelaajan tulee osata" havainnointi-otsikko = var(--ink3)', () => {
     const T = extract('function _vpMitaOsattavaHTML(p) {');
