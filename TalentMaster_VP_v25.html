@@ -17,7 +17,7 @@
 <!-- Eerikkilä-normit + universaali testirekisteri (eerikkilaTaso, laskeFVP) — 10m/5m-tasot + FVP-profiili -->
 <script src="lib/tm_lang.js?v=9"></script>   <!-- i18n V0 — fi/sv/en käännöstaulukko + t() + kieli-init (putkitus) -->
 <script src="lib/tm_i18n_common.js?v=2"></script>   <!-- i18n Vaihe 0 — JAETTU henkilöstö-i18n + lukittu glossaari (ENNEN sivukarttaa) -->
-<script src="lib/tm_vp_i18n.js?v=16"></script>   <!-- i18n Vaihe 5 — VP sv (sivukartta); vpT/vpLokalisoi delegoivat commoniin -->
+<script src="lib/tm_vp_i18n.js?v=17"></script>   <!-- i18n Vaihe 5 — VP sv (sivukartta); vpT/vpLokalisoi delegoivat commoniin -->
 
 
 <script src="lib/tm_eerikkila_normit.js?v=45"></script>   <!-- v43: D2-kortti d2_taso-ensin (renderKehityskorttiHTML, PR #264 · §30/#262) -->
@@ -3774,6 +3774,7 @@ function scrollIdpJono() {
   if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
 
+const IDP_TILA_LBL = { aktiivinen:'Aktiivinen', ehdotettu:'Ehdotettu', odottaa:'Odottaa', hyvaksytty:'Hyväksytty', hylatty:'Hylätty', puuttuu:'Puuttuu' };
 function renderIdpJono(containerId) {
   const el = document.getElementById(containerId);
   if (_idpJono.length === 0) {
@@ -3810,7 +3811,7 @@ function hyvaksyIdp(id) {
   renderIdpJono('tilanneIdpJono');
   renderIdpJono('pelIdpJono');
   document.getElementById('kpi-idp').textContent = _idpJono.length;
-  toast('IDP hyväksytty ✓','ok');
+  toast(vpT('IDP hyväksytty ✓'),'ok');
 }
 
 // Sprint 3: hylkääminen avaa syy-modaalin (ei suoraa poistoa)
@@ -3848,7 +3849,7 @@ function vahvistaHylkays() {
   renderIdpJono('pelIdpJono');
   document.getElementById('kpi-idp').textContent = _idpJono.length;
   suljeHylkaysModal();
-  toast('IDP hylätty','ok');
+  toast(vpT('IDP hylätty'),'ok');
 }
 
 // ─── RENDER VALMENTAJAT ──────────────────────────────────
@@ -6127,7 +6128,7 @@ function _vpKausitavoiteHTML(p) {
     // Pikakenttä-summary (täysi tavoite latautuu taustalla) — §26 ei pakota alikokoelmakyselyä listaan
     const f = p.idp_fokus || {};
     const _il = p.idp_lahde || null;   // B3 — lähdemerkintä pikakentästä (summary-tila)
-    h += '<div class="jsp-kt-summary"><span class="jsp-kt-pill ' + (p.idp_tila === 'aktiivinen' ? 'akt' : 'ehd') + '">' + _jsvEsc(p.idp_tila) + '</span> '
+    h += '<div class="jsp-kt-summary"><span class="jsp-kt-pill ' + (p.idp_tila === 'aktiivinen' ? 'akt' : 'ehd') + '">' + vpT(IDP_TILA_LBL[p.idp_tila] || p.idp_tila) + '</span> '
       + '<span class="chip" style="margin-left:6px">🎯 ' + _jsvEsc(f.nimi || f.alue || '—') + (f.dim ? ' · ' + f.dim : '') + '</span>'
       + (_il && _il.tyyppi === 'pelihavainto' ? '<span class="chip" style="color:var(--ink3);margin-left:4px">◎ pelihavainto' + (_il.pvm ? ' · ' + _jsvEsc(_pvmLyhyt(_il.pvm)) : '') + '</span>' : '')
       + (p.idp_edistyma ? ' <span class="jsp-kt-edist">' + _jsvEsc(p.idp_edistyma) + '</span>' : '') + '</div>';
@@ -6156,7 +6157,7 @@ function _vpKausitavoiteHTML(p) {
   // B3 — lähdesiru: näytä havainnon alkuperä (pelihavainto → ottelu/harjoitus + pvm) fokus-chippien joukossa.
   const _lt = f.lahdeTieto || null;
   const _lahdeSiru = (_lt && _lt.tyyppi === 'pelihavainto')
-    ? '<span class="chip" style="color:var(--ink3);border-color:var(--border)">◎ Lähde: pelihavainto' + (_lt.pvm ? ' · ' + _jsvEsc(_pvmLyhyt(_lt.pvm)) : '') + '</span>'
+    ? '<span class="chip" style="color:var(--ink3);border-color:var(--border)">' + vpT('◎ Lähde: pelihavainto') + (_lt.pvm ? ' · ' + _jsvEsc(_pvmLyhyt(_lt.pvm)) : '') + '</span>'
     : (_lt && _lt.tyyppi === 'havaittu') ? '<span class="chip" style="color:var(--blue)">◎ Lähde: havainto' + (_lt.pvm ? ' · ' + _jsvEsc(_pvmLyhyt(_lt.pvm)) : '') + '</span>' : '';
   h += '<div class="jsp-kt-chips"><span class="chip">🎯 Fokus: <b>' + _jsvEsc(f.nimi || f.alue || '—') + '</b></span>'
     + (f.dim ? '<span class="chip">' + f.dim + '</span>' : '')
@@ -7886,11 +7887,11 @@ function _vpAloitusHTML(p) {
   // Tyhjä tila → CTA Kehitys-välilehteen (jossa Ehdota-moottori).
   if (!fokus && !tila) {
     return '<div style="background:linear-gradient(150deg,#18211e,#161614);border:.5px solid rgba(40,176,144,.25);border-radius:12px;padding:18px 16px;text-align:center">'
-      + '<div style="font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--teal);font-weight:600">🎯 Kausifokus</div>'
-      + '<div style="font-size:14px;color:var(--ink2);margin:8px 0 12px">Ei kausitavoitetta vielä — johdetaan heikoimmasta ominaisuudesta (arviointi + §28-kypsyysvahti).</div>'
-      + '<button class="jsp-kt-btn primary" onclick="_jspVaihda(3)">Ehdota kausitavoite →</button></div>';
+      + '<div style="font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--teal);font-weight:600">' + vpT('🎯 Kausifokus') + '</div>'
+      + '<div style="font-size:14px;color:var(--ink2);margin:8px 0 12px">' + vpT('Ei kausitavoitetta vielä — johdetaan heikoimmasta ominaisuudesta (arviointi + §28-kypsyysvahti).') + '</div>'
+      + '<button class="jsp-kt-btn primary" onclick="_jspVaihda(3)">' + vpT('Ehdota kausitavoite →') + '</button></div>';
   }
-  const tilaLbl = tila === 'aktiivinen' ? '● Aktiivinen' : tila === 'ehdotettu' ? '○ Ehdotettu' : (tila ? _jsvEsc(tila) : '');
+  const tilaLbl = tila === 'aktiivinen' ? vpT('● Aktiivinen') : tila === 'ehdotettu' ? vpT('○ Ehdotettu') : (tila ? vpT(IDP_TILA_LBL[tila] || tila) : '');
   const pelilause = (t && t.perustelu && t.perustelu.pelilause) || null;
   const kausi = (t && t.aikaraami && t.aikaraami.kausi) || null;
   // B3 — lähdemerkintä (pelihavainto → näkyy kausifokuksessa). Pikakentästä idp_lahde tai ladatusta tavoitteesta.
@@ -7898,11 +7899,11 @@ function _vpAloitusHTML(p) {
   const _alPvm = _al && _al.pvm ? _pvmFi(_al.pvm) : null;
   let h = '<div class="vpal-fokus">';
   // Kausifokus (makro)
-  h += '<div class="vpal-fk kausi"><div class="vpal-k teal">🎯 Kausifokus' + (kausi ? ' <span class="vpal-pill">makro · ' + _jsvEsc(kausi) + '</span>' : '') + '</div>'
+  h += '<div class="vpal-fk kausi"><div class="vpal-k teal">' + vpT('🎯 Kausifokus') + (kausi ? ' <span class="vpal-pill">makro · ' + _jsvEsc(kausi) + '</span>' : '') + '</div>'
     + '<h3 class="vpal-h3">' + _jsvEsc((fokus && fokus.nimi) || '—') + (fokus && fokus.dim ? ' · ' + fokus.dim : '') + '</h3>'
     + (tilaLbl ? '<div class="vpal-meta">' + tilaLbl + (t && t.aikaraami && t.aikaraami.kesto_vk ? ' · ' + t.aikaraami.kesto_vk + ' vk' : '') + '</div>' : '')
-    + (_al && _al.tyyppi === 'pelihavainto' ? '<div class="vpal-meta" style="color:var(--ink3)">◎ Lähde: pelihavainto' + (_alPvm ? ' · ' + _jsvEsc(_alPvm) : '') + '</div>' : '')
-    + (pelilause ? '<div class="vpal-peli">⚽ Näkyy pelissä: ' + _jsvEsc(pelilause) + '</div>' : '') + '</div>';
+    + (_al && _al.tyyppi === 'pelihavainto' ? '<div class="vpal-meta" style="color:var(--ink3)">' + vpT('◎ Lähde: pelihavainto') + (_alPvm ? ' · ' + _jsvEsc(_alPvm) : '') + '</div>' : '')
+    + (pelilause ? '<div class="vpal-peli">' + vpT('⚽ Näkyy pelissä:') + ' ' + _jsvEsc(pelilause) + '</div>' : '') + '</div>';
   // Jaksofokus (meso) — täyttyy valmentajan "Vie jakson treeniin" -pikakentästä (§26 jaksofokus, Vaihe 4a). Muuten placeholder.
   const _jf = p.jaksofokus || null;
   if (_jf && _jf.konsepti_nimi) {
@@ -14472,7 +14473,7 @@ function _renderMDTProfiili() {
     h += '<div class="pdc-sig">Scouting-näkymä — vahvin erottaja: <b>' + erottaja + '</b>. ' + (p.signaali === 'xfactor' ? 'X-Factor tunnistettu.' : (hgBadge ? 'Hidden Gem -signaali.' : 'Ei X-Factoria vielä.')) + '</div>';
   } else {
     var jfNimi = (p.jaksofokus && p.jaksofokus.konsepti_nimi) || (p.idp_fokus && (p.idp_fokus.nimi || p.idp_fokus.alue)) || null;
-    h += '<div class="pdc-sig">' + (jfNimi ? ('Nykyfokus <b>' + _jsvEsc(jfNimi) + '</b>' + (p.idp_tila ? ' · IDP ' + _jsvEsc(p.idp_tila) : '') + '.') : 'Ei asetettua jaksofokusta — aseta cockpitissa.') + '</div>';
+    h += '<div class="pdc-sig">' + (jfNimi ? ('Nykyfokus <b>' + _jsvEsc(jfNimi) + '</b>' + (p.idp_tila ? ' · IDP ' + vpT(IDP_TILA_LBL[p.idp_tila] || p.idp_tila) : '') + '.') : 'Ei asetettua jaksofokusta — aseta cockpitissa.') + '</div>';
   }
 
   // HERO-GRID: perustiedot · 5D-tutka · pelipaikka
@@ -14497,7 +14498,7 @@ function _renderMDTProfiili() {
   } else {
     var jfDom = (p.jaksofokus && p.jaksofokus.domeeni) || null;
     h += '<div class="pdc-strip k"><div><div class="lab" style="color:var(--teal)">Jaksofokus · nyt</div><div>' + ((p.jaksofokus && p.jaksofokus.konsepti_nimi) ? (_jsvEsc(p.jaksofokus.konsepti_nimi) + (jfDom ? ' · ' + _jsvEsc(jfDom) : '')) : 'ei asetettu') + '</div></div>'
-      + '<span class="tag" style="border:.5px solid rgba(40,176,144,.32);background:rgba(40,176,144,.1);color:var(--teal);padding:3px 9px;border-radius:20px;font-size:10px;font-weight:600">IDP: ' + _jsvEsc(p.idp_tila || 'ei tavoitetta') + '</span></div>';
+      + '<span class="tag" style="border:.5px solid rgba(40,176,144,.32);background:rgba(40,176,144,.1);color:var(--teal);padding:3px 9px;border-radius:20px;font-size:10px;font-weight:600">IDP: ' + vpT(IDP_TILA_LBL[p.idp_tila] || p.idp_tila || 'ei tavoitetta') + '</span></div>';
   }
 
   // 5D-RATING-SOLUT

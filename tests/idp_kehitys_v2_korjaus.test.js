@@ -23,7 +23,7 @@ describe('(1) Aloituksen lähdechip neutraali (ei off-palette-pinkkiä)', () => 
   it('_vpAloitusHTML pelihavainto-lähde = var(--ink3), ei #c060a8', () => {
     const T = extract('function _vpAloitusHTML(p) {');
     expect(T).not.toContain('#c060a8');
-    expect(T).toContain('<div class="vpal-meta" style="color:var(--ink3)">◎ Lähde: pelihavainto');
+    expect(T).toContain('<div class="vpal-meta" style="color:var(--ink3)">\' + vpT(\'◎ Lähde: pelihavainto\')');  // i18n V6: teksti vpT-reititetty; väri-guard (var(--ink3)) säilyy
   });
 });
 
