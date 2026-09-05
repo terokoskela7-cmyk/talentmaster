@@ -51,7 +51,7 @@ function libNames() {
   return out;
 }
 
-const PRODUCT = /X-Factor|Hidden Gem|Underdog/;
+const PRODUCT = /X-Factor|Hidden Gem|Underdog|Cue/; // tuotetermit + Cue (lukittu verbatim valmennustermi)
 const ABBR = 'TKI|TSI|H-H|PHV|D[1-5]|RPE|ADAR|CPD|DVI|RSVP|MAS|CMJ|SJ|FLEI|VAI\\+?|RAE|OVR|EI|FVP|VNE|SM|TK|IDP|VP|UA|meso|makro|mikro|Cue|cue|ka|cm|kg|min|vk|pv|kk|km/h|m/s';
 const ABBR_ONLY = new RegExp('^(?:\\s|[·—–\\-/:()%.,+↑↓→▾▴◆⚠★☆●○≥≤<>&;0-9]|&amp;|&nbsp;|(?:' + ABBR + '))+$');
 const hasWord = (t) => /[A-Za-zÄÖÅäöå]{3,}/.test(t) && !ABBR_ONLY.test(t);
@@ -75,22 +75,13 @@ function markupPieces(v) {
 // Ydin: skannaa lähde AST:na, palauta vuodot {line, p} RANGES-alueilta. lineOffset = tiedostorivi = loc.start.line + offset.
 function scanLeaks(src, ranges, lineOffset, LIB) {
   const ast = acorn.parse(src, { ecmaVersion: 'latest', locations: true });
-  const ROUTED = new Set();
+  // PER-OCCURRENCE routed: vpT/vpTToimenpide-kutsujen ARGUMENTTIEN char-ranget. Kandidaatti on routed VAIN jos
+  // SE solmu on jonkin arg-rangen sisällä — EI globaali string-jäsenyys (V5-live-oppi: globaali ROUTED maskasi
+  // raa'at per-occurrence-vuodot; "gate 0" takasi vain 0 ei-koskaan-reititettyä, ei 0 raakaa).
+  const VPT_ARG_RANGES = [];
   const parentOf = new Map();
   const litNodes = [];
 
-  const litValues = (node, acc) => {
-    const st = [node];
-    while (st.length) {
-      const n = st.pop();
-      if (!n || typeof n !== 'object') continue;
-      if (Array.isArray(n)) { for (const c of n) st.push(c); continue; }
-      if (n.type === 'Literal' && typeof n.value === 'string') acc.push(n.value);
-      if (n.type === 'TemplateLiteral') n.quasis.forEach((q) => acc.push(q.value.cooked));
-      for (const k in n) { if (['loc', 'start', 'end', 'range'].includes(k)) continue;
-        const c = n[k]; if (c && typeof c === 'object') st.push(c); }
-    }
-  };
   const subtreeHasMarkupOrVpt = (root) => {
     const st = [root];
     while (st.length) {
@@ -113,8 +104,7 @@ function scanLeaks(src, ranges, lineOffset, LIB) {
     if (Array.isArray(node)) { for (const n of node) wst.push([n, parent]); continue; }
     parentOf.set(node, parent);
     if (node.type === 'CallExpression' && node.callee && node.callee.type === 'Identifier' && ROUTED_FNS.has(node.callee.name)) {
-      const acc = []; node.arguments.forEach((a) => litValues(a, acc));
-      for (const v of acc) { ROUTED.add(v); ROUTED.add(v.trim()); const mp = markupPieces(v); if (mp) mp.forEach((p) => ROUTED.add(p)); }
+      node.arguments.forEach((a) => VPT_ARG_RANGES.push([a.start, a.end]));
     }
     if (node.type === 'Literal' && typeof node.value === 'string') litNodes.push({ value: node.value, node, tl: null });
     if (node.type === 'TemplateLiteral') node.quasis.forEach((q) => litNodes.push({ value: q.value.cooked, node: q, tl: node }));
@@ -145,6 +135,8 @@ function scanLeaks(src, ranges, lineOffset, LIB) {
 
   const inRange = (ln) => ranges.some(([lo, hi]) => ln >= lo && ln <= hi);
   const isLib = (t) => { if (LIB.has(t)) return true; for (const L of LIB) if (L.length >= 6 && (t === L || t.startsWith(L) || (t.length >= 6 && L.startsWith(t)))) return true; return false; };
+  // routed = TÄMÄ solmu on jonkin vpT-argin char-rangen sisällä (per-occurrence, ei globaali)
+  const inVpt = (s, e) => VPT_ARG_RANGES.some(([rs, re]) => rs <= s && e <= re);
 
   const leaks = [];
   const seen = new Set();
@@ -154,13 +146,14 @@ function scanLeaks(src, ranges, lineOffset, LIB) {
     const locNode = lit.tl || lit.node;
     const line = (locNode.loc ? locNode.loc.start.line : 0) + lineOffset;
     if (!inRange(line)) continue;
+    if (inVpt(lit.node.start, lit.node.end)) continue; // per-occurrence routed → ohita koko solmu
     const mp = markupPieces(value);
     let pieces;
     if (mp) pieces = mp;
     else if (inDisplayContext(lit.tl || lit.node) && hasWord(value) && !codeish(value)) pieces = [value.trim()];
     else pieces = [];
     for (const p of pieces) {
-      if (!hasWord(p) || ROUTED.has(p) || ROUTED.has(p.trim()) || PRODUCT.test(p) || isLib(p)) continue;
+      if (!hasWord(p) || PRODUCT.test(p) || isLib(p)) continue;
       const key = line + '|' + p;
       if (seen.has(key)) continue; seen.add(key);
       leaks.push({ line, p });
@@ -206,6 +199,10 @@ describe('VP_v25 render-kielineutraali-gate (step G · AST)', () => {
     const th = scanLeaks(txt, [[1, 99]], 0, new Set()).map((l) => l.p);
     expect(th.some((p) => p.includes('Viikkovuoto'))).toBe(true);
     expect(th).toContain('Setter-vuoto');
+    // PER-OCCURRENCE (V5-live-oppi): raaka >Mentorointi< flagataan VAIKKA Mentorointi on vpT:ssä muualla
+    // (globaali ROUTED maskasi tämän ennen; nyt char-range-per-occurrence).
+    const perOcc = "function _p(){ var a = vpT('Mentorointi'); var h = '<div>Mentorointi</div>'; return a + h; }";
+    expect(scanLeaks(perOcc, [[1, 99]], 0, new Set()).map((l) => l.p)).toContain('Mentorointi');
   });
 
   // ── Object-property-display-guard ──────────────────────────────────────────────
