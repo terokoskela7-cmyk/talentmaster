@@ -24,6 +24,7 @@ function extract(sig) {
 let M;
 beforeAll(() => {
   const prelude =
+    'var vpT = function(x){ return x; };\n' +
     'var _jsvEsc = function(s){return String(s==null?"":s);};\n' +
     // stub tmTtPelaaja (§4b) — palauttaa cue+miksi vain tunnetulle avaimelle
     'var tmTtPelaaja = function(a){ return a === "y_h0" ? { cue: "Mitä näit ennen kuin pallo tuli?", miksi: "Kun katsot ympärille, ehdit ennen muita." } : null; };\n' +
