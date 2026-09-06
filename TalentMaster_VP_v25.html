@@ -17,7 +17,7 @@
 <!-- Eerikkilä-normit + universaali testirekisteri (eerikkilaTaso, laskeFVP) — 10m/5m-tasot + FVP-profiili -->
 <script src="lib/tm_lang.js?v=9"></script>   <!-- i18n V0 — fi/sv/en käännöstaulukko + t() + kieli-init (putkitus) -->
 <script src="lib/tm_i18n_common.js?v=2"></script>   <!-- i18n Vaihe 0 — JAETTU henkilöstö-i18n + lukittu glossaari (ENNEN sivukarttaa) -->
-<script src="lib/tm_vp_i18n.js?v=30"></script>   <!-- i18n Vaihe 5 — VP sv (sivukartta); vpT/vpLokalisoi delegoivat commoniin -->
+<script src="lib/tm_vp_i18n.js?v=31"></script>   <!-- i18n Vaihe 5 — VP sv (sivukartta); vpT/vpLokalisoi delegoivat commoniin -->
 
 
 <script src="lib/tm_eerikkila_normit.js?v=45"></script>   <!-- v43: D2-kortti d2_taso-ensin (renderKehityskorttiHTML, PR #264 · §30/#262) -->
@@ -4995,17 +4995,17 @@ function _vpD3KalibraatioHTML(p) {
   const _onVp = _d3pt && Object.keys(_d3pt).some(function (k) { return _d3pt[k] && _d3pt[k].vp != null; });
   let h = '<div class="jsp-arv-grp" style="border-top:.5px solid var(--border);margin-top:14px;padding-top:12px">';
   h += '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:4px">'
-    + '<span style="font-size:11px;letter-spacing:.04em;color:var(--ink2);text-transform:uppercase">🧠 D3-kalibraatio · itse × valmentaja × VP'
+    + vpT('<span style="font-size:11px;letter-spacing:.04em;color:var(--ink2);text-transform:uppercase">🧠 D3-kalibraatio · itse × valmentaja × VP')
     + (p.d3_taso != null && p.d3_varmuus && typeof d3VarmuusChip === 'function' ? ' ' + d3VarmuusChip(p.d3_varmuus) : '') + '</span>'
-    + '<button onclick="event.stopPropagation();_avaaVpD3Arvio(\'' + p.id + '\')" style="background:var(--blue);color:#fff;border:none;border-radius:5px;padding:4px 12px;font-size:11px;cursor:pointer;font-family:\'DM Sans\',sans-serif">' + (_onVp ? 'Päivitä VP-arvio' : 'Arvioi (VP)') + '</button></div>';
-  h += '<div style="font-size:10px;color:var(--ink3);margin-bottom:8px">Aukko ≥1.5 = keskustelunaihe · varmuus-lippu kertoo luotettavuuden (ei kliininen mittari).</div>';
+    + '<button onclick="event.stopPropagation();_avaaVpD3Arvio(\'' + p.id + '\')" style="background:var(--blue);color:#fff;border:none;border-radius:5px;padding:4px 12px;font-size:11px;cursor:pointer;font-family:\'DM Sans\',sans-serif">' + (_onVp ? vpT('Päivitä VP-arvio') : vpT('Arvioi (VP)')) + '</button></div>';
+  h += vpT('<div style="font-size:10px;color:var(--ink3);margin-bottom:8px">Aukko ≥1.5 = keskustelunaihe · varmuus-lippu kertoo luotettavuuden (ei kliininen mittari).</div>');
   // E2 — vain pelaajan (Pel) sarake ikämerkitään kun itsearvio on edelliseltä jaksolta (A). Val & VP pysyvät.
   if (_vpJaksoVanhentunut(p, p.d3_viimeisin && p.d3_viimeisin.jakso_alkoi)) {
     h += '<div style="display:flex;align-items:flex-start;gap:7px;margin-bottom:8px;padding:6px 10px;border-radius:7px;background:rgba(224,160,64,.09);border:.5px solid rgba(224,160,64,.3)">'
       + '<span style="font-size:12px;flex-shrink:0">◷</span>'
-      + '<span style="font-size:10.5px;color:var(--ink2);line-height:1.4"><b style="font-weight:600">Pel-sarake: edellinen jakso.</b> Pelaajan itsearvio on viime jaksolta — tulkitse varoen kunnes pelaaja päivittää. Valmentajan ja VP:n sarakkeet ovat ajan tasalla.</span></div>';
+      + vpT('<span style="font-size:10.5px;color:var(--ink2);line-height:1.4"><b style="font-weight:600">Pel-sarake: edellinen jakso.</b> Pelaajan itsearvio on viime jaksolta — tulkitse varoen kunnes pelaaja päivittää. Valmentajan ja VP:n sarakkeet ovat ajan tasalla.</span></div>');
   }
-  h += '<div id="_jspD3Vertailu">' + (_d3pt && typeof renderD3VertailuHTML === 'function' ? renderD3VertailuHTML(_d3pt) : '<div style="font-size:11px;color:var(--ink3)">Ei vielä D3-arvioita. VP-arvio aloittaa kalibraation.</div>') + '</div>';
+  h += '<div id="_jspD3Vertailu">' + (_d3pt && typeof renderD3VertailuHTML === 'function' ? renderD3VertailuHTML(_d3pt) : vpT('<div style="font-size:11px;color:var(--ink3)">Ei vielä D3-arvioita. VP-arvio aloittaa kalibraation.</div>')) + '</div>';
   h += '</div>';
   return h;
 }
@@ -5021,19 +5021,19 @@ window._vpArvHyppaaDim = function (dim) {
 window._vpBrandiPalaute = function (pid) {
   const vanha = document.getElementById('_vpBrandiModal'); if (vanha) vanha.remove();
   const q = function (id, teksti) {
-    return '<div style="margin-bottom:12px"><div style="font-size:12.5px;color:var(--ink);margin-bottom:5px">' + teksti + '</div>'
+    return '<div style="margin-bottom:12px"><div style="font-size:12.5px;color:var(--ink);margin-bottom:5px">' + vpT(teksti) + '</div>'
       + '<div class="jsp-arv-seg" id="' + id + '">'
-      + ['Kyllä', 'Osittain', 'Ei'].map(function (v) { return '<button type="button" class="jsp-arv-segbtn hav" style="min-width:66px" onclick="_vpBrandiSet(\'' + id + '\',this)">' + v + '</button>'; }).join('') + '</div></div>';
+      + ['Kyllä', 'Osittain', 'Ei'].map(function (v) { return '<button type="button" class="jsp-arv-segbtn hav" style="min-width:66px" onclick="_vpBrandiSet(\'' + id + '\',this)">' + vpT(v) + '</button>'; }).join('') + '</div></div>';
   };
   let h = '<div id="_vpBrandiModal" style="position:fixed;inset:0;background:rgba(17,17,16,.92);z-index:360;display:flex;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(8px)" onclick="if(event.target===this)this.remove()">';
   h += '<div class="jsp-rv-box" style="max-width:460px">';
-  h += '<div class="jsp-rv-hd"><div><div class="jsp-rv-title">Palaute — brändijako</div><div class="jsp-kt-muted">📋 Palloliitto-kortti × ◆ TalentMaster-analytiikka</div></div><button class="jsp-rv-x" onclick="document.getElementById(\'_vpBrandiModal\').remove()">×</button></div>';
+  h += '<div class="jsp-rv-hd"><div><div class="jsp-rv-title">' + vpT('Palaute — brändijako') + '</div><div class="jsp-kt-muted">' + vpT('📋 Palloliitto-kortti × ◆ TalentMaster-analytiikka') + '</div></div><button class="jsp-rv-x" onclick="document.getElementById(\'_vpBrandiModal\').remove()">×</button></div>';
   h += q('_bpSelkea', 'Onko jako Palloliiton kortin ja TalentMasterin analytiikan välillä selkeä?');
   h += q('_bpLuottamus', 'Vahvistaako jako luottamustasi järjestelmään?');
   h += q('_bpSekoita', 'Sekoittaako jako jotakin (epäselvyys)?');
-  h += '<textarea id="_bpVapaa" class="jsp-kt-aani" placeholder="Vapaa palaute (valinnainen)…" onclick="event.stopPropagation()"></textarea>';
-  h += '<div class="jsp-kt-btns"><button class="jsp-kt-btn primary" onclick="_vpBrandiPalauteTallenna(\'' + _jsvEsc(pid) + '\')">Lähetä palaute</button>'
-    + '<button class="jsp-kt-btn" onclick="document.getElementById(\'_vpBrandiModal\').remove()">Peruuta</button></div>';
+  h += vpT('<textarea id="_bpVapaa" class="jsp-kt-aani" placeholder="Vapaa palaute (valinnainen)…" onclick="event.stopPropagation()"></textarea>');
+  h += '<div class="jsp-kt-btns"><button class="jsp-kt-btn primary" onclick="_vpBrandiPalauteTallenna(\'' + _jsvEsc(pid) + '\'' + vpT(')">Lähetä palaute</button>')
+    + '<button class="jsp-kt-btn" onclick="document.getElementById(\'_vpBrandiModal\'' + vpT(').remove()">Peruuta</button></div>');
   h += '</div></div>';
   const wrap = document.createElement('div'); wrap.innerHTML = h; document.body.appendChild(wrap.firstChild);
 };
@@ -5055,7 +5055,7 @@ window._vpBrandiPalauteTallenna = async function (pid) {
     } catch (e) { /* best-effort — palaute jää localStorageen jos säännöt eivät salli (ei rules-muutosta tässä) */ }
   }
   const m = document.getElementById('_vpBrandiModal'); if (m) m.remove();
-  if (typeof toast === 'function') toast('Kiitos palautteesta! 🙏', 'ok');
+  if (typeof toast === 'function') toast(vpT('Kiitos palautteesta! 🙏'), 'ok');
 };
 // Re-renderöi Arviointi-välilehti paikallaan (dropdown-vaihto tai tallennus). Säilyttää valitun teeman/kehyksen.
 function _vpArvReRender() {
