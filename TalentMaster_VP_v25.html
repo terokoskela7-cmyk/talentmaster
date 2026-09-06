@@ -17,7 +17,7 @@
 <!-- Eerikkilä-normit + universaali testirekisteri (eerikkilaTaso, laskeFVP) — 10m/5m-tasot + FVP-profiili -->
 <script src="lib/tm_lang.js?v=9"></script>   <!-- i18n V0 — fi/sv/en käännöstaulukko + t() + kieli-init (putkitus) -->
 <script src="lib/tm_i18n_common.js?v=2"></script>   <!-- i18n Vaihe 0 — JAETTU henkilöstö-i18n + lukittu glossaari (ENNEN sivukarttaa) -->
-<script src="lib/tm_vp_i18n.js?v=24"></script>   <!-- i18n Vaihe 5 — VP sv (sivukartta); vpT/vpLokalisoi delegoivat commoniin -->
+<script src="lib/tm_vp_i18n.js?v=25"></script>   <!-- i18n Vaihe 5 — VP sv (sivukartta); vpT/vpLokalisoi delegoivat commoniin -->
 
 
 <script src="lib/tm_eerikkila_normit.js?v=45"></script>   <!-- v43: D2-kortti d2_taso-ensin (renderKehityskorttiHTML, PR #264 · §30/#262) -->
@@ -15809,17 +15809,17 @@ function renderJoukkuealy() {
   // Ikäluokka-suodatin
   var tokenit = _jaKohorttiTokenit(kaikki);
   var fp = function (tok, lbl) { return '<button class="ja-fp' + ((_jaIka === tok || (!tok && !_jaIka)) ? ' on' : '') + '" onclick="_jaSuodata(' + (tok ? ('\'' + tok + '\'') : 'null') + ')">' + esc(lbl) + '</button>'; };
-  var h = STYLE + '<div class="ja-filt mdt-no-print">' + fp(null, 'Koko seura') + tokenit.map(function (t) { return fp(t, t); }).join('') + '</div>';
+  var h = STYLE + '<div class="ja-filt mdt-no-print">' + fp(null, vpT('Koko seura')) + tokenit.map(function (t) { return fp(t, t); }).join('') + '</div>';
 
   // A · SEURAKOOSTE
   var kpi = function (k, n, sm, cls, s) { return '<div class="ja-kpi"><div class="k">' + k + '</div><div class="n"' + (cls ? ' style="color:' + cls + '"' : '') + '>' + n + (sm ? '<small>' + sm + '</small>' : '') + '</div><div class="t">' + s + '</div></div>'; };
-  h += '<div class="ja-sek"><div class="ja-mini">Seurakooste' + (_jaIka ? ' · ' + esc(_jaIka) : '') + '</div><div class="ja-h">Talenttitilanne</div>'
-    + '<div class="ja-sub">' + P.length + ' pelaajaa' + (tokenit.length > 1 && !_jaIka ? ' · ' + tokenit.length + ' ikäluokkaa' : '') + ' · aggregaatti nykydatasta</div>'
+  h += '<div class="ja-sek"><div class="ja-mini">' + vpT('Seurakooste') + (_jaIka ? ' · ' + esc(_jaIka) : '') + '</div><div class="ja-h">' + vpT('Talenttitilanne') + '</div>'
+    + '<div class="ja-sub">' + P.length + ' pelaajaa' + (tokenit.length > 1 && !_jaIka ? ' · ' + tokenit.length + ' ' + vpT('ikäluokkaa') : '') + ' ' + vpT('· aggregaatti nykydatasta') + '</div>'
     + '<div class="ja-kpirow">'
-    + kpi('Pelaajia', P.length, '', '', tokenit.slice(0, 3).join(' · ') || '—')
-    + kpi('Valmius ka', (fleiKa != null ? fleiKa : '—'), (fleiKa != null ? '/100' : ''), '', (fleiKa != null ? '▸ aseta kansallinen vertailu' : 'ei FLEI-dataa'))
-    + kpi('Talenttia HOT:lle', talenttiHot, '', (talenttiHot > 0 ? 'var(--teal)' : ''), portaat.xfactor + ' X-Factor · ' + portaat.hiddengem + ' Hidden Gem')
-    + kpi('Review ajan tasalla', (reviewKooste.onTime_pct != null ? reviewKooste.onTime_pct : '—'), (reviewKooste.onTime_pct != null ? '%' : ''), poik(reviewKooste.onTime_pct != null && reviewKooste.onTime_pct < 70, 'var(--amber)'), (reviewKooste.myohassa_n + reviewKooste.eraantymassa_n) + ' vaatii huomiota')
+    + kpi(vpT('Pelaajia'), P.length, '', '', tokenit.slice(0, 3).join(' · ') || '—')
+    + kpi(vpT('Valmius ka'), (fleiKa != null ? fleiKa : '—'), (fleiKa != null ? '/100' : ''), '', (fleiKa != null ? vpT('▸ aseta kansallinen vertailu') : vpT('ei FLEI-dataa')))
+    + kpi(vpT('Talenttia HOT:lle'), talenttiHot, '', (talenttiHot > 0 ? 'var(--teal)' : ''), portaat.xfactor + ' X-Factor · ' + portaat.hiddengem + ' Hidden Gem')
+    + kpi(vpT('Review ajan tasalla'), (reviewKooste.onTime_pct != null ? reviewKooste.onTime_pct : '—'), (reviewKooste.onTime_pct != null ? '%' : ''), poik(reviewKooste.onTime_pct != null && reviewKooste.onTime_pct < 70, 'var(--amber)'), (reviewKooste.myohassa_n + reviewKooste.eraantymassa_n) + ' ' + vpT('vaatii huomiota'))
     + '</div></div>';
 
   // B · TALENTTIJAKAUMA
@@ -15827,57 +15827,57 @@ function renderJoukkuealy() {
   var radar = (typeof window._tmRadar5D === 'function') ? window._tmRadar5D(radarDims, { referenssi: 3, referenssiVari: 'var(--ink3)', maxW: 250 }) : '';
   var valBars = valmius.ampat.map(function (a) { var w = valmius.n ? Math.round(a.n / valmius.n * 100) : 0; var amber = (a.lb === '40–54' || a.lb === '<40'); return '<div class="ja-bar"><span class="lb">' + a.lb + '</span><span class="tr"><b style="width:' + w + '%;background:' + (amber ? 'var(--amber)' : 'var(--teal)') + '"></b></span><span class="vn">' + a.n + '</span></div>'; }).join('');
   var tier = function (n, l, col) { return '<div class="ja-tier"><div class="tn"' + (col ? ' style="color:' + col + '"' : '') + '>' + n + '</div><div class="tl">' + l + '</div></div>'; };
-  h += '<div class="ja-sek"><div class="ja-h">Talenttijakauma</div><div class="ja-sub">Keitä meillä on — 5D-profiili vs. kansallinen normi (taso 3), valmiusjakauma ja talenttiportaat.</div>'
-    + '<div class="ja-grid2"><div><div class="ja-mini" style="text-align:center">Joukkueen 5D vs. normi (taso 3)</div>' + (radar || '<div class="ja-empty">Ei 5D-dataa.</div>') + '<div style="font-family:\'DM Mono\',monospace;font-size:9px;color:var(--ink3);text-align:center;margin-top:4px">katkoviiva = ikäluokkanormi (taso 3) · ▸ aseta kansallinen vertailu</div></div>'
-    + '<div><div class="ja-mini">Valmiusjakauma (FLEI)</div>' + (valmius.n ? valBars : '<div class="ja-empty">Ei FLEI-dataa.</div>') + '<div class="ja-mini" style="margin-top:16px">Talenttiportaat</div><div class="ja-tiers">' + tier(portaat.xfactor, 'X-Factor', 'var(--gold)') + tier(portaat.hiddengem, 'Hidden Gem', 'var(--teal)') + tier(portaat.seuranta, 'Seuranta') + tier(portaat.kehityskohde, 'Kehityskohde', 'var(--amber)') + '</div></div></div></div>';
+  h += '<div class="ja-sek"><div class="ja-h">' + vpT('Talenttijakauma') + '</div><div class="ja-sub">' + vpT('Keitä meillä on — 5D-profiili vs. kansallinen normi (taso 3), valmiusjakauma ja talenttiportaat.') + '</div>'
+    + '<div class="ja-grid2"><div><div class="ja-mini" style="text-align:center">' + vpT('Joukkueen 5D vs. normi (taso 3)') + '</div>' + (radar || '<div class="ja-empty">' + vpT('Ei 5D-dataa.') + '</div>') + '<div style="font-family:\'DM Mono\',monospace;font-size:9px;color:var(--ink3);text-align:center;margin-top:4px">' + vpT('katkoviiva = ikäluokkanormi (taso 3) · ▸ aseta kansallinen vertailu') + '</div></div>'
+    + '<div><div class="ja-mini">' + vpT('Valmiusjakauma (FLEI)') + '</div>' + (valmius.n ? valBars : '<div class="ja-empty">' + vpT('Ei FLEI-dataa.') + '</div>') + '<div class="ja-mini" style="margin-top:16px">' + vpT('Talenttiportaat') + '</div><div class="ja-tiers">' + tier(portaat.xfactor, 'X-Factor', 'var(--gold)') + tier(portaat.hiddengem, 'Hidden Gem', 'var(--teal)') + tier(portaat.seuranta, vpT('Seuranta')) + tier(portaat.kehityskohde, vpT('Kehityskohde'), 'var(--amber)') + '</div></div></div></div>';
 
   // C · PELIPAIKKA-SYVYYS
   var stCol = { aukko: ['var(--red)', 'rgba(201,64,64,.14)', 'aukko'], ohut: ['var(--amber)', 'rgba(224,160,64,.14)', 'ohut'], ok: ['var(--teal)', 'rgba(40,176,144,.12)', 'syvyys ok'], vahva: ['var(--teal)', 'rgba(40,176,144,.12)', 'vahva'] };
   var depthRows = syvyys.ryhmat.map(function (r) { var s = stCol[r.status]; return '<div class="ja-dpos"><span class="pn">' + r.ryhma + '</span><span class="cnt">' + r.n + '</span><span class="ja-st" style="color:' + s[0] + ';background:' + s[1] + '">' + s[2] + '</span></div>'; }).join('');
   var posN = syvyys.ryhmat.reduce(function (a, r) { return a + r.n; }, 0);
-  h += '<div class="ja-sek"><div class="ja-h">Pelipaikka-syvyys</div><div class="ja-sub">Missä on syvyyttä ja missä aukko — depth chart pelipaikoittain' + (_jaIka ? ' (' + esc(_jaIka) + ')' : '') + '. Aukko = toimenpide.</div>'
-    + (posN ? depthRows + (syvyys.tuntematon ? '<div class="ja-dpos"><span class="pn" style="color:var(--ink3)">Pelipaikka kirjaamatta</span><span class="cnt">' + syvyys.tuntematon + '</span><span class="ja-st" style="color:var(--ink3)">—</span></div>' : '') : '<div class="ja-empty">Pelipaikkoja ei ole kirjattu pelaajille — lisää pelipaikka Seurahallinnassa, niin depth chart täyttyy. (' + syvyys.tuntematon + ' ilman pelipaikkaa)</div>') + '</div>';
+  h += '<div class="ja-sek"><div class="ja-h">' + vpT('Pelipaikka-syvyys') + '</div><div class="ja-sub">' + vpT('Missä on syvyyttä ja missä aukko — depth chart pelipaikoittain') + (_jaIka ? ' (' + esc(_jaIka) + ')' : '') + vpT('. Aukko = toimenpide.') + '</div>'
+    + (posN ? depthRows + (syvyys.tuntematon ? '<div class="ja-dpos"><span class="pn" style="color:var(--ink3)">' + vpT('Pelipaikka kirjaamatta') + '</span><span class="cnt">' + syvyys.tuntematon + '</span><span class="ja-st" style="color:var(--ink3)">—</span></div>' : '') : '<div class="ja-empty">' + vpT('Pelipaikkoja ei ole kirjattu pelaajille — lisää pelipaikka Seurahallinnassa, niin depth chart täyttyy. (') + syvyys.tuntematon + ' ' + vpT('ilman pelipaikkaa)') + '</div>') + '</div>';
 
   // D · SUHTEELLINEN IKÄ & KYPSYYS
   var qmax = Math.max(rae.Q1, rae.Q2, rae.Q3, rae.Q4, 1);
   var qcol = function (q, key) { var under = (key === 'Q4' && rae.Q4 < rae.Q1 && rae.n >= 6); return '<div class="ja-qcol' + (under ? ' under' : '') + '"><span class="ja-qv">' + q + '</span><span class="ja-qbar" style="height:' + Math.round(q / qmax * 100) + '%"></span><span class="ja-ql">' + key + '</span></div>'; };
   var phvBar = function (lb, n, key) { var w = phv.n ? Math.round(n / Math.max(phv.ennen, phv.aikana, phv.jalkeen, 1) * 100) : 0; return '<div class="ja-bar"><span class="lb">' + lb + '</span><span class="tr"><b style="width:' + w + '%;background:var(--teal)"></b></span><span class="vn">' + n + '</span></div>'; };
   var raeVinouma = (rae.n >= 6 && rae.Q4 < rae.Q1);
-  h += '<div class="ja-sek"><div class="ja-h">Suhteellinen ikä &amp; kypsyys</div><div class="ja-sub">Onko valinnassa vinoumaa — syntymäkvartaali (RAE) ja PHV-vaihe' + (rae.n ? ' · n=' + rae.n : '') + '. §28-kypsyyskorjaus jo pelaajatasolla.</div>'
-    + '<div class="ja-grid2"><div><div class="ja-mini">Syntymäkvartaali</div>' + (rae.n ? ('<div class="ja-qbars">' + qcol(rae.Q1, 'Q1') + qcol(rae.Q2, 'Q2') + qcol(rae.Q3, 'Q3') + qcol(rae.Q4, 'Q4') + '</div>' + (raeVinouma ? '<div style="margin-top:10px"><span class="ja-chip amber">RAE-vinouma: Q1 yliedustettu, Q4 aliedustettu</span></div>' : '')) : '<div class="ja-empty">Ei syntymäaikadataa (kvartaali).</div>') + '</div>'
-    + '<div><div class="ja-mini">PHV-vaihe (kypsyys)</div>' + (phv.n ? (phvBar('Ennen', phv.ennen, 'ennen') + phvBar('Kasvupyrähdyksessä', phv.aikana, 'aikana') + phvBar('Jälkeen', phv.jalkeen, 'jalkeen') + '<div style="margin-top:12px"><span class="ja-chip">§28 kypsyyskorjaus käytössä</span></div>') : '<div class="ja-empty">Ei PHV-dataa (kasvumittaus puuttuu).</div>') + '</div></div></div>';
+  h += '<div class="ja-sek"><div class="ja-h">' + vpT('Suhteellinen ikä &amp; kypsyys') + '</div><div class="ja-sub">' + vpT('Onko valinnassa vinoumaa — syntymäkvartaali (RAE) ja PHV-vaihe') + (rae.n ? ' · n=' + rae.n : '') + vpT('. §28-kypsyyskorjaus jo pelaajatasolla.') + '</div>'
+    + '<div class="ja-grid2"><div><div class="ja-mini">' + vpT('Syntymäkvartaali') + '</div>' + (rae.n ? ('<div class="ja-qbars">' + qcol(rae.Q1, 'Q1') + qcol(rae.Q2, 'Q2') + qcol(rae.Q3, 'Q3') + qcol(rae.Q4, 'Q4') + '</div>' + (raeVinouma ? '<div style="margin-top:10px"><span class="ja-chip amber">' + vpT('RAE-vinouma: Q1 yliedustettu, Q4 aliedustettu') + '</span></div>' : '')) : '<div class="ja-empty">' + vpT('Ei syntymäaikadataa (kvartaali).') + '</div>') + '</div>'
+    + '<div><div class="ja-mini">' + vpT('PHV-vaihe (kypsyys)') + '</div>' + (phv.n ? (phvBar('Ennen', phv.ennen, 'ennen') + phvBar('Kasvupyrähdyksessä', phv.aikana, 'aikana') + phvBar(vpT('Jälkeen'), phv.jalkeen, 'jalkeen') + '<div style="margin-top:12px"><span class="ja-chip">' + vpT('§28 kypsyyskorjaus käytössä') + '</span></div>') : '<div class="ja-empty">' + vpT('Ei PHV-dataa (kasvumittaus puuttuu).') + '</div>') + '</div></div></div>';
 
   // E · POTENTIAALI-JAKAUMA (johto-only)
   if (johto && potti) {
     var potRows = potti.portaat.map(function (r) { var nayta = r.nimet.slice(0, 2).join(' · ') + (r.nimet.length > 2 ? ' · +' + (r.nimet.length - 2) : ''); return '<div class="ja-potrow"><span class="st">' + (typeof _vpPotTahtiStr === 'function' ? _vpPotTahtiStr(r.tahdet) : r.tahdet) + '</span><span class="lb">' + esc(r.lyhyt) + '</span><span class="who">' + (r.n ? esc(nayta) : '—') + '</span><span class="cn">' + r.n + '</span></div>'; }).join('');
-    h += '<div class="ja-sek scout"><div class="ja-mini" style="color:var(--gold)">💎 Scouting-linssi · johto-only</div><div class="ja-h">Potentiaali-jakauma · uran kattoarvio</div><div class="ja-sub">FA-tähdet seuratasolla (#319) — montako projisoitu mille tasolle. Ei näy pelaaja-/vanhempi-apissa.</div>'
-      + potRows + '<div class="ja-potrow"><span class="st" style="opacity:.35">— — —</span><span class="lb" style="color:var(--ink3)">Ei vielä arvioitu</span><span class="who">' + (potti.eiArvioitu.n ? esc(potti.eiArvioitu.nimet.slice(0, 2).join(' · ') + (potti.eiArvioitu.nimet.length > 2 ? ' mm.' : '')) : '—') + '</span><span class="cn" style="color:var(--ink3)">' + potti.eiArvioitu.n + '</span></div>'
-      + '<div style="font-size:11px;color:var(--ink3);margin-top:10px">Scouttausprojektio, ei kehitysarvio. ' + potti.eiArvioitu.n + '/' + P.length + ' vielä arvioimatta = itsessään toimenpide. Asetus pelaajakortin Scouting-osiossa (#319).</div></div>';
+    h += '<div class="ja-sek scout"><div class="ja-mini" style="color:var(--gold)">' + vpT('💎 Scouting-linssi · johto-only') + '</div><div class="ja-h">' + vpT('Potentiaali-jakauma · uran kattoarvio') + '</div><div class="ja-sub">' + vpT('FA-tähdet seuratasolla (#319) — montako projisoitu mille tasolle. Ei näy pelaaja-/vanhempi-apissa.') + '</div>'
+      + potRows + '<div class="ja-potrow"><span class="st" style="opacity:.35">— — —</span><span class="lb" style="color:var(--ink3)">' + vpT('Ei vielä arvioitu') + '</span><span class="who">' + (potti.eiArvioitu.n ? esc(potti.eiArvioitu.nimet.slice(0, 2).join(' · ') + (potti.eiArvioitu.nimet.length > 2 ? ' mm.' : '')) : '—') + '</span><span class="cn" style="color:var(--ink3)">' + potti.eiArvioitu.n + '</span></div>'
+      + '<div style="font-size:11px;color:var(--ink3);margin-top:10px">' + vpT('Scouttausprojektio, ei kehitysarvio.') + ' ' + potti.eiArvioitu.n + '/' + P.length + ' ' + vpT('vielä arvioimatta = itsessään toimenpide. Asetus pelaajakortin Scouting-osiossa (#319).') + '</div></div>';
   }
 
   // H · KEHITYSMOMENTUM & TUKI SEURALLE (toimenpiderivit → linkittävät olemassa oleviin toimintoihin)
   var act = function (sev, teksti, sub, nappi, toiminto) { var dc = { red: 'var(--red)', amber: 'var(--amber)', teal: 'var(--teal)' }[sev]; return '<div class="ja-act"><span class="ja-dot" style="background:' + dc + '"></span><div class="body"><b>' + teksti + '</b><div class="sub">' + sub + '</div></div><button class="ja-go" onclick="' + toiminto + '">' + nappi + '</button></div>'; };
   var rivit = '';
   var katveet = (Array.isArray(_valmentajat) ? _valmentajat : []).filter(function (v) { return (v.mentorointiPvt != null ? v.mentorointiPvt : 999) >= 14; }).length;
-  if (katveet) rivit += act('red', katveet + ' valmentajaa ilman mentorointikirjausta (14 pv)', 'oversight-signaali · vaikuttaa review-terveyteen', 'Mentoroi →', 'setWs(\'valmentajat\')');
+  if (katveet) rivit += act('red', katveet + ' ' + vpT('valmentajaa ilman mentorointikirjausta (14 pv)'), vpT('oversight-signaali · vaikuttaa review-terveyteen'), vpT('Mentoroi →'), 'setWs(\'valmentajat\')');
   var idpN = P.filter(function (p) { return p.idp_tila; }).length; var idpPct = P.length ? Math.round(idpN / P.length * 100) : 0;
-  if (P.length && idpPct < 100) rivit += act(idpPct < 70 ? 'amber' : 'teal', 'IDP-kattavuus ' + idpPct + ' %', (P.length - idpN) + ' pelaajaa ilman aktiivista kehityssuunnitelmaa', 'Avaa jono →', 'setWs(\'jaksofokus\')');
+  if (P.length && idpPct < 100) rivit += act(idpPct < 70 ? 'amber' : 'teal', vpT('IDP-kattavuus') + ' ' + idpPct + ' %', (P.length - idpN) + ' ' + vpT('pelaajaa ilman aktiivista kehityssuunnitelmaa'), vpT('Avaa jono →'), 'setWs(\'jaksofokus\')');
   var kohteet = {}; P.forEach(function (p) { var k = p.tki_kehityskohde || p.hh_kehityskohde; if (k) kohteet[k] = (kohteet[k] || 0) + 1; });
   var heikoin = Object.keys(kohteet).sort(function (a, b) { return kohteet[b] - kohteet[a]; })[0];
-  if (heikoin && kohteet[heikoin] >= 2) rivit += act('amber', esc((typeof _vpTkLaji === 'function' ? _vpTkLaji(heikoin) : heikoin)) + ' = yleisin kehityskohde (' + kohteet[heikoin] + ' pelaajalla)', 'joukkuetason teema → yhteinen treeniteema tehokkaampi', 'Luo treeniteema →', 'setWs(\'jaksofokus\')');
+  if (heikoin && kohteet[heikoin] >= 2) rivit += act('amber', esc((typeof _vpTkLaji === 'function' ? _vpTkLaji(heikoin) : heikoin)) + ' = yleisin kehityskohde (' + kohteet[heikoin] + ' ' + vpT('pelaajalla)'), vpT('joukkuetason teema → yhteinen treeniteema tehokkaampi'), vpT('Luo treeniteema →'), 'setWs(\'jaksofokus\')');
   var jumit = P.filter(function (p) { return p.idp_dvi && p.idp_dvi.suunta === 'down'; }).length;
-  if (jumit) rivit += act('amber', jumit + ' pelaajaa jumissa — DVI ei etene', 'vaativat kehityskeskustelun (Review-cockpit)', 'Katso →', 'setWs(\'reviewit\')');
+  if (jumit) rivit += act('amber', jumit + ' ' + vpT('pelaajaa jumissa — DVI ei etene'), vpT('vaativat kehityskeskustelun (Review-cockpit)'), vpT('Katso →'), 'setWs(\'reviewit\')');
   var odottaa = P.filter(function (p) { return p.idp_sitoumus_pvm && (p.idp_sitoumus_vahv_jakso || null) !== ((p.jaksofokus && p.jaksofokus.alkoi) || null); }).length;
-  if (odottaa) rivit += act('teal', odottaa + ' pelaajaa odottaa sitoumuksen vahvistusta', 'pelaaja sitoutui → valmentaja/VP vahvistaa', 'Vahvista →', 'setWs(\'reviewit\')');
-  h += '<div class="ja-sek"><div class="ja-h">Kehitysmomentum &amp; tuki seuralle</div><div class="ja-sub">Ei pelkkä raportti — jokainen rivi on toimenpide-ehdotus, tärkein ensin. Napit avaavat olemassa olevan toiminnon.</div>' + (rivit || '<div class="ja-empty">Ei avoimia toimenpiteitä — momentum kunnossa tällä kohortilla.</div>') + '</div>';
+  if (odottaa) rivit += act('teal', odottaa + ' ' + vpT('pelaajaa odottaa sitoumuksen vahvistusta'), vpT('pelaaja sitoutui → valmentaja/VP vahvistaa'), vpT('Vahvista →'), 'setWs(\'reviewit\')');
+  h += '<div class="ja-sek"><div class="ja-h">' + vpT('Kehitysmomentum &amp; tuki seuralle') + '</div><div class="ja-sub">' + vpT('Ei pelkkä raportti — jokainen rivi on toimenpide-ehdotus, tärkein ensin. Napit avaavat olemassa olevan toiminnon.') + '</div>' + (rivit || '<div class="ja-empty">' + vpT('Ei avoimia toimenpiteitä — momentum kunnossa tällä kohortilla.') + '</div>') + '</div>';
 
   // I · ULOSRAPORTTI (ilman AI-koostetta = J2)
-  h += '<div class="ja-sek"><div class="ja-h">Ulosraportti</div><div class="ja-sub">Seuratason koosto Head of Talentille / Palloliitolle — sama totuus tiivistettynä.</div>'
-    + '<div class="ja-exp mdt-no-print"><button class="ja-btn" onclick="_mdtPrint()">▾ Vie PDF (seurakooste)</button>'
-    + '<button class="ja-btn ghost" onclick="if(typeof lahetaRaportti===\'function\')lahetaRaportti()">✉ Lähetä Head of Talentille</button>'
-    + (johto ? '<button class="ja-btn gold" onclick="_mdtPrint()">💎 Scouting-liite (johto-only)</button>' : '')
-    + '<button class="ja-btn ghost" onclick="_mdtPrint()">📋 Palloliitto-koosto</button></div>'
-    + '<div style="font-size:10px;color:var(--ink3);margin-top:8px">AI-koosto (3 lauseen automaattikoosto) + editorial-kärki tulevat J2:ssa (tm_ai). Aika-akseli (pelaajapolku + kehityskäyrä) ja kuormitus/käytettävyys vaativat kausi-snapshotit / tilalippudatan → J2.</div></div>';
+  h += '<div class="ja-sek"><div class="ja-h">' + vpT('Ulosraportti') + '</div><div class="ja-sub">' + vpT('Seuratason koosto Head of Talentille / Palloliitolle — sama totuus tiivistettynä.') + '</div>'
+    + '<div class="ja-exp mdt-no-print"><button class="ja-btn" onclick="_mdtPrint()">' + vpT('▾ Vie PDF (seurakooste)') + '</button>'
+    + '<button class="ja-btn ghost" onclick="if(typeof lahetaRaportti===\'function\')lahetaRaportti()">' + vpT('✉ Lähetä Head of Talentille') + '</button>'
+    + (johto ? '<button class="ja-btn gold" onclick="_mdtPrint()">' + vpT('💎 Scouting-liite (johto-only)') + '</button>' : '')
+    + '<button class="ja-btn ghost" onclick="_mdtPrint()">' + vpT('📋 Palloliitto-koosto') + '</button></div>'
+    + '<div style="font-size:10px;color:var(--ink3);margin-top:8px">' + vpT('AI-koosto (3 lauseen automaattikoosto) + editorial-kärki tulevat J2:ssa (tm_ai). Aika-akseli (pelaajapolku + kehityskäyrä) ja kuormitus/käytettävyys vaativat kausi-snapshotit / tilalippudatan → J2.') + '</div></div>';
 
   el.innerHTML = h;
 }
