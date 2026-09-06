@@ -113,7 +113,7 @@ function scanLeaks(src, ranges, lineOffset, LIB) {
   }
 
   // display-konteksti zero-markup-literaalille: '+' -ketju markup/vpT · toast/_setTxt/_dSet-arg · .textContent=/.innerText=/.innerHTML=
-  const SETTER_FNS = new Set(['toast', '_setTxt', '_dSet']);
+  const SETTER_FNS = new Set(['toast', '_setTxt', '_dSet', 'idrow']); // V7a-live-oppi: idrow(label,val) — MOLEMMAT argumentit display
   const TXT_PROPS = new Set(['textContent', 'innerText', 'innerHTML']);
   const inDisplayContext = (node) => {
     let n = node, top = null;
@@ -203,6 +203,11 @@ describe('VP_v25 render-kielineutraali-gate (step G · AST)', () => {
     // (globaali ROUTED maskasi tämän ennen; nyt char-range-per-occurrence).
     const perOcc = "function _p(){ var a = vpT('Mentorointi'); var h = '<div>Mentorointi</div>'; return a + h; }";
     expect(scanLeaks(perOcc, [[1, 99]], 0, new Set()).map((l) => l.p)).toContain('Mentorointi');
+    // idrow-luokka (V7a-live-oppi): idrow(label,val)-display-helperin raaka fi-arg napataan; routed ei
+    const idr = "function _c(){ return idrow('Raakaotsikko', vpT('a')) + idrow(vpT('Reititettyotsikko'), vpT('b')); }";
+    const ih = scanLeaks(idr, [[1, 99]], 0, new Set()).map((l) => l.p);
+    expect(ih).toContain('Raakaotsikko');
+    expect(ih).not.toContain('Reititettyotsikko');
   });
 
   // ── Object-property-display-guard ──────────────────────────────────────────────
