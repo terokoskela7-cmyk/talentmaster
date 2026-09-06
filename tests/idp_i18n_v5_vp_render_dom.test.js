@@ -51,13 +51,14 @@ function libNames() {
   return out;
 }
 
-const PRODUCT = /X-Factor|Hidden Gem|Underdog|Cue|Player Development Card|Scouting|terveys\//; // tuotetermit + Cue + PDC-brändi/Scouting (verbatim)
+const PRODUCT = /X-Factor|Hidden Gem|[Uu]nderdog|Cue|Player Development Card|Scouting|terveys\//; // tuotetermit + Cue + PDC-brändi/Scouting (verbatim)
 const ABBR = 'TKI|TSI|H-H|PHV|D[1-5]|RPE|ADAR|CPD|DVI|RSVP|MAS|CMJ|SJ|FLEI|VAI\\+?|RAE|OVR|EI|FVP|VNE|SM|TK|IDP|VP|UA|meso|makro|mikro|Cue|cue|ka|cm|kg|min|vk|pv|kk|km/h|m/s';
 const ABBR_ONLY = new RegExp('^(?:\\s|[·—–\\-/:()%.,+↑↓→▾▴◆⚠★☆●○≥≤<>&;0-9]|&amp;|&nbsp;|(?:' + ABBR + '))+$');
 const hasWord = (t) => /[A-Za-zÄÖÅäöå]{3,}/.test(t) && !ABBR_ONLY.test(t);
 // zero-markup-literaali joka EI ole näyttöä (CSS-deklaraatio/-sääntö · attribuutti-scaffolding · id/enum/URL/lc-token)
 const codeish = (v) =>
   /[;"={}]/.test(v) || /_/.test(v) || /var\(|\(--/.test(v) || /:\/\//.test(v) ||
+  /rgba?\(|hsla?\(|gradient|calc\(/.test(v) ||   // V7a-live: CSS-funktioarvot ternaary-haaroissa (ei näyttöä)
   /\.(html|js|css|png|jpg|json)\b/.test(v) || /[?&][a-zA-Z]+=/.test(v) || /^#[0-9a-fA-F]{3,8}$/.test(v) ||
   /^[a-z][a-z-]*:/.test(v.trim()) ||                    // CSS-property-alku (background:/border-left:2px solid)
   /^[a-z][a-zA-Z0-9]*$/.test(v.trim());
@@ -117,7 +118,7 @@ function scanLeaks(src, ranges, lineOffset, LIB) {
   const TXT_PROPS = new Set(['textContent', 'innerText', 'innerHTML']);
   const inDisplayContext = (node) => {
     let n = node, top = null;
-    while (parentOf.get(n) && parentOf.get(n).type === 'BinaryExpression' && parentOf.get(n).operator === '+') { top = parentOf.get(n); n = top; }
+    while (parentOf.get(n) && ((parentOf.get(n).type === 'BinaryExpression' && parentOf.get(n).operator === '+') || parentOf.get(n).type === 'ConditionalExpression')) { top = parentOf.get(n); n = top; } // V7a-live: kävele myös ternaaryn läpi (markup-ketjun ternaary-haara oli sokea piste)
     if (top && subtreeHasMarkupOrVpt(top)) return true;
     // 0B: AssignmentExpression RHS jossa LHS = *.textContent/innerText/innerHTML (V4-live-oppi: viikko-otsikko vuoti)
     const ct = top || node;
