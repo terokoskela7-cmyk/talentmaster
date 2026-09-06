@@ -54,6 +54,10 @@ function libNames() {
 const PRODUCT = /X-Factor|Hidden Gem|[Uu]nderdog|Cue|Player Development Card|Scouting|terveys\//; // tuotetermit + Cue + PDC-brändi/Scouting (verbatim)
 const ABBR = 'TKI|TSI|H-H|PHV|D[1-5]|RPE|ADAR|CPD|DVI|RSVP|MAS|CMJ|SJ|FLEI|VAI\\+?|RAE|OVR|EI|FVP|VNE|SM|TK|IDP|VP|UA|meso|makro|mikro|Cue|cue|ka|cm|kg|min|vk|pv|kk|km/h|m/s';
 const ABBR_ONLY = new RegExp('^(?:\\s|[·—–\\-/:()%.,+↑↓→▾▴◆⚠★☆●○≥≤<>&;0-9]|&amp;|&nbsp;|(?:' + ABBR + '))+$');
+// V7b-live-oppi 0A: allowlist VAIN jos tuotetermien+lyhenteiden JÄLKEEN ei jää fi-sanaa (EI substring — 'Underdog-toimenpideaste' vuoti kun PRODUCT.test mätsäsi 'Underdog')
+const PRODUCT_G = new RegExp(PRODUCT.source, 'g');
+const ABBR_G = new RegExp('(?:' + ABBR + ')', 'g');
+const stripAllow = (t) => t.replace(PRODUCT_G, ' ').replace(ABBR_G, ' ').replace(/[·—–\-/:()%.,+&;↑↓→ 0-9]|&amp;|&nbsp;/g, ' ');
 const hasWord = (t) => /[A-Za-zÄÖÅäöå]{3,}/.test(t) && !ABBR_ONLY.test(t);
 // zero-markup-literaali joka EI ole näyttöä (CSS-deklaraatio/-sääntö · attribuutti-scaffolding · id/enum/URL/lc-token)
 const codeish = (v) =>
@@ -114,7 +118,7 @@ function scanLeaks(src, ranges, lineOffset, LIB) {
   }
 
   // display-konteksti zero-markup-literaalille: '+' -ketju markup/vpT · toast/_setTxt/_dSet-arg · .textContent=/.innerText=/.innerHTML=
-  const SETTER_FNS = new Set(['toast', '_setTxt', '_dSet', 'idrow', 'kpi', 'fp', 'set']); // V7a: idrow · V7b: kpi(l,v,cls,s)/fp(key,label)/set(id,v) — display-arg-helperit (enum/id-argit codeish-suodatettu)
+  const SETTER_FNS = new Set(['toast', '_setTxt', '_dSet', 'idrow', 'kpi', 'fp', 'set', 'sel']); // V7a idrow · V7b kpi/fp/set · V7c sel(id,label,opts) — label-arg näyttöä
   const TXT_PROPS = new Set(['textContent', 'innerText', 'innerHTML']);
   const DISPLAY_PROPS = new Set(['teksti']); // V7b-live: object-property display-arvo (badge-objektit teksti:'🏥 Valmius'+x — gate-sokea epäsuora display)
   const inDisplayContext = (node) => {
@@ -159,7 +163,7 @@ function scanLeaks(src, ranges, lineOffset, LIB) {
     else if (inDisplayContext(lit.tl || lit.node) && hasWord(value) && !codeish(value)) pieces = [value.trim()];
     else pieces = [];
     for (const p of pieces) {
-      if (!hasWord(p) || PRODUCT.test(p) || isLib(p)) continue;
+      if (!hasWord(p) || !hasWord(stripAllow(p)) || isLib(p)) continue; // 0A: tuotetermin JÄLKEEN ei fi:tä → ohita; muuten vuoto
       const key = line + '|' + p;
       if (seen.has(key)) continue; seen.add(key);
       leaks.push({ line, p });
@@ -219,6 +223,11 @@ describe('VP_v25 render-kielineutraali-gate (step G · AST)', () => {
     const oh = scanLeaks(objp, [[1, 99]], 0, new Set()).map((l) => l.p);
     expect(oh).toContain('Raakabadge');
     expect(oh).not.toContain('OKbadge');
+    // §0A: PRODUCT-allowlist koko-literaali, ei osajono (V7b-live: 'Underdog-toimenpideaste' vuoti)
+    const prod = "function _p(){ return '<div>Hidden Gem (valmius 65)</div>' + '<div>Underdog</div>'; }";
+    const ph = scanLeaks(prod, [[1, 99]], 0, new Set()).map((l) => l.p);
+    expect(ph.some((x) => /valmius/.test(x))).toBe(true);   // tuotetermin JÄLKEEN fi jää → vuoto
+    expect(ph.some((x) => x.trim() === 'Underdog')).toBe(false);   // pelkkä tuotetermi → ei vuoto
   });
 
   // ── Object-property-display-guard ──────────────────────────────────────────────

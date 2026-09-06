@@ -18,7 +18,7 @@ function build(arvioinnit, torjutut) {
   const s = lines.findIndex((l) => l.includes('function _hlKalibTyhjaViesti(arvioinnit) {'));
   const e = lines.findIndex((l, i) => i > s && l.trim() === 'function _hlPariBlokki(a) {');
   if (s < 0 || e < 0) throw new Error('_hlKalibTyhjaViesti / _hlEhdotaPari -lohkoa ei löytynyt');
-  return new Function('_hlArvioinnit', '_hlTorjutut', lines.slice(s, e).join('\n') + '\nreturn { _hlKalibTyhjaViesti, _hlEhdotaPari };')(arvioinnit, torjutut || {});
+  return new Function('_hlArvioinnit', '_hlTorjutut', 'var vpT = function (x) { return x; };\n' + lines.slice(s, e).join('\n') + '\nreturn { _hlKalibTyhjaViesti, _hlEhdotaPari };')(arvioinnit, torjutut || {}); // vpT-identity-stub (fi): i18n-reititys läpinäkyvä yksikkötestille
 }
 
 describe('_hlEhdotaPari — robusti paritus (joukkue pehmeä, ei kova)', () => {

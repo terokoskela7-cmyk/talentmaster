@@ -17,7 +17,7 @@
 <!-- Eerikkilä-normit + universaali testirekisteri (eerikkilaTaso, laskeFVP) — 10m/5m-tasot + FVP-profiili -->
 <script src="lib/tm_lang.js?v=9"></script>   <!-- i18n V0 — fi/sv/en käännöstaulukko + t() + kieli-init (putkitus) -->
 <script src="lib/tm_i18n_common.js?v=2"></script>   <!-- i18n Vaihe 0 — JAETTU henkilöstö-i18n + lukittu glossaari (ENNEN sivukarttaa) -->
-<script src="lib/tm_vp_i18n.js?v=23"></script>   <!-- i18n Vaihe 5 — VP sv (sivukartta); vpT/vpLokalisoi delegoivat commoniin -->
+<script src="lib/tm_vp_i18n.js?v=24"></script>   <!-- i18n Vaihe 5 — VP sv (sivukartta); vpT/vpLokalisoi delegoivat commoniin -->
 
 
 <script src="lib/tm_eerikkila_normit.js?v=45"></script>   <!-- v43: D2-kortti d2_taso-ensin (renderKehityskorttiHTML, PR #264 · §30/#262) -->
@@ -14295,7 +14295,7 @@ function _mdtJohtajaPaneeli(p, ika, spMN, oi) {
     var vaihe = hg.taso==='eliitti' ? vpT('varhaiskehitys vahvistettu (tekniikkamitali U8–12)') : hg.taso==='vahvistettu' ? vpT('vahvistettu (PRE-PHV)') : 'ehdokas';
     tal += '<div style="font-size:12px;color:var(--ink2);margin-top:3px">💎 Hidden Gem · ' + vaihe + '</div>';
     if (hg.d1 != null && hg.d2 != null) tal += vpT('<div style="font-size:11px;color:var(--ink3);margin-top:2px">§28: korkea D2 (') + hg.d2 + vpT(') + matala D1 (') + hg.d1.toFixed(1) + vpT(') pre-PHV → fysiikka tulee 2–4 v.</div>');
-  } else if (hg && hg.fleiHG) tal += '<div style="font-size:12px;color:var(--ink2);margin-top:3px">💎 Hidden Gem (valmius ≥65)</div>';
+  } else if (hg && hg.fleiHG) tal += '<div style="font-size:12px;color:var(--ink2);margin-top:3px">' + vpT('💎 Hidden Gem (valmius ≥65)') + '</div>';
   if (tal) h += vpT('<div style="font-size:11px;font-weight:600;color:var(--ink2);margin:10px 0 2px">Talenttisignaali</div>') + tal;
   h += _mdtTavoitteetHTML();
   h += vpT('<div style="font-size:11px;font-weight:600;color:var(--ink2);margin:10px 0 4px">Päätös / muistiinpano</div>')
@@ -15250,7 +15250,7 @@ function _hlRenderSuodattimet() {
   var vOpts = vpT('<option value="">Kaikki</option>') + Object.keys(vset).map(function (u) { return '<option value="' + _hlEsc(u) + '">' + _hlEsc(vset[u]) + '</option>'; }).join('');
   var aOpts = vpT('<option value="">Koko historia</option><option value="3kk">Viim. 3 kk</option><option value="6kk">Viim. 6 kk</option><option value="12kk">Viim. 12 kk</option>');
   var bOpts = vpT('<option value="kuukausi">Kuukausi</option><option value="viikko">Viikko</option><option value="kausi">Kausi</option>');
-  var html = sel('hlJoukkue', 'Joukkue', jOpts) + sel('hlIka', vpT('Ikävaihe'), iOpts) + sel('hlValm', 'Valmentaja', vOpts) + sel('hlAika', vpT('Aikaväli'), aOpts);
+  var html = sel('hlJoukkue', vpT('Joukkue'), jOpts) + sel('hlIka', vpT('Ikävaihe'), iOpts) + sel('hlValm', vpT('Valmentaja'), vOpts) + sel('hlAika', vpT('Aikaväli'), aOpts);
   if (_hlMalli === 'valmennustaidot') html += sel('hlTapa', vpT('Arviointitapa'), vpT('<option value="">Kaikki</option><option value="itsearvio">Itsearvio</option><option value="havainnointi">Havainnointi</option>'));   // vain B
   html += sel('hlBucket', vpT('Trendi'), bOpts);
   el.innerHTML = html;
@@ -15376,12 +15376,12 @@ function _hlKalibraatioHTML(opts) {
   uids.forEach(function (uid) {
     var r = kalib[uid];
     var suuntaVari = r.suunta === 'linjassa' ? 'var(--teal)' : 'var(--amber)';
-    var suuntaTxt = r.suunta === 'yliarvio' ? 'arvioi itsensä korkeammalle' : r.suunta === 'aliarvio' ? 'arvioi itsensä matalammalle' : 'linjassa havainnoijan kanssa';
+    var suuntaTxt = r.suunta === 'yliarvio' ? vpT('arvioi itsensä korkeammalle') : r.suunta === 'aliarvio' ? vpT('arvioi itsensä matalammalle') : vpT('linjassa havainnoijan kanssa');
     var kavTxt = r.kaventuu == null ? '' : (r.kaventuu ? ' ' + vpT('· kuilu kaventunut ↓') : ' ' + vpT('· kuilu kasvanut ↑'));
     h += '<div style="border-top:.5px solid var(--border);padding-top:10px;margin-top:10px">'
       + '<div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:8px"><span style="font-size:13px;color:var(--ink)">' + _hlEsc(r.valmentaja || uid) + '</span>'
       + '<span style="font-size:11px;color:var(--ink3)">' + r.n_paria + ' ' + vpT('paria · keskikuilu <b style="color:') + suuntaVari + '">' + r.keskikuilu + '</b>' + kavTxt + '</span></div>'
-      + '<div style="font-size:11px;color:var(--ink2);margin:4px 0 6px">' + _hlEsc((r.valmentaja || '').split(' ')[0] || 'Valmentaja') + ' ' + suuntaTxt + (r.suurin_kuilu_kriteeri ? ' ' + vpT('· suurin ero:') + ' ' + _hlEsc(_HL_KRIT_B[r.suurin_kuilu_kriteeri] || r.suurin_kuilu_kriteeri) + ' (' + (r.suurin_kuilu_arvo > 0 ? '+' : '') + r.suurin_kuilu_arvo + ')' : '') + '</div>';
+      + '<div style="font-size:11px;color:var(--ink2);margin:4px 0 6px">' + _hlEsc((r.valmentaja || '').split(' ')[0] || vpT('Valmentaja')) + ' ' + suuntaTxt + (r.suurin_kuilu_kriteeri ? ' ' + vpT('· suurin ero:') + ' ' + _hlEsc(_HL_KRIT_B[r.suurin_kuilu_kriteeri] || r.suurin_kuilu_kriteeri) + ' (' + (r.suurin_kuilu_arvo > 0 ? '+' : '') + r.suurin_kuilu_arvo + ')' : '') + '</div>';
     // per-kriteeri signed-kuilu pikkupalkit (keskitetty 0)
     ['b1', 'b2', 'b3', 'b4', 'b5', 'b6', 'b7'].forEach(function (bk) {
       var v = r.per_kriteeri[bk]; if (v == null) return;
@@ -15543,17 +15543,17 @@ function _hlRenderTapahtuma(a) {
 // — luokittelee vain puuttuvan palasen (itsearvio? havainnointi? odottava pari?). Reuse _hlEhdotaPari (robusti paritus).
 function _hlKalibTyhjaViesti(arvioinnit) {
   var B = (arvioinnit || []).filter(function (a) { return a && a.malli === 'valmennustaidot'; });
-  var it = function (n) { return n + ' itsearvio' + (n === 1 ? '' : 'ta'); };
-  var hv = function (n) { return n + ' havainnointi' + (n === 1 ? '' : 'a'); };
+  var it = function (n) { return n + ' ' + (n === 1 ? vpT('itsearvio') : vpT('itsearviota')); };
+  var hv = function (n) { return n + ' ' + (n === 1 ? vpT('havainnointi') : vpT('havainnointia')); };
   var nItse = B.filter(function (a) { return a.arviointitapa === 'itsearvio'; }).length;
   var nHav = B.filter(function (a) { return a.arviointitapa === 'havainnointi'; }).length;
-  if (!nItse && !nHav) return 'Ei vielä valmennustaito-arviointeja. Tee itsearvio ja pyydä VP-havainnointi samasta harjoituksesta — kalibraatio avaa kehityskeskustelun.';
-  if (nItse && !nHav) return it(nItse) + ', 0 havainnointia — kalibraatio tarvitsee VP-havainnoinnin samasta harjoituksesta.';
-  if (!nItse && nHav) return hv(nHav) + ', 0 itsearviota — pyydä valmentajaa tekemään itsearvio samasta harjoituksesta.';
+  if (!nItse && !nHav) return vpT('Ei vielä valmennustaito-arviointeja. Tee itsearvio ja pyydä VP-havainnointi samasta harjoituksesta — kalibraatio avaa kehityskeskustelun.');
+  if (nItse && !nHav) return it(nItse) + vpT(', 0 havainnointia — kalibraatio tarvitsee VP-havainnoinnin samasta harjoituksesta.');
+  if (!nItse && nHav) return hv(nHav) + vpT(', 0 itsearviota — pyydä valmentajaa tekemään itsearvio samasta harjoituksesta.');
   var pending = 0;
   if (typeof _hlEhdotaPari === 'function') B.forEach(function (a) { if (a.arviointitapa === 'itsearvio' && a.pari_vahvistettu !== true && _hlEhdotaPari(a)) pending++; });
-  if (pending) return it(nItse) + ' · ' + hv(nHav) + ' · ' + pending + ' paria odottaa vahvistusta — vahvista tapahtumanäkymässä.';
-  return it(nItse) + ' · ' + hv(nHav) + ' — ei löytynyt paria (eri harjoitus tai yli ±2 pv). Linkitä manuaalisesti tapahtumanäkymässä.';
+  if (pending) return it(nItse) + ' · ' + hv(nHav) + ' · ' + pending + vpT(' paria odottaa vahvistusta — vahvista tapahtumanäkymässä.');
+  return it(nItse) + ' · ' + hv(nHav) + vpT(' — ei löytynyt paria (eri harjoitus tai yli ±2 pv). Linkitä manuaalisesti tapahtumanäkymässä.');
 }
 function _hlEhdotaPari(a) {
   if (a.malli !== 'valmennustaidot' || !a.arviointitapa) return null;
