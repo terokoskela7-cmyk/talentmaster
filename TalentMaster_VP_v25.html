@@ -17,7 +17,7 @@
 <!-- Eerikkilä-normit + universaali testirekisteri (eerikkilaTaso, laskeFVP) — 10m/5m-tasot + FVP-profiili -->
 <script src="lib/tm_lang.js?v=9"></script>   <!-- i18n V0 — fi/sv/en käännöstaulukko + t() + kieli-init (putkitus) -->
 <script src="lib/tm_i18n_common.js?v=2"></script>   <!-- i18n Vaihe 0 — JAETTU henkilöstö-i18n + lukittu glossaari (ENNEN sivukarttaa) -->
-<script src="lib/tm_vp_i18n.js?v=32"></script>   <!-- i18n Vaihe 5 — VP sv (sivukartta); vpT/vpLokalisoi delegoivat commoniin -->
+<script src="lib/tm_vp_i18n.js?v=33"></script>   <!-- i18n Vaihe 5 — VP sv (sivukartta); vpT/vpLokalisoi delegoivat commoniin -->
 
 
 <script src="lib/tm_eerikkila_normit.js?v=45"></script>   <!-- v43: D2-kortti d2_taso-ensin (renderKehityskorttiHTML, PR #264 · §30/#262) -->
@@ -17814,23 +17814,23 @@ function renderKalib() {
       tila = tasoTxt + (suunta === 'kaventuu' ? ' · kaventuu ↓' : '');
     }
     const mentoroi = (taso === 'matala' || taso === 'keskiverto')
-      ? '<button class="btn-sm" onclick="kutsutaKalibraatioon()">Mentoroi →</button>'
-      : (taso === 'korkea' ? '<span style="color:var(--teal);font-size:12px">✓ yhteinen kieli</span>' : '<span style="color:var(--ink3);font-size:11px">—</span>');
+      ? '<button class="btn-sm" onclick="kutsutaKalibraatioon()">' + vpT('Mentoroi →') + '</button>'
+      : (taso === 'korkea' ? '<span style="color:var(--teal);font-size:12px">' + vpT('✓ yhteinen kieli') + '</span>' : '<span style="color:var(--ink3);font-size:11px">—</span>');
     return `<tr><td colspan="7" style="padding:12px">
       <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">
-        <div style="min-width:150px"><div style="font-size:14px;color:var(--ink)">${esc(v.nimi || '?')}</div><div style="font-size:10px;color:var(--ink3);font-family:'DM Mono',monospace">${nHav} havaintoa · ${k ? k.ikkunat.length : 0} kautta</div></div>
-        <div style="min-width:150px"><div style="font-size:13px;color:${col}">${tila}</div>${ankkuri ? '<div style="font-size:10px;color:var(--ink3)">kalibraatio ' + esc(ankkuri) + '</div>' : '<div style="font-size:10px;color:var(--ink3)">tarvitsee VP- tai tiimivertailun</div>'}</div>
+        <div style="min-width:150px"><div style="font-size:14px;color:var(--ink)">${esc(v.nimi || '?')}</div><div style="font-size:10px;color:var(--ink3);font-family:'DM Mono',monospace">${nHav} ${vpT('havaintoa')} · ${k ? k.ikkunat.length : 0} ${vpT('kautta')}</div></div>
+        <div style="min-width:150px"><div style="font-size:13px;color:${col}">${tila}</div>${ankkuri ? '<div style="font-size:10px;color:var(--ink3)">' + vpT('kalibraatio') + ' ' + esc(ankkuri) + '</div>' : '<div style="font-size:10px;color:var(--ink3)">' + vpT('tarvitsee VP- tai tiimivertailun') + '</div>'}</div>
         <div style="margin-left:auto">${mentoroi}</div>
       </div></td></tr>`;
   }).join('');
   tbody.innerHTML = rivit;
   // "Suositeltu mentoroitava" (gentle, EI ranking): ensimmäinen jolla eriävä (matala) kalibraatio; muuten neutraali.
   const eka = _valmentajat.find(v => { const k = (typeof tmValmennusKaari === 'function') ? tmValmennusKaari(hav, { omaUid: v.id, vpUid: _uid || null }) : null; const kk = k && k.kalibraatio.length ? k.kalibraatio[k.kalibraatio.length - 1] : null; return kk && _kalibTaso(kk.arvo) === 'matala'; });
-  if (suosTxt) suosTxt.textContent = eka ? (eka.nimi || '?') : '— (kalibraatiot yhtenäisiä tai kertyvät)';
+  if (suosTxt) suosTxt.textContent = eka ? (eka.nimi || '?') : vpT('— (kalibraatiot yhtenäisiä tai kertyvät)');
 }
 
 // ─── KEHITYSINDEKSIT ─────────────────────────────────────
-function kutsutaKalibraatioon() { toast("Kalibraatiokutsu lähetetty", "ok"); }
+function kutsutaKalibraatioon() { toast(vpT('Kalibraatiokutsu lähetetty'), "ok"); }
 
 function renderDI() {
   const el = document.getElementById('diGrid');
