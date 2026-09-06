@@ -36,7 +36,7 @@ const acorn = require('acorn');
 const HTML = readFileSync(join(__dir, '..', 'TalentMaster_VP_v25.html'), 'utf8');
 
 const RLO = 2679, RHI = 17921;              // VP pääscript (1-idx)
-const RANGES = [[8040, 9221], [12600, 13750], [11661, 12400], [3777, 3865], [7885, 7910], [14186, 14550], [14552, 15185], [15189, 15690], [15770, 15884]]; // V3 _jsv · V4 kalenteri · V5 valmentajat · V6 IDP-jono · V7a MDT · V7b Reviewit+tuloskortti. V7c–V8: lisää.
+const RANGES = [[8040, 9221], [12600, 13750], [11661, 12400], [3777, 3865], [7885, 7910], [14186, 14550], [14552, 15185], [15189, 15690], [15770, 15884], [15886, 15975]]; // V3 _jsv · V4 kalenteri · V5 valmentajat · V6 IDP-jono · V7a MDT · V7b Reviewit+tuloskortti. V7c–V8: lisää.
 const ROUTED_FNS = new Set(['vpT', 'vpTToimenpide']);
 
 // §7 lib-curriculum-nimet (jäävät fi → allowlist)
@@ -137,6 +137,10 @@ function scanLeaks(src, ranges, lineOffset, LIB) {
     if (ctp && ctp.type === 'Property' && ctp.value === ct && ctp.key &&
         ((ctp.key.type === 'Identifier' && DISPLAY_PROPS.has(ctp.key.name)) ||
          (ctp.key.type === 'Literal' && DISPLAY_PROPS.has(ctp.key.value)))) return true;
+    // V7e: <arr>.push('…fi…') tekstiraportti-luokka (L.push) — ct on SUORA push-argumentti (ei sisennetty
+    // toiseen kutsuun; qs.push(col.where('array-contains',…)) EI ole display).
+    if (ctp && ctp.type === 'CallExpression' && ctp.callee && ctp.callee.type === 'MemberExpression' &&
+        ctp.callee.property && ctp.callee.property.name === 'push' && ctp.arguments.includes(ct)) return true;
     let p = parentOf.get(node);
     for (let i = 0; p && i < 8; i++, p = parentOf.get(p)) {
       if (p.type === 'CallExpression' && p.callee && p.callee.type === 'Identifier' && SETTER_FNS.has(p.callee.name)) return true;
@@ -214,6 +218,11 @@ describe('VP_v25 render-kielineutraali-gate (step G · AST)', () => {
     // (globaali ROUTED maskasi tämän ennen; nyt char-range-per-occurrence).
     const perOcc = "function _p(){ var a = vpT('Mentorointi'); var h = '<div>Mentorointi</div>'; return a + h; }";
     expect(scanLeaks(perOcc, [[1, 99]], 0, new Set()).map((l) => l.p)).toContain('Mentorointi');
+    // V7e: L.push('…fi…') tekstiraportti-luokka napataan; qs.push(col.where('array-contains')) EI (data)
+    const pushT = "function _r(){ var L=[]; L.push('Raakaraportti rivi'); var qs=[]; qs.push(col.where('x','array-contains',id)); return L; }";
+    const pushHits = scanLeaks(pushT, [[1,99]], 0, new Set()).map((l)=>l.p);
+    expect(pushHits).toContain('Raakaraportti rivi');
+    expect(pushHits).not.toContain('array-contains');
     // idrow-luokka (V7a-live-oppi): idrow(label,val)-display-helperin raaka fi-arg napataan; routed ei
     const idr = "function _c(){ return idrow('Raakaotsikko', vpT('a')) + idrow(vpT('Reititettyotsikko'), vpT('b')); }";
     const ih = scanLeaks(idr, [[1, 99]], 0, new Set()).map((l) => l.p);
