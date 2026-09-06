@@ -17,7 +17,7 @@
 <!-- Eerikkilä-normit + universaali testirekisteri (eerikkilaTaso, laskeFVP) — 10m/5m-tasot + FVP-profiili -->
 <script src="lib/tm_lang.js?v=9"></script>   <!-- i18n V0 — fi/sv/en käännöstaulukko + t() + kieli-init (putkitus) -->
 <script src="lib/tm_i18n_common.js?v=2"></script>   <!-- i18n Vaihe 0 — JAETTU henkilöstö-i18n + lukittu glossaari (ENNEN sivukarttaa) -->
-<script src="lib/tm_vp_i18n.js?v=26"></script>   <!-- i18n Vaihe 5 — VP sv (sivukartta); vpT/vpLokalisoi delegoivat commoniin -->
+<script src="lib/tm_vp_i18n.js?v=28"></script>   <!-- i18n Vaihe 5 — VP sv (sivukartta); vpT/vpLokalisoi delegoivat commoniin -->
 
 
 <script src="lib/tm_eerikkila_normit.js?v=45"></script>   <!-- v43: D2-kortti d2_taso-ensin (renderKehityskorttiHTML, PR #264 · §30/#262) -->
@@ -15898,7 +15898,7 @@ function renderRaportointi() {
 
   const nomEl = document.getElementById('rap-nominees');
   if (talents.length === 0) {
-    nomEl.innerHTML = '<div style="color:var(--ink3);font-size:13px">Ei tunnistettuja talenttisuosituksia</div>';
+    nomEl.innerHTML = vpT('<div style="color:var(--ink3);font-size:13px">Ei tunnistettuja talenttisuosituksia</div>');
   } else {
     // R2-A V1 — potentiaali-projektio (gold) vain johto-tilassa (_vpSeurantaOnJohto); read-only pikakentistä.
     const _potJohto = (typeof _vpSeurantaOnJohto === 'function') && _vpSeurantaOnJohto();
@@ -15907,7 +15907,7 @@ function renderRaportointi() {
         <div class="nom-name"><strong>${p.etunimi} ${p.sukunimi}</strong> · ${p.joukkue}</div>
         ${p.signaali==='xfactor' ? '<span class="tag xfactor">X-Factor</span>' : (_hgBadge(p) || '<span class="tag hidden">Hidden Gem</span>')}
         ${_potJohto ? _vpPotentiaaliBadgeHTML(p) : ''}
-        <div class="nom-detail">${p.flei_viimeisin != null ? ("Valmius " + p.flei_viimeisin) : "—"}</div>
+        <div class="nom-detail">${p.flei_viimeisin != null ? (vpT("Valmius") + " " + p.flei_viimeisin) : "—"}</div>
       </div>`).join('');
   }
 }
@@ -15929,34 +15929,34 @@ function lahetaRaportti() {
   const seuraNimi = (typeof _seuraId !== 'undefined' ? _seuraId : '') || '';
   const pvm = new Date().toLocaleDateString('fi-FI');
   const L = [];
-  L.push('TALENTMASTER — RAPORTTI HEAD OF TALENTILLE');
-  L.push('Seura: ' + seuraNimi + ' · ' + pvm);
-  L.push(''); L.push('KAUSIKOOSTE');
-  L.push('· Pelaajia: ' + P.length);
-  L.push('· Kehon valmius keskiarvo: ' + fleiKa);
-  L.push('· Talenttisuosituksia (X-Factor): ' + talents.length);
-  L.push('· Hidden Gem -ehdokkaita: ' + hidden.length);
-  if (taso3pct != null) L.push('· Taso ≥3 -osuus (D1/D2/H-H): ' + taso3pct + '% (' + taso3 + '/' + onTaso.length + ') [§30]');
-  L.push(''); L.push('SIGNAALIT');
-  if (hiljaa) L.push('· ' + hiljaa + ' valmentajaa ilman mentorointikirjausta (' + VALMENTAJA_HILJAA_PV + ' pv)');
-  if (klinikka) L.push('· ' + klinikka + ' pelaajaa kehon valmius alle 40 (klinikkalähetys)');
+  L.push(vpT('TALENTMASTER — RAPORTTI HEAD OF TALENTILLE'));
+  L.push(vpT('Seura:') + ' ' + seuraNimi + ' · ' + pvm);
+  L.push(''); L.push(vpT('KAUSIKOOSTE'));
+  L.push(vpT('· Pelaajia:') + ' ' + P.length);
+  L.push(vpT('· Kehon valmius keskiarvo:') + ' ' + fleiKa);
+  L.push(vpT('· Talenttisuosituksia (X-Factor):') + ' ' + talents.length);
+  L.push(vpT('· Hidden Gem -ehdokkaita:') + ' ' + hidden.length);
+  if (taso3pct != null) L.push(vpT('· Taso ≥3 -osuus (D1/D2/H-H):') + ' ' + taso3pct + '% (' + taso3 + '/' + onTaso.length + ') [§30]');
+  L.push(''); L.push(vpT('SIGNAALIT'));
+  if (hiljaa) L.push('· ' + hiljaa + ' ' + vpT('valmentajaa ilman mentorointikirjausta (') + VALMENTAJA_HILJAA_PV + ' ' + vpT('pv)'));
+  if (klinikka) L.push('· ' + klinikka + ' ' + vpT('pelaajaa kehon valmius alle 40 (klinikkalähetys)'));
   // §D3 kalibraatiokuilu (malli A): valmentajan ja VP:n arvio eroaa ≥1.5
   const d3kuilu = P.filter(p => p.d3_viimeisin && typeof d3VpKuiluPelaajalla === 'function' && d3VpKuiluPelaajalla(p.d3_viimeisin.pisteet)).length;
-  if (d3kuilu) L.push('· ' + d3kuilu + ' pelaajalla valmentajan ja VP:n D3-arvio eroaa (kalibraatio/mentorointi)');
-  if (talents.length) L.push('· Nostoehdokkaat: ' + talents.map(p => (p.etunimi||'') + ' ' + (p.sukunimi||'') + ' (' + (p.joukkue||'') + ', valmius ' + p.flei_viimeisin + ')').join('; '));
-  if (!hiljaa && !klinikka && !talents.length) L.push('· Ei kriittisiä signaaleja.');
+  if (d3kuilu) L.push('· ' + d3kuilu + ' ' + vpT('pelaajalla valmentajan ja VP:n D3-arvio eroaa (kalibraatio/mentorointi)'));
+  if (talents.length) L.push(vpT('· Nostoehdokkaat:') + ' ' + talents.map(p => (p.etunimi||'') + ' ' + (p.sukunimi||'') + ' (' + (p.joukkue||'') + vpT(', valmius') + ' ' + p.flei_viimeisin + ')').join('; '));
+  if (!hiljaa && !klinikka && !talents.length) L.push(vpT('· Ei kriittisiä signaaleja.'));
   // §RAE VAIHE B — BQ-jakauma + underdog-lista + bias
   if (typeof raeChip === 'function') {
     var BQ = { Q1:0,Q2:0,Q3:0,Q4:0 }, bn = 0, underdogit = [];
     P.forEach(function(p){ var rc = raeChip(p); if (rc.q){ BQ[rc.q]++; bn++; } if (rc.underdog) underdogit.push((p.etunimi||'')+' '+(p.sukunimi||'')+' ('+(p.joukkue||'')+')'); });
     if (bn) {
-      L.push(''); L.push('SYNTYMÄKVARTAALI-JAKAUMA (RAE)');
+      L.push(''); L.push(vpT('SYNTYMÄKVARTAALI-JAKAUMA (RAE)'));
       ['Q1','Q2','Q3','Q4'].forEach(function(q){ L.push('· '+q+': '+BQ[q]+' ('+Math.round(BQ[q]/bn*100)+'%)'); });
-      if (Math.round(BQ.Q1/bn*100) > 40) L.push('· ⚠ Ikäharha: Q1 yliedustettu — valintaprofiili nojaa ikäetuun?');
-      if (underdogit.length) L.push('· ⭐ Underdog (Q4 + taso ≥3): ' + underdogit.join('; '));
+      if (Math.round(BQ.Q1/bn*100) > 40) L.push(vpT('· ⚠ Ikäharha: Q1 yliedustettu — valintaprofiili nojaa ikäetuun?'));
+      if (underdogit.length) L.push(vpT('· ⭐ Underdog (Q4 + taso ≥3):') + ' ' + underdogit.join('; '));
     }
   }
-  if (huomiot) { L.push(''); L.push('VP:N HUOMIOT'); L.push(huomiot); }
+  if (huomiot) { L.push(''); L.push(vpT('VP:N HUOMIOT')); L.push(huomiot); }
   const raportti = L.join('\n');
   const vanha = document.getElementById('hotRaporttiModal'); if (vanha) vanha.remove();
   const modal = document.createElement('div');
@@ -15964,12 +15964,12 @@ function lahetaRaportti() {
   modal.style.cssText = 'position:fixed;inset:0;background:rgba(17,17,16,.6);z-index:9100;display:flex;align-items:center;justify-content:center;padding:16px';
   modal.onclick = e => { if (e.target === modal) modal.remove(); };
   modal.innerHTML = '<div style="background:var(--bg3);border:.5px solid var(--border);border-radius:12px;max-width:560px;width:100%;max-height:86vh;overflow-y:auto;padding:20px 22px" onclick="event.stopPropagation()">'
-    + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px"><div style="font-family:var(--font-serif);font-size:20px;color:var(--ink)">Raportti Head of Talentille</div>'
+    + vpT('<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px"><div style="font-family:var(--font-serif);font-size:20px;color:var(--ink)">Raportti Head of Talentille</div>')
     + '<button onclick="document.getElementById(\'hotRaporttiModal\').remove()" style="background:none;border:none;color:var(--ink3);font-size:22px;cursor:pointer">×</button></div>'
     + '<textarea id="hotRaporttiTxt" readonly style="width:100%;height:300px;background:var(--bg2);color:var(--ink);border:.5px solid var(--border);border-radius:8px;padding:12px;font-family:var(--font-mono);font-size:12px;line-height:1.5;resize:vertical">' + raportti.replace(/</g, '&lt;') + '</textarea>'
     + '<div style="display:flex;gap:10px;margin-top:12px">'
-    + '<button onclick="(function(){var t=document.getElementById(\'hotRaporttiTxt\');t.select();try{document.execCommand(\'copy\');}catch(e){} (typeof toast===\'function\')&&toast(\'Raportti kopioitu ✓\',\'ok\');})()" style="background:var(--teal);color:#fff;border:none;border-radius:8px;padding:10px 18px;font-size:13px;font-weight:500;cursor:pointer">📋 Kopioi raportti</button>'
-    + '<button onclick="document.getElementById(\'hotRaporttiModal\').remove()" style="background:transparent;color:var(--ink2);border:.5px solid var(--border);border-radius:8px;padding:10px 18px;font-size:13px;cursor:pointer">Sulje</button>'
+    + '<button onclick="(function(){var t=document.getElementById(\'hotRaporttiTxt\');t.select();try{document.execCommand(\'copy\');}catch(e){} (typeof toast===\'function\')&&toast(\'Raportti kopioitu ✓\',\'ok\');})()" style="background:var(--teal);color:#fff;border:none;border-radius:8px;padding:10px 18px;font-size:13px;font-weight:500;cursor:pointer">' + vpT('📋 Kopioi raportti') + '</button>'
+    + '<button onclick="document.getElementById(\'hotRaporttiModal\').remove()" style="background:transparent;color:var(--ink2);border:.5px solid var(--border);border-radius:8px;padding:10px 18px;font-size:13px;cursor:pointer">' + vpT('Sulje') + '</button>'
     + '</div></div>';
   document.body.appendChild(modal);
 }
