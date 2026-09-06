@@ -36,7 +36,7 @@ const acorn = require('acorn');
 const HTML = readFileSync(join(__dir, '..', 'TalentMaster_VP_v25.html'), 'utf8');
 
 const RLO = 2679, RHI = 17921;              // VP pääscript (1-idx)
-const RANGES = [[8040, 9221], [12600, 13750], [11661, 12400], [3777, 3865], [7885, 7910], [14186, 14550]]; // V3 _jsv · V4 kalenteri · V5 valmentajat · V6 IDP-jono · V7a MDT/Pelaajaraportti. V7b–V8: lisää.
+const RANGES = [[8040, 9221], [12600, 13750], [11661, 12400], [3777, 3865], [7885, 7910], [14186, 14550], [14552, 15185]]; // V3 _jsv · V4 kalenteri · V5 valmentajat · V6 IDP-jono · V7a MDT · V7b Reviewit+tuloskortti. V7c–V8: lisää.
 const ROUTED_FNS = new Set(['vpT', 'vpTToimenpide']);
 
 // §7 lib-curriculum-nimet (jäävät fi → allowlist)
@@ -57,7 +57,7 @@ const ABBR_ONLY = new RegExp('^(?:\\s|[·—–\\-/:()%.,+↑↓→▾▴◆⚠�
 const hasWord = (t) => /[A-Za-zÄÖÅäöå]{3,}/.test(t) && !ABBR_ONLY.test(t);
 // zero-markup-literaali joka EI ole näyttöä (CSS-deklaraatio/-sääntö · attribuutti-scaffolding · id/enum/URL/lc-token)
 const codeish = (v) =>
-  /[;"={}]/.test(v) || /_/.test(v) || /var\(|\(--/.test(v) || /:\/\//.test(v) ||
+  /[;"={}]/.test(v) || /_/.test(v) || /--/.test(v) || /var\(|\(--/.test(v) || /:\/\//.test(v) ||
   /rgba?\(|hsla?\(|gradient|calc\(/.test(v) ||   // V7a-live: CSS-funktioarvot ternaary-haaroissa (ei näyttöä)
   /\.(html|js|css|png|jpg|json)\b/.test(v) || /[?&][a-zA-Z]+=/.test(v) || /^#[0-9a-fA-F]{3,8}$/.test(v) ||
   /^[a-z][a-z-]*:/.test(v.trim()) ||                    // CSS-property-alku (background:/border-left:2px solid)
@@ -114,8 +114,9 @@ function scanLeaks(src, ranges, lineOffset, LIB) {
   }
 
   // display-konteksti zero-markup-literaalille: '+' -ketju markup/vpT · toast/_setTxt/_dSet-arg · .textContent=/.innerText=/.innerHTML=
-  const SETTER_FNS = new Set(['toast', '_setTxt', '_dSet', 'idrow']); // V7a-live-oppi: idrow(label,val) — MOLEMMAT argumentit display
+  const SETTER_FNS = new Set(['toast', '_setTxt', '_dSet', 'idrow', 'kpi', 'fp', 'set']); // V7a: idrow · V7b: kpi(l,v,cls,s)/fp(key,label)/set(id,v) — display-arg-helperit (enum/id-argit codeish-suodatettu)
   const TXT_PROPS = new Set(['textContent', 'innerText', 'innerHTML']);
+  const DISPLAY_PROPS = new Set(['teksti']); // V7b-live: object-property display-arvo (badge-objektit teksti:'🏥 Valmius'+x — gate-sokea epäsuora display)
   const inDisplayContext = (node) => {
     let n = node, top = null;
     while (parentOf.get(n) && ((parentOf.get(n).type === 'BinaryExpression' && parentOf.get(n).operator === '+') || parentOf.get(n).type === 'ConditionalExpression')) { top = parentOf.get(n); n = top; } // V7a-live: kävele myös ternaaryn läpi (markup-ketjun ternaary-haara oli sokea piste)
@@ -127,6 +128,10 @@ function scanLeaks(src, ranges, lineOffset, LIB) {
         ctp.left && ctp.left.type === 'MemberExpression' && ctp.left.property &&
         ((ctp.left.property.type === 'Identifier' && TXT_PROPS.has(ctp.left.property.name)) ||
          (ctp.left.property.type === 'Literal' && TXT_PROPS.has(ctp.left.property.value)))) return true;
+    // V7b-live: object-property display-arvo (esim. teksti:'…'+x badge-objekteissa)
+    if (ctp && ctp.type === 'Property' && ctp.value === ct && ctp.key &&
+        ((ctp.key.type === 'Identifier' && DISPLAY_PROPS.has(ctp.key.name)) ||
+         (ctp.key.type === 'Literal' && DISPLAY_PROPS.has(ctp.key.value)))) return true;
     let p = parentOf.get(node);
     for (let i = 0; p && i < 8; i++, p = parentOf.get(p)) {
       if (p.type === 'CallExpression' && p.callee && p.callee.type === 'Identifier' && SETTER_FNS.has(p.callee.name)) return true;
@@ -209,6 +214,11 @@ describe('VP_v25 render-kielineutraali-gate (step G · AST)', () => {
     const ih = scanLeaks(idr, [[1, 99]], 0, new Set()).map((l) => l.p);
     expect(ih).toContain('Raakaotsikko');
     expect(ih).not.toContain('Reititettyotsikko');
+    // object-property display (V7b-live: teksti:'…' badge-objektit)
+    const objp = "function _b(){ return [{key:'x', teksti:'Raakabadge'}, {key:'y', teksti:vpT('OKbadge')}]; }";
+    const oh = scanLeaks(objp, [[1, 99]], 0, new Set()).map((l) => l.p);
+    expect(oh).toContain('Raakabadge');
+    expect(oh).not.toContain('OKbadge');
   });
 
   // ── Object-property-display-guard ──────────────────────────────────────────────
@@ -220,6 +230,7 @@ describe('VP_v25 render-kielineutraali-gate (step G · AST)', () => {
   const MEMBER_DISPLAY = [
     { expr: 'meta.nimi', ranges: [[12600, 13750]] }, // V4 kalenteri: KALENTERI_TYYPIT-tyyppinimi (§1 enum-avain fi, näyttö vpT)
     { expr: 'IDP_TILA_LBL[p.idp_tila]', ranges: [[6100, 6140], [14460, 14510]] }, // V6 idp_tila-statusnäyttö (§1 enum-avain fi, näyttö vpT)
+    { expr: 'dm.nimi', ranges: [[14990, 14996]] }, // V7b domeeni-display fokusChip (lc-avain fi, näyttö vpT)
     // V7+: esim. { expr: 'roolimap[rooli]', ranges: [[...]] }
   ];
   it('enum/object-property-display reititetty vpT:llä (AST-gaten sokea piste)', () => {
