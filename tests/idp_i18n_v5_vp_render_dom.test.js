@@ -36,7 +36,7 @@ const acorn = require('acorn');
 const HTML = readFileSync(join(__dir, '..', 'TalentMaster_VP_v25.html'), 'utf8');
 
 const RLO = 2679, RHI = 17921;              // VP pääscript (1-idx)
-const RANGES = [[8040, 9221], [12600, 13750], [11661, 12400], [3777, 3865], [7885, 7910], [14186, 14550], [14552, 15185], [15189, 15690]]; // V3 _jsv · V4 kalenteri · V5 valmentajat · V6 IDP-jono · V7a MDT · V7b Reviewit+tuloskortti. V7c–V8: lisää.
+const RANGES = [[8040, 9221], [12600, 13750], [11661, 12400], [3777, 3865], [7885, 7910], [14186, 14550], [14552, 15185], [15189, 15690], [15770, 15884]]; // V3 _jsv · V4 kalenteri · V5 valmentajat · V6 IDP-jono · V7a MDT · V7b Reviewit+tuloskortti. V7c–V8: lisää.
 const ROUTED_FNS = new Set(['vpT', 'vpTToimenpide']);
 
 // §7 lib-curriculum-nimet (jäävät fi → allowlist)
@@ -65,6 +65,7 @@ const codeish = (v) =>
   /rgba?\(|hsla?\(|gradient|calc\(/.test(v) ||   // V7a-live: CSS-funktioarvot ternaary-haaroissa (ei näyttöä)
   /\.(html|js|css|png|jpg|json)\b/.test(v) || /[?&][a-zA-Z]+=/.test(v) || /^#[0-9a-fA-F]{3,8}$/.test(v) ||
   /^[a-z][a-z-]*:/.test(v.trim()) ||                    // CSS-property-alku (background:/border-left:2px solid)
+  /^\w+\(/.test(v.trim()) ||   // funktiokutsu-handler (act:n toiminto-arg setWs('x'))
   /^[a-z][a-zA-Z0-9]*$/.test(v.trim());
 
 // näyttöteksti-palat yhden literaalin ARVOSTA (markup → tag-ulkoinen teksti + title/placeholder); null jos zero-markup
@@ -118,7 +119,7 @@ function scanLeaks(src, ranges, lineOffset, LIB) {
   }
 
   // display-konteksti zero-markup-literaalille: '+' -ketju markup/vpT · toast/_setTxt/_dSet-arg · .textContent=/.innerText=/.innerHTML=
-  const SETTER_FNS = new Set(['toast', '_setTxt', '_dSet', 'idrow', 'kpi', 'fp', 'set', 'sel']); // V7a idrow · V7b kpi/fp/set · V7c sel(id,label,opts) — label-arg näyttöä
+  const SETTER_FNS = new Set(['toast', '_setTxt', '_dSet', 'idrow', 'kpi', 'fp', 'set', 'sel', 'tier', 'act']); // V7d: tier(n,l,col)/act(sev,teksti,sub,nappi) — label-argit näyttöä // V7a idrow · V7b kpi/fp/set · V7c sel(id,label,opts) — label-arg näyttöä
   const TXT_PROPS = new Set(['textContent', 'innerText', 'innerHTML']);
   const DISPLAY_PROPS = new Set(['teksti']); // V7b-live: object-property display-arvo (badge-objektit teksti:'🏥 Valmius'+x — gate-sokea epäsuora display)
   const inDisplayContext = (node) => {
