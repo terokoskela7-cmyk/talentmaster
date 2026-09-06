@@ -17,7 +17,7 @@
 <!-- Eerikkilä-normit + universaali testirekisteri (eerikkilaTaso, laskeFVP) — 10m/5m-tasot + FVP-profiili -->
 <script src="lib/tm_lang.js?v=9"></script>   <!-- i18n V0 — fi/sv/en käännöstaulukko + t() + kieli-init (putkitus) -->
 <script src="lib/tm_i18n_common.js?v=2"></script>   <!-- i18n Vaihe 0 — JAETTU henkilöstö-i18n + lukittu glossaari (ENNEN sivukarttaa) -->
-<script src="lib/tm_vp_i18n.js?v=22"></script>   <!-- i18n Vaihe 5 — VP sv (sivukartta); vpT/vpLokalisoi delegoivat commoniin -->
+<script src="lib/tm_vp_i18n.js?v=23"></script>   <!-- i18n Vaihe 5 — VP sv (sivukartta); vpT/vpLokalisoi delegoivat commoniin -->
 
 
 <script src="lib/tm_eerikkila_normit.js?v=45"></script>   <!-- v43: D2-kortti d2_taso-ensin (renderKehityskorttiHTML, PR #264 · §30/#262) -->
@@ -15186,8 +15186,8 @@ document.addEventListener('click', function (e) {
 
 /* ═══ HARJOITTELUN LAATU -DASHBOARD (Vaihe 2.1, HARJOITUSARVIOINTI_VAIHE2_SPEC) — raporttinäkymä, alikokoelmakysely sallittu (§26-poikkeus) ═══ */
 var _hlArvioinnit = null, _hlConfig = null, _hlBrandi = null, _hlMalli = 'palloliitto', _hlLadattu = false, _hlChartLoaded = false, _hlTrendChart = null;
-var _HL_KRIT_A = { a1: 'Innostavuus', a2: 'Liikkeessä %', a3: 'Pallokosketukset', a4: 'Teknis-takt. toistot', a5: 'Heittäytyminen', a6: 'Maalinteko %', a7: 'Seuran oma (Q7)' };
-var _HL_KRIT_B = { b1: 'Organisointi', b2: 'Tavoitteen selkeys', b3: 'Palaute (määrä)', b4: 'Palaute (laatu)', b5: 'Pedagogiikka', b6: 'Eriyttäminen', b7: 'Vuorovaikutus' };
+var _HL_KRIT_A = { a1: vpT('Innostavuus'), a2: vpT('Liikkeessä %'), a3: vpT('Pallokosketukset'), a4: vpT('Teknis-takt. toistot'), a5: vpT('Heittäytyminen'), a6: vpT('Maalinteko %'), a7: vpT('Seuran oma (Q7)') };
+var _HL_KRIT_B = { b1: vpT('Organisointi'), b2: vpT('Tavoitteen selkeys'), b3: vpT('Palaute (määrä)'), b4: vpT('Palaute (laatu)'), b5: vpT('Pedagogiikka'), b6: vpT('Eriyttäminen'), b7: vpT('Vuorovaikutus') };
 var _HL_PCT = { a2: 1, a6: 1 };
 var _HL_VARI = { teal: '#1D9E75', amber: '#BA7517', blue: '#185FA5' };
 function _hlEsc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
@@ -15211,12 +15211,12 @@ async function _hlLataaJaRender() {
   // Resolvoi seura sovelluksen elävästä, vaihdettavasta lähteestä (_seuraId — sama jota muu VP-data käyttää
   // SA-seuravaihdon jälkeen), EI kaapatusta arvosta. Demo (FC Demo) on validi: sillä on fixture-data Firestoressa.
   var sid = _seuraId;
-  if (!sid) { if (sis) sis.innerHTML = '<div style="color:var(--ink3);font-size:13px;padding:20px">Ei seuraa valittuna.</div>'; return; }
-  if (sis) sis.innerHTML = '<div style="color:var(--ink3);font-size:13px;padding:20px">Ladataan…</div>';
+  if (!sid) { if (sis) sis.innerHTML = vpT('<div style="color:var(--ink3);font-size:13px;padding:20px">Ei seuraa valittuna.</div>'); return; }
+  if (sis) sis.innerHTML = vpT('<div style="color:var(--ink3);font-size:13px;padding:20px">Ladataan…</div>');
   try {
     var snap = await db.collection('seurat').doc(sid).collection('harjoitusarvioinnit').orderBy('pvm', 'desc').limit(500).get();
     _hlArvioinnit = snap.docs.map(function (d) { var o = d.data(); o._id = d.id; return o; });
-  } catch (e) { _hlArvioinnit = []; if (sis) sis.innerHTML = '<div style="color:var(--red);font-size:13px;padding:20px">Lataus epäonnistui: ' + _hlEsc(e.message) + '</div>'; return; }
+  } catch (e) { _hlArvioinnit = []; if (sis) sis.innerHTML = vpT('<div style="color:var(--red);font-size:13px;padding:20px">Lataus epäonnistui:') + ' ' + _hlEsc(e.message) + '</div>'; return; }
   try { var cs = await db.collection('seurat').doc(sid).collection('konfiguraatio').doc('harjoitusarviointi').get(); _hlConfig = cs.exists ? cs.data() : {}; } catch (e) { _hlConfig = {}; }
   try { var bs = await db.collection('seurat').doc(sid).collection('konfiguraatio').doc('brandi').get(); _hlBrandi = bs.exists ? bs.data() : {}; } catch (e) { _hlBrandi = {}; }
   var _hlLogoEl = document.getElementById('hlLogo');
@@ -15233,7 +15233,7 @@ window._hlVaihdaMalli = function (m) {
   var off = function (x) { x.style.borderColor = 'var(--border)'; x.style.background = 'var(--surface)'; x.style.color = 'var(--ink3)'; };
   if (m === 'palloliitto') { on(a); off(b); } else { off(a); on(b); }
   var vbtn = document.getElementById('hlVertailuBtn');
-  if (vbtn) vbtn.textContent = m === 'valmennustaidot' ? '⚙ Aseta seuran tavoitetaso' : '⚙ Aseta kansalliset vertailuarvot';
+  if (vbtn) vbtn.textContent = m === 'valmennustaidot' ? vpT('⚙ Aseta seuran tavoitetaso') : vpT('⚙ Aseta kansalliset vertailuarvot');
   _hlRenderSuodattimet();   // arviointitapa-suodatin vain B:lle
   _hlRender();
 };
@@ -15245,14 +15245,14 @@ function _hlRenderSuodattimet() {
   var A = _hlArvioinnit || [], jset = {}, vset = {};
   A.forEach(function (a) { if (a.joukkue) jset[a.joukkue] = 1; if (a.valmentajaUid) vset[a.valmentajaUid] = a.valmentaja || a.valmentajaUid; });
   var sel = function (id, label, opts) { return '<div><label style="font-size:10px;color:var(--ink3);text-transform:uppercase;display:block;margin-bottom:2px">' + label + '</label><select id="' + id + '" onchange="_hlRender()" style="padding:6px 8px;border:.5px solid var(--border);border-radius:6px;background:var(--surface);color:var(--ink);font-size:12px">' + opts + '</select></div>'; };
-  var jOpts = '<option value="">Kaikki</option>' + Object.keys(jset).sort().map(function (j) { return '<option value="' + _hlEsc(j) + '">' + _hlEsc(j) + '</option>'; }).join('');
-  var iOpts = '<option value="">Kaikki</option><option value="lapsuus">Lapsuus 5–11</option><option value="nuoruus">Nuoruus 12–15</option>';
-  var vOpts = '<option value="">Kaikki</option>' + Object.keys(vset).map(function (u) { return '<option value="' + _hlEsc(u) + '">' + _hlEsc(vset[u]) + '</option>'; }).join('');
-  var aOpts = '<option value="">Koko historia</option><option value="3kk">Viim. 3 kk</option><option value="6kk">Viim. 6 kk</option><option value="12kk">Viim. 12 kk</option>';
-  var bOpts = '<option value="kuukausi">Kuukausi</option><option value="viikko">Viikko</option><option value="kausi">Kausi</option>';
-  var html = sel('hlJoukkue', 'Joukkue', jOpts) + sel('hlIka', 'Ikävaihe', iOpts) + sel('hlValm', 'Valmentaja', vOpts) + sel('hlAika', 'Aikaväli', aOpts);
-  if (_hlMalli === 'valmennustaidot') html += sel('hlTapa', 'Arviointitapa', '<option value="">Kaikki</option><option value="itsearvio">Itsearvio</option><option value="havainnointi">Havainnointi</option>');   // vain B
-  html += sel('hlBucket', 'Trendi', bOpts);
+  var jOpts = vpT('<option value="">Kaikki</option>') + Object.keys(jset).sort().map(function (j) { return '<option value="' + _hlEsc(j) + '">' + _hlEsc(j) + '</option>'; }).join('');
+  var iOpts = vpT('<option value="">Kaikki</option><option value="lapsuus">Lapsuus 5–11</option><option value="nuoruus">Nuoruus 12–15</option>');
+  var vOpts = vpT('<option value="">Kaikki</option>') + Object.keys(vset).map(function (u) { return '<option value="' + _hlEsc(u) + '">' + _hlEsc(vset[u]) + '</option>'; }).join('');
+  var aOpts = vpT('<option value="">Koko historia</option><option value="3kk">Viim. 3 kk</option><option value="6kk">Viim. 6 kk</option><option value="12kk">Viim. 12 kk</option>');
+  var bOpts = vpT('<option value="kuukausi">Kuukausi</option><option value="viikko">Viikko</option><option value="kausi">Kausi</option>');
+  var html = sel('hlJoukkue', 'Joukkue', jOpts) + sel('hlIka', vpT('Ikävaihe'), iOpts) + sel('hlValm', 'Valmentaja', vOpts) + sel('hlAika', vpT('Aikaväli'), aOpts);
+  if (_hlMalli === 'valmennustaidot') html += sel('hlTapa', vpT('Arviointitapa'), vpT('<option value="">Kaikki</option><option value="itsearvio">Itsearvio</option><option value="havainnointi">Havainnointi</option>'));   // vain B
+  html += sel('hlBucket', vpT('Trendi'), bOpts);
   el.innerHTML = html;
 }
 
@@ -15283,40 +15283,40 @@ function _hlRender() {
   var A = _hlArvioinnit || [], opts = _hlOpts();
   var kooste = koostaHarjoitusarvioinnit(A, opts), lista = _hlSuodata(A, opts);
   var dgate = function (t) { return '<div style="padding:34px;text-align:center;color:var(--ink3);font-size:13px;background:var(--card);border:.5px solid var(--border);border-radius:12px">' + t + '</div>'; };
-  if (kooste.n === 0) { sis.innerHTML = (isB ? _hlKalibraatioHTML(opts) : '') + dgate('Ei vielä arviointeja tällä suodatuksella.'); return; }
+  if (kooste.n === 0) { sis.innerHTML = (isB ? _hlKalibraatioHTML(opts) : '') + dgate(vpT('Ei vielä arviointeja tällä suodatuksella.')); return; }
   var avaimet = isB ? ['b1', 'b2', 'b3', 'b4', 'b5', 'b6', 'b7'] : ['a1', 'a2', 'a3', 'a4', 'a5', 'a6', 'a7'];
   var skaala = isB ? 5 : 10;
   // Vertailu (benchmark): A = kansallinen per ikävaihe · B = seuran tavoitetaso (klubitaso)
-  var vertailu = {}, vertOtsikko, vertVihje = '', vertLabel = isB ? 'tavoite' : 'kansallinen';
+  var vertailu = {}, vertOtsikko, vertVihje = '', vertLabel = isB ? vpT('tavoite') : vpT('kansallinen');
   if (isB) {
     vertailu = (_hlConfig && _hlConfig.seura_tavoite_b) ? _hlConfig.seura_tavoite_b : {};
-    vertOtsikko = 'Kriteerit vs seuran tavoitetaso';
-    if (!Object.keys(vertailu).length) vertVihje = 'Seuran tavoitetasoa (B) ei asetettu — “⚙ Aseta seuran tavoitetaso”.';
+    vertOtsikko = vpT('Kriteerit vs seuran tavoitetaso');
+    if (!Object.keys(vertailu).length) vertVihje = vpT('Seuran tavoitetasoa (B) ei asetettu — “⚙ Aseta seuran tavoitetaso”.');
   } else {
     var ikSet = {}; lista.forEach(function (a) { if (a.ikavaihe) ikSet[a.ikavaihe] = 1; });
     var ikKeys = Object.keys(ikSet);
     var benchIka = opts.ikavaihe || (ikKeys.length === 1 ? ikKeys[0] : null);
     vertailu = (benchIka && _hlConfig && _hlConfig.kansallinen_ka && _hlConfig.kansallinen_ka[benchIka]) ? _hlConfig.kansallinen_ka[benchIka] : {};
-    vertOtsikko = 'Kriteerit vs kansallinen taso';
-    if (!benchIka) vertVihje = 'Valitse ikävaihe nähdäksesi kansallisen vertailun.';
-    else if (!Object.keys(vertailu).length) vertVihje = 'Kansallisia vertailuarvoja (' + (benchIka === 'lapsuus' ? 'Lapsuus' : 'Nuoruus') + ') ei asetettu — “⚙ Aseta kansalliset vertailuarvot”.';
+    vertOtsikko = vpT('Kriteerit vs kansallinen taso');
+    if (!benchIka) vertVihje = vpT('Valitse ikävaihe nähdäksesi kansallisen vertailun.');
+    else if (!Object.keys(vertailu).length) vertVihje = vpT('Kansallisia vertailuarvoja (') + (benchIka === 'lapsuus' ? vpT('Lapsuus') : vpT('Nuoruus')) + vpT(') ei asetettu — “⚙ Aseta kansalliset vertailuarvot”.');
   }
   var delta = harjoitusBenchmarkDelta(kooste.per_kriteeri, vertailu);
   var vertOverall = isB ? _hlOverallB(vertailu) : _hlOverallNat(vertailu);
   var vsVert = (kooste.ka != null && vertOverall != null) ? Math.round((kooste.ka - vertOverall) * 10) / 10 : null;
 
   var h = '';
-  if (kooste.n < 10) h += '<div style="margin-bottom:12px;font-size:12px;color:var(--amber);background:rgba(224,160,64,.1);border-radius:8px;padding:8px 12px">⚠ Pilottiotos, n=' + kooste.n + ' — tulkitse varauksella.</div>';
+  if (kooste.n < 10) h += vpT('<div style="margin-bottom:12px;font-size:12px;color:var(--amber);background:rgba(224,160,64,.1);border-radius:8px;padding:8px 12px">⚠ Pilottiotos, n=') + kooste.n + ' ' + vpT('— tulkitse varauksella.</div>');
   if (vertVihje) h += '<div style="margin-bottom:12px;font-size:12px;color:var(--ink3)">' + vertVihje + '</div>';
 
   // KPI-kortit
   var dColor = function (d) { return d == null ? 'var(--ink3)' : d >= 0 ? 'var(--teal)' : 'var(--red)'; };
   var dTxt = function (d) { return d == null ? '—' : (d > 0 ? '+' : '') + d; };
   h += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:12px;margin-bottom:18px">'
-    + '<div style="background:var(--card);border:.5px solid var(--border);border-radius:12px;padding:14px 16px"><div style="font-size:10px;text-transform:uppercase;color:var(--ink3)">Havaintomäärä</div><div style="font-family:\'Cormorant Garamond\',serif;font-size:32px;color:var(--ink)">' + kooste.n + '</div></div>'
-    + '<div style="background:var(--card);border:.5px solid var(--border);border-radius:12px;padding:14px 16px"><div style="font-size:10px;text-transform:uppercase;color:var(--ink3)">Keskiarvo</div><div style="font-family:\'Cormorant Garamond\',serif;font-size:32px;color:var(--teal)">' + (kooste.ka != null ? kooste.ka : '—') + '<span style="font-size:14px;color:var(--ink3)">/' + skaala + '</span></div></div>'
+    + '<div style="background:var(--card);border:.5px solid var(--border);border-radius:12px;padding:14px 16px"><div style="font-size:10px;text-transform:uppercase;color:var(--ink3)">' + vpT('Havaintomäärä') + '</div><div style="font-family:\'Cormorant Garamond\',serif;font-size:32px;color:var(--ink)">' + kooste.n + '</div></div>'
+    + '<div style="background:var(--card);border:.5px solid var(--border);border-radius:12px;padding:14px 16px"><div style="font-size:10px;text-transform:uppercase;color:var(--ink3)">' + vpT('Keskiarvo') + '</div><div style="font-family:\'Cormorant Garamond\',serif;font-size:32px;color:var(--teal)">' + (kooste.ka != null ? kooste.ka : '—') + '<span style="font-size:14px;color:var(--ink3)">/' + skaala + '</span></div></div>'
     + '<div style="background:var(--card);border:.5px solid var(--border);border-radius:12px;padding:14px 16px"><div style="font-size:10px;text-transform:uppercase;color:var(--ink3)">vs ' + vertLabel + '</div><div style="font-family:\'Cormorant Garamond\',serif;font-size:32px;color:' + dColor(vsVert) + '">' + dTxt(vsVert) + '</div></div>'
-    + '<div style="background:var(--card);border:.5px solid var(--border);border-radius:12px;padding:14px 16px"><div style="font-size:10px;text-transform:uppercase;color:var(--ink3)">Viimeisin</div><div style="font-family:\'Cormorant Garamond\',serif;font-size:22px;color:var(--ink);margin-top:8px">' + (kooste.viimeisin_pvm || '—') + '</div></div>'
+    + '<div style="background:var(--card);border:.5px solid var(--border);border-radius:12px;padding:14px 16px"><div style="font-size:10px;text-transform:uppercase;color:var(--ink3)">' + vpT('Viimeisin') + '</div><div style="font-family:\'Cormorant Garamond\',serif;font-size:22px;color:var(--ink);margin-top:8px">' + (kooste.viimeisin_pvm || '—') + '</div></div>'
     + '</div>';
 
   // Per-kriteeri palkit + vertailu-marker + delta
@@ -15335,20 +15335,20 @@ function _hlRender() {
       + (vrtW != null ? '<div title="' + vertLabel + ' ' + vrt + '" style="position:absolute;top:-2px;height:14px;width:2px;background:' + _HL_VARI.amber + ';left:' + vrtW + '%"></div>' : '')
       + '</div></div>';
   });
-  h += '<div style="font-size:10px;color:var(--ink3);margin-top:8px"><span style="display:inline-block;width:10px;height:6px;background:var(--teal);border-radius:2px"></span> seura · <span style="display:inline-block;width:2px;height:10px;background:' + _HL_VARI.amber + ';vertical-align:middle"></span> ' + vertLabel + '</div></div>';
+  h += vpT('<div style="font-size:10px;color:var(--ink3);margin-top:8px"><span style="display:inline-block;width:10px;height:6px;background:var(--teal);border-radius:2px"></span> seura · <span style="display:inline-block;width:2px;height:10px;background:') + _HL_VARI.amber + ';vertical-align:middle"></span> ' + vertLabel + '</div></div>';
 
   // Trendi (canvas, Chart.js lazy)
-  h += '<div style="background:var(--card);border:.5px solid var(--border);border-radius:12px;padding:16px 18px;margin-bottom:18px"><div style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--ink3);margin-bottom:10px">Keskiarvon trendi</div><div style="position:relative;height:220px"><canvas id="hlTrendCanvas"></canvas></div></div>';
+  h += vpT('<div style="background:var(--card);border:.5px solid var(--border);border-radius:12px;padding:16px 18px;margin-bottom:18px"><div style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--ink3);margin-bottom:10px">Keskiarvon trendi</div><div style="position:relative;height:220px"><canvas id="hlTrendCanvas"></canvas></div></div>');
 
   // Kalibraatio-osio (vain malli B)
   if (isB) h += _hlKalibraatioHTML(opts);
 
   // Viimeisimmät arvioinnit -lista → drill
-  h += '<div style="background:var(--card);border:.5px solid var(--border);border-radius:12px;padding:16px 18px"><div style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--ink3);margin-bottom:10px">Viimeisimmät arvioinnit</div>';
+  h += vpT('<div style="background:var(--card);border:.5px solid var(--border);border-radius:12px;padding:16px 18px"><div style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--ink3);margin-bottom:10px">Viimeisimmät arvioinnit</div>');
   lista.slice().sort(function (x, y) { return String(y.pvm || '').localeCompare(String(x.pvm || '')); }).slice(0, 15).forEach(function (a) {
     var ov = isB ? laskeValmennustaitoIndeksi(a.vastaukset) : laskeHarjoituslaatuPalloliitto(a.vastaukset).ka_0_10;
     h += '<div onclick="_hlAvaaTapahtuma(\'' + _hlEsc(a._id) + '\')" style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:9px 4px;border-bottom:.5px solid var(--border);cursor:pointer">'
-      + '<div><div style="font-size:13px;color:var(--ink)">' + _hlEsc(a.joukkue || '—') + ' <span style="color:var(--ink3);font-size:11px">· ' + _hlEsc(a.valmentaja || '') + '</span></div><div style="font-size:11px;color:var(--ink3)">' + _hlEsc(a.pvm || '') + ' · ' + (a.ikavaihe === 'lapsuus' ? 'Lapsuus' : 'Nuoruus') + ' · ' + (a.arviointitapa === 'itsearvio' ? 'Itsearvio' : 'Havainnointi') + '</div></div>'
+      + '<div><div style="font-size:13px;color:var(--ink)">' + _hlEsc(a.joukkue || '—') + ' <span style="color:var(--ink3);font-size:11px">· ' + _hlEsc(a.valmentaja || '') + '</span></div><div style="font-size:11px;color:var(--ink3)">' + _hlEsc(a.pvm || '') + ' · ' + (a.ikavaihe === 'lapsuus' ? vpT('Lapsuus') : vpT('Nuoruus')) + ' · ' + (a.arviointitapa === 'itsearvio' ? vpT('Itsearvio') : vpT('Havainnointi')) + '</div></div>'
       + '<div style="font-family:\'Cormorant Garamond\',serif;font-size:22px;color:var(--teal)">' + (ov != null ? ov : '—') + '</div></div>';
   });
   h += '</div>';
@@ -15371,17 +15371,17 @@ function _hlKalibraatioHTML(opts) {
   });
   var kalib = (typeof harjoitusKalibraatioHistoria === 'function') ? harjoitusKalibraatioHistoria(kalInput) : {};
   var uids = Object.keys(kalib);
-  var h = '<div style="background:var(--card);border:.5px solid var(--border);border-radius:12px;padding:16px 18px;margin-bottom:18px"><div style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--ink3);margin-bottom:4px">Kalibraatio — itsearvio vs havainnointi</div><div style="font-size:11px;color:var(--ink3);margin-bottom:12px">Vain vahvistetuista pareista. Kaventuva kuilu = parempi itsetuntemus.</div>';
+  var h = vpT('<div style="background:var(--card);border:.5px solid var(--border);border-radius:12px;padding:16px 18px;margin-bottom:18px"><div style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--ink3);margin-bottom:4px">Kalibraatio — itsearvio vs havainnointi</div><div style="font-size:11px;color:var(--ink3);margin-bottom:12px">Vain vahvistetuista pareista. Kaventuva kuilu = parempi itsetuntemus.</div>');
   if (!uids.length) { h += '<div style="font-size:12px;color:var(--ink3)">' + _hlKalibTyhjaViesti(kalInput) + '</div></div>'; return h; }   // Briiffi 1 — rehellinen tyhjä (mitä puuttuu)
   uids.forEach(function (uid) {
     var r = kalib[uid];
     var suuntaVari = r.suunta === 'linjassa' ? 'var(--teal)' : 'var(--amber)';
     var suuntaTxt = r.suunta === 'yliarvio' ? 'arvioi itsensä korkeammalle' : r.suunta === 'aliarvio' ? 'arvioi itsensä matalammalle' : 'linjassa havainnoijan kanssa';
-    var kavTxt = r.kaventuu == null ? '' : (r.kaventuu ? ' · kuilu kaventunut ↓' : ' · kuilu kasvanut ↑');
+    var kavTxt = r.kaventuu == null ? '' : (r.kaventuu ? ' ' + vpT('· kuilu kaventunut ↓') : ' ' + vpT('· kuilu kasvanut ↑'));
     h += '<div style="border-top:.5px solid var(--border);padding-top:10px;margin-top:10px">'
       + '<div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:8px"><span style="font-size:13px;color:var(--ink)">' + _hlEsc(r.valmentaja || uid) + '</span>'
-      + '<span style="font-size:11px;color:var(--ink3)">' + r.n_paria + ' paria · keskikuilu <b style="color:' + suuntaVari + '">' + r.keskikuilu + '</b>' + kavTxt + '</span></div>'
-      + '<div style="font-size:11px;color:var(--ink2);margin:4px 0 6px">' + _hlEsc((r.valmentaja || '').split(' ')[0] || 'Valmentaja') + ' ' + suuntaTxt + (r.suurin_kuilu_kriteeri ? ' · suurin ero: ' + _hlEsc(_HL_KRIT_B[r.suurin_kuilu_kriteeri] || r.suurin_kuilu_kriteeri) + ' (' + (r.suurin_kuilu_arvo > 0 ? '+' : '') + r.suurin_kuilu_arvo + ')' : '') + '</div>';
+      + '<span style="font-size:11px;color:var(--ink3)">' + r.n_paria + ' ' + vpT('paria · keskikuilu <b style="color:') + suuntaVari + '">' + r.keskikuilu + '</b>' + kavTxt + '</span></div>'
+      + '<div style="font-size:11px;color:var(--ink2);margin:4px 0 6px">' + _hlEsc((r.valmentaja || '').split(' ')[0] || 'Valmentaja') + ' ' + suuntaTxt + (r.suurin_kuilu_kriteeri ? ' ' + vpT('· suurin ero:') + ' ' + _hlEsc(_HL_KRIT_B[r.suurin_kuilu_kriteeri] || r.suurin_kuilu_kriteeri) + ' (' + (r.suurin_kuilu_arvo > 0 ? '+' : '') + r.suurin_kuilu_arvo + ')' : '') + '</div>';
     // per-kriteeri signed-kuilu pikkupalkit (keskitetty 0)
     ['b1', 'b2', 'b3', 'b4', 'b5', 'b6', 'b7'].forEach(function (bk) {
       var v = r.per_kriteeri[bk]; if (v == null) return;
@@ -15394,7 +15394,7 @@ function _hlKalibraatioHTML(opts) {
     });
     h += '</div>';
   });
-  h += '<div style="font-size:10px;color:var(--ink3);margin-top:8px"><span style="display:inline-block;width:8px;height:6px;background:' + _HL_VARI.amber + ';border-radius:2px"></span> itse korkeammalle · <span style="display:inline-block;width:8px;height:6px;background:' + _HL_VARI.blue + ';border-radius:2px"></span> itse matalammalle</div></div>';
+  h += '<div style="font-size:10px;color:var(--ink3);margin-top:8px"><span style="display:inline-block;width:8px;height:6px;background:' + _HL_VARI.amber + vpT(';border-radius:2px"></span> itse korkeammalle · <span style="display:inline-block;width:8px;height:6px;background:') + _HL_VARI.blue + vpT(';border-radius:2px"></span> itse matalammalle</div></div>');
   return h;
 }
 
@@ -15404,7 +15404,7 @@ function _hlEnsureChart(cb) {
   var s = document.createElement('script');
   s.src = 'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js';
   s.onload = function () { _hlChartLoaded = true; cb(); };
-  s.onerror = function () { var c = document.getElementById('hlTrendCanvas'); if (c && c.parentNode) c.parentNode.innerHTML = '<div style="font-size:12px;color:var(--ink3)">Kaaviokirjasto ei latautunut (offline).</div>'; };
+  s.onerror = function () { var c = document.getElementById('hlTrendCanvas'); if (c && c.parentNode) c.parentNode.innerHTML = vpT('<div style="font-size:12px;color:var(--ink3)">Kaaviokirjasto ei latautunut (offline).</div>'); };
   document.head.appendChild(s);
 }
 
@@ -15413,8 +15413,8 @@ function _hlPiirraTrendi(trendi, vertOverall, maxY) {
   if (_hlTrendChart) { try { _hlTrendChart.destroy(); } catch (e) {} _hlTrendChart = null; }
   var labels = trendi.map(function (t) { return t.label; });
   var data = trendi.map(function (t) { return t.ka; });
-  var vertNimi = (_hlMalli === 'valmennustaidot') ? 'Tavoite' : 'Kansallinen';
-  var ds = [{ label: 'Seura', data: data, borderColor: _HL_VARI.teal, backgroundColor: 'rgba(29,158,117,.12)', tension: .25, fill: true, pointRadius: 4 }];
+  var vertNimi = (_hlMalli === 'valmennustaidot') ? vpT('Tavoite') : vpT('Kansallinen');
+  var ds = [{ label: vpT('Seura'), data: data, borderColor: _HL_VARI.teal, backgroundColor: 'rgba(29,158,117,.12)', tension: .25, fill: true, pointRadius: 4 }];
   if (vertOverall != null) ds.push({ label: vertNimi, data: labels.map(function () { return vertOverall; }), borderColor: _HL_VARI.amber, borderDash: [6, 4], pointRadius: 0, fill: false });
   _hlTrendChart = new Chart(c.getContext('2d'), {
     type: 'line', data: { labels: labels, datasets: ds },
@@ -15428,14 +15428,14 @@ window._hlAvaaSeuraTavoiteB = function () {
   var vanha = document.getElementById('hlTbModal'); if (vanha) vanha.remove();
   var m = document.createElement('div'); m.id = 'hlTbModal'; m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9400;display:flex;align-items:flex-start;justify-content:center;padding:20px 16px;overflow-y:auto'; m.onclick = function (e) { if (e.target === m) m.remove(); };
   var h = '<div onclick="event.stopPropagation()" style="background:var(--bg2);border:.5px solid var(--border);border-radius:14px;width:min(440px,96vw);padding:20px 22px;margin:auto">'
-    + '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px"><div style="font-size:16px;font-weight:600;color:var(--ink)">Seuran tavoitetaso (B)</div><button onclick="document.getElementById(\'hlTbModal\').remove()" style="background:none;border:none;color:var(--ink3);font-size:22px;cursor:pointer">×</button></div>'
-    + '<div style="font-size:11px;color:var(--ink3);margin-bottom:12px">Valmennustaitojen tavoitetaso 1–5 per kriteeri. Tyhjä → ei vertailuviivaa.</div>';
+    + '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px"><div style="font-size:16px;font-weight:600;color:var(--ink)">' + vpT('Seuran tavoitetaso (B)') + '</div><button onclick="document.getElementById(\'hlTbModal\').remove()" style="background:none;border:none;color:var(--ink3);font-size:22px;cursor:pointer">×</button></div>'
+    + vpT('<div style="font-size:11px;color:var(--ink3);margin-bottom:12px">Valmennustaitojen tavoitetaso 1–5 per kriteeri. Tyhjä → ei vertailuviivaa.</div>');
   ['b1', 'b2', 'b3', 'b4', 'b5', 'b6', 'b7'].forEach(function (k) {
     var cur = (tav[k] != null) ? tav[k] : '';
     h += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px"><span style="flex:1;font-size:12px;color:var(--ink2)">' + _hlEsc(_HL_KRIT_B[k]) + '</span>'
       + '<input type="number" id="hltb_' + k + '" value="' + cur + '" min="1" max="5" step="0.1" placeholder="—" style="width:72px;padding:5px;border:.5px solid var(--border);border-radius:6px;background:var(--surface);color:var(--ink);font-size:12px;text-align:center"></div>';
   });
-  h += '<button onclick="_hlTallennaSeuraTavoiteB()" style="width:100%;margin-top:12px;padding:10px;border:none;border-radius:9px;background:var(--teal);color:#fff;font-size:13px;font-weight:600;cursor:pointer">Tallenna tavoitetaso</button></div>';
+  h += vpT('<button onclick="_hlTallennaSeuraTavoiteB()" style="width:100%;margin-top:12px;padding:10px;border:none;border-radius:9px;background:var(--teal);color:#fff;font-size:13px;font-weight:600;cursor:pointer">Tallenna tavoitetaso</button></div>');
   m.innerHTML = h; document.body.appendChild(m);
 };
 window._hlTallennaSeuraTavoiteB = async function () {
@@ -15445,10 +15445,10 @@ window._hlTallennaSeuraTavoiteB = async function () {
     ['b1', 'b2', 'b3', 'b4', 'b5', 'b6', 'b7'].forEach(function (k) { var e = document.getElementById('hltb_' + k); var v = e && e.value !== '' ? Number(e.value) : null; if (v != null && !isNaN(v)) tav[k] = v; });
     await db.collection('seurat').doc(_seuraId).collection('konfiguraatio').doc('harjoitusarviointi').set({ seura_tavoite_b: tav, seura_tavoite_b_paivitetty: new Date().toISOString() }, { merge: true });
     _hlConfig = _hlConfig || {}; _hlConfig.seura_tavoite_b = tav;
-    if (typeof toast === 'function') toast('✓ Tavoitetaso tallennettu', 'ok');
+    if (typeof toast === 'function') toast(vpT('✓ Tavoitetaso tallennettu'), 'ok');
     var mm = document.getElementById('hlTbModal'); if (mm) mm.remove();
     _hlRender();
-  } catch (e) { if (typeof toast === 'function') toast('Tallennus epäonnistui: ' + ((e && e.message) || 'tuntematon'), 'error'); }
+  } catch (e) { if (typeof toast === 'function') toast(vpT('Tallennus epäonnistui:') + ' ' + ((e && e.message) || 'tuntematon'), 'error'); }
 };
 
 /* ── Kansalliset vertailuarvot -lomake (SA/johto → konfiguraatio/harjoitusarviointi.kansallinen_ka) ── */
@@ -15457,7 +15457,7 @@ window._hlAvaaBenchmark = function () {
   var vanha = document.getElementById('hlBmModal'); if (vanha) vanha.remove();
   var m = document.createElement('div'); m.id = 'hlBmModal'; m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9400;display:flex;align-items:flex-start;justify-content:center;padding:20px 16px;overflow-y:auto'; m.onclick = function (e) { if (e.target === m) m.remove(); };
   var rivi = function (k) {
-    if (k === 'a7') return '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px"><span style="flex:1;font-size:12px;color:var(--ink3)">' + _hlEsc(_HL_KRIT_A[k]) + ' — ei kansallista</span><span style="width:140px;text-align:center;color:var(--ink3);font-size:12px">—</span></div>';
+    if (k === 'a7') return '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px"><span style="flex:1;font-size:12px;color:var(--ink3)">' + _hlEsc(_HL_KRIT_A[k]) + ' ' + vpT('— ei kansallista</span><span style="width:140px;text-align:center;color:var(--ink3);font-size:12px">—</span></div>');
     var lap = (kans.lapsuus && kans.lapsuus[k] != null) ? kans.lapsuus[k] : '';
     var nuo = (kans.nuoruus && kans.nuoruus[k] != null) ? kans.nuoruus[k] : '';
     var mx = _HL_PCT[k] ? 100 : 10;
@@ -15466,11 +15466,11 @@ window._hlAvaaBenchmark = function () {
       + '<input type="number" id="hlbm_nuoruus_' + k + '" value="' + nuo + '" min="0" max="' + mx + '" step="0.1" placeholder="—" style="width:68px;padding:5px;border:.5px solid var(--border);border-radius:6px;background:var(--surface);color:var(--ink);font-size:12px;text-align:center"></div>';
   };
   var h = '<div onclick="event.stopPropagation()" style="background:var(--bg2);border:.5px solid var(--border);border-radius:14px;width:min(480px,96vw);padding:20px 22px;margin:auto">'
-    + '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px"><div style="font-size:16px;font-weight:600;color:var(--ink)">Kansalliset vertailuarvot</div><button onclick="document.getElementById(\'hlBmModal\').remove()" style="background:none;border:none;color:var(--ink3);font-size:22px;cursor:pointer">×</button></div>'
-    + '<div style="font-size:11px;color:var(--ink3);margin-bottom:12px">Palloliiton julkaisemat ka-arvot per ikävaihe (malli A). a7 = seuran oma, ei kansallista.</div>'
-    + '<div style="display:flex;gap:8px;margin-bottom:8px;font-size:10px;text-transform:uppercase;color:var(--ink3)"><span style="flex:1"></span><span style="width:68px;text-align:center">Lapsuus</span><span style="width:68px;text-align:center">Nuoruus</span></div>';
+    + '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px"><div style="font-size:16px;font-weight:600;color:var(--ink)">' + vpT('Kansalliset vertailuarvot') + '</div><button onclick="document.getElementById(\'hlBmModal\').remove()" style="background:none;border:none;color:var(--ink3);font-size:22px;cursor:pointer">×</button></div>'
+    + vpT('<div style="font-size:11px;color:var(--ink3);margin-bottom:12px">Palloliiton julkaisemat ka-arvot per ikävaihe (malli A). a7 = seuran oma, ei kansallista.</div>')
+    + vpT('<div style="display:flex;gap:8px;margin-bottom:8px;font-size:10px;text-transform:uppercase;color:var(--ink3)"><span style="flex:1"></span><span style="width:68px;text-align:center">Lapsuus</span><span style="width:68px;text-align:center">Nuoruus</span></div>');
   ['a1', 'a2', 'a3', 'a4', 'a5', 'a6', 'a7'].forEach(function (k) { h += rivi(k); });
-  h += '<button onclick="_hlTallennaBenchmark()" style="width:100%;margin-top:12px;padding:10px;border:none;border-radius:9px;background:var(--teal);color:#fff;font-size:13px;font-weight:600;cursor:pointer">Tallenna vertailuarvot</button></div>';
+  h += vpT('<button onclick="_hlTallennaBenchmark()" style="width:100%;margin-top:12px;padding:10px;border:none;border-radius:9px;background:var(--teal);color:#fff;font-size:13px;font-weight:600;cursor:pointer">Tallenna vertailuarvot</button></div>');
   m.innerHTML = h; document.body.appendChild(m);
 };
 window._hlTallennaBenchmark = async function () {
@@ -15480,10 +15480,10 @@ window._hlTallennaBenchmark = async function () {
     var kansallinen = { lapsuus: keraa('lapsuus'), nuoruus: keraa('nuoruus') };
     await db.collection('seurat').doc(_seuraId).collection('konfiguraatio').doc('harjoitusarviointi').set({ kansallinen_ka: kansallinen, kansallinen_paivitetty: new Date().toISOString() }, { merge: true });
     _hlConfig = _hlConfig || {}; _hlConfig.kansallinen_ka = kansallinen;
-    if (typeof toast === 'function') toast('✓ Vertailuarvot tallennettu', 'ok');
+    if (typeof toast === 'function') toast(vpT('✓ Vertailuarvot tallennettu'), 'ok');
     var mm = document.getElementById('hlBmModal'); if (mm) mm.remove();
     _hlRender();
-  } catch (e) { if (typeof toast === 'function') toast('Tallennus epäonnistui: ' + ((e && e.message) || 'tuntematon'), 'error'); }
+  } catch (e) { if (typeof toast === 'function') toast(vpT('Tallennus epäonnistui:') + ' ' + ((e && e.message) || 'tuntematon'), 'error'); }
 };
 
 /* ── Yksittäisen tapahtuman näkymä + palautekerros (jaettu / yksityinen eri alikokoelmiin) ── */
@@ -15506,8 +15506,8 @@ function _hlRenderTapahtuma(a) {
   var kans = (malliA && _hlConfig && _hlConfig.kansallinen_ka && _hlConfig.kansallinen_ka[a.ikavaihe]) ? _hlConfig.kansallinen_ka[a.ikavaihe] : {};
   var h = '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:10px">'
     + '<div><div style="font-family:\'Cormorant Garamond\',serif;font-size:22px;color:var(--ink);line-height:1.1">' + _hlEsc(a.joukkue || '—') + '</div>'
-    + '<div style="font-size:12px;color:var(--ink3);margin-top:4px">' + _hlEsc(a.pvm || '') + ' · ' + (a.ikavaihe === 'lapsuus' ? 'Lapsuus' : 'Nuoruus') + ' · ' + (malliA ? 'A · Harjoittelun laatu' : 'B · Valmennustaidot') + ' · ' + (a.arviointitapa === 'itsearvio' ? 'Itsearvio' : 'Havainnointi') + '</div>'
-    + '<div style="font-size:12px;color:var(--ink3)">Valmentaja: ' + _hlEsc(a.valmentaja || '—') + ' · Arvioija: ' + _hlEsc(a.arvioija || '—') + '</div></div>'
+    + '<div style="font-size:12px;color:var(--ink3);margin-top:4px">' + _hlEsc(a.pvm || '') + ' · ' + (a.ikavaihe === 'lapsuus' ? vpT('Lapsuus') : vpT('Nuoruus')) + ' · ' + (malliA ? vpT('A · Harjoittelun laatu') : vpT('B · Valmennustaidot')) + ' · ' + (a.arviointitapa === 'itsearvio' ? vpT('Itsearvio') : vpT('Havainnointi')) + '</div>'
+    + vpT('<div style="font-size:12px;color:var(--ink3)">Valmentaja:') + ' ' + _hlEsc(a.valmentaja || '—') + ' ' + vpT('· Arvioija:') + ' ' + _hlEsc(a.arvioija || '—') + '</div></div>'
     + '<button onclick="document.getElementById(\'hlTapModal\').remove()" style="background:none;border:none;color:var(--ink3);font-size:24px;cursor:pointer;line-height:1">×</button></div>';
   // Kriteerit + vs kansallinen + täsmennys
   h += '<div style="background:var(--card);border:.5px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:12px">';
@@ -15517,23 +15517,23 @@ function _hlRenderTapahtuma(a) {
     var nat = (kans[k] != null) ? kans[k] : null;
     var d = (v != null && nat != null) ? Math.round((v - nat) * 10) / 10 : null;
     var dc = d == null ? 'var(--ink3)' : d >= 0 ? 'var(--teal)' : 'var(--red)';
-    h += '<div style="padding:5px 0;border-bottom:.5px solid var(--border)"><div style="display:flex;justify-content:space-between;font-size:12px"><span style="color:var(--ink2)">' + _hlEsc(kritMap[k] || k) + '</span><span style="color:var(--ink)">' + (v != null ? v + (pct ? '%' : '') : '—') + (nat != null ? ' <span style="color:var(--ink3);font-size:11px">(kans. ' + nat + ')</span> <span style="color:' + dc + ';font-size:11px">' + (d > 0 ? '+' : '') + d + '</span>' : '') + '</span></div>'
+    h += '<div style="padding:5px 0;border-bottom:.5px solid var(--border)"><div style="display:flex;justify-content:space-between;font-size:12px"><span style="color:var(--ink2)">' + _hlEsc(kritMap[k] || k) + '</span><span style="color:var(--ink)">' + (v != null ? v + (pct ? '%' : '') : '—') + (nat != null ? ' ' + vpT('<span style="color:var(--ink3);font-size:11px">(kans.') + ' ' + nat + ')</span> <span style="color:' + dc + ';font-size:11px">' + (d > 0 ? '+' : '') + d + '</span>' : '') + '</span></div>'
       + ((a.tasmennykset && a.tasmennykset[k]) ? '<div style="font-size:11px;color:var(--ink3);margin-top:2px">“' + _hlEsc(a.tasmennykset[k]) + '”</div>' : '') + '</div>';
   });
-  if (malliA && a.henk_palaute != null) h += '<div style="padding:6px 0;font-size:12px;color:var(--ink2)">Henkilökohtainen palaute annettu: <b>' + (a.henk_palaute ? 'Kyllä' : 'Ei') + '</b></div>';
+  if (malliA && a.henk_palaute != null) h += vpT('<div style="padding:6px 0;font-size:12px;color:var(--ink2)">Henkilökohtainen palaute annettu: <b>') + (a.henk_palaute ? vpT('Kyllä') : vpT('Ei')) + '</b></div>';
   h += '</div>';
   // Reflektio (malli B)
   if (!malliA && a.reflektio) {
     var r = a.reflektio;
-    h += '<div style="background:var(--card);border:.5px solid var(--teal);border-radius:10px;padding:12px 14px;margin-bottom:12px"><div style="font-size:11px;font-weight:600;text-transform:uppercase;color:var(--teal);margin-bottom:6px">Itsereflektio</div>'
-      + (r.onnistui ? '<div style="font-size:12px;color:var(--ink2);margin-bottom:4px"><b>Onnistui:</b> ' + _hlEsc(r.onnistui) + '</div>' : '')
-      + (r.toisin ? '<div style="font-size:12px;color:var(--ink2);margin-bottom:4px"><b>Toisin:</b> ' + _hlEsc(r.toisin) + '</div>' : '')
-      + (r.kehityskohde ? '<div style="font-size:12px;color:var(--ink2)"><b>Kehityskohde:</b> ' + _hlEsc(r.kehityskohde) + '</div>' : '') + '</div>';
+    h += vpT('<div style="background:var(--card);border:.5px solid var(--teal);border-radius:10px;padding:12px 14px;margin-bottom:12px"><div style="font-size:11px;font-weight:600;text-transform:uppercase;color:var(--teal);margin-bottom:6px">Itsereflektio</div>')
+      + (r.onnistui ? vpT('<div style="font-size:12px;color:var(--ink2);margin-bottom:4px"><b>Onnistui:</b>') + ' ' + _hlEsc(r.onnistui) + '</div>' : '')
+      + (r.toisin ? vpT('<div style="font-size:12px;color:var(--ink2);margin-bottom:4px"><b>Toisin:</b>') + ' ' + _hlEsc(r.toisin) + '</div>' : '')
+      + (r.kehityskohde ? vpT('<div style="font-size:12px;color:var(--ink2)"><b>Kehityskohde:</b>') + ' ' + _hlEsc(r.kehityskohde) + '</div>' : '') + '</div>';
   }
   // Kalibraatio-paritus (vain malli B)
   if (!malliA) h += _hlPariBlokki(a);
   // Palautekerros (täytetään async)
-  h += '<div id="hlPalauteAlue"><div style="font-size:12px;color:var(--ink3);padding:8px 0">Ladataan palautetta…</div></div>';
+  h += vpT('<div id="hlPalauteAlue"><div style="font-size:12px;color:var(--ink3);padding:8px 0">Ladataan palautetta…</div></div>');
   inner.innerHTML = h;
 }
 
@@ -15586,24 +15586,24 @@ function _hlPariBlokki(a) {
       var itse = a.arviointitapa === 'itsearvio' ? a : pari, hav = a.arviointitapa === 'havainnointi' ? a : pari;
       var kal = (typeof laskeHarjoitusKalibraatio === 'function') ? laskeHarjoitusKalibraatio(itse.vastaukset, hav.vastaukset) : { per_kriteeri: {}, ka_abs_kuilu: null };
       var rows = Object.keys(kal.per_kriteeri).map(function (bk) { var d = kal.per_kriteeri[bk]; return '<span style="font-size:11px;color:var(--ink3);margin-right:10px">' + _hlEsc(_HL_KRIT_B[bk] || bk) + ' <b style="color:' + (d === 0 ? 'var(--teal)' : Math.abs(d) >= 2 ? 'var(--amber)' : 'var(--ink2)') + '">' + (d > 0 ? '+' : '') + d + '</b></span>'; }).join('');
-      return '<div style="background:var(--card);border:.5px solid var(--teal);border-radius:10px;padding:12px 14px;margin-bottom:12px"><div style="font-size:11px;font-weight:600;text-transform:uppercase;color:var(--teal);margin-bottom:6px">⚖️ Kalibraatio (vahvistettu pari)</div>'
-        + '<div style="font-size:12px;color:var(--ink2);margin-bottom:6px">Pari: ' + (pari.arviointitapa === 'itsearvio' ? 'Itsearvio' : 'Havainnointi') + ' ' + _hlEsc(pari.pvm || '') + ' · keskikuilu <b>' + (kal.ka_abs_kuilu != null ? kal.ka_abs_kuilu : '—') + '</b> <span style="color:var(--ink3)">(itsearvio − havainnointi)</span></div>'
+      return vpT('<div style="background:var(--card);border:.5px solid var(--teal);border-radius:10px;padding:12px 14px;margin-bottom:12px"><div style="font-size:11px;font-weight:600;text-transform:uppercase;color:var(--teal);margin-bottom:6px">⚖️ Kalibraatio (vahvistettu pari)</div>')
+        + vpT('<div style="font-size:12px;color:var(--ink2);margin-bottom:6px">Pari:') + ' ' + (pari.arviointitapa === 'itsearvio' ? vpT('Itsearvio') : vpT('Havainnointi')) + ' ' + _hlEsc(pari.pvm || '') + ' ' + vpT('· keskikuilu <b>') + (kal.ka_abs_kuilu != null ? kal.ka_abs_kuilu : '—') + vpT('</b> <span style="color:var(--ink3)">(itsearvio − havainnointi)</span></div>')
         + '<div>' + (rows || '<span style="font-size:11px;color:var(--ink3)">—</span>') + '</div></div>';
     }
   }
   // Ehdota pari
   var ehd = _hlEhdotaPari(a);
-  var h = '<div style="background:var(--surface);border:.5px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:12px"><div style="font-size:11px;font-weight:600;text-transform:uppercase;color:var(--ink3);margin-bottom:6px">⚖️ Kalibraatiopari</div>';
+  var h = vpT('<div style="background:var(--surface);border:.5px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:12px"><div style="font-size:11px;font-weight:600;text-transform:uppercase;color:var(--ink3);margin-bottom:6px">⚖️ Kalibraatiopari</div>');
   if (ehd) {
     var _lcJ = function (x) { return String(x == null ? '' : x).toLowerCase().trim(); };
     var _samaJk = _lcJ(ehd.joukkue) === _lcJ(a.joukkue);
-    h += '<div style="font-size:12px;color:var(--ink2);margin-bottom:8px">Mahdollinen pari: <b>' + (ehd.arviointitapa === 'itsearvio' ? 'Itsearvio' : 'Havainnointi') + ' ' + _hlEsc(ehd.pvm || '') + '</b> <span style="color:var(--ink3)">(sama valmentaja, ±2 pv' + (_samaJk ? ' · sama joukkue' : ' · eri joukkuemerkintä — vahvista jos sama harjoitus') + ')</span></div>'
-      + '<div style="display:flex;gap:8px;flex-wrap:wrap"><button onclick="_hlVahvistaPari(\'' + _hlEsc(a._id) + '\',\'' + _hlEsc(ehd._id) + '\')" style="padding:6px 14px;border:none;border-radius:7px;background:var(--teal);color:#fff;font-size:12px;cursor:pointer">Vahvista pari</button>'
-      + '<button onclick="_hlTorjuPari(\'' + _hlEsc(a._id) + '\',\'' + _hlEsc(ehd._id) + '\')" style="padding:6px 14px;border:.5px solid var(--border);border-radius:7px;background:transparent;color:var(--ink2);font-size:12px;cursor:pointer">Ei sama harjoitus</button>'
-      + '<button onclick="_hlLinkitaManuaali(\'' + _hlEsc(a._id) + '\')" style="padding:6px 14px;border:.5px solid var(--border);border-radius:7px;background:transparent;color:var(--ink3);font-size:12px;cursor:pointer">Linkitä toinen…</button></div>';
+    h += vpT('<div style="font-size:12px;color:var(--ink2);margin-bottom:8px">Mahdollinen pari: <b>') + (ehd.arviointitapa === 'itsearvio' ? vpT('Itsearvio') : vpT('Havainnointi')) + ' ' + _hlEsc(ehd.pvm || '') + '</b> <span style="color:var(--ink3)">' + vpT('(sama valmentaja, ±2 pv') + (_samaJk ? ' ' + vpT('· sama joukkue') : ' ' + vpT('· eri joukkuemerkintä — vahvista jos sama harjoitus')) + ')</span></div>'
+      + '<div style="display:flex;gap:8px;flex-wrap:wrap"><button onclick="_hlVahvistaPari(\'' + _hlEsc(a._id) + '\',\'' + _hlEsc(ehd._id) + '\')" style="padding:6px 14px;border:none;border-radius:7px;background:var(--teal);color:#fff;font-size:12px;cursor:pointer">' + vpT('Vahvista pari') + '</button>'
+      + '<button onclick="_hlTorjuPari(\'' + _hlEsc(a._id) + '\',\'' + _hlEsc(ehd._id) + '\')" style="padding:6px 14px;border:.5px solid var(--border);border-radius:7px;background:transparent;color:var(--ink2);font-size:12px;cursor:pointer">' + vpT('Ei sama harjoitus') + '</button>'
+      + '<button onclick="_hlLinkitaManuaali(\'' + _hlEsc(a._id) + '\')" style="padding:6px 14px;border:.5px solid var(--border);border-radius:7px;background:transparent;color:var(--ink3);font-size:12px;cursor:pointer">' + vpT('Linkitä toinen…') + '</button></div>';
   } else {
-    h += '<div style="font-size:12px;color:var(--ink3);margin-bottom:8px">Ei automaattista pariehdotusta. Kalibraatio vaatii saman valmentajan vastakkaisen arviointitavan.</div>'
-      + '<button onclick="_hlLinkitaManuaali(\'' + _hlEsc(a._id) + '\')" style="padding:6px 14px;border:.5px solid var(--border);border-radius:7px;background:transparent;color:var(--ink2);font-size:12px;cursor:pointer">Linkitä pari manuaalisesti</button>';
+    h += vpT('<div style="font-size:12px;color:var(--ink3);margin-bottom:8px">Ei automaattista pariehdotusta. Kalibraatio vaatii saman valmentajan vastakkaisen arviointitavan.</div>')
+      + '<button onclick="_hlLinkitaManuaali(\'' + _hlEsc(a._id) + '\')" style="padding:6px 14px;border:.5px solid var(--border);border-radius:7px;background:transparent;color:var(--ink2);font-size:12px;cursor:pointer">' + vpT('Linkitä pari manuaalisesti') + '</button>';
   }
   return h + '</div>';
 }
@@ -15617,11 +15617,11 @@ window._hlVahvistaPari = async function (aId, bId) {
       base.doc(bId).set({ pari_id: pid, pari_vahvistettu: true }, { merge: true })
     ]);
     (_hlArvioinnit || []).forEach(function (x) { if (x._id === aId || x._id === bId) { x.pari_id = pid; x.pari_vahvistettu = true; } });
-    if (typeof toast === 'function') toast('✓ Pari vahvistettu', 'ok');
+    if (typeof toast === 'function') toast(vpT('✓ Pari vahvistettu'), 'ok');
     var cur = (_hlArvioinnit || []).filter(function (x) { return x._id === _hlAvoinId; })[0];
     if (cur) { _hlRenderTapahtuma(cur); _hlLataaPalaute(_hlAvoinId); }
     _hlRender();
-  } catch (e) { if (typeof toast === 'function') toast('Vahvistus epäonnistui: ' + ((e && e.message) || 'tuntematon'), 'error'); }
+  } catch (e) { if (typeof toast === 'function') toast(vpT('Vahvistus epäonnistui:') + ' ' + ((e && e.message) || 'tuntematon'), 'error'); }
 };
 window._hlTorjuPari = function (aId, bId) {
   _hlTorjutut[aId + '|' + bId] = 1;
@@ -15636,9 +15636,9 @@ window._hlLinkitaManuaali = function (aId) {
   ehd = ehd.slice(0, 20);
   var vanha = document.getElementById('hlLinkModal'); if (vanha) vanha.remove();
   var m = document.createElement('div'); m.id = 'hlLinkModal'; m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9500;display:flex;align-items:flex-start;justify-content:center;padding:20px 16px;overflow-y:auto'; m.onclick = function (e) { if (e.target === m) m.remove(); };
-  var h = '<div onclick="event.stopPropagation()" style="background:var(--bg2);border:.5px solid var(--border);border-radius:14px;width:min(460px,96vw);padding:20px 22px;margin:auto"><div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px"><div style="font-size:15px;font-weight:600;color:var(--ink)">Linkitä kalibraatiopari</div><button onclick="document.getElementById(\'hlLinkModal\').remove()" style="background:none;border:none;color:var(--ink3);font-size:22px;cursor:pointer">×</button></div><div style="font-size:11px;color:var(--ink3);margin-bottom:10px">Valitse saman valmentajan ' + (vastatapa === 'itsearvio' ? 'itsearvio' : 'havainnointi') + ', joka koskee samaa harjoitusta.</div>';
-  if (!ehd.length) h += '<div style="font-size:12px;color:var(--ink3)">Ei sopivia arviointeja linkitettäväksi.</div>';
-  ehd.forEach(function (x) { h += '<div onclick="document.getElementById(\'hlLinkModal\').remove();_hlVahvistaPari(\'' + _hlEsc(aId) + '\',\'' + _hlEsc(x._id) + '\')" style="padding:9px 4px;border-bottom:.5px solid var(--border);cursor:pointer;font-size:12px;color:var(--ink2)">' + _hlEsc(x.joukkue || '—') + ' · ' + _hlEsc(x.pvm || '') + ' · ' + (x.arviointitapa === 'itsearvio' ? 'Itsearvio' : 'Havainnointi') + '</div>'; });
+  var h = '<div onclick="event.stopPropagation()" style="background:var(--bg2);border:.5px solid var(--border);border-radius:14px;width:min(460px,96vw);padding:20px 22px;margin:auto"><div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px"><div style="font-size:15px;font-weight:600;color:var(--ink)">' + vpT('Linkitä kalibraatiopari') + '</div><button onclick="document.getElementById(\'hlLinkModal\').remove()" style="background:none;border:none;color:var(--ink3);font-size:22px;cursor:pointer">×</button></div><div style="font-size:11px;color:var(--ink3);margin-bottom:10px">' + vpT('Valitse saman valmentajan') + ' ' + (vastatapa === 'itsearvio' ? 'itsearvio' : 'havainnointi') + vpT(', joka koskee samaa harjoitusta.</div>');
+  if (!ehd.length) h += vpT('<div style="font-size:12px;color:var(--ink3)">Ei sopivia arviointeja linkitettäväksi.</div>');
+  ehd.forEach(function (x) { h += '<div onclick="document.getElementById(\'hlLinkModal\').remove();_hlVahvistaPari(\'' + _hlEsc(aId) + '\',\'' + _hlEsc(x._id) + '\')" style="padding:9px 4px;border-bottom:.5px solid var(--border);cursor:pointer;font-size:12px;color:var(--ink2)">' + _hlEsc(x.joukkue || '—') + ' · ' + _hlEsc(x.pvm || '') + ' · ' + (x.arviointitapa === 'itsearvio' ? vpT('Itsearvio') : vpT('Havainnointi')) + '</div>'; });
   m.innerHTML = h; document.body.appendChild(m);
 };
 async function _hlLataaPalaute(id) {
@@ -15651,32 +15651,32 @@ async function _hlLataaPalaute(id) {
     if (!arr.length) return '<div style="font-size:12px;color:var(--ink3)">' + tyhjä + '</div>';
     return arr.map(function (p) { return '<div style="font-size:12px;color:var(--ink2);padding:6px 0;border-bottom:.5px solid var(--border)">' + _hlEsc(p.teksti) + '<div style="font-size:10px;color:var(--ink3);margin-top:2px">' + _hlEsc(p.tekija_rooli || '') + ' · ' + _hlEsc(typeof tmPvmFi === 'function' ? (tmPvmFi(p.pvm) || (p.pvm || '').slice(0, 10)) : (p.pvm || '').slice(0, 10)) + '</div></div>'; }).join('');
   };
-  var h = '<div style="background:var(--card);border:.5px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:10px"><div style="font-size:11px;font-weight:600;text-transform:uppercase;color:var(--teal);margin-bottom:6px">💬 Jaettu palaute <span style="color:var(--ink3);font-weight:400;text-transform:none">(näkyy valmentajalle)</span></div>' + listaHtml(jaettu, 'Ei jaettua palautetta vielä.') + '</div>';
-  h += '<div style="background:var(--card);border:.5px solid var(--amber);border-radius:10px;padding:12px 14px;margin-bottom:12px"><div style="font-size:11px;font-weight:600;text-transform:uppercase;color:var(--amber);margin-bottom:6px">🔒 Yksityinen muistiinpano <span style="color:var(--ink3);font-weight:400;text-transform:none">(vain VP/mentori)</span></div>' + listaHtml(yksit, 'Ei yksityisiä muistiinpanoja.') + '</div>';
+  var h = vpT('<div style="background:var(--card);border:.5px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:10px"><div style="font-size:11px;font-weight:600;text-transform:uppercase;color:var(--teal);margin-bottom:6px">💬 Jaettu palaute <span style="color:var(--ink3);font-weight:400;text-transform:none">(näkyy valmentajalle)</span></div>') + listaHtml(jaettu, vpT('Ei jaettua palautetta vielä.')) + '</div>';
+  h += vpT('<div style="background:var(--card);border:.5px solid var(--amber);border-radius:10px;padding:12px 14px;margin-bottom:12px"><div style="font-size:11px;font-weight:600;text-transform:uppercase;color:var(--amber);margin-bottom:6px">🔒 Yksityinen muistiinpano <span style="color:var(--ink3);font-weight:400;text-transform:none">(vain VP/mentori)</span></div>') + listaHtml(yksit, vpT('Ei yksityisiä muistiinpanoja.')) + '</div>';
   // Lisäyslomake (oletus = jaettu)
   h += '<div style="background:var(--surface);border:.5px solid var(--border);border-radius:10px;padding:12px 14px">'
-    + '<textarea id="hlPalauteTeksti" rows="2" placeholder="Kirjoita palaute…" style="width:100%;padding:7px 9px;border:.5px solid var(--border);border-radius:6px;background:var(--bg2);color:var(--ink);font-size:12px;resize:vertical;margin-bottom:8px"></textarea>'
+    + vpT('<textarea id="hlPalauteTeksti" rows="2" placeholder="Kirjoita palaute…" style="width:100%;padding:7px 9px;border:.5px solid var(--border);border-radius:6px;background:var(--bg2);color:var(--ink);font-size:12px;resize:vertical;margin-bottom:8px"></textarea>')
     + '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">'
-    + '<label style="font-size:12px;color:var(--ink2);display:flex;align-items:center;gap:5px"><input type="radio" name="hlPalauteTyyppi" value="jaettu" checked style="accent-color:var(--teal)"> Jaettu</label>'
-    + '<label style="font-size:12px;color:var(--ink2);display:flex;align-items:center;gap:5px"><input type="radio" name="hlPalauteTyyppi" value="yksityinen" style="accent-color:var(--amber)"> Yksityinen</label>'
-    + '<button onclick="_hlLisaaPalaute()" style="margin-left:auto;padding:7px 16px;border:none;border-radius:7px;background:var(--teal);color:#fff;font-size:12px;font-weight:600;cursor:pointer">Lisää palaute</button></div></div>';
+    + vpT('<label style="font-size:12px;color:var(--ink2);display:flex;align-items:center;gap:5px"><input type="radio" name="hlPalauteTyyppi" value="jaettu" checked style="accent-color:var(--teal)"> Jaettu</label>')
+    + vpT('<label style="font-size:12px;color:var(--ink2);display:flex;align-items:center;gap:5px"><input type="radio" name="hlPalauteTyyppi" value="yksityinen" style="accent-color:var(--amber)"> Yksityinen</label>')
+    + vpT('<button onclick="_hlLisaaPalaute()" style="margin-left:auto;padding:7px 16px;border:none;border-radius:7px;background:var(--teal);color:#fff;font-size:12px;font-weight:600;cursor:pointer">Lisää palaute</button></div></div>');
   alue.innerHTML = h;
 }
 window._hlLisaaPalaute = async function () {
   var ta = document.getElementById('hlPalauteTeksti'); var teksti = (ta && ta.value || '').trim();
-  if (!teksti) { if (typeof toast === 'function') toast('Kirjoita palaute ensin', 'error'); return; }
+  if (!teksti) { if (typeof toast === 'function') toast(vpT('Kirjoita palaute ensin'), 'error'); return; }
   if (!_hlAvoinId) return;
   var tyyppiEl = document.querySelector('input[name="hlPalauteTyyppi"]:checked');
-  var tyyppi = tyyppiEl ? tyyppiEl.value : 'jaettu';
+  var tyyppi = tyyppiEl ? tyyppiEl.value : vpT('jaettu');
   try {
     var u = auth.currentUser; var rooli = 'vp';
     if (u) { var tr = await u.getIdToken(true).then(function () { return u.getIdTokenResult(); }).catch(function () { return null; }); if (tr && tr.claims && tr.claims.rooli) rooli = tr.claims.rooli; }   // §7.2 tuore token + rooli
     var col = tyyppi === 'yksityinen' ? 'palaute_yksityinen' : 'palaute_jaettu';
     await db.collection('seurat').doc(_seuraId).collection('harjoitusarvioinnit').doc(_hlAvoinId).collection(col)
       .add({ teksti: teksti, tekija_uid: (u ? u.uid : _uid), tekija_rooli: rooli, pvm: new Date().toISOString() });
-    if (typeof toast === 'function') toast('✓ Palaute tallennettu (' + (tyyppi === 'yksityinen' ? 'yksityinen' : 'jaettu') + ')', 'ok');
+    if (typeof toast === 'function') toast(vpT('✓ Palaute tallennettu (') + (tyyppi === 'yksityinen' ? vpT('yksityinen') : vpT('jaettu')) + ')', 'ok');
     _hlLataaPalaute(_hlAvoinId);
-  } catch (e) { if (typeof toast === 'function') toast('Tallennus epäonnistui: ' + ((e && e.message) || 'tuntematon'), 'error'); }
+  } catch (e) { if (typeof toast === 'function') toast(vpT('Tallennus epäonnistui:') + ' ' + ((e && e.message) || 'tuntematon'), 'error'); }
 };
 
 /* ═══════════ R2-B J1 — JOUKKUEÄLY · seuratason talenttiraportti (aggregaatti, READ-ONLY) ═══════════
