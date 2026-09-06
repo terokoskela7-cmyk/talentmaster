@@ -17,7 +17,7 @@
 <!-- Eerikkilä-normit + universaali testirekisteri (eerikkilaTaso, laskeFVP) — 10m/5m-tasot + FVP-profiili -->
 <script src="lib/tm_lang.js?v=9"></script>   <!-- i18n V0 — fi/sv/en käännöstaulukko + t() + kieli-init (putkitus) -->
 <script src="lib/tm_i18n_common.js?v=2"></script>   <!-- i18n Vaihe 0 — JAETTU henkilöstö-i18n + lukittu glossaari (ENNEN sivukarttaa) -->
-<script src="lib/tm_vp_i18n.js?v=33"></script>   <!-- i18n Vaihe 5 — VP sv (sivukartta); vpT/vpLokalisoi delegoivat commoniin -->
+<script src="lib/tm_vp_i18n.js?v=34"></script>   <!-- i18n Vaihe 5 — VP sv (sivukartta); vpT/vpLokalisoi delegoivat commoniin -->
 
 
 <script src="lib/tm_eerikkila_normit.js?v=45"></script>   <!-- v43: D2-kortti d2_taso-ensin (renderKehityskorttiHTML, PR #264 · §30/#262) -->
@@ -6716,7 +6716,7 @@ function _vpTtKorttiHTML(p) {
   h += '<div class="jsp-kt-edit" style="margin-top:10px"><label>Jakson kesto</label><select id="_vpTtKesto' + pid + '" class="jsp-arv-select" onclick="event.stopPropagation()">'
     + [4, 6, 8, 10, 12].map(function (vk) { return '<option value="' + vk + '"' + (vk === _kestoNyt ? ' selected' : '') + '>' + vk + ' vk</option>'; }).join('') + '</select></div>';
   // Tallenna
-  h += '<div class="jsp-kt-btns"><button class="jsp-kt-btn primary" onclick="_vpTtVieTreeniin(\'' + pid + '\',\'' + item.avain + '\')">＋ Tallenna jaksofokus</button></div>';
+  h += '<div class="jsp-kt-btns"><button class="jsp-kt-btn primary" onclick="_vpTtVieTreeniin(\'' + pid + '\',\'' + item.avain + '\')">' + vpT('＋ Tallenna jaksofokus') + '</button></div>';
   return h;
 }
 window._vpTtPick = function (uid, avain) { const pid = uid.replace(/^vp/, ''); window._vpTtValinta[pid] = avain; if (typeof _vpAloitusReRender === 'function') _vpAloitusReRender(); };
@@ -6896,10 +6896,10 @@ function renderJaksofokus() {
   const JF = window.TM_JAKSOFOKUS;
   const pel = _jfPelaajatValitussa();
   const kausiEl = document.getElementById('jfKausiInfo');
-  if (kausiEl) kausiEl.textContent = pel.length + ' pelaajaa' + (window._jfJoukkue ? '' : ' · kaikki joukkueet');
+  if (kausiEl) kausiEl.textContent = pel.length + ' pelaajaa' + (window._jfJoukkue ? '' : ' ' + vpT('· kaikki joukkueet'));
 
-  if (!kaikki.length) { host.innerHTML = '<div style="padding:30px;text-align:center;color:var(--ink3)">Ladataan pelaajia…</div>'; return; }
-  if (!JF) { host.innerHTML = '<div style="padding:20px;color:var(--amber)">Jaksofokus-kirjasto ei latautunut.</div>'; return; }
+  if (!kaikki.length) { host.innerHTML = vpT('<div style="padding:30px;text-align:center;color:var(--ink3)">Ladataan pelaajia…</div>'); return; }
+  if (!JF) { host.innerHTML = vpT('<div style="padding:20px;color:var(--amber)">Jaksofokus-kirjasto ei latautunut.</div>'); return; }
 
   const k = JF.tmJfKooste(pel);
   let h = '';
@@ -6908,18 +6908,18 @@ function renderJaksofokus() {
   const kattWarn = k.kattavuus.pct < 50;
   const talWarn = k.talentit.ilman > 0;
   h += '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:14px 0">';
-  h += _jfKpi('Kattavuus', k.kattavuus.katettu + '/' + k.kattavuus.yht, k.kattavuus.pct + ' % — ' + k.kattavuus.ilman + ' ilman fokusta', kattWarn, k.kattavuus.pct);
-  h += _jfKpi('Jaksot', k.jaksot.aktiiviset + ' <span style="font-size:13px;color:var(--ink3)">akt.</span>', (k.jaksot.umpeutuneet ? '🟠 ' + k.jaksot.umpeutuneet + ' umpeutunut' : 'kaikki ajan tasalla'), false, null);
-  h += _jfKpi('Talentit katettu', k.talentit.katettu + '/' + k.talentit.yht, (k.talentit.ilman ? k.talentit.ilman + ' talentti ilman fokusta' : 'kaikki ohjattu'), talWarn && k.talentit.yht > 0, null);
-  h += _jfKpi('Kuka asetti', (k.lahde.valmentaja + ' valm · ' + (k.lahde.vp + k.lahde.talenttivalmentaja) + ' VP'), 'delegointi näkyvissä', false, null, true);
+  h += _jfKpi(vpT('Kattavuus'), k.kattavuus.katettu + '/' + k.kattavuus.yht, k.kattavuus.pct + ' % — ' + k.kattavuus.ilman + ' ' + vpT('ilman fokusta'), kattWarn, k.kattavuus.pct);
+  h += _jfKpi(vpT('Jaksot'), k.jaksot.aktiiviset + ' <span style="font-size:13px;color:var(--ink3)">akt.</span>', (k.jaksot.umpeutuneet ? '🟠 ' + k.jaksot.umpeutuneet + ' ' + vpT('umpeutunut') : vpT('kaikki ajan tasalla')), false, null);
+  h += _jfKpi(vpT('Talentit katettu'), k.talentit.katettu + '/' + k.talentit.yht, (k.talentit.ilman ? k.talentit.ilman + ' ' + vpT('talentti ilman fokusta') : vpT('kaikki ohjattu')), talWarn && k.talentit.yht > 0, null);
+  h += _jfKpi(vpT('Kuka asetti'), (k.lahde.valmentaja + ' ' + vpT('valm ·') + ' ' + (k.lahde.vp + k.lahde.talenttivalmentaja) + ' VP'), vpT('delegointi näkyvissä'), false, null, true);
   h += '</div>';
 
   // ── Teemakeskittymä ──
   h += '<div style="background:var(--bg2);border:.5px solid var(--border);border-radius:14px;padding:16px;margin-bottom:14px">';
-  h += '<h3 style="font-family:\'Cormorant Garamond\',serif;font-weight:400;font-size:16px;margin-bottom:2px">Teemakeskittymä</h3>';
-  h += '<div style="font-size:11px;color:var(--ink3);margin-bottom:12px">Mihin joukkueen fokukset painottuvat — ≥' + JF.RYHMA_KYNNYS + ' samaa → ryhmäharjoite kannattaa.</div>';
+  h += '<h3 style="font-family:\'Cormorant Garamond\',serif;font-weight:400;font-size:16px;margin-bottom:2px">' + vpT('Teemakeskittymä') + '</h3>';
+  h += vpT('<div style="font-size:11px;color:var(--ink3);margin-bottom:12px">Mihin joukkueen fokukset painottuvat — ≥') + JF.RYHMA_KYNNYS + ' ' + vpT('samaa → ryhmäharjoite kannattaa.</div>');
   if (!k.teemat.length) {
-    h += '<div style="font-size:12.5px;color:var(--ink3);font-style:italic">Ei jaksofokuksia vielä — aseta pelaajille alla.</div>';
+    h += vpT('<div style="font-size:12.5px;color:var(--ink3);font-style:italic">Ei jaksofokuksia vielä — aseta pelaajille alla.</div>');
   } else {
     const maxC = k.teemat[0].count || 1;
     k.teemat.forEach(function (t) {
@@ -6928,7 +6928,7 @@ function renderJaksofokus() {
         + '<div style="width:190px;font-size:12.5px;color:var(--ink2);flex-shrink:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + _jsvEsc(t.nimi) + '</div>'
         + '<div style="flex:1;height:20px;background:var(--ov-1);border-radius:5px;overflow:hidden"><div style="height:100%;border-radius:5px;width:' + w + '%;background:' + (t.ryhma ? 'linear-gradient(90deg,rgba(224,160,64,.6),rgba(224,160,64,.3))' : 'linear-gradient(90deg,rgba(40,176,144,.5),rgba(40,176,144,.28))') + '"></div></div>'
         + '<div style="width:26px;text-align:right;font-size:12px;font-weight:600;color:var(--ink2)">' + t.count + '</div>'
-        + (t.ryhma ? '<span onclick="_jfRyhmaharjoite(\'' + _jsvEsc(t.avain) + '\')" style="font-size:10.5px;color:var(--amber);border:.5px solid rgba(224,160,64,.4);border-radius:999px;padding:2px 9px;cursor:pointer;white-space:nowrap">▸ Ryhmäharjoite</span>' : '<span style="width:92px"></span>')
+        + (t.ryhma ? '<span onclick="_jfRyhmaharjoite(\'' + _jsvEsc(t.avain) + '\')" style="font-size:10.5px;color:var(--amber);border:.5px solid rgba(224,160,64,.4);border-radius:999px;padding:2px 9px;cursor:pointer;white-space:nowrap">' + vpT('▸ Ryhmäharjoite') + '</span>' : '<span style="width:92px"></span>')
         + '</div>';
     });
   }
@@ -6941,20 +6941,20 @@ function renderJaksofokus() {
   talentit.sort(_sort); muut.sort(_sort);
 
   h += '<div style="background:var(--bg2);border:.5px solid var(--border);border-radius:14px;padding:16px;margin-bottom:14px">';
-  h += '<h3 style="font-family:\'Cormorant Garamond\',serif;font-weight:400;font-size:16px;margin-bottom:2px">Pelaajakohtainen kattavuus</h3>';
-  h += '<div style="font-size:11px;color:var(--ink3);margin-bottom:6px">Talentit ensin (VP-vastuu §37). Klikkaa riviä → pelaajan kortti, jossa asetat/muokkaat jaksofokuksen (konsepti→cue→harjoite).</div>';
+  h += '<h3 style="font-family:\'Cormorant Garamond\',serif;font-weight:400;font-size:16px;margin-bottom:2px">' + vpT('Pelaajakohtainen kattavuus') + '</h3>';
+  h += vpT('<div style="font-size:11px;color:var(--ink3);margin-bottom:6px">Talentit ensin (VP-vastuu §37). Klikkaa riviä → pelaajan kortti, jossa asetat/muokkaat jaksofokuksen (konsepti→cue→harjoite).</div>');
   if (talentit.length) {
-    h += '<div style="font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink3);margin:14px 2px 5px">⭐ Talentit (' + talentit.length + ')</div>';
+    h += vpT('<div style="font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink3);margin:14px 2px 5px">⭐ Talentit (') + talentit.length + ')</div>';
     h += _jfTaulukko(talentit, JF, true);
   }
   if (muut.length) {
-    h += '<div style="font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink3);margin:16px 2px 5px">Muut pelaajat (' + muut.length + ')</div>';
+    h += vpT('<div style="font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink3);margin:16px 2px 5px">Muut pelaajat (') + muut.length + ')</div>';
     h += _jfTaulukko(muut, JF, false);
   }
-  if (!pel.length) h += '<div style="padding:14px;color:var(--ink3);font-size:13px">Ei pelaajia valitussa joukkueessa.</div>';
+  if (!pel.length) h += vpT('<div style="padding:14px;color:var(--ink3);font-size:13px">Ei pelaajia valitussa joukkueessa.</div>');
   h += '</div>';
 
-  h += '<div style="font-size:11px;color:var(--ink3);line-height:1.7;padding:0 2px"><b style="color:var(--ink2)">Kolme kysymystä, yksi näkymä.</b> Kattavuus (onko suunta) · Teemakeskittymä (≥' + JF.RYHMA_KYNNYS + ' samaa → ryhmäharjoite) · Talentit ohjattu (VP-vastuu §37). Kaikki jaksofokus-pikakentästä (§26). Rivi → pelaajan kortti, jossa yksi jaettu jaksofokus-editori (konsepti→cue→harjoite, VP-lähde).</div>';
+  h += vpT('<div style="font-size:11px;color:var(--ink3);line-height:1.7;padding:0 2px"><b style="color:var(--ink2)">Kolme kysymystä, yksi näkymä.</b> Kattavuus (onko suunta) · Teemakeskittymä (≥') + JF.RYHMA_KYNNYS + ' ' + vpT('samaa → ryhmäharjoite) · Talentit ohjattu (VP-vastuu §37). Kaikki jaksofokus-pikakentästä (§26). Rivi → pelaajan kortti, jossa yksi jaettu jaksofokus-editori (konsepti→cue→harjoite, VP-lähde).</div>');
 
   host.innerHTML = h;
 }
@@ -6970,32 +6970,32 @@ function _jfKpi(l, v, s, warn, pct, pieni) {
 
 function _jfTaulukko(lista, JF, talentti) {
   let h = '<table style="width:100%;border-collapse:collapse;font-size:12.5px">';
-  h += '<tr><th style="text-align:left;font-size:9.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink3);font-weight:600;padding:6px 8px;border-bottom:.5px solid var(--border)">Pelaaja</th>'
-    + '<th style="text-align:left;font-size:9.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink3);font-weight:600;padding:6px 8px;border-bottom:.5px solid var(--border)">Konsepti</th>'
-    + '<th style="text-align:left;font-size:9.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink3);font-weight:600;padding:6px 8px;border-bottom:.5px solid var(--border)">Lähde</th>'
-    + '<th style="text-align:left;font-size:9.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink3);font-weight:600;padding:6px 8px;border-bottom:.5px solid var(--border)">Jakso</th>'
-    + '<th style="text-align:left;font-size:9.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink3);font-weight:600;padding:6px 8px;border-bottom:.5px solid var(--border)">Tila</th><th style="border-bottom:.5px solid var(--border)"></th></tr>';
+  h += vpT('<tr><th style="text-align:left;font-size:9.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink3);font-weight:600;padding:6px 8px;border-bottom:.5px solid var(--border)">Pelaaja</th>')
+    + vpT('<th style="text-align:left;font-size:9.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink3);font-weight:600;padding:6px 8px;border-bottom:.5px solid var(--border)">Konsepti</th>')
+    + vpT('<th style="text-align:left;font-size:9.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink3);font-weight:600;padding:6px 8px;border-bottom:.5px solid var(--border)">Lähde</th>')
+    + vpT('<th style="text-align:left;font-size:9.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink3);font-weight:600;padding:6px 8px;border-bottom:.5px solid var(--border)">Jakso</th>')
+    + vpT('<th style="text-align:left;font-size:9.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink3);font-weight:600;padding:6px 8px;border-bottom:.5px solid var(--border)">Tila</th><th style="border-bottom:.5px solid var(--border)"></th></tr>');
   // Vaihe C — joukkuenäkymä = kattavuus + tila (read). Rivi → pelaajakortti (avaaPelaaja, Vaihe 0 -reititys);
   // editointi (aseta/muokkaa/sulje jakso) tapahtuu kortin _jfOhjaa-paneelissa (YKSI jaettu editori). Ei enää
   // inline-editointinappeja sivupalkissa → "kaksi samannimistä Jaksofokusta" -duplikaatti poistuu.
-  const _navSol = '<td style="padding:9px 8px;border-bottom:.5px solid var(--ov-3);text-align:right;color:var(--ink3)"><span style="font-size:15px" title="Avaa pelaajakortti">→</span></td>';
+  const _navSol = vpT('<td style="padding:9px 8px;border-bottom:.5px solid var(--ov-3);text-align:right;color:var(--ink3)"><span style="font-size:15px" title="Avaa pelaajakortti">→</span></td>');
   lista.forEach(function (p) {
     const jf = p.jaksofokus;
     const on = !!(jf && jf.konsepti_avain);
     const pid = _jsvEsc(p.id);
     const nimi = (talentti ? '<span style="color:var(--amber)">⭐</span> ' : '') + _jsvEsc(_jfNimi(p));
-    h += '<tr class="jf-prow" onclick="avaaPelaaja(\'' + pid + '\')" title="Avaa pelaajakortti — aseta/muokkaa jaksofokus siellä"><td style="padding:9px 8px;border-bottom:.5px solid var(--ov-3);color:var(--ink);font-weight:500;vertical-align:middle">' + nimi + '</td>';
+    h += '<tr class="jf-prow" onclick="avaaPelaaja(\'' + pid + '\')" title="' + vpT('Avaa pelaajakortti — aseta/muokkaa jaksofokus siellä') + '"><td style="padding:9px 8px;border-bottom:.5px solid var(--ov-3);color:var(--ink);font-weight:500;vertical-align:middle">' + nimi + '</td>';
     if (!on) {
       // Vaihe 5: arviointi olemassa → silta-ehdotus näkyy rivillä READ-tietona (asettaminen kortin editorissa).
       const _sEhd = (typeof _vpSiltaEhdotukset === 'function') ? _vpSiltaEhdotukset(p) : [];
       const _s1 = _sEhd.length ? _sEhd[0] : null;
       const _konseptiSol = _s1
-        ? '<span style="color:var(--teal)" title="' + _jsvEsc(_s1.syy) + '">Ehdota: ' + _jsvEsc(_s1.konsepti_nimi) + '</span>'
+        ? '<span style="color:var(--teal)" title="' + _jsvEsc(_s1.syy) + vpT('">Ehdota:') + ' ' + _jsvEsc(_s1.konsepti_nimi) + '</span>'
         : '—';
       h += '<td style="padding:9px 8px;border-bottom:.5px solid var(--ov-3);color:var(--ink3)">' + _konseptiSol + '</td>'
-        + '<td style="padding:9px 8px;border-bottom:.5px solid var(--ov-3);color:var(--ink3)">' + (_s1 ? '<span style="font-size:9.5px;border-radius:999px;padding:2px 8px;border:.5px solid rgba(40,176,144,.35);color:var(--teal);background:var(--ov-1)">arviointi</span>' : '—') + '</td>'
+        + '<td style="padding:9px 8px;border-bottom:.5px solid var(--ov-3);color:var(--ink3)">' + (_s1 ? vpT('<span style="font-size:9.5px;border-radius:999px;padding:2px 8px;border:.5px solid rgba(40,176,144,.35);color:var(--teal);background:var(--ov-1)">arviointi</span>') : '—') + '</td>'
         + '<td style="padding:9px 8px;border-bottom:.5px solid var(--ov-3);color:var(--ink3)">—</td>'
-        + '<td style="padding:9px 8px;border-bottom:.5px solid var(--ov-3);color:var(--ink3);font-size:11.5px">ei fokusta</td>'
+        + vpT('<td style="padding:9px 8px;border-bottom:.5px solid var(--ov-3);color:var(--ink3);font-size:11.5px">ei fokusta</td>')
         + _navSol + '</tr>';
       return;
     }
@@ -7007,8 +7007,8 @@ function _jfTaulukko(lista, JF, talentti) {
     const prog = Math.round(kulunut / vk * 100);
     h += '<td style="padding:9px 8px;border-bottom:.5px solid var(--ov-3);color:var(--ink2)">' + _jsvEsc(jf.konsepti_nimi || jf.konsepti_avain) + '</td>'
       + '<td style="padding:9px 8px;border-bottom:.5px solid var(--ov-3)">' + _jfLahdeBadge(jf.lahde) + '</td>'
-      + '<td style="padding:9px 8px;border-bottom:.5px solid var(--ov-3);color:var(--ink2)"><div style="display:flex;align-items:center;gap:7px"><span style="width:60px;height:5px;border-radius:3px;background:var(--ov-3);overflow:hidden;display:inline-block"><i style="display:block;height:100%;background:' + (umpeutunut ? 'var(--amber)' : 'var(--teal)') + ';width:' + prog + '%"></i></span> vk ' + kulunut + '/' + vk + '</div></td>'
-      + '<td style="padding:9px 8px;border-bottom:.5px solid var(--ov-3);font-size:11.5px;color:' + (umpeutunut ? 'var(--amber)' : 'var(--teal)') + '">' + (umpeutunut ? '🟠 umpeutunut' : '🟢 aktiivinen') + '</td>'
+      + '<td style="padding:9px 8px;border-bottom:.5px solid var(--ov-3);color:var(--ink2)"><div style="display:flex;align-items:center;gap:7px"><span style="width:60px;height:5px;border-radius:3px;background:var(--ov-3);overflow:hidden;display:inline-block"><i style="display:block;height:100%;background:' + (umpeutunut ? 'var(--amber)' : 'var(--teal)') + ';width:' + prog + vpT('%"></i></span> vk') + ' ' + kulunut + '/' + vk + '</div></td>'
+      + '<td style="padding:9px 8px;border-bottom:.5px solid var(--ov-3);font-size:11.5px;color:' + (umpeutunut ? 'var(--amber)' : 'var(--teal)') + '">' + (umpeutunut ? vpT('🟠 umpeutunut') : vpT('🟢 aktiivinen')) + '</td>'
       + _navSol + '</tr>';
   });
   return h + '</table>';
@@ -7035,34 +7035,34 @@ function _vpJfToggleHTML(p) {
     return '<span onclick="_vpJfSetDomeeni(\'' + pid + '\',\'' + d.avain + '\')" title="' + _jsvEsc(d.nimi + ' · ' + d.dim) + '" style="flex:1;text-align:center;padding:8px 6px;font-size:12px;font-weight:500;cursor:pointer;'
       + (on ? 'background:rgba(40,176,144,.14);color:var(--teal)' : 'background:transparent;color:var(--ink3)') + '"><span style="font-size:15px">' + d.ikoni + '</span><br><span style="font-size:9.5px;letter-spacing:.02em">' + _jsvEsc(d.nimi) + '</span></span>';
   };
-  return '<div style="margin-bottom:12px"><div style="font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink3);margin-bottom:5px">Domeeni · mitä jakso kehittää</div>'
+  return vpT('<div style="margin-bottom:12px"><div style="font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink3);margin-bottom:5px">Domeeni · mitä jakso kehittää</div>')
     + '<div style="display:flex;border:.5px solid var(--border);border-radius:8px;overflow:hidden">' + domeenit.map(seg).join('') + '</div></div>';
 }
 
 // Fyysinen näkymä — teemavalinta (TM_FYYSTEEMAT) + valinnainen ohjelma. Save → _vpAsetaFyysFokus (domeeni-turva).
 function _vpJfFyysHTML(p) {
   const LIB = window.TM_FYYSTEEMAT_LIB;
-  if (!LIB || !Array.isArray(LIB.TM_FYYSTEEMAT)) return '<div style="color:var(--ink3);font-size:13px">Fyysinen teemakirjasto ei latautunut.</div>';
+  if (!LIB || !Array.isArray(LIB.TM_FYYSTEEMAT)) return vpT('<div style="color:var(--ink3);font-size:13px">Fyysinen teemakirjasto ei latautunut.</div>');
   const esc = _jsvEsc; const pid = esc(p.id);
   const ehd = (typeof _vpFyysEhdotus === 'function') ? _vpFyysEhdotus(p, true) : null;
   const oletus = window._vpJfFyysTeema[p.id]
     || (p.jaksofokus && p.jaksofokus.domeeni === 'fyysinen' && p.jaksofokus.konsepti_avain)
     || (ehd && ehd.avain) || LIB.TM_FYYSTEEMAT[0].avain;
-  let h = '<div class="jsp-kt-box"><div class="jsp-kt-bt">Fyysinen teema</div>';
+  let h = vpT('<div class="jsp-kt-box"><div class="jsp-kt-bt">Fyysinen teema</div>');
   h += '<select id="_vpJfFyysSel" class="jsp-arv-select" style="width:100%" onclick="event.stopPropagation()" onchange="window._vpJfFyysTeema[\'' + pid + '\']=this.value">';
   LIB.TM_FYYSTEEMAT.forEach(function (t) { h += '<option value="' + esc(t.avain) + '"' + (t.avain === oletus ? ' selected' : '') + '>' + esc((t.ikoni ? t.ikoni + ' ' : '') + t.nimi) + '</option>'; });
   h += '</select>';
-  if (ehd) h += '<div style="font-size:10.5px;color:' + (ehd.prioriteetti ? 'var(--amber)' : 'var(--ink3)') + ';margin-top:5px">' + (ehd.prioriteetti ? '⚠ FLEI-prioriteetti: ' : '🏃 Heikoin D1: ') + esc(ehd.nimi) + (ehd.peruste ? ' — ' + esc(ehd.peruste) : '') + '</div>';
+  if (ehd) h += '<div style="font-size:10.5px;color:' + (ehd.prioriteetti ? 'var(--amber)' : 'var(--ink3)') + ';margin-top:5px">' + (ehd.prioriteetti ? vpT('⚠ FLEI-prioriteetti:') + ' ' : vpT('🏃 Heikoin D1:') + ' ') + esc(ehd.nimi) + (ehd.peruste ? ' — ' + esc(ehd.peruste) : '') + '</div>';
   h += '</div>';
   const TYYPIT = LIB.TM_OHJELMA_TEMPLAATIT ? Object.keys(LIB.TM_OHJELMA_TEMPLAATIT) : [];
-  h += '<div class="jsp-kt-box" style="margin-top:8px"><div class="jsp-kt-bt">Henkilökohtainen ohjelma (valinnainen)</div>';
-  h += '<select id="_vpFyysOhjelma" onchange="_vpFyysOhjelmaPreview()" onclick="event.stopPropagation()" class="jsp-arv-select" style="width:100%"><option value="">— Ei ohjelmaa (pelkkä fokus) —</option>';
+  h += vpT('<div class="jsp-kt-box" style="margin-top:8px"><div class="jsp-kt-bt">Henkilökohtainen ohjelma (valinnainen)</div>');
+  h += vpT('<select id="_vpFyysOhjelma" onchange="_vpFyysOhjelmaPreview()" onclick="event.stopPropagation()" class="jsp-arv-select" style="width:100%"><option value="">— Ei ohjelmaa (pelkkä fokus) —</option>');
   TYYPIT.forEach(function (t) { const tpl = LIB.TM_OHJELMA_TEMPLAATIT[t]; h += '<option value="' + esc(t) + '">' + esc(tpl.nimi) + '</option>'; });
   h += '</select><div id="_vpFyysOhjelmaPrev" style="margin-top:8px"></div>';
-  if (typeof _vpOhjKirjastoModal === 'function') h += '<div style="margin-top:8px"><button onclick="_vpOhjKirjastoModal(\'' + pid + '\',document.getElementById(\'_vpJfFyysSel\').value)" style="width:100%;font-size:12px;border-radius:8px;padding:8px 10px;cursor:pointer;border:.5px solid var(--border);background:var(--ov-1);color:var(--ink2)">📚 Käytä kirjaston ohjelmaa</button></div>';
+  if (typeof _vpOhjKirjastoModal === 'function') h += '<div style="margin-top:8px"><button onclick="_vpOhjKirjastoModal(\'' + pid + '\',document.getElementById(\'_vpJfFyysSel\').value)" style="width:100%;font-size:12px;border-radius:8px;padding:8px 10px;cursor:pointer;border:.5px solid var(--border);background:var(--ov-1);color:var(--ink2)">' + vpT('📚 Käytä kirjaston ohjelmaa') + '</button></div>';
   h += '</div>';
-  h += '<div style="font-size:10.5px;color:var(--ink3);margin-top:8px">4 vk · evidenssi mittauksesta jakson lopussa (§29)</div>';
-  h += '<div class="jsp-kt-btns"><button class="jsp-kt-btn primary" onclick="_vpAsetaFyysFokus(\'' + pid + '\',document.getElementById(\'_vpJfFyysSel\').value)">＋ Tallenna jaksofokus</button></div>';
+  h += vpT('<div style="font-size:10.5px;color:var(--ink3);margin-top:8px">4 vk · evidenssi mittauksesta jakson lopussa (§29)</div>');
+  h += '<div class="jsp-kt-btns"><button class="jsp-kt-btn primary" onclick="_vpAsetaFyysFokus(\'' + pid + '\',document.getElementById(\'_vpJfFyysSel\').value)">' + vpT('＋ Tallenna jaksofokus') + '</button></div>';
   return h;
 }
 
@@ -7071,7 +7071,7 @@ function _vpJfBodyHTML(p) {
   const dom = window._vpJfDomeeni[p.id] || 'teknis_taktinen';
   if (dom === 'fyysinen') return _vpJfFyysHTML(p);
   if (dom === 'psyykkinen' || dom === 'sosiaalinen') return _vpJfKehitysHTML(p, dom);
-  return (typeof _vpTtKorttiHTML === 'function') ? (_vpTtKorttiHTML(p) || '<div style="color:var(--ink3);font-size:13px">Konseptivalikko ei saatavilla tälle pelaajalle (ikä/pelipaikka).</div>') : '';
+  return (typeof _vpTtKorttiHTML === 'function') ? (_vpTtKorttiHTML(p) || vpT('<div style="color:var(--ink3);font-size:13px">Konseptivalikko ei saatavilla tälle pelaajalle (ikä/pelipaikka).</div>')) : '';
 }
 
 // Henkinen (D3) / Sosiaalinen (D5) — yksilökonseptivalinta (EI vaadi pelipaikkaa). Seed-konseptit lib
@@ -7081,27 +7081,27 @@ function _vpJfKehitysHTML(p, domeeni) {
   const LIB = window.TM_JAKSOFOKUS;
   const lista = (LIB && typeof LIB.tmJfKonseptit === 'function') ? LIB.tmJfKonseptit(domeeni) : [];
   const dMeta = (LIB && typeof LIB.tmJfDomeeni === 'function') ? LIB.tmJfDomeeni(domeeni) : null;
-  if (!lista.length) return '<div style="color:var(--ink3);font-size:13px">' + (dMeta ? _jsvEsc(dMeta.nimi) : 'Domeeni') + '-konseptikirjasto ei latautunut.</div>';
+  if (!lista.length) return '<div style="color:var(--ink3);font-size:13px">' + (dMeta ? _jsvEsc(dMeta.nimi) : vpT('Domeeni')) + vpT('-konseptikirjasto ei latautunut.</div>');
   const esc = _jsvEsc; const pid = esc(p.id);
   window._vpJfKehitysValinta = window._vpJfKehitysValinta || {};
   const valittu = (window._vpJfKehitysValinta[p.id] && lista.some(function (k) { return k.avain === window._vpJfKehitysValinta[p.id]; })) ? window._vpJfKehitysValinta[p.id]
     : ((p.jaksofokus && p.jaksofokus.domeeni === domeeni && p.jaksofokus.konsepti_avain && lista.some(function (k) { return k.avain === p.jaksofokus.konsepti_avain; })) ? p.jaksofokus.konsepti_avain : lista[0].avain);
   const item = lista.find(function (k) { return k.avain === valittu; }) || lista[0];
   let h = '';
-  h += '<div style="font-size:11px;color:var(--ink3);margin-bottom:6px">' + (dMeta ? esc(dMeta.ikoni + ' ' + dMeta.nimi + ' · ' + dMeta.dim) : '') + ' · yksilökonsepti (ei vaadi pelipaikkaa)</div>';
-  h += '<div class="jsp-kt-box"><div class="jsp-kt-bt">Konsepti</div>';
+  h += '<div style="font-size:11px;color:var(--ink3);margin-bottom:6px">' + (dMeta ? esc(dMeta.ikoni + ' ' + dMeta.nimi + ' · ' + dMeta.dim) : '') + ' ' + vpT('· yksilökonsepti (ei vaadi pelipaikkaa)</div>');
+  h += vpT('<div class="jsp-kt-box"><div class="jsp-kt-bt">Konsepti</div>');
   h += '<select id="_vpJfKehSel" class="jsp-arv-select" style="width:100%" onclick="event.stopPropagation()" onchange="window._vpJfKehitysValinta[\'' + pid + '\']=this.value;if(typeof _vpAloitusReRender===\'function\')_vpAloitusReRender()">';
   lista.forEach(function (k) { h += '<option value="' + esc(k.avain) + '"' + (k.avain === valittu ? ' selected' : '') + '>' + esc(k.nimi) + '</option>'; });
   h += '</select>';
   h += '<div style="font-size:13.5px;font-weight:600;color:var(--ink);margin-top:8px">' + esc(item.nimi) + '</div>';
   if (item.kuvaus) h += '<div style="font-size:12px;color:var(--ink2);margin-top:3px;line-height:1.5">' + esc(item.kuvaus) + '</div>';
   h += '</div>';
-  if (item.cue) h += '<div class="jsp-kt-box" style="margin-top:8px"><div class="jsp-kt-bt" style="color:var(--blue)">Cue (kysymys, ei käsky)</div><div style="font-size:12.5px;color:var(--ink2);padding:2px 0 2px 14px;position:relative"><span style="position:absolute;left:0;color:var(--blue);font-weight:700">?</span>' + esc(item.cue) + '</div></div>';
+  if (item.cue) h += vpT('<div class="jsp-kt-box" style="margin-top:8px"><div class="jsp-kt-bt" style="color:var(--blue)">Cue (kysymys, ei käsky)</div><div style="font-size:12.5px;color:var(--ink2);padding:2px 0 2px 14px;position:relative"><span style="position:absolute;left:0;color:var(--blue);font-weight:700">?</span>') + esc(item.cue) + '</div></div>';
   const _kestoNyt = (p.jaksofokus && p.jaksofokus.kesto_vk) || 6;
-  h += '<div class="jsp-kt-edit" style="margin-top:10px"><label>Jakson kesto</label><select id="_vpJfKehKesto' + pid + '" class="jsp-arv-select" onclick="event.stopPropagation()">'
-    + [4, 6, 8, 10, 12].map(function (vk) { return '<option value="' + vk + '"' + (vk === _kestoNyt ? ' selected' : '') + '>' + vk + ' vk</option>'; }).join('') + '</select></div>';
-  h += '<div style="font-size:10.5px;color:var(--ink3);margin-top:8px">Kehityskonsepti — havaitaan pelissä ja harjoituksessa, ei kliininen mittari.</div>';
-  h += '<div class="jsp-kt-btns"><button class="jsp-kt-btn primary" onclick="_vpJfAsetaKehitysFokus(\'' + pid + '\',\'' + esc(domeeni) + '\',document.getElementById(\'_vpJfKehSel\').value)">＋ Tallenna jaksofokus</button></div>';
+  h += vpT('<div class="jsp-kt-edit" style="margin-top:10px"><label>Jakson kesto</label><select id="_vpJfKehKesto') + pid + '" class="jsp-arv-select" onclick="event.stopPropagation()">'
+    + [4, 6, 8, 10, 12].map(function (vk) { return '<option value="' + vk + '"' + (vk === _kestoNyt ? ' selected' : '') + '>' + vk + ' ' + vpT('vk</option>'); }).join('') + '</select></div>';
+  h += vpT('<div style="font-size:10.5px;color:var(--ink3);margin-top:8px">Kehityskonsepti — havaitaan pelissä ja harjoituksessa, ei kliininen mittari.</div>');
+  h += '<div class="jsp-kt-btns"><button class="jsp-kt-btn primary" onclick="_vpJfAsetaKehitysFokus(\'' + pid + '\',\'' + esc(domeeni) + '\',document.getElementById(\'_vpJfKehSel\').value)">' + vpT('＋ Tallenna jaksofokus') + '</button></div>';
   return h;
 }
 
@@ -7111,7 +7111,7 @@ window._vpJfAsetaKehitysFokus = async function (pid, domeeni, avain) {
   const p = _vpTtPelaaja(pid); if (!p) return;
   const LIB = window.TM_JAKSOFOKUS;
   const k = (LIB && typeof LIB.tmJfKonsepti === 'function') ? LIB.tmJfKonsepti(domeeni, avain) : null;
-  if (!k) { if (typeof toast === 'function') toast('Konseptia ei löytynyt', 'error'); return; }
+  if (!k) { if (typeof toast === 'function') toast(vpT('Konseptia ei löytynyt'), 'error'); return; }
   const kestoEl = document.getElementById('_vpJfKehKesto' + p.id);
   const kestoVk = (kestoEl && +kestoEl.value > 0) ? +kestoEl.value : ((p.jaksofokus && p.jaksofokus.kesto_vk) || 6);
   const jaksofokus = { konsepti_avain: k.avain, konsepti_nimi: k.nimi, konsepti_koodi: k.koodi || null, domeeni: domeeni, alkoi: _vpJfAlkoiJatka(p, domeeni, k.avain), kesto_vk: kestoVk, lahde: window._vpTtLahde || 'vp' };
@@ -7123,7 +7123,7 @@ window._vpJfAsetaKehitysFokus = async function (pid, domeeni, avain) {
   if (typeof _vpAloitusReRender === 'function') _vpAloitusReRender();
   const _jfM = document.getElementById('_jfModal');
   if (_jfM) { _jfM.remove(); window._jfOhjausP = null; if (typeof renderJaksofokus === 'function') renderJaksofokus(); }
-  await _vpTtKirjoita(pid, _jfArk.arkistoitu ? { jaksofokus: jaksofokus, jaksofokus_historia: _jfArk.historia } : { jaksofokus: jaksofokus }, 'Jaksofokus tallennettu');
+  await _vpTtKirjoita(pid, _jfArk.arkistoitu ? { jaksofokus: jaksofokus, jaksofokus_historia: _jfArk.historia } : { jaksofokus: jaksofokus }, vpT('Jaksofokus tallennettu'));
 };
 
 // Toggle-käsittelijä — vaihda aktiivinen domeeni + re-renderöi toggle + runko (dropdown-valinta elää).
@@ -7144,7 +7144,7 @@ window._vpJfSetDomeeni = function (pid, dom) {
 // Palauttaa pelaajan (tai null). Sivuvaikutus: asettaa editointitilan window-globaaleihin (writerit lukevat).
 function _jfOhjausAlusta(pid, esiValinta, lahde, domeeni) {
   const p = (typeof _vpTtPelaaja === 'function') ? _vpTtPelaaja(pid) : ((typeof _pelaajat !== 'undefined' && _pelaajat) || []).find(function (x) { return x.id === pid; });
-  if (!p) { if (typeof toast === 'function') toast('Pelaajaa ei löytynyt', 'error'); return null; }
+  if (!p) { if (typeof toast === 'function') toast(vpT('Pelaajaa ei löytynyt'), 'error'); return null; }
   window._vpArvPelaaja = p;      // sama objekti jonka writerit mutatoivat + dropdown re-renderöi
   window._jfOhjausP = p;
   window._vpTtLahde = lahde || 'vp';
