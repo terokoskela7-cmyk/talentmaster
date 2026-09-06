@@ -231,6 +231,8 @@ describe('VP_v25 render-kielineutraali-gate (step G · AST)', () => {
     { expr: 'meta.nimi', ranges: [[12600, 13750]] }, // V4 kalenteri: KALENTERI_TYYPIT-tyyppinimi (§1 enum-avain fi, näyttö vpT)
     { expr: 'IDP_TILA_LBL[p.idp_tila]', ranges: [[6100, 6140], [14460, 14510]] }, // V6 idp_tila-statusnäyttö (§1 enum-avain fi, näyttö vpT)
     { expr: 'dm.nimi', ranges: [[14990, 14996]] }, // V7b domeeni-display fokusChip (lc-avain fi, näyttö vpT)
+    { expr: 'k.nimi', ranges: [[14623, 14627]] }, // V7b-fix2 tuloskortti _vpTkAlue mittarilabel (lib-data, näyttö vpT)
+    { expr: 'k.arvo', ranges: [[14623, 14627]] }, // V7b-fix2 tuloskortti _vpTkAlue mittari-arvo (Ei arviointeja vielä ym.)
     // V7+: esim. { expr: 'roolimap[rooli]', ranges: [[...]] }
   ];
   it('enum/object-property-display reititetty vpT:llä (AST-gaten sokea piste)', () => {
