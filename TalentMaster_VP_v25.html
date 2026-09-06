@@ -17,7 +17,7 @@
 <!-- Eerikkilä-normit + universaali testirekisteri (eerikkilaTaso, laskeFVP) — 10m/5m-tasot + FVP-profiili -->
 <script src="lib/tm_lang.js?v=9"></script>   <!-- i18n V0 — fi/sv/en käännöstaulukko + t() + kieli-init (putkitus) -->
 <script src="lib/tm_i18n_common.js?v=2"></script>   <!-- i18n Vaihe 0 — JAETTU henkilöstö-i18n + lukittu glossaari (ENNEN sivukarttaa) -->
-<script src="lib/tm_vp_i18n.js?v=20"></script>   <!-- i18n Vaihe 5 — VP sv (sivukartta); vpT/vpLokalisoi delegoivat commoniin -->
+<script src="lib/tm_vp_i18n.js?v=21"></script>   <!-- i18n Vaihe 5 — VP sv (sivukartta); vpT/vpLokalisoi delegoivat commoniin -->
 
 
 <script src="lib/tm_eerikkila_normit.js?v=45"></script>   <!-- v43: D2-kortti d2_taso-ensin (renderKehityskorttiHTML, PR #264 · §30/#262) -->
@@ -14615,7 +14615,7 @@ function _vpKohorttiLabel(){
   var k = _vpKohortti;
   if (k === undefined) k = _vpAkatemia().length ? 'akatemia' : 'kaikki';
   if (k === 'akatemia') return vpT('akatemia:') + ' ' + _vpAkatemia().length + ' joukkuetta';
-  if (k === 'kaikki') return 'kaikki joukkueet';
+  if (k === 'kaikki') return vpT('kaikki joukkueet');
   return k;
 }
 function _vpTkVari(s){ return s==='vihrea'?'var(--teal)':s==='amber'?'var(--amber)':s==='punainen'?'var(--red)':'var(--ink3)'; }
@@ -14801,17 +14801,17 @@ window._vpItsearvioEro = _vpItsearvioEro;
 function _vpCockpitLiput(p, opts) {
   opts = opts || {}; var liput = [];
   if (p && p.flei_viimeisin != null && Number(p.flei_viimeisin) < 40)        // 1. TURVALLISUUS — Valmius (FLEI) < 40
-    liput.push({ key: 'valmius', vari: 'red', teksti: '🏥 Valmius ' + Math.round(Number(p.flei_viimeisin)) });
+    liput.push({ key: 'valmius', vari: 'red', teksti: '🏥 ' + vpT('Valmius') + ' ' + Math.round(Number(p.flei_viimeisin)) });
   if (opts.sitoumusOdottaa)                                                    // 2. Sitoumus odottaa vahvistusta (elinkaari)
-    liput.push({ key: 'sitoumus', vari: 'amber', teksti: '◔ odottaa vahvistusta' });
+    liput.push({ key: 'sitoumus', vari: 'amber', teksti: '◔ ' + vpT('odottaa vahvistusta') });
   if (opts.itsearvioEro != null && opts.itsearvioEro >= 1.5)                   // 3. Itsearvio eroaa VP:stä (kynnys ≥1.5)
-    liput.push({ key: 'itsearvio', vari: 'amber', teksti: '⇄ itsearvioero ' + opts.itsearvioEro });
+    liput.push({ key: 'itsearvio', vari: 'amber', teksti: '⇄ ' + vpT('itsearvioero') + ' ' + opts.itsearvioEro });
   return liput;
 }
 window._vpCockpitLiput = _vpCockpitLiput;
 
 // ── Nelikulma (MDT-domeenit) — jaksofokus.domeeni = nykyinen fokus, jaksofokus_historia = katetut, muut = ei arvioitu. ──
-var _RVC_NELIKULMA = [['fyysinen', 'Fyysinen'], ['teknis_taktinen', vpT('Teknis-taktinen')], ['psyykkinen', 'Psyykkinen'], ['sosiaalinen', 'Sosiaalinen']];
+var _RVC_NELIKULMA = [['fyysinen', vpT('Fyysinen')], ['teknis_taktinen', vpT('Teknis-taktinen')], ['psyykkinen', vpT('Psyykkinen')], ['sosiaalinen', vpT('Sosiaalinen')]];
 function _vpNelikulma(p) {
   var cur = (p && p.jaksofokus && p.jaksofokus.domeeni) || null, katetut = {};
   (Array.isArray(p && p.jaksofokus_historia) ? p.jaksofokus_historia : []).forEach(function (h) { if (h && h.domeeni) katetut[h.domeeni] = 1; });
@@ -14822,7 +14822,7 @@ window._vpNelikulma = _vpNelikulma;
 // ── Näyttöapurit ──
 var _RVC_DOM = { fyysinen: { emoji: '🏃', nimi: 'fyysinen' }, teknis_taktinen: { emoji: '⚽', nimi: 'teknis-taktinen' }, psyykkinen: { emoji: '🎯', nimi: 'psyykkinen' }, sosiaalinen: { emoji: '🤝', nimi: 'sosiaalinen' } };
 function _rvcIka(p) { var i = (typeof normiIka === 'function') ? normiIka(p.syntymaVuosi, null, p.joukkue) : (p.syntymaVuosi ? (new Date().getFullYear() - p.syntymaVuosi) : null); return (i != null && i >= 5 && i <= 25) ? i : null; }
-function _rvcIkavaihe(ika) { return ika == null ? '' : (ika <= 12 ? 'Leikkijä' : ika <= 15 ? 'Rakentaja' : 'Showcase'); }
+function _rvcIkavaihe(ika) { return ika == null ? '' : (ika <= 12 ? vpT('Leikkijä') : ika <= 15 ? vpT('Rakentaja') : vpT('Showcase')); }
 function _rvcSitoumusOdottaa(p) {   // bulk-signaali (ei alikokoelmakyselyä): pelaaja sitoutui, vahvistusta ei nykyjaksolle
   if (!p || !p.idp_sitoumus_pvm) return false;
   var cur = (p.jaksofokus && p.jaksofokus.alkoi) || null;
@@ -14905,9 +14905,9 @@ function renderReviewit() {
   var gEl = document.getElementById('reviewGuide');
   if (gEl) {
     var vihjeet = [];
-    if (kooste.myohassa_n) vihjeet.push('aloita ' + kooste.myohassa_n + ' myöhässä olevasta');
-    if (itsearvioN) vihjeet.push(itsearvioN + ' pelaajalla itsearvio eroaa arviostasi');
-    if (vahvistusN) vihjeet.push(vahvistusN + ' odottaa sitoumuksen vahvistusta');
+    if (kooste.myohassa_n) vihjeet.push(vpT('aloita {n} myöhässä olevasta').replace('{n}', kooste.myohassa_n));
+    if (itsearvioN) vihjeet.push(vpT('{n} pelaajalla itsearvio eroaa arviostasi').replace('{n}', itsearvioN));
+    if (vahvistusN) vihjeet.push(vpT('{n} odottaa sitoumuksen vahvistusta').replace('{n}', vahvistusN));
     gEl.innerHTML = vihjeet.length
       ? '<div class="rvc-guide"><span class="ic">🎯</span><span><b>' + vpT('Tämän viikon fokus:') + '</b> ' + vihjeet.join(' · ') + '.</span></div>'
       : '<div class="rvc-guide"><span class="ic">✓</span><span>' + vpT('Reviewit ajan tasalla — ei kiireellisiä toimenpiteitä.') + '</span></div>';
@@ -14990,7 +14990,7 @@ function _vpCockpitRivi(x) {
   var dom = (p.jaksofokus && p.jaksofokus.domeeni) || (p.idp_fokus && p.idp_fokus.dim) || null;
   var dm = dom && _RVC_DOM[dom];
   var konsepti = (p.jaksofokus && p.jaksofokus.konsepti_nimi) || (p.idp_fokus && (p.idp_fokus.nimi || p.idp_fokus.alue)) || null;
-  var fokusChip = konsepti ? '<span class="rvc-chip rvc-chip--ink">' + (dm ? dm.emoji + ' ' : '') + esc(konsepti) + (dm ? (' · ' + dm.nimi) : '') + '</span>' : '';
+  var fokusChip = konsepti ? '<span class="rvc-chip rvc-chip--ink">' + (dm ? dm.emoji + ' ' : '') + esc(konsepti) + (dm ? (' · ' + vpT(dm.nimi)) : '') + '</span>' : '';
 
   // DVI
   var dvi = _vpCockpitDvi(p), dviChip = '';
@@ -15049,7 +15049,7 @@ function _vpCockpitRivi(x) {
     // Nelikulma
     h += '<div class="rvc-mini-h" style="margin-top:14px">' + vpT('Nelikulma · MDT-domeenit') + '</div><div class="rvc-corners">';
     _vpNelikulma(p).forEach(function (d) {
-      var sub = d.tila === 'cur' ? '● nykyinen fokus' : d.tila === 'fresh' ? 'arvioitu' : 'ei arvioitu';
+      var sub = d.tila === 'cur' ? '● ' + vpT('nykyinen fokus') : d.tila === 'fresh' ? vpT('arvioitu') : vpT('ei arvioitu');
       h += '<div class="rvc-c4 rvc-c4--' + d.tila + '"><div class="rvc-c4h">' + esc(d.nimi) + '</div><div class="rvc-c4s">' + sub + '</div></div>';
     });
     h += '</div>';

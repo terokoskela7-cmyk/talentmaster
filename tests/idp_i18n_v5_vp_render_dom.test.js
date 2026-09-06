@@ -116,6 +116,7 @@ function scanLeaks(src, ranges, lineOffset, LIB) {
   // display-konteksti zero-markup-literaalille: '+' -ketju markup/vpT · toast/_setTxt/_dSet-arg · .textContent=/.innerText=/.innerHTML=
   const SETTER_FNS = new Set(['toast', '_setTxt', '_dSet', 'idrow', 'kpi', 'fp', 'set']); // V7a: idrow · V7b: kpi(l,v,cls,s)/fp(key,label)/set(id,v) — display-arg-helperit (enum/id-argit codeish-suodatettu)
   const TXT_PROPS = new Set(['textContent', 'innerText', 'innerHTML']);
+  const DISPLAY_PROPS = new Set(['teksti']); // V7b-live: object-property display-arvo (badge-objektit teksti:'🏥 Valmius'+x — gate-sokea epäsuora display)
   const inDisplayContext = (node) => {
     let n = node, top = null;
     while (parentOf.get(n) && ((parentOf.get(n).type === 'BinaryExpression' && parentOf.get(n).operator === '+') || parentOf.get(n).type === 'ConditionalExpression')) { top = parentOf.get(n); n = top; } // V7a-live: kävele myös ternaaryn läpi (markup-ketjun ternaary-haara oli sokea piste)
@@ -127,6 +128,10 @@ function scanLeaks(src, ranges, lineOffset, LIB) {
         ctp.left && ctp.left.type === 'MemberExpression' && ctp.left.property &&
         ((ctp.left.property.type === 'Identifier' && TXT_PROPS.has(ctp.left.property.name)) ||
          (ctp.left.property.type === 'Literal' && TXT_PROPS.has(ctp.left.property.value)))) return true;
+    // V7b-live: object-property display-arvo (esim. teksti:'…'+x badge-objekteissa)
+    if (ctp && ctp.type === 'Property' && ctp.value === ct && ctp.key &&
+        ((ctp.key.type === 'Identifier' && DISPLAY_PROPS.has(ctp.key.name)) ||
+         (ctp.key.type === 'Literal' && DISPLAY_PROPS.has(ctp.key.value)))) return true;
     let p = parentOf.get(node);
     for (let i = 0; p && i < 8; i++, p = parentOf.get(p)) {
       if (p.type === 'CallExpression' && p.callee && p.callee.type === 'Identifier' && SETTER_FNS.has(p.callee.name)) return true;
@@ -209,6 +214,11 @@ describe('VP_v25 render-kielineutraali-gate (step G · AST)', () => {
     const ih = scanLeaks(idr, [[1, 99]], 0, new Set()).map((l) => l.p);
     expect(ih).toContain('Raakaotsikko');
     expect(ih).not.toContain('Reititettyotsikko');
+    // object-property display (V7b-live: teksti:'…' badge-objektit)
+    const objp = "function _b(){ return [{key:'x', teksti:'Raakabadge'}, {key:'y', teksti:vpT('OKbadge')}]; }";
+    const oh = scanLeaks(objp, [[1, 99]], 0, new Set()).map((l) => l.p);
+    expect(oh).toContain('Raakabadge');
+    expect(oh).not.toContain('OKbadge');
   });
 
   // ── Object-property-display-guard ──────────────────────────────────────────────
@@ -220,6 +230,7 @@ describe('VP_v25 render-kielineutraali-gate (step G · AST)', () => {
   const MEMBER_DISPLAY = [
     { expr: 'meta.nimi', ranges: [[12600, 13750]] }, // V4 kalenteri: KALENTERI_TYYPIT-tyyppinimi (§1 enum-avain fi, näyttö vpT)
     { expr: 'IDP_TILA_LBL[p.idp_tila]', ranges: [[6100, 6140], [14460, 14510]] }, // V6 idp_tila-statusnäyttö (§1 enum-avain fi, näyttö vpT)
+    { expr: 'dm.nimi', ranges: [[14990, 14996]] }, // V7b domeeni-display fokusChip (lc-avain fi, näyttö vpT)
     // V7+: esim. { expr: 'roolimap[rooli]', ranges: [[...]] }
   ];
   it('enum/object-property-display reititetty vpT:llä (AST-gaten sokea piste)', () => {
