@@ -27,6 +27,9 @@ const Vsv = require('../lib/tm_vp_i18n.js').TM_VP_I18N.sv;
 const Csv = require('../lib/tm_i18n_common.js').TM_I18N_COMMON.sv;
 const HTML = readFileSync(join(__dir, '..', 'TalentMaster_VP_v25.html'), 'utf8');
 
+// V8a: skannaa KOKO staattisen bodyn [2063,2677] — SUBSUMOI briiffin STATIC_RANGES=[[2631,2656],[2500,2540]]
+// (koko-body on tiukempi: kaikki alueet vartioitu, ei vain listatut). V5-0A todisti body-alueen sv-puhtaaksi
+// (>text</title/placeholder), V8a lisää inline-onclick-toast-luokan (myös koko-body; vain 4 toastia, kaikki reititetty).
 const BODY_LO = 2063, BODY_HI = 2677; // staattinen body [<body> … pääscriptiä edeltävä]
 const dec = (t) => t.replace(/&amp;/g, '&').replace(/&nbsp;/g, ' ');
 function sv(t) {
@@ -35,15 +38,25 @@ function sv(t) {
 }
 // DYN = JS-täytetyt placeholderit (greeting-*/kpi-*-d/loaderit) — renderöityvät ajossa, ei staattista fi:tä
 const DYN = /Hyvää päivää|Ladataan|ladataan|Viikko —|Kausi —|viimeisin testi|testitapahtumaa|id="greeting-|id="kpi-/;
-const PROD = /Talent|Master|Hidden Gem|X-Factor|Underdog/;
+const PROD = /Talent|Master|Hidden Gem|X-Factor|Underdog|Benchmark/; // V8a: + Benchmark verbatim (KORI ABBR_ONLYssa)
 const EIF = /Tekniikkakilpailu|HH-testi (laaja|suppea)|Harjoitettavuus U(12|15|19)/; // EIF-pending
 const ABBR_ONLY = /^(?:FI|EN|VP|IDP|PHV|HoT|EPPP|RAE|KORI|5D|[\s·—–\-/:()%.,+↑↓→▸≥≤0-9]|&amp;|&nbsp;)+$/;
+const hasWord = (t) => /[A-Za-zÄÖÅäöå]{3,}/.test(t);
 
 function scanStaticLeaks(lines) {
   const leaks = [];
   for (let i = BODY_LO - 1; i < BODY_HI; i++) {
     const line = lines[i];
     if (!line || DYN.test(line)) continue;
+    // V8a: inline on*-attribuutin toast('…fi…') — AST-gate on rakenteellisesti sokea HTML-attribuuteille.
+    // toast('literaali' (EI toast(vpT('… → routed ohitetaan). Toast-arg on aina näyttöä → ei data-i18n-vaadetta.
+    let tt;
+    const rt = /toast\(\s*'((?:[^'\\]|\\.)*)'/g;
+    while ((tt = rt.exec(line))) {
+      const t = tt[1].trim();
+      if (!t || !hasWord(t) || PROD.test(t) || EIF.test(t) || ABBR_ONLY.test(t)) continue;
+      leaks.push(`${i + 1} T  ${t.slice(0, 48)}`);
+    }
     // >text<
     let m;
     const re = />([^<>{}`]+)</g;
@@ -87,5 +100,17 @@ describe('VP_v25 staattinen-DOM-vuotovartija (V5-vaihe0A, koko-body)', () => {
     const fake = HTML.split('\n');
     fake[BODY_LO] = '  <button>Peruuta</button>'; // sv('Peruuta')!==null, ei data-i18n
     expect(scanStaticLeaks(fake).some((l) => l.includes('Peruuta'))).toBe(true);
+  });
+
+  it('EI vacuous (V8a): nappaa >text<, inline-toast-argin ja placeholderin; EI data-i18n:llistä', () => {
+    // >text</placeholder = sv-kartta-pohjainen (Peruuta/Tallenna resolvoituvat); toast-arg = hasWord-pohjainen (aina näyttöä).
+    const fake = HTML.split('\n');
+    fake[BODY_LO] = '  <div class="c"><h3>Peruuta</h3><p data-i18n="Tallenna">Tallenna</p>'
+      + '<span onclick="toast(\'Raaka toast-vuoto\',\'ok\')">z</span><input placeholder="Sulje"></div>';
+    const hits = scanStaticLeaks(fake).map((l) => l.replace(/^\d+ .  /, ''));
+    expect(hits.some((h) => h.startsWith('Peruuta'))).toBe(true);         // >text< ilman data-i18n (resolvoituu)
+    expect(hits.some((h) => h.startsWith('Raaka toast-vuoto'))).toBe(true); // inline-toast-arg (hasWord)
+    expect(hits.some((h) => h.startsWith('Sulje'))).toBe(true);           // placeholder ilman data-i18n-ph (resolvoituu)
+    expect(hits.some((h) => h === 'Tallenna')).toBe(false);               // data-i18n → ei flag
   });
 });
