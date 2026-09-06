@@ -17,7 +17,7 @@ beforeAll(() => {
   const s = lines.findIndex(l => l.includes('var REVIEW_TAGIT = {'));
   const e = lines.findIndex(l => l.includes('window._vpNelikulma = _vpNelikulma;'));
   if (s < 0 || e < 0) throw new Error('R1-lohkoa ei löytynyt');
-  const src = 'var window = {};\n' + lines.slice(s, e + 1).join('\n') +
+  const src = 'var window = {}; var vpT = function(x){ return x; };\n' + lines.slice(s, e + 1).join('\n') +
     '\n return { REVIEW_TAGIT, DVI_MIN_N, _vpReviewTagitSanitoi, _vpOmistaaPelaajan, _vpCockpitDvi, _vpItsearvioEro, _vpCockpitLiput, _vpNelikulma };';
   A = new Function(src)();
 });
