@@ -24,7 +24,7 @@ function extract(sig) {
 let K;
 beforeAll(() => {
   const ITEM = { avain: 'y_h0', koodi: 'Y-H0', nimi: 'HAVAINNOINTI', pelitilanne: 'kaikki alkaa tiedosta – 99 % pelistä.', kpi: [{ koodi: 'a', teksti: 'Sijoitu diagonaalisesti' }, { koodi: 'b', teksti: 'Pidä peliasento avoimena' }, { koodi: 'c', teksti: 'Rytmitä skannaus' }] };
-  K = new Function(
+  K = new Function('var vpT = function(x){return x;};\n' + 
     'var _jsvEsc = function(s){return String(s==null?"":s);};\n' +
     'var _vpAloitusSentence = function(s){ s=String(s||""); return (s===s.toUpperCase()&&s!==s.toLowerCase())?(s.charAt(0)+s.slice(1).toLowerCase()):s; };\n' +
     'var _vpSiltaKonsepti = function(a){ return a==="y_h0" ? ' + JSON.stringify(ITEM) + ' : null; };\n' +

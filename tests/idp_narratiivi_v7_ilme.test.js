@@ -30,13 +30,13 @@ function extract(fnSignature) {
 
 let JF, AANI;
 beforeAll(() => {
-  JF = new Function(
+  JF = new Function('var vpT = function(x){return x;};\n' + 
     'var _jsvEsc = function(s){return String(s==null?"":s);};\n' +
     'var window = { TM_JAKSOFOKUS: { tmJfDomeeni: function(d){ return { ikoni:"⚽", nimi:"Teknis-taktinen", dim:"D2/D4" }; }, tmJfUmpeutunut: function(jf){ return !!(jf && jf.umpeutunut); } } };\n' +
     extract('function _vpAloitusJaksofokusHTML(p) {') + '\n return { _vpAloitusJaksofokusHTML: _vpAloitusJaksofokusHTML };'
   )();
 
-  AANI = new Function(
+  AANI = new Function('var vpT = function(x){return x;};\n' + 
     'var _jsvEsc = function(s){return String(s==null?"":s);};\n' +
     'var window = {};\n' +   // IDP-vihjeet: _vpPelaajanAaniHTML viittaa window._tmIBtn:iin (tap-behind ⓘ) — guard → '' kun puuttuu
     extract('function _vpPelaajanAaniHTML(p) {') + '\n return { _vpPelaajanAaniHTML: _vpPelaajanAaniHTML };'

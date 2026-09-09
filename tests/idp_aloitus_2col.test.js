@@ -41,7 +41,7 @@ describe('R1.4 — 2-sarakerakenne (kartta .cols)', () => {
     const iFokus = N.indexOf('h += _vpAloitusJaksofokusHTML(p);');
     const iPeili = N.indexOf('h += _vpAloitusPeiliHTML(p);');
     const iTav = N.indexOf('h += _vpAloitusTavoiteHTML(p);');
-    const iSit = N.indexOf("_stitle('🤝 Sitoumus')");
+    const iSit = N.indexOf("_stitle(vpT('🤝 Sitoumus'))");
     // järjestys vasemmassa sarakkeessa, kaikki ennen col-r:ää
     expect(iColL).toBeLessThan(iFokus);
     expect(iFokus).toBeLessThan(iPeili);

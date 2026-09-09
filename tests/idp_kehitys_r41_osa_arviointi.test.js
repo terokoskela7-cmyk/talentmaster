@@ -37,7 +37,7 @@ describe('§37 — osa-arvio on OMA curriculum-kenttä, ei kytköstä arviointi_
 describe('SYÖTTÖ — _vpTtOsaArviotHTML (per-osa .jsp-scale3 + autosave-klik)', () => {
   let fn;
   beforeAll(() => {
-    fn = new Function(
+    fn = new Function('var vpT = function(x){return x;};\n' + 
       'var _jsvEsc=function(s){return String(s==null?"":s);};\n' +
       'var window={_vpJfOsaArviot:{p1:{y_h1:{a:2}}}};\n' +
       extract('function _vpTtOsaArviotHTML(p, item) {') + '\n return _vpTtOsaArviotHTML;'
@@ -60,7 +60,7 @@ describe('SYÖTTÖ — _vpTtOsaArviotHTML (per-osa .jsp-scale3 + autosave-klik)'
 
 describe('NÄYTTÖ — _vpAloitusOsaArvioHTML (Aloitus, read-only, korvaa "arvioi Kehityksessä")', () => {
   let fn;
-  beforeAll(() => { fn = new Function(extract('function _vpAloitusOsaArvioHTML(') + '\n return _vpAloitusOsaArvioHTML;')(); });
+  beforeAll(() => { fn = new Function('var vpT = function(x){return x;};\n' + extract('function _vpAloitusOsaArvioHTML(') + '\n return _vpAloitusOsaArvioHTML;')(); });
   it('arvo 3 → scale3 (3 on) + itsenäisesti · arvo 1 → low + ei näy · null → honest-empty', () => {
     const jf = { osa_arviot: { y_h1: { a: 3, b: 1 } } };
     const a = fn(jf, 'y_h1', 'a');
@@ -75,14 +75,14 @@ describe('NÄYTTÖ — _vpAloitusOsaArvioHTML (Aloitus, read-only, korvaa "arvio
     expect(fn({}, 'y_h1', 'a')).toContain('arvioi Kehityksessä');
   });
   it('Aloituksen konseptin osa käyttää helperiä (korvaa entisen kiinteän "arvioi Kehityksessä")', () => {
-    expect(HTML).toContain("_vpAloitusOsaArvioHTML(jf, avain, k.koodi) : '<span class=\"idp-lab\">arvioi Kehityksessä</span>'");
+    expect(HTML).toContain("_vpAloitusOsaArvioHTML(jf, avain, k.koodi) : vpT('<span class=\"idp-lab\">arvioi Kehityksessä</span>')");
   });
 });
 
 describe('MERGE + autosave — jaksofokus.osa_arviot (§37 avain konsepti_avaimella → konseptin vaihto ei sekoita)', () => {
   let merge;
   beforeAll(() => {
-    merge = new Function('var window={TM_JAKSOFOKUS:null};\n' + extract('function _vpJfMergeLisakentat(jf, pid) {') +
+    merge = new Function('var vpT = function(x){return x;};\n' + 'var window={TM_JAKSOFOKUS:null};\n' + extract('function _vpJfMergeLisakentat(jf, pid) {') +
       '\n return function(jf,pid,oa){ window._vpJfOsaArviot={}; window._vpJfOsaArviot[pid]=oa; return _vpJfMergeLisakentat(jf,pid); };')();
   });
   it('sulauttaa editointitilan osa_arviot jaksofokukseen (vain 1–3, tyhjät pois)', () => {
