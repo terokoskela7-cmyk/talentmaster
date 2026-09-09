@@ -36,7 +36,7 @@ const acorn = require('acorn');
 const HTML = readFileSync(join(__dir, '..', 'TalentMaster_VP_v25.html'), 'utf8');
 
 const RLO = 2679, RHI = 17921;              // VP pääscript (1-idx)
-const RANGES = [[8040, 9221], [12600, 13750], [11661, 12400], [3777, 3865], [7885, 7910], [14186, 14550], [14552, 15185], [15189, 15690], [15770, 15884], [15886, 15975], [4175, 4249], [4992, 5059], [15154, 15230], [16930, 17010], [17817, 17833], [6887, 7171], [5601, 6886], [4483, 4593]]; // V3 _jsv · V4 kalenteri · V5 valmentajat · V6 IDP-jono · V7a MDT · V7b Reviewit+tuloskortti. V7c–V8: lisää.
+const RANGES = [[8040, 9221], [12600, 13750], [11661, 12400], [3777, 3865], [7885, 7910], [14186, 14550], [14552, 15185], [15189, 15690], [15770, 15884], [15886, 15975], [4175, 4249], [4992, 5059], [15154, 15230], [16930, 17010], [17817, 17833], [6887, 7171], [5601, 6886], [4483, 4593], [15983, 16127]]; // V3 _jsv · V4 kalenteri · V5 valmentajat · V6 IDP-jono · V7a MDT · V7b Reviewit+tuloskortti. V7c–V8: lisää.
 const ROUTED_FNS = new Set(['vpT', 'vpTToimenpide']);
 
 // §7 lib-curriculum-nimet (jäävät fi → allowlist)
@@ -127,6 +127,9 @@ function scanLeaks(src, ranges, lineOffset, LIB) {
     // V8d-oppi: template-quasi markup-kantavassa TemplateLiteralissa (`…${x} havaintoa · ${y} kautta</div>`)
     // — tag-viereetön quasi (' havaintoa · ') oli sokea piste; koko template rakentaa HTML:ää → quasit ovat näyttöä.
     if (node.type === 'TemplateLiteral' && node.quasis.some((q) => /[<>]/.test(q.value.cooked || ''))) return true;
+    // V7f-live: vertailun operandi (e.code === 'permission-denied') EI ole näyttöä — se on arvo/enum-vertailu.
+    // SETTER_FNS-esivanhempikävely muuten leimasi toast(...)-argissa olevan ternaary-testin vertailuliteraalin näytöksi.
+    { const par = parentOf.get(node); if (par && par.type === 'BinaryExpression' && ['==', '===', '!=', '!=='].includes(par.operator)) return false; }
     let n = node, top = null;
     while (parentOf.get(n) && ((parentOf.get(n).type === 'BinaryExpression' && parentOf.get(n).operator === '+') || parentOf.get(n).type === 'ConditionalExpression')) { top = parentOf.get(n); n = top; } // V7a-live: kävele myös ternaaryn läpi (markup-ketjun ternaary-haara oli sokea piste)
     if (top && subtreeHasMarkupOrVpt(top)) return true;
