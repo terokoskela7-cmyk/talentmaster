@@ -972,6 +972,35 @@ exports.vahvistaSuostumus = functions
   .region('europe-west1')
   .runWith({ secrets: ['SENDGRID_API_KEY'] })   // §13: salasanalinkki-email → SENDGRID_API_KEY Secret Managerista process.env:iin
   .https.onCall(async (data, context) => {
+    // ── Käsittelemättömien virheiden vartija (2026-09) ──────────────────────────
+    // Ilman tätä mikä tahansa odottamaton poikkeus (pelaajadokumentin luku, PIN-kysely,
+    // kylmäkäynnistys/secret-sidonta) palautui selaimeen paljaana "internal"-merkkijonona:
+    // huoltaja näki "Tallennus epäonnistui: internal" eikä virheestä jäänyt jälkeä
+    // mihinkään mihin operaattori näkee (audit kirjattiin vain onnistumisista).
+    // Nyt jokainen ei-HttpsError kääntyy luettavaksi viestiksi + audit-hälytykseksi
+    // (Admin → Audit-loki / Hälytykset, severity 'alert').
+    try {
+      return await _vahvistaSuostumusImpl(data, context);
+    } catch (e) {
+      if (e instanceof functions.https.HttpsError) throw e;
+      const viesti = String((e && e.message) || e || 'tuntematon virhe');
+      console.error('[vahvistaSuostumus] KÄSITTELEMÄTÖN VIRHE:', viesti, (e && e.stack) || '');
+      // Odotetaan kirjoitus valmiiksi: fire-and-forget katkeaisi kun funktio heittää heti perään.
+      await db.collection('audit').add({
+        toiminto:  'suostumus_epaonnistui', severity: 'alert',
+        pelaajaId: (data && data.pelaajaId) || null,
+        seuraId:   (data && data.seuraId)   || null,
+        hEmail:    (data && data.hEmail) ? String(data.hEmail).trim().toLowerCase() : null,
+        virhe:     viesti.slice(0, 300),
+        aikaleima: admin.firestore.FieldValue.serverTimestamp(),
+      }).catch(() => {});
+      throw new functions.https.HttpsError('internal',
+        'Suostumuksen tallennus epäonnistui palvelimella: ' + viesti);
+    }
+  });
+
+// Varsinainen toteutus — kutsutaan vain yllä olevan vartijan kautta.
+async function _vahvistaSuostumusImpl(data, context) {
     // antaja/bioPituudet/kutsuId + syntyma/sukupuoli/suostumukset/suostumusMap/antajaRooli/aikaleima:
     // ei-arkaluonteiset kentät jotka lomake kirjoitti ennen suoraan client-puolelta — siirretty tänne,
     // koska Rekisterointi_Suostumus.html on autentikoimaton ja Rules estää sen suorat update-kirjoitukset.
@@ -1055,14 +1084,23 @@ exports.vahvistaSuostumus = functions
     // PIN — 4-numeroinen, uniikki seurassa (sama logiikka kuin Seura.html luoPelaajaPIN +
     // duplikaattitarkistus). Idempotentti: älä vaihda jos pelaajalla on jo validi PIN.
     let pin = (snap.get('pin') && /^\d{4}$/.test(String(snap.get('pin')))) ? String(snap.get('pin')) : null;
+    // PIN-generointi EI saa kaataa suostumusta: PIN on lisäarvo (pelaajan kirjautuminen),
+    // suostumus on se turvakriittinen kirjaus. Aiemmin uniikkiuskyselyn poikkeus kaatoi koko
+    // kutsun ennen update():a → huoltajalle "internal", eikä suostumusta tallennettu lainkaan.
+    // PIN voidaan aina luoda jälkikäteen Seura-/Admin-näkymästä.
     if (!pin) {
-      const pelaajatCol = db.collection('seurat').doc(seuraId).collection('pelaajat');
-      for (let yritys = 0; yritys < 20 && !pin; yritys++) {
-        const ehdokas = String(Math.floor(1000 + Math.random() * 9000));
-        const kaytossa = await pelaajatCol.where('pin', '==', ehdokas).limit(1).get();
-        if (kaytossa.empty || kaytossa.docs[0].id === pelaajaId) pin = ehdokas;
+      try {
+        const pelaajatCol = db.collection('seurat').doc(seuraId).collection('pelaajat');
+        for (let yritys = 0; yritys < 20 && !pin; yritys++) {
+          const ehdokas = String(Math.floor(1000 + Math.random() * 9000));
+          const kaytossa = await pelaajatCol.where('pin', '==', ehdokas).limit(1).get();
+          if (kaytossa.empty || kaytossa.docs[0].id === pelaajaId) pin = ehdokas;
+        }
+        if (pin) paivitys.pin = pin;
+      } catch (e) {
+        console.warn('[vahvistaSuostumus] PIN-generointi epäonnistui (suostumus tallennetaan silti):', e.message);
+        pin = null;
       }
-      if (pin) paivitys.pin = pin;
     }
 
     try {
@@ -1139,7 +1177,7 @@ exports.vahvistaSuostumus = functions
       console.warn('[vahvistaSuostumus] Reset-linkki epäonnistui:', e.message);
       return { ok: true, passwordResetLink: null, linkkiVirhe: e.message, pin };
     }
-  });
+}
 // ─────────────────────────────────────────────────────────────────────────────
 // haeAuditLoki — SA-only audit-loki-lukija (Admin "Audit-loki / Hälytykset" -näkymä).
 // Audit pysyy EI-client-luettavana (Rules); SA lukee VAIN tämän callable-CF:n kautta.

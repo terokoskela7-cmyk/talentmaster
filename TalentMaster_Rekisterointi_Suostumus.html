@@ -202,6 +202,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;fon
       <input type="checkbox" id="c7" style="display:none">
     </div>
   </div>
+  <div id="tallennusVirhe" class="info" style="display:none;margin-bottom:12px;border-color:rgba(240,68,68,.4);background:rgba(240,68,68,.08)"></div>
   <div class="nav">
     <button class="btn btn-g" onclick="toStep1()" data-i18n="suostumus.nappi_takaisin">Takaisin</button>
     <button class="btn btn-p" id="btnok" onclick="toStep3()" disabled data-i18n="suostumus.nappi_vahvista">Vahvista ja lähetä</button>
@@ -470,6 +471,8 @@ function toStep3() {
 
   var nappi = el('btnok');
   if (nappi) { nappi.disabled = true; nappi.textContent = 'Tallennetaan...'; }
+  var _vBoxAlku = el('tallennusVirhe');
+  if (_vBoxAlku) { _vBoxAlku.style.display = 'none'; _vBoxAlku.textContent = ''; }
 
   var tallennusPromise;
 
@@ -497,7 +500,25 @@ function toStep3() {
       var sukupuoliParam = (_urlParams.sukupuoli || (el('i_sp') ? el('i_sp').value : '') || '');
       var vahvistaFn = firebase.app().functions('europe-west1').httpsCallable('vahvistaSuostumus');
 
-      tallennusPromise = vahvistaFn({
+      // Yksi automaattinen uudelleenyritys ohimenevalle palvelinvirheelle (kylmäkäynnistys,
+      // hetkellinen Firestore-katko). CF on idempotentti: olemassa oleva PIN säilyy, update +
+      // kutsut→'hyvaksytty' voidaan ajaa uudelleen. Pysyvät virheet (permission-denied,
+      // not-found, invalid-argument) EI uusita — ne eivät korjaannu toistolla.
+      function _vahvistaUudelleenyrityksella(hyoty) {
+        return vahvistaFn(hyoty).catch(function(err) {
+          var koodi = (err && err.code) || '';
+          var ohimeneva = koodi === 'internal' || koodi === 'functions/internal'
+            || koodi === 'unavailable' || koodi === 'functions/unavailable'
+            || koodi === 'deadline-exceeded' || koodi === 'functions/deadline-exceeded';
+          if (!ohimeneva) throw err;
+          console.warn('[SUOSTUMUS] Uudelleenyritys ohimenevan virheen jälkeen:', koodi, err && err.message);
+          return new Promise(function(res) { setTimeout(res, 1500); }).then(function() {
+            return vahvistaFn(hyoty);
+          });
+        });
+      }
+
+      tallennusPromise = _vahvistaUudelleenyrityksella({
           seuraId:         _seuraId,
           pelaajaId:       dokumenttiId,
           hEmail:          hEmailParam,
@@ -661,7 +682,32 @@ function toStep3() {
     })
     .catch(function(err) {
       console.error('[SUOSTUMUS] Tallennus epäonnistui:', err);
-      toast('Tallennus epaonnistui: ' + err.message, true);
+      // Virhe menee Sentryyn (B2, §33) — muuten palvelinvirhe jäi vain huoltajan ruudulle
+      // eikä siitä jäänyt jälkeä mihinkään mihin operaattori näkee.
+      try {
+        if (window.Sentry && window.Sentry.captureException) {
+          window.Sentry.captureException(err, { tags: { vaihe: 'suostumus_tallennus', koodi: (err && err.code) || 'tuntematon' } });
+        }
+      } catch (e2) {}
+      // Paljas "internal" ei kerro huoltajalle mitään eikä ohjaa mihinkään. Näytetään
+      // toimintaohje + virhekoodi jonka huoltaja voi kertoa seuralle.
+      var koodi = (err && err.code) || '';
+      var palvelinvirhe = koodi.indexOf('internal') !== -1 || koodi.indexOf('unavailable') !== -1
+        || koodi.indexOf('deadline-exceeded') !== -1;
+      // Kieli huoltajan valinnan mukaan (Sibbo/GrIFK/VIFK = sv) — t() fallback sv→en→fi.
+      function _vt(avain, muut, oletus) {
+        try { if (typeof t === 'function') return t('suostumus.' + avain, muut || {}); } catch (e3) {}
+        return oletus;
+      }
+      var viesti = palvelinvirhe
+        ? _vt('virhe_palvelin', { koodi: koodi || 'internal' },
+              'Tallennus ei onnistunut eika suostumusta tallennettu. Yrita hetken paasta uudelleen samasta linkista. Jos virhe toistuu, ilmoita seuralle (virhekoodi: ' + (koodi || 'internal') + ').')
+        : _vt('virhe_yleinen', { viesti: (err && err.message) || '' },
+              'Tallennus epaonnistui: ' + ((err && err.message) || 'tuntematon virhe'));
+      toast(palvelinvirhe ? _vt('virhe_lyhyt', null, 'Tallennus ei onnistunut') : viesti, true);
+      // Toast katoaa 2,8 s:ssa → pysyva laatikko jotta ohje + virhekoodi ehditaan lukea.
+      var vBox = el('tallennusVirhe');
+      if (vBox) { vBox.textContent = viesti; vBox.style.display = 'block'; }
       if (nappi) { nappi.disabled = false; nappi.textContent = 'Vahvista ja laheta'; }
     });
 }
