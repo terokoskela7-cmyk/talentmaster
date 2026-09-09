@@ -15,7 +15,7 @@ beforeAll(() => {
   const s = lines.findIndex((l) => l.includes('var SCOUT_POTENTIAALI = ['));
   const e = lines.findIndex((l) => l.includes('window.SCOUT_POTENTIAALI = SCOUT_POTENTIAALI;'));
   if (s < 0 || e < 0) throw new Error('SCOUT_POTENTIAALI-lohkoa ei löytynyt');
-  A = new Function('var window = {};\n' + lines.slice(s, e + 1).join('\n') +
+  A = new Function('var vpT = function(x){return x;};\nvar window = {};\n' + lines.slice(s, e + 1).join('\n') +
     '\n return { SCOUT_POTENTIAALI, _vpPotTaso, _vpPotTahdet, _vpPotRivi };')();
 });
 
@@ -61,7 +61,7 @@ describe('kirjoitusportti — JOHTO-only (_vpSeurantaOnJohto, täsmää Firestor
     const lines = readFileSync(join(__dir, '..', 'TalentMaster_VP_v25.html'), 'utf8').split('\n');
     const s = lines.findIndex((l) => l.includes('function _vpSeurantaOnJohto()'));
     let e = s + 1; while (e < lines.length && lines[e].indexOf('}') < 0) e++;
-    api = new Function('var window = {};\n' + lines.slice(s, e + 1).join('\n') + '\n return { fn: _vpSeurantaOnJohto, win: window };')();
+    api = new Function('var vpT = function(x){return x;};\nvar window = {};\n' + lines.slice(s, e + 1).join('\n') + '\n return { fn: _vpSeurantaOnJohto, win: window };')();
   });
   it('ei-johto (valmentaja / talenttivalmentaja) → portti false → kontrolli ei näy', () => {
     api.win._vpSA = false; api.win._vpRooli = 'valmentaja';
@@ -83,7 +83,7 @@ describe('R2-A — potentiaali-projektio "Talenttisuositukset kv-tasolle" -lista
     const s = lines.findIndex((l) => l.includes('var SCOUT_POTENTIAALI = ['));
     const e = lines.findIndex((l) => l.includes('window._vpPotentiaaliBadgeHTML = _vpPotentiaaliBadgeHTML;'));
     if (s < 0 || e < 0) throw new Error('R2-A-lohkoa ei löytynyt');
-    R = new Function('_jsvEsc', 'var window = {};\n' + lines.slice(s, e + 1).join('\n') +
+    R = new Function('_jsvEsc', 'var vpT = function(x){return x;};\nvar window = {};\n' + lines.slice(s, e + 1).join('\n') +
       '\n return { _vpPotTahtiStr: _vpPotTahtiStr, _vpPotentiaaliBadgeHTML: _vpPotentiaaliBadgeHTML };')(function (x) { return String(x == null ? '' : x); });
   });
   it('_vpPotTahtiStr — täytetyt/tyhjät tähdet', () => {

@@ -21,6 +21,7 @@ function extract(sig) {
 let AK;
 beforeAll(() => {
   AK = new Function(
+    'var vpT = function(x){return x;};\n' +
     'var _jsvEsc = function(s){return String(s==null?"":s);};\n' +
     'var _pvmLyhyt = function(s){return "1.6.2025";};\n' +
     'var _seuraId = "kpv";\n' +

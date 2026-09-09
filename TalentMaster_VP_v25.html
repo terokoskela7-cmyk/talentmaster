@@ -17,7 +17,7 @@
 <!-- Eerikkilä-normit + universaali testirekisteri (eerikkilaTaso, laskeFVP) — 10m/5m-tasot + FVP-profiili -->
 <script src="lib/tm_lang.js?v=9"></script>   <!-- i18n V0 — fi/sv/en käännöstaulukko + t() + kieli-init (putkitus) -->
 <script src="lib/tm_i18n_common.js?v=2"></script>   <!-- i18n Vaihe 0 — JAETTU henkilöstö-i18n + lukittu glossaari (ENNEN sivukarttaa) -->
-<script src="lib/tm_vp_i18n.js?v=37"></script>   <!-- i18n Vaihe 5 — VP sv (sivukartta); vpT/vpLokalisoi delegoivat commoniin -->
+<script src="lib/tm_vp_i18n.js?v=38"></script>   <!-- i18n Vaihe 5 — VP sv (sivukartta); vpT/vpLokalisoi delegoivat commoniin -->
 
 
 <script src="lib/tm_eerikkila_normit.js?v=45"></script>   <!-- v43: D2-kortti d2_taso-ensin (renderKehityskorttiHTML, PR #264 · §30/#262) -->
@@ -4594,12 +4594,12 @@ window._vpOhjKaytaOhjelma = async function (pid, teemaAvain, ohjelmaId) {
 function _vpArvAdarKoostumusHTML(p, ika) {
   const av = p.adar_viimeisin;
   // R3.B-korjaus: f3:n arvokkaat osat konsolidoitu tänne (yksi ADAR, suomeksi) — add-CTA + ⓘ + empty-state + ristiinarvio.
-  const _adarCta = '<div style="margin-top:12px;text-align:center"><a href="TalentMaster_ADAR_Pikakortti.html?seuraId=' + encodeURIComponent(_seuraId || '') + '&pelaajaId=' + encodeURIComponent(p.id || '') + '" target="_blank" style="font-size:12px;color:var(--teal);text-decoration:none;border:.5px solid rgba(40,176,144,.4);border-radius:6px;padding:6px 12px;display:inline-block">➕ Lisää pelihavainto</a></div>';
-  const _hdr = '<b style="color:var(--teal)">D4 Peliäly · pelihavainnosta (ADAR) · 1–3</b>' + ((typeof window._tmIBtn === 'function') ? window._tmIBtn('adar') : '');
+  const _adarCta = '<div style="margin-top:12px;text-align:center"><a href="TalentMaster_ADAR_Pikakortti.html?seuraId=' + encodeURIComponent(_seuraId || '') + '&pelaajaId=' + encodeURIComponent(p.id || '') + vpT('" target="_blank" style="font-size:12px;color:var(--teal);text-decoration:none;border:.5px solid rgba(40,176,144,.4);border-radius:6px;padding:6px 12px;display:inline-block">➕ Lisää pelihavainto</a></div>');
+  const _hdr = vpT('<b style="color:var(--teal)">D4 Peliäly · pelihavainnosta (ADAR) · 1–3</b>') + ((typeof window._tmIBtn === 'function') ? window._tmIBtn('adar') : '');
   if (!av) {
     // Ei pelihavaintoja → tyhjätila-CTA (ent. f3:n empty-state, konsolidoitu). Entry point EI häviä.
     return '<div class="jsp-adar-koostumus"><div class="jsp-arv-legend" style="margin:0 0 8px">' + _hdr + '</div>'
-      + '<div style="font-size:12.5px;color:var(--ink3);text-align:center;padding:8px 0 10px">Ei pelihavaintoja vielä — peliäly rakentuu ADAR-havainnoista.</div>' + _adarCta + '</div>';
+      + vpT('<div style="font-size:12.5px;color:var(--ink3);text-align:center;padding:8px 0 10px">Ei pelihavaintoja vielä — peliäly rakentuu ADAR-havainnoista.</div>') + _adarCta + '</div>';
   }
   const sallitut = (typeof tmAdarIkaTier === 'function') ? tmAdarIkaTier(ika) : ['a', 'd', 'ac', 'r'];
   const rLukossa = sallitut.indexOf('r') < 0;
@@ -4616,17 +4616,17 @@ function _vpArvAdarKoostumusHTML(p, ika) {
     let dots = '';
     for (let i = 1; i <= 3; i++) dots += '<i class="' + ((arvo != null && i <= arvo) ? 'on' : '') + '"></i>';
     const low = (arvo != null && arvo < 3);
-    const avLbl = locked ? 'avautuu 16 v'
-      : (arvo != null ? '<b>' + arvo + '</b>/3 · ' + (arvo >= 3 ? 'itsenäisesti' : arvo === 2 ? 'ohjatusti' : 'ei näy vielä') : '<span style="color:var(--ink3)">— ei havaintoa</span>');
+    const avLbl = locked ? vpT('avautuu 16 v')
+      : (arvo != null ? '<b>' + arvo + '</b>/3 · ' + (arvo >= 3 ? vpT('itsenäisesti') : arvo === 2 ? 'ohjatusti' : vpT('ei näy vielä')) : vpT('<span style="color:var(--ink3)">— ei havaintoa</span>'));
     if (arvo != null) { summa += arvo; nAkt++; }
     rows += '<div class="jsp-adar-row' + (locked ? ' locked' : '') + '"><span class="jsp-adar-an">' + _jsvEsc(o.nimi) + ' <small>(' + _jsvEsc(o.sel) + ')</small></span>'
       + '<span class="jsp-scale3' + (low ? ' low' : '') + '">' + dots + '</span><span class="jsp-adar-av">' + avLbl + '</span></div>';
   });
   const pvm = av.pvm ? (typeof _pvmLyhyt === 'function' ? _pvmLyhyt(av.pvm) : _jsvEsc(av.pvm)) : '';
   let h = '<div class="jsp-adar-koostumus"><div class="jsp-arv-legend" style="margin:0 0 4px">' + _hdr + (pvm ? ' <span style="color:var(--ink3);font-weight:400">· ' + pvm + '</span>' : '') + '</div>';
-  h += '<div style="font-size:10.5px;color:var(--ink3);margin-bottom:8px;line-height:1.5">Mitä "peliäly" -luvun takana on: neljä osaa, ikäportitettu.' + (rLukossa ? ' U13-portti → Havaitse · Päätä · Toimi (Arvioi avautuu 16 v).' : '') + ' Ei muunneta 1–5:een — pysyy 1–3.</div>';
+  h += vpT('<div style="font-size:10.5px;color:var(--ink3);margin-bottom:8px;line-height:1.5">Mitä "peliäly" -luvun takana on: neljä osaa, ikäportitettu.') + (rLukossa ? vpT(' U13-portti → Havaitse · Päätä · Toimi (Arvioi avautuu 16 v).') : '') + vpT(' Ei muunneta 1–5:een — pysyy 1–3.</div>');
   h += rows;
-  h += '<div style="font-size:11px;color:var(--ink3);margin-top:8px;padding-top:6px;border-top:.5px solid var(--border)">Kokonais <b style="color:var(--ink2)">' + summa + '/' + (nAkt * 3) + '</b>' + (rLukossa ? ' · U13-portti (' + nAkt + ' osaa)' : '') + (av.yht != null ? ' · tutkassa ' + (Math.round(av.yht * 10) / 10) + '/5' : '') + '</div>';
+  h += vpT('<div style="font-size:11px;color:var(--ink3);margin-top:8px;padding-top:6px;border-top:.5px solid var(--border)">Kokonais <b style="color:var(--ink2)">') + summa + '/' + (nAkt * 3) + '</b>' + (rLukossa ? vpT(' · U13-portti (') + nAkt + vpT(' osaa)') : '') + (av.yht != null ? vpT(' · tutkassa ') + (Math.round(av.yht * 10) / 10) + '/5' : '') + '</div>';
   // FOLD-IN (R3.B-korjaus): ristiinarvio (multi-rater konkordanssi) + add-CTA — ent. f3:n arvokkaat osat, ei hukata.
   h += (typeof _vpRistiinarvio === 'function') ? _vpRistiinarvio(p) : '';
   h += _adarCta;
@@ -4664,9 +4664,9 @@ function _vpArviointiHTML(p) {
   // P1 oversight (§6): pelihavaintojen tilanne-jakauma (n ottelusta, m harjoituksesta) pikakentästä.
   const _phTilLbl = (function () {
     const tj = p.adar_tilanne_jakauma; if (!tj) return '';
-    const _n = { peli: 'ottelusta', harjoitus: 'harjoituksesta', turnaus: 'turnauksesta', muu: 'muusta' };
+    const _n = { peli: vpT('ottelusta'), harjoitus: vpT('harjoituksesta'), turnaus: vpT('turnauksesta'), muu: vpT('muusta') };
     const osat = Object.keys(tj).filter(function (k) { return tj[k]; }).map(function (k) { return tj[k] + ' ' + (_n[k] || k); });
-    return osat.length ? ('<div style="font-size:10.5px;color:var(--ink3);margin:2px 0 6px"><span class="jsp-pmark peli"></span> Pelihavainnot: ' + osat.join(' · ') + '</div>') : '';
+    return osat.length ? (vpT('<div style="font-size:10.5px;color:var(--ink3);margin:2px 0 6px"><span class="jsp-pmark peli"></span> Pelihavainnot: ') + osat.join(' · ') + '</div>') : '';
   })();
   // Prioriteetti: mitattu (testi) > tallennettu havaittu ('silma') > ADAR-johdettu. ADAR-johdettu lasketaan mukaan kattavuuteen.
   const _arvo = function(item){
@@ -4701,12 +4701,12 @@ function _vpArviointiHTML(p) {
       const ast = A[v] ? (A[v].koodi + ' · ' + A[v].fi) : '';
       s += '<button class="jsp-arv-segbtn ' + cls + (valittu === v ? ' on' : '') + '" aria-pressed="' + (valittu === v) + '" onclick="event.stopPropagation();_vpTallennaHavaittu(\'' + pid + '\',\'' + avain + '\',' + v + ')" title="' + ast + '">' + v + '</button>';
     }
-    s += '<button class="jsp-arv-segbtn na ' + cls + (naOn ? ' on' : '') + '" onclick="event.stopPropagation();_vpTallennaHavaittu(\'' + pid + '\',\'' + avain + '\',null)" title="En nähnyt / ei arviota (validi)">N/A</button></span>';
+    s += '<button class="jsp-arv-segbtn na ' + cls + (naOn ? ' on' : '') + '" onclick="event.stopPropagation();_vpTallennaHavaittu(\'' + pid + '\',\'' + avain + vpT('\',null)" title="En nähnyt / ei arviota (validi)">N/A</button></span>');
     return s;
   };
   // ＋ IDP-tavoite -silta (B1): arvo ≤2 → oranssi pilleri. Handler re-derivaa lähteen (havaittu/pelihavainto) pelaajasta.
   const idpSilta = function (avain) {
-    return '<span class="jsp-arv-idp" onclick="event.stopPropagation();_vpTeeIdpTavoiteHavainnosta(\'' + pid + '\',\'' + avain + '\')" title="Luo IDP-kehitystavoite tästä havainnosta (arvo ≤ 2)">＋ IDP-tavoite</span>';
+    return '<span class="jsp-arv-idp" onclick="event.stopPropagation();_vpTeeIdpTavoiteHavainnosta(\'' + pid + '\',\'' + avain + vpT('\')" title="Luo IDP-kehitystavoite tästä havainnosta (arvo ≤ 2)">＋ IDP-tavoite</span>');
   };
   // R-selitteet — ⓘ-vihje: näyttää attribuutin kuvaus_fi:n (hover title = työpöytä; klik/tap = popover, kosketuslaitteet).
   const itag = function (item) {
@@ -4720,32 +4720,32 @@ function _vpArviointiHTML(p) {
   // §1 Kaksois-brändäys (Palloliitto × TalentMaster) — P3.1: kompakti tagi otsikossa; täysi attribuutio ⓘ-paneelissa.
   // ── P3.1 — KOMPAKTI OTSIKKO (johda arvioinnilla): eyebrow · serif-otsikko · mono-meta · pieni kaksoisbrändi-tagi. ──
   h += '<div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:2px">'
-    + '<div><div style="font-family:var(--font-sans),\'DM Sans\',sans-serif;font-size:9px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--ink3)">Arviointi · havainto-kehys</div>'
-    + '<div style="font-family:var(--font-serif),\'Cormorant Garamond\',serif;font-size:21px;color:var(--ink);line-height:1.1">Arviointi</div>'
-    + '<div style="font-family:var(--font-mono),\'DM Mono\',monospace;font-size:10px;color:var(--ink3);margin-top:1px">' + _jsvEsc(kehys.nimi) + '-kehys · D1–D5 · ' + taks.length + ' kohdetta</div></div>'
-    + '<span style="font-family:var(--font-mono),\'DM Mono\',monospace;font-size:9.5px;color:var(--ink3);white-space:nowrap">📋 ' + _jsvEsc(kehysAvain === 'palloliitto' ? 'Palloliitto' : kehys.nimi) + ' × ◆ TalentMaster</span></div>';
+    + vpT('<div><div style="font-family:var(--font-sans),\'DM Sans\',sans-serif;font-size:9px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--ink3)">Arviointi · havainto-kehys</div>')
+    + '<div style="font-family:var(--font-serif),\'Cormorant Garamond\',serif;font-size:21px;color:var(--ink);line-height:1.1">' + vpT('Arviointi') + '</div>'
+    + '<div style="font-family:var(--font-mono),\'DM Mono\',monospace;font-size:10px;color:var(--ink3);margin-top:1px">' + _jsvEsc(kehys.nimi) + vpT('-kehys · D1–D5 ·') + ' ' + taks.length + ' ' + vpT('kohdetta</div></div>')
+    + '<span style="font-family:var(--font-mono),\'DM Mono\',monospace;font-size:9.5px;color:var(--ink3);white-space:nowrap">📋 ' + _jsvEsc(kehysAvain === 'palloliitto' ? vpT('Palloliitto') : kehys.nimi) + ' × ◆ TalentMaster</span></div>';
   // ── ⓘ Tietoa kehyksestä -katkaisin (KAIKKI selittävä scaffolding kootusti, oletuksena KIINNI). ──
   const _selitToggle = 'var b=document.getElementById(\'_jspArvSelit\');var o=b.style.display===\'none\';b.style.display=o?\'block\':\'none\'';
-  h += '<div style="margin:6px 0 10px"><span onclick="' + _selitToggle + '" style="font-family:var(--font-sans),\'DM Sans\',sans-serif;font-size:11px;color:var(--blue);cursor:pointer;-webkit-user-select:none;user-select:none">ⓘ Tietoa kehyksestä · selitteet</span>';
+  h += '<div style="margin:6px 0 10px"><span onclick="' + _selitToggle + vpT('" style="font-family:var(--font-sans),\'DM Sans\',sans-serif;font-size:11px;color:var(--blue);cursor:pointer;-webkit-user-select:none;user-select:none">ⓘ Tietoa kehyksestä · selitteet</span>');
   h += '<div id="_jspArvSelit" style="display:none;margin-top:8px;padding:11px 13px;background:var(--ov-1);border:.5px solid var(--border);border-radius:10px;font-family:var(--font-sans),\'DM Sans\',sans-serif">';
-  h += '<div style="font-size:10.5px;color:var(--ink3);margin-bottom:7px">🔧 Kehys vaihdettavissa — seuran oma taksonomia + asteikko + KPI-mittarit + ADAR-mäppäys.</div>';
-  h += '<div class="jsp-arv-attrib" style="margin:0 0 7px"><span style="color:var(--blue)">🔵 <b>Palloliitto</b></span>: havaittu-arvio 1–5 · <span style="color:var(--teal)">🟢◆ <b>TalentMaster</b></span>: mittaus · pelihavainto · kehityssuunnitelma' + ((typeof window._tmIBtn === 'function') ? window._tmIBtn('brandijako') : '') + '</div>';
-  h += '<div class="jsp-arv-legend" style="margin:0 0 7px"><span style="color:var(--teal)">🟢 Mitattu</span> = TM-testistä (lukittu) · <span style="color:var(--blue)">🔵 Havaittu</span> = arvioi 1–5 · <span style="color:#c060a8">👁 Pelihavainnosta</span> = kenttähavainnosta johdettu (klikkaa yliajaaksesi). <span style="color:var(--amber)">＋ IDP-tavoite</span> = luo kehitystavoite (arvo ≤ 2). §7.22: aikuisten työkalu.</div>';
+  h += vpT('<div style="font-size:10.5px;color:var(--ink3);margin-bottom:7px">🔧 Kehys vaihdettavissa — seuran oma taksonomia + asteikko + KPI-mittarit + ADAR-mäppäys.</div>');
+  h += vpT('<div class="jsp-arv-attrib" style="margin:0 0 7px"><span style="color:var(--blue)">🔵 <b>Palloliitto</b></span>: havaittu-arvio 1–5 · <span style="color:var(--teal)">🟢◆ <b>TalentMaster</b></span>: mittaus · pelihavainto · kehityssuunnitelma') + ((typeof window._tmIBtn === 'function') ? window._tmIBtn('brandijako') : '') + '</div>';
+  h += vpT('<div class="jsp-arv-legend" style="margin:0 0 7px"><span style="color:var(--teal)">🟢 Mitattu</span> = TM-testistä (lukittu) · <span style="color:var(--blue)">🔵 Havaittu</span> = arvioi 1–5 · <span style="color:#c060a8">👁 Pelihavainnosta</span> = kenttähavainnosta johdettu (klikkaa yliajaaksesi). <span style="color:var(--amber)">＋ IDP-tavoite</span> = luo kehitystavoite (arvo ≤ 2). §7.22: aikuisten työkalu.</div>');
   if (A) {
     const _astLbl = [1, 2, 3, 4, 5].filter(function (v) { return A[v]; }).map(function (v) { return '<b style="color:var(--ink2)">' + v + '</b> ' + _jsvEsc(A[v].fi); }).join(' · ');
-    if (_astLbl) h += '<div class="jsp-arv-legend" style="margin:0 0 7px">📏 Asteikko (' + _jsvEsc(kehys.nimi) + '): ' + _astLbl + '</div>';
+    if (_astLbl) h += vpT('<div class="jsp-arv-legend" style="margin:0 0 7px">📏 Asteikko (') + _jsvEsc(kehys.nimi) + '): ' + _astLbl + '</div>';
   }
   if (_phTilLbl) h += _phTilLbl;
-  h += '<div class="jsp-arv-kerros" style="margin-top:8px"><div class="jsp-arv-kerros-hd">◆ TalentMaster Analytics — kehityskerros</div>'
-    + '<div class="jsp-arv-kerros-body"><span class="k">IDP-tavoite</span> (kausifokus) · <span class="k">Jaksofokus</span> + konseptit · <span class="k">5D-radar</span> · <span class="k">Peliäly/ADAR</span> · <span class="k">Kehityspolku</span></div>'
-    + '<div><span class="jsp-arv-palaute" onclick="event.stopPropagation();_vpBrandiPalaute(\'' + p.id + '\')">💬 Palaute brändijaosta</span></div></div>';
+  h += vpT('<div class="jsp-arv-kerros" style="margin-top:8px"><div class="jsp-arv-kerros-hd">◆ TalentMaster Analytics — kehityskerros</div>')
+    + vpT('<div class="jsp-arv-kerros-body"><span class="k">IDP-tavoite</span> (kausifokus) · <span class="k">Jaksofokus</span> + konseptit · <span class="k">5D-radar</span> · <span class="k">Peliäly/ADAR</span> · <span class="k">Kehityspolku</span></div>')
+    + '<div><span class="jsp-arv-palaute" onclick="event.stopPropagation();_vpBrandiPalaute(\'' + p.id + vpT('\')">💬 Palaute brändijaosta</span></div></div>');
   h += '</div></div>';   // /_jspArvSelit + wrapper
   // ── KONTROLLIT: Teema + Kehys (kompakti rivi). Kehys-valitsin näkyy kun >1 kehys tai SA. ──
   h += '<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:8px">';
-  h += '<div class="jsp-arv-topbar" style="margin:0"><label class="jsp-arv-lbl">Teema</label><select class="jsp-arv-select" onchange="_vpArvValitseTeema(this.value)">'
-    + teemat.map(function(t){ return '<option value="' + t.avain + '"' + (t.avain === teema ? ' selected' : '') + '>' + _jsvEsc(t.nimi) + ' · ' + t.n + ' kohdetta</option>'; }).join('') + '</select></div>';
+  h += vpT('<div class="jsp-arv-topbar" style="margin:0"><label class="jsp-arv-lbl">Teema</label><select class="jsp-arv-select" onchange="_vpArvValitseTeema(this.value)">')
+    + teemat.map(function(t){ return '<option value="' + t.avain + '"' + (t.avain === teema ? ' selected' : '') + '>' + _jsvEsc(t.nimi) + ' · ' + t.n + ' ' + vpT('kohdetta</option>'); }).join('') + '</select></div>';
   if (kehysAvaimet.length > 1 || (typeof superAdmin !== 'undefined' && superAdmin)) {
-    h += '<div class="jsp-arv-topbar" style="margin:0"><label class="jsp-arv-lbl">Kehys</label><select class="jsp-arv-select" onchange="_vpArvValitseKehys(this.value)">'
+    h += vpT('<div class="jsp-arv-topbar" style="margin:0"><label class="jsp-arv-lbl">Kehys</label><select class="jsp-arv-select" onchange="_vpArvValitseKehys(this.value)">')
       + kehysAvaimet.map(function(k){ return '<option value="' + k + '"' + (k === kehysAvain ? ' selected' : '') + '>' + _jsvEsc(ARVIOINTI_KEHYKSET[k].nimi) + '</option>'; }).join('') + '</select></div>';
   }
   h += '</div>';
@@ -4756,12 +4756,12 @@ function _vpArviointiHTML(p) {
     const its = taks.filter(function(i){ return i.dim === dim; });
     let a = 0; its.forEach(function(it){ if (_arvo(it).arvo != null) a++; });
     const pct = its.length ? Math.round(a / its.length * 100) : 0;
-    h += '<div class="jsp-arv-covcell' + (dim === teemaDim ? ' sel' : '') + '" onclick="_vpArvHyppaaDim(\'' + dim + '\')" title="' + (TM_DIMENSIOT[dim] ? _jsvEsc(TM_DIMENSIOT[dim].nimi_fi) : dim) + ' — ' + a + '/' + its.length + ' arvioitu">'
+    h += '<div class="jsp-arv-covcell' + (dim === teemaDim ? ' sel' : '') + '" onclick="_vpArvHyppaaDim(\'' + dim + '\')" title="' + (TM_DIMENSIOT[dim] ? _jsvEsc(TM_DIMENSIOT[dim].nimi_fi) : dim) + ' — ' + a + '/' + its.length + ' ' + vpT('arvioitu">')
       + '<div class="jsp-arv-covdim">' + dim + '</div><div class="jsp-arv-covn"><b>' + a + '</b>/' + its.length + '</div>'
       + '<div class="jsp-arv-covbar"><div class="jsp-arv-covfill' + (pct < 40 ? ' low' : '') + '" style="width:' + pct + '%"></div></div></div>';   // v3: teal · aukko (ohut kattavuus <40%) amber
   });
   h += '</div>';
-  h += '<div class="jsp-arv-legend" style="margin:4px 0 10px;display:flex;align-items:center;gap:6px;flex-wrap:wrap"><span class="jsp-pmark mit"></span> mitattu · <span class="jsp-pmark hav"></span> havaittu · <span class="jsp-pmark peli"></span> pelihavainto · asteikko 1–5 → <span onclick="' + _selitToggle + '" style="color:var(--teal);cursor:pointer;font-weight:600">ⓘ</span></div>';
+  h += vpT('<div class="jsp-arv-legend" style="margin:4px 0 10px;display:flex;align-items:center;gap:6px;flex-wrap:wrap"><span class="jsp-pmark mit"></span> mitattu · <span class="jsp-pmark hav"></span> havaittu · <span class="jsp-pmark peli"></span> pelihavainto · asteikko 1–5 → <span onclick="') + _selitToggle + '" style="color:var(--teal);cursor:pointer;font-weight:600">ⓘ</span></div>';
   // R3.A — SILTA (arviointi → suunnitelma) kattavuuden JÄLKEEN (v4). Sama sisältö/prioriteetti kuin ennen, vain sijainti.
   h += _d1Prio ? (_d1Silta + _d2Silta) : (_d2Silta + _d1Silta);
 
@@ -4779,7 +4779,7 @@ function _vpArviointiHTML(p) {
 
   // 🟢 MITATTU · TESTEISTÄ — lukittu numero + 🔒 + testiviite + mittaripalkki (ei 1–5-nappeja).
   if (gMit.length) {
-    h += '<div class="jsp-arv-grp"><div class="jsp-arv-ghd mit"><span class="jsp-pmark mit"></span> Mitattu <span class="sub">· testeistä (lukittu)</span><span class="jsp-arv-prov tm" title="TalentMaster-testimoottori">TM ANALYTICS</span></div>';
+    h += vpT('<div class="jsp-arv-grp"><div class="jsp-arv-ghd mit"><span class="jsp-pmark mit"></span> Mitattu <span class="sub">· testeistä (lukittu)</span><span class="jsp-arv-prov tm" title="TalentMaster-testimoottori">TM ANALYTICS</span></div>');
     gMit.forEach(function(g){
       const item = g.item, arvo = g.av.arvo;
       const ref = (item.mitta && (item.mitta.laji || item.mitta.avain)) ? '<span class="ref">· ' + _jsvEsc(item.mitta.laji || item.mitta.avain) + '</span>' : '';
@@ -4787,15 +4787,15 @@ function _vpArviointiHTML(p) {
       h += '<div class="jsp-arv-r"><span class="jsp-arv-rn">' + item.nimi_fi + itag(item) + ref + '</span>'
         + gauge('mit', arvo, 5)
         + (arvo != null
-            ? '<span class="jsp-arv-num" style="color:' + V5(arvo) + '" title="' + (ast ? ast.koodi + ' · ' + ast.fi : '') + '">' + round1(arvo) + '</span><span class="jsp-arv-lock" title="Mitattu TM-testistä — lukittu">🔒</span>'
-            : '<span class="jsp-arv-num mut">ei testiä</span>')
+            ? '<span class="jsp-arv-num" style="color:' + V5(arvo) + '" title="' + (ast ? ast.koodi + ' · ' + ast.fi : '') + '">' + round1(arvo) + vpT('</span><span class="jsp-arv-lock" title="Mitattu TM-testistä — lukittu">🔒</span>')
+            : vpT('<span class="jsp-arv-num mut">ei testiä</span>'))
         + '</div>';
     });
     h += '</div>';
   }
   // 🔵 HAVAITTU · ARVIOI 1–5 — mittaripalkki + numero + segmentoitu 1–5 (klik = autosave). IDP-silta jos ≤2.
   if (gHav.length) {
-    h += '<div class="jsp-arv-grp"><div class="jsp-arv-ghd hav"><span class="jsp-pmark hav"></span> Havaittu <span class="sub">· arvioi 1–5</span><span class="jsp-arv-prov pl" title="Palloliitto Player Development Card — kortin oma arviomuoto">PALLOLIITTO-ARVIO</span></div>';
+    h += vpT('<div class="jsp-arv-grp"><div class="jsp-arv-ghd hav"><span class="jsp-pmark hav"></span> Havaittu <span class="sub">· arvioi 1–5</span><span class="jsp-arv-prov pl" title="Palloliitto Player Development Card — kortin oma arviomuoto">PALLOLIITTO-ARVIO</span></div>');
     gHav.forEach(function(g){
       const item = g.item, arvo = g.av.arvo, hav = havaittu[item.avain];
       const num = (arvo != null) ? '<span class="jsp-arv-num" style="color:' + V5(arvo) + '">' + round1(arvo) + '</span>' : '<span class="jsp-arv-num mut">—</span>';
@@ -4810,24 +4810,24 @@ function _vpArviointiHTML(p) {
   if (gPeli.length) {
     const havPvm = (p.adar_viimeisin && p.adar_viimeisin.pvm) ? _pvmLyhyt(p.adar_viimeisin.pvm) : '';
     // P3 — ADAR-ikäportti-note: mitkä ADAR-vaiheet ikävaihe avaa (§7 kolmiportainen).
-    const _adarTierLbl = (ika == null) ? 'täysi (ikä tuntematon)' : (ika <= 12 ? 'ikävaihe 8–12 → Assess' : ika <= 15 ? 'ikävaihe 13–15 → Assess · Decide · Act' : 'ikävaihe 16+ → täysi (Assess · Decide · Act · Reassess)');
-    h += '<div class="jsp-arv-grp"><div class="jsp-arv-ghd peli"><span class="jsp-pmark peli"></span> Pelihavainnosta <span class="sub">· johdettu ADAR:sta (1–3) — klikkaa 1–5 yliajaaksesi</span><span class="jsp-arv-prov tm" title="TalentMaster-havaintomalli (ADAR)">TM ANALYTICS</span></div>';
-    h += '<div style="font-size:10px;color:var(--ink3);margin:-2px 2px 6px">🎯 ADAR-ikäportti: ' + _adarTierLbl + '</div>';
+    const _adarTierLbl = (ika == null) ? vpT('täysi (ikä tuntematon)') : (ika <= 12 ? vpT('ikävaihe 8–12 → Assess') : ika <= 15 ? vpT('ikävaihe 13–15 → Assess · Decide · Act') : vpT('ikävaihe 16+ → täysi (Assess · Decide · Act · Reassess)'));
+    h += vpT('<div class="jsp-arv-grp"><div class="jsp-arv-ghd peli"><span class="jsp-pmark peli"></span> Pelihavainnosta <span class="sub">· johdettu ADAR:sta (1–3) — klikkaa 1–5 yliajaaksesi</span><span class="jsp-arv-prov tm" title="TalentMaster-havaintomalli (ADAR)">TM ANALYTICS</span></div>');
+    h += vpT('<div style="font-size:10px;color:var(--ink3);margin:-2px 2px 6px">🎯 ADAR-ikäportti:') + ' ' + _adarTierLbl + '</div>';
     gPeli.forEach(function(g){
       const item = g.item, arvo = g.av.arvo;
-      h += '<div class="jsp-arv-r"><span class="jsp-arv-rn">' + item.nimi_fi + itag(item) + '<span class="jsp-arv-pelih" title="Pelihavainnosta johdettu (kenttähavainto) — klikkaa 1–5 antaaksesi oman arvion (yliajaa)">PELIH.</span></span>'
+      h += '<div class="jsp-arv-r"><span class="jsp-arv-rn">' + item.nimi_fi + itag(item) + vpT('<span class="jsp-arv-pelih" title="Pelihavainnosta johdettu (kenttähavainto) — klikkaa 1–5 antaaksesi oman arvion (yliajaa)">PELIH.</span></span>')
         + gauge('peli', arvo, 3)
-        + '<span class="jsp-arv-num" title="ADAR-asteikko 1–3">' + round1(arvo) + '<span style="font-size:9px;color:var(--ink3)">/3</span></span>'
+        + vpT('<span class="jsp-arv-num" title="ADAR-asteikko 1–3">') + round1(arvo) + '<span style="font-size:9px;color:var(--ink3)">/3</span></span>'
         + seg('peli', item.avain, null, false)
         + ((arvo != null && arvo <= 2) ? idpSilta(item.avain) : '')
-        + (havPvm ? '<span class="jsp-arv-src"><span class="jsp-pmark peli"></span> Havainto ' + havPvm + '</span>' : '')
+        + (havPvm ? vpT('<span class="jsp-arv-src"><span class="jsp-pmark peli"></span> Havainto ') + havPvm + '</span>' : '')
         + '</div>';
     });
     h += '</div>';
   }
-  if (!items.length) h += '<div class="jsp-arv-gempty">Ei kohteita tässä teemassa.</div>';
+  if (!items.length) h += vpT('<div class="jsp-arv-gempty">Ei kohteita tässä teemassa.</div>');
   // Autosave-indikaattori (§A3).
-  h += '<div class="jsp-arv-save">✓ Arviot tallentuvat <b>automaattisesti</b> klikatessa · teema ' + arvioituja + '/' + items.length + ' arvioitu.</div>';
+  h += vpT('<div class="jsp-arv-save">✓ Arviot tallentuvat <b>automaattisesti</b> klikatessa · teema') + ' ' + arvioituja + '/' + items.length + ' ' + vpT('arvioitu.</div>');
   // P3 — D3-KALIBRAATIO (relokaatio Kehityksestä → yksi koti Arvioinnissa). Kompakti: itse × valmentaja × VP
   // (renderD3VertailuHTML) + Aukko⚠ + varmuus-lippu (d3VarmuusChip) + 1-klik Arvioi (_avaaVpD3Arvio). Ei uutta kirjoitusta.
   // R3.B — D4 Peliäly · ADAR-koostumus (v3): ennen D3-kalibraatiota (kartta-järjestys D2 → D4 ADAR → D3). Read-only, reuse.
@@ -4893,8 +4893,8 @@ function _vpPotentiaaliHTML(p, opts) {
   var pid = _jesc(p.id);
   var GB = 'rgba(217,164,65,.4)', GD = 'rgba(217,164,65,.13)';
   var h = '<div style="margin-top:16px;background:' + GD + ';border:.5px solid ' + GB + ';border-radius:12px;padding:16px 18px">';
-  h += '<div style="font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--gold);margin-bottom:3px">💎 Scouting-linssi · Potentiaali</div>';
-  h += '<div style="font-family:var(--font-serif),\'Cormorant Garamond\',serif;font-size:18px;color:var(--ink);line-height:1.15">Uran kattoarvio <span style="font-size:11px;color:var(--ink3);font-family:var(--font-m)">· FA-tähdet 1–5</span></div>';
+  h += vpT('<div style="font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--gold);margin-bottom:3px">💎 Scouting-linssi · Potentiaali</div>');
+  h += vpT('<div style="font-family:var(--font-serif),\'Cormorant Garamond\',serif;font-size:18px;color:var(--ink);line-height:1.15">Uran kattoarvio <span style="font-size:11px;color:var(--ink3);font-family:var(--font-m)">· FA-tähdet 1–5</span></div>');
   h += '<div style="display:flex;flex-direction:column;gap:2px;margin:11px 0">';
   SCOUT_POTENTIAALI.forEach(function (r) {
     var on = (val === r.tahdet), tahtiStr = '';
@@ -4906,22 +4906,22 @@ function _vpPotentiaaliHTML(p, opts) {
       + '<span style="font-family:var(--font-m);letter-spacing:2px;color:' + (on ? 'var(--gold)' : 'var(--ink3)') + '">' + tahtiStr + '</span>'
       + '<span style="font-size:12.5px;color:' + (on ? 'var(--ink)' : 'var(--ink2)') + ';font-weight:' + (on ? '600' : '400') + '">' + _jsvEsc(r.lyhyt) + '</span>'
       + '<span style="font-family:var(--font-m);font-size:10px;color:var(--ink3)">' + _jsvEsc(r.kuvaus) + '</span>'
-      + (on ? '<span style="margin-left:auto;font-size:10px;color:var(--gold)">● valittu</span>' : '')
+      + (on ? vpT('<span style="margin-left:auto;font-size:10px;color:var(--gold)">● valittu</span>') : '')
       + '</div>';
   });
   h += '</div>';
   if (val == null) {
-    h += '<div style="font-size:12px;color:var(--ink2);line-height:1.5"><b style="color:var(--gold)">Ei vielä arvioitu</b> — ' + (voi ? 'valitse porras yltä.' : 'scout / VP asettaa.') + ' Potentiaali = uran parhaat vuodet jos pysyy terveenä. <span style="color:var(--ink3)">(Scouting-linssi · ei osa 5D-arviointia.)</span></div>';
+    h += '<div style="font-size:12px;color:var(--ink2);line-height:1.5"><b style="color:var(--gold)">' + vpT('Ei vielä arvioitu') + '</b> — ' + (voi ? vpT('valitse porras yltä.') : vpT('scout / VP asettaa.')) + vpT(' Potentiaali = uran parhaat vuodet jos pysyy terveenä. <span style="color:var(--ink3)">(Scouting-linssi · ei osa 5D-arviointia.)</span></div>');
   } else {
     var rr = _vpPotRivi(val);
     h += '<div style="font-size:12px;color:var(--ink2);line-height:1.5"><b style="color:var(--gold)">' + val + '★ · ' + _jsvEsc(rr ? rr.lyhyt : '') + '</b>'
       + (p.scout_potentiaali_arvioija ? ' <span style="color:var(--ink3)">· ' + _jsvEsc(p.scout_potentiaali_arvioija) + (p.scout_potentiaali_pvm ? ' · ' + _jsvEsc(_pvmLyhyt(p.scout_potentiaali_pvm)) : '') + '</span>' : '') + '</div>';
   }
   if (voi) {
-    h += '<div style="margin-top:10px"><textarea id="_vpPotHuomiot" onclick="event.stopPropagation()" placeholder="Perustelu / huomiot (scouttausprojektio — ei terveystietoa)" style="width:100%;min-height:52px;background:var(--surface);border:.5px solid var(--border);border-radius:8px;color:var(--ink);font-family:var(--font-sans),\'DM Sans\',sans-serif;font-size:12px;padding:8px;resize:vertical">' + _jsvEsc(huom) + '</textarea>'
+    h += vpT('<div style="margin-top:10px"><textarea id="_vpPotHuomiot" onclick="event.stopPropagation()" placeholder="Perustelu / huomiot (scouttausprojektio — ei terveystietoa)" style="width:100%;min-height:52px;background:var(--surface);border:.5px solid var(--border);border-radius:8px;color:var(--ink);font-family:var(--font-sans),\'DM Sans\',sans-serif;font-size:12px;padding:8px;resize:vertical">') + _jsvEsc(huom) + '</textarea>'
       + '<div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">'
-      + '<button onclick="event.stopPropagation();_vpTallennaPotentiaali(\'' + pid + '\',null,true)" style="font-size:11px;font-weight:500;padding:7px 13px;border-radius:7px;border:.5px solid ' + GB + ';color:var(--gold);background:' + GD + ';cursor:pointer">Tallenna huomio</button>'
-      + (val != null ? '<button onclick="event.stopPropagation();_vpPoistaPotentiaali(\'' + pid + '\')" style="font-size:11px;font-weight:500;padding:7px 13px;border-radius:7px;border:.5px solid var(--border);color:var(--ink2);background:transparent;cursor:pointer">Poista arvio</button>' : '')
+      + '<button onclick="event.stopPropagation();_vpTallennaPotentiaali(\'' + pid + '\',null,true)" style="font-size:11px;font-weight:500;padding:7px 13px;border-radius:7px;border:.5px solid ' + GB + ';color:var(--gold);background:' + GD + vpT(';cursor:pointer">Tallenna huomio</button>')
+      + (val != null ? '<button onclick="event.stopPropagation();_vpPoistaPotentiaali(\'' + pid + vpT('\')" style="font-size:11px;font-weight:500;padding:7px 13px;border-radius:7px;border:.5px solid var(--border);color:var(--ink2);background:transparent;cursor:pointer">Poista arvio</button>') : '')
       + '</div></div>';
   } else if (huom) {
     h += '<div style="margin-top:9px;font-size:12px;color:var(--ink2);font-style:italic;line-height:1.5">”' + _jsvEsc(huom) + '”</div>';
@@ -4940,7 +4940,7 @@ function _vpPotReRender(p) {
 // Tallenna potentiaali (tähdet + huomiot) → scout_*-pikakentät. huomioVain=true → päivitä vain huomiot (säilytä tähdet).
 window._vpTallennaPotentiaali = async function (pid, tahdet, huomioVain) {
   var p = (typeof _vpIdpPelaaja === 'function') ? _vpIdpPelaaja(pid) : null; if (!p) return;
-  if (!_vpSeurantaOnJohto()) { if (typeof toast === 'function') toast('Potentiaali on VP:n/johdon oikeus', 'error'); return; }   // johto-only (täsmää sääntöön)
+  if (!_vpSeurantaOnJohto()) { if (typeof toast === 'function') toast(vpT('Potentiaali on VP:n/johdon oikeus'), 'error'); return; }   // johto-only (täsmää sääntöön)
   var huomEl = document.getElementById('_vpPotHuomiot');
   var huom = huomEl ? huomEl.value : (p.scout_potentiaali_huomiot || '');
   var t = huomioVain ? (p.scout_potentiaali != null ? Number(p.scout_potentiaali) : null) : Number(tahdet);
@@ -4950,26 +4950,26 @@ window._vpTallennaPotentiaali = async function (pid, tahdet, huomioVain) {
   var pvm = new Date().toISOString();
   p.scout_potentiaali = t; p.scout_potentiaali_taso = taso; p.scout_potentiaali_huomiot = huom; p.scout_potentiaali_pvm = pvm; p.scout_potentiaali_arvioija = arvioija;
   _vpPotReRender(p);
-  if (_isDemoMode || !_seuraId) { if (typeof toast === 'function') toast('Potentiaali tallennettu (demo)', 'ok'); return; }
+  if (_isDemoMode || !_seuraId) { if (typeof toast === 'function') toast(vpT('Potentiaali tallennettu (demo)'), 'ok'); return; }
   try {
     var cu = firebase.auth().currentUser; if (cu) await cu.getIdToken(true);
     await db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(p.id)
       .set({ scout_potentiaali: t, scout_potentiaali_taso: taso, scout_potentiaali_huomiot: huom, scout_potentiaali_pvm: pvm, scout_potentiaali_arvioija: arvioija }, { merge: true });
-    if (typeof toast === 'function') toast('💎 Potentiaali tallennettu', 'ok');
+    if (typeof toast === 'function') toast(vpT('💎 Potentiaali tallennettu'), 'ok');
   } catch (e) { console.warn('[potentiaali]', e && e.message); if (typeof toast === 'function') toast('Tallennus epäonnistui (tarkista Firestore-säännöt: scout_potentiaali*)', 'error'); }
 };
 window._vpPoistaPotentiaali = async function (pid) {
   var p = (typeof _vpIdpPelaaja === 'function') ? _vpIdpPelaaja(pid) : null; if (!p || !_vpSeurantaOnJohto()) return;   // johto-only (täsmää sääntöön)
   p.scout_potentiaali = null; p.scout_potentiaali_taso = null; p.scout_potentiaali_huomiot = ''; p.scout_potentiaali_pvm = null; p.scout_potentiaali_arvioija = null;
   _vpPotReRender(p);
-  if (_isDemoMode || !_seuraId) { if (typeof toast === 'function') toast('Arvio poistettu (demo)', 'ok'); return; }
+  if (_isDemoMode || !_seuraId) { if (typeof toast === 'function') toast(vpT('Arvio poistettu (demo)'), 'ok'); return; }
   try {
     var cu = firebase.auth().currentUser; if (cu) await cu.getIdToken(true);
     var D = firebase.firestore.FieldValue.delete();
     await db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(p.id)
       .set({ scout_potentiaali: D, scout_potentiaali_taso: D, scout_potentiaali_huomiot: D, scout_potentiaali_pvm: D, scout_potentiaali_arvioija: D }, { merge: true });
-    if (typeof toast === 'function') toast('Potentiaaliarvio poistettu', 'ok');
-  } catch (e) { console.warn('[potentiaali-poisto]', e && e.message); if (typeof toast === 'function') toast('Poisto epäonnistui', 'error'); }
+    if (typeof toast === 'function') toast(vpT('Potentiaaliarvio poistettu'), 'ok');
+  } catch (e) { console.warn('[potentiaali-poisto]', e && e.message); if (typeof toast === 'function') toast(vpT('Poisto epäonnistui'), 'error'); }
 };
 
 // R2-A V1 — potentiaali-projektio seuratason "Talenttisuositukset kv-tasolle" -listaan. LUKEE olemassa olevat
@@ -4983,8 +4983,8 @@ function _vpPotentiaaliBadgeHTML(p) {
   var r = (p && p.scout_potentiaali != null && typeof _vpPotRivi === 'function') ? _vpPotRivi(p.scout_potentiaali) : null;
   var sisalto = r
     ? '💎 <span style="font-family:var(--font-m);letter-spacing:1px">' + _vpPotTahtiStr(r.tahdet) + '</span> ' + _jsvEsc(r.lyhyt)
-    : '💎 <span style="color:var(--ink3)">ei arvioitu</span>';
-  return '<span class="tag" style="border-color:' + GB + ';background:' + GD + ';color:var(--gold)" title="Potentiaali · uran kattoarvio (scoutin projektio, FA §6) — asetetaan pelaajakortin Scouting-osiossa">' + sisalto + '</span>';
+    : '💎 <span style="color:var(--ink3)">' + vpT('ei arvioitu') + '</span>';
+  return '<span class="tag" style="border-color:' + GB + ';background:' + GD + vpT(';color:var(--gold)" title="Potentiaali · uran kattoarvio (scoutin projektio, FA §6) — asetetaan pelaajakortin Scouting-osiossa">') + sisalto + '</span>';
 }
 window._vpPotentiaaliBadgeHTML = _vpPotentiaaliBadgeHTML;
 // P3 — D3-kalibraatio kompakti lohko (yksi koti Arvioinnissa). Uudelleenkäyttää renderD3VertailuHTML + d3VarmuusChip +
