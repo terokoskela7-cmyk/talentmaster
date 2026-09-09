@@ -981,12 +981,21 @@ exports.vahvistaSuostumus = functions
       throw new functions.https.HttpsError('invalid-argument',
         'seuraId, pelaajaId ja hEmail ovat pakollisia.');
     }
+    // Syvyyssuojaus (Sibbo-korjaus): mikä tahansa odottamaton poikkeus → spesifi, lokitettu
+    // viesti, ei paljasta "internal":ia vanhemmalle. HttpsError-koodit menevät läpi sellaisenaan.
+    try {
     const hEmailNorm = String(hEmail).trim().toLowerCase();
 
     // 2. Varmenna huoltajan sähköposti Admin SDK:lla pelaajadokumentista
     const pelRef = db.collection('seurat').doc(seuraId)
       .collection('pelaajat').doc(pelaajaId);
-    const snap = await pelRef.get();
+    let snap;
+    try {
+      snap = await pelRef.get();
+    } catch (e) {
+      throw new functions.https.HttpsError('unavailable',
+        'Pelaajan tietojen luku epäonnistui, yritä hetken kuluttua uudelleen.');
+    }
     if (!snap.exists) {
       throw new functions.https.HttpsError('not-found', 'Pelaajaa ei löytynyt.');
     }
@@ -1052,24 +1061,33 @@ exports.vahvistaSuostumus = functions
       aikaleima:   aikaleima || null,
     };
 
-    // PIN — 4-numeroinen, uniikki seurassa (sama logiikka kuin Seura.html luoPelaajaPIN +
-    // duplikaattitarkistus). Idempotentti: älä vaihda jos pelaajalla on jo validi PIN.
+    // PIN: käytä olemassa olevaa validia (idempotentti; sama logiikka kuin Seura.html luoPelaajaPIN). UUDEN PIN:in generointi (Firestore-kyselyt)
+    // siirretty kriittisen update-kirjoituksen JÄLKEEN best-effortiksi (Sibbo-korjaus) — ei-kriittinen
+    // PIN-haku ei saa enää kaataa pelaajan aktivointia.
     let pin = (snap.get('pin') && /^\d{4}$/.test(String(snap.get('pin')))) ? String(snap.get('pin')) : null;
-    if (!pin) {
-      const pelaajatCol = db.collection('seurat').doc(seuraId).collection('pelaajat');
-      for (let yritys = 0; yritys < 20 && !pin; yritys++) {
-        const ehdokas = String(Math.floor(1000 + Math.random() * 9000));
-        const kaytossa = await pelaajatCol.where('pin', '==', ehdokas).limit(1).get();
-        if (kaytossa.empty || kaytossa.docs[0].id === pelaajaId) pin = ehdokas;
-      }
-      if (pin) paivitys.pin = pin;
-    }
+    if (pin) paivitys.pin = pin;
 
     try {
       await pelRef.update(paivitys);
     } catch (e) {
       throw new functions.https.HttpsError('internal',
         `Suostumuksen tallennus epäonnistui: ${e.message}`);
+    }
+
+    // PIN-generointi best-effort — pelaaja on jo aktivoitu yllä, tämä ei saa kaataa mitään (Sibbo-korjaus).
+    if (!pin) {
+      try {
+        const pelaajatCol = db.collection('seurat').doc(seuraId).collection('pelaajat');
+        for (let yritys = 0; yritys < 20 && !pin; yritys++) {
+          const ehdokas = String(Math.floor(1000 + Math.random() * 9000));
+          const kaytossa = await pelaajatCol.where('pin', '==', ehdokas).limit(1).get();
+          if (kaytossa.empty || kaytossa.docs[0].id === pelaajaId) pin = ehdokas;
+        }
+        if (pin) await pelRef.update({ pin });
+      } catch (e) {
+        pin = null;
+        console.warn('[vahvistaSuostumus] PIN-generointi epäonnistui (ei-kriittinen):', e.message);
+      }
     }
 
     // 3b. Merkitse kutsu hyväksytyksi (best-effort — puuttuva kutsut-doc ei saa kaataa suostumusta)
@@ -1138,6 +1156,12 @@ exports.vahvistaSuostumus = functions
     } catch (e) {
       console.warn('[vahvistaSuostumus] Reset-linkki epäonnistui:', e.message);
       return { ok: true, passwordResetLink: null, linkkiVirhe: e.message, pin };
+    }
+    } catch (_wrapErr) {
+      if (_wrapErr instanceof functions.https.HttpsError) throw _wrapErr;
+      console.error('[vahvistaSuostumus] odottamaton virhe:', _wrapErr);
+      throw new functions.https.HttpsError('internal',
+        'Palvelinvirhe: ' + ((_wrapErr && _wrapErr.message) || _wrapErr));
     }
   });
 // ─────────────────────────────────────────────────────────────────────────────
