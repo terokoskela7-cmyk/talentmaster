@@ -66,7 +66,8 @@ const codeish = (v) =>
   /\.(html|js|css|png|jpg|json)\b/.test(v) || /[?&][a-zA-Z]+=/.test(v) || /^#[0-9a-fA-F]{3,8}$/.test(v) ||
   /^[a-z][a-z-]*:/.test(v.trim()) ||                    // CSS-property-alku (background:/border-left:2px solid)
   /^\w+\(/.test(v.trim()) ||   // funktiokutsu-handler (act:n toiminto-arg setWs('x'))
-  /^[a-z][a-zA-Z0-9]*$/.test(v.trim());
+  /^[a-z][a-zA-Z0-9]*$/.test(v) ||   // V8e-JF1: bare (VÄLILYÖNNITÖN) lowercase-token = enum/id/koodi
+  /^\s*(selected|disabled|checked|readonly|required|multiple|hidden|open|active|under|uusi)\s*$/.test(v);  // HTML-attr/CSS-class-sanat
 
 // näyttöteksti-palat yhden literaalin ARVOSTA (markup → tag-ulkoinen teksti + title/placeholder); null jos zero-markup
 function markupPieces(v) {
