@@ -17,7 +17,7 @@
 <!-- Eerikkilä-normit + universaali testirekisteri (eerikkilaTaso, laskeFVP) — 10m/5m-tasot + FVP-profiili -->
 <script src="lib/tm_lang.js?v=9"></script>   <!-- i18n V0 — fi/sv/en käännöstaulukko + t() + kieli-init (putkitus) -->
 <script src="lib/tm_i18n_common.js?v=2"></script>   <!-- i18n Vaihe 0 — JAETTU henkilöstö-i18n + lukittu glossaari (ENNEN sivukarttaa) -->
-<script src="lib/tm_vp_i18n.js?v=38"></script>   <!-- i18n Vaihe 5 — VP sv (sivukartta); vpT/vpLokalisoi delegoivat commoniin -->
+<script src="lib/tm_vp_i18n.js?v=39"></script>   <!-- i18n Vaihe 5 — VP sv (sivukartta); vpT/vpLokalisoi delegoivat commoniin -->
 
 
 <script src="lib/tm_eerikkila_normit.js?v=45"></script>   <!-- v43: D2-kortti d2_taso-ensin (renderKehityskorttiHTML, PR #264 · §30/#262) -->
@@ -30,7 +30,7 @@
 <script src="lib/tm_harjoitusarviointi.js?v=4"></script>
 <script src="lib/tm_kalenteri.js?v=1"></script>
 <script src="lib/tm_pvm.js?v=3"></script>   <!-- pvm-helperit: tmOnVanhaMittaus / tmKuukausiaMittauksesta / tmPvmFi (datan tuoreus) -->
-<script src="lib/tm_arviointi_taksonomia.js?v=7"></script>   <!-- Vaihe 2: arviointitaksonomia + pääteemat + kehysrekisteri (mitattu + havaittu 1–5) -->
+<script src="lib/tm_arviointi_taksonomia.js?v=8"></script>   <!-- Vaihe 2: arviointitaksonomia + pääteemat + kehysrekisteri (mitattu + havaittu 1–5) -->
 <script src="lib/tm_pelialy_yksilo.js?v=3"></script>   <!-- P1: pelihavainto peliäly → yksilöteema · v3: Vaihe B ristiinarvio-konsensus -->
 <script src="lib/tm_arviointi_silta.js?v=2"></script>   <!-- Vaihe 5: arviointi→resepti-silta (heikoin havaittu D2 → ehdotettu jaksofokus) · v2 = I3a SSOT-osoitin tm_kehityspolku -->
 <script src="lib/tm_idp.js?v=6"></script>   <!-- I3a: + kesto valmentajan asetettavaksi (opts.kestoVk) · I2: lahde+pvm/idp_lahde/idpVahvinDim 1–3 -->
@@ -4591,6 +4591,28 @@ window._vpOhjKaytaOhjelma = async function (pid, teemaAvain, ohjelmaId) {
 // R3.B — D4 PELIÄLY · ADAR-KOOSTUMUS (v3 "koostumus näkyviin"): 4 osaa (Havaitse/Päätä/Toimi/Arvioi, 1–3),
 // ikäportitettu (tmAdarIkaTier — reuse, sama gate kuin tmAdarHavaittu). READ-ONLY näkymä: reuse p.adar_viimeisin
 // (a/d/ac/r), EI autosavea (ADAR-syöttö tapahtuu pelihavainnosta ennallaan). Ei pelihavaintoja → rehellinen tyhjä.
+// ─── [TAKS-I18N-ALKU] i18n V5 · V8c — Palloliitto-taksonomian kielivalinta VP-KERROKSESSA ────────────────
+// lib/tm_arviointi_taksonomia.js on tarkoituksella kielineutraali data (nimi_fi/nimi_en/nimi_sv rinnakkain,
+// asteikolla fi/en/sv, kategorioilla oma sv-kartta). Kielen valinta kuuluu näkymään — nämä 4 helperiä ovat
+// AINOA paikka jossa se tehdään. Puuttuva käännös → fi (ei tyhjää). Render-gate ei näe näitä (ei literaaleja):
+// kattavuuden takaa erillinen resolve-todiste (tests/idp_i18n_v5_vp_v8c_taksonomia_sv.test.js).
+function _vpTaksLang() { try { return (typeof tmNykyinenKieli === 'function' && tmNykyinenKieli()) || 'fi'; } catch (e) { return 'fi'; } }
+function _taksNimi(o) {                       // attribuutti/dimensio: nimi_sv → nimi_fi
+  if (!o) return '';
+  var l = _vpTaksLang();
+  return (l !== 'fi' && o['nimi_' + l]) ? o['nimi_' + l] : (o.nimi_fi || '');
+}
+function _taksAst(s) {                        // asteikkolabel 1–5: A[v].sv → A[v].fi
+  if (!s) return '';
+  var l = _vpTaksLang();
+  return (l !== 'fi' && s[l]) ? s[l] : (s.fi || '');
+}
+function _taksTeemaNimi(t) {                  // pääteema 'D1 · Liike' → 'D1 · Rörelse' (tmTeemat.nimi on esikoostettu fi)
+  if (!t) return '';
+  if (typeof tmKategoriaNimi !== 'function' || !t.dim || !t.kategoria) return t.nimi || '';
+  return t.dim + ' · ' + tmKategoriaNimi(t.kategoria, _vpTaksLang());
+}
+// ─── [TAKS-I18N-LOPPU] ──────────────────────────────────────────────────────────────────────────────────
 function _vpArvAdarKoostumusHTML(p, ika) {
   const av = p.adar_viimeisin;
   // R3.B-korjaus: f3:n arvokkaat osat konsolidoitu tänne (yksi ADAR, suomeksi) — add-CTA + ⓘ + empty-state + ristiinarvio.
@@ -4698,7 +4720,7 @@ function _vpArviointiHTML(p) {
   const seg = function (cls, avain, valittu, naOn) {
     let s = '<span class="jsp-arv-seg">';
     for (let v = 1; v <= 5; v++) {
-      const ast = A[v] ? (A[v].koodi + ' · ' + A[v].fi) : '';
+      const ast = A[v] ? (A[v].koodi + ' · ' + _taksAst(A[v])) : '';
       s += '<button class="jsp-arv-segbtn ' + cls + (valittu === v ? ' on' : '') + '" aria-pressed="' + (valittu === v) + '" onclick="event.stopPropagation();_vpTallennaHavaittu(\'' + pid + '\',\'' + avain + '\',' + v + ')" title="' + ast + '">' + v + '</button>';
     }
     s += '<button class="jsp-arv-segbtn na ' + cls + (naOn ? ' on' : '') + '" onclick="event.stopPropagation();_vpTallennaHavaittu(\'' + pid + '\',\'' + avain + vpT('\',null)" title="En nähnyt / ei arviota (validi)">N/A</button></span>');
@@ -4711,7 +4733,7 @@ function _vpArviointiHTML(p) {
   // R-selitteet — ⓘ-vihje: näyttää attribuutin kuvaus_fi:n (hover title = työpöytä; klik/tap = popover, kosketuslaitteet).
   const itag = function (item) {
     if (!item || !item.kuvaus_fi) return '';
-    return ' <span tabindex="0" role="button" aria-label="Selite: ' + _jsvEsc(item.nimi_fi) + '" title="' + _jsvEsc(item.kuvaus_fi) + '"'
+    return ' <span tabindex="0" role="button" aria-label="' + vpT('Selite:') + ' ' + _jsvEsc(_taksNimi(item)) + '" title="' + _jsvEsc(item.kuvaus_fi) + '"'
       + ' onclick="event.stopPropagation();_vpArvKuvaus(event,\'' + item.avain + '\')"'
       + ' onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();_vpArvKuvaus(event,\'' + item.avain + '\');}"'
       + ' style="cursor:help;color:var(--blue);font-size:11px;margin-left:3px;-webkit-user-select:none;user-select:none">ⓘ</span>';
@@ -4732,7 +4754,7 @@ function _vpArviointiHTML(p) {
   h += vpT('<div class="jsp-arv-attrib" style="margin:0 0 7px"><span style="color:var(--blue)">🔵 <b>Palloliitto</b></span>: havaittu-arvio 1–5 · <span style="color:var(--teal)">🟢◆ <b>TalentMaster</b></span>: mittaus · pelihavainto · kehityssuunnitelma') + ((typeof window._tmIBtn === 'function') ? window._tmIBtn('brandijako') : '') + '</div>';
   h += vpT('<div class="jsp-arv-legend" style="margin:0 0 7px"><span style="color:var(--teal)">🟢 Mitattu</span> = TM-testistä (lukittu) · <span style="color:var(--blue)">🔵 Havaittu</span> = arvioi 1–5 · <span style="color:#c060a8">👁 Pelihavainnosta</span> = kenttähavainnosta johdettu (klikkaa yliajaaksesi). <span style="color:var(--amber)">＋ IDP-tavoite</span> = luo kehitystavoite (arvo ≤ 2). §7.22: aikuisten työkalu.</div>');
   if (A) {
-    const _astLbl = [1, 2, 3, 4, 5].filter(function (v) { return A[v]; }).map(function (v) { return '<b style="color:var(--ink2)">' + v + '</b> ' + _jsvEsc(A[v].fi); }).join(' · ');
+    const _astLbl = [1, 2, 3, 4, 5].filter(function (v) { return A[v]; }).map(function (v) { return '<b style="color:var(--ink2)">' + v + '</b> ' + _jsvEsc(_taksAst(A[v])); }).join(' · ');
     if (_astLbl) h += vpT('<div class="jsp-arv-legend" style="margin:0 0 7px">📏 Asteikko (') + _jsvEsc(kehys.nimi) + '): ' + _astLbl + '</div>';
   }
   if (_phTilLbl) h += _phTilLbl;
@@ -4743,7 +4765,7 @@ function _vpArviointiHTML(p) {
   // ── KONTROLLIT: Teema + Kehys (kompakti rivi). Kehys-valitsin näkyy kun >1 kehys tai SA. ──
   h += '<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:8px">';
   h += vpT('<div class="jsp-arv-topbar" style="margin:0"><label class="jsp-arv-lbl">Teema</label><select class="jsp-arv-select" onchange="_vpArvValitseTeema(this.value)">')
-    + teemat.map(function(t){ return '<option value="' + t.avain + '"' + (t.avain === teema ? ' selected' : '') + '>' + _jsvEsc(t.nimi) + ' · ' + t.n + ' ' + vpT('kohdetta</option>'); }).join('') + '</select></div>';
+    + teemat.map(function(t){ return '<option value="' + t.avain + '"' + (t.avain === teema ? ' selected' : '') + '>' + _jsvEsc(_taksTeemaNimi(t)) + ' · ' + t.n + ' ' + vpT('kohdetta</option>'); }).join('') + '</select></div>';
   if (kehysAvaimet.length > 1 || (typeof superAdmin !== 'undefined' && superAdmin)) {
     h += vpT('<div class="jsp-arv-topbar" style="margin:0"><label class="jsp-arv-lbl">Kehys</label><select class="jsp-arv-select" onchange="_vpArvValitseKehys(this.value)">')
       + kehysAvaimet.map(function(k){ return '<option value="' + k + '"' + (k === kehysAvain ? ' selected' : '') + '>' + _jsvEsc(ARVIOINTI_KEHYKSET[k].nimi) + '</option>'; }).join('') + '</select></div>';
@@ -4756,7 +4778,7 @@ function _vpArviointiHTML(p) {
     const its = taks.filter(function(i){ return i.dim === dim; });
     let a = 0; its.forEach(function(it){ if (_arvo(it).arvo != null) a++; });
     const pct = its.length ? Math.round(a / its.length * 100) : 0;
-    h += '<div class="jsp-arv-covcell' + (dim === teemaDim ? ' sel' : '') + '" onclick="_vpArvHyppaaDim(\'' + dim + '\')" title="' + (TM_DIMENSIOT[dim] ? _jsvEsc(TM_DIMENSIOT[dim].nimi_fi) : dim) + ' — ' + a + '/' + its.length + ' ' + vpT('arvioitu">')
+    h += '<div class="jsp-arv-covcell' + (dim === teemaDim ? ' sel' : '') + '" onclick="_vpArvHyppaaDim(\'' + dim + '\')" title="' + (TM_DIMENSIOT[dim] ? _jsvEsc(_taksNimi(TM_DIMENSIOT[dim])) : dim) + ' — ' + a + '/' + its.length + ' ' + vpT('arvioitu">')
       + '<div class="jsp-arv-covdim">' + dim + '</div><div class="jsp-arv-covn"><b>' + a + '</b>/' + its.length + '</div>'
       + '<div class="jsp-arv-covbar"><div class="jsp-arv-covfill' + (pct < 40 ? ' low' : '') + '" style="width:' + pct + '%"></div></div></div>';   // v3: teal · aukko (ohut kattavuus <40%) amber
   });
@@ -4784,10 +4806,10 @@ function _vpArviointiHTML(p) {
       const item = g.item, arvo = g.av.arvo;
       const ref = (item.mitta && (item.mitta.laji || item.mitta.avain)) ? '<span class="ref">· ' + _jsvEsc(item.mitta.laji || item.mitta.avain) + '</span>' : '';
       const ast = (arvo != null && A[Math.round(arvo)]) ? A[Math.round(arvo)] : null;
-      h += '<div class="jsp-arv-r"><span class="jsp-arv-rn">' + item.nimi_fi + itag(item) + ref + '</span>'
+      h += '<div class="jsp-arv-r"><span class="jsp-arv-rn">' + _jsvEsc(_taksNimi(item)) + itag(item) + ref + '</span>'
         + gauge('mit', arvo, 5)
         + (arvo != null
-            ? '<span class="jsp-arv-num" style="color:' + V5(arvo) + '" title="' + (ast ? ast.koodi + ' · ' + ast.fi : '') + '">' + round1(arvo) + vpT('</span><span class="jsp-arv-lock" title="Mitattu TM-testistä — lukittu">🔒</span>')
+            ? '<span class="jsp-arv-num" style="color:' + V5(arvo) + '" title="' + (ast ? ast.koodi + ' · ' + _taksAst(ast) : '') + '">' + round1(arvo) + vpT('</span><span class="jsp-arv-lock" title="Mitattu TM-testistä — lukittu">🔒</span>')
             : vpT('<span class="jsp-arv-num mut">ei testiä</span>'))
         + '</div>';
     });
@@ -4799,7 +4821,7 @@ function _vpArviointiHTML(p) {
     gHav.forEach(function(g){
       const item = g.item, arvo = g.av.arvo, hav = havaittu[item.avain];
       const num = (arvo != null) ? '<span class="jsp-arv-num" style="color:' + V5(arvo) + '">' + round1(arvo) + '</span>' : '<span class="jsp-arv-num mut">—</span>';
-      h += '<div class="jsp-arv-r"><span class="jsp-arv-rn">' + item.nimi_fi + itag(item) + '</span>'
+      h += '<div class="jsp-arv-r"><span class="jsp-arv-rn">' + _jsvEsc(_taksNimi(item)) + itag(item) + '</span>'
         + gauge('hav', arvo, 5) + num + seg('hav', item.avain, hav, hav == null)
         + ((arvo != null && arvo <= 2) ? idpSilta(item.avain) : '')
         + '</div>';
@@ -4815,7 +4837,7 @@ function _vpArviointiHTML(p) {
     h += vpT('<div style="font-size:10px;color:var(--ink3);margin:-2px 2px 6px">🎯 ADAR-ikäportti:') + ' ' + _adarTierLbl + '</div>';
     gPeli.forEach(function(g){
       const item = g.item, arvo = g.av.arvo;
-      h += '<div class="jsp-arv-r"><span class="jsp-arv-rn">' + item.nimi_fi + itag(item) + vpT('<span class="jsp-arv-pelih" title="Pelihavainnosta johdettu (kenttähavainto) — klikkaa 1–5 antaaksesi oman arvion (yliajaa)">PELIH.</span></span>')
+      h += '<div class="jsp-arv-r"><span class="jsp-arv-rn">' + _jsvEsc(_taksNimi(item)) + itag(item) + vpT('<span class="jsp-arv-pelih" title="Pelihavainnosta johdettu (kenttähavainto) — klikkaa 1–5 antaaksesi oman arvion (yliajaa)">PELIH.</span></span>')
         + gauge('peli', arvo, 3)
         + vpT('<span class="jsp-arv-num" title="ADAR-asteikko 1–3">') + round1(arvo) + '<span style="font-size:9px;color:var(--ink3)">/3</span></span>'
         + seg('peli', item.avain, null, false)
@@ -6260,13 +6282,13 @@ function _vpFokusValintaHTML(p, pid, f) {
   if (p._idpValitseFokus) h += vpT('<div class="jsp-kt-vihje">Vain yksi datapohjainen kohde — valitse fokus itse alta.</div>');
   h += '<div class="jsp-kt-fokrow">';
   h += '<select class="jsp-arv-select" onclick="event.stopPropagation()" onchange="_vpArvFokusTeema(\'' + pid + '\',this.value)">'
-    + teemat.map(function (x) { return '<option value="' + x.avain + '"' + (x.avain === teema ? ' selected' : '') + '>' + _jsvEsc(x.nimi) + '</option>'; }).join('') + '</select>';
+    + teemat.map(function (x) { return '<option value="' + x.avain + '"' + (x.avain === teema ? ' selected' : '') + '>' + _jsvEsc(_taksTeemaNimi(x)) + '</option>'; }).join('') + '</select>';
   h += '<select class="jsp-arv-select" onclick="event.stopPropagation()" onchange="if(this.value)_vpAsetaFokus(\'' + pid + '\',this.value)">'
     + vpT('<option value="">Valitse kohde…</option>')
     + kohteet.map(function (it) {
         const merkki = it.mitattavissa ? '🟢' : ((hav[it.avain] != null) ? '🔵' : '○');
         const sel = (f && f.alue === it.avain) ? ' selected' : '';
-        return '<option value="' + it.avain + '"' + sel + '>' + merkki + ' ' + _jsvEsc(it.nimi_fi) + '</option>';
+        return '<option value="' + it.avain + '"' + sel + '>' + merkki + ' ' + _jsvEsc(_taksNimi(it)) + '</option>';
       }).join('') + '</select>';
   h += '</div>';
   // §2.2 vapaa fokus (taksonomia ei riitä — pelipaikka/joukkuekohtainen). yksikko:'vapaa' → ei mitattavaa palkkia.
@@ -14382,12 +14404,12 @@ function _mdtFaLista(p) {
   ['D1', 'D2', 'D3', 'D4', 'D5'].forEach(function (dim) {
     var its = taks.filter(function (i) { return i.dim === dim && hav[i.avain] != null; });
     if (!its.length) return;
-    out += '<div class="pdc-fa-h">' + dim + ' ' + _jsvEsc((DN[dim] && DN[dim].nimi_fi) || '') + '</div>';
+    out += '<div class="pdc-fa-h">' + dim + ' ' + _jsvEsc(DN[dim] ? _taksNimi(DN[dim]) : '') + '</div>';
     its.forEach(function (it) {
       n++;
       var v = hav[it.avain];
       var itag = it.kuvaus_fi ? ' <span class="pdc-ii" role="button" tabindex="0" title="' + _jsvEsc(it.kuvaus_fi) + '" onclick="event.stopPropagation();_vpArvKuvaus(event,\'' + it.avain + '\')">ⓘ</span>' : '';
-      out += '<div class="pdc-fa-row"><span>' + _jsvEsc(it.nimi_fi) + itag + '</span><b style="color:' + _mdtVari5(v) + '">' + v + '</b></div>';
+      out += '<div class="pdc-fa-row"><span>' + _jsvEsc(_taksNimi(it)) + itag + '</span><b style="color:' + _mdtVari5(v) + '">' + v + '</b></div>';
     });
   });
   if (!n) return '<div class="pdc-empty">' + vpT('Ei vielä FA 1–5 -arvioita. Arviointi tehdään pelaajakortin Arviointi-osiossa.') + '</div>';

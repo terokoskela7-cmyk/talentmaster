@@ -23,9 +23,11 @@ beforeAll(() => {
   const posNimi = (c) => ({ LH: 'Laitahyökkääjä', KH: 'Keskushyökkääjä', MV: 'Maalivahti' }[String(c || '').toUpperCase()] || String(c || ''));
   const kehys = () => ({ taksonomia: LIB.ARVIOINTI_TAKSONOMIA });
   const vari5 = () => 'var(--teal)';
-  M = new Function('_vpPosNimi', '_jsvEsc', 'tmKehys', 'ARVIOINTI_TAKSONOMIA', 'TM_DIMENSIOT', '_mdtVari5', 'vpT',
+  // V8c: taksonomianimen kielivalinta on VP-kerroksen helperi ([TAKS-I18N]-lohko) — karakterisointiin fi-passthrough.
+  const taksNimi = (o) => (o && o.nimi_fi) || '';
+  M = new Function('_vpPosNimi', '_jsvEsc', 'tmKehys', 'ARVIOINTI_TAKSONOMIA', 'TM_DIMENSIOT', '_mdtVari5', 'vpT', '_taksNimi',
     'var window = {};\n' + lines.slice(s, e).join('\n') + '\n return { _mdtPelipaikkaSVG: _mdtPelipaikkaSVG, _mdtFaLista: _mdtFaLista };')(
-    posNimi, esc, kehys, LIB.ARVIOINTI_TAKSONOMIA, LIB.TM_DIMENSIOT, vari5, (x)=>x);
+    posNimi, esc, kehys, LIB.ARVIOINTI_TAKSONOMIA, LIB.TM_DIMENSIOT, vari5, (x)=>x, taksNimi);
 });
 
 describe('_mdtPelipaikkaSVG — pelipaikka-piirros', () => {
