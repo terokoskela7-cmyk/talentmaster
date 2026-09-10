@@ -74,7 +74,7 @@ describe('(4) jaksofokus = INLINE-FOCAL editori (aina auki, ei modaalia)', () =>
     expect(T).toContain('const _inlineEditori = !opts || opts.editori !== false;');
     expect(T).toContain('_vpJfInlineHTML(p)');
     expect(T).toContain('_vpTyopoytaJaksofokusHTML(p)');       // read-only fallback (raportti) säilyy
-    expect(T).toContain("row('_accJaksofokus', '📍', 'TASO 2 · TÄMÄ JAKSO · MESO 4–8 VK', 'Jaksofokus'");   // IDP-vihje ⓘ voi olla otsikon perässä
+    expect(T).toContain("row('_accJaksofokus', '📍', vpT('TASO 2 · TÄMÄ JAKSO · MESO 4–8 VK'), vpT('Jaksofokus')");   // IDP-vihje ⓘ voi olla otsikon perässä
     expect(T).toContain("jfSum, jfChip, jfNimi && !jfUmp, jfBody + jfEvid, _inlineEditori);");   // K3: jfBody + kohdennetun ominaisuuden evidenssi (jfEvid)
   });
   it('Pelaajaraportti (PDC) käyttää read-only-tilaa (ei inline-editoria/duplikaatti-ID:itä)', () => {
@@ -104,8 +104,8 @@ describe('status-nauha & otsikko suoritettuina (data-vetoinen, ei uutta dataa)',
       'var _jsvEsc = function(s){return String(s==null?"":s);};\n' +
       'var idpJumissa = function(){return false;};\n' +
       'var window = { TM_JAKSOFOKUS: { tmJfUmpeutunut: function(jf){ if(!jf||!jf.alkoi) return false; return false; } } };\n';
-    statusFn = new Function(pre + extract('function _vpKehStatusHTML(p) {') + '\n return _vpKehStatusHTML;')();
-    otsikkoFn = new Function(pre + extract('function _vpKehOtsikkoHTML(') + '\n return _vpKehOtsikkoHTML;')();
+    statusFn = new Function('var vpT = function(x){return x;};\n' + pre + extract('function _vpKehStatusHTML(p) {') + '\n return _vpKehStatusHTML;')();
+    otsikkoFn = new Function('var vpT = function(x){return x;};\n' + pre + extract('function _vpKehOtsikkoHTML(') + '\n return _vpKehOtsikkoHTML;')();
   });
   it('tyhjä työpöytä (ei tavoitetta eikä fokusta) → ei status-nauhaa', () => {
     expect(statusFn({})).toBe('');

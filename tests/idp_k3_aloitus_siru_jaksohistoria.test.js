@@ -31,7 +31,7 @@ beforeAll(() => {
   });
   const neutr = (p) => !!(p && p._prePHV);
   M = new Function('window', '_jsvEsc', '_vpSulkuJaksovali', 'onNeutraaliPrePHV',
-    body + '\nreturn { _vpKohdennettuSarja, _vpAloitusSiruHTML, _vpJfEvidenssiHTML };'
+    'var vpT = function(x){return x;};\n' + body + '\nreturn { _vpKohdennettuSarja, _vpAloitusSiruHTML, _vpJfEvidenssiHTML };'
   )({ TM_KEHITYSKAARI: K }, esc, jaksovali, neutr);
 });
 
@@ -112,7 +112,7 @@ describe('(B) _vpJfEvidenssiHTML — jfBody mini-kaari + jaksosidos-delta', () =
 
 describe('(C) nimikorjaus — Jaksohistoria (meso ≠ Mittauksen kaari)', () => {
   it('TASO 3 -haitarin label = "Jaksohistoria" (ei enää "Kehityskaari")', () => {
-    expect(VP).toContain("row('_accKaari', '🗺', 'TASO 3 · HISTORIA', 'Jaksohistoria'");
+    expect(VP).toContain("row('_accKaari', '🗺', vpT('TASO 3 · HISTORIA'), vpT('Jaksohistoria')");
     expect(VP).not.toContain("'TASO 3 · HISTORIA', 'Kehityskaari'");
   });
   it('Suunnitelman kaari -rivi = "Jaksohistoria"', () => {

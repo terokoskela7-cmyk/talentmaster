@@ -50,13 +50,13 @@ describe('vihjerekisteri (TM_TESTI_OHJEET) — 5 uutta IDP-flow-vihjettä, linja
 
 describe('⓵-injektiot IDP-flow-osioihin (reuse window._tmIBtn, tap-behind)', () => {
   it('Kausitavoite (Kehitys TASO 1) + Jaksofokus (TASO 2) haitariotsikot', () => {
-    expect(HTML).toContain("'Kausitavoite' + ((typeof window._tmIBtn === 'function') ? window._tmIBtn('idp_kausitavoite') : '')");
-    expect(HTML).toContain("'Jaksofokus' + ((typeof window._tmIBtn === 'function') ? window._tmIBtn('idp_jaksofokus') : '')");
+    expect(HTML).toContain("vpT('Kausitavoite') + ((typeof window._tmIBtn === 'function') ? window._tmIBtn('idp_kausitavoite') : '')");
+    expect(HTML).toContain("vpT('Jaksofokus') + ((typeof window._tmIBtn === 'function') ? window._tmIBtn('idp_jaksofokus') : '')");
   });
   it('Moottori-otsikko + Tavoitejakauma-otsikko + Aloituksen Pelaajan ääni', () => {
     expect(HTML).toContain("Moottorin ehdotus · valitse polku' + ((typeof window._tmIBtn === 'function') ? window._tmIBtn('idp_moottori')");
     expect(HTML).toContain("🎯 Tavoitejakauma · sessiot → IDP' + ((typeof window._tmIBtn === 'function') ? window._tmIBtn('idp_tavoitejakauma')");
-    expect(HTML).toContain("🗣 Pelaajan ääni' + ((typeof window._tmIBtn === 'function') ? window._tmIBtn('idp_pelaajan_aani')");
+    expect(HTML).toContain("🗣 Pelaajan ääni') + ((typeof window._tmIBtn === 'function') ? window._tmIBtn('idp_pelaajan_aani')");
   });
 });
 
@@ -89,7 +89,7 @@ describe('_tmIBtn suoritettuna — renderöi ⓘ-napin uusille avaimille', () =>
     for (let i = s + 1; i < lines.length; i++) { if (lines[i] === '};') { e = i; break; } }
     const src = 'var window = { TM_TESTI_OHJEET: { idp_kausitavoite: { otsikko: "x" }, idp_jaksofokus: { otsikko: "y" } } };\n'
       + lines.slice(s, e + 1).join('\n') + '\n return window._tmIBtn;';
-    iBtn = new Function(src)();
+    iBtn = new Function('var vpT = function(x){return x;};\n' + src)();
   });
   it('tunnettu avain → ⓘ-nappi joka avaa _tmInfo; tuntematon → tyhjä', () => {
     const b = iBtn('idp_kausitavoite');

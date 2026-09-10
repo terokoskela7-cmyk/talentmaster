@@ -36,7 +36,7 @@ const acorn = require('acorn');
 const HTML = readFileSync(join(__dir, '..', 'TalentMaster_VP_v25.html'), 'utf8');
 
 const RLO = 2679, RHI = 17921;              // VP pääscript (1-idx)
-const RANGES = [[8040, 9221], [12600, 13750], [11661, 12400], [3777, 3865], [7885, 7910], [14186, 14550], [14552, 15185], [15189, 15690], [15770, 15884], [15886, 15975], [4175, 4249], [4992, 5059], [15154, 15230], [16930, 17010], [17817, 17833], [6887, 7171]]; // V3 _jsv · V4 kalenteri · V5 valmentajat · V6 IDP-jono · V7a MDT · V7b Reviewit+tuloskortti. V7c–V8: lisää.
+const RANGES = [[8040, 9221], [12600, 13750], [11661, 12400], [3777, 3865], [7885, 7910], [14186, 14550], [14552, 15185], [15189, 15690], [15770, 15884], [15886, 15975], [4175, 4249], [4992, 5059], [15154, 15230], [16930, 17010], [17817, 17833], [6887, 7171], [5601, 6886], [4483, 4593], [15983, 16127], [4594, 4991]]; // V3 _jsv · V4 kalenteri · V5 valmentajat · V6 IDP-jono · V7a MDT · V7b Reviewit+tuloskortti. V7c–V8: lisää.
 const ROUTED_FNS = new Set(['vpT', 'vpTToimenpide']);
 
 // §7 lib-curriculum-nimet (jäävät fi → allowlist)
@@ -51,7 +51,7 @@ function libNames() {
   return out;
 }
 
-const PRODUCT = /X-Factor|Hidden Gem|[Uu]nderdog|Cue|Player Development Card|Scouting|nat\.|akt\.|Pre-PHV|Circa-PHV|Post-PHV|terveys\//; // tuotetermit + Cue + PDC-brändi/Scouting (verbatim)
+const PRODUCT = /X-Factor|Hidden Gem|[Uu]nderdog|Cue|Player Development Card|TalentMaster|Scouting|oversight|nat\.|akt\.|Pre-PHV|Circa-PHV|Post-PHV|terveys\//; // tuotetermit + Cue + PDC/TalentMaster-brändi/Scouting + oversight (verbatim; kartta pitää "oversight-signal")
 const ABBR = 'TKI|TSI|H-H|PHV|D[1-5]|RPE|ADAR|CPD|DVI|RSVP|MAS|CMJ|SJ|FLEI|VAI\\+?|RAE|OVR|EI|FVP|VNE|SM|TK|IDP|VP|UA|meso|makro|mikro|Cue|cue|ka|cm|kg|min|vk|pv|kk|km/h|m/s';
 const ABBR_ONLY = new RegExp('^(?:\\s|[·—–\\-/:()%.,+↑↓→▾▴◆⚠★☆●○≥≤<>&;0-9]|&amp;|&nbsp;|(?:' + ABBR + '))+$');
 // V7b-live-oppi 0A: allowlist VAIN jos tuotetermien+lyhenteiden JÄLKEEN ei jää fi-sanaa (EI substring — 'Underdog-toimenpideaste' vuoti kun PRODUCT.test mätsäsi 'Underdog')
@@ -67,7 +67,7 @@ const codeish = (v) =>
   /^[a-z][a-z-]*:/.test(v.trim()) ||                    // CSS-property-alku (background:/border-left:2px solid)
   /^\w+\(/.test(v.trim()) ||   // funktiokutsu-handler (act:n toiminto-arg setWs('x'))
   /^[a-z][a-zA-Z0-9]*$/.test(v) ||   // V8e-JF1: bare (VÄLILYÖNNITÖN) lowercase-token = enum/id/koodi
-  /^\s*(selected|disabled|checked|readonly|required|multiple|hidden|open|active|under|uusi)\s*$/.test(v);  // HTML-attr/CSS-class-sanat
+  /^\s*(selected|disabled|checked|readonly|required|multiple|hidden|open|active|under|uusi|empty|low|high|locked|sel)\s*$/.test(v);  // HTML-attr/CSS-class-sanat (empty/low/high/locked/sel = tila-luokat, väliin ternaary-haarassa)
 
 // näyttöteksti-palat yhden literaalin ARVOSTA (markup → tag-ulkoinen teksti + title/placeholder); null jos zero-markup
 function markupPieces(v) {
@@ -120,13 +120,16 @@ function scanLeaks(src, ranges, lineOffset, LIB) {
   }
 
   // display-konteksti zero-markup-literaalille: '+' -ketju markup/vpT · toast/_setTxt/_dSet-arg · .textContent=/.innerText=/.innerHTML=
-  const SETTER_FNS = new Set(['toast', '_setTxt', '_dSet', 'idrow', 'kpi', 'fp', 'set', 'sel', 'tier', 'act']); // V7d: tier(n,l,col)/act(sev,teksti,sub,nappi) — label-argit näyttöä // V7a idrow · V7b kpi/fp/set · V7c sel(id,label,opts) — label-arg näyttöä
+  const SETTER_FNS = new Set(['toast', '_setTxt', '_dSet', 'idrow', 'kpi', 'fp', 'set', 'sel', 'tier', 'act', 'row']); // V7d: tier(n,l,col)/act(sev,teksti,sub,nappi) — label-argit näyttöä // V7a idrow · V7b kpi/fp/set · V7c sel(id,label,opts) — label-arg näyttöä // V8e-JF2: row(accId,ico,eyebrow,title,…) IDP-haitari — eyebrow/title-argit näyttöä (Jaksohistoria vuoti)
   const TXT_PROPS = new Set(['textContent', 'innerText', 'innerHTML']);
   const DISPLAY_PROPS = new Set(['teksti']); // V7b-live: object-property display-arvo (badge-objektit teksti:'🏥 Valmius'+x — gate-sokea epäsuora display)
   const inDisplayContext = (node) => {
     // V8d-oppi: template-quasi markup-kantavassa TemplateLiteralissa (`…${x} havaintoa · ${y} kautta</div>`)
     // — tag-viereetön quasi (' havaintoa · ') oli sokea piste; koko template rakentaa HTML:ää → quasit ovat näyttöä.
     if (node.type === 'TemplateLiteral' && node.quasis.some((q) => /[<>]/.test(q.value.cooked || ''))) return true;
+    // V7f-live: vertailun operandi (e.code === 'permission-denied') EI ole näyttöä — se on arvo/enum-vertailu.
+    // SETTER_FNS-esivanhempikävely muuten leimasi toast(...)-argissa olevan ternaary-testin vertailuliteraalin näytöksi.
+    { const par = parentOf.get(node); if (par && par.type === 'BinaryExpression' && ['==', '===', '!=', '!=='].includes(par.operator)) return false; }
     let n = node, top = null;
     while (parentOf.get(n) && ((parentOf.get(n).type === 'BinaryExpression' && parentOf.get(n).operator === '+') || parentOf.get(n).type === 'ConditionalExpression')) { top = parentOf.get(n); n = top; } // V7a-live: kävele myös ternaaryn läpi (markup-ketjun ternaary-haara oli sokea piste)
     if (top && subtreeHasMarkupOrVpt(top)) return true;
