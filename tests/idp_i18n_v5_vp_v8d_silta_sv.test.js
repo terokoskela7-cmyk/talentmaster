@@ -46,12 +46,15 @@ function sandbox(kieli) {
   sb.window = sb;
   vm.createContext(sb);
   ['lib/tm_lang.js', 'lib/tm_i18n_common.js', 'lib/tm_vp_i18n.js', 'lib/tm_arviointi_taksonomia.js',
-    'lib/tm_arviointi_silta.js', 'lib/tm_teknistaktiset.js', 'lib/tm_fyysteemat.js'].forEach((f) => vm.runInContext(lue(f), sb));
+    'lib/tm_arviointi_silta.js', 'lib/tm_teknistaktiset.js', 'lib/tm_fyysteemat.js',
+    'lib/tm_kehityspolku.js', 'lib/tm_pelialy_yksilo.js'].forEach((f) => vm.runInContext(lue(f), sb));
   vm.runInContext('tmAsetaKieli(' + JSON.stringify(kieli) + ', false);', sb);
   // VP-kerroksen kielivalinta + silta-paneelit HTML:stä (shippaava koodi)
   vm.runInContext(lohko('// ─── [TAKS-I18N-ALKU]', '// ─── [TAKS-I18N-LOPPU]'), sb);
   vm.runInContext(lohko('function _vpSiltaKonsepti(avain) {', '// ══════════ VAIHE 7'), sb);
   vm.runInContext(lohko('function _vpFyysEhdotus(p, ohitaGuard) {', 'window._vpFyysFokusModal'), sb);
+  // V8e: kehityspolku-ctx (kaikkien .syy-kuluttajien kielilähde) + sen resolveri
+  vm.runInContext(lohko('function _vpKehityspolkuCtx() {', '// I3a §D'), sb);
   // Riippuvuudet joita paneelit kutsuvat typeof-vartioituna (renderin ulkopuoliset laskimet)
   vm.runInContext(`
     function _jsvEsc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
@@ -169,5 +172,85 @@ describe('V8d · sv-kartan eheys (dup-vartija, dekoodatut avaimet)', () => {
     }
     expect(kartat, 'sv-karttaa ei löytynyt → testi olisi vacuous').toBe(1);
     expect(dup).toEqual([]);
+  });
+});
+
+/* ══ V8e: silta-libien OTSIKKOSISÄLTÖ (syy · peruste · teemanimi) + kaikki .syy-kuluttajat ══
+   Libit pysyvät kielineutraaleina (ei kovakoodattua sv:tä) — kieli injektoidaan VP-kerroksesta ctx:llä.
+   TIER 2 (sallitaan fi): teknis-taktiset konseptinimet + curriculum-proosa (tm_teknistaktiset). */
+describe('V8e · otsikkosisältö sv (syy/peruste/teemanimi)', () => {
+  it('TOP-rivin syy sv: "Svagaste observerat: <nimi_sv> (n/5)" — numerot verbatim', () => {
+    const sb = sandbox('sv');
+    const top = sb._vpSiltaEhdotukset(PELAAJA)[0];
+    expect(top.syy.startsWith('Svagaste observerat: ')).toBe(true);
+    expect(top.syy).toContain(T.tmTaksonomiaByAvain(top.palloliitto_avain).nimi_sv);
+    expect(top.syy).toMatch(/\(\d\/5\)$/);
+    expect(top.syy).not.toContain('Heikoin havaittu');
+    const muut = sb._vpSiltaEhdotukset(PELAAJA).slice(1);
+    muut.forEach((e) => { expect(e.syy.startsWith('Observerat: ')).toBe(true); });
+  });
+  it('D1-paneelin peruste + teemanimi sv (lähdenimi tmMittaLahdeNimi-kautta)', () => {
+    const sb = sandbox('sv');
+    const e = sb._vpFyysEhdotus(PELAAJA);
+    expect(e, 'demo-pelaajalle pitää syntyä D1-ehdotus').toBeTruthy();
+    expect(e.nimi).toBe('Snabbhet');                               // heikoin osaindeksi = kiihdytys (stub taso 2) → fy_nopeus
+    expect(e.peruste.startsWith('Svagaste D1: ')).toBe(true);
+    expect(e.peruste).toContain('acceleration');                   // osaindeksin lähdenimi sv (V8d-kartta)
+    expect(e.peruste).toContain(' nivå ');
+    expect(e.peruste).not.toMatch(/Heikoin D1|taso /);
+  });
+  it('renderöity D1-paneeli näyttää sv-teemanimen ja sv-perusteen', () => {
+    const h = sandbox('sv')._vpD1SiltaPaneeliHTML(PELAAJA);
+    expect(h).toContain('Snabbhet');
+    expect(h).toContain('Svagaste D1:');
+    expect(h).not.toContain('Nopeus');
+  });
+  it('kaikki .syy-kuluttajat sv: TOP-rivi (4378) · jaksofokus-taulukon title (7023) · kehityspolku-baneri (6719)', () => {
+    const sb = sandbox('sv');
+    // 4378 + 7023 saavat syyn samasta lähteestä (_vpSiltaEhdotukset) → riittää että se on sv
+    expect(sb._vpSiltaPaneeliHTML(PELAAJA)).toContain('Svagaste observerat:');
+    expect(sb._vpSiltaEhdotukset(PELAAJA)[0].syy).toContain('Svagaste observerat:');
+    // 6719 tulee ERI ketjusta: tm_kehityspolku (+ tm_pelialy_yksilo D4:lle) — ctx välittää kielen
+    const ctx = sb._vpKehityspolkuCtx();
+    const K = sb.TM_KEHITYSPOLKU;
+    expect(K.tmRatkaiseKehityspolku({ alue: 'balance', dim: 'D1' }, {}, ctx).syy).toBe('Fysiskt utvecklingsområde — dirigera till ett fysiskt periodtema (ingen teknisk-taktisk övning).');
+    expect(K.tmRatkaiseKehityspolku({ alue: 'attitude', dim: 'D3' }, {}, ctx).syy).toContain('Mentalt utvecklingsområde');
+    expect(K.tmRatkaiseKehityspolku({ alue: 'team_role', dim: 'D5' }, {}, ctx).syy).toContain('Socialt utvecklingsområde');
+    expect(K.tmRatkaiseKehityspolku({ alue: 'shooting_efficiency', dim: 'D2' }, {}, ctx).syy).toContain('En följd, inte en färdighet att träna');
+    expect(K.tmRatkaiseKehityspolku({ alue: 'weaker_foot', dim: 'D2' }, {}, ctx).syy).toContain('Inget eget koncept');
+    expect(K.tmRatkaiseKehityspolku({}, {}, ctx).syy).toBe('Inget aktivt mål.');
+    expect(K.tmRatkaiseKehityspolku({ alue: 'ball_control', dim: 'D2' }, {}, ctx).syy).toContain('Föreslaget utifrån målet: ');
+    // D4 → tm_pelialy_yksilo: prefiksi sv JA taksonomianimi sv (nimi_sv, V8c)
+    const d4 = K.tmRatkaiseKehityspolku({ alue: 'anticipation', dim: 'D4' }, {}, ctx);
+    expect(d4.syy).toContain('Observerat: ');
+    expect(d4.syy).toContain(T.tmTaksonomiaByAvain('anticipation').nimi_sv);   // Förutseende
+    expect(d4.syy).not.toContain('Ennakointi');
+  });
+  it('fi-tila ennallaan koko syy-ketjussa (taaksepäin-yhteensopivuus)', () => {
+    const sb = sandbox('fi');
+    expect(sb._vpSiltaEhdotukset(PELAAJA)[0].syy).toContain('Heikoin havaittu: ');
+    expect(sb._vpFyysEhdotus(PELAAJA).peruste).toContain('Heikoin D1: ');
+    expect(sb._vpFyysEhdotus(PELAAJA).nimi).toBe('Nopeus');
+    const ctx = sb._vpKehityspolkuCtx();
+    expect(sb.TM_KEHITYSPOLKU.tmRatkaiseKehityspolku({}, {}, ctx).syy).toBe('Ei aktiivista tavoitetta.');
+  });
+  it('LIBIT PYSYVÄT KIELINEUTRAALEINA: ei kovakoodattua sv:tä (ilman ctx:tä kaikki fi)', () => {
+    const S = require('../lib/tm_arviointi_silta.js');
+    const F = require('../lib/tm_fyysteemat.js');
+    const K = require('../lib/tm_kehityspolku.js');
+    const P = require('../lib/tm_pelialy_yksilo.js');
+    expect(S.tmSiltaEhdota(PELAAJA.arviointi_havaittu, {})[0].syy).toContain('Heikoin havaittu: ');
+    expect(F.tmFyysEhdota({}, { osaindeksit: { ketteryys: 1 } }).peruste).toContain('Heikoin D1: ');
+    expect(K.tmRatkaiseKehityspolku({}, {}, {}).syy).toBe('Ei aktiivista tavoitetta.');
+    expect(P.tmPelialyYksiloEhdota(['anticipation'], {})[0].syy).toBe('Havaittu: Ennakointi');
+    // sv-merkkijonot EIVÄT saa esiintyä libien lähdekoodissa (kielivalinta kuuluu näkymään)
+    ['tm_arviointi_silta', 'tm_kehityspolku', 'tm_pelialy_yksilo'].forEach((f) => {
+      const src = readFileSync(join(juuri, 'lib', f + '.js'), 'utf8');
+      expect(/Svagaste|Observerat|Föreslaget|utvecklingsområde/.test(src), f).toBe(false);
+    });
+    // tm_fyysteemat on ainoa jossa sv on DATAA (nimi_sv, kuten taksonomian) — ei tekstitemplaatteja
+    const fy = readFileSync(join(juuri, 'lib', 'tm_fyysteemat.js'), 'utf8');
+    expect(/Svagaste|nivå |Kroppslig beredskap /.test(fy)).toBe(false);
+    expect(/nimi_sv:/.test(fy)).toBe(true);
   });
 });

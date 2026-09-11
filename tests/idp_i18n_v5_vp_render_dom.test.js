@@ -35,8 +35,8 @@ const require = createRequire(import.meta.url);
 const acorn = require('acorn');
 const HTML = readFileSync(join(__dir, '..', 'TalentMaster_VP_v25.html'), 'utf8');
 
-const RLO = 2679, RHI = 17951;              // VP pääscript (1-idx)
-const RANGES = [[8070, 9251], [12630, 13780], [11691, 12430], [3777, 3865], [7915, 7940], [14216, 14580], [14582, 15215], [15219, 15720], [15800, 15914], [15916, 16005], [4175, 4249], [5022, 5089], [15184, 15260], [16960, 17040], [17847, 17863], [6917, 7201], [5631, 6916], [4483, 4593], [16013, 16157], [4594, 5021], [4351, 4427]]; // V3 _jsv · V4 kalenteri · V5 valmentajat · V6 IDP-jono · V7a MDT · V7b Reviewit+tuloskortti. V7c–V8: lisää.
+const RLO = 2679, RHI = 17984;              // VP pääscript (1-idx)
+const RANGES = [[8103, 9284], [12663, 13813], [11724, 12463], [3777, 3865], [7948, 7973], [14249, 14613], [14615, 15248], [15252, 15753], [15833, 15947], [15949, 16038], [4175, 4249], [5040, 5107], [15217, 15293], [16993, 17073], [17880, 17896], [6950, 7234], [5649, 6949], [4496, 4606], [16046, 16190], [4607, 5039], [4339, 4440]]; // V3 _jsv · V4 kalenteri · V5 valmentajat · V6 IDP-jono · V7a MDT · V7b Reviewit+tuloskortti. V7c–V8: lisää.
 const ROUTED_FNS = new Set(['vpT', 'vpTToimenpide']);
 
 // §7 lib-curriculum-nimet (jäävät fi → allowlist)
@@ -254,11 +254,11 @@ describe('VP_v25 render-kielineutraali-gate (step G · AST)', () => {
   // ON aina vpT(...):n sisällä alueellaan. Sulkee saman aukon V5–V8:n enum-display-labeleille (roolit ym.)
   // — uusi alaerä lisää oman member-näyttönsä tähän.
   const MEMBER_DISPLAY = [
-    { expr: 'meta.nimi', ranges: [[12630, 13780]] }, // V4 kalenteri: KALENTERI_TYYPIT-tyyppinimi (§1 enum-avain fi, näyttö vpT)
-    { expr: 'IDP_TILA_LBL[p.idp_tila]', ranges: [[6130, 6170], [14490, 14540]] }, // V6 idp_tila-statusnäyttö (§1 enum-avain fi, näyttö vpT)
-    { expr: 'dm.nimi', ranges: [[15020, 15026]] }, // V7b domeeni-display fokusChip (lc-avain fi, näyttö vpT)
-    { expr: 'k.nimi', ranges: [[14653, 14657]] }, // V7b-fix2 tuloskortti _vpTkAlue mittarilabel (lib-data, näyttö vpT)
-    { expr: 'k.arvo', ranges: [[14653, 14657]] }, // V7b-fix2 tuloskortti _vpTkAlue mittari-arvo (Ei arviointeja vielä ym.)
+    { expr: 'meta.nimi', ranges: [[12663, 13813]] }, // V4 kalenteri: KALENTERI_TYYPIT-tyyppinimi (§1 enum-avain fi, näyttö vpT)
+    { expr: 'IDP_TILA_LBL[p.idp_tila]', ranges: [[6148, 6188], [14523, 14573]] }, // V6 idp_tila-statusnäyttö (§1 enum-avain fi, näyttö vpT)
+    { expr: 'dm.nimi', ranges: [[15053, 15059]] }, // V7b domeeni-display fokusChip (lc-avain fi, näyttö vpT)
+    { expr: 'k.nimi', ranges: [[14686, 14690]] }, // V7b-fix2 tuloskortti _vpTkAlue mittarilabel (lib-data, näyttö vpT)
+    { expr: 'k.arvo', ranges: [[14686, 14690]] }, // V7b-fix2 tuloskortti _vpTkAlue mittari-arvo (Ei arviointeja vielä ym.)
     // V7+: esim. { expr: 'roolimap[rooli]', ranges: [[...]] }
   ];
   it('enum/object-property-display reititetty vpT:llä (AST-gaten sokea piste)', () => {
