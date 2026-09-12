@@ -133,12 +133,15 @@ describe('putki · lib pysyy kielineutraalina (sv asuu sidecarissa)', () => {
   it('tm_teknistaktiset.js ei sisällä _sv-kenttiä (inline-mergeä ei ole ajettu)', () => {
     expect(/_sv\s*:/.test(readFileSync(P.LIB, 'utf8'))).toBe(false);
   });
-  it('render-kytkentää EI ole tehty tässä erässä (VP ei lue curriculumin _sv-kenttiä)', () => {
+  it('render lukee sv:n SIDECARISTA, ei inline-_sv-kentistä (Vaihe B kytkentä)', () => {
     const vp = readFileSync(join(juuri, 'TalentMaster_VP_v25.html'), 'utf8');
-    // huom: 'nimi_sv' esiintyy VP:ssä taksonomian/fyysteemojen yhteydessä (V8c/V8e) — curriculumin omat
-    // kentät ovat näitä; yksikään ei saa vielä esiintyä.
-    ['pelitilanne_sv', 'kysymykset_sv', 'teksti_sv', 'painopisteet_sv', 'konseptipeli_sv', 'TM_TT_SV'].forEach((k) =>
+    // Inline-merge ei ole käytössä → curriculumin omia _sv-kenttiä ei saa esiintyä VP:ssä. ('nimi_sv' EI ole
+    // tässä listassa: se on taksonomian/fyysteemojen oma rinnakkaiskenttä, V8c/V8e.)
+    ['pelitilanne_sv', 'kysymykset_sv', 'teksti_sv', 'painopisteet_sv', 'konseptipeli_sv'].forEach((k) =>
       expect(vp.includes(k), k).toBe(false));
+    // ...ja sidecar on kytketty: lataus + resolvi.
+    expect(vp).toContain('lib/tm_teknistaktiset_sv.js');
+    expect(vp).toContain('TM_TT_SV');
   });
   it('sidecar on mergetty (Vaihe A) — sisältöportti on tests/i18n_curriculum_sidecar.test.js', () => {
     expect(existsSync(join(juuri, 'lib', 'tm_teknistaktiset_sv.js'))).toBe(true);

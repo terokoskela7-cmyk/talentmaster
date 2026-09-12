@@ -35,8 +35,8 @@ const require = createRequire(import.meta.url);
 const acorn = require('acorn');
 const HTML = readFileSync(join(__dir, '..', 'TalentMaster_VP_v25.html'), 'utf8');
 
-const RLO = 2679, RHI = 17984;              // VP pääscript (1-idx)
-const RANGES = [[8103, 9284], [12663, 13813], [11724, 12463], [3777, 3865], [7948, 7973], [14249, 14613], [14615, 15248], [15252, 15753], [15833, 15947], [15949, 16038], [4175, 4249], [5040, 5107], [15217, 15293], [16993, 17073], [17880, 17896], [6950, 7234], [5649, 6949], [4496, 4606], [16046, 16190], [4607, 5039], [4339, 4440]]; // V3 _jsv · V4 kalenteri · V5 valmentajat · V6 IDP-jono · V7a MDT · V7b Reviewit+tuloskortti. V7c–V8: lisää.
+const RLO = 2680, RHI = 18064;              // VP pääscript (1-idx)
+const RANGES = [[8182, 9364], [12743, 13893], [11804, 12543], [3778, 3866], [8027, 8052], [14329, 14693], [14695, 15328], [15332, 15833], [15913, 16027], [16029, 16118], [4176, 4250], [5115, 5182], [15297, 15373], [17073, 17153], [17960, 17976], [7029, 7313], [5724, 7028], [4498, 4608], [16126, 16270], [4609, 5114], [4341, 4442]]; // V3 _jsv · V4 kalenteri · V5 valmentajat · V6 IDP-jono · V7a MDT · V7b Reviewit+tuloskortti. V7c–V8: lisää.
 const ROUTED_FNS = new Set(['vpT', 'vpTToimenpide']);
 
 // §7 lib-curriculum-nimet (jäävät fi → allowlist)
