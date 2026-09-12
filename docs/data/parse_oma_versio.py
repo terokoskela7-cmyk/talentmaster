@@ -15,6 +15,13 @@ Rakenne:  TM_TT_PELIPAIKAT · TM_TT_PELIMUODOT · TM_TT_ASTEIKKO (1–3, EI 1/3/
           tmTtHarjoitteet/tmTtNorm5.  Kieli suomi (§0c). Suomalaiskoodit T/LP/KK/KY/KH/LA/MV (§0).
 
 Ajo:  python3 docs/data/parse_oma_versio.py
+
+SV-KÄÄNNÖS (i18n): tämä skripti kirjoittaa VAIN lib/tm_teknistaktiset.js. Ruotsinnokset asuvat
+erillisessä sidecarissa lib/tm_teknistaktiset_sv.js (scripts/i18n_curriculum.cjs yhdista --sidecar),
+joten regenerointi EI pyyhi niitä — mutta jos regenerointi lisää tai muuttaa curriculum-avaimia,
+sidecar vanhenee hiljaa (puuttuva avain → fi-fallback ruotsinkielisessä näkymässä, ei virhettä).
+tests/i18n_curriculum_sidecar.test.js punaa tällöin: aja käännösputki uusille avaimille ja merge
+sidecar uudelleen. Curriculum-dataan EI lisätä _sv-kenttiä — lib pysyy kielineutraalina.
 """
 
 import json
