@@ -11,10 +11,12 @@ koneellisesti. Työkalu: `scripts/i18n_curriculum.cjs`.
 | Käännettäviä kenttiä | **1261** (86 120 merkkiä) |
 | Konseptinimiä · pelitilanteita · cue-tekstejä | 116 · 109 · 368 |
 | Osiot | youth 167 · fundamentit 643 · joukkue 151 · harjoitteet 290 · pelipaikat 7 · asteikko 3 |
-| Käännetty | **0** (`curriculum_kaannettava.sv.json` sisältää toistaiseksi fi-arvot) |
-| Render-kytkentä | **ei tehty** — oma erä kun sv on käännetty + natiivitarkistettu |
+| Käännetty | **1261 / 1261 (100 %)** → `curriculum_kaannettava.sv.MASTER.json` (rikssvenska) |
+| Sidecar | **tehty** — `lib/tm_teknistaktiset_sv.js`, portti `tests/i18n_curriculum_sidecar.test.js` |
+| Render-kytkentä | **ei tehty** — oma erä (Vaihe B) |
+| Ruotsin laatukatselmus | **lykätty, ei-blokkaava** — EIF:n valmennuspäällikkö, oma sv-only-korjauserä |
 
-## 1. Irrota (tehty — tiedosto on valmis Gemiin)
+## 1. Irrota (tehty)
 
 ```bash
 npm run i18n:curriculum -- irrota                    # koko curriculum → docs/i18n/curriculum_kaannettava.sv.json
@@ -34,7 +36,12 @@ pelipaikka.<koodi>.nimi · asteikko.taso.<n>
 **Ei irroteta** (dataa/enumeja): `avain` · `koodi` · `dim` · `faasi` · `ryhma` · `pelimuoto` · `ika` · `jatkuu` ·
 `kpi[].koodi` · `yksilo` · `pelipaikat` · `numerot`.
 
-## 2. Käännä (Tero, ulkoinen työkalu)
+## 2. Käännä (tehty — Tero, ulkoinen työkalu)
+
+> **Tila:** valmis. Tulos = `curriculum_kaannettava.sv.MASTER.json` (1261/1261, 0 fi-jäännettä,
+> 0 ei-latinalaista merkkiä, 0 `[cite:]`-artefaktia). **Teksti on lukittu** — älä aja sitä uudelleen
+> minkään LLM:n läpi. Kielikorjaukset tulevat valmennuspäälliköltä omana eränä (MASTER.json → sidecar).
+> Ohjeet alla pätevät seuraavaan kieleen (en) ja korjauskierroksiin.
 
 Lataa `curriculum_kaannettava.sv.json` ja käännä **vain arvot**. Chunkkaa tarvittaessa osioittain
 (`--osiot=fundamentit` on isoin, 643 avainta) jos malli ei jaksa palauttaa koko tiedostoa kerralla.
@@ -53,8 +60,8 @@ Kehon valmius → Kroppslig beredskap.
 ## 3. Yhdistä takaisin
 
 ```bash
-npm run i18n:curriculum -- yhdista docs/i18n/curriculum_kaannettava.sv.json                       # kuivaajo (raportti)
-npm run i18n:curriculum -- yhdista docs/i18n/curriculum_kaannettava.sv.json --sidecar --apply     # suositus
+npm run i18n:curriculum -- yhdista docs/i18n/curriculum_kaannettava.sv.MASTER.json                    # kuivaajo (raportti)
+npm run i18n:curriculum -- yhdista docs/i18n/curriculum_kaannettava.sv.MASTER.json --sidecar --apply  # ajettu
 ```
 
 - **`--sidecar` (suositus):** kirjoittaa `lib/tm_teknistaktiset_sv.js`:n = litteä `{ avain → sv }`.
@@ -77,6 +84,16 @@ Todistaa että avainskeema osuu takaisin **täsmälleen** oikeisiin kenttiin ja 
 ennallaan. Väärään kenttään päätynyt käännös olisi hiljainen datavirhe, ei näkyvä kaatuminen — siksi tämä
 ajetaan osana testisarjaa (`tests/i18n_curriculum_putki.test.js`, 19 testiä) eikä käännöstä saa mergetä
 jos portti on punainen.
+
+**Sidecar-portti** (`tests/i18n_curriculum_sidecar.test.js`, 8 testiä) vahtii tuotettua käännöstä:
+jokaiselle fi-avaimelle on sv-vastine · ei orpoja sv-avaimia · ei fi-jäännettä · ei ei-latinalaisia
+merkkejä tai `[cite:]`-artefakteja · generoitu lib pysyy kielineutraalina (ei `_sv`-kenttiä) · sidecar
+vastaa MASTER.jsonista koneellisesti tuotettua sisältöä.
+
+⚠ **Regenerointi-sopimus:** `parse_oma_versio.py` kirjoittaa vain `tm_teknistaktiset.js` — sidecar
+säilyy. Mutta jos regenerointi **lisää tai muuttaa curriculum-avaimia**, sidecar vanhenee hiljaa
+(puuttuva avain → fi-fallback sv-näkymässä, ei virhettä). Sidecar-portti punaa silloin: irrota uudet
+avaimet, käännätä ne ja merge sidecar uudelleen.
 
 ## 5. Render-kytkentä (EI vielä tehty)
 

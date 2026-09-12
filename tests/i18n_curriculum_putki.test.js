@@ -129,8 +129,8 @@ describe('putki · merge takaisin (lepäävä kunnes sv on käännetty)', () => 
   });
 });
 
-describe('putki · lib pysyy kielineutraalina (ei sv-sisältöä toistaiseksi)', () => {
-  it('tm_teknistaktiset.js ei sisällä _sv-kenttiä ennen käännöksen mergeä', () => {
+describe('putki · lib pysyy kielineutraalina (sv asuu sidecarissa)', () => {
+  it('tm_teknistaktiset.js ei sisällä _sv-kenttiä (inline-mergeä ei ole ajettu)', () => {
     expect(/_sv\s*:/.test(readFileSync(P.LIB, 'utf8'))).toBe(false);
   });
   it('render-kytkentää EI ole tehty tässä erässä (VP ei lue curriculumin _sv-kenttiä)', () => {
@@ -140,8 +140,8 @@ describe('putki · lib pysyy kielineutraalina (ei sv-sisältöä toistaiseksi)',
     ['pelitilanne_sv', 'kysymykset_sv', 'teksti_sv', 'painopisteet_sv', 'konseptipeli_sv', 'TM_TT_SV'].forEach((k) =>
       expect(vp.includes(k), k).toBe(false));
   });
-  it('sidecar-tiedostoa ei ole vielä (syntyy vasta käännöksen mergestä)', () => {
-    expect(existsSync(join(juuri, 'lib', 'tm_teknistaktiset_sv.js'))).toBe(false);
+  it('sidecar on mergetty (Vaihe A) — sisältöportti on tests/i18n_curriculum_sidecar.test.js', () => {
+    expect(existsSync(join(juuri, 'lib', 'tm_teknistaktiset_sv.js'))).toBe(true);
   });
 });
 
