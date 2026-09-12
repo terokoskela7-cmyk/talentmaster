@@ -28,6 +28,8 @@ beforeAll(() => {
     'var _jsvEsc = function(s){return String(s==null?"":s);};\n' +
     // stub tmTtPelaaja (§4b) — palauttaa cue+miksi vain tunnetulle avaimelle
     'var tmTtPelaaja = function(a){ return a === "y_h0" ? { cue: "Mitä näit ennen kuin pallo tuli?", miksi: "Kun katsot ympärille, ehdit ennen muita." } : null; };\n' +
+    // V5 Vaihe B: peili kysyy sv:tä sidecarista ennen fi-fallbackia. fi-tilassa resolvi palauttaa null → libin arvo.
+    'var _ttSv = function(){ return null; };\n' +
     'var window = { TM_JAKSOFOKUS: { tmJfKonsepti: function(dom, a){ return a === "attitude" ? { cue: "Mikä sai sinut yrittämään kovemmin?" } : null; } } };\n';
   M = new Function(
     prelude +

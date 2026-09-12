@@ -10,6 +10,15 @@ import { dirname, join } from 'path';
 const __dir = dirname(fileURLToPath(import.meta.url));
 const HTML = readFileSync(join(__dir, '..', 'TalentMaster_VP_v25.html'), 'utf8');
 
+// V5 Vaihe B: _vpSiltaKonsepti kutsuu curriculumin sv-resolveria (_ttKonsepti). Injektoidaan AITO
+// [TT-I18N] -lohko (ei stubia) + fi-kieli → resolvi on läpimeno ja tämä testi kaataa myös sen virheet.
+function lohko(alku, loppu) {
+  const a = HTML.indexOf(alku), b = HTML.indexOf(loppu);
+  if (a < 0 || b < 0) throw new Error('lohko puuttuu: ' + alku);
+  return HTML.slice(a, b + loppu.length);
+}
+const TT_I18N = "function _vpTaksLang(){ return 'fi'; }\n" + lohko('// ─── [TT-I18N-ALKU]', '// ─── [TT-I18N-LOPPU]');
+
 function extract(sig) {
   const lines = HTML.split('\n');
   const s = lines.findIndex((l) => l.includes(sig));
@@ -24,6 +33,7 @@ beforeAll(() => {
   SK = new Function(
     'var TM_TT_YOUTH = [{ avain: "y_h0", nimi: "HAVAINNOINTI", kpi: [{koodi:"a",teksti:"x"}] }];\n' +
     'var TM_TT_FUNDAMENTIT = { MV: [{ avain: "mv_p1", nimi: "MV-PERUSTEET", kpi: [{koodi:"a"},{koodi:"b"},{koodi:"c"},{koodi:"d"}], kysymykset: ["q1","q2"] }], LP: [{ avain: "lp_p1", nimi: "LAITAPUOLUSTAJA" }] };\n' +
+    TT_I18N + '\n' +
     extract('function _vpSiltaKonsepti(avain) {') + '\n return { sk: _vpSiltaKonsepti };'
   )().sk;
 });

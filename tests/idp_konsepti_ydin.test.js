@@ -30,8 +30,9 @@ beforeAll(() => {
     'var _vpSiltaKonsepti = function(a){ return a==="y_h0" ? ' + JSON.stringify(ITEM) + ' : null; };\n' +
     // R1.3: aito silta-lähde (palloliittokohde) — match konsepti_avain
     'var _vpSiltaEhdotukset = function(p, opts){ return [{ palloliitto_avain:"ball_control", palloliitto_nimi:"Pallonhallinta", arvo:2, konsepti_avain:"y_h0", konsepti_nimi:"HAVAINNOINTI" }]; };\n' +
-    'var tmTtHarjoitteet = function(a){ return a==="Y-H0" ? [{},{}] : []; };\n' +
-    'var tmTtKysymykset = function(a){ return a==="y_h0" ? ["Mitä näit ennen kuin pallo tuli?","Missä oli lähin vastustaja?"] : []; };\n' +
+    // V5 Vaihe B: render lukee curriculumin sv-tietoisten kääreiden kautta (_ttHarj/_ttKys), ei suoraan libistä.
+    'var _ttHarj = function(a){ return a==="Y-H0" ? [{},{}] : []; };\n' +
+    'var _ttKys = function(a){ return a==="y_h0" ? ["Mitä näit ennen kuin pallo tuli?","Missä oli lähin vastustaja?"] : []; };\n' +
     extract('function _vpAloitusKonseptiYdinHTML(p) {') + '\n return { yd: _vpAloitusKonseptiYdinHTML };'
   )().yd;
 });

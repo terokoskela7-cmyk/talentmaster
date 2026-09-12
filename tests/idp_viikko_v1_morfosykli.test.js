@@ -105,10 +105,10 @@ describe('(6) läsnäolo K2 + pelaajan ääni honest-empty + cue', () => {
     expect(L).toContain('_vkoLasnaByTila(st.rows[d.iso].lasna)');
     expect(L).toContain('Ei merkittyä läsnäoloa vielä');
   });
-  it('pelaajan ääni honest-empty (EI fabrikoi) + cue tmTtKysymykset:stä', () => {
+  it('pelaajan ääni honest-empty (EI fabrikoi) + cue curriculumista (_ttKys, V5 Vaihe B sv-tietoinen)', () => {
     const A = extract('function _vpViikkoAaniHTML(p, st) {');
     expect(A).toContain('Ei pelaajan refleksiota vielä');
-    expect(A).toContain('tmTtKysymykset(jf.konsepti_avain)');
+    expect(A).toContain('_ttKys(jf.konsepti_avain)');
     expect(A).toContain('Cue-kysymys (§4b)');
   });
 });

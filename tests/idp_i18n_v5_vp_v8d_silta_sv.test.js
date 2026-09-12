@@ -46,11 +46,14 @@ function sandbox(kieli) {
   sb.window = sb;
   vm.createContext(sb);
   ['lib/tm_lang.js', 'lib/tm_i18n_common.js', 'lib/tm_vp_i18n.js', 'lib/tm_arviointi_taksonomia.js',
-    'lib/tm_arviointi_silta.js', 'lib/tm_teknistaktiset.js', 'lib/tm_fyysteemat.js',
+    'lib/tm_arviointi_silta.js', 'lib/tm_teknistaktiset.js', 'lib/tm_teknistaktiset_sv.js', 'lib/tm_fyysteemat.js',
     'lib/tm_kehityspolku.js', 'lib/tm_pelialy_yksilo.js'].forEach((f) => vm.runInContext(lue(f), sb));
   vm.runInContext('tmAsetaKieli(' + JSON.stringify(kieli) + ', false);', sb);
   // VP-kerroksen kielivalinta + silta-paneelit HTML:stä (shippaava koodi)
   vm.runInContext(lohko('// ─── [TAKS-I18N-ALKU]', '// ─── [TAKS-I18N-LOPPU]'), sb);
+  // V5 Vaihe B: curriculumin sv-resolvi (sidecar TM_TT_SV). Ajossa mukana → sandbox nappaa myös
+  // resolverin ReferenceErrorit, ei vain silta-chromen.
+  vm.runInContext(lohko('// ─── [TT-I18N-ALKU]', '// ─── [TT-I18N-LOPPU]'), sb);
   vm.runInContext(lohko('function _vpSiltaKonsepti(avain) {', '// ══════════ VAIHE 7'), sb);
   vm.runInContext(lohko('function _vpFyysEhdotus(p, ohitaGuard) {', 'window._vpFyysFokusModal'), sb);
   // V8e: kehityspolku-ctx (kaikkien .syy-kuluttajien kielilähde) + sen resolveri

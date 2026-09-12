@@ -35,6 +35,7 @@
 <script src="lib/tm_arviointi_silta.js?v=3"></script>   <!-- Vaihe 5: arviointi→resepti-silta (heikoin havaittu D2 → ehdotettu jaksofokus) · v2 = I3a SSOT-osoitin tm_kehityspolku -->
 <script src="lib/tm_idp.js?v=6"></script>   <!-- I3a: + kesto valmentajan asetettavaksi (opts.kestoVk) · I2: lahde+pvm/idp_lahde/idpVahvinDim 1–3 -->
 <script src="lib/tm_teknistaktiset.js?v=5"></script>   <!-- Vaihe 4a: teknis-taktinen curriculum (VP:n jaksofokus talenteille) · v5 = I3a pelipaikkaportti U14+ + harjoite-tägit/jalka -->
+<script src="lib/tm_teknistaktiset_sv.js?v=1"></script>   <!-- i18n V5 Vaihe B: curriculumin sv-sidecar (TM_TT_SV). Generoitu lib on kielineutraali → sv asuu tässä; VP valitsee kielen (_ttSv), puuttuva avain → fi -->
 <script src="lib/tm_kehityspolku.js?v=2"></script>   <!-- I3a: looginen silta -resolver (idp_fokus → konsepti/fundamentti → harjoite) -->
 <script src="lib/tm_jaksofokus.js?v=5"></script>   <!-- Vaihe 4c: jaksofokus-oversight PURE-ydin (kattavuus/umpeutunut/teemakeskittymä, §26) -->
 <script src="lib/tm_vp_seuranta.js?v=1"></script>   <!-- Vaihe C: VP-seuranta koonti/kuittaus/IDP-feed (nojaa VAI+-indeksiin, ei uutta mittaria) -->
@@ -4324,13 +4325,14 @@ function _jsvEsc(s) { return String(s == null ? '' : s).replace(/&/g,'&amp;').re
 // Sisältö libistä (§34, tm_teknistaktiset). Ehdotus ≠ pakko (§4). Passiivinen: vain kun jaksofokus puuttuu (§4b.5).
 function _vpSiltaKonsepti(avain) {
   if (!avain || typeof TM_TT_YOUTH === 'undefined') return null;
-  for (let i = 0; i < TM_TT_YOUTH.length; i++) if (TM_TT_YOUTH[i].avain === avain) return TM_TT_YOUTH[i];
+  // i18n V5 Vaihe B: palautus kulkee _ttKonseptin läpi → nimi/pelitilanne/kpi/kysymykset sv (fi-fallback).
+  for (let i = 0; i < TM_TT_YOUTH.length; i++) if (TM_TT_YOUTH[i].avain === avain) return _ttKonsepti(TM_TT_YOUTH[i]);
   // R1.2-korjaus: hae myös pelipaikkakonseptit (TM_TT_FUNDAMENTIT) — muuten pelipaikka-avaimelle (esim. mv_p1)
   // palautuu null → konseptin osat/miksi/harjoitteet katoavat. Sama rakenne (kpi/kysymykset/pelitilanne) kuin youth.
   if (typeof TM_TT_FUNDAMENTIT !== 'undefined') {
     for (const pos in TM_TT_FUNDAMENTIT) {
       const arr = TM_TT_FUNDAMENTIT[pos];
-      for (let j = 0; j < arr.length; j++) if (arr[j].avain === avain) return arr[j];
+      for (let j = 0; j < arr.length; j++) if (arr[j].avain === avain) return _ttKonsepti(arr[j]);
     }
   }
   return null;
@@ -4345,9 +4347,9 @@ function _vpSiltaEhdotukset(p, opts) {
   const hav = p.arviointi_havaittu; if (!hav) return [];
   const isp = (typeof _dimIkaSp === 'function') ? _dimIkaSp(p.joukkue || '', p) : { ika: null };
   const posCode = (typeof _vpTtNormPositio === 'function') ? (p.tt_positio_aktiivinen || _vpTtNormPositio(p.positio || p.pelipaikka)) : null;
-  const sallitut = (typeof tmTtItems === 'function') ? tmTtItems({ ika: isp.ika, joukkue: p.joukkue, positio: posCode, tt_positio_aktiivinen: posCode, syntymaVuosi: p.syntymaVuosi }) : null;
+  const sallitut = _ttItems({ ika: isp.ika, joukkue: p.joukkue, positio: posCode, tt_positio_aktiivinen: posCode, syntymaVuosi: p.syntymaVuosi });
   // i18n V8e: kieli injektoidaan VP-kerroksesta (lib kielineutraali). palloliittoNimi = taksonomian nimi_sv (V8c).
-  // konseptiNimi = teknis-taktinen curriculum (Tier 2) → jää fi:ksi kunnes tm_teknistaktiset käännetään.
+  // V5 Vaihe B: konseptiNimi tulee nyt curriculum-sidecarista (_vpSiltaKonsepti → _ttKonsepti) — ei enää fi-lukko.
   return LIB.tmSiltaEhdota(hav, {
     sallitutKonseptit: sallitut,
     konseptiNimi: function (a) { const k = _vpSiltaKonsepti(a); return k ? k.nimi : a; },
@@ -4367,8 +4369,8 @@ function _vpSiltaMitattuLbl(p, pk) {
 }
 function _vpSiltaPreviewHTML(avain) {
   const esc = _jsvEsc; const it = _vpSiltaKonsepti(avain); if (!it) return '';
-  const kys = (typeof tmTtKysymykset === 'function') ? tmTtKysymykset(avain) : [];
-  const harj = (typeof tmTtHarjoitteet === 'function') ? tmTtHarjoitteet(avain) : [];
+  const kys = _ttKys(avain);
+  const harj = _ttHarj(avain);
   let h = '';
   if (it.pelitilanne) h += '<div style="font-style:italic;font-size:12.5px;color:var(--ink2);margin-bottom:4px">”' + esc(it.pelitilanne) + '”</div>';
   if (kys.length) h += vpT('<div style="font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:var(--ink3);margin-top:6px">Ohjaava kysymys</div><div style="font-family:\'Cormorant Garamond\',serif;font-size:15px;color:var(--teal);background:rgba(40,176,144,.08);border:.5px solid rgba(40,176,144,.26);border-radius:8px;padding:8px 10px;margin-top:3px">') + esc(kys[0]) + '</div>';
@@ -4639,6 +4641,79 @@ function _taksTeemaNimi(t) {                  // pääteema 'D1 · Liike' → 'D
   return t.dim + ' · ' + tmKategoriaNimi(t.kategoria, _vpTaksLang());
 }
 // ─── [TAKS-I18N-LOPPU] ──────────────────────────────────────────────────────────────────────────────────
+// ─── [TT-I18N-ALKU] i18n V5 · Vaihe B — teknis-taktisen curriculumin kielivalinta VP-KERROKSESSA ────────
+// lib/tm_teknistaktiset.js on GENEROITU (docs/data/parse_oma_versio.py) → siihen EI voi laittaa
+// rinnakkaisia nimi_sv-kenttiä kuten taksonomiaan (V8c): seuraava generointi pyyhkisi ne. sv tulee siksi
+// SIDECARISTA lib/tm_teknistaktiset_sv.js (TM_TT_SV = litteä '<avain>.<kenttä>' → sv). Lib pysyy
+// kielineutraalina; valinta tehdään VAIN näissä helpereissä, puuttuva käännös → fi (ei tyhjää).
+// Kieli luetaan JOKAISELLA lukukerralla (_vpTaksLang) koska kielivaihto on ajonaikainen (vpVaihdaKieli
+// re-renderöi ilman reloadia) — kertaprojektio globaaleihin vanhentuisi eikä palaisi fi:hin.
+// ENUM-KENTÄT EIVÄT KÄÄNNY (avain · koodi · dim · faasi · ryhma · pelimuoto · domeeni · kpi[].koodi):
+// niitä ei ole sidecarissa, ja Firestore-vertailut + tallennetut jaksofokus-arvot nojaavat niihin.
+// Render-gate ei näe näitä (ei literaaleja) → kattavuuden takaa erillinen resolve-todiste
+// (tests/idp_i18n_v5_vp_curriculum_sv.test.js).
+function _ttSvKartta() { try { return (typeof TM_TT_SV !== 'undefined' && TM_TT_SV) || null; } catch (e) { return null; } }
+function _ttSvPaalla() { return _vpTaksLang() !== 'fi' && !!_ttSvKartta(); }
+function _ttSv(avain, kentta) {                 // '<avain>.<kenttä>' → sv | null
+  if (!avain || !_ttSvPaalla()) return null;
+  var v = _ttSvKartta()[avain + '.' + kentta];
+  return (typeof v === 'string' && v) ? v : null;
+}
+function _ttKopio(o) { var n = {}, k; for (k in o) n[k] = o[k]; return n; }
+// Käännettävät tekstikentät = SAMA lista kuin irrotuksessa (scripts/i18n_curriculum.cjs TEKSTIKENTAT).
+// Pidä synkassa: jos irrotus lisää kentän, sidecariin tulee avain jolle ei muuten olisi lukijaa.
+// Puuttuva kenttä on no-op (avainta ei ole) → sama lista kelpaa sekä konseptille että harjoitteelle.
+var _TT_TEKSTIKENTAT = ['nimi', 'pelitilanne', 'painotus', 'pelaaja_miksi', 'konseptipeli', 'teema', 'painopisteet', 'pelipaikka'];
+// _ttKonsepti: konsepti/teema (youth · fundamentti · joukkue) → kieli-valittu KOPIO. Alkuperäistä ei
+// mutatoida (lib-data on jaettu kaikkien kutsujien kesken). avain/koodi/kpi[].koodi säilyvät ennallaan.
+function _ttKonsepti(item) {
+  if (!item || !item.avain || !_ttSvPaalla()) return item;
+  var a = item.avain, o = _ttKopio(item);
+  _TT_TEKSTIKENTAT.forEach(function (f) { var s = _ttSv(a, f); if (s) o[f] = s; });
+  if (Array.isArray(item.kpi)) o.kpi = item.kpi.map(function (c) {
+    var s = (c && c.koodi) ? _ttSv(a, 'kpi.' + c.koodi + '.teksti') : null;
+    if (!s) return c;
+    var n = _ttKopio(c); n.teksti = s; return n;
+  });
+  if (Array.isArray(item.kysymykset)) o.kysymykset = item.kysymykset.map(function (q, i) { return _ttSv(a, 'kysymys.' + i) || q; });
+  return o;
+}
+function _ttKonseptit(arr) { return (arr || []).map(_ttKonsepti); }
+function _ttItems(p) { return _ttKonseptit((typeof tmTtItems === 'function') ? tmTtItems(p) : []); }
+function _ttJoukkueTeemat() { return _ttKonseptit((typeof TM_TT_JOUKKUE !== 'undefined') ? TM_TT_JOUKKUE : []); }
+function _ttKys(avainTaiKoodi) {                // cue-kysymykset sv:nä (indeksit säilyvät)
+  var kys = (typeof tmTtKysymykset === 'function') ? tmTtKysymykset(avainTaiKoodi) : [];
+  if (!kys.length || !_ttSvPaalla()) return kys;
+  var a = String(avainTaiKoodi || '').toLowerCase().replace(/-/g, '_');
+  return kys.map(function (q, i) { return _ttSv(a, 'kysymys.' + i) || q; });
+}
+// _ttHarj: harjoitteet sv:nä. Avainmuoto riippuu lähteestä: taulukolle 'harjoite.<KOODI>.<i>.<kenttä>',
+// yksittäisobjektille 'harjoite.<KOODI>.<kenttä>' (sama haarautuminen kuin irrotuksessa).
+function _ttHarj(avainTaiKoodi) {
+  var arr = (typeof tmTtHarjoitteet === 'function') ? tmTtHarjoitteet(avainTaiKoodi) : [];
+  if (!arr.length || !_ttSvPaalla()) return arr;
+  var koodi = String(avainTaiKoodi || '').toUpperCase().replace(/_/g, '-');
+  var raaka = (typeof TM_TT_HARJOITTEET !== 'undefined') ? TM_TT_HARJOITTEET[koodi] : null;
+  var lista = Array.isArray(raaka), m = _ttSvKartta();
+  return arr.map(function (h, i) {
+    var etu = 'harjoite.' + koodi + (lista ? '.' + i : ''), o = _ttKopio(h);
+    _TT_TEKSTIKENTAT.forEach(function (f) {
+      var v = m[etu + '.' + f]; if (typeof v === 'string' && v) o[f] = v;
+    });
+    return o;
+  });
+}
+function _ttPpNimi(koodi) {                     // pelipaikan NÄYTTÖnimi (koodi itse on enum, ei käänny)
+  var k = String(koodi || '');
+  var fi = (typeof TM_TT_PELIPAIKAT !== 'undefined' && TM_TT_PELIPAIKAT[k]) ? (TM_TT_PELIPAIKAT[k].nimi || k) : k;
+  return _ttSv('pelipaikka.' + k, 'nimi') || fi;
+}
+// HUOM asteikko: sidecarissa on 'asteikko.taso.1..3' (Syns inte i spelet · Syns med instruktion · Syns
+// självständigt), mutta VP EI renderöi libin asteikkoa lainkaan — se näyttää oman lyhennetyn vihjeensä
+// ('1 ei näy · 2 ohjatusti · 3 itsenäisesti') joka on jo vpT-reititettyä chromea. Siksi tälle ei ole
+// resolveria: kääre ilman kuluttajaa olisi kuollutta koodia. Jos libin asteikko joskus renderöidään,
+// avaimet ovat valmiina.
+// ─── [TT-I18N-LOPPU] ────────────────────────────────────────────────────────────────────────────────────
 function _vpArvAdarKoostumusHTML(p, ika) {
   const av = p.adar_viimeisin;
   // R3.B-korjaus: f3:n arvokkaat osat konsolidoitu tänne (yksi ADAR, suomeksi) — add-CTA + ⓘ + empty-state + ristiinarvio.
@@ -5499,16 +5574,16 @@ function _vpPelipaikkaFundamentitHTML(p) {
   const pp = { ika: isp.ika, joukkue: p.joukkue, positio: posCode, tt_positio_aktiivinen: posCode, syntymaVuosi: p.syntymaVuosi };
   if (tmTtVaihe(pp) !== 'pelipaikka') return '';   // vain U14+ pelipaikkavaihe (joustava gate, ei pakotus)
   if (!posCode) return '<div style="font-size:12.5px;color:var(--ink3);background:var(--ov-1);border:.5px solid var(--border);border-radius:10px;padding:14px 16px">Pelipaikka asettamatta — aseta pelipaikka nähdäksesi roolifundamentit (cue · harjoite · KPI).</div>';
-  const posNimi = (TM_TT_PELIPAIKAT[posCode] || {}).nimi || posCode;
-  const fund = tmTtItems(pp).filter(function (it) { return it.koodi && it.koodi.charAt(0) !== 'Y'; });
+  const posNimi = _ttPpNimi(posCode);
+  const fund = _ttItems(pp).filter(function (it) { return it.koodi && it.koodi.charAt(0) !== 'Y'; });
   if (!fund.length) return '<div style="font-size:12.5px;color:var(--ink3);background:var(--ov-1);border:.5px solid var(--border);border-radius:10px;padding:14px 16px">Ei roolifundamentteja tälle pelipaikalle vielä.</div>';
   const faasiLbl = { puolustus: 'Puolustus', hyokkays: 'Hyökkäys', siirtyma: 'Siirtymä' };
   const NAYTA = Math.min(3, fund.length);
   let h = '<div style="background:var(--surface);border:.5px solid var(--border);border-radius:10px;padding:18px 20px;margin-bottom:26px">';
   h += '<div style="font-size:11px;color:var(--ink2);margin-bottom:10px"><span style="color:var(--teal);font-weight:600">' + esc(posNimi) + '</span> · ' + fund.length + ' roolifundamenttia (U14+)</div>';
   fund.slice(0, NAYTA).forEach(function (it, i) {
-    const cue = (typeof tmTtKysymykset === 'function') ? tmTtKysymykset(it.avain) : [];
-    const harj = (typeof tmTtHarjoitteet === 'function') ? tmTtHarjoitteet(it.koodi) : [];
+    const cue = _ttKys(it.avain);
+    const harj = _ttHarj(it.koodi);
     const kpi = Array.isArray(it.kpi) ? it.kpi : [];
     h += '<div style="padding:12px 0;' + (i < NAYTA - 1 ? 'border-bottom:.5px solid var(--border);' : '') + '">';
     h += '<div style="font-size:13px;font-weight:600;color:var(--ink)">' + esc(it.nimi) + (it.faasi ? ' <span style="font-size:9px;font-weight:500;letter-spacing:.08em;text-transform:uppercase;color:var(--ink3)">· ' + esc(faasiLbl[it.faasi] || it.faasi) + '</span>' : '') + '</div>';
@@ -5929,7 +6004,7 @@ function _vpAloitusPeiliHTML(p) {
   const avain = jf.konsepti_avain || jf.konsepti_koodi || jf.konsepti_nimi;
   let cue = '', miksi = '';
   // Ensisijainen: §4b teknis-taktinen youth-sisältö (tmTtPelaaja → {cue, miksi=pelaaja_miksi}).
-  if (typeof tmTtPelaaja === 'function') { const tp = tmTtPelaaja(avain); if (tp) { cue = tp.cue || ''; miksi = tp.miksi || ''; } }
+  if (typeof tmTtPelaaja === 'function') { const tp = tmTtPelaaja(avain); if (tp) { const _a = String(avain || '').toLowerCase().replace(/-/g, '_'); cue = _ttSv(_a, 'kysymys.0') || tp.cue || ''; miksi = _ttSv(_a, 'pelaaja_miksi') || tp.miksi || ''; } }
   // Fallback: muut domeenit (psyykkinen ym.) — jaksofokus-lib-konseptin cue.
   if (!cue) { const _l = window.TM_JAKSOFOKUS; if (_l && typeof _l.tmJfKonsepti === 'function') { const k = _l.tmJfKonsepti(jf.domeeni || 'teknis_taktinen', avain); if (k && k.cue) cue = k.cue; } }
   if (!cue && !miksi) return '';   // ei lapsen-kielistä sisältöä → ei keksitä (§7.22 rehellinen tyhjä)
@@ -6035,7 +6110,7 @@ function _vpAloitusKonseptiYdinHTML(p) {
   // 2) KONSEPTIN MIKSI — pelitilanne (rationale).
   if (item && item.pelitilanne) h += '<div class="idp-miksi">”' + esc(item.pelitilanne) + '”</div>';
   // 3) KONSEPTIN OSAT (a–e) + TEE TÄSTÄ osa b:n SISÄLLÄ (kartta-tarkka). Per-osa-tila rehellinen tyhjä (R4 kaappaa).
-  const harj = (typeof tmTtHarjoitteet === 'function' && item) ? tmTtHarjoitteet(item.koodi || avain) : [];
+  const harj = item ? _ttHarj(item.koodi || avain) : [];
   if (item && Array.isArray(item.kpi) && item.kpi.length) {
     // nextIdx = seuraava-askel-osa. Per-osa-näkyvyyttä ei ole tallennettu (R4 kaappaa) → oletus osa b (idx 1), muuten a.
     const nextIdx = (item.kpi.length >= 2) ? 1 : 0;
@@ -6052,7 +6127,7 @@ function _vpAloitusKonseptiYdinHTML(p) {
     });
   }
   // 4) 🗣 REFLEKTIO erikseen osat-listan jälkeen = tmTtKysymykset[0] (kys vapautuu tänne; cue tuli osan tekstistä).
-  const kys = (typeof tmTtKysymykset === 'function') ? tmTtKysymykset(avain) : [];
+  const kys = _ttKys(avain);
   if (kys && kys.length) h += vpT('<div class="idp-reflect">🗣 Reflektio: ”') + esc(kys[0]) + '”</div>';
   return h + '</div>';
 }
@@ -6525,6 +6600,8 @@ function _vpTtPelaaja(pid) { return (window._vpArvPelaaja && window._vpArvPelaaj
 function _vpTtNormPositio(val) {
   if (!val || typeof TM_TT_PELIPAIKAT === 'undefined') return null;
   const s = String(val).trim(); if (!s) return null;
+  // i18n V5 Vaihe B: TÄTÄ EI KÄÄNNETÄ. Funktio normalisoi TALLENNETUN pelipaikka-arvon koodiksi vertaamalla
+  // fi-nimiin; sv-nimillä vertaaminen rikkoisi olemassa olevan Firestore-datan tunnistuksen (enum-invariantti).
   if (TM_TT_PELIPAIKAT[s.toUpperCase()]) return s.toUpperCase();
   const low = s.toLowerCase();
   for (const k in TM_TT_PELIPAIKAT) { const nimi = (TM_TT_PELIPAIKAT[k].nimi || '').toLowerCase(); if (nimi && (low === nimi || nimi.indexOf(low) === 0 || low.indexOf(nimi) === 0)) return k; }
@@ -6587,7 +6664,9 @@ function _vpKehityspolkuCtx() {
   const py = window.TM_PELIALY_YKSILO;
   return {
     tmPelialyYksiloEhdota: py && py.tmPelialyYksiloEhdota,
-    tmTtKysymykset: g('tmTtKysymykset'), tmTtHarjoitteet: g('tmTtHarjoitteet'), tmTtVaihe: g('tmTtVaihe'),
+    // i18n V5 Vaihe B: curriculum-kutsut injektoidaan sv-tietoisina kääreinä — lib saa valmiiksi kielivalitun
+    // sisällön eikä tiedä kielestä mitään (tmTtVaihe = puhdas logiikka, ei tekstiä → ei käärettä).
+    tmTtKysymykset: _ttKys, tmTtHarjoitteet: _ttHarj, tmTtVaihe: g('tmTtVaihe'),
     tmTaksonomiaByAvain: g('tmTaksonomiaByAvain'),
     // i18n V8e: syy-tekstit (kaikki .syy-kuluttajat sv) + peliäly-ehdotuksen taksonomianimi (nimi_sv, V8c).
     taksonomiaNimi: function (a) { return (typeof _taksAvainNimi === 'function') ? _taksAvainNimi(a) : ''; },
@@ -6619,15 +6698,15 @@ function _vpMitaOsattavaHTML(p) {
   if (!p || typeof tmTtItems !== 'function') return '';
   const isp = (typeof _dimIkaSp === 'function') ? _dimIkaSp(p.joukkue || '', p) : { ika: null };
   const posCode = p.tt_positio_aktiivinen || (typeof _vpTtNormPositio === 'function' ? _vpTtNormPositio(p.positio || p.pelipaikka) : null);
-  const items = tmTtItems({ ika: isp.ika, joukkue: p.joukkue, positio: posCode, tt_positio_aktiivinen: posCode, syntymaVuosi: p.syntymaVuosi });
+  const items = _ttItems({ ika: isp.ika, joukkue: p.joukkue, positio: posCode, tt_positio_aktiivinen: posCode, syntymaVuosi: p.syntymaVuosi });
   if (!items.length) return '';
   const esc = _jsvEsc;
   const aktiivinen = (p.jaksofokus && p.jaksofokus.konsepti_avain) || null;
   const katetut = {};
   (p.jaksofokus_historia || []).forEach(function (hh) { if (hh && hh.konsepti_avain) katetut[hh.konsepti_avain] = 1; });
   const rivi = function (it) {
-    const kys = (typeof tmTtKysymykset === 'function') ? tmTtKysymykset(it.avain) : [];
-    const harj = (typeof tmTtHarjoitteet === 'function') ? tmTtHarjoitteet(it.avain) : [];
+    const kys = _ttKys(it.avain);
+    const harj = _ttHarj(it.avain);
     const akt = (it.avain === aktiivinen), kat = !akt && katetut[it.avain];
     const tl = akt ? vpT('Aktiivinen') : kat ? vpT('Katettu') : vpT('Avoin');
     const tc = akt ? 'var(--teal)' : 'var(--ink3)';
@@ -6680,7 +6759,7 @@ function _vpTtKorttiHTML(p) {
   const posCode = p.tt_positio_aktiivinen || _vpTtNormPositio(p.positio || p.pelipaikka);
   const pp = { ika: isp.ika, joukkue: p.joukkue, positio: posCode, tt_positio_aktiivinen: posCode, syntymaVuosi: p.syntymaVuosi };
   const vaihe = tmTtVaihe(pp);
-  const items = tmTtItems(pp);
+  const items = _ttItems(pp);
   if (!items.length) return '';
   const pid = _jsvEsc(p.id);
   const esc = _jsvEsc;
@@ -6717,22 +6796,22 @@ function _vpTtKorttiHTML(p) {
   };
   h += '<div style="display:flex;border:.5px solid var(--border);border-radius:8px;overflow:hidden;margin-bottom:5px">' + _nseg('yksilo', '🧍', 'Yksilökonsepti') + _nseg('pelipaikka', '📍', vpT('Pelipaikkakonsepti')) + '</div>';
   h += '<div style="font-size:10.5px;color:var(--ink3);margin-bottom:8px">' + (nakyma === 'pelipaikka'
-    ? (posCode ? '📍 ' + esc((TM_TT_PELIPAIKAT[posCode] || {}).nimi || posCode) + ' ' + vpT('— pelipaikan fundamentit.') : vpT('Pelipaikkakonseptit aktivoituvat kun pelaajalle asetetaan pelipaikka') + (_canPos ? '.' : ' (U14+).'))
+    ? (posCode ? '📍 ' + esc(_ttPpNimi(posCode)) + ' ' + vpT('— pelipaikan fundamentit.') : vpT('Pelipaikkakonseptit aktivoituvat kun pelaajalle asetetaan pelipaikka') + (_canPos ? '.' : ' (U14+).'))
     : vpT('🧍 Yksilökonseptit — perustaidot, eivät vaadi pelipaikkaa.')) + '</div>';
   // Aseta pelipaikka (pelipaikka-näkymä ilman positiota, kun pelaaja on U14+).
   if (nakyma === 'pelipaikka' && !posCode && _canPos) {
     h += '<div style="background:rgba(224,160,64,.1);border:.5px solid rgba(224,160,64,.35);border-radius:9px;padding:9px 11px;margin-bottom:8px">'
       + vpT('<div style="font-size:11.5px;color:var(--ink);font-weight:600;margin-bottom:6px">🎯 Aseta pelipaikka aktivoidaksesi pelipaikkakonseptit</div>')
       + '<select onchange="if(this.value)_vpTtAsetaPositio(\'' + pid + vpT('\',this.value)" class="jsp-kt-vapaainp" onclick="event.stopPropagation()"><option value="">Valitse pelipaikka…</option>')
-      + Object.keys(TM_TT_PELIPAIKAT).map(function (k) { return '<option value="' + k + '">' + esc(TM_TT_PELIPAIKAT[k].nimi) + ' (' + k + ')</option>'; }).join('') + '</select></div>';
+      + Object.keys(TM_TT_PELIPAIKAT).map(function (k) { return '<option value="' + k + '">' + esc(_ttPpNimi(k)) + ' (' + k + ')</option>'; }).join('') + '</select></div>';
   }
   // Ei konsepteja aktiivisessa näkymässä (esim. pelipaikka ilman fundamentteja) → näytä vihje, ei konseptikorttia.
   if (!item) {
     h += vpT('<div style="font-size:12px;color:var(--ink3);padding:6px 2px">Ei konsepteja tässä näkymässä.') + ' ' + (nakyma === 'pelipaikka' ? vpT('Aseta pelipaikka tai valitse yksilökonsepti.') : '') + '</div>';
     return h;
   }
-  const kys = (typeof tmTtKysymykset === 'function') ? tmTtKysymykset(item.avain) : [];
-  const harj = (typeof tmTtHarjoitteet === 'function') ? tmTtHarjoitteet(item.avain) : [];
+  const kys = _ttKys(item.avain);
+  const harj = _ttHarj(item.avain);
   const pelimuoto = (item.pelimuoto && item.pelimuoto.length) ? item.pelimuoto.join(' → ') : '';
   const dimLbl = item.faasi === 'hyokkays' ? vpT('hyökkäys') : item.faasi === 'puolustus' ? vpT('puolustus') : (item.ryhma || '');
   // I3a §B.1 — "Tavoitteesta ehdotettu" -baneri (looginen silta: havainto → tavoite → konsepti).
@@ -6801,7 +6880,7 @@ window._vpTtVieTreeniin = async function (pid, avain) {
   const p = _vpTtPelaaja(pid); if (!p) return;
   const isp = (typeof _dimIkaSp === 'function') ? _dimIkaSp(p.joukkue || '', p) : { ika: null };
   const posCode = p.tt_positio_aktiivinen || _vpTtNormPositio(p.positio || p.pelipaikka);
-  const item = (typeof tmTtItems === 'function' ? tmTtItems({ ika: isp.ika, joukkue: p.joukkue, positio: posCode, tt_positio_aktiivinen: posCode, syntymaVuosi: p.syntymaVuosi }) : []).find(function (it) { return it.avain === avain; });
+  const item = _ttItems({ ika: isp.ika, joukkue: p.joukkue, positio: posCode, tt_positio_aktiivinen: posCode, syntymaVuosi: p.syntymaVuosi }).find(function (it) { return it.avain === avain; });
   // Vaihe 5: lähde voi olla 'arviointi' (silta) — muuten 'vp'. Kertakäyttöinen lippu, nollataan tallennuksen jälkeen.
   const lahde = window._vpTtLahde || 'vp';
   // I3a §C.1 — käsin asetettu kesto (oletus 6). §B.3 — takaisinlinkki tavoitteeseen + poikkeama-lippu.
@@ -7287,7 +7366,7 @@ function _vpJfDomeeniKonseptit(p, dom) {
   if (typeof tmTtItems === 'function') {
     const isp = (typeof _dimIkaSp === 'function') ? _dimIkaSp(p.joukkue || '', p) : { ika: null };
     const posCode = p.tt_positio_aktiivinen || (typeof _vpTtNormPositio === 'function' ? _vpTtNormPositio(p.positio || p.pelipaikka) : null);
-    return tmTtItems({ ika: isp.ika, joukkue: p.joukkue, positio: posCode, tt_positio_aktiivinen: posCode, syntymaVuosi: p.syntymaVuosi }).map(function (it) { return { avain: it.avain, nimi: it.nimi }; });
+    return _ttItems({ ika: isp.ika, joukkue: p.joukkue, positio: posCode, tt_positio_aktiivinen: posCode, syntymaVuosi: p.syntymaVuosi }).map(function (it) { return { avain: it.avain, nimi: it.nimi }; });
   }
   return [];
 }
@@ -7678,7 +7757,7 @@ function _vpSulkuSeuraava(p, nykyAvain, tulos) {
   const LIB = window.TM_ARVIOINTI_SILTA; if (!LIB || !p.arviointi_havaittu) return null;
   const isp = (typeof _dimIkaSp === 'function') ? _dimIkaSp(p.joukkue || '', p) : { ika: null };
   const posCode = (typeof _vpTtNormPositio === 'function') ? (p.tt_positio_aktiivinen || _vpTtNormPositio(p.positio || p.pelipaikka)) : null;
-  const sallitut = (typeof tmTtItems === 'function') ? tmTtItems({ ika: isp.ika, joukkue: p.joukkue, positio: posCode, tt_positio_aktiivinen: posCode, syntymaVuosi: p.syntymaVuosi }) : null;
+  const sallitut = _ttItems({ ika: isp.ika, joukkue: p.joukkue, positio: posCode, tt_positio_aktiivinen: posCode, syntymaVuosi: p.syntymaVuosi });
   const ehd = LIB.tmSiltaEhdota(p.arviointi_havaittu, { sallitutKonseptit: sallitut, konseptiNimi: function (a) { const k = _vpSiltaKonsepti(a); return k ? k.nimi : a; } });
   const eri = ehd.filter(function (e) { return e.konsepti_avain !== nykyAvain; });
   return eri.length ? eri[0] : (ehd.length ? ehd[0] : null);
@@ -7745,7 +7824,7 @@ function _vpSulkuRender() {
     + '<button onclick="document.getElementById(\'_vpSulkuModal\').remove()" style="background:none;border:none;color:var(--ink3);font-size:22px;cursor:pointer;padding:0 6px">×</button></div>';
   h += '<div style="font-size:11px;color:var(--ink3);margin-bottom:12px">' + esc(_jfNimi(p)) + ' · ' + _pvmFi(S.alkoi) + '–' + _pvmFi(S.loppu) + '</div>';
   // S2 ① — EDISTYMÄ · PELI EDELLÄ: teknis-taktinen konsepti + D4 ADAR + pelipaikka johtavat; D1/D2 = §28-konteksti.
-  var _ek = _vpEdistymaKooste(p, { tmTtItems: (typeof tmTtItems === 'function' ? tmTtItems : null), ttNormPositio: (typeof _vpTtNormPositio === 'function' ? _vpTtNormPositio : null), laskeD2Taso: (typeof laskeD2Taso === 'function' ? laskeD2Taso : null), ika: (typeof _dimIkaSp === 'function' ? _dimIkaSp(p.joukkue || '', p).ika : null), phvNeutraali: (typeof onNeutraaliPrePHV === 'function' ? onNeutraaliPrePHV(p) : false) });
+  var _ek = _vpEdistymaKooste(p, { tmTtItems: _ttItems, ttNormPositio: (typeof _vpTtNormPositio === 'function' ? _vpTtNormPositio : null), laskeD2Taso: (typeof laskeD2Taso === 'function' ? laskeD2Taso : null), ika: (typeof _dimIkaSp === 'function' ? _dimIkaSp(p.joukkue || '', p).ika : null), phvNeutraali: (typeof onNeutraaliPrePHV === 'function' ? onNeutraaliPrePHV(p) : false) });
   h += '<div style="background:linear-gradient(150deg,rgba(40,176,144,.08),var(--deep,#1C1C1A));border:.5px solid rgba(40,176,144,.28);border-radius:10px;padding:13px;margin-bottom:10px">';
   h += '<div style="font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--teal);margin-bottom:6px">① Edistymä — peli edellä</div>';
   h += '<div style="font-family:\'Cormorant Garamond\',serif;font-size:17px;color:var(--ink)">' + esc(_ek.konseptiNimi || knimi) + ' <span style="font-size:11px;font-family:\'DM Mono\',monospace;color:var(--ink3)">· teknis-taktinen konsepti' + (_ek.domeeni ? ' (' + esc(_ek.domeeni) + ')' : '') + '</span></div>';
@@ -7829,7 +7908,7 @@ function _vpSulkuRender() {
   if (S.tulos) {
     h += '<div style="background:linear-gradient(150deg,rgba(40,176,144,.1),var(--deep,#1C1C1A));border:.5px solid rgba(40,176,144,.3);border-radius:10px;padding:13px">';
     if (seur) {
-      const cue = (!seur.fyysinen && typeof tmTtKysymykset === 'function') ? tmTtKysymykset(seur.konsepti_avain) : [];
+      const cue = (!seur.fyysinen) ? _ttKys(seur.konsepti_avain) : [];
       h += '<div style="font-size:11px;color:var(--amber);margin-bottom:4px">↻ Seuraava fokus (' + (seur.jatka ? 'jatka samaa' : 'silta: seuraavaksi heikoin') + ')</div>';
       h += '<div style="font-family:\'Cormorant Garamond\',serif;font-size:18px;color:var(--ink)">' + esc(seur.konsepti_nimi) + '</div>';
       if (cue.length) h += '<div style="font-size:12px;color:var(--teal);margin-top:3px">Cue: ' + esc(cue[0]) + '</div>';
@@ -8137,7 +8216,8 @@ const _JSV_LAJI_KONSEPTI = { syotto: 'y_h2', pujottelu: 'y_h4', ponnauttelu: 'y_
 function _ttLoytaTeema(avain) {
   if (!avain || typeof TM_TT_YOUTH === 'undefined') return null;
   const a = String(avain).toLowerCase().replace(/-/g, '_');
-  const mk = function (it, tyyppi) { return { tyyppi: tyyppi, avain: it.avain, nimi: it.nimi, koodi: it.koodi, item: it }; };
+  // i18n V5 Vaihe B: näyttönimi + item sv:nä (_ttKonsepti); avain/koodi ovat enumeja → ennallaan.
+  const mk = function (it, tyyppi) { const sv = _ttKonsepti(it); return { tyyppi: tyyppi, avain: it.avain, nimi: sv.nimi, koodi: it.koodi, item: sv }; };
   for (let i = 0; i < TM_TT_YOUTH.length; i++) if (TM_TT_YOUTH[i].avain === a) return mk(TM_TT_YOUTH[i], 'yksilo_konsepti');
   if (typeof TM_TT_JOUKKUE !== 'undefined') for (let i = 0; i < TM_TT_JOUKKUE.length; i++) if (TM_TT_JOUKKUE[i].avain === a) return mk(TM_TT_JOUKKUE[i], 'joukkue_teema');
   if (typeof TM_TT_FUNDAMENTIT !== 'undefined') for (const pos in TM_TT_FUNDAMENTIT) { const arr = TM_TT_FUNDAMENTIT[pos]; for (let j = 0; j < arr.length; j++) if (arr[j].avain === a) return mk(arr[j], 'yksilo_konsepti'); }
@@ -8169,8 +8249,8 @@ window._jsvUusiJoukkueNimi = '';       // vaihe-gating (ikä joukkueesta)
 function _jsvTeemaWidgetHTML() {
   const esc = _jsvEsc;
   const isp = (window._jsvUusiJoukkueNimi && typeof _jsvJoukkueIkaSp === 'function') ? _jsvJoukkueIkaSp(window._jsvUusiJoukkueNimi) : { ika: null };
-  const yksilo = (typeof tmTtItems === 'function') ? tmTtItems({ ika: isp.ika, joukkue: window._jsvUusiJoukkueNimi }) : [];
-  const joukkue = (typeof TM_TT_JOUKKUE !== 'undefined') ? TM_TT_JOUKKUE : [];
+  const yksilo = _ttItems({ ika: isp.ika, joukkue: window._jsvUusiJoukkueNimi });
+  const joukkue = _ttJoukkueTeemat();
   // Vaihe 7 — Fyysinen-ryhmä (4d:n D1-polku). Sisältö TM_FYYSTEEMAT-katalogista (§34, EI kovakoodattu).
   const fyys = (window.TM_FYYSTEEMAT_LIB ? window.TM_FYYSTEEMAT_LIB.TM_FYYSTEEMAT : []).map(function (t) { return { avain: t.avain, nimi: t.nimi, koodi: t.ikoni || 'FY' }; });
   const NONE = { avain: '__none__', koodi: '—', nimi: 'Ei teemaa (teematon harjoitus)' };
@@ -8196,8 +8276,8 @@ function _jsvTeemaPreviewHTML(avain) {
   }
   const m = _ttLoytaTeema(avain); if (!m) return '';
   const it = m.item;
-  const kys = (typeof tmTtKysymykset === 'function') ? tmTtKysymykset(avain) : [];
-  const harj = (typeof tmTtHarjoitteet === 'function') ? tmTtHarjoitteet(avain) : [];
+  const kys = _ttKys(avain);
+  const harj = _ttHarj(avain);
   const pelimuoto = (it.pelimuoto && it.pelimuoto.length) ? it.pelimuoto.join(' → ') : '';
   const lbl = m.tyyppi === 'joukkue_teema' ? vpT('Joukkuetaktinen teema') : vpT('Yksilökonsepti');
   let h = '<div style="background:var(--ov-1);border:.5px solid var(--border);border-radius:10px;padding:13px">';
@@ -9968,7 +10048,7 @@ function _vpViikkoLasnaoloHTML(p, st) {
 function _vpViikkoAaniHTML(p, st) {
   const esc = _jsvEsc, jf = st.jf;
   const refl = (p.viikko_refleksio && (p.viikko_refleksio.teksti || typeof p.viikko_refleksio === 'string')) ? (p.viikko_refleksio.teksti || p.viikko_refleksio) : null;
-  const cue = (jf && jf.konsepti_avain && typeof tmTtKysymykset === 'function') ? (tmTtKysymykset(jf.konsepti_avain) || [])[0] : null;
+  const cue = (jf && jf.konsepti_avain) ? (_ttKys(jf.konsepti_avain) || [])[0] : null;
   let h = '<div style="border:.5px solid var(--border);border-radius:10px;padding:14px 16px;background:var(--surface2,var(--bg2))">'
     + '<div style="font-family:var(--font-sans),\'DM Sans\',sans-serif;font-weight:600;font-size:9px;letter-spacing:.13em;text-transform:uppercase;color:var(--teal);margin-bottom:8px">Pelaajan ääni · viikkorefleksio</div>';
   h += refl
@@ -13645,8 +13725,8 @@ function avaaKalenteriTapahtuma(tapahtumaId) {
     html += '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px">' + _vpTeemaSiruHTML(t) + '</div>';
     if (_tt.avain && typeof _ttLoytaTeema === 'function') {
       var _m = _ttLoytaTeema(_tt.avain);
-      var _kys = (typeof tmTtKysymykset === 'function') ? tmTtKysymykset(_tt.avain) : [];
-      var _harj = (typeof tmTtHarjoitteet === 'function') ? tmTtHarjoitteet(_tt.avain) : [];
+      var _kys = _ttKys(_tt.avain);
+      var _harj = _ttHarj(_tt.avain);
       if (_m && _m.item && _m.item.pelitilanne) html += '<div style="font-style:italic;font-size:12.5px;color:var(--ink2);margin-bottom:5px">”' + _vpEsc(_m.item.pelitilanne) + '”</div>';
       if (_kys.length) html += '<div style="font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:var(--ink3)">Cue</div><div style="font-size:12.5px;color:var(--teal);margin:2px 0 6px">' + _vpEsc(_kys[0]) + '</div>';
       if (_harj.length) { var _h0 = _harj[0]; var _ht = _h0.konseptipeli || _h0.painopisteet || _h0.teema || ''; var _pm = _h0.pelimuoto || ''; html += vpT('<div style="font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:var(--ink3)">Harjoite</div><div style="font-size:12.5px;color:var(--ink2)">') + _vpEsc(_ht) + (_pm ? ' · ' + _vpEsc(_pm) : '') + '</div>'; }
