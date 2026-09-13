@@ -29,6 +29,7 @@ import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { createRequire } from 'module';
+import vm from 'vm';
 
 const __dir = dirname(fileURLToPath(import.meta.url));
 const require = createRequire(import.meta.url);
@@ -36,7 +37,7 @@ const acorn = require('acorn');
 const HTML = readFileSync(join(__dir, '..', 'TalentMaster_VP_v25.html'), 'utf8');
 
 const RLO = 2680, RHI = 18064;              // VP pääscript (1-idx)
-const RANGES = [[8182, 9364], [12743, 13893], [11804, 12543], [3778, 3866], [8027, 8052], [14329, 14693], [14695, 15328], [15332, 15833], [15913, 16027], [16029, 16118], [4176, 4250], [5115, 5182], [15297, 15373], [17073, 17153], [17960, 17976], [7029, 7313], [5724, 7028], [4498, 4608], [16126, 16270], [4609, 5114], [4341, 4442]]; // V3 _jsv · V4 kalenteri · V5 valmentajat · V6 IDP-jono · V7a MDT · V7b Reviewit+tuloskortti. V7c–V8: lisää.
+const RANGES = [[8182, 9364], [12743, 13893], [11804, 12543], [3778, 3866], [8027, 8052], [14329, 14693], [14695, 15328], [15332, 15833], [15913, 16027], [16029, 16118], [4176, 4250], [5115, 5182], [15297, 15373], [17073, 17153], [17960, 17976], [7029, 7313], [5724, 7028], [4498, 4608], [16126, 16270], [4609, 5114], [4341, 4442], [3539, 3766]]; // V3 _jsv · V4 kalenteri · V5 valmentajat · V6 IDP-jono · V7a MDT · V7b Reviewit+tuloskortti. V7c–V8: lisää.
 const ROUTED_FNS = new Set(['vpT', 'vpTToimenpide']);
 
 // §7 lib-curriculum-nimet (jäävät fi → allowlist)
@@ -120,9 +121,9 @@ function scanLeaks(src, ranges, lineOffset, LIB) {
   }
 
   // display-konteksti zero-markup-literaalille: '+' -ketju markup/vpT · toast/_setTxt/_dSet-arg · .textContent=/.innerText=/.innerHTML=
-  const SETTER_FNS = new Set(['toast', '_setTxt', '_dSet', 'idrow', 'kpi', 'fp', 'set', 'sel', 'tier', 'act', 'row']); // V7d: tier(n,l,col)/act(sev,teksti,sub,nappi) — label-argit näyttöä // V7a idrow · V7b kpi/fp/set · V7c sel(id,label,opts) — label-arg näyttöä // V8e-JF2: row(accId,ico,eyebrow,title,…) IDP-haitari — eyebrow/title-argit näyttöä (Jaksohistoria vuoti)
+  const SETTER_FNS = new Set(['toast', '_setTxt', '_dSet', 'idrow', 'kpi', 'fp', 'set', 'sel', 'tier', 'act', 'row', 'kattavuusSig']); // V7d: tier(n,l,col)/act(sev,teksti,sub,nappi) — label-argit näyttöä // V7a idrow · V7b kpi/fp/set · V7c sel(id,label,opts) — label-arg näyttöä // V8e-JF2: row(accId,ico,eyebrow,title,…) IDP-haitari — eyebrow/title-argit näyttöä (Jaksohistoria vuoti)
   const TXT_PROPS = new Set(['textContent', 'innerText', 'innerHTML']);
-  const DISPLAY_PROPS = new Set(['teksti']); // V7b-live: object-property display-arvo (badge-objektit teksti:'🏥 Valmius'+x — gate-sokea epäsuora display)
+  const DISPLAY_PROPS = new Set(['teksti', 'title', 'sub', 'cta']); // V7b-live: object-property display-arvo (badge-objektit teksti:'🏥 Valmius'+x — gate-sokea epäsuora display)
   const inDisplayContext = (node) => {
     // V8d-oppi: template-quasi markup-kantavassa TemplateLiteralissa (`…${x} havaintoa · ${y} kautta</div>`)
     // — tag-viereetön quasi (' havaintoa · ') oli sokea piste; koko template rakentaa HTML:ää → quasit ovat näyttöä.
@@ -261,6 +262,36 @@ describe('VP_v25 render-kielineutraali-gate (step G · AST)', () => {
     { expr: 'k.arvo', ranges: [[14686, 14690]] }, // V7b-fix2 tuloskortti _vpTkAlue mittari-arvo (Ei arviointeja vielä ym.)
     // V7+: esim. { expr: 'roolimap[rooli]', ranges: [[...]] }
   ];
+  // Erä 2 (renderSignals) — ALUE-erän todiste. Edellinen it() todistaa että DETEKTORI toimii;
+  // tämä todistaa että UUSI RANGES-ALUE on oikeasti valvonnassa (ankkuri voisi osoittaa väärään
+  // kohtaan ja gate näyttäisi silti vihreää). Mutaatio tehdään AITOON lähteeseen, ei snippettiin.
+  it('RANGES-alue [3539,3766] renderSignals on oikeasti valvonnassa (mutaatio aitoon lähteeseen)', () => {
+    const lines = HTML.split('\n');
+    const src = lines.slice(RLO - 1, RHI - 1).join('\n');
+    expect(scanLeaks(src, RANGES, RLO - 1, LIB).length).toBe(0);          // lähtötila puhdas
+    // unroutaa yksi kytkentä renderSignalsin sisällä → gaten PITÄÄ punastua juuri siellä
+    const rikki = src.replace("cta: vpT('Hyväksy →')", "cta: 'Hyväksy →'");
+    expect(rikki).not.toBe(src);
+    const leaks = scanLeaks(rikki, RANGES, RLO - 1, LIB);
+    expect(leaks.map((l) => l.p)).toContain('Hyväksy →');
+    expect(leaks.every((l) => l.line >= 3539 && l.line <= 3766)).toBe(true);
+  });
+
+  // Erä 2: gate laajennettiin näkemään signaaliobjektien näyttökentät + kattavuusSig-argumentti.
+  // Ilman näitä renderSignalsin teksti olisi jäänyt pysyvästi sokeaksi pisteeksi (RANGES ei olisi auttanut).
+  it('signaaliobjektin title/sub/cta ja kattavuusSig-argumentti ovat display-kontekstia', () => {
+    const sig = "function _s(){ return [{prio:'warn', title:'Raakaotsikko', sub:'Raakaalaotsikko', cta:'Raakanappi →'}]; }";
+    const sh = scanLeaks(sig, [[1, 99]], 0, new Set()).map((l) => l.p);
+    expect(sh).toEqual(expect.arrayContaining(['Raakaotsikko', 'Raakaalaotsikko', 'Raakanappi →']));
+    const ks = "function _k(){ kattavuusSig(n, 'Raaka kattavuusteksti'); kattavuusSig(n, vpT('OK-teksti')); }";
+    const kh = scanLeaks(ks, [[1, 99]], 0, new Set()).map((l) => l.p);
+    expect(kh).toContain('Raaka kattavuusteksti');
+    expect(kh).not.toContain('OK-teksti');
+    // enum/koodiarvot samoissa objekteissa EIVÄT saa flagaantua
+    const enumi = "function _e(){ return [{prio:'crit', ctaClass:'amber-cta', action:\"setWs('kalenteri')\", title:vpT('OK')}]; }";
+    expect(scanLeaks(enumi, [[1, 99]], 0, new Set()).map((l) => l.p)).toEqual([]);
+  });
+
   it('enum/object-property-display reititetty vpT:llä (AST-gaten sokea piste)', () => {
     const lines = HTML.split('\n');
     const bad = [];
@@ -280,5 +311,61 @@ describe('VP_v25 render-kielineutraali-gate (step G · AST)', () => {
     const pbad = probe.filter((l, idx) => { const i = l.indexOf('meta.nimi'); return l.slice(i - 4, i) !== 'vpT(' && idx === 0; });
     expect(pbad.length).toBe(1); // rivi 0 (bare) napataan, rivi 1 (vpT) ei
     expect(bad).toEqual([]);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────────────────────────
+// RESOLVI-PORTTI (Erä 2). Gate yllä todistaa että literaali on KÄÄRITTY. Se ei todista että kääre
+// TUOTTAA ruotsia: puuttuva karttarivi tai strip-variantti (`vpT(' x ')` kun avain on `'x'`) näyttää
+// gatelle reititetyltä mutta renderöityy sv-tilassa suomeksi. Tämä portti sulkee sen aukon koko
+// RANGES-alueelta — ei vain uudelta erältä. Sääntö on AVAIMEN OLEMASSAOLO, ei arvon eroavuus:
+// osa termeistä on ruotsiksi identtisiä (Showcase · Deadline · Fokus), ja ne kirjataan eksplisiittisesti
+// karttaan sen sijaan että portti arvaisi. Portti löysi käyttöönotossa 5 aiemmin näkymätöntä aukkoa.
+describe('VP_v25 resolvi-portti — jokaisella reititetyllä avaimella on sv-rivi', () => {
+  const kerääAvaimet = () => {
+    const lines = HTML.split('\n');
+    const src = lines.slice(RLO - 1, RHI - 1).join('\n');
+    const ast = acorn.parse(src, { ecmaVersion: 2022, locations: true, ranges: true });
+    const inR = (l) => RANGES.some(([a, b]) => l >= a && l <= b);
+    const out = new Set();
+    (function w(n) {
+      if (!n || typeof n !== 'object') return;
+      if (n.type === 'CallExpression' && n.callee && n.callee.type === 'Identifier' && n.callee.name === 'vpT') {
+        const a = n.arguments[0];
+        if (a && a.type === 'Literal' && typeof a.value === 'string' && inR(a.loc.start.line + (RLO - 1))) out.add(a.value);
+      }
+      for (const k in n) { const v = n[k]; if (Array.isArray(v)) v.forEach(w); else if (v && typeof v === 'object' && v.type) w(v); }
+    })(ast);
+    return out;
+  };
+  const kartat = () => {
+    const sb = { console: { log() {}, warn() {}, error() {} } };
+    sb.window = sb;
+    vm.createContext(sb);
+    ['lib/tm_lang.js', 'lib/tm_i18n_common.js', 'lib/tm_vp_i18n.js']
+      .forEach((f) => vm.runInContext(readFileSync(join(__dir, '..', f), 'utf8'), sb));
+    return sb;
+  };
+
+  it('0 vpT-avainta ilman sv-riviä (common tai VP-sivukartta)', () => {
+    const sb = kartat();
+    const cm = (sb.TM_I18N_COMMON && sb.TM_I18N_COMMON.sv) || {};
+    const vp = (sb.TM_VP_I18N && sb.TM_VP_I18N.sv) || {};
+    const puuttuu = [...kerääAvaimet()].filter((k) => typeof cm[k] !== 'string' && typeof vp[k] !== 'string');
+    expect(puuttuu).toEqual([]);
+  });
+  it('ei-vacuous: avaimia on runsaasti eikä keräys ole tyhjä', () => {
+    expect(kerääAvaimet().size).toBeGreaterThan(1000);
+  });
+  it('EI VACUOUS: keksitty avain EI ole kartassa (portti todella tarkistaa)', () => {
+    const sb = kartat();
+    const vp = (sb.TM_VP_I18N && sb.TM_VP_I18N.sv) || {};
+    expect(typeof vp['Tätä avainta ei ole olemassa xyzzy']).not.toBe('string');
+  });
+  it('strip-variantti EI kelpaa: avain välilyönteineen on eri avain kuin ilman', () => {
+    const sb = kartat();
+    const vp = (sb.TM_VP_I18N && sb.TM_VP_I18N.sv) || {};
+    expect(typeof vp['Hyväksy →']).toBe('string');
+    expect(typeof vp[' Hyväksy → ']).not.toBe('string');
   });
 });
