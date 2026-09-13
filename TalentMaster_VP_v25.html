@@ -17,7 +17,7 @@
 <!-- Eerikkilä-normit + universaali testirekisteri (eerikkilaTaso, laskeFVP) — 10m/5m-tasot + FVP-profiili -->
 <script src="lib/tm_lang.js?v=9"></script>   <!-- i18n V0 — fi/sv/en käännöstaulukko + t() + kieli-init (putkitus) -->
 <script src="lib/tm_i18n_common.js?v=2"></script>   <!-- i18n Vaihe 0 — JAETTU henkilöstö-i18n + lukittu glossaari (ENNEN sivukarttaa) -->
-<script src="lib/tm_vp_i18n.js?v=41"></script>   <!-- i18n Vaihe 5 — VP sv (sivukartta); vpT/vpLokalisoi delegoivat commoniin -->
+<script src="lib/tm_vp_i18n.js?v=42"></script>   <!-- i18n Vaihe 5 — VP sv (sivukartta); vpT/vpLokalisoi delegoivat commoniin -->
 
 
 <script src="lib/tm_eerikkila_normit.js?v=45"></script>   <!-- v43: D2-kortti d2_taso-ensin (renderKehityskorttiHTML, PR #264 · §30/#262) -->
@@ -2736,7 +2736,7 @@ auth.onAuthStateChanged(async user => {
   } catch (e) {
     // Refresh-token mitätöity (esim. roolinvaihto → revokeRefreshTokens) → kirjaudu uudelleen
     console.warn('[auth] token-refresh epäonnistui (mahd. revoked):', e.message);
-    alert('Oikeutesi ovat muuttuneet. Kirjaudu uudelleen.');
+    alert(vpT('Oikeutesi ovat muuttuneet. Kirjaudu uudelleen.'));
     await auth.signOut(); window.location.reload(); return;
   }
 
@@ -2768,7 +2768,7 @@ auth.onAuthStateChanged(async user => {
           sessionStorage.removeItem(_syncKey);                         // synkronoitui uuteen rooliin → jatka
         } else if (sessionStorage.getItem(_syncKey) !== _fsRooli) {
           sessionStorage.setItem(_syncKey, _fsRooli);                  // ensimmäinen kerta → ulos KERRAN
-          alert('Oikeutesi ovat muuttuneet. Kirjaudu uudelleen.');
+          alert(vpT('Oikeutesi ovat muuttuneet. Kirjaudu uudelleen.'));
           await auth.signOut(); window.location.reload(); return;
         } else {
           // Uloskirjauksen jälkeenkin sama mismatch → claims ei synkronoidu. EI looppia: jatketaan.
@@ -3525,7 +3525,7 @@ window.avaaKutsut              = window.avaaKutsut              || function(){ _
 window.avaaPelaaja             = window.avaaPelaaja             || function(pid){
   const kaikki = (typeof _pelaajat !== 'undefined' && _pelaajat && _pelaajat.length) ? _pelaajat : (window._jsvPelaajat || []);
   const idx = kaikki.findIndex(function(x){ return x && x.id === pid; });
-  if (idx < 0) { if (typeof toast === 'function') toast('Pelaajaa ei löytynyt', 'error'); return; }
+  if (idx < 0) { if (typeof toast === 'function') toast(vpT('Pelaajaa ei löytynyt'), 'error'); return; }
   window._jsvPelaajat = kaikki;
   if (typeof _avaaPerPelaajaPikakatsaus === 'function') _avaaPerPelaajaPikakatsaus(idx, kaikki[idx].joukkue || '');
 };
@@ -4103,10 +4103,10 @@ async function tallennaPelaajaMuistiinpano(pelaajaId, teksti, kategoria, naytaVa
         naytaPelaajalle: !!naytaPelaajalle,
         luotu: new Date().toISOString()  // ei serverTimestamp() koska Rules-tarkistus näkee se heti
       });
-    toast('✓ Muistiinpano tallennettu', 'ok');
+    toast(vpT('✓ Muistiinpano tallennettu'), 'ok');
     return true;
   } catch(e) {
-    toast('Tallennus epäonnistui: ' + e.message, 'error');
+    toast(vpT('Tallennus epäonnistui:') + ' ' + e.message, 'error');
     return false;
   }
 }
@@ -4254,7 +4254,7 @@ async function _tallennaPMP(pelaajaId, pelaajaNimi) {
   const kategoria = document.querySelector('[data-pmp-kat].on')?.dataset.pmpKat || 'muu';
   const naytaVal = document.getElementById('_pmpVal')?.checked;
   const naytaPel = document.getElementById('_pmpPel')?.checked;
-  if (!teksti?.trim()) { toast('Kirjoita ensin teksti', 'warn'); return; }
+  if (!teksti?.trim()) { toast(vpT('Kirjoita ensin teksti'), 'warn'); return; }
   const ok = await tallennaPelaajaMuistiinpano(pelaajaId, teksti, kategoria, naytaVal, naytaPel);
   if (ok) {
     document.getElementById('_pmpModal')?.remove();
@@ -4489,7 +4489,7 @@ window._vpAsetaFyysFokus = async function (pid, teemaAvain) {
 window._vpFyysSuunnitteleMittaus = function (pid) {
   const p = (typeof _vpTtPelaaja === 'function') ? _vpTtPelaaja(pid) : (_pelaajat || []).find(function (x) { return x.id === pid; });
   if (typeof _jsvLuoMittaus === 'function') _jsvLuoMittaus(p ? (p.joukkue || '') : '', 'hh_laaja');
-  else if (typeof toast === 'function') toast('Avaa Testaus-työkalu H-H-mittaukselle', 'ok');
+  else if (typeof toast === 'function') toast(vpT('Avaa Testaus-työkalu H-H-mittaukselle'), 'ok');
 };
 
 // ══════════════════════════════════════════════════════════════════════════
@@ -5079,7 +5079,7 @@ window._vpTallennaPotentiaali = async function (pid, tahdet, huomioVain) {
     await db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(p.id)
       .set({ scout_potentiaali: t, scout_potentiaali_taso: taso, scout_potentiaali_huomiot: huom, scout_potentiaali_pvm: pvm, scout_potentiaali_arvioija: arvioija }, { merge: true });
     if (typeof toast === 'function') toast(vpT('💎 Potentiaali tallennettu'), 'ok');
-  } catch (e) { console.warn('[potentiaali]', e && e.message); if (typeof toast === 'function') toast('Tallennus epäonnistui (tarkista Firestore-säännöt: scout_potentiaali*)', 'error'); }
+  } catch (e) { console.warn('[potentiaali]', e && e.message); if (typeof toast === 'function') toast(vpT('Tallennus epäonnistui (tarkista Firestore-säännöt: scout_potentiaali*)'), 'error'); }
 };
 window._vpPoistaPotentiaali = async function (pid) {
   var p = (typeof _vpIdpPelaaja === 'function') ? _vpIdpPelaaja(pid) : null; if (!p || !_vpSeurantaOnJohto()) return;   // johto-only (täsmää sääntöön)
@@ -5259,7 +5259,7 @@ window._vpEhdotaTavoite = function (pid) {
   if (p._idpTavoite && n > 1) p._idpEhdotusIdx = ((p._idpEhdotusIdx || 0) + 1) % n;
   else if (!p._idpTavoite) p._idpEhdotusIdx = 0;
   const t = idpEhdotaTavoite(p, _vpIdpOpts(p, p._idpEhdotusIdx || 0));
-  if (!t) { if (typeof toast === 'function') toast('Ei kelvollista kehityskohdetta ehdotukseen (§28)', 'ok'); return; }
+  if (!t) { if (typeof toast === 'function') toast(vpT('Ei kelvollista kehityskohdetta ehdotukseen (§28)'), 'ok'); return; }
   p._idpTavoite = t; p._idpMuokkaus = true; p._idpKandN = n;   // luonnos → muokattavissa; N vihjettä varten
   if (n <= 1) p._idpValitseFokus = true;   // 1 kandidaatti → korosta fokus-dropdown (§3)
   _vpKausitavoiteReRender();
@@ -5283,16 +5283,16 @@ window._vpTeeIdpTavoiteHavainnosta = function (pid, avain) {
   } else {
     const adarHav = (typeof tmAdarHavaittu === 'function') ? (tmAdarHavaittu(p.adar_viimeisin) || {}) : {};
     const ah = adarHav[avain];
-    if (!ah) { if (typeof toast === 'function') toast('Ei havaintoa tälle kohteelle', 'ok'); return; }
+    if (!ah) { if (typeof toast === 'function') toast(vpT('Ei havaintoa tälle kohteelle'), 'ok'); return; }
     lahde = 'pelihavainto'; lahdePvm = (p.adar_viimeisin && p.adar_viimeisin.pvm) || null; arvo = ah.arvo;
   }
   const k = idpKohdeKandidaatti(p, avain, Object.assign({}, opts, { lahde: lahde, lahdePvm: lahdePvm, arvo: arvo }));
   const t = idpRakennaTavoite(p, k, opts);
-  if (!t) { if (typeof toast === 'function') toast('Tavoitteen luonti epäonnistui', 'error'); return; }
+  if (!t) { if (typeof toast === 'function') toast(vpT('Tavoitteen luonti epäonnistui'), 'error'); return; }
   p._idpTavoite = t; p._idpMuokkaus = true; p._idpValitseFokus = false; p._idpKandN = null;
   if (typeof _jspVaihda === 'function') _jspVaihda(3);   // Vaihe B: Kehitys-välilehti = tab 3 (Kausitavoite-kortti)
   _vpKausitavoiteReRender();
-  if (typeof toast === 'function') toast('IDP-tavoite luotu havainnosta — tarkista ja hyväksy', 'ok');
+  if (typeof toast === 'function') toast(vpT('IDP-tavoite luotu havainnosta — tarkista ja hyväksy'), 'ok');
 };
 // VP asettaa fokuksen taksonomia-kohteesta → rakentaa tavoitteen (lahde:'valmentaja', §4 kypsyysvaroitus fyysiselle ilman PHV:tä).
 window._vpAsetaFokus = function (pid, avain) {
@@ -5309,7 +5309,7 @@ window._vpAsetaFokus = function (pid, avain) {
 window._vpVapaaFokus = function (pid) {
   const p = _vpIdpPelaaja(pid); if (!p) return;
   const inp = document.getElementById('_jspVapaaFokus'); const nimi = inp ? inp.value.trim() : '';
-  if (!nimi) { if (typeof toast === 'function') toast('Kirjoita fokus-nimi', 'ok'); return; }
+  if (!nimi) { if (typeof toast === 'function') toast(vpT('Kirjoita fokus-nimi'), 'ok'); return; }
   const opts = _vpIdpOpts(p);
   const kuvaus = _vpLueKuvaus();
   const t = idpRakennaTavoite(p, { avain: 'vapaa', dim: (p._idpTavoite && p._idpTavoite.fokus && p._idpTavoite.fokus.dim) || null,
@@ -5346,7 +5346,7 @@ async function _vpTallennaIdpDok(p, viesti) {
   const _arviot = Array.isArray(t.arviot) ? t.arviot : [];
   const _dvi = { suunta: (_arviot.length ? (_arviot[_arviot.length - 1].dvi_suunta || 'flat') : 'flat'), n: _arviot.length };
   p.idp_dvi = _dvi;
-  if (_isDemoMode || !_seuraId) { if (typeof toast === 'function') toast(viesti + ' (demo — ei kirjoitettu)', 'ok'); return; }
+  if (_isDemoMode || !_seuraId) { if (typeof toast === 'function') toast(viesti + vpT(' (demo — ei kirjoitettu)'), 'ok'); return; }
   try {
     const cu = firebase.auth().currentUser; if (cu) await cu.getIdToken(true);
     const vuosi = (typeof idpKausivuosi === 'function') ? idpKausivuosi(new Date()) : String(new Date().getFullYear());
@@ -5354,7 +5354,7 @@ async function _vpTallennaIdpDok(p, viesti) {
     await ref.collection('idp_kausi').doc(vuosi).set({ tavoitteet: [t], paivitetty: new Date().toISOString() }, { merge: true });
     await ref.set({ idp_tila: pk.idp_tila, idp_edistyma: pk.idp_edistyma || null, idp_fokus: pk.idp_fokus || null, idp_viim_review: pk.idp_viim_review || null, idp_dvi: _dvi }, { merge: true });
     if (typeof toast === 'function') toast(viesti + ' ✓', 'ok');
-  } catch (e) { console.warn('[_vpTallennaIdpDok]', e && e.message); if (typeof toast === 'function') toast('Tallennus epäonnistui', 'error'); }
+  } catch (e) { console.warn('[_vpTallennaIdpDok]', e && e.message); if (typeof toast === 'function') toast(vpT('Tallennus epäonnistui'), 'error'); }
 }
 // Best-effort: lataa TÄYSI aktiivinen tavoite idp_kausi-dokista modaalin auetessa (kerran/pelaaja; ei per-rivi-kysely).
 async function _vpLataaTavoite(p) {
@@ -5401,7 +5401,7 @@ function _vpValitavoitteetHTML(t, pid) {
 window._vpValitavoiteLisaa = function (pid) {
   const p = _vpIdpPelaaja(pid); const t = p && p._idpTavoite; if (!t) return;
   const inp = document.getElementById('_vpVtInp' + p.id); const nimi = inp ? inp.value.trim() : '';
-  if (!nimi) { if (typeof toast === 'function') toast('Kirjoita välitavoitteen nimi', 'ok'); return; }
+  if (!nimi) { if (typeof toast === 'function') toast(vpT('Kirjoita välitavoitteen nimi'), 'ok'); return; }
   if (!Array.isArray(t.valitavoitteet)) t.valitavoitteet = [];
   t.valitavoitteet.push({ nimi: nimi, konsepti_avain: null, kesto_vk: null, tila: 'avoin', jarjestys: t.valitavoitteet.length });
   _vpKausitavoiteReRender(); _vpTallennaIdpDok(p, 'Välitavoite lisätty');
@@ -5501,7 +5501,7 @@ window._vpVahvistaSitoumus = async function (pid) {
   p._idpSitoumus = Object.assign({}, p._idpSitoumus, { vahvistettu_pvm: new Date().toISOString(), vahvistettu_jakso_alkoi: _vahvJakso, vahvistaja_rooli: _vahvRooli, vahvistaja_uid: _vahvUid });
   p.idp_sitoumus_vahv_jakso = _vahvJakso;   // R1 §26 — bulk-pikakenttä cockpitin "odottaa vahvistusta" -tarkkuudelle (vahvistettu tälle jaksolle)
   _vpKausitavoiteReRender();
-  if (_isDemoMode || !_seuraId) { if (typeof toast === 'function') toast('Sitoumus vahvistettu (demo)', 'ok'); return; }
+  if (_isDemoMode || !_seuraId) { if (typeof toast === 'function') toast(vpT('Sitoumus vahvistettu (demo)'), 'ok'); return; }
   try {
     const cu = firebase.auth().currentUser; if (cu) await cu.getIdToken(true);
     const vuosi = (typeof idpKausivuosi === 'function') ? idpKausivuosi(new Date()) : String(new Date().getFullYear());
@@ -5509,8 +5509,8 @@ window._vpVahvistaSitoumus = async function (pid) {
     await _sref.collection('idp_kausi').doc(vuosi)
       .set({ pelaaja_sitoumus: p._idpSitoumus, paivitetty: new Date().toISOString() }, { merge: true });
     await _sref.set({ idp_sitoumus_vahv_jakso: _vahvJakso || null }, { merge: true });   // §26 pikakenttä (bulk-luku)
-    if (typeof toast === 'function') toast('Sitoumus vahvistettu ✓', 'ok');
-  } catch (e) { console.warn('[vahvistaSitoumus]', e && e.message); if (typeof toast === 'function') toast('Vahvistus epäonnistui', 'error'); }
+    if (typeof toast === 'function') toast(vpT('Sitoumus vahvistettu ✓'), 'ok');
+  } catch (e) { console.warn('[vahvistaSitoumus]', e && e.message); if (typeof toast === 'function') toast(vpT('Vahvistus epäonnistui'), 'error'); }
 };
 // Kausitavoite-kortti (mockup: fokus-chipit · lähtö→tavoite-palkki · 70/30 · perustelu · pelaajan ääni · status-pill).
 // ═══════════ IDP-kortti 1b — NARRATIIVINEN ESITYSKERROS (design/idp-kortti/IDP-kortti.dc.html §1) ═══════════
@@ -7527,7 +7527,7 @@ window._vpJfLisaaLinkki = function (pid) {
   const nyt = window._vpJfLinkit[pid] || [];
   const uusi = { domeeni: dom, konsepti_avain: avain, konsepti_nimi: kons.nimi };
   const tulos = (LIB && typeof LIB.tmJfLisaaLinkki === 'function') ? LIB.tmJfLisaaLinkki(nyt, uusi) : nyt.concat([uusi]);
-  if (tulos.length === nyt.length && typeof toast === 'function') toast('Jo linkitetty tai maksimi täynnä', 'ok');
+  if (tulos.length === nyt.length && typeof toast === 'function') toast(vpT('Jo linkitetty tai maksimi täynnä'), 'ok');
   window._vpJfLinkit[pid] = tulos;
   const slot = document.getElementById('_jfLinkitSlot'); if (slot) slot.innerHTML = _vpJfLinkitHTML(p);
 };
@@ -7657,7 +7657,7 @@ function _vpJfTukiHTML(jf, opts) {
 
 // ≥3 samaa konseptia → ryhmäharjoite-CTA → 4d-silta: esitäytetty harjoitus (teema + klusterin pelaajat_id).
 window._jfRyhmaharjoite = function (avain) {
-  if (typeof _jsvLuoHarjoitus !== 'function') { if (typeof toast === 'function') toast('Kalenteri-työkalu ei latautunut', 'error'); return; }
+  if (typeof _jsvLuoHarjoitus !== 'function') { if (typeof toast === 'function') toast(vpT('Kalenteri-työkalu ei latautunut'), 'error'); return; }
   const pel = _jfPelaajatValitussa();
   const klusteri = pel.filter(function (p) { return p.jaksofokus && p.jaksofokus.konsepti_avain === avain; });
   const pelaajat_id = klusteri.map(function (p) { return p.id; });
@@ -7715,7 +7715,7 @@ window._vpEdistymaKooste = _vpEdistymaKooste; window._vpKatselmusTulos = _vpKats
 
 window._vpSuljeJakso = async function (pid) {
   const p = (typeof _vpTtPelaaja === 'function') ? _vpTtPelaaja(pid) : (_pelaajat || []).find(function (x) { return x.id === pid; });
-  if (!p || !p.jaksofokus) { if (typeof toast === 'function') toast('Ei suljettavaa jaksoa', 'error'); return; }
+  if (!p || !p.jaksofokus) { if (typeof toast === 'function') toast(vpT('Ei suljettavaa jaksoa'), 'error'); return; }
   const jf = p.jaksofokus;
   const vali = _vpSulkuJaksovali(jf);
   const sessiot = _vpSulkuSessiot(jf, vali.alkoi, vali.loppu);
@@ -8162,7 +8162,7 @@ window._vpTallennaHavaittu = async function(pid, avain, arvo) {
   p.arviointi_pvm = pvm;
   const slot = document.getElementById('_jspTab5');   // Arviointi = tab 5 (Aloitus lisätty tab 0:ksi)
   if (slot && typeof _vpArviointiHTML === 'function') slot.innerHTML = _vpArviointiHTML(p);
-  if (_isDemoMode || !_seuraId) { if (typeof toast === 'function') toast('Arvio kirjattu (demo — ei tallennettu)', 'ok'); return; }
+  if (_isDemoMode || !_seuraId) { if (typeof toast === 'function') toast(vpT('Arvio kirjattu (demo — ei tallennettu)'), 'ok'); return; }
   try {
     const cu = firebase.auth().currentUser; if (cu) await cu.getIdToken(true);
     const kausi = (typeof _vpTkKausi === 'function') ? _vpTkKausi() : String(new Date().getFullYear());
@@ -8177,8 +8177,8 @@ window._vpTallennaHavaittu = async function(pid, avain, arvo) {
     await ref.collection('arviointi').doc(kausiId).set({ kehys: kehysAvain, havaittu: havObj, paivitetty: pvm }, { merge: true });
     const pikaObj = {}; pikaObj[avain] = (arvo == null) ? DEL : arvo;
     await ref.set({ arviointi_havaittu: pikaObj, arviointi_pvm: pvm, arviointi_kehys: kehysAvain }, { merge: true });
-    if (typeof toast === 'function') toast('Arvio tallennettu ✓', 'ok');
-  } catch (e) { console.warn('[_vpTallennaHavaittu]', e && e.message); if (typeof toast === 'function') toast('Tallennus epäonnistui', 'error'); }
+    if (typeof toast === 'function') toast(vpT('Arvio tallennettu ✓'), 'ok');
+  } catch (e) { console.warn('[_vpTallennaHavaittu]', e && e.message); if (typeof toast === 'function') toast(vpT('Tallennus epäonnistui'), 'error'); }
 };
 function _jsvTkiVari(tki) {
   if (tki == null) return '#5A5A5A';
@@ -9638,8 +9638,8 @@ async function _suoritaKorjaaTestipvm() {
   var st = document.getElementById('_korjStatus');
   if (!/^\d{4}-\d{2}-\d{2}$/.test(pvm)) { st.textContent = 'Anna kelvollinen päivämäärä.'; return; }
   var tnimi = (ctx.tyypit.filter(function(t){ return t.k === tyyppi; })[0] || {}).nimi || tyyppi;
-  if (!confirm('Korjataan joukkueen "' + ctx.joukkue + '" ' + tnimi + '-testipäivä → ' + pvm
-      + (vain && ctx.pvm ? ' (vain nykyinen ' + ctx.pvm + ')' : ' (kaikki)') + '?')) return;
+  if (!confirm(vpT('Korjataan joukkueen "') + ctx.joukkue + '" ' + tnimi + vpT('-testipäivä →') + ' ' + pvm
+      + (vain && ctx.pvm ? ' ' + vpT('(vain nykyinen') + ' ' + ctx.pvm + ')' : ' ' + vpT('(kaikki)')) + '?')) return;
   st.textContent = 'Korjataan…';
   try {
     var fn = firebase.app().functions('europe-west1').httpsCallable('korjaaJoukkueenTestipvm');
@@ -9918,12 +9918,12 @@ window._vpViikkoVieKalenteriin = function (pid, iso) {
   const p = st.p, sel = st.teema || {}, dom = sel.dom || 'teknis_taktinen';
   let avain = sel.avain || null, nimi = sel.nimi || null;
   if (sel.vapaaMode && sel.vapaa && String(sel.vapaa).trim()) { nimi = String(sel.vapaa).trim(); avain = 'vapaa_' + dom; }
-  if (!nimi) { if (typeof toast === 'function') toast('Valitse konsepti tai kirjoita oma teema', 'error'); return; }
+  if (!nimi) { if (typeof toast === 'function') toast(vpT('Valitse konsepti tai kirjoita oma teema'), 'error'); return; }
   const treeniteema = { tyyppi: dom, avain: avain, nimi: nimi, koodi: null, lahde: 'viikko' };
   const prefill = { tyyppi: 'harjoitus', treeniteema: treeniteema };
   if (sel.kohde === 'joukkue') prefill.joukkueNimi = p.joukkue || ''; else prefill.pelaajat_id = [p.id];
   if (typeof avaaUusiTapahtuma === 'function') avaaUusiTapahtuma(iso, prefill);
-  else if (typeof toast === 'function') toast('Kalenteriluonti ei saatavilla', 'error');
+  else if (typeof toast === 'function') toast(vpT('Kalenteriluonti ei saatavilla'), 'error');
 };
 
 function _vpViikkoRiviHTML(pid, day, row, tav) {
@@ -10121,7 +10121,7 @@ window._vpViikkoKevenna = function (pid) {
   Object.keys(st.rows).forEach(function (iso) { const r = st.rows[iso]; if (r && !r.lepo && r.kesto_min > 0) { r.kesto_min = Math.max(20, Math.round(r.kesto_min * 0.8 / 5) * 5); muutettu++; if (r.rpe > 6) r.rpe = 6; } });
   _vpViikkoReRender();
   Object.keys(st.rows).forEach(function (iso) { if (st.rows[iso].vahvistettu) _vpViikkoTallennaRivi(pid, iso); });
-  if (typeof toast === 'function') toast('Esitäyttö kevennetty (' + muutettu + ' sessiota −20 %) — säädä vapaasti', 'ok');
+  if (typeof toast === 'function') toast(vpT('Esitäyttö kevennetty (') + muutettu + ' ' + vpT('sessiota −20 %) — säädä vapaasti'), 'ok');
 };
 
 // ── Esitäyttö: jaksofokus (pääfokus) + joukkueen toistuva aikataulu (kalenteri) ──
@@ -10169,7 +10169,7 @@ window._vpViikkoTayta = async function (pid) {
     }
   });
   _vpViikkoReRender();
-  if (typeof toast === 'function') toast('Viikko esitäytetty ' + (onKalenteria ? 'aikataulusta' : 'jaksofokuksesta') + ' — vahvista/säädä (haalea = ehdotus)', 'ok');
+  if (typeof toast === 'function') toast(vpT('Viikko esitäytetty') + ' ' + (onKalenteria ? vpT('aikataulusta') : vpT('jaksofokuksesta')) + ' ' + vpT('— vahvista/säädä (haalea = ehdotus)'), 'ok');
 };
 
 // ── Async hydraatio: tallennetut kirjaukset (7 pv) + läsnäolo → state ──
@@ -10216,7 +10216,7 @@ async function _vpViikkoLataa(p) {
 async function _vpViikkoTallennaRivi(pid, iso) {
   const st = window._vpViikko; if (!st || st.pid !== pid) return;
   const row = st.rows[iso]; if (!row) return;
-  if (_isDemoMode || !_seuraId || typeof db === 'undefined') { if (typeof toast === 'function') toast('Sessio päivitetty (demo — ei kirjoitettu)', 'ok'); return; }
+  if (_isDemoMode || !_seuraId || typeof db === 'undefined') { if (typeof toast === 'function') toast(vpT('Sessio päivitetty (demo — ei kirjoitettu)'), 'ok'); return; }
   const cu = (typeof firebase !== 'undefined' && firebase.auth) ? firebase.auth().currentUser : null;
   const uid = _uid || (cu ? cu.uid : null);
   // #214 — sessio linkittää kalenteritapahtumaan (tapahtuma_id, null jos ei tapahtumaa). Joukkueen sessio =
@@ -10245,14 +10245,14 @@ async function _vpViikkoTallennaRivi(pid, iso) {
       data.sessiot = _vpViikkoMergeSessio((snap.data() || {}).sessiot, sessio);
     } else { data.createdBy = uid || null; }
     await ref.set(data, { merge: true });
-    if (typeof toast === 'function') toast('✓ ' + iso.slice(5) + ' tallennettu', 'ok');
-  } catch (e) { console.warn('[viikko]', e && e.message); if (typeof toast === 'function') toast('Session tallennus ei onnistunut', 'error'); }
+    if (typeof toast === 'function') toast('✓ ' + iso.slice(5) + ' ' + vpT('tallennettu'), 'ok');
+  } catch (e) { console.warn('[viikko]', e && e.message); if (typeof toast === 'function') toast(vpT('Session tallennus ei onnistunut'), 'error'); }
 }
 async function _vpViikkoTallennaLasna(pid, iso) {
   const st = window._vpViikko; if (!st || st.pid !== pid) return;
   const row = st.rows[iso]; if (!row) return;
-  if (!row.sessioId) { if (typeof toast === 'function') toast('Ei kalenteritapahtumaa tälle päivälle — läsnäolo kirjataan kun sessio on kalenterissa', 'ok'); return; }
-  if (_isDemoMode || !_seuraId || typeof db === 'undefined') { if (typeof toast === 'function') toast('Läsnäolo päivitetty (demo)', 'ok'); return; }
+  if (!row.sessioId) { if (typeof toast === 'function') toast(vpT('Ei kalenteritapahtumaa tälle päivälle — läsnäolo kirjataan kun sessio on kalenterissa'), 'ok'); return; }
+  if (_isDemoMode || !_seuraId || typeof db === 'undefined') { if (typeof toast === 'function') toast(vpT('Läsnäolo päivitetty (demo)'), 'ok'); return; }
   const cu = (typeof firebase !== 'undefined' && firebase.auth) ? firebase.auth().currentUser : null;
   const uid = _uid || (cu ? cu.uid : null);
   try {
@@ -10260,8 +10260,8 @@ async function _vpViikkoTallennaLasna(pid, iso) {
     // GDPR: EI syytä (terveyssyy → terveys/-alikokoelma erikseen). Vain paljas tila + terveys-lippu.
     await db.collection('seurat').doc(_seuraId).collection('kalenteri').doc(row.sessioId).collection('lasnaolijat').doc(pid)
       .set({ tila: row.lasna, terveys_lippu: !!row.terveys_lippu, nimi: (st.p.etunimi || '') + ' ' + (st.p.sukunimi || ''), merkitsija_uid: uid, merkitty: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true });
-    if (typeof toast === 'function') toast('✓ Läsnäolo: ' + _vkoLasnaByTila(row.lasna).lbl, 'ok');
-  } catch (e) { console.warn('[viikko-lasna]', e && e.message); if (typeof toast === 'function') toast('Läsnäolon tallennus ei onnistunut', 'error'); }
+    if (typeof toast === 'function') toast(vpT('✓ Läsnäolo:') + ' ' + _vkoLasnaByTila(row.lasna).lbl, 'ok');
+  } catch (e) { console.warn('[viikko-lasna]', e && e.message); if (typeof toast === 'function') toast(vpT('Läsnäolon tallennus ei onnistunut'), 'error'); }
 }
 
 // ═══ KERROS 2: per-pelaaja pikakatsaus (drill-down joukkuepopupista) — 4 dimensiovälilehteä ═══
@@ -10664,8 +10664,8 @@ window._vpMittausToggleVoid = function (el) {
 };
 // E2.1→E2.3: Korjaa jää no-opiksi (kytketään E2.3). Poista/Palauta kytketty E2.2:ssa (alla).
 window._vpMittausTulossa = function (mita) {
-  var t = { korjaa: 'Korjaa kytketään seuraavassa vaiheessa (E2.3)' };
-  if (typeof toast === 'function') toast(t[mita] || 'Tulossa', 'ok');
+  var t = { korjaa: vpT('Korjaa kytketään seuraavassa vaiheessa (E2.3)') };   // kartta-arvo = toast-viesti → reititetään lähteellä (AST-gate näkee vain call-argin)
+  if (typeof toast === 'function') toast(t[mita] || vpT('Tulossa'), 'ok');
 };
 
 /* ═══ E2.2 — POISTA + PALAUTA (pehmeä mitätöinti → rebuild-kirjoitus, docs/E2_2_CODE_BRIEF.md) ═════════
@@ -10805,8 +10805,8 @@ window._vpMittausPoista = async function (dokkiId, avain) {
     if (w) { w.data.mitatoidut = w.data.mitatoidut || {}; w.data.mitatoidut[avain] = meta; }           // cache paikallisesti (ei toista hakua)
     await _vpMittausRebuildKirjoita(p);
     _vpMittausPaivitaNakyma(p);
-    if (typeof toast === 'function') toast('Mittaus poistettu', 'ok');
-  } catch (e) { console.warn('[mittaus poista]', e && e.message); if (typeof toast === 'function') toast('Poisto epäonnistui', 'err'); }
+    if (typeof toast === 'function') toast(vpT('Mittaus poistettu'), 'ok');
+  } catch (e) { console.warn('[mittaus poista]', e && e.message); if (typeof toast === 'function') toast(vpT('Poisto epäonnistui'), 'err'); }
 };
 
 // Palauta: varmistus → poista mitatoidut-avain → sama rebuild + kirjoitus + re-render.
@@ -10823,8 +10823,8 @@ window._vpMittausPalauta = async function (dokkiId, avain) {
     if (w && w.data.mitatoidut) { delete w.data.mitatoidut[avain]; }
     await _vpMittausRebuildKirjoita(p);
     _vpMittausPaivitaNakyma(p);
-    if (typeof toast === 'function') toast('Mittaus palautettu', 'ok');
-  } catch (e) { console.warn('[mittaus palauta]', e && e.message); if (typeof toast === 'function') toast('Palautus epäonnistui', 'err'); }
+    if (typeof toast === 'function') toast(vpT('Mittaus palautettu'), 'ok');
+  } catch (e) { console.warn('[mittaus palauta]', e && e.message); if (typeof toast === 'function') toast(vpT('Palautus epäonnistui'), 'err'); }
 };
 // TODO (Master-porttaus): oman joukkueen valmentaja -kirjoitusportti; VP_v25:ssä kirjoitus vain VP/johto/SA (_vpVoiMuokata).
 
@@ -10962,8 +10962,8 @@ window._vpMittausKorjaa = async function (dokkiId, avain) {
     w.data.korjattu = w.data.korjattu || {}; w.data.korjattu[avain] = kentat['korjattu.' + avain];
     await _vpMittausRebuildKirjoita(p);                       // INV2: recompute vain jaetun (E2.2.1-suojatun) kautta
     _vpMittausPaivitaNakyma(p);
-    if (typeof toast === 'function') toast('Mittaus korjattu', 'ok');
-  } catch (e) { console.warn('[mittaus korjaa]', e && e.message); if (typeof toast === 'function') toast('Korjaus epäonnistui', 'err'); }
+    if (typeof toast === 'function') toast(vpT('Mittaus korjattu'), 'ok');
+  } catch (e) { console.warn('[mittaus korjaa]', e && e.message); if (typeof toast === 'function') toast(vpT('Korjaus epäonnistui'), 'err'); }
 };
 
 // R2 (pala 1) — Mittaus v4 tulkinta-ensin -kehys. Kolme kääre-elementtiä olemassa olevan f1/f2-detaljin ympärille;
@@ -11747,7 +11747,7 @@ function _vpD3PelaajaById(pid) {
 }
 window._avaaVpD3Arvio = function(pid) {
   const p = _vpD3PelaajaById(pid);
-  if (!p) { if (typeof toast === 'function') toast('Pelaajaa ei löytynyt'); return; }
+  if (!p) { if (typeof toast === 'function') toast(vpT('Pelaajaa ei löytynyt')); return; }
   _vpD3Vastaukset = {};
   const nyk = (p.d3_viimeisin && p.d3_viimeisin.pisteet) || {};
   D3_DIMS.forEach(d => { _vpD3Vastaukset[d.key] = (nyk[d.key] && nyk[d.key].vp != null) ? nyk[d.key].vp : null; });
@@ -11781,7 +11781,7 @@ window._vpD3Valitse = function(dim, n) {
 window._tallennaVpD3 = async function(pid) {
   const p = _vpD3PelaajaById(pid); if (!p) return;
   const annettu = D3_DIMS.filter(d => _vpD3Vastaukset[d.key] != null);
-  if (!annettu.length) { if (typeof toast === 'function') toast('Anna vähintään yksi arvio'); return; }
+  if (!annettu.length) { if (typeof toast === 'function') toast(vpT('Anna vähintään yksi arvio')); return; }
   // Säilytä valmentaja/pelaaja/avg — lisää VAIN vp. EI kosketa d3_taso/d3_varmuus (malli A).
   const pisteet = JSON.parse(JSON.stringify((p.d3_viimeisin && p.d3_viimeisin.pisteet) || {}));
   D3_DIMS.forEach(d => { if (_vpD3Vastaukset[d.key] != null) { pisteet[d.key] = pisteet[d.key] || {}; pisteet[d.key].vp = _vpD3Vastaukset[d.key]; } });
@@ -11794,12 +11794,12 @@ window._tallennaVpD3 = async function(pid) {
     await db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(pid)
       .set({ d3_viimeisin: d3v, d3_vp_pvm: pvm }, { merge: true });   // EI d3_taso/d3_varmuus
     p.d3_viimeisin = d3v; p.d3_vp_pvm = pvm;
-    if (typeof toast === 'function') toast('VP-kalibraatioarvio tallennettu ✓', 'ok');
+    if (typeof toast === 'function') toast(vpT('VP-kalibraatioarvio tallennettu ✓'), 'ok');
     document.getElementById('_vpD3Modal')?.remove();
     const vert = document.getElementById('_jspD3Vertailu');   // päivitä avoinna oleva vertailu paikan päällä
     if (vert && typeof renderD3VertailuHTML === 'function') vert.innerHTML = renderD3VertailuHTML(pisteet);
     if (typeof renderKotiVP === 'function') renderKotiVP();   // päivitä Kodin kuilu-signaali
-  } catch(e) { if (typeof toast === 'function') toast('Tallennus epäonnistui: ' + e.message); console.warn('[vpD3]', e); }
+  } catch(e) { if (typeof toast === 'function') toast(vpT('Tallennus epäonnistui:') + ' ' + e.message); console.warn('[vpD3]', e); }
 };
 
 function renderValmentajat() {
@@ -12584,8 +12584,8 @@ function lahetaMentorointiViesti(coachId, coachNimi) {
   }
 
   toast(onSisainen
-    ? '✓ Sisäinen muistiinpano tallennettu'
-    : '✓ Viesti lähetetty: ' + coachNimi, 'ok');
+    ? vpT('✓ Sisäinen muistiinpano tallennettu')
+    : vpT('✓ Viesti lähetetty:') + ' ' + coachNimi, 'ok');
   document.getElementById('mentorMsg').value = '';
   if (sisainenEl) sisainenEl.checked = false;
   setTimeout(() => _lataaCoachHistoria(coachId), 500);
@@ -13895,12 +13895,12 @@ function avaaTapahtumaV9(tapahtumaId) {
 function _vpTestitKirjaaKentalla() { window.open('TalentMaster_Testaus_v9.html?seura=' + encodeURIComponent(_seuraId || ''), '_blank'); }
 // P1.1: lisaparam reitittää Excel_Tuonnin oikeaan moodiin ('moodi=historia' | 'tab=pdf'); tyhjä = oletusnäkymä (Excel + tapahtuma/lataus).
 function _vpTestitTuo(lisaparam)  { window.open('TalentMaster_Excel_Tuonti.html?seuraId=' + encodeURIComponent(_seuraId || '') + (lisaparam ? '&' + lisaparam : ''), '_blank'); }
-function _vpTestitTulossa()        { if (typeof toast === 'function') toast('Pikakirjaus tulossa pian', 'ok'); }
+function _vpTestitTulossa()        { if (typeof toast === 'function') toast(vpT('Pikakirjaus tulossa pian'), 'ok'); }
 // P2.1 — Pikakirjaus-lomake (jaettu lib). VP-konteksti: db/_seuraId/_uid/_pelaajat/_joukkueNimet/toast.
 // VP ei lataa testit_indeksit.js → TKI-funktiot puuttuvat → lib laskee H-H-pikakentät; TKI ohittuu hiljaa (Master hoitaa TKI:n).
 function _vpPikakirjaus() {
-  if (!window.TM_PIKAKIRJAUS) { if (typeof toast === 'function') toast('Pikakirjaus-lomake ei latautunut', 'err'); return; }
-  if (!_seuraId) { if (typeof toast === 'function') toast('Valitse ensin seura', 'err'); return; }
+  if (!window.TM_PIKAKIRJAUS) { if (typeof toast === 'function') toast(vpT('Pikakirjaus-lomake ei latautunut'), 'err'); return; }
+  if (!_seuraId) { if (typeof toast === 'function') toast(vpT('Valitse ensin seura'), 'err'); return; }
   window.TM_PIKAKIRJAUS.avaa({ db: db, seuraId: _seuraId, uid: _uid, pelaajat: _pelaajat, joukkueNimet: _joukkueNimet, toast: (typeof toast === 'function') ? toast : null });
 }
 window._vpPikakirjaus = _vpPikakirjaus;
@@ -14133,7 +14133,7 @@ window._vpTapahtumaAvaaKortti = function (idx) {
   if (typeof _jspVaihda === 'function') setTimeout(function () { _jspVaihda(1); }, 0);   // Mittaus-välilehti
 };
 // E1a: bulk + per-pelaaja Mitätöi/Palauta renderöidään mutta ovat no-op (kytketään E1b).
-window._vpTapahtumaTulossa = function () { if (typeof toast === 'function') toast('Siivoustoiminnot kytketään seuraavassa vaiheessa (E1b)', 'ok'); };
+window._vpTapahtumaTulossa = function () { if (typeof toast === 'function') toast(vpT('Siivoustoiminnot kytketään seuraavassa vaiheessa (E1b)'), 'ok'); };
 
 /* ═══ E1b — BULK MITÄTÖI / PALAUTA (docs/E1_CODE_BRIEF.md §E1b, design §2–§3) ══════════════════════════
    Koko tapahtuman (tai yhden pelaajan) pehmeä mitätöinti/palautus. Per pelaaja: merkitse tapahtuma-dokin
@@ -14206,7 +14206,7 @@ async function _vpTapahtumaSuoritaBulk(mode, kohteet) {
   if (_vpTapahtumaCtx) _vpTapahtumaCtx.viimMode = mode;
   if (_vpTapahtumaCtx) _vpTapahtumaCtx.viimTulos = { ok: ok, fail: fail, epaonnistuneet: epaonnistuneet };
   _vpTapahtumaRenderModaali(false);                                       // mitätöidyt himmennetään; virheraportti jos fail
-  if (typeof toast === 'function') toast(ok + '/' + yht + ' onnistui' + (fail ? ' · ' + fail + ' epäonnistui' : ''), fail ? 'err' : 'ok');
+  if (typeof toast === 'function') toast(ok + '/' + yht + ' ' + vpT('onnistui') + (fail ? ' · ' + fail + ' ' + vpT('epäonnistui') : ''), fail ? 'err' : 'ok');
 }
 
 // Kokoa kohteet (osallistuja + pelaaja + cache-dokki), suodata moodin mukaan (mitatoi: on ei-mitätöity avain; palauta: on mitätöity).
@@ -14227,7 +14227,7 @@ function _vpTapahtumaKohteet(mode, vainIdx) {
 
 async function _vpTapahtumaBulkAloita(mode, kohteet) {
   if (!_vpVoiMuokata() || _vpTapahtumaBulkKesken) return;
-  if (!kohteet.length) { if (typeof toast === 'function') toast(mode === 'mitatoi' ? 'Ei mitätöitävää' : 'Ei palautettavaa', 'ok'); return; }
+  if (!kohteet.length) { if (typeof toast === 'function') toast(mode === 'mitatoi' ? vpT('Ei mitätöitävää') : vpT('Ei palautettavaa'), 'ok'); return; }
   var n = kohteet.length;
   var ok = await _vpVahvista(mode === 'mitatoi'
     ? { otsikko: 'Mitätöi tapahtuma?', teksti: n + ' pelaajan mittaukset piilotetaan ja mittaristo lasketaan uudelleen. Voit palauttaa myöhemmin.', vahvista: 'Mitätöi (' + n + ')', tyyli: 'danger' }
@@ -14836,7 +14836,7 @@ window._vpTallennaSegmentit = async function(){
     if (typeof toast === 'function') toast(vpT('✓ Akatemia-joukkueet tallennettu'), 'ok');
     var m = document.getElementById('vpSegModal'); if (m) m.remove();
     renderVPTuloskortti();
-  } catch (e) { if (typeof toast === 'function') toast(vpT('Tallennus epäonnistui:') + ' ' + ((e && e.message) || 'tuntematon'), 'error'); }
+  } catch (e) { if (typeof toast === 'function') toast(vpT('Tallennus epäonnistui:') + ' ' + ((e && e.message) || vpT('tuntematon')), 'error'); }
 };
 var _VP_TK_MITTARIT = [['taso3_pct',vpT('Taso ≥3 -osuus (%)'),'II'],['mdr_ontime_pct',vpT('MDR ajan tasalla (%)'),'I'],['peliaaly_kattavuus_pct',vpT('Peliäly-kattavuus (%)'),'II'],['rae_q1_max',vpT('RAE Q1 enintään (%)'),'IV'],['toimenpideaste_pct',vpT('Underdog-toimenpideaste (%)'),'IV']];
 window._vpAvaaTavoiteModal = function(){
@@ -14859,7 +14859,7 @@ window._vpTallennaTavoitteet = async function(){
     if (typeof toast === 'function') toast(vpT('✓ Kausitavoitteet tallennettu'), 'ok');
     var m = document.getElementById('vpTkModal'); if (m) m.remove();
     renderVPTuloskortti();
-  } catch (e) { if (typeof toast === 'function') toast(vpT('Tallennus epäonnistui:') + ' ' + ((e && e.message) || 'tuntematon'), 'error'); }
+  } catch (e) { if (typeof toast === 'function') toast(vpT('Tallennus epäonnistui:') + ' ' + ((e && e.message) || vpT('tuntematon')), 'error'); }
 };
 
 /* ═══════════════ R1 — ARVIOINTI-COCKPIT (roolitietoinen review-työlista, design-kartta v4) ═══════════════
@@ -15591,7 +15591,7 @@ window._hlTallennaSeuraTavoiteB = async function () {
     if (typeof toast === 'function') toast(vpT('✓ Tavoitetaso tallennettu'), 'ok');
     var mm = document.getElementById('hlTbModal'); if (mm) mm.remove();
     _hlRender();
-  } catch (e) { if (typeof toast === 'function') toast(vpT('Tallennus epäonnistui:') + ' ' + ((e && e.message) || 'tuntematon'), 'error'); }
+  } catch (e) { if (typeof toast === 'function') toast(vpT('Tallennus epäonnistui:') + ' ' + ((e && e.message) || vpT('tuntematon')), 'error'); }
 };
 
 /* ── Kansalliset vertailuarvot -lomake (SA/johto → konfiguraatio/harjoitusarviointi.kansallinen_ka) ── */
@@ -15626,7 +15626,7 @@ window._hlTallennaBenchmark = async function () {
     if (typeof toast === 'function') toast(vpT('✓ Vertailuarvot tallennettu'), 'ok');
     var mm = document.getElementById('hlBmModal'); if (mm) mm.remove();
     _hlRender();
-  } catch (e) { if (typeof toast === 'function') toast(vpT('Tallennus epäonnistui:') + ' ' + ((e && e.message) || 'tuntematon'), 'error'); }
+  } catch (e) { if (typeof toast === 'function') toast(vpT('Tallennus epäonnistui:') + ' ' + ((e && e.message) || vpT('tuntematon')), 'error'); }
 };
 
 /* ── Yksittäisen tapahtuman näkymä + palautekerros (jaettu / yksityinen eri alikokoelmiin) ── */
@@ -15764,7 +15764,7 @@ window._hlVahvistaPari = async function (aId, bId) {
     var cur = (_hlArvioinnit || []).filter(function (x) { return x._id === _hlAvoinId; })[0];
     if (cur) { _hlRenderTapahtuma(cur); _hlLataaPalaute(_hlAvoinId); }
     _hlRender();
-  } catch (e) { if (typeof toast === 'function') toast(vpT('Vahvistus epäonnistui:') + ' ' + ((e && e.message) || 'tuntematon'), 'error'); }
+  } catch (e) { if (typeof toast === 'function') toast(vpT('Vahvistus epäonnistui:') + ' ' + ((e && e.message) || vpT('tuntematon')), 'error'); }
 };
 window._hlTorjuPari = function (aId, bId) {
   _hlTorjutut[aId + '|' + bId] = 1;
@@ -15819,7 +15819,7 @@ window._hlLisaaPalaute = async function () {
       .add({ teksti: teksti, tekija_uid: (u ? u.uid : _uid), tekija_rooli: rooli, pvm: new Date().toISOString() });
     if (typeof toast === 'function') toast(vpT('✓ Palaute tallennettu (') + (tyyppi === 'yksityinen' ? vpT('yksityinen') : vpT('jaettu')) + ')', 'ok');
     _hlLataaPalaute(_hlAvoinId);
-  } catch (e) { if (typeof toast === 'function') toast(vpT('Tallennus epäonnistui:') + ' ' + ((e && e.message) || 'tuntematon'), 'error'); }
+  } catch (e) { if (typeof toast === 'function') toast(vpT('Tallennus epäonnistui:') + ' ' + ((e && e.message) || vpT('tuntematon')), 'error'); }
 };
 
 /* ═══════════ R2-B J1 — JOUKKUEÄLY · seuratason talenttiraportti (aggregaatti, READ-ONLY) ═══════════
@@ -16204,7 +16204,7 @@ async function vpMuistutaOdottavia(){
     const res=await fn({seuraId:_seuraId,kuivaAjo:false}); const rd=res.data||{};
     if(typeof toast==='function') toast('✓ '+vpT('Muistutus lähetetty')+' '+(rd.lahetetty||0)+' '+vpT('huoltajalle')+((rd.ohitettu&&rd.ohitettu.length)?(' · '+rd.ohitettu.length+' '+vpT('ohitettu')):''),'ok');
     renderKotiVP();
-  }catch(e){ if(typeof toast==='function') toast(vpT('Muistutus epäonnistui:')+' '+((e&&e.message)||'tuntematon')+((e&&e.code==='permission-denied')?' '+vpT('(ei oikeutta)'):''),'virhe'); }
+  }catch(e){ if(typeof toast==='function') toast(vpT('Muistutus epäonnistui:')+' '+((e&&e.message)||vpT('tuntematon'))+((e&&e.code==='permission-denied')?' '+vpT('(ei oikeutta)'):''),'virhe'); }
 }
 window.vpMuistutaOdottavia = vpMuistutaOdottavia;
 window.renderKotiVP = renderKotiVP;
@@ -16358,12 +16358,12 @@ function kirjauduGooglella() {
 window._unohditSalasana = function () {
   var _el = document.getElementById('lEmail');
   var _email = ((_el && _el.value) || '').trim();
-  if (!_email) { if (typeof toast === 'function') toast('Syötä ensin sähköpostiosoite kenttään', 'error'); return; }
+  if (!_email) { if (typeof toast === 'function') toast(vpT('Syötä ensin sähköpostiosoite kenttään'), 'error'); return; }
   try {
     firebase.auth().sendPasswordResetEmail(_email)
-      .then(function () { if (typeof toast === 'function') toast('Salasanalinkki lähetetty: ' + _email + ' — avaa se heti.', 'ok'); })
-      .catch(function (e) { if (typeof toast === 'function') toast('Lähetys epäonnistui: ' + ((e && (e.message || e.code)) || e), 'error'); });
-  } catch (e) { if (typeof toast === 'function') toast('Lähetys epäonnistui', 'error'); }
+      .then(function () { if (typeof toast === 'function') toast(vpT('Salasanalinkki lähetetty:') + ' ' + _email + ' ' + vpT('— avaa se heti.'), 'ok'); })
+      .catch(function (e) { if (typeof toast === 'function') toast(vpT('Lähetys epäonnistui:') + ' ' + ((e && (e.message || e.code)) || e), 'error'); });
+  } catch (e) { if (typeof toast === 'function') toast(vpT('Lähetys epäonnistui'), 'error'); }
 };
 
 function kirjaudu() {
