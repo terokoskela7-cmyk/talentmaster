@@ -74,6 +74,8 @@ describe('_vpViikkoVieKalenteriin — treeniteema-prefill + kohde (pelaaja/joukk
     const harness = new Function(
       'var __calls=arguments[0];\n' +
       'var toast=function(){};\n' +
+      // Erä 1 (ilmoituskanavat): funktio kutsuu nyt vpT:tä → passthrough-stub, muuten ReferenceError.
+      'var vpT=function(x){return x;};\n' +
       'var avaaUusiTapahtuma=function(pvm,prefill){__calls.push({pvm:pvm,prefill:prefill});};\n' +
       'var window={_vpViikko:{pid:"p1",p:{id:"p1",joukkue:"KPV U13"},teema:arguments[1]}};\n' +
       extractWin('window._vpViikkoVieKalenteriin = function (pid, iso) {') +
