@@ -61,14 +61,23 @@ const ABBR_G = new RegExp('(?:' + ABBR + ')', 'g');
 const stripAllow = (t) => t.replace(PRODUCT_G, ' ').replace(ABBR_G, ' ').replace(/[·—–\-/:()%.,+&;↑↓→ 0-9]|&amp;|&nbsp;/g, ' ');
 const hasWord = (t) => /[A-Za-zÄÖÅäöå]{3,}/.test(t) && !ABBR_ONLY.test(t);
 // zero-markup-literaali joka EI ole näyttöä (CSS-deklaraatio/-sääntö · attribuutti-scaffolding · id/enum/URL/lc-token)
+// Erä 2 -korjaus: `"` EI YKSINÄÄN tee literaalista koodia. Aiemmin `[;"={}]` niputti lainausmerkin
+// muun koodirakenteen kanssa → aito näyttöteksti jossa siteerataan UI-nappia
+// (sub:'… (avaa pelaajakortti · "Arvioi (VP)")') luokittui koodiksi ja vuoti hiljaa sv-tilassa VAIKKA
+// `sub` on DISPLAY_PROPS:issa. Lainausmerkki lasketaan koodiksi vain kun mukana on muuta rakennetta
+// (`;` `=` `{` `}` `<` `>`), mikä kattaa attribuutti-scaffoldingin (' class="chip">', 'data-x="1"')
+// ja JSON-muotoiset arvot. Kavennus on tarkoituksella kapein mahdollinen — ks. mutaatiotodiste alla.
 const codeish = (v) =>
-  /[;"={}]/.test(v) || /_/.test(v) || /--/.test(v) || /var\(|\(--/.test(v) || /:\/\//.test(v) ||
+  /[;={}]/.test(v) || (/"/.test(v) && /[;={}<>]/.test(v)) || /_/.test(v) || /--/.test(v) || /var\(|\(--/.test(v) || /:\/\//.test(v) ||
   /rgba?\(|hsla?\(|gradient|calc\(/.test(v) ||   // V7a-live: CSS-funktioarvot ternaary-haaroissa (ei näyttöä)
   /\.(html|js|css|png|jpg|json)\b/.test(v) || /[?&][a-zA-Z]+=/.test(v) || /^#[0-9a-fA-F]{3,8}$/.test(v) ||
   /^[a-z][a-z-]*:/.test(v.trim()) ||                    // CSS-property-alku (background:/border-left:2px solid)
   /^\w+\(/.test(v.trim()) ||   // funktiokutsu-handler (act:n toiminto-arg setWs('x'))
   /^[a-z][a-zA-Z0-9]*$/.test(v) ||   // V8e-JF1: bare (VÄLILYÖNNITÖN) lowercase-token = enum/id/koodi
-  /^\s*(selected|disabled|checked|readonly|required|multiple|hidden|open|active|under|uusi|empty|low|high|locked|sel)\s*$/.test(v);  // HTML-attr/CSS-class-sanat (empty/low/high/locked/sel = tila-luokat, väliin ternaary-haarassa)
+  /^["'\s]*(selected|disabled|checked|readonly|required|multiple|hidden|open|active|under|uusi|empty|low|high|locked|sel)["'\s]*$/.test(v);  // HTML-attr/CSS-class-sanat (empty/low/high/locked/sel = tila-luokat, väliin ternaary-haarassa).
+// Erä 2 -korjaus: sallitaan ympäröivä lainausmerkki/whitespace — attribuutti-scaffolding sulkee
+// edellisen attribuutin lainauksen ('" selected'). Kun `"` ei enää yksinään ole codeish, tämä on
+// ainoa paikka jossa se pitää yhä lukea koodiksi; ehto vaatii ettei literaalissa ole MITÄÄN muuta.
 
 // näyttöteksti-palat yhden literaalin ARVOSTA (markup → tag-ulkoinen teksti + title/placeholder); null jos zero-markup
 function markupPieces(v) {
@@ -275,6 +284,17 @@ describe('VP_v25 render-kielineutraali-gate (step G · AST)', () => {
     const leaks = scanLeaks(rikki, RANGES, RLO - 1, LIB);
     expect(leaks.map((l) => l.p)).toContain('Hyväksy →');
     expect(leaks.every((l) => l.line >= 3539 && l.line <= 3766)).toBe(true);
+
+    // 3658 (lainausmerkillinen sub) — juuri se vuoto jonka gate PÄÄSTI LÄPI ennen codeish-kovennusta.
+    // Tämä case lukitsee korjauksen: unroutaus on nyt havaittava, ei enää hiljainen.
+    const rikki2 = src.replace(
+      "sub: vpT('Lisää valmentajan arvio → trianguloitu D3 (avaa pelaajakortti · \"Arvioi (VP)\")')",
+      "sub: 'Lisää valmentajan arvio → trianguloitu D3 (avaa pelaajakortti · \"Arvioi (VP)\")'"
+    );
+    expect(rikki2).not.toBe(src);
+    const leaks2 = scanLeaks(rikki2, RANGES, RLO - 1, LIB);
+    expect(leaks2.length).toBeGreaterThan(0);
+    expect(leaks2.every((l) => l.line >= 3539 && l.line <= 3766)).toBe(true);
   });
 
   // Erä 2: gate laajennettiin näkemään signaaliobjektien näyttökentät + kattavuusSig-argumentti.
@@ -290,6 +310,17 @@ describe('VP_v25 render-kielineutraali-gate (step G · AST)', () => {
     // enum/koodiarvot samoissa objekteissa EIVÄT saa flagaantua
     const enumi = "function _e(){ return [{prio:'crit', ctaClass:'amber-cta', action:\"setWs('kalenteri')\", title:vpT('OK')}]; }";
     expect(scanLeaks(enumi, [[1, 99]], 0, new Set()).map((l) => l.p)).toEqual([]);
+    // Erä 2 -korjaus — LAINAUSMERKKI EI PIILOTA NÄYTTÖTEKSTIÄ. Ennen kovennusta `codeish` luokitteli
+    // minkä tahansa `"`-merkin sisältävän literaalin koodiksi → DISPLAY_PROPS-arvo joka siteeraa
+    // UI-nappia vuoti hiljaa (rivi 3658). Ilman tätä casea kovennus ei olisi valvottu.
+    const lain = "function _q(){ return [{sub:'Testi \"lainaus\" tähän', title:vpT('OK')}]; }";
+    expect(scanLeaks(lain, [[1, 99]], 0, new Set()).map((l) => l.p).join(' ')).toContain('lainaus');
+    // …mutta attribuutti-scaffolding pysyy koodina (muuten '" selected' -luokka alkaisi vuotaa FP:nä)
+    const attr = "function _a(v){ return '<option value=\"' + v + '\"' + (v ? '\" selected' : '\"') + '>'; }";
+    expect(scanLeaks(attr, [[1, 99]], 0, new Set()).map((l) => l.p)).toEqual([]);
+    // …ja aito koodirakenne lainausmerkin kanssa pysyy koodina
+    const koodi = "function _c(){ return [{sub:'data-x=\"1\" muuta'}]; }";
+    expect(scanLeaks(koodi, [[1, 99]], 0, new Set()).map((l) => l.p)).toEqual([]);
   });
 
   it('enum/object-property-display reititetty vpT:llä (AST-gaten sokea piste)', () => {
