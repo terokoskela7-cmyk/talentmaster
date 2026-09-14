@@ -221,6 +221,15 @@ service cloud.firestore {
     function kaavioUudelleenhyvaksyntaOk(vanha, uusi) {
       return vanha != 'hyvaksytty' || onKaavioHyvaksyja() || uusi == 'odottaa';
     }
+    // OPTIMISTINEN VERSIOLUKKO (v3.7). Kaavio on kokonaisuutena korvattava dokumentti: spec
+    // kirjoitetaan aina kokonaan, joten hiljainen ylikirjoitus menettäisi KOKO toisen piirroksen.
+    // Client lukee versio:n auki avatessaan ja kirjoittaa +1; jos toinen ehti väliin, resource on
+    // jo kasvanut → tämä ehto kaatuu ja client joutuu lataamaan uudelleen. Vain TÄSMÄLLEEN +1:
+    // hyppy ohittaisi välissä tehdyn muutoksen, lasku palauttaisi vanhan tilan.
+    function kaavioVersio(d) { return d.get('review', {}).get('versio', 0); }
+    function kaavioVersioOk() {
+      return kaavioVersio(request.resource.data) == kaavioVersio(resource.data) + 1;
+    }
 
     // Permissio-joukkulukko — valmentajan oma joukkue säännöistä (self-contained, rules-get; ei claims-riippuvuutta).
     // kayttajat/{uid}.joukkueet = ID-lista (Seura-näkymä; VP:llä tyhjä → hoitaa kaikkia johto-ohituksella).
@@ -333,26 +342,32 @@ service cloud.firestore {
       //   kaavioKohdistuu) — ÄLÄ lue tätä sääntöä lupaukseksi kohdistuksen pakottamisesta.
       //   Kuittaus (review.ymmarretty) kirjoitetaan siksi Cloud Functionilla, ei clientistä.
       match /kaaviot/{kaavioId} {
-        allow read: if onSuperAdmin()
-                    || (onOmaSeura(seuraId) && (onValmentajaRooli() || onJohtoRooli()))
-                    || kaavioTila(resource.data) == 'hyvaksytty';
+        // Kovennus (B2): hyväksytyn luku vaatii EKSPLISIITTISESTI kirjautumisen. Aiemmin
+        // kirjautumaton estyi vain siksi että onSuperAdmin() kaatui eval-virheeseen — se on
+        // sivuvaikutus, ei sääntö. Nyt kielto on luettavissa säännöstä.
+        allow read: if onKirjautunut() && (
+                         onSuperAdmin()
+                      || (onOmaSeura(seuraId) && (onValmentajaRooli() || onJohtoRooli()))
+                      || kaavioTila(resource.data) == 'hyvaksytty');
 
         // Luonti: oman seuran valmentaja/johto. Uusi kaavio EI voi syntyä hyväksyttynä.
         allow create: if onSuperAdmin()
                       || (onOmaSeura(seuraId) && onValmentajaRooli()
-                          && kaavioTila(request.resource.data) in ['luonnos', 'odottaa']);
+                          && kaavioTila(request.resource.data) in ['luonnos', 'odottaa']
+                          && kaavioVersio(request.resource.data) == 0);
 
         // Päivitys: seura-skooppi + sallittu statussiirto + uudelleenhyväksyntä.
         // Joukkuerajaus: valmentajalla oltava kaavion joukkueId omissa joukkueissaan; johto ja
         // talenttivalmentaja ohittavat rajauksen seuran sisällä (sama kuvio kuin pelaajakirjoitus).
-        allow update: if onSuperAdmin()
+        allow update: if kaavioVersioOk() && (
+                         onSuperAdmin()
                       || (onOmaSeura(seuraId) && onValmentajaRooli()
                           && kaavioSiirtoOk(kaavioTila(resource.data), kaavioTila(request.resource.data))
                           && kaavioUudelleenhyvaksyntaOk(kaavioTila(resource.data), kaavioTila(request.resource.data))
                           && ( onKaavioHyvaksyja()
                             || request.auth.token.rooli == 'talenttivalmentaja'
                             || (kaavioJoukkue(resource.data) != null
-                                && valmentajanJoukkueet(seuraId).hasAny([kaavioJoukkue(resource.data)])) ));
+                                && valmentajanJoukkueet(seuraId).hasAny([kaavioJoukkue(resource.data)])) )));
 
         allow delete: if onSuperAdmin() || (onOmaSeura(seuraId) && onKaavioHyvaksyja());
       }
