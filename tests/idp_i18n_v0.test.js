@@ -91,8 +91,16 @@ describe('i18n V0 — SW-cache + allowlist + re-export + migraatioskripti', () =
     const p = root('sw_pelaaja.js'), v = root('sw_vanhempi.js');
     expect(p).toMatch(/const CACHE = 'tm-pelaaja-v(1[2-9]|[2-9]\d)'/);   // ≥v12 (löysä: kestää V1-A→v13 ym. bumpit)
     expect(v).toMatch(/const CACHE = 'tm-vanhempi-v([6-9]|[1-9]\d)'/);   // ≥v6 (löysä: kestää V1-B→v7 ym. bumpit)
-    expect(p).toContain('/talentmaster/lib/tm_lang.js');
-    expect(v).toContain('/talentmaster/lib/tm_lang.js');
+    // Polkumuoto vaihtui alipolkuriippumattomaksi (hosting-kannettavuus): allowlist matchaa polun
+    // LOPPUUN, joten sama SW toimii Pages-alipolussa JA juuressa. Väite säilyy (tm_lang on
+    // offline-cachessa) ja VAHVISTUU: alipolkuetuliite ei saa palata, muuten juuritarjoilu hajoaa.
+    expect(p).toContain("indexOf('/lib/tm_lang.js')");
+    expect(v).toContain("indexOf('/lib/tm_lang.js')");
+    [p, v].forEach((sw) => {
+      expect(sw).not.toMatch(/indexOf\('\/talentmaster\//);           // ei absoluuttisia allowlist-polkuja
+      expect(sw).not.toMatch(/const SHELL = '\/talentmaster\//);      // SHELL suhteellinen → addAll ei 404
+      expect(sw).toMatch(/const SHELL = '\.\//);
+    });
   });
   it('src/lib/tm_lang.js on re-export (kanoninen = lib/)', () => {
     expect(root('src/lib/tm_lang.js')).toContain("require('../../lib/tm_lang.js')");
