@@ -86,7 +86,8 @@ describe('(5) §28 ensin + ACWR yksi arvo+sana (laskenta ennallaan)', () => {
   it('kuorma restrukturoitu: §28 ennen ACWR:ää · ACWR yksi arvo+sana + guard', () => {
     const K = extract('function _vpViikkoKuormaHTML(p, st) {');
     expect(K).toContain('Kuorma · viikko + §28');
-    expect(K).toContain("const acwrSana = acwr == null ? 'kertyy ~4 vk'");
+    // Erä 3: acwrSana-haarat reititetty vpT:hen (container-luokka — gate ei näe, MEMBER_DISPLAY vartioi).
+    expect(K).toContain("const acwrSana = acwr == null ? vpT('kertyy ~4 vk')");
     expect(K).toContain('linjassa');
     expect(K).toContain('koholla');
     expect(K).toContain('ACWR vaatii ~4 vk kroonista pohjaa');   // guard säilyy

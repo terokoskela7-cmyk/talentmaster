@@ -36,8 +36,8 @@ const require = createRequire(import.meta.url);
 const acorn = require('acorn');
 const HTML = readFileSync(join(__dir, '..', 'TalentMaster_VP_v25.html'), 'utf8');
 
-const RLO = 2680, RHI = 18064;              // VP pääscript (1-idx)
-const RANGES = [[8182, 9364], [12743, 13893], [11804, 12543], [3778, 3866], [8027, 8052], [14329, 14693], [14695, 15328], [15332, 15833], [15913, 16027], [16029, 16118], [4176, 4250], [5115, 5182], [15297, 15373], [17073, 17153], [17960, 17976], [7029, 7313], [5724, 7028], [4498, 4608], [16126, 16270], [4609, 5114], [4341, 4442], [3539, 3766]]; // V3 _jsv · V4 kalenteri · V5 valmentajat · V6 IDP-jono · V7a MDT · V7b Reviewit+tuloskortti. V7c–V8: lisää.
+const RLO = 2680, RHI = 18065;              // VP pääscript (1-idx)
+const RANGES = [[8182, 9364], [12744, 13894], [11805, 12544], [3778, 3866], [8027, 8052], [14330, 14694], [14696, 15329], [15333, 15834], [15914, 16028], [16030, 16119], [4176, 4250], [5115, 5182], [15298, 15374], [17074, 17154], [17961, 17977], [7029, 7313], [5724, 7028], [4498, 4608], [16127, 16271], [4609, 5114], [4341, 4442], [3539, 3766], [9981, 10026], [11055, 11070]]; // V3 _jsv · V4 kalenteri · V5 valmentajat · V6 IDP-jono · V7a MDT · V7b Reviewit+tuloskortti. V7c–V8: lisää.
 const ROUTED_FNS = new Set(['vpT', 'vpTToimenpide']);
 
 // §7 lib-curriculum-nimet (jäävät fi → allowlist)
@@ -53,7 +53,7 @@ function libNames() {
 }
 
 const PRODUCT = /X-Factor|Hidden Gem|[Uu]nderdog|Cue|Player Development Card|TalentMaster|Scouting|oversight|nat\.|akt\.|Pre-PHV|Circa-PHV|Post-PHV|terveys\//; // tuotetermit + Cue + PDC/TalentMaster-brändi/Scouting + oversight (verbatim; kartta pitää "oversight-signal")
-const ABBR = 'TKI|TSI|H-H|PHV|D[1-5]|RPE|ADAR|CPD|DVI|RSVP|MAS|CMJ|SJ|FLEI|VAI\\+?|RAE|OVR|EI|FVP|VNE|SM|TK|IDP|VP|UA|meso|makro|mikro|Cue|cue|ka|cm|kg|min|vk|pv|kk|km/h|m/s';
+const ABBR = 'TKI|TSI|H-H|PHV|ACWR|D[1-5]|RPE|ADAR|CPD|DVI|RSVP|MAS|CMJ|SJ|FLEI|VAI\\+?|RAE|OVR|EI|FVP|VNE|SM|TK|IDP|VP|UA|meso|makro|mikro|Cue|cue|ka|cm|kg|min|vk|pv|kk|km/h|m/s';
 const ABBR_ONLY = new RegExp('^(?:\\s|[·—–\\-/:()%.,+↑↓→▾▴◆⚠★☆●○≥≤<>&;0-9]|&amp;|&nbsp;|(?:' + ABBR + '))+$');
 // V7b-live-oppi 0A: allowlist VAIN jos tuotetermien+lyhenteiden JÄLKEEN ei jää fi-sanaa (EI substring — 'Underdog-toimenpideaste' vuoti kun PRODUCT.test mätsäsi 'Underdog')
 const PRODUCT_G = new RegExp(PRODUCT.source, 'g');
@@ -270,7 +270,48 @@ describe('VP_v25 render-kielineutraali-gate (step G · AST)', () => {
     { expr: 'k.nimi', ranges: [[14686, 14690]] }, // V7b-fix2 tuloskortti _vpTkAlue mittarilabel (lib-data, näyttö vpT)
     { expr: 'k.arvo', ranges: [[14686, 14690]] }, // V7b-fix2 tuloskortti _vpTkAlue mittari-arvo (Ei arviointeja vielä ym.)
     // V7+: esim. { expr: 'roolimap[rooli]', ranges: [[...]] }
+    // ── Erä 3 (kuormanarratiivi) — KAKSI UUTTA SOKEAA LUOKKAA, kumpikin gaten ulottumattomissa:
+    // (a) CONTAINER/MUUTTUJA-REITITETTY: acwrSana-ternaari on sidottu VariableDeclaratoriin, ei
+    //     markup-ketjuun → inDisplayContext=false. Lisäksi 'linjassa'/'koholla'/'matala' ovat
+    //     codeish-bare-lowercase-tokeneita → kaksinkertaisesti piilossa. Vartija vaatii vpT:n
+    //     MÄÄRITTELYSSÄ (arvo reititetään kerran, muuttujaa käytetään markupissa vapaasti).
+    { expr: "'kertyy ~4 vk'", ranges: [[9981, 10026]] },
+    { expr: "'linjassa'", ranges: [[9981, 10026]] },
+    { expr: "'koholla'", ranges: [[9981, 10026]] },
+    { expr: "'matala'", ranges: [[9981, 10026]] },
+    // (b) INLINE-ONCLICK-TOAST JS:N RAKENTAMASSA MARKUPISSA: toast(...) attribuuttimerkkijonon sisällä
+    //     ei ole AST-kutsu (Erä 1:n kanavaportti ei näe) eikä >text< (render-gate ei näe). Reititys
+    //     tehdään muuttujaan ennen merkkijonoa; vartija lukitsee sen.
+    { expr: "'Kuorma pidetty ennallaan'", ranges: [[9981, 10026]] },
   ];
+  // Erä 3 (kuormanarratiivi) — ALUE-todiste + KAHDEN SOKEAN LUOKAN todiste. Huom: luokat (a) ja (b)
+  // EIVÄT näy scanLeaksille lainkaan, joten niiden regressio on todistettava MEMBER_DISPLAY-vartijan
+  // kautta (alla oma it()), ei gaten kautta. Tämä it() todistaa vain RANGES-alueen valvonnan.
+  it('RANGES-alue kuormanarratiivi on oikeasti valvonnassa (mutaatio aitoon lähteeseen)', () => {
+    const lines = HTML.split('\n');
+    const src = lines.slice(RLO - 1, RHI - 1).join('\n');
+    expect(scanLeaks(src, RANGES, RLO - 1, LIB).length).toBe(0);
+    const rikki = src.replace("vpT('§28 kuormaehdotus:')", "'§28 kuormaehdotus:'");
+    expect(rikki).not.toBe(src);
+    const leaks = scanLeaks(rikki, RANGES, RLO - 1, LIB);
+    expect(leaks.map((l) => l.p)).toContain('§28 kuormaehdotus:');
+    expect(leaks.every((l) => l.line >= 9981 && l.line <= 11070)).toBe(true);
+    // Kehon valmius -pää erikseen (toinen alue samassa erässä)
+    const rikki2 = src.replace("vpT('🎯 Heikoin ketju:')", "'🎯 Heikoin ketju:'");
+    expect(rikki2).not.toBe(src);
+    expect(scanLeaks(rikki2, RANGES, RLO - 1, LIB).map((l) => l.p).join(' ')).toContain('Heikoin ketju');
+  });
+
+  // Erä 3 — TODISTE ETTÄ GATE ON NÄILLE SOKEA (ja siksi vartija on välttämätön, ei koristeellinen).
+  it('container-ternaari ja inline-onclick-toast EIVÄT näy scanLeaksille (→ MEMBER_DISPLAY-vartija)', () => {
+    // (a) ternaari VariableDeclaratorissa: ei markup-ketjua → ei display-kontekstia
+    const varT = "function _v(a){ const sana = a == null ? 'kertyy ~4 vk' : a > 1.3 ? 'koholla' : 'matala'; return '<div>' + sana + '</div>'; }";
+    expect(scanLeaks(varT, [[1, 99]], 0, new Set())).toEqual([]);
+    // (b) toast() attribuuttimerkkijonon sisällä: merkkijonoa, ei kutsua
+    const inline = "function _b(){ return '<button onclick=\"toast(\\'Kuorma pidetty ennallaan\\',\\'ok\\')\">OK</button>'; }";
+    expect(scanLeaks(inline, [[1, 99]], 0, new Set()).map((l) => l.p)).not.toContain('Kuorma pidetty ennallaan');
+  });
+
   // Erä 2 (renderSignals) — ALUE-erän todiste. Edellinen it() todistaa että DETEKTORI toimii;
   // tämä todistaa että UUSI RANGES-ALUE on oikeasti valvonnassa (ankkuri voisi osoittaa väärään
   // kohtaan ja gate näyttäisi silti vihreää). Mutaatio tehdään AITOON lähteeseen, ei snippettiin.
