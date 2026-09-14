@@ -36,8 +36,8 @@ const require = createRequire(import.meta.url);
 const acorn = require('acorn');
 const HTML = readFileSync(join(__dir, '..', 'TalentMaster_VP_v25.html'), 'utf8');
 
-const RLO = 2680, RHI = 18065;              // VP pääscript (1-idx)
-const RANGES = [[8182, 9364], [12744, 13894], [11805, 12544], [3778, 3866], [8027, 8052], [14330, 14694], [14696, 15329], [15333, 15834], [15914, 16028], [16030, 16119], [4176, 4250], [5115, 5182], [15298, 15374], [17074, 17154], [17961, 17977], [7029, 7313], [5724, 7028], [4498, 4608], [16127, 16271], [4609, 5114], [4341, 4442], [3539, 3766], [9981, 10026], [11055, 11070], [10598, 10616], [10618, 10650], [10879, 10934], [10973, 10997], [10999, 11007], [11009, 11016], [11021, 11051], [14044, 14055]]; // V3 _jsv · V4 kalenteri · V5 valmentajat · V6 IDP-jono · V7a MDT · V7b Reviewit+tuloskortti. V7c–V8: lisää.
+const RLO = 2690, RHI = 18321;              // VP pääscript (1-idx)
+const RANGES = [[8438, 9620], [13000, 14150], [12061, 12800], [3788, 3876], [8283, 8308], [14586, 14950], [14952, 15585], [15589, 16090], [16170, 16284], [16286, 16375], [4432, 4506], [5371, 5438], [15554, 15630], [17330, 17410], [18217, 18233], [7285, 7569], [5980, 7284], [4754, 4864], [16383, 16527], [4865, 5370], [4597, 4698], [3549, 3776], [10237, 10282], [11311, 11326], [10854, 10872], [10874, 10906], [11135, 11190], [11229, 11253], [11255, 11263], [11265, 11272], [11277, 11307], [14300, 14311], [4186, 4430]]; // V3 _jsv · V4 kalenteri · V5 valmentajat · V6 IDP-jono · V7a MDT · V7b Reviewit+tuloskortti. V7c–V8: lisää.
 const ROUTED_FNS = new Set(['vpT', 'vpTToimenpide']);
 
 // §7 lib-curriculum-nimet (jäävät fi → allowlist)
@@ -314,7 +314,7 @@ describe('VP_v25 render-kielineutraali-gate (step G · AST)', () => {
     expect(r2).not.toBe(src);
     const l2 = scanLeaks(r2, RANGES, RLO - 1, LIB);
     expect(l2.map((l) => l.p)).toContain('Mitä testit kertovat');
-    expect(l2.every((l) => l.line >= 10598 && l.line <= 11051)).toBe(true);
+    expect(l2.every((l) => l.line >= 10854 && l.line <= 11307)).toBe(true);
   });
 
   // Erä 4c — ENUM→NÄYTTÖ. TKI-mitali ('kulta'/'hopea'/'pronssi') on Firestore-arvo joka renderöityy
@@ -323,7 +323,7 @@ describe('VP_v25 render-kielineutraali-gate (step G · AST)', () => {
   // MEMBER_DISPLAY ei sovi tähän: kääre on _jsvEsc(vpT(merkki)), jolloin vartijan etsimä lauseke ei
   // esiinny lähteessä lainkaan → se menisi vacuous-läpi. Siksi eksplisiittinen lähdeväite.
   it('TKI-mitali renderöidään vpT:n läpi, ei raakana enum-arvona', () => {
-    const alue = HTML.split('\n').slice(11020, 11051).join('\n');
+    const alue = HTML.split('\n').slice(11276, 11307).join('\n');
     expect(alue).toContain('vpT(merkki)');
     expect(alue).not.toMatch(/_jsvEsc\(merkki\)/);
     // ja mitaliarvot ovat kartassa (muuten vpT palauttaisi fi:n)
