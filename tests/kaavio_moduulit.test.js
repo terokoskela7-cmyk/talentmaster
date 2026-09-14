@@ -119,3 +119,104 @@ describe('policy · kohdistus on UI-suodatin (EI pakotettu)', () => {
     expect(P.kaavioKohdistuu(d, { seuraId: 'fcl', joukkueet: ['fcl_u14'] })).toBe(false);
   });
 });
+
+/* ── UI-PORTIT (erä B2) ───────────────────────────────────────────────────────────────────
+   DoD: napit tulevat policysta, ei UI-logiikasta. Kaksi väitettä: (1) policy palauttaa oikean
+   valikoiman per rooli/tila, (2) VP_v25 ei sisällä omaa rinnakkaista oikeuslogiikkaa vaan kutsuu
+   kaavioToiminnot/kaavioVoiLukea/kaavioVoiKirjoittaa. Ilman (2):ta UI voisi ajautua policysta
+   erilleen ja näyttää nappeja joita palvelin ei hyväksy. */
+import { readFileSync } from 'fs';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
+const __d = dirname(fileURLToPath(import.meta.url));
+const VP = readFileSync(join(__d, '..', 'TalentMaster_VP_v25.html'), 'utf8');
+
+describe('UI-portit · napit tulevat policysta', () => {
+  const doc = (status) => ({ seuraId: 'fcl', review: { status, joukkueId: 'fcl_u12', versio: 0 } });
+  const pelaaja = { anon: true };
+  const valm = { rooli: 'valmentaja', seuraId: 'fcl', joukkueet: ['fcl_u12'] };
+  const vp = { rooli: 'vp', seuraId: 'fcl' };
+
+  it('pelaaja EI näe Muokkaa-nappia missään tilassa', () => {
+    ['luonnos', 'odottaa', 'hyvaksytty', 'hylatty'].forEach((st) => {
+      expect(P.kaavioToiminnot(doc(st), pelaaja)).not.toContain('muokkaa');
+    });
+  });
+  it('pelaaja näkee kuittauksen VAIN hyväksytylle', () => {
+    expect(P.kaavioToiminnot(doc('hyvaksytty'), pelaaja)).toContain('ymmarretty');
+    expect(P.kaavioToiminnot(doc('odottaa'), pelaaja)).not.toContain('ymmarretty');
+  });
+  it('VP näkee hyväksy+hylkää VAIN odottavalle', () => {
+    expect(P.kaavioToiminnot(doc('odottaa'), vp)).toEqual(expect.arrayContaining(['hyvaksy', 'hylkaa']));
+    expect(P.kaavioToiminnot(doc('luonnos'), vp)).not.toContain('hyvaksy');
+  });
+  it('valmentaja ei näe hyväksy-nappia, mutta näkee ehdota', () => {
+    const t = P.kaavioToiminnot(doc('luonnos'), valm);
+    expect(t).toContain('ehdota');
+    expect(t).not.toContain('hyvaksy');
+  });
+  it('toisen joukkueen valmentaja ei näe muokkaa/ehdota', () => {
+    const t = P.kaavioToiminnot(doc('luonnos'), { rooli: 'valmentaja', seuraId: 'fcl', joukkueet: ['fcl_u14'] });
+    expect(t).not.toContain('muokkaa');
+    expect(t).not.toContain('ehdota');
+  });
+});
+
+describe('UI-portit · VP_v25 ei duplikoi oikeuslogiikkaa', () => {
+  it('kaaviolohko kutsuu policya (ei omaa rooli/tila-haarautumista)', () => {
+    const i = VP.indexOf('KAAVIOPANKKI (erä B2)');
+    expect(i).toBeGreaterThan(0);
+    const lohko = VP.slice(i, VP.indexOf('function avaaBioBanding()'));
+    ['kaavioVoiLukea(', 'kaavioToiminnot(', 'kaavioSiirtoSallittu(', 'kaavioTilaMuokkauksenJalkeen(', 'kaavioSeuraavaVersio(']
+      .forEach((f) => expect(lohko, f).toContain(f));
+    // ei omaa roolivertailua näkyvyyteen/hyväksyntään (rooli luetaan vain ctx:ään)
+    expect(lohko).not.toMatch(/rooli\s*===?\s*'(vp|valmentaja|urheilutoimenjohtaja)'/);
+    expect(lohko).not.toMatch(/status\s*===?\s*'hyvaksytty'\s*&&/);
+  });
+  it('write-path ajaa §6-validaattorin ENNEN kirjoitusta', () => {
+    const i = VP.indexOf('async function _kaavioTallenna');
+    const f = VP.slice(i, VP.indexOf('window.avaaKaaviopankki'));
+    expect(f.indexOf('validoiKaavio(')).toBeGreaterThan(-1);
+    expect(f.indexOf('validoiKaavio(')).toBeLessThan(f.indexOf('.update('));   // validointi ensin
+  });
+  it('write-path nostaa version jokaisessa kirjoituksessa', () => {
+    const i = VP.indexOf('KAAVIOPANKKI (erä B2)');
+    const lohko = VP.slice(i, VP.indexOf('function avaaBioBanding()'));
+    const updatet = lohko.split('.update(').length - 1;
+    const versiot = lohko.split("'review.versio': kaavioSeuraavaVersio(").length - 1;
+    expect(updatet).toBeGreaterThan(0);
+    expect(versiot).toBe(updatet);
+  });
+});
+
+/* ENUM→NÄYTTÖ -VARTIJA (erä B2). Tila-, näkyvyys- ja nappilabelit renderöityvät MUUTTUJANA
+   (vpT(kartta[avain])) → resolvi-portti ei näe niitä literaaleina. Tämä luokka jäi huomaamatta
+   omassa koodissani kunnes LIVE-ajo näytti 'odottaa hyväksyntää' suomeksi sv-tilassa. Vartija
+   vaatii jokaiselle enum-arvolle sv-rivin, jottei sama toistu. */
+describe('enum→näyttö · jokaisella kaavio-enumilla on sv-rivi', () => {
+  const kartta = readFileSync(join(__d, '..', 'lib', 'tm_vp_i18n.js'), 'utf8');
+  const common = readFileSync(join(__d, '..', 'lib', 'tm_i18n_common.js'), 'utf8');
+  const on = (k) => kartta.includes("'" + k + "':") || common.includes("'" + k + "':");
+
+  it('statuslabelit', () => {
+    ['luonnos', 'odottaa hyväksyntää', 'hyväksytty', 'hylätty'].forEach((k) => expect(on(k), k).toBe(true));
+  });
+  it('näkyvyyslabelit', () => {
+    ['seura', 'joukkue', 'pelaaja'].forEach((k) => expect(on(k), k).toBe(true));
+  });
+  it('nappilabelit kattavat kaikki policyn palauttamat toiminnot', () => {
+    const LBL = { muokkaa: 'Muokkaa', ehdota: 'Ehdota hyväksyttäväksi', hyvaksy: 'Hyväksy',
+                  hylkaa: 'Hylkää', poista: 'Poista', ymmarretty: 'Ymmärsin', kysy: 'Kysy' };
+    // kaikki mahdolliset toiminnot eri rooleilta/tiloilta
+    const kaikki = new Set();
+    [{ anon: true }, { rooli: 'valmentaja', seuraId: 'f', joukkueet: ['j'] }, { rooli: 'vp', seuraId: 'f' }, { superAdmin: true }]
+      .forEach((ctx) => ['luonnos', 'odottaa', 'hyvaksytty', 'hylatty'].forEach((st) => {
+        P.kaavioToiminnot({ seuraId: 'f', review: { status: st, joukkueId: 'j' } }, ctx).forEach((t) => kaikki.add(t));
+      }));
+    expect(kaikki.size).toBeGreaterThan(4);
+    [...kaikki].forEach((t) => {
+      expect(LBL[t], 'label puuttuu toiminnolta ' + t).toBeTruthy();
+      expect(on(LBL[t]), 'sv puuttuu: ' + LBL[t]).toBe(true);
+    });
+  });
+});
