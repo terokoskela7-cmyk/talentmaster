@@ -24,6 +24,8 @@ let M;
 beforeAll(() => {
   M = new Function(
     'var _jsvEsc = function(s){return String(s==null?"":s);};\n' +
+    // Erä 4: mittausfunktiot kutsuvat nyt vpT:tä → passthrough-stub, muuten ReferenceError.
+    'var vpT = function(x){return x;};\n' +
     extract('function _vpMittausTuoreusHTML(p, ika) {') + '\n' +
     extract('function _vpMittausLinssiHTML(p, ika) {') + '\n' +
     extract('function _vpMittausNextStepHTML(p) {') + '\n' +

@@ -24,6 +24,8 @@ let S;
 beforeAll(() => {
   S = new Function(
     'var _jsvEsc = function(s){return String(s==null?"":s);};\n' +
+    // Erä 4: synth-narratiivi kutsuu nyt vpT:tä → passthrough-stub, muuten ReferenceError.
+    'var vpT = function(x){return x;};\n' +
     extract('function _vpMittausSynthHTML(p, ika, d1, d2, tsi) {') + '\n' +
     'return { synth: _vpMittausSynthHTML };'
   )().synth;
