@@ -1,15 +1,17 @@
 /* TalentMaster — Service Worker (Pelaaja) — PWA-vaihe 1
-   Polut ABSOLUUTTISIA (/talentmaster/...) — GitHub Pages tarjoaa tästä hakemistosta.
+   Polut SUHTEELLISIA/alipolkuriippumattomia: sama SW toimii Pages-alipolussa (/talentmaster/),
+   Firebase-stagingissa ja custom-domainilla. SHELL on './'-suhteellinen (resolvoituu SW:n scopea
+   vasten) ja allowlist-tarkistukset matchaavat polun LOPPUUN, eivät alipolkuetuliitteeseen.
 
    KORJATTU 2026-06-11 (cachebugi): SW EI saa kaapata muiden appien (VP/Master/Excel)
-   sivuja. Aiempi versio cachetti Cache First -strategialla KAIKKI scopen (/talentmaster/)
+   sivuja. Aiempi versio cachetti Cache First -strategialla KAIKKI scopen
    fetchit → toisten appien HTML jäätyi cacheen, ?v= ei auttanut. Nyt ALLOWLIST:
    - Oma HTML (Pelaaja_v7) → NETWORK-FIRST, fallback cacheen vain offline-tilassa (kenttäkäyttö).
    - Omat JS-moduulit + manifest + ikonit + versioidut fontit/SDK → cache-first.
    - KAIKKI muu (toisten appien sivut, raw.githubusercontent, jne.) → suoraan verkkoon, EI cachea.
    Scopea ei voi kaventaa (SW juuressa) → allowlist hoitaa rajaamisen. CLAUDE.md §27.4. */
-const CACHE = 'tm-pelaaja-v23';   // i18n V4-B7 — jaettu tm_lang ?v=9 (§27.4)
-const SHELL = '/talentmaster/TalentMaster_Pelaaja_v7.html';
+const CACHE = 'tm-pelaaja-v24';   // i18n V4-B7 — jaettu tm_lang ?v=9 (§27.4)
+const SHELL = './TalentMaster_Pelaaja_v7.html';
 // VAIN oma shell — JS-moduulit ovat ?v=-versioituja (bare-polku ei matchaisi), allowlist cachettaa ne
 // pyydettäessä. (Vanha PRECACHE viittasi /talentmaster/tm_eerikkila_normit.js → 404, jota Pelaaja ei lataa
 // → addAll olisi hylännyt installin.)
@@ -46,24 +48,24 @@ function onFirebaseApi(url) {
 
 // Pelaajan OMA HTML (navigaatiot) — vain tämä cachetetaan network-first + offline-fallback.
 function onOmaHtml(url) {
-  return url.indexOf('/talentmaster/TalentMaster_Pelaaja_v7.html') !== -1;
+  return url.indexOf('/TalentMaster_Pelaaja_v7.html') !== -1;
 }
 
 // Allowlist cache-first-assetteille: Pelaajan omat tiedostot + versioidut 3. osapuolen assetit.
 // Omat JS-moduulit ovat versioituja (?v=) HTML:ssä → cache-first ei vanhene väärin. EI muiden appien sivuja.
 function onAllowlist(url) {
-  if (url.indexOf('/talentmaster/manifest_pelaaja.json') !== -1) return true;
-  if (url.indexOf('/talentmaster/assets/pwa/') !== -1) return true;       // omat ikonit
+  if (url.indexOf('/manifest_pelaaja.json') !== -1) return true;
+  if (url.indexOf('/assets/pwa/') !== -1) return true;       // omat ikonit
   // Pelaajan tarvitsemat omat JS-moduulit (URL:ssä ?v= → versioitu, cache-first turvallinen)
-  if (/\/talentmaster\/(harjoitelogiikka_v4|tm_why_lauseet|tm-bus|tm-demo|tm_sentry)\.js/.test(url)) return true;
+  if (/\/(harjoitelogiikka_v4|tm_why_lauseet|tm-bus|tm-demo|tm_sentry)\.js/.test(url)) return true;
   // HUOM: Sentry CDN (browser.sentry-cdn.com) + ingest (*.ingest.*.sentry.io) EIVÄT ole allowlistissa
   // → suora verkko, EI cachea (cross-origin telemetria ei kuulu PWA-cacheen). Tietoinen valinta.
-  if (url.indexOf('/talentmaster/lib/tm-microcycles.js') !== -1) return true;
-  if (url.indexOf('/talentmaster/lib/tm_eerikkila_normit.js') !== -1) return true;
-  if (url.indexOf('/talentmaster/lib/tm_idp.js') !== -1) return true;   // 3c-a pelaajan aikajana
-  if (url.indexOf('/talentmaster/lib/tm_lang.js') !== -1) return true;   // i18n V0 — käännöstaulukko offline-cacheen
-  if (url.indexOf('/talentmaster/lib/tm_teknistaktiset.js') !== -1) return true;   // 4b pelaajan cue-kerros
-  if (url.indexOf('/talentmaster/docs/testit_indeksit.js') !== -1) return true;
+  if (url.indexOf('/lib/tm-microcycles.js') !== -1) return true;
+  if (url.indexOf('/lib/tm_eerikkila_normit.js') !== -1) return true;
+  if (url.indexOf('/lib/tm_idp.js') !== -1) return true;   // 3c-a pelaajan aikajana
+  if (url.indexOf('/lib/tm_lang.js') !== -1) return true;   // i18n V0 — käännöstaulukko offline-cacheen
+  if (url.indexOf('/lib/tm_teknistaktiset.js') !== -1) return true;   // 4b pelaajan cue-kerros
+  if (url.indexOf('/docs/testit_indeksit.js') !== -1) return true;
   if (url.indexOf('gstatic.com/firebasejs/') !== -1) return true;         // Firebase SDK (versioitu URL)
   if (url.indexOf('fonts.googleapis.com') !== -1) return true;            // Google Fonts CSS
   if (url.indexOf('fonts.gstatic.com') !== -1) return true;               // Google Fonts -fontit

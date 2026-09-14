@@ -1,15 +1,17 @@
 /* TalentMaster — Service Worker (Vanhempi/Perhe) — PWA-vaihe 1
-   Polut ABSOLUUTTISIA (/talentmaster/...) — GitHub Pages tarjoaa tästä hakemistosta.
+   Polut SUHTEELLISIA/alipolkuriippumattomia: sama SW toimii Pages-alipolussa (/talentmaster/),
+   Firebase-stagingissa ja custom-domainilla. SHELL on './'-suhteellinen (resolvoituu SW:n scopea
+   vasten) ja allowlist-tarkistukset matchaavat polun LOPPUUN, eivät alipolkuetuliitteeseen.
 
    KORJATTU 2026-06-11 (cachebugi): SW EI saa kaapata muiden appien (VP/Master/Excel)
-   sivuja. Aiempi versio cachetti Cache First -strategialla KAIKKI scopen (/talentmaster/)
+   sivuja. Aiempi versio cachetti Cache First -strategialla KAIKKI scopen
    fetchit → toisten appien HTML jäätyi cacheen, ?v= ei auttanut. Nyt ALLOWLIST:
    - Oma HTML (Vanhempi_v2) → NETWORK-FIRST, fallback cacheen vain offline-tilassa.
    - Omat staattiset assetit (manifest, ikonit) + versioidut fontit/SDK → cache-first.
    - KAIKKI muu (toisten appien sivut, raw.githubusercontent, jne.) → suoraan verkkoon, EI cachea.
    Scopea ei voi kaventaa (SW juuressa) → allowlist hoitaa rajaamisen. CLAUDE.md §27.4. */
-const CACHE = 'tm-vanhempi-v13';   // i18n V4-B7 — interpolointi-vierus + toast-kerros sv (tm_lang ?v=9) (§27.4)
-const SHELL = '/talentmaster/TalentMaster_Vanhempi_v2.html';
+const CACHE = 'tm-vanhempi-v14';   // i18n V4-B7 — interpolointi-vierus + toast-kerros sv (tm_lang ?v=9) (§27.4)
+const SHELL = './TalentMaster_Vanhempi_v2.html';
 const PRECACHE = [SHELL];
 
 self.addEventListener('install', function (e) {
@@ -43,17 +45,17 @@ function onFirebaseApi(url) {
 
 // Vanhemman OMA HTML (navigaatiot) — vain tämä cachetetaan network-first + offline-fallback.
 function onOmaHtml(url) {
-  return url.indexOf('/talentmaster/TalentMaster_Vanhempi_v2.html') !== -1;
+  return url.indexOf('/TalentMaster_Vanhempi_v2.html') !== -1;
 }
 
 // Allowlist cache-first-assetteille: VAIN omat staattiset tiedostot + versioidut 3. osapuolen assetit
 // (URL sisältää version → cache-first ei vanhene väärin). EI muiden appien JS/HTML:ää.
 function onAllowlist(url) {
-  if (url.indexOf('/talentmaster/manifest_vanhempi.json') !== -1) return true;
-  if (url.indexOf('/talentmaster/tm_sentry.js') !== -1) return true;             // B2 Sentry-wrapper (?v= → cache-first)
-  if (url.indexOf('/talentmaster/lib/tm_lang.js') !== -1) return true;           // i18n V0 — käännöstaulukko offline-cacheen
-  if (url.indexOf('/talentmaster/docs/testit_indeksit.js') !== -1) return true;  // TKI-laskenta (?v= → cache-first ei vanhene väärin)
-  if (url.indexOf('/talentmaster/assets/pwa/') !== -1) return true;       // omat ikonit
+  if (url.indexOf('/manifest_vanhempi.json') !== -1) return true;
+  if (url.indexOf('/tm_sentry.js') !== -1) return true;             // B2 Sentry-wrapper (?v= → cache-first)
+  if (url.indexOf('/lib/tm_lang.js') !== -1) return true;           // i18n V0 — käännöstaulukko offline-cacheen
+  if (url.indexOf('/docs/testit_indeksit.js') !== -1) return true;  // TKI-laskenta (?v= → cache-first ei vanhene väärin)
+  if (url.indexOf('/assets/pwa/') !== -1) return true;       // omat ikonit
   if (url.indexOf('gstatic.com/firebasejs/') !== -1) return true;         // Firebase SDK (versioitu URL)
   if (url.indexOf('fonts.googleapis.com') !== -1) return true;            // Google Fonts CSS
   if (url.indexOf('fonts.gstatic.com') !== -1) return true;               // Google Fonts -fontit
