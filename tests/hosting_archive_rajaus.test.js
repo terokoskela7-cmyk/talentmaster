@@ -120,4 +120,17 @@ describe('firebase.json CSP · reCAPTCHA v3 -originit', () => {
     const d = direktiivi('connect-src');
     expect(d).toMatch(/https:\/\/(\*\.googleapis\.com|firebaseappcheck\.googleapis\.com)/);
   });
+  /* Löytyi vasta AJETUSTA staging-todennuksesta: grecaptcha.enterprise tekee oman XHR:n
+     www.google.com/recaptcha/enterprise/clr -päätepisteeseen. Token myönnettiin siitä huolimatta,
+     mutta kutsu hylättiin CSP:ssä → estetty haaste-/telemetriapolku olisi jäänyt piiloon. */
+  it('connect-src sallii reCAPTCHA Enterprisen oman XHR:n (www.google.com)', () => {
+    expect(direktiivi('connect-src')).toContain('https://www.google.com');
+  });
+  /* Sama ajo paljasti ENNESTÄÄN OLEVAN aukon: VP_v25 lataa tabler-icons-tyylin jsdelivristä,
+     joka oli script-src:ssä mutta ei style-src:ssä → ikonifontti ei latautunut stagingissa. */
+  it('style-src JA font-src kattavat jsdelivrin (tabler-icons + sen woff2/ttf)', () => {
+    // Kaskadi: style-src:n avaaminen paljasti että myös fonttitiedostot estyivät (font-src).
+    expect(direktiivi('style-src')).toContain('https://cdn.jsdelivr.net');
+    expect(direktiivi('font-src')).toContain('https://cdn.jsdelivr.net');
+  });
 });

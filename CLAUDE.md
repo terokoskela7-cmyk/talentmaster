@@ -1223,3 +1223,50 @@ pelaaja MINÄ-tavoiterivit + TÄNÄÄN-saate (§16). Kaikki pikakentistä (§26)
 - **In-app aloitusopas** — 4 roolille (Pelaaja_v7 `_naytaTervetulo` · Vanhempi_v2 `_naytaVanhTervetulo` "kultainen sääntö: ei kavereihin" · VP/valmentaja "Aloita tästä" -kortit). Spec: `docs/INAPP_ALOITUSOPAS_SPEC.md`.
 
 **Tänään-tehtävät (pelaaja-app):** tulevat `harjoitelogiikka_v4.js`-generaattorista (§A7/§7.25) — S-harjoite kohdistuu heikoimpaan FLEI-ketjuun, T-harjoite joka päivä. Oppaissa selitetty miksi ne näkyvät, mistä tulevat, miksi kannattaa tehdä — §7.22-kehyksessä (ei numeroita/vertailua lapselle).
+
+---
+
+## 38. APP CHECK — reCAPTCHA Enterprise (V2, monitoring-vaihe)
+
+**Provider = reCAPTCHA Enterprise, EI klassinen v3** (Firebase vanhensi v3:n). Ero koodissa: `activate()`
+ottaa **provider-instanssin**, ei avainmerkkijonoa.
+```js
+firebase.appCheck().activate(new firebase.appCheck.ReCaptchaEnterpriseProvider(KEY), true)  // OIKEIN
+firebase.appCheck().activate(KEY, true)                                                      // v3-muoto, EI toimi
+```
+
+**`lib/tm_appcheck.js` = site keyn AINOA esiintymä.** Avain on julkinen (kuuluu clientiin); suoja on
+domain-verifiointi + attestointi, ei salassapito. Portti `tests/appcheck_kytkenta.test.js` failaa jos
+avain kopioidaan toiseen tiedostoon.
+
+**Kaksi aktivointipolkua, yksi avain:**
+- **compat (18 appia):** `<script>` app-check-compat **appin OMALLA SDK-versiolla** (repossa viisi:
+  10.7.1 / 9.23.0 / 9.22.0-2) → `lib/tm_appcheck.js?v=1` → `tmAppCheckAktivoi()` **heti initin jälkeen**.
+  ⚠ **ÄLÄ kovakoodaa yhtä versiota** — se olisi sekaversio 10 apissa.
+- **modular (2 appia:** `tm_videopankki_admin.html`, `TM_LiikehallintaMatrix_v2.html`**):**
+  `initializeAppCheck(app, {provider:new ReCaptchaEnterpriseProvider(window.TM_APPCHECK_SITE_KEY), …})`,
+  avain luetaan jaetusta moduulista. `initializeAppCheck` **heittää jos sama appi aktivoidaan kahdesti**
+  → matrixilla yksi alustuspolku `tmMatrixApp()` promise-cachella.
+
+**JÄRJESTYS ON PAKOTTAVA:** aktivointi initin jälkeen ja **ennen ensimmäistä** Firestore/Auth/Functions/
+Storage-kutsua — App Check ei liity jälkikäteen jo luotuun palveluinstanssiin.
+
+**Uusi appi joka koskee backendiin → App Check PAKOLLINEN.** Portti johtaa kohdejoukon datasta (kaikki
+`firebase-app`in lataavat juuritiedostot), joten uusi kytkemätön appi punertaa sen automaattisesti.
+
+**Debug-token (reaali-backendia vasten ajavat smoket):** `localStorage.tm_appcheck_debug = '<token>'` tai
+`self.FIREBASE_APPCHECK_DEBUG_TOKEN`. **Toimii VAIN ei-tuotantoisilla hosteilla** (localhost + Hosting
+preview-kanavat `*--*.web.app`) — repossa ei ole build-vaihetta joka strippaisi koodin, joten rajaus on
+ajonaikainen ettei vuotanut token ole Pagesissa ohituskeino. Token on rekisteröitävä Console → App Check →
+Apps → Manage debug tokens. Emulaattori-sääntötestit (`npm run test:rules`) eivät koske App Checkiin.
+
+**CSP (vain firebase.json / Hosting — Pages ei palauta CSP:tä):** reCAPTCHA Enterprise vaatii
+`script-src` + `frame-src` + **`connect-src`** `https://www.google.com` (enterprise.js, haastekehys ja
+`/recaptcha/enterprise/clr`-XHR ovat kolme eri direktiiviä — token myönnetään vaikka clr estyisi, joten
+puute EI näy tokenin puuttumisena vaan vain konsolissa).
+
+**ENFORCE = projektinlaajuinen per palvelu, ei per ympäristö.** Esiehto: **kaikki elävät apit → main →
+Pages** ja monitoring näyttää tervettä verified-liikennettä. Mittari
+`firebaseappcheck.googleapis.com/services/verification_count`, label `security`: `VALID` = verified,
+`MISSING_*` = ei tokenia. Flippaa palvelu kerrallaan (Firestore → Functions → Storage), **un-enforce heti
+jos verified% tippuu.**
