@@ -200,6 +200,28 @@ service cloud.firestore {
       return onOmaSeura(seuraId) && onValmentajaRooli();
     }
 
+    // ── KAAVIOT (v3.6) ────────────────────────────────────────────────────────────────
+    // Hyväksyjä on TAHALLAAN kapeampi kuin onJohtoRooli(): se sisältäisi seurasihteerin,
+    // joka ei ole valmennusrooli eikä saa hyväksyä valmennussisältöä.
+    function onKaavioHyvaksyja() {
+      return request.auth.token.rooli in ['vp', 'urheilutoimenjohtaja'] || onSuperAdmin();
+    }
+    function kaavioTila(d)      { return d.get('review', {}).get('status', 'luonnos'); }
+    function kaavioJoukkue(d)   { return d.get('review', {}).get('joukkueId', null); }
+    // Sallitut statussiirrot. Suora luonnos→hyvaksytty on KIELLETTY (katselmus ei saa ohittua).
+    function kaavioSiirtoOk(vanha, uusi) {
+      return uusi == vanha
+          || (vanha == 'luonnos'    && uusi == 'odottaa')
+          || (vanha == 'hylatty'    && uusi == 'odottaa')
+          || (vanha == 'hyvaksytty' && uusi == 'odottaa')
+          || (vanha == 'odottaa'    && (uusi == 'hyvaksytty' || uusi == 'hylatty') && onKaavioHyvaksyja());
+    }
+    // Uudelleenhyväksyntä: hyväksytyn kaavion muokkaus pudottaa sen takaisin odottamaan,
+    // PAITSI jos muokkaaja on jo hyväksyntävaltuutettu (itse-kierros ei lisää kontrollia).
+    function kaavioUudelleenhyvaksyntaOk(vanha, uusi) {
+      return vanha != 'hyvaksytty' || onKaavioHyvaksyja() || uusi == 'odottaa';
+    }
+
     // Permissio-joukkulukko — valmentajan oma joukkue säännöistä (self-contained, rules-get; ei claims-riippuvuutta).
     // kayttajat/{uid}.joukkueet = ID-lista (Seura-näkymä; VP:llä tyhjä → hoitaa kaikkia johto-ohituksella).
     function valmentajanJoukkueet(seuraId) {
@@ -299,6 +321,41 @@ service cloud.firestore {
     match /seurat/{seuraId} {
       allow read:  if onKirjautunut() && (onSuperAdmin() || onOmaSeura(seuraId));
       allow write: if onSuperAdmin() || (onOmaSeura(seuraId) && onJohtoRooli());
+
+      // ── KAAVIOT (v3.6) — seurakohtaiset teknis-taktiset kaaviot + review-silmukka ──
+      // Kaksikerros: kanoninen /kaaviot/{avain} (master) + tämä seurataso (omat + override).
+      // Sama spec.avain seuratasolla VOITTAA kanonisen (näyttölogiikka, ei sääntö).
+      //
+      // ⚠ PELAAJAN KOHDISTUSTA EI VOI PAKOTTAA. PIN-pelaaja on Anonymous Auth → tokenissa ei ole
+      //   pelaaja- eikä seuraidentiteettiä (onAnonymous() tarkistaa vain sign_in_providerin).
+      //   Siksi palvelin pakottaa pelaajalle VAIN status=='hyvaksytty'. review.nakyvyys /
+      //   joukkueId / pelaajaIds ovat UI-TASOINEN suodatin (lib/tm_kaavio_policy.js
+      //   kaavioKohdistuu) — ÄLÄ lue tätä sääntöä lupaukseksi kohdistuksen pakottamisesta.
+      //   Kuittaus (review.ymmarretty) kirjoitetaan siksi Cloud Functionilla, ei clientistä.
+      match /kaaviot/{kaavioId} {
+        allow read: if onSuperAdmin()
+                    || (onOmaSeura(seuraId) && (onValmentajaRooli() || onJohtoRooli()))
+                    || kaavioTila(resource.data) == 'hyvaksytty';
+
+        // Luonti: oman seuran valmentaja/johto. Uusi kaavio EI voi syntyä hyväksyttynä.
+        allow create: if onSuperAdmin()
+                      || (onOmaSeura(seuraId) && onValmentajaRooli()
+                          && kaavioTila(request.resource.data) in ['luonnos', 'odottaa']);
+
+        // Päivitys: seura-skooppi + sallittu statussiirto + uudelleenhyväksyntä.
+        // Joukkuerajaus: valmentajalla oltava kaavion joukkueId omissa joukkueissaan; johto ja
+        // talenttivalmentaja ohittavat rajauksen seuran sisällä (sama kuvio kuin pelaajakirjoitus).
+        allow update: if onSuperAdmin()
+                      || (onOmaSeura(seuraId) && onValmentajaRooli()
+                          && kaavioSiirtoOk(kaavioTila(resource.data), kaavioTila(request.resource.data))
+                          && kaavioUudelleenhyvaksyntaOk(kaavioTila(resource.data), kaavioTila(request.resource.data))
+                          && ( onKaavioHyvaksyja()
+                            || request.auth.token.rooli == 'talenttivalmentaja'
+                            || (kaavioJoukkue(resource.data) != null
+                                && valmentajanJoukkueet(seuraId).hasAny([kaavioJoukkue(resource.data)])) ));
+
+        allow delete: if onSuperAdmin() || (onOmaSeura(seuraId) && onKaavioHyvaksyja());
+      }
 
       // ── TOIMENPITEET — TalentMasterin ehdotukset + VP:n kuittaukset (v3.1) ──
       // Rules EIVÄT periydy alikokoelmiin → oma blokki. Ei delete: historia/audit-jälki
@@ -1025,6 +1082,15 @@ service cloud.firestore {
       allow update, delete: if request.auth != null && request.auth.uid == resource.data.parent_uid;
     }
     // Lupapyynnöt (Polku B) — lapsi luo, vanhempi hyväksyy VAIN CF:ssä (Admin SDK). SOLO_P0_SPEC §9.
+    // ── KAAVIOT · KANONINEN KERROS (v3.6) ────────────────────────────────────────────
+    // kaaviot/{avain} — jaettu curriculum-sisältö (avain = curriculum-avain, sama kaikille
+    // seuroille → EI duplikointia seuroittain). 109-generoinnin kohde (erä D).
+    // Luku kaikille kirjautuneille (ml. PIN-pelaaja); kirjoitus VAIN super_adminille.
+    match /kaaviot/{avain} {
+      allow read:  if onKirjautunut();
+      allow write: if onSuperAdmin();
+    }
+
     match /lupapyynnot/{requestId} {
       allow create:         if request.resource.data.status == 'odottaa';   // requestId arvaamaton (UUID); rate-limit CF:ssä
       allow get:            if true;                                          // lapsen laite pollaa OMAA requestId:tä (token vain hakijalla)
