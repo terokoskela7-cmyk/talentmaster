@@ -28,6 +28,14 @@ jobs:
         uses: actions/checkout@v4
       - name: Setup Pages
         uses: actions/configure-pages@v5
+      # archive/ EI julkaista Pagesiin (V2 App Check, päätös A). Yhdenmukaistaa
+      # firebase.json:in "archive/**"-ignoren kanssa: retired app-versiot eivät ole
+      # julkisesti ajettavia eivätkä koske backendiin → App Check -enforce ei riko niitä
+      # eikä niihin tarvitse ylläpitää SDK:ta. Poisto kohdistuu VAIN CI:n efemeeriseen
+      # checkoutiin — archive/ säilyy versionhallinnassa. Esiehto todennettu: 0 elävää
+      # inbound-linkkiä arkistoon (viittaukset ovat arkiston sisäisiä tai docs-proosaa).
+      - name: Rajaa archive/ pois julkaisusta
+        run: rm -rf archive
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
