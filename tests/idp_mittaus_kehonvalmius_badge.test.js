@@ -24,6 +24,8 @@ let KV;
 beforeAll(() => {
   KV = new Function(
     'var _jsvEsc = function(s){return String(s==null?"":s);};\n' +
+    // Erä 3: funktio kutsuu nyt vpT:tä → passthrough-stub, muuten ReferenceError.
+    'var vpT = function(x){return x;};\n' +
     'var renderFleiKortti = function(p){ return "<FLEIKORTTI flei=" + (p.flei_viimeisin==null?"none":p.flei_viimeisin) + ">"; };\n' +
     extract('function _vpKehonValmiusHTML(p) {') + '\n' +
     'return { kv: _vpKehonValmiusHTML };'

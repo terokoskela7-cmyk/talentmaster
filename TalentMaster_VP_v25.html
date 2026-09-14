@@ -17,7 +17,7 @@
 <!-- Eerikkilä-normit + universaali testirekisteri (eerikkilaTaso, laskeFVP) — 10m/5m-tasot + FVP-profiili -->
 <script src="lib/tm_lang.js?v=9"></script>   <!-- i18n V0 — fi/sv/en käännöstaulukko + t() + kieli-init (putkitus) -->
 <script src="lib/tm_i18n_common.js?v=2"></script>   <!-- i18n Vaihe 0 — JAETTU henkilöstö-i18n + lukittu glossaari (ENNEN sivukarttaa) -->
-<script src="lib/tm_vp_i18n.js?v=43"></script>   <!-- i18n Vaihe 5 — VP sv (sivukartta); vpT/vpLokalisoi delegoivat commoniin -->
+<script src="lib/tm_vp_i18n.js?v=44"></script>   <!-- i18n Vaihe 5 — VP sv (sivukartta); vpT/vpLokalisoi delegoivat commoniin -->
 
 
 <script src="lib/tm_eerikkila_normit.js?v=45"></script>   <!-- v43: D2-kortti d2_taso-ensin (renderKehityskorttiHTML, PR #264 · §30/#262) -->
@@ -9986,22 +9986,23 @@ function _vpViikkoKuormaHTML(p, st) {
   const krono = (p._viikkoKrono4 != null) ? p._viikkoKrono4 : null;   // 4vk keskiviikkokuorma (async, jos saatavilla)
   const acwr = (krono && krono > 0) ? Math.round(viikkoAU / krono * 100) / 100 : null;
   const acwrCol = acwr == null ? 'var(--ink3)' : (acwr > 1.5 || acwr < 0.8) ? 'var(--amber)' : 'var(--teal)';
+  const kuormaEnnallaanMsg = vpT('Kuorma pidetty ennallaan');   // inline-onclick-toast: reititetään tässä, ei attribuuttimerkkijonossa
   const kt = (p.kasvutahti_vyohyke) || (p.biologinenIka_viimeisin && p.biologinenIka_viimeisin.kasvutahti_vyohyke) || null;
   const phv = p.phv_tila || null;
-  const acwrSana = acwr == null ? 'kertyy ~4 vk' : (acwr >= 0.8 && acwr <= 1.3) ? 'linjassa' : (acwr > 1.3) ? 'koholla' : 'matala';
+  const acwrSana = acwr == null ? vpT('kertyy ~4 vk') : (acwr >= 0.8 && acwr <= 1.3) ? vpT('linjassa') : (acwr > 1.3) ? vpT('koholla') : vpT('matala');
   let h = '<div class="jsp-wk-blk">'
     + '<div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap;margin-bottom:3px">'
-    + '<span style="font-family:var(--font-sans),\'DM Sans\',sans-serif;font-weight:600;font-size:9px;letter-spacing:.13em;text-transform:uppercase;color:var(--ink2)">Kuorma · viikko + §28</span>'
-    + '<span style="font-family:var(--font-mono),\'DM Mono\',monospace;font-size:8.5px;color:var(--ink3)">session-RPE</span></div>';
+    + '<span style="font-family:var(--font-sans),\'DM Sans\',sans-serif;font-weight:600;font-size:9px;letter-spacing:.13em;text-transform:uppercase;color:var(--ink2)">' + vpT('Kuorma · viikko + §28') + '</span>'
+    + '<span style="font-family:var(--font-mono),\'DM Mono\',monospace;font-size:8.5px;color:var(--ink3)">' + vpT('session-RPE') + '</span></div>';
   // P1 — §28-PHV-kuorma ENSISIJAINEN: kasvupyrähdys/nopea kasvu → prominentti kuormaehdotus; muuten hienovarainen tila.
   if (kt === 'nopea' || phv === 'PH') {
     h += '<div style="background:rgba(224,160,64,.1);border:.5px solid rgba(224,160,64,.35);border-radius:8px;padding:9px 11px;margin-bottom:10px">'
-      + '<div style="font-size:11px;color:var(--ink2);line-height:1.4">🌱 <b>§28 kuormaehdotus:</b> ' + (phv === 'PH' ? 'PHV-kasvupyrähdys (varotila)' : 'nopea kasvutahti') + ' — harkitse kevyempää viikkoa (loukkaantumisriski koholla). <b>Sinä päätät.</b></div>'
+      + '<div style="font-size:11px;color:var(--ink2);line-height:1.4">🌱 <b>' + vpT('§28 kuormaehdotus:') + '</b> ' + (phv === 'PH' ? vpT('PHV-kasvupyrähdys (varotila)') : vpT('nopea kasvutahti')) + ' ' + vpT('— harkitse kevyempää viikkoa (loukkaantumisriski koholla).') + ' <b>' + vpT('Sinä päätät.') + '</b></div>'
       + '<div style="display:flex;gap:6px;margin-top:7px;flex-wrap:wrap">'
-      + '<button onclick="event.stopPropagation();_vpViikkoKevenna(\'' + pid + '\')" style="font-family:var(--font-sans);font-size:10.5px;font-weight:500;padding:6px 11px;border-radius:6px;background:rgba(224,160,64,.12);color:var(--amber);border:.5px solid rgba(224,160,64,.4);cursor:pointer">✓ Kevennä esitäyttöä</button>'
-      + '<button onclick="event.stopPropagation();toast(\'Kuorma pidetty ennallaan\',\'ok\')" style="font-family:var(--font-sans);font-size:10.5px;font-weight:500;padding:6px 11px;border-radius:6px;background:var(--ov-1);color:var(--ink2);border:.5px solid var(--border);cursor:pointer">Pidä ennallaan</button></div></div>';
+      + '<button onclick="event.stopPropagation();_vpViikkoKevenna(\'' + pid + '\')" style="font-family:var(--font-sans);font-size:10.5px;font-weight:500;padding:6px 11px;border-radius:6px;background:rgba(224,160,64,.12);color:var(--amber);border:.5px solid rgba(224,160,64,.4);cursor:pointer">' + vpT('✓ Kevennä esitäyttöä') + '</button>'
+      + '<button onclick="event.stopPropagation();toast(\'' + kuormaEnnallaanMsg + '\',\'ok\')" style="font-family:var(--font-sans);font-size:10.5px;font-weight:500;padding:6px 11px;border-radius:6px;background:var(--ov-1);color:var(--ink2);border:.5px solid var(--border);cursor:pointer">' + vpT('Pidä ennallaan') + '</button></div></div>';
   } else {
-    h += '<div style="font-family:var(--font-mono),\'DM Mono\',monospace;font-size:9.5px;color:var(--ink3);margin-bottom:9px">§28: ' + (phv ? (phv === 'PRE' || phv === 'LAH' ? 'pre-PHV' : 'jälki-PHV') : 'kypsyys mittaamatta') + ' — ei kuormarajoitinta.</div>';
+    h += '<div style="font-family:var(--font-mono),\'DM Mono\',monospace;font-size:9.5px;color:var(--ink3);margin-bottom:9px">§28: ' + (phv ? (phv === 'PRE' || phv === 'LAH' ? vpT('pre-PHV') : vpT('jälki-PHV')) : vpT('kypsyys mittaamatta')) + ' ' + vpT('— ei kuormarajoitinta.') + '</div>';
   }
   // Viikkokuorma (AU) + sRPE-palkit Ma–Su (kuorma-visualisointi ennallaan).
   h += '<div style="font-family:var(--font-serif),\'Cormorant Garamond\',serif;font-size:24px;color:var(--ink);margin:2px 0">' + viikkoAU + ' <span style="font-family:var(--font-mono),\'DM Mono\',monospace;font-size:11px;color:var(--ink3)">AU · sRPE</span></div>';
@@ -10018,9 +10019,9 @@ function _vpViikkoKuormaHTML(p, st) {
     h += '<div style="position:relative;display:flex;height:10px;border-radius:5px;overflow:hidden;border:.5px solid var(--border);margin:6px 0 2px;opacity:.6">'
       + '<div style="flex:2;background:var(--ov-2)"></div><div style="flex:2.5;background:rgba(40,176,144,.18)"></div><div style="flex:1.5;background:rgba(224,160,64,.18)"></div><div style="flex:1;background:rgba(201,64,64,.16)"></div>'
       + '<div style="position:absolute;top:-2px;left:' + mk + '%;width:2px;height:14px;background:var(--ink)"></div></div>'
-      + '<div style="display:flex;justify-content:space-between;font-family:var(--font-mono);font-size:8px;color:var(--ink3)"><span>matala</span><span style="color:var(--teal)">turva 0.8–1.3</span><span style="color:var(--amber)">koholla &gt;1.5</span></div>';
+      + '<div style="display:flex;justify-content:space-between;font-family:var(--font-mono);font-size:8px;color:var(--ink3)"><span>' + vpT('matala') + '</span><span style="color:var(--teal)">' + vpT('turva 0.8–1.3') + '</span><span style="color:var(--amber)">' + vpT('koholla &gt;1.5') + '</span></div>';
   }
-  h += '<div style="font-family:var(--font-mono),\'DM Mono\',monospace;font-size:9px;color:var(--ink3);margin-top:8px;line-height:1.45">▲ ACWR vaatii ~4 vk kroonista pohjaa · katkoviiva = suunniteltu · kuorma = valmentajan työkalu, ei pelaajalle (§7.22).</div>';
+  h += '<div style="font-family:var(--font-mono),\'DM Mono\',monospace;font-size:9px;color:var(--ink3);margin-top:8px;line-height:1.45">' + vpT('▲ ACWR vaatii ~4 vk kroonista pohjaa · katkoviiva = suunniteltu · kuorma = valmentajan työkalu, ei pelaajalle (§7.22).') + '</div>';
   return h + '</div>';
 }
 
@@ -11060,8 +11061,8 @@ function _vpKehonValmiusHTML(p) {
     KETJUT.forEach(function (k) { if (k[1] < heikoin[1]) heikoin = k; });   // pienin raaka-arvo = heikoin ketju (bigger-better)
     const klinikka = (flei != null && flei < 40);
     h += '<div style="font-size:12px;color:var(--ink2);margin-bottom:10px;line-height:1.5">'
-      + '🎯 Heikoin ketju: <b style="color:var(--ink)">' + _jsvEsc(heikoin[0]) + '</b> — S-harjoite kohdistuu tähän (§14).'
-      + (klinikka ? ' <span style="color:var(--amber)">⚠️ Kehon valmius alle 40 → klinikkalähetys (§14).</span>' : '')
+      + vpT('🎯 Heikoin ketju:') + ' <b style="color:var(--ink)">' + _jsvEsc(heikoin[0]) + '</b> ' + vpT('— S-harjoite kohdistuu tähän (§14).')
+      + (klinikka ? ' <span style="color:var(--amber)">' + vpT('⚠️ Kehon valmius alle 40 → klinikkalähetys (§14).') + '</span>' : '')
       + '</div>';
   }
   h += (typeof renderFleiKortti === 'function') ? renderFleiKortti(p) : '';
