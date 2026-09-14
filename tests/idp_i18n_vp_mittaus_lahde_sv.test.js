@@ -72,9 +72,9 @@ describe('mittauksen lähdelabel · lähdeväite', () => {
   });
 });
 
-describe('mittauksen lähdelabel · AJETTU render sv-tilassa', () => {
-  let sb;
-  beforeAll(() => {
+// Sandbox on jaettu kaikkien ajettujen renderien kesken (mittauslista · siivouslista · cross-view).
+let sb;
+beforeAll(() => {
     sb = { console: { log() {}, warn() {}, error() {} } };
     sb.window = sb;
     vm.createContext(sb);
@@ -87,7 +87,12 @@ describe('mittauksen lähdelabel · AJETTU render sv-tilassa', () => {
     // Rivirenderi stubataan: testattava label syntyy RYHMÄOTSIKOSSA (_vpMittausListaHTML), ei rivissä.
     // Stubi katkaisee riippuvuusketjun (_jesc ym.) ilman että label-polku muuttuu.
     vm.runInContext("function _vpMittausRiviHTML(){ return '<i>rivi</i>'; }", sb);
-  });
+    // Siivousnäkymä (Erä 4d) — sama container-luokka toisessa näkymässä.
+    vm.runInContext("function _jesc(s){ return String(s == null ? '' : s); }", sb);
+  [poimi('_vpSiivousLahde'), poimi('_vpSiivousListaHTML')].forEach((k) => vm.runInContext(k, sb));
+});
+
+describe('mittauksen lähdelabel · AJETTU render sv-tilassa', () => {
 
   const RIVIT = [
     { id: 'a', pvm: '2026-09-01', lahde: 'pikakirjaus', testi: 'lin30m', arvo: 5.1 },
@@ -114,5 +119,56 @@ describe('mittauksen lähdelabel · AJETTU render sv-tilassa', () => {
   });
   it('EI VACUOUS: sv-ajo tuottaa oikeasti sisältöä (ei tyhjää merkkijonoa)', () => {
     expect(aja('sv').length).toBeGreaterThan(200);
+  });
+});
+
+describe('siivousnäkymä (Erä 4d) · AJETTU render sv-tilassa', () => {
+  const TAPAHTUMAT = [
+    { pvm: '2026-09-01', lahde: 'pikakirjaus', pelaajaMaara: 7 },
+    { pvm: '2026-08-01', lahde: 'testitapahtuma', pelaajaMaara: 12 },
+    { pvm: '2026-07-01', lahde: 'historiatuonti', pelaajaMaara: 3 }
+  ];
+  const aja = (kieli, tap) => {
+    vm.runInContext('tmAsetaKieli(' + JSON.stringify(kieli) + ', false);', sb);
+    sb.__tap = tap;
+    return vm.runInContext("_vpSiivousListaHTML(__tap, 'KPV U13')", sb);
+  };
+
+  it('sv: yksikään fi-label ei jää outputiin', () => {
+    const out = aja('sv', TAPAHTUMAT);
+    ['Pikakirjaus', 'Testitapahtuma', 'Historiatuonti', 'Palloliiton PDF'].forEach((fi) => expect(out).not.toContain(fi));
+    expect(out).toContain('Snabbregistrering');
+    expect(out).toContain('Testhändelse');
+    expect(out).toContain('Historikimport');
+  });
+  it("sv: konkatenaatio-suffiksi ' pelaajaa' → 'spelare'", () => {
+    const out = aja('sv', TAPAHTUMAT);
+    expect(out).not.toContain(' pelaajaa');
+    expect(out).toContain('spelare');
+  });
+  it('sv: TYHJÄTILA käännetty (literaali, nyt myös AST-gaten katteessa)', () => {
+    const out = aja('sv', []);
+    expect(out).not.toContain('Ei muokattavia mittauksia');
+    expect(out).toContain('Inga redigerbara mätningar');
+  });
+  it('fi: siivousnäkymä ennallaan (ei regressiota suomelle)', () => {
+    expect(aja('fi', TAPAHTUMAT)).toContain('Pikakirjaus');
+    expect(aja('fi', [])).toContain('Ei muokattavia mittauksia');
+  });
+});
+
+// TÄMÄN TAITON KOKO POINTTI: sama lähde ei saa näkyä eri kielellä eri näkymissä. Ennen korjausta
+// mittauslista sanoi sv 'Snabbregistrering' ja siivouslista 'Pikakirjaus' — sama data, kaksi kieltä.
+describe('cross-view-konsistenssi · sama lähde, sama sv-muoto', () => {
+  it("lahde='pikakirjaus' → MOLEMMAT listat tuottavat 'Snabbregistrering' sv-tilassa", () => {
+    vm.runInContext("tmAsetaKieli('sv', false);", sb);
+    sb.__rows = [{ id: 'a', pvm: '2026-09-01', lahde: 'pikakirjaus', testi: 'lin30m', arvo: 5.1 }];
+    sb.__tap = [{ pvm: '2026-09-01', lahde: 'pikakirjaus', pelaajaMaara: 7 }];
+    const mittaus = vm.runInContext('_vpMittausListaHTML(__rows, true)', sb);
+    const siivous = vm.runInContext("_vpSiivousListaHTML(__tap, 'KPV U13')", sb);
+    [mittaus, siivous].forEach((out) => {
+      expect(out).toContain('Snabbregistrering');
+      expect(out).not.toContain('Pikakirjaus');
+    });
   });
 });
