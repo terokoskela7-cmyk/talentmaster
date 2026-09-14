@@ -10,7 +10,7 @@
    - Omat staattiset assetit (manifest, ikonit) + versioidut fontit/SDK → cache-first.
    - KAIKKI muu (toisten appien sivut, raw.githubusercontent, jne.) → suoraan verkkoon, EI cachea.
    Scopea ei voi kaventaa (SW juuressa) → allowlist hoitaa rajaamisen. CLAUDE.md §27.4. */
-const CACHE = 'tm-vanhempi-v14';   // i18n V4-B7 — interpolointi-vierus + toast-kerros sv (tm_lang ?v=9) (§27.4)
+const CACHE = 'tm-vanhempi-v15';   // V2 App Check — lib/tm_appcheck.js allowlistiin (§27.4)
 const SHELL = './TalentMaster_Vanhempi_v2.html';
 const PRECACHE = [SHELL];
 
@@ -54,6 +54,10 @@ function onAllowlist(url) {
   if (url.indexOf('/manifest_vanhempi.json') !== -1) return true;
   if (url.indexOf('/tm_sentry.js') !== -1) return true;             // B2 Sentry-wrapper (?v= → cache-first)
   if (url.indexOf('/lib/tm_lang.js') !== -1) return true;           // i18n V0 — käännöstaulukko offline-cacheen
+  if (url.indexOf('/lib/tm_appcheck.js') !== -1) return true;   // V2 App Check — site key + aktivointi
+  // HUOM: reCAPTCHA Enterprise (www.google.com/recaptcha/, gstatic.com/recaptcha/) EI ole
+  // allowlistissa — attestointi on tuore-kutsu, ei cachettavaa. 'gstatic.com/firebasejs/'
+  // -match on kapea eikä osu recaptchaan; app-check-compat.js cachettuu versioidulla URL:lla.
   if (url.indexOf('/docs/testit_indeksit.js') !== -1) return true;  // TKI-laskenta (?v= → cache-first ei vanhene väärin)
   if (url.indexOf('/assets/pwa/') !== -1) return true;       // omat ikonit
   if (url.indexOf('gstatic.com/firebasejs/') !== -1) return true;         // Firebase SDK (versioitu URL)
