@@ -17,7 +17,7 @@
 <!-- Eerikkilä-normit + universaali testirekisteri (eerikkilaTaso, laskeFVP) — 10m/5m-tasot + FVP-profiili -->
 <script src="lib/tm_lang.js?v=9"></script>   <!-- i18n V0 — fi/sv/en käännöstaulukko + t() + kieli-init (putkitus) -->
 <script src="lib/tm_i18n_common.js?v=2"></script>   <!-- i18n Vaihe 0 — JAETTU henkilöstö-i18n + lukittu glossaari (ENNEN sivukarttaa) -->
-<script src="lib/tm_vp_i18n.js?v=42"></script>   <!-- i18n Vaihe 5 — VP sv (sivukartta); vpT/vpLokalisoi delegoivat commoniin -->
+<script src="lib/tm_vp_i18n.js?v=43"></script>   <!-- i18n Vaihe 5 — VP sv (sivukartta); vpT/vpLokalisoi delegoivat commoniin -->
 
 
 <script src="lib/tm_eerikkila_normit.js?v=45"></script>   <!-- v43: D2-kortti d2_taso-ensin (renderKehityskorttiHTML, PR #264 · §30/#262) -->
@@ -3540,7 +3540,7 @@ async function renderSignals(seuraId) {
   const lista = document.getElementById('signaalitLista');
   if (!lista) return;
   if (!seuraId) {
-    lista.innerHTML = '<div class="empty-state"><div class="empty-icon">·</div><div class="empty-title">Ei seurakontekstia</div><div class="empty-sub">Valitse seura ladataksesi signaalit</div></div>';
+    lista.innerHTML = '<div class="empty-state"><div class="empty-icon">·</div><div class="empty-title">' + vpT('Ei seurakontekstia') + '</div><div class="empty-sub">' + vpT('Valitse seura ladataksesi signaalit') + '</div></div>';
     return;
   }
 
@@ -3557,9 +3557,9 @@ async function renderSignals(seuraId) {
       signaalit.push({
         prio: 'crit',
         icon: '!',
-        title: v.nimi + ' — mentorointi-kirjaus puuttuu',
+        title: v.nimi + ' ' + vpT('— mentorointi-kirjaus puuttuu'),
         sub: (v.joukkue || '—') + ' · ' + kuvaus,
-        cta: 'Avaa mentorointi →',
+        cta: vpT('Avaa mentorointi →'),
         ctaClass: 'red-cta',
         action: "avaaCoachPanel('" + v.id + "')",
         sortKey: -pvt
@@ -3573,9 +3573,9 @@ async function renderSignals(seuraId) {
       signaalit.push({
         prio: 'warn',
         icon: '✦',
-        title: (p.etunimi || '') + ' ' + (p.sukunimi || '') + ' — Hidden Gem -kynnys ylittynyt',
-        sub: (p.joukkue || '—') + ' · Valmius ' + p.flei_viimeisin + ' · ei talenttiohjelmassa',
-        cta: 'Vahvista nominointi →',
+        title: (p.etunimi || '') + ' ' + (p.sukunimi || '') + ' ' + vpT('— Hidden Gem -kynnys ylittynyt'),
+        sub: (p.joukkue || '—') + ' ' + vpT('· Valmius') + ' ' + p.flei_viimeisin + ' ' + vpT('· ei talenttiohjelmassa'),
+        cta: vpT('Vahvista nominointi →'),
         ctaClass: 'amber-cta',
         action: "setWs('pelaajat')",
         playerId: p.id,
@@ -3589,9 +3589,9 @@ async function renderSignals(seuraId) {
     signaalit.push({
       prio: 'warn',
       icon: 'i',
-      title: _idpJono.length + ' IDP-ehdotusta odottaa hyväksyntää',
-      sub: 'Valmentaja ehdottaa, VP hyväksyy kriteeristöä vasten',
-      cta: 'Hyväksy →',
+      title: _idpJono.length + ' ' + vpT('IDP-ehdotusta odottaa hyväksyntää'),
+      sub: vpT('Valmentaja ehdottaa, VP hyväksyy kriteeristöä vasten'),
+      cta: vpT('Hyväksy →'),
       ctaClass: 'amber-cta',
       action: "scrollIdpJono()",
       sortKey: -_idpJono.length
@@ -3616,17 +3616,17 @@ async function renderSignals(seuraId) {
       if (koko >= 3 && pct < 40) {
         signaalit.push({
           prio: 'warn', icon: '○',
-          title: j + ' — ' + teksti + ' ' + (koko - lkm) + '/' + koko + ':ltä',
-          sub: 'Kattavuus ' + pct + '% · alle 40%',
-          cta: 'Avaa testit →', ctaClass: 'amber-cta',
+          title: j + ' — ' + teksti + ' ' + (koko - lkm) + '/' + koko + vpT(':ltä'),
+          sub: vpT('Kattavuus') + ' ' + pct + vpT('% · alle 40%'),
+          cta: vpT('Avaa testit →'), ctaClass: 'amber-cta',
           action: "setWs('kalenteri')",
           sortKey: -(40 - pct)
         });
       }
     };
-    kattavuusSig(pel.filter(p => p.tki_viimeisin != null).length, 'tekniikkatulokset puuttuvat');           // S6
-    kattavuusSig(pel.filter(p => p.hh_taso != null || p.hh_viimeisin).length, 'fyysistestit puuttuvat');     // S7
-    kattavuusSig(pel.filter(p => p.flei_viimeisin != null).length, 'liikehallintatestit puuttuvat');         // S8
+    kattavuusSig(pel.filter(p => p.tki_viimeisin != null).length, vpT('tekniikkatulokset puuttuvat'));           // S6
+    kattavuusSig(pel.filter(p => p.hh_taso != null || p.hh_viimeisin).length, vpT('fyysistestit puuttuvat'));     // S7
+    kattavuusSig(pel.filter(p => p.flei_viimeisin != null).length, vpT('liikehallintatestit puuttuvat'));         // S8
     // S9 — ADAR-havainnointi: >5 pelaajaa, mutta <30% saanut ≥3 havaintoa viim. 30 pv.
     // Mittaa valmentajan aktiivisuutta pelaajien havainnoinnissa (ERI kuin S1 = ei kirjauksia lainkaan).
     if (koko > 5) {
@@ -3637,9 +3637,9 @@ async function renderSignals(seuraId) {
       if (pct < 30) {
         signaalit.push({
           prio: 'warn', icon: '◔',
-          title: j + ' — valmentaja ei ole havainnoinut pelaajia riittävästi (' + havainnoidut + '/' + koko + ' pelaajaa)',
-          sub: 'Alle 30% pelaajista ≥3 pelihavaintoa viim. 30 pv',
-          cta: 'Avaa valmentajan näkymä →', ctaClass: 'amber-cta',
+          title: j + ' ' + vpT('— valmentaja ei ole havainnoinut pelaajia riittävästi (') + havainnoidut + '/' + koko + ' ' + vpT('pelaajaa)'),
+          sub: vpT('Alle 30% pelaajista ≥3 pelihavaintoa viim. 30 pv'),
+          cta: vpT('Avaa valmentajan näkymä →'), ctaClass: 'amber-cta',
           action: "setWs('valmentajat')",
           sortKey: -(30 - pct) - 5
         });
@@ -3654,9 +3654,9 @@ async function renderSignals(seuraId) {
     const _yksi = _d3Odottaa.length === 1;
     signaalit.push({
       prio: 'warn', icon: '🧠',
-      title: 'D3-itsearvio odottaa kalibrointia — ' + _d3Odottaa.length + ' pelaaja' + (_yksi ? '' : 'a') + ' arvioi itsensä',
-      sub: 'Lisää valmentajan arvio → trianguloitu D3 (avaa pelaajakortti · "Arvioi (VP)")',
-      cta: 'Avaa pelaajat →', ctaClass: 'amber-cta',
+      title: vpT('D3-itsearvio odottaa kalibrointia —') + ' ' + _d3Odottaa.length + ' ' + (_yksi ? vpT('pelaaja') : vpT('pelaajaa')) + ' ' + vpT('arvioi itsensä'),
+      sub: vpT('Lisää valmentajan arvio → trianguloitu D3 (avaa pelaajakortti · "Arvioi (VP)")'),
+      cta: vpT('Avaa pelaajat →'), ctaClass: 'amber-cta',
       action: "setWs('pelaajat')",
       playerId: _yksi ? _d3Odottaa[0].id : undefined,
       sortKey: -_d3Odottaa.length
@@ -3692,9 +3692,9 @@ async function renderSignals(seuraId) {
       signaalit.push({
         prio: 'warn',
         icon: '⌥',
-        title: 'PHV-vaiheessa olevia pelaajia + ' + lisays + ' (yhteensä ' + phvCount + ')',
-        sub: 'Kuormakalibraatio suositeltu — tarkista harjoitusvolyymi',
-        cta: 'Avaa kalibraatio →',
+        title: vpT('PHV-vaiheessa olevia pelaajia +') + ' ' + lisays + ' ' + vpT('(yhteensä') + ' ' + phvCount + ')',
+        sub: vpT('Kuormakalibraatio suositeltu — tarkista harjoitusvolyymi'),
+        cta: vpT('Avaa kalibraatio →'),
         ctaClass: 'amber-cta',
         action: "setWs('pelaajat')",
         sortKey: -lisays
@@ -3715,9 +3715,9 @@ async function renderSignals(seuraId) {
       signaalit.push({
         prio: 'crit',
         icon: '!',
-        title: (r.pelaaja.etunimi || '') + ' ' + (r.pelaaja.sukunimi || '') + ' — PHV-vaihe, ei kirjauksia ' + PHV_KIRJAUS_RAJA_PV + ' pv',
-        sub: (r.pelaaja.joukkue || '—') + ' · kuormaseuranta katkennut',
-        cta: 'Katso pelaaja →',
+        title: (r.pelaaja.etunimi || '') + ' ' + (r.pelaaja.sukunimi || '') + ' ' + vpT('— PHV-vaihe, ei kirjauksia') + ' ' + PHV_KIRJAUS_RAJA_PV + ' pv',
+        sub: (r.pelaaja.joukkue || '—') + ' ' + vpT('· kuormaseuranta katkennut'),
+        cta: vpT('Katso pelaaja →'),
         ctaClass: 'red-cta',
         action: "setWs('pelaajat')",
         playerId: r.pelaaja.id,
@@ -3737,13 +3737,13 @@ async function renderSignals(seuraId) {
   const top5 = signaalit.slice(0, 5);
 
   if (top5.length === 0) {
-    lista.innerHTML = '<div class="empty-state"><div class="empty-icon">✓</div><div class="empty-title">Ei avoimia toimenpiteitä tänään</div><div class="empty-sub">Kaikki valmentajat aktiivisia, ei kriittisiä signaaleja</div></div>';
+    lista.innerHTML = '<div class="empty-state"><div class="empty-icon">✓</div><div class="empty-title">' + vpT('Ei avoimia toimenpiteitä tänään') + '</div><div class="empty-sub">' + vpT('Kaikki valmentajat aktiivisia, ei kriittisiä signaaleja') + '</div></div>';
   } else {
     lista.innerHTML = top5.map(s => {
       const action = (s.action || '').replace(/"/g, '&quot;');
-      const prioTxt = s.prio === 'crit' ? '<span class="sig-dot sig-dot--crit"></span>KRIITTINEN'
-                    : s.prio === 'warn' ? '<span class="sig-dot sig-dot--warn"></span>HUOMIO'
-                    : s.prio === 'info' ? 'INFO' : 'HYVÄ';
+      const prioTxt = s.prio === 'crit' ? '<span class="sig-dot sig-dot--crit"></span>' + vpT('KRIITTINEN')
+                    : s.prio === 'warn' ? '<span class="sig-dot sig-dot--warn"></span>' + vpT('HUOMIO')
+                    : s.prio === 'info' ? vpT('INFO') : vpT('HYVÄ');
       return '<div class="signal-card ' + s.prio + '" onclick="' + action + '">' +
         '<div class="signal-icon">' + s.icon + '</div>' +
         '<div class="signal-text">' +
