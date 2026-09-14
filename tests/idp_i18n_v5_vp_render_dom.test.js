@@ -37,7 +37,7 @@ const acorn = require('acorn');
 const HTML = readFileSync(join(__dir, '..', 'TalentMaster_VP_v25.html'), 'utf8');
 
 const RLO = 2680, RHI = 18065;              // VP pääscript (1-idx)
-const RANGES = [[8182, 9364], [12744, 13894], [11805, 12544], [3778, 3866], [8027, 8052], [14330, 14694], [14696, 15329], [15333, 15834], [15914, 16028], [16030, 16119], [4176, 4250], [5115, 5182], [15298, 15374], [17074, 17154], [17961, 17977], [7029, 7313], [5724, 7028], [4498, 4608], [16127, 16271], [4609, 5114], [4341, 4442], [3539, 3766], [9981, 10026], [11055, 11070]]; // V3 _jsv · V4 kalenteri · V5 valmentajat · V6 IDP-jono · V7a MDT · V7b Reviewit+tuloskortti. V7c–V8: lisää.
+const RANGES = [[8182, 9364], [12744, 13894], [11805, 12544], [3778, 3866], [8027, 8052], [14330, 14694], [14696, 15329], [15333, 15834], [15914, 16028], [16030, 16119], [4176, 4250], [5115, 5182], [15298, 15374], [17074, 17154], [17961, 17977], [7029, 7313], [5724, 7028], [4498, 4608], [16127, 16271], [4609, 5114], [4341, 4442], [3539, 3766], [9981, 10026], [11055, 11070], [10598, 10616], [10618, 10650], [10879, 10934], [10973, 10997], [10999, 11007], [11009, 11016], [11021, 11051]]; // V3 _jsv · V4 kalenteri · V5 valmentajat · V6 IDP-jono · V7a MDT · V7b Reviewit+tuloskortti. V7c–V8: lisää.
 const ROUTED_FNS = new Set(['vpT', 'vpTToimenpide']);
 
 // §7 lib-curriculum-nimet (jäävät fi → allowlist)
@@ -166,7 +166,12 @@ function scanLeaks(src, ranges, lineOffset, LIB) {
   };
 
   const inRange = (ln) => ranges.some(([lo, hi]) => ln >= lo && ln <= hi);
-  const isLib = (t) => { if (LIB.has(t)) return true; for (const L of LIB) if (L.length >= 6 && (t === L || t.startsWith(L) || (t.length >= 6 && L.startsWith(t)))) return true; return false; };
+  // Erä 4 -korjaus: isLib oli PREFIX-match → mikä tahansa chrome-teksti joka ALKAA lib-nimellä
+  // allowlistattiin. Lib-nimi 'Fyysinen' peitti chrome-tekstin 'Fyysinen ikkuna' ja 'Tekninen' peitti
+  // 'Tekninen vahvuus' — molemmat vuotivat sv-tilassa gaten ollessa vihreä (live paljasti). Nyt
+  // täsmäys on EKSAKTI; ainoa jousto on ympäröivä välimerkki/whitespace, jonka palanpoiminta voi jättää.
+  const libTrim = (x) => x.replace(/^[·—–\-/:()%.,+;!?"'\s]+/, '').replace(/[·—–\-/:()%.,+;!?"'\s]+$/, '');
+  const isLib = (t) => LIB.has(t) || LIB.has(libTrim(t));
   // routed = TÄMÄ solmu on jonkin vpT-argin char-rangen sisällä (per-occurrence, ei globaali)
   const inVpt = (s, e) => VPT_ARG_RANGES.some(([rs, re]) => rs <= s && e <= re);
 
@@ -283,7 +288,73 @@ describe('VP_v25 render-kielineutraali-gate (step G · AST)', () => {
     //     ei ole AST-kutsu (Erä 1:n kanavaportti ei näe) eikä >text< (render-gate ei näe). Reititys
     //     tehdään muuttujaan ennen merkkijonoa; vartija lukitsee sen.
     { expr: "'Kuorma pidetty ennallaan'", ranges: [[9981, 10026]] },
+    // ── Erä 4 (mittausnäkymät). Kaksi luokkaa, kumpikin eri syystä gaten ulottumattomissa:
+    // (4) CODEISH-PIILO: 'muokattavissa'/'luku' OVAT markup-ketjussa (display-konteksti tunnistuu),
+    //     mutta codeish pudottaa ne bare-lowercase-tokeneina → sokeus tulee SISÄLLÖSTÄ, ei kontekstista.
+    //     Tämä on erän 1. tapaus jossa luokka 4 esiintyy YKSINÄÄN (erässä 3 se kasautui luokan 5 päälle).
+    { expr: "'muokattavissa'", ranges: [[10618, 10650]] },
+    { expr: "'luku'", ranges: [[10618, 10650]] },
+    // (5) CONTAINER/MUUTTUJA: arvo sidottu VariableDeclaratoriin (mt @10606, patteristo @10983),
+    //     renderöidään vasta myöhemmin markupissa → inDisplayContext=false.
+    { expr: "'mitätöity '", ranges: [[10598, 10616]] },
+    { expr: "'H-H-patteristo'", ranges: [[10973, 10997]] },
+    { expr: "'tekniikkakilpailu'", ranges: [[10973, 10997]] },
+    { expr: "'mittaus'", ranges: [[10973, 10997]] },
   ];
+  // Erä 4 (mittausnäkymät, _vpMittaus*-perhe) — ALUE-todiste 7 funktion yli.
+  it('RANGES-alueet _vpMittaus* ovat oikeasti valvonnassa (mutaatio aitoon lähteeseen)', () => {
+    const lines = HTML.split('\n');
+    const src = lines.slice(RLO - 1, RHI - 1).join('\n');
+    expect(scanLeaks(src, RANGES, RLO - 1, LIB).length).toBe(0);
+    // kaksi eri funktiota perheen eri päistä → todistaa ettei vain yksi ankkuri osu
+    const r1 = src.replace("vpT('Korjaa mittaus')", "'Korjaa mittaus'");
+    expect(r1).not.toBe(src);
+    expect(scanLeaks(r1, RANGES, RLO - 1, LIB).map((l) => l.p)).toContain('Korjaa mittaus');
+    const r2 = src.replace("vpT('Mitä testit kertovat')", "'Mitä testit kertovat'");
+    expect(r2).not.toBe(src);
+    const l2 = scanLeaks(r2, RANGES, RLO - 1, LIB);
+    expect(l2.map((l) => l.p)).toContain('Mitä testit kertovat');
+    expect(l2.every((l) => l.line >= 10598 && l.line <= 11051)).toBe(true);
+  });
+
+  // Erä 4c — ENUM→NÄYTTÖ. TKI-mitali ('kulta'/'hopea'/'pronssi') on Firestore-arvo joka renderöityy
+  // sellaisenaan; identifier-lauseke → AST-gate ei näe. LIVE paljasti "(TKI hopea)" sv-tilassa (gate
+  // vihreä). Käännös tehdään VAIN renderissä — tallennettu arvo pysyy fi:nä (§23 tki_merkki).
+  // MEMBER_DISPLAY ei sovi tähän: kääre on _jsvEsc(vpT(merkki)), jolloin vartijan etsimä lauseke ei
+  // esiinny lähteessä lainkaan → se menisi vacuous-läpi. Siksi eksplisiittinen lähdeväite.
+  it('TKI-mitali renderöidään vpT:n läpi, ei raakana enum-arvona', () => {
+    const alue = HTML.split('\n').slice(11020, 11051).join('\n');
+    expect(alue).toContain('vpT(merkki)');
+    expect(alue).not.toMatch(/_jsvEsc\(merkki\)/);
+    // ja mitaliarvot ovat kartassa (muuten vpT palauttaisi fi:n)
+    const kartta = readFileSync(join(__dir, '..', 'lib', 'tm_vp_i18n.js'), 'utf8');
+    ['kulta', 'hopea', 'pronssi'].forEach((k) => expect(kartta).toContain("'" + k + "':"));
+  });
+
+  // Erä 4b — isLib-KAVENNUS. Live paljasti että gate oli vihreä vaikka 'Fyysinen ikkuna' ja
+  // 'Tekninen vahvuus' renderöityivät suomeksi: isLib oli PREFIX-match, ja lib-nimet 'Fyysinen'/
+  // 'Tekninen' allowlistasivat minkä tahansa niillä ALKAVAN chrome-tekstin. Kavennus = eksakti
+  // täsmäys (+ ympäröivä välimerkki). Ilman tätä casea kavennus voisi palautua huomaamatta.
+  it('isLib täsmää EKSAKTISTI — lib-nimellä alkava chrome-teksti EI ole allowlistattu', () => {
+    const lib = new Set(['Fyysinen', 'Tekninen', 'Pallonhallinta']);
+    const snip = "function _n(){ return '<div><b>Fyysinen ikkuna</b> ja <b>Tekninen vahvuus</b></div>'; }";
+    const hits = scanLeaks(snip, [[1, 99]], 0, lib).map((l) => l.p);
+    expect(hits).toEqual(expect.arrayContaining(['Fyysinen ikkuna', 'Tekninen vahvuus']));
+    // …mutta PELKKÄ lib-nimi (myös välimerkein) pysyy allowlistattuna — muuten curriculum-nimet vuotaisivat
+    const puhdas = "function _p(){ return '<div><b>Fyysinen</b> · <b>Pallonhallinta,</b></div>'; }";
+    expect(scanLeaks(puhdas, [[1, 99]], 0, lib).map((l) => l.p)).toEqual([]);
+  });
+
+  // Erä 4 — TODISTE ETTÄ GATE ON SOKEA luokille 4 ja 5 (→ MEMBER_DISPLAY on ainoa vartija).
+  it('codeish-bare-token ja container-muuttuja EIVÄT näy scanLeaksille', () => {
+    // (4) display-konteksti tunnistuu, mutta codeish pudottaa bare-lowercase-tokenin
+    const bare = "function _m(v){ return '<div>' + (v ? 'muokattavissa' : 'luku') + '</div>'; }";
+    expect(scanLeaks(bare, [[1, 99]], 0, new Set())).toEqual([]);
+    // (5) arvo VariableDeclaratorissa, renderöidään vasta myöhemmin
+    const cont = "function _c(a,b){ var mt = 'mitätöity ' + a; return '<span>' + mt + '</span>'; }";
+    expect(scanLeaks(cont, [[1, 99]], 0, new Set())).toEqual([]);
+  });
+
   // Erä 3 (kuormanarratiivi) — ALUE-todiste + KAHDEN SOKEAN LUOKAN todiste. Huom: luokat (a) ja (b)
   // EIVÄT näy scanLeaksille lainkaan, joten niiden regressio on todistettava MEMBER_DISPLAY-vartijan
   // kautta (alla oma it()), ei gaten kautta. Tämä it() todistaa vain RANGES-alueen valvonnan.
