@@ -31,7 +31,10 @@ const SIHTEERI = 'siht-fcl', TALVAL = 'talval-fcl', ANON = 'anon-pin';
 
 let testEnv;
 const SPEC = { avain: 't_h0', suunta: 'ylos', pelimuoto: '8v8', pelaajat: [{ id: 'a', joukkue: 'oma', rooli: 'syöttäjä', x: 50, y: 50 }] };
-const kaavio = (status, joukkueId) => ({ spec: SPEC, review: { status, nakyvyys: 'joukkue', joukkueId: joukkueId || JOUKKUE_A1, luonut: VALM_A1 } });
+const kaavio = (status, joukkueId, versio) => ({ spec: SPEC, review: { status, nakyvyys: 'joukkue', joukkueId: joukkueId || JOUKKUE_A1, luonut: VALM_A1, versio: versio == null ? 0 : versio } });
+// Versiolukko (B2): jokainen update NOSTAA versiota tasan yhdellä. Testien päivitykset menevät
+// tämän kautta, jottei lukko jää huomaamatta vihreäksi väärästä syystä.
+const paivita = (kentat, versio) => Object.assign({}, kentat, { 'review.versio': (versio == null ? 0 : versio) + 1 });
 
 beforeAll(async () => {
   testEnv = await initializeTestEnvironment({
@@ -88,33 +91,33 @@ describe('kaaviot · KIRJOITUS — seura- ja joukkue-skooppi', () => {
   // puuttuu → rules-virhe → deny), ei seura-skoopista. Pari eristää skoopin ainoaksi eroksi.
   it('VP EI kirjoita TOISEN seuran kaavioon — mutta OMAN seuran samaan dokumenttiin kyllä', async () => {
     const toinen = testEnv.authenticatedContext('vp-kpv', { rooli: 'vp', seuraId: SEURA_B }).firestore();
-    await assertFails(updateDoc(kd(toinen, 'k_luonnos'), { 'review.status': 'odottaa' }));
-    await assertSucceeds(updateDoc(kd(vp(SEURA_A), 'k_luonnos'), { 'review.status': 'odottaa' }));
+    await assertFails(updateDoc(kd(toinen, 'k_luonnos'), paivita({ 'review.status': 'odottaa' })));
+    await assertSucceeds(updateDoc(kd(vp(SEURA_A), 'k_luonnos'), paivita({ 'review.status': 'odottaa' })));
   });
   it('valmentaja EI kirjoita TOISEN JOUKKUEEN kaavioon', async () => {
-    await assertFails(updateDoc(kd(valm(VALM_A1, SEURA_A), 'k_toinen_joukkue'), { 'review.status': 'odottaa' }));
+    await assertFails(updateDoc(kd(valm(VALM_A1, SEURA_A), 'k_toinen_joukkue'), paivita({ 'review.status': 'odottaa' })));
   });
   it('valmentaja kirjoittaa OMAN joukkueensa kaavioon (ei-vacuous)', async () => {
-    await assertSucceeds(updateDoc(kd(valm(VALM_A1, SEURA_A), 'k_luonnos'), { 'review.status': 'odottaa' }));
+    await assertSucceeds(updateDoc(kd(valm(VALM_A1, SEURA_A), 'k_luonnos'), paivita({ 'review.status': 'odottaa' })));
   });
   it('talenttivalmentaja ohittaa joukkuerajauksen seuran sisällä', async () => {
-    await assertSucceeds(updateDoc(kd(talval(), 'k_toinen_joukkue'), { 'review.status': 'odottaa' }));
+    await assertSucceeds(updateDoc(kd(talval(), 'k_toinen_joukkue'), paivita({ 'review.status': 'odottaa' })));
   });
 });
 
 describe('kaaviot · STATUSSIIRROT — katselmus ei saa ohittua', () => {
   it('suora luonnos→hyvaksytty ESTETTY (myös VP:ltä)', async () => {
-    await assertFails(updateDoc(kd(vp(SEURA_A), 'k_luonnos'), { 'review.status': 'hyvaksytty' }));
+    await assertFails(updateDoc(kd(vp(SEURA_A), 'k_luonnos'), paivita({ 'review.status': 'hyvaksytty' })));
   });
   it('luonnos→odottaa→hyvaksytty sallittu (ei-vacuous)', async () => {
-    await assertSucceeds(updateDoc(kd(valm(VALM_A1, SEURA_A), 'k_luonnos'), { 'review.status': 'odottaa' }));
-    await assertSucceeds(updateDoc(kd(vp(SEURA_A), 'k_odottaa'), { 'review.status': 'hyvaksytty' }));
+    await assertSucceeds(updateDoc(kd(valm(VALM_A1, SEURA_A), 'k_luonnos'), paivita({ 'review.status': 'odottaa' })));
+    await assertSucceeds(updateDoc(kd(vp(SEURA_A), 'k_odottaa'), paivita({ 'review.status': 'hyvaksytty' })));
   });
   it('valmentaja EI hyväksy odottavaa', async () => {
-    await assertFails(updateDoc(kd(valm(VALM_A1, SEURA_A), 'k_odottaa'), { 'review.status': 'hyvaksytty' }));
+    await assertFails(updateDoc(kd(valm(VALM_A1, SEURA_A), 'k_odottaa'), paivita({ 'review.status': 'hyvaksytty' })));
   });
   it('SEURASIHTEERI EI hyväksy (onJohtoRooli olisi päästänyt)', async () => {
-    await assertFails(updateDoc(kd(siht(), 'k_odottaa'), { 'review.status': 'hyvaksytty' }));
+    await assertFails(updateDoc(kd(siht(), 'k_odottaa'), paivita({ 'review.status': 'hyvaksytty' })));
   });
   it('uusi kaavio EI voi syntyä hyväksyttynä', async () => {
     await assertFails(setDoc(kd(valm(VALM_A1, SEURA_A), 'uusi1'), kaavio('hyvaksytty')));
@@ -125,11 +128,55 @@ describe('kaaviot · STATUSSIIRROT — katselmus ei saa ohittua', () => {
 describe('kaaviot · UUDELLEENHYVÄKSYNTÄ', () => {
   it('valmentajan muokkaus hyväksyttyyn PAKOTTAA takaisin odottamaan', async () => {
     const db = valm(VALM_A1, SEURA_A);
-    await assertFails(updateDoc(kd(db, 'k_hyvaksytty'), { spec: { ...SPEC, suunta: 'alas' } }));            // status jäisi hyväksytyksi
-    await assertSucceeds(updateDoc(kd(db, 'k_hyvaksytty'), { spec: { ...SPEC, suunta: 'alas' }, 'review.status': 'odottaa' }));
+    await assertFails(updateDoc(kd(db, 'k_hyvaksytty'), paivita({ spec: { ...SPEC, suunta: 'alas' } })));            // status jäisi hyväksytyksi
+    await assertSucceeds(updateDoc(kd(db, 'k_hyvaksytty'), paivita({ spec: { ...SPEC, suunta: 'alas' }, 'review.status': 'odottaa' })));
   });
   it('VP saa muokata hyväksyttyä ilman pudotusta (itse-kierros ei lisää kontrollia)', async () => {
-    await assertSucceeds(updateDoc(kd(vp(SEURA_A), 'k_hyvaksytty'), { spec: { ...SPEC, suunta: 'alas' } }));
+    await assertSucceeds(updateDoc(kd(vp(SEURA_A), 'k_hyvaksytty'), paivita({ spec: { ...SPEC, suunta: 'alas' } })));
+  });
+});
+
+describe('kaaviot · OPTIMISTINEN VERSIOLUKKO (B2)', () => {
+  // Kaavio on kokonaisuutena korvattava dokumentti: spec kirjoitetaan aina kokonaan, joten
+  // hiljainen ylikirjoitus menettäisi KOKO toisen piirroksen. Lukko on siksi datan eheyttä,
+  // ei pääsyoikeutta — se koskee myös SA:ta.
+  it('oikea +1 SALLITAAN (ei-vacuous)', async () => {
+    await assertSucceeds(updateDoc(kd(vp(SEURA_A), 'k_luonnos'), { 'review.status': 'odottaa', 'review.versio': 1 }));
+  });
+  it('VANHENTUNUT versio (sama kuin nykyinen) ESTETÄÄN — samanaikainen kirjoittaja', async () => {
+    await assertFails(updateDoc(kd(vp(SEURA_A), 'k_luonnos'), { 'review.status': 'odottaa', 'review.versio': 0 }));
+  });
+  it('versio-HYPPY (+2) estetään — ohittaisi välissä tehdyn muutoksen', async () => {
+    await assertFails(updateDoc(kd(vp(SEURA_A), 'k_luonnos'), { 'review.status': 'odottaa', 'review.versio': 2 }));
+  });
+  it('versio-LASKU estetään — palauttaisi vanhan tilan', async () => {
+    await testEnv.withSecurityRulesDisabled(async (c) => {
+      await setDoc(doc(c.firestore(), 'seurat', SEURA_A, 'kaaviot', 'k_v5'), kaavio('luonnos', JOUKKUE_A1, 5));
+    });
+    await assertFails(updateDoc(kd(vp(SEURA_A), 'k_v5'), { 'review.status': 'odottaa', 'review.versio': 4 }));
+    await assertSucceeds(updateDoc(kd(vp(SEURA_A), 'k_v5'), { 'review.status': 'odottaa', 'review.versio': 6 }));
+  });
+  it('versio puuttuu updatesta kokonaan → estetään (ei saa ohittaa lukkoa jättämällä kentän pois)', async () => {
+    await assertFails(updateDoc(kd(vp(SEURA_A), 'k_luonnos'), { 'review.status': 'odottaa' }));
+  });
+  it('luonti vaatii versio == 0', async () => {
+    await assertFails(setDoc(kd(valm(VALM_A1, SEURA_A), 'uusi_v3'), kaavio('luonnos', JOUKKUE_A1, 3)));
+    await assertSucceeds(setDoc(kd(valm(VALM_A1, SEURA_A), 'uusi_v0'), kaavio('luonnos', JOUKKUE_A1, 0)));
+  });
+  it('lukko koskee MYÖS super_adminia (eheys, ei oikeus)', async () => {
+    await assertFails(updateDoc(kd(sa(), 'k_luonnos'), { 'review.status': 'odottaa', 'review.versio': 0 }));
+    await assertSucceeds(updateDoc(kd(sa(), 'k_luonnos'), { 'review.status': 'odottaa', 'review.versio': 1 }));
+  });
+});
+
+describe('kaaviot · KIRJAUTUMATON (A:n avoin kovennus taitettu B2:een)', () => {
+  it('kirjautumaton EI lue edes hyväksyttyä', async () => {
+    const db = testEnv.unauthenticatedContext().firestore();
+    await assertFails(getDoc(kd(db, 'k_hyvaksytty')));
+  });
+  it('kirjautumaton EI lue kanonista', async () => {
+    const db = testEnv.unauthenticatedContext().firestore();
+    await assertFails(getDoc(doc(db, 'kaaviot', 't_h0')));
   });
 });
 
@@ -186,12 +233,24 @@ describe('kaaviot · POLICY-PARITEETTI (lib vs rules)', () => {
     expect(P.kaavioSiirtoSallittu('luonnos', 'hyvaksytty', vpCtx)).toBe(false);
     expect(P.kaavioSiirtoSallittu('odottaa', 'hyvaksytty', vpCtx)).toBe(true);
     // sama säännöissä
-    await assertFails(updateDoc(kd(vp(SEURA_A), 'k_luonnos'), { 'review.status': 'hyvaksytty' }));
-    await assertSucceeds(updateDoc(kd(vp(SEURA_A), 'k_odottaa'), { 'review.status': 'hyvaksytty' }));
+    await assertFails(updateDoc(kd(vp(SEURA_A), 'k_luonnos'), paivita({ 'review.status': 'hyvaksytty' })));
+    await assertSucceeds(updateDoc(kd(vp(SEURA_A), 'k_odottaa'), paivita({ 'review.status': 'hyvaksytty' })));
+  });
+
+  it('VERSIOLUKKO on identtinen libissä ja säännöissä', async () => {
+    const doc0 = { seuraId: SEURA_A, review: { status: 'luonnos', joukkueId: JOUKKUE_A1, versio: 0 } };
+    expect(P.kaavioSeuraavaVersio(doc0)).toBe(1);
+    expect(P.kaavioVersioKelpaa(doc0, 1)).toBe(true);
+    expect(P.kaavioVersioKelpaa(doc0, 0)).toBe(false);   // vanhentunut
+    expect(P.kaavioVersioKelpaa(doc0, 2)).toBe(false);   // hyppy
+    // sama säännöissä
+    await assertFails(updateDoc(kd(vp(SEURA_A), 'k_luonnos'), { 'review.status': 'odottaa', 'review.versio': 0 }));
+    await assertFails(updateDoc(kd(vp(SEURA_A), 'k_luonnos'), { 'review.status': 'odottaa', 'review.versio': 2 }));
+    await assertSucceeds(updateDoc(kd(vp(SEURA_A), 'k_luonnos'), { 'review.status': 'odottaa', 'review.versio': 1 }));
   });
 
   it('seurasihteeri ei ole hyväksyjä kummassakaan', async () => {
     expect(P.kaavioOnHyvaksyja({ rooli: 'seurasihteeri', seuraId: SEURA_A })).toBe(false);
-    await assertFails(updateDoc(kd(siht(), 'k_odottaa'), { 'review.status': 'hyvaksytty' }));
+    await assertFails(updateDoc(kd(siht(), 'k_odottaa'), paivita({ 'review.status': 'hyvaksytty' })));
   });
 });
