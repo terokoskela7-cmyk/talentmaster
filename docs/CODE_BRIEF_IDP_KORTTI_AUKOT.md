@@ -49,7 +49,7 @@ Kausitavoite → **välitavoitteet** → jaksofokus (arkkitehtuuri). Kortti näy
 
 **Valmis pohja koodissa:**
 - **Rooli `fysioterapeutti`** — firestore.rules jo: kirjoittaa `jaksofokus` + `jaksofokus_historia` (v3.11, fyysisen jakson sulku/arvio) ja `ohjelmat` (v3.12). Näkyy jo Palaute-välilehdellä (mockupin "Sanna Laine · Fysiikkavalmentaja").
-- **Kuntoutusprotokollat valmiina:** `src/lib/hpp_rehab_protokollat.js` — HPP ELITE v1.0, **7 vamma-aluetta, 53 harjoitteen kirjasto**. Jokaisella harjoitteella: `vaihe` (Acute/Subacute/Chronic/All), **`phv_ok`** (turvallinen kasvupyrähdyksessä), `cue`, `fascia`, `progressio`. Pohja: Anatomy Trains + Palloliiton Huuhkajapolku. Data päivittyy klinikalta ilman koodimuutoksia (`HPP_EXERCISES`).
+- **Kuntoutusprotokollat valmiina:** `lib/hpp_rehab_protokollat.js` — HPP ELITE v1.0, **7 vamma-aluetta, 53 harjoitteen kirjasto**. Jokaisella harjoitteella: `vaihe` (Acute/Subacute/Chronic/All), **`phv_ok`** (turvallinen kasvupyrähdyksessä), `cue`, `fascia`, `progressio`. Pohja: Anatomy Trains + Palloliiton Huuhkajapolku. Data päivittyy klinikalta ilman koodimuutoksia (`HPP_EXERCISES`).
 
 **Visio (kun rakennetaan):**
 1. **Saatavuus-status (§2.1) on ankkuri.** Kun fysioterapeutti merkitsee "rajoitettu/loukkaantunut", kortti näyttää statuksen ja **linkittää HPP_REHAB_PROTOKOLLAT-protokollan** (vamma-alue → vaihe → harjoitteet, `phv_ok`-suodatettu pelaajan PHV-tilan mukaan).

@@ -24,7 +24,7 @@ ohjelmat/{id}
 - **Versiointi:** editointi luo **uuden doc-id:n** (`versio+1`, `edellinen_versio_id`), ei ylikirjoita. Käynnissä olevat/suljetut jaksot pitävät ajetun version (snapshot). Kirjasto näyttää oletuksena uusimman ei-arkistoidun.
 
 ## 2. Ohjelmaeditori (Master_v16 — fysiikkavalmentaja; VP_v25 — oversight)
-- **Kentät:** nimi · tyyppi (custom-dropdown §37) · kuvaus · kesto_vk · **viikko-ohjelma** (lisää vaihe: nimi, viikkoväli, intensiteetti %, ohje, mittari, harjoitteet). Harjoitteet joko **HPP_EXERCISES-viittaus** (`src/lib/hpp_rehab_protokollat.js` — valikko) tai vapaateksti.
+- **Kentät:** nimi · tyyppi (custom-dropdown §37) · kuvaus · kesto_vk · **viikko-ohjelma** (lisää vaihe: nimi, viikkoväli, intensiteetti %, ohje, mittari, harjoitteet). Harjoitteet joko **HPP_EXERCISES-viittaus** (`lib/hpp_rehab_protokollat.js` — valikko) tai vapaateksti.
 - **Aloita valmiista:** "Uusi kirjastosta" → esitäyttö V7:n kevyt-templaatista (§10.1 `TM_OHJELMA_TEMPLAATIT`) TAI Everton 6 vk plyo-progressiosta (`EVERTON_LISAYKSET.loikat.ll.P_lisays`) TAI HPP-rehab-protokollasta (kuntoutus). Fysiikkavalmentaja muokkaa → tallenna kirjastoon.
 - **PURE-lib `lib/tm_ohjelma.js`** (§34, dual-export, Vitest): `tmOhjelmaValidoi(o)` (pakolliset kentät, vaiheiden intensiteetti-järkevyys) · `tmOhjelmaVersioi(vanha, muutokset)` → uusi versio-objekti · `tmOhjelmaTemplaatista(tyyppi)` (lainaa V7 `tmOhjelmaTemplaatti` + Everton/HPP-rakenteet). EI Firestore/DOM.
 - **⚠ GDPR Art. 9 (kuntoutus):** `kuvaus`/`harjoitteet` = harjoitussisältöä (esim. "eksentrinen takareisi 2×/vk"), EI diagnooseja. Vamma-/terveystieto → `terveys/`-alikokoelma erikseen. Editori estää (validointi + UI-huomio): ei diagnoosi-kenttää ohjelmassa.
