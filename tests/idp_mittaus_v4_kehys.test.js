@@ -107,7 +107,7 @@ describe('kytkentä tab-1:een (rakenteellinen)', () => {
   it('tuoreus + §28-linssi ENNEN f1, nextstep f2:n jälkeen', () => {
     const iTuoreus = HTML.indexOf('_vpMittausTuoreusHTML(p, ika) :');
     const iLinssi = HTML.indexOf('_vpMittausLinssiHTML(p, ika) :');
-    const iF1 = HTML.indexOf("_mSub('Fyysinen · mitattu') + f1");
+    const iF1 = HTML.indexOf("_mSub(vpT('Fyysinen · mitattu')) + f1");
     const iNext = HTML.indexOf('_vpMittausNextStepHTML(p) :');
     expect(iTuoreus).toBeGreaterThan(0);
     expect(iTuoreus).toBeLessThan(iLinssi);

@@ -95,7 +95,7 @@ describe('synth — kytkentä tab-1:een (rakenteellinen)', () => {
   it('synth §28-linssin JÄLKEEN, f1:n EDELLÄ', () => {
     const iLinssi = HTML.indexOf('_vpMittausLinssiHTML(p, ika) :');
     const iSynth = HTML.indexOf('_vpMittausSynthHTML(p, ika, d1, d2, tsi) :');
-    const iF1 = HTML.indexOf("_mSub('Fyysinen · mitattu') + f1");
+    const iF1 = HTML.indexOf("_mSub(vpT('Fyysinen · mitattu')) + f1");
     expect(iLinssi).toBeLessThan(iSynth);
     expect(iSynth).toBeLessThan(iF1);
   });

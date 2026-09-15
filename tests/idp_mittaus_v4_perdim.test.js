@@ -50,8 +50,9 @@ describe('DATA-EHEYS — async hydraation säiliö-id:t säilyvät (pala 3:n ydi
 
 describe('§28 + brändi säilyy', () => {
   it('gated (kasvu/epävarma) → 🌱 kypsyys huomioitu, ei väärää arviota; low → amber', () => {
-    expect(HTML).toContain('🌱 taso ');
-    expect(HTML).toContain('kypsyys huomioitu (§28)');
+    // i18n V5 · V8k-1: 🌱 ja taso-luku pysyvät kehyksessä, tekstit vpT-reititetty (§28-guard ennallaan).
+    expect(HTML).toContain("'🌱 ' + vpT('taso') + ' '");
+    expect(HTML).toContain("vpT('kypsyys huomioitu (§28)')");
     // hero gated → ink3 (ei väri-arvio)
     expect(HTML).toContain("(_kd === 'kasvu' || _kd === 'epavarma') ? 'var(--ink3)' : hhTasoVari(d1)");
   });

@@ -26,7 +26,7 @@ describe('f2 hero/trow-reflow — v4 rakenne (peilaa f1)', () => {
     expect(HTML).toContain('Lähellä 0 = ei lajitekniikkavajetta.');
   });
   it('TSI-meta "automatisoitunut" vain <0.8 (§14, yhtenäinen synthin kanssa)', () => {
-    expect(HTML).toContain("tsi < 0.8 ? ' · <span class=\"open\">automatisoitunut</span>' : ''");
+    expect(HTML).toContain("tsi < 0.8 ? ' · <span class=\"open\">' + vpT('automatisoitunut') + '</span>' : ''");
   });
 });
 
