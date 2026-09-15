@@ -42,6 +42,14 @@ const PROD = /Talent|Master|Hidden Gem|X-Factor|Underdog|Benchmark/; // V8a: + B
 const EIF = /Tekniikkakilpailu|HH-testi (laaja|suppea)|Harjoitettavuus U(12|15|19)/; // EIF-pending
 const ABBR_ONLY = /^(?:FI|EN|VP|IDP|PHV|HoT|EPPP|RAE|KORI|5D|[\s·—–\-/:()%.,+↑↓→▸≥≤0-9]|&amp;|&nbsp;)+$/;
 const hasWord = (t) => /[A-Za-zÄÖÅäöå]{3,}/.test(t);
+/* V8h: PROD/EIF olivat SUBSTRING-testejä → yksikin tuotetermi teki koko tekstistä näkymättömän.
+   Löytyi kun underdog-suodatinnapin title="Underdog = Q4 (nuorin) + jokin taso ≥3 → poikkeuksellinen
+   pitkän tähtäimen lupaus" EI mennyt punaiseksi vaikka data-i18n-title puuttui: sana "Underdog" peitti
+   loput 60 merkkiä suomea. Sama vikaluokka jonka render-gate korjasi (V7b-live-oppi 0A) — sallittu vain
+   jos tuotetermien JÄLKEEN ei jää suomen sanaa. Blast radius mitattu ennen lukitsemista: 0 uutta osumaa. */
+const stripAllow = (t) => t.replace(/Talent|Master|Hidden Gem|X-Factor|Underdog|Benchmark/g, ' ')
+  .replace(/Tekniikkakilpailu|HH-testi (?:laaja|suppea)|Harjoitettavuus U(?:12|15|19)/g, ' ');
+const sallittu = (t) => !hasWord(stripAllow(t));
 
 function scanStaticLeaks(lines) {
   const leaks = [];
@@ -62,7 +70,7 @@ function scanStaticLeaks(lines) {
     const re = />([^<>{}`]+)</g;
     while ((m = re.exec(line))) {
       const t = m[1].trim();
-      if (!t || !sv(t) || PROD.test(t) || EIF.test(t) || ABBR_ONLY.test(t)) continue;
+      if (!t || !sv(t) || sallittu(t) || ABBR_ONLY.test(t)) continue;
       const op = Math.max(0, line.lastIndexOf('<', m.index));
       // data-i18n leaf-tagissa TAI data-i18n-html esi-elementissä samalla rivillä (esim. <h2 data-i18n-html>…<em>x</em>)
       if (line.slice(op, m.index).includes('data-i18n') || line.slice(0, m.index).includes('data-i18n-html')) continue;
@@ -73,7 +81,7 @@ function scanStaticLeaks(lines) {
     const ra = /(?:title|placeholder)="([^"]*)"/g;
     while ((a = ra.exec(line))) {
       const t = a[1].trim();
-      if (!t || !sv(t) || PROD.test(t) || EIF.test(t) || ABBR_ONLY.test(t)) continue;
+      if (!t || !sv(t) || sallittu(t) || ABBR_ONLY.test(t)) continue;
       const op = Math.max(0, line.lastIndexOf('<', a.index));
       let tagEnd = line.indexOf('>', a.index); if (tagEnd < 0) tagEnd = line.length;
       if (line.slice(op, tagEnd).includes('data-i18n-')) continue; // data-i18n-title/-ph koko tagissa (attr voi olla title=:n jälkeen)
