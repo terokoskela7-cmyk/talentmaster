@@ -24,7 +24,10 @@ beforeAll(() => {
   let e = -1;
   for (let i = s + 1; i < lines.length; i++) { if (lines[i] === '}') { e = i; break; } }
   if (e < 0) throw new Error('funktion loppua ei löytynyt');
-  F = new Function('window', lines.slice(s, e + 1).join('\n') + '\nreturn _vpSulkuJaksosidosHTML;')({ TM_KEHITYSKAARI: K });
+  // V8f: funktio on nyt i18n-reititetty (vpT). Nämä ovat KARAKTERISOINTITESTEJÄ jotka väittävät
+  // fi-ulostulosta → identiteetti-stubi pitää ne fi-tilassa ilman koko i18n-pinoa. sv-puolen
+  // todistaa render-gate + resolvi, ei tämä tiedosto.
+  F = new Function('window', 'var vpT = function (x) { return x; };\n' + lines.slice(s, e + 1).join('\n') + '\nreturn _vpSulkuJaksosidosHTML;')({ TM_KEHITYSKAARI: K });
 });
 
 const JAKSO = { alkoi: '2026-02-15', paattyi: '2026-05-15' };
@@ -141,7 +144,9 @@ describe('K2 wiring — _vpSulkuRender kutsuu helperiä oikeilla argumenteilla',
     expect(VP).toContain('phvNeutraali: (typeof onNeutraaliPrePHV === \'function\') ? onNeutraaliPrePHV(p) : false');
   });
   it('EI koske ① Edistymä-lohkoon / tmFyysDelta:aan (kutsut yhä olemassa)', () => {
-    expect(VP).toContain('① Edistymä — peli edellä');
+    // V8f: otsikko on reititetty (① pysyy markupissa, teksti vpT:n takana) — väite kohdistuu
+    // yhä samaan lohkoon, nyt reititetyssä muodossa.
+    expect(VP).toContain("① ' + vpT('Edistymä — peli edellä')");
     expect(VP).toContain('_FLIB.tmFyysDelta(p, S.alkoi, jf.konsepti_avain)');
   });
 });
