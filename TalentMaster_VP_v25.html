@@ -19,7 +19,7 @@
 <!-- Eerikkilä-normit + universaali testirekisteri (eerikkilaTaso, laskeFVP) — 10m/5m-tasot + FVP-profiili -->
 <script src="lib/tm_lang.js?v=9"></script>   <!-- i18n V0 — fi/sv/en käännöstaulukko + t() + kieli-init (putkitus) -->
 <script src="lib/tm_i18n_common.js?v=2"></script>   <!-- i18n Vaihe 0 — JAETTU henkilöstö-i18n + lukittu glossaari (ENNEN sivukarttaa) -->
-<script src="lib/tm_vp_i18n.js?v=52"></script>   <!-- i18n Vaihe 5 — VP sv (sivukartta); vpT/vpLokalisoi delegoivat commoniin -->
+<script src="lib/tm_vp_i18n.js?v=53"></script>   <!-- i18n Vaihe 5 — VP sv (sivukartta); vpT/vpLokalisoi delegoivat commoniin -->
 
 
 <script src="lib/tm_eerikkila_normit.js?v=45"></script>   <!-- v43: D2-kortti d2_taso-ensin (renderKehityskorttiHTML, PR #264 · §30/#262) -->
@@ -9875,17 +9875,17 @@ function _avaaKorjaaTestipvm() {
   var tyyppiOpt = ctx.tyypit.map(function(t){ return '<option value="' + t.k + '">' + t.nimi + '</option>'; }).join('');
   var h = '<div id="_korjModal" style="position:fixed;inset:0;background:rgba(17,17,16,.92);z-index:340;display:flex;align-items:center;justify-content:center;padding:20px" onclick="if(event.target===this)this.remove()">'
     + '<div style="background:var(--bg2);border:.5px solid var(--border);border-radius:12px;max-width:380px;width:100%;padding:20px" onclick="event.stopPropagation()">'
-    + '<div style="font-size:16px;font-weight:600;color:var(--ink);margin-bottom:4px">Korjaa testipäivä</div>'
-    + '<div style="font-size:12px;color:var(--ink3);margin-bottom:14px">' + _jsvEsc(ctx.joukkue) + ' — korjaa väärin tuotu testipäivä koko joukkueelle.</div>'
-    + '<label style="font-size:11px;color:var(--ink3);display:block;margin-bottom:4px">Testityyppi</label>'
+    + '<div style="font-size:16px;font-weight:600;color:var(--ink);margin-bottom:4px">' + vpT('Korjaa testipäivä') + '</div>'
+    + '<div style="font-size:12px;color:var(--ink3);margin-bottom:14px">' + _jsvEsc(ctx.joukkue) + ' — ' + vpT('korjaa väärin tuotu testipäivä koko joukkueelle.') + '</div>'
+    + '<label style="font-size:11px;color:var(--ink3);display:block;margin-bottom:4px">' + vpT('Testityyppi') + '</label>'
     + '<select id="_korjTyyppi" style="width:100%;padding:8px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);color:var(--ink);margin-bottom:12px">' + tyyppiOpt + '</select>'
-    + '<label style="font-size:11px;color:var(--ink3);display:block;margin-bottom:4px">Uusi päivämäärä</label>'
+    + '<label style="font-size:11px;color:var(--ink3);display:block;margin-bottom:4px">' + vpT('Uusi päivämäärä') + '</label>'
     + '<input type="date" id="_korjPvm" value="' + (ctx.pvm || '') + '" style="width:100%;padding:8px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);color:var(--ink);margin-bottom:12px;box-sizing:border-box">'
-    + '<label style="font-size:11px;color:var(--ink2);display:flex;align-items:center;gap:6px;margin-bottom:14px;cursor:pointer"><input type="checkbox" id="_korjVain" checked style="width:auto"> Vain pelaajat joiden nykyinen pvm = ' + (ctx.pvm || '—') + '</label>'
+    + '<label style="font-size:11px;color:var(--ink2);display:flex;align-items:center;gap:6px;margin-bottom:14px;cursor:pointer"><input type="checkbox" id="_korjVain" checked style="width:auto"> ' + vpT('Vain pelaajat joiden nykyinen pvm =') + ' ' + (ctx.pvm || '—') + '</label>'
     + '<div id="_korjStatus" style="font-size:12px;color:var(--ink3);min-height:16px;margin-bottom:10px"></div>'
     + '<div style="display:flex;gap:8px">'
-    + '<button onclick="_suoritaKorjaaTestipvm()" style="flex:1;padding:10px;background:var(--teal);border:none;border-radius:8px;color:#000;font-weight:700;cursor:pointer">Korjaa</button>'
-    + '<button onclick="document.getElementById(\'_korjModal\').remove()" style="padding:10px 16px;background:none;border:.5px solid var(--border);border-radius:8px;color:var(--ink2);cursor:pointer">Peru</button>'
+    + '<button onclick="_suoritaKorjaaTestipvm()" style="flex:1;padding:10px;background:var(--teal);border:none;border-radius:8px;color:#000;font-weight:700;cursor:pointer">' + vpT('Korjaa') + '</button>'
+    + '<button onclick="document.getElementById(\'_korjModal\').remove()" style="padding:10px 16px;background:none;border:.5px solid var(--border);border-radius:8px;color:var(--ink2);cursor:pointer">' + vpT('Peru') + '</button>'
     + '</div></div></div>';
   var w = document.createElement('div'); w.innerHTML = h; document.body.appendChild(w.firstChild);
 }
@@ -9895,16 +9895,16 @@ async function _suoritaKorjaaTestipvm() {
   var pvm = document.getElementById('_korjPvm').value;
   var vain = document.getElementById('_korjVain').checked;
   var st = document.getElementById('_korjStatus');
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(pvm)) { st.textContent = 'Anna kelvollinen päivämäärä.'; return; }
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(pvm)) { st.textContent = vpT('Anna kelvollinen päivämäärä.'); return; }
   var tnimi = (ctx.tyypit.filter(function(t){ return t.k === tyyppi; })[0] || {}).nimi || tyyppi;
   if (!confirm(vpT('Korjataan joukkueen "') + ctx.joukkue + '" ' + tnimi + vpT('-testipäivä →') + ' ' + pvm
       + (vain && ctx.pvm ? ' ' + vpT('(vain nykyinen') + ' ' + ctx.pvm + ')' : ' ' + vpT('(kaikki)')) + '?')) return;
-  st.textContent = 'Korjataan…';
+  st.textContent = vpT('Korjataan…');
   try {
     var fn = firebase.app().functions('europe-west1').httpsCallable('korjaaJoukkueenTestipvm');
     var res = await fn({ seuraId: ctx.seuraId, joukkue: ctx.joukkue, testityyppi: tyyppi, uusiPvm: pvm, vanhaPvm: (vain && ctx.pvm) ? ctx.pvm : null });
     var pv = (res && res.data && res.data.paivitetty) || 0;
-    st.textContent = '✅ ' + pv + ' pelaajaa korjattu.';
+    st.textContent = '✅ ' + pv + ' ' + vpT('pelaajaa korjattu.');
     if (typeof lataaPelaajat === 'function') { try { await lataaPelaajat(); } catch(e){} }
     setTimeout(function(){
       var km = document.getElementById('_korjModal'); if (km) km.remove();
@@ -14193,7 +14193,7 @@ function renderVpTestit() {
     var dim = tulossa ? 'opacity:.6;cursor:pointer;' : '';
     var kortinOnclick = tulossa ? ' onclick="_vpTestitTulossa()"' : '';
     var oikea = tulossa
-      ? '<span style="background:var(--surface-2);color:var(--ink3);font-size:10px;letter-spacing:.04em;text-transform:uppercase;padding:3px 9px;border-radius:20px;border:.5px solid var(--border);white-space:nowrap">tulossa</span>'
+      ? '<span style="background:var(--surface-2);color:var(--ink3);font-size:10px;letter-spacing:.04em;text-transform:uppercase;padding:3px 9px;border-radius:20px;border:.5px solid var(--border);white-space:nowrap">' + vpT('tulossa') + '</span>'
       : '<button class="vkk-cta" onclick="' + onclick + '">' + esc(ctaLabel) + '</button>';
     return '<div class="vpkoti-kortti" style="' + dim + '"' + kortinOnclick + '>'
       + '<div class="vkk-ik">' + ik + '</div>'
@@ -14203,19 +14203,19 @@ function renderVpTestit() {
   };
 
   var h = '';
-  h += '<div style="font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:var(--teal);font-weight:600;margin-bottom:6px">🧪 Testit</div>';
-  h += '<div class="page-title" data-i18n="Kirjaa ja tuo testituloksia">Kirjaa ja tuo testituloksia</div>';
-  h += '<div class="page-sub">Kaikki testidatan kirjaaminen samasta paikasta. Testitapahtumat näkyvät edelleen myös kalenterissa.</div>';
+  h += '<div style="font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:var(--teal);font-weight:600;margin-bottom:6px">🧪 ' + vpT('Testit') + '</div>';
+  h += '<div class="page-title">' + vpT('Kirjaa ja tuo testituloksia') + '</div>';
+  h += '<div class="page-sub">' + vpT('Kaikki testidatan kirjaaminen samasta paikasta. Testitapahtumat näkyvät edelleen myös kalenterissa.') + '</div>';
 
   // ── Ryhmä: Kirjaa nyt ──
-  h += '<div class="section-hd" style="margin-top:22px">Kirjaa nyt</div>';
+  h += '<div class="section-hd" style="margin-top:22px">' + vpT('Kirjaa nyt') + '</div>';
   h += '<div class="vpkoti-kortit">';
   h += kortti('📝', 'Kirjaa kentällä', 'Testaustyökalu: valitse protokolla/testit ja syötä tulokset pelaaja kerrallaan. Toimii myös offline.', 'Avaa →', '_vpTestitKirjaaKentalla()', false);
   h += kortti('⚡', 'Pikakirjaus', 'Kevyt lomake yhden tai useamman pelaajan tulokselle ilman tapahtumaa. Valitse testipäivä vapaasti.', 'Avaa →', '_vpPikakirjaus()', false);
   h += '</div>';
 
   // ── Ryhmä: Tuo tiedostosta ──
-  h += '<div class="section-hd" style="margin-top:24px">Tuo tiedostosta</div>';
+  h += '<div class="section-hd" style="margin-top:24px">' + vpT('Tuo tiedostosta') + '</div>';
   h += '<div class="vpkoti-kortit">';
   h += kortti('📊', 'Excel-pohja', 'Lataa seuran Excel-pohja, täytä tulokset ja tuo ne järjestelmään.', 'Avaa →', '_vpTestitTuo()', false);
   h += kortti('🗂️', 'Historiatuonti', 'Aiempien vuosien testitulokset Excelistä (historiapohja, ei vaadi tapahtumaa).', 'Avaa →', "_vpTestitTuo('moodi=historia')", false);
@@ -14223,26 +14223,26 @@ function renderVpTestit() {
   h += '</div>';
 
   // ── Siivoa mittauksia (E1a — koottu per-pelaaja testituloksista, joukkuerajattu; design-kartta §1) ──
-  h += '<div class="section-hd" style="margin-top:24px">Siivoa mittauksia</div>';
-  h += '<div style="font-size:12px;color:var(--ink3);margin-bottom:8px;line-height:1.4">Muokattava arkisto (Pikakirjaus + historia/Excel-tuonti) joukkueittain — avaa tapahtuma, mitätöi tai korjaa kirjattuja mittauksia.</div>';
+  h += '<div class="section-hd" style="margin-top:24px">' + vpT('Siivoa mittauksia') + '</div>';
+  h += '<div style="font-size:12px;color:var(--ink3);margin-bottom:8px;line-height:1.4">' + vpT('Muokattava arkisto (Pikakirjaus + historia/Excel-tuonti) joukkueittain — avaa tapahtuma, mitätöi tai korjaa kirjattuja mittauksia.') + '</div>';
   var _joukkueet = {};
   (typeof _pelaajat !== 'undefined' ? _pelaajat : []).forEach(function (p) { if (p && p.joukkue) _joukkueet[p.joukkue] = true; });
   var _jlista = Object.keys(_joukkueet).sort();
   h += '<select onchange="_vpSiivousValitseJoukkue(this.value)" style="min-width:220px;padding:8px 10px;border:.5px solid var(--border);border-radius:6px;background:var(--bg3);color:var(--ink);font-family:inherit;font-size:13px">'
-    + '<option value="">— Valitse joukkue —</option>'
+    + '<option value="">— ' + vpT('Valitse joukkue') + ' —</option>'
     + _jlista.map(function (j) { return '<option>' + esc(j) + '</option>'; }).join('')
-    + (_jlista.length ? '' : '<option value="" disabled>(ei joukkueita)</option>')
+    + (_jlista.length ? '' : '<option value="" disabled>(' + vpT('ei joukkueita') + ')</option>')
     + '</select>';
   h += '<div id="_vpSiivousLista" style="margin-top:8px"></div>';
 
   // ── Viimeksi testattu (jo ladatusta _tapahtumat:sta) ──
-  h += '<div class="section-hd" style="margin-top:24px">Viimeksi testattu</div>';
+  h += '<div class="section-hd" style="margin-top:24px">' + vpT('Viimeksi testattu') + '</div>';
   var lista = _vpTestitViimeksi(typeof _tapahtumat !== 'undefined' ? _tapahtumat : [], 5);
   if (!lista.length) {
     h += '<div class="vpkoti-kortti"><div class="vkk-ik">🧪</div>'
-      + '<div class="vkk-txt"><div style="font-weight:600">Ei vielä testejä</div>'
-      + '<div style="font-size:12px;color:var(--ink3);margin-top:3px">Kirjaa ensimmäinen tulos kentällä tai tuo tiedostosta.</div></div>'
-      + '<button class="vkk-cta" onclick="_vpTestitKirjaaKentalla()">Kirjaa →</button></div>';
+      + '<div class="vkk-txt"><div style="font-weight:600">' + vpT('Ei vielä testejä') + '</div>'
+      + '<div style="font-size:12px;color:var(--ink3);margin-top:3px">' + vpT('Kirjaa ensimmäinen tulos kentällä tai tuo tiedostosta.') + '</div></div>'
+      + '<button class="vkk-cta" onclick="_vpTestitKirjaaKentalla()">' + vpT('Kirjaa →') + '</button></div>';
   } else {
     for (var i = 0; i < lista.length; i++) {
       var t = lista[i];
@@ -14252,7 +14252,7 @@ function renderVpTestit() {
       // (koottu per-pelaaja testituloksista). Rivi säilyy: koko rivi → avaaTapahtumaV9 (Testaus_v9).
       h += '<div onclick="avaaTapahtumaV9(\'' + esc(t.id) + '\')" style="display:flex;align-items:center;gap:12px;padding:12px 14px;border:.5px solid var(--border);border-radius:10px;background:var(--bg3);cursor:pointer;margin-bottom:8px">'
         + '<div style="flex:1;min-width:0"><div style="font-weight:600;font-size:14px;color:var(--ink)">' + esc(otsikko) + '</div>'
-        + '<div style="font-size:12px;color:var(--ink3);margin-top:2px">' + n + ' pelaajaa · ' + esc(_vpTestitPvm(t.pvm)) + '</div></div>'
+        + '<div style="font-size:12px;color:var(--ink3);margin-top:2px">' + n + ' ' + vpT('pelaajaa') + ' · ' + esc(_vpTestitPvm(t.pvm)) + '</div></div>'
         + '<div style="color:var(--ink3);flex:0 0 auto">→</div></div>';
     }
   }
