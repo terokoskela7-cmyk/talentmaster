@@ -130,6 +130,7 @@ function scanLeaks(src, ranges, lineOffset, LIB) {
   }
 
   // display-konteksti zero-markup-literaalille: '+' -ketju markup/vpT · toast/_setTxt/_dSet-arg · .textContent=/.innerText=/.innerHTML=
+  const ID_ARG0 = new Set(['_setTxt', 'set', '_dSet']);   // (elementId, teksti) — arg 0 = id, ei näyttöä
   const SETTER_FNS = new Set(['toast', '_setTxt', '_dSet', 'idrow', 'kpi', 'fp', 'set', 'sel', 'tier', 'act', 'row', 'kattavuusSig']); // V7d: tier(n,l,col)/act(sev,teksti,sub,nappi) — label-argit näyttöä // V7a idrow · V7b kpi/fp/set · V7c sel(id,label,opts) — label-arg näyttöä // V8e-JF2: row(accId,ico,eyebrow,title,…) IDP-haitari — eyebrow/title-argit näyttöä (Jaksohistoria vuoti)
   const TXT_PROPS = new Set(['textContent', 'innerText', 'innerHTML']);
   const DISPLAY_PROPS = new Set(['teksti', 'title', 'sub', 'cta']); // V7b-live: object-property display-arvo (badge-objektit teksti:'🏥 Valmius'+x — gate-sokea epäsuora display)
@@ -160,7 +161,18 @@ function scanLeaks(src, ranges, lineOffset, LIB) {
         ctp.callee.property && ctp.callee.property.name === 'push' && ctp.arguments.includes(ct)) return true;
     let p = parentOf.get(node);
     for (let i = 0; p && i < 8; i++, p = parentOf.get(p)) {
-      if (p.type === 'CallExpression' && p.callee && p.callee.type === 'Identifier' && SETTER_FNS.has(p.callee.name)) return true;
+      if (p.type === 'CallExpression' && p.callee && p.callee.type === 'Identifier' && SETTER_FNS.has(p.callee.name)) {
+        // V8k: ID-ARGUMENTTI EI OLE NÄYTTÖÄ. _setTxt/set/_dSet ottavat (elementId, teksti) — koko-scriptin
+        // lukko paljasti ~30 väärää positiivista ('greeting-name', 'season-phase', 'topbar-avatar'),
+        // koska esivanhempikävely leimasi KAIKKI argumentit näytöksi. Vain arg 0 rajataan pois ja vain
+        // näiltä kolmelta; muiden setterien argumenttijärjestys on erilainen (toast, idrow, kpi…).
+        if (ID_ARG0.has(p.callee.name)) {
+          let q = node, r = parentOf.get(q);
+          while (r && r !== p) { q = r; r = parentOf.get(r); }
+          if (r === p && p.arguments[0] === q) return false;
+        }
+        return true;
+      }
     }
     return false;
   };
