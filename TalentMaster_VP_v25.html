@@ -19,7 +19,7 @@
 <!-- Eerikkilä-normit + universaali testirekisteri (eerikkilaTaso, laskeFVP) — 10m/5m-tasot + FVP-profiili -->
 <script src="lib/tm_lang.js?v=9"></script>   <!-- i18n V0 — fi/sv/en käännöstaulukko + t() + kieli-init (putkitus) -->
 <script src="lib/tm_i18n_common.js?v=2"></script>   <!-- i18n Vaihe 0 — JAETTU henkilöstö-i18n + lukittu glossaari (ENNEN sivukarttaa) -->
-<script src="lib/tm_vp_i18n.js?v=56"></script>   <!-- i18n Vaihe 5 — VP sv (sivukartta); vpT/vpLokalisoi delegoivat commoniin -->
+<script src="lib/tm_vp_i18n.js?v=57"></script>   <!-- i18n Vaihe 5 — VP sv (sivukartta); vpT/vpLokalisoi delegoivat commoniin -->
 
 
 <script src="lib/tm_eerikkila_normit.js?v=45"></script>   <!-- v43: D2-kortti d2_taso-ensin (renderKehityskorttiHTML, PR #264 · §30/#262) -->
@@ -7576,12 +7576,12 @@ function _jfOhjausAlusta(pid, esiValinta, lahde, domeeni) {
 // _jfLinkitSlot) → kaikki olemassa olevat re-render-handlerit toimivat sellaisenaan. Ei modaalia, ei reimplementointia.
 function _vpJfInlineHTML(p) {
   if (!p || !_jfOhjausAlusta(p.id)) return '';   // alusta editointitila (oletus aktiivisesta jaksofokuksesta)
-  const yli = (p.talenttiOhjelma !== true) ? '<div style="font-size:11px;color:var(--blue);background:rgba(42,93,176,.1);border:.5px solid rgba(42,93,176,.3);border-radius:8px;padding:8px 11px;margin-bottom:10px">ℹ️ Override: valmentaja omistaa kentän — asetat/muutat VP-oversightina (§4).</div>' : '';
+  const yli = (p.talenttiOhjelma !== true) ? '<div style="font-size:11px;color:var(--blue);background:rgba(42,93,176,.1);border:.5px solid rgba(42,93,176,.3);border-radius:8px;padding:8px 11px;margin-bottom:10px">ℹ️ ' + vpT('Override: valmentaja omistaa kentän — asetat/muutat VP-oversightina (§4).') + '</div>' : '';
   return '<div id="_jfInlineEditor" class="jsp-jf-focal">' + yli
     + '<div id="_vpJfToggle">' + _vpJfToggleHTML(p) + '</div>'
     + '<div id="_jfOhjausSlot">' + _vpJfBodyHTML(p) + '</div>'
     + '<div id="_jfLinkitSlot">' + _vpJfLinkitHTML(p) + '</div>'
-    + '<div style="font-size:10px;color:var(--ink3);margin-top:10px">👁 Jaksofokus näkyy pelaajalle (Pelaaja-app) · domeenin vaihto arkistoi vanhan jakson automaattisesti · yksi jaksofokus kerrallaan.</div>'
+    + '<div style="font-size:10px;color:var(--ink3);margin-top:10px">👁 ' + vpT('Jaksofokus näkyy pelaajalle (Pelaaja-app) · domeenin vaihto arkistoi vanhan jakson automaattisesti · yksi jaksofokus kerrallaan.') + '</div>'
     + '</div>';
 }
 
@@ -7602,10 +7602,10 @@ window._jfOhjaa = function (pid, esiValinta, lahde, domeeni) {
   }
   // Fallback: modaali (jos inline-editoria ei ole mountattu tässä näkymässä).
   document.getElementById('_jfModal')?.remove();
-  const yli = (p.talenttiOhjelma !== true) ? '<div style="font-size:11px;color:var(--blue);background:rgba(42,93,176,.1);border:.5px solid rgba(42,93,176,.3);border-radius:8px;padding:8px 11px;margin-bottom:10px">ℹ️ Override: valmentaja omistaa kentän — asetat/muutat VP-oversightina (§4).</div>' : '';
+  const yli = (p.talenttiOhjelma !== true) ? '<div style="font-size:11px;color:var(--blue);background:rgba(42,93,176,.1);border:.5px solid rgba(42,93,176,.3);border-radius:8px;padding:8px 11px;margin-bottom:10px">ℹ️ ' + vpT('Override: valmentaja omistaa kentän — asetat/muutat VP-oversightina (§4).') + '</div>' : '';
   let h = '<div id="_jfModal" style="position:fixed;inset:0;background:rgba(17,17,16,.92);z-index:360;display:flex;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(8px)" onclick="if(event.target===this)this.remove()">';
   h += '<div style="background:var(--bg2);border:.5px solid var(--border);border-radius:14px;padding:22px;width:520px;max-width:96vw;max-height:90vh;overflow-y:auto" onclick="event.stopPropagation()">';
-  h += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px"><div style="font-family:\'Cormorant Garamond\',serif;font-size:20px;color:var(--ink)">' + (p.talenttiOhjelma === true ? '⭐ ' : '') + _jsvEsc(_jfNimi(p)) + ' — jaksofokus</div>'
+  h += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px"><div style="font-family:\'Cormorant Garamond\',serif;font-size:20px;color:var(--ink)">' + (p.talenttiOhjelma === true ? '⭐ ' : '') + _jsvEsc(_jfNimi(p)) + ' — ' + vpT('jaksofokus') + '</div>'
     + '<button onclick="document.getElementById(\'_jfModal\').remove()" style="background:none;border:none;color:var(--ink3);font-size:22px;cursor:pointer;padding:0 6px">×</button></div>';
   h += yli;
   h += '<div id="_vpJfToggle">' + _vpJfToggleHTML(p) + '</div>';
@@ -7905,11 +7905,11 @@ function _vpJfTukiHTML(jf, opts) {
   if (!linkit.length && !kr) return '';
   let h = '';
   if (linkit.length) {
-    h += '<div style="margin-top:' + (opts.tight ? '6' : '10') + 'px;font-size:11.5px;color:var(--ink3)">→ Tukena: '
+    h += '<div style="margin-top:' + (opts.tight ? '6' : '10') + 'px;font-size:11.5px;color:var(--ink3)">→ ' + vpT('Tukena:') + ' '
       + linkit.map(function (l) { return '<span style="display:inline-block;background:var(--ov-1);border:.5px solid var(--border);border-radius:999px;padding:2px 9px;margin:2px 4px 2px 0;color:var(--ink2)">' + domIkoni(l.domeeni) + ' ' + _jsvEsc(l.konsepti_nimi) + '</span>'; }).join('') + '</div>';
   }
   if (kr) {
-    h += '<div style="margin-top:8px;font-size:12px;color:var(--ink2);background:rgba(40,176,144,.07);border:.5px solid rgba(40,176,144,.25);border-radius:8px;padding:8px 11px"><span style="color:var(--teal);font-weight:600">✓ Opittu kun:</span> ' + _jsvEsc(kr) + '</div>';
+    h += '<div style="margin-top:8px;font-size:12px;color:var(--ink2);background:rgba(40,176,144,.07);border:.5px solid rgba(40,176,144,.25);border-radius:8px;padding:8px 11px"><span style="color:var(--teal);font-weight:600">✓ ' + vpT('Opittu kun:') + '</span> ' + _jsvEsc(kr) + '</div>';
   }
   return h;
 }
@@ -8312,18 +8312,18 @@ function _vpAloitusHTML(p) {
     // Vaihe 6: umpeutunut jakso → "Sulje jakso" -laukaisin (tmJfUmpeutunut).
     const _jfLib = window.TM_JAKSOFOKUS;
     const _ump = (_jfLib && typeof _jfLib.tmJfUmpeutunut === 'function') ? _jfLib.tmJfUmpeutunut(_jf) : false;
-    h += '<div class="vpal-fk jakso"><div class="vpal-k amber">📍 Jaksofokus <span class="vpal-pill">meso' + _jfVk + '</span>' + (_ump ? ' <span style="color:var(--amber)">🟠 umpeutunut</span>' : '') + '</div>'
+    h += '<div class="vpal-fk jakso"><div class="vpal-k amber">📍 ' + vpT('Jaksofokus') + ' <span class="vpal-pill">meso' + _jfVk + '</span>' + (_ump ? ' <span style="color:var(--amber)">🟠 ' + vpT('umpeutunut') + '</span>' : '') + '</div>'
       + '<h3 class="vpal-h3">' + _jsvEsc(_jf.konsepti_nimi) + '</h3>'
-      + '<div class="vpal-meta">viemä jakso' + (_jf.lahde ? ' · ' + _jsvEsc(_jf.lahde) : '') + '</div>'
+      + '<div class="vpal-meta">' + vpT('viemä jakso') + (_jf.lahde ? ' · ' + _jsvEsc(_jf.lahde) : '') + '</div>'
       + (typeof _vpJfTukiHTML === 'function' ? _vpJfTukiHTML(_jf, { tight: true }) : '')   // JF-2: tukena + Opittu kun
-      + (_ump ? '<div style="margin-top:8px"><button class="jsp-kt-btn primary" onclick="_vpSuljeJakso(\'' + _jsvEsc(p.id) + '\')">↻ Sulje jakso → seuraava fokus</button></div>' : '') + '</div>';
+      + (_ump ? '<div style="margin-top:8px"><button class="jsp-kt-btn primary" onclick="_vpSuljeJakso(\'' + _jsvEsc(p.id) + '\')">↻ ' + vpT('Sulje jakso → seuraava fokus') + '</button></div>' : '') + '</div>';
   } else {
-    h += '<div class="vpal-fk jakso"><div class="vpal-k amber">📍 Jaksofokus <span class="vpal-pill">meso</span></div>'
-      + '<h3 class="vpal-h3" style="opacity:.55">Jakso tulossa</h3>'
-      + '<div class="vpal-meta">valmentaja vie jakson treeniin (Master)</div></div>';
+    h += '<div class="vpal-fk jakso"><div class="vpal-k amber">📍 ' + vpT('Jaksofokus') + ' <span class="vpal-pill">meso</span></div>'
+      + '<h3 class="vpal-h3" style="opacity:.55">' + vpT('Jakso tulossa') + '</h3>'
+      + '<div class="vpal-meta">' + vpT('valmentaja vie jakson treeniin (Master)') + '</div></div>';
   }
   h += '</div>';
-  h += '<div class="vpal-ladder">⬆ jakso laddaa kausifokukseen · kausi laddaa isoon tavoitteeseen</div>';
+  h += '<div class="vpal-ladder">⬆ ' + vpT('jakso laddaa kausifokukseen · kausi laddaa isoon tavoitteeseen') + '</div>';
   // Vaihe 6 — meso-kehityskaari (suljetut jaksot, jaksofokus_historia §26).
   if (typeof _vpMesoKaariHTML === 'function') h += _vpMesoKaariHTML(p);
   // Vaihe 4a — VP asettaa jaksofokuksen TALENTTIPELAAJILLE (§4: VP hallinnoi talentteja). Muille = valmentaja (Master).
@@ -8331,28 +8331,28 @@ function _vpAloitusHTML(p) {
   // inline-editoria (_vpTtSlot poistettu, yksi pinta). Nappi avaa saman _jfOhjaa-paneelin kuin oversight/silta.
   if (p.talenttiOhjelma === true) {
     h += '<div style="margin-top:12px;border-top:.5px solid var(--border);padding-top:10px">'
-      + '<button onclick="_jfOhjaa(\'' + _jsvEsc(p.id) + '\')" style="font-size:12px;color:var(--blue);cursor:pointer;font-weight:600;background:var(--ov-1);border:.5px solid rgba(42,93,176,.3);border-radius:8px;padding:8px 12px">✎ Muokkaa jaksofokus</button></div>';
+      + '<button onclick="_jfOhjaa(\'' + _jsvEsc(p.id) + '\')" style="font-size:12px;color:var(--blue);cursor:pointer;font-weight:600;background:var(--ov-1);border:.5px solid rgba(42,93,176,.3);border-radius:8px;padding:8px 12px">✎ ' + vpT('Muokkaa jaksofokus') + '</button></div>';
   }
   // Status-nauha
   const _viimMit = [p.hh_pvm, p.tki_pvm].filter(Boolean).sort().pop();
-  const _edist = p.idp_edistyma || (t && typeof idpEdistyma === 'function' ? idpEdistyma(t) : null) || 'alkuvaihe';
+  const _edist = p.idp_edistyma || (t && typeof idpEdistyma === 'function' ? idpEdistyma(t) : null) || vpT('alkuvaihe');
   let _seurRev = '—';
   const _arvioPvm = t && t.aikaraami && t.aikaraami.arvio_pvm;
   if (_arvioPvm) {
     const _d = new Date(_arvioPvm), _now = new Date();
-    if (!isNaN(_d.getTime())) { const _vk = Math.round((_d - _now) / (7 * 86400000)); _seurRev = _vk <= 0 ? 'nyt' : '~' + _vk + ' vk'; }
+    if (!isNaN(_d.getTime())) { const _vk = Math.round((_d - _now) / (7 * 86400000)); _seurRev = _vk <= 0 ? vpT('nyt') : '~' + _vk + ' vk'; }
   }
   const _st = function (l, v, cls) { return '<div class="vpal-st"><div class="vpal-stl">' + l + '</div><div class="vpal-stv' + (cls ? ' ' + cls : '') + '">' + v + '</div></div>'; };
-  h += '<div class="vpal-status">' + _st('Viimeisin mittaus', _viimMit ? _pvmFi(_viimMit) : '—') + _st('Edistymä', _jsvEsc(_edist), 'teal')
-    + _st('Seuraava review', _seurRev, 'amber') + '</div>';
+  h += '<div class="vpal-status">' + _st(vpT('Viimeisin mittaus'), _viimMit ? _pvmFi(_viimMit) : '—') + _st(vpT('Edistymä'), _jsvEsc(_edist), 'teal')
+    + _st(vpT('Seuraava review'), _seurRev, 'amber') + '</div>';
   // VAIHE 2.0 — Kypsyys-siru: jaettu tmKypsyys(el, data, {muoto:'siru'}) korvaa paljaan PHV-koodin ("AN"/"PHV-herkkä").
   // Renderöidään _vpAloitusReRenderissä (komponentti tarvitsee DOM-elementin; ei kopioida — C2). Data pikakentistä (§26).
-  h += '<div style="margin-top:10px"><span style="font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink3);font-weight:600">Kypsyys · §28</span><div id="_vpAloitusKypSiru" style="margin-top:6px"></div></div>';
+  h += '<div style="margin-top:10px"><span style="font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink3);font-weight:600">' + vpT('Kypsyys · §28') + '</span><div id="_vpAloitusKypSiru" style="margin-top:6px"></div></div>';
   // Seuraava askel -CTA:t
   h += '<div class="vpal-next">'
-    + '<button class="vpal-nbtn" onclick="_vpKirjaaReview(\'' + pid + '\')"><div class="vpal-nh">＋ Kirjaa review</div><div class="vpal-ns">päivitä kehityskaari</div></button>'
-    + '<button class="vpal-nbtn ghost" onclick="_jspVaihda(3)"><div class="vpal-nh">Avaa tavoite</div><div class="vpal-ns">muokkaa / hyväksy</div></button>'
-    + '<button class="vpal-nbtn ghost" onclick="_jspVaihda(2)"><div class="vpal-nh">Arvioi (havaittu)</div><div class="vpal-ns">Valm / Itse / Ero</div></button>'
+    + '<button class="vpal-nbtn" onclick="_vpKirjaaReview(\'' + pid + '\')"><div class="vpal-nh">' + vpT('＋ Kirjaa review') + '</div><div class="vpal-ns">' + vpT('päivitä kehityskaari') + '</div></button>'
+    + '<button class="vpal-nbtn ghost" onclick="_jspVaihda(3)"><div class="vpal-nh">' + vpT('Avaa tavoite') + '</div><div class="vpal-ns">' + vpT('muokkaa / hyväksy') + '</div></button>'
+    + '<button class="vpal-nbtn ghost" onclick="_jspVaihda(2)"><div class="vpal-nh">' + vpT('Arvioi (havaittu)') + '</div><div class="vpal-ns">' + vpT('Valm / Itse / Ero') + '</div></button>'
     + '</div>';
   // Mini-kehityskaari (kausifokus) — arviot[] sparkline; täysi kaari Kehitys-välilehdellä.
   h += _vpMiniKaariHTML(t);
@@ -8364,8 +8364,8 @@ function _vpAloitusHTML(p) {
 function _vpMiniKaariHTML(t) {
   const arviot = (t && t.arviot) || [];
   if (!t || !arviot.length) {
-    return '<div class="vpal-mini"><div class="vpal-minil">Kehityskaari (kausifokus)</div>'
-      + '<div style="font-size:11.5px;color:var(--ink3)">Kaari kertyy reviewistä — täysi kaari Kehitys-välilehdellä.</div></div>';
+    return '<div class="vpal-mini"><div class="vpal-minil">' + vpT('Kehityskaari (kausifokus)') + '</div>'
+      + '<div style="font-size:11.5px;color:var(--ink3)">' + vpT('Kaari kertyy reviewistä — täysi kaari Kehitys-välilehdellä.') + '</div></div>';
   }
   const mit = t.mittari || {}, mitattava = (mit.yksikko !== 'taso' && mit.yksikko !== 'vapaa');
   const la = t.lahto ? t.lahto.arvo : null, tv = t.tavoitearvo;
@@ -8373,14 +8373,14 @@ function _vpMiniKaariHTML(t) {
     if (mitattava && la != null && tv != null && la !== tv && arvo != null) return Math.max(0.12, Math.min(1, (arvo - la) / (tv - la)));
     return 0.5;   // havaittu/vapaa → tasainen keskikorkeus
   };
-  let bars = '<b style="height:18%"><span>lähtö</span></b>';
+  let bars = '<b style="height:18%"><span>' + vpT('lähtö') + '</span></b>';
   arviot.forEach(function (a, i) {
     const viim = (i === arviot.length - 1);
     const hgt = Math.round(_frac(a.arvo) * 100);
-    bars += '<b class="on" style="height:' + Math.max(15, hgt) + '%"><span>' + (viim ? 'nyt' : 'rev ' + (i + 1)) + '</span></b>';
+    bars += '<b class="on" style="height:' + Math.max(15, hgt) + '%"><span>' + (viim ? vpT('nyt') : vpT('rev') + ' ' + (i + 1)) + '</span></b>';
   });
-  bars += '<b style="height:100%;background:rgba(224,160,64,.3)"><span>tavoite</span></b>';
-  return '<div class="vpal-mini"><div class="vpal-minil">Kehityskaari (kausifokus)</div><div class="vpal-spark">' + bars + '</div></div>';
+  bars += '<b style="height:100%;background:rgba(224,160,64,.3)"><span>' + vpT('tavoite') + '</span></b>';
+  return '<div class="vpal-mini"><div class="vpal-minil">' + vpT('Kehityskaari (kausifokus)') + '</div><div class="vpal-spark">' + bars + '</div></div>';
 }
 // Re-renderöi Aloitus-slotti kun täysi tavoite latautuu asynkronisesti (_vpLataaTavoite).
 function _vpAloitusReRender() {
@@ -8395,7 +8395,7 @@ function _vpAloitusReRender() {
       if (_kd && (_kd.phv_tila_koodi || _kd.maturity_offset != null) && typeof tmKypsyys === 'function') {
         tmKypsyys(_kySiru, _kd, { muoto: 'siru', onAvaa: function () { if (typeof _jspVaihda === 'function') _jspVaihda(1); } });
       } else {
-        _kySiru.innerHTML = '<span style="font-family:var(--font-mono),\'DM Mono\',monospace;font-size:10.5px;color:var(--ink3)">Ei kypsyysmittausta — kasvumittaus avaa §28-linssin.</span>';
+        _kySiru.innerHTML = '<span style="font-family:var(--font-mono),\'DM Mono\',monospace;font-size:10.5px;color:var(--ink3)">' + vpT('Ei kypsyysmittausta — kasvumittaus avaa §28-linssin.') + '</span>';
       }
     }
   }
@@ -12018,16 +12018,16 @@ window._avaaVpD3Arvio = function(pid) {
   const nimi = ((p.etunimi||'') + ' ' + (p.sukunimi||'')).trim() || p.id;
   let h = '<div onclick="event.stopPropagation()" style="background:var(--bg2);border:.5px solid var(--border);border-radius:8px;width:min(480px,94vw);max-height:90vh;overflow-y:auto;padding:20px 22px">';
   h += '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">'
-    + '<div style="font-family:\'Cormorant Garamond\',serif;font-size:20px;color:var(--ink)">D3 VP-kalibraatio — ' + nimi + '</div>'
+    + '<div style="font-family:\'Cormorant Garamond\',serif;font-size:20px;color:var(--ink)">' + vpT('D3 VP-kalibraatio') + ' — ' + nimi + '</div>'
     + '<button onclick="document.getElementById(\'_vpD3Modal\').remove()" style="background:none;border:none;color:var(--ink3);font-size:22px;cursor:pointer">×</button></div>';
-  h += '<div style="font-size:12px;color:var(--ink3);margin-bottom:14px;line-height:1.5">Kokonaiskuva-arvio · 1 (harvoin) – 5 (lähes aina). EI sulaudu d3_tasoon — kalibraatiomerkki + vertailu valmentajan/pelaajan kanssa.</div>';
+  h += '<div style="font-size:12px;color:var(--ink3);margin-bottom:14px;line-height:1.5">' + vpT('Kokonaiskuva-arvio · 1 (harvoin) – 5 (lähes aina). EI sulaudu d3_tasoon — kalibraatiomerkki + vertailu valmentajan/pelaajan kanssa.') + '</div>';
   D3_DIMS.forEach(d => {
     h += '<div style="padding:10px 0;border-top:.5px solid var(--border)"><div style="font-size:13px;color:var(--ink);margin-bottom:2px"><b>' + d.nimi + '</b></div>'
       + '<div style="font-size:11px;color:var(--ink3);margin-bottom:8px">' + d.vpQ + '</div>'
       + '<div style="display:flex;gap:6px">' + [1,2,3,4,5].map(n =>
         '<button class="_vpd3nap" data-dim="' + d.key + '" data-n="' + n + '" onclick="_vpD3Valitse(\'' + d.key + '\',' + n + ')" style="flex:1;min-height:42px;border:.5px solid var(--border);background:' + (_vpD3Vastaukset[d.key] === n ? 'var(--blue)' : 'transparent') + ';color:' + (_vpD3Vastaukset[d.key] === n ? '#fff' : 'var(--ink)') + ';border-radius:6px;font-size:13px;cursor:pointer">' + n + '</button>').join('') + '</div></div>';
   });
-  h += '<button onclick="_tallennaVpD3(\'' + pid + '\')" style="display:block;width:100%;margin-top:16px;background:var(--blue);color:#fff;border:none;border-radius:8px;padding:13px;font-size:14px;font-weight:600;cursor:pointer;min-height:46px;font-family:\'DM Sans\',sans-serif">Tallenna VP-arvio</button>';
+  h += '<button onclick="_tallennaVpD3(\'' + pid + '\')" style="display:block;width:100%;margin-top:16px;background:var(--blue);color:#fff;border:none;border-radius:8px;padding:13px;font-size:14px;font-weight:600;cursor:pointer;min-height:46px;font-family:\'DM Sans\',sans-serif">' + vpT('Tallenna VP-arvio') + '</button>';
   h += '</div>';
   m.innerHTML = h; document.body.appendChild(m);
 };
