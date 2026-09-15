@@ -19,7 +19,7 @@
 <!-- Eerikkilä-normit + universaali testirekisteri (eerikkilaTaso, laskeFVP) — 10m/5m-tasot + FVP-profiili -->
 <script src="lib/tm_lang.js?v=9"></script>   <!-- i18n V0 — fi/sv/en käännöstaulukko + t() + kieli-init (putkitus) -->
 <script src="lib/tm_i18n_common.js?v=2"></script>   <!-- i18n Vaihe 0 — JAETTU henkilöstö-i18n + lukittu glossaari (ENNEN sivukarttaa) -->
-<script src="lib/tm_vp_i18n.js?v=49"></script>   <!-- i18n Vaihe 5 — VP sv (sivukartta); vpT/vpLokalisoi delegoivat commoniin -->
+<script src="lib/tm_vp_i18n.js?v=50"></script>   <!-- i18n Vaihe 5 — VP sv (sivukartta); vpT/vpLokalisoi delegoivat commoniin -->
 
 
 <script src="lib/tm_eerikkila_normit.js?v=45"></script>   <!-- v43: D2-kortti d2_taso-ensin (renderKehityskorttiHTML, PR #264 · §30/#262) -->
@@ -7693,7 +7693,7 @@ function _vpJfMittausYhteenvetoHTML(jf, p) {
   goals.forEach(function (g) {
     const e = tark[g.key]; if (!e) return;
     let mit = '';
-    if (e.mittaus_tyyppi === 'arviointi' && e.tavoite_taso != null) { const ny = _vpJfNykyarvo(p, g.key.split('::')[1], isp.ika, kehys); mit = '<span style="color:var(--blue)">🔗 nyt ' + (ny.arvo != null ? ny.arvo : '—') + '/' + ny.max + ' → ' + e.tavoite_taso + '</span>'; }
+    if (e.mittaus_tyyppi === 'arviointi' && e.tavoite_taso != null) { const ny = _vpJfNykyarvo(p, g.key.split('::')[1], isp.ika, kehys); mit = '<span style="color:var(--blue)">🔗 ' + vpT('nyt') + ' ' + (ny.arvo != null ? ny.arvo : '—') + '/' + ny.max + ' → ' + e.tavoite_taso + '</span>'; }
     else if (e.mittaus_tyyppi === 'numeerinen' && e.tavoite != null) { mit = '<span style="color:var(--teal)">📐 ' + (e.mittari_nimi ? _jsvEsc(e.mittari_nimi) + ': ' : '') + (e.lahto != null ? e.lahto : '—') + ' → ' + e.tavoite + (e.yksikko ? ' ' + _jsvEsc(e.yksikko) : '') + '</span>'; }
     if (e.kriteeri || mit) {
       rows += '<div style="font-size:10.5px;color:var(--ink3);margin-top:6px">' + domIkoni(g.dom) + ' <b style="color:var(--ink2);font-weight:500">' + _jsvEsc(g.nimi) + '</b>' + (mit ? ' · ' + mit : '')
@@ -16920,8 +16920,8 @@ function _vpRaeRakenneHTML(pelaajat) {
   var jk = raeJoukkueJakauma(pelaajat);   // §lib single source: {Q1..Q4, pct, n_kvartaalillisia, signaali}
   var n = jk.n_kvartaalillisia;
   // Datagate: 0 kvartaalia → hillitty ℹ-vihje (ei tyhjä), sama RAE-selite saatavilla.
-  if (!n) return '<div class="jsv-an-otsikko"' + _vpSelTip('rae') + '>Syntymäkvartaali-rakenne (RAE) ℹ️</div>'
-    + '<div style="font-size:11px;color:var(--ink3);margin-top:2px">ℹ Syntymäkvartaali-data täyttyy kun huoltajat rekisteröivät pelaajat.</div>';
+  if (!n) return '<div class="jsv-an-otsikko"' + _vpSelTip('rae') + '>' + vpT('Syntymäkvartaali-rakenne (RAE)') + ' ℹ️</div>'
+    + '<div style="font-size:11px;color:var(--ink3);margin-top:2px">ℹ ' + vpT('Syntymäkvartaali-data täyttyy kun huoltajat rekisteröivät pelaajat.') + '</div>';
   var karki = [];
   pelaajat.forEach(function (p) {
     var rc = (typeof raeChip === 'function') ? raeChip(p) : { q: null };
@@ -16935,20 +16935,20 @@ function _vpRaeRakenneHTML(pelaajat) {
       + '<span style="flex:1;height:8px;border-radius:4px;background:var(--ov-2);overflow:hidden"><span style="display:block;height:8px;width:' + jk.pct[q] + '%;background:' + COL[q] + '"></span></span>'
       + '<span style="flex:0 0 58px;font-size:11px;color:var(--ink2);text-align:right">' + jk[q] + ' · ' + jk.pct[q] + '%</span></div>';
   }).join('');
-  var h = '<div class="jsv-an-otsikko"' + _vpSelTip('rae') + '>Syntymäkvartaali-rakenne (RAE) ℹ️</div>' + palkit;
+  var h = '<div class="jsv-an-otsikko"' + _vpSelTip('rae') + '>' + vpT('Syntymäkvartaali-rakenne (RAE)') + ' ℹ️</div>' + palkit;
   // Datagate (§5): jos syntymäaikoja puuttuu, kerro montako — ei arvausta.
   var puuttuu = pelaajat.length - n;
-  if (puuttuu > 0) h += '<div style="font-size:10px;color:var(--ink3);margin-top:3px">syntymäaikoja puuttuu (' + puuttuu + '/' + pelaajat.length + ')</div>';
+  if (puuttuu > 0) h += '<div style="font-size:10px;color:var(--ink3);margin-top:3px">' + vpT('syntymäaikoja puuttuu') + ' (' + puuttuu + '/' + pelaajat.length + ')</div>';
   // Bias-signaali (§2/§3C): valintaharha Q1>40 amber · underdog_ok Q4>25 teal (johtamiskehys, ei syyllistä).
-  if (jk.signaali === 'valintaharha') h += '<div style="font-size:11px;color:var(--amber);margin-top:6px">⚠ Ikäharha: Q1 ' + jk.pct.Q1 + '% — valitaanko taitoa vai ikää?</div>';
-  else if (jk.signaali === 'underdog_ok') h += '<div style="font-size:11px;color:var(--teal);margin-top:6px">✓ Q4 hyvin edustettu (' + jk.pct.Q4 + '%) — myöhäissyntyneet saavat tilaa.</div>';
-  if (n >= 6 && jk.pct.Q4 < 15) h += '<div style="font-size:11px;color:var(--amber);margin-top:4px">⚠ Q4 aliedustettu (' + jk.pct.Q4 + '%) — myöhäissyntyneet karsiutuvat?</div>';
+  if (jk.signaali === 'valintaharha') h += '<div style="font-size:11px;color:var(--amber);margin-top:6px">⚠ ' + vpT('Ikäharha') + ': Q1 ' + jk.pct.Q1 + '% — ' + vpT('valitaanko taitoa vai ikää?') + '</div>';
+  else if (jk.signaali === 'underdog_ok') h += '<div style="font-size:11px;color:var(--teal);margin-top:6px">✓ ' + vpT('Q4 hyvin edustettu') + ' (' + jk.pct.Q4 + '%) — ' + vpT('myöhäissyntyneet saavat tilaa.') + '</div>';
+  if (n >= 6 && jk.pct.Q4 < 15) h += '<div style="font-size:11px;color:var(--amber);margin-top:4px">⚠ ' + vpT('Q4 aliedustettu') + ' (' + jk.pct.Q4 + '%) — ' + vpT('myöhäissyntyneet karsiutuvat?') + '</div>';
   if (karki.length) {
     var kPct = Math.round(karki.filter(function (q) { return q === 'Q1'; }).length / karki.length * 100);
-    h += '<div style="font-size:11px;color:var(--ink2);margin-top:6px">Kärjestä <b>' + kPct + '% Q1</b> (' + karki.length + ' kärkipelaajaa) → '
-      + (kPct >= 50 ? 'valintaprofiili nojaa ikäetuun.' : 'jakautunut → valitaan taitoa.') + '</div>';
+    h += '<div style="font-size:11px;color:var(--ink2);margin-top:6px">' + vpT('Kärjestä') + ' <b>' + kPct + '% Q1</b> (' + karki.length + ' ' + vpT('kärkipelaajaa') + ') → '
+      + (kPct >= 50 ? vpT('valintaprofiili nojaa ikäetuun.') : vpT('jakautunut → valitaan taitoa.')) + '</div>';
   }
-  h += '<div style="margin-top:8px"><button class="vkk-cta" style="font-size:12px;padding:8px 14px;min-height:36px" onclick="_vpSuodataBQ4()">Tarkastele Q4-pelaajat →</button></div>';
+  h += '<div style="margin-top:8px"><button class="vkk-cta" style="font-size:12px;padding:8px 14px;min-height:36px" onclick="_vpSuodataBQ4()">' + vpT('Tarkastele Q4-pelaajat →') + '</button></div>';
   return h;
 }
 function _vpSuodataBQ4() { setWs('pelaajat'); if (typeof filterPlayers === 'function') filterPlayers('bq4'); }
@@ -16966,11 +16966,11 @@ function _vpRaeChip(p, koko) {
 }
 function _hgBadge(p) {
   const hg = laskeHiddenGem(p);
-  if (hg.kimpale) return '<span class="tag" style="background:var(--gold-tint);color:var(--gold)" title="Kullankimpale — korkea kehon valmius + tekninen Hidden Gem, molemmat kriittiset ikkunat käytetty (§28)">💎 Kullankimpale</span>';
-  if (hg.taso === 'eliitti')     return '<span class="tag hidden" title="Hidden Gem (eliitti) — tekninen varhaiskehitys vahvistettu, mitali U8–12">Hidden Gem ★</span>';
-  if (hg.taso === 'vahvistettu') return '<span class="tag hidden" title="Hidden Gem (vahvistettu) — korkea D2 + matala D1 + PRE-PHV: fyysinen nousuvara edessä">Hidden Gem ✓</span>';
-  if (hg.taso === 'ehdokas')     return '<span class="tag hidden" title="Hidden Gem -ehdokas — korkea D2 + matala D1 (PHV-data vahvistaisi)">Hidden Gem ?</span>';
-  if (hg.fleiHG)                 return '<span class="tag hidden" title="Kehon valmius Hidden Gem — liikevalmius poikkeuksellinen (valmius ≥ 65)">Hidden Gem (valmius)</span>';
+  if (hg.kimpale) return '<span class="tag" style="background:var(--gold-tint);color:var(--gold)" title="' + vpT('Kullankimpale — korkea kehon valmius + tekninen Hidden Gem, molemmat kriittiset ikkunat käytetty (§28)') + '">💎 ' + vpT('Kullankimpale') + '</span>';
+  if (hg.taso === 'eliitti')     return '<span class="tag hidden" title="' + vpT('Hidden Gem (eliitti) — tekninen varhaiskehitys vahvistettu, mitali U8–12') + '">Hidden Gem ★</span>';
+  if (hg.taso === 'vahvistettu') return '<span class="tag hidden" title="' + vpT('Hidden Gem (vahvistettu) — korkea D2 + matala D1 + PRE-PHV: fyysinen nousuvara edessä') + '">Hidden Gem ✓</span>';
+  if (hg.taso === 'ehdokas')     return '<span class="tag hidden" title="' + vpT('Hidden Gem -ehdokas — korkea D2 + matala D1 (PHV-data vahvistaisi)') + '">Hidden Gem ?</span>';
+  if (hg.fleiHG)                 return '<span class="tag hidden" title="' + vpT('Kehon valmius Hidden Gem — liikevalmius poikkeuksellinen (valmius ≥ 65)') + '">Hidden Gem (' + vpT('valmius') + ')</span>';
   return null;
 }
 // Onko pelaaja talenttisuositus (X-Factor stored TAI mikä tahansa Hidden Gem -tunnistus)
