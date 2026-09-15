@@ -32,14 +32,14 @@ describe('(1) rail-vapaa Viikko (tab 4) + leveyskatto 860', () => {
 describe('(2) foc-header + (8) empty-state', () => {
   it('foc-header kannettu jaksofokuksesta (konsepti + Opittu kun + mono-lähde)', () => {
     const T = extract('function _vpViikkoHTML(p) {');
-    expect(T).toContain('Tämän viikon fokus · kannettu jaksofokuksesta');
-    expect(T).toContain('Opittu kun: ');
-    expect(T).toContain('↳ Kehitys · jaksofokus (');
+    expect(T).toContain("vpT('Tämän viikon fokus · kannettu jaksofokuksesta')");   // V8i: reititetty
+    expect(T).toContain("vpT('Opittu kun') + ': '");   // V8i: reititetty (kaksoispiste vpT:n ulkopuolella)
+    expect(T).toContain("↳ ' + vpT('Kehitys · jaksofokus') + ' (");   // V8i: reititetty
   });
   it('empty-state kun ei jaksofokusta → CTA _jspVaihda(3)', () => {
     const T = extract('function _vpViikkoHTML(p) {');
-    expect(T).toContain('Ei viikkosuunnitelmaa vielä');
-    expect(T).toContain('📍 Aseta jaksofokus (Kehitys) →');
+    expect(T).toContain("vpT('Ei viikkosuunnitelmaa vielä')");   // V8i: reititetty
+    expect(T).toContain("📍 ' + vpT('Aseta jaksofokus (Kehitys) →')");   // V8i: reititetty
     expect(T).toContain('_jspVaihda(3)');
   });
 });
@@ -61,7 +61,7 @@ describe('(3) morfosykli-korttinauha + MD kalenterista (Oura-muotokoodaus)', () 
     expect(N).toContain('⚽ Ottelu');
     // ei amber-taustaa ottelukortille (Oura: teal ainoa vahva aksentti)
     expect(N).not.toContain('background:rgba(224,160,64');
-    expect(N).toContain('┈ lepo');   // legenda muotokoodaus
+    expect(N).toContain("┈ ' + vpT('lepo')");   // legenda muotokoodaus (V8i: reititetty)
   });
   it('honest-empty: 0 ottelua → ei MD-leimoja (paljas nauha)', () => {
     expect(extract('function _vpViikkoNauhaHTML(p, st) {')).toContain('ei ottelua tällä viikolla');

@@ -56,7 +56,8 @@ describe('⓵-injektiot IDP-flow-osioihin (reuse window._tmIBtn, tap-behind)', (
   it('Moottori-otsikko + Tavoitejakauma-otsikko + Aloituksen Pelaajan ääni', () => {
     // V8f: otsikko reititetty vpT:hen — ⓵-napin kytkentä on yhä VÄLITTÖMÄSTI otsikon perässä.
     expect(HTML).toContain("vpT('Moottorin ehdotus · valitse polku') + ((typeof window._tmIBtn === 'function') ? window._tmIBtn('idp_moottori')");
-    expect(HTML).toContain("🎯 Tavoitejakauma · sessiot → IDP' + ((typeof window._tmIBtn === 'function') ? window._tmIBtn('idp_tavoitejakauma')");
+    // V8i: otsikko reititetty — ⓵-napin kytkentä on yhä välittömästi otsikon perässä.
+    expect(HTML).toContain("vpT('Tavoitejakauma · sessiot → IDP') + ((typeof window._tmIBtn === 'function') ? window._tmIBtn('idp_tavoitejakauma')");
     expect(HTML).toContain("🗣 Pelaajan ääni') + ((typeof window._tmIBtn === 'function') ? window._tmIBtn('idp_pelaajan_aani')");
   });
 });

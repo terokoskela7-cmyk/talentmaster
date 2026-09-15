@@ -47,6 +47,9 @@ describe('_vpViikkoOmaTeemaHTML — 4 domeenia + konseptivalinta + kohde + vie-n
   let fn;
   beforeAll(() => {
     fn = new Function(
+      // V8i: funktio on nyt i18n-reititetty. Karakterisointitesti väittää fi-ulostulosta →
+      // identiteetti-stubi pitää sen fi-tilassa ilman koko i18n-pinoa (sv:n todistaa render-gate).
+      'var vpT=function(x){return x;};\n' +
       'var _jsvEsc=function(s){return String(s==null?"":s);};\n' +
       'var _vpJfDomeeniKonseptit=function(p,dom){return dom==="fyysinen"?[{avain:"nopeus",nimi:"Nopeus"}]:[{avain:"y_h1",nimi:"Haltuunotto"}];};\n' +
       'var window={_vpViikko:{teema:{dom:"fyysinen",kohde:"pelaaja"}}};\n' +
