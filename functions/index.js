@@ -19,6 +19,22 @@ if (!admin.apps.length) {
 }
 const db   = admin.firestore();
 const auth = admin.auth();
+
+// ─────────────────────────────────────────────────────────────────────────────
+// KANONINEN LINKKIBASE (V4). Frontendillä on location.href (vrt. Seura.html
+// _rekBaseUrl), CF:llä ei → backendin generoimat käyttäjälinkit tarvitsevat
+// vakion. YKSI määritelmä; aiemmin sama URL oli kovakoodattuna kahdeksassa
+// kohdassa (suostumus · reset · continue · muistutus · SOLO).
+//
+// ⚠ EI projektialipolkua. Pages oli Project Pages ja tarjoili muodosta
+// <kayttaja>.github.io/<repo>/Sivu.html; custom domain tarjoilee JUURESTA
+// (talentmasterid.com/Sivu.html). Repo-segmentin jättäminen tuottaisi 404:n —
+// tämä ei siis ole pelkkä host-swap. (Kirjoitettu tässä ilman kirjaimellista
+// vanhaa polkua, jotta portin grep pysyy nollassa myös kommenttien osalta.)
+//
+// Env-override esim. stagingia varten; oletus = tuotannon custom domain.
+// ─────────────────────────────────────────────────────────────────────────────
+const TM_BASE_URL = (process.env.TM_BASE_URL || 'https://talentmasterid.com').replace(/\/+$/, '');
 // ─────────────────────────────────────────────────────────────────────────────
 // APUFUNKTIO: Lähetä sähköposti SendGridin HTTP API:n kautta
 // ─────────────────────────────────────────────────────────────────────────────
@@ -390,7 +406,7 @@ exports.lahetaMuistutukset = functions
     const dry = !!kuivaAjo;
     const seuraDoc = await db.collection('seurat').doc(seuraId).get();
     const seuraNimi = (seuraDoc.exists && seuraDoc.data().nimi) || seuraId;
-    const baseUrl = 'https://terokoskela7-cmyk.github.io/talentmaster';
+    const baseUrl = TM_BASE_URL;
 
     // Kohde: yksittäinen pelaaja TAI kaikki odottavat
     let docs;
@@ -469,7 +485,7 @@ exports.lahetaHuoltajaKutsu = functions
         'huoltajaEmail, pelaajaId ja seuraId ovat pakollisia.');
     }
     const suostumusLinkki =
-      `https://terokoskela7-cmyk.github.io/talentmaster/` +
+      `${TM_BASE_URL}/` +
       `TalentMaster_Rekisterointi_Suostumus.html` +
       `?seura=${seuraId}&pelaaja=${pelaajaId}`;
     await db.collection('seurat').doc(seuraId)
@@ -618,7 +634,7 @@ exports.luoKayttaja = functions
         urheilutoimenjohtaja: 'TalentMaster_Seura.html',
       };
       const kohdeSimu = roolitusUrl[rooli] || 'TalentMaster_Seura.html';
-      const kohdeUrl  = `https://terokoskela7-cmyk.github.io/talentmaster/${kohdeSimu}`;
+      const kohdeUrl  = `${TM_BASE_URL}/${kohdeSimu}`;
       resetLinkki = await auth.generatePasswordResetLink(email, {
         url: kohdeUrl,
         handleCodeInApp: false,
@@ -853,7 +869,7 @@ exports.lahetaResetLinkki = functions
     // 3) Generoi reset-linkki (ei muuta salasanaa, ei kirjoita dataa, ei lähetä sähköpostia)
     // actionCodeSettings vaatii validin continue-url:n (kuten luoKayttaja) — muuten 500.
     try {
-      const kohdeUrl = 'https://terokoskela7-cmyk.github.io/talentmaster/TalentMaster_Seura.html';
+      const kohdeUrl = `${TM_BASE_URL}/TalentMaster_Seura.html`;
       const resetLinkki = await auth.generatePasswordResetLink(email, { url: kohdeUrl, handleCodeInApp: false });
       return { passwordResetLink: resetLinkki, resetLinkki: resetLinkki, email: email };
     } catch (e) {
@@ -912,7 +928,7 @@ exports.lahetaPelaajaSivuLinkki = functions
     const pelaajaNimi = [etunimi, sukunimi].filter(Boolean).join(' ') || 'pelaaja';
     const seuraNimi   = seura || 'TalentMaster-seura';
     const joukkueNimi = await haeJoukkueNimi(seuraId, joukkue);
-    const baseUrl = 'https://terokoskela7-cmyk.github.io/talentmaster';
+    const baseUrl = TM_BASE_URL;
     const pelaajaLinkki = `${baseUrl}/TalentMaster_Pelaaja_v7.html` +
       `?pelaajaId=${pelaajaId}&seuraId=${seuraId}` +
       `&etunimi=${encodeURIComponent(etunimi||'')}&sukunimi=${encodeURIComponent(sukunimi||'')}`;
@@ -1119,7 +1135,7 @@ exports.vahvistaSuostumus = functions
       const etunimi  = snap.get('etunimi')  || '';
       const sukunimi = snap.get('sukunimi') || '';
       await haeOrLuoHuoltajaAuth(hEmailNorm, etunimi, sukunimi);
-      const baseUrl = 'https://terokoskela7-cmyk.github.io/talentmaster';
+      const baseUrl = TM_BASE_URL;
       const continueUrl = `${baseUrl}/TalentMaster_Vanhempi_v2.html` +
         `?pelaajaId=${encodeURIComponent(pelaajaId)}&seuraId=${encodeURIComponent(seuraId)}`;
       const passwordResetLink = await auth.generatePasswordResetLink(hEmailNorm, {
@@ -1615,6 +1631,13 @@ exports.aiProxy = functions
       'https://terokoskela7-cmyk.github.io', // GitHub Pages — nykyinen frontend
       'http://localhost:3000',
       'http://localhost:5000',               // Firebase emulator
+      // Tuotanto — TalentMaster Hosting (custom domain + Firebase-oletukset).
+      // Ilman näitä custom-domainilta tarjoiltu frontend ei voisi kutsua tätä
+      // HTTP-funktiota lainkaan (CORS-blokki) — V3b:n jälkeen se on etuovi.
+      'https://talentmasterid.com',
+      'https://www.talentmasterid.com',
+      'https://talentmaster-pilot.web.app',
+      'https://talentmaster-pilot.firebaseapp.com',
       // Tuotanto — Suomi
       'https://talentmaster.fi',
       'https://app.talentmaster.fi',
@@ -2005,7 +2028,7 @@ exports.notifKoosteEmail = functions
   .timeZone('Europe/Helsinki')
   .onRun(async () => {
     const nyt = Date.now(), PV = 86400000, nowIso = new Date(nyt).toISOString();
-    const appUrl = 'https://terokoskela7-cmyk.github.io/talentmaster/';
+    const appUrl = `${TM_BASE_URL}/`;
     const seurat = await db.collection('seurat').get();
     for (const seuraDoc of seurat.docs) {
       const sid = seuraDoc.id, seuraNimi = (seuraDoc.data() || {}).nimi || sid;
@@ -2058,7 +2081,7 @@ exports.notifKoosteEmail = functions
 // SOLO PLAYER™ Polku B — lupapyyntö-email + hyväksyntä (SOLO_P0_TIETOMALLI_SPEC §9)
 // Klubin vahvistaSuostumus-malli: hyväksyntä VAIN CF:ssä (Admin SDK). europe-west1.
 // ═══════════════════════════════════════════════════════════════════════════
-const SOLO_BASE_URL = 'https://terokoskela7-cmyk.github.io/talentmaster';
+const SOLO_BASE_URL = TM_BASE_URL;
 const SOLO_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';   // pl. 0/O/1/I/L (sama kuin lib/tm_solo_data.js)
 function soloGeneroiPlayerCode() {
   let s = '';
