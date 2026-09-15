@@ -26,7 +26,7 @@ describe('(1) nauhan monisessio-merkki', () => {
     const N = extract('function _vpViikkoNauhaHTML(p, st) {');
     expect(N).toContain('const nLoad = (row.sessiot || []).filter(function (s) { return _vpViikkoSrpe(s.rpe, s.kesto_min) > 0; }).length;');
     expect(N).toContain("(nLoad > 1) ?");
-    expect(N).toContain("' sessiota</div>'");
+    expect(N).toContain("vpT('sessiota') + '</div>'");   // V8i: reititetty
     expect(N).toContain('+ src + multi + ftag + bar');   // mountattu Oura-korttiin muuttamatta väri/muoto-koodausta
   });
 });
