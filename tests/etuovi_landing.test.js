@@ -22,24 +22,34 @@ const ignoroitu = (p) => IGNORE.some((g) => g === p || (g.endsWith('/**') && p.s
 
 const SIVUT = ['index.html', '404.html'];
 
-/* Sisäänkäynnit. HUOM Player_Home: brief listasi SOLOn kohteeksi Solo_Koti.html, mutta se lukee
-   valmista localStorage-profiilia (tm_solo_profiili) eikä tarjoa onboardingia — kylmä kävijä
-   päätyisi tyhjään kotiin, eikä Solo_Koti linkitä Player_Homeen. Player_Home on §8:n mukaan
-   SOLO-onboarding (splash → nimi → syntymä → kortti) = oikea kylmä sisäänkäynti. Solo_Koti
-   säilyy toissijaisena "jatka"-linkkinä palaaville. */
+/* SISÄÄNKÄYNTI = sivu jolla on STANDALONE-KIRJAUTUMINEN, eli kylmä kävijä pääsee sisään ilman
+   URL-parametreja. Kriteeri on todennettu lähteestä, ei oletettu:
+     Seura            — signInWithEmailAndPassword
+     VP_v25           — Google + email
+     Master_v16       — Google + email
+     Pelaaja_v7       — `let _sc='pin'` (oletusnäkymä) → 4-num PIN → _kirjauduPinilla; myös email.
+                        URL-paramit ovat deep-link-oikopolku, eivät pääsyehto.
+     Vanhempi_v2      — `let _sc='login'  // Avataan aina login-näkymästä` + email-login
+     Player_Home      — SOLO-onboarding (splash → nimi → syntymä → kortti), ei tunnuksia
+     Solo_Koti        — SOLO-koti palaavalle (lukee localStoragen profiilin)
+
+   HUOM kaksi eri pelaajapolkua, jotka EIVÄT saa mennä sekaisin: seurajoukkueen pelaaja
+   (Pelaaja_v7, seurakortti) vs itsenäinen SOLO-pelaaja (Player_Home/Solo_Koti, SOLO-kortti). */
 const SISAANKAYNNIT = [
   'TalentMaster_Seura.html',
   'TalentMaster_VP_v25.html',
   'TalentMaster_Master_v16.html',
+  'TalentMaster_Pelaaja_v7.html',
+  'TalentMaster_Vanhempi_v2.html',
   'TalentMaster_Player_Home.html',
   'TalentMaster_Solo_Koti.html',
 ];
 
-/* Nämä avataan AINA generoidulla sähköpostilinkillä → etuovella ei saa olla niihin nappia
-   (kylmä kävijä ei voi käyttää niitä ilman parametreja). */
+/* AIDOSTI vain linkillä: sivu ei toimi ilman generoituja parametreja, joten etuovella ei saa olla
+   siihen nappia — kylmä kävijä päätyisi rikkinäiseen tilaan.
+     Solo_Lupa                 — vaatii r + t -tokenin
+     Rekisterointi_Suostumus   — consent-lomake seuran linkillä */
 const VAIN_LINKILLA = [
-  'TalentMaster_Pelaaja_v7.html',
-  'TalentMaster_Vanhempi_v2.html',
   'TalentMaster_Solo_Lupa.html',
   'TalentMaster_Rekisterointi_Suostumus.html',
 ];
@@ -78,6 +88,27 @@ describe('reititys', () => {
     expect(kohteet().length).toBeGreaterThan(0);
   });
   it('404 ohjaa etusivulle', () => expect(lue('404.html')).toContain('href="/"'));
+
+  /* Kaksi pelaajapolkua ei saa sekoittua: seurapelaaja tarvitsee seuran PIN-koodin, SOLO ei
+     tunnuksia lainkaan. Ilman erottelua kylmä kävijä valitsee väärän ja päätyy umpikujaan. */
+  it('seurapelaaja ja SOLO-pelaaja on eroteltu näkyvästi', () => {
+    const s = lue('index.html');
+    expect(s, 'seurapolun tunniste').toMatch(/Pelaatko seurajoukkueessa\?/i);
+    expect(s, 'SOLO-polun tunniste').toMatch(/itsenäisesti|ilman seuraa/i);
+    // seurapelaaja-linkin on oltava seurakortissa, SOLO-linkkien SOLO-kortissa
+    const seuraKortti = s.slice(s.indexOf('Seurat ja valmennus'), s.indexOf('TalentMaster Player'));
+    expect(seuraKortti).toContain('href="/TalentMaster_Pelaaja_v7.html"');
+    expect(seuraKortti).toContain('href="/TalentMaster_Vanhempi_v2.html"');
+    expect(seuraKortti, 'SOLO-linkki vuoti seurakorttiin').not.toContain('Player_Home');
+  });
+
+  /* V5:n vihjelaatikko luetteli Pelaajan ja huoltajan "vain linkillä" -sivuiksi. Nyt kun ne ovat
+     etuovella, sama teksti olisi suoraan ristiriidassa sivun omien nappien kanssa. */
+  it('kutsulinkki-vihje ei enää väitä pelaajaa/huoltajaa link-only-sivuiksi', () => {
+    const vihje = lue('index.html').match(/<div class="vihje">[\s\S]*?<\/div>/)[0];
+    expect(vihje).not.toMatch(/Pelaajan, huoltajan/);
+    expect(vihje).toMatch(/[Ss]uostumus/);
+  });
 });
 
 describe('staattisuus — ei Firebasea, ei uusia origineja', () => {
