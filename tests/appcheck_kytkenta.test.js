@@ -8,17 +8,18 @@
  * listasta. Uusi appi ilman App Checkiä punertaa tämän portin.
  */
 import { describe, it, expect } from 'vitest';
-import { readFileSync, readdirSync, statSync } from 'fs';
+import { readFileSync, readdirSync, statSync, existsSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 
 const juuri = join(dirname(fileURLToPath(import.meta.url)), '..');
 const SITE_KEY = '6Lf3tbstAAAAAE9fqxhiH9WltKEdT4NuJBXF0kjq';
 
-/* A2-brief siirtää nämä archiveen (→ eivät enää Pagesissa). Ne ovat tietoisesti ilman App Checkiä.
-   POIKKEUS ON EHDOLLINEN: jos A2 EI ole ajettu ennen enforcea, nämä rikkoutuvat. Lista pidetään
-   tässä näkyvänä juuri siksi — ei hiljaisena aukkona. */
-const A2_ARKISTOON = ['TalentMaster_VP_v22.html', 'TalentMaster_Testaus.html', 'TalentMaster_Testaus_v8.html'];
+/* A2 AJETTU: VP_v22 / Testaus / Testaus_v8 siirretty archiveen → eivät enää Pagesissa eivätkä
+   kohdejoukossa. POIKKEUSLISTAA EI ENÄÄ OLE — kohdejoukko on nyt puhtaasti dataohjattu: jokainen
+   juuren firebase-appin lataava tiedosto on App Check -vaatimuksen piirissä, ilman poikkeuksia.
+   Alla oleva lista on eri asia: se on REGRESSIOVAHTI (eivät saa palata juureen), ei poikkeus. */
+const A2_SIIRRETYT = ['TalentMaster_VP_v22.html', 'TalentMaster_Testaus.html', 'TalentMaster_Testaus_v8.html'];
 
 const MODULAR = ['tm_videopankki_admin.html', 'TM_LiikehallintaMatrix_v2.html'];
 
@@ -31,7 +32,7 @@ const lue = (n) => readFileSync(join(juuri, n), 'utf8');
 
 /* Kaikki juuritason appit jotka lataavat firebase-appin = App Checkin kohdejoukko. */
 const kaikki = juurenHtml().filter((n) => /firebase-app(-compat)?\.js/.test(lue(n)));
-const scope = kaikki.filter((n) => !A2_ARKISTOON.includes(n));
+const scope = kaikki;                           // ei poikkeuksia — A2:n jälkeen juuri = elävä joukko
 const compat = scope.filter((n) => !MODULAR.includes(n));
 
 describe('kohdejoukko (johdettu datasta, ei kovakoodattu)', () => {
@@ -40,9 +41,11 @@ describe('kohdejoukko (johdettu datasta, ei kovakoodattu)', () => {
     expect(scope.filter((n) => MODULAR.includes(n)).length, 'modular-appeja').toBe(2);
     expect(scope.length).toBe(20);
   });
-  it('A2-poikkeukset ovat yhä olemassa (jos ne arkistoidaan, poista ne listalta)', () => {
-    const yha = A2_ARKISTOON.filter((n) => kaikki.includes(n));
-    expect(yha.length === 0 || yha.length === 3, 'osittainen A2 = epäselvä tila').toBe(true);
+  /* Regressiovahti: jos jokin näistä palaa juureen ilman App Check -kytkentää, se olisi Pagesissa
+     ja rikkoutuisi enforcessa. Paluu juureen on siis tietoinen teko joka vaatii myös kytkennän. */
+  it.each(A2_SIIRRETYT)('%s on archivessa, ei juuressa (A2 pysyy tehtynä)', (n) => {
+    expect(juurenHtml(), 'palasi juureen → kytke App Check tai siirrä takaisin archiveen').not.toContain(n);
+    expect(existsSync(join(juuri, 'archive', n)), 'ei löydy archivesta').toBe(true);
   });
 });
 
