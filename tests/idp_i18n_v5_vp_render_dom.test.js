@@ -36,8 +36,8 @@ const require = createRequire(import.meta.url);
 const acorn = require('acorn');
 const HTML = readFileSync(join(__dir, '..', 'TalentMaster_VP_v25.html'), 'utf8');
 
-const RLO = 2692, RHI = 18324;              // VP pääscript (1-idx)
-const RANGES = [[8441, 9623], [13003, 14153], [12064, 12803], [3791, 3879], [14589, 14953], [14955, 15588], [15592, 16093], [16173, 16287], [16289, 16378], [4435, 4509], [5374, 5441], [15557, 15633], [17333, 17413], [7288, 7572], [5983, 7287], [4757, 4867], [16386, 16530], [4868, 5373], [4600, 4701], [3552, 3779], [10240, 10285], [11314, 11329], [10857, 10875], [10877, 10909], [11138, 11193], [11232, 11256], [11258, 11266], [11268, 11275], [11280, 11310], [14303, 14314], [4189, 4433], [7707, 7769], [8033, 8189], [8231, 8258], [5640, 5659], [5697, 5727], [5828, 5858], [5924, 5980], [7683, 7704], [16918, 16953], [16967, 16975], [16958, 16966], [9996, 10022], [10069, 10125], [10137, 10163], [10214, 10237], [10288, 10306], [10308, 10319], [10321, 10328], [10528, 10539], [10573, 10589], [9872, 9891], [9892, 9917], [14185, 14261], [14513, 14586], [9624, 9861], [16563, 16580], [11330, 11998], [7577, 7617], [7898, 7915], [8281, 8411], [12008, 12033], [16983, 16988], [16995, 17005], [17320, 17332], [17503, 17638], [18027, 18044], [18047, 18072], [18191, 18236], [18301, 18312], [2856, 2930], [3970, 3990], [4055, 4080], [4125, 4180], [4545, 4580], [4705, 4720], [5800, 5815], [5865, 5895], [5900, 5920], [18238, 18290]]; // V8k-4a: hallintapuolen rypäs. V8k-3: [18220,18236] sulautui renderKalibin runkoon. V8k-2: [8286,8311] sulautui _vpAloitusHTML:n koko runkoon. V8k-1: [11737,11741] sulautui per-pelaaja-pikakatsauksen koko puuhun. V3 _jsv · V4 kalenteri · V5 valmentajat · V6 IDP-jono · V7a MDT · V7b Reviewit+tuloskortti. V7c–V8: lisää.
+const RLO = 2692, RHI = 18297;              // VP pääscript (1-idx); RHI -32 kun kuollut renderPelaajat_old poistettiin (V8k-4b)
+const RANGES = [[8441, 9623], [12975, 14125], [12068, 12807], [3791, 3879], [14561, 14925], [14927, 15560], [15564, 16065], [16145, 16259], [16261, 16350], [4435, 4509], [5374, 5441], [15529, 15605], [17305, 17385], [7288, 7572], [5983, 7287], [4757, 4867], [16358, 16502], [4868, 5373], [4600, 4701], [3552, 3779], [10240, 10285], [11318, 11333], [10861, 10879], [10881, 10913], [11142, 11197], [11236, 11260], [11262, 11270], [11272, 11279], [11284, 11314], [14275, 14286], [4189, 4433], [7707, 7769], [8033, 8189], [8231, 8258], [5640, 5659], [5697, 5727], [5828, 5858], [5924, 5980], [7683, 7704], [16890, 16925], [16939, 16947], [16930, 16938], [9996, 10022], [10069, 10125], [10137, 10163], [10214, 10237], [10288, 10306], [10308, 10319], [10321, 10328], [10528, 10539], [10573, 10589], [9872, 9891], [9892, 9917], [14157, 14233], [14485, 14558], [9624, 9861], [16535, 16552], [11334, 12002], [7577, 7617], [7898, 7915], [8281, 8411], [12012, 12037], [16955, 16960], [16967, 16977], [17292, 17304], [17475, 17610], [17999, 18016], [18019, 18044], [18163, 18208], [18273, 18284], [2856, 2930], [3970, 3990], [4055, 4080], [4125, 4180], [4545, 4580], [4705, 4720], [5800, 5815], [5865, 5895], [5900, 5920], [10050, 10066], [10188, 10211], [10333, 10340], [10569, 10572], [10598, 10624], [10757, 10778], [11031, 11094], [14289, 14296], [14406, 14418], [14460, 14470], [16578, 16586], [16601, 16617], [16619, 16664], [17033, 17100], [18210, 18262]]; // V8k-4b: viikko/mittaus/tapahtuma/demo/login. V8k-4a: hallintapuolen rypäs. V8k-3: [18220,18236] sulautui renderKalibin runkoon. V8k-2: [8286,8311] sulautui _vpAloitusHTML:n koko runkoon. V8k-1: [11737,11741] sulautui per-pelaaja-pikakatsauksen koko puuhun. V3 _jsv · V4 kalenteri · V5 valmentajat · V6 IDP-jono · V7a MDT · V7b Reviewit+tuloskortti. V7c–V8: lisää.
 const ROUTED_FNS = new Set(['vpT', 'vpTToimenpide']);
 
 // §7 lib-curriculum-nimet (jäävät fi → allowlist)
@@ -52,7 +52,7 @@ function libNames() {
   return out;
 }
 
-const PRODUCT = /X-Factor|Hidden Gem|[Uu]nderdog|Cue|Player Development Card|TalentMaster|Scouting|oversight|nat\.|akt\.|Pre-PHV|Circa-PHV|Post-PHV|terveys\//; // tuotetermit + Cue + PDC/TalentMaster-brändi/Scouting + oversight (verbatim; kartta pitää "oversight-signal")
+const PRODUCT = /X-Factor|Hidden Gem|[Uu]nderdog|Cue|Player Development Card|TalentMaster|Eerikkilä|Scouting|oversight|nat\.|akt\.|Pre-PHV|Circa-PHV|Post-PHV|terveys\//; // tuotetermit + Cue + PDC/TalentMaster-brändi/Scouting + oversight (verbatim; kartta pitää "oversight-signal")
 const ABBR = 'TKI|TSI|H-H|PHV|ACWR|D[1-5]|RPE|ADAR|CPD|DVI|RSVP|MAS|CMJ|SJ|FLEI|VAI\\+?|RAE|OVR|EI|FVP|VNE|SM|TK|IDP|VP|UA|meso|makro|mikro|Cue|cue|ka|cm|kg|min|vk|pv|kk|km/h|m/s';
 const ABBR_ONLY = new RegExp('^(?:\\s|[·—–\\-/:()%.,+↑↓→▾▴◆⚠★☆●○≥≤<>&;0-9]|&amp;|&nbsp;|(?:' + ABBR + '))+$');
 // V7b-live-oppi 0A: allowlist VAIN jos tuotetermien+lyhenteiden JÄLKEEN ei jää fi-sanaa (EI substring — 'Underdog-toimenpideaste' vuoti kun PRODUCT.test mätsäsi 'Underdog')
@@ -74,6 +74,8 @@ const hasWord = (t) => /[A-Za-zÄÖÅäöå]{3,}/.test(t) && !ABBR_ONLY.test(t);
 // Mutaatiotodiste: koko skriptin vuotomäärä laskee TÄSMÄLLEEN 2:lla (ks. testi alla).
 const codeishPiece = (v) =>
   /\{[^}]*:[^}]*[;}]/.test(v) ||
+  /^[a-z][a-z0-9_-]*:[^\s]/.test(v.trim()) ||   // V8k-4b: `avain:arvo`-token (esim. lahde:pelaaja) — `codeish`illa oli tämä jo, paloilla ei
+
   /\b(?:document|window|this)\.[A-Za-z_$]/.test(v) ||
   /\bclassList\.|\bgetElementById\(|\bquerySelectorAll?\(/.test(v);
 const codeish = (v) =>
@@ -83,6 +85,7 @@ const codeish = (v) =>
   /^[a-z][a-z-]*:/.test(v.trim()) ||                    // CSS-property-alku (background:/border-left:2px solid)
   /^\w+\(/.test(v.trim()) ||   // funktiokutsu-handler (act:n toiminto-arg setWs('x'))
   /^[a-z][a-zA-Z0-9]*$/.test(v) ||   // V8e-JF1: bare (VÄLILYÖNNITÖN) lowercase-token = enum/id/koodi
+  /^[^\s@]+@[^\s@]+\.[A-Za-z]{2,}$/.test(v.trim()) ||   // V8k-4b: paljas sähköpostiosoite (ei käännettävää)
   /^["'\s]*(selected|disabled|checked|readonly|required|multiple|hidden|open|active|under|uusi|empty|low|high|locked|sel)["'\s]*$/.test(v);  // HTML-attr/CSS-class-sanat (empty/low/high/locked/sel = tila-luokat, väliin ternaary-haarassa).
 // Erä 2 -korjaus: sallitaan ympäröivä lainausmerkki/whitespace — attribuutti-scaffolding sulkee
 // edellisen attribuutin lainauksen ('" selected'). Kun `"` ei enää yksinään ole codeish, tämä on
@@ -290,37 +293,37 @@ describe('VP_v25 render-kielineutraali-gate (step G · AST)', () => {
   // ON aina vpT(...):n sisällä alueellaan. Sulkee saman aukon V5–V8:n enum-display-labeleille (roolit ym.)
   // — uusi alaerä lisää oman member-näyttönsä tähän.
   const MEMBER_DISPLAY = [
-    { expr: 'meta.nimi', ranges: [[12663, 13813]] }, // V4 kalenteri: KALENTERI_TYYPIT-tyyppinimi (§1 enum-avain fi, näyttö vpT)
-    { expr: 'IDP_TILA_LBL[p.idp_tila]', ranges: [[6148, 6188], [14523, 14573]] }, // V6 idp_tila-statusnäyttö (§1 enum-avain fi, näyttö vpT)
-    { expr: 'dm.nimi', ranges: [[15053, 15059]] }, // V7b domeeni-display fokusChip (lc-avain fi, näyttö vpT)
-    { expr: 'k.nimi', ranges: [[14686, 14690]] }, // V7b-fix2 tuloskortti _vpTkAlue mittarilabel (lib-data, näyttö vpT)
-    { expr: 'k.arvo', ranges: [[14686, 14690]] }, // V7b-fix2 tuloskortti _vpTkAlue mittari-arvo (Ei arviointeja vielä ym.)
+    { expr: 'meta.nimi', ranges: [[12970, 14070]] }, // V4 kalenteri: KALENTERI_TYYPIT-tyyppinimi (§1 enum-avain fi, näyttö vpT)
+    { expr: 'IDP_TILA_LBL[p.idp_tila]', ranges: [[6500, 6520], [14840, 14890]] }, // V6 idp_tila-statusnäyttö (§1 enum-avain fi, näyttö vpT)
+    { expr: 'dm.nimi', ranges: [[15360, 15375]] }, // V7b domeeni-display fokusChip (lc-avain fi, näyttö vpT)
+    { expr: 'k.nimi', ranges: [[14998, 15002]] }, // V7b-fix2 tuloskortti _vpTkAlue mittarilabel (lib-data, näyttö vpT)
+    { expr: 'k.arvo', ranges: [[14998, 15002]] }, // V7b-fix2 tuloskortti _vpTkAlue mittari-arvo (Ei arviointeja vielä ym.)
     // V7+: esim. { expr: 'roolimap[rooli]', ranges: [[...]] }
     // ── Erä 3 (kuormanarratiivi) — KAKSI UUTTA SOKEAA LUOKKAA, kumpikin gaten ulottumattomissa:
     // (a) CONTAINER/MUUTTUJA-REITITETTY: acwrSana-ternaari on sidottu VariableDeclaratoriin, ei
     //     markup-ketjuun → inDisplayContext=false. Lisäksi 'linjassa'/'koholla'/'matala' ovat
     //     codeish-bare-lowercase-tokeneita → kaksinkertaisesti piilossa. Vartija vaatii vpT:n
     //     MÄÄRITTELYSSÄ (arvo reititetään kerran, muuttujaa käytetään markupissa vapaasti).
-    { expr: "'kertyy ~4 vk'", ranges: [[9981, 10026]] },
-    { expr: "'linjassa'", ranges: [[9981, 10026]] },
-    { expr: "'koholla'", ranges: [[9981, 10026]] },
-    { expr: "'matala'", ranges: [[9981, 10026]] },
+    { expr: "'kertyy ~4 vk'", ranges: [[10245, 10255]] },
+    { expr: "'linjassa'", ranges: [[10245, 10255]] },
+    { expr: "'koholla'", ranges: [[10245, 10255]] },
+    { expr: "'matala'", ranges: [[10245, 10255]] },
     // (b) INLINE-ONCLICK-TOAST JS:N RAKENTAMASSA MARKUPISSA: toast(...) attribuuttimerkkijonon sisällä
     //     ei ole AST-kutsu (Erä 1:n kanavaportti ei näe) eikä >text< (render-gate ei näe). Reititys
     //     tehdään muuttujaan ennen merkkijonoa; vartija lukitsee sen.
-    { expr: "'Kuorma pidetty ennallaan'", ranges: [[9981, 10026]] },
+    { expr: "'Kuorma pidetty ennallaan'", ranges: [[10245, 10255]] },
     // ── Erä 4 (mittausnäkymät). Kaksi luokkaa, kumpikin eri syystä gaten ulottumattomissa:
     // (4) CODEISH-PIILO: 'muokattavissa'/'luku' OVAT markup-ketjussa (display-konteksti tunnistuu),
     //     mutta codeish pudottaa ne bare-lowercase-tokeneina → sokeus tulee SISÄLLÖSTÄ, ei kontekstista.
     //     Tämä on erän 1. tapaus jossa luokka 4 esiintyy YKSINÄÄN (erässä 3 se kasautui luokan 5 päälle).
-    { expr: "'muokattavissa'", ranges: [[10618, 10650]] },
-    { expr: "'luku'", ranges: [[10618, 10650]] },
+    { expr: "'muokattavissa'", ranges: [[10880, 10890]] },
+    { expr: "'luku'", ranges: [[10880, 10890]] },
     // (5) CONTAINER/MUUTTUJA: arvo sidottu VariableDeclaratoriin (mt @10606, patteristo @10983),
     //     renderöidään vasta myöhemmin markupissa → inDisplayContext=false.
-    { expr: "'mitätöity '", ranges: [[10598, 10616]] },
-    { expr: "'H-H-patteristo'", ranges: [[10973, 10997]] },
-    { expr: "'tekniikkakilpailu'", ranges: [[10973, 10997]] },
-    { expr: "'mittaus'", ranges: [[10973, 10997]] },
+    { expr: "'mitätöity '", ranges: [[10865, 10875]] },
+    { expr: "'H-H-patteristo'", ranges: [[11240, 11250]] },
+    { expr: "'tekniikkakilpailu'", ranges: [[11240, 11250]] },
+    { expr: "'mittaus'", ranges: [[11240, 11250]] },
   ];
   // Erä 4 (mittausnäkymät, _vpMittaus*-perhe) — ALUE-todiste 7 funktion yli.
   it('RANGES-alueet _vpMittaus* ovat oikeasti valvonnassa (mutaatio aitoon lähteeseen)', () => {
@@ -335,7 +338,7 @@ describe('VP_v25 render-kielineutraali-gate (step G · AST)', () => {
     expect(r2).not.toBe(src);
     const l2 = scanLeaks(r2, RANGES, RLO - 1, LIB);
     expect(l2.map((l) => l.p)).toContain('Mitä testit kertovat');
-    expect(l2.every((l) => l.line >= 10854 && l.line <= 11307)).toBe(true);
+    expect(l2.every((l) => l.line >= 10858 && l.line <= 11311)).toBe(true);
   });
 
   // Erä 4c — ENUM→NÄYTTÖ. TKI-mitali ('kulta'/'hopea'/'pronssi') on Firestore-arvo joka renderöityy
@@ -344,7 +347,7 @@ describe('VP_v25 render-kielineutraali-gate (step G · AST)', () => {
   // MEMBER_DISPLAY ei sovi tähän: kääre on _jsvEsc(vpT(merkki)), jolloin vartijan etsimä lauseke ei
   // esiinny lähteessä lainkaan → se menisi vacuous-läpi. Siksi eksplisiittinen lähdeväite.
   it('TKI-mitali renderöidään vpT:n läpi, ei raakana enum-arvona', () => {
-    const alue = HTML.split('\n').slice(11276, 11307).join('\n');
+    const alue = HTML.split('\n').slice(11280, 11311).join('\n');
     expect(alue).toContain('vpT(merkki)');
     expect(alue).not.toMatch(/_jsvEsc\(merkki\)/);
     // ja mitaliarvot ovat kartassa (muuten vpT palauttaisi fi:n)
@@ -366,6 +369,21 @@ describe('VP_v25 render-kielineutraali-gate (step G · AST)', () => {
     expect(scanLeaks(puhdas, [[1, 99]], 0, lib).map((l) => l.p)).toEqual([]);
   });
 
+  // V8k-4b — kaksi kapeaa laajennusta, molemmat mitattu (koko skripti 96 → 94, 0 uutta):
+  //   (1) `Eerikkilä` = laitosnimi → PRODUCT-termi (kuten TalentMaster/Hidden Gem). Poistaa väärät
+  //       positiivit joissa EI ole muuta kuin tuotetermi + lyhenne ('H-H/Eerikkilä', '/5 · Eerikkilä').
+  //   (2) paljas sähköpostiosoite → codeish (ei koskaan käännettävää näyttötekstiä).
+  // Molemmat PITÄÄ säilyttää kapeina: lause jossa Eerikkilä + suomea pysyy vuotona.
+  it('Eerikkilä-tuotetermi ja sähköposti eivät vuoda — mutta Eerikkilä + fi-sana vuotaa yhä', () => {
+    const vain = `function _a(){ return '<span>H-H/Eerikkilä</span><span>/5 · Eerikkilä</span>'; }`;
+    expect(scanLeaks(vain, [[1, 99]], 0, new Set())).toEqual([]);
+    const mail = `function _m(){ document.getElementById('x').textContent = 'demo@talentmaster.fi'; }`;
+    expect(scanLeaks(mail, [[1, 99]], 0, new Set())).toEqual([]);
+    const seka = `function _s(){ return '<div>Normivertailu (Eerikkilä, taso-3 = ikäluokan keskitaso)</div>'; }`;
+    expect(scanLeaks(seka, [[1, 99]], 0, new Set()).map((l) => l.p))
+      .toEqual(['Normivertailu (Eerikkilä, taso-3 = ikäluokan keskitaso)']);
+  });
+
   // V8k-4a — codeishPiece-KAVENNUS. `codeish` ajetaan vain nollamarkup-haaralle, joten markup-
   // literaalista pilkotut palat pääsivät läpi ilman koodisuodatusta: `<style>`-lohkon CSS-runko ja
   // inline-onclickin JS-runko kirjautuivat "vuodoiksi" (r4170/r4167). Kavennus on tahallaan kapea.
@@ -376,9 +394,16 @@ describe('VP_v25 render-kielineutraali-gate (step G · AST)', () => {
     const js = `function _b(){ return '<button onclick="this.classList.remove(1);document.getElementById(2)">x</button>'; }`;
     expect(scanLeaks(js, [[1, 99]], 0, new Set())).toEqual([]);
     // …mutta aito näyttöteksti välimerkeillä pysyy vuotona (kavennus ei saa niellä sitä)
+    // V8k-4b: `avain:arvo`-token (kenttänimi monospacena) — `codeish` tunsi tämän jo, palat eivät
+    const kentta = `function _k(){ return '<div>x <span class="mono">lahde:pelaaja</span> y</div>'; }`;
+    expect(scanLeaks(kentta, [[1, 99]], 0, new Set())).toEqual([]);
     const nayt = `function _n(){ return '<div>Taso 3 = ikäluokan keskitaso; vertaa varoen</div>'; }`;
     expect(scanLeaks(nayt, [[1, 99]], 0, new Set()).map((l) => l.p))
       .toEqual(['Taso 3 = ikäluokan keskitaso; vertaa varoen']);
+    // …eikä kaksoispisteellinen NÄYTTÖTEKSTI (välilyönti perässä) saa hävitä
+    const otsikko = `function _o(){ return '<div>Radar-normi: ikäluokan keskitaso</div>'; }`;
+    expect(scanLeaks(otsikko, [[1, 99]], 0, new Set()).map((l) => l.p))
+      .toEqual(['Radar-normi: ikäluokan keskitaso']);
   });
 
   // Erä 4 — TODISTE ETTÄ GATE ON SOKEA luokille 4 ja 5 (→ MEMBER_DISPLAY on ainoa vartija).
@@ -485,6 +510,18 @@ describe('VP_v25 render-kielineutraali-gate (step G · AST)', () => {
         }
       }
     }
+    // V8k-4b — EI-VACUOUS PER ENTRY: rivinumeroihin ankkuroitu vartija rappeutuu hiljaa kun koodi
+    // siirtyy (todettu: 15/16 aluetta oli ajautunut niin ettei yksikään osuma ollut enää alueella →
+    // vartija meni läpi tyhjänä). Nyt jokaisen entryn on osuttava vähintään kerran, muuten punainen.
+    const tyhjat = [];
+    for (const { expr, ranges } of MEMBER_DISPLAY) {
+      let n = 0;
+      for (const [lo, hi] of ranges) for (let ln = lo; ln <= hi; ln++) {
+        const line = lines[ln - 1]; if (line) n += line.split(expr).length - 1;
+      }
+      if (!n) tyhjat.push(`${expr} @ ${JSON.stringify(ranges)} — 0 osumaa (alue ajautunut)`);
+    }
+    expect(tyhjat).toEqual([]);
     // Ei-vacuous: skanneri nappaa bare-muodon (synteettinen todiste)
     const probe = ['x = meta.nimi + "y"', 'x = vpT(meta.nimi)'];
     const pbad = probe.filter((l, idx) => { const i = l.indexOf('meta.nimi'); return l.slice(i - 4, i) !== 'vpT(' && idx === 0; });
