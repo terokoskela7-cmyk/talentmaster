@@ -1135,6 +1135,18 @@ const auth      = firebase.auth();
 const db        = firebase.firestore();
 const functions = firebase.app().functions('europe-west1');
 
+/* Suostumuslinkki perheelle — ABSOLUUTTINEN mutta ORIGIN-AGNOSTINEN.
+   Linkki kopioidaan sähköpostiin/tekstiviestiin, joten suhteellinen olisi hyödytön; mutta
+   kovakoodattu github.io tarkoittaisi että V3-cutoverin jälkeen perheille lähtee yhä linkkejä
+   vanhaan Pages-domainiin (ja rikkoutuu kokonaan jos Pages joskus poistetaan).
+   new URL(..., location.href) resolvoi sen originin JA kansion mukaan josta tämä sivu tarjoillaan:
+     Pages    → https://terokoskela7-cmyk.github.io/talentmaster/TalentMaster_Rekisterointi_Suostumus.html
+     Hosting  → https://talentmasterid.com/TalentMaster_Rekisterointi_Suostumus.html
+   YKSI määritelmä — aiemmin sama URL oli kovakoodattuna viidessä eri kohdassa. */
+function _rekBaseUrl() {
+  return new URL('TalentMaster_Rekisterointi_Suostumus.html', location.href).href;
+}
+
 // Sessio säilyy sivujen välillä
 auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL)
   .catch(e => console.warn('Persistence:', e.message));
@@ -3014,7 +3026,7 @@ function luoRekisteriLinkki() {
     ...(tila._rekPelaajaId && { pelaajaId: tila._rekPelaajaId }),
   });
 
-  const baseUrl = 'https://terokoskela7-cmyk.github.io/talentmaster/TalentMaster_Rekisterointi_Suostumus.html';
+  const baseUrl = _rekBaseUrl();
   const linkki  = `${baseUrl}?${params.toString()}`;
 
   tila._rekLinkki = linkki;
@@ -3077,7 +3089,7 @@ async function lahetaRekisteriSahkoposti() {
 
   // Jos linkki yhä puuttuu, rakennetaan se suoraan
   if (!tila._rekLinkki) {
-    const baseUrl = 'https://terokoskela7-cmyk.github.io/talentmaster/TalentMaster_Rekisterointi_Suostumus.html';
+    const baseUrl = _rekBaseUrl();
     const params  = new URLSearchParams({
       seuraId: tila.seuraId, seura: tila.seuraNimi || tila.seuraId,
       etunimi: _etu, sukunimi: _suku, joukkue: _joukkue, hEmail,
@@ -3166,7 +3178,7 @@ async function lahetaRekisteriSahkoposti() {
           .update(_upd).catch(() => {});
       }
       // Päivitetään kutsulinkkiin pelaajaId
-      const baseUrl = 'https://terokoskela7-cmyk.github.io/talentmaster/TalentMaster_Rekisterointi_Suostumus.html';
+      const baseUrl = _rekBaseUrl();
       const params = new URLSearchParams({
         seuraId:   tila.seuraId,
         pelaajaId: pelaajaId,
@@ -5072,7 +5084,7 @@ async function lahetaMassakutsu() {
   if (nappi)    { nappi.disabled = true; nappi.textContent = 'Lähetetään...'; }
   if (progress) progress.style.display = '';
 
-  const baseUrl = 'https://terokoskela7-cmyk.github.io/talentmaster/TalentMaster_Rekisterointi_Suostumus.html';
+  const baseUrl = _rekBaseUrl();
   const seuraNimi = tila.seuraNimi || tila.seuraId;
   const lahetaFn = firebase.app().functions('europe-west1').httpsCallable('lahetaRekisteriKutsu');
   let onnistui = 0;
@@ -5789,7 +5801,7 @@ async function ajaExcelTuonti(lahetaKutsut = false) {
   if (prog)  prog.style.display = '';
   if (virhe) virhe.textContent = '';
 
-  const baseUrl = 'https://terokoskela7-cmyk.github.io/talentmaster/TalentMaster_Rekisterointi_Suostumus.html';
+  const baseUrl = _rekBaseUrl();
   const seuraNimi = tila.seuraNimi || tila.seuraId;
   const nyt = firebase.firestore.FieldValue.serverTimestamp();
 

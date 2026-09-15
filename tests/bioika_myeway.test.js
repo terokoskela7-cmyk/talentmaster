@@ -6,7 +6,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'fs';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
-const { laskeMirwald } = require('../src/lib/tm_bioika.js');
+const { laskeMirwald } = require('../lib/tm_bioika.js');
 const { TM_LASKE_BIOIKA } = require('../src/lib/tm_testipankki.js');
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -49,7 +49,7 @@ describe('PHV Mirwald — MyE.Way-pariteetti (poikien vakio −9.3236)', () => {
   // Lähdetason guard: tm_ylaikaisyys.js on selainpuolinen (ei CommonJS-exportia) → varmistetaan vakio
   // suoraan lähteestä. Sama tarkistus kaikille kolmelle → "kolme kopiota, päivitä yhdessä" ei rikkoudu hiljaa.
   it('KOLME KOPIOTA: kaikissa boys −9.3236, ei enää julkaistua −9.236 (girls −9.376 ennallaan)', () => {
-    for (const f of ['src/lib/tm_bioika.js', 'src/lib/tm_testipankki.js', 'src/lib/tm_ylaikaisyys.js']) {
+    for (const f of ['lib/tm_bioika.js', 'src/lib/tm_testipankki.js', 'src/lib/tm_ylaikaisyys.js']) {
       const s = src(f);
       expect(s.includes('-9.3236')).toBe(true);   // poikien MyE.Way-vakio läsnä
       expect(s.includes('-9.236')).toBe(false);   // ei aktiivista ASCII-vakiota −9.236 (julkaistu Mirwald)
