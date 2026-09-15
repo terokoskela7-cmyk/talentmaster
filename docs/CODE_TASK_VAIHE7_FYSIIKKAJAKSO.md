@@ -105,13 +105,13 @@ Vitest `tm_fyysteemat.js`: ehdotus-mapping (hh_kehityskohde→teema, FLEI<40-pri
 |---|---|---|
 | `nopeus_voima` | `EVERTON_LISAYKSET.loikat.ll.P_lisays` (`harjoitelogiikka_v4.js:~2203`) | **6 vk plyo-progressio intensiteettiportailla** (Valmistava 60–70% → Kehittävä 75–85% → Huipentava 90–100%), `{vaihe,viikot,intensiteetti,nimi,ohje,mittari,kesto,phv}` — täsmää tutkimuksen annostelusuositukseen |
 | `perusvoima` | `PANKKI.S[ketju].stage_tasot` (`harjoitelogiikka_v4.js:520`) Stage 1→3→5 + `TM_TESTIPANKKI` alikat. `voima` | Progressiivinen voimaharjoite ketjuittain |
-| `kuntoutus` | `HPP_REHAB_PROTOKOLLAT` + `HPP_EXERCISES` (`src/lib/hpp_rehab_protokollat.js:614, 47`) | Vaiherakenne akuutti→subakuutti↊krooninen + **`paluu_kriteerit` (RTP-portti)** + `phv_ok`/`phv_huomio`. ⚠ vain harjoitussisältö; terveysdata `terveys/`-alikokoelmaan (§2c GDPR Art. 9) |
+| `kuntoutus` | `HPP_REHAB_PROTOKOLLAT` + `HPP_EXERCISES` (`lib/hpp_rehab_protokollat.js:614, 47`) | Vaiherakenne akuutti→subakuutti↊krooninen + **`paluu_kriteerit` (RTP-portti)** + `phv_ok`/`phv_huomio`. ⚠ vain harjoitussisältö; terveysdata `terveys/`-alikokoelmaan (§2c GDPR Art. 9) |
 | `liikkuvuus` | `PANKKI.D[sfl/dfl]` (`harjoitelogiikka_v4.js:359`) + `TM_TESTIPANKKI` liikkuvuustestit | Liikkuvuusaktivoinnit + thomas/valakyykky-baseline |
 | `lahtotaso` baseline | `TM_PROTOKOLLAT.hh_laaja/suppea` (`src/lib/tm_testipankki.js:1165`) + normit `src/lib/tm_normit.js` (`TM_PALLOLIITTO[...][ikäluokka]{t5..t2}`) | Mittausikkuna + tasokynnykset (taso 3 = kansallinen tavoite) |
 
 ### 9.3 Treeniteema-harjoitteet (`treeniteema.tyyppi:'fyysinen'`)
 - D-aktivointi + S-kohdennettu + Everton-lisäykset (`harjoitelogiikka_v4.js:359, 520, 2203`), haku `generoimTehtavat` / `_haeD(ketju, stage)`. Kukin harjoite tuo valmiin `ohje_leikkija/_rakentaja/_showcase` (3 ikävaihetta), `cue`, `yt`, `phv`, `phv_xp` → suoraan teemakortin sisällöksi (rajaus §7: harjoitesisältöä EI kirjoiteta uusiksi).
-- Ketju↔pallotekniikka-cue: `TM_KETJU_MATRIISI[ketju].pallotekniikka` (`src/lib/tm_ketju_matriisi.js:57+`).
+- Ketju↔pallotekniikka-cue: `TM_KETJU_MATRIISI[ketju].pallotekniikka` (`lib/tm_ketju_matriisi.js:57+`).
 
 ### 9.4 Delta-tulkinta (`tmFyysDelta` + PHV-portti)
 - Taso-delta: `hh_taso_edellinen → hh_taso`, normit `src/lib/tm_normit.js` (ikänormitettu → kasvu huomioitu automaattisesti, §0).

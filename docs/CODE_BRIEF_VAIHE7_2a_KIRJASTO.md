@@ -22,11 +22,11 @@ ohjelmat/{id}
 ## 2. PURE-lib `lib/tm_ohjelma.js` (§34 — dual-export, Vitest, EI Firestore/DOM)
 - `tmOhjelmaValidoi(o)` → `{ok, virheet[]}`: pakolliset kentät (nimi, tyyppi, ≥1 vaihe), vaiheiden intensiteetti-järkevyys (0–100 %, nouseva/looginen), **GDPR-vahti**: hylkää jos `kuvaus`/`harjoitteet` sisältää diagnoosikuvion (ks. §8).
 - `tmOhjelmaVersioi(vanha, muutokset)` → uusi versio-objekti (`versio+1`, `edellinen_versio_id = vanha.id`, `luotu`/`paivitetty` säilyttäen laatija-tiedot).
-- `tmOhjelmaTemplaatista(tyyppi)` → esitäyttö: **lainaa V7:n `tmOhjelmaTemplaatti`** (`tm_fyysteemat.js` / `TM_OHJELMA_TEMPLAATIT`) + Everton 6 vk plyo (`EVERTON_LISAYKSET.loikat.ll.P_lisays`) + HPP-rehab-protokolla (`src/lib/hpp_rehab_protokollat.js`) rakennepohjina.
+- `tmOhjelmaTemplaatista(tyyppi)` → esitäyttö: **lainaa V7:n `tmOhjelmaTemplaatti`** (`tm_fyysteemat.js` / `TM_OHJELMA_TEMPLAATIT`) + Everton 6 vk plyo (`EVERTON_LISAYKSET.loikat.ll.P_lisays`) + HPP-rehab-protokolla (`lib/hpp_rehab_protokollat.js`) rakennepohjina.
 - Dual-export (CommonJS + selain-global, V6/V7-malli). Vitest-kattavuus §10.
 
 ## 3. Ohjelmaeditori (Master_v16 rakentaa; VP_v25 oversight)
-- **Kentät:** nimi · tyyppi (**custom-dropdown §37**) · kuvaus · kesto_vk · **viikko-ohjelma** (lisää vaihe: nimi, viikkoväli, intensiteetti %, ohje, mittari, harjoitteet). Harjoitteet joko **HPP_EXERCISES-viittaus** (valikko `src/lib/hpp_rehab_protokollat.js`:stä) tai vapaateksti.
+- **Kentät:** nimi · tyyppi (**custom-dropdown §37**) · kuvaus · kesto_vk · **viikko-ohjelma** (lisää vaihe: nimi, viikkoväli, intensiteetti %, ohje, mittari, harjoitteet). Harjoitteet joko **HPP_EXERCISES-viittaus** (valikko `lib/hpp_rehab_protokollat.js`:stä) tai vapaateksti.
 - **"Uusi kirjastosta / valmiista":** `tmOhjelmaTemplaatista(tyyppi)`-esitäyttö → fysiikkavalmentaja muokkaa → **Tallenna kirjastoon** (`ohjelmat/{id}` create) TAI **Tallenna uutena versiona** (`tmOhjelmaVersioi` → uusi doc).
 - **Arkistoi:** asettaa `arkistoitu:true` (pehmeä). Kova delete estetty rulesissa (§6).
 - Editori ajaa `tmOhjelmaValidoi` ennen tallennusta; näyttää virheet inline. VP näkee editorin read/oversight-tilassa; fysiikkavalmentaja/fysioterapeutti kirjoittaa.

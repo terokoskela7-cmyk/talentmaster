@@ -44,8 +44,8 @@ Dokumentin tärkein yksittäinen löydös — kumoaa oletuksen `src/lib` kanonis
 | R7 | `T_MESOSYKLI_KOHDE` + `T_KOHDE_PANKKI` | `harjoitelogiikka_v4.js:2569–2651` | tekniikka | meso→kohde-map + kohde→harjoite[]-pankki |
 | R8 | Pelaaja_v7:n oma `window.PANKKI` (ketju-stub) | `TalentMaster_Pelaaja_v7.html:3560` | tekniikka | `PANKKI[KETJU][stage]` → `{nimi,kuvaus,kesto,taso,tyyppi}` |
 | R9 | `TM_TESTIPANKKI` (64 testin metadata) | `src/lib/tm_testipankki.js:43–1722` | sekoitettu | `{id,kategoria,alikategoria,dimensio:D1/D2,ketju,fleiBidrag}` |
-| R10 | `TM_KETJU_MATRIISI` (fascia + ICC + pallotekn.) | `src/lib/tm_ketju_matriisi.js:23–318` | fysiikka | `[ketju].{testit:[{id,icc,perustelu}], pallotekniikka:[{laji,rooli}]}` |
-| R11 | `TM_PALLOTEKNIIKKA` (erillinen objekti) | `src/lib/tm_ketju_matriisi.js:325–396` | sekoitettu | `{laji}` → aktivaatiomekanismi (ei viitaa testipankkiin) |
+| R10 | `TM_KETJU_MATRIISI` (fascia + ICC + pallotekn.) | `lib/tm_ketju_matriisi.js:23–318` | fysiikka | `[ketju].{testit:[{id,icc,perustelu}], pallotekniikka:[{laji,rooli}]}` |
+| R11 | `TM_PALLOTEKNIIKKA` (erillinen objekti) | `lib/tm_ketju_matriisi.js:325–396` | sekoitettu | `{laji}` → aktivaatiomekanismi (ei viitaa testipankkiin) |
 | R12 | `WHY_LAUSEET` (narratiivi) | `tm_why_lauseet.js:35–156` | fysiikka | `[KETJU][tyyppi:T/D/S][ikä-stage]` → string ≤25 sanaa |
 | R13 | `NIMIKKO_VIIKOT` + `IDOLIT` (8 vk makrosykli) | `src/lib/tm-microcycles.js:60–150` | tekniikka | `{vk, idoli, teema, ketju, jakso}` + 4 mikrosykliä/pv |
 
@@ -194,5 +194,5 @@ Harjoite = {
 ## Verifioidut tiedostot
 - `harjoitelogiikka_v4.js` (**kanon**, 2803 r) · `src/lib/harjoitelogiikka_v4.js` (vanha stub, ratkaistava)
 - `TalentMaster_Pelaaja_v7.html` (pääkuluttaja, lataa Pagesista r316) · `TalentMaster_Agent_v1.html` (kuluttaja — viittaus vahvistettava)
-- `src/lib/{tm_testipankki,tm_ketju_matriisi,tm-microcycles}.js`, `tm_why_lauseet.js`, `docs/PANKKI_harjoitteet.md`
+- `src/lib/{tm_testipankki,tm-microcycles}.js + lib/tm_ketju_matriisi.js`, `tm_why_lauseet.js`, `docs/PANKKI_harjoitteet.md`
 - Testit: `vitest.config.js`, `tests/*.test.js` (esikuvat characterization-testeille)
