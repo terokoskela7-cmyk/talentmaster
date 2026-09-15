@@ -1,0 +1,39 @@
+name: Deploy to Firebase Hosting
+
+# Julkaisee mainin Firebase Hostingin LIVE-kanavalle → talentmaster-pilot.web.app +
+# talentmaster-pilot.firebaseapp.com. Custom-domain talentmasterid.com liitetään Consolesta
+# aliakseksi samaan siteen (V3b) — ei vaadi muutosta tähän workflow'hun.
+#
+# GitHub Pages JÄÄ RINNALLE fallbackiksi: deploy-pages.yml on koskematon, eikä tämä workflow
+# vaikuta siihen millään tavalla. Kaksi originia rinnakkain on tarkoitus, ei ongelma.
+#
+# Tarjoiltavan joukon rajaa firebase.json:in "ignore" (mm. archive/**, src/**, tests/**) —
+# siksi tässä EI ole Pagesin "rm -rf archive" -steppiä. Hosting kunnioittaa ignorea natiivisti;
+# Pages ei, mikä on juuri se ero jonka V3a:n served-suljettu-portti vartioi.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Oma ryhmä, erillinen Pagesin "pages"-ryhmästä → workflowit eivät peruuta toisiaan.
+# bump-version pushaa mergen jälkeen [skip ci]-commitin, joka EI laukaise tätä → ei
+# kaksoisdeployta. cancel-in-progress suojaa nopeilta peräkkäisiltä mergeiltä.
+concurrency:
+  group: "hosting"
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: ${{ secrets.GITHUB_TOKEN }}
+          # HUOM: _HOSTING-päätteinen secret on oma, vain Hostingiin scopattu service account.
+          # FIREBASE_SERVICE_ACCOUNT (ilman päätettä) on eri ja laajempi — seed_kartoitukset.yml
+          # käyttää sitä. Älä vaihda tätä siihen: pienin tarvittava oikeus, ei jaettua avainta.
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_HOSTING }}
+          projectId: talentmaster-pilot
+          channelId: live
