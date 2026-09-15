@@ -107,7 +107,8 @@ describe('autosave-langoitus + status osa-etenemä', () => {
     expect(s).toContain('_vpAloitusReRender');   // Aloitus-näyttö päivittyy
   });
   it('status-rivi näyttää osa-etenemän ("Osat X/Y itsenäisesti") olemassa olevasta datasta', () => {
-    expect(HTML).toContain("' itsenäisesti</b></span>');");
+    // V8f: "itsenäisesti" on nyt vpT:n takana — status-rivin rakenne (X/Y + label) ennallaan.
+    expect(HTML).toContain("+ vpT('itsenäisesti') + '</b></span>');");
     expect(HTML).toContain('jf.osa_arviot[jf.konsepti_avain]');
   });
 });
