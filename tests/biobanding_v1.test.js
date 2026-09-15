@@ -3,7 +3,7 @@
 import { describe, it, expect } from 'vitest';
 const {
   kehitysvaiheKaista, laskeKasvutahti, laskeBioIkaDokumentti, YLI_IKAISYYS_KYNNYS,
-} = require('../src/lib/tm_bioika.js');
+} = require('../lib/tm_bioika.js');
 
 describe('kehitysvaiheKaista — phv_tila → bio-banding-kaista (±1v circa)', () => {
   it('PRE → pre', () => expect(kehitysvaiheKaista('PRE')).toBe('pre'));
