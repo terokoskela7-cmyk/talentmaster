@@ -18,16 +18,16 @@ describe('Mittaus v4 — 2-sarake D1|D2 + rail-vapaa', () => {
   });
 
   it('f1/f2 kääritty .mit-cols-sarakkeisiin (Fyysinen | Tekninen), erotin poistettu välistä', () => {
-    expect(HTML).toContain("'<div class=\"mit-cols\"><div>' + _mSub('Fyysinen · mitattu') + f1 + '</div><div>' + _mSub('Tekninen · mitattu') + f2 + '</div></div>'");
+    expect(HTML).toContain("'<div class=\"mit-cols\"><div>' + _mSub(vpT('Fyysinen · mitattu')) + f1 + '</div><div>' + _mSub(vpT('Tekninen · mitattu')) + f2 + '</div></div>'");
     // vanha pino (_mErot f1:n ja f2:n VÄLISSÄ) poistettu
-    expect(HTML).not.toContain("_mSub('Fyysinen · mitattu') + f1 + _mErot + _mSub('Tekninen · mitattu')");
+    expect(HTML).not.toContain("_mSub(vpT('Fyysinen · mitattu')) + f1 + _mErot + _mSub(vpT('Tekninen · mitattu'))");
   });
 
   it('tulkintakerros (tuoreus/§28/synth) ENNEN cols; Kehon valmius + nextstep JÄLKEEN (täysleveinä)', () => {
     const iTuoreus = HTML.indexOf('_vpMittausTuoreusHTML(p, ika) :');
     const iSynth = HTML.indexOf('_vpMittausSynthHTML(p, ika, d1, d2, tsi) :');
-    const iCols = HTML.indexOf("'<div class=\"mit-cols\"><div>' + _mSub('Fyysinen");
-    const iKehon = HTML.indexOf("_mSub('Kehon valmius')");
+    const iCols = HTML.indexOf("'<div class=\"mit-cols\"><div>' + _mSub(vpT('Fyysinen");
+    const iKehon = HTML.indexOf("_mSub(vpT('Kehon valmius'))");
     const iNext = HTML.indexOf('_vpMittausNextStepHTML(p) :');
     expect(iTuoreus).toBeLessThan(iSynth);
     expect(iSynth).toBeLessThan(iCols);

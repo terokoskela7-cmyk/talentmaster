@@ -64,8 +64,8 @@ describe('5a — kytkentä: FLEI oma lohko, EI Teknisessä (renderFleiKortti tas
     expect(HTML).toContain('? renderFleiKortti(p) : \'\'');
   });
   it('Kehon valmius -lohko tab-1:ssä Teknisen (f2) jälkeen, nextstepin edellä', () => {
-    const iF2 = HTML.indexOf("_mSub('Tekninen · mitattu') + f2");
-    const iKv = HTML.indexOf("_mSub('Kehon valmius') + (typeof _vpKehonValmiusHTML");
+    const iF2 = HTML.indexOf("_mSub(vpT('Tekninen · mitattu')) + f2");
+    const iKv = HTML.indexOf("_mSub(vpT('Kehon valmius')) + (typeof _vpKehonValmiusHTML");
     const iNext = HTML.indexOf('_vpMittausNextStepHTML(p) :');
     expect(iF2).toBeLessThan(iKv);
     expect(iKv).toBeLessThan(iNext);

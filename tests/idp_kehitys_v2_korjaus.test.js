@@ -29,24 +29,25 @@ describe('(1) Aloituksen lähdechip neutraali (ei off-palette-pinkkiä)', () => 
 
 describe('(2) teal ainoa aksentti — Kehitys-linkit blue→teal', () => {
   it('D3-kalibraatio-linkki teal (ei sininen)', () => {
-    expect(HTML).toContain('🧠 D3-kalibraatio (itse × valmentaja × VP) → <span style="color:var(--teal);cursor:pointer;font-weight:600" onclick="_jspVaihda(2)">Arviointi-välilehti</span>');
-    expect(HTML).not.toContain('color:var(--blue);cursor:pointer;font-weight:600" onclick="_jspVaihda(2)">Arviointi-välilehti');
+    // i18n V5 · V8k-1: tekstit vpT-reititetty; väri-guard (teal, ei blue) säilyy ennallaan.
+    expect(HTML).toContain("🧠 ' + vpT('D3-kalibraatio (itse × valmentaja × VP)') + ' → <span style=\"color:var(--teal);cursor:pointer;font-weight:600\" onclick=\"_jspVaihda(2)\">' + vpT('Arviointi-välilehti')");
+    expect(HTML).not.toContain('color:var(--blue);cursor:pointer;font-weight:600" onclick="_jspVaihda(2)">');
   });
   it('diagnostiikka-toggle teal (ei sininen)', () => {
-    expect(HTML).toContain('color:var(--teal);cursor:pointer;font-weight:600">▸ Diagnostiikka (PHV · testipäivät)</span>');
-    expect(HTML).not.toContain('color:var(--blue);cursor:pointer;font-weight:600">▸ Diagnostiikka (PHV · testipäivät)</span>');
+    expect(HTML).toContain("color:var(--teal);cursor:pointer;font-weight:600\">▸ ' + vpT('Diagnostiikka (PHV · testipäivät)') + '</span>");
+    expect(HTML).not.toContain("color:var(--blue);cursor:pointer;font-weight:600\">▸ ' + vpT('Diagnostiikka (PHV · testipäivät)')");
   });
 });
 
 describe('(3) rolenote §37 + pelifoot _kehExtra:n loppuun (diagnostiikan JÄLKEEN)', () => {
   it('rolenote §37 (roolijako) + pelifoot ("Peli edellä") lisätty', () => {
-    expect(HTML).toContain('<b style="color:var(--ink2);font-weight:500">Roolit §37:</b> valmentaja omistaa operatiivisen jaksofokuksen');
-    expect(HTML).toContain('<b style="color:var(--ink2);font-weight:500">Peli edellä, muut mukana.</b> Jaksofokus voi olla fyysinen, teknis-taktinen tai psyykkinen');
+    expect(HTML).toContain("<b style=\"color:var(--ink2);font-weight:500\">' + vpT('Roolit §37:') + '</b> ' + vpT('valmentaja omistaa operatiivisen jaksofokuksen");
+    expect(HTML).toContain("<b style=\"color:var(--ink2);font-weight:500\">' + vpT('Peli edellä, muut mukana.') + '</b> ' + vpT('Jaksofokus voi olla fyysinen, teknis-taktinen tai psyykkinen");
   });
   it('järjestys: diagnostiikka → rolenote → pelifoot → hR-kokoonpano', () => {
     const iDiag = HTML.indexOf("' + f4 + '</div></div>';");
-    const iRole = HTML.indexOf('Roolit §37:</b> valmentaja omistaa');
-    const iPeli = HTML.indexOf('Peli edellä, muut mukana.</b> Jaksofokus');
+    const iRole = HTML.indexOf("vpT('Roolit §37:')");
+    const iPeli = HTML.indexOf("vpT('Peli edellä, muut mukana.')");
     const iHr = HTML.indexOf('let hR = \'\';');
     expect(iDiag).toBeGreaterThan(0);
     expect(iDiag).toBeLessThan(iRole);
