@@ -37,7 +37,7 @@ const acorn = require('acorn');
 const HTML = readFileSync(join(__dir, '..', 'TalentMaster_VP_v25.html'), 'utf8');
 
 const RLO = 2692, RHI = 18324;              // VP pääscript (1-idx)
-const RANGES = [[8441, 9623], [13003, 14153], [12064, 12803], [3791, 3879], [14589, 14953], [14955, 15588], [15592, 16093], [16173, 16287], [16289, 16378], [4435, 4509], [5374, 5441], [15557, 15633], [17333, 17413], [7288, 7572], [5983, 7287], [4757, 4867], [16386, 16530], [4868, 5373], [4600, 4701], [3552, 3779], [10240, 10285], [11314, 11329], [10857, 10875], [10877, 10909], [11138, 11193], [11232, 11256], [11258, 11266], [11268, 11275], [11280, 11310], [14303, 14314], [4189, 4433], [7707, 7769], [8033, 8189], [8231, 8258], [5640, 5659], [5697, 5727], [5828, 5858], [5924, 5980], [7683, 7704], [16918, 16953], [16967, 16975], [16958, 16966], [9996, 10022], [10069, 10125], [10137, 10163], [10214, 10237], [10288, 10306], [10308, 10319], [10321, 10328], [10528, 10539], [10573, 10589], [9872, 9891], [9892, 9917], [14185, 14261], [14513, 14586], [9624, 9861], [16563, 16580], [11330, 11998], [7577, 7617], [7898, 7915], [8281, 8411], [12008, 12033], [16983, 16988], [16995, 17005], [17320, 17332], [17503, 17638], [18027, 18044], [18047, 18072], [18191, 18236], [18301, 18312], [18238, 18290]]; // V8k-3: [18220,18236] sulautui renderKalibin runkoon. V8k-2: [8286,8311] sulautui _vpAloitusHTML:n koko runkoon. V8k-1: [11737,11741] sulautui per-pelaaja-pikakatsauksen koko puuhun. V3 _jsv · V4 kalenteri · V5 valmentajat · V6 IDP-jono · V7a MDT · V7b Reviewit+tuloskortti. V7c–V8: lisää.
+const RANGES = [[8441, 9623], [13003, 14153], [12064, 12803], [3791, 3879], [14589, 14953], [14955, 15588], [15592, 16093], [16173, 16287], [16289, 16378], [4435, 4509], [5374, 5441], [15557, 15633], [17333, 17413], [7288, 7572], [5983, 7287], [4757, 4867], [16386, 16530], [4868, 5373], [4600, 4701], [3552, 3779], [10240, 10285], [11314, 11329], [10857, 10875], [10877, 10909], [11138, 11193], [11232, 11256], [11258, 11266], [11268, 11275], [11280, 11310], [14303, 14314], [4189, 4433], [7707, 7769], [8033, 8189], [8231, 8258], [5640, 5659], [5697, 5727], [5828, 5858], [5924, 5980], [7683, 7704], [16918, 16953], [16967, 16975], [16958, 16966], [9996, 10022], [10069, 10125], [10137, 10163], [10214, 10237], [10288, 10306], [10308, 10319], [10321, 10328], [10528, 10539], [10573, 10589], [9872, 9891], [9892, 9917], [14185, 14261], [14513, 14586], [9624, 9861], [16563, 16580], [11330, 11998], [7577, 7617], [7898, 7915], [8281, 8411], [12008, 12033], [16983, 16988], [16995, 17005], [17320, 17332], [17503, 17638], [18027, 18044], [18047, 18072], [18191, 18236], [18301, 18312], [2856, 2930], [3970, 3990], [4055, 4080], [4125, 4180], [4545, 4580], [4705, 4720], [5800, 5815], [5865, 5895], [5900, 5920], [18238, 18290]]; // V8k-4a: hallintapuolen rypäs. V8k-3: [18220,18236] sulautui renderKalibin runkoon. V8k-2: [8286,8311] sulautui _vpAloitusHTML:n koko runkoon. V8k-1: [11737,11741] sulautui per-pelaaja-pikakatsauksen koko puuhun. V3 _jsv · V4 kalenteri · V5 valmentajat · V6 IDP-jono · V7a MDT · V7b Reviewit+tuloskortti. V7c–V8: lisää.
 const ROUTED_FNS = new Set(['vpT', 'vpTToimenpide']);
 
 // §7 lib-curriculum-nimet (jäävät fi → allowlist)
@@ -67,6 +67,15 @@ const hasWord = (t) => /[A-Za-zÄÖÅäöå]{3,}/.test(t) && !ABBR_ONLY.test(t);
 // `sub` on DISPLAY_PROPS:issa. Lainausmerkki lasketaan koodiksi vain kun mukana on muuta rakennetta
 // (`;` `=` `{` `}` `<` `>`), mikä kattaa attribuutti-scaffoldingin (' class="chip">', 'data-x="1"')
 // ja JSON-muotoiset arvot. Kavennus on tarkoituksella kapein mahdollinen — ks. mutaatiotodiste alla.
+// V8k-4a: markup-paloille OMA koodivartija. `codeish` ajetaan vain nollamarkup-haaralle, joten
+// `<style>`-lohkon CSS-runko ja inline-onclickin JS-runko pääsivät paloina läpi (kaksi väärää
+// positiivista, r4170/r4167). Vartija on TAHALLAAN kapea — vain syntaksi jota suomenkielisessä
+// näyttötekstissä ei esiinny: CSS-sääntörunko `sel{prop:val;}` ja JS-jäsenpolku (document./this./classList.).
+// Mutaatiotodiste: koko skriptin vuotomäärä laskee TÄSMÄLLEEN 2:lla (ks. testi alla).
+const codeishPiece = (v) =>
+  /\{[^}]*:[^}]*[;}]/.test(v) ||
+  /\b(?:document|window|this)\.[A-Za-z_$]/.test(v) ||
+  /\bclassList\.|\bgetElementById\(|\bquerySelectorAll?\(/.test(v);
 const codeish = (v) =>
   /[;={}]/.test(v) || (/"/.test(v) && /[;={}<>]/.test(v)) || /_/.test(v) || /--/.test(v) || /var\(|\(--/.test(v) || /:\/\//.test(v) ||
   /rgba?\(|hsla?\(|gradient|calc\(/.test(v) ||   // V7a-live: CSS-funktioarvot ternaary-haaroissa (ei näyttöä)
@@ -202,7 +211,7 @@ function scanLeaks(src, ranges, lineOffset, LIB) {
     else if (inDisplayContext(lit.tl || lit.node) && hasWord(value) && !codeish(value)) pieces = [value.trim()];
     else pieces = [];
     for (const p of pieces) {
-      if (!hasWord(p) || !hasWord(stripAllow(p)) || isLib(p)) continue; // 0A: tuotetermin JÄLKEEN ei fi:tä → ohita; muuten vuoto
+      if (!hasWord(p) || !hasWord(stripAllow(p)) || isLib(p) || codeishPiece(p)) continue; // 0A: tuotetermin JÄLKEEN ei fi:tä → ohita; muuten vuoto
       const key = line + '|' + p;
       if (seen.has(key)) continue; seen.add(key);
       leaks.push({ line, p });
@@ -355,6 +364,21 @@ describe('VP_v25 render-kielineutraali-gate (step G · AST)', () => {
     // …mutta PELKKÄ lib-nimi (myös välimerkein) pysyy allowlistattuna — muuten curriculum-nimet vuotaisivat
     const puhdas = "function _p(){ return '<div><b>Fyysinen</b> · <b>Pallonhallinta,</b></div>'; }";
     expect(scanLeaks(puhdas, [[1, 99]], 0, lib).map((l) => l.p)).toEqual([]);
+  });
+
+  // V8k-4a — codeishPiece-KAVENNUS. `codeish` ajetaan vain nollamarkup-haaralle, joten markup-
+  // literaalista pilkotut palat pääsivät läpi ilman koodisuodatusta: `<style>`-lohkon CSS-runko ja
+  // inline-onclickin JS-runko kirjautuivat "vuodoiksi" (r4170/r4167). Kavennus on tahallaan kapea.
+  // TÄMÄ CASE PITÄÄ KAVENNUKSEN KAPEANA: näyttöteksti jossa on `;`/`=`/`:` EI saa hävitä.
+  it('codeishPiece pudottaa CSS-/JS-rungon mutta EI välimerkillistä näyttötekstiä', () => {
+    const css = `function _s(){ return '<style>[data-k].on{background:rgba(1,2,3,.1)!important;color:#28B090}</style>'; }`;
+    expect(scanLeaks(css, [[1, 99]], 0, new Set())).toEqual([]);
+    const js = `function _b(){ return '<button onclick="this.classList.remove(1);document.getElementById(2)">x</button>'; }`;
+    expect(scanLeaks(js, [[1, 99]], 0, new Set())).toEqual([]);
+    // …mutta aito näyttöteksti välimerkeillä pysyy vuotona (kavennus ei saa niellä sitä)
+    const nayt = `function _n(){ return '<div>Taso 3 = ikäluokan keskitaso; vertaa varoen</div>'; }`;
+    expect(scanLeaks(nayt, [[1, 99]], 0, new Set()).map((l) => l.p))
+      .toEqual(['Taso 3 = ikäluokan keskitaso; vertaa varoen']);
   });
 
   // Erä 4 — TODISTE ETTÄ GATE ON SOKEA luokille 4 ja 5 (→ MEMBER_DISPLAY on ainoa vartija).
