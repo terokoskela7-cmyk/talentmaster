@@ -18,7 +18,7 @@
  *   raita) · tuotetermit (X-Factor/Hidden Gem/Underdog) · lyhenteet/indeksit/yksiköt (TKI/TSI/H-H/PHV/D1–D5/…) ·
  *   koodi/enum/CSS/id (codeish).
  *
- * SCOPE: RANGES = reititetyt render-alueet (solmun loc.start.line). V3 = _jsv (8040–9221). Jokainen tuleva alaerä
+ * SCOPE: RANGES = reititetyt render-alueet (solmun loc.start.line). V3 = _jsv (8043–9224). Jokainen tuleva alaerä
  *   (V4–V8) LISÄÄ oman alueensa → gate guardaa ne heti kun reititetty.
  *
  * Ei-vacuous: alempi it() ajaa detektorin synteettisellä vuodolla (>text< + var-suffiksi) → varmistaa että gate failaa
@@ -36,8 +36,8 @@ const require = createRequire(import.meta.url);
 const acorn = require('acorn');
 const HTML = readFileSync(join(__dir, '..', 'TalentMaster_VP_v25.html'), 'utf8');
 
-const RLO = 2690, RHI = 18321;              // VP pääscript (1-idx)
-const RANGES = [[8438, 9620], [13000, 14150], [12061, 12800], [3788, 3876], [8283, 8308], [14586, 14950], [14952, 15585], [15589, 16090], [16170, 16284], [16286, 16375], [4432, 4506], [5371, 5438], [15554, 15630], [17330, 17410], [18217, 18233], [7285, 7569], [5980, 7284], [4754, 4864], [16383, 16527], [4865, 5370], [4597, 4698], [3549, 3776], [10237, 10282], [11311, 11326], [10854, 10872], [10874, 10906], [11135, 11190], [11229, 11253], [11255, 11263], [11265, 11272], [11277, 11307], [14300, 14311], [4186, 4430]]; // V3 _jsv · V4 kalenteri · V5 valmentajat · V6 IDP-jono · V7a MDT · V7b Reviewit+tuloskortti. V7c–V8: lisää.
+const RLO = 2692, RHI = 18324;              // VP pääscript (1-idx)
+const RANGES = [[8441, 9623], [13003, 14153], [12064, 12803], [3791, 3879], [8286, 8311], [14589, 14953], [14955, 15588], [15592, 16093], [16173, 16287], [16289, 16378], [4435, 4509], [5374, 5441], [15557, 15633], [17333, 17413], [18220, 18236], [7288, 7572], [5983, 7287], [4757, 4867], [16386, 16530], [4868, 5373], [4600, 4701], [3552, 3779], [10240, 10285], [11314, 11329], [10857, 10875], [10877, 10909], [11138, 11193], [11232, 11256], [11258, 11266], [11268, 11275], [11280, 11310], [14303, 14314], [4189, 4433]]; // V3 _jsv · V4 kalenteri · V5 valmentajat · V6 IDP-jono · V7a MDT · V7b Reviewit+tuloskortti. V7c–V8: lisää.
 const ROUTED_FNS = new Set(['vpT', 'vpTToimenpide']);
 
 // §7 lib-curriculum-nimet (jäävät fi → allowlist)

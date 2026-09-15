@@ -15,8 +15,8 @@
  *   · objekti-props    masterT(o.nimi) → { nimi:'x' }        → PROP
  *   · silmukka-array   ARR.map(c=>…masterT(c[1]))           → LOOP-ARRAY (ARR ∈ routed-identit)
  *
- * Allowlist (tietoiset fi-jäänteet, EIVÄT näyttöä): demo §3 (1914–2053) · KETJU_NIMET §1-const
- * (2680–2683) · §21 demo-mockup (9350–9372) · enum-arvo-kentät (kind:/tila:/…/otsikko:/protokolla:) ·
+ * Allowlist (tietoiset fi-jäänteet, EIVÄT näyttöä): demo §3 (1917–2056) · KETJU_NIMET §1-const
+ * (2683–2686) · §21 demo-mockup (9353–9375) · enum-arvo-kentät (kind:/tila:/…/otsikko:/protokolla:) ·
  * enum-vertailuoperandit (=== 'x') · tuotetermit (X-Factor/Hidden Gem/Underdog/CPD-full-name) ·
  * demo-toastit ('… (demo …)') · inline-enum-array `[…].forEach(v=>…masterT(v))`.
  *
@@ -41,7 +41,7 @@ function resolvesSv(t) {
   return false;
 }
 
-// Render-JS-alue = pääscript (1-indeksoitu 1861..9813). Ankkuroidaan DEMO-lohkon + navin läsnäoloon
+// Render-JS-alue = pääscript (1-indeksoitu 1863..9816). Ankkuroidaan DEMO-lohkon + navin läsnäoloon
 // ettei alue lipsahda tuntemattomasti; rajat lasketaan script-tageista.
 function renderRegion(lines) {
   // pääscript = ensimmäinen <script> ilman src-attribuuttia rivin 1800 jälkeen
@@ -147,7 +147,7 @@ describe('Master render-kielineutraali-gate (Erä 3 DoD-ydin)', () => {
     const ENUM_FIELD = /(?:kind|tila|domeeni|malli|lahde|faasi|ketju|otsikko|protokolla)\s*:\s*$/;
     const CMP = /[=!]==?\s*$/;
     const isAllowedRegion = (ln) =>
-      (ln >= 1914 && ln <= 2053) || (ln >= 2680 && ln <= 2683) || (ln >= 9350 && ln <= 9372);
+      (ln >= 1917 && ln <= 2056) || (ln >= 2683 && ln <= 2686) || (ln >= 9353 && ln <= 9375);
 
     const leaks = [];
     for (let idx = lo - 1; idx < hi - 1; idx++) {

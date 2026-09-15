@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>TalentMaster™ — Liiketaitomatriisi</title>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Barlow:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<!-- App Check · site key jaetusta moduulista (yksi totuuslähde) -->
+<script src="lib/tm_appcheck.js?v=1"></script>
 <style>
 /* ═══════════════════════════════════════════
    TALENTMASTER DESIGN TOKENS
@@ -1123,20 +1125,41 @@ const CAT = {
 const customVideos    = {};   // session-only quick edits
 let   firestoreVideos = {};   // loaded async from Firestore
 
-(async function loadFirebaseVideos() {
-  try {
+// Yksi alustuspolku 'matrix'-apille. Molemmat kutsukohdat (lataus + tallennus) käyttävät tätä,
+// jotta App Check kiinnittyy TASAN KERRAN ja AINA ennen ensimmäistä getFirestore-kutsua.
+// initializeAppCheck heittää jos sama appi aktivoidaan kahdesti → promise-cache, ei vain if-vahti.
+let _tmMatrixAppP = null;
+function tmMatrixApp() {
+  if (_tmMatrixAppP) return _tmMatrixAppP;
+  _tmMatrixAppP = (async () => {
     const { initializeApp, getApps } =
       await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js');
-    const { getFirestore, getDocs, collection } =
-      await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js');
     const cfg = {
       apiKey:    "AIzaSyAp471lOIntzP33p9bIW3y4KbeEyBt5kIo",
       authDomain:"talentmaster-pilot.firebaseapp.com",
-      projectId: "talentmaster-pilot"
+      projectId: "talentmaster-pilot",
+      appId:     "1:872561784446:web:05c4c7996dfd46ddd14a2f"   // App Check -tokenvaihto vaatii appId:n
     };
-    const existingApps = getApps();
-    const app = existingApps.find(a => a.name === 'matrix') ||
-                initializeApp(cfg, 'matrix');
+    const app = getApps().find(a => a.name === 'matrix') || initializeApp(cfg, 'matrix');
+    try {
+      const { initializeAppCheck, ReCaptchaEnterpriseProvider } =
+        await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-app-check.js');
+      initializeAppCheck(app, {
+        provider: new ReCaptchaEnterpriseProvider(window.TM_APPCHECK_SITE_KEY),
+        isTokenAutoRefreshEnabled: true
+      });
+      console.log('[AppCheck] aktivoitu (enterprise, modular/matrix)');
+    } catch (e) { console.warn('[AppCheck] aktivointi epäonnistui:', e && e.message); }
+    return app;
+  })();
+  return _tmMatrixAppP;
+}
+
+(async function loadFirebaseVideos() {
+  try {
+    const { getFirestore, getDocs, collection } =
+      await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js');
+    const app = await tmMatrixApp();
     const db  = getFirestore(app);
     const snap = await getDocs(collection(db, 'videoBank'));
     snap.forEach(d => { if (d.data().yt) firestoreVideos[d.id] = d.data().yt; });
@@ -1157,13 +1180,9 @@ async function saveCustomVideo(key, val) {
   customVideos[key] = val;
   // Try to persist to Firestore if Firebase is available
   try {
-    const { initializeApp, getApps } =
-      await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js');
     const { getFirestore, doc, setDoc, serverTimestamp } =
       await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js');
-    const existingApps = getApps();
-    const app = existingApps.find(a => a.name === 'matrix') ||
-                initializeApp({apiKey:"AIzaSyAp471lOIntzP33p9bIW3y4KbeEyBt5kIo",authDomain:"talentmaster-pilot.firebaseapp.com",projectId:"talentmaster-pilot"}, 'matrix');
+    const app = await tmMatrixApp();
     const db = getFirestore(app);
     await setDoc(doc(db, 'videoBank', key), { yt: val, updatedAt: serverTimestamp(), source: 'matrix-popup' }, { merge: true });
     firestoreVideos[key] = val;
