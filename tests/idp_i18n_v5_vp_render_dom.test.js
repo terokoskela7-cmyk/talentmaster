@@ -45,8 +45,11 @@ const RANGES = [[2692, 18297]];
 // SISÄLTÖPOIKKEUKSET — kaksi lohkoa jotka EIVÄT ole chromea vaan sisältöä/dataa. Molemmat on
 // perusteltava; ei-vacuous-testi vaatii että kumpikin sisältää yhä vuotoja (muuten poikkeus on
 // kuollut ja se pitää poistaa).
-//  1) TM_TESTI_OHJEET = ⓘ-koulutussisältö (24 testiä × otsikko/mitä/tulkinta/vinkki). Oma
-//     sidecar-erä V8l — ei chromea, vaan pitkä asiasisältö joka käännetään kokonaisuutena.
+//  1) TM_TESTI_OHJEET = ⓘ-koulutussisältö (24 merkintää × otsikko/mitä/tulkinta/vinkki = 87 kenttää).
+//     V8l: käännetään RENDERISSÄ — _tmInfo kääri kentät vpT():hen, lähde pysyy suomeksi jotta
+//     kielenvaihto toimii ilman uudelleenlatausta (moduulitason const jäätyisi lataushetkeen).
+//     Lähdeliteraaleja EI siis reititetä → tämä alue jää pysyvästi poikkeukseksi. Kattavuuden
+//     takaa oma testi alla: JOKAISELLA 87 kentällä on oltava sv-rivi.
 //  2) TP_SIGNAALIT + dedupToimenpiteet = toimenpide-ehdotusten LÄHDETEKSTIT. Nämä KIRJOITETAAN
 //     Firestoreen (toimenpiteet/{id}.teksti) → §32-invariantin mukaan ne pysyvät suomeksi ja
 //     käännetään vasta renderissä vpTToimenpide():llä. Reitittäminen tässä VUOTAISI RUOTSIA
@@ -382,6 +385,31 @@ describe('VP_v25 render-kielineutraali-gate (step G · AST)', () => {
     // …mutta PELKKÄ lib-nimi (myös välimerkein) pysyy allowlistattuna — muuten curriculum-nimet vuotaisivat
     const puhdas = "function _p(){ return '<div><b>Fyysinen</b> · <b>Pallonhallinta,</b></div>'; }";
     expect(scanLeaks(puhdas, [[1, 99]], 0, lib).map((l) => l.p)).toEqual([]);
+  });
+
+  // ═══ V8l — SIDECAR-KATTAVUUS ═══════════════════════════════════════════════════════════════
+  // TM_TESTI_OHJEET on poikkeus render-gatesta (käännös tapahtuu renderissä, ei lähteessä).
+  // Silloin AINOA vartija on tämä: jokaisen sisältökentän on löydyttävä sv-kartasta. Ilman tätä
+  // uusi ⓘ-merkintä lisättäisiin ilman käännöstä eikä mikään huomauttaisi.
+  it('V8l: TM_TESTI_OHJEET — jokaisella sisältökentällä on sv-rivi (render-käännöksen kattavuus)', () => {
+    const lines = HTML.split('\n');
+    const [lo, hi] = SISALTO_POIKKEUKSET[0];
+    const blk = lines.slice(lo - 1, hi).join('\n');
+    const kentat = [...blk.matchAll(/\b(otsikko|mita|tulkinta|vinkki)\s*:\s*'((?:[^'\\]|\\.)*)'/g)]
+      .map((m) => m[2].replace(/\\'/g, "'"));
+    expect(kentat.length).toBeGreaterThan(80);                 // ei-vacuous: kartta löytyi oikeasti
+    const sb = { console: { log() {}, warn() {}, error() {} } };
+    sb.window = sb; vm.createContext(sb);
+    ['lib/tm_lang.js', 'lib/tm_i18n_common.js', 'lib/tm_vp_i18n.js']
+      .forEach((f) => vm.runInContext(readFileSync(join(__dir, '..', f), 'utf8'), sb));
+    const map = (sb.TM_VP_I18N && sb.TM_VP_I18N.sv) || {}, common = (sb.TM_I18N_COMMON && sb.TM_I18N_COMMON.sv) || {};
+    const ilman = kentat.filter((k) => !map[k] && !common[k]);
+    expect(ilman).toEqual([]);
+    // …ja render KÄÄNTÄÄ ne (muuten kartta olisi kuollutta painolastia)
+    expect(HTML).toContain("+ vpT(o.otsikko) +");
+    expect(HTML).toContain("+ vpT(o.mita) +");
+    expect(HTML).toContain("+ vpT(o.tulkinta) +");
+    expect(HTML).toContain("+ vpT(o.vinkki) +");
   });
 
   // ═══ V8k-5 — LUKON TODISTEET ═══════════════════════════════════════════════════════════════
