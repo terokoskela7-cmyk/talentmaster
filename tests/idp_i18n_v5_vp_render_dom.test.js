@@ -36,12 +36,19 @@ const require = createRequire(import.meta.url);
 const acorn = require('acorn');
 const HTML = readFileSync(join(__dir, '..', 'TalentMaster_VP_v25.html'), 'utf8');
 
-const RLO = 2693, RHI = 18350;              // VP pääscript (1-idx); RHI -32 kun kuollut renderPelaajat_old poistettiin (V8k-4b)
+// ANKKUROIDUT rajat (1-idx). Aiemmin nämä olivat kovakoodattuja rivinumeroita ja ajautuivat
+// JOKAISELLA scriptiin/<style>-lohkoon lisätyllä rivillä → koko lukko punertui syystä jolla ei
+// ollut mitään tekemistä käännösten kanssa. Nyt rajat lasketaan lähteestä; alla oleva
+// LUKKO-ANKKURITESTI varmistaa että laskenta osui oikeaan (osoittaa <script>/</script>-tageihin).
+const _VP_RIVIT = HTML.split('\n');
+const _VP_SCRIPT_LO = _VP_RIVIT.findIndex((l, i) => i > 2000 && l.trim() === '<script>');
+const _VP_SCRIPT_HI = _VP_RIVIT.findIndex((l, i) => i > _VP_SCRIPT_LO && l.trim() === '</script>');
+const RLO = _VP_SCRIPT_LO + 2, RHI = _VP_SCRIPT_HI + 1;   // RLO = 1. koodirivi scriptin sisällä, RHI = sulkeva tagi
 // ═══ i18n V5 · V8k-5 — VP:N LOPPULUKKO ═══════════════════════════════════════════════════════
 // Koko pääscript on nyt valvonnassa yhtenä alueena. Aiemmat ~80 funktiokohtaista aluetta on
 // korvattu tällä: jokainen UUSI rivi skriptissä on automaattisesti gaten alainen, eikä uutta
 // koodia voi enää lisätä "alueen ulkopuolelle".
-const RANGES = [[2693, 18350]];
+const RANGES = [[RLO, RHI]];
 // SISÄLTÖPOIKKEUKSET — kaksi lohkoa jotka EIVÄT ole chromea vaan sisältöä/dataa. Molemmat on
 // perusteltava; ei-vacuous-testi vaatii että kumpikin sisältää yhä vuotoja (muuten poikkeus on
 // kuollut ja se pitää poistaa).
@@ -54,7 +61,18 @@ const RANGES = [[2693, 18350]];
 //     Firestoreen (toimenpiteet/{id}.teksti) → §32-invariantin mukaan ne pysyvät suomeksi ja
 //     käännetään vasta renderissä vpTToimenpide():llä. Reitittäminen tässä VUOTAISI RUOTSIA
 //     TIETOKANTAAN — sitä ei tehdä.
-const SISALTO_POIKKEUKSET = [[10594, 10621], [17736, 17771], [17814, 17840]];
+// Lohkot haetaan ankkureilla (aloitusrivi → ensimmäinen sulkeva rivi) — ei rivinumeroita.
+const _vpLohko = (alkuEhto, sulku) => {
+  const a = _VP_RIVIT.findIndex(alkuEhto);
+  if (a < 0) return null;
+  for (let i = a + 1; i < _VP_RIVIT.length; i++) if (_VP_RIVIT[i].trim() === sulku) return [a + 1, i + 1];
+  return null;
+};
+const SISALTO_POIKKEUKSET = [
+  _vpLohko((l) => l.includes('window.TM_TESTI_OHJEET = {'), '};'),
+  _vpLohko((l) => l.startsWith('const TP_SIGNAALIT = ['), '];'),
+  _vpLohko((l) => l.startsWith('function dedupToimenpiteet('), '}')
+].filter(Boolean);
 const ROUTED_FNS = new Set(['vpT', 'vpTToimenpide']);
 
 // §7 lib-curriculum-nimet (jäävät fi → allowlist)
@@ -311,37 +329,38 @@ describe('VP_v25 render-kielineutraali-gate (step G · AST)', () => {
   // ON aina vpT(...):n sisällä alueellaan. Sulkee saman aukon V5–V8:n enum-display-labeleille (roolit ym.)
   // — uusi alaerä lisää oman member-näyttönsä tähän.
   const MEMBER_DISPLAY = [
-    { expr: 'meta.nimi', ranges: [[13020, 14120]] }, // V4 kalenteri: KALENTERI_TYYPIT-tyyppinimi (§1 enum-avain fi, näyttö vpT)
-    { expr: 'IDP_TILA_LBL[p.idp_tila]', ranges: [[6550, 6570], [14895, 14940]] }, // V6 idp_tila-statusnäyttö (§1 enum-avain fi, näyttö vpT)
-    { expr: 'dm.nimi', ranges: [[15415, 15430]] }, // V7b domeeni-display fokusChip (lc-avain fi, näyttö vpT)
-    { expr: 'k.nimi', ranges: [[15051, 15055]] }, // V7b-fix2 tuloskortti _vpTkAlue mittarilabel (lib-data, näyttö vpT)
-    { expr: 'k.arvo', ranges: [[15051, 15055]] }, // V7b-fix2 tuloskortti _vpTkAlue mittari-arvo (Ei arviointeja vielä ym.)
+    { expr: 'meta.nimi', ranges: [[13100, 14200]] }, // V4 kalenteri: KALENTERI_TYYPIT-tyyppinimi (§1 enum-avain fi, näyttö vpT)
+    { expr: 'IDP_TILA_LBL[p.idp_tila]', ranges: [[6600, 6620], [14975, 15015]] }, // V6 idp_tila-statusnäyttö (§1 enum-avain fi, näyttö vpT)
+    { expr: 'dm.nimi', ranges: [[15490, 15510]] }, // V7b domeeni-display fokusChip (lc-avain fi, näyttö vpT)
+    // ANKKUROITU: _vpTkAlue-funktion runko (nämä kaksi ajautuivat jo kahdesti — ks. ei-vacuous-vartija alla).
+    { expr: 'k.nimi', ranges: [_vpLohko((l) => l.startsWith('function _vpTkAlue('), '}')] }, // tuloskortin mittarilabel
+    { expr: 'k.arvo', ranges: [_vpLohko((l) => l.startsWith('function _vpTkAlue('), '}')] }, // tuloskortin mittari-arvo
     // V7+: esim. { expr: 'roolimap[rooli]', ranges: [[...]] }
     // ── Erä 3 (kuormanarratiivi) — KAKSI UUTTA SOKEAA LUOKKAA, kumpikin gaten ulottumattomissa:
     // (a) CONTAINER/MUUTTUJA-REITITETTY: acwrSana-ternaari on sidottu VariableDeclaratoriin, ei
     //     markup-ketjuun → inDisplayContext=false. Lisäksi 'linjassa'/'koholla'/'matala' ovat
     //     codeish-bare-lowercase-tokeneita → kaksinkertaisesti piilossa. Vartija vaatii vpT:n
     //     MÄÄRITTELYSSÄ (arvo reititetään kerran, muuttujaa käytetään markupissa vapaasti).
-    { expr: "'kertyy ~4 vk'", ranges: [[10298, 10308]] },
-    { expr: "'linjassa'", ranges: [[10298, 10308]] },
-    { expr: "'koholla'", ranges: [[10298, 10308]] },
-    { expr: "'matala'", ranges: [[10298, 10308]] },
+    { expr: "'kertyy ~4 vk'", ranges: [[10376, 10386]] },
+    { expr: "'linjassa'", ranges: [[10376, 10386]] },
+    { expr: "'koholla'", ranges: [[10376, 10386]] },
+    { expr: "'matala'", ranges: [[10376, 10386]] },
     // (b) INLINE-ONCLICK-TOAST JS:N RAKENTAMASSA MARKUPISSA: toast(...) attribuuttimerkkijonon sisällä
     //     ei ole AST-kutsu (Erä 1:n kanavaportti ei näe) eikä >text< (render-gate ei näe). Reititys
     //     tehdään muuttujaan ennen merkkijonoa; vartija lukitsee sen.
-    { expr: "'Kuorma pidetty ennallaan'", ranges: [[10298, 10308]] },
+    { expr: "'Kuorma pidetty ennallaan'", ranges: [[10376, 10386]] },
     // ── Erä 4 (mittausnäkymät). Kaksi luokkaa, kumpikin eri syystä gaten ulottumattomissa:
     // (4) CODEISH-PIILO: 'muokattavissa'/'luku' OVAT markup-ketjussa (display-konteksti tunnistuu),
     //     mutta codeish pudottaa ne bare-lowercase-tokeneina → sokeus tulee SISÄLLÖSTÄ, ei kontekstista.
     //     Tämä on erän 1. tapaus jossa luokka 4 esiintyy YKSINÄÄN (erässä 3 se kasautui luokan 5 päälle).
-    { expr: "'muokattavissa'", ranges: [[10933, 10943]] },
-    { expr: "'luku'", ranges: [[10933, 10943]] },
+    { expr: "'muokattavissa'", ranges: [[11011, 11021]] },
+    { expr: "'luku'", ranges: [[11011, 11021]] },
     // (5) CONTAINER/MUUTTUJA: arvo sidottu VariableDeclaratoriin (mt @10606, patteristo @10983),
     //     renderöidään vasta myöhemmin markupissa → inDisplayContext=false.
-    { expr: "'mitätöity '", ranges: [[10918, 10928]] },
-    { expr: "'H-H-patteristo'", ranges: [[11293, 11303]] },
-    { expr: "'tekniikkakilpailu'", ranges: [[11293, 11303]] },
-    { expr: "'mittaus'", ranges: [[11293, 11303]] },
+    { expr: "'mitätöity '", ranges: [[10996, 11006]] },
+    { expr: "'H-H-patteristo'", ranges: [[11371, 11381]] },
+    { expr: "'tekniikkakilpailu'", ranges: [[11371, 11381]] },
+    { expr: "'mittaus'", ranges: [[11371, 11381]] },
   ];
   // Erä 4 (mittausnäkymät, _vpMittaus*-perhe) — ALUE-todiste 7 funktion yli.
   it('RANGES-alueet _vpMittaus* ovat oikeasti valvonnassa (mutaatio aitoon lähteeseen)', () => {
@@ -431,6 +450,7 @@ describe('VP_v25 render-kielineutraali-gate (step G · AST)', () => {
 
   it('LUKKO: sisältöpoikkeukset ovat ANKKUROITUJA (eivät ajautuneet)', () => {
     const lines = HTML.split('\n');
+    expect(SISALTO_POIKKEUKSET.length).toBe(3);   // ei-vacuous: jokainen lohko LÖYTYI lähteestä
     const [[a1, b1], [a2, b2], [a3, b3]] = SISALTO_POIKKEUKSET;
     expect(lines[a1 - 1]).toContain('window.TM_TESTI_OHJEET = {');
     expect(lines[b1 - 1].trim()).toBe('};');

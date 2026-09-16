@@ -1,9 +1,14 @@
 rules_version = '2';
 // ══════════════════════════════════════════════════════════════════════════
-// TalentMaster™ — firestore.rules v3.13
+// TalentMaster™ — firestore.rules v3.14
 //
 // Lähde:  tm_admin/firestore.rules
 // Deploy: PR → N4-CI deployaa automaattisesti (Console-käsityö poistui).
+//
+// Muutokset v3.13 → v3.14 (Piirrokset Vaihe 1 — toissijainen pelipaikka):
+//   + seurat/{sid}/pelaajat/{pid} update — field-level-allowlistiin 'tt_positio_toissijainen'
+//     ensisijaisen rinnalle (sama omistajuus: valmentajaroolit + johto). Fysioterapeutti EI saa
+//     tätä kenttää (sen allowlist pysyy jaksofokus + jaksofokus_historia).
 //
 // Muutokset v3.12 → v3.13 (Seurakerros TIER 1 — seurakohtaiset konseptit):
 //   + seurat/{sid}/konseptit/{avain} — kaanonin (lib/tm_teknistaktiset.js) päälle tuleva
@@ -491,9 +496,12 @@ service cloud.firestore {
                       // Vaihe 6 — jaksofokus_historia (meso-syklin sulku, append pikakenttä-array §26):
                       // sama kenttäomistajuus kuin jaksofokus (joukkuevalmentaja/talenttivalmentaja/VP sulkee omat
                       // pelaajansa). Sulku kirjoittaa jaksofokus (korvaa/nollaa) + jaksofokus_historia (append) yhdessä.
+                      // Piirrokset Vaihe 1 · B2 (v3.14) — tt_positio_toissijainen: TOISSIJAINEN pelipaikka.
+                      // Sama kenttäomistajuus ja sama portti kuin ensisijaisella (tt_positio_aktiivinen);
+                      // pelipaikkakonseptit tarjotaan kummallekin. Fysioterapeutti EI saa tätä (ks. alla).
                       || (onOmaSeura(seuraId) && (onValmentajaRooli() || onJohtoRooli())
                           && request.resource.data.diff(resource.data).affectedKeys()
-                             .hasOnly(['jaksofokus', 'tt_positio_aktiivinen', 'jaksofokus_historia']))
+                             .hasOnly(['jaksofokus', 'tt_positio_aktiivinen', 'tt_positio_toissijainen', 'jaksofokus_historia']))
                       // Vaihe 7 (v3.11) — fysioterapeutti: fyysisen jakson sulku/arvio. VAIN jaksofokus +
                       // jaksofokus_historia (EI tt_positio_aktiivinen — ei kuulu fysioterapeutille). §4/§37.
                       || (onOmaSeura(seuraId) && request.auth.token.rooli == 'fysioterapeutti'

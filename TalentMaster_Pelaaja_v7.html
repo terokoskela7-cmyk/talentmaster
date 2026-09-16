@@ -426,6 +426,54 @@ input::placeholder,textarea::placeholder{color:#8C8B86;opacity:1}
 .kc.base .kcrar{color:#8C8B86}.kc.base .kcport{background:rgba(242,239,230,.05);border:.5px solid rgba(242,239,230,.12)}
 .kc.lock{border:1px dashed rgba(242,239,230,.18);background:transparent;color:#8C8B86;opacity:.88}
 .kc.lock .kcport{background:transparent;border:1px dashed rgba(242,239,230,.18)}.kc.lock .kcrar{color:#8C8B86}
+/* ── PIIRROKSET VAIHE 1 (lib/tm_piirros.js) — fasciallinjat + pelipaikkakartta ──────────
+   Kaikki värit TOKENEISTA: komponenttialiakset alla mappaavat appin olemassa oleviin
+   tokeneihin fallback-ketjulla, joten sama lohko toimii jokaisessa apissa ja MOLEMMISSA
+   teemoissa ilman duplikaattia. EI hexiä, EI kovakoodattua rgb:tä. Terävät kulmat. */
+.tmp-kortti, .tmp-pitch-svg, .tmp-fascia, .tmp-legend {
+  --tmp-acc:  var(--accent, var(--teal-d, var(--teal)));
+  --tmp-fig:  var(--ov-4, var(--border3, var(--border)));
+  --tmp-fig2: var(--ov-2, var(--border2, var(--border)));
+}
+.tmp-kortti { margin: 0; text-align: center; }
+.flei-ketju-kuva { flex: none; width: 24px; display: inline-flex; }
+.flei-ketju-kuva .tmp-fascia { max-width: 24px; }
+.tmp-fascia { width: 100%; height: auto; display: block; max-width: 96px; margin: 0 auto; }
+.tmp-fascia--iso { max-width: 160px; }
+.tmp-figure       { fill: none; stroke: var(--tmp-fig);  stroke-width: 1; stroke-linecap: round; stroke-linejoin: round; }
+.tmp-figure-faint { fill: none; stroke: var(--tmp-fig2); stroke-width: 1; stroke-linecap: round; stroke-linejoin: round; }
+.tmp-chain        { fill: none; stroke: var(--tmp-acc); stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; transition: stroke-width .2s; }
+.tmp-chain-2      { opacity: .45; }
+.tmp-chain-3      { opacity: .55; }
+.tmp-chain-deep   { fill: none; stroke: var(--tmp-acc); stroke-width: 3.4; stroke-linecap: round; opacity: .55; transition: stroke-width .2s; }
+.tmp-node         { fill: var(--tmp-acc); }
+.tmp-node-h       { fill: var(--bg); stroke: var(--tmp-acc); stroke-width: 1.6; }
+.tmp-kortti:hover .tmp-chain, .tmp-kortti:hover .tmp-chain-deep { stroke-width: 3; }
+.tmp-cap  { display: block; margin-top: 6px; }
+.tmp-nimi { font-family: var(--font-serif, serif); font-weight: 400; font-size: 15px; line-height: 1.1; color: var(--ink); }
+.tmp-view { font-family: var(--font-mono, monospace); font-size: 8px; letter-spacing: .1em; color: var(--tmp-acc);
+            text-transform: uppercase; border: 1px solid var(--tmp-acc); border-radius: 0; padding: 1px 4px; opacity: .8; margin-left: 6px; }
+.tmp-koodi { display: block; font-family: var(--font-mono, monospace); font-size: 9px; letter-spacing: .12em; color: var(--ink3); text-transform: uppercase; margin-top: 3px; }
+.tmp-mus   { display: block; font-size: 10px; color: var(--ink3); margin-top: 5px; line-height: 1.35; }
+/* Pelipaikkakartta */
+.tmp-pitch-svg { width: 100%; height: auto; display: block; max-width: 200px; margin: 0 auto; }
+.tmp-pitch     { stroke: var(--tmp-fig); fill: none; stroke-width: 1; }
+.tmp-pos-dot   { fill: none; stroke: var(--tmp-fig); stroke-width: 1; }
+.tmp-pos-dot.tmp-p1 { fill: var(--tmp-acc); stroke: var(--tmp-acc); }
+.tmp-pos-dot.tmp-p2 { fill: none; stroke: var(--tmp-acc); stroke-width: 2; stroke-dasharray: 3 2.4; }
+.tmp-pos-lbl   { font-family: var(--font-mono, monospace); font-size: 8.5px; fill: var(--ink3); letter-spacing: .04em; }
+.tmp-pos-lbl.tmp-on { fill: var(--tmp-acc); }
+.tmp-pos-lbl.tmp-on1 { fill: var(--bg); font-weight: 600; }   /* täytetyn 1°-pisteen päällä → bg-väri kantaa kontrastin */
+.tmp-kortti { min-width: 0; }
+.tmp-nimi, .tmp-mus, .tmp-koodi { overflow-wrap: anywhere; }
+/* Sija-numero: ink + taustahalo (paint-order) → erottuu pisteen JA kentän päällä molemmissa teemoissa. */
+.tmp-pos-rank  { font-family: var(--font-mono, monospace); font-size: 9px; font-weight: 600; fill: var(--ink);
+                 paint-order: stroke; stroke: var(--bg); stroke-width: 2.6px; stroke-linejoin: round; }
+.tmp-legend    { font-family: var(--font-mono, monospace); font-size: 10px; color: var(--ink3); margin-top: 8px; display: flex; gap: 14px; flex-wrap: wrap; }
+.tmp-legend span { display: inline-flex; align-items: center; gap: 6px; }
+.tmp-dot1 { width: 10px; height: 10px; border-radius: 50%; background: var(--tmp-acc); display: inline-block; }
+.tmp-dot2 { width: 10px; height: 10px; border-radius: 50%; border: 2px dashed var(--tmp-acc); display: inline-block; box-sizing: border-box; }
+@media (max-width: 420px) { .tmp-fascia { max-width: 76px; } .tmp-pitch-svg { max-width: 168px; } }
 </style>
 
 <!-- Firebase v9 compat — sama kuin VP v19 -->
@@ -444,6 +492,7 @@ input::placeholder,textarea::placeholder{color:#8C8B86;opacity:1}
 <script src="tm_why_lauseet.js?v=3"></script>
 <script src="lib/tm_idp.js?v=2"></script>   <!-- Vaihe 3c-a: pelaajan aikajana (idpPelaajaKaari/Konsepti, §7.22-turvallinen) -->
 <script src="lib/tm_teknistaktiset.js?v=4"></script>   <!-- Vaihe 4b: pelaajan cue-kerros (tmTtPelaaja, §0b/§7.22) · v4 = parseri-korjaus (pelimuoto-saaste) -->
+<script src="lib/tm_piirros.js?v=1"></script>   <!-- Piirrokset Vaihe 1: fasciallinjat (D1) + pelipaikkakartta (D4), inline-SVG -->
 <script src="lib/tm_adar_rubriikki.js?v=2"></script>   <!-- Kortin ÄLY-tasokuvaus: kanoninen ADAR-rubriikki (TM_ADAR_RUBRIIKKI, §7.22) · v2 = taso 4 Re-assess-korjaus -->
 <script src="lib/tm_kortti_rubriikit.js?v=1"></script> <!-- Kortin FYS+PSY-tasokuvaus (TM_KORTTI_RUBRIIKIT, §7.22/§28) · sama kuvio kuin ÄLY/TEK -->
 <script src="lib/tm_pelialy_yksilo.js?v=3"></script>   <!-- Peliäly-lohko: ADAR §4-ikäportitus (Malli A, tmAdarBand/Yht/BonusOsat, PR #266) -->
@@ -1104,13 +1153,19 @@ function rJoukkue(){
 function rTestit(){
   const p = _pelaaja;
   const flei = p?.flei_viimeisin || 0;
+  // Piirrokset Vaihe 1: fasciakuva ketjun viereen (inline-SVG, ei ulkoisia origineja → offline/PWA).
+  // `avain` = §14 FLEI-ketjuavain (lukittu enum) → tmFasciaKuva. Kuva renderöidään ILMAN kuvatekstiä:
+  // ketjun nimi on jo rivillä, ja §7.22 — ei tasolukuja/vertailua lapselle, vain anatomia.
+  // ⚠ Pelaaja-appin ketjunimet poikkeavat kaanonista (Etuketju/Kiertoketju/Syvyysketju vs.
+  //   Lähtöketju/Diagonaaliketju/Hallintaketju) — EI muutettu tässä erässä (pelaajapinnan copy).
   const chains = [
-    {nimi:'Vauhtiketju', koodi:'SBL', emoji:'⚡', arvo: p?.sbl||0},
-    {nimi:'Etuketju',    koodi:'SFL', emoji:'🦵', arvo: p?.sfl||0},
-    {nimi:'Sivuketju',   koodi:'LL',  emoji:'↔️', arvo: p?.ll||0},
-    {nimi:'Kiertoketju', koodi:'DIAG',emoji:'🔄', arvo: p?.diag||0},
-    {nimi:'Syvyysketju', koodi:'DFL', emoji:'🏗️', arvo: p?.dfl||0},
+    {nimi:'Vauhtiketju', koodi:'SBL', avain:'sbl',  emoji:'⚡', arvo: p?.sbl||0},
+    {nimi:'Etuketju',    koodi:'SFL', avain:'sfl',  emoji:'🦵', arvo: p?.sfl||0},
+    {nimi:'Sivuketju',   koodi:'LL',  avain:'ll',   emoji:'↔️', arvo: p?.ll||0},
+    {nimi:'Kiertoketju', koodi:'DIAG',avain:'diag', emoji:'🔄', arvo: p?.diag||0},
+    {nimi:'Syvyysketju', koodi:'DFL', avain:'dfl',  emoji:'🏗️', arvo: p?.dfl||0},
   ];
+  const _fascia = (a) => (typeof tmFasciaKuva === 'function') ? tmFasciaKuva(a, { labelit: false }) : '';
   const heikoin = [...chains].sort((a,b)=>a.arvo-b.arvo)[0];
   return `
 <div class="scroll" style="background:var(--bg)">
@@ -1124,7 +1179,7 @@ function rTestit(){
     ${chains.map(c=>`
       <div style="margin-bottom:10px">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
-          <div style="font-size:12px;color:var(--text)">${c.emoji} ${c.nimi}</div>
+          <div style="font-size:12px;color:var(--text);display:flex;align-items:center;gap:7px"><span class="flei-ketju-kuva">${_fascia(c.avain)}</span>${c.emoji} ${c.nimi}</div>
           <div style="font-family:var(--font-m);font-size:13px;color:${c.koodi===heikoin.koodi?'#E8A020':'var(--teal)'}">${c.arvo>0?c.arvo.toFixed(1):'–'}</div>
         </div>
         <div style="height:4px;background:rgba(242,239,230,.1);border-radius:2px;overflow:hidden">

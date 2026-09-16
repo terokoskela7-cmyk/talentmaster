@@ -23,6 +23,7 @@
 <script src="lib/tm_harjoitusarviointi.js?v=4"></script>
 <script src="lib/tm_kalenteri.js?v=1"></script>
 <script src="lib/tm_teknistaktiset.js?v=5"></script>   <!-- Vaihe 4a: teknis-taktinen curriculum (konsepti→cue→harjoite) · v5 = I3a pelipaikkaportti U14+ + harjoite-tägit/jalka -->
+<script src="lib/tm_piirros.js?v=1"></script>   <!-- Piirrokset Vaihe 1: fasciallinjat (D1) + pelipaikkakartta (D4), inline-SVG -->
 <script src="lib/tm_konsepti_resolve.js?v=1"></script>   <!-- Seurakerros TIER 1: seurat/{sid}/konseptit override kaanonin päälle (kaanon = oletus, ei pakko) -->
 <script src="lib/tm_arviointi_taksonomia.js?v=10"></script>   <!-- P1: TM_ARVIOINTI_ASTEIKKO + D4-taksonomia + tmAdarHavaittu (Pelihavainto-talteenotto) -->
 <script src="lib/tm_idp.js?v=6"></script>   <!-- I3a: + kesto valmentajan asetettavaksi (opts.kestoVk) · I2 (C): valmentajan IDP-kausitavoite-kortti -->
@@ -1301,6 +1302,52 @@ body.nav-drawer-open .nav-burger .nb3 { transform: translateY(-7px) rotate(-45de
 textarea.jsp-rv-inp { resize: vertical; min-height: 44px; }
 .jsp-rv-auto { font-size: 11.5px; color: var(--ink2); background: var(--ov-1); border: .5px solid var(--border); border-radius: 8px; padding: 8px 10px; margin-top: 2px; }
 .jsp-rv-note { font-size: 10.5px; color: var(--ink3); border-top: .5px solid var(--border); margin-top: 12px; padding-top: 9px; line-height: 1.6; }
+/* ── PIIRROKSET VAIHE 1 (lib/tm_piirros.js) — fasciallinjat + pelipaikkakartta ──────────
+   Kaikki värit TOKENEISTA: komponenttialiakset alla mappaavat appin olemassa oleviin
+   tokeneihin fallback-ketjulla, joten sama lohko toimii jokaisessa apissa ja MOLEMMISSA
+   teemoissa ilman duplikaattia. EI hexiä, EI kovakoodattua rgb:tä. Terävät kulmat. */
+.tmp-kortti, .tmp-pitch-svg, .tmp-fascia, .tmp-legend {
+  --tmp-acc:  var(--accent, var(--teal-d, var(--teal)));
+  --tmp-fig:  var(--ov-4, var(--border3, var(--border)));
+  --tmp-fig2: var(--ov-2, var(--border2, var(--border)));
+}
+.tmp-kortti { margin: 0; text-align: center; }
+.tmp-fascia { width: 100%; height: auto; display: block; max-width: 96px; margin: 0 auto; }
+.tmp-fascia--iso { max-width: 160px; }
+.tmp-figure       { fill: none; stroke: var(--tmp-fig);  stroke-width: 1; stroke-linecap: round; stroke-linejoin: round; }
+.tmp-figure-faint { fill: none; stroke: var(--tmp-fig2); stroke-width: 1; stroke-linecap: round; stroke-linejoin: round; }
+.tmp-chain        { fill: none; stroke: var(--tmp-acc); stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; transition: stroke-width .2s; }
+.tmp-chain-2      { opacity: .45; }
+.tmp-chain-3      { opacity: .55; }
+.tmp-chain-deep   { fill: none; stroke: var(--tmp-acc); stroke-width: 3.4; stroke-linecap: round; opacity: .55; transition: stroke-width .2s; }
+.tmp-node         { fill: var(--tmp-acc); }
+.tmp-node-h       { fill: var(--bg); stroke: var(--tmp-acc); stroke-width: 1.6; }
+.tmp-kortti:hover .tmp-chain, .tmp-kortti:hover .tmp-chain-deep { stroke-width: 3; }
+.tmp-cap  { display: block; margin-top: 6px; }
+.tmp-nimi { font-family: var(--font-serif, serif); font-weight: 400; font-size: 15px; line-height: 1.1; color: var(--ink); }
+.tmp-view { font-family: var(--font-mono, monospace); font-size: 8px; letter-spacing: .1em; color: var(--tmp-acc);
+            text-transform: uppercase; border: 1px solid var(--tmp-acc); border-radius: 0; padding: 1px 4px; opacity: .8; margin-left: 6px; }
+.tmp-koodi { display: block; font-family: var(--font-mono, monospace); font-size: 9px; letter-spacing: .12em; color: var(--ink3); text-transform: uppercase; margin-top: 3px; }
+.tmp-mus   { display: block; font-size: 10px; color: var(--ink3); margin-top: 5px; line-height: 1.35; }
+/* Pelipaikkakartta */
+.tmp-pitch-svg { width: 100%; height: auto; display: block; max-width: 200px; margin: 0 auto; }
+.tmp-pitch     { stroke: var(--tmp-fig); fill: none; stroke-width: 1; }
+.tmp-pos-dot   { fill: none; stroke: var(--tmp-fig); stroke-width: 1; }
+.tmp-pos-dot.tmp-p1 { fill: var(--tmp-acc); stroke: var(--tmp-acc); }
+.tmp-pos-dot.tmp-p2 { fill: none; stroke: var(--tmp-acc); stroke-width: 2; stroke-dasharray: 3 2.4; }
+.tmp-pos-lbl   { font-family: var(--font-mono, monospace); font-size: 8.5px; fill: var(--ink3); letter-spacing: .04em; }
+.tmp-pos-lbl.tmp-on { fill: var(--tmp-acc); }
+.tmp-pos-lbl.tmp-on1 { fill: var(--bg); font-weight: 600; }   /* täytetyn 1°-pisteen päällä → bg-väri kantaa kontrastin */
+.tmp-kortti { min-width: 0; }
+.tmp-nimi, .tmp-mus, .tmp-koodi { overflow-wrap: anywhere; }
+/* Sija-numero: ink + taustahalo (paint-order) → erottuu pisteen JA kentän päällä molemmissa teemoissa. */
+.tmp-pos-rank  { font-family: var(--font-mono, monospace); font-size: 9px; font-weight: 600; fill: var(--ink);
+                 paint-order: stroke; stroke: var(--bg); stroke-width: 2.6px; stroke-linejoin: round; }
+.tmp-legend    { font-family: var(--font-mono, monospace); font-size: 10px; color: var(--ink3); margin-top: 8px; display: flex; gap: 14px; flex-wrap: wrap; }
+.tmp-legend span { display: inline-flex; align-items: center; gap: 6px; }
+.tmp-dot1 { width: 10px; height: 10px; border-radius: 50%; background: var(--tmp-acc); display: inline-block; }
+.tmp-dot2 { width: 10px; height: 10px; border-radius: 50%; border: 2px dashed var(--tmp-acc); display: inline-block; box-sizing: border-box; }
+@media (max-width: 420px) { .tmp-fascia { max-width: 76px; } .tmp-pitch-svg { max-width: 168px; } }
 </style>
 </head>
 <body>
@@ -5412,6 +5459,27 @@ window._ttAsetaPositio = async function (pid, code) {
   } catch (e) { console.warn('[ttPositio]', e && e.message); if (typeof toast === 'function') toast('Tallennus epäonnistui', 'error'); }
 };
 
+// Piirrokset Vaihe 1 · B2 — TOISSIJAINEN pelipaikka (tt_positio_toissijainen).
+// Sama kirjoitusportti ja normalisointi kuin ensisijaisella; validointi tmPositioValidoi():lla
+// (2° ei voi olla sama kuin 1°, tyhjä sallittu). Tyhjä koodi = poista toissijainen.
+window._ttAsetaPositio2 = async function (pid, code) {
+  const p = _ttPelaaja(pid); if (!p) return;
+  const norm = (typeof tmPositioNormalisoi === 'function') ? tmPositioNormalisoi(code) : (code || null);
+  if (code && !norm) { if (typeof toast === 'function') toast(masterT('Tuntematon pelipaikka'), 'error'); return; }
+  const v = (typeof tmPositioValidoi === 'function')
+    ? tmPositioValidoi(p.tt_positio_aktiivinen || _ttNormPositio(p.positio || p.pelipaikka), norm)
+    : { ok: true };
+  if (!v.ok) { if (typeof toast === 'function') toast(masterT(v.syy), 'error'); return; }
+  p.tt_positio_toissijainen = norm;
+  if (typeof _renderPinfoFirestore === 'function') _renderPinfoFirestore(p);
+  if (_demo || !_seuraId || typeof _db === 'undefined' || !_db) { if (typeof toast === 'function') toast(masterT('Toissijainen pelipaikka asetettu (demo — ei kirjoitettu)'), 'ok'); return; }
+  try {
+    const cu = firebase.auth().currentUser; if (cu) await cu.getIdToken(true);
+    await _db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(pid).set({ tt_positio_toissijainen: norm }, { merge: true });
+    if (typeof toast === 'function') toast(masterT('Toissijainen pelipaikka tallennettu ✓'), 'ok');
+  } catch (e) { console.warn('[ttPositio2]', e && e.message); if (typeof toast === 'function') toast(masterT('Tallennus epäonnistui'), 'error'); }
+};
+
 // ── Custom-dropdown (avaa AINA alas: position:absolute; top:100%; §5-tokenit; klaviatuuri + aria). ──
 // Itsenäinen (ei app-riippuvuuksia); pickFn = globaali funktionimi(uid, avain). Jaettu Master/VP-toimintakortin kanssa.
 // (Natiivi <select> avaa selaimen päättämään suuntaan → modaalin pohjalla ylös; tämä pakottaa alas.)
@@ -5488,9 +5556,16 @@ function _ttKorttiHTML(p) {
   const isp = (typeof _devIkaSp === 'function') ? _devIkaSp(p) : { ika: null };
   // §26 joukkuenimi-fallback: pp saa joukkue-nimen → tmTtVaihe johtaa iän vaikka syntymaVuosi puuttuu (P15→pelipaikka).
   const _posCode = p.tt_positio_aktiivinen || _ttNormPositio(p.positio || p.pelipaikka);
+  // Piirrokset Vaihe 1 · B2 — TOISSIJAINEN pelipaikka: fundamentit tarjotaan kummallekin
+  // (1° painottuen, 2° tukena). Molemmat kulkevat seurakerroksen (TIER 1) läpi.
+  const _posCode2 = (typeof tmPositioNormalisoi === 'function') ? tmPositioNormalisoi(p.tt_positio_toissijainen) : (p.tt_positio_toissijainen || null);
   const pp = { ika: isp.ika, joukkue: p.joukkue, positio: _posCode, tt_positio_aktiivinen: _posCode, syntymaVuosi: p.syntymaVuosi };
   const vaihe = tmTtVaihe(pp);
-  const items = _mTtItems(pp);   // TIER 1: seuraoverride + piilotus + seuran omat
+  let items = _mTtItems(pp);   // TIER 1: seuraoverride + piilotus + seuran omat
+  if (_posCode2 && _posCode2 !== _posCode && typeof tmKonseptiPelipaikkalista === 'function' && typeof tmTtItems === 'function') {
+    const pp2 = { ika: isp.ika, joukkue: p.joukkue, positio: _posCode2, tt_positio_aktiivinen: _posCode2, syntymaVuosi: p.syntymaVuosi };
+    items = tmKonseptiPelipaikkalista(tmTtItems(pp), tmTtItems(pp2), _mSeuraId());
+  }
   if (!items.length) return '';
   const jf = p.jaksofokus || null;
   // I3a §B.1 — esivalinta TAVOITTEESTA: resolver kääntää idp_fokuksen youth-konseptiksi. Prioriteetti:
@@ -5566,6 +5641,20 @@ function _ttKorttiHTML(p) {
       + '<select onchange="if(this.value)_ttAsetaPositio(\'' + pid + '\',this.value)" style="' + _selStyle + '"><option value="">' + masterT('Valitse pelipaikka…') + '</option>'
       + (typeof TM_TT_PELIPAIKAT !== 'undefined' ? Object.keys(TM_TT_PELIPAIKAT).map(function (k) { return '<option value="' + k + '">' + esc(TM_TT_PELIPAIKAT[k].nimi) + ' (' + k + ')</option>'; }).join('') : '')
       + '</select></div>';
+  }
+  // Pelipaikkakartta (D4) + toissijaisen asetus — näkyy kun ensisijainen on olemassa.
+  if (_posCode && typeof tmPelipaikkaKartta === 'function') {
+    const _pp2Opt = (typeof TM_TT_PELIPAIKAT !== 'undefined')
+      ? Object.keys(TM_TT_PELIPAIKAT).filter(function (k) { return k !== _posCode; })
+          .map(function (k) { return '<option value="' + k + '"' + (k === _posCode2 ? ' selected' : '') + '>' + esc(TM_TT_PELIPAIKAT[k].nimi) + ' (' + k + ')</option>'; }).join('')
+      : '';
+    h += '<div style="margin-top:10px;border-top:.5px solid var(--border);padding-top:10px">'
+      + '<div style="font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink3);margin-bottom:6px">' + masterT('Pelipaikkakartta') + '</div>'
+      + tmPelipaikkaKartta(_posCode, _posCode2, { t: masterT })
+      + (typeof tmPelipaikkaSelite === 'function' ? tmPelipaikkaSelite({ t: masterT }) : '')
+      + '<select onchange="_ttAsetaPositio2(\'' + pid + '\',this.value)" style="' + _selStyle + ';margin-top:8px">'
+      + '<option value="">' + masterT('Toissijainen pelipaikka (valinnainen)…') + '</option>' + _pp2Opt + '</select>'
+      + '</div>';
   }
   // Konseptivalinta — custom-dropdown (avaa alas, klaviatuuri+aria). Ryhmitelty kun pelipaikkafundamentit mukana.
   const _youthItems = items.filter(function (it) { return it.koodi.charAt(0) === 'Y'; });

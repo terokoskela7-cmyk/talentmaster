@@ -94,7 +94,14 @@ describe('Master B2b: ws-view STAATTINEN runko (data-i18n) — laajennettu gate 
     const DEMO = ['pelaajaa kirjannut', 'per pelaaja. Suurin', 'joukkuekaverien välistä', 'seinäsyötöt', 'Viikko 17 ·',
       'Kausi 25/26 · 17', 'vs 3', '1 vs'];   // §3 demo-preview-captionit + kovakoodatut demo-arvot
     const orphan = [];
-    for (let i = 1470; i < 1770 && i < lines.length; i++) {
+    // ANKKUROITU (ei rivinumeroa): ws-view-lohko = ensimmäisestä .ws-view-divistä mobiili-tabbariin.
+    // Kovakoodattu ikkuna (r1471–1770) ajautui aina kun <style>-lohkoon lisättiin riviä ja veti
+    // mukaan tervehdysotsikon jota se ei ennen kattanut. Ei-vacuous: molempien ankkurien on löydyttävä.
+    const _wsLo = lines.findIndex((l) => l.includes('class="ws-view'));
+    const _wsHi = lines.findIndex((l, ix) => ix > _wsLo && l.includes('<nav class="tabbar"'));
+    expect(_wsLo).toBeGreaterThan(0);
+    expect(_wsHi).toBeGreaterThan(_wsLo);
+    for (let i = _wsLo; i < _wsHi && i < lines.length; i++) {
       const line = lines[i];
       if (line.includes('data-i18n')) continue;
       const re = />([^<>{}]+)</g; let m;

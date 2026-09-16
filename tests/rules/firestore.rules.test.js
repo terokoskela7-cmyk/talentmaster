@@ -723,6 +723,26 @@ describe('Vaihe 4a — jaksofokus / tt_positio_aktiivinen (§4 roolimalli)', () 
     const db = talenttivalmentajaContext('talval-fcl-001', SEURA_A).firestore();
     await assertSucceeds(updateDoc(doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID), { jaksofokus: JF }));
   });
+  // Piirrokset Vaihe 1 · B2 (v3.14) — TOISSIJAINEN pelipaikka: sama portti kuin ensisijaisella.
+  it('Valmentaja asettaa tt_positio_toissijainen (sama kenttäomistajuus kuin 1°)', async () => {
+    const db = valmentajaContext(VALM_A_UID, SEURA_A).firestore();
+    await assertSucceeds(updateDoc(doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID),
+      { tt_positio_aktiivinen: 'KY', tt_positio_toissijainen: 'KK' }));
+  });
+  it('VP asettaa tt_positio_toissijainen', async () => {
+    const db = vpContext(SEURA_A).firestore();
+    await assertSucceeds(updateDoc(doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID), { tt_positio_toissijainen: 'LA' }));
+  });
+  it('fysioterapeutti EI saa tt_positio_toissijainen-kenttää (allowlist = jaksofokus + historia)', async () => {
+    const db = testEnv.authenticatedContext('fysio-fcl-001', { rooli: 'fysioterapeutti', seuraId: SEURA_A }).firestore();
+    await assertSucceeds(updateDoc(doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID), { jaksofokus: JF }));
+    await assertFails(updateDoc(doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID), { tt_positio_toissijainen: 'KK' }));
+  });
+  it('toisen seuran valmentaja EI aseta tt_positio_toissijainen (tenant-eristys)', async () => {
+    const db = valmentajaContext('valm-kpv-001', SEURA_B).firestore();
+    await assertFails(updateDoc(doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID), { tt_positio_toissijainen: 'KK' }));
+  });
+
   it('VP (oma seura) asettaa jaksofokuksen + tt_positio_aktiivinen (talenttihallinta)', async () => {
     const db = vpContext(SEURA_A).firestore();
     await assertSucceeds(updateDoc(doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID), { jaksofokus: JF, tt_positio_aktiivinen: 'T' }));

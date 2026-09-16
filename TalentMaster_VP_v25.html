@@ -19,7 +19,7 @@
 <!-- Eerikkilä-normit + universaali testirekisteri (eerikkilaTaso, laskeFVP) — 10m/5m-tasot + FVP-profiili -->
 <script src="lib/tm_lang.js?v=9"></script>   <!-- i18n V0 — fi/sv/en käännöstaulukko + t() + kieli-init (putkitus) -->
 <script src="lib/tm_i18n_common.js?v=2"></script>   <!-- i18n Vaihe 0 — JAETTU henkilöstö-i18n + lukittu glossaari (ENNEN sivukarttaa) -->
-<script src="lib/tm_vp_i18n.js?v=61"></script>   <!-- i18n Vaihe 5 — VP sv (sivukartta); vpT/vpLokalisoi delegoivat commoniin -->
+<script src="lib/tm_vp_i18n.js?v=62"></script>   <!-- i18n Vaihe 5 — VP sv (sivukartta); vpT/vpLokalisoi delegoivat commoniin -->
 
 
 <script src="lib/tm_eerikkila_normit.js?v=45"></script>   <!-- v43: D2-kortti d2_taso-ensin (renderKehityskorttiHTML, PR #264 · §30/#262) -->
@@ -37,6 +37,7 @@
 <script src="lib/tm_arviointi_silta.js?v=3"></script>   <!-- Vaihe 5: arviointi→resepti-silta (heikoin havaittu D2 → ehdotettu jaksofokus) · v2 = I3a SSOT-osoitin tm_kehityspolku -->
 <script src="lib/tm_idp.js?v=6"></script>   <!-- I3a: + kesto valmentajan asetettavaksi (opts.kestoVk) · I2: lahde+pvm/idp_lahde/idpVahvinDim 1–3 -->
 <script src="lib/tm_teknistaktiset.js?v=5"></script>   <!-- Vaihe 4a: teknis-taktinen curriculum (VP:n jaksofokus talenteille) · v5 = I3a pelipaikkaportti U14+ + harjoite-tägit/jalka -->
+<script src="lib/tm_piirros.js?v=1"></script>   <!-- Piirrokset Vaihe 1: fasciallinjat (D1) + pelipaikkakartta (D4), inline-SVG -->
 <script src="lib/tm_konsepti_resolve.js?v=1"></script>   <!-- Seurakerros TIER 1: seurat/{sid}/konseptit override kaanonin päälle (kaanon = oletus, ei pakko) -->
 <script src="lib/tm_teknistaktiset_sv.js?v=1"></script>   <!-- i18n V5 Vaihe B: curriculumin sv-sidecar (TM_TT_SV). Generoitu lib on kielineutraali → sv asuu tässä; VP valitsee kielen (_ttSv), puuttuva avain → fi -->
 <script src="lib/tm_kehityspolku.js?v=2"></script>   <!-- I3a: looginen silta -resolver (idp_fokus → konsepti/fundamentti → harjoite) -->
@@ -1787,6 +1788,54 @@ textarea.jsp-rv-inp { resize: vertical; min-height: 44px; }
 .flei-palkki-iso div { height: 100%; background: var(--teal); }
 .flei-arvo { font-family: var(--font-mono); font-weight: 600; font-size: 16px; color: var(--ink); }
 .flei-ketjut { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; }
+/* ── PIIRROKSET VAIHE 1 (lib/tm_piirros.js) — fasciallinjat + pelipaikkakartta ──────────
+   Kaikki värit TOKENEISTA: komponenttialiakset alla mappaavat appin olemassa oleviin
+   tokeneihin fallback-ketjulla, joten sama lohko toimii jokaisessa apissa ja MOLEMMISSA
+   teemoissa ilman duplikaattia. EI hexiä, EI kovakoodattua rgb:tä. Terävät kulmat. */
+.tmp-kortti, .tmp-pitch-svg, .tmp-fascia, .tmp-legend {
+  --tmp-acc:  var(--accent, var(--teal-d, var(--teal)));
+  --tmp-fig:  var(--ov-4, var(--border3, var(--border)));
+  --tmp-fig2: var(--ov-2, var(--border2, var(--border)));
+}
+.tmp-kortti { margin: 0; text-align: center; }
+.flei-ketju-kuva { flex: none; width: 26px; display: inline-flex; }
+.flei-ketju-kuva .tmp-fascia { max-width: 26px; }
+.tmp-fascia { width: 100%; height: auto; display: block; max-width: 96px; margin: 0 auto; }
+.tmp-fascia--iso { max-width: 160px; }
+.tmp-figure       { fill: none; stroke: var(--tmp-fig);  stroke-width: 1; stroke-linecap: round; stroke-linejoin: round; }
+.tmp-figure-faint { fill: none; stroke: var(--tmp-fig2); stroke-width: 1; stroke-linecap: round; stroke-linejoin: round; }
+.tmp-chain        { fill: none; stroke: var(--tmp-acc); stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; transition: stroke-width .2s; }
+.tmp-chain-2      { opacity: .45; }
+.tmp-chain-3      { opacity: .55; }
+.tmp-chain-deep   { fill: none; stroke: var(--tmp-acc); stroke-width: 3.4; stroke-linecap: round; opacity: .55; transition: stroke-width .2s; }
+.tmp-node         { fill: var(--tmp-acc); }
+.tmp-node-h       { fill: var(--bg); stroke: var(--tmp-acc); stroke-width: 1.6; }
+.tmp-kortti:hover .tmp-chain, .tmp-kortti:hover .tmp-chain-deep { stroke-width: 3; }
+.tmp-cap  { display: block; margin-top: 6px; }
+.tmp-nimi { font-family: var(--font-serif, serif); font-weight: 400; font-size: 15px; line-height: 1.1; color: var(--ink); }
+.tmp-view { font-family: var(--font-mono, monospace); font-size: 8px; letter-spacing: .1em; color: var(--tmp-acc);
+            text-transform: uppercase; border: 1px solid var(--tmp-acc); border-radius: 0; padding: 1px 4px; opacity: .8; margin-left: 6px; }
+.tmp-koodi { display: block; font-family: var(--font-mono, monospace); font-size: 9px; letter-spacing: .12em; color: var(--ink3); text-transform: uppercase; margin-top: 3px; }
+.tmp-mus   { display: block; font-size: 10px; color: var(--ink3); margin-top: 5px; line-height: 1.35; }
+/* Pelipaikkakartta */
+.tmp-pitch-svg { width: 100%; height: auto; display: block; max-width: 200px; margin: 0 auto; }
+.tmp-pitch     { stroke: var(--tmp-fig); fill: none; stroke-width: 1; }
+.tmp-pos-dot   { fill: none; stroke: var(--tmp-fig); stroke-width: 1; }
+.tmp-pos-dot.tmp-p1 { fill: var(--tmp-acc); stroke: var(--tmp-acc); }
+.tmp-pos-dot.tmp-p2 { fill: none; stroke: var(--tmp-acc); stroke-width: 2; stroke-dasharray: 3 2.4; }
+.tmp-pos-lbl   { font-family: var(--font-mono, monospace); font-size: 8.5px; fill: var(--ink3); letter-spacing: .04em; }
+.tmp-pos-lbl.tmp-on { fill: var(--tmp-acc); }
+.tmp-pos-lbl.tmp-on1 { fill: var(--bg); font-weight: 600; }   /* täytetyn 1°-pisteen päällä → bg-väri kantaa kontrastin */
+.tmp-kortti { min-width: 0; }
+.tmp-nimi, .tmp-mus, .tmp-koodi { overflow-wrap: anywhere; }
+/* Sija-numero: ink + taustahalo (paint-order) → erottuu pisteen JA kentän päällä molemmissa teemoissa. */
+.tmp-pos-rank  { font-family: var(--font-mono, monospace); font-size: 9px; font-weight: 600; fill: var(--ink);
+                 paint-order: stroke; stroke: var(--bg); stroke-width: 2.6px; stroke-linejoin: round; }
+.tmp-legend    { font-family: var(--font-mono, monospace); font-size: 10px; color: var(--ink3); margin-top: 8px; display: flex; gap: 14px; flex-wrap: wrap; }
+.tmp-legend span { display: inline-flex; align-items: center; gap: 6px; }
+.tmp-dot1 { width: 10px; height: 10px; border-radius: 50%; background: var(--tmp-acc); display: inline-block; }
+.tmp-dot2 { width: 10px; height: 10px; border-radius: 50%; border: 2px dashed var(--tmp-acc); display: inline-block; box-sizing: border-box; }
+@media (max-width: 420px) { .tmp-fascia { max-width: 76px; } .tmp-pitch-svg { max-width: 168px; } }
 .flei-ketju { display: flex; align-items: center; gap: 8px; }
 .flei-ketju-nimi { font-family: var(--font-mono); font-weight: 500; font-size: 11px; width: 36px; color: var(--ink3); }
 .flei-ketju-palkki { flex: 1; height: 6px; background: var(--ov-3); }
@@ -7065,9 +7114,15 @@ function _vpTtKorttiHTML(p) {
   if (!p || typeof tmTtItems !== 'function' || typeof tmTtVaihe !== 'function') return '';
   const isp = (typeof _dimIkaSp === 'function') ? _dimIkaSp(p.joukkue || '', p) : { ika: null };
   const posCode = p.tt_positio_aktiivinen || _vpTtNormPositio(p.positio || p.pelipaikka);
+  // B2 — toissijainen pelipaikka: fundamentit kummallekin (1° painottuen, 2° tukena, pp_rank).
+  const posCode2 = (typeof tmPositioNormalisoi === 'function') ? tmPositioNormalisoi(p.tt_positio_toissijainen) : (p.tt_positio_toissijainen || null);
   const pp = { ika: isp.ika, joukkue: p.joukkue, positio: posCode, tt_positio_aktiivinen: posCode, syntymaVuosi: p.syntymaVuosi };
   const vaihe = tmTtVaihe(pp);
-  const items = _ttItems(pp);
+  let items = _ttItems(pp);
+  if (posCode2 && posCode2 !== posCode && typeof tmKonseptiPelipaikkalista === 'function') {
+    const _pp2 = { ika: isp.ika, joukkue: p.joukkue, positio: posCode2, tt_positio_aktiivinen: posCode2, syntymaVuosi: p.syntymaVuosi };
+    items = tmKonseptiPelipaikkalista(tmTtItems(pp), tmTtItems(_pp2), _ttSeuraId()).map(_ttKonsepti);
+  }
   if (!items.length) return '';
   const pid = _jsvEsc(p.id);
   const esc = _jsvEsc;
@@ -7112,6 +7167,18 @@ function _vpTtKorttiHTML(p) {
       + vpT('<div style="font-size:11.5px;color:var(--ink);font-weight:600;margin-bottom:6px">🎯 Aseta pelipaikka aktivoidaksesi pelipaikkakonseptit</div>')
       + '<select onchange="if(this.value)_vpTtAsetaPositio(\'' + pid + vpT('\',this.value)" class="jsp-kt-vapaainp" onclick="event.stopPropagation()"><option value="">Valitse pelipaikka…</option>')
       + Object.keys(TM_TT_PELIPAIKAT).map(function (k) { return '<option value="' + k + '">' + esc(_ttPpNimi(k)) + ' (' + k + ')</option>'; }).join('') + '</select></div>';
+  }
+  // Pelipaikkakartta (D4) + toissijaisen asetus — pelipaikkanäkymässä kun ensisijainen on asetettu.
+  if (nakyma === 'pelipaikka' && posCode && typeof tmPelipaikkaKartta === 'function') {
+    const _pp2Opt = Object.keys(TM_TT_PELIPAIKAT).filter(function (k) { return k !== posCode; })
+      .map(function (k) { return '<option value="' + k + '"' + (k === posCode2 ? ' selected' : '') + '>' + esc(_ttPpNimi(k)) + ' (' + k + ')</option>'; }).join('');
+    h += '<div style="margin-bottom:9px;border:.5px solid var(--border);border-radius:9px;padding:10px 11px">'
+      + '<div style="font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink3);margin-bottom:6px">' + vpT('Pelipaikkakartta') + '</div>'
+      + tmPelipaikkaKartta(posCode, posCode2, { t: vpT })
+      + (typeof tmPelipaikkaSelite === 'function' ? tmPelipaikkaSelite({ t: vpT }) : '')
+      + '<select onchange="_vpTtAsetaPositio2(\'' + pid + '\',this.value)" class="jsp-kt-vapaainp" onclick="event.stopPropagation()" style="margin-top:8px">'
+      + '<option value="">' + vpT('Toissijainen pelipaikka (valinnainen)…') + '</option>' + _pp2Opt + '</select>'
+      + '</div>';
   }
   // Ei konsepteja aktiivisessa näkymässä (esim. pelipaikka ilman fundamentteja) → näytä vihje, ei konseptikorttia.
   if (!item) {
@@ -7183,6 +7250,20 @@ window._vpTtAsetaPositio = async function (pid, code) {
   p.tt_positio_aktiivinen = code; delete window._vpTtValinta[pid];
   if (typeof _vpAloitusReRender === 'function') _vpAloitusReRender();
   await _vpTtKirjoita(pid, { tt_positio_aktiivinen: code }, vpT('Pelipaikka aktivoitu'));
+};
+// Piirrokset Vaihe 1 · B2 — TOISSIJAINEN pelipaikka (tt_positio_toissijainen).
+// Sama kirjoitusportti kuin ensisijaisella (_vpTtKirjoita); normalisointi + validointi libistä.
+// Tyhjä arvo = poista toissijainen.
+window._vpTtAsetaPositio2 = async function (pid, code) {
+  const p = _vpTtPelaaja(pid); if (!p) return;
+  const norm = (typeof tmPositioNormalisoi === 'function') ? tmPositioNormalisoi(code) : (code || null);
+  if (code && !norm) { if (typeof toast === 'function') toast(vpT('Tuntematon pelipaikka'), 'err'); return; }
+  const ensi = p.tt_positio_aktiivinen || _vpTtNormPositio(p.positio || p.pelipaikka);
+  const v = (typeof tmPositioValidoi === 'function') ? tmPositioValidoi(ensi, norm) : { ok: true };
+  if (!v.ok) { if (typeof toast === 'function') toast(vpT(v.syy), 'err'); return; }
+  p.tt_positio_toissijainen = norm;
+  if (typeof _vpAloitusReRender === 'function') _vpAloitusReRender();
+  await _vpTtKirjoita(pid, { tt_positio_toissijainen: norm }, vpT('Toissijainen pelipaikka tallennettu'));
 };
 window._vpTtVieTreeniin = async function (pid, avain) {
   const p = _vpTtPelaaja(pid); if (!p) return;
@@ -17065,11 +17146,15 @@ function renderFleiKortti(p) {
   }
 
   // TILA C — täysi (5 ketjua); ketjupalkki (arvo-1)/2 → 0–100
-  const meta = [['SBL',p.sbl],['SFL',p.sfl],['LL',p.ll],['DIAG',p.diag],['DFL',p.dfl]];
+  // Piirrokset Vaihe 1: ketjukoodin (enum) rinnalle fasciakuva. Kuva on TIIVIS summary (96px)
+  // eikä vie korttia — palkki säilyy ensisijaisena lukuna. Labelit kulkevat vpT:n läpi (lib ei käännä).
+  const meta = [['SBL',p.sbl,'sbl'],['SFL',p.sfl,'sfl'],['LL',p.ll,'ll'],['DIAG',p.diag,'diag'],['DFL',p.dfl,'dfl']];
   let ketjuHtml = '';
   meta.forEach(function(k){
     const pct = (k[1] != null) ? Math.max(0, Math.min(100, Math.round(((k[1]-1)/2)*100))) : 0;
-    ketjuHtml += '<div class="flei-ketju"><span class="flei-ketju-nimi">' + k[0] + '</span>'
+    const kuva = (typeof tmFasciaKuva === 'function') ? tmFasciaKuva(k[2], { t: vpT, labelit: false }) : '';
+    ketjuHtml += '<div class="flei-ketju">' + (kuva ? '<span class="flei-ketju-kuva">' + kuva + '</span>' : '')
+      + '<span class="flei-ketju-nimi">' + k[0] + '</span>'
       + '<div class="flei-ketju-palkki"><div style="width:' + pct + '%"></div></div></div>';
   });
   return '<div class="flei-kortti tila-taysi">'
