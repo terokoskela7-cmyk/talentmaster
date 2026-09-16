@@ -502,7 +502,7 @@ input::placeholder,textarea::placeholder{color:#8C8B86;opacity:1}
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
 <script src="lib/tm_appcheck.js?v=1"></script>
-<script src="lib/tm_lang.js?v=13"></script>   <!-- i18n V0 putki · V1-A/A2 · V4-A3: +pelaaja.nain_teet/kirjaa_tehdyksi/pallo_joka_paiva/rae_q4 (kotinäytön chrome sv) -->
+<script src="lib/tm_lang.js?v=14"></script>   <!-- i18n V0 putki · V1-A/A2 · V4-A3: +pelaaja.nain_teet/kirjaa_tehdyksi/pallo_joka_paiva/rae_q4 (kotinäytön chrome sv) -->
 <script src="lib/tm_eerikkila_normit.js?v=40"></script>
 <script src="docs/testit_indeksit.js?v=9"></script>
 <script src="harjoitelogiikka_v4.js?v=12"></script>
@@ -512,6 +512,7 @@ input::placeholder,textarea::placeholder{color:#8C8B86;opacity:1}
 <script src="tm_why_lauseet.js?v=3"></script>
 <script src="lib/tm_idp.js?v=2"></script>   <!-- Vaihe 3c-a: pelaajan aikajana (idpPelaajaKaari/Konsepti, §7.22-turvallinen) -->
 <script src="lib/tm_teknistaktiset.js?v=4"></script>   <!-- Vaihe 4b: pelaajan cue-kerros (tmTtPelaaja, §0b/§7.22) · v4 = parseri-korjaus (pelimuoto-saaste) -->
+<script src="lib/tm_teknistaktiset_sv.js?v=1"></script>   <!-- Konseptikortin SISÄLLÖN sv (TM_TT_SV); en-lähdettä ei ole → en-tilassa sisältö jää suomeksi, chrome kääntyy -->
 <script src="lib/tm_piirros.js?v=1"></script>   <!-- Piirrokset Vaihe 1: fasciallinjat (D1) + pelipaikkakartta (D4), inline-SVG -->
 <script src="lib/tm_kaavio_render.js?v=2"></script>    <!-- Kaavio erä D1: §3-specin SVG-renderöijä (kielitietoinen, ei ulkoisia origineja) -->
 <script src="lib/tm_kaavio_konsepti.js?v=1"></script>  <!-- Kaavio erä C: spec↔konsepti-sidos (KPI-teksti kaanonista) -->
@@ -1730,6 +1731,56 @@ function rMinaFyysinenTavoite() {
 // ── Vaihe 4b: pelaajan cue-kerros (§0b jaettu ymmärrys · §7.22). Valmentaja valitsi jaksofokuksen (4a) →
 // pelaaja näkee SAMAN konseptin omalla kielellään: otsikko + milloin näkyy + miksi auttaa + YKSI cue-kysymys.
 // EI tasolukuja/arvosanoja/vertailua/KPI-listaa (tmTtPelaaja-helperi vahtii §7.22). Data pikakentistä (§26).
+/* ── KONSEPTIKORTIN i18n (Vaihe 4b -aukon korjaus) ────────────────────────────────────────
+   Kortti shipattiin ilman i18n:ää: rakenteelliset otsikot olivat kovakoodattua suomea, joten
+   sv/en-tilassa kortti oli suomenkielinen muuten käännetyssä sovelluksessa.
+
+   KAKSI ERI KERROSTA, ERI LÄHTEET — tämä ero on syy siihen miksi en jää vajaaksi:
+     · CHROME (otsikot, vaihevihje, alaviite) = sovelluksen tekstiä → t() + tm_lang, fi/sv/en.
+     · SISÄLTÖ (otsikko/mika/miksi/cue/koe) = curriculum-kaanonia, joka on suomea. Sille on
+       olemassa SV-sidecar (lib/tm_teknistaktiset_sv.js, sama jota VP käyttää) → ruotsi
+       käännetään oikeasta lähteestä. EN-LÄHDETTÄ EI OLE: en-tilassa chrome kääntyy mutta
+       sisältö jää suomeksi. Käännöksiä ei keksitä — englanninkieliset cue-tekstit ovat
+       sisällöntuotantoa, ei koodia. */
+function _tKonsepti(avain) { return (typeof t === 'function') ? t('konseptikortti.' + avain) : avain; }
+function _p7Kieli() { return (typeof tmNykyinenKieli === 'function') ? tmNykyinenKieli() : 'fi'; }
+
+/* Sidecar-haku: '<avain>.<kenttä>' → sv | null. Vain sv-tilassa; puuttuva avain → null (fi jää). */
+function _p7TtSv(avain, kentta) {
+  if (_p7Kieli() !== 'sv') return null;
+  try {
+    var M = (typeof TM_TT_SV !== 'undefined' && TM_TT_SV) || null;
+    var v = M ? M[avain + '.' + kentta] : null;
+    return (typeof v === 'string' && v) ? v : null;
+  } catch (e) { return null; }
+}
+/* PEILI lib/tm_teknistaktiset.js:n _ttKonseptipeliNimi():stä — lib on GENEROITU eikä sitä saa
+   muokata (ei vientiä), joten sama MUOTOILUSÄÄNTÖ toistetaan tässä. Kyse ei ole käännöksestä
+   vaan lyhennyksestä: sama sääntö ajetaan sv-tekstiin kuin kaanon ajaa fi-tekstiin.
+   Pariteetin lukitsee testi joka ajaa molemmat toteutukset samoilla syötteillä. */
+function _p7KonseptipeliNimi(teksti) {
+  if (!teksti) return '';
+  var s = String(teksti).split(':')[0].split('–')[0].split('(')[0].trim();
+  return s.length > 42 ? s.slice(0, 42).trim() : s;
+}
+/* tmTtPelaaja():n paluu sv:nä. Kenttäkartta on sama kuin curriculumin irrotuksessa:
+   otsikko←nimi · mika←pelitilanne · miksi←pelaaja_miksi · cue←kysymys.0 · koe←harjoite-teksti. */
+function _p7KonseptiLokalisoi(avain, k) {
+  if (!k || _p7Kieli() !== 'sv') return k;
+  var a = String(avain || '').toLowerCase().replace(/-/g, '_');
+  var o = { otsikko: k.otsikko, mika: k.mika, miksi: k.miksi, cue: k.cue, koe: k.koe };
+  var sv;
+  if ((sv = _p7TtSv(a, 'nimi'))) o.otsikko = sv;
+  if ((sv = _p7TtSv(a, 'pelitilanne'))) o.mika = sv;
+  if ((sv = _p7TtSv(a, 'pelaaja_miksi'))) o.miksi = sv;
+  if ((sv = _p7TtSv(a, 'kysymys.0'))) o.cue = sv;
+  // koe: sidecarissa on harjoitteen KOKO teksti koodiavaimella → sama lyhennys kuin kaanonissa.
+  var koodi = a.toUpperCase().replace(/_/g, '-');
+  if ((sv = _p7TtSv('harjoite.' + koodi, 'konseptipeli'))) o.koe = _p7KonseptipeliNimi(sv);
+  else if ((sv = _p7TtSv('harjoite.' + koodi, 'teema'))) o.koe = sv;
+  return o;
+}
+
 function _konseptiFokusAvain(d) {
   if (d.jaksofokus && d.jaksofokus.konsepti_avain) return d.jaksofokus.konsepti_avain;   // ensisijainen (4a)
   // Fallback (ei jaksofokusta) → aina jotain rakentavaa: kehityskohde-laji → konsepti, muuten universaali oletus.
@@ -1739,7 +1790,9 @@ function _konseptiFokusAvain(d) {
 }
 function _konseptiVaiheVihje(d) {
   const vaihe = (typeof tmTtVaihe === 'function') ? tmTtVaihe({ joukkue: d.joukkue, syntymaVuosi: d.syntymaVuosi, positio: d.positio || d.pelipaikka, tt_positio_aktiivinen: d.tt_positio_aktiivinen }) : null;
-  return vaihe === 'perus' ? '🌱 Leikkijän vaihe' : vaihe === 'pelipaikka' ? '⚽ Pelipaikan vaihe' : '🌱 Rakentajan vaihe';
+  return vaihe === 'perus' ? '🌱 ' + _tKonsepti('vaihe_leikkija')
+       : vaihe === 'pelipaikka' ? '⚽ ' + _tKonsepti('vaihe_pelipaikka')
+       : '🌱 ' + _tKonsepti('vaihe_rakentaja');
 }
 /* ══════════════════════════════════════════════════════════
    KAAVIO ERÄ D1 — jaksofokuksen konseptin HYVÄKSYTTY kaavio pelaajalle (§7.22)
@@ -1932,19 +1985,20 @@ window._p7KaavioPiirra = _p7KaavioPiirra;
 
 function rMinaKonseptiFokus() {
   const d = _pelaaja; if (!d || typeof tmTtPelaaja !== 'function') return '';
-  const k = tmTtPelaaja(_konseptiFokusAvain(d));
+  const _kAvain = _konseptiFokusAvain(d);
+  const k = _p7KonseptiLokalisoi(_kAvain, tmTtPelaaja(_kAvain));
   if (!k) return '';
   const esc = (typeof _thEsc === 'function') ? _thEsc : function (s) { return String(s == null ? '' : s); };
   let h = '<div style="background:var(--bg3);padding:18px 20px;margin:14px 20px 0;border:.5px solid rgba(40,176,144,.22)">';
-  h += '<div style="font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:#28B090;font-weight:600">⚽ Minä ja pallo · tämän hetken fokus</div>';
+  h += '<div style="font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:#28B090;font-weight:600">⚽ ' + esc(_tKonsepti('eyebrow')) + '</div>';
   h += '<div style="font-family:\'Cormorant Garamond\',serif;font-size:22px;color:var(--text);margin:3px 0 2px;line-height:1.15">' + esc(k.otsikko) + '</div>';
   h += '<div style="font-size:11px;color:#8C8B86;margin-bottom:12px">' + esc(_konseptiVaiheVihje(d)) + '</div>';
-  if (k.mika) h += '<div style="margin-top:8px"><div style="font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:#8C8B86">Milloin tämä näkyy</div><div style="font-size:13px;color:var(--text);margin-top:2px;line-height:1.5">' + esc(k.mika) + '</div></div>';
-  if (k.miksi) h += '<div style="margin-top:10px"><div style="font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:#8C8B86">Miksi se auttaa</div><div style="font-size:13px;color:var(--text);margin-top:2px;line-height:1.5">' + esc(k.miksi) + '</div></div>';
-  if (k.cue) h += '<div style="margin-top:12px;background:rgba(40,176,144,.08);border:.5px solid rgba(40,176,144,.25);padding:11px 13px"><div style="font-size:11px;color:#28B090;font-weight:600;margin-bottom:3px">💭 Mieti tätä pelissä</div><div style="font-size:14px;color:var(--text);font-style:italic;line-height:1.4">' + esc(k.cue) + '</div></div>';
-  if (k.koe) h += '<div style="margin-top:10px;display:flex;justify-content:space-between;align-items:center;gap:10px;background:rgba(255,255,255,.03);border:.5px solid rgba(242,239,230,.08);padding:10px 13px"><div><div style="font-size:11px;color:#28B090;font-weight:600">Kokeile tätä</div><div style="font-size:13px;color:var(--text)">' + esc(k.koe) + '</div></div><div style="color:#28B090;font-size:18px">→</div></div>';
+  if (k.mika) h += '<div style="margin-top:8px"><div style="font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:#8C8B86">' + esc(_tKonsepti('milloin_nakyy')) + '</div><div style="font-size:13px;color:var(--text);margin-top:2px;line-height:1.5">' + esc(k.mika) + '</div></div>';
+  if (k.miksi) h += '<div style="margin-top:10px"><div style="font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:#8C8B86">' + esc(_tKonsepti('miksi_auttaa')) + '</div><div style="font-size:13px;color:var(--text);margin-top:2px;line-height:1.5">' + esc(k.miksi) + '</div></div>';
+  if (k.cue) h += '<div style="margin-top:12px;background:rgba(40,176,144,.08);border:.5px solid rgba(40,176,144,.25);padding:11px 13px"><div style="font-size:11px;color:#28B090;font-weight:600;margin-bottom:3px">💭 ' + esc(_tKonsepti('mieti_pelissa')) + '</div><div style="font-size:14px;color:var(--text);font-style:italic;line-height:1.4">' + esc(k.cue) + '</div></div>';
+  if (k.koe) h += '<div style="margin-top:10px;display:flex;justify-content:space-between;align-items:center;gap:10px;background:rgba(255,255,255,.03);border:.5px solid rgba(242,239,230,.08);padding:10px 13px"><div><div style="font-size:11px;color:#28B090;font-weight:600">' + esc(_tKonsepti('kokeile')) + '</div><div style="font-size:13px;color:var(--text)">' + esc(k.koe) + '</div></div><div style="color:#28B090;font-size:18px">→</div></div>';
   h += _p7KaavioHTML(_konseptiFokusAvain(d));   // erä D1: hyväksytty kaavio samasta konseptista (§7.22)
-  h += '<div style="font-size:11px;color:#8C8B86;margin-top:12px;display:flex;align-items:center;gap:6px"><span style="width:6px;height:6px;border-radius:50%;background:#28B090;display:inline-block"></span> Valmentajasi katsoo samaa juttua.</div>';
+  h += '<div style="font-size:11px;color:#8C8B86;margin-top:12px;display:flex;align-items:center;gap:6px"><span style="width:6px;height:6px;border-radius:50%;background:#28B090;display:inline-block"></span> ' + esc(_tKonsepti('valmentaja_katsoo')) + '</div>';
   h += '</div>';
   return h;
 }
