@@ -81,9 +81,16 @@ describe('Pelaaja_v7 — kielivalitsin FI/SV/EN (ei DE) + ydinpinta + cache-bust
       expect(PEL).toContain("t('" + k + "')");
     });
   });
-  it('tm_lang ?v=2 (uudet avaimet) + SW-cache v13', () => {
-    expect(PEL).toMatch(/lib\/tm_lang\.js\?v=[2-9]/);
-    expect(readFileSync(join(__dir, '..', 'sw_pelaaja.js'), 'utf8')).toMatch(/const CACHE = 'tm-pelaaja-v(1[3-9]|[2-9]\d)'/);
+  // §27.4: tm_lang-muutos vaatii ?v-bumpin JA SW-cachen bumpin. Vertailu on VÄHIMMÄISARVO, ei
+  // eksakti pinni — muuten jokainen sääntöjenmukainen bumppi punertaisi portin (moninumeroiset
+  // versiot mukaan: ?v=10 ei saa pudota [2-9]-luokasta).
+  it('tm_lang ?v ≥ 2 (uudet avaimet) + SW-cache ≥ v13', () => {
+    const v = PEL.match(/lib\/tm_lang\.js\?v=(\d+)/);
+    expect(v).toBeTruthy();
+    expect(Number(v[1])).toBeGreaterThanOrEqual(2);
+    const c = readFileSync(join(__dir, '..', 'sw_pelaaja.js'), 'utf8').match(/const CACHE = 'tm-pelaaja-v(\d+)'/);
+    expect(c).toBeTruthy();
+    expect(Number(c[1])).toBeGreaterThanOrEqual(13);
   });
   it('§7.1: konsolidointi ei tuo nested template literaleja (T-delegaatio on yksi rivi)', () => {
     expect(PEL).toContain("const T = k => (typeof t === 'function'");
