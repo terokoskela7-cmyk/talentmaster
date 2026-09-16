@@ -44,12 +44,19 @@ describe('A — viisi fasciakuvaa, avaimet = FLEI-ketjut', () => {
       expect(svg, a).toContain('aria-label=');
     }
   });
-  it('kuvateksti sisältää nimen, näkymälapun, koodin ja lihasryhmät', () => {
+  it('kuvateksti sisältää nimen, näkymälapun ja lihasryhmät — MUTTA EI lyhennettä (V1.2)', () => {
     const h = P.tmFasciaKuva('sbl');
     expect(h).toContain('tmp-nimi');
     expect(h).toContain('tmp-view');
-    expect(h).toContain('tmp-koodi');
     expect(h).toContain('tmp-mus');
+    // Myersin lyhenne (SBL/SFL/…) on ammattitermi → oletuksena piilossa ei-ammattilaispinnoilla
+    expect(h).not.toContain('tmp-koodi');
+    expect(h).not.toContain('>SBL<');
+  });
+  it('koodi:true näyttää lyhenteen (asiantuntijapinta voi pyytää sen erikseen)', () => {
+    const h = P.tmFasciaKuva('sbl', { koodi: true });
+    expect(h).toContain('tmp-koodi');
+    expect(h).toContain('>SBL<');
   });
   it('taka-näkymä saa selkärankaviivan, etunäkymä ei', () => {
     expect(P.tmFasciaKuva('sbl', { labelit: false })).toContain('tmp-figure-faint');

@@ -22,10 +22,16 @@ function extract(sig) {
 
 let KV;
 beforeAll(() => {
+  // Selkokielistys V1.2: heikoin ketju näytetään NIMENÄ (lib/tm_piirros.js), ei Myersin
+  // lyhenteenä. Harness lataa OIKEAN libin ja OIKEAN _fleiKetjuNimi-apurin lähteestä —
+  // ei stubia, jotta testi todistaa aidon nimipolun (ei-tyhjyys: palauta k[0] → punainen).
+  const libSrc = readFileSync(join(__dir, '..', 'lib', 'tm_piirros.js'), 'utf8');
   KV = new Function(
     'var _jsvEsc = function(s){return String(s==null?"":s);};\n' +
-    // Erä 3: funktio kutsuu nyt vpT:tä → passthrough-stub, muuten ReferenceError.
     'var vpT = function(x){return x;};\n' +
+    'var module = undefined, window = undefined;\n' +
+    libSrc + '\n' +
+    extract('function _fleiKetjuNimi(avain, fallbackKoodi) {') + '\n' +
     'var renderFleiKortti = function(p){ return "<FLEIKORTTI flei=" + (p.flei_viimeisin==null?"none":p.flei_viimeisin) + ">"; };\n' +
     extract('function _vpKehonValmiusHTML(p) {') + '\n' +
     'return { kv: _vpKehonValmiusHTML };'
@@ -33,16 +39,17 @@ beforeAll(() => {
 });
 
 describe('5a — Kehon valmius: heikoin ketju + §14-klinikka', () => {
-  it('heikoin ketju = pienin raaka-arvo (Topias: LL 2.10)', () => {
+  it('heikoin ketju = pienin raaka-arvo (Topias: ll 2.10) — näytetään NIMENÄ, ei lyhenteenä', () => {
     const h = KV({ flei_viimeisin: 62, sbl: 2.16, sfl: 2.30, ll: 2.10, diag: 2.40, dfl: 2.20 });
-    expect(h).toContain('Heikoin ketju: <b style="color:var(--ink)">LL</b>');
+    expect(h).toContain('Heikoin ketju: <b style="color:var(--ink)">Sivuketju</b>');
+    expect(h).not.toContain('>LL</b>');   // V1.2: Myersin lyhenne EI näy käyttäjälle
     expect(h).toContain('S-harjoite kohdistuu tähän (§14)');
     expect(h).not.toContain('klinikkalähetys');   // 62 ≥ 40 → ei klinikkaa
     expect(h).toContain('<FLEIKORTTI');           // renderFleiKortti säilyy
   });
   it('FLEI < 40 → §14-klinikkalippu (amber)', () => {
     const h = KV({ flei_viimeisin: 35, sbl: 1.4, sfl: 1.5, ll: 1.2, diag: 1.6, dfl: 1.3 });
-    expect(h).toContain('Heikoin ketju: <b style="color:var(--ink)">LL</b>');
+    expect(h).toContain('Heikoin ketju: <b style="color:var(--ink)">Sivuketju</b>');
     expect(h).toContain('klinikkalähetys (§14)');
     expect(h).toContain('var(--amber)');
   });
@@ -52,7 +59,9 @@ describe('5a — Kehon valmius: heikoin ketju + §14-klinikka', () => {
     expect(h).toContain('<FLEIKORTTI flei=none>');
   });
   it('eri heikoin ketju kun DIAG matalin', () => {
-    expect(KV({ flei_viimeisin: 55, sbl: 2.5, sfl: 2.4, ll: 2.3, diag: 1.9, dfl: 2.6 })).toContain('>DIAG</b>');
+    const h = KV({ flei_viimeisin: 55, sbl: 2.5, sfl: 2.4, ll: 2.3, diag: 1.9, dfl: 2.6 });
+    expect(h).toContain('>Diagonaaliketju</b>');
+    expect(h).not.toContain('>DIAG</b>');
   });
 });
 

@@ -19,7 +19,7 @@
 <!-- Eerikkilä-normit + universaali testirekisteri (eerikkilaTaso, laskeFVP) — 10m/5m-tasot + FVP-profiili -->
 <script src="lib/tm_lang.js?v=9"></script>   <!-- i18n V0 — fi/sv/en käännöstaulukko + t() + kieli-init (putkitus) -->
 <script src="lib/tm_i18n_common.js?v=2"></script>   <!-- i18n Vaihe 0 — JAETTU henkilöstö-i18n + lukittu glossaari (ENNEN sivukarttaa) -->
-<script src="lib/tm_vp_i18n.js?v=62"></script>   <!-- i18n Vaihe 5 — VP sv (sivukartta); vpT/vpLokalisoi delegoivat commoniin -->
+<script src="lib/tm_vp_i18n.js?v=63"></script>   <!-- i18n Vaihe 5 — VP sv (sivukartta); vpT/vpLokalisoi delegoivat commoniin -->
 
 
 <script src="lib/tm_eerikkila_normit.js?v=45"></script>   <!-- v43: D2-kortti d2_taso-ensin (renderKehityskorttiHTML, PR #264 · §30/#262) -->
@@ -1837,7 +1837,9 @@ textarea.jsp-rv-inp { resize: vertical; min-height: 44px; }
 .tmp-dot2 { width: 10px; height: 10px; border-radius: 50%; border: 2px dashed var(--tmp-acc); display: inline-block; box-sizing: border-box; }
 @media (max-width: 420px) { .tmp-fascia { max-width: 76px; } .tmp-pitch-svg { max-width: 168px; } }
 .flei-ketju { display: flex; align-items: center; gap: 8px; }
-.flei-ketju-nimi { font-family: var(--font-mono); font-weight: 500; font-size: 11px; width: 36px; color: var(--ink3); }
+.flei-ketju-nimi { font-family: var(--font-sans); font-weight: 500; font-size: 11px; flex: 0 0 96px; max-width: 96px;
+  color: var(--ink3); line-height: 1.25; overflow-wrap: anywhere; }   /* V1.2: mitoitettu NIMELLE (pisin: Diagonaaliketju), ei 3-kirjaimiselle koodille */
+@media (max-width: 420px) { .flei-ketju-nimi { flex-basis: 84px; max-width: 84px; font-size: 10.5px; } }
 .flei-ketju-palkki { flex: 1; height: 6px; background: var(--ov-3); }
 .flei-ketju-palkki div { height: 100%; background: var(--teal); }
 .flei-pvm { font-family: var(--font-mono); font-weight: 400; font-size: 12px; color: var(--ink3); display: block; margin-top: 10px; }
@@ -4768,7 +4770,7 @@ function _vpD1SiltaPaneeliHTML(p) {
   const vari = e.prioriteetti ? 'var(--amber)' : 'var(--blue)';
   const bord = e.prioriteetti ? 'rgba(224,160,64,.35)' : 'rgba(42,93,176,.35)';
   let h = '<div style="background:linear-gradient(150deg,rgba(42,93,176,.10),var(--bg2));border:.5px solid ' + bord + ';border-radius:12px;padding:15px;margin-bottom:14px">';
-  h += '<div style="font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:' + vari + ';font-weight:600;margin-bottom:6px">🏃 ' + (e.prioriteetti ? vpT('FLEI-prioriteetti — fysiikkajakso') : vpT('Heikoin D1 — fysiikkajakso')) + '</div>';
+  h += '<div style="font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:' + vari + ';font-weight:600;margin-bottom:6px">🏃 ' + (e.prioriteetti ? vpT('Kehon valmius -prioriteetti — fysiikkajakso') : vpT('Heikoin D1 — fysiikkajakso')) + '</div>';
   h += '<div style="font-family:\'Cormorant Garamond\',serif;font-size:19px;color:var(--ink)">' + esc(e.nimi) + '</div>';
   h += '<div style="font-size:11.5px;color:var(--ink2);margin-top:3px">' + esc(e.peruste) + '</div>';
   if (mitPvm) h += vpT('<div style="font-size:10.5px;color:var(--ink3);margin-top:2px">mittaus ') + mitPvm + '</div>';
@@ -7583,7 +7585,7 @@ function _vpJfFyysHTML(p) {
   h += '<select id="_vpJfFyysSel" class="jsp-arv-select" style="width:100%" onclick="event.stopPropagation()" onchange="window._vpJfFyysTeema[\'' + pid + '\']=this.value">';
   LIB.TM_FYYSTEEMAT.forEach(function (t) { h += '<option value="' + esc(t.avain) + '"' + (t.avain === oletus ? ' selected' : '') + '>' + esc((t.ikoni ? t.ikoni + ' ' : '') + t.nimi) + '</option>'; });
   h += '</select>';
-  if (ehd) h += '<div style="font-size:10.5px;color:' + (ehd.prioriteetti ? 'var(--amber)' : 'var(--ink3)') + ';margin-top:5px">' + (ehd.prioriteetti ? vpT('⚠ FLEI-prioriteetti:') + ' ' : vpT('🏃 Heikoin D1:') + ' ') + esc(ehd.nimi) + (ehd.peruste ? ' — ' + esc(ehd.peruste) : '') + '</div>';
+  if (ehd) h += '<div style="font-size:10.5px;color:' + (ehd.prioriteetti ? 'var(--amber)' : 'var(--ink3)') + ';margin-top:5px">' + (ehd.prioriteetti ? vpT('⚠ Kehon valmius -prioriteetti:') + ' ' : vpT('🏃 Heikoin D1:') + ' ') + esc(ehd.nimi) + (ehd.peruste ? ' — ' + esc(ehd.peruste) : '') + '</div>';
   h += '</div>';
   const TYYPIT = LIB.TM_OHJELMA_TEMPLAATIT ? Object.keys(LIB.TM_OHJELMA_TEMPLAATIT) : [];
   h += vpT('<div class="jsp-kt-box" style="margin-top:8px"><div class="jsp-kt-bt">Henkilökohtainen ohjelma (valinnainen)</div>');
@@ -8662,7 +8664,7 @@ function _jsvTeemaPreviewHTML(avain) {
     let hf = '<div style="background:var(--ov-1);border:.5px solid var(--border);border-radius:10px;padding:13px">';
     hf += vpT('<div style="font-size:11px;color:var(--ink3)">Fyysinen teema</div>');
     hf += '<div style="font-family:\'Cormorant Garamond\',serif;font-size:18px;margin:2px 0 6px">' + esc(ft.ikoni + ' ' + ft.nimi) + '</div>';
-    hf += vpT('<div style="font-size:12px;color:var(--ink2)">Evidenssi:') + ' ' + (ft.flei ? vpT('kehon valmius (FLEI-ketjut)') : 'H-H — ' + esc(ft.testit.join(', '))) + '</div>';
+    hf += vpT('<div style="font-size:12px;color:var(--ink2)">Evidenssi:') + ' ' + (ft.flei ? vpT('kehon valmius') : 'H-H — ' + esc(ft.testit.join(', '))) + '</div>';
     hf += vpT('<div style="font-size:10.5px;color:var(--ink3);margin-top:5px">Harjoitesisältö: fysiikkavalmentajan ohjelma (Everton/HPP-pankki). Vaikutus mitataan jakson sulussa (§29).</div>');
     hf += '</div>';
     return hf;
@@ -10685,7 +10687,7 @@ window.TM_TESTI_OHJEET = {
   sm_pallo: { otsikko: 'Suunnanmuutos pallon kanssa', mita: 'Suunnanmuutos pallon kanssa (sekunteina) — lajinomainen ketteryys, jossa pallonhallinta yhdistyy liikkumiseen.', tulkinta: 'Taso 1–5, pienempi = parempi. Ero SM-juoksuun (= TSI) paljastaa kuinka paljon pallo hidastaa pelaajaa.' },
   tsi: { otsikko: 'TSI · Tekninen suunnanmuutosindeksi', mita: 'TSI = SM-pallo − SM-juoksu (sekuntia). Mittaa kuinka paljon pallonkäsittely hidastaa pelaajaa suunnanmuutoksessa — erottaa lajitekniikan fysiikasta.', tulkinta: 'Lähellä nollaa (≤0.5 s) = tekniikka erittäin vahva, pallo ei hidasta.<br>0.5–1.5 s = normaali kansallinen taso.<br>&gt;1.5 s = tekninen kehityskohde, fysiikka edellä tekniikkaa.<br>Hyvä nuori pelaaja häviää ~0.3–0.6 s pallon kanssa.', vinkki: 'Korkea TSI + hyvä SM-juoksu → pelaaja on nopea, mutta pallonkäsittely vauhdissa kaipaa työtä (kuljetus, suojaus, suunnanvaihto pallollisena).' },
   tki: { otsikko: 'TKI · Tekniikkakilpailuindeksi', mita: 'Palloliiton 5-lajisen tekniikkakilpailun (ponnauttelu, syöttö, pujottelu, kuljetus-laukaus, pituuspotku) kokonaistuloksesta laskettu indeksi 0–99. Vain ikä 8–13.', tulkinta: 'Kulta 80–99 · Hopea 60–80 · Pronssi 40–60 · alle 40 kehityskohde. Merkki (🥇🥈🥉) tulee kokonaistuloksen aikarajasta, ei lajeittain.' },
-  flei: { otsikko: 'Kehon valmiusindeksi', mita: 'Viiden liikehallintaketjun (SBL, SFL, LL, DIAG, DFL) liikkuvuus ja hallinta, 0–100. Liikevalmiuden ja loukkaantumisriskin mittari.', tulkinta: 'Alle 40 → automaattinen klinikkalähetys. Heikoin ketju ohjaa yksilöllistä S-harjoitetta.' },
+  flei: { otsikko: 'Kehon valmius', mita: 'Viiden liikehallintaketjun — Vauhtiketju, Lähtöketju, Sivuketju, Diagonaaliketju ja Hallintaketju — liikkuvuus ja hallinta, 0–100. Liikevalmiuden ja loukkaantumisriskin mittari; todennetaan harjoitettavuuskartoituksella.', tulkinta: 'Alle 40 → automaattinen klinikkalähetys. Heikoin ketju ohjaa yksilöllistä S-harjoitetta.' },
   adar: { otsikko: 'Pelihavainto · Peliäly', mita: 'Valmentajan kenttähavainto: Awareness (havainnointi), Decision (päätöksenteko), Action (toteutus), Reaction (reagointi), kukin 1–3. Ei testilaboratorio vaan jatkuva havainnointi.', tulkinta: 'Kokonaistaso = arvioitujen osa-alueiden keskiarvo (1–3, I1-kaanon). Vaatii ≥3 havaintoa luotettavuuteen. Vahvin/heikoin osa-alue ohjaa peliharjoittelun painotusta.' },
   brandijako: { otsikko: 'Brändijako · Palloliitto × TalentMaster', mita: 'Arviointi-välilehti yhdistää kaksi brändiä, joilla on eri rooli.', tulkinta: '<strong>📋 Palloliitto Player Development Card</strong> = virallinen <strong>arviointikehys</strong> (D1–D5-taksonomia + havaittu-arvio 1–5).<br><strong>◆ TalentMaster Analytics</strong> = älykerros kortin päällä: <strong>mittaus</strong> (TM-testit 🟢), <strong>pelihavainto</strong> (👁 ADAR), IDP-kehityssuunnitelma, jaksofokus/konseptit, 5D-radar, kehityspolku.', vinkki: 'Sama data, selkeä alkuperä → molemmat brändit vahvistuvat, virallinen kortti ei sekoitu TM:n omaan älyyn. Anna palautetta “💬 Palaute brändijaosta” -napista.' },
   arviointi_lahderyhmat: { otsikko: 'Arviointi · lähderyhmät', mita: 'Arviointirivit on jaettu kolmeen lähteeseen sen mukaan MISTÄ tieto tulee.', tulkinta: '<strong style="color:var(--teal)">🟢 Mitattu</strong> = TM-testistä laskettu — lukittu (🔒), et voi muuttaa käsin.<br><strong style="color:var(--blue)">🔵 Havaittu</strong> = sinun 1–5-arviosi (klikkaa → tallentuu automaattisesti).<br><strong style="color:#c060a8">👁 Pelihavainnosta</strong> = kenttähavainnosta (ADAR 1–3) johdettu; klikkaa 1–5 antaaksesi oman arvion (yliajaa johdetun).', vinkki: 'Mitattu on faktaa testistä; havaittu ja pelihavainto ovat asiantuntija-arvioita. §7.22: nämä ovat aikuisten työkaluja — pelaajalle ei näytetä tasolukuja.' },
@@ -11451,14 +11453,15 @@ function _vpMittausSynthHTML(p, ika, d1, d2, tsi) {
 // Säilyttää renderFleiKortti:n 3 tilaa (tyhjä/osittain/täysi). §37 julkinen termi "Kehon valmius" (ei FLEI-jargonia).
 function _vpKehonValmiusHTML(p) {
   let h = '';
-  const KETJUT = [['SBL', p.sbl], ['SFL', p.sfl], ['LL', p.ll], ['DIAG', p.diag], ['DFL', p.dfl]].filter(function (k) { return k[1] != null && k[1] > 0; });
+  // V1.2: kolmas alkio = fascia-avain → näytämme KETJUN NIMEN, emme Myersin lyhennettä.
+  const KETJUT = [['SBL', p.sbl, 'sbl'], ['SFL', p.sfl, 'sfl'], ['LL', p.ll, 'll'], ['DIAG', p.diag, 'diag'], ['DFL', p.dfl, 'dfl']].filter(function (k) { return k[1] != null && k[1] > 0; });
   const flei = (p.flei_viimeisin != null) ? p.flei_viimeisin : null;
   if (KETJUT.length) {
     let heikoin = KETJUT[0];
     KETJUT.forEach(function (k) { if (k[1] < heikoin[1]) heikoin = k; });   // pienin raaka-arvo = heikoin ketju (bigger-better)
     const klinikka = (flei != null && flei < 40);
     h += '<div style="font-size:12px;color:var(--ink2);margin-bottom:10px;line-height:1.5">'
-      + vpT('🎯 Heikoin ketju:') + ' <b style="color:var(--ink)">' + _jsvEsc(heikoin[0]) + '</b> ' + vpT('— S-harjoite kohdistuu tähän (§14).')
+      + vpT('🎯 Heikoin ketju:') + ' <b style="color:var(--ink)">' + _jsvEsc(_fleiKetjuNimi(heikoin[2], heikoin[0])) + '</b> ' + vpT('— S-harjoite kohdistuu tähän (§14).')
       + (klinikka ? ' <span style="color:var(--amber)">' + vpT('⚠️ Kehon valmius alle 40 → klinikkalähetys (§14).') + '</span>' : '')
       + '</div>';
   }
@@ -14991,7 +14994,7 @@ function _renderMDTProfiili() {
     + idrow(vpT('Joukkue'), _jsvEsc(p.joukkue || '—'))
     + idrow(vpT('Ikä / vaihe'), (ika != null ? ika + ' ' + vpT('v') : '—') + (ikavaihe ? ' · ' + ikavaihe : ''))
     + idrow('PHV', p.phv_tila ? (_jsvEsc(p.phv_tila) + ' · ' + vpT('normivertailu')) : '—')
-    + idrow(vpT('Valmius (FLEI)'), p.flei_viimeisin != null ? (p.flei_viimeisin + ' / 100') : '—')
+    + idrow(vpT('Kehon valmius'), p.flei_viimeisin != null ? (p.flei_viimeisin + ' / 100') : '—')
     + idrow(vpT('Viim. testi'), viimTesti ? (_jsvEsc(viimTesti) + (_viimTestiVanha ? ' <span style="color:var(--amber)" title="' + vpT('Yli 6 kk') + '">📍</span>' : '')) : vpT('ei testattu'));
   var radarDims = [{ key: 'D1', label: vpT('Fyys'), arvo: d1 }, { key: 'D2', label: vpT('Tekn'), arvo: d2 }, { key: 'D3', label: vpT('Psyy'), arvo: d3 }, { key: 'D4', label: vpT('Peliäly'), arvo: d4 }, { key: 'D5', label: vpT('Sos'), arvo: d5 }];
   var radar = (typeof window._tmRadar5D === 'function')
@@ -16326,7 +16329,7 @@ function renderJoukkuealy() {
     + '<div class="ja-sub">' + P.length + ' ' + vpT('pelaajaa') + (tokenit.length > 1 && !_jaIka ? ' · ' + tokenit.length + ' ' + vpT('ikäluokkaa') : '') + ' ' + vpT('· aggregaatti nykydatasta') + '</div>'
     + '<div class="ja-kpirow">'
     + kpi(vpT('Pelaajia'), P.length, '', '', tokenit.slice(0, 3).join(' · ') || '—')
-    + kpi(vpT('Valmius ka'), (fleiKa != null ? fleiKa : '—'), (fleiKa != null ? '/100' : ''), '', (fleiKa != null ? vpT('▸ aseta kansallinen vertailu') : vpT('ei FLEI-dataa')))
+    + kpi(vpT('Valmius ka'), (fleiKa != null ? fleiKa : '—'), (fleiKa != null ? '/100' : ''), '', (fleiKa != null ? vpT('▸ aseta kansallinen vertailu') : vpT('ei kehon valmius -dataa')))
     + kpi(vpT('Talenttia HOT:lle'), talenttiHot, '', (talenttiHot > 0 ? 'var(--teal)' : ''), portaat.xfactor + ' X-Factor · ' + portaat.hiddengem + ' Hidden Gem')
     + kpi(vpT('Review ajan tasalla'), (reviewKooste.onTime_pct != null ? reviewKooste.onTime_pct : '—'), (reviewKooste.onTime_pct != null ? '%' : ''), poik(reviewKooste.onTime_pct != null && reviewKooste.onTime_pct < 70, 'var(--amber)'), (reviewKooste.myohassa_n + reviewKooste.eraantymassa_n) + ' ' + vpT('vaatii huomiota'))
     + '</div></div>';
@@ -16338,7 +16341,7 @@ function renderJoukkuealy() {
   var tier = function (n, l, col) { return '<div class="ja-tier"><div class="tn"' + (col ? ' style="color:' + col + '"' : '') + '>' + n + '</div><div class="tl">' + l + '</div></div>'; };
   h += '<div class="ja-sek"><div class="ja-h">' + vpT('Talenttijakauma') + '</div><div class="ja-sub">' + vpT('Keitä meillä on — 5D-profiili vs. kansallinen normi (taso 3), valmiusjakauma ja talenttiportaat.') + '</div>'
     + '<div class="ja-grid2"><div><div class="ja-mini" style="text-align:center">' + vpT('Joukkueen 5D vs. normi (taso 3)') + '</div>' + (radar || '<div class="ja-empty">' + vpT('Ei 5D-dataa.') + '</div>') + '<div style="font-family:\'DM Mono\',monospace;font-size:9px;color:var(--ink3);text-align:center;margin-top:4px">' + vpT('katkoviiva = ikäluokkanormi (taso 3) · ▸ aseta kansallinen vertailu') + '</div></div>'
-    + '<div><div class="ja-mini">' + vpT('Valmiusjakauma (FLEI)') + '</div>' + (valmius.n ? valBars : '<div class="ja-empty">' + vpT('Ei FLEI-dataa.') + '</div>') + '<div class="ja-mini" style="margin-top:16px">' + vpT('Talenttiportaat') + '</div><div class="ja-tiers">' + tier(portaat.xfactor, 'X-Factor', 'var(--gold)') + tier(portaat.hiddengem, 'Hidden Gem', 'var(--teal)') + tier(portaat.seuranta, vpT('Seuranta')) + tier(portaat.kehityskohde, vpT('Kehityskohde'), 'var(--amber)') + '</div></div></div></div>';
+    + '<div><div class="ja-mini">' + vpT('Valmiusjakauma') + '</div>' + (valmius.n ? valBars : '<div class="ja-empty">' + vpT('Ei kehon valmius -dataa.') + '</div>') + '<div class="ja-mini" style="margin-top:16px">' + vpT('Talenttiportaat') + '</div><div class="ja-tiers">' + tier(portaat.xfactor, 'X-Factor', 'var(--gold)') + tier(portaat.hiddengem, 'Hidden Gem', 'var(--teal)') + tier(portaat.seuranta, vpT('Seuranta')) + tier(portaat.kehityskohde, vpT('Kehityskohde'), 'var(--amber)') + '</div></div></div></div>';
 
   // C · PELIPAIKKA-SYVYYS
   var stCol = { aukko: ['var(--red)', 'rgba(201,64,64,.14)', 'aukko'], ohut: ['var(--amber)', 'rgba(224,160,64,.14)', 'ohut'], ok: ['var(--teal)', 'rgba(40,176,144,.12)', 'syvyys ok'], vahva: ['var(--teal)', 'rgba(40,176,144,.12)', 'vahva'] };
@@ -17111,6 +17114,16 @@ function _dimHero(d1, d2, d4, d2Lahde) {
 }
 function _dimKa(arr) { const v = arr.filter(x => x != null); return v.length ? Math.round((v.reduce((a,b)=>a+b,0)/v.length)*10)/10 : null; }
 
+// Selkokielistys V1.2 — fascialyhenne (SBL/SFL/LL/DIAG/DFL) on Myersin Anatomy Trains -ammattitermi
+// eikä aukea käyttäjälle. Näyttönimi tulee kaanonista (lib/tm_piirros.js) ja kääntyy vpT:llä.
+// Fallback koodiin vain jos lib puuttuu (graceful — ei tyhjää labelia).
+function _fleiKetjuNimi(avain, fallbackKoodi) {
+  if (typeof tmFasciaKetju === 'function') {
+    const k = tmFasciaKetju(avain);
+    if (k && k.nimi) return vpT(k.nimi);
+  }
+  return fallbackKoodi || '';
+}
 // FLEI-kortti pelaajalle — 3 tilaa. HUOM skaala: flei_viimeisin = 0–100 (%), ketjut sbl/sfl/ll/diag/dfl = 1.0–3.0 (§14).
 function renderFleiKortti(p) {
   const flei = (p.flei_viimeisin != null) ? p.flei_viimeisin : null;
@@ -17154,7 +17167,7 @@ function renderFleiKortti(p) {
     const pct = (k[1] != null) ? Math.max(0, Math.min(100, Math.round(((k[1]-1)/2)*100))) : 0;
     const kuva = (typeof tmFasciaKuva === 'function') ? tmFasciaKuva(k[2], { t: vpT, labelit: false }) : '';
     ketjuHtml += '<div class="flei-ketju">' + (kuva ? '<span class="flei-ketju-kuva">' + kuva + '</span>' : '')
-      + '<span class="flei-ketju-nimi">' + k[0] + '</span>'
+      + '<span class="flei-ketju-nimi">' + _jsvEsc(_fleiKetjuNimi(k[2], k[0])) + '</span>'
       + '<div class="flei-ketju-palkki"><div style="width:' + pct + '%"></div></div></div>';
   });
   return '<div class="flei-kortti tila-taysi">'
