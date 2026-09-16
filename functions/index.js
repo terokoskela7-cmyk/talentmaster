@@ -14,6 +14,7 @@ const admin     = require('firebase-admin');
 const https     = require('https');
 const { kayttajaRooliSallittu } = require('./authz_paatos');   // pure authz-päätös (#71, testattava)
 const { keraaPelaajanManifesti, rakennaAuditPayload } = require('./gdpr_locator');   // GDPR RTBF/export -locator (#96)
+const { kaavioKohdistuuServer } = require('./kaavio_policy');   // kaavion kohdistus (peili lib/tm_kaavio_policy.js)
 if (!admin.apps.length) {
   admin.initializeApp();
 }
@@ -2497,4 +2498,59 @@ exports.notifKalenteriMuutos = functions
       await _c4Notif(sid, p.id, { tyyppi: tyyppi, teksti: teksti, linkki: 'kalenteri:' + evId }, dedupe).catch(function (err) { console.warn('[c4 muutos]', err && err.message); });
     }
     return null;
+  });
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// KAAVIO ERÄ D2 — pelaajan "ymmärretty"-kuittaus.
+//
+// MIKSI CLOUD FUNCTION: `review.ymmarretty` asuu VP:n omistamalla kaavio-dokumentilla, ja
+// firestore.rules EI salli pelaajan kirjoittaa kaavioon (update on valmentaja/johto/SA, lisäksi
+// optimistinen versiolukko). Admin SDK ohittaa säännöt → tämä on ainoa tapa kirjata kuittaus
+// ilman että kaavio-dokumentti avataan pelaajan kirjoituksille.
+//
+// ⚠ IDENTITEETTI ON ASSERTED, EI VERIFIOITU (Teron päätös). PIN-pelaajan istunto on
+// Anonymous Auth, ja PIN ei säily loginin jälkeen (Pelaaja_v7 nollaa sen; sessiossa on vain
+// {pelaajaId, seuraId}) → PIN-verifiointi vaatisi joko PINin tallentamisen sessioon (HUONOMPI
+// turva kuin nyt) tai session-token-koneiston (custom-token-eepos). Kumpikaan ei kuulu tähän.
+// Kutsuja siis ILMOITTAA pelaajaId:nsä. Sama luottamustaso kuin nykyisessä IDP-sitoumuksessa.
+// ÄLÄ kuvaa kuittausta verifioituna — se on pehmeä sitoutumissignaali.
+//
+// MITÄ CF SILTI TAKAA (tämä on sen arvo, ei identiteetti):
+//   1. KIRJOITUSEHEYS — kiinteä dot-path `review.ymmarretty.<pid>`; mitään muuta kenttää ei voi
+//      koskea riippumatta siitä mitä client lähettää. Ei versiobumppia, ei spec-clobberausta.
+//   2. ESIEHDOT — kaavion on oltava olemassa ja HYVÄKSYTTY; pelaajan on oltava olemassa;
+//      kaavion on KOHDISTUTTAVA pelaajaan. Väärinkäyttöpinta kaventuu kohdistuviin kaavioihin.
+// Täysi esto vaatii aidon pelaajaistunnon (custom token) — erillinen, läpileikkaava vaihe.
+exports.kuittaaKaavioYmmarretty = functions
+  .region('europe-west1')
+  .https.onCall(async (data, context) => {
+    if (!context.auth) throw new functions.https.HttpsError('unauthenticated', 'Kirjaudu ensin.');
+    const seuraId   = String((data && data.seuraId) || '').trim();
+    const kaavioId  = String((data && data.kaavioId) || '').trim();
+    const pelaajaId = String((data && data.pelaajaId) || '').trim();
+    if (!seuraId || !kaavioId || !pelaajaId)
+      throw new functions.https.HttpsError('invalid-argument', 'seuraId, kaavioId ja pelaajaId ovat pakollisia.');
+
+    const ref = db.collection('seurat').doc(seuraId).collection('kaaviot').doc(kaavioId);
+    const snap = await ref.get();
+    if (!snap.exists) throw new functions.https.HttpsError('not-found', 'Kaaviota ei löytynyt.');
+    const doc = snap.data() || {};
+    const review = doc.review || {};
+    if (review.status !== 'hyvaksytty')
+      throw new functions.https.HttpsError('failed-precondition', 'Kaavio ei ole hyväksytty.');
+
+    const pelSnap = await db.collection('seurat').doc(seuraId).collection('pelaajat').doc(pelaajaId).get();
+    if (!pelSnap.exists) throw new functions.https.HttpsError('not-found', 'Pelaajaa ei löytynyt.');
+    const pel = pelSnap.data() || {};
+    const joukkueet = Array.isArray(pel.joukkueet) ? pel.joukkueet.slice() : [];
+    if (pel.joukkue && joukkueet.indexOf(pel.joukkue) < 0) joukkueet.push(pel.joukkue);   // §18: molemmat rakenteet
+
+    if (!kaavioKohdistuuServer(Object.assign({ seuraId: seuraId }, doc), { seuraId: seuraId, joukkueet: joukkueet, pelaajaId: pelaajaId }))
+      throw new functions.https.HttpsError('permission-denied', 'Kaavio ei kohdistu pelaajaan.');
+
+    // Kiinteä polku — clientin data ei voi laajentaa kirjoitusta. Idempotentti: uusi kuittaus
+    // korvaa aikaleiman, ei luo duplikaattia.
+    await ref.update({ ['review.ymmarretty.' + pelaajaId]: admin.firestore.FieldValue.serverTimestamp() });
+    return { ok: true };
   });

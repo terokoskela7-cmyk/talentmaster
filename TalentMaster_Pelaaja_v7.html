@@ -502,7 +502,7 @@ input::placeholder,textarea::placeholder{color:#8C8B86;opacity:1}
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
 <script src="lib/tm_appcheck.js?v=1"></script>
-<script src="lib/tm_lang.js?v=12"></script>   <!-- i18n V0 putki · V1-A/A2 · V4-A3: +pelaaja.nain_teet/kirjaa_tehdyksi/pallo_joka_paiva/rae_q4 (kotinäytön chrome sv) -->
+<script src="lib/tm_lang.js?v=13"></script>   <!-- i18n V0 putki · V1-A/A2 · V4-A3: +pelaaja.nain_teet/kirjaa_tehdyksi/pallo_joka_paiva/rae_q4 (kotinäytön chrome sv) -->
 <script src="lib/tm_eerikkila_normit.js?v=40"></script>
 <script src="docs/testit_indeksit.js?v=9"></script>
 <script src="harjoitelogiikka_v4.js?v=12"></script>
@@ -1850,6 +1850,7 @@ function _p7KaavioHTML(avain) {
   if (kpiTeksti) h += '<div style="font-size:13px;color:var(--text);line-height:1.5;margin-bottom:10px">' + esc(kpiTeksti) + '</div>';
   h += '<div id="_p7KaavioSlot" class="tm-kaavio" style="max-width:260px;margin:0 auto"></div>';
   h += '<div style="font-size:11.5px;color:#8C8B86;line-height:1.45;margin-top:8px;text-align:center">' + esc(_tKaavio('saate')) + '</div>';
+  h += _p7KuittausNappiHTML(k);   // erä D2
   return h + '</div>';
 }
 
@@ -1862,6 +1863,70 @@ function _p7KaavioPiirra() {
     slot.appendChild(drawSpec(_p7KaavioValittu.spec, _p7KaavioLang()));
   } catch (e) { slot.remove(); }   // rikkinäinen spec ei saa jättää tyhjää laatikkoa lapselle
 }
+/* ── ERÄ D2 · "Ymmärsin" -kuittaus ────────────────────────────────────────────────────────
+   Pelaaja kuittaa nähneensä ja ymmärtäneensä kuvan → valmentaja/VP näkee kattavuuden. Sama
+   pehmeä sitoutumissignaali kuin IDP-sitoumus, EI compliance-portti.
+
+   Kirjoitus menee Cloud Functionin kautta, koska firestore.rules ei salli pelaajan kirjoittaa
+   kaavio-dokumenttiin (se on VP:n omistama, ja siinä on optimistinen versiolukko). CF rajaa
+   kirjoituksen tasan yhteen map-avaimeen.
+
+   ⚠ Identiteetti on ASSERTED: client ilmoittaa pelaajaId:n sessiosta. PIN ei säily loginin
+   jälkeen, joten verifiointi vaatisi joko PINin säilömisen (huonompi turva) tai
+   custom-token-istunnon (oma vaihe). Tätä ei saa kuvata "verifioituna".
+
+   Optimistinen kuittaus: ✓ näkyy heti ja peilataan localStorageen (välitön palaute + offline).
+   CF:n epäonnistuessa tila palautetaan — lapselle ei jää valheellista "tehty"-merkkiä. */
+var _P7_KUITTAUS_LS = 'tm_p7_kaavio_ymmarretty';
+
+function _p7KuittausKartta() {
+  try { return JSON.parse(localStorage.getItem(_P7_KUITTAUS_LS) || '{}') || {}; } catch (e) { return {}; }
+}
+/* Kuitattu = palvelimen totuus (review.ymmarretty) TAI tämän laitteen optimistinen peili. */
+function _p7OnKuitattu(k) {
+  if (!k) return false;
+  var pid = (_pelaaja && (_pelaaja.id || _pelaaja.pelaajaId)) || null;
+  if (pid && k.review && k.review.ymmarretty && k.review.ymmarretty[pid]) return true;
+  return !!_p7KuittausKartta()[k.id];
+}
+function _p7KuittausNappiHTML(k) {
+  var esc = (typeof _thEsc === 'function') ? _thEsc : function (x) { return String(x == null ? '' : x); };
+  if (_p7OnKuitattu(k)) {
+    return '<div id="_p7KuittausTila" style="margin-top:10px;text-align:center;font-size:12.5px;color:#28B090">✓ ' + esc(_tKaavio('kuitattu')) + '</div>';
+  }
+  return '<div id="_p7KuittausTila" style="margin-top:10px;text-align:center">'
+    + '<button onclick="_p7KuittaaKaavio()" style="background:rgba(40,176,144,.12);color:#28B090;border:.5px solid rgba(40,176,144,.35);'
+    + 'border-radius:10px;padding:9px 16px;font-family:inherit;font-size:13px;cursor:pointer">' + esc(_tKaavio('kuittaa')) + '</button></div>';
+}
+
+async function _p7KuittaaKaavio() {
+  var k = _p7KaavioValittu;
+  var pid = (_pelaaja && (_pelaaja.id || _pelaaja.pelaajaId)) || null;
+  var sid = (_pelaaja && _pelaaja.seuraId) || null;
+  if (!k || !pid || !sid) return;
+  var tila = document.getElementById('_p7KuittausTila');
+  var esc = (typeof _thEsc === 'function') ? _thEsc : function (x) { return String(x == null ? '' : x); };
+  var palautaNappi = tila ? tila.innerHTML : null;
+  if (tila) tila.innerHTML = '<span style="font-size:12.5px;color:#28B090">✓ ' + esc(_tKaavio('kuitattu')) + '</span>';   // optimistinen
+  // Kanoninen kaavio ei ole seurakohtainen dokumentti → ei kuittauskohdetta (CF kirjoittaa
+  // seurat/{sid}/kaaviot-polkuun). Peilataan vain laitteelle, jotta painike ei jää roikkumaan.
+  var vainPaikallinen = !!k.kanoninen || !window._db || typeof firebase === 'undefined' || !firebase.functions;
+  try {
+    var kartta = _p7KuittausKartta(); kartta[k.id] = new Date().toISOString();
+    localStorage.setItem(_P7_KUITTAUS_LS, JSON.stringify(kartta));
+  } catch (e) { /* estetty (private mode) — CF-kirjoitus on silti totuus */ }
+  if (vainPaikallinen) return;
+  try {
+    var fn = firebase.app().functions('europe-west1').httpsCallable('kuittaaKaavioYmmarretty');
+    await fn({ seuraId: sid, kaavioId: k.id, pelaajaId: pid });
+  } catch (e) {
+    // Palautus: poista peili ja nappi takaisin — lapselle ei jää valheellista ✓.
+    try { var km = _p7KuittausKartta(); delete km[k.id]; localStorage.setItem(_P7_KUITTAUS_LS, JSON.stringify(km)); } catch (e2) { /* estetty */ }
+    if (tila && palautaNappi != null) tila.innerHTML = palautaNappi;
+    if (typeof toast === 'function') toast(_tKaavio('kuittaus_epaonnistui'));
+  }
+}
+window._p7KuittaaKaavio = _p7KuittaaKaavio;
 window._p7LataaKaaviot = _p7LataaKaaviot;
 window._p7KaavioPiirra = _p7KaavioPiirra;
 

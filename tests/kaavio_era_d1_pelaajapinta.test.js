@@ -56,7 +56,9 @@ function pelaajaCtx(pelaaja, kaaviot, kieli) {
     return sb.window.TM_LANG || sb.TM_LANG;
   })();
 
-  const src = ['_p7KaavioPelaaja', '_p7ValitseKaavio', '_p7KaavioHTML', '_tKaavio', '_p7KaavioLang', '_konseptiFokusAvain']
+  // D2 lisäsi kuittausnapin kuvalohkoon → sen apurit kuuluvat samaan sandboxiin.
+  const src = ['_p7KaavioPelaaja', '_p7ValitseKaavio', '_p7KaavioHTML', '_tKaavio', '_p7KaavioLang',
+               '_konseptiFokusAvain', '_p7KuittausKartta', '_p7OnKuitattu', '_p7KuittausNappiHTML']
     .map(runko).filter(Boolean).join('\n');
 
   const base = {
@@ -67,7 +69,9 @@ function pelaajaCtx(pelaaja, kaaviot, kieli) {
     _thEsc: (x) => String(x == null ? '' : x).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])),
     drawSpec: () => ({ nodeType: 1 }),      // DOM-solmu; oikea SVG-piirto testataan D-lohkossa
     draw: () => {},
-    document: { getElementById: () => null }
+    document: { getElementById: () => null },
+    localStorage: { getItem: () => null, setItem() {} },
+    _P7_KUITTAUS_LS: 'tm_p7_kaavio_ymmarretty'
   };
   base.window = { _p7Kaaviot: kaaviot, _db: null };
   ['TM_TT_YOUTH', 'TM_TT_JOUKKUE', 'TM_TT_FUNDAMENTIT'].forEach((k) => { base[k] = shim[k]; });
@@ -192,8 +196,11 @@ describe('E — rajaus: pelaaja ei lue seurakerrosta eikä kirjoita kaavioon', (
     expect(koodi).not.toContain('tmKonseptiAsetaKerros');
     expect(koodi).toContain('tmKonseptiKaanon');     // vain puhdas kaanon-haku
   });
-  it('EI kirjoita kaavioon (kuittaus on erä D2:n Cloud Function)', () => {
-    expect(koodi).not.toMatch(/\.set\(|\.update\(|\.add\(|ymmarretty/);
+  it('EI kirjoita kaavio-dokumenttiin suoraan — kuittaus kulkee erän D2 Cloud Functionin kautta', () => {
+    // `ymmarretty` LUETAAN (näytetäänkö ✓), mutta kirjoitusta Firestoreen ei ole: rules estäisi sen.
+    expect(koodi).not.toMatch(/collection\('kaaviot'\)[^\n]*\.(set|update|add)\(/);
+    expect(koodi).not.toMatch(/\bref\.(set|update)\(/);
+    expect(koodi).toContain("httpsCallable('kuittaaKaavioYmmarretty')");
   });
   it('kysely rajaa statuksen jo palvelimella (muuten rules hylkäisi listauksen)', () => {
     expect(koodi).toMatch(/where\('review\.status',\s*'==',\s*'hyvaksytty'\)/);
