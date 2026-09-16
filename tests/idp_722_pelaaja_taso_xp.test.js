@@ -43,11 +43,18 @@ describe('S7.22 - stray tasoluku/XP-renderoinnit poistettu pelaajapinnalta', () 
 });
 
 describe('FC-kortti (naytaFcOverlay) = POIKKEUS, koskematon (S28/S36)', () => {
-  it('naytaFcOverlay + rakentaja taso5/5 + DRI 88 -teaser sailyvat', () => {
+  it('naytaFcOverlay-ikaadaptointi (rakentaja taso5/5) sailyy', () => {
     expect(PEL).toContain("vyoh === 'rakentaja'");
     expect(PEL).toContain('d.taso5 != null');
-    expect(PEL).toContain('Seuraava taso: DRI 88');
   });
+  // POISTETTU VAITE: expect(PEL).toContain('Seuraava taso: DRI 88').
+  // Vaite oli tiedostotason merkki "tama era ei koskenut korttia" — mutta merkkijono ei elanyt
+  // naytaFcOverlay:ssa vaan rKortti():ssa (KORTTI-valilehti), jota describe ei kata. Se ei siis
+  // ollut tuotepaatos vaan koskemattomuus-merkki vaarassa osoitteessa.
+  // §7.22 KORTTI+TILASTOT -era poisti sen: "DRI 88 (+1 tasta viikosta)" oli KEKSITTY lupaus
+  // (literaali 88, ei dataa; fallback `|| 87` vieressa). Showcase saa nyt seuraavan tierin NIMEN
+  // oikeasta datasta (F.seuraavaTier); Leikkija/Rakentaja ei saa lukua lainkaan (§58-ikaportti).
+  // Kortin nykytilaa vartioi tests/pelaaja_722_kortti_tilastot.test.js.
 });
 
 describe('rTDone palkintohetki (KOHTA 2b) - S7.22-turvallinen', () => {

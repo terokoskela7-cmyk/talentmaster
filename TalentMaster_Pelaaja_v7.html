@@ -482,7 +482,7 @@ input::placeholder,textarea::placeholder{color:#8C8B86;opacity:1}
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
 <script src="lib/tm_appcheck.js?v=1"></script>
-<script src="lib/tm_lang.js?v=10"></script>   <!-- i18n V0 putki · V1-A/A2 · V4-A3: +pelaaja.nain_teet/kirjaa_tehdyksi/pallo_joka_paiva/rae_q4 (kotinäytön chrome sv) -->
+<script src="lib/tm_lang.js?v=11"></script>   <!-- i18n V0 putki · V1-A/A2 · V4-A3: +pelaaja.nain_teet/kirjaa_tehdyksi/pallo_joka_paiva/rae_q4 (kotinäytön chrome sv) -->
 <script src="lib/tm_eerikkila_normit.js?v=40"></script>
 <script src="docs/testit_indeksit.js?v=9"></script>
 <script src="harjoitelogiikka_v4.js?v=12"></script>
@@ -1149,6 +1149,28 @@ function rJoukkue(){
 </div>`;
 }
 
+/* ══════════════════════════════════════════════════════════
+   §7.22 · KEHON VALMIUS — YKSI KYNNYS, KOLME NÄYTTÖPAIKKAA
+   ──────────────────────────────────────────────────────────
+   Lapselle ei näytetä lukua vaan TILA. Kynnykset 70/40 ovat täsmälleen ne joita värikoodaus
+   käytti jo ennen laadullistamista → sana ja väri eivät voi erota (jos eroaisivat, se olisi bugi).
+   Puuttuva data on OMA tilansa: neutraali, EI punainen "huolto" — mittaamaton keho ei ole
+   huollon tarpeessa, ja lapselle ei valehdella.
+
+   ⚠ Tämä oli aiemmin rTestit():n LOKAALI const. Siksi #516 laadullisti vain heron, ja KORTTI
+   (`DRI 87`) sekä TILASTOT (`62 / 100`) jäivät näyttämään saman luvun raakana. Jaettu funktio
+   on rakenteellinen korjaus: neljättä sisarusta ei voi enää syntyä kopioimalla kynnystä.
+   VP/Master säilyttävät raaka-arvot — ne ovat henkilökunnan työkaluja (§7.22 koskee pelaajapintaa).
+══════════════════════════════════════════════════════════ */
+function _tMittari(avain) { return (typeof t === 'function') ? t('mittarit.' + avain) : avain; }
+function _tKortti(avain)  { return (typeof t === 'function') ? t('kortti.' + avain) : avain; }
+function _valmiusTila(flei) {
+  return (!flei)      ? { sana: _tMittari('valmiustila_ei_dataa'), vari: 'var(--ink3, #8C8B86)' }
+       : (flei >= 70) ? { sana: _tMittari('valmiustila_valmis'),   vari: 'var(--teal)' }
+       : (flei >= 40) ? { sana: _tMittari('valmiustila_kehittyy'), vari: '#E8A020' }
+       :                { sana: _tMittari('valmiustila_huolto'),   vari: '#E04040' };
+}
+
 /* TESTIT-tab */
 function rTestit(){
   const p = _pelaaja;
@@ -1176,21 +1198,18 @@ function rTestit(){
   // ketjun valintaa + amber-korostusta — eli taso välittyy edelleen, ilman numeroa tai vertailua.
   // VP/Master (henkilökunnan työkalut) näyttävät luvut ennallaan — tämä koskee VAIN pelaajapintaa.
   const heikoin = [...chains].sort((a,b)=>a.arvo-b.arvo)[0];
-  // §7.22 — HERO: lapselle EI lukua vaan TILA. Sana ja väri johdetaan SAMASTA kynnyksestä
-  // (70/40 = täsmälleen ne joita väritys käytti ennenkin) → sana ja väri eivät voi erota.
-  // Puuttuva data (flei falsy) on OMA tilansa: neutraali, ei punainen "huolto" kuten ennen.
-  const _tT = (avain) => (typeof t === 'function') ? t('mittarit.' + avain) : avain;
-  const _valmiusTila = (!flei)      ? { sana: _tT('valmiustila_ei_dataa'), vari: 'var(--ink3, #8C8B86)' }
-                     : (flei >= 70) ? { sana: _tT('valmiustila_valmis'),   vari: 'var(--teal)' }
-                     : (flei >= 40) ? { sana: _tT('valmiustila_kehittyy'), vari: '#E8A020' }
-                     :                { sana: _tT('valmiustila_huolto'),   vari: '#E04040' };
+  // §7.22 — HERO: lapselle EI lukua vaan TILA. Tila tulee JAETUSTA _valmiusTila():sta (ks.
+  // funktion kommentti) — hero, KORTTI ja TILASTOT lukevat saman kynnyksen, joten ne eivät
+  // voi ajautua erilleen. Aiemmin tämä oli lokaali const → KORTTI ja TILASTOT jäivät jälkeen.
+  const _tT = _tMittari;
+  const _tila = _valmiusTila(flei);
   return `
 <div class="scroll" style="background:var(--bg)">
   ${hdr('Testit')}
   <section style="padding:20px 20px 0">
     <div class="ey ac" style="margin-bottom:14px">${_tT('kehon_valmius')}</div>
     <div style="text-align:center;margin-bottom:16px">
-      <div style="font-family:var(--font-d);font-weight:400;font-size:30px;line-height:1.15;color:${_valmiusTila.vari}">${_valmiusTila.sana}</div>
+      <div style="font-family:var(--font-d);font-weight:400;font-size:30px;line-height:1.15;color:${_tila.vari}">${_tila.sana}</div>
     </div>
     ${chains.map(c=>`
       <div style="margin-bottom:10px">
@@ -1217,33 +1236,62 @@ function rTestit(){
 }
 
 /* KORTTI-tab */
+// §7.22 + §58 — IKÄPORTTI. Kortti näytti `flei_viimeisin`-luvun nimellä "DRI · OVERALL"
+// KAIKILLE ikävaiheille. Kolme erillistä vikaa samassa lohkossa:
+//   1) luku näkyi ikäportin ulkopuolella (Leikkijä U8–12 · Rakentaja U13–15) → §7.22-rike
+//   2) luku oli VÄÄRÄ: kehon valmius ei ole overall-arvio. Aggregaatti on _fcKorttiData().ovr,
+//      joka painottaa 5D:n (.40/.25/.15/.10/.10) ja tekee RAE-korjauksen.
+//   3) tier ja "seuraava taso" olivat KEKSITTYJÄ vakioita: fallback `|| 87`, kovakoodattu
+//      "★ ELITE" tierista riippumatta ja literaali "DRI 88 (+1 tästä viikosta)" — lupaus
+//      jota mikään data ei kata. "Näytä mitä on, älä keksi" (§29 KPI-prioriteetti).
+// Portti = SAMA `naytaOvr` jota sisarfunktiot (_fcKorttiData · naytaFcOverlay · rMinaKortti)
+// jo käyttävät → ei uutta ikälogiikkaa, ei uusia kynnyksiä. Showcase saa luvun (§58), muut
+// saavat saman kortin ilman lukua: identiteetti, tila sanana ja merkit.
 function rKortti(){
   const p = _pelaaja;
-  const dri = p?.flei_viimeisin || 87;
+  const F = (typeof _fcKorttiData === 'function') ? _fcKorttiData(p) : null;
+  const naytaOvr = !!(F && F.ikavyohyke === 'showcase' && !F.rakentuu && F.ovr != null);   // §58
+  const tila = _valmiusTila(p?.flei_viimeisin || 0);
+  const nimi = (p?.etunimi || '–') + ' ' + ((p?.sukunimi || '')[0] || '') + (p?.sukunimi ? '.' : '');
+  const paikka = (p?.pelipaikka || '') + ((p?.joukkueId) ? ' · ' + String(p.joukkueId).toUpperCase() : '');
+  // Kortin sydän: Showcasessa OVR-luku + todellinen tier; muille laadullinen tila ilman lukua.
+  const sydan = naytaOvr
+    ? '<div style="font-family:var(--font-b);font-weight:900;font-size:64px;color:#B8860B;line-height:1">' + F.ovr + '</div>'
+      + '<div style="font-size:9px;letter-spacing:.2em;color:rgba(184,134,11,.7);margin-top:4px">OVR · ' + F.mitatut.length + ' ' + _tKortti('osa_aluetta') + '</div>'
+    : '<div style="font-family:var(--font-d);font-weight:400;font-size:22px;line-height:1.2;color:' + tila.vari + ';padding:0 6px">' + tila.sana + '</div>'
+      + '<div style="font-size:9px;letter-spacing:.2em;color:rgba(242,239,230,.45);margin-top:6px">' + _tMittari('kehon_valmius').toUpperCase() + '</div>';
+  // Tier-merkintä on VERTAILEVA ("Elite") → vain Showcaselle. Muille kortin alaosa jää tyhjäksi
+  // (ei keksittyä "★ ELITE" -leimaa jota data ei tue).
+  const tierRivi = naytaOvr
+    ? '<div style="margin-top:12px;font-size:8px;letter-spacing:.22em;color:rgba(184,134,11,.6)">★ ' + F.tierNimi.toUpperCase() + '</div>'
+    : '';
+  // Alaviite: Showcase saa seuraavan tierin NIMEN (ei keksittyä lukua eikä aikalupausta).
+  const alaviite = naytaOvr
+    ? _tKortti('kasvaa') + '<br>' + _tKortti('seuraava_taso') + ': ' + F.seuraavaTier
+    : _tKortti('kasvaa');
   return `
 <div class="scroll" style="background:var(--bg)">
-  ${hdr('Kortti')}
+  ${hdr(_tKortti('otsikko'))}
   <section style="padding:20px;text-align:center">
     <div class="ey ac" style="margin-bottom:16px">TALENTMASTER PLAYER CARD</div>
     <div data-card style="cursor:pointer;display:inline-block">
       <div style="width:180px;height:240px;background:linear-gradient(135deg,#3A2800,#1A1200,#0D0800);border-radius:14px;padding:16px;display:flex;flex-direction:column;align-items:center;justify-content:center;border:.5px solid rgba(184,134,11,.4);margin:0 auto">
-        <div style="font-family:var(--font-b);font-weight:900;font-size:64px;color:#B8860B;line-height:1">${dri}</div>
-        <div style="font-size:9px;letter-spacing:.2em;color:rgba(184,134,11,.7);margin-top:4px">DRI · OVERALL</div>
-        <div style="margin-top:16px;font-family:var(--font-d);font-size:16px;color:rgba(242,239,230,.9)">${p?.etunimi||'–'} ${(p?.sukunimi||'')[0]||''}.</div>
-        <div style="font-size:9px;letter-spacing:.18em;color:rgba(242,239,230,.5);margin-top:2px">${p?.pelipaikka||'KH'} · ${(p?.joukkueId||'').toUpperCase()}</div>
-        <div style="margin-top:12px;font-size:8px;letter-spacing:.22em;color:rgba(184,134,11,.6)">★ ELITE</div>
+        ${sydan}
+        <div style="margin-top:16px;font-family:var(--font-d);font-size:16px;color:rgba(242,239,230,.9)">${nimi}</div>
+        <div style="font-size:9px;letter-spacing:.18em;color:rgba(242,239,230,.5);margin-top:2px">${paikka}</div>
+        ${tierRivi}
       </div>
     </div>
-    <div style="margin-top:16px;font-size:12px;color:rgba(242,239,230,.5);line-height:1.6">
-      Kortti kasvaa kehittymisesi mukana.<br>Seuraava taso: DRI 88 (+1 tästä viikosta)
-    </div>
+    <div style="margin-top:16px;font-size:12px;color:rgba(242,239,230,.5);line-height:1.6">${alaviite}</div>
   </section>
   <section style="padding:0 20px 20px">
-    <div class="ey ac" style="margin-bottom:10px">TILASTOT</div>
+    <div class="ey ac" style="margin-bottom:10px">${_tKortti('tilastot')}</div>
     ${[
-      {l:'Streak',      v:(_streak||0)+' pv'},
+      {l:_tKortti('streak'), v:(_streak||0)+' '+_tKortti('pv')},
       // §7.22-korjaus: 'Taso' (p.taso = XP-taso) poistettu — ei tasolukua/XP-progressiota lapselle.
-      {l:'Kehon valmius',v:(p?.flei_viimeisin||0)+' / 100'},
+      // §7.22-korjaus #2: "X / 100" → laadullinen sana. Yksi mittari, ei aggregaatti → sana
+      // KAIKILLE ikävaiheille (myös Showcase): rivin tehtävä on kertoa tila, ei sijoittaa asteikolle.
+      {l:_tMittari('kehon_valmius'), v:tila.sana},
     ].map(s=>`
       <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:.5px solid rgba(242,239,230,.08)">
         <span class="meta">${s.l}</span>
