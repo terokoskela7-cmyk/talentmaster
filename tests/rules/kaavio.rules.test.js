@@ -72,6 +72,34 @@ const siht = () => testEnv.authenticatedContext(SIHTEERI, { rooli: 'seurasihteer
 const anon = () => testEnv.authenticatedContext(ANON, { firebase: { sign_in_provider: 'anonymous' } }).firestore();
 const kd = (db, id) => doc(db, 'seurat', SEURA_A, 'kaaviot', id);
 
+// ── ERÄ D2 — pelaaja EI kirjoita kaavioon suoraan; kuittaus kulkee Cloud Functionin kautta.
+// Tämä sviitti on CF:n OLEMASSAOLON PERUSTE: jos nämä väitteet joskus muuttuvat vihreästä
+// punaiseksi (eli anon saisi kirjoittaa), kuittaus-CF:ää ei enää tarvittaisi — ja päinvastoin,
+// jos joku "korjaa" nämä sallimalla anon-kirjoituksen, kaavio-dokumentti avautuisi pelaajille.
+describe('kaaviot · KIRJOITUS — anon-pelaaja ei kirjoita (erä D2)', () => {
+  // Kuittaus-payload on TÄSMÄLLEEN sama kaikissa tapauksissa (myös versiolukon osalta) → ainoa
+  // muuttuja on KUTSUJA. Ilman tätä anon-esto voisi näyttää vihreältä väärästä syystä
+  // (esim. puuttuvasta versiobumpista), ja portti valehtelisi.
+  const KUITTAUS = () => paivita({ 'review.ymmarretty.pel1': 'nyt' }, 0);
+  it('anon EI kuittaa suoraan (review.ymmarretty)', async () => {
+    await assertFails(updateDoc(kd(anon(), 'k_hyvaksytty'), KUITTAUS()));
+  });
+  it('anon EI kuittaa edes ilman versiobumppia', async () => {
+    await assertFails(updateDoc(kd(anon(), 'k_hyvaksytty'), { 'review.ymmarretty.pel1': 'nyt' }));
+  });
+  it('anon EI muuta statusta eikä speciä', async () => {
+    await assertFails(updateDoc(kd(anon(), 'k_hyvaksytty'), paivita({ 'review.status': 'hylatty' }, 0)));
+    await assertFails(updateDoc(kd(anon(), 'k_hyvaksytty'), paivita({ spec: SPEC }, 0)));
+  });
+  it('anon EI luo eikä poista kaaviota', async () => {
+    await assertFails(setDoc(kd(anon(), 'k_uusi_anon'), kaavio('luonnos')));
+    await assertFails(deleteDoc(kd(anon(), 'k_hyvaksytty')));
+  });
+  it('EI-VACUOUS: IDENTTINEN kuittaus VP:ltä onnistuu → vain kutsuja erottaa', async () => {
+    await assertSucceeds(updateDoc(kd(vp(SEURA_A), 'k_hyvaksytty'), KUITTAUS()));
+  });
+});
+
 describe('kaaviot · LUKU — pelaaja/anon näkee vain hyväksytyt', () => {
   it('anon EI lue luonnosta', async () => { await assertFails(getDoc(kd(anon(), 'k_luonnos'))); });
   it('anon EI lue odottavaa', async () => { await assertFails(getDoc(kd(anon(), 'k_odottaa'))); });
