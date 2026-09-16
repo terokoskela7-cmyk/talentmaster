@@ -41,6 +41,26 @@
   --border:rgba(242,239,230,.06); --border2:rgba(242,239,230,.12); --border3:rgba(242,239,230,.18);
   --text:#F2EFE6; --ink2:#A8A79F; --ink3:#8BA0BC;
 }
+/* ── KAAVIORENDERÖIJÄN DESIGN-TOKENIT (lib/tm_kaavio_render.js) ──────────────────────────
+   Renderöijä piirtää SVG:n pelkillä CSS-muuttujilla (--accent/--pitch/--line/--cone/--halo/
+   --fade/--bone/--carbon/--slate/--red/--teal-brd/--ink/--ink3/--bg + fontit). Ne asuivat
+   prototyypin omassa <style>-lohkossa eivätkä tulleet mukana kun lib uutettiin (erä A) →
+   MÄÄRITTELEMÄTÖN var() tekee SVG-attribuutista virheellisen, jolloin selain käyttää
+   alkuarvoa: fill=musta, stroke=ei mitään. Kaavio renderöityi tummalla taustalla
+   käytännössä NÄKYMÄTTÖMÄNÄ (kenttäviivat, nuolet ja pelaajaympyrät katosivat).
+   Tokenit ovat SKOOPATUT .tm-kaavio-elementtiin, EIVÄT :rootiin — appien omat --slate/--ink3
+   tarkoittavat eri asiaa (Pelaajassa --ink3 on sinertävä), joten globaali määrittely
+   muuttaisi muuta käyttöliittymää. Arvot = prototyypin (tm_kaavio_review.html) arvot. */
+.tm-kaavio {
+  --accent: #28B090;  --pitch: #161615;  --line: rgba(242,239,230,.20);
+  --cone: rgba(40,176,144,.09);  --halo: rgba(40,176,144,.16);  --fade: #3A5A50;
+  --bone: #F2EFE6;  --carbon: #1C1C1A;  --slate: #585751;  --red: #D06A5A;
+  --teal-brd: rgba(40,176,144,.30);
+  --ink: #F2EFE6;  --ink3: #8B887F;  --bg: #111110;
+  --font-mono: 'DM Mono', ui-monospace, monospace;
+  --font-sans: 'DM Sans', system-ui, sans-serif;
+}
+.tm-kaavio svg { display: block; width: 100%; height: auto; }
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 html{-webkit-text-size-adjust:100%;-webkit-tap-highlight-color:transparent}
 body{font-family:var(--font-b);font-size:14px;line-height:1.7;background:#0a0a08;color:var(--text);min-height:100dvh;overflow-x:hidden;width:100%;max-width:100%;}
@@ -482,7 +502,7 @@ input::placeholder,textarea::placeholder{color:#8C8B86;opacity:1}
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
 <script src="lib/tm_appcheck.js?v=1"></script>
-<script src="lib/tm_lang.js?v=11"></script>   <!-- i18n V0 putki · V1-A/A2 · V4-A3: +pelaaja.nain_teet/kirjaa_tehdyksi/pallo_joka_paiva/rae_q4 (kotinäytön chrome sv) -->
+<script src="lib/tm_lang.js?v=12"></script>   <!-- i18n V0 putki · V1-A/A2 · V4-A3: +pelaaja.nain_teet/kirjaa_tehdyksi/pallo_joka_paiva/rae_q4 (kotinäytön chrome sv) -->
 <script src="lib/tm_eerikkila_normit.js?v=40"></script>
 <script src="docs/testit_indeksit.js?v=9"></script>
 <script src="harjoitelogiikka_v4.js?v=12"></script>
@@ -493,6 +513,10 @@ input::placeholder,textarea::placeholder{color:#8C8B86;opacity:1}
 <script src="lib/tm_idp.js?v=2"></script>   <!-- Vaihe 3c-a: pelaajan aikajana (idpPelaajaKaari/Konsepti, §7.22-turvallinen) -->
 <script src="lib/tm_teknistaktiset.js?v=4"></script>   <!-- Vaihe 4b: pelaajan cue-kerros (tmTtPelaaja, §0b/§7.22) · v4 = parseri-korjaus (pelimuoto-saaste) -->
 <script src="lib/tm_piirros.js?v=1"></script>   <!-- Piirrokset Vaihe 1: fasciallinjat (D1) + pelipaikkakartta (D4), inline-SVG -->
+<script src="lib/tm_kaavio_render.js?v=2"></script>    <!-- Kaavio erä D1: §3-specin SVG-renderöijä (kielitietoinen, ei ulkoisia origineja) -->
+<script src="lib/tm_kaavio_konsepti.js?v=1"></script>  <!-- Kaavio erä C: spec↔konsepti-sidos (KPI-teksti kaanonista) -->
+<script src="lib/tm_konsepti_resolve.js?v=2"></script>  <!-- VAIN kaanon-haku (tmKonseptiKaanon): seurakerrosta EI ladata pelaajalle — seurat/{sid}/konseptit vaatii onOmaSeura(), jota anon-token ei täytä -->
+<script src="lib/tm_kaavio_policy.js?v=1"></script>    <!-- Kaavio erä A: kaavioKohdistuu — UI-suodatin (EI pakotus, ks. lib) -->
 <script src="lib/tm_adar_rubriikki.js?v=2"></script>   <!-- Kortin ÄLY-tasokuvaus: kanoninen ADAR-rubriikki (TM_ADAR_RUBRIIKKI, §7.22) · v2 = taso 4 Re-assess-korjaus -->
 <script src="lib/tm_kortti_rubriikit.js?v=1"></script> <!-- Kortin FYS+PSY-tasokuvaus (TM_KORTTI_RUBRIIKIT, §7.22/§28) · sama kuvio kuin ÄLY/TEK -->
 <script src="lib/tm_pelialy_yksilo.js?v=3"></script>   <!-- Peliäly-lohko: ADAR §4-ikäportitus (Malli A, tmAdarBand/Yht/BonusOsat, PR #266) -->
@@ -667,6 +691,7 @@ function draw(){
   body.innerHTML=`<div class="scene">${html}${card}${tabs}</div>`;
   bind();
   if (typeof _paivitaTehtyNapit === 'function') _paivitaTehtyNapit();   // KORJAUS 1: "✓ Tehty jo" -napit KOTI-latauksessa
+  if (typeof _p7KaavioPiirra === 'function') _p7KaavioPiirra();          // erä D1: SVG on DOM-solmu → jälkipiirto innerHTML:n jälkeen
 }
 
 /* ──────────────────────────────────────
@@ -1716,6 +1741,130 @@ function _konseptiVaiheVihje(d) {
   const vaihe = (typeof tmTtVaihe === 'function') ? tmTtVaihe({ joukkue: d.joukkue, syntymaVuosi: d.syntymaVuosi, positio: d.positio || d.pelipaikka, tt_positio_aktiivinen: d.tt_positio_aktiivinen }) : null;
   return vaihe === 'perus' ? '🌱 Leikkijän vaihe' : vaihe === 'pelipaikka' ? '⚽ Pelipaikan vaihe' : '🌱 Rakentajan vaihe';
 }
+/* ══════════════════════════════════════════════════════════
+   KAAVIO ERÄ D1 — jaksofokuksen konseptin HYVÄKSYTTY kaavio pelaajalle (§7.22)
+   ──────────────────────────────────────────────────────────
+   "Usein kuva kertoo enemmän kuin sata sanaa." Kun valmentaja nostaa konseptin pelaajan
+   jaksofokukseksi, pelaaja näkee saman konseptin kuvana — mutta VAIN hyväksytyn (review-silmukka
+   on katselmus, ei muodollisuus) ja vain §7.22-ehdoin.
+
+   KOLME RAJOITETTA JOTKA OHJAAVAT TOTEUTUSTA:
+
+   1) KOHDISTUS ON UI-SUODATIN, EI PAKOTUS. PIN-pelaaja kirjautuu Anonymous Authilla → tokenissa
+      ei ole pelaaja- eikä seuraidentiteettiä. firestore.rules pakottaa pelaajalle VAIN
+      status=='hyvaksytty'; nakyvyys/joukkueId/pelaajaIds suodatetaan täällä clientissä
+      (kaavioKohdistuu). Tätä EI saa esittää pakotettuna — se on dokumentoitu sekä sääntöihin
+      että policy-libiin. Sisältö on pedagogista kuvaa, ei henkilötietoa, joten riski on matala.
+
+   2) KONSEPTIKERROSTA EI VOI LUKEA PELAAJANA. seurat/{sid}/konseptit vaatii onOmaSeura(), jota
+      anon-token ei täytä. Otsikko tulee siksi kaanon-libistä (tmTtPelaaja) jonka pelaajan kortti
+      jo käyttää — EI jaksofokus.konsepti_nimi -kentästä, ks. alla. KPI-teksti samoin kaanonista.
+
+   3) ERILLISTÄ OTSIKKOA EI TARVITA. Kuva asuu OLEMASSA OLEVAN konseptikortin sisällä, jolla on
+      jo pelaajaystävällinen otsikko (tmTtPelaaja().otsikko). Toinen otsikko toistaisi saman
+      asian eri sanoin.
+
+   §7.22: kuvan ympärillä ei ole yhtään lukua — ei tasoja, ei pisteitä, ei vertailua. Kuva itse on
+   geometriaa (pelaajat, nuolet, vyöhykkeet), ja renderöijä piirtää vain spec.selitteet-tekstit.
+══════════════════════════════════════════════════════════ */
+window._p7Kaaviot = null;            // null = ei ladattu · [] = ladattu, ei osumia
+var _p7KaavioValittu = null;         // viimeksi valittu doc (jälkipiirtoa varten)
+
+function _tKaavio(avain) { return (typeof t === 'function') ? t('kaavio.' + avain) : avain; }
+function _p7KaavioLang() { return (typeof tmNykyinenKieli === 'function') ? tmNykyinenKieli() : 'fi'; }
+
+/* Pelaajaobjekti kaavioKohdistuu():lle. joukkueet[] + joukkue (§18: molemmat rakenteet elävät). */
+function _p7KaavioPelaaja() {
+  var d = _pelaaja || {};
+  var jt = Array.isArray(d.joukkueet) ? d.joukkueet.slice() : [];
+  if (d.joukkue && jt.indexOf(d.joukkue) < 0) jt.push(d.joukkue);
+  return { seuraId: d.seuraId || null, joukkueet: jt, pelaajaId: d.id || d.pelaajaId || null };
+}
+
+/* Lataa hyväksytyt kaaviot: seuran kerros + kanoninen. Best-effort — puuttuva kokoelma tai
+   oikeuspuute → tyhjä lista, kortti renderöityy ilman kuvaa (ei kaadu, ei virheilmoitusta
+   lapselle). Kysely rajaa status=='hyvaksytty' jo palvelimella, muuten rules hylkäisi listauksen. */
+async function _p7LataaKaaviot() {
+  if (window._p7Kaaviot !== null) return;
+  window._p7Kaaviot = [];
+  var d = _pelaaja;
+  if (!d || !window._db) return;
+  var out = [];
+  try {
+    if (d.seuraId) {
+      var snap = await window._db.collection('seurat').doc(d.seuraId).collection('kaaviot')
+        .where('review.status', '==', 'hyvaksytty').get();
+      snap.forEach(function (x) { out.push(Object.assign({ id: x.id, seuraId: d.seuraId }, x.data())); });
+    }
+  } catch (e) { /* oikeus-/indeksipuute → jatka kanonisiin */ }
+  try {
+    var kan = await window._db.collection('kaaviot').get();
+    var omat = {};
+    out.forEach(function (k) { if (k.spec && k.spec.avain) omat[k.spec.avain] = 1; });
+    // Seuran oma kaavio samalle konseptille VOITTAA kanonisen (sama sääntö kuin VP:n pankissa).
+    kan.forEach(function (x) {
+      var o = x.data() || {};
+      if (o.spec && o.spec.avain && !omat[o.spec.avain]) out.push(Object.assign({ id: x.id, kanoninen: true }, o));
+    });
+  } catch (e) { /* kanoninen kokoelma puuttuu → ohita */ }
+  window._p7Kaaviot = out;
+  if (out.length) draw();
+}
+
+/* Valitse kaavio konseptille. Kanoninen = kaikille jaettu curriculum → aina kohdistuva.
+   Seuran kaavio kulkee kaavioKohdistuu()-suodattimen läpi. jaksofokus on KONSEPTI-tasoinen
+   (ei kanna KPI-koodia) → näytetään ensimmäinen kohdistuva; jos kaavio on tagattu KPI:hin,
+   sen teksti tulee kaanonin KPI-listalta. */
+function _p7ValitseKaavio(avain) {
+  var lista = window._p7Kaaviot;
+  if (!Array.isArray(lista) || !lista.length || !avain) return null;
+  var a = String(avain).toLowerCase().replace(/-/g, '_');
+  var osuvat = lista.filter(function (k) {
+    if (!k.spec || String(k.spec.avain || '').toLowerCase() !== a) return false;
+    if (k.kanoninen) return true;
+    return (typeof kaavioKohdistuu === 'function') ? kaavioKohdistuu(k, _p7KaavioPelaaja()) : false;
+  });
+  if (!osuvat.length) return null;
+  // Seuran oma ennen kanonista (sama etusijajärjestys kuin latauksessa).
+  osuvat.sort(function (x, y) { return (x.kanoninen ? 1 : 0) - (y.kanoninen ? 1 : 0); });
+  return osuvat[0];
+}
+
+/* Kortin kaavio-osuus. Palauttaa HTML:n; itse SVG piirretään jälkikäteen (_p7KaavioPiirra),
+   koska drawSpec palauttaa DOM-solmun eikä merkkijonoa. */
+function _p7KaavioHTML(avain) {
+  if (window._p7Kaaviot === null) { _p7LataaKaaviot(); return ''; }   // lataa taustalla, renderöi seuraavalla kierroksella
+  var k = _p7ValitseKaavio(avain);
+  _p7KaavioValittu = k;
+  if (!k || typeof drawSpec !== 'function') return '';
+  var esc = (typeof _thEsc === 'function') ? _thEsc : function (x) { return String(x == null ? '' : x); };
+  var kpiTeksti = '';
+  // KPI-teksti KAANONISTA (tmKonseptiKaanon = puhdas lib-haku, ei Firestorea). Seurakerrosta ei
+  // ladata pelaajalle lainkaan, joten seuran KPI-teksti ei näy täällä — se on rules-rajoite, ei
+  // valinta. Jos kaavio ei ole tagattu KPI:hin, teksti jää tyhjäksi ja kortti näyttää vain kuvan.
+  if (typeof kaavioKonseptiNaytto === 'function' && typeof tmKonseptiKaanon === 'function') {
+    kpiTeksti = kaavioKonseptiNaytto(k.spec, tmKonseptiKaanon(avain)).kpiTeksti || '';
+  }
+  var h = '<div style="margin-top:14px;padding-top:12px;border-top:.5px solid rgba(242,239,230,.08)">';
+  h += '<div style="font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:#8C8B86;margin-bottom:6px">' + esc(_tKaavio('otsikko')) + '</div>';
+  if (kpiTeksti) h += '<div style="font-size:13px;color:var(--text);line-height:1.5;margin-bottom:10px">' + esc(kpiTeksti) + '</div>';
+  h += '<div id="_p7KaavioSlot" class="tm-kaavio" style="max-width:260px;margin:0 auto"></div>';
+  h += '<div style="font-size:11.5px;color:#8C8B86;line-height:1.45;margin-top:8px;text-align:center">' + esc(_tKaavio('saate')) + '</div>';
+  return h + '</div>';
+}
+
+/* Jälkipiirto: draw() kirjoittaa innerHTML:n, jonka jälkeen slot on olemassa. */
+function _p7KaavioPiirra() {
+  var slot = document.getElementById('_p7KaavioSlot');
+  if (!slot || !_p7KaavioValittu || typeof drawSpec !== 'function') return;
+  try {
+    slot.innerHTML = '';
+    slot.appendChild(drawSpec(_p7KaavioValittu.spec, _p7KaavioLang()));
+  } catch (e) { slot.remove(); }   // rikkinäinen spec ei saa jättää tyhjää laatikkoa lapselle
+}
+window._p7LataaKaaviot = _p7LataaKaaviot;
+window._p7KaavioPiirra = _p7KaavioPiirra;
+
 function rMinaKonseptiFokus() {
   const d = _pelaaja; if (!d || typeof tmTtPelaaja !== 'function') return '';
   const k = tmTtPelaaja(_konseptiFokusAvain(d));
@@ -1729,6 +1878,7 @@ function rMinaKonseptiFokus() {
   if (k.miksi) h += '<div style="margin-top:10px"><div style="font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:#8C8B86">Miksi se auttaa</div><div style="font-size:13px;color:var(--text);margin-top:2px;line-height:1.5">' + esc(k.miksi) + '</div></div>';
   if (k.cue) h += '<div style="margin-top:12px;background:rgba(40,176,144,.08);border:.5px solid rgba(40,176,144,.25);padding:11px 13px"><div style="font-size:11px;color:#28B090;font-weight:600;margin-bottom:3px">💭 Mieti tätä pelissä</div><div style="font-size:14px;color:var(--text);font-style:italic;line-height:1.4">' + esc(k.cue) + '</div></div>';
   if (k.koe) h += '<div style="margin-top:10px;display:flex;justify-content:space-between;align-items:center;gap:10px;background:rgba(255,255,255,.03);border:.5px solid rgba(242,239,230,.08);padding:10px 13px"><div><div style="font-size:11px;color:#28B090;font-weight:600">Kokeile tätä</div><div style="font-size:13px;color:var(--text)">' + esc(k.koe) + '</div></div><div style="color:#28B090;font-size:18px">→</div></div>';
+  h += _p7KaavioHTML(_konseptiFokusAvain(d));   // erä D1: hyväksytty kaavio samasta konseptista (§7.22)
   h += '<div style="font-size:11px;color:#8C8B86;margin-top:12px;display:flex;align-items:center;gap:6px"><span style="width:6px;height:6px;border-radius:50%;background:#28B090;display:inline-block"></span> Valmentajasi katsoo samaa juttua.</div>';
   h += '</div>';
   return h;

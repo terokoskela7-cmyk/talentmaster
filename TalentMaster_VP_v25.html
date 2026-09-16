@@ -17,7 +17,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-functions-compat.js"></script>
 <script src="lib/tm_appcheck.js?v=1"></script>
 <!-- Eerikkilä-normit + universaali testirekisteri (eerikkilaTaso, laskeFVP) — 10m/5m-tasot + FVP-profiili -->
-<script src="lib/tm_lang.js?v=11"></script>   <!-- i18n V0 — fi/sv/en käännöstaulukko + t() + kieli-init (putkitus) -->
+<script src="lib/tm_lang.js?v=12"></script>   <!-- i18n V0 — fi/sv/en käännöstaulukko + t() + kieli-init (putkitus) -->
 <script src="lib/tm_i18n_common.js?v=2"></script>   <!-- i18n Vaihe 0 — JAETTU henkilöstö-i18n + lukittu glossaari (ENNEN sivukarttaa) -->
 <script src="lib/tm_vp_i18n.js?v=64"></script>   <!-- i18n Vaihe 5 — VP sv (sivukartta); vpT/vpLokalisoi delegoivat commoniin -->
 
@@ -59,6 +59,32 @@
 
 <style>
 [onclick^="_vpSelInfo"]{cursor:pointer}   /* klikattavat selitteet (ℹ️, taso-badget, sarakeotsikot) */
+/* ── KAAVIORENDERÖIJÄN DESIGN-TOKENIT (lib/tm_kaavio_render.js) ──────────────────────────
+   Renderöijä piirtää SVG:n pelkillä CSS-muuttujilla (--accent/--pitch/--line/--cone/--halo/
+   --fade/--bone/--carbon/--slate/--red/--teal-brd/--ink/--ink3/--bg + fontit). Ne asuivat
+   prototyypin omassa <style>-lohkossa eivätkä tulleet mukana kun lib uutettiin (erä A) →
+   MÄÄRITTELEMÄTÖN var() tekee SVG-attribuutista virheellisen, jolloin selain käyttää
+   alkuarvoa: fill=musta, stroke=ei mitään. Kaavio renderöityi tummalla taustalla
+   käytännössä NÄKYMÄTTÖMÄNÄ (kenttäviivat, nuolet ja pelaajaympyrät katosivat).
+   Tokenit ovat SKOOPATUT .tm-kaavio-elementtiin, EIVÄT :rootiin — appien omat --slate/--ink3
+   tarkoittavat eri asiaa (Pelaajassa --ink3 on sinertävä), joten globaali määrittely
+   muuttaisi muuta käyttöliittymää. Arvot = prototyypin (tm_kaavio_review.html) arvot. */
+.tm-kaavio {
+  --accent: #28B090;  --pitch: #161615;  --line: rgba(242,239,230,.20);
+  --cone: rgba(40,176,144,.09);  --halo: rgba(40,176,144,.16);  --fade: #3A5A50;
+  --bone: #F2EFE6;  --carbon: #1C1C1A;  --slate: #585751;  --red: #D06A5A;
+  --teal-brd: rgba(40,176,144,.30);
+  --ink: #F2EFE6;  --ink3: #8B887F;  --bg: #111110;
+  --font-mono: 'DM Mono', ui-monospace, monospace;
+  --font-sans: 'DM Sans', system-ui, sans-serif;
+}
+.tm-kaavio svg { display: block; width: 100%; height: auto; }
+:root[data-theme="light"] .tm-kaavio {
+  --accent: #1A7A5E;  --pitch: #EAE6DA;  --line: rgba(28,28,26,.24);
+  --cone: rgba(26,122,94,.10);  --halo: rgba(26,122,94,.15);  --fade: #A9BDB4;
+  --teal-brd: rgba(26,122,94,.28);
+  --ink: #1C1C1A;  --ink3: #7A776E;  --bg: #F2EFE6;
+}
 :root[data-theme="dark"] {
   --bg:    #111110;
   --bg2:   #161614;
@@ -4708,7 +4734,7 @@ function _kaavioKorttiHTML(k, i, ctx) {
   var nimi = ots.nimi || k.id;
   var vari = st === 'hyvaksytty' ? 'var(--teal)' : st === 'odottaa' ? 'var(--amber)' : st === 'hylatty' ? '#C94040' : 'var(--ink3)';
   var h = '<div style="border:.5px solid var(--border);border-radius:10px;padding:12px;background:var(--surface)">';
-  h += '<div id="_kvEsik' + i + '" style="margin-bottom:8px;display:flex;justify-content:center"></div>';
+  h += '<div id="_kvEsik' + i + '" class="tm-kaavio" style="margin-bottom:8px;display:flex;justify-content:center"></div>';
   h += '<div style="font-size:13px;font-weight:600;color:var(--ink)">' + esc(nimi) + '</div>';
   h += '<div style="font-size:10.5px;font-family:var(--font-mono);color:var(--ink3);margin-top:2px">'
      + esc((k.spec && k.spec.avain) || '') + (ots.kpiKoodi ? ' · ' + esc(ots.kpiKoodi) : '')
@@ -4790,7 +4816,7 @@ function _kaavioAvaaEditori(k) {
   if (edOts.kpiTeksti) h += '<div style="font-size:11.5px;color:var(--ink3);line-height:1.45;margin-bottom:10px">' + _jsvEsc(edOts.kpiTeksti) + '</div>';
   else h += '<div style="margin-bottom:10px"></div>';
   h += '<div style="display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap">';
-  h += '<div id="_kvCanvas" style="flex:0 0 auto"></div>';
+  h += '<div id="_kvCanvas" class="tm-kaavio" style="flex:0 0 auto"></div>';
   h += '<div style="flex:1;min-width:210px">';
   h += '<div style="font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink3);margin-bottom:6px">' + vpT('Lisää') + '</div>';
   h += '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">';
