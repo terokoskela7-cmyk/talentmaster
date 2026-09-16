@@ -19,7 +19,7 @@
 <!-- Eerikkilä-normit + universaali testirekisteri (eerikkilaTaso, laskeFVP) — 10m/5m-tasot + FVP-profiili -->
 <script src="lib/tm_lang.js?v=14"></script>   <!-- i18n V0 — fi/sv/en käännöstaulukko + t() + kieli-init (putkitus) -->
 <script src="lib/tm_i18n_common.js?v=2"></script>   <!-- i18n Vaihe 0 — JAETTU henkilöstö-i18n + lukittu glossaari (ENNEN sivukarttaa) -->
-<script src="lib/tm_vp_i18n.js?v=66"></script>   <!-- i18n Vaihe 5 — VP sv (sivukartta); vpT/vpLokalisoi delegoivat commoniin -->
+<script src="lib/tm_vp_i18n.js?v=67"></script>   <!-- i18n Vaihe 5 — VP sv (sivukartta); vpT/vpLokalisoi delegoivat commoniin -->
 
 
 <script src="lib/tm_eerikkila_normit.js?v=45"></script>   <!-- v43: D2-kortti d2_taso-ensin (renderKehityskorttiHTML, PR #264 · §30/#262) -->
@@ -2366,11 +2366,11 @@ input::placeholder, textarea::placeholder { color: var(--ink3); opacity: 1; }
       </svg>
       <span data-i18n="Bio-banding">Bio-banding</span>
     </div>
-    <div class="sb-item" onclick="avaaKaaviopankki()" title="Teknis-taktiset kaaviot — katselmus ja muokkaus" data-i18n-title="Teknis-taktiset kaaviot — katselmus ja muokkaus">
+    <div class="sb-item" onclick="avaaKaaviopankki()" title="Taktiikkataulu — teknis-taktiset kuvat, katselmus ja hyväksyntä" data-i18n-title="Taktiikkataulu — teknis-taktiset kuvat, katselmus ja hyväksyntä">
       <svg class="sb-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5">
         <rect x="2.5" y="3.5" width="15" height="13" rx="1.5"/><path d="M10 3.5v13M2.5 10h15"/>
       </svg>
-      <span data-i18n="Kaaviopankki">Kaaviopankki</span>
+      <span data-i18n="Taktiikkataulu">Taktiikkataulu</span>
     </div>
     <div class="sb-item" data-ws="jaksofokus" onclick="setWs('jaksofokus')" title="Joukkueen jaksofokukset yhdellä silmäyksellä (kattavuus, teemat, talentit)" data-i18n-title="Joukkueen jaksofokukset yhdellä silmäyksellä (kattavuus, teemat, talentit)">
       <svg class="sb-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5">
@@ -4641,10 +4641,25 @@ window.avaaPelaajaMuistiinpanoModal = avaaPelaajaMuistiinpanoModal;
 // Seuratason sama spec.avain VOITTAA kanonisen (override).
 var _kaavioTila = { lista: [], valittu: null, muokkaus: null, historia: [], drag: null };
 
+// ⚠ KRIITTINEN KORJAUS — tämä funktio HEITTI ReferenceErrorin joka kutsulla.
+// `_rooli`-globaalia ei ole koskaan deklaroitu missään (ei var/let/const eikä window._rooli), joten
+// bare-viittaus kaatui heti. Koska avaaKaaviopankki() kutsuu tätä ENSIMMÄISENÄ, koko taktiikkataulu
+// oli tuotannossa rikki siitä asti kun se shipattiin: modaali ei ehtinyt renderöityä lainkaan.
+// Sama vika oli korjattu jo toisaalla (#207: "_rooli-globaali oli VP-sessiossa undefined").
+// Oikea rooli-globaali on `window._vpRooli` (asetetaan kirjautuessa token.claims.rooli:sta).
+//
+// Miksi mikään testi ei nähnyt tätä: yksikkötestit ajavat puhtaita libejä ja sääntöjä, ja
+// render-testien sandbox palautti tuntemattomalle nimelle undefinedin sen sijaan että olisi
+// heittänyt — eli juuri se mekanismi joka teki testeistä ajettavia, piilotti tämän. Alla oleva
+// entry point -testi ajaa sisäänkäynnin oikeasti ja vaatii ettei se heitä.
 function _kaavioCtxNyt() {
+  var rooli = (typeof window !== 'undefined' && window._vpRooli) ? window._vpRooli : null;
   return {
-    rooli: _rooli || null, uid: _uid || null, seuraId: _seuraId || null,
-    joukkueet: (window._omatJoukkueet || []), superAdmin: (_rooli === 'super_admin'),
+    rooli: rooli,
+    uid: (typeof _uid !== 'undefined') ? _uid : null,
+    seuraId: (typeof _seuraId !== 'undefined') ? (_seuraId || null) : null,
+    joukkueet: (typeof window !== 'undefined' && window._omatJoukkueet) || [],
+    superAdmin: !!(typeof window !== 'undefined' && window._vpSA) || rooli === 'super_admin',
     anon: false
   };
 }
@@ -4703,7 +4718,7 @@ async function avaaKaaviopankki() {
   var h = '<div id="_kvModal" style="position:fixed;inset:0;background:rgba(17,17,16,.92);z-index:300;display:flex;align-items:center;justify-content:center" onclick="if(event.target===this)this.remove()">';
   h += '<div style="background:var(--bg2);border:.5px solid var(--border);padding:24px;width:860px;max-width:96vw;max-height:90vh;overflow-y:auto" onclick="event.stopPropagation()">';
   h += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">';
-  h += '<div style="font-family:\'Cormorant Garamond\',serif;font-size:22px;color:var(--ink)">' + vpT('Kaaviopankki') + '</div>';
+  h += '<div style="font-family:\'Cormorant Garamond\',serif;font-size:22px;color:var(--ink)">' + vpT('Taktiikkataulu') + '</div>';
   h += '<div style="display:flex;align-items:center;gap:12px">';
   h += '<div style="font-size:11px;color:var(--ink3)">' + nakyvat.length + ' ' + vpT('kaaviota') + '</div>';
   // Luontiportti = kaavioVoiLuoda (peili rulesin create-ehdosta). Rules on silti totuus; nappia
