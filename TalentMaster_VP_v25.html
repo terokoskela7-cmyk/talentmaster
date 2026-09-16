@@ -5082,6 +5082,41 @@ function _jsvEsc(s) { return String(s == null ? '' : s).replace(/&/g,'&amp;').re
 // ─── VAIHE 2 — Ominaisuusarviointi (Palloliitto-taksonomia): mitattu 🟢 (TM-testi) + havaittu 🔵 (VP/valmentaja 1–5) ───
 // ══════════ VAIHE 5 — arviointi→resepti-silta (heikoin havaittu D2 → ehdotettu jaksofokus) ══════════
 // Sisältö libistä (§34, tm_teknistaktiset). Ehdotus ≠ pakko (§4). Passiivinen: vain kun jaksofokus puuttuu (§4b.5).
+/* ── §32 · FIRESTOREEN KIRJOITETTAVA KONSEPTINIMI ON AINA KANONISTA SUOMEA ────────────────
+   "Firestoreen tallennettu teksti pysyy suomeksi; käännetään VAIN renderissä." Näyttöpolku
+   (_ttKonsepti / _vpSiltaKonsepti / _ttItems) soveltaa sv-kerroksen — se on OIKEIN näytölle,
+   mutta sen tulosta EI saa tallentaa: ruotsinkielisen VP:n asettama jaksofokus kirjoitti
+   ruotsinkielisen nimen Firestoreen, ja suomenkielinen pelaaja näki sen sellaisenaan
+   (jaksofokus.konsepti_nimi on pelaajapinnan luettava kenttä).
+
+   Tämä apuri on KIRJOITUSPOLUN nimenlähde. Se ei käännä mitään:
+     · teknis-taktinen → tmKonseptiResolvoi (kaanon ⊕ seura, suomi). Seuran oma fi on dataa
+       (§32) ja renderöityy sellaisenaan myös sv-tilassa — siksi se kelpaa tallennettavaksi.
+     · fyysinen → tm_fyysteemat `nimi` on suomi (sv asuu erillisessä nimi_sv-kentässä, jota
+       vain näkymä lukee) → kelpaa sellaisenaan.
+     · psyykkinen/sosiaalinen → tm_jaksofokus-lib on suomi-only → kelpaa sellaisenaan.
+   Tuntematon avain → fallback (avain), ei tyhjä nimi.
+
+   ⚠ ÄLÄ käytä tätä renderissä. Näyttö kääntää edelleen normaalisti; tämä on vain se arvo joka
+   menee levylle. Portti tests/jaksofokus_nimi_kanoninen.test.js valvoo molempia suuntia. */
+function _vpJfKanonNimi(avain, domeeni) {
+  var a = String(avain || '');
+  if (!a) return a;
+  var dom = domeeni || 'teknis_taktinen';
+  if (dom === 'fyysinen') {
+    var F = window.TM_FYYSTEEMAT_LIB;
+    var t = (F && typeof F.tmFyysTeema === 'function') ? F.tmFyysTeema(a) : null;
+    return (t && t.nimi) ? t.nimi : a;
+  }
+  if (dom === 'psyykkinen' || dom === 'sosiaalinen') {
+    var LIB = window.TM_JAKSOFOKUS;
+    var k = (LIB && typeof LIB.tmJfKonsepti === 'function') ? LIB.tmJfKonsepti(dom, a) : null;
+    return (k && k.nimi) ? k.nimi : a;
+  }
+  var r = (typeof tmKonseptiResolvoi === 'function') ? tmKonseptiResolvoi(a, _ttSeuraId()) : null;
+  return (r && r.nimi) ? r.nimi : a;
+}
+
 function _vpSiltaKonsepti(avain) {
   if (!avain || typeof TM_TT_YOUTH === 'undefined') return null;
   // TIER 1 + i18n: palautus kulkee _ttKonseptin läpi → seuraoverride ensin, sitten sv (fi-fallback).
@@ -7702,7 +7737,9 @@ window._vpTtVieTreeniin = async function (pid, avain) {
   // I3a §C.1 — käsin asetettu kesto (oletus 6). §B.3 — takaisinlinkki tavoitteeseen + poikkeama-lippu.
   const kestoEl = document.getElementById('_vpTtKesto' + p.id);
   const kestoVk = (kestoEl && +kestoEl.value > 0) ? +kestoEl.value : ((p.jaksofokus && p.jaksofokus.kesto_vk) || 6);
-  const jaksofokus = { konsepti_avain: avain, konsepti_nimi: item ? item.nimi : avain, konsepti_koodi: item ? item.koodi : null, domeeni: 'teknis_taktinen', alkoi: _vpJfAlkoiJatka(p, 'teknis_taktinen', avain), kesto_vk: kestoVk, lahde: lahde };
+  // §32: nimi KIRJOITUSPOLUSTA (suomi), ei `item`-listasta joka on kulkenut sv-kerroksen läpi.
+  // `konsepti_koodi` saa jäädä item:stä — koodi on enum eikä kanna kieltä.
+  const jaksofokus = { konsepti_avain: avain, konsepti_nimi: _vpJfKanonNimi(avain, 'teknis_taktinen'), konsepti_koodi: item ? item.koodi : null, domeeni: 'teknis_taktinen', alkoi: _vpJfAlkoiJatka(p, 'teknis_taktinen', avain), kesto_vk: kestoVk, lahde: lahde };
   // §B.3 takaisinlinkki: mistä IDP-tavoitteesta jakso juontaa + poikkeaako valittu konsepti resolverin ehdotuksesta.
   if (p.idp_fokus && p.idp_fokus.alue) {
     jaksofokus.tavoite_alue = p.idp_fokus.alue;
@@ -8341,7 +8378,10 @@ window._vpJfLisaaLinkki = function (pid) {
   if (!kons) return;
   window._vpJfLinkit = window._vpJfLinkit || {};
   const nyt = window._vpJfLinkit[pid] || [];
-  const uusi = { domeeni: dom, konsepti_avain: avain, konsepti_nimi: kons.nimi };
+  // §32: linkitetyt tallentuvat jaksofokus.linkitetyt-kenttään (_vpJfMergeLisakentat) → nimen on
+  // oltava suomi. `kons` tulee _vpJfDomeeniKonseptit():sta, jonka teknis-taktinen haara käyttää
+  // _ttItems():ia eli sv-kerrosta.
+  const uusi = { domeeni: dom, konsepti_avain: avain, konsepti_nimi: _vpJfKanonNimi(avain, dom) };
   const tulos = (LIB && typeof LIB.tmJfLisaaLinkki === 'function') ? LIB.tmJfLisaaLinkki(nyt, uusi) : nyt.concat([uusi]);
   if (tulos.length === nyt.length && typeof toast === 'function') toast(vpT('Jo linkitetty tai maksimi täynnä'), 'ok');
   window._vpJfLinkit[pid] = tulos;
@@ -8773,7 +8813,9 @@ window._vpSulkuTallenna = async function (uusiAvain) {
       uusiJf = { konsepti_avain: uusiAvain, konsepti_nimi: ft ? ft.nimi : uusiAvain, konsepti_koodi: null, alkoi: new Date().toISOString(), kesto_vk: 4, lahde: 'silta_d1', domeeni: 'fyysinen' };
     } else {
       const k = _vpSiltaKonsepti(uusiAvain);
-      uusiJf = { konsepti_avain: uusiAvain, konsepti_nimi: k ? k.nimi : uusiAvain, konsepti_koodi: k ? k.koodi : null, alkoi: new Date().toISOString(), kesto_vk: 4, lahde: 'silta', domeeni: 'teknis_taktinen' };
+      // §32: `k` tulee _vpSiltaKonsepti():sta joka soveltaa sv-kerroksen (oikein näytölle,
+      // väärin levylle) → nimi kirjoituspolusta, koodi k:sta (enum).
+      uusiJf = { konsepti_avain: uusiAvain, konsepti_nimi: _vpJfKanonNimi(uusiAvain, 'teknis_taktinen'), konsepti_koodi: k ? k.koodi : null, alkoi: new Date().toISOString(), kesto_vk: 4, lahde: 'silta', domeeni: 'teknis_taktinen' };
     }
   }
   p.jaksofokus = uusiJf;
