@@ -482,7 +482,7 @@ input::placeholder,textarea::placeholder{color:#8C8B86;opacity:1}
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
 <script src="lib/tm_appcheck.js?v=1"></script>
-<script src="lib/tm_lang.js?v=9"></script>   <!-- i18n V0 putki · V1-A/A2 · V4-A3: +pelaaja.nain_teet/kirjaa_tehdyksi/pallo_joka_paiva/rae_q4 (kotinäytön chrome sv) -->
+<script src="lib/tm_lang.js?v=10"></script>   <!-- i18n V0 putki · V1-A/A2 · V4-A3: +pelaaja.nain_teet/kirjaa_tehdyksi/pallo_joka_paiva/rae_q4 (kotinäytön chrome sv) -->
 <script src="lib/tm_eerikkila_normit.js?v=40"></script>
 <script src="docs/testit_indeksit.js?v=9"></script>
 <script src="harjoitelogiikka_v4.js?v=12"></script>
@@ -1176,14 +1176,21 @@ function rTestit(){
   // ketjun valintaa + amber-korostusta — eli taso välittyy edelleen, ilman numeroa tai vertailua.
   // VP/Master (henkilökunnan työkalut) näyttävät luvut ennallaan — tämä koskee VAIN pelaajapintaa.
   const heikoin = [...chains].sort((a,b)=>a.arvo-b.arvo)[0];
+  // §7.22 — HERO: lapselle EI lukua vaan TILA. Sana ja väri johdetaan SAMASTA kynnyksestä
+  // (70/40 = täsmälleen ne joita väritys käytti ennenkin) → sana ja väri eivät voi erota.
+  // Puuttuva data (flei falsy) on OMA tilansa: neutraali, ei punainen "huolto" kuten ennen.
+  const _tT = (avain) => (typeof t === 'function') ? t('mittarit.' + avain) : avain;
+  const _valmiusTila = (!flei)      ? { sana: _tT('valmiustila_ei_dataa'), vari: 'var(--ink3, #8C8B86)' }
+                     : (flei >= 70) ? { sana: _tT('valmiustila_valmis'),   vari: 'var(--teal)' }
+                     : (flei >= 40) ? { sana: _tT('valmiustila_kehittyy'), vari: '#E8A020' }
+                     :                { sana: _tT('valmiustila_huolto'),   vari: '#E04040' };
   return `
 <div class="scroll" style="background:var(--bg)">
   ${hdr('Testit')}
   <section style="padding:20px 20px 0">
-    <div class="ey ac" style="margin-bottom:14px">KEHON VALMIUSINDEKSI</div>
+    <div class="ey ac" style="margin-bottom:14px">${_tT('kehon_valmius')}</div>
     <div style="text-align:center;margin-bottom:16px">
-      <div style="font-family:var(--font-m);font-size:48px;color:${flei>=70?'var(--teal)':flei>=40?'#E8A020':'#E04040'}">${flei||'–'}</div>
-      <div class="meta">pistettä 100:sta</div>
+      <div style="font-family:var(--font-d);font-weight:400;font-size:30px;line-height:1.15;color:${_valmiusTila.vari}">${_valmiusTila.sana}</div>
     </div>
     ${chains.map(c=>`
       <div style="margin-bottom:10px">

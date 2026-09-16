@@ -78,8 +78,13 @@ describe('Vanhempi_v2 — kielivalitsin FI/SV/EN + cache-bust', () => {
     expect(V).toContain("nappi('sv','SV')");
     expect(V).toContain("nappi('en','EN')");
   });
-  it('tm_lang ?v=2 + SW-cache v7', () => {
-    expect(V).toMatch(/lib\/tm_lang\.js\?v=[2-9]/);
-    expect(readFileSync(join(__dir, '..', 'sw_vanhempi.js'), 'utf8')).toMatch(/const CACHE = 'tm-vanhempi-v([7-9]|[1-9]\d)'/);
+  // Vähimmäisarvo eksaktin pinnin sijaan (ks. sama perustelu Pelaaja-sviitissä).
+  it('tm_lang ?v ≥ 2 + SW-cache ≥ v7', () => {
+    const v = V.match(/lib\/tm_lang\.js\?v=(\d+)/);
+    expect(v).toBeTruthy();
+    expect(Number(v[1])).toBeGreaterThanOrEqual(2);
+    const c = readFileSync(join(__dir, '..', 'sw_vanhempi.js'), 'utf8').match(/const CACHE = 'tm-vanhempi-v(\d+)'/);
+    expect(c).toBeTruthy();
+    expect(Number(c[1])).toBeGreaterThanOrEqual(7);
   });
 });

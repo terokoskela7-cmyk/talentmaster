@@ -73,6 +73,68 @@ describe('§7.22 — ketjurivillä ei näkyvää raaka-arvoa', () => {
   });
 });
 
+describe('§7.22 — hero näyttää TILAN, ei numeroa (vaihtoehto B)', () => {
+  const heroLohko = () => {
+    const rivit = rTestitLohko();
+    const a = rivit.findIndex((l) => l.includes("_tT('kehon_valmius')"));
+    expect(a).toBeGreaterThan(-1);
+    return rivit.slice(a, a + 5).join('\n');
+  };
+
+  it('hero renderöi tilasanan, EI numeroa eikä "pistettä 100:sta"', () => {
+    const hero = heroLohko();
+    expect(hero).toContain('${_valmiusTila.sana}');
+    expect(hero).not.toContain('${flei');
+    expect(hero).not.toMatch(/pistettä|\/\s*100/);
+    expect(hero).not.toMatch(/font-size:48px/);
+    const tekstit = [...hero.matchAll(/>([^<>${}]+)</g)].map((m) => m[1].trim()).filter(Boolean);
+    expect(tekstit.filter((x) => /\d/.test(x))).toEqual([]);
+  });
+  it('otsikko on "Kehon valmius" — ei "indeksi"', () => {
+    const lohko = rTestitLohko().join('\n');
+    expect(lohko).not.toContain('KEHON VALMIUSINDEKSI');
+    expect(lohko).toContain("_tT('kehon_valmius')");
+  });
+  it('sana ja väri tulevat SAMASTA kynnyksestä (70/40) — eivät voi erota', () => {
+    const lohko = rTestitLohko().join('\n');
+    const m = lohko.match(/const _valmiusTila =[\s\S]*?;\n/);
+    expect(m).toBeTruthy();
+    const def = m[0];
+    // Neljä haaraa, kukin { sana, vari } -parina → yksi lähde molemmille.
+    expect((def.match(/sana:/g) || []).length).toBe(4);
+    expect((def.match(/vari:/g) || []).length).toBe(4);
+    expect(def).toContain('flei >= 70');
+    expect(def).toContain('flei >= 40');
+    expect(def).toContain('var(--teal)');
+    expect(def).toContain('#E8A020');
+    expect(def).toContain('#E04040');
+    // Ei mitään MUUTA kynnystä kuin 70/40 (ei uusia maagisia lukuja)
+    expect(def.match(/flei >= (\d+)/g)).toEqual(['flei >= 70', 'flei >= 40']);
+  });
+  it('neljä tilaa: ei-dataa on OMA neutraali tilansa (ei punainen "huolto")', () => {
+    const lohko = rTestitLohko().join('\n');
+    for (const k of ['valmiustila_ei_dataa', 'valmiustila_valmis', 'valmiustila_kehittyy', 'valmiustila_huolto']) {
+      expect(lohko, k).toContain(k);
+    }
+    expect(lohko).toMatch(/\(!flei\)\s*\?\s*\{ sana: _tT\('valmiustila_ei_dataa'\), vari: 'var\(--ink3/);
+  });
+  it('tilasanat resolvoituvat fi JA sv (pelaajan i18n-mekanismi)', async () => {
+    const vm = await import('vm');
+    const sb = { console: { log() {}, warn() {} }, localStorage: { getItem: () => null, setItem() {} } };
+    sb.window = sb; vm.createContext(sb);
+    vm.runInContext(readFileSync(join(ROOT, 'lib', 'tm_lang.js'), 'utf8'), sb);
+    const avaimet = ['valmiustila_valmis', 'valmiustila_kehittyy', 'valmiustila_huolto', 'valmiustila_ei_dataa'];
+    const fi = avaimet.map((k) => sb.t('mittarit.' + k));
+    expect(fi).toEqual(['Valmis treenaamaan', 'Kehittyy', 'Tarvitsee huoltoa', 'Ei mitattu vielä']);
+    sb.tmAsetaKieli('sv');
+    const sv = avaimet.map((k) => sb.t('mittarit.' + k));
+    for (let i = 0; i < sv.length; i++) {
+      expect(typeof sv[i]).toBe('string');
+      expect(sv[i], avaimet[i]).not.toBe(fi[i]);   // aito käännös, ei fi-fallback
+    }
+  });
+});
+
 describe('REGRESSIO — henkilökunnan työkalut säilyttävät luvut', () => {
   it('VP: kehon valmius -profiili näyttää yhä kokonaisluvun (X / 100)', () => {
     expect(VP).toContain("<span class=\"flei-kokonais\">' + fleiPct + ' / 100</span>");
@@ -90,6 +152,24 @@ describe('DATA säilyy — vain näkyvä numero poistettiin', () => {
     const lohko = rTestitLohko().join('\n');
     expect(lohko).toContain('arvo: (p && p[a]) || 0');
     expect(lohko).toContain('[...chains].sort((a,b)=>a.arvo-b.arvo)[0]');
+  });
+});
+
+describe('§7.22 — KOKO kehon valmius -näkymässä 0 näkyvää numeroa', () => {
+  it('hero + ketjut yhdessä: yksikään näyttöön päätyvä teksti tai ${} ei tuota numeroa', () => {
+    const lohko = rTestitLohko().join('\n');
+    // vain KEHON VALMIUS -osio (ennen CMJ-osiota, joka on eri mittari)
+    const osio = lohko.slice(0, lohko.indexOf('CMJ-TESTI') > 0 ? lohko.indexOf('CMJ-TESTI') : lohko.length);
+    // >…<-heuristiikka nappaa myös JS-ilmaisuja (esim. `heikoin.arvo>0?\``), koska > ja <
+    // esiintyvät koodissa. Suodatetaan pois kandidaatit joissa on JS-syntaksia — jäljelle jää
+    // aito tekstisolmu. (Aito näkyvä luku, esim. "62 / 100", ei sisällä näitä merkkejä.)
+    const jsRoska = (x) => /[`?=]|&&|\|\||\bvar\b|=>/.test(x);
+    const tekstit = [...osio.matchAll(/>([^<>${}]+)</g)].map((m) => m[1].trim()).filter(Boolean).filter((x) => !jsRoska(x));
+    expect(tekstit.filter((x) => /\d/.test(x))).toEqual([]);
+    // Yhden rivin mittaiset ${}-ulostulot tekstipositiossa (monirivinen .map(...) on rakenne, ei arvo).
+    const naytto = [...osio.matchAll(/>\s*(\$\{[^}\n]*\})/g)].map((m) => m[1]).filter((x) => !/\.map\(/.test(x));
+    expect(naytto.length).toBeGreaterThan(0);   // ei-vacuous: skanneri löysi oikeasti ulostuloja
+    for (const x of naytto) expect(x, x).not.toMatch(/toFixed|Math\.|\bflei\b|c\.arvo/);
   });
 });
 

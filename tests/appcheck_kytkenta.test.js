@@ -138,12 +138,17 @@ describe('vanhentunut v3-provider ei saa palata', () => {
 });
 
 describe('service workerit (§27.4)', () => {
+  // Cache-versio tarkistetaan VÄHIMMÄISARVONA, ei eksaktina: §27.4 vaatii bumppaamaan cachen
+  // aina kun SW-logiikka tai jaettu lib (tm_lang) muuttuu — eksakti pinni punertaisi joka bumpissa
+  // ja houkuttelisi "korjaamaan" testin sen sijaan että bumppaus tehdään.
   it.each([
-    ['sw_pelaaja.js', 'tm-pelaaja-v25'],
-    ['sw_vanhempi.js', 'tm-vanhempi-v15'],
-  ])('%s · cache-versio bumpattu + tm_appcheck allowlistissa', (f, cache) => {
+    ['sw_pelaaja.js', 'tm-pelaaja-v', 25],
+    ['sw_vanhempi.js', 'tm-vanhempi-v', 15],
+  ])('%s · cache-versio ≥ vaadittu + tm_appcheck allowlistissa', (f, etuliite, min) => {
     const s = lue(f);
-    expect(s).toContain(cache);
+    const m = s.match(new RegExp("const CACHE = '" + etuliite + "(\\d+)'"));
+    expect(m, f).toBeTruthy();
+    expect(Number(m[1]), f + ' cache-versio').toBeGreaterThanOrEqual(min);
     expect(s).toContain('/lib/tm_appcheck.js');
   });
   it('reCAPTCHA EI ole allowlistissa (attestointi ei saa tulla cachesta)', () => {
