@@ -328,39 +328,52 @@ describe('VP_v25 render-kielineutraali-gate (step G · AST)', () => {
   // lähdeskannauksella (kuten badge-testi 5b pinnasi /5 alue -suffiksit): jokainen listattu member-näyttö
   // ON aina vpT(...):n sisällä alueellaan. Sulkee saman aukon V5–V8:n enum-display-labeleille (roolit ym.)
   // — uusi alaerä lisää oman member-näyttönsä tähän.
+  // ANKKUROIDUT ikkunat: ±n riviä stabiilin ankkurin ympärillä. Kovakoodatut rivinumerot
+  // ajautuivat toistuvasti (ei-vacuous-vartija nappasi ne joka kerta) → anna ankkuri, ei riviä.
+  const _ikkuna = (ehto, n) => {
+    const i = _VP_RIVIT.findIndex(ehto);
+    return i < 0 ? [0, 0] : [Math.max(1, i + 1 - n), i + 1 + n];
+  };
+  const _ACWR = _ikkuna((l) => l.includes('const acwrSana ='), 4);
+  const _KUORMA = _ikkuna((l) => l.includes('const kuormaEnnallaanMsg ='), 2);
+  const _EYEBROW = _ikkuna((l) => l.includes('_VPM.eyebrow'), 2);
+  const _MITAT = _ikkuna((l) => l.includes('var mt = vpT('), 2);
+  const _PATT = _ikkuna((l) => l.includes('const patteristo ='), 2);
+  const _FOKUSCHIP = _ikkuna((l) => l.includes('var fokusChip ='), 4);
+  const _TKALUE = _vpLohko((l) => l.startsWith('function _vpTkAlue('), '}');
   const MEMBER_DISPLAY = [
-    { expr: 'meta.nimi', ranges: [[13100, 14200]] }, // V4 kalenteri: KALENTERI_TYYPIT-tyyppinimi (§1 enum-avain fi, näyttö vpT)
-    { expr: 'IDP_TILA_LBL[p.idp_tila]', ranges: [[6600, 6620], [14975, 15015]] }, // V6 idp_tila-statusnäyttö (§1 enum-avain fi, näyttö vpT)
-    { expr: 'dm.nimi', ranges: [[15490, 15510]] }, // V7b domeeni-display fokusChip (lc-avain fi, näyttö vpT)
+    { expr: 'meta.nimi', ranges: [_ikkuna((l) => l.includes('vpWeekEvt(meta.vari'), 1100)] }, // V4 kalenteri: KALENTERI_TYYPIT-tyyppinimi (§1 enum-avain fi, näyttö vpT)
+    { expr: 'IDP_TILA_LBL[p.idp_tila]', ranges: [_ikkuna((l) => l.includes("class=\"jsp-kt-summary\""), 6), _ikkuna((l) => l.includes("class=\"pdc-sig\""), 40)] }, // V6 idp_tila-statusnäyttö (§1 enum-avain fi, näyttö vpT)
+    { expr: 'dm.nimi', ranges: [_FOKUSCHIP] }, // V7b domeeni-display fokusChip (lc-avain fi, näyttö vpT)
     // ANKKUROITU: _vpTkAlue-funktion runko (nämä kaksi ajautuivat jo kahdesti — ks. ei-vacuous-vartija alla).
-    { expr: 'k.nimi', ranges: [_vpLohko((l) => l.startsWith('function _vpTkAlue('), '}')] }, // tuloskortin mittarilabel
-    { expr: 'k.arvo', ranges: [_vpLohko((l) => l.startsWith('function _vpTkAlue('), '}')] }, // tuloskortin mittari-arvo
+    { expr: 'k.nimi', ranges: [_TKALUE] }, // tuloskortin mittarilabel
+    { expr: 'k.arvo', ranges: [_TKALUE] }, // tuloskortin mittari-arvo
     // V7+: esim. { expr: 'roolimap[rooli]', ranges: [[...]] }
     // ── Erä 3 (kuormanarratiivi) — KAKSI UUTTA SOKEAA LUOKKAA, kumpikin gaten ulottumattomissa:
     // (a) CONTAINER/MUUTTUJA-REITITETTY: acwrSana-ternaari on sidottu VariableDeclaratoriin, ei
     //     markup-ketjuun → inDisplayContext=false. Lisäksi 'linjassa'/'koholla'/'matala' ovat
     //     codeish-bare-lowercase-tokeneita → kaksinkertaisesti piilossa. Vartija vaatii vpT:n
     //     MÄÄRITTELYSSÄ (arvo reititetään kerran, muuttujaa käytetään markupissa vapaasti).
-    { expr: "'kertyy ~4 vk'", ranges: [[10376, 10386]] },
-    { expr: "'linjassa'", ranges: [[10376, 10386]] },
-    { expr: "'koholla'", ranges: [[10376, 10386]] },
-    { expr: "'matala'", ranges: [[10376, 10386]] },
+    { expr: "'kertyy ~4 vk'", ranges: [_ACWR] },
+    { expr: "'linjassa'", ranges: [_ACWR] },
+    { expr: "'koholla'", ranges: [_ACWR] },
+    { expr: "'matala'", ranges: [_ACWR] },
     // (b) INLINE-ONCLICK-TOAST JS:N RAKENTAMASSA MARKUPISSA: toast(...) attribuuttimerkkijonon sisällä
     //     ei ole AST-kutsu (Erä 1:n kanavaportti ei näe) eikä >text< (render-gate ei näe). Reititys
     //     tehdään muuttujaan ennen merkkijonoa; vartija lukitsee sen.
-    { expr: "'Kuorma pidetty ennallaan'", ranges: [[10376, 10386]] },
+    { expr: "'Kuorma pidetty ennallaan'", ranges: [_KUORMA] },
     // ── Erä 4 (mittausnäkymät). Kaksi luokkaa, kumpikin eri syystä gaten ulottumattomissa:
     // (4) CODEISH-PIILO: 'muokattavissa'/'luku' OVAT markup-ketjussa (display-konteksti tunnistuu),
     //     mutta codeish pudottaa ne bare-lowercase-tokeneina → sokeus tulee SISÄLLÖSTÄ, ei kontekstista.
     //     Tämä on erän 1. tapaus jossa luokka 4 esiintyy YKSINÄÄN (erässä 3 se kasautui luokan 5 päälle).
-    { expr: "'muokattavissa'", ranges: [[11011, 11021]] },
-    { expr: "'luku'", ranges: [[11011, 11021]] },
+    { expr: "'muokattavissa'", ranges: [_EYEBROW] },
+    { expr: "'luku'", ranges: [_EYEBROW] },
     // (5) CONTAINER/MUUTTUJA: arvo sidottu VariableDeclaratoriin (mt @10606, patteristo @10983),
     //     renderöidään vasta myöhemmin markupissa → inDisplayContext=false.
-    { expr: "'mitätöity '", ranges: [[10996, 11006]] },
-    { expr: "'H-H-patteristo'", ranges: [[11371, 11381]] },
-    { expr: "'tekniikkakilpailu'", ranges: [[11371, 11381]] },
-    { expr: "'mittaus'", ranges: [[11371, 11381]] },
+    { expr: "'mitätöity '", ranges: [_MITAT] },
+    { expr: "'H-H-patteristo'", ranges: [_PATT] },
+    { expr: "'tekniikkakilpailu'", ranges: [_PATT] },
+    { expr: "'mittaus'", ranges: [_PATT] },
   ];
   // Erä 4 (mittausnäkymät, _vpMittaus*-perhe) — ALUE-todiste 7 funktion yli.
   it('RANGES-alueet _vpMittaus* ovat oikeasti valvonnassa (mutaatio aitoon lähteeseen)', () => {
