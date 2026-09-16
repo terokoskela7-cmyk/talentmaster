@@ -19,7 +19,7 @@
 <!-- Eerikkilä-normit + universaali testirekisteri (eerikkilaTaso, laskeFVP) — 10m/5m-tasot + FVP-profiili -->
 <script src="lib/tm_lang.js?v=14"></script>   <!-- i18n V0 — fi/sv/en käännöstaulukko + t() + kieli-init (putkitus) -->
 <script src="lib/tm_i18n_common.js?v=2"></script>   <!-- i18n Vaihe 0 — JAETTU henkilöstö-i18n + lukittu glossaari (ENNEN sivukarttaa) -->
-<script src="lib/tm_vp_i18n.js?v=65"></script>   <!-- i18n Vaihe 5 — VP sv (sivukartta); vpT/vpLokalisoi delegoivat commoniin -->
+<script src="lib/tm_vp_i18n.js?v=66"></script>   <!-- i18n Vaihe 5 — VP sv (sivukartta); vpT/vpLokalisoi delegoivat commoniin -->
 
 
 <script src="lib/tm_eerikkila_normit.js?v=45"></script>   <!-- v43: D2-kortti d2_taso-ensin (renderKehityskorttiHTML, PR #264 · §30/#262) -->
@@ -43,7 +43,7 @@
 <script src="lib/tm_kehityspolku.js?v=2"></script>   <!-- I3a: looginen silta -resolver (idp_fokus → konsepti/fundamentti → harjoite) -->
 <script src="lib/tm_jaksofokus.js?v=5"></script>
 <script src="lib/tm_kaavio_render.js?v=2"></script>     <!-- erä A: §3-specin SVG-renderöijä (kielitietoinen) -->
-<script src="lib/tm_kaavio_policy.js?v=1"></script>     <!-- erä A: näkyvyys/toiminnot — pariteetti firestore.rules kanssa -->
+<script src="lib/tm_kaavio_policy.js?v=2"></script>     <!-- erä A: näkyvyys/toiminnot — pariteetti firestore.rules kanssa -->
 <script src="lib/tm_kaavio_validate.js?v=2"></script>   <!-- erä A: §6-validaattori (client-portti + ingest) -->
 <script src="lib/tm_kaavio_editori.js?v=1"></script>    <!-- erä B1: editorin tila+koordinaatit (sama mappi kuin render) -->   <!-- Vaihe 4c: jaksofokus-oversight PURE-ydin (kattavuus/umpeutunut/teemakeskittymä, §26) -->
 <script src="lib/tm_kaavio_konsepti.js?v=1"></script>   <!-- erä C: spec↔konsepti-sidos (otsikko/KPI resolvoidusta konseptista, ei specistä) -->
@@ -4704,10 +4704,20 @@ async function avaaKaaviopankki() {
   h += '<div style="background:var(--bg2);border:.5px solid var(--border);padding:24px;width:860px;max-width:96vw;max-height:90vh;overflow-y:auto" onclick="event.stopPropagation()">';
   h += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">';
   h += '<div style="font-family:\'Cormorant Garamond\',serif;font-size:22px;color:var(--ink)">' + vpT('Kaaviopankki') + '</div>';
-  h += '<div style="font-size:11px;color:var(--ink3)">' + nakyvat.length + ' ' + vpT('kaaviota') + '</div></div>';
+  h += '<div style="display:flex;align-items:center;gap:12px">';
+  h += '<div style="font-size:11px;color:var(--ink3)">' + nakyvat.length + ' ' + vpT('kaaviota') + '</div>';
+  // Luontiportti = kaavioVoiLuoda (peili rulesin create-ehdosta). Rules on silti totuus; nappia
+  // ei vain näytetä sille jolle kirjoitus hylättäisiin.
+  if (typeof kaavioVoiLuoda === 'function' && kaavioVoiLuoda(ctx)) h += _kaavioUusiNappiHTML();
+  h += '</div></div>';
   h += '<div style="font-size:11.5px;color:var(--ink3);margin-bottom:14px">' + vpT('Teknis-taktiset kaaviot. Kanoniset ovat kaikille yhteisiä; seuran omat kulkevat katselmuksen kautta.') + '</div>';
   if (!nakyvat.length) {
-    h += '<div style="font-size:12.5px;color:var(--ink3);padding:18px;border:.5px dashed var(--border);border-radius:8px">' + vpT('Ei kaavioita vielä.') + '</div>';
+    h += '<div style="font-size:12.5px;color:var(--ink3);padding:18px;border:.5px dashed var(--border);border-radius:8px">'
+       + vpT('Ei kaavioita vielä.')
+       // Tyhjä tila on juuri se hetki jolloin sisäänkäyntiä tarvitaan — ilman tätä ensimmäistä
+       // kaaviota ei voinut luoda lainkaan (editori avautui vain olemassa olevalle).
+       + ((typeof kaavioVoiLuoda === 'function' && kaavioVoiLuoda(ctx)) ? '<div style="margin-top:12px">' + _kaavioUusiNappiHTML() + '</div>' : '')
+       + '</div>';
   } else {
     h += '<div id="_kvLista" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px">';
     nakyvat.forEach(function (k, i) { h += _kaavioKorttiHTML(k, i, ctx); });
@@ -4812,6 +4822,127 @@ async function _kaavioSiirra(k, uusiTila) {
 // ── EDITORI ──────────────────────────────────────────────────────────────────────────────
 // Piirto tulee tm_kaavio_render.js:stä ja vuorovaikutus tm_kaavio_editori.js:stä — SAMA
 // koordinaattimappi (B1:n pariteettitesti lukitsee sen), joten hit-testaus osuu kohdakkain.
+/* ══════════════════════════════════════════════════════════
+   UUDEN KAAVION LUONTI — puuttuva sisäänkäynti
+   ──────────────────────────────────────────────────────────
+   Pankki osasi listata, muokata, katselmoida ja hyväksyä — mutta ei LUODA. Editori avautui vain
+   olemassa olevalle dokumentille ja tallennus oli pelkkä update(), joten tyhjässä seurassa
+   ensimmäistä kaaviota ei voinut tehdä lainkaan.
+
+   Luonti ei tuo omaa editoria eikä omaa validointia: se rakentaa valmiiksi VALIDIN starter-specin
+   ja avaa SAMAN editorin (_kaavioAvaaEditori). Ainoa uusi asia on _kaavioTallenna():n create-haara.
+
+   Miksi starter on valmiiksi validi: §6-validaattori ajetaan tallennuksessa, ja tyhjä spec
+   (0 pelaajaa) avaisi editorin virhetilassa — käyttäjä näkisi "ei kelpaa" ennen kuin on tehnyt
+   mitään. Kaksi pelaajaa on pienin määrä joka kelpaa JA josta voi vetää ensimmäisen syötön.
+══════════════════════════════════════════════════════════ */
+var _KAAVIO_PELIMUODOT = ['5v5', '8v8', '11v11'];
+
+function _kaavioUusiNappiHTML() {
+  return '<button onclick="_kaavioUusiLomake()" style="background:rgba(40,176,144,.14);color:var(--teal);'
+    + 'border:.5px solid rgba(40,176,144,.4);border-radius:6px;padding:6px 12px;font-size:11.5px;cursor:pointer">＋ '
+    + vpT('Uusi kaavio') + '</button>';
+}
+
+/* Konseptilista lomakkeen dropdowniin: kaanon ⊕ seura, näyttönimet lokalisoituna (_ttSeuraLista
+   hoitaa molemmat). Tallennettava arvo on AVAIN — nimi resolvoituu renderissä (erä C). */
+function _kaavioUusiKonseptit() {
+  var pohja = [];
+  try { if (typeof TM_TT_YOUTH !== 'undefined') pohja = pohja.concat(TM_TT_YOUTH); } catch (e) {}
+  try { if (typeof TM_TT_JOUKKUE !== 'undefined') pohja = pohja.concat(TM_TT_JOUKKUE); } catch (e) {}
+  var lista = (typeof _ttSeuraLista === 'function') ? _ttSeuraLista(pohja) : pohja;
+  return lista.filter(function (k) { return k && k.avain; });
+}
+
+function _kaavioUusiLomake() {
+  var ctx = _kaavioCtxNyt();
+  if (typeof kaavioVoiLuoda !== 'function' || !kaavioVoiLuoda(ctx)) { toast(vpT('Ei oikeutta luoda kaaviota'), 'err'); return; }
+  document.getElementById('_kvUusi')?.remove();
+  var kons = _kaavioUusiKonseptit();
+  var esc = _jsvEsc;
+  var h = '<div id="_kvUusi" style="position:fixed;inset:0;background:rgba(17,17,16,.94);z-index:330;display:flex;align-items:center;justify-content:center;padding:20px" onclick="if(event.target===this)this.remove()">';
+  h += '<div style="background:var(--bg2);border:.5px solid var(--border);padding:22px;width:460px;max-width:96vw;max-height:92vh;overflow-y:auto" onclick="event.stopPropagation()">';
+  h += '<div style="font-family:\'Cormorant Garamond\',serif;font-size:20px;color:var(--ink);margin-bottom:4px">' + vpT('Uusi kaavio') + '</div>';
+  h += '<div style="font-size:11.5px;color:var(--ink3);line-height:1.5;margin-bottom:16px">' + vpT('Valitse mitä kaavio opettaa. Piirto avautuu seuraavaksi; kaavio tallentuu luonnoksena ja menee katselmukseen.') + '</div>';
+
+  h += '<div style="margin-bottom:14px"><label for="_kvUKons" style="display:block;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink2);margin-bottom:5px">' + vpT('Konsepti') + '</label>';
+  h += '<select id="_kvUKons" onchange="_kaavioUusiKpiPaivita()" style="width:100%;background:var(--bg);border:.5px solid var(--border);color:var(--ink);font-family:inherit;font-size:12.5px;padding:8px 9px">';
+  kons.forEach(function (k) { h += '<option value="' + esc(k.avain) + '">' + esc(k.nimi || k.avain) + '</option>'; });
+  h += '</select></div>';
+
+  h += '<div style="margin-bottom:14px"><label for="_kvUKpi" style="display:block;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink2);margin-bottom:5px">' + vpT('Havaintokriteeri (valinnainen)') + '</label>';
+  h += '<select id="_kvUKpi" style="width:100%;background:var(--bg);border:.5px solid var(--border);color:var(--ink);font-family:inherit;font-size:12.5px;padding:8px 9px"></select></div>';
+
+  h += '<div style="display:flex;gap:12px;margin-bottom:14px">';
+  h += '<div style="flex:1"><label for="_kvUPm" style="display:block;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink2);margin-bottom:5px">' + vpT('Pelimuoto') + '</label>';
+  h += '<select id="_kvUPm" style="width:100%;background:var(--bg);border:.5px solid var(--border);color:var(--ink);font-family:inherit;font-size:12.5px;padding:8px 9px">';
+  _KAAVIO_PELIMUODOT.forEach(function (pm) { h += '<option value="' + pm + '"' + (pm === '8v8' ? ' selected' : '') + '>' + pm + '</option>'; });
+  h += '</select></div>';
+  h += '<div style="flex:1"><label for="_kvUNak" style="display:block;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink2);margin-bottom:5px">' + vpT('Näkyvyys') + '</label>';
+  h += '<select id="_kvUNak" style="width:100%;background:var(--bg);border:.5px solid var(--border);color:var(--ink);font-family:inherit;font-size:12.5px;padding:8px 9px">';
+  h += '<option value="seura">' + vpT('seura') + '</option><option value="joukkue">' + vpT('joukkue') + '</option>';
+  h += '</select></div></div>';
+  // Joukkuevalinta näkyy vain kun näkyvyys on 'joukkue' — pelaajakohdistus on myöhempi lisäys
+  // (se vaatii rosterin, eikä ensimmäisen kaavion luonti saa jäädä sen taakse).
+  h += '<div style="font-size:11px;color:var(--ink3);line-height:1.45;margin-bottom:16px">' + vpT('Joukkue- ja pelaajakohdistuksen voi tarkentaa katselmuksessa.') + '</div>';
+  h += '<div id="_kvUVirhe" style="font-size:11.5px;color:#C94040;margin-bottom:10px"></div>';
+  h += '<div style="display:flex;gap:8px;justify-content:flex-end">';
+  h += '<button onclick="document.getElementById(\'_kvUusi\').remove()" style="background:var(--ov-1);color:var(--ink3);border:.5px solid var(--border);border-radius:6px;padding:8px 14px;font-size:12px;cursor:pointer">' + vpT('Peruuta') + '</button>';
+  h += '<button onclick="_kaavioLuoJaMuokkaa()" style="background:rgba(40,176,144,.16);color:var(--teal);border:.5px solid rgba(40,176,144,.45);border-radius:6px;padding:8px 16px;font-size:12px;cursor:pointer">' + vpT('Luo ja muokkaa') + '</button>';
+  h += '</div></div></div>';
+  document.body.insertAdjacentHTML('beforeend', h);
+  _kaavioUusiKpiPaivita();
+}
+
+/* KPI-vaihtoehdot seuraavat valittua konseptia — validaattori hylkäisi koodin joka ei kuulu
+   konseptin KPI-listalle (erä C), joten listaa ei saa kovakoodata a–d:ksi. */
+function _kaavioUusiKpiPaivita() {
+  var ks = document.getElementById('_kvUKons'), kp = document.getElementById('_kvUKpi');
+  if (!ks || !kp) return;
+  var ots = _kaavioOtsikko({ avain: ks.value });
+  var raaka = (typeof tmKonseptiResolvoi === 'function') ? tmKonseptiResolvoi(ks.value, _ttSeuraId()) : null;
+  var naytto = (raaka && typeof _ttKonsepti === 'function') ? _ttKonsepti(raaka) : raaka;
+  var h = '<option value="">' + vpT('— koko konsepti —') + '</option>';
+  (ots.kpiKoodit || []).forEach(function (koodi) {
+    var rivi = ((naytto && naytto.kpi) || []).filter(function (x) { return x && x.koodi === koodi; })[0];
+    var teksti = (rivi && rivi.teksti) ? String(rivi.teksti) : '';
+    if (teksti.length > 64) teksti = teksti.slice(0, 64).trim() + '…';
+    h += '<option value="' + _jsvEsc(koodi) + '">' + _jsvEsc(koodi + (teksti ? ' · ' + teksti : '')) + '</option>';
+  });
+  kp.innerHTML = h;
+}
+
+function _kaavioLuoJaMuokkaa() {
+  var ctx = _kaavioCtxNyt();
+  if (typeof kaavioVoiLuoda !== 'function' || !kaavioVoiLuoda(ctx)) { toast(vpT('Ei oikeutta luoda kaaviota'), 'err'); return; }
+  var ks = document.getElementById('_kvUKons'), kp = document.getElementById('_kvUKpi');
+  var pm = document.getElementById('_kvUPm'), nak = document.getElementById('_kvUNak');
+  var virhe = document.getElementById('_kvUVirhe');
+  var avain = ks && ks.value;
+  if (!avain) { if (virhe) virhe.textContent = vpT('Valitse konsepti.'); return; }
+  var starter = {
+    avain: avain,
+    suunta: 'ylos',
+    pelimuoto: (pm && pm.value) || '8v8',
+    pelaajat: [
+      { id: 'P1', joukkue: 'oma', rooli: 'vastaanottaja', x: 50, y: 62, avoin: -90, pallo: true },
+      { id: 'P2', joukkue: 'oma', rooli: 'tuki', x: 35, y: 74 }
+    ],
+    liikkeet: [], selitteet: []
+  };
+  if (kp && kp.value) starter.kpi = kp.value;
+  _kaavioTila.muokkaus = {
+    id: null, _uusi: true, seuraId: _seuraId,
+    spec: starter,
+    review: { status: 'luonnos', nakyvyys: (nak && nak.value) || 'seura', joukkueId: null, pelaajaIds: [], versio: 0 }
+  };
+  document.getElementById('_kvUusi')?.remove();
+  _kaavioAvaaEditori(_kaavioTila.muokkaus);   // SAMA editori kuin Muokkaa — ei kopiota
+}
+window._kaavioUusiLomake = _kaavioUusiLomake;
+window._kaavioUusiKpiPaivita = _kaavioUusiKpiPaivita;
+window._kaavioLuoJaMuokkaa = _kaavioLuoJaMuokkaa;
+
 function _kaavioAvaaEditori(k) {
   document.getElementById('_kvEditori')?.remove();
   _kaavioTila.muokkaus = JSON.parse(JSON.stringify(k));
@@ -4912,9 +5043,42 @@ async function _kaavioTallenna() {
     return;
   }
   var ctx = _kaavioCtxNyt();
+  var kohde = db.collection('seurat').doc(m.seuraId || _seuraId).collection('kaaviot');
+  // ── LUONTI ──────────────────────────────────────────────────────────────────────────────
+  // Uusi kaavio syntyy AINA luonnoksena versiolla 0 — rules vaatii täsmälleen tämän
+  // (status ∈ [luonnos, odottaa] && versio == 0). Tilasiirtokoneisto
+  // (kaavioTilaMuokkauksenJalkeen) koskee MUOKKAUSTA eikä sitä saa ajaa tässä: se päättelee
+  // seuraavan tilan vanhasta, jota ei ole. Ketju jatkuu normaalisti: Ehdota → Hyväksy.
+  // Kanoniin ei kirjoiteta koskaan — luonti menee aina seuratasolle.
+  if (m._uusi || !m.id) {
+    try {
+      var luoja = _uid || ((typeof firebase !== 'undefined' && firebase.auth && firebase.auth().currentUser) ? firebase.auth().currentUser.uid : null);
+      var ref = await kohde.add({
+        spec: m.spec,
+        review: {
+          status: 'luonnos',
+          nakyvyys: (m.review && m.review.nakyvyys) || 'seura',
+          joukkueId: (m.review && m.review.joukkueId) || null,
+          pelaajaIds: (m.review && m.review.pelaajaIds) || [],
+          versio: 0,
+          luonut: luoja,
+          luotu: firebase.firestore.FieldValue.serverTimestamp()
+        }
+      });
+      m.id = ref.id; m._uusi = false;   // seuraava Tallenna päivittää samaa dokumenttia
+      toast(vpT('Kaavio luotu luonnoksena'), 'ok');
+      _kaavioSuljeEditori();
+      avaaKaaviopankki();
+    } catch (e) {
+      if (virheEl) virheEl.textContent = vpT('Luonti epäonnistui — tarkista oikeudet.');
+      toast(vpT('Luonti epäonnistui'), 'err');
+    }
+    return;
+  }
+  // ── MUOKKAUS (ennallaan) ────────────────────────────────────────────────────────────────
   var uusiTila = kaavioTilaMuokkauksenJalkeen(m, ctx);
   try {
-    await db.collection('seurat').doc(m.seuraId || _seuraId).collection('kaaviot').doc(m.id).update({
+    await kohde.doc(m.id).update({
       spec: m.spec,
       'review.status': uusiTila,
       'review.versio': kaavioSeuraavaVersio(m)
