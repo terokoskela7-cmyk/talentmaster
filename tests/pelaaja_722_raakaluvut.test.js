@@ -83,7 +83,10 @@ describe('§7.22 — hero näyttää TILAN, ei numeroa (vaihtoehto B)', () => {
 
   it('hero renderöi tilasanan, EI numeroa eikä "pistettä 100:sta"', () => {
     const hero = heroLohko();
-    expect(hero).toContain('${_valmiusTila.sana}');
+    // #517b: kynnys siirtyi renderin lokaalista MODUULITASON _valmiusTila():een (KORTTI ja
+    // TILASTOT lukevat saman) → hero näyttää sen tuloksen `_tila`-objektista. Väite on sama:
+    // hero renderöi SANAN, ei lukua.
+    expect(hero).toContain('${_tila.sana}');
     expect(hero).not.toContain('${flei');
     expect(hero).not.toMatch(/pistettä|\/\s*100/);
     expect(hero).not.toMatch(/font-size:48px/);
@@ -96,8 +99,9 @@ describe('§7.22 — hero näyttää TILAN, ei numeroa (vaihtoehto B)', () => {
     expect(lohko).toContain("_tT('kehon_valmius')");
   });
   it('sana ja väri tulevat SAMASTA kynnyksestä (70/40) — eivät voi erota', () => {
-    const lohko = rTestitLohko().join('\n');
-    const m = lohko.match(/const _valmiusTila =[\s\S]*?;\n/);
+    // Määrittely on nyt MODUULITASOLLA (jaettu kolmen näyttöpaikan kesken) → haetaan koko
+    // lähteestä, ei rTestit-lohkosta. Kynnysväitteet ovat ennallaan.
+    const m = PELAAJA.match(/function _valmiusTila\(flei\) \{[\s\S]*?\n\}/);
     expect(m).toBeTruthy();
     const def = m[0];
     // Neljä haaraa, kukin { sana, vari } -parina → yksi lähde molemmille.
@@ -105,6 +109,8 @@ describe('§7.22 — hero näyttää TILAN, ei numeroa (vaihtoehto B)', () => {
     expect((def.match(/vari:/g) || []).length).toBe(4);
     expect(def).toContain('flei >= 70');
     expect(def).toContain('flei >= 40');
+    // Jaettu = KAIKKI kuluttajat saavat saman kynnyksen; kopiota ei saa olla muualla.
+    expect((PELAAJA.match(/flei >= 70/g) || []).length).toBe(1);
     expect(def).toContain('var(--teal)');
     expect(def).toContain('#E8A020');
     expect(def).toContain('#E04040');
@@ -112,11 +118,11 @@ describe('§7.22 — hero näyttää TILAN, ei numeroa (vaihtoehto B)', () => {
     expect(def.match(/flei >= (\d+)/g)).toEqual(['flei >= 70', 'flei >= 40']);
   });
   it('neljä tilaa: ei-dataa on OMA neutraali tilansa (ei punainen "huolto")', () => {
-    const lohko = rTestitLohko().join('\n');
+    const def = PELAAJA.match(/function _valmiusTila\(flei\) \{[\s\S]*?\n\}/)[0];
     for (const k of ['valmiustila_ei_dataa', 'valmiustila_valmis', 'valmiustila_kehittyy', 'valmiustila_huolto']) {
-      expect(lohko, k).toContain(k);
+      expect(def, k).toContain(k);
     }
-    expect(lohko).toMatch(/\(!flei\)\s*\?\s*\{ sana: _tT\('valmiustila_ei_dataa'\), vari: 'var\(--ink3/);
+    expect(def).toMatch(/\(!flei\)\s*\?\s*\{ sana: _tMittari\('valmiustila_ei_dataa'\), vari: 'var\(--ink3/);
   });
   it('tilasanat resolvoituvat fi JA sv (pelaajan i18n-mekanismi)', async () => {
     const vm = await import('vm');
