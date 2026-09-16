@@ -586,8 +586,18 @@ describe('VP_v25 render-kielineutraali-gate (step G · AST)', () => {
   // Erä 2 (renderSignals) — ALUE-erän todiste. Edellinen it() todistaa että DETEKTORI toimii;
   // tämä todistaa että UUSI RANGES-ALUE on oikeasti valvonnassa (ankkuri voisi osoittaa väärään
   // kohtaan ja gate näyttäisi silti vihreää). Mutaatio tehdään AITOON lähteeseen, ei snippettiin.
-  it('RANGES-alue [3539,3766] renderSignals on oikeasti valvonnassa (mutaatio aitoon lähteeseen)', () => {
+  it('RANGES-alue renderSignals on oikeasti valvonnassa (mutaatio aitoon lähteeseen)', () => {
     const lines = HTML.split('\n');
+    // Alue ANKKUROIDAAN lähteestä (function renderSignals → sarakkeen 0 sulkeva aaltosulje).
+    // Kovakoodattu [3539,3766] ajautui joka kerta kun skriptiin lisättiin rivejä sen yläpuolelle
+    // → testi punertui syystä jolla ei ollut tekemistä käännösten kanssa (sama juurisyy kuin
+    // RANGES/SISALTO_POIKKEUKSET-ankkuroinnissa).
+    const _rsA = lines.findIndex((l) => /^(?:async\s+)?function renderSignals\s*\(/.test(l));
+    expect(_rsA).toBeGreaterThan(0);
+    let _rsB = -1;
+    for (let i = _rsA + 1; i < lines.length; i++) if (lines[i] === '}') { _rsB = i + 1; break; }
+    expect(_rsB).toBeGreaterThan(_rsA);
+    const RS_LO = _rsA + 1, RS_HI = _rsB;
     const src = lines.slice(RLO - 1, RHI - 1).join('\n');
     expect(scanLeaks(src, RANGES, RLO - 1, LIB, SISALTO_POIKKEUKSET).length).toBe(0);          // lähtötila puhdas
     // unroutaa yksi kytkentä renderSignalsin sisällä → gaten PITÄÄ punastua juuri siellä
@@ -595,9 +605,9 @@ describe('VP_v25 render-kielineutraali-gate (step G · AST)', () => {
     expect(rikki).not.toBe(src);
     const leaks = scanLeaks(rikki, RANGES, RLO - 1, LIB, SISALTO_POIKKEUKSET);
     expect(leaks.map((l) => l.p)).toContain('Hyväksy →');
-    expect(leaks.every((l) => l.line >= 3539 && l.line <= 3766)).toBe(true);
+    expect(leaks.every((l) => l.line >= RS_LO && l.line <= RS_HI)).toBe(true);
 
-    // 3658 (lainausmerkillinen sub) — juuri se vuoto jonka gate PÄÄSTI LÄPI ennen codeish-kovennusta.
+    // Lainausmerkillinen sub — juuri se vuoto jonka gate PÄÄSTI LÄPI ennen codeish-kovennusta.
     // Tämä case lukitsee korjauksen: unroutaus on nyt havaittava, ei enää hiljainen.
     const rikki2 = src.replace(
       "sub: vpT('Lisää valmentajan arvio → trianguloitu D3 (avaa pelaajakortti · \"Arvioi (VP)\")')",
@@ -606,7 +616,7 @@ describe('VP_v25 render-kielineutraali-gate (step G · AST)', () => {
     expect(rikki2).not.toBe(src);
     const leaks2 = scanLeaks(rikki2, RANGES, RLO - 1, LIB, SISALTO_POIKKEUKSET);
     expect(leaks2.length).toBeGreaterThan(0);
-    expect(leaks2.every((l) => l.line >= 3539 && l.line <= 3766)).toBe(true);
+    expect(leaks2.every((l) => l.line >= RS_LO && l.line <= RS_HI)).toBe(true);
   });
 
   // Erä 2: gate laajennettiin näkemään signaaliobjektien näyttökentät + kattavuusSig-argumentti.
