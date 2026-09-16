@@ -23,6 +23,7 @@
 <script src="lib/tm_harjoitusarviointi.js?v=4"></script>
 <script src="lib/tm_kalenteri.js?v=1"></script>
 <script src="lib/tm_teknistaktiset.js?v=5"></script>   <!-- Vaihe 4a: teknis-taktinen curriculum (konsepti→cue→harjoite) · v5 = I3a pelipaikkaportti U14+ + harjoite-tägit/jalka -->
+<script src="lib/tm_konsepti_resolve.js?v=1"></script>   <!-- Seurakerros TIER 1: seurat/{sid}/konseptit override kaanonin päälle (kaanon = oletus, ei pakko) -->
 <script src="lib/tm_arviointi_taksonomia.js?v=10"></script>   <!-- P1: TM_ARVIOINTI_ASTEIKKO + D4-taksonomia + tmAdarHavaittu (Pelihavainto-talteenotto) -->
 <script src="lib/tm_idp.js?v=6"></script>   <!-- I3a: + kesto valmentajan asetettavaksi (opts.kestoVk) · I2 (C): valmentajan IDP-kausitavoite-kortti -->
 <script src="lib/tm_pelialy_yksilo.js?v=4"></script>   <!-- P1: pelihavainto peliäly → yksilöteema (Kartta A) · v3: Vaihe B multi-rater konsensus (tmAdarKonsensus/RistiinarvioAvoin/TalenttiSignaali) -->
@@ -2338,6 +2339,7 @@ async function _lataaValmentaja(uid) {
 ════════════════════════════════════════════════════════════ */
 async function _lataaPelaajat() {
   if (!_seuraId) return;
+  await lataaKonseptikerros();   // TIER 1 ENNEN renderiä: muuten ensirender näyttäisi kaanonin seuraoverriden sijaan
   try {
     const col = _db.collection('seurat').doc(_seuraId).collection('pelaajat');
     let docs;
@@ -2411,6 +2413,45 @@ async function _lataaTestitapahtumat() {
     _lataaKalenteriTapahtumat();
   } catch(e) { console.warn('[v16] Testitapahtumien lataus:', e.message); }
 }
+
+/* ── SEURAKERROS TIER 1 — seurat/{sid}/konseptit ──────────────────────────────────────────────
+   Kaanon (lib/tm_teknistaktiset.js) on OLETUS; seura voi korvata kenttiä, piilottaa konseptin tai
+   lisätä omansa. KAIKKI konseptin lukukohdat kulkevat _mKonsepti/_mTtItems/_mTtKys:n läpi — ei
+   suoraa TM_TT_YOUTH-lukua renderissä. Seuran teksti on vapaata suomea (dataa, ei käännettävää).
+   Best-effort lataus: puute/oikeusvirhe → tyhjä kerros → kaanon näkyy ennallaan. */
+function _mSeuraId() { return _demo ? null : (_seuraId || null); }
+function _mKonsepti(item) {
+  if (!item || !item.avain || typeof tmKonseptiResolvoi !== 'function') return item;
+  return tmKonseptiResolvoi(item.avain, _mSeuraId()) || item;
+}
+function _mKonseptiByAvain(avain) {
+  return (typeof tmKonseptiResolvoi === 'function') ? tmKonseptiResolvoi(avain, _mSeuraId()) : null;
+}
+function _mTtItems(pp) {
+  const kaanon = (typeof tmTtItems === 'function') ? tmTtItems(pp) : [];
+  return (typeof tmKonseptiListaa === 'function') ? tmKonseptiListaa(kaanon, _mSeuraId()) : kaanon;
+}
+// Cue-kysymykset: seuran override voittaa, muuten kaanon (myös seura_*-konseptille).
+function _mTtKys(avain) {
+  const k = _mKonseptiByAvain(avain);
+  if (k && Array.isArray(k.kysymykset)) return k.kysymykset;
+  return (typeof tmTtKysymykset === 'function') ? tmTtKysymykset(avain) : [];
+}
+async function lataaKonseptikerros() {
+  if (typeof tmKonseptiAsetaKerros !== 'function') return;
+  if (!_seuraId || _demo) return;
+  if (typeof tmKonseptiKerrosLadattu === 'function' && tmKonseptiKerrosLadattu(_seuraId)) return;
+  try {
+    const snap = await _db.collection('seurat').doc(_seuraId).collection('konseptit').get();
+    const kartta = {};
+    snap.forEach(function (d) { const o = d.data() || {}; o.avain = d.id; kartta[d.id] = o; });
+    tmKonseptiAsetaKerros(_seuraId, kartta);
+  } catch (e) {
+    tmKonseptiAsetaKerros(_seuraId, {});   // eristys: tyhjä kerros, EI toisen seuran jäänteitä
+    console.warn('[konseptikerros]', e && e.message);
+  }
+}
+window.lataaKonseptikerros = lataaKonseptikerros;
 
 /* ── OMATOIMISET KIRJAUKSET FIRESTORESTA ── */
 async function _lataaKirjaukset() {
@@ -5449,7 +5490,7 @@ function _ttKorttiHTML(p) {
   const _posCode = p.tt_positio_aktiivinen || _ttNormPositio(p.positio || p.pelipaikka);
   const pp = { ika: isp.ika, joukkue: p.joukkue, positio: _posCode, tt_positio_aktiivinen: _posCode, syntymaVuosi: p.syntymaVuosi };
   const vaihe = tmTtVaihe(pp);
-  const items = tmTtItems(pp);
+  const items = _mTtItems(pp);   // TIER 1: seuraoverride + piilotus + seuran omat
   if (!items.length) return '';
   const jf = p.jaksofokus || null;
   // I3a §B.1 — esivalinta TAVOITTEESTA: resolver kääntää idp_fokuksen youth-konseptiksi. Prioriteetti:
@@ -5463,7 +5504,7 @@ function _ttKorttiHTML(p) {
   const esc = (typeof _prEsc === 'function') ? _prEsc : function (s) { return String(s == null ? '' : s); };
   const ehdItem = ehdKons ? items.find(function (it) { return it.avain === ehdKons; }) : null;
   const ehdNimi = ehdItem ? ehdItem.nimi : (ehd && ehd.konsepti_nimi) || '';
-  const kys = (typeof tmTtKysymykset === 'function') ? tmTtKysymykset(item.avain) : [];
+  const kys = _mTtKys(item.avain);
   const harj = (typeof tmTtHarjoitteet === 'function') ? tmTtHarjoitteet(item.avain) : [];
   const pelimuoto = (item.pelimuoto && item.pelimuoto.length) ? item.pelimuoto.join(' → ') : '';
   const dimLbl = item.faasi === 'hyokkays' ? masterT('hyökkäys') : item.faasi === 'puolustus' ? masterT('puolustus') : (item.ryhma || '');
@@ -5614,7 +5655,7 @@ window._ttVieTreeniin = async function (pid, avain) {
   const p = _ttPelaaja(pid);
   if (!p) return;
   const _pc = p.tt_positio_aktiivinen || _ttNormPositio(p.positio || p.pelipaikka);
-  const _ppItems = (typeof tmTtItems === 'function' ? tmTtItems({ ika: (_devIkaSp ? _devIkaSp(p).ika : null), joukkue: p.joukkue, positio: _pc, tt_positio_aktiivinen: _pc, syntymaVuosi: p.syntymaVuosi }) : []);
+  const _ppItems = _mTtItems({ ika: (_devIkaSp ? _devIkaSp(p).ika : null), joukkue: p.joukkue, positio: _pc, tt_positio_aktiivinen: _pc, syntymaVuosi: p.syntymaVuosi });
   const item = _ppItems.find(function (it) { return it.avain === avain; });
   // I3a §C.1 — käsin asetettu kesto (oletus 6, korvaa kovakoodatun 4:n).
   const _kEl = document.getElementById('_mTtKesto' + pid);
@@ -5652,7 +5693,10 @@ window._ttVieTreeniin = async function (pid, avain) {
 window._msSulkuTila = null;
 
 function _msSiltaKonsepti(avain) {
-  if (!avain || typeof TM_TT_YOUTH === 'undefined') return null;
+  if (!avain) return null;
+  var r = _mKonseptiByAvain(avain);   // TIER 1: kaanon + seuraoverride (myös seura_*-oma)
+  if (r) return r;
+  if (typeof TM_TT_YOUTH === 'undefined') return null;
   for (var i = 0; i < TM_TT_YOUTH.length; i++) if (TM_TT_YOUTH[i].avain === avain) return TM_TT_YOUTH[i];
   return null;
 }
@@ -6051,7 +6095,7 @@ function _msSeuraava(p, nykyAvain, tulos) {
   if (tulos === 'ennallaan') { var k = _msSiltaKonsepti(nykyAvain); return { konsepti_avain: nykyAvain, konsepti_nimi: k ? k.nimi : nykyAvain, jatka: true }; }
   var LIB = window.TM_ARVIOINTI_SILTA; if (!LIB || !p.arviointi_havaittu) return null;
   var _pc = p.tt_positio_aktiivinen || (typeof _ttNormPositio === 'function' ? _ttNormPositio(p.positio || p.pelipaikka) : null);
-  var sallitut = (typeof tmTtItems === 'function') ? tmTtItems({ ika: (_devIkaSp ? _devIkaSp(p).ika : null), joukkue: p.joukkue, positio: _pc, tt_positio_aktiivinen: _pc, syntymaVuosi: p.syntymaVuosi }) : null;
+  var sallitut = _mTtItems({ ika: (_devIkaSp ? _devIkaSp(p).ika : null), joukkue: p.joukkue, positio: _pc, tt_positio_aktiivinen: _pc, syntymaVuosi: p.syntymaVuosi });
   var ehd = LIB.tmSiltaEhdota(p.arviointi_havaittu, { sallitutKonseptit: sallitut, konseptiNimi: function (a) { var kk = _msSiltaKonsepti(a); return kk ? kk.nimi : a; } });
   var eri = ehd.filter(function (e) { return e.konsepti_avain !== nykyAvain; });
   return eri.length ? eri[0] : (ehd.length ? ehd[0] : null);
@@ -6114,7 +6158,7 @@ function _msRender() {
   if (S.tulos) {
     h += '<div style="background:linear-gradient(150deg,rgba(40,176,144,.1),var(--surface,#1C1C1A));border:.5px solid rgba(40,176,144,.3);border-radius:10px;padding:13px">';
     if (seur) {
-      var cue = (!seur.fyysinen && typeof tmTtKysymykset === 'function') ? tmTtKysymykset(seur.konsepti_avain) : [];
+      var cue = (!seur.fyysinen) ? _mTtKys(seur.konsepti_avain) : [];
       h += '<div style="font-size:11px;color:var(--amber);margin-bottom:4px">↻ Seuraava fokus (' + (seur.jatka ? masterT('jatka samaa') : masterT('silta: seuraavaksi heikoin')) + ')</div>'
         + '<div style="font-family:\'Cormorant Garamond\',serif;font-size:18px;color:var(--ink)">' + esc(seur.konsepti_nimi) + '</div>'
         + (cue.length ? '<div style="font-size:12px;color:var(--teal);margin-top:3px">Cue: ' + esc(cue[0]) + '</div>' : '')
@@ -6658,14 +6702,14 @@ function _mMitaOsattavaHTML(p) {
   if (!p || typeof tmTtItems !== 'function') return '';
   const _ika = (typeof _devIkaSp === 'function') ? _devIkaSp(p).ika : null;
   const posCode = p.tt_positio_aktiivinen || (typeof _ttNormPositio === 'function' ? _ttNormPositio(p.positio || p.pelipaikka) : null);
-  const items = tmTtItems({ ika: _ika, joukkue: p.joukkue, positio: posCode, tt_positio_aktiivinen: posCode, syntymaVuosi: p.syntymaVuosi });
+  const items = _mTtItems({ ika: _ika, joukkue: p.joukkue, positio: posCode, tt_positio_aktiivinen: posCode, syntymaVuosi: p.syntymaVuosi });
   if (!items.length) return '';
   const esc = _mEsc;
   const aktiivinen = (p.jaksofokus && p.jaksofokus.konsepti_avain) || null;
   const katetut = {};
   (p.jaksofokus_historia || []).forEach(function (hh) { if (hh && hh.konsepti_avain) katetut[hh.konsepti_avain] = 1; });
   const rivi = function (it) {
-    const kys = (typeof tmTtKysymykset === 'function') ? tmTtKysymykset(it.avain) : [];
+    const kys = _mTtKys(it.avain);
     const harj = (typeof tmTtHarjoitteet === 'function') ? tmTtHarjoitteet(it.avain) : [];
     const akt = (it.avain === aktiivinen), kat = !akt && katetut[it.avain];
     const tl = akt ? masterT('Aktiivinen') : kat ? masterT('Katettu') : masterT('Avoin');
@@ -8565,10 +8609,11 @@ function calEventClick(tapahtumaId) {
     if (_tt.avain) {
       var _fnd = null;
       try {
-        var _all = (typeof TM_TT_YOUTH !== 'undefined' ? TM_TT_YOUTH : []).concat(typeof TM_TT_JOUKKUE !== 'undefined' ? TM_TT_JOUKKUE : []);
+        var _all = ((typeof TM_TT_YOUTH !== 'undefined' ? TM_TT_YOUTH : []).concat(typeof TM_TT_JOUKKUE !== 'undefined' ? TM_TT_JOUKKUE : []))
+          .map(_mKonsepti).concat((typeof tmKonseptiOmat === 'function') ? tmKonseptiOmat(_mSeuraId()) : []);   // TIER 1
         for (var _i = 0; _i < _all.length; _i++) { if (_all[_i].avain === _tt.avain) { _fnd = _all[_i]; break; } }
       } catch (e) {}
-      var _kys = (typeof tmTtKysymykset === 'function') ? tmTtKysymykset(_tt.avain) : [];
+      var _kys = _mTtKys(_tt.avain);
       var _harj = (typeof tmTtHarjoitteet === 'function') ? tmTtHarjoitteet(_tt.avain) : [];
       if (_fnd && _fnd.pelitilanne) _th += '<div style="font-style:italic;font-size:12.5px;color:var(--ink2);margin-top:6px">”' + _mEsc(_fnd.pelitilanne) + '”</div>';
       if (_kys.length) _th += '<div style="font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:var(--ink3);margin-top:6px">Cue</div><div style="font-size:12.5px;color:var(--teal);margin-top:2px">' + _mEsc(_kys[0]) + '</div>';

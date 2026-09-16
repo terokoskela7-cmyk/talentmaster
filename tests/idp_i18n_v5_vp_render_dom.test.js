@@ -36,12 +36,12 @@ const require = createRequire(import.meta.url);
 const acorn = require('acorn');
 const HTML = readFileSync(join(__dir, '..', 'TalentMaster_VP_v25.html'), 'utf8');
 
-const RLO = 2692, RHI = 18297;              // VP pääscript (1-idx); RHI -32 kun kuollut renderPelaajat_old poistettiin (V8k-4b)
+const RLO = 2693, RHI = 18350;              // VP pääscript (1-idx); RHI -32 kun kuollut renderPelaajat_old poistettiin (V8k-4b)
 // ═══ i18n V5 · V8k-5 — VP:N LOPPULUKKO ═══════════════════════════════════════════════════════
 // Koko pääscript on nyt valvonnassa yhtenä alueena. Aiemmat ~80 funktiokohtaista aluetta on
 // korvattu tällä: jokainen UUSI rivi skriptissä on automaattisesti gaten alainen, eikä uutta
 // koodia voi enää lisätä "alueen ulkopuolelle".
-const RANGES = [[2692, 18297]];
+const RANGES = [[2693, 18350]];
 // SISÄLTÖPOIKKEUKSET — kaksi lohkoa jotka EIVÄT ole chromea vaan sisältöä/dataa. Molemmat on
 // perusteltava; ei-vacuous-testi vaatii että kumpikin sisältää yhä vuotoja (muuten poikkeus on
 // kuollut ja se pitää poistaa).
@@ -54,7 +54,7 @@ const RANGES = [[2692, 18297]];
 //     Firestoreen (toimenpiteet/{id}.teksti) → §32-invariantin mukaan ne pysyvät suomeksi ja
 //     käännetään vasta renderissä vpTToimenpide():llä. Reitittäminen tässä VUOTAISI RUOTSIA
 //     TIETOKANTAAN — sitä ei tehdä.
-const SISALTO_POIKKEUKSET = [[10541, 10568], [17683, 17718], [17761, 17790]];
+const SISALTO_POIKKEUKSET = [[10594, 10621], [17736, 17771], [17814, 17840]];
 const ROUTED_FNS = new Set(['vpT', 'vpTToimenpide']);
 
 // §7 lib-curriculum-nimet (jäävät fi → allowlist)
@@ -311,37 +311,37 @@ describe('VP_v25 render-kielineutraali-gate (step G · AST)', () => {
   // ON aina vpT(...):n sisällä alueellaan. Sulkee saman aukon V5–V8:n enum-display-labeleille (roolit ym.)
   // — uusi alaerä lisää oman member-näyttönsä tähän.
   const MEMBER_DISPLAY = [
-    { expr: 'meta.nimi', ranges: [[12970, 14070]] }, // V4 kalenteri: KALENTERI_TYYPIT-tyyppinimi (§1 enum-avain fi, näyttö vpT)
-    { expr: 'IDP_TILA_LBL[p.idp_tila]', ranges: [[6500, 6520], [14840, 14890]] }, // V6 idp_tila-statusnäyttö (§1 enum-avain fi, näyttö vpT)
-    { expr: 'dm.nimi', ranges: [[15360, 15375]] }, // V7b domeeni-display fokusChip (lc-avain fi, näyttö vpT)
-    { expr: 'k.nimi', ranges: [[14998, 15002]] }, // V7b-fix2 tuloskortti _vpTkAlue mittarilabel (lib-data, näyttö vpT)
-    { expr: 'k.arvo', ranges: [[14998, 15002]] }, // V7b-fix2 tuloskortti _vpTkAlue mittari-arvo (Ei arviointeja vielä ym.)
+    { expr: 'meta.nimi', ranges: [[13020, 14120]] }, // V4 kalenteri: KALENTERI_TYYPIT-tyyppinimi (§1 enum-avain fi, näyttö vpT)
+    { expr: 'IDP_TILA_LBL[p.idp_tila]', ranges: [[6550, 6570], [14895, 14940]] }, // V6 idp_tila-statusnäyttö (§1 enum-avain fi, näyttö vpT)
+    { expr: 'dm.nimi', ranges: [[15415, 15430]] }, // V7b domeeni-display fokusChip (lc-avain fi, näyttö vpT)
+    { expr: 'k.nimi', ranges: [[15051, 15055]] }, // V7b-fix2 tuloskortti _vpTkAlue mittarilabel (lib-data, näyttö vpT)
+    { expr: 'k.arvo', ranges: [[15051, 15055]] }, // V7b-fix2 tuloskortti _vpTkAlue mittari-arvo (Ei arviointeja vielä ym.)
     // V7+: esim. { expr: 'roolimap[rooli]', ranges: [[...]] }
     // ── Erä 3 (kuormanarratiivi) — KAKSI UUTTA SOKEAA LUOKKAA, kumpikin gaten ulottumattomissa:
     // (a) CONTAINER/MUUTTUJA-REITITETTY: acwrSana-ternaari on sidottu VariableDeclaratoriin, ei
     //     markup-ketjuun → inDisplayContext=false. Lisäksi 'linjassa'/'koholla'/'matala' ovat
     //     codeish-bare-lowercase-tokeneita → kaksinkertaisesti piilossa. Vartija vaatii vpT:n
     //     MÄÄRITTELYSSÄ (arvo reititetään kerran, muuttujaa käytetään markupissa vapaasti).
-    { expr: "'kertyy ~4 vk'", ranges: [[10245, 10255]] },
-    { expr: "'linjassa'", ranges: [[10245, 10255]] },
-    { expr: "'koholla'", ranges: [[10245, 10255]] },
-    { expr: "'matala'", ranges: [[10245, 10255]] },
+    { expr: "'kertyy ~4 vk'", ranges: [[10298, 10308]] },
+    { expr: "'linjassa'", ranges: [[10298, 10308]] },
+    { expr: "'koholla'", ranges: [[10298, 10308]] },
+    { expr: "'matala'", ranges: [[10298, 10308]] },
     // (b) INLINE-ONCLICK-TOAST JS:N RAKENTAMASSA MARKUPISSA: toast(...) attribuuttimerkkijonon sisällä
     //     ei ole AST-kutsu (Erä 1:n kanavaportti ei näe) eikä >text< (render-gate ei näe). Reititys
     //     tehdään muuttujaan ennen merkkijonoa; vartija lukitsee sen.
-    { expr: "'Kuorma pidetty ennallaan'", ranges: [[10245, 10255]] },
+    { expr: "'Kuorma pidetty ennallaan'", ranges: [[10298, 10308]] },
     // ── Erä 4 (mittausnäkymät). Kaksi luokkaa, kumpikin eri syystä gaten ulottumattomissa:
     // (4) CODEISH-PIILO: 'muokattavissa'/'luku' OVAT markup-ketjussa (display-konteksti tunnistuu),
     //     mutta codeish pudottaa ne bare-lowercase-tokeneina → sokeus tulee SISÄLLÖSTÄ, ei kontekstista.
     //     Tämä on erän 1. tapaus jossa luokka 4 esiintyy YKSINÄÄN (erässä 3 se kasautui luokan 5 päälle).
-    { expr: "'muokattavissa'", ranges: [[10880, 10890]] },
-    { expr: "'luku'", ranges: [[10880, 10890]] },
+    { expr: "'muokattavissa'", ranges: [[10933, 10943]] },
+    { expr: "'luku'", ranges: [[10933, 10943]] },
     // (5) CONTAINER/MUUTTUJA: arvo sidottu VariableDeclaratoriin (mt @10606, patteristo @10983),
     //     renderöidään vasta myöhemmin markupissa → inDisplayContext=false.
-    { expr: "'mitätöity '", ranges: [[10865, 10875]] },
-    { expr: "'H-H-patteristo'", ranges: [[11240, 11250]] },
-    { expr: "'tekniikkakilpailu'", ranges: [[11240, 11250]] },
-    { expr: "'mittaus'", ranges: [[11240, 11250]] },
+    { expr: "'mitätöity '", ranges: [[10918, 10928]] },
+    { expr: "'H-H-patteristo'", ranges: [[11293, 11303]] },
+    { expr: "'tekniikkakilpailu'", ranges: [[11293, 11303]] },
+    { expr: "'mittaus'", ranges: [[11293, 11303]] },
   ];
   // Erä 4 (mittausnäkymät, _vpMittaus*-perhe) — ALUE-todiste 7 funktion yli.
   it('RANGES-alueet _vpMittaus* ovat oikeasti valvonnassa (mutaatio aitoon lähteeseen)', () => {
@@ -356,7 +356,11 @@ describe('VP_v25 render-kielineutraali-gate (step G · AST)', () => {
     expect(r2).not.toBe(src);
     const l2 = scanLeaks(r2, RANGES, RLO - 1, LIB, SISALTO_POIKKEUKSET);
     expect(l2.map((l) => l.p)).toContain('Mitä testit kertovat');
-    expect(l2.every((l) => l.line >= 10858 && l.line <= 11311)).toBe(true);
+    // Ankkuroitu, ei rivinumeroitu: mutatoitu literaali on täsmälleen sillä rivillä jolta se
+    // löytyy lähteestä → alue ei voi ajautua koodin siirtyessä (V8k-4b-oppi).
+    const odotettu = lines.findIndex((l) => l.includes("vpT('Mitä testit kertovat')")) + 1;
+    expect(odotettu).toBeGreaterThan(0);
+    expect(l2.every((l) => l.line === odotettu)).toBe(true);
   });
 
   // Erä 4c — ENUM→NÄYTTÖ. TKI-mitali ('kulta'/'hopea'/'pronssi') on Firestore-arvo joka renderöityy
@@ -365,7 +369,10 @@ describe('VP_v25 render-kielineutraali-gate (step G · AST)', () => {
   // MEMBER_DISPLAY ei sovi tähän: kääre on _jsvEsc(vpT(merkki)), jolloin vartijan etsimä lauseke ei
   // esiinny lähteessä lainkaan → se menisi vacuous-läpi. Siksi eksplisiittinen lähdeväite.
   it('TKI-mitali renderöidään vpT:n läpi, ei raakana enum-arvona', () => {
-    const alue = HTML.split('\n').slice(11280, 11311).join('\n');
+    const _rivit = HTML.split('\n');
+    const _mLo = _rivit.findIndex((l) => l.includes('vpT(merkki)'));
+    expect(_mLo).toBeGreaterThan(0);
+    const alue = _rivit.slice(_mLo - 20, _mLo + 10).join('\n');
     expect(alue).toContain('vpT(merkki)');
     expect(alue).not.toMatch(/_jsvEsc\(merkki\)/);
     // ja mitaliarvot ovat kartassa (muuten vpT palauttaisi fi:n)
