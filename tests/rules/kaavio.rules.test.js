@@ -76,6 +76,34 @@ const kd = (db, id) => doc(db, 'seurat', SEURA_A, 'kaaviot', id);
 // Tämä sviitti on CF:n OLEMASSAOLON PERUSTE: jos nämä väitteet joskus muuttuvat vihreästä
 // punaiseksi (eli anon saisi kirjoittaa), kuittaus-CF:ää ei enää tarvittaisi — ja päinvastoin,
 // jos joku "korjaa" nämä sallimalla anon-kirjoituksen, kaavio-dokumentti avautuisi pelaajille.
+// ── LUONTI-UI — create-portti kaikilla rooleilla. VP:n nappi-näkyvyys (kaavioVoiLuoda) on vain
+// UI; tämä sviitti todistaa että PALVELIN päättää saman. Ilman tätä nappi voisi luvata luonnin
+// roolille jolta kirjoitus hylätään — tai kieltää sen roolilta joka saisi luoda.
+describe('kaaviot · LUONTI — create-portti (luonti-UI)', () => {
+  const uusi = (tila, versio) => ({ spec: SPEC, review: { status: tila || 'luonnos', nakyvyys: 'seura', joukkueId: null, pelaajaIds: [], versio: versio == null ? 0 : versio, luonut: VALM_A1 } });
+  it('oman seuran valmentaja LUO luonnoksen (ei-vacuous)', async () => {
+    await assertSucceeds(setDoc(kd(valm(VALM_A1, SEURA_A), 'k_luonti_valm'), uusi()));
+  });
+  it('oman seuran VP luo', async () => {
+    await assertSucceeds(setDoc(kd(vp(SEURA_A), 'k_luonti_vp'), uusi()));
+  });
+  it('TOISEN seuran valmentaja EI luo', async () => {
+    await assertFails(setDoc(kd(valm(VALM_A1, SEURA_B), 'k_luonti_vieras'), uusi()));
+  });
+  it('seurasihteeri EI luo (ei valmennusrooli)', async () => {
+    await assertFails(setDoc(kd(siht(), 'k_luonti_siht'), uusi()));
+  });
+  it('anon EI luo', async () => {
+    await assertFails(setDoc(kd(anon(), 'k_luonti_anon'), uusi()));
+  });
+  it('luonti hyväksyttynä ESTETÄÄN (katselmus ei saa ohittua)', async () => {
+    await assertFails(setDoc(kd(valm(VALM_A1, SEURA_A), 'k_luonti_hyv'), uusi('hyvaksytty')));
+  });
+  it('luonti versiolla != 0 ESTETÄÄN (versiolukko alkaa nollasta)', async () => {
+    await assertFails(setDoc(kd(valm(VALM_A1, SEURA_A), 'k_luonti_v5'), uusi('luonnos', 5)));
+  });
+});
+
 describe('kaaviot · KIRJOITUS — anon-pelaaja ei kirjoita (erä D2)', () => {
   // Kuittaus-payload on TÄSMÄLLEEN sama kaikissa tapauksissa (myös versiolukon osalta) → ainoa
   // muuttuja on KUTSUJA. Ilman tätä anon-esto voisi näyttää vihreältä väärästä syystä
