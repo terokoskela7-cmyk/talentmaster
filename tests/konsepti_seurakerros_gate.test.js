@@ -57,6 +57,9 @@ describe('B — konseptin lukukohdat kulkevat resolvoijan läpi', () => {
       // apureiden rungot: tunnistetaan siitä että rivi on _mTt*/_msSilta*-funktion sisällä
       const konteksti = rivit.slice(Math.max(0, i - 6), i + 1).join('\n');
       if (/function _mTtItems|function _mTtKys|function _msSiltaKonsepti/.test(konteksti)) return;
+      // Piirrokset Vaihe 1 · B2: kaanon-itemit SYÖTETÄÄN tmKonseptiPelipaikkalistalle, joka
+      // resolvoi molemmat pelipaikat TIER 1:n läpi → tämä EI ole ohitus vaan resolvoijan kutsu.
+      if (/tmKonseptiPelipaikkalista\(/.test(l)) return;
       bare.push(`${i + 1}: ${l.trim().slice(0, 90)}`);
     });
     expect(bare).toEqual([]);
@@ -66,6 +69,13 @@ describe('B — konseptin lukukohdat kulkevat resolvoijan läpi', () => {
     expect(MASTER).toContain('tmKonseptiListaa(kaanon, _mSeuraId())');
     expect(MASTER).toContain('function _mKonseptiByAvain(avain)');
     expect(MASTER).toContain('tmKonseptiResolvoi(avain, _mSeuraId())');
+  });
+  it('B2: toissijaisen pelipaikan konseptit resolvoidaan SAMALLA seurakerroksella', () => {
+    for (const src of [MASTER, VP]) {
+      expect(src).toContain('tmKonseptiPelipaikkalista(tmTtItems(pp), tmTtItems(');
+    }
+    expect(MASTER).toContain('tmKonseptiPelipaikkalista(tmTtItems(pp), tmTtItems(pp2), _mSeuraId())');
+    expect(VP).toContain('tmKonseptiPelipaikkalista(tmTtItems(pp), tmTtItems(_pp2), _ttSeuraId())');
   });
   it('VP: _ttKonsepti resolvoi TIER 1:n ja listat käyttävät tmKonseptiListaa', () => {
     expect(VP).toContain('function _ttResolvoi(item)');
