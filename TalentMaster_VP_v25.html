@@ -19,7 +19,7 @@
 <!-- Eerikkilä-normit + universaali testirekisteri (eerikkilaTaso, laskeFVP) — 10m/5m-tasot + FVP-profiili -->
 <script src="lib/tm_lang.js?v=10"></script>   <!-- i18n V0 — fi/sv/en käännöstaulukko + t() + kieli-init (putkitus) -->
 <script src="lib/tm_i18n_common.js?v=2"></script>   <!-- i18n Vaihe 0 — JAETTU henkilöstö-i18n + lukittu glossaari (ENNEN sivukarttaa) -->
-<script src="lib/tm_vp_i18n.js?v=63"></script>   <!-- i18n Vaihe 5 — VP sv (sivukartta); vpT/vpLokalisoi delegoivat commoniin -->
+<script src="lib/tm_vp_i18n.js?v=64"></script>   <!-- i18n Vaihe 5 — VP sv (sivukartta); vpT/vpLokalisoi delegoivat commoniin -->
 
 
 <script src="lib/tm_eerikkila_normit.js?v=45"></script>   <!-- v43: D2-kortti d2_taso-ensin (renderKehityskorttiHTML, PR #264 · §30/#262) -->
@@ -38,7 +38,7 @@
 <script src="lib/tm_idp.js?v=6"></script>   <!-- I3a: + kesto valmentajan asetettavaksi (opts.kestoVk) · I2: lahde+pvm/idp_lahde/idpVahvinDim 1–3 -->
 <script src="lib/tm_teknistaktiset.js?v=5"></script>   <!-- Vaihe 4a: teknis-taktinen curriculum (VP:n jaksofokus talenteille) · v5 = I3a pelipaikkaportti U14+ + harjoite-tägit/jalka -->
 <script src="lib/tm_piirros.js?v=1"></script>   <!-- Piirrokset Vaihe 1: fasciallinjat (D1) + pelipaikkakartta (D4), inline-SVG -->
-<script src="lib/tm_konsepti_resolve.js?v=1"></script>   <!-- Seurakerros TIER 1: seurat/{sid}/konseptit override kaanonin päälle (kaanon = oletus, ei pakko) -->
+<script src="lib/tm_konsepti_resolve.js?v=2"></script>   <!-- Seurakerros TIER 1: seurat/{sid}/konseptit override kaanonin päälle (kaanon = oletus, ei pakko) -->
 <script src="lib/tm_teknistaktiset_sv.js?v=1"></script>   <!-- i18n V5 Vaihe B: curriculumin sv-sidecar (TM_TT_SV). Generoitu lib on kielineutraali → sv asuu tässä; VP valitsee kielen (_ttSv), puuttuva avain → fi -->
 <script src="lib/tm_kehityspolku.js?v=2"></script>   <!-- I3a: looginen silta -resolver (idp_fokus → konsepti/fundamentti → harjoite) -->
 <script src="lib/tm_jaksofokus.js?v=5"></script>
@@ -687,6 +687,40 @@ body {
 
 /* Coach profile panel */
 /* ── Coach KPI Modal (center, tabbed) ─── */
+/* Konseptikirjasto (Seurakerros TIER 1 · S2) — terävät kulmat, tokenit, ei omia hexejä */
+#kkModal { position: fixed; inset: 0; background: rgba(17,17,16,.92); z-index: 300; display: flex; align-items: center; justify-content: center; padding: 20px; backdrop-filter: blur(8px); }
+.kk-box { width: 640px; }
+.kk-note { font-size: 11.5px; line-height: 1.5; color: var(--ink3); border-left: 2px solid var(--teal); padding: 6px 0 6px 10px; margin-bottom: 16px; }
+.kk-tyhja { font-size: 12px; color: var(--ink3); padding: 10px 0 14px; }
+.kk-ryhma { font-size: 10px; font-weight: 600; letter-spacing: .18em; text-transform: uppercase; color: var(--teal); margin: 20px 0 8px; }
+.kk-rivi { display: flex; align-items: center; gap: 10px; padding: 9px 10px; border: .5px solid var(--border); margin-bottom: 5px; cursor: pointer; transition: border-color .15s, background .15s; }
+.kk-rivi:hover { border-color: var(--teal); background: var(--bg3); }
+.kk-rivi-h { opacity: .5; }
+.kk-koodi { font-family: var(--font-m); font-size: 9.5px; letter-spacing: .06em; color: var(--ink3); border: .5px solid var(--border); padding: 1px 5px; flex-shrink: 0; }
+.kk-nimi { font-size: 12.5px; color: var(--ink); flex: 1; }
+.kk-tag { font-size: 9px; letter-spacing: .1em; text-transform: uppercase; padding: 1px 6px; margin-left: 6px; flex-shrink: 0; }
+.kk-tag-m { color: var(--teal); border: .5px solid var(--teal); }
+.kk-tag-h { color: var(--ink3); border: .5px solid var(--border); }
+.kk-tag-o { color: var(--blue); border: .5px solid var(--blue); }
+.kk-takaisin { background: none; border: none; color: var(--ink3); font-size: 11.5px; cursor: pointer; padding: 0 0 12px; }
+.kk-takaisin:hover { color: var(--teal); }
+.kk-otsikko { font-family: var(--font-d); font-size: 22px; font-weight: 300; color: var(--ink); }
+.kk-meta { font-family: var(--font-m); font-size: 10px; color: var(--ink3); margin: 2px 0 16px; }
+.kk-kentta { margin-bottom: 18px; }
+.kk-lbl { display: block; font-size: 10px; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; color: var(--ink2); margin-bottom: 6px; }
+.kk-in { width: 100%; box-sizing: border-box; background: var(--bg); border: .5px solid var(--border); color: var(--ink); font-family: inherit; font-size: 12.5px; line-height: 1.55; padding: 9px 10px; resize: vertical; }
+.kk-in:focus { outline: none; border-color: var(--teal); }
+.kk-in[readonly] { color: var(--ink3); }
+.kk-kaanon { border-left: 2px solid var(--border); padding: 6px 0 6px 10px; margin-top: 8px; }
+.kk-kaanon-lbl { font-size: 9px; letter-spacing: .14em; text-transform: uppercase; color: var(--ink3); margin-bottom: 3px; }
+.kk-kaanon-txt { font-size: 11.5px; line-height: 1.5; color: var(--ink3); white-space: pre-wrap; }
+.kk-mini { background: none; border: none; color: var(--teal); font-size: 11px; cursor: pointer; padding: 6px 0 0; }
+.kk-toiminnot { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 22px; border-top: .5px solid var(--border); padding-top: 16px; }
+.kk-btn { background: transparent; border: .5px solid var(--border); color: var(--ink2); font-family: inherit; font-size: 12px; padding: 9px 14px; cursor: pointer; }
+.kk-btn:hover { border-color: var(--teal); color: var(--ink); }
+.kk-btn-p { background: var(--teal); border-color: var(--teal); color: var(--bg); }
+.kk-btn-v:hover { border-color: var(--amber); color: var(--amber); }
+@media (max-width: 768px) { .kk-box { width: 100vw; max-width: 100vw; } }
 #coachModal {
   position: fixed; inset: 0;
   background: rgba(17,17,16,.92);
@@ -2713,6 +2747,10 @@ input::placeholder, textarea::placeholder { color: var(--ink3); opacity: 1; }
           <h3>Benchmark</h3>
           <p data-i18n="Palloliiton KORI-vertailu, kansainväliset vertailutasot.">Palloliiton KORI-vertailu, kansainväliset vertailutasot.</p>
         </div>
+        <div class="settings-card" onclick="avaaKonseptikirjasto()">
+          <h3 data-i18n="Konseptikirjasto">Konseptikirjasto</h3>
+          <p data-i18n="Muokkaa konseptien tekstejä seuran kielelle, piilota tarpeettomat ja lisää omia. Kaanon on oletus, ei pakko.">Muokkaa konseptien tekstejä seuran kielelle, piilota tarpeettomat ja lisää omia. Kaanon on oletus, ei pakko.</p>
+        </div>
         <div class="settings-card" onclick="_vpaNaytaUudelleen()">
           <h3 data-i18n="📘 Aloitusopas">📘 Aloitusopas</h3>
           <p data-i18n="Näytä &quot;Aloita tästä&quot; -opas uudelleen Koti-näkymässä.">Näytä "Aloita tästä" -opas uudelleen Koti-näkymässä.</p>
@@ -3022,6 +3060,314 @@ async function lataaKonseptikerros() {
   }
 }
 window.lataaKonseptikerros = lataaKonseptikerros;
+
+/* ════════════════════════════════════════════════════════════
+   SEURAKERROS TIER 1 · S2 — KONSEPTIKIRJASTO (muokkauspinta)
+   ────────────────────────────────────────────────────────────
+   "TalentMasterin totuus ei ole ainoa." Kaanon (lib/tm_teknistaktiset.js) on OLETUS; seura
+   voi korvata kenttiä, piilottaa konsepteja ja lisätä omansa. Kaanon ei koskaan katoa eikä
+   sitä kirjoiteta — override elää Firestoressa (seurat/{sid}/konseptit/{avain}).
+
+   KOLME LAKIA JOTKA TÄMÄ PINTA TOTEUTTAA:
+   1) SUOMI TALLENNETAAN, RUOTSI RENDERÖIDÄÄN (§32). Lomake näyttää ja tallentaa SUOMEN —
+      se lukee tmKonseptiResolvoi()-raakadataa, EI _ttKonsepti():a (joka on sv-kerros).
+      Ruotsinkielinen VP muokkaa siis suomenkielistä lähdettä; tämä on tietoista, koska
+      seuran teksti on dataa jolle ei ole käännöskonetta (ks. _ttKonsepti-kommentti).
+   2) PALUU KAANONIIN = KENTÄN POISTO, EI KOPIO. Kaanonin arvon kopioiminen overrideen
+      jäädyttäisi seuran vanhaan tekstiin kun kaanon päivittyy — ja "muokattu"-merkki
+      valehtelisi. Päätöslogiikka on tmKonseptiPatch()-libissä (testattavissa ilman DOMia).
+   3) KIRJOITUSPORTTI = vp | urheilutoimenjohtaja (+SA), sama kuin firestore.rules
+      onKonseptiMuokkaaja(). Valmentaja näkee kirjaston KATSELUTILASSA — muuten seuran
+      konseptikieli hajoaisi joukkueittain (§37 roolimalli).
+════════════════════════════════════════════════════════════ */
+
+var _kkTila = { avain: null, uusi: false };
+
+function _kkVoiMuokata() {
+  return (typeof tmKonseptiVoiMuokata === 'function')
+    ? tmKonseptiVoiMuokata(window._vpRooli, !!window._vpSA) : false;
+}
+function _kkSeuraId() { return (typeof _ttSeuraId === 'function') ? _ttSeuraId() : null; }
+function _kkRef(avain) { return db.collection('seurat').doc(_seuraId).collection('konseptit').doc(avain); }
+function _kkUid() { try { return (firebase.auth().currentUser || {}).uid || null; } catch (e) { return null; } }
+function _kkRivit(v) { return (Array.isArray(v) ? v : []).map(function (x) { return (x && x.teksti != null) ? x.teksti : x; }); }
+
+// Kaanon-lista ryhmissä. Pelipaikkafundamentit litistetään yhdeksi ryhmäksi (avain on uniikki,
+// mutta sama konsepti voi esiintyä usealla pelipaikalla → dedup avaimella).
+function _kkRyhmat() {
+  var r = [];
+  try { r.push({ otsikko: vpT('Ikävaihekonseptit'), items: (typeof TM_TT_YOUTH !== 'undefined') ? TM_TT_YOUTH : [] }); } catch (e) {}
+  try { r.push({ otsikko: vpT('Joukkueteemat'), items: (typeof TM_TT_JOUKKUE !== 'undefined') ? TM_TT_JOUKKUE : [] }); } catch (e) {}
+  try {
+    var nahty = {}, fund = [];
+    if (typeof TM_TT_FUNDAMENTIT !== 'undefined') for (var pos in TM_TT_FUNDAMENTIT) {
+      (TM_TT_FUNDAMENTIT[pos] || []).forEach(function (it) { if (it && it.avain && !nahty[it.avain]) { nahty[it.avain] = 1; fund.push(it); } });
+    }
+    r.push({ otsikko: vpT('Pelipaikkafundamentit'), items: fund });
+  } catch (e) {}
+  return r;
+}
+
+function avaaKonseptikirjasto() {
+  _kkTila = { avain: null, uusi: false };
+  var vanha = document.getElementById('kkModal'); if (vanha) vanha.remove();
+  var h = '<div id="kkModal"><div class="cm-box kk-box" onclick="event.stopPropagation()">'
+    + '<div class="cm-header"><div class="cm-header-left"><div>'
+    + '<div class="cm-name">' + vpT('Konseptikirjasto') + '</div>'
+    + '<div class="cm-meta">' + vpT('Kaanon on oletus — seura saa muokata sitä') + '</div>'
+    + '</div></div><button class="cm-close" onclick="suljeKonseptikirjasto()">×</button></div>'
+    + '<div class="cm-body" id="kkBody"></div></div></div>';
+  var wrap = document.createElement('div');
+  wrap.innerHTML = h;
+  var modal = wrap.firstChild;
+  modal.addEventListener('click', function (e) { if (e.target === modal) suljeKonseptikirjasto(); });
+  document.body.appendChild(modal);
+  _kkRenderLista();
+}
+function suljeKonseptikirjasto() { var m = document.getElementById('kkModal'); if (m) m.remove(); }
+
+function _kkRenderLista() {
+  var el = document.getElementById('kkBody'); if (!el) return;
+  _kkTila = { avain: null, uusi: false };
+  var sid = _kkSeuraId(), voi = _kkVoiMuokata(), h = '';
+  if (!sid) {
+    el.innerHTML = '<div class="kk-tyhja">' + vpT('Konseptikirjasto avautuu seuratunnuksilla — demossa näet kaanonin sellaisenaan.') + '</div>';
+    return;
+  }
+  if (!voi) h += '<div class="kk-note">' + vpT('Katselutila. Konsepteja muokkaavat urheilutoimenjohtaja ja VP.') + '</div>';
+  else h += '<div class="kk-note">' + vpT('Muutokset koskevat koko seuraa. Kirjoita suomeksi — käännös tehdään renderissä.') + '</div>';
+
+  _kkRyhmat().forEach(function (ryhma) {
+    if (!ryhma.items || !ryhma.items.length) return;
+    h += '<div class="kk-ryhma">' + ryhma.otsikko + '</div>';
+    ryhma.items.forEach(function (it) { h += _kkRiviHTML(it.avain, sid, false); });
+  });
+  var omat = (typeof tmKonseptiOmat === 'function') ? tmKonseptiOmat(sid) : [];
+  h += '<div class="kk-ryhma">' + vpT('Seuran omat konseptit') + '</div>';
+  if (!omat.length) h += '<div class="kk-tyhja">' + vpT('Ei omia konsepteja vielä.') + '</div>';
+  omat.forEach(function (o) { h += _kkRiviHTML(o.avain, sid, true); });
+  if (voi) h += '<button class="kk-btn kk-btn-p" style="margin-top:16px" onclick="_kkUusi()">' + vpT('+ Lisää oma konsepti') + '</button>';
+  el.innerHTML = h;
+  el.scrollTop = 0;
+}
+
+function _kkRiviHTML(avain, sid, oma) {
+  var k = tmKonseptiResolvoi(avain, sid); if (!k) return '';
+  var piil = (typeof tmKonseptiOnPiilotettu === 'function') && tmKonseptiOnPiilotettu(avain, sid);
+  var muok = (typeof tmKonseptiOnMuokattu === 'function') && tmKonseptiOnMuokattu(k) && !oma;
+  var tagit = '';
+  if (muok) tagit += '<span class="kk-tag kk-tag-m">' + vpT('muokattu') + '</span>';
+  if (piil) tagit += '<span class="kk-tag kk-tag-h">' + vpT('piilotettu') + '</span>';
+  if (oma) tagit += '<span class="kk-tag kk-tag-o">' + vpT('oma') + '</span>';
+  // Luokkanimi KOKONAISENA literaalina: pilkottuna ' kk-rivi-h' on oma literaalinsa display-
+  // kontekstissa ja render-gate lukee siitä fi-sanan ('rivi') → väärä vuotohavainto.
+  var cls = piil ? 'kk-rivi kk-rivi-h' : 'kk-rivi';
+  return '<div class="' + cls + '" onclick="_kkAvaa(\'' + _esc(avain) + '\')">'
+    + '<span class="kk-koodi">' + _esc(k.koodi || (oma ? vpT('OMA') : '—')) + '</span>'
+    + '<span class="kk-nimi">' + _esc(k.nimi || avain) + '</span>' + tagit + '</div>';
+}
+
+// ── Lomake ────────────────────────────────────────────────────────────────────────────────
+// KENTAT-määrittely elää tässä (UI-kerros): libin TM_K_MUOKATTAVAT kertoo MITKÄ kentät saa
+// muokata, tämä kertoo MILTÄ ne näyttävät. Jos lib laajenee, portti alla punertaa.
+var _KK_KENTAT = [
+  { f: 'nimi', moni: false, lbl: 'Nimi' },
+  { f: 'pelitilanne', moni: true, lbl: 'Pelitilanne' },
+  { f: 'pelaaja_miksi', moni: true, lbl: 'Miksi — pelaajan kielellä' },
+  { f: 'kpi', moni: true, lbl: 'Havaintokriteerit (yksi per rivi)', lista: true },
+  { f: 'kysymykset', moni: true, lbl: 'Cue-kysymykset (yksi per rivi)', lista: true }
+];
+
+function _kkAvaa(avain) {
+  var sid = _kkSeuraId(); if (!sid) return;
+  _kkTila = { avain: avain, uusi: false };
+  var el = document.getElementById('kkBody'); if (!el) return;
+  // RAAKA resolvoitu (suomi) — EI _ttKonsepti: lomake muokkaa lähdedataa, ei käännöstä.
+  var k = tmKonseptiResolvoi(avain, sid) || {};
+  var kaanon = (typeof tmKonseptiKaanon === 'function') ? tmKonseptiKaanon(avain) : null;
+  var voi = _kkVoiMuokata();
+  var piil = tmKonseptiOnPiilotettu(avain, sid);
+  var h = '<button class="kk-takaisin" onclick="_kkRenderLista()">' + vpT('‹ Kaikki konseptit') + '</button>'
+    + '<div class="kk-otsikko">' + _esc(k.nimi || avain) + '</div>'
+    + '<div class="kk-meta">' + _esc(k.koodi || vpT('Seuran oma')) + ' · ' + _esc(avain) + '</div>';
+  if (!kaanon) h += '<div class="kk-note">' + vpT('Seuran oma konsepti — sillä ei ole kaanonia johon palata.') + '</div>';
+  _KK_KENTAT.forEach(function (d) { h += _kkKenttaHTML(d, k, kaanon, voi); });
+  if (voi) {
+    h += '<div class="kk-toiminnot">'
+      + '<button class="kk-btn kk-btn-p" onclick="_kkTallenna()">' + vpT('Tallenna') + '</button>'
+      + '<button class="kk-btn" onclick="_kkPiilota(' + (piil ? 'false' : 'true') + ')">'
+      + (piil ? vpT('Näytä taas') : vpT('Piilota seuralta')) + '</button>'
+      + (kaanon
+        ? '<button class="kk-btn kk-btn-v" onclick="_kkPalautaKaikki()">' + vpT('Palauta kaanoniin') + '</button>'
+        : '<button class="kk-btn kk-btn-v" onclick="_kkPoistaOma()">' + vpT('Poista konsepti') + '</button>')
+      + '</div>';
+  }
+  el.innerHTML = h;
+  el.scrollTop = 0;
+}
+
+function _kkKenttaHTML(d, k, kaanon, voi) {
+  var arvo = d.lista ? _kkRivit(k[d.f]).join('\n') : (k[d.f] == null ? '' : String(k[d.f]));
+  var kArvo = kaanon ? (d.lista ? _kkRivit(kaanon[d.f]).join('\n') : (kaanon[d.f] == null ? '' : String(kaanon[d.f]))) : null;
+  var eroaa = kaanon && arvo !== kArvo;
+  var h = '<div class="kk-kentta"><label class="kk-lbl" for="kk_' + d.f + '">' + vpT(d.lbl)
+    + (eroaa ? '<span class="kk-tag kk-tag-m">' + vpT('muokattu') + '</span>' : '') + '</label>';
+  h += d.moni
+    ? '<textarea id="kk_' + d.f + '" class="kk-in" rows="' + (d.lista ? 5 : 3) + '"' + (voi ? '' : ' readonly') + '>' + _esc(arvo) + '</textarea>'
+    : '<input id="kk_' + d.f + '" class="kk-in" type="text"' + (voi ? '' : ' readonly') + ' value="' + _esc(arvo) + '">';
+  if (eroaa) {
+    h += '<div class="kk-kaanon"><div class="kk-kaanon-lbl">' + vpT('TalentMasterin oletus') + '</div>'
+      + '<div class="kk-kaanon-txt">' + _esc(kArvo || vpT('(tyhjä)')) + '</div>'
+      + (voi ? '<button class="kk-mini" onclick="_kkPalautaKentta(\'' + d.f + '\')">' + vpT('Palauta tämä kenttä') + '</button>' : '')
+      + '</div>';
+  }
+  return h + '</div>';
+}
+
+// Palautus = kentän tyhjennys lomakkeella. tmKonseptiPatch tulkitsee tyhjän "palaa kaanoniin"
+// -pyynnöksi ja POISTAA override-kentän → kaanon palaa elävänä (ei kopiona).
+function _kkPalautaKentta(f) {
+  var el = document.getElementById('kk_' + f); if (!el) return;
+  el.value = '';
+  toast(vpT('Kenttä palautuu kaanoniin kun tallennat.'), 'ok');
+}
+
+function _kkLuonnos() {
+  var l = {};
+  _KK_KENTAT.forEach(function (d) {
+    var el = document.getElementById('kk_' + d.f); if (!el) return;
+    var v = String(el.value == null ? '' : el.value);
+    if (d.f === 'kpi') l.kpi = tmKonseptiKpiRivit(v.split('\n'));
+    else if (d.lista) l[d.f] = v.split('\n').map(function (x) { return x.trim(); }).filter(function (x) { return !!x; });
+    else l[d.f] = v.trim();
+  });
+  return l;
+}
+
+async function _kkTallenna() {
+  if (!_kkVoiMuokata()) return toast(vpT('Ei oikeutta muokata konsepteja.'), 'err');
+  var sid = _kkSeuraId(); if (!sid) return;
+  var luonnos = _kkLuonnos();
+  if (_kkTila.uusi) return _kkTallennaOma(luonnos);
+  var avain = _kkTila.avain; if (!avain) return;
+  try {
+    var patch = tmKonseptiPatch(avain, luonnos, sid);
+    if (patch.koko_kaanoniin) {
+      await _kkRef(avain).delete();
+    } else {
+      var data = { paivitetty: new Date().toISOString(), muokkaaja_uid: _kkUid(), lahde: 'seura' };
+      for (var f in patch.aseta) if (Object.prototype.hasOwnProperty.call(patch.aseta, f)) data[f] = patch.aseta[f];
+      patch.poista.forEach(function (p) { data[p] = firebase.firestore.FieldValue.delete(); });
+      await _kkRef(avain).set(data, { merge: true });
+    }
+    await _kkPaivita();
+    toast(patch.muuttuneet.length ? vpT('Konsepti tallennettu.') : vpT('Konsepti palautettu kaanoniin.'), 'ok');
+    _kkAvaa(avain);
+  } catch (e) { console.warn('[konseptikirjasto]', e && e.message); toast(vpT('Tallennus epäonnistui.'), 'err'); }
+}
+
+async function _kkTallennaOma(luonnos) {
+  var sid = _kkSeuraId();
+  var v = tmKonseptiOmaValidoi(luonnos, sid);
+  if (!v.ok) {
+    var syy = v.virheet.indexOf('nimi_puuttuu') >= 0 ? vpT('Anna konseptille nimi.')
+      : (v.virheet.indexOf('avain_varattu_seura') >= 0 || v.virheet.indexOf('avain_varattu_kaanon') >= 0)
+        ? vpT('Samanniminen konsepti on jo olemassa.') : vpT('Konseptia ei voitu luoda.');
+    return toast(syy, 'err');
+  }
+  try {
+    var data = { avain: v.avain, oma: true, lahde: 'seura', paivitetty: new Date().toISOString(), muokkaaja_uid: _kkUid() };
+    ['nimi', 'pelitilanne', 'pelaaja_miksi', 'kpi', 'kysymykset'].forEach(function (f) {
+      var x = luonnos[f];
+      if (x != null && !(Array.isArray(x) ? !x.length : String(x).trim() === '')) data[f] = x;
+    });
+    await _kkRef(v.avain).set(data);
+    await _kkPaivita();
+    toast(vpT('Oma konsepti luotu.'), 'ok');
+    _kkAvaa(v.avain);
+  } catch (e) { console.warn('[konseptikirjasto]', e && e.message); toast(vpT('Tallennus epäonnistui.'), 'err'); }
+}
+
+// Piilotus on OMA tilansa, ei sisältömuokkaus: se elää samassa dokumentissa mutta ei koskaan
+// päädy _seura_kentat-listaan (TM_K_META_KENTAT) → se ei ohita sv-kerrosta eikä näytä "muokattu".
+async function _kkPiilota(tila) {
+  if (!_kkVoiMuokata()) return toast(vpT('Ei oikeutta muokata konsepteja.'), 'err');
+  var sid = _kkSeuraId(), avain = _kkTila.avain; if (!sid || !avain) return;
+  try {
+    if (tila) await _kkRef(avain).set({ piilotettu: true, paivitetty: new Date().toISOString(), muokkaaja_uid: _kkUid() }, { merge: true });
+    else {
+      // Näkyviin palautus: jos piilotus oli dokumentin AINOA sisältö, koko dokumentti pois
+      // (muuten Firestoreen jäisi tyhjä kuori joka näyttäisi listalla muokatulta).
+      var patch = tmKonseptiPatch(avain, {}, sid);
+      var vainPiilo = !patch.muuttuneet.length && !Object.keys(tmKonseptiKerros(sid)[avain] || {})
+        .filter(function (k) { return TM_K_META_KENTAT.indexOf(k) < 0; }).length;
+      if (vainPiilo && tmKonseptiKaanon(avain)) await _kkRef(avain).delete();
+      else await _kkRef(avain).set({ piilotettu: firebase.firestore.FieldValue.delete(), paivitetty: new Date().toISOString() }, { merge: true });
+    }
+    await _kkPaivita();
+    toast(tila ? vpT('Konsepti piilotettu seuralta.') : vpT('Konsepti näkyy taas.'), 'ok');
+    _kkAvaa(avain);
+  } catch (e) { console.warn('[konseptikirjasto]', e && e.message); toast(vpT('Piilotus epäonnistui.'), 'err'); }
+}
+
+async function _kkPalautaKaikki() {
+  if (!_kkVoiMuokata()) return toast(vpT('Ei oikeutta muokata konsepteja.'), 'err');
+  var avain = _kkTila.avain; if (!avain) return;
+  if (!confirm(vpT('Palautetaanko konsepti TalentMasterin oletukseen? Seuran omat tekstit poistuvat.'))) return;
+  try {
+    await _kkRef(avain).delete();
+    await _kkPaivita();
+    toast(vpT('Konsepti palautettu kaanoniin.'), 'ok');
+    _kkAvaa(avain);
+  } catch (e) { console.warn('[konseptikirjasto]', e && e.message); toast(vpT('Palautus epäonnistui.'), 'err'); }
+}
+
+async function _kkPoistaOma() {
+  if (!_kkVoiMuokata()) return toast(vpT('Ei oikeutta muokata konsepteja.'), 'err');
+  var avain = _kkTila.avain; if (!avain) return;
+  if (!confirm(vpT('Poistetaanko seuran oma konsepti pysyvästi?'))) return;
+  try {
+    await _kkRef(avain).delete();
+    await _kkPaivita();
+    toast(vpT('Konsepti poistettu.'), 'ok');
+    _kkRenderLista();
+  } catch (e) { console.warn('[konseptikirjasto]', e && e.message); toast(vpT('Poisto epäonnistui.'), 'err'); }
+}
+
+function _kkUusi() {
+  if (!_kkVoiMuokata()) return toast(vpT('Ei oikeutta muokata konsepteja.'), 'err');
+  _kkTila = { avain: null, uusi: true };
+  var el = document.getElementById('kkBody'); if (!el) return;
+  var h = '<button class="kk-takaisin" onclick="_kkRenderLista()">' + vpT('‹ Kaikki konseptit') + '</button>'
+    + '<div class="kk-otsikko">' + vpT('Uusi seuran konsepti') + '</div>'
+    + '<div class="kk-note">' + vpT('Oma konsepti näkyy kaanonin rinnalla. Se ei korvaa mitään — kaanon jää ennalleen.') + '</div>';
+  _KK_KENTAT.forEach(function (d) { h += _kkKenttaHTML(d, {}, null, true); });
+  h += '<div class="kk-toiminnot"><button class="kk-btn kk-btn-p" onclick="_kkTallenna()">' + vpT('Luo konsepti') + '</button>'
+    + '<button class="kk-btn" onclick="_kkRenderLista()">' + vpT('Peruuta') + '</button></div>';
+  el.innerHTML = h;
+  el.scrollTop = 0;
+}
+
+// Kerroksen uudelleenlataus kirjoituksen jälkeen: tyhjennä cache → lataa → renderöi konsepteja
+// käyttävät näkymät uudelleen. Avoimet kortit lukevat resolvoijaa renderissä, joten ne päivittyvät
+// seuraavalla renderillä; pakotetaan pelaajalista heti (siellä konseptinimi näkyy).
+async function _kkPaivita() {
+  var sid = _kkSeuraId(); if (!sid) return;
+  if (typeof tmKonseptiTyhjennaKerros === 'function') tmKonseptiTyhjennaKerros(sid);
+  await lataaKonseptikerros();
+  try { if (typeof renderPelaajat === 'function') renderPelaajat(); } catch (e) {}
+}
+
+window.avaaKonseptikirjasto = avaaKonseptikirjasto;
+window.suljeKonseptikirjasto = suljeKonseptikirjasto;
+window._kkRenderLista = _kkRenderLista;
+window._kkAvaa = _kkAvaa;
+window._kkTallenna = _kkTallenna;
+window._kkPiilota = _kkPiilota;
+window._kkPalautaKaikki = _kkPalautaKaikki;
+window._kkPalautaKentta = _kkPalautaKentta;
+window._kkPoistaOma = _kkPoistaOma;
+window._kkUusi = _kkUusi;
 
 // Normalisoi joukkuenimi näyttömuotoon: 'sjk_p14' → 'SJK P14' (estää duplikaattijoukkueet groupingissa).
 function normalisioiJoukkue(joukkue) {
