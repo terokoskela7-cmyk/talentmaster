@@ -44,8 +44,9 @@
 <script src="lib/tm_jaksofokus.js?v=5"></script>
 <script src="lib/tm_kaavio_render.js?v=2"></script>     <!-- erä A: §3-specin SVG-renderöijä (kielitietoinen) -->
 <script src="lib/tm_kaavio_policy.js?v=1"></script>     <!-- erä A: näkyvyys/toiminnot — pariteetti firestore.rules kanssa -->
-<script src="lib/tm_kaavio_validate.js?v=1"></script>   <!-- erä A: §6-validaattori (client-portti + ingest) -->
+<script src="lib/tm_kaavio_validate.js?v=2"></script>   <!-- erä A: §6-validaattori (client-portti + ingest) -->
 <script src="lib/tm_kaavio_editori.js?v=1"></script>    <!-- erä B1: editorin tila+koordinaatit (sama mappi kuin render) -->   <!-- Vaihe 4c: jaksofokus-oversight PURE-ydin (kattavuus/umpeutunut/teemakeskittymä, §26) -->
+<script src="lib/tm_kaavio_konsepti.js?v=1"></script>   <!-- erä C: spec↔konsepti-sidos (otsikko/KPI resolvoidusta konseptista, ei specistä) -->
 <script src="lib/tm_vp_seuranta.js?v=1"></script>   <!-- Vaihe C: VP-seuranta koonti/kuittaus/IDP-feed (nojaa VAI+-indeksiin, ei uutta mittaria) -->
 <script src="lib/tm_kehityskaari.js?v=4"></script>   <!-- Trendi Vaihe 2 + IDP VAIHE 1: yksilön kehityskaari (data + tmKehityskaari-renderöijä) -->
 <script src="lib/tm_kypsyys.js?v=2"></script>   <!-- IDP R1: Kypsyys/PHV -komponentti (tmKypsyys) kytketty näkyviin per-pelaaja-kortin vasempaan paneeliin (korvaa kypsyysproosan) -->
@@ -4623,6 +4624,37 @@ function _kaavioCtxNyt() {
 }
 function _kaavioLang() { return (typeof _vpTaksLang === 'function') ? _vpTaksLang() : 'fi'; }
 
+// ── ERÄ C · OTSIKON LÄHDE = KONSEPTI, EI SPEC ────────────────────────────────────────────
+// Aiemmin otsikko luettiin `spec.nimi`-kartasta ({fi,sv,en}), joka oli kaavion OMA kopio
+// konseptin nimestä. Seuraus: kun seura muokkasi konseptia S2:lla, kaavion otsikko jäi vanhaan.
+// Nyt nimi ja KPI-teksti resolvoidaan elävästi kaanon ⊕ seura -kerroksesta.
+//
+// ⚠ LOKALISOINTI KULKEE _ttKonsepti():n KAUTTA, EI vpT():n. Ero on §32-kriittinen:
+//   · konseptien nimet EIVÄT ole VP:n sivukartassa — ne käännetään curriculum-sidecarista
+//     (_ttSv(avain,'nimi')), joten vpT('HAVAINNOINTI') putoaisi aina fi:hin eikä kaanon
+//     kääntyisi koskaan ruotsiksi;
+//   · _ttKonsepti OHITTAA `_seura_kentat`-kentät → seuran kirjoittama suomi renderöityy
+//     sellaisenaan. vpT voisi osua sivukartan avaimeen ja kääntää seuran oman tekstin —
+//     juuri se vuoto jonka S1/S2 esti.
+// Sidoslogiikka (mikä kenttä mistä) on lib/tm_kaavio_konsepti.js:ssä, jotta erä D
+// (pelaajapinta, oma t()-kerros) käyttää samaa sidosta ilman VP-oletuksia.
+function _kaavioKonsepti(spec) {
+  if (!spec || !spec.avain || typeof tmKonseptiResolvoi !== 'function') return null;
+  return tmKonseptiResolvoi(spec.avain, _ttSeuraId());
+}
+function _kaavioOtsikko(spec) {
+  var raaka = _kaavioKonsepti(spec);
+  if (typeof kaavioKonseptiNaytto !== 'function') {
+    return { nimi: (spec && spec.avain) || '', kpiKoodi: '', kpiTeksti: '', kpiKoodit: [], loytyi: !!raaka };
+  }
+  // näyttö lokalisoidusta, koodit RAA'ASTA (enum ei riipu kielestä) — ks. lib-kommentti.
+  var naytto = kaavioKonseptiNaytto(spec, raaka ? ((typeof _ttKonsepti === 'function') ? _ttKonsepti(raaka) : raaka) : null);
+  naytto.kpiKoodit = raaka ? kaavioKpiKoodit(raaka) : [];
+  naytto.loytyi = !!raaka;
+  return naytto;
+}
+
+
 async function avaaKaaviopankki() {
   document.getElementById('_kvModal')?.remove();
   var ctx = _kaavioCtxNyt();
@@ -4672,12 +4704,17 @@ function _kaavioNakyvyysLbl(n) {
 
 function _kaavioKorttiHTML(k, i, ctx) {
   var esc = _jsvEsc, st = (k.review && k.review.status) || (k.kanoninen ? 'hyvaksytty' : 'luonnos');
-  var nimi = (k.spec && k.spec.nimi && (k.spec.nimi[_kaavioLang()] || k.spec.nimi.fi)) || (k.spec && k.spec.avain) || k.id;
+  var ots = _kaavioOtsikko(k.spec);
+  var nimi = ots.nimi || k.id;
   var vari = st === 'hyvaksytty' ? 'var(--teal)' : st === 'odottaa' ? 'var(--amber)' : st === 'hylatty' ? '#C94040' : 'var(--ink3)';
   var h = '<div style="border:.5px solid var(--border);border-radius:10px;padding:12px;background:var(--surface)">';
   h += '<div id="_kvEsik' + i + '" style="margin-bottom:8px;display:flex;justify-content:center"></div>';
   h += '<div style="font-size:13px;font-weight:600;color:var(--ink)">' + esc(nimi) + '</div>';
-  h += '<div style="font-size:10.5px;font-family:var(--font-mono);color:var(--ink3);margin-top:2px">' + esc((k.spec && k.spec.avain) || '') + ' · ' + esc((k.spec && k.spec.pelimuoto) || '') + '</div>';
+  h += '<div style="font-size:10.5px;font-family:var(--font-mono);color:var(--ink3);margin-top:2px">'
+     + esc((k.spec && k.spec.avain) || '') + (ots.kpiKoodi ? ' · ' + esc(ots.kpiKoodi) : '')
+     + ' · ' + esc((k.spec && k.spec.pelimuoto) || '') + '</div>';
+  // KPI-teksti = konseptin totuus (ei kaavion kopio) → näkyy vain kun kaavio on tagattu KPI:hin.
+  if (ots.kpiTeksti) h += '<div style="font-size:11.5px;color:var(--ink2);line-height:1.45;margin-top:5px">' + esc(ots.kpiTeksti) + '</div>';
   h += '<div style="font-size:11px;margin-top:6px;color:' + vari + '">' + (k.kanoninen ? vpT('kanoninen') : _kaavioTilaLbl(st)) + (k.review && k.review.nakyvyys ? ' · ' + _kaavioNakyvyysLbl(k.review.nakyvyys) : '') + '</div>';
   var toiminnot = kaavioToiminnot(k, ctx);
   if (toiminnot.length) {
@@ -4747,7 +4784,11 @@ function _kaavioAvaaEditori(k) {
   _kaavioTila.historia = [];
   var h = '<div id="_kvEditori" style="position:fixed;inset:0;background:rgba(17,17,16,.96);z-index:320;display:flex;align-items:center;justify-content:center" onclick="if(event.target===this)_kaavioSuljeEditori()">';
   h += '<div style="background:var(--bg2);border:.5px solid var(--border);padding:20px;max-width:96vw;max-height:94vh;overflow-y:auto" onclick="event.stopPropagation()">';
-  h += '<div style="font-family:\'Cormorant Garamond\',serif;font-size:20px;color:var(--ink);margin-bottom:10px">' + vpT('Muokkaa kaaviota') + '</div>';
+  var edOts = _kaavioOtsikko(_kaavioTila.muokkaus.spec);
+  h += '<div style="font-family:\'Cormorant Garamond\',serif;font-size:20px;color:var(--ink);margin-bottom:2px">' + vpT('Muokkaa kaaviota') + '</div>';
+  h += '<div style="font-size:12.5px;color:var(--ink2);margin-bottom:2px">' + _jsvEsc(edOts.nimi || '') + (edOts.kpiKoodi ? ' · ' + _jsvEsc(edOts.kpiKoodi) : '') + '</div>';
+  if (edOts.kpiTeksti) h += '<div style="font-size:11.5px;color:var(--ink3);line-height:1.45;margin-bottom:10px">' + _jsvEsc(edOts.kpiTeksti) + '</div>';
+  else h += '<div style="margin-bottom:10px"></div>';
   h += '<div style="display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap">';
   h += '<div id="_kvCanvas" style="flex:0 0 auto"></div>';
   h += '<div style="flex:1;min-width:210px">';
@@ -4826,7 +4867,11 @@ function _kaavioKumoa() {
 async function _kaavioTallenna() {
   var m = _kaavioTila.muokkaus; if (!m) return;
   var virheEl = document.getElementById('_kvVirhe');
-  var tulos = validoiKaavio(m.spec);
+  // KPI-jäsenyys tarkistetaan RESOLVOITUA konseptia vasten. Jos konseptia ei löydy lainkaan
+  // (avain ei kaanonissa eikä seurakerroksessa), ctx jätetään antamatta → vain syntaktinen
+  // portti. Muuten puuttuva konsepti tuottaisi vale-virheen jokaisesta kpi-tagista.
+  var _ots = _kaavioOtsikko(m.spec);
+  var tulos = validoiKaavio(m.spec, _ots.loytyi ? { kpiKoodit: _ots.kpiKoodit } : undefined);
   if (tulos.E.length) {
     if (virheEl) virheEl.textContent = vpT('Kaavio ei kelpaa:') + ' ' + tulos.E.slice(0, 2).join(' · ');
     toast(vpT('Tallennus estetty — kaavio ei läpäise tarkistusta'), 'err');
