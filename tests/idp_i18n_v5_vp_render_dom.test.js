@@ -36,8 +36,25 @@ const require = createRequire(import.meta.url);
 const acorn = require('acorn');
 const HTML = readFileSync(join(__dir, '..', 'TalentMaster_VP_v25.html'), 'utf8');
 
-const RLO = 2692, RHI = 18324;              // VP pääscript (1-idx)
-const RANGES = [[8441, 9623], [13003, 14153], [12064, 12803], [3791, 3879], [14589, 14953], [14955, 15588], [15592, 16093], [16173, 16287], [16289, 16378], [4435, 4509], [5374, 5441], [15557, 15633], [17333, 17413], [18220, 18236], [7288, 7572], [5983, 7287], [4757, 4867], [16386, 16530], [4868, 5373], [4600, 4701], [3552, 3779], [10240, 10285], [11314, 11329], [10857, 10875], [10877, 10909], [11138, 11193], [11232, 11256], [11258, 11266], [11268, 11275], [11280, 11310], [14303, 14314], [4189, 4433], [7707, 7769], [8033, 8189], [8231, 8258], [5640, 5659], [5697, 5727], [5828, 5858], [5924, 5980], [7683, 7704], [16918, 16953], [16967, 16975], [16958, 16966], [9996, 10022], [10069, 10125], [10137, 10163], [10214, 10237], [10288, 10306], [10308, 10319], [10321, 10328], [10528, 10539], [10573, 10589], [9872, 9891], [9892, 9917], [14185, 14261], [14513, 14586], [9624, 9861], [16563, 16580], [11330, 11998], [7577, 7617], [7898, 7915], [8281, 8411], [12008, 12033], [18238, 18290]]; // V8k-2: [8286,8311] sulautui _vpAloitusHTML:n koko runkoon. V8k-1: [11737,11741] sulautui per-pelaaja-pikakatsauksen koko puuhun. V3 _jsv · V4 kalenteri · V5 valmentajat · V6 IDP-jono · V7a MDT · V7b Reviewit+tuloskortti. V7c–V8: lisää.
+const RLO = 2692, RHI = 18297;              // VP pääscript (1-idx); RHI -32 kun kuollut renderPelaajat_old poistettiin (V8k-4b)
+// ═══ i18n V5 · V8k-5 — VP:N LOPPULUKKO ═══════════════════════════════════════════════════════
+// Koko pääscript on nyt valvonnassa yhtenä alueena. Aiemmat ~80 funktiokohtaista aluetta on
+// korvattu tällä: jokainen UUSI rivi skriptissä on automaattisesti gaten alainen, eikä uutta
+// koodia voi enää lisätä "alueen ulkopuolelle".
+const RANGES = [[2692, 18297]];
+// SISÄLTÖPOIKKEUKSET — kaksi lohkoa jotka EIVÄT ole chromea vaan sisältöä/dataa. Molemmat on
+// perusteltava; ei-vacuous-testi vaatii että kumpikin sisältää yhä vuotoja (muuten poikkeus on
+// kuollut ja se pitää poistaa).
+//  1) TM_TESTI_OHJEET = ⓘ-koulutussisältö (24 merkintää × otsikko/mitä/tulkinta/vinkki = 87 kenttää).
+//     V8l: käännetään RENDERISSÄ — _tmInfo kääri kentät vpT():hen, lähde pysyy suomeksi jotta
+//     kielenvaihto toimii ilman uudelleenlatausta (moduulitason const jäätyisi lataushetkeen).
+//     Lähdeliteraaleja EI siis reititetä → tämä alue jää pysyvästi poikkeukseksi. Kattavuuden
+//     takaa oma testi alla: JOKAISELLA 87 kentällä on oltava sv-rivi.
+//  2) TP_SIGNAALIT + dedupToimenpiteet = toimenpide-ehdotusten LÄHDETEKSTIT. Nämä KIRJOITETAAN
+//     Firestoreen (toimenpiteet/{id}.teksti) → §32-invariantin mukaan ne pysyvät suomeksi ja
+//     käännetään vasta renderissä vpTToimenpide():llä. Reitittäminen tässä VUOTAISI RUOTSIA
+//     TIETOKANTAAN — sitä ei tehdä.
+const SISALTO_POIKKEUKSET = [[10541, 10568], [17683, 17718], [17761, 17790]];
 const ROUTED_FNS = new Set(['vpT', 'vpTToimenpide']);
 
 // §7 lib-curriculum-nimet (jäävät fi → allowlist)
@@ -52,7 +69,7 @@ function libNames() {
   return out;
 }
 
-const PRODUCT = /X-Factor|Hidden Gem|[Uu]nderdog|Cue|Player Development Card|TalentMaster|Scouting|oversight|nat\.|akt\.|Pre-PHV|Circa-PHV|Post-PHV|terveys\//; // tuotetermit + Cue + PDC/TalentMaster-brändi/Scouting + oversight (verbatim; kartta pitää "oversight-signal")
+const PRODUCT = /X-Factor|Hidden Gem|[Uu]nderdog|Cue|Player Development Card|TalentMaster|Eerikkilä|Scouting|oversight|nat\.|akt\.|Pre-PHV|Circa-PHV|Post-PHV|terveys\//; // tuotetermit + Cue + PDC/TalentMaster-brändi/Scouting + oversight (verbatim; kartta pitää "oversight-signal")
 const ABBR = 'TKI|TSI|H-H|PHV|ACWR|D[1-5]|RPE|ADAR|CPD|DVI|RSVP|MAS|CMJ|SJ|FLEI|VAI\\+?|RAE|OVR|EI|FVP|VNE|SM|TK|IDP|VP|UA|meso|makro|mikro|Cue|cue|ka|cm|kg|min|vk|pv|kk|km/h|m/s';
 const ABBR_ONLY = new RegExp('^(?:\\s|[·—–\\-/:()%.,+↑↓→▾▴◆⚠★☆●○≥≤<>&;0-9]|&amp;|&nbsp;|(?:' + ABBR + '))+$');
 // V7b-live-oppi 0A: allowlist VAIN jos tuotetermien+lyhenteiden JÄLKEEN ei jää fi-sanaa (EI substring — 'Underdog-toimenpideaste' vuoti kun PRODUCT.test mätsäsi 'Underdog')
@@ -67,6 +84,17 @@ const hasWord = (t) => /[A-Za-zÄÖÅäöå]{3,}/.test(t) && !ABBR_ONLY.test(t);
 // `sub` on DISPLAY_PROPS:issa. Lainausmerkki lasketaan koodiksi vain kun mukana on muuta rakennetta
 // (`;` `=` `{` `}` `<` `>`), mikä kattaa attribuutti-scaffoldingin (' class="chip">', 'data-x="1"')
 // ja JSON-muotoiset arvot. Kavennus on tarkoituksella kapein mahdollinen — ks. mutaatiotodiste alla.
+// V8k-4a: markup-paloille OMA koodivartija. `codeish` ajetaan vain nollamarkup-haaralle, joten
+// `<style>`-lohkon CSS-runko ja inline-onclickin JS-runko pääsivät paloina läpi (kaksi väärää
+// positiivista, r4170/r4167). Vartija on TAHALLAAN kapea — vain syntaksi jota suomenkielisessä
+// näyttötekstissä ei esiinny: CSS-sääntörunko `sel{prop:val;}` ja JS-jäsenpolku (document./this./classList.).
+// Mutaatiotodiste: koko skriptin vuotomäärä laskee TÄSMÄLLEEN 2:lla (ks. testi alla).
+const codeishPiece = (v) =>
+  /\{[^}]*:[^}]*[;}]/.test(v) ||
+  /^[a-z][a-z0-9_-]*:[^\s]/.test(v.trim()) ||   // V8k-4b: `avain:arvo`-token (esim. lahde:pelaaja) — `codeish`illa oli tämä jo, paloilla ei
+
+  /\b(?:document|window|this)\.[A-Za-z_$]/.test(v) ||
+  /\bclassList\.|\bgetElementById\(|\bquerySelectorAll?\(/.test(v);
 const codeish = (v) =>
   /[;={}]/.test(v) || (/"/.test(v) && /[;={}<>]/.test(v)) || /_/.test(v) || /--/.test(v) || /var\(|\(--/.test(v) || /:\/\//.test(v) ||
   /rgba?\(|hsla?\(|gradient|calc\(/.test(v) ||   // V7a-live: CSS-funktioarvot ternaary-haaroissa (ei näyttöä)
@@ -74,6 +102,7 @@ const codeish = (v) =>
   /^[a-z][a-z-]*:/.test(v.trim()) ||                    // CSS-property-alku (background:/border-left:2px solid)
   /^\w+\(/.test(v.trim()) ||   // funktiokutsu-handler (act:n toiminto-arg setWs('x'))
   /^[a-z][a-zA-Z0-9]*$/.test(v) ||   // V8e-JF1: bare (VÄLILYÖNNITÖN) lowercase-token = enum/id/koodi
+  /^[^\s@]+@[^\s@]+\.[A-Za-z]{2,}$/.test(v.trim()) ||   // V8k-4b: paljas sähköpostiosoite (ei käännettävää)
   /^["'\s]*(selected|disabled|checked|readonly|required|multiple|hidden|open|active|under|uusi|empty|low|high|locked|sel)["'\s]*$/.test(v);  // HTML-attr/CSS-class-sanat (empty/low/high/locked/sel = tila-luokat, väliin ternaary-haarassa).
 // Erä 2 -korjaus: sallitaan ympäröivä lainausmerkki/whitespace — attribuutti-scaffolding sulkee
 // edellisen attribuutin lainauksen ('" selected'). Kun `"` ei enää yksinään ole codeish, tämä on
@@ -90,7 +119,7 @@ function markupPieces(v) {
 }
 
 // Ydin: skannaa lähde AST:na, palauta vuodot {line, p} RANGES-alueilta. lineOffset = tiedostorivi = loc.start.line + offset.
-function scanLeaks(src, ranges, lineOffset, LIB) {
+function scanLeaks(src, ranges, lineOffset, LIB, poikkeukset) {
   const ast = acorn.parse(src, { ecmaVersion: 'latest', locations: true });
   // PER-OCCURRENCE routed: vpT/vpTToimenpide-kutsujen ARGUMENTTIEN char-ranget. Kandidaatti on routed VAIN jos
   // SE solmu on jonkin arg-rangen sisällä — EI globaali string-jäsenyys (V5-live-oppi: globaali ROUTED maskasi
@@ -177,7 +206,8 @@ function scanLeaks(src, ranges, lineOffset, LIB) {
     return false;
   };
 
-  const inRange = (ln) => ranges.some(([lo, hi]) => ln >= lo && ln <= hi);
+  const poikkeus = (ln) => (poikkeukset || []).some(([lo, hi]) => ln >= lo && ln <= hi);
+  const inRange = (ln) => ranges.some(([lo, hi]) => ln >= lo && ln <= hi) && !poikkeus(ln);
   // Erä 4 -korjaus: isLib oli PREFIX-match → mikä tahansa chrome-teksti joka ALKAA lib-nimellä
   // allowlistattiin. Lib-nimi 'Fyysinen' peitti chrome-tekstin 'Fyysinen ikkuna' ja 'Tekninen' peitti
   // 'Tekninen vahvuus' — molemmat vuotivat sv-tilassa gaten ollessa vihreä (live paljasti). Nyt
@@ -202,7 +232,7 @@ function scanLeaks(src, ranges, lineOffset, LIB) {
     else if (inDisplayContext(lit.tl || lit.node) && hasWord(value) && !codeish(value)) pieces = [value.trim()];
     else pieces = [];
     for (const p of pieces) {
-      if (!hasWord(p) || !hasWord(stripAllow(p)) || isLib(p)) continue; // 0A: tuotetermin JÄLKEEN ei fi:tä → ohita; muuten vuoto
+      if (!hasWord(p) || !hasWord(stripAllow(p)) || isLib(p) || codeishPiece(p)) continue; // 0A: tuotetermin JÄLKEEN ei fi:tä → ohita; muuten vuoto
       const key = line + '|' + p;
       if (seen.has(key)) continue; seen.add(key);
       leaks.push({ line, p });
@@ -218,7 +248,7 @@ describe('VP_v25 render-kielineutraali-gate (step G · AST)', () => {
   it('reititetyillä render-alueilla 0 raakaa reitittämätöntä fi-näyttöliteraalia', () => {
     const lines = HTML.split('\n');
     const src = lines.slice(RLO - 1, RHI - 1).join('\n');
-    const leaks = scanLeaks(src, RANGES, RLO - 1, LIB);
+    const leaks = scanLeaks(src, RANGES, RLO - 1, LIB, SISALTO_POIKKEUKSET);
     if (leaks.length) {
       throw new Error(
         `Reititetyillä VP-render-alueilla ${leaks.length} raakaa reitittämätöntä fi-näyttöliteraalia ` +
@@ -281,52 +311,52 @@ describe('VP_v25 render-kielineutraali-gate (step G · AST)', () => {
   // ON aina vpT(...):n sisällä alueellaan. Sulkee saman aukon V5–V8:n enum-display-labeleille (roolit ym.)
   // — uusi alaerä lisää oman member-näyttönsä tähän.
   const MEMBER_DISPLAY = [
-    { expr: 'meta.nimi', ranges: [[12663, 13813]] }, // V4 kalenteri: KALENTERI_TYYPIT-tyyppinimi (§1 enum-avain fi, näyttö vpT)
-    { expr: 'IDP_TILA_LBL[p.idp_tila]', ranges: [[6148, 6188], [14523, 14573]] }, // V6 idp_tila-statusnäyttö (§1 enum-avain fi, näyttö vpT)
-    { expr: 'dm.nimi', ranges: [[15053, 15059]] }, // V7b domeeni-display fokusChip (lc-avain fi, näyttö vpT)
-    { expr: 'k.nimi', ranges: [[14686, 14690]] }, // V7b-fix2 tuloskortti _vpTkAlue mittarilabel (lib-data, näyttö vpT)
-    { expr: 'k.arvo', ranges: [[14686, 14690]] }, // V7b-fix2 tuloskortti _vpTkAlue mittari-arvo (Ei arviointeja vielä ym.)
+    { expr: 'meta.nimi', ranges: [[12970, 14070]] }, // V4 kalenteri: KALENTERI_TYYPIT-tyyppinimi (§1 enum-avain fi, näyttö vpT)
+    { expr: 'IDP_TILA_LBL[p.idp_tila]', ranges: [[6500, 6520], [14840, 14890]] }, // V6 idp_tila-statusnäyttö (§1 enum-avain fi, näyttö vpT)
+    { expr: 'dm.nimi', ranges: [[15360, 15375]] }, // V7b domeeni-display fokusChip (lc-avain fi, näyttö vpT)
+    { expr: 'k.nimi', ranges: [[14998, 15002]] }, // V7b-fix2 tuloskortti _vpTkAlue mittarilabel (lib-data, näyttö vpT)
+    { expr: 'k.arvo', ranges: [[14998, 15002]] }, // V7b-fix2 tuloskortti _vpTkAlue mittari-arvo (Ei arviointeja vielä ym.)
     // V7+: esim. { expr: 'roolimap[rooli]', ranges: [[...]] }
     // ── Erä 3 (kuormanarratiivi) — KAKSI UUTTA SOKEAA LUOKKAA, kumpikin gaten ulottumattomissa:
     // (a) CONTAINER/MUUTTUJA-REITITETTY: acwrSana-ternaari on sidottu VariableDeclaratoriin, ei
     //     markup-ketjuun → inDisplayContext=false. Lisäksi 'linjassa'/'koholla'/'matala' ovat
     //     codeish-bare-lowercase-tokeneita → kaksinkertaisesti piilossa. Vartija vaatii vpT:n
     //     MÄÄRITTELYSSÄ (arvo reititetään kerran, muuttujaa käytetään markupissa vapaasti).
-    { expr: "'kertyy ~4 vk'", ranges: [[9981, 10026]] },
-    { expr: "'linjassa'", ranges: [[9981, 10026]] },
-    { expr: "'koholla'", ranges: [[9981, 10026]] },
-    { expr: "'matala'", ranges: [[9981, 10026]] },
+    { expr: "'kertyy ~4 vk'", ranges: [[10245, 10255]] },
+    { expr: "'linjassa'", ranges: [[10245, 10255]] },
+    { expr: "'koholla'", ranges: [[10245, 10255]] },
+    { expr: "'matala'", ranges: [[10245, 10255]] },
     // (b) INLINE-ONCLICK-TOAST JS:N RAKENTAMASSA MARKUPISSA: toast(...) attribuuttimerkkijonon sisällä
     //     ei ole AST-kutsu (Erä 1:n kanavaportti ei näe) eikä >text< (render-gate ei näe). Reititys
     //     tehdään muuttujaan ennen merkkijonoa; vartija lukitsee sen.
-    { expr: "'Kuorma pidetty ennallaan'", ranges: [[9981, 10026]] },
+    { expr: "'Kuorma pidetty ennallaan'", ranges: [[10245, 10255]] },
     // ── Erä 4 (mittausnäkymät). Kaksi luokkaa, kumpikin eri syystä gaten ulottumattomissa:
     // (4) CODEISH-PIILO: 'muokattavissa'/'luku' OVAT markup-ketjussa (display-konteksti tunnistuu),
     //     mutta codeish pudottaa ne bare-lowercase-tokeneina → sokeus tulee SISÄLLÖSTÄ, ei kontekstista.
     //     Tämä on erän 1. tapaus jossa luokka 4 esiintyy YKSINÄÄN (erässä 3 se kasautui luokan 5 päälle).
-    { expr: "'muokattavissa'", ranges: [[10618, 10650]] },
-    { expr: "'luku'", ranges: [[10618, 10650]] },
+    { expr: "'muokattavissa'", ranges: [[10880, 10890]] },
+    { expr: "'luku'", ranges: [[10880, 10890]] },
     // (5) CONTAINER/MUUTTUJA: arvo sidottu VariableDeclaratoriin (mt @10606, patteristo @10983),
     //     renderöidään vasta myöhemmin markupissa → inDisplayContext=false.
-    { expr: "'mitätöity '", ranges: [[10598, 10616]] },
-    { expr: "'H-H-patteristo'", ranges: [[10973, 10997]] },
-    { expr: "'tekniikkakilpailu'", ranges: [[10973, 10997]] },
-    { expr: "'mittaus'", ranges: [[10973, 10997]] },
+    { expr: "'mitätöity '", ranges: [[10865, 10875]] },
+    { expr: "'H-H-patteristo'", ranges: [[11240, 11250]] },
+    { expr: "'tekniikkakilpailu'", ranges: [[11240, 11250]] },
+    { expr: "'mittaus'", ranges: [[11240, 11250]] },
   ];
   // Erä 4 (mittausnäkymät, _vpMittaus*-perhe) — ALUE-todiste 7 funktion yli.
   it('RANGES-alueet _vpMittaus* ovat oikeasti valvonnassa (mutaatio aitoon lähteeseen)', () => {
     const lines = HTML.split('\n');
     const src = lines.slice(RLO - 1, RHI - 1).join('\n');
-    expect(scanLeaks(src, RANGES, RLO - 1, LIB).length).toBe(0);
+    expect(scanLeaks(src, RANGES, RLO - 1, LIB, SISALTO_POIKKEUKSET).length).toBe(0);
     // kaksi eri funktiota perheen eri päistä → todistaa ettei vain yksi ankkuri osu
     const r1 = src.replace("vpT('Korjaa mittaus')", "'Korjaa mittaus'");
     expect(r1).not.toBe(src);
-    expect(scanLeaks(r1, RANGES, RLO - 1, LIB).map((l) => l.p)).toContain('Korjaa mittaus');
+    expect(scanLeaks(r1, RANGES, RLO - 1, LIB, SISALTO_POIKKEUKSET).map((l) => l.p)).toContain('Korjaa mittaus');
     const r2 = src.replace("vpT('Mitä testit kertovat')", "'Mitä testit kertovat'");
     expect(r2).not.toBe(src);
-    const l2 = scanLeaks(r2, RANGES, RLO - 1, LIB);
+    const l2 = scanLeaks(r2, RANGES, RLO - 1, LIB, SISALTO_POIKKEUKSET);
     expect(l2.map((l) => l.p)).toContain('Mitä testit kertovat');
-    expect(l2.every((l) => l.line >= 10854 && l.line <= 11307)).toBe(true);
+    expect(l2.every((l) => l.line >= 10858 && l.line <= 11311)).toBe(true);
   });
 
   // Erä 4c — ENUM→NÄYTTÖ. TKI-mitali ('kulta'/'hopea'/'pronssi') on Firestore-arvo joka renderöityy
@@ -335,7 +365,7 @@ describe('VP_v25 render-kielineutraali-gate (step G · AST)', () => {
   // MEMBER_DISPLAY ei sovi tähän: kääre on _jsvEsc(vpT(merkki)), jolloin vartijan etsimä lauseke ei
   // esiinny lähteessä lainkaan → se menisi vacuous-läpi. Siksi eksplisiittinen lähdeväite.
   it('TKI-mitali renderöidään vpT:n läpi, ei raakana enum-arvona', () => {
-    const alue = HTML.split('\n').slice(11276, 11307).join('\n');
+    const alue = HTML.split('\n').slice(11280, 11311).join('\n');
     expect(alue).toContain('vpT(merkki)');
     expect(alue).not.toMatch(/_jsvEsc\(merkki\)/);
     // ja mitaliarvot ovat kartassa (muuten vpT palauttaisi fi:n)
@@ -357,6 +387,124 @@ describe('VP_v25 render-kielineutraali-gate (step G · AST)', () => {
     expect(scanLeaks(puhdas, [[1, 99]], 0, lib).map((l) => l.p)).toEqual([]);
   });
 
+  // ═══ V8l — SIDECAR-KATTAVUUS ═══════════════════════════════════════════════════════════════
+  // TM_TESTI_OHJEET on poikkeus render-gatesta (käännös tapahtuu renderissä, ei lähteessä).
+  // Silloin AINOA vartija on tämä: jokaisen sisältökentän on löydyttävä sv-kartasta. Ilman tätä
+  // uusi ⓘ-merkintä lisättäisiin ilman käännöstä eikä mikään huomauttaisi.
+  it('V8l: TM_TESTI_OHJEET — jokaisella sisältökentällä on sv-rivi (render-käännöksen kattavuus)', () => {
+    const lines = HTML.split('\n');
+    const [lo, hi] = SISALTO_POIKKEUKSET[0];
+    const blk = lines.slice(lo - 1, hi).join('\n');
+    const kentat = [...blk.matchAll(/\b(otsikko|mita|tulkinta|vinkki)\s*:\s*'((?:[^'\\]|\\.)*)'/g)]
+      .map((m) => m[2].replace(/\\'/g, "'"));
+    expect(kentat.length).toBeGreaterThan(80);                 // ei-vacuous: kartta löytyi oikeasti
+    const sb = { console: { log() {}, warn() {}, error() {} } };
+    sb.window = sb; vm.createContext(sb);
+    ['lib/tm_lang.js', 'lib/tm_i18n_common.js', 'lib/tm_vp_i18n.js']
+      .forEach((f) => vm.runInContext(readFileSync(join(__dir, '..', f), 'utf8'), sb));
+    const map = (sb.TM_VP_I18N && sb.TM_VP_I18N.sv) || {}, common = (sb.TM_I18N_COMMON && sb.TM_I18N_COMMON.sv) || {};
+    const ilman = kentat.filter((k) => !map[k] && !common[k]);
+    expect(ilman).toEqual([]);
+    // …ja render KÄÄNTÄÄ ne (muuten kartta olisi kuollutta painolastia)
+    expect(HTML).toContain("+ vpT(o.otsikko) +");
+    expect(HTML).toContain("+ vpT(o.mita) +");
+    expect(HTML).toContain("+ vpT(o.tulkinta) +");
+    expect(HTML).toContain("+ vpT(o.vinkki) +");
+  });
+
+  // ═══ V8k-5 — LUKON TODISTEET ═══════════════════════════════════════════════════════════════
+  // Lukko on hyödytön jos (a) poikkeuslohkot ajautuvat pois paikoiltaan tai (b) niistä tulee
+  // hiljaa tyhjiä. Molemmat todistetaan tässä.
+  it('LUKKO: RANGES kattaa koko pääscriptin yhtenä alueena', () => {
+    expect(RANGES).toEqual([[RLO, RHI]]);
+    const lines = HTML.split('\n');
+    expect(lines[RLO - 2]).toContain('<script>');     // RLO = ensimmäinen KOODIrivi scriptin sisällä
+    expect(lines[RHI - 1]).toContain('</script>');    // RHI = sulkeva tagi
+  });
+
+  it('LUKKO: sisältöpoikkeukset ovat ANKKUROITUJA (eivät ajautuneet)', () => {
+    const lines = HTML.split('\n');
+    const [[a1, b1], [a2, b2], [a3, b3]] = SISALTO_POIKKEUKSET;
+    expect(lines[a1 - 1]).toContain('window.TM_TESTI_OHJEET = {');
+    expect(lines[b1 - 1].trim()).toBe('};');
+    expect(lines[a2 - 1]).toContain('const TP_SIGNAALIT = [');
+    expect(lines[b2 - 1].trim()).toBe('];');
+    expect(lines[a3 - 1]).toContain('function dedupToimenpiteet(');
+    expect(lines[b3 - 1].trim()).toBe('}');
+  });
+
+  it('LUKKO: jokainen sisältöpoikkeus on EI-TYHJÄ (kuollut poikkeus = poistettava)', () => {
+    const lines = HTML.split('\n');
+    const src = lines.slice(RLO - 1, RHI - 1).join('\n');
+    const kaikki = scanLeaks(src, RANGES, RLO - 1, LIB);   // ILMAN poikkeuksia
+    expect(kaikki.length).toBeGreaterThan(0);
+    for (const [lo, hi] of SISALTO_POIKKEUKSET) {
+      const n = kaikki.filter((l) => l.line >= lo && l.line <= hi).length;
+      expect(n, `poikkeus [${lo},${hi}] ei sisällä yhtään vuotoa → kuollut, poista se`).toBeGreaterThan(0);
+    }
+    // …ja poikkeusten ULKOPUOLELLA ei ole yhtään vuotoa (= lukko todella pitää)
+    const ulkona = kaikki.filter((l) => !SISALTO_POIKKEUKSET.some(([lo, hi]) => l.line >= lo && l.line <= hi));
+    expect(ulkona.map((l) => `${l.line}: ${l.p}`)).toEqual([]);
+  });
+
+  it('LUKKO: mutaatio skriptin MOLEMMISSA päissä punertaa (ei vain keskellä)', () => {
+    const lines = HTML.split('\n');
+    const src = lines.slice(RLO - 1, RHI - 1).join('\n');
+    // alkupää (topbar/tervehdys ~2875) ja loppupää (CDN-varoitus ~18280)
+    const alku = src.replace("vpT('joukkueiden pulssi ja kriittiset signaalit reaaliaikaisesti.')",
+      "'joukkueiden pulssi ja kriittiset signaalit reaaliaikaisesti.'");
+    expect(alku).not.toBe(src);
+    expect(scanLeaks(alku, RANGES, RLO - 1, LIB, SISALTO_POIKKEUKSET).map((l) => l.p))
+      .toContain('joukkueiden pulssi ja kriittiset signaalit reaaliaikaisesti.');
+    // r3284 (tyhjän tilan aloitusopas) EI ollut minkään lukkoa edeltävän alueen sisällä → todistaa
+    // että lukko laajensi kattavuutta aidosti, ei vain niputtanut vanhoja alueita uudelleen.
+    const ennenKattamaton = src.replace("vpT('Aloita näistä kolmesta')", "'Aloita näistä kolmesta'");
+    expect(ennenKattamaton).not.toBe(src);
+    expect(scanLeaks(ennenKattamaton, RANGES, RLO - 1, LIB, SISALTO_POIKKEUKSET).map((l) => l.p))
+      .toContain('Aloita näistä kolmesta');
+    const loppu = src.replace("vpT('Lataa tuore versio uudelleen →')", "'Lataa tuore versio uudelleen →'");
+    expect(loppu).not.toBe(src);
+    expect(scanLeaks(loppu, RANGES, RLO - 1, LIB, SISALTO_POIKKEUKSET).map((l) => l.p))
+      .toContain('Lataa tuore versio uudelleen →');
+  });
+
+  // V8k-4b — kaksi kapeaa laajennusta, molemmat mitattu (koko skripti 96 → 94, 0 uutta):
+  //   (1) `Eerikkilä` = laitosnimi → PRODUCT-termi (kuten TalentMaster/Hidden Gem). Poistaa väärät
+  //       positiivit joissa EI ole muuta kuin tuotetermi + lyhenne ('H-H/Eerikkilä', '/5 · Eerikkilä').
+  //   (2) paljas sähköpostiosoite → codeish (ei koskaan käännettävää näyttötekstiä).
+  // Molemmat PITÄÄ säilyttää kapeina: lause jossa Eerikkilä + suomea pysyy vuotona.
+  it('Eerikkilä-tuotetermi ja sähköposti eivät vuoda — mutta Eerikkilä + fi-sana vuotaa yhä', () => {
+    const vain = `function _a(){ return '<span>H-H/Eerikkilä</span><span>/5 · Eerikkilä</span>'; }`;
+    expect(scanLeaks(vain, [[1, 99]], 0, new Set())).toEqual([]);
+    const mail = `function _m(){ document.getElementById('x').textContent = 'demo@talentmaster.fi'; }`;
+    expect(scanLeaks(mail, [[1, 99]], 0, new Set())).toEqual([]);
+    const seka = `function _s(){ return '<div>Normivertailu (Eerikkilä, taso-3 = ikäluokan keskitaso)</div>'; }`;
+    expect(scanLeaks(seka, [[1, 99]], 0, new Set()).map((l) => l.p))
+      .toEqual(['Normivertailu (Eerikkilä, taso-3 = ikäluokan keskitaso)']);
+  });
+
+  // V8k-4a — codeishPiece-KAVENNUS. `codeish` ajetaan vain nollamarkup-haaralle, joten markup-
+  // literaalista pilkotut palat pääsivät läpi ilman koodisuodatusta: `<style>`-lohkon CSS-runko ja
+  // inline-onclickin JS-runko kirjautuivat "vuodoiksi" (r4170/r4167). Kavennus on tahallaan kapea.
+  // TÄMÄ CASE PITÄÄ KAVENNUKSEN KAPEANA: näyttöteksti jossa on `;`/`=`/`:` EI saa hävitä.
+  it('codeishPiece pudottaa CSS-/JS-rungon mutta EI välimerkillistä näyttötekstiä', () => {
+    const css = `function _s(){ return '<style>[data-k].on{background:rgba(1,2,3,.1)!important;color:#28B090}</style>'; }`;
+    expect(scanLeaks(css, [[1, 99]], 0, new Set())).toEqual([]);
+    const js = `function _b(){ return '<button onclick="this.classList.remove(1);document.getElementById(2)">x</button>'; }`;
+    expect(scanLeaks(js, [[1, 99]], 0, new Set())).toEqual([]);
+    // …mutta aito näyttöteksti välimerkeillä pysyy vuotona (kavennus ei saa niellä sitä)
+    // V8k-4b: `avain:arvo`-token (kenttänimi monospacena) — `codeish` tunsi tämän jo, palat eivät
+    const kentta = `function _k(){ return '<div>x <span class="mono">lahde:pelaaja</span> y</div>'; }`;
+    expect(scanLeaks(kentta, [[1, 99]], 0, new Set())).toEqual([]);
+    const nayt = `function _n(){ return '<div>Taso 3 = ikäluokan keskitaso; vertaa varoen</div>'; }`;
+    expect(scanLeaks(nayt, [[1, 99]], 0, new Set()).map((l) => l.p))
+      .toEqual(['Taso 3 = ikäluokan keskitaso; vertaa varoen']);
+    // …eikä kaksoispisteellinen NÄYTTÖTEKSTI (välilyönti perässä) saa hävitä
+    const otsikko = `function _o(){ return '<div>Radar-normi: ikäluokan keskitaso</div>'; }`;
+    expect(scanLeaks(otsikko, [[1, 99]], 0, new Set()).map((l) => l.p))
+      .toEqual(['Radar-normi: ikäluokan keskitaso']);
+  });
+
   // Erä 4 — TODISTE ETTÄ GATE ON SOKEA luokille 4 ja 5 (→ MEMBER_DISPLAY on ainoa vartija).
   it('codeish-bare-token ja container-muuttuja EIVÄT näy scanLeaksille', () => {
     // (4) display-konteksti tunnistuu, mutta codeish pudottaa bare-lowercase-tokenin
@@ -373,16 +521,16 @@ describe('VP_v25 render-kielineutraali-gate (step G · AST)', () => {
   it('RANGES-alue kuormanarratiivi on oikeasti valvonnassa (mutaatio aitoon lähteeseen)', () => {
     const lines = HTML.split('\n');
     const src = lines.slice(RLO - 1, RHI - 1).join('\n');
-    expect(scanLeaks(src, RANGES, RLO - 1, LIB).length).toBe(0);
+    expect(scanLeaks(src, RANGES, RLO - 1, LIB, SISALTO_POIKKEUKSET).length).toBe(0);
     const rikki = src.replace("vpT('§28 kuormaehdotus:')", "'§28 kuormaehdotus:'");
     expect(rikki).not.toBe(src);
-    const leaks = scanLeaks(rikki, RANGES, RLO - 1, LIB);
+    const leaks = scanLeaks(rikki, RANGES, RLO - 1, LIB, SISALTO_POIKKEUKSET);
     expect(leaks.map((l) => l.p)).toContain('§28 kuormaehdotus:');
     expect(leaks.every((l) => l.line >= 9981 && l.line <= 11070)).toBe(true);
     // Kehon valmius -pää erikseen (toinen alue samassa erässä)
     const rikki2 = src.replace("vpT('🎯 Heikoin ketju:')", "'🎯 Heikoin ketju:'");
     expect(rikki2).not.toBe(src);
-    expect(scanLeaks(rikki2, RANGES, RLO - 1, LIB).map((l) => l.p).join(' ')).toContain('Heikoin ketju');
+    expect(scanLeaks(rikki2, RANGES, RLO - 1, LIB, SISALTO_POIKKEUKSET).map((l) => l.p).join(' ')).toContain('Heikoin ketju');
   });
 
   // Erä 3 — TODISTE ETTÄ GATE ON NÄILLE SOKEA (ja siksi vartija on välttämätön, ei koristeellinen).
@@ -401,11 +549,11 @@ describe('VP_v25 render-kielineutraali-gate (step G · AST)', () => {
   it('RANGES-alue [3539,3766] renderSignals on oikeasti valvonnassa (mutaatio aitoon lähteeseen)', () => {
     const lines = HTML.split('\n');
     const src = lines.slice(RLO - 1, RHI - 1).join('\n');
-    expect(scanLeaks(src, RANGES, RLO - 1, LIB).length).toBe(0);          // lähtötila puhdas
+    expect(scanLeaks(src, RANGES, RLO - 1, LIB, SISALTO_POIKKEUKSET).length).toBe(0);          // lähtötila puhdas
     // unroutaa yksi kytkentä renderSignalsin sisällä → gaten PITÄÄ punastua juuri siellä
     const rikki = src.replace("cta: vpT('Hyväksy →')", "cta: 'Hyväksy →'");
     expect(rikki).not.toBe(src);
-    const leaks = scanLeaks(rikki, RANGES, RLO - 1, LIB);
+    const leaks = scanLeaks(rikki, RANGES, RLO - 1, LIB, SISALTO_POIKKEUKSET);
     expect(leaks.map((l) => l.p)).toContain('Hyväksy →');
     expect(leaks.every((l) => l.line >= 3539 && l.line <= 3766)).toBe(true);
 
@@ -416,7 +564,7 @@ describe('VP_v25 render-kielineutraali-gate (step G · AST)', () => {
       "sub: 'Lisää valmentajan arvio → trianguloitu D3 (avaa pelaajakortti · \"Arvioi (VP)\")'"
     );
     expect(rikki2).not.toBe(src);
-    const leaks2 = scanLeaks(rikki2, RANGES, RLO - 1, LIB);
+    const leaks2 = scanLeaks(rikki2, RANGES, RLO - 1, LIB, SISALTO_POIKKEUKSET);
     expect(leaks2.length).toBeGreaterThan(0);
     expect(leaks2.every((l) => l.line >= 3539 && l.line <= 3766)).toBe(true);
   });
@@ -461,6 +609,18 @@ describe('VP_v25 render-kielineutraali-gate (step G · AST)', () => {
         }
       }
     }
+    // V8k-4b — EI-VACUOUS PER ENTRY: rivinumeroihin ankkuroitu vartija rappeutuu hiljaa kun koodi
+    // siirtyy (todettu: 15/16 aluetta oli ajautunut niin ettei yksikään osuma ollut enää alueella →
+    // vartija meni läpi tyhjänä). Nyt jokaisen entryn on osuttava vähintään kerran, muuten punainen.
+    const tyhjat = [];
+    for (const { expr, ranges } of MEMBER_DISPLAY) {
+      let n = 0;
+      for (const [lo, hi] of ranges) for (let ln = lo; ln <= hi; ln++) {
+        const line = lines[ln - 1]; if (line) n += line.split(expr).length - 1;
+      }
+      if (!n) tyhjat.push(`${expr} @ ${JSON.stringify(ranges)} — 0 osumaa (alue ajautunut)`);
+    }
+    expect(tyhjat).toEqual([]);
     // Ei-vacuous: skanneri nappaa bare-muodon (synteettinen todiste)
     const probe = ['x = meta.nimi + "y"', 'x = vpT(meta.nimi)'];
     const pbad = probe.filter((l, idx) => { const i = l.indexOf('meta.nimi'); return l.slice(i - 4, i) !== 'vpT(' && idx === 0; });
