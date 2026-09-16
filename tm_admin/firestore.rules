@@ -1,9 +1,19 @@
 rules_version = '2';
 // ══════════════════════════════════════════════════════════════════════════
-// TalentMaster™ — firestore.rules v3.12
+// TalentMaster™ — firestore.rules v3.13
 //
 // Lähde:  tm_admin/firestore.rules
 // Deploy: PR → N4-CI deployaa automaattisesti (Console-käsityö poistui).
+//
+// Muutokset v3.12 → v3.13 (Seurakerros TIER 1 — seurakohtaiset konseptit):
+//   + seurat/{sid}/konseptit/{avain} — kaanonin (lib/tm_teknistaktiset.js) päälle tuleva
+//     seuraoverride: nimi/kpi/pelaaja_miksi/pelitilanne/kysymykset/piilotettu + seuran omat
+//     (avain 'seura_*'). read: KOKO seura (valmentaja tarvitsee konseptit renderiin).
+//     write: VAIN onKonseptiMuokkaaja() = vp | urheilutoimenjohtaja (+ SA). Valmentaja EI —
+//     muuten seuran konseptikieli hajoaisi joukkueittain (§37 roolimalli). Valmentajan oma
+//     kerros on TIER 2 (konseptin VALINTA + per-pelaaja tavoitteet), joka on ennallaan.
+//     seurasihteeri EI mukana: hallinnollinen rooli, ei pedagoginen.
+//     delete sallittu muokkaajalle: "palauta kaanoniin" = override-dokumentin poisto.
 //
 // Muutokset v3.11 → v3.12 (Vaihe 7.2a — fysiikkaohjelmakirjasto):
 //   + seurat/{sid}/ohjelmat/{id} — deterministinen ohjelmakirjasto. read: oma seura.
@@ -186,6 +196,14 @@ service cloud.firestore {
       return request.auth.token.rooli in [
         'vp', 'urheilutoimenjohtaja', 'seurasihteeri'
       ];
+    }
+
+    // Seurakerros TIER 1 — kuka saa muokata seuran konseptikieltä (kaanonin override).
+    // TARKOITUKSELLA KAPEAMPI kuin onJohtoRooli(): seurasihteeri on hallinnollinen rooli,
+    // ei pedagoginen. VP (Fotbollsutvecklare) / urheilutoimenjohtaja (Head of Talent) omistavat
+    // seuran konseptikielen; valmentaja valitsee konseptin ja asettaa pelaajatavoitteet (TIER 2).
+    function onKonseptiMuokkaaja(seuraId) {
+      return onOmaSeura(seuraId) && request.auth.token.rooli in ['vp', 'urheilutoimenjohtaja'];
     }
 
     // (Seurasihteerin oikeudet hoituvat onJohtoRooli():n kautta — erillinen onSeuraSihteeri
@@ -379,6 +397,21 @@ service cloud.firestore {
         allow read:   if onSuperAdmin() || (onOmaSeura(seuraId) && onJohtoRooli());
         allow create: if onSuperAdmin() || (onOmaSeura(seuraId) && onJohtoRooli());
         allow update: if onSuperAdmin() || (onOmaSeura(seuraId) && onJohtoRooli());
+      }
+
+      // ── KONSEPTIT (v3.13) — SEURAKERROS TIER 1 ──────────────────────────────────────
+      // Kerrosmalli: TIER 0 kaanon (lib, read-only) → TIER 1 tämä → TIER 2 yksilö (pelaajadata).
+      // Dokumentti on HARVA override: vain muutetut kentät. Avain = kaanonin avain (y_h0…) tai
+      // seuran oma 'seura_<slug>'. Rules EIVÄT periydy → oma blokki.
+      //   read   koko seura — valmentaja tarvitsee resolvoidut konseptit renderiin.
+      //   write  VAIN vp/urheilutoimenjohtaja (+SA) — ks. onKonseptiMuokkaaja().
+      //   delete sama portti: "palauta kaanoniin" poistaa koko override-dokumentin.
+      // Sisältö on seuran pedagogista tekstiä (ei pelaajaa yksilöivää) → ei GDPR-erityiskäsittelyä.
+      match /konseptit/{konseptiAvain} {
+        allow read:   if onSuperAdmin() || (onKirjautunut() && onOmaSeura(seuraId));
+        allow create: if onSuperAdmin() || onKonseptiMuokkaaja(seuraId);
+        allow update: if onSuperAdmin() || onKonseptiMuokkaaja(seuraId);
+        allow delete: if onSuperAdmin() || onKonseptiMuokkaaja(seuraId);
       }
 
       // ── KONFIGURAATIO (v3.2) — seuran normijärjestelmä (normijarjestelma/maa/kieli) ──

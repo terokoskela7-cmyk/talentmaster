@@ -146,8 +146,26 @@ describe('Master render-kielineutraali-gate (Erä 3 DoD-ydin)', () => {
     const PROD = /X-Factor|Hidden Gem|Underdog|Continuing Professional Development/;
     const ENUM_FIELD = /(?:kind|tila|domeeni|malli|lahde|faasi|ketju|otsikko|protokolla)\s*:\s*$/;
     const CMP = /[=!]==?\s*$/;
+    // ANKKUROIDUT allowlist-alueet. Aiemmin nämä olivat kovakoodattuja rivinumeroita, jotka
+    // ajautuivat aina kun scriptiin lisättiin koodia — silloin gate punertui kolmesta AIDOSTI
+    // allowlistatusta lohkosta (DEMO-data · KETJU_NIMET · drill-signaalilohko). Nyt rajat
+    // haetaan lähteestä ankkureilla, joten ne seuraavat koodia. EI-VACUOUS: jokaisen alueen on
+    // löydyttävä (findIndex > 0), muuten testi kaatuu eikä hiljaisesti laajenna kattavuutta.
+    const _lohko = (alkuEhto, loppuEhto) => {
+      const a = lines.findIndex(alkuEhto);
+      expect(a).toBeGreaterThan(0);
+      let b = -1;
+      for (let i = a + 1; i < lines.length; i++) if (loppuEhto(lines[i], i)) { b = i; break; }
+      expect(b).toBeGreaterThan(a);
+      return [a + 1, b + 1];
+    };
+    const [dLo, dHi] = _lohko((l) => l === 'const DEMO = {', (l) => l === '};');
+    const [kLo, kHi] = _lohko((l) => l === 'const KETJU_NIMET = {', (l) => l === '};');
+    // signal-drill = demo-mockup (§21, vain _demo) → koko haara allowlistattu kuten ennenkin:
+    // contentEl-template + actionsEl-template. Loppuankkuri = drillDo-nappirivi.
+    const [sLo, sHi] = _lohko((l) => l.includes("contentEl.innerHTML = `") && true, (l) => l.includes("drillDo('${a}')"));
     const isAllowedRegion = (ln) =>
-      (ln >= 1917 && ln <= 2056) || (ln >= 2683 && ln <= 2686) || (ln >= 9353 && ln <= 9375);
+      (ln >= dLo && ln <= dHi) || (ln >= kLo && ln <= kHi) || (ln >= sLo && ln <= sHi);
 
     const leaks = [];
     for (let idx = lo - 1; idx < hi - 1; idx++) {

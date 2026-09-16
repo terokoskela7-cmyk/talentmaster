@@ -37,6 +37,7 @@
 <script src="lib/tm_arviointi_silta.js?v=3"></script>   <!-- Vaihe 5: arviointi→resepti-silta (heikoin havaittu D2 → ehdotettu jaksofokus) · v2 = I3a SSOT-osoitin tm_kehityspolku -->
 <script src="lib/tm_idp.js?v=6"></script>   <!-- I3a: + kesto valmentajan asetettavaksi (opts.kestoVk) · I2: lahde+pvm/idp_lahde/idpVahvinDim 1–3 -->
 <script src="lib/tm_teknistaktiset.js?v=5"></script>   <!-- Vaihe 4a: teknis-taktinen curriculum (VP:n jaksofokus talenteille) · v5 = I3a pelipaikkaportti U14+ + harjoite-tägit/jalka -->
+<script src="lib/tm_konsepti_resolve.js?v=1"></script>   <!-- Seurakerros TIER 1: seurat/{sid}/konseptit override kaanonin päälle (kaanon = oletus, ei pakko) -->
 <script src="lib/tm_teknistaktiset_sv.js?v=1"></script>   <!-- i18n V5 Vaihe B: curriculumin sv-sidecar (TM_TT_SV). Generoitu lib on kielineutraali → sv asuu tässä; VP valitsee kielen (_ttSv), puuttuva avain → fi -->
 <script src="lib/tm_kehityspolku.js?v=2"></script>   <!-- I3a: looginen silta -resolver (idp_fokus → konsepti/fundamentti → harjoite) -->
 <script src="lib/tm_jaksofokus.js?v=5"></script>
@@ -2875,6 +2876,8 @@ async function superAdminVaihdaSeura(uusiSeuraId) {
   if (_gsSel) _gsSel.textContent = valittuNimi + ' · ' + vpT('joukkueiden pulssi ja kriittiset signaalit reaaliaikaisesti.');
 
   // Nollaa data ja lataa uudelle seuralle
+  // TIER 1 -ERISTYS: konseptikerros on seurakohtainen → tyhjennä edellisen seuran kerros ennen latausta.
+  if (typeof tmKonseptiTyhjennaKerros === 'function') tmKonseptiTyhjennaKerros();
   _pelaajat = []; _valmentajat = []; _tapahtumat = []; _idpJono = [];
   await lataaKaikki();
 
@@ -2934,6 +2937,7 @@ function getViikko() {
 
 // ─── DATA LOADING ────────────────────────────────────────
 async function lataaKaikki() {
+  await lataaKonseptikerros();   // TIER 1 ENNEN renderiä: konseptit resolvoidaan kerroksen kanssa (muuten ensirender näyttäisi kaanonin)
   await Promise.all([lataaPelaajat(), lataaValmentajat(), lataaTapahtumat(), lataaIdpJono(), lataaJoukkueNimet(), lataaKalenteriTapahtumat(), lataaSeurantaKuittaukset()]);
   renderTilanne();
   renderTeamPulse();
@@ -2947,6 +2951,26 @@ async function lataaKaikki() {
   // #89: 3-vaiheinen modaali POISTETTU navin/ensikäynnin oletuksesta → inline-checklist (Master-pattern) on yksi totuuslähde.
   _alustaToimenpiteet();   // OSA 3 — generoi + lataa toimenpiteet (async, try/catch sisällä; demossa placeholder)
 }
+
+// ── SEURAKERROS TIER 1 — seurat/{sid}/konseptit → resolvoijan cache (kerran/istunto) ──────────
+// Kaanon (lib) on oletus; tämä kokoelma korvaa kenttiä, piilottaa konsepteja ja lisää seuran omia.
+// Best-effort: puuttuva kokoelma / oikeuspuute → tyhjä kerros → kaanon näkyy ennallaan (ei kaadu).
+// Demo ja kirjautumaton → ei latausta (sama gate kuin muilla seurakokoelmilla).
+async function lataaKonseptikerros() {
+  if (typeof tmKonseptiAsetaKerros !== 'function') return;
+  if (_isDemoMode || !_seuraId) { tmKonseptiAsetaKerros('__demo__', {}); return; }
+  if (typeof tmKonseptiKerrosLadattu === 'function' && tmKonseptiKerrosLadattu(_seuraId)) return;
+  try {
+    const snap = await db.collection('seurat').doc(_seuraId).collection('konseptit').get();
+    const kartta = {};
+    snap.forEach(function (d) { const o = d.data() || {}; o.avain = d.id; kartta[d.id] = o; });
+    tmKonseptiAsetaKerros(_seuraId, kartta);
+  } catch (e) {
+    tmKonseptiAsetaKerros(_seuraId, {});   // eristys: tyhjä kerros, EI toisen seuran jäänteitä
+    console.warn('[konseptikerros]', e && e.message);
+  }
+}
+window.lataaKonseptikerros = lataaKonseptikerros;
 
 // Normalisoi joukkuenimi näyttömuotoon: 'sjk_p14' → 'SJK P14' (estää duplikaattijoukkueet groupingissa).
 function normalisioiJoukkue(joukkue) {
@@ -4584,7 +4608,12 @@ function _jsvEsc(s) { return String(s == null ? '' : s).replace(/&/g,'&amp;').re
 // Sisältö libistä (§34, tm_teknistaktiset). Ehdotus ≠ pakko (§4). Passiivinen: vain kun jaksofokus puuttuu (§4b.5).
 function _vpSiltaKonsepti(avain) {
   if (!avain || typeof TM_TT_YOUTH === 'undefined') return null;
-  // i18n V5 Vaihe B: palautus kulkee _ttKonseptin läpi → nimi/pelitilanne/kpi/kysymykset sv (fi-fallback).
+  // TIER 1 + i18n: palautus kulkee _ttKonseptin läpi → seuraoverride ensin, sitten sv (fi-fallback).
+  // Seuran OMA konsepti (seura_*) ei ole kaanonissa → haetaan suoraan resolvoijalta.
+  if (String(avain).indexOf('seura_') === 0 && typeof tmKonseptiResolvoi === 'function') {
+    const oma = tmKonseptiResolvoi(avain, _ttSeuraId());
+    if (oma) return _ttKonsepti(oma);
+  }
   for (let i = 0; i < TM_TT_YOUTH.length; i++) if (TM_TT_YOUTH[i].avain === avain) return _ttKonsepti(TM_TT_YOUTH[i]);
   // R1.2-korjaus: hae myös pelipaikkakonseptit (TM_TT_FUNDAMENTIT) — muuten pelipaikka-avaimelle (esim. mv_p1)
   // palautuu null → konseptin osat/miksi/harjoitteet katoavat. Sama rakenne (kpi/kysymykset/pelitilanne) kuin youth.
@@ -4925,21 +4954,41 @@ function _ttKopio(o) { var n = {}, k; for (k in o) n[k] = o[k]; return n; }
 var _TT_TEKSTIKENTAT = ['nimi', 'pelitilanne', 'painotus', 'pelaaja_miksi', 'konseptipeli', 'teema', 'painopisteet', 'pelipaikka'];
 // _ttKonsepti: konsepti/teema (youth · fundamentti · joukkue) → kieli-valittu KOPIO. Alkuperäistä ei
 // mutatoida (lib-data on jaettu kaikkien kutsujien kesken). avain/koodi/kpi[].koodi säilyvät ennallaan.
+// SEURAKERROS (TIER 1) + sv. JÄRJESTYS ON PAKOTTAVA:
+//   1) seuraoverride kaanonin päälle (tmKonseptiResolvoi) — seuran teksti on VAPAATA SUOMEA
+//   2) sv VAIN niille kentille joita seura EI ole korvannut (`_seura_kentat`)
+// Ilman kohtaa 2 kaanonin ruotsi ylikirjoittaisi seuran oman tekstin: seuran sisällölle EI ole
+// sv-käännöstä (sama laki kuin TM_TESTI_OHJEET-sidecarissa / pelaajan muistiinpanoissa) →
+// se renderöityy sellaisenaan myös sv-tilassa. Tämä on DATAA, ei chromea.
+function _ttSeuraId() { try { return (typeof _isDemoMode !== 'undefined' && _isDemoMode) ? null : (_seuraId || null); } catch (e) { return null; } }
+function _ttResolvoi(item) {
+  if (!item || !item.avain || typeof tmKonseptiResolvoi !== 'function') return item;
+  return tmKonseptiResolvoi(item.avain, _ttSeuraId()) || item;
+}
 function _ttKonsepti(item) {
-  if (!item || !item.avain || !_ttSvPaalla()) return item;
-  var a = item.avain, o = _ttKopio(item);
-  _TT_TEKSTIKENTAT.forEach(function (f) { var s = _ttSv(a, f); if (s) o[f] = s; });
-  if (Array.isArray(item.kpi)) o.kpi = item.kpi.map(function (c) {
+  var r = _ttResolvoi(item);
+  if (!r || !r.avain || !_ttSvPaalla()) return r;
+  var a = r.avain, o = _ttKopio(r);
+  var seura = Array.isArray(r._seura_kentat) ? r._seura_kentat : [];
+  var omaKentta = function (f) { return seura.indexOf(f) >= 0; };
+  _TT_TEKSTIKENTAT.forEach(function (f) { if (omaKentta(f)) return; var s = _ttSv(a, f); if (s) o[f] = s; });
+  if (Array.isArray(r.kpi) && !omaKentta('kpi')) o.kpi = r.kpi.map(function (c) {
     var s = (c && c.koodi) ? _ttSv(a, 'kpi.' + c.koodi + '.teksti') : null;
     if (!s) return c;
     var n = _ttKopio(c); n.teksti = s; return n;
   });
-  if (Array.isArray(item.kysymykset)) o.kysymykset = item.kysymykset.map(function (q, i) { return _ttSv(a, 'kysymys.' + i) || q; });
+  if (Array.isArray(r.kysymykset) && !omaKentta('kysymykset')) o.kysymykset = r.kysymykset.map(function (q, i) { return _ttSv(a, 'kysymys.' + i) || q; });
   return o;
 }
 function _ttKonseptit(arr) { return (arr || []).map(_ttKonsepti); }
-function _ttItems(p) { return _ttKonseptit((typeof tmTtItems === 'function') ? tmTtItems(p) : []); }
-function _ttJoukkueTeemat() { return _ttKonseptit((typeof TM_TT_JOUKKUE !== 'undefined') ? TM_TT_JOUKKUE : []); }
+// TIER 1: piilotetut pois + seuran omat (seura_*) perään. Vaihe-/pelipaikkagate tulee kaanonilta
+// (tmTtItems) ennen tätä — seurakerros ei ohita gatea, se vain muokkaa/piilottaa/lisää.
+function _ttSeuraLista(arr) {
+  if (typeof tmKonseptiListaa !== 'function') return _ttKonseptit(arr);
+  return tmKonseptiListaa(arr || [], _ttSeuraId()).map(_ttKonsepti);
+}
+function _ttItems(p) { return _ttSeuraLista((typeof tmTtItems === 'function') ? tmTtItems(p) : []); }
+function _ttJoukkueTeemat() { return _ttSeuraLista((typeof TM_TT_JOUKKUE !== 'undefined') ? TM_TT_JOUKKUE : []); }
 function _ttKys(avainTaiKoodi) {                // cue-kysymykset sv:nä (indeksit säilyvät)
   var kys = (typeof tmTtKysymykset === 'function') ? tmTtKysymykset(avainTaiKoodi) : [];
   if (!kys.length || !_ttSvPaalla()) return kys;
@@ -8477,6 +8526,10 @@ function _ttLoytaTeema(avain) {
   const a = String(avain).toLowerCase().replace(/-/g, '_');
   // i18n V5 Vaihe B: näyttönimi + item sv:nä (_ttKonsepti); avain/koodi ovat enumeja → ennallaan.
   const mk = function (it, tyyppi) { const sv = _ttKonsepti(it); return { tyyppi: tyyppi, avain: it.avain, nimi: sv.nimi, koodi: it.koodi, item: sv }; };
+  if (a.indexOf('seura_') === 0 && typeof tmKonseptiResolvoi === 'function') {   // TIER 1: seuran oma konsepti
+    const oma = tmKonseptiResolvoi(a, _ttSeuraId());
+    if (oma) return mk(oma, 'yksilo_konsepti');
+  }
   for (let i = 0; i < TM_TT_YOUTH.length; i++) if (TM_TT_YOUTH[i].avain === a) return mk(TM_TT_YOUTH[i], 'yksilo_konsepti');
   if (typeof TM_TT_JOUKKUE !== 'undefined') for (let i = 0; i < TM_TT_JOUKKUE.length; i++) if (TM_TT_JOUKKUE[i].avain === a) return mk(TM_TT_JOUKKUE[i], 'joukkue_teema');
   if (typeof TM_TT_FUNDAMENTIT !== 'undefined') for (const pos in TM_TT_FUNDAMENTIT) { const arr = TM_TT_FUNDAMENTIT[pos]; for (let j = 0; j < arr.length; j++) if (arr[j].avain === a) return mk(arr[j], 'yksilo_konsepti'); }

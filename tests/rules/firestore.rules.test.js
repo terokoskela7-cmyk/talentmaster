@@ -1282,6 +1282,73 @@ describe('P7-c.4a kuluttaja-notifikaatiot', () => {
 // 9. SUOSTUMUKSET — julkinen lomake
 // ═══════════════════════════════════════════════════════════════════════════
 
+describe('Seurakerros TIER 1 — seurat/{sid}/konseptit (v3.13)', () => {
+  const OVR = { nimi: 'PELINLUKU', lahde: 'seura', paivitetty: '2026-09-16', muokkaaja_uid: VP_A_UID };
+
+  beforeEach(async () => {
+    await seedAdminDoc();
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), 'seurat', SEURA_A, 'konseptit', 'y_h0'), OVR);
+    });
+  });
+
+  // ── LUKU: koko seura (valmentaja tarvitsee konseptit renderiin) ──
+  it('VP lukee oman seuran konseptin', async () => {
+    const db = vpContext(SEURA_A).firestore();
+    await assertSucceeds(getDoc(doc(db, 'seurat', SEURA_A, 'konseptit', 'y_h0')));
+  });
+  it('valmentaja LUKEE oman seuran konseptin (TIER 2 tarvitsee resolvoidun konseptin)', async () => {
+    const db = valmentajaContext(VALM_A_UID, SEURA_A).firestore();
+    await assertSucceeds(getDoc(doc(db, 'seurat', SEURA_A, 'konseptit', 'y_h0')));
+  });
+
+  // ── KIRJOITUS: vain VP / urheilutoimenjohtaja ──
+  it('VP kirjoittaa overriden', async () => {
+    const db = vpContext(SEURA_A).firestore();
+    await assertSucceeds(setDoc(doc(db, 'seurat', SEURA_A, 'konseptit', 'y_h1'), OVR));
+  });
+  it('urheilutoimenjohtaja (Head of Talent) kirjoittaa overriden', async () => {
+    const db = testEnv.authenticatedContext('utj-fcl-001', { rooli: 'urheilutoimenjohtaja', seuraId: SEURA_A }).firestore();
+    await assertSucceeds(setDoc(doc(db, 'seurat', SEURA_A, 'konseptit', 'y_h2'), OVR));
+  });
+  it('VALMENTAJA EI kirjoita — seuran konseptikieli ei saa hajota joukkueittain (§37)', async () => {
+    const db = valmentajaContext(VALM_A_UID, SEURA_A).firestore();
+    await assertFails(setDoc(doc(db, 'seurat', SEURA_A, 'konseptit', 'y_h3'), OVR));
+    await assertFails(updateDoc(doc(db, 'seurat', SEURA_A, 'konseptit', 'y_h0'), { nimi: 'X' }));
+    await assertFails(deleteDoc(doc(db, 'seurat', SEURA_A, 'konseptit', 'y_h0')));
+  });
+  it('talenttivalmentaja EI kirjoita', async () => {
+    const db = talenttivalmentajaContext('tal-fcl-001', SEURA_A).firestore();
+    await assertFails(setDoc(doc(db, 'seurat', SEURA_A, 'konseptit', 'y_h4'), OVR));
+  });
+  it('seurasihteeri EI kirjoita (hallinnollinen rooli, ei pedagoginen)', async () => {
+    const db = testEnv.authenticatedContext('sihteeri-fcl', { rooli: 'seurasihteeri', seuraId: SEURA_A }).firestore();
+    await assertFails(setDoc(doc(db, 'seurat', SEURA_A, 'konseptit', 'y_h5'), OVR));
+  });
+  it('"palauta kaanoniin" = VP poistaa override-dokumentin', async () => {
+    const db = vpContext(SEURA_A).firestore();
+    await assertSucceeds(deleteDoc(doc(db, 'seurat', SEURA_A, 'konseptit', 'y_h0')));
+  });
+
+  // ── MONIVUOKRALAIS-ERISTYS ──
+  it('seuran A VP EI lue eikä kirjoita seuran B konsepteja', async () => {
+    const db = vpContext(SEURA_A).firestore();
+    await assertFails(getDoc(doc(db, 'seurat', SEURA_B, 'konseptit', 'y_h0')));
+    await assertFails(setDoc(doc(db, 'seurat', SEURA_B, 'konseptit', 'y_h0'), OVR));
+  });
+  it('kirjautumaton EI lue konsepteja', async () => {
+    const db = testEnv.unauthenticatedContext().firestore();
+    await assertFails(getDoc(doc(db, 'seurat', SEURA_A, 'konseptit', 'y_h0')));
+  });
+
+  // ── Seuran OMA konsepti (seura_*-namespace) ──
+  it('VP luo seuran oman seura_*-konseptin', async () => {
+    const db = vpContext(SEURA_A).firestore();
+    await assertSucceeds(setDoc(doc(db, 'seurat', SEURA_A, 'konseptit', 'seura_kaannos'),
+      { oma: true, lahde: 'seura', nimi: 'KÄÄNNÖS PAINEESSA', muokkaaja_uid: VP_A_UID }));
+  });
+});
+
 describe('Suostumukset', () => {
   it('Kuka tahansa luo suostumuksen (julkinen lomake)', async () => {
     const db = unauthContext().firestore();
