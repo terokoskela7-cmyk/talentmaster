@@ -67,9 +67,13 @@ describe('A — luontiportti peilaa rulesin create-ehtoa', () => {
     expect(P.kaavioVoiKirjoittaa(seuratasoinen, ctx)).toBe(false);   // ero on todellinen, ei teoreettinen
   });
   it('nappi renderöidään vain portin läpäisseille — molemmissa sijainneissa', () => {
-    const fn = runko('avaaKaaviopankki');
-    expect((fn.match(/kaavioVoiLuoda\(ctx\)/g) || []).length).toBe(2);   // otsikkorivi + tyhjä tila
-    expect(fn).toContain('_kaavioUusiNappiHTML()');
+    // Sijainnit ovat eri funktioissa (erä D1 siirsi tyhjän tilan sisältölohkoon, jotta se
+    // renderöityy uudelleen suodattimen muuttuessa) — invariantti on että MOLEMMAT porttaavat.
+    const otsikko = runko('avaaKaaviopankki'), tyhja = runko('_kaavioPankkiSisaltoHTML');
+    [otsikko, tyhja].forEach((fn) => {
+      expect(fn).toMatch(/kaavioVoiLuoda\(ctx\)/);
+      expect(fn).toContain('_kaavioUusiNappiHTML()');
+    });
   });
   it('lomake ja luonti tarkistavat portin myös itse (nappi ei ole ainoa vartija)', () => {
     expect(runko('_kaavioUusiLomake')).toMatch(/kaavioVoiLuoda\(ctx\)/);

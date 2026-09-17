@@ -257,7 +257,7 @@ describe('H — Tallenna jättää editorin auki', () => {
     // Synkka tehdään nyt yhdellä Object.assignilla (kohdistuskentät tulivat mukaan A+B:ssä),
     // joten väite on arvoista eikä sijoituslauseen muodosta.
     expect(f).toMatch(/Object\.assign\(m\.review \|\| \{\}, _kk, \{ status: uusiTila, versio: uusiVersio \}\)/);
-    expect(f).toMatch(/Object\.assign\(_kaavioKohdistusKentat\(m\), \{ status: 'luonnos', versio: 0 \}\)/);   // luontihaara
+    expect(f).toMatch(/Object\.assign\(_kaavioKohdistusKentat\(m\),[\s\S]{0,120}status: 'luonnos'[\s\S]{0,80}versio: 0/);   // luontihaara
   });
   it('luonnin jälkeen m.id säilyy → seuraava tallennus PÄIVITTÄÄ, ei luo uutta', () => {
     expect(fn()).toMatch(/m\.id = ref\.id; m\._uusi = false;/);
