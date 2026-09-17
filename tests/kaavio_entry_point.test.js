@@ -194,7 +194,8 @@ describe('D — nimi on Taktiikkataulu', () => {
     expect(UI).toContain('function avaaKaaviopankki(');   // sisäinen nimi ennallaan
   });
   it('sv: Taktiktavla', async () => {
-    const sv = readFileSync(join(ROOT, 'lib', 'tm_vp_i18n.js'), 'utf8');
+    const sv = readFileSync(join(ROOT, 'lib', 'tm_i18n_common.js'), 'utf8')
+      + readFileSync(join(ROOT, 'lib', 'tm_vp_i18n.js'), 'utf8');   // C1: avain on TASAN toisessa
     expect(sv).toContain("'Taktiikkataulu': 'Taktiktavla',");
     expect(sv).toMatch(/'Taktiikkataulu — teknis-taktiset kuvat, katselmus ja hyväksyntä':/);
   });

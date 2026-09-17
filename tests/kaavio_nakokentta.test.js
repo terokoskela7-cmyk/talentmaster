@@ -215,7 +215,8 @@ describe('E — editorin kytkentä', () => {
     ['pallo', 'suunta', 'nakokentta'].forEach((k) => expect(o, k).toContain("t === '" + k + "'"));
   });
   it('uudet tekstit ovat sv-kartassa', () => {
-    const sv = readFileSync(join(ROOT, 'lib', 'tm_vp_i18n.js'), 'utf8');
+    const sv = readFileSync(join(ROOT, 'lib', 'tm_i18n_common.js'), 'utf8')
+      + readFileSync(join(ROOT, 'lib', 'tm_vp_i18n.js'), 'utf8');   // C1: avain on TASAN toisessa
     ['Pallo', 'Peliasento', 'Katve', 'leveys', 'syvyys', 'Klikkaa pelaajaa'].forEach((k) =>
       expect(sv, k).toContain("'" + k + "':"));
   });

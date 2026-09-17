@@ -193,6 +193,6 @@ describe('F — rules ja coverage', () => {
     expect(kortti).toMatch(/st === 'hyvaksytty' && _kuitt > 0/);   // ei "0 ymmärtänyt" -moitetta
   });
   it('coverage-teksti on käännetty (VP sv-kartta)', () => {
-    expect(readFileSync(join(ROOT, 'lib', 'tm_vp_i18n.js'), 'utf8')).toContain("'pelaajaa kuitannut ymmärtäneensä':");
+    expect(readFileSync(join(ROOT, 'lib', 'tm_i18n_common.js'), 'utf8')).toContain("'pelaajaa kuitannut ymmärtäneensä':");
   });
 });

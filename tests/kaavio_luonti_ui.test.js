@@ -191,7 +191,8 @@ describe('E — uudelleenkäyttö: ei kopioitua editoria eikä validointia', () 
     expect(runko('_kaavioUusiKonseptit')).toContain('_kuiKonseptilista(');
   });
   it('kaikki uudet näyttötekstit ovat i18n-adapterin läpi ja sv-kartassa', () => {
-    const sv = readFileSync(join(ROOT, 'lib', 'tm_vp_i18n.js'), 'utf8');
+    const sv = readFileSync(join(ROOT, 'lib', 'tm_i18n_common.js'), 'utf8')
+      + readFileSync(join(ROOT, 'lib', 'tm_vp_i18n.js'), 'utf8');   // C1: avain on TASAN toisessa
     ['Uusi kaavio', 'Konsepti', 'Pelimuoto', 'Näkyvyys', 'Luo ja muokkaa', 'Tallennettu luonnoksena'].forEach((k) => {
       expect(UI, k).toContain("_kuiT('" + k + "')");
       expect(sv, k).toContain("'" + k + "':");

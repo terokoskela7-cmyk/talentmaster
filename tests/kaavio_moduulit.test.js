@@ -238,3 +238,35 @@ describe('enum→näyttö · jokaisella kaavio-enumilla on sv-rivi', () => {
     });
   });
 });
+
+/* ── JAETUN UI:N I18N ASUU JAETUSSA KARTASSA ──────────────────────────────────────────────
+   tm_kaavio_ui.js on YKSI lähde kahdelle apille. Jos sen käännösrivi asuisi sivukartassa
+   (TM_VP_I18N / TM_MASTER_I18N), teksti näkyisi ruotsiksi vain toisessa apissa — ja koska
+   puuttuva avain putoaa hiljaa suomeen, vika ei näkyisi virheenä vaan väärällä kielellä.
+   Siksi: kaavio-UI:n avaimet ovat TM_I18N_COMMONissa TAI eivät missään (fi-fallback), mutta
+   EIVÄT KOSKAAN sivukartassa. */
+describe('jaettu UI · käännökset ovat jaetussa kartassa, eivät sivukartassa', () => {
+  const src = readFileSync(join(__d, '..', 'lib', 'tm_kaavio_ui.js'), 'utf8');
+  // _kuiT('literaali') + apurit jotka välittävät argumenttinsa sille (ks. _kvTyokalu/_kvKytkin/_kvNappi)
+  const avaimet = new Set([
+    ...[...src.matchAll(/_kuiT\('((?:[^'\\]|\\.)*)'\)/g)].map((m) => m[1]),
+    ...[...src.matchAll(/_kvTyokalu\('[^']*',\s*'((?:[^'\\]|\\.)*)'/g)].map((m) => m[1]),
+    ...[...src.matchAll(/lbl: '((?:[^'\\]|\\.)*)'/g)].map((m) => m[1])
+  ].map((s) => s.replace(/\\'/g, "'")));
+
+  const cmn = require('../lib/tm_i18n_common.js').TM_I18N_COMMON.sv || {};
+  const vp = require('../lib/tm_vp_i18n.js').TM_VP_I18N.sv || {};
+  const master = require('../lib/tm_master_i18n.js').TM_MASTER_I18N.sv || {};
+  const on = (kartta, k) => Object.prototype.hasOwnProperty.call(kartta, k);
+
+  it('EI-VACUOUS: avaimia löytyi ja ne ovat oikeasti käännettyjä', () => {
+    expect(avaimet.size).toBeGreaterThan(60);
+    expect([...avaimet].filter((k) => on(cmn, k)).length).toBeGreaterThan(60);
+  });
+  it('yksikään kaavio-UI:n avain ei ole VP:n sivukartassa', () => {
+    expect([...avaimet].filter((k) => on(vp, k))).toEqual([]);
+  });
+  it('yksikään kaavio-UI:n avain ei ole Masterin sivukartassa', () => {
+    expect([...avaimet].filter((k) => on(master, k))).toEqual([]);
+  });
+});

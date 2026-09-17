@@ -293,7 +293,8 @@ describe('H — Tallenna jättää editorin auki', () => {
     expect(runko('_kaavioSuljeEditori')).toContain('_kaavioTila.tallennettuSpec = null');
   });
   it('uudet tekstit sv-kartassa', () => {
-    const sv = readFileSync(join(ROOT, 'lib', 'tm_vp_i18n.js'), 'utf8');
+    const sv = readFileSync(join(ROOT, 'lib', 'tm_i18n_common.js'), 'utf8')
+      + readFileSync(join(ROOT, 'lib', 'tm_vp_i18n.js'), 'utf8');   // C1: avain on TASAN toisessa
     ['Tallennettu luonnoksena', 'tallentamattomia muutoksia', 'Valmis'].forEach((k) =>
       expect(sv, k).toContain("'" + k + "':"));
   });
@@ -367,7 +368,8 @@ describe('E — tallennuksen näkyvyys', () => {
     expect(runko('_kaavioTyokaluPaivita')).toContain('_kaavioTallennusKohdeHTML()');
   });
   it('kaikki uudet tekstit ovat sv-kartassa', () => {
-    const sv = readFileSync(join(ROOT, 'lib', 'tm_vp_i18n.js'), 'utf8');
+    const sv = readFileSync(join(ROOT, 'lib', 'tm_i18n_common.js'), 'utf8')
+      + readFileSync(join(ROOT, 'lib', 'tm_vp_i18n.js'), 'utf8');   // C1: avain on TASAN toisessa
     ['Valitun ominaisuudet', 'Valittu', '— ei valintaa', 'Korostus', 'Poista valittu',
      'Tallentuu: seuran kaaviopankki', 'näkyvyys', 'Teksti', 'valinnainen'].forEach((k) =>
       expect(sv, k).toContain("'" + k + "':"));
