@@ -70,9 +70,15 @@ describe('A — valinta on pysyvä ja klikkaus valitsee', () => {
     // Sulkufunktio on monirivinen (se päivittää nyt myös pankin) → ankkuroidaan runkoon.
     expect(runko('_kaavioSuljeEditori')).toContain('_kaavioTila.valittu = null');
   });
-  it('osumatestin lajit kartoitetaan valinnan lajeiksi', () => {
-    // kaavioOsuma palauttaa 'pelaaja' | 'selite' | 'liike'; valinta käyttää 'player'-nimeä
-    expect(runko('_kaavioPointerUp')).toMatch(/osui\.tyyppi === 'pelaaja' \? 'player' : osui\.tyyppi/);
+  it('osumatestin lajit kartoitetaan valinnan lajeiksi YHDESSÄ paikassa', () => {
+    // Kaksi nimeämistä on historiaa: osuma puhuu specin kenttänimillä (pelaaja/peittovarjo/
+    // korkeuslinja), valinta lyhyemmillä (player/varjo/linja). Luokka C toi kolme uutta lajia →
+    // ad hoc -ternääri ei enää riittänyt, ja kartta pitää nimet synkassa yhdessä paikassa.
+    expect(runko('_kaavioPointerUp')).toMatch(/_KAAVIO_OSUMA_KIND\[osui\.tyyppi\]/);
+    const kartta = UI.slice(UI.indexOf('var _KAAVIO_OSUMA_KIND'), UI.indexOf('};', UI.indexOf('var _KAAVIO_OSUMA_KIND')));
+    [['pelaaja', 'player'], ['selite', 'selite'], ['liike', 'liike'],
+     ['peittovarjo', 'varjo'], ['korkeuslinja', 'linja'], ['vyohyke', 'vyohyke']]
+      .forEach(([t, k]) => expect(kartta, t).toMatch(new RegExp(t + ": '" + k + "'")));
   });
 });
 

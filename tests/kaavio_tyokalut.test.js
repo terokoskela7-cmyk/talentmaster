@@ -143,7 +143,9 @@ describe('C — VP: työkalutila vaihtaa vedon merkityksen', () => {
     // Kommentti siirtyi rivin yläpuolelle kun oletustila sai myös valinnan — väite koskee
     // käytöstä (snap + drag), ei kommentin sijaintia.
     expect(pd).toMatch(/OLETUSTILA = raahaa TAI valitse/);
-    expect(pd).toContain('_kaavioTila.drag = osuma.ref');
+    // drag on nyt OBJEKTI (kind+id), koska luokka C toi raahattavaksi myös korkeuslinjan ja
+    // vyöhykkeen — pelkkä pelaaja-id ei enää riittänyt tunnisteeksi.
+    expect(pd).toContain("_kaavioTila.drag = { kind: 'player', id: osuma.ref }");
   });
   it('liiketyökalu aloittaa vedon, ei raahausta', () => {
     const pd = runko('_kaavioPointerDown');
@@ -165,7 +167,8 @@ describe('C — VP: työkalutila vaihtaa vedon merkityksen', () => {
     expect(pd).toContain('kaavioAsetaPallo(s, op.ref)');
     // Klikkaustyökalut (selite, poista) kirjaavat historian pointerDOWNissa; liike vasta
     // pointerUPissa, koska sitä ennen ei ole vielä mitään lisättävää.
-    expect((pd.match(/kaavioHistoriaLisaa/g) || []).length).toBe(3);   // selite · poista · pallo
+    // selite · poista · pallo + luokka C: peittovarjo · korkeuslinja · vyöhyke
+    expect((pd.match(/kaavioHistoriaLisaa/g) || []).length).toBe(6);
     expect(runko('_kaavioPointerUp')).toContain('kaavioHistoriaLisaa');
   });
   it('sama nappi uudelleen palauttaa raahaukseen (moodista pääsee ulos)', () => {
@@ -256,12 +259,20 @@ describe('E — i18n ja tietoinen rajaus', () => {
     expect(lbl.length).toBeGreaterThanOrEqual(7);
     expect(lbl.filter((l) => !kaannos(l))).toEqual([]);
   });
-  it('VYÖHYKE jätetty pois: renderöijä tuntee sen mutta §3-skeema ja validaattori eivät', () => {
-    expect(readFileSync(join(ROOT, 'lib', 'tm_kaavio_render.js'), 'utf8')).toContain('s.vyohyke');
-    expect(readFileSync(join(ROOT, 'lib', 'tm_kaavio_validate.js'), 'utf8')).not.toContain('vyohyke');
-    const i = VP.indexOf('var _KAAVIO_TYOKALUT = ['), j = VP.indexOf('];', i);
-    expect(VP.slice(i, j)).not.toContain('vyohyke');
-    expect(UI).toMatch(/VYÖHYKE EI OLE TYÖKALUISSA/);   // rajaus kirjoitettu auki
+  // KÄÄNTYI (erä C): vyöhyke oli jätetty työkaluista pois koska validaattori ei tuntenut sitä.
+  // Nyt portit ovat olemassa → rajauksen ehto ei enää päde, ja tämä väite on sen käänteinen:
+  // renderöijä, validaattori JA työkalupalkki tuntevat kaikki kolme luokan C elementtiä.
+  it('LUOKKA C on nyt renderöijässä, validaattorissa JA työkaluissa', () => {
+    const R = readFileSync(join(ROOT, 'lib', 'tm_kaavio_render.js'), 'utf8');
+    const V = readFileSync(join(ROOT, 'lib', 'tm_kaavio_validate.js'), 'utf8');
+    ['vyohyke', 'korkeuslinjat', 'peittovarjot'].forEach((k) => {
+      expect(R, 'render/' + k).toContain(k);
+      expect(V, 'validate/' + k).toContain(k);
+    });
+    const i = UI.indexOf('var _KAAVIO_TYOKALUT = ['), j = UI.indexOf('];', i);
+    const palkki = UI.slice(i, j);
+    ['peittovarjo', 'korkeuslinja', 'vyohyke'].forEach((k) => expect(palkki, 'tyokalu/' + k).toContain(k));
+    expect(UI).not.toMatch(/VYÖHYKE EI OLE TYÖKALUISSA/);   // vanhentunut rajaus poistettu
   });
   it('selitteen käännösvaraus on dokumentoitu (ei keksittyjä käännöksiä)', () => {
     const lib = readFileSync(join(ROOT, 'lib', 'tm_kaavio_editori.js'), 'utf8');
