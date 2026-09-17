@@ -10,6 +10,13 @@ rules_version = '2';
 //     ensisijaisen rinnalle (sama omistajuus: valmentajaroolit + johto). Fysioterapeutti EI saa
 //     tätä kenttää (sen allowlist pysyy jaksofokus + jaksofokus_historia).
 //
+// Muutokset (näkyvyystason roolilukko — kaaviot):
+//   + kaavioNakyvyysLuontiOk() / kaavioNakyvyysMuutosOk(): seuratason näkyvyyden ('seura') saa
+//     asettaa VAIN onKaavioHyvaksyja() (vp | urheilutoimenjohtaja | SA). Valmentaja luo ja
+//     kohdistaa oman joukkueensa sisältöä ('joukkue'|'pelaaja'); seuran yhteisen kirjaston
+//     kuratoi metodologiajohto. Muokkausportti koskee NOSTOA seuratasolle — jo seuratasoisen
+//     kaavion sisältömuokkaus säilyy valmentajalla joukkuerajauksen puitteissa.
+//
 // Muutokset v3.12 → v3.13 (Seurakerros TIER 1 — seurakohtaiset konseptit):
 //   + seurat/{sid}/konseptit/{avain} — kaanonin (lib/tm_teknistaktiset.js) päälle tuleva
 //     seuraoverride: nimi/kpi/pelaaja_miksi/pelitilanne/kysymykset/piilotettu + seuran omat
@@ -231,6 +238,24 @@ service cloud.firestore {
     }
     function kaavioTila(d)      { return d.get('review', {}).get('status', 'luonnos'); }
     function kaavioJoukkue(d)   { return d.get('review', {}).get('joukkueId', null); }
+    // NÄKYVYYSTASON ROOLILUKKO. Hallintomalli: valmentaja luo ja kohdistaa OMAN joukkueensa
+    // sisältöä; seuran yhteisen kirjaston kuratoi metodologiajohto (VP/urheilutoimenjohtaja/SA).
+    // Puuttuva kenttä tulkitaan 'seura'ksi — lupaportti on FAIL-CLOSED: määrittelemätön näkyvyys
+    // ei saa olla helpompi reitti kuin eksplisiittinen.
+    function kaavioNakyvyys(d) { return d.get('review', {}).get('nakyvyys', 'seura'); }
+    // Luonti: seuratason saa asettaa vain hyväksyjä.
+    function kaavioNakyvyysLuontiOk() {
+      return kaavioNakyvyys(request.resource.data) in ['joukkue', 'pelaaja'] || onKaavioHyvaksyja();
+    }
+    // Muokkaus: portti koskee NOSTOA seuratasolle, ei absoluuttista arvoa. Jos kaavio on JO
+    // seuratasoinen, valmentaja saa yhä muokata sen sisältöä oman joukkuerajauksensa puitteissa —
+    // muuten VP:n hyväksymän kaavion pieninkin korjaus olisi yhtäkkiä kielletty. Laskeminen
+    // seuratasolta joukkue/pelaaja-tasolle on sallittua (se kaventaa näkyvyyttä, ei laajenna).
+    function kaavioNakyvyysMuutosOk() {
+      return kaavioNakyvyys(request.resource.data) != 'seura'
+          || kaavioNakyvyys(resource.data) == 'seura'
+          || onKaavioHyvaksyja();
+    }
     // Sallitut statussiirrot. Suora luonnos→hyvaksytty on KIELLETTY (katselmus ei saa ohittua).
     function kaavioSiirtoOk(vanha, uusi) {
       return uusi == vanha
@@ -377,7 +402,8 @@ service cloud.firestore {
         allow create: if onSuperAdmin()
                       || (onOmaSeura(seuraId) && onValmentajaRooli()
                           && kaavioTila(request.resource.data) in ['luonnos', 'odottaa']
-                          && kaavioVersio(request.resource.data) == 0);
+                          && kaavioVersio(request.resource.data) == 0
+                          && kaavioNakyvyysLuontiOk());
 
         // Päivitys: seura-skooppi + sallittu statussiirto + uudelleenhyväksyntä.
         // Joukkuerajaus: valmentajalla oltava kaavion joukkueId omissa joukkueissaan; johto ja
@@ -385,6 +411,7 @@ service cloud.firestore {
         allow update: if kaavioVersioOk() && (
                          onSuperAdmin()
                       || (onOmaSeura(seuraId) && onValmentajaRooli()
+                          && kaavioNakyvyysMuutosOk()
                           && kaavioSiirtoOk(kaavioTila(resource.data), kaavioTila(request.resource.data))
                           && kaavioUudelleenhyvaksyntaOk(kaavioTila(resource.data), kaavioTila(request.resource.data))
                           && ( onKaavioHyvaksyja()
