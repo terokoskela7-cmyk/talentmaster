@@ -63,7 +63,8 @@ describe('A — valinta on pysyvä ja klikkaus valitsee', () => {
   });
   it('valinta nollautuu editorin avauksessa ja sulussa', () => {
     expect(runko('_kaavioAvaaEditori')).toContain('_kaavioTila.valittu = null');
-    expect(VP).toMatch(/function _kaavioSuljeEditori\(\)[^\n]*valittu = null/);
+    // Sulkufunktio on monirivinen (se päivittää nyt myös pankin) → ankkuroidaan runkoon.
+    expect(runko('_kaavioSuljeEditori')).toContain('_kaavioTila.valittu = null');
   });
   it('osumatestin lajit kartoitetaan valinnan lajeiksi', () => {
     // kaavioOsuma palauttaa 'pelaaja' | 'selite' | 'liike'; valinta käyttää 'player'-nimeä
@@ -228,6 +229,69 @@ describe('F — pitkä selite: rivitys ja klikattavuus', () => {
   });
   it('selitteen korostus on LAATIKKO, ei rengas (rengas ei kertoisi mitä on valittu)', () => {
     expect(runko('_kaavioPiirraEditori')).toMatch(/_val\.kind === 'selite'[\s\S]*createElementNS\('http:\/\/www\.w3\.org\/2000\/svg', 'rect'\)/);
+  });
+});
+
+// Tallenna JÄTTÄÄ EDITORIN AUKI. Ennen: molemmat haarat sulkivat editorin ja avasivat pankin joka
+// tallennuksella → käyttäjä ei voinut tallentaa välissä ja jatkaa. Koodin oma kommentti lupasi jo
+// "seuraava Tallenna päivittää samaa dokumenttia", mutta sulkeminen esti sen.
+describe('H — Tallenna jättää editorin auki', () => {
+  const fn = () => runko('_kaavioTallenna');
+  it('kumpikaan haara ei sulje editoria eikä avaa pankkia', () => {
+    expect(fn()).not.toContain('_kaavioSuljeEditori()');
+    expect(fn()).not.toContain('avaaKaaviopankki()');
+  });
+  it('molemmat haarat piirtävät editorin uudelleen ja päivittävät tallennusrivin', () => {
+    const f = fn();
+    expect((f.match(/_kaavioPiirraEditori\(\)/g) || []).length).toBe(2);
+    expect((f.match(/_kaavioTyokaluPaivita\(\)/g) || []).length).toBe(2);
+  });
+  it('VERSIOLUKKO: paikallinen review synkataan kirjoitetun kanssa', () => {
+    // Ilman tätä toinen peräkkäinen Tallenna lähettäisi SAMAN version (kaavioSeuraavaVersio lukee
+    // m.review.versio) ja optimistinen lukko hylkäisi sen. Auki jättäminen paljasti tämän.
+    const f = fn();
+    expect(f).toMatch(/m\.review\.versio = uusiVersio/);
+    expect(f).toMatch(/m\.review\.status = uusiTila/);
+    expect(f).toMatch(/m\.review = \{[\s\S]*versio: 0[\s\S]*\};/);   // luontihaara
+  });
+  it('luonnin jälkeen m.id säilyy → seuraava tallennus PÄIVITTÄÄ, ei luo uutta', () => {
+    expect(fn()).toMatch(/m\.id = ref\.id; m\._uusi = false;/);
+    expect(fn()).toMatch(/if \(m\._uusi \|\| !m\.id\)/);
+  });
+  it('sulkeminen on ainoa poistumispolku ja päivittää pankin', () => {
+    expect(runko('_kaavioSuljeEditori')).toContain('avaaKaaviopankki()');
+  });
+  it('historia ja valinta säilyvät tallennuksessa (vain sulku nollaa)', () => {
+    const f = fn();
+    expect(f).not.toMatch(/_kaavioTila\.historia = \[\]/);
+    expect(f).not.toMatch(/_kaavioTila\.valittu = null/);
+    expect(runko('_kaavioSuljeEditori')).toContain('_kaavioTila.valittu = null');
+  });
+  it('tilakoneisto ennallaan: luonnos pysyy luonnoksena toistuvassa tallennuksessa', () => {
+    const P = require_(join(ROOT, 'lib', 'tm_kaavio_policy.js'));
+    const luonnos = { seuraId: 'A', review: { status: 'luonnos', joukkueId: 'u13' } };
+    const ctx = { rooli: 'valmentaja', seuraId: 'A', joukkueet: ['u13'] };
+    expect(P.kaavioTilaMuokkauksenJalkeen(luonnos, ctx)).toBe('luonnos');
+    expect(P.kaavioTilaMuokkauksenJalkeen(luonnos, ctx)).toBe('luonnos');   // toistokin
+  });
+  it('sulkunappi kertoo totuuden: Peruuta vain tallentamattomalle', () => {
+    const f = runko('_kaavioSulkuNappiTeksti');
+    expect(f).toMatch(/m\.id && !m\._uusi\) \? vpT\('Valmis'\) : vpT\('Peruuta'\)/);
+    expect(runko('_kaavioTyokaluPaivita')).toContain('_kaavioSulkuNappiTeksti()');
+  });
+  it('tallentamattomat muutokset merkitään, mutta eivät estä sulkemista', () => {
+    expect(runko('_kaavioTallentamattomia')).toMatch(/JSON\.stringify\(m\.spec\) !== _kaavioTila\.tallennettuSpec/);
+    expect(runko('_kaavioTallennusKohdeHTML')).toMatch(/tallentamattomia muutoksia/);
+    expect(runko('_kaavioSuljeEditori')).not.toContain('_kaavioTallentamattomia');   // ei estä
+  });
+  it('leima nollataan editoria avattaessa (edellisen kaavion leima ei vuoda)', () => {
+    expect(runko('_kaavioAvaaEditori')).toContain('_kaavioTila.tallennettuSpec = null');
+    expect(runko('_kaavioSuljeEditori')).toContain('_kaavioTila.tallennettuSpec = null');
+  });
+  it('uudet tekstit sv-kartassa', () => {
+    const sv = readFileSync(join(ROOT, 'lib', 'tm_vp_i18n.js'), 'utf8');
+    ['Tallennettu luonnoksena', 'tallentamattomia muutoksia', 'Valmis'].forEach((k) =>
+      expect(sv, k).toContain("'" + k + "':"));
   });
 });
 

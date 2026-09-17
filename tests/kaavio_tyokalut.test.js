@@ -169,7 +169,7 @@ describe('C — VP: työkalutila vaihtaa vedon merkityksen', () => {
   });
   it('työkalutila nollautuu editorin avauksessa ja sulussa', () => {
     expect(runko('_kaavioAvaaEditori')).toContain('_kaavioTila.tyokalu = null');
-    expect(VP).toMatch(/function _kaavioSuljeEditori\(\)[^\n]*tyokalu = null/);
+    expect(runko('_kaavioSuljeEditori')).toContain('_kaavioTila.tyokalu = null');
   });
   it('esikatseluviiva ei mene speciin — vasta pointerup luo liikkeen', () => {
     const pr = runko('_kaavioPiirraEditori');
