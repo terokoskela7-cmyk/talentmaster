@@ -102,12 +102,16 @@ käännettäviä merkkijonoja, selitteet tulevat vain Selite-työkalusta.</p>
   <span class="k">"suunta"</span>: "ylos",             <span class="c">// hyökkäyssuunta</span>
   <span class="k">"pelimuoto"</span>: "8v8",           <span class="c">// → pelaajamäärän raja (validoidaan)</span>
   <span class="k">"nakyma"</span>: "puolustuskolmannes", <span class="c">// kentän rajaus: kolmannes | puolisko | koko</span>
-  <span class="k">"pelaajat"</span>: [
-    <span class="k">{</span> "id":"T", "joukkue":"oma", "rooli":"mittback",
+  <span class="k">"pelaajat"</span>: [                        <span class="c">// rooli ∈ vastaanottaja|syöttäjä|vaihtoehto|paine|tuki</span>
+    <span class="k">{</span> "id":"T", "joukkue":"oma", "rooli":"vastaanottaja",
       "x":43, "y":74, "gk":false, "pallo":false,
-      "avoin":-58,                <span class="c">// auki-suunta (astetta); selkäkaari vastakkain</span>
+      "suunta":-58,               <span class="c">// katsesuunta (astetta) — editoitava; "avoin" on vanha nimi (siedetään)</span>
+      "nakokentta": <span class="k">{</span> "half":58, "r":42, "katve":true <span class="k">}</span>,  <span class="c">// PELAAJAKOHTAINEN (ks. laajennus yllä)</span>
       "korostus":true <span class="k">}</span>,
-    <span class="k">{</span> "id":"V1","joukkue":"vastustaja","rooli":"karki","x":40,"y":63 <span class="k">}</span>
+    <span class="k">{</span> "id":"V1","joukkue":"vastustaja","rooli":"paine","x":40,"y":63 <span class="k">}</span>,
+    <span class="k">{</span> "id":"P", "joukkue":"oma","rooli":"syöttäjä","x":50,"y":88,"pallo":true <span class="k">}</span>,
+    <span class="k">{</span> "id":"LP","joukkue":"oma","rooli":"tuki","x":18,"y":70 <span class="k">}</span>,
+    <span class="k">{</span> "id":"A", "joukkue":"oma","rooli":"vaihtoehto","x":56,"y":30 <span class="k">}</span>
   ],
   <span class="k">"liikkeet"</span>: [                        <span class="c">// tyyppi: juoksu|syotto|kuljetus|laukaus</span>
     <span class="k">{</span> "id":"m1","tyyppi":"syotto", "from":{"ref":"P"},  "to":{"ref":"T"} <span class="k">}</span>,
@@ -117,10 +121,22 @@ käännettäviä merkkijonoja, selitteet tulevat vain Selite-työkalusta.</p>
   <span class="c">// LUOKKA C — kaikki kolme VALINNAISIA; §6-validaattorin portit alla.</span>
   <span class="k">"vyohyke"</span>:      <span class="k">{</span> "x":29,"y":64,"w":40,"h":22 <span class="k">}</span>,      <span class="c">// YKSI objekti per kaavio (ei taulukko)</span>
   <span class="k">"korkeuslinjat"</span>: [ <span class="k">{</span> "id":"kl1", "y":58 <span class="k">}</span> ],
-  <span class="k">"peittovarjot"</span>:  [ <span class="k">{</span> "id":"pv1", "from":"KH2", "to":"V2" <span class="k">}</span> ],  <span class="c">// from/to = pelaajan id</span>
-  <span class="k">"selitteet"</span>: <span class="k">{</span> "otsikko":"t_h0.nimi", "tilanne":"t_h0.pelitilanne" <span class="k">}</span>
+  <span class="k">"peittovarjot"</span>:  [ <span class="k">{</span> "id":"pv1", "from":"V1", "to":"A" <span class="k">}</span> ],  <span class="c">// from/to = pelaajan id</span>
+  <span class="k">"selitteet"</span>: [                       <span class="c">// TAULUKKO; t = kielikartta, ≥1 kieli riittää</span>
+    <span class="k">{</span> "id":"s1", "x":24, "y":18,
+      "t": <span class="k">{</span> "fi":"Avaa kylkiasentoon", "sv":"Öppna kroppen", "en":"Open your body" <span class="k">}</span> <span class="k">}</span>
+  ]
 <span class="k">}</span></pre>
-    <p><b>Selitteet ovat avainviittauksia curriculumiin</b> → fi/sv/en tulevat samasta i18n-kartasta ilmaiseksi. Renderöijä ei kovakoodaa tekstiä. (Contact-sheet-proofissa selitteet inline-käännettiin <code>{fi,sv,en}</code> demonstraatioksi; tuotannossa avain.)</p>
+    <p><b>Selitteet ovat INLINE-TEKSTIÄ, eivät curriculum-avaimia.</b> <code>selitteet</code> on
+    taulukko <code>[{id, x, y, t}]</code>, jossa <code>t</code> on kielikartta. <b>Validaattori vaatii
+    vähintään yhden kielen</b> — ei kaikkia kolmea. Syy on kahden eri sisältölajin ero:
+    <b>kanoninen kirjasto</b> on kuratoitua master-sisältöä ja täyttää kaikki kolme (§32-trilingua),
+    kun taas <b>valmentajan oma selite on vapaatekstiä hänen omalla kielellään</b> — sitä ei käännetä
+    eikä pidä pakottaa kääntämään (aiempi kolmen kielen pakko esti tallennuksen kokonaan).
+    Renderöijä tekee kielifallbackin <code>t[lang] || t.fi || t.sv || t.en</code>.</p>
+    <p class="c"><b>Historiallinen huomio:</b> prototyypissä selitteet olivat avainviittauksia
+    curriculumiin (<code>{"otsikko":"t_h0.nimi"}</code>). Se muoto EI ole tuotannossa — validaattori
+    ei osaa käsitellä sitä lainkaan (se odottaa taulukkoa). Älä palauta sitä.</p>
     <h3>Luokka C — peittovarjo · korkeuslinja · vyöhyke (§6-portit)</h3>
     <p>Nämä <b>piirtyivät renderöijässä ennen kuin ne olivat skeemassa</b>, joten validaattori ei
     valvonut niitä: kentän ulkopuolinen vyöhyke ja olemattomaan pelaajaan osoittava peittovarjo
@@ -135,13 +151,6 @@ käännettäviä merkkijonoja, selitteet tulevat vain Selite-työkalusta.</p>
           <b>olemassa oleviin pelaajiin</b> (viite-eheys); <code>from ≠ to</code>;
           <code>id</code> uniikki. Pelaajan poisto <b>kaskadipoistaa</b> häneen viittaavat varjot.</li>
     </ul>
-    <p class="c"><b>⚠ Tiedossa oleva drift muissa osissa:</b> yllä oleva esimerkki sisältää vielä
-    prototyypin muotoja jotka EIVÄT vastaa toteutusta — <code>selitteet</code> on tuotannossa
-    taulukko <code>[{id,x,y,t:{fi,sv,en}}]</code> (ei avainkartta), ja näkökenttä on
-    pelaajakohtainen <code>pelaajat[].nakokentta{half,r,katve}</code> (ei erillinen
-    <code>nakokentat[]</code>-taulukko). Nämä korjataan omassa passissaan; luokka C yllä on
-    ajan tasalla.</p>
-
     <p><b>Sopimuksen kuluttajat pysyvät synkassa:</b> §3-skeema on sopimus, ja sen toteuttavat sama koodi neljässä paikassa — renderöijä, <b>editori</b> (valmentajan raahaus/lisäys-työkalut), §6-validaattori ja generointikehote. Uusi notaatio lisätään kaikkiin neljään yhtä aikaa (esim. <code>laukaus</code> + <code>gk</code> lisättiin y_h9:n paljastettua puutteen).</p>
   </div>
 
@@ -177,7 +186,7 @@ Arkkityyppipohja: &lt;liitä pohjaspec&gt;</pre>
         <li><b>Skeema:</b> pakolliset kentät, tyypit, sallitut enumit (notaatiotyyppi, joukkue, rooli).</li>
         <li><b>Rajat:</b> kaikki koordinaatit 0–100.</li>
         <li><b>Pelaajamäärä = <code>pelimuoto</code></b> (ei enempää per joukkue).</li>
-        <li><b>Viite-eheys:</b> jokainen <code>liike.from/to</code> jossa <code>ref</code> viittaa olemassa olevaan pelaaja-id:hen; vapaa piste <code>{x,y}</code> rajoissa. Sama <code>peittovarjo.from/to</code>, <code>nakokentta.pelaaja</code>.</li>
+        <li><b>Viite-eheys:</b> jokainen <code>liike.from/to</code> jossa <code>ref</code> viittaa olemassa olevaan pelaaja-id:hen; vapaa piste <code>{x,y}</code> rajoissa. Sama <code>peittovarjo.from/to</code>. <b>Näkökenttä EI ole viite:</b> se asuu pelaajaobjektin sisällä (<code>pelaajat[].nakokentta</code>), joten sillä ei ole erillistä pelaaja-viitettä joka voisi jäädä orvoksi.</li>
         <li><b>Notaatio-enum:</b> <code>tyyppi ∈ {juoksu, syotto, kuljetus, laukaus}</code>; ≤1 pallollinen. <b>PÄIVITETTY:</b> <code>cone</code>-kytkös vastaanottajaan on purettu — näkökenttä on nyt pelaajakohtainen <code>nakokentta</code> (ks. laajennus alla).</li>
         <li><b>Selite-resolvi:</b> jokainen <code>selite_avain</code> löytyy curriculumista (fi/sv/en).</li>
         <li><b>Enum-invariantti:</b> <code>avain</code> ei käänny.</li>
@@ -195,6 +204,6 @@ Arkkityyppipohja: &lt;liitä pohjaspec&gt;</pre>
     </ul>
   </div>
 
-  <div class="foot">Lukitut opit: Opta 100×100 + mittasuhde-sääntö · standardinotaatio (juoksu·syotto·kuljetus·laukaus) · maalivahti-kolmio · kylkiasento (selkäkaari) · kaksitasoinen näkökenttä (cone.r metreissä) · liike from/to {ref}|{x,y} · selite-auto-ankkurointi · kaista×kolmannes · selitteet curriculum-avaimina (fi/sv/en). Todennettu: h0×3 + j_p6 (pilotit) + y_h-perhe 10/10 (contact sheet) + raahattava editori. Ei diffuusiomallia.</div>
+  <div class="foot">Lukitut opit: Opta 100×100 + mittasuhde-sääntö · standardinotaatio (juoksu·syotto·kuljetus·laukaus) · maalivahti-kolmio · kylkiasento (selkäkaari) · kaksitasoinen näkökenttä (cone.r metreissä) · liike from/to {ref}|{x,y} · selite-auto-ankkurointi · kaista×kolmannes · selitteet inline-taulukkona <code>[{id,x,y,t}]</code> (t-kielikartta: kanon fi/sv/en, valmentajan oma selite vapaatekstinä omalla kielellä). Todennettu: h0×3 + j_p6 (pilotit) + y_h-perhe 10/10 (contact sheet) + raahattava editori. Ei diffuusiomallia.</div>
 </div>
 <script>document.getElementById("themebtn").addEventListener("click",()=>{const c=document.documentElement.getAttribute("data-theme")||"dark";document.documentElement.setAttribute("data-theme",c==="dark"?"light":"dark");});document.documentElement.setAttribute("data-theme","dark");</script>
