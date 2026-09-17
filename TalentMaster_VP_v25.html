@@ -18,8 +18,8 @@
 <script src="lib/tm_appcheck.js?v=1"></script>
 <!-- Eerikkilä-normit + universaali testirekisteri (eerikkilaTaso, laskeFVP) — 10m/5m-tasot + FVP-profiili -->
 <script src="lib/tm_lang.js?v=14"></script>   <!-- i18n V0 — fi/sv/en käännöstaulukko + t() + kieli-init (putkitus) -->
-<script src="lib/tm_i18n_common.js?v=3"></script>   <!-- i18n Vaihe 0 — JAETTU henkilöstö-i18n + lukittu glossaari (ENNEN sivukarttaa) -->
-<script src="lib/tm_vp_i18n.js?v=74"></script>   <!-- i18n Vaihe 5 — VP sv (sivukartta); vpT/vpLokalisoi delegoivat commoniin -->
+<script src="lib/tm_i18n_common.js?v=4"></script>   <!-- i18n Vaihe 0 — JAETTU henkilöstö-i18n + lukittu glossaari (ENNEN sivukarttaa) -->
+<script src="lib/tm_vp_i18n.js?v=75"></script>   <!-- i18n Vaihe 5 — VP sv (sivukartta); vpT/vpLokalisoi delegoivat commoniin -->
 
 
 <script src="lib/tm_eerikkila_normit.js?v=45"></script>   <!-- v43: D2-kortti d2_taso-ensin (renderKehityskorttiHTML, PR #264 · §30/#262) -->
@@ -57,20 +57,33 @@ window.TM_KAAVIO_HOST = {
       rooli: rooli,
       uid: (typeof _uid !== 'undefined') ? _uid : null,
       seuraId: (typeof _seuraId !== 'undefined') ? (_seuraId || null) : null,
-      joukkueet: window._omatJoukkueet || [],
+      // KORJAUS: window._omatJoukkueet ei ole olemassa VP:ssä — oikea globaali on
+      // window._vpOmatJoukkueet {ids, nimet} (_vpPaivitaOmatJoukkueet). Väärä nimi teki
+      // ctx.joukkueet:ista aina tyhjän, jolloin kaavioJoukkueOsuu hylkäsi tavallisen
+      // valmentajan OMANKIN joukkueen kaavion. VP/UTJ/SA/talenttivalmentaja ohittavat
+      // joukkuerajauksen, joten vika ei näkynyt niillä rooleilla.
+      joukkueet: (window._vpOmatJoukkueet && window._vpOmatJoukkueet.ids) || [],
       superAdmin: !!window._vpSA || rooli === 'super_admin',
       anon: false
     };
   },
   konsepti: function (k) { return (typeof _ttKonsepti === 'function') ? _ttKonsepti(k) : k; },
-  konseptilista: function (arr) { return (typeof _ttSeuraLista === 'function') ? _ttSeuraLista(arr) : arr; }
+  konseptilista: function (arr) { return (typeof _ttSeuraLista === 'function') ? _ttSeuraLista(arr) : arr; },
+
+  /* ── KOHDISTUSLISTAT (A+B) ────────────────────────────────────────────────────────────
+     Kaavion kohteen valinta vaatii rosterin. VP näkee KOKO SEURAN — se on tämän roolin tehtävä
+     (katselmus + kohdistuksen tarkennus). Muotoilu (§7.22: vain id + nimi) tehdään datan
+     vieressä pääskriptissä, ei täällä — adapteri pysyy ohuena kuten muutkin kentät. */
+  joukkueet: function () { return (typeof _vpKaavioJoukkueet === 'function') ? _vpKaavioJoukkueet() : []; },
+  pelaajat: function (joukkueId) { return (typeof _vpKaavioPelaajat === 'function') ? _vpKaavioPelaajat(joukkueId) : []; },
+  valmentajat: function () { return (typeof _vpKaavioValmentajat === 'function') ? _vpKaavioValmentajat() : []; }
 };
 </script>
 <script src="lib/tm_kaavio_render.js?v=4"></script>     <!-- erä A: §3-specin SVG-renderöijä (kielitietoinen) -->
-<script src="lib/tm_kaavio_policy.js?v=2"></script>     <!-- erä A: näkyvyys/toiminnot — pariteetti firestore.rules kanssa -->
+<script src="lib/tm_kaavio_policy.js?v=3"></script>     <!-- erä A: näkyvyys/toiminnot — pariteetti firestore.rules kanssa -->
 <script src="lib/tm_kaavio_validate.js?v=4"></script>   <!-- erä A: §6-validaattori (client-portti + ingest) -->
 <script src="lib/tm_kaavio_editori.js?v=4"></script>
-<script src="lib/tm_kaavio_ui.js?v=1"></script>   <!-- Taktiikkataulun UI-ohjain, JAETTU Master_v16:n kanssa (host-adapteri alla) -->    <!-- erä B1: editorin tila+koordinaatit (sama mappi kuin render) -->   <!-- Vaihe 4c: jaksofokus-oversight PURE-ydin (kattavuus/umpeutunut/teemakeskittymä, §26) -->
+<script src="lib/tm_kaavio_ui.js?v=2"></script>   <!-- Taktiikkataulun UI-ohjain, JAETTU Master_v16:n kanssa (host-adapteri alla) -->    <!-- erä B1: editorin tila+koordinaatit (sama mappi kuin render) -->   <!-- Vaihe 4c: jaksofokus-oversight PURE-ydin (kattavuus/umpeutunut/teemakeskittymä, §26) -->
 <script src="lib/tm_kaavio_konsepti.js?v=1"></script>   <!-- erä C: spec↔konsepti-sidos (otsikko/KPI resolvoidusta konseptista, ei specistä) -->
 <script src="lib/tm_vp_seuranta.js?v=1"></script>   <!-- Vaihe C: VP-seuranta koonti/kuittaus/IDP-feed (nojaa VAI+-indeksiin, ei uutta mittaria) -->
 <script src="lib/tm_kehityskaari.js?v=4"></script>   <!-- Trendi Vaihe 2 + IDP VAIHE 1: yksilön kehityskaari (data + tmKehityskaari-renderöijä) -->
@@ -13228,6 +13241,34 @@ async function lataaJoukkueNimet() {
     _vpPaivitaOmatJoukkueet(snap.docs);   // R1 — kirjaa nykyisen valmentajan omat joukkueet (omistajuusportti)
   } catch(e) { console.warn('lataaJoukkueNimet:', e.message); _joukkueNimet = {}; }
 }
+/* ── TAKTIIKKATAULUN KOHDISTUSLISTAT (A+B) ──────────────────────────────────────────────
+   Kaavion kohteen valinta (kenelle kuva on) vaatii rosterin, jota jaetulla UI-libillä ei voi
+   olla. Nämä muotoilevat VP:n datan adapterin sopimusmuotoon.
+   §7.22 — PELAAJALISTASSA VAIN id + nimi. Kohdevalitsin on kohdistustyökalu, ei tietolähde:
+   _pelaajat-objektit sisältävät TKI/FLEI/PHV-arvoja, ja koko objektin läpäisy vuotaisi ne
+   jaettuun libiin ilman että kukaan päättää niin. Kentät poimitaan siksi eksplisiittisesti. */
+function _vpKaavioJoukkueet() {
+  var m = _joukkueNimet || {};
+  return Object.keys(m).map(function (id) { return { id: id, nimi: m[id] || id }; })
+    .sort(function (a, b) { return String(a.nimi).localeCompare(String(b.nimi)); });
+}
+function _vpKaavioPelaajat(joukkueId) {
+  return (_pelaajat || []).filter(function (p) {
+    return !joukkueId || (p.joukkueet || []).indexOf(joukkueId) >= 0;
+  }).map(function (p) {
+    return {
+      id: p.id,
+      nimi: ((p.etunimi || '') + ' ' + (p.sukunimi || '')).trim() || p.nimi || p.id,
+      joukkueId: (p.joukkueet || [])[0] || null
+    };
+  });
+}
+function _vpKaavioValmentajat() {
+  return (_valmentajat || [])
+    .filter(function (v) { return v && v.aktiivinen !== false; })
+    .map(function (v) { return { id: v.id, nimi: v.nimi || v.id }; });
+}
+
 // R1 (§9367) — laske sisäänkirjautuneen valmentajan OMAT joukkueet omistajuusporttia varten (_vpVoiMuokata(p) +
 // cockpit-rosterirajaus). Lähteet: joukkueet/{jid}.valmentajat[]/valmentajaUid ∋ uid (auktoritatiivinen, sama kuin
 // Firestore-sääntöjen valmentajanJoukkueet) + fallback kayttaja-dokin joukkue-nimi. window._vpOmatJoukkueet = {ids, nimet}.

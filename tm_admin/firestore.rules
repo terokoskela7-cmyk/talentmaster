@@ -1,9 +1,20 @@
 rules_version = '2';
 // ══════════════════════════════════════════════════════════════════════════
-// TalentMaster™ — firestore.rules v3.14
+// TalentMaster™ — firestore.rules v3.15
 //
 // Lähde:  tm_admin/firestore.rules
 // Deploy: PR → N4-CI deployaa automaattisesti (Console-käsityö poistui).
+//
+// Muutokset v3.14 → v3.15 (Kaavion kohdistus — neljäs taso 'valmentaja'):
+//   + kaavioNakyvyysLuontiOk(): 'valmentaja' sallittujen tasojen joukkoon. Se on HENKILÖSTÖ-
+//     REITITYS (kenelle valmentajalle kuva annetaan käytettäväksi), ei pelaajayleisö — se ei
+//     laajenna pelaajien näkyvyyttä lainkaan, joten se ei vaadi hyväksyjää.
+//   · review.valmentajaId — UUSI kohdekenttä. EI erillistä sääntömuutosta: kaaviot-blokissa ei
+//     ole kenttäkohtaista allowlistia (create/update kirjoittavat koko dokumentin), joten uusi
+//     review-kenttä kulkee olemassa olevien porttien läpi.
+//   · Lukuportti ENNALLAAN: oman seuran valmentaja lukee jo KAIKKI seuran kaaviot kaikissa
+//     tiloissa (allow read alla), joten valmentajalle osoitettu kaavio näkyy hänen pankissaan
+//     ilman uutta ehtoa. Erillinen "valmentajaId == uid" -lisäys olisi kuollut sääntörivi.
 //
 // Muutokset v3.13 → v3.14 (Piirrokset Vaihe 1 — toissijainen pelipaikka):
 //   + seurat/{sid}/pelaajat/{pid} update — field-level-allowlistiin 'tt_positio_toissijainen'
@@ -243,9 +254,12 @@ service cloud.firestore {
     // Puuttuva kenttä tulkitaan 'seura'ksi — lupaportti on FAIL-CLOSED: määrittelemätön näkyvyys
     // ei saa olla helpompi reitti kuin eksplisiittinen.
     function kaavioNakyvyys(d) { return d.get('review', {}).get('nakyvyys', 'seura'); }
-    // Luonti: seuratason saa asettaa vain hyväksyjä.
+    // Luonti: seuratason saa asettaa vain hyväksyjä. 'valmentaja' on HENKILÖSTÖREITITYS (kenelle
+    // valmentajalle kuva annetaan käytettäväksi), ei pelaajayleisö — se ei laajenna pelaajien
+    // näkyvyyttä lainkaan (lib/tm_kaavio_policy.js kaavioKohdistuu → false), joten sen asettaminen
+    // ei vaadi hyväksyjää sen enempää kuin joukkue/pelaaja-kohdistuskaan.
     function kaavioNakyvyysLuontiOk() {
-      return kaavioNakyvyys(request.resource.data) in ['joukkue', 'pelaaja'] || onKaavioHyvaksyja();
+      return kaavioNakyvyys(request.resource.data) in ['joukkue', 'pelaaja', 'valmentaja'] || onKaavioHyvaksyja();
     }
     // Muokkaus: portti koskee NOSTOA seuratasolle, ei absoluuttista arvoa. Jos kaavio on JO
     // seuratasoinen, valmentaja saa yhä muokata sen sisältöä oman joukkuerajauksensa puitteissa —

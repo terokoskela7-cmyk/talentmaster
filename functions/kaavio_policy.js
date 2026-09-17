@@ -17,6 +17,10 @@ function kaavioKohdistuuServer(doc, pelaaja) {
   const r = doc.review, p = pelaaja || {};
   if (r.nakyvyys === 'seura') return !doc.seuraId || doc.seuraId === p.seuraId;
   if (r.nakyvyys === 'joukkue') return !!r.joukkueId && (p.joukkueet || []).indexOf(r.joukkueId) >= 0;
+  // 'valmentaja' = HENKILÖSTÖREITITYS (kenelle valmentajalle kuva annetaan), ei pelaajayleisö →
+  // ei koskaan kohdistu pelaajaan. Ilman tätä riviä kuittaus-CF hylkäisi sen samalla tuloksella
+  // mutta eri syystä (tuntematon taso); eksplisiittinen haara pitää peilin luettavana.
+  if (r.nakyvyys === 'valmentaja') return false;
   if (r.nakyvyys === 'pelaaja') return (r.pelaajaIds || []).indexOf(p.pelaajaId) >= 0;
   return false;
 }
