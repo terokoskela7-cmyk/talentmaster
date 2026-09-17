@@ -40,8 +40,10 @@ describe('Master-kartta + masterT (delegoi commoniin)', () => {
 });
 
 describe('Master B1 infra + chrome wiring', () => {
-  it('latausjärjestys: tm_lang → tm_i18n_common?v=2 → tm_master_i18n?v=1', () => {
-    expect(HTML).toContain('lib/tm_i18n_common.js?v=2');
+  // Versionumeroa EI naulata: ?v bumpataan aina kun kartan sisältö muuttuu (§27.4 cache-bust),
+  // ja naulattu luku tekisi siitä testirikon eikä invariantin. Invariantti on JÄRJESTYS.
+  it('latausjärjestys: tm_lang → tm_i18n_common → tm_master_i18n (common ENNEN sivukarttaa)', () => {
+    expect(HTML).toMatch(/lib\/tm_i18n_common\.js\?v=[1-9]\d*/);
     expect(HTML).toMatch(/lib\/tm_master_i18n\.js\?v=[1-9]/);
     const iC = HTML.indexOf('tm_i18n_common.js'), iM = HTML.indexOf('tm_master_i18n.js');
     expect(iC).toBeGreaterThan(0); expect(iM).toBeGreaterThan(iC);   // common ENNEN sivukarttaa
