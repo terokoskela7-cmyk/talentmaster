@@ -130,7 +130,10 @@ describe('C — create-haara kirjoittaa rulesin vaatiman muodon', () => {
     expect(create).toMatch(/luotu: firebase\.firestore\.FieldValue\.serverTimestamp\(\)/);
   });
   it('EI aja tilasiirtokoneistoa luonnissa (se päättelisi tilan olemattomasta vanhasta)', () => {
-    const create = fn.slice(fn.indexOf('if (m._uusi'), fn.indexOf('// ── MUOKKAUS'));
+    // Kommentit pois: ne SELITTÄVÄT miksi tilasiirtokoneistoa ei ajeta, ja osuisivat muuten
+    // omaan väitteeseensä.
+    const create = fn.slice(fn.indexOf('if (m._uusi'), fn.indexOf('// ── MUOKKAUS'))
+      .split('\n').filter((l) => !/^\s*\/\//.test(l)).join('\n');
     expect(create).not.toContain('kaavioTilaMuokkauksenJalkeen');
     expect(create).not.toContain('kaavioSeuraavaVersio');
   });
@@ -154,7 +157,8 @@ describe('D — muokkauspolku ennallaan (ei regressiota)', () => {
   const update = fn.slice(fn.indexOf('// ── MUOKKAUS'));
   it('update säilyttää tilasiirron ja versiolukon', () => {
     expect(update).toContain('kaavioTilaMuokkauksenJalkeen(m, ctx)');
-    expect(update).toMatch(/'review\.versio': kaavioSeuraavaVersio\(m\)/);
+    expect(update).toMatch(/'review\.versio': uusiVersio/);
+    expect(runko('_kaavioTallenna')).toContain('kaavioSeuraavaVersio(m)');
   });
   it('update ei kirjoita luonut/luotu-kenttiä (ne kuuluvat vain luontiin)', () => {
     expect(update).not.toMatch(/luonut|luotu:/);
@@ -184,7 +188,7 @@ describe('E — uudelleenkäyttö: ei kopioitua editoria eikä validointia', () 
   });
   it('kaikki uudet näyttötekstit ovat vpT():n läpi ja sv-kartassa', () => {
     const sv = readFileSync(join(ROOT, 'lib', 'tm_vp_i18n.js'), 'utf8');
-    ['Uusi kaavio', 'Konsepti', 'Pelimuoto', 'Näkyvyys', 'Luo ja muokkaa', 'Kaavio luotu luonnoksena'].forEach((k) => {
+    ['Uusi kaavio', 'Konsepti', 'Pelimuoto', 'Näkyvyys', 'Luo ja muokkaa', 'Tallennettu luonnoksena'].forEach((k) => {
       expect(VP, k).toContain("vpT('" + k + "')");
       expect(sv, k).toContain("'" + k + "':");
     });

@@ -19,7 +19,7 @@
 <!-- Eerikkilä-normit + universaali testirekisteri (eerikkilaTaso, laskeFVP) — 10m/5m-tasot + FVP-profiili -->
 <script src="lib/tm_lang.js?v=14"></script>   <!-- i18n V0 — fi/sv/en käännöstaulukko + t() + kieli-init (putkitus) -->
 <script src="lib/tm_i18n_common.js?v=2"></script>   <!-- i18n Vaihe 0 — JAETTU henkilöstö-i18n + lukittu glossaari (ENNEN sivukarttaa) -->
-<script src="lib/tm_vp_i18n.js?v=72"></script>   <!-- i18n Vaihe 5 — VP sv (sivukartta); vpT/vpLokalisoi delegoivat commoniin -->
+<script src="lib/tm_vp_i18n.js?v=73"></script>   <!-- i18n Vaihe 5 — VP sv (sivukartta); vpT/vpLokalisoi delegoivat commoniin -->
 
 
 <script src="lib/tm_eerikkila_normit.js?v=45"></script>   <!-- v43: D2-kortti d2_taso-ensin (renderKehityskorttiHTML, PR #264 · §30/#262) -->
@@ -5031,6 +5031,7 @@ function _kaavioAvaaEditori(k) {
   }
   _kaavioTila.historia = [];
   _kaavioTila.tyokalu = null; _kaavioTila.veto = null; _kaavioTila.valittu = null;   // jokainen avaus alkaa raahaus- ja valintatilasta
+  _kaavioTila.tallennettuSpec = null;   // leima syntyy vasta ensimmäisestä tallennuksesta
   var h = '<div id="_kvEditori" style="position:fixed;inset:0;background:rgba(17,17,16,.96);z-index:320;display:flex;align-items:center;justify-content:center" onclick="if(event.target===this)_kaavioSuljeEditori()">';
   h += '<div style="background:var(--bg2);border:.5px solid var(--border);padding:20px;max-width:96vw;max-height:94vh;overflow-y:auto" onclick="event.stopPropagation()">';
   var edOts = _kaavioOtsikko(_kaavioTila.muokkaus.spec);
@@ -5057,7 +5058,7 @@ function _kaavioAvaaEditori(k) {
   h += '<div style="display:flex;gap:6px;flex-wrap:wrap">';
   h += '<button onclick="_kaavioKumoa()" style="background:var(--ov-1);color:var(--ink2);border:.5px solid var(--border);border-radius:6px;padding:7px 12px;font-size:11.5px;cursor:pointer">' + vpT('Kumoa') + '</button>';
   h += '<button onclick="_kaavioTallenna()" style="background:rgba(40,176,144,.16);color:var(--teal);border:.5px solid rgba(40,176,144,.45);border-radius:6px;padding:7px 14px;font-size:11.5px;cursor:pointer">' + vpT('Tallenna') + '</button>';
-  h += '<button onclick="_kaavioSuljeEditori()" style="background:var(--ov-1);color:var(--ink3);border:.5px solid var(--border);border-radius:6px;padding:7px 12px;font-size:11.5px;cursor:pointer">' + vpT('Peruuta') + '</button>';
+  h += '<button id="_kvSulje" onclick="_kaavioSuljeEditori()" style="background:var(--ov-1);color:var(--ink3);border:.5px solid var(--border);border-radius:6px;padding:7px 12px;font-size:11.5px;cursor:pointer">' + _kaavioSulkuNappiTeksti() + '</button>';
   h += '</div><div id="_kvVirhe" style="margin-top:10px;font-size:11.5px;color:#C94040"></div>';
   h += '</div></div></div></div>';
   document.body.insertAdjacentHTML('beforeend', h);
@@ -5066,7 +5067,15 @@ function _kaavioAvaaEditori(k) {
 function _kvTyokalu(k, lbl) {
   return '<button onclick="_kaavioLisaa(\'' + k + '\')" style="background:var(--ov-1);color:var(--ink2);border:.5px solid var(--border);border-radius:6px;padding:6px 10px;font-size:11px;cursor:pointer">' + vpT(lbl) + '</button>';
 }
-function _kaavioSuljeEditori() { document.getElementById('_kvEditori')?.remove(); _kaavioTila.muokkaus = null; _kaavioTila.tyokalu = null; _kaavioTila.veto = null; _kaavioTila.valittu = null; }
+/* Sulkeminen on nyt AINOA poistumispolku → pankin päivitys tapahtuu tässä, ei tallennuksessa.
+   Näin pankki näyttää juuri tallennetun kaavion tuoreena riippumatta siitä montako kertaa
+   välissä tallennettiin. */
+function _kaavioSuljeEditori() {
+  document.getElementById('_kvEditori')?.remove();
+  _kaavioTila.muokkaus = null; _kaavioTila.tyokalu = null; _kaavioTila.veto = null;
+  _kaavioTila.valittu = null; _kaavioTila.tallennettuSpec = null;
+  if (typeof avaaKaaviopankki === 'function') avaaKaaviopankki();
+}
 
 function _kaavioPiirraEditori() {
   var c = document.getElementById('_kvCanvas');
@@ -5203,6 +5212,27 @@ function _kaavioTyokaluOhje() {
   if (t === 'poista') return vpT('Klikkaa poistettavaa elementtiä.');
   return '';
 }
+/* TALLENNETTU-LEIMA: viimeksi levylle kirjoitetun specin tilannekuva. Editori jää tallennuksen
+   jälkeen auki, joten käyttäjän pitää nähdä onko hänellä kirjoittamattomia muutoksia. Vertailu on
+   merkkijonovertailu — se riittää, koska spec on puhdasta dataa eikä siinä ole kiertoviitteitä. */
+function _kaavioTallennettuLeima() {
+  var m = _kaavioTila.muokkaus;
+  _kaavioTila.tallennettuSpec = m ? JSON.stringify(m.spec) : null;
+}
+function _kaavioTallentamattomia() {
+  var m = _kaavioTila.muokkaus;
+  if (!m) return false;
+  if (m._uusi || !m.id) return true;                       // ei vielä kertaakaan tallennettu
+  if (_kaavioTila.tallennettuSpec == null) return false;   // avattu, ei muokattu tässä istunnossa
+  return JSON.stringify(m.spec) !== _kaavioTila.tallennettuSpec;
+}
+/* Sulkunapin nimi: "Peruuta" peruu jotain vasta tallentamatonta. Kun kaavio on jo levyllä,
+   sulkeminen ei peru mitään → "Valmis" on rehellisempi. */
+function _kaavioSulkuNappiTeksti() {
+  var m = _kaavioTila.muokkaus;
+  return (m && m.id && !m._uusi) ? vpT('Valmis') : vpT('Peruuta');
+}
+
 /* Mihin tallentuu ja missä tilassa. Arvot luetaan samasta review-objektista jota
    _kaavioTallenna kirjoittaa, joten rivi ei voi ajautua erilleen todellisuudesta. */
 function _kaavioTallennusKohdeHTML() {
@@ -5214,6 +5244,7 @@ function _kaavioTallennusKohdeHTML() {
   h += ' · ' + vpT('tila') + ': ' + _kaavioTilaLbl(uusi ? 'luonnos' : st);
   h += ' · ' + vpT('näkyvyys') + ': ' + _kaavioNakyvyysLbl(nak);
   if (uusi) h += ' · ' + vpT('uusi — tallentuu luonnoksena');
+  else if (_kaavioTallentamattomia()) h += ' · <span style="color:var(--amber)">' + vpT('tallentamattomia muutoksia') + '</span>';
   else if (st === 'hyvaksytty' && typeof kaavioTilaMuokkauksenJalkeen === 'function'
            && kaavioTilaMuokkauksenJalkeen(m, _kaavioCtxNyt()) === 'odottaa') {
     h += ' · ' + vpT('muokkaus vie takaisin katselmukseen');
@@ -5453,6 +5484,7 @@ function _kaavioTyokaluPaivita() {
   var sa = document.getElementById('_kvNkSaadin'); if (sa) sa.innerHTML = _kaavioNakokenttaSaadinHTML();
   var om = document.getElementById('_kvOminaisuudet'); if (om) om.innerHTML = _kaavioOminaisuudetHTML();
   var ko = document.getElementById('_kvKohde'); if (ko) ko.innerHTML = _kaavioTallennusKohdeHTML();
+  var su = document.getElementById('_kvSulje'); if (su) su.textContent = _kaavioSulkuNappiTeksti();
   var o = document.getElementById('_kvOhje'); if (o) o.textContent = _kaavioTyokaluOhje();
 }
 function _kaavioValitseTyokalu(k) {
@@ -5657,9 +5689,21 @@ async function _kaavioTallenna() {
         }
       });
       m.id = ref.id; m._uusi = false;   // seuraava Tallenna päivittää samaa dokumenttia
-      toast(vpT('Kaavio luotu luonnoksena'), 'ok');
-      _kaavioSuljeEditori();
-      avaaKaaviopankki();
+      // PAIKALLINEN review SYNKATAAN kirjoitetun kanssa. Tämä ei ollut ennen tarpeen, koska
+      // editori sulkeutui heti — nyt se jää auki, ja seuraava Tallenna lukee versionumeron
+      // TÄSTÄ objektista (kaavioSeuraavaVersio). Ilman synkkaa toinen tallennus lähettäisi saman
+      // version uudelleen ja optimistinen versiolukko hylkäisi sen ("joku muu ehti muokata").
+      m.review = {
+        status: 'luonnos',
+        nakyvyys: (m.review && m.review.nakyvyys) || 'seura',
+        joukkueId: (m.review && m.review.joukkueId) || null,
+        pelaajaIds: (m.review && m.review.pelaajaIds) || [],
+        versio: 0
+      };
+      _kaavioTallennettuLeima();
+      toast(vpT('Tallennettu luonnoksena'), 'ok');
+      _kaavioTyokaluPaivita();          // tallennusrivi + sulkunappi tallennettuun tilaan
+      _kaavioPiirraEditori();           // editori JÄÄ AUKI: muokkausta voi jatkaa
     } catch (e) {
       if (virheEl) virheEl.textContent = vpT('Luonti epäonnistui — tarkista oikeudet.');
       toast(vpT('Luonti epäonnistui'), 'err');
@@ -5668,15 +5712,21 @@ async function _kaavioTallenna() {
   }
   // ── MUOKKAUS (ennallaan) ────────────────────────────────────────────────────────────────
   var uusiTila = kaavioTilaMuokkauksenJalkeen(m, ctx);
+  var uusiVersio = kaavioSeuraavaVersio(m);
   try {
     await kohde.doc(m.id).update({
       spec: m.spec,
       'review.status': uusiTila,
-      'review.versio': kaavioSeuraavaVersio(m)
+      'review.versio': uusiVersio
     });
+    // Sama synkka kuin luontihaarassa: paikallinen review on seuraavan tallennuksen lähtökohta.
+    m.review = m.review || {};
+    m.review.status = uusiTila;
+    m.review.versio = uusiVersio;
+    _kaavioTallennettuLeima();
     toast(uusiTila === 'odottaa' ? vpT('Tallennettu — odottaa hyväksyntää') : vpT('Tallennettu'), 'ok');
-    _kaavioSuljeEditori();
-    avaaKaaviopankki();
+    _kaavioTyokaluPaivita();
+    _kaavioPiirraEditori();
   } catch (e) {
     if (virheEl) virheEl.textContent = vpT('Joku muu ehti muokata — lataa kaavio uudelleen.');
     toast(vpT('Tallennus epäonnistui — lataa kaavio uudelleen'), 'err');

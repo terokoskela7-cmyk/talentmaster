@@ -194,7 +194,11 @@ describe('UI-portit · VP_v25 ei duplikoi oikeuslogiikkaa', () => {
     const i = VP.indexOf('KAAVIOPANKKI (erä B2)');
     const lohko = VP.slice(i, VP.indexOf('function avaaBioBanding()'));
     const updatet = lohko.split('.update(').length - 1;
-    const versiot = lohko.split("'review.versio': kaavioSeuraavaVersio(").length - 1;
+    // Väite on INVARIANTTI (jokainen update nostaa version), ei kutsun kirjoitusasu: versionumero
+    // lasketaan nyt muuttujaan ennen updatea, jotta paikallinen review voidaan synkata samalla
+    // arvolla (editori jää tallennuksen jälkeen auki).
+    const versiot = lohko.split("'review.versio':").length - 1;
+    expect(lohko).toContain('kaavioSeuraavaVersio(');
     expect(updatet).toBeGreaterThan(0);
     expect(versiot).toBe(updatet);
   });
