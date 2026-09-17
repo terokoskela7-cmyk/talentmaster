@@ -44,7 +44,10 @@ const sääntö = (nimi) => {
 describe('A — sääntö on totuus', () => {
   it('luontiportti: seurataso vain hyväksyjältä', () => {
     const f = sääntö('kaavioNakyvyysLuontiOk');
-    expect(f).toMatch(/in \['joukkue', 'pelaaja'\]/);
+    // 'valmentaja' on mukana: se on HENKILÖSTÖREITITYS (kaavioKohdistuu → false), ei
+    // pelaajayleisö, joten se ei laajenna näkyvyyttä eikä vaadi hyväksyjää. 'seura' EI ole.
+    expect(f).toMatch(/in \['joukkue', 'pelaaja', 'valmentaja'\]/);
+    expect(f).not.toMatch(/in \[[^\]]*'seura'[^\]]*\]/);
     expect(f).toContain('onKaavioHyvaksyja()');
     expect(RULES).toMatch(/allow create:[\s\S]*kaavioNakyvyysLuontiOk\(\)/);
   });
@@ -71,26 +74,43 @@ describe('A — sääntö on totuus', () => {
 });
 
 describe('B — lomake rooliporttaa valikon', () => {
-  const fn = () => runko('_kaavioUusiLomake');
-  it('seura-vaihtoehto renderöidään VAIN hyväksyjälle', () => {
-    expect(fn()).toMatch(/if \(_hyv\) h \+= '<option value="seura"/);
+  // Valikko rakennetaan nyt POLICYSTA (kaavioNakyvyysTasot = peili rulesin
+  // kaavioNakyvyysLuontiOk:sta), ei kovakoodatusta option-listasta. Väite on siksi
+  // policyn KÄYTÖKSESTÄ + siitä ettei lomake rakenna omaa rinnakkaista listaansa.
+  it('seura-taso VAIN hyväksyjälle', () => {
+    expect(P.kaavioNakyvyysTasot({ rooli: 'valmentaja', seuraId: 'A' })).not.toContain('seura');
+    expect(P.kaavioNakyvyysTasot({ rooli: 'talenttivalmentaja', seuraId: 'A' })).not.toContain('seura');
+    expect(P.kaavioNakyvyysTasot({ rooli: 'vp', seuraId: 'A' })).toContain('seura');
+    expect(P.kaavioNakyvyysTasot({ superAdmin: true })).toContain('seura');
   });
-  it('joukkue ja pelaaja tarjotaan aina', () => {
-    expect(fn()).toContain("'<option value=\"joukkue\"'");
-    expect(fn()).toContain("'<option value=\"pelaaja\">'");
+  it('joukkue, valmentaja ja pelaaja tarjotaan aina', () => {
+    ['valmentaja', 'vp'].forEach((r) => {
+      const t = P.kaavioNakyvyysTasot({ rooli: r, seuraId: 'A' });
+      ['joukkue', 'valmentaja', 'pelaaja'].forEach((x) => expect(t, r + '/' + x).toContain(x));
+    });
   });
-  it('ei-hyväksyjälle oletus on joukkue, hyväksyjälle seura', () => {
-    const f = fn();
-    expect(f).toMatch(/value="joukkue"' \+ \(_hyv \? '' : ' selected'\)/);
-    expect(f).toMatch(/if \(_hyv\) h \+= '<option value="seura" selected>/);
+  it('lomake EI rakenna omaa tasolistaansa — se kutsuu valitsinta', () => {
+    const f = runko('_kaavioUusiLomake');
+    expect(f).toContain("_kaavioNakyvyysValitsinHTML('_kvU'");
+    expect(f).not.toMatch(/<option value="(seura|joukkue|pelaaja)"/);
+  });
+  it('valitsin ottaa tasot policysta, ei roolilistasta', () => {
+    const v = runko('_kaavioTasotNyt');
+    expect(v).toContain('kaavioNakyvyysTasot(');
+    expect(v).not.toMatch(/'vp'|'urheilutoimenjohtaja'|super_admin/);
   });
   it('ei-hyväksyjälle kerrotaan MIKSI seurataso puuttuu (ei hiljaista rajoitetta)', () => {
-    expect(fn()).toMatch(/if \(!_hyv\) h \+=[\s\S]*Seuratason kaavion asettaa valmennuspäällikkö/);
+    expect(runko('_kaavioUusiLomake')).toMatch(/if \(!_hyv\) h \+=[\s\S]*Seuratason kaavion asettaa valmennuspäällikkö/);
   });
   it('hyväksyjyys tulee policy-libistä, ei omasta roolilistasta', () => {
     const h = runko('_kaavioOnHyvaksyjaNyt');
     expect(h).toContain('kaavioOnHyvaksyja(_kaavioCtxNyt())');
     expect(h).not.toMatch(/'vp'|'urheilutoimenjohtaja'|super_admin/);
+  });
+  it('OLETUS on kapein taso myös hyväksyjälle — seura on kuratointipäätös, ei luonnin oletus', () => {
+    const v = runko('_kaavioNakyvyysValitsinHTML');
+    expect(v).toContain("tasot.indexOf('joukkue') >= 0");
+    expect(v).not.toMatch(/'seura'/);
   });
 });
 

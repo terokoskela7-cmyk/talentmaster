@@ -99,6 +99,32 @@ describe('kaaviot · NÄKYVYYS — seurataso vain hyväksyjälle', () => {
     await assertSucceeds(setDoc(kd(valm(VALM_A1, SEURA_A), 'k_nak_v_joukkue'), dok('joukkue')));
     await assertSucceeds(setDoc(kd(valm(VALM_A1, SEURA_A), 'k_nak_v_pelaaja'), dok('pelaaja')));
   });
+  // ── NELJÄS TASO 'valmentaja' (A+B) — HENKILÖSTÖREITITYS, ei pelaajayleisö.
+  // Se ei laajenna yhdenkään pelaajan näkyvyyttä (policy kaavioKohdistuu → false), joten sen
+  // asettaminen ei vaadi hyväksyjää sen enempää kuin joukkue/pelaaja-kohdistuskaan.
+  it("valmentaja luo 'valmentaja'-tasoisen (henkilöstöreititys ei vaadi hyväksyjää)", async () => {
+    await assertSucceeds(setDoc(kd(valm(VALM_A1, SEURA_A), 'k_nak_v_valm'),
+      { spec: SPEC, review: { status: 'luonnos', nakyvyys: 'valmentaja', joukkueId: JOUKKUE_A1,
+                              valmentajaId: VALM_A1, pelaajaIds: [], versio: 0, luonut: VALM_A1 } }));
+  });
+  it("review.valmentajaId on kirjoitettavissa — ei kenttäkohtaista allowlistia kaavioissa", async () => {
+    await assertSucceeds(setDoc(kd(vp(SEURA_A), 'k_nak_vp_valm'),
+      { spec: SPEC, review: { status: 'luonnos', nakyvyys: 'valmentaja', joukkueId: JOUKKUE_A1,
+                              valmentajaId: 'joku_toinen_uid', pelaajaIds: [], versio: 0, luonut: VALM_A1 } }));
+  });
+  it("EI-VACUOUS: 'seura' hylätään SAMALTA valmentajalta samalla payloadilla", async () => {
+    await assertFails(setDoc(kd(valm(VALM_A1, SEURA_A), 'k_nak_v_vrt'),
+      { spec: SPEC, review: { status: 'luonnos', nakyvyys: 'seura', joukkueId: JOUKKUE_A1,
+                              valmentajaId: VALM_A1, pelaajaIds: [], versio: 0, luonut: VALM_A1 } }));
+  });
+  it("valmentaja saa LASKEA seura → valmentaja (kaventaa pelaajayleisön nollaan)", async () => {
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), 'seurat', SEURA_A, 'kaaviot', 'k_nak_laske_valm'), dok('seura'));
+    });
+    await assertSucceeds(updateDoc(kd(valm(VALM_A1, SEURA_A), 'k_nak_laske_valm'),
+      paivita({ 'review.nakyvyys': 'valmentaja', 'review.valmentajaId': VALM_A1 }, 0)));
+  });
+
   it('talenttivalmentaja EI luo seuratasoista (ei ole hyväksyjä)', async () => {
     await assertFails(setDoc(kd(talval(), 'k_nak_tv_seura'), dok('seura')));
   });

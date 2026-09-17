@@ -48,6 +48,16 @@ describe('A — yksi lähde, ei kopiota', () => {
   });
 });
 
+/* Premissi jonka varassa Masterin valmentajat()-aukko lepää: seurat/{sid}/kayttajat -listaus
+   on johdon oikeus, joten valmentaja saisi permission-deniedin. Jos sääntö joskus löystyy,
+   tämä punertaa ja Masterille voi lisätä henkilöstöreitityksen. */
+const RULES = readFileSync(join(ROOT, 'tm_admin', 'firestore.rules'), 'utf8');
+const RULES_KAYTTAJAT_JOHTO = () => {
+  const i = RULES.indexOf('match /kayttajat/{uid} {');
+  const lohko = RULES.slice(i, RULES.indexOf('allow create', i));
+  return /allow read:[\s\S]*onJohtoRooli\(\)/.test(lohko) && !/onValmentajaRooli\(\)/.test(lohko);
+};
+
 describe('B — adapterisopimus on sama molemmissa', () => {
   const adapteri = (src) => {
     const i = src.indexOf('window.TM_KAAVIO_HOST = {');
@@ -55,13 +65,32 @@ describe('B — adapterisopimus on sama molemmissa', () => {
     return src.slice(i, src.indexOf('\n};', i));
   };
   const avaimet = (lohko) => [...lohko.matchAll(/^\s{2}(?:get\s+)?([a-zA-Z]+)\s*[:(]/gm)].map((m) => m[1]).sort();
-  it('molemmat toteuttavat saman avainjoukon', () => {
-    expect(avaimet(adapteri(M))).toEqual(avaimet(adapteri(VP)));
+  // Sopimus on kaksitasoinen. PAKOLLISET: ilman niitä lib ei toimi lainkaan.
+  // VALINNAISET: jokaisella on dokumentoitu fallback libissä, ja puuttuminen kaventaa
+  // toimintoa hallitusti (esim. valmentajat puuttuu → 'valmentaja'-tasoa ei tarjota).
+  const PAKOLLISET = ['ctx', 'db', 'lang', 't', 'toast'];
+  const VALINNAISET = ['joukkueet', 'konsepti', 'konseptilista', 'pelaajat', 'valmentajat'];
+  it('molemmat toteuttavat KAIKKI pakolliset avaimet', () => {
+    PAKOLLISET.forEach((k) => {
+      expect(avaimet(adapteri(M)), 'Master/' + k).toContain(k);
+      expect(avaimet(adapteri(VP)), 'VP/' + k).toContain(k);
+    });
   });
-  it('lib kysyy VAIN näitä avaimia (sopimus ei ole vajaa)', () => {
+  it('kumpikaan ei toteuta avainta jota lib ei kysy (ei kuollutta sopimusta)', () => {
+    const tunnetut = PAKOLLISET.concat(VALINNAISET);
+    expect(avaimet(adapteri(M)).filter((k) => tunnetut.indexOf(k) < 0)).toEqual([]);
+    expect(avaimet(adapteri(VP)).filter((k) => tunnetut.indexOf(k) < 0)).toEqual([]);
+  });
+  it('lib kysyy VAIN sopimuksen avaimia (sopimus ei ole vajaa)', () => {
     // sekä `var h = _kuiHost(); h.x` että suora `_kuiHost().x`
     const kysytyt = [...UI.matchAll(/(?:\bh|_kuiHost\(\))\.([a-zA-Z]+)\b/g)].map((m) => m[1]);
-    expect([...new Set(kysytyt)].sort()).toEqual(avaimet(adapteri(M)));
+    expect([...new Set(kysytyt)].sort()).toEqual(PAKOLLISET.concat(VALINNAISET).sort());
+  });
+  it('Master EI toteuta valmentajat() — kayttajat-listaus on rules-tasolla johdon oikeus', () => {
+    expect(avaimet(adapteri(M))).not.toContain('valmentajat');
+    expect(avaimet(adapteri(VP))).toContain('valmentajat');
+    expect(adapteri(M)).toMatch(/valmentajat\(\) PUUTTUU TARKOITUKSELLA/);
+    expect(RULES_KAYTTAJAT_JOHTO()).toBe(true);   // premissi tarkistettu säännöistä, ei oletettu
   });
   it('Master lukee OMAT globaalinsa, ei VP:n', () => {
     const a = adapteri(M);

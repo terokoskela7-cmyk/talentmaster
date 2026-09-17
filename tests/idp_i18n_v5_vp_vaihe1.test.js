@@ -43,7 +43,10 @@ describe('V1 plain-avainkattavuus (Tilanne + Koti sv)', () => {
   ];
   it('kaikki V1-avaimet resolvoituvat sv:ksi (≠ fi, ei puutu)', () => {
     global.tmNykyinenKieli = () => 'sv';
-    const puuttuu = V1_KEYS.filter((k) => typeof M.TM_VP_I18N.sv[k] !== 'string');
+    // Avain saa asua VP:n sivukartassa TAI jaetussa TM_I18N_COMMONissa — C1 kieltää molemmat,
+    // joten sijaintia ei saa naulata. Invariantti on että se RESOLVOITUU (rivi alla).
+    const CMN = require(join(__dir, '..', 'lib', 'tm_i18n_common.js')).TM_I18N_COMMON.sv || {};
+    const puuttuu = V1_KEYS.filter((k) => typeof M.TM_VP_I18N.sv[k] !== 'string' && typeof CMN[k] !== 'string');
     expect(puuttuu).toEqual([]);
     const eiKaannetty = V1_KEYS.filter((k) => M.vpT(k) === k);
     expect(eiKaannetty).toEqual([]);

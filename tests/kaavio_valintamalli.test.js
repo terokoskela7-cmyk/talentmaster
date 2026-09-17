@@ -254,9 +254,10 @@ describe('H — Tallenna jättää editorin auki', () => {
     // Ilman tätä toinen peräkkäinen Tallenna lähettäisi SAMAN version (kaavioSeuraavaVersio lukee
     // m.review.versio) ja optimistinen lukko hylkäisi sen. Auki jättäminen paljasti tämän.
     const f = fn();
-    expect(f).toMatch(/m\.review\.versio = uusiVersio/);
-    expect(f).toMatch(/m\.review\.status = uusiTila/);
-    expect(f).toMatch(/m\.review = \{[\s\S]*versio: 0[\s\S]*\};/);   // luontihaara
+    // Synkka tehdään nyt yhdellä Object.assignilla (kohdistuskentät tulivat mukaan A+B:ssä),
+    // joten väite on arvoista eikä sijoituslauseen muodosta.
+    expect(f).toMatch(/Object\.assign\(m\.review \|\| \{\}, _kk, \{ status: uusiTila, versio: uusiVersio \}\)/);
+    expect(f).toMatch(/Object\.assign\(_kaavioKohdistusKentat\(m\), \{ status: 'luonnos', versio: 0 \}\)/);   // luontihaara
   });
   it('luonnin jälkeen m.id säilyy → seuraava tallennus PÄIVITTÄÄ, ei luo uutta', () => {
     expect(fn()).toMatch(/m\.id = ref\.id; m\._uusi = false;/);
@@ -349,11 +350,14 @@ describe('E — tallennuksen näkyvyys', () => {
   it('kertoo kohteen, tilan ja näkyvyyden', () => {
     expect(fn()).toContain('Tallentuu: seuran kaaviopankki');
     expect(fn()).toMatch(/_kaavioTilaLbl\(/);
-    expect(fn()).toMatch(/_kaavioNakyvyysLbl\(/);
+    // Näkyvyys esitetään nyt KOHTEENA ("pelaaja: Topias, Aada"), ei pelkkänä tasona —
+    // _kaavioKohdeLbl kutsuu _kaavioNakyvyysLbl:ää sisällään.
+    expect(fn()).toMatch(/_kaavioKohdeLbl\(/);
+    expect(runko('_kaavioKohdeLbl')).toMatch(/_kaavioNakyvyysLbl\(/);
   });
   it('arvot luetaan SAMASTA review-objektista jonka tallennus kirjoittaa', () => {
     expect(fn()).toMatch(/m\.review && m\.review\.status/);
-    expect(fn()).toMatch(/m\.review && m\.review\.nakyvyys/);
+    expect(fn()).toMatch(/m\.review \|\| \{ nakyvyys: nak \}/);
   });
   it('uusi kaavio kertoo tallentuvansa luonnoksena', () => {
     expect(fn()).toMatch(/uusi — tallentuu luonnoksena/);
