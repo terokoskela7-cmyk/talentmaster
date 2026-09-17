@@ -217,6 +217,32 @@ describe('F — työkalut jaetussa libissä → molemmat appit', () => {
     expect(execSync('git ls-files docs/tm_kaavio_spec_skeema.html', { cwd: ROOT }).toString().trim())
       .toBe('docs/tm_kaavio_spec_skeema.html');
   });
+  /* SKEEMADOKUMENTTI ON TARKISTETTU ARTEFAKTI, EI PROOSAA. Dokumentin §3-esimerkki ajetaan
+     TUOTANNON validaattorin läpi: jos dokumentti ajautuu toteutuksesta, tämä punertuu. Ennen
+     tätä esimerkki sisälsi prototyyppimuotoja (selitteet avainkarttana, nakokentat[]-taulukko),
+     eikä mikään huomannut — validaattori ei edes osannut käsitellä sitä muotoa. */
+  it('§3-esimerkki dokumentissa VALIDOITUU tuotannon validaattorilla', () => {
+    const alku = SKEEMA.indexOf('<h2>Spec-JSON (per konsepti)</h2>');
+    expect(alku).toBeGreaterThan(0);
+    const pre = SKEEMA.slice(SKEEMA.indexOf('<pre>', alku) + 5, SKEEMA.indexOf('</pre>', alku));
+    const json = pre.replace(/<span class="c">[\s\S]*?<\/span>/g, '').replace(/<[^>]+>/g, '')
+      .replace(/&gt;/g, '>').replace(/&lt;/g, '<').replace(/&amp;/g, '&').replace(/&quot;/g, '"');
+    const spec = JSON.parse(json);
+    expect(V.validoiKaavio(spec)).toEqual({ E: [], W: [] });
+    // ja se demonstroi oikeasti luokan C + tuotannon selite-/näkökenttämuodon
+    ['vyohyke', 'korkeuslinjat', 'peittovarjot'].forEach((k) => expect(spec[k], k).toBeTruthy());
+    expect(Array.isArray(spec.selitteet)).toBe(true);
+    expect(typeof spec.selitteet[0].t).toBe('object');
+    expect(spec.pelaajat.some((p) => p.nakokentta && typeof p.nakokentta.half === 'number')).toBe(true);
+  });
+  it('dokumentissa ei enää prototyyppimuotoja', () => {
+    expect(SKEEMA).not.toMatch(/nakokentat\[/);
+    expect(SKEEMA).not.toMatch(/"selitteet"<\/span>: <span class="k">\{/);
+    expect(SKEEMA).not.toMatch(/curriculum-avaimina/);
+    expect(SKEEMA).not.toMatch(/nakokentta\.pelaaja/);
+    expect(SKEEMA).not.toMatch(/Tiedossa oleva drift/);   // varoitus poistettu kun drift korjattu
+  });
+
   it('peittovarjon kaksivaiheinen ele nollautuu työkalua vaihtaessa', () => {
     const vt = UI.slice(UI.indexOf('function _kaavioValitseTyokalu'), UI.indexOf('}', UI.indexOf('function _kaavioValitseTyokalu')));
     expect(vt).toContain('_kaavioTila.varjoAlku = null');
