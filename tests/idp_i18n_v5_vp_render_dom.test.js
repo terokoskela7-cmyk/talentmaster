@@ -566,7 +566,12 @@ describe('VP_v25 render-kielineutraali-gate (step G · AST)', () => {
     expect(rikki).not.toBe(src);
     const leaks = scanLeaks(rikki, RANGES, RLO - 1, LIB, SISALTO_POIKKEUKSET);
     expect(leaks.map((l) => l.p)).toContain('§28 kuormaehdotus:');
-    expect(leaks.every((l) => l.line >= 9981 && l.line <= 11070)).toBe(true);
+    // Alue ANKKUROIDAAN mutaatiokohdasta, ei kovakoodatuista riveistä: [9981,11070] ajautui joka
+    // kerran kun skriptiin lisättiin rivejä sen yläpuolelle (sama juurisyy kuin renderSignalsilla).
+    // Väite säilyy: vuoto osuu SIIHEN kohtaan jota mutaatio koski, ei minne tahansa.
+    const _kuormaRivi = lines.findIndex((l) => l.includes("vpT('§28 kuormaehdotus:')")) + 1;
+    expect(_kuormaRivi).toBeGreaterThan(0);
+    expect(leaks.every((l) => Math.abs(l.line - _kuormaRivi) <= 2)).toBe(true);
     // Kehon valmius -pää erikseen (toinen alue samassa erässä)
     const rikki2 = src.replace("vpT('🎯 Heikoin ketju:')", "'🎯 Heikoin ketju:'");
     expect(rikki2).not.toBe(src);
