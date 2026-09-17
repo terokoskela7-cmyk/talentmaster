@@ -59,9 +59,12 @@ describe('A — lib: liike, selite, cone, osuma', () => {
     const l = E.kaavioLisaaLiike(POHJA(), 'juoksu', 'O1', { x: 140, y: -20 }).spec.liikkeet[0];
     expect(l.to).toEqual({ x: 100, y: 0 });
   });
-  it('selite täyttää fi+sv+en (validaattori vaatii); tyhjä hylätään', () => {
+  // MUUTTUNUT (§32-korjaus): luonti EI enää kopioi suomea sv/en-kenttiin. Suomi ruotsin paikalla
+  // on väärää dataa, ei puuttuvaa — se olisi näyttänyt käännetyltä. Käännökset kirjoitetaan
+  // ominaisuuspaneelissa, ja validaattori estää tallennuksen kunnes ne on täytetty.
+  it('selite luodaan VAIN suomeksi; tyhjä hylätään', () => {
     const se = E.kaavioLisaaSelite(POHJA(), 70, 30, '  Katso ennen  ').spec.selitteet[0];
-    expect(se.t).toEqual({ fi: 'Katso ennen', sv: 'Katso ennen', en: 'Katso ennen' });
+    expect(se.t).toEqual({ fi: 'Katso ennen', sv: '', en: '' });
     expect(E.kaavioLisaaSelite(POHJA(), 70, 30, '   ').virhe).toBe('tyhja_teksti');
   });
   it('cone on OBJEKTI {r,half}, ei true — renderöijä lukee molemmat kentät', () => {
@@ -98,6 +101,9 @@ describe('B — kaikki työkalujen tuotos läpäisee §6-validaattorin', () => {
     s = E.kaavioLisaaLiike(s, 'syotto', 'O2', 'O1').spec;
     s = E.kaavioLisaaLiike(s, 'juoksu', 'O1', { x: 62, y: 34 }).spec;
     s = E.kaavioLisaaSelite(s, 72, 28, 'Näet molemmat').spec;
+    // §32: käännökset täytetään erikseen — ilman niitä validaattori estää tallennuksen (tarkoitus).
+    s = E.kaavioAsetaSeliteTeksti(s, 'S1', 'sv', 'Du ser båda').spec;
+    s = E.kaavioAsetaSeliteTeksti(s, 'S1', 'en', 'You see both').spec;
     s = E.kaavioAsetaCone(s, true).spec;
     expect(V.validoiKaavio(s).E).toEqual([]);
   });
@@ -130,7 +136,9 @@ describe('C — VP: työkalutila vaihtaa vedon merkityksen', () => {
   it('raahaus on oletus ja säilyy kun tyokalu === null', () => {
     expect(VP).toContain('tyokalu: null, veto: null');
     const pd = runko('_kaavioPointerDown');
-    expect(pd).toMatch(/var osuma = kaavioSnapPaate\(s, sx, sy, 5\);\s*\/\/ raahaus/);
+    // Kommentti siirtyi rivin yläpuolelle kun oletustila sai myös valinnan — väite koskee
+    // käytöstä (snap + drag), ei kommentin sijaintia.
+    expect(pd).toMatch(/OLETUSTILA = raahaa TAI valitse/);
     expect(pd).toContain('_kaavioTila.drag = osuma.ref');
   });
   it('liiketyökalu aloittaa vedon, ei raahausta', () => {
@@ -253,6 +261,7 @@ describe('E — i18n ja tietoinen rajaus', () => {
   });
   it('selitteen käännösvaraus on dokumentoitu (ei keksittyjä käännöksiä)', () => {
     const lib = readFileSync(join(ROOT, 'lib', 'tm_kaavio_editori.js'), 'utf8');
-    expect(lib).toMatch(/per-kieli-käännös on myöhempi jalostus|ei keksitty käännös/);
+    expect(lib).toMatch(/§32-KORJAUS/);
+    expect(lib).toMatch(/mieluummin näkyvä este kuin hiljainen väärä data/);
   });
 });

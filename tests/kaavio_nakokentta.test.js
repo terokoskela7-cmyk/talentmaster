@@ -200,9 +200,11 @@ describe('E — editorin kytkentä', () => {
     expect(pu).toMatch(/if \(t === 'nakokentta'\)[\s\S]*kaavioAsetaNakokentta\(m\.spec, pid, \{ r:/);
     expect(pu).toMatch(/if \(pit < 3\)/);
   });
-  it('säädin kohdistuu viimeksi kosketettuun pelaajaan ja nollautuu työkalua vaihtaessa', () => {
-    expect(runko('_kaavioNakokenttaSaadinHTML')).toContain('_kaavioTila.valittu');
-    expect(runko('_kaavioValitseTyokalu')).toContain('_kaavioTila.valittu = null');
+  // MUUTTUNUT: valinta on nyt PYSYVÄ ({kind,id}) eikä nollaudu työkalua vaihtaessa — se on
+  // näkyvä tila jota ominaisuuspaneeli seuraa. Säädin lukee valinnan jaetun apurin kautta.
+  it('säädin kohdistuu VALITTUUN pelaajaan; valinta säilyy työkalua vaihtaessa', () => {
+    expect(runko('_kaavioNakokenttaSaadinHTML')).toContain('_kaavioValittuPelaaja()');
+    expect(runko('_kaavioValitseTyokalu')).not.toContain('_kaavioTila.valittu = null');
   });
   it('jokaiselle uudelle työkalulle on ohjeteksti (moodi ei saa olla näkymätön)', () => {
     const o = runko('_kaavioTyokaluOhje');

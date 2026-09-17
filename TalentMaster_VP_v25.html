@@ -19,7 +19,7 @@
 <!-- Eerikkilä-normit + universaali testirekisteri (eerikkilaTaso, laskeFVP) — 10m/5m-tasot + FVP-profiili -->
 <script src="lib/tm_lang.js?v=14"></script>   <!-- i18n V0 — fi/sv/en käännöstaulukko + t() + kieli-init (putkitus) -->
 <script src="lib/tm_i18n_common.js?v=2"></script>   <!-- i18n Vaihe 0 — JAETTU henkilöstö-i18n + lukittu glossaari (ENNEN sivukarttaa) -->
-<script src="lib/tm_vp_i18n.js?v=70"></script>   <!-- i18n Vaihe 5 — VP sv (sivukartta); vpT/vpLokalisoi delegoivat commoniin -->
+<script src="lib/tm_vp_i18n.js?v=71"></script>   <!-- i18n Vaihe 5 — VP sv (sivukartta); vpT/vpLokalisoi delegoivat commoniin -->
 
 
 <script src="lib/tm_eerikkila_normit.js?v=45"></script>   <!-- v43: D2-kortti d2_taso-ensin (renderKehityskorttiHTML, PR #264 · §30/#262) -->
@@ -45,7 +45,7 @@
 <script src="lib/tm_kaavio_render.js?v=3"></script>     <!-- erä A: §3-specin SVG-renderöijä (kielitietoinen) -->
 <script src="lib/tm_kaavio_policy.js?v=2"></script>     <!-- erä A: näkyvyys/toiminnot — pariteetti firestore.rules kanssa -->
 <script src="lib/tm_kaavio_validate.js?v=3"></script>   <!-- erä A: §6-validaattori (client-portti + ingest) -->
-<script src="lib/tm_kaavio_editori.js?v=3"></script>    <!-- erä B1: editorin tila+koordinaatit (sama mappi kuin render) -->   <!-- Vaihe 4c: jaksofokus-oversight PURE-ydin (kattavuus/umpeutunut/teemakeskittymä, §26) -->
+<script src="lib/tm_kaavio_editori.js?v=4"></script>    <!-- erä B1: editorin tila+koordinaatit (sama mappi kuin render) -->   <!-- Vaihe 4c: jaksofokus-oversight PURE-ydin (kattavuus/umpeutunut/teemakeskittymä, §26) -->
 <script src="lib/tm_kaavio_konsepti.js?v=1"></script>   <!-- erä C: spec↔konsepti-sidos (otsikko/KPI resolvoidusta konseptista, ei specistä) -->
 <script src="lib/tm_vp_seuranta.js?v=1"></script>   <!-- Vaihe C: VP-seuranta koonti/kuittaus/IDP-feed (nojaa VAI+-indeksiin, ei uutta mittaria) -->
 <script src="lib/tm_kehityskaari.js?v=4"></script>   <!-- Trendi Vaihe 2 + IDP VAIHE 1: yksilön kehityskaari (data + tmKehityskaari-renderöijä) -->
@@ -4639,7 +4639,12 @@ window.avaaPelaajaMuistiinpanoModal = avaaPelaajaMuistiinpanoModal;
 // oikeuslogiikkaa. Palvelinsääntö on todellinen portti; UI vain ei yritä laitonta kirjoitusta.
 // Kaksikerros: kanoniset /kaaviot/{avain} (luku) + seuran /seurat/{sid}/kaaviot (review-silmukka).
 // Seuratason sama spec.avain VOITTAA kanonisen (override).
-var _kaavioTila = { lista: [], valittu: null, muokkaus: null, historia: [], drag: null, tyokalu: null, veto: null };   // `valittu` = viimeksi kosketettu pelaaja (näkökentän säädin)
+var _kaavioTila = { lista: [], valittu: null, muokkaus: null, historia: [], drag: null, tyokalu: null, veto: null };
+// `valittu` = PYSYVÄ valinta { kind:'player'|'liike'|'selite', id }. Aiemmin se oli pelkkä
+// pelaaja-id ja tarkoitti "viimeksi kosketettu" — käyttäjä ei nähnyt keneen se osui, joten
+// "kenelle tämä menee?" oli oikeutettu kysymys. Nyt valinta on näkyvä (overlay-korostus) ja
+// nimetty (paneelin otsikko). Valinta on OLETUSTILAN käytös: kun työkalu on aktiivinen,
+// työkalu voittaa eikä valintaa muuteta.
 
 // ⚠ KRIITTINEN KORJAUS — tämä funktio HEITTI ReferenceErrorin joka kutsulla.
 // `_rooli`-globaalia ei ole koskaan deklaroitu missään (ei var/let/const eikä window._rooli), joten
@@ -5025,14 +5030,16 @@ function _kaavioAvaaEditori(k) {
     if (_mg.muuttui) _kaavioTila.muokkaus.spec = _mg.spec;
   }
   _kaavioTila.historia = [];
-  _kaavioTila.tyokalu = null; _kaavioTila.veto = null;   // jokainen avaus alkaa raahaustilasta
+  _kaavioTila.tyokalu = null; _kaavioTila.veto = null; _kaavioTila.valittu = null;   // jokainen avaus alkaa raahaus- ja valintatilasta
   var h = '<div id="_kvEditori" style="position:fixed;inset:0;background:rgba(17,17,16,.96);z-index:320;display:flex;align-items:center;justify-content:center" onclick="if(event.target===this)_kaavioSuljeEditori()">';
   h += '<div style="background:var(--bg2);border:.5px solid var(--border);padding:20px;max-width:96vw;max-height:94vh;overflow-y:auto" onclick="event.stopPropagation()">';
   var edOts = _kaavioOtsikko(_kaavioTila.muokkaus.spec);
   h += '<div style="font-family:\'Cormorant Garamond\',serif;font-size:20px;color:var(--ink);margin-bottom:2px">' + vpT('Muokkaa kaaviota') + '</div>';
   h += '<div style="font-size:12.5px;color:var(--ink2);margin-bottom:2px">' + _jsvEsc(edOts.nimi || '') + (edOts.kpiKoodi ? ' · ' + _jsvEsc(edOts.kpiKoodi) : '') + '</div>';
   if (edOts.kpiTeksti) h += '<div style="font-size:11.5px;color:var(--ink3);line-height:1.45;margin-bottom:10px">' + _jsvEsc(edOts.kpiTeksti) + '</div>';
-  else h += '<div style="margin-bottom:10px"></div>';
+  else h += '<div style="margin-bottom:6px"></div>';
+  // TALLENNUKSEN NÄKYVYYS: käyttäjä kysyi "mihin se tallentuu?" — toast on ohimenevä, tämä ei.
+  h += '<div id="_kvKohde" style="font-size:11px;color:var(--ink3);margin-bottom:10px">' + _kaavioTallennusKohdeHTML() + '</div>';
   h += '<div style="display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap">';
   h += '<div id="_kvCanvas" class="tm-kaavio" style="flex:0 0 auto"></div>';
   h += '<div style="flex:1;min-width:210px">';
@@ -5044,6 +5051,7 @@ function _kaavioAvaaEditori(k) {
   h += '<div style="font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink3);margin-bottom:6px">' + vpT('Piirrä') + '</div>';
   h += '<div id="_kvTyokalut" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px">' + _kaavioTyokalupalkkiHTML() + '</div>';
   h += '<div id="_kvNkSaadin">' + _kaavioNakokenttaSaadinHTML() + '</div>';
+  h += '<div id="_kvOminaisuudet" style="border-top:.5px solid var(--border);padding-top:10px;margin-top:10px">' + _kaavioOminaisuudetHTML() + '</div>';
   h += '<div id="_kvOhje" style="font-size:11px;color:var(--ink3);line-height:1.45;margin-bottom:12px">' + _jsvEsc(_kaavioTyokaluOhje()) + '</div>';
 
   h += '<div style="display:flex;gap:6px;flex-wrap:wrap">';
@@ -5058,7 +5066,7 @@ function _kaavioAvaaEditori(k) {
 function _kvTyokalu(k, lbl) {
   return '<button onclick="_kaavioLisaa(\'' + k + '\')" style="background:var(--ov-1);color:var(--ink2);border:.5px solid var(--border);border-radius:6px;padding:6px 10px;font-size:11px;cursor:pointer">' + vpT(lbl) + '</button>';
 }
-function _kaavioSuljeEditori() { document.getElementById('_kvEditori')?.remove(); _kaavioTila.muokkaus = null; _kaavioTila.tyokalu = null; _kaavioTila.veto = null; }
+function _kaavioSuljeEditori() { document.getElementById('_kvEditori')?.remove(); _kaavioTila.muokkaus = null; _kaavioTila.tyokalu = null; _kaavioTila.veto = null; _kaavioTila.valittu = null; }
 
 function _kaavioPiirraEditori() {
   var c = document.getElementById('_kvCanvas');
@@ -5078,6 +5086,33 @@ function _kaavioPiirraEditori() {
       ln.setAttribute('stroke', 'var(--accent)'); ln.setAttribute('stroke-width', '1.6');
       ln.setAttribute('stroke-dasharray', '4 3'); ln.setAttribute('opacity', '.75');
       svg.appendChild(ln);
+    }
+  }
+  // VALINNAN KOROSTUS on EDITORIN tila, ei speksin ominaisuus → se piirretään tähän
+  // overlay-kerrokseen drawSpecin JÄLKEEN. Jaettu renderöijä pysyy puhtaana, jottei pelaaja-appi
+  // näytä valintakehyksiä.
+  var _val = _kaavioTila.valittu;
+  if (_val) {
+    var _sp = _kaavioTila.muokkaus.spec, _kohde = null;
+    if (_val.kind === 'player') _kohde = (_sp.pelaajat || []).filter(function (q) { return q.id === _val.id; })[0];
+    else if (_val.kind === 'selite') _kohde = (_sp.selitteet || []).filter(function (q) { return q.id === _val.id; })[0];
+    else if (_val.kind === 'liike') {
+      var _l = (_sp.liikkeet || []).filter(function (q) { return q.id === _val.id; })[0];
+      var _pp = function (pt) {
+        if (!pt) return null;
+        if (pt.ref) return (_sp.pelaajat || []).filter(function (q) { return q.id === pt.ref; })[0] || null;
+        return pt;
+      };
+      var _a = _l && _pp(_l.from), _b = _l && _pp(_l.to);
+      if (_a && _b) _kohde = { x: (_a.x + _b.x) / 2, y: (_a.y + _b.y) / 2 };
+    }
+    if (_kohde && typeof _kohde.x === 'number') {
+      var _r = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+      _r.setAttribute('cx', kaavioEdPX(_kohde.x)); _r.setAttribute('cy', kaavioEdPY(_kohde.y));
+      _r.setAttribute('r', 15); _r.setAttribute('fill', 'none');
+      _r.setAttribute('stroke', 'var(--amber)'); _r.setAttribute('stroke-width', '1.4');
+      _r.setAttribute('stroke-dasharray', '3 2.5');
+      svg.appendChild(_r);
     }
   }
   svg.setAttribute('style', 'width:300px;height:auto;touch-action:none;cursor:' + (_kaavioTila.tyokalu ? 'crosshair' : 'grab'));
@@ -5137,14 +5172,191 @@ function _kaavioTyokaluOhje() {
   if (t === 'poista') return vpT('Klikkaa poistettavaa elementtiä.');
   return '';
 }
+/* Mihin tallentuu ja missä tilassa. Arvot luetaan samasta review-objektista jota
+   _kaavioTallenna kirjoittaa, joten rivi ei voi ajautua erilleen todellisuudesta. */
+function _kaavioTallennusKohdeHTML() {
+  var m = _kaavioTila.muokkaus; if (!m) return '';
+  var uusi = !!(m._uusi || !m.id);
+  var st = (m.review && m.review.status) || 'luonnos';
+  var nak = (m.review && m.review.nakyvyys) || 'seura';
+  var h = '↳ ' + vpT('Tallentuu: seuran kaaviopankki');
+  h += ' · ' + vpT('tila') + ': ' + _kaavioTilaLbl(uusi ? 'luonnos' : st);
+  h += ' · ' + vpT('näkyvyys') + ': ' + _kaavioNakyvyysLbl(nak);
+  if (uusi) h += ' · ' + vpT('uusi — tallentuu luonnoksena');
+  else if (st === 'hyvaksytty' && typeof kaavioTilaMuokkauksenJalkeen === 'function'
+           && kaavioTilaMuokkauksenJalkeen(m, _kaavioCtxNyt()) === 'odottaa') {
+    h += ' · ' + vpT('muokkaus vie takaisin katselmukseen');
+  }
+  return h;
+}
+
+/* ── VALINTA ──────────────────────────────────────────────────────────────────────────────
+   Klikkaus oletustilassa (ei työkalua) valitsee elementin. Raahaus toimii yhä: pointerdown
+   aloittaa vedon, ja VASTA jos sormi/hiiri ei liikkunut, up tulkitaan klikkaukseksi. Näin
+   valinta ei vie raahausta eikä raahaus estä valintaa. */
+function _kaavioValittuId(kind) {
+  var v = _kaavioTila.valittu;
+  return (v && (!kind || v.kind === kind)) ? v.id : null;
+}
+function _kaavioValittuPelaaja() {
+  var id = _kaavioValittuId('player'), m = _kaavioTila.muokkaus;
+  if (!id || !m) return null;
+  return (m.spec.pelaajat || []).filter(function (q) { return q.id === id; })[0] || null;
+}
+function _kaavioAsetaValinta(v) {
+  _kaavioTila.valittu = v || null;
+  _kaavioTyokaluPaivita();
+  _kaavioPiirraEditori();
+}
+window._kaavioAsetaValinta = _kaavioAsetaValinta;
+
+/* Valinnan nimi paneelin otsikkoon. Ilman tätä käyttäjä ei tiedä mitä muokkaa. */
+function _kaavioValinnanNimi() {
+  var v = _kaavioTila.valittu, m = _kaavioTila.muokkaus;
+  if (!v || !m) return vpT('— ei valintaa');
+  if (v.kind === 'player') {
+    var p = (m.spec.pelaajat || []).filter(function (q) { return q.id === v.id; })[0];
+    if (!p) return vpT('— ei valintaa');
+    return v.id + ' · ' + vpT(p.joukkue === 'vastustaja' ? 'vastustaja' : 'oma pelaaja');
+  }
+  if (v.kind === 'selite') return v.id + ' · ' + vpT('selite');
+  if (v.kind === 'liike') {
+    var l = (m.spec.liikkeet || []).filter(function (q) { return q.id === v.id; })[0];
+    return v.id + ' · ' + vpT(l ? _KAAVIO_LIIKENIMI[l.tyyppi] || l.tyyppi : 'liike');
+  }
+  return vpT('— ei valintaa');
+}
+var _KAAVIO_LIIKENIMI = { syotto: 'Syöttö', juoksu: 'Juoksu', kuljetus: 'Kuljetus', laukaus: 'Laukaus' };
+
+/* ── VALITUN OMINAISUUDET ─────────────────────────────────────────────────────────────────
+   Kaikki kentät ovat JO §3:ssa valideja → tämä on puhdasta UI:ta, ei skeemamuutosta.
+   Paneeli rakentuu valinnan lajin mukaan; pelaajan kaikki ominaisuudet (joukkue, korostus,
+   maalivahti, pallo, peliasento, näkökenttä) ovat samassa paikassa. */
+function _kvKytkin(fn, paalla, txt) {
+  var v = paalla ? 'background:rgba(40,176,144,.16);color:var(--teal);border-color:rgba(40,176,144,.45)'
+                 : 'background:var(--ov-1);color:var(--ink2);border-color:var(--border)';
+  return '<button onclick="' + fn + '" style="' + v + ';border-width:.5px;border-style:solid;border-radius:6px;padding:6px 10px;font-size:11px;cursor:pointer;min-height:28px">'
+    + (paalla ? '☑ ' : '☐ ') + vpT(txt) + '</button>';
+}
+function _kvNappi(fn, txt, vaara) {
+  var v = vaara ? 'background:var(--ov-1);color:#C94040;border-color:rgba(201,64,64,.35)'
+                : 'background:var(--ov-1);color:var(--ink2);border-color:var(--border)';
+  return '<button onclick="' + fn + '" style="' + v + ';border-width:.5px;border-style:solid;border-radius:6px;padding:6px 10px;font-size:11px;cursor:pointer;min-height:28px">' + vpT(txt) + '</button>';
+}
+function _kaavioOminaisuudetHTML() {
+  var m = _kaavioTila.muokkaus, v = _kaavioTila.valittu;
+  var h = '<div style="font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink3);margin-bottom:4px">' + vpT('Valitun ominaisuudet') + '</div>';
+  h += '<div style="font-size:12px;color:var(--ink);margin-bottom:8px">' + vpT('Valittu') + ': <b>' + _jsvEsc(_kaavioValinnanNimi()) + '</b></div>';
+  if (!m || !v) {
+    return h + '<div style="font-size:11px;color:var(--ink3);line-height:1.45;margin-bottom:12px">' + vpT('Klikkaa kentältä pelaajaa, liikettä tai selitettä.') + '</div>';
+  }
+  var rivi = function (sisalto) { return '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">' + sisalto + '</div>'; };
+
+  if (v.kind === 'player') {
+    var p = _kaavioValittuPelaaja();
+    if (!p) return h;
+    var vast = p.joukkue === 'vastustaja';
+    h += rivi(_kvNappi("_kaavioOmJoukkue('oma')", 'Oma') + _kvNappi("_kaavioOmJoukkue('vastustaja')", 'Vastustaja')
+            + '<span style="font-size:11px;color:var(--ink3);align-self:center">' + vpT(vast ? 'vastustaja' : 'oma pelaaja') + '</span>');
+    h += rivi(_kvKytkin("_kaavioOmLippu('korostus')", !!p.korostus, 'Korostus')
+            + (vast ? _kvKytkin("_kaavioOmLippu('gk')", !!p.gk, 'Maalivahti') : '')
+            + _kvKytkin('_kaavioOmPallo()', !!p.pallo, 'Pallo'));
+    h += rivi('<span style="font-size:10.5px;color:var(--ink3);min-width:62px;align-self:center">' + vpT('Peliasento') + '</span>'
+            + _kvNappi("_kaavioOmSuunta(-15)", '↺') + _kvNappi("_kaavioOmSuunta(15)", '↻')
+            + _kvKytkin('_kaavioOmNakokentta()', !!p.nakokentta, 'Näkökenttä'));
+    if (p.nakokentta) {
+      h += rivi('<span style="font-size:10.5px;color:var(--ink3);min-width:62px;align-self:center">' + vpT('leveys') + '</span>'
+              + _kvNappi("_kaavioNkSaada('half',-12)", '−') + _kvNappi("_kaavioNkSaada('half',12)", '+')
+              + '<span style="font-size:10.5px;color:var(--ink3);min-width:52px;align-self:center;margin-left:4px">' + vpT('syvyys') + '</span>'
+              + _kvNappi("_kaavioNkSaada('r',-8)", '−') + _kvNappi("_kaavioNkSaada('r',8)", '+')
+              + _kvKytkin('_kaavioNkKatve()', !!p.nakokentta.katve, 'Katve'));
+    }
+  } else if (v.kind === 'selite') {
+    var se = (m.spec.selitteet || []).filter(function (q) { return q.id === v.id; })[0];
+    if (!se) return h;
+    // §32: KOLME ERILLISTÄ KENTTÄÄ. Luonti täyttää vain fi:n; sv/en kirjoitetaan tässä.
+    // Sama teksti kaikissa kolmessa olisi väärää dataa, ei puuttuvaa — siksi kentät ovat erikseen.
+    ['fi', 'sv', 'en'].forEach(function (kieli) {
+      var arvo = (se.t && se.t[kieli]) || '';
+      h += '<div style="margin-bottom:6px"><label for="_kvSel_' + kieli + '" style="display:block;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink3);margin-bottom:3px">' + kieli.toUpperCase() + '</label>'
+        + '<input id="_kvSel_' + kieli + '" type="text" value="' + _jsvEsc(arvo) + '" oninput="_kaavioOmSelite(\'' + kieli + '\')" '
+        + 'style="width:100%;box-sizing:border-box;background:var(--bg);border:.5px solid ' + (arvo ? 'var(--border)' : 'rgba(201,64,64,.4)') + ';color:var(--ink);font-family:inherit;font-size:12px;padding:6px 8px"></div>';
+    });
+    var vajaa = (typeof kaavioSeliteVajaat === 'function') ? kaavioSeliteVajaat(m.spec).filter(function (x) { return x.id === v.id; })[0] : null;
+    if (vajaa) h += '<div style="font-size:11px;color:#C94040;line-height:1.4;margin-bottom:8px">' + vpT('Käännös puuttuu:') + ' ' + vajaa.puuttuu.join(', ').toUpperCase() + ' — ' + vpT('tallennus estyy kunnes kaikki kolme on täytetty.') + '</div>';
+  } else if (v.kind === 'liike') {
+    var l = (m.spec.liikkeet || []).filter(function (q) { return q.id === v.id; })[0];
+    if (!l) return h;
+    h += rivi(['syotto', 'juoksu', 'kuljetus', 'laukaus'].map(function (t) {
+      return _kvKytkin("_kaavioOmLiiketyyppi('" + t + "')", l.tyyppi === t, _KAAVIO_LIIKENIMI[t]);
+    }).join(''));
+  }
+  h += rivi(_kvNappi('_kaavioOmPoista()', 'Poista valittu', true));
+  return h;
+}
+
+/* Ominaisuustoiminnot. Kukin: historia → lib-setter → uudelleenpiirto. */
+function _kaavioOmSovella(r) {
+  if (!r || r.virhe) { if (r && r.virhe) toast(vpT('Muutos ei onnistunut'), 'err'); return; }
+  _kaavioTila.muokkaus.spec = r.spec;
+  _kaavioTyokaluPaivita();
+  _kaavioPiirraEditori();
+}
+function _kaavioOmHistoria() { _kaavioTila.historia = kaavioHistoriaLisaa(_kaavioTila.historia, _kaavioTila.muokkaus.spec); }
+function _kaavioOmJoukkue(jk) {
+  var id = _kaavioValittuId('player'); if (!id) return;
+  _kaavioOmHistoria(); _kaavioOmSovella(kaavioAsetaJoukkue(_kaavioTila.muokkaus.spec, id, jk));
+}
+function _kaavioOmLippu(kentta) {
+  var p = _kaavioValittuPelaaja(); if (!p) return;
+  _kaavioOmHistoria(); _kaavioOmSovella(kaavioAsetaLippu(_kaavioTila.muokkaus.spec, p.id, kentta, !p[kentta]));
+}
+function _kaavioOmPallo() {
+  var id = _kaavioValittuId('player'); if (!id) return;
+  _kaavioOmHistoria(); _kaavioOmSovella(kaavioAsetaPallo(_kaavioTila.muokkaus.spec, id));
+}
+function _kaavioOmSuunta(delta) {
+  var p = _kaavioValittuPelaaja(); if (!p) return;
+  var nyt = (typeof p.suunta === 'number') ? p.suunta : (typeof p.avoin === 'number' ? p.avoin : -90);
+  _kaavioOmHistoria(); _kaavioOmSovella(kaavioAsetaSuunta(_kaavioTila.muokkaus.spec, p.id, nyt + delta));
+}
+function _kaavioOmNakokentta() {
+  var p = _kaavioValittuPelaaja(); if (!p) return;
+  _kaavioOmHistoria();
+  _kaavioOmSovella(kaavioAsetaNakokentta(_kaavioTila.muokkaus.spec, p.id, p.nakokentta ? false : {}));
+}
+function _kaavioOmSelite(kieli) {
+  var id = _kaavioValittuId('selite'); if (!id) return;
+  var el = document.getElementById('_kvSel_' + kieli); if (!el) return;
+  // Ei historiaa joka näppäinpainalluksesta — kirjoittaminen ei ole erillinen kumottava askel.
+  var r = kaavioAsetaSeliteTeksti(_kaavioTila.muokkaus.spec, id, kieli, el.value);
+  if (!r.virhe) { _kaavioTila.muokkaus.spec = r.spec; _kaavioPiirraEditori(); }
+}
+function _kaavioOmLiiketyyppi(t) {
+  var id = _kaavioValittuId('liike'); if (!id) return;
+  _kaavioOmHistoria(); _kaavioOmSovella(kaavioAsetaLiiketyyppi(_kaavioTila.muokkaus.spec, id, t));
+}
+function _kaavioOmPoista() {
+  var v = _kaavioTila.valittu; if (!v) return;
+  _kaavioOmHistoria();
+  _kaavioTila.muokkaus.spec = kaavioPoista(_kaavioTila.muokkaus.spec, v.id).spec;
+  _kaavioTila.valittu = null;
+  _kaavioTyokaluPaivita();
+  _kaavioPiirraEditori();
+}
+window._kaavioOmJoukkue = _kaavioOmJoukkue;   window._kaavioOmLippu = _kaavioOmLippu;
+window._kaavioOmPallo = _kaavioOmPallo;       window._kaavioOmSuunta = _kaavioOmSuunta;
+window._kaavioOmNakokentta = _kaavioOmNakokentta; window._kaavioOmSelite = _kaavioOmSelite;
+window._kaavioOmLiiketyyppi = _kaavioOmLiiketyyppi; window._kaavioOmPoista = _kaavioOmPoista;
+
 /* Näkökentän säätimet. Tila-editorissa ei ole pysyvää valintaa, joten säätimet kohdistuvat
    VIIMEKSI KOSKETTUUN pelaajaan (_kaavioTila.valittu). Geometriset kahvat olisivat siistimmät,
    mutta ne vaatisivat valintatilan + osumatestin kahvoille; nappisäädin on kosketuskokoinen ja
    toimii samalla tavalla hiirellä ja sormella. Näkyy vain kun valitulla on näkökenttä. */
 function _kaavioNakokenttaSaadinHTML() {
   var m = _kaavioTila.muokkaus;
-  if (!m || _kaavioTila.tyokalu !== 'nakokentta' || !_kaavioTila.valittu) return '';
-  var p = (m.spec.pelaajat || []).filter(function (q) { return q.id === _kaavioTila.valittu; })[0];
+  if (!m || _kaavioTila.tyokalu !== 'nakokentta') return '';
+  var p = _kaavioValittuPelaaja();
   if (!p || !p.nakokentta) return '';
   var nappi = function (fn, txt) {
     return '<button onclick="' + fn + '" style="background:var(--ov-1);color:var(--ink2);border:.5px solid var(--border);border-radius:6px;min-width:30px;padding:6px 9px;font-size:11px;cursor:pointer">' + txt + '</button>';
@@ -5158,18 +5370,18 @@ function _kaavioNakokenttaSaadinHTML() {
   return h + '</div>';
 }
 function _kaavioNkSaada(kentta, delta) {
-  var m = _kaavioTila.muokkaus, id = _kaavioTila.valittu; if (!m || !id) return;
-  var p = (m.spec.pelaajat || []).filter(function (q) { return q.id === id; })[0];
-  if (!p || !p.nakokentta) return;
+  var m = _kaavioTila.muokkaus, p = _kaavioValittuPelaaja(); if (!m || !p) return;
+  var id = p.id;
+  if (!p.nakokentta) return;
   _kaavioTila.historia = kaavioHistoriaLisaa(_kaavioTila.historia, m.spec);
   var as = {}; as[kentta] = (p.nakokentta[kentta] || 0) + delta;
   var r = kaavioAsetaNakokentta(m.spec, id, as);
   if (!r.virhe) { m.spec = r.spec; _kaavioTyokaluPaivita(); _kaavioPiirraEditori(); }
 }
 function _kaavioNkKatve() {
-  var m = _kaavioTila.muokkaus, id = _kaavioTila.valittu; if (!m || !id) return;
-  var p = (m.spec.pelaajat || []).filter(function (q) { return q.id === id; })[0];
-  if (!p || !p.nakokentta) return;
+  var m = _kaavioTila.muokkaus, p = _kaavioValittuPelaaja(); if (!m || !p) return;
+  var id = p.id;
+  if (!p.nakokentta) return;
   _kaavioTila.historia = kaavioHistoriaLisaa(_kaavioTila.historia, m.spec);
   var r = kaavioAsetaNakokentta(m.spec, id, { katve: !p.nakokentta.katve });
   if (!r.virhe) { m.spec = r.spec; _kaavioTyokaluPaivita(); _kaavioPiirraEditori(); }
@@ -5180,13 +5392,16 @@ window._kaavioNkKatve = _kaavioNkKatve;
 function _kaavioTyokaluPaivita() {
   var el = document.getElementById('_kvTyokalut'); if (el) el.innerHTML = _kaavioTyokalupalkkiHTML();
   var sa = document.getElementById('_kvNkSaadin'); if (sa) sa.innerHTML = _kaavioNakokenttaSaadinHTML();
+  var om = document.getElementById('_kvOminaisuudet'); if (om) om.innerHTML = _kaavioOminaisuudetHTML();
+  var ko = document.getElementById('_kvKohde'); if (ko) ko.innerHTML = _kaavioTallennusKohdeHTML();
   var o = document.getElementById('_kvOhje'); if (o) o.textContent = _kaavioTyokaluOhje();
 }
 function _kaavioValitseTyokalu(k) {
   // Toinen klikkaus samaan nappiin palauttaa raahaukseen — moodista pitää päästä ulos.
   _kaavioTila.tyokalu = (_kaavioTila.tyokalu === k) ? null : k;
   _kaavioTila.veto = null;
-  _kaavioTila.valittu = null;   // säädin kohdistuu aina siihen pelaajaan jota juuri kosketaan
+  // Valinta EI nollaudu työkalua vaihtaessa: se on pysyvä tila, ja ominaisuuspaneeli
+  // näyttää koko ajan mitä muokataan riippumatta siitä mikä työkalu on aktiivinen.
   _kaavioTyokaluPaivita();
   _kaavioPiirraEditori();
 }
@@ -5217,7 +5432,7 @@ function _kaavioPointerDown(e) {
   if (t === 'suunta' || t === 'nakokentta') {           // #2/#3: veto = suunta (+ syvyys)
     var os = kaavioSnapPaate(s, sx, sy, 5);
     if (!os.ref) { toast(vpT('Klikkaa pelaajaa'), 'err'); return; }
-    _kaavioTila.valittu = os.ref;
+    _kaavioTila.valittu = { kind: 'player', id: os.ref };
     _kaavioTila.veto = { alku: os, x: sx, y: sy, pelaaja: os.ref };
     e.currentTarget.setPointerCapture(e.pointerId);
     _kaavioTyokaluPaivita();
@@ -5240,7 +5455,10 @@ function _kaavioPointerDown(e) {
     _kaavioPiirraEditori();
     return;
   }
-  var osuma = kaavioSnapPaate(s, sx, sy, 5);            // raahaus (ennallaan)
+  // OLETUSTILA = raahaa TAI valitse. Pointerdown aloittaa raahauksen; jos osoitin ei liikkunut,
+  // pointerup tulkitsee sen klikkaukseksi ja valitsee. Näin kumpikaan ele ei vie toista.
+  var osuma = kaavioSnapPaate(s, sx, sy, 5);
+  _kaavioTila.klikAlku = { x: sx, y: sy, liikkui: false };
   if (osuma.ref) { _kaavioTila.drag = osuma.ref; e.currentTarget.setPointerCapture(e.pointerId); }
 }
 function _kaavioPointerMove(e) {
@@ -5252,6 +5470,10 @@ function _kaavioPointerMove(e) {
   }
   if (!_kaavioTila.drag) return;
   var xy = _kaavioSvgPiste(e);
+  if (_kaavioTila.klikAlku) {
+    var _dx = kaavioEdOX(xy[0]) - _kaavioTila.klikAlku.x, _dy = kaavioEdOY(xy[1]) - _kaavioTila.klikAlku.y;
+    if (Math.sqrt(_dx * _dx + _dy * _dy) >= 3) _kaavioTila.klikAlku.liikkui = true;
+  }
   var r = kaavioSiirraPelaaja(_kaavioTila.muokkaus.spec, _kaavioTila.drag, xy[0], xy[1]);
   if (!r.virhe) { _kaavioTila.muokkaus.spec = r.spec; _kaavioPiirraEditori(); }
 }
@@ -5305,8 +5527,19 @@ function _kaavioPointerUp(e) {
     _kaavioPiirraEditori();
     return;
   }
-  if (_kaavioTila.drag) { _kaavioTila.historia = kaavioHistoriaLisaa(_kaavioTila.historia, _kaavioTila.muokkaus.spec); }
+  if (_kaavioTila.drag && _kaavioTila.klikAlku && _kaavioTila.klikAlku.liikkui) {
+    _kaavioTila.historia = kaavioHistoriaLisaa(_kaavioTila.historia, _kaavioTila.muokkaus.spec);
+  } else if (!_kaavioTila.tyokalu && m) {
+    // Ei liikuttu → klikkaus. Osumatesti kattaa pelaajat, selitteet ja liikkeet; tyhjä kohta
+    // tyhjentää valinnan (muuten valinta jäisi roikkumaan eikä käyttäjä pääsisi siitä eroon).
+    var xy2 = _kaavioSvgPiste(e), kx = kaavioEdOX(xy2[0]), ky = kaavioEdOY(xy2[1]);
+    var osui = (typeof kaavioOsuma === 'function') ? kaavioOsuma(m.spec, kx, ky, 5) : null;
+    _kaavioTila.valittu = osui ? { kind: osui.tyyppi === 'pelaaja' ? 'player' : osui.tyyppi, id: osui.id } : null;
+    _kaavioTyokaluPaivita();
+  }
   _kaavioTila.drag = null;
+  _kaavioTila.klikAlku = null;
+  _kaavioPiirraEditori();
 }
 function _kaavioLisaa(mita) {
   var s = _kaavioTila.muokkaus && _kaavioTila.muokkaus.spec; if (!s) return;
