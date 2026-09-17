@@ -238,11 +238,14 @@ describe('F — D2: yksityinen luonnos', () => {
     expect(P.kaavioToiminnot(y(), { superAdmin: true })).not.toContain('julkaise');
   });
   it('RULES-PARITEETTI: sama ehto säännössä (yksityinen && luonut != uid → ei lukua)', () => {
-    const i = RULES.indexOf('function kaavioLukuOk()');
+    // Ehto asuu doc-parametrisessa kaavioLukuOkDoc():ssä (erä E tarvitsi sen emokaaviolle
+    // kommentti-alikokoelmassa); kaavioLukuOk() on ohut kääre resource.datalle.
+    const i = RULES.indexOf('function kaavioLukuOkDoc(d)');
     expect(i).toBeGreaterThan(0);
     const f = RULES.slice(i, RULES.indexOf('}', i));
-    expect(f).toMatch(/!kaavioYksityinen\(resource\.data\)/);
-    expect(f).toMatch(/kaavioTekija\(resource\.data\) == request\.auth\.uid/);
+    expect(f).toMatch(/!kaavioYksityinen\(d\)/);
+    expect(f).toMatch(/kaavioTekija\(d\) == request\.auth\.uid/);
+    expect(RULES).toMatch(/function kaavioLukuOk\(\) \{ return kaavioLukuOkDoc\(resource\.data\); \}/);
     const yks = RULES.slice(RULES.indexOf('function kaavioYksityinen(d)'), RULES.indexOf('function kaavioTekija'));
     expect(yks).toMatch(/kaavioTila\(d\) != 'hyvaksytty'/);      // sama poikkeus kuin policyssa
     expect(yks).toMatch(/get\('yksityinen', false\)/);            // sama fail-open-oletus (taaksepäin)
