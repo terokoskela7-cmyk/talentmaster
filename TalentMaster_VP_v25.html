@@ -18,7 +18,7 @@
 <script src="lib/tm_appcheck.js?v=1"></script>
 <!-- Eerikkilä-normit + universaali testirekisteri (eerikkilaTaso, laskeFVP) — 10m/5m-tasot + FVP-profiili -->
 <script src="lib/tm_lang.js?v=14"></script>   <!-- i18n V0 — fi/sv/en käännöstaulukko + t() + kieli-init (putkitus) -->
-<script src="lib/tm_i18n_common.js?v=7"></script>   <!-- i18n Vaihe 0 — JAETTU henkilöstö-i18n + lukittu glossaari (ENNEN sivukarttaa) -->
+<script src="lib/tm_i18n_common.js?v=8"></script>   <!-- i18n Vaihe 0 — JAETTU henkilöstö-i18n + lukittu glossaari (ENNEN sivukarttaa) -->
 <script src="lib/tm_vp_i18n.js?v=77"></script>   <!-- i18n Vaihe 5 — VP sv (sivukartta); vpT/vpLokalisoi delegoivat commoniin -->
 
 
@@ -29,7 +29,7 @@
 <script src="lib/tm_testikatalogi.js?v=1"></script>    <!-- P2.1: jaettu testikatalogi (Pikakirjaus-valitsin) -->
 <script src="lib/tm_pikakirjaus.js?v=1"></script>      <!-- P2.1: Pikakirjaus-lomake (TM_PIKAKIRJAUS.avaa) -->
 
-<script src="lib/tm_harjoitusarviointi.js?v=4"></script>
+<script src="lib/tm_harjoitusarviointi.js?v=5"></script>
 <script src="lib/tm_kalenteri.js?v=1"></script>
 <script src="lib/tm_pvm.js?v=3"></script>   <!-- pvm-helperit: tmOnVanhaMittaus / tmKuukausiaMittauksesta / tmPvmFi (datan tuoreus) -->
 <script src="lib/tm_arviointi_taksonomia.js?v=10"></script>   <!-- Vaihe 2: arviointitaksonomia + pääteemat + kehysrekisteri (mitattu + havaittu 1–5) -->
@@ -15936,10 +15936,19 @@ window._notifTallennaAsetukset = async function () {
   var enabled = document.getElementById('notifAsEmail').checked, kad = document.getElementById('notifAsKad').value;
   try {
     await cu.getIdToken(true);
-    await db.collection('seurat').doc(_seuraId).collection('kayttajat').doc(uid).set({ notif_asetukset: { email: { enabled: enabled, kadenssi: kad } } }, { merge: true });
+    // SIVUKIRJOITUS EI SAA LUODA PROFIILIA. set(merge) LUO puuttuvan dokumentin → ilmoitus-
+    // asetusten tallennus materialisoi "haamun" jolla ei ole nimeä, sähköpostia eikä roolia
+    // (henkilöstölistassa se näkyi UID-rivinä, #538). update() ei luo puuttuvaa vaan hylkää
+    // not-foundilla. Pikakenttä on LIITE olemassa olevaan profiiliin, ei profiilin luoja.
+    await db.collection('seurat').doc(_seuraId).collection('kayttajat').doc(uid).update({ notif_asetukset: { email: { enabled: enabled, kadenssi: kad } } });
     if (typeof toast === 'function') toast(vpT('✓ Asetukset tallennettu'), 'ok');
     var mm = document.getElementById('notifAsModal'); if (mm) mm.remove();
-  } catch (e) { if (typeof toast === 'function') toast(vpT('Tallennus epäonnistui'), 'error'); }
+  } catch (e) {
+    // not-found = profiilia ei ole. Se on OIKEA korjattava tila (kutsu/claims-polku jätti
+    // profiilin kirjoittamatta), ei tämän tallennuksen tehtävä paikata — kerrotaan se suoraan.
+    var puuttuu = e && (e.code === 'not-found' || /not-found|No document to update/i.test(e.message || ''));
+    if (typeof toast === 'function') toast(vpT(puuttuu ? 'Profiilia ei löytynyt — ota yhteys seuran ylläpitoon.' : 'Tallennus epäonnistui'), 'error');
+  }
 };
 document.addEventListener('click', function (e) {
   var p = document.getElementById('notifPanel');
