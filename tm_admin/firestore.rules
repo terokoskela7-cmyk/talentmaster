@@ -1,9 +1,21 @@
 rules_version = '2';
 // ══════════════════════════════════════════════════════════════════════════
-// TalentMaster™ — firestore.rules v3.16
+// TalentMaster™ — firestore.rules v3.17
 //
 // Lähde:  tm_admin/firestore.rules
 // Deploy: PR → N4-CI deployaa automaattisesti (Console-käsityö poistui).
+//
+// Muutokset v3.16 → v3.17 (Katselmuksen kommenttilanka — erä E):
+//   + seurat/{sid}/kaaviot/{kid}/kommentit/{cid}: append-only staff-lanka. read = emokaavion
+//     lukuportti (kaavioLukuOkDoc(get(emo))) + oma seura + valmentaja/johto — PELAAJA EI NÄE,
+//     vaikka näkisi hyväksytyn kaavion (palaute on staffin työkalu). create vaatii
+//     kirjoittaja == auth.uid, tyyppi in ['kommentti','hylkays'], aika == request.time,
+//     teksti 1–2000 merkkiä. update KIELLETTY (myös kirjoittajalta), delete vain SA.
+//   · kaavioLukuOk() → kaavioLukuOkDoc(d) + ohut kääre: alikokoelmassa resource.data on
+//     kommentti, joten yksityisyys on kysyttävä emodokista.
+//   · Kommentin KIRJOITUS on kapeampi kuin luku: seurasihteeri lukee (hän näkee kaaviotkin)
+//     muttei kirjoita — sama rajaus kuin onKaavioHyvaksyja():ssa, koska katselmuspalaute on
+//     valmennussisältöä eikä hallintoa.
 //
 // Muutokset v3.15 → v3.16 (Keskeneräinen luonnos — review.yksityinen):
 //   + kaavioYksityinen() / kaavioTekija() / kaavioLukuOk(): yksityinen luonnos näkyy VAIN
@@ -309,9 +321,12 @@ service cloud.firestore {
     // linja — EI näe, koska "yksityinen" tarkoittaa ei valmista KENELLEKÄÄN. SA näkee (ylläpito,
     // oma haara allow readissä). Jos johto tarvitsee oversightin, muutos on tämä yksi ehto +
     // lib/tm_kaavio_policy.js kaavioVoiLukea — molemmat merkitty samalla kommentilla.
-    function kaavioLukuOk() {
-      return !kaavioYksityinen(resource.data) || kaavioTekija(resource.data) == request.auth.uid;
+    // Doc-parametrinen, koska kommentti-alikokoelman on kysyttävä EMOKAAVIOSTA: alikokoelmassa
+    // resource.data on kommentti, ei kaavio.
+    function kaavioLukuOkDoc(d) {
+      return !kaavioYksityinen(d) || kaavioTekija(d) == request.auth.uid;
     }
+    function kaavioLukuOk() { return kaavioLukuOkDoc(resource.data); }
 
     function kaavioVersio(d) { return d.get('review', {}).get('versio', 0); }
     function kaavioVersioOk() {
@@ -460,6 +475,52 @@ service cloud.firestore {
                                 && valmentajanJoukkueet(seuraId).hasAny([kaavioJoukkue(resource.data)])) )));
 
         allow delete: if onSuperAdmin() || (onOmaSeura(seuraId) && onKaavioHyvaksyja());
+
+        // ── KATSELMUKSEN KOMMENTTILANKA (erä E) ────────────────────────────────────────
+        // Hylkäys ilman perustelua oli umpikuja: valmentaja sai "hylätty" tietämättä miksi.
+        // Lanka on ALIKOKOELMA, ei review.kommentit[]-taulukko — taulukko vaatisi doc-updaten
+        // joka kommentista, mikä törmäisi optimistiseen versiolukkoon (kaavioVersioOk) ja
+        // rinnakkaisiin kirjoituksiin. Append-only-alikokoelma on puhdas lisäys.
+        //
+        // ⚠ ALIKOKOELMA EI PERI YLÄPUOLEN SÄÄNTÖJÄ (§12) → portit toistetaan tässä.
+        //   resource.data on KOMMENTTI, joten yksityisyys kysytään emokaaviosta get():llä.
+        //
+        // STAFF-LANKA: pelaaja EI näe tätä, vaikka näkisi hyväksytyn kaavion. Palaute on
+        // valmentajan ja VP:n välinen työkalu ("liikaa pelaajia kentällä"), ei pelaajalle
+        // suunnattua sisältöä. Pelaajan oma kysymys on erillinen CF-reitti (anon-rajoite).
+        match /kommentit/{kommenttiId} {
+          function emoKaavio() {
+            return get(/databases/$(database)/documents/seurat/$(seuraId)/kaaviot/$(kaavioId)).data;
+          }
+          // LUKU = sama joukko joka näkee kaavion (sis. seurasihteerin: hän näkee kaaviotkin).
+          function onStaffLuku() {
+            return onOmaSeura(seuraId) && (onValmentajaRooli() || onJohtoRooli());
+          }
+          // KIRJOITUS on kapeampi, samasta syystä kuin onKaavioHyvaksyja(): seurasihteeri ei ole
+          // valmennusrooli. Katselmuspalaute on valmennussisältöä ("karsi kolmeen pelaajaan"),
+          // ei hallintoa — sen kirjoittaminen kuuluu samoille rooleille jotka omistavat kaavion.
+          function onStaffKirjoitus() {
+            return onOmaSeura(seuraId) && onValmentajaRooli() || onKaavioHyvaksyja();
+          }
+          // Yksityisen luonnoksen lanka seuraa kaaviota: vain tekijä (ja SA).
+          allow read: if onSuperAdmin() || (onStaffLuku() && kaavioLukuOkDoc(emoKaavio()));
+
+          // Append-only. kirjoittaja == auth.uid estää väärennetyn tekijätiedon; aika ==
+          // request.time pakottaa serverTimestampin (client ei voi valita kellonaikaa langassa).
+          allow create: if onStaffKirjoitus()
+                        && request.resource.data.kirjoittaja == request.auth.uid
+                        && request.resource.data.tyyppi in ['kommentti', 'hylkays']
+                        && 'aika' in request.resource.data
+                        && request.resource.data.aika == request.time
+                        && request.resource.data.teksti is string
+                        && request.resource.data.teksti.size() > 0
+                        && request.resource.data.teksti.size() <= 2000;
+
+          // Muokkaus kielletty myös kirjoittajalta: lanka on katselmuksen jälki, ei muistio.
+          // Jälkikäteen siistitty hylkäysperustelu tekisi historiasta epäluotettavan.
+          allow update: if false;
+          allow delete: if onSuperAdmin();
+        }
       }
 
       // ── TOIMENPITEET — TalentMasterin ehdotukset + VP:n kuittaukset (v3.1) ──

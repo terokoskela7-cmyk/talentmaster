@@ -15,7 +15,7 @@ import { readFileSync } from 'fs';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { createRequire } from 'module';
-import { setDoc, getDoc, doc, updateDoc, deleteDoc } from 'firebase/firestore';
+import { setDoc, getDoc, doc, updateDoc, deleteDoc, serverTimestamp } from 'firebase/firestore';
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -454,5 +454,86 @@ describe('kaaviot · YKSITYINEN LUONNOS — tekijän oma kunnes julkaistu', () =
   it('anon (PIN-pelaaja) ei lue yksityistä eikä julkaistua luonnosta (vain hyväksytty)', async () => {
     await assertFails(getDoc(kd(anon(), 'k_yks')));
     await assertFails(getDoc(kd(anon(), 'k_julk')));
+  });
+});
+
+// ── ERÄ E — KATSELMUKSEN KOMMENTTILANKA (append-only alikokoelma).
+// Reject ilman perustelua oli umpikuja. Lanka on se mihin perustelu kirjoitetaan, joten sen
+// portit ovat osa review-silmukan eheyttä: väärennetty kirjoittaja tai jälkikäteen muokattu
+// hylkäysperustelu tekisi historiasta epäluotettavan.
+describe('kaaviot · KOMMENTTILANKA — append-only staff-lanka', () => {
+  const kd2 = (db, id) => doc(db, 'seurat', SEURA_A, 'kaaviot', id);
+  const komm = (db, kid, cid) => doc(db, 'seurat', SEURA_A, 'kaaviot', kid, 'kommentit', cid);
+  const sisalto = (uid, tyyppi, teksti) => ({
+    teksti: teksti === undefined ? 'Liikaa pelaajia kentällä — karsi kolmeen.' : teksti,
+    kirjoittaja: uid, rooli: 'vp', tyyppi: tyyppi || 'kommentti', aika: serverTimestamp()
+  });
+  beforeEach(async () => {
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      const db = ctx.firestore();
+      await setDoc(kd2(db, 'k_lanka'), kaavio('odottaa'));
+      await setDoc(kd2(db, 'k_lanka_yks'), { spec: SPEC, review: { status: 'luonnos', nakyvyys: 'joukkue', joukkueId: JOUKKUE_A1, luonut: VALM_A1, yksityinen: true, versio: 0 } });
+      await setDoc(komm(db, 'k_lanka', 'c0'), { teksti: 'vanha', kirjoittaja: VP_A, rooli: 'vp', tyyppi: 'hylkays', aika: new Date() });
+      await setDoc(komm(db, 'k_lanka_yks', 'c0'), { teksti: 'yksityisen lanka', kirjoittaja: VALM_A1, rooli: 'valmentaja', tyyppi: 'kommentti', aika: new Date() });
+    });
+  });
+
+  it('VP kommentoi oman seuran kaaviota', async () => {
+    await assertSucceeds(setDoc(komm(vp(SEURA_A), 'k_lanka', 'c_vp'), sisalto(VP_A, 'hylkays')));
+  });
+  it('valmentaja kommentoi (silmukka on kaksisuuntainen)', async () => {
+    await assertSucceeds(setDoc(komm(valm(VALM_A1, SEURA_A), 'k_lanka', 'c_v'), sisalto(VALM_A1)));
+  });
+  it('TOISEN SEURAN valmentaja ei kommentoi eikä lue', async () => {
+    await assertFails(setDoc(komm(valm(VALM_B, SEURA_B), 'k_lanka', 'c_b'), sisalto(VALM_B)));
+    await assertFails(getDoc(komm(valm(VALM_B, SEURA_B), 'k_lanka', 'c0')));
+  });
+  it('KIRJOITTAJAN VÄÄRENNÖS estyy (kirjoittaja != auth.uid)', async () => {
+    await assertFails(setDoc(komm(valm(VALM_A1, SEURA_A), 'k_lanka', 'c_vale'), sisalto(VP_A)));
+  });
+  it('tyhjä teksti estyy — perustelu ei saa olla tyhjä myöskään säännön mielestä', async () => {
+    await assertFails(setDoc(komm(vp(SEURA_A), 'k_lanka', 'c_tyhja'), sisalto(VP_A, 'hylkays', '')));
+  });
+  it('tuntematon tyyppi estyy (pelaajan kysymys kulkee CF:n kautta, ei suoraan)', async () => {
+    await assertFails(setDoc(komm(vp(SEURA_A), 'k_lanka', 'c_kysymys'), sisalto(VP_A, 'kysymys')));
+  });
+  it('client-kello estyy: aika on pakotettu serverTimestampiksi', async () => {
+    await assertFails(setDoc(komm(vp(SEURA_A), 'k_lanka', 'c_kello'),
+      { teksti: 'x', kirjoittaja: VP_A, rooli: 'vp', tyyppi: 'kommentti', aika: new Date(2020, 0, 1) }));
+  });
+  it('APPEND-ONLY: kirjoittajakaan ei muokkaa omaa hylkäysperusteluaan jälkikäteen', async () => {
+    await assertFails(updateDoc(komm(vp(SEURA_A), 'k_lanka', 'c0'), { teksti: 'siistitty' }));
+  });
+  it('poisto vain SA:lle', async () => {
+    await assertFails(deleteDoc(komm(vp(SEURA_A), 'k_lanka', 'c0')));
+    await assertSucceeds(deleteDoc(komm(sa(), 'k_lanka', 'c0')));
+  });
+  it('seurasihteeri LUKEE langan (hän näkee kaaviotkin) muttei KIRJOITA siihen', async () => {
+    // Sama rajaus kuin onKaavioHyvaksyja():ssa: katselmuspalaute on valmennussisältöä, ei hallintoa.
+    await assertSucceeds(getDoc(komm(siht(), 'k_lanka', 'c0')));
+    await assertFails(setDoc(komm(siht(), 'k_lanka', 'c_s'), sisalto(SIHTEERI)));
+  });
+  it('talenttivalmentaja kommentoi (valmennusrooli)', async () => {
+    await assertSucceeds(setDoc(komm(talval(), 'k_lanka', 'c_tv'), sisalto(TALVAL)));
+  });
+  it('anon (PIN-pelaaja) EI lue staff-lankaa vaikka näkisi hyväksytyn kaavion', async () => {
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(kd2(ctx.firestore(), 'k_hyv_lanka'), kaavio('hyvaksytty'));
+      await setDoc(komm(ctx.firestore(), 'k_hyv_lanka', 'c0'), { teksti: 'staff', kirjoittaja: VP_A, rooli: 'vp', tyyppi: 'kommentti', aika: new Date() });
+    });
+    await assertSucceeds(getDoc(kd2(anon(), 'k_hyv_lanka')));        // ei-vacuous: kaavio kyllä
+    await assertFails(getDoc(komm(anon(), 'k_hyv_lanka', 'c0')));    // mutta ei lanka
+  });
+
+  describe('yksityisen luonnoksen lanka seuraa kaaviota', () => {
+    it('tekijä lukee', async () => {
+      await assertSucceeds(getDoc(komm(valm(VALM_A1, SEURA_A), 'k_lanka_yks', 'c0')));
+    });
+    it('toinen valmentaja EI lue — lanka perii kaavion yksityisyyden', async () => {
+      await assertFails(getDoc(komm(valm(VALM_A2, SEURA_A), 'k_lanka_yks', 'c0')));
+    });
+    it('EI-VACUOUS: sama valmentaja lukee JULKISEN kaavion langan', async () => {
+      await assertSucceeds(getDoc(komm(valm(VALM_A2, SEURA_A), 'k_lanka', 'c0')));
+    });
   });
 });
