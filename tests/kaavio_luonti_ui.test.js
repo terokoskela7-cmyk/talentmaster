@@ -79,10 +79,16 @@ describe('B — starter-spec on VALIDI heti (ei avaudu virhetilassa)', () => {
   // Näin testi rikkoutuu jos starteria muutetaan, eikä kulje rinnakkaisen totuuden varassa.
   const starterilla = (pelimuoto) => {
     const fn = runko('_kaavioLuoJaMuokkaa');
-    const i = fn.indexOf('var starter = {');
+    const i = fn.indexOf('  var _k = ');
     const j = fn.indexOf('\n  };', i);
     expect(i, 'starter-lauseketta ei löytynyt').toBeGreaterThan(0);
-    const sb = { avain: 'y_h0', pm: { value: pelimuoto || '8v8' }, kp: { value: '' } };
+    // Starter resolvoi nyt konseptin DOMEENIN (hyökkäys vs puolustus) → lauseke tarvitsee myös
+    // konseptihaun. Tämä sviitti testaa hyökkäyshaaran; domeenihaarat ovat kaavio_tyokalut-sviitissä.
+    const sb = {
+      avain: 'y_h0', pm: { value: pelimuoto || '8v8' }, kp: { value: '' },
+      tmKonseptiResolvoi: () => ({ avain: 'y_h0', dim: 'hyokkays' }),
+      _ttSeuraId: () => 's1'
+    };
     vm.createContext(sb);
     vm.runInContext(fn.slice(i, j + 4) + '\nthis.ulos = starter;', sb);
     return sb.ulos;
