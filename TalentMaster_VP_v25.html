@@ -18,7 +18,7 @@
 <script src="lib/tm_appcheck.js?v=1"></script>
 <!-- Eerikkilä-normit + universaali testirekisteri (eerikkilaTaso, laskeFVP) — 10m/5m-tasot + FVP-profiili -->
 <script src="lib/tm_lang.js?v=14"></script>   <!-- i18n V0 — fi/sv/en käännöstaulukko + t() + kieli-init (putkitus) -->
-<script src="lib/tm_i18n_common.js?v=8"></script>   <!-- i18n Vaihe 0 — JAETTU henkilöstö-i18n + lukittu glossaari (ENNEN sivukarttaa) -->
+<script src="lib/tm_i18n_common.js?v=9"></script>   <!-- i18n Vaihe 0 — JAETTU henkilöstö-i18n + lukittu glossaari (ENNEN sivukarttaa) -->
 <script src="lib/tm_vp_i18n.js?v=77"></script>   <!-- i18n Vaihe 5 — VP sv (sivukartta); vpT/vpLokalisoi delegoivat commoniin -->
 
 
@@ -2587,6 +2587,16 @@ input::placeholder, textarea::placeholder { color: var(--ink3); opacity: 1; }
       </div>
 
       <div class="section-hd" style="margin-top:28px" data-i18n="Kaikki pelaajat">Kaikki pelaajat</div>
+      <!-- JOUKKUERAJAUS + HAKU. VP näkee koko seuran (ennallaan) — tämä on FOKUS, ei piilotus:
+           tyhjennä ja koko seura palaa. Isolla seuralla (Sibbo 223) listan selaaminen ilman
+           rajausta ei ole näkymä vaan este. -->
+      <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;align-items:center">
+        <select id="pelJoukkueSuodatin" onchange="_vpPelSuodataJoukkue(this.value)"
+          style="padding:6px 10px;background:var(--bg);border:.5px solid var(--border);border-radius:8px;color:var(--ink);font-size:12px;font-family:inherit"></select>
+        <input id="pelNimiHaku" type="search" oninput="_vpPelHaku(this.value)" placeholder="Hae pelaajaa…" data-i18n-ph="Hae pelaajaa…"
+          style="flex:1;min-width:180px;padding:6px 10px;background:var(--bg);border:.5px solid var(--border);border-radius:8px;color:var(--ink);font-size:12px;font-family:inherit">
+        <span id="pelSuodatinLkm" style="font-size:11px;color:var(--ink3)"></span>
+      </div>
       <table class="player-table">
         <thead>
           <tr>
@@ -18453,9 +18463,32 @@ function _hhSoluVP(p) {
   return '<strong style="color:' + hhTasoVari(p.hh_taso) + '">' + p.hh_taso + '</strong>' + deltaHtml;
 }
 
+/* ── JOUKKUERAJAUS + NIMIHAKU (fokus, ei piilotus) ─────────────────────────────────────── */
+let _vpPelJoukkue = '', _vpPelHakuSana = '', _vpPelHakuAjastin = null;
+function _vpPelSuodataJoukkue(j) { _vpPelJoukkue = j || ''; renderPelaajatFiltered(); }
+/* Debounce: jokainen näppäin renderöisi koko taulukon (≈200 riviä + badget) uudelleen. */
+function _vpPelHaku(q) {
+  if (_vpPelHakuAjastin) clearTimeout(_vpPelHakuAjastin);
+  _vpPelHakuAjastin = setTimeout(function () { _vpPelHakuSana = String(q || '').trim().toLowerCase(); renderPelaajatFiltered(); }, 150);
+}
+window._vpPelSuodataJoukkue = _vpPelSuodataJoukkue;
+window._vpPelHaku = _vpPelHaku;
+/* Valitsin täytetään LADATUSTA pelaajadatasta: se kertoo mitkä joukkueet oikeasti sisältävät
+   pelaajia, eikä tarjoa tyhjiä rivejä joukkueet-kokoelmasta. */
+function _vpPelTaytaJoukkueValitsin() {
+  const sel = document.getElementById('pelJoukkueSuodatin');
+  if (!sel) return;
+  const nimet = [...new Set((_pelaajat || []).map(p => p.joukkue).filter(Boolean))].sort((a, b) => String(a).localeCompare(String(b)));
+  const nyt = _vpPelJoukkue;
+  sel.innerHTML = '<option value="">' + vpT('— kaikki joukkueet —') + '</option>'
+    + nimet.map(j => '<option value="' + _jsvEsc(j) + '">' + _jsvEsc(j) + '</option>').join('');
+  sel.value = nyt;
+}
+
 function renderPelaajatFiltered() {
   const tbody = document.getElementById('playerTableBody');
   let filtered = _pelaajat;
+  _vpPelTaytaJoukkueValitsin();
 
   // Pre-PHV Kehityskohde on JOUKKUESUHTEELLINEN (§10): laske heikoin ~20% per joukkue → union-Set (avain = id).
   const _byTeam = {};
@@ -18487,9 +18520,25 @@ function renderPelaajatFiltered() {
     filtered = _pelaajat.filter(p => typeof isUnderdog === 'function' && isUnderdog(p));         // §RAE Underdog = Q4 + taso≥3
   }
 
+  // Joukkue + nimihaku signaalisuodattimen PÄÄLLE (AND) — ne kaventavat näkymää, eivät korvaa sitä.
+  const _ennenRajausta = filtered.length;
+  if (_vpPelJoukkue) filtered = filtered.filter(p => p.joukkue === _vpPelJoukkue);
+  if (_vpPelHakuSana) {
+    filtered = filtered.filter(p => {
+      const n = (_tmHenkiloNimi(p) + ' ' + (p.numero || '') + ' ' + (p.joukkue || '')).toLowerCase();
+      return n.indexOf(_vpPelHakuSana) >= 0;
+    });
+  }
+  const _lkmEl = document.getElementById('pelSuodatinLkm');
+  if (_lkmEl) _lkmEl.textContent = (filtered.length === _ennenRajausta)
+    ? (_ennenRajausta + ' ' + vpT('pelaajaa'))
+    : (filtered.length + ' / ' + _ennenRajausta + ' ' + vpT('pelaajaa'));
+
   if (filtered.length === 0) {
+    // ERI TYHJÄ TILA kuin "ei pelaajia kategoriassa": tässä heitä on, rajaus vain vie kaikki pois.
+    const rajattu = _vpPelJoukkue || _vpPelHakuSana;
     tbody.innerHTML = `<tr><td colspan="10" style="text-align:center;color:var(--ink3);padding:32px">
-      ${vpT('Ei pelaajia tässä kategoriassa')}</td></tr>`;
+      ${vpT(rajattu ? 'Ei osumia näillä rajauksilla.' : 'Ei pelaajia tässä kategoriassa')}</td></tr>`;
     return;
   }
 

@@ -17,7 +17,7 @@
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-storage-compat.js"></script>
 <script src="lib/tm_appcheck.js?v=1"></script>
 <script src="lib/tm_lang.js?v=14"></script>   <!-- i18n V0 — fi/sv/en käännöstaulukko + t() + kieli-init (putkitus) -->
-<script src="lib/tm_i18n_common.js?v=8"></script>   <!-- i18n Vaihe 0 — JAETTU henkilöstö-i18n + lukittu glossaari (ENNEN sivukarttaa) -->
+<script src="lib/tm_i18n_common.js?v=9"></script>   <!-- i18n Vaihe 0 — JAETTU henkilöstö-i18n + lukittu glossaari (ENNEN sivukarttaa) -->
 <script src="lib/tm_master_i18n.js?v=22"></script>   <!-- i18n Vaihe 5 Raita B — Master sv (sivukartta); masterT/masterLokalisoi delegoivat commoniin -->
 <script src="lib/tm_eerikkila_normit.js?v=45"></script>   <!-- v43: D2-kortti d2_taso-ensin (renderKehityskorttiHTML, PR #264 · §30/#262) -->
 <script src="lib/tm_harjoitusarviointi.js?v=5"></script>
@@ -2452,6 +2452,10 @@ async function _lataaValmentaja(uid) {
       const sSnap = await _db.collection('seurat').doc(_seuraId).get().catch(()=>null);
       const seuraNimi = sSnap?.exists ? (sSnap.data().nimi || _seuraId) : _seuraId;
       document.getElementById('sbSeura').textContent = seuraNimi + (_joukkue ? ' · ' + _joukkue : '');
+      // MONEN JOUKKUEEN VALMENTAJA saa valitsimen. Sibbo: iso ryhmä pilkotaan pienempiin
+      // joukkueisiin → valmentajalla voi olla useampi, eikä yksi yhteen möykkyyn ladattu
+      // rosteri enää vastaa siihen "ketkä ovat MINUN joukkueessani".
+      _rakennaValmentajaJoukkueValitsin();
       _alusta(d.etunimi || nimi.trim() || 'Valmentaja');
     } else if (claims.seuraId) {
       // Claims OK mutta kayttajat-dokumentti puuttuu — käynnistä silti oikeilla tiedoilla
@@ -3514,6 +3518,66 @@ function normalisioiJoukkue(joukkue) {
     .replace(/_/g, ' ')
     .toUpperCase()
     .replace(/([A-Z]{2,})\s([PTU])(\d+)/, (_, seura, sukupuoli, ika) => seura + ' ' + sukupuoli + ika);
+}
+
+/* VALMENTAJAN joukkuevalitsin. Eri kuin SA:n: vaihtoehdot ovat vain HÄNEN joukkueensa, eikä
+   "kaikki joukkueet" ole vaihtoehto — se lataisi koko seuran rosterin, mikä on juuri se möykky
+   josta jako on tarkoitus päästä eroon. Näkyy vasta kun joukkueita on ≥2: yhden joukkueen
+   valmentajalle valitsin olisi pelkkä ylimääräinen kontrolli. */
+function _valmentajanJoukkueNimet() {
+  const d = window._valmentajaData || {};
+  // Normalisoitu muoto on DE-DUPLIKOINNIN avain ('sjk_p14' ja 'SJK P14' = sama joukkue), mutta
+  // NÄYTETTÄVÄ ja _joukkue:een kirjoitettava arvo on ENSIMMÄINEN alkuperäinen kirjoitusasu.
+  // Syy: _lataaPelaajat tekee eksaktin where('joukkue','==',_joukkue) -kyselyn; pelkkä
+  // normalisoitu 'P14 MUSTA' ei osuisi tallennettuun 'P14 Musta' vaan putoaisi
+  // case-insensitive-fallbackiin (koko seuran lataus + client-suodatus) joka kerta.
+  const nahty = {};
+  const lisaa = (x) => {
+    const raaka = String(x || '').trim();
+    if (!raaka) return;
+    const avain = normalisioiJoukkue(raaka);
+    if (!avain || nahty[avain]) return;
+    // Slug ('p14_musta') ei ole näyttönimi → siitä otetaan normalisoitu muoto.
+    nahty[avain] = /[_]/.test(raaka) ? avain : raaka;
+  };
+  (Array.isArray(d.joukkueetNimet) ? d.joukkueetNimet : []).forEach(lisaa);
+  (Array.isArray(d.joukkueet) ? d.joukkueet : []).forEach(lisaa);
+  lisaa(d.joukkue); lisaa(d.joukkueNimi); lisaa(_joukkue);
+  return Object.keys(nahty).sort((a, b) => a.localeCompare(b)).map((k) => nahty[k]);
+}
+function _rakennaValmentajaJoukkueValitsin() {
+  document.getElementById('valm-joukkue-valitsin')?.remove();
+  const nimet = _valmentajanJoukkueNimet();
+  if (nimet.length < 2) return;
+
+  const tallennettu = localStorage.getItem('tm-valm-joukkue');
+  const norm = nimet.map(normalisioiJoukkue);
+  if (tallennettu && nimet.indexOf(tallennettu) >= 0) _joukkue = tallennettu;
+  else if (!_joukkue || norm.indexOf(normalisioiJoukkue(_joukkue)) < 0) _joukkue = nimet[0];
+
+  const sel = document.createElement('select');
+  sel.id = 'valm-joukkue-valitsin';
+  sel.setAttribute('aria-label', masterT('Valitse joukkue'));
+  sel.style.cssText = 'margin:4px 12px 0;width:calc(100% - 24px);padding:5px 8px;'
+    + 'background:var(--card2);border:0.5px solid var(--line2);border-radius:6px;'
+    + 'color:var(--teal);font-size:11px;cursor:pointer;font-weight:500;';
+  nimet.forEach((j) => {
+    const opt = document.createElement('option');
+    opt.value = j; opt.textContent = j;
+    if (normalisioiJoukkue(_joukkue) === normalisioiJoukkue(j)) opt.selected = true;
+    sel.appendChild(opt);
+  });
+  sel.onchange = async function () {
+    _joukkue = this.value;
+    localStorage.setItem('tm-valm-joukkue', _joukkue);
+    const sbS = document.getElementById('sbSeura');
+    if (sbS) sbS.textContent = sbS.textContent.split(' · ')[0] + ' · ' + _joukkue;
+    _pelaajatData = []; _kirjaukset = []; _kirjauksetLadattu = false;
+    await _lataaPelaajat();
+    _paivitaKaikkiNakymat();
+  };
+  const sbNav = document.querySelector('.sb-nav');
+  if (sbNav) sbNav.insertBefore(sel, sbNav.firstChild);
 }
 
 async function _rakennaSAJoukkueValitsin(seuraId) {
