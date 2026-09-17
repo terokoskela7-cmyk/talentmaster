@@ -17,13 +17,15 @@ let _vpTapahtumaRivit, _vpSiivousTapahtumat;
 beforeAll(() => {
   const lines = readFileSync(join(__dir, '..', 'TalentMaster_VP_v25.html'), 'utf8').split('\n');
   const grab = (a, b) => { const s = lines.findIndex(l => l.includes(a)); let e = s + 1; while (e < lines.length && !lines[e].includes(b)) e++; return lines.slice(s, e).join('\n'); };
-  // riippuvuudet: _vpMittausKatTesti (tm_testikatalogi), _vpMittausArvo
+  // riippuvuudet: _vpMittausKatTesti (tm_testikatalogi), _vpMittausArvo, _tmHenkiloNimi
+  // (_tmHenkiloNimi = UID-vuodon vartija: pelaajan näyttönimi ei putoa doc-id:hen)
+  const nimiBlock = grab('function _tmHenkiloNimi(x)', 'function _jfNimi(p)');
   const katBlock = grab('function _vpMittausKatTesti(avain)', 'function _vpMittausArvo');
   const arvoBlock = grab('function _vpMittausArvo(v)', 'function _vpMittausLahdeLabel');
   const rivitBlock = grab('function _vpTapahtumaRivit(pelaajat', 'window._vpTapahtumaRivit = _vpTapahtumaRivit;');
   const aggBlock = grab('function _vpSiivousTapahtumat(pelaajat', 'window._vpSiivousTapahtumat = _vpSiivousTapahtumat;');
   const K = require('../lib/tm_testikatalogi.js');
-  const src = 'var window = { TM_TESTIKATALOGI: __K };\n' + katBlock + '\n' + arvoBlock + '\n' + rivitBlock + '\n' + aggBlock + '\n return { _vpTapahtumaRivit, _vpSiivousTapahtumat };';
+  const src = 'var window = { TM_TESTIKATALOGI: __K };\n' + nimiBlock + '\n' + katBlock + '\n' + arvoBlock + '\n' + rivitBlock + '\n' + aggBlock + '\n return { _vpTapahtumaRivit, _vpSiivousTapahtumat };';
   const api = new Function('__K', src)(K);
   _vpTapahtumaRivit = api._vpTapahtumaRivit;
   _vpSiivousTapahtumat = api._vpSiivousTapahtumat;

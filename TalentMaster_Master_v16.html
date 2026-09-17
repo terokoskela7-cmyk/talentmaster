@@ -2586,7 +2586,7 @@ function _mKaavioPelaajat(joukkueId) {
   }).map(function (p) {
     return {
       id: p.id,
-      nimi: ((p.etunimi || '') + ' ' + (p.sukunimi || '')).trim() || p.nimi || p.id,
+      nimi: _tmHenkiloNimi(p),
       joukkueId: (p.joukkueet || [])[0] || _mKaavioJoukkueId(p.joukkue) || null
     };
   });
@@ -2647,7 +2647,7 @@ async function _lataaKirjaukset() {
             ...d.data(),
             _pelaajaId: p.id,
             _pv: d.id,
-            _nimi: ((p.etunimi||'') + ' ' + (p.sukunimi||'')).trim() || p.id,
+            _nimi: _tmHenkiloNimi(p),
             _num: p.numero || '?',
             id: p.id + '_' + d.id,
             type: 'training',
@@ -3124,7 +3124,17 @@ function _joukkueTunniste() {
   return String(_joukkue).trim().toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
 }
 
-function _pelaajaNimi(p) { return ((p.etunimi || '') + ' ' + (p.sukunimi || '')).trim() || p.id; }
+/* HENKILÖN NÄYTTÖNIMI — EI KOSKAAN DOC-ID. Pelaaja- ja kayttaja-dokumenttien doc-id ON
+   Firebase-UID (§11), joten `|| p.id` -fallback vuoti teknisen tunnisteen ihmisen nimen paikalle
+   (pilottilöydös: henkilöstölistassa luki pvKJoVywWfTouQQgoxggUmGYDOE2). UID ei ole käyttäjän
+   tietoa vaan järjestelmän avain — sitä ei näytetä missään. Tyhjäkään ei kelpaa: rivi näyttäisi
+   rikkoutuneelta kertomatta miksi. Nimetön saa eksplisiittisen tilan. */
+function _tmHenkiloNimi(x) {
+  if (!x) return 'Nimetön';
+  var n = String(x.nimi || ((x.etunimi || '') + ' ' + (x.sukunimi || ''))).trim();
+  return n || String(x.email || x.huoltajaEmail || '').trim() || 'Nimetön';
+}
+function _pelaajaNimi(p) { return _tmHenkiloNimi(p); }
 
 // Joukkueen TKI-yhteenveto pikakentistä (ei alikokoelmakyselyä)
 function _tkiYhteenveto() {
@@ -3656,7 +3666,7 @@ async function _avaaVahvistus(tapahtumaId) {
   lista.id = 'vahvistusLista';
   lista.style.cssText = 'display:flex;flex-direction:column;gap:4px';
   kaikki.forEach(p => {
-    const nimi = ((p.sukunimi||'') + ' ' + (p.etunimi||'')).trim() || p.id;
+    const nimi = ((p.sukunimi||'') + ' ' + (p.etunimi||'')).trim() || _tmHenkiloNimi(p);
     const pid  = p.palloID || p.id;
     const label = document.createElement('label');
     label.style.cssText = 'display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:6px;border:0.5px solid var(--border);cursor:pointer';
@@ -3902,7 +3912,7 @@ function renderInbox(){
   if (!_demo && _pelaajatData.length > 0) {
     _pelaajatData.forEach(p => {
       firestorePlayers[p.id] = {
-        name: ((p.etunimi||'') + ' ' + (p.sukunimi||'')).trim() || p.id,
+        name: _tmHenkiloNimi(p),
         num: p.numero || '?',
         ageBand: p.syntymaVuosi ? 'u' + (new Date().getFullYear() - p.syntymaVuosi) : 'u15',
       };
@@ -4124,7 +4134,7 @@ function renderPulse(){
     // Aiemmin gate vaati length>0 → tyhjällä joukkueella putosi demo-haaraan ja näytti demopelaajia.
     _pelaajatData.forEach(p => {
       players[p.id] = {
-        name: ((p.etunimi||'') + ' ' + (p.sukunimi||'')).trim() || p.id,
+        name: _tmHenkiloNimi(p),
         num:  '#' + (p.numero || '?'),
         numero: p.numero || null,   // BUG-fix: erottaa numerottomat (pNum-tarkistus)
         streak: p.streak || 0,
@@ -4603,7 +4613,7 @@ function _iaMs(s) {
   const m = String(s).match(/^(\d{4})-(\d{2})-(\d{2})/);
   return m ? new Date(+m[1], +m[2]-1, +m[3]).getTime() : null;
 }
-function _iaNimi(p) { return ((p.etunimi||'') + ' ' + (p.sukunimi||'')).trim() || p.id; }
+function _iaNimi(p) { return _tmHenkiloNimi(p); }
 /* Jaettu: aja KAIKKI pelaajadataa käyttävät näkymärenderit kontekstin (seura/joukkue) vaihduttua
    tai alkulatauksessa, jotta mikään välilehti ei jää vanhan kontekstin dataan (ml. Koti + Havainnot,
    jotka aiemmin puuttuivat valitsin-handlereista). Kukin render guardaa oman elementtinsä ja
@@ -5035,7 +5045,7 @@ function _renderPlayersToday() {
     }
 
     el.innerHTML = huomio.map(p => {
-      const nimi = ((p.etunimi||'') + ' ' + (p.sukunimi||'')).trim() || p.id;
+      const nimi = _tmHenkiloNimi(p);
       const signaali = p.fiilinki <= 2 ? { cls:'tag-warn', txt:masterT('Matala fiilinki') }
                      : p.streak === 0   ? { cls:'tag-warn', txt:masterT('Ei kirjauksia') }
                      : p.signaali === 'xfactor' ? { cls:'tag-x', txt:'X-Factor' }
@@ -5133,7 +5143,7 @@ function _renderPlayerPickerFirestore() {
   const el = document.getElementById('playerPicker');
   if (!el) return;
   const pillit = _pelaajatData.map(p => {
-    const nimi = ((p.etunimi||'') + ' ' + (p.sukunimi||'')).trim() || p.id;
+    const nimi = _tmHenkiloNimi(p);
     // Näytä numero vain jos se on olemassa Firestoressa
     const numTeksti = p.numero ? ` <span style="color:var(--ink3);font-size:11px;margin-left:4px">#${p.numero}</span>` : '';
     const haku = (nimi + ' ' + (p.numero || '')).toLowerCase().replace(/"/g, '');
@@ -5197,7 +5207,7 @@ function _tasoPallot(taso, maks) {
   for (let i = 1; i <= maks; i++) s += (i <= taso) ? '●' : '○';
   return s;
 }
-function _devNimi(p) { return ((p.etunimi||'') + ' ' + (p.sukunimi||'')).trim() || p.id; }
+function _devNimi(p) { return _tmHenkiloNimi(p); }
 
 // VAIHE 2 — kehitysvauhti: delta-badge KPI-arvon viereen (↑+ vihreä / ↓− punainen / → harmaa).
 // nyt/edel = nykyinen ja edellinen arvo; des = desimaalit (H-H taso 1, TKI 0).
@@ -6319,7 +6329,7 @@ function _msRender() {
   var knimi = jf.konsepti_nimi || (function () { var k = _msSiltaKonsepti(jf.konsepti_avain); return k ? k.nimi : jf.konsepti_avain; })();
   var _pvmFi = function (iso) { if (!iso) return '—'; var m = String(iso).match(/^(\d{4})-(\d{2})-(\d{2})/); return m ? (+m[3]) + '.' + (+m[2]) + '.' + m[1] : iso; };
   var kal = window.TM_JAKSOKOOSTE ? window.TM_JAKSOKOOSTE.tmKalibraatio(S.arvioItse, S.arvioAikuis) : null;
-  var nimi = ((p.etunimi || '') + ' ' + (p.sukunimi || '')).trim() || p.id;
+  var nimi = _tmHenkiloNimi(p);
   // Vaihe 7: fyysinen domeeni → mitattu delta (§29) + PHV-portti (§28); stash delta → tallenna kytkee delta_mitattu.
   var _fyys = (jf.domeeni === 'fyysinen');
   var _FLIB = window.TM_FYYSTEEMAT_LIB;
@@ -8118,7 +8128,7 @@ document.addEventListener('click', function (e) {
 
 window._avaaKausiPelaajat = function(dim) {
   const P = _pelaajatData || [];
-  const _nimi = p => ((p.etunimi||'')+' '+(p.sukunimi||'')).trim() || p.id;
+  const _nimi = p => _tmHenkiloNimi(p);
   const _lvl = p => { const _is=_devIkaSp(p); const d2j=(typeof laskeD2Joustava==='function')?laskeD2Joustava(p,_is.ika,_is.sp):null; const a=[p.d1_taso,p.hh_taso,p.d2_taso,d2j?d2j.taso:null].filter(v=>v!=null); return a.length?Math.max(...a):null; };
   const _vari = t => t==null?'var(--ink3)':t>=4?'var(--teal)':t>=3?'var(--amber)':'var(--red)';   // 1–5 sama skaala kuin muualla
   const rivit = [];
@@ -8186,7 +8196,7 @@ function renderSeason() {
   if (!_demo && _seuraId) {
     const P = _pelaajatData || [];
     const now = new Date();
-    const nimi = p => ((p.etunimi||'')+' '+(p.sukunimi||'')).trim() || p.id;
+    const nimi = p => _tmHenkiloNimi(p);
     const lvl = p => {
       const _is = _devIkaSp(p);
       const d2j = (typeof laskeD2Joustava === 'function') ? laskeD2Joustava(p, _is.ika, _is.sp) : null;   // §26 D2-from-TKI (Sibbo TKI-only)
@@ -8902,7 +8912,7 @@ async function _calHaeOsallistujat(t) {
   if (!_seuraId) return [];
   var col = _db.collection('seurat').doc(_seuraId).collection('pelaajat');
   var map = {};
-  var lisaa = function(d) { var x = d.data(); map[d.id] = { id: d.id, nimi: ((x.etunimi || '') + ' ' + (x.sukunimi || '')).trim() || x.nimi || d.id }; };
+  var lisaa = function(d) { map[d.id] = { id: d.id, nimi: _tmHenkiloNimi(d.data()) }; };
   try {
     if (Array.isArray(t.pelaajat_id) && t.pelaajat_id.length) {
       var ids = t.pelaajat_id.slice(0, 300);
@@ -9305,7 +9315,7 @@ function _avaaUusiTapahtuma(pvm, klo) {
         var r = data.rooli || '';
         if (r === 'valmentaja' || r === 'talenttivalmentaja' || r === 'fysiikkavalmentaja' || r === 'testivastaava') {
           var o = document.createElement('option'); o.value = d.id;
-          o.textContent = ((data.etunimi || '') + ' ' + (data.sukunimi || '')).trim() || data.email || d.id;
+          o.textContent = _tmHenkiloNimi(data);
           mentSel.appendChild(o);
         }
       });
@@ -9885,7 +9895,7 @@ const CP_BASE = [
 // Koko komentolista = työtilat + dynaamiset pelaajat (_pelaajatData) + muut.
 function cpCmds() {
   const pelaajat = (_pelaajatData || []).slice(0, 30).map(p => {
-    const nimi = ((p.etunimi||'') + ' ' + (p.sukunimi||'')).trim() || p.nimi || p.id;
+    const nimi = _tmHenkiloNimi(p);
     const sub = [p.pelipaikka || p.positio, p.joukkue].filter(Boolean).join(' · ');
     const id = p.id;
     return { section:'Pelaajat', label:masterT('Avaa ') + nimi + masterT(' — aikajana'), sub: sub, ico:'ic-dev',

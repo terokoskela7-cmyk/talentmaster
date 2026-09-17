@@ -3491,7 +3491,7 @@ async function lataaValmentajat() {
       return {
         id: d.id,
         ...data,
-        nimi: data.nimi || ((data.etunimi||'') + ' ' + (data.sukunimi||'')).trim() || data.email || d.id,
+        nimi: _tmHenkiloNimi(data),
         joukkue: data.joukkue || data.joukkueNimi || (data.joukkueNimet||[])[0] || '—',
         rooli: data.rooli || 'valmentaja',
         aktiivinen: data.aktiivinen !== false,
@@ -4718,7 +4718,7 @@ function avaaBioBanding() {
       h += '<div style="font-size:12px;color:var(--ink3);font-style:italic;padding:2px 0 6px 13px">—</div>';
     } else {
       lista.forEach(function (p) {
-        const nimi = ((p.etunimi || '') + ' ' + (p.sukunimi || '')).trim() || p.id;
+        const nimi = _tmHenkiloNimi(p);
         const bio = p.biologinenIka_viimeisin || {};
         const poikkeus = !!(bio.yli_ikaisyys && bio.yli_ikaisyys.poikkeuslupa);
         const vyoh = p.kasvutahti_vyohyke || bio.kasvutahti_vyohyke || null;
@@ -7612,7 +7612,17 @@ function _jfTaytaJoukkuevalitsin() {
   sel.innerHTML = opts;
 }
 
-function _jfNimi(p) { return ((p.etunimi || '') + ' ' + (p.sukunimi || '')).trim() || p.id; }
+/* HENKILÖN NÄYTTÖNIMI — EI KOSKAAN DOC-ID. Pelaaja- ja kayttaja-dokumenttien doc-id ON
+   Firebase-UID (§11), joten `|| p.id` -fallback vuoti teknisen tunnisteen ihmisen nimen paikalle
+   (pilottilöydös: henkilöstölistassa luki pvKJoVywWfTouQQgoxggUmGYDOE2). UID ei ole käyttäjän
+   tietoa vaan järjestelmän avain — sitä ei näytetä missään. Tyhjäkään ei kelpaa: rivi näyttäisi
+   rikkoutuneelta kertomatta miksi. Nimetön saa eksplisiittisen tilan. */
+function _tmHenkiloNimi(x) {
+  if (!x) return 'Nimetön';
+  var n = String(x.nimi || ((x.etunimi || '') + ' ' + (x.sukunimi || ''))).trim();
+  return n || String(x.email || x.huoltajaEmail || '').trim() || 'Nimetön';
+}
+function _jfNimi(p) { return _tmHenkiloNimi(p); }
 const _JF_LAHDE_BADGE = {
   valmentaja: { lbl: 'valmentaja', cls: 'val' }, vp: { lbl: 'VP', cls: 'vp' },
   talenttivalmentaja: { lbl: vpT('talenttivalm.'), cls: 'tal' }
@@ -12368,7 +12378,7 @@ window._avaaVpD3Arvio = function(pid) {
   const m = document.createElement('div'); m.id = '_vpD3Modal';
   m.style.cssText = 'position:fixed;inset:0;background:rgba(17,17,16,.92);z-index:340;display:flex;align-items:center;justify-content:center;padding:16px;backdrop-filter:blur(8px)';
   m.onclick = e => { if (e.target === m) m.remove(); };
-  const nimi = ((p.etunimi||'') + ' ' + (p.sukunimi||'')).trim() || p.id;
+  const nimi = _tmHenkiloNimi(p);
   let h = '<div onclick="event.stopPropagation()" style="background:var(--bg2);border:.5px solid var(--border);border-radius:8px;width:min(480px,94vw);max-height:90vh;overflow-y:auto;padding:20px 22px">';
   h += '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">'
     + '<div style="font-family:\'Cormorant Garamond\',serif;font-size:20px;color:var(--ink)">' + vpT('D3 VP-kalibraatio') + ' — ' + nimi + '</div>'
@@ -13258,7 +13268,7 @@ function _vpKaavioPelaajat(joukkueId) {
   }).map(function (p) {
     return {
       id: p.id,
-      nimi: ((p.etunimi || '') + ' ' + (p.sukunimi || '')).trim() || p.nimi || p.id,
+      nimi: _tmHenkiloNimi(p),
       joukkueId: (p.joukkueet || [])[0] || null
     };
   });
@@ -13266,7 +13276,7 @@ function _vpKaavioPelaajat(joukkueId) {
 function _vpKaavioValmentajat() {
   return (_valmentajat || [])
     .filter(function (v) { return v && v.aktiivinen !== false; })
-    .map(function (v) { return { id: v.id, nimi: v.nimi || v.id }; });
+    .map(function (v) { return { id: v.id, nimi: _tmHenkiloNimi(v) }; });
 }
 
 // R1 (§9367) — laske sisäänkirjautuneen valmentajan OMAT joukkueet omistajuusporttia varten (_vpVoiMuokata(p) +
@@ -13977,7 +13987,7 @@ function _vpKoosteLbl(t) {
 // Roster: pelaajat_id[] → joukkue/joukkueet[] → talenttiOhjelma. Suodata _pelaajat:sta (§29 case-insensitive), tyhjä → §18-kaksoiskysely.
 async function _vpHaeOsallistujat(t) {
   var out = {};
-  var lisaa = function(o) { out[o.id] = { id: o.id, nimi: ((o.etunimi || '') + ' ' + (o.sukunimi || '')).trim() || o.nimi || o.id }; };
+  var lisaa = function(o) { out[o.id] = { id: o.id, nimi: _tmHenkiloNimi(o) }; };
   var col = db.collection('seurat').doc(_seuraId).collection('pelaajat');
   try {
     if (Array.isArray(t.pelaajat_id) && t.pelaajat_id.length) {
@@ -14699,7 +14709,7 @@ function _vpTapahtumaRivit(pelaajat, cacheByPid, pvm, lahde) {
       if (!rivit.length) return;
       out.push({
         pid: p.id, idx: idx, dokkiId: w.__id,
-        nimi: ((p.etunimi || '') + ' ' + (p.sukunimi || '')).trim() || p.id,
+        nimi: _tmHenkiloNimi(p),
         rivit: rivit, kaikkiMitatoitu: rivit.every(function (r) { return r.mitatoitu; })
       });
     });
@@ -14960,7 +14970,7 @@ function _mdtTaytaPicker() {
   var sel = document.getElementById('mdtPelaajaSel');
   if (!sel) return;
   var P = (_pelaajat || []).slice().sort(function(a,b){ return ((a.sukunimi||'')+(a.etunimi||'')).localeCompare((b.sukunimi||'')+(b.etunimi||'')); });
-  sel.innerHTML = vpT('<option value="">— Valitse pelaaja —</option>') + P.map(function(p){ return '<option value="' + p.id + '"' + (p.id===_mdtPid?' selected':'') + '>' + (((p.etunimi||'')+' '+(p.sukunimi||'')).trim()||p.id) + ' · ' + (p.joukkue||'—') + '</option>'; }).join('');
+  sel.innerHTML = vpT('<option value="">— Valitse pelaaja —</option>') + P.map(function(p){ return '<option value="' + p.id + '"' + (p.id===_mdtPid?' selected':'') + '>' + (_tmHenkiloNimi(p)) + ' · ' + (p.joukkue||'—') + '</option>'; }).join('');
 }
 window._mdtValitse = function(pid){ _mdtPid = pid || null; _mdtPalaveri = false; _mdtVanhEdit = false; if (_mdtPid) _mdtLataaTavoitteet(_mdtPid); _renderMDTProfiili(); };
 window._mdtVaihdaSkin = function(skin){ _mdtSkin = skin; _mdtVanhEdit = false; _renderMDTProfiili(); };
@@ -15158,7 +15168,7 @@ function _renderMDTProfiili() {
   if (!p) { el.innerHTML = vpT('<div style="padding:16px;color:var(--ink3)">Pelaajaa ei löytynyt.</div>'); return; }
   var isp = (typeof _jsvJoukkueIkaSp === 'function') ? _jsvJoukkueIkaSp(p.joukkue || '') : { ika: null, sp: 'P' };
   var ika = isp.ika, spMN = (isp.sp === 'T') ? 'N' : 'M';
-  var nimi = ((p.etunimi || '') + ' ' + (p.sukunimi || '')).trim() || p.id;
+  var nimi = _tmHenkiloNimi(p);
   var _viimTestiIso = p.hh_pvm || p.tki_pvm || null;
   var viimTesti = _viimTestiIso ? (typeof tmPvmFi === 'function' ? (tmPvmFi(_viimTestiIso) || _viimTestiIso) : _viimTestiIso) : null;
   var _viimTestiVanha = _viimTestiIso && typeof tmOnVanhaMittaus === 'function' && tmOnVanhaMittaus(_viimTestiIso);
@@ -16476,7 +16486,7 @@ function _jaPotentiaaliJakauma(pelaajat, skaala, nimiFn) {   // #319 SCOUT_POTEN
   portaat.forEach(function (r) { byT[r.tahdet] = r; });
   (pelaajat || []).forEach(function (p) {
     var t = (p.scout_potentiaali != null) ? Number(p.scout_potentiaali) : null;
-    var nimi = nimiFn ? nimiFn(p) : (((p.etunimi || '') + ' ' + (p.sukunimi || '')).trim() || p.id);
+    var nimi = nimiFn ? nimiFn(p) : (_tmHenkiloNimi(p));
     if (t != null && byT[t]) { byT[t].n++; byT[t].nimet.push(nimi); } else { eiArvioitu.n++; eiArvioitu.nimet.push(nimi); }
   });
   return { portaat: portaat, eiArvioitu: eiArvioitu };
@@ -16513,7 +16523,7 @@ function _jaDim5(p) {
   };
 }
 function _jaHeikko(p) { var d = _jaDim5(p); var v = ['d1', 'd2', 'd3', 'd5'].map(function (k) { return d[k]; }).filter(function (x) { return x != null; }); return (p.flei_viimeisin != null && Number(p.flei_viimeisin) < 40) || (v.length && Math.min.apply(null, v) < 2.5); }
-function _jaNimi(p) { return ((p.etunimi || '') + ' ' + (p.sukunimi || '')).trim() || p.id; }
+function _jaNimi(p) { return _tmHenkiloNimi(p); }
 function _jaQ(p) { return (typeof raeChip === 'function') ? (raeChip(p).q || null) : (p.rae_kvartaali || null); }
 function _jaPos(p) { return (typeof _vpTtNormPositio === 'function') ? (p.tt_positio_aktiivinen || _vpTtNormPositio(p.positio || p.pelipaikka)) : (p.positio || p.pelipaikka); }
 
@@ -17597,7 +17607,7 @@ function _talenttiCod(p) {
 }
 
 const _talVari5 = function(t){ return (t == null) ? 'var(--ink3)' : t >= 3.5 ? 'var(--teal)' : t >= 2.5 ? 'var(--amber)' : 'var(--red)'; };
-function _talNimi(p) { return (((p.sukunimi || '') + ', ' + (p.etunimi || '')).replace(/^, |, $/g, '') || p.id || '?'); }
+function _talNimi(p) { return (((p.sukunimi || '') + ', ' + (p.etunimi || '')).replace(/^, |, $/g, '') || _tmHenkiloNimi(p)); }
 function _talSeuraLinkki() { return 'TalentMaster_Seura.html' + (_seuraId ? ('?seura=' + encodeURIComponent(_seuraId)) : ''); }
 
 function renderTalentitLohko() {
