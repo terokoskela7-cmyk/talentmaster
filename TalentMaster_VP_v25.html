@@ -19,7 +19,7 @@
 <!-- Eerikkilä-normit + universaali testirekisteri (eerikkilaTaso, laskeFVP) — 10m/5m-tasot + FVP-profiili -->
 <script src="lib/tm_lang.js?v=14"></script>   <!-- i18n V0 — fi/sv/en käännöstaulukko + t() + kieli-init (putkitus) -->
 <script src="lib/tm_i18n_common.js?v=2"></script>   <!-- i18n Vaihe 0 — JAETTU henkilöstö-i18n + lukittu glossaari (ENNEN sivukarttaa) -->
-<script src="lib/tm_vp_i18n.js?v=68"></script>   <!-- i18n Vaihe 5 — VP sv (sivukartta); vpT/vpLokalisoi delegoivat commoniin -->
+<script src="lib/tm_vp_i18n.js?v=69"></script>   <!-- i18n Vaihe 5 — VP sv (sivukartta); vpT/vpLokalisoi delegoivat commoniin -->
 
 
 <script src="lib/tm_eerikkila_normit.js?v=45"></script>   <!-- v43: D2-kortti d2_taso-ensin (renderKehityskorttiHTML, PR #264 · §30/#262) -->
@@ -4775,6 +4775,12 @@ function _kaavioKorttiHTML(k, i, ctx) {
   if (st === 'hyvaksytty' && _kuitt > 0) {
     h += '<div style="font-size:11px;margin-top:4px;color:var(--teal)">✓ ' + _kuitt + ' ' + vpT('pelaajaa kuitannut ymmärtäneensä') + '</div>';
   }
+  // Näkyvyyden nosto seuratasolle on KURATOINTITOIMI, ei tilasiirto → oma nappinsa, ei
+  // kaavioToiminnot-listalla (se kuvaa review-elinkaarta). Näkyy vain hyväksyjälle ja vain kun
+  // kaavio ei jo ole seuratasoinen; kanoniset eivät ole seurakerroksen kuratoitavia.
+  if (!k.kanoninen && k.review && k.review.nakyvyys !== 'seura' && (typeof kaavioOnHyvaksyja === 'function') && kaavioOnHyvaksyja(ctx)) {
+    h += '<div style="margin-top:8px"><button onclick="_kaavioNostaSeuratasolle(' + i + ')" style="background:var(--ov-1);color:var(--ink2);border:.5px solid var(--border);border-radius:6px;padding:5px 10px;font-size:11px;cursor:pointer">↑ ' + vpT('Nosta seuratasolle') + '</button></div>';
+  }
   var toiminnot = kaavioToiminnot(k, ctx);
   if (toiminnot.length) {
     h += '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:9px">';
@@ -4805,6 +4811,24 @@ function _kaavioPiirraEsikatselu(elId, spec) {
 }
 
 // ── TOIMINNOT ────────────────────────────────────────────────────────────────────────────
+/* Nosto seuratasolle: vain nakyvyys-kenttä + versiolukko. Status ei muutu — kuratointi ei ole
+   hyväksyntä, ja hyväksytyn kaavion nosto ei saa pudottaa sitä takaisin katselmukseen. */
+async function _kaavioNostaSeuratasolle(i) {
+  var ctx = _kaavioCtxNyt();
+  var k = _kaavioTila.lista.filter(function (x) { return kaavioVoiLukea(x, ctx); })[i];
+  if (!k || k.kanoninen) return;
+  if (!_kaavioOnHyvaksyjaNyt()) { toast(vpT('Ei oikeutta nostaa seuratasolle'), 'err'); return; }
+  try {
+    await db.collection('seurat').doc(k.seuraId || _seuraId).collection('kaaviot').doc(k.id).update({
+      'review.nakyvyys': 'seura',
+      'review.versio': kaavioSeuraavaVersio(k)
+    });
+    toast(vpT('Kaavio nostettu seuratasolle'), 'ok');
+    avaaKaaviopankki();
+  } catch (e) { toast(vpT('Nosto epäonnistui — lataa kaavio uudelleen'), 'err'); }
+}
+window._kaavioNostaSeuratasolle = _kaavioNostaSeuratasolle;
+
 async function _kaavioToiminto(t, i) {
   var ctx = _kaavioCtxNyt();
   var nakyvat = _kaavioTila.lista.filter(function (k) { return kaavioVoiLukea(k, ctx); });
@@ -4853,6 +4877,13 @@ async function _kaavioSiirra(k, uusiTila) {
 ══════════════════════════════════════════════════════════ */
 var _KAAVIO_PELIMUODOT = ['5v5', '8v8', '11v11'];
 
+/* Hyväksyjyys = peili firestore.rules onKaavioHyvaksyja():sta (vp | urheilutoimenjohtaja | SA).
+   Policy-libissä on jo kaavioOnHyvaksyja(ctx) — käytetään sitä, jottei rinnakkaista roolilistaa
+   synny. Tämä ratkaisee sekä näkyvyysvalikon että katselmuksen noston. */
+function _kaavioOnHyvaksyjaNyt() {
+  return (typeof kaavioOnHyvaksyja === 'function') ? kaavioOnHyvaksyja(_kaavioCtxNyt()) : false;
+}
+
 function _kaavioUusiNappiHTML() {
   return '<button onclick="_kaavioUusiLomake()" style="background:rgba(40,176,144,.14);color:var(--teal);'
     + 'border:.5px solid rgba(40,176,144,.4);border-radius:6px;padding:6px 12px;font-size:11.5px;cursor:pointer">＋ '
@@ -4895,8 +4926,15 @@ function _kaavioUusiLomake() {
   h += '</select></div>';
   h += '<div style="flex:1"><label for="_kvUNak" style="display:block;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink2);margin-bottom:5px">' + vpT('Näkyvyys') + '</label>';
   h += '<select id="_kvUNak" style="width:100%;background:var(--bg);border:.5px solid var(--border);color:var(--ink);font-family:inherit;font-size:12.5px;padding:8px 9px">';
-  h += '<option value="seura">' + vpT('seura') + '</option><option value="joukkue">' + vpT('joukkue') + '</option>';
+  // Hallintomalli: valmentaja kohdistaa OMAN joukkueensa sisältöä, seuran yhteisen kirjaston
+  // kuratoi metodologiajohto. Valikko rajaa vaihtoehdot rooleittain — mutta TOTUUS on
+  // firestore.rulesissa (kaavioNakyvyysLuontiOk), joka hylkää seuratason muualta.
+  var _hyv = _kaavioOnHyvaksyjaNyt();
+  h += '<option value="joukkue"' + (_hyv ? '' : ' selected') + '>' + vpT('joukkue') + '</option>';
+  h += '<option value="pelaaja">' + vpT('pelaaja') + '</option>';
+  if (_hyv) h += '<option value="seura" selected>' + vpT('seura') + '</option>';
   h += '</select></div></div>';
+  if (!_hyv) h += '<div style="font-size:11px;color:var(--ink3);line-height:1.45;margin-bottom:10px">' + vpT('Seuratason kaavion asettaa valmennuspäällikkö katselmuksessa.') + '</div>';
   // Joukkuevalinta näkyy vain kun näkyvyys on 'joukkue' — pelaajakohdistus on myöhempi lisäys
   // (se vaatii rosterin, eikä ensimmäisen kaavion luonti saa jäädä sen taakse).
   h += '<div style="font-size:11px;color:var(--ink3);line-height:1.45;margin-bottom:16px">' + vpT('Joukkue- ja pelaajakohdistuksen voi tarkentaa katselmuksessa.') + '</div>';

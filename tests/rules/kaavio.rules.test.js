@@ -79,8 +79,68 @@ const kd = (db, id) => doc(db, 'seurat', SEURA_A, 'kaaviot', id);
 // ── LUONTI-UI — create-portti kaikilla rooleilla. VP:n nappi-näkyvyys (kaavioVoiLuoda) on vain
 // UI; tämä sviitti todistaa että PALVELIN päättää saman. Ilman tätä nappi voisi luvata luonnin
 // roolille jolta kirjoitus hylätään — tai kieltää sen roolilta joka saisi luoda.
+// ── NÄKYVYYSTASON ROOLILUKKO. Hallintomalli: valmentaja kohdistaa oman joukkueensa sisältöä,
+// seuran yhteisen kirjaston kuratoi metodologiajohto. UI rajaa valikon, mutta TOTUUS on täällä.
+// Jokainen väite tehdään IDENTTISELLÄ payloadilla eri roolilla → ainoa muuttuja on kutsuja.
+describe('kaaviot · NÄKYVYYS — seurataso vain hyväksyjälle', () => {
+  const dok = (nakyvyys, tila, versio) => ({
+    spec: SPEC,
+    review: { status: tila || 'luonnos', nakyvyys: nakyvyys, joukkueId: JOUKKUE_A1, pelaajaIds: [],
+              versio: versio == null ? 0 : versio, luonut: VALM_A1 }
+  });
+
+  it('valmentaja EI luo seuratasoista', async () => {
+    await assertFails(setDoc(kd(valm(VALM_A1, SEURA_A), 'k_nak_v_seura'), dok('seura')));
+  });
+  it('EI-VACUOUS: IDENTTINEN payload VP:ltä onnistuu → ainoa muuttuja on rooli', async () => {
+    await assertSucceeds(setDoc(kd(vp(SEURA_A), 'k_nak_vp_seura'), dok('seura')));
+  });
+  it('valmentaja luo joukkue- ja pelaajatasoisen (ei-vacuous: portti ei estä kaikkea)', async () => {
+    await assertSucceeds(setDoc(kd(valm(VALM_A1, SEURA_A), 'k_nak_v_joukkue'), dok('joukkue')));
+    await assertSucceeds(setDoc(kd(valm(VALM_A1, SEURA_A), 'k_nak_v_pelaaja'), dok('pelaaja')));
+  });
+  it('talenttivalmentaja EI luo seuratasoista (ei ole hyväksyjä)', async () => {
+    await assertFails(setDoc(kd(talval(), 'k_nak_tv_seura'), dok('seura')));
+  });
+  it('FAIL-CLOSED: nakyvyys-kenttä puuttuu kokonaan → valmentajalta estetään, VP:ltä sallitaan', async () => {
+    const ilman = { spec: SPEC, review: { status: 'luonnos', joukkueId: JOUKKUE_A1, versio: 0, luonut: VALM_A1 } };
+    await assertFails(setDoc(kd(valm(VALM_A1, SEURA_A), 'k_nak_tyhja'), ilman));
+    await assertSucceeds(setDoc(kd(vp(SEURA_A), 'k_nak_tyhja_vp'), ilman));
+  });
+
+  describe('NOSTO seuratasolle muokkauksessa', () => {
+    beforeEach(async () => {
+      await testEnv.withSecurityRulesDisabled(async (ctx) => {
+        const db = ctx.firestore();
+        await setDoc(doc(db, 'seurat', SEURA_A, 'kaaviot', 'k_nak_joukkue'), dok('joukkue'));
+        await setDoc(doc(db, 'seurat', SEURA_A, 'kaaviot', 'k_nak_jo_seura'), dok('seura'));
+      });
+    });
+    const nosto = () => paivita({ 'review.nakyvyys': 'seura' }, 0);
+
+    it('valmentaja EI nosta joukkue → seura', async () => {
+      await assertFails(updateDoc(kd(valm(VALM_A1, SEURA_A), 'k_nak_joukkue'), nosto()));
+    });
+    it('EI-VACUOUS: IDENTTINEN nosto VP:ltä onnistuu', async () => {
+      await assertSucceeds(updateDoc(kd(vp(SEURA_A), 'k_nak_joukkue'), nosto()));
+    });
+    it('valmentaja saa LASKEA seura → joukkue (kaventaa, ei laajenna)', async () => {
+      await assertSucceeds(updateDoc(kd(valm(VALM_A1, SEURA_A), 'k_nak_jo_seura'), paivita({ 'review.nakyvyys': 'joukkue' }, 0)));
+    });
+    it('valmentaja saa muokata JO seuratasoisen SISÄLTÖÄ ilman näkyvyysmuutosta', async () => {
+      await assertSucceeds(updateDoc(kd(valm(VALM_A1, SEURA_A), 'k_nak_jo_seura'), paivita({ spec: SPEC }, 0)));
+    });
+    it('valmentaja EI kierrä porttia muokkaamalla spec + nakyvyys samalla kertaa', async () => {
+      await assertFails(updateDoc(kd(valm(VALM_A1, SEURA_A), 'k_nak_joukkue'), paivita({ spec: SPEC, 'review.nakyvyys': 'seura' }, 0)));
+    });
+  });
+});
+
 describe('kaaviot · LUONTI — create-portti (luonti-UI)', () => {
-  const uusi = (tila, versio) => ({ spec: SPEC, review: { status: tila || 'luonnos', nakyvyys: 'seura', joukkueId: null, pelaajaIds: [], versio: versio == null ? 0 : versio, luonut: VALM_A1 } });
+  // nakyvyys on 'joukkue': seuratason saa asettaa vain hyväksyjä (näkyvyyslukko yllä). Tämä
+  // sviitti testaa ROOLI- ja TILAPORTTIA, ei näkyvyyttä — joten fixture käyttää arvoa jonka
+  // valmentaja saa asettaa, muuten create estyisi väärästä syystä ja portti valehtelisi.
+  const uusi = (tila, versio) => ({ spec: SPEC, review: { status: tila || 'luonnos', nakyvyys: 'joukkue', joukkueId: JOUKKUE_A1, pelaajaIds: [], versio: versio == null ? 0 : versio, luonut: VALM_A1 } });
   it('oman seuran valmentaja LUO luonnoksen (ei-vacuous)', async () => {
     await assertSucceeds(setDoc(kd(valm(VALM_A1, SEURA_A), 'k_luonti_valm'), uusi()));
   });
