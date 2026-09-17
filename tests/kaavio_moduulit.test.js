@@ -47,11 +47,22 @@ describe('validaattori · §6-portit', () => {
     const s = SPEC(); s.pelaajat[1].pallo = true;
     expect(V.validoiKaavio(s).E.join(' ')).toContain('useampi pallollinen');
   });
-  it('näkökenttä vaatii tasan 1 vastaanottajan + avoin-kulman', () => {
-    const s = SPEC(); s.cone = { r: 12 };
-    expect(V.validoiKaavio(s).E).toEqual([]);                       // 1 vastaanottaja + avoin → ok
+  // MUUTTUNUT SEMANTIIKKA (näkökenttä pelaajakohtaiseksi): vanha kytkös "cone vaatii tasan 1
+  // vastaanottajan + avoin-kulman" on PURETTU tarkoituksella — kartio ei ole rooli vaan havainto,
+  // ja jokaisella pelaajalla voi olla omansa. Legacy `spec.cone` sallitaan ilman virhettä;
+  // migraatio (kaavioNormalisoiNakokentta) siirtää sen omistajalle kirjoitushetkellä.
+  // Uudet per-pelaaja-portit: tests/kaavio_nakokentta.test.js.
+  it('legacy spec.cone EI enää vaadi tasan yhtä vastaanottajaa', () => {
+    const s = SPEC(); s.cone = { r: 12, half: 58 };
+    expect(V.validoiKaavio(s).E).toEqual([]);
     s.pelaajat.push({ id: 'c', joukkue: 'oma', rooli: 'vastaanottaja', x: 30, y: 30 });
-    expect(V.validoiKaavio(s).E.join(' ')).toContain('tasan 1 vastaanottajan');
+    expect(V.validoiKaavio(s).E).toEqual([]);
+  });
+  it('per-pelaaja nakokentta validoidaan (korvaa vanhan cone-portin)', () => {
+    const s = SPEC(); s.pelaajat[0].nakokentta = { half: 58, r: 42 };
+    expect(V.validoiKaavio(s).E).toEqual([]);
+    s.pelaajat[0].nakokentta = { half: 0, r: 42 };
+    expect(V.validoiKaavio(s).E.join(' ')).toContain('half rajan ulkona');
   });
   it('liiketyyppi on enumista', () => {
     const s = SPEC(); s.liikkeet[0].tyyppi = 'lentopallo';

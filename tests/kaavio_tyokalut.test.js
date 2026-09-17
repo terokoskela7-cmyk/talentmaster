@@ -112,11 +112,17 @@ describe('B — kaikki työkalujen tuotos läpäisee §6-validaattorin', () => {
     });
     expect(V.validoiKaavio(E.kaavioLisaaLiike(POHJA(), 'lentopallo', 'O2', 'O1').spec).E.length).toBeGreaterThan(0);
   });
-  it('UI:n työkalulista vastaa validaattorin liiketyyppejä (ei ajautumista)', () => {
+  it('UI:n LIIKETYÖKALUT vastaavat validaattorin liiketyyppejä (ei ajautumista)', () => {
+    // Työkalupalkissa on myös ei-liiketyökaluja (pallo, peliasento, näkökenttä, selite, poista).
+    // Liikkeiksi luetaan ne jotka _kaavioOnLiiketyokalu tunnistaa — johdetaan lähteestä, ei
+    // poissulkulistalla, joka vanhenisi joka kerta kun työkalu lisätään.
+    const li = VP.match(/function _kaavioOnLiiketyokalu\(t\) \{ return \[([^\]]*)\]/);
+    expect(li).toBeTruthy();
+    const liikkeet = li[1].split(',').map((x) => x.trim().replace(/^'|'$/g, '')).filter(Boolean);
+    expect([...liikkeet].sort()).toEqual([...V.KAAVIO_LIIKETYYPIT].sort());
     const i = VP.indexOf('var _KAAVIO_TYOKALUT = ['), j = VP.indexOf('];', i);
     const kt = [...VP.slice(i, j).matchAll(/k: '([a-z]+)'/g)].map((m) => m[1]);
-    const liikkeet = kt.filter((k) => ['selite', 'cone', 'poista'].indexOf(k) < 0);
-    expect([...liikkeet].sort()).toEqual([...V.KAAVIO_LIIKETYYPIT].sort());
+    liikkeet.forEach((l) => expect(kt, l).toContain(l));   // jokainen liiketyyppi on napissa
   });
 });
 
@@ -144,9 +150,10 @@ describe('C — VP: työkalutila vaihtaa vedon merkityksen', () => {
     const pd = runko('_kaavioPointerDown');
     expect(pd).toContain('kaavioLisaaSelite(s, sx, sy, teksti)');
     expect(pd).toContain('kaavioOsuma(s, sx, sy, 5)');
+    expect(pd).toContain('kaavioAsetaPallo(s, op.ref)');
     // Klikkaustyökalut (selite, poista) kirjaavat historian pointerDOWNissa; liike vasta
     // pointerUPissa, koska sitä ennen ei ole vielä mitään lisättävää.
-    expect((pd.match(/kaavioHistoriaLisaa/g) || []).length).toBe(2);
+    expect((pd.match(/kaavioHistoriaLisaa/g) || []).length).toBe(3);   // selite · poista · pallo
     expect(runko('_kaavioPointerUp')).toContain('kaavioHistoriaLisaa');
   });
   it('sama nappi uudelleen palauttaa raahaukseen (moodista pääsee ulos)', () => {
