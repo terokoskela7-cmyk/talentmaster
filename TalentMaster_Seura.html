@@ -1709,6 +1709,7 @@ function pelaajaRivi(p) {
     ? '<span style="font-size:10px;background:rgba(40,176,144,.15);color:var(--teal);border-radius:4px;padding:1px 6px;margin-left:4px;font-weight:700;">⭐</span>'
     : '';
   return '<tr>'
+    + '<td><input type="checkbox" class="pelValinta" value="' + p.id + '" onchange="_pelValintaMuuttui()"></td>'
     + '<td style="font-weight:600;">' + nimi + '</td>'
     + '<td>' + joukkueetStr + talenttiBadge + '</td>'
     + '<td>' + syntVuosi + '</td>'
@@ -1746,6 +1747,9 @@ function renderPelaajaLista(lista) {
   if (countEl) countEl.textContent = lista.length + '/' + (window._pelaajatKaikki.length || 0) + ' pelaajaa';
   if (!tbody) return;
   tbody.innerHTML = lista.map(pelaajaRivi).join('');
+  // Rivit vaihtuivat → valinnat katosivat DOMista. Ilman tätä siirtopalkki jäisi näkyviin
+  // lupaamaan toimintoa valinnalle jota ei enää ole.
+  if (typeof _pelValintaMuuttui === 'function') _pelValintaMuuttui();
 }
 
 // ─── Pääfunktio: suodatus + nappien päivitys + renderöinti ───────
@@ -1791,6 +1795,83 @@ function suodataPelaajat(tila_suodin, hakuTeksti) {
   }
 
   renderPelaajaLista(lista);
+}
+
+/* ══════════ JOUKKUEJAKO — monivalinta + bulk-siirto ═════════════════════════════════════
+   Sibbo: "Yhden joukkueen alla melkein 50 pelaajaa — liikaa." Malli tuki jakoa jo
+   (pelaajat.joukkueet[] on monijäsenyyslista); puuttui vain työkalu jolla iso ryhmä saadaan
+   pilkottua ilman että jokaista pelaajaa avataan erikseen.
+
+   ⚠ LEGACY-SYNKKA ON TÄMÄN AINOA DATAKRIITTINEN KOHTA. Valmentajan näkymä (Master) kyselee
+   yhä `joukkue`-NIMIKENTÄLLÄ (§18: molemmat rakenteet elävät rinnakkain). Jos siirto päivittää
+   vain joukkueet[]-ID-listan, pelaaja katoaa valmentajalta — siirto näyttäisi onnistuneen ja
+   rikkoisi silti juuri sen näkymän jota se oli korjaamassa. Siksi kirjoitetaan molemmat. */
+function _pelValitutIdt() {
+  return Array.prototype.slice.call(document.querySelectorAll('.pelValinta:checked')).map(function (x) { return x.value; });
+}
+function _pelValitseKaikki(paalle) {
+  document.querySelectorAll('.pelValinta').forEach(function (x) { x.checked = !!paalle; });
+  var kaikki = document.getElementById('pelValitseKaikki'); if (kaikki) kaikki.checked = !!paalle;
+  _pelValintaMuuttui();
+}
+function _pelValintaMuuttui() {
+  var n = _pelValitutIdt().length;
+  var palkki = document.getElementById('pelSiirtoPalkki');
+  var lkm = document.getElementById('pelValittuLkm');
+  if (lkm) lkm.textContent = n + ' valittu';
+  if (palkki) palkki.style.display = n ? 'flex' : 'none';
+  if (n) _pelTaytaKohdeValitsin();
+}
+/* Kohdevalitsin joukkueet-KOKOELMASTA (ei pelaajadatasta johdettuna): siirron kohteena voi olla
+   juuri luotu tyhjä joukkue, jota yhdelläkään pelaajalla ei vielä ole. */
+function _pelTaytaKohdeValitsin() {
+  var sel = document.getElementById('pelSiirtoKohde'); if (!sel) return;
+  var nyt = sel.value;
+  var jt = (tila.joukkueet || []).slice().sort(function (a, b) { return String(a.nimi || a.id).localeCompare(String(b.nimi || b.id)); });
+  sel.innerHTML = jt.length
+    ? jt.map(function (j) { return '<option value="' + j.id + '">' + (j.nimi || j.id) + '</option>'; }).join('')
+    : '<option value="">— luo ensin joukkue Joukkueet-välilehdellä —</option>';
+  if (nyt) sel.value = nyt;
+}
+async function _pelSiirraValitut(tapa) {
+  var idt = _pelValitutIdt();
+  var sel = document.getElementById('pelSiirtoKohde');
+  var kohdeId = sel && sel.value;
+  if (!idt.length) return;
+  if (!kohdeId) { naytaToast('Valitse kohdejoukkue.', 'virhe'); return; }
+  var j = (tila.joukkueet || []).find(function (x) { return x.id === kohdeId; });
+  var kohdeNimi = (j && j.nimi) || kohdeId;
+  var sana = (tapa === 'siirto') ? 'Siirretäänkö' : 'Lisätäänkö';
+  if (!confirm(sana + ' ' + idt.length + ' pelaajaa joukkueeseen "' + kohdeNimi + '"?')) return;
+
+  var nimiById = {};
+  (tila.joukkueet || []).forEach(function (j) { nimiById[j.id] = j.nimi || j.id; });   // j = JOUKKUE, id on luettava slug
+  var onnistui = 0, epaonnistui = 0;
+  for (var i = 0; i < idt.length; i++) {
+    var pid = idt[i];
+    var p = (window._pelaajatKaikki || []).find(function (x) { return x.id === pid; }) || {};
+    var vanhat = Array.isArray(p.joukkueet) ? p.joukkueet : [];
+    var uudet = (tapa === 'siirto')
+      ? [kohdeId]
+      : (vanhat.indexOf(kohdeId) >= 0 ? vanhat.slice() : vanhat.concat([kohdeId]));
+    var nimet = uudet.map(function (id) { return nimiById[id] || id; });
+    try {
+      await db.collection('seurat').doc(tila.seuraId).collection('pelaajat').doc(pid).update({
+        joukkueet: uudet,
+        joukkueetNimet: nimet,
+        joukkue: nimet[0] || '',        // LEGACY — valmentajan näkymä kyselee tällä (§18)
+        joukkueNimi: nimet[0] || '',    // LEGACY
+        muokattu: firebase.firestore.FieldValue.serverTimestamp()
+      });
+      // Paikallinen data synkkaan, jottei lista näytä vanhaa ennen seuraavaa latausta.
+      p.joukkueet = uudet; p.joukkueetNimet = nimet; p.joukkue = nimet[0] || ''; p.joukkueNimi = nimet[0] || '';
+      onnistui++;
+    } catch (e) { epaonnistui++; }
+  }
+  naytaToast(onnistui + ' pelaajaa ' + (tapa === 'siirto' ? 'siirretty' : 'lisätty') + ' joukkueeseen ' + kohdeNimi
+    + (epaonnistui ? ' · ' + epaonnistui + ' epäonnistui' : ''), epaonnistui ? 'virhe' : 'ok');
+  _pelValitseKaikki(false);
+  suodataPelaajat(window._aktiiviSuodatin || 'kaikki');
 }
 
 function suodataJoukkue(joukkueId) {
@@ -1840,6 +1921,19 @@ async function renderPelaajat(alue) {
 
     <!-- Joukkuesuodattimet — renderöidään pelaajadatan perusteella -->
     <div id="joukkueSuodatinRivi" style="display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap;"></div>
+
+    <!-- JOUKKUEJAKO. Sibbo: "yhden joukkueen alla melkein 50 pelaajaa — liikaa." Jako on
+         työkalu­ongelma, ei malliongelma: pelaajalla on jo joukkueet[] (monijäsenyys).
+         Palkki ilmestyy vasta kun jotain on valittu — tyhjänä se olisi pelkkää kohinaa. -->
+    <div id="pelSiirtoPalkki" style="display:none;gap:10px;margin-bottom:12px;flex-wrap:wrap;align-items:center;
+      padding:10px 14px;border:1px solid rgba(40,176,144,.35);border-radius:8px;background:rgba(40,176,144,.07);">
+      <span id="pelValittuLkm" style="font-size:12px;color:var(--teal);font-weight:600;"></span>
+      <select id="pelSiirtoKohde" style="padding:6px 10px;background:var(--bg3);border:1px solid var(--border);
+        border-radius:8px;font-size:12px;color:var(--ink);font-family:inherit;"></select>
+      <button class="toimNappi sininen" onclick="_pelSiirraValitut('siirto')">Siirrä joukkueeseen</button>
+      <button class="toimNappi" onclick="_pelSiirraValitut('lisays')" title="Pelaaja voi kuulua useampaan joukkueeseen">Lisää joukkueeseen</button>
+      <button class="toimNappi" onclick="_pelValitseKaikki(false)" style="margin-left:auto;">Tyhjennä valinta</button>
+    </div>
 
     <div class="kortti">
       <div class="korttiHeader">
@@ -1987,6 +2081,7 @@ async function renderPelaajat(alue) {
       </div>
       <table>
         <thead><tr>
+          <th style="width:28px"><input type="checkbox" id="pelValitseKaikki" onchange="_pelValitseKaikki(this.checked)" title="Valitse kaikki näkyvät"></th>
           <th>Nimi</th><th>Joukkue</th><th>Synt.</th><th>PalloID</th><th>Tila</th><th>Käytettävyys</th><th>Toiminnot</th>
         </tr></thead>
         <tbody>
@@ -2035,6 +2130,7 @@ async function renderPelaajat(alue) {
 
             return `
               <tr>
+                <td><input type="checkbox" class="pelValinta" value="${p.id}" onchange="_pelValintaMuuttui()"></td>
                 <td style="font-weight:600;">${nimi}</td>
                 <td>${joukkueetNakymassa}${talenttiBadge}</td>
                 <td>${syntVuosi}</td>
