@@ -19,7 +19,7 @@
 <!-- Eerikkilä-normit + universaali testirekisteri (eerikkilaTaso, laskeFVP) — 10m/5m-tasot + FVP-profiili -->
 <script src="lib/tm_lang.js?v=14"></script>   <!-- i18n V0 — fi/sv/en käännöstaulukko + t() + kieli-init (putkitus) -->
 <script src="lib/tm_i18n_common.js?v=2"></script>   <!-- i18n Vaihe 0 — JAETTU henkilöstö-i18n + lukittu glossaari (ENNEN sivukarttaa) -->
-<script src="lib/tm_vp_i18n.js?v=71"></script>   <!-- i18n Vaihe 5 — VP sv (sivukartta); vpT/vpLokalisoi delegoivat commoniin -->
+<script src="lib/tm_vp_i18n.js?v=72"></script>   <!-- i18n Vaihe 5 — VP sv (sivukartta); vpT/vpLokalisoi delegoivat commoniin -->
 
 
 <script src="lib/tm_eerikkila_normit.js?v=45"></script>   <!-- v43: D2-kortti d2_taso-ensin (renderKehityskorttiHTML, PR #264 · §30/#262) -->
@@ -42,9 +42,9 @@
 <script src="lib/tm_teknistaktiset_sv.js?v=1"></script>   <!-- i18n V5 Vaihe B: curriculumin sv-sidecar (TM_TT_SV). Generoitu lib on kielineutraali → sv asuu tässä; VP valitsee kielen (_ttSv), puuttuva avain → fi -->
 <script src="lib/tm_kehityspolku.js?v=2"></script>   <!-- I3a: looginen silta -resolver (idp_fokus → konsepti/fundamentti → harjoite) -->
 <script src="lib/tm_jaksofokus.js?v=5"></script>
-<script src="lib/tm_kaavio_render.js?v=3"></script>     <!-- erä A: §3-specin SVG-renderöijä (kielitietoinen) -->
+<script src="lib/tm_kaavio_render.js?v=4"></script>     <!-- erä A: §3-specin SVG-renderöijä (kielitietoinen) -->
 <script src="lib/tm_kaavio_policy.js?v=2"></script>     <!-- erä A: näkyvyys/toiminnot — pariteetti firestore.rules kanssa -->
-<script src="lib/tm_kaavio_validate.js?v=3"></script>   <!-- erä A: §6-validaattori (client-portti + ingest) -->
+<script src="lib/tm_kaavio_validate.js?v=4"></script>   <!-- erä A: §6-validaattori (client-portti + ingest) -->
 <script src="lib/tm_kaavio_editori.js?v=4"></script>    <!-- erä B1: editorin tila+koordinaatit (sama mappi kuin render) -->   <!-- Vaihe 4c: jaksofokus-oversight PURE-ydin (kattavuus/umpeutunut/teemakeskittymä, §26) -->
 <script src="lib/tm_kaavio_konsepti.js?v=1"></script>   <!-- erä C: spec↔konsepti-sidos (otsikko/KPI resolvoidusta konseptista, ei specistä) -->
 <script src="lib/tm_vp_seuranta.js?v=1"></script>   <!-- Vaihe C: VP-seuranta koonti/kuittaus/IDP-feed (nojaa VAI+-indeksiin, ei uutta mittaria) -->
@@ -70,19 +70,19 @@
    tarkoittavat eri asiaa (Pelaajassa --ink3 on sinertävä), joten globaali määrittely
    muuttaisi muuta käyttöliittymää. Arvot = prototyypin (tm_kaavio_review.html) arvot. */
 .tm-kaavio {
-  --accent: #28B090;  --pitch: #161615;  --line: rgba(242,239,230,.20);
-  --cone: rgba(40,176,144,.09);  --halo: rgba(40,176,144,.16);  --fade: #3A5A50;
+  --accent: #28B090;  --pitch: #161615;  --line: rgba(242,239,230,.34);
+  --cone: rgba(40,176,144,.20);  --halo: rgba(40,176,144,.26);  --fade: #4D7A6C;
   --bone: #F2EFE6;  --carbon: #1C1C1A;  --slate: #585751;  --red: #D06A5A;
-  --teal-brd: rgba(40,176,144,.30);
+  --teal-brd: rgba(40,176,144,.55);
   --ink: #F2EFE6;  --ink3: #8B887F;  --bg: #111110;
   --font-mono: 'DM Mono', ui-monospace, monospace;
   --font-sans: 'DM Sans', system-ui, sans-serif;
 }
 .tm-kaavio svg { display: block; width: 100%; height: auto; }
 :root[data-theme="light"] .tm-kaavio {
-  --accent: #1A7A5E;  --pitch: #EAE6DA;  --line: rgba(28,28,26,.24);
-  --cone: rgba(26,122,94,.10);  --halo: rgba(26,122,94,.15);  --fade: #A9BDB4;
-  --teal-brd: rgba(26,122,94,.28);
+  --accent: #1A7A5E;  --pitch: #EAE6DA;  --line: rgba(28,28,26,.38);
+  --cone: rgba(26,122,94,.20);  --halo: rgba(26,122,94,.24);  --fade: #8FB3A6;
+  --teal-brd: rgba(26,122,94,.5);
   --ink: #1C1C1A;  --ink3: #7A776E;  --bg: #F2EFE6;
 }
 :root[data-theme="dark"] {
@@ -5088,6 +5088,26 @@ function _kaavioPiirraEditori() {
       svg.appendChild(ln);
     }
   }
+  // SELITTEEN OSUMA-ALUE. kaavioOsuma osuu selitteeseen vain sen ANKKURIPISTEESSÄ, mutta pitkän
+  // tekstin runko on kaukana ankkurista → käyttäjä klikkasi tekstiä ja ohitti osuman ("ei pysty
+  // muokkaamaan"). Piirretään läpinäkyvä suorakulmio tekstin päälle, joka valitsee selitteen.
+  // Vain editorin overlayssa — jaettu renderöijä pysyy puhtaana.
+  (_kaavioTila.muokkaus.spec.selitteet || []).forEach(function (se) {
+    var oikea = se.x > 58;
+    var lev = 74, kork = 30;                       // kattaa 3 rivin tekstilaatikon
+    var hx = oikea ? kaavioEdPX(se.x) - lev : kaavioEdPX(se.x);
+    var hr = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+    hr.setAttribute('x', hx); hr.setAttribute('y', kaavioEdPY(se.y) - 8);
+    hr.setAttribute('width', lev); hr.setAttribute('height', kork);
+    hr.setAttribute('fill', 'transparent'); hr.setAttribute('style', 'cursor:pointer');
+    hr.addEventListener('pointerdown', function (ev) {
+      if (_kaavioTila.tyokalu) return;             // työkalu voittaa, kuten muuallakin
+      ev.stopPropagation();
+      _kaavioAsetaValinta({ kind: 'selite', id: se.id });
+    });
+    svg.appendChild(hr);
+  });
+
   // VALINNAN KOROSTUS on EDITORIN tila, ei speksin ominaisuus → se piirretään tähän
   // overlay-kerrokseen drawSpecin JÄLKEEN. Jaettu renderöijä pysyy puhtaana, jottei pelaaja-appi
   // näytä valintakehyksiä.
@@ -5106,7 +5126,18 @@ function _kaavioPiirraEditori() {
       var _a = _l && _pp(_l.from), _b = _l && _pp(_l.to);
       if (_a && _b) _kohde = { x: (_a.x + _b.x) / 2, y: (_a.y + _b.y) / 2 };
     }
-    if (_kohde && typeof _kohde.x === 'number') {
+    if (_val.kind === 'selite' && _kohde && typeof _kohde.x === 'number') {
+      // Selitteen korostus on LAATIKKO (teksti on laatikko), ei rengas — rengas ankkurin ympärillä
+      // ei kertoisi mitä on valittuna kun teksti on kaukana ankkurista.
+      var _so = _kohde.x > 58, _sl = 74;
+      var _sr = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+      _sr.setAttribute('x', _so ? kaavioEdPX(_kohde.x) - _sl : kaavioEdPX(_kohde.x));
+      _sr.setAttribute('y', kaavioEdPY(_kohde.y) - 8);
+      _sr.setAttribute('width', _sl); _sr.setAttribute('height', 30);
+      _sr.setAttribute('fill', 'none'); _sr.setAttribute('stroke', 'var(--amber)');
+      _sr.setAttribute('stroke-width', '1.2'); _sr.setAttribute('stroke-dasharray', '3 2.5');
+      svg.appendChild(_sr);
+    } else if (_kohde && typeof _kohde.x === 'number') {
       var _r = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
       _r.setAttribute('cx', kaavioEdPX(_kohde.x)); _r.setAttribute('cy', kaavioEdPY(_kohde.y));
       _r.setAttribute('r', 15); _r.setAttribute('fill', 'none');
@@ -5274,16 +5305,29 @@ function _kaavioOminaisuudetHTML() {
   } else if (v.kind === 'selite') {
     var se = (m.spec.selitteet || []).filter(function (q) { return q.id === v.id; })[0];
     if (!se) return h;
-    // §32: KOLME ERILLISTÄ KENTTÄÄ. Luonti täyttää vain fi:n; sv/en kirjoitetaan tässä.
-    // Sama teksti kaikissa kolmessa olisi väärää dataa, ei puuttuvaa — siksi kentät ovat erikseen.
-    ['fi', 'sv', 'en'].forEach(function (kieli) {
-      var arvo = (se.t && se.t[kieli]) || '';
-      h += '<div style="margin-bottom:6px"><label for="_kvSel_' + kieli + '" style="display:block;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink3);margin-bottom:3px">' + kieli.toUpperCase() + '</label>'
-        + '<input id="_kvSel_' + kieli + '" type="text" value="' + _jsvEsc(arvo) + '" oninput="_kaavioOmSelite(\'' + kieli + '\')" '
-        + 'style="width:100%;box-sizing:border-box;background:var(--bg);border:.5px solid ' + (arvo ? 'var(--border)' : 'rgba(201,64,64,.4)') + ';color:var(--ink);font-family:inherit;font-size:12px;padding:6px 8px"></div>';
-    });
-    var vajaa = (typeof kaavioSeliteVajaat === 'function') ? kaavioSeliteVajaat(m.spec).filter(function (x) { return x.id === v.id; })[0] : null;
-    if (vajaa) h += '<div style="font-size:11px;color:#C94040;line-height:1.4;margin-bottom:8px">' + vpT('Käännös puuttuu:') + ' ' + vajaa.puuttuu.join(', ').toUpperCase() + ' — ' + vpT('tallennus estyy kunnes kaikki kolme on täytetty.') + '</div>';
+    // SELITE = KIRJOITTAJAN VAPAATEKSTI. Yksi kenttä riittää ja tallentuu; muut kielet ovat
+    // vapaaehtoinen lisä kaksikieliselle seuralle, eivät este. Aiempi kolmen pakollisen kentän
+    // malli esti tallennuksen kokonaan — väärä rajanveto, korjattu.
+    var _paakieli = _kaavioSeliteKirjoituskieli(se);
+    h += '<div style="margin-bottom:6px"><label for="_kvSel_' + _paakieli + '" style="display:block;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink3);margin-bottom:3px">'
+      + vpT('Teksti') + ' · ' + _paakieli.toUpperCase() + '</label>'
+      + '<textarea id="_kvSel_' + _paakieli + '" rows="2" oninput="_kaavioOmSelite(\'' + _paakieli + '\')" '
+      + 'style="width:100%;box-sizing:border-box;background:var(--bg);border:.5px solid var(--border);color:var(--ink);font-family:inherit;font-size:12px;line-height:1.4;padding:6px 8px;resize:vertical">'
+      + _jsvEsc((se.t && se.t[_paakieli]) || '') + '</textarea></div>';
+    // Muut kielet vain pyydettäessä — ei kolmea kenttää oletuksena.
+    var _muut = ['fi', 'sv', 'en'].filter(function (k) { return k !== _paakieli; });
+    var _avoinna = _muut.some(function (k) { return se.t && se.t[k]; }) || _kaavioTila.seliteKaannokset;
+    if (!_avoinna) {
+      h += '<div style="margin-bottom:8px">' + _kvNappi('_kaavioSeliteKaannokset()', '+ Lisää käännös') + '</div>';
+    } else {
+      _muut.forEach(function (kieli) {
+        h += '<div style="margin-bottom:6px"><label for="_kvSel_' + kieli + '" style="display:block;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink3);margin-bottom:3px">'
+          + kieli.toUpperCase() + ' · <span style="text-transform:none;letter-spacing:0">' + vpT('valinnainen') + '</span></label>'
+          + '<textarea id="_kvSel_' + kieli + '" rows="2" oninput="_kaavioOmSelite(\'' + kieli + '\')" '
+          + 'style="width:100%;box-sizing:border-box;background:var(--bg);border:.5px solid var(--border);color:var(--ink);font-family:inherit;font-size:12px;line-height:1.4;padding:6px 8px;resize:vertical">'
+          + _jsvEsc((se.t && se.t[kieli]) || '') + '</textarea></div>';
+      });
+    }
   } else if (v.kind === 'liike') {
     var l = (m.spec.liikkeet || []).filter(function (q) { return q.id === v.id; })[0];
     if (!l) return h;
@@ -5294,6 +5338,21 @@ function _kaavioOminaisuudetHTML() {
   h += rivi(_kvNappi('_kaavioOmPoista()', 'Poista valittu', true));
   return h;
 }
+
+/* Selitteen KIRJOITUSKIELI: se kieli jolla lappu on kirjoitettu. Ensisijaisesti katsojan kieli
+   (uusi lappu syntyy siihen), muuten se joka on täytetty. Näin kaksikielisen seuran ruotsiksi
+   kirjoitettu lappu avautuu muokkaukseen ruotsiksi eikä tyhjänä fi-kenttänä. */
+function _kaavioSeliteKirjoituskieli(se) {
+  var oma = _kaavioLang();
+  if (se && se.t && se.t[oma]) return oma;
+  var loydetty = ['fi', 'sv', 'en'].filter(function (k) { return se && se.t && se.t[k]; })[0];
+  return loydetty || oma;
+}
+function _kaavioSeliteKaannokset() {
+  _kaavioTila.seliteKaannokset = !_kaavioTila.seliteKaannokset;
+  _kaavioTyokaluPaivita();
+}
+window._kaavioSeliteKaannokset = _kaavioSeliteKaannokset;
 
 /* Ominaisuustoiminnot. Kukin: historia → lib-setter → uudelleenpiirto. */
 function _kaavioOmSovella(r) {
