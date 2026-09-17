@@ -488,6 +488,26 @@ describe('kaaviot · KOMMENTTILANKA — append-only staff-lanka', () => {
     await assertFails(setDoc(komm(valm(VALM_B, SEURA_B), 'k_lanka', 'c_b'), sisalto(VALM_B)));
     await assertFails(getDoc(komm(valm(VALM_B, SEURA_B), 'k_lanka', 'c0')));
   });
+  // ── TENANT-ERISTYS HYVÄKSYJÄROOLEILLA ─────────────────────────────────────────────
+  // onKaavioHyvaksyja() on TARKOITUKSELLA seuraneutraali roolitesti — seurarajaus kuuluu
+  // kutsujalle. Tässä portissa se jäi onOmaSeura-vartion ULKOPUOLELLE (&& sitoo ennen ||),
+  // jolloin minkä tahansa seuran vp/UTJ saattoi kirjoittaa tähän lankaan. Luku oli aina
+  // suojattu, joten kyse oli sokkokirjoituksesta tunnettuun polkuun.
+  it('VIERAAN SEURAN VP ei kirjoita tämän seuran lankaan', async () => {
+    await assertFails(setDoc(komm(vp(SEURA_B), 'k_lanka', 'c_vieras_vp'), sisalto(VP_A)));
+  });
+  it('vieraan seuran VP ei kirjoita omalla uid:lläkään (ei kirjoittaja-tarkistuksen ansiota)', async () => {
+    await assertFails(setDoc(komm(vp(SEURA_B), 'k_lanka', 'c_vieras_vp2'),
+      { teksti: 'vieras', kirjoittaja: VP_A, rooli: 'vp', tyyppi: 'kommentti', aika: serverTimestamp() }));
+  });
+  it('EI YLIKORJATTU: OMAN seuran VP ja valmentaja kirjoittavat yhä', async () => {
+    await assertSucceeds(setDoc(komm(vp(SEURA_A), 'k_lanka', 'c_oma_vp'), sisalto(VP_A)));
+    await assertSucceeds(setDoc(komm(valm(VALM_A1, SEURA_A), 'k_lanka', 'c_oma_v'), sisalto(VALM_A1)));
+  });
+  it('SA kirjoittaa yli seurojen (oma eksplisiittinen haara, kuten kaaviotasollakin)', async () => {
+    await assertSucceeds(setDoc(komm(sa(), 'k_lanka', 'c_sa'),
+      { teksti: 'ylläpito', kirjoittaja: SA, rooli: 'super_admin', tyyppi: 'kommentti', aika: serverTimestamp() }));
+  });
   it('KIRJOITTAJAN VÄÄRENNÖS estyy (kirjoittaja != auth.uid)', async () => {
     await assertFails(setDoc(komm(valm(VALM_A1, SEURA_A), 'k_lanka', 'c_vale'), sisalto(VP_A)));
   });
