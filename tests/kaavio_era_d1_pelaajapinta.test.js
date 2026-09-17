@@ -23,6 +23,10 @@ const require_ = createRequire(import.meta.url);
 const ROOT = join(__dir, '..');
 const PEL = readFileSync(join(ROOT, 'TalentMaster_Pelaaja_v7.html'), 'utf8');
 const VP = readFileSync(join(ROOT, 'TalentMaster_VP_v25.html'), 'utf8');
+// TAKTIIKKATAULUN UI ON NYT JAETUSSA LIBISSÄ (lib/tm_kaavio_ui.js) — sama koodi ajaa VP:ssä ja
+// valmentajan apissa. Siksi UI:ta koskevat väitteet luetaan LIBISTÄ; `VP` jää niihin väitteisiin
+// jotka koskevat nimenomaan VP:n omaa kytkentää (script-tagit, host-adapteri, sivupalkki).
+const UI = readFileSync(join(ROOT, 'lib', 'tm_kaavio_ui.js'), 'utf8');
 const RENDER_SRC = readFileSync(join(ROOT, 'lib', 'tm_kaavio_render.js'), 'utf8');
 const RIVIT = PEL.split('\n');
 
@@ -183,8 +187,8 @@ describe('D — renderöijän design-tokenit ovat määritelty (muuten SVG on n�
   });
   it('kaavion isäntäelementeillä on .tm-kaavio-luokka molemmissa apeissa', () => {
     expect(PEL).toMatch(/id="_p7KaavioSlot" class="tm-kaavio"/);
-    expect(VP).toContain('class="tm-kaavio" style="margin-bottom:8px');   // esikatselu
-    expect(VP).toContain('id="_kvCanvas" class="tm-kaavio"');              // editorin canvas
+    expect(UI).toContain('class="tm-kaavio" style="margin-bottom:8px');   // esikatselu (jaettu lib)
+    expect(UI).toContain('id="_kvCanvas" class="tm-kaavio"');              // editorin canvas (jaettu lib)
   });
 });
 

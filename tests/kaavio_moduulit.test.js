@@ -141,6 +141,10 @@ import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 const __d = dirname(fileURLToPath(import.meta.url));
 const VP = readFileSync(join(__d, '..', 'TalentMaster_VP_v25.html'), 'utf8');
+// TAKTIIKKATAULUN UI ON NYT JAETUSSA LIBISSÄ (lib/tm_kaavio_ui.js) — sama koodi ajaa VP:ssä ja
+// valmentajan apissa. Siksi UI:ta koskevat väitteet luetaan LIBISTÄ; `VP` jää niihin väitteisiin
+// jotka koskevat nimenomaan VP:n omaa kytkentää (script-tagit, host-adapteri, sivupalkki).
+const UI = readFileSync(join(__d, '..', 'lib', 'tm_kaavio_ui.js'), 'utf8');
 
 describe('UI-portit · napit tulevat policysta', () => {
   const doc = (status) => ({ seuraId: 'fcl', review: { status, joukkueId: 'fcl_u12', versio: 0 } });
@@ -175,9 +179,9 @@ describe('UI-portit · napit tulevat policysta', () => {
 
 describe('UI-portit · VP_v25 ei duplikoi oikeuslogiikkaa', () => {
   it('kaaviolohko kutsuu policya (ei omaa rooli/tila-haarautumista)', () => {
-    const i = VP.indexOf('KAAVIOPANKKI (erä B2)');
+    const i = UI.indexOf('KAAVIOPANKKI (erä B2)');
     expect(i).toBeGreaterThan(0);
-    const lohko = VP.slice(i, VP.indexOf('function avaaBioBanding()'));
+    const lohko = UI.slice(i);
     ['kaavioVoiLukea(', 'kaavioToiminnot(', 'kaavioSiirtoSallittu(', 'kaavioTilaMuokkauksenJalkeen(', 'kaavioSeuraavaVersio(']
       .forEach((f) => expect(lohko, f).toContain(f));
     // ei omaa roolivertailua näkyvyyteen/hyväksyntään (rooli luetaan vain ctx:ään)
@@ -185,14 +189,13 @@ describe('UI-portit · VP_v25 ei duplikoi oikeuslogiikkaa', () => {
     expect(lohko).not.toMatch(/status\s*===?\s*'hyvaksytty'\s*&&/);
   });
   it('write-path ajaa §6-validaattorin ENNEN kirjoitusta', () => {
-    const i = VP.indexOf('async function _kaavioTallenna');
-    const f = VP.slice(i, VP.indexOf('window.avaaKaaviopankki'));
+    const i = UI.indexOf('async function _kaavioTallenna');
+    const f = UI.slice(i, UI.indexOf('window.avaaKaaviopankki'));
     expect(f.indexOf('validoiKaavio(')).toBeGreaterThan(-1);
     expect(f.indexOf('validoiKaavio(')).toBeLessThan(f.indexOf('.update('));   // validointi ensin
   });
   it('write-path nostaa version jokaisessa kirjoituksessa', () => {
-    const i = VP.indexOf('KAAVIOPANKKI (erä B2)');
-    const lohko = VP.slice(i, VP.indexOf('function avaaBioBanding()'));
+    const lohko = UI;   // koko jaettu UI-lib
     const updatet = lohko.split('.update(').length - 1;
     // Väite on INVARIANTTI (jokainen update nostaa version), ei kutsun kirjoitusasu: versionumero
     // lasketaan nyt muuttujaan ennen updatea, jotta paikallinen review voidaan synkata samalla

@@ -22,10 +22,14 @@ const __dir = dirname(fileURLToPath(import.meta.url));
 const require_ = createRequire(import.meta.url);
 const ROOT = join(__dir, '..');
 const VP = readFileSync(join(ROOT, 'TalentMaster_VP_v25.html'), 'utf8');
+// TAKTIIKKATAULUN UI ON NYT JAETUSSA LIBISSÄ (lib/tm_kaavio_ui.js) — sama koodi ajaa VP:ssä ja
+// valmentajan apissa. Siksi UI:ta koskevat väitteet luetaan LIBISTÄ; `VP` jää niihin väitteisiin
+// jotka koskevat nimenomaan VP:n omaa kytkentää (script-tagit, host-adapteri, sivupalkki).
+const UI = readFileSync(join(ROOT, 'lib', 'tm_kaavio_ui.js'), 'utf8');
 const RENDER = readFileSync(join(ROOT, 'lib', 'tm_kaavio_render.js'), 'utf8');
 const E = require_(join(ROOT, 'lib', 'tm_kaavio_editori.js'));
 const V = require_(join(ROOT, 'lib', 'tm_kaavio_validate.js'));
-const RIVIT = VP.split('\n');
+const RIVIT = UI.split('\n');
 const runko = (nimi) => {
   const a = RIVIT.findIndex((l) => new RegExp('^(?:async\\s+)?function ' + nimi + '\\s*\\(').test(l));
   if (a < 0) throw new Error('ei löytynyt: ' + nimi);
@@ -43,7 +47,7 @@ const POHJA = () => ({
 describe('A — valinta on pysyvä ja klikkaus valitsee', () => {
   it('valinta on {kind,id}, ei pelkkä id', () => {
     expect(runko('_kaavioValittuId')).toMatch(/v\.kind === kind/);
-    expect(VP).toMatch(/_kaavioTila\.valittu = \{ kind: 'player', id: os\.ref \}/);
+    expect(UI).toMatch(/_kaavioTila\.valittu = \{ kind: 'player', id: os\.ref \}/);
   });
   it('klikkaus erotetaan raahauksesta liikkeen perusteella', () => {
     const pd = runko('_kaavioPointerDown');
@@ -133,7 +137,7 @@ describe('C — ominaisuudet osuvat valittuun', () => {
     const fn = runko('_kaavioValinnanNimi');
     expect(fn).toMatch(/oma pelaaja/);
     expect(fn).toMatch(/vastustaja/);
-    expect(runko('_kaavioOminaisuudetHTML')).toMatch(/vpT\('Valittu'\)/);
+    expect(runko('_kaavioOminaisuudetHTML')).toMatch(/_kuiT\('Valittu'\)/);
   });
   it('tyhjä valinta ohjaa toimintaan, ei jätä tyhjää paneelia', () => {
     expect(runko('_kaavioOminaisuudetHTML')).toContain('Klikkaa kentältä pelaajaa, liikettä tai selitettä.');
@@ -164,7 +168,7 @@ describe('D — selite on vapaatekstiä: yksi kieli riittää', () => {
     const fn = runko('_kaavioOminaisuudetHTML');
     expect(fn).toContain('_kaavioSeliteKirjoituskieli(se)');
     expect(fn).toMatch(/\+ Lisää käännös/);
-    expect(fn).toMatch(/vpT\('valinnainen'\)/);
+    expect(fn).toMatch(/_kuiT\('valinnainen'\)/);
     expect(fn).not.toMatch(/tallennus estyy kunnes/);
   });
   it('muokkaus avautuu siihen kieleen jolla lappu on kirjoitettu', () => {
@@ -276,7 +280,7 @@ describe('H — Tallenna jättää editorin auki', () => {
   });
   it('sulkunappi kertoo totuuden: Peruuta vain tallentamattomalle', () => {
     const f = runko('_kaavioSulkuNappiTeksti');
-    expect(f).toMatch(/m\.id && !m\._uusi\) \? vpT\('Valmis'\) : vpT\('Peruuta'\)/);
+    expect(f).toMatch(/m\.id && !m\._uusi\) \? _kuiT\('Valmis'\) : _kuiT\('Peruuta'\)/);
     expect(runko('_kaavioTyokaluPaivita')).toContain('_kaavioSulkuNappiTeksti()');
   });
   it('tallentamattomat muutokset merkitään, mutta eivät estä sulkemista', () => {

@@ -22,7 +22,11 @@ const __dir = dirname(fileURLToPath(import.meta.url));
 const require_ = createRequire(import.meta.url);
 const ROOT = join(__dir, '..');
 const VP = readFileSync(join(ROOT, 'TalentMaster_VP_v25.html'), 'utf8');
-const RIVIT = VP.split('\n');
+// TAKTIIKKATAULUN UI ON NYT JAETUSSA LIBISSÄ (lib/tm_kaavio_ui.js) — sama koodi ajaa VP:ssä ja
+// valmentajan apissa. Siksi UI:ta koskevat väitteet luetaan LIBISTÄ; `VP` jää niihin väitteisiin
+// jotka koskevat nimenomaan VP:n omaa kytkentää (script-tagit, host-adapteri, sivupalkki).
+const UI = readFileSync(join(ROOT, 'lib', 'tm_kaavio_ui.js'), 'utf8');
+const RIVIT = UI.split('\n');
 const E = require_(join(ROOT, 'lib', 'tm_kaavio_editori.js'));
 const V = require_(join(ROOT, 'lib', 'tm_kaavio_validate.js'));
 
@@ -122,19 +126,19 @@ describe('B — kaikki työkalujen tuotos läpäisee §6-validaattorin', () => {
     // Työkalupalkissa on myös ei-liiketyökaluja (pallo, peliasento, näkökenttä, selite, poista).
     // Liikkeiksi luetaan ne jotka _kaavioOnLiiketyokalu tunnistaa — johdetaan lähteestä, ei
     // poissulkulistalla, joka vanhenisi joka kerta kun työkalu lisätään.
-    const li = VP.match(/function _kaavioOnLiiketyokalu\(t\) \{ return \[([^\]]*)\]/);
+    const li = UI.match(/function _kaavioOnLiiketyokalu\(t\) \{ return \[([^\]]*)\]/);
     expect(li).toBeTruthy();
     const liikkeet = li[1].split(',').map((x) => x.trim().replace(/^'|'$/g, '')).filter(Boolean);
     expect([...liikkeet].sort()).toEqual([...V.KAAVIO_LIIKETYYPIT].sort());
-    const i = VP.indexOf('var _KAAVIO_TYOKALUT = ['), j = VP.indexOf('];', i);
-    const kt = [...VP.slice(i, j).matchAll(/k: '([a-z]+)'/g)].map((m) => m[1]);
+    const i = UI.indexOf('var _KAAVIO_TYOKALUT = ['), j = UI.indexOf('];', i);
+    const kt = [...UI.slice(i, j).matchAll(/k: '([a-z]+)'/g)].map((m) => m[1]);
     liikkeet.forEach((l) => expect(kt, l).toContain(l));   // jokainen liiketyyppi on napissa
   });
 });
 
 describe('C — VP: työkalutila vaihtaa vedon merkityksen', () => {
   it('raahaus on oletus ja säilyy kun tyokalu === null', () => {
-    expect(VP).toContain('tyokalu: null, veto: null');
+    expect(UI).toContain('tyokalu: null, veto: null');
     const pd = runko('_kaavioPointerDown');
     // Kommentti siirtyi rivin yläpuolelle kun oletustila sai myös valinnan — väite koskee
     // käytöstä (snap + drag), ei kommentin sijaintia.
@@ -188,7 +192,7 @@ describe('D — starter seuraa konseptin domeenia', () => {
     const sb = {
       avain: 'x_1', pm: { value: '8v8' }, kp: { value: '' },
       tmKonseptiResolvoi: () => (dim ? { avain: 'x_1', dim } : null),
-      _ttSeuraId: () => 's1'
+      _kuiCtx: () => ({ seuraId: 's1' })
     };
     vm.createContext(sb);
     vm.runInContext(fn.slice(i, j + 4) + '\nthis.ulos = starter;', sb);
@@ -241,14 +245,14 @@ describe('E — i18n ja tietoinen rajaus', () => {
     const vp = require_(join(ROOT, 'lib', 'tm_vp_i18n.js')).TM_VP_I18N.sv || {};
     return (k) => Object.prototype.hasOwnProperty.call(vp, k) || Object.prototype.hasOwnProperty.call(common, k);
   })();
-  it('kovakoodattu suomi poistui: työkalulabelit kulkevat vpT():n läpi', () => {
-    expect(runko('_kvTyokalu')).toContain('vpT(lbl)');
+  it('kovakoodattu suomi poistui: työkalulabelit kulkevat i18n-adapterin läpi', () => {
+    expect(runko('_kvTyokalu')).toContain('_kuiT(lbl)');
     ['Oma pelaaja', 'Vastustaja', 'Syöttö', 'Juoksu', 'Kuljetus', 'Laukaus', 'Selite', 'Näkökenttä', 'Poista']
       .forEach((k) => expect(kaannos(k), k).toBe(true));
   });
   it('jokainen työkalulabel on käännettävissä (johdettu lähteestä)', () => {
-    const i = VP.indexOf('var _KAAVIO_TYOKALUT = ['), j = VP.indexOf('];', i);
-    const lbl = [...VP.slice(i, j).matchAll(/lbl: '([^']+)'/g)].map((m) => m[1]);
+    const i = UI.indexOf('var _KAAVIO_TYOKALUT = ['), j = UI.indexOf('];', i);
+    const lbl = [...UI.slice(i, j).matchAll(/lbl: '([^']+)'/g)].map((m) => m[1]);
     expect(lbl.length).toBeGreaterThanOrEqual(7);
     expect(lbl.filter((l) => !kaannos(l))).toEqual([]);
   });
@@ -257,7 +261,7 @@ describe('E — i18n ja tietoinen rajaus', () => {
     expect(readFileSync(join(ROOT, 'lib', 'tm_kaavio_validate.js'), 'utf8')).not.toContain('vyohyke');
     const i = VP.indexOf('var _KAAVIO_TYOKALUT = ['), j = VP.indexOf('];', i);
     expect(VP.slice(i, j)).not.toContain('vyohyke');
-    expect(VP).toMatch(/VYÖHYKE EI OLE TYÖKALUISSA/);   // rajaus kirjoitettu auki
+    expect(UI).toMatch(/VYÖHYKE EI OLE TYÖKALUISSA/);   // rajaus kirjoitettu auki
   });
   it('selitteen käännösvaraus on dokumentoitu (ei keksittyjä käännöksiä)', () => {
     const lib = readFileSync(join(ROOT, 'lib', 'tm_kaavio_editori.js'), 'utf8');
