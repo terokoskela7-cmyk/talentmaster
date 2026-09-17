@@ -21,6 +21,10 @@ const __dir = dirname(fileURLToPath(import.meta.url));
 const require_ = createRequire(import.meta.url);
 const ROOT = join(__dir, '..');
 const VP = readFileSync(join(ROOT, 'TalentMaster_VP_v25.html'), 'utf8');
+// TAKTIIKKATAULUN UI ON NYT JAETUSSA LIBISSÄ (lib/tm_kaavio_ui.js) — sama koodi ajaa VP:ssä ja
+// valmentajan apissa. Siksi UI:ta koskevat väitteet luetaan LIBISTÄ; `VP` jää niihin väitteisiin
+// jotka koskevat nimenomaan VP:n omaa kytkentää (script-tagit, host-adapteri, sivupalkki).
+const UI = readFileSync(join(ROOT, 'lib', 'tm_kaavio_ui.js'), 'utf8');
 const RENDER = readFileSync(join(ROOT, 'lib', 'tm_kaavio_render.js'), 'utf8');
 const E = require_(join(ROOT, 'lib', 'tm_kaavio_editori.js'));
 const V = require_(join(ROOT, 'lib', 'tm_kaavio_validate.js'));
@@ -177,7 +181,7 @@ describe('D — renderöijä', () => {
 
 describe('E — editorin kytkentä', () => {
   const runko = (nimi) => {
-    const rivit = VP.split('\n');
+    const rivit = UI.split('\n');
     const a = rivit.findIndex((l) => new RegExp('^(?:async\\s+)?function ' + nimi + '\\s*\\(').test(l));
     for (let i = a + 1; i < rivit.length; i++) if (rivit[i] === '}') return rivit.slice(a, i + 1).join('\n');
     return '';
@@ -186,13 +190,13 @@ describe('E — editorin kytkentä', () => {
     expect(runko('_kaavioAvaaEditori')).toContain('kaavioNormalisoiNakokentta(_kaavioTila.muokkaus.spec)');
   });
   it('kaikki neljä pyyntöä ovat työkaluina', () => {
-    const i = VP.indexOf('var _KAAVIO_TYOKALUT = ['), j = VP.indexOf('];', i);
-    const kt = VP.slice(i, j);
+    const i = UI.indexOf('var _KAAVIO_TYOKALUT = ['), j = UI.indexOf('];', i);
+    const kt = UI.slice(i, j);
     ['pallo', 'suunta', 'nakokentta'].forEach((k) => expect(kt, k).toContain("k: '" + k + "'"));
   });
   it('vanha globaali cone-toggle on poistettu editorista', () => {
-    expect(VP).not.toContain('_kaavioConeToggle');
-    expect(VP).not.toMatch(/kaavioAsetaCone\(/);
+    expect(UI).not.toContain('_kaavioConeToggle');
+    expect(UI).not.toMatch(/kaavioAsetaCone\(/);
   });
   it('näkökentän veto asettaa suunnan JA syvyyden, lyhyt veto togglaa', () => {
     const pu = runko('_kaavioPointerUp');
@@ -211,7 +215,8 @@ describe('E — editorin kytkentä', () => {
     ['pallo', 'suunta', 'nakokentta'].forEach((k) => expect(o, k).toContain("t === '" + k + "'"));
   });
   it('uudet tekstit ovat sv-kartassa', () => {
-    const sv = readFileSync(join(ROOT, 'lib', 'tm_vp_i18n.js'), 'utf8');
+    const sv = readFileSync(join(ROOT, 'lib', 'tm_i18n_common.js'), 'utf8')
+      + readFileSync(join(ROOT, 'lib', 'tm_vp_i18n.js'), 'utf8');   // C1: avain on TASAN toisessa
     ['Pallo', 'Peliasento', 'Katve', 'leveys', 'syvyys', 'Klikkaa pelaajaa'].forEach((k) =>
       expect(sv, k).toContain("'" + k + "':"));
   });

@@ -28,6 +28,10 @@ const ROOT = join(__dir, '..');
 const CF = readFileSync(join(ROOT, 'functions', 'index.js'), 'utf8');
 const PEL = readFileSync(join(ROOT, 'TalentMaster_Pelaaja_v7.html'), 'utf8');
 const VP = readFileSync(join(ROOT, 'TalentMaster_VP_v25.html'), 'utf8');
+// TAKTIIKKATAULUN UI ON NYT JAETUSSA LIBISSÄ (lib/tm_kaavio_ui.js) — sama koodi ajaa VP:ssä ja
+// valmentajan apissa. Siksi UI:ta koskevat väitteet luetaan LIBISTÄ; `VP` jää niihin väitteisiin
+// jotka koskevat nimenomaan VP:n omaa kytkentää (script-tagit, host-adapteri, sivupalkki).
+const UI = readFileSync(join(ROOT, 'lib', 'tm_kaavio_ui.js'), 'utf8');
 const RULES = readFileSync(join(ROOT, 'tm_admin', 'firestore.rules'), 'utf8');
 
 const { kaavioKohdistuuServer } = require_(join(ROOT, 'functions', 'kaavio_policy.js'));
@@ -183,12 +187,12 @@ describe('F — rules ja coverage', () => {
     expect(lohko).not.toMatch(/allow update:[\s\S]*onAnonymous\(\)/);
   });
   it('VP näyttää kuittauskattavuuden hyväksytyille kaavioille', () => {
-    const i = VP.indexOf('function _kaavioKorttiHTML('), j = VP.indexOf('function _kaavioNappiHTML(');
-    const kortti = VP.slice(i, j);
+    const i = UI.indexOf('function _kaavioKorttiHTML('), j = UI.indexOf('function _kaavioNappiHTML(');
+    const kortti = UI.slice(i, j);
     expect(kortti).toMatch(/review\.ymmarretty[\s\S]*Object\.keys/);
     expect(kortti).toMatch(/st === 'hyvaksytty' && _kuitt > 0/);   // ei "0 ymmärtänyt" -moitetta
   });
   it('coverage-teksti on käännetty (VP sv-kartta)', () => {
-    expect(readFileSync(join(ROOT, 'lib', 'tm_vp_i18n.js'), 'utf8')).toContain("'pelaajaa kuitannut ymmärtäneensä':");
+    expect(readFileSync(join(ROOT, 'lib', 'tm_i18n_common.js'), 'utf8')).toContain("'pelaajaa kuitannut ymmärtäneensä':");
   });
 });

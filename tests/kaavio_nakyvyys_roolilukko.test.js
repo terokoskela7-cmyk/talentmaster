@@ -22,9 +22,13 @@ const __dir = dirname(fileURLToPath(import.meta.url));
 const require_ = createRequire(import.meta.url);
 const ROOT = join(__dir, '..');
 const VP = readFileSync(join(ROOT, 'TalentMaster_VP_v25.html'), 'utf8');
+// TAKTIIKKATAULUN UI ON NYT JAETUSSA LIBISSÄ (lib/tm_kaavio_ui.js) — sama koodi ajaa VP:ssä ja
+// valmentajan apissa. Siksi UI:ta koskevat väitteet luetaan LIBISTÄ; `VP` jää niihin väitteisiin
+// jotka koskevat nimenomaan VP:n omaa kytkentää (script-tagit, host-adapteri, sivupalkki).
+const UI = readFileSync(join(ROOT, 'lib', 'tm_kaavio_ui.js'), 'utf8');
 const RULES = readFileSync(join(ROOT, 'tm_admin', 'firestore.rules'), 'utf8');
 const P = require_(join(ROOT, 'lib', 'tm_kaavio_policy.js'));
-const RIVIT = VP.split('\n');
+const RIVIT = UI.split('\n');
 const runko = (nimi) => {
   const a = RIVIT.findIndex((l) => new RegExp('^(?:async\\s+)?function ' + nimi + '\\s*\\(').test(l));
   if (a < 0) throw new Error('ei löytynyt: ' + nimi);
@@ -105,7 +109,7 @@ describe('C — nosto seuratasolle on kuratointitoimi', () => {
     expect(fn()).toMatch(/if \(!k \|\| k\.kanoninen\) return;/);
   });
   it('nappi näkyy vain hyväksyjälle, vain ei-seuratasoiselle ja vain seurakaaviolle', () => {
-    const kortti = VP.slice(VP.indexOf('function _kaavioKorttiHTML('), VP.indexOf('function _kaavioNappiHTML('));
+    const kortti = UI.slice(UI.indexOf('function _kaavioKorttiHTML('), UI.indexOf('function _kaavioNappiHTML('));
     expect(kortti).toMatch(/!k\.kanoninen && k\.review && k\.review\.nakyvyys !== 'seura' &&[\s\S]*kaavioOnHyvaksyja\(ctx\)/);
   });
   it('nosto ei ole review-elinkaaren toiminto (ei kaavioToiminnot-listalla)', () => {
@@ -115,10 +119,11 @@ describe('C — nosto seuratasolle on kuratointitoimi', () => {
       { rooli: 'vp', seuraId: 'A' })).not.toContain('nosta');
   });
   it('kaikki uudet tekstit ovat sv-kartassa', () => {
-    const sv = readFileSync(join(ROOT, 'lib', 'tm_vp_i18n.js'), 'utf8');
+    const sv = readFileSync(join(ROOT, 'lib', 'tm_i18n_common.js'), 'utf8')
+      + readFileSync(join(ROOT, 'lib', 'tm_vp_i18n.js'), 'utf8');   // C1: avain on TASAN toisessa
     ['Nosta seuratasolle', 'Kaavio nostettu seuratasolle', 'Ei oikeutta nostaa seuratasolle',
      'Seuratason kaavion asettaa valmennuspäällikkö katselmuksessa.'].forEach((k) => {
-      expect(VP, k).toContain("vpT('" + k + "')");
+      expect(UI, k).toContain("_kuiT('" + k + "')");
       expect(sv, k).toContain("'" + k + "':");
     });
   });

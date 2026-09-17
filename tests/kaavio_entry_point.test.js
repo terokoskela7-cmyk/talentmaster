@@ -26,7 +26,11 @@ import vm from 'vm';
 const __dir = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(__dir, '..');
 const VP = readFileSync(join(ROOT, 'TalentMaster_VP_v25.html'), 'utf8');
-const RIVIT = VP.split('\n');
+// TAKTIIKKATAULUN UI ON NYT JAETUSSA LIBISSÄ (lib/tm_kaavio_ui.js) — sama koodi ajaa VP:ssä ja
+// valmentajan apissa. Siksi UI:ta koskevat väitteet luetaan LIBISTÄ; `VP` jää niihin väitteisiin
+// jotka koskevat nimenomaan VP:n omaa kytkentää (script-tagit, host-adapteri, sivupalkki).
+const UI = readFileSync(join(ROOT, 'lib', 'tm_kaavio_ui.js'), 'utf8');
+const RIVIT = UI.split('\n');
 
 const runko = (nimi) => {
   const a = RIVIT.findIndex((l) => new RegExp('^(?:async\\s+)?function ' + nimi + '\\s*\\(').test(l));
@@ -34,24 +38,18 @@ const runko = (nimi) => {
   for (let i = a + 1; i < RIVIT.length; i++) if (RIVIT[i] === '}') return RIVIT.slice(a, i + 1).join('\n');
   throw new Error('sulkua ei löytynyt: ' + nimi);
 };
-const rivi = (alku) => {
-  const l = RIVIT.find((x) => x.startsWith(alku));
-  if (!l) throw new Error('riviä ei löytynyt: ' + alku);
-  return l;
-};
 
-/* Minimaalinen DOM + Firestore. EI Proxy-fallbackia: deklaroimaton nimi → ReferenceError. */
+const LIBIT = [
+  'tm_i18n_common.js', 'tm_vp_i18n.js', 'tm_teknistaktiset.js', 'tm_teknistaktiset_sv.js',
+  'tm_konsepti_resolve.js', 'tm_kaavio_konsepti.js', 'tm_kaavio_policy.js',
+  'tm_kaavio_editori.js', 'tm_kaavio_validate.js', 'tm_kaavio_render.js', 'tm_kaavio_ui.js'
+];
+
+/* Minimaalinen DOM + Firestore. EI Proxy-fallbackia: deklaroimaton nimi → ReferenceError.
+   UI-lib ajetaan KOKONAISENA — ei funktio viipaleina lähdetiedostosta. Se on sekä rehellisempi
+   (selain lataa saman tiedoston) että kestävämpi: viipalointi rikkoutui joka kerta kun koodi
+   liikkui. Host-adapteri on tässä sama sopimus jonka VP_v25 asettaa. */
 function sivu({ rooli, sa, kaaviot }) {
-  const shim = { window: {}, console };
-  vm.createContext(shim);
-  vm.runInContext(readFileSync(join(ROOT, 'lib', 'tm_i18n_common.js'), 'utf8'), shim);
-  vm.runInContext(readFileSync(join(ROOT, 'lib', 'tm_vp_i18n.js'), 'utf8'), shim);
-  vm.runInContext(readFileSync(join(ROOT, 'lib', 'tm_teknistaktiset.js'), 'utf8'), shim);
-  vm.runInContext(readFileSync(join(ROOT, 'lib', 'tm_teknistaktiset_sv.js'), 'utf8'), shim);
-  vm.runInContext(readFileSync(join(ROOT, 'lib', 'tm_konsepti_resolve.js'), 'utf8'), shim);
-  vm.runInContext(readFileSync(join(ROOT, 'lib', 'tm_kaavio_konsepti.js'), 'utf8'), shim);
-  vm.runInContext(readFileSync(join(ROOT, 'lib', 'tm_kaavio_policy.js'), 'utf8'), shim);
-
   const ulos = { html: '', toastit: [] };
   const snap = (arr) => ({ forEach: (f) => arr.forEach((d) => f({ id: d.id, data: () => d })) });
   const db = {
@@ -61,41 +59,28 @@ function sivu({ rooli, sa, kaaviot }) {
     })
   };
   const sb = {
-    console, Math, JSON, String, Number, Object, Array, Boolean, Promise, Date, RegExp,
-    _seuraId: 'seuraA', _uid: 'u1', _isDemoMode: false, db,
-    toast: (t) => ulos.toastit.push(t),
+    console, Math, JSON, String, Number, Object, Array, Boolean, Promise, Date, RegExp, Error,
+    setTimeout, clearTimeout, parseFloat, parseInt, isNaN,
     document: {
       getElementById: () => null,
       body: { insertAdjacentHTML: (_, h) => { ulos.html += h; } }
-    },
-    _vpTaksLang: () => 'fi',
-    _ttSeuraId: () => 'seuraA',
-    _kaavioPiirraEsikatselu: () => {},
-    _tmIBtn: () => ''
+    }
   };
-  sb.window = { _vpRooli: rooli || undefined, _vpSA: !!sa, _omatJoukkueet: [], db };
-  ['TM_TT_YOUTH', 'TM_TT_JOUKKUE', 'TM_TT_FUNDAMENTIT', 'TM_TT_SV'].forEach((k) => { sb[k] = shim[k]; });
-  Object.keys(shim).filter((k) => /^(tmKonsepti|kaavio|TM_K_)/.test(k)).forEach((k) => { sb[k] = shim[k]; });
-  sb.vpT = shim.window.vpT;
+  sb.window = {};
   vm.createContext(sb);
+  LIBIT.forEach((f) => vm.runInContext(readFileSync(join(ROOT, 'lib', f), 'utf8'), sb));
 
-  const src = [
-    rivi('var _kaavioTila = {'),
-    rivi('var _KAAVIO_PELIMUODOT'),
-    rivi('function _jsvEsc('),
-    rivi('function _ttKopio('),
-    rivi('function _ttSvKartta('),
-    rivi('function _ttSvPaalla('),
-    rivi('var _TT_TEKSTIKENTAT ='),
-    runko('_ttSv'), runko('_ttResolvoi'), runko('_ttKonsepti'),
-    runko('_kaavioCtxNyt'), runko('_kaavioLang'),
-    runko('_kaavioKonsepti'), runko('_kaavioOtsikko'),
-    runko('_kaavioTilaLbl'), runko('_kaavioNakyvyysLbl'),
-    runko('_kaavioNappiHTML'), runko('_kaavioKorttiHTML'),
-    runko('_kaavioUusiNappiHTML'),
-    runko('avaaKaaviopankki')
-  ].join('\n');
-  vm.runInContext(src + '\nthis.avaa = avaaKaaviopankki; this.ctx = _kaavioCtxNyt;', sb);
+  sb.window.TM_KAAVIO_HOST = {
+    db,
+    t: (fi) => (typeof sb.window.vpT === 'function' ? sb.window.vpT(fi) : fi),
+    lang: () => 'fi',
+    toast: (v) => ulos.toastit.push(v),
+    ctx: () => ({
+      rooli: rooli || null, uid: 'u1', seuraId: 'seuraA',
+      joukkueet: [], superAdmin: !!sa || rooli === 'super_admin', anon: false
+    })
+  };
+  vm.runInContext('this.avaa = avaaKaaviopankki; this.ctx = _kaavioCtxNyt;', sb);
   return { sb, ulos };
 }
 const avaaJaLue = async (opts) => {
@@ -168,35 +153,49 @@ describe('B — luontiportti oikealla roolilla renderöidyssä HTML:ssä', () =>
 });
 
 describe('C — vartija: ei deklaroimattomia bare-globaaleja kaaviokoodissa', () => {
-  it('_kaavioCtxNyt lukee window._vpRooli:a, ei bare-_rooli:a', () => {
+  // Rooli ei enää tule libistä vaan HOST-ADAPTERISTA (lib on jaettu kahden apin kesken, eikä se
+  // saa tuntea VP:n globaaleja). Väite jakautuu siksi kahtia: lib ei viittaa mihinkään rooli-
+  // globaaliin, ja VP:n adapteri lukee oikeaa nimeä (window._vpRooli).
+  it('lib ei lue rooli-globaalia suoraan — se tulee host-adapterista', () => {
     const fn = runko('_kaavioCtxNyt');
-    expect(fn).toContain('window._vpRooli');
+    expect(fn).toContain('_kuiCtx()');
     expect(fn).not.toMatch(/(^|[^.\w])_rooli\b/m);
+    const koodi = UI.split('\n').filter((l) => !/^\s*(\/\/|\*|\/\*)/.test(l)).join('\n');
+    expect(koodi).not.toMatch(/window\._vpRooli/);
+  });
+  it('VP:n host-adapteri lukee window._vpRooli:a, ei bare-_rooli:a', () => {
+    const i = VP.indexOf('window.TM_KAAVIO_HOST = {');
+    expect(i).toBeGreaterThan(-1);
+    const adapteri = VP.slice(i, VP.indexOf('\n  };', i));
+    expect(adapteri).toContain('window._vpRooli');
+    expect(adapteri).not.toMatch(/(^|[^.\w])_rooli\b/m);
   });
   it('_rooli-globaalia ei ole deklaroitu missään → bare-viittaus olisi aina bugi', () => {
-    expect(VP).not.toMatch(/^\s*(var|let|const)\s+_rooli\b/m);
-    expect(VP).not.toMatch(/window\._rooli\s*=/);
+    expect(UI + VP).not.toMatch(/^\s*(var|let|const)\s+_rooli\b/m);
+    expect(UI + VP).not.toMatch(/window\._rooli\s*=/);
   });
   it('kaaviolohkossa ei bare-_rooli-viittauksia', () => {
-    const i = VP.indexOf('function _kaavioCtxNyt'), j = VP.indexOf('window.avaaKaaviopankki =');
-    const lohko = VP.slice(i, j).split('\n').filter((l) => !/^\s*\/\//.test(l)).join('\n');
+    const i = UI.indexOf('function _kaavioCtxNyt'), j = UI.indexOf('window.avaaKaaviopankki =');
+    const lohko = UI.slice(i, j).split('\n').filter((l) => !/^\s*\/\//.test(l)).join('\n');
     expect(lohko).not.toMatch(/(^|[^.\w])_rooli\b/m);
   });
 });
 
 describe('D — nimi on Taktiikkataulu', () => {
   it('sivupalkki ja modaali näyttävät Taktiikkataulun', () => {
-    expect(VP).toContain('data-i18n="Taktiikkataulu">Taktiikkataulu<');
-    expect(VP).toContain("vpT('Taktiikkataulu')");
+    expect(VP).toContain('data-i18n="Taktiikkataulu">Taktiikkataulu<');   // sivupalkki (VP)
+    expect(UI).toContain("_kuiT('Taktiikkataulu')");                       // modaalin otsikko (jaettu lib)
   });
   it('näkyvää "Kaaviopankki"-tekstiä ei ole jäljellä (sisäiset tunnisteet saavat jäädä)', () => {
     const naytto = [...VP.matchAll(/>([^<>{}$]*Kaaviopankki[^<>{}$]*)</g)].map((m) => m[1]);
     expect(naytto).toEqual([]);
     expect(VP).not.toMatch(/vpT\('Kaaviopankki'\)/);
-    expect(VP).toContain('function avaaKaaviopankki(');   // sisäinen nimi ennallaan
+    expect(UI).not.toMatch(/_kuiT\('Kaaviopankki'\)/);
+    expect(UI).toContain('function avaaKaaviopankki(');   // sisäinen nimi ennallaan
   });
   it('sv: Taktiktavla', async () => {
-    const sv = readFileSync(join(ROOT, 'lib', 'tm_vp_i18n.js'), 'utf8');
+    const sv = readFileSync(join(ROOT, 'lib', 'tm_i18n_common.js'), 'utf8')
+      + readFileSync(join(ROOT, 'lib', 'tm_vp_i18n.js'), 'utf8');   // C1: avain on TASAN toisessa
     expect(sv).toContain("'Taktiikkataulu': 'Taktiktavla',");
     expect(sv).toMatch(/'Taktiikkataulu — teknis-taktiset kuvat, katselmus ja hyväksyntä':/);
   });

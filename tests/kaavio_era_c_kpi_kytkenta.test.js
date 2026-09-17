@@ -25,6 +25,10 @@ const __dir = dirname(fileURLToPath(import.meta.url));
 const require_ = createRequire(import.meta.url);
 const ROOT = join(__dir, '..');
 const VP = readFileSync(join(ROOT, 'TalentMaster_VP_v25.html'), 'utf8');
+// TAKTIIKKATAULUN UI ON NYT JAETUSSA LIBISSÄ (lib/tm_kaavio_ui.js) — sama koodi ajaa VP:ssä ja
+// valmentajan apissa. Siksi UI:ta koskevat väitteet luetaan LIBISTÄ; `VP` jää niihin väitteisiin
+// jotka koskevat nimenomaan VP:n omaa kytkentää (script-tagit, host-adapteri, sivupalkki).
+const UI = readFileSync(join(ROOT, 'lib', 'tm_kaavio_ui.js'), 'utf8');
 const VAL_SRC = readFileSync(join(ROOT, 'lib', 'tm_kaavio_validate.js'), 'utf8');
 const SID_SRC = readFileSync(join(ROOT, 'lib', 'tm_kaavio_konsepti.js'), 'utf8');
 
@@ -106,43 +110,51 @@ describe('B — sidoslib kertoo mikä kenttä tulee mistä', () => {
 // ── C: RUNTIME-KERROSTODISTE ──────────────────────────────────────────────────────────────
 // Ajetaan VP:n OMAT funktiot (_kaavioKonsepti/_kaavioOtsikko) yhdessä aitojen libien kanssa.
 function kaavioCtx(kieli) {
-  const shim = { window: {}, console };
-  vm.createContext(shim);
-  vm.runInContext(readFileSync(join(ROOT, 'lib', 'tm_teknistaktiset.js'), 'utf8'), shim);
-  vm.runInContext(readFileSync(join(ROOT, 'lib', 'tm_teknistaktiset_sv.js'), 'utf8'), shim);
-  vm.runInContext(readFileSync(join(ROOT, 'lib', 'tm_konsepti_resolve.js'), 'utf8'), shim);
-  vm.runInContext(SID_SRC, shim);
+  const sb = {
+    console, Math, JSON, String, Number, Object, Array, Boolean, Promise, Date, RegExp, Error,
+    setTimeout, parseFloat, parseInt, isNaN,
+    document: { getElementById: () => null, body: { insertAdjacentHTML: () => {} } },
+    _vpTaksLang: () => kieli,
+    _ttSeuraId: () => 'testiseura'
+  };
+  sb.window = {};
+  vm.createContext(sb);
+  [
+    'tm_teknistaktiset.js', 'tm_teknistaktiset_sv.js', 'tm_konsepti_resolve.js',
+    'tm_kaavio_konsepti.js', 'tm_kaavio_policy.js', 'tm_kaavio_editori.js',
+    'tm_kaavio_validate.js', 'tm_kaavio_render.js', 'tm_kaavio_ui.js'
+  ].forEach((f) => vm.runInContext(readFileSync(join(ROOT, 'lib', f), 'utf8'), sb));
 
-  const rivit = VP.split('\n');
-  const pala = (alkuEhto) => {
-    const a = rivit.findIndex(alkuEhto);
-    if (a < 0) throw new Error('ankkuria ei löytynyt');
-    for (let i = a + 1; i < rivit.length; i++) if (rivit[i] === '}') return rivit.slice(a, i + 1).join('\n');
+  // KONSEPTIN LOKALISOINTI ON VP:N OMA KERROS (curriculum-sv-sidecar) — se ei muuttanut sijaintia
+  // kun UI irtosi libiksi, vaan tulee libiin HOST-ADAPTERIN kautta. Siksi nämä viipaloidaan yhä
+  // VP:stä: testi todistaa nimenomaan että VP:n kerros kytkeytyy jaettuun libiin oikein.
+  const vprivit = VP.split('\n');
+  const vpPala = (alkuEhto) => {
+    const a = vprivit.findIndex(alkuEhto);
+    if (a < 0) throw new Error('ankkuria ei löytynyt VP:stä');
+    for (let i = a + 1; i < vprivit.length; i++) if (vprivit[i] === '}') return vprivit.slice(a, i + 1).join('\n');
     throw new Error('sulkua ei löytynyt');
   };
   const src = [
-    pala((l) => l.startsWith('function _kaavioKonsepti(')),
-    pala((l) => l.startsWith('function _kaavioOtsikko(')),
-    pala((l) => l.startsWith('function _ttKonsepti(')),
-    pala((l) => l.startsWith('function _ttResolvoi(')),
-    rivit.find((l) => l.startsWith('function _ttKopio(')),
-    rivit.find((l) => l.startsWith('function _ttSvKartta(')),
-    rivit.find((l) => l.startsWith('function _ttSvPaalla(')),
-    pala((l) => l.startsWith('function _ttSv(')),
-    rivit.find((l) => l.startsWith("var _TT_TEKSTIKENTAT =")),
+    vprivit.find((l) => l.startsWith('function _ttKopio(')),
+    vprivit.find((l) => l.startsWith('function _ttSvKartta(')),
+    vprivit.find((l) => l.startsWith('function _ttSvPaalla(')),
+    vpPala((l) => l.startsWith('function _ttSv(')),
+    vprivit.find((l) => l.startsWith('var _TT_TEKSTIKENTAT =')),
+    vpPala((l) => l.startsWith('function _ttResolvoi(')),
+    vpPala((l) => l.startsWith('function _ttKonsepti('))
   ].join('\n');
+  vm.runInContext(src, sb);
 
-  const base = {
-    console, Math, JSON, String, Number, Object, Array, Boolean,
-    _ttSeuraId: () => 'testiseura',
-    _vpTaksLang: () => kieli,
-    _isDemoMode: false, _seuraId: 'testiseura'
+  sb.window.TM_KAAVIO_HOST = {
+    db: null,
+    t: (fi) => fi,
+    lang: () => kieli,
+    toast: () => {},
+    ctx: () => ({ rooli: 'vp', uid: 'u1', seuraId: 'testiseura', joukkueet: [], superAdmin: false, anon: false }),
+    konsepti: (k) => vm.runInContext('_ttKonsepti', sb)(k)
   };
-  ['TM_TT_YOUTH', 'TM_TT_JOUKKUE', 'TM_TT_FUNDAMENTIT', 'TM_TT_SV'].forEach((k) => { base[k] = shim[k] || shim.window[k]; });
-  Object.keys(shim).filter((k) => /^(tmKonsepti|kaavio|TM_K_)/.test(k)).forEach((k) => { base[k] = shim[k]; });
-  const ctx = vm.createContext(base);
-  vm.runInContext(src, ctx);
-  return { ctx, base, aseta: (kartta) => base.tmKonseptiAsetaKerros('testiseura', kartta) };
+  return { ctx: sb, base: sb, aseta: (kartta) => vm.runInContext('tmKonseptiAsetaKerros', sb)('testiseura', kartta) };
 }
 const otsikko = (k, s) => vm.runInContext('_kaavioOtsikko(' + JSON.stringify(s) + ')', k.ctx);
 
@@ -207,28 +219,30 @@ describe('D — kytkentä VP_v25:een', () => {
     expect(Number(m[1])).toBeGreaterThanOrEqual(2);
   });
   it('kortti ja editori lukevat _kaavioOtsikko():n, EIVÄT spec.nimeä', () => {
-    const i = VP.indexOf('function _kaavioKorttiHTML('), j = VP.indexOf('function _kaavioNappiHTML(');
-    const kortti = VP.slice(i, j);
+    const i = UI.indexOf('function _kaavioKorttiHTML('), j = UI.indexOf('function _kaavioNappiHTML(');
+    const kortti = UI.slice(i, j);
     expect(kortti).toContain('_kaavioOtsikko(k.spec)');
     expect(kortti).not.toContain('spec.nimi');
-    const e = VP.indexOf('function _kaavioAvaaEditori('), e2 = VP.indexOf('function _kvTyokalu(');
-    expect(VP.slice(e, e2)).toContain('_kaavioOtsikko(');
+    const e = UI.indexOf('function _kaavioAvaaEditori('), e2 = UI.indexOf('function _kvTyokalu(');
+    expect(UI.slice(e, e2)).toContain('_kaavioOtsikko(');
   });
   it('spec.nimi ei ole enää MISSÄÄN kaavio-näyttöpolussa', () => {
-    const i = VP.indexOf('var _kaavioTila = {'), j = VP.indexOf('function _kaavioPointerUp(');
+    const i = UI.indexOf('var _kaavioTila = {'), j = UI.indexOf('function _kaavioPointerUp(');
     expect(i).toBeGreaterThan(0);
-    const lohko = VP.slice(i, j).split('\n').filter((l) => !/^\s*\/\//.test(l)).join('\n');
+    const lohko = UI.slice(i, j).split('\n').filter((l) => !/^\s*\/\//.test(l)).join('\n');
     expect(lohko).not.toMatch(/spec\.nimi/);
   });
-  it('lokalisointi kulkee _ttKonsepti():n kautta, EI vpT():n (§32)', () => {
-    const i = VP.indexOf('function _kaavioOtsikko('), j = VP.indexOf('function avaaKaaviopankki(');
-    const fn = VP.slice(i, j > i ? j : i + 1200);
-    expect(fn).toContain('_ttKonsepti(');
-    expect(fn).not.toMatch(/vpT\(\s*(raaka|naytto|res)\./);
+  it('lokalisointi kulkee konsepti-adapterin kautta, EI vpT/_kuiT():n (§32)', () => {
+    const i = UI.indexOf('function _kaavioOtsikko('), j = UI.indexOf('function avaaKaaviopankki(');
+    const fn = UI.slice(i, j > i ? j : i + 1200);
+    expect(fn).toContain('_kuiKonsepti(');
+    expect(fn).not.toMatch(/_kuiT\(\s*(raaka|naytto|res)\./);
+    // ja VP:n adapteri sitoo sen omaan sidecar-kerrokseensa
+    expect(VP).toMatch(/konsepti:\s*function[^}]*_ttKonsepti/);
   });
   it('write-path välittää resolvoidut kpi-koodit, ja jättää ctx:n pois kun konseptia ei ole', () => {
-    const i = VP.indexOf('async function _kaavioTallenna(');
-    const fn = VP.slice(i, i + 900);
+    const i = UI.indexOf('async function _kaavioTallenna(');
+    const fn = UI.slice(i, i + 900);
     expect(fn).toMatch(/validoiKaavio\(m\.spec,\s*_ots\.loytyi\s*\?\s*\{\s*kpiKoodit:\s*_ots\.kpiKoodit\s*\}\s*:\s*undefined\)/);
     expect(fn).toContain('tulos.E.length');            // esto ennen kirjoitusta ennallaan
   });

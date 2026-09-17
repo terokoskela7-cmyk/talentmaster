@@ -141,6 +141,10 @@ import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 const __d = dirname(fileURLToPath(import.meta.url));
 const VP = readFileSync(join(__d, '..', 'TalentMaster_VP_v25.html'), 'utf8');
+// TAKTIIKKATAULUN UI ON NYT JAETUSSA LIBISSÄ (lib/tm_kaavio_ui.js) — sama koodi ajaa VP:ssä ja
+// valmentajan apissa. Siksi UI:ta koskevat väitteet luetaan LIBISTÄ; `VP` jää niihin väitteisiin
+// jotka koskevat nimenomaan VP:n omaa kytkentää (script-tagit, host-adapteri, sivupalkki).
+const UI = readFileSync(join(__d, '..', 'lib', 'tm_kaavio_ui.js'), 'utf8');
 
 describe('UI-portit · napit tulevat policysta', () => {
   const doc = (status) => ({ seuraId: 'fcl', review: { status, joukkueId: 'fcl_u12', versio: 0 } });
@@ -175,9 +179,9 @@ describe('UI-portit · napit tulevat policysta', () => {
 
 describe('UI-portit · VP_v25 ei duplikoi oikeuslogiikkaa', () => {
   it('kaaviolohko kutsuu policya (ei omaa rooli/tila-haarautumista)', () => {
-    const i = VP.indexOf('KAAVIOPANKKI (erä B2)');
+    const i = UI.indexOf('KAAVIOPANKKI (erä B2)');
     expect(i).toBeGreaterThan(0);
-    const lohko = VP.slice(i, VP.indexOf('function avaaBioBanding()'));
+    const lohko = UI.slice(i);
     ['kaavioVoiLukea(', 'kaavioToiminnot(', 'kaavioSiirtoSallittu(', 'kaavioTilaMuokkauksenJalkeen(', 'kaavioSeuraavaVersio(']
       .forEach((f) => expect(lohko, f).toContain(f));
     // ei omaa roolivertailua näkyvyyteen/hyväksyntään (rooli luetaan vain ctx:ään)
@@ -185,14 +189,13 @@ describe('UI-portit · VP_v25 ei duplikoi oikeuslogiikkaa', () => {
     expect(lohko).not.toMatch(/status\s*===?\s*'hyvaksytty'\s*&&/);
   });
   it('write-path ajaa §6-validaattorin ENNEN kirjoitusta', () => {
-    const i = VP.indexOf('async function _kaavioTallenna');
-    const f = VP.slice(i, VP.indexOf('window.avaaKaaviopankki'));
+    const i = UI.indexOf('async function _kaavioTallenna');
+    const f = UI.slice(i, UI.indexOf('window.avaaKaaviopankki'));
     expect(f.indexOf('validoiKaavio(')).toBeGreaterThan(-1);
     expect(f.indexOf('validoiKaavio(')).toBeLessThan(f.indexOf('.update('));   // validointi ensin
   });
   it('write-path nostaa version jokaisessa kirjoituksessa', () => {
-    const i = VP.indexOf('KAAVIOPANKKI (erä B2)');
-    const lohko = VP.slice(i, VP.indexOf('function avaaBioBanding()'));
+    const lohko = UI;   // koko jaettu UI-lib
     const updatet = lohko.split('.update(').length - 1;
     // Väite on INVARIANTTI (jokainen update nostaa version), ei kutsun kirjoitusasu: versionumero
     // lasketaan nyt muuttujaan ennen updatea, jotta paikallinen review voidaan synkata samalla
@@ -233,5 +236,37 @@ describe('enum→näyttö · jokaisella kaavio-enumilla on sv-rivi', () => {
       expect(LBL[t], 'label puuttuu toiminnolta ' + t).toBeTruthy();
       expect(on(LBL[t]), 'sv puuttuu: ' + LBL[t]).toBe(true);
     });
+  });
+});
+
+/* ── JAETUN UI:N I18N ASUU JAETUSSA KARTASSA ──────────────────────────────────────────────
+   tm_kaavio_ui.js on YKSI lähde kahdelle apille. Jos sen käännösrivi asuisi sivukartassa
+   (TM_VP_I18N / TM_MASTER_I18N), teksti näkyisi ruotsiksi vain toisessa apissa — ja koska
+   puuttuva avain putoaa hiljaa suomeen, vika ei näkyisi virheenä vaan väärällä kielellä.
+   Siksi: kaavio-UI:n avaimet ovat TM_I18N_COMMONissa TAI eivät missään (fi-fallback), mutta
+   EIVÄT KOSKAAN sivukartassa. */
+describe('jaettu UI · käännökset ovat jaetussa kartassa, eivät sivukartassa', () => {
+  const src = readFileSync(join(__d, '..', 'lib', 'tm_kaavio_ui.js'), 'utf8');
+  // _kuiT('literaali') + apurit jotka välittävät argumenttinsa sille (ks. _kvTyokalu/_kvKytkin/_kvNappi)
+  const avaimet = new Set([
+    ...[...src.matchAll(/_kuiT\('((?:[^'\\]|\\.)*)'\)/g)].map((m) => m[1]),
+    ...[...src.matchAll(/_kvTyokalu\('[^']*',\s*'((?:[^'\\]|\\.)*)'/g)].map((m) => m[1]),
+    ...[...src.matchAll(/lbl: '((?:[^'\\]|\\.)*)'/g)].map((m) => m[1])
+  ].map((s) => s.replace(/\\'/g, "'")));
+
+  const cmn = require('../lib/tm_i18n_common.js').TM_I18N_COMMON.sv || {};
+  const vp = require('../lib/tm_vp_i18n.js').TM_VP_I18N.sv || {};
+  const master = require('../lib/tm_master_i18n.js').TM_MASTER_I18N.sv || {};
+  const on = (kartta, k) => Object.prototype.hasOwnProperty.call(kartta, k);
+
+  it('EI-VACUOUS: avaimia löytyi ja ne ovat oikeasti käännettyjä', () => {
+    expect(avaimet.size).toBeGreaterThan(60);
+    expect([...avaimet].filter((k) => on(cmn, k)).length).toBeGreaterThan(60);
+  });
+  it('yksikään kaavio-UI:n avain ei ole VP:n sivukartassa', () => {
+    expect([...avaimet].filter((k) => on(vp, k))).toEqual([]);
+  });
+  it('yksikään kaavio-UI:n avain ei ole Masterin sivukartassa', () => {
+    expect([...avaimet].filter((k) => on(master, k))).toEqual([]);
   });
 });

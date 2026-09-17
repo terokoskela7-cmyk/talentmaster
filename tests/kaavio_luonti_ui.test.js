@@ -25,10 +25,14 @@ const __dir = dirname(fileURLToPath(import.meta.url));
 const require_ = createRequire(import.meta.url);
 const ROOT = join(__dir, '..');
 const VP = readFileSync(join(ROOT, 'TalentMaster_VP_v25.html'), 'utf8');
+// TAKTIIKKATAULUN UI ON NYT JAETUSSA LIBISSÄ (lib/tm_kaavio_ui.js) — sama koodi ajaa VP:ssä ja
+// valmentajan apissa. Siksi UI:ta koskevat väitteet luetaan LIBISTÄ; `VP` jää niihin väitteisiin
+// jotka koskevat nimenomaan VP:n omaa kytkentää (script-tagit, host-adapteri, sivupalkki).
+const UI = readFileSync(join(ROOT, 'lib', 'tm_kaavio_ui.js'), 'utf8');
 const RULES = readFileSync(join(ROOT, 'tm_admin', 'firestore.rules'), 'utf8');
 const P = require_(join(ROOT, 'lib', 'tm_kaavio_policy.js'));
 const V = require_(join(ROOT, 'lib', 'tm_kaavio_validate.js'));
-const RIVIT = VP.split('\n');
+const RIVIT = UI.split('\n');
 
 const runko = (nimi) => {
   const a = RIVIT.findIndex((l) => new RegExp('^(?:async\\s+)?function ' + nimi + '\\s*\\(').test(l));
@@ -87,7 +91,7 @@ describe('B — starter-spec on VALIDI heti (ei avaudu virhetilassa)', () => {
     const sb = {
       avain: 'y_h0', pm: { value: pelimuoto || '8v8' }, kp: { value: '' },
       tmKonseptiResolvoi: () => ({ avain: 'y_h0', dim: 'hyokkays' }),
-      _ttSeuraId: () => 's1'
+      _kuiCtx: () => ({ seuraId: 's1' })
     };
     vm.createContext(sb);
     vm.runInContext(fn.slice(i, j + 4) + '\nthis.ulos = starter;', sb);
@@ -141,9 +145,9 @@ describe('C — create-haara kirjoittaa rulesin vaatiman muodon', () => {
     expect(fn).toMatch(/m\.id = ref\.id; m\._uusi = false;/);
   });
   it('kirjoittaa seuratasolle, ei kanoniin', () => {
-    expect(fn).toMatch(/collection\('seurat'\)\.doc\(m\.seuraId \|\| _seuraId\)\.collection\('kaaviot'\)/);
+    expect(fn).toMatch(/collection\('seurat'\)\.doc\(m\.seuraId \|\| _kuiCtx\(\)\.seuraId\)\.collection\('kaaviot'\)/);
     const create = fn.slice(fn.indexOf('if (m._uusi'), fn.indexOf('// ── MUOKKAUS'));
-    expect(create).not.toMatch(/collection\('kaaviot'\)\s*$|db\.collection\('kaaviot'\)/);
+    expect(create).not.toMatch(/collection\('kaaviot'\)\s*$|_kuiDb\(\)\.collection\('kaaviot'\)/);
   });
   it('§6-validointi on YHTEINEN — se ajetaan ennen haarautumista', () => {
     const ennenHaaraa = fn.slice(0, fn.indexOf('if (m._uusi'));
@@ -173,10 +177,10 @@ describe('D — muokkauspolku ennallaan (ei regressiota)', () => {
 describe('E — uudelleenkäyttö: ei kopioitua editoria eikä validointia', () => {
   it('luonti avaa SAMAN editorin kuin Muokkaa', () => {
     expect(runko('_kaavioLuoJaMuokkaa')).toContain('_kaavioAvaaEditori(_kaavioTila.muokkaus)');
-    expect((VP.match(/function _kaavioAvaaEditori\(/g) || []).length).toBe(1);
+    expect((UI.match(/function _kaavioAvaaEditori\(/g) || []).length).toBe(1);
   });
-  it('validoiKaavio-kutsuja on VP:ssä edelleen tasan yksi (ei rinnakkaista porttia)', () => {
-    expect((VP.match(/validoiKaavio\(/g) || []).length).toBe(1);
+  it('validoiKaavio-kutsuja on UI:ssa edelleen tasan yksi (ei rinnakkaista porttia)', () => {
+    expect((UI.match(/validoiKaavio\(/g) || []).length).toBe(1);
   });
   it('KPI-lista johdetaan konseptista, ei kovakoodata a–d:ksi', () => {
     const fn = runko('_kaavioUusiKpiPaivita');
@@ -184,12 +188,13 @@ describe('E — uudelleenkäyttö: ei kopioitua editoria eikä validointia', () 
     expect(fn).not.toMatch(/\['a', ?'b', ?'c', ?'d'\]/);
   });
   it('konseptilista kulkee seurakerroksen läpi (otsikko resolvoituu, erä C)', () => {
-    expect(runko('_kaavioUusiKonseptit')).toContain('_ttSeuraLista(');
+    expect(runko('_kaavioUusiKonseptit')).toContain('_kuiKonseptilista(');
   });
-  it('kaikki uudet näyttötekstit ovat vpT():n läpi ja sv-kartassa', () => {
-    const sv = readFileSync(join(ROOT, 'lib', 'tm_vp_i18n.js'), 'utf8');
+  it('kaikki uudet näyttötekstit ovat i18n-adapterin läpi ja sv-kartassa', () => {
+    const sv = readFileSync(join(ROOT, 'lib', 'tm_i18n_common.js'), 'utf8')
+      + readFileSync(join(ROOT, 'lib', 'tm_vp_i18n.js'), 'utf8');   // C1: avain on TASAN toisessa
     ['Uusi kaavio', 'Konsepti', 'Pelimuoto', 'Näkyvyys', 'Luo ja muokkaa', 'Tallennettu luonnoksena'].forEach((k) => {
-      expect(VP, k).toContain("vpT('" + k + "')");
+      expect(UI, k).toContain("_kuiT('" + k + "')");
       expect(sv, k).toContain("'" + k + "':");
     });
   });
