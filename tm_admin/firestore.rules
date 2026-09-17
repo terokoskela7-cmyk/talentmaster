@@ -1,9 +1,17 @@
 rules_version = '2';
 // ══════════════════════════════════════════════════════════════════════════
-// TalentMaster™ — firestore.rules v3.15
+// TalentMaster™ — firestore.rules v3.16
 //
 // Lähde:  tm_admin/firestore.rules
 // Deploy: PR → N4-CI deployaa automaattisesti (Console-käsityö poistui).
+//
+// Muutokset v3.15 → v3.16 (Keskeneräinen luonnos — review.yksityinen):
+//   + kaavioYksityinen() / kaavioTekija() / kaavioLukuOk(): yksityinen luonnos näkyy VAIN
+//     tekijälle (review.luonut) ja SA:lle. Puuttuva kenttä = julkinen (taaksepäinyhteensopiva).
+//     Hyväksytty ei voi olla yksityinen — katselmuksen läpäissyt on julkaistu määritelmällisesti.
+//   ⚠ Johto (VP/UTJ) EI näe keskeneräisiä. Tämä on tulkinta ("yksityinen = ei valmis
+//     kenellekään"), ei vahvistettu päätös — muutospiste on kaavioLukuOk() + policyn
+//     kaavioVoiLukea, molemmat merkitty samalla varoituksella.
 //
 // Muutokset v3.14 → v3.15 (Kaavion kohdistus — neljäs taso 'valmentaja'):
 //   + kaavioNakyvyysLuontiOk(): 'valmentaja' sallittujen tasojen joukkoon. Se on HENKILÖSTÖ-
@@ -288,6 +296,23 @@ service cloud.firestore {
     // Client lukee versio:n auki avatessaan ja kirjoittaa +1; jos toinen ehti väliin, resource on
     // jo kasvanut → tämä ehto kaatuu ja client joutuu lataamaan uudelleen. Vain TÄSMÄLLEEN +1:
     // hyppy ohittaisi välissä tehdyn muutoksen, lasku palauttaisi vanhan tilan.
+    // YKSITYINEN LUONNOS (v3.16). "Ei vielä valmis", EI valmentajien välinen piilotus: seuran
+    // sisäinen näkyvyys on tarkoituksellista ja palaa heti julkaisusta (review.yksityinen=false).
+    // Puuttuva kenttä = julkinen → vanhat luonnokset eivät katoa kenenkään näkyvistä.
+    // Hyväksytty ei voi olla yksityinen: katselmuksen läpäissyt on määritelmällisesti julkaistu.
+    function kaavioYksityinen(d) {
+      return d.get('review', {}).get('yksityinen', false) == true
+          && kaavioTila(d) != 'hyvaksytty';
+    }
+    function kaavioTekija(d) { return d.get('review', {}).get('luonut', null); }
+    // ⚠ PÄÄTÖS JOTA EI OLE VAHVISTETTU: näkeekö johto (VP/UTJ) keskeneräiset? Tässä TIUKEMPI
+    // linja — EI näe, koska "yksityinen" tarkoittaa ei valmista KENELLEKÄÄN. SA näkee (ylläpito,
+    // oma haara allow readissä). Jos johto tarvitsee oversightin, muutos on tämä yksi ehto +
+    // lib/tm_kaavio_policy.js kaavioVoiLukea — molemmat merkitty samalla kommentilla.
+    function kaavioLukuOk() {
+      return !kaavioYksityinen(resource.data) || kaavioTekija(resource.data) == request.auth.uid;
+    }
+
     function kaavioVersio(d) { return d.get('review', {}).get('versio', 0); }
     function kaavioVersioOk() {
       return kaavioVersio(request.resource.data) == kaavioVersio(resource.data) + 1;
@@ -409,8 +434,9 @@ service cloud.firestore {
         // sivuvaikutus, ei sääntö. Nyt kielto on luettavissa säännöstä.
         allow read: if onKirjautunut() && (
                          onSuperAdmin()
-                      || (onOmaSeura(seuraId) && (onValmentajaRooli() || onJohtoRooli()))
-                      || kaavioTila(resource.data) == 'hyvaksytty');
+                      || (kaavioLukuOk() && (
+                              (onOmaSeura(seuraId) && (onValmentajaRooli() || onJohtoRooli()))
+                           || kaavioTila(resource.data) == 'hyvaksytty')));
 
         // Luonti: oman seuran valmentaja/johto. Uusi kaavio EI voi syntyä hyväksyttynä.
         allow create: if onSuperAdmin()

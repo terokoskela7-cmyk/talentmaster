@@ -396,3 +396,63 @@ describe('kaaviot · POLICY-PARITEETTI (lib vs rules)', () => {
     await assertFails(updateDoc(kd(siht(), 'k_odottaa'), paivita({ 'review.status': 'hyvaksytty' })));
   });
 });
+
+// ── ERÄ D2 — KESKENERÄINEN LUONNOS (review.yksityinen).
+// "Ei vielä valmis", EI valmentajien välinen piilotus: seuran sisäinen näkyvyys on
+// tarkoituksellista ja palaa heti julkaisusta. Portti on TÄÄLLÄ — UI:n suodatin voi piilottaa,
+// mutta vain sääntö estää lukemisen.
+describe('kaaviot · YKSITYINEN LUONNOS — tekijän oma kunnes julkaistu', () => {
+  const dok = (yksityinen, status, luonut) => ({
+    spec: SPEC,
+    review: { status: status || 'luonnos', nakyvyys: 'joukkue', joukkueId: JOUKKUE_A1,
+              luonut: luonut || VALM_A1, versio: 0,
+              ...(yksityinen === undefined ? {} : { yksityinen: yksityinen }) }
+  });
+  beforeEach(async () => {
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      const db = ctx.firestore();
+      await setDoc(doc(db, 'seurat', SEURA_A, 'kaaviot', 'k_yks'), dok(true));
+      await setDoc(doc(db, 'seurat', SEURA_A, 'kaaviot', 'k_julk'), dok(false));
+      await setDoc(doc(db, 'seurat', SEURA_A, 'kaaviot', 'k_vanha'), dok(undefined));        // ei kenttää
+      await setDoc(doc(db, 'seurat', SEURA_A, 'kaaviot', 'k_yks_hyv'), dok(true, 'hyvaksytty'));
+    });
+  });
+
+  it('tekijä lukee oman yksityisen luonnoksensa', async () => {
+    await assertSucceeds(getDoc(kd(valm(VALM_A1, SEURA_A), 'k_yks')));
+  });
+  it('TOINEN saman seuran valmentaja EI lue sitä', async () => {
+    await assertFails(getDoc(kd(valm(VALM_A2, SEURA_A), 'k_yks')));
+  });
+  it('EI-VACUOUS: IDENTTINEN dokumentti ilman yksityisyyttä luetaan samalta valmentajalta', async () => {
+    await assertSucceeds(getDoc(kd(valm(VALM_A2, SEURA_A), 'k_julk')));
+  });
+  it('johto (VP) EI lue keskeneräistä — yksityinen = ei valmis kenellekään', async () => {
+    await assertFails(getDoc(kd(vp(SEURA_A), 'k_yks')));
+    await assertSucceeds(getDoc(kd(vp(SEURA_A), 'k_julk')));   // ei-vacuous: julkaistu kyllä
+  });
+  it('talenttivalmentaja EI lue toisen keskeneräistä (ohitus koskee joukkuerajausta, ei yksityisyyttä)', async () => {
+    await assertFails(getDoc(kd(talval(), 'k_yks')));
+  });
+  it('SA lukee (ylläpito)', async () => {
+    await assertSucceeds(getDoc(kd(sa(), 'k_yks')));
+  });
+  it('TAAKSEPÄIN: kenttä puuttuu kokonaan → julkinen (vanhat luonnokset eivät katoa)', async () => {
+    await assertSucceeds(getDoc(kd(valm(VALM_A2, SEURA_A), 'k_vanha')));
+  });
+  it('hyväksytty ei voi olla yksityinen — katselmuksen läpäissyt on julkaistu', async () => {
+    await assertSucceeds(getDoc(kd(valm(VALM_A2, SEURA_A), 'k_yks_hyv')));
+  });
+  it('JULKAISU avaa sen muille (sama dokumentti, yksi kenttä)', async () => {
+    await assertFails(getDoc(kd(valm(VALM_A2, SEURA_A), 'k_yks')));
+    await assertSucceeds(updateDoc(kd(valm(VALM_A1, SEURA_A), 'k_yks'), { 'review.yksityinen': false, 'review.versio': 1 }));
+    await assertSucceeds(getDoc(kd(valm(VALM_A2, SEURA_A), 'k_yks')));
+  });
+  it('yksityisyys EI ohita seuraeristystä: toisen seuran valmentaja ei lue julkaistuakaan luonnosta', async () => {
+    await assertFails(getDoc(kd(valm(VALM_B, SEURA_B), 'k_julk')));
+  });
+  it('anon (PIN-pelaaja) ei lue yksityistä eikä julkaistua luonnosta (vain hyväksytty)', async () => {
+    await assertFails(getDoc(kd(anon(), 'k_yks')));
+    await assertFails(getDoc(kd(anon(), 'k_julk')));
+  });
+});
