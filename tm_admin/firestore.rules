@@ -1,9 +1,18 @@
 rules_version = '2';
 // ══════════════════════════════════════════════════════════════════════════
-// TalentMaster™ — firestore.rules v3.17
+// TalentMaster™ — firestore.rules v3.18
 //
 // Lähde:  tm_admin/firestore.rules
 // Deploy: PR → N4-CI deployaa automaattisesti (Console-käsityö poistui).
+//
+// Muutokset v3.17 → v3.18 (TIETOTURVAKORJAUS — kommentin kirjoitusportti vuoti seurarajan yli):
+//   ! onStaffKirjoitus() puuttui sulkeet: (onOmaSeura && onValmentajaRooli) || onKaavioHyvaksyja().
+//     Jälkimmäinen haara on seuraneutraali roolitesti → MINKÄ TAHANSA seuran vp/UTJ saattoi
+//     luoda kommentin toisen seuran kaavion lankaan. Luku oli koko ajan suojattu (onStaffLuku
+//     vaatii onOmaSeura), joten kyse oli sokkokirjoituksesta tunnettuun polkuun — ei vuodosta.
+//     Korjaus: onSuperAdmin() || (onOmaSeura(seuraId) && (onValmentajaRooli() || onKaavioHyvaksyja())).
+//     Regressio lukittu: tests/rules/kaavio.rules.test.js cross-seura-deny (punainen ennen korjausta).
+//     Auditoitu: kaikki muut onKaavioHyvaksyja()-kutsukohdat ovat onOmaSeura-vartion sisällä.
 //
 // Muutokset v3.16 → v3.17 (Katselmuksen kommenttilanka — erä E):
 //   + seurat/{sid}/kaaviot/{kid}/kommentit/{cid}: append-only staff-lanka. read = emokaavion
@@ -499,8 +508,18 @@ service cloud.firestore {
           // KIRJOITUS on kapeampi, samasta syystä kuin onKaavioHyvaksyja(): seurasihteeri ei ole
           // valmennusrooli. Katselmuspalaute on valmennussisältöä ("karsi kolmeen pelaajaan"),
           // ei hallintoa — sen kirjoittaminen kuuluu samoille rooleille jotka omistavat kaavion.
+          //
+          // ⚠ SULKEET OVAT PAKOLLISET. Ilman niitä && sitoo ennen ||, jolloin ehdoksi tulee
+          //   (onOmaSeura && onValmentajaRooli) || onKaavioHyvaksyja()
+          // ja jälkimmäinen haara on SEURANEUTRAALI roolitesti → minkä tahansa seuran vp/UTJ
+          // olisi voinut kirjoittaa tämän seuran lankaan (sokkokirjoitus tunnettuun polkuun;
+          // luku oli aina suojattu). onKaavioHyvaksyja() on tarkoituksella pelkkä roolitesti —
+          // SEURARAJAUS KUULUU KUTSUJALLE, ja kaikissa muissa kutsukohdissa se on onOmaSeura-
+          // vartion sisällä. SA:lla oma eksplisiittinen haara, kuten kaaviotason porteissa:
+          // ylläpito-ohitus pidetään näkyvänä eikä salakuljeteta roolitestin sisällä.
           function onStaffKirjoitus() {
-            return onOmaSeura(seuraId) && onValmentajaRooli() || onKaavioHyvaksyja();
+            return onSuperAdmin()
+                || (onOmaSeura(seuraId) && (onValmentajaRooli() || onKaavioHyvaksyja()));
           }
           // Yksityisen luonnoksen lanka seuraa kaaviota: vain tekijä (ja SA).
           allow read: if onSuperAdmin() || (onStaffLuku() && kaavioLukuOkDoc(emoKaavio()));
