@@ -1659,9 +1659,31 @@ window._aktiiviSuodatin = 'kaikki';
 window._aktiiviJoukkue  = '';   // '' = kaikki joukkueet
 window._pelaajatKaikki = [];
 
+/* ─── HENKILÖN NÄYTTÖNIMI — EI KOSKAAN DOC-ID ─────────────────────
+   Pilottilöydös: henkilöstölistan rivi näytti nimenä pvKJoVywWfTouQQgoxggUmGYDOE2.
+   Syy oli `|| h.id` -fallback: seurat/{sid}/kayttajat- ja .../pelaajat-dokumenttien doc-id ON
+   Firebase-UID (§11), joten fallback vuosi teknisen tunnisteen ihmisen nimen paikalle.
+
+   UID ei ole käyttäjän tietoa vaan järjestelmän sisäinen avain — sitä ei näytetä käyttäjälle
+   missään olosuhteissa. Tyhjä ei myöskään kelpaa: rivi näyttäisi rikkoutuneelta eikä kertoisi
+   MIKSI nimi puuttuu. Siksi nimetön dokumentti saa eksplisiittisen TILAN.
+
+   ⚠ Tämä piilottaa OIREEN. Vajaa dokumentti on yhä olemassa — sen jäljitys ja siivous on
+   scripts/raportoi_vajaat_kayttajat.js (raportoi, ei poista). */
+var HENKILO_NIMETON = 'Keskeneräinen kutsu';
+var HENKILO_EI_EMAILIA = '(sähköposti puuttuu)';
+function henkiloNimi(x) {
+  if (!x) return HENKILO_NIMETON;
+  var n = String(x.nimi || ((x.etunimi || '') + ' ' + (x.sukunimi || ''))).trim();
+  if (n) return n;
+  // Nimi puuttuu → sähköposti on seuraavaksi paras IHMISLUETTAVA tunniste. Vasta jos sekin
+  // puuttuu, kyseessä on keskeneräinen dokumentti — ja se sanotaan ääneen.
+  return String(x.email || x.huoltajaEmail || '').trim() || HENKILO_NIMETON;
+}
+
 // ─── Apufunktio: yksittäisen pelaajarivin HTML ───────────────────
 function pelaajaRivi(p) {
-  const nimi       = p.nimi || (p.etunimi + ' ' + p.sukunimi).trim() || p.id;
+  const nimi       = henkiloNimi(p);
   const syntVuosi  = p.syntymaaika?.seconds
     ? new Date(p.syntymaaika.seconds * 1000).getFullYear()
     : (p.syntymaVuosi || '—');
@@ -1969,7 +1991,7 @@ async function renderPelaajat(alue) {
         </tr></thead>
         <tbody>
           ${pelaajat.map(p => {
-            const nimi = p.nimi || `${p.etunimi||''} ${p.sukunimi||''}`.trim() || p.id;
+            const nimi = henkiloNimi(p);
             const syntVuosi = p.syntymaaika
               ? new Date(p.syntymaaika.seconds*1000).getFullYear()
               : (p.syntymaaika_vuosi || '—');
@@ -2436,8 +2458,8 @@ async function renderHenkilosto(alue) {
           ${henkilot.map(h => `
             <tr>
               <td>
-                <div>${h.etunimi||''} ${h.sukunimi||''}</div>
-                <div style="font-size:11px;color:var(--ink3);">${h.email||h.id}</div>
+                <div>${henkiloNimi(h)}</div>
+                <div style="font-size:11px;color:var(--ink3);">${h.email || HENKILO_EI_EMAILIA}</div>
                 ${h.puhelin ? ('<div style="font-size:11px;color:var(--ink3);">📞 ' + (h.suuntakoodi||'+358') + ' ' + h.puhelin + '</div>') : '<div style="font-size:11px;color:var(--amber);">📞 ei puhelinta</div>'}
               </td>
               <td><span class="badge ${rooliLuokat[h.rooli]||'muu'}">${rooliNimet[h.rooli]||h.rooli||'—'}</span></td>
@@ -2905,7 +2927,7 @@ async function lataaKoriJaTasoTiedot() {
             const badgeLuokka = onAnnettu ? 'ok' : onPilotti ? 'pilotti' : 'odottaa';
             const badgeTeksti = onAnnettu ? '✓ Annettu' : onPilotti ? '🔬 Pilotti' : '⏳ Odottaa';
             return `<tr>
-              <td>${nimi.trim()||p.id}</td>
+              <td>${nimi.trim() || HENKILO_NIMETON}</td>
               <td style="color:var(--ink3);">${p.joukkue||'—'}</td>
               <td style="font-size:12px;color:var(--ink3);">${p.huoltajaEmail||'—'}</td>
               <td><span class="badge ${badgeLuokka}">${badgeTeksti}</span></td>
