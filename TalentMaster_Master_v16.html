@@ -2221,10 +2221,19 @@ _auth.onAuthStateChanged(async user => {
     if (typeof _notifInit === 'function') _notifInit();   // N1 notifikaatiokeskus (uid + _seuraId valmiit)
   } else if (user && user.isAnonymous) {
     _kaynnistaDemoTila();
+    // i18n: demo-haara ei lue seura.kieli:tä (ei seuraa), mutta localStorage-valinta on silti voimassa.
+    // Ilman tätä pyyhkäisyä staattiset data-i18n-otsikot jäävät fi:ksi vaikka masterT-sisältö on sv
+    // → juuri se "sekava sv/fi" -oire. Todennettu livenä ennen korjausta.
+    if (typeof masterLokalisoi === 'function') masterLokalisoi();
+    if (typeof masterPaivitaKielivalitsin === 'function') masterPaivitaKielivalitsin();
   } else {
     // Ei kirjautunut
     _kirjautuminenKesken = false;
     _naytaLogin();
+    // Sama kuin yllä: login-chrome on data-i18n-tagattua → ilman pyyhkäisyä se näkyy fi:nä
+    // vaikka käyttäjä olisi valinnut sv:n aiemmin (valinta säilyy localStoragessa).
+    if (typeof masterLokalisoi === 'function') masterLokalisoi();
+    if (typeof masterPaivitaKielivalitsin === 'function') masterPaivitaKielivalitsin();
   }
 });
 

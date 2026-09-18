@@ -73,6 +73,23 @@ describe('Master sv · pyyhkäisyn johdotus', () => {
     expect(fn).toContain('masterLokalisoi()');
   });
 
+  it('pyyhkäisy ajetaan KAIKISSA auth-haaroissa (kirjautunut · demo · login)', () => {
+    /* Juurisyy jonka tämä lukitsee: sv valittuna mutta kirjautumatta staattiset data-i18n-otsikot
+       jäivät fi:ksi, kun taas dynaaminen masterT-sisältö oli sv → "sekava sv/fi". Todennettu
+       livenä: kieli sv, "Kehitysaikajana" (dynaaminen, rivi ~7545) oli sv mutta sen naapuriotsikot
+       ("Pelaajan elämäkerta", "Työkalut", "Tänään") fi, koska pyyhkäisy oli vain kirjautuneen haarassa. */
+    const alku = HTML.indexOf('_auth.onAuthStateChanged');
+    const loppu = HTML.indexOf('// Kirjautumisen timeout-varmistus', alku);
+    expect(alku).toBeGreaterThan(0);
+    expect(loppu).toBeGreaterThan(alku);
+    const kasittelija = HTML.slice(alku, loppu);
+    // kolme haaraa: kirjautunut · anonyymi/demo · ei kirjautunut
+    expect(kasittelija).toContain('_kaynnistaDemoTila()');
+    expect(kasittelija).toContain('_naytaLogin()');
+    const kutsut = (kasittelija.match(/masterLokalisoi\(\)/g) || []).length;
+    expect(kutsut, 'jokaisen auth-haaran on pyyhkäistävä').toBeGreaterThanOrEqual(3);
+  });
+
   it('kartan cache-bustin on noustava kun avaimia lisätään (stale-klientit)', () => {
     const m = HTML.match(/lib\/tm_master_i18n\.js\?v=(\d+)/);
     expect(m, 'i18n-kartta ladataan versioidulla URLilla').not.toBeNull();
