@@ -1897,3 +1897,46 @@ describe('Seuranta-kuittaukset (Vaihe C)', () => {
     await assertSucceeds(deleteDoc(kRef(db, SEURA_A, 'k-sa-del')));
   });
 });
+
+/* ── ROSTERIN JAKO (VP) ──────────────────────────────────────────────────────────────
+ * Briefi väitti: "rules sallivat VP:n jo — ei sääntömuutosta". Väite on oikea, mutta se
+ * nojaa kahteen erilliseen ehtoon jotka on helppo lukea väärin:
+ *   pelaajan update vaatii onOmanJoukkueenValmentaja = onOmanSeuranValmentaja(seuraId)
+ *   JA (onJohtoRooli() || talenttivalmentaja || oma joukkue).
+ * 'vp' on MOLEMMISSA listoissa (onValmentajaRooli sisältää vp:n) → läpi.
+ * 'seurasihteeri' on vain onJohtoRooli:ssa → sen kirjoitus EI mene läpi, vaikka se saa
+ * luoda joukkueita. Juuri siksi VP_v25:n bulk-siirtopalkki piilotetaan sihteeriltä:
+ * nappi joka aina failaa on huonompi kuin ei nappia.
+ * Nämä testit lukitsevat molemmat puolet AJAMALLA, ei lukemalla.
+ */
+describe('rosterin jako — kuka saa siirtää pelaajan joukkueeseen', () => {
+  beforeEach(async () => { await seedSeuraAndPelaaja(); });
+
+  const SIIRTO = {
+    joukkueet: ['fcl_p14_musta'],
+    joukkueetNimet: ['P14 Musta'],
+    joukkue: 'P14 Musta',
+    joukkueNimi: 'P14 Musta',
+  };
+
+  it('VP saa siirtää oman seuran pelaajan toiseen joukkueeseen', async () => {
+    const db = vpContext(SEURA_A).firestore();
+    await assertSucceeds(updateDoc(doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID), SIIRTO));
+  });
+
+  it('VP saa luoda joukkueen (siirron kohde voi olla uusi tyhjä joukkue)', async () => {
+    const db = vpContext(SEURA_A).firestore();
+    await assertSucceeds(setDoc(doc(db, 'seurat', SEURA_A, 'joukkueet', 'fcl_p14_musta'), { nimi: 'P14 Musta' }));
+  });
+
+  it('VP EI saa siirtää toisen seuran pelaajaa (tenant-eristys)', async () => {
+    const db = vpContext(SEURA_A).firestore();
+    await assertFails(updateDoc(doc(db, 'seurat', SEURA_B, 'pelaajat', PELAAJA_B_UID), SIIRTO));
+  });
+
+  it('seurasihteeri saa luoda joukkueen MUTTA EI siirtää pelaajaa (siksi UI piilotettu)', async () => {
+    const db = sihteeriContext(SEURA_A).firestore();
+    await assertSucceeds(setDoc(doc(db, 'seurat', SEURA_A, 'joukkueet', 'fcl_sihteeri_test'), { nimi: 'Testi' }));
+    await assertFails(updateDoc(doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID), SIIRTO));
+  });
+});

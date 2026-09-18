@@ -2597,10 +2597,21 @@ input::placeholder, textarea::placeholder { color: var(--ink3); opacity: 1; }
           style="flex:1;min-width:180px;padding:6px 10px;background:var(--bg);border:.5px solid var(--border);border-radius:8px;color:var(--ink);font-size:12px;font-family:inherit">
         <span id="pelSuodatinLkm" style="font-size:11px;color:var(--ink3)"></span>
       </div>
+      <!-- ROSTERIN JAKO (bulk-siirto). Näkyy vain rooleille jotka rules päästää läpi:
+           pelaajapäivitys vaatii onOmanSeuranValmentaja = onValmentajaRooli, jossa EI ole
+           seurasihteeriä — sille palkki jätetään piiloon ettei tarjota nappia joka failaa. -->
+      <div id="vpPelSiirtoPalkki" style="display:none;gap:10px;margin-bottom:12px;flex-wrap:wrap;align-items:center;padding:10px 12px;background:var(--bg2);border:.5px solid var(--border);border-radius:8px">
+        <span id="vpPelValittuLkm" style="font-size:12px;color:var(--ink2)"></span>
+        <select id="vpPelSiirtoKohde" style="padding:6px 10px;background:var(--bg);border:.5px solid var(--border);border-radius:8px;color:var(--ink);font-size:12px"></select>
+        <button class="btn-sm" onclick="_vpPelSiirraValitut('siirto')" data-i18n="Siirrä joukkueeseen">Siirrä joukkueeseen</button>
+        <button class="btn-sm" onclick="_vpPelSiirraValitut('lisays')" title="Pelaaja voi kuulua useampaan joukkueeseen" data-i18n="Lisää joukkueeseen">Lisää joukkueeseen</button>
+        <button class="btn-sm" onclick="_vpPelUusiJoukkue()" data-i18n="+ Uusi joukkue">+ Uusi joukkue</button>
+        <button class="btn-sm" onclick="_vpPelValitseKaikki(false)" style="margin-left:auto" data-i18n="Tyhjennä">Tyhjennä</button>
+      </div>
       <table class="player-table">
         <thead>
           <tr>
-            <th data-i18n="Pelaaja">Pelaaja</th><th data-i18n="Joukkue">Joukkue</th><th data-i18n="Valmius">Valmius</th><th data-i18n="Tekninen">Tekninen</th><th>H-H</th><th data-i18n="Signaali">Signaali</th><th data-i18n="Kehitysfokus">Kehitysfokus</th><th>IDP</th><th>PHV</th><th></th>
+            <th id="vpPelValintaTh" style="width:28px;display:none"><input type="checkbox" id="vpPelValitseKaikki" onchange="_vpPelValitseKaikki(this.checked)"></th><th data-i18n="Pelaaja">Pelaaja</th><th data-i18n="Joukkue">Joukkue</th><th data-i18n="Valmius">Valmius</th><th data-i18n="Tekninen">Tekninen</th><th>H-H</th><th data-i18n="Signaali">Signaali</th><th data-i18n="Kehitysfokus">Kehitysfokus</th><th>IDP</th><th>PHV</th><th></th>
           </tr>
         </thead>
         <tbody id="playerTableBody">
@@ -18473,6 +18484,105 @@ function _vpPelHaku(q) {
 }
 window._vpPelSuodataJoukkue = _vpPelSuodataJoukkue;
 window._vpPelHaku = _vpPelHaku;
+
+/* ── ROSTERIN JAKO (VP) ────────────────────────────────────────────────────────────
+   Rules sallivat tämän jo — ei sääntömuutosta. Pelaajan update vaatii
+   onOmanJoukkueenValmentaja = onOmanSeuranValmentaja(= onValmentajaRooli) JA (onJohtoRooli|…).
+   'vp' ja 'urheilutoimenjohtaja' ovat MOLEMMISSA → läpi. 'seurasihteeri' on vain
+   onJohtoRooli:ssa → sen kirjoitus kaatuisi, joten UI piilotetaan siltä. */
+function _vpSaaJakaaRosteria() {
+  return !!window._vpSA || ['vp', 'urheilutoimenjohtaja'].indexOf(window._vpRooli) >= 0;
+}
+function _vpPelValitutIdt() {
+  return Array.prototype.slice.call(document.querySelectorAll('.vpPelValinta:checked')).map(function (x) { return x.value; });
+}
+function _vpPelValitseKaikki(paalle) {
+  document.querySelectorAll('.vpPelValinta').forEach(function (x) { x.checked = !!paalle; });
+  var kaikki = document.getElementById('vpPelValitseKaikki'); if (kaikki) kaikki.checked = !!paalle;
+  _vpPelValintaMuuttui();
+}
+function _vpPelValintaMuuttui() {
+  var n = _vpPelValitutIdt().length;
+  var palkki = document.getElementById('vpPelSiirtoPalkki');
+  var lkm = document.getElementById('vpPelValittuLkm');
+  if (lkm) lkm.textContent = n + ' ' + vpT('valittu');
+  if (palkki) palkki.style.display = n ? 'flex' : 'none';
+  if (n) _vpPelTaytaKohdeValitsin();
+}
+/* Kohde JOUKKUEET-KOKOELMASTA (_joukkueNimet), ei pelaajadatasta johdettuna: kohteena voi olla
+   juuri luotu tyhjä joukkue jota yhdelläkään pelaajalla ei vielä ole. Eri lähde kuin
+   suodatinvalitsimella (se näyttää tarkoituksella vain joukkueet joissa on pelaajia). */
+function _vpPelTaytaKohdeValitsin() {
+  var sel = document.getElementById('vpPelSiirtoKohde'); if (!sel) return;
+  var nyt = sel.value;
+  var idt = Object.keys(_joukkueNimet || {}).sort(function (a, b) {
+    return String(_joukkueNimet[a]).localeCompare(String(_joukkueNimet[b]));
+  });
+  sel.innerHTML = idt.length
+    ? idt.map(function (id) { return '<option value="' + _jsvEsc(id) + '">' + _jsvEsc(_joukkueNimet[id]) + '</option>'; }).join('')
+    : '<option value="">' + vpT('— luo ensin joukkue —') + '</option>';
+  if (nyt) sel.value = nyt;
+}
+async function _vpPelUusiJoukkue() {
+  var nimi = prompt(vpT('Uuden joukkueen nimi (esim. P14 Musta)'));
+  if (!nimi || !nimi.trim()) return;
+  nimi = nimi.trim();
+  /* Doc-ID luettavana sluginä kuten Seurahallinnassa (§18: joukkueet[] on ID-lista). */
+  var id = nimi.toLowerCase().replace(/[åä]/g, 'a').replace(/ö/g, 'o').replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
+  if (!id) { toast(vpT('Nimestä ei saatu tunnistetta'), 'virhe'); return; }
+  try {
+    await db.collection('seurat').doc(_seuraId).collection('joukkueet').doc(id).set({
+      nimi: nimi, luotu: firebase.firestore.FieldValue.serverTimestamp()
+    }, { merge: true });
+    _joukkueNimet[id] = nimi;
+    _vpPelTaytaKohdeValitsin();
+    var sel = document.getElementById('vpPelSiirtoKohde'); if (sel) sel.value = id;
+    toast(vpT('Joukkue luotu') + ': ' + nimi, 'ok');
+  } catch (e) { toast(vpT('Luonti epäonnistui') + ': ' + e.message, 'virhe'); }
+}
+async function _vpPelSiirraValitut(tapa) {
+  var idt = _vpPelValitutIdt();
+  var sel = document.getElementById('vpPelSiirtoKohde');
+  var kohdeId = sel && sel.value;
+  if (!idt.length) return;
+  if (!kohdeId) { toast(vpT('Valitse joukkue'), 'virhe'); return; }
+  var kohdeNimi = (_joukkueNimet || {})[kohdeId] || kohdeId;
+  var sana = (tapa === 'siirto') ? vpT('Siirretäänkö') : vpT('Lisätäänkö');
+  if (!confirm(sana + ' ' + idt.length + ' ' + vpT('pelaajaa joukkueeseen') + ' "' + kohdeNimi + '"?')) return;
+
+  var onnistui = 0, epaonnistui = 0, viimVirhe = '';
+  for (var i = 0; i < idt.length; i++) {
+    var pid = idt[i];
+    var p = (_pelaajat || []).find(function (x) { return x.id === pid; }) || {};
+    var vanhat = Array.isArray(p.joukkueet) ? p.joukkueet : [];
+    var uudet = (tapa === 'siirto')
+      ? [kohdeId]
+      : (vanhat.indexOf(kohdeId) >= 0 ? vanhat.slice() : vanhat.concat([kohdeId]));
+    var nimet = uudet.map(function (id) { return (_joukkueNimet || {})[id] || id; });
+    try {
+      await db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(pid).update({
+        joukkueet: uudet,
+        joukkueetNimet: nimet,
+        joukkue: nimet[0] || '',        // LEGACY — valmentajan näkymä kyselee tällä (§18)
+        joukkueNimi: nimet[0] || '',    // LEGACY
+        muokattu: firebase.firestore.FieldValue.serverTimestamp()
+      });
+      // Paikallinen data synkkaan, jottei taulukko näytä vanhaa ennen seuraavaa latausta.
+      p.joukkueet = uudet; p.joukkueetNimet = nimet; p.joukkue = nimet[0] || ''; p.joukkueNimi = nimet[0] || '';
+      onnistui++;
+    } catch (e) { epaonnistui++; viimVirhe = e.message; }
+  }
+  if (epaonnistui) console.warn('[rosterin jako] ' + epaonnistui + ' epäonnistui, viim:', viimVirhe);
+  toast(onnistui + ' ' + vpT('pelaajaa') + ' ' + (tapa === 'siirto' ? vpT('siirretty') : vpT('lisätty'))
+    + ' → ' + kohdeNimi + (epaonnistui ? ' · ' + epaonnistui + ' ' + vpT('epäonnistui') : ''), epaonnistui ? 'virhe' : 'ok');
+  _vpPelValitseKaikki(false);
+  renderPelaajatFiltered();
+}
+window._vpPelValitseKaikki = _vpPelValitseKaikki;
+window._vpPelValintaMuuttui = _vpPelValintaMuuttui;
+window._vpPelSiirraValitut = _vpPelSiirraValitut;
+window._vpPelUusiJoukkue = _vpPelUusiJoukkue;
+window._vpSaaJakaaRosteria = _vpSaaJakaaRosteria;
 /* Valitsin täytetään LADATUSTA pelaajadatasta: se kertoo mitkä joukkueet oikeasti sisältävät
    pelaajia, eikä tarjoa tyhjiä rivejä joukkueet-kokoelmasta. */
 function _vpPelTaytaJoukkueValitsin() {
@@ -18487,6 +18597,8 @@ function _vpPelTaytaJoukkueValitsin() {
 
 function renderPelaajatFiltered() {
   const tbody = document.getElementById('playerTableBody');
+  const valTh = document.getElementById('vpPelValintaTh');
+  if (valTh) valTh.style.display = _vpSaaJakaaRosteria() ? 'table-cell' : 'none';
   let filtered = _pelaajat;
   _vpPelTaytaJoukkueValitsin();
 
@@ -18568,6 +18680,7 @@ function renderPelaajatFiltered() {
     const phvColor = p.phv_tila === 'PH' ? 'color:var(--amber)' : '';
     return `
       <tr onclick="_avaaPerPelaajaPikakatsaus(${idx},'${jesc}')" style="cursor:pointer">
+        <td class="vpPelValintaTd" style="display:${_vpSaaJakaaRosteria() ? 'table-cell' : 'none'}"><input type="checkbox" class="vpPelValinta" value="${p.id}" onclick="event.stopPropagation()" onchange="_vpPelValintaMuuttui()"></td>
         <td><strong>${p.sukunimi||''}, ${p.etunimi||''}</strong> ${_vpRaeChip(p)}
           <div style="font-size:11px;color:var(--ink3);font-family:monospace">${p.palloID||''}</div>
         </td>
