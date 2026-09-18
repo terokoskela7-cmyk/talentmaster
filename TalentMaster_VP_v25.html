@@ -1302,6 +1302,13 @@ body {
 #topbar .topbar-lang { font-family:var(--font-mono); font-size:11px; letter-spacing:.05em; color:var(--ink3); display:flex; gap:6px; }
 #topbar .topbar-lang .lang-active { color:var(--teal); }
 #topbar .topbar-lang .lang-sep { opacity:.4; }
+/* Sivupalkin kielivalitsin — oma tyylinsa (ylapalkin saannot ovat #topbar-scopetettuja, eivat osu). */
+.sb-lang { display:flex; align-items:center; gap:2px; padding:10px 18px 14px; font-family:var(--font-mono);
+  font-size:12px; letter-spacing:.05em; color:var(--ink3); border-bottom:.5px solid var(--border); }
+.sb-lang .lang-opt { cursor:pointer; padding:6px 10px; border-radius:6px; min-width:40px; text-align:center; }
+.sb-lang .lang-opt:hover { color:var(--ink2); background:var(--bg2); }
+.sb-lang .lang-active { color:var(--teal); }
+.sb-lang .lang-sep { opacity:.4; }
 #topbar .topbar-user { display:flex; align-items:center; gap:10px; cursor:pointer; }
 #topbar .user-avatar { width:32px; height:32px; border-radius:50%; background:rgba(40,176,144,.15); color:var(--teal);
   display:flex; align-items:center; justify-content:center; font-family:var(--font-mono); font-size:13px; flex-shrink:0; }
@@ -2122,7 +2129,10 @@ textarea.jsp-rv-inp { resize: vertical; min-height: 44px; }
   #topbar .logo { display: none; }
   #topbar .topbar-email { display: none; }
   #topbar .topbar-search { display: none; }
-  #topbar .topbar-lang { display: none; }
+  #topbar .topbar-lang { display: none; }   /* korvattu sivupalkin valitsimella (.sb-lang) */
+  .sb-lang { font-size: 14px; padding: 12px 16px 16px; }
+  .sb-lang .lang-opt { min-width: 44px; min-height: 44px; display: inline-flex;
+    align-items: center; justify-content: center; }
   #topbar .topbar-breadcrumb { padding: 0 12px; gap: 6px; }
   #topbar .user-info { display: none; }
   .greeting-text { font-size: 32px; }
@@ -2318,6 +2328,13 @@ input::placeholder, textarea::placeholder { color: var(--ink3); opacity: 1; }
       <div class="sb-user-role" data-i18n="Valmennuspäällikkö">Valmennuspäällikkö</div>
       <div class="sb-user-name" id="sbNimi">—</div>
       <div class="sb-user-club" id="sbSeura">—</div>
+    </div>
+    <!-- KIELIVALITSIN sivupalkissa. Ylapalkin valitsin on piilotettu <=768px (ahdas rivi), joten
+         puhelimessa kielta ei paassyt vaihtamaan lainkaan. Sivupalkki on mobiilin navipinta
+         (liukuu hampurilaisesta) → oikea paikka. Luokka `topbar-lang` on SAILYTETTAVA: aktiivi-
+         korostuksen paivitin kyselee `.topbar-lang [data-lang]` ja osuu nain molempiin. -->
+    <div class="sb-lang topbar-lang">
+      <span class="lang-opt lang-active" data-lang="fi" onclick="vpVaihdaKieli('fi')">FI</span><span class="lang-sep">·</span><span class="lang-opt" data-lang="en" onclick="vpVaihdaKieli('en')">EN</span><span class="lang-sep">·</span><span class="lang-opt" data-lang="sv" onclick="vpVaihdaKieli('sv')">SV</span>
     </div>
 
     <div class="sb-section-label" data-i18n="Työtilat">Työtilat</div>
@@ -4790,7 +4807,12 @@ window._tallennaPMP = _tallennaPMP;
 
 // ─── JOUKKUEEN SYVÄNÄKYMÄ (pulssikortin klikkaus) — 3 välilehteä, vain ladatusta _pelaajat-datasta ───
 const TK_LAJI_NIMET = { ponnauttelu:'Ponnauttelu', syotto:'Syöttö', pujottelu:'Pujottelu', kuljetus_laukaus:'Kuljetus-laukaus', pituuspotku:'Pituuspotku' };
-function _vpTkLaji(id) { return TK_LAJI_NIMET[id] || id || 'Ei tietoa'; }
+/* NAYTTOnimi — reititetty. Lajinimet ovat COMMONissa (Syöttö→Passning jne.), joten tama on
+   pelkkaa reititysta, ei uutta kaannosta. Reititys on APURIN SISALLA, koska nimea nayteta an
+   kuudessa eri kohdassa: yhden kutsupaikan paikkaus jattaisi loput vuotamaan. */
+function _vpTkLaji(id) { return vpT(_vpTkLajiRaaka(id)); }
+/* DATA-arvo — EI saa kaantaa: talla luodaan treeniteema, ja ruotsinnettu avain rikkoisi sen. */
+function _vpTkLajiRaaka(id) { return TK_LAJI_NIMET[id] || id || 'Ei tietoa'; }
 // V1 Kehitysfokus-sarake: tarkka kehityskohde pikakentästä (§26). Prioriteetti tki_kehityskohde (D2, TK-laji) →
 // hh_kehityskohde (fyysinen D1 / H-H-tekniikka D2). Palauttaa {nimi, dim} | null. Näyttönimet §30-taksonomialla.
 const _VP_HH_FOKUS_NIMI = { lin5m:'Nopeus (5m)', lin10m:'Nopeus (10m)', lin30m:'Nopeus (30m)', cmj:'Räjähtävyys', sj:'Räjähtävyys (SJ)', mas:'Kestävyys', kasirata:'Ketteryys', sm_juoksu:'Suunnanmuutos', syotto:'Syöttö', pujottelu:'Pujottelu' };
@@ -4798,7 +4820,7 @@ const _VP_D1_TESTIT = { lin5m:1, lin10m:1, lin30m:1, cmj:1, sj:1, mas:1, kasirat
 function _vpFokusNimi(p) {
   if (!p) return null;
   if (p.tki_kehityskohde) return { nimi: _vpTkLaji(p.tki_kehityskohde), dim: 'D2' };
-  if (p.hh_kehityskohde) { const k = p.hh_kehityskohde; return { nimi: _VP_HH_FOKUS_NIMI[k] || _vpTkLaji(k), dim: _VP_D1_TESTIT[k] ? 'D1' : 'D2' }; }
+  if (p.hh_kehityskohde) { const k = p.hh_kehityskohde; return { nimi: _VP_HH_FOKUS_NIMI[k] ? vpT(_VP_HH_FOKUS_NIMI[k]) : _vpTkLaji(k), dim: _VP_D1_TESTIT[k] ? 'D1' : 'D2' }; }
   return null;
 }
 // V1 IDP-elinkaari: idp_tila-pikakenttää EI vielä ole (V3) → JOHDETAAN ladatusta datasta: idpAktiivinen-lippu →
@@ -6185,7 +6207,9 @@ function _vpPelipaikkaFundamentitHTML(p) {
 // Vaihe A — X-Factor -identiteetti: nimetty "erottava ase". Prioriteetti: tki_vahvuus (spesifi TK-laji,
 // _vpTkLaji) > idpVahvinDim (vahvin dimensio, gate taso≥3.5). null jos ei dataa. §7.22 EI koske (VP-aikuisnäkymä).
 function _vpXFactorAse(p) {
-  if (p.tki_vahvuus && typeof _vpTkLaji === 'function') { const n = _vpTkLaji(p.tki_vahvuus); if (n && n !== 'Ei tietoa') return { nimi: n, lahde: 'TKI' }; }
+  // Tunnettuus testataan KARTASTA, ei nayttonimesta: _vpTkLaji kaantaa nyt, joten
+  // vertailu merkkijonoon 'Ei tietoa' olisi rikkoutunut sv-tilassa ('Ingen info').
+  if (p.tki_vahvuus && TK_LAJI_NIMET[p.tki_vahvuus] && typeof _vpTkLaji === 'function') { return { nimi: _vpTkLaji(p.tki_vahvuus), lahde: 'TKI' }; }
   if (typeof idpVahvinDim === 'function' && typeof _vpIdpOpts === 'function') {
     try { const vd = idpVahvinDim(p, _vpIdpOpts(p)); if (vd && vd.nimi && vd.taso != null && vd.taso >= 3.5) return { nimi: vd.nimi, dim: vd.dim, taso: vd.taso, lahde: vd.dim || 'D' }; } catch (e) { /* graceful */ }
   }
@@ -16791,8 +16815,11 @@ function renderKotiVP() {
   const heikoin = Object.keys(kohdeLkm).sort((a, b) => kohdeLkm[b] - kohdeLkm[a])[0];
   if (heikoin) {
     const jk = Object.keys(kohdeJoukkue[heikoin] || {}).sort((a, b) => kohdeJoukkue[heikoin][b] - kohdeJoukkue[heikoin][a])[0] || '';
+    /* Kaksi eri arvoa samasta lajista: kn = NAYTTOnimi (kaannetty), knData = DATA-arvo (raaka).
+       Jalkimmainen menee _jsvLuoHarjoitus:lle treeniteeman avaimeksi — kaannettyna se rikkoisi teeman. */
     const kn = (typeof _vpTkLaji === 'function' ? _vpTkLaji(heikoin) : heikoin);
-    kortit.push({ ik:'🎯', sev:T.teal, txt: kn + ' ' + vpT('heikoin kehityskohde') + ' (' + kohdeLkm[heikoin] + ' ' + vpT('pelaajalla') + (jk ? ', ' + vpT('mm.') + ' ' + jk : '') + ')', cta:vpT('Luo treeniteema'), fn:"_jsvLuoHarjoitus('" + esc(jk) + "','" + esc(kn) + "',{lahde:'tki_gap'})" });
+    const knData = (typeof _vpTkLajiRaaka === 'function' ? _vpTkLajiRaaka(heikoin) : heikoin);
+    kortit.push({ ik:'🎯', sev:T.teal, txt: kn + ' ' + vpT('heikoin kehityskohde') + ' (' + kohdeLkm[heikoin] + ' ' + vpT('pelaajalla') + (jk ? ', ' + vpT('mm.') + ' ' + jk : '') + ')', cta:vpT('Luo treeniteema'), fn:"_jsvLuoHarjoitus('" + esc(jk) + "','" + esc(knData) + "',{lahde:'tki_gap'})" });
   }
   // 4. FLEI < 40 → klinikka
   const klinikka = P.filter(p => p.flei_viimeisin != null && p.flei_viimeisin < 40);
