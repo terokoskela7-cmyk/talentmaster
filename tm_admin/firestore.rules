@@ -1,9 +1,18 @@
 rules_version = '2';
 // ══════════════════════════════════════════════════════════════════════════
-// TalentMaster™ — firestore.rules v3.18
+// TalentMaster™ — firestore.rules v3.19
 //
 // Lähde:  tm_admin/firestore.rules
 // Deploy: PR → N4-CI deployaa automaattisesti (Console-käsityö poistui).
+//
+// Muutokset v3.18 → v3.19 (Johto näkee vain valmiit kaaviot):
+//   · kaaviot-luku: `|| onJohtoRooli()` poistettu oman seuran haarasta. onValmentajaRooli()
+//     sisältää vp/UTJ → hyväksyjä näkee luonnokset ja voi katselmoida (ennallaan). Erotus on
+//     seurasihteeri → hän putoaa 'hyvaksytty'-haaraan ja näkee vain valmiit.
+//   · kommentit-luku PEILATTU samaan: muuten keskeneräisen kaavion katselmuslanka olisi
+//     vuotanut seurasihteerille vaikka itse kaavio ei. Langan seurarajaus pysyy tiukempana
+//     kuin kaaviotason (hyväksytynkin langan luku vaatii oman seuran).
+//   · lib/tm_kaavio_policy.js oli JO tiukempi (ei johto-haaraa) → klientti ei muuttunut.
 //
 // Muutokset v3.17 → v3.18 (TIETOTURVAKORJAUS — kommentin kirjoitusportti vuoti seurarajan yli):
 //   ! onStaffKirjoitus() puuttui sulkeet: (onOmaSeura && onValmentajaRooli) || onKaavioHyvaksyja().
@@ -456,10 +465,15 @@ service cloud.firestore {
         // Kovennus (B2): hyväksytyn luku vaatii EKSPLISIITTISESTI kirjautumisen. Aiemmin
         // kirjautumaton estyi vain siksi että onSuperAdmin() kaatui eval-virheeseen — se on
         // sivuvaikutus, ei sääntö. Nyt kielto on luettavissa säännöstä.
+        // KESKENERÄISET VAIN VALMENNUSROOLEILLE. onValmentajaRooli() sisältää vp:n ja
+        // urheilutoimenjohtajan → hyväksyjä näkee luonnokset ja voi katselmoida (ennallaan).
+        // onJohtoRooli() on POISTETTU tästä haarasta: sen ja onValmentajaRoolin erotus on
+        // seurasihteeri, joka ei ole valmennusrooli → hän putoaa 'hyvaksytty'-haaraan ja näkee
+        // vain valmiit. kaavioLukuOk() (yksityinen luonnos vain tekijälle) on ennallaan.
         allow read: if onKirjautunut() && (
                          onSuperAdmin()
                       || (kaavioLukuOk() && (
-                              (onOmaSeura(seuraId) && (onValmentajaRooli() || onJohtoRooli()))
+                              (onOmaSeura(seuraId) && onValmentajaRooli())
                            || kaavioTila(resource.data) == 'hyvaksytty')));
 
         // Luonti: oman seuran valmentaja/johto. Uusi kaavio EI voi syntyä hyväksyttynä.
@@ -501,9 +515,15 @@ service cloud.firestore {
           function emoKaavio() {
             return get(/databases/$(database)/documents/seurat/$(seuraId)/kaaviot/$(kaavioId)).data;
           }
-          // LUKU = sama joukko joka näkee kaavion (sis. seurasihteerin: hän näkee kaaviotkin).
+          // LUKU = sama joukko joka näkee kaavion. Kun kaavion luvusta poistettiin
+          // onJohtoRooli(), tämä oli pakko peilata: muuten seurasihteeri ei näkisi
+          // keskeneräistä kaaviota mutta näkisi sen KATSELMUSLANGAN — eli juuri sen
+          // sisällön jota rajaus suojaa ("karsi kolmeen pelaajaan" kertoo kuvan tilan).
+          // Seurarajaus säilyy tiukempana kuin kaaviotasolla: hyväksytynkin langan luku
+          // vaatii oman seuran (kaaviotason 'hyvaksytty'-haara on seuraneutraali).
           function onStaffLuku() {
-            return onOmaSeura(seuraId) && (onValmentajaRooli() || onJohtoRooli());
+            return onOmaSeura(seuraId)
+                && (onValmentajaRooli() || kaavioTila(emoKaavio()) == 'hyvaksytty');
           }
           // KIRJOITUS on kapeampi, samasta syystä kuin onKaavioHyvaksyja(): seurasihteeri ei ole
           // valmennusrooli. Katselmuspalaute on valmennussisältöä ("karsi kolmeen pelaajaan"),
