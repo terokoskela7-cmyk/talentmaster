@@ -1675,7 +1675,7 @@ const TM_KATEGORIAN_NIMI = {
 
 const TM_ALIKATEGORIAN_NIMI = {
   lineaarinopeus:  { fi: 'Lineaarinopeus',           sv: 'Linjär hastighet' },
-  suunnanmuutos:   { fi: 'Suunnanmuutosnopeus',      sv: 'Riktningsändringshastighet' },
+  suunnanmuutos:   { fi: 'Suunnanmuutosnopeus',      sv: 'Riktningsförändringshastighet' },
   nopeusvoima:     { fi: 'Nopeusvoima',              sv: 'Explosiv kraft' },
   voima:           { fi: 'Maksimi- ja kestovoima',   sv: 'Maximal- och uthållighetsstyrka' },
   kestavyys:       { fi: 'Kestävyys',                sv: 'Uthållighet' },
