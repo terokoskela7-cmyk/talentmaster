@@ -36,10 +36,15 @@ const scope = kaikki;                           // ei poikkeuksia — A2:n jälk
 const compat = scope.filter((n) => !MODULAR.includes(n));
 
 describe('kohdejoukko (johdettu datasta, ei kovakoodattu)', () => {
-  it('20 elävää appia = 18 compat + 2 modular', () => {
-    expect(compat.length, 'compat-appeja').toBe(18);
+  /* 19 compat (ei 18): ADAR-pikakortti liittyi joukkoon kun se purettiin selainbundlesta
+     tavalliseksi apiksi — sen SDK oli ennen gzip-blobina manifestissa, joten se ei nakynyt
+     tassa datasta johdetussa kohdejoukossa. Nyt se lataa firebase-app-compatin ulkoisesti ja
+     kuuluu App Check -vaatimuksen piiriin siina missa muutkin. */
+  it('21 elävää appia = 19 compat + 2 modular', () => {
+    expect(compat.length, 'compat-appeja').toBe(19);
     expect(scope.filter((n) => MODULAR.includes(n)).length, 'modular-appeja').toBe(2);
-    expect(scope.length).toBe(20);
+    expect(scope.length).toBe(21);
+    expect(compat, 'de-bundlattu ADAR kuuluu joukkoon').toContain('TalentMaster_ADAR_Pikakortti.html');
   });
   /* Regressiovahti: jos jokin näistä palaa juureen ilman App Check -kytkentää, se olisi Pagesissa
      ja rikkoutuisi enforcessa. Paluu juureen on siis tietoinen teko joka vaatii myös kytkennän. */
