@@ -1274,7 +1274,13 @@ body {
   font-family:var(--font-mono); font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:var(--ink3); }
 #topbar .bc-seura { color:var(--ink2); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:200px; }
 #topbar .bc-sep { opacity:.4; }
-#topbar .bc-active { color:var(--ink); }
+#topbar .bc-active { color:var(--ink); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+/* Murupolku EI saa valua oikean laidan ikonien alle. flex:1 + min-width:0 antoi sen kutistua,
+   mutta ilman overflow:hidden:ia LAPSET piirtyivat silti yli — 390px:ssa "KPV" leikkautui pois
+   vasemmalta ja kello peitti "TILANNE"-tekstin ("T🔔NNE"). Laatikkomittaus ei nayta tata:
+   elementin rect paattyi oikein, vain teksti vuoti. */
+#topbar .topbar-breadcrumb { overflow: hidden; }
+#topbar .topbar-right { flex: 0 0 auto; }
 #topbar .topbar-right { display:flex; align-items:center; gap:18px; margin-left:auto; }
 .vp-theme-btn { width:30px; height:30px; border-radius:50%; background:var(--bg3); border:.5px solid var(--border); color:var(--ink2); font-size:14px; line-height:1; display:flex; align-items:center; justify-content:center; cursor:pointer; transition:all .15s; padding:0; }
 .vp-theme-btn:hover { border-color:var(--teal); color:var(--teal); }
@@ -2133,7 +2139,11 @@ textarea.jsp-rv-inp { resize: vertical; min-height: 44px; }
   .sb-lang { font-size: 14px; padding: 12px 16px 16px; }
   .sb-lang .lang-opt { min-width: 44px; min-height: 44px; display: inline-flex;
     align-items: center; justify-content: center; }
-  #topbar .topbar-breadcrumb { padding: 0 12px; gap: 6px; }
+  #topbar .topbar-breadcrumb { padding: 0 10px; gap: 6px; }
+  /* "KPV / VALMENNUSPÄÄLLIKKÖ / TILANNE" ei mahdu 390px:aan. Rooli on staattinen (sama joka
+     sivulla) → se putoaa ensin; seura ja aktiivinen nakyma jaavat. */
+  #topbar .bc-rooli, #topbar .bc-rooli + .bc-sep { display: none; }
+  #topbar .bc-seura { max-width: 110px; }
   #topbar .user-info { display: none; }
   .greeting-text { font-size: 32px; }
   #sidebar { transform: translateX(-100%); transition: transform .25s ease; }
@@ -2277,7 +2287,7 @@ input::placeholder, textarea::placeholder { color: var(--ink3); opacity: 1; }
     <div class="topbar-breadcrumb">
       <span id="tbSeura" class="bc-seura">—</span>
       <span class="bc-sep">/</span>
-      <span data-i18n="Valmennuspäällikkö">Valmennuspäällikkö</span>
+      <span class="bc-rooli" data-i18n="Valmennuspäällikkö">Valmennuspäällikkö</span>
       <span class="bc-sep">/</span>
       <span class="bc-active" data-i18n="Tilanne">Tilanne</span>
     </div>

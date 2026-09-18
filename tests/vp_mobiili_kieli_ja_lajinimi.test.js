@@ -117,3 +117,40 @@ describe('B · lajinimen reititys (näyttö käännetään, data ei)', () => {
     expect(VP).toContain('_VP_HH_FOKUS_NIMI[k] ? vpT(_VP_HH_FOKUS_NIMI[k])');
   });
 });
+
+/**
+ * C · YLÄPALKKI EI SAA VUOTAA IKONIEN ALLE (mobiili).
+ *
+ * JUURISYY: `.topbar-breadcrumb` oli `flex:1; min-width:0` MUTTEI `overflow:hidden`. Flex antoi
+ * laatikon kutistua, mutta lapset piirtyivät silti sen yli → 390px:ssä "KPV" leikkautui pois
+ * vasemmalta ja kello peitti aktiivisen näkymän nimen ("T🔔NNE").
+ *
+ * ⚠ Tätä EI näe laatikkomittauksesta: elementin getBoundingClientRect päättyi oikeaan kohtaan
+ * (242px) eikä ylivuotoa raportoitu (scrollWidth == clientWidth) — vain TEKSTI vuoti. Siksi
+ * portti tarkistaa CSS-ehdot, ei mittoja.
+ */
+describe('C · yläpalkin murupolku mobiilissa', () => {
+  it('murupolku on overflow-lukittu (muuten teksti valuu ikonien alle)', () => {
+    expect(VP).toMatch(/#topbar \.topbar-breadcrumb \{ overflow: hidden; \}/);
+  });
+
+  it('oikea laita ei kutistu murupolun tieltä', () => {
+    expect(VP).toMatch(/#topbar \.topbar-right \{ flex: 0 0 auto; \}/);
+  });
+
+  it('mobiilissa pudotetaan STAATTINEN rooli-pala, ei seuraa eikä näkymää', () => {
+    const m = mobiililohko(VP);
+    expect(m).toMatch(/#topbar \.bc-rooli, #topbar \.bc-rooli \+ \.bc-sep \{ display: none; \}/);
+    // Seura ja aktiivinen näkymä EIVÄT saa olla piilotuslistalla — ne ovat murupolun sisältö.
+    expect(m).not.toMatch(/\.bc-seura[^{]*\{[^}]*display: none/);
+    expect(m).not.toMatch(/\.bc-active[^{]*\{[^}]*display: none/);
+  });
+
+  it('rooli-palalla on oma luokka (positiovalitsin olisi hauras)', () => {
+    expect(VP).toContain('<span class="bc-rooli" data-i18n="Valmennuspäällikkö">');
+  });
+
+  it('aktiivinen näkymä typistyy ellipsillä eikä työnnä muita', () => {
+    expect(VP).toMatch(/#topbar \.bc-active \{[^}]*text-overflow:ellipsis/);
+  });
+});
