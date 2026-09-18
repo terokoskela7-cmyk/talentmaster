@@ -31,7 +31,11 @@ const OHITA = new Set([basename(fileURLToPath(import.meta.url)), 'i18n_vp_lajini
 
 const seuratut = execFileSync('git', ['ls-files'], { cwd: juuri, encoding: 'utf8' })
   .split('\n').filter(Boolean)
-  .filter((p) => /\.(js|json|html|md)$/i.test(p))
+  /* RUNTIME + KÄÄNNÖSLÄHTEET, ei dokumentaatio. `.md` oli mukana ensimmäisessä versiossa ja se
+     kaatoi CI:n: brief-dokumentti (docs/CODE_BRIEF_I18N_V5_VP_V7_RAPORTOINTI.md) SAA sisältää
+     vanhan termin — se on historiallista proosaa, joka kuvaa mennyttä tilaa. Portin tehtävä on
+     estää vanhan termin RENDERÖITYMINEN ja sen paluu käännöslähteestä, ei sensuroida briefejä. */
+  .filter((p) => /\.(js|json|html)$/i.test(p))
   .filter((p) => !OHITA.has(basename(p)));
 
 const VANHA = /riktningsbyte[a-zäöå]*|riktningsändring[a-zäöå]*/gi;
