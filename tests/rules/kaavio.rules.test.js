@@ -528,9 +528,13 @@ describe('kaaviot · KOMMENTTILANKA — append-only staff-lanka', () => {
     await assertFails(deleteDoc(komm(vp(SEURA_A), 'k_lanka', 'c0')));
     await assertSucceeds(deleteDoc(komm(sa(), 'k_lanka', 'c0')));
   });
-  it('seurasihteeri LUKEE langan (hän näkee kaaviotkin) muttei KIRJOITA siihen', async () => {
-    // Sama rajaus kuin onKaavioHyvaksyja():ssa: katselmuspalaute on valmennussisältöä, ei hallintoa.
-    await assertSucceeds(getDoc(komm(siht(), 'k_lanka', 'c0')));
+  it('seurasihteeri EI lue KESKENERÄISEN kaavion lankaa eikä kirjoita siihen', async () => {
+    // MUUTTUI v3.19:ssä (3b). Aiemmin tämä väitti "seurasihteeri LUKEE langan (hän näkee
+    // kaaviotkin)" — se piti paikkansa kun kaavion luku salli onJohtoRooli():n. Nyt johto
+    // näkee vain valmiit, joten myös lanka seuraa: k_lanka on tilassa 'odottaa'.
+    // Kirjoituskielto on ENNALLAAN ja eri syystä (onKaavioHyvaksyja: katselmuspalaute on
+    // valmennussisältöä, ei hallintoa) — siksi molemmat väitteet pidetään samassa testissä.
+    await assertFails(getDoc(komm(siht(), 'k_lanka', 'c0')));
     await assertFails(setDoc(komm(siht(), 'k_lanka', 'c_s'), sisalto(SIHTEERI)));
   });
   it('talenttivalmentaja kommentoi (valmennusrooli)', async () => {
@@ -555,5 +559,81 @@ describe('kaaviot · KOMMENTTILANKA — append-only staff-lanka', () => {
     it('EI-VACUOUS: sama valmentaja lukee JULKISEN kaavion langan', async () => {
       await assertSucceeds(getDoc(komm(valm(VALM_A2, SEURA_A), 'k_lanka', 'c0')));
     });
+  });
+});
+
+// ── 3b · JOHTO NÄKEE VAIN VALMIIT KAAVIOT (v3.19) ────────────────────────────────────────
+// Hallintomalli: keskeneräinen kaavio on valmennustyötä, ei hallintodokumentti. Hyväksyjä
+// (vp/UTJ) näkee luonnokset koska hän KATSELMOI ne; seurasihteeri ei ole valmennusrooli eikä
+// katselmoi, joten hänelle näkyvät vain valmiit.
+//
+// Ero syntyy roolijoukkojen erotuksesta: onJohtoRooli() = vp|UTJ|seurasihteeri ja
+// onValmentajaRooli() = valmentaja|talenttivalmentaja|fysiikkavalmentaja|vp|UTJ. Kun kaavion
+// luvusta poistettiin onJohtoRooli(), ainoa rooli joka tosiasiassa menetti pääsyn oli
+// seurasihteeri. Siksi jokaiselle DENY-väitteelle on TÄSMÄLLINEN PARI (sama dokumentti, sama
+// operaatio, eri rooli) — muuten kielto voisi johtua jostain muusta portista.
+describe('kaaviot · LUKU — johto näkee vain valmiit (3b)', () => {
+  it('seurasihteeri EI lue luonnosta', async () => {
+    await assertFails(getDoc(kd(siht(), 'k_luonnos')));
+  });
+  it('seurasihteeri EI lue odottavaa (katselmuksessa olevaa)', async () => {
+    await assertFails(getDoc(kd(siht(), 'k_odottaa')));
+  });
+  it('seurasihteeri LUKEE hyväksytyn (ei-vacuous: portti ei estä kaikkea)', async () => {
+    await assertSucceeds(getDoc(kd(siht(), 'k_hyvaksytty')));
+  });
+
+  it('PARI: hyväksyjä-VP lukee samat keskeneräiset → katselmus säilyy', async () => {
+    await assertSucceeds(getDoc(kd(vp(SEURA_A), 'k_luonnos')));
+    await assertSucceeds(getDoc(kd(vp(SEURA_A), 'k_odottaa')));
+  });
+  it('PARI: talenttivalmentaja lukee keskeneräiset (valmennusrooli)', async () => {
+    await assertSucceeds(getDoc(kd(talval(), 'k_luonnos')));
+  });
+
+  it('yksityinen luonnos pysyy tekijälle vain — myös VP:ltä (ei löysentynyt)', async () => {
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), 'seurat', SEURA_A, 'kaaviot', 'k_3b_yks'), {
+        spec: SPEC,
+        review: { status: 'luonnos', nakyvyys: 'joukkue', joukkueId: JOUKKUE_A1,
+                  versio: 0, luonut: VALM_A1, yksityinen: true }
+      });
+    });
+    await assertFails(getDoc(kd(vp(SEURA_A), 'k_3b_yks')));
+    await assertFails(getDoc(kd(siht(), 'k_3b_yks')));
+    await assertSucceeds(getDoc(kd(valm(VALM_A1, SEURA_A), 'k_3b_yks')));   // tekijä
+  });
+});
+
+// Lanka EI saa vuotaa kaavion ohi: katselmusteksti ("karsi kolmeen pelaajaan") kertoo kuvan
+// keskeneräisyyden yhtä hyvin kuin kuva itse. Ilman tätä peilausta rajaus olisi ollut näennäinen.
+describe('kaaviot · KOMMENTTILANKA — peilaa kaavion lukurajauksen (3b)', () => {
+  const kd2 = (db, id) => doc(db, 'seurat', SEURA_A, 'kaaviot', id);
+  const komm = (db, kid, cid) => doc(db, 'seurat', SEURA_A, 'kaaviot', kid, 'kommentit', cid);
+
+  beforeEach(async () => {
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      const db = ctx.firestore();
+      await setDoc(kd2(db, 'k_3b_odottaa'), kaavio('odottaa'));
+      await setDoc(kd2(db, 'k_3b_valmis'), kaavio('hyvaksytty'));
+      const c = { teksti: 'Karsi kolmeen pelaajaan.', kirjoittaja: VP_A, rooli: 'vp',
+                  tyyppi: 'kommentti', aika: new Date() };
+      await setDoc(komm(db, 'k_3b_odottaa', 'c1'), c);
+      await setDoc(komm(db, 'k_3b_valmis', 'c1'), c);
+    });
+  });
+
+  it('seurasihteeri EI lue keskeneräisen kaavion lankaa', async () => {
+    await assertFails(getDoc(komm(siht(), 'k_3b_odottaa', 'c1')));
+  });
+  it('seurasihteeri LUKEE hyväksytyn kaavion langan (ei-vacuous)', async () => {
+    await assertSucceeds(getDoc(komm(siht(), 'k_3b_valmis', 'c1')));
+  });
+  it('PARI: VP lukee keskeneräisen langan → katselmus säilyy', async () => {
+    await assertSucceeds(getDoc(komm(vp(SEURA_A), 'k_3b_odottaa', 'c1')));
+  });
+  it('langan seurarajaus säilyy: toisen seuran VP ei lue edes hyväksytyn lankaa', async () => {
+    const toinen = testEnv.authenticatedContext('vp-kpv-3b', { rooli: 'vp', seuraId: SEURA_B }).firestore();
+    await assertFails(getDoc(komm(toinen, 'k_3b_valmis', 'c1')));
   });
 });
