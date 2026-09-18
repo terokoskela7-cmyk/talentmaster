@@ -60,34 +60,30 @@ function bundlatut() {
 const BUNDLATUT = bundlatut();
 
 describe('CSP + bundler-appit (blob:)', () => {
-  it('tarjoiltavista löytyy bundlattu appi (ei-tyhjyys)', () => {
-    expect(BUNDLATUT.map((b) => b.tiedosto)).toContain('TalentMaster_ADAR_Pikakortti.html');
-    expect(BUNDLATUT[0].mimet.length).toBeGreaterThan(1);
-  });
-
-  it('lataaja purkaa resurssit blob:-URL:eiksi (perusoletus jonka päälle portti rakentuu)', () => {
+  /**
+   * TILANNE 2026-09-18: bundlattuja appeja EI ENÄÄ OLE. ADAR — ainoa tällainen — purettiin
+   * tavalliseksi apiksi (ulkoiset SDK-tagit + sw_adar.js + Firestoren offline-persistenssi).
+   *
+   * Porttia EI silti poisteta: se on ehdollinen ja herää itsestään jos joku tuo bundlatun apin
+   * takaisin. Silloin `script-src`/`font-src` on jälleen sallittava `blob:` tai appi kaatuu
+   * hiljaa vain live-hostissa (Pages ei palauta CSP:tä) — tämä maksoi jo yhden pilottihavainnon.
+   */
+  it('ei bundlattuja appeja — ADAR purettiin tavalliseksi apiksi', () => {
+    expect(BUNDLATUT).toEqual([]);
     const s = lue('TalentMaster_ADAR_Pikakortti.html');
-    expect(s).toContain('URL.createObjectURL');
+    expect(s).not.toContain('__bundler/');
+    expect(s).not.toContain('URL.createObjectURL');
   });
 
-  it('jokainen bundlattu mime-tyyppi sallii blob:n omassa direktiivissään', () => {
+  it('JOS bundlattu appi palaa, sen jokainen mime-tyyppi sallii blob:n', () => {
     for (const { tiedosto, mimet } of BUNDLATUT) {
       for (const mime of mimet) {
         const d = direktiiviMimelle(mime);
         expect(direktiivi(d), `${tiedosto}: ${mime} → ${d}`).toContain('blob:');
       }
     }
-  });
-
-  it('Firebase-SDK on bundlattu — ADAR ei tarvitse ulkoisia SDK-skriptejä', () => {
-    const s = lue('TalentMaster_ADAR_Pikakortti.html');
-    let manifest = null;
-    for (const m of s.matchAll(/<script[^>]*type="__bundler\/manifest"[^>]*>([\s\S]*?)<\/script>/g)) {
-      try { manifest = JSON.parse(m[1]); break; } catch { /* ks. yllä */ }
-    }
-    const js = Object.values(manifest).filter((e) => direktiiviMimelle(e.mime) === 'script-src');
-    // app + auth + firestore + app-check = 4 compat-SDK:ta, kaikki gzipattuna.
-    expect(js.length).toBe(4);
-    expect(js.every((e) => e.compressed)).toBe(true);
+    // Ei-vacuous silloinkin kun bundleja ei ole: mime→direktiivi-kartan on pysyttävä ehjänä.
+    expect(direktiiviMimelle('text/javascript')).toBe('script-src');
+    expect(direktiiviMimelle('font/woff2')).toBe('font-src');
   });
 });

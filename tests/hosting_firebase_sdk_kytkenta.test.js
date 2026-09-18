@@ -85,9 +85,36 @@ describe('Firebase-SDK:n kytkentä tarjoiltavissa appeissa', () => {
     }
   });
 
-  it('ADAR-pikakortti tarjoaa SDK:n bundlattuna — ei ulkoisia SDK-tageja (§15 offline-ensin)', () => {
+  /**
+   * ADAR oli aiemmin yhden tiedoston selainbundle (gzip-blobit + DecompressionStream + blob:-URLit).
+   * Se toimi Chromessa mutta oli hauras vanhemmilla selaimilla/webvieweilla ja raskas yllapitaa →
+   * purettu tavalliseksi apiksi. Offline-kenttakaytto (§15) EI poistunut: se tulee nyt
+   * sw_adar.js:n precachesta + Firestoren IndexedDB-persistenssista.
+   *
+   * Portti seuraa arkkitehtuuria: se vaatii ULKOISEN muodon ja kieltaa bundlerin paluun.
+   */
+  it('ADAR-pikakortti on tavallinen appi: ulkoiset SDK-tagit, ei bundleria', () => {
     const s = lue('TalentMaster_ADAR_Pikakortti.html');
-    expect(bundlattuJs(s)).toBe(4);
-    expect(/<script[^>]*src=["']https:\/\/www\.gstatic\.com/i.test(s)).toBe(false);
+    expect(bundlattuJs(s)).toBe(0);
+    expect(s).not.toContain('__bundler/');
+    expect(s).not.toContain('DecompressionStream');
+    expect(s).not.toContain('createObjectURL');
+    for (const sdk of ['app', 'app-check', 'auth', 'firestore', 'storage']) {
+      expect(s, `firebase-${sdk}-compat puuttuu`).toContain(`firebase-${sdk}-compat.js`);
+    }
+    expect(s).toContain('lib/tm_appcheck.js');
+  });
+
+  it('ADARin offline-kyky (§15) sailyy de-bundlen jalkeen', () => {
+    const s = lue('TalentMaster_ADAR_Pikakortti.html');
+    expect(s, 'Firestoren offline-jono').toContain('enablePersistence');
+    expect(s, 'SW-rekisterointi').toContain("navigator.serviceWorker.register('sw_adar.js");
+    const sw = lue('sw_adar.js');
+    expect(sw, 'versioitu cache').toMatch(/const CACHE = 'tm-adar-v\d+'/);
+    expect(sw, 'uusi deploy syrjayttaa vanhan').toContain('skipWaiting');
+    expect(sw).toContain('clients.claim');
+    // Allowlist-periaate (§27.4): SW ei saa cachettaa muiden appien sivuja.
+    expect(sw).toContain('SALLITUT_ISANNAT');
+    expect(sw).toContain('OMAT_POLUT');
   });
 });
