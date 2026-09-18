@@ -18,15 +18,17 @@
  * appeja eivätkä alusta omaa firebaseaan.
  */
 import { describe, it, expect } from 'vitest';
-import { readFileSync, readdirSync } from 'fs';
+import { readFileSync } from 'fs';
+import { createRequire } from 'module';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 
 const juuri = join(dirname(fileURLToPath(import.meta.url)), '..');
 const lue = (p) => readFileSync(join(juuri, p), 'utf8');
-const HOSTING = JSON.parse(lue('firebase.json')).hosting;
-const IGNORE = new Set(HOSTING.ignore.filter((g) => g.endsWith('.html')));
-const TARJOILLAAN = readdirSync(juuri).filter((f) => f.endsWith('.html') && !IGNORE.has(f));
+/* Yksi johtamispiste (git ls-files − hosting.ignore): versionhallitsemattomat scratch-tiedostot
+   eivät vuoda kohdejoukkoon, kuten readdirSync-pohjaisessa johtamisessa tapahtui. */
+const { tarjoiltavatAppit } = createRequire(import.meta.url)('../scripts/tarjoiltavat_appit.js');
+const TARJOILLAAN = tarjoiltavatAppit(juuri);
 
 /** firebase.<api>() → SDK-paketin nimi jonka on oltava ladattuna. */
 const PALVELU_SDK = {

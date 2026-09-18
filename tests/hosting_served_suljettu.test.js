@@ -77,10 +77,36 @@ describe('tarjoiltava joukko (johdettu firebase.jsonista)', () => {
     expect(SERVED.length).toBeGreaterThan(20);
     expect(juurenHtml().length).toBeGreaterThan(SERVED.length);   // ignore ei ole tyhjä
   });
+  /**
+   * Poikkeus on NIMETTY, ei väljennys: sivu saa olla ignoressa vain jos se on todistettavasti
+   * kuollut (ei parsidu) EIKÄ sinne linkitä mikään. Valmentajakortti täyttää molemmat:
+   * `const KETJU_NIMET` on määritelty kahdesti samassa script-lohkossa (rivit 452 ja 848) →
+   * SyntaxError tappaa koko lohkon, ja sivu on linkittämätön (ks. alla "suljettu navigoinnin
+   * suhteen" -portti, joka pitää huolen ettei siihen ilmesty linkkiä). Se on myös
+   * eslint.config.js:n `ignores`issa samasta syystä (#60 Vaihe 2).
+   * ÄLÄ lisää tähän appia joka toimii — silloin se 404:ää käyttäjälle custom-domainilla.
+   */
+  const KUOLLEET_SALLITUT_IGNORESSA = ['TalentMaster_Valmentajakortti.html'];
+
   it('App Check -appit ovat kaikki tarjoiltavia (ei backend-appia ignoren taakse)', () => {
     const appCheckAppit = juurenHtml().filter((n) => /firebase-app(-compat)?\.js/.test(lue(n)));
-    const piilossa = appCheckAppit.filter((n) => ignoroitu(n));
+    const piilossa = appCheckAppit.filter((n) => ignoroitu(n) && !KUOLLEET_SALLITUT_IGNORESSA.includes(n));
     expect(piilossa, 'backend-appi ignoressa → 404 custom-domainilla').toEqual([]);
+  });
+
+  it('nimetty poikkeus on aidosti kuollut — ei väljennys toimivalle apille', () => {
+    for (const nimi of KUOLLEET_SALLITUT_IGNORESSA) {
+      expect(ignoroitu(nimi), `${nimi}: poikkeus turha jos sivu ei ole ignoressa`).toBe(true);
+      /* Kuollut = sivun inline-skripti ei PARSIDU. Testataan se ajamalla parseri, ei
+         merkkijonoheuristiikalla: jos joku korjaa sivun, tämä muuttuu vihreästä punaiseksi ja
+         pakottaa poistamaan poikkeuksen (eikä jätä kuollutta appia ignoreen ikuisiksi ajoiksi). */
+      const lohkot = [...lue(nimi).matchAll(/<script(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/script>/gi)]
+        .map((m) => m[1]);
+      const parsiutumattomat = lohkot.filter((koodi) => {
+        try { new Function(koodi); return false; } catch (e) { return e instanceof SyntaxError; }
+      });
+      expect(parsiutumattomat.length, `${nimi}: parsiutuu nyt → korjattu? poista poikkeus ja palauta tarjoiluun`).toBeGreaterThan(0);
+    }
   });
 });
 

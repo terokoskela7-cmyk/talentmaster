@@ -112,9 +112,16 @@ const COMMON = {
   ...keraaWindowGlobaalit(),   // ajonaikaiset window.X-globaalit (poistaa window.X-patternin väärät positiivit)
 };
 
+/** Juuren HTML:t joissa on top-level ES-moduuliskripti (import-lauseet). */
+function moduuliHtml() {
+  return fs.readdirSync(__dirname)
+    .filter((f) => f.endsWith('.html'))
+    .filter((f) => /<script[^>]*type=["']module["']/.test(fs.readFileSync(path.join(__dirname, f), 'utf8')));
+}
+
 module.exports = [
   // Globaali ignore: legacy/viittaamattomat sivut joissa on jo ennestään parse-virhe.
-  // #60 VAIHE 2: Valmentajakortti.html sisältää aidon duplikaatti-constin (KETJU_NIMET riveillä 449 + 845
+  // #60 VAIHE 2: Valmentajakortti.html sisältää aidon duplikaatti-constin (KETJU_NIMET riveillä 452 + 848
   // → SyntaxError). Sivu on kuollut (ei linkitetty mistään, ei §8:n aktiivisessa setissä). Portti kohdistuu
   // aktiiviseen koodiin; tämä jää erilliseen legacy-siivoukseen (älä lisää tähän aktiivisia tiedostoja).
   {
@@ -140,5 +147,11 @@ module.exports = [
       globals: COMMON,
     },
     rules: { 'no-undef': 'error' },
+  },
+  // ES-moduuliapit (§38 "modular"): top-level <script type="module"> + import-lauseet.
+  // Johdetaan DATASTA — uusi moduuliappi tulee katetuksi itsestään, ei kovakoodattua listaa.
+  {
+    files: moduuliHtml(),
+    languageOptions: { sourceType: 'module' },
   },
 ];
