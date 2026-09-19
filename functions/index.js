@@ -1706,7 +1706,16 @@ exports.aiProxy = functions
       let aiResult;
 
       if (task === 'voice_transcribe') {
+        // Whisper on täysin käsitelty tässä — EI saa pudota geneeriseen
+        // provider-polkuun, joka ylikirjoittaisi tuloksen tekstimallin
+        // vastauksella ("en voi toistaa ääntä…"). Return on osa korjausta.
         aiResult = await _handleWhisper(data);
+        const durationMs = Date.now() - startTime;
+        await _auditLog(uid, task, providerName, durationMs, true);
+        return res.status(200).json({
+          ...aiResult,
+          _meta: { task, provider: providerName, durationMs }
+        });
       }
 
   // ═══════════════════════════════════════════════════════════════════════
