@@ -59,6 +59,8 @@ const APP_GLOBALS = {
   // muut jaetut libit / globaalit
   TM: 'readonly', TM_AI: 'readonly', TM_SELITTEET: 'readonly', tmSentryContext: 'readonly',
   tmKalenteriOccurrences: 'readonly', tmToistuvuusPaiva: 'readonly', tmSarjaId: 'readonly', tmCadenceNimi: 'readonly',
+  // lib/tm_reflektio.js (jaettu äänireflektio: Master + VP)
+  tmReflektio: 'readonly',
   // lib/tm_historia.js (Trendi Vaihe 1 — mittaushistorian selkäranka)
   TM_HISTORIA: 'readonly', tmHhSnapshot: 'readonly', tmTkiSnapshot: 'readonly', tmHistoriaLisaa: 'readonly',
   // lib/tm_pohja.js (P1.2 — itsekuvaava tuontipohja: sarakegenerointi + Meta-lehti)
