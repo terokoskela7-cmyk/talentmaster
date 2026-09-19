@@ -18,7 +18,7 @@
 <script src="lib/tm_appcheck.js?v=1"></script>
 <script src="lib/tm_lang.js?v=14"></script>   <!-- i18n V0 — fi/sv/en käännöstaulukko + t() + kieli-init (putkitus) -->
 <script src="lib/tm_i18n_common.js?v=9"></script>   <!-- i18n Vaihe 0 — JAETTU henkilöstö-i18n + lukittu glossaari (ENNEN sivukarttaa) -->
-<script src="lib/tm_master_i18n.js?v=25"></script>   <!-- i18n Vaihe 5 Raita B — Master sv (sivukartta); masterT/masterLokalisoi delegoivat commoniin -->
+<script src="lib/tm_master_i18n.js?v=26"></script>   <!-- i18n Vaihe 5 Raita B — Master sv (sivukartta); masterT/masterLokalisoi delegoivat commoniin -->
 <script src="lib/tm_eerikkila_normit.js?v=45"></script>   <!-- v43: D2-kortti d2_taso-ensin (renderKehityskorttiHTML, PR #264 · §30/#262) -->
 <script src="lib/tm_harjoitusarviointi.js?v=5"></script>
 <script src="lib/tm_kalenteri.js?v=1"></script>
@@ -88,7 +88,7 @@ window.TM_KAAVIO_HOST = {
 <script src="lib/tm_idp.js?v=6"></script>   <!-- I3a: + kesto valmentajan asetettavaksi (opts.kestoVk) · I2 (C): valmentajan IDP-kausitavoite-kortti -->
 <script src="lib/tm_pelialy_yksilo.js?v=4"></script>   <!-- P1: pelihavainto peliäly → yksilöteema (Kartta A) · v3: Vaihe B multi-rater konsensus (tmAdarKonsensus/RistiinarvioAvoin/TalenttiSignaali) -->
 <script src="lib/tm_kehityskaari.js?v=3"></script>   <!-- Trendi Vaihe 2: yksilön kehityskaari (render hh_historia/tki_historia:sta) -->
-<script src="lib/tm_aani.js?v=1"></script>   <!-- Vaihe 0: puhdas nauhoitin (reflektio + VP:n ääripalaute samasta ytimestä) -->
+<script src="lib/tm_aani.js?v=2"></script>   <!-- Vaihe 0: puhdas nauhoitin (reflektio + VP:n ääripalaute samasta ytimestä) -->
 <script src="lib/tm_reflektio.js?v=2"></script>   <!-- Vaihe 1: jaettu äänireflektio (Master + VP) — irrotettu Masterin inlinestä -->
 <script src="lib/tm_arviointi_silta.js?v=3"></script>   <!-- Vaihe 5: arviointi→resepti-silta (4a lähde-vihje: arvioinnin heikoin havaittu) · v2 = I3a SSOT-osoitin tm_kehityspolku -->
 <script src="lib/tm_jaksofokus.js?v=5"></script>   <!-- Vaihe 4c/6: tmJfUmpeutunut (jakson sulku -laukaisin) -->
@@ -7854,7 +7854,11 @@ window.avaaValmentajaKehitys = async function () {
     else withFb.forEach(b => {
       h += '<div style="background:var(--bg2);border:.5px solid var(--line);border-radius:10px;padding:11px 14px;margin-bottom:8px">'
         + '<div style="font-size:12px;color:var(--ink)">' + _mEsc(b.a.joukkue || '—') + ' <span style="color:var(--ink3);font-size:11px">· ' + _mEsc(b.a.pvm || '') + ' · ' + masterT(_HA_KRIT_NIMI[b.a.malli] || b.a.malli) + '</span></div>'
-        + b.palaute.map(p => '<div style="font-size:12px;color:var(--ink2);padding:5px 0 0"><span style="color:var(--teal)">💬</span> ' + _mEsc(p.teksti) + '<div style="font-size:10px;color:var(--ink3);margin-top:2px">' + _mEsc(p.tekija_rooli || '') + ' · ' + _mEsc((p.pvm || '').slice(0, 10)) + '</div></div>').join('')
+        /* VP voi jättää ääripalautteen ilman tekstiä → teksti renderöidään vain jos se on.
+           Ääni + litterointi jaetulla renderöijällä (tmAani.toistoHTML), sama kuin
+           reflektiopäiväkirjassa ja VP:n omassa listassa. VAIN palaute_jaettu tulee
+           tänne — palaute_yksityinen on johto-gate eikä sitä edes haeta (rivi ~7848). */
+        + b.palaute.map(p => '<div style="font-size:12px;color:var(--ink2);padding:5px 0 0">' + (p.teksti ? '<span style="color:var(--teal)">💬</span> ' + _mEsc(p.teksti) : '<span style="color:var(--teal)">🎙</span> ' + masterT('Ääripalaute')) + tmAani.toistoHTML(p) + '<div style="font-size:10px;color:var(--ink3);margin-top:2px">' + _mEsc(p.tekija_rooli || '') + ' · ' + _mEsc((p.pvm || '').slice(0, 10)) + '</div></div>').join('')
         + '</div>';
     });
 
