@@ -139,6 +139,22 @@ async function seedKehu() {
   });
 }
 
+async function seedMentorointi() {
+  await testEnv.withSecurityRulesDisabled(async (context) => {
+    const db = context.firestore();
+    // Sisäinen muistiinpano — EI jaettu valmentajalle (ei viestit-kopiota).
+    await setDoc(doc(db, 'seurat', SEURA_A, 'mentoroinnit', 'ment_sisainen'), {
+      coachId: VALM_A_UID, vpUid: VP_A_UID, tyyppi: 'mentorointi',
+      teksti: 'Sisäinen arvio valmentajasta', nakyvyys: 'sisainen', aika: new Date(),
+    });
+    // Jakamaton SPL-kenttäkäynti — menee samaan kokoelmaan.
+    await setDoc(doc(db, 'seurat', SEURA_A, 'mentoroinnit', 'ment_spl'), {
+      coachId: VALM_A_UID, vpUid: VP_A_UID, tyyppi: 'kenttäkäynti',
+      teksti: 'SPL-arviointi · ka 6.5', nakyvyys: 'sisainen', aika: new Date(),
+    });
+  });
+}
+
 async function seedViesti() {
   await testEnv.withSecurityRulesDisabled(async (context) => {
     const db = context.firestore();
@@ -1938,5 +1954,77 @@ describe('rosterin jako — kuka saa siirtää pelaajan joukkueeseen', () => {
     const db = sihteeriContext(SEURA_A).firestore();
     await assertSucceeds(setDoc(doc(db, 'seurat', SEURA_A, 'joukkueet', 'fcl_sihteeri_test'), { nimi: 'Testi' }));
     await assertFails(updateDoc(doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID), SIIRTO));
+  });
+});
+
+/**
+ * MENTOROINNIT — VP:n sisäinen historia.
+ *
+ * `mentoroinnit` sai KAIKKI mentorointikirjaukset, myös sisäiset muistiinpanot ja
+ * jakamattomat SPL-kenttäkäynnit, ja luku oli `onOmaSeura(seuraId)` → kuka tahansa
+ * saman seuran valmentaja saattoi lukea mitä hänestä kirjoitettiin. `nakyvyys:
+ * 'sisainen'` oli vain client-suodatin. Sama luokka kuin #563.
+ *
+ * Jakaminen valmentajalle tapahtuu ERI kokoelman kautta (`viestit`), joten kiristys
+ * ei vie valmentajalta mitään — se todistetaan viimeisellä testillä, ei väitetä.
+ */
+describe('Mentoroinnit — VP:n sisäinen historia (valmentaja EI lue)', () => {
+  beforeEach(async () => {
+    await seedSeuraAndPelaaja();
+    await seedMentorointi();
+  });
+
+  it('Valmentaja EI lue sisäistä muistiinpanoa itsestään', async () => {
+    const db = valmentajaContext(VALM_A_UID, SEURA_A).firestore();
+    await assertFails(getDoc(doc(db, 'seurat', SEURA_A, 'mentoroinnit', 'ment_sisainen')));
+  });
+
+  it('Valmentaja EI lue jakamatonta SPL-kenttäkäyntiä', async () => {
+    const db = valmentajaContext(VALM_A_UID, SEURA_A).firestore();
+    await assertFails(getDoc(doc(db, 'seurat', SEURA_A, 'mentoroinnit', 'ment_spl')));
+  });
+
+  it('Valmentaja EI listaa koko kokoelmaa (client-suodatin ei ole suoja)', async () => {
+    /* VP hakee "KAIKKI mentoroinnit kerran ja ryhmittelee clientissa". Jos vain
+       yksittäishaku olisi estetty, sama data tulisi listauksella. */
+    const db = valmentajaContext(VALM_A_UID, SEURA_A).firestore();
+    await assertFails(getDocs(collection(db, 'seurat', SEURA_A, 'mentoroinnit')));
+  });
+
+  it('Talenttivalmentaja EI lue (valmentajarooli, ei johto)', async () => {
+    const db = talenttivalmentajaContext('talval-fcl-001', SEURA_A).firestore();
+    await assertFails(getDoc(doc(db, 'seurat', SEURA_A, 'mentoroinnit', 'ment_sisainen')));
+  });
+
+  it('Seurasihteeri EI lue — onJohtoRooli() olisi ollut liian laaja', async () => {
+    /* Portti nimenomaan tälle: onJohtoRooli() kattaa seurasihteerin, joten sen
+       käyttö olisi antanut luvun laajemmin kuin kirjoitusoikeus. Luku ja kirjoitus
+       peilaavat toisiaan — tämä testi punertuu jos joku vaihtaa helpperiin. */
+    const db = sihteeriContext(SEURA_A).firestore();
+    await assertFails(getDoc(doc(db, 'seurat', SEURA_A, 'mentoroinnit', 'ment_sisainen')));
+  });
+
+  it('VP lukee oman seuransa mentoroinnit (historia säilyy)', async () => {
+    const db = vpContext(SEURA_A).firestore();
+    await assertSucceeds(getDoc(doc(db, 'seurat', SEURA_A, 'mentoroinnit', 'ment_sisainen')));
+    await assertSucceeds(getDocs(collection(db, 'seurat', SEURA_A, 'mentoroinnit')));
+  });
+
+  it('Super admin lukee', async () => {
+    const db = saContext().firestore();
+    await assertSucceeds(getDoc(doc(db, 'seurat', SEURA_A, 'mentoroinnit', 'ment_sisainen')));
+  });
+
+  it('Toisen seuran VP EI lue (tenant-eristys)', async () => {
+    const db = vpContext(SEURA_B).firestore();
+    await assertFails(getDoc(doc(db, 'seurat', SEURA_A, 'mentoroinnit', 'ment_sisainen')));
+  });
+
+  it('EI KATVETTA: valmentaja lukee yhä JAETUN viestin (viestit-kokoelma)', async () => {
+    /* Kiristyksen koko turvallisuus lepää tämän varassa: jakokanava on eri
+       kokoelma, joten valmentaja ei menetä mitään. Todistetaan, ei väitetä. */
+    await seedViesti();
+    const db = valmentajaContext(VALM_A_UID, SEURA_A).firestore();
+    await assertSucceeds(getDoc(doc(db, 'seurat', SEURA_A, 'viestit', 'viesti1')));
   });
 });

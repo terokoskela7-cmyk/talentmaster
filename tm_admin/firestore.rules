@@ -999,9 +999,22 @@ service cloud.firestore {
         allow write: if onSuperAdmin() || onOmanSeuranValmentaja(seuraId);
       }
 
-      // ── MENTOROINNIT ───────────────────────────────────────────────────
+      // ── MENTOROINNIT — VP:n SISÄINEN historia (valmentaja EI lue) ──────
+      // Tänne kirjoitetaan AINA, myös sisäiset muistiinpanot ja jakamattomat
+      // SPL-kenttäkäynnit. Jakaminen valmentajalle tapahtuu ERI kokoelman
+      // kautta: VP_v25 kirjoittaa `viestit`-kokoelmaan vain kun jaetaan, ja
+      // valmentajan Inbox (Master `_kuunteleVpViestit`) lukee vain sitä.
+      //
+      // Aiempi `onOmaSeura(seuraId)` antoi KENELLE TAHANSA saman seuran
+      // valmentajalle luvun sisäisiin muistiinpanoihin häneistä itsestään;
+      // `nakyvyys:'sisainen'` oli vain client-suodatin. Sama luokka kuin #563.
+      //
+      // EI onJohtoRooli(): se kattaa myös seurasihteerin, mikä olisi laajempi
+      // kuin kirjoitusoikeus alla. Luku ja kirjoitus peilaavat toisiaan.
       match /mentoroinnit/{mentorointiId} {
-        allow read:  if onSuperAdmin() || onOmaSeura(seuraId);
+        allow read:  if onSuperAdmin()
+                     || (onOmaSeura(seuraId)
+                         && request.auth.token.rooli in ['vp', 'urheilutoimenjohtaja']);
         allow write: if onSuperAdmin()
                      || (onOmaSeura(seuraId)
                          && request.auth.token.rooli in ['vp', 'urheilutoimenjohtaja']);
