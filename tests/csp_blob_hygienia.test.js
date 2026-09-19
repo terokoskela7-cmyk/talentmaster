@@ -14,7 +14,13 @@
  * valvottaisiin, CSP voisi löystyä huomaamatta. Yhdessä ne pakottavat tietoisen päätöksen
  * molempiin paikkoihin yhtä aikaa.
  *
- * blob: SÄILYY `img-src`issä — kuvablobit ovat käytössä eikä niitä olla poistamassa.
+ * blob: SÄILYY `img-src`issä (kuvablobit) JA `media-src`issä (äänireflektio).
+ *
+ * MEDIA oli oma löydöksensä: `<audio>` ei kulje `img-src`in läpi vaan `media-src`in, jota EI OLLUT
+ * CSP:ssä lainkaan → se putosi `default-src 'self'`:iin ja valmentajan äänireflektio oli rikki
+ * Hosting-cutoverista asti. Rikki oli KOKO ketju, ei vain esikuuntelu: nauhoituksen blob-preview
+ * JA myöhempi toisto Firebase Storagen download-URL:sta. Todennettu livenä ennen korjausta —
+ * blob, firebasestorage.googleapis.com ja …firebasestorage.app kaikki estettyinä, oma origin ei.
  */
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'fs';
@@ -59,6 +65,14 @@ describe('CSP · blob-sallinta on rajattu', () => {
     expect(direktiivi('img-src')).toContain('blob:');
   });
 
+  it('media-src SALLII blob:in ja Firebase Storagen (äänireflektio)', () => {
+    const m = direktiivi('media-src');
+    expect(m, 'media-src puuttuu → <audio> putoaa default-srciin ja estyy').not.toBeNull();
+    expect(m).toContain("'self'");
+    expect(m).toContain('blob:');                                   // nauhoituksen esikuuntelu
+    expect(m).toContain('https://firebasestorage.googleapis.com');  // tallennetun toisto
+  });
+
   it('EI VACUOUS: direktiivit on oikeasti määritelty eikä muu policy löystynyt', () => {
     expect(direktiivi('script-src')).toContain("'self'");
     expect(direktiivi('font-src')).toContain("'self'");
@@ -89,6 +103,21 @@ describe('CSP · tarjoiltavat apit eivät lataa blobia skriptinä tai fonttina',
       'blob-skripti/-fontti vaatisi CSP-sallinnan takaisin (ja hajoaisi VAIN live-hostissa):\n'
         + vuodot.join('\n'),
     ).toEqual([]);
+  });
+
+  it('media-elementtejä käyttävän apin lähteet ovat media-srcissä', () => {
+    /* Kaksipuolisuus myös medialle: jos appi soittaa ääntä, CSP:n on katettava se — muuten
+       ominaisuus on rikki VAIN live-hostilla (Pages ei palauta CSP:tä). Juuri niin kävi. */
+    const mediaApit = appit.filter((a) => /<audio|<video|new Audio\(/.test(lue(a)));
+    expect(mediaApit, 'EI VACUOUS: media-appeja pitää olla').toContain('TalentMaster_Master_v16.html');
+    const m = direktiivi('media-src');
+    for (const appi of mediaApit) {
+      const s2 = lue(appi);
+      if (/createObjectURL/.test(s2)) expect(m, `${appi}: blob-media ilman sallintaa`).toContain('blob:');
+      if (/getDownloadURL/.test(s2)) {
+        expect(m.some((x) => /firebasestorage/.test(x)), `${appi}: Storage-media ilman sallintaa`).toBe(true);
+      }
+    }
   });
 
   it('ADARissa ei ole bundler-koneistoa (blob-sallinnan alkuperäinen syy)', () => {
