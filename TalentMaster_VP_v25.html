@@ -15492,17 +15492,29 @@ window.vpAvaaHarjoitusarviointi = async function (valmentajaUid, valmentajaNimi)
   var jset = {}; (_pelaajat || []).forEach(function (p) { if (p.joukkue && p.joukkue !== '—') jset[p.joukkue] = 1; });
   var joukkueet = Object.keys(jset).sort();
   var vpNimi = (window._vpNimi) || (cu.displayName) || 'VP';
-  var konteksti = { arvioija: vpNimi, arvioijaUid: cu.uid, arviointitapa: vpT('havainnointi') };
+  /* arviointitapa on ENUM, ei näyttötekstiä: sitä verrataan kaikkialla
+     merkkijonona === 'havainnointi'. vpT('havainnointi') palauttaa ruotsiksi
+     'observation' (lib/tm_vp_i18n.js) → tallennettu arvo ei täsmää, ja
+     kalibraation paritus hajoaa sv/en-kielellä. Master antaa 'itsearvio'
+     samoin raakana. */
+  var konteksti = { arvioija: vpNimi, arvioijaUid: cu.uid, arviointitapa: 'havainnointi' };
   if (valmentajaUid) {   // coach-kortilta — esitäytä valmentaja (+ joukkue jos tiedossa)
     var match = valmentajat.filter(function (c) { return c.uid === valmentajaUid; })[0];
     konteksti.valmentajaUid = valmentajaUid;
     konteksti.valmentaja = valmentajaNimi || (match && match.nimi) || '';
     if (match && match.joukkue) konteksti.joukkue = match.joukkue;
   }
+  /* ROOLIMALLI: VP tekee VAIN havainnoinnin. tapaLukko piilottaa Itsearvio/
+     Havainnointi-togglen (lib rivi 179) — ilman sitä VP voisi luoda valmentajan
+     ITSEARVION tämän puolesta, jolloin Kalibraatio-välilehden peili (valmentajan
+     oma itsearvio ↔ VP:n havainnointi) vertaisi VP:tä itseensä.
+     EI malliLukkoa: VP tekee edelleen sekä mallin A että B — vain tapa lukitaan.
+     Master lukitsee valmentajan vastaavasti itsearvioon (Master_v16:7728). */
   TM_HARJOITUS.avaa({
     db: db, firebase: firebase, seuraId: _seuraId, config: config, brandi: brandi,
     joukkueet: joukkueet.length ? joukkueet : null,
     valmentajat: valmentajat,
+    tapaLukko: true,
     konteksti: konteksti,
     onTallennettu: function () { if (typeof renderVPTuloskortti === 'function') renderVPTuloskortti(); }
   });
