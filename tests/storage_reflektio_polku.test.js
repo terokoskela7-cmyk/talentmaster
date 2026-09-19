@@ -22,7 +22,9 @@ import { dirname, join } from 'path';
 
 const juuri = join(dirname(fileURLToPath(import.meta.url)), '..');
 const lue = (p) => readFileSync(join(juuri, p), 'utf8');
-const MASTER = lue('TalentMaster_Master_v16.html');
+/* Upload-koodi asuu Vaiheesta 1 alkaen jaetussa libissä (Master + VP samasta lähteestä).
+   Portin sitoma kerros on KOODIN upload-polku — sitä luetaan sieltä missä se on. */
+const KOODI = lue('lib/tm_reflektio.js');
 const RULES = lue('storage.rules');
 const CSP = JSON.parse(lue('firebase.json')).hosting.headers
   .flatMap((h) => h.headers).find((h) => h.key === 'Content-Security-Policy').value;
@@ -72,9 +74,13 @@ function jaannokset(lohko) {
 
 describe('Reflektioaudio · koodin polku ↔ storage.rules', () => {
   it('EI VACUOUS: upload-polku löytyy koodista', () => {
-    expect(MASTER).toMatch(/const path = 'seurat\/' \+ _seuraId \+ '\/kayttajat\/' \+ cu\.uid \+ '\/reflektiot\//);
-    expect(MASTER).toContain('firebase.storage().ref(path)');
-    expect(MASTER).toContain('getDownloadURL()');
+    /* Regex pinnaa KIRJAIMELLISET polkusegmentit (ne rules-blokki matchaa) muttei
+       muuttujanimiä: aiempi versio vaati täsmälleen `const path = … _seuraId … cu.uid`
+       ja punertui lib-irrotuksessa pelkästä uudelleennimeämisestä, vaikka polku pysyi
+       samana. Segmentit ovat invariantti, nimet eivät. */
+    expect(KOODI).toMatch(/'seurat\/' \+ [A-Za-z_$][\w$]* \+ '\/kayttajat\/' \+ [A-Za-z_$][\w$.]* \+ '\/reflektiot\//);
+    expect(KOODI).toContain('firebase.storage().ref(path)');
+    expect(KOODI).toContain('getDownloadURL()');
   });
 
   it('storage.rules kattaa täsmälleen sen polun jota koodi käyttää', () => {
@@ -101,7 +107,7 @@ describe('Reflektioaudio · koodin polku ↔ storage.rules', () => {
     expect(lohko, 'contentType-rajaus').toMatch(/contentType\.matches\('audio\/\.\*'\)/);
     expect(lohko, 'kokokatto').toMatch(/request\.resource\.size < \d+ \* 1024 \* 1024/);
     // Koodi asettaa contentTypen, joka läpäisee audio/.*-rajauksen.
-    expect(MASTER).toMatch(/contentType: _refMime \|\| 'audio\/webm'/);
+    expect(KOODI).toMatch(/contentType: _refMime \|\| 'audio\/webm'/);
   });
 
   it('VAIN omistaja + SA: mikään muu auktorisointitermi ei kelpaa (allowlist)', () => {

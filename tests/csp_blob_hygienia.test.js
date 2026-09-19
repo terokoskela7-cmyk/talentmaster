@@ -105,14 +105,29 @@ describe('CSP · tarjoiltavat apit eivät lataa blobia skriptinä tai fonttina',
     ).toEqual([]);
   });
 
+  /**
+   * Apin TEHOLLINEN lähde = sen oma teksti + kaikki libit jotka se lataa.
+   *
+   * MIKSI: media-elementti voi asua apin lataamassa libissä. Reflektio irrotettiin
+   * `lib/tm_reflektio.js`:ään, jolloin `<audio>` katosi Masterin omasta lähteestä —
+   * mutta Master soittaa sitä yhä. Pelkkää apin tiedostoa lukeva portti olisi
+   * muuttunut hiljaa vacuousiksi juuri sillä hetkellä kun koodi liikkui, ja sama
+   * sokea piste osuisi jokaiseen myöhempään lib-irrotukseen.
+   */
+  function tehollinenLahde(appi) {
+    const oma = lue(appi);
+    const libit = [...oma.matchAll(/<script src="(lib\/[^"?]+\.js)/g)].map((x) => x[1]);
+    return oma + libit.map((f) => { try { return lue(f); } catch (e) { return ''; } }).join('\n');
+  }
+
   it('media-elementtejä käyttävän apin lähteet ovat media-srcissä', () => {
     /* Kaksipuolisuus myös medialle: jos appi soittaa ääntä, CSP:n on katettava se — muuten
        ominaisuus on rikki VAIN live-hostilla (Pages ei palauta CSP:tä). Juuri niin kävi. */
-    const mediaApit = appit.filter((a) => /<audio|<video|new Audio\(/.test(lue(a)));
+    const mediaApit = appit.filter((a) => /<audio|<video|new Audio\(/.test(tehollinenLahde(a)));
     expect(mediaApit, 'EI VACUOUS: media-appeja pitää olla').toContain('TalentMaster_Master_v16.html');
     const m = direktiivi('media-src');
     for (const appi of mediaApit) {
-      const s2 = lue(appi);
+      const s2 = tehollinenLahde(appi);
       if (/createObjectURL/.test(s2)) expect(m, `${appi}: blob-media ilman sallintaa`).toContain('blob:');
       if (/getDownloadURL/.test(s2)) {
         expect(m.some((x) => /firebasestorage/.test(x)), `${appi}: Storage-media ilman sallintaa`).toBe(true);
