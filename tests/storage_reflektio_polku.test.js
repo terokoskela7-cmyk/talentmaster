@@ -22,9 +22,12 @@ import { dirname, join } from 'path';
 
 const juuri = join(dirname(fileURLToPath(import.meta.url)), '..');
 const lue = (p) => readFileSync(join(juuri, p), 'utf8');
-/* Upload-koodi asuu Vaiheesta 1 alkaen jaetussa libissä (Master + VP samasta lähteestä).
-   Portin sitoma kerros on KOODIN upload-polku — sitä luetaan sieltä missä se on. */
+/* Upload-koodi asuu libeissä, ja Vaiheesta 0 alkaen KAHDESSA kerroksessa:
+   · lib/tm_reflektio.js PÄÄTTÄÄ polun (näkyvyys on reflektion oma asia)
+   · lib/tm_aani.js      SUORITTAA latauksen (jaettu ydin, ei tunne polkuja)
+   Portti sitoo molemmat — muuten kerrosjako voisi rikkoa rules-matchin hiljaa. */
 const KOODI = lue('lib/tm_reflektio.js');
+const AANI = lue('lib/tm_aani.js');
 const RULES = lue('storage.rules');
 const CSP = JSON.parse(lue('firebase.json')).hosting.headers
   .flatMap((h) => h.headers).find((h) => h.key === 'Content-Security-Policy').value;
@@ -78,9 +81,13 @@ describe('Reflektioaudio · koodin polku ↔ storage.rules', () => {
        muuttujanimiä: aiempi versio vaati täsmälleen `const path = … _seuraId … cu.uid`
        ja punertui lib-irrotuksessa pelkästä uudelleennimeämisestä, vaikka polku pysyi
        samana. Segmentit ovat invariantti, nimet eivät. */
-    expect(KOODI).toMatch(/'seurat\/' \+ [A-Za-z_$][\w$]* \+ '\/kayttajat\/' \+ [A-Za-z_$][\w$.]* \+ '\/reflektiot\//);
-    expect(KOODI).toContain('firebase.storage().ref(path)');
-    expect(KOODI).toContain('getDownloadURL()');
+    // 1) Reflektio päättää KANSION (kirjaimelliset segmentit = ne joita rules matchaa)
+    expect(KOODI).toMatch(/'seurat\/' \+ [A-Za-z_$][\w$]* \+ '\/kayttajat\/' \+ [A-Za-z_$][\w$.]* \+ '\/reflektiot'/);
+    // 2) Nauhoitin liittaa kansion ja tiedostonimen — ilman tata kerrosjako voisi
+    //    tuottaa polun joka EI osu rules-blokkiin, vaikka molemmat palat näyttävät oikeilta
+    expect(AANI).toMatch(/String\(kansio\)[\s\S]{0,60}\+ '\/' \+ nimi/);
+    expect(AANI).toContain('firebase.storage().ref(polku)');
+    expect(AANI).toContain('getDownloadURL()');
   });
 
   it('storage.rules kattaa täsmälleen sen polun jota koodi käyttää', () => {
@@ -107,7 +114,7 @@ describe('Reflektioaudio · koodin polku ↔ storage.rules', () => {
     expect(lohko, 'contentType-rajaus').toMatch(/contentType\.matches\('audio\/\.\*'\)/);
     expect(lohko, 'kokokatto').toMatch(/request\.resource\.size < \d+ \* 1024 \* 1024/);
     // Koodi asettaa contentTypen, joka läpäisee audio/.*-rajauksen.
-    expect(KOODI).toMatch(/contentType: _refMime \|\| 'audio\/webm'/);
+    expect(AANI).toMatch(/contentType: mime \|\| 'audio\/webm'/);
   });
 
   it('VAIN omistaja + SA: mikään muu auktorisointitermi ei kelpaa (allowlist)', () => {
