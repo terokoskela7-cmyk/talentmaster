@@ -11085,6 +11085,14 @@ async function _vpViikkoTallennaRivi(pid, iso) {
     if (typeof toast === 'function') toast('✓ ' + iso.slice(5) + ' ' + vpT('tallennettu'), 'ok');
   } catch (e) { console.warn('[viikko]', e && e.message); if (typeof toast === 'function') toast(vpT('Session tallennus ei onnistunut'), 'error'); }
 }
+/* TIETOINEN RAJAUS — EI aktiivisuuslaskuria tässä polussa.
+   Tämä kirjoittaa YHDEN pelaajan YHDEN session kerrallaan (viikkoruudukon
+   pikatoggle). Inkrementti täällä tarkoittaisi 15 pelaajan merkinnässä 15
+   tapahtumaa yhdestä sessiosta = juuri se joukkuekoko-vääristymä jonka
+   per-sessio-laskenta estää, eikä per-sessio-dedupia voi tehdä luotettavasti
+   clientissä (sivulataus nollaa dedup-setin → hiljaista ylilaskentaa).
+   Laskuri heijastaa kanonista "Tallenna läsnäolo" -batchia
+   (`_vpTallennaLasnaolo`), kuten Masterissa. */
 async function _vpViikkoTallennaLasna(pid, iso) {
   const st = window._vpViikko; if (!st || st.pid !== pid) return;
   const row = st.rows[iso]; if (!row) return;
@@ -14266,6 +14274,22 @@ async function _vpRenderLasnaolo(t, container) {
 
   _vpLasnaoloPaint(rows, state);
 }
+/* Aktiivisuuslaskuri (peili Master_v16:n `_tmLaskuri`:lle). VP-valmennuspäällikkö
+   joka valmentaa omaa joukkuettaan merkitsee läsnäolot täällä — kertymän on
+   näyttävä HÄNEN omalla kortillaan, joten laskuri menee MERKITSIJÄN omalle
+   `kayttajat/{uid}`-dokille (rules 928 sallii kun rooli/seuraId ei muutu).
+   Laskuri kertoo MÄÄRÄN, ei sisältöä → yksityisyys säilyy.
+   Best-effort: ei saa kaataa varsinaista tallennusta. */
+function _tmLaskuriVP(uid, kentta) {
+  try {
+    if (!uid || !_seuraId || _isDemoMode || typeof db === 'undefined') return Promise.resolve();
+    var inc = {};
+    inc[kentta + '_n'] = firebase.firestore.FieldValue.increment(1);
+    inc[kentta + '_viim'] = firebase.firestore.FieldValue.serverTimestamp();
+    return db.collection('seurat').doc(_seuraId).collection('kayttajat').doc(uid)
+      .update(inc).catch(function () {});
+  } catch (e) { return Promise.resolve(); }
+}
 async function _vpTallennaLasnaolo(t, roster, state, btn) {
   if (!_seuraId) return;
   var cu = firebase.auth().currentUser;
@@ -14290,6 +14314,10 @@ async function _vpTallennaLasnaolo(t, roster, state, btn) {
     });
     batch.set(base, { lasnaolo_kooste: kooste, paivitetty: firebase.firestore.FieldValue.serverTimestamp(), muokkaaja_uid: muid }, { merge: true });
     await batch.commit();
+    /* Kerran per SESSIO, ei per pelaajarivi: 15 pelaajan joukkue tuottaisi
+       muuten 15 "aktiivisuustapahtumaa" yhdestä merkinnästä ja joukkueen koko
+       vääristäisi luvun. */
+    _tmLaskuriVP(muid, 'lasnaolo');
     t.lasnaolo_kooste = kooste;
     var idx = (_kalenteriTapahtumat || []).findIndex(function(x) { return x.id === t.id; });
     if (idx >= 0) _kalenteriTapahtumat[idx].lasnaolo_kooste = kooste;

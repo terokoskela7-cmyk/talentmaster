@@ -14,7 +14,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import vm from 'node:vm';
-import { readFileSync } from 'fs';
+import { readFileSync, readdirSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 
@@ -34,6 +34,18 @@ function funktio(nimi) {
     else if (VP[k] === '}') { syvyys--; if (syvyys === 0) { loppu = k + 1; break; } }
   }
   return VP.slice(i, loppu);
+}
+
+/** Poimii funktion MISTÄ TAHANSA lähteestä sulkeita laskemalla. */
+function funktioLahteesta(src, nimi, mista) {
+  const i = src.indexOf(nimi);
+  expect(i, nimi + ' puuttuu (' + mista + ')').toBeGreaterThan(-1);
+  let syvyys = 0, loppu = -1;
+  for (let k = src.indexOf('{', i); k < src.length; k++) {
+    if (src[k] === '{') syvyys++;
+    else if (src[k] === '}') { syvyys--; if (syvyys === 0) { loppu = k + 1; break; } }
+  }
+  return src.slice(i, loppu);
 }
 
 const paivaaSitten = (n) => new Date(Date.now() - n * 86400000);
@@ -160,5 +172,87 @@ describe('Aktiivisuus · kaikki virrat', () => {
     expect(ennen, 'laskuri ei ole batch.commit():n jälkeen').toContain('batch.commit()');
     const lohko = MASTER.slice(i - 600, i);
     expect(lohko, 'laskuri on batch.set-silmukan sisällä').not.toMatch(/batch\.set\([^;]*$/);
+  });
+
+  /* ── VP-KATTAVUUS (PR2:n aukko) ──────────────────────────────────────────
+     Master kasvatti `lasnaolo_n`:ää oikein, mutta VP ei kasvattanut MITÄÄN
+     laskuria — ja tämä portti katsoi vain Masteria, joten aukko jäi vihreäksi.
+     VP-valmennuspäälliköt joilla on oma joukkue merkitsevät läsnäolot, ja sen
+     on kerryttävä HEIDÄN omaa aktiivisuuttaan. */
+
+  it('VP:llä on läsnäololaskuri (apuri + kutsu kanonisessa batch-polussa)', () => {
+    expect(VP, 'VP:n laskuri-apufunktio puuttuu').toMatch(/function _tmLaskuriVP\(uid, kentta\)/);
+    expect(VP, 'VP:n laskuri ei inkrementoi').toMatch(/increment\(1\)/);
+    const batchPolku = funktioLahteesta(VP, 'async function _vpTallennaLasnaolo(', 'VP');
+    expect(batchPolku, 'VP:n lasnaolo-laskurikutsu puuttuu batch-polusta')
+      .toMatch(/_tmLaskuriVP\([\s\S]{0,60}'lasnaolo'/);
+  });
+
+  it('VP: läsnäolo lasketaan KERRAN per sessio, ei per pelaajarivi', () => {
+    /* Sama invariantti kuin Masterille: laskurin on oltava batch.commit():n
+       jälkeen, ei batch.set()-silmukan sisällä. */
+    const i = VP.indexOf("_tmLaskuriVP(muid, 'lasnaolo')");
+    expect(i, 'VP:n läsnäololaskuri puuttuu').toBeGreaterThan(-1);
+    const ennen = VP.slice(Math.max(0, i - 600), i);
+    expect(ennen, 'VP:n laskuri ei ole batch.commit():n jälkeen').toContain('batch.commit()');
+    expect(ennen, 'VP:n laskuri on batch.set-silmukan sisällä').not.toMatch(/batch\.set\([^;]*$/);
+  });
+
+  it('VP:n viikkoruudukon per-pelaaja-polku EI inflatoi laskuria (lukittu rajaus)', () => {
+    /* `_vpViikkoTallennaLasna` kirjoittaa yhden pelaajan yhden session
+       kerrallaan. Inkrementti täällä = 15 tapahtumaa yhdestä sessiosta, eikä
+       per-sessio-dedup ole luotettava clientissä (sivulataus nollaa setin). */
+    const viikko = funktioLahteesta(VP, 'async function _vpViikkoTallennaLasna(', 'VP');
+    expect(viikko, 'viikkopolku inflatoi lasnaolo-laskuria').not.toMatch(/_tmLaskuri/);
+    expect(viikko, 'viikkopolku inkrementoi laskuria').not.toMatch(/increment\(/);
+    expect(viikko, 'viikkopolku kirjoittaa lasnaolo_n:ää').not.toContain('lasnaolo_n');
+  });
+
+  it('DRIFT: läsnäoloa MERKITSEVÄT apit lukittu allowlistiin (laskurikytkentä)', () => {
+    /* Ydin: aukko syntyi koska lista "ketkä merkitsevät läsnäoloa" oli vain
+       muistissa — Master oli kytketty, VP ei, eikä portti katsonut VP:tä.
+       Nyt lista on testissä. KAKSI TASOA, koska `lasnaolijat`-kokoelmaan
+       kirjoittaa kahdenlaista dataa:
+         · `tila`      = HENKILÖKUNNAN toteutunut läsnäolomerkintä  → laskuri
+         · `saatavuus` = pelaajan/vanhemman oma RSVP (K2b)              → EI laskuria
+       Jos uusi appi alkaa MERKITÄ läsnäoloa, tämä punertuu kunnes appi on
+       (a) lisätty allowlistiin JA (b) kytketty `lasnaolo`-laskuriin. */
+    const MERKITSIJAT = ['TalentMaster_Master_v16.html', 'TalentMaster_VP_v25.html'];
+    const RSVP = ['TalentMaster_Pelaaja_v7.html', 'TalentMaster_Vanhempi_v2.html'];
+    const apit = readdirSync(juuri).filter((f) => /^TalentMaster_.*\.html$/.test(f));
+    expect(apit.length, 'ei löytynyt yhtään TalentMaster-appia').toBeGreaterThan(5);
+
+    const merkitsijat = [], rsvp = [];
+    apit.forEach((f) => {
+      /* Normalisoi rivinvaihdot: `.set(` voi olla eri rivillä kuin
+         `collection('lasnaolijat')` (VP:n viikkopolku), ja batch-polussa
+         `batch.set(` on ENNEN kokoelmaa. */
+      const src = lue(f).replace(/\s+/g, ' ');
+      const avain = "collection('lasnaolijat')";
+      let k = src.indexOf(avain), merk = false, rs = false;
+      while (k > -1) {
+        const ennen = src.slice(Math.max(0, k - 80), k);
+        const jalkeen = src.slice(k + avain.length, k + avain.length + 400);
+        /* (a) kirjoitus kokoelman JÄLKEEN: `.doc(x).set({...})`
+           (b) kirjoitus kokoelmaa ENNEN:   `batch.set(base.collection(...)` */
+        const kirjoitus = /^[\w.$'"\[\]() ]{0,120}\.(set|add)\(/.test(jalkeen)
+          || /\.(set|add)\([\w.$ ]*$/.test(ennen);
+        if (kirjoitus) {
+          if (/\btila\s*:/.test(jalkeen)) merk = true; else rs = true;
+        }
+        k = src.indexOf(avain, k + 1);
+      }
+      if (merk) merkitsijat.push(f);
+      if (rs) rsvp.push(f);
+    });
+
+    expect(merkitsijat.sort(), 'läsnäoloa MERKITSEVIEN appien joukko muuttui — kytke laskuri ja päivitä allowlist')
+      .toEqual(MERKITSIJAT.slice().sort());
+    expect(rsvp.sort(), 'RSVP-kirjoittajien joukko muuttui (saatavuus — EI laskuria)')
+      .toEqual(RSVP.slice().sort());
+
+    /* Ja jokainen merkitsijä on kytketty laskuriin. */
+    expect(MASTER).toMatch(/_tmLaskuri\([\s\S]{0,60}'lasnaolo'/);
+    expect(VP).toMatch(/_tmLaskuriVP\([\s\S]{0,60}'lasnaolo'/);
   });
 });
