@@ -27,6 +27,49 @@ const RULES = lue('storage.rules');
 const CSP = JSON.parse(lue('firebase.json')).hosting.headers
   .flatMap((h) => h.headers).find((h) => h.key === 'Content-Security-Policy').value;
 
+/** Poimii match-lohkon sulkeita laskemalla — ei riipu siitä mikä lohko sattuu olemaan seuraavana. */
+function reflektioLohko() {
+  /* Aloita lohkon AVAAVASTA sulusta, ei polun `{sid}`-sulusta — indexOf('{') osuisi siihen. */
+  const otsikko = /match \/seurat\/\{sid\}\/kayttajat\/\{uid\}\/reflektiot\/\{[a-z]+\}\s*\{/.exec(RULES);
+  expect(otsikko, 'reflektio-lohkoa ei löytynyt storage.rulesista').not.toBeNull();
+  const alku = otsikko.index;
+  let i = otsikko.index + otsikko[0].length - 1, syvyys = 0, loppu = -1;
+  for (let j = i; j < RULES.length; j++) {
+    if (RULES[j] === '{') syvyys++;
+    else if (RULES[j] === '}') { syvyys--; if (syvyys === 0) { loppu = j + 1; break; } }
+  }
+  expect(loppu, 'lohkon sulkeva } puuttuu').toBeGreaterThan(alku);
+  return RULES.slice(alku, loppu);
+}
+
+/**
+ * ALLOWLIST, ei denylist. Ensimmäinen versio kielsi kaksi kirjoitusasua
+ * (`onJohtoRooli|seuraId ==`), ja suora `request.auth.token.rooli == 'vp'` meni läpi vihreänä —
+ * todennettu mutaatiolla. Denylist vaatii jokaisen vuototavan ennakoimista; allowlist ei.
+ *
+ * Menetelmä: poista ehdosta kaikki SALLITUT osalausekkeet ja operaattorit. Jos jäljelle jää
+ * yhtään tunnistemerkkiä, lohkossa on auktorisointitermi jota siellä ei kuulu olla.
+ */
+const SALLITUT_LAUSEKKEET = [
+  /request\.auth != null/g,
+  /request\.auth\.uid == uid/g,
+  /onSuperAdmin\(\)/g,
+  /request\.resource\.contentType\.matches\('audio\/\.\*'\)/g,
+  /request\.resource\.size < \d+ \* 1024 \* 1024/g,
+];
+
+/** @returns {{sääntö:string, jäännös:string}[]} allow-ehdot joista sallitut osat on poistettu */
+function jaannokset(lohko) {
+  const ulos = [];
+  for (const m of lohko.matchAll(/allow\s+([a-z, ]+):\s*if([\s\S]*?);/g)) {
+    let ehto = m[2];
+    for (const sallittu of SALLITUT_LAUSEKKEET) ehto = ehto.replace(sallittu, ' ');
+    ehto = ehto.replace(/[&|()\s]/g, '');          // operaattorit ja välit pois
+    ulos.push({ saanto: m[1].trim(), jaannos: ehto });
+  }
+  return ulos;
+}
+
 describe('Reflektioaudio · koodin polku ↔ storage.rules', () => {
   it('EI VACUOUS: upload-polku löytyy koodista', () => {
     expect(MASTER).toMatch(/const path = 'seurat\/' \+ _seuraId \+ '\/kayttajat\/' \+ cu\.uid \+ '\/reflektiot\//);
@@ -61,12 +104,24 @@ describe('Reflektioaudio · koodin polku ↔ storage.rules', () => {
     expect(MASTER).toMatch(/contentType: _refMime \|\| 'audio\/webm'/);
   });
 
-  it('VP/johto ei pääse toisen reflektioon (yksityinen kasvupäiväkirja)', () => {
-    const lohko = RULES.slice(
-      RULES.indexOf('match /seurat/{sid}/kayttajat/{uid}/reflektiot/'),
-      RULES.indexOf('match /seurat/{sid}/havainnot/'),
-    );
-    expect(lohko, 'roolipohjainen ohitus ei kuulu tähän').not.toMatch(/onJohtoRooli|seuraId ==/);
+  it('VAIN omistaja + SA: mikään muu auktorisointitermi ei kelpaa (allowlist)', () => {
+    /* Reflektioaudio on valmentajan YKSITYINEN kasvupäiväkirja. Yksikin rooli-, seura- tai
+       claim-pohjainen ohitus tarkoittaisi että joku muu kuuntelee sen — luottamus- ja
+       GDPR-asia, ei tyylikysymys. Siksi ehto on allowlist eikä kiellettyjen lista. */
+    const ehdot = jaannokset(reflektioLohko());
+    expect(ehdot.length, 'EI VACUOUS: allow-sääntöjä pitää löytyä').toBeGreaterThanOrEqual(3);
+    const vuodot = ehdot.filter((e) => e.jaannos.length > 0);
+    expect(
+      vuodot.map((e) => `allow ${e.saanto}: ylimääräinen termi → ${e.jaannos}`),
+      'reflektio-lohkossa saa olla VAIN: request.auth != null · request.auth.uid == uid · '
+        + 'onSuperAdmin() (+ writen contentType/size-rajaukset)',
+    ).toEqual([]);
+  });
+
+  it('EI VACUOUS: allowlist tunnistaa oikeat termit eikä hyväksy mitä tahansa', () => {
+    // Jos SALLITUT_LAUSEKKEET olisi liian väljä (esim. osuisi kaikkeen), tämä paljastaa sen.
+    const keksitty = 'allow read: if request.auth != null && request.auth.token.rooli == \'vp\';';
+    expect(jaannokset(keksitty)[0].jaannos).not.toBe('');
   });
 
   it('CSP media-src kattaa molemmat toistopolut (blob + Storage)', () => {
