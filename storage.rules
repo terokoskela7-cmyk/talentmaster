@@ -59,6 +59,39 @@ service firebase.storage {
                         && request.auth.token.rooli in ['vp', 'urheilutoimenjohtaja', 'seurasihteeri']));
     }
 
+    // ── Harjoitusarvioinnin ÄÄRIPALAUTE (Vaihe A) ────────────────────────────────
+    // Storage-näkyvyys PEILAA Firestoren palaute-blokkeja (tm_admin/firestore.rules
+    // 610–620) TÄSMÄLLEEN. Kaksi erillistä polkua, koska näkyvyys eroaa — ja koska
+    // Storage-säännöt eivät periydy (§7.15), kumpikin tarvitsee oman blokkinsa.
+    //
+    // ⚠ JOS NÄMÄ EIVÄT PEILAA FIRESTOREA, VIKA ON HILJAINEN: teksti olisi suojattu
+    // mutta sama palaute ÄÄNENÄ vuotaisi, koska Storage-luku menee polun kautta.
+
+    // JAETTU = valmentaja kuulee (kuten palaute_jaettu-teksti näkyy hänelle).
+    match /seurat/{sid}/harjoitusarvioinnit/{aid}/palaute_jaettu_audio/{file} {
+      allow read:   if request.auth != null && (onSuperAdmin() || request.auth.token.seuraId == sid);
+      allow write:  if request.auth != null
+                    && (onSuperAdmin() || (request.auth.token.seuraId == sid
+                        && request.auth.token.rooli in ['valmentaja', 'vp', 'urheilutoimenjohtaja', 'talenttivalmentaja', 'fysiikkavalmentaja']))
+                    && request.resource.contentType.matches('audio/.*')
+                    && request.resource.size < 12 * 1024 * 1024;
+      allow delete: if onSuperAdmin();
+    }
+
+    // YKSITYINEN = VAIN johto. KRIITTINEN: valmentaja EI saa kuulla tätä —
+    // peilaa firestoren palaute_yksityinen -sääntöä (sama luokka kuin #563).
+    match /seurat/{sid}/harjoitusarvioinnit/{aid}/palaute_yksityinen_audio/{file} {
+      allow read:   if request.auth != null
+                    && (onSuperAdmin() || (request.auth.token.seuraId == sid
+                        && request.auth.token.rooli in ['vp', 'urheilutoimenjohtaja']));
+      allow write:  if request.auth != null
+                    && (onSuperAdmin() || (request.auth.token.seuraId == sid
+                        && request.auth.token.rooli in ['vp', 'urheilutoimenjohtaja']))
+                    && request.resource.contentType.matches('audio/.*')
+                    && request.resource.size < 12 * 1024 * 1024;
+      allow delete: if onSuperAdmin();
+    }
+
     // Oletus: estä kaikki muu (ei vaikuta yllä sallittuihin, dokumentoi default-deny -periaatteen).
     match /{allPaths=**} {
       allow read, write: if false;

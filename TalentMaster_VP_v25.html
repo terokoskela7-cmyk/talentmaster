@@ -19,7 +19,7 @@
 <!-- Eerikkilä-normit + universaali testirekisteri (eerikkilaTaso, laskeFVP) — 10m/5m-tasot + FVP-profiili -->
 <script src="lib/tm_lang.js?v=14"></script>   <!-- i18n V0 — fi/sv/en käännöstaulukko + t() + kieli-init (putkitus) -->
 <script src="lib/tm_i18n_common.js?v=9"></script>   <!-- i18n Vaihe 0 — JAETTU henkilöstö-i18n + lukittu glossaari (ENNEN sivukarttaa) -->
-<script src="lib/tm_vp_i18n.js?v=79"></script>   <!-- i18n Vaihe 5 — VP sv (sivukartta); vpT/vpLokalisoi delegoivat commoniin -->
+<script src="lib/tm_vp_i18n.js?v=80"></script>   <!-- i18n Vaihe 5 — VP sv (sivukartta); vpT/vpLokalisoi delegoivat commoniin -->
 
 
 <script src="lib/tm_eerikkila_normit.js?v=45"></script>   <!-- v43: D2-kortti d2_taso-ensin (renderKehityskorttiHTML, PR #264 · §30/#262) -->
@@ -92,7 +92,8 @@ window.TM_KAAVIO_HOST = {
 <script src="lib/tm_jaksokooste.js?v=1"></script>   <!-- Vaihe 6: jakson sulku (meso-sykli) PURE-ydin — prosessi+kalibraatio+historia (geneerinen §8) -->
 <script src="lib/tm_fyysteemat.js?v=3"></script>   <!-- Vaihe 7: fyysinen teemaluettelo + D1-fokuslähde + evidenssi (delta §29 + PHV-portti §28) -->
 <script src="lib/tm_ohjelma.js?v=1"></script>   <!-- Vaihe 7.2a: fysiikkaohjelmakirjasto (oversight: lue kirjasto + N-laskuri) -->
-<script src="lib/tm_ohjelma_analytiikka.js?v=1"></script>   <!-- Vaihe 7.2b: per-ohjelma-analytiikka (oversight: mikä ohjelma toimii kenelle) -->
+<script src="lib/tm_ohjelma_analytiikka.js?v=1"></script>
+<script src="lib/tm_aani.js?v=2"></script>   <!-- Vaihe A: jaettu nauhoitinydin — VP:n ääripalaute (sama ydin kuin valmentajan reflektiossa) -->   <!-- Vaihe 7.2b: per-ohjelma-analytiikka (oversight: mikä ohjelma toimii kenelle) -->
 <script src="docs/kehitysvaihe_tavoitetasot.js?v=1"></script>   <!-- TM_KEHITYSVAIHE.kehitysvaiheTaso (bio-banding dual-taso, Talentit-lista) -->
 
 <style>
@@ -16471,21 +16472,48 @@ window._hlLinkitaManuaali = function (aId) {
   ehd.forEach(function (x) { h += '<div onclick="document.getElementById(\'hlLinkModal\').remove();_hlVahvistaPari(\'' + _hlEsc(aId) + '\',\'' + _hlEsc(x._id) + '\')" style="padding:9px 4px;border-bottom:.5px solid var(--border);cursor:pointer;font-size:12px;color:var(--ink2)">' + _hlEsc(x.joukkue || '—') + ' · ' + _hlEsc(x.pvm || '') + ' · ' + (x.arviointitapa === 'itsearvio' ? vpT('Itsearvio') : vpT('Havainnointi')) + '</div>'; });
   m.innerHTML = h; document.body.appendChild(m);
 };
+/* ── Ääripalaute: jaettu nauhoitinydin (lib/tm_aani.js, Vaihe 0) ──────────────
+   Riippuvuudet lazy-gettereinä samalla kuvolla kuin TM_KAAVIO_HOST (rivi ~45):
+   auth/_seuraId täyttyvät kirjautumisessa, siis myöhemmin kuin tämä ajetaan. */
+tmAani.mount({
+  auth: function () { return auth; },
+  projectId: function () { return firebaseConfig.projectId; },
+  t: function (fi) { return (typeof vpT === 'function') ? vpT(fi) : fi; },
+  toast: function (v, tyyppi) { if (typeof toast === 'function') toast(v, tyyppi); }
+});
+var _HL_AANI_IDT = { btn: 'hlRecBtn', aika: 'hlRecAika', preview: 'hlPreview', litterointi: 'hlLitteroiBtn' };
+var _hlAani = null;
+function _hlNauhoitin() {
+  if (!_hlAani) _hlAani = tmAani.luo({ btnId: _HL_AANI_IDT.btn, aikaId: _HL_AANI_IDT.aika, previewId: _HL_AANI_IDT.preview, litterointiNappiId: _HL_AANI_IDT.litterointi });
+  return _hlAani;
+}
+window._hlRecToggle = function () { return _hlNauhoitin().toggle(); };   // §7.17: onclick= näkee vain globaalit
+
 async function _hlLataaPalaute(id) {
   var alue = document.getElementById('hlPalauteAlue'); if (!alue) return;
+  /* Lomake renderöidään uudelleen → nollaa nauhoitin, muuten edellinen nauhoite
+     tarttuisi seuraavaan palautteeseen (tai toiseen arviointiin). */
+  if (_hlAani) { _hlAani.nollaa(); _hlAani = null; }
   var base = db.collection('seurat').doc(_seuraId).collection('harjoitusarvioinnit').doc(id);
   var jaettu = [], yksit = [];
   try { var js = await base.collection('palaute_jaettu').orderBy('pvm', 'asc').get(); jaettu = js.docs.map(function (d) { return d.data(); }); } catch (e) {}
   try { var ys = await base.collection('palaute_yksityinen').orderBy('pvm', 'asc').get(); yksit = ys.docs.map(function (d) { return d.data(); }); } catch (e) { /* johto-gate: ei oikeutta → ohita */ }
   var listaHtml = function (arr, tyhjä) {
     if (!arr.length) return '<div style="font-size:12px;color:var(--ink3)">' + tyhjä + '</div>';
-    return arr.map(function (p) { return '<div style="font-size:12px;color:var(--ink2);padding:6px 0;border-bottom:.5px solid var(--border)">' + _hlEsc(p.teksti) + '<div style="font-size:10px;color:var(--ink3);margin-top:2px">' + _hlEsc(p.tekija_rooli || '') + ' · ' + _hlEsc(typeof tmPvmFi === 'function' ? (tmPvmFi(p.pvm) || (p.pvm || '').slice(0, 10)) : (p.pvm || '').slice(0, 10)) + '</div></div>'; }).join('');
+    /* Teksti valinnainen kun palaute on ääntä. Toisto jaetulla renderöijällä
+       (tmAani.toistoHTML) — sama kuin Masterin "Saatu palaute" ja reflektiopäiväkirja. */
+    return arr.map(function (p) { return '<div style="font-size:12px;color:var(--ink2);padding:6px 0;border-bottom:.5px solid var(--border)">' + (p.teksti ? _hlEsc(p.teksti) : '<span style="color:var(--ink3)">' + vpT('🎙 Ääripalaute') + '</span>') + tmAani.toistoHTML(p) + '<div style="font-size:10px;color:var(--ink3);margin-top:2px">' + _hlEsc(p.tekija_rooli || '') + ' · ' + _hlEsc(typeof tmPvmFi === 'function' ? (tmPvmFi(p.pvm) || (p.pvm || '').slice(0, 10)) : (p.pvm || '').slice(0, 10)) + '</div></div>'; }).join('');
   };
   var h = vpT('<div style="background:var(--card);border:.5px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:10px"><div style="font-size:11px;font-weight:600;text-transform:uppercase;color:var(--teal);margin-bottom:6px">💬 Jaettu palaute <span style="color:var(--ink3);font-weight:400;text-transform:none">(näkyy valmentajalle)</span></div>') + listaHtml(jaettu, vpT('Ei jaettua palautetta vielä.')) + '</div>';
   h += vpT('<div style="background:var(--card);border:.5px solid var(--amber);border-radius:10px;padding:12px 14px;margin-bottom:12px"><div style="font-size:11px;font-weight:600;text-transform:uppercase;color:var(--amber);margin-bottom:6px">🔒 Yksityinen muistiinpano <span style="color:var(--ink3);font-weight:400;text-transform:none">(vain VP/mentori)</span></div>') + listaHtml(yksit, vpT('Ei yksityisiä muistiinpanoja.')) + '</div>';
   // Lisäyslomake (oletus = jaettu)
   h += '<div style="background:var(--surface);border:.5px solid var(--border);border-radius:10px;padding:12px 14px">'
     + vpT('<textarea id="hlPalauteTeksti" rows="2" placeholder="Kirjoita palaute…" style="width:100%;padding:7px 9px;border:.5px solid var(--border);border-radius:6px;background:var(--bg2);color:var(--ink);font-size:12px;resize:vertical;margin-bottom:8px"></textarea>')
+    + (tmAani.tuettu()
+        ? '<div style="background:var(--bg2);border:.5px solid var(--border);border-radius:8px;padding:10px 12px;margin-bottom:8px">'
+          + vpT('<div style="font-size:11px;font-weight:600;color:var(--ink2);margin-bottom:6px">🎙 Ääripalaute <span style="font-weight:400;color:var(--ink3)">(valinnainen, max 3 min) — jaettu/yksityinen valitaan alta</span></div>')
+          + tmAani.alueHTML(_HL_AANI_IDT, '_hlRecToggle()') + '</div>'
+        : '')
     + '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">'
     + vpT('<label style="font-size:12px;color:var(--ink2);display:flex;align-items:center;gap:5px"><input type="radio" name="hlPalauteTyyppi" value="jaettu" checked style="accent-color:var(--teal)"> Jaettu</label>')
     + vpT('<label style="font-size:12px;color:var(--ink2);display:flex;align-items:center;gap:5px"><input type="radio" name="hlPalauteTyyppi" value="yksityinen" style="accent-color:var(--amber)"> Yksityinen</label>')
@@ -16494,7 +16522,10 @@ async function _hlLataaPalaute(id) {
 }
 window._hlLisaaPalaute = async function () {
   var ta = document.getElementById('hlPalauteTeksti'); var teksti = (ta && ta.value || '').trim();
-  if (!teksti) { if (typeof toast === 'function') toast(vpT('Kirjoita palaute ensin'), 'error'); return; }
+  var onAani = !!(_hlAani && _hlAani.onNauhoite());
+  /* Teksti on VALINNAINEN kun ääni on nauhoitettu (ja päinvastoin) — vähintään toinen. */
+  if (!teksti && !onAani) { if (typeof toast === 'function') toast(vpT('Kirjoita tai nauhoita palaute'), 'error'); return; }
+  if (onAani && _hlAani.liianIso()) { if (typeof toast === 'function') toast(vpT('Äänitiedosto liian iso (max ~12 MB)'), 'error'); return; }
   if (!_hlAvoinId) return;
   var tyyppiEl = document.querySelector('input[name="hlPalauteTyyppi"]:checked');
   var tyyppi = tyyppiEl ? tyyppiEl.value : vpT('jaettu');
@@ -16502,8 +16533,20 @@ window._hlLisaaPalaute = async function () {
     var u = auth.currentUser; var rooli = 'vp';
     if (u) { var tr = await u.getIdToken(true).then(function () { return u.getIdTokenResult(); }).catch(function () { return null; }); if (tr && tr.claims && tr.claims.rooli) rooli = tr.claims.rooli; }   // §7.2 tuore token + rooli
     var col = tyyppi === 'yksityinen' ? 'palaute_yksityinen' : 'palaute_jaettu';
-    await db.collection('seurat').doc(_seuraId).collection('harjoitusarvioinnit').doc(_hlAvoinId).collection(col)
-      .add({ teksti: teksti, tekija_uid: (u ? u.uid : _uid), tekija_rooli: rooli, pvm: new Date().toISOString() });
+    /* YKSITYISYYSINVARIANTTI: audio-kansio seuraa SAMAA valintaa kuin kokoelma.
+       Yksityinen ääni jaettuun kansioon = valmentaja kuulisi sen, koska Storage-
+       näkyvyys on polkukohtainen (storage.rules ei periydy). Siksi sama `tyyppi`
+       johtaa molemmat — ei kahta erillistä ehtoa jotka voivat eriytyä. */
+    var kansioNimi = tyyppi === 'yksityinen' ? 'palaute_yksityinen_audio' : 'palaute_jaettu_audio';
+    var ref = db.collection('seurat').doc(_seuraId).collection('harjoitusarvioinnit').doc(_hlAvoinId).collection(col).doc();
+    var doc = { teksti: teksti, tekija_uid: (u ? u.uid : _uid), tekija_rooli: rooli, pvm: new Date().toISOString() };
+    if (onAani) {
+      var kansio = 'seurat/' + _seuraId + '/harjoitusarvioinnit/' + _hlAvoinId + '/' + kansioNimi;
+      var aani = await _hlAani.lataa(kansio, ref.id);
+      doc.audio_url = aani.url; doc.audio_path = aani.polku; doc.audio_kesto_s = aani.kesto_s;
+      if (aani.transkriptio) doc.transkriptio = aani.transkriptio;
+    }
+    await ref.set(doc);
     if (typeof toast === 'function') toast(vpT('✓ Palaute tallennettu (') + (tyyppi === 'yksityinen' ? vpT('yksityinen') : vpT('jaettu')) + ')', 'ok');
     _hlLataaPalaute(_hlAvoinId);
   } catch (e) { if (typeof toast === 'function') toast(vpT('Tallennus epäonnistui:') + ' ' + ((e && e.message) || vpT('tuntematon')), 'error'); }
