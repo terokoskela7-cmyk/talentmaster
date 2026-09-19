@@ -1,12 +1,13 @@
 /**
- * ÄÄNIREFLEKTIO: YKSI LÄHDE (lib/tm_reflektio.js), EI INLINE-DUPLIKAATTIA.
+ * NAUHOITIN-YDIN: YKSI LÄHDE (lib/tm_aani.js), EI INLINE-KOPIOITA.
  *
- * MIKSI: reflektio tulee molempiin appeihin (Master + VP, Vaihe 3 antaa VP:lle täyden
- * päiväkirjan). Kaksi inline-kopiota olisi sama driftirakenne joka on purrut ennenkin:
+ * MIKSI: nauhoitinta käyttää nyt KAKSI toisiinsa liittymätöntä ominaisuutta —
+ * valmentajan reflektiopäiväkirja (lib/tm_reflektio.js) ja VP:n harjoitusarvioinnin
+ * ääripalaute (VP_v25). Kopio kumpaankin olisi sama driftirakenne joka on purrut
+ * ennenkin:
  *   · MAS-käännöskorjaus (§22) — sama kaava kolmessa tiedostossa, KOLME eri arvoa
  *   · PHV Mirwald-vakio (§25) — kolme kopiota, "päivitettävä yhdessä" käsin
- * Kumpikin huomattiin vasta kun luvut erosivat tuotannossa. Portti estää saman
- * reflektiolta: recorder-koodi saa olla täsmälleen yhdessä tiedostossa.
+ * Kumpikin huomattiin vasta kun luvut erosivat tuotannossa.
  *
  * Kohdejoukko = TOIMITETTAVA pinta (git-seuratut juuren *.html + lib/*.js). Docs ja
  * tests ovat ulkona tarkoituksella: briiffit ja tämä tiedosto SISÄLTÄVÄT symbolit
@@ -21,44 +22,68 @@ import { dirname, join } from 'path';
 const juuri = join(dirname(fileURLToPath(import.meta.url)), '..');
 const lue = (p) => readFileSync(join(juuri, p), 'utf8');
 
-const LIB = 'lib/tm_reflektio.js';
-/** Recorder-ydin: nämä kolme riittävät tunnistamaan inline-kopion. */
-const SYMBOLIT = ['getUserMedia', 'MediaRecorder', '_refRecToggle'];
+const AANI = 'lib/tm_aani.js';
+const REFLEKTIO = 'lib/tm_reflektio.js';
+const APIT = ['TalentMaster_Master_v16.html', 'TalentMaster_VP_v25.html'];
 
-/** Toimitettava pinta, git:n mukaan — ei kovakoodattua tiedostolistaa. */
+/**
+ * Nauhoittimen YDIN = selain-API:t joita ilman nauhoitinta ei voi toteuttaa.
+ * Huom: `_refRecToggle` EI ole tässä — se on reflektion oma sidontanimi
+ * (window-globaali + onclick=), ei nauhoitinkoodia. Sen vaatiminen samaan
+ * tiedostoon pakottaisi väärän rakenteen: reflektiolomake saa omistaa oman
+ * nappinsa, kunhan ydin on jaettu.
+ */
+const YDIN = ['getUserMedia', 'MediaRecorder'];
+
 function kohdejoukko() {
   const ulos = execSync("git ls-files '*.html' 'lib/*.js'", { cwd: juuri, encoding: 'utf8' });
   return ulos.split('\n').map((s) => s.trim()).filter(Boolean);
 }
 
-function symbolienTiedostot() {
+function ytimenTiedostot() {
   return kohdejoukko().filter((f) => {
     let s = '';
     try { s = lue(f); } catch (e) { return false; }
-    return SYMBOLIT.some((sym) => s.includes(sym));
+    return YDIN.some((sym) => s.includes(sym));
   });
 }
 
-describe('Äänireflektio · yksi lähde', () => {
-  it('EI VACUOUS: lib on kohdejoukossa ja sisältää recorder-ytimen', () => {
+describe('Nauhoitin · yksi lähde', () => {
+  it('EI VACUOUS: tm_aani on kohdejoukossa ja sisältää ytimen', () => {
     /* Ilman tätä portti olisi vihreä myös jos lib katoaisi tai tyhjenisi —
        "täsmälleen yksi tiedosto" toteutuisi nollalla tiedostolla. */
-    expect(kohdejoukko(), 'lib ei ole git-seurattu → ls-files ei näe sitä').toContain(LIB);
-    const lib = lue(LIB);
-    SYMBOLIT.forEach((sym) => expect(lib, LIB + ' ei sisällä ' + sym).toContain(sym));
+    expect(kohdejoukko(), 'lib ei ole git-seurattu → ls-files ei näe sitä').toContain(AANI);
+    const lib = lue(AANI);
+    YDIN.forEach((sym) => expect(lib, AANI + ' ei sisällä ' + sym).toContain(sym));
   });
 
-  it('recorder-koodi on TÄSMÄLLEEN yhdessä tiedostossa', () => {
-    expect(symbolienTiedostot()).toEqual([LIB]);
+  it('nauhoitinydin on TÄSMÄLLEEN yhdessä tiedostossa', () => {
+    expect(ytimenTiedostot()).toEqual([AANI]);
   });
 
-  it('Master ei enää määrittele reflektiota inlinessä', () => {
-    const master = lue('TalentMaster_Master_v16.html');
-    SYMBOLIT.forEach((sym) => expect(master, 'Master sisältää yhä ' + sym).not.toContain(sym));
+  it('reflektio KULUTTAA ytimen eikä toteuta sitä uudelleen', () => {
+    const r = lue(REFLEKTIO);
+    expect(r, 'reflektio ei kutsu tmAani.luo():ta').toContain('tmAani.luo(');
+    YDIN.forEach((sym) => expect(r, 'reflektio toteuttaa ytimen uudelleen: ' + sym).not.toContain(sym));
   });
 
-  it('Master lataa libin (muuten tmReflektio on undefined ajossa)', () => {
-    expect(lue('TalentMaster_Master_v16.html')).toMatch(/<script src="lib\/tm_reflektio\.js\?v=\d+"><\/script>/);
+  it('appit eivät määrittele nauhoitinta inlinessä', () => {
+    APIT.forEach((appi) => {
+      const s = lue(appi);
+      YDIN.forEach((sym) => expect(s, appi + ' sisältää ' + sym).not.toContain(sym));
+    });
+  });
+
+  it('Master lataa tm_aanin ENNEN tm_reflektiota (mount kaatuisi muuten)', () => {
+    /* tmReflektio.mount kutsuu global.tmAani.mount():ia. Väärä järjestys =
+       ReferenceError heti latauksessa, eli koko Masterin inline-skripti kaatuu.
+       Pelkkä "molemmat tagit löytyvät" ei riittäisi porttina. */
+    const m = lue('TalentMaster_Master_v16.html');
+    const iAani = m.indexOf('src="lib/tm_aani.js');
+    const iRefl = m.indexOf('src="lib/tm_reflektio.js');
+    expect(iAani, 'tm_aani.js-tagi puuttuu').toBeGreaterThan(-1);
+    expect(iRefl, 'tm_reflektio.js-tagi puuttuu').toBeGreaterThan(-1);
+    expect(iAani).toBeLessThan(iRefl);
   });
 
   it('Master kutsuu mountia — se asentaa window._ref*-globaalit', () => {
@@ -70,14 +95,23 @@ describe('Äänireflektio · yksi lähde', () => {
     expect(master, 'päiväkirja kutsuu yhä _refUusi():ta').toContain('onclick="_refUusi()"');
   });
 
-  it('lib asentaa kaikki onclick=-lomakkeen tarvitsemat globaalit', () => {
+  it('reflektio asentaa kaikki onclick=-lomakkeen tarvitsemat globaalit', () => {
     /* Lomakkeen HTML on libissä ja viittaa näihin nimiin. Jos mount unohtaa yhden,
        vika näkyy vasta kun käyttäjä klikkaa juuri sitä nappia. */
-    const lib = lue(LIB);
-    const lomakkeenKutsut = [...lib.matchAll(/onclick="(_ref[A-Za-z]+)\(/g)].map((m) => m[1]);
-    expect(lomakkeenKutsut.length, 'EI VACUOUS: lomakkeessa on onclick-kutsuja').toBeGreaterThan(0);
-    [...new Set(lomakkeenKutsut)].forEach((nimi) => {
+    const lib = lue(REFLEKTIO);
+    const kutsut = [...lib.matchAll(/onclick="(_ref[A-Za-z]+)\(/g)].map((m) => m[1]);
+    expect(kutsut.length, 'EI VACUOUS: lomakkeessa on onclick-kutsuja').toBeGreaterThan(0);
+    [...new Set(kutsut)].forEach((nimi) => {
       expect(lib, 'mount ei asenna ' + nimi).toMatch(new RegExp('global\\.' + nimi + '\\s*='));
     });
+  });
+
+  it('nauhoitin ei päätä Storage-polkua — kutsuja antaa sen', () => {
+    /* Ydin palvelee polkuja joilla on ERI näkyvyys (reflektio = vain oma uid ·
+       palaute_jaettu = seura kuulee · palaute_yksityinen = johto-only). Jos ydin
+       kovakoodaisi polun, toinen käyttö joutuisi kopioimaan sen. */
+    const a = lue(AANI);
+    expect(a, 'nauhoitin kovakoodaa reflektiopolun').not.toContain('/reflektiot');
+    expect(a, 'lataa() ei ota kansiota parametrina').toMatch(/function lataa\(kansio/);
   });
 });
