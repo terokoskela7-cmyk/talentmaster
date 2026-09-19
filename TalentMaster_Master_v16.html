@@ -89,7 +89,7 @@ window.TM_KAAVIO_HOST = {
 <script src="lib/tm_pelialy_yksilo.js?v=4"></script>   <!-- P1: pelihavainto peliäly → yksilöteema (Kartta A) · v3: Vaihe B multi-rater konsensus (tmAdarKonsensus/RistiinarvioAvoin/TalenttiSignaali) -->
 <script src="lib/tm_kehityskaari.js?v=3"></script>   <!-- Trendi Vaihe 2: yksilön kehityskaari (render hh_historia/tki_historia:sta) -->
 <script src="lib/tm_aani.js?v=2"></script>   <!-- Vaihe 0: puhdas nauhoitin (reflektio + VP:n ääripalaute samasta ytimestä) -->
-<script src="lib/tm_reflektio.js?v=2"></script>   <!-- Vaihe 1: jaettu äänireflektio (Master + VP) — irrotettu Masterin inlinestä -->
+<script src="lib/tm_reflektio.js?v=3"></script>   <!-- Vaihe 1: jaettu äänireflektio (Master + VP) — irrotettu Masterin inlinestä -->
 <script src="lib/tm_arviointi_silta.js?v=3"></script>   <!-- Vaihe 5: arviointi→resepti-silta (4a lähde-vihje: arvioinnin heikoin havaittu) · v2 = I3a SSOT-osoitin tm_kehityspolku -->
 <script src="lib/tm_jaksofokus.js?v=5"></script>   <!-- Vaihe 4c/6: tmJfUmpeutunut (jakson sulku -laukaisin) -->
 <script src="lib/tm_kehityspolku.js?v=2"></script>   <!-- I3a: looginen silta -resolver (idp_fokus → konsepti/fundamentti → harjoite) -->
@@ -3231,6 +3231,23 @@ function _suljePalauteModal() {
   if (m) m.style.display = 'none';
   _palautePid = null;
 }
+/* AKTIIVISUUSLASKURI — hajautetut/privaatit virrat lukumääränä VP:lle.
+   VP ei voi lukea pelaajien alle hajautettuja palautteita/tavoitteita
+   edullisesti eikä yksityistä reflektiopäiväkirjaa lainkaan. Laskuri kertoo
+   MÄÄRÄN, ei sisältöä → yksityisyys säilyy.
+   Valmentaja kirjoittaa OMAN kayttajat-dokkinsa (rules 928 sallii kun rooli/
+   seuraId ei muutu). Best-effort: ei saa kaataa varsinaista tallennusta. */
+function _tmLaskuri(uid, kentta) {
+  try {
+    if (!uid || !_seuraId || _demo) return Promise.resolve();
+    var inc = {};
+    inc[kentta + '_n'] = firebase.firestore.FieldValue.increment(1);
+    inc[kentta + '_viim'] = firebase.firestore.FieldValue.serverTimestamp();
+    return _db.collection('seurat').doc(_seuraId).collection('kayttajat').doc(uid)
+      .update(inc).catch(function () {});
+  } catch (e) { return Promise.resolve(); }
+}
+
 async function _tallennaPalaute() {
   if (!_seuraId || !_palautePid) { toast(masterT('Ei pelaajaa valittuna')); return; }
   const p = (_pelaajatData || []).find(x => x.id === _palautePid);
@@ -3253,6 +3270,7 @@ async function _tallennaPalaute() {
   try {
     await _db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(_palautePid)
       .collection('palautteet').doc(docId).set(data, { merge: true });
+    _tmLaskuri(data.valmentaja_uid || _uid, 'palautteet');
     toast(masterT('Palaute tallennettu'));
     _suljePalauteModal();
   } catch (e) { console.warn('[v16 palaute]', e.message); toast(masterT('Tallennus epäonnistui — tarkista Rules (palautteet)')); }
@@ -7462,6 +7480,7 @@ window._prTallennaTavoite = async function (pid){
     });
     await _prPaivitaAktiiviset(pid);
     if (ta) ta.value = ''; if (pe) pe.value = '';
+    _tmLaskuri(_uid || (cu ? cu.uid : null), 'tavoitteet');
     if (typeof toast === 'function') toast(masterT('✓ Tavoite tallennettu'), 'ok');
     window._prLataaTavoitteet(pid);
   } catch (e){ if (typeof toast === 'function') toast('Tallennus epäonnistui: ' + ((e && e.message) || 'tuntematon'), 'error'); }
@@ -8990,6 +9009,10 @@ async function _calTallennaLasnaolo(t, roster, state, btn) {
     });
     batch.set(base, { lasnaolo_kooste: kooste, paivitetty: firebase.firestore.FieldValue.serverTimestamp(), muokkaaja_uid: muid }, { merge: true });
     await batch.commit();
+    /* Kerran per SESSIO, ei per pelaajarivi: 15 pelaajan joukkue tuottaisi
+       muuten 15 "aktiivisuustapahtumaa" yhdestä merkinnästä ja joukkueen koko
+       vääristäisi luvun. */
+    _tmLaskuri(muid, 'lasnaolo');
     t.lasnaolo_kooste = kooste;
     var idx = (_kalenteriTapahtumat || []).findIndex(function(x) { return x.id === t.id; });
     if (idx >= 0) _kalenteriTapahtumat[idx].lasnaolo_kooste = kooste;
