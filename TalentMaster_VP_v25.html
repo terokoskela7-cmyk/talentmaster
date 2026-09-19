@@ -20,7 +20,7 @@
 <!-- Eerikkilä-normit + universaali testirekisteri (eerikkilaTaso, laskeFVP) — 10m/5m-tasot + FVP-profiili -->
 <script src="lib/tm_lang.js?v=14"></script>   <!-- i18n V0 — fi/sv/en käännöstaulukko + t() + kieli-init (putkitus) -->
 <script src="lib/tm_i18n_common.js?v=9"></script>   <!-- i18n Vaihe 0 — JAETTU henkilöstö-i18n + lukittu glossaari (ENNEN sivukarttaa) -->
-<script src="lib/tm_vp_i18n.js?v=81"></script>   <!-- i18n Vaihe 5 — VP sv (sivukartta); vpT/vpLokalisoi delegoivat commoniin -->
+<script src="lib/tm_vp_i18n.js?v=82"></script>   <!-- i18n Vaihe 5 — VP sv (sivukartta); vpT/vpLokalisoi delegoivat commoniin -->
 
 
 <script src="lib/tm_eerikkila_normit.js?v=45"></script>   <!-- v43: D2-kortti d2_taso-ensin (renderKehityskorttiHTML, PR #264 · §30/#262) -->
@@ -886,6 +886,23 @@ body {
   border-radius: 7px; font-size: 11px; cursor: pointer;
 }
 .cm-kk-lisaa:hover { color: var(--teal); border-color: var(--teal); }
+
+/* ── Kauden kertymä (aktiivisuuden raakaluvut) ── */
+.cm-kausi { margin-top: 14px; padding: 12px; background: rgba(242,239,230,.04); border: .5px solid var(--border); }
+.cm-kausi-eyebrow {
+  font-size: 10px; letter-spacing: .18em; color: var(--teal);
+  text-transform: uppercase; margin-bottom: 10px;
+}
+/* auto-fit: sarakemäärä seuraa leveyttä → ei kiinteitä leveyksiä jotka leikkaisivat 360px:llä. */
+.cm-kausi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(84px, 1fr)); gap: 10px 8px; }
+.cm-kausi-item { min-width: 0; }
+.cm-kausi-val {
+  font-family: 'Cormorant Garamond', serif; font-size: 22px; line-height: 1;
+  color: var(--ink);
+}
+.cm-kausi-item.tyhja .cm-kausi-val { color: var(--ink3); }   /* honest-empty: 0 ei korostu */
+.cm-kausi-lbl { font-size: 10px; color: var(--ink3); margin-top: 3px; overflow-wrap: anywhere; }
+.cm-kausi-vihje { font-size: 10px; color: var(--ink3); margin-top: 10px; }
 .cm-section { display: none; }
 .cm-section.active { display: block; }
 .panel-avatar {
@@ -4467,121 +4484,202 @@ function vahvistaHylkays() {
    SPRINT 2 — VAI (Valmentajan Aktiivisuusindeksi)
    Painot: ADAR 35% · Käynti 25% · Harjoittelu 25% · Kontakti 15%
    ════════════════════════════════════════════════════════════ */
+/* Kauden alku: heinäkuu = kauden vaihde (sama logiikka kuin _vpTkKausi). */
+function _vpKaudenAlku() {
+  var d = new Date(), y = d.getFullYear();
+  return new Date((d.getMonth() >= 6 ? y : y - 1), 6, 1);
+}
+
+/* Aikaleima → ms. Kentät ovat kolmea muotoa: Firestore Timestamp (luotu/aika/
+   paivitetty), ISO-string (havainnot.luotu, §15 array-rajoitus) ja 'YYYY-MM-DD'
+   (harjoitusarvioinnit.pvm). Yksi muunnin, ettei kukin virta tulkitse aikaa omalla
+   tavallaan — juuri se tuottaisi hiljaisen nollan yhdelle virralle. */
+function _vpAikaMs(v) {
+  if (!v) return 0;
+  if (v.toDate) { try { return v.toDate().getTime(); } catch (e) { return 0; } }
+  var t = Date.parse(v);
+  return isNaN(t) ? 0 : t;
+}
+
+/**
+ * Valmentajan aktiivisuus KAHDESSA ikkunassa.
+ *   vai/halytykset = 30 pv terveys (tuoreus)
+ *   kausi          = raaka per-virta-kertymä kauden alusta = "todellinen luku vuoden aikana"
+ *
+ * Seuratason virrat luetaan suoraan; hajautetut ja privaatit tulevat valmentajan
+ * oman kayttajat-dokin lukumäärä-laskureista (reflektiot_n · palautteet_n ·
+ * tavoitteet_n · lasnaolo_n). VP näkee luvun, ei sisältöä — yksityinen
+ * reflektiopäiväkirja pysyy lukukelvottomana (storage/rules).
+ */
+/* Kauden kertymän ruudukko. Luvut ovat raakoja tapahtumamääriä kauden alusta. */
+function _cmKausiKertymaHTML(kausi) {
+  if (!kausi) return '';
+  var rivit = [
+    ['pelihavainnot', vpT('Pelihavainnot')],
+    ['arvioitu', vpT('Arvioitu')],
+    ['itsereflektio', vpT('Itsereflektio')],
+    ['mentoroitu', vpT('Mentoroitu')],
+    ['lasnaolo', vpT('Läsnäolot')],
+    ['ohjelmat', vpT('Ohjelmat')],
+    ['tavoitteet', vpT('Tavoitteet')],
+    ['pelaajapalaute', vpT('Pelaajapalaute')],
+    ['perhepalaute', vpT('Perhepalaute')],
+    ['reflektiopaivakirja', vpT('Reflektiot')]
+  ];
+  var h = '<div class="cm-kausi">'
+    + '<div class="cm-kausi-eyebrow">' + vpT('Kauden kertymä') + '</div>'
+    + '<div class="cm-kausi-grid">';
+  rivit.forEach(function (r) {
+    var n = kausi[r[0]] || 0;
+    /* Koko avaustagi yhtenä literaalina: irrallinen luokkapalanen näyttää
+       render-gatelle näyttötekstiltä (sama kuin cm-kk-rivin ' off'). */
+    h += (n ? '<div class="cm-kausi-item">' : '<div class="cm-kausi-item tyhja">')
+      + '<div class="cm-kausi-val">' + n + '</div><div class="cm-kausi-lbl">' + r[1] + '</div></div>';
+  });
+  return h + '</div><div class="cm-kausi-vihje">' + vpT('Kauden alusta (1.7.) — raakoja tapahtumamääriä, ei arvosana.') + '</div></div>';
+}
+
 async function laskeVAI(valmentajaUid) {
   if (!valmentajaUid || !_seuraId) return null;
-  const raja = new Date(Date.now() - 30 * 86400000);
+  var nytMs = Date.now();
+  var raja = new Date(nytMs - 30 * 86400000);
+  var rajaMs = raja.getTime();
+  /* Kauden alku on PAIKALLINEN keskiyö 1.7. — vertailu tehdään ms-tasolla,
+     joten aikavyöhyke ei siirrä rajaa. */
+  var kausiMs = _vpKaudenAlku().getTime();
 
   try {
-    // Etsi valmentajan joukkue kehitys-komponenttia varten
-    var vObj = _valmentajat.find(function(x) { return x.id === valmentajaUid; });
+    var vObj = _valmentajat.find(function (x) { return x.id === valmentajaUid; });
     var joukkueNimi = (vObj && vObj.joukkue) ? vObj.joukkue : null;
+    var base = db.collection('seurat').doc(_seuraId);
+    var tyhja = function () { return { docs: [] }; };
 
-    const [havSnap, mentSnap, userDoc] = await Promise.all([
-      // 1. ADAR-havainnot (ei composite indexiä — haetaan kaikki valmentajan ja suodatetaan clientissa)
-      db.collection('seurat').doc(_seuraId).collection('havainnot')
-        .where('valmentajaUid','==',valmentajaUid)
-        .get().catch(function() { return {docs:[]}; }),
-      // 2+3. Mentoroinnit — ei composite indexiä, haetaan kaikki ja suodatetaan clientissa
-      db.collection('seurat').doc(_seuraId).collection('mentoroinnit')
-        .orderBy('aika','desc').limit(100)
-        .get().catch(function() { return {docs:[]}; }),
-      // 4. Kontakti — viimeisinKirjautuminen
-      db.collection('seurat').doc(_seuraId).collection('kayttajat').doc(valmentajaUid).get().catch(function() { return null; })
+    var res = await Promise.all([
+      base.collection('havainnot').where('valmentajaUid', '==', valmentajaUid).limit(200).get().catch(tyhja),
+      base.collection('harjoitusarvioinnit').where('valmentajaUid', '==', valmentajaUid).limit(200).get().catch(tyhja),
+      base.collection('mentoroinnit').orderBy('aika', 'desc').limit(200).get().catch(tyhja),
+      base.collection('ohjelmat').where('laatija_uid', '==', valmentajaUid).limit(200).get().catch(tyhja),
+      base.collection('kayttajat').doc(valmentajaUid).get().catch(function () { return null; })
     ]);
+    var havSnap = res[0], arvSnap = res[1], mentSnap = res[2], ohjSnap = res[3], userDoc = res[4];
 
-    // 1. ADAR-komponentti: havainto-määrä viim. 30pv (suodatus clientissa)
-    var rajaISO = raja.toISOString();
-    var adarCount = 0;
-    havSnap.docs.forEach(function(d) {
-      var data = d.data();
-      var luotu = data.luotu || '';
-      if (luotu >= rajaISO) adarCount++;
+    /* Kaksi ikkunaa yhdellä läpikäynnillä. */
+    var laske = function (arr, aikaFn) {
+      var o = { kausi: 0, tuore: 0 };
+      arr.forEach(function (x) { var ms = aikaFn(x); if (ms >= kausiMs) o.kausi++; if (ms >= rajaMs) o.tuore++; });
+      return o;
+    };
+
+    /* PELIHAVAINNOT vs PERHEPALAUTE — sama kokoelma, eri asia.
+       Aiempi n1 laski havainnot ILMAN tyyppisuodatusta, joten "Pelihavainto"
+       sisälsi myös perheelle lähetetyt viestit (tyyppi:'valmentaja_viesti',
+       Master sendReply §32). Tyypitön legacy-dokumentti luetaan havainnoksi —
+       ne ovat ADAR-aikaisia, viestityyppi on aina merkitty. */
+    var havDocs = havSnap.docs.map(function (d) { return d.data(); });
+    var adarDocs = havDocs.filter(function (h) { return h.tyyppi !== 'valmentaja_viesti'; });
+    var viestiDocs = havDocs.filter(function (h) { return h.tyyppi === 'valmentaja_viesti'; });
+    var pelihavainnot = laske(adarDocs, function (h) { return _vpAikaMs(h.luotu); });
+    var perhepalaute = laske(viestiDocs, function (h) { return _vpAikaMs(h.luotu); });
+
+    /* ARVIOIDAAN vs ITSEREFLEKTIO — sama kokoelma, arviointitapa erottaa. */
+    var arvDocs = arvSnap.docs.map(function (d) { return d.data(); });
+    var havainnointiDocs = arvDocs.filter(function (a) { return a.arviointitapa === 'havainnointi'; });
+    var itsearvioDocs = arvDocs.filter(function (a) { return a.arviointitapa === 'itsearvio'; });
+    var pvmMs = function (a) { return _vpAikaMs(a.pvm) || _vpAikaMs(a.luotu); };
+    var arvioitu = laske(havainnointiDocs, pvmMs);
+    var itsereflektio = laske(itsearvioDocs, pvmMs);
+
+    var mentDocs = mentSnap.docs.map(function (d) { return d.data(); })
+      .filter(function (m) { return m.valmentajaId === valmentajaUid; });
+    var mentoroitu = laske(mentDocs, function (m) { return _vpAikaMs(m.aika); });
+
+    var ohjDocs = ohjSnap.docs.map(function (d) { return d.data(); });
+    var ohjelmat = laske(ohjDocs, function (o) { return _vpAikaMs(o.paivitetty) || _vpAikaMs(o.luotu); });
+
+    /* Laskurit: kumulatiivisia → kertovat kertymän; _viim kertoo tuoreuden.
+       Puuttuva = 0 (honest-empty, ei arvausta). */
+    var u = (userDoc && userDoc.exists) ? userDoc.data() : {};
+    var luku = function (k) { var n = u[k]; return (typeof n === 'number' && n > 0) ? n : 0; };
+    var tuoreLaskuri = function (k) { var ms = _vpAikaMs(u[k]); return ms >= rajaMs; };
+
+    // ── 30 pv -indeksi ─────────────────────────────────────────────────
+    var n1 = Math.min(100, Math.round(pelihavainnot.tuore / 8 * 100));
+
+    /* n2 = kaikki "tapahtumat" 30 pv. Läsnäolo on laskuri (ei aikasarjaa), joten
+       siitä lasketaan tuoreus yhtenä tapahtumana — ei kumulatiivista lukua, joka
+       vääristäisi indeksin kauden mittaan. */
+    var n2Tapahtumat = arvioitu.tuore + mentoroitu.tuore + itsereflektio.tuore + ohjelmat.tuore
+      + (tuoreLaskuri('lasnaolo_viim') ? 1 : 0);
+    var n2 = Math.min(100, Math.round(n2Tapahtumat / 4 * 100));
+
+    /* n3 = mallin A harjoituslaatu 30 pv (0–10 → 0–100). */
+    var laatuArvot = [];
+    havainnointiDocs.concat(itsearvioDocs).forEach(function (a) {
+      if (a.malli !== 'palloliitto' || pvmMs(a) < rajaMs) return;
+      if (typeof laskeHarjoituslaatuPalloliitto !== 'function') return;
+      try { var r = laskeHarjoituslaatuPalloliitto(a.vastaukset); if (r && r.ka_0_10 != null) laatuArvot.push(r.ka_0_10); } catch (e) {}
     });
-    const n1 = Math.min(100, Math.round(adarCount / 8 * 100));
+    var laatuKa = laatuArvot.length ? laatuArvot.reduce(function (a, b) { return a + b; }, 0) / laatuArvot.length : null;
+    var n3 = laatuKa !== null ? Math.round((laatuKa - 1) / 9 * 100) : 0;
 
-    // 2+3. Mentoroinnit viim. 30pv — suodatus clientissa per valmentaja + aika
-    const nytMs = Date.now();
-    const mentRecent = mentSnap.docs.map(function(d) { return d.data(); }).filter(function(m) {
-      if (m.valmentajaId !== valmentajaUid) return false;
-      var aika = m.aika && m.aika.toDate ? m.aika.toDate().getTime() : 0;
-      return aika >= raja.getTime();
-    });
-
-    // 2. Käyntimäärä-komponentti: 0–4+ käyntiä → 0–100
-    var kayntiCount = mentRecent.filter(function(m) { return m.tyyppi === 'kenttäkäynti'; }).length;
-    const n2 = Math.min(100, Math.round(kayntiCount / 4 * 100));
-
-    // 3. Harjoitteluarviointi-komponentti: splKa-keskiarvo 1.0–10.0 → 0–100
-    var splKaArvot = mentRecent.map(function(m) { return m.keskiarvo || m.splKa; }).filter(function(v) { return v != null; });
-    var splKaAvg = splKaArvot.length
-      ? splKaArvot.reduce(function(a,b) { return a+b; }, 0) / splKaArvot.length
-      : null;
-    const n3 = splKaAvg !== null ? Math.round((splKaAvg - 1) / 9 * 100) : 0;
-
-    // 4. Kontakti-komponentti: päiviä sitten viimeisinKirjautuminen, 30+pv=0, 0–1pv=100
+    // 4. Kontakti — viimeisinKirjautuminen
     var n4 = 0;
-    if (userDoc && userDoc.exists) {
-      var u = userDoc.data();
-      var vk = u.viimeisinKirjautuminen && u.viimeisinKirjautuminen.toDate
-        ? u.viimeisinKirjautuminen.toDate()
-        : u.viimeisinKirjautuminen ? new Date(u.viimeisinKirjautuminen) : null;
-      if (vk) {
-        var paivia = Math.max(0, Math.floor((nytMs - vk.getTime())/86400000));
-        n4 = Math.max(0, Math.round(100 - paivia / 30 * 100));
-      }
+    var vkMs = _vpAikaMs(u.viimeisinKirjautuminen);
+    if (vkMs) {
+      var paivia = Math.max(0, Math.floor((nytMs - vkMs) / 86400000));
+      n4 = Math.max(0, Math.round(100 - paivia / 30 * 100));
     }
 
-    // 5. Kehitys-komponentti (Vaihe B): joukkueen pelaajien TKI/H-H delta
-    //    Laskee montako joukkueen pelaajaa on parantunut (hh_taso_edellinen/tki_edellinen → nykytila)
-    //    Normalisointi: 0 parannusta → 0, 50%+ → 100
+    // 5. Kehitys — joukkueen pelaajien TKI/H-H delta (ennallaan)
     var n5 = 0;
-    var kehitysInfo = { parantunut:0, mitattu:0, joukkue:joukkueNimi };
+    var kehitysInfo = { parantunut: 0, mitattu: 0, joukkue: joukkueNimi };
     if (joukkueNimi && _pelaajat && _pelaajat.length > 0) {
-      var joukkueenPelaajat = _pelaajat.filter(function(p) {
+      var joukkueenPelaajat = _pelaajat.filter(function (p) {
         return p.joukkue === joukkueNimi || (p.joukkueet && p.joukkueet.indexOf(joukkueNimi) >= 0);
       });
-      var mitattu = 0;
-      var parantunut = 0;
+      var mitattu = 0, parantunut = 0;
       for (var pi = 0; pi < joukkueenPelaajat.length; pi++) {
         var pl = joukkueenPelaajat[pi];
-        // H-H delta
-        var hhNyt = pl.hh_taso || pl.d2_taso;
-        var hhEd = pl.hh_taso_edellinen;
-        if (hhNyt != null && hhEd != null) {
-          mitattu++;
-          if (hhNyt > hhEd) parantunut++;
-        }
-        // TKI delta
-        var tkiNyt = pl.tki_viimeisin;
-        var tkiEd = pl.tki_edellinen;
-        if (tkiNyt != null && tkiEd != null) {
-          mitattu++;
-          if (tkiNyt > tkiEd) parantunut++;
-        }
+        var hhNyt = pl.hh_taso || pl.d2_taso, hhEd = pl.hh_taso_edellinen;
+        if (hhNyt != null && hhEd != null) { mitattu++; if (hhNyt > hhEd) parantunut++; }
+        var tkiNyt = pl.tki_viimeisin, tkiEd = pl.tki_edellinen;
+        if (tkiNyt != null && tkiEd != null) { mitattu++; if (tkiNyt > tkiEd) parantunut++; }
       }
-      kehitysInfo.parantunut = parantunut;
-      kehitysInfo.mitattu = mitattu;
-      if (mitattu > 0) {
-        var pct = parantunut / mitattu;
-        n5 = Math.min(100, Math.round(pct * 200)); // 50% parantunut = 100
-      }
+      kehitysInfo.parantunut = parantunut; kehitysInfo.mitattu = mitattu;
+      if (mitattu > 0) n5 = Math.min(100, Math.round(parantunut / mitattu * 200));
     }
 
-    // VAI+ painotukset (Vaihe B): ADAR 30%, Käynnit 20%, Harjoittelu 20%, Kontakti 15%, Kehitys 15%
-    var vai = Math.round(0.30*n1 + 0.20*n2 + 0.20*n3 + 0.15*n4 + 0.15*n5);
+    // Painot ennallaan (30/20/20/15/15) — viritys on oma päätöksensä.
+    var vai = Math.round(0.30 * n1 + 0.20 * n2 + 0.20 * n3 + 0.15 * n4 + 0.15 * n5);
 
-    // Hälytykset
     var halytykset = [];
-    if (n1 < 20) halytykset.push({ taso:'red',   teksti:vpT('Ei havaintoja 30pv') });
-    if (n4 < 10) halytykset.push({ taso:'red',   teksti:vpT('Ei kirjautunut 30pv') });
-    if (n2 < 30) halytykset.push({ taso:'amber', teksti:vpT('Vähän käyntejä') });
-    if (n3 < 40 && splKaArvot.length > 0) halytykset.push({ taso:'amber', teksti:vpT('Harjoitteluarviot puutteellisia') });
-    if (n5 === 0 && kehitysInfo.mitattu > 0) halytykset.push({ taso:'amber', teksti:vpT('Joukkueen kehitys pysähtynyt') });
+    if (n1 < 20) halytykset.push({ taso: 'red', teksti: vpT('Ei havaintoja 30pv') });
+    if (n4 < 10) halytykset.push({ taso: 'red', teksti: vpT('Ei kirjautunut 30pv') });
+    if (n2 < 30) halytykset.push({ taso: 'amber', teksti: vpT('Vähän arviointeja') });
+    if (n3 < 40 && laatuArvot.length > 0) halytykset.push({ taso: 'amber', teksti: vpT('Harjoitteluarviot puutteellisia') });
+    if (n5 === 0 && kehitysInfo.mitattu > 0) halytykset.push({ taso: 'amber', teksti: vpT('Joukkueen kehitys pysähtynyt') });
 
-    return { vai:vai, adar:n1, kaynti:n2, harjoittelu:n3, kontakti:n4, kehitys:n5, kehitysInfo:kehitysInfo, halytykset:halytykset, trendi:null };
-  } catch(e) {
+    /* KAUDEN KERTYMÄ — raaka luku per virta, ei indeksi. */
+    var kausi = {
+      pelihavainnot: pelihavainnot.kausi,
+      arvioitu: arvioitu.kausi,
+      itsereflektio: itsereflektio.kausi,
+      mentoroitu: mentoroitu.kausi,
+      ohjelmat: ohjelmat.kausi,
+      perhepalaute: perhepalaute.kausi,
+      lasnaolo: luku('lasnaolo_n'),
+      tavoitteet: luku('tavoitteet_n'),
+      pelaajapalaute: luku('palautteet_n'),
+      reflektiopaivakirja: luku('reflektiot_n')
+    };
+
+    return {
+      vai: vai, adar: n1, kaynti: n2, harjoittelu: n3, kontakti: n4, kehitys: n5,
+      kehitysInfo: kehitysInfo, halytykset: halytykset, trendi: null, kausi: kausi
+    };
+  } catch (e) {
     console.warn('[laskeVAI]', valmentajaUid, e.message);
-    return { vai:0, adar:0, kaynti:0, harjoittelu:0, kontakti:0, kehitys:0, kehitysInfo:null, halytykset:[{taso:'red',teksti:vpT('Laskenta epäonnistui')}], trendi:null };
+    return { vai: 0, adar: 0, kaynti: 0, harjoittelu: 0, kontakti: 0, kehitys: 0, kehitysInfo: null, kausi: null, halytykset: [{ taso: 'red', teksti: vpT('Laskenta epäonnistui') }], trendi: null };
   }
 }
 
@@ -12794,12 +12892,6 @@ function avaaCoachPanel(id) {
     halHtml += '</div>';
   }
 
-  // SPL-lomake rivit (string concat §7)
-  var splKriteerit = [vpT('1. Toiminta on innostavaa (8)'),vpT('2. Pelaajat liikkeessä harjoitusajasta (8)'),vpT('3. Toistot — pallokosketukset (7)'),vpT('4. Toistot — teknis-taktinen (7)'),vpT('5. Pelaajat yrittävät täysillä (8)'),vpT('6. Toiminta pelin vaatimusten mukaan (7)'),vpT('7. Seuran painopiste näkyy (7)')];
-  var splRows = '';
-  for (var si = 0; si < splKriteerit.length; si++) {
-    splRows += '<div style="display:flex;align-items:center;gap:8px"><span style="flex:1;font-size:11px;color:var(--ink2)">' + splKriteerit[si] + '</span><input type="number" min="1" max="10" class="spl-score" data-idx="' + si + '" style="width:44px;padding:3px 6px;border:.5px solid var(--border);border-radius:4px;background:var(--surface);color:var(--ink);font-size:12px;text-align:center" placeholder="—"></div>';
-  }
 
   // ═══════════ TAB 1: PROFIILI ═══════════
   var t1 = '<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">' +
@@ -12826,7 +12918,7 @@ function avaaCoachPanel(id) {
   var t2 = '<div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:14px">' +
     vpT('<div style="font-size:10px;letter-spacing:.18em;color:var(--ink3);text-transform:uppercase">VAI+ Aktiivisuusindeksi</div>') +
     '<div style="font-family:\'Cormorant Garamond\',serif;font-size:36px;color:' + vaiVari + ';line-height:1">' + (vd.vai!=null?vd.vai:'—') + '</div></div>' +
-    compRow(vpT('Pelihavainto 30%'), vd.adar) + compRow(vpT('Käynnit 20%'), vd.kaynti) + compRow(vpT('Harjoittelu 20%'), vd.harjoittelu) + compRow(vpT('Kontakti 15%'), vd.kontakti) + compRow(vpT('Kehitys 15%'), vd.kehitys||0) +
+    compRow(vpT('Pelihavainto 30%'), vd.adar) + compRow(vpT('Tapahtumat 20%'), vd.kaynti) + compRow(vpT('Harjoittelu 20%'), vd.harjoittelu) + compRow(vpT('Kontakti 15%'), vd.kontakti) + compRow(vpT('Kehitys 15%'), vd.kehitys||0) +
     halHtml +
     '<div style="margin-top:16px;display:grid;grid-template-columns:repeat(3,1fr);gap:8px">' +
       '<div class="psr-item"><div class="psr-val">' + (v.adar ? v.adar.toFixed(1) : '—') + vpT('</div><div class="psr-lbl">Pelihavainto') + ' ' + adarTrend + '</div></div>' +
@@ -12835,7 +12927,12 @@ function avaaCoachPanel(id) {
     '<div style="margin-top:14px;padding:10px;background:rgba(242,239,230,.04);border:.5px solid var(--border)">' +
       vpT('<div style="font-size:10px;letter-spacing:.18em;color:var(--ink3);text-transform:uppercase;margin-bottom:6px">Joukkueen kehitys</div>') +
       vpT('<div style="font-size:12px;color:var(--ink2)">Parantunut: <span style="font-weight:600;color:') + ((vd.kehitysInfo&&vd.kehitysInfo.parantunut>0)?'var(--teal)':'var(--ink3)') + '">' + (vd.kehitysInfo?vd.kehitysInfo.parantunut:0) + '/' + (vd.kehitysInfo?vd.kehitysInfo.mitattu:0) + vpT('</span> mittausta ·') + ' ' + (vd.kehitysInfo&&vd.kehitysInfo.joukkue?vd.kehitysInfo.joukkue:'—') + '</div>' +
-      vpT('<div style="font-size:10px;color:var(--ink3);margin-top:4px">TKI + H-H delta · ≥2 mittausta per pelaaja</div></div>');
+      vpT('<div style="font-size:10px;color:var(--ink3);margin-top:4px">TKI + H-H delta · ≥2 mittausta per pelaaja</div></div>') +
+    /* KAUDEN KERTYMÄ — raakaluvut per virta, ei indeksi. Tämä vastaa kysymykseen
+       "paljonko valmentajaa on mentoroitu ja arvioitu, ja paljonko hän itse on
+       tehnyt" kauden aikana. Laskurivirrat (läsnäolo/tavoitteet/palaute/reflektio)
+       näkyvät lukumääränä, ei sisältönä — yksityisyys säilyy. */
+    _cmKausiKertymaHTML(vd && vd.kausi);
 
   // ═══════════ TAB 3: HARJOITUSLAATU ═══════════
   // Harjoitusarviointi-keskus (Vaihe 2.2): pikakentät + "+ Arvioi harjoitus" + historia (täytetään async)
@@ -12849,16 +12946,7 @@ function avaaCoachPanel(id) {
     + '</div>'
     + vpT('<div style="font-size:10px;text-transform:uppercase;color:var(--ink3);margin-bottom:4px">Arviointihistoria</div>')
     + vpT('<div id="cmHarjHist" style="font-size:12px;color:var(--ink3)">Ladataan…</div></div>');
-  var t3 = _cmHlPika + vpT('<div class="mentor-label">SPL-kenttäkäynti (7 kriteeriä, 1–10)</div>') +
-    vpT('<button onclick="toggleSplArvio()" id="splToggleBtn" style="width:100%;padding:8px;border-radius:6px;border:.5px solid var(--border);background:var(--surface);color:var(--ink2);font-size:12px;cursor:pointer;margin-bottom:10px">+ Lisää kenttäkäynti-arviointi</button>') +
-    '<div id="splArvio" style="display:none;margin-bottom:14px">' +
-      '<div style="display:flex;flex-direction:column;gap:6px;margin-bottom:10px">' + splRows + '</div>' +
-      '<label style="display:flex;align-items:center;gap:8px;margin-bottom:10px;cursor:pointer;font-size:12px;color:var(--ink2)">' +
-        '<input type="checkbox" id="splJaaValmentajalle" style="accent-color:var(--teal);width:16px;height:16px">' +
-        vpT('<span>Jaa arviointi valmentajalle <span style="font-size:10px;color:var(--ink3)">(näkyy valmentajan Inboxissa)</span></span>') +
-      '</label>' +
-      '<button onclick="tallennaSplArvio(\'' + v.id + '\')" style="width:100%;padding:8px;border-radius:6px;border:none;background:var(--teal);color:#fff;font-size:12px;cursor:pointer">' + vpT('Tallenna kenttäkäynti') + '</button>' +
-    '</div>';
+  var t3 = _cmHlPika;   // D2a: SPL-kenttäkäynti poistettu — sama Palloliitto-7 kuin "+ Arvioi harjoitus"
 
   // ═══════════ TAB 4: MENTOROINTI ═══════════
   var t4 = vpT('<div class="mentor-label">Mentorointiviesti valmentajalle</div>') +
@@ -13115,78 +13203,7 @@ window._cmSynteesiLaajenna = function (btn) {
 /* ════════════════════════════════════════════════════════════
    MENTOROINTI — SPL-arviointi + historia + sykli
 ════════════════════════════════════════════════════════════ */
-function toggleSplArvio() {
-  const el = document.getElementById('splArvio');
-  const btn = document.getElementById('splToggleBtn');
-  const open = el.style.display === 'none';
-  el.style.display = open ? 'block' : 'none';
-  btn.textContent = open ? vpT('− Sulje kenttäkäynti-arviointi') : vpT('+ Lisää kenttäkäynti-arviointi');
-}
 
-async function tallennaSplArvio(valmentajaId) {
-  const pisteet = [...document.querySelectorAll('.spl-score')].map(el => parseInt(el.value)||null);
-  const puuttuu = pisteet.filter(p => p === null).length;
-  if (puuttuu > 0) { toast(`${vpT('Täytä kaikki')} ${puuttuu} ${vpT('puuttuvaa kriteeriä')}`, 'warn'); return; }
-
-  const kriteerit = [vpT('Toiminta on innostavaa'),vpT('Pelaajat liikkeessä'),vpT('Toistot — pallokosketukset'),vpT('Toistot — teknis-taktinen'),vpT('Pelaajat yrittävät täysillä'),vpT('Toiminta pelin vaatimusten mukaan'),vpT('Seuran painopiste näkyy')];
-  const keskiarvo = pisteet.reduce((a,b)=>a+b,0) / pisteet.length;
-  const heikoin = pisteet.indexOf(Math.min(...pisteet));
-
-  var jaaEl = document.getElementById('splJaaValmentajalle');
-  var jaaValmentajalle = jaaEl && jaaEl.checked;
-
-  const v2 = _valmentajat.find(x => x.id === valmentajaId);
-  const joukkueId = v2?.joukkueId || v2?.joukkue || null;
-  var splData = {
-    valmentajaId: valmentajaId,
-    valmentajaUid: valmentajaId,
-    joukkueId: joukkueId,
-    tyyppi: 'kenttäkäynti',
-    pisteet: pisteet,
-    kriteerit: kriteerit,
-    keskiarvo: Math.round(keskiarvo*10)/10,
-    heikoinKriteeri: kriteerit[heikoin],
-    heikoinPisteet: pisteet[heikoin],
-    vpUid: _uid,
-    aika: firebase.firestore.FieldValue.serverTimestamp(),
-    teksti: vpT('SPL-arviointi · ka') + ' ' + (Math.round(keskiarvo*10)/10) + vpT('/10 · Heikoin: "') + kriteerit[heikoin] + '" (' + pisteet[heikoin] + ')',
-    nakyvyys: jaaValmentajalle ? 'valmentajalle' : 'sisainen'
-  };
-  try {
-    // Mentoroinnit-kokoelmaan AINA (VP:n historia)
-    await db.collection('seurat').doc(_seuraId).collection('mentoroinnit').add(splData);
-
-    // Jos jaetaan valmentajalle → viestit-kokoelmaan (valmentajan Inbox)
-    if (jaaValmentajalle) {
-      db.collection('seurat').doc(_seuraId).collection('viestit').add({
-        valmentajaId: valmentajaId,
-        valmentajaUid: valmentajaId,
-        joukkueId: joukkueId,
-        tyyppi: 'kenttäkäynti',
-        teksti: splData.teksti,
-        fromRole: 'vp',
-        fromNimi: vpT('VP'),
-        vpUid: _uid,
-        lahettajaUid: _uid,
-        vastaanottajaUid: valmentajaId,
-        aika: firebase.firestore.FieldValue.serverTimestamp(),
-        luettu: false,
-        nakyvyys: 'valmentajalle'
-      }).catch(function() {});
-    }
-
-    toast(jaaValmentajalle
-      ? vpT('✓ Kenttäkäynti tallennettu + jaettu valmentajalle · ka') + ' ' + (Math.round(keskiarvo*10)/10) + '/10'
-      : vpT('✓ Kenttäkäynti tallennettu (sisäinen) · ka') + ' ' + (Math.round(keskiarvo*10)/10) + '/10', 'ok');
-    toggleSplArvio();
-    if (jaaEl) jaaEl.checked = false;
-    _lataaCoachHistoria(valmentajaId);
-    if (v2) { v2.mentorointiPvt = 0; v2.viimMentorointiPvm = new Date().toLocaleDateString('fi-FI'); }
-    renderValmentajat();
-  } catch(e) {
-    toast(vpT('Virhe:') + ' ' + e.message, 'error');
-  }
-}
 
 async function _lataaCoachHistoria(valmentajaId) {
   const el = document.getElementById('mentorHistoria');
@@ -13207,7 +13224,6 @@ async function _lataaCoachHistoria(valmentajaId) {
     el.innerHTML = docs.map(d => {
       const m = d.data();
       const aika = m.aika?.toDate ? m.aika.toDate().toLocaleDateString('fi-FI') : '—';
-      const onKenttakaynti = m.tyyppi === 'kenttäkäynti';
       // Näkyvyystagi
       var nakTag = '';
       if (m.nakyvyys === 'sisainen') {
@@ -13216,21 +13232,10 @@ async function _lataaCoachHistoria(valmentajaId) {
         nakTag = vpT('<span style="display:inline-block;padding:1px 6px;border-radius:3px;font-size:9px;font-weight:600;letter-spacing:.08em;background:rgba(40,176,144,.12);color:var(--teal);margin-left:6px">JAETTU</span>');
       }
 
-      if (onKenttakaynti) {
-        const pisteet = m.pisteet || [];
-        const kriteerit = m.kriteerit || [];
-        return '<div class="msg-bubble vp" style="border-left-color:var(--teal);">' +
-          vpT('<div class="msg-from">Kenttäkäynti · VP ·') + ' ' + aika + nakTag + '</div>' +
-          '<div class="msg-text" style="font-size:12px;">' +
-            vpT('<strong>Ka') + ' ' + m.keskiarvo + vpT('/10</strong> · Heikoin: "') + (m.heikoinKriteeri||'') + '" (' + (m.heikoinPisteet||0) + '/10)' +
-            '<div style="margin-top:6px;display:grid;grid-template-columns:1fr 1fr;gap:2px 8px;">' +
-              kriteerit.map(function(k,i) {
-                var pisteVari = pisteet[i]>=8 ? 'var(--teal)' : pisteet[i]<=5 ? 'var(--red)' : 'var(--ink)';
-                return '<span style="font-size:10px;color:var(--ink3);">' + (i+1) + '. ' + k.split('—')[0].trim() + ': <strong style="color:' + pisteVari + ';">' + pisteet[i] + '</strong></span>';
-              }).join('') +
-            '</div>' +
-          '</div></div>';
-      }
+      /* SPL-kenttäkäynnin erikoisrender poistettu (D2a). Vanhat
+         mentoroinnit-dokit (tyyppi:'kenttäkäynti') putoavat yleiseen
+         teksti-kuplaan — niissä on teksti-kenttä, joten historia näyttää
+         ne edelleen rikkoutumatta. Ei migraatiota. */
 
       const isVp = m.fromRole === 'vp';
       return '<div class="msg-bubble ' + (isVp?'vp':'coach') + '">' +
