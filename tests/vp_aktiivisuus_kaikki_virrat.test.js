@@ -150,15 +150,50 @@ describe('Aktiivisuus · kaikki virrat', () => {
     expect(REFLEKTIO, 'reflektiot_n-inkrementti puuttuu').toContain('reflektiot_n');
   });
 
+  /**
+   * Laskurin SIJAINTI tarkistetaan MOLEMMISTA apeista.
+   *
+   * Ensimmäinen versio tarkisti vain Masterin, ja VP:stä puuttui laskuri
+   * kokonaan — aukko jäi vihreäksi. Portti, joka katsoo vain toista
+   * toteutusta kahdesta, on täsmälleen yhtä hyödytön kuin ei porttia
+   * lainkaan sille toiselle.
+   */
+  const LASNAOLO_POLUT = [
+    { nimi: 'Master', src: MASTER, kutsu: "_tmLaskuri(muid, 'lasnaolo')" },
+    { nimi: 'VP', src: VP, kutsu: "_tmLaskuriVP(muid, 'lasnaolo')" },
+  ];
+
+  it('VP:llä on laskuri-apuri ja läsnäolokutsu (ei vain Masterilla)', () => {
+    expect(VP, 'VP:n laskuri-apuri puuttuu').toMatch(/function _tmLaskuriVP\(uid, kentta\)/);
+    expect(VP, 'VP ei inkrementoi').toMatch(/increment\(1\)/);
+    expect(VP, 'VP:n läsnäololaskurin kutsu puuttuu').toContain("_tmLaskuriVP(muid, 'lasnaolo')");
+  });
+
+  it('VIIKKOPOLKU ei inflatoi: per-pelaaja-toggle EI kasvata laskuria', () => {
+    /* Yhden pelaajan yksi sessio kerrallaan → inkrementti tekisi 15 pelaajan
+       merkinnästä 15 tapahtumaa. Rajaus on lukittu, ei vain kommentoitu. */
+    const i = VP.indexOf('async function _vpViikkoTallennaLasna(');
+    expect(i, 'viikkopolku puuttuu').toBeGreaterThan(-1);
+    let syvyys = 0, loppu = -1;
+    for (let k = VP.indexOf('{', i); k < VP.length; k++) {
+      if (VP[k] === '{') syvyys++;
+      else if (VP[k] === '}') { syvyys--; if (syvyys === 0) { loppu = k + 1; break; } }
+    }
+    const runko = VP.slice(i, loppu);
+    expect(runko, 'viikkopolku inflatoi laskuria').not.toMatch(/lasnaolo['"]?\s*\)/);
+    expect(runko, 'viikkopolku inkrementoi').not.toContain('increment(');
+  });
+
   it('läsnäolo lasketaan KERRAN per sessio, ei per pelaajarivi', () => {
     /* 15 pelaajan joukkue tuottaisi 15 "aktiivisuustapahtumaa" yhdestä
        merkinnästä, ja joukkueen koko vääristäisi luvun. Laskurin on oltava
        batch.commit():n jälkeen, ei batch.set()-silmukan sisällä. */
-    const i = MASTER.indexOf("_tmLaskuri(muid, 'lasnaolo')");
-    expect(i, 'läsnäololaskuri puuttuu').toBeGreaterThan(-1);
-    const ennen = MASTER.slice(Math.max(0, i - 600), i);
-    expect(ennen, 'laskuri ei ole batch.commit():n jälkeen').toContain('batch.commit()');
-    const lohko = MASTER.slice(i - 600, i);
-    expect(lohko, 'laskuri on batch.set-silmukan sisällä').not.toMatch(/batch\.set\([^;]*$/);
+    LASNAOLO_POLUT.forEach((polku) => {
+      const i = polku.src.indexOf(polku.kutsu);
+      expect(i, polku.nimi + ': läsnäololaskuri puuttuu').toBeGreaterThan(-1);
+      const ennen = polku.src.slice(Math.max(0, i - 600), i);
+      expect(ennen, polku.nimi + ': laskuri ei ole batch.commit():n jälkeen').toContain('batch.commit()');
+      expect(ennen, polku.nimi + ': laskuri on batch.set-silmukan sisällä').not.toMatch(/batch\.set\([^;]*$/);
+    });
   });
 });
