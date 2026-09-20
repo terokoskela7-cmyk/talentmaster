@@ -4611,6 +4611,32 @@ async function laskeVAI(valmentajaUid) {
     var luku = function (k) { var n = u[k]; return (typeof n === 'number' && n > 0) ? n : 0; };
     var tuoreLaskuri = function (k) { var ms = _vpAikaMs(u[k]); return ms >= rajaMs; };
 
+    /* VIIMEISIN AKTIIVISUUS = milloin valmentaja teki viimeksi MITÄ TAHANSA.
+       Roster-sarake "Viim. kirjaus" luki aiemmin kenttää `viimKirjaus`, jota
+       asetettiin VAIN demo-datassa → oikealla datalla aina "—", vaikka
+       valmentaja olisi aktiivinen. Sama read-without-writer -luokka kuin
+       `viimeisinKirjautuminen` (#577), eri kenttä.
+       EI UUSIA KYSELYITÄ: kaikki aikaleimat on jo ladattu tässä funktiossa.
+       HUOM ero #577:ään: `viimeisinKirjautuminen` on VAIN login (n4 Kontakti);
+       tämä on laajempi "kaikki tekeminen", jonka yksi lähde login on. */
+    var _maxMs = function (arr, fn) {
+      var m = 0;
+      arr.forEach(function (x) { var ms = fn(x) || 0; if (ms > m) m = ms; });
+      return m;
+    };
+    var viimAktiivisuusMs = Math.max(
+      _maxMs(adarDocs, function (h) { return _vpAikaMs(h.luotu); }),
+      _maxMs(viestiDocs, function (h) { return _vpAikaMs(h.luotu); }),
+      _maxMs(arvDocs, pvmMs),
+      _maxMs(mentDocs, function (m) { return _vpAikaMs(m.aika); }),
+      _maxMs(ohjDocs, function (o) { return _vpAikaMs(o.paivitetty) || _vpAikaMs(o.luotu); }),
+      _vpAikaMs(u.lasnaolo_viim) || 0,
+      _vpAikaMs(u.reflektiot_viim) || 0,
+      _vpAikaMs(u.palautteet_viim) || 0,
+      _vpAikaMs(u.tavoitteet_viim) || 0,
+      _vpAikaMs(u.viimeisinKirjautuminen) || 0
+    ) || null;   // ei yhtään aikaleimaa → null (= aidosti ei aktiivisuutta, ei "kenttä puuttuu")
+
     // ── 30 pv -indeksi ─────────────────────────────────────────────────
     var n1 = Math.min(100, Math.round(pelihavainnot.tuore / 8 * 100));
 
@@ -4698,12 +4724,23 @@ async function laskeVAI(valmentajaUid) {
 
     return {
       vai: vai, adar: n1, kaynti: n2, harjoittelu: n3, kontakti: n4, kehitys: n5,
+      viimAktiivisuusMs: viimAktiivisuusMs,
       kehitysInfo: kehitysInfo, halytykset: halytykset, trendi: null, kausi: kausi
     };
   } catch (e) {
     console.warn('[laskeVAI]', valmentajaUid, e.message);
-    return { vai: 0, adar: 0, kaynti: 0, harjoittelu: 0, kontakti: 0, kehitys: 0, kehitysInfo: null, kausi: null, halytykset: [{ taso: 'red', teksti: vpT('Laskenta epäonnistui') }], trendi: null };
+    return { vai: 0, adar: 0, kaynti: 0, harjoittelu: 0, kontakti: 0, kehitys: 0, kehitysInfo: null, kausi: null, viimAktiivisuusMs: null, halytykset: [{ taso: 'red', teksti: vpT('Laskenta epäonnistui') }], trendi: null };
   }
+}
+
+/* ms → "tänään" / "eilen" / "N pv sitten". null → null (kutsuja näyttää "—").
+   Käyttää olemassa olevia vpT-avaimia, joten uusia käännösrivejä ei tarvita. */
+function _vpAikaSitten(ms) {
+  if (!ms) return null;
+  var d = Math.floor((Date.now() - ms) / 86400000);
+  if (d <= 0) return vpT('tänään');
+  if (d === 1) return vpT('eilen');
+  return d + ' ' + vpT('pv sitten');
 }
 
 async function lataaVAIArvot() {
@@ -4712,6 +4749,9 @@ async function lataaVAIArvot() {
   await Promise.all(_valmentajat.map(async v => {
     try { v._vai = await laskeVAI(v.id); }
     catch(e) { v._vai = null; }
+    /* "Viim. kirjaus" oikeasta datasta. Demo-data asettaa oman merkkijononsa,
+       joten sitä ei ylikirjoiteta — vain laskettu arvo tai null. */
+    if (v._vai) v.viimKirjaus = _vpAikaSitten(v._vai.viimAktiivisuusMs);
   }));
 }
 
