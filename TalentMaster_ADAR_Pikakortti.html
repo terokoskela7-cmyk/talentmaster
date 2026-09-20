@@ -2096,7 +2096,7 @@ body {
   <div id="pika-step-1">
     <div class="pika-card">
       <div class="pika-label">VAIHE 1 / 3 — VALITSE PELAAJA</div>
-      <div class="pika-pelaaja-grid" id="pika-pelaaja-grid">
+      <input id="adar-haku-pika" type="search" placeholder="Hae pelaajaa nimellä…" oninput="_adarHakuMuuttui(this.value)" style="width:100%;padding:7px 10px;margin-bottom:6px;border:.5px solid rgba(242,239,230,.15);border-radius:6px;background:rgba(242,239,230,.04);color:#F2EFE6;font-size:12px"><div id="adar-poimin-ohje-pika" style="display:none;font-size:11px;color:#E0A040;margin-bottom:6px;line-height:1.5">Sinulla ei ole omaa joukkuetta merkittynä — ota yhteys valmennuspäällikköön.</div><div class="pika-pelaaja-grid" id="pika-pelaaja-grid">
         <!-- Täytetään dynaamisesti onAuthStateChanged:ssä -->
         <div style="color:rgba(242,239,230,.3);font-size:12px;padding:12px;grid-column:1/-1;">
           Ladataan pelaajia...
@@ -2257,7 +2257,7 @@ body {
   <div class="meta-fields">
     <div class="meta-field">
       <div class="mf-label">Pelaaja</div>
-      <select class="mf-input" id="t1-pelaaja-id"><option value="">— Valitse pelaaja —</option></select>
+      <input id="adar-haku-t1" type="search" placeholder="Hae pelaajaa nimellä…" oninput="_adarHakuMuuttui(this.value)" style="width:100%;padding:7px 10px;margin-bottom:6px;border:.5px solid rgba(242,239,230,.15);border-radius:6px;background:rgba(242,239,230,.04);color:#F2EFE6;font-size:12px"><div id="adar-poimin-ohje-t1" style="display:none;font-size:11px;color:#E0A040;margin-bottom:6px;line-height:1.5">Sinulla ei ole omaa joukkuetta merkittynä — ota yhteys valmennuspäällikköön.</div><select class="mf-input" id="t1-pelaaja-id"><option value="">— Valitse pelaaja —</option></select>
     </div>
     <div class="meta-field">
       <div class="mf-label">Ikäluokka</div>
@@ -2394,7 +2394,7 @@ body {
   <div class="meta-fields">
     <div class="meta-field">
       <div class="mf-label">Pelaaja</div>
-      <select class="mf-input" id="t2-pelaaja-id"><option value="">— Valitse pelaaja —</option></select>
+      <input id="adar-haku-t2" type="search" placeholder="Hae pelaajaa nimellä…" oninput="_adarHakuMuuttui(this.value)" style="width:100%;padding:7px 10px;margin-bottom:6px;border:.5px solid rgba(242,239,230,.15);border-radius:6px;background:rgba(242,239,230,.04);color:#F2EFE6;font-size:12px"><div id="adar-poimin-ohje-t2" style="display:none;font-size:11px;color:#E0A040;margin-bottom:6px;line-height:1.5">Sinulla ei ole omaa joukkuetta merkittynä — ota yhteys valmennuspäällikköön.</div><select class="mf-input" id="t2-pelaaja-id"><option value="">— Valitse pelaaja —</option></select>
     </div>
     <div class="meta-field">
       <div class="mf-label">Ikäluokka</div>
@@ -2675,7 +2675,7 @@ body {
   <div class="meta-fields">
     <div class="meta-field">
       <div class="mf-label">Pelaaja</div>
-      <select class="mf-input" id="t3-pelaaja-id"><option value="">— Valitse pelaaja —</option></select>
+      <input id="adar-haku-t3" type="search" placeholder="Hae pelaajaa nimellä…" oninput="_adarHakuMuuttui(this.value)" style="width:100%;padding:7px 10px;margin-bottom:6px;border:.5px solid rgba(242,239,230,.15);border-radius:6px;background:rgba(242,239,230,.04);color:#F2EFE6;font-size:12px"><div id="adar-poimin-ohje-t3" style="display:none;font-size:11px;color:#E0A040;margin-bottom:6px;line-height:1.5">Sinulla ei ole omaa joukkuetta merkittynä — ota yhteys valmennuspäällikköön.</div><select class="mf-input" id="t3-pelaaja-id"><option value="">— Valitse pelaaja —</option></select>
     </div>
     <div class="meta-field">
       <div class="mf-label">Pelipaikka</div>
@@ -3007,6 +3007,114 @@ if ('serviceWorker' in navigator && location.protocol === 'https:') {
   } catch (e) { console.warn('[ADAR] offline-persistenssi heitti:', e && e.message); }
 })();
 
+// ══════════════════════════════════════════════════════════════════════════════
+// PELAAJAPOIMINTA — ROOLIPEILI + HAKU
+//
+// JUURISYY: poimin näytti KAIKKI seuran pelaajat, mutta create-sääntö sallii
+// pelkälle valmentajalle vain OMAN JOUKKUEEN pelaajat. Väärän joukkueen pelaaja
+// → permission-denied → raaka "Tallennusvirhe", joka näytti kuvaongelmalta
+// ("poistin kuvan ja silti epäonnistui"). UI lupasi enemmän kuin sääntö sallii.
+//
+// PEILI tm_admin/firestore.rules `onOmanJoukkueenValmentaja` (~366):
+//   onOmanSeuranValmentaja(sid) && ( onJohtoRooli() || 'talenttivalmentaja'
+//                                    || pelaaja.joukkueet ∩ valmentaja.joukkueet )
+// HUOM LEIKKAUS: `onOmanSeuranValmentaja` vaatii `onValmentajaRooli()`, joka EI
+// sisällä seurasihteeriä — vaikka `onJohtoRooli()` sisältää. Siksi seurasihteeri
+// ei pääse tähän lainkaan, ja joukkuerajauksen ohittavat ovat:
+//   super_admin · vp · urheilutoimenjohtaja · talenttivalmentaja
+// Tämä joukko on LUKITTU vartijalla (tests/adar_pelaajapoiminta.test.js), joka
+// johtaa sen säännöistä — client ja rules eivät voi ajautua erilleen hiljaa.
+// ══════════════════════════════════════════════════════════════════════════════
+const ADAR_JOUKKUERAJAUS_OHITTAVAT = ['super_admin', 'superadmin', 'vp', 'urheilutoimenjohtaja', 'talenttivalmentaja'];
+
+/** true = näkee koko seuran pelaajat; false = vain oma joukkue. */
+function _adarNakeeKaikki(rooli) {
+  var r = rooli || window._tmRooli || null;
+  return ADAR_JOUKKUERAJAUS_OHITTAVAT.indexOf(r) >= 0;
+}
+
+/** Valmentajan omat joukkueet (ID-lista). Luetaan vain rajatulle roolille. */
+window._omatJoukkueet = null;
+async function _adarLataaOmatJoukkueet(seuraId, uid) {
+  try {
+    if (_adarNakeeKaikki()) { window._omatJoukkueet = null; return; }   // ei tarvita
+    if (!window._tmDB || !seuraId || !uid) { window._omatJoukkueet = []; return; }
+    var d = await window._tmDB.collection('seurat').doc(seuraId).collection('kayttajat').doc(uid).get();
+    var data = d && d.exists ? d.data() : {};
+    window._omatJoukkueet = Array.isArray(data.joukkueet) ? data.joukkueet : [];
+  } catch (e) {
+    /* FAIL-CLOSED kuten sääntö: lukuvirhe → ei oleteta pääsyä. */
+    window._omatJoukkueet = [];
+  }
+}
+
+/** Saako kirjautunut havainnoida tätä pelaajaa? Sama logiikka kuin sääntö. */
+function _adarSaaHavainnoida(pelaajaId) {
+  if (_adarNakeeKaikki()) return true;
+  var p = (window._pelaajaMap || {})[pelaajaId];
+  var omat = window._omatJoukkueet || [];
+  if (!p || !omat.length) return false;                      // fail-closed
+  var pj = p.joukkueet || [];
+  for (var i = 0; i < pj.length; i++) { if (omat.indexOf(pj[i]) >= 0) return true; }
+  return false;
+}
+
+/** Näkyvät pelaajat: roolisuodatus + vapaa nimihaku. */
+function _adarNakyvatPelaajat(haku) {
+  var map = window._pelaajaMap || {};
+  var hk = (haku || '').trim().toLowerCase();
+  return Object.keys(map)
+    .filter(function (id) { return _adarSaaHavainnoida(id); })
+    .filter(function (id) {
+      if (!hk) return true;
+      var p = map[id];
+      return ((p.nimi || '') + ' ' + (p.joukkue || '')).toLowerCase().indexOf(hk) >= 0;
+    })
+    .sort(function (a, b) { return (map[a].nimi || '').localeCompare(map[b].nimi || '', 'fi'); });
+}
+
+/** Täyttää vision-flow'n t1/t2/t3-selectit (säilyttää valinnan jos se on yhä näkyvissä). */
+function _adarTaytaSelectit(haku) {
+  var idt = _adarNakyvatPelaajat(haku);
+  var map = window._pelaajaMap || {};
+  var optiot = idt.map(function (id) {
+    var p = map[id];
+    return '<option value="' + id + '">' + (p.nimi || '').trim() + (p.joukkue ? ' · ' + p.joukkue : '') + '</option>';
+  }).join('');
+  var tyhja = (!idt.length && !_adarNakeeKaikki() && !(window._omatJoukkueet || []).length)
+    ? '<option value="">— Ei omaa joukkuetta merkittynä —</option>'
+    : '<option value="">— Valitse pelaaja —</option>';
+  ['t1', 't2', 't3'].forEach(function (tier) {
+    var el = document.getElementById(tier + '-pelaaja-id');
+    if (!el) return;
+    var vanha = el.value;
+    el.innerHTML = tyhja + optiot;
+    if (vanha && idt.indexOf(vanha) >= 0) el.value = vanha;
+  });
+  _adarPoiminOhje();
+}
+
+/** Ohjeviesti kun rajattu rooli ilman omaa joukkuetta — ei hiljaista tyhjää. */
+function _adarPoiminOhje() {
+  var nayta = !_adarNakeeKaikki() && !(window._omatJoukkueet || []).length;
+  ['t1', 't2', 't3', 'pika'].forEach(function (k) {
+    var el = document.getElementById('adar-poimin-ohje-' + k);
+    if (el) el.style.display = nayta ? 'block' : 'none';
+  });
+}
+
+/** Hakukentän muutos → päivitä sekä selectit että pikagrid. */
+window._adarHakuMuuttui = function (arvo) {
+  window._adarHaku = arvo || '';
+  _adarTaytaSelectit(window._adarHaku);
+  if (typeof _paivitaPikaPelaajat === 'function') _paivitaPikaPelaajat(null, window._tmSeuraId);
+  /* Pidä kaikki hakukentät synkassa (sama tila, eri sijainti). */
+  ['t1', 't2', 't3', 'pika'].forEach(function (k) {
+    var el = document.getElementById('adar-haku-' + k);
+    if (el && el.value !== window._adarHaku) el.value = window._adarHaku;
+  });
+};
+
 // ══════════════════════════════════════════════════════════════════
 // AUTH-KUUNTELU — hakee valmentajan seuran ja pelaajat kirjautuessa
 // ══════════════════════════════════════════════════════════════════
@@ -3077,21 +3185,17 @@ window._tmAuth.onAuthStateChanged(async (user) => {
         tunniste: p.tunniste || p.palloId || null,  // PalloID — null jos ei asetettu
         nimi:     (p.etunimi || '') + ' ' + (p.sukunimi || ''),
         joukkue:  p.joukkue || p.joukkueNimi || '',
+        // Roolisuodatusta varten: sääntö täsmää ID-listalla, ei joukkueen nimellä (§7.18)
+        joukkueet: Array.isArray(p.joukkueet) ? p.joukkueet : [],
         // Ikaluokan auto-esivalintaa varten (normiIka: syntymaVuosi ensisijainen, joukkuenimi fallback)
         syntymaVuosi: (typeof p.syntymaVuosi === 'number') ? p.syntymaVuosi : null
       };
     });
 
-    const options = snap.docs.map(d => {
-      const p = window._pelaajaMap[d.id];
-      return `<option value="${d.id}">${p.nimi.trim()}${p.joukkue ? ' · ' + p.joukkue : ''}</option>`;
-    }).join('');
-
-    // Päivitä kaikki kolme tasoa
-    ['t1','t2','t3'].forEach(tier => {
-      const el = document.getElementById(tier + '-pelaaja-id');
-      if (el) el.innerHTML = '<option value="">— Valitse pelaaja —</option>' + options;
-    });
+    /* Omat joukkueet ENNEN poimimen täyttöä — muuten rajattu rooli näkisi
+       hetken koko seuran (ja voisi ehtiä valita pelaajan jota ei saa kirjata). */
+    await _adarLataaOmatJoukkueet(seuraId, user.uid);
+    _adarTaytaSelectit(window._adarHaku);
 
     console.log(`[ADAR] ${snap.docs.length} pelaajaa ladattu seuralle ${seuraId}`);
 
@@ -3166,19 +3270,14 @@ async function _vahvistaSeuraValinta() {
       window._pelaajaMap[d.id] = {
         tunniste: p.tunniste || p.palloId || null,
         nimi: ((p.etunimi || '') + ' ' + (p.sukunimi || '')).trim(),
-        joukkue: p.joukkue || p.joukkueNimi || ''
+        joukkue: p.joukkue || p.joukkueNimi || '',
+        joukkueet: Array.isArray(p.joukkueet) ? p.joukkueet : []
       };
     });
 
-    const options = snap.docs.map(function(d) {
-      const p = window._pelaajaMap[d.id];
-      return '<option value="' + d.id + '">' + p.nimi + (p.joukkue ? ' · ' + p.joukkue : '') + '</option>';
-    }).join('');
-
-    ['t1','t2','t3'].forEach(function(tier) {
-      const el = document.getElementById(tier + '-pelaaja-id');
-      if (el) el.innerHTML = '<option value="">— Valitse pelaaja —</option>' + options;
-    });
+    /* SA-polku: seuravalitsimesta valittu seura. SA ohittaa joukkuerajauksen,
+       mutta poimin kulkee SAMAN suodattimen läpi — yksi totuus, ei haaraa. */
+    _adarTaytaSelectit(window._adarHaku);
     console.log('[ADAR SA] ' + snap.docs.length + ' pelaajaa, seura: ' + seuraId);
   } catch(e) { console.error('[ADAR] Pelaajat:', e); }
 }
@@ -3735,7 +3834,10 @@ async function saveCard(level) {
       const rooliDbg    = window._tmRooli || 'EI TIEDOSSA';
       console.warn('[ADAR Debug] Polku: seurat/' + seuraIdDbg + '/pelaajat/' + pelaajaDbg + '/havainnot');
       console.warn('[ADAR Debug] Käyttäjä:', emailDbg, '| Rooli:', rooliDbg);
-      btn.textContent = '⚠ Oikeusvirhe — katso konsoli';
+      /* VARAKAISTA: poimin on jo suodatettu, mutta jos create silti hylätään,
+         kerrotaan SYY eikä "katso konsoli". Kentällä konsolia ei ole. */
+      btn.textContent = '⚠ Voit havainnoida vain oman joukkueesi pelaajia';
+      _showToast('⚠ Voit havainnoida vain oman joukkueesi pelaajia');
     } else {
       btn.textContent = '⚠ Tallennusvirhe — yritä uudelleen';
     }
@@ -4174,18 +4276,30 @@ function _paivitaPikaPelaajat(snap, seuraId) {
   const grid = document.getElementById('pika-pelaaja-grid');
   if (!grid) return;
 
-  if (!snap || snap.empty) {
-    grid.innerHTML = '<div style="color:rgba(242,239,230,.3);font-size:12px;padding:12px;grid-column:1/-1;">Ei pelaajia</div>';
+  /* Rakennetaan `_pelaajaMap`:ista eikä snapista: silloin roolisuodatus ja haku
+     ovat SAMA logiikka kuin vision-flow'n selecteissä (yksi totuus). `snap` jää
+     parametriksi kutsujien yhteensopivuuden vuoksi, mutta sitä ei enää lueta —
+     hakukenttä kutsuu tätä ilman snapia. */
+  const idt = _adarNakyvatPelaajat(window._adarHaku);
+  const map = window._pelaajaMap || {};
+  const sid = seuraId || window._tmSeuraId || '';
+
+  if (!idt.length) {
+    /* Rajattu rooli ilman omaa joukkuetta → ohjeviesti, ei hiljaista tyhjää. */
+    const syy = (!_adarNakeeKaikki() && !(window._omatJoukkueet || []).length)
+      ? 'Sinulla ei ole omaa joukkuetta merkittynä — ota yhteys valmennuspäällikköön.'
+      : (window._adarHaku ? 'Ei osumia haulla.' : 'Ei pelaajia');
+    grid.innerHTML = '<div style="color:rgba(242,239,230,.45);font-size:12px;padding:12px;grid-column:1/-1;line-height:1.5">' + syy + '</div>';
     return;
   }
 
-  grid.innerHTML = snap.docs.map(d => {
-    const p = d.data();
-    const nimi = ((p.etunimi || '') + ' ' + (p.sukunimi || '')).trim();
-    const joukkue = p.joukkue || p.joukkueNimi || '';
+  grid.innerHTML = idt.map(id => {
+    const p = map[id];
+    const nimi = (p.nimi || '').trim();
+    const joukkue = p.joukkue || '';
     // Välitetään seuraId sulkeutumana onclick-funktioon
     return `<button class="pika-pelaaja-btn"
-      onclick="_pikaValitsePelaaja('${d.id}', '${nimi.replace(/'/g,"\\'")}', '${seuraId}', this)">
+      onclick="_pikaValitsePelaaja('${id}', '${nimi.replace(/'/g,"\\'")}', '${sid}', this)">
       ${nimi}
       ${joukkue ? '<span class="pp-joukkue">' + joukkue + '</span>' : ''}
     </button>`;
