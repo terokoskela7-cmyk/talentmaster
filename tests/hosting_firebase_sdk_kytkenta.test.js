@@ -98,7 +98,13 @@ describe('Firebase-SDK:n kytkentä tarjoiltavissa appeissa', () => {
     expect(bundlattuJs(s)).toBe(0);
     expect(s).not.toContain('__bundler/');
     expect(s).not.toContain('DecompressionStream');
-    expect(s).not.toContain('createObjectURL');
+    /* HUOM: pelkkä `createObjectURL`-merkkijono EI enää ole bundlerin merkki.
+       ADAR käyttää sitä kuvan esikatseluun (`<img>`), mikä on CSP:ssä
+       nimenomaisesti sallittu (`img-src … blob:`) ja korvasi base64-dataURL:n
+       muistipaineen vuoksi. Bundleri tunnistetaan sen omista jäljistä
+       (`__bundler/`, `DecompressionStream`) ja blob-skriptin/-fontin kuviot
+       tarkistetaan erikseen `tests/csp_blob_hygienia.test.js`:n
+       BLOB_SKRIPTI_KUVIOT-listalla — se on se turvaominaisuus, ei merkkijono. */
     for (const sdk of ['app', 'app-check', 'auth', 'firestore', 'storage']) {
       expect(s, `firebase-${sdk}-compat puuttuu`).toContain(`firebase-${sdk}-compat.js`);
     }
