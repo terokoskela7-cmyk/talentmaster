@@ -1726,7 +1726,16 @@ textarea.jsp-rv-inp { resize: vertical; min-height: 44px; }
       <!-- Pelaajan yläkortti -->
       <div class="pinfo-card" id="pinfoCard"></div>
 
-      <!-- Aikajana + narratiivi — taitettu (sekundääri konteksti vastauksen jälkeen, avaa tarvittaessa) -->
+      <!-- KISS-kartta kerros 2 — ELÄMÄKERRAN HETKET (tarina ennen käyriä).
+           Narratiivi nostettiin ULOS taitoksesta: KV-verrokeilta (Kitman,
+           Wyscout) puuttuu juuri inhimillinen tarina, ja se on erottava
+           mahdollisuus — sitä ei haudata kaavion alle. -->
+      <div class="sect-hdr" style="margin:20px 0 12px">
+        <div class="caps" data-i18n="Merkittävät tapahtumat">Merkittävät tapahtumat</div>
+      </div>
+      <div class="narrative-list" id="narrativeList"></div>
+
+      <!-- KISS-kartta kerros 3 — TIHEÄ DATA romahdettuna (yksityiskohta tapin takana) -->
       <details class="dev-historia">
         <summary class="dev-historia-sum" data-i18n="Kehityshistoria — aikajana & merkittävät tapahtumat">Kehityshistoria — aikajana &amp; merkittävät tapahtumat</summary>
         <div class="sect-hdr" style="margin:14px 0 12px">
@@ -1734,10 +1743,8 @@ textarea.jsp-rv-inp { resize: vertical; min-height: 44px; }
         </div>
         <div class="timeline-wrap" id="tlWrap"></div>
 
-        <div class="sect-hdr" style="margin-top:24px;margin-bottom:12px">
-          <div class="caps" data-i18n="Merkittävät tapahtumat">Merkittävät tapahtumat</div>
-        </div>
-        <div class="narrative-list" id="narrativeList"></div>
+        <!-- Pelaajakortin 5 tilastoa: syvennystä, ei ensinäkymää (kerros 1 = kuka + suunta) -->
+        <div class="pinfo-card" id="pinfoTilastot" style="margin-top:20px"></div>
       </details>
 
     </div><!-- /dev -->
@@ -4904,7 +4911,10 @@ async function _hkRenderLista(pelaajaId) {
   }
   var h = '';
   havainnot.forEach(function (hav) {
-    var kid = (typeof tmHavaintoKaavio !== 'undefined') ? tmHavaintoKaavio.kaavioId(hav) : null;
+    /* SAUMA A: todiste luetaan `_klippiLahde`:n kautta — tuleva klippilähde
+       (Teams/SharePoint/Taso-video) vaihtaa vain sauman sisuksen. */
+    var todiste = _klippiLahde(hav);
+    var kid = (todiste && todiste.tyyppi === 'kaavio') ? todiste.id : null;
     var pvm = hav.pvm || (_luotuToMs(hav.luotu) ? new Date(_luotuToMs(hav.luotu)).toISOString().slice(0, 10) : '');
     var teksti = (hav.narratiivi || hav.teksti || '').slice(0, 110);
     h += '<div style="border-bottom:.5px solid var(--border);padding:10px 0">'
@@ -7603,21 +7613,102 @@ function _renderPlayerPicker() {
     </div>`).join('');
 }
 
+/* ══════════════════════════════════════════════════════════════════════════
+   SAUMA A · `_klippiLahde(havainto)` — havainnon TODISTE.
+
+   Kentällä havainto kirjataan kevyesti; todiste liitetään jälkikäteen.
+   Tänään todiste on joko taktiikkataulu-kaavio (jälkirikastus, `_hkAvaaHavainnot`)
+   tai havainnon `video`-kenttä. Tuleva klippilähde (Teams/SharePoint, sisäinen
+   storage, Taso-video) kytkeytyy vaihtamalla VAIN tämän funktion sisuksen —
+   ei elämäkerta- eikä havaintorenderiä.
+
+   ⚠ EI TALLENNUSINTEGRAATIOTA TÄSSÄ. Alaikäisen videoklippi on arkaa dataa
+   (tunnistettavuus + kuvaoikeus + alaikäisen data). Ulkoinen kansio veisi datan
+   sovelluksen hallinnan ulkopuolelle → säilytyspaikka ja suostumusvirta ovat
+   Teron/juridiikan päätös. Tämä sauma on TALLENNUSAGNOSTINEN LUKUABSTRAKTIO:
+   se kertoo ONKO todiste ja minkä tyyppinen, ei lataa mitään ulos.
+   ══════════════════════════════════════════════════════════════════════════ */
+function _klippiLahde(havainto) {
+  if (!havainto) return null;
+  /* Taktiikkataulu-jälkirikastus on kanoninen todiste (lib/tm_havainto_kaavio.js). */
+  var kaavioId = null;
+  try {
+    if (typeof tmHavaintoKaavio !== 'undefined' && tmHavaintoKaavio.kaavioId) {
+      kaavioId = tmHavaintoKaavio.kaavioId(havainto);
+    }
+  } catch (e) { kaavioId = null; }
+  if (kaavioId) return { tyyppi: 'kaavio', id: kaavioId };
+  if (havainto.video) return { tyyppi: 'video', id: havainto.video };
+  return null;   // honest-empty: ei todistetta → ei affordanssia
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   SAUMA B · `_otteluLahde(p)` — pelaajan ottelulukemat.
+
+   Tänään: olemassa olevat pikakentät `p.ottelut` / `p.loukk` (lukumäärät).
+   Tuleva Palloliiton Taso-syöte tuo YKSITTÄISET ottelut (peliminuutit,
+   kokoonpano) → niistä tulee elämäkerran aikajanatapahtumia ja kalenteri-
+   merkintöjä. Sama adapterikuvio kuin VP:n `_valmiusLahde`.
+
+   ⚠ EI TASO-HAKUA TÄSSÄ. Kalenterin Taso-integraatio on oma projektinsa;
+   tässä vain pidetään elämäkerran ottelulukema sauman takana, jotta se
+   kytkeytyy myöhemmin ilman render-muutosta.
+   ══════════════════════════════════════════════════════════════════════════ */
+function _otteluLahde(p) {
+  if (!p) return { ottelut: null, loukkaantumiset: null };
+  var o = (typeof p.ottelut === 'number') ? p.ottelut : null;
+  var l = (typeof p.loukk === 'number') ? p.loukk : null;
+  return { ottelut: o, loukkaantumiset: l };
+}
+
+/* KERROS 1 — synteesi: kuka + kehityssuunta + arka data LIPPUNA (§4).
+   Viisi tilastoa eivät ole ensinäkymä; ne siirtyivät syvennykseen. */
 function _renderPinfo(p) {
   const el = document.getElementById('pinfoCard');
+  if (el) {
+    /* Suunta johdetaan OLEMASSA OLEVASTA kaaresta — ei uutta luokitinta.
+       Sanat ovat olemassa olevia i18n-avaimia (ruotsia ei arvata, Sibbo).
+       LASKU EI OLE PUNAINEN: se on huomio ja keskustelunavaus, ei virhe. */
+    var suunta = null;
+    try {
+      if (typeof tmKaariSuunta === 'function' && Array.isArray(p._kaariSarja)) {
+        suunta = tmKaariSuunta(p._kaariAvain || 'flei', p._kaariSarja).suunta;
+      }
+    } catch (e) { suunta = null; }
+    var suuntaSana = suunta === 'up' ? masterT('kehittyy')
+      : suunta === 'down' ? masterT('Huomio')
+        : suunta === 'flat' ? masterT('vakaa') : null;
+    /* ARKA DATA VAIN LIPPUNA (§4/Art. 9): ei pituutta, painoa, %PAH:ia eikä
+       kuormalukuja pinnalle — pelkkä tieto että seuranta on käynnissä. */
+    var liput = '';
+    if (p.phv_tila) liput += '<span class="pstat-delta" style="color:var(--ink3);margin-right:10px">PHV ' + _mEsc(p.phv_tila) + '</span>';
+    if (p.phv_tila === 'PH') liput += '<span class="pstat-delta" style="color:var(--amber)">⚑ ' + masterT('Huomio') + '</span>';
+    el.innerHTML = '<div style="grid-column:1/-1">'
+      + '<div class="pinfo-name serif">' + _mEsc(p.name || '') + '</div>'
+      + '<div class="pinfo-sub">' + _mEsc(p.pos || '') + ' · ' + _mEsc(p.num || '') + '</div>'
+      + (suuntaSana
+        ? '<div class="pstat-delta" style="margin-top:8px;color:var(--ink2)">'
+          + masterT('Suunta') + ' · ' + suuntaSana + '</div>'
+        : '')
+      + (liput ? '<div style="margin-top:6px">' + liput + '</div>' : '')
+      + '</div>';
+  }
+  _renderPinfoTilastot(p);
+}
+
+/* KERROS 3 — viisi tilastoa syvennykseen (ennallaan, vain sijainti muuttui). */
+function _renderPinfoTilastot(p) {
+  const el = document.getElementById('pinfoTilastot');
   if (!el) return;
+  const _ott = _otteluLahde(p);   // SAUMA B — ei suoraa p.ottelut-lukua
   const stats = [
     { lbl:'Kehon valmius', val:p.flei, delta:p.fleiDelta, color: p.flei>=65?'var(--teal)':p.flei>=55?'var(--amber)':'var(--red)' },
     { lbl:masterT('Peliälyhavaintoja'), val:p.adar, delta:p.xfactor+' X-Factor', color:'var(--ink)' },
     { lbl:masterT('Testit'), val:p.testit, delta:masterT('suoritettu'), color:'var(--ink)' },
     { lbl:masterT('Fiilinki'), val:p.fiilinki.split(' ')[0], delta:p.fiilinki.split(' ').slice(1).join(' '), color:'var(--ink)' },
-    { lbl:masterT('Ottelut / loukk.'), val:p.ottelut+'/'+p.loukk, delta:p.loukk>0?masterT('Huomio'):masterT('Kaikki ok'), color:'var(--ink)' },
+    { lbl:masterT('Ottelut / loukk.'), val:(_ott.ottelut != null ? _ott.ottelut : '—')+'/'+(_ott.loukkaantumiset != null ? _ott.loukkaantumiset : '—'), delta:(_ott.loukkaantumiset > 0)?masterT('Huomio'):masterT('Kaikki ok'), color:'var(--ink)' },
   ];
   el.innerHTML = `
-    <div style="grid-column:1/-1">
-      <div class="pinfo-name serif">${p.name}</div>
-      <div class="pinfo-sub">${p.pos} · ${p.num} · Kausi 25/26 · lokakuu–heinäkuu</div>
-    </div>
     ${stats.map(s=>`
       <div>
         <div class="pstat-lbl">${s.lbl}</div>
@@ -7791,8 +7882,13 @@ function _renderNarrative(p) {
     erikoisNarr.push({ kk: _pvmFiX(p.luotu), _d: _pvmMs(p.luotu), txt: masterT('Liittyi TalentMasteriin') });
   }
   if (p.adar_pvm && (p.adar_havaintoja || 0) >= 1) {
+    /* TODISTE-AFFORDANSSI (sauma A) — ON-DEMAND, ei render-polulla (§26):
+       milestone rakentuu pikakentistä, joten havaintodokumentteja EI ladata
+       tässä. Klikkaus avaa olemassa olevan `_hkAvaaHavainnot`-listan, jossa
+       `_klippiLahde` kertoo per havainto onko todistetta. */
     erikoisNarr.push({ kk: _pvmFiX(p.adar_pvm), _d: _pvmMs(p.adar_pvm),
-      txt: masterT('Peliälyhavainto · ') + p.adar_havaintoja + masterT(' yhteensä') + (p.adar_viimeisin && p.adar_viimeisin.yht != null ? masterT(' (yht ') + p.adar_viimeisin.yht + '/3)' : '') });
+      txt: masterT('Peliälyhavainto · ') + p.adar_havaintoja + masterT(' yhteensä') + (p.adar_viimeisin && p.adar_viimeisin.yht != null ? masterT(' (yht ') + p.adar_viimeisin.yht + '/3)' : ''),
+      badgeHtml: '<button onclick="_hkAvaaHavainnot(\'' + p.id + '\')" style="background:none;border:.5px solid var(--line);border-radius:20px;color:var(--ink2);font-size:10px;font-weight:600;padding:3px 9px;cursor:pointer">▷ ' + masterT('Havainnot') + '</button>' });
   }
   if (p.phv_tila === 'PH') {
     const _phvPvm = p.biologinenIka_pvm || p.phv_pvm || p.hh_pvm || null;
