@@ -1,6 +1,10 @@
 /**
  * VALMENTAJAKORTTI: YKSI VIERIVÄ KONTAINERI + LUOKKAPOHJAINEN SYNTEESI.
  *
+ * HUOM (shell-migraatio): luokat ovat nyt JAETUN alasivu-shellin (.sh-*),
+ * ei valmentajakorttikohtaisia (.cm-*). INVARIANTTI ON SAMA: yksi vierivä
+ * kontaineri, synteesi sen sisällä, ei sisäkkäisiä scrollereita.
+ *
  * MIKSI: `#cmKehityskortti` (Oura-synteesi) oli `.cm-body`:n ULKOPUOLELLA
  * `.cm-box`:n flex-lapsena ilman korkeuskattoa, ja `.cm-box` on `overflow:hidden`.
  * Ainoa vierivä alue oli `.cm-body`. Mobiilissa synteesi söi pystytilan →
@@ -30,33 +34,33 @@ function saanto(selektori) {
 
 describe('Valmentajakortti · mobiilirakenne', () => {
   it('EI VACUOUS: modaalipohja ja synteesikortti löytyvät', () => {
-    expect(VP).toContain('class="cm-box"');
+    expect(VP).toContain('class="sh-box"');
     expect(VP).toContain('id="cmKehityskortti"');
-    expect(VP).toContain('class="cm-scroll"');
+    expect(VP).toContain('class="sh-scroll"');
   });
 
   it('#cmKehityskortti on vierivän kontainerin SISÄLLÄ (ei .cm-box:n suorana lapsena)', () => {
     /* Tämä on koko korjaus. Jos synteesi siirtyy takaisin scroll-kontainerin
        ulkopuolelle, mobiilin alaosa katoaa uudelleen. */
-    const iScroll = VP.indexOf("'<div class=\"cm-scroll\">'");
+    const iScroll = VP.indexOf("'<div class=\"sh-scroll\">'");
     const iKk = VP.indexOf('id="cmKehityskortti"');
-    const iBody = VP.indexOf("'<div class=\"cm-body\">'");
-    expect(iScroll, 'cm-scroll-kääre puuttuu modaalipohjasta').toBeGreaterThan(-1);
+    const iBody = VP.indexOf("'<div class=\"sh-body\">'");
+    expect(iScroll, 'sh-scroll-kääre puuttuu modaalipohjasta').toBeGreaterThan(-1);
     expect(iKk, 'synteesikortti ennen scroll-kääreen avausta').toBeGreaterThan(iScroll);
-    expect(iBody, 'cm-body pitää tulla synteesin jälkeen samassa kääreessä').toBeGreaterThan(iKk);
+    expect(iBody, 'sh-body pitää tulla synteesin jälkeen samassa kääreessä').toBeGreaterThan(iKk);
   });
 
   it('.cm-scroll on ainoa vierivä alue — .cm-body EI saa olla sisäkkäinen scrolleri', () => {
-    const scroll = saanto('.cm-scroll');
-    expect(scroll, '.cm-scroll-sääntö puuttuu').not.toBeNull();
+    const scroll = saanto('.sh-scroll');
+    expect(scroll, '.sh-scroll-sääntö puuttuu').not.toBeNull();
     expect(scroll, 'overflow-y puuttuu').toMatch(/overflow-y:\s*auto/);
     /* min-height:0 on pakollinen: ilman sitä flex-lapsi ei kutistu sisältönsä
        alle, ja kontaineri kasvaa ulos .cm-box:sta jolloin overflow:hidden leikkaa. */
     expect(scroll, 'min-height:0 puuttuu → flex-lapsi ei kutistu').toMatch(/min-height:\s*0/);
 
-    const body = saanto('.cm-body');
-    expect(body, '.cm-body-sääntö puuttuu').not.toBeNull();
-    expect(body, '.cm-body on taas oma scrollerinsa → kaksi sisäkkäistä vierivää aluetta').not.toMatch(/overflow-y:\s*auto/);
+    const body = saanto('.sh-body');
+    expect(body, '.sh-body-sääntö puuttuu').not.toBeNull();
+    expect(body, '.sh-body on taas oma scrollerinsa → kaksi sisäkkäistä vierivää aluetta').not.toMatch(/overflow-y:\s*auto/);
   });
 
   it('synteesi renderöidään LUOKILLA, ei inline-tyyleillä (muuten media query ei pure)', () => {
@@ -82,8 +86,8 @@ describe('Valmentajakortti · mobiilirakenne', () => {
   });
 
   it('välilehdet pysyvät näkyvissä ja valittu vieritetään esiin', () => {
-    const t = saanto('.cm-tabs-sticky');
-    expect(t, '.cm-tabs-sticky puuttuu').not.toBeNull();
+    const t = saanto('.sh-tabs-sticky');
+    expect(t, '.sh-tabs-sticky puuttuu').not.toBeNull();
     expect(t).toMatch(/position:\s*sticky/);
     /* 5 välilehteä + vaakavieritys mobiilissa → valittu voi jäädä näkymättä. */
     expect(VP, 'aktiivista välilehteä ei vieritetä esiin').toContain('scrollIntoView');
@@ -93,9 +97,9 @@ describe('Valmentajakortti · mobiilirakenne', () => {
     /* Kaksi @media(max-width:768px) -lohkoa samoille selektoreille kumoaisi
        toisensa (Seura.html:n bugi, §6). Uudet .cm-kk-säännöt lisättiin olemassa
        olevaan lohkoon — todiste: niiden välissä ei aloiteta uutta @mediaa. */
-    const iBox = VP.indexOf('.cm-box { width: 100vw');
+    const iBox = VP.indexOf('.sh-box { width: 100vw');
     const iKk = VP.indexOf('.cm-kk { padding: 0 14px;');
-    expect(iBox, 'mobiilin .cm-box-sääntö puuttuu').toBeGreaterThan(-1);
+    expect(iBox, 'mobiilin .sh-box-sääntö puuttuu').toBeGreaterThan(-1);
     expect(iKk, 'mobiilin .cm-kk-sääntö puuttuu').toBeGreaterThan(iBox);
     expect(VP.slice(iBox, iKk), 'välissä alkaa uusi @media → kaksi lohkoa').not.toMatch(/@media/);
   });
