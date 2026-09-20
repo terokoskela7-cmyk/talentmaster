@@ -81,7 +81,14 @@ describe('_hlKalibTyhjaViesti — rehellinen tyhjä tila (kerro mitä puuttuu, �
 
 describe('Briiffi 1 — wiring + koskemattomuus', () => {
   it('molemmat tyhjät tilat käyttävät _hlKalibTyhjaViesti (coach-paneeli + malli B)', () => {
-    expect(VP).toContain('if (!r) kalEl.innerHTML = _hlKalibTyhjaViesti(arvioinnit);');
+    /* Invariantti = tyhjä tila kulkee `_hlKalibTyhjaViesti`:n kautta (ei
+       kovakoodattua merkkijonoa). Ei tarkkaa lähderiviä: coach-paneelin haara
+       on nyt lohko, koska sen alle renderöidään odottavien parien
+       vahvistusnappi (`_hlPariBlokki`) — löydettävyyskorjaus. */
+    const iR = VP.indexOf('if (!r) {');
+    expect(iR, 'coach-paneelin tyhjä haara puuttuu').toBeGreaterThan(-1);
+    expect(VP.slice(iR, iR + 1400), 'coach-paneelin tyhjä tila ei käytä _hlKalibTyhjaViesti:ä')
+      .toContain('_hlKalibTyhjaViesti(arvioinnit)');
     expect(VP).toContain("_hlKalibTyhjaViesti(kalInput)");
     expect(VP).not.toContain('Ei vahvistettuja pareja vielä — vahvista itsearvio↔havainnointi tapahtumanäkymässä.');
   });
