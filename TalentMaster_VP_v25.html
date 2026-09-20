@@ -2642,7 +2642,16 @@ input::placeholder, textarea::placeholder { color: var(--ink3); opacity: 1; }
       </div>
 
 
-      <div class="season-bar">
+      <!-- KISS-kartta: kerros 2 = yksi päätöspino · kerros 3 = syvennys (romahdettu).
+           Kerroksen 3 sisältö SIIRRETÄÄN tänne renderissä (appendChild), ei renderöidä
+           uudelleen → kaikki olemassa olevat renderöijät ja kuuntelijat säilyvät. -->
+      <div id="tilannePaatospino"></div>
+      <details id="tilanneSyvennys" style="margin-top:14px">
+        <summary id="tilanneSyvennysOts" style="cursor:pointer;font-size:12.5px;color:var(--ink2);padding:8px 0"></summary>
+        <div id="tilanneSyvennysSisalto" style="padding-top:10px"></div>
+      </details>
+
+      <div class="season-bar" id="season-bar-wrap">
         <div>
           <div class="season-phase" id="season-phase">Kausi —</div>
           <div class="season-label" id="season-label" data-i18n="Kilpailukausi">Kilpailukausi</div>
@@ -2691,7 +2700,7 @@ input::placeholder, textarea::placeholder { color: var(--ink3); opacity: 1; }
 
       <div id="talentitLohko" style="margin-top:8px"></div>
 
-      <section style="margin-top:8px">
+      <section style="margin-top:8px" id="section-toimenpiteet">
         <div class="section-header">
           <span class="section-num">05</span>
           <h2 class="section-title" data-i18n-html="Toimenpiteet">Toimen<em>piteet</em></h2>
@@ -2723,7 +2732,7 @@ input::placeholder, textarea::placeholder { color: var(--ink3); opacity: 1; }
         </div>
       </div>
 
-      <div class="section-hd" data-i18n="IDP-hyväksyntäjono">IDP-hyväksyntäjono</div>
+      <div class="section-hd" id="tilanneIdpOtsikko" data-i18n="IDP-hyväksyntäjono">IDP-hyväksyntäjono</div>
       <div class="idp-list" id="tilanneIdpJono"></div>
     </div>
 
@@ -3859,6 +3868,78 @@ function _kpiTestitKonteksti() {
   return pv >= 0 ? (vpT('vanhin') + ' ' + pv + ' ' + vpT('pv sitten')) : null;
 }
 
+/* ══════════════════════════════════════════════════════════════════════════
+   TILANNE — KISS-kartan kolme kerrosta (SSOT: TILANNE_KISS_design_kartta_v1).
+
+   JUURISYY: näkymä pinosi YHDEKSÄN aina-auki-osiota allekkain, joten VP selasi
+   paljon ennen kuin näki mihin tarttua. KV-verrokit (Kitman, Smartabase,
+   Metrifit) ratkaisevat saman RAG-liikennevaloilla → alert-fatigue. Meidän
+   vastaliike on päinvastainen: rauhoitetaan.
+
+     1) Synteesi — sanallinen tila + deadline (ei "N/M"-tulostaulua)
+     2) YKSI päätöspino — `_vpSignaaliKortit()`, sama logiikka kuin Koti ja
+        Raportointi. EI rinnakkaista signaalilaskentaa.
+     3) Syvennys `<details>` ROMAHDETTU — kausi · signaalit · poikkeamat ·
+        pulssi · kehitys · talentit · toimenpiteet · KPI:t · IDP-jono.
+        SIIRTO (appendChild), ei uudelleenrenderöinti.
+
+   §26: ei uutta Firestore-kyselyä. Valmius kulkee `_valmiusLahde`:n kautta.
+   VÄRI: teal ainoa vahva aksentti; punainen mapataan amberiin (ei RAG-täyttöä),
+   ikoni + teksti kantavat merkityksen.
+   I18N: koostettu OLEMASSA OLEVISTA avaimista — ruotsia ei arvata (Sibbo).
+   ══════════════════════════════════════════════════════════════════════════ */
+function _tilanneRenderKerrokset() {
+  var pino = document.getElementById('tilannePaatospino');
+  if (!pino || typeof _vpSignaaliKortit !== 'function') return;
+  var sig = _vpSignaaliKortit();
+  var kortit = sig.kortit || [];
+
+  /* KERROS 2 — päätöspino. Otsikko + kortit olemassa olevilla .vpkoti-*
+     -luokilla (sama visuaali kuin Kodissa, ei uutta CSS:ää). */
+  var h = '<div class="vpkoti-otsikko">' + vpT('Mihin tartut nyt') + '</div>';
+  if (kortit.length) {
+    h += '<div class="vpkoti-kortit">' + kortit.map(function (k) {
+      /* Vakavuus: teal tai amber. Punainen/sininen → amber, koska RAG-täyttö
+         on juuri se alert-fatigue jota vältetään. Ikoni + teksti säilyvät. */
+      var reuna = (k.sev === 'var(--teal)') ? 'var(--teal)' : 'var(--amber)';
+      return '<div class="vpkoti-kortti" style="border-left:3px solid ' + reuna + '">'
+        + '<div class="vkk-ik">' + k.ik + '</div>'
+        + '<div class="vkk-txt">' + k.txt + '</div>'
+        + '<button class="vkk-cta" onclick="' + k.fn + '">' + k.cta + ' →</button></div>';
+    }).join('') + '</div>';
+  } else {
+    /* HONEST-EMPTY: kerro mitä puuttuu, älä näytä nollia. */
+    h += '<div class="vpkoti-tyhja">✅ <b>' + vpT('Ei kriittisiä signaaleja juuri nyt.') + '</b></div>';
+  }
+  pino.innerHTML = h;
+
+  /* KERROS 1 — synteesin täydennys: montako asiaa vaatii huomiota + deadline.
+     Molemmat koostettu olemassa olevista i18n-avaimista. */
+  var meta = document.getElementById('greeting-status');
+  if (meta) {
+    meta.textContent = kortit.length
+      ? (kortit.length + ' ' + vpT('vaatii toimenpidettä'))
+      : vpT('Ei kriittisiä');
+  }
+
+  /* KERROS 3 — SIIRTO syvennykseen. Tehdään kerran; jos lohko on jo siellä,
+     appendChild ei tee mitään haitallista mutta tarkistus pitää DOM:n vakaana. */
+  var sisalto = document.getElementById('tilanneSyvennysSisalto');
+  var ots = document.getElementById('tilanneSyvennysOts');
+  if (ots && !ots.textContent) {
+    /* Otsikko koostettu olemassa olevista avaimista (ei uutta sv-riviä). */
+    ots.textContent = vpT('Kausi') + ' · ' + vpT('Joukkueet') + ' · ' + vpT('Kehitys')
+      + ' — ' + vpT('syvennys');
+  }
+  if (!sisalto) return;
+  ['season-bar-wrap', 'sec-signaalit', 'section-poikkeamat', 'section-joukkueet',
+   'kehitysKortti', 'talentitLohko', 'section-toimenpiteet', 'tilanneKpis',
+   'tilanneIdpOtsikko', 'tilanneIdpJono'].forEach(function (id) {
+    var el = document.getElementById(id);
+    if (el && el.parentNode !== sisalto) sisalto.appendChild(el);
+  });
+}
+
 function renderTilanne() {
   // KORJAUS 1 — dynaaminen kausipalkki
   _renderKausipalkki();
@@ -3925,6 +4006,10 @@ function renderTilanne() {
 
   // IDP-jono tilanne-näkymässä
   renderIdpJono('tilanneIdpJono');
+
+  /* Kerrokset VIIMEISENÄ: siirto syvennykseen vaatii että muut renderöijät
+     ovat ehtineet täyttää lohkonsa (pulssi, KPI:t, jono). */
+  _tilanneRenderKerrokset();
 }
 
 // ─── SPRINT 3: renderSignals ─────────────────────────────
