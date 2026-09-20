@@ -2355,7 +2355,7 @@ body {
     </div>
     <!-- ADAR Vision — Lisää kuva havaintoon (Taso t1) -->
 <div class="kuva-alue" id="t1-kuva-alue">
-  <input type="file" id="t1-kuva-input" accept="image/*" capture="environment" style="display:none" onchange="_kuvaValittu('t1', this)">
+  <input type="file" id="t1-kuva-input" accept="image/*" style="display:none" onchange="_kuvaValittu('t1', this)">
   <div class="kuva-esikatselu-wrap" id="t1-kuva-wrap">
     <img class="kuva-esikatselu" id="t1-kuva-img" alt="Havainnon kuva">
     <button class="kuva-poista" onclick="_kuvaPoista('t1')">×</button>
@@ -2611,7 +2611,7 @@ body {
     </div>
     <!-- ADAR Vision — Lisää kuva havaintoon (Taso t2) -->
 <div class="kuva-alue" id="t2-kuva-alue">
-  <input type="file" id="t2-kuva-input" accept="image/*" capture="environment" style="display:none" onchange="_kuvaValittu('t2', this)">
+  <input type="file" id="t2-kuva-input" accept="image/*" style="display:none" onchange="_kuvaValittu('t2', this)">
   <div class="kuva-esikatselu-wrap" id="t2-kuva-wrap">
     <img class="kuva-esikatselu" id="t2-kuva-img" alt="Havainnon kuva">
     <button class="kuva-poista" onclick="_kuvaPoista('t2')">×</button>
@@ -2911,7 +2911,7 @@ body {
     </div>
     <!-- ADAR Vision — Lisää kuva havaintoon (Taso t3) -->
 <div class="kuva-alue" id="t3-kuva-alue">
-  <input type="file" id="t3-kuva-input" accept="image/*" capture="environment" style="display:none" onchange="_kuvaValittu('t3', this)">
+  <input type="file" id="t3-kuva-input" accept="image/*" style="display:none" onchange="_kuvaValittu('t3', this)">
   <div class="kuva-esikatselu-wrap" id="t3-kuva-wrap">
     <img class="kuva-esikatselu" id="t3-kuva-img" alt="Havainnon kuva">
     <button class="kuva-poista" onclick="_kuvaPoista('t3')">×</button>
@@ -3010,14 +3010,34 @@ if ('serviceWorker' in navigator && location.protocol === 'https:') {
 // ══════════════════════════════════════════════════════════════════
 // AUTH-KUUNTELU — hakee valmentajan seuran ja pelaajat kirjautuessa
 // ══════════════════════════════════════════════════════════════════
+/* Eksplisiittinen LOCAL-persistenssi ENNEN kuuntelijaa (sama kuin Seura/Admin).
+   Ilman tätä istunto nojaa oletukseen, joka in-app-selaimessa / partitioidussa
+   storagessa ei aina palaudu → käyttäjä jää login-bannerille kesken kenttätyön. */
+try { window._tmAuth.setPersistence(window.firebase.auth.Auth.Persistence.LOCAL); } catch (e) { /* ei tuettu → oletus */ }
+
+/* BANNERIN ARMONAIKA: `onAuthStateChanged` laukeaa sivunlatauksessa ENSIN
+   null:lla, ennen kuin persistoitu istunto on palautettu. Bannerin slammaaminen
+   heti näyttää uloskirjautumiselta — juuri se mitä kameran laukaisema reload
+   tuotti kentällä. Näytetään banneri vasta kun null on ASETTUNUT. */
+window._adarAuthArmo = null;
+function _adarNaytaBanneri(nayta) {
+  const b = document.getElementById('tm-login-banner');
+  if (!b) return;
+  if (window._adarAuthArmo) { clearTimeout(window._adarAuthArmo); window._adarAuthArmo = null; }
+  if (!nayta) { b.style.display = 'none'; return; }
+  window._adarAuthArmo = setTimeout(function () {
+    /* Vielä kirjautumaton armonajan jälkeen → aito kirjautumaton tila. */
+    if (!(window._tmAuth && window._tmAuth.currentUser)) b.style.display = 'flex';
+  }, 1500);
+}
+
 window._tmAuth.onAuthStateChanged(async (user) => {
-  const loginBanner = document.getElementById('tm-login-banner');
   if (!user) {
-    // Ei kirjautunut — näytä kirjautumisinfo
-    if (loginBanner) loginBanner.style.display = 'flex';
+    // Ei kirjautunut — banneri vasta armonajan jälkeen (ks. yllä)
+    _adarNaytaBanneri(true);
     return;
   }
-  if (loginBanner) loginBanner.style.display = 'none';
+  _adarNaytaBanneri(false);
 
   // Hae valmentajan seura Custom Claims -tokenista
   try {
@@ -3249,6 +3269,9 @@ function setScore(tier, phase, val, btn) {
   }
 
   updateTotal(tier);
+  /* Pisteet eivät ole DOM-inputteja → delegoitu kuuntelija ei näe niitä.
+     Ilman tätä reload hukkaisi juuri annetut pisteet. */
+  if (typeof _luonnosTallenna === 'function') _luonnosTallenna();
 }
 
 function updateTotal(tier) {
@@ -3681,6 +3704,10 @@ async function saveCard(level) {
     btn.classList.add('saved');
     btn.disabled = false;
 
+    /* Havainto on Firestoressa → luonnosta ei enää tarvita. Ilman tätä seuraava
+       sivunlataus palauttaisi jo tallennetun havainnon "keskeneräisenä". */
+    if (typeof _luonnosTyhjenna === 'function') _luonnosTyhjenna();
+
     // Näytä analyysitulos-osio
     _naytaAnalyysi(level);
 
@@ -3933,6 +3960,7 @@ function _pikaValitsePelaaja(id, nimi, seuraId, btn) {
 
   const jatkaBtn = document.getElementById('pika-btn-1');
   if (jatkaBtn) jatkaBtn.disabled = false;
+  if (typeof _luonnosTallenna === 'function') _luonnosTallenna();   // pikatila ei ole DOM-inputteja
 }
 
 // ADAR-vaiheen valinta
@@ -3953,6 +3981,7 @@ function _pikaAdar(adar, btn) {
 
   const jatkaBtn = document.getElementById('pika-btn-2');
   if (jatkaBtn) jatkaBtn.disabled = false;
+  if (typeof _luonnosTallenna === 'function') _luonnosTallenna();
 }
 
 // Pisteen valinta
@@ -3963,6 +3992,7 @@ function _pikaPiste(piste, btn) {
 
   const tallBtn = document.getElementById('pika-btn-3');
   if (tallBtn) tallBtn.disabled = false;
+  if (typeof _luonnosTallenna === 'function') _luonnosTallenna();
 
   // Näytä offline-varoitus jos ei verkkoyhteyttä
   const offlineNote = document.getElementById('pika-offline-note');
@@ -4124,6 +4154,10 @@ async function _pikaTallenna() {
 
   await _paivitaOfflineBadge();
 
+  /* Pikahavainto on joko Firestoressa tai offline-jonossa → luonnos pois,
+     ettei seuraava lataus tarjoa jo lähetettyä havaintoa uudelleen. */
+  if (typeof _luonnosTyhjenna === 'function') _luonnosTyhjenna();
+
   // Sulje overlay
   setTimeout(() => {
     _togglePika();
@@ -4234,8 +4268,216 @@ function _paivitaTeemaIcon(teema) {
 // Tallennetaan valitut kuvat per taso — { t1: File|null, t2: File|null, t3: File|null }
 window._kuvaFiles = { t1: null, t2: null, t3: null };
 
+// ══════════════════════════════════════════════════════════════════════════════
+// LUONNOKSEN SÄILYTYS — kenttätyö ei saa kadota sivunlatauksessa
+//
+// JUURISYY: kesken oleva havainto (pelaaja, ADAR-vaihe, pisteet, narratiivi) ja
+// valittu kuva elivät VAIN muistissa. Mobiilissa kamera/galleria taustoittaa
+// WebView'n, ja muistipaineessa selain lataa sivun uudelleen palatessa → kaikki
+// hukkui ja login-banneri välähti ("kirjautui ulos").
+//
+// PERIAATE: ADAR tehdään reload-KESTÄVÄKSI sen sijaan että luotettaisiin siihen
+// ettei reloadia tule. Teksti/pisteet → localStorage (pieni, synkroninen).
+// Kuva → IndexedDB BLOBINA: base64 localStoragessa olisi ~33 % isompi ja
+// ylittäisi kiintiön jo yhdellä kuvalla.
+// ══════════════════════════════════════════════════════════════════════════════
+
+const ADAR_IDB_NIMI = 'tm_adar_luonnos';
+const ADAR_IDB_STORE = 'kuvat';
+const ADAR_TIERIT = ['t1', 't2', 't3'];
+/* Per-tier tekstikentät (t3:lla kaksi lisää) — sama joukko jonka saveCard lukee. */
+const ADAR_KENTAT = ['-pelaaja-id', '-ikä', '-tilanne', '-pvm', '-narr'];
+const ADAR_T3_LISA = ['t3-pelipaikka', 't3-reflektio'];
+
+function _luonnosAvain() {
+  return 'tm_adar_luonnos_' + (window._tmSeuraId || 'tuntematon');
+}
+
+/* ── IndexedDB (kuvat) ──────────────────────────────────────────────────── */
+function _idbAvaa() {
+  return new Promise(function (resolve, reject) {
+    try {
+      if (!window.indexedDB) { reject(new Error('ei idb')); return; }
+      const r = window.indexedDB.open(ADAR_IDB_NIMI, 1);
+      r.onupgradeneeded = function () {
+        const dbi = r.result;
+        if (!dbi.objectStoreNames.contains(ADAR_IDB_STORE)) dbi.createObjectStore(ADAR_IDB_STORE);
+      };
+      r.onsuccess = function () { resolve(r.result); };
+      r.onerror = function () { reject(r.error || new Error('idb open')); };
+    } catch (e) { reject(e); }
+  });
+}
+function _idbToimi(tila, fn) {
+  /* Best-effort: privaattitila / estetty storage → ei saa kaataa lomaketta. */
+  return _idbAvaa().then(function (dbi) {
+    return new Promise(function (resolve) {
+      try {
+        const tx = dbi.transaction(ADAR_IDB_STORE, tila);
+        const req = fn(tx.objectStore(ADAR_IDB_STORE));
+        tx.oncomplete = function () { dbi.close(); resolve(req && req.result); };
+        tx.onerror = function () { dbi.close(); resolve(null); };
+      } catch (e) { try { dbi.close(); } catch (e2) { /* suljettu */ } resolve(null); }
+    });
+  }).catch(function () { return null; });
+}
+function _luonnosTallennaKuva(tier, blob) { return _idbToimi('readwrite', function (s) { return s.put(blob, tier); }); }
+function _luonnosHaeKuva(tier) { return _idbToimi('readonly', function (s) { return s.get(tier); }); }
+function _luonnosPoistaKuva(tier) { return _idbToimi('readwrite', function (s) { return s.delete(tier); }); }
+
+/* ── Tekstikenttien + pisteiden persistointi ────────────────────────────── */
+function _luonnosKeraa() {
+  const tila = { pvm: new Date().toISOString(), tierit: {}, pisteet: {}, vaiheet: {}, pika: null };
+  ADAR_TIERIT.forEach(function (t) {
+    const kentat = {};
+    ADAR_KENTAT.forEach(function (k) {
+      const el = document.getElementById(t + k);
+      if (el && el.value) kentat[k] = el.value;
+    });
+    if (t === 't3') {
+      ADAR_T3_LISA.forEach(function (id) {
+        const el = document.getElementById(id);
+        if (el && el.value) kentat[id] = el.value;
+      });
+    }
+    if (Object.keys(kentat).length) tila.tierit[t] = kentat;
+    if (typeof scores !== 'undefined' && scores[t]) tila.pisteet[t] = Object.assign({}, scores[t]);
+  });
+  if (typeof _phaseState !== 'undefined') tila.vaiheet = JSON.parse(JSON.stringify(_phaseState));
+  if (typeof _pikaState !== 'undefined') tila.pika = Object.assign({}, _pikaState);
+  return tila;
+}
+
+let _luonnosAjastin = null;
+function _luonnosTallenna() {
+  /* Debounce: kirjoittaminen ei saa jauhaa localStoragea joka näppäimellä. */
+  if (_luonnosAjastin) clearTimeout(_luonnosAjastin);
+  _luonnosAjastin = setTimeout(function () {
+    try { window.localStorage.setItem(_luonnosAvain(), JSON.stringify(_luonnosKeraa())); } catch (e) { /* kiintiö/privaatti → ohita */ }
+  }, 400);
+}
+
+function _luonnosTyhjenna() {
+  try { window.localStorage.removeItem(_luonnosAvain()); } catch (e) { /* ohita */ }
+  ADAR_TIERIT.forEach(function (t) { _luonnosPoistaKuva(t); });
+}
+window._luonnosTyhjenna = _luonnosTyhjenna;
+
+/** Palauttaa luonnoksen lomakkeelle. Palauttaa true jos jotain palautettiin. */
+async function _luonnosPalauta() {
+  let tila = null;
+  try { tila = JSON.parse(window.localStorage.getItem(_luonnosAvain()) || 'null'); } catch (e) { tila = null; }
+  let palautettu = false;
+
+  if (tila) {
+    ADAR_TIERIT.forEach(function (t) {
+      const kentat = (tila.tierit || {})[t] || {};
+      Object.keys(kentat).forEach(function (k) {
+        const el = document.getElementById(k.charAt(0) === '-' ? t + k : k);
+        if (el) { el.value = kentat[k]; palautettu = true; }
+      });
+      const ps = (tila.pisteet || {})[t];
+      if (ps && typeof scores !== 'undefined' && scores[t]) {
+        Object.keys(ps).forEach(function (vaihe) {
+          if (ps[vaihe] == null) return;
+          scores[t][vaihe] = ps[vaihe];
+          palautettu = true;
+          /* Merkitse valittu pistenappi takaisin (data-attribuuteista). */
+          const napit = document.querySelectorAll('[onclick^="setScore(\'' + t + '\', \'' + vaihe + '\'"]');
+          napit.forEach(function (b) {
+            const m = (b.getAttribute('onclick') || '').match(/setScore\('[^']+',\s*'[^']+',\s*(\d+)/);
+            if (m && Number(m[1]) === ps[vaihe]) b.classList.add('selected');
+          });
+        });
+        if (typeof updateTotal === 'function') { try { updateTotal(t); } catch (e) { /* ei vaikuta palautukseen */ } }
+      }
+    });
+    if (tila.vaiheet && typeof _phaseState !== 'undefined') {
+      Object.keys(tila.vaiheet).forEach(function (t) { if (_phaseState[t]) Object.assign(_phaseState[t], tila.vaiheet[t]); });
+    }
+    if (tila.pika && typeof _pikaState !== 'undefined') Object.assign(_pikaState, tila.pika);
+  }
+
+  /* Kuvat IDB:stä — esikatselu takaisin samalle tierille. */
+  for (const t of ADAR_TIERIT) {
+    const blob = await _luonnosHaeKuva(t);
+    if (blob) { window._kuvaFiles[t] = blob; _kuvaNaytaPreview(t, blob); palautettu = true; }
+  }
+
+  if (palautettu && typeof _showToast === 'function') _showToast('↩ Palautettiin keskeneräinen havainto');
+  return palautettu;
+}
+
+/* Kaikki lomakemuutokset → luonnos talteen. Delegoitu kuuntelija kattaa myös
+   myöhemmin renderöidyt kentät (KPI-listat, pelaajavalitsin). */
+document.addEventListener('DOMContentLoaded', function () {
+  ['input', 'change'].forEach(function (evt) {
+    document.addEventListener(evt, function (e) {
+      const id = e.target && e.target.id;
+      if (!id) return;
+      if (/^t[123]-/.test(id) || id.indexOf('pika') === 0) _luonnosTallenna();
+    }, true);
+  });
+  _luonnosPalauta();
+});
+
+/* Kuvan pitkä sivu skaalataan tähän ennen esikatselua ja Storage-latausta.
+   MIKSI: alkuperäinen ~5 MB File JA siitä luettu base64-dataURL (+33 % merkki-
+   jonona) olivat molemmat muistissa yhtä aikaa juuri kun natiivi kamera
+   taustoittaa WebView'n → muistipaine laukaisi sivun uudelleenlatauksen
+   (näytti uloskirjautumiselta ja hukkasi havainnon). */
+const ADAR_KUVA_MAX_PX = 1600;
+const ADAR_KUVA_LAATU = 0.85;
+
+/* Esikatselun objectURL:t per tier — revokoidaan kun kuva vaihtuu/poistetaan,
+   jottei blob-viitteitä jää vuotamaan muistiin. */
+window._kuvaPreviewUrlit = { t1: null, t2: null, t3: null };
+function _kuvaVapautaPreview(tier) {
+  const u = window._kuvaPreviewUrlit[tier];
+  if (u) { try { URL.revokeObjectURL(u); } catch (e) { /* jo vapautettu */ } window._kuvaPreviewUrlit[tier] = null; }
+}
+
+/** Skaalaa kuvan canvasilla. Palauttaa Blobin, tai alkuperäisen jos skaalaus ei onnistu. */
+function _skaalaaKuva(file, maxPx, laatu) {
+  return new Promise(function (resolve) {
+    try {
+      const url = URL.createObjectURL(file);
+      const img = new Image();
+      img.onload = function () {
+        try {
+          const pisin = Math.max(img.width, img.height);
+          if (!pisin || pisin <= maxPx) { URL.revokeObjectURL(url); resolve(file); return; }
+          const kerroin = maxPx / pisin;
+          const c = document.createElement('canvas');
+          c.width = Math.round(img.width * kerroin);
+          c.height = Math.round(img.height * kerroin);
+          c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+          c.toBlob(function (blob) {
+            URL.revokeObjectURL(url);
+            resolve(blob || file);   // toBlob voi palauttaa null → alkuperäinen
+          }, 'image/jpeg', laatu);
+        } catch (e) { URL.revokeObjectURL(url); resolve(file); }
+      };
+      img.onerror = function () { URL.revokeObjectURL(url); resolve(file); };
+      img.src = url;
+    } catch (e) { resolve(file); }
+  });
+}
+
+/** Näyttää esikatselun objectURL:lla (ei base64-dataURL:a — kevyempi muistille). */
+function _kuvaNaytaPreview(tier, blob) {
+  _kuvaVapautaPreview(tier);
+  const img = document.getElementById(tier + '-kuva-img');
+  const wrap = document.getElementById(tier + '-kuva-wrap');
+  const nappi = document.getElementById(tier + '-kuva-nappi');
+  try { window._kuvaPreviewUrlit[tier] = URL.createObjectURL(blob); } catch (e) { window._kuvaPreviewUrlit[tier] = null; }
+  if (img && window._kuvaPreviewUrlit[tier]) img.src = window._kuvaPreviewUrlit[tier];
+  if (wrap) wrap.classList.add('nakyy');
+  if (nappi) nappi.style.display = 'none';
+}
+
 // Kutsutaan kun valmentaja valitsee kuvan file-inputista
-function _kuvaValittu(tier, input) {
+async function _kuvaValittu(tier, input) {
   const file = input.files[0];
   if (!file) return;
 
@@ -4245,24 +4487,21 @@ function _kuvaValittu(tier, input) {
     return;
   }
 
-  window._kuvaFiles[tier] = file;
-
-  // Näytä esikatselu
-  const reader = new FileReader();
-  reader.onload = function(e) {
-    const img  = document.getElementById(tier + '-kuva-img');
-    const wrap = document.getElementById(tier + '-kuva-wrap');
-    const nappi = document.getElementById(tier + '-kuva-nappi');
-    if (img)   img.src = e.target.result;
-    if (wrap)  wrap.classList.add('nakyy');
-    if (nappi) nappi.style.display = 'none';
-  };
-  reader.readAsDataURL(file);
+  /* Skaalaus ENNEN talteenottoa: alkuperäistä File:ä ei jätetä muistiin. */
+  const skaalattu = await _skaalaaKuva(file, ADAR_KUVA_MAX_PX, ADAR_KUVA_LAATU);
+  window._kuvaFiles[tier] = skaalattu;
+  _kuvaNaytaPreview(tier, skaalattu);
+  /* Kuva talteen IDB:hen Blobina — reload ei enää hukkaa sitä.
+     EI base64 localStorageen: 5 MB kuva ylittäisi kiintiön. */
+  if (typeof _luonnosTallennaKuva === 'function') _luonnosTallennaKuva(tier, skaalattu);
+  if (typeof _luonnosTallenna === 'function') _luonnosTallenna();
 }
 
 // Poistaa valitun kuvan
 function _kuvaPoista(tier) {
   window._kuvaFiles[tier] = null;
+  _kuvaVapautaPreview(tier);
+  if (typeof _luonnosPoistaKuva === 'function') _luonnosPoistaKuva(tier);
   const wrap  = document.getElementById(tier + '-kuva-wrap');
   const nappi = document.getElementById(tier + '-kuva-nappi');
   const input = document.getElementById(tier + '-kuva-input');

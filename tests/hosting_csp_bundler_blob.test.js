@@ -72,7 +72,13 @@ describe('CSP + bundler-appit (blob:)', () => {
     expect(BUNDLATUT).toEqual([]);
     const s = lue('TalentMaster_ADAR_Pikakortti.html');
     expect(s).not.toContain('__bundler/');
-    expect(s).not.toContain('URL.createObjectURL');
+    /* HUOM: pelkkä `createObjectURL`-merkkijono EI enää ole bundlerin merkki.
+       ADAR käyttää sitä kuvan esikatseluun (`<img>`), mikä on CSP:ssä
+       nimenomaisesti sallittu (`img-src … blob:`) ja korvasi base64-dataURL:n
+       muistipaineen vuoksi. Bundleri tunnistetaan sen omista jäljistä
+       (`__bundler/`, `DecompressionStream`) ja blob-skriptin/-fontin kuviot
+       tarkistetaan erikseen `tests/csp_blob_hygienia.test.js`:n
+       BLOB_SKRIPTI_KUVIOT-listalla — se on se turvaominaisuus, ei merkkijono. */
   });
 
   it('JOS bundlattu appi palaa, sen jokainen mime-tyyppi sallii blob:n', () => {
