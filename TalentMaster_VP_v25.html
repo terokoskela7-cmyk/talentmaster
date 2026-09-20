@@ -851,6 +851,70 @@ body {
 /* Välilehdet pysyvät näkyvissä vieritettäessä (sticky scroll-kontainerin sisällä). */
 .cm-tabs-sticky { position: sticky; top: 0; background: var(--bg2); z-index: 2; }
 
+/* ══════════════════════════════════════════════════════════════════════════
+   JAETTU ALASIVU-SHELL (.sh-*)
+
+   JUURISYY: VP:n sisältömodaalit avautuivat kapeana keskitettynä laatikkona
+   (~540–560px). Leveällä näytöllä kortti kellui pienenä, ympärillä tyhjää —
+   "valmentajakortti aukeaa tosi pienenä". Vika oli systeeminen: jokainen
+   modaali rakensi oman fixed-center-laatikkonsa, joten leveyttä ei voinut
+   korjata yhdestä paikasta.
+
+   Rakenne on sama todettu kuvio kuin `.cm-*` (yksi vierivä kontaineri otsikon
+   alla), mutta LEVEYS 840px ja jaettuna kaikille sisältörikkaille alasivuille.
+   Pienet varmistusdialogit ("jatketaanko?") EIVÄT kuulu tänne — 2 riviä
+   840px-shellissä olisi yhtä väärin kuin raportti 540px-laatikossa.
+   ══════════════════════════════════════════════════════════════════════════ */
+.sh-overlay {
+  position: fixed; inset: 0;
+  background: rgba(17,17,16,.92);
+  z-index: 300;
+  display: flex; align-items: center; justify-content: center;
+  padding: 20px;
+  backdrop-filter: blur(8px);
+}
+.sh-box {
+  background: var(--bg2);
+  border: .5px solid var(--border);
+  width: 840px; max-width: 96vw;
+  max-height: 92vh;
+  display: flex; flex-direction: column;
+  overflow: hidden;
+}
+.sh-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 20px 26px 0;
+  flex-shrink: 0;
+}
+.sh-head-left { display: flex; align-items: center; gap: 14px; }
+.sh-avatar {
+  width: 48px; height: 48px; border-radius: 50%;
+  background: linear-gradient(135deg, var(--bg3), var(--blue));
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'Cormorant Garamond', serif; font-size: 20px; color: var(--ink2);
+}
+.sh-name { font-family: 'Cormorant Garamond', serif; font-size: 22px; font-weight: 300; color: var(--ink); }
+.sh-meta { font-size: 11px; color: var(--ink3); margin-top: 1px; }
+.sh-close { background: none; border: none; color: var(--ink3); font-size: 22px; cursor: pointer; padding: 0 6px; }
+.sh-close:hover { color: var(--ink); }
+/* YKSI vierivä kontaineri: otsikko pysyy, kaikki muu vierii yhdessä → alaosan
+   napit ovat aina tavoitettavissa. min-height:0 pakollinen (flex-lapsi ei
+   muuten kutistu sisältönsä alle). */
+.sh-scroll { flex: 1; min-height: 0; overflow-y: auto; }
+.sh-body { padding: 22px 26px 26px; }
+.sh-tabs { display: flex; gap: 0; padding: 14px 26px 0; border-bottom: .5px solid var(--border); flex-shrink: 0; }
+.sh-tabs-sticky { position: sticky; top: 0; background: var(--bg2); z-index: 2; }
+.sh-tab {
+  padding: 8px 16px; font-size: 11px; letter-spacing: .06em; text-transform: uppercase;
+  color: var(--ink3); cursor: pointer; border: none; background: none;
+  border-bottom: 2px solid transparent; transition: color .15s, border-color .15s;
+}
+.sh-tab:hover { color: var(--ink2); }
+.sh-tab.active { color: var(--teal); border-bottom-color: var(--teal); }
+/* Kaksi saraketta leveällä näytöllä — shellin koko pointti on vaakatilan
+   käyttö. Mobiilissa romahtaa yhteen (media query alla). */
+.sh-2col { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 28px; }
+
 /* ── Kehityskaari-synteesi — LUOKAT, ei inline-tyylejä ──────────────────
    Inline-tyylit voittavat media queryt, joten mobiililayout on mahdoton
    toteuttaa niiden päälle. Siksi rakenne on luokissa. */
@@ -2226,8 +2290,16 @@ textarea.jsp-rv-inp { resize: vertical; min-height: 44px; }
   .player-table { display: block; overflow-x: auto; white-space: nowrap; -webkit-overflow-scrolling: touch; }
   /* Valmentajapaneeli koko leveydeltä mobiilissa (oli kiinteä 420px) */
   .cm-box { width: 100vw; max-width: 100vw; max-height: 100vh; }
+  /* Jaettu shell mobiilissa: koko ruutu + yksi sarake (§6: yksi media query). */
+  .sh-overlay { padding: 0; }
+  .sh-box { width: 100vw; max-width: 100vw; max-height: 100vh; }
+  .sh-head { padding: 16px 16px 0; }
+  .sh-body { padding: 16px; }
+  .sh-tabs { padding: 12px 16px 0; overflow-x: auto; }
+  .sh-2col { grid-template-columns: 1fr; gap: 8px; }
   .cm-tabs { overflow-x: auto; }
   .cm-tab { padding: 8px 10px; font-size: 10px; }
+  .sh-tab { padding: 8px 10px; font-size: 10px; }
 
   /* ── Kehityskaari-synteesi mobiilissa: summary before density ──
      Etusilmäys = rengas + tila + 3 metriikkariviä. Pitkä selitys ja
@@ -12977,12 +13049,23 @@ function avaaCoachPanel(id) {
 
 
   // ═══════════ TAB 1: PROFIILI ═══════════
-  var t1 = '<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">' +
+  /* KAKSI SARAKETTA (shell-migraatio): 840px-shellin koko pointti on vaakatilan
+     käyttö — kapeassa laatikossa nämä olivat yksi pitkä sarake. Mobiilissa
+     .sh-2col romahtaa yhteen sarakkeeseen. */
+  var _profRivi = function (label, arvoHTML) {
+    return '<div style="font-size:12px;color:var(--ink2);padding:5px 0;border-top:.5px solid var(--border)">'
+      + label + ': <span style="color:var(--ink)">' + arvoHTML + '</span></div>';
+  };
+  var t1 = '<div class="sh-2col" style="margin-bottom:14px">' +
+    '<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-top:.5px solid var(--border)">' +
     vpT('<div style="font-size:12px;color:var(--ink2)">Lisenssi:</div>') +
     '<div style="font-size:12px;font-weight:600;color:' + lisVari + ';padding:2px 10px;border:.5px solid ' + lisVari + ';border-radius:10px">' + lisLabel + '</div></div>' +
-    vpT('<div style="font-size:12px;color:var(--ink2);margin-bottom:6px">Erikoistuminen: <span style="color:var(--ink)">') + (erik||'—') + '</span></div>' +
-    vpT('<div style="font-size:12px;color:var(--ink2);margin-bottom:6px">CPD-tunnit (kausi): <span style="color:var(--ink);font-weight:500">') + cpdT + ' h</span></div>' +
-    vpT('<div style="font-size:12px;color:var(--ink2);margin-bottom:6px">Joukkue: <span style="color:var(--ink)">') + (v.joukkue||'—') + '</span></div>' +
+    _profRivi(vpT('Joukkue'), (v.joukkue || '—')) +
+    _profRivi(vpT('Erikoistuminen'), (erik || '—')) +
+    _profRivi(vpT('CPD-tunnit (kausi)'), cpdT + ' h') +
+    _profRivi(vpT('Aktiivisuus'), (vd.vai != null ? vd.vai + ' / 100' : '—')) +
+    _profRivi(vpT('Viim. kirjaus'), (v.viimKirjaus || '—')) +
+    '</div>' +
     (koulHtml ? vpT('<div style="font-size:10px;letter-spacing:.1em;color:var(--ink3);text-transform:uppercase;margin:12px 0 4px">Koulutushistoria</div>') + koulHtml : '') +
     vpT('<button onclick="toggleProfiiliMuokkaus()" id="profMuokkausBtn" style="margin-top:14px;width:100%;padding:7px;border-radius:6px;border:.5px solid var(--border);background:var(--surface);color:var(--ink2);font-size:12px;cursor:pointer">✏️ Muokkaa profiilia</button>') +
     '<div id="profNakyma" style="display:none"></div>' +
@@ -13080,24 +13163,27 @@ function avaaCoachPanel(id) {
   t5 = '<div id="cmAdarCpd" style="background:var(--card);border:.5px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:14px;font-size:12px;color:var(--ink3)">' + vpT('⋯ ladataan peliäly-kalibraatiota') + '</div>' + t5;
 
   // ═══════════ MODAALI ═══════════
-  var h = '<div id="coachModal">' +
-    '<div class="cm-box" onclick="event.stopPropagation()">' +
-      '<div class="cm-header">' +
-        '<div class="cm-header-left"><div class="cm-avatar">' + initials + '</div><div><div class="cm-name">' + nim + '</div><div class="cm-meta">' + rooliLabel + ' · ' + (v.joukkue||'—') + '</div></div></div>' +
-        '<button class="cm-close" onclick="suljePaneeli()">×</button>' +
+  /* MIGROITU JAETTUUN ALASIVU-SHELLIIN (840px). Sisältö ja id:t ennallaan —
+     vain kehys vaihtui, joten _cmTab/_cmKehityskorttiHTML ja tallennuspolut
+     toimivat koskemattomina. */
+  var h = '<div id="coachModal" class="sh-overlay">' +
+    '<div class="sh-box" onclick="event.stopPropagation()">' +
+      '<div class="sh-head">' +
+        '<div class="sh-head-left"><div class="sh-avatar">' + initials + '</div><div><div class="sh-name">' + nim + '</div><div class="sh-meta">' + rooliLabel + ' · ' + (v.joukkue||'—') + '</div></div></div>' +
+        '<button class="sh-close" onclick="suljePaneeli()">×</button>' +
       '</div>' +
       /* YKSI vierivä kontaineri otsikon alle: synteesi + välilehdet + sisältö vierivät
          yhdessä, joten alaosa (tallennusnapit) on aina tavoitettavissa mobiilissa. */
-      '<div class="cm-scroll">' +
+      '<div class="sh-scroll">' +
       '<div id="cmKehityskortti" class="cm-kk"><div style="font-size:12px;color:var(--ink3);padding:10px 0">' + vpT('Valmentajan kehityskaari ladataan…') + '</div></div>' +   // Briiffi 2 — Oura-kehityskortti (synteesi)
-      '<div class="cm-tabs cm-tabs-sticky">' +
-        vpT('<button class="cm-tab active" onclick="_cmTab(0)">Profiili</button>') +
-        '<button class="cm-tab" onclick="_cmTab(1)">VAI+</button>' +
-        vpT('<button class="cm-tab" onclick="_cmTab(2)">Harjoituslaatu</button>') +
-        vpT('<button class="cm-tab" onclick="_cmTab(3)">Mentorointi</button>') +
-        vpT('<button class="cm-tab" onclick="_cmTab(4)">Kalibraatio</button>') +
+      '<div class="sh-tabs sh-tabs-sticky">' +
+        vpT('<button class="sh-tab active" onclick="_cmTab(0)">Profiili</button>') +
+        '<button class="sh-tab" onclick="_cmTab(1)">VAI+</button>' +
+        vpT('<button class="sh-tab" onclick="_cmTab(2)">Harjoituslaatu</button>') +
+        vpT('<button class="sh-tab" onclick="_cmTab(3)">Mentorointi</button>') +
+        vpT('<button class="sh-tab" onclick="_cmTab(4)">Kalibraatio</button>') +
       '</div>' +
-      '<div class="cm-body">' +
+      '<div class="sh-body">' +
         '<div class="cm-section active" id="cmSec0">' + t1 + '</div>' +
         '<div class="cm-section" id="cmSec1">' + t2 + '</div>' +
         '<div class="cm-section" id="cmSec2">' + t3 + '</div>' +
@@ -13282,7 +13368,7 @@ async function _cmLataaArvioinnit(uid) {
 }
 
 function _cmTab(idx) {
-  var tabs = document.querySelectorAll('.cm-tab');
+  var tabs = document.querySelectorAll('.sh-tab');   // shell-migraatio: välilehdet ovat nyt jaetun shellin luokkia
   var secs = document.querySelectorAll('.cm-section');
   for (var i = 0; i < tabs.length; i++) {
     tabs[i].classList.toggle('active', i === idx);
@@ -13349,6 +13435,56 @@ async function _lataaCoachHistoria(valmentajaId) {
     console.warn('Historia:', e.message);
   }
 }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   avaaAlasivu — JAETTU alasivu-shell (840px) kaikille sisältörikkaille
+   modaaleille. Vaihe 1 migroi `coachModal`:n (raportoitu bugi); vaihe 2 loput
+   (joukkuetrendi · bio-banding · ohjelma · review · brändi · HoT-raportti…).
+
+   ÄLÄ käytä pieniin varmistusdialogeihin ("jatketaanko?") — 2 riviä 840px-
+   shellissä on yhtä väärin kuin raportti 540px-laatikossa. Drift-vartija
+   erottaa nämä: sisältörikas ad-hoc-kapea laatikko punertaa, pienet sallitaan.
+
+   Sulkeminen: × · backdrop-klikki · Esc. Palauttaa sulkijafunktion.
+   ══════════════════════════════════════════════════════════════════════════ */
+function avaaAlasivu(o) {
+  o = o || {};
+  var id = o.id || 'tmAlasivu';
+  var vanha = document.getElementById(id); if (vanha) vanha.remove();
+  var esc = function (s) { return String(s == null ? '' : s); };
+  var tabit = (o.tabit || []).map(function (t, i) {
+    return '<button class="sh-tab' + (i === (o.aktiivi || 0) ? ' active' : '') + '"'
+      + (t.fn ? ' onclick="' + esc(t.fn) + '"' : '') + '>' + esc(t.nimi) + '</button>';
+  }).join('');
+  var h = '<div id="' + esc(id) + '" class="sh-overlay">'
+    + '<div class="sh-box" onclick="event.stopPropagation()">'
+    + '<div class="sh-head"><div class="sh-head-left">'
+    + (o.avatar ? '<div class="sh-avatar">' + esc(o.avatar) + '</div>' : '')
+    + '<div><div class="sh-name">' + esc(o.otsikko) + '</div>'
+    + (o.meta ? '<div class="sh-meta">' + esc(o.meta) + '</div>' : '') + '</div></div>'
+    + '<button class="sh-close" aria-label="' + vpT('Sulje') + '">×</button></div>'
+    + '<div class="sh-scroll">' + (o.ylaosaHTML || '')
+    + (tabit ? '<div class="sh-tabs sh-tabs-sticky">' + tabit + '</div>' : '')
+    + '<div class="sh-body">' + (o.sisaltoHTML || '') + '</div>'
+    + '</div></div></div>';
+  var wrap = document.createElement('div');
+  wrap.innerHTML = h;
+  var el = wrap.firstChild;
+  document.body.appendChild(el);
+
+  var nappainkuuntelija;
+  var sulje = function () {
+    try { el.remove(); } catch (e) { /* jo poistettu */ }
+    document.removeEventListener('keydown', nappainkuuntelija);
+    if (typeof o.onSulje === 'function') { try { o.onSulje(); } catch (e) { /* ei kaada sulkemista */ } }
+  };
+  nappainkuuntelija = function (e) { if (e.key === 'Escape') sulje(); };
+  document.addEventListener('keydown', nappainkuuntelija);
+  el.addEventListener('click', function (e) { if (e.target === el) sulje(); });   // backdrop
+  var x = el.querySelector('.sh-close'); if (x) x.onclick = sulje;
+  return sulje;
+}
+window.avaaAlasivu = avaaAlasivu;
 
 function suljePaneeli() {
   var m = document.getElementById('coachModal'); if (m) m.remove();
