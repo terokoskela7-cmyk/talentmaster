@@ -14,7 +14,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import vm from 'node:vm';
-import { readFileSync } from 'fs';
+import { readFileSync, readdirSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 
@@ -195,5 +195,62 @@ describe('Aktiivisuus · kaikki virrat', () => {
       expect(ennen, polku.nimi + ': laskuri ei ole batch.commit():n jälkeen').toContain('batch.commit()');
       expect(ennen, polku.nimi + ': laskuri on batch.set-silmukan sisällä').not.toMatch(/batch\.set\([^;]*$/);
     });
+  });
+
+  /**
+   * DRIFT-VARTIJA — läsnäoloa MERKITSEVIEN appien joukko on lukittu.
+   *
+   * `LASNAOLO_POLUT` (yllä) lukitsee KAHDEN TUNNETUN polun laskurikytkennän,
+   * mutta se on staattinen lista: uusi appi joka alkaa merkitä läsnäoloa ei
+   * näy siinä ennen kuin ihminen muistaa lisätä sen. Juuri se muistinvarainen
+   * lista päästi alkuperäisen aukon läpi (VP ei ollut listalla). Tämä portti
+   * ei luota muistiin: se SKANNAA kaikki apit ja punertaa itse.
+   *
+   * KAKSI TASOA, koska `lasnaolijat`-kokoelmaan kirjoitetaan kahta eri asiaa:
+   *   · `tila`      = HENKILÖKUNNAN toteutunut läsnäolomerkintä  → laskuri
+   *   · `saatavuus` = pelaajan/vanhemman oma RSVP (§35 K2b)      → EI laskuria
+   * Yksitasoinen allowlist punertaisi heti, koska Pelaaja_v7 ja Vanhempi_v2
+   * kirjoittavat samaan kokoelmaan — mutta vain RSVP:n. Molemmat joukot on
+   * lukittu, jottei RSVP ala koskaan valua valmentajan aktiivisuuslaskuriin.
+   */
+  it('DRIFT: läsnäoloa merkitsevät apit lukittu — uusi kirjoittaja punertaa', () => {
+    const MERKITSIJAT = ['TalentMaster_Master_v16.html', 'TalentMaster_VP_v25.html'];
+    const RSVP = ['TalentMaster_Pelaaja_v7.html', 'TalentMaster_Vanhempi_v2.html'];
+    const apit = readdirSync(juuri).filter((f) => /^TalentMaster_.*\.html$/.test(f));
+    expect(apit.length, 'ei löytynyt appeja — skanneri osoittaa väärään hakemistoon').toBeGreaterThan(5);
+
+    const merkitsijat = [], rsvp = [];
+    apit.forEach((f) => {
+      /* Normalisoi välit: `.set(` voi olla eri rivillä kuin
+         `collection('lasnaolijat')` (VP:n viikkopolku), ja batch-polussa
+         `batch.set(` on ENNEN kokoelmaa. */
+      const src = lue(f).replace(/\s+/g, ' ');
+      const avain = "collection('lasnaolijat')";
+      let k = src.indexOf(avain), merk = false, rs = false;
+      while (k > -1) {
+        const ennen = src.slice(Math.max(0, k - 80), k);
+        const jalkeen = src.slice(k + avain.length, k + avain.length + 400);
+        /* (a) kirjoitus kokoelman JÄLKEEN: `.doc(x).set({…})`
+           (b) kirjoitus kokoelmaa ENNEN:   `batch.set(base.collection(…)` */
+        const kirjoitus = /^[\w.$'"[\]() ]{0,120}\.(set|add)\(/.test(jalkeen)
+          || /\.(set|add)\([\w.$ ]*$/.test(ennen);
+        if (kirjoitus) { if (/\btila\s*:/.test(jalkeen)) merk = true; else rs = true; }
+        k = src.indexOf(avain, k + 1);
+      }
+      if (merk) merkitsijat.push(f);
+      if (rs) rsvp.push(f);
+    });
+
+    expect(merkitsijat.sort(), 'läsnäoloa MERKITSEVIEN appien joukko muuttui — kytke laskuri (LASNAOLO_POLUT) ja päivitä tämä allowlist')
+      .toEqual(MERKITSIJAT.slice().sort());
+    expect(rsvp.sort(), 'RSVP-kirjoittajien joukko muuttui — `saatavuus` ei kuulu aktiivisuuslaskuriin')
+      .toEqual(RSVP.slice().sort());
+
+    /* Ja jokainen merkitsijä on oikeasti kytketty laskuriin. */
+    LASNAOLO_POLUT.forEach((polku) => {
+      expect(polku.src, polku.nimi + ': laskurikutsu puuttuu').toContain(polku.kutsu);
+    });
+    expect(LASNAOLO_POLUT.length, 'LASNAOLO_POLUT ja allowlist eivät ole synkassa')
+      .toBe(MERKITSIJAT.length);
   });
 });
