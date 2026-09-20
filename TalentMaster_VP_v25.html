@@ -16654,22 +16654,51 @@ function _hlNauhoitin() {
 }
 window._hlRecToggle = function () { return _hlNauhoitin().toggle(); };   // §7.17: onclick= näkee vain globaalit
 
-async function _hlLataaPalaute(id) {
+/* Oma uid palautteen omistajuuden tunnistukseen ("Sinä"). */
+function _hlOmaUid() { try { return (auth.currentUser && auth.currentUser.uid) || _uid || null; } catch (e) { return _uid || null; } }
+
+async function _hlLataaPalaute(id, korostaId) {
   var alue = document.getElementById('hlPalauteAlue'); if (!alue) return;
   /* Lomake renderöidään uudelleen → nollaa nauhoitin, muuten edellinen nauhoite
      tarttuisi seuraavaan palautteeseen (tai toiseen arviointiin). */
   if (_hlAani) { _hlAani.nollaa(); _hlAani = null; }
   var base = db.collection('seurat').doc(_seuraId).collection('harjoitusarvioinnit').doc(id);
   var jaettu = [], yksit = [];
-  try { var js = await base.collection('palaute_jaettu').orderBy('pvm', 'asc').get(); jaettu = js.docs.map(function (d) { return d.data(); }); } catch (e) {}
-  try { var ys = await base.collection('palaute_yksityinen').orderBy('pvm', 'asc').get(); yksit = ys.docs.map(function (d) { return d.data(); }); } catch (e) { /* johto-gate: ei oikeutta → ohita */ }
+  /* doc-ID mukaan: juuri lisätty merkintä korostetaan (korostaId). */
+  try { var js = await base.collection('palaute_jaettu').orderBy('pvm', 'asc').get(); jaettu = js.docs.map(function (d) { var o = d.data(); o._id = d.id; return o; }); } catch (e) {}
+  try { var ys = await base.collection('palaute_yksityinen').orderBy('pvm', 'asc').get(); yksit = ys.docs.map(function (d) { var o = d.data(); o._id = d.id; return o; }); } catch (e) { /* johto-gate: ei oikeutta → ohita */ }
+  var omaUid = _hlOmaUid();
+  var tanaan = new Date().toISOString().slice(0, 10);
+  var omiaYht = jaettu.concat(yksit).filter(function (p) { return omaUid && p.tekija_uid === omaUid; }).length;
   var listaHtml = function (arr, tyhjä) {
     if (!arr.length) return '<div style="font-size:12px;color:var(--ink3)">' + tyhjä + '</div>';
     /* Teksti valinnainen kun palaute on ääntä. Toisto jaetulla renderöijällä
        (tmAani.toistoHTML) — sama kuin Masterin "Saatu palaute" ja reflektiopäiväkirja. */
-    return arr.map(function (p) { return '<div style="font-size:12px;color:var(--ink2);padding:6px 0;border-bottom:.5px solid var(--border)">' + (p.teksti ? _hlEsc(p.teksti) : '<span style="color:var(--ink3)">' + vpT('🎙 Ääripalaute') + '</span>') + tmAani.toistoHTML(p) + '<div style="font-size:10px;color:var(--ink3);margin-top:2px">' + _hlEsc(p.tekija_rooli || '') + ' · ' + _hlEsc(typeof tmPvmFi === 'function' ? (tmPvmFi(p.pvm) || (p.pvm || '').slice(0, 10)) : (p.pvm || '').slice(0, 10)) + '</div></div>'; }).join('');
+    return arr.map(function (p) {
+      var oma = !!(omaUid && p.tekija_uid === omaUid);
+      var uusi = !!(korostaId && p._id === korostaId);
+      /* Juuri lisätty korostetaan hetkellisesti: lähettäjä näkee merkinnän
+         ILMESTYVÄN listaan, ei vain katoavaa toastia. */
+      var reuna = uusi ? 'border-left:2px solid var(--teal);padding-left:8px;' : '';
+      var siru = uusi ? '<span id="hlUusiSiru" style="margin-left:6px;font-size:10px;color:var(--teal);border:.5px solid var(--teal);border-radius:8px;padding:1px 6px">' + vpT('✓ Lisätty') + '</span>' : '';
+      /* Oma merkintä tunnistettavaksi — "kuka sanoi" on eri asia kuin rooli. */
+      var kuka = oma ? vpT('Sinä') : _hlEsc(p.tekija_rooli || '');
+      var pvmTxt = _hlEsc(typeof tmPvmFi === 'function' ? (tmPvmFi(p.pvm) || (p.pvm || '').slice(0, 10)) : (p.pvm || '').slice(0, 10));
+      if (oma && (p.pvm || '').slice(0, 10) === tanaan) pvmTxt = vpT('tänään');
+      return '<div' + (uusi ? ' id="hlUusiRivi"' : '') + ' style="font-size:12px;color:var(--ink2);padding:6px 0;border-bottom:.5px solid var(--border);' + reuna + '">'
+        + (p.teksti ? _hlEsc(p.teksti) : '<span style="color:var(--ink3)">' + vpT('🎙 Ääripalaute') + '</span>')
+        + tmAani.toistoHTML(p)
+        + '<div style="font-size:10px;color:var(--ink3);margin-top:2px">' + kuka + ' · ' + pvmTxt + siru + '</div></div>';
+    }).join('');
   };
-  var h = vpT('<div style="background:var(--card);border:.5px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:10px"><div style="font-size:11px;font-weight:600;text-transform:uppercase;color:var(--teal);margin-bottom:6px">💬 Jaettu palaute <span style="color:var(--ink3);font-weight:400;text-transform:none">(näkyy valmentajalle)</span></div>') + listaHtml(jaettu, vpT('Ei jaettua palautetta vielä.')) + '</div>';
+  /* SESSIOTIETO: johdettu listasta (omat tekija_uid-merkinnät) — ei uutta kenttää.
+     EI estä uutta palautetta, vain kuittaa että teit jo. */
+  var h = '';
+  if (omiaYht > 0) {
+    h += '<div style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--teal);background:rgba(40,176,144,.08);border:.5px solid rgba(40,176,144,.25);border-radius:8px;padding:6px 10px;margin-bottom:10px">'
+      + '<span>✓</span><span>' + vpT('Annoit palautteen tästä arvioinnista') + ' · ' + omiaYht + ' ' + vpT('kpl') + '</span></div>';
+  }
+  h += vpT('<div style="background:var(--card);border:.5px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:10px"><div style="font-size:11px;font-weight:600;text-transform:uppercase;color:var(--teal);margin-bottom:6px">💬 Jaettu palaute <span style="color:var(--ink3);font-weight:400;text-transform:none">(näkyy valmentajalle)</span></div>') + listaHtml(jaettu, vpT('Ei jaettua palautetta vielä.')) + '</div>';
   h += vpT('<div style="background:var(--card);border:.5px solid var(--amber);border-radius:10px;padding:12px 14px;margin-bottom:12px"><div style="font-size:11px;font-weight:600;text-transform:uppercase;color:var(--amber);margin-bottom:6px">🔒 Yksityinen muistiinpano <span style="color:var(--ink3);font-weight:400;text-transform:none">(vain VP/mentori)</span></div>') + listaHtml(yksit, vpT('Ei yksityisiä muistiinpanoja.')) + '</div>';
   // Lisäyslomake (oletus = jaettu)
   h += '<div style="background:var(--surface);border:.5px solid var(--border);border-radius:10px;padding:12px 14px">'
@@ -16682,8 +16711,32 @@ async function _hlLataaPalaute(id) {
     + '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">'
     + vpT('<label style="font-size:12px;color:var(--ink2);display:flex;align-items:center;gap:5px"><input type="radio" name="hlPalauteTyyppi" value="jaettu" checked style="accent-color:var(--teal)"> Jaettu</label>')
     + vpT('<label style="font-size:12px;color:var(--ink2);display:flex;align-items:center;gap:5px"><input type="radio" name="hlPalauteTyyppi" value="yksityinen" style="accent-color:var(--amber)"> Yksityinen</label>')
-    + vpT('<button onclick="_hlLisaaPalaute()" style="margin-left:auto;padding:7px 16px;border:none;border-radius:7px;background:var(--teal);color:#fff;font-size:12px;font-weight:600;cursor:pointer">Lisää palaute</button></div></div>');
+    /* Inline-kuittaus napin VIERESSÄ — toast katoaa ~3 s ja jää huomaamatta
+       jos katse on lomakkeessa. Täytetään _hlKuittaus():ssa tallennuksen jälkeen. */
+    + '<span id="hlPalauteKuittaus" style="font-size:11px;color:var(--teal)"></span>'
+    + vpT('<button id="hlPalauteBtn" onclick="_hlLisaaPalaute()" style="margin-left:auto;padding:7px 16px;border:none;border-radius:7px;background:var(--teal);color:#fff;font-size:12px;font-weight:600;cursor:pointer">Lisää palaute</button></div></div>');
   alue.innerHTML = h;
+  /* Korostus on hetkellinen: 3 s jälkeen rivi palaa normaaliksi, jottei lista
+     täyty pysyvistä "uusi"-merkeistä. */
+  if (korostaId) {
+    setTimeout(function () {
+      var r = document.getElementById('hlUusiRivi'); if (r) { r.style.borderLeft = 'none'; r.style.paddingLeft = '0'; }
+      var s = document.getElementById('hlUusiSiru'); if (s) s.style.display = 'none';
+    }, 3000);
+  }
+  /* Kirjoittaminen kuittaa kuittauksen pois — "uusi palaute kesken" on eri tila
+     kuin "edellinen lähetetty". */
+  var ta0 = document.getElementById('hlPalauteTeksti');
+  if (ta0 && ta0.addEventListener) ta0.addEventListener('input', function () { var k = document.getElementById('hlPalauteKuittaus'); if (k) k.textContent = ''; });
+}
+
+/* Pysyvämpi kuittaus toastin rinnalle (~6 s tai kunnes käyttäjä kirjoittaa). */
+function _hlKuittaus(tyyppi) {
+  var k = document.getElementById('hlPalauteKuittaus'); if (!k) return;
+  k.textContent = tyyppi === 'yksityinen'
+    ? vpT('✓ Yksityinen muistiinpano tallennettu')
+    : vpT('✓ Palaute lisätty valmentajalle');
+  setTimeout(function () { var e = document.getElementById('hlPalauteKuittaus'); if (e && e.textContent === k.textContent) e.textContent = ''; }, 6000);
 }
 window._hlLisaaPalaute = async function () {
   var ta = document.getElementById('hlPalauteTeksti'); var teksti = (ta && ta.value || '').trim();
@@ -16694,6 +16747,11 @@ window._hlLisaaPalaute = async function () {
   if (!_hlAvoinId) return;
   var tyyppiEl = document.querySelector('input[name="hlPalauteTyyppi"]:checked');
   var tyyppi = tyyppiEl ? tyyppiEl.value : vpT('jaettu');
+  /* Nappi kiinni tallennuksen ajaksi: ilman tätä hidas yhteys (äänen lataus voi
+     kestää sekunteja) houkuttelee painamaan uudelleen → duplikaatti. */
+  var btn = document.getElementById('hlPalauteBtn');
+  if (btn) { btn.disabled = true; btn.style.opacity = '.6'; btn.style.cursor = 'default'; btn.textContent = vpT('Tallennetaan…'); }
+  var _palauta = function () { var b = document.getElementById('hlPalauteBtn'); if (b) { b.disabled = false; b.style.opacity = '1'; b.style.cursor = 'pointer'; b.textContent = vpT('Lisää palaute'); } };
   try {
     var u = auth.currentUser; var rooli = 'vp';
     if (u) { var tr = await u.getIdToken(true).then(function () { return u.getIdTokenResult(); }).catch(function () { return null; }); if (tr && tr.claims && tr.claims.rooli) rooli = tr.claims.rooli; }   // §7.2 tuore token + rooli
@@ -16712,9 +16770,20 @@ window._hlLisaaPalaute = async function () {
       if (aani.transkriptio) doc.transkriptio = aani.transkriptio;
     }
     await ref.set(doc);
+    /* VÄLITÖN tyhjennys — ei jäädä odottamaan _hlLataaPalaute:n kahta
+       Firestore-hakua. Uudelleenrenderöinti tyhjentää lomakkeen kyllä, mutta
+       vasta round-tripin jälkeen: siihen asti teksti näkyy yhä ruudulla ja
+       lähetys näyttää epäonnistuneen (ja houkuttelee painamaan uudelleen).
+       Hitaalla yhteydellä tai jos haku kaatuu, se ei tyhjene lainkaan. */
+    if (ta) ta.value = '';
+    if (_hlAani && typeof _hlAani.nollaa === 'function') { try { _hlAani.nollaa(); } catch (e2) { /* nauhoitin jo nollattu */ } }
     if (typeof toast === 'function') toast(vpT('✓ Palaute tallennettu (') + (tyyppi === 'yksityinen' ? vpT('yksityinen') : vpT('jaettu')) + ')', 'ok');
-    _hlLataaPalaute(_hlAvoinId);
-  } catch (e) { if (typeof toast === 'function') toast(vpT('Tallennus epäonnistui:') + ' ' + ((e && e.message) || vpT('tuntematon')), 'error'); }
+    await _hlLataaPalaute(_hlAvoinId, ref.id);
+    _hlKuittaus(tyyppi);   // inline-kuittaus renderöinnin JÄLKEEN (render nollaa elementin)
+  } catch (e) {
+    _palauta();
+    if (typeof toast === 'function') toast(vpT('Tallennus epäonnistui:') + ' ' + ((e && e.message) || vpT('tuntematon')), 'error');
+  }
 };
 
 /* ═══════════ R2-B J1 — JOUKKUEÄLY · seuratason talenttiraportti (aggregaatti, READ-ONLY) ═══════════
