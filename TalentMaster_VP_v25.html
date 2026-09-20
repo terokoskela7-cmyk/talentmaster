@@ -13197,7 +13197,26 @@ async function _cmLataaArvioinnit(uid) {
     if (kalEl) {
       var kalib = (typeof harjoitusKalibraatioHistoria === 'function') ? harjoitusKalibraatioHistoria(arvioinnit) : {};
       var r = kalib[uid];
-      if (!r) kalEl.innerHTML = _hlKalibTyhjaViesti(arvioinnit);   // Briiffi 1 — rehellinen tyhjä: kerro mitä puuttuu
+      if (!r) {
+        /* LÖYDETTÄVYYSAUKKO: kalibraatio laskee VAIN vahvistettuja pareja
+           (tietoinen — ihminen vahvistaa että arvioinnit koskevat samaa
+           harjoitusta). Vahvistusnappi oli kuitenkin vain tapahtumanäkymässä,
+           joten kortti kertoi "vahvista muualla" eikä tarjonnut toimintoa →
+           valmentaja teki molemmat arvioinnit eikä löytänyt kalibraatiota.
+           Korjaus: renderöi SAMA `_hlPariBlokki` inline tähän. Ei uutta
+           parituslogiikkaa, ei uutta kyselyä, ei muutosta laskentaan. */
+        var _kalibOdottavat = (arvioinnit || []).filter(function (a) {
+          return a && a.malli === 'valmennustaidot' && a.arviointitapa === 'itsearvio'
+            && a.pari_vahvistettu !== true
+            && typeof _hlEhdotaPari === 'function' && _hlEhdotaPari(a);
+        });
+        var _kalibH = '<div style="color:var(--ink2)' + (_kalibOdottavat.length ? ';margin-bottom:10px' : '') + '">'
+          + _hlKalibTyhjaViesti(arvioinnit) + '</div>';   // rehellinen tyhjä säilyy: kerro mitä puuttuu
+        if (_kalibOdottavat.length && typeof _hlPariBlokki === 'function') {
+          _kalibH += _kalibOdottavat.map(function (a) { return _hlPariBlokki(a); }).join('');
+        }
+        kalEl.innerHTML = _kalibH;
+      }
       else {
         var suuntaTxt = r.suunta === 'yliarvio' ? vpT('arvioi itsensä korkeammalle') : r.suunta === 'aliarvio' ? vpT('arvioi itsensä matalammalle') : vpT('linjassa havainnoijan kanssa');
         kalEl.innerHTML = '<div style="color:var(--ink2)">' + r.n_paria + ' ' + vpT('paria · keskikuilu <b>') + r.keskikuilu + '</b>' + (r.kaventuu == null ? '' : (r.kaventuu ? ' ' + vpT('· kaventunut ↓') : ' ' + vpT('· kasvanut ↑'))) + '</div>'
@@ -16549,7 +16568,9 @@ function _hlKalibTyhjaViesti(arvioinnit) {
   if (!nItse && nHav) return hv(nHav) + vpT(', 0 itsearviota — pyydä valmentajaa tekemään itsearvio samasta harjoituksesta.');
   var pending = 0;
   if (typeof _hlEhdotaPari === 'function') B.forEach(function (a) { if (a.arviointitapa === 'itsearvio' && a.pari_vahvistettu !== true && _hlEhdotaPari(a)) pending++; });
-  if (pending) return it(nItse) + ' · ' + hv(nHav) + ' · ' + pending + vpT(' paria odottaa vahvistusta — vahvista tapahtumanäkymässä.');
+  /* "vahvista tapahtumanäkymässä" olisi nyt harhaanjohtava: valmentajakortilla
+     vahvistusnappi renderöityy suoraan tämän viestin alle (_hlPariBlokki). */
+  if (pending) return it(nItse) + ' · ' + hv(nHav) + ' · ' + pending + vpT(' paria odottaa vahvistusta:');
   return it(nItse) + ' · ' + hv(nHav) + vpT(' — ei löytynyt paria (eri harjoitus tai yli ±2 pv). Linkitä manuaalisesti tapahtumanäkymässä.');
 }
 function _hlEhdotaPari(a) {
