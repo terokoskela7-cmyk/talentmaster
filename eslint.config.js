@@ -63,6 +63,8 @@ const APP_GLOBALS = {
   tmAani: 'readonly', tmReflektio: 'readonly',
   // lib/tm_aktiivisuus.js (toimihenkilön kirjautumisaikaleima — 6 toimihenkilöappia)
   tmAktiivisuus: 'readonly', tmMerkitseKirjautuminen: 'readonly',
+  // lib/tm_havainto_kaavio.js (pelihavainto ↔ taktiikkataulu -linkki, jälkirikastus)
+  tmHavaintoKaavio: 'readonly', tmHavaintoLiitaKaavio: 'readonly', tmKaavioLiitaHavaintoon: 'readonly',
   // lib/tm_historia.js (Trendi Vaihe 1 — mittaushistorian selkäranka)
   TM_HISTORIA: 'readonly', tmHhSnapshot: 'readonly', tmTkiSnapshot: 'readonly', tmHistoriaLisaa: 'readonly',
   // lib/tm_pohja.js (P1.2 — itsekuvaava tuontipohja: sarakegenerointi + Meta-lehti)
