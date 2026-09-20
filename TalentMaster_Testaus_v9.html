@@ -14,6 +14,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 <script src="lib/tm_appcheck.js?v=1"></script>
+<script src="lib/tm_aktiivisuus.js?v=1"></script>   <!-- Toimihenkilon kirjautumisaikaleima — jaettu kirjoituspiste, ks. lib-header -->
 <!-- V3a: oli src/lib/ — Firebase Hosting ignoroi src/** → PHV-kirjasto olisi 404 custom-
      domainilla (hiljainen: kasvumittaus olisi menettänyt Mirwald-laskennan). Sama vikaluokka
      kuin #491. lib/ tarjoillaan molemmilla originilla. -->
@@ -1469,6 +1470,9 @@ async function _tunnistaSeuraJaRooli(u) {
       _superAdmin = true; _rooli = 'super_admin';
     } else if (claims.seuraId && claims.rooli) {
       _seuraId = claims.seuraId; _rooli = claims.rooli;
+      /* Kirjautumisaikaleima omaan kayttajat-dokkiin (§0) — VAI+ n4 lukee tätä.
+         Vain seura-rooli: SA-haara yllä ohitetaan (ei kayttajat-dokkia, §3). */
+      if (typeof tmMerkitseKirjautuminen === 'function') tmMerkitseKirjautuminen(_db, _seuraId, u.uid);
       const s = await _db.collection('seurat').doc(_seuraId).get().catch(() => null);
       if (s?.exists) { _seuraNimi = s.data().nimi; _lataaSeuraOletukset(s.data()); }
     }

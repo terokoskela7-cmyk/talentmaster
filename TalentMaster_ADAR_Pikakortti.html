@@ -2067,6 +2067,7 @@ body {
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-storage-compat.js"></script>
 <script src="lib/tm_appcheck.js?v=1"></script>
+<script src="lib/tm_aktiivisuus.js?v=1"></script>   <!-- Toimihenkilon kirjautumisaikaleima — jaettu kirjoituspiste, ks. lib-header -->
 <!-- Kanoninen normiIka (§26 ikakonventio: ikaluokka = year(pvm) - syntymaVuosi,
      fallback joukkuenimesta). Ei omaa ikakaavaa ADARiin. -->
 <script src="lib/tm_eerikkila_normit.js?v=1"></script>
@@ -3032,6 +3033,12 @@ window._tmAuth.onAuthStateChanged(async (user) => {
       return;
     }
     window._tmSeuraId = seuraId;
+
+    /* Kirjautumisaikaleima omaan kayttajat-dokkiin (§0) — VAI+ n4 lukee tätä.
+       SA ohitetaan: ei kayttajat-dokkia seuran alla (§3). Best-effort. */
+    if (!isSuperAdmin && typeof tmMerkitseKirjautuminen === 'function') {
+      tmMerkitseKirjautuminen(window._tmDB, seuraId, user.uid);
+    }
 
     // Hae seuran pelaajat — täytä kaikki kolme select-kentät
     const snap = await window._tmDB

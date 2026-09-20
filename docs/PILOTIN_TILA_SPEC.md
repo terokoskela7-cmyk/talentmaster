@@ -52,11 +52,11 @@ Tuorein mittauspäivä per seura = `max(tki_pvm, hh_pvm, adar_pvm, ...)` pikaken
 
 - ~~**Nudge-lähetys** (muistutus vastaamattomille) → vaihe 2~~ → ✅ **TOTEUTETTU 2026-06-16:** CF `lahetaMuistutukset` (freq-cap MIN_DAYS=5 / MAX_KPL=3, vain korjatut osoitteet, lempeä `pohjaMuistutus`) + Admin Pilotin tila "🔔 Muistuta odottavia" -nappi (kuivaAjo→confirm→lähetys). Ks. CLAUDE.md §33.
 - **Tarkka "kutsu lähetetty X pv sitten"** → vaatii `kutsut`-kokoelman/audit-luvun (kevyt lisäys myöhemmin); ensimmäinen versio listaa vain `odottaa`-pelaajat.
-- **Käyttö/login-aktiivisuus** ("kirjautuuko kukaan, streakit, valmentajat jotka eivät kirjaa") → vaatii aktiviteetti-pikakentän (esim. `viimeisin_kirjautuminen`) jota ei vielä ole → vaihe 2.
+- ~~**Käyttö/login-aktiivisuus** ("kirjautuuko kukaan, streakit, valmentajat jotka eivät kirjaa") → vaatii aktiviteetti-pikakentän jota ei vielä ole → vaihe 2.~~ → ✅ **KIRJOITUSPISTE TOTEUTETTU 20.9.2026:** kenttä on **`viimeisinKirjautuminen` (camelCase)** — ⚠ EI `viimeisin_kirjautuminen`: VP_v25 `laskeVAI` n4 lukee camelCasea, snake jättäisi VAI+:n rikki. Kirjoittaja = jaettu `lib/tm_aktiivisuus.js` (`tmMerkitseKirjautuminen`), kutsu kaikissa toimihenkilöapeissa (VP · Master · Seura · Testaus_v9 · Pelihavainto/ADAR · UTJ; SA ohitetaan, ei `kayttajat`-dokkia). 1 write/selainsessio. Ei rules-muutosta (sääntö 928), ei migraatiota → **tyhjä = "ei dataa", EI 0** (`laskeVAI` jättää n4:n pois painotuksesta). Adoptiomittarit: `docs/CODE_TASK_ADMIN_PILOTTI_ADOPTIO.md`.
 - **GDPR-ops (B4, vienti/poisto/audit)** · **laskutus (SaaS)** · **täysi Sentry-terveysdashboard** → omat hankkeensa, eivät tähän.
 
 ## 6. SEURAAVAT
 
 1. Code-komento: laajenna `renderTilastot` (tai uusi `renderPilotinTila`) — samasta data-ajosta, pikakentät, suppilo+kypsyys+blokkeri, read-only.
 2. Vaihe 2: nudge-lähetys (CF) + tarkka kutsupäivä (kutsut/audit) + käyttö-pikakenttä.
-3. Aktiviteetti-signaali (`viimeisin_kirjautuminen` pikakenttä) → mahdollistaa "aktiivinen"-suppiluvaiheen + valmentaja-aktiivisuuden.
+3. ✅ Aktiviteetti-signaali (**`viimeisinKirjautuminen`** pikakenttä, camelCase) — kirjoituspiste tehty 20.9.2026 → mahdollistaa "aktiivinen"-suppiluvaiheen + valmentaja-aktiivisuuden. Näkymätyö: `docs/CODE_TASK_ADMIN_PILOTTI_ADOPTIO.md`.

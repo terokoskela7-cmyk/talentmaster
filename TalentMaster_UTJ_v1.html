@@ -11,6 +11,7 @@
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
 <script src="lib/tm_appcheck.js?v=1"></script>
+<script src="lib/tm_aktiivisuus.js?v=1"></script>   <!-- Toimihenkilon kirjautumisaikaleima — jaettu kirjoituspiste, ks. lib-header -->
 <style>
 :root{
   --carbon:#1C1C1A;--bone:#F2EFE6;
@@ -406,6 +407,9 @@ auth.onAuthStateChanged(async u=>{
     _sid=cS;
     if(!_sid){const us=await db.collectionGroup('kayttajat').where('uid','==',u.uid).limit(1).get().catch(()=>null);if(us&&!us.empty)_sid=us.docs[0].ref.parent.parent.id;}
     if(!_sid){toast('Seuraa ei löydy','err');auth.signOut();return;}
+    /* Kirjautumisaikaleima omaan kayttajat-dokkiin (§0) — VAI+ n4 lukee tätä.
+       Vain seura-rooli (UTJ): SU-haara yllä ohitetaan (ei kayttajat-dokkia, §3). */
+    if(typeof tmMerkitseKirjautuminen==='function')tmMerkitseKirjautuminen(db,_sid,u.uid);
     const ss=await db.collection('seurat').doc(_sid).get().catch(()=>null);_snm=ss?.data()?.nimi||_sid;
   }
   document.getElementById('sbNimi').textContent=_snm;

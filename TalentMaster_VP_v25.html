@@ -17,6 +17,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-functions-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-storage-compat.js"></script>   <!-- Vaihe A: ääripalautteen audio-upload (tmAani.lataa). VP:N OMA SDK-versio, EI Masterin 9.22.1 (§38 sekaversio). -->
 <script src="lib/tm_appcheck.js?v=1"></script>
+<script src="lib/tm_aktiivisuus.js?v=1"></script>   <!-- Toimihenkilon kirjautumisaikaleima — jaettu kirjoituspiste, ks. lib-header -->
 <!-- Eerikkilä-normit + universaali testirekisteri (eerikkilaTaso, laskeFVP) — 10m/5m-tasot + FVP-profiili -->
 <script src="lib/tm_lang.js?v=14"></script>   <!-- i18n V0 — fi/sv/en käännöstaulukko + t() + kieli-init (putkitus) -->
 <script src="lib/tm_i18n_common.js?v=9"></script>   <!-- i18n Vaihe 0 — JAETTU henkilöstö-i18n + lukittu glossaari (ENNEN sivukarttaa) -->
@@ -3110,6 +3111,13 @@ auth.onAuthStateChanged(async user => {
 
   if (!_seuraId) { naytaLogin(); return; }
 
+  /* Kirjautumisaikaleima omaan kayttajat-dokkiin (§0). laskeVAI n4 lukee tätä;
+     ilman kirjoituspistettä Kontakti oli 0 kaikilla. SA ohitetaan: ei
+     kayttajat-dokkia seuran alla (§3). Best-effort, ei awaitia. */
+  if (!isSuperAdmin && typeof tmMerkitseKirjautuminen === 'function') {
+    tmMerkitseKirjautuminen(db, _seuraId, _uid);
+  }
+
   // Vaihe B — rooli + SA-lippu globaaleiksi (ristiinarvio-gate + tekija_rooli pikakortti-embedille).
   window._vpRooli = token.claims.rooli || null;
   window._vpSA = isSuperAdmin;
@@ -4622,8 +4630,13 @@ async function laskeVAI(valmentajaUid) {
     var laatuKa = laatuArvot.length ? laatuArvot.reduce(function (a, b) { return a + b; }, 0) / laatuArvot.length : null;
     var n3 = laatuKa !== null ? Math.round((laatuKa - 1) / 9 * 100) : 0;
 
-    // 4. Kontakti — viimeisinKirjautuminen
-    var n4 = 0;
+    /* 4. Kontakti — viimeisinKirjautuminen.
+       TYHJÄ ≠ 0 (§0): kenttää ei kirjoitettu ennen 20.9.2026 eikä migraatiota
+       ole, joten se täyttyy vasta kun käyttäjä kirjautuu uuden koodin jälkeen.
+       Nollana se antaisi punaisen "Ei kirjautunut 30pv" JOKAISELLE — myös
+       aktiivisimmalle — ja vetäisi VAI+:aa 15 p alas ilman että kukaan on
+       tehnyt mitään väärin. null = "ei dataa" → jätetään pois painotuksesta. */
+    var n4 = null;
     var vkMs = _vpAikaMs(u.viimeisinKirjautuminen);
     if (vkMs) {
       var paivia = Math.max(0, Math.floor((nytMs - vkMs) / 86400000));
@@ -4649,12 +4662,21 @@ async function laskeVAI(valmentajaUid) {
       if (mitattu > 0) n5 = Math.min(100, Math.round(parantunut / mitattu * 200));
     }
 
-    // Painot ennallaan (30/20/20/15/15) — viritys on oma päätöksensä.
-    var vai = Math.round(0.30 * n1 + 0.20 * n2 + 0.20 * n3 + 0.15 * n4 + 0.15 * n5);
+    /* Painot ennallaan (30/20/20/15/15) — viritys on oma päätöksensä.
+       Komponentti jolta EI OLE DATAA (null) jätetään pois ja loput
+       normalisoidaan jäljelle jäävällä painosummalla. Kaikki läsnä →
+       painosumma 1.0 → identtinen vanhan kaavan kanssa. */
+    var _osat = [[0.30, n1], [0.20, n2], [0.20, n3], [0.15, n4], [0.15, n5]]
+      .filter(function (o) { return o[1] != null; });
+    var _painoSumma = _osat.reduce(function (s, o) { return s + o[0]; }, 0);
+    var vai = _painoSumma > 0
+      ? Math.round(_osat.reduce(function (s, o) { return s + o[0] * o[1]; }, 0) / _painoSumma)
+      : 0;
 
     var halytykset = [];
     if (n1 < 20) halytykset.push({ taso: 'red', teksti: vpT('Ei havaintoja 30pv') });
-    if (n4 < 10) halytykset.push({ taso: 'red', teksti: vpT('Ei kirjautunut 30pv') });
+    /* n4 == null → ei dataa, EI hälytystä (ks. yllä). */
+    if (n4 != null && n4 < 10) halytykset.push({ taso: 'red', teksti: vpT('Ei kirjautunut 30pv') });
     if (n2 < 30) halytykset.push({ taso: 'amber', teksti: vpT('Vähän arviointeja') });
     if (n3 < 40 && laatuArvot.length > 0) halytykset.push({ taso: 'amber', teksti: vpT('Harjoitteluarviot puutteellisia') });
     if (n5 === 0 && kehitysInfo.mitattu > 0) halytykset.push({ taso: 'amber', teksti: vpT('Joukkueen kehitys pysähtynyt') });
@@ -12881,9 +12903,18 @@ function avaaCoachPanel(id) {
   for (var ki = 0; ki < koul.length; ki++) { koulHtml += '<div style="font-size:10px;color:var(--ink2)">• ' + (koul[ki].nimi||'') + ' (' + (koul[ki].vuosi||'') + ')</div>'; }
 
   // ── VAI-data ──
-  var vd = v._vai || {vai:null,adar:0,kaynti:0,harjoittelu:0,kontakti:0,kehitys:0,kehitysInfo:null,halytykset:[]};
+  var vd = v._vai || {vai:null,adar:0,kaynti:0,harjoittelu:0,kontakti:null,kehitys:0,kehitysInfo:null,halytykset:[]};
   var vaiVari = vd.vai >= 70 ? '#28B090' : vd.vai >= 50 ? '#E0A040' : '#C94040';
   var compRow = function(label, value) {
+    /* value == null = EI DATAA (esim. viimeisinKirjautuminen puuttuu, §0).
+       Tyhjä palkki + "—", EI punaista nollaa: puuttuva mittaus ei ole huono
+       tulos. Sama periaate kuin muualla — "näytä mitä on". */
+    if (value == null) {
+      return '<div style="display:flex;align-items:center;gap:10px;padding:4px 0;opacity:.55">' +
+        '<div style="width:100px;font-size:11px;color:var(--ink2)">' + label + '</div>' +
+        '<div style="flex:1;height:4px;background:rgba(242,239,230,.08);border-radius:2px"></div>' +
+        '<div style="width:28px;text-align:right;font-size:11px;font-family:var(--font-m);color:var(--ink3)">—</div></div>';
+    }
     var cb = value >= 70 ? '#28B090' : value >= 40 ? '#E0A040' : '#C94040';
     return '<div style="display:flex;align-items:center;gap:10px;padding:4px 0">' +
       '<div style="width:100px;font-size:11px;color:var(--ink2)">' + label + '</div>' +
