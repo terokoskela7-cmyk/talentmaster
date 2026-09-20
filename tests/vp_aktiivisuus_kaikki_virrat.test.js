@@ -132,6 +132,48 @@ describe('Aktiivisuus · kaikki virrat', () => {
     expect(r.kausi.pelihavainnot).toBe(0);
   });
 
+  /* ── KONTAKTI (n4) · TYHJÄ ≠ 0 ────────────────────────────────────────────
+     `viimeisinKirjautuminen` oli koodipohjassa VAIN lukuna — mikään ei
+     kirjoittanut sitä. n4 = 0 kaikilla → VAI+ 15 p liian matala ja punainen
+     "Ei kirjautunut 30pv" JOKAISELLA kortilla, myös aktiivisimmalla.
+     Kirjoituspiste on nyt `lib/tm_aktiivisuus.js`, mutta migraatiota ei ole:
+     kenttä täyttyy vasta kun käyttäjä kirjautuu. Siksi puuttuva arvo on
+     "ei dataa" (null), ei nolla. */
+
+  it('KONTAKTI: puuttuva kirjautuminen = null, EI 0 eikä punaista hälytystä', async () => {
+    const r = await aja({});
+    expect(r.kontakti, 'ei dataa → null, muuten jokainen valmentaja näyttää passiiviselta').toBeNull();
+    const tekstit = (r.halytykset || []).map((h) => h.teksti).join(' | ');
+    expect(tekstit, 'väärä hälytys ilman dataa').not.toContain('Ei kirjautunut');
+  });
+
+  it('KONTAKTI: tuore kirjautuminen → korkea n4, ei hälytystä', async () => {
+    const r = await aja({ kayttaja: { viimeisinKirjautuminen: iso(0) } });
+    expect(r.kontakti).toBeGreaterThan(90);
+    expect((r.halytykset || []).map((h) => h.teksti).join(' | ')).not.toContain('Ei kirjautunut');
+  });
+
+  it('KONTAKTI: vanha kirjautuminen → 0 + hälytys (aito signaali säilyy)', async () => {
+    /* Vaimennus ei saa hukata oikeaa signaalia: 40 pv sitten on aito passiivisuus. */
+    const r = await aja({ kayttaja: { viimeisinKirjautuminen: iso(40) } });
+    expect(r.kontakti).toBe(0);
+    expect((r.halytykset || []).map((h) => h.teksti).join(' | ')).toContain('Ei kirjautunut');
+  });
+
+  it('VAI+ normalisoi painot kun komponentilta puuttuu data', async () => {
+    /* Ilman n4:ää indeksi lasketaan jäljelle jäävällä painosummalla (0.85),
+       EI niin että puuttuva komponentti vetäisi 15 p pois. */
+    const r = await aja({
+      havainnot: [{ valmentajaUid: 'c1', tyyppi: 'adar', luotu: iso(2) }],
+      harjoitusarvioinnit: [{ valmentajaUid: 'c1', arviointitapa: 'havainnointi', malli: 'palloliitto', pvm: pvm(3), vastaukset: { a1: 4 } }],
+    });
+    expect(r.kontakti, 'fixture ilman kirjautumisaikaa').toBeNull();
+    const odotettu = Math.round(
+      (0.30 * r.adar + 0.20 * r.kaynti + 0.20 * r.harjoittelu + 0.15 * r.kehitys) / 0.85
+    );
+    expect(r.vai, 'painoja ei normalisoitu — puuttuva n4 rankaisee valmentajaa').toBe(odotettu);
+  });
+
   it('YKSITYISYYS: laskeVAI ei lue reflektiot-alikokoelmaa, vain laskurin', async () => {
     const src = funktio('async function laskeVAI(');
     expect(src, 'VP lukee yksityistä reflektiopäiväkirjaa').not.toMatch(/collection\('reflektiot'\)/);

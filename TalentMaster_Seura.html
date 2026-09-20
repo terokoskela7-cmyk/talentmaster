@@ -13,6 +13,7 @@
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-functions-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-storage-compat.js"></script>
 <script src="lib/tm_appcheck.js?v=1"></script>
+<script src="lib/tm_aktiivisuus.js?v=1"></script>   <!-- Toimihenkilon kirjautumisaikaleima — jaettu kirjoituspiste, ks. lib-header -->
 <!-- Excel-tuonti: SheetJS -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <!-- #92 joukkue-normalisointi (kanonisointi tuonnissa) -->
@@ -1289,6 +1290,9 @@ async function lataaProfiili(kayttaja) {
         return;
       }
       await asetaAktiivinenSeura(seuraId);
+      /* Kirjautumisaikaleima omaan kayttajat-dokkiin (§0) — VAI+ n4 lukee tätä.
+         Vain seuran hallinto: SA-haara yllä ohitetaan (ei kayttajat-dokkia, §3). */
+      if (typeof tmMerkitseKirjautuminen === 'function') tmMerkitseKirjautuminen(db, seuraId, kayttaja.uid);
     }
 
     tila.kayttajaEmail = kayttaja.email; // tallennetaan Cloud Function -kutsuja varten
