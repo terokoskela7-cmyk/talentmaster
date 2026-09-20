@@ -89,7 +89,8 @@ window.TM_KAAVIO_HOST = {
 <script src="lib/tm_kaavio_ui.js?v=5"></script>   <!-- Taktiikkataulun UI-ohjain, JAETTU Master_v16:n kanssa (host-adapteri alla) -->    <!-- erä B1: editorin tila+koordinaatit (sama mappi kuin render) -->   <!-- Vaihe 4c: jaksofokus-oversight PURE-ydin (kattavuus/umpeutunut/teemakeskittymä, §26) -->
 <script src="lib/tm_kaavio_konsepti.js?v=1"></script>   <!-- erä C: spec↔konsepti-sidos (otsikko/KPI resolvoidusta konseptista, ei specistä) -->
 <script src="lib/tm_vp_seuranta.js?v=1"></script>   <!-- Vaihe C: VP-seuranta koonti/kuittaus/IDP-feed (nojaa VAI+-indeksiin, ei uutta mittaria) -->
-<script src="lib/tm_kehityskaari.js?v=4"></script>   <!-- Trendi Vaihe 2 + IDP VAIHE 1: yksilön kehityskaari (data + tmKehityskaari-renderöijä) -->
+<script src="lib/tm_kehityskaari.js?v=4"></script>
+<script src="lib/tm_infografiikka.js?v=1"></script>   <!-- Trendi Vaihe 2 + IDP VAIHE 1: yksilön kehityskaari (data + tmKehityskaari-renderöijä) -->
 <script src="lib/tm_kypsyys.js?v=2"></script>   <!-- IDP R1: Kypsyys/PHV -komponentti (tmKypsyys) kytketty näkyviin per-pelaaja-kortin vasempaan paneeliin (korvaa kypsyysproosan) -->
 <script src="lib/tm_treeniteema.js?v=1"></script>   <!-- Vaihe 4d: teemakattavuus PURE-ydin (jaksofokus vs suunnitellut teemaharjoitukset) -->
 <script src="lib/tm_jaksokooste.js?v=1"></script>   <!-- Vaihe 6: jakson sulku (meso-sykli) PURE-ydin — prosessi+kalibraatio+historia (geneerinen §8) -->
@@ -2805,6 +2806,8 @@ input::placeholder, textarea::placeholder { color: var(--ink3); opacity: 1; }
       <!-- R2-B J1 — Joukkueäly (seuratason aggregaatti, read-only) -->
       <div id="rapSeg-joukkuealy" style="display:none"><div id="joukkuealy"></div></div>
       <div id="rapSeg-mdt">
+      <!-- Raportointi-infografiikka: kerros 1 synteesi + 2 paatoskortit + 3 syvennys (KISS-kartta v1) -->
+      <div id="rapInfografiikka"></div>
       <div class="rapport-section mdt-no-print" id="mdtPickerSec" style="margin-bottom:14px">
         <h3 data-i18n="Pelaajaraportti">Pelaajaraportti</h3>
         <select id="mdtPelaajaSel" onchange="_mdtValitse(this.value)" style="width:100%;max-width:380px;padding:8px 12px;background:var(--surface);border:.5px solid var(--border);border-radius:8px;color:var(--ink);font-size:13px;cursor:pointer"></select>
@@ -2816,7 +2819,7 @@ input::placeholder, textarea::placeholder { color: var(--ink3); opacity: 1; }
         <div class="kpi-card"><div class="kpi-label" data-i18n="Talenttia HoT:lle">Talenttia HoT:lle</div><div class="kpi-value" id="rap-t">—</div></div>
         <div class="kpi-card"><div class="kpi-label">Hidden Gem</div><div class="kpi-value" id="rap-hg">—</div></div>
       </div>
-      <div class="rapport-section">
+      <div class="rapport-section" id="rapNominoinnit">
         <h3 data-i18n="Talenttisuositukset kv-tasolle">Talenttisuositukset kv-tasolle</h3>
         <div id="rap-nominees"></div>
       </div>
@@ -17052,9 +17055,57 @@ function renderJoukkuealy() {
 }
 window.renderJoukkuealy = renderJoukkuealy;
 
+/* ══════════════════════════════════════════════════════════════════════════
+   RAPORTOINTI — kartan kolme kerrosta (Oura × KISS).
+   SSOT: RAPORTOINTI_KISS_design_kartta_v1.html
+     1) Oura-synteesi: sanallinen tila + rengas (kaari = DATAN KATTAVUUS,
+        EI arvosana). Tulostaulu ("5/7 yllä") on tietoisesti poistettu — ranking.
+     2) KISS-päätöskortit: mihin VP tarttuu. Sama johdettu data kuin Kodin
+        kriittiset signaalit (`_vpSignaaliKortit`) — ei uutta laskentaa.
+     3) Syvennys `<details>`, ROMAHDETTU: mittarit + RAE + kalibraatio.
+   §26: kaikki jo ladatusta `_pelaajat`/`_valmentajat`-datasta — EI uutta kyselyä.
+   ══════════════════════════════════════════════════════════════════════════ */
+function _rapKattavuus(P) {
+  /* Kattavuus = montako datavirtaa seuralla on (0–1). Rengas kertoo tämän,
+     ei laatua — ohut data näyttää ohuelta, ei huonolta. */
+  if (!P.length) return 0;
+  var virrat = [
+    P.some(function (p) { return _valmiusLahde(p) != null; }),
+    P.some(function (p) { return p.tki_viimeisin != null || p.hh_taso != null || p.d1_taso != null; }),
+    P.some(function (p) { return p.adar_havaintoja > 0 || p.d3_viimeisin; }),
+    P.some(function (p) { return p.phv_tila; }),
+    P.some(function (p) { return p.suostumusTila === 'annettu'; })
+  ];
+  return virrat.filter(Boolean).length / virrat.length;
+}
+
+function _rapSynteesi(P, sig) {
+  var katt = _rapKattavuus(P);
+  var ohut = katt < 0.4 || P.length === 0;
+  var tila = ohut ? vpT('Kerää') : (sig.kortit.length <= 1 ? vpT('Vahva') : vpT('Kehittyy'));
+  var otsikko, lause;
+  if (ohut) {
+    /* HONEST-EMPTY: ei keksittyä lukua eikä nollaa joka näyttäisi mitatulta. */
+    otsikko = vpT('Talenttikuva tarkentuu kun arviointeja kertyy');
+    lause = vpT('Renkaan kaari = datan kattavuus, ei arvosana. Aloita kirjaamalla harjoitusarviointeja ja pelihavaintoja.');
+  } else if (sig.hiljaa) {
+    otsikko = vpT('Talenttipohja rakentuu — mentorointi kaipaa huomiota');
+    lause = sig.hiljaa + ' ' + vpT('valmentajaa ilman mentorointikirjausta. Ei sijoitus tai arvosana — alla asiat joihin voit tarttua.');
+  } else if (sig.nostot) {
+    otsikko = vpT('Talenttipohja vankka');
+    lause = sig.nostot + ' ' + vpT('nostoehdokasta odottaa IDP-ehdotusta. Alla asiat joihin voit tarttua.');
+  } else {
+    otsikko = vpT('Seuran talenttikuva vakaa');
+    lause = vpT('Ei kriittisiä signaaleja juuri nyt — data karttuu ja kehityskohteet näkyvät syvennyksessä.');
+  }
+  var kausi = (typeof _laskeKausi === 'function') ? '' : '';
+  return TM_INFO.synteesiRengas(tila, katt) + TM_INFO.synteesiTeksti(otsikko, lause, (_seuraId || '').toUpperCase() + kausi);
+}
+
 function renderRaportointi() {
   if (typeof _mdtTaytaPicker === 'function') _mdtTaytaPicker();   // P0b-1: MDT-pelaajavalitsin
-  const fleiat = _pelaajat.filter(p=>p.flei_viimeisin).map(p=>p.flei_viimeisin);
+  _rapRenderInfografiikka();
+  const fleiat = _pelaajat.filter(p => _valmiusLahde(p) != null).map(p => _valmiusLahde(p));
   const fleiKa = fleiat.length ? (fleiat.reduce((a,b)=>a+b,0)/fleiat.length).toFixed(1) : '—';
   // Lasketaan Hidden Gem §28-luokittimella (laskeHiddenGem), ei vanhasta p.signaali-kentästä.
   const talents = _pelaajat.filter(p => _onTalenttisuositus(p));   // X-Factor (stored) TAI laskettu Hidden Gem
@@ -17076,9 +17127,80 @@ function renderRaportointi() {
         <div class="nom-name"><strong>${p.etunimi} ${p.sukunimi}</strong> · ${p.joukkue}</div>
         ${p.signaali==='xfactor' ? '<span class="tag xfactor">X-Factor</span>' : (_hgBadge(p) || '<span class="tag hidden">Hidden Gem</span>')}
         ${_potJohto ? _vpPotentiaaliBadgeHTML(p) : ''}
-        <div class="nom-detail">${p.flei_viimeisin != null ? (vpT("Valmius") + " " + p.flei_viimeisin) : "—"}</div>
+        <div class="nom-detail">${_valmiusLahde(p) != null ? (vpT("Valmius") + " " + _valmiusLahde(p)) : "—"}</div>
       </div>`).join('');
   }
+}
+
+/* Kerrokset 1–3 omaan konttiin. Legacy-KPI-rivi ja nostoehdokaslista
+   SIIRRETÄÄN syvennykseen (appendChild) — niitä ei renderöidä uudelleen, joten
+   `lahetaRaportti` ja muut niitä lukevat toiminnot säilyvät koskemattomina. */
+function _rapRenderInfografiikka() {
+  var kontti = document.getElementById('rapInfografiikka');
+  if (!kontti || typeof TM_INFO === 'undefined') return;
+  var P = _pelaajat || [];
+  var sig = (typeof _vpSignaaliKortit === 'function') ? _vpSignaaliKortit() : { kortit: [] };
+
+  /* KERROS 1 — synteesi */
+  var h = '<div style="background:var(--card);border:.5px solid var(--border);border-radius:12px;padding:16px 18px;margin-bottom:14px">'
+    + _rapSynteesi(P, sig) + '</div>';
+
+  /* KERROS 2 — päätöskortit (sama data kuin Koti; ei uutta laskentaa) */
+  h += '<div style="font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink3);margin:0 0 8px">'
+    + vpT('Mihin tartut nyt') + '</div>';
+  if (sig.kortit.length) {
+    h += sig.kortit.slice(0, 3).map(function (k) {
+      return TM_INFO.paatoskortti({
+        ik: k.ik,
+        /* Vakavuus vain teal/amber (OURA: teal ainoa vahva aksentti) — punainen
+           ja sininen mapataan amberiin, ikoni + teksti kantavat merkityksen. */
+        sev: (k.sev === 'var(--teal)') ? 'teal' : 'amber',
+        teksti: k.txt, cta: k.cta, fn: k.fn
+      });
+    }).join('');
+  } else {
+    h += TM_INFO.eiSignaaleja();
+  }
+
+  /* KERROS 3 — syvennys, ROMAHDETTU (ei `open`-attribuuttia) */
+  h += '<details id="rapSyvennys" style="margin-top:16px">'
+    + '<summary style="cursor:pointer;font-size:12.5px;color:var(--ink2);padding:8px 0">'
+    + vpT('Seuran mittarit ja jakaumat') + ' — ' + vpT('syvennys') + '</summary>'
+    + '<div id="rapSyvennysSisalto" style="padding-top:10px"></div></details>';
+  kontti.innerHTML = h;
+
+  var sisalto = document.getElementById('rapSyvennysSisalto');
+  if (!sisalto) return;
+
+  /* Bullet-mittarit — viitteet ovat placeholdereita kunnes normit kytketään. */
+  var valmiudet = P.map(_valmiusLahde).filter(function (v) { return v != null; });
+  var valmiusKa = valmiudet.length ? Math.round(valmiudet.reduce(function (a, b) { return a + b; }, 0) / valmiudet.length) : null;
+  var taso3 = (typeof laskeTaso3Osuus === 'function') ? laskeTaso3Osuus(P) : null;
+  var mh = '<div style="font-size:11px;color:var(--ink3);margin-bottom:6px;line-height:1.5">'
+    + vpT('Palkki = seuran arvo · viiva = tavoite · oikealla ero. Viitetason alle jäävä on kehityskohde, ei virhe.') + '</div>';
+  mh += TM_INFO.bulletRivi({ label: vpT('Taso ≥3 -osuus'), alanimi: 'D1/D2/H-H', arvo: (taso3 && taso3.pct != null) ? taso3.pct : null, viite: 60, yksikko: '%', eroYksikko: ' %-yks.' });
+  mh += TM_INFO.bulletRivi({ label: vpT('Kehon valmius ka'), alanimi: '/100', arvo: valmiusKa, viite: 68 });
+  mh += TM_INFO.bulletRivi({ label: vpT('Rekisteröintikonversio'), alanimi: vpT('% kutsutuista'), arvo: sig.konv, viite: 70, yksikko: '%', eroYksikko: ' %-yks.' });
+  sisalto.innerHTML = '<div style="background:var(--card);border:.5px solid var(--border);border-radius:10px;padding:14px 16px;margin-bottom:10px">' + mh + '</div>'
+    + '<div style="background:var(--card);border:.5px solid var(--border);border-radius:10px;padding:14px 16px;margin-bottom:10px">'
+    + '<div style="font-size:12px;color:var(--ink2);margin-bottom:2px">' + vpT('Syntymäkvartaali · RAE') + '</div>'
+    + TM_INFO.raeJakauma(_rapRaeJakauma(P)) + '</div>';
+
+  /* Legacy-lohkot syvennykseen — SIIRTO, ei uudelleenrenderöinti. */
+  ['rapKpis', 'rapNominoinnit'].forEach(function (id) {
+    var el = document.getElementById(id);
+    if (el && el.parentNode !== sisalto) sisalto.appendChild(el);
+  });
+}
+
+/** Syntymäkvartaalijakauma pikakentistä (§26) — ei uutta kyselyä. */
+function _rapRaeJakauma(P) {
+  var bq = { Q1: 0, Q2: 0, Q3: 0, Q4: 0 };
+  (P || []).forEach(function (p) {
+    var q = p.rae_kvartaali || (typeof raeKvartaali === 'function' ? raeKvartaali(p.syntymaaika) : null);
+    if (q && bq[q] != null) bq[q]++;
+  });
+  return bq;
 }
 
 function lahetaRaportti() {
@@ -17149,9 +17271,27 @@ function lahetaRaportti() {
    Lukee jo ladatusta _pelaajat/_valmentajat-datasta + pikakentistä (§26). Ei uusia kyselyjä.
    CTA:t kytkevät olemassa oleviin funktioihin/näkymiin. Strangler: 'tilanne'-näkymä = porautuminen.
 ════════════════════════════════════════════════════════════ */
-function renderKotiVP() {
-  const el = document.getElementById('vpKotiView');
-  if (!el) return;
+/* ══════════════════════════════════════════════════════════════════════════
+   INTEGRAATIOSAUMA — valmius/kuorma yhden abstraktion takaa.
+
+   Tänään valmius = `flei_viimeisin` (pikakenttä §26). Tulossa: GPS/HR/Hudl/
+   Palloliiton Taso. Kun se kytketään, vaihdetaan VAIN tämän funktion sisus —
+   ei render-koodia. Siksi Raportoinnin valmiuslukemat EIVÄT saa lukea
+   `flei_viimeisin`:iä suoraan.
+   Sauma on dokumentoitu ja vartioitu; integraatiota EI rakenneta tässä.
+   ══════════════════════════════════════════════════════════════════════════ */
+function _valmiusLahde(p) {
+  if (!p) return null;
+  var v = p.flei_viimeisin;
+  if (typeof v === 'number') return v;
+  if (v && typeof v.pct === 'number') return v.pct;   // vanha objektimuoto
+  return null;
+}
+
+/* Kriittiset signaalit JAETTUNA: Koti renderöi nämä kortteina, Raportointi
+   samat päätöskortteina (kartan kerros 2). Yksi laskenta, kaksi pintaa —
+   ei rinnakkaista logiikkaa joka voisi ajautua erilleen. */
+function _vpSignaaliKortit() {
   const P = _pelaajat || [], V = _valmentajat || [];
   const T = { teal:'var(--teal)', amber:'var(--amber)', red:'var(--red)', blue:'var(--blue)', ink3:'var(--ink3)' };
   const esc = s => String(s == null ? '' : s).replace(/'/g, '');
@@ -17160,7 +17300,7 @@ function renderKotiVP() {
   const hiljaa = V.filter(v => (v.mentorointiPvt == null ? 999 : v.mentorointiPvt) >= VALMENTAJA_HILJAA_PV);
   if (hiljaa.length) kortit.push({ ik:'🔴', sev:T.red, txt: hiljaa.length + ' ' + vpT('valmentajaa ilman mentorointikirjausta') + ' (' + VALMENTAJA_HILJAA_PV + ' ' + vpT('pv') + ')', cta:vpT('Mentoroi'), fn:"setWs('valmentajat')" });
   // 2. Hidden Gem / X-Factor (FLEI ≥ kynnys, ei talenttiohjelmassa)
-  const nostot = P.filter(p => (p.flei_viimeisin || 0) >= HIDDEN_GEM_FLEI && p.talenttiOhjelma !== true);
+  const nostot = P.filter(p => (_valmiusLahde(p) || 0) >= HIDDEN_GEM_FLEI && p.talenttiOhjelma !== true);   // valmius saumasta
   if (nostot.length) kortit.push({ ik:'✦', sev:T.amber, txt: nostot.length + ' ' + vpT('Hidden Gem -nostoehdokasta (valmius ≥') + HIDDEN_GEM_FLEI + ')', cta:vpT('Ehdota IDP'), fn:"setWs('pelaajat')" });
   // 3. Joukkueen heikoin kehityskohde → treeniteema
   const kohdeLkm = {}, kohdeJoukkue = {};
@@ -17175,7 +17315,7 @@ function renderKotiVP() {
     kortit.push({ ik:'🎯', sev:T.teal, txt: kn + ' ' + vpT('heikoin kehityskohde') + ' (' + kohdeLkm[heikoin] + ' ' + vpT('pelaajalla') + (jk ? ', ' + vpT('mm.') + ' ' + jk : '') + ')', cta:vpT('Luo treeniteema'), fn:"_jsvLuoHarjoitus('" + esc(jk) + "','" + esc(knData) + "',{lahde:'tki_gap'})" });
   }
   // 4. FLEI < 40 → klinikka
-  const klinikka = P.filter(p => p.flei_viimeisin != null && p.flei_viimeisin < 40);
+  const klinikka = P.filter(p => _valmiusLahde(p) != null && _valmiusLahde(p) < 40);   // valmius saumasta
   if (klinikka.length) kortit.push({ ik:'🏥', sev:T.red, txt: klinikka.length + ' ' + vpT('pelaajaa kehon valmius alle 40 (klinikkalähetys)'), cta:vpT('Katso'), fn:"setWs('pelaajat')" });
   // 5. Rekisteröintikonversio < 70 %
   const tuotu = P.filter(p => p.suostumusTila === 'pilotti').length;
@@ -17186,6 +17326,17 @@ function renderKotiVP() {
   // 6. D3-kalibraatiokuilu (malli A): valmentajan ja VP:n arvio eroaa ≥1.5 → kalibraatio/mentorointi
   const d3Kuilu = P.filter(p => p.d3_viimeisin && typeof d3VpKuiluPelaajalla === 'function' && d3VpKuiluPelaajalla(p.d3_viimeisin.pisteet));
   if (d3Kuilu.length) kortit.push({ ik:'⚖️', sev:T.blue, txt: vpT('Valmentajan ja VP:n D3-arvio eroaa') + ' ' + d3Kuilu.length + ' ' + vpT('pelaajalla → kalibraatio'), cta:vpT('Katso'), fn:"setWs('pelaajat')" });
+
+  return { kortit: kortit, tuotu: tuotu, odottaa: odottaa, annettu: annettu, konv: konv,
+           nostot: nostot.length, hiljaa: hiljaa.length, d3Kuilu: d3Kuilu.length };
+}
+
+function renderKotiVP() {
+  const el = document.getElementById('vpKotiView');
+  if (!el) return;
+  const P = _pelaajat || [];
+  const _sig = _vpSignaaliKortit();
+  const kortit = _sig.kortit, tuotu = _sig.tuotu, odottaa = _sig.odottaa, annettu = _sig.annettu, konv = _sig.konv;
 
   const strippi = '<div class="vpkoti-strippi">'
     + '<div><div class="vks-luku">' + (tuotu + odottaa + annettu) + '</div><div class="vks-lbl">' + vpT('tuotu') + '</div></div>'
