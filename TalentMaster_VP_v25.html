@@ -456,6 +456,27 @@ body {
 
 .ws-view { display: none; }
 .ws-view.active { display: block; }
+/* ── VP-SIVUJEN LUKUMITTA ────────────────────────────────────────────────────
+   JUURISYY: `#main`illa ei ole `max-width`ia, joten lukusisältö venyi
+   desktopilla reunasta reunaan (~1200px+). Bullet-palkit, viiteviivat ja
+   trendiviivat pitenivät → "pitkää viivaa ja leveää". Mobiilissa viewport on
+   mittaa kapeampi, joten siellä näkymä oli aina kunnossa.
+
+   Laajentaa olemassa olevaa LUKUMITTA-konventiota (ks. `.jsp-railvapaa`
+   ~1540: "ei venytetä reunasta reunaan, vaan rajataan kartan mittaan ja
+   keskitetään") sivutasolle. 980px on kartta-SSOT:n 940–1040 väliltä ja
+   linjassa 840px alasivu-shellin kanssa.
+
+   MOBIILI ENNALLAAN ILMAN MEDIAKYSELYÄ: kun viewport < 980, `max-width` ei
+   rajoita mitään ja `#main`:n mobiilipadding ohjaa kuten ennenkin.
+   `margin-left/right:auto` (ei `margin-inline`) = sama kirjoitusasu kuin
+   olemassa olevassa konventiossa. Otsikot jäävät sarakkeen vasempaan reunaan
+   — tekstiä ei keskitetä, vain sarake. */
+.ws-view { width: 100%; max-width: 980px; margin-left: auto; margin-right: auto; }
+/* Opt-out: näkymät jotka AIDOSTI tarvitsevat vaakatilan (ruudukot). Perustelu
+   per näkymä luetaan HTML:stä; epävarma tapaus jätetään lukumittaan, koska
+   rajattu on turvallisempi oletus kuin venyvä. */
+.ws-view--leveä { max-width: none; }
 
 /* ── SHARED COMPONENTS ──────────────────────────────────── */
 .page-title {
@@ -2803,7 +2824,9 @@ input::placeholder, textarea::placeholder { color: var(--ink3); opacity: 1; }
     </div>
 
     <!-- ── KALENTERI ── -->
-    <div class="ws-view" id="ws-kalenteri">
+    <!-- Lukumitan opt-out: kuukausi-/viikkoruudukko tarvitsee vaakatilan —
+         980px:ssä päivät puristuisivat luettavuuden alle. -->
+    <div class="ws-view ws-view--leveä" id="ws-kalenteri">
       <div class="page-title" data-i18n="Kalenteri">Kalenteri</div>
       <div class="page-sub" id="vpCalSub" data-i18n="Testitapahtumat · kaikki joukkueet · protokollat">Testitapahtumat · kaikki joukkueet · protokollat</div>
 
