@@ -84,6 +84,7 @@ window.TM_KAAVIO_HOST = {
 <script src="lib/tm_kaavio_validate.js?v=5"></script>   <!-- §6-validaattori (client-portti) -->
 <script src="lib/tm_kaavio_editori.js?v=5"></script>    <!-- editorin tila + koordinaatit (sama mappi kuin render) -->
 <script src="lib/tm_kaavio_konsepti.js?v=1"></script>   <!-- spec ↔ konsepti -sidos (otsikko + KPI kaanon ⊕ seura) -->
+<script src="lib/tm_havainto_kaavio.js?v=1"></script>
 <script src="lib/tm_kaavio_ui.js?v=5"></script>         <!-- Taktiikkataulun UI-ohjain, JAETTU VP_v25:n kanssa (host-adapteri yllä) -->
 <script src="lib/tm_arviointi_taksonomia.js?v=11"></script>   <!-- P1: TM_ARVIOINTI_ASTEIKKO + D4-taksonomia + tmAdarHavaittu (Pelihavainto-talteenotto) -->
 <script src="lib/tm_idp.js?v=6"></script>   <!-- I3a: + kesto valmentajan asetettavaksi (opts.kestoVk) · I2 (C): valmentajan IDP-kausitavoite-kortti -->
@@ -4841,16 +4842,110 @@ function renderHavainnot() {
       const ms = _iaMs(p.adar_pvm);
       const pvmTxt = ms ? _pvmFiM(new Date(ms).toISOString().slice(0,10)) : '';
       const yht = (p.adar_viimeisin && p.adar_viimeisin.yht != null) ? p.adar_viimeisin.yht + '/3' : '—';
+      /* Taktiikkataulu-jälkirikastus: kortista pääsee pelaajan yksittäisiin
+         havaintoihin, joihin kaavio liitetään pöydän ääressä (kenttäkirjaus
+         pysyy kevyenä). Pääklikkaus vie aikajanaan kuten ennen. */
       return '<div class="koti-kortti" style="cursor:pointer" onclick="pickPlayer(\'' + p.id + '\');setWs(\'dev\')">'
         + '<div class="kk-ikoni">🧠</div>'
         + '<div class="kk-txt"><b>' + _iaNimi(p) + '</b> · ' + masterT('Peliäly') + ' ' + yht + ' · ' + p.adar_havaintoja + masterT(' havaintoa') + (pvmTxt ? ' · ' + pvmTxt : '') + '</div>'
-        + '<span style="color:var(--teal)">→</span></div>';
+        + '<button onclick="event.stopPropagation();_hkAvaaHavainnot(\'' + p.id + '\')" style="background:none;border:.5px solid var(--line);border-radius:20px;color:var(--ink2);font-size:10.5px;font-weight:600;padding:5px 11px;cursor:pointer;white-space:nowrap">' + masterT('📋 Taktiikkataulu') + '</button>'
+        + '<span style="color:var(--teal);margin-left:8px">→</span></div>';
     }).join('') + '</div>';
   } else {
     h += '<div class="koti-tyhja">' + masterT('Ei havaintoja vielä. Avaa peliälytyökalu ja kirjaa ensimmäinen peliälyhavainto.') + '</div>';
   }
   el.innerHTML = h;
 }
+
+/* ════════════════════════════════════════════════════════════
+   JÄLKIRIKASTUS — taktiikkataulu pelihavainnon todisteeksi.
+
+   Kentällä havainto kirjataan nopeasti (ADAR-pikakortti). Kaavio piirretään
+   JÄLKIKÄTEEN pöydän ääressä ja liitetään jo tallennettuun havaintoon.
+   Pelihavainto = D4 peliäly → kaavio on siihen usein parempi todiste kuin kuva.
+
+   Per-havainto-listaa EI ollut olemassa (Havainnot-työtila näytti vain
+   pelaajakortteja pikakentistä, §26) — tämä on se puuttuva sisäänkäynti.
+   Lista on ON-DEMAND (klikkauksesta), ei render-polulla → §26 säilyy.
+
+   Editori ja validaattori ovat JAETTUJA (lib/tm_kaavio_ui.js) — tässä ei ole
+   omaa piirtokoodia. Linkki kirjoitetaan havainnon puolelle
+   (lib/tm_havainto_kaavio.js), ei sääntömuutosta.
+════════════════════════════════════════════════════════════ */
+window._hkAvaaHavainnot = async function (pelaajaId) {
+  if (!_seuraId || !pelaajaId || !_db) return;
+  document.getElementById('_hkModal')?.remove();
+  var modal = document.createElement('div');
+  modal.id = '_hkModal';
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.82);z-index:9600;display:flex;align-items:center;justify-content:center;padding:12px';
+  modal.addEventListener('click', function (e) { if (e.target === modal) modal.remove(); });
+  var box = document.createElement('div');
+  box.style.cssText = 'background:var(--card);border:.5px solid var(--border);border-radius:12px;width:560px;max-width:100%;max-height:88vh;overflow:auto;padding:16px 18px';
+  box.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">'
+    + '<div style="font-family:\'Cormorant Garamond\',serif;font-size:19px;color:var(--ink)">📋 ' + masterT('Pelihavainnot') + ' · ' + _mEsc(_pkPelaajaNimi(pelaajaId)) + '</div>'
+    + '<button onclick="document.getElementById(\'_hkModal\').remove()" style="background:none;border:none;color:var(--ink3);font-size:22px;cursor:pointer">×</button></div>'
+    + '<div id="_hkLista" style="font-size:12px;color:var(--ink3)">' + masterT('Ladataan…') + '</div>';
+  modal.appendChild(box); document.body.appendChild(modal);
+  await _hkRenderLista(pelaajaId);
+};
+
+async function _hkRenderLista(pelaajaId) {
+  var el = document.getElementById('_hkLista'); if (!el) return;
+  var snap = await _db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(pelaajaId)
+    .collection('havainnot').get().catch(function () { return { docs: [] }; });
+  /* Client-sort (§26-kuvio): ei komposiitti-indeksiä. Vain pelihavainnot —
+     valmentaja_viesti ei ole havainto (D2a-erittely). */
+  var havainnot = snap.docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); })
+    .filter(function (h) { return h.tyyppi !== 'valmentaja_viesti'; })
+    .sort(function (a, b) { return _luotuToMs(b.luotu) - _luotuToMs(a.luotu); });
+  if (!havainnot.length) {
+    el.innerHTML = '<div class="koti-tyhja" style="font-size:13px">' + masterT('Ei pelihavaintoja vielä — kirjaa ensimmäinen peliälytyökalulla.') + '</div>';
+    return;
+  }
+  var h = '';
+  havainnot.forEach(function (hav) {
+    var kid = (typeof tmHavaintoKaavio !== 'undefined') ? tmHavaintoKaavio.kaavioId(hav) : null;
+    var pvm = hav.pvm || (_luotuToMs(hav.luotu) ? new Date(_luotuToMs(hav.luotu)).toISOString().slice(0, 10) : '');
+    var teksti = (hav.narratiivi || hav.teksti || '').slice(0, 110);
+    h += '<div style="border-bottom:.5px solid var(--border);padding:10px 0">'
+      + '<div style="display:flex;align-items:center;gap:8px">'
+      + '<div style="flex:1;min-width:0"><div style="color:var(--ink);font-size:12.5px">' + (teksti ? _mEsc(teksti) : masterT('(ei narratiivia)')) + '</div>'
+      + '<div style="font-size:10.5px;color:var(--ink3);margin-top:2px">' + _mEsc(pvm) + (hav.adar_taso ? (' · ' + masterT('taso ') + hav.adar_taso) : '') + '</div></div>'
+      + (kid
+        ? '<span style="font-size:10.5px;color:var(--teal);white-space:nowrap">✓ ' + masterT('Taktiikkataulu') + '</span>'
+        : '<button onclick="_hkLiita(\'' + pelaajaId + '\',\'' + hav.id + '\')" style="background:rgba(40,176,144,.14);border:.5px solid rgba(40,176,144,.45);border-radius:20px;color:var(--teal);font-size:10.5px;font-weight:600;padding:5px 11px;cursor:pointer;white-space:nowrap">' + masterT('+ Liitä taktiikkataulu') + '</button>')
+      + '</div>'
+      + (kid ? '<div id="_hkThumb_' + hav.id + '" style="margin-top:8px;max-width:260px"></div>' : '')
+      + '</div>';
+  });
+  el.innerHTML = h;
+  /* Thumbnailit JAETULLA renderöijällä (tm_kaavio_render.js) — ei omaa piirtoa. */
+  havainnot.forEach(async function (hav) {
+    var kid = (typeof tmHavaintoKaavio !== 'undefined') ? tmHavaintoKaavio.kaavioId(hav) : null;
+    if (!kid) return;
+    var k = await tmHavaintoKaavio.haeKaavio(_db, _seuraId, kid);
+    var kohde = document.getElementById('_hkThumb_' + hav.id);
+    if (k && k.spec && kohde) tmHavaintoKaavio.piirraThumb(kohde, k.spec, { lang: (typeof tmKieli === 'function') ? tmKieli() : 'fi' });
+  });
+}
+
+/* Avaa JAETUN editorin liitoskontekstilla. Tallennus kirjoittaa linkin itse
+   (_kaavioLiitaHavaintoon), joten tässä ei ole omaa tallennuslogiikkaa. */
+window._hkLiita = function (pelaajaId, havaintoId) {
+  if (typeof tmKaavioLiitaHavaintoon !== 'function' || typeof _kaavioUusiLomake !== 'function') {
+    if (typeof toast === 'function') toast(masterT('Taktiikkataulu ei ole käytettävissä'), 'err');
+    return;
+  }
+  tmKaavioLiitaHavaintoon({ seuraId: _seuraId, pelaajaId: pelaajaId, havaintoId: havaintoId });
+  document.getElementById('_hkModal')?.remove();
+  _kaavioUusiLomake();   // sama luontipolku kuin kaaviopankissa — ei omaa editoria
+};
+
+/* Linkin synnyttyä lista päivittyy (editori lähettää tapahtuman). */
+document.addEventListener('tm:havainto:kaavio', function (e) {
+  var pid = e && e.detail && e.detail.ctx && e.detail.ctx.pelaajaId;
+  if (pid && document.getElementById('_hkLista')) _hkRenderLista(pid);
+});
 
 function toggleTyokalut(force) {
   const open = (force != null) ? force : !document.body.classList.contains('nav-drawer-open');
