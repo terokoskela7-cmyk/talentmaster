@@ -97,6 +97,44 @@ describe('VP · harjoitusarviointi lukittu havainnointiin', () => {
     expect(h).not.toContain('_haSetTapa(');
   });
 
+  /* ── ITSEREFLEKTIO VAIN ITSEARVIOSSA (D1:n jäänne) ───────────────────────
+     Malli B:n lomake renderöi Itsereflektio-lohkon arviointitavasta
+     riippumatta, joten VP:n HAVAINNOINTI-lomake pyysi VP:tä täyttämään
+     valmentajan oman itsereflektion. D1 poisti togglen muttei lohkoa. */
+
+  it('HAVAINNOINTI ei näytä Itsereflektiota (valmentajan oma arvio)', () => {
+    const h = renderoiLomake({
+      malliLukko: 'valmennustaidot', tapaLukko: true,
+      konteksti: { arviointitapa: 'havainnointi' },
+    });
+    expect(h, 'VP:ltä pyydetään valmentajan itsereflektiota').not.toContain('haref_onnistui');
+    expect(h, 'Itsereflektio-otsikko renderöityi havainnointiin').not.toContain('Itsereflektio');
+  });
+
+  it('EI VACUOUS: ITSEARVIO näyttää Itsereflektion edelleen', () => {
+    /* Ilman tätä edellinen testi läpäisisi myös jos lohko katoaisi kokonaan —
+       Masterin valmentaja-itsearvio tarvitsee sen. */
+    const h = renderoiLomake({
+      malliLukko: 'valmennustaidot', tapaLukko: true,
+      konteksti: { arviointitapa: 'itsearvio' },
+    });
+    expect(h, 'itsearviosta katosi Itsereflektio').toContain('haref_onnistui');
+    expect(h).toContain('Itsereflektio');
+  });
+
+  it('TALLENNUS: reflektio vain itsearviosta, EIKÄ malli B putoa A:n haaraan', () => {
+    /* Ehtoa ei saa litistää muotoon `malli==='valmennustaidot' && tapa==='itsearvio'`
+       yhden if/else-parin kanssa: silloin malli B + havainnointi putoaisi
+       else-haaraan ja saisi `henk_palaute`-kentän, joka kuuluu VAIN malli A:lle. */
+    const i = LIB.indexOf('doc.henk_palaute');
+    expect(i, 'henk_palaute-kirjoitusta ei löytynyt').toBeGreaterThan(-1);
+    const ennen = LIB.slice(Math.max(0, i - 400), i);
+    expect(ennen, 'reflektio-ehtoa ei rajattu itsearvioon').toContain("_S.arviointitapa === 'itsearvio'");
+    /* henk_palaute saa olla vain malli A:n haarassa — edeltävä if testaa VAIN mallia. */
+    expect(ennen, 'malli B + havainnointi putoaa malli A:n henk_palaute-haaraan')
+      .toMatch(/if \(_S\.malli === 'valmennustaidot'\) \{/);
+  });
+
   it('VP:n avauskutsu antaa tapaLukko: true', () => {
     expect(vpAvausKutsu()).toMatch(/tapaLukko:\s*true/);
   });

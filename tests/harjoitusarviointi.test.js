@@ -78,8 +78,33 @@ describe('Harjoituslomake — doc sisältää vain aktiivisen mallin avaimet (Fi
     expect(avaimet.every(k => k[0] === 'b')).toBe(true);     // vain b*
     expect(avaimet.some(k => k[0] === 'a')).toBe(false);     // ei a*
     expect(Object.keys(doc.tasmennykset).every(k => k[0] === 'b')).toBe(true);
-    expect(doc.reflektio).toBeTruthy();                      // B → reflektio mukana
+    /* Itsereflektio on VALMENTAJAN OMA arvio → sitä ei kirjata havainnoinnista.
+       Tämä fixture on `arviointitapa: 'havainnointi'` (VP havainnoi), joten
+       reflektio EI kuulu dokkiin. Itsearvio-tapaus alla. */
+    expect(doc.reflektio).toBeUndefined();                   // B + havainnointi → ei reflektiota
     expect(doc.henk_palaute).toBeUndefined();                // B → ei a8/henk_palaute
+  });
+
+  it('malli B + ITSEARVIO tallentaa reflektion (ei vacuous)', async () => {
+    /* Vartija sitä vastaan että reflektio katoaisi kokonaan: Masterin
+       valmentaja-itsearvio tarvitsee sen. */
+    const captured = {};
+    const sb = makeSandbox(captured);
+    sb.TM_HARJOITUS.avaa({
+      db: sb._db, firebase: sb.firebase, seuraId: 'sjk',
+      config: { mallit_kaytossa: ['palloliitto', 'valmennustaidot'], oletusmalli: 'valmennustaidot' },
+      konteksti: { joukkue: 'SJK P14', valmentaja: 'Coach', valmentajaUid: 'coach1', arvioija: 'Coach', arvioijaUid: 'coach1', arviointitapa: 'itsearvio' }
+    });
+    ['b1', 'b2', 'b3', 'b4', 'b5', 'b6', 'b7'].forEach(id => sb._haSetB(id, 4));
+    sb.document.getElementById('ha_joukkue').value = 'SJK P14';
+    sb.document.getElementById('ha_pvm').value = '2026-06-22';
+    const ref = sb.document.getElementById('haref_onnistui');
+    expect(ref, 'itsearviosta puuttuu Itsereflektio-kenttä').toBeTruthy();
+    ref.value = 'Siirtymät sujuivat.';
+    await sb._haTallenna();
+    expect(captured.doc.reflektio, 'itsearvion reflektio katosi').toBeTruthy();
+    expect(captured.doc.reflektio.onnistui).toBe('Siirtymät sujuivat.');
+    expect(captured.doc.henk_palaute).toBeUndefined();
   });
 
   it('malli A tallennus EI sisällä b*-avaimia eikä reflektiota', async () => {
