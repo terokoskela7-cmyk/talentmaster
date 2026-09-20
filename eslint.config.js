@@ -61,6 +61,8 @@ const APP_GLOBALS = {
   tmKalenteriOccurrences: 'readonly', tmToistuvuusPaiva: 'readonly', tmSarjaId: 'readonly', tmCadenceNimi: 'readonly',
   // lib/tm_aani.js (puhdas nauhoitin) + lib/tm_reflektio.js (jaettu äänireflektio: Master + VP)
   tmAani: 'readonly', tmReflektio: 'readonly',
+  // lib/tm_aktiivisuus.js (toimihenkilön kirjautumisaikaleima — 6 toimihenkilöappia)
+  tmAktiivisuus: 'readonly', tmMerkitseKirjautuminen: 'readonly',
   // lib/tm_historia.js (Trendi Vaihe 1 — mittaushistorian selkäranka)
   TM_HISTORIA: 'readonly', tmHhSnapshot: 'readonly', tmTkiSnapshot: 'readonly', tmHistoriaLisaa: 'readonly',
   // lib/tm_pohja.js (P1.2 — itsekuvaava tuontipohja: sarakegenerointi + Meta-lehti)
