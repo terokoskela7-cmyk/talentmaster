@@ -136,7 +136,6 @@ describe('VP · jaettu alasivu-shell', () => {
        alla) — aiemmin nämä eivät punertaneet lainkaan, joten vaiheen 1 "jono on
        tyhjä" oli väärää turvallisuutta, ei saavutus. */
     const VAIHE2_JONO = [
-      '_pmpModal',      // VP:n muistiinpanot — historiavirta + lisäyslomake
       '_jfModal',       // Jaksofokus-editori — kolme dynaamista lohkoa
       'vpDayModal',     // Kalenterin päivänäkymä — päivän tapahtumalista
       'vpTapDetailModal', // Tapahtuman tiedot + läsnäolo
@@ -261,6 +260,28 @@ describe('VP · jaettu alasivu-shell', () => {
     const f = funktio('window._vpOhjKaytaOhjelma = async function (');
     expect(f, 'sulkee shellin ohi → Esc-kuuntelija jää vuotamaan')
       .toContain('window._vpOhjSulje');
+  });
+
+  it('VAIHE 2: VP:n muistiinpanot shellissä, historia ja lomake rinnakkain', () => {
+    const f = funktio('async function avaaPelaajaMuistiinpanoModal(');
+    expect(f, 'muistiinpanot eivät käytä jaettua shelliä').toMatch(/avaaAlasivu\(\{/);
+    expect(f, 'rakentaa yhä oman fixed-laatikkonsa').not.toContain('position:fixed;inset:0');
+    /* Koko migraation perustelu: 480px:ssä lomake oli historian ALLA, joten
+       pitkän historian jälkeen sille piti vierittää koko lista läpi. Ilman
+       2-saraketta migraatio olisi pelkkä leveyden muutos. */
+    expect(f, 'historia ja lomake eivät ole rinnakkain → migraatio ei tuo mitään')
+      .toContain('class="sh-2col"');
+    /* Lomakkeen kenttä-id:t: _tallennaPMP lukee näitä suoraan. */
+    ['_pmpTeksti', '_pmpVal', '_pmpPel'].forEach((id) => {
+      expect(f, 'lomakekenttä katosi → _tallennaPMP tallentaisi tyhjää: ' + id)
+        .toContain('id="' + id + '"');
+    });
+  });
+
+  it('SULKIJA: muistiinpanon tallennus sulkee shellin sen omalla sulkijalla', () => {
+    const f = funktio('async function _tallennaPMP(');
+    expect(f, 'sulkee shellin ohi → Esc-kuuntelija jää vuotamaan')
+      .toContain('window._pmpSulje');
   });
 
   it('EI VACUOUS: drift-vartija löytää oikeasti fixed-laatikoita', () => {
