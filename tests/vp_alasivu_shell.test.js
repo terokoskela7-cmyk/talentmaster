@@ -109,33 +109,98 @@ describe('VP · jaettu alasivu-shell', () => {
     const SALLITUT_PIENET = [
       '_vpSulkuModal', '_korjModal', '_tmInfoModal', '_vpJatkuuModal', 'hylkaysModal',
       '_kvUusi', '_kvVirhe',
-      /* VAIHE 2 -ARVIO: `_vpBrandiModal` = 3 pikakysymystä (Kyllä/Osittain/Ei)
-         + vapaa teksti. Se on LOMAKE, ei alasivu: 840px-shellissä kolme lyhyttä
-         riviä kelluisi tyhjässä laatikossa — sama antipatterni kuin
-         "jatketaanko?" leveässä shellissä. Luokiteltu pieneksi dialogiksi
-         SISÄLLÖN perusteella, ei migroitu. */
-      '_vpBrandiModal',
+      /* LOMAKKEET JA VALINTADIALOGIT — pysyvä poikkeus, sama peruste kaikille:
+         muutama kenttä tai yksi valinta. 840px-shellissä ne kelluisivat
+         tyhjässä laatikossa, mikä on sama antipatterni kuin raportti 540px:ssä,
+         vain toisinpäin. Luokiteltu SISÄLLÖN perusteella (otsikko suluissa). */
+      '_vpBrandiModal',    // 3 pikakysymystä + vapaa teksti (brändipalaute)
+      'vpSkooppiModal',    // "Vain tämä / Tämä ja seuraavat" (toistuvan tapahtuman skooppi)
+      'vpTapModal',        // "Uusi tapahtuma" — luontilomake
+      'vpTapEditModal',    // "Muokkaa tapahtumaa" — sama lomake muokkaustilassa
+      'notifAsModal',      // "Ilmoitusasetukset" — kaksi kytkintä
+      'vpSegModal',        // "Akatemia-/kilpajoukkueet" — valintaruudut
+      'vpTkModal',         // seuran KPI-tavoiteluvut (taso ≥3 -osuus, MDR)
+      'hlTbModal',         // "Seuran tavoitetaso (B)"
+      'hlBmModal',         // "Kansalliset vertailuarvot"
+      'hlTapModal',        // vertailuarvot ikävaiheittain
+      'hlLinkModal',       // "Linkitä kalibraatiopari" — valitse yksi pari
+      '_vpD3Modal',        // "D3 VP-kalibraatio" — yksi arvio + tallennus
+      '_vpReviewModal',    // "＋ Kirjaa review" — 4-vaiheinen syöttölomake (asteikko + 2 tekstikenttää + arvo)
     ];
-    /* VAIHE 2 TEHTY: jono on TYHJÄ. `hotRaporttiModal` (sisältörikas raportti)
-       migroitiin shelliin. Tyhjä lista + tarkka yhtäsuuruus = uusi kapea
-       sisältömodaali punertaa heti, ilman armonaikaa. */
-    const VAIHE2_JONO = [];
+    /* VAIHE 2 -JONO = TUNNETTU VELKA, oma pieni PR per kohde (ei yhtä jättiä).
+       Nämä ovat aitoja alasivuja: monirivisiä listoja tai editoreita, joissa
+       vaakatila on hyödyksi. Lista on näkyvä, ei hiljainen poikkeus, ja koska
+       vertailu on tarkka yhtäsuuruus, UUSI kapea sisältömodaali punertaa silti.
+
+       HUOM: tämä jono syntyi vasta kun vartijan leveysmittaus korjattiin (ks.
+       alla) — aiemmin nämä eivät punertaneet lainkaan, joten vaiheen 1 "jono on
+       tyhjä" oli väärää turvallisuutta, ei saavutus. */
+    const VAIHE2_JONO = [
+      'kkModal',        // Konseptikirjasto — lista + editori; viimeinen `.cm-*`-vanhan kehyksen käyttäjä
+      '_vpOhjModal',    // Ohjelmakirjasto — ohjelmakortit + sisään avautuva analytiikka
+      '_pmpModal',      // VP:n muistiinpanot — historiavirta + lisäyslomake
+      '_jfModal',       // Jaksofokus-editori — kolme dynaamista lohkoa
+      'vpDayModal',     // Kalenterin päivänäkymä — päivän tapahtumalista
+      'vpTapDetailModal', // Tapahtuman tiedot + läsnäolo
+    ];
+
+    /* EFEKTIIVINEN LEVEYS — VARTIJAN AUKKO, löydetty vaiheessa 2.
+       Aiempi versio luki VAIN `max-width:<N>px`. Talon valtatyyli on kuitenkin
+       `width:480px; max-width:94vw`, jossa ei ole ainuttakaan max-widthia
+       pikseleinä — eikä `.jsp-rv-box`-tyyppisillä luokkalaatikoilla mitään
+       inline-leveyttä. Niinpä 22 kapeaa modaalia (380–640px) ohitti vartijan
+       hiljaa. Nyt leveys luetaan ENSIMMÄISESTÄ leveysilmaisusta laatikon
+       kohdalla (inline tai CSS-luokasta); vw-rajat ohitetaan, koska ne
+       kaventavat vain pientä ruutua, eivät desktop-leveyttä.
+       Ensimmäinen, ei pienin: pienin poimisi sisäkkäisen ikonin `width:16px`. */
+    function leveysTekstista(teksti) {
+      const m2 = teksti.match(/(?:max-)?width:\s*(?:min\(\s*)?(\d+)px/);
+      return m2 ? Number(m2[1]) : null;
+    }
+    /** Laatikon leveys: inline-tyyli tai ensimmäinen luokka jolla on px-leveys. */
+    function laatikonLeveys(ikkuna) {
+      const inline = leveysTekstista(ikkuna);
+      if (inline !== null) return inline;
+      for (const c of [...ikkuna.matchAll(/class="([\w-]+(?:\s+[\w-]+)*)"/g)]) {
+        for (const luokka of c[1].split(/\s+/)) {
+          const r = saanto('.' + luokka);
+          const lev = r && leveysTekstista(r);
+          if (lev != null) return lev;
+        }
+      }
+      return null;
+    }
 
     const loydot = new Set();
-    /* (a) style-attribuutilla rakennetut */
-    const reA = /id="([\w-]+)"[^>]*style="[^"]*position:\s*fixed;\s*inset:\s*0[^"]*"/g;
     let m;
+    /* (a) style-attribuutilla rakennetut overlayt */
+    const reA = /id="([\w-]+)"[^>]*style="[^"]*position:\s*fixed;\s*inset:\s*0[^"]*"/g;
     while ((m = reA.exec(VP))) {
-      const mw = VP.slice(m.index, m.index + 1200).match(/max-width:\s*(\d+)px/);
-      if (mw && Number(mw[1]) < 720) loydot.add(m[1]);
+      /* Ikkuna alkaa VASTA overlayn oman style-attribuutin jälkeen, jotta
+         overlayn omat arvot eivät sekoitu laatikon leveyteen. */
+      const jalkeen = VP.indexOf('"', VP.indexOf('style="', m.index) + 7);
+      const lev = laatikonLeveys(VP.slice(jalkeen, jalkeen + 1200));
+      if (lev !== null && lev < 720) loydot.add(m[1]);
     }
     /* (b) cssText-rakennetut (dynaamiset modaalit) */
     const reB = /cssText\s*=\s*'[^']*position:fixed;inset:0[^']*'/g;
     while ((m = reB.exec(VP))) {
-      const ymp = VP.slice(Math.max(0, m.index - 400), m.index + 1500);
+      const ymp = VP.slice(Math.max(0, m.index - 400), m.index + 1800);
       const idm = ymp.match(/\.id\s*=\s*'([\w-]+)'/);
-      const mw = ymp.match(/max-width:\s*(\d+)px/);
-      if (idm && mw && Number(mw[1]) < 720) loydot.add(idm[1]);
+      const lev = laatikonLeveys(ymp.slice(ymp.indexOf('position:fixed;inset:0')));
+      if (idm && lev !== null && lev < 720) loydot.add(idm[1]);
+    }
+
+    /* (c) overlay jonka `position:fixed;inset:0` tulee CSS-ID-SÄÄNNÖSTÄ, ei
+       inline-tyylistä (esim. `#kkModal { position: fixed; inset: 0; … }`).
+       Ilman tätä haaraa tuollainen modaali jää kokonaan mittaamatta. */
+    const reC = /#([\w-]+)\s*\{[^}]*position:\s*fixed[^}]*inset:\s*0[^}]*\}/g;
+    while ((m = reC.exec(VP))) {
+      const id = m[1];
+      const i = VP.indexOf('<div id="' + id + '">');
+      if (i < 0) continue;
+      const lev = laatikonLeveys(VP.slice(i, i + 1200));
+      if (lev !== null && lev < 720) loydot.add(id);
     }
 
     const jaljella = [...loydot].filter((id) => SALLITUT_PIENET.indexOf(id) < 0).sort();
