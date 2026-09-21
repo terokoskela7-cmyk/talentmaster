@@ -4918,18 +4918,15 @@ async function tallennaPelaajaMuistiinpano(pelaajaId, teksti, kategoria, naytaVa
 }
 
 async function avaaPelaajaMuistiinpanoModal(pelaajaId, pelaajaNimi) {
-  document.getElementById('_pmpModal')?.remove();
+  /* VAIHE 2 — VP:n muistiinpanot jaettuun 840px-alasivu-shelliin.
+     Aito alasivu: historiavirta + kirjauslomake. 480px:ssä ne olivat
+     ALLEKKAIN, joten pitkän historian jälkeen lomakkeelle piti vierittää
+     koko lista läpi. Shellin `.sh-2col` asettaa ne rinnakkain (mobiilissa
+     romahtaa takaisin yhteen sarakkeeseen). Kenttä-id:t ennallaan. */
   const muistiinpanot = await lataaPelaajaMuistiinpanot(pelaajaId);
 
-  let h = '<div id="_pmpModal" style="position:fixed;inset:0;background:rgba(17,17,16,.92);z-index:300;display:flex;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(8px)">';
-  h += '<div style="background:var(--bg2);border:.5px solid var(--border);padding:24px;width:480px;max-width:94vw;max-height:90vh;overflow-y:auto" onclick="event.stopPropagation()">';
-  h += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">';
-  h += '<div style="font-family:\'Cormorant Garamond\',serif;font-size:20px;color:var(--ink)">' + vpT('VP:n muistiinpanot') + '</div>';
-  h += '<button onclick="document.getElementById(\'_pmpModal\').remove()" style="background:none;border:none;color:var(--ink3);font-size:22px;cursor:pointer;padding:0 6px">×</button>';
-  h += '</div>';
-  h += '<div style="font-size:11px;color:var(--ink3);letter-spacing:.06em;margin-bottom:18px">' + (pelaajaNimi||pelaajaId) + '</div>';
-
-  // Olemassa olevat muistiinpanot
+  // Olemassa olevat muistiinpanot — vasen sarake
+  let h = '';
   if (muistiinpanot.length === 0) {
     h += '<div style="font-size:12px;color:var(--ink3);font-style:italic;padding:8px 0 16px">' + vpT('Ei muistiinpanoja vielä.') + '</div>';
   } else {
@@ -4950,8 +4947,10 @@ async function avaaPelaajaMuistiinpanoModal(pelaajaId, pelaajaNimi) {
     });
   }
 
-  // Lisäys-form
-  h += '<div style="border-top:.5px solid var(--border);margin-top:18px;padding-top:18px">';
+  /* Sarakeraja: historia vasemmalle, lisäys oikealle. */
+  h = '<div class="sh-2col"><div>' + h + '</div><div>';
+  // Lisäys-form — oikea sarake
+  h += '<div style="border-top:.5px solid var(--border);padding-top:18px">';
   h += '<div style="font-size:9px;letter-spacing:.18em;color:var(--ink3);text-transform:uppercase;margin-bottom:8px">' + vpT('Uusi muistiinpano') + '</div>';
   h += '<textarea id="_pmpTeksti" placeholder="' + vpT('Kirjaa muistiinpano...') + '" style="width:100%;background:rgba(242,239,230,.04);border:.5px solid var(--border);color:var(--ink);font-family:\'DM Sans\',sans-serif;font-size:13px;padding:10px 12px;resize:vertical;min-height:80px;margin-bottom:12px;outline:none;box-sizing:border-box"></textarea>';
   h += '<div style="display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap">';
@@ -4968,12 +4967,14 @@ async function avaaPelaajaMuistiinpanoModal(pelaajaId, pelaajaNimi) {
   h += '<button onclick="_tallennaPMP(\'' + pelaajaId + '\',\'' + (pelaajaNimi||'').replace(/[\'"]/g,'') + '\')" style="width:100%;padding:11px;background:var(--teal);color:#fff;border:none;border-radius:4px;font-size:12px;font-weight:600;cursor:pointer;letter-spacing:.08em">' + vpT('Tallenna muistiinpano') + '</button>';
   h += '</div>';
 
-  h += '</div></div>';
-  const wrap = document.createElement('div');
-  wrap.innerHTML = h;
-  const modal = wrap.firstChild;
-  modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
-  document.body.appendChild(modal);
+  h += '</div></div>';   // sulkee lomakelohkon + oikean sarakkeen (.sh-2col)
+
+  window._pmpSulje = avaaAlasivu({
+    id: '_pmpModal',
+    otsikko: vpT('VP:n muistiinpanot'),
+    meta: (pelaajaNimi || pelaajaId),
+    sisaltoHTML: h,
+  });
 }
 window.avaaPelaajaMuistiinpanoModal = avaaPelaajaMuistiinpanoModal;
 
@@ -5068,7 +5069,9 @@ async function _tallennaPMP(pelaajaId, pelaajaNimi) {
   if (!teksti?.trim()) { toast(vpT('Kirjoita ensin teksti'), 'warn'); return; }
   const ok = await tallennaPelaajaMuistiinpano(pelaajaId, teksti, kategoria, naytaVal, naytaPel);
   if (ok) {
-    document.getElementById('_pmpModal')?.remove();
+    /* Shellin oma sulkija: pelkkä .remove() jättäisi Esc-kuuntelijan vuotamaan. */
+    if (typeof window._pmpSulje === 'function') { window._pmpSulje(); window._pmpSulje = null; }
+    else document.getElementById('_pmpModal')?.remove();
     setTimeout(() => avaaPelaajaMuistiinpanoModal(pelaajaId, pelaajaNimi), 200);
   }
 }
