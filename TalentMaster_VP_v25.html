@@ -779,8 +779,6 @@ body {
 /* Coach profile panel */
 /* ── Coach KPI Modal (center, tabbed) ─── */
 /* Konseptikirjasto (Seurakerros TIER 1 · S2) — terävät kulmat, tokenit, ei omia hexejä */
-#kkModal { position: fixed; inset: 0; background: rgba(17,17,16,.92); z-index: 300; display: flex; align-items: center; justify-content: center; padding: 20px; backdrop-filter: blur(8px); }
-.kk-box { width: 640px; }
 .kk-note { font-size: 11.5px; line-height: 1.5; color: var(--ink3); border-left: 2px solid var(--teal); padding: 6px 0 6px 10px; margin-bottom: 16px; }
 .kk-tyhja { font-size: 12px; color: var(--ink3); padding: 10px 0 14px; }
 .kk-ryhma { font-size: 10px; font-weight: 600; letter-spacing: .18em; text-transform: uppercase; color: var(--teal); margin: 20px 0 8px; }
@@ -811,66 +809,6 @@ body {
 .kk-btn:hover { border-color: var(--teal); color: var(--ink); }
 .kk-btn-p { background: var(--teal); border-color: var(--teal); color: var(--bg); }
 .kk-btn-v:hover { border-color: var(--amber); color: var(--amber); }
-@media (max-width: 768px) { .kk-box { width: 100vw; max-width: 100vw; } }
-#coachModal {
-  position: fixed; inset: 0;
-  background: rgba(17,17,16,.92);
-  z-index: 300;
-  display: flex; align-items: center; justify-content: center;
-  padding: 20px;
-  backdrop-filter: blur(8px);
-}
-.cm-box {
-  background: var(--bg2);
-  border: .5px solid var(--border);
-  width: 540px; max-width: 96vw;
-  max-height: 88vh;
-  display: flex; flex-direction: column;
-  overflow: hidden;
-}
-.cm-header {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 20px 24px 0;
-  flex-shrink: 0;
-}
-.cm-header-left { display: flex; align-items: center; gap: 14px; }
-.cm-avatar {
-  width: 48px; height: 48px; border-radius: 50%;
-  background: linear-gradient(135deg, var(--bg3), var(--blue));
-  display: flex; align-items: center; justify-content: center;
-  font-family: 'Cormorant Garamond', serif; font-size: 20px; color: var(--ink2);
-}
-.cm-name { font-family: 'Cormorant Garamond', serif; font-size: 22px; font-weight: 300; color: var(--ink); }
-.cm-meta { font-size: 11px; color: var(--ink3); margin-top: 1px; }
-.cm-close {
-  background: none; border: none; color: var(--ink3); font-size: 22px;
-  cursor: pointer; padding: 0 6px;
-}
-.cm-close:hover { color: var(--ink); }
-.cm-tabs {
-  display: flex; gap: 0; padding: 14px 24px 0;
-  border-bottom: .5px solid var(--border);
-  flex-shrink: 0;
-}
-.cm-tab {
-  padding: 8px 16px;
-  font-size: 11px; letter-spacing: .06em; text-transform: uppercase;
-  color: var(--ink3);
-  cursor: pointer; border: none; background: none;
-  border-bottom: 2px solid transparent;
-  transition: color .15s, border-color .15s;
-}
-.cm-tab:hover { color: var(--ink2); }
-.cm-tab.active { color: var(--teal); border-bottom-color: var(--teal); }
-/* YKSI vierivä kontaineri: otsikon alapuoli vierii kokonaisuutena.
-   Aiemmin #cmKehityskortti oli .cm-body:n ULKOPUOLELLA flex-lapsena ilman
-   korkeuskattoa → se söi pystytilan ja .cm-box:n overflow:hidden leikkasi
-   alaosan (tallennusnapit) mobiilissa pois. min-height:0 on pakollinen:
-   ilman sitä flex-lapsi ei suostu kutistumaan sisältönsä alle. */
-.cm-scroll { flex: 1; min-height: 0; overflow-y: auto; }
-.cm-body { padding: 20px 24px 24px; }
-/* Välilehdet pysyvät näkyvissä vieritettäessä (sticky scroll-kontainerin sisällä). */
-.cm-tabs-sticky { position: sticky; top: 0; background: var(--bg2); z-index: 2; }
 
 /* ══════════════════════════════════════════════════════════════════════════
    JAETTU ALASIVU-SHELL (.sh-*)
@@ -2309,8 +2247,6 @@ textarea.jsp-rv-inp { resize: vertical; min-height: 44px; }
   #topbar .ctx-seura { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
   /* Leveä pelaajataulu vieritettäväksi — ei riko viewportia mobiilissa */
   .player-table { display: block; overflow-x: auto; white-space: nowrap; -webkit-overflow-scrolling: touch; }
-  /* Valmentajapaneeli koko leveydeltä mobiilissa (oli kiinteä 420px) */
-  .cm-box { width: 100vw; max-width: 100vw; max-height: 100vh; }
   /* Jaettu shell mobiilissa: koko ruutu + yksi sarake (§6: yksi media query). */
   .sh-overlay { padding: 0; }
   .sh-box { width: 100vw; max-width: 100vw; max-height: 100vh; }
@@ -2318,8 +2254,6 @@ textarea.jsp-rv-inp { resize: vertical; min-height: 44px; }
   .sh-body { padding: 16px; }
   .sh-tabs { padding: 12px 16px 0; overflow-x: auto; }
   .sh-2col { grid-template-columns: 1fr; gap: 8px; }
-  .cm-tabs { overflow-x: auto; }
-  .cm-tab { padding: 8px 10px; font-size: 10px; }
   .sh-tab { padding: 8px 10px; font-size: 10px; }
 
   /* ── Kehityskaari-synteesi mobiilissa: summary before density ──
@@ -3416,23 +3350,28 @@ function _kkRyhmat() {
   return r;
 }
 
+/* VAIHE 2 — Konseptikirjasto jaettuun 840px-alasivu-shelliin.
+   Aito alasivu: konseptilista + editori, ei varmistusdialogi. Tämä oli myös
+   vanhan `.cm-*`-KEHYKSEN viimeinen käyttäjä (cm-box/header/name/meta/close/
+   body) — migraation jälkeen se kehys on kuollut ja poistettu, joten VP:ssä on
+   enää yksi modaalikehys. Sisältöluokat (`.cm-kk-*`, `.cm-kausi-*`) jäävät:
+   ne ovat kirjaston omaa sisältöä, eivät kehystä. */
 function avaaKonseptikirjasto() {
   _kkTila = { avain: null, uusi: false };
-  var vanha = document.getElementById('kkModal'); if (vanha) vanha.remove();
-  var h = '<div id="kkModal"><div class="cm-box kk-box" onclick="event.stopPropagation()">'
-    + '<div class="cm-header"><div class="cm-header-left"><div>'
-    + '<div class="cm-name">' + vpT('Konseptikirjasto') + '</div>'
-    + '<div class="cm-meta">' + vpT('Kaanon on oletus — seura saa muokata sitä') + '</div>'
-    + '</div></div><button class="cm-close" onclick="suljeKonseptikirjasto()">×</button></div>'
-    + '<div class="cm-body" id="kkBody"></div></div></div>';
-  var wrap = document.createElement('div');
-  wrap.innerHTML = h;
-  var modal = wrap.firstChild;
-  modal.addEventListener('click', function (e) { if (e.target === modal) suljeKonseptikirjasto(); });
-  document.body.appendChild(modal);
+  window._kkSulje = avaaAlasivu({
+    id: 'kkModal',
+    otsikko: vpT('Konseptikirjasto'),
+    meta: vpT('Kaanon on oletus — seura saa muokata sitä'),
+    sisaltoHTML: '<div id="kkBody"></div>',
+  });
   _kkRenderLista();
 }
-function suljeKonseptikirjasto() { var m = document.getElementById('kkModal'); if (m) m.remove(); }
+/* Sulkija säilyy omana funktionaan: sitä kutsutaan kirjaston sisältä
+   (window-globaali, §7.17). Shell hoitaa × · backdrop · Esc itse. */
+function suljeKonseptikirjasto() {
+  if (typeof window._kkSulje === 'function') { window._kkSulje(); window._kkSulje = null; return; }
+  var m = document.getElementById('kkModal'); if (m) m.remove();   // varareitti
+}
 
 function _kkRenderLista() {
   var el = document.getElementById('kkBody'); if (!el) return;
@@ -4939,92 +4878,6 @@ async function lataaVAIArvot() {
 }
 
 /* ════════════════════════════════════════════════════════════
-   SPRINT 2 — JOUKKUEEN HARJOITTELUTRENDI (SPL-pohjainen)
-   4vk vs edellinen 4vk -ikkuna; delta määrittää tilan
-   ════════════════════════════════════════════════════════════ */
-async function laskeJoukkueTrendi(joukkueId) {
-  if (!joukkueId || !_seuraId) return null;
-  const nyt = Date.now();
-  const raja28  = new Date(nyt - 28 * 86400000);
-  const raja57  = new Date(nyt - 57 * 86400000);
-
-  try {
-    const snap = await db.collection('seurat').doc(_seuraId).collection('mentoroinnit')
-      .where('joukkueId','==',joukkueId)
-      .get().catch(()=>({docs:[]}));
-
-    const mentRecent = snap.docs.map(d => d.data());
-    const kuluva = [], edellinen = [];
-
-    mentRecent.forEach(m => {
-      const aika = m.aika?.toDate ? m.aika.toDate().getTime() : 0;
-      const splKa = m.keskiarvo || m.splKa;
-      if (splKa == null) return;
-      if (aika >= raja28.getTime()) kuluva.push(splKa);
-      else if (aika >= raja57.getTime()) edellinen.push(splKa);
-    });
-
-    if (kuluva.length < 2 || edellinen.length < 2) {
-      return { tila:'ei_dataa', vari:'gray', kuluva:null, edellinen:null, delta:null, n:kuluva.length+edellinen.length };
-    }
-
-    const kk = kuluva.reduce((a,b)=>a+b,0) / kuluva.length;
-    const ee = edellinen.reduce((a,b)=>a+b,0) / edellinen.length;
-    const delta = Math.round((kk - ee) * 10) / 10;
-
-    let tila, vari;
-    if (delta >= 0.5)      { tila='nousu';  vari='green';  }
-    else if (delta >= -0.3){ tila='vakaa';  vari='blue';   }
-    else                   { tila='lasku';  vari='amber';  }
-
-    return {
-      tila, vari, delta,
-      kuluva: Math.round(kk*10)/10,
-      edellinen: Math.round(ee*10)/10,
-      nKuluva: kuluva.length, nEdellinen: edellinen.length
-    };
-  } catch(e) {
-    console.warn('[laskeJoukkueTrendi]', joukkueId, e.message);
-    return null;
-  }
-}
-
-async function avaaJoukkueTrendiModal(joukkueId, joukkueNimi) {
-  document.getElementById('_joukkueTrendiModal')?.remove();
-  const tr = await laskeJoukkueTrendi(joukkueId);
-
-  let h = '<div id="_joukkueTrendiModal" style="position:fixed;inset:0;background:rgba(17,17,16,.92);z-index:300;display:flex;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(8px)">';
-  h += '<div style="background:var(--bg2);border:.5px solid var(--border);padding:24px;width:440px;max-width:94vw;max-height:90vh;overflow-y:auto" onclick="event.stopPropagation()">';
-  h += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">';
-  h += '<div style="font-family:\'Cormorant Garamond\',serif;font-size:22px;color:var(--ink)">' + (joukkueNimi||joukkueId) + '</div>';
-  h += '<button onclick="document.getElementById(\'_joukkueTrendiModal\').remove()" style="background:none;border:none;color:var(--ink3);font-size:22px;cursor:pointer;padding:0 6px">×</button>';
-  h += '</div>';
-
-  if (!tr || tr.tila === 'ei_dataa') {
-    h += '<div style="padding:20px;text-align:center;color:var(--ink3);font-size:13px">';
-    h += vpT('Ei riittävää dataa trendi-vertailuun.') + '<br>' + vpT('Tarvitaan vähintään 2 kenttäkäyntiä molemmissa ikkunoissa (kuluva 28pv + edellinen 28pv).');
-    h += '</div>';
-  } else {
-    const variHex = tr.vari==='green' ? '#28B090' : tr.vari==='amber' ? '#E0A040' : '#5B8FE0';
-    const trendiIkoni = tr.delta >= 0.5 ? '↑' : tr.delta < -0.3 ? '↓' : '→';
-    h += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:20px">';
-    h += '<div style="background:rgba(242,239,230,.04);padding:14px;text-align:center"><div style="font-size:9px;letter-spacing:.18em;color:var(--ink3);text-transform:uppercase;margin-bottom:6px">' + vpT('Edellinen 4vk') + '</div><div style="font-family:\'Cormorant Garamond\',serif;font-size:26px;color:var(--ink)">' + tr.edellinen + '</div><div style="font-size:9px;color:var(--ink3);margin-top:3px">' + tr.nEdellinen + ' ' + vpT('käyntiä') + '</div></div>';
-    h += '<div style="background:rgba(242,239,230,.04);padding:14px;text-align:center"><div style="font-size:9px;letter-spacing:.18em;color:var(--ink3);text-transform:uppercase;margin-bottom:6px">' + vpT('Trendi') + '</div><div style="font-family:\'Cormorant Garamond\',serif;font-size:26px;color:' + variHex + '">' + trendiIkoni + ' ' + (tr.delta>=0?'+':'') + tr.delta + '</div><div style="font-size:9px;color:var(--ink3);margin-top:3px;text-transform:uppercase">' + vpT(tr.tila) + '</div></div>';
-    h += '<div style="background:rgba(242,239,230,.04);padding:14px;text-align:center"><div style="font-size:9px;letter-spacing:.18em;color:var(--ink3);text-transform:uppercase;margin-bottom:6px">' + vpT('Kuluva 4vk') + '</div><div style="font-family:\'Cormorant Garamond\',serif;font-size:26px;color:' + variHex + '">' + tr.kuluva + '</div><div style="font-size:9px;color:var(--ink3);margin-top:3px">' + tr.nKuluva + ' ' + vpT('käyntiä') + '</div></div>';
-    h += '</div>';
-    h += '<button onclick="toast(\'' + vpT('Viestit-inbox tulossa Sprint 3:ssa') + '\',\'ok\');document.getElementById(\'_joukkueTrendiModal\').remove()" style="width:100%;padding:11px;background:var(--teal);color:#fff;border:none;border-radius:4px;font-size:12px;font-weight:600;cursor:pointer;letter-spacing:.08em">' + vpT('Ota yhteyttä valmentajaan →') + '</button>';
-  }
-
-  h += '</div></div>';
-  const wrap = document.createElement('div');
-  wrap.innerHTML = h;
-  const modal = wrap.firstChild;
-  modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
-  document.body.appendChild(modal);
-}
-window.avaaJoukkueTrendiModal = avaaJoukkueTrendiModal;
-
-/* ════════════════════════════════════════════════════════════
    SPRINT 2 — VP:N MUISTIINPANOT PER PELAAJALLE
    Polku: seurat/{sid}/pelaajat/{pid}/vp_muistiinpanot/{mid}
    Näkyvyys: vp_only (default) | + valmentaja | + pelaaja
@@ -5065,18 +4918,15 @@ async function tallennaPelaajaMuistiinpano(pelaajaId, teksti, kategoria, naytaVa
 }
 
 async function avaaPelaajaMuistiinpanoModal(pelaajaId, pelaajaNimi) {
-  document.getElementById('_pmpModal')?.remove();
+  /* VAIHE 2 — VP:n muistiinpanot jaettuun 840px-alasivu-shelliin.
+     Aito alasivu: historiavirta + kirjauslomake. 480px:ssä ne olivat
+     ALLEKKAIN, joten pitkän historian jälkeen lomakkeelle piti vierittää
+     koko lista läpi. Shellin `.sh-2col` asettaa ne rinnakkain (mobiilissa
+     romahtaa takaisin yhteen sarakkeeseen). Kenttä-id:t ennallaan. */
   const muistiinpanot = await lataaPelaajaMuistiinpanot(pelaajaId);
 
-  let h = '<div id="_pmpModal" style="position:fixed;inset:0;background:rgba(17,17,16,.92);z-index:300;display:flex;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(8px)">';
-  h += '<div style="background:var(--bg2);border:.5px solid var(--border);padding:24px;width:480px;max-width:94vw;max-height:90vh;overflow-y:auto" onclick="event.stopPropagation()">';
-  h += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">';
-  h += '<div style="font-family:\'Cormorant Garamond\',serif;font-size:20px;color:var(--ink)">' + vpT('VP:n muistiinpanot') + '</div>';
-  h += '<button onclick="document.getElementById(\'_pmpModal\').remove()" style="background:none;border:none;color:var(--ink3);font-size:22px;cursor:pointer;padding:0 6px">×</button>';
-  h += '</div>';
-  h += '<div style="font-size:11px;color:var(--ink3);letter-spacing:.06em;margin-bottom:18px">' + (pelaajaNimi||pelaajaId) + '</div>';
-
-  // Olemassa olevat muistiinpanot
+  // Olemassa olevat muistiinpanot — vasen sarake
+  let h = '';
   if (muistiinpanot.length === 0) {
     h += '<div style="font-size:12px;color:var(--ink3);font-style:italic;padding:8px 0 16px">' + vpT('Ei muistiinpanoja vielä.') + '</div>';
   } else {
@@ -5097,8 +4947,10 @@ async function avaaPelaajaMuistiinpanoModal(pelaajaId, pelaajaNimi) {
     });
   }
 
-  // Lisäys-form
-  h += '<div style="border-top:.5px solid var(--border);margin-top:18px;padding-top:18px">';
+  /* Sarakeraja: historia vasemmalle, lisäys oikealle. */
+  h = '<div class="sh-2col"><div>' + h + '</div><div>';
+  // Lisäys-form — oikea sarake
+  h += '<div style="border-top:.5px solid var(--border);padding-top:18px">';
   h += '<div style="font-size:9px;letter-spacing:.18em;color:var(--ink3);text-transform:uppercase;margin-bottom:8px">' + vpT('Uusi muistiinpano') + '</div>';
   h += '<textarea id="_pmpTeksti" placeholder="' + vpT('Kirjaa muistiinpano...') + '" style="width:100%;background:rgba(242,239,230,.04);border:.5px solid var(--border);color:var(--ink);font-family:\'DM Sans\',sans-serif;font-size:13px;padding:10px 12px;resize:vertical;min-height:80px;margin-bottom:12px;outline:none;box-sizing:border-box"></textarea>';
   h += '<div style="display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap">';
@@ -5115,12 +4967,14 @@ async function avaaPelaajaMuistiinpanoModal(pelaajaId, pelaajaNimi) {
   h += '<button onclick="_tallennaPMP(\'' + pelaajaId + '\',\'' + (pelaajaNimi||'').replace(/[\'"]/g,'') + '\')" style="width:100%;padding:11px;background:var(--teal);color:#fff;border:none;border-radius:4px;font-size:12px;font-weight:600;cursor:pointer;letter-spacing:.08em">' + vpT('Tallenna muistiinpano') + '</button>';
   h += '</div>';
 
-  h += '</div></div>';
-  const wrap = document.createElement('div');
-  wrap.innerHTML = h;
-  const modal = wrap.firstChild;
-  modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
-  document.body.appendChild(modal);
+  h += '</div></div>';   // sulkee lomakelohkon + oikean sarakkeen (.sh-2col)
+
+  window._pmpSulje = avaaAlasivu({
+    id: '_pmpModal',
+    otsikko: vpT('VP:n muistiinpanot'),
+    meta: (pelaajaNimi || pelaajaId),
+    sisaltoHTML: h,
+  });
 }
 window.avaaPelaajaMuistiinpanoModal = avaaPelaajaMuistiinpanoModal;
 
@@ -5215,7 +5069,9 @@ async function _tallennaPMP(pelaajaId, pelaajaNimi) {
   if (!teksti?.trim()) { toast(vpT('Kirjoita ensin teksti'), 'warn'); return; }
   const ok = await tallennaPelaajaMuistiinpano(pelaajaId, teksti, kategoria, naytaVal, naytaPel);
   if (ok) {
-    document.getElementById('_pmpModal')?.remove();
+    /* Shellin oma sulkija: pelkkä .remove() jättäisi Esc-kuuntelijan vuotamaan. */
+    if (typeof window._pmpSulje === 'function') { window._pmpSulje(); window._pmpSulje = null; }
+    else document.getElementById('_pmpModal')?.remove();
     setTimeout(() => avaaPelaajaMuistiinpanoModal(pelaajaId, pelaajaNimi), 200);
   }
 }
@@ -5485,8 +5341,7 @@ window._vpAsetaFyysFokus = async function (pid, teemaAvain) {
   p.jaksofokus = jf;
   document.getElementById('_vpFyysModal')?.remove();
   // 1a Part B: fyysinen fokus asetetaan konsolidoidusta paneelista → sulje myös _jfModal + nollaa ohjaus-ref.
-  const _jfM = document.getElementById('_jfModal');
-  if (_jfM) { _jfM.remove(); window._jfOhjausP = null; }
+  _jfSulje();
   if (typeof _vpArvReRender === 'function' && document.getElementById('_jspTab5')) _vpArvReRender();
   if (typeof _vpAloitusReRender === 'function') _vpAloitusReRender();
   if (typeof renderJaksofokus === 'function' && _currentWs === 'jaksofokus') renderJaksofokus();
@@ -5556,14 +5411,14 @@ window._vpOhjNaytaAnalytiikka = function (ohjelmaId) {
   cont.innerHTML = _vpOhjAnalKoosteHTML(LIB.tmOhjelmaKooste(ohjelmaId, (typeof _pelaajat !== 'undefined' && _pelaajat) || []));
 };
 window._vpOhjKirjastoModal = async function (pid, teemaAvain) {
-  document.getElementById('_vpOhjModal')?.remove();
+  /* VAIHE 2 — Ohjelmakirjasto jaettuun 840px-alasivu-shelliin.
+     Aito alasivu: selattava ohjelmakortisto, jossa jokaisen kortin sisään
+     avautuu analytiikkapaneeli (`_vpOhjAnal_<id>`). 600px ahdisti sekä
+     kortteja että avattua paneelia. Sisältö ja id:t ennallaan. */
   await _vpOhjLataaKirjasto(true);
   const esc = _jsvEsc;
   const lista = (window._vpOhjKirjasto || []).filter(function (o) { return !o.arkistoitu; }).sort(function (a, b) { return String(a.nimi || '').localeCompare(String(b.nimi || '')); });
-  let h = '<div id="_vpOhjModal" style="position:fixed;inset:0;background:rgba(17,17,16,.92);z-index:340;display:flex;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(8px)" onclick="if(event.target===this)this.remove()">';
-  h += '<div style="background:var(--bg2);border:.5px solid var(--border);border-radius:14px;padding:22px;width:600px;max-width:96vw;max-height:92vh;overflow-y:auto" onclick="event.stopPropagation()">';
-  h += '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px"><div style="font-family:\'Cormorant Garamond\',serif;font-size:21px;color:var(--ink)">' + vpT('🏋️ Ohjelmakirjasto') + ' <span style="font-size:11px;color:var(--ink3)">· oversight</span></div>'
-    + '<button onclick="document.getElementById(\'_vpOhjModal\').remove()" style="background:none;border:none;color:var(--ink3);font-size:22px;cursor:pointer;padding:0 6px">×</button></div>';
+  let h = '';
   h += vpT('<div style="font-size:11px;color:var(--ink3);margin-bottom:12px">Seuran fysiikkaohjelmat (fysiikkavalmentaja rakentaa Master-työkalussa). VP näkee + N-laskuri.</div>');
   if (!lista.length) h += vpT('<div style="padding:18px;text-align:center;color:var(--ink3);font-size:13px">Ei ohjelmia vielä.</div>');
   lista.forEach(function (o) {
@@ -5580,8 +5435,11 @@ window._vpOhjKirjastoModal = async function (pid, teemaAvain) {
     h += '</div><div id="_vpOhjAnal_' + esc(o.id) + '"></div>';
     h += '</div>';
   });
-  h += '</div></div>';
-  const wrap = document.createElement('div'); wrap.innerHTML = h; document.body.appendChild(wrap.firstChild);
+  window._vpOhjSulje = avaaAlasivu({
+    id: '_vpOhjModal',
+    otsikko: vpT('🏋️ Ohjelmakirjasto') + ' <span style="font-size:11px;color:var(--ink3)">· oversight</span>',
+    sisaltoHTML: h,
+  });
 };
 window._vpOhjKaytaOhjelma = async function (pid, teemaAvain, ohjelmaId) {
   const p = (typeof _vpTtPelaaja === 'function') ? _vpTtPelaaja(pid) : (_pelaajat || []).find(function (x) { return x.id === pid; });
@@ -5601,9 +5459,11 @@ window._vpOhjKaytaOhjelma = async function (pid, teemaAvain, ohjelmaId) {
   const _jfArk = _vpJfArkistoiVaihdossa(p, 'fyysinen', jf.alkoi);   // 1a/D: merge-haara säilyttää alkoi (sama jakso) → ei arkistoa
   if (_jfArk.arkistoitu) p.jaksofokus_historia = _jfArk.historia;
   p.jaksofokus = jf;
-  document.getElementById('_vpOhjModal')?.remove(); document.getElementById('_vpFyysModal')?.remove();
-  const _jfM = document.getElementById('_jfModal');   // 1a Part B: sulje myös konsolidoitu paneeli
-  if (_jfM) { _jfM.remove(); window._jfOhjausP = null; }
+  /* Shellin oma sulkija: pelkkä .remove() jättäisi Esc-kuuntelijan vuotamaan. */
+  if (typeof window._vpOhjSulje === 'function') { window._vpOhjSulje(); window._vpOhjSulje = null; }
+  else document.getElementById('_vpOhjModal')?.remove();
+  document.getElementById('_vpFyysModal')?.remove();
+  _jfSulje();   // 1a Part B: sulje myös konsolidoitu paneeli
   if (typeof _vpAloitusReRender === 'function') _vpAloitusReRender();
   await _vpTtKirjoita(pid, _jfArk.arkistoitu ? { jaksofokus: jf, jaksofokus_historia: _jfArk.historia } : { jaksofokus: jf }, vpT('Fysiikkajakso + kirjasto-ohjelma asetettu'));
 };
@@ -7965,8 +7825,7 @@ window._vpTtVieTreeniin = async function (pid, avain) {
   p.jaksofokus = jaksofokus;
   if (typeof _vpAloitusReRender === 'function') _vpAloitusReRender();
   // Vaihe 4c: jos ohjaus tapahtui jaksofokus-oversight-modaalista → sulje + päivitä taulukko.
-  const _jfM = document.getElementById('_jfModal');
-  if (_jfM) { _jfM.remove(); window._jfOhjausP = null; if (typeof renderJaksofokus === 'function') renderJaksofokus(); }
+  if (_jfSulje() && typeof renderJaksofokus === 'function') renderJaksofokus();
   // Vaihe 5: jos ohjaus tapahtui arviointi-välisivulta → re-renderöi arviointi (silta katoaa kun fokus asetettu).
   if (typeof _vpArvReRender === 'function' && document.getElementById('_jspTab5')) _vpArvReRender();
   await _vpTtKirjoita(pid, _jfArk.arkistoitu ? { jaksofokus: jaksofokus, jaksofokus_historia: _jfArk.historia } : { jaksofokus: jaksofokus }, 'Jaksofokus tallennettu');
@@ -8336,8 +8195,7 @@ window._vpJfAsetaKehitysFokus = async function (pid, domeeni, avain) {
   if (_jfArk.arkistoitu) p.jaksofokus_historia = _jfArk.historia;
   p.jaksofokus = jaksofokus;
   if (typeof _vpAloitusReRender === 'function') _vpAloitusReRender();
-  const _jfM = document.getElementById('_jfModal');
-  if (_jfM) { _jfM.remove(); window._jfOhjausP = null; if (typeof renderJaksofokus === 'function') renderJaksofokus(); }
+  if (_jfSulje() && typeof renderJaksofokus === 'function') renderJaksofokus();
   await _vpTtKirjoita(pid, _jfArk.arkistoitu ? { jaksofokus: jaksofokus, jaksofokus_historia: _jfArk.historia } : { jaksofokus: jaksofokus }, vpT('Jaksofokus tallennettu'));
 };
 
@@ -8415,20 +8273,33 @@ window._jfOhjaa = function (pid, esiValinta, lahde, domeeni) {
     return;
   }
   // Fallback: modaali (jos inline-editoria ei ole mountattu tässä näkymässä).
-  document.getElementById('_jfModal')?.remove();
+  /* VAIHE 2 — jaksofokus-paneeli jaettuun 840px-alasivu-shelliin.
+     Tämä on inline-editorin varareitti (käytössä kun editoria ei ole
+     mountattu näkymään). Aito editori: kolme dynaamisesti uudelleen-
+     renderoituvaa lohkoa (_vpJfToggle / _jfOhjausSlot / _jfLinkitSlot). */
   const yli = (p.talenttiOhjelma !== true) ? '<div style="font-size:11px;color:var(--blue);background:rgba(42,93,176,.1);border:.5px solid rgba(42,93,176,.3);border-radius:8px;padding:8px 11px;margin-bottom:10px">ℹ️ ' + vpT('Override: valmentaja omistaa kentän — asetat/muutat VP-oversightina (§4).') + '</div>' : '';
-  let h = '<div id="_jfModal" style="position:fixed;inset:0;background:rgba(17,17,16,.92);z-index:360;display:flex;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(8px)" onclick="if(event.target===this)this.remove()">';
-  h += '<div style="background:var(--bg2);border:.5px solid var(--border);border-radius:14px;padding:22px;width:520px;max-width:96vw;max-height:90vh;overflow-y:auto" onclick="event.stopPropagation()">';
-  h += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px"><div style="font-family:\'Cormorant Garamond\',serif;font-size:20px;color:var(--ink)">' + (p.talenttiOhjelma === true ? '⭐ ' : '') + _jsvEsc(_jfNimi(p)) + ' — ' + vpT('jaksofokus') + '</div>'
-    + '<button onclick="document.getElementById(\'_jfModal\').remove()" style="background:none;border:none;color:var(--ink3);font-size:22px;cursor:pointer;padding:0 6px">×</button></div>';
+  const jfOtsikko = (p.talenttiOhjelma === true ? '⭐ ' : '') + _jsvEsc(_jfNimi(p)) + ' — ' + vpT('jaksofokus');
+  let h = '';
   h += yli;
   h += '<div id="_vpJfToggle">' + _vpJfToggleHTML(p) + '</div>';
   h += '<div id="_jfOhjausSlot">' + _vpJfBodyHTML(p) + '</div>';
   h += '<div id="_jfLinkitSlot">' + _vpJfLinkitHTML(p) + '</div>';   // JF-2 — jaettu (domeenin yli): linkitetyt + Opittu kun
-  h += '</div></div>';
-  const wrap = document.createElement('div'); wrap.innerHTML = h;
-  document.body.appendChild(wrap.firstChild);
+  window._jfSuljeShell = avaaAlasivu({ id: '_jfModal', otsikko: jfOtsikko, sisaltoHTML: h });
 };
+
+/* YKSI SULKUPISTE jaksofokus-paneelille. Neljä kutsupaikkaa teki tämän
+   aiemmin käsin (`_jfM.remove()` + ohjaus-refin nollaus), jolloin shellin
+   Esc-kuuntelija olisi jäänyt vuotamaan neljästä eri kohdasta. Palauttaa
+   tiedon siitä oliko paneeli auki — kutsujat ehdollistavat jälkitoimensa
+   sillä, kuten ennenkin. */
+function _jfSulje() {
+  if (!document.getElementById('_jfModal')) return false;
+  if (typeof window._jfSuljeShell === 'function') { window._jfSuljeShell(); window._jfSuljeShell = null; }
+  else { const m = document.getElementById('_jfModal'); if (m) m.remove(); }   // varareitti
+  window._jfOhjausP = null;
+  return true;
+}
+window._jfSulje = _jfSulje;
 
 // JF-2 — konseptilista mille tahansa 4 domeenille (linkitys-pickeriä varten). [{avain, nimi}].
 function _vpJfDomeeniKonseptit(p, dom) {
@@ -13558,7 +13429,14 @@ async function _lataaCoachHistoria(valmentajaId) {
 function avaaAlasivu(o) {
   o = o || {};
   var id = o.id || 'tmAlasivu';
-  var vanha = document.getElementById(id); if (vanha) vanha.remove();
+  /* UUDELLEENAVAUS: sulje edellinen sen OMALLA sulkijalla, ei raa'alla
+     remove():lla — muuten edellisen instanssin Esc-kuuntelija jää dokumenttiin
+     roikkumaan, ja Esc kutsuisi jo poistetun elementin sulkijaa. Vuoto kertyy
+     jokaisesta uudelleenavauksesta. */
+  if (typeof avaaAlasivu._auki[id] === 'function') {
+    try { avaaAlasivu._auki[id](); } catch (e) { /* ei estä uuden avaamista */ }
+  }
+  var vanha = document.getElementById(id); if (vanha) vanha.remove();   // varareitti
   var esc = function (s) { return String(s == null ? '' : s); };
   var tabit = (o.tabit || []).map(function (t, i) {
     return '<button class="sh-tab' + (i === (o.aktiivi || 0) ? ' active' : '') + '"'
@@ -13578,20 +13456,28 @@ function avaaAlasivu(o) {
   var wrap = document.createElement('div');
   wrap.innerHTML = h;
   var el = wrap.firstChild;
+  /* Valinnainen kerros: migroitava modaali säilyttää OMAN z-indeksinsä, jottei
+     se putoa muiden päällekkäisten paneelien alle. Oletus tulee .sh-overlay-
+     säännöstä (300). */
+  if (o.zIndex) el.style.zIndex = String(o.zIndex);
   document.body.appendChild(el);
 
   var nappainkuuntelija;
   var sulje = function () {
     try { el.remove(); } catch (e) { /* jo poistettu */ }
     document.removeEventListener('keydown', nappainkuuntelija);
+    if (avaaAlasivu._auki[id] === sulje) delete avaaAlasivu._auki[id];
     if (typeof o.onSulje === 'function') { try { o.onSulje(); } catch (e) { /* ei kaada sulkemista */ } }
   };
   nappainkuuntelija = function (e) { if (e.key === 'Escape') sulje(); };
   document.addEventListener('keydown', nappainkuuntelija);
   el.addEventListener('click', function (e) { if (e.target === el) sulje(); });   // backdrop
   var x = el.querySelector('.sh-close'); if (x) x.onclick = sulje;
+  avaaAlasivu._auki[id] = sulje;
   return sulje;
 }
+/* Auki olevien alasivujen sulkijat id:n mukaan (uudelleenavauksen vuotosuoja). */
+avaaAlasivu._auki = {};
 window.avaaAlasivu = avaaAlasivu;
 
 function suljePaneeli() {
@@ -14826,10 +14712,11 @@ async function _vpSkooppiDocit(t, scope) {
 function avaaKalenteriTapahtuma(tapahtumaId) {
   var t = (_kalenteriTapahtumat||[]).find(function(x) { return x.id === tapahtumaId; });
   if (!t) { toast(vpT('Tapahtumaa ei löydy'), 'error'); return; }
-  var vanha = document.getElementById('vpTapDetailModal'); if (vanha) vanha.remove();
-  var modal = document.createElement('div');
-  modal.id = 'vpTapDetailModal';
-  modal.style.cssText = 'position:fixed;inset:0;background:rgba(17,17,16,.9);z-index:9000;display:flex;align-items:center;justify-content:center;padding:16px;';
+  /* VAIHE 2 — tapahtuman tiedot jaettuun 840px-alasivu-shelliin.
+     Aito alasivu: tapahtuman tiedot + harjoitussuunnitelma + KOKO ROSTERIN
+     läsnäolomerkintä (K2). Juuri läsnäolo ahdisti 420px:ssä.
+     KERROS 9000 säilytetään: tämä avautuu päivänäkymän (vpDayModal, 9000)
+     PÄÄLLE, ja shellin oletus 300 piilottaisi sen sen taakse. */
   var meta = KALENTERI_TYYPIT[t.tyyppi] || KALENTERI_TYYPIT.muu;
   var alkaaD = t.alkaa && t.alkaa.toDate ? t.alkaa.toDate() : null;
   var paattyyD = t.paattyy && t.paattyy.toDate ? t.paattyy.toDate() : null;
@@ -14837,15 +14724,7 @@ function avaaKalenteriTapahtuma(tapahtumaId) {
   var aikaStr = alkaaD ? (String(alkaaD.getHours()).padStart(2,'0') + ':' + String(alkaaD.getMinutes()).padStart(2,'0')) : '';
   if (paattyyD) aikaStr += ' – ' + String(paattyyD.getHours()).padStart(2,'0') + ':' + String(paattyyD.getMinutes()).padStart(2,'0');
 
-  var box = document.createElement('div');
-  box.style.cssText = 'background:var(--surface,#161614);border:0.5px solid var(--border);border-radius:10px;padding:22px;width:420px;max-width:100%;display:flex;flex-direction:column;gap:10px;color:var(--ink,#f2efe6);';
-
-  var html = '<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">' +
-    '<span style="font-size:20px;">' + meta.ikoni + '</span>' +
-    '<span style="font-size:16px;font-weight:500;">' + (t.nimi || vpT(meta.nimi)) + '</span>' +
-    '</div>' +
-    '<div style="font-size:13px;color:var(--ink3);">' + vpT(meta.nimi) + '</div>' +
-    '<div style="display:grid;grid-template-columns:auto 1fr;gap:4px 12px;font-size:13px;margin-top:4px;">' +
+  var html = '<div style="display:grid;grid-template-columns:auto 1fr;gap:4px 12px;font-size:13px;margin-top:4px;">' +
     '<span style="color:var(--ink3);">' + vpT('Päivä') + '</span><span>' + pvmStr + '</span>' +
     '<span style="color:var(--ink3);">' + vpT('Aika') + '</span><span>' + (aikaStr || '—') + '</span>' +
     vpT('<span style="color:var(--ink3);">Joukkue</span><span>') + (t.joukkue_nimi || t.joukkue || 'Koko seura') + '</span>' +
@@ -14872,7 +14751,17 @@ function avaaKalenteriTapahtuma(tapahtumaId) {
     }
     html += '</div>';
   }
-  box.innerHTML = html;
+  var suljeShell = avaaAlasivu({
+    id: 'vpTapDetailModal',
+    otsikko: meta.ikoni + ' ' + (t.nimi || vpT(meta.nimi)),
+    meta: vpT(meta.nimi),
+    sisaltoHTML: html,
+    zIndex: 9000,
+  });
+  /* Loput rakennetaan DOM-solmuina (läsnäolo + napit kantavat omat
+     käsittelijänsä), joten ne liitetään shellin runkoon mountin jälkeen. */
+  var box = document.querySelector('#vpTapDetailModal .sh-body');
+  if (!box) return;
 
   // ── Läsnäolo (K2 — VP johto = täysi) ──
   if (_vpSaaMerkitaLasnaolo()) {
@@ -14888,10 +14777,10 @@ function avaaKalenteriTapahtuma(tapahtumaId) {
   var btnRivi = document.createElement('div'); btnRivi.style.cssText = 'display:flex;gap:8px;margin-top:8px;';
   var muokkaa = document.createElement('button'); muokkaa.textContent = vpT('✏️ Muokkaa');
   muokkaa.style.cssText = 'padding:10px 16px;background:var(--surface);border:0.5px solid var(--border);border-radius:6px;color:var(--ink2);cursor:pointer;font-size:13px;';
-  muokkaa.onclick = function() { modal.remove(); _vpMuokkaaTapahtuma(t); };
+  muokkaa.onclick = function() { suljeShell(); _vpMuokkaaTapahtuma(t); };
   var sulje = document.createElement('button'); sulje.textContent = vpT('Sulje');
   sulje.style.cssText = 'flex:1;padding:10px;background:var(--surface);border:0.5px solid var(--border);border-radius:6px;color:var(--ink2);cursor:pointer;';
-  sulje.onclick = function() { modal.remove(); };
+  sulje.onclick = function() { suljeShell(); };
 
   var poista = document.createElement('button'); poista.textContent = vpT('Poista');
   poista.style.cssText = 'padding:10px 16px;background:rgba(201,64,64,.15);border:0.5px solid rgba(201,64,64,.3);border-radius:6px;color:#c94040;cursor:pointer;font-size:13px;';
@@ -14911,7 +14800,7 @@ function avaaKalenteriTapahtuma(tapahtumaId) {
         });
         await batch.commit();
         toast(vpT('Poistettu (') + docit.length + ')', 'ok');
-        modal.remove();
+        suljeShell();
         await lataaKalenteriTapahtumat();
         renderKalenteri();
       } catch(e) { toast(vpT('Virhe:') + ' ' + e.message, 'error'); poista.disabled = false; poista.textContent = vpT('Poista'); }
@@ -14920,9 +14809,6 @@ function avaaKalenteriTapahtuma(tapahtumaId) {
 
   btnRivi.appendChild(muokkaa); btnRivi.appendChild(sulje); btnRivi.appendChild(poista);
   box.appendChild(btnRivi);
-  modal.appendChild(box);
-  modal.addEventListener('click', function(e) { if (e.target === modal) modal.remove(); });
-  document.body.appendChild(modal);
 }
 
 // ── Päivänäkymä (kalenteri + viikko: klikkaus avaa päivän tapahtumat) ──
@@ -17925,7 +17811,7 @@ function lyhennaNimi(nimi) {
   return osat.length > 1 ? osat.slice(1).join(' ') : nimi;
 }
 
-// ─── JOUKKUEPULSSI (Sprint 2: laskeJoukkueTrendi -integraatio) ──
+// ─── JOUKKUEPULSSI (suunta: laskeJoukkueSuunta, §29 delta-pikakentistä) ──
 // Joukkuejärjestys: P8→P13, sitten T8→T13 (sukupuoli erikseen, ikä nousevasti)
 function joukkueJarjestys(nimi) {
   const lyhyt = lyhennaNimi(nimi || '');
