@@ -136,7 +136,6 @@ describe('VP · jaettu alasivu-shell', () => {
        alla) — aiemmin nämä eivät punertaneet lainkaan, joten vaiheen 1 "jono on
        tyhjä" oli väärää turvallisuutta, ei saavutus. */
     const VAIHE2_JONO = [
-      'kkModal',        // Konseptikirjasto — lista + editori; viimeinen `.cm-*`-vanhan kehyksen käyttäjä
       '_vpOhjModal',    // Ohjelmakirjasto — ohjelmakortit + sisään avautuva analytiikka
       '_pmpModal',      // VP:n muistiinpanot — historiavirta + lisäyslomake
       '_jfModal',       // Jaksofokus-editori — kolme dynaamista lohkoa
@@ -215,6 +214,37 @@ describe('VP · jaettu alasivu-shell', () => {
       .toMatch(/avaaAlasivu\(\{[\s\S]{0,80}id: 'hotRaporttiModal'/);
     expect(VP, 'HoT-raportti rakentaa yhä oman fixed-laatikkonsa')
       .not.toMatch(/modal\.id = 'hotRaporttiModal'/);
+  });
+
+  it('VAIHE 2: Konseptikirjasto käyttää jaettua shelliä', () => {
+    const f = funktio('function avaaKonseptikirjasto(');
+    expect(f, 'Konseptikirjasto ei käytä jaettua shelliä').toMatch(/avaaAlasivu\(\{/);
+    expect(f, 'rakentaa yhä oman .cm-box-laatikkonsa').not.toContain('cm-box');
+    /* Sisältö renderöidään yhä samaan #kkBody-säiliöön — _kkRenderLista
+       kirjoittaa siihen, joten sen katoaminen rikkoisi kirjaston hiljaa. */
+    expect(f, '#kkBody-säiliö katosi → _kkRenderLista ei löydä kohdettaan').toContain("id=\"kkBody\"");
+    /* Sulkija on yhä olemassa: kirjaston sisältä kutsutaan sitä nimellä. */
+    expect(VP, 'suljeKonseptikirjasto poistettu — kirjaston omat napit rikki')
+      .toContain('function suljeKonseptikirjasto(');
+  });
+
+  it('VANHA .cm-*-KEHYS on poistettu (yksi modaalikehys, ei kahta)', () => {
+    /* Kehysluokat kuolivat kun kkModal (viimeinen käyttäjä) migroitiin.
+       Jos joku palauttaa ne, VP:ssä on taas kaksi rinnakkaista modaalikehystä
+       — juuri se tila josta vaihe 1 lähti liikkeelle.
+       HUOM: sisältöluokat `.cm-kk-*`, `.cm-kausi-*` ja `.cm-section` ovat
+       eläviä eivätkä kuulu tähän. */
+    ['.cm-box', '.cm-header', '.cm-avatar', '.cm-close', '.cm-tabs', '.cm-scroll', '.cm-body']
+      .forEach((c) => {
+        expect(VP, 'vanha kehysluokka palasi: ' + c).not.toMatch(
+          new RegExp('\\' + c + '\\s*[{,]'),
+        );
+      });
+    /* `#coachModal`-ID-sääntö kumosi ID-spesifisyydellä mobiilin
+       `.sh-overlay { padding: 0 }` → 100vw-laatikko sai 20px reunukset ja
+       vuoti vaakasuunnassa yli. Shell omistaa kehyksen nyt yksin. */
+    expect(VP, '#coachModal-sääntö palasi → kumoaa shellin mobiilireunuksen')
+      .not.toMatch(/#coachModal\s*\{/);
   });
 
   it('EI VACUOUS: drift-vartija löytää oikeasti fixed-laatikoita', () => {
