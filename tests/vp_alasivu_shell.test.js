@@ -136,7 +136,6 @@ describe('VP · jaettu alasivu-shell', () => {
        alla) — aiemmin nämä eivät punertaneet lainkaan, joten vaiheen 1 "jono on
        tyhjä" oli väärää turvallisuutta, ei saavutus. */
     const VAIHE2_JONO = [
-      '_vpOhjModal',    // Ohjelmakirjasto — ohjelmakortit + sisään avautuva analytiikka
       '_pmpModal',      // VP:n muistiinpanot — historiavirta + lisäyslomake
       '_jfModal',       // Jaksofokus-editori — kolme dynaamista lohkoa
       'vpDayModal',     // Kalenterin päivänäkymä — päivän tapahtumalista
@@ -245,6 +244,23 @@ describe('VP · jaettu alasivu-shell', () => {
        vuoti vaakasuunnassa yli. Shell omistaa kehyksen nyt yksin. */
     expect(VP, '#coachModal-sääntö palasi → kumoaa shellin mobiilireunuksen')
       .not.toMatch(/#coachModal\s*\{/);
+  });
+
+  it('VAIHE 2: Ohjelmakirjasto käyttää jaettua shelliä', () => {
+    const f = funktio('window._vpOhjKirjastoModal = async function (');
+    expect(f, 'Ohjelmakirjasto ei käytä jaettua shelliä').toMatch(/avaaAlasivu\(\{/);
+    expect(f, 'rakentaa yhä oman fixed-laatikkonsa').not.toContain('position:fixed;inset:0');
+    /* Analytiikkapaneelin ankkuri on kortin sisällä; sen katoaminen rikkoisi
+       "Näytä analytiikka" -napin hiljaa (paneeli ei löytäisi kohdettaan). */
+    expect(f, 'analytiikka-ankkuri katosi').toContain('id="_vpOhjAnal_');
+  });
+
+  it('SULKIJA: ohjelman käyttöönotto sulkee shellin sen omalla sulkijalla', () => {
+    /* Pelkkä .remove() jättäisi shellin Esc-kuuntelijan vuotamaan dokumenttiin:
+       modaali katoaisi, mutta Esc kutsuisi yhä poistetun elementin sulkijaa. */
+    const f = funktio('window._vpOhjKaytaOhjelma = async function (');
+    expect(f, 'sulkee shellin ohi → Esc-kuuntelija jää vuotamaan')
+      .toContain('window._vpOhjSulje');
   });
 
   it('EI VACUOUS: drift-vartija löytää oikeasti fixed-laatikoita', () => {
