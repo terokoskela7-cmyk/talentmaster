@@ -19,10 +19,12 @@ describe('provenienssi = muotokoodaus (v3 .pmark)', () => {
   });
   it('näkyvät provenienssimerkit ovat muotoja, EI emojeita (🟢/🔵/👁 poistettu legendasta + otsikoista)', () => {
     // legenda + ryhmäotsikot käyttävät jsp-pmark-muotoa
-    expect(HTML).toContain('<span class="jsp-pmark mit"></span> mitattu');
-    expect(HTML).toContain('<div class="jsp-arv-ghd mit"><span class="jsp-pmark mit"></span> Mitattu');
-    expect(HTML).toContain('<div class="jsp-arv-ghd hav"><span class="jsp-pmark hav"></span> Havaittu');
-    expect(HTML).toContain('<div class="jsp-arv-ghd peli"><span class="jsp-pmark peli"></span> Pelihavainnosta');
+    /* i18n osa 4: teksti irtosi omaksi vpT-avaimekseen; MUOTOKOODAUS (.pmark) on
+       yhä markupissa ja siksi yhä valvottavissa. */
+    expect(HTML).toContain('<span class="jsp-pmark mit"></span>\' + vpT(\' mitattu');
+    expect(HTML).toContain('<div class="jsp-arv-ghd mit"><span class="jsp-pmark mit"></span>\' + vpT(\' Mitattu');
+    expect(HTML).toContain('<div class="jsp-arv-ghd hav"><span class="jsp-pmark hav"></span>\' + vpT(\' Havaittu');
+    expect(HTML).toContain('<div class="jsp-arv-ghd peli"><span class="jsp-pmark peli"></span>\' + vpT(\' Pelihavainnosta');
     // ei enää emoji-provenienssia näkyvässä legendassa
     expect(HTML).not.toContain('🟢 mitattu</span> · <span style="color:var(--blue)">🔵 havaittu');
   });
