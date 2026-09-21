@@ -79,7 +79,9 @@ const FI_CHROME = ['Ehdota jaksofokus', 'Yksilökonsepti', 'pre-PHV = tekninen i
   'FLEI-prioriteetti — fysiikkajakso', 'Heikoin D1 — fysiikkajakso', '>mittaus ',
   'pre-PHV: fyysinen kehitys rajallista', 'Aseta fysiikkajakso · 4 vk'];
 // sv-arvot = tm_vp_i18n:n sanktioidut käännökset (Kim/VP_SV_KAANNOSMUISTI) — EI omaa sanastoa (V8d korjasi vain avaimet).
-const SV_CHROME = ['Föreslå periodfokus', 'Individuellt koncept', 'Ange som periodfokus', 'Andra förslag (klicka = ange)',
+// 'Individkoncept' = Kimin lukitsema valinta (i18n-jäännöksen viimeistely); kartassa
+// oli kaksi sanktioitua muotoa ja kilpaileva 'Individuellt koncept' poistettiin.
+const SV_CHROME = ['Föreslå periodfokus', 'Individkoncept', 'Ange som periodfokus', 'Andra förslag (klicka = ange)',
   'Svagaste D1 — fysikperiod', '>mätning ', 'Ange fysikperiod · 4 v'];
 
 describe('V8d · silta-paneelit sv (ajo vm-sandboxissa)', () => {

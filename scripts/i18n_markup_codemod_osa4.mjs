@@ -155,7 +155,27 @@ const PAATETYT = new Set([
   'Audit-valmius', 'Avaa pelaajakortti',                            // osa 3
 ]);
 
-const tila = { siirretty: 0, kaareetPois: 0, dedup: 0, yhteinen: 0, esto: [] };
+/* ── KIMIN LUKITSEMAT SV-VALINNAT (viimeistelyerä) ──────────────────────────
+   Nämä 6 avainta oli estetty, koska kartassa ja markup-avaimen sisällä oli KAKSI
+   eri sanktioitua ruotsinnosta eikä skripti saa valita puolesta. Kim päätti; arvo
+   on tässä lukittuna ja voittaa molemmat. Kilpaileva muoto katoaa kun markup-avain
+   puretaan.
+
+   HUOM 'arvioitu': tekstiavaimessa oli HÄVIÄVÄ muoto ('bedömd') ja markup-avaimessa
+   voittaja — tämä on ainoa jossa olemassa olevan rivin ARVO muuttuu. Muissa
+   tekstiavain on jo oikein ja vain markup-avain poistuu.
+   'bedömd' EI ole globaali korvaus: 'ei arvioitu' = 'ej bedömd' on eri avain, oma
+   kielioppinsa — siksi lukitus on avainkohtainen, ei merkkijonohaku. */
+const LUKITUT = {
+  'Yksilökonsepti': 'Individkoncept',
+  'arvioitu': 'bedömda',
+  'peruste keskusteluun, ei arvosana (§37)': 'underlag för samtal, inte ett betyg (§37)',
+  '— ei asetettu': '— inte satt',
+  '⚙ Aseta kausitavoitteet': '⚙ Sätt säsongsmål',
+  'myöh.': 'sen.',
+};
+
+const tila = { siirretty: 0, kaareetPois: 0, dedup: 0, yhteinen: 0, lukitut: 0, esto: [] };
 const tulokset = [];
 
 for (const K of KOHTEET) {
@@ -202,7 +222,8 @@ for (const K of KOHTEET) {
       }
       const olemassa = kartat.lib[uusiAvain];
       if (olemassa !== undefined && olemassa !== uusiSv && !ehdokkaat.has(uusiAvain)
-          && SANKTIOITU[uusiAvain] === undefined && !PAATETYT.has(uusiAvain)) {
+          && SANKTIOITU[uusiAvain] === undefined && !PAATETYT.has(uusiAvain)
+          && LUKITUT[uusiAvain] === undefined) {
         esto.add(avain); tila.esto.push(['olemassa', uusiAvain + ' :: ' + olemassa + ' vs ' + uusiSv]); return;
       }
       if (ehdotettu.has(uusiAvain) && ehdotettu.get(uusiAvain) !== uusiSv) {
@@ -258,11 +279,12 @@ for (const K of KOHTEET) {
   for (const [avain, arvo] of Object.entries(kartat.json)) {
     const p = jsonP.get(avain);
     if (p.tyyppi === 'poista') continue;
+    if (p.tyyppi === 'sailyta' && LUKITUT[avain] !== undefined) { uusiJson[avain] = LUKITUT[avain]; continue; }
     if (p.tyyppi === 'jaa') {
       for (const [fi, sv] of p.parit) {
         if (fi in uusiJson) continue;                       // jo kirjattu
         if (kartat.json[fi] !== undefined) continue;        // säilyy omana rivinään
-        uusiJson[fi] = sv;
+        uusiJson[fi] = LUKITUT[fi] !== undefined ? LUKITUT[fi] : sv;
       }
       continue;
     }
@@ -288,13 +310,20 @@ for (const K of KOHTEET) {
     if (!m) { uusiLib.push(r); continue; }
     const avain = dekoodaa(m[2]);
     const p = libP.get(avain);
-    if (!p || p.tyyppi === 'sailyta') { uusiLib.push(r); continue; }
+    if (!p || p.tyyppi === 'sailyta') {
+      /* Lukittu valinta voittaa myös olemassa olevan rivin arvon. */
+      if (LUKITUT[avain] !== undefined && dekoodaa(m[3]) !== LUKITUT[avain]) {
+        uusiLib.push(m[1] + jsLit(avain) + ': ' + jsLit(LUKITUT[avain]) + ',' + (m[4] || ''));
+        tila.lukitut++;
+      } else uusiLib.push(r);
+      continue;
+    }
     if (p.tyyppi === 'poista') continue;
     for (const [fi, sv] of p.parit) {
       if (YHTEINEN[fi] !== undefined) { tila.yhteinen++; continue; }   // yhteiskartta voittaa
       if (pidettavat.has(fi) || emitoidut.has(fi)) { tila.dedup++; continue; }   // rivi on jo/ tulee
       emitoidut.add(fi);
-      uusiLib.push(m[1] + jsLit(fi) + ': ' + jsLit(sv) + ',');
+      uusiLib.push(m[1] + jsLit(fi) + ': ' + jsLit(LUKITUT[fi] !== undefined ? LUKITUT[fi] : sv) + ',');
       tila.siirretty++;
     }
   }
@@ -310,6 +339,7 @@ for (const T of tulokset) {
 console.log('sv-palasiirtoja :', tila.siirretty);
 console.log('kääre poistettu :', tila.kaareetPois, '(pelkkää markkupia)');
 console.log('yhteiskartalle  :', tila.yhteinen, '· dedup:', tila.dedup);
+console.log('lukittuja arvoja:', tila.lukitut, '(Kimin valinta voitti olemassa olevan rivin)');
 console.log('ESTOT           :', tila.esto.length);
 const ryhmat = {};
 tila.esto.forEach(([s]) => { ryhmat[s] = (ryhmat[s] || 0) + 1; });
