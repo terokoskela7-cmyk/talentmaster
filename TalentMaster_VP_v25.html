@@ -5409,14 +5409,14 @@ window._vpOhjNaytaAnalytiikka = function (ohjelmaId) {
   cont.innerHTML = _vpOhjAnalKoosteHTML(LIB.tmOhjelmaKooste(ohjelmaId, (typeof _pelaajat !== 'undefined' && _pelaajat) || []));
 };
 window._vpOhjKirjastoModal = async function (pid, teemaAvain) {
-  document.getElementById('_vpOhjModal')?.remove();
+  /* VAIHE 2 — Ohjelmakirjasto jaettuun 840px-alasivu-shelliin.
+     Aito alasivu: selattava ohjelmakortisto, jossa jokaisen kortin sisään
+     avautuu analytiikkapaneeli (`_vpOhjAnal_<id>`). 600px ahdisti sekä
+     kortteja että avattua paneelia. Sisältö ja id:t ennallaan. */
   await _vpOhjLataaKirjasto(true);
   const esc = _jsvEsc;
   const lista = (window._vpOhjKirjasto || []).filter(function (o) { return !o.arkistoitu; }).sort(function (a, b) { return String(a.nimi || '').localeCompare(String(b.nimi || '')); });
-  let h = '<div id="_vpOhjModal" style="position:fixed;inset:0;background:rgba(17,17,16,.92);z-index:340;display:flex;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(8px)" onclick="if(event.target===this)this.remove()">';
-  h += '<div style="background:var(--bg2);border:.5px solid var(--border);border-radius:14px;padding:22px;width:600px;max-width:96vw;max-height:92vh;overflow-y:auto" onclick="event.stopPropagation()">';
-  h += '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px"><div style="font-family:\'Cormorant Garamond\',serif;font-size:21px;color:var(--ink)">' + vpT('🏋️ Ohjelmakirjasto') + ' <span style="font-size:11px;color:var(--ink3)">· oversight</span></div>'
-    + '<button onclick="document.getElementById(\'_vpOhjModal\').remove()" style="background:none;border:none;color:var(--ink3);font-size:22px;cursor:pointer;padding:0 6px">×</button></div>';
+  let h = '';
   h += vpT('<div style="font-size:11px;color:var(--ink3);margin-bottom:12px">Seuran fysiikkaohjelmat (fysiikkavalmentaja rakentaa Master-työkalussa). VP näkee + N-laskuri.</div>');
   if (!lista.length) h += vpT('<div style="padding:18px;text-align:center;color:var(--ink3);font-size:13px">Ei ohjelmia vielä.</div>');
   lista.forEach(function (o) {
@@ -5433,8 +5433,11 @@ window._vpOhjKirjastoModal = async function (pid, teemaAvain) {
     h += '</div><div id="_vpOhjAnal_' + esc(o.id) + '"></div>';
     h += '</div>';
   });
-  h += '</div></div>';
-  const wrap = document.createElement('div'); wrap.innerHTML = h; document.body.appendChild(wrap.firstChild);
+  window._vpOhjSulje = avaaAlasivu({
+    id: '_vpOhjModal',
+    otsikko: vpT('🏋️ Ohjelmakirjasto') + ' <span style="font-size:11px;color:var(--ink3)">· oversight</span>',
+    sisaltoHTML: h,
+  });
 };
 window._vpOhjKaytaOhjelma = async function (pid, teemaAvain, ohjelmaId) {
   const p = (typeof _vpTtPelaaja === 'function') ? _vpTtPelaaja(pid) : (_pelaajat || []).find(function (x) { return x.id === pid; });
@@ -5454,7 +5457,10 @@ window._vpOhjKaytaOhjelma = async function (pid, teemaAvain, ohjelmaId) {
   const _jfArk = _vpJfArkistoiVaihdossa(p, 'fyysinen', jf.alkoi);   // 1a/D: merge-haara säilyttää alkoi (sama jakso) → ei arkistoa
   if (_jfArk.arkistoitu) p.jaksofokus_historia = _jfArk.historia;
   p.jaksofokus = jf;
-  document.getElementById('_vpOhjModal')?.remove(); document.getElementById('_vpFyysModal')?.remove();
+  /* Shellin oma sulkija: pelkkä .remove() jättäisi Esc-kuuntelijan vuotamaan. */
+  if (typeof window._vpOhjSulje === 'function') { window._vpOhjSulje(); window._vpOhjSulje = null; }
+  else document.getElementById('_vpOhjModal')?.remove();
+  document.getElementById('_vpFyysModal')?.remove();
   const _jfM = document.getElementById('_jfModal');   // 1a Part B: sulje myös konsolidoitu paneeli
   if (_jfM) { _jfM.remove(); window._jfOhjausP = null; }
   if (typeof _vpAloitusReRender === 'function') _vpAloitusReRender();
