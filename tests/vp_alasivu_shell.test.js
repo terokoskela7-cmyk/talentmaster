@@ -134,6 +134,11 @@ describe('VP · jaettu alasivu-shell', () => {
       'hlLinkModal',       // "Linkitä kalibraatiopari" — valitse yksi pari
       '_vpD3Modal',        // "D3 VP-kalibraatio" — yksi arvio + tallennus
       '_vpReviewModal',    // "＋ Kirjaa review" — 4-vaiheinen syöttölomake (asteikko + 2 tekstikenttää + arvo)
+      /* VAIHE 2 -ARVIO: päivän tapahtumalista on VALITSIN, ei alasivu —
+         tyypillisesti 1–5 klikattavaa riviä, jotka vievät varsinaiseen
+         sisältöön (`vpTapDetailModal`, joka ON shellissä). 840px jättäisi
+         muutaman rivin kellumaan. */
+      'vpDayModal',
     ];
     /* VAIHE 2 -JONO = TUNNETTU VELKA, oma pieni PR per kohde (ei yhtä jättiä).
        Nämä ovat aitoja alasivuja: monirivisiä listoja tai editoreita, joissa
@@ -144,8 +149,6 @@ describe('VP · jaettu alasivu-shell', () => {
        alla) — aiemmin nämä eivät punertaneet lainkaan, joten vaiheen 1 "jono on
        tyhjä" oli väärää turvallisuutta, ei saavutus. */
     const VAIHE2_JONO = [
-      'vpDayModal',     // Kalenterin päivänäkymä — päivän tapahtumalista
-      'vpTapDetailModal', // Tapahtuman tiedot + läsnäolo
     ];
 
     /* EFEKTIIVINEN LEVEYS — VARTIJAN AUKKO, löydetty vaiheessa 2.
@@ -318,6 +321,30 @@ describe('VP · jaettu alasivu-shell', () => {
     const f = funktio('function avaaAlasivu(');
     expect(f, 'sulkijarekisteriä ei ole → uudelleenavaus vuotaa').toContain('avaaAlasivu._auki[id]');
     expect(f, 'sulkija ei poista itseään rekisteristä').toContain('delete avaaAlasivu._auki[id]');
+  });
+
+  it('VAIHE 2: tapahtuman tiedot shellissä, OMALLA kerroksellaan', () => {
+    const f = funktio('function avaaKalenteriTapahtuma(');
+    expect(f, 'tapahtumatiedot eivät käytä jaettua shelliä').toMatch(/avaaAlasivu\(\{/);
+    expect(f, 'rakentaa yhä oman fixed-laatikkonsa').not.toContain('position:fixed;inset:0');
+    /* KERROS: tämä avautuu päivänäkymän (vpDayModal, z-index 9000) PÄÄLLE.
+       Shellin oletus on 300, joten ilman omaa kerrosta paneeli renderöityisi
+       päivänäkymän TAAKSE — näkymättömiin, ilman virheilmoitusta. */
+    expect(f, 'kerros katosi → paneeli jää päivänäkymän taakse').toContain('zIndex: 9000');
+    /* DOM-solmut (läsnäolo + napit) liitetään shellin runkoon mountin jälkeen. */
+    expect(f, 'runkoa ei haeta shellistä → läsnäolo ja napit eivät kiinnity')
+      .toContain("'#vpTapDetailModal .sh-body'");
+    /* Sulkeminen shellin sulkijalla kolmessa kohdassa (muokkaa · sulje · poista). */
+    expect(f, 'suljetaan shellin ohi').not.toMatch(/modal\.remove\(\)/);
+  });
+
+  it('SHELL: zIndex on valinnainen eikä riko oletusta', () => {
+    const f = funktio('function avaaAlasivu(');
+    expect(f, 'zIndex-optio puuttuu').toContain('o.zIndex');
+    /* Ehdollinen: ilman optiota kerros tulee .sh-overlay-säännöstä (300).
+       Ehdoton asetus pakottaisi jokaisen shellin samaan kerrokseen. */
+    expect(f, 'kerros asetetaan ehdottomasti → oletus .sh-overlay ohitetaan')
+      .toContain('if (o.zIndex)');
   });
 
   it('EI VACUOUS: drift-vartija löytää oikeasti fixed-laatikoita', () => {
