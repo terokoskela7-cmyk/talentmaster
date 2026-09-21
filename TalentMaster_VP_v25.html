@@ -5341,8 +5341,7 @@ window._vpAsetaFyysFokus = async function (pid, teemaAvain) {
   p.jaksofokus = jf;
   document.getElementById('_vpFyysModal')?.remove();
   // 1a Part B: fyysinen fokus asetetaan konsolidoidusta paneelista → sulje myös _jfModal + nollaa ohjaus-ref.
-  const _jfM = document.getElementById('_jfModal');
-  if (_jfM) { _jfM.remove(); window._jfOhjausP = null; }
+  _jfSulje();
   if (typeof _vpArvReRender === 'function' && document.getElementById('_jspTab5')) _vpArvReRender();
   if (typeof _vpAloitusReRender === 'function') _vpAloitusReRender();
   if (typeof renderJaksofokus === 'function' && _currentWs === 'jaksofokus') renderJaksofokus();
@@ -5464,8 +5463,7 @@ window._vpOhjKaytaOhjelma = async function (pid, teemaAvain, ohjelmaId) {
   if (typeof window._vpOhjSulje === 'function') { window._vpOhjSulje(); window._vpOhjSulje = null; }
   else document.getElementById('_vpOhjModal')?.remove();
   document.getElementById('_vpFyysModal')?.remove();
-  const _jfM = document.getElementById('_jfModal');   // 1a Part B: sulje myös konsolidoitu paneeli
-  if (_jfM) { _jfM.remove(); window._jfOhjausP = null; }
+  _jfSulje();   // 1a Part B: sulje myös konsolidoitu paneeli
   if (typeof _vpAloitusReRender === 'function') _vpAloitusReRender();
   await _vpTtKirjoita(pid, _jfArk.arkistoitu ? { jaksofokus: jf, jaksofokus_historia: _jfArk.historia } : { jaksofokus: jf }, vpT('Fysiikkajakso + kirjasto-ohjelma asetettu'));
 };
@@ -7827,8 +7825,7 @@ window._vpTtVieTreeniin = async function (pid, avain) {
   p.jaksofokus = jaksofokus;
   if (typeof _vpAloitusReRender === 'function') _vpAloitusReRender();
   // Vaihe 4c: jos ohjaus tapahtui jaksofokus-oversight-modaalista → sulje + päivitä taulukko.
-  const _jfM = document.getElementById('_jfModal');
-  if (_jfM) { _jfM.remove(); window._jfOhjausP = null; if (typeof renderJaksofokus === 'function') renderJaksofokus(); }
+  if (_jfSulje() && typeof renderJaksofokus === 'function') renderJaksofokus();
   // Vaihe 5: jos ohjaus tapahtui arviointi-välisivulta → re-renderöi arviointi (silta katoaa kun fokus asetettu).
   if (typeof _vpArvReRender === 'function' && document.getElementById('_jspTab5')) _vpArvReRender();
   await _vpTtKirjoita(pid, _jfArk.arkistoitu ? { jaksofokus: jaksofokus, jaksofokus_historia: _jfArk.historia } : { jaksofokus: jaksofokus }, 'Jaksofokus tallennettu');
@@ -8198,8 +8195,7 @@ window._vpJfAsetaKehitysFokus = async function (pid, domeeni, avain) {
   if (_jfArk.arkistoitu) p.jaksofokus_historia = _jfArk.historia;
   p.jaksofokus = jaksofokus;
   if (typeof _vpAloitusReRender === 'function') _vpAloitusReRender();
-  const _jfM = document.getElementById('_jfModal');
-  if (_jfM) { _jfM.remove(); window._jfOhjausP = null; if (typeof renderJaksofokus === 'function') renderJaksofokus(); }
+  if (_jfSulje() && typeof renderJaksofokus === 'function') renderJaksofokus();
   await _vpTtKirjoita(pid, _jfArk.arkistoitu ? { jaksofokus: jaksofokus, jaksofokus_historia: _jfArk.historia } : { jaksofokus: jaksofokus }, vpT('Jaksofokus tallennettu'));
 };
 
@@ -8277,20 +8273,33 @@ window._jfOhjaa = function (pid, esiValinta, lahde, domeeni) {
     return;
   }
   // Fallback: modaali (jos inline-editoria ei ole mountattu tässä näkymässä).
-  document.getElementById('_jfModal')?.remove();
+  /* VAIHE 2 — jaksofokus-paneeli jaettuun 840px-alasivu-shelliin.
+     Tämä on inline-editorin varareitti (käytössä kun editoria ei ole
+     mountattu näkymään). Aito editori: kolme dynaamisesti uudelleen-
+     renderoituvaa lohkoa (_vpJfToggle / _jfOhjausSlot / _jfLinkitSlot). */
   const yli = (p.talenttiOhjelma !== true) ? '<div style="font-size:11px;color:var(--blue);background:rgba(42,93,176,.1);border:.5px solid rgba(42,93,176,.3);border-radius:8px;padding:8px 11px;margin-bottom:10px">ℹ️ ' + vpT('Override: valmentaja omistaa kentän — asetat/muutat VP-oversightina (§4).') + '</div>' : '';
-  let h = '<div id="_jfModal" style="position:fixed;inset:0;background:rgba(17,17,16,.92);z-index:360;display:flex;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(8px)" onclick="if(event.target===this)this.remove()">';
-  h += '<div style="background:var(--bg2);border:.5px solid var(--border);border-radius:14px;padding:22px;width:520px;max-width:96vw;max-height:90vh;overflow-y:auto" onclick="event.stopPropagation()">';
-  h += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px"><div style="font-family:\'Cormorant Garamond\',serif;font-size:20px;color:var(--ink)">' + (p.talenttiOhjelma === true ? '⭐ ' : '') + _jsvEsc(_jfNimi(p)) + ' — ' + vpT('jaksofokus') + '</div>'
-    + '<button onclick="document.getElementById(\'_jfModal\').remove()" style="background:none;border:none;color:var(--ink3);font-size:22px;cursor:pointer;padding:0 6px">×</button></div>';
+  const jfOtsikko = (p.talenttiOhjelma === true ? '⭐ ' : '') + _jsvEsc(_jfNimi(p)) + ' — ' + vpT('jaksofokus');
+  let h = '';
   h += yli;
   h += '<div id="_vpJfToggle">' + _vpJfToggleHTML(p) + '</div>';
   h += '<div id="_jfOhjausSlot">' + _vpJfBodyHTML(p) + '</div>';
   h += '<div id="_jfLinkitSlot">' + _vpJfLinkitHTML(p) + '</div>';   // JF-2 — jaettu (domeenin yli): linkitetyt + Opittu kun
-  h += '</div></div>';
-  const wrap = document.createElement('div'); wrap.innerHTML = h;
-  document.body.appendChild(wrap.firstChild);
+  window._jfSuljeShell = avaaAlasivu({ id: '_jfModal', otsikko: jfOtsikko, sisaltoHTML: h });
 };
+
+/* YKSI SULKUPISTE jaksofokus-paneelille. Neljä kutsupaikkaa teki tämän
+   aiemmin käsin (`_jfM.remove()` + ohjaus-refin nollaus), jolloin shellin
+   Esc-kuuntelija olisi jäänyt vuotamaan neljästä eri kohdasta. Palauttaa
+   tiedon siitä oliko paneeli auki — kutsujat ehdollistavat jälkitoimensa
+   sillä, kuten ennenkin. */
+function _jfSulje() {
+  if (!document.getElementById('_jfModal')) return false;
+  if (typeof window._jfSuljeShell === 'function') { window._jfSuljeShell(); window._jfSuljeShell = null; }
+  else { const m = document.getElementById('_jfModal'); if (m) m.remove(); }   // varareitti
+  window._jfOhjausP = null;
+  return true;
+}
+window._jfSulje = _jfSulje;
 
 // JF-2 — konseptilista mille tahansa 4 domeenille (linkitys-pickeriä varten). [{avain, nimi}].
 function _vpJfDomeeniKonseptit(p, dom) {
@@ -13420,7 +13429,14 @@ async function _lataaCoachHistoria(valmentajaId) {
 function avaaAlasivu(o) {
   o = o || {};
   var id = o.id || 'tmAlasivu';
-  var vanha = document.getElementById(id); if (vanha) vanha.remove();
+  /* UUDELLEENAVAUS: sulje edellinen sen OMALLA sulkijalla, ei raa'alla
+     remove():lla — muuten edellisen instanssin Esc-kuuntelija jää dokumenttiin
+     roikkumaan, ja Esc kutsuisi jo poistetun elementin sulkijaa. Vuoto kertyy
+     jokaisesta uudelleenavauksesta. */
+  if (typeof avaaAlasivu._auki[id] === 'function') {
+    try { avaaAlasivu._auki[id](); } catch (e) { /* ei estä uuden avaamista */ }
+  }
+  var vanha = document.getElementById(id); if (vanha) vanha.remove();   // varareitti
   var esc = function (s) { return String(s == null ? '' : s); };
   var tabit = (o.tabit || []).map(function (t, i) {
     return '<button class="sh-tab' + (i === (o.aktiivi || 0) ? ' active' : '') + '"'
@@ -13446,14 +13462,18 @@ function avaaAlasivu(o) {
   var sulje = function () {
     try { el.remove(); } catch (e) { /* jo poistettu */ }
     document.removeEventListener('keydown', nappainkuuntelija);
+    if (avaaAlasivu._auki[id] === sulje) delete avaaAlasivu._auki[id];
     if (typeof o.onSulje === 'function') { try { o.onSulje(); } catch (e) { /* ei kaada sulkemista */ } }
   };
   nappainkuuntelija = function (e) { if (e.key === 'Escape') sulje(); };
   document.addEventListener('keydown', nappainkuuntelija);
   el.addEventListener('click', function (e) { if (e.target === el) sulje(); });   // backdrop
   var x = el.querySelector('.sh-close'); if (x) x.onclick = sulje;
+  avaaAlasivu._auki[id] = sulje;
   return sulje;
 }
+/* Auki olevien alasivujen sulkijat id:n mukaan (uudelleenavauksen vuotosuoja). */
+avaaAlasivu._auki = {};
 window.avaaAlasivu = avaaAlasivu;
 
 function suljePaneeli() {
