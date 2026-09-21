@@ -4939,92 +4939,6 @@ async function lataaVAIArvot() {
 }
 
 /* ════════════════════════════════════════════════════════════
-   SPRINT 2 — JOUKKUEEN HARJOITTELUTRENDI (SPL-pohjainen)
-   4vk vs edellinen 4vk -ikkuna; delta määrittää tilan
-   ════════════════════════════════════════════════════════════ */
-async function laskeJoukkueTrendi(joukkueId) {
-  if (!joukkueId || !_seuraId) return null;
-  const nyt = Date.now();
-  const raja28  = new Date(nyt - 28 * 86400000);
-  const raja57  = new Date(nyt - 57 * 86400000);
-
-  try {
-    const snap = await db.collection('seurat').doc(_seuraId).collection('mentoroinnit')
-      .where('joukkueId','==',joukkueId)
-      .get().catch(()=>({docs:[]}));
-
-    const mentRecent = snap.docs.map(d => d.data());
-    const kuluva = [], edellinen = [];
-
-    mentRecent.forEach(m => {
-      const aika = m.aika?.toDate ? m.aika.toDate().getTime() : 0;
-      const splKa = m.keskiarvo || m.splKa;
-      if (splKa == null) return;
-      if (aika >= raja28.getTime()) kuluva.push(splKa);
-      else if (aika >= raja57.getTime()) edellinen.push(splKa);
-    });
-
-    if (kuluva.length < 2 || edellinen.length < 2) {
-      return { tila:'ei_dataa', vari:'gray', kuluva:null, edellinen:null, delta:null, n:kuluva.length+edellinen.length };
-    }
-
-    const kk = kuluva.reduce((a,b)=>a+b,0) / kuluva.length;
-    const ee = edellinen.reduce((a,b)=>a+b,0) / edellinen.length;
-    const delta = Math.round((kk - ee) * 10) / 10;
-
-    let tila, vari;
-    if (delta >= 0.5)      { tila='nousu';  vari='green';  }
-    else if (delta >= -0.3){ tila='vakaa';  vari='blue';   }
-    else                   { tila='lasku';  vari='amber';  }
-
-    return {
-      tila, vari, delta,
-      kuluva: Math.round(kk*10)/10,
-      edellinen: Math.round(ee*10)/10,
-      nKuluva: kuluva.length, nEdellinen: edellinen.length
-    };
-  } catch(e) {
-    console.warn('[laskeJoukkueTrendi]', joukkueId, e.message);
-    return null;
-  }
-}
-
-async function avaaJoukkueTrendiModal(joukkueId, joukkueNimi) {
-  document.getElementById('_joukkueTrendiModal')?.remove();
-  const tr = await laskeJoukkueTrendi(joukkueId);
-
-  let h = '<div id="_joukkueTrendiModal" style="position:fixed;inset:0;background:rgba(17,17,16,.92);z-index:300;display:flex;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(8px)">';
-  h += '<div style="background:var(--bg2);border:.5px solid var(--border);padding:24px;width:440px;max-width:94vw;max-height:90vh;overflow-y:auto" onclick="event.stopPropagation()">';
-  h += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">';
-  h += '<div style="font-family:\'Cormorant Garamond\',serif;font-size:22px;color:var(--ink)">' + (joukkueNimi||joukkueId) + '</div>';
-  h += '<button onclick="document.getElementById(\'_joukkueTrendiModal\').remove()" style="background:none;border:none;color:var(--ink3);font-size:22px;cursor:pointer;padding:0 6px">×</button>';
-  h += '</div>';
-
-  if (!tr || tr.tila === 'ei_dataa') {
-    h += '<div style="padding:20px;text-align:center;color:var(--ink3);font-size:13px">';
-    h += vpT('Ei riittävää dataa trendi-vertailuun.') + '<br>' + vpT('Tarvitaan vähintään 2 kenttäkäyntiä molemmissa ikkunoissa (kuluva 28pv + edellinen 28pv).');
-    h += '</div>';
-  } else {
-    const variHex = tr.vari==='green' ? '#28B090' : tr.vari==='amber' ? '#E0A040' : '#5B8FE0';
-    const trendiIkoni = tr.delta >= 0.5 ? '↑' : tr.delta < -0.3 ? '↓' : '→';
-    h += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:20px">';
-    h += '<div style="background:rgba(242,239,230,.04);padding:14px;text-align:center"><div style="font-size:9px;letter-spacing:.18em;color:var(--ink3);text-transform:uppercase;margin-bottom:6px">' + vpT('Edellinen 4vk') + '</div><div style="font-family:\'Cormorant Garamond\',serif;font-size:26px;color:var(--ink)">' + tr.edellinen + '</div><div style="font-size:9px;color:var(--ink3);margin-top:3px">' + tr.nEdellinen + ' ' + vpT('käyntiä') + '</div></div>';
-    h += '<div style="background:rgba(242,239,230,.04);padding:14px;text-align:center"><div style="font-size:9px;letter-spacing:.18em;color:var(--ink3);text-transform:uppercase;margin-bottom:6px">' + vpT('Trendi') + '</div><div style="font-family:\'Cormorant Garamond\',serif;font-size:26px;color:' + variHex + '">' + trendiIkoni + ' ' + (tr.delta>=0?'+':'') + tr.delta + '</div><div style="font-size:9px;color:var(--ink3);margin-top:3px;text-transform:uppercase">' + vpT(tr.tila) + '</div></div>';
-    h += '<div style="background:rgba(242,239,230,.04);padding:14px;text-align:center"><div style="font-size:9px;letter-spacing:.18em;color:var(--ink3);text-transform:uppercase;margin-bottom:6px">' + vpT('Kuluva 4vk') + '</div><div style="font-family:\'Cormorant Garamond\',serif;font-size:26px;color:' + variHex + '">' + tr.kuluva + '</div><div style="font-size:9px;color:var(--ink3);margin-top:3px">' + tr.nKuluva + ' ' + vpT('käyntiä') + '</div></div>';
-    h += '</div>';
-    h += '<button onclick="toast(\'' + vpT('Viestit-inbox tulossa Sprint 3:ssa') + '\',\'ok\');document.getElementById(\'_joukkueTrendiModal\').remove()" style="width:100%;padding:11px;background:var(--teal);color:#fff;border:none;border-radius:4px;font-size:12px;font-weight:600;cursor:pointer;letter-spacing:.08em">' + vpT('Ota yhteyttä valmentajaan →') + '</button>';
-  }
-
-  h += '</div></div>';
-  const wrap = document.createElement('div');
-  wrap.innerHTML = h;
-  const modal = wrap.firstChild;
-  modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
-  document.body.appendChild(modal);
-}
-window.avaaJoukkueTrendiModal = avaaJoukkueTrendiModal;
-
-/* ════════════════════════════════════════════════════════════
    SPRINT 2 — VP:N MUISTIINPANOT PER PELAAJALLE
    Polku: seurat/{sid}/pelaajat/{pid}/vp_muistiinpanot/{mid}
    Näkyvyys: vp_only (default) | + valmentaja | + pelaaja
@@ -17925,7 +17839,7 @@ function lyhennaNimi(nimi) {
   return osat.length > 1 ? osat.slice(1).join(' ') : nimi;
 }
 
-// ─── JOUKKUEPULSSI (Sprint 2: laskeJoukkueTrendi -integraatio) ──
+// ─── JOUKKUEPULSSI (suunta: laskeJoukkueSuunta, §29 delta-pikakentistä) ──
 // Joukkuejärjestys: P8→P13, sitten T8→T13 (sukupuoli erikseen, ikä nousevasti)
 function joukkueJarjestys(nimi) {
   const lyhyt = lyhennaNimi(nimi || '');
