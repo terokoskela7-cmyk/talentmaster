@@ -779,8 +779,6 @@ body {
 /* Coach profile panel */
 /* ── Coach KPI Modal (center, tabbed) ─── */
 /* Konseptikirjasto (Seurakerros TIER 1 · S2) — terävät kulmat, tokenit, ei omia hexejä */
-#kkModal { position: fixed; inset: 0; background: rgba(17,17,16,.92); z-index: 300; display: flex; align-items: center; justify-content: center; padding: 20px; backdrop-filter: blur(8px); }
-.kk-box { width: 640px; }
 .kk-note { font-size: 11.5px; line-height: 1.5; color: var(--ink3); border-left: 2px solid var(--teal); padding: 6px 0 6px 10px; margin-bottom: 16px; }
 .kk-tyhja { font-size: 12px; color: var(--ink3); padding: 10px 0 14px; }
 .kk-ryhma { font-size: 10px; font-weight: 600; letter-spacing: .18em; text-transform: uppercase; color: var(--teal); margin: 20px 0 8px; }
@@ -811,66 +809,6 @@ body {
 .kk-btn:hover { border-color: var(--teal); color: var(--ink); }
 .kk-btn-p { background: var(--teal); border-color: var(--teal); color: var(--bg); }
 .kk-btn-v:hover { border-color: var(--amber); color: var(--amber); }
-@media (max-width: 768px) { .kk-box { width: 100vw; max-width: 100vw; } }
-#coachModal {
-  position: fixed; inset: 0;
-  background: rgba(17,17,16,.92);
-  z-index: 300;
-  display: flex; align-items: center; justify-content: center;
-  padding: 20px;
-  backdrop-filter: blur(8px);
-}
-.cm-box {
-  background: var(--bg2);
-  border: .5px solid var(--border);
-  width: 540px; max-width: 96vw;
-  max-height: 88vh;
-  display: flex; flex-direction: column;
-  overflow: hidden;
-}
-.cm-header {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 20px 24px 0;
-  flex-shrink: 0;
-}
-.cm-header-left { display: flex; align-items: center; gap: 14px; }
-.cm-avatar {
-  width: 48px; height: 48px; border-radius: 50%;
-  background: linear-gradient(135deg, var(--bg3), var(--blue));
-  display: flex; align-items: center; justify-content: center;
-  font-family: 'Cormorant Garamond', serif; font-size: 20px; color: var(--ink2);
-}
-.cm-name { font-family: 'Cormorant Garamond', serif; font-size: 22px; font-weight: 300; color: var(--ink); }
-.cm-meta { font-size: 11px; color: var(--ink3); margin-top: 1px; }
-.cm-close {
-  background: none; border: none; color: var(--ink3); font-size: 22px;
-  cursor: pointer; padding: 0 6px;
-}
-.cm-close:hover { color: var(--ink); }
-.cm-tabs {
-  display: flex; gap: 0; padding: 14px 24px 0;
-  border-bottom: .5px solid var(--border);
-  flex-shrink: 0;
-}
-.cm-tab {
-  padding: 8px 16px;
-  font-size: 11px; letter-spacing: .06em; text-transform: uppercase;
-  color: var(--ink3);
-  cursor: pointer; border: none; background: none;
-  border-bottom: 2px solid transparent;
-  transition: color .15s, border-color .15s;
-}
-.cm-tab:hover { color: var(--ink2); }
-.cm-tab.active { color: var(--teal); border-bottom-color: var(--teal); }
-/* YKSI vierivä kontaineri: otsikon alapuoli vierii kokonaisuutena.
-   Aiemmin #cmKehityskortti oli .cm-body:n ULKOPUOLELLA flex-lapsena ilman
-   korkeuskattoa → se söi pystytilan ja .cm-box:n overflow:hidden leikkasi
-   alaosan (tallennusnapit) mobiilissa pois. min-height:0 on pakollinen:
-   ilman sitä flex-lapsi ei suostu kutistumaan sisältönsä alle. */
-.cm-scroll { flex: 1; min-height: 0; overflow-y: auto; }
-.cm-body { padding: 20px 24px 24px; }
-/* Välilehdet pysyvät näkyvissä vieritettäessä (sticky scroll-kontainerin sisällä). */
-.cm-tabs-sticky { position: sticky; top: 0; background: var(--bg2); z-index: 2; }
 
 /* ══════════════════════════════════════════════════════════════════════════
    JAETTU ALASIVU-SHELL (.sh-*)
@@ -2309,8 +2247,6 @@ textarea.jsp-rv-inp { resize: vertical; min-height: 44px; }
   #topbar .ctx-seura { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
   /* Leveä pelaajataulu vieritettäväksi — ei riko viewportia mobiilissa */
   .player-table { display: block; overflow-x: auto; white-space: nowrap; -webkit-overflow-scrolling: touch; }
-  /* Valmentajapaneeli koko leveydeltä mobiilissa (oli kiinteä 420px) */
-  .cm-box { width: 100vw; max-width: 100vw; max-height: 100vh; }
   /* Jaettu shell mobiilissa: koko ruutu + yksi sarake (§6: yksi media query). */
   .sh-overlay { padding: 0; }
   .sh-box { width: 100vw; max-width: 100vw; max-height: 100vh; }
@@ -2318,8 +2254,6 @@ textarea.jsp-rv-inp { resize: vertical; min-height: 44px; }
   .sh-body { padding: 16px; }
   .sh-tabs { padding: 12px 16px 0; overflow-x: auto; }
   .sh-2col { grid-template-columns: 1fr; gap: 8px; }
-  .cm-tabs { overflow-x: auto; }
-  .cm-tab { padding: 8px 10px; font-size: 10px; }
   .sh-tab { padding: 8px 10px; font-size: 10px; }
 
   /* ── Kehityskaari-synteesi mobiilissa: summary before density ──
@@ -3416,23 +3350,28 @@ function _kkRyhmat() {
   return r;
 }
 
+/* VAIHE 2 — Konseptikirjasto jaettuun 840px-alasivu-shelliin.
+   Aito alasivu: konseptilista + editori, ei varmistusdialogi. Tämä oli myös
+   vanhan `.cm-*`-KEHYKSEN viimeinen käyttäjä (cm-box/header/name/meta/close/
+   body) — migraation jälkeen se kehys on kuollut ja poistettu, joten VP:ssä on
+   enää yksi modaalikehys. Sisältöluokat (`.cm-kk-*`, `.cm-kausi-*`) jäävät:
+   ne ovat kirjaston omaa sisältöä, eivät kehystä. */
 function avaaKonseptikirjasto() {
   _kkTila = { avain: null, uusi: false };
-  var vanha = document.getElementById('kkModal'); if (vanha) vanha.remove();
-  var h = '<div id="kkModal"><div class="cm-box kk-box" onclick="event.stopPropagation()">'
-    + '<div class="cm-header"><div class="cm-header-left"><div>'
-    + '<div class="cm-name">' + vpT('Konseptikirjasto') + '</div>'
-    + '<div class="cm-meta">' + vpT('Kaanon on oletus — seura saa muokata sitä') + '</div>'
-    + '</div></div><button class="cm-close" onclick="suljeKonseptikirjasto()">×</button></div>'
-    + '<div class="cm-body" id="kkBody"></div></div></div>';
-  var wrap = document.createElement('div');
-  wrap.innerHTML = h;
-  var modal = wrap.firstChild;
-  modal.addEventListener('click', function (e) { if (e.target === modal) suljeKonseptikirjasto(); });
-  document.body.appendChild(modal);
+  window._kkSulje = avaaAlasivu({
+    id: 'kkModal',
+    otsikko: vpT('Konseptikirjasto'),
+    meta: vpT('Kaanon on oletus — seura saa muokata sitä'),
+    sisaltoHTML: '<div id="kkBody"></div>',
+  });
   _kkRenderLista();
 }
-function suljeKonseptikirjasto() { var m = document.getElementById('kkModal'); if (m) m.remove(); }
+/* Sulkija säilyy omana funktionaan: sitä kutsutaan kirjaston sisältä
+   (window-globaali, §7.17). Shell hoitaa × · backdrop · Esc itse. */
+function suljeKonseptikirjasto() {
+  if (typeof window._kkSulje === 'function') { window._kkSulje(); window._kkSulje = null; return; }
+  var m = document.getElementById('kkModal'); if (m) m.remove();   // varareitti
+}
 
 function _kkRenderLista() {
   var el = document.getElementById('kkBody'); if (!el) return;
