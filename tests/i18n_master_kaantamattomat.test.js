@@ -145,7 +145,11 @@ describe('Master sv · kattavuusportti (näkyvä fi ilman käännöstä)', () =>
       const { masterT } = require('../lib/tm_master_i18n.js');
       for (const fi of [
         'Ladataan joukkuetta...',
-        'Ei uutta mittausta jaksolla — <b>subjektiivinen arvio riittää</b> (§29). Deltaa ei väitetä ilman mittausta.',
+        /* i18n osa 4: markup irrotettiin avaimesta, joten lause on nyt kolme
+           tekstiavainta. Invariantti sama — jokainen osa resolvoituu ruotsiksi. */
+        'Ei uutta mittausta jaksolla — ',
+        'subjektiivinen arvio riittää',
+        ' (§29). Deltaa ei väitetä ilman mittausta.',
         ', ei epäonnistuminen.',
         'Olet arvioinut harjoittelua ',
         ' kertaa — hieno sitoutuminen oman valmennuksesi kehittämiseen. 🌱',
@@ -162,7 +166,10 @@ describe('Master sv · kattavuusportti (näkyvä fi ilman käännöstä)', () =>
     const kpl = {};
     arvot.forEach((v) => { kpl[v] = (kpl[v] || 0) + 1; });
     for (const sv of [
-      'Ingen ny mätning under perioden — <b>subjektiv bedömning räcker</b> (§29). Delta hävdas inte utan mätning.',
+      /* Sama lause koostettuna (ks. yllä) — duplikaattivartija koskee nyt osia. */
+      'Ingen ny mätning under perioden — ',
+      'subjektiv bedömning räcker',
+      ' (§29). Delta hävdas inte utan mätning.',
       ' gånger — fint engagemang i att utveckla din egen coaching. 🌱',
     ]) {
       expect(kpl[sv], `${sv.slice(0, 40)} esiintyy ${kpl[sv]}× — duplikaatti`).toBe(1);
