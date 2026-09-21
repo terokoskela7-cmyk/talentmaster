@@ -37,6 +37,14 @@ function funktio(nimi) {
   return VP.slice(i, loppu);
 }
 
+/** VP ILMAN kommentteja. Väitteet kohdistuvat KOODIIN: tämän tiedoston
+    kohdalla dokumentaatiokommentti, joka mainitsee kielletyn kuvion
+    (`_jfM.remove()` selittäessään miksi se poistettiin), laukaisi portin
+    tyhjänä — todettu mutaatiotestissä. */
+const VP_KOODI = VP
+  .replace(/\/\*[\s\S]*?\*\//g, ' ')
+  .replace(/(^|[^:])\/\/[^\n]*/g, '$1 ');
+
 describe('VP · jaettu alasivu-shell', () => {
   it('LEVEYS: shell on 840px desktopilla (ei ~540px kelluva laatikko)', () => {
     const box = saanto('.sh-box');
@@ -136,7 +144,6 @@ describe('VP · jaettu alasivu-shell', () => {
        alla) — aiemmin nämä eivät punertaneet lainkaan, joten vaiheen 1 "jono on
        tyhjä" oli väärää turvallisuutta, ei saavutus. */
     const VAIHE2_JONO = [
-      '_jfModal',       // Jaksofokus-editori — kolme dynaamista lohkoa
       'vpDayModal',     // Kalenterin päivänäkymä — päivän tapahtumalista
       'vpTapDetailModal', // Tapahtuman tiedot + läsnäolo
     ];
@@ -282,6 +289,35 @@ describe('VP · jaettu alasivu-shell', () => {
     const f = funktio('async function _tallennaPMP(');
     expect(f, 'sulkee shellin ohi → Esc-kuuntelija jää vuotamaan')
       .toContain('window._pmpSulje');
+  });
+
+  it('VAIHE 2: jaksofokus-paneeli shellissä, yhden sulkupisteen takana', () => {
+    const f = funktio('window._jfOhjaa = function (');
+    expect(f, 'jaksofokus-fallback ei käytä jaettua shelliä').toMatch(/avaaAlasivu\(\{/);
+    expect(f, 'rakentaa yhä oman fixed-laatikkonsa').not.toContain('position:fixed;inset:0');
+    /* Kolme slottia renderöidään uudelleen paneelin ulkopuolelta; niiden
+       katoaminen rikkoisi päivittymisen hiljaa. */
+    ['_vpJfToggle', '_jfOhjausSlot', '_jfLinkitSlot'].forEach((id) => {
+      expect(f, 'slotti katosi → paneeli ei päivity: ' + id).toContain('id="' + id + '"');
+    });
+  });
+
+  it('SULKUPISTE: yksikään kutsuja ei sulje jaksofokusta shellin ohi', () => {
+    /* Neljä kutsupaikkaa sulki paneelin aiemmin käsin. Jos yksikin palaa
+       raakaan remove():en, shellin Esc-kuuntelija jää siitä kohdasta vuotamaan
+       — eikä mikään muu testi huomaisi sitä. */
+    expect(VP, '_jfSulje-sulkupiste puuttuu').toContain('function _jfSulje(');
+    const raa = VP_KOODI.match(/_jfM\.remove\(\)/g) || [];
+    expect(raa.length, 'jaksofokus suljetaan yhä käsin ' + raa.length + ' kohdassa').toBe(0);
+  });
+
+  it('SHELL: uudelleenavaus ei jätä Esc-kuuntelijaa vuotamaan', () => {
+    /* avaaAlasivu poisti saman id:n vanhan elementin raa'alla remove():lla,
+       jolloin sen keydown-kuuntelija jäi dokumenttiin. Vuoto kertyi jokaisesta
+       uudelleenavauksesta — löytyi vaiheen 2 migraatioissa. */
+    const f = funktio('function avaaAlasivu(');
+    expect(f, 'sulkijarekisteriä ei ole → uudelleenavaus vuotaa').toContain('avaaAlasivu._auki[id]');
+    expect(f, 'sulkija ei poista itseään rekisteristä').toContain('delete avaaAlasivu._auki[id]');
   });
 
   it('EI VACUOUS: drift-vartija löytää oikeasti fixed-laatikoita', () => {

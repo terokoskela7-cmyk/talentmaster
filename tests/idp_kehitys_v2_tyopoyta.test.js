@@ -67,7 +67,10 @@ describe('(4) jaksofokus = INLINE-FOCAL editori (aina auki, ei modaalia)', () =>
     expect(T).toContain("const _inl = document.getElementById('_jfInlineEditor');");
     expect(T).toContain('_jspVaihda(3)');                     // → Kehitys-työpöytä
     expect(T).toContain("document.getElementById('_accJaksofokus')");   // avaa TASO 2
-    expect(T).toContain("document.getElementById('_jfModal')?.remove()");   // modaali säilyy fallbackina
+    /* Modaali säilyy fallbackina. Väite kohdistuu INVARIANTTIIN (fallback
+       rakentaa yhä `_jfModal`:n), ei toteutusriviin: paneeli siirtyi jaettuun
+       alasivu-shelliin, joka hoitaa edellisen instanssin sulkemisen itse. */
+    expect(T).toContain("id: '_jfModal'");
   });
   it('TASO 2 body = inline-editori työpöydässä (avoin=true) · read-only raportissa', () => {
     const T = extract('function _vpKehSuunnitelmaHTML(p, opts) {');
