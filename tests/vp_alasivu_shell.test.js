@@ -109,8 +109,17 @@ describe('VP · jaettu alasivu-shell', () => {
     const SALLITUT_PIENET = [
       '_vpSulkuModal', '_korjModal', '_tmInfoModal', '_vpJatkuuModal', 'hylkaysModal',
       '_kvUusi', '_kvVirhe',
+      /* VAIHE 2 -ARVIO: `_vpBrandiModal` = 3 pikakysymystä (Kyllä/Osittain/Ei)
+         + vapaa teksti. Se on LOMAKE, ei alasivu: 840px-shellissä kolme lyhyttä
+         riviä kelluisi tyhjässä laatikossa — sama antipatterni kuin
+         "jatketaanko?" leveässä shellissä. Luokiteltu pieneksi dialogiksi
+         SISÄLLÖN perusteella, ei migroitu. */
+      '_vpBrandiModal',
     ];
-    const VAIHE2_JONO = ['_vpBrandiModal', 'hotRaporttiModal'];
+    /* VAIHE 2 TEHTY: jono on TYHJÄ. `hotRaporttiModal` (sisältörikas raportti)
+       migroitiin shelliin. Tyhjä lista + tarkka yhtäsuuruus = uusi kapea
+       sisältömodaali punertaa heti, ilman armonaikaa. */
+    const VAIHE2_JONO = [];
 
     const loydot = new Set();
     /* (a) style-attribuutilla rakennetut */
@@ -133,6 +142,14 @@ describe('VP · jaettu alasivu-shell', () => {
     expect(jaljella, 'uusi kapea sisältömodaali jaetun shellin ohi — migroi avaaAlasivu():hin, '
       + 'tai lisää SALLITUT_PIENET/VAIHE2_JONO-listaan perusteluineen')
       .toEqual(VAIHE2_JONO.slice().sort());
+  });
+
+  it('VAIHE 2: hotRaporttiModal käyttää jaettua shelliä', () => {
+    /* Sisältörikas raportti: 560px katkoi pitkät monospace-rivit kesken. */
+    expect(VP, 'HoT-raportti ei käytä jaettua shelliä')
+      .toMatch(/avaaAlasivu\(\{[\s\S]{0,80}id: 'hotRaporttiModal'/);
+    expect(VP, 'HoT-raportti rakentaa yhä oman fixed-laatikkonsa')
+      .not.toMatch(/modal\.id = 'hotRaporttiModal'/);
   });
 
   it('EI VACUOUS: drift-vartija löytää oikeasti fixed-laatikoita', () => {
