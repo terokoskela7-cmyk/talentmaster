@@ -1,4 +1,18 @@
-name: Deploy Firestore Rules
+# Deploy: Firestore-säännöt + Firestore-indeksit + Storage-säännöt.
+#
+# MIKSI KAIKKI KOLME SAMASSA: kaksi deploy-aukkoa tuotti prod≠main-driftiä.
+#  · `storage.rules` deployattiin CONSOLESTA käsin (firebase.json:sta puuttui
+#    `storage`-avain, joten `--only storage` ei löytänyt sääntötiedostoa).
+#  · `firestore.indexes.json` oli firebase.json:ssa mutta tämä workflow deployasi
+#    VAIN `firestore:rules`. Juuri se pakotti #586:n käsin-deployn: indeksi oli
+#    repossa ja koodi kunnossa, mutta VP:n viestit eivät saapuneet ennen kuin
+#    joku ajoi `firebase deploy --only firestore:indexes` käsin.
+#
+# HUOM ROOLIT (Tero varmistaa ENNEN ensiajoa): `FIREBASE_SA_KEY`-service
+# accountilla on oltava sääntö- JA indeksideploy-oikeus (Firebase Rules Admin +
+# Cloud Datastore Index Admin). Jos puuttuu, deploy-steppi failaa ensiajossa —
+# se on hyvänlaatuinen fail (oikeuspuute), ei koodivirhe.
+name: Deploy Rules & Indexes
 
 on:
   workflow_dispatch:
@@ -6,6 +20,8 @@ on:
     branches: [main]
     paths:
       - tm_admin/firestore.rules
+      - firestore.indexes.json
+      - storage.rules
       - firebase.json
 
 jobs:
@@ -22,11 +38,12 @@ jobs:
           distribution: temurin
           java-version: 21
       - run: npm ci
+      # Rules-testit ovat portti ENNEN deployta — sääntövirhe ei saa päätyä tuotantoon.
       - name: Rules-testit (portti ennen deployta)
         run: npx firebase emulators:exec --only firestore 'npx vitest run tests/rules'
       - name: Autentikoi service accountilla
         uses: google-github-actions/auth@v2
         with:
           credentials_json: ${{ secrets.FIREBASE_SA_KEY }}
-      - name: Deploy Firestore Rules
-        run: npx firebase deploy --only firestore:rules --project talentmaster-pilot --non-interactive
+      - name: Deploy Firestore rules + indexes + Storage rules
+        run: npx firebase deploy --only firestore:rules,firestore:indexes,storage --project talentmaster-pilot --non-interactive

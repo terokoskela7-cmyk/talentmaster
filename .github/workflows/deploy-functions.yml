@@ -1,0 +1,63 @@
+# Deploy: Cloud Functions (europe-west1).
+#
+# MIKSI: `functions/`-muutokset jäivät tuotannosta jälkeen kunnes joku ajoi
+# käsin `firebase deploy --only functions`. Juuri se tuotti #564-driftin
+# (aiProxy prod ≠ main). Tämä workflow poistaa käsin-deployn tarpeen.
+#
+# IHMISPORTTI SÄILYY: `functions/` sisältää turvakriittistä koodia
+# (authz_paatos · gdpr_locator · kaavio_policy · aiProxy), joten deploy menee
+# suojatun `production-functions`-environmentin kautta → Tero hyväksyy yhdellä
+# klikillä. Automaatio poistaa driftin, ihminen säilyttää päätöksen.
+#
+# TERO-VAIHEET ENNEN ENSIAJOA:
+#   (a) Luo GitHub Environment `production-functions` ja lisää itsesi
+#       pakolliseksi hyväksyjäksi (Settings → Environments).
+#   (b) Varmista että deployaavalla service accountilla on Cloud Functions Admin
+#       + Service Account User. Ilman niitä deploy-steppi failaa ensiajossa —
+#       hyvänlaatuinen fail (oikeuspuute), ei koodivirhe.
+# Jos environmentia EI luoda, ajo jää odottamaan hyväksyntää eikä deployaa
+# vahingossa — turvallinen oletustila.
+name: Deploy Functions
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    # PATH-SUODATUS: deploy vain kun funktiot oikeasti muuttuvat. Estää myös
+    # sen että bump-versionin `[skip ci]`-commit laukaisisi funktiodeployn —
+    # se ei koske functions/**.
+    paths:
+      - functions/**
+
+concurrency:
+  # Oma ryhmä, erillään hosting/pages-ryhmistä: peräkkäiset merget eivät jonouta
+  # toisiaan eivätkä törmää samaan deploy-lukkoon.
+  group: functions
+  cancel-in-progress: true
+
+jobs:
+  deploy-functions:
+    runs-on: ubuntu-latest
+    environment: production-functions   # ← ihmisportti (ks. yllä)
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          # Node 22 = functions/package.json engines (CLAUDE.md §33: 1st-gen, SDK 6.6.0).
+          node-version: 22
+      - name: Asenna functions-riippuvuudet
+        working-directory: functions
+        run: npm ci
+      # TESTIPORTTI ENNEN DEPLOYTA. `functions/test/e2e_node22.test.js` on
+      # offline-savutesti (ei verkkoa, ei GCP-projektia) joka todistaa että
+      # 1st-gen-handlerit kutsutaan oikealla signaturella. Nämä testit EIVÄT
+      # ajaneet CI:ssä lainkaan ennen tätä workflowia.
+      - name: Funktiotestit (portti ennen deployta)
+        working-directory: functions
+        run: npm test
+      - name: Autentikoi service accountilla
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.FIREBASE_SA_KEY }}
+      - name: Deploy Cloud Functions
+        run: npx firebase deploy --only functions --project talentmaster-pilot --non-interactive
