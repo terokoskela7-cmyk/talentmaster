@@ -75,7 +75,9 @@ describe('NÄYTTÖ — _vpAloitusOsaArvioHTML (Aloitus, read-only, korvaa "arvio
     expect(fn({}, 'y_h1', 'a')).toContain('arvioi Kehityksessä');
   });
   it('Aloituksen konseptin osa käyttää helperiä (korvaa entisen kiinteän "arvioi Kehityksessä")', () => {
-    expect(HTML).toContain("_vpAloitusOsaArvioHTML(jf, avain, k.koodi) : vpT('<span class=\"idp-lab\">arvioi Kehityksessä</span>')");
+    /* i18n-markup-purku: markup ei ole enää käännösavaimessa. Invariantti on sama:
+       Aloitus käyttää helperiä ja putoaa "arvioi Kehityksessä" -labeliin. */
+    expect(HTML).toContain("_vpAloitusOsaArvioHTML(jf, avain, k.koodi) : '<span class=\"idp-lab\">' + vpT('arvioi Kehityksessä')");
   });
 });
 

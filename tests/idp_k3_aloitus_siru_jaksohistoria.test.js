@@ -116,7 +116,10 @@ describe('(C) nimikorjaus — Jaksohistoria (meso ≠ Mittauksen kaari)', () => 
     expect(VP).not.toContain("'TASO 3 · HISTORIA', 'Kehityskaari'");
   });
   it('Suunnitelman kaari -rivi = "Jaksohistoria"', () => {
-    expect(VP).toContain('<span class="kk">Jaksohistoria</span>');
+    /* i18n-markup-purku: label ei ole enää markup-avaimen sisällä vaan
+       `'<span class="kk">' + vpT('Jaksohistoria')`. Väite kohdistuu INVARIANTTIIN
+       (kk-label = Jaksohistoria), ei markup-muotoon. */
+    expect(VP).toContain('<span class="kk">\' + vpT(\'Jaksohistoria\')');
     expect(VP).not.toContain('<span class="kk">Kehityskaari</span>');
   });
   it('review-sykli-funktio (_vpKehityskaariHTML) koskematon (vain label/kommentit muuttui)', () => {
