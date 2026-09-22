@@ -6768,13 +6768,16 @@ function _vpKehSuunnitelmaHTML(p, opts) {
   const ktFokus = (t && t.fokus && (t.fokus.nimi || t.fokus.alue)) || (p.idp_fokus && (p.idp_fokus.nimi || p.idp_fokus.alue)) || null;
   const ktKausi = (t && t.aikaraami && t.aikaraami.kausi) || null;
   const ktTila = (t && t.status) || p.idp_tila || null;
-  // Tilarivi: sana + piste. Lisa = kausi. Arvo on muotoa 'syksy 2026' (lib/tm_idp.js) → etuliite 'Kausi ' sopii,
-  // mutta jos arvossa jo lukee "kausi", etuliitetta EI lisata (briefin tarkistus).
-  const ktKausiLisa = ktKausi ? (/kausi/i.test(String(ktKausi)) ? esc(ktKausi) : (vpT('Kausi ') + esc(ktKausi))) : null;
+  // Tilarivi: sana + piste. Lisa = kausi SELLAISENAAN: arvo on jo 'syksy 2026' (lib/tm_idp.js:301), joten
+  // 'Kausi '-etuliite tuottaisi "KAUSI SYKSY 2026" — ja sv:ssa "SÄSONG SYKSY 2026" (tupla + kielet sekaisin).
+  const ktKausiLisa = ktKausi ? esc(ktKausi) : null;
+  // Tila EI ole tiedossa jos fokus on mutta statusta ei (legacy p.idp_fokus ilman idp_tila) → EI tilariviä.
+  // Ristiriitainen "○ EI ASETETTU" + fokuksen nimi heti alla on pahempi kuin puuttuva rivi; tilaa ei arvata.
   const ktTilaObj = (ktTila === 'aktiivinen') ? { sana: vpT('Aktiivinen'), lisa: ktKausiLisa, piste: 'on' }
     : (ktTila === 'saavutettu') ? { sana: vpT('Saavutettu'), lisa: ktKausiLisa, piste: 'off' }
       : ktTila ? { sana: esc(ktTila), lisa: ktKausiLisa, piste: 'off' }
-        : { sana: vpT('Ei asetettu'), lisa: ktKausiLisa, piste: 'off' };
+        : ktFokus ? null
+          : { sana: vpT('Ei asetettu'), lisa: null, piste: 'off' };
   const ktBody = (ktFokus || ktTila)
     ? '<div class="jsp-kt" id="_jspKausitavoite">' + (typeof _vpKausitavoiteHTML === 'function' ? _vpKausitavoiteHTML(p) : '') + '</div>'
     : '<div style="padding:6px 0"><button class="jsp-kt-btn primary" onclick="event.stopPropagation();_pdcSiirryCockpittiin(\'' + pid + '\',3)">' + vpT('＋ Tee kausitavoite') + '</button><div style="font-family:var(--font-sans),\'DM Sans\',sans-serif;font-size:11px;color:var(--ink3);margin-top:6px">' + vpT('Moottori ehdottaa datasta — tai valitse kärjen korteista.') + '</div></div>';
@@ -6797,8 +6800,10 @@ function _vpKehSuunnitelmaHTML(p, opts) {
   const jfTilaObj = !jfNimi ? { sana: vpT('Ei asetettu'), lisa: null, piste: 'off' }
     : jfUmp ? { sana: vpT('Umpeutunut'), lisa: jfKesto + ' ' + vpT('vk'), piste: 'amb' }
       : { sana: vpT('Aktiivinen'), lisa: jfVk ? (vpT('Viikko') + ' ' + jfVk.n + '/' + jfVk.k) : (jfKesto + ' ' + vpT('vk')), piste: 'on' };
+  // Domeenin nimi tulee libistä suomeksi → vpT():n läpi, muuten sv-tilassa näkyisi "⚽ Teknis-taktinen".
+  // Sanktioidut avaimet ovat jo kartassa (Teknis-taktinen/Fyysinen/Sosiaalinen); 'Henkinen' jää fi-fallbackiksi.
   const jfMeta = jfNimi
-    ? ((jfDom ? jfDom.ikoni + ' ' + esc(jfDom.nimi) : '')
+    ? ((jfDom ? jfDom.ikoni + ' ' + esc(vpT(jfDom.nimi)) : '')
       + ((!jfUmp && jfVk && jfVk.jaljella > 0) ? ((jfDom ? ' · ' : '') + jfVk.jaljella + ' ' + vpT('vk jäljellä')) : ''))
     : '';
   // R4 (Kehitys v2) — TASO 2: työpöydässä INLINE-FOCAL editori (aina auki, ei "✎ Muokkaa"-modaalia; hoitaa tyhjän
@@ -6815,7 +6820,9 @@ function _vpKehSuunnitelmaHTML(p, opts) {
     sisalto: jfNimi ? esc(jfNimi) : '',     // UUTTA: konsepti_nimi näkyy nyt suoraan riviltä
     meta: jfMeta,
     body: jfBody + jfEvid,
-    avoin: _inlineEditori,
+    // Tyhjä rivi auki myös PDC:ssä (editori:false), muuten "＋ Aseta jaksofokus" -CTA jää piiloon —
+    // kausitavoitteen tyhjä rivi aukeaa jo, joten jaksofokuksen on käyttäydyttävä samoin.
+    avoin: _inlineEditori || !jfNimi,
   });
   // ── TASO 3 · Jaksohistoria (meso-historia): tavoitteen review-sykli + suljetut jaksofokus-jaksot. K3 nimikorjaus:
   // "Jaksohistoria" ≠ Mittauksen kehityskaari (tmKaariRenderFull) — eri asia, ei sekoiteta. Vain label/kommentit. ──

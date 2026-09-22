@@ -26,6 +26,8 @@ const juuri = join(dirname(fileURLToPath(import.meta.url)), '..');
 const VP = readFileSync(join(juuri, 'TalentMaster_VP_v25.html'), 'utf8');
 const vaadi = createRequire(import.meta.url);
 const JF = vaadi('../lib/tm_jaksofokus.js');
+const _I18N = vaadi('../lib/tm_vp_i18n.js');
+const SV = (_I18N.TM_VP_I18N || _I18N).sv;
 
 const PV = 86400000;
 
@@ -47,11 +49,11 @@ function saanto(valitsin) {
   return VP.slice(i, VP.indexOf('}', i) + 1);
 }
 
-/** Renderöi _vpKehSuunnitelmaHTML tyngillä. */
-function render(p, opts) {
+/** Renderöi _vpKehSuunnitelmaHTML tyngillä. kieli='sv' käyttää AITOA sv-karttaa (fi-vuodon havaitseminen). */
+function render(p, opts, kieli) {
   const ymp = {
     _jsvEsc: (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])),
-    vpT: (t) => t,
+    vpT: (t) => (kieli === 'sv' ? (SV[t] != null ? SV[t] : t) : t),
     window: { TM_JAKSOFOKUS: JF, _tmIBtn: () => '<span class="ib">i</span>' },
     _vpKausitavoiteHTML: () => '<div>KT-BODY</div>',
     _vpJfInlineHTML: () => '<div id="_jfInlineEditor">INLINE</div>',
@@ -96,7 +98,14 @@ describe('(1) Sisältö on otsikko — hierarkia käännetty', () => {
   it('tilarivillä "Viikko 3/8", metassa "5 vk jäljellä" (olemassa olevasta datasta)', () => {
     expect(h).toContain('Viikko 3/8');
     expect(h).toContain('5 vk jäljellä');
-    expect(h).toContain('Kausi syksy 2026');
+  });
+
+  /* Kausi-arvo on JO 'syksy 2026' (lib/tm_idp.js:301) → 'Kausi '-etuliite tuottaisi "KAUSI SYKSY 2026"
+     ja sv:ssä "SÄSONG SYKSY 2026" (tupla + kielet sekaisin). Arvo näytetään sellaisenaan. */
+  it('kausi näytetään sellaisenaan, ilman "Kausi "-etuliitettä', () => {
+    expect(h).toContain('syksy 2026');
+    expect(h).not.toContain('Kausi syksy');
+    expect(funktio('function _vpKehSuunnitelmaHTML(p, opts) {')).not.toContain("vpT('Kausi ')");
   });
 
   it('.acc-name tulee ennen .acc-content:ia (kategoria pieni, sisältö iso)', () => {
@@ -114,21 +123,70 @@ describe('(1) Sisältö on otsikko — hierarkia käännetty', () => {
 });
 
 describe('(2) Brändilukko — ei boldia serifissä', () => {
-  it('serif-acc-säännöissä font-weight < 500', () => {
-    const serif = [saanto('.acc-content')];
-    serif.forEach((s) => {
-      expect(s, 'serif-sääntö käyttää serifiä?').toContain('Cormorant Garamond');
-      const m = /font-weight:\s*(\d+)/.exec(s);
-      expect(m, 'font-weight puuttuu → paino ei ole lukittu').toBeTruthy();
-      expect(Number(m[1]), 'Cormorantissa ei saa olla boldia (§5)').toBeLessThan(500);
-    });
+  /* Testi skannaa KAIKKI .acc-*-säännöt, ei vain .acc-content:ia: kovakoodattu lista jätti
+     .acc-name{font-family:serif;font-weight:500} -mutaation vihreäksi. Sääntö: jos säännössä on
+     Cormorant tai --font-serif, font-weight on oltava < 500 (tai puuttua — oletus on 400). */
+  function accSaannot() {
+    const out = [];
+    const re = /(\.acc-[A-Za-z0-9_.\- ]*?)\s*\{([^}]*)\}/g;
+    let m;
+    while ((m = re.exec(VP))) out.push({ valitsin: m[1].trim(), runko: m[2] });
+    return out;
+  }
+
+  it('EI VACUOUS: .acc-sääntöjä löytyy ja niistä ainakin yksi on serif', () => {
+    const s = accSaannot();
+    expect(s.length, 'CSS-sääntöjä ei löytynyt → testi olisi tyhjä').toBeGreaterThan(8);
+    expect(s.some((x) => /Cormorant|--font-serif/.test(x.runko))).toBe(true);
+  });
+
+  it('JOKAINEN serif-.acc-sääntö: font-weight < 500 tai puuttuu', () => {
+    const rikkovat = accSaannot()
+      .filter((x) => /Cormorant|--font-serif/.test(x.runko))
+      .map((x) => {
+        const m = /font-weight:\s*(\d+)/.exec(x.runko);
+        return m && Number(m[1]) >= 500 ? x.valitsin + ' → font-weight: ' + m[1] : null;
+      })
+      .filter(Boolean);
+    expect(rikkovat, 'Cormorantissa ei saa olla boldia (§5):\n' + rikkovat.join('\n')).toEqual([]);
+  });
+
+  it('osion otsikon inline-tyyli: font-weight 300, ei ≥ 500', () => {
+    const f = funktio('function _vpKehSuunnitelmaHTML(p, opts) {');
+    const otsikko = /font-size:26px;font-weight:(\d+)/.exec(f);
+    expect(otsikko, 'osion otsikko ei ole 26px + font-weight').toBeTruthy();
+    expect(Number(otsikko[1])).toBe(300);
+    expect(Number(otsikko[1])).toBeLessThan(500);
   });
 
   it('osion otsikko on isompi kuin rivien serif (26 px > 22 px)', () => {
-    const f = funktio('function _vpKehSuunnitelmaHTML(p, opts) {');
-    const osio = /font-size:26px;font-weight:300/.test(f);
-    expect(osio, 'osion otsikko ei ole 26px/300').toBe(true);
     expect(saanto('.acc-content')).toContain('font-size: 22px');
+  });
+});
+
+describe('(2b) Escape — sisältö on käyttäjän vapaata tekstiä', () => {
+  /* fokus.nimi ja konsepti_nimi ovat vapaata tekstiä → ne PITÄÄ escapata.
+     Ilman tätä testiä `sisalto: ktFokus || ''` (esc pois) jäi vihreäksi. */
+  const XSS = '<img src=x onerror=alert(1)>';
+
+  it('kausitavoitteen fokus escapataan', () => {
+    const h = render({
+      id: 'x1',
+      _idpTavoite: { status: 'aktiivinen', fokus: { nimi: XSS }, aikaraami: { kausi: 'syksy 2026' } },
+      jaksofokus: null,
+    });
+    expect(h).toContain('&lt;img');
+    expect(h, 'escapoimaton <img päätyi renderiin').not.toContain('<img src=x');
+  });
+
+  it('jaksofokuksen konsepti_nimi escapataan', () => {
+    const h = render({
+      id: 'x2',
+      _idpTavoite: null,
+      jaksofokus: { konsepti_nimi: XSS, konsepti_avain: 'k', domeeni: 'teknis_taktinen', alkoi: iso(Date.now() - 7 * PV), kesto_vk: 4 },
+    });
+    expect(h).toContain('&lt;img');
+    expect(h).not.toContain('<img src=x');
   });
 });
 
@@ -166,6 +224,19 @@ describe('(4) Umpeutunut-tila', () => {
   });
 });
 
+describe('(4b) Ristiriitainen tila — fokus ilman statusta', () => {
+  /* Legacy p.idp_fokus ilman idp_tila:a näytti "○ EI ASETETTU" ja heti alla fokuksen nimen.
+     Tilaa ei tiedetä → tilarivi jätetään pois, ei arvata. */
+  const h = render({ id: 'p9', _idpTavoite: null, idp_fokus: { nimi: 'Pelin avaaminen' }, jaksofokus: null });
+
+  it('sisältö näkyy mutta tilariviä EI ole', () => {
+    expect(h).toMatch(/class="acc-content">Pelin avaaminen</);
+    const ktRivi = h.slice(h.indexOf('_accKausitavoite'), h.indexOf('_accJaksofokus'));
+    expect(ktRivi, 'ristiriitainen "Ei asetettu" + fokus').not.toContain('Ei asetettu');
+    expect(ktRivi).not.toContain('acc-state');
+  });
+});
+
 describe('(5) Tyhjä tila säilyy', () => {
   const h = render({ id: 'p3', _idpTavoite: null, jaksofokus: null });
 
@@ -174,6 +245,33 @@ describe('(5) Tyhjä tila säilyy', () => {
     expect((h.match(/Ei asetettu/g) || []).length).toBe(2);
     expect(h).toMatch(/acc-row open/);
     expect(h).toContain('_pdcSiirryCockpittiin');
+  });
+
+  it('"Ei asetettu" -tilarivillä ei kausi-lisää', () => {
+    expect(h).not.toMatch(/Ei asetettu<\/span> ·/);
+  });
+
+  /* Tyhjä jaksofokus aukeaa MYÖS PDC:ssä (editori:false) — muuten CTA jää piiloon, vaikka
+     kausitavoitteen tyhjä rivi aukeaa. Täysi jaksofokus pysyy PDC:ssä kiinni. */
+  it('tyhjä jaksofokus on auki myös PDC:ssä, täysi ei', () => {
+    const ro = render({ id: 'p10', _idpTavoite: null, jaksofokus: null }, { editori: false });
+    expect(ro).toMatch(/acc-row open" id="_accJaksofokus"/);
+    expect(ro.slice(ro.indexOf('_accJaksofokus'), ro.indexOf('_accKaari'))).toContain('_pdcSiirryCockpittiin');
+
+    const roTaysi = render(pAktiivinen(), { editori: false });
+    expect(roTaysi, 'täysi jaksofokus ei saa aueta raportissa').not.toMatch(/acc-row open" id="_accJaksofokus"/);
+  });
+
+  it('saavutettu kausitavoite → acc-dot off (ei on-pistettä)', () => {
+    const h2 = render({
+      id: 'p11',
+      _idpTavoite: { status: 'saavutettu', fokus: { nimi: 'Syötön piilotus' }, aikaraami: { kausi: 'kevät 2026' } },
+      jaksofokus: null,
+    });
+    const ktRivi = h2.slice(h2.indexOf('_accKausitavoite'), h2.indexOf('_accJaksofokus'));
+    expect(ktRivi).toContain('acc-dot off');
+    expect(ktRivi).toContain('Saavutettu');
+    expect(ktRivi).not.toMatch(/class="acc-dot"/);
   });
 });
 
@@ -195,6 +293,34 @@ describe('(6) Termilukko — katselmus, ei "review"', () => {
     expect(h).toContain('ei vielä historiaa');
     expect(h).toContain('Historia täyttyy kun tavoitteita katselmoidaan ja jaksoja suljetaan.');
     expect(h).not.toMatch(/review/i);
+  });
+});
+
+describe('(6b) sv-render — domeenin nimi kääntyy (fi-vuoto)', () => {
+  /* jfDom.nimi tulee libistä SUOMEKSI. Ilman vpT():tä sv-tilassa näkyi "⚽ Teknis-taktinen".
+     Identiteetti-vpT ei paljasta tätä → tämä testi käyttää AITOA sv-karttaa.
+     Sanktioidut avaimet olivat jo kartassa; uusia ei lisätty. */
+  it('sv: "Teknisk-taktisk", ei fi-muotoa', () => {
+    const sv = render(pAktiivinen(), undefined, 'sv');
+    expect(SV['Teknis-taktinen'], 'sanktioitu sv-avain puuttuu kartasta').toBe('Teknisk-taktisk');
+    expect(sv).toContain('Teknisk-taktisk');
+    expect(sv, 'domeenin nimi vuotaa suomeksi sv-tilassa').not.toContain('Teknis-taktinen');
+  });
+
+  it('sv: tilarivi ja historia kääntyvät (sanktioidut avaimet)', () => {
+    const sv = render(pAktiivinen(), undefined, 'sv');
+    expect(sv).toContain(SV['Aktiivinen']);
+    expect(sv).toContain(SV['katselmusta']);      // granskningar
+    expect(sv).not.toMatch(/review/i);
+  });
+
+  it('sv: umpeutunut → Utgången (ei fi-muotoa)', () => {
+    const sv = render({
+      id: 'sv2', _idpTavoite: null,
+      jaksofokus: { konsepti_nimi: 'Pelin avaaminen', konsepti_avain: 'a', domeeni: 'teknis_taktinen', alkoi: iso(Date.now() - 200 * PV), kesto_vk: 8 },
+    }, undefined, 'sv');
+    expect(sv).toContain('Utgången');
+    expect(sv).not.toContain('Umpeutunut');
   });
 });
 
@@ -261,10 +387,18 @@ describe('(9) Invariantit joita aiemmat testit vartioivat', () => {
     expect(f).not.toContain("'Kehityskaari'");
   });
 
-  it('_accJaksofokus: body = jfBody + jfEvid, avoin = _inlineEditori', () => {
+  /* RENDERÖITY todiste: kompakti-luokan poisto lähteestä jäi pelkällä 'kompakti: true' -greppauksella
+     huomaamatta, koska row() olisi voinut jättää luokan pois. */
+  it('_accKaari-rivillä on luokka compact renderissä', () => {
+    const h = render(pAktiivinen());
+    expect(h).toMatch(/acc-row compact" id="_accKaari"/);
+  });
+
+  it('_accJaksofokus: body = jfBody + jfEvid, avoin kattaa _inlineEditori:n', () => {
     const f = funktio('function _vpKehSuunnitelmaHTML(p, opts) {');
     expect(f).toContain('body: jfBody + jfEvid');
-    expect(f).toContain('avoin: _inlineEditori');
+    // Invariantti säilyy laajennettuna: tyhjä rivi aukeaa myös raportissa (|| !jfNimi).
+    expect(f).toMatch(/avoin: _inlineEditori(\s*\|\|\s*!jfNimi)?,/);
     expect(f).toContain('const _inlineEditori = !opts || opts.editori !== false;');
   });
 
