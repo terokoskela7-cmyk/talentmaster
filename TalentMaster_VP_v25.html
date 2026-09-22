@@ -6608,7 +6608,30 @@ function _vpMoottoriKortitHTML(p, pid) {
   h += '</div>';
   return h + '</div>';
 }
-// P4a — Kehitys-työpöydän JAKSOFOKUS-lohko: read-only näyttö + "✎ Muokkaa jaksofokus" (avaa _jfOhjaa-editorin).
+/* P1 — PDC (Pelaajaraportti, read-only) → cockpit (per-pelaaja-työpöytä).
+   Raportista EI muokata: siirrytään työpöydälle, jossa inline-editori on. Järjestys on PAKOTTAVA:
+     1) palaveri kiinni — .mdt-palaveri on z 500, #_jspModal z 320 → työpöytä avautuisi overlayn ALLE (näkymätön),
+     2) _jsvPelaajat asetetaan SAMASTA listasta josta idx resolvoidaan — _avaaPerPelaajaPikakatsaus ottaa
+        indeksin (ei pelaajaa), indeksoi _jsvPelaajat:ia ja KIERTÄÄ indeksin modulolla → eri lista = väärä
+        pelaaja hiljaa, ilman virhettä,
+     3) avaus, 4) välilehti vasta mountin jälkeen (_jspVaihda ennen mounttia = no-op).
+   Sama reitti kuin _vpTapahtumaAvaaKortti (todistettu). Ks. docs/CODE_BRIEF_PDC_P1_READONLY_SIIRTYMA_COCKPITTIIN.md */
+window._pdcSiirryCockpittiin = function (pid, tab) {
+  var lista = _pelaajat || [];
+  var idx = lista.findIndex(function (x) { return x.id === pid; });
+  if (idx < 0) {   // EI hiljaista väärää pelaajaa (modulokierto avaisi jonkun muun)
+    if (typeof toast === 'function') toast(vpT('Pelaajaa ei löytynyt.'), 'error');
+    return;
+  }
+  // 1) Vartioitu sulku, EI toggle: _mdtPalaveritila() kiinni-tilassa AVAISI palaverin.
+  if (typeof _mdtPalaveri !== 'undefined' && _mdtPalaveri && typeof _mdtPalaveritila === 'function') _mdtPalaveritila();
+  // 2) Lista ENNEN avausta.
+  window._jsvPelaajat = lista;
+  // 3) + 4)
+  if (typeof _avaaPerPelaajaPikakatsaus === 'function') _avaaPerPelaajaPikakatsaus(idx, lista[idx].joukkue || '');
+  if (typeof _jspVaihda === 'function') setTimeout(function () { _jspVaihda(tab == null ? 3 : tab); }, 0);
+};
+// P4a — Kehitys-työpöydän JAKSOFOKUS-lohko: read-only näyttö + siirtymä cockpittiin (P1: ei enää _jfOhjaa-modaalia).
 // Työpöytä = jaksofokuksen ainoa selkeä muokkauskoti (Aloitus reitittää tänne). Kirjoittaja/arkistointi ennallaan.
 function _vpTyopoytaJaksofokusHTML(p) {
   const esc = _jsvEsc, pid = esc(p.id);
@@ -6626,7 +6649,7 @@ function _vpTyopoytaJaksofokusHTML(p) {
   } else {
     h += '<div style="font-family:var(--font-serif);font-size:22px;color:var(--ink3);margin:8px 0 4px">' + vpT('Ei jaksofokusta') + '</div><div style="font-size:12px;color:var(--ink3)">' + vpT('Aseta jaksofokus moottorin ehdotuksesta tai suoraan editorista.') + '</div>';
   }
-  h += '</div><button onclick="event.stopPropagation();_jfOhjaa(\'' + pid + '\')" style="flex-shrink:0;font-family:var(--font-sans);font-size:10px;font-weight:500;letter-spacing:.1em;text-transform:uppercase;padding:9px 14px;border-radius:6px;background:rgba(40,176,144,.1);color:var(--teal);border:.5px solid rgba(40,176,144,.4);cursor:pointer">' + vpT('✎ Muokkaa jaksofokus') + '</button></div>';
+  h += '</div><button onclick="event.stopPropagation();_pdcSiirryCockpittiin(\'' + pid + '\',3)" style="flex-shrink:0;font-family:var(--font-sans);font-size:10px;font-weight:500;letter-spacing:.1em;text-transform:uppercase;padding:9px 14px;border-radius:6px;background:rgba(40,176,144,.1);color:var(--teal);border:.5px solid rgba(40,176,144,.4);cursor:pointer">' + vpT('→ Kehitä jaksofokusta') + '</button></div>';
   // P4b — per-tavoite Opittu kun + mittaus (nykyarvo luettu Arvioinnista); fallback JF-2 tukiHTML:ään vanhoille jaksofokuksille.
   if (jf && jf.konsepti_nimi) {
     const _perGoal = (typeof _vpJfMittausYhteenvetoHTML === 'function') ? _vpJfMittausYhteenvetoHTML(jf, p) : '';
@@ -6725,7 +6748,7 @@ function _vpKehSuunnitelmaHTML(p, opts) {
   const ktChip = ktTila ? ((ktTila === 'aktiivinen' ? '● ' : ktTila === 'saavutettu' ? '✓ ' : '○ ') + esc(ktTila)) : null;
   const ktBody = (ktFokus || ktTila)
     ? '<div class="jsp-kt" id="_jspKausitavoite">' + (typeof _vpKausitavoiteHTML === 'function' ? _vpKausitavoiteHTML(p) : '') + '</div>'
-    : '<div style="padding:6px 0"><button class="jsp-kt-btn primary" onclick="event.stopPropagation();_vpEhdotaTavoite(\'' + pid + '\\\')">' + vpT('＋ Tee kausitavoite') + '</button><div style="font-family:var(--font-sans),\\\'DM Sans\\\',sans-serif;font-size:11px;color:var(--ink3);margin-top:6px">' + vpT('Moottori ehdottaa datasta — tai valitse kärjen korteista.') + '</div></div>';
+    : '<div style="padding:6px 0"><button class="jsp-kt-btn primary" onclick="event.stopPropagation();_pdcSiirryCockpittiin(\'' + pid + '\',3)">' + vpT('＋ Tee kausitavoite') + '</button><div style="font-family:var(--font-sans),\'DM Sans\',sans-serif;font-size:11px;color:var(--ink3);margin-top:6px">' + vpT('Moottori ehdottaa datasta — tai valitse kärjen korteista.') + '</div></div>';
   h += row('_accKausitavoite', '🎯', vpT('TASO 1 · KOKO KAUSI'), vpT('Kausitavoite') + ((typeof window._tmIBtn === 'function') ? window._tmIBtn('idp_kausitavoite') : ''), ktSum, ktChip, ktTila === 'aktiivinen', ktBody, !(ktFokus || ktTila));
   // ── TASO 2 · Jaksofokus ──
   const jfNimi = (jf && jf.konsepti_nimi) || null;
@@ -6738,7 +6761,7 @@ function _vpKehSuunnitelmaHTML(p, opts) {
   const jfBody = _inlineEditori
     ? ((typeof _vpJfInlineHTML === 'function') ? _vpJfInlineHTML(p) : '')
     : (jfNimi ? (typeof _vpTyopoytaJaksofokusHTML === 'function' ? _vpTyopoytaJaksofokusHTML(p) : '')
-      : '<div style="padding:6px 0"><button class="jsp-kt-btn primary" onclick="event.stopPropagation();_jfOhjaa(\'' + pid + '\\\')">' + vpT('＋ Aseta jaksofokus') + '</button><div style="font-family:var(--font-sans),\\\'DM Sans\\\',sans-serif;font-size:11px;color:var(--ink3);margin-top:6px">' + vpT('Nelikulmamalli: fyysinen · teknis-taktinen · henkinen · sosiaalinen.') + '</div></div>');
+      : '<div style="padding:6px 0"><button class="jsp-kt-btn primary" onclick="event.stopPropagation();_pdcSiirryCockpittiin(\'' + pid + '\',3)">' + vpT('＋ Aseta jaksofokus') + '</button><div style="font-family:var(--font-sans),\'DM Sans\',sans-serif;font-size:11px;color:var(--ink3);margin-top:6px">' + vpT('Nelikulmamalli: fyysinen · teknis-taktinen · henkinen · sosiaalinen.') + '</div></div>');
   const jfEvid = jfNimi && typeof _vpJfEvidenssiHTML === 'function' ? _vpJfEvidenssiHTML(p) : '';   // K3 (B) — kohdennetun ominaisuuden mini-kaari + jaksosidos-delta
   h += row('_accJaksofokus', '📍', vpT('TASO 2 · TÄMÄ JAKSO · MESO 4–8 VK'), vpT('Jaksofokus') + ((typeof window._tmIBtn === 'function') ? window._tmIBtn('idp_jaksofokus') : ''), jfSum, jfChip, jfNimi && !jfUmp, jfBody + jfEvid, _inlineEditori);
   // ── TASO 3 · Jaksohistoria (meso-historia): tavoitteen review-sykli + suljetut jaksofokus-jaksot. K3 nimikorjaus:
@@ -16023,11 +16046,10 @@ window._reviewToggleRow = function (pid) { if (_reviewSelMode) { _reviewToggleSe
 window._reviewToggleSelMode = function () { _reviewSelMode = !_reviewSelMode; if (!_reviewSelMode) _reviewSel = {}; renderReviewit(); };
 window._reviewToggleSel = function (pid) { if (_reviewSel[pid]) delete _reviewSel[pid]; else _reviewSel[pid] = 1; renderReviewit(); };
 // Cockpit-toiminnot avaavat OLEMASSA OLEVAN pelaajakortin (lataa tavoite+sitoumus) oikealle välilehdelle — ei uutta polkua.
-window._reviewCockpitAvaa = function (pid, tab) {
-  var idx = (_pelaajat || []).findIndex(function (x) { return x.id === pid; }); if (idx < 0) return;
-  if (typeof _avaaPerPelaajaPikakatsaus === 'function') _avaaPerPelaajaPikakatsaus(idx, (_pelaajat[idx].joukkue) || '');
-  if (typeof _jspVaihda === 'function') setTimeout(function () { _jspVaihda(tab == null ? 3 : tab); }, 0);   // 3 = Kehitys (review/sitoumus/jaksofokus), 1 = Mittaus
-};
+// P1 — delegoi jaettuun siirtymään (yksi polku). Aiemmin tämä resolvoi idx:n _pelaajat:sta mutta
+// _avaaPerPelaajaPikakatsaus indeksoi _jsvPelaajat:ia → eri lista = väärä pelaaja hiljaa (modulokierto).
+// 3 = Kehitys (review/sitoumus/jaksofokus), 1 = Mittaus.
+window._reviewCockpitAvaa = function (pid, tab) { _pdcSiirryCockpittiin(pid, tab == null ? 3 : tab); };
 
 // KISS R1.1 — oversight-tuloskortti on syvennys (romahdettu). Tila muistetaan istunnon ajan (sivun sisäinen muuttuja,
 // ei localStorage). Sisältö = renderVPTuloskortti sellaisenaan; renderöidään VAIN kun avattu (raskain lohko ei etusivulla).
