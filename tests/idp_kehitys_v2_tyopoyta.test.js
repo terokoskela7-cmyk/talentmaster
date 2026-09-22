@@ -80,7 +80,7 @@ describe('(4) jaksofokus = INLINE-FOCAL editori (aina auki, ei modaalia)', () =>
     /* Otsikkohierarkia (Oura v2): row(...) ottaa nyt OBJEKTIN positionaalisten argumenttien sijaan, ja
        "TASO 2 · …"-eyebrow poistui riveiltä (järjestys näkyy murupolusta). Väitteet kohdistuvat samoihin
        INVARIANTTEIHIN kuin ennen: oikea id + nimi, body = jfBody + jfEvid, avoin = _inlineEditori. */
-    expect(T).toContain("id: '_accJaksofokus'");
+    expect(T).toContain("_accJaksofokus'");   // id-etuliite (idp) vain raportissa — invariantti = rivin tunniste
     expect(T).toContain("nimi: vpT('Jaksofokus')");   // IDP-vihje ⓘ voi olla nimen perässä
     expect(T).toContain('body: jfBody + jfEvid');     // K3: jfBody + kohdennetun ominaisuuden evidenssi (jfEvid)
     expect(T).toContain('avoin: _inlineEditori');
