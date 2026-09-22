@@ -189,4 +189,13 @@ describe('PDC P2 · sijainti ja lukot lähteessä', () => {
     expect(runko).toContain('idpJumissa(');
     expect(runko).toContain('_rvcSitoumusOdottaa(');
   });
+
+  it('TERMILUKKO: käyttäjästringeissä "katselmus", EI "Review" (docs/SEURANTA_KATSELMUS_CODE_BRIEF.md)', () => {
+    const runko = funktio('window._pdcPaatos = function (p, nyt) {');
+    // Funktion nimi laskeReviewKadenssi on koodia, ei käyttäjätekstiä → rajaus vpT()-stringeihin.
+    const vpTStringit = (runko.match(/vpT\('([^']*)'\)/g) || []).join(' | ');
+    expect(vpTStringit, 'P2:n käyttäjästringissä on yhä "Review"').not.toMatch(/Review/i);
+    expect(vpTStringit).toContain('Katselmus on');
+    expect(vpTStringit).toContain('Katselmus erääntyy');
+  });
 });

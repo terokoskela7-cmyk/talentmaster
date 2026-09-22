@@ -42,7 +42,7 @@ CSS lisätään samaan inline-`<style>`-lohkoon `.pdc-sig`-säännön viereen (~
 
 | Signaali | Kanoninen lähde | Todennettu |
 |---|---|---|
-| Review myöhässä / erääntymässä | `laskeReviewKadenssi(p, nyt)` → `{status:'myohassa'\|'eraantymassa'\|'ajantasalla'\|'ei_reviewia', ylimaaraPv, eraantyyPvm}` | `lib/tm_eerikkila_normit.js:837`; PDC kutsuu jo tätä review-rivissään |
+| Katselmus myöhässä / erääntymässä | `laskeReviewKadenssi(p, nyt)` → `{status:'myohassa'\|'eraantymassa'\|'ajantasalla'\|'ei_reviewia', ylimaaraPv, eraantyyPvm}` | `lib/tm_eerikkila_normit.js:837`; PDC kutsuu jo tätä review-rivissään |
 | Tavoite jumissa 8 vk | `idpJumissa(tavoite, nyt)` — *"8 VIIKON SÄÄNTÖ (kv-malli): tavoite jumissa jos luonnista >56 vrk EIKÄ merkittävää edistystä"* | `lib/tm_idp.js:343–352`; työpöydän status-nauha käyttää jo (`_vpKehStatusHTML`) |
 | Sitoumus vahvistamatta | `_rvcSitoumusOdottaa(p)` — `idp_sitoumus_pvm` && `idp_sitoumus_vahv_jakso !== jaksofokus.alkoi` | VP ~16028, bulk-signaali (§26, ei alikokoelmakyselyä) |
 | Ei jaksofokusta | `p.jaksofokus.konsepti_nimi` puuttuu | sama kenttä jota signature-rivi jo lukee |
@@ -66,11 +66,11 @@ window._pdcPaatos = function (p, nyt) { … }   // → { avain, tila, teksti, to
 
 | # | Avain | Ehto | Rivi (fi) |
 |---|---|---|---|
-| 1 | `review_myohassa` | `rk.status === 'myohassa'` | "Review on **N pv myöhässä** — tee se tässä palaverissa." |
+| 1 | `review_myohassa` | `rk.status === 'myohassa'` | "Katselmus on **N pv myöhässä** — tee se tässä palaverissa." |
 | 2 | `idp_jumissa` | `idpJumissa(t)` | "Kausitavoite ei ole edennyt **8 viikkoon** — päivitä tai vaihda." |
 | 3 | `sitoumus` | `_rvcSitoumusOdottaa(p)` | "Pelaaja sitoutui — **vahvista sitoumus** tälle jaksolle." |
 | 4 | `ei_jaksofokusta` | ei `jaksofokus.konsepti_nimi` | "Ei jaksofokusta — **aseta se** kehitystyöpöydässä." |
-| 5 | `review_eraantymassa` | `rk.status === 'eraantymassa'` | "Review erääntyy **pp.kk.vvvv** — sovi ajankohta." |
+| 5 | `review_eraantymassa` | `rk.status === 'eraantymassa'` | "Katselmus erääntyy **pp.kk.vvvv** — sovi ajankohta." |
 | — | `xfactor` / `ei_xfactoria` | mikään yllä ei päde | *hiljainen:* "X-Factor tunnistettu — vahvista suunta." / "Ei avointa toimenpidettä — nimetkää kärkivahvuus." |
 
 **Prioriteettilista on yksi taulukko koodissa** → järjestyksen muuttaminen on yhden rivin siirto.
@@ -94,7 +94,8 @@ window._pdcPaatos = function (p, nyt) { … }   // → { avain, tila, teksti, to
 - Näkyy myös printissä ja palaveritilassa (ei `mdt-no-print`): se on kortin tärkein rivi.
 
 ### 3.5 i18n
-Uudet avaimet `lib/tm_vp_i18n.js`:ään **sv-käännöksineen**. Tekstit pilkottava niin että **markup ei mene
+Sanktioitu suomennos on **"katselmus"** (EI "Review") — `docs/SEURANTA_KATSELMUS_CODE_BRIEF.md`.
+Ruotsi tulee **Geminin kautta**, ei arvaten: sv-avaimet lisätään vasta sanktioituina (lähde `Claude outputs/GEMINI_ERA_PDC_P2_PAATOSRIVI_SV.json`). Uudet avaimet `lib/tm_vp_i18n.js`:ään **sv-käännöksineen**. Tekstit pilkottava niin että **markup ei mene
 `vpT()`:n sisään** (numerot/pvm konkatenoidaan ulkopuolella).
 
 ## 4. ÄLÄ KOSKE
