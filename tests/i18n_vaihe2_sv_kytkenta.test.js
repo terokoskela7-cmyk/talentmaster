@@ -89,6 +89,44 @@ describe('i18n vaihe 2 · lukitut sv-päätökset', () => {
     }
   });
 
+  /* ── i18n-jäännöksen viimeistely: Kimin 6 lukittua sanavalintaa ──
+     Nämä olivat #603–#605:ssä estettyinä, koska kartassa ja markup-avaimen sisällä
+     oli KAKSI eri sanktioitua ruotsinnosta. Kim valitsi; markup-avaimet purettiin ja
+     hävinneet muodot poistettiin. Ilman porttia seuraava käännöserä voi palauttaa
+     hävinneen muodon — se ei kaada mitään, vaan vaihtaa hiljaa näkyvän ruotsin. */
+  const VIIMEISTELY = [
+    { fi: 'Yksilökonsepti', voittaja: 'Individkoncept', havinnyt: 'Individuellt koncept' },
+    { fi: 'arvioitu', voittaja: 'bedömda', havinnyt: null },   // ks. erillinen väite alla
+    { fi: 'peruste keskusteluun, ei arvosana (§37)', voittaja: 'underlag för samtal, inte ett betyg (§37)', havinnyt: 'grund för samtal' },
+    { fi: '— ei asetettu', voittaja: '— inte satt', havinnyt: '— ej satt' },
+    { fi: '⚙ Aseta kausitavoitteet', voittaja: '⚙ Sätt säsongsmål', havinnyt: 'Ange säsongsmål' },
+    { fi: 'myöh.', voittaja: 'sen.', havinnyt: 'förs.' },
+  ];
+
+  it('VIIMEISTELY: 6 lukittua valintaa voimassa', () => {
+    for (const V of VIIMEISTELY) {
+      expect(SV[V.fi], 'lukittu valinta purettu avaimelta ' + JSON.stringify(V.fi)).toBe(V.voittaja);
+    }
+  });
+
+  it('VIIMEISTELY: hävinnyt muoto ei palaa kumpaankaan karttaan', () => {
+    for (const V of VIIMEISTELY) {
+      if (!V.havinnyt) continue;
+      for (const [nimi, kartta] of [['lib', SV], ['käännösmuisti', MUISTI]]) {
+        const osumat = Object.entries(kartta)
+          .filter(([, v]) => typeof v === 'string' && v.includes(V.havinnyt))
+          .map(([k]) => k.slice(0, 60));
+        expect(osumat, nimi + ': hävinnyt muoto ' + JSON.stringify(V.havinnyt) + ' palasi').toEqual([]);
+      }
+    }
+  });
+
+  it("VIIMEISTELY: 'bedömd' EI ole globaali korvaus — eri avaimen kielioppi säilyy", () => {
+    /* Päätös koski avainta 'arvioitu'. Merkkijonohaku olisi rikkonut avaimen
+       'ei arvioitu' = 'ej bedömd', jossa yksikkö on oikein. */
+    expect(SV['ei arvioitu'], "'ei arvioitu' rikkoutui globaalista korvauksesta").toBe('ej bedömd');
+  });
+
   it('ERÄ on kytketty (ei vacuous) — näyte sanktioituja arvoja', () => {
     /* Näyte erästä: jos kytkentä perutaan, nämä katoavat. */
     const nayte = {

@@ -118,34 +118,25 @@ const MASTER = lue('TalentMaster_Master_v16.html');
 const vpAvaimet = [...new Set(avaimet(VP, 'vpT'))];
 const maAvaimet = [...new Set(avaimet(MASTER, 'masterT'))];
 
-/* ══ JÄÄNNÖS — 10 avainta joita codemod EI saanut purkaa ══
-   Jokaisessa purku VAIHTAISI näkyvän ruotsin (kartassa on eri sanktioitu arvo kuin
-   markup-avaimen sisällä) tai sv-arvon tagirakenne ei vastaa fi-avainta. Kumpi
-   käännös jää voimaan, on KÄÄNTÄJÄN päätös — skripti ei valitse puolesta.
+/* ══ JÄÄNNÖS — 4 avainta · LUKITTU HYVÄKSYTTY TEKNINEN VELKA ══
+   Kim päätti kuusi sanavalintaa (ks. i18n-jäännöksen viimeistely); ne on purettu ja
+   kilpailevat muodot poistettu. Jäljellä on B-ryhmä, jossa ongelma EI ole sanavalinta
+   vaan RAKENNE: käännettävä teksti on kietoutunut onclick-JS:ään tai tagit ovat
+   ruotsissa eri järjestyksessä kuin suomessa. Ne eivät ratkea kääntäjän valinnalla,
+   vaan vaativat oman rakenne-uudelleenkoonnin — hyväksytty jäännös, ei unohdus.
+
    Tunniste = avaimen käännettävät tekstijaksot (luettava), ei 200 merkin avain. */
 const JAANNOS = {
   'TalentMaster_VP_v25.html': [
-    /* 'Individkoncept' (kartassa) vs 'Individuellt koncept' (markup-avaimessa) */
-    '["Yksilökonsepti"]',
-    /* 'bedömd' vs 'bedömda' — yksikkö/monikko */
-    '["arvioitu"]',
-    /* 'underlag för samtal, inte ett betyg' vs 'grund för samtal, ej betyg' */
-    '["peruste keskusteluun, ei arvosana (§37)"]',
-    /* '— inte satt' vs '— ej satt' */
-    '["— ei asetettu"]',
-    /* rakenne-ero: onclick-JS avaimen sisällä, sv:n tagit eivät vastaa fi:tä */
+    /* onclick-JS avaimen sisällä; sv:n tagirakenne ei vastaa fi:tä */
     '["▸ Rooli · pelipaikkafundamentit"]',
-    /* rakenne-ero, ei käännettävää tekstiä lainkaan */
+    /* pelkkää rakennetta, ei käännettävää tekstiä lainkaan */
     '[]',
-    /* '⚙ Sätt säsongsmål' vs '⚙ Ange säsongsmål' */
-    '["⚙ Aseta kausitavoitteet"]',
-    /* 'sen.' vs 'förs.' */
-    '["myöh."]',
   ],
   'TalentMaster_Master_v16.html': [
-    /* kolmen kohdan lista, jossa 2. rivin sv eroaa kartan arvosta */
+    /* 3-kohdan aloitusohje: 2. rivin sv eroaa kartan arvosta */
     '["1. Varmista että pelaajilla on PIN-koodi","2. Pyydä pelaajia kirjaamaan yksi harjoitus tänään","3. Reagoi heti kun kirjaus ilmestyy — se motivoi jatkamaan"]',
-    /* rakenne-ero: <b>Arkisto</b> sijoittuu sv:ssä eri kohtaan */
+    /* 'Arkisto' sijoittuu ruotsissa eri kohtaan lausetta */
     '["Kuitatut löytyvät ","Arkisto","-välilehdeltä"]',
   ],
 };
