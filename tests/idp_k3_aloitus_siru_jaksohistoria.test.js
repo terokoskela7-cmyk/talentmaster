@@ -114,11 +114,11 @@ describe('(C) nimikorjaus — Jaksohistoria (meso ≠ Mittauksen kaari)', () => 
   it('TASO 3 -haitarin label = "Jaksohistoria" (ei enää "Kehityskaari")', () => {
     /* Otsikkohierarkia (Oura v2): row(...) ottaa objektin, ja "TASO 3 · HISTORIA"-eyebrow poistui riveiltä
        (järjestys näkyy murupolusta). Sama INVARIANTTI: _accKaari-rivin nimi on "Jaksohistoria", ei "Kehityskaari". */
-    expect(VP).toContain("id: '_accKaari'");
+    expect(VP).toContain("_accKaari'");   // id-etuliite (idp) vain raportissa
     expect(VP).toContain("nimi: vpT('Jaksohistoria')");
     /* Rajaus _accKaari-RIVIIN: 'Kehityskaari' on laillisesti käytössä muualla (Mittauksen kehityskaari
        12577 + PDC:n kaari-kappale) — vain TÄMÄ rivi ei saa kantaa sitä nimeä. */
-    const kaariRivi = VP.slice(VP.indexOf("id: '_accKaari'"), VP.indexOf("id: '_accKaari'") + 400);
+    const kaariRivi = VP.slice(VP.indexOf("_accKaari'"), VP.indexOf("_accKaari'") + 400);
     expect(kaariRivi).not.toContain('Kehityskaari');
   });
   it('Suunnitelman kaari -rivi = "Jaksohistoria"', () => {

@@ -6738,6 +6738,12 @@ function _vpKehSuunnitelmaHTML(p, opts) {
   // R4 (Kehitys v2) — TASO 2 inline-focal editori vain interaktiivisessa per-pelaaja-työpöydässä (oletus). Pelaaja-
   // raportti (PDC, opts.editori===false) käyttää read-only-yhteenvetoa → ei duplikaatti-slot-ID:itä, ei editoria raportissa.
   const _inlineEditori = !opts || opts.editori !== false;
+  /* Duplikaatti-id-korjaus: PDC (ws-raportointi) jää DOM:iin .ws-view{display:none}-tilaan, joten kun cockpit
+     (#_jspModal) avataan sen päälle, samat id:t ovat DOM:ssa kahdesti ja getElementById osuu PDC:hen —
+     cockpitin re-render (6108/6114/6119) ja rivien avaus (8368) kohdistuivat väärään kopioon, pahimmillaan
+     toisen pelaajan korttiin. Raportin id:t saavat siksi etuliitteen; TYÖPÖYDÄN id:t pysyvät ennallaan,
+     jotta nuo neljä kutsupaikkaa osuvat oikein ilman muutoksia. */
+  const idp = _inlineEditori ? '' : '_pdc';
   const t = p._idpTavoite || null, jf = p.jaksofokus || null, _jfLib = window.TM_JAKSOFOKUS;
   /* Oura-malli v2 — otsikkohierarkia kaannetty: SISALTO (o.sisalto) on iso serif, kategoria (o.nimi) pieni sans,
      tila (o.tila) bold-isokirjainrivi jossa vari nakyy VAIN pisteessa. "TASO 1/2/3" poistui riveilta — jarjestys
@@ -6778,11 +6784,20 @@ function _vpKehSuunnitelmaHTML(p, opts) {
       : ktTila ? { sana: esc(ktTila), lisa: ktKausiLisa, piste: 'off' }
         : ktFokus ? null
           : { sana: vpT('Ei asetettu'), lisa: null, piste: 'off' };
+  /* 4. read-only-vuoto: raportissa kausitavoitteen body oli EDITOITAVA _vpKausitavoiteHTML — siellä näkyivät
+     ＋ Kirjaa review · ✓ Saavutettu · ↗ Jatkuu · Muokkaa (joka lukee GLOBAALIA _vpArvPelaaja:aa, ei pid:iä →
+     voi osua väärään pelaajaan). Raportissa käytetään read-only-yhteenvetoa + YKSI siirtymälinkki cockpittiin
+     (sama malli kuin jaksofokuksen "→ Kehitä jaksofokusta"). Ei _jspKausitavoite-slottia raporttiin:
+     se on cockpitin re-renderin kohde (6108). Yhteenvedon oma "Muokkaa Kehitys-välilehdellä." jätetään pois
+     ({ohje:false}), ettei ohjeita ole kahta. */
   const ktBody = (ktFokus || ktTila)
-    ? '<div class="jsp-kt" id="_jspKausitavoite">' + (typeof _vpKausitavoiteHTML === 'function' ? _vpKausitavoiteHTML(p) : '') + '</div>'
+    ? (_inlineEditori
+      ? '<div class="jsp-kt" id="_jspKausitavoite">' + (typeof _vpKausitavoiteHTML === 'function' ? _vpKausitavoiteHTML(p) : '') + '</div>'
+      : ((typeof _vpTavoiteYhteenvetoHTML === 'function' ? _vpTavoiteYhteenvetoHTML(p, { ohje: false }) : '')
+        + '<div style="margin-top:10px"><button onclick="event.stopPropagation();_pdcSiirryCockpittiin(\'' + pid + '\',3)" style="font-family:var(--font-sans);font-size:10px;font-weight:500;letter-spacing:.1em;text-transform:uppercase;padding:9px 14px;border-radius:6px;background:rgba(40,176,144,.1);color:var(--teal);border:.5px solid rgba(40,176,144,.4);cursor:pointer">' + vpT('→ Kehitä suunnitelmaa · Kehitys-työpöytä') + '</button></div>'))
     : '<div style="padding:6px 0"><button class="jsp-kt-btn primary" onclick="event.stopPropagation();_pdcSiirryCockpittiin(\'' + pid + '\',3)">' + vpT('＋ Tee kausitavoite') + '</button><div style="font-family:var(--font-sans),\'DM Sans\',sans-serif;font-size:11px;color:var(--ink3);margin-top:6px">' + vpT('Moottori ehdottaa datasta — tai valitse kärjen korteista.') + '</div></div>';
   h += row({
-    id: '_accKausitavoite', ico: '🎯',
+    id: idp + '_accKausitavoite', ico: '🎯',
     nimi: vpT('Kausitavoite') + ((typeof window._tmIBtn === 'function') ? window._tmIBtn('idp_kausitavoite') : ''),
     tila: ktTilaObj,
     sisalto: ktFokus ? esc(ktFokus) : '',
@@ -6814,7 +6829,7 @@ function _vpKehSuunnitelmaHTML(p, opts) {
       : '<div style="padding:6px 0"><button class="jsp-kt-btn primary" onclick="event.stopPropagation();_pdcSiirryCockpittiin(\'' + pid + '\',3)">' + vpT('＋ Aseta jaksofokus') + '</button><div style="font-family:var(--font-sans),\'DM Sans\',sans-serif;font-size:11px;color:var(--ink3);margin-top:6px">' + vpT('Nelikulmamalli: fyysinen · teknis-taktinen · henkinen · sosiaalinen.') + '</div></div>');
   const jfEvid = jfNimi && typeof _vpJfEvidenssiHTML === 'function' ? _vpJfEvidenssiHTML(p) : '';   // K3 (B) — kohdennetun ominaisuuden mini-kaari + jaksosidos-delta
   h += row({
-    id: '_accJaksofokus', ico: '📍',
+    id: idp + '_accJaksofokus', ico: '📍',
     nimi: vpT('Jaksofokus') + ((typeof window._tmIBtn === 'function') ? window._tmIBtn('idp_jaksofokus') : ''),
     tila: jfTilaObj,
     sisalto: jfNimi ? esc(jfNimi) : '',     // UUTTA: konsepti_nimi näkyy nyt suoraan riviltä
@@ -6838,7 +6853,7 @@ function _vpKehSuunnitelmaHTML(p, opts) {
   const kaariBody = (kaari || meso) ? (kaari + meso) : '<div style="font-family:var(--font-sans),\\\'DM Sans\\\',sans-serif;font-size:12px;color:var(--ink3);padding:6px 0">' + vpT('Historia täyttyy kun tavoitteita katselmoidaan ja jaksoja suljetaan.') + '</div>';
   // K3 nimikorjaus (ent. "Kehityskaari" → törmäsi Mittauksen kaareen). Kompakti: ei serif-sisältöä, meta nimen alla.
   h += row({
-    id: '_accKaari', ico: '🗺',
+    id: idp + '_accKaari', ico: '🗺',
     nimi: vpT('Jaksohistoria'),
     tila: null,
     sisalto: '',
@@ -6873,7 +6888,9 @@ function _vpPelaajanAaniHTML(p) {
 }
 // P1 — Tavoitteet-yhteenveto (read-only "suunta"): sama data kuin _vpKausitavoiteHTML (p._idpTavoite / idp_*-pikakentät),
 // kevyt luettava versio ILMAN editointikontrolleja. Tyhjä = pehmeä vihje. Additiivinen (ei korvaa §2-kausitavoitetta).
-function _vpTavoiteYhteenvetoHTML(p) {
+// opts.ohje === false → jätä "Muokkaa Kehitys-välilehdellä." pois (PDC näyttää oman siirtymälinkin;
+// kahta ohjetta ei anneta). Oletus ennallaan.
+function _vpTavoiteYhteenvetoHTML(p, opts) {
   const esc = _jsvEsc;
   const t = p._idpTavoite || null;
   const f = (t && t.fokus) || p.idp_fokus || null;
@@ -6899,7 +6916,7 @@ function _vpTavoiteYhteenvetoHTML(p) {
   if (ar && ar.kesto_vk) hor.push(ar.kesto_vk + ' ' + vpT('vk'));
   if (ar && ar.arvio_pvm) { const m = String(ar.arvio_pvm).match(/^(\d{4})-(\d{2})-(\d{2})/); hor.push(vpT('arvioidaan') + ' ' + (m ? (+m[3]) + '.' + (+m[2]) + '.' + m[1] : esc(ar.arvio_pvm))); }
   if (hor.length) h += '<div style="font-size:11px;color:var(--ink3);margin-top:8px">' + hor.join(' · ') + '</div>';
-  h += '<div style="font-size:10px;color:var(--ink3);margin-top:4px">' + vpT('Muokkaa Kehitys-välilehdellä.') + '</div>';
+  if (!opts || opts.ohje !== false) h += '<div style="font-size:10px;color:var(--ink3);margin-top:4px">' + vpT('Muokkaa Kehitys-välilehdellä.') + '</div>';
   return h + '</div>';
 }
 // P1.1 — Aloituksen YKSI tavoite-solmu (dedupe: yhdistää Suunta-yhteenvedon + Kausitavoitteen + SMART-edistymän).

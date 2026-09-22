@@ -255,11 +255,11 @@ describe('(5) Tyhjä tila säilyy', () => {
      kausitavoitteen tyhjä rivi aukeaa. Täysi jaksofokus pysyy PDC:ssä kiinni. */
   it('tyhjä jaksofokus on auki myös PDC:ssä, täysi ei', () => {
     const ro = render({ id: 'p10', _idpTavoite: null, jaksofokus: null }, { editori: false });
-    expect(ro).toMatch(/acc-row open" id="_accJaksofokus"/);
+    expect(ro).toMatch(/acc-row open" id="_pdc_accJaksofokus"/);   // raportin id:t etuliitteellisiä
     expect(ro.slice(ro.indexOf('_accJaksofokus'), ro.indexOf('_accKaari'))).toContain('_pdcSiirryCockpittiin');
 
     const roTaysi = render(pAktiivinen(), { editori: false });
-    expect(roTaysi, 'täysi jaksofokus ei saa aueta raportissa').not.toMatch(/acc-row open" id="_accJaksofokus"/);
+    expect(roTaysi, 'täysi jaksofokus ei saa aueta raportissa').not.toMatch(/acc-row open" id="_pdc_accJaksofokus"/);
   });
 
   it('saavutettu kausitavoite → acc-dot off (ei on-pistettä)', () => {
@@ -372,7 +372,9 @@ describe('(8) PDC read-only', () => {
   });
 
   it('id:t ovat uniikkeja', () => {
-    ['_accKausitavoite', '_accJaksofokus', '_accKaari'].forEach((id) => {
+    /* Raportin id:t ovat etuliitteellisiä (_pdc), jotta ne eivät törmää cockpitin id:hin
+       kun molemmat ovat DOM:ssa. Ks. tests/pdc_readonly_id_uniikit.test.js. */
+    ['_pdc_accKausitavoite', '_pdc_accJaksofokus', '_pdc_accKaari'].forEach((id) => {
       expect((ro.match(new RegExp('id="' + id + '"', 'g')) || []).length).toBe(1);
     });
   });
@@ -381,7 +383,7 @@ describe('(8) PDC read-only', () => {
 describe('(9) Invariantit joita aiemmat testit vartioivat', () => {
   it('_accKaari on "Jaksohistoria" (ei "Kehityskaari") ja kompakti', () => {
     const f = funktio('function _vpKehSuunnitelmaHTML(p, opts) {');
-    expect(f).toContain("id: '_accKaari'");
+    expect(f).toContain("_accKaari'");   // id-etuliite (idp) vain raportissa
     expect(f).toContain("nimi: vpT('Jaksohistoria')");
     expect(f).toContain('kompakti: true');
     expect(f).not.toContain("'Kehityskaari'");
