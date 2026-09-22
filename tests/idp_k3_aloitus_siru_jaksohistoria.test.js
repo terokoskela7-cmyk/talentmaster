@@ -112,8 +112,14 @@ describe('(B) _vpJfEvidenssiHTML — jfBody mini-kaari + jaksosidos-delta', () =
 
 describe('(C) nimikorjaus — Jaksohistoria (meso ≠ Mittauksen kaari)', () => {
   it('TASO 3 -haitarin label = "Jaksohistoria" (ei enää "Kehityskaari")', () => {
-    expect(VP).toContain("row('_accKaari', '🗺', vpT('TASO 3 · HISTORIA'), vpT('Jaksohistoria')");
-    expect(VP).not.toContain("'TASO 3 · HISTORIA', 'Kehityskaari'");
+    /* Otsikkohierarkia (Oura v2): row(...) ottaa objektin, ja "TASO 3 · HISTORIA"-eyebrow poistui riveiltä
+       (järjestys näkyy murupolusta). Sama INVARIANTTI: _accKaari-rivin nimi on "Jaksohistoria", ei "Kehityskaari". */
+    expect(VP).toContain("id: '_accKaari'");
+    expect(VP).toContain("nimi: vpT('Jaksohistoria')");
+    /* Rajaus _accKaari-RIVIIN: 'Kehityskaari' on laillisesti käytössä muualla (Mittauksen kehityskaari
+       12577 + PDC:n kaari-kappale) — vain TÄMÄ rivi ei saa kantaa sitä nimeä. */
+    const kaariRivi = VP.slice(VP.indexOf("id: '_accKaari'"), VP.indexOf("id: '_accKaari'") + 400);
+    expect(kaariRivi).not.toContain('Kehityskaari');
   });
   it('Suunnitelman kaari -rivi = "Jaksohistoria"', () => {
     /* i18n-markup-purku: label ei ole enää markup-avaimen sisällä vaan
@@ -134,7 +140,9 @@ describe('K3 wiring — helperit kytketty', () => {
   });
   it('(B) jfBody-rivi liittää _vpJfEvidenssiHTML (vain kun jaksofokus)', () => {
     expect(VP).toContain('const jfEvid = jfNimi && typeof _vpJfEvidenssiHTML === \'function\' ? _vpJfEvidenssiHTML(p) : \'\';');
-    expect(VP).toContain('jfBody + jfEvid, _inlineEditori);');
+    /* Otsikkohierarkia (Oura v2): row(...) ottaa objektin → sama INVARIANTTI eri muodossa. */
+    expect(VP).toContain('body: jfBody + jfEvid');
+    expect(VP).toContain('avoin: _inlineEditori');
   });
   it('lib tmKaariSiru exportattu (API + global)', () => {
     const src = readFileSync(join(__dir, '..', 'lib', 'tm_kehityskaari.js'), 'utf8');

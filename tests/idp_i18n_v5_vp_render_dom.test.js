@@ -121,7 +121,7 @@ const codeish = (v) =>
   /^\w+\(/.test(v.trim()) ||   // funktiokutsu-handler (act:n toiminto-arg setWs('x'))
   /^[a-z][a-zA-Z0-9]*$/.test(v) ||   // V8e-JF1: bare (VÄLILYÖNNITÖN) lowercase-token = enum/id/koodi
   /^[^\s@]+@[^\s@]+\.[A-Za-z]{2,}$/.test(v.trim()) ||   // V8k-4b: paljas sähköpostiosoite (ei käännettävää)
-  /^["'\s]*(selected|disabled|checked|readonly|required|multiple|hidden|open|active|under|uusi|empty|low|high|locked|sel)["'\s]*$/.test(v);  // HTML-attr/CSS-class-sanat (empty/low/high/locked/sel = tila-luokat, väliin ternaary-haarassa).
+  /^["'\s]*(selected|disabled|checked|readonly|required|multiple|hidden|open|active|under|uusi|empty|low|high|locked|sel|compact)["'\s]*$/.test(v);  // HTML-attr/CSS-class-sanat (empty/low/high/locked/sel/compact = tila-luokat, väliin ternaary-haarassa).
 // Erä 2 -korjaus: sallitaan ympäröivä lainausmerkki/whitespace — attribuutti-scaffolding sulkee
 // edellisen attribuutin lainauksen ('" selected'). Kun `"` ei enää yksinään ole codeish, tämä on
 // ainoa paikka jossa se pitää yhä lukea koodiksi; ehto vaatii ettei literaalissa ole MITÄÄN muuta.

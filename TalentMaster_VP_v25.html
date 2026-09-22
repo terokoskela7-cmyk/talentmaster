@@ -1741,17 +1741,27 @@ body {
 .gate { background: linear-gradient(150deg, rgba(40,176,144,.07), var(--bg2)); border: .5px solid rgba(40,176,144,.25); border-radius: 10px; padding: 11px 13px; margin: 4px 0 12px; font-size: 11.5px; color: var(--ink2); line-height: 1.5; }
 .gate b { color: var(--teal); }
 /* P4a.1 — Kehityssuunnitelma-haitari (progressiivinen avaus · yksi fonttijärjestelmä · useampi auki kerralla). */
-.acc-row { border: .5px solid var(--border); border-radius: 10px; margin-bottom: 10px; background: var(--bg2); overflow: hidden; }
-.acc-head { display: flex; align-items: center; gap: 11px; padding: 13px 16px; cursor: pointer; -webkit-user-select: none; user-select: none; }
+/* Oura-malli v2 (Claude outputs/PDC_OTSIKKOHIERARKIA_mockup.html): hierarkia kaannetty — SISALTO on iso serif,
+   kategoria pieni sans-nimi, tila bold-isokirjainrivi. Vari vain pisteessa: vaalealla teemalla amber 3,6:1 ja
+   ink3 4,3:1 jaavat alle AA-rajan (4,5) pienessa tekstissa, ink on 10,5:1. Lisaksi #613:n paatosrivi pysyy
+   ainoana isona teal-elementtina (P3:n periaate). Poistettu kaytosta jaaneet .acc-main/-eyebrow/-title/-sum/-chip. */
+.acc-row { border: .5px solid var(--border); border-radius: 12px; margin-bottom: 10px; background: var(--bg2); overflow: hidden; }
+.acc-head { padding: 16px 16px 17px; cursor: pointer; -webkit-user-select: none; user-select: none; }
 .acc-head:hover { background: var(--ov-1); }
-.acc-ico { font-size: 17px; flex-shrink: 0; }
-.acc-main { flex: 1; min-width: 0; }
-.acc-eyebrow { font-family: var(--font-sans), 'DM Sans', sans-serif; font-size: 9px; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; color: var(--ink3); }
-.acc-title { font-family: var(--font-serif), 'Cormorant Garamond', serif; font-size: 18px; color: var(--ink); line-height: 1.15; }
-.acc-sum { font-family: var(--font-mono), 'DM Mono', monospace; font-size: 10.5px; color: var(--ink3); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.acc-chip { flex-shrink: 0; font-family: var(--font-sans), 'DM Sans', sans-serif; font-size: 10px; border-radius: 999px; padding: 3px 10px; border: .5px solid var(--border); color: var(--ink2); background: var(--ov-1); white-space: nowrap; }
-.acc-chip.on { color: var(--teal); border-color: rgba(40,176,144,.4); }
-.acc-chev { flex-shrink: 0; color: var(--ink3); font-size: 15px; transition: transform .18s; }
+.acc-hdr { display: flex; align-items: center; gap: 12px; }
+.acc-ico { width: 38px; height: 38px; border-radius: 50%; background: var(--ov-1); display: flex; align-items: center; justify-content: center; font-size: 17px; flex-shrink: 0; }
+.acc-id { flex: 1; min-width: 0; }
+.acc-name { font-family: var(--font-sans), 'DM Sans', sans-serif; font-weight: 500; font-size: 15px; color: var(--ink); }
+.acc-state { font-family: var(--font-sans), 'DM Sans', sans-serif; font-weight: 600; font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--ink2); margin-top: 3px; line-height: 1.45; }
+.acc-state .w { color: var(--ink); }
+.acc-dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--teal); margin-right: 7px; vertical-align: 1px; }
+.acc-dot.amb { background: var(--amber); }
+.acc-dot.off { background: transparent; box-shadow: inset 0 0 0 1px var(--ink3); }
+.acc-content { font-family: var(--font-serif), 'Cormorant Garamond', serif; font-weight: 400; font-size: 22px; line-height: 1.15; color: var(--ink); margin: 11px 0 0 50px; overflow-wrap: anywhere; }
+.acc-meta { font-family: var(--font-sans), 'DM Sans', sans-serif; font-weight: 400; font-size: 13.5px; color: var(--ink2); margin: 4px 0 0 50px; line-height: 1.45; }
+.acc-row.compact .acc-head { padding: 13px 16px; }
+.acc-row.compact .acc-id .acc-meta { margin: 0; }
+.acc-chev { flex-shrink: 0; color: var(--ink3); font-size: 16px; transition: transform .18s; }
 .acc-row.open .acc-chev { transform: rotate(90deg); }
 .acc-body { display: none; padding: 4px 16px 16px; border-top: .5px solid var(--border); }
 .acc-row.open .acc-body { display: block; }
@@ -6729,33 +6739,73 @@ function _vpKehSuunnitelmaHTML(p, opts) {
   // raportti (PDC, opts.editori===false) käyttää read-only-yhteenvetoa → ei duplikaatti-slot-ID:itä, ei editoria raportissa.
   const _inlineEditori = !opts || opts.editori !== false;
   const t = p._idpTavoite || null, jf = p.jaksofokus || null, _jfLib = window.TM_JAKSOFOKUS;
-  const row = function (accId, ico, eyebrow, title, sum, chip, chipOn, body, avoin) {
-    return '<div class="acc-row' + (avoin ? ' open' : '') + '" id="' + accId + '">'
+  /* Oura-malli v2 — otsikkohierarkia kaannetty: SISALTO (o.sisalto) on iso serif, kategoria (o.nimi) pieni sans,
+     tila (o.tila) bold-isokirjainrivi jossa vari nakyy VAIN pisteessa. "TASO 1/2/3" poistui riveilta — jarjestys
+     nakyy murupolusta. Id:t ja .acc-head-toggle ennallaan (6104/6109/8294 avaavat rivit id:n perusteella).
+     o = { id, ico, nimi, tila:{sana,lisa,piste:'on'|'amb'|'off'}|null, sisalto, meta, body, avoin, kompakti } */
+  const row = function (o) {
+    const tila = o.tila
+      ? '<div class="acc-state"><span class="acc-dot' + (o.tila.piste === 'on' ? '' : ' ' + o.tila.piste) + '"></span>'
+        + '<span class="w">' + o.tila.sana + '</span>' + (o.tila.lisa ? ' · ' + o.tila.lisa : '') + '</div>'
+      : '';
+    // Kompaktilla rivilla meta on nimen alla .acc-id:n sisalla (ei omana lohkona).
+    const metaSisalla = o.kompakti && o.meta ? '<div class="acc-meta">' + o.meta + '</div>' : '';
+    const metaUlkona = !o.kompakti && o.meta ? '<div class="acc-meta">' + o.meta + '</div>' : '';
+    return '<div class="acc-row' + (o.avoin ? ' open' : '') + (o.kompakti ? ' compact' : '') + '" id="' + o.id + '">'
       + '<div class="acc-head" onclick="this.parentNode.classList.toggle(\'open\')">'
-      + '<span class="acc-ico">' + ico + '</span>'
-      + '<div class="acc-main"><div class="acc-eyebrow">' + eyebrow + '</div><div class="acc-title">' + title + '</div>' + (sum ? '<div class="acc-sum">' + sum + '</div>' : '') + '</div>'
-      + (chip ? '<span class="acc-chip' + (chipOn ? ' on' : '') + '">' + chip + '</span>' : '')
+      + '<div class="acc-hdr">'
+      + '<span class="acc-ico">' + o.ico + '</span>'
+      + '<div class="acc-id"><div class="acc-name">' + o.nimi + '</div>' + tila + metaSisalla + '</div>'
       + '<span class="acc-chev">›</span></div>'
-      + '<div class="acc-body">' + body + '</div></div>';
+      + (o.sisalto ? '<div class="acc-content">' + o.sisalto + '</div>' : '')
+      + metaUlkona
+      + '</div>'
+      + '<div class="acc-body">' + o.body + '</div></div>';
   };
-  let h = '<div style="font-family:var(--font-serif),\\\'Cormorant Garamond\\\',serif;font-size:18px;color:var(--ink);margin:2px 0 2px">' + vpT('Kehityssuunnitelma') + '</div>';
+  let h = '<div style="font-family:var(--font-serif),\\\'Cormorant Garamond\\\',serif;font-size:26px;font-weight:300;color:var(--ink);margin:2px 0 2px">' + vpT('Kehityssuunnitelma') + '</div>';
   h += '<div class="idp-breadcrumb">' + vpT('🎯 kausi › 📍 jakso › 🗺 kaari') + '</div>';
   // ── TASO 1 · Kausitavoite ──
   const ktFokus = (t && t.fokus && (t.fokus.nimi || t.fokus.alue)) || (p.idp_fokus && (p.idp_fokus.nimi || p.idp_fokus.alue)) || null;
   const ktKausi = (t && t.aikaraami && t.aikaraami.kausi) || null;
   const ktTila = (t && t.status) || p.idp_tila || null;
-  const ktSum = ktFokus ? (esc(ktFokus) + (ktKausi ? ' · ' + esc(ktKausi) : '')) : '';
-  const ktChip = ktTila ? ((ktTila === 'aktiivinen' ? '● ' : ktTila === 'saavutettu' ? '✓ ' : '○ ') + esc(ktTila)) : null;
+  // Tilarivi: sana + piste. Lisa = kausi SELLAISENAAN: arvo on jo 'syksy 2026' (lib/tm_idp.js:301), joten
+  // 'Kausi '-etuliite tuottaisi "KAUSI SYKSY 2026" — ja sv:ssa "SÄSONG SYKSY 2026" (tupla + kielet sekaisin).
+  const ktKausiLisa = ktKausi ? esc(ktKausi) : null;
+  // Tila EI ole tiedossa jos fokus on mutta statusta ei (legacy p.idp_fokus ilman idp_tila) → EI tilariviä.
+  // Ristiriitainen "○ EI ASETETTU" + fokuksen nimi heti alla on pahempi kuin puuttuva rivi; tilaa ei arvata.
+  const ktTilaObj = (ktTila === 'aktiivinen') ? { sana: vpT('Aktiivinen'), lisa: ktKausiLisa, piste: 'on' }
+    : (ktTila === 'saavutettu') ? { sana: vpT('Saavutettu'), lisa: ktKausiLisa, piste: 'off' }
+      : ktTila ? { sana: esc(ktTila), lisa: ktKausiLisa, piste: 'off' }
+        : ktFokus ? null
+          : { sana: vpT('Ei asetettu'), lisa: null, piste: 'off' };
   const ktBody = (ktFokus || ktTila)
     ? '<div class="jsp-kt" id="_jspKausitavoite">' + (typeof _vpKausitavoiteHTML === 'function' ? _vpKausitavoiteHTML(p) : '') + '</div>'
     : '<div style="padding:6px 0"><button class="jsp-kt-btn primary" onclick="event.stopPropagation();_pdcSiirryCockpittiin(\'' + pid + '\',3)">' + vpT('＋ Tee kausitavoite') + '</button><div style="font-family:var(--font-sans),\'DM Sans\',sans-serif;font-size:11px;color:var(--ink3);margin-top:6px">' + vpT('Moottori ehdottaa datasta — tai valitse kärjen korteista.') + '</div></div>';
-  h += row('_accKausitavoite', '🎯', vpT('TASO 1 · KOKO KAUSI'), vpT('Kausitavoite') + ((typeof window._tmIBtn === 'function') ? window._tmIBtn('idp_kausitavoite') : ''), ktSum, ktChip, ktTila === 'aktiivinen', ktBody, !(ktFokus || ktTila));
+  h += row({
+    id: '_accKausitavoite', ico: '🎯',
+    nimi: vpT('Kausitavoite') + ((typeof window._tmIBtn === 'function') ? window._tmIBtn('idp_kausitavoite') : ''),
+    tila: ktTilaObj,
+    sisalto: ktFokus ? esc(ktFokus) : '',
+    meta: '',
+    body: ktBody,
+    avoin: !(ktFokus || ktTila),
+  });
   // ── TASO 2 · Jaksofokus ──
   const jfNimi = (jf && jf.konsepti_nimi) || null;
   const jfDom = jf ? ((_jfLib && typeof _jfLib.tmJfDomeeni === 'function' && _jfLib.tmJfDomeeni(jf.domeeni || 'teknis_taktinen')) || null) : null;
   const jfUmp = !!(jf && _jfLib && typeof _jfLib.tmJfUmpeutunut === 'function' && _jfLib.tmJfUmpeutunut(jf));
-  const jfSum = jfNimi ? ((jfDom ? jfDom.ikoni + ' ' + esc(jfDom.nimi) + ' · ' : '') + vpT('kesto') + ' ' + (jf.kesto_vk || 4) + ' ' + vpT('vk')) : '';
-  const jfChip = jfNimi ? (jfUmp ? vpT('🟠 umpeutunut') : vpT('● aktiivinen')) : null;
+  // Etenemä olemassa olevasta datasta (alkoi + kesto_vk) — ei uutta kyselyä. null jos alkoi puuttuu → ei arvausta.
+  const jfVk = (jf && _jfLib && typeof _jfLib.tmJfViikko === 'function') ? _jfLib.tmJfViikko(jf) : null;
+  const jfKesto = (jf && (jf.kesto_vk || 4)) || 4;
+  const jfTilaObj = !jfNimi ? { sana: vpT('Ei asetettu'), lisa: null, piste: 'off' }
+    : jfUmp ? { sana: vpT('Umpeutunut'), lisa: jfKesto + ' ' + vpT('vk'), piste: 'amb' }
+      : { sana: vpT('Aktiivinen'), lisa: jfVk ? (vpT('Viikko') + ' ' + jfVk.n + '/' + jfVk.k) : (jfKesto + ' ' + vpT('vk')), piste: 'on' };
+  // Domeenin nimi tulee libistä suomeksi → vpT():n läpi, muuten sv-tilassa näkyisi "⚽ Teknis-taktinen".
+  // Sanktioidut avaimet ovat jo kartassa (Teknis-taktinen/Fyysinen/Sosiaalinen); 'Henkinen' jää fi-fallbackiksi.
+  const jfMeta = jfNimi
+    ? ((jfDom ? jfDom.ikoni + ' ' + esc(vpT(jfDom.nimi)) : '')
+      + ((!jfUmp && jfVk && jfVk.jaljella > 0) ? ((jfDom ? ' · ' : '') + jfVk.jaljella + ' ' + vpT('vk jäljellä')) : ''))
+    : '';
   // R4 (Kehitys v2) — TASO 2: työpöydässä INLINE-FOCAL editori (aina auki, ei "✎ Muokkaa"-modaalia; hoitaa tyhjän
   // ja täyden tilan) · raportissa read-only-yhteenveto (ennallaan). avoin=true (focal) vain editori-tilassa.
   const jfBody = _inlineEditori
@@ -6763,16 +6813,40 @@ function _vpKehSuunnitelmaHTML(p, opts) {
     : (jfNimi ? (typeof _vpTyopoytaJaksofokusHTML === 'function' ? _vpTyopoytaJaksofokusHTML(p) : '')
       : '<div style="padding:6px 0"><button class="jsp-kt-btn primary" onclick="event.stopPropagation();_pdcSiirryCockpittiin(\'' + pid + '\',3)">' + vpT('＋ Aseta jaksofokus') + '</button><div style="font-family:var(--font-sans),\'DM Sans\',sans-serif;font-size:11px;color:var(--ink3);margin-top:6px">' + vpT('Nelikulmamalli: fyysinen · teknis-taktinen · henkinen · sosiaalinen.') + '</div></div>');
   const jfEvid = jfNimi && typeof _vpJfEvidenssiHTML === 'function' ? _vpJfEvidenssiHTML(p) : '';   // K3 (B) — kohdennetun ominaisuuden mini-kaari + jaksosidos-delta
-  h += row('_accJaksofokus', '📍', vpT('TASO 2 · TÄMÄ JAKSO · MESO 4–8 VK'), vpT('Jaksofokus') + ((typeof window._tmIBtn === 'function') ? window._tmIBtn('idp_jaksofokus') : ''), jfSum, jfChip, jfNimi && !jfUmp, jfBody + jfEvid, _inlineEditori);
+  h += row({
+    id: '_accJaksofokus', ico: '📍',
+    nimi: vpT('Jaksofokus') + ((typeof window._tmIBtn === 'function') ? window._tmIBtn('idp_jaksofokus') : ''),
+    tila: jfTilaObj,
+    sisalto: jfNimi ? esc(jfNimi) : '',     // UUTTA: konsepti_nimi näkyy nyt suoraan riviltä
+    meta: jfMeta,
+    body: jfBody + jfEvid,
+    // Tyhjä rivi auki myös PDC:ssä (editori:false), muuten "＋ Aseta jaksofokus" -CTA jää piiloon —
+    // kausitavoitteen tyhjä rivi aukeaa jo, joten jaksofokuksen on käyttäydyttävä samoin.
+    avoin: _inlineEditori || !jfNimi,
+  });
   // ── TASO 3 · Jaksohistoria (meso-historia): tavoitteen review-sykli + suljetut jaksofokus-jaksot. K3 nimikorjaus:
   // "Jaksohistoria" ≠ Mittauksen kehityskaari (tmKaariRenderFull) — eri asia, ei sekoiteta. Vain label/kommentit. ──
   const kaari = (t && typeof _vpKehityskaariHTML === 'function') ? _vpKehityskaariHTML(t, pid) : '';
   const meso = (typeof _vpMesoKaariHTML === 'function') ? _vpMesoKaariHTML(p) : '';
   const nRev = (t && Array.isArray(t.arviot)) ? t.arviot.length : 0;
   const nHist = Array.isArray(p.jaksofokus_historia) ? p.jaksofokus_historia.length : 0;
-  const kaariSum = (nRev || nHist) ? [nRev ? nRev + ' review' : '', nHist ? nHist + ' ' + vpT('suljettua jaksoa') : ''].filter(Boolean).join(' · ') : vpT('ei vielä historiaa');
-  const kaariBody = (kaari || meso) ? (kaari + meso) : '<div style="font-family:var(--font-sans),\\\'DM Sans\\\',sans-serif;font-size:12px;color:var(--ink3);padding:6px 0">' + vpT('Historia täyttyy kun tavoitteita reviewataan ja jaksoja suljetaan.') + '</div>';
-  h += row('_accKaari', '🗺', vpT('TASO 3 · HISTORIA'), vpT('Jaksohistoria'), kaariSum, null, false, kaariBody, false);   // K3 nimikorjaus (ent. "Kehityskaari" → törmäsi Mittauksen kaareen)
+  // Termilukko: "review" → sanktioitu "katselmus" (docs/SEURANTA_KATSELMUS_CODE_BRIEF.md). Yksikkö/monikko erikseen.
+  const kaariKatselmukset = nRev ? (nRev === 1 ? vpT('1 katselmus') : nRev + ' ' + vpT('katselmusta')) : '';
+  const kaariMeta = (nRev || nHist)
+    ? [nHist ? nHist + ' ' + vpT('suljettua jaksoa') : '', kaariKatselmukset].filter(Boolean).join(' · ')
+    : vpT('ei vielä historiaa');
+  const kaariBody = (kaari || meso) ? (kaari + meso) : '<div style="font-family:var(--font-sans),\\\'DM Sans\\\',sans-serif;font-size:12px;color:var(--ink3);padding:6px 0">' + vpT('Historia täyttyy kun tavoitteita katselmoidaan ja jaksoja suljetaan.') + '</div>';
+  // K3 nimikorjaus (ent. "Kehityskaari" → törmäsi Mittauksen kaareen). Kompakti: ei serif-sisältöä, meta nimen alla.
+  h += row({
+    id: '_accKaari', ico: '🗺',
+    nimi: vpT('Jaksohistoria'),
+    tila: null,
+    sisalto: '',
+    meta: kaariMeta,
+    body: kaariBody,
+    avoin: false,
+    kompakti: true,
+  });
   return h;
 }
 // P1 — Pelaajan ääni (Kimin lämpö): "Miksi pelaan?" (kursiivi-serif) + "Minkälainen pelaaja haluan olla?".

@@ -77,8 +77,13 @@ describe('(4) jaksofokus = INLINE-FOCAL editori (aina auki, ei modaalia)', () =>
     expect(T).toContain('const _inlineEditori = !opts || opts.editori !== false;');
     expect(T).toContain('_vpJfInlineHTML(p)');
     expect(T).toContain('_vpTyopoytaJaksofokusHTML(p)');       // read-only fallback (raportti) säilyy
-    expect(T).toContain("row('_accJaksofokus', '📍', vpT('TASO 2 · TÄMÄ JAKSO · MESO 4–8 VK'), vpT('Jaksofokus')");   // IDP-vihje ⓘ voi olla otsikon perässä
-    expect(T).toContain("jfSum, jfChip, jfNimi && !jfUmp, jfBody + jfEvid, _inlineEditori);");   // K3: jfBody + kohdennetun ominaisuuden evidenssi (jfEvid)
+    /* Otsikkohierarkia (Oura v2): row(...) ottaa nyt OBJEKTIN positionaalisten argumenttien sijaan, ja
+       "TASO 2 · …"-eyebrow poistui riveiltä (järjestys näkyy murupolusta). Väitteet kohdistuvat samoihin
+       INVARIANTTEIHIN kuin ennen: oikea id + nimi, body = jfBody + jfEvid, avoin = _inlineEditori. */
+    expect(T).toContain("id: '_accJaksofokus'");
+    expect(T).toContain("nimi: vpT('Jaksofokus')");   // IDP-vihje ⓘ voi olla nimen perässä
+    expect(T).toContain('body: jfBody + jfEvid');     // K3: jfBody + kohdennetun ominaisuuden evidenssi (jfEvid)
+    expect(T).toContain('avoin: _inlineEditori');
   });
   it('Pelaajaraportti (PDC) käyttää read-only-tilaa (ei inline-editoria/duplikaatti-ID:itä)', () => {
     expect(HTML).toContain("_vpKehSuunnitelmaHTML(p, { editori: false })");
