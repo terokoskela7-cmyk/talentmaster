@@ -37,7 +37,7 @@
 <script src="lib/tm_arviointi_taksonomia.js?v=11"></script>   <!-- Vaihe 2: arviointitaksonomia + pääteemat + kehysrekisteri (mitattu + havaittu 1–5) -->
 <script src="lib/tm_pelialy_yksilo.js?v=4"></script>   <!-- P1: pelihavainto peliäly → yksilöteema · v3: Vaihe B ristiinarvio-konsensus -->
 <script src="lib/tm_arviointi_silta.js?v=3"></script>   <!-- Vaihe 5: arviointi→resepti-silta (heikoin havaittu D2 → ehdotettu jaksofokus) · v2 = I3a SSOT-osoitin tm_kehityspolku -->
-<script src="lib/tm_idp.js?v=6"></script>   <!-- I3a: + kesto valmentajan asetettavaksi (opts.kestoVk) · I2: lahde+pvm/idp_lahde/idpVahvinDim 1–3 -->
+<script src="lib/tm_idp.js?v=7"></script>   <!-- I3a: + kesto valmentajan asetettavaksi (opts.kestoVk) · I2: lahde+pvm/idp_lahde/idpVahvinDim 1–3 -->
 <script src="lib/tm_teknistaktiset.js?v=5"></script>   <!-- Vaihe 4a: teknis-taktinen curriculum (VP:n jaksofokus talenteille) · v5 = I3a pelipaikkaportti U14+ + harjoite-tägit/jalka -->
 <script src="lib/tm_piirros.js?v=1"></script>   <!-- Piirrokset Vaihe 1: fasciallinjat (D1) + pelipaikkakartta (D4), inline-SVG -->
 <script src="lib/tm_konsepti_resolve.js?v=2"></script>   <!-- Seurakerros TIER 1: seurat/{sid}/konseptit override kaanonin päälle (kaanon = oletus, ei pakko) -->
@@ -6321,16 +6321,21 @@ async function _vpTallennaIdpDok(p, viesti) {
        Firestoren merge EI yhdistä taulukoita vaan korvaa kentän → jokainen tallennus pyyhki vanhan tavoitteen ja
        sen arviot (kehityskeskustelut) pysyvästi. Nyt transaktio: luku → idpTavoitteetYhdista → kirjoitus.
        Vuosi: sama dokki josta tavoite ladattiin (vuodenvaihde), UUSI tavoite kuluvaan kauteen. */
-    const vuosi = (typeof idpTallennusVuosi === 'function')
-      ? idpTallennusVuosi(p, t, new Date())
-      : ((typeof idpKausivuosi === 'function') ? idpKausivuosi(new Date()) : String(new Date().getFullYear()));
+    /* FAIL-CLOSED: jos lib on vanha (selain-/SW-välimuisti), yhdistämisfunktio puuttuu. Ennen tässä oli
+       yhden alkion fallback — se olisi palauttanut TÄSMÄLLEEN sen ylikirjoituksen jonka tämä hotfix korjaa.
+       Heitetään ennen transaktiota: catch näyttää "Tallennus epäonnistui" eikä mitään kirjoiteta
+       (myös pikakenttien ref.set jää ajamatta, koska se on samassa try-lohkossa). */
+    if (typeof idpTavoitteetYhdista !== 'function' || typeof idpTallennusVuosi !== 'function') {
+      throw new Error('tm_idp.js vanhentunut (idpTavoitteetYhdista/idpTallennusVuosi puuttuu) — tallennus peruttu');
+    }
+    const vuosi = idpTallennusVuosi(p, t, new Date());
     const ref = db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(p.id);
     const kausiRef = ref.collection('idp_kausi').doc(vuosi);
     await db.runTransaction(async function (tx) {
       const s = await tx.get(kausiRef);
       const d = s.exists ? (s.data() || {}) : {};
       const nykyiset = Array.isArray(d.tavoitteet) ? d.tavoitteet : [];
-      const yhd = (typeof idpTavoitteetYhdista === 'function') ? idpTavoitteetYhdista(nykyiset, t) : [t];
+      const yhd = idpTavoitteetYhdista(nykyiset, t);
       tx.set(kausiRef, { tavoitteet: yhd, paivitetty: new Date().toISOString() }, { merge: true });
     });
     await ref.set({ idp_tila: pk.idp_tila, idp_edistyma: pk.idp_edistyma || null, idp_fokus: pk.idp_fokus || null, idp_viim_review: pk.idp_viim_review || null, idp_dvi: _dvi }, { merge: true });
@@ -6349,23 +6354,22 @@ async function _vpLataaTavoite(p) {
     /* HOTFIX · vuodenvaihde: doc-id on kalenterivuosi, joten 1.1. syksyn tavoite katoaisi näkyvistä ja
        seuraava tallennus aloittaisi tyhjästä dokista. Jos kuluvassa ei ole VOIMASSA olevaa tavoitetta,
        luetaan edellisen vuoden dokki. Ei doc-ID-mallin muutosta, ei migraatiota. */
-    let arr = sdata.tavoitteet || null;
-    let _lahdeVuosi = vuosi;
-    if (typeof idpVoimassaTavoite === 'function' && !idpVoimassaTavoite(arr)) {
-      const edVuosi = String(Number(vuosi) - 1);
-      try {
-        const se = await kausiCol.doc(edVuosi).get();
-        const ed = se.exists ? (se.data() || {}) : {};
-        if (idpVoimassaTavoite(ed.tavoitteet)) { arr = ed.tavoitteet; _lahdeVuosi = edVuosi; }
-      } catch (e) { /* best-effort */ }
+    const arr = sdata.tavoitteet || null;
+    /* Edellinen vuosi luetaan VAIN jos kuluvassa ei ole voimassa olevaa (laiska luku säilyy). Valinta
+       tehdään jaetulla, testatulla helperillä — kolme appia eivät toista logiikkaa inline. */
+    let edArr = null;
+    const edVuosi = String(Number(vuosi) - 1);
+    if (!idpVoimassaTavoite(arr)) {
+      try { const se = await kausiCol.doc(edVuosi).get(); edArr = (se.exists ? (se.data() || {}) : {}).tavoitteet || null; }
+      catch (e) { /* best-effort */ }
     }
+    const val = idpValitseKausidokista(arr, vuosi, edArr, edVuosi);
     const tgt = (window._vpArvPelaaja && window._vpArvPelaaja.id === p.id) ? window._vpArvPelaaja : p;
     if (sdata.pelaaja_sitoumus) tgt._idpSitoumus = sdata.pelaaja_sitoumus;   // v2 §4 — pelaajan itsearvio + sitoumus
-    if (arr && arr.length) {
+    if (val || (arr && arr.length)) {
       // §33: aseta SAMAAN objektiin jonka kortti renderöi (voi vaihtua await:n aikana); re-render vain jos vielä auki.
-      // Voimassa oleva = viimeisin joka EI ole 'vaihdettu' eikä 'hylatty' (taulukon viimeinen voi olla kumpi tahansa).
-      tgt._idpTavoite = (typeof idpVoimassaTavoite === 'function') ? (idpVoimassaTavoite(arr) || arr[arr.length - 1]) : arr[arr.length - 1];
-      tgt._idpVuosi = _lahdeVuosi; tgt._idpVuosiLuotu = tgt._idpTavoite && tgt._idpTavoite.luotu;
+      tgt._idpTavoite = val ? val.tavoite : arr[arr.length - 1];
+      tgt._idpVuosi = val ? val.vuosi : vuosi; tgt._idpVuosiLuotu = tgt._idpTavoite && tgt._idpTavoite.luotu;
       tgt._idpLadattu = true;
       if (window._vpArvPelaaja === tgt) { _vpKausitavoiteReRender(); if (typeof _vpAloitusReRender === 'function') _vpAloitusReRender(); }
     } else if (sdata.pelaaja_sitoumus && window._vpArvPelaaja === tgt) {

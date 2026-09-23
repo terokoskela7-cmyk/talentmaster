@@ -83,15 +83,38 @@ describe('(3) Ehdotus ei vaihda ennen hyväksyntää', () => {
     expect(ulos[1].status).toBe('ehdotettu');
   });
 
-  it('hyväksyntä (sama luotu, aktiivinen) vaihtaa edellisen', () => {
+  /* K1 · KAKSIVAIHEINEN HYVÄKSYNTÄ. Ehdotus tallennetaan omana alkionaan, ja hyväksyntä palaa SAMALLA
+     luotu-tunnisteella statuksella 'aktiivinen'. Ilman korvaa-haaran lisäystä taulukkoon jäi KAKSI
+     voimassa olevaa tavoitetta — ja jos uusi myöhemmin hylättiin, vanha heräsi henkiin. */
+  it('hyväksyntä (sama luotu, aktiivinen) MERKITSEE edellisen vaihdetuksi', () => {
     const ehdotus = Object.assign(B(), { status: 'ehdotettu' });
     const vaihe1 = idpTavoitteetYhdista([A()], ehdotus, { nyt: NYT });
     const hyvaksytty = Object.assign({}, ehdotus, { status: 'aktiivinen' });
     const vaihe2 = idpTavoitteetYhdista(vaihe1, hyvaksytty, { nyt: NYT });
-    // sama luotu → korvaa alkion; A jää aktiiviseksi koska korvaus ei kulje "uusi tavoite" -haaraa
     expect(vaihe2).toHaveLength(2);
+    expect(vaihe2[0].status, 'kaksi voimassa olevaa tavoitetta').toBe('vaihdettu');
+    expect(vaihe2[0].vaihdettu_pvm).toBe(NYT);
+    expect(vaihe2[0].arviot, 'vanhan kehityskeskustelut katosivat').toHaveLength(3);
     expect(vaihe2[1].status).toBe('aktiivinen');
     expect(idpVoimassaTavoite(vaihe2).kuvaus).toBe('B');
+    // täsmälleen yksi voimassa oleva
+    expect(vaihe2.filter((x) => ['aktiivinen', 'jatkuu', 'saavutettu'].includes(x.status))).toHaveLength(1);
+  });
+
+  it('K1 · aktiivinen → saavutettu EI merkitse mitään vaihdetuksi', () => {
+    const ulos = idpTavoitteetYhdista([A()], Object.assign(A(), { status: 'saavutettu' }), { nyt: NYT });
+    expect(ulos).toHaveLength(1);
+    expect(ulos[0].status).toBe('saavutettu');
+    expect(ulos.some((x) => x.status === 'vaihdettu')).toBe(false);
+  });
+
+  it('K1 · ehdotettu → hylatty jättää voimassa olevan rauhaan', () => {
+    const ehdotus = Object.assign(B(), { status: 'ehdotettu' });
+    const lista = idpTavoitteetYhdista([A()], ehdotus, { nyt: NYT });
+    const ulos = idpTavoitteetYhdista(lista, Object.assign({}, ehdotus, { status: 'hylatty' }), { nyt: NYT });
+    expect(ulos[0].status, 'hylkäys vaihtoi voimassa olevan').toBe('aktiivinen');
+    expect(ulos[1].status).toBe('hylatty');
+    expect(idpVoimassaTavoite(ulos).kuvaus).toBe('A');
   });
 });
 
@@ -223,5 +246,213 @@ describe('(8) Lukijat eivät koskaan valitse vaihdettua/hylättyä', () => {
     const vanha = Object.assign(A(), { status: 'vaihdettu', luotu: '2020-01-01T00:00:00.000Z' });
     expect(IDP.idpJumissa(vanha, new Date('2026-09-23'))).toBe(false);
     expect(IDP.idpPelaajaKaari(Object.assign(vanha, { fokus: { nimi: 'x' } }))).toBeNull();
+  });
+});
+
+describe('(9) K2 · fail-closed — vanha lib ei saa palauttaa ylikirjoitusta', () => {
+  /* lib/*.js tulee Firebasen oletusvälimuistista (firebase.json antaa no-cache vain html/sw/manifestille)
+     ja sw_pelaaja cachettaa /lib/tm_idp.js:n cache-first. Uusi HTML + vanha lib olisi `[t]`-fallbackin
+     kautta tuottanut TÄSMÄLLEEN sen ylikirjoituksen jonka tämä hotfix korjaa. */
+  const runko = (src, tunniste) => {
+    const i = src.indexOf(tunniste);
+    expect(i, tunniste + ' puuttuu').toBeGreaterThan(-1);
+    let syv = 0;
+    for (let k = src.indexOf('{', i); k < src.length; k++) {
+      if (src[k] === '{') syv++;
+      else if (src[k] === '}') { syv--; if (syv === 0) return src.slice(i, k + 1); }
+    }
+    throw new Error('sulut');
+  };
+
+  it.each([['VP', VP, 'async function _vpTallennaIdpDok'], ['Master', MASTER, 'async function _mIdpTallennaDok']])(
+    '%s: ei [t]-fallbackia tallennusfunktiossa', (_n, src, tunn) => {
+      expect(runko(src, tunn)).not.toMatch(/:\s*\[t\]/);
+    });
+
+  it.each([['VP', VP, 'async function _vpTallennaIdpDok'], ['Master', MASTER, 'async function _mIdpTallennaDok']])(
+    '%s: heittää ENNEN transaktiota jos helper puuttuu', (_n, src, tunn) => {
+      const r = runko(src, tunn);
+      const iThrow = r.indexOf('throw new Error');
+      const iTx = r.indexOf('runTransaction');
+      expect(iThrow, 'fail-closed-heittoa ei ole').toBeGreaterThan(-1);
+      expect(iThrow, 'heitto on vasta transaktion jälkeen').toBeLessThan(iTx);
+      expect(r).toContain("typeof idpTavoitteetYhdista !== 'function'");
+      expect(r).toContain("typeof idpTallennusVuosi !== 'function'");
+    });
+
+  it('kolmen appin tm_idp.js-versio on nostettu (VP/Master ≥7, Pelaaja ≥3)', () => {
+    const v = (src) => Number((/lib\/tm_idp\.js\?v=(\d+)/.exec(src) || [])[1]);
+    expect(v(VP)).toBeGreaterThanOrEqual(7);
+    expect(v(MASTER)).toBeGreaterThanOrEqual(7);
+    expect(v(PELAAJA)).toBeGreaterThanOrEqual(3);
+  });
+});
+
+describe('(10) K3 · lataajat käyttävät jaettua helperiä — KÄYTTÄYTYMISTESTI', () => {
+  /* Lataajat ajetaan LÄHTEESTÄ purettuna stub-db:llä: greppi ei näkisi että _idpVuosi asetetaan
+     oikeasta dokista eikä että edellistä vuotta ei lueta turhaan. */
+  function lataaja(src, tunniste) {
+    const i = src.indexOf(tunniste);
+    expect(i, tunniste + ' puuttuu').toBeGreaterThan(-1);
+    let syv = 0;
+    for (let k = src.indexOf('{', i); k < src.length; k++) {
+      if (src[k] === '{') syv++;
+      else if (src[k] === '}') { syv--; if (syv === 0) return src.slice(i, k + 1); }
+    }
+    throw new Error('sulut');
+  }
+
+  /* Ketjutettava stub: collection→doc→collection→doc→collection→doc→get (sama polku kuin apeissa).
+     Laskuriin kirjataan VAIN vuosidokit, jotta "edellistä vuotta ei lueta" on mitattavissa. */
+  function stubDb(dokit, laskuri) {
+    const snap = (y) => ({ exists: !!dokit[y], data: () => dokit[y] || {} });
+    const mkCol = () => ({ doc: (id) => mkDoc(id) });
+    const mkDoc = (id) => ({
+      collection: () => mkCol(),
+      get: async () => { if (/^\d{4}$/.test(String(id))) laskuri.push(String(id)); return snap(id); },
+    });
+    return { collection: () => mkCol() };   // juuri = db: db.collection('seurat').doc(..)…
+  }
+
+  const AA = () => ({ luotu: 'a', status: 'aktiivinen', kuvaus: 'A', arviot: [] });
+  const BB = () => ({ luotu: 'b', status: 'aktiivinen', kuvaus: 'B', arviot: [] });
+
+  async function ajaVP(dokit, laskuri) {
+    const p = { id: 'p1', idp_tila: 'aktiivinen' };
+    const ymp = {
+      db: stubDb(dokit, laskuri), _seuraId: 's1', _isDemoMode: false,
+      idpKausivuosi: () => '2027',
+      idpVoimassaTavoite, idpValitseKausidokista,
+      window: { _vpArvPelaaja: null },
+      _vpKausitavoiteReRender: () => {}, _vpAloitusReRender: () => {},
+    };
+    const nimet = Object.keys(ymp);
+    // eslint-disable-next-line no-new-func
+    const fn = new Function(...nimet, lataaja(VP, 'async function _vpLataaTavoite') + '\nreturn _vpLataaTavoite;')(
+      ...nimet.map((k) => ymp[k]));
+    await fn(p);
+    return p;
+  }
+
+  async function ajaMaster(dokit, laskuri) {
+    const p = { id: 'p1', idp_tila: 'aktiivinen' };
+    const ymp = {
+      _db: stubDb(dokit, laskuri), _seuraId: 's1', _demo: false,
+      idpKausivuosi: () => '2027',
+      idpVoimassaTavoite, idpValitseKausidokista,
+      window: { _mIdpPelaaja: null },
+      _mIdpReRender: () => {},
+    };
+    const nimet = Object.keys(ymp);
+    // eslint-disable-next-line no-new-func
+    const fn = new Function(...nimet, lataaja(MASTER, 'async function _mIdpLataa') + '\nreturn _mIdpLataa;')(
+      ...nimet.map((k) => ymp[k]));
+    await fn(p);
+    return p;
+  }
+
+  it('VP: 2027 tyhjä, 2026 [A aktiivinen] → A ja _idpVuosi 2026', async () => {
+    const laskuri = [];
+    const p = await ajaVP({ 2026: { tavoitteet: [AA()] } }, laskuri);
+    expect(p._idpTavoite.kuvaus).toBe('A');
+    expect(p._idpVuosi, 'tallennus menisi väärään dokkiin').toBe('2026');
+    expect(p._idpVuosiLuotu).toBe('a');
+  });
+
+  it('VP: 2027 [A vaihdettu, B aktiivinen] → B ja _idpVuosi 2027', async () => {
+    const laskuri = [];
+    const p = await ajaVP({ 2027: { tavoitteet: [Object.assign(AA(), { status: 'vaihdettu' }), BB()] } }, laskuri);
+    expect(p._idpTavoite.kuvaus).toBe('B');
+    expect(p._idpVuosi).toBe('2027');
+  });
+
+  it('VP: 2027 [B aktiivinen] → edellistä vuotta EI lueta', async () => {
+    const laskuri = [];
+    await ajaVP({ 2027: { tavoitteet: [BB()] } }, laskuri);
+    expect(laskuri).toEqual(['2027']);
+  });
+
+  it('Master: 2027 tyhjä, 2026 [A] → A ja _idpVuosi 2026', async () => {
+    const laskuri = [];
+    const p = await ajaMaster({ 2026: { tavoitteet: [AA()] } }, laskuri);
+    expect(p._mIdpTavoite.kuvaus).toBe('A');
+    expect(p._idpVuosi).toBe('2026');
+  });
+
+  it('Master: 2027 [A vaihdettu, B] → B, edellistä ei lueta', async () => {
+    const laskuri = [];
+    const p = await ajaMaster({ 2027: { tavoitteet: [Object.assign(AA(), { status: 'vaihdettu' }), BB()] } }, laskuri);
+    expect(p._mIdpTavoite.kuvaus).toBe('B');
+    expect(laskuri).toEqual(['2027']);
+  });
+
+  async function ajaPelaaja(dokit, laskuri) {
+    const win = { _db: stubDb(dokit, laskuri), _p7Tavoite: null, _p7Sitoumus: null };
+    const ymp = {
+      _ladattu: { idp: false },
+      _pelaaja: { id: 'p1', seuraId: 's1' },
+      window: win,
+      idpKausivuosi: () => '2027',
+      idpVoimassaTavoite, idpValitseKausidokista, idpOnVoimassa: IDP.idpOnVoimassa,
+      _p7Tavoite: null, _tab: 'muu', _sc: 'main', draw: () => {},
+    };
+    const nimet = Object.keys(ymp);
+    // eslint-disable-next-line no-new-func
+    const fn = new Function(...nimet, lataaja(PELAAJA, 'async function _p7LataaTavoite') + '\nreturn _p7LataaTavoite;')(
+      ...nimet.map((k) => ymp[k]));
+    await fn();
+    return win._p7Tavoite;
+  }
+
+  it('Pelaaja: 2027 tyhjä, 2026 [A aktiivinen] → A (vuodenvaihde toimii)', async () => {
+    const laskuri = [];
+    const tav = await ajaPelaaja({ 2026: { tavoitteet: [AA()] } }, laskuri);
+    expect(tav, 'vuodenvaihteen fallback ei toimi').toBeTruthy();
+    expect(tav.kuvaus).toBe('A');
+    expect(laskuri).toEqual(['2027', '2026']);
+  });
+
+  it('Pelaaja: 2027 [B aktiivinen] → edellistä vuotta EI lueta', async () => {
+    const laskuri = [];
+    const tav = await ajaPelaaja({ 2027: { tavoitteet: [BB()] } }, laskuri);
+    expect(tav.kuvaus).toBe('B');
+    expect(laskuri).toEqual(['2027']);
+  });
+
+  it('Pelaaja: 2027 [A aktiivinen, B ehdotettu] → A (K4 voimassa-preferenssi)', async () => {
+    const laskuri = [];
+    const tav = await ajaPelaaja({ 2027: { tavoitteet: [AA(), Object.assign(BB(), { status: 'ehdotettu' })] } }, laskuri);
+    expect(tav.kuvaus, 'lapsi näkisi hyväksymättömän ehdotuksen').toBe('A');
+  });
+
+  it.each([['VP', VP], ['Master', MASTER], ['Pelaaja', PELAAJA]])('%s kutsuu idpValitseKausidokista:a', (_n, src) => {
+    expect(src).toContain('idpValitseKausidokista(');
+  });
+});
+
+describe('(11) K4 · Pelaaja suosii voimassa olevaa ehdotuksen sijaan', () => {
+  /* Ennen hotfixiä taulukossa oli aina yksi alkio. Nyt [A aktiivinen, B ehdotettu] on mahdollinen,
+     eikä lapselle näytetä valmentajan hyväksymätöntä ehdotusta "Sinun tavoitteenasi". */
+  function pelaajanValinta(arr) {
+    const rivit = PELAAJA.split('\n');
+    const i = rivit.findIndex((l) => l.includes('var kelpo = arr.filter'));
+    expect(i, 'valintalohkoa ei löydy').toBeGreaterThan(-1);
+    const lohko = rivit.slice(i, i + 3).join('\n');
+    // eslint-disable-next-line no-new-func
+    return new Function('arr', 'idpOnVoimassa', lohko + '\nreturn valinta;')(arr, IDP.idpOnVoimassa);
+  }
+
+  it('[A aktiivinen, B ehdotettu] → A', () => {
+    const valinta = pelaajanValinta([A(), Object.assign(B(), { status: 'ehdotettu' })]);
+    expect(valinta.kuvaus, 'lapsi näkisi hyväksymättömän ehdotuksen').toBe('A');
+  });
+
+  it('[B ehdotettu] → B (ensimmäisen tavoitteen käytös säilyy)', () => {
+    expect(pelaajanValinta([Object.assign(B(), { status: 'ehdotettu' })]).kuvaus).toBe('B');
+  });
+
+  it('vaihdettu ja hylatty eivät kelpaa kummassakaan tapauksessa', () => {
+    const valinta = pelaajanValinta([Object.assign(A(), { status: 'vaihdettu' }), { status: 'hylatty' }]);
+    expect(valinta).toBeNull();
   });
 });

@@ -510,7 +510,7 @@ input::placeholder,textarea::placeholder{color:#8C8B86;opacity:1}
 <script src="tm-bus.js?v=3"></script>
 <script src="tm-demo.js?v=3"></script>
 <script src="tm_why_lauseet.js?v=3"></script>
-<script src="lib/tm_idp.js?v=2"></script>   <!-- Vaihe 3c-a: pelaajan aikajana (idpPelaajaKaari/Konsepti, §7.22-turvallinen) -->
+<script src="lib/tm_idp.js?v=3"></script>   <!-- Vaihe 3c-a: pelaajan aikajana (idpPelaajaKaari/Konsepti, §7.22-turvallinen) -->
 <script src="lib/tm_teknistaktiset.js?v=4"></script>   <!-- Vaihe 4b: pelaajan cue-kerros (tmTtPelaaja, §0b/§7.22) · v4 = parseri-korjaus (pelimuoto-saaste) -->
 <script src="lib/tm_teknistaktiset_sv.js?v=1"></script>   <!-- Konseptikortin SISÄLLÖN sv (TM_TT_SV); en-lähdettä ei ole → en-tilassa sisältö jää suomeksi, chrome kääntyy -->
 <script src="lib/tm_piirros.js?v=1"></script>   <!-- Piirrokset Vaihe 1: fasciallinjat (D1) + pelipaikkakartta (D4), inline-SVG -->
@@ -2129,19 +2129,25 @@ async function _p7LataaTavoite() {
     var data = snap.exists ? (snap.data() || {}) : {};
     var arr = data.tavoitteet;
     /* HOTFIX · vuodenvaihde: doc-id on kalenterivuosi → 1.1. syksyn tavoite katoaisi näkyvistä.
-       Jos kuluvassa ei ole voimassa olevaa, luetaan edellinen vuosi. */
-    if (typeof idpVoimassaTavoite === 'function' && !idpVoimassaTavoite(arr)) {
+       Edellinen vuosi luetaan vain jos kuluvassa ei ole voimassa olevaa; valinta jaetulla helperillä. */
+    var edArr = null, edVuosi = String(Number(vuosi) - 1);
+    if (!idpVoimassaTavoite(arr)) {
       try {
-        var se = await kausiCol.doc(String(Number(vuosi) - 1)).get();
-        var ed = se.exists ? (se.data() || {}) : {};
-        if (idpVoimassaTavoite(ed.tavoitteet)) arr = ed.tavoitteet;
+        var se = await kausiCol.doc(edVuosi).get();
+        edArr = (se.exists ? (se.data() || {}) : {}).tavoitteet || null;
       } catch (e) { /* best-effort */ }
     }
+    var val = idpValitseKausidokista(arr, vuosi, edArr, edVuosi);
+    if (val) arr = (val.vuosi === vuosi) ? arr : edArr;
     if (arr && arr.length) {
-      /* Voimassa oleva = viimeisin joka EI ole 'hylatty' eikä 'vaihdettu'. 'vaihdettu' on HOTFIXin
-         historiamerkintä: vanha tavoite säilyy taulukossa arvioineen, mutta sitä ei enää näytetä. */
-      var akt = arr.filter(function (t) { return t && t.status !== 'hylatty' && t.status !== 'vaihdettu'; });
-      _p7Tavoite = window._p7Tavoite = akt.length ? akt[akt.length - 1] : null;
+      /* Pelaajalle näytetään VOIMASSA oleva (aktiivinen|jatkuu|saavutettu) ennen ehdotusta: taulukossa voi
+         nyt olla valmentajan hyväksymätön 'ehdotettu', eikä lapselle näytetä sitä "Sinun tavoitteenasi".
+         Jos voimassa olevaa ei ole, näytetään viimeisin ehdotettu (ensimmäisen tavoitteen käytös säilyy).
+         'vaihdettu' ja 'hylatty' eivät näy kummassakaan tapauksessa. */
+      var kelpo = arr.filter(function (t) { return t && t.status !== 'hylatty' && t.status !== 'vaihdettu'; });
+      var voimassa = kelpo.filter(function (t) { return idpOnVoimassa(t); });
+      var valinta = voimassa.length ? voimassa[voimassa.length - 1] : (kelpo.length ? kelpo[kelpo.length - 1] : null);
+      _p7Tavoite = window._p7Tavoite = valinta;
     }
     // v2 §4 — pelaajan itsearvio + sitoumus (kaksivaiheinen: pelaaja sitoutuu, valmentaja vahvistaa).
     if (data.pelaaja_sitoumus) window._p7Sitoumus = data.pelaaja_sitoumus;
