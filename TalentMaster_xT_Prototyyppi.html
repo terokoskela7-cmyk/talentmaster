@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Uhka-arvo taktiikkataululla</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,400&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&family=DM+Mono:wght@400;500&display=swap">
+<style>
+/* TalentMaster-tokenit. Tumma = operatiivinen oletus (dark-first), vaalea bone-kangas. */
+:root{
+  --carbon:#1C1C1A; --bone:#F2EFE6; --teal:#1A7A5E; --teal-d:#28B090; --slate:#585751;
+  --amber:#E0A040; --blue:#5A8DD0; --red:#D06A5A;
+  --font-serif:'Cormorant Garamond',Georgia,'Times New Roman',serif;
+  --font-sans:'DM Sans',system-ui,-apple-system,'Segoe UI',sans-serif;
+  --font-mono:'DM Mono',ui-monospace,'SFMono-Regular',Menlo,monospace;
+  color-scheme:dark;
+  --bg:#111110; --surface:#1A1A18; --surface2:#22221E; --ink:#F2EFE6; --ink2:#C9C6BC; --ink3:#8B887F;
+  --border:rgba(242,239,230,.12); --border2:rgba(242,239,230,.07); --ov-1:rgba(242,239,230,.05);
+  --acc:#28B090; --teal-dim:rgba(40,176,144,.10); --teal-brd:rgba(40,176,144,.30);
+  --amber-dim:rgba(224,160,64,.10); --amber-brd:rgba(224,160,64,.30);
+  /* kaaviorenderöijän tokenit (lib/tm_kaavio_render.js) */
+  --k-accent:#28B090; --k-pitch:#161615; --k-line:rgba(242,239,230,.30); --k-cone:rgba(40,176,144,.20);
+  --k-halo:rgba(40,176,144,.26); --k-fade:#4D7A6C; --k-slate:#8B887F; --k-teal-brd:rgba(40,176,144,.55);
+  --k-ink:#F2EFE6; --k-ink3:#8B887F; --k-bg:#111110;
+}
+@media (prefers-color-scheme: light){
+  :root:not([data-theme="dark"]){
+    color-scheme:light;
+    --bg:#F2EFE6; --surface:#FBFAF6; --surface2:#EDEAE0; --ink:#1C1C1A; --ink2:#3E3C37; --ink3:#7A776E;
+    --border:rgba(28,28,26,.14); --border2:rgba(28,28,26,.08); --ov-1:rgba(28,28,26,.04);
+    --acc:#1A7A5E; --teal-dim:rgba(26,122,94,.10); --teal-brd:rgba(26,122,94,.30);
+    --amber-dim:rgba(224,160,64,.14); --amber-brd:rgba(224,160,64,.40);
+    --k-accent:#1A7A5E; --k-pitch:#FBFAF6; --k-line:rgba(28,28,26,.28); --k-cone:rgba(26,122,94,.16);
+    --k-halo:rgba(26,122,94,.20); --k-fade:#7FA89A; --k-slate:#585751; --k-teal-brd:rgba(26,122,94,.5);
+    --k-ink:#1C1C1A; --k-ink3:#7A776E; --k-bg:#F2EFE6;
+  }
+}
+:root[data-theme="light"]{
+  color-scheme:light;
+  --bg:#F2EFE6; --surface:#FBFAF6; --surface2:#EDEAE0; --ink:#1C1C1A; --ink2:#3E3C37; --ink3:#7A776E;
+  --border:rgba(28,28,26,.14); --border2:rgba(28,28,26,.08); --ov-1:rgba(28,28,26,.04);
+  --acc:#1A7A5E; --teal-dim:rgba(26,122,94,.10); --teal-brd:rgba(26,122,94,.30);
+  --amber-dim:rgba(224,160,64,.14); --amber-brd:rgba(224,160,64,.40);
+  --k-accent:#1A7A5E; --k-pitch:#FBFAF6; --k-line:rgba(28,28,26,.28); --k-cone:rgba(26,122,94,.16);
+  --k-halo:rgba(26,122,94,.20); --k-fade:#7FA89A; --k-slate:#585751; --k-teal-brd:rgba(26,122,94,.5);
+  --k-ink:#1C1C1A; --k-ink3:#7A776E; --k-bg:#F2EFE6;
+}
+:root[data-theme="dark"]{ color-scheme:dark; }
+
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font-sans);font-weight:300;font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1080px;margin:0 auto;padding-inline:20px;padding-block:40px 64px}
+.eyebrow{font-size:10px;font-weight:600;letter-spacing:.2em;text-transform:uppercase;color:var(--acc)}
+h1{font-family:var(--font-serif);font-weight:300;font-size:clamp(34px,5.4vw,54px);line-height:1.04;margin:12px 0 0;text-wrap:balance}
+h1 em{font-style:italic;color:var(--acc)}
+h2{font-family:var(--font-serif);font-weight:400;font-size:26px;line-height:1.15;margin:0;text-wrap:balance}
+.lead{font-size:16px;color:var(--ink2);max-width:62ch;margin:14px 0 0}
+.meta{font-family:var(--font-mono);font-size:10.5px;color:var(--ink3);margin-top:12px}
+
+.tabs{display:flex;gap:0;border-bottom:.5px solid var(--border);margin:32px 0 24px}
+.tab{appearance:none;background:none;border:0;border-bottom:1.5px solid transparent;margin-bottom:-.5px;padding:10px 16px 11px;font:600 10px/1 var(--font-sans);letter-spacing:.18em;text-transform:uppercase;color:var(--ink3);cursor:pointer}
+.tab[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--acc)}
+.tab:focus-visible,.seg button:focus-visible,.chip:focus-visible,.btn:focus-visible,select:focus-visible{outline:1.5px solid var(--acc);outline-offset:2px}
+
+.grid{display:grid;grid-template-columns:minmax(0,340px) minmax(0,1fr);gap:32px;align-items:start}
+@media (max-width:760px){.grid{grid-template-columns:minmax(0,1fr)}}
+
+.pitchcol{display:flex;flex-direction:column;gap:12px}
+.tm-kaavio{
+  --accent:var(--k-accent); --pitch:var(--k-pitch); --line:var(--k-line); --cone:var(--k-cone);
+  --halo:var(--k-halo); --fade:var(--k-fade); --bone:#F2EFE6; --carbon:#1C1C1A; --slate:var(--k-slate);
+  --red:#D06A5A; --teal-brd:var(--k-teal-brd); --ink:var(--k-ink); --ink3:var(--k-ink3); --bg:var(--k-bg);
+  background:var(--k-pitch);border:.5px solid var(--border);border-radius:2px;position:relative;max-width:340px;width:100%
+}
+.tm-kaavio svg{display:block;width:100%;height:auto;touch-action:manipulation}
+.tm-kaavio .xt-lappu.menetys{opacity:.42}
+.readout{font-family:var(--font-mono);font-size:10.5px;color:var(--ink3);min-height:1.6em;font-variant-numeric:tabular-nums}
+.readout b{color:var(--acc);font-weight:500}
+
+.ctrl{display:flex;flex-direction:column;gap:6px}
+.lbl{font-size:9.5px;font-weight:600;letter-spacing:.16em;text-transform:uppercase;color:var(--ink3)}
+select{width:100%;max-width:340px;font:400 13px var(--font-sans);color:var(--ink);background:var(--surface);border:.5px solid var(--border);border-radius:2px;padding:8px 10px}
+.seg{display:inline-flex;border:.5px solid var(--border);border-radius:2px;overflow:hidden;flex-wrap:wrap}
+.seg button{appearance:none;border:0;border-right:.5px solid var(--border);background:var(--surface);color:var(--ink2);font:500 11.5px var(--font-sans);padding:7px 12px;cursor:pointer}
+.seg button:last-child{border-right:0}
+.seg button[aria-pressed="true"]{background:var(--teal-dim);color:var(--acc)}
+
+.signal{font-family:var(--font-serif);font-weight:300;font-size:clamp(24px,3vw,30px);line-height:1.2;margin:10px 0 0;text-wrap:balance}
+.signal b{font-weight:400;color:var(--acc);font-variant-numeric:tabular-nums}
+.sub{color:var(--ink2);max-width:60ch;margin:10px 0 0}
+.note{font-size:12.5px;color:var(--ink2);border-left:1.5px solid var(--amber);background:var(--amber-dim);padding:8px 12px;margin-top:14px;max-width:62ch}
+.rule{border:0;border-top:.5px solid var(--border);margin:22px 0}
+
+.rows{display:flex;flex-direction:column;border-top:.5px solid var(--border2)}
+.row{display:grid;grid-template-columns:22px minmax(0,1fr) auto auto;gap:12px;align-items:center;padding:9px 0;border-bottom:.5px solid var(--border2)}
+.row .n{font-family:var(--font-mono);font-size:10px;color:var(--ink3)}
+.row .d{font-size:13px;color:var(--ink)}
+.row .d small{display:block;font-size:11px;color:var(--ink3)}
+.v{font-family:var(--font-mono);font-size:13px;font-variant-numeric:tabular-nums;text-align:right;min-width:52px}
+.v.pos{color:var(--acc)} .v.neu{color:var(--ink2)}
+.pill{font:600 8.5px/1 var(--font-sans);letter-spacing:.14em;text-transform:uppercase;padding:4px 7px;border:.5px solid var(--border);color:var(--ink3);white-space:nowrap}
+.pill.etenee{color:var(--acc);border-color:var(--teal-brd);background:var(--teal-dim)}
+.pill.potentiaali{color:var(--ink2);border-style:dashed}
+
+.how{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:24px;margin-top:8px}
+@media (max-width:760px){.how{grid-template-columns:1fr}}
+.how h3{font-family:var(--font-serif);font-weight:400;font-size:19px;margin:6px 0 4px}
+.how p{margin:0;color:var(--ink2);font-size:13px}
+
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chip{appearance:none;background:var(--surface);border:.5px solid var(--border);color:var(--ink2);font:500 12px var(--font-sans);padding:6px 10px;border-radius:2px;cursor:pointer}
+.chip[aria-pressed="true"]{border-color:var(--teal-brd);background:var(--teal-dim);color:var(--acc)}
+.chip .no{font-family:var(--font-mono);margin-right:6px}
+.btn{appearance:none;font:500 11.5px var(--font-sans);padding:7px 12px;border-radius:2px;border:.5px solid var(--border);color:var(--ink2);background:var(--surface);cursor:pointer}
+.btn:disabled{opacity:.45;cursor:default}
+.step{font-size:12.5px;color:var(--ink2)}
+.step b{color:var(--acc);font-weight:500}
+
+.tablewrap{overflow-x:auto}
+table{border-collapse:collapse;width:100%;min-width:520px;font-variant-numeric:tabular-nums}
+th{font:600 9px/1.2 var(--font-sans);letter-spacing:.14em;text-transform:uppercase;color:var(--ink3);text-align:right;padding:8px 8px;border-bottom:.5px solid var(--border)}
+th:first-child,td:first-child{text-align:left}
+td{padding:9px 8px;border-bottom:.5px solid var(--border2);text-align:right;font-family:var(--font-mono);font-size:12.5px;color:var(--ink2)}
+td:first-child{font-family:var(--font-sans);color:var(--ink)}
+tr.sel td{background:var(--ov-1)}
+td .big{font-family:var(--font-serif);font-size:20px;color:var(--acc)}
+.bar{display:inline-block;height:4px;background:var(--acc);vertical-align:middle;margin-left:8px;opacity:.8}
+.log{max-height:220px;overflow-y:auto}
+.foot{font-size:12px;color:var(--ink3);max-width:70ch;margin-top:28px}
+.foot a{color:var(--acc)}
+.themebtn{position:absolute;top:16px;right:20px}
+.hdr{position:relative}
+@media (prefers-reduced-motion:no-preference){.tab,.seg button,.chip{transition:color .15s,background .15s,border-color .15s}}
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header class="hdr">
+    <div class="eyebrow">TalentMaster™ · Taktiikkataulu · prototyyppi</div>
+    <h1>Uhka-arvo <em>taktiikkataululla</em></h1>
+    <p class="lead">Jokainen syöttö ja kuljetus saa arvon sen mukaan, kuinka paljon se vie palloa kohti maalintekopaikkaa. Sama kenttä, samat kaaviot ja sama piirtotyökalu kuin valmennuspäällikön ja valmentajan taktiikkataulussa, nyt uhkakartalla.</p>
+    <div class="meta">xT 12 × 8 · Karun Singh 2018 · uhkapiste = xT × 100</div>
+  </header>
+
+  <div class="tabs" role="tablist">
+    <button class="tab" role="tab" id="tab-taulu" aria-controls="p-taulu" aria-selected="true">Taktiikkataulu</button>
+    <button class="tab" role="tab" id="tab-hav" aria-controls="p-hav" aria-selected="false">Pelihavainto</button>
+  </div>
+
+  <!-- ═════════ TAKTIIKKATAULU ═════════ -->
+  <section id="p-taulu" role="tabpanel" aria-labelledby="tab-taulu">
+    <div class="grid">
+      <div class="pitchcol">
+        <div class="ctrl">
+          <label class="lbl" for="kaavioValinta">Kaavio</label>
+          <select id="kaavioValinta"></select>
+        </div>
+        <div class="ctrl">
+          <span class="lbl">Uhka-arvo</span>
+          <div class="seg" id="xtTila" role="group" aria-label="Uhka-arvon näyttö">
+            <button type="button" data-t="pois" aria-pressed="false">Pois</button>
+            <button type="button" data-t="arvot" aria-pressed="false">Liikkeiden arvot</button>
+            <button type="button" data-t="kartta" aria-pressed="true">Uhkakartta</button>
+          </div>
+        </div>
+        <div id="kentta1" class="tm-kaavio"></div>
+        <div class="readout" id="readout1">Osoita kenttää nähdäksesi alueen uhka-arvon.</div>
+      </div>
+
+      <div>
+        <div class="eyebrow" id="kaavioEyebrow">Kaavio</div>
+        <p class="signal" id="signaali"></p>
+        <p class="sub" id="alaotsikko"></p>
+        <div id="huomio"></div>
+        <hr class="rule">
+        <div class="lbl" style="margin-bottom:6px">Liikkeet piirtojärjestyksessä</div>
+        <div class="rows" id="liikelista"></div>
+        <hr class="rule">
+        <div class="how">
+          <div><div class="lbl">Etenee</div><h3>Vie uhkaan</h3><p>Pallo siirtyy alueelle, josta maali syntyy todennäköisemmin. Arvo vähintään +0,5.</p></div>
+          <div><div class="lbl">Ylläpitää</div><h3>Pitää pallon</h3><p>Siirto samalla korkeudella. Usein juuri oikea ratkaisu, kun tilaa ei vielä ole.</p></div>
+          <div><div class="lbl">Palauttaa</div><h3>Rakentaa uudelleen</h3><p>Pallo tulee taaksepäin. Kuvaus, ei virhe: turvaava syöttö voi avata seuraavan etenemisen.</p></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═════════ PELIHAVAINTO ═════════ -->
+  <section id="p-hav" role="tabpanel" aria-labelledby="tab-hav" hidden>
+    <div class="grid">
+      <div class="pitchcol">
+        <div class="ctrl">
+          <span class="lbl">Pelaaja</span>
+          <div class="chips" id="pelaajaValinta" role="group" aria-label="Havainnoitava pelaaja"></div>
+        </div>
+        <div class="ctrl">
+          <span class="lbl">Teko</span>
+          <div class="seg" id="tekoValinta" role="group" aria-label="Teon tyyppi">
+            <button type="button" data-t="syotto" aria-pressed="true">Syöttö</button>
+            <button type="button" data-t="kuljetus" aria-pressed="false">Kuljetus</button>
+            <button type="button" data-t="laukaus" aria-pressed="false">Laukaus</button>
+          </div>
+          <div class="seg" id="tulosValinta" role="group" aria-label="Teon lopputulos">
+            <button type="button" data-t="1" aria-pressed="true">Onnistui</button>
+            <button type="button" data-t="0" aria-pressed="false">Pallo menetettiin</button>
+          </div>
+        </div>
+        <div id="kentta2" class="tm-kaavio"></div>
+        <div class="step" id="ohje2"></div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button type="button" class="btn" id="kumoa">Kumoa viimeisin</button>
+          <button type="button" class="btn" id="tyhjenna">Tyhjennä ottelu</button>
+          <button type="button" class="btn" id="esimerkki">Palauta esimerkkiottelu</button>
+        </div>
+      </div>
+
+      <div>
+        <div class="eyebrow" id="havEyebrow">Esimerkkiottelu · 11v11</div>
+        <p class="signal" id="havSignaali"></p>
+        <p class="sub">Luotu uhka laskee vain onnistuneet syötöt ja kuljetukset. Menetetty pallo ei vähennä mitään, mutta yritys näkyy sarakkeessa <i>Yritetty</i>. Ero kertoo riskinotosta ilman rangaistusta.</p>
+        <hr class="rule">
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Pelaaja</th><th>Luotu uhka</th><th>Yritetty</th><th>Onnistui</th><th>Eteenpäin</th><th>Laukauksia</th></tr></thead>
+            <tbody id="havTaulu"></tbody>
+          </table>
+        </div>
+        <hr class="rule">
+        <div class="lbl" style="margin-bottom:6px" id="lokiOtsikko">Kirjatut teot</div>
+        <div class="rows log" id="havLoki"></div>
+      </div>
+    </div>
+  </section>
+
+  <p class="foot">Uhka-arvot perustuvat aikuisten huippujalkapallon tapahtumadataan (Karun Singh, <a href="https://karun.in/blog/expected-threat.html" target="_blank" rel="noopener">Introducing Expected Threat</a>). Ne kertovat luotettavasti, mikä alue on vaarallinen. 5v5–8v8-peleissä absoluuttiset luvut ovat suuntaa-antavia. Prototyyppi ei tallenna mitään: tuotannossa pelihavainnon teot tallentuvat pelaajan havaintoon ja kaavioiden kerros on taktiikkataulun editorin näkymätila.</p>
+</div>
+
+<script src="lib/tm_kaavio_render.js?v=1"></script>
+<script src="lib/tm_kaavio_kanon_data.js?v=1"></script>
+<script src="lib/tm_xt.js?v=1"></script>
+<script src="lib/tm_xt_kerros.js?v=1"></script>
+
+<script>
+(function () {
+  'use strict';
+
+  /* ── Esimerkkikaavio (ei kanoninen): koko hyökkäysketju, jotta summa näkyy. ── */
+  var ESIMERKKI = {
+    avain: 'esim_laitamurto', suunta: 'ylos', pelimuoto: '11v11',
+    nimi: { fi: 'Esimerkki: murtautuminen laidan kautta' },
+    tilanne: { fi: 'Keskikenttä kääntää pelin laitaan, laitahyökkääjä vie pallon päätyyn ja syöttää takaviistoon.' },
+    pelaajat: [
+      { id: '6', joukkue: 'oma', rooli: 'syöttäjä', x: 50, y: 64, pallo: true, korostus: true },
+      { id: '8', joukkue: 'oma', rooli: 'tuki', x: 36, y: 48, korostus: true },
+      { id: '7', joukkue: 'oma', rooli: 'vastaanottaja', x: 86, y: 38 },
+      { id: '10', joukkue: 'oma', rooli: 'vaihtoehto', x: 50, y: 34, korostus: true },
+      { id: '9', joukkue: 'oma', rooli: 'vaihtoehto', x: 56, y: 22, korostus: true },
+      { id: 'A', joukkue: 'vastustaja', rooli: 'paine', x: 58, y: 52 },
+      { id: 'B', joukkue: 'vastustaja', rooli: 'paine', x: 74, y: 30 },
+      { id: 'C', joukkue: 'vastustaja', rooli: 'tuki', x: 46, y: 16 },
+      { id: 'MV', joukkue: 'vastustaja', rooli: 'tuki', x: 50, y: 3, gk: true }
+    ],
+    liikkeet: [
+      { id: 'l1', tyyppi: 'syotto', from: { ref: '6' }, to: { ref: '8' } },
+      { id: 'l2', tyyppi: 'syotto', from: { ref: '8' }, to: { ref: '7' } },
+      { id: 'l3', tyyppi: 'kuljetus', from: { ref: '7' }, to: { x: 84, y: 14 } },
+      { id: 'l4', tyyppi: 'juoksu', from: { ref: '10' }, to: { x: 44, y: 12 } },
+      { id: 'l5', tyyppi: 'syotto', from: { x: 84, y: 14 }, to: { x: 44, y: 12 } },
+      { id: 'l6', tyyppi: 'laukaus', from: { x: 44, y: 12 }, to: { x: 48, y: 0 } }
+    ]
+  };
+
+  var TYYPPI = { syotto: 'Syöttö', kuljetus: 'Kuljetus', juoksu: 'Juoksu', laukaus: 'Laukaus' };
+  var LUOKKA = { etenee: 'Etenee', yllapitaa: 'Ylläpitää', palauttaa: 'Palauttaa' };
+
+  function esc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+  function $(id) { return document.getElementById(id); }
+  function nimi(s) { return (s.nimi && (s.nimi.fi || s.nimi.en)) || s.avain; }
+  function kaunis(t) { t = String(t || ''); return t.charAt(0) + t.slice(1).toLowerCase(); }
+  function kehitysTeksti(s) { return s.pelimuoto + ' · ' + (s.nakyma ? s.nakyma.replace('kolmannes', ' kolmannes').replace('keskikentta', 'keskikenttä').replace('hyokkays', 'hyökkäys') : 'koko kenttä'); }
+
+  /* ── Välilehdet ── */
+  var tabs = [['tab-taulu', 'p-taulu'], ['tab-hav', 'p-hav']];
+  tabs.forEach(function (tp) {
+    $(tp[0]).addEventListener('click', function () {
+      tabs.forEach(function (o) { var on = o[0] === tp[0]; $(o[0]).setAttribute('aria-selected', on ? 'true' : 'false'); $(o[1]).hidden = !on; });
+      if (tp[1] === 'p-hav') piirraHavainto();
+    });
+  });
+
+  /* ═════════ TAKTIIKKATAULU ═════════ */
+  var kaaviot = [ESIMERKKI].concat((window.TM_KAAVIO_KANON || []).filter(function (s) { return (s.liikkeet || []).length; }));
+  var tila1 = { i: 0, xt: 'kartta' };
+  var sel = $('kaavioValinta');
+  var og1 = document.createElement('optgroup'); og1.label = 'Prototyyppi';
+  var og2 = document.createElement('optgroup'); og2.label = 'Kanoninen kirjasto';
+  kaaviot.forEach(function (s, i) {
+    var o = document.createElement('option'); o.value = i;
+    o.textContent = (i === 0 ? '' : s.avain + ' · ') + kaunis(nimi(s)).replace(/^Esimerkki/i, 'Esimerkki');
+    (i === 0 ? og1 : og2).appendChild(o);
+  });
+  sel.appendChild(og1); sel.appendChild(og2);
+  sel.addEventListener('change', function () { tila1.i = +sel.value; piirraTaulu(); });
+
+  $('xtTila').addEventListener('click', function (e) {
+    var b = e.target.closest('button'); if (!b) return;
+    tila1.xt = b.getAttribute('data-t');
+    Array.prototype.forEach.call(this.querySelectorAll('button'), function (x) { x.setAttribute('aria-pressed', x === b ? 'true' : 'false'); });
+    piirraTaulu();
+  });
+
+  function kytkeReadout(svg, spec, el) {
+    svg.addEventListener('pointermove', function (e) {
+      var p = xtPikselistaKaavioon(svg, e.clientX, e.clientY); if (!p) return;
+      var v = xtArvo(p.x, p.y, spec.suunta);
+      el.innerHTML = 'Tämän alueen uhka-arvo <b>' + xtMuotoile(xtPisteet(v)) + '</b> · ruutu ' + (function (r) { return (r.sarake + 1) + '/12 pituus, ' + (r.rivi + 1) + '/8 leveys'; })(xtRuutu(p.x, p.y, spec.suunta));
+    });
+    svg.addEventListener('pointerleave', function () { el.textContent = 'Osoita kenttää nähdäksesi alueen uhka-arvon.'; });
+  }
+
+  function piirraTaulu() {
+    var s = kaaviot[tila1.i];
+    var c = $('kentta1'); c.innerHTML = '';
+    var svg = drawSpec(s, 'fi');
+    svg.setAttribute('aria-label', nimi(s));
+    var a = tila1.xt === 'pois' ? xtKaavioAnalyysi(s) : xtPiirraKerros(svg, s, { uhkakartta: tila1.xt === 'kartta', arvot: true });
+    c.appendChild(svg);
+    kytkeReadout(svg, s, $('readout1'));
+
+    $('kaavioEyebrow').textContent = (tila1.i === 0 ? 'Prototyyppi' : 'Kanoninen · ' + s.avain) + ' · ' + kehitysTeksti(s);
+    var omat = a.yhteensa.pallotapahtumia;
+    var sig;
+    if (omat > 1) sig = 'Ketju vie palloa <b>' + xtMuotoile(a.yhteensa.pisteet, true) + '</b> uhkapistettä lähemmäs maalia ' + omat + ' pallokosketuksella.';
+    else if (omat === 1) sig = 'Tämä ' + TYYPPI[a.paras ? a.paras.tyyppi : 'syotto'].toLowerCase() + ' on arvoltaan <b>' + xtMuotoile(a.yhteensa.pisteet, true) + '</b> uhkapistettä.';
+    else if (a.juoksuPotentiaali.juoksuja) sig = 'Kaavion juoksut avaavat <b>' + xtMuotoile(a.juoksuPotentiaali.pisteet) + '</b> uhkapistettä, jos pallo tulee perille.';
+    else sig = 'Kaaviossa ei ole oman joukkueen syöttöä tai kuljetusta, joten uhka-arvoa ei synny.';
+    $('signaali').innerHTML = sig;
+    var ali = s.tilanne && s.tilanne.fi ? kaunis(s.tilanne.fi) : '';
+    if (omat && a.paras) ali += (ali ? ' ' : '') + 'Arvokkain teko: ' + TYYPPI[a.paras.tyyppi].toLowerCase() + ' ' + xtMuotoile(a.paras.pisteet, true) + '.';
+    if (omat > 0 && a.juoksuPotentiaali.juoksuja) ali += ' Juoksut avaavat lisäksi ' + xtMuotoile(a.juoksuPotentiaali.pisteet) + '.';
+    $('alaotsikko').textContent = ali;
+    $('huomio').innerHTML = a.huomio ? '<div class="note">' + esc(a.huomio) + '</div>' : '';
+
+    var h = '';
+    a.liikkeet.forEach(function (li, i) {
+      var tek = li.tekija === 'vastustaja' ? 'vastustaja' : 'oma';
+      var kuka = li.tekijaId ? '#' + li.tekijaId : 'vapaa piste';
+      var pill = li.tyyppi === 'laukaus' ? '<span class="pill">xG-alue</span>'
+        : li.tyyppi === 'juoksu' ? '<span class="pill potentiaali">Potentiaali</span>'
+        : '<span class="pill ' + li.luokka + '">' + LUOKKA[li.luokka] + '</span>';
+      var v = li.pisteet == null ? '—' : xtMuotoile(li.pisteet, true);
+      h += '<div class="row"><span class="n">' + (i + 1) + '</span><span class="d">' + TYYPPI[li.tyyppi] + ' <small>' + esc(kuka) + ' · ' + tek + ' · ' + xtMuotoile(xtPisteet(li.alku)) + (li.loppu != null ? ' → ' + xtMuotoile(xtPisteet(li.loppu)) : '') + '</small></span>' + pill + '<span class="v ' + (li.pisteet > 0 && li.tyyppi !== 'juoksu' ? 'pos' : 'neu') + '">' + v + '</span></div>';
+    });
+    $('liikelista').innerHTML = h || '<div class="row"><span></span><span class="d" style="color:var(--ink3)">Ei liikkeitä.</span><span></span><span></span></div>';
+  }
+
+  /* ═════════ PELIHAVAINTO ═════════ */
+  var PELAAJAT = [
+    { id: '7', rooli: 'Laitahyökkääjä' },
+    { id: '10', rooli: 'Hyökkäävä keskikenttä' },
+    { id: '6', rooli: 'Keskikenttä' },
+    { id: '3', rooli: 'Laitapuolustaja' }
+  ];
+  function esimerkkiTapahtumat() {
+    return [
+      { pelaajaId: '6', tyyppi: 'syotto', from: { x: 48, y: 66 }, to: { x: 82, y: 44 }, onnistui: true },
+      { pelaajaId: '7', tyyppi: 'kuljetus', from: { x: 82, y: 44 }, to: { x: 86, y: 20 }, onnistui: true },
+      { pelaajaId: '7', tyyppi: 'syotto', from: { x: 86, y: 20 }, to: { x: 52, y: 11 }, onnistui: false },
+      { pelaajaId: '3', tyyppi: 'syotto', from: { x: 12, y: 74 }, to: { x: 40, y: 52 }, onnistui: true },
+      { pelaajaId: '10', tyyppi: 'kuljetus', from: { x: 42, y: 48 }, to: { x: 46, y: 30 }, onnistui: true },
+      { pelaajaId: '10', tyyppi: 'syotto', from: { x: 46, y: 30 }, to: { x: 58, y: 13 }, onnistui: true },
+      { pelaajaId: '6', tyyppi: 'syotto', from: { x: 52, y: 60 }, to: { x: 30, y: 70 }, onnistui: true },
+      { pelaajaId: '7', tyyppi: 'kuljetus', from: { x: 84, y: 36 }, to: { x: 70, y: 18 }, onnistui: true },
+      { pelaajaId: '7', tyyppi: 'laukaus', from: { x: 70, y: 18 }, to: { x: 55, y: 0 } },
+      { pelaajaId: '3', tyyppi: 'kuljetus', from: { x: 14, y: 60 }, to: { x: 16, y: 38 }, onnistui: false },
+      { pelaajaId: '10', tyyppi: 'syotto', from: { x: 50, y: 34 }, to: { x: 20, y: 22 }, onnistui: true },
+      { pelaajaId: '6', tyyppi: 'syotto', from: { x: 46, y: 58 }, to: { x: 52, y: 36 }, onnistui: true }
+    ];
+  }
+  var tila2 = { valittu: '7', teko: 'syotto', onnistui: true, alku: null, tapahtumat: esimerkkiTapahtumat(), esimerkki: true };
+
+  function havYhteenveto() { return xtHavaintoYhteenveto(tila2.tapahtumat, 'ylos'); }
+
+  function piirraPelaajat() {
+    var h = '';
+    PELAAJAT.forEach(function (p) {
+      h += '<button type="button" class="chip" data-id="' + p.id + '" aria-pressed="' + (p.id === tila2.valittu) + '"><span class="no">#' + p.id + '</span>' + esc(p.rooli) + '</button>';
+    });
+    $('pelaajaValinta').innerHTML = h;
+  }
+  $('pelaajaValinta').addEventListener('click', function (e) {
+    var b = e.target.closest('.chip'); if (!b) return;
+    tila2.valittu = b.getAttribute('data-id'); tila2.alku = null; piirraHavainto();
+  });
+  function segKytke(id, fn) {
+    $(id).addEventListener('click', function (e) {
+      var b = e.target.closest('button'); if (!b) return;
+      Array.prototype.forEach.call(this.querySelectorAll('button'), function (x) { x.setAttribute('aria-pressed', x === b ? 'true' : 'false'); });
+      fn(b.getAttribute('data-t'));
+    });
+  }
+  segKytke('tekoValinta', function (t) { tila2.teko = t; $('tulosValinta').hidden = t === 'laukaus'; piirraOhje(); });
+  segKytke('tulosValinta', function (t) { tila2.onnistui = t === '1'; });
+  $('kumoa').addEventListener('click', function () {
+    if (tila2.alku) { tila2.alku = null; } else { tila2.tapahtumat.pop(); }
+    piirraHavainto();
+  });
+  $('tyhjenna').addEventListener('click', function () { tila2.tapahtumat = []; tila2.alku = null; tila2.esimerkki = false; piirraHavainto(); });
+  $('esimerkki').addEventListener('click', function () { tila2.tapahtumat = esimerkkiTapahtumat(); tila2.alku = null; tila2.esimerkki = true; piirraHavainto(); });
+
+  function piirraOhje() {
+    var p = PELAAJAT.filter(function (q) { return q.id === tila2.valittu; })[0];
+    var t = TYYPPI[tila2.teko].toLowerCase();
+    $('ohje2').innerHTML = tila2.alku
+      ? 'Napauta mihin ' + t + ' päättyi.'
+      : 'Napauta kentältä, mistä <b>#' + p.id + '</b> aloitti teon (' + t + ').';
+  }
+
+  function havaintoSpec() {
+    var omat = tila2.tapahtumat.map(function (t, i) { return { t: t, i: i }; }).filter(function (o) { return o.t.pelaajaId === tila2.valittu; });
+    var viim = omat.length ? omat[omat.length - 1].t.to : { x: 50, y: 55 };
+    if (tila2.alku) viim = tila2.alku;
+    return {
+      avain: 'havainto', suunta: 'ylos', pelimuoto: '11v11',
+      pelaajat: [{ id: tila2.valittu, joukkue: 'oma', rooli: 'vastaanottaja', x: viim.x, y: viim.y, suunta: -90 }],
+      liikkeet: omat.map(function (o) { return { id: 'h' + o.i, tyyppi: o.t.tyyppi, from: o.t.from, to: o.t.to, _onnistui: o.t.onnistui !== false }; })
+    };
+  }
+
+  function piirraHavainto() {
+    piirraPelaajat(); piirraOhje();
+    var s = havaintoSpec();
+    var c = $('kentta2'); c.innerHTML = '';
+    var svg = drawSpec(s, 'fi');
+    svg.setAttribute('aria-label', 'Havaintokenttä, pelaaja #' + tila2.valittu);
+    xtPiirraKerros(svg, s, { uhkakartta: true, arvot: true, maxOpasiteetti: 0.45 });
+    s.liikkeet.forEach(function (l) {
+      if (l._onnistui) return;
+      var lp = svg.querySelector('.xt-lappu[data-liike="' + l.id + '"]'); if (lp) lp.classList.add('menetys');
+    });
+    if (tila2.alku) {
+      var NS = 'http://www.w3.org/2000/svg', dot = document.createElementNS(NS, 'circle');
+      dot.setAttribute('cx', kaavioPX(tila2.alku.x)); dot.setAttribute('cy', kaavioPY(tila2.alku.y)); dot.setAttribute('r', 5);
+      dot.setAttribute('fill', 'none'); dot.setAttribute('stroke', 'var(--accent)'); dot.setAttribute('stroke-width', 1.6); dot.setAttribute('stroke-dasharray', '2 2');
+      svg.appendChild(dot);
+    }
+    svg.style.cursor = 'crosshair';
+    svg.addEventListener('click', function (e) {
+      var p = xtPikselistaKaavioon(svg, e.clientX, e.clientY); if (!p) return;
+      p = { x: Math.round(p.x), y: Math.round(p.y) };
+      if (!tila2.alku) { tila2.alku = p; }
+      else {
+        var t = { pelaajaId: tila2.valittu, tyyppi: tila2.teko, from: tila2.alku, to: p };
+        if (tila2.teko !== 'laukaus') t.onnistui = tila2.onnistui;
+        tila2.tapahtumat.push(t); tila2.alku = null;
+      }
+      piirraHavainto();
+    });
+    c.appendChild(svg);
+
+    /* Yhteenveto */
+    var yv = havYhteenveto();
+    var maxL = yv.reduce(function (m, p) { return Math.max(m, p.luotu.muutos); }, 0) || 1;
+    var h = '';
+    PELAAJAT.forEach(function (pp) {
+      var p = yv.filter(function (q) { return q.pelaajaId === pp.id; })[0];
+      var luotu = p ? p.luotu.pisteet : null;
+      var lev = p ? Math.max(0, Math.round(p.luotu.muutos / maxL * 56)) : 0;
+      h += '<tr' + (pp.id === tila2.valittu ? ' class="sel"' : '') + '><td>#' + pp.id + ' <span style="color:var(--ink3);font-size:12px">' + esc(pp.rooli) + '</span></td>'
+        + '<td><span class="big">' + (p ? xtMuotoile(luotu) : '—') + '</span><span class="bar" style="width:' + lev + 'px"></span></td>'
+        + '<td>' + (p ? xtMuotoile(p.yritetty.pisteet) : '—') + '</td>'
+        + '<td>' + (p && p.toimintoja ? p.onnistuneita + '/' + p.toimintoja : '—') + '</td>'
+        + '<td>' + (p && p.eteenpainOsuus != null ? p.eteenpainOsuus + ' %' : '—') + '</td>'
+        + '<td>' + (p ? p.laukauksia : 0) + '</td></tr>';
+    });
+    $('havTaulu').innerHTML = h;
+
+    var minun = yv.filter(function (q) { return q.pelaajaId === tila2.valittu; })[0];
+    var pr = PELAAJAT.filter(function (q) { return q.id === tila2.valittu; })[0];
+    $('havEyebrow').textContent = (tila2.esimerkki ? 'Esimerkkiottelu' : 'Oma kirjaus') + ' · 11v11 · ' + tila2.tapahtumat.length + ' tekoa';
+    if (minun && minun.toimintoja) {
+      var riski = minun.yritetty.muutos - minun.luotu.muutos;
+      $('havSignaali').innerHTML = '#' + pr.id + ' loi <b>' + xtMuotoile(minun.luotu.pisteet) + '</b> uhkapistettä ' + minun.onnistuneita + ' onnistuneella teolla'
+        + (riski > 0.004 ? ', ja yritti lisäksi ' + xtMuotoile(xtPisteet(riski)) + ':n arvosta.' : '.');
+    } else {
+      $('havSignaali').innerHTML = '#' + pr.id + ' ei vielä kirjattuja syöttöjä tai kuljetuksia.';
+    }
+
+    var lok = '';
+    tila2.tapahtumat.forEach(function (t, i) {
+      var a = xtLiikeArvo(t, 'ylos');
+      var ok = t.tyyppi === 'laukaus' ? '' : (t.onnistui === false ? ' · menetys' : ' · onnistui');
+      var pill = t.tyyppi === 'laukaus' ? '<span class="pill">xG-alue</span>' : (t.onnistui === false ? '<span class="pill">Yritys</span>' : '<span class="pill ' + a.luokka + '">' + LUOKKA[a.luokka] + '</span>');
+      lok += '<div class="row"' + (t.pelaajaId === tila2.valittu ? '' : ' style="opacity:.55"') + '><span class="n">' + (i + 1) + '</span><span class="d">#' + t.pelaajaId + ' ' + TYYPPI[t.tyyppi].toLowerCase() + '<small>' + ok.replace(' · ', '') + '</small></span>' + pill + '<span class="v ' + (a.pisteet > 0 && t.onnistui !== false ? 'pos' : 'neu') + '">' + (a.pisteet == null ? '—' : xtMuotoile(a.pisteet, true)) + '</span></div>';
+    });
+    $('havLoki').innerHTML = lok || '<div class="row"><span></span><span class="d" style="color:var(--ink3)">Ei kirjattuja tekoja. Valitse pelaaja ja napauta kentältä alku ja loppu.</span><span></span><span></span></div>';
+    $('kumoa').disabled = !tila2.alku && !tila2.tapahtumat.length;
+  }
+
+  piirraTaulu();
+  piirraHavainto();
+})();
+</script>
+
+</body>
+</html>
