@@ -26,6 +26,16 @@ const juuri = join(dirname(fileURLToPath(import.meta.url)), '..');
 const VP = readFileSync(join(juuri, 'TalentMaster_VP_v25.html'), 'utf8');
 const vaadi = createRequire(import.meta.url);
 const JF = vaadi('../lib/tm_jaksofokus.js');
+const _TAKS = vaadi('../lib/tm_arviointi_taksonomia.js');
+const _TTSV = vaadi('../lib/tm_teknistaktiset_sv.js');
+const _FYYS = vaadi('../lib/tm_fyysteemat.js');
+
+const _DATANIMI_HELPERIT = ['function _vpKausiNaytto(k) {', 'function _vpFokusNimiNaytto(fokus) {',
+  'function _vpKonseptiNimiNaytto(jf) {', 'function _vpTilaNaytto(tila) {', 'function _vpOtsikkoNaytto(s) {',
+  'function _vpTaksLang() {', 'function _taksNimi(o) {', 'function _taksVal(o, kentta) {',
+  'function _taksAvainNimi(avain) {', 'function _ttSvKartta() {', 'function _ttSvPaalla() {',
+  'function _ttSv(avain, kentta) {'];
+
 const _I18N = vaadi('../lib/tm_vp_i18n.js');
 const SV = (_I18N.TM_VP_I18N || _I18N).sv;
 
@@ -54,8 +64,13 @@ function render(p, opts, kieli) {
   const ymp = {
     _jsvEsc: (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])),
     vpT: (t) => (kieli === 'sv' ? (SV[t] != null ? SV[t] : t) : t),
-    window: { TM_JAKSOFOKUS: JF, _tmIBtn: () => '<span class="ib">i</span>' },
+    window: { TM_JAKSOFOKUS: JF, _tmIBtn: () => '<span class="ib">i</span>', TM_FYYSTEEMAT_LIB: _FYYS },
     _vpKausitavoiteHTML: () => '<div>KT-BODY</div>',
+    tmNykyinenKieli: () => kieli || 'fi',
+    TM_TT_SV: (_TTSV.TM_TT_SV || _TTSV),
+    tmTaksonomiaByAvain: _TAKS.tmTaksonomiaByAvain,
+    tmMittaLahdeNimi: _TAKS.tmMittaLahdeNimi || (() => ''),
+    tmKategoriaNimi: _TAKS.tmKategoriaNimi || (() => ''),
     _vpJfInlineHTML: () => '<div id="_jfInlineEditor">INLINE</div>',
     _vpTyopoytaJaksofokusHTML: () => '<div>RO-JF</div>',
     _vpJfEvidenssiHTML: () => '<div>EVID</div>',
@@ -63,7 +78,8 @@ function render(p, opts, kieli) {
     _vpMesoKaariHTML: () => '',
   };
   const nimet = Object.keys(ymp);
-  const koodi = funktio('function _vpKehSuunnitelmaHTML(p, opts) {') + '\nreturn _vpKehSuunnitelmaHTML(_p, _opts);';
+  const koodi = _DATANIMI_HELPERIT.map(funktio).join('\n') + '\n'
+    + funktio('function _vpKehSuunnitelmaHTML(p, opts) {') + '\nreturn _vpKehSuunnitelmaHTML(_p, _opts);';
   // eslint-disable-next-line no-new-func
   return new Function(...nimet, '_p', '_opts', koodi)(...nimet.map((k) => ymp[k]), p, opts);
 }

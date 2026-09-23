@@ -35,6 +35,16 @@ const juuri = join(dirname(fileURLToPath(import.meta.url)), '..');
 const VP = readFileSync(join(juuri, 'TalentMaster_VP_v25.html'), 'utf8');
 const vaadi = createRequire(import.meta.url);
 const JF = vaadi('../lib/tm_jaksofokus.js');
+const _TAKS = vaadi('../lib/tm_arviointi_taksonomia.js');
+const _TTSV = vaadi('../lib/tm_teknistaktiset_sv.js');
+const _FYYS = vaadi('../lib/tm_fyysteemat.js');
+
+const _DATANIMI_HELPERIT = ['function _vpKausiNaytto(k) {', 'function _vpFokusNimiNaytto(fokus) {',
+  'function _vpKonseptiNimiNaytto(jf) {', 'function _vpTilaNaytto(tila) {', 'function _vpOtsikkoNaytto(s) {',
+  'function _vpTaksLang() {', 'function _taksNimi(o) {', 'function _taksVal(o, kentta) {',
+  'function _taksAvainNimi(avain) {', 'function _ttSvKartta() {', 'function _ttSvPaalla() {',
+  'function _ttSv(avain, kentta) {'];
+
 
 const PV = 86400000;
 const iso = (ms) => new Date(ms).toISOString().slice(0, 10);
@@ -59,16 +69,24 @@ const KT_EDITORI_TYNKA = '<button onclick="_vpKirjaaReview(\'x\')">＋ Kirjaa re
   + '<button onclick="window._vpArvPelaaja._idpMuokkaus=true;_vpKausitavoiteReRender()">✎ Muokkaa</button>'
   + '<input type="text"><textarea></textarea><select></select>';
 
-function render(p, opts) {
+function render(p, opts, kieli) {
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const vpT = (t) => t;
-  const yhteenveto = new Function('_jsvEsc', 'vpT', 'return ' + funktio('function _vpTavoiteYhteenvetoHTML(p, opts) {'))(esc, vpT);
+  /* Yhteenveto näyttää myös kausi-arvon (_vpKausiNaytto), joten helperit käännetään mukaan. */
+  const yhteenveto = new Function('_jsvEsc', 'vpT', 'tmNykyinenKieli',
+    _DATANIMI_HELPERIT.map(funktio).join('\n') + '\nreturn ' + funktio('function _vpTavoiteYhteenvetoHTML(p, opts) {')
+  )(esc, vpT, () => kieli || 'fi');
   const ymp = {
     _jsvEsc: esc,
     vpT: vpT,
-    window: { TM_JAKSOFOKUS: JF, _tmIBtn: () => '' },
+    window: { TM_JAKSOFOKUS: JF, _tmIBtn: () => '', TM_FYYSTEEMAT_LIB: _FYYS },
     _vpKausitavoiteHTML: () => KT_EDITORI_TYNKA,
     _vpTavoiteYhteenvetoHTML: yhteenveto,
+    tmNykyinenKieli: () => kieli || 'fi',
+    TM_TT_SV: (_TTSV.TM_TT_SV || _TTSV),
+    tmTaksonomiaByAvain: _TAKS.tmTaksonomiaByAvain,
+    tmMittaLahdeNimi: _TAKS.tmMittaLahdeNimi || (() => ''),
+    tmKategoriaNimi: _TAKS.tmKategoriaNimi || (() => ''),
     _vpJfInlineHTML: () => '<div id="_jfInlineEditor">INLINE</div>',
     _vpTyopoytaJaksofokusHTML: () => '<div>RO-JF</div>',
     _vpJfEvidenssiHTML: () => '',
@@ -76,7 +94,8 @@ function render(p, opts) {
     _vpMesoKaariHTML: () => '',
   };
   const nimet = Object.keys(ymp);
-  const koodi = funktio('function _vpKehSuunnitelmaHTML(p, opts) {') + '\nreturn _vpKehSuunnitelmaHTML(_p, _opts);';
+  const koodi = _DATANIMI_HELPERIT.map(funktio).join('\n') + '\n'
+    + funktio('function _vpKehSuunnitelmaHTML(p, opts) {') + '\nreturn _vpKehSuunnitelmaHTML(_p, _opts);';
   // eslint-disable-next-line no-new-func
   return new Function(...nimet, '_p', '_opts', koodi)(...nimet.map((k) => ymp[k]), p, opts);
 }
