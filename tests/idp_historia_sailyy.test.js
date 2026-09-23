@@ -26,7 +26,7 @@ import { createRequire } from 'module';
 const juuri = join(dirname(fileURLToPath(import.meta.url)), '..');
 const vaadi = createRequire(import.meta.url);
 const IDP = vaadi('../lib/tm_idp.js');
-const { idpTavoitteetYhdista, idpVoimassaTavoite, idpValitseKausidokista, idpTallennusVuosi } = IDP;
+const { idpTavoitteetYhdista, idpVoimassaTavoite, idpValitseKausidokista, idpTallennusVuosi, idpJaaVoimassaJaEhdotus } = IDP;
 
 const VP = readFileSync(join(juuri, 'TalentMaster_VP_v25.html'), 'utf8');
 const MASTER = readFileSync(join(juuri, 'TalentMaster_Master_v16.html'), 'utf8');
@@ -322,7 +322,7 @@ describe('(10) K3 · lataajat käyttävät jaettua helperiä — KÄYTTÄYTYMIST
     const ymp = {
       db: stubDb(dokit, laskuri), _seuraId: 's1', _isDemoMode: false,
       idpKausivuosi: () => '2027',
-      idpVoimassaTavoite, idpValitseKausidokista,
+      idpVoimassaTavoite, idpValitseKausidokista, idpJaaVoimassaJaEhdotus,
       window: { _vpArvPelaaja: null },
       _vpKausitavoiteReRender: () => {}, _vpAloitusReRender: () => {},
     };
@@ -357,6 +357,27 @@ describe('(10) K3 · lataajat käyttävät jaettua helperiä — KÄYTTÄYTYMIST
     expect(p._idpTavoite.kuvaus).toBe('A');
     expect(p._idpVuosi, 'tallennus menisi väärään dokkiin').toBe('2026');
     expect(p._idpVuosiLuotu).toBe('a');
+  });
+
+  /* K1 (PR #618) — 1.5-lataus KÄYTTÄYTYMISENÄ, ei greppinä: aiemmin vartija tarkisti vain että lähde
+     mainitsee idpJaaVoimassaJaEhdotus:n, joten valinnan kääntäminen (luonnos ennen voimassa olevaa) jäi
+     vihreäksi — valmentajan hyväksymätön ehdotus olisi näkynyt voimassa olevana tavoitteena. */
+  it('VP: 2027 [A aktiivinen, B ehdotettu] → tavoite A, luonnos B (vaihto, ladattu)', async () => {
+    const laskuri = [];
+    const p = await ajaVP({ 2027: { tavoitteet: [AA(), { luotu: 'b', status: 'ehdotettu', kuvaus: 'B', arviot: [] }] } }, laskuri);
+    expect(p._idpTavoite.luotu, 'ehdotus nousi voimassa olevaksi tavoitteeksi').toBe('a');
+    expect(p._idpLuonnos, 'tallennettu ehdotus ei latautunut luonnokseksi').toBeTruthy();
+    expect(p._idpLuonnos.luotu).toBe('b');
+    expect(p._luonnosTyyppi).toBe('vaihto');
+    expect(p._luonnosTallennettu, 'ladattu luonnos merkittiin tallentamattomaksi → cockpitin avaus söisi sen').toBe(true);
+  });
+
+  it('VP: 2027 [B ehdotettu] → ei voimassa olevaa, luonnos B (uusi)', async () => {
+    const laskuri = [];
+    const p = await ajaVP({ 2027: { tavoitteet: [{ luotu: 'b', status: 'ehdotettu', kuvaus: 'B', arviot: [] }] } }, laskuri);
+    expect(p._idpTavoite, 'hyväksymätön ehdotus asetettiin voimassa olevaksi').toBeFalsy();
+    expect(p._idpLuonnos.luotu).toBe('b');
+    expect(p._luonnosTyyppi).toBe('uusi');
   });
 
   it('VP: 2027 [A vaihdettu, B aktiivinen] → B ja _idpVuosi 2027', async () => {

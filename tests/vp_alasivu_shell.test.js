@@ -123,6 +123,7 @@ describe('VP · jaettu alasivu-shell', () => {
          vain toisinpäin. Luokiteltu SISÄLLÖN perusteella (otsikko suluissa). */
       '_vpBrandiModal',    // 3 pikakysymystä + vapaa teksti (brändipalaute)
       'vpSkooppiModal',    // "Vain tämä / Tämä ja seuraavat" (toistuvan tapahtuman skooppi)
+      '_vpVaihtoModal',    // "Vahvista vaihto" — yksi valinta jaksolle (jatka loppuun / päätä nyt), sama luokka kuin vpSkooppiModal
       'vpTapModal',        // "Uusi tapahtuma" — luontilomake
       'vpTapEditModal',    // "Muokkaa tapahtumaa" — sama lomake muokkaustilassa
       'notifAsModal',      // "Ilmoitusasetukset" — kaksi kytkintä
