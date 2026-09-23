@@ -5517,6 +5517,77 @@ function _taksTeemaNimi(t) {                  // pääteema 'D1 · Liike' → 'D
   if (typeof tmKategoriaNimi !== 'function' || !t.dim || !t.kategoria) return t.nimi || '';
   return t.dim + ' · ' + tmKategoriaNimi(t.kategoria, _vpTaksLang());
 }
+/* ─── [PDC-DATANIMET-ALKU] Datanimet ja enumit näytetään käännettyinä — DATA PYSYY SUOMENA ─────────────
+   Firestoreen tallennetut arvot (fokus.alue, konsepti_avain/-nimi, status, aikaraami.kausi) ovat suomeksi
+   ja pysyvät niin; käännös tehdään VAIN renderissä. Sama malli kuin 'kulta' → 'guld' (tm_vp_i18n.js Erä 4c).
+   Nämä helperit EIVÄT tuo uutta hakurakennetta: ne kutsuvat olemassa olevia resolvereita
+   (_taksAvainNimi · _ttSv · _taksVal) ja putoavat puuttuvalla käännöksellä TALLENNETTUUN fi-nimeen.
+   fi-tilassa render on tavumerkilleen ennallaan: käännöshaara ajetaan vain kun kieli ≠ fi. */
+
+// B — kausi-arvo näyttöön. Data on 'syksy 2026' / 'kevät 2026'; sana käännetään, vuosi ei.
+// Tuntematon muoto (esim. '2026' tai 'kausi 2026') palautetaan sellaisenaan — ei arvausta, ei etuliitettä.
+function _vpKausiNaytto(k) {
+  if (k == null || k === '') return '';
+  var s = String(k);
+  var m = /^(syksy|kevät)\s+(\d{4})$/i.exec(s.trim());
+  if (!m) return _jsvEsc(s);
+  return vpT(m[1].toLocaleLowerCase('fi')) + ' ' + m[2];
+}
+
+// C — kausitavoitteen fokusnimi: taksonomia-avain (esim. hide_pass) → nimi_sv → tallennettu fi.
+function _vpFokusNimiNaytto(fokus) {
+  if (!fokus) return '';
+  var avain = fokus.alue || fokus.palloliitto_avain || null;
+  if (avain && _vpTaksLang() !== 'fi' && typeof _taksAvainNimi === 'function') {
+    var sv = _taksAvainNimi(avain);
+    if (sv) return sv;
+  }
+  return fokus.nimi || fokus.alue || '';
+}
+
+// C — jaksofokuksen konseptinimi: curriculum-sidecar (TM_TT_SV) tai fyysteemat nimi_sv → tallennettu fi.
+function _vpKonseptiNimiNaytto(jf) {
+  if (!jf) return '';
+  var avain = jf.konsepti_avain || null;
+  if (avain && _vpTaksLang() !== 'fi') {
+    if (jf.domeeni === 'fyysinen') {
+      var F = window.TM_FYYSTEEMAT_LIB;
+      var lista = (F && F.TM_FYYSTEEMAT) || [];
+      for (var i = 0; i < lista.length; i++) {
+        if (lista[i] && lista[i].avain === avain) {
+          var fn = (typeof _taksVal === 'function') ? _taksVal(lista[i], 'nimi') : '';
+          if (fn) return fn;
+        }
+      }
+    }
+    var sv = (typeof _ttSv === 'function') ? _ttSv(avain, 'nimi') : null;
+    if (sv) return sv;
+  }
+  return jf.konsepti_nimi || '';
+}
+
+// D — tallennettu tila-enum näyttöön. Tuntematon arvo palautetaan escapattuna (ei fabrikoida labelia).
+function _vpTilaNaytto(tila) {
+  if (!tila) return '';
+  var t = String(tila);
+  if (t === 'ehdotettu') return vpT('Ehdotettu');
+  if (t === 'hylatty') return vpT('Hylätty');
+  return _jsvEsc(t);
+}
+
+/* E — serif-otsikon isot kirjaimet. Curriculumin nimet ovat datassa isoilla (SYÖTTÄMINEN · PASSNINGSSPEL),
+   ja 22 px:n Cormorant-otsikkona se huutaa. Muunnos tehdään VAIN jos merkkijono on kokonaan isoilla:
+   sekakirjaimiin ei kosketa, jotta lyhenteet ja erisnimet säilyvät ('1v1-haasteet', 'ADAR-lukeminen').
+   Vain näyttö — data ennallaan. */
+function _vpOtsikkoNaytto(s) {
+  var v = String(s == null ? '' : s);
+  if (!v) return v;
+  var l = (_vpTaksLang() === 'sv') ? 'sv' : 'fi';
+  var ylos = v.toLocaleUpperCase(l), alas = v.toLocaleLowerCase(l);
+  if (v !== ylos || ylos === alas) return v;   // ei kokonaan isoilla, tai ei kirjaimia lainkaan
+  return v.charAt(0) + v.slice(1).toLocaleLowerCase(l);
+}
+// ─── [PDC-DATANIMET-LOPPU] ──────────────────────────────────────────────────────────────────────────────
 // ─── [TAKS-I18N-LOPPU] ──────────────────────────────────────────────────────────────────────────────────
 // ─── [TT-I18N-ALKU] i18n V5 · Vaihe B — teknis-taktisen curriculumin kielivalinta VP-KERROKSESSA ────────
 // lib/tm_teknistaktiset.js on GENEROITU (docs/data/parse_oma_versio.py) → siihen EI voi laittaa
@@ -6771,17 +6842,18 @@ function _vpKehSuunnitelmaHTML(p, opts) {
   let h = '<div style="font-family:var(--font-serif),\\\'Cormorant Garamond\\\',serif;font-size:26px;font-weight:300;color:var(--ink);margin:2px 0 2px">' + vpT('Kehityssuunnitelma') + '</div>';
   h += '<div class="idp-breadcrumb">' + vpT('🎯 kausi › 📍 jakso › 🗺 kaari') + '</div>';
   // ── TASO 1 · Kausitavoite ──
+  const _ktFokusObj = (t && t.fokus) || p.idp_fokus || null;   // C: nimiresolveri tarvitsee objektin (alue-avain)
   const ktFokus = (t && t.fokus && (t.fokus.nimi || t.fokus.alue)) || (p.idp_fokus && (p.idp_fokus.nimi || p.idp_fokus.alue)) || null;
   const ktKausi = (t && t.aikaraami && t.aikaraami.kausi) || null;
   const ktTila = (t && t.status) || p.idp_tila || null;
   // Tilarivi: sana + piste. Lisa = kausi SELLAISENAAN: arvo on jo 'syksy 2026' (lib/tm_idp.js:301), joten
   // 'Kausi '-etuliite tuottaisi "KAUSI SYKSY 2026" — ja sv:ssa "SÄSONG SYKSY 2026" (tupla + kielet sekaisin).
-  const ktKausiLisa = ktKausi ? esc(ktKausi) : null;
+  const ktKausiLisa = ktKausi ? _vpKausiNaytto(ktKausi) : null;
   // Tila EI ole tiedossa jos fokus on mutta statusta ei (legacy p.idp_fokus ilman idp_tila) → EI tilariviä.
   // Ristiriitainen "○ EI ASETETTU" + fokuksen nimi heti alla on pahempi kuin puuttuva rivi; tilaa ei arvata.
   const ktTilaObj = (ktTila === 'aktiivinen') ? { sana: vpT('Aktiivinen'), lisa: ktKausiLisa, piste: 'on' }
     : (ktTila === 'saavutettu') ? { sana: vpT('Saavutettu'), lisa: ktKausiLisa, piste: 'off' }
-      : ktTila ? { sana: esc(ktTila), lisa: ktKausiLisa, piste: 'off' }
+      : ktTila ? { sana: _vpTilaNaytto(ktTila), lisa: ktKausiLisa, piste: 'off' }
         : ktFokus ? null
           : { sana: vpT('Ei asetettu'), lisa: null, piste: 'off' };
   /* 4. read-only-vuoto: raportissa kausitavoitteen body oli EDITOITAVA _vpKausitavoiteHTML — siellä näkyivät
@@ -6800,7 +6872,7 @@ function _vpKehSuunnitelmaHTML(p, opts) {
     id: idp + '_accKausitavoite', ico: '🎯',
     nimi: vpT('Kausitavoite') + ((typeof window._tmIBtn === 'function') ? window._tmIBtn('idp_kausitavoite') : ''),
     tila: ktTilaObj,
-    sisalto: ktFokus ? esc(ktFokus) : '',
+    sisalto: ktFokus ? esc(_vpOtsikkoNaytto(_vpFokusNimiNaytto(_ktFokusObj))) : '',
     meta: '',
     body: ktBody,
     avoin: !(ktFokus || ktTila),
@@ -6832,7 +6904,7 @@ function _vpKehSuunnitelmaHTML(p, opts) {
     id: idp + '_accJaksofokus', ico: '📍',
     nimi: vpT('Jaksofokus') + ((typeof window._tmIBtn === 'function') ? window._tmIBtn('idp_jaksofokus') : ''),
     tila: jfTilaObj,
-    sisalto: jfNimi ? esc(jfNimi) : '',     // UUTTA: konsepti_nimi näkyy nyt suoraan riviltä
+    sisalto: jfNimi ? esc(_vpOtsikkoNaytto(_vpKonseptiNimiNaytto(jf))) : '',   // konsepti_nimi riviltä, sv sidecarista
     meta: jfMeta,
     body: jfBody + jfEvid,
     // Tyhjä rivi auki myös PDC:ssä (editori:false), muuten "＋ Aseta jaksofokus" -CTA jää piiloon —
@@ -6912,7 +6984,7 @@ function _vpTavoiteYhteenvetoHTML(p, opts) {
   h += '</div>';
   const hor = [];
   const ar = t && t.aikaraami;
-  if (ar && ar.kausi) hor.push(vpT('Kausi ') + esc(ar.kausi));
+  if (ar && ar.kausi) hor.push(_vpKausiNaytto(ar.kausi));
   if (ar && ar.kesto_vk) hor.push(ar.kesto_vk + ' ' + vpT('vk'));
   if (ar && ar.arvio_pvm) { const m = String(ar.arvio_pvm).match(/^(\d{4})-(\d{2})-(\d{2})/); hor.push(vpT('arvioidaan') + ' ' + (m ? (+m[3]) + '.' + (+m[2]) + '.' + m[1] : esc(ar.arvio_pvm))); }
   if (hor.length) h += '<div style="font-size:11px;color:var(--ink3);margin-top:8px">' + hor.join(' · ') + '</div>';
@@ -6948,7 +7020,7 @@ function _vpAloitusTavoiteHTML(p) {
   h += '</div>';
   const hor = [];
   const ar = t && t.aikaraami;
-  if (ar && ar.kausi) hor.push(vpT('Kausi ') + esc(ar.kausi));
+  if (ar && ar.kausi) hor.push(_vpKausiNaytto(ar.kausi));
   if (ar && ar.kesto_vk) hor.push(ar.kesto_vk + ' ' + vpT('vk'));
   if (ar && ar.arvio_pvm) { const m = String(ar.arvio_pvm).match(/^(\d{4})-(\d{2})-(\d{2})/); hor.push(vpT('arvioidaan') + ' ' + (m ? (+m[3]) + '.' + (+m[2]) + '.' + m[1] : esc(ar.arvio_pvm))); }
   if (hor.length) h += '<div style="font-size:10.5px;color:var(--ink3);font-family:var(--font-mono);margin-top:7px">' + hor.join(' · ') + '</div>';
@@ -7266,7 +7338,7 @@ function _vpKausitavoiteHTML(p) {
   const mit = t.mittari || {}, yks = mit.yksikko || '';
   const la = t.lahto ? t.lahto.arvo : null, tv = t.tavoitearvo;
   h += '<div class="jsp-kt-row"><span class="jsp-kt-pill ' + pillCls + '">' + (st === 'aktiivinen' ? vpT('● Aktiivinen') : st === 'ehdotettu' ? vpT('○ Ehdotettu') : _jsvEsc(st)) + '</span>'
-    + '<span class="jsp-kt-kausi">' + _jsvEsc((t.aikaraami && t.aikaraami.kausi) || '') + (t.aikaraami && t.aikaraami.kesto_vk ? ' · ' + t.aikaraami.kesto_vk + ' ' + vpT('vk') : '') + '</span></div>';
+    + '<span class="jsp-kt-kausi">' + _vpKausiNaytto((t.aikaraami && t.aikaraami.kausi) || '') + (t.aikaraami && t.aikaraami.kesto_vk ? ' · ' + t.aikaraami.kesto_vk + ' ' + vpT('vk') : '') + '</span></div>';
   // v2 §3 — 8 viikon sääntö: pehmeä banneri jos tavoite ei ole edennyt (>56 vrk). Ei automaattista muutosta.
   if (typeof idpJumissa === 'function' && idpJumissa(t)) {
     h += '<div class="jsp-kt-varo" style="color:var(--amber)">' + vpT('⏳ Tavoite ei ole edennyt 8 viikkoon — harkitse harjoitteen/konseptin vaihtoa · katso ohjelma-analytiikka (7.2b).') + '</div>';
@@ -8097,7 +8169,7 @@ function renderJaksofokus() {
   const talWarn = k.talentit.ilman > 0;
   h += '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:14px 0">';
   h += _jfKpi(vpT('Kattavuus'), k.kattavuus.katettu + '/' + k.kattavuus.yht, k.kattavuus.pct + ' % — ' + k.kattavuus.ilman + ' ' + vpT('ilman fokusta'), kattWarn, k.kattavuus.pct);
-  h += _jfKpi(vpT('Jaksot'), k.jaksot.aktiiviset + ' <span style="font-size:13px;color:var(--ink3)">akt.</span>', (k.jaksot.umpeutuneet ? '🟠 ' + k.jaksot.umpeutuneet + ' ' + vpT('umpeutunut') : vpT('kaikki ajan tasalla')), false, null);
+  h += _jfKpi(vpT('Jaksot'), k.jaksot.aktiiviset + ' <span style="font-size:13px;color:var(--ink3)">akt.</span>', (k.jaksot.umpeutuneet ? '🟠 ' + k.jaksot.umpeutuneet + ' ' + (k.jaksot.umpeutuneet === 1 ? vpT('umpeutunut') : vpT('umpeutunutta')) : vpT('kaikki ajan tasalla')), false, null);
   h += _jfKpi(vpT('Talentit katettu'), k.talentit.katettu + '/' + k.talentit.yht, (k.talentit.ilman ? k.talentit.ilman + ' ' + vpT('talentti ilman fokusta') : vpT('kaikki ohjattu')), talWarn && k.talentit.yht > 0, null);
   h += _jfKpi(vpT('Kuka asetti'), (k.lahde.valmentaja + ' ' + vpT('valm ·') + ' ' + (k.lahde.vp + k.lahde.talenttivalmentaja) + ' VP'), vpT('delegointi näkyvissä'), false, null, true);
   h += '</div>';
@@ -9104,8 +9176,8 @@ function _vpAloitusHTML(p) {
   const _alPvm = _al && _al.pvm ? _pvmFi(_al.pvm) : null;
   let h = '<div class="vpal-fokus">';
   // Kausifokus (makro)
-  h += '<div class="vpal-fk kausi"><div class="vpal-k teal">' + vpT('🎯 Kausifokus') + (kausi ? ' <span class="vpal-pill">makro · ' + _jsvEsc(kausi) + '</span>' : '') + '</div>'
-    + '<h3 class="vpal-h3">' + _jsvEsc((fokus && fokus.nimi) || '—') + (fokus && fokus.dim ? ' · ' + fokus.dim : '') + '</h3>'
+  h += '<div class="vpal-fk kausi"><div class="vpal-k teal">' + vpT('🎯 Kausifokus') + (kausi ? ' <span class="vpal-pill">makro · ' + _vpKausiNaytto(kausi) + '</span>' : '') + '</div>'
+    + '<h3 class="vpal-h3">' + _jsvEsc(_vpFokusNimiNaytto(fokus) || '—') + (fokus && fokus.dim ? ' · ' + fokus.dim : '') + '</h3>'
     + (tilaLbl ? '<div class="vpal-meta">' + tilaLbl + (t && t.aikaraami && t.aikaraami.kesto_vk ? ' · ' + t.aikaraami.kesto_vk + ' vk' : '') + '</div>' : '')
     + (_al && _al.tyyppi === 'pelihavainto' ? '<div class="vpal-meta" style="color:var(--ink3)">' + vpT('◎ Lähde: pelihavainto') + (_alPvm ? ' · ' + _jsvEsc(_alPvm) : '') + '</div>' : '')
     + (pelilause ? '<div class="vpal-peli">' + vpT('⚽ Näkyy pelissä:') + ' ' + _jsvEsc(pelilause) + '</div>' : '') + '</div>';
@@ -15812,7 +15884,13 @@ function _renderMDTProfiili() {
     h += '<div class="pdc-sig">' + vpT('Scouting-näkymä — vahvin erottaja:') + ' <b>' + erottaja + '</b>. ' + (p.signaali === 'xfactor' ? vpT('X-Factor tunnistettu.') : (hgBadge ? vpT('Hidden Gem -signaali.') : vpT('Ei X-Factoria vielä.'))) + '</div>';
   } else {
     var jfNimi = (p.jaksofokus && p.jaksofokus.konsepti_nimi) || (p.idp_fokus && (p.idp_fokus.nimi || p.idp_fokus.alue)) || null;
-    h += '<div class="pdc-sig">' + (jfNimi ? (vpT('Nykyfokus') + ' <b>' + _jsvEsc(jfNimi) + '</b>' + (p.idp_tila ? ' · IDP ' + vpT(IDP_TILA_LBL[p.idp_tila] || p.idp_tila) : '') + '.') : vpT('Ei asetettua jaksofokusta — aseta cockpitissa.')) + '</div>';
+    /* Näytettävä nimi seuraa SAMAA haaraa kuin jfNimi: jaksofokus jos on, muuten kausitavoitteen fokus.
+       Ilman tätä pelaajalla jolla on idp_fokus mutta EI jaksofokusta rivillä luki "Nykyfokus ." (tyhjä
+       lihavointi) — yleinen tila, koska P2:n päätösrivi näyttää silloin "Ei jaksofokusta". */
+    var _sigNimi = (p.jaksofokus && p.jaksofokus.konsepti_nimi)
+      ? _vpKonseptiNimiNaytto(p.jaksofokus)
+      : _vpFokusNimiNaytto(p.idp_fokus);
+    h += '<div class="pdc-sig">' + (jfNimi ? (vpT('Nykyfokus') + ' <b>' + _jsvEsc(_vpOtsikkoNaytto(_sigNimi)) + '</b>' + (p.idp_tila ? ' · IDP ' + vpT(IDP_TILA_LBL[p.idp_tila] || p.idp_tila) : '') + '.') : vpT('Ei asetettua jaksofokusta — aseta cockpitissa.')) + '</div>';
   }
 
   // P2 — PÄÄTÖS KÄRKEEN: yksi rivi heti signature-rivin alle, molemmissa linsseissä (audit §P2).
