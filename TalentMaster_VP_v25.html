@@ -15884,7 +15884,13 @@ function _renderMDTProfiili() {
     h += '<div class="pdc-sig">' + vpT('Scouting-näkymä — vahvin erottaja:') + ' <b>' + erottaja + '</b>. ' + (p.signaali === 'xfactor' ? vpT('X-Factor tunnistettu.') : (hgBadge ? vpT('Hidden Gem -signaali.') : vpT('Ei X-Factoria vielä.'))) + '</div>';
   } else {
     var jfNimi = (p.jaksofokus && p.jaksofokus.konsepti_nimi) || (p.idp_fokus && (p.idp_fokus.nimi || p.idp_fokus.alue)) || null;
-    h += '<div class="pdc-sig">' + (jfNimi ? (vpT('Nykyfokus') + ' <b>' + _jsvEsc(_vpOtsikkoNaytto(_vpKonseptiNimiNaytto(p.jaksofokus))) + '</b>' + (p.idp_tila ? ' · IDP ' + vpT(IDP_TILA_LBL[p.idp_tila] || p.idp_tila) : '') + '.') : vpT('Ei asetettua jaksofokusta — aseta cockpitissa.')) + '</div>';
+    /* Näytettävä nimi seuraa SAMAA haaraa kuin jfNimi: jaksofokus jos on, muuten kausitavoitteen fokus.
+       Ilman tätä pelaajalla jolla on idp_fokus mutta EI jaksofokusta rivillä luki "Nykyfokus ." (tyhjä
+       lihavointi) — yleinen tila, koska P2:n päätösrivi näyttää silloin "Ei jaksofokusta". */
+    var _sigNimi = (p.jaksofokus && p.jaksofokus.konsepti_nimi)
+      ? _vpKonseptiNimiNaytto(p.jaksofokus)
+      : _vpFokusNimiNaytto(p.idp_fokus);
+    h += '<div class="pdc-sig">' + (jfNimi ? (vpT('Nykyfokus') + ' <b>' + _jsvEsc(_vpOtsikkoNaytto(_sigNimi)) + '</b>' + (p.idp_tila ? ' · IDP ' + vpT(IDP_TILA_LBL[p.idp_tila] || p.idp_tila) : '') + '.') : vpT('Ei asetettua jaksofokusta — aseta cockpitissa.')) + '</div>';
   }
 
   // P2 — PÄÄTÖS KÄRKEEN: yksi rivi heti signature-rivin alle, molemmissa linsseissä (audit §P2).

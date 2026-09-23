@@ -293,16 +293,54 @@ describe('(8) PDC:n P2-signature + Aloitus-hero — RENDERÖITY arvo', () => {
 
   const JF = { konsepti_nimi: 'SYÖTTÄMINEN', konsepti_avain: 'y_h2', domeeni: 'teknis_taktinen' };
 
+  /* Signature: _sigNimi-HAARA ja näyttölauseke puretaan MOLEMMAT lähteestä ja ajetaan yhdessä.
+     Jos testi injektoisi _sigNimi:n itse, se ei näkisi haaraa — ja juuri haara petti (K4). */
+  function signature(p, kieli) {
+    const rivit = VP.split('\n');
+    const i = rivit.findIndex((l) => l.includes('var _sigNimi = (p.jaksofokus && p.jaksofokus.konsepti_nimi)'));
+    expect(i, '_sigNimi-haaraa ei löydy').toBeGreaterThan(-1);
+    const haara = rivit.slice(i, i + 3).join('\n');
+    const naytto = rivit.find((l) => l.includes("vpT('Nykyfokus')"));
+    const m = /(_jsvEsc\(_vpOtsikkoNaytto\([^)]*\)\))/.exec(naytto);
+    expect(m, 'näyttölausekkeen muoto muuttui').toBeTruthy();
+    const ymp = {
+      _jsvEsc: esc,
+      vpT: (t) => (kieli === 'sv' ? (SV[t] != null ? SV[t] : t) : t),
+      tmNykyinenKieli: () => kieli,
+      TM_TT_SV: (TTSV.TM_TT_SV || TTSV),
+      tmTaksonomiaByAvain: TAKS.tmTaksonomiaByAvain,
+      tmMittaLahdeNimi: () => '', tmKategoriaNimi: () => '',
+      window: { TM_FYYSTEEMAT_LIB: FYYS },
+      p: p,
+    };
+    const nimet = Object.keys(ymp);
+    // eslint-disable-next-line no-new-func
+    return new Function(...nimet, HELPERIT.map(funktio).join('\n') + '\n' + haara + '\nreturn (' + m[1] + ');')(
+      ...nimet.map((k) => ymp[k]),
+    );
+  }
+
   it('K1 · signature sv → "Passningsspel" (ei SYÖTTÄMINEN)', () => {
-    const ulos = lauseke("vpT('Nykyfokus')", /(_jsvEsc\(_vpOtsikkoNaytto\(_vpKonseptiNimiNaytto\(p\.jaksofokus\)\)\))/,
-      { kieli: 'sv', arvot: { p: { jaksofokus: JF } } });
-    expect(ulos).toBe('Passningsspel');
+    expect(signature({ jaksofokus: JF }, 'sv')).toBe('Passningsspel');
   });
 
   it('K1 · signature fi → "Syöttäminen" (isot kirjaimet siistitty)', () => {
-    const ulos = lauseke("vpT('Nykyfokus')", /(_jsvEsc\(_vpOtsikkoNaytto\(_vpKonseptiNimiNaytto\(p\.jaksofokus\)\)\))/,
-      { kieli: 'fi', arvot: { p: { jaksofokus: JF } } });
-    expect(ulos).toBe('Syöttäminen');
+    expect(signature({ jaksofokus: JF }, 'fi')).toBe('Syöttäminen');
+  });
+
+  /* K4-regressio: pelaajalla on kausitavoitteen fokus mutta EI jaksofokusta (yleinen tila —
+     P2:n päätösrivi näyttää silloin "Ei jaksofokusta"). jfNimi oli tosi mutta näytettävä nimi
+     tyhjä → "Nykyfokus ." tyhjällä lihavoinnilla. */
+  it('K4 · ei jaksofokusta, idp_fokus on → fallback, EI tyhjää lihavointia', () => {
+    const p = { jaksofokus: null, idp_fokus: { nimi: 'Syötön piilotus', alue: 'hide_pass' } };
+    expect(signature(p, 'fi')).toBe('Syötön piilotus');
+    expect(signature(p, 'sv')).toBe('Dölja passningen');
+    expect(signature(p, 'fi'), 'tyhjä nimi → "Nykyfokus ."').not.toBe('');
+    expect(signature(p, 'sv')).not.toBe('');
+  });
+
+  it('K4 · kumpikaan puuttuu → tyhjä (rivi ei renderöidy, jfNimi on falsy)', () => {
+    expect(signature({ jaksofokus: null, idp_fokus: null }, 'fi')).toBe('');
   });
 
   it('K3 · Aloitus-hero sv → "Dölja passningen"', () => {
