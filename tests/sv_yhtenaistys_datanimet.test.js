@@ -235,6 +235,90 @@ describe('(5) Tila-enum vpT:n läpi', () => {
   });
 });
 
+describe('(7) _vpKausiNaytto — escape (XSS)', () => {
+  /* Helper KORVASI _jsvEsc:n viidessä näyttökohdassa, eikä sen tulosta escapata enää erikseen
+     → escape on nyt helperin vastuulla. Ilman tätä testiä `if (!m) return s;` jäi vihreäksi. */
+  const XSS = '<img src=x onerror=alert(1)>';
+  const naytto = new Function('_jsvEsc', 'vpT',
+    'return ' + funktio('function _vpKausiNaytto(k) {'),
+  )((s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])), (t) => t);
+
+  it('suoraan helperistä: tuntematon arvo escapataan', () => {
+    const ulos = naytto(XSS);
+    expect(ulos).toContain('&lt;img');
+    expect(ulos).not.toContain('<img src=x');
+  });
+
+  it('näyttökohdasta (tilarivi): escapattu', () => {
+    const h = render(pelaaja({
+      _idpTavoite: { status: 'aktiivinen', fokus: { alue: 'hide_pass', nimi: 'x' }, aikaraami: { kausi: XSS } },
+    }), undefined, 'fi');
+    expect(h).toContain('&lt;img');
+    expect(h, 'escapoimaton <img päätyi tilariville').not.toContain('<img src=x');
+  });
+
+  it('tunnistettu muoto ei voi sisältää markkupia (regex lukitsee vuoden)', () => {
+    expect(naytto('syksy 2026')).toBe('syksy 2026');
+    expect(naytto('syksy <b>2026</b>')).toContain('&lt;b&gt;');   // ei täsmää → escapataan
+  });
+});
+
+describe('(8) PDC:n P2-signature + Aloitus-hero — RENDERÖITY arvo', () => {
+  /* Nämä kaksi riviä ovat isojen funktioiden sisällä (_renderMDTProfiili · Aloitus-hero), joten
+     koko funktiota ei renderöidä: rivin LAUSEKE evaluoidaan lähteestä aidoilla resolvereilla.
+     Näin mutaatio (raaka jfNimi / fokus.nimi takaisin) punertaa — greppi ei sitä takaisi. */
+  const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+  function lauseke(hakusana, poimi, ymparisto) {
+    const rivi = VP.split('\n').find((l) => l.includes(hakusana));
+    expect(rivi, 'riviä ei löydy: ' + hakusana).toBeTruthy();
+    const m = poimi.exec(rivi);
+    expect(m, 'lausekkeen muoto muuttui — päivitä vartija').toBeTruthy();
+    const perus = {
+      _jsvEsc: esc,
+      vpT: (t) => (ymparisto.kieli === 'sv' ? (SV[t] != null ? SV[t] : t) : t),
+      tmNykyinenKieli: () => ymparisto.kieli,
+      TM_TT_SV: (TTSV.TM_TT_SV || TTSV),
+      tmTaksonomiaByAvain: TAKS.tmTaksonomiaByAvain,
+      tmMittaLahdeNimi: () => '', tmKategoriaNimi: () => '',
+      window: { TM_FYYSTEEMAT_LIB: FYYS },
+    };
+    const kaikki = Object.assign(perus, ymparisto.arvot || {});
+    const nimet = Object.keys(kaikki);
+    // eslint-disable-next-line no-new-func
+    return new Function(...nimet, HELPERIT.map(funktio).join('\n') + '\nreturn (' + m[1] + ');')(
+      ...nimet.map((k) => kaikki[k]),
+    );
+  }
+
+  const JF = { konsepti_nimi: 'SYÖTTÄMINEN', konsepti_avain: 'y_h2', domeeni: 'teknis_taktinen' };
+
+  it('K1 · signature sv → "Passningsspel" (ei SYÖTTÄMINEN)', () => {
+    const ulos = lauseke("vpT('Nykyfokus')", /(_jsvEsc\(_vpOtsikkoNaytto\(_vpKonseptiNimiNaytto\(p\.jaksofokus\)\)\))/,
+      { kieli: 'sv', arvot: { p: { jaksofokus: JF } } });
+    expect(ulos).toBe('Passningsspel');
+  });
+
+  it('K1 · signature fi → "Syöttäminen" (isot kirjaimet siistitty)', () => {
+    const ulos = lauseke("vpT('Nykyfokus')", /(_jsvEsc\(_vpOtsikkoNaytto\(_vpKonseptiNimiNaytto\(p\.jaksofokus\)\)\))/,
+      { kieli: 'fi', arvot: { p: { jaksofokus: JF } } });
+    expect(ulos).toBe('Syöttäminen');
+  });
+
+  it('K3 · Aloitus-hero sv → "Dölja passningen"', () => {
+    const ulos = lauseke('<h3 class="vpal-h3">', /(_jsvEsc\(_vpFokusNimiNaytto\(fokus\) \|\| '—'\))/,
+      { kieli: 'sv', arvot: { fokus: { alue: 'hide_pass', nimi: 'Syötön piilotus' } } });
+    expect(ulos).toBe('Dölja passningen');
+  });
+
+  it('K3 · Aloitus-hero fi → tallennettu nimi, tyhjä → —', () => {
+    expect(lauseke('<h3 class="vpal-h3">', /(_jsvEsc\(_vpFokusNimiNaytto\(fokus\) \|\| '—'\))/,
+      { kieli: 'fi', arvot: { fokus: { alue: 'hide_pass', nimi: 'Syötön piilotus' } } })).toBe('Syötön piilotus');
+    expect(lauseke('<h3 class="vpal-h3">', /(_jsvEsc\(_vpFokusNimiNaytto\(fokus\) \|\| '—'\))/,
+      { kieli: 'fi', arvot: { fokus: null } })).toBe('—');
+  });
+});
+
 describe('(6) Isot kirjaimet — vain kokonaan isoilla kirjoitetut', () => {
   const sisalto2 = (nimi, kieli) => sisallot(render(pelaaja({
     jaksofokus: { konsepti_nimi: nimi, konsepti_avain: 'ei_sidecarissa', domeeni: 'teknis_taktinen', alkoi: iso(Date.now()), kesto_vk: 4 },
