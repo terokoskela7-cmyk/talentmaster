@@ -6350,15 +6350,27 @@ window._vpTallennaTavoite = async function (pid, uusiStatus) {
   if (uusiStatus === 'aktiivinen') { t.hyvaksytty = new Date().toISOString(); t.omistaja = 'yhdessa'; }
   /* Luonnos → voimassa oleva: vasta tästä hetkestä rivit, nauha ja pikakentät lukevat uutta tavoitetta.
      Vanha tavoite EI katoa: _vpTallennaIdpDok yhdistää sen idpTavoitteetYhdista:lla (status 'vaihdettu'). */
+  const _ennen = { tavoite: p._idpTavoite, luonnos: p._idpLuonnos, tyyppi: p._luonnosTyyppi, tallennettu: p._luonnosTallennettu };
   p._idpTavoite = t;
   _vpTyhjennaLuonnos(p);
   _vpKausitavoiteReRender();
-  await _vpTallennaIdpDok(p, 'Tavoite ' + (uusiStatus === 'aktiivinen' ? 'aktivoitu' : 'tallennettu'));
+  /* K2: nosto peruuntuu jos kirjoitus epäonnistuu (verkko · rules · fail-closed vanhalla libillä) — muuten
+     rivit ja nauha väittäisivät uutta tavoitetta käytössä olevaksi vaikka Firestoressa on yhä vanha, ja
+     VP:n kirjoittama luonnos katoaisi. */
+  const ok = await _vpTallennaIdpDok(p, 'Tavoite ' + (uusiStatus === 'aktiivinen' ? 'aktivoitu' : 'tallennettu'));
+  if (!ok) {
+    p._idpTavoite = _ennen.tavoite;
+    p._idpLuonnos = _ennen.luonnos; p._luonnosTyyppi = _ennen.tyyppi; p._luonnosTallennettu = _ennen.tallennettu;
+    _vpKausitavoiteReRender();
+  }
+  return ok;
 };
 // Jaettu persistointi (§26 pikakentät + idp_kausi/{vuosi}.tavoitteet[]). Käytetään tavoite-, review- ja elinkaari-tallennuksessa.
 // §7.6: pvm:t arrayssa ISO-stringinä (jo asetettu). Päivittää myös in-memory pikakentät ennen re-renderiä.
+/* K2: palauttaa true kun kirjoitus onnistui (tai demo-tila), false kun epäonnistui. Kutsuja voi perua
+   in-memory-muutoksensa — catch nielaisee virheen ja näyttää vain toastin, joten paluuarvo on ainoa signaali. */
 async function _vpTallennaIdpDok(p, viesti) {
-  const t = p && p._idpTavoite; if (!t) return;
+  const t = p && p._idpTavoite; if (!t) return false;
   const pk = (typeof idpPikakentat === 'function') ? idpPikakentat(t) : { idp_tila: t.status, idp_edistyma: null, idp_fokus: t.fokus, idp_viim_review: null };
   p.idp_tila = pk.idp_tila; p.idp_edistyma = pk.idp_edistyma; p.idp_fokus = pk.idp_fokus; p.idp_viim_review = pk.idp_viim_review;
   // R1 §26 — DVI-pikakenttä arviointi-cockpitille (bulk-luku, ei alikokoelmakyselyä). EI uutta laskentaa:
@@ -6366,7 +6378,7 @@ async function _vpTallennaIdpDok(p, viesti) {
   const _arviot = Array.isArray(t.arviot) ? t.arviot : [];
   const _dvi = { suunta: (_arviot.length ? (_arviot[_arviot.length - 1].dvi_suunta || 'flat') : 'flat'), n: _arviot.length };
   p.idp_dvi = _dvi;
-  if (_isDemoMode || !_seuraId) { if (typeof toast === 'function') toast(viesti + vpT(' (demo — ei kirjoitettu)'), 'ok'); return; }
+  if (_isDemoMode || !_seuraId) { if (typeof toast === 'function') toast(viesti + vpT(' (demo — ei kirjoitettu)'), 'ok'); return true; }
   try {
     const cu = firebase.auth().currentUser; if (cu) await cu.getIdToken(true);
     /* HOTFIX · tavoitetaulukko on HISTORIA. Aiemmin tässä kirjoitettiin tavoitteet-kenttä YHDEN alkion taulukkona merge:llä, mutta
@@ -6392,7 +6404,8 @@ async function _vpTallennaIdpDok(p, viesti) {
     });
     await ref.set({ idp_tila: pk.idp_tila, idp_edistyma: pk.idp_edistyma || null, idp_fokus: pk.idp_fokus || null, idp_viim_review: pk.idp_viim_review || null, idp_dvi: _dvi }, { merge: true });
     if (typeof toast === 'function') toast(viesti + ' ✓', 'ok');
-  } catch (e) { console.warn('[_vpTallennaIdpDok]', e && e.message); if (typeof toast === 'function') toast(vpT('Tallennus epäonnistui'), 'error'); }
+    return true;
+  } catch (e) { console.warn('[_vpTallennaIdpDok]', e && e.message); if (typeof toast === 'function') toast(vpT('Tallennus epäonnistui'), 'error'); return false; }
 }
 // Best-effort: lataa TÄYSI aktiivinen tavoite idp_kausi-dokista modaalin auetessa (kerran/pelaaja; ei per-rivi-kysely).
 async function _vpLataaTavoite(p) {
@@ -7816,9 +7829,11 @@ window._vpVaihtoVahvista = async function (pid) {
   const m = document.getElementById('_vpVaihtoModal'); if (m) m.remove();
   const p = _vpIdpPelaaja(pid);
   const onJakso = !!(p && p.jaksofokus && p.jaksofokus.konsepti_nimi);
-  await _vpTallennaTavoite(pid, 'aktiivinen');
-  // "Päätä jakso nyt" → olemassa oleva sulkumodaali (jaksohistoria + uuden jakson valinta). Ei uutta sulkulogiikkaa.
-  if (valinta === 'paata' && onJakso && typeof _vpSuljeJakso === 'function') _vpSuljeJakso(pid);
+  const ok = await _vpTallennaTavoite(pid, 'aktiivinen');
+  /* "Päätä jakso nyt" → olemassa oleva sulkumodaali (jaksohistoria + uuden jakson valinta). Ei uutta
+     sulkulogiikkaa. K2: vain onnistuneen tallennuksen jälkeen — muuten jakso suljettaisiin tavoitevaihdolle
+     jota ei tapahtunut. */
+  if (ok === true && valinta === 'paata' && onJakso && typeof _vpSuljeJakso === 'function') _vpSuljeJakso(pid);
 };
 // "↗ Jatkuu" → pieni modaali uudelle tavoitearvolle (nosta rima); vapaa/havaittu → suora jatko ilman arvoa.
 window._vpJatkuuAvaa = function (pid) {

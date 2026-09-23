@@ -173,6 +173,7 @@ function pelaaja(lisa) {
 function tallentaja(dokki) {
   return async function (p) {
     dokki.tavoitteet = IDP.idpTavoitteetYhdista(dokki.tavoitteet, p._idpTavoite, { nyt: new Date(NYT) });
+    return true;   // K2: tuotannon _vpTallennaIdpDok palauttaa true onnistuessaan
   };
 }
 
@@ -284,6 +285,56 @@ describe('(4) Vahvistettu vaihto sailyttaa vanhan tavoitteen historiassa', () =>
   });
 });
 
+/* ── (4b) Epaonnistunut tallennus perutaan ────────────────────────────────── */
+describe('(4b) Epaonnistunut kirjoitus ei jata uutta tavoitetta nakyviin', () => {
+  /* _vpTallennaIdpDok nielaisee virheen (toast + console.warn), joten paluuarvo on ainoa signaali.
+     Ilman perumista rivit ja nauha vaittaisivat uutta tavoitetta kaytossa olevaksi vaikka Firestoressa
+     on yha vanha — ja VP:n kirjoittama luonnos olisi kadonnut. */
+  it('tavoite ja luonnos palautuvat, kun tallennus palauttaa false', async () => {
+    const p = pelaaja();
+    const api = rakenna({ ymp: { _vpIdpPelaaja: () => p, _vpTallennaIdpDok: async () => false } });
+    api.win._vpArvPelaaja = p;
+    api.ehdota('p1');
+    const luonnosLuotu = p._idpLuonnos.luotu;
+    const ok = await api.tallenna('p1', 'aktiivinen');
+    expect(ok).toBe(false);
+    expect(p._idpTavoite.luotu, 'uusi tavoite jai voimassa olevaksi vaikka kirjoitus epaonnistui')
+      .toBe('2026-01-15T08:00:00.000Z');
+    expect(p._idpLuonnos, 'luonnos katosi — VP:n syotto meni hukkaan').toBeTruthy();
+    expect(p._idpLuonnos.luotu).toBe(luonnosLuotu);
+    expect(p._luonnosTyyppi).toBe('vaihto');
+  });
+
+  it('epaonnistunut vaihto EI avaa jakson sulkua vaikka "Paata jakso nyt" oli valittu', async () => {
+    const p = pelaaja({ jaksofokus: { konsepti_nimi: 'Kolmas mies', alkoi: new Date(NYT - 3 * PAIVA).toISOString(), kesto_vk: 4 } });
+    const suljetut = [];
+    const api = rakenna({ ymp: { _vpIdpPelaaja: () => p, _vpTallennaIdpDok: async () => false, _vpSuljeJakso: (pid) => suljetut.push(pid) } });
+    api.win._vpArvPelaaja = p;
+    api.ehdota('p1');
+    api.win._vpVaihtoJakso = 'paata';
+    await api.vaihtoVahvista('p1');
+    expect(suljetut, 'jakso suljettiin tavoitevaihdolle jota ei tapahtunut').toHaveLength(0);
+  });
+
+  it('onnistunut tallennus palauttaa true eika peru mitaan', async () => {
+    const p = pelaaja();
+    const dokki = { tavoitteet: [p._idpTavoite] };
+    const api = rakenna({ ymp: { _vpIdpPelaaja: () => p, _vpTallennaIdpDok: tallentaja(dokki) } });
+    api.win._vpArvPelaaja = p;
+    api.ehdota('p1');
+    const ok = await api.tallenna('p1', 'aktiivinen');
+    expect(ok).toBe(true);
+    expect(p._idpTavoite.fokus.nimi).toBe('Monipuolisuus');
+    expect(p._idpLuonnos).toBeFalsy();
+  });
+
+  it('_vpTallennaIdpDok palauttaa true onnistuessa ja false catchissa', () => {
+    const src = pura('async function _vpTallennaIdpDok(p, viesti)');
+    expect(src).toContain('return true;');
+    expect(src, 'catch ei palauta false — kutsuja ei voi perua').toMatch(/catch[\s\S]*return false;/);
+  });
+});
+
 /* ── (5) Peruuta ei kirjoita mitaan ────────────────────────────────────────── */
 describe('(5) Peruuta ei kirjoita Firestoreen', () => {
   it('tallennus-spy saa 0 kutsua', () => {
@@ -330,6 +381,25 @@ describe('(6) Vaihto vahvistetaan omassa ikkunassaan', () => {
     expect(m).toContain('jatkuu vielä 3 vk.');
   });
 
+  it('tavoitenimet escapataan (vapaa fokus on VP:n kirjoittamaa tekstia)', () => {
+    const p = pelaaja();
+    const api = rakenna({
+      ymp: {
+        _vpIdpPelaaja: () => p,
+        idpEhdotaTavoite: () => ({
+          luotu: '2026-09-23T09:30:00.000Z', status: 'ehdotettu',
+          fokus: { nimi: '<img src=x onerror=1>', dim: 'D2' }, mittari: { yksikko: 'taso' }, arviot: [],
+        }),
+      },
+    });
+    api.win._vpArvPelaaja = p;
+    api.ehdota('p1');
+    api.vaihtoAvaa('p1');
+    const m = api.kerays.html.join('');
+    expect(m, 'escapaamaton nimi paatyi modaalin HTML:aan').not.toContain('<img src=x');
+    expect(m).toContain('&lt;img src=x');
+  });
+
   it('ilman jaksofokusta valintoja ei ole', () => {
     const p = pelaaja();
     const api = rakenna({ ymp: { _vpIdpPelaaja: () => p } });
@@ -350,7 +420,7 @@ describe('(7) Jaksovalinta ohjaa sulkemisen olemassa olevaan _vpSuljeJakso:on', 
   it('Paata jakso nyt kutsuu _vpSuljeJakso:a', async () => {
     const p = jfP();
     const suljetut = [];
-    const api = rakenna({ ymp: { _vpIdpPelaaja: () => p, _vpTallennaIdpDok: async () => {}, _vpSuljeJakso: (pid) => suljetut.push(pid) } });
+    const api = rakenna({ ymp: { _vpIdpPelaaja: () => p, _vpTallennaIdpDok: async () => true, _vpSuljeJakso: (pid) => suljetut.push(pid) } });
     api.win._vpArvPelaaja = p;
     api.ehdota('p1');
     api.win._vpVaihtoJakso = 'paata';
@@ -361,7 +431,7 @@ describe('(7) Jaksovalinta ohjaa sulkemisen olemassa olevaan _vpSuljeJakso:on', 
   it('Jatka jakso loppuun EI kutsu _vpSuljeJakso:a', async () => {
     const p = jfP();
     const suljetut = [];
-    const api = rakenna({ ymp: { _vpIdpPelaaja: () => p, _vpTallennaIdpDok: async () => {}, _vpSuljeJakso: (pid) => suljetut.push(pid) } });
+    const api = rakenna({ ymp: { _vpIdpPelaaja: () => p, _vpTallennaIdpDok: async () => true, _vpSuljeJakso: (pid) => suljetut.push(pid) } });
     api.win._vpArvPelaaja = p;
     api.ehdota('p1');
     api.win._vpVaihtoJakso = 'jatka';
@@ -477,6 +547,15 @@ describe('(10) Tallennettu ehdotus latautuu luonnokseksi + sanktioidut kaannokse
     ]);
     expect(r.tavoite.luotu).toBe('A');
     expect(r.luonnos.luotu).toBe('B');
+  });
+
+  it('orpo ehdotus ENNEN voimassa olevaa ei nouse luonnokseksi', () => {
+    // [B ehdotettu, A vaihdettu, C aktiivinen]: B on vanha, ohitettu ehdotus — ei "vaihto"-luonnos.
+    const r = IDP.idpJaaVoimassaJaEhdotus([
+      { luotu: 'B', status: 'ehdotettu' }, { luotu: 'A', status: 'vaihdettu' }, { luotu: 'C', status: 'aktiivinen' },
+    ]);
+    expect(r.tavoite.luotu).toBe('C');
+    expect(r.luonnos, 'vanha ohitettu ehdotus latautui luonnokseksi').toBeNull();
   });
 
   it('pelkka ehdotus -> ei voimassa olevaa, luonnos B', () => {
