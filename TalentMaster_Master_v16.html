@@ -87,7 +87,7 @@ window.TM_KAAVIO_HOST = {
 <script src="lib/tm_havainto_kaavio.js?v=1"></script>
 <script src="lib/tm_kaavio_ui.js?v=5"></script>         <!-- Taktiikkataulun UI-ohjain, JAETTU VP_v25:n kanssa (host-adapteri yllä) -->
 <script src="lib/tm_arviointi_taksonomia.js?v=11"></script>   <!-- P1: TM_ARVIOINTI_ASTEIKKO + D4-taksonomia + tmAdarHavaittu (Pelihavainto-talteenotto) -->
-<script src="lib/tm_idp.js?v=8"></script>   <!-- I3a: + kesto valmentajan asetettavaksi (opts.kestoVk) · I2 (C): valmentajan IDP-kausitavoite-kortti -->
+<script src="lib/tm_idp.js?v=9"></script>   <!-- I3a: + kesto valmentajan asetettavaksi (opts.kestoVk) · I2 (C): valmentajan IDP-kausitavoite-kortti -->
 <script src="lib/tm_pelialy_yksilo.js?v=4"></script>   <!-- P1: pelihavainto peliäly → yksilöteema (Kartta A) · v3: Vaihe B multi-rater konsensus (tmAdarKonsensus/RistiinarvioAvoin/TalenttiSignaali) -->
 <script src="lib/tm_kehityskaari.js?v=3"></script>   <!-- Trendi Vaihe 2: yksilön kehityskaari (render hh_historia/tki_historia:sta) -->
 <script src="lib/tm_aani.js?v=2"></script>   <!-- Vaihe 0: puhdas nauhoitin (reflektio + VP:n ääripalaute samasta ytimestä) -->
@@ -6743,32 +6743,54 @@ window._mIdpTallenna = async function (pid, uusiStatus) {
 };
 // Jaettu persistointi (§26 pikakentät + idp_kausi/{vuosi}.tavoitteet[]).
 async function _mIdpTallennaDok(p, viesti) {
-  const t = p && p._mIdpTavoite; if (!t) return;
+  const t = p && p._mIdpTavoite; if (!t) return false;
   const pk = (typeof idpPikakentat === 'function') ? idpPikakentat(t) : { idp_tila: t.status, idp_edistyma: null, idp_fokus: t.fokus, idp_viim_review: null, idp_lahde: null };
-  p.idp_tila = pk.idp_tila; p.idp_edistyma = pk.idp_edistyma; p.idp_fokus = pk.idp_fokus; p.idp_viim_review = pk.idp_viim_review; p.idp_lahde = pk.idp_lahde;
-  if (_demo || !_seuraId || typeof _db === 'undefined' || !_db) { if (typeof toast === 'function') toast(viesti + ' (demo — ei kirjoitettu)', 'ok'); return; }
+  /* A1: pikakentät muistiin VASTA onnistuneen kirjoituksen jälkeen — muuten epäonnistunut tallennus
+     jätti listan ja kehityskortin näyttämään uuden tavoitteen tietoja (Firestoressa yhä vanha). */
+  const _asetaPikakentat = function () {
+    p.idp_tila = pk.idp_tila; p.idp_edistyma = pk.idp_edistyma; p.idp_fokus = pk.idp_fokus; p.idp_viim_review = pk.idp_viim_review; p.idp_lahde = pk.idp_lahde;
+  };
+  if (_demo || !_seuraId || typeof _db === 'undefined' || !_db) { _asetaPikakentat(); if (typeof toast === 'function') toast(viesti + ' (demo — ei kirjoitettu)', 'ok'); return true; }
   try {
     const cu = firebase.auth().currentUser; if (cu) await cu.getIdToken(true);
     /* HOTFIX · tavoitetaulukko on HISTORIA — ks. sama korjaus VP:ssä. merge EI yhdistä taulukoita, joten
        yhden alkion taulukko pyyhki vanhan tavoitteen ja sen arviot. Transaktio: luku → yhdistä → kirjoitus. */
     /* FAIL-CLOSED — sama kuin VP:ssä: vanha välimuistissa oleva lib olisi `[t]`-fallbackin kautta
        palauttanut ylikirjoituksen. Heitto ennen transaktiota; catch näyttää "Tallennus epäonnistui". */
-    if (typeof idpTavoitteetYhdista !== 'function' || typeof idpTallennusVuosi !== 'function') {
-      throw new Error('tm_idp.js vanhentunut (idpTavoitteetYhdista/idpTallennusVuosi puuttuu) — tallennus peruttu');
+    if (typeof idpTavoitteetYhdista !== 'function' || typeof idpTallennusVuosi !== 'function' || typeof idpMerkitseVaihdetuksi !== 'function') {
+      throw new Error('tm_idp.js vanhentunut (idpTavoitteetYhdista/idpTallennusVuosi/idpMerkitseVaihdetuksi puuttuu) — tallennus peruttu');
     }
     const vuosi = idpTallennusVuosi(p, t, new Date());
     const ref = _db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(p.id);
     const kausiRef = ref.collection('idp_kausi').doc(vuosi);
+    /* A3 — VUODENVAIHDE (sama korjaus kuin VP:ssä): voimassa oleva tavoite voi olla eri vuosidokissa
+       kuin mihin uusi kirjoitetaan. idpTavoitteetYhdista merkitsee vaihdetuksi vain saman dokin alkiot,
+       joten vanha jäisi toiseen dokkiin tilaan 'aktiivinen'. Sama kokoelma/roolit → ei Rules-muutosta. */
+    const _toinenVuosi = (p._idpVuosi && p._idpVuosi !== vuosi && p._idpVuosiLuotu && p._idpVuosiLuotu !== t.luotu && idpOnVoimassa(t)) ? p._idpVuosi : null;
+    const _toinenRef = _toinenVuosi ? ref.collection('idp_kausi').doc(_toinenVuosi) : null;
     await _db.runTransaction(async function (tx) {
+      // KAIKKI LUKEMISET ENNEN KIRJOITUKSIA (Firestore-transaktion sääntö).
       const s = await tx.get(kausiRef);
+      const s2 = _toinenRef ? await tx.get(_toinenRef) : null;
       const d = s.exists ? (s.data() || {}) : {};
       const nykyiset = Array.isArray(d.tavoitteet) ? d.tavoitteet : [];
       const yhd = idpTavoitteetYhdista(nykyiset, t);
+      let toinenYhd = null;
+      if (s2 && s2.exists) {
+        const d2 = s2.data() || {};
+        toinenYhd = idpMerkitseVaihdetuksi(Array.isArray(d2.tavoitteet) ? d2.tavoitteet : [], p._idpVuosiLuotu, new Date());
+      }
       tx.set(kausiRef, { tavoitteet: yhd, paivitetty: new Date().toISOString() }, { merge: true });
+      // null = ei merkittävää (jo vaihdettu tai ei löytynyt) → ei turhaa kirjoitusta.
+      if (toinenYhd) tx.set(_toinenRef, { tavoitteet: toinenYhd, paivitetty: new Date().toISOString() }, { merge: true });
     });
     await ref.set({ idp_tila: pk.idp_tila, idp_edistyma: pk.idp_edistyma || null, idp_fokus: pk.idp_fokus || null, idp_viim_review: pk.idp_viim_review || null, idp_lahde: pk.idp_lahde || null }, { merge: true });
+    _asetaPikakentat();
+    // Ankkuri seuraa kirjoitettua dokkia → seuraavat tallennukset osuvat samaan eikä A3:n luku toistu.
+    p._idpVuosi = vuosi; p._idpVuosiLuotu = t.luotu;
     if (typeof toast === 'function') toast(viesti + ' ✓', 'ok');
-  } catch (e) { console.warn('[_mIdpTallennaDok]', e && e.message); if (typeof toast === 'function') toast(masterT('Tallennus epäonnistui'), 'error'); }
+    return true;
+  } catch (e) { console.warn('[_mIdpTallennaDok]', e && e.message); if (typeof toast === 'function') toast(masterT('Tallennus epäonnistui'), 'error'); return false; }
 }
 // Lataa TÄYSI aktiivinen tavoite idp_kausi-dokista (kerran/pelaaja; gate pikakentällä idp_tila).
 async function _mIdpLataa(p) {

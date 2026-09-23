@@ -37,7 +37,7 @@
 <script src="lib/tm_arviointi_taksonomia.js?v=11"></script>   <!-- Vaihe 2: arviointitaksonomia + pääteemat + kehysrekisteri (mitattu + havaittu 1–5) -->
 <script src="lib/tm_pelialy_yksilo.js?v=4"></script>   <!-- P1: pelihavainto peliäly → yksilöteema · v3: Vaihe B ristiinarvio-konsensus -->
 <script src="lib/tm_arviointi_silta.js?v=3"></script>   <!-- Vaihe 5: arviointi→resepti-silta (heikoin havaittu D2 → ehdotettu jaksofokus) · v2 = I3a SSOT-osoitin tm_kehityspolku -->
-<script src="lib/tm_idp.js?v=8"></script>   <!-- I3a: + kesto valmentajan asetettavaksi (opts.kestoVk) · I2: lahde+pvm/idp_lahde/idpVahvinDim 1–3 -->
+<script src="lib/tm_idp.js?v=9"></script>   <!-- I3a: + kesto valmentajan asetettavaksi (opts.kestoVk) · I2: lahde+pvm/idp_lahde/idpVahvinDim 1–3 -->
 <script src="lib/tm_teknistaktiset.js?v=5"></script>   <!-- Vaihe 4a: teknis-taktinen curriculum (VP:n jaksofokus talenteille) · v5 = I3a pelipaikkaportti U14+ + harjoite-tägit/jalka -->
 <script src="lib/tm_piirros.js?v=1"></script>   <!-- Piirrokset Vaihe 1: fasciallinjat (D1) + pelipaikkakartta (D4), inline-SVG -->
 <script src="lib/tm_konsepti_resolve.js?v=2"></script>   <!-- Seurakerros TIER 1: seurat/{sid}/konseptit override kaanonin päälle (kaanon = oletus, ei pakko) -->
@@ -6343,6 +6343,11 @@ window._vpTallennaTavoite = async function (pid, uusiStatus) {
   const p = (window._vpArvPelaaja && window._vpArvPelaaja.id === pid) ? window._vpArvPelaaja : _vpLoytaPelaaja(pid);
   // Tallennetaan LUONNOS jos editori on auki, muuten voimassa oleva tavoite (elinkaari-napit).
   const t = p && (p._idpLuonnos || p._idpTavoite); if (!t) return;
+  /* A2: tila talteen SYVÄKOPIONA ennen kenttien muutoksia — t on sama olio jonka status ja hyvaksytty
+     asetetaan alla, joten pelkkä viite palauttaisi jo muutetun luonnoksen ('aktiivinen' + hyvaksytty)
+     vaikka kirjoitus epäonnistui. */
+  const _syva = function (o) { return o ? JSON.parse(JSON.stringify(o)) : null; };
+  const _ennen = { tavoite: _syva(p._idpTavoite), luonnos: _syva(p._idpLuonnos), tyyppi: p._luonnosTyyppi, tallennettu: p._luonnosTallennettu };
   const aani = document.getElementById('_jspTavAani'); if (aani) t.pelaajan_tavoite = aani.value.trim();
   const kuvausEl = document.getElementById('_jspTavKuvaus'); if (kuvausEl) t.kuvaus = kuvausEl.value.trim();   // §2.3 vapaa tavoitekuvaus
   const tavIn = document.getElementById('_jspTavArvo'); if (tavIn && tavIn.value !== '' && !isNaN(tavIn.value)) t.tavoitearvo = Number(tavIn.value);
@@ -6350,7 +6355,6 @@ window._vpTallennaTavoite = async function (pid, uusiStatus) {
   if (uusiStatus === 'aktiivinen') { t.hyvaksytty = new Date().toISOString(); t.omistaja = 'yhdessa'; }
   /* Luonnos → voimassa oleva: vasta tästä hetkestä rivit, nauha ja pikakentät lukevat uutta tavoitetta.
      Vanha tavoite EI katoa: _vpTallennaIdpDok yhdistää sen idpTavoitteetYhdista:lla (status 'vaihdettu'). */
-  const _ennen = { tavoite: p._idpTavoite, luonnos: p._idpLuonnos, tyyppi: p._luonnosTyyppi, tallennettu: p._luonnosTallennettu };
   p._idpTavoite = t;
   _vpTyhjennaLuonnos(p);
   _vpKausitavoiteReRender();
@@ -6372,13 +6376,18 @@ window._vpTallennaTavoite = async function (pid, uusiStatus) {
 async function _vpTallennaIdpDok(p, viesti) {
   const t = p && p._idpTavoite; if (!t) return false;
   const pk = (typeof idpPikakentat === 'function') ? idpPikakentat(t) : { idp_tila: t.status, idp_edistyma: null, idp_fokus: t.fokus, idp_viim_review: null };
-  p.idp_tila = pk.idp_tila; p.idp_edistyma = pk.idp_edistyma; p.idp_fokus = pk.idp_fokus; p.idp_viim_review = pk.idp_viim_review;
   // R1 §26 — DVI-pikakenttä arviointi-cockpitille (bulk-luku, ei alikokoelmakyselyä). EI uutta laskentaa:
   // suunta = viimeisimmän arvion jo laskettu dvi_suunta (idpDviSuunta, §29); n = review-mittausten määrä.
   const _arviot = Array.isArray(t.arviot) ? t.arviot : [];
   const _dvi = { suunta: (_arviot.length ? (_arviot[_arviot.length - 1].dvi_suunta || 'flat') : 'flat'), n: _arviot.length };
-  p.idp_dvi = _dvi;
-  if (_isDemoMode || !_seuraId) { if (typeof toast === 'function') toast(viesti + vpT(' (demo — ei kirjoitettu)'), 'ok'); return true; }
+  /* A1: pikakentät muistiin VASTA onnistuneen kirjoituksen jälkeen. Ennen ne asetettiin heti, joten
+     epäonnistuneen tallennuksen jälkeen pelaajalista ja kehityskortti näyttivät uuden tavoitteen
+     tietoja vaikka Firestoressa oli yhä vanha. */
+  const _asetaPikakentat = function () {
+    p.idp_tila = pk.idp_tila; p.idp_edistyma = pk.idp_edistyma; p.idp_fokus = pk.idp_fokus; p.idp_viim_review = pk.idp_viim_review;
+    p.idp_dvi = _dvi;
+  };
+  if (_isDemoMode || !_seuraId) { _asetaPikakentat(); if (typeof toast === 'function') toast(viesti + vpT(' (demo — ei kirjoitettu)'), 'ok'); return true; }
   try {
     const cu = firebase.auth().currentUser; if (cu) await cu.getIdToken(true);
     /* HOTFIX · tavoitetaulukko on HISTORIA. Aiemmin tässä kirjoitettiin tavoitteet-kenttä YHDEN alkion taulukkona merge:llä, mutta
@@ -6389,20 +6398,39 @@ async function _vpTallennaIdpDok(p, viesti) {
        yhden alkion fallback — se olisi palauttanut TÄSMÄLLEEN sen ylikirjoituksen jonka tämä hotfix korjaa.
        Heitetään ennen transaktiota: catch näyttää "Tallennus epäonnistui" eikä mitään kirjoiteta
        (myös pikakenttien ref.set jää ajamatta, koska se on samassa try-lohkossa). */
-    if (typeof idpTavoitteetYhdista !== 'function' || typeof idpTallennusVuosi !== 'function') {
-      throw new Error('tm_idp.js vanhentunut (idpTavoitteetYhdista/idpTallennusVuosi puuttuu) — tallennus peruttu');
+    if (typeof idpTavoitteetYhdista !== 'function' || typeof idpTallennusVuosi !== 'function' || typeof idpMerkitseVaihdetuksi !== 'function') {
+      throw new Error('tm_idp.js vanhentunut (idpTavoitteetYhdista/idpTallennusVuosi/idpMerkitseVaihdetuksi puuttuu) — tallennus peruttu');
     }
     const vuosi = idpTallennusVuosi(p, t, new Date());
     const ref = db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(p.id);
     const kausiRef = ref.collection('idp_kausi').doc(vuosi);
+    /* A3 — VUODENVAIHDE: voimassa oleva tavoite voi olla eri vuosidokissa kuin mihin uusi tavoite
+       kirjoitetaan (lataus lukee edellisen vuoden dokin fallbackina). idpTavoitteetYhdista merkitsee
+       vaihdetuksi vain SAMAN dokin alkiot, joten vanha jäisi toiseen dokkiin tilaan 'aktiivinen'.
+       Sama kokoelma ja samat roolit → ei Rules-muutosta. */
+    const _toinenVuosi = (p._idpVuosi && p._idpVuosi !== vuosi && p._idpVuosiLuotu && p._idpVuosiLuotu !== t.luotu && idpOnVoimassa(t)) ? p._idpVuosi : null;
+    const _toinenRef = _toinenVuosi ? ref.collection('idp_kausi').doc(_toinenVuosi) : null;
     await db.runTransaction(async function (tx) {
+      // KAIKKI LUKEMISET ENNEN KIRJOITUKSIA (Firestore-transaktion sääntö).
       const s = await tx.get(kausiRef);
+      const s2 = _toinenRef ? await tx.get(_toinenRef) : null;
       const d = s.exists ? (s.data() || {}) : {};
       const nykyiset = Array.isArray(d.tavoitteet) ? d.tavoitteet : [];
       const yhd = idpTavoitteetYhdista(nykyiset, t);
+      let toinenYhd = null;
+      if (s2 && s2.exists) {
+        const d2 = s2.data() || {};
+        toinenYhd = idpMerkitseVaihdetuksi(Array.isArray(d2.tavoitteet) ? d2.tavoitteet : [], p._idpVuosiLuotu, new Date());
+      }
       tx.set(kausiRef, { tavoitteet: yhd, paivitetty: new Date().toISOString() }, { merge: true });
+      // null = ei merkittävää (jo vaihdettu tai ei löytynyt) → ei turhaa kirjoitusta.
+      if (toinenYhd) tx.set(_toinenRef, { tavoitteet: toinenYhd, paivitetty: new Date().toISOString() }, { merge: true });
     });
     await ref.set({ idp_tila: pk.idp_tila, idp_edistyma: pk.idp_edistyma || null, idp_fokus: pk.idp_fokus || null, idp_viim_review: pk.idp_viim_review || null, idp_dvi: _dvi }, { merge: true });
+    _asetaPikakentat();
+    /* Ankkuri seuraa kirjoitettua dokkia: seuraavat tallennukset (review, elinkaari) osuvat samaan
+       dokkiin eikä A3:n toisen dokin luku toistu turhaan. */
+    p._idpVuosi = vuosi; p._idpVuosiLuotu = t.luotu;
     if (typeof toast === 'function') toast(viesti + ' ✓', 'ok');
     return true;
   } catch (e) { console.warn('[_vpTallennaIdpDok]', e && e.message); if (typeof toast === 'function') toast(vpT('Tallennus epäonnistui'), 'error'); return false; }
@@ -6443,7 +6471,11 @@ async function _vpLataaTavoite(p) {
       // Ei voimassa olevaa eikä ehdotusta (esim. kaikki hylätty/vaihdettu) → vanha fallback ennallaan.
       if (!_voimassa && !_jako.luonnos) _voimassa = val ? val.tavoite : (arr && arr.length ? arr[arr.length - 1] : null);
       tgt._idpTavoite = _voimassa;
-      if (_jako.luonnos) { tgt._idpLuonnos = _jako.luonnos; tgt._luonnosTyyppi = _voimassa ? 'vaihto' : 'uusi'; tgt._luonnosTallennettu = true; }
+      if (_jako.luonnos) {
+        tgt._idpLuonnos = _jako.luonnos; tgt._luonnosTyyppi = _voimassa ? 'vaihto' : 'uusi'; tgt._luonnosTallennettu = true;
+        // A3: ladattu ehdotus tallentuu samaan dokkiin josta se luettiin (vuodenvaihde).
+        tgt._idpLuonnosVuosi = _kVuosi; tgt._idpLuonnosLuotu = _jako.luonnos.luotu;
+      }
       const _ankkuri = tgt._idpTavoite || tgt._idpLuonnos || null;
       tgt._idpVuosi = _kVuosi; tgt._idpVuosiLuotu = _ankkuri && _ankkuri.luotu;
       tgt._idpLadattu = true;
