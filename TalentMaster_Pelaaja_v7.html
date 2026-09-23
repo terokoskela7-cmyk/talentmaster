@@ -2123,13 +2123,24 @@ async function _p7LataaTavoite() {
   if (!_pelaaja || !_pelaaja.id || !_pelaaja.seuraId || !window._db || typeof idpKausivuosi !== 'function') return;
   try {
     var vuosi = idpKausivuosi(new Date());
-    var snap = await window._db.collection('seurat').doc(_pelaaja.seuraId)
-      .collection('pelaajat').doc(_pelaaja.id).collection('idp_kausi').doc(vuosi).get();
+    var kausiCol = window._db.collection('seurat').doc(_pelaaja.seuraId)
+      .collection('pelaajat').doc(_pelaaja.id).collection('idp_kausi');
+    var snap = await kausiCol.doc(vuosi).get();
     var data = snap.exists ? (snap.data() || {}) : {};
     var arr = data.tavoitteet;
+    /* HOTFIX · vuodenvaihde: doc-id on kalenterivuosi → 1.1. syksyn tavoite katoaisi näkyvistä.
+       Jos kuluvassa ei ole voimassa olevaa, luetaan edellinen vuosi. */
+    if (typeof idpVoimassaTavoite === 'function' && !idpVoimassaTavoite(arr)) {
+      try {
+        var se = await kausiCol.doc(String(Number(vuosi) - 1)).get();
+        var ed = se.exists ? (se.data() || {}) : {};
+        if (idpVoimassaTavoite(ed.tavoitteet)) arr = ed.tavoitteet;
+      } catch (e) { /* best-effort */ }
+    }
     if (arr && arr.length) {
-      // Aktiivinen (aktiivinen/jatkuu/saavutettu) etusijalla, muuten viimeisin. Hylätty ohitetaan (§3).
-      var akt = arr.filter(function (t) { return t && t.status !== 'hylatty'; });
+      /* Voimassa oleva = viimeisin joka EI ole 'hylatty' eikä 'vaihdettu'. 'vaihdettu' on HOTFIXin
+         historiamerkintä: vanha tavoite säilyy taulukossa arvioineen, mutta sitä ei enää näytetä. */
+      var akt = arr.filter(function (t) { return t && t.status !== 'hylatty' && t.status !== 'vaihdettu'; });
       _p7Tavoite = window._p7Tavoite = akt.length ? akt[akt.length - 1] : null;
     }
     // v2 §4 — pelaajan itsearvio + sitoumus (kaksivaiheinen: pelaaja sitoutuu, valmentaja vahvistaa).

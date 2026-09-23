@@ -6317,9 +6317,22 @@ async function _vpTallennaIdpDok(p, viesti) {
   if (_isDemoMode || !_seuraId) { if (typeof toast === 'function') toast(viesti + vpT(' (demo — ei kirjoitettu)'), 'ok'); return; }
   try {
     const cu = firebase.auth().currentUser; if (cu) await cu.getIdToken(true);
-    const vuosi = (typeof idpKausivuosi === 'function') ? idpKausivuosi(new Date()) : String(new Date().getFullYear());
+    /* HOTFIX · tavoitetaulukko on HISTORIA. Aiemmin tässä kirjoitettiin tavoitteet-kenttä YHDEN alkion taulukkona merge:llä, mutta
+       Firestoren merge EI yhdistä taulukoita vaan korvaa kentän → jokainen tallennus pyyhki vanhan tavoitteen ja
+       sen arviot (kehityskeskustelut) pysyvästi. Nyt transaktio: luku → idpTavoitteetYhdista → kirjoitus.
+       Vuosi: sama dokki josta tavoite ladattiin (vuodenvaihde), UUSI tavoite kuluvaan kauteen. */
+    const vuosi = (typeof idpTallennusVuosi === 'function')
+      ? idpTallennusVuosi(p, t, new Date())
+      : ((typeof idpKausivuosi === 'function') ? idpKausivuosi(new Date()) : String(new Date().getFullYear()));
     const ref = db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(p.id);
-    await ref.collection('idp_kausi').doc(vuosi).set({ tavoitteet: [t], paivitetty: new Date().toISOString() }, { merge: true });
+    const kausiRef = ref.collection('idp_kausi').doc(vuosi);
+    await db.runTransaction(async function (tx) {
+      const s = await tx.get(kausiRef);
+      const d = s.exists ? (s.data() || {}) : {};
+      const nykyiset = Array.isArray(d.tavoitteet) ? d.tavoitteet : [];
+      const yhd = (typeof idpTavoitteetYhdista === 'function') ? idpTavoitteetYhdista(nykyiset, t) : [t];
+      tx.set(kausiRef, { tavoitteet: yhd, paivitetty: new Date().toISOString() }, { merge: true });
+    });
     await ref.set({ idp_tila: pk.idp_tila, idp_edistyma: pk.idp_edistyma || null, idp_fokus: pk.idp_fokus || null, idp_viim_review: pk.idp_viim_review || null, idp_dvi: _dvi }, { merge: true });
     if (typeof toast === 'function') toast(viesti + ' ✓', 'ok');
   } catch (e) { console.warn('[_vpTallennaIdpDok]', e && e.message); if (typeof toast === 'function') toast(vpT('Tallennus epäonnistui'), 'error'); }
@@ -6330,14 +6343,30 @@ async function _vpLataaTavoite(p) {
   if (_isDemoMode || !_seuraId || !p.idp_tila) return;   // pikakenttä kertoo onko tavoitetta
   try {
     const vuosi = (typeof idpKausivuosi === 'function') ? idpKausivuosi(new Date()) : String(new Date().getFullYear());
-    const s = await db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(p.id).collection('idp_kausi').doc(vuosi).get();
+    const kausiCol = db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(p.id).collection('idp_kausi');
+    const s = await kausiCol.doc(vuosi).get();
     const sdata = s.exists ? (s.data() || {}) : {};
-    const arr = sdata.tavoitteet || null;
+    /* HOTFIX · vuodenvaihde: doc-id on kalenterivuosi, joten 1.1. syksyn tavoite katoaisi näkyvistä ja
+       seuraava tallennus aloittaisi tyhjästä dokista. Jos kuluvassa ei ole VOIMASSA olevaa tavoitetta,
+       luetaan edellisen vuoden dokki. Ei doc-ID-mallin muutosta, ei migraatiota. */
+    let arr = sdata.tavoitteet || null;
+    let _lahdeVuosi = vuosi;
+    if (typeof idpVoimassaTavoite === 'function' && !idpVoimassaTavoite(arr)) {
+      const edVuosi = String(Number(vuosi) - 1);
+      try {
+        const se = await kausiCol.doc(edVuosi).get();
+        const ed = se.exists ? (se.data() || {}) : {};
+        if (idpVoimassaTavoite(ed.tavoitteet)) { arr = ed.tavoitteet; _lahdeVuosi = edVuosi; }
+      } catch (e) { /* best-effort */ }
+    }
     const tgt = (window._vpArvPelaaja && window._vpArvPelaaja.id === p.id) ? window._vpArvPelaaja : p;
     if (sdata.pelaaja_sitoumus) tgt._idpSitoumus = sdata.pelaaja_sitoumus;   // v2 §4 — pelaajan itsearvio + sitoumus
     if (arr && arr.length) {
       // §33: aseta SAMAAN objektiin jonka kortti renderöi (voi vaihtua await:n aikana); re-render vain jos vielä auki.
-      tgt._idpTavoite = arr[arr.length - 1]; tgt._idpLadattu = true;
+      // Voimassa oleva = viimeisin joka EI ole 'vaihdettu' eikä 'hylatty' (taulukon viimeinen voi olla kumpi tahansa).
+      tgt._idpTavoite = (typeof idpVoimassaTavoite === 'function') ? (idpVoimassaTavoite(arr) || arr[arr.length - 1]) : arr[arr.length - 1];
+      tgt._idpVuosi = _lahdeVuosi; tgt._idpVuosiLuotu = tgt._idpTavoite && tgt._idpTavoite.luotu;
+      tgt._idpLadattu = true;
       if (window._vpArvPelaaja === tgt) { _vpKausitavoiteReRender(); if (typeof _vpAloitusReRender === 'function') _vpAloitusReRender(); }
     } else if (sdata.pelaaja_sitoumus && window._vpArvPelaaja === tgt) {
       _vpKausitavoiteReRender();
