@@ -32,7 +32,9 @@ describe('(1) rail-vapaa kattaa Kehityksen (tab 3) + leveyskatto 940', () => {
 describe('(2+3) fwh-otsikko + VP-oversight status-nauha prependattu työpöytään', () => {
   it('_kehExtra alkaa otsikolla + statuksella ENNEN moottoria', () => {
     const iOts = HTML.indexOf('_kehExtra += _vpKehOtsikkoHTML();');
-    const iStat = HTML.indexOf('_kehExtra += _vpKehStatusHTML(p);');
+    /* Vaihe 1.2: nauha renderoidaan id-ankkurin sisalla (_vpKausitavoiteReRender paivittaa sen),
+       joten jarjestys mitataan ankkurista. Jarjestys-invariantti ennallaan. */
+    const iStat = HTML.indexOf('_kehExtra += \'<div id="_jspKehStatus">\'');
     const iMoot = HTML.indexOf('_kehExtra += _vpMoottoriKortitHTML(p, p.id);');
     expect(iOts).toBeGreaterThan(0);
     expect(iOts).toBeLessThan(iStat);

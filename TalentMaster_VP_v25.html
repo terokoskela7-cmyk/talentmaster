@@ -37,7 +37,7 @@
 <script src="lib/tm_arviointi_taksonomia.js?v=11"></script>   <!-- Vaihe 2: arviointitaksonomia + pääteemat + kehysrekisteri (mitattu + havaittu 1–5) -->
 <script src="lib/tm_pelialy_yksilo.js?v=4"></script>   <!-- P1: pelihavainto peliäly → yksilöteema · v3: Vaihe B ristiinarvio-konsensus -->
 <script src="lib/tm_arviointi_silta.js?v=3"></script>   <!-- Vaihe 5: arviointi→resepti-silta (heikoin havaittu D2 → ehdotettu jaksofokus) · v2 = I3a SSOT-osoitin tm_kehityspolku -->
-<script src="lib/tm_idp.js?v=7"></script>   <!-- I3a: + kesto valmentajan asetettavaksi (opts.kestoVk) · I2: lahde+pvm/idp_lahde/idpVahvinDim 1–3 -->
+<script src="lib/tm_idp.js?v=8"></script>   <!-- I3a: + kesto valmentajan asetettavaksi (opts.kestoVk) · I2: lahde+pvm/idp_lahde/idpVahvinDim 1–3 -->
 <script src="lib/tm_teknistaktiset.js?v=5"></script>   <!-- Vaihe 4a: teknis-taktinen curriculum (VP:n jaksofokus talenteille) · v5 = I3a pelipaikkaportti U14+ + harjoite-tägit/jalka -->
 <script src="lib/tm_piirros.js?v=1"></script>   <!-- Piirrokset Vaihe 1: fasciallinjat (D1) + pelipaikkakartta (D4), inline-SVG -->
 <script src="lib/tm_konsepti_resolve.js?v=2"></script>   <!-- Seurakerros TIER 1: seurat/{sid}/konseptit override kaanonin päälle (kaanon = oletus, ei pakko) -->
@@ -6177,7 +6177,21 @@ function _vpLoytaPelaaja(pid) {
 }
 function _vpKausitavoiteReRender() {
   const slot = document.getElementById('_jspKausitavoite'); const p = window._vpArvPelaaja;
-  if (slot && p && typeof _vpKausitavoiteHTML === 'function') {
+  /* Vaihe 1.2 — rivit + nauha lukevat VOIMASSA OLEVAA tavoitetta, joten editorin slot yksin ei riitä:
+     hyväksytty vaihto muuttaa myös rivin tilan ja otsikon. Koko Kehityssuunnitelma-kontti rakennetaan
+     uudelleen VAIN kun voimassa oleva tavoite vaihtui (luotu+status) — luonnoksen selailu ei saa pyyhkiä
+     muiden rivien kesken jäänyttä syöttöä. Avoimet haitarirvit palautetaan. Nauha ei sisällä syöttöä → aina. */
+  const _kehCont = document.getElementById('_jspKehSuunnitelma');
+  const _tunnus = (p && p._idpTavoite) ? (p._idpTavoite.luotu + '|' + p._idpTavoite.status) : '-';
+  const _vaihtui = !!(p && p._kehRenderTunnus !== undefined && p._kehRenderTunnus !== _tunnus);
+  if (p) p._kehRenderTunnus = _tunnus;
+  if (_vaihtui && _kehCont && typeof _vpKehSuunnitelmaHTML === 'function') {
+    const _avoimet = [];
+    const _rivit = _kehCont.querySelectorAll('.acc-row.open');
+    for (let i = 0; i < _rivit.length; i++) { if (_rivit[i].id) _avoimet.push(_rivit[i].id); }
+    _kehCont.innerHTML = _vpKehSuunnitelmaHTML(p);
+    for (let i = 0; i < _avoimet.length; i++) { const r = document.getElementById(_avoimet[i]); if (r) r.classList.add('open'); }
+  } else if (slot && p && typeof _vpKausitavoiteHTML === 'function') {
     slot.innerHTML = _vpKausitavoiteHTML(p);
   } else if (p && typeof _vpKehSuunnitelmaHTML === 'function') {
     // P4a.1 — slot puuttuu (tyhjä→täysi -siirtymä haitarissa, tai kausitavoite-rivin body oli CTA): rakenna koko
@@ -6186,6 +6200,9 @@ function _vpKausitavoiteReRender() {
     const cont = acc && acc.parentNode;
     if (cont) cont.innerHTML = _vpKehSuunnitelmaHTML(p);
   }
+  // Status-nauha (VP-oversight) lukee samaa voimassa olevaa tavoitetta + reviewejä → päivitetään aina.
+  const _stNauha = document.getElementById('_jspKehStatus');
+  if (_stNauha && p && typeof _vpKehStatusHTML === 'function') _stNauha.innerHTML = _vpKehStatusHTML(p);
   // P4a.1 — avaa kausitavoite-haitarirvi, jotta re-render (moottori/ehdota/muokkaa) näkyy vaikka rivi oli kiinni.
   const _accK = document.getElementById('_accKausitavoite'); if (_accK) _accK.classList.add('open');
   // 1b — päivitä myös narratiivi-IDP-välilehti (sama data; täysi tavoite latautuu taustalla).
@@ -6196,6 +6213,30 @@ function _vpKausitavoiteReRender() {
 function _vpIdpPelaaja(pid) {
   return (window._vpArvPelaaja && window._vpArvPelaaja.id === pid) ? window._vpArvPelaaja : _vpLoytaPelaaja(pid);
 }
+/* ── VAIHE 1 · LUONNOS ≠ VOIMASSA OLEVA TAVOITE ───────────────────────────────────────────────
+   p._idpTavoite = aina viimeisin TALLENNETTU, voimassa oleva tavoite. Sitä lukevat Kehityssuunnitelman
+   rivit, status-nauha, pikakentät ja PDC — ne eivät saa näyttää tallentamatonta luonnosta voimassa olevana.
+   p._idpLuonnos = editorin työkopio (null kun editori on kiinni) · p._luonnosTyyppi 'muokkaus'|'vaihto'|'uusi'.
+   p._luonnosTallennettu = luonnos tuli Firestoresta (1.5) → cockpitin avaus ei nollaa sitä. */
+function _vpIdpKohde(p) { return (p && p._idpLuonnos) || (p && p._idpTavoite) || null; }
+function _vpAsetaLuonnos(p, t, tyyppi) {
+  if (!p || !t) return;
+  p._idpLuonnos = t;
+  // Vaihto = voimassa oleva tavoite on olemassa ja luonnos on ERI tavoite (eri luotu-tunniste).
+  p._luonnosTyyppi = tyyppi || ((p._idpTavoite && p._idpTavoite.luotu !== t.luotu) ? 'vaihto' : 'uusi');
+  p._luonnosTallennettu = false;
+}
+function _vpTyhjennaLuonnos(p) {
+  if (!p) return;
+  p._idpLuonnos = null; p._luonnosTyyppi = null; p._luonnosTallennettu = false;
+  p._idpValitseFokus = false; p._idpKandN = null; p._idpFokusTeema = null;
+}
+// Peruuta: luonnos pois, voimassa oleva tavoite ennallaan. EI tallennusta (ei kirjoituskutsua).
+window._vpPeruutaLuonnos = function (pid) {
+  const p = _vpIdpPelaaja(pid); if (!p) return;
+  _vpTyhjennaLuonnos(p);
+  _vpKausitavoiteReRender();
+};
 // Yksi opts-lähde moottorille + VP:n fokus-valinnalle (norm-helperit + ika/sp johdettu pelaajasta). ehdotusIdx = kierto.
 function _vpIdpOpts(p, ehdotusIdx) {
   const isp = (typeof _dimIkaSp === 'function') ? _dimIkaSp(p.joukkue || '', p) : { ika: null, sp: 'P' };
@@ -6224,11 +6265,12 @@ window._vpEhdotaTavoite = function (pid) {
   // Kandidaattimäärä kierrolle + 1-kandidaatin vihjeelle (§3).
   const n = (typeof idpKandidaatitJarjestetty === 'function') ? idpKandidaatitJarjestetty(p, _vpIdpOpts(p)).length : 1;
   // Kierto vain jos tavoite jo olemassa (ei ensiehdotuksessa); rajaa indeksi kandidaattimäärään.
-  if (p._idpTavoite && n > 1) p._idpEhdotusIdx = ((p._idpEhdotusIdx || 0) + 1) % n;
-  else if (!p._idpTavoite) p._idpEhdotusIdx = 0;
+  const _koh = _vpIdpKohde(p);
+  if (_koh && n > 1) p._idpEhdotusIdx = ((p._idpEhdotusIdx || 0) + 1) % n;
+  else if (!_koh) p._idpEhdotusIdx = 0;
   const t = idpEhdotaTavoite(p, _vpIdpOpts(p, p._idpEhdotusIdx || 0));
   if (!t) { if (typeof toast === 'function') toast(vpT('Ei kelvollista kehityskohdetta ehdotukseen (§28)'), 'ok'); return; }
-  p._idpTavoite = t; p._idpMuokkaus = true; p._idpKandN = n;   // luonnos → muokattavissa; N vihjettä varten
+  _vpAsetaLuonnos(p, t); p._idpKandN = n;   // luonnos EI korvaa voimassa olevaa tavoitetta; N vihjettä varten
   if (n <= 1) p._idpValitseFokus = true;   // 1 kandidaatti → korosta fokus-dropdown (§3)
   _vpKausitavoiteReRender();
 };
@@ -6257,7 +6299,7 @@ window._vpTeeIdpTavoiteHavainnosta = function (pid, avain) {
   const k = idpKohdeKandidaatti(p, avain, Object.assign({}, opts, { lahde: lahde, lahdePvm: lahdePvm, arvo: arvo }));
   const t = idpRakennaTavoite(p, k, opts);
   if (!t) { if (typeof toast === 'function') toast(vpT('Tavoitteen luonti epäonnistui'), 'error'); return; }
-  p._idpTavoite = t; p._idpMuokkaus = true; p._idpValitseFokus = false; p._idpKandN = null;
+  _vpAsetaLuonnos(p, t); p._idpValitseFokus = false; p._idpKandN = null;
   if (typeof _jspVaihda === 'function') _jspVaihda(3);   // Vaihe B: Kehitys-välilehti = tab 3 (Kausitavoite-kortti)
   _vpKausitavoiteReRender();
   if (typeof toast === 'function') toast(vpT('IDP-tavoite luotu havainnosta — tarkista ja hyväksy'), 'ok');
@@ -6270,7 +6312,7 @@ window._vpAsetaFokus = function (pid, avain) {
   const t = idpRakennaTavoite(p, idpKohdeKandidaatti(p, avain, opts), opts);
   if (!t) return;
   if (kuvaus) t.kuvaus = kuvaus;
-  p._idpTavoite = t; p._idpMuokkaus = true; p._idpValitseFokus = false;
+  _vpAsetaLuonnos(p, t); p._idpValitseFokus = false;
   _vpKausitavoiteReRender();
 };
 // VP kirjoittaa fokuksen vapaana tekstinä (taksonomia ei riitä) → yksikko:'vapaa' (ei mitattavaa palkkia, §2.2).
@@ -6280,26 +6322,36 @@ window._vpVapaaFokus = function (pid) {
   if (!nimi) { if (typeof toast === 'function') toast(vpT('Kirjoita fokus-nimi'), 'ok'); return; }
   const opts = _vpIdpOpts(p);
   const kuvaus = _vpLueKuvaus();
-  const t = idpRakennaTavoite(p, { avain: 'vapaa', dim: (p._idpTavoite && p._idpTavoite.fokus && p._idpTavoite.fokus.dim) || null,
+  const _kohV = _vpIdpKohde(p);
+  const t = idpRakennaTavoite(p, { avain: 'vapaa', dim: (_kohV && _kohV.fokus && _kohV.fokus.dim) || null,
     nimi: nimi, lahde: 'valmentaja', tyyppi: 'vapaa', vapaa: true, mittariTestId: null, mittariYks: 'vapaa', mittariSuunta: null }, opts);
   if (!t) return;
   if (kuvaus) t.kuvaus = kuvaus;
-  p._idpTavoite = t; p._idpMuokkaus = true; p._idpValitseFokus = false;
+  _vpAsetaLuonnos(p, t); p._idpValitseFokus = false;
   _vpKausitavoiteReRender();
 };
 // Lue kuvaus-textarea (säilytä VP:n teksti re-renderin yli).
 function _vpLueKuvaus() { const el = document.getElementById('_jspTavKuvaus'); return el ? el.value.trim() : ''; }
 // Hyväksy/tallenna: lukee pelaajan äänen + tavoitearvon kentistä → status → Firestore (idp_kausi + pikakentät §26).
+window._vpMuokkaaLuonnos = function (pid) {
+  const p = _vpIdpPelaaja(pid); const v = p && p._idpTavoite; if (!v) return;
+  _vpAsetaLuonnos(p, JSON.parse(JSON.stringify(v)), 'muokkaus');
+  _vpKausitavoiteReRender();
+};
 window._vpTallennaTavoite = async function (pid, uusiStatus) {
   // §33: sama objekti kuin kortti renderöi (_vpArvPelaaja) → tallennus + re-render osuvat yhteen _idpTavoiteen.
   const p = (window._vpArvPelaaja && window._vpArvPelaaja.id === pid) ? window._vpArvPelaaja : _vpLoytaPelaaja(pid);
-  const t = p && p._idpTavoite; if (!t) return;
+  // Tallennetaan LUONNOS jos editori on auki, muuten voimassa oleva tavoite (elinkaari-napit).
+  const t = p && (p._idpLuonnos || p._idpTavoite); if (!t) return;
   const aani = document.getElementById('_jspTavAani'); if (aani) t.pelaajan_tavoite = aani.value.trim();
   const kuvausEl = document.getElementById('_jspTavKuvaus'); if (kuvausEl) t.kuvaus = kuvausEl.value.trim();   // §2.3 vapaa tavoitekuvaus
   const tavIn = document.getElementById('_jspTavArvo'); if (tavIn && tavIn.value !== '' && !isNaN(tavIn.value)) t.tavoitearvo = Number(tavIn.value);
   if (uusiStatus) t.status = uusiStatus;
   if (uusiStatus === 'aktiivinen') { t.hyvaksytty = new Date().toISOString(); t.omistaja = 'yhdessa'; }
-  p._idpMuokkaus = false;
+  /* Luonnos → voimassa oleva: vasta tästä hetkestä rivit, nauha ja pikakentät lukevat uutta tavoitetta.
+     Vanha tavoite EI katoa: _vpTallennaIdpDok yhdistää sen idpTavoitteetYhdista:lla (status 'vaihdettu'). */
+  p._idpTavoite = t;
+  _vpTyhjennaLuonnos(p);
   _vpKausitavoiteReRender();
   await _vpTallennaIdpDok(p, 'Tavoite ' + (uusiStatus === 'aktiivinen' ? 'aktivoitu' : 'tallennettu'));
 };
@@ -6368,8 +6420,19 @@ async function _vpLataaTavoite(p) {
     if (sdata.pelaaja_sitoumus) tgt._idpSitoumus = sdata.pelaaja_sitoumus;   // v2 §4 — pelaajan itsearvio + sitoumus
     if (val || (arr && arr.length)) {
       // §33: aseta SAMAAN objektiin jonka kortti renderöi (voi vaihtua await:n aikana); re-render vain jos vielä auki.
-      tgt._idpTavoite = val ? val.tavoite : arr[arr.length - 1];
-      tgt._idpVuosi = val ? val.vuosi : vuosi; tgt._idpVuosiLuotu = tgt._idpTavoite && tgt._idpTavoite.luotu;
+      /* Vaihe 1.5 — voimassa oleva tavoite ja TALLENNETTU EHDOTUS erikseen (jaettu helperi, ei inline-logiikkaa):
+         [A aktiivinen, B ehdotettu] → _idpTavoite = A (rivit, nauha, pikakentät) ja _idpLuonnos = B (vain editori).
+         Näin valmentajan ehdotus ei näy voimassa olevana ennen kuin VP hyväksyy sen vahvistusikkunasta. */
+      const _kVuosi = val ? val.vuosi : vuosi;
+      const _kArr = (val && val.vuosi === edVuosi) ? edArr : arr;
+      const _jako = idpJaaVoimassaJaEhdotus(_kArr);
+      let _voimassa = _jako.tavoite || null;
+      // Ei voimassa olevaa eikä ehdotusta (esim. kaikki hylätty/vaihdettu) → vanha fallback ennallaan.
+      if (!_voimassa && !_jako.luonnos) _voimassa = val ? val.tavoite : (arr && arr.length ? arr[arr.length - 1] : null);
+      tgt._idpTavoite = _voimassa;
+      if (_jako.luonnos) { tgt._idpLuonnos = _jako.luonnos; tgt._luonnosTyyppi = _voimassa ? 'vaihto' : 'uusi'; tgt._luonnosTallennettu = true; }
+      const _ankkuri = tgt._idpTavoite || tgt._idpLuonnos || null;
+      tgt._idpVuosi = _kVuosi; tgt._idpVuosiLuotu = _ankkuri && _ankkuri.luotu;
       tgt._idpLadattu = true;
       if (window._vpArvPelaaja === tgt) { _vpKausitavoiteReRender(); if (typeof _vpAloitusReRender === 'function') _vpAloitusReRender(); }
     } else if (sdata.pelaaja_sitoumus && window._vpArvPelaaja === tgt) {
@@ -6687,8 +6750,10 @@ function _vpKehStatusHTML(p) {
   // 3) Montako viikkoa jaksossa jäljellä (alkoi + kesto_vk); ei alkoi-pvm:ää → näytä kesto
   if (jf && jf.konsepti_nimi) {
     const vk = jf.kesto_vk || 4;
-    if (jf.alkoi) {
-      const jaljella = Math.ceil((new Date(jf.alkoi).getTime() + vk * 7 * 86400000 - Date.now()) / (7 * 86400000));
+    // Sama laskenta kuin Kehityssuunnitelman rivillä (tmJfViikko) — ei omaa ceil-kaavaa.
+    const _jfVk = (_jfLib && typeof _jfLib.tmJfViikko === 'function') ? _jfLib.tmJfViikko(jf) : null;
+    if (_jfVk) {
+      const jaljella = _jfVk.jaljella;
       items.push('<span class="stitem">' + vpT('Jaksofokus') + ' <b>' + (jaljella > 0 ? jaljella + ' ' + vpT('vk jäljellä') : vpT('umpeutunut')) + '</b></span>');
     } else {
       items.push('<span class="stitem">' + vpT('Jaksofokus') + ' <b>' + vpT('kesto') + ' ' + vk + ' vk</b></span>');
@@ -7344,11 +7409,19 @@ function _vpIdpNarratiiviHTML(p) {
 function _vpKausitavoiteHTML(p) {
   if (!p) return '';
   window._vpArvPelaaja = p;
-  const t = p._idpTavoite;
+  /* Vaihe 1: editori renderöi LUONNOKSEN kun sellainen on auki; p._idpTavoite (voimassa oleva) ei muutu.
+     muokkaus-tila = luonnos auki — yksi totuus, ei erillistä p._idpMuokkaus-lippua. */
+  const luonnos = p._idpLuonnos || null;
+  const muokkaus = !!luonnos;
+  const t = luonnos || p._idpTavoite;
   const pid = _jsvEsc(p.id);
   const fmt = function (v, yks) { return (v == null) ? '—' : ((typeof _fmtTestiArvo === 'function' ? _fmtTestiArvo(v, yks) : v) + (yks && yks !== 'taso' ? ' ' + yks : '')); };
   let h = '<div class="jsp-kt-hd"><span class="jsp-kt-t">' + vpT('Kausitavoite ') + '<span style="text-transform:none;letter-spacing:0;color:var(--ink3);font-weight:400">' + vpT('· IDP-ydin') + '</span></span>'
     + ((typeof window._tmIBtn === 'function') ? (window._tmIBtn('idp_silta') + window._tmIBtn('idp_roolit')) : '') + '</div>';
+  if (p._luonnosTyyppi === 'vaihto') {
+    h += '<div style="font-family:var(--font-mono),\'DM Mono\',monospace;font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink3);'
+      + 'border:.5px dashed var(--border);border-radius:7px;padding:6px 10px;margin:2px 0 10px;background:var(--ov-1)">' + vpT('Luonnos · ei vielä käytössä') + '</div>';
+  }
   if (!t && !p.idp_tila) {
     // Tyhjä tila → ehdotus-CTA (johdetaan Vaihe 2 -arvioinnista)
     h += '<div class="jsp-kt-empty">' + vpT('Ei kausitavoitetta. Johdetaan heikoimmasta ominaisuudesta (arviointi + §28-kypsyysvahti).')
@@ -7425,9 +7498,9 @@ function _vpKausitavoiteHTML(p) {
   }
   h += '</div>';
   // §2.3 vapaa tavoitekuvaus (näkyy kortilla; muokkaustilassa textarea)
-  if (t.kuvaus && !p._idpMuokkaus) h += '<div class="jsp-kt-box" style="margin-top:8px"><div class="jsp-kt-bt">' + vpT('Tavoite pelissä') + '</div><div class="jsp-kt-bl">' + _jsvEsc(t.kuvaus) + '</div></div>';
+  if (t.kuvaus && !muokkaus) h += '<div class="jsp-kt-box" style="margin-top:8px"><div class="jsp-kt-bt">' + vpT('Tavoite pelissä') + '</div><div class="jsp-kt-bl">' + _jsvEsc(t.kuvaus) + '</div></div>';
   // ── Muokkaustila: fokus-valinta (VP omistaa) + vapaa fokus + tavoitekuvaus ──
-  if (p._idpMuokkaus) {
+  if (muokkaus) {
     h += _vpFokusValintaHTML(p, pid, f);
     // muokattava tavoitearvo (mitattavalle; vapaa/taso → ei palkkia, ei arvoa)
     if (yks !== 'taso' && yks !== 'vapaa') {
@@ -7442,20 +7515,22 @@ function _vpKausitavoiteHTML(p) {
     + '<textarea id="_jspTavAani" class="jsp-kt-aani" placeholder="' + vpT('Pelaajan oma tavoite omin sanoin…') + '" onclick="event.stopPropagation()">' + _jsvEsc(t.pelaajan_tavoite || '') + '</textarea></div>';
   // P4a — VÄLITAVOITTEET Kehitys-työpöydälle (kausitavoitteen jälkeen, ennen sitoumusta): yksi koti kausitavoite-slotissa
   //    → _vpKausitavoiteReRender kattaa lisää/poista (ei duplikaatti-ID; Aloituksesta poistettu). Kausitavoite → välitavoitteet → jaksofokus.
-  if (!p._idpMuokkaus && typeof _vpValitavoitteetHTML === 'function') h += '<div style="margin-top:12px">' + _vpValitavoitteetHTML(t, pid) + '</div>';
+  if (!muokkaus && typeof _vpValitavoitteetHTML === 'function') h += '<div style="margin-top:12px">' + _vpValitavoitteetHTML(t, pid) + '</div>';
   // v2 §4 — pelaajan ääni & sitoumus (pelaaja kirjaa Pelaaja-appissa; VP näkee + vahvistaa).
-  if (!p._idpMuokkaus && typeof _vpSitoumusHTML === 'function') h += _vpSitoumusHTML(p, pid);
+  if (!muokkaus && typeof _vpSitoumusHTML === 'function') h += _vpSitoumusHTML(p, pid);
   // P4a.1 — kehityskaari EI enää kausitavoitteen sisällä: se on oma haitarirvi (TASO 3 · HISTORIA) työpöydällä
   //   (_vpKehSuunnitelmaHTML). Näin IDP-hierarkia (kausi › jakso › kaari) erottuu selkeästi. (Muokkaustilassa oli jo piilossa.)
   // napit
   h += '<div class="jsp-kt-btns">';
   const kn = (p._idpKandN != null) ? p._idpKandN : null;
   const ehdLbl = (kn != null && kn > 1) ? vpT('↻ Ehdota (moottori ·') + ' ' + kn + ')' : vpT('↻ Ehdota (moottori)');
-  if (p._idpMuokkaus) {
-    // muokkaustila: re-suggest + tallenna/hyväksy
+  if (muokkaus) {
+    // luonnostila: re-suggest + (vaihto → vahvistus) tai tallenna/hyväksy + Peruuta
     h += '<button class="jsp-kt-btn" onclick="event.stopPropagation();_vpEhdotaTavoite(\'' + pid + '\')">' + ehdLbl + '</button>';
-    if (st === 'ehdotettu') h += '<button class="jsp-kt-btn primary" onclick="event.stopPropagation();_vpTallennaTavoite(\'' + pid + '\',\'aktiivinen\')">' + vpT('✓ Hyväksy (aktiivinen)') + '</button>';
+    if (p._luonnosTyyppi === 'vaihto') h += '<button class="jsp-kt-btn primary" onclick="event.stopPropagation();_vpVaihtoAvaa(\'' + pid + '\')">' + vpT('Ota uusi tavoite käyttöön') + '</button>';
+    else if (st === 'ehdotettu') h += '<button class="jsp-kt-btn primary" onclick="event.stopPropagation();_vpTallennaTavoite(\'' + pid + '\',\'aktiivinen\')">' + vpT('✓ Hyväksy (aktiivinen)') + '</button>';
     else h += '<button class="jsp-kt-btn primary" onclick="event.stopPropagation();_vpTallennaTavoite(\'' + pid + '\',null)">' + vpT('💾 Tallenna') + '</button>';
+    h += '<button class="jsp-kt-btn" onclick="event.stopPropagation();_vpPeruutaLuonnos(\'' + pid + '\')">' + vpT('Peruuta') + '</button>';
   } else if (st === 'ehdotettu') {
     // 3a-flow ennallaan
     h += '<button class="jsp-kt-btn" onclick="event.stopPropagation();_vpEhdotaTavoite(\'' + pid + '\')">' + ehdLbl + '</button>'
@@ -7469,7 +7544,7 @@ function _vpKausitavoiteHTML(p) {
     } else if (st === 'saavutettu') {
       h += '<button class="jsp-kt-btn" onclick="event.stopPropagation();_vpJatkuuAvaa(\'' + pid + '\')">' + vpT('↗ Jatkuu (nosta rima)') + '</button>';
     }
-    h += '<button class="jsp-kt-btn" onclick="event.stopPropagation();window._vpArvPelaaja._idpMuokkaus=true;_vpKausitavoiteReRender()">' + vpT('✎ Muokkaa') + '</button>';
+    h += '<button class="jsp-kt-btn" onclick="event.stopPropagation();_vpMuokkaaLuonnos(\'' + pid + '\')">' + vpT('✎ Muokkaa') + '</button>';
   }
   h += '</div>';
   return h;
@@ -7675,6 +7750,75 @@ window._vpElinkaari = async function (pid, toiminto, uusiTavoitearvo) {
   _vpKausitavoiteReRender();
   const viesti = toiminto === 'saavutettu' ? vpT('Tavoite saavutettu') : toiminto === 'jatkuu' ? vpT('Tavoite jatkuu (rima nostettu)') : vpT('Tavoite hylätty');
   await _vpTallennaIdpDok(p, viesti);
+};
+/* VAIHE 1.3 — TAVOITTEEN VAIHTO VAHVISTETAAN (mockupin "vaihe 3/3"). Sama modaalikuvio kuin _vpJatkuuAvaa.
+   Jaksofokus on tehty VANHAN tavoitteen pohjalta → VP valitsee mitä sille tehdään. Jaksoon ei kosketa
+   oletuksena; "Päätä jakso nyt" kutsuu tallennuksen jälkeen olemassa olevaa _vpSuljeJakso:a (ei uutta logiikkaa). */
+window._vpVaihtoAvaa = function (pid) {
+  const p = _vpIdpPelaaja(pid); if (!p) return;
+  const vanha = p._idpTavoite || null, uusi = p._idpLuonnos || null;
+  if (!uusi) return;
+  if (!vanha) { _vpTallennaTavoite(pid, 'aktiivinen'); return; }   // ei voimassa olevaa → ei vaihtoa vahvistettavaksi
+  const esc = _jsvEsc;
+  const jf = p.jaksofokus && p.jaksofokus.konsepti_nimi ? p.jaksofokus : null;
+  const _jfLib = window.TM_JAKSOFOKUS;
+  const _vk = (jf && _jfLib && typeof _jfLib.tmJfViikko === 'function') ? _jfLib.tmJfViikko(jf) : null;
+  const jaljella = _vk ? _vk.jaljella : ((jf && jf.kesto_vk) || 4);
+  const jfNimi = jf ? _vpOtsikkoNaytto(_vpKonseptiNimiNaytto(jf)) : '';
+  const nimiVanha = _vpOtsikkoNaytto(_vpFokusNimiNaytto(vanha.fokus));
+  const nimiUusi = _vpOtsikkoNaytto(_vpFokusNimiNaytto(uusi.fokus));
+  // Tyyppi + tavoitetaso = puhdasta dataa (ei uusia kaannosavaimia).
+  const _mit = uusi.mittari || {}, _yks = _mit.yksikko || '';
+  const _meta = [(uusi.fokus && uusi.fokus.dim) || '', (_yks && _yks !== 'vapaa') ? ((_mit.suunta === 'pienempi' ? '≤' : '≥') + ' ' + (uusi.tavoitearvo != null ? uusi.tavoitearvo : '—') + (_yks !== 'taso' ? ' ' + _yks : '')) : ''].filter(Boolean).join(' · ');
+  window._vpVaihtoJakso = 'jatka';
+  const va = document.getElementById('_vpVaihtoModal'); if (va) va.remove();
+  const rivi = function (otsikko, nimi, meta) {
+    return '<div class="jsp-kt-box" style="margin-top:8px"><div class="jsp-kt-bt">' + otsikko + '</div>'
+      + '<div class="jsp-kt-bl" style="font-size:13px;color:var(--ink)">' + esc(nimi || '—') + '</div>'
+      + (meta ? '<div style="font-family:var(--font-mono),\'DM Mono\',monospace;font-size:9.5px;color:var(--ink3);margin-top:3px">' + esc(meta) + '</div>' : '') + '</div>';
+  };
+  const valinta = function (avain, otsikko, selite) {
+    return '<div id="_vpVaihtoV_' + avain + '" onclick="event.stopPropagation();_vpVaihtoValitse(\'' + avain + '\')" style="cursor:pointer;border:.5px solid var(--border);border-radius:9px;padding:10px 12px;margin-top:7px;background:var(--bg2)">'
+      + '<div style="font-family:var(--font-sans),\'DM Sans\',sans-serif;font-weight:500;font-size:12px;color:var(--ink)"><span class="_vpVaihtoRad" style="display:inline-block;width:9px;height:9px;border-radius:50%;border:1px solid var(--ink3);margin-right:7px;vertical-align:middle"></span>' + otsikko + '</div>'
+      + '<div style="font-size:11px;color:var(--ink3);line-height:1.5;margin-top:4px;padding-left:16px">' + esc(selite) + '</div></div>';
+  };
+  let h = '<div id="_vpVaihtoModal" style="position:fixed;inset:0;background:rgba(17,17,16,.9);z-index:350;display:flex;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(8px)" onclick="if(event.target===this)this.remove()">';
+  h += '<div class="jsp-rv-box" style="max-width:460px" onclick="event.stopPropagation()">'
+    + '<div class="jsp-rv-title">' + vpT('Vahvista vaihto') + '</div>'
+    + rivi(vpT('Nykyinen tavoite'), nimiVanha, '')
+    + rivi(vpT('Uusi tavoite'), nimiUusi, _meta);
+  if (jf) {
+    h += '<div style="border:.5px solid rgba(224,160,64,.35);background:rgba(224,160,64,.08);border-radius:9px;padding:11px 13px;margin-top:12px">'
+      + '<div style="font-size:11.5px;color:var(--ink2);line-height:1.5">' + vpT('Nykyinen jakso') + ' ' + esc(jfNimi) + ' ' + vpT('on tehty vanhan tavoitteen pohjalta. Mitä sille tehdään?') + '</div>'
+      + valinta('jatka', vpT('Jatka jakso loppuun'), jfNimi + ' ' + vpT('jatkuu vielä') + ' ' + jaljella + ' ' + vpT('vk. Uusi tavoite ohjaa seuraavaa jaksoa.'))
+      + valinta('paata', vpT('Päätä jakso nyt'), jfNimi + ' ' + vpT('siirtyy Aiempiin jaksoihin. Valitset heti uuden jakson.'))
+      + '</div>';
+  }
+  h += '<div class="jsp-kt-btns" style="margin-top:14px"><button class="jsp-kt-btn primary" onclick="event.stopPropagation();_vpVaihtoVahvista(\'' + esc(p.id) + '\')">' + vpT('Ota uusi tavoite käyttöön') + '</button>'
+    + '<button class="jsp-kt-btn" onclick="event.stopPropagation();document.getElementById(\'_vpVaihtoModal\').remove()">' + vpT('Peruuta') + '</button></div>'
+    + '<div style="font-family:var(--font-mono),\'DM Mono\',monospace;font-size:9px;color:var(--ink3);margin-top:10px">' + vpT('Vanha tavoite säilyy historiassa — mitään ei poisteta.') + '</div>'
+    + '</div></div>';
+  const wrap = document.createElement('div'); wrap.innerHTML = h; document.body.appendChild(wrap.firstChild);
+  _vpVaihtoValitse(window._vpVaihtoJakso);   // oletus tulee yhdesta paikasta (yllä) — korostus seuraa sita
+};
+window._vpVaihtoValitse = function (avain) {
+  window._vpVaihtoJakso = avain;
+  ['jatka', 'paata'].forEach(function (k) {
+    const el = document.getElementById('_vpVaihtoV_' + k); if (!el) return;
+    const on = (k === avain);
+    el.style.borderColor = on ? 'var(--teal)' : 'var(--border)';
+    const rad = el.querySelector('._vpVaihtoRad');
+    if (rad) { rad.style.background = on ? 'var(--teal)' : 'transparent'; rad.style.borderColor = on ? 'var(--teal)' : 'var(--ink3)'; }
+  });
+};
+window._vpVaihtoVahvista = async function (pid) {
+  const valinta = window._vpVaihtoJakso || 'jatka';
+  const m = document.getElementById('_vpVaihtoModal'); if (m) m.remove();
+  const p = _vpIdpPelaaja(pid);
+  const onJakso = !!(p && p.jaksofokus && p.jaksofokus.konsepti_nimi);
+  await _vpTallennaTavoite(pid, 'aktiivinen');
+  // "Päätä jakso nyt" → olemassa oleva sulkumodaali (jaksohistoria + uuden jakson valinta). Ei uutta sulkulogiikkaa.
+  if (valinta === 'paata' && onJakso && typeof _vpSuljeJakso === 'function') _vpSuljeJakso(pid);
 };
 // "↗ Jatkuu" → pieni modaali uudelle tavoitearvolle (nosta rima); vapaa/havaittu → suora jatko ilman arvoa.
 window._vpJatkuuAvaa = function (pid) {
@@ -11233,8 +11377,10 @@ function _vpViikkoAaniHTML(p, st) {
 // MUUTOS 7 — KATSELMUS-RIVI (EPPP-rytmi): viikkoa jäljellä jakson loppuun + linkki Kehitykseen. Ei arvosana.
 function _vpViikkoKatselmusHTML(p, st) {
   const jf = st.jf, kestoVk = (jf && jf.kesto_vk) || 4;
-  let jaljella = kestoVk;
-  if (jf && jf.alkoi) { const j = Math.ceil((new Date(jf.alkoi).getTime() + kestoVk * 7 * 86400000 - Date.now()) / (7 * 86400000)); if (!isNaN(j)) jaljella = Math.max(0, j); }
+  // Sama laskenta kuin nauhassa ja rivillä (tmJfViikko); ilman alkoi-arvoa näytetään kesto kuten ennen.
+  const _kJfLib = window.TM_JAKSOFOKUS;
+  const _kVk = (jf && _kJfLib && typeof _kJfLib.tmJfViikko === 'function') ? _kJfLib.tmJfViikko(jf) : null;
+  const jaljella = _kVk ? _kVk.jaljella : kestoVk;
   return '<div style="display:flex;align-items:center;gap:12px;border:.5px dashed var(--border);border-radius:10px;padding:13px 16px;background:var(--bg2);margin-top:14px;flex-wrap:wrap">'
     + '<div style="font-size:11.5px;color:var(--ink2);line-height:1.5"><b style="color:var(--ink);font-weight:500">' + vpT('Seuraava katselmus ~') + jaljella + ' vk</b> — ' + vpT('jaksofokus') + ' (' + kestoVk + ' vk) ' + vpT('päättyy. Katselmus =') + ' <b style="color:var(--ink);font-weight:500">' + vpT('keskustelu') + '</b>, ' + vpT('ei arvosana (EPPP-rytmi, §37).') + '</div>'
     + '<span onclick="event.stopPropagation();_jspVaihda(3)" style="margin-left:auto;font-family:var(--font-sans),\'DM Sans\',sans-serif;font-weight:500;font-size:11px;color:var(--teal);border:.5px solid rgba(40,176,144,.4);border-radius:6px;padding:7px 13px;white-space:nowrap;cursor:pointer">' + vpT('Avaa katselmus →') + '</span></div>';
@@ -12260,6 +12406,10 @@ window._avaaPerPelaajaPikakatsaus = function(idx, joukkueNimi) {
   idx = ((idx % nP) + nP) % nP;                 // kierrä listan ympäri
   const p = lista[idx];
   if (!p) return;
+  /* Vaihe 1.1 — cockpitin avaus nollaa TALLENTAMATTOMAN luonnoksen: suljetun cockpitin luonnos ei saa jäädä
+     elämään muistiin. Firestoresta ladattu ehdotus (_luonnosTallennettu) säilyy — se on tallennettua dataa. */
+  if (p._idpLuonnos && !p._luonnosTallennettu && typeof _vpTyhjennaLuonnos === 'function') _vpTyhjennaLuonnos(p);
+  p._kehRenderTunnus = undefined;
   const vanha = document.getElementById('_jspModal'); if (vanha) vanha.remove();
 
   const jesc = String(joukkueNimi).replace(/['"\\]/g, '');
@@ -12827,12 +12977,12 @@ window._avaaPerPelaajaPikakatsaus = function(idx, joukkueNimi) {
   // 0) R4 (Kehitys v2) — työpöydän otsikko (kartta .fwh) + VP-oversight status-nauha (kartta .status). Molemmat
   //    olemassa olevasta datasta; status tyhjenee kun ei tavoitetta/fokusta (moottori/CTA ohjaa).
   if (typeof _vpKehOtsikkoHTML === 'function') _kehExtra += _vpKehOtsikkoHTML();
-  if (typeof _vpKehStatusHTML === 'function') _kehExtra += _vpKehStatusHTML(p);
+  _kehExtra += '<div id="_jspKehStatus">' + ((typeof _vpKehStatusHTML === 'function') ? _vpKehStatusHTML(p) : '') + '</div>';
   // 1) Moottorin ehdotus · 2 polkua (design-totuus): idpValitseHeikoin/Vahvin-kortit + notes + käsin-supervoima.
   if (typeof _vpMoottoriKortitHTML === 'function') _kehExtra += _vpMoottoriKortitHTML(p, p.id);
   // 2) P4a.1 — KEHITYSSUUNNITELMA-HAITARI: kausitavoite (TASO 1 · #_jspKausitavoite säilyy re-renderiä varten) ·
   //    jaksofokus (TASO 2) · kehityskaari (TASO 3). Progressiivinen avaus (useampi auki), IDP-hierarkia näkyväksi.
-  if (typeof _vpKehSuunnitelmaHTML === 'function') _kehExtra += '<div style="margin-top:6px">' + _vpKehSuunnitelmaHTML(p) + '</div>';
+  if (typeof _vpKehSuunnitelmaHTML === 'function') _kehExtra += '<div id="_jspKehSuunnitelma" style="margin-top:6px">' + _vpKehSuunnitelmaHTML(p) + '</div>';
   // 4) D3-kalibraatio siirretty Arviointi-välilehteen (P3, yksi koti). Kevyt viittaus. (R4-korjaus: teal ainoa aksentti, ei sininen linkki.)
   _kehExtra += '<div style="padding-top:12px;margin-top:14px;border-top:.5px solid var(--border);font-size:11px;color:var(--ink3)">🧠 ' + vpT('D3-kalibraatio (itse × valmentaja × VP)') + ' → <span style="color:var(--teal);cursor:pointer;font-weight:600" onclick="_jspVaihda(2)">' + vpT('Arviointi-välilehti') + '</span></div>';
   // 5) Diagnostiikka (PHV-vaihe · kehitysvaihe · testipäivät · TK-kokonaisaika) → ▸ reveal (ei työpöydän kärjessä). (R4-korjaus: toggle teal.)

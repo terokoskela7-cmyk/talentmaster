@@ -26,7 +26,7 @@ import { createRequire } from 'module';
 const juuri = join(dirname(fileURLToPath(import.meta.url)), '..');
 const vaadi = createRequire(import.meta.url);
 const IDP = vaadi('../lib/tm_idp.js');
-const { idpTavoitteetYhdista, idpVoimassaTavoite, idpValitseKausidokista, idpTallennusVuosi } = IDP;
+const { idpTavoitteetYhdista, idpVoimassaTavoite, idpValitseKausidokista, idpTallennusVuosi, idpJaaVoimassaJaEhdotus } = IDP;
 
 const VP = readFileSync(join(juuri, 'TalentMaster_VP_v25.html'), 'utf8');
 const MASTER = readFileSync(join(juuri, 'TalentMaster_Master_v16.html'), 'utf8');
@@ -322,7 +322,7 @@ describe('(10) K3 · lataajat käyttävät jaettua helperiä — KÄYTTÄYTYMIST
     const ymp = {
       db: stubDb(dokit, laskuri), _seuraId: 's1', _isDemoMode: false,
       idpKausivuosi: () => '2027',
-      idpVoimassaTavoite, idpValitseKausidokista,
+      idpVoimassaTavoite, idpValitseKausidokista, idpJaaVoimassaJaEhdotus,
       window: { _vpArvPelaaja: null },
       _vpKausitavoiteReRender: () => {}, _vpAloitusReRender: () => {},
     };
