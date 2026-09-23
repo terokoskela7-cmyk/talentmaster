@@ -71,7 +71,7 @@ h2{font-family:var(--font-serif);font-weight:400;font-size:26px;line-height:1.15
 .tm-kaavio{
   --accent:var(--k-accent); --pitch:var(--k-pitch); --line:var(--k-line); --cone:var(--k-cone);
   --halo:var(--k-halo); --fade:var(--k-fade); --bone:#F2EFE6; --carbon:#1C1C1A; --slate:var(--k-slate);
-  --red:#D06A5A; --teal-brd:var(--k-teal-brd); --ink:var(--k-ink); --ink3:var(--k-ink3); --bg:var(--k-bg);
+  --red:#D06A5A; --amber:#E0A040; --teal-brd:var(--k-teal-brd); --ink:var(--k-ink); --ink3:var(--k-ink3); --bg:var(--k-bg);
   background:var(--k-pitch);border:.5px solid var(--border);border-radius:2px;position:relative;max-width:340px;width:100%
 }
 .tm-kaavio svg{display:block;width:100%;height:auto;touch-action:manipulation}
@@ -103,6 +103,9 @@ select{width:100%;max-width:340px;font:400 13px var(--font-sans);color:var(--ink
 .pill{font:600 8.5px/1 var(--font-sans);letter-spacing:.14em;text-transform:uppercase;padding:4px 7px;border:.5px solid var(--border);color:var(--ink3);white-space:nowrap}
 .pill.etenee{color:var(--acc);border-color:var(--teal-brd);background:var(--teal-dim)}
 .pill.potentiaali{color:var(--ink2);border-style:dashed}
+.pill.riski{color:#B5503F;border-color:rgba(208,106,90,.45);background:rgba(208,106,90,.10)}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:11.5px;color:var(--ink2)}
+.legend i{display:inline-block;width:12px;height:9px;margin-right:6px;vertical-align:-1px}
 
 .how{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:24px;margin-top:8px}
 @media (max-width:760px){.how{grid-template-columns:1fr}}
@@ -164,6 +167,7 @@ td .big{font-family:var(--font-serif);font-size:20px;color:var(--acc)}
             <button type="button" data-t="pois" aria-pressed="false">Pois</button>
             <button type="button" data-t="arvot" aria-pressed="false">Liikkeiden arvot</button>
             <button type="button" data-t="kartta" aria-pressed="true">Uhkakartta</button>
+            <button type="button" data-t="riski" aria-pressed="false">Riskikartta</button>
           </div>
         </div>
         <div id="kentta1" class="tm-kaavio"></div>
@@ -208,7 +212,20 @@ td .big{font-family:var(--font-serif);font-size:20px;color:var(--acc)}
             <button type="button" data-t="0" aria-pressed="false">Pallo menetettiin</button>
           </div>
         </div>
+        <div class="ctrl">
+          <span class="lbl">Pelimuoto</span>
+          <div class="seg" id="pelimuotoValinta" role="group" aria-label="Pelimuoto">
+            <button type="button" data-t="11v11" aria-pressed="true">11v11</button>
+            <button type="button" data-t="8v8" aria-pressed="false">8v8</button>
+            <button type="button" data-t="5v5" aria-pressed="false">5v5</button>
+          </div>
+          <div class="seg" id="karttaValinta" role="group" aria-label="Kenttäkartta">
+            <button type="button" data-t="uhka" aria-pressed="false">Uhkakartta</button>
+            <button type="button" data-t="riski" aria-pressed="true">Menetysriski</button>
+          </div>
+        </div>
         <div id="kentta2" class="tm-kaavio"></div>
+        <div class="legend" id="riskiLegenda"><span><i style="background:rgba(208,106,90,.55)"></i>Riskivyöhyke: oma rangaistusalue</span><span><i style="background:rgba(224,160,64,.4)"></i>Oma puolustuskolmannes</span><span>✕ menetys</span></div>
         <div class="step" id="ohje2"></div>
         <div style="display:flex;gap:8px;flex-wrap:wrap">
           <button type="button" class="btn" id="kumoa">Kumoa viimeisin</button>
@@ -224,7 +241,7 @@ td .big{font-family:var(--font-serif);font-size:20px;color:var(--acc)}
         <hr class="rule">
         <div class="tablewrap">
           <table>
-            <thead><tr><th>Pelaaja</th><th>Luotu uhka</th><th>Yritetty</th><th>Onnistui</th><th>Eteenpäin</th><th>Laukauksia</th></tr></thead>
+            <thead><tr><th>Pelaaja</th><th>Luotu uhka</th><th>Yritetty</th><th>Onnistui</th><th>Eteenpäin</th><th id="menetysOts">Menetykset</th></tr></thead>
             <tbody id="havTaulu"></tbody>
           </table>
         </div>
@@ -315,8 +332,9 @@ td .big{font-family:var(--font-serif);font-size:20px;color:var(--acc)}
   function kytkeReadout(svg, spec, el) {
     svg.addEventListener('pointermove', function (e) {
       var p = xtPikselistaKaavioon(svg, e.clientX, e.clientY); if (!p) return;
-      var v = xtArvo(p.x, p.y, spec.suunta);
-      el.innerHTML = 'Tämän alueen uhka-arvo <b>' + xtMuotoile(xtPisteet(v)) + '</b> · ruutu ' + (function (r) { return (r.sarake + 1) + '/12 pituus, ' + (r.rivi + 1) + '/8 leveys'; })(xtRuutu(p.x, p.y, spec.suunta));
+      var v = xtArvo(p.x, p.y, spec.suunta, spec.pelimuoto);
+      var mr = xtMenetysriski(p.x, p.y, spec.suunta, spec.pelimuoto);
+      el.innerHTML = 'Uhka-arvo täällä <b>' + xtMuotoile(xtPisteet(v)) + '</b> · menetyksen riski <b>' + (mr ? xtMuotoile(mr.pisteet) : '—') + '</b>' + (mr && mr.taso !== 'matala' ? ' (' + (mr.taso === 'korkea' ? 'riskivyöhyke' : 'kohonnut') + ')' : '');
     });
     svg.addEventListener('pointerleave', function () { el.textContent = 'Osoita kenttää nähdäksesi alueen uhka-arvon.'; });
   }
@@ -326,7 +344,7 @@ td .big{font-family:var(--font-serif);font-size:20px;color:var(--acc)}
     var c = $('kentta1'); c.innerHTML = '';
     var svg = drawSpec(s, 'fi');
     svg.setAttribute('aria-label', nimi(s));
-    var a = tila1.xt === 'pois' ? xtKaavioAnalyysi(s) : xtPiirraKerros(svg, s, { uhkakartta: tila1.xt === 'kartta', arvot: true });
+    var a = tila1.xt === 'pois' ? xtKaavioAnalyysi(s) : xtPiirraKerros(svg, s, { uhkakartta: tila1.xt === 'kartta', riski: tila1.xt === 'riski', arvot: true });
     c.appendChild(svg);
     kytkeReadout(svg, s, $('readout1'));
 
@@ -342,7 +360,9 @@ td .big{font-family:var(--font-serif);font-size:20px;color:var(--acc)}
     if (omat && a.paras) ali += (ali ? ' ' : '') + 'Arvokkain teko: ' + TYYPPI[a.paras.tyyppi].toLowerCase() + ' ' + xtMuotoile(a.paras.pisteet, true) + '.';
     if (omat > 0 && a.juoksuPotentiaali.juoksuja) ali += ' Juoksut avaavat lisäksi ' + xtMuotoile(a.juoksuPotentiaali.pisteet) + '.';
     $('alaotsikko').textContent = ali;
-    $('huomio').innerHTML = a.huomio ? '<div class="note">' + esc(a.huomio) + '</div>' : '';
+    var huom = a.huomio ? '<div class="note">' + esc(a.huomio) + '</div>' : '';
+    if (tila1.xt === 'riski') huom += '<div class="note" style="border-left-color:#D06A5A;background:rgba(208,106,90,.10)">Riskikartta näyttää, missä pallonmenetys antaa vastustajalle suurimman uhan. Punainen alue on oma rangaistusalue ja sen edusta. Siellä rakentelussa valitaan varma ratkaisu.</div>';
+    $('huomio').innerHTML = huom;
 
     var h = '';
     a.liikkeet.forEach(function (li, i) {
@@ -377,12 +397,14 @@ td .big{font-family:var(--font-serif);font-size:20px;color:var(--acc)}
       { pelaajaId: '7', tyyppi: 'laukaus', from: { x: 70, y: 18 }, to: { x: 55, y: 0 } },
       { pelaajaId: '3', tyyppi: 'kuljetus', from: { x: 14, y: 60 }, to: { x: 16, y: 38 }, onnistui: false },
       { pelaajaId: '10', tyyppi: 'syotto', from: { x: 50, y: 34 }, to: { x: 20, y: 22 }, onnistui: true },
-      { pelaajaId: '6', tyyppi: 'syotto', from: { x: 46, y: 58 }, to: { x: 52, y: 36 }, onnistui: true }
+      { pelaajaId: '6', tyyppi: 'syotto', from: { x: 46, y: 58 }, to: { x: 52, y: 36 }, onnistui: true },
+      { pelaajaId: '6', tyyppi: 'syotto', from: { x: 42, y: 80 }, to: { x: 56, y: 86 }, onnistui: false },
+      { pelaajaId: '3', tyyppi: 'kuljetus', from: { x: 10, y: 84 }, to: { x: 18, y: 77 }, onnistui: false }
     ];
   }
-  var tila2 = { valittu: '7', teko: 'syotto', onnistui: true, alku: null, tapahtumat: esimerkkiTapahtumat(), esimerkki: true };
+  var tila2 = { valittu: '6', teko: 'syotto', onnistui: true, alku: null, tapahtumat: esimerkkiTapahtumat(), esimerkki: true, pelimuoto: '11v11', kartta: 'riski' };
 
-  function havYhteenveto() { return xtHavaintoYhteenveto(tila2.tapahtumat, 'ylos'); }
+  function havYhteenveto() { return xtHavaintoYhteenveto(tila2.tapahtumat, 'ylos', tila2.pelimuoto); }
 
   function piirraPelaajat() {
     var h = '';
@@ -404,6 +426,14 @@ td .big{font-family:var(--font-serif);font-size:20px;color:var(--acc)}
   }
   segKytke('tekoValinta', function (t) { tila2.teko = t; $('tulosValinta').hidden = t === 'laukaus'; piirraOhje(); });
   segKytke('tulosValinta', function (t) { tila2.onnistui = t === '1'; });
+  function asetaSeg(id, arvo) { Array.prototype.forEach.call($(id).querySelectorAll('button'), function (x) { x.setAttribute('aria-pressed', x.getAttribute('data-t') === arvo ? 'true' : 'false'); }); }
+  segKytke('pelimuotoValinta', function (t) {
+    tila2.pelimuoto = t;
+    tila2.kartta = xtRiskiOletuksena(t) ? 'riski' : 'uhka';   // riskinäkymä oletuksena vain 11v11-vaiheessa
+    asetaSeg('karttaValinta', tila2.kartta);
+    piirraHavainto();
+  });
+  segKytke('karttaValinta', function (t) { tila2.kartta = t; piirraHavainto(); });
   $('kumoa').addEventListener('click', function () {
     if (tila2.alku) { tila2.alku = null; } else { tila2.tapahtumat.pop(); }
     piirraHavainto();
@@ -424,7 +454,7 @@ td .big{font-family:var(--font-serif);font-size:20px;color:var(--acc)}
     var viim = omat.length ? omat[omat.length - 1].t.to : { x: 50, y: 55 };
     if (tila2.alku) viim = tila2.alku;
     return {
-      avain: 'havainto', suunta: 'ylos', pelimuoto: '11v11',
+      avain: 'havainto', suunta: 'ylos', pelimuoto: tila2.pelimuoto,
       pelaajat: [{ id: tila2.valittu, joukkue: 'oma', rooli: 'vastaanottaja', x: viim.x, y: viim.y, suunta: -90 }],
       liikkeet: omat.map(function (o) { return { id: 'h' + o.i, tyyppi: o.t.tyyppi, from: o.t.from, to: o.t.to, _onnistui: o.t.onnistui !== false }; })
     };
@@ -436,7 +466,10 @@ td .big{font-family:var(--font-serif);font-size:20px;color:var(--acc)}
     var c = $('kentta2'); c.innerHTML = '';
     var svg = drawSpec(s, 'fi');
     svg.setAttribute('aria-label', 'Havaintokenttä, pelaaja #' + tila2.valittu);
-    xtPiirraKerros(svg, s, { uhkakartta: true, arvot: true, maxOpasiteetti: 0.45 });
+    var riskiNakyma = tila2.kartta === 'riski';
+    xtPiirraKerros(svg, s, { uhkakartta: !riskiNakyma, riski: riskiNakyma, arvot: true, maxOpasiteetti: 0.45 });
+    if (riskiNakyma) xtPiirraMenetykset(svg, tila2.tapahtumat.filter(function (t) { return t.pelaajaId === tila2.valittu; }), 'ylos', tila2.pelimuoto);
+    $('riskiLegenda').hidden = !riskiNakyma;
     s.liikkeet.forEach(function (l) {
       if (l._onnistui) return;
       var lp = svg.querySelector('.xt-lappu[data-liike="' + l.id + '"]'); if (lp) lp.classList.add('menetys');
@@ -474,26 +507,31 @@ td .big{font-family:var(--font-serif);font-size:20px;color:var(--acc)}
         + '<td>' + (p ? xtMuotoile(p.yritetty.pisteet) : '—') + '</td>'
         + '<td>' + (p && p.toimintoja ? p.onnistuneita + '/' + p.toimintoja : '—') + '</td>'
         + '<td>' + (p && p.eteenpainOsuus != null ? p.eteenpainOsuus + ' %' : '—') + '</td>'
-        + '<td>' + (p ? p.laukauksia : 0) + '</td></tr>';
+        + '<td>' + (p && p.menetykset ? p.menetykset + (riskiNakyma && p.riskimenetykset ? ' <span style="color:#B5503F;white-space:nowrap">(riskialue ' + p.riskimenetykset + ')</span>' : '') : '0') + '</td></tr>';
     });
     $('havTaulu').innerHTML = h;
 
     var minun = yv.filter(function (q) { return q.pelaajaId === tila2.valittu; })[0];
     var pr = PELAAJAT.filter(function (q) { return q.id === tila2.valittu; })[0];
-    $('havEyebrow').textContent = (tila2.esimerkki ? 'Esimerkkiottelu' : 'Oma kirjaus') + ' · 11v11 · ' + tila2.tapahtumat.length + ' tekoa';
+    $('havEyebrow').textContent = (tila2.esimerkki ? 'Esimerkkiottelu' : 'Oma kirjaus') + ' · ' + tila2.pelimuoto + ' · ' + tila2.tapahtumat.length + ' tekoa';
     if (minun && minun.toimintoja) {
       var riski = minun.yritetty.muutos - minun.luotu.muutos;
       $('havSignaali').innerHTML = '#' + pr.id + ' loi <b>' + xtMuotoile(minun.luotu.pisteet) + '</b> uhkapistettä ' + minun.onnistuneita + ' onnistuneella teolla'
-        + (riski > 0.004 ? ', ja yritti lisäksi ' + xtMuotoile(xtPisteet(riski)) + ':n arvosta.' : '.');
+        + (riski > 0.004 ? ', ja yritti lisäksi ' + xtMuotoile(xtPisteet(riski)) + ':n arvosta.' : '.')
+        + (riskiNakyma && minun.riskimenetykset ? ' <span style="color:var(--ink2);font-size:.78em">' + (minun.riskimenetykset === 1 ? 'Yksi menetys tapahtui' : minun.riskimenetykset + ' menetystä tapahtui') + ' punaisella riskivyöhykkeellä omassa päässä.</span>' : '');
     } else {
       $('havSignaali').innerHTML = '#' + pr.id + ' ei vielä kirjattuja syöttöjä tai kuljetuksia.';
     }
 
     var lok = '';
     tila2.tapahtumat.forEach(function (t, i) {
-      var a = xtLiikeArvo(t, 'ylos');
+      var a = xtLiikeArvo(t, 'ylos', tila2.pelimuoto);
+      if (!a) return;
       var ok = t.tyyppi === 'laukaus' ? '' : (t.onnistui === false ? ' · menetys' : ' · onnistui');
-      var pill = t.tyyppi === 'laukaus' ? '<span class="pill">xG-alue</span>' : (t.onnistui === false ? '<span class="pill">Yritys</span>' : '<span class="pill ' + a.luokka + '">' + LUOKKA[a.luokka] + '</span>');
+      var mr = t.onnistui === false ? xtMenetysriski(xtMenetyspiste(t).x, xtMenetyspiste(t).y, 'ylos', tila2.pelimuoto) : null;
+      var pill = t.tyyppi === 'laukaus' ? '<span class="pill">xG-alue</span>'
+        : (t.onnistui === false ? (riskiNakyma && mr && mr.taso === 'korkea' ? '<span class="pill riski">Riskivyöhyke</span>' : '<span class="pill">Yritys</span>')
+        : '<span class="pill ' + a.luokka + '">' + LUOKKA[a.luokka] + '</span>');
       lok += '<div class="row"' + (t.pelaajaId === tila2.valittu ? '' : ' style="opacity:.55"') + '><span class="n">' + (i + 1) + '</span><span class="d">#' + t.pelaajaId + ' ' + TYYPPI[t.tyyppi].toLowerCase() + '<small>' + ok.replace(' · ', '') + '</small></span>' + pill + '<span class="v ' + (a.pisteet > 0 && t.onnistui !== false ? 'pos' : 'neu') + '">' + (a.pisteet == null ? '—' : xtMuotoile(a.pisteet, true)) + '</span></div>';
     });
     $('havLoki').innerHTML = lok || '<div class="row"><span></span><span class="d" style="color:var(--ink3)">Ei kirjattuja tekoja. Valitse pelaaja ja napauta kentältä alku ja loppu.</span><span></span><span></span></div>';

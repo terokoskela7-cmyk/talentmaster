@@ -155,3 +155,69 @@ describe('voimakkuus', () => {
     expect(X.xtVoimakkuus(0)).toBe(0);
   });
 });
+
+describe('pienkenttäprofiili (5v5 · 8v8)', () => {
+  it('11v11 ja puuttuva pelimuoto = suora ruudukko (taaksepäin yhteensopiva)', () => {
+    expect(X.xtArvo(50, 30, 'ylos', '11v11')).toBe(X.xtArvo(50, 30, 'ylos'));
+    expect(X.xtProfiili('11v11').pienkentta).toBe(false);
+  });
+  it('maaliuhka nousee pienkentällä aiemmin keskiviivan jälkeen', () => {
+    const y = 30; // 30 % kentän pituudesta vastustajan maalista
+    const u11 = X.xtArvo(50, y, 'ylos', '11v11'), u8 = X.xtArvo(50, y, 'ylos', '8v8'), u5 = X.xtArvo(50, y, 'ylos', '5v5');
+    expect(u8).toBeGreaterThan(u11);
+    expect(u5).toBeGreaterThan(u8);
+  });
+  it('metrimuunnos: sama metrietäisyys maalista = sama arvo', () => {
+    // 5v5: y=25 → 10 m maalista (40 m kenttä). 11v11: 10 m = y ≈ 9,5.
+    expect(X.xtArvo(50, 25, 'ylos', '5v5')).toBe(X.xtArvo(50, 100 * 10 / 105, 'ylos', '11v11'));
+  });
+  it('oma pääty ei ole pienkentällä yhtä matala kuin 11v11:ssä', () => {
+    expect(X.xtArvo(50, 99, 'ylos', '5v5')).toBeGreaterThan(X.xtArvo(50, 99, 'ylos', '11v11'));
+  });
+  it('3v3 ja tuntematon pelimuoto → ei arvoa, huomio kertoo sen', () => {
+    expect(X.xtArvo(50, 50, 'ylos', '3v3')).toBeNull();
+    expect(X.xtProfiili('3v3')).toBeNull();
+    expect(X.xtPelimuotoHuomio('3v3')).toContain('ei lasketa');
+  });
+  it('kaavioanalyysi käyttää speksin pelimuotoa ja kertoo mallin', () => {
+    const spec = { suunta: 'ylos', pelimuoto: '8v8', pelaajat: [{ id: 'a', joukkue: 'oma', rooli: 'syöttäjä', x: 50, y: 60 }],
+      liikkeet: [{ id: 'l', tyyppi: 'syotto', from: { ref: 'a' }, to: { x: 50, y: 30 } }] };
+    const r = X.xtKaavioAnalyysi(spec);
+    expect(r.malli).toContain('pienkentta');
+    expect(r.liikkeet[0].muutos).toBeCloseTo(X.xtArvo(50, 30, 'ylos', '8v8') - X.xtArvo(50, 60, 'ylos', '8v8'), 10);
+    expect(r.huomio).toContain('40 × 60 m');
+  });
+});
+
+describe('käänteinen uhka · menetysriski', () => {
+  it('menetys omassa rangaistusalueessa = korkea, vastustajan päädyssä matala', () => {
+    expect(X.xtMenetysriski(50, 95, 'ylos', '11v11').taso).toBe('korkea');
+    expect(X.xtMenetysriski(50, 10, 'ylos', '11v11').taso).toBe('matala');
+  });
+  it('riski = vastustajan xT samassa pisteessä (suunta käännetty)', () => {
+    expect(X.xtMenetysriski(30, 80, 'ylos').raaka).toBe(X.xtArvo(30, 80, 'alas'));
+    expect(X.xtMenetysriski(30, 20, 'alas').raaka).toBe(X.xtArvo(30, 20, 'ylos'));
+  });
+  it('oma puolustuskolmannes = kohonnut', () => {
+    expect(X.xtMenetysriski(50, 72, 'ylos', '11v11').taso).toBe('kohonnut');
+  });
+  it('havaintoyhteenveto laskee menetykset ja riskimenetykset; luotu ei muutu', () => {
+    const T = [
+      { pelaajaId: '4', tyyppi: 'syotto', from: { x: 40, y: 90 }, to: { x: 55, y: 88 }, onnistui: false },   // menetys omassa boksissa
+      { pelaajaId: '4', tyyppi: 'kuljetus', from: { x: 50, y: 40 }, to: { x: 50, y: 25 }, onnistui: false }, // menetys vastustajan päässä
+      { pelaajaId: '4', tyyppi: 'syotto', from: { x: 50, y: 80 }, to: { x: 50, y: 60 }, onnistui: true }
+    ];
+    const p = X.xtHavaintoYhteenveto(T, 'ylos', '11v11')[0];
+    expect(p.menetykset).toBe(2);
+    expect(p.riskimenetykset).toBe(1);
+    expect(p.luotu.muutos).toBeCloseTo(X.xtArvo(50, 60) - X.xtArvo(50, 80), 10);
+  });
+  it('eksplisiittinen menetyspiste voittaa to-pisteen', () => {
+    expect(X.xtMenetyspiste({ to: { x: 1, y: 1 }, menetys: { x: 50, y: 95 } })).toEqual({ x: 50, y: 95 });
+  });
+  it('riskinäkymä oletuksena vain 11v11-vaiheessa', () => {
+    expect(X.xtRiskiOletuksena('11v11')).toBe(true);
+    expect(X.xtRiskiOletuksena('8v8')).toBe(false);
+    expect(X.xtRiskiOletuksena('5v5')).toBe(false);
+  });
+});

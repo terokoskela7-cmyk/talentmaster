@@ -205,3 +205,40 @@ Vaihe 2:n pilotti: seura, jolla on jo PHV- ja H-H-dataa (SJK), jotta xT:tä voi 
 - Ei mittaa laukauksia (siihen xG) eikä puolustamista.
 - Ei tuo TASOsta mitään: TASO antaa määrät, ei koordinaatteja.
 - Ei ole valmis "pelaajaluokitus". Rekrytoinnissa se on yksi näyttö X-Factorin tueksi, aina pelipaikan sisällä.
+
+---
+
+## 10. Toteutettu 24.9.2026: pienkenttäprofiili ja menetysriski (Teron päätös: molemmat mukaan)
+
+### 10.1 Pienkenttäprofiili (5v5, 8v8)
+- **Ongelma:** kaavion koordinaatit ovat 0–100 kentän suhteen. 11v11-ruudukko suoraan käytettynä väittäisi 8v8:n
+  keskiympyrän olevan yhtä kaukana maalista kuin 11v11:n (52 m), vaikka se on 30 m päässä.
+- **Ratkaisu (metrimuunnos):** piste muutetaan metreiksi pienkentällä ja uhka luetaan 11v11-ruudukosta samasta
+  metrietäisyydestä maaliin. Maaliuhka nousee pienkentällä aiemmin keskiviivan jälkeen.
+- **Kenttäkoot** (`XT_KENTTAKOOT`, Palloliiton/piirien suositus): 5v5 ≈ 30 × 40 m, 8v8 ≈ 40 × 60 m. 3v3: ei profiilia
+  → xT ei käytössä (`xtProfiili('3v3') === null`), huomio kertoo sen.
+- **Vaikutus keskellä kenttää, 30 % kentän pituudesta vastustajan maalista:** 11v11 2,4 · 8v8 3,5 · 5v5 10,8 uhkapistettä.
+- **Malli-id tallennetaan** (`singh_12x8_v1+pienkentta_m_v1`), joten Vaihe 4:n oma nuorten ruudukko korvaa tämän ja
+  historia lasketaan uudelleen (§2 invariantti 6).
+- **Tunnettu rajoitus:** pienempää maalia (5 × 2 m vs 7,32 × 2,44 m) ei vielä korjata.
+- **API:** `xtArvo(x, y, suunta, pelimuoto)` · `xtProfiili(pelimuoto)`. Kaavioanalyysi lukee `spec.pelimuoto`
+  automaattisesti, joten kanoniset 8v8-kaaviot käyttävät profiilia ilman muutoksia dataan.
+
+### 10.2 Käänteinen uhka: menetysriski
+- **Määritelmä:** menetyksen riski pisteessä P = vastustajan xT samassa pisteessä (sama piste, käänteinen suunta).
+  `xtMenetysriski(x, y, suunta, pelimuoto)` → `{raaka, pisteet, taso}`.
+- **Vyöhykkeet** (vastustajan uhkapisteinä): **korkea ≥ 5** = oma rangaistusalue ja sen edusta (punainen) ·
+  **kohonnut ≥ 2** = oma puolustuskolmannes (amber) · muuten matala (ei piirretä).
+- **Menetyspiste:** `menetys:{x,y}` jos kirjattu, muuten `to` (mihin pallo päätyi).
+- **Pelihavaintoyhteenveto** lisää per pelaaja: `menetykset`, `riskimenetykset` (korkea), `menetysriski`.
+  **Luotu uhka ei muutu** (epäonnistunut ei vähennä, §8 päätös 4 ennallaan).
+- **Taktiikkataulu:** editoriin neljäs tila **Riskikartta**. Luonteva opetuskäyttö: J-H1 rakentaminen paineessa,
+  KK-P6/LA-P4 vastaprässi (missä menetys on vaarallisin, sinne vastaprässi).
+- **Ikävaihe:** riskinäkymä on oletuksena päällä vain **11v11-vaiheessa** (`xtRiskiOletuksena`). Pienkentillä valmentaja
+  voi kytkeä sen itse, mutta oletus ei korosta riskejä juuri kun rohkeutta haetaan.
+- **Kieli:** kuvaus, ei syyllistys. "Menetys tapahtui punaisella riskivyöhykkeellä omassa päässä" näytetään
+  valmentajalle neutraalilla värillä. Pelaajalle ei riskilukuja (§7.22).
+
+### 10.3 Testit
+`tests/xt.test.js` 32 testiä, joista 12 uutta: metrimuunnos, pienkentän nousu, 3v3-rajaus, speksin pelimuodon luku,
+riskivyöhykkeet, käänteinen suunta, menetysten laskenta ja riskioletus pelimuodoittain.
