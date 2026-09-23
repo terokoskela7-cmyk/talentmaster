@@ -6786,8 +6786,11 @@ async function _mIdpTallennaDok(p, viesti) {
     });
     await ref.set({ idp_tila: pk.idp_tila, idp_edistyma: pk.idp_edistyma || null, idp_fokus: pk.idp_fokus || null, idp_viim_review: pk.idp_viim_review || null, idp_lahde: pk.idp_lahde || null }, { merge: true });
     _asetaPikakentat();
-    // Ankkuri seuraa kirjoitettua dokkia → seuraavat tallennukset osuvat samaan eikä A3:n luku toistu.
-    p._idpVuosi = vuosi; p._idpVuosiLuotu = t.luotu;
+    /* Ankkuri seuraa kirjoitettua dokkia → seuraavat tallennukset osuvat samaan eikä A3:n luku toistu.
+       VAIN voimassa olevalle: jos valmentaja tallentaa C:n EHDOTUKSENA, tavoite-ankkurin on jäätävä vanhaan
+       tavoitteeseen, jotta saman istunnon hyväksyntä vielä löytää sen toisesta dokista merkittäväksi. */
+    if (idpOnVoimassa(t)) { p._idpVuosi = vuosi; p._idpVuosiLuotu = t.luotu; }
+    else { p._idpLuonnosVuosi = vuosi; p._idpLuonnosLuotu = t.luotu; }
     if (typeof toast === 'function') toast(viesti + ' ✓', 'ok');
     return true;
   } catch (e) { console.warn('[_mIdpTallennaDok]', e && e.message); if (typeof toast === 'function') toast(masterT('Tallennus epäonnistui'), 'error'); return false; }
@@ -6803,18 +6806,25 @@ async function _mIdpLataa(p) {
     /* HOTFIX · vuodenvaihde — sama korjaus kuin VP:ssä: jos kuluvassa dokissa ei ole VOIMASSA olevaa
        tavoitetta, luetaan edellinen vuosi. Tallennus kohdistuu samaan dokkiin (_idpVuosi). */
     const arr = s.exists ? (s.data() || {}).tavoitteet : null;
-    /* Edellinen vuosi vain jos kuluvassa ei ole voimassa olevaa; valinta jaetulla helperillä (ks. VP). */
+    /* Edellinen vuosi vain jos kuluvassa ei ole VOIMASSA OLEVAA (pelkkä ehdotus ei riitä — ks. VP);
+       valinta jaetulla helperillä. */
     let edArr = null;
     const edVuosi = String(Number(vuosi) - 1);
-    if (!idpVoimassaTavoite(arr)) {
+    if (!idpJaaVoimassaJaEhdotus(arr).tavoite) {
       try { const se = await kausiCol.doc(edVuosi).get(); edArr = (se.exists ? (se.data() || {}) : {}).tavoitteet || null; }
       catch (e) { /* best-effort */ }
     }
-    const val = idpValitseKausidokista(arr, vuosi, edArr, edVuosi);
-    if (val || (arr && arr.length)) {
+    const val = idpValitseKahdestaVuodesta(arr, vuosi, edArr, edVuosi);
+    if (val.tavoite || val.luonnos || (arr && arr.length)) {
       const tgt = (window._mIdpPelaaja && window._mIdpPelaaja.id === p.id) ? window._mIdpPelaaja : p;
-      tgt._mIdpTavoite = val ? val.tavoite : arr[arr.length - 1];
-      tgt._idpVuosi = val ? val.vuosi : vuosi; tgt._idpVuosiLuotu = tgt._mIdpTavoite && tgt._mIdpTavoite.luotu;
+      /* A3 — voimassa oleva tavoite ja odottava ehdotus voivat olla ERI vuosidokeissa (tammikuu).
+         Valmentaja näkee kuten ennen uusimman ehdotuksen (voi hyväksyä sen), mutta ANKKURIT osoittavat
+         omiin dokkeihinsa: tavoite-ankkuri vanhaan (jotta se merkitään vaihdetuksi hyväksynnässä) ja
+         luonnos-ankkuri siihen dokkiin josta ehdotus luettiin (jotta hyväksyntä ei siirrä sitä vuotta). */
+      tgt._mIdpTavoite = val.luonnos || val.tavoite || (arr && arr.length ? arr[arr.length - 1] : null);
+      tgt._idpVuosi = val.tavoiteVuosi || vuosi;
+      tgt._idpVuosiLuotu = val.tavoite && val.tavoite.luotu;
+      if (val.luonnos) { tgt._idpLuonnosVuosi = val.luonnosVuosi; tgt._idpLuonnosLuotu = val.luonnos.luotu; }
       tgt._mIdpLadattu = true;
       if (window._mIdpPelaaja === tgt) _mIdpReRender();
     }

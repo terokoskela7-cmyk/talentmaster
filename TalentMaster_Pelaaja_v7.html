@@ -2129,9 +2129,11 @@ async function _p7LataaTavoite() {
     var data = snap.exists ? (snap.data() || {}) : {};
     var arr = data.tavoitteet;
     /* HOTFIX · vuodenvaihde: doc-id on kalenterivuosi → 1.1. syksyn tavoite katoaisi näkyvistä.
-       Edellinen vuosi luetaan vain jos kuluvassa ei ole voimassa olevaa; valinta jaetulla helperillä. */
+       Edellinen vuosi luetaan vain jos kuluvassa ei ole VOIMASSA OLEVAA tavoitetta; pelkkä valmentajan
+       ehdotus ei riitä (muuten lapsi näkisi hyväksymättömän ehdotuksen ja oikea tavoite jäisi lukematta).
+       Valinta jaetulla helperillä. */
     var edArr = null, edVuosi = String(Number(vuosi) - 1);
-    if (!idpVoimassaTavoite(arr)) {
+    if (!idpJaaVoimassaJaEhdotus(arr).tavoite) {
       try {
         var se = await kausiCol.doc(edVuosi).get();
         edArr = (se.exists ? (se.data() || {}) : {}).tavoitteet || null;

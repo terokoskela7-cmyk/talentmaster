@@ -241,6 +241,60 @@ describe('(A3) Vuodenvaihde — vanha tavoite merkitaan vaihdetuksi myos toisess
     expect(dokit['2027'], '2027-dokkiin kirjoitettiin turhaan').toBeUndefined();
   });
 
+  /* PR #619 — ANKKURI SIIRTYY VAIN VOIMASSA OLEVALLE. Jos ehdotuksen tallennus siirtaisi tavoite-ankkurin,
+     saman istunnon hyvaksynta ei enaa loytaisi vanhaa tavoitetta toisesta dokista, ja se jaisi pysyvasti
+     tilaan 'aktiivinen' ilman etta VP nakee sita. */
+  it('Master, SAMA ISTUNTO: C tallennetaan ehdotuksena ja hyvaksytaan -> 2026 [A vaihdettu]', async () => {
+    const dokit = { 2026: { tavoitteet: [A()] } };
+    const ehdC = Object.assign(C(), { status: 'ehdotettu' });
+    const p = { id: 'p1', _mIdpTavoite: ehdC, _idpVuosi: '2026', _idpVuosiLuotu: 'A' };
+
+    // 1) valmentaja tallentaa ehdotuksen -> 2027-dokki, A:han ei kosketa
+    const vaihe1 = ajaTallennus('master', p, dokit, { nyt: TAMMI27 });
+    expect(await vaihe1.fn(p, 'Tavoite tallennettu')).toBe(true);
+    expect(dokit['2026'].tavoitteet.map((x) => x.luotu + ':' + x.status)).toEqual(['A:aktiivinen']);
+    expect(p._idpVuosi, 'ehdotus vei tavoite-ankkurin').toBe('2026');
+    expect(p._idpVuosiLuotu).toBe('A');
+    expect(p._idpLuonnosVuosi).toBe('2027');
+    expect(p._idpLuonnosLuotu).toBe('C');
+
+    // 2) sama istunto: hyvaksynta -> C aktiiviseksi 2027:aan ja A vaihdetuksi 2026:een
+    ehdC.status = 'aktiivinen';
+    const vaihe2 = ajaTallennus('master', p, dokit, { nyt: TAMMI27 });
+    expect(await vaihe2.fn(p, 'Tavoite aktivoitu')).toBe(true);
+    expect(dokit['2026'].tavoitteet.map((x) => x.luotu + ':' + x.status), 'vanha jai aktiiviseksi toiseen dokkiin')
+      .toEqual(['A:vaihdettu']);
+    expect(dokit['2027'].tavoitteet.map((x) => x.luotu + ':' + x.status)).toEqual(['C:aktiivinen']);
+    expect(p._idpVuosi, 'hyvaksynnan jalkeen ankkuri seuraa uutta tavoitetta').toBe('2027');
+    expect(p._idpVuosiLuotu).toBe('C');
+  });
+
+  it('VP: ladatun tammikuun ehdotuksen hyvaksynta -> 2027 [C aktiivinen], 2026 [A vaihdettu]', async () => {
+    const dokit = { 2026: { tavoitteet: [A()] }, 2027: { tavoitteet: [Object.assign(C(), { status: 'ehdotettu' })] } };
+    // lataus antaisi taman tilan: tavoite A/2026, luonnos C/2027 (ks. idp_historia_sailyy)
+    const p = {
+      id: 'p1', _idpTavoite: C(),
+      _idpVuosi: '2026', _idpVuosiLuotu: 'A',
+      _idpLuonnosVuosi: '2027', _idpLuonnosLuotu: 'C',
+    };
+    const aja = ajaTallennus('vp', p, dokit, { nyt: TAMMI27 });
+    expect(await aja.fn(p, 'Tavoite aktivoitu')).toBe(true);
+    expect(aja.loki.kirjoitukset.map((k) => k.vuosi).sort()).toEqual(['2026', '2027']);
+    expect(dokit['2027'].tavoitteet.map((x) => x.luotu + ':' + x.status)).toEqual(['C:aktiivinen']);
+    expect(dokit['2026'].tavoitteet.map((x) => x.luotu + ':' + x.status)).toEqual(['A:vaihdettu']);
+  });
+
+  it('ehdotuksen tallennus ei siirra tavoite-ankkuria (VP)', async () => {
+    const dokit = { 2026: { tavoitteet: [A()] } };
+    const p = { id: 'p1', _idpTavoite: Object.assign(C(), { status: 'ehdotettu' }), _idpVuosi: '2026', _idpVuosiLuotu: 'A' };
+    const aja = ajaTallennus('vp', p, dokit, { nyt: TAMMI27 });
+    await aja.fn(p, 'Tavoite tallennettu');
+    expect(p._idpVuosi).toBe('2026');
+    expect(p._idpVuosiLuotu).toBe('A');
+    expect(p._idpLuonnosVuosi).toBe('2027');
+    expect(p._idpLuonnosLuotu).toBe('C');
+  });
+
   it('VP: toisen dokin luku tapahtuu ENNEN kirjoituksia (Firestore-transaktion saanto)', async () => {
     const dokit = { 2026: { tavoitteet: [A()] }, 2027: { tavoitteet: [] } };
     const jarjestys = [];
