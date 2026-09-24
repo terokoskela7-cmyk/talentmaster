@@ -107,7 +107,9 @@ describe('(1) sv-kartta — Geminin linja, ei omaa ruotsia', () => {
     '🟠 umpeutunut': '🟠 Utgången',
     'Jakso umpeutunut': 'Perioden utgången',
     '🟠 Jakso umpeutunut — ↻ sulje/vaihda jakso muokkaus-paneelista.': '🟠 Perioden har gått ut — ↻ stäng/byt period i redigeringspanelen.',
-    'Kausitavoite ei ole edennyt': 'Säsongsmålet har inte framskridit på',
+    /* PR B: avain nimettiin uudelleen KISS-termiksi ('Kausitavoite' → 'Kauden tavoite') ja sv tuli samasta
+       sanktioidusta erästä (KEHITYS_V2_RAKENNE). Invariantti sama: arvo on Geminin, ei omaa ruotsia. */
+    'Kauden tavoite ei ole edennyt': 'Säsongens mål har inte framskridit på',
   };
   const B = { 'Henkinen': 'Psykisk', 'syksy': 'höst', 'kevät': 'vår' };
 
