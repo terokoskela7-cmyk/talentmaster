@@ -722,41 +722,12 @@ describe('VP_v25 resolvi-portti — jokaisella reititetyllä avaimella on sv-riv
     return sb;
   };
 
-  /* SANKTIOINTIA ODOTTAVAT RIVIT — merge-esto, ei ohitus.
-     Nama kahdeksan fi-tekstia ovat 'Nyt harjoitellaan' -rivin taidon valinnassa, ja niiden sv on
-     Gemini-eraassa GEMINI_ERA_NYT_HARJOITELLAAN_SV_LISA.json, jonka 'sv'-kentat ovat viela tyhjia.
-     Omaa ruotsia EI kirjoiteta, joten avaimet elavat hetken ilman kaannosta. Portti pysyy silti
-     tiukkana: lista on eksplisiittinen ja ei-tyhja-vartioitu, joten (a) jos joku keksii naille
-     kaannoksen, tama testi punertaa (rivi ei enaa "puutu") ja lista on poistettava, ja (b) mika
-     tahansa MUU puuttuva avain punertaa normaalisti. */
-  const SV_ODOTTAA_SANKTIOINTIA = [
-    'Pelipaikan taidot aktivoituvat, kun pelaajalle asetetaan pelipaikka',
-    '🎯 Aseta pelipaikka, niin pelipaikan taidot aktivoituvat',
-    '— pelipaikan perustaidot.',
-    'Ei taitoja tässä näkymässä.',
-    'Aseta pelipaikka tai valitse perustaito.',
-    'ei taitoja',
-    'Valitse ensin harjoiteltava taito.',
-    '👁 Jos tekniikka on kunnossa mutta pelaaja ei käytä sitä, tarkista, huomaako hän tilanteen.',
-  ];
-
-  it('0 vpT-avainta ilman sv-riviä (paitsi nimetyt sanktiointia odottavat)', () => {
+  it('0 vpT-avainta ilman sv-riviä (common tai VP-sivukartta)', () => {
     const sb = kartat();
     const cm = (sb.TM_I18N_COMMON && sb.TM_I18N_COMMON.sv) || {};
     const vp = (sb.TM_VP_I18N && sb.TM_VP_I18N.sv) || {};
     const puuttuu = [...kerääAvaimet()].filter((k) => typeof cm[k] !== 'string' && typeof vp[k] !== 'string');
-    expect(puuttuu.filter((k) => SV_ODOTTAA_SANKTIOINTIA.indexOf(k) < 0)).toEqual([]);
-  });
-
-  it('odotuslista on elävä: jokainen rivi on yhä käytössä JA yhä ilman sv:tä', () => {
-    const sb = kartat();
-    const cm = (sb.TM_I18N_COMMON && sb.TM_I18N_COMMON.sv) || {};
-    const vp = (sb.TM_VP_I18N && sb.TM_VP_I18N.sv) || {};
-    const avaimet = kerääAvaimet();
-    const kuolleet = SV_ODOTTAA_SANKTIOINTIA.filter((k) => !avaimet.has(k));
-    expect(kuolleet, 'odotuslistalla on avain jota ei enää käytetä → poista rivi').toEqual([]);
-    const jokoKaannetty = SV_ODOTTAA_SANKTIOINTIA.filter((k) => typeof cm[k] === 'string' || typeof vp[k] === 'string');
-    expect(jokoKaannetty, 'sv saapui → poista rivi odotuslistalta (tai sv on keksitty)').toEqual([]);
+    expect(puuttuu).toEqual([]);
   });
   it('ei-vacuous: avaimia on runsaasti eikä keräys ole tyhjä', () => {
     expect(kerääAvaimet().size).toBeGreaterThan(1000);
