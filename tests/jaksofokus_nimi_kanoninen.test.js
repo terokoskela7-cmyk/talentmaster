@@ -160,7 +160,10 @@ describe('D — SWEEP: jokainen konsepti_nimi-kirjoitus luokiteltu', () => {
     /konsepti_nimi: (teema|t|ft|e) \? \1\.nimi/, // fyysteemat-lib (nimi = fi, sv erillisessä kentässä)
     /konsepti_nimi: k\.nimi, konsepti_koodi: k\.koodi \|\| null, domeeni: domeeni/, // jaksofokus-lib (fi-only)
     /konsepti_nimi: (found|kons|k) \? /,        // render-polku (_vpJfTavoiteLista ym.) — ei persistoida
-    /konsepti_nimi: (found|kons|l|e)\.(nimi|konsepti_nimi)/   // ehdotus-/render-objektit
+    /konsepti_nimi: (found|kons|l|e)\.(nimi|konsepti_nimi)/,   // ehdotus-/render-objektit
+    /_vpKonseptiNimiNaytto\(\{ konsepti_avain: (it|item)\.avain, konsepti_nimi: \1\.nimi \}\)/
+    // NAYTTO-polku ("Nyt harjoitellaan" taitolista + poikkeamahuomautus): rakentaa tilapaisen
+    // objektin pelkastaan nimiresolverille — ei persistoida, ei kirjoiteta jaksofokukseen.
   ];
   const rivit = RIVIT.map((l, i) => ({ l, n: i + 1 })).filter((x) => /konsepti_nimi:/.test(x.l));
   it('kirjoituskohtia löytyy (ei-vacuous)', () => {

@@ -34,23 +34,30 @@ describe('§37 — osa-arvio on OMA curriculum-kenttä, ei kytköstä arviointi_
   });
 });
 
-describe('SYÖTTÖ — _vpTtOsaArviotHTML (per-osa .jsp-scale3 + autosave-klik)', () => {
+/* Taso 2 jaettiin tilanteeksi ja muokkaukseksi: osien syotto renderoi nyt _vpJfOsatHTML
+   (pisterata + napautettava selitys) ja vanha _vpTtOsaArviotHTML poistui ilman kutsupaikkoja.
+   SAMAT invariantit: kolmiportainen valinta per osa, autosave-onclick, arvioitu → sana,
+   arvioimaton → "arvioi". Lisaksi kaksi asiaa jotka vanha renderi rikkoi: sanat kulkevat vpT():n
+   lapi (sv-tilassa ei fi-vuotoa) ja sisainen koodi (a/b) ei nay. */
+describe('SYÖTTÖ — _vpJfOsatHTML (per-osa 3-portainen + autosave-klik)', () => {
   let fn;
   beforeAll(() => {
-    fn = new Function('var vpT = function(x){return x;};\n' + 
-      'var _jsvEsc=function(s){return String(s==null?"":s);};\n' +
-      'var window={_vpJfOsaArviot:{p1:{y_h1:{a:2}}}};\n' +
-      extract('function _vpTtOsaArviotHTML(p, item) {') + '\n return _vpTtOsaArviotHTML;'
-    )();
+    fn = new Function('var vpT = function(x){return "T:"+x;};\n'
+      + 'var _jsvEsc=function(s){return String(s==null?"":s);};\n'
+      + 'var window={_vpJfOsaArviot:{p1:{y_h1:{a:2}}},_vpJfOsaAuki:{p1:"a"},_vpJfKaikki:{}};\n'
+      + extract('function _vpJfOsaJako(teksti) {')
+      + extract('function _vpJfOsatHTML(p, item) {')
+      + '\n return _vpJfOsatHTML;')();
   });
-  it('renderöi 3-portaisen scale3:n + autosave-onclickin per osa; arvioitu → label, arvioimaton → "arvioi"', () => {
-    const h = fn({ id: 'p1' }, { avain: 'y_h1', kpi: [{ koodi: 'a', teksti: 'Käännä pää' }, { koodi: 'b', teksti: 'Valitse' }] });
-    expect(h).toContain('class="jsp-scale3');
-    expect(h).toContain("_vpJfOsaArvioSet('p1','y_h1','a',2)");
-    expect(h).toContain("_vpJfOsaArvioSet('p1','y_h1','b',3)");
-    expect(h).toContain('<b style="color:var(--ink2)">2</b>/3 · ohjatusti');   // a arvioitu
-    expect(h).toContain('arvioi</span>');                                       // b honest-empty
-    expect(h).toContain('Eri kuin Arvioinnin 1–5 (§37)');                       // §37-note
+  it('renderöi kolmen vaihtoehdon valitsimen + autosave-onclickin avatulle osalle', () => {
+    const h = fn({ id: 'p1' }, { avain: 'y_h1', kpi: [{ koodi: 'a', teksti: 'Käännä pää: katso ennen kosketusta' }, { koodi: 'b', teksti: 'Valitse' }] });
+    expect(h).toContain("_vpJfOsaArvioSet('p1','y_h1','a',1)");
+    expect(h).toContain("_vpJfOsaArvioSet('p1','y_h1','a',3)");
+    expect(h).toContain('T:ohjatusti');                    // a = 2 → sana vpT():n läpi
+    expect(h).toContain('T:arvioi');                        // b = arvioimaton
+    expect(h).toContain('Käännä pää');                      // nimi kaksoispisteen edestä
+    expect(h).toContain('katso ennen kosketusta');          // selitys avatulle osalle
+    expect(h, 'sisäinen koodi näkyy käyttäjälle').not.toMatch(/>a</);
   });
   it('ei kpi:tä → tyhjä (ei kaadu)', () => {
     expect(fn({ id: 'p1' }, { avain: 'y_h1', kpi: [] })).toBe('');

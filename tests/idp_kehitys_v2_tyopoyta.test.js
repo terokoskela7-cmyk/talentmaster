@@ -51,15 +51,27 @@ describe('(2+3) tason 1 kärki: Seuraava askel, EI otsikkoa/nauhaa/moottoria', (
 });
 
 describe('(4) jaksofokus = INLINE-FOCAL editori (aina auki, ei modaalia)', () => {
-  it('_vpJfInlineHTML mounttaa SAMAT slot-ID:t (re-render-reuse) #_jfInlineEditor:iin', () => {
+  /* Taso 2 jaettiin tilanteeksi (oletus) ja muokkaukseksi: wrapperi mounttaa #_jfInlineEditor:in ja
+     valitsee sisallon tilan mukaan, ja osa-alue/runko-slotit elavat VAIHTOnakymassa (siella ne myos
+     re-renderoidaan). Invariantti on sama: yksi mount-piste + samat slot-id:t niiden omassa
+     nakymassa, joten _vpJfSetDomeeni loytaa ne yha. */
+  it('_vpJfInlineHTML mounttaa #_jfInlineEditor:in ja valitsee sisällön tilan mukaan', () => {
     const T = extract('function _vpJfInlineHTML(');
     expect(T).toContain('id="_jfInlineEditor" class="jsp-jf-focal"');
+    expect(T).toContain('_vpJfInlineSisaltoHTML(p)');
+    const D = extract('function _vpJfInlineSisaltoHTML(p) {');
+    expect(D).toContain('_vpJfVaihtoHTML(p)');
+    expect(D).toContain('_vpJfTavoitteetMuokkaaHTML(p)');
+    expect(D).toContain('_vpJfTilanneHTML(p)');
+  });
+  it('vaihtonäkymä mounttaa SAMAT slot-ID:t (re-render-reuse)', () => {
+    const T = extract('function _vpJfVaihtoHTML(p) {');
     expect(T).toContain('id="_vpJfToggle"');
     expect(T).toContain('id="_jfOhjausSlot"');
-    expect(T).toContain('id="_jfLinkitSlot"');
     expect(T).toContain('_vpJfToggleHTML(p)');
     expect(T).toContain('_vpJfBodyHTML(p)');
-    expect(T).toContain('_vpJfLinkitHTML(p)');
+    // tavoitteet ovat oma tila, eivät enää samassa näkymässä taidon valinnan kanssa
+    expect(extract('function _vpJfTavoitteetMuokkaaHTML(p) {')).toContain('_vpJfLinkitHTML(p)');
   });
   it('init erotettu jaettuun _jfOhjausAlusta (REUSE, ei kahta versiota)', () => {
     expect(HTML).toContain('function _jfOhjausAlusta(pid, esiValinta, lahde, domeeni) {');
