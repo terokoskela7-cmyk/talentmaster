@@ -43,6 +43,12 @@ const AIDOT = [
   'function _vpJfOsatHTML(p, item) {',
   'function _vpJfHarjoituksessaHTML(p, item) {',
   'function _vpJfTavoitteetLukuHTML(p) {',
+  'function _vpFyysMittarit(p) {',
+  'function _vpFyysOhjelmassaHTML(p) {',
+  'function _vpJfFyysKaistaHTML(p) {',
+  'function _vpKaistaUlottuvuus(domeeni) {',
+  'function _vpJfTuetHTML(p) {',
+  'function _vpJfPelissaKaistaHTML(p) {',
   'function _vpJfTilanneHTML(p) {',
   'function _vpJfTaitoListaHTML(p, aktItems, valittu, ehdKons, ehd, nakyma) {',
   'function _vpTtNimiNaytto(item) {',
@@ -71,7 +77,8 @@ const AIDOT = [
 ];
 const PALAUTA = ['_vpJfInlineHTML', '_vpJfInlineSisaltoHTML', '_vpJfTilanneHTML', '_vpJfVaihtoHTML',
   '_vpJfTavoitteetMuokkaaHTML', '_vpJfOsatHTML', '_vpJfHarjoituksessaHTML', '_vpJfTavoitteetLukuHTML',
-  '_vpJfAktItem', '_vpJfOsaJako', '_vpJfTallennaOnclick', '_vpTtKorttiHTML'];
+  '_vpJfAktItem', '_vpJfOsaJako', '_vpJfTallennaOnclick', '_vpTtKorttiHTML',
+  '_vpJfPelissaKaistaHTML', '_vpJfFyysKaistaHTML', '_vpJfTuetHTML', '_vpFyysMittarit'];
 
 function esc(s) {
   return String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -155,6 +162,9 @@ function rakenna(lisa) {
     ]),
     _vpJfMittausOletus: () => 'arviointi',
     _vpJfNykyarvo: () => ({ arvo: 3, max: 5 }),
+    eerikkilaTaso: () => 4,
+    _fmtTestiArvo: (v) => v,
+    onNeutraaliPrePHV: () => false,
     tmKehys: () => null,
     tmTtItems: () => (o.items || KAIKKI_TAIDOT),
     tmTtVaihe: () => 'pelipaikka',
@@ -210,6 +220,8 @@ describe('(1) Tilanne on lukutila', () => {
 
   it('EI VACUOUS: tilanne renderöityi', () => {
     expect(h).toContain('_jfInlineEditor');
+    /* Taidon osat elävät nyt "Pelissä näkyvä" -kaistan sisällä (kaksi kaistaa -malli). */
+    expect(h).toContain('Pelissä näkyvä');
     expect(h).toContain('Taidon osat pelissä');
     expect(h).toContain('Tempokuljetus');
   });
@@ -336,39 +348,46 @@ describe('(3) Harjoituksessa', () => {
 });
 
 /* ══ (4) JAKSON TAVOITTEET (lukutila) ═══════════════════════════════════════ */
+/* Tuet renderöi nyt _vpJfTuetHTML "Pelissä näkyvä" -kaistan sisällä: sama data ja sama
+   lukutilasääntö (ei kenttiä), mutta ulottuvuustunnisteella ja ilman fyysistä (joka on omalla
+   mitatulla kaistallaan). _vpJfTavoitteetLukuHTML näyttää enää vain asetetut mittarit. */
 describe('(4) Jakson tavoitteet lukutilassa', () => {
   it('opittu kun -teksti näkyy tekstinä, ei kenttänä', () => {
     const p = pelaaja();
-    const h = rakenna({ p: p, tarkenteet: { p1: { tuki0: { kriteeri: 'Nostaa katseen ennen vastaanottoa.' } } } })._vpJfTavoitteetLukuHTML(p);
+    const h = rakenna({ p: p, tarkenteet: { p1: { tuki0: { kriteeri: 'Nostaa katseen ennen vastaanottoa.' } } } })._vpJfTuetHTML(p);
     expect(h).toContain('Nostaa katseen ennen vastaanottoa.');
     expect(h, 'lukutilassa ei saa olla kenttää').not.toMatch(/<textarea|<input/i);
   });
 
   it('tyhjä → "Milloin taito on opittu?" + Kirjaa', () => {
     const p = pelaaja();
-    const h = rakenna({ p: p })._vpJfTavoitteetLukuHTML(p);
+    const h = rakenna({ p: p })._vpJfTuetHTML(p);
     expect(h).toContain('Milloin taito on opittu?');
     expect(h).toContain('Kirjaa');
     expect(h).toContain("_vpJfTila('p1','tavoitteet')");
   });
 
-  it('roolitunnisteet pääasia ja tukee', () => {
+  it('tuki näyttää ulottuvuustunnisteen (ei roolisanaa)', () => {
+    /* Kaistamallissa rooli näkyy sijainnista: kärki on kaistan kärjessä, tuet "Tukevat taidot"
+       -otsikon alla. Tunniste kertoo sen sijaan ULOTTUVUUDEN, jota lukija ei muuten tiedä. */
     const p = pelaaja();
-    const h = rakenna({ p: p })._vpJfTavoitteetLukuHTML(p);
-    expect(h).toContain('pääasia');
-    expect(h).toContain('tukee');
+    const h = rakenna({ p: p })._vpJfTuetHTML(p);
+    expect(h).toContain('Tukevat taidot');
+    expect(h).toContain('Henkinen');
+    expect(h).toContain('Pelin lukeminen');
   });
 
   it('mittari näkyy vain asetettuna', () => {
     const p = pelaaja();
     expect(rakenna({ p: p })._vpJfTavoitteetLukuHTML(p)).not.toContain('Mittari:');
-    const h = rakenna({ p: p, tarkenteet: { p1: { paa: { mittaus_tyyppi: 'arviointi', tavoite_taso: 5 } } } })._vpJfTavoitteetLukuHTML(p);
+    const h = rakenna({ p: p, tarkenteet: { p1: { tuki0: { mittaus_tyyppi: 'arviointi', tavoite_taso: 5 } } } })._vpJfTavoitteetLukuHTML(p);
     expect(h).toContain('Mittari:');
     expect(h).toContain('3/5 → 5/5');
   });
 
   it('ei tavoitteita → ei lohkoa', () => {
     const p = pelaaja();
+    expect(rakenna({ p: p, tavoitteet: [] })._vpJfTuetHTML(p)).toBe('');
     expect(rakenna({ p: p, tavoitteet: [] })._vpJfTavoitteetLukuHTML(p)).toBe('');
   });
 });
@@ -386,7 +405,7 @@ describe('(5) Tilasiirtymät', () => {
   it('tila ohjaa sisällön', () => {
     const p = pelaaja();
     const api = rakenna({ p: p });
-    expect(api._vpJfInlineSisaltoHTML(p)).toContain('Taidon osat pelissä');
+    expect(api._vpJfInlineSisaltoHTML(p)).toContain('Pelissä näkyvä');
     p._jfTila = 'vaihto';
     expect(api._vpJfInlineSisaltoHTML(p)).toContain('Osa-alue');
     p._jfTila = 'tavoitteet';
@@ -549,6 +568,7 @@ describe('(7) Sisäiset termit eivät näy käyttäjälle (fi)', () => {
 
   it('EI VACUOUS: render on iso ja sisältää odotettua sisältöä', () => {
     expect(teksti.length).toBeGreaterThan(1500);
+    expect(teksti).toContain('Pelissä näkyvä');
     expect(teksti).toContain('Taidon osat pelissä');
     expect(teksti).toContain('Osa-alue');
     expect(teksti).toContain('Milloin taito on opittu?');
@@ -583,6 +603,7 @@ describe('(8) sv: uudet avaimet kääntyvät', () => {
     expect(SV['ei vielä']).toBe('inte ännu');
     expect(sv).toContain('självständigt');
     expect(sv).toContain('med vägledning');
+    expect(sv, 'osat eivät renderöityneet kaistan sisällä').toContain('Färdighetens delar i match');
   });
 
   it('uudet riviotsikot ja linkit ruotsiksi', () => {
