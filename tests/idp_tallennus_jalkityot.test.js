@@ -339,6 +339,23 @@ describe('(A3) Vuodenvaihde — vanha tavoite merkitaan vaihdetuksi myos toisess
     expect(IDP.idpTallennusVuosi({ _idpVuosi: '2026', _idpVuosiLuotu: 'A' }, { luotu: 'A' }, new Date(TAMMI27))).toBe('2026');
   });
 
+  it('orpo ehdotus EDELLISEN vuoden dokissa ei nouse luonnokseksi', () => {
+    /* Kuluvalla vuodella on kaytossa oleva tavoite C, joten edellisen vuoden vanha, syrjaytynyt ehdotus B
+       ei ole odottava ehdotus — se jaisi "vaihto"-luonnokseksi C:n rinnalle ja VP:lle tarjottaisiin
+       vahvistusikkunaa tavoitteesta joka on jo ohitettu. Ehto on `val.vuosi === edellVuosi`: edellisen
+       vuoden ehdotus otetaan vain jos VOIMASSA OLEVA tuli sielta.
+       Huom: tama on LIB-tason testi, koska lataaja ei edes lue edellista vuotta kun kuluvassa on voimassa
+       oleva — loytamatta jaanyt ehto nakyy vain kun molemmat taulukot annetaan. */
+    const r = IDP.idpValitseKahdestaVuodesta(
+      [Object.assign(C(), { luotu: 'C' })], '2027',
+      [Object.assign(A(), { status: 'vaihdettu' }), { luotu: 'B', status: 'ehdotettu', arviot: [] }], '2026',
+    );
+    expect(r.tavoite.luotu).toBe('C');
+    expect(r.tavoiteVuosi).toBe('2027');
+    expect(r.luonnos, 'vanha syrjaytynyt ehdotus nousi luonnokseksi').toBeNull();
+    expect(r.luonnosVuosi).toBeNull();
+  });
+
   it('idpMerkitseVaihdetuksi: puhdas, idempotentti, null kun ei merkittavaa', () => {
     const arr = [A(), { luotu: 'X', status: 'hylatty' }];
     const r = IDP.idpMerkitseVaihdetuksi(arr, 'A', new Date(TAMMI27));
