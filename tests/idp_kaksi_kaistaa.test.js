@@ -421,14 +421,32 @@ describe('(9) Sisäiset termit eivät näy käyttäjälle (fi)', () => {
 
 /* ══ (10) SV + BRÄNDI ═══════════════════════════════════════════════════════ */
 describe('(10) sv-käännösportti ja brändi', () => {
-  it('kaistojen uudet avaimet ovat Gemini-erässä (ei keksittyä ruotsia)', () => {
-    /* Merge odottaa sanktiointia: uusilla avaimilla EI saa olla sv:tä ennen erän paluuta.
-       Portti (idp_i18n_v5_vp_render_dom) valvoo listaa; tässä varmistetaan ettei niitä ole
-       keksitty karttaan tämän PR:n mukana. */
-    ['Pelissä näkyvä', 'Ohjelmassa nyt:', 'Tukevat taidot', 'ei mittausta', '1. mittaus', 'kärki']
-      .forEach((fi) => {
-        expect(typeof SV[fi], 'sv keksitty sanktioimatta: ' + fi).not.toBe('string');
-      });
+  it('kaistojen uudet avaimet kantavat SANKTIOIDUN sv:n merkki merkiltä', () => {
+    /* Erä sanktioitiin (SV_IDP_KAKSI_KAISTAA_SANKTIOITU.json), joten "ei saa olla sv:tä"
+       -väitteen tilalla on nyt elävä vaste: arvot on lukittu tähän, jotta myöhempi hiljainen
+       muutos (tai oma käännösyritys) punertaa. Odotetut arvot ovat koosteesta sellaisenaan. */
+    const ODOTETTU = {
+      'Pelissä näkyvä': 'Syns i match',
+      'Mitä pelaaja tekee kentällä — havaitaan pelissä.': 'Vad spelaren gör på planen — observeras i match.',
+      'mitataan · aina näkyvissä': 'mäts · alltid synlig',
+      'Etenee testeistä, ei pelihavainnosta.': 'Framsteg från tester, inte matchobservation.',
+      'Ohjelmassa nyt:': 'I programmet nu:',
+      'kehityksessä': 'under utveckling',
+      'seurataan mittauksin': 'följs via mätningar',
+      'ei mittausta': 'ingen mätning',
+      '1. mittaus': '1:a mätningen',
+      'kärki': 'spets',
+      'Tukevat taidot': 'Stödjande färdigheter',
+      'Ei teknis-taktista kärkeä tässä jaksossa.': 'Ingen teknisk-taktisk spets i den här perioden.',
+      'Kasvupyrähdys kesken — verrataan omaan kehityskaistaan, ei ikäluokkaan.': 'Tillväxtspurt pågår — jämförs med egen utvecklingsbana, inte åldersgrupp.',
+      'Kehityssuunta näkyy toisesta mittauksesta alkaen.': 'Utvecklingstrenden syns från andra mätningen.',
+      'Aiempi fyysinen tavoite näkyy nyt mitatulla kaistalla.': 'Det tidigare fysiska målet syns nu i den uppmätta banan.',
+      '👁 Pelaaja näkee taidot ja niiden osat. Mittausluvut jäävät valmentajalle.': '👁 Spelaren ser färdigheterna och deras delar. Mätvärdena stannar hos tränaren.',
+    };
+    Object.keys(ODOTETTU).forEach((fi) => {
+      expect(SV[fi], 'sv puuttuu tai ei vastaa sanktioitua: ' + fi).toBe(ODOTETTU[fi]);
+    });
+    expect(Object.keys(ODOTETTU).length, 'erän kokoa muutettiin').toBe(16);
   });
 
   it('jo sanktioidut avaimet kääntyvät sv-renderissä', () => {
