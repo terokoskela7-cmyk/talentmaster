@@ -5,16 +5,17 @@ Aja: python3 docs/prototyypit/rakenna_xt_prototyyppi.py [--artifact /polku/ulos.
 import sys, pathlib
 JUURI = pathlib.Path(__file__).resolve().parents[2]
 RUNKO = (JUURI / 'docs/prototyypit/xt_prototyyppi_runko.html').read_text(encoding='utf-8')
-LIBIT = ['lib/tm_kaavio_render.js', 'lib/tm_kaavio_kanon_data.js', 'lib/tm_xt.js', 'lib/tm_xt_kerros.js']
+# (polku, ?v=) — versio per lib, koska xT-libit muuttuvat eri tahtiin kuin kaaviorenderöijä.
+LIBIT = [('lib/tm_kaavio_render.js', 1), ('lib/tm_kaavio_kanon_data.js', 1), ('lib/tm_xt.js', 2), ('lib/tm_xt_kerros.js', 2)]
 
-tagit = '\n'.join('<script src="%s?v=1"></script>' % l for l in LIBIT)
+tagit = '\n'.join('<script src="%s?v=%d"></script>' % (l, v) for l, v in LIBIT)
 repo = '<!DOCTYPE html>\n<html lang="fi">\n<head>\n<meta charset="UTF-8">\n<meta name="viewport" content="width=device-width, initial-scale=1.0">\n' \
        + RUNKO.replace('<!--LIBS-->', tagit).replace('<div class="wrap">', '</head>\n<body>\n<div class="wrap">', 1) + '\n</body>\n</html>\n'
 (JUURI / 'TalentMaster_xT_Prototyyppi.html').write_text(repo, encoding='utf-8')
 
 if '--artifact' in sys.argv:
     ulos = pathlib.Path(sys.argv[sys.argv.index('--artifact') + 1])
-    inline = '\n'.join('<script>\n/* %s */\n%s\n</script>' % (l, (JUURI / l).read_text(encoding='utf-8').replace('</script', '<\\/script')) for l in LIBIT)
+    inline = '\n'.join('<script>\n/* %s */\n%s\n</script>' % (l, (JUURI / l).read_text(encoding='utf-8').replace('</script', '<\\/script')) for l, _v in LIBIT)
     ulos.parent.mkdir(parents=True, exist_ok=True)
     ulos.write_text(RUNKO.replace('<!--LIBS-->', inline), encoding='utf-8')
 print('ok')
