@@ -21,7 +21,7 @@
 <!-- Eerikkilä-normit + universaali testirekisteri (eerikkilaTaso, laskeFVP) — 10m/5m-tasot + FVP-profiili -->
 <script src="lib/tm_lang.js?v=14"></script>   <!-- i18n V0 — fi/sv/en käännöstaulukko + t() + kieli-init (putkitus) -->
 <script src="lib/tm_i18n_common.js?v=9"></script>   <!-- i18n Vaihe 0 — JAETTU henkilöstö-i18n + lukittu glossaari (ENNEN sivukarttaa) -->
-<script src="lib/tm_vp_i18n.js?v=82"></script>   <!-- i18n Vaihe 5 — VP sv (sivukartta); vpT/vpLokalisoi delegoivat commoniin -->
+<script src="lib/tm_vp_i18n.js?v=83"></script>   <!-- i18n Vaihe 5 — VP sv (sivukartta); vpT/vpLokalisoi delegoivat commoniin -->
 
 
 <script src="lib/tm_eerikkila_normit.js?v=45"></script>   <!-- v43: D2-kortti d2_taso-ensin (renderKehityskorttiHTML, PR #264 · §30/#262) -->
@@ -16003,19 +16003,30 @@ window._pdcPaatos = function (p, nyt) {
   if (rk && rk.status === 'myohassa') {
     return toim('review_myohassa', vpT('Katselmus on'), rk.ylimaaraPv + ' ' + vpT('pv myöhässä — tee se tässä palaverissa.'));
   }
-  // 2. Kausitavoite jumissa (kanoninen 8 vk -sääntö, lib/tm_idp.js)
-  if (t && typeof idpJumissa === 'function' && idpJumissa(t, nyt)) {
-    return toim('idp_jumissa', vpT('Kausitavoite ei ole edennyt'), vpT('8 viikkoon — päivitä tai vaihda.'));
+  /* 2. VALMENTAJAN EHDOTUS ODOTTAA VP:n tarkistusta. #619: tallennettu 'ehdotettu' latautuu luonnokseksi,
+     EI voimassa olevan tavoitteen tilalle — ilman tätä tilaa ehdotus jäisi näkymättömiin palaverissa.
+     Ennen jumissa-tilaa: jos tavoite ei ole edennyt JA uusi ehdotus odottaa, ehdotuksen tarkistus ON juuri
+     se toimenpide jota jumissa-rivi ("päivitä tai vaihda") pyytää. Status tarkistetaan eksplisiittisesti
+     (ei idpOnVoimassa-riippuvuutta): vain hyväksymätön ehdotus on toimenpide. */
+  if (p._idpLuonnos && p._luonnosTallennettu && p._idpLuonnos.status === 'ehdotettu') {
+    var ehd = toim('ehdotus_odottaa', vpT('Valmentaja ehdotti uutta kauden tavoitetta —'), vpT('tarkista ja ota käyttöön.'));
+    ehd.nappi = 'tarkista_ehdotus';   // semanttinen avain — renderöijä päättää painikkeen (funktio pysyy puhtaana)
+    return ehd;
   }
-  // 3. Pelaaja sitoutui, vahvistus puuttuu tältä jaksolta
+  // 3. Kauden tavoite jumissa (kanoninen 8 vk -sääntö, lib/tm_idp.js)
+  if (t && typeof idpJumissa === 'function' && idpJumissa(t, nyt)) {
+    return toim('idp_jumissa', vpT('Kauden tavoite ei ole edennyt'), vpT('8 viikkoon — päivitä tai vaihda.'));
+  }
+  // 4. Pelaaja sitoutui, vahvistus puuttuu tältä jaksolta
   if (typeof _rvcSitoumusOdottaa === 'function' && _rvcSitoumusOdottaa(p)) {
     return toim('sitoumus', vpT('Pelaaja sitoutui —'), vpT('vahvista sitoumus tälle jaksolle.'));
   }
-  // 4. Ei jaksofokusta lainkaan
+  /* 5. Jaksolle ei ole valittu harjoiteltavaa taitoa. KISS: yksi kokonainen lause fragmenttiparin sijaan,
+     eikä sisäistä termiä "jaksofokus" rivitekstissä (termi jää nav-nimeen). */
   if (!jfNimi) {
-    return toim('ei_jaksofokusta', vpT('Ei jaksofokusta —'), vpT('aseta se kehitystyöpöydässä.'));
+    return toim('ei_jaksofokusta', vpT('Jaksolle ei ole valittu harjoiteltavaa taitoa.'), null);
   }
-  // 5. Review erääntymässä (≤14 pv) — pehmeä takaraja
+  // 6. Review erääntymässä (≤14 pv) — pehmeä takaraja
   if (rk && rk.status === 'eraantymassa' && rk.eraantyyPvm) {
     return toim('review_eraantymassa', vpT('Katselmus erääntyy'), pvm(rk.eraantyyPvm) + ' — ' + vpT('sovi ajankohta.'));
   }
@@ -16032,7 +16043,17 @@ function _pdcPaatosHTML(p, nyt) {
   var d = (typeof window._pdcPaatos === 'function') ? window._pdcPaatos(p, nyt) : null;
   if (!d) return '';
   var teksti = _jsvEsc(d.teksti) + (d.korostus ? ' <b>' + _jsvEsc(d.korostus) + '</b>' : '');
-  return '<div class="pdc-paatos ' + (d.tila === 'toimenpide' ? 'toimi' : 'hiljainen') + '" data-paatos="' + _jsvEsc(d.avain) + '">' + teksti + '</div>';
+  /* Painike VAIN kun päätös nimeää sen (d.nappi). Raportti on read-only (#615), joten tämä on YKSI
+     siirtymä cockpittiin — sama polku jossa vahvistusikkuna ("Ota uusi tavoite käyttöön") elää — ei editoria
+     eikä globaaliin _vpArvPelaaja:aan osuvaa toimintoa. */
+  var nappi = '';
+  if (d.nappi === 'tarkista_ehdotus') {
+    nappi = '<div style="margin-top:9px"><button onclick="event.stopPropagation();_pdcSiirryCockpittiin(\'' + _jsvEsc(p.id) + '\',3)"'
+      + ' style="font-family:var(--font-sans);font-size:10px;font-weight:500;letter-spacing:.1em;text-transform:uppercase;padding:9px 14px;'
+      + 'border-radius:6px;background:rgba(40,176,144,.1);color:var(--teal);border:.5px solid rgba(40,176,144,.4);cursor:pointer">'
+      + vpT('Tarkista ehdotus') + '</button></div>';
+  }
+  return '<div class="pdc-paatos ' + (d.tila === 'toimenpide' ? 'toimi' : 'hiljainen') + '" data-paatos="' + _jsvEsc(d.avain) + '">' + teksti + nappi + '</div>';
 }
 
 // R2-A V2 — Pelaajaraportti = kanoninen Player Development Card (docs/PLAYER_CARD_TOPIAS.html). Esityskerroksen vaihto:
