@@ -111,15 +111,17 @@ describe('(B) _vpJfEvidenssiHTML — jfBody mini-kaari + jaksosidos-delta', () =
 });
 
 describe('(C) nimikorjaus — Jaksohistoria (meso ≠ Mittauksen kaari)', () => {
-  it('TASO 3 -haitarin label = "Jaksohistoria" (ei enää "Kehityskaari")', () => {
-    /* Otsikkohierarkia (Oura v2): row(...) ottaa objektin, ja "TASO 3 · HISTORIA"-eyebrow poistui riveiltä
-       (järjestys näkyy murupolusta). Sama INVARIANTTI: _accKaari-rivin nimi on "Jaksohistoria", ei "Kehityskaari". */
+  it('TASO 3 -haitarin label = "Aiemmat jaksot" (ei "Jaksohistoria" eikä "Kehityskaari")', () => {
+    /* PR B (B6) jatkoi tätä nimikorjausta: myös "Jaksohistoria" on sisäistä kieltä (jakso = meso).
+       Sama INVARIANTTI: _accKaari-rivin nimi kertoo lukijalle mitä rivi sisältää. Aloitus-välilehden
+       oma kaari-koonti (_vpAloitusKaariHTML) jää PR C:hen — se ei ole tällä välilehdellä. */
     expect(VP).toContain("_accKaari'");   // id-etuliite (idp) vain raportissa
-    expect(VP).toContain("nimi: vpT('Jaksohistoria')");
+    expect(VP).toContain("nimi: vpT('Aiemmat jaksot')");
     /* Rajaus _accKaari-RIVIIN: 'Kehityskaari' on laillisesti käytössä muualla (Mittauksen kehityskaari
        12577 + PDC:n kaari-kappale) — vain TÄMÄ rivi ei saa kantaa sitä nimeä. */
     const kaariRivi = VP.slice(VP.indexOf("_accKaari'"), VP.indexOf("_accKaari'") + 400);
     expect(kaariRivi).not.toContain('Kehityskaari');
+    expect(kaariRivi).not.toContain('Jaksohistoria');
   });
   it('Suunnitelman kaari -rivi = "Jaksohistoria"', () => {
     /* i18n-markup-purku: label ei ole enää markup-avaimen sisällä vaan
@@ -142,7 +144,8 @@ describe('K3 wiring — helperit kytketty', () => {
     expect(VP).toContain('const jfEvid = jfNimi && typeof _vpJfEvidenssiHTML === \'function\' ? _vpJfEvidenssiHTML(p) : \'\';');
     /* Otsikkohierarkia (Oura v2): row(...) ottaa objektin → sama INVARIANTTI eri muodossa. */
     expect(VP).toContain('body: jfBody + jfEvid');
-    expect(VP).toContain('avoin: _inlineEditori');
+    // PR B: rivi on oletuksena kiinni cockpitissa (taso 1 = tilanne); evidenssin kytkentä ennallaan.
+    expect(VP).toContain('avoin: !_inlineEditori && !jfNimi,');
   });
   it('lib tmKaariSiru exportattu (API + global)', () => {
     const src = readFileSync(join(__dir, '..', 'lib', 'tm_kehityskaari.js'), 'utf8');

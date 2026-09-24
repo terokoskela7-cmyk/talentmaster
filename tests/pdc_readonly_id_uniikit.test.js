@@ -43,7 +43,10 @@ const _DATANIMI_HELPERIT = ['function _vpKausiNaytto(k) {', 'function _vpFokusNi
   'function _vpKonseptiNimiNaytto(jf) {', 'function _vpTilaNaytto(tila) {', 'function _vpOtsikkoNaytto(s) {',
   'function _vpTaksLang() {', 'function _taksNimi(o) {', 'function _taksVal(o, kentta) {',
   'function _taksAvainNimi(avain) {', 'function _ttSvKartta() {', 'function _ttSvPaalla() {',
-  'function _ttSv(avain, kentta) {'];
+  'function _ttSv(avain, kentta) {',
+  /* PR B: kausitavoite-rivin alarivi ("Nyt X \u2192 tavoite Y \u00b7 arvioidaan pp.kk." + pelaajan omat sanat)
+     on AITO lahteesta — tyhja tynka piilottaisi juuri sen sisallon jota nama portit mittaavat. */
+  'function _vpKtArvoTeksti(arvo, yks) {', 'function _vpKtAlariviHTML(t, inline) {'];
 
 
 const PV = 86400000;

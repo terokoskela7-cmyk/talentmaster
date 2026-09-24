@@ -29,21 +29,24 @@ describe('(1) rail-vapaa kattaa Kehityksen (tab 3) + leveyskatto 940', () => {
   });
 });
 
-describe('(2+3) fwh-otsikko + VP-oversight status-nauha prependattu työpöytään', () => {
-  it('_kehExtra alkaa otsikolla + statuksella ENNEN moottoria', () => {
-    const iOts = HTML.indexOf('_kehExtra += _vpKehOtsikkoHTML();');
-    /* Vaihe 1.2: nauha renderoidaan id-ankkurin sisalla (_vpKausitavoiteReRender paivittaa sen),
-       joten jarjestys mitataan ankkurista. Jarjestys-invariantti ennallaan. */
-    const iStat = HTML.indexOf('_kehExtra += \'<div id="_jspKehStatus">\'');
-    const iMoot = HTML.indexOf('_kehExtra += _vpMoottoriKortitHTML(p, p.id);');
-    expect(iOts).toBeGreaterThan(0);
-    expect(iOts).toBeLessThan(iStat);
-    expect(iStat).toBeLessThan(iMoot);
+/* PR B (KISS, taso 1 = TILANNE) poisti nama kolme elementtia valilehden karjesta: tyopoydan
+   otsikko (_vpKehOtsikkoHTML), VP-oversight-nauha (_vpKehStatusHTML) ja moottorin kortit.
+   Jarjestys-invariantti ei ole enaa mitattavissa — sen tilalle jaa poistovartija, jotta clutter
+   ei palaa takaisin ensimmaiseksi asiaksi jonka valmentaja nakee. */
+describe('(2+3) tason 1 kärki: Seuraava askel, EI otsikkoa/nauhaa/moottoria', () => {
+  it('_kehExtra alkaa Seuraava askel -laatikolla', () => {
+    const iAskel = HTML.indexOf('_kehExtra += _vpKehSeuraavaAskelHTML(p);');
+    expect(iAskel, 'Seuraava askel puuttuu tason 1 kärjestä').toBeGreaterThan(0);
+    const iSuun = HTML.indexOf('_kehExtra += \'<div id="_jspKehSuunnitelma"');
+    expect(iSuun, 'rivit puuttuvat').toBeGreaterThan(0);
+    expect(iAskel, 'Seuraava askel ei ole ensimmäisenä').toBeLessThan(iSuun);
   });
-  it('otsikko = "Suunnitelman muokkauskoti"', () => {
-    const T = extract('function _vpKehOtsikkoHTML(');
-    expect(T).toContain('Jaksofokus-työpöytä');
-    expect(T).toContain('Suunnitelman muokkauskoti');
+  it('poistetut elementit eivät ole palanneet', () => {
+    expect(HTML).not.toContain('_kehExtra += _vpKehOtsikkoHTML();');
+    expect(HTML).not.toContain('_kehExtra += \'<div id="_jspKehStatus">\'');
+    expect(HTML).not.toContain('_kehExtra += _vpMoottoriKortitHTML(p, p.id);');
+    expect(HTML, 'kuollut funktio jäi lähteeseen').not.toContain('function _vpKehOtsikkoHTML(');
+    expect(HTML, 'kuollut funktio jäi lähteeseen').not.toContain('function _vpKehStatusHTML(p) {');
   });
 });
 
@@ -81,11 +84,12 @@ describe('(4) jaksofokus = INLINE-FOCAL editori (aina auki, ei modaalia)', () =>
     expect(T).toContain('_vpTyopoytaJaksofokusHTML(p)');       // read-only fallback (raportti) säilyy
     /* Otsikkohierarkia (Oura v2): row(...) ottaa nyt OBJEKTIN positionaalisten argumenttien sijaan, ja
        "TASO 2 · …"-eyebrow poistui riveiltä (järjestys näkyy murupolusta). Väitteet kohdistuvat samoihin
-       INVARIANTTEIHIN kuin ennen: oikea id + nimi, body = jfBody + jfEvid, avoin = _inlineEditori. */
+       INVARIANTTEIHIN kuin ennen: oikea id + nimi, body = jfBody + jfEvid.
+       PR B: rivi EI ole enaa aina auki cockpitissa — taso 1 on tilanne, taso 2 avataan rivilta. */
     expect(T).toContain("_accJaksofokus'");   // id-etuliite (idp) vain raportissa — invariantti = rivin tunniste
-    expect(T).toContain("nimi: vpT('Jaksofokus')");   // IDP-vihje ⓘ voi olla nimen perässä
+    expect(T).toContain("nimi: vpT('Nyt harjoitellaan')");   // PR B (B6): riviotsikko selkokielelle   // IDP-vihje ⓘ voi olla nimen perässä
     expect(T).toContain('body: jfBody + jfEvid');     // K3: jfBody + kohdennetun ominaisuuden evidenssi (jfEvid)
-    expect(T).toContain('avoin: _inlineEditori');
+    expect(T).toContain('avoin: !_inlineEditori && !jfNimi,');
   });
   it('Pelaajaraportti (PDC) käyttää read-only-tilaa (ei inline-editoria/duplikaatti-ID:itä)', () => {
     expect(HTML).toContain("_vpKehSuunnitelmaHTML(p, { editori: false })");
@@ -110,34 +114,31 @@ describe('(5) off-palette-pinkki (#c060a8) pois Kehitys-lähdechipeistä', () =>
   });
 });
 
-describe('status-nauha & otsikko suoritettuina (data-vetoinen, ei uutta dataa)', () => {
-  let statusFn, otsikkoFn;
+/* Nama neljä tapausta suorittivat poistetut funktiot. Niiden tilalle jaa RENDEROITY todiste
+   siita, etta sama tieto on yha saatavilla — mutta yhtena asiana (Seuraava askel) eika nauhana,
+   ja etta nauhan sanasto ("VP-oversight", "Suunnitelman muokkauskoti") on poissa valilehdelta. */
+describe('tason 1 kärki suoritettuna (data-vetoinen, ei uutta dataa)', () => {
+  let askelFn;
   beforeAll(() => {
+    /* window._pdcPaatos on Seuraava askel -laatikon AINOA paatoslahde (sama kuin raportissa).
+       Tynka palauttaa null = hiljainen tila. */
     const pre =
-      'var _jsvEsc = function(s){return String(s==null?"":s);};\n' +
-      'var idpJumissa = function(){return false;};\n' +
-      'var window = { TM_JAKSOFOKUS: { tmJfUmpeutunut: function(jf){ if(!jf||!jf.alkoi) return false; return false; } } };\n';
-    statusFn = new Function('var vpT = function(x){return x;};\n' + pre + extract('function _vpKehStatusHTML(p) {') + '\n return _vpKehStatusHTML;')();
-    otsikkoFn = new Function('var vpT = function(x){return x;};\n' + pre + extract('function _vpKehOtsikkoHTML(') + '\n return _vpKehOtsikkoHTML;')();
+      'var _jsvEsc = function(s){return String(s==null?"":s);};\n'
+      + 'var vpT = function(x){return x;};\n'
+      + 'var _pvmFiVP = function(x){return String(x);};\n'
+      + 'var window = { _pdcPaatos: function(){ return { tila: "hiljainen" }; } };\n';
+    askelFn = new Function(pre
+      + extract('function _vpAskelNappi(avain) {')
+      + extract('function _vpKehSeuraavaAskelHTML(p) {')
+      + '\n return _vpKehSeuraavaAskelHTML;')();
   });
-  it('tyhjä työpöytä (ei tavoitetta eikä fokusta) → ei status-nauhaa', () => {
-    expect(statusFn({})).toBe('');
+  it('hiljainen tila (ei päätöstä) → yksi rivi, ei laatikkoa', () => {
+    const h = askelFn({ id: 'p1' });
+    expect(h).toContain('Ajan tasalla');
+    expect(h, 'hiljainen tila maalattiin toimenpiteeksi').not.toContain('jsp-keh-askel toimi');
   });
-  it('aktiivinen kausitavoite + jaksofokus (ilman alkoi) → aikataulussa · hyväksytty · kesto · periaate', () => {
-    const h = statusFn({ _idpTavoite: { status: 'aktiivinen' }, jaksofokus: { konsepti_nimi: 'Haltuunotto', kesto_vk: 4 } });
-    expect(h).toContain('● Aikataulussa');
-    expect(h).toContain('Kauden tavoite <b>hyväksytty</b>');
-    expect(h).toContain('Jaksofokus <b>kesto 4 vk</b>');
-    expect(h).toContain('Yksi prioriteetti · vähemmän on enemmän');
-    expect(h).toContain('VP-oversight · tila yhdellä silmäyksellä');
-  });
-  it('ei jaksofokusta mutta tavoite → "○ Ei jaksofokusta" (warn)', () => {
-    const h = statusFn({ _idpTavoite: { status: 'ehdotettu' } });
-    expect(h).toContain('○ Ei jaksofokusta');
-    expect(h).toContain('Kauden tavoite <b>ehdotettu</b>');
-    expect(h).not.toContain('Jaksofokus <b>');
-  });
-  it('otsikko renderöi muokkauskoti-tekstin', () => {
-    expect(otsikkoFn()).toContain('Suunnitelman muokkauskoti');
+  it('vanha nauhasanasto on poissa lähteestä', () => {
+    expect(HTML, 'oversight-kieli jäi käyttöliittymään').not.toContain('VP-oversight · tila yhdellä silmäyksellä');
+    expect(HTML, 'työpöytä-kieli jäi käyttöliittymään').not.toContain('Suunnitelman muokkauskoti');
   });
 });

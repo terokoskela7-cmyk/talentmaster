@@ -303,12 +303,16 @@ describe('PDC P2 · sijainti ja lukot lähteessä', () => {
     expect(runko).toContain('_rvcSitoumusOdottaa(');
   });
 
-  it('TERMILUKKO: käyttäjästringeissä "katselmus", EI "Review" (docs/SEURANTA_KATSELMUS_CODE_BRIEF.md)', () => {
+  it('TERMILUKKO: käyttäjästringeissä "kehityskeskustelu", EI "Review" eikä "Katselmus"', () => {
+    /* PR B (B6) vei termin loppuun asti: "Katselmus" oli yhä sisäistä kieltä — käyttäjä pitää
+       kehityskeskustelun. Lukko on sama, sallittu muoto vain vaihtui. _pdcPaatos on jaettu
+       PDC:n ja cockpitin Seuraava askel -laatikon kanssa, joten teksti vaihtuu molemmissa. */
     const runko = funktio('window._pdcPaatos = function (p, nyt) {');
     // Funktion nimi laskeReviewKadenssi on koodia, ei käyttäjätekstiä → rajaus vpT()-stringeihin.
     const vpTStringit = (runko.match(/vpT\('([^']*)'\)/g) || []).join(' | ');
     expect(vpTStringit, 'P2:n käyttäjästringissä on yhä "Review"').not.toMatch(/Review/i);
-    expect(vpTStringit).toContain('Katselmus on');
-    expect(vpTStringit).toContain('Katselmus erääntyy');
+    expect(vpTStringit, 'P2:n käyttäjästringissä on yhä "Katselmus"').not.toMatch(/katselmu/i);
+    expect(vpTStringit).toContain('Kehityskeskustelu on');
+    expect(vpTStringit).toContain('Kehityskeskustelu viimeistään');
   });
 });

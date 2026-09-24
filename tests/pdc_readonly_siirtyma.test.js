@@ -106,7 +106,10 @@ describe('PDC P1 · (1) EI MODAALIA PDC:llä — kaikki kolme vuotoa tukittu', (
   const NAPIT = [
     ['L1 read-only-yhteenveto', "vpT('→ Kehitä jaksofokusta') + '</button></div>'"],
     ['L3 kauden tavoite (tyhjä)', "vpT('＋ Tee kauden tavoite')"],
-    ['L2 jaksofokus (tyhjä)', "vpT('＋ Aseta jaksofokus')"],
+    /* PR B toi saman tekstin toiseen paikkaan (Seuraava askel -laatikon painike, _vpAskelNappi),
+       joten hakusana on tarkennettu tähän kutsupaikkaan — muuten haku osuisi switch-haaraan,
+       josta ei synny onclick-attribuuttia lainkaan. */
+    ['L2 jaksofokus (tyhjä)', "_pdcSiirryCockpittiin(\\'' + pid + '\\',3)\">' + vpT('＋ Aseta jaksofokus')"],
   ];
 
   it.each(NAPIT)('%s: handler PARSIUTUU ja osoittaa siirtymään (ei _jfOhjaa/_vpEhdotaTavoite)', (_nimi, hak) => {

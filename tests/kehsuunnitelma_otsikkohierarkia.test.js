@@ -34,7 +34,10 @@ const _DATANIMI_HELPERIT = ['function _vpKausiNaytto(k) {', 'function _vpFokusNi
   'function _vpKonseptiNimiNaytto(jf) {', 'function _vpTilaNaytto(tila) {', 'function _vpOtsikkoNaytto(s) {',
   'function _vpTaksLang() {', 'function _taksNimi(o) {', 'function _taksVal(o, kentta) {',
   'function _taksAvainNimi(avain) {', 'function _ttSvKartta() {', 'function _ttSvPaalla() {',
-  'function _ttSv(avain, kentta) {'];
+  'function _ttSv(avain, kentta) {',
+  /* PR B: kausitavoite-rivin alarivi ("Nyt X \u2192 tavoite Y \u00b7 arvioidaan pp.kk." + pelaajan omat sanat)
+     on AITO lahteesta — tyhja tynka piilottaisi juuri sen sisallon jota nama portit mittaavat. */
+  'function _vpKtArvoTeksti(arvo, yks) {', 'function _vpKtAlariviHTML(t, inline) {'];
 
 const _I18N = vaadi('../lib/tm_vp_i18n.js');
 const SV = (_I18N.TM_VP_I18N || _I18N).sv;
@@ -291,24 +294,28 @@ describe('(5) Tyhjä tila säilyy', () => {
   });
 });
 
-describe('(6) Termilukko — katselmus, ei "review"', () => {
-  it('täysi historia → "3 katselmusta"; renderöidyssä HTML:ssä ei /review/i', () => {
+/* PR B (B6): sisainen termi "katselmus" on korvattu kayttajan kielella "kehityskeskustelu".
+   Termilukko sailyy — nyt se kieltaa molemmat vieraat muodot (/review/i JA /katselmu/i). */
+describe('(6) Termilukko — kehityskeskustelu, ei "review" eika "katselmus"', () => {
+  it('täysi historia → "3 kehityskeskustelua"; renderöidyssä HTML:ssä ei /review/i eika /katselmu/i', () => {
     const h = render(pAktiivinen());
-    expect(h).toContain('3 katselmusta');
+    expect(h).toContain('3 kehityskeskustelua');
     expect(h).not.toMatch(/review/i);
+    expect(h).not.toMatch(/katselmu/i);
   });
 
-  it('yksi katselmus → yksikkömuoto', () => {
+  it('yksi kehityskeskustelu → yksikkömuoto', () => {
     const p = pAktiivinen();
     p._idpTavoite.arviot = [1];
-    expect(render(p)).toContain('1 katselmus');
+    expect(render(p)).toContain('1 kehityskeskustelu');
   });
 
-  it('tyhjä historia → "ei vielä historiaa" + uusi katselmoidaan-teksti bodyssa, ei /review/i', () => {
+  it('tyhjä historia → "ei vielä historiaa" + uusi saate bodyssa, ei /review/i eika /katselmu/i', () => {
     const h = render({ id: 'p4', _idpTavoite: null, jaksofokus: null });
     expect(h).toContain('ei vielä historiaa');
-    expect(h).toContain('Historia täyttyy kun tavoitteita katselmoidaan ja jaksoja suljetaan.');
+    expect(h).toContain('Historia täyttyy, kun kehityskeskusteluja pidetään ja jaksoja päätetään.');
     expect(h).not.toMatch(/review/i);
+    expect(h).not.toMatch(/katselmu/i);
   });
 });
 
@@ -325,8 +332,8 @@ describe('(6b) sv-render — domeenin nimi kääntyy (fi-vuoto)', () => {
 
   it('sv: tilarivi ja historia kääntyvät (sanktioidut avaimet)', () => {
     const sv = render(pAktiivinen(), undefined, 'sv');
-    expect(sv).toContain(SV['Aktiivinen']);
-    expect(sv).toContain(SV['katselmusta']);      // granskningar
+    expect(sv).toContain(SV['Käytössä']);          // I bruk (ent. Aktiv)
+    expect(sv).toContain(SV['kehityskeskustelua']); // utvecklingssamtal (ent. granskningar)
     expect(sv).not.toMatch(/review/i);
   });
 
@@ -397,12 +404,13 @@ describe('(8) PDC read-only', () => {
 });
 
 describe('(9) Invariantit joita aiemmat testit vartioivat', () => {
-  it('_accKaari on "Jaksohistoria" (ei "Kehityskaari") ja kompakti', () => {
+  it('_accKaari on "Aiemmat jaksot" (ei "Jaksohistoria"/"Kehityskaari") ja kompakti', () => {
     const f = funktio('function _vpKehSuunnitelmaHTML(p, opts) {');
     expect(f).toContain("_accKaari'");   // id-etuliite (idp) vain raportissa
-    expect(f).toContain("nimi: vpT('Jaksohistoria')");
+    expect(f).toContain("nimi: vpT('Aiemmat jaksot')");
     expect(f).toContain('kompakti: true');
     expect(f).not.toContain("'Kehityskaari'");
+    expect(f).not.toContain("'Jaksohistoria'");
   });
 
   /* RENDERÖITY todiste: kompakti-luokan poisto lähteestä jäi pelkällä 'kompakti: true' -greppauksella
@@ -412,11 +420,13 @@ describe('(9) Invariantit joita aiemmat testit vartioivat', () => {
     expect(h).toMatch(/acc-row compact" id="_accKaari"/);
   });
 
-  it('_accJaksofokus: body = jfBody + jfEvid, avoin kattaa _inlineEditori:n', () => {
+  it('_accJaksofokus: body = jfBody + jfEvid, rivi on oletuksena kiinni cockpitissa', () => {
     const f = funktio('function _vpKehSuunnitelmaHTML(p, opts) {');
     expect(f).toContain('body: jfBody + jfEvid');
-    // Invariantti säilyy laajennettuna: tyhjä rivi aukeaa myös raportissa (|| !jfNimi).
-    expect(f).toMatch(/avoin: _inlineEditori(\s*\|\|\s*!jfNimi)?,/);
+    /* PR B (taso 1 = tilanne): rivi EI ole enaa aina auki cockpitissa. Se aukeaa vain kun
+       jaksofokusta ei ole JA ollaan raportissa — eli silloin kun rivilla ei ole mitaan kerrottavaa
+       eika lukija voi itse avata sita. */
+    expect(f).toContain('avoin: !_inlineEditori && !jfNimi,');
     expect(f).toContain('const _inlineEditori = !opts || opts.editori !== false;');
   });
 

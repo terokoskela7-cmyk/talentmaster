@@ -51,7 +51,10 @@ const HELPERIT = ['function _vpKausiNaytto(k) {', 'function _vpFokusNimiNaytto(f
   'function _vpKonseptiNimiNaytto(jf) {', 'function _vpTilaNaytto(tila) {', 'function _vpOtsikkoNaytto(s) {',
   'function _vpTaksLang() {', 'function _taksNimi(o) {', 'function _taksVal(o, kentta) {',
   'function _taksAvainNimi(avain) {', 'function _ttSvKartta() {', 'function _ttSvPaalla() {',
-  'function _ttSv(avain, kentta) {'];
+  'function _ttSv(avain, kentta) {',
+  /* PR B: kausitavoite-rivin alarivi ("Nyt X \u2192 tavoite Y \u00b7 arvioidaan pp.kk." + pelaajan omat sanat)
+     on AITO lahteesta — tyhja tynka piilottaisi juuri sen sisallon jota nama portit mittaavat. */
+  'function _vpKtArvoTeksti(arvo, yks) {', 'function _vpKtAlariviHTML(t, inline) {'];
 
 /** Renderöi Kehityssuunnitelma AIDOILLA libeillä annetulla kielellä. */
 function render(p, opts, kieli) {
@@ -144,8 +147,12 @@ describe('(2) Lukumäärä — umpeutunut / umpeutunutta', () => {
     expect(rivi).toContain("k.jaksot.umpeutuneet === 1 ? vpT('umpeutunut') : vpT('umpeutunutta')");
   });
 
-  it('yksikkökäyttö (status-nauha) pysyy vpT(\'umpeutunut\'):na', () => {
-    expect(funktio('function _vpKehStatusHTML(p) {')).toContain("vpT('umpeutunut')");
+  it('yksikkökäyttö (Aloitus-kortti) pysyy vpT(\'umpeutunut\'):na', () => {
+    /* PR B poisti Kehitys-välilehden status-nauhan; yksikkömuodon ainoa jäljellä oleva
+       käyttöpaikka on Aloitus-välilehden jaksofokus-kortti. Invariantti on sama: raakaa
+       fi-literaalia ei saa jäädä, koska sv erottaa yksikön ja monikon (utgången/utgångna). */
+    expect(funktio('function _vpAloitusHTML(p) {')).toContain("vpT('umpeutunut')");
+    expect(VP, 'poistettu nauha jäi lähteeseen').not.toContain('function _vpKehStatusHTML(p) {');
   });
 
   it('sv: 1 → utgången, 3 → utgångna', () => {
@@ -219,9 +226,11 @@ describe('(5) Tila-enum vpT:n läpi', () => {
     _idpTavoite: { status: status, fokus: { alue: 'hide_pass', nimi: 'x' }, aikaraami: { kausi: 'syksy 2026' } },
   }), undefined, kieli))[0];
 
-  it('ehdotettu → Föreslagen (sv)', () => {
-    expect(SV['Ehdotettu']).toBe('Föreslagen');
-    expect(tilalla('ehdotettu', 'sv')).toContain('Föreslagen');
+  it('ehdotettu → Utkast (sv) — tallentamaton luonnos, ei "Föreslagen"', () => {
+    // PR B (B6): enum-arvo 'ehdotettu' on käyttäjälle tallentamaton LUONNOS.
+    expect(SV['Luonnos'], 'sanktioitu sv-avain puuttuu kartasta').toBe('Utkast');
+    expect(tilalla('ehdotettu', 'sv')).toContain('Utkast');
+    expect(tilalla('ehdotettu', 'sv'), 'vanha enum-termi jäi näkyviin').not.toContain('Föreslagen');
   });
 
   it('tuntematon arvo escapattuna sellaisenaan', () => {
