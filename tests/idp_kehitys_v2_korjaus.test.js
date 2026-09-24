@@ -39,19 +39,22 @@ describe('(2) teal ainoa aksentti — Kehitys-linkit blue→teal', () => {
   });
 });
 
-describe('(3) rolenote §37 + pelifoot _kehExtra:n loppuun (diagnostiikan JÄLKEEN)', () => {
-  it('rolenote §37 (roolijako) + pelifoot ("Peli edellä") lisätty', () => {
-    expect(HTML).toContain("<b style=\"color:var(--ink2);font-weight:500\">' + vpT('Roolit §37:') + '</b> ' + vpT('valmentaja omistaa operatiivisen jaksofokuksen");
-    expect(HTML).toContain("<b style=\"color:var(--ink2);font-weight:500\">' + vpT('Peli edellä, muut mukana.') + '</b> ' + vpT('Jaksofokus voi olla fyysinen, teknis-taktinen tai psyykkinen");
+/* PR B (KISS): alaviitteet "Roolit §37" ja "Peli edellä, muut mukana" poistettiin tasolta 1.
+   Ne selittivat jarjestelmaa, eivat pelaajan tilannetta, ja §-merkinta on sisaista kielta
+   (B7-termilukko). Roolimalli itse on ennallaan — vain valilehden saate poistui.
+   Jarjestys-invariantin tilalle jaa poistovartija + diagnostiikan paikka. */
+describe('(3) tason 1 alaviitteet poistettu (diagnostiikka jää viimeiseksi)', () => {
+  it('rolenote §37 ja pelifoot eivät ole palanneet', () => {
+    expect(HTML).not.toContain("vpT('Roolit §37:')");
+    expect(HTML).not.toContain("vpT('Peli edellä, muut mukana.')");
   });
-  it('järjestys: diagnostiikka → rolenote → pelifoot → hR-kokoonpano', () => {
+  it('järjestys: rivit → diagnostiikka → hR-kokoonpano', () => {
+    const iRivit = HTML.indexOf('_kehExtra += \'<div id="_jspKehSuunnitelma"');
     const iDiag = HTML.indexOf("' + f4 + '</div></div>';");
-    const iRole = HTML.indexOf("vpT('Roolit §37:')");
-    const iPeli = HTML.indexOf("vpT('Peli edellä, muut mukana.')");
     const iHr = HTML.indexOf('let hR = \'\';');
-    expect(iDiag).toBeGreaterThan(0);
-    expect(iDiag).toBeLessThan(iRole);
-    expect(iRole).toBeLessThan(iPeli);
-    expect(iPeli).toBeLessThan(iHr);
+    expect(iRivit).toBeGreaterThan(0);
+    expect(iRivit).toBeLessThan(iDiag);
+    expect(iDiag).toBeLessThan(iHr);
   });
 });
+

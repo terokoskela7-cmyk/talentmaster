@@ -108,9 +108,12 @@ describe('autosave-langoitus + status osa-etenemä', () => {
     expect(s).toContain("_vpTtKirjoita(pid, { jaksofokus: { osa_arviot: _w } }, 'Osa-arvio tallennettu');");
     expect(s).toContain('_vpAloitusReRender');   // Aloitus-näyttö päivittyy
   });
-  it('status-rivi näyttää osa-etenemän ("Osat X/Y itsenäisesti") olemassa olevasta datasta', () => {
-    // V8f: "itsenäisesti" on nyt vpT:n takana — status-rivin rakenne (X/Y + label) ennallaan.
-    expect(HTML).toContain("+ vpT('itsenäisesti') + '</b></span>');");
+  it('rivin alarivi näyttää osa-etenemän ("X/Y osaa hallussa pelissä") olemassa olevasta datasta', () => {
+    /* PR B (B6): sisainen "Osat X/Y itsenäisesti" -> "X/Y osaa hallussa pelissa" ja paikka vaihtui
+       poistetusta status-nauhasta jaksofokus-rivin alariviin. Rakenne (X/Y + label) ja datalahde
+       (osa_arviot) ovat ennallaan — vain sanat ja sijainti muuttuivat. */
+    expect(HTML).toContain("vpT('osaa hallussa pelissä')");
+    expect(HTML).toContain("jfHallussa + '/' + jfOsaAvaimet.length");
     expect(HTML).toContain('jf.osa_arviot[jf.konsepti_avain]');
   });
 });

@@ -49,9 +49,10 @@ describe('vihjerekisteri (TM_TESTI_OHJEET) — 5 uutta IDP-flow-vihjettä, linja
 });
 
 describe('⓵-injektiot IDP-flow-osioihin (reuse window._tmIBtn, tap-behind)', () => {
-  it('Kauden tavoite (Kehitys TASO 1) + Jaksofokus (TASO 2) haitariotsikot', () => {
+  it('Kauden tavoite + Nyt harjoitellaan haitariotsikot', () => {
     expect(HTML).toContain("vpT('Kauden tavoite') + ((typeof window._tmIBtn === 'function') ? window._tmIBtn('idp_kausitavoite') : '')");
-    expect(HTML).toContain("vpT('Jaksofokus') + ((typeof window._tmIBtn === 'function') ? window._tmIBtn('idp_jaksofokus') : '')");
+    // PR B (B6): riviotsikko "Jaksofokus" -> "Nyt harjoitellaan". Vihje-avain (idp_jaksofokus) ennallaan.
+    expect(HTML).toContain("vpT('Nyt harjoitellaan') + ((typeof window._tmIBtn === 'function') ? window._tmIBtn('idp_jaksofokus') : '')");
   });
   it('Moottori-otsikko + Tavoitejakauma-otsikko + Aloituksen Pelaajan ääni', () => {
     // V8f: otsikko reititetty vpT:hen — ⓵-napin kytkentä on yhä VÄLITTÖMÄSTI otsikon perässä.

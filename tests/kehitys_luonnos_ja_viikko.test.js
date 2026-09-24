@@ -62,10 +62,9 @@ const TUNNISTEET = [
   'window._vpVaihtoValitse = function (avain)',
   'window._vpVaihtoVahvista = async function (pid)',
   'function _vpKausitavoiteHTML(p)',
-  'function _vpKehStatusHTML(p)',
   'function _vpKehSuunnitelmaHTML(p, opts)',
   'function _vpViikkoKatselmusHTML(p, st)',
-  'function _vpKausitavoiteReRender()',
+  'function _vpKausitavoiteReRender(avaaKt)',
 ];
 
 /* Tuntematon nimi -> tyhja stub. Nain purettu koodi ajaa ilman koko tiedoston riippuvuuspuuta,
@@ -130,7 +129,7 @@ function rakenna(lisa) {
   /* function-deklaraatiot elavat with-lohkon omassa skoopissa -> ne on palautettava eksplisiittisesti
      (muuten proxyn tyhja stub jaisi kayttoon ja vartija mittaisi itseaan). */
   const DEKL = ['_vpIdpKohde', '_vpAsetaLuonnos', '_vpTyhjennaLuonnos', '_vpKausitavoiteHTML',
-    '_vpKehStatusHTML', '_vpKehSuunnitelmaHTML', '_vpViikkoKatselmusHTML', '_vpKausitavoiteReRender'];
+    '_vpKehSuunnitelmaHTML', '_vpViikkoKatselmusHTML', '_vpKausitavoiteReRender'];
   const paluu = 'return {' + DEKL.map((n) => n + ':' + n).join(',') + '};';
   // eslint-disable-next-line no-new-func
   const dekl = new Function('__ymp', 'with(__ymp){' + runko + '\n' + paluu + '}')(ymp);
@@ -141,7 +140,7 @@ function rakenna(lisa) {
     kohde: dekl._vpIdpKohde, asetaLuonnos: dekl._vpAsetaLuonnos, tyhjenna: dekl._vpTyhjennaLuonnos,
     peruuta: win._vpPeruutaLuonnos, ehdota: win._vpEhdotaTavoite, muokkaa: win._vpMuokkaaLuonnos,
     tallenna: win._vpTallennaTavoite, vaihtoAvaa: win._vpVaihtoAvaa, vaihtoValitse: win._vpVaihtoValitse,
-    vaihtoVahvista: win._vpVaihtoVahvista, editori: dekl._vpKausitavoiteHTML, nauha: dekl._vpKehStatusHTML,
+    vaihtoVahvista: win._vpVaihtoVahvista, editori: dekl._vpKausitavoiteHTML,
     rivit: dekl._vpKehSuunnitelmaHTML, katselmus: dekl._vpViikkoKatselmusHTML,
     reRender: dekl._vpKausitavoiteReRender, win: win, kerays: kerays,
   };
@@ -441,29 +440,29 @@ describe('(7) Jaksovalinta ohjaa sulkemisen olemassa olevaan _vpSuljeJakso:on', 
 });
 
 /* ── (8) Rivit ja nauha kertovat totuuden ──────────────────────────────────── */
-describe('(8) Rivit ja status-nauha lukevat voimassa olevaa tavoitetta', () => {
-  it('luonnoksen aikana rivi ja nauha nayttavat A:n tilan ja nimen', () => {
+/* PR B (KISS): VP-oversight-nauha (_vpKehStatusHTML) poistettu tasolta 1 — rivi on nyt ainoa
+   pinta joka kertoo voimassa olevan tavoitteen tilan. Invariantti on sama, pinta yksi. */
+describe('(8) Rivit lukevat voimassa olevaa tavoitetta', () => {
+  it('luonnoksen aikana rivi nayttaa A:n tilan ja nimen', () => {
     const p = pelaaja();
     const api = rakenna({ ymp: { _vpIdpPelaaja: () => p } });
     api.win._vpArvPelaaja = p;
     api.ehdota('p1');
     const ots = riviOtsikko(api.rivit(p), '_accKausitavoite');
-    const nauha = api.nauha(p);
     expect(ots).toContain('Syoton piilotus');
     expect(ots, 'luonnos vuoti riville').not.toContain('Monipuolisuus');
-    expect(ots).toContain('Aktiivinen');
-    expect(nauha, 'nauha nayttaa luonnoksen tilan').toContain('hyväksytty');
-    expect(nauha).not.toContain('ehdotettu');
+    // PR B: tilarivi on selkokielinen ("Kaytossa"), ei enaa enum-arvo ("aktiivinen").
+    expect(ots).toContain('Käytössä');
+    expect(ots, 'luonnoksen tila vuoti riville').not.toContain('ehdotettu');
     // editori sen sijaan nayttaa luonnoksen
     expect(api.editori(p)).toContain('Monipuolisuus');
   });
 
-  it('re-render rakentaa rivikontin JA nauhan uudelleen kun voimassa oleva tavoite vaihtuu', async () => {
+  it('re-render rakentaa rivikontin uudelleen kun voimassa oleva tavoite vaihtuu', async () => {
     const p = pelaaja();
     const dokki = { tavoitteet: [p._idpTavoite] };
     const el = {
       _jspKehSuunnitelma: { innerHTML: '', querySelectorAll: () => [] },
-      _jspKehStatus: { innerHTML: '' },
       _jspKausitavoite: { innerHTML: '' },
       _accKausitavoite: { classList: { add: () => {} } },
     };
@@ -471,7 +470,6 @@ describe('(8) Rivit ja status-nauha lukevat voimassa olevaa tavoitetta', () => {
     api.win._vpArvPelaaja = p;
     api.reRender();                                   // 1. renderi kiinnittaa tunnuksen
     el._jspKehSuunnitelma.innerHTML = 'VANHA';
-    el._jspKehStatus.innerHTML = 'VANHA';
 
     api.ehdota('p1');
     api.reRender();
@@ -481,18 +479,17 @@ describe('(8) Rivit ja status-nauha lukevat voimassa olevaa tavoitetta', () => {
     await api.tallenna('p1', 'aktiivinen');           // kutsuu re-renderia itse
     expect(el._jspKehSuunnitelma.innerHTML, 'rivikontti jai vanhaan tilaan hyvaksynnan jalkeen').not.toBe('VANHA');
     expect(el._jspKehSuunnitelma.innerHTML).toContain('Monipuolisuus');
-    expect(el._jspKehStatus.innerHTML, 'status-nauha jai vanhaan tilaan').not.toBe('VANHA');
   });
 
-  it('_vpKausitavoiteReRender paivittaa myos rivit ja nauhan, ei pelkkaa slottia', () => {
-    const src = pura('function _vpKausitavoiteReRender()');
+  it('_vpKausitavoiteReRender paivittaa myos rivit, ei pelkkaa slottia', () => {
+    const src = pura('function _vpKausitavoiteReRender(avaaKt)');
     expect(src).toContain("getElementById('_jspKehSuunnitelma')");
-    expect(src).toContain("getElementById('_jspKehStatus')");
     expect(src).toContain('_vpKehSuunnitelmaHTML(p)');
-    expect(src).toContain('_vpKehStatusHTML(p)');
-    // ankkurit ovat olemassa cockpitin rakenteessa
+    // ankkuri on olemassa cockpitin rakenteessa
     expect(VP).toContain('id="_jspKehSuunnitelma"');
-    expect(VP).toContain('id="_jspKehStatus"');
+    // PR B: nauha ja sen re-render-koukku poistettu — kuollut ankkuri ei saa jaada roikkumaan.
+    expect(VP, 'nauhan ankkuri jai lahteeseen').not.toContain('id="_jspKehStatus"');
+    expect(src, 'nauhan re-render-koukku jai jaljelle').not.toContain('_jspKehStatus');
   });
 
   it('cockpitin avaus nollaa tallentamattoman luonnoksen', () => {
@@ -503,18 +500,16 @@ describe('(8) Rivit ja status-nauha lukevat voimassa olevaa tavoitetta', () => {
 });
 
 /* ── (9) Yksi viikkolaskuri ────────────────────────────────────────────────── */
-describe('(9) Sama jakso antaa saman viikkoluvun kaikissa kolmessa paikassa', () => {
+describe('(9) Sama jakso antaa saman viikkoluvun kaikissa paikoissa', () => {
   const jf = () => ({ konsepti_nimi: 'Kolmas mies', konsepti_avain: 'kolmas', alkoi: new Date(NYT - 3 * PAIVA).toISOString(), kesto_vk: 4 });
 
-  it('nauha, rivi ja katselmusrivi: 3 vk jaljella (ei ceil-kaavan 4)', () => {
+  it('rivi ja katselmusrivi: 3 vk jaljella (ei ceil-kaavan 4)', () => {
     const p = pelaaja({ jaksofokus: jf() });
     const api = rakenna({ ymp: { _vpIdpPelaaja: () => p } });
-    const nauha = api.nauha(p);
-    expect(nauha, 'nauha kayttaa yha ceil-kaavaa').toContain('3 vk jäljellä');
-    expect(nauha).not.toContain('4 vk jäljellä');
     const rivit = api.rivit(p);
     expect(rivit).toContain('Viikko 1/4');
     expect(rivit).toContain('3 vk jäljellä');
+    expect(rivit).not.toContain('4 vk jäljellä');
     const kats = api.katselmus(p, { jf: jf() });
     expect(kats, 'katselmusrivi kayttaa yha ceil-kaavaa').toContain('~3 vk');
     expect(kats).not.toContain('~4 vk');
@@ -523,7 +518,7 @@ describe('(9) Sama jakso antaa saman viikkoluvun kaikissa kolmessa paikassa', ()
   it('ilman alkoi-arvoa nayttaa keston kuten ennen', () => {
     const p = pelaaja({ jaksofokus: { konsepti_nimi: 'Kolmas mies', kesto_vk: 6 } });
     const api = rakenna({ ymp: { _vpIdpPelaaja: () => p } });
-    expect(api.nauha(p)).toContain('kesto 6 vk');
+    expect(api.rivit(p)).toContain('6 vk');
     expect(api.katselmus(p, { jf: { konsepti_nimi: 'Kolmas mies', kesto_vk: 6 } })).toContain('~6 vk');
   });
 

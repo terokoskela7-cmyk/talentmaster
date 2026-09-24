@@ -260,6 +260,11 @@ function scanLeaks(src, ranges, lineOffset, LIB, poikkeukset) {
   return leaks;
 }
 
+/* AST-gaten mutaatiotodisteet parsivat koko VP:n (20 000+ riviä) useita kertoja per tapaus:
+   yksin ajettuna 1-4 s, mutta taydessa suitessa rinnakkaisen kuorman alla yli Vitestin
+   oletusrajan (5 s). Aikaraja on infrastruktuuria — vaitteita ei ole loivennettu. */
+const AIKARAJA_MS = 60000;
+
 describe('VP_v25 render-kielineutraali-gate (step G · AST)', () => {
   const LIB = libNames();
 
@@ -275,7 +280,7 @@ describe('VP_v25 render-kielineutraali-gate (step G · AST)', () => {
       );
     }
     expect(leaks.length).toBe(0);
-  });
+  }, AIKARAJA_MS);
 
   it('detektori EI vacuous: nappaa raa\'an >text< + konkatenoidun var-suffiksin', () => {
     // Kaksi vuotomuotoa jotka vanha rivipohjainen gate missasi/FP:si:
@@ -393,7 +398,7 @@ describe('VP_v25 render-kielineutraali-gate (step G · AST)', () => {
     const odotettu = lines.findIndex((l) => l.includes("vpT('Mitä testit kertovat')")) + 1;
     expect(odotettu).toBeGreaterThan(0);
     expect(l2.every((l) => l.line === odotettu)).toBe(true);
-  });
+  }, AIKARAJA_MS);
 
   // Erä 4c — ENUM→NÄYTTÖ. TKI-mitali ('kulta'/'hopea'/'pronssi') on Firestore-arvo joka renderöityy
   // sellaisenaan; identifier-lauseke → AST-gate ei näe. LIVE paljasti "(TKI hopea)" sv-tilassa (gate
@@ -485,7 +490,7 @@ describe('VP_v25 render-kielineutraali-gate (step G · AST)', () => {
     // …ja poikkeusten ULKOPUOLELLA ei ole yhtään vuotoa (= lukko todella pitää)
     const ulkona = kaikki.filter((l) => !SISALTO_POIKKEUKSET.some(([lo, hi]) => l.line >= lo && l.line <= hi));
     expect(ulkona.map((l) => `${l.line}: ${l.p}`)).toEqual([]);
-  });
+  }, AIKARAJA_MS);
 
   it('LUKKO: mutaatio skriptin MOLEMMISSA päissä punertaa (ei vain keskellä)', () => {
     const lines = HTML.split('\n');
@@ -506,7 +511,7 @@ describe('VP_v25 render-kielineutraali-gate (step G · AST)', () => {
     expect(loppu).not.toBe(src);
     expect(scanLeaks(loppu, RANGES, RLO - 1, LIB, SISALTO_POIKKEUKSET).map((l) => l.p))
       .toContain('Lataa tuore versio uudelleen →');
-  });
+  }, AIKARAJA_MS);
 
   // V8k-4b — kaksi kapeaa laajennusta, molemmat mitattu (koko skripti 96 → 94, 0 uutta):
   //   (1) `Eerikkilä` = laitosnimi → PRODUCT-termi (kuten TalentMaster/Hidden Gem). Poistaa väärät
@@ -576,7 +581,7 @@ describe('VP_v25 render-kielineutraali-gate (step G · AST)', () => {
     const rikki2 = src.replace("vpT('🎯 Heikoin ketju:')", "'🎯 Heikoin ketju:'");
     expect(rikki2).not.toBe(src);
     expect(scanLeaks(rikki2, RANGES, RLO - 1, LIB, SISALTO_POIKKEUKSET).map((l) => l.p).join(' ')).toContain('Heikoin ketju');
-  });
+  }, AIKARAJA_MS);
 
   // Erä 3 — TODISTE ETTÄ GATE ON NÄILLE SOKEA (ja siksi vartija on välttämätön, ei koristeellinen).
   it('container-ternaari ja inline-onclick-toast EIVÄT näy scanLeaksille (→ MEMBER_DISPLAY-vartija)', () => {
@@ -622,7 +627,7 @@ describe('VP_v25 render-kielineutraali-gate (step G · AST)', () => {
     const leaks2 = scanLeaks(rikki2, RANGES, RLO - 1, LIB, SISALTO_POIKKEUKSET);
     expect(leaks2.length).toBeGreaterThan(0);
     expect(leaks2.every((l) => l.line >= RS_LO && l.line <= RS_HI)).toBe(true);
-  });
+  }, AIKARAJA_MS);
 
   // Erä 2: gate laajennettiin näkemään signaaliobjektien näyttökentät + kattavuusSig-argumentti.
   // Ilman näitä renderSignalsin teksti olisi jäänyt pysyvästi sokeaksi pisteeksi (RANGES ei olisi auttanut).

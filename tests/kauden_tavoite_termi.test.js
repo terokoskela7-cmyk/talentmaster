@@ -36,7 +36,6 @@ const ALLOWLIST = ['⚙ Aseta kausitavoitteet', 'Kausitavoitteet', '✓ Kausitav
 const OSIO1 = [
   ['VP', 'Kauden tavoite', 'Säsongens mål'],
   ['VP', '🎯 Suunta · kauden tavoite', '🎯 Riktning · säsongens mål'],
-  ['VP', 'Kauden tavoite ', 'Säsongens mål '],
   ['VP', 'Kauden tavoite:', 'Säsongens mål:'],
   ['VP', 'Kauden tavoite · pitkä horisontti', 'Säsongens mål · lång horisont'],
   ['MASTER', 'Kauden tavoite: ', 'Säsongens mål: '],
@@ -54,8 +53,6 @@ const OSIO2 = [
   ['VP', 'Strateginen kauden tavoite (IDP-makro) sovitaan yhdessä; operatiivinen jaksofokus on valmentajan päivittäistä työtä.', 'Strategiskt säsongsmål (IDP-makro) avtalas tillsammans; operativt periodfokus är tränarens dagliga arbete.'],
   ['VP', 'Ei ehdotusta datasta — mittaa lisää tai aseta fokus käsin kauden tavoitteesta.', 'Inget förslag ur datan — mät mer eller sätt fokus manuellt utifrån säsongsmålet.'],
   ['VP', 'Tyhjä — kauden tavoite toimii sellaisenaan. Lisää polku (esim. Haltuunotto → Tempokuljetus) jos haluat pilkkoa tavoitteen jaksoihin.', 'Tomt — säsongsmålet fungerar som det är. Lägg till en väg (t.ex. Haltuunotto → Tempokuljetus) om du vill dela upp målet i perioder.'],
-  ['VP', 'kauden tavoite → jaksofokus → kaari · aseta · muokkaa · sulje · näkyy pelaajalle', 'säsongsmål → periodfokus → båge · sätt · redigera · stäng · syns för spelaren'],
-  ['VP', 'valmentaja omistaa operatiivisen jaksofokuksen (omat pelaajat) · talenttivalmentaja talentit · VP asettaa kauden tavoitteen + oversight/override.', 'tränaren äger det operativa periodfokuset (egna spelare) · talangtränaren talangerna · FU sätter säsongsmålet + oversight/override.'],
   ['VP', 'Aseta yksi strateginen kauden tavoite. Moottori ehdottaa datasta (heikoin/vahvin) tai valitse käsin. §37: kauden tavoite (makro) sovitaan yhdessä — VP vahvistaa, valmentaja ehdottaa.', 'Sätt ett strategiskt säsongsmål. Motorn föreslår utifrån data (svagast/starkast) eller välj för hand. §37: säsongsmålet (makro) kommer man överens om tillsammans — FU bekräftar, tränaren föreslår.'],
   ['VP', 'Pidä kauden tavoite laajana ja pysyvänä — jaksofokus muuttuu 4–8 vk välein, kauden tavoite ei.', 'Håll säsongsmålet brett och bestående — periodfokuset byts var 4–8 vecka, säsongsmålet inte.'],
   ['MASTER', 'Ei kauden tavoitetta. Johdetaan heikoimmasta ominaisuudesta (arviointi + §28-kypsyysvahti).', 'Inget säsongsmål. Härleds från svagaste egenskapen (bedömning + §28-mognadsvakt).'],
@@ -127,6 +124,10 @@ describe('(4) osio 2 — juoksevan tekstin sv on MUUTTUMATON (ei uutta ruotsia)'
   });
 });
 
+/* PR B (KISS) poisti kolmen avaimen ainoan kutsupaikan VP:sta: kortin oma otsikko
+   ('Kauden tavoite ' + '· IDP-ydin'), vanha murupolku ja rolenote §37. Rivit on poistettu
+   myos kartasta, koska kuollut kaannosrivi on vain yllapitovelkaa. Jos PR C tarvitsee niita
+   uudelleen, sanktioitu sv loytyy koosteesta. */
 describe('(5) uudet fi-avaimet ovat kaytossa lahteissa', () => {
   it('jokaisella uudella avaimella on vahintaan yksi kutsupaikka', () => {
     const puuttuu = [];
