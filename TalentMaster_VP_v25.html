@@ -8343,9 +8343,8 @@ function _vpMitaOsattavaHTML(p) {
 /* KEHYS 3 · Taitolista valikon tilalle: karjessa kauden tavoitetta tukevat taidot, sitten muut.
    Lista eika <select>, koska valinnan perustelu (tukeeko tavoitetta) ei nay valikon sisalta.
    Nimi _vpKonseptiNimiNaytto:lla — koodi (Y-H2) on sisainen tunniste, ei kayttajan tietoa. */
-var JF_TAITO_NAYTA = 5;   // muita taitoja kerrallaan; loput "Nayta kaikki (n)" -linkin takaa
-
 function _vpJfTaitoListaHTML(p, aktItems, valittu, ehdKons, ehd, nakyma) {
+  var NAYTA = 5;   // muita taitoja kerrallaan; loput "Nayta kaikki (n)" -linkin takaa
   var esc = _jsvEsc, pid = esc(p.id);
   var nimi = function (it) {
     return (typeof _vpKonseptiNimiNaytto === 'function')
@@ -8358,7 +8357,7 @@ function _vpJfTaitoListaHTML(p, aktItems, valittu, ehdKons, ehd, nakyma) {
   var ehdotetut = aktItems.filter(function (it) { return ehdAvaimet.indexOf(it.avain) > -1; });
   var muut = aktItems.filter(function (it) { return ehdAvaimet.indexOf(it.avain) < 0; });
   var kaikki = (window._vpJfKaikki[p.id] || {}).taidot;
-  var muutNayta = kaikki ? muut : muut.slice(0, JF_TAITO_NAYTA);
+  var muutNayta = kaikki ? muut : muut.slice(0, NAYTA);
   /* Valittu taito pysyy listassa vaikka se olisi katkaisun takana — muuten valinta nayttaisi kadonneen. */
   if (!kaikki && valittu && muut.some(function (it) { return it.avain === valittu; })
       && !muutNayta.some(function (it) { return it.avain === valittu; })) {
@@ -8835,13 +8834,14 @@ function _vpJfToggleHTML(p) {
   const LIB = window.TM_JAKSOFOKUS;
   const domeenit = (LIB && Array.isArray(LIB.TM_JF_DOMEENIT)) ? LIB.TM_JF_DOMEENIT
     : [{ avain: 'fyysinen', ikoni: '🏃', nimi: 'Fyysinen', dim: 'D1' }, { avain: 'teknis_taktinen', ikoni: '⚽', nimi: 'Teknis-taktinen', dim: 'D2/D4' }];
+  /* B5: valittu osa-alue nayttaa neutraalisti (--surface2 + vahvempi teksti), ei tealilla — teal on
+     varattu Tallenna-painikkeelle. title-attribuutista jai myos D-koodi pois (sisainen tunniste). */
   const seg = function (d) {
     const on = (dom === d.avain);
-    return '<span onclick="_vpJfSetDomeeni(\'' + pid + '\',\'' + d.avain + '\')" title="' + _jsvEsc(vpT(d.nimi) + ' · ' + d.dim) + '" style="flex:1;text-align:center;padding:8px 6px;font-size:12px;font-weight:500;cursor:pointer;'
-      + (on ? 'background:rgba(40,176,144,.14);color:var(--teal)' : 'background:transparent;color:var(--ink3)') + '"><span style="font-size:15px">' + d.ikoni + '</span><br><span style="font-size:9.5px;letter-spacing:.02em">' + _jsvEsc(d.nimi) + '</span></span>';
+    return '<button type="button" class="' + (on ? 'on' : '') + '" onclick="event.stopPropagation();_vpJfSetDomeeni(\'' + pid + '\',\'' + d.avain + '\')" title="' + _jsvEsc(vpT(d.nimi)) + '">'
+      + '<span style="font-size:15px">' + d.ikoni + '</span><br><span style="font-size:9.5px;letter-spacing:.02em">' + _jsvEsc(vpT(d.nimi)) + '</span></button>';
   };
-  return '<div style="margin-bottom:12px"><div style="font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink3);margin-bottom:5px">' + vpT('Osa-alue') + '</div>'
-    + '<div style="display:flex;border:.5px solid var(--border);border-radius:8px;overflow:hidden">' + domeenit.map(seg).join('') + '</div></div>';
+  return '<div class="jf-seg">' + domeenit.map(seg).join('') + '</div>';
 }
 
 // Fyysinen näkymä — teemavalinta (TM_FYYSTEEMAT) + valinnainen ohjelma. Save → _vpAsetaFyysFokus (domeeni-turva).
@@ -8864,10 +8864,9 @@ function _vpJfFyysHTML(p) {
   h += '<select id="_vpFyysOhjelma" onchange="_vpFyysOhjelmaPreview()" onclick="event.stopPropagation()" class="jsp-arv-select" style="width:100%"><option value="">' + vpT('— Ei ohjelmaa (pelkkä fokus) —') + '</option>';
   TYYPIT.forEach(function (t) { const tpl = LIB.TM_OHJELMA_TEMPLAATIT[t]; h += '<option value="' + esc(t) + '">' + esc(tpl.nimi) + '</option>'; });
   h += '</select><div id="_vpFyysOhjelmaPrev" style="margin-top:8px"></div>';
-  if (typeof _vpOhjKirjastoModal === 'function') h += '<div style="margin-top:8px"><button onclick="_vpOhjKirjastoModal(\'' + pid + '\',document.getElementById(\'_vpJfFyysSel\').value)" style="width:100%;font-size:12px;border-radius:8px;padding:8px 10px;cursor:pointer;border:.5px solid var(--border);background:var(--ov-1);color:var(--ink2)">' + vpT('📚 Käytä kirjaston ohjelmaa') + '</button></div>';
+  if (typeof _vpOhjKirjastoModal === 'function') h += '<div style="margin-top:8px"><button type="button" onclick="event.stopPropagation();_vpOhjKirjastoModal(\'' + pid + '\',document.getElementById(\'_vpJfFyysSel\').value)" style="width:100%;font-size:12px;border-radius:8px;padding:8px 10px;cursor:pointer;border:.5px solid var(--border);background:var(--ov-1);color:var(--ink2)">' + vpT('📚 Käytä kirjaston ohjelmaa') + '</button></div>';
   h += '</div>';
-  h += '<div style="font-size:10.5px;color:var(--ink3);margin-top:8px">' + vpT('4 vk · evidenssi mittauksesta jakson lopussa (§29)') + '</div>';
-  h += '<div class="jsp-kt-btns"><button class="jsp-kt-btn primary" onclick="_vpAsetaFyysFokus(\'' + pid + '\',document.getElementById(\'_vpJfFyysSel\').value)">' + vpT('＋ Tallenna jaksofokus') + '</button></div>';
+  /* "(§29)" oli sisainen viite ja tallennus on kehyksen 3 yhdessa paapainikkeessa → molemmat pois. */
   return h;
 }
 
@@ -8886,14 +8885,16 @@ function _vpJfKehitysHTML(p, domeeni) {
   const LIB = window.TM_JAKSOFOKUS;
   const lista = (LIB && typeof LIB.tmJfKonseptit === 'function') ? LIB.tmJfKonseptit(domeeni) : [];
   const dMeta = (LIB && typeof LIB.tmJfDomeeni === 'function') ? LIB.tmJfDomeeni(domeeni) : null;
-  if (!lista.length) return '<div style="color:var(--ink3);font-size:13px">' + (dMeta ? _jsvEsc(dMeta.nimi) : vpT('Domeeni')) + vpT('-konseptikirjasto ei latautunut.') + '</div>';
+  if (!lista.length) return '<div style="color:var(--ink3);font-size:13px">' + vpT('Ei taitoja tässä näkymässä.') + '</div>';
   const esc = _jsvEsc; const pid = esc(p.id);
   window._vpJfKehitysValinta = window._vpJfKehitysValinta || {};
   const valittu = (window._vpJfKehitysValinta[p.id] && lista.some(function (k) { return k.avain === window._vpJfKehitysValinta[p.id]; })) ? window._vpJfKehitysValinta[p.id]
     : ((p.jaksofokus && p.jaksofokus.domeeni === domeeni && p.jaksofokus.konsepti_avain && lista.some(function (k) { return k.avain === p.jaksofokus.konsepti_avain; })) ? p.jaksofokus.konsepti_avain : lista[0].avain);
   const item = lista.find(function (k) { return k.avain === valittu; }) || lista[0];
   let h = '';
-  h += '<div style="font-size:11px;color:var(--ink3);margin-bottom:6px">' + (dMeta ? esc(dMeta.ikoni + ' ' + dMeta.nimi + ' · ' + dMeta.dim) : '') + ' ' + vpT('· yksilökonsepti (ei vaadi pelipaikkaa)') + '</div>';
+  /* Osa-alueen koodi (D3/D5) ja sana "yksilokonsepti" ovat sisaisia: osa-alueen valitsin kertoo jo
+     kumpi nakyma on auki, eika pelipaikkaa tarvitse mainita naissa lainkaan (niita ei ole). */
+  h += '<div style="font-size:11px;color:var(--ink3);margin-bottom:6px">' + (dMeta ? esc(dMeta.ikoni + ' ' + vpT(dMeta.nimi)) : '') + '</div>';
   h += '<div class="jsp-kt-box"><div class="jsp-kt-bt">' + vpT('Harjoiteltava taito') + '</div>';
   h += '<select id="_vpJfKehSel" class="jsp-arv-select" style="width:100%" onclick="event.stopPropagation()" onchange="window._vpJfKehitysValinta[\'' + pid + '\']=this.value;if(typeof _vpAloitusReRender===\'function\')_vpAloitusReRender()">';
   lista.forEach(function (k) { h += '<option value="' + esc(k.avain) + '"' + (k.avain === valittu ? ' selected' : '') + '>' + esc(k.nimi) + '</option>'; });
@@ -8901,12 +8902,13 @@ function _vpJfKehitysHTML(p, domeeni) {
   h += '<div style="font-size:13.5px;font-weight:600;color:var(--ink);margin-top:8px">' + esc(item.nimi) + '</div>';
   if (item.kuvaus) h += '<div style="font-size:12px;color:var(--ink2);margin-top:3px;line-height:1.5">' + esc(item.kuvaus) + '</div>';
   h += '</div>';
-  if (item.cue) h += '<div class="jsp-kt-box" style="margin-top:8px"><div class="jsp-kt-bt" style="color:var(--blue)">' + vpT('Cue (kysymys, ei käsky)') + '</div><div style="font-size:12.5px;color:var(--ink2);padding:2px 0 2px 14px;position:relative"><span style="position:absolute;left:0;color:var(--blue);font-weight:700">?</span>' + esc(item.cue) + '</div></div>';
+  if (item.cue) h += '<div class="jsp-kt-box" style="margin-top:8px"><div class="jsp-kt-bt">' + vpT('Kysy pelaajalta') + '</div><div style="font-size:12.5px;color:var(--ink2);padding:2px 0 2px 14px;position:relative"><span style="position:absolute;left:0;color:var(--blue);font-weight:700">?</span>' + esc(item.cue) + '</div></div>';
   const _kestoNyt = (p.jaksofokus && p.jaksofokus.kesto_vk) || 6;
   h += '<div class="jsp-kt-edit" style="margin-top:10px"><label>' + vpT('Jakson kesto') + '</label><select id="_vpJfKehKesto' + pid + '" class="jsp-arv-select" onclick="event.stopPropagation()">'
     + [4, 6, 8, 10, 12].map(function (vk) { return '<option value="' + vk + '"' + (vk === _kestoNyt ? ' selected' : '') + '>' + vk + ' ' + vpT('vk') + '</option>'; }).join('') + '</select></div>';
-  h += '<div style="font-size:10.5px;color:var(--ink3);margin-top:8px">' + vpT('Kehityskonsepti — havaitaan pelissä ja harjoituksessa, ei kliininen mittari.') + '</div>';
-  h += '<div class="jsp-kt-btns"><button class="jsp-kt-btn primary" onclick="_vpJfAsetaKehitysFokus(\'' + pid + '\',\'' + esc(domeeni) + '\',document.getElementById(\'_vpJfKehSel\').value)">' + vpT('＋ Tallenna jaksofokus') + '</button></div>';
+  /* Tallennus on kehyksen 3 yhdessa paapainikkeessa (_vpJfNapitHTML → _vpJfTallennaOnclick),
+     joten runko ei enaa piirra omaa painikettaan — kaksi Tallennaa samassa nakymassa oli yksi
+     tamaan PR:n loydoksista. */
   return h;
 }
 
