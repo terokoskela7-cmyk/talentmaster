@@ -134,6 +134,9 @@ etenee kuljettamalla laidalta, 3 ottelua" + linkki kaavioon. **Ei muutosta 5D-la
 
 ## 5. Datamalli
 
+> ⚠ **Korvattu:** kenttätyökalun datamalli ja näyttö → `CODE_TASK_PELIANALYTIIKKA_2026-09.md` §5.6 (kanoninen len/wid, kenttatarkkailu).
+
+
 Olemassa oleva polku, ei uutta kokoelmaa, ei Rules-muutosta:
 
 ```
@@ -159,6 +162,9 @@ Joukkuekoonti vain pikakentistä, ei alikokoelmakyselyjä renderissä.
 ---
 
 ## 6. Havaintoprotokolla (luotettavuus)
+
+> ⚠ **Korvattu:** kenttätyökalun datamalli ja näyttö → `CODE_TASK_PELIANALYTIIKKA_2026-09.md` §5.6 (kanoninen len/wid, kenttatarkkailu).
+
 
 Ilman protokollaa luvut ovat kohinaa. Kolme sääntöä:
 

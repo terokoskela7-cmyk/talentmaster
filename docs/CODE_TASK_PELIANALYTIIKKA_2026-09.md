@@ -10,16 +10,19 @@
 
 ## 0. Tila nyt ja ensimmäinen toimenpide
 
-**⚠ Mainin CI on punainen.** PR #620 (`feat(taktiikkataulu): uhka-arvo (xT) -kerros`) mergettiin, mutta
-`npm run lint` kaatuu viiteen no-undef-virheeseen (`kaavioPX`/`kaavioPY`/`XT_SARAKKEET`). Lint löysi myös
-oikean bugin: `kaavioPX` ei ole globaali vaan `TM_KAAVIO_RENDER.kaavioPX`, joten prototyypin napautuspiste olisi
-kaatunut ReferenceErroriin.
+**✅ Mainin CI on vihreä.** Kun tämä doc kirjoitettiin, `npm run lint` kaatui viiteen no-undef-virheeseen
+(`kaavioPX`/`kaavioPY`/`XT_SARAKKEET`) PR #620:n jäljiltä. **PR #621 korjasi ne toisella tavalla:** globaalien
+keräin jäsentää nyt espreellä (monideklaraattori `var XT_RIVIT = 8, XT_SARAKKEET = 12;` tunnistetaan), ja
+`kaavioPX`/`kaavioPY` kulkevat julkaistun rajapinnan `TM_KAAVIO_RENDER.kaavioPX/kaavioPY` kautta sekä
+kerroksessa että prototyypissä. Lintin löytämä implisiittinen riippuvuus on siis jo korjattu mainissa.
+Huom: se ei heittänyt ReferenceErroria, koska `tm_kaavio_render.js` fanauttaa kenttänsä windowiin.
 
 **PR #620 sisälsi vain ensimmäisen neljästä commitista.** Mainista puuttuvat:
 käyttöönottosuunnitelma (`docs/XT_KAYTTOONOTTO.md`), pelaajaraportin mplsoccer-prototyyppi sekä
 pienkenttäprofiili + menetysriski.
 
-**Patch-sarja korjaa molemmat.** Se on rakennettu `origin/main`:n (642d682) päälle:
+**Patch-sarja on rakennettu `origin/main`:n (642d682) päälle.** Koska #621 ehti korjata lint-ongelman ensin,
+**commitit 1 ja 5 törmäävät mainiin eikä niitä viedä sisään** (ks. sisäänvienti alla):
 
 | # | Commit | Sisältö |
 |---|---|---|
@@ -31,7 +34,11 @@ pienkenttäprofiili + menetysriski.
 | 6 | `docs(pelianalytiikka): …` | tämä doc + kenttätyökalun mockup |
 
 Tarkistettu ennen luovutusta: `npm run lint` puhdas, `npx vitest run` (ilman rules-testejä) 196 tiedostoa /
-3241 testiä vihreänä.
+3241 testiä vihreänä. **Sisäänvienti (näin se tehtiin):** `-3` ja kaksi ohitusta — commit 1 pysähtyy
+konfliktiin tiedostossa `lib/tm_xt_kerros.js`, koska #621 muutti samat rivit, ja commit 5 (cache-bust)
+pysähtyy samasta syystä. Molemmat ohitetaan `--skip`:llä, ja versionostot tehdään omana committina, koska
+commit 4 muutti `tm_kaavio_ui.js`:ää ja `tm_i18n_common.js`:ää nostamatta niiden `?v=`-numeroita.
+Commitit 2, 3, 4 ja 6 menevät läpi; kerroksessa säilyy **mainin** `_xtkPX`/`_xtkPY` (#621).
 
 ```bash
 git checkout main && git pull
@@ -155,7 +162,7 @@ pelimuodon kenttäkoosta (`XT_KENTTAKOOT`), 11v11 = 105 × 68 m.
 
 ## 5. Osa D — Kohdennettu pelihavainto: kenttätyökalu (TOTEUTETTAVA)
 
-**Toimiva mockup:** https://claude.ai/artifact/SwzsUXTsqEEUGtvimL1FcQ (versio 4) ja sama tiedosto repossa
+**Toimiva mockup:** https://claude.ai/artifact/SwzsUXTsqEEUGtvimL1FcQ (versio 5) ja sama tiedosto repossa
 `docs/prototyypit/pelihavainto_kenttatyokalu_mockup.html` (avautuu selaimessa, kaikki logiikka inline).
 **Mockup on UX:n ja laskennan referenssi.** Tuotantokoodi kirjoitetaan uudelleen repon konventioilla.
 
