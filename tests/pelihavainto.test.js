@@ -74,6 +74,23 @@ describe('(1) Kanoninen koordinaatisto', () => {
     expect(PH.phVyohyke({ len: 10, wid: 10 })).toEqual({ kolmannes: 'puolustus', kaista: 'vasen_laita' });
     expect(PH.phVyohyke({ len: 50, wid: 50 })).toEqual({ kolmannes: 'keski', kaista: 'keskusta' });
   });
+
+  /* K7a: VIISI kaistaa mockupin rajoilla (25/40/60/75) — puolikaista on taktisessa puheessa oma
+     paikkansa. K6: rajatapaukset lukitaan, jottei raja liiku huomaamatta. */
+  it.each([
+    [0, 'vasen_laita'], [24.9, 'vasen_laita'], [25, 'vasen_puolikaista'], [39.9, 'vasen_puolikaista'],
+    [40, 'keskusta'], [59.9, 'keskusta'], [60, 'oikea_puolikaista'], [74.9, 'oikea_puolikaista'],
+    [75, 'oikea_laita'], [100, 'oikea_laita'],
+  ])('kaistaraja wid %s → %s', (wid, kaista) => {
+    expect(PH.phVyohyke({ len: 50, wid }).kaista).toBe(kaista);
+  });
+
+  /* K6: naytto kaantaa leveysakselin seisomapaikan mukaan (mockupin flipY). Jos lahi/kauko kaantyy
+     vaarin, merkinnat peilautuvat kentan vaaralle laidalle. */
+  it('seisomapaikka kaantaa leveysakselin oikein (puoliaika 1)', () => {
+    expect(PH.phNaytolle({ len: 50, wid: 10 }, { puoliaika: 1, seisoo: 'lahi' }).y).toBe(10);
+    expect(PH.phNaytolle({ len: 50, wid: 10 }, { puoliaika: 1, seisoo: 'kauko' }).y).toBe(90);
+  });
 });
 
 /* ── (2) Ikatasot ─────────────────────────────────────────────────────────────────────────── */
@@ -160,6 +177,29 @@ describe('(4) Merkinnan arvo', () => {
     expect(a.laji).toBe('menetysriski');
   });
 
+  /* K6: harhasyotto menetetaan sinne MINNE se meni — vastustaja saa pallon loppupisteesta.
+     Sama kuin mockupin xtOpp(e.to). Alkupisteesta laskettu riski olisi eri luku. */
+  it('harhasyoton riski lasketaan LOPPUpisteesta, ei alkupisteesta', () => {
+    const a = PH.phArvo(syotto({ len: 20, wid: 50 }, { len: 60, wid: 50 }, false), '11v11');
+    const loppuRiski = PH.phArvo({ id: 'm', tyyppi: 'menetys', piste: { len: 60, wid: 50 } }, '11v11');
+    const alkuRiski = PH.phArvo({ id: 'm', tyyppi: 'menetys', piste: { len: 20, wid: 50 } }, '11v11');
+    expect(a.pisteet).toBe(loppuRiski.pisteet);
+    expect(a.pisteet, 'EI VACUOUS: alku ja loppu antavat eri riskin').not.toBe(alkuRiski.pisteet);
+  });
+
+  /* K6: perilla === null tarkoittaa "ei kirjattu", ja se lasketaan PERILLE (§5.4.1: `!== false`).
+     TIETOINEN VALINTA: kirjaamaton syotto ei saa nayttaa menetyksena. */
+  it('perilla null lasketaan perille (tietoinen valinta)', () => {
+    const a = PH.phArvo(syotto({ len: 50, wid: 50 }, { len: 80, wid: 50 }, null), '11v11');
+    expect(a.laji).toBe('uhka');
+    const y = PH.phYhteenveto({
+      ottelu: { pelimuoto: '11v11' },
+      merkinnat: [{ id: '1', tyyppi: 'syotto', alku: { len: 50, wid: 50 }, loppu: { len: 80, wid: 50 }, perilla: null }]
+    });
+    expect(y.luvut.syotot).toEqual({ perille: 1, yhteensa: 1 });
+    expect(y.luvut.menetykset.n).toBe(0);
+  });
+
   it('puolustusarvo = menetysriskin peililuku samassa pisteessa', () => {
     const piste = { len: 30, wid: 45 };
     const o = PH.phOptaksi(piste);
@@ -188,6 +228,62 @@ describe('(4) Merkinnan arvo', () => {
     expect(kohonnut.taso).toBe('kohonnut');
     expect(matala.pisteet).toBeLessThan(XT.XT_RISKI_KOHONNUT);
     expect(matala.taso).toBe('matala');
+  });
+
+  /* K1: lib ja kenttatyokalu EIVAT saa erota tulos-enumista. Jos tallentaja kirjoittaisi 'ei' ja lib
+     odottaa 'ei_ohittanut', havitty 1v1 katoaisi menetyksista ja riskista — se nakyisi vain yrityksissa. */
+  it('K1 · tulos-enum on lukittu ja vietavissa (lib ja tallentaja samasta listasta)', () => {
+    expect(PH.PH_KAKSINPELI_TULOS).toEqual({
+      hyokkays: ['ohitti', 'rikottiin', 'ei_ohittanut'],
+      puolustus: ['voitti', 'viivytti', 'ohitettiin']
+    });
+    expect(PH.PH_1V1_ONNISTUI).toEqual(['ohitti', 'rikottiin']);
+  });
+
+  it.each([
+    ['hyokkays', 'ohitti', 'onnistui'],
+    ['hyokkays', 'rikottiin', 'onnistui'],
+    ['hyokkays', 'ei_ohittanut', 'havio'],
+    ['puolustus', 'voitti', 'onnistui'],
+    ['puolustus', 'viivytti', 'neutraali'],
+    ['puolustus', 'ohitettiin', 'havio'],
+  ])('K1 · %s/%s luokitellaan (%s)', (rooli, tulos, luokka) => {
+    const piste = { len: 40, wid: 50 };
+    const dok = { ottelu: { pelimuoto: '11v11' }, ikataso: 'u16', merkinnat: [{ id: '1', tyyppi: 'kaksinpeli', rooli, tulos, piste }] };
+    const y = PH.phYhteenveto(dok);
+    const arvo = PH.phArvo(dok.merkinnat[0], '11v11');
+    if (rooli === 'hyokkays') {
+      expect(y.luvut.ykkosetHyokkays.yritykset, 'tunnettu tulos puuttui yrityksista').toBe(1);
+      expect(y.luvut.ykkosetHyokkays.onnistui).toBe(luokka === 'onnistui' ? 1 : 0);
+      expect(y.luvut.menetykset.n).toBe(luokka === 'havio' ? 1 : 0);
+      if (luokka === 'havio') expect(arvo.laji).toBe('menetysriski');
+    } else {
+      expect(y.luvut.ykkosetPuolustus.kaikki).toBe(1);
+      expect(y.luvut.riistot.n).toBe(luokka === 'onnistui' ? 1 : 0);
+      if (luokka === 'havio') expect(arvo.laji).toBe('tilanteen_vaara');
+    }
+  });
+
+  it('K1 · tuntematon tulos (esim. mockupin vanha "ei") EI kelpaa yritykseksi', () => {
+    const y = PH.phYhteenveto({
+      ottelu: { pelimuoto: '11v11' }, ikataso: 'u16',
+      merkinnat: [{ id: '1', tyyppi: 'kaksinpeli', rooli: 'hyokkays', tulos: 'ei', piste: { len: 40, wid: 50 } }]
+    });
+    // Paatos: tuntematon arvo jaa POIS yrityksista — mieluummin puuttuu kuin vaaristaa suhdelukua.
+    expect(y.luvut.ykkosetHyokkays).toEqual({ onnistui: 0, yritykset: 0 });
+    expect(y.luvut.menetykset.n).toBe(0);
+  });
+
+  it('K7b · ohitetuksi tuleminen on tilanteen_vaara, ei menetysriski', () => {
+    const piste = { len: 25, wid: 50 };
+    const a = PH.phArvo({ id: 'x', tyyppi: 'kaksinpeli', rooli: 'puolustus', tulos: 'ohitettiin', piste }, '11v11');
+    const peili = PH.phArvo({ id: 'm', tyyppi: 'menetys', piste }, '11v11');
+    expect(a.laji).toBe('tilanteen_vaara');
+    expect(a.pisteet).toBe(peili.pisteet);
+    expect(a.taso).toBe(peili.taso);
+    // EI summaudu menetyksiin (pallo ei vaihtanut omistajaa)
+    const y = PH.phYhteenveto({ ottelu: { pelimuoto: '11v11' }, merkinnat: [{ id: 'x', tyyppi: 'kaksinpeli', rooli: 'puolustus', tulos: 'ohitettiin', piste }] });
+    expect(y.luvut.menetykset.n).toBe(0);
   });
 
   it('havitty hyokkays-1v1 on menetysriski, voitettu ei tuota arvoa', () => {
@@ -238,6 +334,8 @@ describe('(5) Yhteenveto ja siirtyma (§5.4 / §5.4.1)', () => {
     expect(y.luvut.menetykset.n).toBe(1);
     expect(y.adar.ennenPalloa.skannasi).toEqual({ kylla: 1, yhteensa: 1 });
     expect(y.naytaLuvut).toBe(true);
+    expect(y.merkintoja).toBe(3);
+    expect(y.merkintojaKaikki).toBe(3);
   });
 
   it('1v1 hyokkays: ohitti + rikottiin + kuljetuksen ohitus matkalla', () => {
@@ -347,6 +445,113 @@ describe('(5) Yhteenveto ja siirtyma (§5.4 / §5.4.1)', () => {
     const y = PH.phYhteenveto(dok([{ id: '1', tyyppi: 'riisto', piste: { len: 30, wid: 50 } }], { ikataso: 'u812' }));
     expect(y.naytaLuvut).toBe(false);
     expect(y.luvut.riistot.n).toBe(1);
+  });
+
+  /* K2: ketjuton jatko on KESKEN, ei menetys — valmentaja napautti mutta ei ehtinyt pyyhkaista. */
+  it.each(['syotto', 'kuljetus'])('K2 · ketjuton jatko %s → kesken, ei menetys', (jatko) => {
+    const y = PH.phYhteenveto(dok([{ id: 'r', tyyppi: 'riisto', piste: { len: 25, wid: 50 }, jatko }]));
+    const s = y.luvut.siirtyma;
+    expect(s.kesken).toBe(1);
+    expect(s.menetetty).toBe(0);
+    expect(s.menetysHeti).toBe(0);
+    expect(s.sailytysosuus, 'keskenerainen kirjaus vaaristi sailytysosuutta').toBeNull();
+  });
+
+  /* K3: "ohitti matkalla" on saman 1v1-ohituksen jatke, ei uusi yritys. */
+  it('K3 · ohitus matkalla EI tuplaa 1v1-ketjun ohitusta', () => {
+    const piste = { len: 60, wid: 50 };
+    const y = PH.phYhteenveto(dok([
+      { id: 'k1', tyyppi: 'kaksinpeli', rooli: 'hyokkays', tulos: 'ohitti', piste },
+      { id: 'k1d', tyyppi: 'kuljetus', ketju: 'k1', ohitus: true, alku: piste, loppu: { len: 75, wid: 50 }, lopputuote: 'sailyi' }
+    ]));
+    expect(y.luvut.ykkosetHyokkays).toEqual({ onnistui: 1, yritykset: 1 });
+  });
+
+  it('K3 · ketjuton ohitus matkalla lasketaan edelleen omana yrityksena', () => {
+    const y = PH.phYhteenveto(dok([
+      { id: 'd', tyyppi: 'kuljetus', ohitus: true, alku: { len: 50, wid: 50 }, loppu: { len: 65, wid: 50 }, lopputuote: 'sailyi' }
+    ]));
+    expect(y.luvut.ykkosetHyokkays).toEqual({ onnistui: 1, yritykset: 1 });
+  });
+
+  /* K4: tilannelaskuri laskee JUURET. Ketjun jasenet eivat tuplaa sita, ja hetket (eiSijaintia)
+     kuuluvat lukumaariin vaikka arvoa ei lasketa. */
+  it('K4 · merkintoja = juuret (ketju ei tuplaa, eiSijaintia lasketaan)', () => {
+    const piste = { len: 60, wid: 50 };
+    const ketjussa = PH.phYhteenveto(dok([
+      { id: 'k1', tyyppi: 'kaksinpeli', rooli: 'hyokkays', tulos: 'ohitti', piste },
+      { id: 'k1d', tyyppi: 'kuljetus', ketju: 'k1', alku: piste, loppu: { len: 75, wid: 50 }, lopputuote: 'sailyi' }
+    ]));
+    expect(ketjussa.merkintoja).toBe(1);
+    expect(ketjussa.merkintojaKaikki).toBe(2);
+    const hetket = PH.phYhteenveto(dok([
+      { id: 'h1', tyyppi: 'hetki', t: 60, eiSijaintia: true },
+      { id: 'h2', tyyppi: 'hetki', t: 120, eiSijaintia: true }
+    ]));
+    expect(hetket.merkintoja, 'hetket katosivat tilannelaskurista').toBe(2);
+  });
+
+  /* K5: xG-malli tulee DOKUMENTIN tasolta, ei merkinnalta, ja raportoidaan KAYTETTY id. */
+  it('K5 · dokumentin xG-malli valitaan ja raportoidaan', () => {
+    const laukaus = { id: 'l', tyyppi: 'laukaus', piste: { len: lenMetreista(11, 105), wid: 50 } };
+    const oletus = PH.phYhteenveto(dok([laukaus]));
+    expect(oletus.malli.xg).toBe('xg_geom_v0_esimerkki');
+    expect(oletus.luvut.xg.laskettu).toBe(1);
+
+    const tunnettu = PH.phYhteenveto(dok([laukaus], { malli: { xg: 'xg_geom_v0_esimerkki' } }));
+    expect(tunnettu.malli.xg).toBe('xg_geom_v0_esimerkki');
+
+    const tuntematon = PH.phYhteenveto(dok([laukaus], { malli: { xg: 'xg_geom_v1' } }));
+    expect(tuntematon.malli.xg, 'kaytetty id ei nakynyt').toBe('xg_geom_v1');
+    expect(tuntematon.luvut.xg.laskettu, 'tuntematon malli laski silti').toBe(0);
+    expect(tuntematon.luvut.xg.summa).toBe(0);
+    expect(tuntematon.luvut.xg.laukauksia).toBe(1);
+  });
+
+  it('K5 · merkinnalla EI ole omaa xG-mallia (malli tulee opts:sta)', () => {
+    const LAHDE_LIB = readFileSync(join(juuri, 'lib/tm_pelihavainto.js'), 'utf8');
+    expect(LAHDE_LIB, 'merkinnan malli-kentta on speksin ulkopuolinen reitti').not.toContain('m.malli');
+    expect(LAHDE_LIB).toContain('opts.xgMalli');
+  });
+
+  /* K6: loput kolme lukitusta. */
+  /* K6: sama tietoinen valinta myos SIIRTYMASSA — kirjaamaton (null) ketjun syotto on sailynyt,
+     ei menetetty. Ilman tata lukitusta `!== false` voisi vaihtua `=== true`:ksi huomaamatta. */
+  it('K6 · ketjun syotto perilla null sailyy siirtymassa (ei menetys)', () => {
+    const piste = { len: 25, wid: 50 };
+    const y = PH.phYhteenveto(dok([
+      { id: 'r', tyyppi: 'riisto', piste, jatko: 'syotto' },
+      { id: 'rs', tyyppi: 'syotto', ketju: 'r', alku: piste, loppu: { len: 60, wid: 50 }, perilla: null }
+    ]));
+    expect(y.luvut.siirtyma.sailyi).toBe(1);
+    expect(y.luvut.siirtyma.menetetty).toBe(0);
+    expect(y.luvut.siirtyma.kesken).toBe(0);
+  });
+
+  it('K6 · jatko rikottiin sailyy (ei menetys)', () => {
+    const y = PH.phYhteenveto(dok([{ id: 'r', tyyppi: 'riisto', piste: { len: 25, wid: 50 }, jatko: 'rikottiin' }]));
+    expect(y.luvut.siirtyma.sailyi).toBe(1);
+    expect(y.luvut.siirtyma.menetetty).toBe(0);
+  });
+
+  it('K6 · reaktio "ei" (ei vastattu) ei ole nimittajassa', () => {
+    const y = PH.phYhteenveto(dok([
+      { id: '1', tyyppi: 'menetys', piste: { len: 40, wid: 50 }, reaktio: 'heti' },
+      { id: '2', tyyppi: 'menetys', piste: { len: 40, wid: 50 }, reaktio: 'jai' },
+      { id: '3', tyyppi: 'menetys', piste: { len: 40, wid: 50 }, reaktio: 'ei' }
+    ]));
+    expect(y.adar.menetyksenJalkeen).toEqual({ reagoiHeti: 1, yhteensa: 2 });
+  });
+
+  it('K6 · ketjun kuljetus lopputuotteella menetys = menetetty', () => {
+    const piste = { len: 25, wid: 50 };
+    const y = PH.phYhteenveto(dok([
+      { id: 'r', tyyppi: 'riisto', piste, jatko: 'kuljetus' },
+      { id: 'rk', tyyppi: 'kuljetus', ketju: 'r', alku: piste, loppu: { len: 40, wid: 50 }, lopputuote: 'menetys' }
+    ]));
+    expect(y.luvut.siirtyma.menetetty).toBe(1);
+    expect(y.luvut.siirtyma.menetysHeti).toBe(1);
+    expect(y.luvut.siirtyma.sailyi).toBe(0);
   });
 
   it('tyhja dokumentti ei kaada', () => {

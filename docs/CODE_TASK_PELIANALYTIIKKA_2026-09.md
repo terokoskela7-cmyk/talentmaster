@@ -318,13 +318,15 @@ seurat/{sid}/pelaajat/{pid}/havainnot/{hid}
   suunta: { hyokkaysOikealle: bool, seisoo: 'lahi'|'kauko' }   // vain näyttöä varten; data on aina kanonisessa muodossa
   ikataso: 'u812'|'u1315'|'u16'
   jaksofokus: string|null             // kopio hetkestä
-  malli: { xt: 'singh_12x8_v1[+pienkentta_m_v1]', xg: 'xg_geom_v1' }
+  malli: { xt: 'singh_12x8_v1[+pienkentta_m_v1]', xg: 'xg_geom_v0_esimerkki' }   // v1 vasta kalibroinnin jalkeen
   merkinnat: [ {                      // ARRAY → EI serverTimestamp() (§7.6), käytä sekunteja
       id, t: <sekunnit ottelun alusta>, tyyppi:
         'syotto'|'kuljetus'|'etenee'|'juoksu'|'riisto'|'laukaus'|'menetys'|'kaksinpeli'|'hetki',
       alku?: {len, wid}, loppu?: {len, wid}, piste?: {len, wid},   // 0–100, len = omasta maalista
       perilla?: bool|null, lopputuote?: 'syotto'|'laukaus'|'menetys'|'rikottiin'|'sailyi'|null,
-      rooli?: 'hyokkays'|'puolustus', tulos?: string|null,
+      rooli?: 'hyokkays'|'puolustus',
+      tulos?: 'ohitti'|'rikottiin'|'ei_ohittanut'          // rooli 'hyokkays'   (PH_KAKSINPELI_TULOS)
+            | 'voitti'|'viivytti'|'ohitettiin'|null,       // rooli 'puolustus'
       tapa?: 'katkaisu'|'taklaus'|'irtopallo'|null,              // vain riisto
       jatko?: 'syotto'|'kuljetus'|'laukaus'|'menetys'|'sailyi'|'selvitys'|'rikottiin'|null,  // ohitus- ja riistojuurille
       ohitus?: bool, reaktio?: 'heti'|'jai'|'ei'|null, skannasi?: bool|null,
@@ -370,6 +372,9 @@ TalentMaster-tokenit molemmille teemoille, yksi `@media(max-width:768px)` per ti
 - Menetysriskin rajat 2 / 5 uhkapistettä.
 - xG: monotoninen (lähempänä > kauempana, keskeltä > sivusta), rangaistuspisteen arvo kertoimista.
 - Pienkenttä: 8v8-piste samalla metrietäisyydellä maalista = 11v11-arvo; 3v3 → null.
+
+> **Regressiovartija `pisteet`/`narratiivi`/`teksti` (EHDOTTOMAT kentät, §5.6) kuuluu PR-C:hen tai PR-D:hen**,
+> koska tallennus tehdään niissä — Vaihe 1:n lib ei kirjoita Firestoreen. Kirjaa se niiden briiffiin.
 - Riiston jälkeen: jokainen §5.4.1-taulukon rivi; selvitys ei vaikuta säilytysosuuteen; ketjun kuljetus → syöttö
   lasketaan siirtymän uhkaan kerran; ketjuton `jatko:'syotto'` (ei vielä pyyhkäisty) ei kaada laskentaa.
 - Yhteenveto: ketjut eivät tuplaa tilannelaskuria; "ohitti matkalla" ei tuplaa 1v1-ketjun ohitusta;
