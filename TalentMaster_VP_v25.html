@@ -21,7 +21,7 @@
 <!-- Eerikkilä-normit + universaali testirekisteri (eerikkilaTaso, laskeFVP) — 10m/5m-tasot + FVP-profiili -->
 <script src="lib/tm_lang.js?v=14"></script>   <!-- i18n V0 — fi/sv/en käännöstaulukko + t() + kieli-init (putkitus) -->
 <script src="lib/tm_i18n_common.js?v=9"></script>   <!-- i18n Vaihe 0 — JAETTU henkilöstö-i18n + lukittu glossaari (ENNEN sivukarttaa) -->
-<script src="lib/tm_vp_i18n.js?v=83"></script>   <!-- i18n Vaihe 5 — VP sv (sivukartta); vpT/vpLokalisoi delegoivat commoniin -->
+<script src="lib/tm_vp_i18n.js?v=84"></script>   <!-- i18n Vaihe 5 — VP sv (sivukartta); vpT/vpLokalisoi delegoivat commoniin -->
 
 
 <script src="lib/tm_eerikkila_normit.js?v=45"></script>   <!-- v43: D2-kortti d2_taso-ensin (renderKehityskorttiHTML, PR #264 · §30/#262) -->
@@ -6497,7 +6497,7 @@ function _vpValitavoitteetHTML(t, pid) {
   const vt = Array.isArray(t.valitavoitteet) ? t.valitavoitteet : [];
   let h = '<div class="jsp-kt-box" style="margin-top:10px"><div class="jsp-kt-bt">' + vpT('Välitavoitteet · polku (valinnainen)') + '</div>';
   if (!vt.length) {
-    h += '<div style="font-size:11px;color:var(--ink3);margin:2px 0 4px">' + vpT('Tyhjä — kausitavoite toimii sellaisenaan. Lisää polku (esim. Haltuunotto → Tempokuljetus) jos haluat pilkkoa tavoitteen jaksoihin.') + '</div>';
+    h += '<div style="font-size:11px;color:var(--ink3);margin:2px 0 4px">' + vpT('Tyhjä — kauden tavoite toimii sellaisenaan. Lisää polku (esim. Haltuunotto → Tempokuljetus) jos haluat pilkkoa tavoitteen jaksoihin.') + '</div>';
   } else {
     vt.forEach(function (v, i) {
       const akt = v.tila === 'aktiivinen', saa = v.tila === 'saavutettu';
@@ -6649,7 +6649,7 @@ function _vpIdpSmartRivit(p, t) {
     const unit = (yks && yks !== 'taso' && yks !== 'vapaa') ? ' ' + yks : '', suff = (yks === 'taso') ? '/5' : '';
     mitTxt = (mit.testId || yks || 'mittari') + ' · ' + _fmt(la) + unit + suff + (pienempi ? ' → ≤ ' : ' → ≥ ') + _fmt(tv) + unit + suff;
   }
-  rivit.push({ nimi: (t.fokus && (t.fokus.nimi || t.fokus.alue)) || t.kuvaus || 'Kausitavoite',
+  rivit.push({ nimi: (t.fokus && (t.fokus.nimi || t.fokus.alue)) || t.kuvaus || vpT('Kauden tavoite'),
     tyyppi: t.tyyppi || 'heikkous', mittari: mitTxt, deadline: (t.aikaraami && t.aikaraami.arvio_pvm) || null, pct: pct, pctCol: pctCol });
   // P2.3: välitavoitteet EIVÄT enää SMART-alarivinä — ne saavat oman porras-osion (_vpValitavoitteetHTML) Kausitavoite→Jaksofokus-väliin.
   return rivit;
@@ -6781,7 +6781,7 @@ function _vpKaksiPolkuaHTML(p, pid) {
 function _vpKehOtsikkoHTML() {
   return '<div class="jsp-keh-fwh"><div style="color:var(--teal);font-family:var(--font-sans),\'DM Sans\',sans-serif;font-size:9.5px;font-weight:600;letter-spacing:.15em;text-transform:uppercase">' + vpT('Jaksofokus-työpöytä') + '</div>'
     + '<div class="ft">' + vpT('Suunnitelman muokkauskoti') + '</div>'
-    + '<div class="fs">' + vpT('kausitavoite → jaksofokus → kaari · aseta · muokkaa · sulje · näkyy pelaajalle') + '</div></div>';
+    + '<div class="fs">' + vpT('kauden tavoite → jaksofokus → kaari · aseta · muokkaa · sulje · näkyy pelaajalle') + '</div></div>';
 }
 // R4 (Kehitys v2) — VP-OVERSIGHT status-nauha (kartta .status): tila yhdellä silmäyksellä. LASKETAAN olemassa
 // olevasta datasta (jaksofokus + _idpTavoite + idpJumissa + tmJfUmpeutunut) — ei uutta dataa/logiikkaa. Tyhjä
@@ -6796,7 +6796,7 @@ function _vpKehStatusHTML(p) {
   else items.push('<span class="stitem warn">○ ' + vpT('Ei jaksofokusta') + '</span>');
   // 2) Kausitavoite hyväksytty (§37: VP hyväksyy → status 'aktiivinen')
   const ktStatus = (t && t.status) || p.idp_tila || null;
-  items.push('<span class="stitem">' + vpT('Kausitavoite') + ' <b>' + (ktStatus === 'aktiivinen' ? vpT('hyväksytty') : (ktStatus ? _jsvEsc(ktStatus) : '—')) + '</b></span>');
+  items.push('<span class="stitem">' + vpT('Kauden tavoite') + ' <b>' + (ktStatus === 'aktiivinen' ? vpT('hyväksytty') : (ktStatus ? _jsvEsc(ktStatus) : '—')) + '</b></span>');
   // 3) Montako viikkoa jaksossa jäljellä (alkoi + kesto_vk); ei alkoi-pvm:ää → näytä kesto
   if (jf && jf.konsepti_nimi) {
     const vk = jf.kesto_vk || 4;
@@ -6830,7 +6830,7 @@ function _vpMoottoriKortitHTML(p, pid) {
   const kaksi = (typeof _vpKaksiPolkuaHTML === 'function') ? _vpKaksiPolkuaHTML(p, pid) : '';
   let h = '<div style="margin-bottom:6px"><div style="font-family:var(--font-serif);font-size:18px;color:var(--ink);margin:0 0 3px">' + vpT('Moottorin ehdotus · valitse polku') + ((typeof window._tmIBtn === 'function') ? window._tmIBtn('idp_moottori') : '') + '</div>';
   h += '<div style="font-size:11px;color:var(--ink3);margin-bottom:12px">' + vpT('Moottori') + ' <b style="color:var(--ink2)">' + vpT('ei pakota') + '</b> — ' + vpT('hyväksy ehdotus TAI valitse itse. 🔗 70/30: heikkoustyö integroidaan vahvuuden pohjalle, ei irrallisena.') + '</div>';
-  h += kaksi || '<div style="font-size:12px;color:var(--ink3);margin-bottom:12px">' + vpT('Ei ehdotusta datasta — mittaa lisää tai aseta fokus käsin kausitavoitteesta.') + '</div>';
+  h += kaksi || '<div style="font-size:12px;color:var(--ink3);margin-bottom:12px">' + vpT('Ei ehdotusta datasta — mittaa lisää tai aseta fokus käsin kauden tavoitteesta.') + '</div>';
   h += '<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:22px">';
   h += '<span style="font-size:10.5px;color:var(--ink3);flex:1;min-width:200px">🌱 ' + vpT('§28: heikko fyysinen ei tule ehdolle ennen PHV:tä; ilman PHV-dataa moottori suosii D2:ta.') + '</span>';
   h += '<button onclick="event.stopPropagation();_vpAsetaModus(\'' + esc(pid) + '\',\'vahvuus\')" style="flex-shrink:0;font-size:11px;color:var(--teal);background:rgba(40,176,144,.08);border:.5px solid rgba(40,176,144,.35);border-radius:6px;padding:7px 13px;cursor:pointer" title="' + vpT('Aseta erottava ase käsin (asiantuntija tietää vahvuuden ennen dataa) — avaa fokus-valinnan') + '">💎 ' + vpT('Erottava ase käsin') + '</button>';
@@ -7015,10 +7015,10 @@ function _vpKehSuunnitelmaHTML(p, opts) {
       ? '<div class="jsp-kt" id="_jspKausitavoite">' + (typeof _vpKausitavoiteHTML === 'function' ? _vpKausitavoiteHTML(p) : '') + '</div>'
       : ((typeof _vpTavoiteYhteenvetoHTML === 'function' ? _vpTavoiteYhteenvetoHTML(p, { ohje: false }) : '')
         + '<div style="margin-top:10px"><button onclick="event.stopPropagation();_pdcSiirryCockpittiin(\'' + pid + '\',3)" style="font-family:var(--font-sans);font-size:10px;font-weight:500;letter-spacing:.1em;text-transform:uppercase;padding:9px 14px;border-radius:6px;background:rgba(40,176,144,.1);color:var(--teal);border:.5px solid rgba(40,176,144,.4);cursor:pointer">' + vpT('→ Kehitä suunnitelmaa · Kehitys-työpöytä') + '</button></div>'))
-    : '<div style="padding:6px 0"><button class="jsp-kt-btn primary" onclick="event.stopPropagation();_pdcSiirryCockpittiin(\'' + pid + '\',3)">' + vpT('＋ Tee kausitavoite') + '</button><div style="font-family:var(--font-sans),\'DM Sans\',sans-serif;font-size:11px;color:var(--ink3);margin-top:6px">' + vpT('Moottori ehdottaa datasta — tai valitse kärjen korteista.') + '</div></div>';
+    : '<div style="padding:6px 0"><button class="jsp-kt-btn primary" onclick="event.stopPropagation();_pdcSiirryCockpittiin(\'' + pid + '\',3)">' + vpT('＋ Tee kauden tavoite') + '</button><div style="font-family:var(--font-sans),\'DM Sans\',sans-serif;font-size:11px;color:var(--ink3);margin-top:6px">' + vpT('Moottori ehdottaa datasta — tai valitse kärjen korteista.') + '</div></div>';
   h += row({
     id: idp + '_accKausitavoite', ico: '🎯',
-    nimi: vpT('Kausitavoite') + ((typeof window._tmIBtn === 'function') ? window._tmIBtn('idp_kausitavoite') : ''),
+    nimi: vpT('Kauden tavoite') + ((typeof window._tmIBtn === 'function') ? window._tmIBtn('idp_kausitavoite') : ''),
     tila: ktTilaObj,
     sisalto: ktFokus ? esc(_vpOtsikkoNaytto(_vpFokusNimiNaytto(_ktFokusObj))) : '',
     meta: '',
@@ -7118,7 +7118,7 @@ function _vpTavoiteYhteenvetoHTML(p, opts) {
   let h = '<div class="idp-seg" style="margin-bottom:26px"><span class="idp-node"></span>';
   h += '<div style="font-size:9px;font-weight:600;letter-spacing:.16em;text-transform:uppercase;color:var(--teal);margin-bottom:8px">' + vpT('🧭 Suunta · tavoitteet') + '</div>';
   if (!f && !tila) {
-    h += '<div style="font-size:12px;color:var(--ink3);font-style:italic">' + vpT('Aseta kausitavoite Kehityksessä — moottori ehdottaa datasta.') + '</div>';
+    h += '<div style="font-size:12px;color:var(--ink3);font-style:italic">' + vpT('Aseta kauden tavoite Kehityksessä — moottori ehdottaa datasta.') + '</div>';
     return h + '</div>';
   }
   const _tyMap = { heikkous: 'var(--amber)', vahvuus: 'var(--teal)', pelipaikka: 'var(--blue)' };
@@ -7151,9 +7151,9 @@ function _vpAloitusTavoiteHTML(p) {
   // R1 (pala 3a) v7-ilme: kausitavoite = rauhallinen tukikonteksti (.idp-sec) — ei kilpaile fokus-heron kanssa
   // (yksi prioriteetti nostettuna). Poistettu teal-vasenreuna-korostus; sisältö/data ennallaan.
   let h = '<div class="idp-seg idp-sec"><span class="idp-node"></span>';
-  h += '<div class="idp-eyebrow">' + vpT('🎯 Suunta · kausitavoite') + '</div>';
+  h += '<div class="idp-eyebrow">' + vpT('🎯 Suunta · kauden tavoite') + '</div>';
   if (!f && !tila) {
-    h += '<div style="font-size:12px;color:var(--ink3);font-style:italic">' + vpT('Aseta kausitavoite Kehityksessä — moottori ehdottaa datasta.') + '</div>';
+    h += '<div style="font-size:12px;color:var(--ink3);font-style:italic">' + vpT('Aseta kauden tavoite Kehityksessä — moottori ehdottaa datasta.') + '</div>';
     return h + _link + '</div>';
   }
   const nimi = (f && (f.nimi || f.alue)) || (t && t.kuvaus) || '—';
@@ -7244,7 +7244,7 @@ function _vpAloitusKaariHTML(p, ika) {
   const hist = Array.isArray(p.jaksofokus_historia) ? p.jaksofokus_historia : [];
   let rows = '';
   const tavNimi = (f && (f.nimi || f.alue)) || (t && t.kuvaus) || null;
-  rows += '<div class="idp-kaari-row"><span class="kk">' + vpT('Kausitavoite') + '</span><span class="kv">'
+  rows += '<div class="idp-kaari-row"><span class="kk">' + vpT('Kauden tavoite') + '</span><span class="kv">'
     + (tavNimi ? '<b>' + esc(tavNimi) + '</b>' + (f && f.dim ? '<span class="s">' + esc(f.dim) + '</span>' : '') : '<span style="color:var(--ink3)">' + vpT('— ei asetettu') + '</span>') + '</span></div>';
   rows += '<div class="idp-kaari-row"><span class="kk">' + vpT('Jaksofokus · nyt') + '</span><span class="kv">'
     + (jf && jf.konsepti_nimi ? '<b>' + esc(sc(jf.konsepti_nimi)) + '</b><span class="s">' + vpT('yksi prioriteetti (ILP)') + '</span>' : '<span style="color:var(--ink3)">' + vpT('— ei fokusta') + '</span>') + '</span></div>';
@@ -7466,7 +7466,7 @@ function _vpKausitavoiteHTML(p) {
   const t = luonnos || p._idpTavoite;
   const pid = _jsvEsc(p.id);
   const fmt = function (v, yks) { return (v == null) ? '—' : ((typeof _fmtTestiArvo === 'function' ? _fmtTestiArvo(v, yks) : v) + (yks && yks !== 'taso' ? ' ' + yks : '')); };
-  let h = '<div class="jsp-kt-hd"><span class="jsp-kt-t">' + vpT('Kausitavoite ') + '<span style="text-transform:none;letter-spacing:0;color:var(--ink3);font-weight:400">' + vpT('· IDP-ydin') + '</span></span>'
+  let h = '<div class="jsp-kt-hd"><span class="jsp-kt-t">' + vpT('Kauden tavoite ') + '<span style="text-transform:none;letter-spacing:0;color:var(--ink3);font-weight:400">' + vpT('· IDP-ydin') + '</span></span>'
     + ((typeof window._tmIBtn === 'function') ? (window._tmIBtn('idp_silta') + window._tmIBtn('idp_roolit')) : '') + '</div>';
   if (p._luonnosTyyppi === 'vaihto') {
     h += '<div style="font-family:var(--font-mono),\'DM Mono\',monospace;font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink3);'
@@ -7474,7 +7474,7 @@ function _vpKausitavoiteHTML(p) {
   }
   if (!t && !p.idp_tila) {
     // Tyhjä tila → ehdotus-CTA (johdetaan Vaihe 2 -arvioinnista)
-    h += '<div class="jsp-kt-empty">' + vpT('Ei kausitavoitetta. Johdetaan heikoimmasta ominaisuudesta (arviointi + §28-kypsyysvahti).')
+    h += '<div class="jsp-kt-empty">' + vpT('Ei kauden tavoitetta. Johdetaan heikoimmasta ominaisuudesta (arviointi + §28-kypsyysvahti).')
       + '<div style="margin-top:10px"><button class="jsp-kt-btn primary" onclick="event.stopPropagation();_vpEhdotaTavoite(\'' + pid + '\')">' + vpT('↻ Ehdota tavoite datasta') + '</button></div></div>';
     return h;
   }
@@ -8142,7 +8142,7 @@ function _vpTtKorttiHTML(p) {
     if (ehdInItems) {
       h += '<div style="background:rgba(40,176,144,.09);border:.5px solid rgba(40,176,144,.3);border-radius:9px;padding:8px 11px;margin-bottom:8px">'
         + '<div style="font-size:11.5px;color:var(--teal);font-weight:600">' + vpT('🎯 Tavoitteesta ehdotettu:') + ' ' + esc(ehdNimi) + '</div>'
-        + '<div style="font-size:10.5px;color:var(--ink3);margin-top:2px">' + vpT('Kausitavoite:') + ' ' + tavNimi + (ehd.dim ? ' · ' + ehd.dim : '') + '</div>'
+        + '<div style="font-size:10.5px;color:var(--ink3);margin-top:2px">' + vpT('Kauden tavoite:') + ' ' + tavNimi + (ehd.dim ? ' · ' + ehd.dim : '') + '</div>'
         + (ehd.havainnointi_vihje ? '<div style="font-size:10.5px;color:var(--ink2);margin-top:4px">' + vpT('👁 Jos tekniikka on ok mutta pelaaja ei käytä sitä — tarkista havainnointi (Y-H0).') + '</div>' : '')
         + (ehd.alt_konsepti_nimi ? '<div style="font-size:10.5px;color:var(--ink3);margin-top:2px">' + vpT('tai:') + ' ' + esc(ehd.alt_konsepti_nimi) + '</div>' : '') + '</div>';
     } else {
@@ -9394,8 +9394,8 @@ function _vpAloitusHTML(p) {
   if (!fokus && !tila) {
     return '<div style="background:linear-gradient(150deg,#18211e,#161614);border:.5px solid rgba(40,176,144,.25);border-radius:12px;padding:18px 16px;text-align:center">'
       + '<div style="font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--teal);font-weight:600">' + vpT('🎯 Kausifokus') + '</div>'
-      + '<div style="font-size:14px;color:var(--ink2);margin:8px 0 12px">' + vpT('Ei kausitavoitetta vielä — johdetaan heikoimmasta ominaisuudesta (arviointi + §28-kypsyysvahti).') + '</div>'
-      + '<button class="jsp-kt-btn primary" onclick="_jspVaihda(3)">' + vpT('Ehdota kausitavoite →') + '</button></div>';
+      + '<div style="font-size:14px;color:var(--ink2);margin:8px 0 12px">' + vpT('Ei kauden tavoitetta vielä — johdetaan heikoimmasta ominaisuudesta (arviointi + §28-kypsyysvahti).') + '</div>'
+      + '<button class="jsp-kt-btn primary" onclick="_jspVaihda(3)">' + vpT('Ehdota kauden tavoite →') + '</button></div>';
   }
   const tilaLbl = tila === 'aktiivinen' ? vpT('● Aktiivinen') : tila === 'ehdotettu' ? vpT('○ Ehdotettu') : (tila ? vpT(IDP_TILA_LBL[tila] || tila) : '');
   const pelilause = (t && t.perustelu && t.perustelu.pelilause) || null;
@@ -11674,12 +11674,12 @@ window.TM_TESTI_OHJEET = {
   adar: { otsikko: 'Pelihavainto · Peliäly', mita: 'Valmentajan kenttähavainto: Awareness (havainnointi), Decision (päätöksenteko), Action (toteutus), Reaction (reagointi), kukin 1–3. Ei testilaboratorio vaan jatkuva havainnointi.', tulkinta: 'Kokonaistaso = arvioitujen osa-alueiden keskiarvo (1–3, I1-kaanon). Vaatii ≥3 havaintoa luotettavuuteen. Vahvin/heikoin osa-alue ohjaa peliharjoittelun painotusta.' },
   brandijako: { otsikko: 'Brändijako · Palloliitto × TalentMaster', mita: 'Arviointi-välilehti yhdistää kaksi brändiä, joilla on eri rooli.', tulkinta: '<strong>📋 Palloliitto Player Development Card</strong> = virallinen <strong>arviointikehys</strong> (D1–D5-taksonomia + havaittu-arvio 1–5).<br><strong>◆ TalentMaster Analytics</strong> = älykerros kortin päällä: <strong>mittaus</strong> (TM-testit 🟢), <strong>pelihavainto</strong> (👁 ADAR), IDP-kehityssuunnitelma, jaksofokus/konseptit, 5D-radar, kehityspolku.', vinkki: 'Sama data, selkeä alkuperä → molemmat brändit vahvistuvat, virallinen kortti ei sekoitu TM:n omaan älyyn. Anna palautetta “💬 Palaute brändijaosta” -napista.' },
   arviointi_lahderyhmat: { otsikko: 'Arviointi · lähderyhmät', mita: 'Arviointirivit on jaettu kolmeen lähteeseen sen mukaan MISTÄ tieto tulee.', tulkinta: '<strong style="color:var(--teal)">🟢 Mitattu</strong> = TM-testistä laskettu — lukittu (🔒), et voi muuttaa käsin.<br><strong style="color:var(--blue)">🔵 Havaittu</strong> = sinun 1–5-arviosi (klikkaa → tallentuu automaattisesti).<br><strong style="color:#c060a8">👁 Pelihavainnosta</strong> = kenttähavainnosta (ADAR 1–3) johdettu; klikkaa 1–5 antaaksesi oman arvion (yliajaa johdetun).', vinkki: 'Mitattu on faktaa testistä; havaittu ja pelihavainto ovat asiantuntija-arvioita. §7.22: nämä ovat aikuisten työkaluja — pelaajalle ei näytetä tasolukuja.' },
-  idp_silta: { otsikko: 'IDP-silta · ＋IDP-tavoite', mita: 'Kun arvioitu arvo on ≤ 2 (havaittu tai pelihavainto), rivin viereen ilmestyy oranssi ＋ IDP-tavoite -pilleri.', tulkinta: 'Klikkaus luo kausitavoite-ehdotuksen suoraan tästä havainnosta ja avaa Kehitys-välilehden, jossa tarkistat ja hyväksyt. Tavoite säilyttää alkuperän — lähdesiru näyttää esim. "◎ Lähde: pelihavainto · pvm".', vinkki: 'Silta yhdistää havainnon ja kehityssuunnitelman yhdellä klikkauksella — ei tarvitse aloittaa tavoitetta tyhjästä.' },
-  idp_roolit: { otsikko: 'IDP · roolit (valmentaja / VP)', mita: 'Kuka omistaa kehityssuunnitelman (IDP)?', tulkinta: '<strong>Valmentaja</strong> omistaa oman joukkueensa pelaajien IDP:t — luo, muokkaa ja aktivoi tavoitteet itse, ja käy kehityskeskustelut.<br><strong>VP</strong> ei ole portinvartija vaan <strong>vahvistaja</strong>: näkee tavoitteet, kalibroi ja kommentoi näkemyksiä. Valmentajan aktivointi ei odota VP:n hyväksyntää.', vinkki: 'Strateginen kausitavoite (IDP-makro) sovitaan yhdessä; operatiivinen jaksofokus on valmentajan päivittäistä työtä.' },
+  idp_silta: { otsikko: 'IDP-silta · ＋IDP-tavoite', mita: 'Kun arvioitu arvo on ≤ 2 (havaittu tai pelihavainto), rivin viereen ilmestyy oranssi ＋ IDP-tavoite -pilleri.', tulkinta: 'Klikkaus luo ehdotuksen kauden tavoitteeksi suoraan tästä havainnosta ja avaa Kehitys-välilehden, jossa tarkistat ja hyväksyt. Tavoite säilyttää alkuperän — lähdesiru näyttää esim. "◎ Lähde: pelihavainto · pvm".', vinkki: 'Silta yhdistää havainnon ja kehityssuunnitelman yhdellä klikkauksella — ei tarvitse aloittaa tavoitetta tyhjästä.' },
+  idp_roolit: { otsikko: 'IDP · roolit (valmentaja / VP)', mita: 'Kuka omistaa kehityssuunnitelman (IDP)?', tulkinta: '<strong>Valmentaja</strong> omistaa oman joukkueensa pelaajien IDP:t — luo, muokkaa ja aktivoi tavoitteet itse, ja käy kehityskeskustelut.<br><strong>VP</strong> ei ole portinvartija vaan <strong>vahvistaja</strong>: näkee tavoitteet, kalibroi ja kommentoi näkemyksiä. Valmentajan aktivointi ei odota VP:n hyväksyntää.', vinkki: 'Strateginen kauden tavoite (IDP-makro) sovitaan yhdessä; operatiivinen jaksofokus on valmentajan päivittäistä työtä.' },
   phv: { otsikko: 'PHV · Biologinen kypsyys', mita: 'Kasvupyrähdyksen vaihe (Mirwald 2002) — kuinka kaukana pelaaja on pituuskasvun huipusta. Ohjaa harjoittelun kuormitusta, EI kalenteri-ikä.', tulkinta: 'PRE ennen · LAH lähestyy · <strong style="color:var(--amber)">PH kasvupyrähdyksessä — varotila</strong> · POST jälkeen · AN jälki-PHV.<br>PH-tilassa: voimaharjoittelu max 80 % 1RM, hyppyvolyymi −20 %, juoksuvolyymi seurattava (kohonnut loukkaantumisriski).' },
   // ── IDP-flow -vihjeet (tap-behind) — "näin kortti täydentyy". Yksi totuuslähde, linjassa ihmisohjeen kanssa
   //    (docs/design/idp-kortti/IDP-kortti.dc.html). §7.22: eivät paljasta pelaajalle piilotettua (kuorma/ACWR/tasoluvut) — VP/valmentaja-näkymä.
-  idp_kausitavoite: { otsikko: 'Kausitavoite · pitkä horisontti', mita: 'Kauden ankkuri (6–12 kk) — yksi selkeä suunta koko kaudelle, mihin pelaaja tähtää. Jaksofokukset (mesot) rakentavat tätä kohti pala kerrallaan.', tulkinta: 'Aseta yksi strateginen kausitavoite. Moottori ehdottaa datasta (heikoin/vahvin) tai valitse käsin. §37: kausitavoite (makro) sovitaan yhdessä — VP vahvistaa, valmentaja ehdottaa.', vinkki: 'Pidä kausitavoite laajana ja pysyvänä — jaksofokus muuttuu 4–8 vk välein, kausitavoite ei.' },
+  idp_kausitavoite: { otsikko: 'Kauden tavoite · pitkä horisontti', mita: 'Kauden ankkuri (6–12 kk) — yksi selkeä suunta koko kaudelle, mihin pelaaja tähtää. Jaksofokukset (mesot) rakentavat tätä kohti pala kerrallaan.', tulkinta: 'Aseta yksi strateginen kauden tavoite. Moottori ehdottaa datasta (heikoin/vahvin) tai valitse käsin. §37: kauden tavoite (makro) sovitaan yhdessä — VP vahvistaa, valmentaja ehdottaa.', vinkki: 'Pidä kauden tavoite laajana ja pysyvänä — jaksofokus muuttuu 4–8 vk välein, kauden tavoite ei.' },
   idp_jaksofokus: { otsikko: 'Jaksofokus · aktiivinen meso', mita: 'Tämän jakson (4–8 vk) yksi painopiste — mitä kentällä juuri nyt harjoitellaan. Kolme valintaa: <b>1 · Domeeni</b> (kumpaa jakso kehittää: fyysinen / teknis-taktinen / psyykkinen / sosiaalinen), <b>2 · Painopiste</b> (moottorin logiikka: korjaa heikkous / jalosta vahvuus / pelipaikka), <b>3 · Teema</b> + kesto.', tulkinta: 'Ikävaihe ohjaa <strong>ehdotusta</strong>, ei estä valintaa — teema on aina yliajettavissa. Yksi jaksofokus kerrallaan; domeenin vaihto arkistoi vanhan jakson.', vinkki: 'Vähemmän on enemmän — fokus näkyy viikossa mutta ei täytä sitä (PDP: less is more).' },
   idp_moottori: { otsikko: 'Moottori · valitse polku', mita: 'Moottori ehdottaa jaksofokusta pelaajan datasta: 🎯 korjaa heikkous (heikoin alue) tai 💎 jalosta supervoima (vahvin alue).', tulkinta: 'Moottori <strong>ei pakota</strong> — hyväksy ehdotus tai valitse itse. 70/30: heikkoustyö integroidaan vahvuuden pohjalle, ei irrallisena. §28: heikko fyysinen ei tule ehdolle ennen PHV:tä.', vinkki: 'Ainakin yksi vahvuustavoite jaksoon — ei pelkkää heikkouksien paikkaamista.' },
   idp_tavoitejakauma: { otsikko: 'Tavoitejakauma · tasapaino', mita: 'Jakson tavoitteet jaettuna lähteen mukaan: heikkous · vahvuus · pelipaikka. Kukin sessio kertyy jaksofokuksen tavoitteelle (A/B/C) ja koostuu IDP-katselmukseen.', tulkinta: 'Tasapaino kunnossa, kun jaksossa on <strong>vähintään yksi vahvuustavoite</strong> — ei pelkkää heikkouksien paikkaamista.', vinkki: '~40 % palvelee jaksofokusta — riittävä toistomäärä ilman että muu kehitys pysähtyy.' },
@@ -13042,7 +13042,7 @@ window._avaaPerPelaajaPikakatsaus = function(idx, joukkueNimi) {
     + '<span onclick="var b=document.getElementById(\'_jspKehDiag\');var o=b.style.display===\'none\';b.style.display=o?\'block\':\'none\';this.textContent=(o?\'▾\':\'▸\')+\' ' + vpT('Diagnostiikka (PHV · testipäivät)') + '\'" style="font-size:12px;color:var(--teal);cursor:pointer;font-weight:600">▸ ' + vpT('Diagnostiikka (PHV · testipäivät)') + '</span>'
     + '<div id="_jspKehDiag" style="display:none;margin-top:12px">' + f4 + '</div></div>';
   // 6) R4-korjaus (kartta .rolenote + .pelifoot) — hienovaraiset alaviitelohkot työpöydän alalaitaan (mono/ink3).
-  _kehExtra += '<div style="margin-top:20px;font-family:var(--font-mono),\'DM Mono\',monospace;font-size:9.5px;color:var(--ink3);line-height:1.6"><b style="color:var(--ink2);font-weight:500">' + vpT('Roolit §37:') + '</b> ' + vpT('valmentaja omistaa operatiivisen jaksofokuksen (omat pelaajat) · talenttivalmentaja talentit · VP asettaa kausitavoitteen + oversight/override.') + '</div>';
+  _kehExtra += '<div style="margin-top:20px;font-family:var(--font-mono),\'DM Mono\',monospace;font-size:9.5px;color:var(--ink3);line-height:1.6"><b style="color:var(--ink2);font-weight:500">' + vpT('Roolit §37:') + '</b> ' + vpT('valmentaja omistaa operatiivisen jaksofokuksen (omat pelaajat) · talenttivalmentaja talentit · VP asettaa kauden tavoitteen + oversight/override.') + '</div>';
   _kehExtra += '<div style="margin-top:14px;font-size:11.5px;color:var(--ink3);line-height:1.55"><b style="color:var(--ink2);font-weight:500">' + vpT('Peli edellä, muut mukana.') + '</b> ' + vpT('Jaksofokus voi olla fyysinen, teknis-taktinen tai psyykkinen — peli on painotus. Aloitus lukee tämän ja linkkaa tänne; Arvioinnin silta syöttää ehdotuksen; Viikko vie jakson kentälle.') + '</div>';
   let hR = '';
   hR += '<div style="display:flex;gap:6px;padding-bottom:4px;border-bottom:.5px solid var(--border);flex-wrap:wrap">';

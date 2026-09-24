@@ -19,7 +19,7 @@
 <script src="lib/tm_aktiivisuus.js?v=1"></script>   <!-- Toimihenkilon kirjautumisaikaleima — jaettu kirjoituspiste, ks. lib-header -->
 <script src="lib/tm_lang.js?v=14"></script>   <!-- i18n V0 — fi/sv/en käännöstaulukko + t() + kieli-init (putkitus) -->
 <script src="lib/tm_i18n_common.js?v=9"></script>   <!-- i18n Vaihe 0 — JAETTU henkilöstö-i18n + lukittu glossaari (ENNEN sivukarttaa) -->
-<script src="lib/tm_master_i18n.js?v=26"></script>   <!-- i18n Vaihe 5 Raita B — Master sv (sivukartta); masterT/masterLokalisoi delegoivat commoniin -->
+<script src="lib/tm_master_i18n.js?v=27"></script>   <!-- i18n Vaihe 5 Raita B — Master sv (sivukartta); masterT/masterLokalisoi delegoivat commoniin -->
 <script src="lib/tm_eerikkila_normit.js?v=45"></script>   <!-- v43: D2-kortti d2_taso-ensin (renderKehityskorttiHTML, PR #264 · §30/#262) -->
 <script src="lib/tm_harjoitusarviointi.js?v=5"></script>
 <script src="lib/tm_kalenteri.js?v=1"></script>
@@ -5963,7 +5963,7 @@ function _ttKorttiHTML(p) {
     if (ehdInItems) {
       h += '<div style="margin-top:8px;background:rgba(40,176,144,.09);border:.5px solid rgba(40,176,144,.3);border-radius:10px;padding:9px 12px">'
         + '<div style="font-size:12px;color:var(--teal);font-weight:600">' + masterT('🎯 Tavoitteesta ehdotettu: ') + esc(ehdNimi) + '</div>'
-        + '<div style="font-size:11px;color:var(--ink3);margin-top:2px">' + masterT('Kausitavoite: ') + _tavNimi + (ehd.dim ? ' · ' + ehd.dim : '') + '</div>'
+        + '<div style="font-size:11px;color:var(--ink3);margin-top:2px">' + masterT('Kauden tavoite: ') + _tavNimi + (ehd.dim ? ' · ' + ehd.dim : '') + '</div>'
         + (ehd.havainnointi_vihje ? '<div style="font-size:11px;color:var(--ink2);margin-top:4px">' + masterT('👁 Jos tekniikka on ok mutta pelaaja ei käytä sitä — tarkista havainnointi (Y-H0).') + '</div>' : '')
         + (ehd.alt_konsepti_nimi ? '<div style="font-size:11px;color:var(--ink3);margin-top:2px">' + masterT('tai: ') + esc(ehd.alt_konsepti_nimi) + '</div>' : '') + '</div>';
     } else {
@@ -6840,7 +6840,7 @@ function _mIdpValitavoitteetHTML(t, pid, editable) {
   const vt = Array.isArray(t.valitavoitteet) ? t.valitavoitteet : [];
   let h = '<div class="jsp-kt-box" style="margin-top:10px"><div class="jsp-kt-bt">' + masterT('Välitavoitteet · polku (valinnainen)') + '</div>';
   if (!vt.length) {
-    h += '<div style="font-size:11px;color:var(--ink3);margin:2px 0 4px">' + masterT('Tyhjä — kausitavoite toimii sellaisenaan. Lisää polku (esim. Haltuunotto → Tempokuljetus) jos haluat pilkkoa tavoitteen jaksoihin.') + '</div>';
+    h += '<div style="font-size:11px;color:var(--ink3);margin:2px 0 4px">' + masterT('Tyhjä — kauden tavoite toimii sellaisenaan. Lisää polku (esim. Haltuunotto → Tempokuljetus) jos haluat pilkkoa tavoitteen jaksoihin.') + '</div>';
   } else {
     vt.forEach(function (v, i) {
       const akt = v.tila === 'aktiivinen', saa = v.tila === 'saavutettu';
@@ -6901,14 +6901,14 @@ function _mIdpKorttiHTML(p, editable) {
   const muokkaus = editable && p._mIdpMuokkaus;
   const fmt = function (v, yks) { return (v == null) ? '—' : ((typeof _fmtTestiArvo === 'function' ? _fmtTestiArvo(v, yks) : v) + (yks && yks !== 'taso' ? ' ' + yks : '')); };
   // Brändijako: IDP-kausitavoite = TalentMaster Analytics -kehityskerros (Palloliiton kortin päällä). Hillitty tunniste.
-  let h = '<div class="jsp-kt"><div class="jsp-kt-hd" style="display:flex;justify-content:space-between;align-items:baseline;gap:8px"><span class="jsp-kt-t">' + masterT('Kausitavoite') + ' <span style="text-transform:none;letter-spacing:0;color:var(--ink3);font-weight:400">' + masterT('· IDP-ydin') + '</span></span>'
+  let h = '<div class="jsp-kt"><div class="jsp-kt-hd" style="display:flex;justify-content:space-between;align-items:baseline;gap:8px"><span class="jsp-kt-t">' + masterT('Kauden tavoite') + ' <span style="text-transform:none;letter-spacing:0;color:var(--ink3);font-weight:400">' + masterT('· IDP-ydin') + '</span></span>'
     + '<span style="font-size:9px;letter-spacing:.04em;color:var(--teal);white-space:nowrap" title="TalentMaster Analytics — älykerros Palloliiton arviointikortin päällä">' + masterT('◆ TalentMaster Analytics') + '</span></div>';
   if (!editable) h += '<div class="jsp-kt-ro">' + masterT('🔒 Vain luku — toisen joukkueen pelaaja. Kehityssuunnitelman omistaa pelaajan oma valmentaja; sinä näet sen.') + '</div>';
   if (!t && !p.idp_tila) {
     h += editable
-      ? '<div class="jsp-kt-empty">' + masterT('Ei kausitavoitetta. Johdetaan heikoimmasta ominaisuudesta (arviointi + §28-kypsyysvahti).')
+      ? '<div class="jsp-kt-empty">' + masterT('Ei kauden tavoitetta. Johdetaan heikoimmasta ominaisuudesta (arviointi + §28-kypsyysvahti).')
         + '<div style="margin-top:10px"><button class="jsp-kt-btn primary" onclick="event.stopPropagation();_mIdpEhdota(\'' + pid + '\')">' + masterT('↻ Ehdota tavoite datasta') + '</button></div></div>'
-      : '<div class="jsp-kt-empty">' + masterT('Ei kausitavoitetta vielä.') + '</div>';
+      : '<div class="jsp-kt-empty">' + masterT('Ei kauden tavoitetta vielä.') + '</div>';
     return h + '</div>';
   }
   if (!t && p.idp_tila) {
