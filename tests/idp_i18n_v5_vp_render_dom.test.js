@@ -722,12 +722,47 @@ describe('VP_v25 resolvi-portti — jokaisella reititetyllä avaimella on sv-riv
     return sb;
   };
 
-  it('0 vpT-avainta ilman sv-riviä (common tai VP-sivukartta)', () => {
+  /* SANKTIOINTIA ODOTTAVAT RIVIT — merge-esto, ei ohitus (sama mekanismi kuin #627).
+     Nämä ovat 'Nyt harjoitellaan' -rivin kahden kaistan uudet tekstit, joiden sv on Gemini-erässä
+     GEMINI_ERA_IDP_KAKSI_KAISTAA_SV.json ('sv'-kentät vielä tyhjiä). Omaa ruotsia EI kirjoiteta.
+     Portti pysyy tiukkana: (a) jos jollekin näistä ilmestyy käännös, alempi testi punertaa ja lista
+     on poistettava, ja (b) mikä tahansa MUU puuttuva avain punertaa normaalisti. */
+  const SV_ODOTTAA_SANKTIOINTIA = [
+    'Ohjelmassa nyt:',
+    'kehityksessä',
+    'mitataan · aina näkyvissä',
+    'Etenee testeistä, ei pelihavainnosta.',
+    'seurataan mittauksin',
+    'ei mittausta',
+    '1. mittaus',
+    'Kasvupyrähdys kesken — verrataan omaan kehityskaistaan, ei ikäluokkaan.',
+    'Kehityssuunta näkyy toisesta mittauksesta alkaen.',
+    'Pelissä näkyvä',
+    'Mitä pelaaja tekee kentällä — havaitaan pelissä.',
+    'kärki',
+    'Ei teknis-taktista kärkeä tässä jaksossa.',
+    'Tukevat taidot',
+    'Aiempi fyysinen tavoite näkyy nyt mitatulla kaistalla.',
+    '👁 Pelaaja näkee taidot ja niiden osat. Mittausluvut jäävät valmentajalle.',
+  ];
+
+  it('0 vpT-avainta ilman sv-riviä (paitsi nimetyt sanktiointia odottavat)', () => {
     const sb = kartat();
     const cm = (sb.TM_I18N_COMMON && sb.TM_I18N_COMMON.sv) || {};
     const vp = (sb.TM_VP_I18N && sb.TM_VP_I18N.sv) || {};
     const puuttuu = [...kerääAvaimet()].filter((k) => typeof cm[k] !== 'string' && typeof vp[k] !== 'string');
-    expect(puuttuu).toEqual([]);
+    expect(puuttuu.filter((k) => SV_ODOTTAA_SANKTIOINTIA.indexOf(k) < 0)).toEqual([]);
+  });
+
+  it('odotuslista on elävä: jokainen rivi on yhä käytössä JA yhä ilman sv:tä', () => {
+    const sb = kartat();
+    const cm = (sb.TM_I18N_COMMON && sb.TM_I18N_COMMON.sv) || {};
+    const vp = (sb.TM_VP_I18N && sb.TM_VP_I18N.sv) || {};
+    const avaimet = kerääAvaimet();
+    expect(SV_ODOTTAA_SANKTIOINTIA.filter((k) => !avaimet.has(k)),
+      'odotuslistalla on avain jota ei enää käytetä → poista rivi').toEqual([]);
+    expect(SV_ODOTTAA_SANKTIOINTIA.filter((k) => typeof cm[k] === 'string' || typeof vp[k] === 'string'),
+      'sv saapui → poista rivi odotuslistalta (tai sv on keksitty)').toEqual([]);
   });
   it('ei-vacuous: avaimia on runsaasti eikä keräys ole tyhjä', () => {
     expect(kerääAvaimet().size).toBeGreaterThan(1000);
