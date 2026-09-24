@@ -26,7 +26,7 @@ import { createRequire } from 'module';
 const juuri = join(dirname(fileURLToPath(import.meta.url)), '..');
 const vaadi = createRequire(import.meta.url);
 const IDP = vaadi('../lib/tm_idp.js');
-const { idpTavoitteetYhdista, idpVoimassaTavoite, idpValitseKausidokista, idpTallennusVuosi, idpJaaVoimassaJaEhdotus } = IDP;
+const { idpTavoitteetYhdista, idpVoimassaTavoite, idpValitseKausidokista, idpTallennusVuosi, idpJaaVoimassaJaEhdotus, idpValitseKahdestaVuodesta } = IDP;
 
 const VP = readFileSync(join(juuri, 'TalentMaster_VP_v25.html'), 'utf8');
 const MASTER = readFileSync(join(juuri, 'TalentMaster_Master_v16.html'), 'utf8');
@@ -201,8 +201,10 @@ describe('(7) Vuodenvaihde', () => {
     expect(idpTallennusVuosi({}, A(), new Date('2027-01-15'))).toBe('2027');
   });
 
-  it.each([['VP', VP], ['Master', MASTER], ['Pelaaja', PELAAJA]])('%s: lataus lukee edellisen vuoden jos voimassa olevaa ei ole', (_n, src) => {
-    expect(src).toContain('idpVoimassaTavoite');
+  it.each([['VP', VP], ['Master', MASTER], ['Pelaaja', PELAAJA]])('%s: lataus lukee edellisen vuoden jos VOIMASSA OLEVAA ei ole', (_n, src) => {
+    /* Ehto oli idpVoimassaTavoite, joka laskee 'ehdotettu'-tilan mukaan → tammikuussa kuluvan vuoden
+       pelkkä ehdotus olisi estänyt edellisen vuoden aktiivisen tavoitteen lukemisen. */
+    expect(src).toContain('idpJaaVoimassaJaEhdotus(arr).tavoite');
     expect(src).toMatch(/Number\(vuosi\) - 1/);
   });
 });
@@ -322,7 +324,7 @@ describe('(10) K3 · lataajat käyttävät jaettua helperiä — KÄYTTÄYTYMIST
     const ymp = {
       db: stubDb(dokit, laskuri), _seuraId: 's1', _isDemoMode: false,
       idpKausivuosi: () => '2027',
-      idpVoimassaTavoite, idpValitseKausidokista, idpJaaVoimassaJaEhdotus,
+      idpVoimassaTavoite, idpValitseKausidokista, idpJaaVoimassaJaEhdotus, idpValitseKahdestaVuodesta, idpJaaVoimassaJaEhdotus, idpValitseKahdestaVuodesta,
       window: { _vpArvPelaaja: null },
       _vpKausitavoiteReRender: () => {}, _vpAloitusReRender: () => {},
     };
@@ -339,7 +341,7 @@ describe('(10) K3 · lataajat käyttävät jaettua helperiä — KÄYTTÄYTYMIST
     const ymp = {
       _db: stubDb(dokit, laskuri), _seuraId: 's1', _demo: false,
       idpKausivuosi: () => '2027',
-      idpVoimassaTavoite, idpValitseKausidokista,
+      idpVoimassaTavoite, idpValitseKausidokista, idpJaaVoimassaJaEhdotus, idpValitseKahdestaVuodesta,
       window: { _mIdpPelaaja: null },
       _mIdpReRender: () => {},
     };
@@ -414,7 +416,7 @@ describe('(10) K3 · lataajat käyttävät jaettua helperiä — KÄYTTÄYTYMIST
       _pelaaja: { id: 'p1', seuraId: 's1' },
       window: win,
       idpKausivuosi: () => '2027',
-      idpVoimassaTavoite, idpValitseKausidokista, idpOnVoimassa: IDP.idpOnVoimassa,
+      idpVoimassaTavoite, idpValitseKausidokista, idpJaaVoimassaJaEhdotus, idpValitseKahdestaVuodesta, idpOnVoimassa: IDP.idpOnVoimassa,
       _p7Tavoite: null, _tab: 'muu', _sc: 'main', draw: () => {},
     };
     const nimet = Object.keys(ymp);
@@ -446,8 +448,60 @@ describe('(10) K3 · lataajat käyttävät jaettua helperiä — KÄYTTÄYTYMIST
     expect(tav.kuvaus, 'lapsi näkisi hyväksymättömän ehdotuksen').toBe('A');
   });
 
-  it.each([['VP', VP], ['Master', MASTER], ['Pelaaja', PELAAJA]])('%s kutsuu idpValitseKausidokista:a', (_n, src) => {
-    expect(src).toContain('idpValitseKausidokista(');
+  /* PR #619 — TAMMIKUU: valmentaja ehdottaa uuden kauden tavoitetta, jolloin VOIMASSA OLEVA tavoite ja
+     ODOTTAVA EHDOTUS ovat ERI vuosidokeissa. Aiemmin ehto "luetaanko edellinen vuosi" oli
+     idpVoimassaTavoite, joka laskee 'ehdotettu'-tilan mukaan → 2026-dokkia ei luettu lainkaan: VP:ltä
+     katosi A, lapsi näki hyväksymättömän C:n, eikä hyväksyntä merkinnyt A:ta vaihdetuksi. */
+  const EHD_C = () => ({ luotu: 'c', status: 'ehdotettu', kuvaus: 'C', arviot: [] });
+
+  it('TAMMIKUU · VP: 2027 [C ehdotettu], 2026 [A aktiivinen] → tavoite A, luonnos C (vaihto)', async () => {
+    const laskuri = [];
+    const p = await ajaVP({ 2027: { tavoitteet: [EHD_C()] }, 2026: { tavoitteet: [AA()] } }, laskuri);
+    expect(laskuri, '2026-dokkia ei luettu — voimassa oleva tavoite katosi').toEqual(['2027', '2026']);
+    expect(p._idpTavoite.kuvaus, 'hyväksymätön ehdotus nousi voimassa olevaksi').toBe('A');
+    expect(p._idpVuosi).toBe('2026');
+    expect(p._idpVuosiLuotu).toBe('a');
+    expect(p._idpLuonnos.kuvaus).toBe('C');
+    expect(p._luonnosTyyppi, 'ilman vaihto-tyyppiä hyväksyntä ohittaisi vahvistusikkunan').toBe('vaihto');
+    expect(p._idpLuonnosVuosi).toBe('2027');
+    expect(p._idpLuonnosLuotu).toBe('c');
+  });
+
+  it('TAMMIKUU · VP: 2027 tyhjä, 2026 [A aktiivinen, B ehdotettu] → molemmat 2026-dokista', async () => {
+    // Luonnoksen lähdevuosi EI ole kuluva vuosi → ankkurin on seurattava dokkia josta ehdotus luettiin.
+    const laskuri = [];
+    const p = await ajaVP({ 2026: { tavoitteet: [AA(), { luotu: 'b', status: 'ehdotettu', kuvaus: 'B', arviot: [] }] } }, laskuri);
+    expect(laskuri).toEqual(['2027', '2026']);
+    expect(p._idpTavoite.kuvaus).toBe('A');
+    expect(p._idpVuosi).toBe('2026');
+    expect(p._idpLuonnos.kuvaus).toBe('B');
+    expect(p._idpLuonnosVuosi, 'luonnos ankkuroitiin kuluvaan vuoteen — hyväksyntä kirjoittaisi väärään dokkiin').toBe('2026');
+    expect(p._idpLuonnosLuotu).toBe('b');
+  });
+
+  it('TAMMIKUU · Pelaaja: näyttää voimassa olevan A:n, ei valmentajan ehdotusta', async () => {
+    const laskuri = [];
+    const tav = await ajaPelaaja({ 2027: { tavoitteet: [EHD_C()] }, 2026: { tavoitteet: [AA()] } }, laskuri);
+    expect(laskuri).toEqual(['2027', '2026']);
+    expect(tav.kuvaus, 'lapsi näki valmentajan hyväksymättömän ehdotuksen').toBe('A');
+  });
+
+  it('TAMMIKUU · Master: näyttää ehdotuksen C, mutta ankkurit A/2026 ja C/2027', async () => {
+    const laskuri = [];
+    const p = await ajaMaster({ 2027: { tavoitteet: [EHD_C()] }, 2026: { tavoitteet: [AA()] } }, laskuri);
+    expect(laskuri).toEqual(['2027', '2026']);
+    expect(p._mIdpTavoite.kuvaus, 'valmentaja ei näe omaa ehdotustaan').toBe('C');
+    expect(p._idpVuosi, 'tavoite-ankkuri osoitti ehdotukseen → vanhaa ei merkittäisi vaihdetuksi').toBe('2026');
+    expect(p._idpVuosiLuotu).toBe('a');
+    expect(p._idpLuonnosVuosi).toBe('2027');
+    expect(p._idpLuonnosLuotu).toBe('c');
+  });
+
+  it.each([['VP', VP], ['Master', MASTER], ['Pelaaja', PELAAJA]])('%s kutsuu JAETTUA vuosivalitsinta (ei inline-logiikkaa)', (_n, src) => {
+    /* PR #619: VP ja Master kayttavat idpValitseKahdestaVuodesta:a (joka kutsuu sisaisesti
+       idpValitseKausidokista:a), Pelaaja valitsinta suoraan. Invariantti sama: vuosivalinta ei ole
+       inline-toistettuna kolmessa apissa. Kayttaytyminen mitataan taman ryhman stub-db-ajoissa. */
+    expect(src.indexOf('idpValitseKahdestaVuodesta(') > -1 || src.indexOf('idpValitseKausidokista(') > -1).toBe(true);
   });
 });
 
