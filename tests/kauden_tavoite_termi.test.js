@@ -36,7 +36,6 @@ const ALLOWLIST = ['⚙ Aseta kausitavoitteet', 'Kausitavoitteet', '✓ Kausitav
 const OSIO1 = [
   ['VP', 'Kauden tavoite', 'Säsongens mål'],
   ['VP', '🎯 Suunta · kauden tavoite', '🎯 Riktning · säsongens mål'],
-  ['VP', 'Kauden tavoite:', 'Säsongens mål:'],
   ['VP', 'Kauden tavoite · pitkä horisontti', 'Säsongens mål · lång horisont'],
   ['MASTER', 'Kauden tavoite: ', 'Säsongens mål: '],
   ['MASTER', 'Kauden tavoite', 'Säsongens mål']
