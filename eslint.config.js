@@ -6,33 +6,13 @@ const globals = require('globals');
 const fs = require('fs');
 const path = require('path');
 
-// Kerää AJONAIKAISET globaalit (jotka selain ratkaisee mutta no-undef ei näe usean <script>-lohkon/tiedoston yli):
-//   (1) window.X = -määrittelyt · (2) SARAKKEEN 0 (top-level) function/async function -määrittelyt
-//   · (3) SARAKKEEN 0 let/const/var -määrittelyt.
-// → ei vääriä positiiveja window.X- eikä cross-<script>-block-patternista. TYYPIT SILTI KIINNI: väärin kirjoitettu
-// nimi (jota ei ole missään top-level-määrittelyssä) flagataan, samoin SISENNETYT paikalliset muuttujat skoopin
-// ulkopuolella (esim. 'sp is not defined' -luokka — paikallinen var on sisennetty → EI kerätä → jää kiinni).
-// Itsestään ylläpityvä — skannaa lähteet ajonaikaisesti.
-function keraaWindowGlobaalit() {
-  const g = {};
-  const dir = __dirname;
-  const tiedostot = [];
-  fs.readdirSync(dir).forEach((f) => { if (/\.(html|js)$/.test(f)) tiedostot.push(f); });
-  try { fs.readdirSync(path.join(dir, 'lib')).forEach((f) => { if (/\.js$/.test(f)) tiedostot.push('lib/' + f); }); } catch (e) { /* ohita */ }
-  const reWin = /window\.([A-Za-z_][A-Za-z0-9_]*)\s*=/g;                                  // window.X =
-  const reFn = /^(?:async\s+)?function\s+([A-Za-z_][A-Za-z0-9_]*)\s*\(/gm;                // top-level function NAME(
-  const reVar = /^(?:let|const|var)\s+([A-Za-z_][A-Za-z0-9_]*)/gm;                        // top-level let/const/var NAME
-  tiedostot.forEach((f) => {
-    try {
-      const src = fs.readFileSync(path.join(dir, f), 'utf8');
-      let m;
-      while ((m = reWin.exec(src))) g[m[1]] = 'readonly';
-      while ((m = reFn.exec(src))) g[m[1]] = 'readonly';
-      while ((m = reVar.exec(src))) g[m[1]] = 'readonly';
-    } catch (e) { /* ohita */ }
-  });
-  return g;
-}
+// Kerää AJONAIKAISET globaalit (jotka selain ratkaisee mutta no-undef ei näe usean <script>-lohkon/tiedoston yli).
+// Keräin on omassa moduulissaan (scripts/lint_globaalit.js) ja käyttää ESLintin omaa parseria (espree):
+// regex-versio poimi monideklaraattorista vain ensimmäisen nimen (`var A = 1, B = 2;` → B jäi puuttumaan)
+// ja punersi kelvollisesta koodista. Rajaus on sama kuin ennen — top-level-määrittelyt + window.X — joten
+// sisennetyt paikalliset muuttujat jäävät yhä kiinni ('sp is not defined' -defektiluokka).
+// Itsestään ylläpitävä: skannaa lähteet ajonaikaisesti. Yksikkötesti: tests/lint_globaalit_kerain.test.js.
+const { keraaGlobaalit } = require('./scripts/lint_globaalit.js');
 
 // Sovelluksen + kirjastojen jaetut globaalit (ladataan <script src>-tageilla → eivät näy yksittäisessä tiedostossa).
 const APP_GLOBALS = {
@@ -117,7 +97,7 @@ const APP_GLOBALS = {
 const COMMON = {
   ...globals.browser,
   ...APP_GLOBALS,
-  ...keraaWindowGlobaalit(),   // ajonaikaiset window.X-globaalit (poistaa window.X-patternin väärät positiivit)
+  ...keraaGlobaalit(__dirname),   // ajonaikaiset top-level- ja window.X-globaalit (poistaa väärät positiivit)
 };
 
 /** Juuren HTML:t joissa on top-level ES-moduuliskripti (import-lauseet). */
