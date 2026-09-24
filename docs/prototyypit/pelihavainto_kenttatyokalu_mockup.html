@@ -1,0 +1,1010 @@
+<!DOCTYPE html>
+<!-- REFERENSSI-MOCKUP (ei tuotantokoodia): kohdennetun pelihavainnon kenttätyökalu. Spec: docs/CODE_TASK_PELIANALYTIIKKA_2026-09.md §5.
+     Kuvitteellinen esimerkkidata. Avaa selaimessa sellaisenaan. -->
+<html lang="fi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Kohdennettu pelihavainto</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,400&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --carbon:#1C1C1A; --bone:#F2EFE6; --teal:#1A7A5E; --teal-d:#28B090; --slate:#585751;
+    --amber:#E0A040; --blue:#5A8DD0; --red:#D06A5A; --violet:#9A86C8;
+    --font-serif:'Cormorant Garamond',Georgia,serif; --font-sans:'DM Sans',system-ui,sans-serif; --font-mono:'DM Mono',ui-monospace,monospace;
+    --bg:#111110; --surface:#1E1E1C; --surface2:#26261F; --surface3:#141413;
+    --ink:#F2EFE6; --ink2:#C9C6BC; --ink3:#8B887F;
+    --border:rgba(242,239,230,.12); --border2:rgba(242,239,230,.07);
+    --accent:#28B090;
+    --teal-dim:rgba(40,176,144,.10); --teal-brd:rgba(40,176,144,.30);
+    --amber-dim:rgba(224,160,64,.12); --amber-brd:rgba(224,160,64,.32);
+    --blue-dim:rgba(90,141,208,.10); --blue-brd:rgba(90,141,208,.30);
+    --red-dim:rgba(208,106,90,.12); --red-brd:rgba(208,106,90,.32);
+    --violet-dim:rgba(154,134,200,.12); --violet-brd:rgba(154,134,200,.34);
+    --pitch:#1A2320; --pitch-line:rgba(242,239,230,.30);
+    color-scheme: dark;
+  }
+  @media (prefers-color-scheme: light){
+    :root:not([data-theme="dark"]){
+      --bg:#F2EFE6; --surface:#FBFAF6; --surface2:#EDEAE0; --surface3:#E4E0D3;
+      --ink:#1C1C1A; --ink2:#3E3C37; --ink3:#7A776E;
+      --border:rgba(28,28,26,.14); --border2:rgba(28,28,26,.08);
+      --accent:#1A7A5E;
+      --teal-dim:rgba(26,122,94,.10); --teal-brd:rgba(26,122,94,.30);
+      --amber-dim:rgba(224,160,64,.16); --amber-brd:rgba(224,160,64,.42);
+      --blue-dim:rgba(90,141,208,.12); --blue-brd:rgba(90,141,208,.35);
+      --red-dim:rgba(208,106,90,.14); --red-brd:rgba(208,106,90,.38);
+      --violet-dim:rgba(154,134,200,.14); --violet-brd:rgba(154,134,200,.40);
+      --pitch:#E3E8DF; --pitch-line:rgba(28,28,26,.35);
+      color-scheme: light;
+    }
+  }
+  :root[data-theme="light"]{
+    --bg:#F2EFE6; --surface:#FBFAF6; --surface2:#EDEAE0; --surface3:#E4E0D3;
+    --ink:#1C1C1A; --ink2:#3E3C37; --ink3:#7A776E;
+    --border:rgba(28,28,26,.14); --border2:rgba(28,28,26,.08);
+    --accent:#1A7A5E;
+    --teal-dim:rgba(26,122,94,.10); --teal-brd:rgba(26,122,94,.30);
+    --amber-dim:rgba(224,160,64,.16); --amber-brd:rgba(224,160,64,.42);
+    --blue-dim:rgba(90,141,208,.12); --blue-brd:rgba(90,141,208,.35);
+    --red-dim:rgba(208,106,90,.14); --red-brd:rgba(208,106,90,.38);
+    --violet-dim:rgba(154,134,200,.14); --violet-brd:rgba(154,134,200,.40);
+    --pitch:#E3E8DF; --pitch-line:rgba(28,28,26,.35);
+    color-scheme: light;
+  }
+  :root[data-theme="dark"]{
+    --bg:#111110; --surface:#1E1E1C; --surface2:#26261F; --surface3:#141413;
+    --ink:#F2EFE6; --ink2:#C9C6BC; --ink3:#8B887F;
+    --border:rgba(242,239,230,.12); --border2:rgba(242,239,230,.07);
+    --accent:#28B090;
+    --teal-dim:rgba(40,176,144,.10); --teal-brd:rgba(40,176,144,.30);
+    --amber-dim:rgba(224,160,64,.12); --amber-brd:rgba(224,160,64,.32);
+    --blue-dim:rgba(90,141,208,.10); --blue-brd:rgba(90,141,208,.30);
+    --red-dim:rgba(208,106,90,.12); --red-brd:rgba(208,106,90,.32);
+    --violet-dim:rgba(154,134,200,.12); --violet-brd:rgba(154,134,200,.34);
+    --pitch:#1A2320; --pitch-line:rgba(242,239,230,.30);
+    color-scheme: dark;
+  }
+  .device.outdoor{
+    --surface:#FFFFFF; --surface2:#EDEAE0; --surface3:#D9D5C8;
+    --ink:#111110; --ink2:#1C1C1A; --ink3:#4A4843;
+    --border:rgba(17,17,16,.35); --border2:rgba(17,17,16,.18);
+    --accent:#0F5E47;
+    --teal-dim:rgba(15,94,71,.14); --teal-brd:rgba(15,94,71,.6);
+    --amber:#9A5E00; --amber-dim:rgba(176,112,16,.16); --amber-brd:rgba(176,112,16,.7);
+    --blue:#285AAA; --blue-dim:rgba(40,90,170,.14); --blue-brd:rgba(40,90,170,.6);
+    --red:#AA3C2D; --red-dim:rgba(170,60,45,.14); --red-brd:rgba(170,60,45,.6);
+    --violet:#5E4A94; --violet-dim:rgba(94,74,148,.14); --violet-brd:rgba(94,74,148,.6);
+    --pitch:#F4F6F0; --pitch-line:rgba(17,17,16,.75);
+    color-scheme: light;
+  }
+
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font-sans);font-weight:300;line-height:1.55;-webkit-font-smoothing:antialiased}
+  body.locked{overflow:hidden}
+  button{font-family:inherit}
+  button:focus-visible, select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  .wrap{max-width:1240px;margin:0 auto;padding:44px 20px 64px}
+  .eyebrow{font-size:10px;font-weight:600;letter-spacing:.18em;text-transform:uppercase;color:var(--accent)}
+  h1{font-family:var(--font-serif);font-weight:300;font-size:clamp(30px,4.4vw,46px);line-height:1.08;text-wrap:balance;margin:10px 0 14px}
+  h1 em{font-style:italic;color:var(--accent)}
+  h2{font-family:var(--font-serif);font-weight:400;font-size:20px;margin:4px 0 0}
+  p.lede{color:var(--ink2);font-size:15.5px;max-width:660px;margin:0}
+  .themebtn{position:fixed;top:16px;right:16px;z-index:40;font-family:var(--font-mono);font-size:10.5px;padding:6px 11px;border:.5px solid var(--border);background:var(--surface);color:var(--ink2);cursor:pointer;border-radius:2px}
+  .hero-actions{display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin-top:18px}
+  .badge-example{display:inline-flex;align-items:center;gap:6px;font-family:var(--font-mono);font-size:10px;color:var(--amber);border:.5px solid var(--amber-brd);background:var(--amber-dim);padding:4px 9px;border-radius:2px}
+  .cta{font-size:13px;font-weight:500;padding:11px 16px;border-radius:3px;border:.5px solid var(--teal-brd);background:var(--teal-dim);color:var(--accent);cursor:pointer}
+
+  .setup{display:flex;flex-wrap:wrap;gap:18px 26px;align-items:flex-end;margin:26px 0 22px;padding:14px 16px;border:.5px solid var(--border);background:var(--surface);border-radius:3px}
+  .setup .grp{display:flex;flex-direction:column;gap:6px}
+  .setup .lbl{font-size:9.5px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--ink3)}
+  .seg{display:inline-flex;border:.5px solid var(--border);border-radius:3px;overflow:hidden}
+  .seg button{font-size:11.5px;padding:7px 11px;background:transparent;border:0;color:var(--ink2);cursor:pointer;border-right:.5px solid var(--border)}
+  .seg button:last-child{border-right:0}
+  .seg button[aria-pressed="true"]{background:var(--teal-dim);color:var(--accent);font-weight:500}
+  .setup .note{font-size:11.5px;color:var(--ink3);max-width:360px}
+
+  .cols{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:28px;align-items:start}
+  @media (max-width:1000px){ .cols{grid-template-columns:minmax(0,1fr)} }
+
+  /* ---- laite ---- */
+  .device{background:var(--surface3);border:.5px solid var(--border);border-radius:24px;padding:10px;color:var(--ink)}
+  .screen{background:var(--surface);border-radius:15px;overflow:hidden;border:.5px solid var(--border2);position:relative;display:flex;flex-direction:column}
+  .sbar{display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:.5px solid var(--border);min-width:0}
+  .sbar .who{display:flex;align-items:baseline;gap:6px;min-width:0;flex-shrink:0}
+  .sbar .name{font-family:var(--font-serif);font-size:16px;color:var(--ink);white-space:nowrap}
+  .sbar .num{font-family:var(--font-mono);font-size:10px;color:var(--ink3);white-space:nowrap}
+  .focus{font-size:10.5px;color:var(--accent);border:.5px solid var(--teal-brd);background:var(--teal-dim);padding:3px 8px;border-radius:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;flex:0 1 auto}
+  .sbar .sp{flex:1 1 0}
+  .clock{font-family:var(--font-mono);font-size:12px;color:var(--ink);display:flex;align-items:center;gap:6px;font-variant-numeric:tabular-nums;flex-shrink:0}
+  .clock .dot{width:6px;height:6px;border-radius:50%;background:var(--red)}
+  .iconbtn{font-size:11px;padding:6px 8px;border:.5px solid var(--border);background:transparent;color:var(--ink2);border-radius:3px;cursor:pointer;white-space:nowrap;flex-shrink:0}
+  .iconbtn[aria-pressed="true"]{color:var(--amber);border-color:var(--amber-brd);background:var(--amber-dim)}
+  .only-fs{display:none}
+
+  .field{display:grid;grid-template-columns:minmax(0,1fr) 74px;flex:1 1 auto;min-height:0}
+  .pitchbox{position:relative;padding:8px 6px 8px 10px;touch-action:none;user-select:none;-webkit-user-select:none;min-height:0;min-width:0}
+  .dir{position:absolute;top:12px;left:50%;transform:translateX(-50%);font-family:var(--font-mono);font-size:10px;color:var(--ink3);pointer-events:none;letter-spacing:.06em;z-index:2}
+  .hintbar{position:absolute;left:50%;bottom:14px;transform:translateX(-50%);z-index:3;font-size:11.5px;font-weight:500;color:var(--accent);background:var(--surface);border:.5px solid var(--teal-brd);padding:6px 12px;border-radius:3px;pointer-events:none;white-space:nowrap}
+  svg.pitch{width:100%;height:auto;display:block;cursor:crosshair}
+  .rail{display:flex;flex-direction:column;gap:8px;padding:10px 10px 10px 4px}
+  .railbtn{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;border:.5px solid var(--border);background:var(--surface2);color:var(--ink2);border-radius:4px;cursor:pointer;font-size:10.5px;font-weight:500;min-height:58px}
+  .railbtn .ic{font-size:18px;line-height:1}
+  .railbtn.pin{border-color:var(--amber-brd);background:var(--amber-dim);color:var(--amber)}
+  .railbtn:disabled{opacity:.35;cursor:default}
+  .sfoot{display:flex;justify-content:space-between;align-items:center;padding:7px 12px;border-top:.5px solid var(--border);font-family:var(--font-mono);font-size:10px;color:var(--ink3);gap:10px;flex-wrap:wrap}
+  .sfoot b{color:var(--ink);font-weight:500}
+  .rotate{display:none}
+
+  /* koko näyttö */
+  .device.fs{position:fixed;inset:0;z-index:100;border-radius:0;padding:0;border:0;display:flex;flex-direction:column;background:var(--surface)}
+  .device.fs .screen{flex:1 1 auto;border-radius:0;border:0;min-height:0;padding:env(safe-area-inset-top,0px) env(safe-area-inset-right,0px) env(safe-area-inset-bottom,0px) env(safe-area-inset-left,0px)}
+  .device.fs .field{grid-template-columns:minmax(0,1fr) 88px}
+  .device.fs .pitchbox{display:flex;align-items:center;justify-content:center;padding:6px}
+  .device.fs svg.pitch{width:100%;height:100%}
+  .device.fs .railbtn{font-size:12px}
+  .device.fs .railbtn .ic{font-size:22px}
+  .device.fs .only-fs{display:inline-flex}
+  .device.fs .sfoot{padding:5px 12px}
+  @media (orientation:portrait){
+    .device.fs .field{grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,1fr) auto}
+    .device.fs .rail{flex-direction:row;padding:0 10px 10px}
+    .device.fs .railbtn{min-height:64px}
+    .device.fs .rotate{display:block;text-align:center;font-size:12px;color:var(--ink3);padding:4px 12px 0}
+    .device.fs .react{right:10px}
+  }
+  @media (max-width:560px){
+    .field{grid-template-columns:minmax(0,1fr)}
+    .rail{flex-direction:row;padding:0 10px 10px}
+    .railbtn{min-height:48px}
+    .focus{display:none}
+  }
+
+  /* valitsin sormen kohdalla */
+  .chooser{position:absolute;z-index:10;pointer-events:none}
+  .chooser .ring{position:absolute;left:-8px;top:-8px;width:16px;height:16px;border-radius:50%;border:1.5px solid var(--accent);background:var(--teal-dim)}
+  .chooser .cd{position:absolute;left:-10px;top:12px;width:20px;text-align:center;font-family:var(--font-mono);font-size:10px;color:var(--ink3)}
+  .cbtn{position:absolute;pointer-events:auto;min-width:66px;height:50px;padding:0 6px;border-radius:6px;border:.5px solid var(--border);background:var(--surface);color:var(--ink);cursor:pointer;font-size:10.5px;font-weight:500;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;box-shadow:0 2px 10px rgba(0,0,0,.28);transform:translate(-50%,-50%);white-space:nowrap}
+  .cbtn .ic{font-size:16px;line-height:1}
+  .cbtn.teal{border-color:var(--teal-brd);color:var(--accent)}
+  .cbtn.blue{border-color:var(--blue-brd);color:var(--blue)}
+  .cbtn.amber{border-color:var(--amber-brd);color:var(--amber)}
+  .cbtn.red{border-color:var(--red-brd);color:var(--red)}
+  .cbtn.ink{border-color:var(--ink3);color:var(--ink)}
+  .cbtn.violet{border-color:var(--violet-brd);color:var(--violet)}
+  .cbtn .sub{font-size:8.5px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--ink3)}
+  .cbtn.x{min-width:32px;width:32px;height:32px;border-radius:50%;font-size:12px;color:var(--ink3)}
+  .device.fs .cbtn{min-width:76px;height:58px;font-size:11.5px}
+  .device.fs .cbtn.x{min-width:36px;width:36px;height:36px}
+
+  .react{position:absolute;left:10px;right:84px;bottom:10px;z-index:12;background:var(--surface);border:.5px solid var(--amber-brd);border-radius:6px;padding:10px 12px 12px;box-shadow:0 4px 18px rgba(0,0,0,.28)}
+  .react .q{font-size:12px;color:var(--ink);margin-bottom:8px;display:flex;justify-content:space-between;gap:8px}
+  .react .q span{font-family:var(--font-mono);font-size:10px;color:var(--ink3)}
+  .react .opts{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .react .opts button{padding:12px 6px;border-radius:4px;font-size:13px;font-weight:500;cursor:pointer}
+  .react .yes{border:.5px solid var(--teal-brd);background:var(--teal-dim);color:var(--accent)}
+  .react .no{border:.5px solid var(--red-brd);background:var(--red-dim);color:var(--red)}
+  .react .bar{height:2px;background:var(--border);margin-top:10px;overflow:hidden;border-radius:2px}
+  .react .bar i{display:block;height:100%;background:var(--amber);width:100%}
+  .toast{position:absolute;top:52px;left:16px;z-index:11;display:flex;align-items:center;gap:10px;background:var(--surface);border:.5px solid var(--border);border-radius:4px;padding:6px 8px 6px 11px;font-size:11px;color:var(--ink2);box-shadow:0 2px 10px rgba(0,0,0,.22)}
+  .toast button{font-size:11px;padding:4px 9px;border:.5px solid var(--border);background:var(--surface2);color:var(--ink);border-radius:3px;cursor:pointer}
+  @media (max-width:560px){ .react{right:10px} }
+
+  .howto{display:flex;flex-wrap:wrap;gap:8px 18px;margin-top:14px;font-size:12px;color:var(--ink2)}
+  .howto span{display:inline-flex;gap:7px;align-items:center}
+  .howto kbd{font-family:var(--font-mono);font-size:10px;border:.5px solid var(--border);background:var(--surface);padding:2px 6px;border-radius:2px;color:var(--ink)}
+
+  .flow{margin-top:20px;border:.5px solid var(--border);border-radius:3px;padding:14px 16px;background:var(--surface)}
+  .flow .steps{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-top:10px}
+  .flow .st{font-size:12px;color:var(--ink2)}
+  .flow .st b{display:block;color:var(--ink);font-weight:500;font-size:12.5px;margin-bottom:2px}
+
+  /* ---- läpikäynti ---- */
+  .review{background:var(--surface);border:.5px solid var(--border);border-radius:3px}
+  .rhead{padding:16px 18px 12px;border-bottom:.5px solid var(--border);display:flex;justify-content:space-between;align-items:flex-end;gap:10px;flex-wrap:wrap}
+  .rhead .meta{font-family:var(--font-mono);font-size:10px;color:var(--ink3)}
+  .entry{padding:12px 18px;border-bottom:.5px solid var(--border2)}
+  .entry:last-child{border-bottom:0}
+  .entry.linked{padding-top:4px}
+  .erow{display:grid;grid-template-columns:44px 1fr auto;gap:10px;align-items:start}
+  .et{font-family:var(--font-mono);font-size:11px;color:var(--ink3);padding-top:2px;font-variant-numeric:tabular-nums}
+  .type{display:inline-flex;align-items:center;gap:5px;font-size:9.5px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;padding:3px 7px;border-radius:2px;margin-bottom:4px}
+  .type.syotto,.type.kuljetus,.type.etenee{color:var(--accent);border:.5px solid var(--teal-brd);background:var(--teal-dim)}
+  .type.syotto-x{color:var(--amber);border:.5px solid var(--amber-brd);background:var(--amber-dim)}
+  .type.juoksu{color:var(--violet);border:.5px solid var(--violet-brd);background:var(--violet-dim)}
+  .type.riisto{color:var(--blue);border:.5px solid var(--blue-brd);background:var(--blue-dim)}
+  .type.laukaus{color:var(--accent);border:.5px solid var(--teal-brd);background:var(--teal-dim)}
+  .type.menetys{color:var(--amber);border:.5px solid var(--amber-brd);background:var(--amber-dim)}
+  .type.v1-ok{color:var(--accent);border:.5px solid var(--teal-brd);background:var(--teal-dim)}
+  .type.v1-x{color:var(--amber);border:.5px solid var(--amber-brd);background:var(--amber-dim)}
+  .type.v1-def{color:var(--blue);border:.5px solid var(--blue-brd);background:var(--blue-dim)}
+  .type.v1-beaten{color:var(--red);border:.5px solid var(--red-brd);background:var(--red-dim)}
+  .type.v1-neutral{color:var(--ink2);border:.5px solid var(--border);background:var(--surface2)}
+  .type.hetki{color:var(--ink3);border:.5px dashed var(--border);background:transparent}
+  .edesc{font-size:13px;color:var(--ink2)}
+  .ev{font-family:var(--font-serif);font-size:17px;color:var(--ink);text-align:right;white-space:nowrap;line-height:1.2}
+  .ev small{display:block;font-family:var(--font-mono);font-size:9.5px;color:var(--ink3);margin-top:2px}
+  .ev.hi{color:var(--red)}
+  .chips{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0 0 54px;align-items:center}
+  .chip{font-size:10.5px;padding:4px 8px;border-radius:2px;border:.5px solid var(--border);background:transparent;color:var(--ink2);cursor:pointer}
+  .chip[aria-pressed="true"].ok{color:var(--accent);border-color:var(--teal-brd);background:var(--teal-dim)}
+  .chip[aria-pressed="true"].bad{color:var(--red);border-color:var(--red-brd);background:var(--red-dim)}
+  .chip[aria-pressed="true"].rec{color:var(--amber);border-color:var(--amber-brd);background:var(--amber-dim)}
+  .chip[aria-pressed="true"].sel{color:var(--ink);border-color:var(--ink3);background:var(--surface2)}
+  .chip.static{cursor:default}
+  .chips .lab{font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink3);font-weight:600}
+  select.concept{font-family:var(--font-sans);font-size:10.5px;padding:4px 6px;border:.5px solid var(--border);background:var(--surface2);color:var(--ink2);border-radius:2px;max-width:170px}
+
+  .summary{margin-top:18px;background:var(--surface);border:.5px solid var(--border);border-left:2px solid var(--accent);border-radius:3px;padding:16px 18px}
+  .kpis{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 16px;margin:12px 0 14px}
+  .kpi .l{font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink3);font-weight:600}
+  .kpi .v{font-family:var(--font-serif);font-size:24px;color:var(--ink);line-height:1.15;font-variant-numeric:tabular-nums}
+  .kpi .s{font-family:var(--font-mono);font-size:9.5px;color:var(--ink3)}
+  .adar{display:flex;flex-direction:column;gap:6px}
+  .adar div{font-size:12.5px;color:var(--ink2);display:grid;grid-template-columns:150px 1fr;gap:10px}
+  .adar div b{font-weight:500;color:var(--ink)}
+  .adar .k{font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink3);font-weight:600;padding-top:2px}
+  @media (max-width:520px){ .adar div{grid-template-columns:1fr;gap:0} .chips{margin-left:0} }
+  .footnote{margin-top:34px;font-size:12px;color:var(--ink3);max-width:760px;border-top:.5px solid var(--border);padding-top:16px}
+  .footnote b{color:var(--ink2);font-weight:500}
+</style>
+</head>
+<body>
+
+<button class="themebtn" type="button" onclick="(function(){var r=document.documentElement;var cur=r.getAttribute('data-theme');var dark=cur?cur==='dark':!window.matchMedia('(prefers-color-scheme: light)').matches;r.setAttribute('data-theme',dark?'light':'dark');})()">vaihda teema</button>
+
+<div class="wrap">
+  <div class="eyebrow">TalentMaster™ · pelihavainto · versio 5</div>
+  <h1>Katse pysyy pelissä, <em>peukalo kentällä</em>.</h1>
+  <p class="lede">Yksi pelaaja, yksi puoliaika, 5–10 tilannetta. Syötöt ja kuljetukset erotellaan, kuljetukselle kirjataan lopputuote, 1v1-tilanteet seurataan molempiin suuntiin, ja riiston jälkeen nähdään, mitä pelaaja teki voitetulla pallolla.</p>
+  <div class="hero-actions">
+    <button type="button" class="cta" id="btnOpenFs">⛶ Avaa kenttätyökalu koko näytölle</button>
+    <span class="badge-example">◐ Kuvitteellinen esimerkki. Kenttä toimii, kokeile.</span>
+  </div>
+
+  <div class="setup" role="group" aria-label="Asetukset ennen puoliaikaa">
+    <div class="grp">
+      <span class="lbl">Ikätaso</span>
+      <div class="seg" id="segTier">
+        <button type="button" data-v="u812" aria-pressed="false">U8–12</button>
+        <button type="button" data-v="u1315" aria-pressed="true">U13–15</button>
+        <button type="button" data-v="u16" aria-pressed="false">U16+</button>
+      </div>
+    </div>
+    <div class="grp">
+      <span class="lbl">Puoliaika</span>
+      <div class="seg" id="segHalf">
+        <button type="button" data-v="1" aria-pressed="true">1.</button>
+        <button type="button" data-v="2" aria-pressed="false">2.</button>
+      </div>
+    </div>
+    <div class="grp">
+      <span class="lbl">Seison</span>
+      <div class="seg" id="segSide">
+        <button type="button" data-v="near" aria-pressed="true">Pääkatsomon puolella</button>
+        <button type="button" data-v="far" aria-pressed="false">Vastakkaisella laidalla</button>
+      </div>
+    </div>
+    <div class="note" id="tierNote"></div>
+  </div>
+
+  <div class="cols">
+    <div>
+      <div style="margin-bottom:12px">
+        <div class="eyebrow">Kentällä</div>
+        <h2>Vaakakenttä tarkkailijan silmin</h2>
+      </div>
+
+      <div class="device" id="device">
+        <div class="screen" id="screen">
+          <div class="sbar">
+            <div class="who"><span class="name">Aleksi Mäkinen</span><span class="num">#8 · laituri</span></div>
+            <span class="focus" title="Pelaajan nykyinen jaksofokus">📍 Jaksofokus: 1v1-hyökkäys laidalla</span>
+            <span class="sp"></span>
+            <button type="button" class="iconbtn" id="btnOutdoor" aria-pressed="false" title="Korkeakontrastinen tila aurinkoon">☀</button>
+            <span class="clock"><span class="dot"></span><span id="clock">36:40</span></span>
+            <button type="button" class="iconbtn" id="btnFs" title="Koko näyttö">⛶</button>
+          </div>
+          <div class="rotate">Käännä puhelin vaakaan, niin kenttä täyttää näytön.</div>
+          <div class="field">
+            <div class="pitchbox" id="pitchbox">
+              <div class="dir" id="dirLabel">HYÖKKÄYS →</div>
+              <svg class="pitch" id="pitch" viewBox="0 0 530 350" aria-label="Jalkapallokenttä vaakasuunnassa"></svg>
+            </div>
+            <div class="rail">
+              <button type="button" class="railbtn pin" id="btnPin"><span class="ic">📌</span>Hetki</button>
+              <button type="button" class="railbtn" id="btnUndo" disabled><span class="ic">↶</span>Kumoa</button>
+            </div>
+          </div>
+          <div class="sfoot">
+            <span id="lastSaved">Ei vielä merkintöjä tällä puoliajalla</span>
+            <span><b id="count">0</b> / ~10 tilannetta</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="howto" aria-label="Eleet">
+        <span><kbd>pyyhkäisy</kbd> syöttö tai kuljetus</span>
+        <span><kbd>napautus</kbd> laukaisu, riisto, menetys tai 1v1</span>
+        <span><kbd>pidä + pyyhkäise</kbd> juoksu ilman palloa</span>
+      </div>
+
+      <div class="flow">
+        <div class="eyebrow">Eteneminen pallon kanssa</div>
+        <div class="steps">
+          <div class="st"><b>Pyyhkäisy</b>Alku- ja loppupiste. Loppupisteeseen aukeaa valinta.</div>
+          <div class="st"><b>Syöttö ✓ tai ✗</b>Perillä oleva syöttö saa uhka-arvon. Epäonnistunut on menetys, ja siitä seuraa reaktiokysely.</div>
+          <div class="st"><b>Kuljetus → lopputuote</b>Syöttö, laukaisu, menetys, rikottiin tai pallo säilyi. Syötön voi pyyhkäistä heti perään, ja se liittyy samaan ketjuun.</div>
+          <div class="st"><b>Ei ehtinyt?</b>Valinta sulkeutuu neljässä sekunnissa ja jää täydennettäväksi tauolla.</div>
+        </div>
+      </div>
+
+      <div class="flow">
+        <div class="eyebrow">1v1-tilanteet</div>
+        <div class="steps">
+          <div class="st"><b>Napautus → 1v1</b>Yksi valinta kertoo sekä roolin että tuloksen: hyökkäyksessä ohitti tai ei, puolustuksessa voitti, viivytti tai ohitettiin.</div>
+          <div class="st"><b>Ohitus jatkuu ketjuna</b>Onnistuneen ohituksen jälkeen kysytään, mitä seurasi: syöttö, kuljetus, laukaisu, menetys tai pallo säilyi.</div>
+          <div class="st"><b>Hävitty 1v1</b>Epäonnistunut ohitus on menetys. Kun pelaaja ohitetaan puolustuksessa, kysytään palautuiko hän heti.</div>
+          <div class="st"><b>Seuran mittari</b>Ohitukset ja voitetut puolustus-1v1:t kertyvät omiksi luvuikseen, myös kuljetuksen sisällä tehdyt ohitukset.</div>
+        </div>
+      </div>
+
+      <div class="flow">
+        <div class="eyebrow">Riiston jälkeen · siirtymä</div>
+        <div class="steps">
+          <div class="st"><b>Riisto tai voitettu 1v1</b>Heti perään kysytään, mitä pelaaja teki voitetulla pallolla: syöttö, kuljetus, säilyi omilla, selvitys, menetys tai rikottiin.</div>
+          <div class="st"><b>Syöttö ja kuljetus ketjuun</b>Seuraava pyyhkäisy liittyy riistoon. Syötön perilläolo ja kuljetuksen lopputuote kertovat, säilyikö pallo.</div>
+          <div class="st"><b>Mitä lasketaan</b>Säilyikö pallo, lähtikö ensimmäinen teko eteenpäin, menetettiinkö heti ja paljonko uhkaa siirtymä loi.</div>
+          <div class="st"><b>Selvitys ei ole virhe</b>Oman boksin selvitys on usein oikea ratkaisu. Se näytetään erikseen eikä laske säilytysosuutta.</div>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div style="margin-bottom:12px">
+        <div class="eyebrow">Tauolla · noin 60 sekuntia</div>
+        <h2>Puoliajan läpikäynti</h2>
+      </div>
+      <div class="review">
+        <div class="rhead">
+          <span style="font-size:12.5px;color:var(--ink2)">Täydennä puuttuvat, liitä konsepti ja nauhoita ajatus.</span>
+          <span class="meta" id="rmeta"></span>
+        </div>
+        <div id="entries"></div>
+      </div>
+
+      <div class="summary">
+        <div class="eyebrow">Pelihavainnon tuki · ADAR</div>
+        <div class="kpis" id="kpis"></div>
+        <div class="adar" id="adar"></div>
+      </div>
+    </div>
+  </div>
+
+  <p class="footnote"><b>Näkyvyys.</b> Luvut näkyvät vain valmentajalle ja VP:lle pelihavainnon tukena. Ne eivät näy pelaajalle eivätkä huoltajalle, eikä niitä koskaan verrata toiseen pelaajaan (§7.22). Maaliodotusarvon kertoimet ovat tässä esimerkin kertoimia; oikeat kalibroidaan avoimesta laukaisudatasta. Uhka-arvo: Karun Singh 2018, open_xt_12x8_v1.</p>
+</div>
+
+<script>
+(function(){
+  // ---------- malli ----------
+  var XT = [
+    [0.00638303,0.00779616,0.00844854,0.00977659,0.01126267,0.01248344,0.01473596,0.0174506,0.02122129,0.02756312,0.03485072,0.0379259],
+    [0.00750072,0.00878589,0.00942382,0.0105949,0.01214719,0.0138454,0.01611813,0.01870347,0.02401521,0.02953272,0.04066992,0.04647721],
+    [0.0088799,0.00977745,0.01001304,0.01110462,0.01269174,0.01429128,0.01685596,0.01935132,0.0241224,0.02855202,0.05491138,0.06442595],
+    [0.00941056,0.01082722,0.01016549,0.01132376,0.01262646,0.01484598,0.01689528,0.0199707,0.02385149,0.03511326,0.10805102,0.25745362],
+    [0.00941056,0.01082722,0.01016549,0.01132376,0.01262646,0.01484598,0.01689528,0.0199707,0.02385149,0.03511326,0.10805102,0.25745362],
+    [0.0088799,0.00977745,0.01001304,0.01110462,0.01269174,0.01429128,0.01685596,0.01935132,0.0241224,0.02855202,0.05491138,0.06442595],
+    [0.00750072,0.00878589,0.00942382,0.0105949,0.01214719,0.0138454,0.01611813,0.01870347,0.02401521,0.02953272,0.04066992,0.04647721],
+    [0.00638303,0.00779616,0.00844854,0.00977659,0.01126267,0.01248344,0.01473596,0.0174506,0.02122129,0.02756312,0.03485072,0.0379259]
+  ];
+  function clamp(v,a,b){return Math.max(a,Math.min(b,v));}
+  function cell(p){ return { r: Math.min(7, Math.floor(clamp(p.wid,0,100)/100*8)), c: Math.min(11, Math.floor(clamp(p.len,0,100)/100*12)) }; }
+  function xt(p){ var z=cell(p); return XT[z.r][z.c]; }
+  function xtOpp(p){ return xt({len:100-p.len, wid:100-p.wid}); }
+  function pts(raw){ return Math.round(raw*1000)/10; }
+  function fmt(v, sign){ var s=Math.abs(v).toFixed(1).replace('.',','); if(!sign) return s; return v>0?'+'+s:(v<0?'−'+s:'±0,0'); }
+  function xg(p){
+    var X=(100-p.len)/100*105, C=Math.abs(p.wid-50)/100*68, d=Math.sqrt(X*X+C*C);
+    var a=Math.atan2(7.32*X, X*X+C*C-13.44); if(a<0) a+=Math.PI;
+    return 1/(1+Math.exp(-(0 + 1.6*a - 0.12*d)));
+  }
+  function riskLevel(p){ return p>=5?'korkea':(p>=2?'kohonnut':'matala'); }
+  function zoneName(p){
+    var t = p.len<33.3?'oma kolmannes':(p.len<66.7?'keskialue':'hyökkäyskolmannes');
+    var l = p.wid<25?'vasen laita':(p.wid<40?'vasen puoliväli':(p.wid<60?'keskusta':(p.wid<75?'oikea puoliväli':'oikea laita')));
+    return t+', '+l;
+  }
+  function tstr(s){ var m=Math.floor(s/60), ss=s%60; return (m<10?'0':'')+m+':'+(ss<10?'0':'')+ss; }
+  function isAtt1v1(e){ return e.type==='kaksinpeli' && e.rooli==='hyokkays'; }
+  function isDef1v1(e){ return e.type==='kaksinpeli' && e.rooli==='puolustus'; }
+  function isLoss(e){ return e.type==='menetys' || (e.type==='syotto' && e.perilla===false) || (isAtt1v1(e) && e.tulos==='ei'); }
+  function needsReaction(e){ return isLoss(e) || (isDef1v1(e) && e.tulos==='ohitettiin'); }
+  function lossPoint(e){ return e.type==='syotto'?e.to:e.at; }
+
+  // ---------- tila ----------
+  var S = {
+    tier:'u1315', half:1, side:'near', clock:2200, seq:100, lastId:null, await:null,
+    entries:[
+      {id:1,half:1,t:250, type:'kaksinpeli', rooli:'hyokkays', tulos:'ohitti', at:{len:52,wid:74}, jatko:'kuljetus', konsepti:'1v1-hyökkäys'},
+      {id:2,half:1,t:252, type:'kuljetus', from:{len:52,wid:74}, to:{len:70,wid:82}, lopputuote:'syotto', ketju:1},
+      {id:3,half:1,t:255, type:'syotto', from:{len:70,wid:82}, to:{len:88,wid:34}, perilla:true, ketju:2},
+      {id:4,half:1,t:690, type:'syotto', from:{len:58,wid:66}, to:{len:78,wid:52}, perilla:false, reaktio:'heti', skan:false, konsepti:''},
+      {id:5,half:1,t:1145,type:'juoksu', from:{len:68,wid:84}, to:{len:86,wid:70}, konsepti:'Syvyysjuoksu'},
+      {id:6,half:1,t:1350,type:'kaksinpeli', rooli:'puolustus', tulos:'voitti', at:{len:24,wid:78}, jatko:'menetys', konsepti:'Puolustaminen 1v1'},
+      {id:61,half:1,t:1352,type:'menetys', at:{len:24,wid:78}, ketju:6, reaktio:'heti'},
+      {id:7,half:1,t:1664,type:'riisto', tapa:'katkaisu', at:{len:30,wid:66}, jatko:'syotto', konsepti:'Vastapainostus'},
+      {id:71,half:1,t:1666,type:'syotto', from:{len:30,wid:66}, to:{len:55,wid:84}, perilla:true, ketju:7},
+      {id:72,half:1,t:1820,type:'riisto', tapa:'taklaus', at:{len:46,wid:40}, jatko:'sailyi', konsepti:'Vastapainostus'},
+      {id:73,half:1,t:1905,type:'riisto', tapa:'irtopallo', at:{len:9,wid:52}, jatko:'selvitys', konsepti:''},
+      {id:8,half:1,t:1990,type:'kuljetus', from:{len:66,wid:78}, to:{len:83,wid:58}, lopputuote:'laukaus', ohitus:true, skan:true, konsepti:'1v1-hyökkäys'},
+      {id:9,half:1,t:1993,type:'laukaus', at:{len:83,wid:58}, tulos:'torjuttu', ketju:8},
+      {id:10,half:1,t:2080,type:'kaksinpeli', rooli:'puolustus', tulos:'ohitettiin', at:{len:18,wid:82}, reaktio:'heti', konsepti:''},
+      {id:11,half:1,t:2140,type:'menetys', at:{len:12,wid:66}, reaktio:'jai', konsepti:'', aani:true},
+      {id:12,half:1,t:2185,type:'hetki'}
+    ]
+  };
+  var CONCEPTS=['','1v1-hyökkäys','Puolustaminen 1v1','Syvyysjuoksu','Läpisyöttö','Keskitys','Vastaanotto paineessa','Vastapainostus'];
+  var LOPPU={syotto:'Syöttö',laukaus:'Laukaisu',menetys:'Menetys',rikottiin:'Rikottiin',sailyi:'Pallo säilyi'};
+  var JATKO={syotto:'syöttö',kuljetus:'kuljetus',laukaus:'laukaisu',menetys:'menetys',sailyi:'pallo säilyi'};
+  var TAPA={katkaisu:'Katkaisu',taklaus:'Taklaus',irtopallo:'Irtopallo'};
+  var JATKOD={syotto:'syöttö',kuljetus:'kuljetus',sailyi:'säilyi omilla',selvitys:'selvitys',menetys:'menetys heti',rikottiin:'rikottiin'};
+  var V1TXT={ohitti:'Ohitti',ei:'Ei ohittanut',rikottiin:'Rikottiin',voitti:'Voitti pallon',viivytti:'Viivytti',ohitettiin:'Ohitettiin'};
+  function label(e){
+    if(e.type==='syotto') return e.perilla===false?'Syöttö ✗':(e.perilla===true?'Syöttö ✓':'Syöttö');
+    if(e.type==='kaksinpeli') return '1v1 '+(e.rooli==='hyokkays'?'hyökkäys':'puolustus')+' · '+(V1TXT[e.tulos]||'tulos?');
+    return {kuljetus:'Kuljetus',etenee:'Eteni',juoksu:'Juoksu ilman palloa',riisto:'Riisto',laukaus:'Laukaisu',menetys:'Menetys',hetki:'Hetki'}[e.type];
+  }
+
+  // ---------- kenttä ----------
+  var svg=document.getElementById('pitch'), NS='http://www.w3.org/2000/svg';
+  var W=530,H=350,PX=12,PY=12,IW=W-2*PX,IH=H-2*PY;
+  function el(tag,a,parent){var e=document.createElementNS(NS,tag);for(var k in a)e.setAttribute(k,a[k]);(parent||svg).appendChild(e);return e;}
+  function flipX(){ return S.half===2; }
+  function flipY(){ var attackRight=!flipX(); var near=S.side==='near'; return attackRight ? !near : near; }
+  function toScreen(p){ var fx=flipX()?(100-p.len):p.len, fy=flipY()?(100-p.wid):p.wid; return {x:PX+fx/100*IW, y:PY+fy/100*IH}; }
+  function toPitch(sx,sy){ var fx=clamp((sx-PX)/IW*100,0,100), fy=clamp((sy-PY)/IH*100,0,100); return {len:flipX()?100-fx:fx, wid:flipY()?100-fy:fy}; }
+  var layerEntries, layerLive;
+  function drawPitch(){
+    svg.innerHTML='';
+    var L={fill:'none',stroke:'var(--pitch-line)','stroke-width':1.2};
+    el('rect',{x:0,y:0,width:W,height:H,fill:'var(--pitch)',rx:4});
+    el('rect',Object.assign({x:PX,y:PY,width:IW,height:IH},L));
+    el('line',Object.assign({x1:W/2,y1:PY,x2:W/2,y2:H-PY},L));
+    el('circle',Object.assign({cx:W/2,cy:H/2,r:IW*9.15/105},L));
+    el('circle',{cx:W/2,cy:H/2,r:2,fill:'var(--pitch-line)'});
+    var bw=IW*16.5/105, bh=IH*40.3/68, gw=IW*5.5/105, gh=IH*18.3/68, gm=IH*7.32/68;
+    [PX, W-PX].forEach(function(x0,i){
+      var s=i?-1:1;
+      el('rect',Object.assign({x:i?x0-bw:x0,y:H/2-bh/2,width:bw,height:bh},L));
+      el('rect',Object.assign({x:i?x0-gw:x0,y:H/2-gh/2,width:gw,height:gh},L));
+      el('circle',{cx:x0+s*IW*11/105,cy:H/2,r:1.8,fill:'var(--pitch-line)'});
+      el('line',{x1:x0,y1:H/2-gm/2,x2:x0,y2:H/2+gm/2,stroke:'var(--pitch-line)','stroke-width':4});
+    });
+    layerEntries=el('g',{}); layerLive=el('g',{});
+  }
+  function colorOf(e){
+    if(e.type==='juoksu') return 'var(--violet)';
+    if(e.type==='riisto') return 'var(--blue)';
+    if(isDef1v1(e)) return e.tulos==='voitti'?'var(--blue)':(e.tulos==='ohitettiin'?'var(--red)':'var(--ink3)');
+    if(isLoss(e)) return 'var(--amber)';
+    return 'var(--accent)';
+  }
+  function drawEntries(){
+    layerEntries.innerHTML='';
+    var n=0;
+    S.entries.forEach(function(e){
+      if(e.half!==S.half) return;
+      if(e.type==='hetki' || e.eiSijaintia){ if(!e.ketju) n++; return; }
+      var root=!e.ketju; if(root) n++;
+      var c=colorOf(e);
+      if(e.from){
+        var a=toScreen(e.from), b=toScreen(e.to);
+        var dash = e.type==='juoksu'?'2 4':(e.type==='kuljetus'?'1 0':'6 4');
+        el('line',{x1:a.x,y1:a.y,x2:b.x,y2:b.y,stroke:c,'stroke-width':e.type==='kuljetus'?2.6:2,'stroke-dasharray':dash,opacity:.9,'stroke-linecap':'round'},layerEntries);
+        if(e.type==='syotto' && e.perilla===false){
+          el('line',{x1:b.x-5,y1:b.y-5,x2:b.x+5,y2:b.y+5,stroke:c,'stroke-width':2},layerEntries);
+          el('line',{x1:b.x-5,y1:b.y+5,x2:b.x+5,y2:b.y-5,stroke:c,'stroke-width':2},layerEntries);
+        } else el('circle',{cx:b.x,cy:b.y,r:4,fill:c},layerEntries);
+        if(root) badge(a,n,c,true);
+      } else {
+        var p=toScreen(e.at);
+        if(e.type==='kaksinpeli'){
+          el('rect',{x:p.x-12,y:p.y-12,width:24,height:24,fill:'none',stroke:c,'stroke-width':1.4,transform:'rotate(45 '+p.x+' '+p.y+')'},layerEntries);
+        }
+        if(e.type==='menetys' && riskLevel(pts(xtOpp(e.at)))==='korkea') el('circle',{cx:p.x,cy:p.y,r:17,fill:'none',stroke:'var(--red)','stroke-width':1.2,'stroke-dasharray':'2 3'},layerEntries);
+        if(e.type==='laukaus') el('circle',{cx:p.x,cy:p.y,r:13,fill:'none',stroke:c,'stroke-width':1.2},layerEntries);
+        if(root) badge(p,n,c,e.type!=='laukaus');
+      }
+    });
+    if(S.await){ var w=toScreen(S.await); el('circle',{cx:w.x,cy:w.y,r:12,fill:'var(--teal-dim)',stroke:'var(--accent)','stroke-width':1.5},layerEntries); }
+    function badge(p,num,c,filled){
+      el('circle',{cx:p.x,cy:p.y,r:9,fill:filled?c:'var(--surface)',stroke:c,'stroke-width':1.5},layerEntries);
+      var t=el('text',{x:p.x,y:p.y+3.5,'text-anchor':'middle','font-family':'DM Mono, monospace','font-size':10,'font-weight':600,fill:filled?'var(--surface)':c},layerEntries);
+      t.textContent=num;
+    }
+  }
+
+  function svgPoint(ev){ var pt=svg.createSVGPoint(); pt.x=ev.clientX; pt.y=ev.clientY; var r=pt.matrixTransform(svg.getScreenCTM().inverse()); return {x:r.x,y:r.y}; }
+  function boxPos(p){ var pt=svg.createSVGPoint(); pt.x=p.x; pt.y=p.y; var c=pt.matrixTransform(svg.getScreenCTM()); var br=box.getBoundingClientRect(); return {x:c.x-br.left, y:c.y-br.top}; }
+
+  // ---------- valitsin ----------
+  var box=document.getElementById('pitchbox');
+  var chooser=null;
+  function showChooser(sp, items, timeoutMs, onTimeout){
+    closeChooser(true);
+    var pos=boxPos(sp), bw=box.clientWidth, bh=box.clientHeight;
+    var up = pos.y>bh*0.45 ? -1 : 1;
+    var elc=document.createElement('div'); elc.className='chooser'; elc.style.left=pos.x+'px'; elc.style.top=pos.y+'px';
+    elc.innerHTML='<div class="ring"></div>'+(timeoutMs?'<div class="cd"></div>':'');
+    var n=items.length, radius=Math.min(84, Math.max(62, bh*0.28));
+    var cellW = device.classList.contains('fs') ? 86 : 76, cellH = device.classList.contains('fs') ? 64 : 56;
+    items.forEach(function(it,i){
+      var spread = n>3 ? 80 : 70, rr = n>3 ? radius*1.25 : radius;
+      if(n>=6){ // kaksi riviä x 3: ei päällekkäisyyttä kapealla näytöllä
+        var col=i%3, row=Math.floor(i/3);
+        var gx=(col-1)*cellW, gy=(radius*0.85+row*cellH)*up;
+        var bx=document.createElement('button'); bx.type='button'; bx.className='cbtn '+(it.cls||'');
+        bx.innerHTML=(it.sub?'<span class="sub">'+it.sub+'</span>':'')+(it.ic?'<span class="ic">'+it.ic+'</span>':'')+it.t;
+        bx.style.left=(clamp(pos.x+gx,44,bw-44)-pos.x)+'px'; bx.style.top=(clamp(pos.y+gy,30,bh-30)-pos.y)+'px';
+        bx.addEventListener('pointerdown',function(ev){ ev.stopPropagation(); });
+        bx.addEventListener('click',function(ev){ ev.stopPropagation(); var c=chooser; chooser=null; if(c){ clearInterval(c.timer); c.el.remove(); } it.fn(); });
+        elc.appendChild(bx); return;
+      }
+      var ang = n===1 ? 0 : (-spread + 2*spread*i/(n-1));
+      var rad = ang*Math.PI/180;
+      var dx = Math.sin(rad)*rr*(n>3?1.6:1), dy = Math.cos(rad)*rr*up;
+      var x=clamp(pos.x+dx,40,bw-40)-pos.x, y=clamp(pos.y+dy,28,bh-28)-pos.y;
+      var b=document.createElement('button'); b.type='button'; b.className='cbtn '+(it.cls||'');
+      b.innerHTML=(it.sub?'<span class="sub">'+it.sub+'</span>':'')+(it.ic?'<span class="ic">'+it.ic+'</span>':'')+it.t;
+      b.style.left=x+'px'; b.style.top=y+'px';
+      b.addEventListener('pointerdown',function(ev){ ev.stopPropagation(); });
+      b.addEventListener('click',function(ev){ ev.stopPropagation(); var c=chooser; chooser=null; if(c){ clearInterval(c.timer); c.el.remove(); } it.fn(); });
+      elc.appendChild(b);
+    });
+    var x=document.createElement('button'); x.type='button'; x.className='cbtn x'; x.textContent='✕'; x.title='Peru';
+    x.style.left='0px'; x.style.top=(-44*up)+'px';
+    x.addEventListener('pointerdown',function(ev){ ev.stopPropagation(); });
+    x.addEventListener('click',function(ev){ ev.stopPropagation(); closeChooser(true); });
+    elc.appendChild(x);
+    box.appendChild(elc);
+    chooser={el:elc,onTimeout:onTimeout,timer:null};
+    if(timeoutMs){
+      var start=Date.now(), cd=elc.querySelector('.cd');
+      chooser.timer=setInterval(function(){
+        var left=timeoutMs-(Date.now()-start);
+        if(cd) cd.textContent=Math.max(0,Math.ceil(left/1000));
+        if(left<=0) closeChooser(false);
+      },100);
+    }
+  }
+  function closeChooser(cancel){
+    if(!chooser) return;
+    var c=chooser; chooser=null; clearInterval(c.timer); c.el.remove();
+    if(!cancel && c.onTimeout) c.onTimeout();
+  }
+
+  // ---------- eleet ----------
+  var drag=null;
+  svg.addEventListener('pointerdown',function(ev){
+    if(chooser) closeChooser(false);
+    if(reactEl) finishReaction('ei');
+    svg.setPointerCapture(ev.pointerId);
+    var p=svgPoint(ev);
+    drag={start:p,moved:false,held:false,line:null};
+    drag.holdTimer=setTimeout(function(){ if(drag && !drag.moved){ drag.held=true; buzz(8); el('circle',{cx:p.x,cy:p.y,r:14,fill:'none',stroke:'var(--violet)','stroke-width':1.5},layerLive);} },380);
+  });
+  svg.addEventListener('pointermove',function(ev){
+    if(!drag) return;
+    var p=svgPoint(ev), dx=p.x-drag.start.x, dy=p.y-drag.start.y;
+    if(!drag.moved && Math.sqrt(dx*dx+dy*dy)>20){ drag.moved=true; clearTimeout(drag.holdTimer); }
+    if(drag.moved){
+      var c=drag.held?'var(--violet)':'var(--accent)';
+      if(!drag.line) drag.line=el('line',{x1:drag.start.x,y1:drag.start.y,x2:p.x,y2:p.y,stroke:c,'stroke-width':2.5,'stroke-dasharray':drag.held?'2 4':'6 4'},layerLive);
+      drag.line.setAttribute('x2',p.x); drag.line.setAttribute('y2',p.y);
+    }
+  });
+  function endDrag(ev){
+    if(!drag) return;
+    clearTimeout(drag.holdTimer);
+    var d=drag; drag=null; layerLive.innerHTML='';
+    if(ev.type==='pointercancel') return;
+    var p=svgPoint(ev);
+    if(d.moved){
+      var from=toPitch(d.start.x,d.start.y), to=toPitch(p.x,p.y);
+      if(d.held){ addEntry({type:'juoksu',from:from,to:to}); return; }
+      if(S.await){
+        var w=S.await; S.await=null; setHint(null);
+        if(w.kind==='syotto'){ askPassResult(p,{type:'syotto',from:from,to:to,ketju:w.parentId}); return; }
+        var k=addEntry({type:'kuljetus',from:from,to:to,ketju:w.parentId}); askCarryEnd(p,k); return;
+      }
+      askMoveType(p,from,to);
+    } else if(!d.held){
+      openTapMenu(d.start);
+    }
+  }
+  svg.addEventListener('pointerup',endDrag);
+  svg.addEventListener('pointercancel',endDrag);
+
+  function openTapMenu(sp){
+    var at=toPitch(sp.x,sp.y);
+    showChooser(sp,[
+      {cls:'teal',ic:'🎯',t:'Laukaisu',fn:function(){ askShot(sp,at,null); }},
+      {cls:'blue',ic:'🛡️',t:'Riisto',fn:function(){ var e=addEntry({type:'riisto',at:at}); askFollowDef(sp,e); }},
+      {cls:'amber',ic:'↩',t:'Menetys',fn:function(){ addEntry({type:'menetys',at:at}); }},
+      {cls:'ink',ic:'⚔',t:'1v1',fn:function(){ ask1v1(sp,at); }}
+    ],0,null);
+  }
+  function ask1v1(sp,at){
+    var mk=function(rooli,tulos){ return function(){ var e=addEntry({type:'kaksinpeli',rooli:rooli,tulos:tulos,at:at}); if(rooli==='hyokkays'&&tulos==='ohitti') askFollow(sp,e); if(rooli==='puolustus'&&tulos==='voitti') askFollowDef(sp,e); }; };
+    showChooser(sp,[
+      {cls:'teal',sub:'Hyökkäys',t:'Ohitti ✓',fn:mk('hyokkays','ohitti')},
+      {cls:'amber',sub:'Hyökkäys',t:'Ei ohittanut',fn:mk('hyokkays','ei')},
+      {cls:'blue',sub:'Puolustus',t:'Voitti pallon',fn:mk('puolustus','voitti')},
+      {cls:'ink',sub:'Puolustus',t:'Viivytti',fn:mk('puolustus','viivytti')},
+      {cls:'red',sub:'Puolustus',t:'Ohitettiin',fn:mk('puolustus','ohitettiin')}
+    ],0,null);
+  }
+  // Riiston / voitetun puolustus-1v1:n jälkeen: mitä pelaaja teki voitetulla pallolla (siirtymä)
+  function askFollowDef(sp,e){
+    showChooser(sp,[
+      {cls:'teal',ic:'↗',t:'Syöttö',fn:function(){ e.jatko='syotto'; waitFor(e.at,e.id,'syotto'); }},
+      {cls:'teal',ic:'➜',t:'Kuljetus',fn:function(){ e.jatko='kuljetus'; waitFor(e.at,e.id,'kuljetus'); }},
+      {cls:'blue',ic:'●',t:'Säilyi omilla',fn:function(){ e.jatko='sailyi'; render(); }},
+      {cls:'ink',ic:'⤴',t:'Selvitys',fn:function(){ e.jatko='selvitys'; render(); }},
+      {cls:'amber',ic:'↩',t:'Menetys',fn:function(){ e.jatko='menetys'; addEntry({type:'menetys',at:e.at,ketju:e.id}); }},
+      {cls:'blue',ic:'⚑',t:'Rikottiin',fn:function(){ e.jatko='rikottiin'; render(); }}
+    ],4000,function(){ render(); });
+  }
+  function askFollow(sp,e){
+    showChooser(sp,[
+      {cls:'teal',ic:'↗',t:'Syöttö',fn:function(){ e.jatko='syotto'; waitFor(e.at,e.id,'syotto'); }},
+      {cls:'teal',ic:'➜',t:'Kuljetus',fn:function(){ e.jatko='kuljetus'; waitFor(e.at,e.id,'kuljetus'); }},
+      {cls:'teal',ic:'🎯',t:'Laukaisu',fn:function(){ e.jatko='laukaus'; render(); askShot(sp,e.at,e.id); }},
+      {cls:'amber',ic:'↩',t:'Menetys',fn:function(){ e.jatko='menetys'; addEntry({type:'menetys',at:e.at,ketju:e.id}); }},
+      {cls:'',ic:'●',t:'Säilyi',fn:function(){ e.jatko='sailyi'; render(); }}
+    ],4000,function(){ render(); });
+  }
+  function waitFor(at,parentId,kind){
+    S.await={len:at.len,wid:at.wid,parentId:parentId,kind:kind};
+    setHint(kind==='syotto'?'Pyyhkäise syöttö':'Pyyhkäise kuljetus'); render();
+  }
+  function askMoveType(sp,from,to){
+    showChooser(sp,[
+      {cls:'teal',ic:'✓',t:'Syöttö perille',fn:function(){ addEntry({type:'syotto',from:from,to:to,perilla:true}); }},
+      {cls:'amber',ic:'✗',t:'Syöttö ei perille',fn:function(){ addEntry({type:'syotto',from:from,to:to,perilla:false}); }},
+      {cls:'teal',ic:'➜',t:'Kuljetus',fn:function(){ var e=addEntry({type:'kuljetus',from:from,to:to}); askCarryEnd(sp,e); }}
+    ],4000,function(){ addEntry({type:'etenee',from:from,to:to}); });
+  }
+  function askPassResult(sp,base){
+    showChooser(sp,[
+      {cls:'teal',ic:'✓',t:'Perillä',fn:function(){ base.perilla=true; addEntry(base); }},
+      {cls:'amber',ic:'✗',t:'Ei perillä',fn:function(){ base.perilla=false; addEntry(base); }}
+    ],4000,function(){ addEntry(base); });
+  }
+  function askCarryEnd(sp,e){
+    showChooser(sp,[
+      {cls:'teal',ic:'↗',t:'Syöttö',fn:function(){ e.lopputuote='syotto'; waitFor(e.to,e.id,'syotto'); }},
+      {cls:'teal',ic:'🎯',t:'Laukaisu',fn:function(){ e.lopputuote='laukaus'; render(); askShot(sp,e.to,e.id); }},
+      {cls:'amber',ic:'↩',t:'Menetys',fn:function(){ e.lopputuote='menetys'; addEntry({type:'menetys',at:e.to,ketju:e.id}); }},
+      {cls:'blue',ic:'⚑',t:'Rikottiin',fn:function(){ e.lopputuote='rikottiin'; render(); }},
+      {cls:'',ic:'●',t:'Säilyi',fn:function(){ e.lopputuote='sailyi'; render(); }}
+    ],4000,function(){ render(); });
+  }
+  function askShot(sp,at,parent){
+    var mk=function(t){ return function(){ addEntry({type:'laukaus',at:at,tulos:t,ketju:parent||undefined}); }; };
+    showChooser(sp,[
+      {cls:'teal',t:'Maali',fn:mk('maali')},
+      {cls:'teal',t:'Torjuttu',fn:mk('torjuttu')},
+      {cls:'',t:'Ohi',fn:mk('ohi')},
+      {cls:'',t:'Blokattu',fn:mk('blokattu')}
+    ],4000,function(){ addEntry({type:'laukaus',at:at,tulos:null,ketju:parent||undefined}); });
+  }
+  var hintEl=null;
+  function setHint(t){
+    if(hintEl){ hintEl.remove(); hintEl=null; }
+    if(!t) return;
+    hintEl=document.createElement('div'); hintEl.className='hintbar'; hintEl.textContent=t; box.appendChild(hintEl);
+  }
+
+  // ---------- tallennus ----------
+  function buzz(ms){ try{ if(navigator.vibrate) navigator.vibrate(ms||15); }catch(e){} }
+  function addEntry(e){
+    e.id=++S.seq; e.half=S.half; e.t=S.clock; e.konsepti=e.konsepti||'';
+    S.entries.push(e); S.lastId=e.id;
+    buzz(15); render(); showToast(e);
+    if(needsReaction(e)) askReaction(e);
+    return e;
+  }
+  var toastEl=null, toastTimer=null;
+  function showToast(e){
+    hideToast();
+    toastEl=document.createElement('div'); toastEl.className='toast';
+    toastEl.innerHTML='<span>'+label(e)+' · '+tstr(e.t)+'</span>';
+    var b=document.createElement('button'); b.type='button'; b.textContent='Kumoa'; b.onclick=undo;
+    toastEl.appendChild(b);
+    document.getElementById('screen').appendChild(toastEl);
+    document.getElementById('btnUndo').disabled=false;
+    toastTimer=setTimeout(function(){ hideToast(); document.getElementById('btnUndo').disabled=true; },5000);
+  }
+  function hideToast(){ clearTimeout(toastTimer); if(toastEl){toastEl.remove(); toastEl=null;} }
+  function undo(){
+    if(S.lastId==null) return;
+    var id=S.lastId;
+    S.entries=S.entries.filter(function(x){return x.id!==id;});
+    if(S.await && S.await.parentId===id){ S.await=null; setHint(null); }
+    S.lastId=null; hideToast(); if(reactEl) finishReaction(null,true); closeChooser(true);
+    document.getElementById('btnUndo').disabled=true; buzz(30); render();
+  }
+  document.getElementById('btnUndo').onclick=undo;
+  document.getElementById('btnPin').onclick=function(){ closeChooser(false); addEntry({type:'hetki'}); };
+
+  // reaktiokysely
+  var reactEl=null, reactTimer=null, reactEntry=null;
+  function askReaction(e){
+    if(reactEl) finishReaction('ei');
+    reactEntry=e;
+    var beaten=isDef1v1(e);
+    reactEl=document.createElement('div'); reactEl.className='react';
+    reactEl.innerHTML='<div class="q">'+(beaten?'Palautuiko heti ohituksen jälkeen?':'Reagoiko heti menetyksen jälkeen?')+'<span>5 s</span></div><div class="opts"><button type="button" class="yes">✓ '+(beaten?'Palautui':'Reagoi heti')+'</button><button type="button" class="no">✗ Jäi</button></div><div class="bar"><i></i></div>';
+    document.getElementById('screen').appendChild(reactEl);
+    var bar=reactEl.querySelector('.bar i'), sec=reactEl.querySelector('.q span'), start=Date.now();
+    reactTimer=setInterval(function(){
+      var left=5000-(Date.now()-start);
+      bar.style.width=Math.max(0,left/50)+'%'; sec.textContent=Math.ceil(Math.max(0,left)/1000)+' s';
+      if(left<=0) finishReaction('ei');
+    },100);
+    reactEl.querySelector('.yes').onclick=function(){ buzz(15); finishReaction('heti'); };
+    reactEl.querySelector('.no').onclick=function(){ buzz(15); finishReaction('jai'); };
+  }
+  function finishReaction(v,silent){
+    clearInterval(reactTimer);
+    if(reactEntry && v) reactEntry.reaktio=v;
+    reactEntry=null;
+    if(reactEl){ reactEl.remove(); reactEl=null; }
+    if(!silent) render();
+  }
+
+  // ---------- läpikäynti ----------
+  function showVals(){ return S.tier!=='u812'; }
+  function info(e){
+    var o={desc:'',val:'',sub:'',hi:false};
+    if(e.eiSijaintia && e.type!=='hetki'){ o.desc='Täydennetty tauolla, ilman sijaintia'; o.val='—'; return o; }
+    if(e.type==='syotto'){
+      if(e.perilla===false){ var rp=pts(xtOpp(e.to)), lv=riskLevel(rp); o.desc='Kohti: '+zoneName(e.to)+'. Ei perillä.'; o.val=lv; o.sub='menetysriski'; o.hi=lv==='korkea'; }
+      else { var v=pts(xt(e.to)-xt(e.from)); o.desc=zoneName(e.from)+' → '+zoneName(e.to)+(e.perilla==null?' (perillä?)':''); o.val=fmt(v,true); o.sub='uhka-arvo'; }
+    }
+    else if(e.type==='kuljetus' || e.type==='etenee'){ var v1=pts(xt(e.to)-xt(e.from)); o.desc=zoneName(e.from)+' → '+zoneName(e.to)+(e.ohitus?' · sisälsi ohituksen':''); o.val=fmt(v1,true); o.sub='uhka-arvo'; }
+    else if(e.type==='juoksu'){ var v2=pts(xt(e.to)-xt(e.from)); o.desc='Juoksu tilaan, pallo ei tullut: '+zoneName(e.to); o.val=fmt(v2,true); o.sub='potentiaali'; }
+    else if(e.type==='riisto'){ var v3=pts(xtOpp(e.at)); o.desc=(e.tapa?TAPA[e.tapa]+': ':'Voitti pallon: ')+zoneName(e.at)+(e.jatko?' → '+JATKOD[e.jatko]:''); o.val=fmt(v3,true); o.sub='puolustusarvo'; }
+    else if(e.type==='laukaus'){ var X=(100-e.at.len)/100*105, C=(e.at.wid-50)/100*68; o.desc='Noin '+Math.round(Math.sqrt(X*X+C*C))+' m, '+(Math.abs(e.at.wid-50)<12?'keskeltä':'sivusta')+' · '+(e.tulos||'tulos puuttuu'); o.val=xg(e.at).toFixed(2).replace('.',','); o.sub='maaliodotusarvo'; }
+    else if(e.type==='menetys'){ var r=pts(xtOpp(e.at)), l2=riskLevel(r); o.desc='Menetti pallon: '+zoneName(e.at); o.val=l2; o.sub='menetysriski'; o.hi=l2==='korkea'; }
+    else if(e.type==='kaksinpeli'){
+      o.desc=zoneName(e.at);
+      if(isAtt1v1(e)){
+        if(e.tulos==='ei'){ var r2=pts(xtOpp(e.at)), l3=riskLevel(r2); o.val=l3; o.sub='menetysriski'; o.hi=l3==='korkea'; }
+        else { o.val=e.tulos==='rikottiin'?'rikottiin':'ohitti'; o.sub='1v1'; if(e.jatko) o.desc+=' → '+JATKO[e.jatko]; }
+      } else {
+        if(e.tulos==='voitti'){ o.val=fmt(pts(xtOpp(e.at)),true); o.sub='puolustusarvo'; if(e.jatko) o.desc+=' → '+JATKOD[e.jatko]; }
+        else if(e.tulos==='ohitettiin'){ var r3=pts(xtOpp(e.at)), l4=riskLevel(r3); o.val=l4; o.sub='tilanteen vaara'; o.hi=l4==='korkea'; }
+        else { o.val='viivytti'; o.sub='1v1'; }
+      }
+    }
+    else { o.desc='📌 Merkitty nopeasti. Täydennä tyyppi.'; o.val='—'; }
+    if(!showVals() && e.type!=='hetki'){ o.val='·'; o.sub='ei lukuja'; o.hi=false; }
+    return o;
+  }
+  function typeClass(e){
+    if(e.type==='syotto' && e.perilla===false) return 'syotto-x';
+    if(e.type==='kaksinpeli'){
+      if(isAtt1v1(e)) return e.tulos==='ei'?'v1-x':'v1-ok';
+      return e.tulos==='voitti'?'v1-def':(e.tulos==='ohitettiin'?'v1-beaten':'v1-neutral');
+    }
+    return e.type;
+  }
+  function render(){
+    drawEntries();
+    var cur=S.entries.filter(function(e){return e.half===S.half && !e.ketju;});
+    document.getElementById('count').textContent=cur.length;
+    var last=S.entries.filter(function(e){return e.half===S.half;}).slice(-1)[0];
+    document.getElementById('lastSaved').innerHTML= last ? ('Viimeksi: <b>'+label(last)+' · '+tstr(last.t)+'</b>') : 'Ei vielä merkintöjä tällä puoliajalla';
+    var list=document.getElementById('entries'); list.innerHTML='';
+    var shown=S.entries.slice().sort(function(a,b){return a.half-b.half||a.t-b.t||a.id-b.id;});
+    document.getElementById('rmeta').textContent=shown.filter(function(e){return !e.ketju;}).length+' tilannetta';
+    shown.forEach(function(e){
+      var o=info(e);
+      var d=document.createElement('div'); d.className='entry'+(e.ketju?' linked':'');
+      d.innerHTML='<div class="erow"><div class="et">'+(e.ketju?'↳':(e.half===2?'2. ':'')+tstr(e.t))+'</div>'+
+        '<div><span class="type '+typeClass(e)+'">'+label(e)+'</span><div class="edesc">'+o.desc+'</div></div>'+
+        '<div class="ev'+(o.hi?' hi':'')+'">'+o.val+(o.sub?'<small>'+o.sub+'</small>':'')+'</div></div>';
+      var chips=document.createElement('div'); chips.className='chips';
+      if(e.type==='hetki'){
+        lab(chips,'Tyyppi');
+        [['syotto','Syöttö'],['kuljetus','Kuljetus'],['riisto','Riisto'],['laukaus','Laukaisu'],['menetys','Menetys'],['v1a','1v1 hyökkäys'],['v1d','1v1 puolustus']].forEach(function(t){
+          var b=document.createElement('button'); b.type='button'; b.className='chip'; b.textContent=t[1];
+          b.onclick=function(){
+            if(t[0]==='v1a'){ e.type='kaksinpeli'; e.rooli='hyokkays'; e.tulos=null; }
+            else if(t[0]==='v1d'){ e.type='kaksinpeli'; e.rooli='puolustus'; e.tulos=null; }
+            else e.type=t[0];
+            e.eiSijaintia=true; render();
+          };
+          chips.appendChild(b);
+        });
+      } else {
+        if(e.type==='etenee'){
+          lab(chips,'Mikä?');
+          [['syotto','Syöttö'],['kuljetus','Kuljetus']].forEach(function(o2){
+            var b=document.createElement('button'); b.type='button'; b.className='chip'; b.textContent=o2[1];
+            b.onclick=function(){ e.type=o2[0]; if(o2[0]==='syotto') e.perilla=true; render(); };
+            chips.appendChild(b);
+          });
+        }
+        if(e.type==='kaksinpeli'){
+          var opts = isAtt1v1(e) ? [['ohitti','Ohitti'],['ei','Ei ohittanut'],['rikottiin','Rikottiin']] : [['voitti','Voitti'],['viivytti','Viivytti'],['ohitettiin','Ohitettiin']];
+          pick(chips,'Tulos',opts,e,'tulos');
+        }
+        if(e.type==='riisto'){ pick(chips,'Miten',[['katkaisu','Katkaisu'],['taklaus','Taklaus'],['irtopallo','Irtopallo']],e,'tapa'); }
+        if(e.type==='riisto' || (isDef1v1(e) && e.tulos==='voitti')){
+          pick(chips,'Riiston jälkeen',Object.keys(JATKOD).map(function(k){return [k,JATKOD[k].charAt(0).toUpperCase()+JATKOD[k].slice(1)];}),e,'jatko');
+        }
+        if(e.type==='syotto'){ toggle(chips,'Perillä',[[true,'✓','ok'],[false,'✗','bad']],e,'perilla'); }
+        if(e.type==='kuljetus'){
+          pick(chips,'Lopputuote',Object.keys(LOPPU).map(function(k){return [k,LOPPU[k]];}),e,'lopputuote');
+          if(!e.ketju || !S.entries.some(function(x){return x.id===e.ketju && x.type==='kaksinpeli';})) toggle(chips,'Ohitti matkalla',[[true,'✓','ok']],e,'ohitus');
+        }
+        if(needsReaction(e)){ toggle(chips,isDef1v1(e)?'Palautui':'Reaktio',[['heti','✓ Heti','ok'],['jai','✗ Jäi','bad']],e,'reaktio'); }
+        if((e.type==='syotto' || e.type==='kuljetus') && !e.ketju){ toggle(chips,'Skannasi',[[true,'✓','ok'],[false,'✗','bad']],e,'skan'); }
+        if(!e.ketju){
+          var sel=document.createElement('select'); sel.className='concept'; sel.setAttribute('aria-label','Konsepti');
+          CONCEPTS.forEach(function(c){ var op=document.createElement('option'); op.value=c; op.textContent=c||'Konsepti…'; if(c===e.konsepti) op.selected=true; sel.appendChild(op); });
+          sel.onchange=function(){ e.konsepti=sel.value; };
+          chips.appendChild(sel);
+          var mic=document.createElement('button'); mic.type='button'; mic.className='chip rec'; mic.setAttribute('aria-pressed',e.aani?'true':'false');
+          mic.textContent=e.aani?'🎙 0:08':'🎙 Ääni'; mic.title='Äänimuistiinpano (esimerkki)';
+          mic.onclick=function(){ e.aani=!e.aani; render(); };
+          chips.appendChild(mic);
+        }
+      }
+      if(chips.childNodes.length) d.appendChild(chips);
+      list.appendChild(d);
+    });
+    renderSummary();
+  }
+  function lab(p,t){ var l=document.createElement('span'); l.className='lab'; l.textContent=t; p.appendChild(l); }
+  function toggle(parent,label,opts,e,key){
+    lab(parent,label);
+    opts.forEach(function(o){
+      var b=document.createElement('button'); b.type='button'; b.className='chip '+o[2];
+      b.setAttribute('aria-pressed', e[key]===o[0]?'true':'false'); b.textContent=o[1];
+      b.onclick=function(){ e[key]=(e[key]===o[0])?null:o[0]; render(); };
+      parent.appendChild(b);
+    });
+  }
+  function pick(parent,label,opts,e,key){
+    lab(parent,label);
+    opts.forEach(function(o){
+      var b=document.createElement('button'); b.type='button'; b.className='chip sel'; b.textContent=o[1];
+      b.setAttribute('aria-pressed', e[key]===o[0]?'true':'false');
+      b.onclick=function(){ e[key]=(e[key]===o[0])?null:o[0]; render(); };
+      parent.appendChild(b);
+    });
+  }
+  function renderSummary(){
+    var sumXT=0,sumDef=0,sumXG=0,nShot=0,nLoss=0,nHigh=0,nRun=0,rHeti=0,rAll=0,skOk=0,skAll=0,pOk=0,pAll=0,nCarry=0,loppu={};
+    var aOk=0,aAll=0,dWon=0,dDelay=0,dBeaten=0,nKatk=0;
+    // Riiston jälkeinen siirtymä
+    var byId={}; S.entries.forEach(function(x){ byId[x.id]=x; });
+    function isWin(x){ return x.type==='riisto' || (isDef1v1(x) && x.tulos==='voitti'); }
+    function rootOf(x){ var g=0; while(x && x.ketju && byId[x.ketju] && g++<10) x=byId[x.ketju]; return x; }
+    var tKept=0,tLost=0,tFwd=0,tClear=0,tFast=0,tXT=0;
+    S.entries.forEach(function(w){
+      if(!isWin(w) || !w.jatko) return;
+      var child=S.entries.filter(function(c){ return c.ketju===w.id; })[0];
+      var j=w.jatko;
+      if(j==='selvitys'){ tClear++; return; }
+      if(j==='menetys'){ tLost++; tFast++; return; }
+      if(j==='sailyi'||j==='rikottiin'){ tKept++; return; }
+      if(!child){ return; }
+      var lost = (child.type==='syotto' && child.perilla===false) || (child.type==='kuljetus' && child.lopputuote==='menetys');
+      if(lost) tLost++; else tKept++;
+      if(child.from && !child.eiSijaintia && !(child.type==='syotto' && child.perilla===false) && pts(xt(child.to)-xt(child.from))>=0.5) tFwd++;
+    });
+    S.entries.forEach(function(c){
+      if(!c.ketju || !c.from || c.eiSijaintia) return;
+      var r=rootOf(c); if(!r || !isWin(r)) return;
+      if((c.type==='syotto' && c.perilla!==false) || c.type==='kuljetus') tXT+=pts(xt(c.to)-xt(c.from));
+    });
+    var tAll=tKept+tLost;
+    S.entries.forEach(function(e){
+      var loc=!e.eiSijaintia;
+      if(e.type==='syotto' && e.perilla!=null){ pAll++; if(e.perilla) pOk++; }
+      if(e.type==='kuljetus'){ nCarry++; if(e.lopputuote) loppu[e.lopputuote]=(loppu[e.lopputuote]||0)+1; if(e.ohitus){ aAll++; aOk++; } }
+      if((e.type==='syotto'||e.type==='kuljetus') && !e.ketju && e.skan!=null){ skAll++; if(e.skan) skOk++; }
+      if(e.type==='juoksu') nRun++;
+      if(e.type==='laukaus'){ nShot++; if(loc) sumXG+=xg(e.at); }
+      if(e.type==='riisto'){ nKatk++; if(loc) sumDef+=pts(xtOpp(e.at)); }
+      if(isAtt1v1(e) && e.tulos){ aAll++; if(e.tulos!=='ei') aOk++; }
+      if(isDef1v1(e) && e.tulos){ if(e.tulos==='voitti'){ dWon++; if(loc) sumDef+=pts(xtOpp(e.at)); } else if(e.tulos==='viivytti') dDelay++; else dBeaten++; }
+      if(isLoss(e)){ nLoss++; if(loc && riskLevel(pts(xtOpp(lossPoint(e))))==='korkea') nHigh++; }
+      if(needsReaction(e) && (e.reaktio==='heti'||e.reaktio==='jai')){ rAll++; if(e.reaktio==='heti') rHeti++; }
+      if(loc && ((e.type==='syotto' && e.perilla!==false) || e.type==='kuljetus' || e.type==='etenee')) sumXT+=pts(xt(e.to)-xt(e.from));
+    });
+    var dAll=dWon+dDelay+dBeaten;
+    var loppuTxt=Object.keys(loppu).map(function(k){ return LOPPU[k].toLowerCase()+(loppu[k]>1?' ×'+loppu[k]:''); }).join(', ');
+    var v=showVals();
+    var k=[
+      ['1v1 hyökkäys', aAll?(aOk+'/'+aAll):'–', 'onnistuneet ohitukset'],
+      ['1v1 puolustus', dAll?(dWon+'/'+dAll):'–', dAll?('voitti · viivytti '+dDelay+' · ohitettiin '+dBeaten):'ei tilanteita'],
+      ['Riistot', String(nKatk+dWon), v?('puolustusarvo '+fmt(sumDef,true)):(nKatk+' riistoa · '+dWon+' voitettua 1v1')],
+      ['Riiston jälkeen', tAll?(tKept+'/'+tAll):'–', tAll?('säilyi · eteni '+tFwd+' · menetys heti '+tFast+(tClear?(' · selvitys '+tClear):'')):'jatko puuttuu'],
+      ['Luotu uhka', v?fmt(sumXT,true):'·', v?('josta riistoista '+fmt(tXT,true)):'syötöt ja kuljetukset'],
+      ['Syötöt perille', pAll?(pOk+'/'+pAll):'–', nCarry+' kuljetusta'+(loppuTxt?(' → '+loppuTxt):'')],
+      ['Maaliodotusarvo', v?sumXG.toFixed(2).replace('.',','):'·', nShot+' laukaisua'],
+      ['Menetykset', String(nLoss), v?(nHigh+' korkealla riskillä'):'sis. hävityt 1v1 ja syötöt']
+    ];
+    document.getElementById('kpis').innerHTML=k.map(function(x){return '<div class="kpi"><div class="l">'+x[0]+'</div><div class="v">'+x[1]+'</div><div class="s">'+x[2]+'</div></div>';}).join('');
+    var rows=[
+      ['Ennen palloa', nRun+' juoksua ilman palloa'+(skAll?(' · skannasi '+skOk+'/'+skAll+' ennen vastaanottoa'):'')],
+      ['Pallon kanssa', '1v1 ohitti '+(aAll?(aOk+'/'+aAll):'–')+' · syötöt '+(pAll?(pOk+'/'+pAll+' perille'):'–')+' · '+nCarry+' kuljetusta'+(loppuTxt?(' → '+loppuTxt):'')],
+      ['Puolustaminen', '1v1 voitti '+(dAll?(dWon+'/'+dAll):'–')+' · '+nKatk+' riistoa'],
+      ['Riiston jälkeen', tAll||tClear ? ('pallo säilyi '+tKept+'/'+tAll+' · eteni heti '+tFwd+' · menetys heti '+tFast+(tClear?(' · selvitys '+tClear):'')+(v&&tXT?(' · siirtymän uhka '+fmt(tXT,true)):'')) : 'jatko puuttuu'],
+      ['Menetyksen jälkeen', rAll? ('reagoi heti '+rHeti+'/'+rAll+' kertaa (menetykset ja ohitetuksi tuleminen)') : 'ei kirjauksia']
+    ];
+    document.getElementById('adar').innerHTML=rows.map(function(r){return '<div><span class="k">'+r[0]+'</span><span><b>'+r[1]+'</b></span></div>';}).join('');
+  }
+
+  // ---------- asetukset ----------
+  function seg(id,key,parse){
+    var g=document.getElementById(id);
+    g.querySelectorAll('button').forEach(function(b){
+      b.onclick=function(){
+        g.querySelectorAll('button').forEach(function(x){x.setAttribute('aria-pressed','false');});
+        b.setAttribute('aria-pressed','true');
+        S[key]=parse?parse(b.dataset.v):b.dataset.v;
+        closeChooser(true); if(reactEl) finishReaction(null,true); S.await=null; setHint(null);
+        updateDir(); tierNote(); render();
+      };
+    });
+  }
+  seg('segTier','tier'); seg('segHalf','half',function(v){return +v;}); seg('segSide','side');
+  function updateDir(){ document.getElementById('dirLabel').textContent = flipX()? '← HYÖKKÄYS' : 'HYÖKKÄYS →'; }
+  function tierNote(){
+    var t={u812:'U8–12: tilanteet, 1v1-tulokset ja reaktio kirjataan, mutta lukuja ei näytetä kenellekään. Reaktio kertoo käyttäytymisen muutoksesta ajan mittaan.',
+           u1315:'U13–15: arvot näkyvät valmentajalle. Reaktiokysely kaikilla ikätasoilla.',
+           u16:'U16+: kaikki arvot ja koko ADAR-ketju.'};
+    document.getElementById('tierNote').textContent=t[S.tier];
+  }
+  document.getElementById('btnOutdoor').onclick=function(){
+    var d=document.getElementById('device'), on=!d.classList.contains('outdoor');
+    d.classList.toggle('outdoor',on); this.setAttribute('aria-pressed',on?'true':'false');
+  };
+
+  // ---------- koko näyttö ----------
+  var device=document.getElementById('device'), wakeLock=null;
+  function setFs(on){
+    closeChooser(true);
+    device.classList.toggle('fs',on);
+    document.body.classList.toggle('locked',on);
+    document.getElementById('btnFs').textContent=on?'✕':'⛶';
+    document.getElementById('btnFs').title=on?'Sulje koko näyttö':'Koko näyttö';
+    if(on){
+      try{ var r=device.requestFullscreen && device.requestFullscreen(); if(r&&r.then) r.then(function(){ try{ var o=screen.orientation&&screen.orientation.lock&&screen.orientation.lock('landscape'); if(o&&o.catch) o.catch(function(){}); }catch(e){} }).catch(function(){}); }catch(e){}
+      try{ if(navigator.wakeLock) navigator.wakeLock.request('screen').then(function(w){wakeLock=w;}).catch(function(){}); }catch(e){}
+    } else {
+      try{ if(document.fullscreenElement && document.exitFullscreen) document.exitFullscreen().catch(function(){}); }catch(e){}
+      try{ if(wakeLock){ wakeLock.release(); wakeLock=null; } }catch(e){}
+    }
+  }
+  document.getElementById('btnFs').onclick=function(){ setFs(!device.classList.contains('fs')); };
+  document.getElementById('btnOpenFs').onclick=function(){ setFs(true); };
+  document.addEventListener('fullscreenchange',function(){ if(!document.fullscreenElement && device.classList.contains('fs')) setFs(false); });
+  document.addEventListener('keydown',function(e){ if(e.key==='Escape' && device.classList.contains('fs')) setFs(false); });
+
+  setInterval(function(){ S.clock++; document.getElementById('clock').textContent=tstr(S.clock); },1000);
+  drawPitch(); updateDir(); tierNote(); render();
+  document.getElementById('clock').textContent=tstr(S.clock);
+})();
+</script>
+</body>
+</html>
