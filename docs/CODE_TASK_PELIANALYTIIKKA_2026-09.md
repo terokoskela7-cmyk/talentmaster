@@ -227,6 +227,13 @@ päällekkäin kapealla näytöllä). 3–5 vaihtoehtoa = viuhka.
 **Palaute:** värähdys (`navigator.vibrate(15)`, try/catch) jokaisesta tallennuksesta. Toast "Syöttö ✓ · 11:30 ·
 Kumoa" 5 s. Kumoa poistaa viimeisimmän merkinnän.
 
+> **PR-C: ORVOT KETJUN JÄSENET.** Jos ketjun juuri poistetaan (Kumoa tai korjaus tauolla), sen
+> jatkomerkinnät jäävät ilman juurta. `lib/tm_pelihavainto.js` käsittelee tilanteen turvallisesti
+> (rikkinäinen `ketju`-viittaus → `_phJuuri` palauttaa `null`), joten ne **putoavat tilannelaskurista**
+> — mutta niiden uhka-arvo lasketaan yhä `luotuUhka`-summaan, koska teko tapahtui. Kenttätyökalun on
+> siksi juuren poiston yhteydessä joko poistettava jatkomerkinnät samalla kertaa tai kytkettävä ne
+> uudelleen uuteen juureen. Lib ei voi päättää tätä puolesta: kumpikin on kelvollinen tulkinta.
+
 **Reaktiokysely (ADAR Reassess), 5 s:** heti menetyksen, epäonnistuneen syötön tai hävityn hyökkäys-1v1:n
 jälkeen: "Reagoiko heti menetyksen jälkeen? ✓ Reagoi heti / ✗ Jäi". Kun pelaaja ohitetaan puolustuksessa:
 "Palautuiko heti? ✓ Palautui / ✗ Jäi". Ei vastausta → `reaktio: 'ei'` (ei kirjattu). Uusi ele kentällä sulkee
@@ -318,13 +325,15 @@ seurat/{sid}/pelaajat/{pid}/havainnot/{hid}
   suunta: { hyokkaysOikealle: bool, seisoo: 'lahi'|'kauko' }   // vain näyttöä varten; data on aina kanonisessa muodossa
   ikataso: 'u812'|'u1315'|'u16'
   jaksofokus: string|null             // kopio hetkestä
-  malli: { xt: 'singh_12x8_v1[+pienkentta_m_v1]', xg: 'xg_geom_v1' }
+  malli: { xt: 'singh_12x8_v1[+pienkentta_m_v1]', xg: 'xg_geom_v0_esimerkki' }   // v1 vasta kalibroinnin jalkeen
   merkinnat: [ {                      // ARRAY → EI serverTimestamp() (§7.6), käytä sekunteja
       id, t: <sekunnit ottelun alusta>, tyyppi:
         'syotto'|'kuljetus'|'etenee'|'juoksu'|'riisto'|'laukaus'|'menetys'|'kaksinpeli'|'hetki',
       alku?: {len, wid}, loppu?: {len, wid}, piste?: {len, wid},   // 0–100, len = omasta maalista
       perilla?: bool|null, lopputuote?: 'syotto'|'laukaus'|'menetys'|'rikottiin'|'sailyi'|null,
-      rooli?: 'hyokkays'|'puolustus', tulos?: string|null,
+      rooli?: 'hyokkays'|'puolustus',
+      tulos?: 'ohitti'|'rikottiin'|'ei_ohittanut'          // rooli 'hyokkays'   (PH_KAKSINPELI_TULOS)
+            | 'voitti'|'viivytti'|'ohitettiin'|null,       // rooli 'puolustus'
       tapa?: 'katkaisu'|'taklaus'|'irtopallo'|null,              // vain riisto
       jatko?: 'syotto'|'kuljetus'|'laukaus'|'menetys'|'sailyi'|'selvitys'|'rikottiin'|null,  // ohitus- ja riistojuurille
       ohitus?: bool, reaktio?: 'heti'|'jai'|'ei'|null, skannasi?: bool|null,
@@ -376,6 +385,10 @@ TalentMaster-tokenit molemmille teemoille, yksi `@media(max-width:768px)` per ti
   `eiSijaintia`-merkinnät lasketaan lukumääriin mutta eivät arvoihin.
 - Ikätasot: U8–12 → ei lukuja, mutta reaktiokysely päällä · kaikilla tasoilla reaktio kirjataan (ei `tmAdarIkaTier`-porttia).
 - Dokumentti ei sisällä `pisteet`/`narratiivi`/`teksti`-kenttiä (regressiovartija).
+
+> **Regressiovartija `pisteet`/`narratiivi`/`teksti` (EHDOTTOMAT kentät, §5.6) kuuluu PR-C:hen tai PR-D:hen**,
+> koska tallennus tehdään niissä — Vaihe 1:n lib ei kirjoita Firestoreen. Kirjaa se niiden briiffiin.
+
 
 ### 5.9 Vaiheistus
 

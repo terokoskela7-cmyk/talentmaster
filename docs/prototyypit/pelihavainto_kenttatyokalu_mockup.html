@@ -419,7 +419,7 @@
   function tstr(s){ var m=Math.floor(s/60), ss=s%60; return (m<10?'0':'')+m+':'+(ss<10?'0':'')+ss; }
   function isAtt1v1(e){ return e.type==='kaksinpeli' && e.rooli==='hyokkays'; }
   function isDef1v1(e){ return e.type==='kaksinpeli' && e.rooli==='puolustus'; }
-  function isLoss(e){ return e.type==='menetys' || (e.type==='syotto' && e.perilla===false) || (isAtt1v1(e) && e.tulos==='ei'); }
+  function isLoss(e){ return e.type==='menetys' || (e.type==='syotto' && e.perilla===false) || (isAtt1v1(e) && e.tulos==='ei_ohittanut'); }
   function needsReaction(e){ return isLoss(e) || (isDef1v1(e) && e.tulos==='ohitettiin'); }
   function lossPoint(e){ return e.type==='syotto'?e.to:e.at; }
 
@@ -640,7 +640,7 @@
     var mk=function(rooli,tulos){ return function(){ var e=addEntry({type:'kaksinpeli',rooli:rooli,tulos:tulos,at:at}); if(rooli==='hyokkays'&&tulos==='ohitti') askFollow(sp,e); if(rooli==='puolustus'&&tulos==='voitti') askFollowDef(sp,e); }; };
     showChooser(sp,[
       {cls:'teal',sub:'Hyökkäys',t:'Ohitti ✓',fn:mk('hyokkays','ohitti')},
-      {cls:'amber',sub:'Hyökkäys',t:'Ei ohittanut',fn:mk('hyokkays','ei')},
+      {cls:'amber',sub:'Hyökkäys',t:'Ei ohittanut',fn:mk('hyokkays','ei_ohittanut')},
       {cls:'blue',sub:'Puolustus',t:'Voitti pallon',fn:mk('puolustus','voitti')},
       {cls:'ink',sub:'Puolustus',t:'Viivytti',fn:mk('puolustus','viivytti')},
       {cls:'red',sub:'Puolustus',t:'Ohitettiin',fn:mk('puolustus','ohitettiin')}
@@ -783,7 +783,7 @@
     else if(e.type==='kaksinpeli'){
       o.desc=zoneName(e.at);
       if(isAtt1v1(e)){
-        if(e.tulos==='ei'){ var r2=pts(xtOpp(e.at)), l3=riskLevel(r2); o.val=l3; o.sub='menetysriski'; o.hi=l3==='korkea'; }
+        if(e.tulos==='ei_ohittanut'){ var r2=pts(xtOpp(e.at)), l3=riskLevel(r2); o.val=l3; o.sub='menetysriski'; o.hi=l3==='korkea'; }
         else { o.val=e.tulos==='rikottiin'?'rikottiin':'ohitti'; o.sub='1v1'; if(e.jatko) o.desc+=' → '+JATKO[e.jatko]; }
       } else {
         if(e.tulos==='voitti'){ o.val=fmt(pts(xtOpp(e.at)),true); o.sub='puolustusarvo'; if(e.jatko) o.desc+=' → '+JATKOD[e.jatko]; }
@@ -798,7 +798,7 @@
   function typeClass(e){
     if(e.type==='syotto' && e.perilla===false) return 'syotto-x';
     if(e.type==='kaksinpeli'){
-      if(isAtt1v1(e)) return e.tulos==='ei'?'v1-x':'v1-ok';
+      if(isAtt1v1(e)) return e.tulos==='ei_ohittanut'?'v1-x':'v1-ok';
       return e.tulos==='voitti'?'v1-def':(e.tulos==='ohitettiin'?'v1-beaten':'v1-neutral');
     }
     return e.type;
@@ -841,7 +841,7 @@
           });
         }
         if(e.type==='kaksinpeli'){
-          var opts = isAtt1v1(e) ? [['ohitti','Ohitti'],['ei','Ei ohittanut'],['rikottiin','Rikottiin']] : [['voitti','Voitti'],['viivytti','Viivytti'],['ohitettiin','Ohitettiin']];
+          var opts = isAtt1v1(e) ? [['ohitti','Ohitti'],['ei_ohittanut','Ei ohittanut'],['rikottiin','Rikottiin']] : [['voitti','Voitti'],['viivytti','Viivytti'],['ohitettiin','Ohitettiin']];
           pick(chips,'Tulos',opts,e,'tulos');
         }
         if(e.type==='riisto'){ pick(chips,'Miten',[['katkaisu','Katkaisu'],['taklaus','Taklaus'],['irtopallo','Irtopallo']],e,'tapa'); }
@@ -924,7 +924,7 @@
       if(e.type==='juoksu') nRun++;
       if(e.type==='laukaus'){ nShot++; if(loc) sumXG+=xg(e.at); }
       if(e.type==='riisto'){ nKatk++; if(loc) sumDef+=pts(xtOpp(e.at)); }
-      if(isAtt1v1(e) && e.tulos){ aAll++; if(e.tulos!=='ei') aOk++; }
+      if(isAtt1v1(e) && e.tulos){ aAll++; if(e.tulos!=='ei_ohittanut') aOk++; }
       if(isDef1v1(e) && e.tulos){ if(e.tulos==='voitti'){ dWon++; if(loc) sumDef+=pts(xtOpp(e.at)); } else if(e.tulos==='viivytti') dDelay++; else dBeaten++; }
       if(isLoss(e)){ nLoss++; if(loc && riskLevel(pts(xtOpp(lossPoint(e))))==='korkea') nHigh++; }
       if(needsReaction(e) && (e.reaktio==='heti'||e.reaktio==='jai')){ rAll++; if(e.reaktio==='heti') rHeti++; }
