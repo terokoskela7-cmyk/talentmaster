@@ -399,13 +399,91 @@ describe('(5) Yhteenveto ja siirtyma (§5.4 / §5.4.1)', () => {
     expect(PH.phYhteenveto(dok(pieni)).luvut.siirtyma.eteniHeti).toBe(0);
   });
 
-  it('siirtyman uhka laskee jokaisen ketjun jasenen KERRAN', () => {
+  /* K8 · KETJU ON MONITASOINEN. Kenttatyokalu tuottaa riisto → kuljetus → syotto niin, etta SYOTON
+     ketju osoittaa KULJETUKSEEN (askCarryEnd → waitFor(e.to, e.id, 'syotto')), ei riistoon. Tama testi
+     oli aiemmin litteana (molemmat ketju:'r'), jollaista ketjua kenttatyokalu ei koskaan tuota — siksi
+     se ei huomannut, etta lib luki vain suorat lapset ja pudotti syoton uhkasummasta. */
+  it('K8 · siirtyman uhka kulkee koko ketjun lapi (riisto → kuljetus → syotto)', () => {
     const piste = { len: 25, wid: 50 };
     const kuljetus = { id: 'k', tyyppi: 'kuljetus', ketju: 'r', alku: piste, loppu: { len: 45, wid: 50 }, lopputuote: 'syotto' };
-    const syotto = { id: 's', tyyppi: 'syotto', ketju: 'r', alku: { len: 45, wid: 50 }, loppu: { len: 80, wid: 50 }, perilla: true };
+    const syotto = { id: 's', tyyppi: 'syotto', ketju: 'k', alku: { len: 45, wid: 50 }, loppu: { len: 85, wid: 50 }, perilla: true };
     const y = PH.phYhteenveto(dok([{ id: 'r', tyyppi: 'riisto', piste, jatko: 'kuljetus' }, kuljetus, syotto]));
-    const odotettu = PH.phArvo(kuljetus, '11v11').pisteet + PH.phArvo(syotto, '11v11').pisteet;
-    expect(y.luvut.siirtyma.uhka).toBeCloseTo(Math.round(odotettu * 10) / 10, 6);
+    const k = PH.phArvo(kuljetus, '11v11').pisteet, s = PH.phArvo(syotto, '11v11').pisteet;
+    expect(s, 'EI VACUOUS: lastenlapsen uhka on selvasti suurempi kuin suoran lapsen').toBeGreaterThan(k);
+    expect(y.luvut.siirtyma.uhka).toBeCloseTo(Math.round((k + s) * 10) / 10, 6);
+    expect(y.luvut.luotuUhka.riistoista).toBeCloseTo(Math.round((k + s) * 10) / 10, 6);
+  });
+
+  it('K8 · "eteni heti" arvioidaan ENSIMMAISESTA teosta (suora lapsi), ei lastenlapsesta', () => {
+    const piste = { len: 25, wid: 50 };
+    // kuljetus alle kynnyksen (0,4), syotto selvasti yli — jos lastenlapsi arvioisi, eteniHeti olisi 1
+    const kuljetus = { id: 'k', tyyppi: 'kuljetus', ketju: 'r', alku: piste, loppu: { len: 45, wid: 50 }, lopputuote: 'syotto' };
+    const syotto = { id: 's', tyyppi: 'syotto', ketju: 'k', alku: { len: 45, wid: 50 }, loppu: { len: 85, wid: 50 }, perilla: true };
+    expect(PH.phArvo(kuljetus, '11v11').pisteet).toBeLessThan(0.5);
+    expect(PH.phArvo(syotto, '11v11').pisteet).toBeGreaterThan(0.5);
+    const y = PH.phYhteenveto(dok([{ id: 'r', tyyppi: 'riisto', piste, jatko: 'kuljetus' }, kuljetus, syotto]));
+    expect(y.luvut.siirtyma.eteniHeti).toBe(0);
+    expect(y.luvut.siirtyma.sailyi).toBe(1);
+  });
+
+  /* K8 · eka() saa katsoa VAIN suoraa lasta. `jatko` on korjattava kentta (§5.2), joten dokumentissa voi
+     olla riisto jonka jatko on 'syotto' mutta ketju alkaa kuljetuksella — silloin suoraa syottoa EI ole ja
+     kirjaus on KESKEN. Jos eka() ottaisi minka tahansa jalkelaisen, siirtyma arvioituisi lastenlapsen
+     (ison etenevan syoton) perusteella ja nayttaisi onnistuneelta. */
+  it('K8 · eka() ei arvioi lastenlapsesta (jatko syotto, ketjussa vain kuljetus + sen syotto)', () => {
+    const piste = { len: 25, wid: 50 };
+    const y = PH.phYhteenveto(dok([
+      { id: 'r', tyyppi: 'riisto', piste, jatko: 'syotto' },
+      { id: 'k', tyyppi: 'kuljetus', ketju: 'r', alku: piste, loppu: { len: 45, wid: 50 }, lopputuote: 'syotto' },
+      { id: 's', tyyppi: 'syotto', ketju: 'k', alku: { len: 45, wid: 50 }, loppu: { len: 85, wid: 50 }, perilla: true }
+    ]));
+    expect(y.luvut.siirtyma.kesken, 'lastenlapsi arvioi siirtyman').toBe(1);
+    expect(y.luvut.siirtyma.sailyi).toBe(0);
+    expect(y.luvut.siirtyma.eteniHeti).toBe(0);
+    // uhkasumma kulkee silti koko ketjun lapi
+    expect(y.luvut.siirtyma.uhka).toBeGreaterThan(9);
+  });
+
+  it('K8 · ketjun kuljetus paattyy menetykseen: menetetty 1 eika menetys tuplaannu', () => {
+    const piste = { len: 25, wid: 50 };
+    const y = PH.phYhteenveto(dok([
+      { id: 'r', tyyppi: 'riisto', piste, jatko: 'kuljetus' },
+      { id: 'k', tyyppi: 'kuljetus', ketju: 'r', alku: piste, loppu: { len: 40, wid: 50 }, lopputuote: 'menetys' },
+      { id: 'm', tyyppi: 'menetys', ketju: 'k', piste: { len: 40, wid: 50 } }
+    ]));
+    expect(y.luvut.siirtyma.menetetty).toBe(1);
+    expect(y.luvut.siirtyma.menetysHeti).toBe(1);
+    expect(y.luvut.siirtyma.sailyi).toBe(0);
+  });
+
+  it('K8 · 1v1 ohitti → kuljetus (ohitus) → syotto: yksi yritys, ei tuplausta syvemmalta', () => {
+    const piste = { len: 60, wid: 50 };
+    const y = PH.phYhteenveto(dok([
+      { id: 'k1', tyyppi: 'kaksinpeli', rooli: 'hyokkays', tulos: 'ohitti', piste },
+      { id: 'd', tyyppi: 'kuljetus', ketju: 'k1', ohitus: true, alku: piste, loppu: { len: 72, wid: 50 }, lopputuote: 'syotto' },
+      { id: 's', tyyppi: 'syotto', ketju: 'd', alku: { len: 72, wid: 50 }, loppu: { len: 88, wid: 50 }, perilla: true }
+    ]));
+    expect(y.luvut.ykkosetHyokkays).toEqual({ onnistui: 1, yritykset: 1 });
+    expect(y.merkintoja, 'ketjun jasenet tuplasivat tilannelaskurin').toBe(1);
+  });
+
+  it('K8 · syklinen ketju ei jaa silmukkaan', () => {
+    const piste = { len: 40, wid: 50 };
+    const y = PH.phYhteenveto(dok([
+      { id: 'a', tyyppi: 'kuljetus', ketju: 'b', alku: piste, loppu: { len: 55, wid: 50 } },
+      { id: 'b', tyyppi: 'kuljetus', ketju: 'a', alku: piste, loppu: { len: 55, wid: 50 } }
+    ]));
+    expect(y.merkintoja).toBe(0);              // molemmilla on ketju → ei juuria
+    expect(y.merkintojaKaikki).toBe(2);
+    expect(y.luvut.luotuUhka.riistoista).toBe(0);
+  });
+
+  it('K8 · rikkinainen ketjuviittaus ei kaada', () => {
+    const y = PH.phYhteenveto(dok([
+      { id: 's', tyyppi: 'syotto', ketju: 'ei_ole', alku: { len: 40, wid: 50 }, loppu: { len: 70, wid: 50 }, perilla: true }
+    ]));
+    expect(y.luvut.syotot.perille).toBe(1);
+    expect(y.luvut.luotuUhka.riistoista).toBe(0);
   });
 
   it('luotu uhka: vain syotot perille ja kuljetukset; riistoista alkaneet eritellaan', () => {

@@ -372,15 +372,16 @@ TalentMaster-tokenit molemmille teemoille, yksi `@media(max-width:768px)` per ti
 - Menetysriskin rajat 2 / 5 uhkapistettä.
 - xG: monotoninen (lähempänä > kauempana, keskeltä > sivusta), rangaistuspisteen arvo kertoimista.
 - Pienkenttä: 8v8-piste samalla metrietäisyydellä maalista = 11v11-arvo; 3v3 → null.
-
-> **Regressiovartija `pisteet`/`narratiivi`/`teksti` (EHDOTTOMAT kentät, §5.6) kuuluu PR-C:hen tai PR-D:hen**,
-> koska tallennus tehdään niissä — Vaihe 1:n lib ei kirjoita Firestoreen. Kirjaa se niiden briiffiin.
 - Riiston jälkeen: jokainen §5.4.1-taulukon rivi; selvitys ei vaikuta säilytysosuuteen; ketjun kuljetus → syöttö
   lasketaan siirtymän uhkaan kerran; ketjuton `jatko:'syotto'` (ei vielä pyyhkäisty) ei kaada laskentaa.
 - Yhteenveto: ketjut eivät tuplaa tilannelaskuria; "ohitti matkalla" ei tuplaa 1v1-ketjun ohitusta;
   `eiSijaintia`-merkinnät lasketaan lukumääriin mutta eivät arvoihin.
 - Ikätasot: U8–12 → ei lukuja, mutta reaktiokysely päällä · kaikilla tasoilla reaktio kirjataan (ei `tmAdarIkaTier`-porttia).
 - Dokumentti ei sisällä `pisteet`/`narratiivi`/`teksti`-kenttiä (regressiovartija).
+
+> **Regressiovartija `pisteet`/`narratiivi`/`teksti` (EHDOTTOMAT kentät, §5.6) kuuluu PR-C:hen tai PR-D:hen**,
+> koska tallennus tehdään niissä — Vaihe 1:n lib ei kirjoita Firestoreen. Kirjaa se niiden briiffiin.
+
 
 ### 5.9 Vaiheistus
 
