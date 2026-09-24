@@ -126,7 +126,7 @@ describe('status-nauha & otsikko suoritettuina (data-vetoinen, ei uutta dataa)',
   it('aktiivinen kausitavoite + jaksofokus (ilman alkoi) → aikataulussa · hyväksytty · kesto · periaate', () => {
     const h = statusFn({ _idpTavoite: { status: 'aktiivinen' }, jaksofokus: { konsepti_nimi: 'Haltuunotto', kesto_vk: 4 } });
     expect(h).toContain('● Aikataulussa');
-    expect(h).toContain('Kausitavoite <b>hyväksytty</b>');
+    expect(h).toContain('Kauden tavoite <b>hyväksytty</b>');
     expect(h).toContain('Jaksofokus <b>kesto 4 vk</b>');
     expect(h).toContain('Yksi prioriteetti · vähemmän on enemmän');
     expect(h).toContain('VP-oversight · tila yhdellä silmäyksellä');
@@ -134,7 +134,7 @@ describe('status-nauha & otsikko suoritettuina (data-vetoinen, ei uutta dataa)',
   it('ei jaksofokusta mutta tavoite → "○ Ei jaksofokusta" (warn)', () => {
     const h = statusFn({ _idpTavoite: { status: 'ehdotettu' } });
     expect(h).toContain('○ Ei jaksofokusta');
-    expect(h).toContain('Kausitavoite <b>ehdotettu</b>');
+    expect(h).toContain('Kauden tavoite <b>ehdotettu</b>');
     expect(h).not.toContain('Jaksofokus <b>');
   });
   it('otsikko renderöi muokkauskoti-tekstin', () => {

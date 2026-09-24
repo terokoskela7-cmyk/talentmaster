@@ -15,7 +15,7 @@ describe('vihjerekisteri (TM_TESTI_OHJEET) — 5 uutta IDP-flow-vihjettä, linja
   it('idp_kausitavoite: pitkä horisontti 6–12 kk + §37-roolit', () => {
     expect(HTML).toContain('idp_kausitavoite: {');
     expect(HTML).toContain('Kauden ankkuri (6–12 kk)');
-    expect(HTML).toContain('kausitavoite (makro) sovitaan yhdessä');
+    expect(HTML).toContain('kauden tavoite (makro) sovitaan yhdessä');
   });
   it('idp_jaksofokus: meso 4–8 vk + kolme valintaa (domeeni/painopiste/teema) + yliajettavissa', () => {
     expect(HTML).toContain('idp_jaksofokus: {');
@@ -49,8 +49,8 @@ describe('vihjerekisteri (TM_TESTI_OHJEET) — 5 uutta IDP-flow-vihjettä, linja
 });
 
 describe('⓵-injektiot IDP-flow-osioihin (reuse window._tmIBtn, tap-behind)', () => {
-  it('Kausitavoite (Kehitys TASO 1) + Jaksofokus (TASO 2) haitariotsikot', () => {
-    expect(HTML).toContain("vpT('Kausitavoite') + ((typeof window._tmIBtn === 'function') ? window._tmIBtn('idp_kausitavoite') : '')");
+  it('Kauden tavoite (Kehitys TASO 1) + Jaksofokus (TASO 2) haitariotsikot', () => {
+    expect(HTML).toContain("vpT('Kauden tavoite') + ((typeof window._tmIBtn === 'function') ? window._tmIBtn('idp_kausitavoite') : '')");
     expect(HTML).toContain("vpT('Jaksofokus') + ((typeof window._tmIBtn === 'function') ? window._tmIBtn('idp_jaksofokus') : '')");
   });
   it('Moottori-otsikko + Tavoitejakauma-otsikko + Aloituksen Pelaajan ääni', () => {

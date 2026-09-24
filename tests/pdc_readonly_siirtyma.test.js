@@ -6,7 +6,7 @@
  *
  *   L1  `✎ Muokkaa jaksofokus`  → `_jfOhjaa`        → `#_jfInlineEditor` puuttuu PDC:stä → MODAALI
  *   L2  `＋ Aseta jaksofokus`   → `_jfOhjaa`        → sama
- *   L3  `＋ Tee kausitavoite`   → `_vpEhdotaTavoite` → `_vpKausitavoiteReRender`-fallback kutsuu
+ *   L3  `＋ Tee kauden tavoite` → `_vpEhdotaTavoite` → `_vpKausitavoiteReRender`-fallback kutsuu
  *                                                     `_vpKehSuunnitelmaHTML(p)` ILMAN optsia
  *                                                     → editori injektoituu read-only-raporttiin
  *
@@ -105,7 +105,7 @@ const JARJESTYS = (loki) => loki.map((x) => x.t);
 describe('PDC P1 · (1) EI MODAALIA PDC:llä — kaikki kolme vuotoa tukittu', () => {
   const NAPIT = [
     ['L1 read-only-yhteenveto', "vpT('→ Kehitä jaksofokusta') + '</button></div>'"],
-    ['L3 kausitavoite (tyhjä)', "vpT('＋ Tee kausitavoite')"],
+    ['L3 kauden tavoite (tyhjä)', "vpT('＋ Tee kauden tavoite')"],
     ['L2 jaksofokus (tyhjä)', "vpT('＋ Aseta jaksofokus')"],
   ];
 
