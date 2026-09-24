@@ -1908,8 +1908,9 @@ body {
 /* B4/B5 — toissijaiset teot: linkkeja paapainikkeiden alla. Neutraali vari (teal on varattu
    Seuraava askelille ja yhdelle paapainikkeelle), rivittyy 380 px:ssa. */
 .jsp-kt-toissij { display: flex; flex-wrap: wrap; gap: 4px 16px; margin-top: 10px; }
-.jsp-kt-toissij span { font-family: var(--font-sans), 'DM Sans', sans-serif; font-size: 11.5px; color: var(--ink3); cursor: pointer; }
-.jsp-kt-toissij span:hover { color: var(--ink2); text-decoration: underline; }
+.jsp-kt-toissij button { font-family: var(--font-sans), 'DM Sans', sans-serif; font-size: 11.5px; color: var(--ink3); cursor: pointer; background: none; border: 0; padding: 0; }
+.jsp-kt-toissij button:hover { color: var(--ink2); text-decoration: underline; }
+.jsp-kt-toissij button:focus-visible { outline: 1px solid var(--teal); outline-offset: 2px; border-radius: 3px; }
 
 .jsp-kt-btns { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
 .jsp-kt-btn { font-size: 12px; font-weight: 600; border-radius: 8px; padding: 7px 12px; border: .5px solid var(--border); background: var(--ov-1); color: var(--ink2); cursor: pointer; font-family: var(--font-sans); }
@@ -6218,7 +6219,22 @@ function _vpLoytaPelaaja(pid) {
   return ((typeof _pelaajat !== 'undefined' && _pelaajat) || []).find(function (x) { return x.id === pid; })
       || ((window._jsvPelaajat || []).find(function (x) { return x.id === pid; })) || null;
 }
-function _vpKausitavoiteReRender() {
+/* K1 — Seuraava askel vanhenee jokaisen toimenpiteen jalkeen (ehdotus hyvaksytty · sitoumus
+   vahvistettu · kehityskeskustelu kirjattu · jaksofokus asetettu): sama paatoslahde (_pdcPaatos)
+   antaa uuden askeleen. Laatikossa EI ole syottokenttia, joten paivitys on aina turvallinen —
+   toisin kuin rivikontti, jonka uudelleenrakennus pyyhkisi kesken jaaneen syoton. */
+function _vpKehAskelReRender(p) {
+  if (typeof document === 'undefined') return;
+  const slot = document.getElementById('_jspKehAskel');
+  if (!slot) return;
+  const pel = p || window._vpArvPelaaja;
+  if (pel && typeof _vpKehSeuraavaAskelHTML === 'function') slot.innerHTML = _vpKehSeuraavaAskelHTML(pel);
+}
+
+/* avaaKt = aiheuttiko re-renderin Kauden tavoite -rivin OMA toiminto (ehdota/muokkaa/tallenna/
+   vaihto). Oletus true = kaikki olemassa olevat kutsupaikat ennallaan; sitoumus ja
+   kehityskeskustelu antavat false, koska ne eivat ole tuon rivin toimintoja (K2). */
+function _vpKausitavoiteReRender(avaaKt) {
   const slot = document.getElementById('_jspKausitavoite'); const p = window._vpArvPelaaja;
   /* Vaihe 1.2 — rivit + nauha lukevat VOIMASSA OLEVAA tavoitetta, joten editorin slot yksin ei riitä:
      hyväksytty vaihto muuttaa myös rivin tilan ja otsikon. Koko Kehityssuunnitelma-kontti rakennetaan
@@ -6243,8 +6259,22 @@ function _vpKausitavoiteReRender() {
     const cont = acc && acc.parentNode;
     if (cont) cont.innerHTML = _vpKehSuunnitelmaHTML(p);
   }
-  // P4a.1 — avaa kausitavoite-haitarirvi, jotta re-render (moottori/ehdota/muokkaa) näkyy vaikka rivi oli kiinni.
-  const _accK = document.getElementById('_accKausitavoite'); if (_accK) _accK.classList.add('open');
+  // K1 — laatikko paivitetaan AINA, ei vain _vaihtui-haarassa (ei syottokenttia → ei hukkaa dataa).
+  _vpKehAskelReRender(p);
+  /* P4a.1 — avaa kausitavoite-haitarirvi, jotta re-render (moottori/ehdota/muokkaa) nakyy vaikka rivi oli kiinni.
+     K2: avataan VAIN kun aiheuttaja oli taman rivin oma toiminto, ja silloin sisarukset suljetaan
+     (yhden rivin saanto myos tassa — sama saanto kuin _vpKehRiviToggle, eri laukaisin). */
+  if (avaaKt !== false) {
+    const _accK = document.getElementById('_accKausitavoite');
+    if (_accK) {
+      const _sisarKontti = _accK.parentNode;
+      if (_sisarKontti) {
+        const _auki = _sisarKontti.querySelectorAll('.acc-row.open');
+        for (let i = 0; i < _auki.length; i++) { if (_auki[i] !== _accK) _auki[i].classList.remove('open'); }
+      }
+      _accK.classList.add('open');
+    }
+  }
   // 1b — päivitä myös narratiivi-IDP-välilehti (sama data; täysi tavoite latautuu taustalla).
   const idpSlot = document.getElementById('_jspIdpNarratiivi');
   if (idpSlot && p && typeof _vpIdpNarratiiviHTML === 'function') idpSlot.innerHTML = _vpIdpNarratiiviHTML(p);
@@ -6644,6 +6674,8 @@ async function _vpVahvistajaRooli() {
   } catch (e) { /* best-effort — vahvistus jatkuu ilman roolia */ }
   return null;   // näyttö pysyy oletuksessa "valmentaja vahvisti" (ei regressiota)
 }
+/* K2: sitoumuksen vahvistus ei ole Kauden tavoite -rivin toiminto (laukaisin on Seuraava askel
+   -laatikon painike) → avointa rivia ei vaihdeta, vain laatikko ja rivien sisalto paivittyvat. */
 window._vpVahvistaSitoumus = async function (pid) {
   const p = _vpIdpPelaaja(pid); if (!p || !p._idpSitoumus) return;
   // E1 — omistava valmentaja (VP oversightina) vahvistaa; kirjaa vahvistajan rooli + uid (audit). Sama top-level-avain
@@ -6653,7 +6685,7 @@ window._vpVahvistaSitoumus = async function (pid) {
   const _vahvJakso = (p.jaksofokus && p.jaksofokus.alkoi) || null;   // sido vahvistus nykyjaksoon (per-jakso-scope, E)
   p._idpSitoumus = Object.assign({}, p._idpSitoumus, { vahvistettu_pvm: new Date().toISOString(), vahvistettu_jakso_alkoi: _vahvJakso, vahvistaja_rooli: _vahvRooli, vahvistaja_uid: _vahvUid });
   p.idp_sitoumus_vahv_jakso = _vahvJakso;   // R1 §26 — bulk-pikakenttä cockpitin "odottaa vahvistusta" -tarkkuudelle (vahvistettu tälle jaksolle)
-  _vpKausitavoiteReRender();
+  _vpKausitavoiteReRender(false);   // K2: ei taman rivin toiminto -> avointa rivia ei vaihdeta
   if (_isDemoMode || !_seuraId) { if (typeof toast === 'function') toast(vpT('Sitoumus vahvistettu (demo)'), 'ok'); return; }
   try {
     const cu = firebase.auth().currentUser; if (cu) await cu.getIdToken(true);
@@ -7076,8 +7108,10 @@ window._vpKehAvaaKausitavoite = function (pid) {
 window._vpKehAvaaJaksofokus = function () { _vpKehAvaa('_accJaksofokus'); };
 
 /* "Vaihda tavoite…" — avaa Kauden tavoite -rivin vaihtopolun (B4 vaihe 1: ehdotukset datasta). */
-/* Vaihda-polun peruutus: lippu pois JA mahdollinen kesken jaanyt vaihto-luonnos pois, jotta
-   rivi palaa siihen tilaan josta kayttaja lahti (voimassa oleva tavoite nakyviin). */
+/* Vaihda-polun peruutus: nollaa LIPUN, jolloin rivi palaa voimassa olevaan tavoitteeseen.
+   Luonnosta ei tarvitse tyhjentaa tassa: Peruuta renderoidaan vain kun luonnosta EI ole
+   (`!muokkaus`), ja jos luonnos on, sen peruutus kulkee _vpPeruutaLuonnos → _vpTyhjennaLuonnos,
+   joka nollaa lipun. */
 window._vpVaihtoPeru = function (pid) {
   var p = _vpIdpPelaaja(pid); if (!p) return;
   p._vpVaihtoPolku = false;
@@ -7779,8 +7813,10 @@ function _vpKausitavoiteHTML(p) {
      yksi ja teal, muut ovat linkkeja. Vaihda tavoite… avaa vaiheen 1 samaan riviin (ei modaalia). */
   const _elossa = t && (st === 'aktiivinen' || st === 'saavutettu');
   if (_elossa && p._luonnosTyyppi !== 'vaihto') {
+    /* <button> eika <span>: naihin on paastava Tab-nappaimella ja ruudunlukijalla. Ulkoasu
+       pysyy linkkina (.jsp-kt-toissij button: background:none, border:0). */
     const lnk = function (fn, teksti) {
-      return '<span onclick="event.stopPropagation();' + fn + '">' + teksti + '</span>';
+      return '<button type="button" onclick="event.stopPropagation();' + fn + '">' + teksti + '</button>';
     };
     h += '<div class="jsp-kt-toissij">'
       + lnk('_vpKirjaaReview(\'' + pid + '\')', vpT('＋ Kirjaa kehityskeskustelu'))
@@ -7977,7 +8013,7 @@ window._vpTallennaReview = async function (pid) {
   p.review_tagit = _tagit;
   window._rvArvioVal = null;
   const m = document.getElementById('_vpReviewModal'); if (m) m.remove();
-  _vpKausitavoiteReRender();
+  _vpKausitavoiteReRender(false);   // K2: ei taman rivin toiminto -> avointa rivia ei vaihdeta
   await _vpTallennaIdpDok(p, 'Review kirjattu');
   if (!_isDemoMode && _seuraId) {   // review_tagit pelaaja-pikakenttään + review-dokkiin (aggregoitava)
     try {
@@ -8511,6 +8547,10 @@ async function _vpTtKirjoita(pid, data, viesti) {
     const cu = firebase.auth().currentUser; if (cu) await cu.getIdToken(true);
     await db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(pid).set(data, { merge: true });
     if (typeof toast === 'function') toast(viesti + ' ✓', 'ok');
+    /* K1 — tama on KAIKKIEN jaksofokus-kirjoitusten jaettu polku: 'ei_jaksofokusta' poistuu heti kun
+       jakso on asetettu, joten Seuraava askel on paivitettava myos taalla (ei kulje kausitavoitteen
+       re-renderin lapi). Vain onnistuneen kirjoituksen jalkeen. */
+    if (typeof _vpKehAskelReRender === 'function') _vpKehAskelReRender();
   } catch (e) { console.warn('[vpTt]', e && e.message); if (typeof toast === 'function') toast(vpT('Tallennus epäonnistui'), 'error'); }
 }
 
@@ -13227,7 +13267,9 @@ window._avaaPerPelaajaPikakatsaus = function(idx, joukkueNimi) {
   /* KISS taso 1 = TILANNE. Poistettu talta tasolta (PR B): tyopoydan otsikko, VP-oversight-nauha,
      moottorin kortit ja alaviitteet. Moottori nakyy vain tyhjassa tilassa ja Vaihda tavoite -polussa,
      Kauden tavoite -rivin sisalla (taso 2). Karjessa on nyt YKSI asia: Seuraava askel. */
-  if (typeof _vpKehSeuraavaAskelHTML === 'function') _kehExtra += _vpKehSeuraavaAskelHTML(p);
+  /* Ankkuri on pakollinen: laatikko kertoo mita tehdaan SEURAAVAKSI, joten se vanhenee heti kun
+     toimenpide on tehty. _vpKausitavoiteReRender paivittaa taman samalla kertaa kuin rivit. */
+  if (typeof _vpKehSeuraavaAskelHTML === 'function') _kehExtra += '<div id="_jspKehAskel">' + _vpKehSeuraavaAskelHTML(p) + '</div>';
   // 2) P4a.1 — KEHITYSSUUNNITELMA-HAITARI: kausitavoite (TASO 1 · #_jspKausitavoite säilyy re-renderiä varten) ·
   //    jaksofokus (TASO 2) · kehityskaari (TASO 3). Progressiivinen avaus (useampi auki), IDP-hierarkia näkyväksi.
   if (typeof _vpKehSuunnitelmaHTML === 'function') _kehExtra += '<div id="_jspKehSuunnitelma" style="margin-top:6px">' + _vpKehSuunnitelmaHTML(p) + '</div>';

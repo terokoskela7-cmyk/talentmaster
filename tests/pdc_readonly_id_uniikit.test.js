@@ -180,7 +180,7 @@ describe('(3) Työpöytä ennallaan', () => {
   });
 
   it('kutsupaikat 6108/6114/6119/8368 osoittavat ETULIITTEETTÖMIIN id:hin', () => {
-    const rr = funktio('function _vpKausitavoiteReRender() {');
+    const rr = funktio('function _vpKausitavoiteReRender(avaaKt) {');
     expect(rr).toContain("getElementById('_jspKausitavoite')");
     expect(rr).toContain("getElementById('_accKausitavoite')");
     expect(VP).toContain("getElementById('_accJaksofokus')");

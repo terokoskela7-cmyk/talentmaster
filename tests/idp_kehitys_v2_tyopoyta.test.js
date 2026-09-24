@@ -35,7 +35,7 @@ describe('(1) rail-vapaa kattaa Kehityksen (tab 3) + leveyskatto 940', () => {
    ei palaa takaisin ensimmaiseksi asiaksi jonka valmentaja nakee. */
 describe('(2+3) tason 1 kärki: Seuraava askel, EI otsikkoa/nauhaa/moottoria', () => {
   it('_kehExtra alkaa Seuraava askel -laatikolla', () => {
-    const iAskel = HTML.indexOf('_kehExtra += _vpKehSeuraavaAskelHTML(p);');
+    const iAskel = HTML.indexOf('_kehExtra += \'<div id="_jspKehAskel">\' + _vpKehSeuraavaAskelHTML(p)');
     expect(iAskel, 'Seuraava askel puuttuu tason 1 kärjestä').toBeGreaterThan(0);
     const iSuun = HTML.indexOf('_kehExtra += \'<div id="_jspKehSuunnitelma"');
     expect(iSuun, 'rivit puuttuvat').toBeGreaterThan(0);

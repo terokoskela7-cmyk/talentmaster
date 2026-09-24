@@ -64,7 +64,7 @@ const TUNNISTEET = [
   'function _vpKausitavoiteHTML(p)',
   'function _vpKehSuunnitelmaHTML(p, opts)',
   'function _vpViikkoKatselmusHTML(p, st)',
-  'function _vpKausitavoiteReRender()',
+  'function _vpKausitavoiteReRender(avaaKt)',
 ];
 
 /* Tuntematon nimi -> tyhja stub. Nain purettu koodi ajaa ilman koko tiedoston riippuvuuspuuta,
@@ -482,7 +482,7 @@ describe('(8) Rivit lukevat voimassa olevaa tavoitetta', () => {
   });
 
   it('_vpKausitavoiteReRender paivittaa myos rivit, ei pelkkaa slottia', () => {
-    const src = pura('function _vpKausitavoiteReRender()');
+    const src = pura('function _vpKausitavoiteReRender(avaaKt)');
     expect(src).toContain("getElementById('_jspKehSuunnitelma')");
     expect(src).toContain('_vpKehSuunnitelmaHTML(p)');
     // ankkuri on olemassa cockpitin rakenteessa

@@ -66,11 +66,39 @@ const AIDOT = [
   'function _vpMoottoriKortitHTML(p, pid) {',
   'function _vpKausitavoiteHTML(p) {',
   'function _vpKehSuunnitelmaHTML(p, opts) {',
+  'function _vpKehAskelReRender(p) {',
+  'async function _vpTtKirjoita(pid, data, viesti) {',
+  'function _vpKausitavoiteReRender(avaaKt) {',
   'window._vpKehRiviToggle = function (paa) {',
   'window._vpKtRiviAvattu = function () {',
 ];
 const PALAUTA = ['_vpDimNimi', '_vpTyyppiNaytto', '_vpKtAlariviHTML', '_vpAskelNappi',
-  '_vpKehSeuraavaAskelHTML', '_vpMoottoriKortitHTML', '_vpKausitavoiteHTML', '_vpKehSuunnitelmaHTML'];
+  '_vpKehSeuraavaAskelHTML', '_vpMoottoriKortitHTML', '_vpKausitavoiteHTML', '_vpKehSuunnitelmaHTML',
+  '_vpKausitavoiteReRender', '_vpKehAskelReRender', '_vpTtKirjoita'];
+
+/** Yksi haitarirvi tynkä-DOM:iin: classList + parentNode riittävät re-renderin tarkasteluun. */
+function riviTynka(id, auki) {
+  const r = { id: id, _luokat: new Set(auki ? ['open'] : []) };
+  r.classList = {
+    add: (k) => r._luokat.add(k),
+    remove: (k) => r._luokat.delete(k),
+    contains: (k) => r._luokat.has(k),
+  };
+  return r;
+}
+
+/** document-tynkä: nimetyt slotit + yksi rivikontti. Tuntematon id → null (kuten selaimessa). */
+function domTynka(rivit, slotit) {
+  const kontti = { querySelectorAll: () => rivit.filter((r) => r._luokat.has('open')) };
+  rivit.forEach((r) => { r.parentNode = kontti; });
+  const kartta = Object.assign({}, slotit || {});
+  rivit.forEach((r) => { kartta[r.id] = r; });
+  return {
+    getElementById: (id) => (Object.prototype.hasOwnProperty.call(kartta, id) ? kartta[id] : null),
+    createElement: () => ({ innerHTML: '', get firstChild() { return { _stub: true }; } }),
+    body: { appendChild: () => {} },
+  };
+}
 
 function esc(s) {
   return String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -117,6 +145,28 @@ function rakenna(lisa) {
     _vpMesoKaariHTML: () => '',
     IDP_TILA_LBL: {},
     kutsut: kutsut,
+    document: o.document || domTynka([], {}),
+    _vpIdpNarratiiviHTML: () => '<div>NARRATIIVI</div>',
+    /* Kirjoitushelperin minimiymparisto: set() onnistuu tai heittaa (o.kirjoitusVirhe). */
+    _isDemoMode: false,
+    _seuraId: 'testiseura',
+    toast: () => {},
+    firebase: { auth: () => ({ currentUser: { getIdToken: async () => 'token' } }) },
+    db: {
+      collection: () => ({
+        doc: () => ({
+          collection: () => ({
+            doc: () => ({
+              set: async () => {
+                kutsut.push(['set']);
+                if (o.kirjoitusVirhe) throw new Error('permission-denied');
+                return true;
+              },
+            }),
+          }),
+        }),
+      }),
+    },
   };
   const store = Object.assign(perus, o.ymp || {});
   const ymp = new Proxy(store, {
@@ -139,9 +189,11 @@ function pelaaja(yli) {
     _idpTavoite: {
       luotu: '2026-08-01T10:00:00.000Z', status: 'aktiivinen', tyyppi: 'vahvuus',
       fokus: { nimi: 'Syötön piilotus', alue: 'hide_pass', dim: 'D4' },
-      mittari: { yksikko: 'taso' }, lahto: { arvo: 4 }, tavoitearvo: 5,
+      /* lahto 2 ≠ viimeisin arvio 4: "Nyt"-luvun LAHDE on mitattavissa vain kun arvot eroavat
+         (aiemmin molemmat olivat 4 → vaite oli tosi kummasta tahansa). */
+      mittari: { yksikko: 'taso' }, lahto: { arvo: 2 }, tavoitearvo: 5,
       aikaraami: { kausi: 'syksy 2026', arvio_pvm: '2026-11-04' },
-      arviot: [{ arvo: 4 }, { arvo: 4 }, { arvo: 4 }],
+      arviot: [{ arvo: 3 }, { arvo: 3 }, { arvo: 4 }],
       pelaajan_tavoite: 'Haluan uskaltaa syöttää eteenpäin myös silloin kun vastustaja on lähellä.',
     },
     jaksofokus: {
@@ -279,8 +331,31 @@ describe('(3) Seuraava askel cockpitissa', () => {
     expect(paatos).toContain("vpT('Ei avointa toimenpidettä — nimetkää kärkivahvuus.')");
   });
 
+  it('laatikko päivitetään re-renderissä, ei vain välilehden avauksessa', () => {
+    /* K1: laatikko kertoo mitä tehdään SEURAAVAKSI → se vanhenee heti kun toimenpide on tehty.
+       Kaikki kolme polkua (ehdotus hyväksytty · sitoumus vahvistettu · kehityskeskustelu kirjattu)
+       kulkevat _vpKausitavoiteReRender:in läpi, joten koukku siellä kattaa ne kaikki. */
+    expect(VP, 'ankkuri puuttuu → laatikkoa ei voi päivittää').toContain('id="_jspKehAskel"');
+    /* Paivitys elaa omassa apufunktiossaan, jotta myos jaksofokuksen tallennuspolku paasee siihen.
+       Re-render kutsuu sita EHDOITTA — ei vain _vaihtui-haarassa (laatikossa ei ole syottokenttia). */
+    const apu = pura('function _vpKehAskelReRender(p) {');
+    expect(apu).toContain("getElementById('_jspKehAskel')");
+    expect(apu).toContain('_vpKehSeuraavaAskelHTML(pel)');
+    const rr = pura('function _vpKausitavoiteReRender(avaaKt) {');
+    expect(rr).toContain('_vpKehAskelReRender(p)');
+    const iKutsu = rr.indexOf('_vpKehAskelReRender(p)');
+    const iHaara = rr.indexOf('if (_vaihtui');
+    expect(iHaara, 'ehdollinen haara puuttuu → vertailu ei mittaa mitään').toBeGreaterThan(-1);
+    expect(iKutsu, 'kutsu jäi _vaihtui-haaran sisään').toBeGreaterThan(rr.indexOf('} else if (p && typeof _vpKehSuunnitelmaHTML'));
+    /* ei-vacuous: kaikki kolme toimenpidepolkua todella kutsuvat re-renderiä (sitoumus ja
+       kehityskeskustelu argumentilla false, K2) → laatikko päivittyy jokaisesta niistä. */
+    expect(pura('window._vpVahvistaSitoumus = async function (pid) {')).toContain('_vpKausitavoiteReRender(');
+    expect(pura('window._vpTallennaReview = async function (pid) {')).toContain('_vpKausitavoiteReRender(');
+    expect(pura('window._vpTallennaTavoite = async function (pid, uusiStatus) {')).toContain('_vpKausitavoiteReRender()');
+  });
+
   it('laatikko on tason 1 kärjessä, rivien ENNEN', () => {
-    const iAskel = VP.indexOf('_kehExtra += _vpKehSeuraavaAskelHTML(p);');
+    const iAskel = VP.indexOf('_kehExtra += \'<div id="_jspKehAskel">\' + _vpKehSeuraavaAskelHTML(p)');
     const iRivit = VP.indexOf('_kehExtra += \'<div id="_jspKehSuunnitelma"');
     expect(iAskel).toBeGreaterThan(0);
     expect(iRivit).toBeGreaterThan(0);
@@ -330,6 +405,133 @@ describe('(4) Yksi rivi kerrallaan cockpitissa, monta raportissa', () => {
     expect(d.rivit[1]._luokat.has('open')).toBe(true);
   });
 
+  /* K1a+K1b RENDERÖITY todiste: re-render AJETAAN tynkä-DOM:illa. Lähdegreppaus jätti vihreäksi
+     mutaation joka säilytti tekstin mutta rikkoi ehdon → väite katsoo nyt lopputilaa. */
+  function ajaReRender(yli) {
+    const p = pelaaja(yli && yli.p);
+    const kt = riviTynka('_accKausitavoite', false);
+    const jf = riviTynka('_accJaksofokus', true);          // käyttäjä avasi tämän aiemmin
+    const askel = { innerHTML: 'VANHA-ASKEL' };
+    const dom = domTynka([kt, jf], { _jspKehAskel: askel, _jspKausitavoite: { innerHTML: '' } });
+    const api = rakenna({
+      p: p, document: dom,
+      paatos: (yli && yli.paatos) || (() => ({ avain: 'sitoumus', tila: 'toimenpide', teksti: 'UUSI-TEKSTI' })),
+    });
+    api._win._vpArvPelaaja = p;
+    api._vpKausitavoiteReRender(yli && yli.avaaKt);
+    return { kt: kt, jf: jf, askel: askel, api: api };
+  }
+
+  it('Kauden tavoite -rivin oma toiminto avaa rivin ja sulkee sisarukset', () => {
+    const r = ajaReRender();   // avaaKt oletuksena (undefined ≠ false) = tämän rivin toiminto
+    expect(r.kt._luokat.has('open'), 'Kauden tavoite ei auennut re-renderissä').toBe(true);
+    expect(r.jf._luokat.has('open'), 'kaksi riviä jäi auki yhtä aikaa').toBe(false);
+  });
+
+  it('K2: sitoumus/kehityskeskustelu ei vaihda avointa riviä', () => {
+    /* Laukaisin on Seuraava askel -laatikon painike, ei Kauden tavoite -rivi → käyttäjän avaama
+       rivi saa jäädä auki. Auki on silti enintään yksi rivi. */
+    const r = ajaReRender({ avaaKt: false });
+    expect(r.kt._luokat.has('open'), 'rivi avattiin vaikka toiminto ei ollut sen oma').toBe(false);
+    expect(r.jf._luokat.has('open'), 'käyttäjän avaama rivi suljettiin turhaan').toBe(true);
+    const auki = [r.kt, r.jf].filter((x) => x._luokat.has('open'));
+    expect(auki.length, 'auki enemmän kuin yksi rivi').toBeLessThanOrEqual(1);
+    // laatikko päivittyy silti
+    expect(r.askel.innerHTML).not.toBe('VANHA-ASKEL');
+  });
+
+  it('sitoumus ja kehityskeskustelu kutsuvat re-renderiä avaaKt=false', () => {
+    expect(pura('window._vpVahvistaSitoumus = async function (pid) {'))
+      .toContain('_vpKausitavoiteReRender(false)');
+    expect(pura('window._vpTallennaReview = async function (pid) {'))
+      .toContain('_vpKausitavoiteReRender(false)');
+    // ei-vacuous: kausitavoitteen omat toiminnot EIVÄT välitä falsea
+    expect(pura('window._vpMuokkaaLuonnos = function (pid) {')).toContain('_vpKausitavoiteReRender()');
+  });
+
+  it('Seuraava askel -laatikko saa uuden sisällön re-renderissä', () => {
+    const r = ajaReRender();
+    expect(r.askel.innerHTML, 'laatikko jäi vanhaan tilaan').not.toBe('VANHA-ASKEL');
+    expect(r.askel.innerHTML).toContain('UUSI-TEKSTI');
+    expect(r.askel.innerHTML).toContain('Seuraava askel');
+  });
+
+  it('hiljaiseksi muuttunut tila korvaa vanhan toimenpiteen (ei jää tealia)', () => {
+    const r = ajaReRender({ paatos: () => ({ avain: 'ei_xfactoria', tila: 'hiljainen', teksti: 'PDC' }) });
+    expect(r.askel.innerHTML).toContain('Ajan tasalla');
+    expect(r.askel.innerHTML, 'toimenpidelaatikko jäi näkyviin').not.toContain('toimi');
+  });
+
+  /* K1 · arvion nimeämä kulku: ehdotus odottaa → VP ottaa käyttöön → päätös on hiljainen.
+     Ilman laatikon päivitystä teal-laatikko pyysi yhä tarkistamaan ehdotuksen, ja sen painikkeen
+     painaminen loi UUDEN muokkausluonnoksen (_vpKtRiviAvattu) — siksi tämä on mergen esto. */
+  it('ehdotus_odottaa → hyväksytty: laatikko vaihtuu hiljaiseksi, ei jää pyytämään tarkistusta', () => {
+    const p = pelaaja();
+    const kt = riviTynka('_accKausitavoite', false);
+    const askel = { innerHTML: '' };
+    const dom = domTynka([kt], { _jspKehAskel: askel, _jspKausitavoite: { innerHTML: '' } });
+    let vaihe = 0;
+    const api = rakenna({
+      p: p, document: dom,
+      paatos: () => (vaihe === 0
+        ? { avain: 'ehdotus_odottaa', tila: 'toimenpide', teksti: 'Valmentaja ehdotti', korostus: 'tarkista' }
+        : { avain: 'ei_xfactoria', tila: 'hiljainen', teksti: 'Ei avointa toimenpidettä' }),
+    });
+    api._win._vpArvPelaaja = p;
+
+    api._vpKausitavoiteReRender();                       // cockpit avattu: ehdotus odottaa
+    expect(askel.innerHTML).toContain('Valmentaja ehdotti');
+    expect(askel.innerHTML).toContain('_vpKehAvaaKausitavoite(');
+
+    vaihe = 1;                                           // VP painoi "Ota käyttöön"
+    api._vpKausitavoiteReRender();
+    expect(askel.innerHTML, 'laatikko pyytää yhä tarkistamaan jo hyväksyttyä ehdotusta')
+      .not.toContain('Valmentaja ehdotti');
+    expect(askel.innerHTML, 'vanha painike jäi näkyviin').not.toContain('_vpKehAvaaKausitavoite(');
+    expect(askel.innerHTML).toContain('Ajan tasalla');
+    expect(askel.innerHTML).not.toContain('toimi');
+  });
+
+  /* K1 · jaksofokuksen kirjoitus EI kulje kausitavoitteen re-renderin läpi → koukku on jaetussa
+     kirjoitushelperissä (_vpTtKirjoita), jonka kautta kaikki jaksofokus-kirjoitukset menevät.
+     Helper AJETAAN tyngillä: pelkkä kutsun greppaus jäi vihreäksi mutaatiossa joka katkaisi ehdon. */
+  function ajaKirjoitus(yli) {
+    const p = pelaaja(Object.assign({ jaksofokus: null }, (yli && yli.p) || {}));
+    const askel = { innerHTML: 'VANHA-ASKEL' };
+    let vaihe = 0;
+    const api = rakenna({
+      p: p, document: domTynka([], { _jspKehAskel: askel }),
+      kirjoitusVirhe: !!(yli && yli.kirjoitusVirhe),
+      paatos: () => (vaihe === 0
+        ? { avain: 'ei_jaksofokusta', tila: 'toimenpide', teksti: 'Jaksolle ei ole valittu harjoiteltavaa taitoa.' }
+        : { avain: 'ei_xfactoria', tila: 'hiljainen', teksti: 'Ei avointa toimenpidettä' }),
+    });
+    api._win._vpArvPelaaja = p;
+    api._vpKehAskelReRender();                       // cockpit avattu: jaksofokus puuttuu
+    vaihe = 1;                                       // jakso asetettu → päätös on hiljainen
+    return { api: api, askel: askel, p: p };
+  }
+
+  it('ei_jaksofokusta → jaksofokus asetettu: laatikko päivittyy tallennuspolussa', async () => {
+    const r = ajaKirjoitus();
+    expect(r.askel.innerHTML, 'lähtötila ei renderöitynyt').toContain('Jaksolle ei ole valittu');
+    await r.api._vpTtKirjoita('p1', { jaksofokus: { konsepti_nimi: 'Syöttäminen' } }, 'Jaksofokus tallennettu');
+    expect(r.askel.innerHTML, 'laatikko pyytää yhä asettamaan jakson').not.toContain('Jaksolle ei ole valittu');
+    expect(r.askel.innerHTML).toContain('Ajan tasalla');
+  });
+
+  it('epäonnistunut kirjoitus EI päivitä laatikkoa (ei valheellista "valmis"-tilaa)', async () => {
+    const r = ajaKirjoitus({ kirjoitusVirhe: true });
+    await r.api._vpTtKirjoita('p1', { jaksofokus: { konsepti_nimi: 'Syöttäminen' } }, 'Jaksofokus tallennettu');
+    expect(r.askel.innerHTML, 'laatikko päivittyi vaikka kirjoitus epäonnistui')
+      .toContain('Jaksolle ei ole valittu');
+  });
+
+  it('ei-vacuous: jaksofokus-kirjoitukset käyttävät tätä helperiä', () => {
+    expect(VP.split('_vpTtKirjoita(').length - 1, 'kirjoitushelperiä ei käytetä').toBeGreaterThan(5);
+    expect(VP).toMatch(/_vpTtKirjoita\(pid,[^;]*jaksofokus/);
+  });
+
   it('Kauden tavoite -rivin avaus luo muokkausluonnoksen (taso 2 = lomake)', () => {
     const p = pelaaja();
     const api = rakenna({ p: p, ymp: { _vpArvPelaaja: p } });
@@ -369,6 +571,49 @@ describe('(5) Rivien tilat ja alarivit', () => {
     expect(ots).toContain('Nyt 4/5');
     expect(ots).toContain('tavoite 5/5');
     expect(ots).toContain('arvioidaan');
+  });
+
+  it('"Nyt" tulee VIIMEISIMMÄSTÄ kehityskeskustelusta, ei lähtötasosta', () => {
+    const p = pelaaja();   // lahto 2 · arviot 3,3,4
+    const api = rakenna({ p: p });
+    const rivi = api._vpKtAlariviHTML(p._idpTavoite, true);
+    expect(rivi, 'Nyt-luku ei seuraa viimeisintä arviota').toContain('Nyt 4/5');
+    expect(rivi, 'Nyt-luku näyttää lähtötasoa').not.toContain('Nyt 2/5');
+    expect(rivi, 'Nyt-luku poimi väärän arvion').not.toContain('Nyt 3/5');
+  });
+
+  it('K3 (arvion tapaus): lähtö 3 · arviot [4] · tavoite 5 → "Nyt 4/5 → tavoite 5/5"', () => {
+    const p = pelaaja();
+    p._idpTavoite.lahto = { arvo: 3 };
+    p._idpTavoite.arviot = [{ arvo: 4 }];
+    p._idpTavoite.tavoitearvo = 5;
+    const rivi = rakenna({ p: p })._vpKtAlariviHTML(p._idpTavoite, true);
+    expect(rivi).toContain('Nyt 4/5');
+    expect(rivi).toContain('tavoite 5/5');
+    expect(rivi, 'lähtötaso näytettiin nyt-lukuna').not.toContain('Nyt 3/5');
+  });
+
+  it('K3 (arvion tapaus): ilman arvioita sama tavoite → "Nyt 3/5"', () => {
+    const p = pelaaja();
+    p._idpTavoite.lahto = { arvo: 3 };
+    p._idpTavoite.arviot = [];
+    const rivi = rakenna({ p: p })._vpKtAlariviHTML(p._idpTavoite, true);
+    expect(rivi).toContain('Nyt 3/5');
+  });
+
+  it('ilman kehityskeskusteluja "Nyt" putoaa lähtötasoon (ei arvausta)', () => {
+    const p = pelaaja();
+    p._idpTavoite.arviot = [];
+    const rivi = rakenna({ p: p })._vpKtAlariviHTML(p._idpTavoite, true);
+    expect(rivi).toContain('Nyt 2/5');
+  });
+
+  it('viimeisin arvio ilman arvoa → lähtötaso, ei NaN eikä tyhjä', () => {
+    const p = pelaaja();
+    p._idpTavoite.arviot = [{ arvo: 3 }, { pvm: '2026-10-01' }];   // kirjattu, arvoa ei annettu
+    const rivi = rakenna({ p: p })._vpKtAlariviHTML(p._idpTavoite, true);
+    expect(rivi).toContain('Nyt 2/5');
+    expect(rivi).not.toMatch(/NaN|undefined/);
   });
 
   it('puuttuva arviointipäivä jää pois — ei roikkuvaa erotinta', () => {
@@ -591,8 +836,23 @@ describe('(10) Teal vain Seuraava askelissa ja pääpainikkeessa · Cormorant ei
     expect(kt).not.toContain("'<span class=\"chip\" style=\"color:var(--teal)\">' + vpT('Paras oppimisikkuna nyt')");
   });
 
+  it('toissijaiset teot ovat <button>-elementtejä (Tab + ruudunlukija)', () => {
+    /* Aiemmin <span onclick> → ei tabindexiä eikä roolia. Ulkoasu on linkki, elementti on nappi. */
+    const p = pelaaja();
+    const h = rakenna({ p: p })._vpKausitavoiteHTML(p);
+    const i = h.indexOf('jsp-kt-toissij');
+    expect(i, 'toissijaista riviä ei renderöity').toBeGreaterThan(-1);
+    const rivi = h.slice(i, h.indexOf('</div>', i) + 6);
+    expect(rivi).toContain('<button type="button"');
+    expect(rivi, 'span-onclick ei ole näppäimistösaavutettava').not.toContain('<span onclick');
+    expect(rivi).toContain('Vaihda tavoite…');
+    const css = VP.slice(VP.indexOf('.jsp-kt-toissij button {'), VP.indexOf('.jsp-kt-toissij button {') + 400);
+    expect(css, 'napin oma ulkoasu jäi päälle').toContain('background: none');
+    expect(css, 'fokus ei näy näppäimistökäyttäjälle').toContain('focus-visible');
+  });
+
   it('toissijaiset linkit ovat neutraaleja', () => {
-    const css = VP.slice(VP.indexOf('.jsp-kt-toissij span {'), VP.indexOf('.jsp-kt-toissij span {') + 240);
+    const css = VP.slice(VP.indexOf('.jsp-kt-toissij button {'), VP.indexOf('.jsp-kt-toissij button {') + 300);
     expect(css).toContain('var(--ink3)');
     expect(css).not.toMatch(/--teal/);
   });
