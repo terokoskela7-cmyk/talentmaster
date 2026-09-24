@@ -21,7 +21,7 @@
 <!-- Eerikkilä-normit + universaali testirekisteri (eerikkilaTaso, laskeFVP) — 10m/5m-tasot + FVP-profiili -->
 <script src="lib/tm_lang.js?v=14"></script>   <!-- i18n V0 — fi/sv/en käännöstaulukko + t() + kieli-init (putkitus) -->
 <script src="lib/tm_i18n_common.js?v=10"></script>   <!-- i18n Vaihe 0 — JAETTU henkilöstö-i18n + lukittu glossaari (ENNEN sivukarttaa) -->
-<script src="lib/tm_vp_i18n.js?v=84"></script>   <!-- i18n Vaihe 5 — VP sv (sivukartta); vpT/vpLokalisoi delegoivat commoniin -->
+<script src="lib/tm_vp_i18n.js?v=85"></script>   <!-- i18n Vaihe 5 — VP sv (sivukartta); vpT/vpLokalisoi delegoivat commoniin -->
 
 
 <script src="lib/tm_eerikkila_normit.js?v=45"></script>   <!-- v43: D2-kortti d2_taso-ensin (renderKehityskorttiHTML, PR #264 · §30/#262) -->
@@ -1754,7 +1754,9 @@ body {
 .acc-ico { width: 38px; height: 38px; border-radius: 50%; background: var(--ov-1); display: flex; align-items: center; justify-content: center; font-size: 17px; flex-shrink: 0; }
 .acc-id { flex: 1; min-width: 0; }
 .acc-name { font-family: var(--font-sans), 'DM Sans', sans-serif; font-weight: 500; font-size: 15px; color: var(--ink); }
-.acc-state { font-family: var(--font-sans), 'DM Sans', sans-serif; font-weight: 600; font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--ink2); margin-top: 3px; line-height: 1.45; }
+/* flex-wrap: 380 px:ssa "Viikko 1/4 · 3 vk jaljella" ei mahdu yhdelle riville — ilman rivitysta
+   se tyontaisi vaakavierityksen koko valilehdelle (B5). */
+.acc-state { display: flex; flex-wrap: wrap; gap: 0 4px; font-family: var(--font-sans), 'DM Sans', sans-serif; font-weight: 600; font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--ink2); margin-top: 3px; line-height: 1.45; }
 .acc-state .w { color: var(--ink); }
 .acc-dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--teal); margin-right: 7px; vertical-align: 1px; }
 .acc-dot.amb { background: var(--amber); }
@@ -7152,7 +7154,12 @@ function _vpKehSuunnitelmaHTML(p, opts) {
       ? '<div class="jsp-kt" id="_jspKausitavoite">' + (typeof _vpKausitavoiteHTML === 'function' ? _vpKausitavoiteHTML(p) : '') + '</div>'
       : ((typeof _vpTavoiteYhteenvetoHTML === 'function' ? _vpTavoiteYhteenvetoHTML(p, { ohje: false }) : '')
         + '<div style="margin-top:10px"><button onclick="event.stopPropagation();_pdcSiirryCockpittiin(\'' + pid + '\',3)" style="font-family:var(--font-sans);font-size:10px;font-weight:500;letter-spacing:.1em;text-transform:uppercase;padding:9px 14px;border-radius:6px;background:rgba(40,176,144,.1);color:var(--teal);border:.5px solid rgba(40,176,144,.4);cursor:pointer">' + vpT('→ Kehitä suunnitelmaa · Kehitys-työpöytä') + '</button></div>'))
-    : '<div style="padding:6px 0"><button class="jsp-kt-btn primary" onclick="event.stopPropagation();_pdcSiirryCockpittiin(\'' + pid + '\',3)">' + vpT('＋ Tee kauden tavoite') + '</button><div style="font-family:var(--font-sans),\'DM Sans\',sans-serif;font-size:11px;color:var(--ink3);margin-top:6px">' + vpT('Moottori ehdottaa datasta — tai valitse kärjen korteista.') + '</div></div>';
+    /* Tyhja tila: cockpitissa rivi nayttaa EHDOTUKSET heti (B4) — siirtymanappi on raportin
+       ratkaisu, koska siella ei voi valita. Ilman tata haaraa cockpitin tyhja tila jai napiksi,
+       joka ohjasi sivulle jolla kayttaja jo oli. */
+    : (_inlineEditori
+      ? '<div class="jsp-kt" id="_jspKausitavoite">' + (typeof _vpKausitavoiteHTML === 'function' ? _vpKausitavoiteHTML(p) : '') + '</div>'
+      : '<div style="padding:6px 0"><button class="jsp-kt-btn primary" onclick="event.stopPropagation();_pdcSiirryCockpittiin(\'' + pid + '\',3)">' + vpT('＋ Tee kauden tavoite') + '</button><div style="font-family:var(--font-sans),\'DM Sans\',sans-serif;font-size:11px;color:var(--ink3);margin-top:6px">' + vpT('Moottori ehdottaa datasta — tai valitse kärjen korteista.') + '</div></div>');
   h += row({
     id: idp + '_accKausitavoite', ico: '🎯',
     nimi: vpT('Kauden tavoite') + ((typeof window._tmIBtn === 'function') ? window._tmIBtn('idp_kausitavoite') : ''),
@@ -7723,8 +7730,15 @@ function _vpKausitavoiteHTML(p) {
       + '<textarea id="_jspTavKuvaus" class="jsp-kt-aani" placeholder="' + vpT('Mitä konkreettisesti tavoitellaan ottelussa…') + '" onclick="event.stopPropagation()">' + _jsvEsc(t.kuvaus || '') + '</textarea></div>';
   }
   // pelaajan ääni (omistajuus)
-  h += '<div class="jsp-kt-box" style="margin-top:10px"><div class="jsp-kt-bt">' + vpT('Pelaajan omin sanoin') + '</div>'
-    + '<textarea id="_jspTavAani" class="jsp-kt-aani" placeholder="' + vpT('Pelaajan oma tavoite omin sanoin…') + '" onclick="event.stopPropagation()">' + _jsvEsc(t.pelaajan_tavoite || '') + '</textarea></div>';
+  /* Lukutilassa pelaajan sanat ovat TEKSTIA: syottokentta tasolla 1 tekisi tilannenakymasta
+     lomakkeen (ja jaisi DOM:iin myos rivin ollessa kiinni). Kentta kuuluu muokkaustilaan. */
+  if (muokkaus) {
+    h += '<div class="jsp-kt-box" style="margin-top:10px"><div class="jsp-kt-bt">' + vpT('Pelaajan omin sanoin') + '</div>'
+      + '<textarea id="_jspTavAani" class="jsp-kt-aani" placeholder="' + vpT('Pelaajan oma tavoite omin sanoin…') + '" onclick="event.stopPropagation()">' + _jsvEsc(t.pelaajan_tavoite || '') + '</textarea></div>';
+  } else if (t.pelaajan_tavoite) {
+    h += '<div class="jsp-kt-box" style="margin-top:10px"><div class="jsp-kt-bt">' + vpT('Pelaajan omin sanoin') + '</div>'
+      + '<div class="jsp-kt-bl">' + _jsvEsc(t.pelaajan_tavoite) + '</div></div>';
+  }
   // P4a — VÄLITAVOITTEET Kehitys-työpöydälle (kausitavoitteen jälkeen, ennen sitoumusta): yksi koti kausitavoite-slotissa
   //    → _vpKausitavoiteReRender kattaa lisää/poista (ei duplikaatti-ID; Aloituksesta poistettu). Kausitavoite → välitavoitteet → jaksofokus.
   if (!muokkaus && typeof _vpValitavoitteetHTML === 'function') h += '<div style="margin-top:12px">' + _vpValitavoitteetHTML(t, pid) + '</div>';
@@ -7996,8 +8010,14 @@ window._vpVaihtoAvaa = function (pid) {
   const nimiVanha = _vpOtsikkoNaytto(_vpFokusNimiNaytto(vanha.fokus));
   const nimiUusi = _vpOtsikkoNaytto(_vpFokusNimiNaytto(uusi.fokus));
   // Tyyppi + tavoitetaso = puhdasta dataa (ei uusia kaannosavaimia).
+  /* B4/B7: metarivi kertoo tyypin ja ulottuvuuden SANOILLA — "D4" on sisainen koodi eika kuulu
+     vahvistusikkunaan, jossa VP tekee paatoksen. Nimet tulevat nimikartasta, ei kovakoodattuna. */
   const _mit = uusi.mittari || {}, _yks = _mit.yksikko || '';
-  const _meta = [(uusi.fokus && uusi.fokus.dim) || '', (_yks && _yks !== 'vapaa') ? ((_mit.suunta === 'pienempi' ? '≤' : '≥') + ' ' + (uusi.tavoitearvo != null ? uusi.tavoitearvo : '—') + (_yks !== 'taso' ? ' ' + _yks : '')) : ''].filter(Boolean).join(' · ');
+  const _meta = [
+    _vpTyyppiNaytto(uusi.tyyppi),
+    _vpDimNimi(uusi.fokus && uusi.fokus.dim),
+    (_yks && _yks !== 'vapaa') ? (vpT('tavoite') + ' ' + (_mit.suunta === 'pienempi' ? '≤ ' : '') + (uusi.tavoitearvo != null ? uusi.tavoitearvo : '—') + (_yks === 'taso' ? '/5' : (_yks !== 'vapaa' ? ' ' + _yks : ''))) : ''
+  ].filter(Boolean).join(' · ');
   window._vpVaihtoJakso = 'jatka';
   const va = document.getElementById('_vpVaihtoModal'); if (va) va.remove();
   const rivi = function (otsikko, nimi, meta) {

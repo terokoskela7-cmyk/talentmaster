@@ -259,11 +259,19 @@ describe('(4b) Ristiriitainen tila — fokus ilman statusta', () => {
 describe('(5) Tyhjä tila säilyy', () => {
   const h = render({ id: 'p3', _idpTavoite: null, jaksofokus: null });
 
-  it('ei .acc-content:ia, tila "Ei asetettu", rivi auki, CTA siirtymään', () => {
+  it('ei .acc-content:ia, tila "Ei asetettu", rivi auki', () => {
     expect(h).not.toContain('acc-content');
     expect((h.match(/Ei asetettu/g) || []).length).toBe(2);
     expect(h).toMatch(/acc-row open/);
-    expect(h).toContain('_pdcSiirryCockpittiin');
+  });
+
+  /* PR B: cockpitin tyhja kausitavoite-rivi nayttaa EHDOTUKSET (_vpKausitavoiteHTML) — siirtymanappi
+     on raportin ratkaisu, koska siella ei voi valita. Kumpikin pinta pitaa nyt oman CTA:nsa. */
+  it('cockpit näyttää editorin, raportti siirtymän', () => {
+    expect(h, 'cockpitin tyhjä rivi ei avannut editoria').toContain('KT-BODY');
+    const ro = render({ id: 'p3b', _idpTavoite: null, jaksofokus: null }, { editori: false });
+    expect(ro.slice(ro.indexOf('_accKausitavoite'), ro.indexOf('_accJaksofokus')))
+      .toContain('_pdcSiirryCockpittiin');
   });
 
   it('"Ei asetettu" -tilarivillä ei kausi-lisää', () => {
