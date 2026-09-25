@@ -50,7 +50,7 @@ describe('5a — Kehon valmius: heikoin ketju + §14-klinikka', () => {
   it('FLEI < 40 → §14-klinikkalippu (amber)', () => {
     const h = KV({ flei_viimeisin: 35, sbl: 1.4, sfl: 1.5, ll: 1.2, diag: 1.6, dfl: 1.3 });
     expect(h).toContain('Heikoin lenkki: <b style="color:var(--ink)">Sivuketju</b>');
-    expect(h).toContain('klinikkalähetys (§14)');
+    expect(h).toContain('klinikkalähetys.');
     expect(h).toContain('var(--amber)');
   });
   it('ei ketjudataa → ei heikoin-riviä, mutta renderFleiKortti (tyhjä-tila) säilyy', () => {

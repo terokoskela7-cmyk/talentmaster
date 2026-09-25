@@ -30,7 +30,7 @@ describe('(1) Aloituksen lähdechip neutraali (ei off-palette-pinkkiä)', () => 
 describe('(2) teal ainoa aksentti — Kehitys-linkit blue→teal', () => {
   it('D3-kalibraatio-linkki teal (ei sininen)', () => {
     // i18n V5 · V8k-1: tekstit vpT-reititetty; väri-guard (teal, ei blue) säilyy ennallaan.
-    expect(HTML).toContain("🧠 ' + vpT('D3-kalibraatio (itse × valmentaja × VP)') + ' → <span style=\"color:var(--teal);cursor:pointer;font-weight:600\" onclick=\"_jspVaihda(2)\">' + vpT('Arviointi-välilehti')");
+    expect(HTML).toContain("🧠 ' + vpT('Henkinen: itse- ja valmentaja-arvio') + ' → <span style=\"color:var(--teal);cursor:pointer;font-weight:600\" onclick=\"_jspVaihda(2)\">' + vpT('Arviointi-välilehti')");
     expect(HTML).not.toContain('color:var(--blue);cursor:pointer;font-weight:600" onclick="_jspVaihda(2)">');
   });
   it('diagnostiikka-toggle teal (ei sininen)', () => {
