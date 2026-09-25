@@ -19,7 +19,7 @@ describe('f1 hero/trow-reflow — v4 rakenne', () => {
   });
   it('hero (iso Cormorant D1-taso) + tname', () => {
     expect(HTML).toContain('class="mit-hero"');
-    expect(HTML).toContain('Eerikkilä-taso · ka(30m · CMJ · MAS)');
+    expect(HTML).toContain('Eerikkilä-taso · keskiarvo(30m · CMJ · MAS)');
   });
   it('per-testi trow: track + tick (taso-3 @60%) + mean ⚽ + meta', () => {
     expect(HTML).toContain('class="mit-trow"');
@@ -52,7 +52,7 @@ describe('§28 + brändi säilyy', () => {
   it('gated (kasvu/epävarma) → 🌱 kypsyys huomioitu, ei väärää arviota; low → amber', () => {
     // i18n V5 · V8k-1: 🌱 ja taso-luku pysyvät kehyksessä, tekstit vpT-reititetty (§28-guard ennallaan).
     expect(HTML).toContain("'🌱 ' + vpT('taso') + ' '");
-    expect(HTML).toContain("vpT('kypsyys huomioitu (§28)')");
+    expect(HTML).toContain("vpT('kypsyys huomioitu')");
     // hero gated → ink3 (ei väri-arvio)
     expect(HTML).toContain("(_kd === 'kasvu' || _kd === 'epavarma') ? 'var(--ink3)' : hhTasoVari(d1)");
   });

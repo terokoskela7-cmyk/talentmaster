@@ -78,7 +78,7 @@ describe('§28 kypsyyslinssi — PHV-tulkinta ohjaa fyysisen lukemista', () => {
   it('ei PHV-dataa → kypsyys mittaamatta, ei tulkita kehityskohteeksi', () => {
     const h = M.linssi({});
     expect(h).toContain('kypsyys mittaamatta');
-    expect(h).toContain('Kasvumittaus avaa');
+    expect(h).toContain('Kasvumittaus tarkentaa');
   });
 });
 

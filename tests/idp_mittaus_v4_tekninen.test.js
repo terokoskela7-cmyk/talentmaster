@@ -18,7 +18,7 @@ describe('f2 hero/trow-reflow — v4 rakenne (peilaa f1)', () => {
   });
   it('tkitag (TKI-merkki) + hero (iso Cormorant D2-taso) + tname', () => {
     expect(HTML).toContain('class="mit-tkitag"');
-    expect(HTML).toContain('D2-taso · TKI + H-H-lajitekniikka');
+    expect(HTML).toContain('Tekninen taso · mitalitaso + lajitekniikka');
   });
   it('per-testi trow: Syöttö/Pujottelu (H-H) + TSI, mean ⚽', () => {
     expect(HTML).toContain('Pallonhallinta ja syöttö paineessa.');

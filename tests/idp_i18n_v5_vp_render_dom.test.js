@@ -578,9 +578,10 @@ describe('VP_v25 render-kielineutraali-gate (step G · AST)', () => {
     expect(_kuormaRivi).toBeGreaterThan(0);
     expect(leaks.every((l) => Math.abs(l.line - _kuormaRivi) <= 2)).toBe(true);
     // Kehon valmius -pää erikseen (toinen alue samassa erässä)
-    const rikki2 = src.replace("vpT('🎯 Heikoin ketju:')", "'🎯 Heikoin ketju:'");
+    // C1: "ketju" → "lenkki" (sisäinen FLEI-sanasto pois); mutaation ankkuri seuraa uutta tekstiä.
+    const rikki2 = src.replace("vpT('🎯 Heikoin lenkki:')", "'🎯 Heikoin lenkki:'");
     expect(rikki2).not.toBe(src);
-    expect(scanLeaks(rikki2, RANGES, RLO - 1, LIB, SISALTO_POIKKEUKSET).map((l) => l.p).join(' ')).toContain('Heikoin ketju');
+    expect(scanLeaks(rikki2, RANGES, RLO - 1, LIB, SISALTO_POIKKEUKSET).map((l) => l.p).join(' ')).toContain('Heikoin lenkki');
   }, AIKARAJA_MS);
 
   // Erä 3 — TODISTE ETTÄ GATE ON NÄILLE SOKEA (ja siksi vartija on välttämätön, ei koristeellinen).
@@ -722,12 +723,90 @@ describe('VP_v25 resolvi-portti — jokaisella reititetyllä avaimella on sv-riv
     return sb;
   };
 
-  it('0 vpT-avainta ilman sv-riviä (common tai VP-sivukartta)', () => {
+  /* SANKTIOINTIA ODOTTAVAT RIVIT — merge-esto, ei ohitus (sama mekanismi kuin #627).
+     Nämä ovat C1:n termistösiivouksen uudet tekstit, joiden sv on Gemini-erässä
+     GEMINI_ERA_C1.json ('sv'-kentät vielä tyhjiä). Omaa ruotsia EI kirjoiteta.
+     Portti pysyy tiukkana: (a) jos jollekin näistä ilmestyy käännös, alempi testi punertaa ja lista
+     on poistettava, ja (b) mikä tahansa MUU puuttuva avain punertaa normaalisti. */
+  const SV_ODOTTAA_SANKTIOINTIA = [
+    'D4 Peliäly · pelihavainnosta · 1–3',
+    'Ei pelihavaintoja vielä — peliäly rakentuu pelihavainnoista.',
+    '🔧 Kehys vaihdettavissa — seuran oma taksonomia + asteikko + mittarit + pelihavaintojen kytkentä.',
+    ' = luo kehitystavoite (arvo ≤ 2). Aikuisten työkalu.',
+    'Peliäly · pelihavainnot',
+    '· johdettu pelihavainnoista (1–3) — klikkaa 1–5 yliajaaksesi',
+    'TalentMaster-havaintomalli',
+    '🎯 Pelihavainnon ikäportti:',
+    'Pelihavainnon asteikko 1–3',
+    'Esi-PHV',
+    'kasvupyrähdys käynnissä',
+    'kasvupyrähdys ohi',
+    'Kasvuvaihe:',
+    'mitattu trendi',
+    'Kohteen mitattu kehitys',
+    'Tälle osa-alueelle ei mitattua kehitystä — ',
+    ' — kehitys näkyy 2. mittauksesta.',
+    '↑ paranee',
+    '↓ heikkeni',
+    '✓ taipui jakson aikana',
+    '🌱 ennallaan — odotettua kasvuvaiheessa',
+    '○ ennallaan tässä ikkunassa',
+    'Jakson muutos: ',
+    'peruste keskusteluun, ei arvosana',
+    'Jakson muutos näkyy kun jaksossa on ≥2 mittausta.',
+    'Aseta jaksofokus Kehityksessä — arviointi ehdottaa datasta.',
+    'Suunnitelman eteneminen',
+    'Viikko rakentuu jakson fokuksesta. Aseta ensin jakson fokus Kehitys-näkymässä — se muuttuu tässä konkreettisiksi treeneiksi ottelupäivän ympärille. Kuormaseuranta tarkentuu ~4 viikon mittausten jälkeen.',
+    'Viikon rakenne',
+    'session summa (kuormitus)',
+    'palkki = kuormitus',
+    'kuormitus',
+    '▲ Kuormitussuhde vaatii ~4 vk pohjaa · katkoviiva = suunniteltu · kuorma on valmentajan työkalu, ei pelaajalle.',
+    'Kysymys pelaajalle',
+    '— ei biologisesti neutraali. Fyysinen ikkuna on auki nyt.',
+    '. Taito ja koordinaatio ovat nyt herkkiä ikkunoita.',
+    'Kuormarajoitin: voima max 80 % 1RM, hyppyvolyymi −20 %, juoksuvolyymi seurattava. Matala fyysinen ei ole kehityskohde nyt.',
+    'Fyysiset luetaan ikäoletuksella — matalaa fyysistä ei tulkita kehityskohteeksi ennen kasvumittausta. Kasvumittaus tarkentaa tulkinnan kypsyydellä.',
+    '→ arviointi ehdottaa fokuksen.',
+    'Nämä ovat suljettuja, kypsyysportitettuja mittauksia — ne tukevat suunnitelmaa, eivät ole kärki. Kärki asuu Aloitus-selkärangalla: teknis-taktinen taito, D4 peliäly ja pelipaikkaosaaminen.',
+    '— ei kehityskohde.',
+    '— kypsyys mittaamatta, tulkinta varmistuu kasvumittauksella.',
+    'pallon hidastus lähellä nollaa →',
+    'tekniikka edellä, fyysinen jäljessä. Jälki-PHV → fyysinen nousu EI tule automaattisesti — aito kehityskohde, ei "jalostamaton timantti" jonka fysiikka korjaantuu itsestään.',
+    'tekniikka edellä, fyysinen jäljessä. Esi-PHV → fysiikka tulee todennäköisesti kypsyessä — mahdollinen Hidden Gem, seuraa kasvuvaihetta.',
+    'tekniikka edellä, fyysinen jäljessä. Kypsyys mittaamatta → tulkinta (aito kehityskohde vai Hidden Gem) varmistuu kasvumittauksella.',
+    '🎯 Heikoin lenkki:',
+    '— tähän kohdistuva harjoite.',
+    '⚠️ Kehon valmius alle 40 → klinikkalähetys.',
+    'Eerikkilä-taso · keskiarvo(30m · CMJ · MAS)',
+    'kypsyys huomioitu',
+    'Kypsyysportti',
+    'Kypsyys mittaamatta → 🌱 kypsyys huomioitu, ei rankaisua. Tarkentuu kasvumittauksella.',
+    'Tekninen taso · mitalitaso + lajitekniikka',
+    'Viimeisin tekninen',
+    'Henkinen: itse- ja valmentaja-arvio',
+    'tekninen tulossa',
+    'Joukkueen keskimääräinen tekninen muutos edellisestä tekniikkakilpailusta',
+    'Teknisen muutos',
+  ];
+
+  it('0 vpT-avainta ilman sv-riviä (paitsi nimetyt sanktiointia odottavat)', () => {
     const sb = kartat();
     const cm = (sb.TM_I18N_COMMON && sb.TM_I18N_COMMON.sv) || {};
     const vp = (sb.TM_VP_I18N && sb.TM_VP_I18N.sv) || {};
     const puuttuu = [...kerääAvaimet()].filter((k) => typeof cm[k] !== 'string' && typeof vp[k] !== 'string');
-    expect(puuttuu).toEqual([]);
+    expect(puuttuu.filter((k) => SV_ODOTTAA_SANKTIOINTIA.indexOf(k) < 0)).toEqual([]);
+  });
+
+  it('odotuslista on elävä: jokainen rivi on yhä käytössä JA yhä ilman sv:tä', () => {
+    const sb = kartat();
+    const cm = (sb.TM_I18N_COMMON && sb.TM_I18N_COMMON.sv) || {};
+    const vp = (sb.TM_VP_I18N && sb.TM_VP_I18N.sv) || {};
+    const avaimet = kerääAvaimet();
+    expect(SV_ODOTTAA_SANKTIOINTIA.filter((k) => !avaimet.has(k)),
+      'odotuslistalla on avain jota ei enää käytetä → poista rivi').toEqual([]);
+    expect(SV_ODOTTAA_SANKTIOINTIA.filter((k) => typeof cm[k] === 'string' || typeof vp[k] === 'string'),
+      'sv saapui → poista rivi odotuslistalta (tai sv on keksitty)').toEqual([]);
   });
   it('ei-vacuous: avaimia on runsaasti eikä keräys ole tyhjä', () => {
     expect(kerääAvaimet().size).toBeGreaterThan(1000);
