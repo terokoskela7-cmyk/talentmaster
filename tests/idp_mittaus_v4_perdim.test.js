@@ -19,7 +19,7 @@ describe('f1 hero/trow-reflow — v4 rakenne', () => {
   });
   it('hero (iso Cormorant D1-taso) + tname', () => {
     expect(HTML).toContain('class="mit-hero"');
-    expect(HTML).toContain('Eerikkilä-taso · ka(30m · CMJ · MAS)');
+    expect(HTML).toContain('Eerikkilä-taso · keskiarvo(30m · CMJ · MAS)');
   });
   it('per-testi trow: track + tick (taso-3 @60%) + mean ⚽ + meta', () => {
     expect(HTML).toContain('class="mit-trow"');

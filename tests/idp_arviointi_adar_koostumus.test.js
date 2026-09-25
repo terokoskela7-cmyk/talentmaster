@@ -36,7 +36,7 @@ beforeAll(() => {
 describe('ADAR-koostumus — 4 osaa + ikäportti', () => {
   it('U13 (13): Havaitse/Päätä/Toimi aktiivisia, Arvioi LUKOSSA (avautuu 16 v)', () => {
     const h = AK({ adar_viimeisin: { a: 3, d: 2, ac: 3, r: 2, yht: 2.6, pvm: '2025-06-01' } }, 13);
-    expect(h).toContain('D4 Peliäly · pelihavainnosta (ADAR) · 1–3');
+    expect(h).toContain('D4 Peliäly · pelihavainnosta · 1–3');
     expect(h).toContain('Havaitse');
     expect(h).toContain('Päätä');
     expect(h).toContain('Toimi');

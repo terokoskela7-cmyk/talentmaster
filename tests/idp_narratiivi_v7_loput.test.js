@@ -72,7 +72,7 @@ describe('pelaajan peili — §4b cue reuse, §7.22 rehellinen tyhjä', () => {
 describe('suunnitelman kaari + katselmusrytmi (EPPP)', () => {
   it('täysi: kausitavoite + jaksofokus + kehityskaari-rivit + nextrev', () => {
     const h = M.kaari({ idp_fokus: { nimi: 'Havainnointi', dim: 'D4' }, jaksofokus: { konsepti_nimi: 'HAVAINNOINTI' }, jaksofokus_historia: [{ konsepti_nimi: 'Pallonhallinta' }, { konsepti_nimi: 'Ketteryys' }] }, 13);
-    expect(h).toContain('Suunnitelman kaari');
+    expect(h).toContain('Suunnitelman eteneminen');
     expect(h).toContain('Havainnointi');
     expect(h).toContain('2 suljettua jaksoa');
     expect(h).toContain('Seuraava katselmus');

@@ -41,21 +41,21 @@ beforeAll(() => {
 describe('5a — Kehon valmius: heikoin ketju + §14-klinikka', () => {
   it('heikoin ketju = pienin raaka-arvo (Topias: ll 2.10) — näytetään NIMENÄ, ei lyhenteenä', () => {
     const h = KV({ flei_viimeisin: 62, sbl: 2.16, sfl: 2.30, ll: 2.10, diag: 2.40, dfl: 2.20 });
-    expect(h).toContain('Heikoin ketju: <b style="color:var(--ink)">Sivuketju</b>');
+    expect(h).toContain('Heikoin lenkki: <b style="color:var(--ink)">Sivuketju</b>');
     expect(h).not.toContain('>LL</b>');   // V1.2: Myersin lyhenne EI näy käyttäjälle
-    expect(h).toContain('S-harjoite kohdistuu tähän (§14)');
+    expect(h).toContain('tähän kohdistuva harjoite.');
     expect(h).not.toContain('klinikkalähetys');   // 62 ≥ 40 → ei klinikkaa
     expect(h).toContain('<FLEIKORTTI');           // renderFleiKortti säilyy
   });
   it('FLEI < 40 → §14-klinikkalippu (amber)', () => {
     const h = KV({ flei_viimeisin: 35, sbl: 1.4, sfl: 1.5, ll: 1.2, diag: 1.6, dfl: 1.3 });
-    expect(h).toContain('Heikoin ketju: <b style="color:var(--ink)">Sivuketju</b>');
+    expect(h).toContain('Heikoin lenkki: <b style="color:var(--ink)">Sivuketju</b>');
     expect(h).toContain('klinikkalähetys (§14)');
     expect(h).toContain('var(--amber)');
   });
   it('ei ketjudataa → ei heikoin-riviä, mutta renderFleiKortti (tyhjä-tila) säilyy', () => {
     const h = KV({});
-    expect(h).not.toContain('Heikoin ketju');
+    expect(h).not.toContain('Heikoin lenkki');
     expect(h).toContain('<FLEIKORTTI flei=none>');
   });
   it('eri heikoin ketju kun DIAG matalin', () => {
