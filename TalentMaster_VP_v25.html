@@ -7117,36 +7117,50 @@ function _vpAloitusSiruHTML(p) {
   const s = K.tmKaariSuunta(r.key, r.sarja);
   const nu = s.parani === true ? { m: '↑', c: 'var(--teal,#28B090)' } : { m: (s.suunta === 'flat' ? '→' : '↓'), c: 'var(--ink3)' };
   return '<div style="display:flex;align-items:center;gap:7px;margin-top:8px">'
-    + '<span style="font-size:9.5px;color:var(--ink3);font-family:var(--font-mono),monospace;text-transform:uppercase;letter-spacing:.04em">' + _jsvEsc(r.nimi) + '</span>'
+    + '<span style="font-size:9.5px;color:var(--ink3);font-family:var(--font-mono),monospace;text-transform:uppercase;letter-spacing:.04em">' + _jsvEsc(_vpKaariNimiNaytto(r.key, r.nimi)) + '</span>'
     + K.tmKaariSiru(r.sarja, 72, 18)
     + '<span style="font-size:11px;font-weight:600;color:' + nu.c + '">' + nu.m + '</span>'
-    + '<span style="font-size:9px;color:var(--ink3)">' + vpT('mitattu trendi (§26)') + '</span></div>';
+    + '<span style="font-size:9px;color:var(--ink3)">' + vpT('mitattu trendi') + '</span></div>';
 }
 // K3 (B) — Kehitys-evidenssi (jfBody, TASO 2): kohdennetun ominaisuuden mini-kaari (siru) + jaksosidos-delta
 // (taipuiko juuri tämän jakson aikana). Ikkuna = _vpSulkuJaksovali(jf) (sama kuin K2). §28: PHV-herkkä + pre-PHV →
 // "ennallaan" neutraali. §37: peruste keskusteluun, ei arvosana. Ei-mitattava domeeni → honest-empty-note (ei TKI).
+/* Mittarin NAYTTONIMI talle nakymalle: jaettu lib (tm_kehityskaari) palauttaa sisaiset tunnukset
+   ("TKI"), joita muut nakymat kayttavat sellaisenaan. C1 ei muuta jaettua libia vaan kaantaa
+   tunnuksen ihmisnimeksi tassa — sama logiikka kuin muualla C1:ssa (koodi → nimi). */
+function _vpKaariNimiNaytto(avain, libNimi) {
+  switch (String(avain || '')) {
+    case 'tki': return vpT('Tekninen');
+    case 'd1_taso': return vpT('Fyysinen');
+    case 'd2_taso': return vpT('Tekninen');
+    case 'hh_taso': return vpT('Fyysinen taso');
+    default: return libNimi || '';
+  }
+}
+
 function _vpJfEvidenssiHTML(p) {
   const K = window.TM_KEHITYSKAARI, jf = p && p.jaksofokus;
   if (!K || !jf || !jf.konsepti_nimi) return '';
   const esc = _jsvEsc, dom = jf.domeeni || 'teknis_taktinen';
-  const wrap = function (inner) { return '<div style="background:var(--deep,#1C1C1A);border:.5px solid var(--border);border-radius:10px;padding:12px;margin-top:10px"><div style="font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink3);margin-bottom:6px">' + vpT('Kohdennetun ominaisuuden kaari (mitattu)') + '</div>' + inner + '</div>'; };
+  const wrap = function (inner) { return '<div style="background:var(--deep,#1C1C1A);border:.5px solid var(--border);border-radius:10px;padding:12px;margin-top:10px"><div style="font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink3);margin-bottom:6px">' + vpT('Kohteen mitattu kehitys') + '</div>' + inner + '</div>'; };
   const r = _vpKohdennettuSarja(p, dom);
-  if (!r.mitattava) return wrap('<div style="font-size:12px;color:var(--ink2)">' + vpT('Tälle domeenille ei numeraalista kaarta — ') + '<b>' + vpT('arvio katselmuksessa') + '</b>' + vpT(' (§37).') + '</div>');
-  if (r.sarja.length < 2) return wrap('<div style="font-size:12px;color:var(--ink3)">' + esc(r.nimi) + vpT(' — kaari täyttyy 2. mittauksesta (§29).') + '</div>');
+  if (!r.mitattava) return wrap('<div style="font-size:12px;color:var(--ink2)">' + vpT('Tälle osa-alueelle ei mitattua kehitystä — ') + '<b>' + vpT('arvio katselmuksessa') + '</b>' + '.' + '</div>');
+  if (r.sarja.length < 2) return wrap('<div style="font-size:12px;color:var(--ink3)">' + esc(_vpKaariNimiNaytto(r.key, r.nimi)) + vpT(' — kehitys näkyy 2. mittauksesta.') + '</div>');
   const _fmt = function (x) { return (typeof x === 'number' && isFinite(x)) ? String(Math.round(x * 100) / 100) : String(x == null ? '' : x); };
   const s = K.tmKaariSuunta(r.key, r.sarja);
-  const nu = s.parani === true ? { m: '↑ paranee', c: 'var(--teal,#28B090)' } : { m: (s.suunta === 'flat' ? '→ ennallaan' : '↓ heikkeni'), c: 'var(--ink3)' };
-  let inner = '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span style="font-size:11px;color:var(--ink2)">' + esc(r.nimi) + '</span>' + K.tmKaariSiru(r.sarja, 88, 20) + '<span style="font-size:11.5px;font-weight:600;color:' + nu.c + '">' + nu.m + '</span></div>';
+  /* Naytettavat sanat kulkevat vpT():n lapi: raakana ne nakyivat suomeksi myos sv-tilassa. */
+  const nu = s.parani === true ? { m: vpT('↑ paranee'), c: 'var(--teal,#28B090)' } : { m: (s.suunta === 'flat' ? vpT('→ ennallaan') : vpT('↓ heikkeni')), c: 'var(--ink3)' };
+  let inner = '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span style="font-size:11px;color:var(--ink2)">' + esc(_vpKaariNimiNaytto(r.key, r.nimi)) + '</span>' + K.tmKaariSiru(r.sarja, 88, 20) + '<span style="font-size:11.5px;font-weight:600;color:' + nu.c + '">' + nu.m + '</span></div>';
   const vali = (typeof _vpSulkuJaksovali === 'function') ? _vpSulkuJaksovali(jf) : { alkoi: jf.alkoi ? String(jf.alkoi).slice(0, 10) : null, loppu: null };
   const sidos = vali.alkoi ? K.tmKaariJaksoSidos({ alkoi: vali.alkoi, paattyi: vali.loppu }, r.key, r.sarja) : null;
   if (sidos) {
     const phvHerkka = { lin30m: 1, lin10m: 1, lin5m: 1, cmj: 1, mas: 1, kasirata: 1, sm_juoksu: 1 };
     const neutr = !!phvHerkka[r.key] && (typeof onNeutraaliPrePHV === 'function' ? onNeutraaliPrePHV(p) : false);
     const vari = sidos.parani ? 'var(--teal,#28B090)' : (neutr ? 'var(--ink3)' : 'var(--ink2)');
-    const mk = sidos.parani ? '✓ taipui jakson aikana' : (neutr ? '🌱 ennallaan — odotettua (§28)' : '○ ennallaan tässä ikkunassa');
-    inner += '<div style="font-size:11px;color:var(--ink3);margin-top:6px">' + vpT('Jaksosidos: ') + '<span style="color:var(--ink2)">' + _fmt(sidos.ennen) + '→' + _fmt(sidos.jalkeen) + '</span> <span style="color:' + vari + ';font-weight:600">' + mk + '</span>' + ' · ' + '<span style="font-style:italic">' + vpT('peruste keskusteluun, ei arvosana (§37)') + '</span></div>';
+    const mk = sidos.parani ? vpT('✓ taipui jakson aikana') : (neutr ? vpT('🌱 ennallaan — odotettua kasvuvaiheessa') : vpT('○ ennallaan tässä ikkunassa'));
+    inner += '<div style="font-size:11px;color:var(--ink3);margin-top:6px">' + vpT('Jakson muutos: ') + '<span style="color:var(--ink2)">' + _fmt(sidos.ennen) + '→' + _fmt(sidos.jalkeen) + '</span> <span style="color:' + vari + ';font-weight:600">' + mk + '</span>' + ' · ' + '<span style="font-style:italic">' + vpT('peruste keskusteluun, ei arvosana') + '</span></div>';
   } else {
-    inner += '<div style="font-size:10.5px;color:var(--ink3);margin-top:6px">' + vpT('Jaksosidos: delta näkyy kun jakson sisällä on ≥2 mittausta (§29).') + '</div>';
+    inner += '<div style="font-size:10.5px;color:var(--ink3);margin-top:6px">' + vpT('Jakson muutos näkyy kun jaksossa on ≥2 mittausta.') + '</div>';
   }
   return wrap(inner);
 }
@@ -7571,7 +7585,7 @@ function _vpAloitusJaksofokusHTML(p) {
       + '<div style="font-size:10.5px;color:var(--ink2);font-family:var(--font-mono);margin-top:5px">' + esc(domLbl) + ' ' + vpT('· kesto') + ' ' + (jf.kesto_vk || 4) + ' ' + vpT('vk') + (_nTav > 1 ? ' · ' + _nTav + vpT(' tavoitetta') : '') + (_ump ? ' · <span style="color:var(--amber)">' + vpT('🟠 umpeutunut') + '</span>' : '') + '</div>';
     if (typeof _vpAloitusSiruHTML === 'function') h += _vpAloitusSiruHTML(p);   // K3 (A) — kohdennetun ominaisuuden mitattu trendi-siru (§26)
   } else {
-    h += '<div style="font-size:13px;color:var(--ink3);font-style:italic">' + vpT('Aseta jaksofokus Kehityksessä — silta ehdottaa datasta.') + '</div>';
+    h += '<div style="font-size:13px;color:var(--ink3);font-style:italic">' + vpT('Aseta jaksofokus Kehityksessä — arviointi ehdottaa datasta.') + '</div>';
   }
   h += '</div><button onclick="event.stopPropagation();_jspVaihda(3)" style="flex-shrink:0;font-family:var(--font-sans);font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;padding:10px 16px;border-radius:8px;background:rgba(40,176,144,.12);color:var(--teal);border:.5px solid rgba(40,176,144,.4);cursor:pointer">' + vpT('→ Kehitä jaksofokusta') + '</button></div>';
   if (jf && Array.isArray(jf.linkitetyt) && jf.linkitetyt.length) {

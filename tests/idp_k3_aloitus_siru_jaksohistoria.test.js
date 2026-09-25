@@ -67,8 +67,9 @@ describe('(A) _vpAloitusSiruHTML — fokus-heron mitattu trendi-siru', () => {
     const h = M._vpAloitusSiruHTML(ttP());
     expect(h).toContain('<svg');
     expect(h).toContain('↑');
-    expect(h).toContain('TKI');
-    expect(h).toContain('mitattu trendi (§26)');
+    expect(h).toContain('Tekninen');          // C1: sisainen tunnus "TKI" -> ihmisnimi
+    expect(h).not.toContain('TKI');
+    expect(h).toContain('mitattu trendi');
   });
   it('psyykkinen → EI sirua (ei fabrikoida TKI:tä)', () => {
     expect(M._vpAloitusSiruHTML({ jaksofokus: { konsepti_nimi: 'X', domeeni: 'psyykkinen' }, tki_historia: TKI_HIST })).toBe('');
@@ -87,7 +88,7 @@ describe('(B) _vpJfEvidenssiHTML — jfBody mini-kaari + jaksosidos-delta', () =
     expect(h).toContain('<svg');
     expect(h).toContain('✓ taipui jakson aikana');
     expect(h).toContain('70→80');
-    expect(h).toContain('peruste keskusteluun, ei arvosana (§37)');
+    expect(h).toContain('peruste keskusteluun, ei arvosana');   // C1: pykalaviite pois
   });
   it('sosiaalinen/psyykkinen → honest-empty-note, EI TKI-lukua/sirua', () => {
     const h = M._vpJfEvidenssiHTML({ jaksofokus: { konsepti_nimi: 'X', domeeni: 'sosiaalinen' }, tki_historia: TKI_HIST });
@@ -95,14 +96,14 @@ describe('(B) _vpJfEvidenssiHTML — jfBody mini-kaari + jaksosidos-delta', () =
     expect(h).not.toContain('<svg');
     expect(h).not.toContain('70');
   });
-  it('mitattava mutta <2 pistettä → "kaari täyttyy 2. mittauksesta"', () => {
+  it('mitattava mutta <2 pistettä → "kehitys näkyy 2. mittauksesta"', () => {
     const h = M._vpJfEvidenssiHTML({ jaksofokus: { konsepti_nimi: 'X', domeeni: 'teknis_taktinen', alkoi: '2026-02-15' }, tki_historia: [{ pvm: '2026-01-01', tki: 70 }] });
-    expect(h).toContain('täyttyy 2. mittauksesta');
+    expect(h).toContain('näkyy 2. mittauksesta');
     expect(h).not.toContain('<svg');
   });
-  it('§28: PHV-herkkä (lin30m) ei parane + pre-PHV → "🌱 ennallaan — odotettua (§28)", ei "epäonnistui"', () => {
+  it('§28: PHV-herkkä (lin30m) ei parane + pre-PHV → "🌱 ennallaan — odotettua kasvuvaiheessa", ei "epäonnistui"', () => {
     const h = M._vpJfEvidenssiHTML({ _prePHV: true, jaksofokus: { konsepti_nimi: 'Nopeus', domeeni: 'fyysinen', alkoi: '2026-02-15', kesto_vk: 6 }, hh_historia: [{ pvm: '2026-01-01', lin30m: 5.0 }, { pvm: '2026-06-01', lin30m: 5.2 }] });
-    expect(h).toContain('odotettua (§28)');
+    expect(h).toContain('odotettua kasvuvaiheessa');
     expect(h).not.toContain('✓ taipui jakson aikana');
   });
   it('ei kiellettyjä brändivärejä (§5)', () => {

@@ -1,10 +1,16 @@
 /**
  * TalentMaster™ — C1 TERMISTÖSIIVOUS. Vartija.
  *
- * Termilukko laajennettuna kuuteen näkymään: Pelaajat-lista + cockpitin viisi välilehteä
- * (Aloitus/raportti · Mittaus · Arviointi · Kehitys · Viikko). Lukko kohdistuu NÄKYVÄÄN
+ * Termilukko kattaa KUUSI näkymää: Pelaajat-lista + cockpitin viisi välilehteä
+ * (Aloitus/raportti · Mittaus · Arviointi · Kehitys · Viikko). Kattavuus luetaan NAKYMAT-listasta
+ * alla — tämä kommentti ei ole lupaus vaan kuvaus siitä. (Aiemmin kommentti väitti Kehityksen
+ * katetuksi vaikka NAKYMAT ei sisältänyt sitä, ja välilehden todistelohko jäi siksi siivoamatta.)
+ * Lukko kohdistuu NÄKYVÄÄN
  * tekstiin — tagit ja attribuutit puretaan ennen vertailua, koska id:t, luokat ja
  * onclick-kohteet ovat koodia eivätkä käyttöliittymää.
+ *
+ * Lukko (3) näkee vain vpT-avaimet. Nimi joka tulee jaetusta libistä ei ole avain, joten
+ * se vuoti lukon ohi — ryhmä (5) on siksi RENDERÖITY todiste, ei grep.
  *
  * Rajaus: C1 kattaa nämä kuusi näkymää. Samat termit esiintyvät muualla VP:ssä (joukkuepulssi,
  * syvänäkymä, tooltipit, valmentajanäkymä) — ne ovat oma työnsä, eikä tämä lukko väitä muuta.
@@ -138,11 +144,13 @@ describe('(3) Termilukko: sisäiset koodit eivät näy kuudessa näkymässä', (
      jotka mutaatiomatriisi paljasti — helperit kuuluvat näkymään yhtä lailla. */
   const NAKYMAT = {
     'Pelaajat-lista': ['function _tekninenSoluVP(p) {'],
-    'Aloitus/raportti': ['function _vpIdpNarratiiviHTML(p) {', 'function _vpAloitusKaariHTML(p, ika) {'],
+    'Aloitus/raportti': ['function _vpIdpNarratiiviHTML(p) {', 'function _vpAloitusKaariHTML(p, ika) {',
+      'function _vpAloitusJaksofokusHTML(p) {', 'function _vpAloitusSiruHTML(p) {'],
     'Mittaus': ['function _vpMittausLinssiHTML(p, ika) {', 'function _vpMittausSynthHTML(p, ika, d1, d2, tsi) {',
       'function _vpKehonValmiusHTML(p) {', 'function _vpMittausNextStepHTML(p) {',
       'window._avaaPerPelaajaPikakatsaus = function(idx, joukkueNimi) {'],
     'Arviointi': ['function _vpArviointiHTML(p) {', 'function _vpArvAdarKoostumusHTML(p, ika) {'],
+    'Kehitys': ['function _vpJfTilanneHTML(p) {', 'function _vpJfEvidenssiHTML(p) {'],
     'Viikko': ['function _vpViikkoHTML(p) {'],
   };
 
@@ -164,7 +172,10 @@ describe('(3) Termilukko: sisäiset koodit eivät näy kuudessa näkymässä', (
        sisäkkäiset lookaheadit olivat tässä hauraita (en-dash merkkiluokassa). */
     ['paljas D-koodi', (s) => /\bD[1-5]\b/.test(
       String(s).replace(/\bD[1-5]\s*[–—-]\s*D[1-5]\b/g, ' ')
-        .replace(/\bD[1-5](\/D[1-5])?\s+[A-ZÅÄÖa-zåäö][\wåäöÅÄÖ-]*/g, ' '))],
+        .replace(/\bD[1-5](\/D[1-5])?\s+[A-ZÅÄÖa-zåäö][\wåäöÅÄÖ-]*/g, ' ')
+        /* 1A sallii tunnisteen nimen VIERESSÄ — myös nimi ensin ("Fyysinen · D1"), jonka jaettu
+           lib (tm_jaksofokus dim) tuottaa. Paljas koodi ilman nimeä ("D2-taso") punertaa yhä. */
+        .replace(/(?!D[1-5]\b)[A-ZÅÄÖ][\wåäöÅÄÖ-]*\s*·\s*D[1-5](\/D[1-5])?\b/g, ' '))],
     ['PHV-koodi', /(^|[^A-Za-zÅÄÖåäö])(AN|VA|PH)([^A-Za-zÅÄÖåäö-]|$)/],
   ];
 
@@ -203,8 +214,11 @@ describe('(3) Termilukko: sisäiset koodit eivät näy kuudessa näkymässä', (
     expect(paljas.test('D4 Peliäly · pelihavainnosta · 1–3')).toBe(false);
     expect(paljas.test('D4 peliäly ja pelipaikkaosaaminen'), 'nimi pienellä on yhä nimi').toBe(false);
     expect(paljas.test('Palloliitto-kehys · D1–D5 · 57 kohdetta'), 'skaala D1–D5 on sallittu (4A)').toBe(false);
+    expect(paljas.test('🏃 Fyysinen · D1'), 'nimi ensin, tunniste perässä on sallittu (1A)').toBe(false);
+    expect(paljas.test('⚽ Teknis-taktinen · D2/D4')).toBe(false);
     expect(paljas.test('D2-taso'), 'lukko ei osunut paljaaseen koodiin').toBe(true);
-    expect(paljas.test('Teknis-taktinen · D2/D4 · kesto 4 vk')).toBe(true);
+    expect(paljas.test('Kohdennus: D2/D4'), 'koodi ilman nimeä vieressä on yhä paljas').toBe(true);
+    expect(paljas.test('D2 · D4'), 'koodi ei kelpaa toisen koodin "nimeksi"').toBe(true);
   });
 
   it('SALLITTU: Eerikkilä, Palloliitto, 5D ja PHV badge-labelissa jäävät', () => {
@@ -258,5 +272,72 @@ describe('(5) Konseptinimi kulkee i18n-resolverin kautta (kaikki neljä osa-alue
 
   it('tuntematon avain → tallennettu nimi (ei tyhjää)', () => {
     expect(f).toContain("return jf.konsepti_nimi || '';");
+  });
+});
+
+/* ══ (5) SISÄINEN TUNNUS JAETUSTA LIBISTÄ ═══════════════════════════════════
+   Termilukko (3) lukee vain vpT-avaimia, joten se EI näe nimeä joka tulee jaetusta
+   libistä (tm_kehityskaari NIMI: tki → "TKI"). Sama vuoto oli kahdessa paikassa:
+   Kehityksen todistelohko ja Aloituksen fokus-siru. Todiste on siksi RENDERÖITY,
+   ei grep: funktiot ajetaan ja näkyvästä tekstistä etsitään paljas tunnus. */
+describe('(5) jaetun libin sisäinen tunnus ei vuoda näkyviin', () => {
+  const KAARI = vaadi('../lib/tm_kehityskaari.js');
+  const K = KAARI.TM_KEHITYSKAARI || KAARI;
+
+  it('LÄHTÖKOHTA: jaettu lib palauttaa yhä sisäisen tunnuksen (muut näkymät nojaavat siihen)', () => {
+    expect(K.tmKaariNimi('tki'), 'jos lib muuttui, tämä ryhmä on päivitettävä').toBe('TKI');
+  });
+
+  /** Ajaa molemmat renderöijät samalla sarjalla; _vpKohdennettuSarja tyngätään libin nimellä. */
+  function renderoi(key) {
+    const sarja = [{ pvm: '2026-01-10', arvo: 120 }, { pvm: '2026-05-10', arvo: 110 }];
+    const store = {
+      window: { TM_KEHITYSKAARI: K },
+      _jsvEsc: esc,
+      vpT: (s) => s,
+      _vpKohdennettuSarja: () => ({ mitattava: true, key, sarja, nimi: K.tmKaariNimi(key) }),
+      _vpSulkuJaksovali: () => ({ alkoi: '2026-01-01', loppu: null }),
+      onNeutraaliPrePHV: () => false,
+    };
+    const ymp = new Proxy(store, {
+      has: (t, k) => (k in t) || !(k in globalThis),
+      get: (t, k) => (k === Symbol.unscopables ? undefined : (k in t ? t[k] : () => '')),
+      set: (t, k, v) => { t[k] = v; return true; },
+    });
+    const runko = [
+      'function _vpKaariNimiNaytto(avain, libNimi) {',
+      'function _vpJfEvidenssiHTML(p) {',
+      'function _vpAloitusSiruHTML(p) {',
+    ].map(pura).join('\n');
+    const p = { jaksofokus: { konsepti_nimi: 'Haltuunotto', domeeni: 'teknis_taktinen', alkoi: '2026-01-01' } };
+    // eslint-disable-next-line no-new-func
+    const api = new Function('__ymp', 'with(__ymp){' + runko
+      + '\nreturn {ev:_vpJfEvidenssiHTML, siru:_vpAloitusSiruHTML};}')(ymp);
+    return { ev: nakyva(api.ev(p)), siru: nakyva(api.siru(p)) };
+  }
+
+  const r = renderoi('tki');
+
+  it('EI VACUOUS: molemmat renderöijät tuottavat tekstiä', () => {
+    expect(r.ev.replace(/\s/g, '').length, 'todistelohko jäi tyhjäksi').toBeGreaterThan(20);
+    expect(r.siru.replace(/\s/g, '').length, 'fokus-siru jäi tyhjäksi').toBeGreaterThan(3);
+  });
+
+  it('Kehityksen todistelohko ei näytä tunnusta "TKI"', () => {
+    expect(r.ev).not.toMatch(/\bTKI\b/);
+  });
+
+  it('Aloituksen fokus-siru ei näytä tunnusta "TKI"', () => {
+    expect(r.siru).not.toMatch(/\bTKI\b/);
+  });
+
+  it('tilalla on ihmisnimi, ei tyhjä', () => {
+    expect(r.ev).toContain('Tekninen');
+    expect(r.siru).toContain('Tekninen');
+  });
+
+  it('tuntematon avain → libin nimi säilyy (ei pudoteta tekstiä pois)', () => {
+    const t = renderoi('cmj');
+    expect(t.ev).toContain(K.tmKaariNimi('cmj'));
   });
 });
