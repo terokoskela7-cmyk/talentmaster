@@ -1,0 +1,544 @@
+<!DOCTYPE html>
+<html lang="fi" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>TalentMaster™ — Valmennusapuri</title>
+<script>/* §33 Versio-tarkistus (cache): pakottaa reloadin kun uusi versio deployattu. APP_VERSION leimataan scripts/bump_version.js:llä. */
+(function(){var APP_VERSION='0';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
+<link rel="stylesheet" href="colors_and_type.css">
+<script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-check-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-functions-compat.js"></script>
+<script src="lib/tm_appcheck.js?v=1"></script>
+<style>
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body { display: flex; flex-direction: column; min-height: 100vh; min-height: 100dvh; }
+button { font-family: var(--font-body); cursor: pointer; }
+input, textarea { font-family: var(--font-body); font-size: 16px; color: var(--ink); }
+
+.va-top { display: flex; align-items: center; gap: var(--tm-space-sm); padding: 10px 16px; border-bottom: 1px solid var(--border2); background: var(--surface); position: sticky; top: 0; z-index: 5; }
+.va-brand { font-family: var(--font-display); font-size: 21px; font-weight: 400; color: var(--carbon); line-height: 1.1; }
+.va-brand small { display: block; font-family: var(--font-body); font-size: 11px; color: var(--ink3); letter-spacing: .06em; text-transform: uppercase; }
+.va-spacer { flex: 1; }
+.va-kieli { display: flex; border: 1px solid var(--border2); border-radius: var(--tm-radius-sm); overflow: hidden; }
+.va-kieli button { background: transparent; border: 0; padding: 6px 10px; font-size: 12px; color: var(--ink2); }
+.va-kieli button[aria-pressed="true"] { background: var(--carbon); color: var(--bone); }
+.va-linkki { background: transparent; border: 0; color: var(--ink2); font-size: 13px; padding: 6px 4px; text-decoration: underline; }
+
+.va-nakyma { flex: 1; display: none; flex-direction: column; width: 100%; max-width: 760px; margin: 0 auto; }
+.va-nakyma.aktiivinen { display: flex; }
+
+.va-kortti { background: var(--surface); border: 1px solid var(--border2); border-radius: var(--tm-radius-md); padding: var(--tm-space-md); margin: var(--tm-space-md) 16px; }
+.va-kortti h1 { margin: 0 0 8px; }
+.va-kortti p { margin: 0 0 12px; color: var(--ink2); }
+.va-kentta { display: block; width: 100%; padding: 12px; margin: 0 0 10px; border: 1px solid var(--border3); border-radius: var(--tm-radius-sm); background: var(--bg2); }
+.va-nappi { display: inline-flex; align-items: center; justify-content: center; gap: 8px; width: 100%; padding: 12px 16px; border-radius: var(--tm-radius-sm); border: 1px solid var(--carbon); background: var(--carbon); color: var(--bone); font-size: 15px; font-weight: 500; margin-bottom: 10px; }
+.va-nappi.toissijainen { background: transparent; color: var(--carbon); }
+.va-nappi:disabled { opacity: .5; cursor: default; }
+.va-virhe { color: var(--red); font-size: 14px; min-height: 20px; margin: 4px 0 8px; }
+.va-ok { color: var(--green); font-size: 14px; }
+
+.va-huomio { margin: 12px 16px 0; padding: 10px 12px; border: 1px solid var(--amber-brd); background: var(--amber-dim); border-radius: var(--tm-radius-sm); font-size: 13px; color: var(--ink2); }
+.va-loki { flex: 1; padding: 12px 16px 16px; overflow-y: auto; }
+.va-tyhja { color: var(--ink2); font-size: 14px; }
+.va-tyhja h2 { margin: 8px 0; }
+.va-esimerkit { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
+.va-esimerkki { text-align: left; background: var(--surface); border: 1px solid var(--border2); border-radius: var(--tm-radius-md); padding: 10px 12px; font-size: 14px; color: var(--ink); line-height: 1.45; }
+
+.va-viesti { margin: 12px 0; display: flex; flex-direction: column; }
+.va-viesti.kayttaja { align-items: flex-end; }
+.va-kupla { max-width: 92%; padding: 10px 14px; border-radius: var(--tm-radius-lg); font-size: 15px; line-height: 1.55; word-wrap: break-word; overflow-wrap: anywhere; }
+.va-viesti.kayttaja .va-kupla { background: var(--carbon); color: var(--bone); white-space: pre-wrap; border-bottom-right-radius: var(--tm-radius-sm); }
+.va-viesti.apuri .va-kupla { background: var(--surface); border: 1px solid var(--border2); color: var(--ink); border-bottom-left-radius: var(--tm-radius-sm); }
+.va-kupla h3, .va-kupla h4 { font-family: var(--font-body); font-size: 15px; font-weight: 600; margin: 12px 0 4px; color: var(--carbon); }
+.va-kupla p { margin: 0 0 8px; }
+.va-kupla ul, .va-kupla ol { margin: 0 0 8px; padding-left: 20px; }
+.va-kupla li { margin: 2px 0; }
+.va-kupla blockquote { margin: 8px 0; padding: 6px 10px; border-left: 3px solid var(--amber); background: var(--amber-dim); }
+.va-kupla hr { border: 0; border-top: 1px solid var(--border2); margin: 10px 0; }
+.va-kupla code { font-family: var(--font-mono); font-size: 13px; background: var(--bg3); padding: 1px 4px; border-radius: 4px; }
+.va-taulu { overflow-x: auto; margin: 6px 0 10px; }
+.va-kupla table { border-collapse: collapse; font-size: 13px; min-width: 100%; }
+.va-kupla th, .va-kupla td { border: 1px solid var(--border2); padding: 5px 7px; text-align: left; vertical-align: top; }
+.va-kupla th { background: var(--bg3); font-weight: 600; }
+.va-palaute { display: flex; align-items: center; gap: 6px; margin-top: 6px; font-size: 12px; color: var(--ink3); flex-wrap: wrap; }
+.va-palaute button { background: transparent; border: 1px solid var(--border2); border-radius: var(--tm-radius-sm); padding: 4px 10px; font-size: 13px; color: var(--ink2); }
+.va-palaute button[aria-pressed="true"] { border-color: var(--teal); color: var(--teal); }
+.va-kommentti { display: flex; gap: 6px; width: 100%; margin-top: 6px; }
+.va-kommentti input { flex: 1; padding: 8px; border: 1px solid var(--border3); border-radius: var(--tm-radius-sm); font-size: 14px; background: var(--bg2); }
+.va-miettii { color: var(--ink3); font-size: 14px; font-style: italic; }
+
+.va-alaosa { position: sticky; bottom: 0; background: var(--bg); border-top: 1px solid var(--border2); padding: 10px 16px calc(10px + env(safe-area-inset-bottom)); }
+.va-syotto { display: flex; gap: 8px; align-items: flex-end; }
+.va-syotto textarea { flex: 1; resize: none; min-height: 48px; max-height: 40vh; padding: 12px; border: 1px solid var(--border3); border-radius: var(--tm-radius-md); background: var(--surface); line-height: 1.4; }
+.va-laheta { width: auto; margin: 0; padding: 12px 18px; }
+.va-tila { display: flex; justify-content: space-between; gap: 8px; font-size: 12px; color: var(--ink3); margin-top: 6px; }
+
+@media (max-width: 768px) {
+  .va-brand { font-size: 18px; }
+  .va-kupla { max-width: 100%; }
+  .va-kortti { margin: 12px; }
+}
+</style>
+</head>
+<body>
+
+<header class="va-top">
+  <div class="va-brand"><span data-t="otsikko">Valmennusapuri</span><small data-t="alaotsikko">TalentMaster · pilotti</small></div>
+  <div class="va-spacer"></div>
+  <div class="va-kieli" role="group" aria-label="Kieli / Språk">
+    <button type="button" data-kieli="fi" aria-pressed="true">FI</button>
+    <button type="button" data-kieli="sv" aria-pressed="false">SV</button>
+  </div>
+  <button type="button" class="va-linkki" id="vaUlos" hidden data-t="kirjauduUlos">Kirjaudu ulos</button>
+</header>
+
+<!-- Ladataan -->
+<main class="va-nakyma aktiivinen" id="vaLadataan">
+  <div class="va-kortti"><p data-t="ladataan">Ladataan…</p></div>
+</main>
+
+<!-- Kirjautuminen -->
+<main class="va-nakyma" id="vaKirjaudu">
+  <div class="va-kortti">
+    <h1 data-t="kirjauduOtsikko">Kirjaudu sisään</h1>
+    <p data-t="kirjauduOhje">Käytä TalentMaster-tunnuksiasi. Pilottiin kutsutut valmentajat pääsevät apuriin.</p>
+    <form id="vaLomake" autocomplete="on" novalidate>
+      <input class="va-kentta" id="vaEmail" type="email" autocomplete="username" data-ph="sahkoposti" placeholder="Sähköposti" required>
+      <input class="va-kentta" id="vaSalasana" type="password" autocomplete="current-password" data-ph="salasana" placeholder="Salasana" required>
+      <div class="va-virhe" id="vaKirjVirhe" role="alert"></div>
+      <button class="va-nappi" type="submit" id="vaKirjNappi" data-t="kirjaudu">Kirjaudu</button>
+    </form>
+    <button class="va-nappi toissijainen" type="button" id="vaGoogle" data-t="google">Kirjaudu Googlella</button>
+    <button class="va-linkki" type="button" id="vaUnohtui" data-t="unohtui">Unohtuiko salasana?</button>
+  </div>
+</main>
+
+<!-- Ei pilottioikeutta -->
+<main class="va-nakyma" id="vaEiOikeutta">
+  <div class="va-kortti">
+    <h1 data-t="eiOikeuttaOtsikko">Ei vielä pääsyä</h1>
+    <p data-t="eiOikeuttaTeksti">Tunnuksellesi ei ole avattu valmennusapurin pilottia. Ota yhteys TalentMasteriin (talentmasterid@gmail.com), niin pääsy avataan.</p>
+    <p class="va-tyhja" id="vaTunnus"></p>
+  </div>
+</main>
+
+<!-- Apuri -->
+<main class="va-nakyma" id="vaApuri">
+  <div class="va-huomio" data-t="tietosuoja">Älä kirjoita pelaajien nimiä: käytä pelinumeroa tai pelipaikkaa. Kysymykset ja vastaukset tallennetaan pilotin laadunseurantaa varten.</div>
+  <section class="va-loki" id="vaLoki" aria-live="polite"></section>
+  <div class="va-alaosa">
+    <form class="va-syotto" id="vaKysyLomake">
+      <textarea id="vaKysymys" rows="2" data-ph="kysymysPh" placeholder="Kuvaa ikäryhmä, pelimuoto ja mitä näit…" aria-label="Kysymys"></textarea>
+      <button class="va-nappi va-laheta" type="submit" id="vaLaheta" data-t="laheta">Lähetä</button>
+    </form>
+    <div class="va-tila">
+      <button type="button" class="va-linkki" id="vaUusi" data-t="uusi">Uusi keskustelu</button>
+      <span id="vaKiintio"></span>
+    </div>
+  </div>
+</main>
+
+<script>
+(function () {
+  'use strict';
+
+  var firebaseConfig = {
+    apiKey: 'AIzaSyAp471lOIntzP33p9bIW3y4KbeEyBt5kIo',
+    authDomain: 'talentmaster-pilot.firebaseapp.com',
+    projectId: 'talentmaster-pilot',
+    storageBucket: 'talentmaster-pilot.firebasestorage.app',
+    messagingSenderId: '872561784446',
+    appId: '1:872561784446:web:05c4c7996dfd46ddd14a2f'
+  };
+  firebase.initializeApp(firebaseConfig);
+  tmAppCheckAktivoi();   // App Check heti initin jälkeen, ennen 1. backend-kutsua (CLAUDE.md §38)
+
+  var auth = firebase.auth();
+  // CLAUDE.md §2: AINA europe-west1. Vastaus kestää usein 30–60 s → oma aikakatkaisu (oletus 70 s).
+  var apuriCF = firebase.app().functions('europe-west1').httpsCallable('valmennusapuri', { timeout: 120000 });
+
+  // ── Kielet ─────────────────────────────────────────────────────────────────
+  var T = {
+    fi: {
+      otsikko: 'Valmennusapuri', alaotsikko: 'TalentMaster · pilotti', kirjauduUlos: 'Kirjaudu ulos', ladataan: 'Ladataan…',
+      kirjauduOtsikko: 'Kirjaudu sisään', kirjauduOhje: 'Käytä TalentMaster-tunnuksiasi. Pilottiin kutsutut valmentajat pääsevät apuriin.',
+      sahkoposti: 'Sähköposti', salasana: 'Salasana', kirjaudu: 'Kirjaudu', google: 'Kirjaudu Googlella', unohtui: 'Unohtuiko salasana?',
+      eiOikeuttaOtsikko: 'Ei vielä pääsyä',
+      eiOikeuttaTeksti: 'Tunnuksellesi ei ole avattu valmennusapurin pilottia. Ota yhteys TalentMasteriin (talentmasterid@gmail.com), niin pääsy avataan.',
+      tietosuoja: 'Älä kirjoita pelaajien nimiä: käytä pelinumeroa tai pelipaikkaa. Kysymykset ja vastaukset tallennetaan pilotin laadunseurantaa varten.',
+      kysymysPh: 'Kuvaa ikäryhmä, pelimuoto ja mitä näit…', laheta: 'Lähetä', uusi: 'Uusi keskustelu',
+      tervetuloOtsikko: 'Mitä harjoitellaan seuraavaksi?',
+      tervetuloTeksti: 'Kerro ikäryhmä, pelimuoto ja mitä näit pelissä. Apuri vastaa valmennusoppaan pohjalta: mitä opetetaan, konseptipeli, cue-kysymykset ja mitä katsot kentältä. Voit jatkaa samaa keskustelua tarkentavilla kysymyksillä.',
+      esimerkit: [
+        'U10, 8v8. Pelaajat ottavat pallon vastaan paikallaan ja vasta sitten katsovat minne. 75 min harjoitus.',
+        'U12, 8v8. Avaus hajoaa paineessa, pallo menetetään omalla puoliskolla. Mistä voi olla kyse?',
+        'Ottelusta: #9 lähti selustaan aina pallon lähtiessä, ei vastaliikettä, 4 paitsiota. #4 ohjasi hyökkääjän laitaan. Kirjaa havainnot.'
+      ],
+      miettii: 'Apuri miettii… vastaus kestää yleensä 30–60 sekuntia.',
+      hyva: '👍 Hyödyllinen', huono: '👎 Ei hyödyllinen', kiitos: 'Kiitos palautteesta!',
+      kommenttiPh: 'Mikä meni pieleen? (vapaaehtoinen)', lahetaKommentti: 'Lähetä',
+      kiintio: 'Tänään käytetty {k}/{m}', katkesi: 'Vastaus katkesi pituusrajaan. Pyydä apuria jatkamaan.',
+      vUnauth: 'Istunto vanheni. Kirjaudu uudelleen.', vKiintio: 'Päivän kysymyskiintiö on täynnä. Jatka huomenna.',
+      vYhteys: 'Apuri ei vastannut juuri nyt. Yritä hetken päästä uudelleen.', vYleinen: 'Jokin meni vikaan: ',
+      vKirjaudu: 'Kirjautuminen epäonnistui. Tarkista sähköposti ja salasana.', vEmail: 'Kirjoita ensin sähköpostiosoitteesi.',
+      resetOk: 'Salasanan vaihtolinkki lähetettiin sähköpostiisi.', kirjautuneena: 'Kirjautuneena: '
+    },
+    sv: {
+      otsikko: 'Tränarassistenten', alaotsikko: 'TalentMaster · pilot', kirjauduUlos: 'Logga ut', ladataan: 'Laddar…',
+      kirjauduOtsikko: 'Logga in', kirjauduOhje: 'Använd dina TalentMaster-uppgifter. Tränare som bjudits in till piloten får tillgång till assistenten.',
+      sahkoposti: 'E-post', salasana: 'Lösenord', kirjaudu: 'Logga in', google: 'Logga in med Google', unohtui: 'Glömt lösenordet?',
+      eiOikeuttaOtsikko: 'Ingen åtkomst ännu',
+      eiOikeuttaTeksti: 'Piloten för tränarassistenten har inte öppnats för ditt konto. Kontakta TalentMaster (talentmasterid@gmail.com) så öppnas åtkomsten.',
+      tietosuoja: 'Skriv inte spelarnas namn: använd tröjnummer eller position. Frågor och svar sparas för pilotens kvalitetsuppföljning.',
+      kysymysPh: 'Beskriv åldersgrupp, spelform och vad du såg…', laheta: 'Skicka', uusi: 'Ny konversation',
+      tervetuloOtsikko: 'Vad ska vi träna på härnäst?',
+      tervetuloTeksti: 'Berätta åldersgrupp, spelform och vad du såg i spelet. Assistenten svarar utifrån tränarhandboken: vad som lärs ut, konceptspel, frågor till spelarna och vad du tittar efter på planen. Du kan fortsätta samma konversation med följdfrågor.',
+      esimerkit: [
+        'U11, 8v8. Spelarna står still och väntar på bollen, ingen erbjuder sig när vi har bollen. Vad ska vi träna på torsdag, 60 min?',
+        'U13, 8v8. Vi tappar bollen i uppspelet när motståndarna pressar. Vad kan det bero på?',
+        'Från matchen: #7 tog alltid emot bollen med ryggen mot spelriktningen. #10 gick aldrig på djupet. Dokumentera observationerna.'
+      ],
+      miettii: 'Assistenten funderar… svaret tar oftast 30–60 sekunder.',
+      hyva: '👍 Användbart', huono: '👎 Inte användbart', kiitos: 'Tack för din feedback!',
+      kommenttiPh: 'Vad blev fel? (frivilligt)', lahetaKommentti: 'Skicka',
+      kiintio: 'Använt i dag {k}/{m}', katkesi: 'Svaret avbröts vid längdgränsen. Be assistenten fortsätta.',
+      vUnauth: 'Sessionen har gått ut. Logga in igen.', vKiintio: 'Dagens frågekvot är full. Fortsätt i morgon.',
+      vYhteys: 'Assistenten svarade inte just nu. Försök igen om en stund.', vYleinen: 'Något gick fel: ',
+      vKirjaudu: 'Inloggningen misslyckades. Kontrollera e-post och lösenord.', vEmail: 'Skriv först din e-postadress.',
+      resetOk: 'En länk för att byta lösenord skickades till din e-post.', kirjautuneena: 'Inloggad som: '
+    }
+  };
+
+  var kieli = 'fi';
+  try { var tallennettu = localStorage.getItem('tm_va_kieli'); if (tallennettu === 'sv' || tallennettu === 'fi') kieli = tallennettu; } catch (e) { /* ei storagea */ }
+
+  function t(avain) { return (T[kieli] && T[kieli][avain]) || T.fi[avain] || avain; }
+
+  function asetaKieli(k) {
+    kieli = k;
+    try { localStorage.setItem('tm_va_kieli', k); } catch (e) { /* ei storagea */ }
+    document.documentElement.lang = k;
+    document.querySelectorAll('[data-t]').forEach(function (el) { el.textContent = t(el.getAttribute('data-t')); });
+    document.querySelectorAll('[data-ph]').forEach(function (el) { el.setAttribute('placeholder', t(el.getAttribute('data-ph'))); });
+    document.querySelectorAll('[data-kieli]').forEach(function (b) { b.setAttribute('aria-pressed', String(b.getAttribute('data-kieli') === k)); });
+    document.title = 'TalentMaster™ — ' + t('otsikko');
+    renderoiLoki();
+    paivitaKiintio();
+  }
+
+  // ── Näkymät ────────────────────────────────────────────────────────────────
+  var $ = function (id) { return document.getElementById(id); };
+  function nayta(id) {
+    ['vaLadataan', 'vaKirjaudu', 'vaEiOikeutta', 'vaApuri'].forEach(function (n) { $(n).classList.toggle('aktiivinen', n === id); });
+    $('vaUlos').hidden = (id === 'vaKirjaudu' || id === 'vaLadataan');
+  }
+
+  // ── Turvallinen markdown-renderöinti (escape ENSIN, sitten rajattu muotoilu) ──
+  function esc(s) {
+    return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+  function inline(s) {
+    return esc(s)
+      .replace(/`([^`]+)`/g, '<code>$1</code>')
+      .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+      .replace(/(^|[\s(])\*([^*\s][^*]*)\*(?=[\s).,;:!?]|$)/g, '$1<em>$2</em>');
+  }
+  function soluiksi(rivi) {
+    return rivi.trim().replace(/^\||\|$/g, '').split('|').map(function (x) { return x.trim(); });
+  }
+  function markdown(teksti) {
+    var rivit = teksti.replace(/\r/g, '').split('\n');
+    var html = [];
+    var i = 0;
+    while (i < rivit.length) {
+      var r = rivit[i];
+      if (/^\s*$/.test(r)) { i++; continue; }
+      if (/^\s*\|/.test(r)) {
+        var taulu = [];
+        while (i < rivit.length && /^\s*\|/.test(rivit[i])) { taulu.push(rivit[i]); i++; }
+        var runko = taulu.filter(function (x) { return !/^\s*\|?\s*:?-{2,}/.test(x); });
+        var t0 = '<div class="va-taulu"><table>';
+        runko.forEach(function (x, j) {
+          var tag = j === 0 ? 'th' : 'td';
+          t0 += '<tr>' + soluiksi(x).map(function (c) { return '<' + tag + '>' + inline(c) + '</' + tag + '>'; }).join('') + '</tr>';
+        });
+        html.push(t0 + '</table></div>');
+        continue;
+      }
+      var otsikko = r.match(/^\s*(#{1,4})\s+(.*)$/);
+      if (otsikko) { html.push((otsikko[1].length <= 2 ? '<h3>' : '<h4>') + inline(otsikko[2]) + (otsikko[1].length <= 2 ? '</h3>' : '</h4>')); i++; continue; }
+      if (/^\s*(-{3,}|\*{3,})\s*$/.test(r)) { html.push('<hr>'); i++; continue; }
+      if (/^\s*>/.test(r)) {
+        var lainaus = [];
+        while (i < rivit.length && /^\s*>/.test(rivit[i])) { lainaus.push(rivit[i].replace(/^\s*>\s?/, '')); i++; }
+        html.push('<blockquote>' + lainaus.map(inline).join('<br>') + '</blockquote>');
+        continue;
+      }
+      if (/^\s*([-*•])\s+/.test(r) || /^\s*\d+[.)]\s+/.test(r)) {
+        var numeroitu = /^\s*\d+[.)]\s+/.test(r);
+        var alkiot = [];
+        while (i < rivit.length && (/^\s*([-*•])\s+/.test(rivit[i]) || /^\s*\d+[.)]\s+/.test(rivit[i]))) {
+          alkiot.push(rivit[i].replace(/^\s*([-*•]|\d+[.)])\s+/, ''));
+          i++;
+        }
+        var lt = numeroitu ? 'ol' : 'ul';
+        html.push('<' + lt + '>' + alkiot.map(function (a) { return '<li>' + inline(a) + '</li>'; }).join('') + '</' + lt + '>');
+        continue;
+      }
+      var kappale = [];
+      while (i < rivit.length && !/^\s*$/.test(rivit[i]) && !/^\s*(\||#{1,4}\s|>|[-*•]\s|\d+[.)]\s|-{3,})/.test(rivit[i])) { kappale.push(rivit[i]); i++; }
+      if (!kappale.length) { kappale.push(r); i++; }
+      html.push('<p>' + kappale.map(inline).join('<br>') + '</p>');
+    }
+    return html.join('');
+  }
+
+  // ── Keskustelu ─────────────────────────────────────────────────────────────
+  var historia = [];      // { role, content, lokiId?, palaute?, katkesi? }
+  var odottaa = false;
+  var kiintio = { m: null, k: 0 };
+
+  function paivitaKiintio() {
+    var el = $('vaKiintio');
+    if (!el) return;
+    el.textContent = kiintio.m ? t('kiintio').replace('{k}', kiintio.k).replace('{m}', kiintio.m) : '';
+  }
+
+  function renderoiLoki() {
+    var loki = $('vaLoki');
+    if (!loki) return;
+    loki.innerHTML = '';
+    if (!historia.length) {
+      var tyhja = document.createElement('div');
+      tyhja.className = 'va-tyhja';
+      var h = document.createElement('h2');
+      h.textContent = t('tervetuloOtsikko');
+      var p = document.createElement('p');
+      p.textContent = t('tervetuloTeksti');
+      var esim = document.createElement('div');
+      esim.className = 'va-esimerkit';
+      t('esimerkit').forEach(function (teksti) {
+        var b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'va-esimerkki';
+        b.textContent = teksti;
+        b.addEventListener('click', function () { $('vaKysymys').value = teksti; kasvataKentta(); $('vaKysymys').focus(); });
+        esim.appendChild(b);
+      });
+      tyhja.appendChild(h);
+      tyhja.appendChild(p);
+      tyhja.appendChild(esim);
+      loki.appendChild(tyhja);
+    }
+    historia.forEach(function (v) { loki.appendChild(viestiElementti(v)); });
+    if (odottaa) {
+      var m = document.createElement('div');
+      m.className = 'va-viesti apuri';
+      var k = document.createElement('div');
+      k.className = 'va-kupla va-miettii';
+      k.textContent = t('miettii');
+      m.appendChild(k);
+      loki.appendChild(m);
+    }
+    loki.scrollTop = loki.scrollHeight;
+    window.scrollTo(0, document.body.scrollHeight);
+  }
+
+  function viestiElementti(v) {
+    var wrap = document.createElement('div');
+    wrap.className = 'va-viesti ' + (v.role === 'user' ? 'kayttaja' : 'apuri');
+    var kupla = document.createElement('div');
+    kupla.className = 'va-kupla';
+    if (v.role === 'user') kupla.textContent = v.content;
+    else kupla.innerHTML = markdown(v.content);   // markdown() escapettaa kaiken ensin
+    wrap.appendChild(kupla);
+    if (v.role === 'assistant' && v.katkesi) {
+      var huom = document.createElement('div');
+      huom.className = 'va-palaute';
+      huom.textContent = t('katkesi');
+      wrap.appendChild(huom);
+    }
+    if (v.role === 'assistant' && v.lokiId) wrap.appendChild(palauteElementti(v));
+    return wrap;
+  }
+
+  function palauteElementti(v) {
+    var rivi = document.createElement('div');
+    rivi.className = 'va-palaute';
+    if (v.palaute === 'lahetetty') {
+      var ok = document.createElement('span');
+      ok.className = 'va-ok';
+      ok.textContent = t('kiitos');
+      rivi.appendChild(ok);
+      return rivi;
+    }
+    ['hyva', 'huono'].forEach(function (arvio) {
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.textContent = t(arvio);
+      b.setAttribute('aria-pressed', String(v.palaute === arvio));
+      b.addEventListener('click', function () {
+        if (arvio === 'hyva') { lahetaPalaute(v, 'hyva', ''); }
+        else { v.palaute = 'huono'; renderoiLoki(); }
+      });
+      rivi.appendChild(b);
+    });
+    if (v.palaute === 'huono') {
+      var lomake = document.createElement('form');
+      lomake.className = 'va-kommentti';
+      var inp = document.createElement('input');
+      inp.type = 'text';
+      inp.maxLength = 1000;
+      inp.placeholder = t('kommenttiPh');
+      var lah = document.createElement('button');
+      lah.type = 'submit';
+      lah.textContent = t('lahetaKommentti');
+      lomake.appendChild(inp);
+      lomake.appendChild(lah);
+      lomake.addEventListener('submit', function (e) { e.preventDefault(); lahetaPalaute(v, 'huono', inp.value); });
+      rivi.appendChild(lomake);
+    }
+    return rivi;
+  }
+
+  function lahetaPalaute(v, arvio, kommentti) {
+    v.palaute = 'lahetetty';
+    renderoiLoki();
+    apuriCF({ toiminto: 'palaute', lokiId: v.lokiId, arvio: arvio, kommentti: kommentti }).catch(function (e) {
+      console.warn('[valmennusapuri] palaute epäonnistui', e);
+    });
+  }
+
+  function virheViesti(e) {
+    var koodi = (e && e.code) || '';
+    if (koodi.indexOf('unauthenticated') >= 0) return t('vUnauth');
+    if (koodi.indexOf('resource-exhausted') >= 0) return t('vKiintio');
+    if (koodi.indexOf('unavailable') >= 0 || koodi.indexOf('deadline-exceeded') >= 0 || koodi.indexOf('internal') >= 0) return t('vYhteys');
+    return t('vYleinen') + ((e && e.message) || koodi);
+  }
+
+  function kysy(teksti) {
+    if (odottaa || !teksti.trim()) return;
+    historia.push({ role: 'user', content: teksti.trim() });
+    odottaa = true;
+    $('vaLaheta').disabled = true;
+    renderoiLoki();
+    var viestit = historia.map(function (v) { return { role: v.role, content: v.content }; });
+    apuriCF({ toiminto: 'kysy', viestit: viestit, kieli: kieli }).then(function (res) {
+      var d = res.data || {};
+      historia.push({ role: 'assistant', content: d.vastaus || '', lokiId: d.lokiId, katkesi: !!d.katkesi });
+      if (kiintio.m) kiintio.k++;
+    }).catch(function (e) {
+      console.warn('[valmennusapuri]', e);
+      var viimeinen = historia.pop();          // palautetaan kysymys syöttökenttään uutta yritystä varten
+      $('vaKysymys').value = viimeinen ? viimeinen.content : '';
+      kasvataKentta();
+      naytaVirhe(virheViesti(e));
+      if (e && e.code && e.code.indexOf('unauthenticated') >= 0) auth.signOut();
+    }).then(function () {
+      odottaa = false;
+      $('vaLaheta').disabled = false;
+      renderoiLoki();
+      paivitaKiintio();
+    });
+  }
+
+  function naytaVirhe(teksti) {
+    var loki = $('vaLoki');
+    var el = document.createElement('div');
+    el.className = 'va-virhe';
+    el.setAttribute('role', 'alert');
+    el.textContent = teksti;
+    setTimeout(function () { loki.appendChild(el); loki.scrollTop = loki.scrollHeight; }, 0);
+  }
+
+  function kasvataKentta() {
+    var ta = $('vaKysymys');
+    ta.style.height = 'auto';
+    ta.style.height = Math.min(ta.scrollHeight, window.innerHeight * 0.4) + 'px';
+  }
+
+  // ── Tapahtumat ─────────────────────────────────────────────────────────────
+  document.querySelectorAll('[data-kieli]').forEach(function (b) {
+    b.addEventListener('click', function () { asetaKieli(b.getAttribute('data-kieli')); });
+  });
+  $('vaUlos').addEventListener('click', function () { historia = []; auth.signOut(); });
+  $('vaUusi').addEventListener('click', function () { if (odottaa) return; historia = []; renderoiLoki(); $('vaKysymys').focus(); });
+  $('vaKysymys').addEventListener('input', kasvataKentta);
+  $('vaKysymys').addEventListener('keydown', function (e) {
+    if (e.key === 'Enter' && !e.shiftKey && !e.isComposing && window.matchMedia('(pointer: fine)').matches) {
+      e.preventDefault();
+      $('vaKysyLomake').requestSubmit();
+    }
+  });
+  $('vaKysyLomake').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var teksti = $('vaKysymys').value;
+    if (!teksti.trim() || odottaa) return;
+    $('vaKysymys').value = '';
+    kasvataKentta();
+    kysy(teksti);
+  });
+
+  $('vaLomake').addEventListener('submit', function (e) {
+    e.preventDefault();
+    $('vaKirjVirhe').textContent = '';
+    $('vaKirjNappi').disabled = true;
+    auth.signInWithEmailAndPassword($('vaEmail').value.trim(), $('vaSalasana').value).catch(function (err) {
+      console.warn('[valmennusapuri] kirjautuminen', err && err.code);
+      $('vaKirjVirhe').textContent = t('vKirjaudu');
+    }).then(function () { $('vaKirjNappi').disabled = false; });
+  });
+  $('vaGoogle').addEventListener('click', function () {
+    var provider = new firebase.auth.GoogleAuthProvider();
+    provider.setCustomParameters({ prompt: 'select_account' });
+    auth.signInWithPopup(provider).catch(function (err) {
+      if (err && (err.code === 'auth/popup-blocked' || err.code === 'auth/operation-not-supported-in-this-environment')) {
+        auth.signInWithRedirect(provider);
+        return;
+      }
+      if (err && err.code !== 'auth/popup-closed-by-user') $('vaKirjVirhe').textContent = t('vKirjaudu');
+    });
+  });
+  $('vaUnohtui').addEventListener('click', function () {
+    var email = $('vaEmail').value.trim();
+    if (!email) { $('vaKirjVirhe').textContent = t('vEmail'); return; }
+    // Sama viesti onnistui tai ei → ei paljasteta, onko osoitteella tiliä.
+    var ilmoita = function () { $('vaKirjVirhe').textContent = t('resetOk'); };
+    auth.sendPasswordResetEmail(email).then(ilmoita, ilmoita);
+  });
+
+  // ── Kirjautumistila ────────────────────────────────────────────────────────
+  auth.onAuthStateChanged(function (kayttaja) {
+    if (!kayttaja) { historia = []; nayta('vaKirjaudu'); return; }
+    nayta('vaLadataan');
+    kayttaja.getIdToken(true).then(function () {
+      return apuriCF({ toiminto: 'tila' });
+    }).then(function (res) {
+      var d = res.data || {};
+      kiintio = { m: d.paivaKiintio || null, k: d.kaytetty || 0 };
+      nayta('vaApuri');
+      renderoiLoki();
+      paivitaKiintio();
+    }).catch(function (e) {
+      if (e && e.code && e.code.indexOf('permission-denied') >= 0) {
+        $('vaTunnus').textContent = t('kirjautuneena') + (kayttaja.email || kayttaja.uid);
+        nayta('vaEiOikeutta');
+        return;
+      }
+      console.warn('[valmennusapuri] tila', e);
+      nayta('vaApuri');
+      renderoiLoki();
+      naytaVirhe(virheViesti(e));
+    });
+  });
+
+  asetaKieli(kieli);
+})();
+</script>
+</body>
+</html>

@@ -68,6 +68,19 @@ test('luoKayttaja: auth + virheellinen email → HttpsError invalid-argument', a
   );
 });
 
+// ── 1b) onCall — valmennusapuri (Vaihe 2): ilman autentikointia → unauthenticated ──
+test('valmennusapuri: ilman autentikointia → HttpsError unauthenticated', async () => {
+  const wrapped = fft.wrap(fns.valmennusapuri);
+  await assert.rejects(() => wrapped({ viestit: [] }, {}), (e) => e.code === 'unauthenticated');
+});
+test('valmennusapuri: kirjautunut ilman pilottioikeutta → permission-denied', async () => {
+  const wrapped = fft.wrap(fns.valmennusapuri);
+  await assert.rejects(
+    () => wrapped({ viestit: [{ role: 'user', content: 'x' }] }, { auth: { uid: 'u', token: {} } }),
+    (e) => e.code === 'permission-denied'
+  );
+});
+
 // ── 2) onRequest (req, res) — aiProxy (https) ──
 function mockRes() {
   const r = { _status: null, _json: null, _headers: {}, _body: null };
