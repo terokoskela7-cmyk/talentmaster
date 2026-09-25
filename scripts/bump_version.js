@@ -17,6 +17,7 @@ const APPS = [
   'TalentMaster_Pelaaja_v7.html',
   'TalentMaster_Vanhempi_v2.html',
   'TalentMaster_Admin.html',
+  'TalentMaster_Valmennusapuri.html',
 ];
 
 const v = String(Date.now());

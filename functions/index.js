@@ -15,6 +15,7 @@ const https     = require('https');
 const { kayttajaRooliSallittu } = require('./authz_paatos');   // pure authz-päätös (#71, testattava)
 const { keraaPelaajanManifesti, rakennaAuditPayload } = require('./gdpr_locator');   // GDPR RTBF/export -locator (#96)
 const { kaavioKohdistuuServer } = require('./kaavio_policy');   // kaavion kohdistus (peili lib/tm_kaavio_policy.js)
+const valmennusapuri = require('./valmennusapuri');           // Valmennusapuri-pilotti (Vaihe 2): ohjeistus+tietopohja palvelimella
 if (!admin.apps.length) {
   admin.initializeApp();
 }
@@ -2563,3 +2564,16 @@ exports.kuittaaKaavioYmmarretty = functions
     await ref.update({ ['review.ymmarretty.' + pelaajaId]: admin.firestore.FieldValue.serverTimestamp() });
     return { ok: true };
   });
+
+// ============================================================
+// VALMENNUSAPURI — pilotti (Vaihe 2, 2026-09)
+// Valmentajan kysymys → ohjeistus + tietopohja (Cloud Storage, EI repossa) → Claude (Vertex AI EU).
+// Logiikka ja perustelut: functions/valmennusapuri.js · testit: functions/test/valmennusapuri.test.js
+// Pääsy: SA aina + valmennusapuri_pilotti/{uid}. Loki: valmennusapuri_loki (ei client-pääsyä).
+// Client: firebase.app().functions('europe-west1').httpsCallable('valmennusapuri', { timeout: 120000 })
+// ANTHROPIC_API_KEY bindataan vain VALMENNUSAPURI_PROVIDER=anthropic -kehitysreittiä varten.
+// ============================================================
+exports.valmennusapuri = functions
+  .region('europe-west1')
+  .runWith({ timeoutSeconds: 120, memory: '512MB', secrets: ['ANTHROPIC_API_KEY'] })
+  .https.onCall(valmennusapuri.kasittelija(admin, functions));
