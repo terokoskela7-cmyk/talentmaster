@@ -46,7 +46,7 @@ function asetukset(env) {
   return {
     provider: (e.VALMENNUSAPURI_PROVIDER || 'vertex').toLowerCase(),
     malli: e.VALMENNUSAPURI_MALLI || 'claude-sonnet-5',
-    alue: e.VALMENNUSAPURI_ALUE || 'europe-west1',
+    alue: e.VALMENNUSAPURI_ALUE || 'eu',            // EU-monialue-endpoint (aiplatform.eu.rep.googleapis.com) — data pysyy EU:ssa. 'europe-west1' EI ole tuettu Claude Sonnet 5:lle.
     projekti: e.GCLOUD_PROJECT || e.GCP_PROJECT || 'talentmaster-pilot',
     bucket: e.VALMENNUSAPURI_BUCKET || '',                  // tyhjä = Firebasen oletus-bucket
     polku: e.VALMENNUSAPURI_POLKU || 'valmennusapuri/',
@@ -191,7 +191,17 @@ function puraVastaus(json) {
 
 // ── Mallikutsu (Vertex EU tai suora Anthropic) ──────────────────────────────
 function vertexUrl(a) {
-  const host = a.alue === 'global' ? 'aiplatform.googleapis.com' : a.alue + '-aiplatform.googleapis.com';
+  // 'global' -> yhteinen globaali endpoint. 'eu'/'us' -> monialue-endpoint (data pysyy alueella,
+  // mutta reititetään usean alueen kesken -> parempi saatavuus). Muu arvo (esim. 'europe-west1')
+  // -> perinteinen yhden alueen endpoint (Claude Sonnet 5:lle EI tuettu, ks. VAIHE2_KAYTTOONOTTO.md).
+  let host;
+  if (a.alue === 'global') {
+    host = 'aiplatform.googleapis.com';
+  } else if (a.alue === 'eu' || a.alue === 'us') {
+    host = 'aiplatform.' + a.alue + '.rep.googleapis.com';
+  } else {
+    host = a.alue + '-aiplatform.googleapis.com';
+  }
   return 'https://' + host + '/v1/projects/' + a.projekti + '/locations/' + a.alue +
     '/publishers/anthropic/models/' + a.malli + ':rawPredict';
 }

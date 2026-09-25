@@ -112,11 +112,15 @@ test('ohjeVersio + paivanAvain + vertexUrl', () => {
   assert.strictEqual(va.vertexUrl({ alue: 'europe-west1', projekti: 'p', malli: 'm' }),
     'https://europe-west1-aiplatform.googleapis.com/v1/projects/p/locations/europe-west1/publishers/anthropic/models/m:rawPredict');
   assert.ok(va.vertexUrl({ alue: 'global', projekti: 'p', malli: 'm' }).indexOf('https://aiplatform.googleapis.com/') === 0);
+  assert.strictEqual(va.vertexUrl({ alue: 'eu', projekti: 'p', malli: 'm' }),
+    'https://aiplatform.eu.rep.googleapis.com/v1/projects/p/locations/eu/publishers/anthropic/models/m:rawPredict');
+  assert.strictEqual(va.vertexUrl({ alue: 'us', projekti: 'p', malli: 'm' }),
+    'https://aiplatform.us.rep.googleapis.com/v1/projects/p/locations/us/publishers/anthropic/models/m:rawPredict');
 });
 test('asetukset: oletuksena Vertex EU', () => {
   const a = va.asetukset({});
   assert.strictEqual(a.provider, 'vertex');
-  assert.strictEqual(a.alue, 'europe-west1');
+  assert.strictEqual(a.alue, 'eu');
   assert.strictEqual(a.paivaKiintio, 40);
 });
 test('onKayttoOikeus: SA aina, pilotti vain aktiivisena', () => {
