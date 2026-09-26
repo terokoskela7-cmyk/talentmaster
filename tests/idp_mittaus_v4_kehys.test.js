@@ -27,7 +27,7 @@ beforeAll(() => {
     // Erä 4: mittausfunktiot kutsuvat nyt vpT:tä → passthrough-stub, muuten ReferenceError.
     'var vpT = function(x){return x;};\n' +
     extract('function _vpMittausTuoreusHTML(p, ika) {') + '\n' +
-    extract('function _vpMittausLinssiHTML(p, ika) {') + '\n' +
+    extract('function _vpMittausLinssiHTML(p, ika, sisalla) {') + '\n' +
     extract('function _vpMittausNextStepHTML(p) {') + '\n' +
     'return { tuoreus: _vpMittausTuoreusHTML, linssi: _vpMittausLinssiHTML, next: _vpMittausNextStepHTML };'
   )();
@@ -104,14 +104,21 @@ describe('CSS-tokenit — ei määrittelemättömiä (L3-korjaus)', () => {
 });
 
 describe('kytkentä tab-1:een (rakenteellinen)', () => {
-  it('tuoreus + §28-linssi ENNEN f1, nextstep f2:n jälkeen', () => {
+  /* C2: tulkinta ennen lukuja SAILYY, mutta kevennettyna — nakyviin tulee kypsyysrivi (yksi seuraus),
+     ja koko §28-linssi luetaan disclosuresta mittaruutujen jalkeen. Vaite = sama jarjestysperiaate. */
+  it('tuoreus + kypsyysrivi ENNEN f1, perustelu-disclosure f1:n jälkeen, nextstep viimeisenä', () => {
     const iTuoreus = HTML.indexOf('_vpMittausTuoreusHTML(p, ika) :');
-    const iLinssi = HTML.indexOf('_vpMittausLinssiHTML(p, ika) :');
+    const iKypsyys = HTML.indexOf('_vpMittausKypsyysHTML(p) :');
     const iF1 = HTML.indexOf("_mSub(vpT('Fyysinen · mitattu')) + f1");
+    const iDisc = HTML.indexOf("_vpDiscHTML('_c2MitPerustelu'");
     const iNext = HTML.indexOf('_vpMittausNextStepHTML(p) :');
     expect(iTuoreus).toBeGreaterThan(0);
-    expect(iTuoreus).toBeLessThan(iLinssi);
-    expect(iLinssi).toBeLessThan(iF1);
-    expect(iF1).toBeLessThan(iNext);
+    expect(iTuoreus).toBeLessThan(iKypsyys);
+    expect(iKypsyys).toBeLessThan(iF1);
+    expect(iF1).toBeLessThan(iDisc);
+    expect(iDisc).toBeLessThan(iNext);
+    // linssi ei renderoidy enaa omana laatikkonaan tab-1:een, vaan disclosuren lead-muodossa
+    expect(HTML).not.toContain('_vpMittausLinssiHTML(p, ika) :');
+    expect(HTML).toContain('_vpMittausLinssiHTML(p, ika, true)');
   });
 });

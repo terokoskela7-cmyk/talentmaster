@@ -567,14 +567,14 @@ describe('VP_v25 render-kielineutraali-gate (step G · AST)', () => {
     const lines = HTML.split('\n');
     const src = lines.slice(RLO - 1, RHI - 1).join('\n');
     expect(scanLeaks(src, RANGES, RLO - 1, LIB, SISALTO_POIKKEUKSET).length).toBe(0);
-    const rikki = src.replace("vpT('§28 kuormaehdotus:')", "'§28 kuormaehdotus:'");
+    const rikki = src.replace("vpT('Kuormaehdotus:')", "'Kuormaehdotus:'");
     expect(rikki).not.toBe(src);
     const leaks = scanLeaks(rikki, RANGES, RLO - 1, LIB, SISALTO_POIKKEUKSET);
-    expect(leaks.map((l) => l.p)).toContain('§28 kuormaehdotus:');
+    expect(leaks.map((l) => l.p)).toContain('Kuormaehdotus:');
     // Alue ANKKUROIDAAN mutaatiokohdasta, ei kovakoodatuista riveistä: [9981,11070] ajautui joka
     // kerran kun skriptiin lisättiin rivejä sen yläpuolelle (sama juurisyy kuin renderSignalsilla).
     // Väite säilyy: vuoto osuu SIIHEN kohtaan jota mutaatio koski, ei minne tahansa.
-    const _kuormaRivi = lines.findIndex((l) => l.includes("vpT('§28 kuormaehdotus:')")) + 1;
+    const _kuormaRivi = lines.findIndex((l) => l.includes("vpT('Kuormaehdotus:')")) + 1;
     expect(_kuormaRivi).toBeGreaterThan(0);
     expect(leaks.every((l) => Math.abs(l.line - _kuormaRivi) <= 2)).toBe(true);
     // Kehon valmius -pää erikseen (toinen alue samassa erässä)
@@ -724,14 +724,66 @@ describe('VP_v25 resolvi-portti — jokaisella reititetyllä avaimella on sv-riv
   };
 
 
-  it('0 vpT-avainta ilman sv-riviä', () => {
+  /* SANKTIOINTIA ODOTTAVAT RIVIT — merge-esto, ei ohitus (sama mekanismi kuin #627/#629).
+     C2:n uudet tekstit, joiden sv on Gemini-erässä GEMINI_ERA_C2_KEVENNYS.json ('sv' vielä tyhjä).
+     Omaa ruotsia EI kirjoiteta. Portti pysyy tiukkana: (a) jos jollekin ilmestyy käännös, alempi
+     testi punertaa ja rivi on poistettava listalta, ja (b) mikä tahansa MUU puuttuva avain punertaa. */
+  const SV_ODOTTAA_SANKTIOINTIA = [
+    'Näytä koko kypsyysperustelu',
+    'Näytä kuormituksen tiedot',
+    'Piilota kuormituksen tiedot',
+    'Tiivistys',
+    'fyysinen nousu on nyt aitoa työtä, ei tule itsestään.',
+    'matala nopeus ja kestävyys on odotettua — ei kehityskohde.',
+    'kuormarajoitin päällä — matala fyysinen ei ole kehityskohde nyt.',
+    'kypsyys mittaamatta — kasvumittaus tarkentaa tulkinnan.',
+    'Tekniikka edellä (ikäluokan kärkeä), fysiikka jäljessä',
+    'juuri oikea ikkuna kehittää nopeutta ja kestävyyttä nyt.',
+    'fysiikka tulee todennäköisesti kypsyessä — seuraa kasvuvaihetta.',
+    'kypsyys mittaamatta — kasvumittaus kertoo kumpi tulkinta pätee.',
+    'Tekniikka on ikäluokan kärkeä.',
+    'Fyysinen jäljessä',
+    'esi-PHV:ssä odotettua, ei kehityskohde.',
+    'kehityskohde tälle jaksolle.',
+    'Mitatut tasot ikäluokan tasoa tai yli.',
+    'Pallo pysyy vauhdissa.',
+    'Kuorma · viikko',
+    'Päivittäinen kuormitus (harjoitukset ja pelit)',
+    'Kuormaehdotus:',
+    'Kuormitussuhde',
+    'Kuormitussuhde kertyy noin neljän viikon mittauksista.',
+    'Se vertaa viimeaikaista kuormaa pidempään pohjaan ja auttaa ajoittamaan kovat ja kevyet viikot. Katkoviiva on suunniteltu kuorma, palkki toteutunut. Kuorma on valmentajan työkalu, ei pelaajalle näytettävä luku.',
+    'kuormitusyksikköä',
+    'Joukkuekalenteri',
+    'Joukkueharjoitukset + ottelut. Valmentaja luo tapahtuman → läsnäolo.',
+    '✓ olemassa · seuran kalenteri',
+    'Pelaajan app',
+    'Omatoimiset harjoitteet: generaattori ehdottaa → pelaaja kirjaa (tehty · kesto · rasitus · fiilis).',
+    '✓ olemassa · pelaajan kirjaukset',
+    'Kuorma ja kypsyys',
+    'Koettu rasitus summautuu kuormaksi, ja kypsyysvaihe sävyttää kuormitussuhteen tulkinnan.',
+    '→ Viikko laskee näistä',
+    'Valmentaja / talenttivalmentaja / VP voi lisätä, siirtää tai poistaa harjoitteita. Pelaajan itse tekemät omatoimiset valuvat tänne automaattisesti',
+  ];
+
+  it('0 vpT-avainta ilman sv-riviä (paitsi nimetyt sanktiointia odottavat)', () => {
     const sb = kartat();
     const cm = (sb.TM_I18N_COMMON && sb.TM_I18N_COMMON.sv) || {};
     const vp = (sb.TM_VP_I18N && sb.TM_VP_I18N.sv) || {};
     const puuttuu = [...kerääAvaimet()].filter((k) => typeof cm[k] !== 'string' && typeof vp[k] !== 'string');
-    expect(puuttuu).toEqual([]);
+    expect(puuttuu.filter((k) => SV_ODOTTAA_SANKTIOINTIA.indexOf(k) < 0)).toEqual([]);
   });
 
+  it('odotuslista on elävä: jokainen rivi on yhä käytössä JA yhä ilman sv:tä', () => {
+    const sb = kartat();
+    const cm = (sb.TM_I18N_COMMON && sb.TM_I18N_COMMON.sv) || {};
+    const vp = (sb.TM_VP_I18N && sb.TM_VP_I18N.sv) || {};
+    const avaimet = kerääAvaimet();
+    expect(SV_ODOTTAA_SANKTIOINTIA.filter((k) => !avaimet.has(k)),
+      'odotuslistalla on avain jota ei enää käytetä → poista rivi').toEqual([]);
+    expect(SV_ODOTTAA_SANKTIOINTIA.filter((k) => typeof cm[k] === 'string' || typeof vp[k] === 'string'),
+      'sv saapui → poista rivi odotuslistalta (tai sv on keksitty)').toEqual([]);
+  });
   it('ei-vacuous: avaimia on runsaasti eikä keräys ole tyhjä', () => {
     expect(kerääAvaimet().size).toBeGreaterThan(1000);
   });
