@@ -85,18 +85,20 @@ describe('(4) display-first / edit-on-tap (reuse handlerit, vain mount muuttuu)'
 describe('(5) §28 ensin + ACWR yksi arvo+sana (laskenta ennallaan)', () => {
   it('kuorma restrukturoitu: §28 ennen ACWR:ää · ACWR yksi arvo+sana + guard', () => {
     const K = extract('function _vpViikkoKuormaHTML(p, st) {');
-    expect(K).toContain('Kuorma · viikko + §28');
+    expect(K).toContain('Kuorma · viikko');
+    // C2/C1: pykäläkoodi pois KÄYTTÖLIITTYMÄSTÄ — koodikommentit saavat viitata pykäliin.
+    expect(K).not.toMatch(/vpT\('[^']*§/);
     // Erä 3: acwrSana-haarat reititetty vpT:hen (container-luokka — gate ei näe, MEMBER_DISPLAY vartioi).
     expect(K).toContain("const acwrSana = acwr == null ? vpT('kertyy ~4 vk')");
     expect(K).toContain('linjassa');
     expect(K).toContain('koholla');
-    expect(K).toContain('Kuormitussuhde vaatii ~4 vk pohjaa');   // guard säilyy
+    expect(K).toContain('Kuormitussuhde kertyy noin neljän viikon mittauksista.');   // guard säilyy (~4 vk pohja)
     // laskenta koskematon (reuse) — R5.2: päivän AU summautuu sessioista (_vpViikkoPaivaAU → _vpViikkoSrpe sisäisesti)
     expect(K).toContain('au: _vpViikkoPaivaAU(r)');
     expect(K).toContain('viikkoAU / krono');
   });
   it('§7.22: kuorma = valmentajan työkalu, ei pelaajalle', () => {
-    expect(extract('function _vpViikkoKuormaHTML(p, st) {')).toContain('ei pelaajalle.');
+    expect(extract('function _vpViikkoKuormaHTML(p, st) {')).toContain('ei pelaajalle näytettävä luku.');
   });
 });
 

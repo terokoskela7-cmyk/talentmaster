@@ -23,15 +23,19 @@ describe('Mittaus v4 — 2-sarake D1|D2 + rail-vapaa', () => {
     expect(HTML).not.toContain("_mSub(vpT('Fyysinen · mitattu')) + f1 + _mErot + _mSub(vpT('Tekninen · mitattu'))");
   });
 
-  it('tulkintakerros (tuoreus/§28/synth) ENNEN cols; Kehon valmius + nextstep JÄLKEEN (täysleveinä)', () => {
+  /* C2: tulkintakerros kevennettiin — nakyviin jai tiivistys (yksi lause) ennen sarakkeita, ja
+     synth siirtyi perustelu-disclosureen niiden jalkeen. Kehon valmius + nextstep yha viimeisina. */
+  it('tiivistys ENNEN cols; perustelu-disclosure + Kehon valmius + nextstep JÄLKEEN (täysleveinä)', () => {
     const iTuoreus = HTML.indexOf('_vpMittausTuoreusHTML(p, ika) :');
-    const iSynth = HTML.indexOf('_vpMittausSynthHTML(p, ika, d1, d2, tsi) :');
+    const iTiiv = HTML.indexOf('_vpMittausTiivistysHTML(p, ika, d1, d2, tsi) :');
     const iCols = HTML.indexOf("'<div class=\"mit-cols\"><div>' + _mSub(vpT('Fyysinen");
+    const iDisc = HTML.indexOf("_vpDiscHTML('_c2MitPerustelu'");
     const iKehon = HTML.indexOf("_mSub(vpT('Kehon valmius'))");
     const iNext = HTML.indexOf('_vpMittausNextStepHTML(p) :');
-    expect(iTuoreus).toBeLessThan(iSynth);
-    expect(iSynth).toBeLessThan(iCols);
-    expect(iCols).toBeLessThan(iKehon);
+    expect(iTuoreus).toBeLessThan(iTiiv);
+    expect(iTiiv).toBeLessThan(iCols);
+    expect(iCols).toBeLessThan(iDisc);
+    expect(iDisc).toBeLessThan(iKehon);
     expect(iKehon).toBeLessThan(iNext);
   });
 
