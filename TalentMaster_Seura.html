@@ -1324,11 +1324,21 @@ async function lataaKaikkiSeurat() {
   ).join('');
 }
 
+/* A3 — uuden pelaajan kieli peritään seuralta. Pelaaja-app lukee kielen PELAAJADOKISTA, koska
+   anonyymi PIN-kirjautuja ei saa lukea seuradokia (tmKieliInitSeura(p.kieli)). Ilman tätä uusi
+   ruotsinkielisen seuran pelaaja jäisi suomenkieliseen käyttöliittymään. 'fi' jätetään POIS:
+   se on oletus ilman kenttääkin, eikä turhaa kenttää kirjoiteta. */
+function _tmPelaajanKieli(seuranKieli) {
+  var k = seuranKieli ? String(seuranKieli).toLowerCase().trim() : '';
+  return (k && k !== 'fi') ? { kieli: k } : {};
+}
+
 // ─────────────────────────────────────────────────────────────────
 // AKTIIVISEN SEURAN ASETTAMINEN
 // ─────────────────────────────────────────────────────────────────
 async function asetaAktiivinenSeura(seuraId) {
   tila.seuraId = seuraId;
+
 
   // Haetaan seuran tiedot
   const seuraSnap = await db.collection('seurat').doc(seuraId).get();
@@ -1336,6 +1346,7 @@ async function asetaAktiivinenSeura(seuraId) {
     const data = seuraSnap.data();
     tila.seuraNimi    = data.nimi    || seuraId;
     tila.seuraPaketti = data.paketti || 'Perustaso';
+    tila.seuraKieli   = data.kieli || null;   // A3: peritään uudelle pelaajalle (anon PIN ei voi lukea seuradokia)
     if (typeof tmKieliInitSeura === 'function') tmKieliInitSeura(data.kieli);   // i18n V0 — keskitetty kieli-init seurat/{id}.kieli:stä (§11)
   } else {
     tila.seuraNimi    = seuraId;
@@ -3267,7 +3278,7 @@ async function lahetaRekisteriSahkoposti() {
         const pelaajaRef = db.collection('seurat').doc(tila.seuraId)
           .collection('pelaajat').doc();
         pelaajaId = pelaajaRef.id;
-        await pelaajaRef.set({
+        await pelaajaRef.set(Object.assign(_tmPelaajanKieli(tila.seuraKieli), {
           etunimi:       etunimi || '',
           sukunimi:      sukunimi || '',
           joukkue:       joukkue || '',
@@ -3283,7 +3294,7 @@ async function lahetaRekisteriSahkoposti() {
           // ──────────────────────────────────────────────────────────────
           tuotu:         firebase.firestore.FieldValue.serverTimestamp(),
           tuoja:         tila.kayttaja?.email || 'tuntematon',
-        });
+        }));
 
         // Näytetään generoitu PIN VP:lle toast-viestissä
         naytaToast(`✅ Pelaaja luotu — PIN: ${pin}`, 'ok');
@@ -5969,7 +5980,7 @@ async function ajaExcelTuonti(lahetaKutsut = false) {
         .collection('pelaajat').doc();
       const pelaajaId = pelaajaRef.id;
 
-      await pelaajaRef.set({
+      await pelaajaRef.set(Object.assign(_tmPelaajanKieli(tila.seuraKieli), {
         etunimi:       p.etunimi || '',
         sukunimi:      p.sukunimi || '',
         joukkue:       p.joukkue || '',
@@ -5994,7 +6005,7 @@ async function ajaExcelTuonti(lahetaKutsut = false) {
         tuotu:         nyt,
         tuoja:         tila.kayttaja?.email || 'tuntematon',
         lahde:         'excel_tuonti',
-      });
+      }));
       tuotu++;
 
       // VAIHE 2: Lähetetään kutsu jos pyydetty ja email löytyy
