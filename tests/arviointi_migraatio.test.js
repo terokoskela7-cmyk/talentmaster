@@ -128,3 +128,49 @@ describe('kirjoituspolku — luotu vain luonnissa', () => {
     expect(LAHDE).toContain("lippu('sisallyta-tuntemattomat')");
   });
 });
+
+/* ── PALLOLIITTO-POLKU: migraatio ja Rules samasta lähteestä ───────────── */
+describe('Palloliiton käyttäjäpolku — migraatio ja Rules eivät saa erkaantua', () => {
+  const fs = vaadi('fs');
+  const path = vaadi('path');
+  const url = vaadi('url');
+  const juuri2 = path.join(path.dirname(url.fileURLToPath(import.meta.url)), '..');
+  const RULES = fs.readFileSync(path.join(juuri2, 'tm_admin/firestore.rules'), 'utf8');
+
+  /** onPalloliitto()-tarkistuksen polku Rulesista, ilman $(…)-osaa. */
+  function rulesPolku() {
+    const m = RULES.match(/exists\(\/databases\/\$\(database\)\/documents\/([^)]*?)\/\$\(request\.auth\.uid\)\)/);
+    expect(m, 'onPalloliitto()-polkua ei löytynyt Rulesista').toBeTruthy();
+    return m[1];
+  }
+
+  it('EI VACUOUS: Rulesista löytyy onPalloliitto-polku', () => {
+    expect(rulesPolku().length).toBeGreaterThan(3);
+  });
+
+  it('migraatio lukee SAMASTA polusta kuin Rules tarkistaa', () => {
+    expect(M.PALLOLIITTO_KAYTTAJAT_POLKU).toBe(rulesPolku());
+  });
+
+  it('polku on vakiona yhdessä paikassa (ei arvattuja vaihtoehtoja .catch-ketjulla)', () => {
+    const lahde = fs.readFileSync(path.join(juuri2, 'scripts/migrate_arviointi_kerrat.js'), 'utf8');
+    expect(lahde).toContain('const PALLOLIITTO_KAYTTAJAT_POLKU =');
+    expect(lahde).not.toContain(".catch(() => db.collection('palloliitto/kayttajat').get())");
+  });
+
+  /* MUISTUTUS-TESTI (sama mekanismi kuin sv-odotuslista): Rulesin polku on nyt 3-segmenttinen
+     eli KOKOELMA, jolle exists() ei kelpaa → onPalloliitto() ei voi olla tosi. Kun polku
+     korjataan parilliseksi, TÄMÄ TESTI PUNERTAA ja muistuttaa päivittämään migraation sekä
+     CLAUDE.md §11:n samalla kertaa. Testi ei siis hyväksy vikaa vaan pitää sen näkyvissä. */
+  it('TIEDOSSA: Rules-polku on pariton (kokoelma) → korjattaessa päivitä myös migraatio', () => {
+    // KOKO dokumenttipolku = polkuvakio + {uid}. Firestore vaatii parillisen segmenttimäärän.
+    const segmentteja = rulesPolku().split('/').length + 1;
+    expect(segmentteja % 2,
+      'Rules-polku muuttui parilliseksi (dokumentti) — päivitä migraation polkulogiikka ja poista tämä muistutus').toBe(1);
+  });
+
+  it('polkurakentaja tuottaa kokoelmaviitteen kummallakin segmenttimäärällä', () => {
+    const lahde = fs.readFileSync(path.join(juuri2, 'scripts/migrate_arviointi_kerrat.js'), 'utf8');
+    expect(lahde).toContain("return (osat.length % 2 === 0) ? ref : ref.collection('kayttajat');");
+  });
+});

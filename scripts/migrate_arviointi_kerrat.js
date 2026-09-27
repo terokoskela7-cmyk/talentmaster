@@ -104,6 +104,33 @@ function docistaKerrat(kausiDoc, seuraId, pelaaja, arvioijat) {
   });
 }
 
+/* PALLOLIITON KÄYTTÄJÄPOLKU — YKSI PAIKKA.
+   Aiemmin tässä arvattiin kaksi vaihtoehtoista polkua peräkkäin (.catch-ketjulla), eikä
+   kumpikaan vastannut Rulesin `onPalloliitto()`-tarkistusta. Jos migraatio lukee eri polusta
+   kuin Rules, Palloliiton arviot migroituisivat `org: 'seura'` -merkinnällä — eli sisäiseksi
+   tarkoitettu arvio päätyisi seuran luettavaksi.
+
+   ⚠ TIEDOSSA OLEVA ONGELMA (ei korjattu tässä PR:ssä, vaatii päätöksen):
+   Rulesin polku on `palloliitto/kayttajat/{uid}` = KOLME segmenttiä. Firestoressa
+   dokumenttipolussa on oltava PARILLINEN määrä segmenttejä (kokoelma/dokumentti-pareja),
+   joten tämä on kokoelmapolku eikä kelpaa `exists()`-kutsulle. Käytännössä
+   `onPalloliitto()` ei voi olla tosi edes sen jälkeen, kun Palloliiton käyttäjät on luotu.
+   Polku on päätettävä (esim. `palloliitto_kayttajat/{uid}` tai
+   `palloliitto/kayttajat/lista/{uid}`) ja korjattava Rulesiin, CLAUDE.md §11:een JA tähän
+   samalla kertaa. tests/arviointi_migraatio.test.js pitää nämä kytkettynä toisiinsa. */
+const PALLOLIITTO_KAYTTAJAT_POLKU = 'palloliitto/kayttajat';
+
+/** Palloliiton käyttäjäkokoelma polusta (sama kuin Rulesin onPalloliitto). */
+function palloliitonKayttajat() {
+  const osat = PALLOLIITTO_KAYTTAJAT_POLKU.split('/');
+  let ref = db.collection(osat[0]);
+  for (let i = 1; i < osat.length; i++) {
+    ref = (i % 2 === 1) ? ref.doc(osat[i]) : ref.collection(osat[i]);
+  }
+  // pariton segmenttimäärä → ref on dokumentti; käyttäjät ovat sen alikokoelmassa
+  return (osat.length % 2 === 0) ? ref : ref.collection('kayttajat');
+}
+
 /** UID → { nimi, rooli, org } seuran kayttajista ja Palloliiton kayttajista. */
 async function haeArvioijat(seuraId) {
   const out = {};
@@ -116,14 +143,13 @@ async function haeArvioijat(seuraId) {
     });
   } catch (e) { /* ilman kayttajia kaikki ovat tuntemattomia → ohitetaan */ }
   try {
-    const pl = await db.collection('palloliitto').doc('kayttajat').collection('kayttajat').get()
-      .catch(() => db.collection('palloliitto/kayttajat').get());
+    const pl = await palloliitonKayttajat().get();
     pl.docs.forEach((d) => {
       const v = d.data() || {};
       const nimi = v.nimi || [v.etunimi, v.sukunimi].filter(Boolean).join(' ') || null;
       out[d.id] = { nimi: nimi, rooli: v.rooli || 'palloliitto', org: 'palloliitto' };
     });
-  } catch (e) { /* Palloliitto-kayttajia ei viela ole (H1b) */ }
+  } catch (e) { /* Palloliitto-kayttajia ei viela ole (H1b) — arvioija jaa tuntemattomaksi */ }
   return out;
 }
 
@@ -190,4 +216,4 @@ if (require.main === module) {
   aja().then(() => process.exit(0)).catch((e) => { console.error(e); process.exit(1); });
 }
 
-module.exports = { docistaKerrat, haeArvioijat };
+module.exports = { docistaKerrat, haeArvioijat, PALLOLIITTO_KAYTTAJAT_POLKU };
