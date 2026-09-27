@@ -30,8 +30,9 @@ function pura(tunniste) {
   throw new Error('sulkuja ei saatu tasan: ' + tunniste);
 }
 
-/** Firestore-tynkä: kerää batch-kirjoitukset polkuineen. */
-function tynka() {
+/** Firestore-tynkä: kerää transaktion kirjoitukset polkuineen. `olemassa` = doc joka on jo
+    tallessa (2. klikkaus samaan kertaan) → transaktion tx.get palauttaa sen. */
+function tynka(olemassa) {
   const kirjoitukset = [];
   let committeja = 0;
   const DEL = { __del: true };
@@ -43,10 +44,17 @@ function tynka() {
   });
   const db = {
     collection: (c) => ref(c),
-    batch: () => ({
-      set(r, data, opts) { kirjoitukset.push({ polku: r._polku, data, opts }); },
-      commit() { committeja += 1; return Promise.resolve(); },
-    }),
+    runTransaction: async (fn) => {
+      const tx = {
+        get: async (r) => (olemassa && r._polku.indexOf('/arviointikerrat/') >= 0)
+          ? { exists: true, data: () => olemassa }
+          : { exists: false, data: () => null },
+        set(r, data, opts) { kirjoitukset.push({ polku: r._polku, data, opts }); },
+      };
+      const tulos = await fn(tx);
+      committeja += 1;
+      return tulos;
+    },
   };
   const firebase = {
     auth: () => ({ currentUser: { uid: 'uid-a', displayName: 'Arvioija A', getIdToken: () => Promise.resolve('t') } }),
@@ -64,7 +72,7 @@ const PELAAJA = {
 /** Ajaa oikean _vpTallennaHavaittu-funktion tyngällä. */
 async function tallenna(opts) {
   const o = opts || {};
-  const tk = tynka();
+  const tk = tynka(o.olemassa || null);
   const store = {
     db: tk.db, firebase: tk.firebase,
     _seuraId: o.seuraId || 'sjk', _uid: o.uid || 'uid-a', _rooli: o.rooli || 'vp',
@@ -288,6 +296,14 @@ describe('(10) functions/-kopio on identtinen lib/-kanssa (deploy pakkaa vain fu
     expect(idx).not.toContain("require('../lib/tm_arviointi_historia.js')");
   });
 
+  it('CF korvaa koostekentät kokonaan (merge jättäisi vanhentuneet kohteet paikoilleen)', () => {
+    const idx = readFileSync(join(juuri, 'functions/index.js'), 'utf8');
+    const i = idx.indexOf('exports.arviointikertaOnWrite');
+    const f = idx.slice(i, idx.indexOf('\n});', i));
+    expect(f).toContain("mergeFields: ['arviointi_kooste', 'potentiaali_kooste', 'arviointi_kooste_pvm']");
+    expect(f).not.toMatch(/arviointi_kooste_pvm: new Date\(\)\.toISOString\(\),\s*\}, \{ merge: true \}/);
+  });
+
   it('CF suodattaa sisäiset kerrat ennen koostetta', () => {
     const idx = readFileSync(join(juuri, 'functions/index.js'), 'utf8');
     const i = idx.indexOf('exports.arviointikertaOnWrite');
@@ -295,5 +311,114 @@ describe('(10) functions/-kopio on identtinen lib/-kanssa (deploy pakkaa vain fu
     const f = idx.slice(i, idx.indexOf('\n});', i));
     expect(f).toContain('AH.tmAhSeuralle(');
     expect(f.indexOf('AH.tmAhSeuralle(')).toBeLessThan(f.indexOf('AH.tmAhKooste('));
+  });
+});
+
+/* ══ (11) REVIEW 1 — `luotu` VAIN LUONNISSA ════════════════════════════════
+   Rules vaatii updatessa `request.resource.data.luotu == resource.data.luotu`. Vanha koodi
+   lähetti serverTimestampin joka klikkauksella → 2. kohde samaan kertaan hylättiin, ja koska
+   kerta ja pikakenttä olivat samassa batchissa, myös pikakenttä jäi päivittymättä. Vanha
+   vartija ei nähnyt tätä: tynkä ei tunne Rulesia. Nyt väite kohdistuu payloadiin. */
+describe('(11) luotu lähetetään vain uudelle kerralle', () => {
+  it('uusi kerta saa luotu-kentän', async () => {
+    const tk = await tallenna({});
+    expect(kerta(tk).data.luotu).toEqual(tk.SRV);
+  });
+
+  it('OLEMASSA OLEVAAN kertaan kirjoitettaessa luotu EI ole mukana (muuten Rules hylkää)', async () => {
+    const tk = await tallenna({ olemassa: { kohteet: { muu: { arvo: 3 } } } });
+    expect(Object.keys(kerta(tk).data)).not.toContain('luotu');
+  });
+
+  it('kirjoitus tehdään transaktiossa (lukee ensin, ei sokkona)', () => {
+    const f = pura('window._vpTallennaHavaittu = async function(pid, avain, arvo) {');
+    expect(f).toContain('db.runTransaction(');
+    expect(f).toContain('tx.get(kertaRef)');
+  });
+
+  it('pari-invariantti säilyy: molemmat kirjoitukset samassa transaktiossa', async () => {
+    const tk = await tallenna({});
+    expect(tk.kirjoitukset.length).toBe(2);
+    expect(tk.commitit()).toBe(1);
+  });
+
+  it('payload rakennetaan JAETULLA funktiolla (sovellus ja Rules-testi eivät voi erkaantua)', () => {
+    const f = pura('window._vpTallennaHavaittu = async function(pid, avain, arvo) {');
+    expect(f).toContain('AH.tmAhKertaPayload(');
+  });
+});
+
+/* ══ (12) REVIEW 4 — "Ei nähty" ≠ "Ei sovellu" ════════════════════════════ */
+describe('(12) ei nähty ei kosketa seuran pikakenttään eikä pyyhi kollegan arviota', () => {
+  it("'ei_nahty' poistaa kohteen OMASTA kerrasta", async () => {
+    const tk = await tallenna({ arvo: 'ei_nahty', avain: 'x', olemassa: { kohteet: { x: { arvo: 4 }, y: { arvo: 3 } } } });
+    expect(kerta(tk).data.kohteet.x).toBeUndefined();
+    expect(kerta(tk).data.kohteet.y).toMatchObject({ arvo: 3 });
+  });
+
+  it("'ei_nahty' EI kirjoita arviointi_havaittu-pikakenttää (arvo voi olla toisen arvioijan)", async () => {
+    const tk = await tallenna({ arvo: 'ei_nahty', avain: 'x', olemassa: { kohteet: { x: { arvo: 4 } } } });
+    expect(pelaajaKirjoitus(tk).data.arviointi_havaittu).toBeUndefined();
+  });
+
+  it("'ei_nahty' ilman aiempaa kertaa ei kirjoita mitään kertaa", async () => {
+    const tk = await tallenna({ arvo: 'ei_nahty', avain: 'x' });
+    expect(kerta(tk)).toBeUndefined();
+  });
+
+  it("'NA' (ei sovellu) tallentuu kertaan ja poistaa numeron pikakentästä", async () => {
+    const tk = await tallenna({ arvo: null, avain: 'x' });
+    expect(kerta(tk).data.kohteet.x.arvo).toBe('NA');
+    expect(pelaajaKirjoitus(tk).data.arviointi_havaittu.x).toEqual(tk.DEL);
+  });
+});
+
+/* ══ (13) REVIEW 5 — korjaushistoria ══════════════════════════════════════ */
+describe('(13) arvon korjaus ei pyyhi alkuperäistä jäljettömiin', () => {
+  it('saman kohteen muutos kirjaa korjauksen (vanha → uusi)', async () => {
+    const tk = await tallenna({ avain: 'x', arvo: 5, olemassa: { kohteet: { x: { arvo: 3 } } } });
+    expect(kerta(tk).data.korjaukset).toEqual([expect.objectContaining({ avain: 'x', vanha: 3, uusi: 5 })]);
+  });
+
+  it('sama arvo uudelleen ei kirjaa korjausta (ei roskaa historiaan)', async () => {
+    const tk = await tallenna({ avain: 'x', arvo: 3, olemassa: { kohteet: { x: { arvo: 3 } } } });
+    expect(kerta(tk).data.korjaukset).toBeUndefined();
+  });
+
+  it('korjaukset ovat ISO-stringejä (§7.6: ei serverTimestamppia taulukkoon)', async () => {
+    const tk = await tallenna({ avain: 'x', arvo: 5, olemassa: { kohteet: { x: { arvo: 3 } } } });
+    expect(typeof kerta(tk).data.korjaukset[0].pvm).toBe('string');
+  });
+
+  it('aiemmat korjaukset säilyvät', async () => {
+    const tk = await tallenna({
+      avain: 'x', arvo: 2,
+      olemassa: { kohteet: { x: { arvo: 5 } }, korjaukset: [{ pvm: '2026-09-01', avain: 'x', vanha: 3, uusi: 5 }] },
+    });
+    expect(kerta(tk).data.korjaukset.length).toBe(2);
+  });
+});
+
+/* ══ (14) REVIEW 3 — riippumattomuus ennen vertailua ══════════════════════ */
+describe('(14) ruudukko korostaa vain omaa avointa kertaa', () => {
+  it('seg() lukee oman kerran arvon, EI seuran pikakenttää', () => {
+    const f = pura('function _vpArviointiHTML(p) {');
+    const i = f.indexOf('const seg = function');
+    const segF = f.slice(i, f.indexOf('};', i));
+    expect(segF).toContain('_vpArvOmaArvo(p, avain)');
+    expect(segF).not.toContain('havaittu[avain]');
+  });
+
+  it('oman kerran lukija ei katso seuran pikakenttää lainkaan', () => {
+    const f = pura('function _vpArvOmaArvo(p, avain) {');
+    expect(f).not.toContain('arviointi_havaittu');
+  });
+
+  it('seuran viimeisin näytetään vasta kun oma arvo on kirjattu', () => {
+    const f = pura('function _vpArviointiHTML(p) {');
+    const i = f.indexOf('const seuranViimeisin = function');
+    const sv = f.slice(i, f.indexOf('};', i));
+    expect(sv).toContain('_vpArvOmaKirjattu(p, avain)');
+    expect(sv).toContain('jsp-arv-muut');   // neutraali teksti, ei korostus
   });
 });

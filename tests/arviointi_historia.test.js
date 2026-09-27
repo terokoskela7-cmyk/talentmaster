@@ -185,9 +185,12 @@ describe('tmAhKooste — pikakentän rakenne (sama CF:ssä ja clientissä)', () 
     expect(k.x.pvm).toBe('2026-09-20');
   });
 
-  it('avain jonka vain vanhempi kerta sisälsi ei tule koosteeseen arvioijan uudemman kerran yli', () => {
+  /* KORJATTU REVIEW-LÖYDÖKSEN 2 MUKANA: tämä väite koodasi aiemmin juuri sen bugin, jonka
+     review löysi — arvioijan aiempi arvio KATOSI, kun hän kirjasi myöhemmin toisen kohteen.
+     Oikea semantiikka: uudempi kerta ei kumoa vanhempaa arviota MUUSTA kohteesta. */
+  it('arvioijan aiempi arvio toisesta kohteesta säilyy koosteessa', () => {
     const k = L.tmAhKooste(kerrat, NYT);
-    expect(k.y).toBeUndefined();   // a:n viimeisin kerta ei sisällä y:tä → ei nähty
+    expect(k.y).toMatchObject({ viimeisin: 5, n: 1, arvioijia: 1 });
   });
 
   it('tyhjä syöte → tyhjä kooste (ei keksittyä nollaa)', () => {
@@ -283,5 +286,150 @@ describe('tmAhKontekstierot — sääntöpohjainen, vain tallennetuista kentist�
     ], 'x', NYT);
     const teksti = t.map((x) => x.teksti).join(' ').toLowerCase();
     expect(teksti).not.toMatch(/oikeassa|väärä|virhe|luotettavampi/);
+  });
+});
+
+/* ── REVIEW-LÖYDÖS 2: viimeisin PER KOHDE, ei vain viimeisin kerta ────────── */
+describe('tmAhViimeisinPerKohde — arvioijan aiempi arvio ei katoa toisen kerran alle', () => {
+  /* Reviewin skenaario: VP arvioi 1.9. Fyysisen (4), 20.9. vain Päätöksenteon (4);
+     Palloliitto arvioi 10.9. Fyysisen (2). Jos katsotaan vain viimeisintä KERTAA, VP:n
+     Fyysinen-arvio katoaa → ero 0 ja "keskustelunaihe" jää syntymättä. */
+  const kerrat = [
+    kerta('2026-09-01', 'vp', { physical_presence: { arvo: 4 } }),
+    kerta('2026-09-20', 'vp', { paatoksenteko: { arvo: 4 } }),
+    kerta('2026-09-10', 'pl', { physical_presence: { arvo: 2 } }, { arvioija_org: 'palloliitto' }),
+  ];
+
+  it('molemmat arvioijat ovat mukana kohteessa jota kumpikin on arvioinut', () => {
+    const v = L.tmAhViimeisinPerKohde(kerrat, 'physical_presence', NYT);
+    expect(Object.keys(v).sort()).toEqual(['pl', 'vp']);
+    expect(v.vp.arvo).toBe(4);
+    expect(v.pl.arvo).toBe(2);
+  });
+
+  it('kooste näyttää eron ja merkitsee sen keskustelunaiheeksi', () => {
+    const k = L.tmAhKooste(kerrat, NYT);
+    expect(k.physical_presence).toMatchObject({ n: 2, arvioijia: 2, min: 2, max: 4, ero: 2, keskustelunaihe: true });
+  });
+
+  it('saman arvioijan uudempi arvio SAMASTA kohteesta korvaa vanhemman', () => {
+    const v = L.tmAhViimeisinPerKohde(
+      kerrat.concat([kerta('2026-09-25', 'vp', { physical_presence: { arvo: 3 } })]), 'physical_presence', NYT);
+    expect(v.vp.arvo).toBe(3);
+  });
+
+  it("tuorein 'NA' pudottaa arvioijan kohteesta (ei sovellu ≠ arvo)", () => {
+    const v = L.tmAhViimeisinPerKohde(
+      kerrat.concat([kerta('2026-09-26', 'vp', { physical_presence: { arvo: 'NA' } })]), 'physical_presence', NYT);
+    expect(v.vp).toBeUndefined();
+    expect(v.pl.arvo).toBe(2);
+  });
+
+  it('kontekstierot lukee samat kerrat (ei viimeisintä kertaa)', () => {
+    const t = L.tmAhKontekstierot([
+      kerta('2026-09-01', 'vp', { physical_presence: { arvo: 4 } }, { konteksti: { tyyppi: 'ottelu', pelipaikka: 'KP' } }),
+      kerta('2026-09-20', 'vp', { paatoksenteko: { arvo: 4 } }, { konteksti: { tyyppi: 'harjoitus', pelipaikka: 'LP' } }),
+      kerta('2026-09-10', 'pl', { physical_presence: { arvo: 2 } }, { konteksti: { tyyppi: 'ottelu', pelipaikka: 'LP' } }),
+    ], 'physical_presence', NYT);
+    expect(t.map((x) => x.tekija)).toContain('pelipaikka');
+  });
+});
+
+/* ── REVIEW-LÖYDÖS 1: jaettu payload-rakentaja ────────────────────────────── */
+describe('tmAhKertaPayload — sovellus ja Rules-testi rakentavat saman payloadin', () => {
+  const syote = {
+    kehys: 'palloliitto', kausi: '2026', pvm: '2026-09-20', palloId: '123', seuraId: 'sjk',
+    arvioija: { uid: 'u1', nimi: 'A', rooli: 'valmentaja', org: 'seura' },
+    konteksti: { tyyppi: 'ottelu', pelipaikka: 'KP', minuutit: 60, vastustajataso: 'oma' },
+    tilannekuva: { ika: 13, phv_tila: 'PRE' },
+    kohteet: { x: { arvo: 4 } }, aikaleima: 'TS',
+  };
+
+  it('EI sisällä luotu-kenttää (Rules vaatii sen muuttumattomaksi updatessa)', () => {
+    expect(Object.keys(L.tmAhKertaPayload(syote))).not.toContain('luotu');
+  });
+
+  it('kentät vastaavat datamallia', () => {
+    const p = L.tmAhKertaPayload(syote);
+    expect(p).toMatchObject({
+      kausi: '2026', pvm: '2026-09-20', palloId: '123', seuraId_arviohetkella: 'sjk',
+      nakyvyys: 'seuralle', arvioija_uid: 'u1', arvioija_org: 'seura', paivitetty: 'TS',
+    });
+    expect(p.konteksti).toMatchObject({ tyyppi: 'ottelu', pelipaikka: 'KP', minuutit: 60 });
+  });
+
+  it('tuntematon näkyvyysarvo normalisoituu jaetuksi', () => {
+    expect(L.tmAhKertaPayload(Object.assign({}, syote, { nakyvyys: 'sisainen' })).nakyvyys).toBe('sisainen');
+    expect(L.tmAhKertaPayload(Object.assign({}, syote, { nakyvyys: 'roskaa' })).nakyvyys).toBe('seuralle');
+  });
+});
+
+/* ── REVIEW-LÖYDÖS 5: potentiaalin kooste ─────────────────────────────────── */
+describe('tmAhPotentiaaliKooste — uusin kerta JOSSA on potentiaali', () => {
+  const kerrat = [
+    kerta('2026-09-01', 'vp', { x: { arvo: 3 } }, { potentiaali: { tahdet: 4, varmuus: 'kohtalainen' } }),
+    kerta('2026-09-20', 'vp', { x: { arvo: 3 } }),
+    kerta('2026-09-10', 'tv', { x: { arvo: 3 } }, { potentiaali: { tahdet: 2, varmuus: 'alustava' } }),
+  ];
+
+  it('arvioijan potentiaali ei katoa uudemman kerran alle', () => {
+    const k = L.tmAhPotentiaaliKooste(kerrat, NYT);
+    expect(k).toMatchObject({ arvioijia: 2, tahdet_mediaani: 3 });
+  });
+
+  it('ei potentiaaleja → null (ei keksittyä nollaa)', () => {
+    expect(L.tmAhPotentiaaliKooste([kerta('2026-09-01', 'vp', { x: { arvo: 3 } })], NYT)).toBeNull();
+  });
+
+  it('alle 14-vuotiaan oletusvarmuus on alustava', () => {
+    expect(L.tmAhVarmuusOletus(13)).toBe('alustava');
+    expect(L.tmAhVarmuusOletus(15)).toBe('kohtalainen');
+    expect(L.tmAhVarmuusOletus(null)).toBe('kohtalainen');
+  });
+});
+
+/* ── REVIEW-LÖYDÖS 7: paikallinen päivä + kertojen erottelu ──────────────── */
+describe('paikallinen kalenteripäivä (Europe/Helsinki), ei UTC', () => {
+  it('klo 01.30 Suomen aikaa kuuluu ALKANEESEEN päivään, ei edelliseen', () => {
+    // 2026-09-26T22:30Z = 2026-09-27 01:30 Suomessa
+    expect(L.tmAhKertaId('2026-09-26T22:30:00Z', 'u', 'ottelu')).toContain('2026-09-27');
+  });
+
+  it('uudenvuodenyön arvio menee alkaneelle kaudelle', () => {
+    // 2026-12-31T23:30Z = 2027-01-01 01:30 Suomessa
+    expect(L.tmKausi('2026-12-31T23:30:00Z', 'kalenteri')).toBe('2027');
+  });
+
+  it('puolivuotisjakso lasketaan samasta paikallisesta päivästä', () => {
+    // 2026-06-30T22:30Z = 2026-07-01 01:30 Suomessa → syksy
+    expect(L.tmAhJakso('2026-06-30T22:30:00Z')).toBe('2026-S');
+  });
+
+  it('keskipäivä ei muutu (ei regressiota tavallisiin päiviin)', () => {
+    expect(L.tmKausi('2026-09-20T12:00:00Z', 'kalenteri')).toBe('2026');
+    expect(L.tmAhKertaId('2026-09-20T12:00:00Z', 'u', 'ottelu')).toContain('2026-09-20');
+  });
+});
+
+describe('kaksi ottelua samana päivänä ovat eri kertoja', () => {
+  it('eri ottelutunniste → eri kerta (ei kontekstin ylikirjoitusta)', () => {
+    const a = L.tmAhKertaId('2026-09-27', 'u', 'ottelu', 'TASO-123');
+    const b = L.tmAhKertaId('2026-09-27', 'u', 'ottelu', 'TASO-999');
+    expect(a).not.toBe(b);
+  });
+
+  it('sama erotin → sama kerta (kohteet kertyvät yhä)', () => {
+    expect(L.tmAhKertaId('2026-09-27', 'u', 'ottelu', 'TASO-123'))
+      .toBe(L.tmAhKertaId('2026-09-27', 'u', 'ottelu', 'TASO-123'));
+  });
+
+  it('ilman erotinta käytös on ennallaan', () => {
+    expect(L.tmAhKertaId('2026-09-27', 'u', 'ottelu')).toBe('2026-09-27_u_ottelu');
+  });
+
+  it('erotin siivotaan doc-ID-kelpoiseksi (ei "/" eikä välilyöntejä)', () => {
+    const id = L.tmAhKertaId('2026-09-27', 'u', 'ottelu', 'P13 sarja / kotiottelu');
+    expect(id).not.toContain('/');
+    expect(id).not.toContain(' ');
   });
 });

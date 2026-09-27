@@ -22,12 +22,16 @@ import {
 import { readFileSync } from 'fs';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
-import { setDoc, getDoc, doc, collection, addDoc, updateDoc, deleteDoc, query, where, limit, getDocs } from 'firebase/firestore';
+import { setDoc, getDoc, doc, collection, addDoc, updateDoc, deleteDoc, query, where, limit, getDocs, serverTimestamp } from 'firebase/firestore';
+import { createRequire } from 'module';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const RULES_PATH = resolve(__dirname, '../../tm_admin/firestore.rules');
 
 const PROJECT_ID = 'talentmaster-rules-test';
+/* Review 1: Rules-testi rakentaa payloadin SAMALLA funktiolla kuin sovellus. Jos ne rakennetaan
+   erikseen, testi voi olla vihreä samalla kun tuotanto hylkää kirjoituksen — juuri niin kävi. */
+const AH = createRequire(import.meta.url)('../../lib/tm_arviointi_historia.js');
 
 // ── Vakiot ────────────────────────────────────────────────────────────────
 const SEURA_A = 'fcl';
@@ -2186,5 +2190,56 @@ describe('Arviointikerrat — append-only, arvio kuuluu arvioijalle (H1)', () =>
     await seedKerta('k-sisainen', kerta(PL_UID, { arvioija_org: 'palloliitto', nakyvyys: 'sisainen' }));
     const db = testEnv.authenticatedContext(PL_UID, {}).firestore();
     await assertFails(getDoc(doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'arviointikerrat', 'k-sisainen')));
+  });
+});
+
+/* ══════════════════════════════════════════════════════════════════════════
+   Review 1 — SOVELLUKSEN OIKEA PAYLOAD Rulesia vasten.
+   Vanha koodi lähetti `luotu: serverTimestamp()` joka kirjoituksella, ja update-sääntö vaatii
+   `request.resource.data.luotu == resource.data.luotu` → toinen klikkaus samaan kertaan
+   hylättiin. Tynkätesti ei voinut nähdä sitä, eivätkä aiemmat Rules-testit, koska ne käyttivät
+   updateDoc:ia joka ei koske luotu-kenttään.
+══════════════════════════════════════════════════════════════════════════ */
+describe('Arviointikerrat — sovelluksen payload Rulesia vasten (H1, review 1)', () => {
+  const payload = (uid, lisa) => Object.assign(AH.tmAhKertaPayload({
+    kehys: 'palloliitto', kausi: '2026', pvm: '2026-09-20', palloId: '12345678', seuraId: SEURA_A,
+    nakyvyys: 'seuralle',
+    arvioija: { uid: uid, nimi: 'Testi Arvioija', rooli: 'valmentaja', org: 'seura' },
+    konteksti: { tyyppi: 'ottelu', pelipaikka: 'KP', minuutit: 60, vastustajataso: 'oma' },
+    tilannekuva: { ika: 13, phv_tila: 'PRE', rae_kvartaali: 'Q2', kehitysvaihe_kaista: 'pre', joukkue: 'FCL U12' },
+    kohteet: { pelin_lukeminen: { arvo: 4, pvm: '2026-09-20' } },
+    aikaleima: serverTimestamp(),
+  }), lisa || {});
+
+  beforeEach(async () => {
+    await seedAdminDoc();
+    await seedSeuraAndPelaaja();
+  });
+
+  it('1. klikkaus (luonti, luotu mukana) → sallittu', async () => {
+    const db = valmentajaContext(VALM_A_UID, SEURA_A).firestore();
+    const r = doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'arviointikerrat', 'k-app');
+    await assertSucceeds(setDoc(r, Object.assign(payload(VALM_A_UID), { luotu: serverTimestamp() }), { merge: true }));
+  });
+
+  it('2. klikkaus ILMAN luotu-kenttää → sallittu (korjattu kirjoituspolku)', async () => {
+    const db = valmentajaContext(VALM_A_UID, SEURA_A).firestore();
+    const r = doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'arviointikerrat', 'k-app2');
+    await assertSucceeds(setDoc(r, Object.assign(payload(VALM_A_UID), { luotu: serverTimestamp() }), { merge: true }));
+    const toinen = payload(VALM_A_UID, { kohteet: { pressing: { arvo: 3, pvm: '2026-09-20' } } });
+    await assertSucceeds(setDoc(r, toinen, { merge: true }));   // ei luotu-kenttää
+  });
+
+  it('2. klikkaus luotu-kentän kanssa → HYLÄTÄÄN (tämä oli tuotantobugi)', async () => {
+    const db = valmentajaContext(VALM_A_UID, SEURA_A).firestore();
+    const r = doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'arviointikerrat', 'k-app3');
+    await assertSucceeds(setDoc(r, Object.assign(payload(VALM_A_UID), { luotu: serverTimestamp() }), { merge: true }));
+    await assertFails(setDoc(r, Object.assign(
+      payload(VALM_A_UID, { kohteet: { pressing: { arvo: 3, pvm: '2026-09-20' } } }),
+      { luotu: serverTimestamp() }), { merge: true }));
+  });
+
+  it('jaettu payload ei sisällä luotu-kenttää (kirjoituspolku lisää sen vain luonnissa)', () => {
+    expect(Object.keys(payload(VALM_A_UID))).not.toContain('luotu');
   });
 });

@@ -2586,7 +2586,7 @@ exports.valmennusapuri = functions
 // estaa client-driftin (ADAR-replikaatio §26 on juuri se ongelma jota ei toisteta).
 // Brief: docs/CODE_BRIEF_ARVIOINTI_HISTORIA_MONIARVIOIJA.md §2.2
 // HUOM: tm_arviointi_historia.js on TARKKA KOPIO lib/-versiosta (deploy pakkaa vain functions/).
-//       tests/arviointi_kooste_kopio.test.js punertaa, jos kopiot eroavat.
+//       tests/arviointi_kerrat_kirjoitus.test.js (ryhmä 10) punertaa, jos kopiot eroavat.
 // ============================================================
 const AH = require('./tm_arviointi_historia.js');
 
@@ -2608,29 +2608,18 @@ exports.arviointikertaOnWrite = functions
       const kooste = AH.tmAhKooste(jaetut, Date.now());
 
       // Potentiaali: mediaani arvioijien viimeisimmista (sama ikkuna, samat suodattimet).
-      const viim = AH.tmAhViimeisimmat(jaetut, Date.now());
-      const tahdet = [];
-      let varmeinPvm = null, varmeinVarmuus = null;
-      Object.keys(viim).forEach((uid) => {
-        const k = viim[uid];
-        if (!k.potentiaali || typeof k.potentiaali.tahdet !== 'number') return;
-        tahdet.push(k.potentiaali.tahdet);
-        if (!varmeinPvm || String(k.pvm) > varmeinPvm) { varmeinPvm = String(k.pvm); varmeinVarmuus = k.potentiaali.varmuus || null; }
-      });
-      const mediaani = (a) => {
-        if (!a.length) return null;
-        const s = a.slice().sort((x, y) => x - y), m = Math.floor(s.length / 2);
-        return (s.length % 2) ? s[m] : Math.round((s[m - 1] + s[m]) / 2 * 100) / 100;
-      };
-      const potKooste = tahdet.length
-        ? { tahdet_mediaani: mediaani(tahdet), arvioijia: tahdet.length, n: tahdet.length, varmuus_viimeisin: varmeinVarmuus }
-        : null;
+      // Review 2: potentiaali luetaan arvioijan uusimmasta kerrasta JOSSA on potentiaali
+      // (sitä ei anneta joka kerralla) — sama logiikka kuin kohteilla, jaetussa libissä.
+      const potKooste = AH.tmAhPotentiaaliKooste(jaetut, Date.now());
 
+      /* Review 6: `set(..., {merge:true})` YHDISTÄÄ sisäkkäiset mapit, joten 12 kk ikkunasta
+         pudonnut kohde jäisi pikakenttään ikuisesti. mergeFields korvaa nimetyt kentät
+         kokonaan ja jättää muun pelaajadokin koskematta. */
       await pelaajaRef.set({
         arviointi_kooste: kooste,
         potentiaali_kooste: potKooste,
         arviointi_kooste_pvm: new Date().toISOString(),
-      }, { merge: true });
+      }, { mergeFields: ['arviointi_kooste', 'potentiaali_kooste', 'arviointi_kooste_pvm'] });
     } catch (e) {
       console.error('[arviointikertaOnWrite]', seuraId, pelaajaId, e && e.message);
     }

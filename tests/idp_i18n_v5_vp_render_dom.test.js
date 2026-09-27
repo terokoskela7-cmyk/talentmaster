@@ -781,6 +781,13 @@ describe('VP_v25 resolvi-portti — jokaisella reititetyllä avaimella on sv-riv
     'oma ikäluokka',
     'vanhemmat',
     'nuoremmat',
+    // H1 review-korjaukset (Ei nähty / Ei sovellu · seuran viimeisin · pelipaikka-valinta)
+    'Ei sovellu',
+    'Ei sovellu tälle pelaajalle',
+    'Ei nähty',
+    'En nähnyt tällä kerralla — ei kirjata mitään',
+    'seuran viimeisin:',
+    '— pelipaikka —',
   ];
 
   it('0 vpT-avainta ilman sv-riviä (paitsi nimetyt sanktiointia odottavat)', () => {
