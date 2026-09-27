@@ -792,6 +792,12 @@ describe('VP_v25 resolvi-portti — jokaisella reititetyllä avaimella on sv-riv
     'Aloita arviointikerta',
     'Potentiaaliarvion varmuus',
     'alustava',
+    // H1b — arvioijan nimi ja hajonta Katso-tilassa
+    'ero',
+    'Arvioijat näkevät eri tavalla',
+    'arvioija ei tiedossa (siirretty vanhasta)',
+    'Kuka arvioi ja milloin',
+    'Ero ei ole virhe — eri tilanne, eri pelipaikka tai eri kehitysvaihe selittää usein sen.',
   ];
 
   it('0 vpT-avainta ilman sv-riviä (paitsi nimetyt sanktiointia odottavat)', () => {
