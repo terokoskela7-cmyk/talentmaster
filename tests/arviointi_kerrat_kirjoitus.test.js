@@ -76,6 +76,9 @@ async function tallenna(opts) {
   const store = {
     db: tk.db, firebase: tk.firebase,
     _seuraId: o.seuraId || 'sjk', _uid: o.uid || 'uid-a', _rooli: o.rooli || 'vp',
+    // H1b: nimi kayttajat-tietueesta, rooli samasta resolverista kuin vahvistuksessa
+    _valmentajat: o.valmentajat || [{ id: o.uid || 'uid-a', nimi: 'Matti Virtanen', rooli: o.rooli || 'vp' }],
+    _vpVahvistajaRooli: async () => (o.rooli || 'vp'),
     _seura: o.seura || { maa: 'FI' },
     _isDemoMode: false,
     _pelaajat: [o.pelaaja || PELAAJA],
@@ -96,6 +99,7 @@ async function tallenna(opts) {
   const runko = [
     'function _vpArvKontekstiOletus(p) {',
     'function _vpArvHaePelaaja(pid) {',
+    'async function _vpArvArvioija() {',
     'function _vpArvTilannekuva(p) {',
     'window._vpTallennaHavaittu = async function(pid, avain, arvo) {',
   ].map(pura).join('\n');
@@ -426,43 +430,47 @@ describe('(14) ruudukko korostaa vain omaa avointa kertaa', () => {
   });
 });
 
+/** Ajaa oikean _vpTallennaPotentiaali-funktion samalla tyngällä. */
+async function tallennaPotentiaali(opts) {
+  const o = opts || {};
+  const tk = tynka(o.olemassa || null);
+  const p = Object.assign({}, PELAAJA, o.pelaaja || {});
+  const store = {
+    db: tk.db, firebase: tk.firebase,
+    _seuraId: 'sjk', _uid: 'uid-a', _rooli: o.rooli || 'vp', _seura: { maa: 'FI' },
+    _valmentajat: [{ id: 'uid-a', nimi: 'Matti Virtanen', rooli: o.rooli || 'vp' }],
+    _vpVahvistajaRooli: async () => (o.rooli || 'vp'),
+    _isDemoMode: false,
+    window: { TM_ARVIOINTI_HISTORIA: AH, _vpArvKonteksti: null, _vpArvKehys: 'palloliitto', _vpNimi: 'VP Testi' },
+    document: { getElementById: () => null },
+    toast: () => {}, vpT: (s) => s, _jsvEsc: (s) => String(s == null ? '' : s),
+    console: { warn: () => {} },
+    _vpIdpPelaaja: () => p,
+    _vpSeurantaOnJohto: () => true,
+    _vpPotTaso: () => 'kansallinen',
+    _vpPotReRender: () => {},
+  };
+  store.window.window = store.window;
+  const ymp = new Proxy(store, {
+    has: (t3, k) => (k in t3) || !(k in globalThis),
+    get: (t3, k) => (k === Symbol.unscopables ? undefined : (k in t3 ? t3[k] : () => '')),
+    set: (t3, k, v) => { t3[k] = v; return true; },
+  });
+  const runko = [
+    'function _vpArvKontekstiOletus(p) {',
+    'async function _vpArvArvioija() {',
+    'function _vpArvTilannekuva(p) {',
+    'window._vpTallennaPotentiaali = async function (pid, tahdet, huomioVain) {',
+  ].map(pura).join('\n');
+  // eslint-disable-next-line no-new-func
+  const fn = new Function('__ymp', 'with(__ymp){' + runko + '\nreturn window._vpTallennaPotentiaali;}')(ymp);
+  await fn('p1', o.tahdet === undefined ? 4 : o.tahdet, o.huomioVain || false);
+  return tk;
+}
+
+
 /* ══ (15) REVIEW D — POTENTIAALI KERTAAN (historia, ei vain pikakenttä) ════ */
 describe('(15) potentiaali kirjoittuu arviointikertaan', () => {
-  /** Ajaa oikean _vpTallennaPotentiaali-funktion samalla tyngällä. */
-  async function tallennaPotentiaali(opts) {
-    const o = opts || {};
-    const tk = tynka(o.olemassa || null);
-    const p = Object.assign({}, PELAAJA, o.pelaaja || {});
-    const store = {
-      db: tk.db, firebase: tk.firebase,
-      _seuraId: 'sjk', _uid: 'uid-a', _rooli: o.rooli || 'vp', _seura: { maa: 'FI' },
-      _isDemoMode: false,
-      window: { TM_ARVIOINTI_HISTORIA: AH, _vpArvKonteksti: null, _vpArvKehys: 'palloliitto', _vpNimi: 'VP Testi' },
-      document: { getElementById: () => null },
-      toast: () => {}, vpT: (s) => s, _jsvEsc: (s) => String(s == null ? '' : s),
-      console: { warn: () => {} },
-      _vpIdpPelaaja: () => p,
-      _vpSeurantaOnJohto: () => true,
-      _vpPotTaso: () => 'kansallinen',
-      _vpPotReRender: () => {},
-    };
-    store.window.window = store.window;
-    const ymp = new Proxy(store, {
-      has: (t3, k) => (k in t3) || !(k in globalThis),
-      get: (t3, k) => (k === Symbol.unscopables ? undefined : (k in t3 ? t3[k] : () => '')),
-      set: (t3, k, v) => { t3[k] = v; return true; },
-    });
-    const runko = [
-      'function _vpArvKontekstiOletus(p) {',
-      'function _vpArvTilannekuva(p) {',
-      'window._vpTallennaPotentiaali = async function (pid, tahdet, huomioVain) {',
-    ].map(pura).join('\n');
-    // eslint-disable-next-line no-new-func
-    const fn = new Function('__ymp', 'with(__ymp){' + runko + '\nreturn window._vpTallennaPotentiaali;}')(ymp);
-    await fn('p1', o.tahdet === undefined ? 4 : o.tahdet, o.huomioVain || false);
-    return tk;
-  }
-
   it('EI VACUOUS: tallennus kirjoittaa sekä kerran että pikakentät', async () => {
     const tk = await tallennaPotentiaali({});
     expect(kerta(tk)).toBeTruthy();
@@ -744,5 +752,192 @@ describe('(19) arviointitila nollautuu pelaajakortin avauksessa', () => {
     expect(win._vpArvOmaKerta).toBeNull();
     // iän mukainen oletus palautuu, koska valinta on nollattu
     expect(AH.tmAhVarmuusOletus(13)).toBe('alustava');
+  });
+});
+
+/* ══ (20) H1b — ARVIOIJA YHDESTÄ LÄHTEESTÄ ═══════════════════════════════
+   Kohteiden ja potentiaalin kirjoituspolut kirjoittivat nimen eri tavoin, joten samaan kertaan
+   tallentui eri nimi sen mukaan kumpi kirjoitti viimeksi. Nimi ei myöskään saa tulla
+   sähköpostista: sen alkuosa on henkilön tunniste, ei nimi. */
+describe('(20) arvioijan nimi ja rooli tulevat samasta lähteestä molempiin polkuihin', () => {
+  it('kohteet ja potentiaali tuottavat identtiset arvioija-kentät', async () => {
+    const kohde = await tallenna({ uid: 'uid-a', rooli: 'valmentaja' });
+    const pot = await tallennaPotentiaali({ rooli: 'valmentaja' });
+    const a = kerta(kohde).data, b = kerta(pot).data;
+    expect(a.arvioija_uid).toBe(b.arvioija_uid);
+    expect(a.arvioija_nimi).toBe(b.arvioija_nimi);
+    expect(a.arvioija_rooli).toBe(b.arvioija_rooli);
+    expect(a.arvioija_org).toBe(b.arvioija_org);
+  });
+
+  it('nimi tulee seuran kayttajat-tietueesta', async () => {
+    const tk = await tallenna({ uid: 'uid-a', valmentajat: [{ id: 'uid-a', nimi: 'Matti Virtanen', rooli: 'valmentaja' }] });
+    expect(kerta(tk).data.arvioija_nimi).toBe('Matti Virtanen');
+  });
+
+  it('nimi EI koskaan sisällä sähköpostia eikä sen alkuosaa', async () => {
+    // kayttajat-tietuetta ei ole → displayName; sähköpostiin ei saa pudota
+    const tk = await tallenna({ uid: 'uid-tuntematon', valmentajat: [] });
+    const nimi = kerta(tk).data.arvioija_nimi;
+    expect(String(nimi || '')).not.toContain('@');
+    expect(nimi === null || nimi === 'Arvioija A').toBe(true);   // tyngän displayName
+  });
+
+  it('nimetön on sallittu — väärä nimi ei', () => {
+    const f = pura('async function _vpArvArvioija() {');
+    expect(f).not.toContain('email');
+    expect(f).toContain('cu.displayName');
+    expect(f).toContain('_valmentajat');
+  });
+
+  it('rooli tulee samasta resolverista kuin vahvistuksessa', () => {
+    expect(pura('async function _vpArvArvioija() {')).toContain('_vpVahvistajaRooli()');
+  });
+
+  it('Palloliiton rooli → org palloliitto molemmissa poluissa', async () => {
+    const kohde = await tallenna({ rooli: 'palloliitto' });
+    const pot = await tallennaPotentiaali({ rooli: 'palloliitto' });
+    expect(kerta(kohde).data.arvioija_org).toBe('palloliitto');
+    expect(kerta(pot).data.arvioija_org).toBe('palloliitto');
+  });
+});
+
+/* ══ (21) H1b — NIMET KATSO-TILASSA, ALIKOKOELMASTA ══════════════════════
+   Tietosuojarajaus: nimiä ei viedä pelaajadokumenttiin, koska sen lukusääntö sallii huoltajan
+   ja PIN-istunnon. Nimet luetaan `arviointikerrat`-alikokoelmasta, jonka Rules rajaa seuran
+   henkilökunnalle. */
+describe('(21) arvioijien nimet näkyvät Katso-tilassa ja tulevat alikokoelmasta', () => {
+  const KERRAT = [
+    { pvm: '2026-09-12', arvioija_uid: 'u1', arvioija_nimi: 'Matti Virtanen', arvioija_rooli: 'valmentaja',
+      nakyvyys: 'seuralle', konteksti: { tyyppi: 'ottelu' }, kohteet: { pelin_lukeminen: { arvo: 3 } } },
+    { pvm: '2026-09-05', arvioija_uid: 'u2', arvioija_nimi: 'Liisa Koski', arvioija_rooli: 'vp',
+      nakyvyys: 'seuralle', konteksti: { tyyppi: 'harjoitus' }, kohteet: { pelin_lukeminen: { arvo: 5 } } },
+  ];
+
+  function arvioijarivi(kerrat, avain) {
+    const store = {
+      __p: { id: 'p1' }, __avain: avain || 'pelin_lukeminen',
+      vpT: (s) => s, _jsvEsc: (s) => String(s == null ? '' : s),
+      _pvmLyhyt: (x) => String(x).slice(5),
+      window: { _vpArvKerrat: { pid: 'p1', lista: kerrat }, TM_ARVIOINTI_HISTORIA: AH },
+    };
+    store.window.window = store.window;
+    const ymp = new Proxy(store, {
+      has: (t2, k) => (k in t2) || !(k in globalThis),
+      get: (t2, k) => (k === Symbol.unscopables ? undefined : (k in t2 ? t2[k] : () => '')),
+      set: (t2, k, v) => { t2[k] = v; return true; },
+    });
+    const runko = [
+      'function _vpArvKohteenArvioijat(p, avain) {',
+      'function _vpArvNimiNaytto(a) {',
+      'function _vpArvArvioijatHTML(p, avain) {',
+    ].map(pura).join('\n');
+    // eslint-disable-next-line no-new-func
+    return new Function('__ymp', 'with(__ymp){' + runko + '\nreturn _vpArvArvioijatHTML(__p, __avain);}')(ymp);
+  }
+
+  it('EI VACUOUS: rivi syntyy kun kertoja on', () => {
+    expect(arvioijarivi(KERRAT).length).toBeGreaterThan(20);
+  });
+
+  it('näyttää viimeisimmän arvon, nimen, roolin ja päivän', () => {
+    const h = arvioijarivi(KERRAT);
+    expect(h).toContain('Matti Virtanen');
+    expect(h).toContain('valmentaja');
+    expect(h).toContain('09-12');
+  });
+
+  it('kaksi arvioijaa → "2 arvioijaa · ero 2" ja eri näkemys -merkki', () => {
+    const h = arvioijarivi(KERRAT);
+    expect(h).toContain('2 arvioijaa');
+    expect(h).toContain('ero 2');
+    expect(h).toContain('◆');
+  });
+
+  it('yksi arvioija → ei hajontariviä', () => {
+    const h = arvioijarivi([KERRAT[0]]);
+    expect(h).toContain('Matti Virtanen');
+    expect(h).not.toContain('arvioijaa');
+  });
+
+  it('migroitu kerta ilman nimeä → selite, EI UID:tä', () => {
+    const h = arvioijarivi([{ pvm: '2026-09-12', arvioija_uid: 'pvKJoSalainenUid', nakyvyys: 'seuralle',
+      kohteet: { pelin_lukeminen: { arvo: 3 } } }]);
+    expect(h).toContain('ei tiedossa');
+    expect(h).not.toContain('pvKJoSalainenUid');
+  });
+
+  it('nimiä EI viedä pelaajadokumenttiin (kooste pysyy nimettömänä)', () => {
+    const idx = readFileSync(join(juuri, 'functions/index.js'), 'utf8');
+    const i = idx.indexOf('exports.arviointikertaOnWrite');
+    const f = idx.slice(i, idx.indexOf('\n});', i));
+    expect(f).not.toContain('arvioija_nimi');
+  });
+
+  it('kysely rajaa näkyvyyden (Rules ei suodata kyselyä)', () => {
+    const f = pura('async function _vpArvLataaKerrat(p) {');
+    expect(f).toContain(".where('nakyvyys', '==', 'seuralle')");
+    expect(f).toContain('IKKUNA_PV');
+  });
+
+  /* Lähdemuotoa greppaava väite meni läpi vaikka nimet siirrettiin Arvioi-tilaan (ternaari jäi
+     paikalleen riviä ylemmäs). Todiste on siksi RENDERÖITY: näkymä ajetaan molemmissa tiloissa
+     kerrat ladattuina, ja Arvioi-tilan DOM:ista etsitään arvioijan nimi. */
+  function nakymaKerroilla(tila) {
+    const TAKS = [{ avain: 'pelin_lukeminen', nimi: 'Pelin lukeminen', dim: 'D4', kategoria: 'peliaaly' }];
+    const AST = { 1: { koodi: '1' }, 2: { koodi: '2' }, 3: { koodi: '3' }, 4: { koodi: '4' }, 5: { koodi: '5' } };
+    const store = {
+      __p: { id: 'p1', joukkue: 'SJK P13', arviointi_havaittu: { pelin_lukeminen: 3 } },
+      vpT: (s) => s, _jsvEsc: (s) => String(s == null ? '' : s), _jesc: (s) => String(s == null ? '' : s),
+      _pvmLyhyt: (x) => String(x).slice(5),
+      ARVIOINTI_KEHYKSET: {}, ARVIOINTI_KEHYS_OLETUS: 'palloliitto',
+      ARVIOINTI_TAKSONOMIA: TAKS, TM_ARVIOINTI_ASTEIKKO: AST,
+      tmKehys: () => ({ nimi: 'Palloliitto', taksonomia: TAKS, asteikko: AST }),
+      tmTeemat: () => [{ avain: 'D4_peliaaly', nimi: 'Peliäly' }],
+      _taksNimi: (i) => i.nimi, _taksAst: () => '',
+      _dimIkaSp: () => ({ ika: 13, sp: 'P' }),
+      V5: () => '#fff',
+      _vpArvKontekstiOletus: () => ({ tyyppi: 'kooste' }),
+      _vpArvOmaKertaId: () => 'id-x',
+      _uid: 'uid-a',
+      window: { _vpArvTila: tila, _vpArvKehys: 'palloliitto', _vpArvTeema: 'D4_peliaaly',
+        _vpArvOmaKerta: null, TM_ARVIOINTI_HISTORIA: AH,
+        _vpArvKerrat: { pid: 'p1', lista: [
+          { pvm: '2026-09-12', arvioija_uid: 'u1', arvioija_nimi: 'Matti Virtanen',
+            arvioija_rooli: 'valmentaja', nakyvyys: 'seuralle', konteksti: { tyyppi: 'ottelu' },
+            kohteet: { pelin_lukeminen: { arvo: 3 } } },
+        ] } },
+      document: { getElementById: () => null },
+    };
+    store.window.window = store.window;
+    const ymp = new Proxy(store, {
+      has: (t2, k) => (k in t2) || !(k in globalThis),
+      get: (t2, k) => (k === Symbol.unscopables ? undefined : (k in t2 ? t2[k] : () => '')),
+      set: (t2, k, v) => { t2[k] = v; return true; },
+    });
+    const runko = [
+      'function _vpArvOmaArvo(p, avain) {',
+      'function _vpArvOmaKirjattu(p, avain) {',
+      'function _vpArvTilaHTML(p) {',
+      'function _vpArvKontekstiHTML(p) {',
+      'function _vpArvKtxEditoriHTML(p) {',
+      'function _vpArvKohteenArvioijat(p, avain) {',
+      'function _vpArvNimiNaytto(a) {',
+      'function _vpArvArvioijatHTML(p, avain) {',
+      'function _vpArviointiHTML(p) {',
+    ].map(pura).join('\n');
+    // eslint-disable-next-line no-new-func
+    return new Function('__ymp', 'with(__ymp){' + runko + '\nreturn _vpArviointiHTML(__p);}')(ymp);
+  }
+
+  it('Katso-tilan DOM sisältää arvioijan nimen (ei vacuous)', () => {
+    expect(nakymaKerroilla('katso')).toContain('Matti Virtanen');
+  });
+
+  it('Arvioi-tilan DOM EI sisällä arvioijan nimeä eikä arvoa ennen omaa kirjausta', () => {
+    const h = nakymaKerroilla('arvioi');
+    expect(h).not.toContain('Matti Virtanen');
+    expect(h).not.toContain('arvioijaa');
+    expect(h).toMatch(/jsp-arv-num mut/);
   });
 });
