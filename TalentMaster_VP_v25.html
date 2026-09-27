@@ -6083,7 +6083,8 @@ function _vpArviointiHTML(p) {
   h += '</div>';
   h += '<div class="jsp-arv-legend" style="margin:4px 0 10px;display:flex;align-items:center;gap:6px;flex-wrap:wrap"><span class="jsp-pmark mit"></span>' + vpT(' mitattu · ') + '<span class="jsp-pmark hav"></span>' + vpT(' havaittu · ') + '<span class="jsp-pmark peli"></span>' + vpT(' pelihavainto · asteikko 1–5 → ') + '<span onclick="' + _selitToggle + '" style="color:var(--teal);cursor:pointer;font-weight:600">ⓘ</span></div>';
   // R3.A — SILTA (arviointi → suunnitelma) kattavuuden JÄLKEEN (v4). Sama sisältö/prioriteetti kuin ennen, vain sijainti.
-  h += _d1Prio ? (_d1Silta + _d2Silta) : (_d2Silta + _d1Silta);
+  /* Silta-paneelit näyttävät seuran nykytilasta johdettuja ehdotuksia → Katso-tila vain. */
+  if (window._vpArvTila !== 'arvioi') h += _d1Prio ? (_d1Silta + _d2Silta) : (_d2Silta + _d1Silta);
 
   // A2 — Valitun teeman kohteet jaettuna LÄHDERYHMIIN (mitattu · havaittu · pelihavainto). Nimitörmäys pois: teeman nimi vain valikossa.
   const items = teema ? taks.filter(function(i){ return (i.dim + '_' + i.kategoria) === teema; }) : [];
@@ -6097,8 +6098,9 @@ function _vpArviointiHTML(p) {
     else gHav.push({ item: item, av: av });
   });
 
-  // 🟢 MITATTU · TESTEISTÄ — lukittu numero + 🔒 + testiviite + mittaripalkki (ei 1–5-nappeja).
-  if (gMit.length) {
+  /* Mitatut kohteet ovat lukittuja testilukuja ilman 1–5-nappeja: niitä ei voi arvioida, ja
+     vieressä näkyvä luku ankkuroisi viereisen kohteen arviota → Katso-tila vain. */
+  if (!_arvioiTila && gMit.length) {
     h += '<div class="jsp-arv-grp"><div class="jsp-arv-ghd mit"><span class="jsp-pmark mit"></span>' + vpT(' Mitattu ') + '<span class="sub">' + vpT('· testeistä (lukittu)') + '</span><span class="jsp-arv-prov tm" title="' + vpT('TalentMaster-testimoottori') + '">' + vpT('Mitattu') + '</span></div>';
     gMit.forEach(function(g){
       const item = g.item, arvo = g.av.arvo;
@@ -6160,12 +6162,13 @@ function _vpArviointiHTML(p) {
   // P3 — D3-KALIBRAATIO (relokaatio Kehityksestä → yksi koti Arvioinnissa). Kompakti: itse × valmentaja × VP
   // (renderD3VertailuHTML) + Aukko⚠ + varmuus-lippu (d3VarmuusChip) + 1-klik Arvioi (_avaaVpD3Arvio). Ei uutta kirjoitusta.
   // R3.B — D4 Peliäly · ADAR-koostumus (v3): ennen D3-kalibraatiota (kartta-järjestys D2 → D4 ADAR → D3). Read-only, reuse.
-  if (typeof _vpArvAdarKoostumusHTML === 'function') h += _vpArvAdarKoostumusHTML(p, ika);
-  if (typeof _vpD3KalibraatioHTML === 'function') h += _vpD3KalibraatioHTML(p);
+  /* Pelihavaintokoostumus ja D3-kalibraatio ovat seuran kertynyttä arviota — Katso-tila vain. */
+  if (!_arvioiTila && typeof _vpArvAdarKoostumusHTML === 'function') h += _vpArvAdarKoostumusHTML(p, ika);
+  if (!_arvioiTila && typeof _vpD3KalibraatioHTML === 'function') h += _vpD3KalibraatioHTML(p);
   // P3.1 — "TalentMaster Analytics — kehityskerros" -vyöhyke + brändipalaute SIIRRETTY ⓘ Tietoa kehyksestä -paneeliin
   //   (metaa, ei tarvitse olla joka katselukerralla esillä). Johda arvioinnilla: kohteet + kalibraatio kärjessä.
   // FA-potentiaali — Scouting-linssin ala-osio (gold), SELVÄSTI 5D-arvioinnin ulkopuolella (ei osa 5D:tä/IDP:tä).
-  if (typeof _vpPotentiaaliHTML === 'function') h += _vpPotentiaaliHTML(p);
+  if (typeof _vpPotentiaaliHTML === 'function') h += _vpPotentiaaliHTML(p, _arvioiTila ? { piilotaNykyarvo: true } : null);
   return h;
 }
 // R-selitteet — ⓘ tap/klik-popover: näyttää attribuutin kuvaus_fi:n (title hoitaa hoverin työpöydällä; tämä kosketuslaitteet).
@@ -6217,8 +6220,14 @@ function _vpPotentiaaliHTML(p, opts) {
   // R1:n jälkeen myös oman joukkueen valmentajan → kontrolli näkyisi mutta kirjoitus permission-failaisi (#319 L1).
   // R2-A V2: opts.readonly → read-only näyttö (raporttikortti; asetus pysyy VP-cockpitissa) — piilottaa asetuskontrollin.
   var voi = (opts && opts.readonly) ? false : ((typeof _vpSeurantaOnJohto === 'function') ? _vpSeurantaOnJohto() : false);
-  var val = (p.scout_potentiaali != null) ? Number(p.scout_potentiaali) : null;
-  var huom = p.scout_potentiaali_huomiot || '';
+  /* Arvioi-tilassa (review C) asetus näkyy ILMAN nykyarvoa: nykyiset tähdet ovat seuran
+     viimeisin arvio, ja ne ankkuroisivat arvioijan ennen omaa valintaa. Arvo palaa näkyviin
+     Katso-tilassa ja oman tallennuksen jälkeen (tallennus vaihtaa p.scout_potentiaali:n). */
+  var piilotaNykyarvo = (opts && opts.piilotaNykyarvo) || false;
+  var val = (!piilotaNykyarvo && p.scout_potentiaali != null) ? Number(p.scout_potentiaali) : null;
+  /* Huomiot ovat edellisen arvioijan PERUSTELU — se ankkuroisi vahvemmin kuin pelkkä luku,
+     joten Arvioi-tilassa kenttä avataan tyhjänä (review C). */
+  var huom = (opts && opts.piilotaNykyarvo) ? '' : (p.scout_potentiaali_huomiot || '');
   var pid = _jesc(p.id);
   var GB = 'rgba(217,164,65,.4)', GD = 'rgba(217,164,65,.13)';
   var h = '<div style="margin-top:16px;background:' + GD + ';border:.5px solid ' + GB + ';border-radius:12px;padding:16px 18px">';
@@ -13898,6 +13907,13 @@ window._avaaPerPelaajaPikakatsaus = function(idx, joukkueNimi) {
      elämään muistiin. Firestoresta ladattu ehdotus (_luonnosTallennettu) säilyy — se on tallennettua dataa. */
   if (p._idpLuonnos && !p._luonnosTallennettu && typeof _vpTyhjennaLuonnos === 'function') _vpTyhjennaLuonnos(p);
   p._jfTila = null;   // rivi avautuu aina tilanteeseen, ei kesken jaaneeseen muokkaukseen
+  /* ARVIOINTITILA NOLLAUTUU PELAAJAA VAIHDETTAESSA (review C). Muuten edellisen pelaajan
+     Arvioi-tila, varmuus ja konteksti (pelipaikka, minuutit, vastustajataso) olisivat voimassa
+     seuraavalla pelaajalla — varmuus jopa ohittaisi iän mukaisen oletuksen hiljaisesti. */
+  window._vpArvTila = 'katso';
+  window._vpArvVarmuus = null;
+  window._vpArvKonteksti = null;
+  window._vpArvOmaKerta = null;
   p._kehRenderTunnus = undefined;
   const vanha = document.getElementById('_jspModal'); if (vanha) vanha.remove();
 

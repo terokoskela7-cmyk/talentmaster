@@ -573,10 +573,12 @@ describe('(16) Arvioi-tila ei näytä seuran arvoa ennen omaa kirjausta', () => 
     expect(h).toContain('jsp-arv-muut');
   });
 
+  /* Väite kohdistuu MÄÄRITTELYYN (rivin alku), ei mihin tahansa osumaan: kortin avauksen
+     nollausrivi sisältää saman merkkijonon sisennettynä, joten löysä toContain meni läpi
+     vaikka oletusarvo olisi vaihdettu. */
   it('Katso on oletustila (arviointi ei ala vahingossa)', () => {
-    const f = pura('window._vpArvTila = ');
-    expect(VP).toContain("window._vpArvTila = 'katso';");
-    expect(f).toBeTruthy();
+    expect(VP).toMatch(/\nwindow\._vpArvTila = 'katso';/);
+    expect(VP).not.toMatch(/\nwindow\._vpArvTila = 'arvioi';/);
   });
 });
 
@@ -604,5 +606,143 @@ describe('(17) varmuus valittavissa ja Palloliiton potentiaali ei vuoda pikakent
     const j = f.indexOf("if (orgP === 'seura')");
     expect(i).toBeGreaterThan(-1);
     expect(i).toBeLessThan(j);   // kerta ensin, ehdoton; pikakenttä ehdollinen
+  });
+});
+
+/* ══ (18) ARVIOI = KONTEKSTI + VARMUUS + KOHTEET + POTENTIAALIN ASETUS ═════
+   Renderöity todiste: näkymä ajetaan Arvioi-tilassa pelaajalla, jolla on arvoja JOKA
+   osiossa (havaittu, mitattu, pelihavainto, potentiaali), ja tuloksesta varmistetaan ettei
+   yhtäkään seuran arvoa ole DOM:issa ennen omaa kirjausta. */
+describe('(18) Arvioi-tilan DOM ei sisällä seuran arvoja missään osiossa', () => {
+  const _esc2 = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+  /** Pelaaja jolla on arvo joka osiossa — jos jokin vuotaa, se näkyy tuloksessa. */
+  const P_TAYSI = {
+    id: 'p1', joukkue: 'SJK P13', phv_tila: 'PRE',
+    arviointi_havaittu: { pelin_lukeminen: 3 },
+    adar_viimeisin: { pvm: '2026-09-01', a: 3, d: 2, ac: 2, r: 2, yht: 2.3 },
+    scout_potentiaali: 4, scout_potentiaali_arvioija: 'Toinen Arvioija', scout_potentiaali_pvm: '2026-09-01',
+    scout_potentiaali_huomiot: 'kansallinen kärki',
+  };
+
+  function nakyma(tila, lisa) {
+    const TAKS = [{ avain: 'pelin_lukeminen', nimi: 'Pelin lukeminen', dim: 'D4', kategoria: 'peliaaly' }];
+    const AST = { 1: { koodi: '1' }, 2: { koodi: '2' }, 3: { koodi: '3' }, 4: { koodi: '4' }, 5: { koodi: '5' } };
+    const store = {
+      __p: Object.assign({}, P_TAYSI, lisa || {}),
+      vpT: (s) => s, _jsvEsc: _esc2, _jesc: _esc2,
+      ARVIOINTI_KEHYKSET: {}, ARVIOINTI_KEHYS_OLETUS: 'palloliitto',
+      ARVIOINTI_TAKSONOMIA: TAKS, TM_ARVIOINTI_ASTEIKKO: AST,
+      tmKehys: () => ({ nimi: 'Palloliitto', taksonomia: TAKS, asteikko: AST }),
+      tmTeemat: () => [{ avain: 'D4_peliaaly', nimi: 'Peliäly' }],
+      _taksNimi: (i) => i.nimi, _taksAst: () => '',
+      _dimIkaSp: () => ({ ika: 13, sp: 'P' }),
+      V5: () => '#fff', _pvmLyhyt: (x) => String(x),
+      _vpArvKontekstiOletus: () => ({ tyyppi: 'kooste' }),
+      _vpArvOmaKertaId: () => 'id-x',
+      _uid: 'uid-a',
+      SCOUT_POTENTIAALI: [{ tahdet: 4, lyhyt: 'Kansallinen kärki', kuvaus: 'kuvaus' }],
+      _vpPotRivi: () => ({ lyhyt: 'Kansallinen kärki' }),
+      _vpSeurantaOnJohto: () => true,
+      /* Muut osiot palauttavat TUNNISTETTAVAN merkkijonon: jos ne renderöityvät Arvioi-tilassa,
+         se näkyy tuloksessa heti. */
+      _vpSiltaPaneeliHTML: () => '<div>SILTA_D2</div>',
+      _vpD1SiltaPaneeliHTML: () => '<div>SILTA_D1</div>',
+      _vpFyysEhdotus: () => ({ prioriteetti: false }),
+      _vpArvAdarKoostumusHTML: () => '<div>ADAR_KOOSTUMUS</div>',
+      _vpD3KalibraatioHTML: () => '<div>D3_KALIBRAATIO</div>',
+      window: { _vpArvTila: tila, _vpArvKehys: 'palloliitto', _vpArvTeema: 'D4_peliaaly',
+        _vpArvOmaKerta: null, TM_ARVIOINTI_HISTORIA: AH },
+      document: { getElementById: () => null },
+    };
+    store.window.window = store.window;
+    const ymp = new Proxy(store, {
+      has: (t2, k) => (k in t2) || !(k in globalThis),
+      get: (t2, k) => (k === Symbol.unscopables ? undefined : (k in t2 ? t2[k] : () => '')),
+      set: (t2, k, v) => { t2[k] = v; return true; },
+    });
+    const runko = [
+      'function _vpArvOmaArvo(p, avain) {',
+      'function _vpArvOmaKirjattu(p, avain) {',
+      'function _vpArvTilaHTML(p) {',
+      'function _vpArvKontekstiHTML(p) {',
+      'function _vpArvKtxEditoriHTML(p) {',
+      'function _vpPotentiaaliHTML(p, opts) {',
+      'function _vpArviointiHTML(p) {',
+    ].map(pura).join('\n');
+    // eslint-disable-next-line no-new-func
+    return new Function('__ymp', 'with(__ymp){' + runko + '\nreturn _vpArviointiHTML(__p);}')(ymp);
+  }
+
+  const KATSO = nakyma('katso');
+  const ARVIOI = nakyma('arvioi');
+
+  it('EI VACUOUS: Katso-tilassa kaikki osiot renderöityvät', () => {
+    ['SILTA_D1', 'SILTA_D2', 'ADAR_KOOSTUMUS', 'D3_KALIBRAATIO'].forEach((s) => expect(KATSO).toContain(s));
+    expect(KATSO).toContain('Scouting-linssi');
+  });
+
+  it.each([['silta D1', 'SILTA_D1'], ['silta D2', 'SILTA_D2'],
+    ['pelihavaintokoostumus', 'ADAR_KOOSTUMUS'], ['D3-kalibraatio', 'D3_KALIBRAATIO']])(
+    'Arvioi-tila ei renderöi osiota: %s', (_n, merkki) => {
+      expect(ARVIOI).not.toContain(merkki);
+    });
+
+  it('Arvioi-tila näyttää potentiaalin ASETUKSEN mutta ei nykyarvoa', () => {
+    expect(ARVIOI).toContain('Scouting-linssi');          // asetus näkyy
+    expect(ARVIOI).toContain('Ei vielä arvioitu');        // nykyarvo piilotettu
+    expect(ARVIOI).not.toContain('Toinen Arvioija');      // toisen arvioijan nimi ei näy
+    expect(ARVIOI).not.toContain('● valittu');            // eikä valittu porras
+    expect(KATSO).toContain('Toinen Arvioija');           // Katso-tilassa näkyy
+  });
+
+  it('Arvioi-tilassa on juuri neljä sallittua osiota: konteksti, varmuus, kohteet, potentiaalin asetus', () => {
+    expect(ARVIOI).toContain('jsp-arv-ktxrivi');   // kontekstirivi
+    expect(ARVIOI).toContain('jsp-arv-varmuus');   // varmuus
+    expect(ARVIOI).toContain('jsp-arv-segbtn');    // kohteet
+    expect(ARVIOI).toContain('Scouting-linssi');   // potentiaalin asetus
+  });
+
+  it('Arvioi-tilan näkyvä teksti ei sisällä seuran arvoja lainkaan', () => {
+    const teksti = ARVIOI.replace(/<[^>]*>/g, ' ');
+    expect(teksti).not.toContain('kansallinen kärki');   // potentiaalin huomio
+    expect(teksti).not.toMatch(/\b4★/);
+  });
+});
+
+/* ══ (19) TILA EI SIIRRY PELAAJALTA TOISELLE ══════════════════════════════ */
+describe('(19) arviointitila nollautuu pelaajakortin avauksessa', () => {
+  it('avaus nollaa tilan, varmuuden, kontekstin ja oman kerran', () => {
+    const f = pura('window._avaaPerPelaajaPikakatsaus = function(idx, joukkueNimi) {');
+    expect(f).toContain("window._vpArvTila = 'katso';");
+    expect(f).toContain('window._vpArvVarmuus = null;');
+    expect(f).toContain('window._vpArvKonteksti = null;');
+    expect(f).toContain('window._vpArvOmaKerta = null;');
+  });
+
+  it('pelaaja A Arvioi + vahva → pelaaja B avautuu Katso-tilassa ja iän mukaisella oletuksella', () => {
+    const win = { _vpArvTila: 'arvioi', _vpArvVarmuus: 'vahva', _vpArvKonteksti: { tyyppi: 'ottelu', pelipaikka: 'KP' }, _vpArvOmaKerta: { pid: 'A' } };
+    const runko = pura('window._avaaPerPelaajaPikakatsaus = function(idx, joukkueNimi) {');
+    win._jsvPelaajat = [{ id: 'B', joukkue: 'SJK P13' }];
+    const store = {
+      window: win, document: { getElementById: () => null },
+      _vpTyhjennaLuonnos: () => {},
+    };
+    store.window.window = win;
+    const ymp = new Proxy(store, {
+      has: (t2, k) => (k in t2) || !(k in globalThis),
+      get: (t2, k) => (k === Symbol.unscopables ? undefined : (k in t2 ? t2[k] : () => '')),
+      set: (t2, k, v) => { t2[k] = v; return true; },
+    });
+    try {
+      // eslint-disable-next-line no-new-func
+      new Function('__ymp', 'with(__ymp){' + runko + '\ntry{window._avaaPerPelaajaPikakatsaus(0,"SJK P13");}catch(e){}}')(ymp);
+    } catch (e) { /* renderöinti kaatuu tyngässä — nollaus tapahtuu ennen sitä */ }
+    expect(win._vpArvTila).toBe('katso');
+    expect(win._vpArvVarmuus).toBeNull();
+    expect(win._vpArvKonteksti).toBeNull();
+    expect(win._vpArvOmaKerta).toBeNull();
+    // iän mukainen oletus palautuu, koska valinta on nollattu
+    expect(AH.tmAhVarmuusOletus(13)).toBe('alustava');
   });
 });
