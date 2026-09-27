@@ -37,6 +37,10 @@ const VP = readFileSync(join(juuri, 'TalentMaster_VP_v25.html'), 'utf8');
 
 const PAIVA = 86400000;
 const NYT = new Date('2026-09-23T10:00:00.000Z').getTime();
+/* Jaksofokuksen viikkolaskenta (tmJfViikko) lukee TODELLISEN kellon, koska renderöijä ei välitä
+   nyt-argumenttia. Siksi "alkoi 3 pv sitten" on ankkuroitava samaan kelloon — kiinteään NYT:iin
+   sidottuna fixture vanheni muutamassa päivässä ja testi punersi itsestään (viikko 1/4 → 2/4). */
+const ALKOI_3PV = () => new Date(Date.now() - 3 * PAIVA).toISOString();
 
 /* ── Lahteesta purkaminen ──────────────────────────────────────────────────── */
 function pura(tunniste) {
@@ -305,7 +309,7 @@ describe('(4b) Epaonnistunut kirjoitus ei jata uutta tavoitetta nakyviin', () =>
   });
 
   it('epaonnistunut vaihto EI avaa jakson sulkua vaikka "Paata jakso nyt" oli valittu', async () => {
-    const p = pelaaja({ jaksofokus: { konsepti_nimi: 'Kolmas mies', alkoi: new Date(NYT - 3 * PAIVA).toISOString(), kesto_vk: 4 } });
+    const p = pelaaja({ jaksofokus: { konsepti_nimi: 'Kolmas mies', alkoi: ALKOI_3PV(), kesto_vk: 4 } });
     const suljetut = [];
     const api = rakenna({ ymp: { _vpIdpPelaaja: () => p, _vpTallennaIdpDok: async () => false, _vpSuljeJakso: (pid) => suljetut.push(pid) } });
     api.win._vpArvPelaaja = p;
@@ -363,7 +367,7 @@ describe('(6) Vaihto vahvistetaan omassa ikkunassaan', () => {
   });
 
   it('jaksofokuksen kanssa kaksi nimettya valintaa, oletus Jatka jakso loppuun', () => {
-    const p = pelaaja({ jaksofokus: { konsepti_nimi: 'Kolmas mies', konsepti_avain: 'kolmas', alkoi: new Date(NYT - 3 * PAIVA).toISOString(), kesto_vk: 4 } });
+    const p = pelaaja({ jaksofokus: { konsepti_nimi: 'Kolmas mies', konsepti_avain: 'kolmas', alkoi: ALKOI_3PV(), kesto_vk: 4 } });
     const api = rakenna({ ymp: { _vpIdpPelaaja: () => p } });
     api.win._vpArvPelaaja = p;
     api.ehdota('p1');
@@ -414,7 +418,7 @@ describe('(6) Vaihto vahvistetaan omassa ikkunassaan', () => {
 
 /* ── (7) Paata jakso nyt ───────────────────────────────────────────────────── */
 describe('(7) Jaksovalinta ohjaa sulkemisen olemassa olevaan _vpSuljeJakso:on', () => {
-  const jfP = () => pelaaja({ jaksofokus: { konsepti_nimi: 'Kolmas mies', konsepti_avain: 'kolmas', alkoi: new Date(NYT - 3 * PAIVA).toISOString(), kesto_vk: 4 } });
+  const jfP = () => pelaaja({ jaksofokus: { konsepti_nimi: 'Kolmas mies', konsepti_avain: 'kolmas', alkoi: ALKOI_3PV(), kesto_vk: 4 } });
 
   it('Paata jakso nyt kutsuu _vpSuljeJakso:a', async () => {
     const p = jfP();
@@ -501,7 +505,7 @@ describe('(8) Rivit lukevat voimassa olevaa tavoitetta', () => {
 
 /* ── (9) Yksi viikkolaskuri ────────────────────────────────────────────────── */
 describe('(9) Sama jakso antaa saman viikkoluvun kaikissa paikoissa', () => {
-  const jf = () => ({ konsepti_nimi: 'Kolmas mies', konsepti_avain: 'kolmas', alkoi: new Date(NYT - 3 * PAIVA).toISOString(), kesto_vk: 4 });
+  const jf = () => ({ konsepti_nimi: 'Kolmas mies', konsepti_avain: 'kolmas', alkoi: ALKOI_3PV(), kesto_vk: 4 });
 
   it('rivi ja katselmusrivi: 3 vk jaljella (ei ceil-kaavan 4)', () => {
     const p = pelaaja({ jaksofokus: jf() });
@@ -591,7 +595,7 @@ describe('(10) Tallennettu ehdotus latautuu luonnokseksi + sanktioidut kaannokse
 
   it('sv-tilassa vahvistusikkuna ei vuoda suomea', () => {
     const sv = I18N.TM_VP_I18N.sv;
-    const p = pelaaja({ jaksofokus: { konsepti_nimi: 'Kolmas mies', alkoi: new Date(NYT - 3 * PAIVA).toISOString(), kesto_vk: 4 } });
+    const p = pelaaja({ jaksofokus: { konsepti_nimi: 'Kolmas mies', alkoi: ALKOI_3PV(), kesto_vk: 4 } });
     const api = rakenna({ ymp: { _vpIdpPelaaja: () => p }, vpT: (s) => (sv[s] != null ? sv[s] : s) });
     api.win._vpArvPelaaja = p;
     api.ehdota('p1');
