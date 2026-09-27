@@ -502,7 +502,7 @@ input::placeholder,textarea::placeholder{color:#8C8B86;opacity:1}
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
 <script src="lib/tm_appcheck.js?v=1"></script>
-<script src="lib/tm_lang.js?v=14"></script>   <!-- i18n V0 putki · V1-A/A2 · V4-A3: +pelaaja.nain_teet/kirjaa_tehdyksi/pallo_joka_paiva/rae_q4 (kotinäytön chrome sv) -->
+<script src="lib/tm_lang.js?v=15"></script>   <!-- i18n V0 putki · V1-A/A2 · V4-A3: +pelaaja.nain_teet/kirjaa_tehdyksi/pallo_joka_paiva/rae_q4 (kotinäytön chrome sv) -->
 <script src="lib/tm_eerikkila_normit.js?v=40"></script>
 <script src="docs/testit_indeksit.js?v=9"></script>
 <script src="harjoitelogiikka_v4.js?v=13"></script>
@@ -2096,7 +2096,21 @@ function rMinaAsetukset() {
   // — pelaaja saattaa odottaa löytävänsä sen Asetuksista).
   let h = '<div style="background:var(--bg3);padding:20px;margin:14px 20px 0;border:.5px solid rgba(242,239,230,.08)">';
   h += '<div style="font-family:\'Cormorant Garamond\',serif;font-size:18px;font-weight:400;color:var(--text);margin-bottom:6px;letter-spacing:.01em">Asetukset</div>';
-  h += '<div style="font-family:\'DM Sans\',sans-serif;font-size:11px;color:#8C8B86;letter-spacing:.04em;margin-bottom:16px">Tulossa pian — kieli, ilmoitukset, jaa linkki vanhemmalle.</div>';
+  /* Kielivalinta: .locale-bar on piilotettu @media(max-width:420px):ssa, joten puhelimella
+     kieltä ei voinut vaihtaa lainkaan. Kielten nimet kirjoitetaan OMALLA kielellään — ne ovat
+     vakiintuneita nimiä, eivät käännettävää tekstiä. Sama setLoc() kuin työpöydän palkissa. */
+  var _kieliNyt = (typeof tmNykyinenKieli === 'function') ? tmNykyinenKieli() : 'fi';
+  var _KIELET = [['fi', 'Suomi'], ['sv', 'Svenska'], ['en', 'English']];
+  h += '<div style="font-family:\'DM Sans\',sans-serif;font-size:10px;color:#8C8B86;letter-spacing:.1em;text-transform:uppercase;margin-bottom:7px">' + T('kieli') + '</div>';
+  h += '<div style="display:flex;gap:6px;margin-bottom:14px">';
+  _KIELET.forEach(function (k) {
+    var on = (String(_kieliNyt) === k[0]);
+    h += '<button onclick="setLoc(\'' + k[0] + '\')" aria-pressed="' + on + '" style="flex:1;background:' + (on ? 'rgba(40,176,144,.14)' : 'transparent')
+      + ';border:.5px solid ' + (on ? 'rgba(40,176,144,.45)' : 'rgba(242,239,230,.14)') + ';color:' + (on ? '#28B090' : '#8C8B86')
+      + ';border-radius:4px;padding:10px 6px;font-size:12px;font-weight:' + (on ? '600' : '500') + ';cursor:pointer;letter-spacing:.03em;font-family:\'DM Sans\',sans-serif">' + k[1] + '</button>';
+  });
+  h += '</div>';
+  h += '<div style="font-family:\'DM Sans\',sans-serif;font-size:11px;color:#8C8B86;letter-spacing:.04em;margin-bottom:16px">Tulossa pian — ilmoitukset, jaa linkki vanhemmalle.</div>';
   h += '<button onclick="_naytaOpasUudelleen()" style="width:100%;background:transparent;border:.5px solid rgba(40,176,144,.35);color:#28B090;border-radius:4px;padding:12px;font-size:12px;font-weight:600;cursor:pointer;letter-spacing:.04em;font-family:\'DM Sans\',sans-serif;margin-bottom:10px">📘 Näytä opas uudelleen</button>';
   h += '<button onclick="kirjauduUlos()" style="width:100%;background:rgba(240,78,78,.08);border:.5px solid rgba(240,78,78,.3);color:#F04E4E;border-radius:4px;padding:12px;font-size:12px;font-weight:600;cursor:pointer;letter-spacing:.1em;font-family:\'DM Sans\',sans-serif">KIRJAUDU ULOS</button>';
   h += '</div>';

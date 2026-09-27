@@ -2771,6 +2771,16 @@ async function lahetaAdminMassakutsu() {
 
   let onnistui = 0, ohitettu = 0, virheita = 0, suostumusSailytetty = 0;
 
+  /* A3 — uusi pelaaja perii seuran kielen. Luetaan KERRAN ennen silmukkaa. Pelaaja-app lukee
+     kielen pelaajadokista, koska anonyymi PIN-kirjautuja ei saa lukea seuradokia. 'fi' jätetään
+     pois (oletus). Olemassa olevaan pelaajaan EI kosketa: kieli on hänen asetuksensa. */
+  let _seuranKieli = null;
+  try {
+    const _sd = await db.collection('seurat').doc(seuraId).get();
+    const _k = _sd.exists ? String(_sd.data().kieli || '').toLowerCase().trim() : '';
+    _seuranKieli = (_k && _k !== 'fi') ? _k : null;
+  } catch (e) { /* graceful: ilman seuradokia kieli jää oletukseksi */ }
+
   for (let i = 0; i < _adminMassaData.length; i++) {
     const p = _adminMassaData[i];
     if (bar)    bar.style.width = Math.round((i+1)/_adminMassaData.length*100) + '%';
@@ -2824,7 +2834,8 @@ async function lahetaAdminMassakutsu() {
         }
       } else {
         // Luo uusi pelaajadokumentti
-        await db.collection('seurat').doc(seuraId).collection('pelaajat').add(pelaajaData);
+        await db.collection('seurat').doc(seuraId).collection('pelaajat')
+          .add(_seuranKieli ? Object.assign({ kieli: _seuranKieli }, pelaajaData) : pelaajaData);
         if (tbody?.rows[i]) {
           tbody.rows[i].cells[4].innerHTML = '<span style="color:var(--teal)">✓ Lisätty</span>';
         }
