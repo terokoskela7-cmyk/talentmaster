@@ -3240,6 +3240,10 @@ async function lahetaRekisteriSahkoposti() {
   const joukkueId  = document.getElementById('rek_joukkue')?.value || '';
   const joukkueObj2 = tila.joukkueet.find(j => j.id === joukkueId);
   const joukkue     = joukkueObj2?.nimi || joukkueId;
+  // §18-jäsenyys yhdestä paikasta (sama rakentaja kuin Excel-tuonnissa)
+  const _jasenyys   = (typeof tmJoukkueJasenyysIdlla === 'function')
+    ? tmJoukkueJasenyysIdlla(joukkueId, joukkue)
+    : { joukkue: joukkue || '', joukkueNimi: joukkue || '', joukkueet: joukkueId ? [joukkueId] : [], joukkueetNimet: joukkue ? [joukkue] : [] };
 
   try {
     // VAIHE 1: Tarkistetaan ensin onko pelaaja jo olemassa
@@ -3281,8 +3285,12 @@ async function lahetaRekisteriSahkoposti() {
         await pelaajaRef.set(Object.assign(_tmPelaajanKieli(tila.seuraKieli), {
           etunimi:       etunimi || '',
           sukunimi:      sukunimi || '',
-          joukkue:       joukkue || '',
-          joukkueet:     joukkue ? [joukkue] : [],
+          /* §18: joukkueet[] = team-doc ID:t, EI nimiä. Tässä kirjoitettiin aiemmin NIMI id:n
+             paikalle, jolloin seurahallinnan suodatin ja pelaajamäärät eivät löytäneet pelaajaa. */
+          joukkue:        _jasenyys.joukkue,
+          joukkueNimi:    _jasenyys.joukkueNimi,
+          joukkueet:      _jasenyys.joukkueet,
+          joukkueetNimet: _jasenyys.joukkueetNimet,
           seuraId:       tila.seuraId,
           huoltajaEmail: tila._rekHEmail ? tila._rekHEmail.toLowerCase() : null,
           pelaajaId:     pelaajaId,
@@ -3304,7 +3312,11 @@ async function lahetaRekisteriSahkoposti() {
         const _exSnap = await db.collection('seurat').doc(tila.seuraId).collection('pelaajat').doc(pelaajaId).get();
         const _ex = _exSnap.exists ? (_exSnap.data() || {}) : {};
         const _joAnnettu = _ex.suostumusTila === 'annettu' || !!(_ex.suostumus && _ex.suostumus.annettu);
-        const _upd = { joukkue: joukkue || '', muokattu: firebase.firestore.FieldValue.serverTimestamp() };
+        /* Nimen päivitys yksin jätti vanhan joukkueet[]-id:n voimaan → pelaaja näkyi yhä
+           väärän joukkueen alla. Kirjoitetaan koko jäsenyys (KORVAA, ei lisää). */
+        const _upd = { joukkue: _jasenyys.joukkue, joukkueNimi: _jasenyys.joukkueNimi,
+          joukkueet: _jasenyys.joukkueet, joukkueetNimet: _jasenyys.joukkueetNimet,
+          muokattu: firebase.firestore.FieldValue.serverTimestamp() };
         if (!_joAnnettu) _upd.suostumusTila = 'odottaa';   // vain jos ei jo annettu — älä nollata
         await db.collection('seurat').doc(tila.seuraId)
           .collection('pelaajat').doc(pelaajaId)
