@@ -788,6 +788,10 @@ describe('VP_v25 resolvi-portti — jokaisella reititetyllä avaimella on sv-riv
     'En nähnyt tällä kerralla — ei kirjata mitään',
     'seuran viimeisin:',
     '— pelipaikka —',
+    // H1 review C (Katso / Arvioi -tilat + potentiaaliarvion varmuus)
+    'Aloita arviointikerta',
+    'Potentiaaliarvion varmuus',
+    'alustava',
   ];
 
   it('0 vpT-avainta ilman sv-riviä (paitsi nimetyt sanktiointia odottavat)', () => {

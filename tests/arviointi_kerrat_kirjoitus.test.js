@@ -498,3 +498,111 @@ describe('(15) potentiaali kirjoittuu arviointikertaan', () => {
     expect(Object.keys(kerta(tk).data)).not.toContain('potentiaali');
   });
 });
+
+/* ══ (16) REVIEW C — KATSO / ARVIOI ════════════════════════════════════════
+   Korostus tuli jo omasta kerrasta, mutta samalla rivillä näkyi yhä SEURAN arvo numerona,
+   palkkina ja IDP-pillerinä → kollegan arvio ankkuroi arvioijan ennen omaa klikkausta.
+   Todiste on RENDERÖITY: _vpArviointiHTML ajetaan molemmissa tiloissa ja tuloksesta luetaan,
+   mitä ruudulla on. */
+describe('(16) Arvioi-tila ei näytä seuran arvoa ennen omaa kirjausta', () => {
+  const _esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+  function arviointi(tila, omaKerta) {
+    const P = {
+      id: 'p1', joukkue: 'SJK P13', phv_tila: 'PRE',
+      arviointi_havaittu: { pelin_lukeminen: 3 },
+      adar_viimeisin: { pvm: '2026-09-01' },
+    };
+    // teema-avain = dim + '_' + kategoria (lähdekoodin suodatin) — ilman näitä rivejä ei synny
+    const TAKS = [{ avain: 'pelin_lukeminen', nimi: 'Pelin lukeminen', dim: 'D4', kategoria: 'peliaaly' }];
+    const AST = { 1: { koodi: '1' }, 2: { koodi: '2' }, 3: { koodi: '3' }, 4: { koodi: '4' }, 5: { koodi: '5' } };
+    const store = {
+      __p: P,
+      vpT: (s) => s, _jsvEsc: _esc,
+      ARVIOINTI_KEHYKSET: {}, ARVIOINTI_KEHYS_OLETUS: 'palloliitto',
+      ARVIOINTI_TAKSONOMIA: TAKS, TM_ARVIOINTI_ASTEIKKO: AST,
+      tmKehys: () => ({ nimi: 'Palloliitto', taksonomia: TAKS, asteikko: AST }),
+      tmTeemat: () => [{ avain: 'D4_peliaaly', nimi: 'Peliäly' }],
+      _taksNimi: (i) => i.nimi, _taksAst: () => '',
+      _dimIkaSp: () => ({ ika: 13, sp: 'P' }),
+      V5: () => '#fff', _pvmLyhyt: (x) => String(x),
+      _vpArvKontekstiOletus: () => ({ tyyppi: 'kooste' }),
+      _vpArvOmaKertaId: () => 'id-x',
+      _uid: 'uid-a',
+      window: { _vpArvTila: tila, _vpArvKehys: 'palloliitto', _vpArvTeema: 'D4_peliaaly',
+        _vpArvOmaKerta: omaKerta || null, TM_ARVIOINTI_HISTORIA: AH },
+      document: { getElementById: () => null },
+    };
+    store.window.window = store.window;
+    const ymp = new Proxy(store, {
+      has: (t2, k) => (k in t2) || !(k in globalThis),
+      get: (t2, k) => (k === Symbol.unscopables ? undefined : (k in t2 ? t2[k] : () => '')),
+      set: (t2, k, v) => { t2[k] = v; return true; },
+    });
+    const runko = [
+      'function _vpArvOmaArvo(p, avain) {',
+      'function _vpArvOmaKirjattu(p, avain) {',
+      'function _vpArvTilaHTML(p) {',
+      'function _vpArviointiHTML(p) {',
+    ].map(pura).join('\n');
+    // eslint-disable-next-line no-new-func
+    return new Function('__ymp', 'with(__ymp){' + runko + '\nreturn _vpArviointiHTML(__p);}')(ymp);
+  }
+
+  it('EI VACUOUS: molemmat tilat tuottavat näkymän', () => {
+    expect(arviointi('katso').length).toBeGreaterThan(200);
+    expect(arviointi('arvioi').length).toBeGreaterThan(200);
+  });
+
+  it('Katso-tila näyttää seuran arvon eikä arviointinappeja', () => {
+    const h = arviointi('katso');
+    expect(h).toContain('jsp-arv-num');
+    expect(h).not.toContain('jsp-arv-segbtn');
+  });
+
+  it('Arvioi-tila EI näytä seuran numeroa ennen omaa kirjausta', () => {
+    const h = arviointi('arvioi');
+    expect(h).toContain('jsp-arv-segbtn');          // napit näkyvät
+    expect(h).toMatch(/jsp-arv-num mut/);           // numero neutraali
+    expect(h).not.toMatch(/jsp-arv-num" style="color:[^"]*">3/);
+  });
+
+  it('Arvioi-tila näyttää seuran viimeisimmän VASTA oman kirjauksen jälkeen', () => {
+    const oma = { pid: 'p1', kertaId: 'id-x', kohteet: { pelin_lukeminen: 4 } };
+    const h = arviointi('arvioi', oma);
+    expect(h).toContain('jsp-arv-muut');
+  });
+
+  it('Katso on oletustila (arviointi ei ala vahingossa)', () => {
+    const f = pura('window._vpArvTila = ');
+    expect(VP).toContain("window._vpArvTila = 'katso';");
+    expect(f).toBeTruthy();
+  });
+});
+
+/* ══ (17) REVIEW C — VARMUUDEN VALINTA + POTENTIAALIN ORG-RAJAUS ══════════ */
+describe('(17) varmuus valittavissa ja Palloliiton potentiaali ei vuoda pikakenttään', () => {
+  it('Arvioi-tila tarjoaa kolme varmuustasoa', () => {
+    const f = pura('function _vpArvTilaHTML(p) {');
+    ['alustava', 'kohtalainen', 'vahva'].forEach((v) => expect(f).toContain("'" + v + "'"));
+    expect(f).toContain('_vpArvAsetaVarmuus');
+  });
+
+  it('varmuuden oletus tulee jaetusta libistä (alle 14 v → alustava)', () => {
+    const f = pura('function _vpArvTilaHTML(p) {');
+    expect(f).toContain('tmAhVarmuusOletus');
+  });
+
+  it('potentiaalin pikakenttä kirjoitetaan vain seuran arvioijalta', () => {
+    const f = pura('window._vpTallennaPotentiaali = async function (pid, tahdet, huomioVain) {');
+    expect(f).toContain("if (orgP === 'seura') tx.set(pRef, pika, { merge: true });");
+  });
+
+  it('kerta kirjoitetaan silti myös Palloliiton arvioijalta (historia säilyy)', () => {
+    const f = pura('window._vpTallennaPotentiaali = async function (pid, tahdet, huomioVain) {');
+    const i = f.indexOf('tx.set(kertaRefP, dataP, { merge: true });');
+    const j = f.indexOf("if (orgP === 'seura')");
+    expect(i).toBeGreaterThan(-1);
+    expect(i).toBeLessThan(j);   // kerta ensin, ehdoton; pikakenttä ehdollinen
+  });
+});
