@@ -764,6 +764,23 @@ describe('VP_v25 resolvi-portti — jokaisella reititetyllä avaimella on sv-riv
     'Koettu rasitus summautuu kuormaksi, ja kypsyysvaihe sävyttää kuormitussuhteen tulkinnan.',
     '→ Viikko laskee näistä',
     'Valmentaja / talenttivalmentaja / VP voi lisätä, siirtää tai poistaa harjoitteita. Pelaajan itse tekemät omatoimiset valuvat tänne automaattisesti',
+    // H1 — arviointikerran kontekstirivi (GEMINI_ERA_H1_ARVIOINTIKERRAT.json)
+    'Tämä arviointikerta',
+    'Turnaus',
+    'Leiri',
+    'Video',
+    'Yleiskuva',
+    '✎ Tarkenna',
+    'pelipaikka?',
+    'minuutit?',
+    'vastustajataso?',
+    'min',
+    'Minuutit',
+    'Kuvaus',
+    '— vastustajataso —',
+    'oma ikäluokka',
+    'vanhemmat',
+    'nuoremmat',
   ];
 
   it('0 vpT-avainta ilman sv-riviä (paitsi nimetyt sanktiointia odottavat)', () => {

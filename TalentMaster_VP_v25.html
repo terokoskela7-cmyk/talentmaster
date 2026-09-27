@@ -25,7 +25,8 @@
 
 
 <script src="lib/tm_eerikkila_normit.js?v=45"></script>   <!-- v43: D2-kortti d2_taso-ensin (renderKehityskorttiHTML, PR #264 · §30/#262) -->
-<script src="lib/tm_historia.js?v=1"></script>          <!-- P2.1: hh_historia/tki_historia Pikakirjauksessa (tmHhSnapshot/tmTkiSnapshot/tmHistoriaLisaa) -->
+<script src="lib/tm_historia.js?v=1"></script>
+<script src="lib/tm_arviointi_historia.js?v=1"></script>   <!-- H1: arviointikerrat (append-only) + tmKausi + kooste; PURE, ks. lib-header -->          <!-- P2.1: hh_historia/tki_historia Pikakirjauksessa (tmHhSnapshot/tmTkiSnapshot/tmHistoriaLisaa) -->
 <script src="lib/tm_tki_core.js?v=1"></script>         <!-- P2.1: TKI-ytimen extrakti (IIFE → TM_TESTIT); antaa VP:lle TKI-pariteetin (VP ei voi ladata testit_indeksit.js:ää — const-törmäys). ENNEN tm_pikakentat.js:ää. -->
 <script src="lib/tm_pikakentat.js?v=2"></script>       <!-- P2.0: §26-pikakenttien kanoninen laskenta (tmLaskePikakentat) — VP: H-H + TKI (tm_tki_core.js → TM_TESTIT) -->
 <script src="lib/tm_testikatalogi.js?v=1"></script>    <!-- P2.1: jaettu testikatalogi (Pikakirjaus-valitsin) -->
@@ -1847,6 +1848,18 @@ body {
 .jsp-arv-num.mut { color: var(--ink3); font-weight: 400; }
 .jsp-arv-lock { flex: 0 0 auto; font-size: 10px; color: var(--ink3); }
 .jsp-arv-seg { display: inline-flex; gap: 0; border: .5px solid var(--border); border-radius: 7px; overflow: hidden; }
+/* H1 — arviointikerran kontekstirivi. Teal = valittu (brandi), ei uusia varej.. */
+.jsp-arv-ktxrivi { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 9px 12px; margin: 0 0 8px; border: .5px solid var(--border); border-radius: 8px; background: var(--surface); }
+.jsp-arv-ktxrivi .lbl { font-family: var(--font-sans); font-weight: 600; font-size: 9px; letter-spacing: .13em; text-transform: uppercase; color: var(--ink3); }
+.jsp-arv-ktxrivi .napit { display: inline-flex; flex-wrap: wrap; gap: 4px; }
+.jsp-arv-ktxrivi .meta { font-family: var(--font-mono); font-size: 10px; color: var(--ink3); }
+.jsp-arv-ktxrivi .muokkaa { margin-left: auto; font-family: var(--font-sans); font-size: 10.5px; font-weight: 500; color: var(--teal); background: transparent; border: .5px solid rgba(40,176,144,.34); border-radius: 6px; padding: 5px 10px; cursor: pointer; }
+.jsp-arv-ktxedit { display: flex; flex-wrap: wrap; gap: 10px; padding: 10px 12px; margin: -4px 0 8px; border: .5px solid var(--border); border-top: none; border-radius: 0 0 8px 8px; background: var(--bg2); }
+.jsp-arv-ktxedit label { display: flex; flex-direction: column; gap: 3px; font-family: var(--font-sans); font-size: 9px; letter-spacing: .1em; text-transform: uppercase; color: var(--ink3); }
+.jsp-arv-ktxedit label.leve { flex: 1 1 200px; }
+.jsp-arv-ktxedit input, .jsp-arv-ktxedit select { font-family: var(--font-sans); font-size: 12px; color: var(--ink); background: var(--surface); border: .5px solid var(--border); border-radius: 6px; padding: 5px 8px; }
+.jsp-arv-ktx { font-family: var(--font-sans); font-size: 10.5px; color: var(--ink2); background: transparent; border: .5px solid var(--border); border-radius: 999px; padding: 4px 10px; cursor: pointer; }
+.jsp-arv-ktx.on { color: var(--teal); border-color: rgba(40,176,144,.45); background: rgba(40,176,144,.1); font-weight: 500; }
 .jsp-arv-segbtn { min-width: 30px; height: 30px; border: none; border-right: .5px solid var(--border); background: transparent; color: var(--ink3); font-size: 12px; cursor: pointer; font-family: var(--font-sans); padding: 0; }
 .jsp-arv-segbtn:last-child { border-right: none; }
 .jsp-arv-segbtn:hover { background: var(--ov-1); color: var(--ink); }
@@ -6013,6 +6026,8 @@ function _vpArviointiHTML(p) {
   h += '</div></div>';   // /_jspArvSelit + wrapper
   // ── KONTROLLIT: Teema + Kehys (kompakti rivi). Kehys-valitsin näkyy kun >1 kehys tai SA. ──
   h += '<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:8px">';
+  /* H1: kontekstirivi ENNEN kohteita — arvio kirjataan aina johonkin tilanteeseen. */
+  h += (typeof _vpArvKontekstiHTML === 'function') ? _vpArvKontekstiHTML(p) : '';
   h += '<div class="jsp-arv-topbar" style="margin:0"><label class="jsp-arv-lbl">' + vpT('Teema') + '</label><select class="jsp-arv-select" onchange="_vpArvValitseTeema(this.value)">'
     + teemat.map(function(t){ return '<option value="' + t.avain + '"' + (t.avain === teema ? ' selected' : '') + '>' + _jsvEsc(_taksTeemaNimi(t)) + ' · ' + t.n + ' ' + vpT('kohdetta') + '</option>'; }).join('') + '</select></div>';
   if (kehysAvaimet.length > 1 || (typeof superAdmin !== 'undefined' && superAdmin)) {
@@ -10482,7 +10497,111 @@ function _vpAloitusReRender() {
   if (idpSlot && p && typeof _vpIdpNarratiiviHTML === 'function') idpSlot.innerHTML = _vpIdpNarratiiviHTML(p);
 }
 
-// 2b — tallenna havaittu arvio (1–5 tai N/A). §26 pikakenttä arviointi_havaittu + alikokoelma arviointi/{kausi} (audit: arvioija+pvm).
+/* ══ H1 — ARVIOINTIKERRAT (append-only) ═══════════════════════════════════════════════════════
+   Vanha malli kirjoitti kauden docciin `arviointi/{kausi}` set-mergella, joten SAMAN KAUDEN
+   uusin arvio korvasi edellisen — myös toisen arvioijan arvion. Historia katosi. Nyt jokainen
+   arviointikerta on oma doc: sama arvioija + sama paiva + sama konteksti = sama kerta (kohteet
+   kertyvat), eri arvioija tai eri paiva = ERI kerta. Kirjoitus-UX sailyy klikkaa-ja-tallentuu.
+   Brief: docs/CODE_BRIEF_ARVIOINTI_HISTORIA_MONIARVIOIJA.md (§2). */
+window._vpArvKonteksti = null;   // { tyyppi, kuvaus, pelipaikka, minuutit, vastustajataso }
+
+function _vpArvKontekstiOletus(p) {
+  return { tyyppi: 'kooste', kuvaus: null, pelipaikka: (p && (p.positio || p.pelipaikka)) || null,
+    minuutit: null, vastustajataso: null, taso_ottelu_id: null };
+}
+
+/** Kontekstirivi: arvion "missä ja millä pelipaikalla" — tilannekuva arviohetkestä (§1.3). */
+function _vpArvKontekstiHTML(p) {
+  const k = window._vpArvKonteksti || _vpArvKontekstiOletus(p);
+  const pid = _jsvEsc(p.id);
+  const TYYPIT = [['ottelu', vpT('Ottelu')], ['turnaus', vpT('Turnaus')], ['harjoitus', vpT('Harjoitus')],
+    ['leiri', vpT('Leiri')], ['video', vpT('Video')], ['kooste', vpT('Yleiskuva')]];
+  let nap = '';
+  TYYPIT.forEach(function (x) {
+    nap += '<button class="jsp-arv-ktx' + (k.tyyppi === x[0] ? ' on' : '') + '" aria-pressed="' + (k.tyyppi === x[0])
+      + '" onclick="event.stopPropagation();_vpArvTyyppi(\'' + pid + '\',\'' + x[0] + '\')">' + _jsvEsc(x[1]) + '</button>';
+  });
+  const pp = k.pelipaikka ? _jsvEsc(k.pelipaikka) : vpT('pelipaikka?');
+  const min = (k.minuutit != null) ? (k.minuutit + ' ' + vpT('min')) : vpT('minuutit?');
+  const vt = k.vastustajataso ? _jsvEsc(vpT(k.vastustajataso)) : vpT('vastustajataso?');
+  return '<div class="jsp-arv-ktxrivi"><span class="lbl">' + vpT('Tämä arviointikerta') + '</span>'
+    + '<span class="napit">' + nap + '</span>'
+    + '<span class="meta">' + pp + ' · ' + min + ' · ' + vt + '</span>'
+    + '<button class="muokkaa" aria-expanded="' + (!!window._vpArvKtxAuki) + '" onclick="event.stopPropagation();_vpArvMuokkaaKonteksti(\'' + pid + '\')">' + vpT('✎ Tarkenna') + '</button></div>'
+    + _vpArvKtxEditoriHTML(p);
+}
+
+/* Yksikayttoinen: onclick saa vain pid + tyyppi (ks. kontekstirivin kommentti). */
+window._vpArvTyyppi = function (pid, tyyppi) { return window._vpArvAsetaKonteksti(pid, 'tyyppi', tyyppi); };
+
+window._vpArvAsetaKonteksti = function (pid, kentta, arvo) {
+  const p = _vpArvHaePelaaja(pid); if (!p) return;
+  if (!window._vpArvKonteksti) window._vpArvKonteksti = _vpArvKontekstiOletus(p);
+  window._vpArvKonteksti[kentta] = arvo;
+  const slot = document.getElementById('_jspTab5');
+  if (slot && typeof _vpArviointiHTML === 'function') slot.innerHTML = _vpArviointiHTML(p);
+};
+
+/* Tarkennus INLINE-editorina, ei prompt-ketjuna: prompt on modaali joka pysayttaa kirjaamisen
+   (ja ilmoituskanavien sv-portti kattaa promptit erikseen). Avaa/sulkee saman rivin alla olevan
+   kentan; arvot tallentuvat kenttakohtaisesti _vpArvAsetaKonteksti:lla. */
+window._vpArvMuokkaaKonteksti = function (pid) {
+  window._vpArvKtxAuki = !window._vpArvKtxAuki;
+  const p = _vpArvHaePelaaja(pid); if (!p) return;
+  const slot = document.getElementById('_jspTab5');
+  if (slot && typeof _vpArviointiHTML === 'function') slot.innerHTML = _vpArviointiHTML(p);
+};
+
+/** Kentan arvo talteen inline-editorista. Tyhja = tieto puuttuu (null), ei keksitty arvo. */
+window._vpArvKtxKentta = function (pid, kentta, raaka) {
+  let arvo = (raaka == null || String(raaka).trim() === '') ? null : String(raaka).trim();
+  if (arvo != null && kentta === 'minuutit') {
+    const n = parseInt(arvo, 10);
+    arvo = isNaN(n) ? null : n;
+  }
+  const p = _vpArvHaePelaaja(pid); if (!p) return;
+  if (!window._vpArvKonteksti) window._vpArvKonteksti = _vpArvKontekstiOletus(p);
+  window._vpArvKonteksti[kentta] = arvo;
+  const slot = document.getElementById('_jspTab5');
+  if (slot && typeof _vpArviointiHTML === 'function') slot.innerHTML = _vpArviointiHTML(p);
+};
+
+/** Inline-editorin rivi (nakyy vain kun tarkennus on auki). */
+function _vpArvKtxEditoriHTML(p) {
+  if (!window._vpArvKtxAuki) return '';
+  const k = window._vpArvKonteksti || _vpArvKontekstiOletus(p);
+  const pid = _jsvEsc(p.id);
+  const VT = [['', vpT('— vastustajataso —')], ['oma', vpT('oma ikäluokka')], ['vanhemmat', vpT('vanhemmat')], ['nuoremmat', vpT('nuoremmat')]];
+  let vt = '';
+  VT.forEach(function (x) {
+    vt += '<option value="' + _jsvEsc(x[0]) + '"' + (String(k.vastustajataso || '') === x[0] ? ' selected' : '') + '>' + _jsvEsc(x[1]) + '</option>';
+  });
+  return '<div class="jsp-arv-ktxedit">'
+    + '<label>' + vpT('Pelipaikka') + '<input type="text" value="' + _jsvEsc(k.pelipaikka || '') + '" onchange="event.stopPropagation();_vpArvKtxKentta(\'' + pid + '\',\'pelipaikka\',this.value)"></label>'
+    + '<label>' + vpT('Minuutit') + '<input type="number" min="0" max="200" value="' + (k.minuutit == null ? '' : k.minuutit) + '" onchange="event.stopPropagation();_vpArvKtxKentta(\'' + pid + '\',\'minuutit\',this.value)"></label>'
+    + '<label>' + vpT('Vastustaja') + '<select onchange="event.stopPropagation();_vpArvKtxKentta(\'' + pid + '\',\'vastustajataso\',this.value)">' + vt + '</select></label>'
+    + '<label class="leve">' + vpT('Kuvaus') + '<input type="text" value="' + _jsvEsc(k.kuvaus || '') + '" onchange="event.stopPropagation();_vpArvKtxKentta(\'' + pid + '\',\'kuvaus\',this.value)"></label>'
+    + '</div>';
+}
+
+function _vpArvHaePelaaja(pid) {
+  return ((typeof _pelaajat !== 'undefined' && _pelaajat) || []).find(function (x) { return x.id === pid; })
+    || ((window._jsvPelaajat || []).find(function (x) { return x.id === pid; })) || null;
+}
+
+/** Tilannekuva PELAAJADOCISTA, ei kayttajan syotteesta (§1.3 + guard §8). */
+function _vpArvTilannekuva(p) {
+  const bio = p.biologinenIka_viimeisin || null;
+  return {
+    ika: (typeof _jsvPelaajaIka === 'function') ? (_jsvPelaajaIka(p) || null) : null,
+    phv_tila: p.phv_tila || null,
+    rae_kvartaali: p.rae_kvartaali || null,
+    kehitysvaihe_kaista: p.kehitysvaihe_kaista || (bio && bio.kehitysvaihe_kaista) || null,
+    joukkue: p.joukkue || null,
+  };
+}
+
+// 2b — tallenna havaittu arvio (1–5 tai N/A) YHTENÄ arviointikertana (append-only) + §26 pikakentät.
 window._vpTallennaHavaittu = async function(pid, avain, arvo) {
   const p = ((typeof _pelaajat !== 'undefined' && _pelaajat) || []).find(function(x){ return x.id === pid; })
          || ((window._jsvPelaajat || []).find(function(x){ return x.id === pid; }));
@@ -10496,18 +10615,53 @@ window._vpTallennaHavaittu = async function(pid, avain, arvo) {
   if (_isDemoMode || !_seuraId) { if (typeof toast === 'function') toast(vpT('Arvio kirjattu (demo — ei tallennettu)'), 'ok'); return; }
   try {
     const cu = firebase.auth().currentUser; if (cu) await cu.getIdToken(true);
-    const kausi = (typeof _vpTkKausi === 'function') ? _vpTkKausi() : String(new Date().getFullYear());
-    // §11-invariantti: doc-ID EI saa sisältää "/" (Firestore tulkitsee polkuerottimeksi → pariton segmentti → virhe).
-    // Kausi on muotoa "2026/27" → sanitoi "2026-27".
-    const kausiId = String(kausi).replace(/[\/\\]/g, '-');
+    const AH = window.TM_ARVIOINTI_HISTORIA;
+    if (!AH) throw new Error('tm_arviointi_historia.js puuttuu');
     const kehysAvain = window._vpArvKehys || (typeof ARVIOINTI_KEHYS_OLETUS !== 'undefined' ? ARVIOINTI_KEHYS_OLETUS : 'palloliitto');
+    const seura = (typeof _seura !== 'undefined' && _seura) ? _seura : null;
+    const kausi = AH.tmKausi(pvm, AH.tmKausimalli(seura));   // Suomi = kalenterivuosi (EI _vpTkKausi, joka on heinä–kesä)
+    const ktx = window._vpArvKonteksti || _vpArvKontekstiOletus(p);
+    const uid = _uid || (cu ? cu.uid : null);
+    const rooli = (typeof _rooli !== 'undefined' && _rooli) ? _rooli : null;
+    /* Arvioijan organisaatio ratkaisee kaksi asiaa: (1) päivittyykö seuran pikakenttä
+       (IDP-silta ei saa kääntyä ulkopuolisen arviosta) ja (2) näkyvyyden oletus. */
+    const org = (rooli === 'palloliitto') ? 'palloliitto' : 'seura';
+    const kertaId = AH.tmAhKertaId(pvm, uid, ktx.tyyppi);
     const ref = db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(pid);
+    const kertaRef = ref.collection('arviointikerrat').doc(kertaId);
     const DEL = firebase.firestore.FieldValue.delete();
-    const havVal = (arvo == null) ? DEL : { arvo: arvo, pvm: pvm, arvioija_uid: _uid || null, lahde: 'silma' };
-    const havObj = {}; havObj[avain] = havVal;
-    await ref.collection('arviointi').doc(kausiId).set({ kehys: kehysAvain, havaittu: havObj, paivitetty: pvm }, { merge: true });
-    const pikaObj = {}; pikaObj[avain] = (arvo == null) ? DEL : arvo;
-    await ref.set({ arviointi_havaittu: pikaObj, arviointi_pvm: pvm, arviointi_kehys: kehysAvain }, { merge: true });
+    const SRV = firebase.firestore.FieldValue.serverTimestamp();
+
+    /* Kohde kirjoitetaan kertaan; N/A on ERI ASIA kuin puuttuva avain: puuttuva = ei nähty,
+       'NA' = ei sovellu tälle pelaajalle. Siksi N/A tallennetaan arvona, ei poistona. */
+    const kohde = {}; kohde[avain] = (arvo == null) ? { arvo: 'NA', pvm: pvm } : { arvo: arvo, pvm: pvm };
+    const kerta = {
+      kehys: kehysAvain, kausi: kausi, pvm: pvm,
+      palloId: p.tunniste || p.palloID || null,          // historia kulkee pelaajan mukana (§11)
+      seuraId_arviohetkella: _seuraId,
+      nakyvyys: (org === 'palloliitto' && window._vpArvNakyvyys === 'sisainen') ? 'sisainen' : 'seuralle',
+      /* Nimi TILANNEKUVANA: henkilo voi vaihtaa seuraa, joten kerta kantaa nimen jolla arvio tehtiin. */
+      arvioija_uid: uid, arvioija_nimi: (cu && (cu.displayName || cu.email)) ? (cu.displayName || String(cu.email).split('@')[0]) : null,
+      arvioija_rooli: rooli, arvioija_org: org,
+      konteksti: { tyyppi: ktx.tyyppi || 'kooste', kuvaus: ktx.kuvaus || null, taso_ottelu_id: ktx.taso_ottelu_id || null,
+        pelipaikka: ktx.pelipaikka || null, minuutit: (ktx.minuutit == null ? null : ktx.minuutit),
+        vastustajataso: ktx.vastustajataso || null },
+      tilannekuva: _vpArvTilannekuva(p),
+      kohteet: kohde,
+      paivitetty: SRV,
+    };
+
+    /* PARI-INVARIANTTI (§26): kerta ja pikakentät samassa batchissa. Erillinen write jättäisi
+       pikakentän ja historian eri tilaan, jos toinen epäonnistuu. */
+    const batch = db.batch();
+    batch.set(kertaRef, Object.assign({ luotu: SRV }, kerta), { merge: true });
+    const pikaPaivitys = { arviointi_pvm: pvm, arviointi_kehys: kehysAvain };
+    if (org === 'seura') {
+      const pikaObj = {}; pikaObj[avain] = (arvo == null) ? DEL : arvo;
+      pikaPaivitys.arviointi_havaittu = pikaObj;   // seuran oma viimeisin (silta + Master lukevat tätä)
+    }
+    batch.set(ref, pikaPaivitys, { merge: true });
+    await batch.commit();
     if (typeof toast === 'function') toast(vpT('Arvio tallennettu ✓'), 'ok');
   } catch (e) { console.warn('[_vpTallennaHavaittu]', e && e.message); if (typeof toast === 'function') toast(vpT('Tallennus epäonnistui'), 'error'); }
 };
