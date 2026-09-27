@@ -227,6 +227,13 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    /* H1 — Palloliiton arvioija. Palauttaa false, kunnes palloliitto/kayttajat/{uid} on luotu,
+       joten tama on turvallinen deployata jo ennen kuin kayttajia on (brief §3). */
+    function onPalloliitto() {
+      return request.auth != null
+          && exists(/databases/$(database)/documents/palloliitto/kayttajat/$(request.auth.uid));
+    }
+
     function onSuperAdmin() {
       return request.auth.token.rooli == 'super_admin'
           || request.auth.token.rooli == 'superadmin'   // legacy (CLAUDE.md §24)
@@ -844,6 +851,45 @@ service cloud.firestore {
         // "Poor"-arvio ei näy lapselle/perheelle). Kirjoitus valmentaja/johto.
         // doc-ID = kausi ilman "/" (esim. 2026-27, §11). Pikakentät
         // (arviointi_havaittu/_pvm/_kehys) menevät pelaajadokumenttiin (jo sallittu).
+        /* H1 — ARVIOINTIKERRAT (append-only). Jokainen kerta = yksi arvioija + yksi konteksti.
+           Kerta EI ole seuran yhteinen arvosana, joten vain tekija saa muokata omaansa ja vain
+           24 h ajan; poisto vain SA:n CF:lla (GDPR). Seura nakee vain jaetut kerrat — Rules EI
+           suodata kyselya, joten seuran kyselyn PAKKO sisaltaa where('nakyvyys','==','seuralle'). */
+        match /arviointikerrat/{kertaId} {
+          /* resource == null = dokumenttia EI OLE. Ilman tata haaraa `resource.data.nakyvyys`
+             evaluoituu nulliin ja LUKU HYLATAAN — jolloin kirjoituksen aloittava tx.get()
+             kaatuu heti paivan ENSIMMAISELLA klikkauksella jokaisella seuran kayttajalla.
+             (SA ei huomaa: onSuperAdmin() osuu ketjussa ensin.) Olemattoman dokumentin
+             lukeminen ei paljasta mitaan. */
+          allow read:   if onSuperAdmin() || onPalloliitto()
+                        || (onOmaSeura(seuraId) && (onJohtoRooli() || onValmentajaRooli())
+                            && (resource == null || resource.data.nakyvyys == 'seuralle'));
+          allow create: if request.resource.data.arvioija_uid == request.auth.uid
+                        && (
+                             (onPalloliitto() && request.resource.data.arvioija_org == 'palloliitto')
+                          || ((onSuperAdmin() || onOmanJoukkueenValmentaja(seuraId, pelaajaId)
+                               || (onOmaSeura(seuraId) && onJohtoRooli()))
+                              && request.resource.data.arvioija_org == 'seura'
+                              && request.resource.data.nakyvyys == 'seuralle')
+                        );
+          allow update: if resource.data.arvioija_uid == request.auth.uid
+                        && request.resource.data.arvioija_uid == resource.data.arvioija_uid
+                        && request.resource.data.arvioija_org == resource.data.arvioija_org
+                        && request.resource.data.luotu == resource.data.luotu
+                        && (
+                             request.time < resource.data.luotu + duration.value(24, 'h')
+                             // Palloliitto voi jakaa sisaisen seuralle myohemminkin — vain tahan
+                             // suuntaan ja vain nakyvyys-kentta (ei sisallon muokkausta ikkunan jalkeen).
+                          || (resource.data.nakyvyys == 'sisainen'
+                              && request.resource.data.nakyvyys == 'seuralle'
+                              && request.resource.data.diff(resource.data).affectedKeys()
+                                   .hasOnly(['nakyvyys', 'paivitetty']))
+                        );
+          allow delete: if false;   // SA-poisto CF:n Admin SDK:lla (GDPR, B4)
+        }
+
+        /* Vanha kausikohtainen arviointidoc: H1 lopetti kirjoituksen (kausi-doc korvasi toisen
+           arvioijan arvion). Jaa read-only-arkistoksi kunnes migraatio on ajettu kaikille. */
         match /arviointi/{kausiId} {
           allow read:   if onSuperAdmin()
                         || (onOmaSeura(seuraId) && (onJohtoRooli() || onValmentajaRooli()));

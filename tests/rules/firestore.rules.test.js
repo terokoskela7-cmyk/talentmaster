@@ -22,12 +22,16 @@ import {
 import { readFileSync } from 'fs';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
-import { setDoc, getDoc, doc, collection, addDoc, updateDoc, deleteDoc, query, where, limit, getDocs } from 'firebase/firestore';
+import { setDoc, getDoc, doc, collection, addDoc, updateDoc, deleteDoc, query, where, limit, getDocs, serverTimestamp, runTransaction, deleteField } from 'firebase/firestore';
+import { createRequire } from 'module';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const RULES_PATH = resolve(__dirname, '../../tm_admin/firestore.rules');
 
 const PROJECT_ID = 'talentmaster-rules-test';
+/* Review 1: Rules-testi rakentaa payloadin SAMALLA funktiolla kuin sovellus. Jos ne rakennetaan
+   erikseen, testi voi olla vihreä samalla kun tuotanto hylkää kirjoituksen — juuri niin kävi. */
+const AH = createRequire(import.meta.url)('../../lib/tm_arviointi_historia.js');
 
 // ── Vakiot ────────────────────────────────────────────────────────────────
 const SEURA_A = 'fcl';
@@ -2026,5 +2030,262 @@ describe('Mentoroinnit — VP:n sisäinen historia (valmentaja EI lue)', () => {
     await seedViesti();
     const db = valmentajaContext(VALM_A_UID, SEURA_A).firestore();
     await assertSucceeds(getDoc(doc(db, 'seurat', SEURA_A, 'viestit', 'viesti1')));
+  });
+});
+
+/* ══════════════════════════════════════════════════════════════════════════
+   H1 — ARVIOINTIKERRAT (append-only + nakyvyys)
+   Brief: docs/CODE_BRIEF_ARVIOINTI_HISTORIA_MONIARVIOIJA.md §3
+   Ydin: kerta kuuluu ARVIOIJALLE. Toinen arvioija ei muokkaa, 24 h jalkeen ei muokkaa kukaan,
+   poisto vain CF:lla, eika seura nae Palloliiton sisaisia kertoja.
+══════════════════════════════════════════════════════════════════════════ */
+describe('Arviointikerrat — append-only, arvio kuuluu arvioijalle (H1)', () => {
+  const PL_UID = 'palloliitto-001';
+
+  const kerta = (uid, lisa) => Object.assign({
+    kehys: 'palloliitto', kausi: '2026', pvm: '2026-09-20',
+    palloId: '12345678', seuraId_arviohetkella: SEURA_A,
+    nakyvyys: 'seuralle', arvioija_uid: uid, arvioija_org: 'seura',
+    arvioija_rooli: 'valmentaja', arvioija_nimi: 'Testi Arvioija',
+    konteksti: { tyyppi: 'ottelu', pelipaikka: 'KP', minuutit: 60, vastustajataso: 'oma', kuvaus: null, taso_ottelu_id: null },
+    tilannekuva: { ika: 13, phv_tila: 'PRE', rae_kvartaali: 'Q2', kehitysvaihe_kaista: 'pre', joukkue: 'FCL U12' },
+    kohteet: { pelin_lukeminen: { arvo: 4, pvm: '2026-09-20' } },
+    luotu: new Date(), paivitetty: new Date(),
+  }, lisa || {});
+
+  async function seedKerta(id, data) {
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await setDoc(doc(context.firestore(), 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'arviointikerrat', id), data);
+    });
+  }
+
+  beforeEach(async () => {
+    await seedAdminDoc();
+    await seedSeuraAndPelaaja();
+  });
+
+  // ── LUONTI ──────────────────────────────────────────────────────────────
+  it('oman joukkueen valmentaja luo kerran omalla uid:lla → sallittu', async () => {
+    const db = valmentajaContext(VALM_A_UID, SEURA_A).firestore();
+    await assertSucceeds(setDoc(
+      doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'arviointikerrat', '2026-09-20_valm_ottelu'),
+      kerta(VALM_A_UID)));
+  });
+
+  it('kerta TOISEN arvioijan nimissa → estetty (arvio kuuluu tekijalleen)', async () => {
+    const db = valmentajaContext(VALM_A_UID, SEURA_A).firestore();
+    await assertFails(setDoc(
+      doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'arviointikerrat', '2026-09-20_vaara'),
+      kerta(VP_A_UID)));
+  });
+
+  it('valmentaja EI luo kertaa MUUN joukkueen pelaajaan → estetty', async () => {
+    const db = valmentajaContext(VALM_A_UID, SEURA_A).firestore();
+    await assertFails(setDoc(
+      doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_A2_UID, 'arviointikerrat', '2026-09-20_muu'),
+      kerta(VALM_A_UID)));
+  });
+
+  it('tenant-eristys: seuran B valmentaja ei kirjoita seuran A pelaajaan', async () => {
+    const db = valmentajaContext(VALM_B_UID, SEURA_B).firestore();
+    await assertFails(setDoc(
+      doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'arviointikerrat', '2026-09-20_tenant'),
+      kerta(VALM_B_UID)));
+  });
+
+  it('seuran kayttaja EI voi luoda kertaa arvioija_org:palloliitto → estetty', async () => {
+    const db = valmentajaContext(VALM_A_UID, SEURA_A).firestore();
+    await assertFails(setDoc(
+      doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'arviointikerrat', '2026-09-20_vaaraorg'),
+      kerta(VALM_A_UID, { arvioija_org: 'palloliitto' })));
+  });
+
+  it('seuran kayttaja EI voi luoda sisaista kertaa (seuran arviot ovat jaettuja)', async () => {
+    const db = valmentajaContext(VALM_A_UID, SEURA_A).firestore();
+    await assertFails(setDoc(
+      doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'arviointikerrat', '2026-09-20_sis'),
+      kerta(VALM_A_UID, { nakyvyys: 'sisainen' })));
+  });
+
+  // ── MUOKKAUS ────────────────────────────────────────────────────────────
+  it('arvioija korjaa omaa kertaansa 24 h sisalla → sallittu', async () => {
+    await seedKerta('k-oma', kerta(VALM_A_UID, { luotu: new Date() }));
+    const db = valmentajaContext(VALM_A_UID, SEURA_A).firestore();
+    await assertSucceeds(updateDoc(
+      doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'arviointikerrat', 'k-oma'),
+      { kohteet: { pelin_lukeminen: { arvo: 3, pvm: '2026-09-20' } }, paivitetty: new Date() }));
+  });
+
+  it('25 h vanhan kerran muokkaus → estetty (korjausikkuna umpeutui)', async () => {
+    const vanha = new Date(Date.now() - 25 * 3600 * 1000);
+    await seedKerta('k-vanha', kerta(VALM_A_UID, { luotu: vanha }));
+    const db = valmentajaContext(VALM_A_UID, SEURA_A).firestore();
+    await assertFails(updateDoc(
+      doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'arviointikerrat', 'k-vanha'),
+      { kohteet: { pelin_lukeminen: { arvo: 1, pvm: '2026-09-20' } }, paivitetty: new Date() }));
+  });
+
+  it('TOINEN arvioija ei muokkaa kertaa vaikka olisi johtoa → estetty', async () => {
+    await seedKerta('k-toisen', kerta(VALM_A_UID, { luotu: new Date() }));
+    const db = vpContext(SEURA_A).firestore();
+    await assertFails(updateDoc(
+      doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'arviointikerrat', 'k-toisen'),
+      { kohteet: { pelin_lukeminen: { arvo: 1, pvm: '2026-09-20' } } }));
+  });
+
+  it('arvioijan vaihtaminen omassa kerrassa → estetty', async () => {
+    await seedKerta('k-uid', kerta(VALM_A_UID, { luotu: new Date() }));
+    const db = valmentajaContext(VALM_A_UID, SEURA_A).firestore();
+    await assertFails(updateDoc(
+      doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'arviointikerrat', 'k-uid'),
+      { arvioija_uid: VP_A_UID }));
+  });
+
+  // ── POISTO ──────────────────────────────────────────────────────────────
+  it('poisto on estetty kaikilta, myos SA:lta (GDPR-poisto kulkee CF:n kautta)', async () => {
+    await seedKerta('k-del', kerta(VALM_A_UID, { luotu: new Date() }));
+    await assertFails(deleteDoc(
+      doc(valmentajaContext(VALM_A_UID, SEURA_A).firestore(), 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'arviointikerrat', 'k-del')));
+    await assertFails(deleteDoc(
+      doc(saContext().firestore(), 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'arviointikerrat', 'k-del')));
+  });
+
+  // ── LUKU + NAKYVYYS ─────────────────────────────────────────────────────
+  it('seuran valmentaja lukee JAETUN kerran', async () => {
+    await seedKerta('k-jaettu', kerta(VALM_A_UID));
+    const db = valmentajaContext(VALM_A_UID, SEURA_A).firestore();
+    await assertSucceeds(getDoc(doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'arviointikerrat', 'k-jaettu')));
+  });
+
+  it('seuran valmentaja EI lue SISAISTA kertaa (Palloliiton oma arvio)', async () => {
+    await seedKerta('k-sisainen', kerta(PL_UID, { arvioija_org: 'palloliitto', arvioija_rooli: 'palloliitto', nakyvyys: 'sisainen' }));
+    const db = valmentajaContext(VALM_A_UID, SEURA_A).firestore();
+    await assertFails(getDoc(doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'arviointikerrat', 'k-sisainen')));
+  });
+
+  it('seuran kysely ILMAN nakyvyys-rajausta → estetty (Rules ei suodata kyselya)', async () => {
+    await seedKerta('k-jaettu', kerta(VALM_A_UID));
+    await seedKerta('k-sisainen', kerta(PL_UID, { arvioija_org: 'palloliitto', nakyvyys: 'sisainen' }));
+    const db = valmentajaContext(VALM_A_UID, SEURA_A).firestore();
+    const kaikki = query(collection(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'arviointikerrat'));
+    await assertFails(getDocs(kaikki));
+    const rajattu = query(collection(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'arviointikerrat'),
+      where('nakyvyys', '==', 'seuralle'));
+    await assertSucceeds(getDocs(rajattu));
+  });
+
+  it('§7.22: anonyymi (pelaajan PIN) ei lue arviointikertoja', async () => {
+    await seedKerta('k-jaettu', kerta(VALM_A_UID));
+    const db = testEnv.unauthenticatedContext().firestore();
+    await assertFails(getDoc(doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'arviointikerrat', 'k-jaettu')));
+  });
+
+  it('§7.22: huoltaja ei lue arviointikertoja', async () => {
+    await seedKerta('k-jaettu', kerta(VALM_A_UID));
+    const db = testEnv.authenticatedContext(HUOLTAJA_UID, { email: 'Huoltaja@Test.fi' }).firestore();
+    await assertFails(getDoc(doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'arviointikerrat', 'k-jaettu')));
+  });
+
+  it('onPalloliitto() on false ilman palloliitto/kayttajat-dokia → ei lue sisaista', async () => {
+    await seedKerta('k-sisainen', kerta(PL_UID, { arvioija_org: 'palloliitto', nakyvyys: 'sisainen' }));
+    const db = testEnv.authenticatedContext(PL_UID, {}).firestore();
+    await assertFails(getDoc(doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'arviointikerrat', 'k-sisainen')));
+  });
+});
+
+/* ══════════════════════════════════════════════════════════════════════════
+   Review 1 — SOVELLUKSEN OIKEA PAYLOAD Rulesia vasten.
+   Vanha koodi lähetti `luotu: serverTimestamp()` joka kirjoituksella, ja update-sääntö vaatii
+   `request.resource.data.luotu == resource.data.luotu` → toinen klikkaus samaan kertaan
+   hylättiin. Tynkätesti ei voinut nähdä sitä, eivätkä aiemmat Rules-testit, koska ne käyttivät
+   updateDoc:ia joka ei koske luotu-kenttään.
+══════════════════════════════════════════════════════════════════════════ */
+describe('Arviointikerrat — sovelluksen payload Rulesia vasten (H1, review 1)', () => {
+  const payload = (uid, lisa) => Object.assign(AH.tmAhKertaPayload({
+    kehys: 'palloliitto', kausi: '2026', pvm: '2026-09-20', palloId: '12345678', seuraId: SEURA_A,
+    nakyvyys: 'seuralle',
+    arvioija: { uid: uid, nimi: 'Testi Arvioija', rooli: 'valmentaja', org: 'seura' },
+    konteksti: { tyyppi: 'ottelu', pelipaikka: 'KP', minuutit: 60, vastustajataso: 'oma' },
+    tilannekuva: { ika: 13, phv_tila: 'PRE', rae_kvartaali: 'Q2', kehitysvaihe_kaista: 'pre', joukkue: 'FCL U12' },
+    kohteet: { pelin_lukeminen: { arvo: 4, pvm: '2026-09-20' } },
+    aikaleima: serverTimestamp(),
+  }), lisa || {});
+
+  beforeEach(async () => {
+    await seedAdminDoc();
+    await seedSeuraAndPelaaja();
+  });
+
+  it('1. klikkaus (luonti, luotu mukana) → sallittu', async () => {
+    const db = valmentajaContext(VALM_A_UID, SEURA_A).firestore();
+    const r = doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'arviointikerrat', 'k-app');
+    await assertSucceeds(setDoc(r, Object.assign(payload(VALM_A_UID), { luotu: serverTimestamp() }), { merge: true }));
+  });
+
+  it('2. klikkaus ILMAN luotu-kenttää → sallittu (korjattu kirjoituspolku)', async () => {
+    const db = valmentajaContext(VALM_A_UID, SEURA_A).firestore();
+    const r = doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'arviointikerrat', 'k-app2');
+    await assertSucceeds(setDoc(r, Object.assign(payload(VALM_A_UID), { luotu: serverTimestamp() }), { merge: true }));
+    const toinen = payload(VALM_A_UID, { kohteet: { pressing: { arvo: 3, pvm: '2026-09-20' } } });
+    await assertSucceeds(setDoc(r, toinen, { merge: true }));   // ei luotu-kenttää
+  });
+
+  it('2. klikkaus luotu-kentän kanssa → HYLÄTÄÄN (tämä oli tuotantobugi)', async () => {
+    const db = valmentajaContext(VALM_A_UID, SEURA_A).firestore();
+    const r = doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'arviointikerrat', 'k-app3');
+    await assertSucceeds(setDoc(r, Object.assign(payload(VALM_A_UID), { luotu: serverTimestamp() }), { merge: true }));
+    await assertFails(setDoc(r, Object.assign(
+      payload(VALM_A_UID, { kohteet: { pressing: { arvo: 3, pvm: '2026-09-20' } } }),
+      { luotu: serverTimestamp() }), { merge: true }));
+  });
+
+  it('jaettu payload ei sisällä luotu-kenttää (kirjoituspolku lisää sen vain luonnissa)', () => {
+    expect(Object.keys(payload(VALM_A_UID))).not.toContain('luotu');
+  });
+
+  /* Review-kierros 2, löydös A: kirjoitus alkaa tx.get():lla, ja päivän ensimmäisellä
+     klikkauksella dokumenttia EI OLE. Jos lukusääntö evaluoi `resource.data.nakyvyys`
+     olemattomalle dokumentille, luku hylätään ja koko transaktio kaatuu ennen kirjoitusta —
+     jokaisella seuran käyttäjällä, mutta EI super-adminilla (onSuperAdmin osuu ketjussa ensin),
+     joten pelkkä SA-testaus näyttäisi toimivalta. */
+  it('valmentaja saa lukea OLEMATTOMAN kerran (muuten tx.get kaataa 1. klikkauksen)', async () => {
+    const db = valmentajaContext(VALM_A_UID, SEURA_A).firestore();
+    await assertSucceeds(getDoc(doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'arviointikerrat', 'ei-ole-olemassa')));
+  });
+
+  it('SOVELLUKSEN TRANSAKTIO valmentajana: 1. klikkaus läpi (get + kerta + pikakenttä)', async () => {
+    const db = valmentajaContext(VALM_A_UID, SEURA_A).firestore();
+    const kertaRef = doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'arviointikerrat', 'k-tx1');
+    const pelaajaRef = doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID);
+    await assertSucceeds(runTransaction(db, async (tx) => {
+      const snap = await tx.get(kertaRef);
+      const data = Object.assign({}, payload(VALM_A_UID));
+      if (!snap.exists()) data.luotu = serverTimestamp();
+      tx.set(kertaRef, data, { merge: true });
+      tx.set(pelaajaRef, { arviointi_havaittu: { pelin_lukeminen: 4 }, arviointi_pvm: '2026-09-20' }, { merge: true });
+    }));
+  });
+
+  it('SOVELLUKSEN TRANSAKTIO valmentajana: 2. klikkaus samaan kertaan läpi', async () => {
+    const db = valmentajaContext(VALM_A_UID, SEURA_A).firestore();
+    const kertaRef = doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'arviointikerrat', 'k-tx2');
+    const pelaajaRef = doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID);
+    const kirjoita = (avain, arvo) => runTransaction(db, async (tx) => {
+      const snap = await tx.get(kertaRef);
+      const kohteet = {}; kohteet[avain] = { arvo: arvo, pvm: '2026-09-20' };
+      const data = Object.assign({}, payload(VALM_A_UID, { kohteet: kohteet }));
+      if (!snap.exists()) data.luotu = serverTimestamp();
+      tx.set(kertaRef, data, { merge: true });
+      tx.set(pelaajaRef, { arviointi_pvm: '2026-09-20' }, { merge: true });
+    });
+    await assertSucceeds(kirjoita('pelin_lukeminen', 4));
+    await assertSucceeds(kirjoita('pressing', 3));
+  });
+
+  it('kohteen poisto (Ei nähty) omasta kerrasta 24 h sisällä → sallittu', async () => {
+    const db = valmentajaContext(VALM_A_UID, SEURA_A).firestore();
+    const r = doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'arviointikerrat', 'k-del-kohde');
+    await assertSucceeds(setDoc(r, Object.assign(payload(VALM_A_UID), { luotu: serverTimestamp() }), { merge: true }));
+    await assertSucceeds(updateDoc(r, { 'kohteet.pelin_lukeminen': deleteField(), paivitetty: serverTimestamp() }));
   });
 });

@@ -2577,3 +2577,51 @@ exports.valmennusapuri = functions
   .region('europe-west1')
   .runWith({ timeoutSeconds: 120, memory: '512MB', secrets: ['ANTHROPIC_API_KEY'] })
   .https.onCall(valmennusapuri.kasittelija(admin, functions));
+
+
+// ============================================================
+// H1 — ARVIOINTIKERTA → KOOSTE (§26 pikakentta)
+// Miksi CF eika client: kooste lasketaan KAIKISTA kerroista, mutta SISAISET (Palloliiton
+// jakamattomat) on suodatettava pois — client ei niita edes nae. Lisaksi yksi laskentapaikka
+// estaa client-driftin (ADAR-replikaatio §26 on juuri se ongelma jota ei toisteta).
+// Brief: docs/CODE_BRIEF_ARVIOINTI_HISTORIA_MONIARVIOIJA.md §2.2
+// HUOM: tm_arviointi_historia.js on TARKKA KOPIO lib/-versiosta (deploy pakkaa vain functions/).
+//       tests/arviointi_kerrat_kirjoitus.test.js (ryhmä 10) punertaa, jos kopiot eroavat.
+// ============================================================
+const AH = require('./tm_arviointi_historia.js');
+
+exports.arviointikertaOnWrite = functions
+  .region('europe-west1')
+  .runWith({ timeoutSeconds: 60, memory: '256MB' })
+  .firestore.document('seurat/{seuraId}/pelaajat/{pelaajaId}/arviointikerrat/{kertaId}')
+  .onWrite(async (change, context) => {
+    const { seuraId, pelaajaId } = context.params;
+    const pelaajaRef = admin.firestore()
+      .collection('seurat').doc(seuraId).collection('pelaajat').doc(pelaajaId);
+    try {
+      const raja = new Date(Date.now() - AH.IKKUNA_PV * 86400000).toISOString();
+      const snap = await pelaajaRef.collection('arviointikerrat').where('pvm', '>=', raja).get();
+      const kaikki = [];
+      snap.forEach((d) => kaikki.push(d.data()));
+      // Pelaajadoc on seuran luettavissa → vain jaetut kerrat saavat vaikuttaa pikakenttaan.
+      const jaetut = AH.tmAhSeuralle(kaikki);
+      const kooste = AH.tmAhKooste(jaetut, Date.now());
+
+      // Potentiaali: mediaani arvioijien viimeisimmista (sama ikkuna, samat suodattimet).
+      // Review 2: potentiaali luetaan arvioijan uusimmasta kerrasta JOSSA on potentiaali
+      // (sitä ei anneta joka kerralla) — sama logiikka kuin kohteilla, jaetussa libissä.
+      const potKooste = AH.tmAhPotentiaaliKooste(jaetut, Date.now());
+
+      /* Review 6: `set(..., {merge:true})` YHDISTÄÄ sisäkkäiset mapit, joten 12 kk ikkunasta
+         pudonnut kohde jäisi pikakenttään ikuisesti. mergeFields korvaa nimetyt kentät
+         kokonaan ja jättää muun pelaajadokin koskematta. */
+      await pelaajaRef.set({
+        arviointi_kooste: kooste,
+        potentiaali_kooste: potKooste,
+        arviointi_kooste_pvm: new Date().toISOString(),
+      }, { mergeFields: ['arviointi_kooste', 'potentiaali_kooste', 'arviointi_kooste_pvm'] });
+    } catch (e) {
+      console.error('[arviointikertaOnWrite]', seuraId, pelaajaId, e && e.message);
+    }
+    return null;
+  });
