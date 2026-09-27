@@ -115,7 +115,7 @@
   function tmAhKertaPayload(s) {
     var a = (s && s.arvioija) || {};
     var k = (s && s.konteksti) || {};
-    return {
+    var out = {
       kehys: s.kehys || 'palloliitto',
       kausi: s.kausi || null,
       pvm: s.pvm || null,
@@ -132,11 +132,15 @@
         minuutit: (k.minuutit == null ? null : k.minuutit),
         vastustajataso: k.vastustajataso || null,
       },
-      tilannekuva: s.tilannekuva || null,
       kohteet: s.kohteet || {},
-      potentiaali: s.potentiaali || null,
       paivitetty: s.aikaleima != null ? s.aikaleima : null,
     };
+    /* Review D: `potentiaali: null` merge-setissä YLIKIRJOITTI saman kerran aiemmin
+       tallennetun potentiaalin jokaisella kohdeklikkauksella. Kenttä kirjoitetaan vain
+       kun sille on arvo; sama koskee tilannekuvaa (ei tyhjennetä jälkikäteen). */
+    if (s.tilannekuva) out.tilannekuva = s.tilannekuva;
+    if (s.potentiaali) out.potentiaali = s.potentiaali;
+    return out;
   }
 
   /** Vain seuralle jaetut kerrat (pikakentät/kooste, brief §2.2). */

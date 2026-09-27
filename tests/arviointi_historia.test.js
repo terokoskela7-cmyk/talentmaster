@@ -433,3 +433,26 @@ describe('kaksi ottelua samana päivänä ovat eri kertoja', () => {
     expect(id).not.toContain(' ');
   });
 });
+
+/* ── REVIEW-KIERROS 2, LÖYDÖS D: null-kentät eivät saa pyyhkiä aiempaa ─────── */
+describe('tmAhKertaPayload — puuttuvaa arvoa ei kirjoiteta nullina', () => {
+  const pohja = {
+    kausi: '2026', pvm: '2026-09-20', seuraId: 'sjk',
+    arvioija: { uid: 'u1', org: 'seura' }, konteksti: { tyyppi: 'ottelu' },
+    kohteet: { x: { arvo: 4 } }, aikaleima: 'TS',
+  };
+
+  it('ilman potentiaalia kenttää EI ole payloadissa (merge ei saa nollata aiempaa)', () => {
+    expect(Object.keys(L.tmAhKertaPayload(pohja))).not.toContain('potentiaali');
+  });
+
+  it('potentiaali kirjoitetaan kun se annetaan', () => {
+    const p2 = L.tmAhKertaPayload(Object.assign({}, pohja, { potentiaali: { tahdet: 4, varmuus: 'alustava' } }));
+    expect(p2.potentiaali).toMatchObject({ tahdet: 4, varmuus: 'alustava' });
+  });
+
+  it('ilman tilannekuvaa kenttää EI ole payloadissa', () => {
+    expect(Object.keys(L.tmAhKertaPayload(pohja))).not.toContain('tilannekuva');
+    expect(L.tmAhKertaPayload(Object.assign({}, pohja, { tilannekuva: { ika: 13 } })).tilannekuva).toMatchObject({ ika: 13 });
+  });
+});

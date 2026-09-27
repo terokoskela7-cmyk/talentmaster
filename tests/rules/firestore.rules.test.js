@@ -22,7 +22,7 @@ import {
 import { readFileSync } from 'fs';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
-import { setDoc, getDoc, doc, collection, addDoc, updateDoc, deleteDoc, query, where, limit, getDocs, serverTimestamp } from 'firebase/firestore';
+import { setDoc, getDoc, doc, collection, addDoc, updateDoc, deleteDoc, query, where, limit, getDocs, serverTimestamp, runTransaction, deleteField } from 'firebase/firestore';
 import { createRequire } from 'module';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -2241,5 +2241,51 @@ describe('Arviointikerrat — sovelluksen payload Rulesia vasten (H1, review 1)'
 
   it('jaettu payload ei sisällä luotu-kenttää (kirjoituspolku lisää sen vain luonnissa)', () => {
     expect(Object.keys(payload(VALM_A_UID))).not.toContain('luotu');
+  });
+
+  /* Review-kierros 2, löydös A: kirjoitus alkaa tx.get():lla, ja päivän ensimmäisellä
+     klikkauksella dokumenttia EI OLE. Jos lukusääntö evaluoi `resource.data.nakyvyys`
+     olemattomalle dokumentille, luku hylätään ja koko transaktio kaatuu ennen kirjoitusta —
+     jokaisella seuran käyttäjällä, mutta EI super-adminilla (onSuperAdmin osuu ketjussa ensin),
+     joten pelkkä SA-testaus näyttäisi toimivalta. */
+  it('valmentaja saa lukea OLEMATTOMAN kerran (muuten tx.get kaataa 1. klikkauksen)', async () => {
+    const db = valmentajaContext(VALM_A_UID, SEURA_A).firestore();
+    await assertSucceeds(getDoc(doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'arviointikerrat', 'ei-ole-olemassa')));
+  });
+
+  it('SOVELLUKSEN TRANSAKTIO valmentajana: 1. klikkaus läpi (get + kerta + pikakenttä)', async () => {
+    const db = valmentajaContext(VALM_A_UID, SEURA_A).firestore();
+    const kertaRef = doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'arviointikerrat', 'k-tx1');
+    const pelaajaRef = doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID);
+    await assertSucceeds(runTransaction(db, async (tx) => {
+      const snap = await tx.get(kertaRef);
+      const data = Object.assign({}, payload(VALM_A_UID));
+      if (!snap.exists()) data.luotu = serverTimestamp();
+      tx.set(kertaRef, data, { merge: true });
+      tx.set(pelaajaRef, { arviointi_havaittu: { pelin_lukeminen: 4 }, arviointi_pvm: '2026-09-20' }, { merge: true });
+    }));
+  });
+
+  it('SOVELLUKSEN TRANSAKTIO valmentajana: 2. klikkaus samaan kertaan läpi', async () => {
+    const db = valmentajaContext(VALM_A_UID, SEURA_A).firestore();
+    const kertaRef = doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'arviointikerrat', 'k-tx2');
+    const pelaajaRef = doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID);
+    const kirjoita = (avain, arvo) => runTransaction(db, async (tx) => {
+      const snap = await tx.get(kertaRef);
+      const kohteet = {}; kohteet[avain] = { arvo: arvo, pvm: '2026-09-20' };
+      const data = Object.assign({}, payload(VALM_A_UID, { kohteet: kohteet }));
+      if (!snap.exists()) data.luotu = serverTimestamp();
+      tx.set(kertaRef, data, { merge: true });
+      tx.set(pelaajaRef, { arviointi_pvm: '2026-09-20' }, { merge: true });
+    });
+    await assertSucceeds(kirjoita('pelin_lukeminen', 4));
+    await assertSucceeds(kirjoita('pressing', 3));
+  });
+
+  it('kohteen poisto (Ei nähty) omasta kerrasta 24 h sisällä → sallittu', async () => {
+    const db = valmentajaContext(VALM_A_UID, SEURA_A).firestore();
+    const r = doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'arviointikerrat', 'k-del-kohde');
+    await assertSucceeds(setDoc(r, Object.assign(payload(VALM_A_UID), { luotu: serverTimestamp() }), { merge: true }));
+    await assertSucceeds(updateDoc(r, { 'kohteet.pelin_lukeminen': deleteField(), paivitetty: serverTimestamp() }));
   });
 });

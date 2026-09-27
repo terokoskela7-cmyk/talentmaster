@@ -6262,8 +6262,44 @@ window._vpTallennaPotentiaali = async function (pid, tahdet, huomioVain) {
   if (_isDemoMode || !_seuraId) { if (typeof toast === 'function') toast(vpT('Potentiaali tallennettu (demo)'), 'ok'); return; }
   try {
     var cu = firebase.auth().currentUser; if (cu) await cu.getIdToken(true);
-    await db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(p.id)
-      .set({ scout_potentiaali: t, scout_potentiaali_taso: taso, scout_potentiaali_huomiot: huom, scout_potentiaali_pvm: pvm, scout_potentiaali_arvioija: arvioija }, { merge: true });
+    var pRef = db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(p.id);
+    var pika = { scout_potentiaali: t, scout_potentiaali_taso: taso, scout_potentiaali_huomiot: huom, scout_potentiaali_pvm: pvm, scout_potentiaali_arvioija: arvioija };
+
+    /* Review D: pikakenttä on VIIMEISIN arvio ja ylikirjoittuu — ilman kertaa potentiaalista ei
+       jää historiaa eikä arvioijien välistä eroa. Potentiaali kirjoitetaan siksi samaan
+       arviointikertaan kuin kohteetkin (sama kerta-id, sama transaktiologiikka: `luotu` vain
+       luonnissa). Varmuuden oletus: alle 14-vuotiaalla 'alustava' (§4.3). */
+    var AH = window.TM_ARVIOINTI_HISTORIA;
+    if (AH && t != null) {
+      var ktxP = window._vpArvKonteksti || _vpArvKontekstiOletus(p);
+      var uidP = _uid || (cu ? cu.uid : null);
+      var rooliP = (typeof _rooli !== 'undefined' && _rooli) ? _rooli : null;
+      var orgP = (rooliP === 'palloliitto') ? 'palloliitto' : 'seura';
+      var seuraP = (typeof _seura !== 'undefined' && _seura) ? _seura : null;
+      var tkP = (typeof _vpArvTilannekuva === 'function') ? _vpArvTilannekuva(p) : null;
+      var kertaRefP = pRef.collection('arviointikerrat')
+        .doc(AH.tmAhKertaId(pvm, uidP, ktxP.tyyppi, ktxP.taso_ottelu_id || ktxP.kuvaus || null));
+      var varmuusP = (window._vpArvVarmuus) || AH.tmAhVarmuusOletus(tkP && tkP.ika);
+      var payloadP = AH.tmAhKertaPayload({
+        kehys: window._vpArvKehys || 'palloliitto',
+        kausi: AH.tmKausi(pvm, AH.tmKausimalli(seuraP)), pvm: pvm,
+        palloId: p.tunniste || p.palloID || null, seuraId: _seuraId,
+        nakyvyys: (orgP === 'palloliitto' && window._vpArvNakyvyys === 'sisainen') ? 'sisainen' : 'seuralle',
+        arvioija: { uid: uidP, nimi: arvioija, rooli: rooliP, org: orgP },
+        konteksti: ktxP, tilannekuva: tkP, kohteet: {},
+        potentiaali: { tahdet: t, varmuus: varmuusP },
+        aikaleima: firebase.firestore.FieldValue.serverTimestamp(),
+      });
+      await db.runTransaction(async function (tx) {
+        var snapP = await tx.get(kertaRefP);
+        var dataP = Object.assign({}, payloadP);
+        if (!snapP.exists) dataP.luotu = firebase.firestore.FieldValue.serverTimestamp();
+        tx.set(kertaRefP, dataP, { merge: true });
+        tx.set(pRef, pika, { merge: true });
+      });
+    } else {
+      await pRef.set(pika, { merge: true });
+    }
     if (typeof toast === 'function') toast(vpT('💎 Potentiaali tallennettu'), 'ok');
   } catch (e) { console.warn('[potentiaali]', e && e.message); if (typeof toast === 'function') toast(vpT('Tallennus epäonnistui (tarkista Firestore-säännöt: scout_potentiaali*)'), 'error'); }
 };
@@ -10770,10 +10806,12 @@ window._vpTallennaHavaittu = async function(pid, avain, arvo) {
       if (!snap.exists) data.luotu = SRV;
 
       if (eiNahty) {
-        // Kohde pois omasta kerrasta; jos kertaa ei ole, ei tehdä mitään.
+        /* Kohde POIS kerrasta. set+merge YHDISTÄÄ sisäkkäiset mapit, joten avaimen jättäminen
+           pois ei poista mitään — tarvitaan DEL-sentinel. Ilman tätä "Ei nähty" jätti kohteen
+           Firestoreen: se palasi näkyviin seuraavalla latauksella ja laskettiin koosteeseen. */
         if (!snap.exists) return;
-        data.kohteet = Object.assign({}, vanhatKohteet);
-        delete data.kohteet[avain];
+        data.kohteet = {};
+        data.kohteet[avain] = DEL;
       } else {
         const uusiKohde = {}; uusiKohde[avain] = { arvo: kohteenArvo, pvm: pvm };
         data.kohteet = Object.assign({}, vanhatKohteet, uusiKohde);

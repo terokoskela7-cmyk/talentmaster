@@ -350,10 +350,13 @@ describe('(11) luotu lähetetään vain uudelle kerralle', () => {
 
 /* ══ (12) REVIEW 4 — "Ei nähty" ≠ "Ei sovellu" ════════════════════════════ */
 describe('(12) ei nähty ei kosketa seuran pikakenttään eikä pyyhi kollegan arviota', () => {
-  it("'ei_nahty' poistaa kohteen OMASTA kerrasta", async () => {
+  /* Väite kohdistuu DEL-sentineliin, ei objektin muotoon: set+merge yhdistää sisäkkäiset mapit,
+     joten "avain puuttuu kirjoitetusta objektista" EI poista mitään Firestoressa. Aiempi väite
+     meni läpi vain siksi, ettei tynkä mallinna mergeä — sama vikaluokka kuin luotu-kentässä. */
+  it("'ei_nahty' poistaa kohteen kerrasta DEL-sentinelillä (merge ei poista puuttuvaa avainta)", async () => {
     const tk = await tallenna({ arvo: 'ei_nahty', avain: 'x', olemassa: { kohteet: { x: { arvo: 4 }, y: { arvo: 3 } } } });
-    expect(kerta(tk).data.kohteet.x).toBeUndefined();
-    expect(kerta(tk).data.kohteet.y).toMatchObject({ arvo: 3 });
+    expect(kerta(tk).data.kohteet.x).toEqual(tk.DEL);
+    expect(kerta(tk).data.kohteet.y).toBeUndefined();   // muita kohteita ei kirjoiteta uudelleen
   });
 
   it("'ei_nahty' EI kirjoita arviointi_havaittu-pikakenttää (arvo voi olla toisen arvioijan)", async () => {
@@ -420,5 +423,78 @@ describe('(14) ruudukko korostaa vain omaa avointa kertaa', () => {
     const sv = f.slice(i, f.indexOf('};', i));
     expect(sv).toContain('_vpArvOmaKirjattu(p, avain)');
     expect(sv).toContain('jsp-arv-muut');   // neutraali teksti, ei korostus
+  });
+});
+
+/* ══ (15) REVIEW D — POTENTIAALI KERTAAN (historia, ei vain pikakenttä) ════ */
+describe('(15) potentiaali kirjoittuu arviointikertaan', () => {
+  /** Ajaa oikean _vpTallennaPotentiaali-funktion samalla tyngällä. */
+  async function tallennaPotentiaali(opts) {
+    const o = opts || {};
+    const tk = tynka(o.olemassa || null);
+    const p = Object.assign({}, PELAAJA, o.pelaaja || {});
+    const store = {
+      db: tk.db, firebase: tk.firebase,
+      _seuraId: 'sjk', _uid: 'uid-a', _rooli: o.rooli || 'vp', _seura: { maa: 'FI' },
+      _isDemoMode: false,
+      window: { TM_ARVIOINTI_HISTORIA: AH, _vpArvKonteksti: null, _vpArvKehys: 'palloliitto', _vpNimi: 'VP Testi' },
+      document: { getElementById: () => null },
+      toast: () => {}, vpT: (s) => s, _jsvEsc: (s) => String(s == null ? '' : s),
+      console: { warn: () => {} },
+      _vpIdpPelaaja: () => p,
+      _vpSeurantaOnJohto: () => true,
+      _vpPotTaso: () => 'kansallinen',
+      _vpPotReRender: () => {},
+    };
+    store.window.window = store.window;
+    const ymp = new Proxy(store, {
+      has: (t3, k) => (k in t3) || !(k in globalThis),
+      get: (t3, k) => (k === Symbol.unscopables ? undefined : (k in t3 ? t3[k] : () => '')),
+      set: (t3, k, v) => { t3[k] = v; return true; },
+    });
+    const runko = [
+      'function _vpArvKontekstiOletus(p) {',
+      'function _vpArvTilannekuva(p) {',
+      'window._vpTallennaPotentiaali = async function (pid, tahdet, huomioVain) {',
+    ].map(pura).join('\n');
+    // eslint-disable-next-line no-new-func
+    const fn = new Function('__ymp', 'with(__ymp){' + runko + '\nreturn window._vpTallennaPotentiaali;}')(ymp);
+    await fn('p1', o.tahdet === undefined ? 4 : o.tahdet, o.huomioVain || false);
+    return tk;
+  }
+
+  it('EI VACUOUS: tallennus kirjoittaa sekä kerran että pikakentät', async () => {
+    const tk = await tallennaPotentiaali({});
+    expect(kerta(tk)).toBeTruthy();
+    expect(pelaajaKirjoitus(tk)).toBeTruthy();
+  });
+
+  it('kerta saa potentiaalin tähtineen ja varmuuksineen', async () => {
+    const tk = await tallennaPotentiaali({ tahdet: 4 });
+    expect(kerta(tk).data.potentiaali).toMatchObject({ tahdet: 4 });
+    expect(kerta(tk).data.potentiaali.varmuus).toBeTruthy();
+  });
+
+  it('alle 14-vuotiaan oletusvarmuus on alustava (§4.3)', async () => {
+    const tk = await tallennaPotentiaali({ tahdet: 5, pelaaja: { syntymaVuosi: new Date().getFullYear() - 13 } });
+    expect(['alustava', 'kohtalainen']).toContain(kerta(tk).data.potentiaali.varmuus);
+  });
+
+  it('pikakentät päivittyvät samassa transaktiossa (yksi commit)', async () => {
+    const tk = await tallennaPotentiaali({});
+    expect(pelaajaKirjoitus(tk).data.scout_potentiaali).toBe(4);
+    expect(tk.commitit()).toBe(1);
+  });
+
+  it('luotu vain uudelle kerralle (sama sääntö kuin kohteilla)', async () => {
+    const uusi = await tallennaPotentiaali({});
+    expect(uusi.kerta === undefined || kerta(uusi).data.luotu).toBeTruthy();
+    const vanha = await tallennaPotentiaali({ olemassa: { kohteet: {} } });
+    expect(Object.keys(kerta(vanha).data)).not.toContain('luotu');
+  });
+
+  it('kohdeklikkaus EI nollaa aiemmin tallennettua potentiaalia (payload jättää nullin pois)', async () => {
+    const tk = await tallenna({ olemassa: { potentiaali: { tahdet: 4, varmuus: 'alustava' } } });
+    expect(Object.keys(kerta(tk).data)).not.toContain('potentiaali');
   });
 });
