@@ -16,6 +16,7 @@
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-functions-compat.js"></script>
 <script src="lib/tm_appcheck.js?v=1"></script>
 <script src="lib/tm_eerikkila_normit.js?v=40"></script>
+<script src="lib/tm_joukkue.js?v=3"></script>   <!-- §18-jäsenyys: kanoninen nimi + team-id yhdestä paikasta -->
 <script src="tm_auth.js"></script>
 
 <style>
@@ -2774,6 +2775,16 @@ async function lahetaAdminMassakutsu() {
   /* A3 — uusi pelaaja perii seuran kielen. Luetaan KERRAN ennen silmukkaa. Pelaaja-app lukee
      kielen pelaajadokista, koska anonyymi PIN-kirjautuja ei saa lukea seuradokia. 'fi' jätetään
      pois (oletus). Olemassa olevaan pelaajaan EI kosketa: kieli on hänen asetuksensa. */
+  /* §18: joukkuedokumentit kerran ennen silmukkaa. Ilman näitä tuonti kirjoitti pelkän
+     NIMEN eikä joukkueet[]-id:tä lainkaan → pelaaja ei näkynyt seurahallinnassa minkään
+     joukkueen alla, ja uudelleentuonnissa vanha väärä id jäi voimaan. */
+  let _joukkueLista = [];
+  try {
+    const _js = await db.collection('seurat').doc(seuraId).collection('joukkueet').get();
+    _joukkueLista = _js.docs.map((d) => ({ id: d.id, nimi: (d.data() || {}).nimi || d.id }));
+  } catch (e) { /* ilman listaa kaikki rivit ovat orpoja → merkitään, ei arvata */ }
+  const _orvot = {};   // nimi → montako riviä
+
   let _seuranKieli = null;
   try {
     const _sd = await db.collection('seurat').doc(seuraId).get();
@@ -2791,6 +2802,13 @@ async function lahetaAdminMassakutsu() {
 
     try {
       // Tarkista onko pelaaja jo olemassa palloID:n perusteella
+      /* §18-jäsenyys jaetusta rakentajasta. Nimen kanonisointi korjaa samalla Excelin
+         kirjoitusasun; orpo (nimi ei vastaa yhtään team-docia) EI saa väärää id:tä. */
+      const _jasen = (typeof tmJoukkueJasenyys === 'function')
+        ? tmJoukkueJasenyys(p.joukkue, _joukkueLista)
+        : { joukkue: p.joukkue || '', joukkueNimi: p.joukkue || '', joukkueet: [], joukkueetNimet: [], orpo: false };
+      if (_jasen.orpo) _orvot[_jasen.joukkue] = (_orvot[_jasen.joukkue] || 0) + 1;
+
       let olemassaDoc = null;
       if (p.palloID) {
         const olemassa = await db.collection('seurat').doc(seuraId).collection('pelaajat')
@@ -2805,7 +2823,12 @@ async function lahetaAdminMassakutsu() {
         sukunimi:      p.sukunimi || '',
         palloID:       p.palloID || '',
         tunniste:      p.palloID || '',  // synkronoidaan molemmat kentät
-        joukkue:       p.joukkue || '',
+        /* §18-jäsenyys jaetusta rakentajasta: kanoninen nimi + team-id. Orvolle (nimi ei
+           vastaa yhtään team-docia) EI arvata id:tä — joukkueet jää tyhjäksi ja rivi merkitään. */
+        joukkue:        _jasen.joukkue,
+        joukkueNimi:    _jasen.joukkueNimi,
+        joukkueet:      _jasen.joukkueet,
+        joukkueetNimet: _jasen.joukkueetNimet,
         huoltajaEmail: p.huoltajaEmail ? String(p.huoltajaEmail).trim().toLowerCase() : '',
         syntymaVuosi:  p.syntymaVuosi ? parseInt(p.syntymaVuosi) || null : null,
         sukupuoli:     p.sukupuoli || '',
@@ -2830,14 +2853,18 @@ async function lahetaAdminMassakutsu() {
         }
         await olemassaDoc.ref.update(_paivitys);
         if (tbody?.rows[i]) {
-          tbody.rows[i].cells[4].innerHTML = '<span style="color:var(--teal)">✓ Päivitetty</span>';
+          tbody.rows[i].cells[4].innerHTML = _jasen.orpo
+            ? '<span style="color:var(--amber)">⚠ Päivitetty · joukkuetta ei löytynyt — luo joukkue ensin</span>'
+            : '<span style="color:var(--teal)">✓ Päivitetty</span>';
         }
       } else {
         // Luo uusi pelaajadokumentti
         await db.collection('seurat').doc(seuraId).collection('pelaajat')
           .add(_seuranKieli ? Object.assign({ kieli: _seuranKieli }, pelaajaData) : pelaajaData);
         if (tbody?.rows[i]) {
-          tbody.rows[i].cells[4].innerHTML = '<span style="color:var(--teal)">✓ Lisätty</span>';
+          tbody.rows[i].cells[4].innerHTML = _jasen.orpo
+            ? '<span style="color:var(--amber)">⚠ Lisätty · joukkuetta ei löytynyt — luo joukkue ensin</span>'
+            : '<span style="color:var(--teal)">✓ Lisätty</span>';
         }
       }
       onnistui++;
@@ -2851,11 +2878,16 @@ async function lahetaAdminMassakutsu() {
     await new Promise(r => setTimeout(r, 50));
   }
 
+  /* ORPOJEN KOONTI: tuonti ei arvaa joukkue-id:tä, joten operaattorin on nähtävä MIHIN
+     nimiin osumaa ei löytynyt — muuten pelaajat jäävät hiljaa ilman joukkuetta. */
+  const _orpoNimet = Object.keys(_orvot);
+  const _orpoYht = _orpoNimet.reduce((s, n) => s + _orvot[n], 0);
   if (status) status.textContent =
     `✅ Valmis! ${onnistui} pelaajaa tallennettu` +
     (ohitettu  ? `, ${ohitettu} ohitettu`  : '') +
     (virheita  ? `, ${virheita} virhettä`   : '') +
     (suostumusSailytetty ? `, ${suostumusSailytetty} suostumus säilytetty` : '') +
+    (_orpoYht ? ` · ⚠ ${_orpoYht} pelaajaa ilman joukkuetta: ${_orpoNimet.map(n => `${n} (${_orvot[n]})`).join(', ')} — luo joukkue ja aja tuonti uudelleen` : '') +
     ` — Suostumuspyynnöt lähetetään erikseen myöhemmin.`;
 
   if (nappi) { nappi.textContent = `✅ ${onnistui} pelaajaa tallennettu`; }
