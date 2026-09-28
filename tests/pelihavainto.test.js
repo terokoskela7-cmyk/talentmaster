@@ -55,6 +55,51 @@ describe('(1) Kanoninen koordinaatisto', () => {
     expect(PH.phNaytolta(n.x, n.y, { puoliaika, seisoo })).toEqual(p);
   });
 
+  /* PYSTYASENTO (kenttä koko näytölle): puhelin pystyssä → kenttä pystyssä, hyökkäys ylöspäin.
+     Kierto on LIBISSÄ, joten haviottomuus on testattava myös pystyssä: jos meno- ja paluumatka
+     eroaisivat, tallennettu piste kulkisi eri kohtaan kuin mihin valmentaja napautti. */
+  it.each([
+    [1, 'lahi'], [1, 'kauko'], [2, 'lahi'], [2, 'kauko'],
+  ])('PYSTY naytto ja takaisin: puoliaika %i, seisoo %s → sama kanoninen piste', (puoliaika, seisoo) => {
+    const p = { len: 70, wid: 30 };
+    const o = { puoliaika, seisoo, pysty: true };
+    const n = PH.phNaytolle(p, o);
+    const takaisin = PH.phNaytolta(n.x, n.y, o);
+    expect(takaisin.len).toBeCloseTo(p.len, 2);
+    expect(takaisin.wid).toBeCloseTo(p.wid, 2);
+  });
+
+  it('PYSTY: hyökkäyssuunta on YLÖSPÄIN 1. puoliajalla', () => {
+    /* Napautus kentän yläreunan keskelle → len≈100 (vastustajan pääty), alareunaan → len≈0.
+       Tämä on se asia joka menisi väärin, jos kierto tehtaisiin sivulla eri suuntaan. */
+    const o = { puoliaika: 1, seisoo: 'lahi', pysty: true };
+    expect(PH.phNaytolta(50, 0, o).len).toBeCloseTo(100, 6);
+    expect(PH.phNaytolta(50, 100, o).len).toBeCloseTo(0, 6);
+  });
+
+  it('PYSTY: 2. puoliajalla suunta kääntyy alaspäin', () => {
+    const o = { puoliaika: 2, seisoo: 'lahi', pysty: true };
+    expect(PH.phNaytolta(50, 0, o).len).toBeCloseTo(0, 6);
+    expect(PH.phNaytolta(50, 100, o).len).toBeCloseTo(100, 6);
+  });
+
+  it('PYSTY on eri näyttöpiste kuin vaaka (kierto todella tapahtuu)', () => {
+    const p = { len: 70, wid: 30 };
+    const vaaka = PH.phNaytolle(p, { puoliaika: 1, seisoo: 'lahi' });
+    const pysty = PH.phNaytolle(p, { puoliaika: 1, seisoo: 'lahi', pysty: true });
+    expect(JSON.stringify(pysty)).not.toBe(JSON.stringify(vaaka));
+    /* Kaava: x = fy, y = 100 − fx. */
+    expect(pysty.x).toBeCloseTo(vaaka.y, 6);
+    expect(pysty.y).toBeCloseTo(100 - vaaka.x, 6);
+  });
+
+  it('pysty:false käyttäytyy kuin ennen (taaksepäin yhteensopiva)', () => {
+    const p = { len: 70, wid: 30 };
+    const ilman = PH.phNaytolle(p, { puoliaika: 1, seisoo: 'lahi' });
+    const nimen = PH.phNaytolle(p, { puoliaika: 1, seisoo: 'lahi', pysty: false });
+    expect(nimen).toEqual(ilman);
+  });
+
   it('EI VACUOUS: kaikki nelja yhdistelmaa tuottavat eri nayttopisteen', () => {
     const p = { len: 70, wid: 30 };
     const setti = new Set([[1, 'lahi'], [1, 'kauko'], [2, 'lahi'], [2, 'kauko']]

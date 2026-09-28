@@ -112,6 +112,30 @@ describe('(1) napautusvalikko — enintään neljä vaihtoehtoa', () => {
     expect(valikko({ len: 15, wid: 50 }, r)).not.toContain('laukaus');
   });
 
+  /* JÄRJESTYS ON TIETOINEN: puolustajan omassa päässä yleisimmät tilanteet ovat riisto, 1v1 ja
+     menetys. Vastustajan laukaus oli ensimmäisenä, isoimmalla paikalla ja punaisena, mikä
+     näyttäytyi kentällä siten että "omassa puolustuspäässä se ehdotti laukauksen blokkaamista".
+     Kyse ei ollut suuntabugista vaan järjestyksestä. */
+  it('OMALLA KOLMANNEKSELLA järjestys on Riisto · 1v1 · Menetys · Vastustaja laukoi', () => {
+    const kaikki = {};
+    PH.PH_KIRJATTAVAT.forEach((a2) => { kaikki[a2] = true; });
+    expect(valikko({ len: 15, wid: 50 }, kaikki))
+      .toEqual(['riisto', 'v1', 'menetys', 'vastustajan_laukaus']);
+  });
+
+  it('muualla kentällä järjestys säilyy ennallaan (laukaisu ensin)', () => {
+    const kaikki = {};
+    PH.PH_KIRJATTAVAT.forEach((a2) => { kaikki[a2] = true; });
+    [{ len: 50, wid: 50 }, { len: 85, wid: 50 }].forEach((piste) => {
+      expect(valikko(piste, kaikki)).toEqual(['laukaus', 'riisto', 'menetys', 'v1']);
+    });
+  });
+
+  it('valikon teksti on "Vastustaja laukoi" (selkeämpi kuin "Vastustajan laukaus")', () => {
+    const f = pura('function avaaNapautusvalikko(sp) {');
+    expect(f).toContain("t: 'Vastustaja laukoi'");
+  });
+
   it('ilman vastustaja-rastia omalla kolmanneksella on oma laukaisu', () => {
     expect(valikko({ len: 15, wid: 50 }, { laukaus: true })).toContain('laukaus');
   });
@@ -647,7 +671,11 @@ describe('(11) luku-tila (?tarkkailuId=)', () => {
   it('luku-tilassa kirjaus- ja tallennusnapit piilotetaan', () => {
     const f = pura('async function kaynnista() {');
     expect(f).toContain("['btnKumoa', 'btnHetki', 'btnTallenna']");
-    expect(f).toContain("phT('tallennettu tarkkailu — vain luku')");
+    /* Tallennustila kulkee nyt yhden funktion kautta (yläpalkin piste + lehden teksti),
+       joten vartija seuraa sitä eikä yhtä textContent-sijoitusta. */
+    expect(f).toContain("asetaTallennustila('luku')");
+    const s = pura('function asetaTallennustila(tila) {');
+    expect(s, 'luku-tila ei kerro käyttäjälle että kyse on vain luvusta').toContain("luku: 'vain luku'");
   });
 
   it('luku-tila käyttää SAMAA läpikäyntiä (ei erillistä katselunäkymää)', () => {
@@ -1073,5 +1101,223 @@ describe('(17) valintaikkunan teksti on oikeaa suomea', () => {
     expect(src).toMatch(/_tmPhEsc\(t\(selite\)\)/);
     expect(src).toContain("_tmPhKortti('yksi', TM_PH_TEKSTIT.yksi");
     expect(src).toContain("_tmPhKortti('ottelu', TM_PH_TEKSTIT.ottelu");
+  });
+});
+
+/* ── 12 · KOKONÄYTTÖ (2A-ulkoasu) ─────────────────────────────────────────
+   Kenttä oli pieni vaakalaatikko asetusten alla myös pystypuhelimessa: "ei tuohon pieneen
+   kenttään sormet pääse kunnolla ja merkinnät leviää". Nämä vartijat mittaavat sitä, että
+   kenttä saa koko näytön kummassakin asennossa ja että vanhat merkinnät häipyvät. */
+describe('(12) kenttä täyttää näytön, kumpikin asento on käyttötila', () => {
+  it('kaksi vaihetta: aloitusruutu ja kenttätila ovat eri näkymät', () => {
+    expect(SIVU).toContain('id="aloitus"');
+    expect(SIVU).toContain('id="kenttatila"');
+    const f = pura('function avaaKenttatila() {');
+    expect(f, 'aloitusruutu jää näkyviin').toContain("q('aloitus').style.display = 'none'");
+    expect(f, 'kenttätila ei avaudu').toContain("q('kenttatila').style.display = ''");
+    expect(f, 'kenttä on aseteltava uudelleen kun laatikko saa koon').toContain('asettele()');
+  });
+
+  it('"Aloita" pyytää koko näytön (käyttäjän ele) ja avaa kenttätilan', () => {
+    const f = pura('function alustaKenttatila() {');
+    expect(f).toContain('kokoNaytto()');
+    expect(f).toContain('avaaKenttatila()');
+  });
+
+  it('koko näyttö ja wakeLock ovat MUKAVUUKSIA — hylkäys ei kaada kirjaamista', () => {
+    const fs = pura('function kokoNaytto() {');
+    expect(fs, 'requestFullscreen ilman suojausta kaataisi iOS:ssä').toContain('try {');
+    expect(fs).toContain('.catch(');
+    const wl = pura('function pyydaWakeLock() {');
+    expect(wl).toContain('try {');
+    expect(wl).toContain('.catch(');
+  });
+
+  it('EI orientaatiolukkoa eikä "käännä puhelin" -vihjettä', () => {
+    /* Molemmat asennot ovat täysiarvoisia käyttötiloja. Lukko tai vihje tekisi
+       pystyasennosta toisen luokan tilan. */
+    expect(SIVU_KOODI, 'orientaatio lukittu').not.toContain('orientation.lock');
+    expect(SIVU_KOODI, 'orientaatio lukittu').not.toContain('lockOrientation');
+    /* Kommentit riisuttuna: sivun oma perustelu KERTOO ettei vihjettä saa olla, joten raaka
+       haku osuisi juuri siihen ja vartija punertaisi siitä että sääntö on kirjattu. */
+    expect(SIVU_KOODI, 'pystyasentoa ei saa kehottaa kääntämään').not.toMatch(/käännä puhelin/i);
+  });
+
+  it('kierto tulee LIBISTÄ myös pystyssä — sivulla ei omaa flip-laskentaa', () => {
+    const k = pura('function kaantoOpts() {');
+    expect(k, 'pysty-parametri puuttuu → lib ei voi kääntää').toContain('pysty: PYSTY');
+    /* Oma peilaus (100 - len / 100 - wid) olisi toinen totuus tallennetulle pisteelle. */
+    expect(SIVU_KOODI).not.toMatch(/100\s*-\s*p\.len/);
+    expect(SIVU_KOODI).not.toMatch(/100\s*-\s*p\.wid/);
+  });
+
+  /* AJETTU ASETTELU, ei tekstihaku: ensimmäinen versio näistä vartijoista tarkisti vain, että
+     `setAttribute('viewBox'` esiintyy lähteessä — mutaatio, joka kovakoodasi viewBoxin takaisin
+     530×350:een, meni siitä läpi. Nyt asettelu ajetaan valelaatikolla ja tulos mitataan. */
+  function ajaAsettelu(bw, bh) {
+    const svgTynka = { attrs: {}, style: {}, setAttribute(k, v) { this.attrs[k] = v; } };
+    const api = aja(
+      ['function asettele() {'],
+      'return { asettele: asettele, tila: function () { return { PYSTY: PYSTY, W: W, H: H }; } };',
+      {
+        laatikko: { clientWidth: bw, clientHeight: bh },
+        svg: svgTynka,
+        PYSTY: false, W: 530, H: 350, PX: 12, PY: 12, IW: 506, IH: 326,
+        klamppi: (v, a2, b2) => Math.max(a2, Math.min(b2, v)),
+        Math,
+      },
+    );
+    api.asettele();
+    const vb = (svgTynka.attrs.viewBox || '').split(' ').map(Number);
+    return { vb, svg: svgTynka, tila: api.tila() };
+  }
+
+  it('VAAKALAATIKKO: kenttä venyy laatikon mukaan sallituissa rajoissa', () => {
+    const r = ajaAsettelu(800, 400);
+    expect(r.tila.PYSTY, 'vaakalaatikko tulkittiin pystyksi').toBe(false);
+    const suhde = r.vb[2] / r.vb[3];
+    expect(suhde, 'viewBox ei seuraa laatikkoa').toBeGreaterThan(1.44);
+    expect(suhde, 'kenttä venyi karikatyyriksi').toBeLessThan(2.06);
+    expect(suhde).toBeCloseTo(2.0, 1);
+  });
+
+  it('PYSTYLAATIKKO: kenttä kääntyy pystyyn (ei jää vaakalaatikoksi)', () => {
+    const r = ajaAsettelu(400, 820);
+    expect(r.tila.PYSTY, 'pystylaatikkoa ei tunnistettu').toBe(true);
+    const suhde = r.vb[2] / r.vb[3];
+    expect(suhde, 'kenttä jäi vaakaan pystypuhelimessa').toBeLessThan(0.70);
+    expect(suhde).toBeGreaterThan(0.50);
+  });
+
+  it('kenttä TÄYTTÄÄ laatikon (ei kolmannesta näytöstä)', () => {
+    [[800, 400], [400, 820], [1000, 500]].forEach(([bw, bh]) => {
+      const r = ajaAsettelu(bw, bh);
+      const lev = parseFloat(r.svg.style.width), kork = parseFloat(r.svg.style.height);
+      const tayttoaste = Math.max(lev / bw, kork / bh);
+      expect(tayttoaste, 'kenttä jäi pieneksi laatikossa ' + bw + '×' + bh)
+        .toBeGreaterThan(0.95);
+      expect(lev, 'kenttä vuotaa laatikon yli').toBeLessThanOrEqual(bw);
+      expect(kork, 'kenttä vuotaa laatikon yli').toBeLessThanOrEqual(bh);
+    });
+  });
+
+  it('SUHDE seuraa laatikkoa ja rajautuu vasta ääripäissä', () => {
+    /* Pelkkä täyttöaste ei riitä vartijaksi: kiinteä 350×600 täyttäisi laatikon leveyssuunnassa
+       mutta kenttä olisi aina samanmuotoinen. Muodon on seurattava laatikkoa BANDIN sisällä. */
+    const suhde = (bw, bh) => { const r = ajaAsettelu(bw, bh); return r.vb[2] / r.vb[3]; };
+    /* Asettelu jättää laatikkoon 8 px sisäreunusta, joten vertailukohta on (bw−8)/(bh−8). */
+    const laatikonSuhde = (bw, bh) => (bw - 8) / (bh - 8);
+    expect(suhde(400, 700), 'pystysuhde ei seuraa laatikkoa').toBeCloseTo(laatikonSuhde(400, 700), 2);
+    expect(suhde(400, 620), 'pystysuhde ei seuraa laatikkoa').toBeCloseTo(laatikonSuhde(400, 620), 2);
+    expect(suhde(400, 700)).not.toBeCloseTo(suhde(400, 620), 3);
+    /* ÄÄRIPÄÄT: liian kapea tai liian leveä laatikko rajataan, ettei kenttä vääristy. */
+    expect(suhde(400, 1200), 'kapea laatikko ei rajautunut').toBeCloseTo(0.51, 2);
+    expect(suhde(900, 300), 'leveä laatikko ei rajautunut').toBeCloseTo(2.05, 2);
+    expect(suhde(800, 400)).toBeCloseTo(2.0, 1);
+  });
+
+  it('kiinteä viewBox ei jäänyt HTML:ään', () => {
+    expect(SIVU).not.toContain('viewBox="0 0 530 350"');
+  });
+
+  it('turva-alueet huomioidaan (lovi ja kotipalkki eivät syö kenttää)', () => {
+    expect(SIVU).toContain('env(safe-area-inset-top');
+    expect(SIVU).toContain('padding:var(--sat) var(--sar) var(--sab) var(--sal)');
+  });
+
+  it('kääntö ei hukkaa merkintöjä eikä jätä valitsinta roikkumaan', () => {
+    const f = pura('function alustaKenttatila() {');
+    expect(f).toContain("window.addEventListener('resize'");
+    expect(f).toContain("window.addEventListener('orientationchange'");
+    const i = f.indexOf('var uudelleen = function ()');
+    const kasittelija = f.slice(i, f.indexOf('};', i));
+    expect(kasittelija, 'valitsin on suljettava ENNEN uudelleenasettelua').toContain('suljeValitsin(false)');
+    expect(kasittelija, 'merkinnät on piirrettävä uudelleen kanonisesta datasta').toContain('piirra()');
+    expect(kasittelija, 'merkintöjä ei saa tyhjentää käännössä').not.toContain('S.merkinnat =');
+  });
+
+  it('alapalkki: Hetki · Kumoa · Merkinnät (määrä), napit vähintään 58 px', () => {
+    ['id="btnHetki"', 'id="btnKumoa"', 'id="btnLista"', 'id="merkintaLkm"'].forEach((k) => {
+      expect(SIVU, 'alapalkista puuttuu: ' + k).toContain(k);
+    });
+    expect(SIVU).toMatch(/\.railbtn\{[^}]*min-height:58px/);
+  });
+
+  it('merkinnät ovat alalehtenä eivätkä vie tilaa kentältä', () => {
+    expect(SIVU).toContain('class="sheet"');
+    const avaa = pura('function avaaLehti() {');
+    expect(avaa).toContain("classList.add('auki')");
+    /* Tallenna siirtyi lehden alaosaan — kentällä ei ole tallennusnappia vieraana. */
+    const i = SIVU.indexOf('class="sheet"');
+    const lehti = SIVU.slice(i, SIVU.indexOf('</div>\n</div>', i));
+    expect(lehti, 'Tallenna ei ole lehdessä').toContain('id="btnTallenna"');
+  });
+
+  it('suuntamerkki on kentän PÄÄLLÄ ja seuraa asentoa', () => {
+    expect(SIVU).toContain('id="suuntamerkki"');
+    const f = pura('function paivitaSuuntamerkki() {');
+    expect(f, 'pystyssä nuolen on osoitettava ylös/alas').toContain("PYSTY ? (kaksi ? '↓' : '↑')");
+    expect(f, 'vaakana nuolen on osoitettava sivulle').toContain("(kaksi ? '←' : '→')");
+  });
+});
+
+describe('(13) vanhat merkinnät häipyvät kentältä', () => {
+  it('kentällä näkyy enintään 3 tilannetta, loput vain listassa', () => {
+    expect(SIVU).toContain('var NAKYVIA_JUURIA = 3;');
+    const f = pura('function piirraMerkinnat() {');
+    expect(f, 'häivytystä ei sovelleta').toContain('rk >= NAKYVIA_JUURIA');
+    expect(f, 'ketjun on seurattava juurtaan (muuten ketju katkeaa kesken)').toContain('juuriMerkinnalle(');
+  });
+
+  it('EI VACUOUS: häivytys laskee juuret uusin ensin', () => {
+    const f = pura('function piirraMerkinnat() {');
+    expect(f).toContain('juuret.slice().reverse()');
+  });
+
+  it('merkinnässä on numero ja tyyppiväri', () => {
+    const f = pura('function merkkiPallo(p, nro, vari, taytetty) {');
+    expect(f).toContain('stroke: vari');
+    expect(f).toContain('teksti.textContent');
+  });
+});
+
+describe('(14) valitsin pysyy kentällä ja himmentää merkinnät', () => {
+  it('napit rajataan laatikkoon napin puolikkaan marginaalilla', () => {
+    const f = pura('function naytaValitsin(sp, items, ikkunaMs, aikakatkaisu) {');
+    expect(f).toContain('var MX = 46, MY = 34;');
+    expect(f).toContain('klamppi(pos.x + dx, MX');
+    expect(f).toContain('klamppi(pos.y + dy, MY');
+  });
+
+  it('pystyssä neljä vaihtoehtoa asetellaan kahteen sarakkeeseen', () => {
+    const f = pura('function naytaValitsin(sp, items, ikkunaMs, aikakatkaisu) {');
+    expect(f).toContain('if (PYSTY && n > 3)');
+  });
+
+  it('merkinnät himmenevät valitsimen ajaksi ja himmennys puretaan', () => {
+    expect(SIVU).toContain('.pitchbox.valitsee #pitch .ents{opacity:.25');
+    expect(pura('function naytaValitsin(sp, items, ikkunaMs, aikakatkaisu) {'))
+      .toContain("laatikko.classList.add('valitsee')");
+    expect(pura('function suljeValitsin(peru) {'))
+      .toContain("laatikko.classList.remove('valitsee')");
+  });
+
+  it('napit ovat umpinaiset (tokeniväri, ei läpinäkyvä)', () => {
+    expect(SIVU).toMatch(/\.chooser \.cbtn\{[^}]*background:var\(--surface\)/);
+  });
+});
+
+describe('(15) kosketuspiste osuu sormen kohdalle', () => {
+  it('muunnos tehdään getScreenCTM().inverse():llä (skaalaus ja vieritys mukana)', () => {
+    const f = pura('function svgPiste(ev) {');
+    expect(f).toContain('getScreenCTM().inverse()');
+  });
+
+  it('napautuksen raja on RUUDUN pikseleissä, ei SVG-yksiköissä', () => {
+    /* Sama sormen liike tarkoittaisi eri asiaa eri kokoisella kentällä. */
+    expect(SIVU).toContain('var LIIKE_RAJA_PX = 10;');
+    const f = pura('function alustaEleet() {');
+    expect(f).toContain('ev.clientX - veto.ruutuAlku.x');
+    expect(f).toContain('LIIKE_RAJA_PX');
   });
 });
