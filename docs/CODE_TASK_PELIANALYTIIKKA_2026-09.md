@@ -324,11 +324,17 @@ seurat/{sid}/pelaajat/{pid}/havainnot/{hid}
   puoliaika: 1|2
   suunta: { hyokkaysOikealle: bool, seisoo: 'lahi'|'kauko' }   // vain näyttöä varten; data on aina kanonisessa muodossa
   ikataso: 'u812'|'u1315'|'u16'
+  pelipaikka: 'LA'|'KH'|'KY'|'KK'|'LP'|'T'|'MV'|null   // VALINNAINEN (v6) — null → pohja 'yleinen'
+  kirjattavat: string[]|null          // v6: mitkä lähteet tarkkailija rastitti (PH_KIRJATTAVAT).
+                                      // Karsii vain valikkoa. Kenttä puuttuu → kaikki paitsi
+                                      // 'vastustajan_laukaus' (taaksepäin yhteensopivuus).
   jaksofokus: string|null             // kopio hetkestä
-  malli: { xt: 'singh_12x8_v1[+pienkentta_m_v1]', xg: 'xg_geom_v0_esimerkki' }   // v1 vasta kalibroinnin jalkeen
+  malli: { xt: 'singh_12x8_v1[+pienkentta_m_v1]', xg: 'xg_geom_v0_esimerkki',
+           boksi: 'boksi_v0_esimerkki' }   // v1 vasta kalibroinnin jalkeen; boksi versioitu kuten xG
   merkinnat: [ {                      // ARRAY → EI serverTimestamp() (§7.6), käytä sekunteja
       id, t: <sekunnit ottelun alusta>, tyyppi:
-        'syotto'|'kuljetus'|'etenee'|'juoksu'|'riisto'|'laukaus'|'menetys'|'kaksinpeli'|'hetki',
+        'syotto'|'kuljetus'|'etenee'|'juoksu'|'riisto'|'laukaus'|'menetys'|'kaksinpeli'|'hetki'
+        |'laukaus_vastaan',                              // v6: VASTUSTAJAN laukaus (ei omaa xG:tä)
       alku?: {len, wid}, loppu?: {len, wid}, piste?: {len, wid},   // 0–100, len = omasta maalista
       perilla?: bool|null, lopputuote?: 'syotto'|'laukaus'|'menetys'|'rikottiin'|'sailyi'|null,
       rooli?: 'hyokkays'|'puolustus',
@@ -337,9 +343,18 @@ seurat/{sid}/pelaajat/{pid}/havainnot/{hid}
       tapa?: 'katkaisu'|'taklaus'|'irtopallo'|null,              // vain riisto
       jatko?: 'syotto'|'kuljetus'|'laukaus'|'menetys'|'sailyi'|'selvitys'|'rikottiin'|null,  // ohitus- ja riistojuurille
       ohitus?: bool, reaktio?: 'heti'|'jai'|'ei'|null, skannasi?: bool|null,
+      itse?: bool,                                         // vain laukaus_vastaan: blokkasiko TÄMÄ pelaaja
+                                                           // tulos laukaus_vastaan-merkinnalle:
+                                                           //   'maali'|'torjuttu'|'blokattu'|'ohi'
       ketju?: <juuren id>, eiSijaintia?: bool, konsepti?: string, aani?: {storage_url}|null
   } ]
 ```
+
+**`laukaus_vastaan` (v6):** piste tallennetaan **kanonisesti kuten kaikki muut** — vastustajan laukaus on
+omalla kolmanneksella (`len < 33,3`). xG lasketaan samalla mallilla **peilatusta** pisteestä
+(`{len: 100 − len, wid: 100 − wid}`), jolloin rangaistuspotkupiste saa saman arvon kummassa päässä tahansa
+eikä toista mallia tarvita. Tulos on **oma laji** `xg_vastaan`: se ei summaudu omaan xG:hen, menetyksiin
+eikä riistoihin. Yhteenvedossa `luvut.vastustaja` (laukauksia, xgSumma, tulokset, `pelaajanBlokit`).
 
 **Koordinaatit:** tallennetaan **kanonisessa muodossa** `len` (0 = oma maali … 100 = vastustajan maali) ja `wid`
 (0 = hyökkääjän vasen laita … 100 = oikea). Näyttö hoitaa kääntämisen puoliajan ja seisomapaikan mukaan.
