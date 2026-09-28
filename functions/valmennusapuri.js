@@ -423,8 +423,8 @@ function koostaSeuranData(d, joukkueet) {
       let r = 'tekniikkakilpailu: TKI-indeksi (0–100 ikäluokan rajoihin suhteutettuna: pronssiraja 40, hopea 60, kulta 80) mediaani ' +
         _luku(_mediaani(tkiA), 0) + ' (n=' + tkiA.length + '); merkit: kulta ' + m.kulta + ', hopea ' + m.hopea + ', pronssi ' + m.pronssi + ', ei merkkiä ' + ilman;
       const kk = lkm('kehityskohde'), vv = lkm('vahvuus');
-      if (kk) r += '; pelaajien oma kehityskohde (lukumäärä): ' + kk;
-      if (vv) r += '; pelaajien oma vahvuus (lukumäärä): ' + vv;
+      if (kk) r += '; heikoin laji ikäluokan normiin suhteutettuna, järjestelmän laskema pelaajittain (pelaajia): ' + kk;
+      if (vv) r += '; vahvin laji ikäluokan normiin suhteutettuna, järjestelmän laskema pelaajittain (pelaajia): ' + vv;
       osat2.push(r);
     }
     if (tasoRivit.length) osat2.push('tasot asteikolla 1–5 ikäluokan normeihin suhteutettuna: ' + tasoRivit.join(', '));

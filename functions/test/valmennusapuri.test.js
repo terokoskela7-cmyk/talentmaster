@@ -532,6 +532,6 @@ test('koostaSeuranData: tekniikkakilpailun TKI, merkit ja kehityskohteet; ponnau
   const t = va.koostaSeuranData({ pelaajat: [p(35, null, 'syotto', e), p(62, 'hopea', 'syotto', e), p(45, 'pronssi', 'ponnauttelu', e)] }, ['Sibbo P9']);
   assert.ok(t.indexOf('TKI-indeksi (0–100') >= 0 && t.indexOf('mediaani 45 (n=3)') >= 0, t);
   assert.ok(t.indexOf('kulta 0, hopea 1, pronssi 1, ei merkkiä 1') >= 0, t);
-  assert.ok(t.indexOf('oma kehityskohde (lukumäärä): syöttö 2, pallon ponnauttelu 1') >= 0, t);
+  assert.ok(t.indexOf('järjestelmän laskema pelaajittain (pelaajia): syöttö 2, pallon ponnauttelu 1') >= 0, t);
   assert.ok(t.indexOf('tekniikkakilpailu: pallon ponnauttelu 30 s') >= 0, t);
 });
