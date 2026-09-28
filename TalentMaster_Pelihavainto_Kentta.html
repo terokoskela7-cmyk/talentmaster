@@ -1,0 +1,1312 @@
+<!DOCTYPE html>
+<!-- TalentMaster · KOHDENNETTU PELIHAVAINTO — kenttätyökalu (tuotanto).
+     Käynnistys: ?seuraId=&pelaajaId=  (SA: seuravalitsin, §3).
+     UX-referenssi: docs/prototyypit/pelihavainto_kenttatyokalu_v6.html (mockup, EI koodipohja).
+     LASKENTA TULEE VAIN lib/tm_pelihavainto.js:STÄ — sivulla ei ole omaa xT-taulukkoa, xG-kaavaa
+     eikä boksirajoja. Kopio ajautuisi erilleen libistä eikä kalibrointi enää näkyisi (§5.6).
+     Datamuoto = tallennettava muoto (§5.6): tyyppi/alku/loppu/piste/t. Laskettuja arvoja ei
+     tallenneta. Tässä vaiheessa tallennus on VAIN paikallinen (localStorage). -->
+<html lang="fi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Kohdennettu pelihavainto · TalentMaster</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-check-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+<script src="lib/tm_appcheck.js?v=1"></script>
+<script src="lib/tm_lang.js?v=14"></script>
+<script src="lib/tm_i18n_common.js?v=10"></script>
+<script src="lib/tm_xt.js?v=1"></script>                     <!-- xT-ruudukko: tm_pelihavainto käyttää, EI kopiota -->
+<script src="lib/tm_pelihavainto.js?v=1"></script>           <!-- KANONINEN laskenta (§5.6) -->
+<script src="lib/tm_teknistaktiset.js?v=1"></script>         <!-- konseptien kaanon -->
+<script src="lib/tm_konsepti_resolve.js?v=1"></script>       <!-- seuran omat nimet + piilotukset -->
+<script src="lib/tm_joukkue.js?v=3"></script>                <!-- §18 joukkuejäsenyys -->
+
+<style>
+  /* Design-tokenit (CLAUDE.md §5). EI #3EC9A7, EI #4A7ED9, EI #06090F, EI Playfair Display. */
+  :root{
+    --font-serif:'Cormorant Garamond',Georgia,serif;
+    --font-sans:'DM Sans',system-ui,sans-serif;
+    --font-mono:'DM Mono',ui-monospace,monospace;
+    --bg:#111110; --surface:#161614; --surface2:#1C1C1A; --surface3:#141413;
+    --ink:#F2EFE6; --ink2:#C9C6BC; --ink3:#8B887F;
+    --border:rgba(242,239,230,.12); --border2:rgba(242,239,230,.07);
+    --accent:#28B090; --blue:#2A5DB0; --amber:#E0A040; --red:#C94040; --violet:#9A86C8;
+    --teal-dim:rgba(40,176,144,.10); --teal-brd:rgba(40,176,144,.30);
+    --blue-dim:rgba(42,93,176,.14); --blue-brd:rgba(42,93,176,.40);
+    --amber-dim:rgba(224,160,64,.12); --amber-brd:rgba(224,160,64,.32);
+    --red-dim:rgba(201,64,64,.12); --red-brd:rgba(201,64,64,.34);
+    --violet-dim:rgba(154,134,200,.12); --violet-brd:rgba(154,134,200,.34);
+    --pitch:#1A2320; --pitch-line:rgba(242,239,230,.30);
+    color-scheme:dark;
+  }
+  @media (prefers-color-scheme: light){
+    :root:not([data-theme="dark"]){
+      --bg:#F2EFE6; --surface:#FBFAF6; --surface2:#EDEAE0; --surface3:#E4E0D3;
+      --ink:#1C1C1A; --ink2:#3E3C37; --ink3:#7A776E;
+      --border:rgba(28,28,26,.14); --border2:rgba(28,28,26,.08);
+      --pitch:#E3E8DF; --pitch-line:rgba(28,28,26,.35);
+      color-scheme:light;
+    }
+  }
+  :root[data-theme="light"]{
+    --bg:#F2EFE6; --surface:#FBFAF6; --surface2:#EDEAE0; --surface3:#E4E0D3;
+    --ink:#1C1C1A; --ink2:#3E3C37; --ink3:#7A776E;
+    --border:rgba(28,28,26,.14); --border2:rgba(28,28,26,.08);
+    --pitch:#E3E8DF; --pitch-line:rgba(28,28,26,.35);
+    color-scheme:light;
+  }
+  /* Ulkotila: aurinko kentällä — korkeampi kontrasti, ei uusia sävyjä vaan tummempi muste. */
+  body.ulkotila{
+    --surface:#FFFFFF; --surface2:#EDEAE0; --surface3:#D9D5C8;
+    --ink:#111110; --ink2:#1C1C1A; --ink3:#4A4843;
+    --border:rgba(17,17,16,.35); --border2:rgba(17,17,16,.18);
+    --pitch:#F4F6F0; --pitch-line:rgba(17,17,16,.75);
+    color-scheme:light;
+  }
+
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font-sans);font-weight:300;line-height:1.5;-webkit-font-smoothing:antialiased;-webkit-tap-highlight-color:transparent}
+  button{font-family:inherit}
+  button:focus-visible, select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  .wrap{max-width:1180px;margin:0 auto;padding:16px 14px 40px}
+  h1{font-family:var(--font-serif);font-weight:300;font-size:26px;margin:0}
+  .eyebrow{font-size:9.5px;font-weight:600;letter-spacing:.16em;text-transform:uppercase;color:var(--accent)}
+
+  /* ── portti ─────────────────────────────────────────────────────────── */
+  .gate{max-width:440px;margin:12vh auto;padding:26px 24px;background:var(--surface);border:.5px solid var(--border);border-radius:12px}
+  .gate h1{margin-bottom:6px}
+  .gate p{color:var(--ink2);font-size:13px}
+  .gate input, .gate select{width:100%;margin-top:8px;padding:10px 12px;background:var(--surface2);border:.5px solid var(--border);border-radius:8px;color:var(--ink);font-size:14px;font-family:inherit}
+  .gate button{width:100%;margin-top:12px;padding:11px;border:none;border-radius:8px;background:var(--accent);color:#08110E;font-size:14px;font-weight:600;cursor:pointer}
+  .virhe{color:var(--red);font-size:12.5px;margin-top:8px;min-height:16px}
+
+  /* ── asetusrivi ─────────────────────────────────────────────────────── */
+  .setup{display:flex;flex-wrap:wrap;gap:12px 20px;align-items:flex-end;margin:12px 0 14px;padding:12px 14px;border:.5px solid var(--border);background:var(--surface);border-radius:10px}
+  .setup .grp{display:flex;flex-direction:column;gap:5px;min-width:0}
+  .setup .lbl{font-size:9px;font-weight:600;letter-spacing:.13em;text-transform:uppercase;color:var(--ink3)}
+  .seg{display:inline-flex;border:.5px solid var(--border);border-radius:7px;overflow:hidden}
+  .seg button{font-size:11.5px;padding:7px 11px;background:transparent;border:0;color:var(--ink2);cursor:pointer;border-right:.5px solid var(--border)}
+  .seg button:last-child{border-right:0}
+  .seg button[aria-pressed="true"]{background:var(--teal-dim);color:var(--accent);font-weight:500}
+  .setup input[type=text]{padding:7px 9px;background:var(--surface2);border:.5px solid var(--border);border-radius:7px;color:var(--ink);font-size:12px;font-family:inherit;max-width:180px}
+  .setup select{padding:7px 9px;background:var(--surface2);border:.5px solid var(--border);border-radius:7px;color:var(--ink);font-size:12px;font-family:inherit}
+  .linkbtn{background:none;border:0;color:var(--accent);font-size:11.5px;cursor:pointer;padding:4px 0;text-decoration:underline}
+  .rastit{display:none;flex-wrap:wrap;gap:6px;width:100%;padding-top:10px;border-top:.5px solid var(--border2)}
+  .rastit.auki{display:flex}
+  .rasti{font-size:11px;padding:6px 10px;border-radius:14px;border:.5px solid var(--border);background:transparent;color:var(--ink2);cursor:pointer}
+  .rasti[aria-pressed="true"]{background:var(--teal-dim);border-color:var(--teal-brd);color:var(--accent);font-weight:500}
+
+  /* ── kenttä ─────────────────────────────────────────────────────────── */
+  .cols{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:20px;align-items:start}
+  .pitchwrap{position:relative;background:var(--surface);border:.5px solid var(--border);border-radius:12px;overflow:hidden;touch-action:none}
+  .pbar{display:flex;align-items:center;gap:8px;padding:7px 11px;border-bottom:.5px solid var(--border);flex-wrap:wrap}
+  .pbar .nimi{font-family:var(--font-serif);font-size:17px}
+  .pbar .num{font-family:var(--font-mono);font-size:10px;color:var(--ink3)}
+  .fokus{font-size:10.5px;color:var(--accent);border:.5px solid var(--teal-brd);background:var(--teal-dim);padding:3px 8px;border-radius:12px}
+  .pbar .sp{flex:1 1 0}
+  .pbar .dir{font-family:var(--font-mono);font-size:9.5px;color:var(--ink3);letter-spacing:.08em}
+  .ibtn{font-size:11px;padding:6px 9px;border-radius:7px;border:.5px solid var(--border);background:transparent;color:var(--ink2);cursor:pointer}
+  .ibtn:disabled{opacity:.35;cursor:default}
+  #pitch{display:block;width:100%;height:auto;background:var(--pitch);touch-action:none}
+  .chooser{position:absolute;z-index:20;pointer-events:none}
+  .chooser .cbtn{position:absolute;transform:translate(-50%,-50%);pointer-events:auto;min-width:64px;padding:8px 10px;border-radius:9px;border:.5px solid var(--border);background:var(--surface);color:var(--ink);font-size:12px;font-weight:500;cursor:pointer;box-shadow:0 6px 20px rgba(0,0,0,.34);line-height:1.2}
+  .chooser .cbtn .sub{display:block;font-size:8.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink3)}
+  .chooser .cbtn .ic{margin-right:4px}
+  .chooser .cbtn.teal{border-color:var(--teal-brd);background:var(--teal-dim);color:var(--accent)}
+  .chooser .cbtn.blue{border-color:var(--blue-brd);background:var(--blue-dim);color:var(--blue)}
+  .chooser .cbtn.amber{border-color:var(--amber-brd);background:var(--amber-dim);color:var(--amber)}
+  .chooser .cbtn.red{border-color:var(--red-brd);background:var(--red-dim);color:var(--red)}
+  .chooser .cbtn.x{min-width:0;padding:5px 9px;color:var(--ink3)}
+  .chooser .cd{position:absolute;transform:translate(-50%,-50%);font-family:var(--font-mono);font-size:11px;color:var(--ink3)}
+  .hintbar{position:absolute;left:50%;bottom:10px;transform:translateX(-50%);z-index:15;font-size:11.5px;padding:6px 12px;border-radius:14px;background:var(--surface);border:.5px solid var(--teal-brd);color:var(--accent)}
+  .toast{position:absolute;left:50%;bottom:10px;transform:translateX(-50%);z-index:18;display:flex;align-items:center;gap:10px;font-size:11.5px;padding:7px 10px;border-radius:9px;background:var(--surface);border:.5px solid var(--border);color:var(--ink2);box-shadow:0 6px 20px rgba(0,0,0,.3)}
+  .toast button{font-size:11px;padding:4px 9px;border-radius:6px;border:.5px solid var(--border);background:transparent;color:var(--accent);cursor:pointer}
+  .react{position:absolute;left:50%;bottom:10px;transform:translateX(-50%);z-index:19;width:min(300px,86%);padding:10px 12px;border-radius:10px;background:var(--surface);border:.5px solid var(--amber-brd);box-shadow:0 8px 26px rgba(0,0,0,.36)}
+  .react .q{font-size:12px;color:var(--ink);display:flex;justify-content:space-between;gap:8px}
+  .react .q span{font-family:var(--font-mono);font-size:10.5px;color:var(--ink3)}
+  .react .opts{display:flex;gap:8px;margin-top:8px}
+  .react .opts button{flex:1;font-size:12px;padding:8px;border-radius:7px;border:.5px solid var(--border);background:transparent;color:var(--ink2);cursor:pointer}
+  .react .opts .yes{border-color:var(--teal-brd);color:var(--accent);background:var(--teal-dim)}
+  .react .bar{height:2px;background:var(--border2);margin-top:8px;border-radius:2px;overflow:hidden}
+  .react .bar i{display:block;height:100%;width:100%;background:var(--amber)}
+
+  /* ── läpikäynti ─────────────────────────────────────────────────────── */
+  .panel{background:var(--surface);border:.5px solid var(--border);border-radius:12px;padding:12px 14px}
+  .panel h2{font-family:var(--font-serif);font-weight:400;font-size:18px;margin:0 0 2px}
+  .pmeta{font-family:var(--font-mono);font-size:10px;color:var(--ink3);margin-bottom:8px}
+  .entry{padding:8px 0;border-bottom:.5px solid var(--border2)}
+  .entry.linked{padding-left:14px;border-left:1.5px solid var(--teal-brd);margin-left:4px}
+  .erow{display:grid;grid-template-columns:44px minmax(0,1fr) auto;gap:8px;align-items:start}
+  .et{font-family:var(--font-mono);font-size:10px;color:var(--ink3);padding-top:2px}
+  .type{font-size:11.5px;font-weight:500}
+  .type.syotto{color:var(--accent)} .type.syotto-x{color:var(--amber)}
+  .type.kuljetus,.type.etenee{color:var(--accent)} .type.juoksu{color:var(--violet)}
+  .type.riisto{color:var(--blue)} .type.laukaus{color:var(--accent)}
+  .type.vlaukaus{color:var(--red)} .type.menetys{color:var(--amber)}
+  .type.v1-ok{color:var(--accent)} .type.v1-x{color:var(--amber)}
+  .type.v1-def{color:var(--blue)} .type.v1-beaten{color:var(--red)} .type.v1-neutral{color:var(--ink2)}
+  .type.hetki{color:var(--ink3)}
+  .edesc{font-size:11px;color:var(--ink3);margin-top:1px}
+  .ev{font-family:var(--font-mono);font-size:12px;color:var(--ink2);text-align:right;white-space:nowrap}
+  .ev.hi{color:var(--amber)}
+  .ev small{display:block;font-family:var(--font-sans);font-size:8.5px;color:var(--ink3);letter-spacing:.05em}
+  .chips{display:flex;flex-wrap:wrap;gap:5px;margin-top:6px;align-items:center}
+  .lab{font-size:8.5px;letter-spacing:.11em;text-transform:uppercase;color:var(--ink3);margin-right:2px}
+  .chip{font-size:10.5px;padding:4px 8px;border-radius:12px;border:.5px solid var(--border);background:transparent;color:var(--ink2);cursor:pointer}
+  .chip[aria-pressed="true"]{background:var(--teal-dim);border-color:var(--teal-brd);color:var(--accent)}
+  .chip.bad[aria-pressed="true"]{background:var(--amber-dim);border-color:var(--amber-brd);color:var(--amber)}
+  select.konsepti{font-size:10.5px;padding:4px 7px;border-radius:7px;border:.5px solid var(--border);background:var(--surface2);color:var(--ink2);font-family:inherit;max-width:100%}
+  .sum{display:grid;grid-template-columns:repeat(auto-fit,minmax(104px,1fr));gap:8px;margin-top:10px}
+  .sumcell{padding:8px 9px;border:.5px solid var(--border2);border-radius:8px;background:var(--surface2)}
+  .sumcell .v{font-family:var(--font-mono);font-size:15px;color:var(--ink)}
+  .sumcell .k{font-size:9px;color:var(--ink3);letter-spacing:.06em;margin-top:1px}
+  .ketju{font-size:11.5px;color:var(--ink2);padding:5px 0;border-bottom:.5px solid var(--border2)}
+  .ketju b{color:var(--accent);font-weight:500}
+  .ketju.menetetty b{color:var(--amber)}
+  .tyhja{font-size:12px;color:var(--ink3);padding:10px 0}
+  .toolbar{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+  .tbtn{font-size:12px;padding:9px 14px;border-radius:8px;border:.5px solid var(--teal-brd);background:var(--teal-dim);color:var(--accent);font-weight:500;cursor:pointer}
+  .tbtn.sec{border-color:var(--border);background:transparent;color:var(--ink2)}
+  #tallennustila{font-size:11px;color:var(--ink3);align-self:center}
+
+  /* YKSI @media(max-width:768px) per tiedosto (§6) — älä lisää toista lohkoa. */
+  @media (max-width:768px){
+    .wrap{padding:10px 10px 30px}
+    .cols{grid-template-columns:minmax(0,1fr);gap:12px}
+    h1{font-size:21px}
+    .setup{gap:10px 14px;padding:10px}
+    .erow{grid-template-columns:38px minmax(0,1fr) auto}
+    .sum{grid-template-columns:repeat(auto-fit,minmax(88px,1fr))}
+  }
+</style>
+</head>
+<body>
+
+<div id="portti" class="gate" style="display:none">
+  <div class="eyebrow" data-i18n="Kenttätyökalu">Kenttätyökalu</div>
+  <h1 data-i18n="Kohdennettu pelihavainto">Kohdennettu pelihavainto</h1>
+  <p id="porttiTeksti" data-i18n="Kirjaudu seuran tunnuksella.">Kirjaudu seuran tunnuksella.</p>
+  <div id="porttiKentat"></div>
+  <div class="virhe" id="porttiVirhe"></div>
+</div>
+
+<div id="sovellus" class="wrap" style="display:none">
+  <div class="eyebrow" data-i18n="Kenttätyökalu">Kenttätyökalu</div>
+  <h1 data-i18n="Kohdennettu pelihavainto">Kohdennettu pelihavainto</h1>
+
+  <div class="setup" id="asetukset"></div>
+
+  <div class="cols">
+    <div>
+      <div class="pitchwrap" id="kenttalaatikko">
+        <div class="pbar" id="pbar"></div>
+        <svg id="pitch" viewBox="0 0 530 350" preserveAspectRatio="xMidYMid meet" aria-label="Kenttä"></svg>
+      </div>
+      <div class="toolbar">
+        <button class="tbtn sec" type="button" id="btnKumoa" disabled data-i18n="↩ Kumoa">↩ Kumoa</button>
+        <button class="tbtn sec" type="button" id="btnHetki" data-i18n="📌 Hetki">📌 Hetki</button>
+        <button class="tbtn sec" type="button" id="btnUlkotila" aria-pressed="false" data-i18n="☀ Ulkotila">☀ Ulkotila</button>
+        <button class="tbtn" type="button" id="btnTallenna" data-i18n="Tallenna">Tallenna</button>
+        <span id="tallennustila"></span>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2 data-i18n="Puoliajan läpikäynti">Puoliajan läpikäynti</h2>
+      <div class="pmeta" id="rmeta"></div>
+      <div id="merkinnat"></div>
+      <div id="ketjut"></div>
+      <div id="yhteenveto"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ════════════════════════════════════════════════════════════════════════
+   FIREBASE INIT — App Check heti initin jälkeen, ENNEN 1. backend-kutsua (§38)
+   ════════════════════════════════════════════════════════════════════════ */
+const firebaseConfig = {
+  apiKey: "AIzaSyAp471lOIntzP33p9bIW3y4KbeEyBt5kIo",
+  authDomain: "talentmaster-pilot.firebaseapp.com",
+  projectId: "talentmaster-pilot",
+  storageBucket: "talentmaster-pilot.firebasestorage.app",
+  messagingSenderId: "872561784446",
+  appId: "1:872561784446:web:05c4c7996dfd46ddd14a2f"
+};
+firebase.initializeApp(firebaseConfig);
+tmAppCheckAktivoi();
+const _auth = firebase.auth();
+const _db = firebase.firestore();
+</script>
+
+<script>
+(function () {
+  'use strict';
+  var PH = window.TM_PELIHAVAINTO || {};
+
+  /* i18n: kaikki näyttöteksti kulkee phT:n läpi. sv tulee Gemini-erästä (yhteinen kartta),
+     tässä ei kirjoiteta ruotsia. */
+  function phT(fi) { return (typeof tmI18nResolve === 'function') ? tmI18nResolve(fi, null) : fi; }
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) {
+      return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c];
+    });
+  }
+  function q(id) { return document.getElementById(id); }
+  function klamppi(v, a, b) { return Math.max(a, Math.min(b, v)); }
+
+  /* ── TILA ──────────────────────────────────────────────────────────── */
+  var S = {
+    seuraId: null, pelaajaId: null, pelaaja: null, seura: null,
+    rooli: null, superAdmin: false, uid: null,
+    ikataso: 'u812', pelimuoto: '11v11', pelipaikka: '',
+    puoliaika: 1, seisoo: 'lahi', kello: 0, alkoi: null,
+    vastustaja: '', kalenteriId: null, jaksofokus: null,
+    kirjattavat: [], merkinnat: [], seq: 0, viimeisinId: null, odottaa: null,
+  };
+  var K = {};                 // rastit avainmuodossa { syotto:true, ... }
+
+  function rastitListaksi() {
+    return (PH.PH_KIRJATTAVAT || []).filter(function (x) { return K[x]; });
+  }
+  function asetaPohja(pelipaikka) {
+    S.pelipaikka = pelipaikka || '';
+    K = {};
+    (PH.phPohja ? PH.phPohja(S.pelipaikka) : []).forEach(function (x) { K[x] = true; });
+  }
+
+  /* ── PELIMUOTO IKÄTASON MUKAAN ─────────────────────────────────────── */
+  function oletusPelimuoto(ikataso) {
+    if (ikataso === 'u812') return '8v8';
+    return '11v11';
+  }
+
+  /* ── NÄYTTÖTEKSTIT (avain → teksti; laskenta antaa avaimia, UI kääntää) ── */
+  var TXT_LOPPU = { syotto: 'Syöttö', laukaus: 'Laukaisu', menetys: 'Menetys', rikottiin: 'Rikottiin', sailyi: 'Pallo säilyi' };
+  var TXT_JATKO = { syotto: 'syöttö', kuljetus: 'kuljetus', laukaus: 'laukaisu', menetys: 'menetys', sailyi: 'pallo säilyi' };
+  var TXT_TAPA = { katkaisu: 'Katkaisu', taklaus: 'Taklaus', irtopallo: 'Irtopallo' };
+  var TXT_JATKOD = { syotto: 'syöttö', kuljetus: 'kuljetus', sailyi: 'säilyi omilla', selvitys: 'selvitys', menetys: 'menetys heti', rikottiin: 'rikottiin' };
+  var TXT_VLAUK = { blokattu: 'blokattu', torjuttu: 'torjuttu', maali: 'maali', ohi: 'ohi' };
+  var TXT_V1 = { ohitti: 'Ohitti', ei_ohittanut: 'Ei ohittanut', rikottiin: 'Rikottiin', voitti: 'Voitti pallon', viivytti: 'Viivytti', ohitettiin: 'Ohitettiin' };
+  var TXT_TYYPPI = { kuljetus: 'Kuljetus', etenee: 'Eteni', juoksu: 'Juoksu ilman palloa', riisto: 'Riisto', laukaus: 'Laukaisu', menetys: 'Menetys', hetki: 'Hetki' };
+  var TXT_KAISTA = {
+    vasen_laita: 'vasen laita', vasen_puolikaista: 'vasen puoliväli', keskusta: 'keskusta',
+    oikea_puolikaista: 'oikea puoliväli', oikea_laita: 'oikea laita',
+  };
+  var TXT_KOLMANNES = { puolustus: 'oma kolmannes', keski: 'keskialue', hyokkays: 'hyökkäyskolmannes' };
+  /* Ketjunimet tulevat libin phKetjuNimi:stä AVAIMINA — käännös on tässä, ei libissä. */
+  var TXT_KETJU = {
+    syotto: 'syöttö', syotto_ei: 'syöttö ei perille', keskitys: 'keskitys', kuljetus: 'kuljetus',
+    ohitus: 'ohitus', voitto_1v1: '1v1-voitto', riisto: 'riisto', menetys: 'menetys',
+    laukaus: 'laukaus', viivytti: 'viivytti', ohitettiin: 'ohitettiin', kaksinpeli: '1v1',
+    juoksu: 'juoksu', laukaus_vastaan: 'vastustajan laukaus', hetki: 'hetki',
+  };
+
+  function nimiMerkinnalle(m) {
+    if (m.tyyppi === 'syotto') return phT(m.perilla === false ? 'Syöttö ✗' : (m.perilla === true ? 'Syöttö ✓' : 'Syöttö'));
+    if (m.tyyppi === 'kaksinpeli') {
+      return phT('1v1') + ' ' + phT(m.rooli === 'hyokkays' ? 'hyökkäys' : 'puolustus')
+        + ' · ' + phT(TXT_V1[m.tulos] || 'tulos?');
+    }
+    if (m.tyyppi === 'laukaus_vastaan') {
+      return phT('Vastustajan laukaus') + (m.tulos ? ' · ' + phT(TXT_VLAUK[m.tulos]) : '');
+    }
+    return phT(TXT_TYYPPI[m.tyyppi] || m.tyyppi);
+  }
+  function vyohykeTeksti(p) {
+    var v = PH.phVyohyke ? PH.phVyohyke(p) : null;
+    if (!v) return '';
+    return phT(TXT_KOLMANNES[v.kolmannes] || v.kolmannes) + ', ' + phT(TXT_KAISTA[v.kaista] || v.kaista);
+  }
+  function kelloTeksti(s) {
+    var m = Math.floor(s / 60), ss = s % 60;
+    return (m < 10 ? '0' : '') + m + ':' + (ss < 10 ? '0' : '') + ss;
+  }
+  function num(v, merkki) {
+    var s = Math.abs(v).toFixed(1).replace('.', ',');
+    if (!merkki) return s;
+    return v > 0 ? '+' + s : (v < 0 ? '−' + s : '±0,0');
+  }
+
+  function onHyokkays1v1(m) { return m.tyyppi === 'kaksinpeli' && m.rooli === 'hyokkays'; }
+  function onPuolustus1v1(m) { return m.tyyppi === 'kaksinpeli' && m.rooli === 'puolustus'; }
+  function onMenetys(m) {
+    return m.tyyppi === 'menetys' || (m.tyyppi === 'syotto' && m.perilla === false)
+      || (onHyokkays1v1(m) && m.tulos === 'ei_ohittanut');
+  }
+  function vaatiiReaktion(m) { return onMenetys(m) || (onPuolustus1v1(m) && m.tulos === 'ohitettiin'); }
+
+  /* ── KENTTÄ ────────────────────────────────────────────────────────── */
+  var svg, NS = 'http://www.w3.org/2000/svg';
+  var W = 530, H = 350, PX = 12, PY = 12, IW = W - 2 * PX, IH = H - 2 * PY;
+  var kerrosMerkinnat, kerrosLive, laatikko;
+
+  function luo(tag, attr, parent) {
+    var e = document.createElementNS(NS, tag);
+    for (var k in attr) if (Object.prototype.hasOwnProperty.call(attr, k)) e.setAttribute(k, attr[k]);
+    (parent || svg).appendChild(e);
+    return e;
+  }
+  /* Näytön kääntö tulee LIBISTÄ (phNaytolle/phNaytolta) — sivu ei laske puoliaika/seisomapaikka
+     -peilausta itse, jottei tallennettu piste voi kääntyä eri tavalla kuin se luetaan. */
+  function kaantoOpts() { return { puoliaika: S.puoliaika, seisoo: S.seisoo }; }
+  function ruudulle(p) {
+    var n = PH.phNaytolle(p, kaantoOpts());
+    return n ? { x: PX + n.x / 100 * IW, y: PY + n.y / 100 * IH } : null;
+  }
+  function kentalle(sx, sy) {
+    return PH.phNaytolta((sx - PX) / IW * 100, (sy - PY) / IH * 100, kaantoOpts());
+  }
+
+  function piirraKentta() {
+    svg.innerHTML = '';
+    var g = luo('g', {});
+    var L = { fill: 'none', stroke: 'var(--pitch-line)', 'stroke-width': 1 };
+    luo('rect', { x: PX, y: PY, width: IW, height: IH, fill: 'none', stroke: 'var(--pitch-line)', 'stroke-width': 1 }, g);
+    luo('line', { x1: PX + IW / 2, y1: PY, x2: PX + IW / 2, y2: PY + IH, stroke: 'var(--pitch-line)', 'stroke-width': 1 }, g);
+    luo('circle', Object.assign({ cx: PX + IW / 2, cy: PY + IH / 2, r: IH * 0.14 }, L), g);
+    [0, 1].forEach(function (i) {
+      var bw = IW * 0.16, bh = IH * 0.58;
+      var x = i ? PX + IW - bw : PX;
+      luo('rect', Object.assign({ x: x, y: PY + (IH - bh) / 2, width: bw, height: bh }, L), g);
+      var sw = IW * 0.06, sh = IH * 0.26;
+      var sx = i ? PX + IW - sw : PX;
+      luo('rect', Object.assign({ x: sx, y: PY + (IH - sh) / 2, width: sw, height: sh }, L), g);
+    });
+    kerrosMerkinnat = luo('g', {}, g);
+    kerrosLive = luo('g', {}, g);
+  }
+
+  function variMerkinnalle(m) {
+    if (m.tyyppi === 'laukaus_vastaan') return 'var(--red)';
+    if (m.tyyppi === 'juoksu') return 'var(--violet)';
+    if (m.tyyppi === 'riisto') return 'var(--blue)';
+    if (m.tyyppi === 'menetys') return 'var(--amber)';
+    if (m.tyyppi === 'syotto' && m.perilla === false) return 'var(--amber)';
+    if (m.tyyppi === 'kaksinpeli') {
+      if (onHyokkays1v1(m)) return m.tulos === 'ei_ohittanut' ? 'var(--amber)' : 'var(--accent)';
+      return m.tulos === 'ohitettiin' ? 'var(--red)' : 'var(--blue)';
+    }
+    return 'var(--accent)';
+  }
+
+  function piirraMerkinnat() {
+    if (!kerrosMerkinnat) return;
+    kerrosMerkinnat.innerHTML = '';
+    S.merkinnat.filter(function (m) { return m.puoliaika === S.puoliaika && !m.eiSijaintia; }).forEach(function (m) {
+      var vari = variMerkinnalle(m);
+      if (m.alku && m.loppu) {
+        var a = ruudulle(m.alku), b = ruudulle(m.loppu);
+        if (!a || !b) return;
+        luo('line', {
+          x1: a.x, y1: a.y, x2: b.x, y2: b.y, stroke: vari, 'stroke-width': 2,
+          'stroke-dasharray': (m.tyyppi === 'juoksu' ? '2 4' : (m.perilla === false ? '5 4' : '')),
+          opacity: .85,
+        }, kerrosMerkinnat);
+        luo('circle', { cx: b.x, cy: b.y, r: 3, fill: vari }, kerrosMerkinnat);
+      } else if (m.piste) {
+        var p = ruudulle(m.piste);
+        if (!p) return;
+        luo('circle', { cx: p.x, cy: p.y, r: 4.5, fill: 'none', stroke: vari, 'stroke-width': 2 }, kerrosMerkinnat);
+      }
+    });
+  }
+
+  /* ── VALITSIN ──────────────────────────────────────────────────────── */
+  var valitsin = null;
+  function svgPiste(ev) {
+    var pt = svg.createSVGPoint(); pt.x = ev.clientX; pt.y = ev.clientY;
+    var r = pt.matrixTransform(svg.getScreenCTM().inverse());
+    return { x: r.x, y: r.y };
+  }
+  function laatikkoPos(p) {
+    var pt = svg.createSVGPoint(); pt.x = p.x; pt.y = p.y;
+    var c = pt.matrixTransform(svg.getScreenCTM());
+    var br = laatikko.getBoundingClientRect();
+    return { x: c.x - br.left, y: c.y - br.top };
+  }
+  function suljeValitsin(peru) {
+    if (!valitsin) return;
+    var v = valitsin; valitsin = null; clearInterval(v.timer); v.el.remove();
+    if (!peru && v.aikakatkaisu) v.aikakatkaisu();
+  }
+  function naytaValitsin(sp, items, ikkunaMs, aikakatkaisu) {
+    suljeValitsin(true);
+    var pos = laatikkoPos(sp), bw = laatikko.clientWidth, bh = laatikko.clientHeight;
+    var ylos = pos.y > bh * 0.45 ? -1 : 1;
+    var el = document.createElement('div'); el.className = 'chooser';
+    el.style.left = pos.x + 'px'; el.style.top = pos.y + 'px';
+    el.innerHTML = ikkunaMs ? '<div class="cd"></div>' : '';
+    var n = items.length, sade = Math.min(84, Math.max(62, bh * 0.28));
+    items.forEach(function (it, i) {
+      var levitys = n > 3 ? 80 : 70, rr = n > 3 ? sade * 1.25 : sade;
+      var kulma = n === 1 ? 0 : (-levitys + 2 * levitys * i / (n - 1));
+      var rad = kulma * Math.PI / 180;
+      var dx = Math.sin(rad) * rr * (n > 3 ? 1.6 : 1), dy = Math.cos(rad) * rr * ylos;
+      var b = document.createElement('button'); b.type = 'button'; b.className = 'cbtn ' + (it.cls || '');
+      b.innerHTML = (it.sub ? '<span class="sub">' + esc(phT(it.sub)) + '</span>' : '')
+        + (it.ic ? '<span class="ic">' + it.ic + '</span>' : '') + esc(phT(it.t));
+      b.style.left = (klamppi(pos.x + dx, 40, bw - 40) - pos.x) + 'px';
+      b.style.top = (klamppi(pos.y + dy, 28, bh - 28) - pos.y) + 'px';
+      b.addEventListener('pointerdown', function (ev) { ev.stopPropagation(); });
+      b.addEventListener('click', function (ev) {
+        ev.stopPropagation();
+        var v = valitsin; valitsin = null;
+        if (v) { clearInterval(v.timer); v.el.remove(); }
+        it.fn();
+      });
+      el.appendChild(b);
+    });
+    var x = document.createElement('button'); x.type = 'button'; x.className = 'cbtn x';
+    x.textContent = '✕'; x.title = phT('Peru');
+    x.style.left = '0px'; x.style.top = (-44 * ylos) + 'px';
+    x.addEventListener('pointerdown', function (ev) { ev.stopPropagation(); });
+    x.addEventListener('click', function (ev) { ev.stopPropagation(); suljeValitsin(true); });
+    el.appendChild(x);
+    laatikko.appendChild(el);
+    valitsin = { el: el, aikakatkaisu: aikakatkaisu, timer: null };
+    if (ikkunaMs) {
+      var alku = Date.now(), cd = el.querySelector('.cd');
+      valitsin.timer = setInterval(function () {
+        var jaljella = ikkunaMs - (Date.now() - alku);
+        if (cd) cd.textContent = Math.max(0, Math.ceil(jaljella / 1000));
+        if (jaljella <= 0) suljeValitsin(false);
+      }, 100);
+    }
+  }
+
+  /* ── ELEET (kolme: napautus · pyyhkäisy · pito) ────────────────────── */
+  var veto = null;
+  function alustaEleet() {
+    svg.addEventListener('pointerdown', function (ev) {
+      if (valitsin) suljeValitsin(false);
+      if (reaktioEl) paataReaktio('ei');
+      try { svg.setPointerCapture(ev.pointerId); } catch (e) { /* ei kriittinen */ }
+      var p = svgPiste(ev);
+      veto = { alku: p, liikkui: false, pito: false, viiva: null };
+      veto.ajastin = setTimeout(function () {
+        if (veto && !veto.liikkui && K.juoksu) {
+          veto.pito = true; varise(8);
+          luo('circle', { cx: p.x, cy: p.y, r: 14, fill: 'none', stroke: 'var(--violet)', 'stroke-width': 1.5 }, kerrosLive);
+        }
+      }, 380);
+    });
+    svg.addEventListener('pointermove', function (ev) {
+      if (!veto) return;
+      var p = svgPiste(ev), dx = p.x - veto.alku.x, dy = p.y - veto.alku.y;
+      if (!veto.liikkui && Math.sqrt(dx * dx + dy * dy) > 20) { veto.liikkui = true; clearTimeout(veto.ajastin); }
+      if (veto.liikkui) {
+        var c = veto.pito ? 'var(--violet)' : 'var(--accent)';
+        if (!veto.viiva) {
+          veto.viiva = luo('line', {
+            x1: veto.alku.x, y1: veto.alku.y, x2: p.x, y2: p.y, stroke: c,
+            'stroke-width': 2.5, 'stroke-dasharray': veto.pito ? '2 4' : '6 4',
+          }, kerrosLive);
+        }
+        veto.viiva.setAttribute('x2', p.x); veto.viiva.setAttribute('y2', p.y);
+      }
+    });
+    svg.addEventListener('pointerup', paataVeto);
+    svg.addEventListener('pointercancel', paataVeto);
+  }
+  function paataVeto(ev) {
+    if (!veto) return;
+    clearTimeout(veto.ajastin);
+    var d = veto; veto = null;
+    if (kerrosLive) kerrosLive.innerHTML = '';
+    if (ev.type === 'pointercancel') return;
+    var p = svgPiste(ev);
+    if (d.liikkui) {
+      var alku = kentalle(d.alku.x, d.alku.y), loppu = kentalle(p.x, p.y);
+      if (d.pito && K.juoksu) { lisaa({ tyyppi: 'juoksu', alku: alku, loppu: loppu }); return; }
+      if (S.odottaa) {
+        var w = S.odottaa; S.odottaa = null; vihje(null);
+        if (w.laji === 'syotto') { kysySyotonTulos(p, { tyyppi: 'syotto', alku: alku, loppu: loppu, ketju: w.juuriId }); return; }
+        var k = lisaa({ tyyppi: 'kuljetus', alku: alku, loppu: loppu, ketju: w.juuriId });
+        kysyKuljetuksenLoppu(p, k); return;
+      }
+      kysySiirronTyyppi(p, alku, loppu);
+    } else if (!d.pito) {
+      avaaNapautusvalikko(d.alku);
+    }
+  }
+
+  /* NAPAUTUSVALIKKO — enintään NELJÄ vaihtoehtoa (§0.1). Omalla kolmanneksella oma laukaus
+     vaihtuu vastustajan laukaukseen: sieltä ei ammuta kohti vastustajan maalia. */
+  /* YKSI LÄHDE: valikon SISÄLTÖ päätetään täällä ja DOM rakennetaan siitä. Erillinen replika
+     testejä varten olisi voinut ajautua erilleen — silloin vartija olisi vartioinut kopiota. */
+  function napautusvalikonAvaimet(piste, rastit) {
+    var r = rastit || K, out = [];
+    var v = PH.phVyohyke ? PH.phVyohyke(piste) : null;
+    if (v && v.kolmannes === 'puolustus' && r.vastustajan_laukaus) out.push('vastustajan_laukaus');
+    else if (r.laukaus) out.push('laukaus');
+    if (r.riisto) out.push('riisto');
+    if (r.menetys) out.push('menetys');
+    if (r.v1) out.push('v1');
+    return out;
+  }
+  window._phNapautusvalikkoItems = napautusvalikonAvaimet;
+
+  function avaaNapautusvalikko(sp) {
+    var piste = kentalle(sp.x, sp.y);
+    var TEOT = {
+      vastustajan_laukaus: { cls: 'red', ic: '⚠', t: 'Vastustajan laukaus', fn: function () { kysyVastustajanLaukaus(sp, piste); } },
+      laukaus: { cls: 'teal', ic: '🎯', t: 'Laukaisu', fn: function () { kysyLaukaus(sp, piste, null); } },
+      riisto: { cls: 'blue', ic: '🛡️', t: 'Riisto', fn: function () { var e = lisaa({ tyyppi: 'riisto', piste: piste }); kysyRiistonJatko(sp, e); } },
+      menetys: { cls: 'amber', ic: '↩', t: 'Menetys', fn: function () { lisaa({ tyyppi: 'menetys', piste: piste }); } },
+      v1: { cls: '', ic: '⚔', t: '1v1', fn: function () { kysy1v1(sp, piste); } },
+    };
+    var items = napautusvalikonAvaimet(piste).map(function (a) { return TEOT[a]; });
+    if (!items.length) return;
+    naytaValitsin(sp, items, 0, null);
+  }
+
+  function kysyVastustajanLaukaus(sp, piste) {
+    var mk = function (t) { return function () { lisaa({ tyyppi: 'laukaus_vastaan', piste: piste, tulos: t }); }; };
+    naytaValitsin(sp, [
+      { cls: 'blue', t: 'Blokattu', fn: mk('blokattu') },
+      { cls: '', t: 'Torjuttu', fn: mk('torjuttu') },
+      { cls: 'red', t: 'Maali', fn: mk('maali') },
+      { cls: '', t: 'Ohi', fn: mk('ohi') },
+    ], PH.PH_VALINTA_IKKUNA_MS, function () { lisaa({ tyyppi: 'laukaus_vastaan', piste: piste, tulos: null }); });
+  }
+  function kysy1v1(sp, piste) {
+    var mk = function (rooli, tulos) {
+      return function () {
+        var e = lisaa({ tyyppi: 'kaksinpeli', rooli: rooli, tulos: tulos, piste: piste });
+        if (rooli === 'hyokkays' && tulos === 'ohitti') kysyOhituksenJatko(sp, e);
+        if (rooli === 'puolustus' && tulos === 'voitti') kysyRiistonJatko(sp, e);
+      };
+    };
+    naytaValitsin(sp, [
+      { cls: 'teal', sub: 'Hyökkäys', t: 'Ohitti ✓', fn: mk('hyokkays', 'ohitti') },
+      { cls: 'amber', sub: 'Hyökkäys', t: 'Ei ohittanut', fn: mk('hyokkays', 'ei_ohittanut') },
+      { cls: 'blue', sub: 'Puolustus', t: 'Voitti pallon', fn: mk('puolustus', 'voitti') },
+      { cls: '', sub: 'Puolustus', t: 'Viivytti', fn: mk('puolustus', 'viivytti') },
+      { cls: 'red', sub: 'Puolustus', t: 'Ohitettiin', fn: mk('puolustus', 'ohitettiin') },
+    ], 0, null);
+  }
+  function kysyRiistonJatko(sp, e) {
+    naytaValitsin(sp, [
+      { cls: 'teal', ic: '↗', t: 'Syöttö', fn: function () { e.jatko = 'syotto'; odotaPyyhkaisya(e.piste, e.id, 'syotto'); } },
+      { cls: 'teal', ic: '➜', t: 'Kuljetus', fn: function () { e.jatko = 'kuljetus'; odotaPyyhkaisya(e.piste, e.id, 'kuljetus'); } },
+      { cls: 'blue', ic: '●', t: 'Säilyi omilla', fn: function () { e.jatko = 'sailyi'; piirra(); } },
+      { cls: '', ic: '⤴', t: 'Selvitys', fn: function () { e.jatko = 'selvitys'; piirra(); } },
+      { cls: 'amber', ic: '↩', t: 'Menetys', fn: function () { e.jatko = 'menetys'; lisaa({ tyyppi: 'menetys', piste: e.piste, ketju: e.id }); } },
+      { cls: 'blue', ic: '⚑', t: 'Rikottiin', fn: function () { e.jatko = 'rikottiin'; piirra(); } },
+    ], PH.PH_VALINTA_IKKUNA_MS, function () { piirra(); });
+  }
+  function kysyOhituksenJatko(sp, e) {
+    naytaValitsin(sp, [
+      { cls: 'teal', ic: '↗', t: 'Syöttö', fn: function () { e.jatko = 'syotto'; odotaPyyhkaisya(e.piste, e.id, 'syotto'); } },
+      { cls: 'teal', ic: '➜', t: 'Kuljetus', fn: function () { e.jatko = 'kuljetus'; odotaPyyhkaisya(e.piste, e.id, 'kuljetus'); } },
+      { cls: 'teal', ic: '🎯', t: 'Laukaisu', fn: function () { e.jatko = 'laukaus'; piirra(); kysyLaukaus(sp, e.piste, e.id); } },
+      { cls: 'amber', ic: '↩', t: 'Menetys', fn: function () { e.jatko = 'menetys'; lisaa({ tyyppi: 'menetys', piste: e.piste, ketju: e.id }); } },
+      { cls: '', ic: '●', t: 'Säilyi', fn: function () { e.jatko = 'sailyi'; piirra(); } },
+    ], PH.PH_VALINTA_IKKUNA_MS, function () { piirra(); });
+  }
+  function odotaPyyhkaisya(piste, juuriId, laji) {
+    if (!K[laji]) { piirra(); return; }        // rasti pois: lopputulos kirjataan, pyyhkäisyä ei pyydetä
+    S.odottaa = { len: piste.len, wid: piste.wid, juuriId: juuriId, laji: laji };
+    vihje(laji === 'syotto' ? 'Pyyhkäise syöttö' : 'Pyyhkäise kuljetus');
+    piirra();
+  }
+  function kysySiirronTyyppi(sp, alku, loppu) {
+    if (!K.syotto && !K.kuljetus) return;
+    if (!K.syotto) { var ek = lisaa({ tyyppi: 'kuljetus', alku: alku, loppu: loppu }); kysyKuljetuksenLoppu(sp, ek); return; }
+    var items = [
+      { cls: 'teal', ic: '✓', t: 'Syöttö perille', fn: function () { lisaa({ tyyppi: 'syotto', alku: alku, loppu: loppu, perilla: true }); } },
+      { cls: 'amber', ic: '✗', t: 'Syöttö ei perille', fn: function () { lisaa({ tyyppi: 'syotto', alku: alku, loppu: loppu, perilla: false }); } },
+    ];
+    if (K.kuljetus) items.push({ cls: 'teal', ic: '➜', t: 'Kuljetus', fn: function () { var e = lisaa({ tyyppi: 'kuljetus', alku: alku, loppu: loppu }); kysyKuljetuksenLoppu(sp, e); } });
+    naytaValitsin(sp, items, PH.PH_VALINTA_IKKUNA_MS, function () {
+      lisaa(K.kuljetus ? { tyyppi: 'etenee', alku: alku, loppu: loppu } : { tyyppi: 'syotto', alku: alku, loppu: loppu });
+    });
+  }
+  function kysySyotonTulos(sp, pohja) {
+    naytaValitsin(sp, [
+      { cls: 'teal', ic: '✓', t: 'Perillä', fn: function () { pohja.perilla = true; lisaa(pohja); } },
+      { cls: 'amber', ic: '✗', t: 'Ei perillä', fn: function () { pohja.perilla = false; lisaa(pohja); } },
+    ], PH.PH_VALINTA_IKKUNA_MS, function () { lisaa(pohja); });
+  }
+  function kysyKuljetuksenLoppu(sp, e) {
+    naytaValitsin(sp, [
+      { cls: 'teal', ic: '↗', t: 'Syöttö', fn: function () { e.lopputuote = 'syotto'; odotaPyyhkaisya(e.loppu, e.id, 'syotto'); } },
+      { cls: 'teal', ic: '🎯', t: 'Laukaisu', fn: function () { e.lopputuote = 'laukaus'; piirra(); kysyLaukaus(sp, e.loppu, e.id); } },
+      { cls: 'amber', ic: '↩', t: 'Menetys', fn: function () { e.lopputuote = 'menetys'; lisaa({ tyyppi: 'menetys', piste: e.loppu, ketju: e.id }); } },
+      { cls: 'blue', ic: '⚑', t: 'Rikottiin', fn: function () { e.lopputuote = 'rikottiin'; piirra(); } },
+      { cls: '', ic: '●', t: 'Säilyi', fn: function () { e.lopputuote = 'sailyi'; piirra(); } },
+    ], PH.PH_VALINTA_IKKUNA_MS, function () { piirra(); });
+  }
+  function kysyLaukaus(sp, piste, juuri) {
+    var mk = function (t) { return function () { lisaa({ tyyppi: 'laukaus', piste: piste, tulos: t, ketju: juuri || undefined }); }; };
+    naytaValitsin(sp, [
+      { cls: 'teal', t: 'Maali', fn: mk('maali') },
+      { cls: 'teal', t: 'Torjuttu', fn: mk('torjuttu') },
+      { cls: '', t: 'Ohi', fn: mk('ohi') },
+      { cls: '', t: 'Blokattu', fn: mk('blokattu') },
+    ], PH.PH_VALINTA_IKKUNA_MS, function () { lisaa({ tyyppi: 'laukaus', piste: piste, tulos: null, ketju: juuri || undefined }); });
+  }
+
+  var vihjeEl = null;
+  function vihje(t) {
+    if (vihjeEl) { vihjeEl.remove(); vihjeEl = null; }
+    if (!t) return;
+    vihjeEl = document.createElement('div'); vihjeEl.className = 'hintbar';
+    vihjeEl.textContent = phT(t);
+    laatikko.appendChild(vihjeEl);
+  }
+  function varise(ms) { try { if (navigator.vibrate) navigator.vibrate(ms || 15); } catch (e) { /* ei tuettu */ } }
+
+  /* ── MERKINNÄN LISÄYS ──────────────────────────────────────────────── */
+  function lisaa(m) {
+    m.id = ++S.seq;
+    m.puoliaika = S.puoliaika;
+    m.t = kelloSekunnit();
+    if (m.konsepti == null) m.konsepti = '';
+    S.merkinnat.push(m);
+    S.viimeisinId = m.id;
+    varise(15);
+    piirra();
+    naytaKumoa(m);
+    tallennaLuonnos();
+    if (vaatiiReaktion(m) && K.reaktio) kysyReaktio(m);
+    return m;
+  }
+  function kelloSekunnit() {
+    if (!S.alkoi) return 0;
+    return Math.max(0, Math.round((Date.now() - S.alkoi) / 1000));
+  }
+
+  var kumoaEl = null, kumoaAjastin = null;
+  function naytaKumoa(m) {
+    piilotaKumoa();
+    kumoaEl = document.createElement('div'); kumoaEl.className = 'toast';
+    var s = document.createElement('span');
+    s.textContent = nimiMerkinnalle(m) + ' · ' + kelloTeksti(m.t);
+    kumoaEl.appendChild(s);
+    var b = document.createElement('button'); b.type = 'button'; b.textContent = phT('Kumoa');
+    b.onclick = kumoa;
+    kumoaEl.appendChild(b);
+    laatikko.appendChild(kumoaEl);
+    q('btnKumoa').disabled = false;
+    kumoaAjastin = setTimeout(function () { piilotaKumoa(); q('btnKumoa').disabled = true; }, 5000);
+  }
+  function piilotaKumoa() {
+    clearTimeout(kumoaAjastin);
+    if (kumoaEl) { kumoaEl.remove(); kumoaEl = null; }
+  }
+  function kumoa() {
+    if (S.viimeisinId == null) return;
+    var id = S.viimeisinId;
+    S.merkinnat = S.merkinnat.filter(function (x) { return x.id !== id; });
+    if (S.odottaa && S.odottaa.juuriId === id) { S.odottaa = null; vihje(null); }
+    S.viimeisinId = null; piilotaKumoa();
+    if (reaktioEl) paataReaktio(null, true);
+    suljeValitsin(true);
+    q('btnKumoa').disabled = true;
+    varise(30); piirra(); tallennaLuonnos();
+  }
+
+  /* ── REAKTIOKYSELY ─────────────────────────────────────────────────── */
+  var reaktioEl = null, reaktioAjastin = null, reaktioKohde = null;
+  function kysyReaktio(m) {
+    if (reaktioEl) paataReaktio('ei');
+    reaktioKohde = m;
+    var ohitettu = onPuolustus1v1(m);
+    reaktioEl = document.createElement('div'); reaktioEl.className = 'react';
+    reaktioEl.innerHTML = '<div class="q">'
+      + esc(phT(ohitettu ? 'Palautuiko heti ohituksen jälkeen?' : 'Reagoiko heti menetyksen jälkeen?'))
+      + '<span>5 s</span></div><div class="opts">'
+      + '<button type="button" class="yes">✓ ' + esc(phT(ohitettu ? 'Palautui' : 'Reagoi heti')) + '</button>'
+      + '<button type="button" class="no">✗ ' + esc(phT('Jäi')) + '</button></div>'
+      + '<div class="bar"><i></i></div>';
+    laatikko.appendChild(reaktioEl);
+    var bar = reaktioEl.querySelector('.bar i'), sek = reaktioEl.querySelector('.q span'), alku = Date.now();
+    reaktioAjastin = setInterval(function () {
+      var jaljella = 5000 - (Date.now() - alku);
+      bar.style.width = Math.max(0, jaljella / 50) + '%';
+      sek.textContent = Math.ceil(Math.max(0, jaljella) / 1000) + ' s';
+      if (jaljella <= 0) paataReaktio('ei');
+    }, 100);
+    reaktioEl.querySelector('.yes').onclick = function () { varise(15); paataReaktio('heti'); };
+    reaktioEl.querySelector('.no').onclick = function () { varise(15); paataReaktio('jai'); };
+  }
+  function paataReaktio(v, hiljaa) {
+    clearInterval(reaktioAjastin);
+    if (reaktioKohde && v) reaktioKohde.reaktio = v;
+    reaktioKohde = null;
+    if (reaktioEl) { reaktioEl.remove(); reaktioEl = null; }
+    if (!hiljaa) { piirra(); tallennaLuonnos(); }
+  }
+
+  /* ── ARVOT LIBISTÄ ─────────────────────────────────────────────────── */
+  function naytaLuvut() { return PH.phNaytaLuvut ? PH.phNaytaLuvut(S.ikataso) : true; }
+
+  function tiedot(m) {
+    var o = { kuvaus: '', arvo: '', ala: '', hi: false };
+    if (m.eiSijaintia && m.tyyppi !== 'hetki') {
+      o.kuvaus = phT('Täydennetty tauolla, ilman sijaintia'); o.arvo = '—'; return o;
+    }
+    if (m.tyyppi === 'hetki') { o.kuvaus = phT('📌 Merkitty nopeasti. Täydennä tyyppi.'); o.arvo = '—'; return o; }
+
+    var a = PH.phArvo ? PH.phArvo(m, S.pelimuoto) : null;
+    /* Kuvaus on UI:n asia; ARVO tulee aina libistä. Taso- ja luokka-avaimet käännetään tässä. */
+    if (m.tyyppi === 'syotto') {
+      o.kuvaus = (m.perilla === false)
+        ? (phT('Kohti:') + ' ' + vyohykeTeksti(m.loppu) + '. ' + phT('Ei perillä.'))
+        : (vyohykeTeksti(m.alku) + ' → ' + vyohykeTeksti(m.loppu) + (m.perilla == null ? ' ' + phT('(perillä?)') : ''));
+    } else if (m.tyyppi === 'kuljetus' || m.tyyppi === 'etenee') {
+      o.kuvaus = vyohykeTeksti(m.alku) + ' → ' + vyohykeTeksti(m.loppu) + (m.ohitus ? ' · ' + phT('sisälsi ohituksen') : '');
+    } else if (m.tyyppi === 'juoksu') {
+      o.kuvaus = phT('Juoksu tilaan, pallo ei tullut:') + ' ' + vyohykeTeksti(m.loppu);
+    } else if (m.tyyppi === 'riisto') {
+      o.kuvaus = (m.tapa ? phT(TXT_TAPA[m.tapa]) + ': ' : phT('Voitti pallon') + ': ') + vyohykeTeksti(m.piste)
+        + (m.jatko ? ' → ' + phT(TXT_JATKOD[m.jatko]) : '');
+    } else if (m.tyyppi === 'laukaus' || m.tyyppi === 'laukaus_vastaan') {
+      var vastaan = m.tyyppi === 'laukaus_vastaan';
+      o.kuvaus = (vastaan ? phT('Vastustajan laukaus') : phT('Laukaisu')) + ' · '
+        + (m.tulos ? phT(TXT_VLAUK[m.tulos] || m.tulos) : phT('tulos puuttuu'))
+        + (vastaan && m.tulos === 'blokattu' && m.itse ? ' · ' + phT('pelaaja blokkasi') : '');
+    } else if (m.tyyppi === 'menetys') {
+      o.kuvaus = phT('Menetti pallon:') + ' ' + vyohykeTeksti(m.piste);
+    } else if (m.tyyppi === 'kaksinpeli') {
+      o.kuvaus = vyohykeTeksti(m.piste) + (m.jatko ? ' → ' + phT(TXT_JATKOD[m.jatko] || TXT_JATKO[m.jatko] || m.jatko) : '');
+    }
+
+    if (!a) { o.arvo = '—'; }
+    else if (a.laji === 'uhka' || a.laji === 'potentiaali') {
+      o.arvo = num(Math.round(a.pisteet * 1000) / 10, true);
+      o.ala = phT(a.laji === 'uhka' ? 'uhka-arvo' : 'potentiaali');
+    } else if (a.laji === 'puolustus') {
+      o.arvo = num(Math.round(a.pisteet * 1000) / 10, true); o.ala = phT('puolustusarvo');
+    } else if (a.laji === 'menetysriski' || a.laji === 'tilanteen_vaara') {
+      o.arvo = phT(a.taso || ''); o.ala = phT(a.laji === 'menetysriski' ? 'menetysriski' : 'tilanteen vaara');
+      o.hi = (a.taso === 'korkea');
+    } else if (a.laji === 'xg' || a.laji === 'xg_vastaan') {
+      o.arvo = a.pisteet.toFixed(2).replace('.', ',');
+      o.ala = (m.tulos === 'blokattu' && m.itse) ? phT('estetty xG')
+        : phT(a.laji === 'xg' ? 'maaliodotusarvo' : 'xG vastaan');
+    }
+    /* §5.5 / §7.22: U8–12 ei näe lukuja lainkaan — ei työkalussakaan, ettei valmentaja lue niitä
+       ääneen lapselle. Tilanteet ja 1v1-tulokset näkyvät, luvut eivät. */
+    if (!naytaLuvut()) { o.arvo = '·'; o.ala = phT('ei lukuja'); o.hi = false; }
+    return o;
+  }
+
+  function tyyppiLuokka(m) {
+    if (m.tyyppi === 'syotto' && m.perilla === false) return 'syotto-x';
+    if (m.tyyppi === 'laukaus_vastaan') return 'vlaukaus';
+    if (m.tyyppi === 'kaksinpeli') {
+      if (onHyokkays1v1(m)) return m.tulos === 'ei_ohittanut' ? 'v1-x' : 'v1-ok';
+      return m.tulos === 'voitti' ? 'v1-def' : (m.tulos === 'ohitettiin' ? 'v1-beaten' : 'v1-neutral');
+    }
+    return m.tyyppi;
+  }
+
+  /* ── KONSEPTIT (seuran nimet ja piilotukset huomioiden) ────────────── */
+  function konseptiRyhmat() {
+    var TT = window.TM_TT_API || window;
+    var sid = S.seuraId;
+    var listaa = function (items) {
+      return (typeof tmKonseptiListaa === 'function') ? tmKonseptiListaa(items || [], sid) : (items || []);
+    };
+    var ryhmat = [];
+    if (S.jaksofokus) {
+      var jf = (typeof tmKonseptiResolvoi === 'function') ? tmKonseptiResolvoi(S.jaksofokus, sid) : null;
+      if (jf && !(typeof tmKonseptiOnPiilotettu === 'function' && tmKonseptiOnPiilotettu(S.jaksofokus, sid))) {
+        ryhmat.push([phT('📍 Jaksofokus'), [jf]]);
+      }
+    }
+    /* Pelipaikan fundamentit VAIN jos pelipaikka on valittu — pelipaikka on valinnainen (§0.1). */
+    var fundamentit = S.pelipaikka ? ((TT.TM_TT_FUNDAMENTIT || {})[S.pelipaikka] || null) : null;
+    if (fundamentit) {
+      var nimi = (TT.TM_TT_PELIPAIKAT && TT.TM_TT_PELIPAIKAT[S.pelipaikka]
+        && (TT.TM_TT_PELIPAIKAT[S.pelipaikka].nimi || TT.TM_TT_PELIPAIKAT[S.pelipaikka])) || S.pelipaikka;
+      ryhmat.push([String(nimi), listaa(fundamentit)]);
+    }
+    if (TT.TM_TT_YOUTH) ryhmat.push([phT('Yksilökonseptit (kaikki ikäluokat)'), listaa(TT.TM_TT_YOUTH)]);
+    if (TT.TM_TT_JOUKKUE) ryhmat.push([phT('Joukkue · siirtymät'), listaa(TT.TM_TT_JOUKKUE)]);
+    /* Jaksofokus ei saa toistua alempana — se on jo omana ryhmänään. */
+    return ryhmat.map(function (g, i) {
+      if (i === 0 && S.jaksofokus) return g;
+      return [g[0], (g[1] || []).filter(function (c) { return c && c.avain !== S.jaksofokus; })];
+    }).filter(function (g) { return (g[1] || []).length; });
+  }
+  window._phKonseptiRyhmat = konseptiRyhmat;   // testivartija
+
+  /* ── LÄPIKÄYNTI ────────────────────────────────────────────────────── */
+  function lab(p, t) { var l = document.createElement('span'); l.className = 'lab'; l.textContent = phT(t); p.appendChild(l); }
+  function vipu(parent, otsikko, opts, m, avain) {
+    lab(parent, otsikko);
+    opts.forEach(function (o) {
+      var b = document.createElement('button'); b.type = 'button'; b.className = 'chip ' + (o[2] || '');
+      b.setAttribute('aria-pressed', m[avain] === o[0] ? 'true' : 'false');
+      b.textContent = phT(o[1]);
+      b.onclick = function () { m[avain] = (m[avain] === o[0]) ? null : o[0]; piirra(); tallennaLuonnos(); };
+      parent.appendChild(b);
+    });
+  }
+
+  function piirra() {
+    piirraMerkinnat();
+    var juuret = S.merkinnat.filter(function (m) { return m.ketju == null; });
+    q('rmeta').textContent = juuret.length + ' ' + phT('tilannetta');
+
+    var lista = q('merkinnat'); lista.innerHTML = '';
+    var nakyy = S.merkinnat.slice().sort(function (a, b) {
+      return (a.puoliaika - b.puoliaika) || (a.t - b.t) || (a.id - b.id);
+    });
+    if (!nakyy.length) {
+      lista.innerHTML = '<div class="tyhja">' + esc(phT('Ei vielä merkintöjä. Napauta, pyyhkäise tai pidä pohjassa.')) + '</div>';
+    }
+    nakyy.forEach(function (m) {
+      var o = tiedot(m);
+      var d = document.createElement('div'); d.className = 'entry' + (m.ketju ? ' linked' : '');
+      d.innerHTML = '<div class="erow"><div class="et">'
+        + (m.ketju ? '↳' : (m.puoliaika === 2 ? '2. ' : '') + kelloTeksti(m.t)) + '</div>'
+        + '<div><span class="type ' + tyyppiLuokka(m) + '">' + esc(nimiMerkinnalle(m)) + '</span>'
+        + '<div class="edesc">' + esc(o.kuvaus) + '</div></div>'
+        + '<div class="ev' + (o.hi ? ' hi' : '') + '">' + esc(o.arvo)
+        + (o.ala ? '<small>' + esc(o.ala) + '</small>' : '') + '</div></div>';
+      var chips = document.createElement('div'); chips.className = 'chips';
+
+      if (m.tyyppi === 'hetki') {
+        lab(chips, 'Tyyppi');
+        [['syotto', 'Syöttö'], ['kuljetus', 'Kuljetus'], ['riisto', 'Riisto'], ['laukaus', 'Laukaisu'],
+          ['menetys', 'Menetys'], ['v1a', '1v1 hyökkäys'], ['v1d', '1v1 puolustus']].forEach(function (t) {
+          var b = document.createElement('button'); b.type = 'button'; b.className = 'chip';
+          b.textContent = phT(t[1]);
+          b.onclick = function () {
+            if (t[0] === 'v1a') { m.tyyppi = 'kaksinpeli'; m.rooli = 'hyokkays'; m.tulos = null; }
+            else if (t[0] === 'v1d') { m.tyyppi = 'kaksinpeli'; m.rooli = 'puolustus'; m.tulos = null; }
+            else m.tyyppi = t[0];
+            m.eiSijaintia = true; piirra(); tallennaLuonnos();
+          };
+          chips.appendChild(b);
+        });
+      } else {
+        if (m.tyyppi === 'etenee') {
+          lab(chips, 'Mikä?');
+          [['syotto', 'Syöttö'], ['kuljetus', 'Kuljetus']].forEach(function (o2) {
+            var b = document.createElement('button'); b.type = 'button'; b.className = 'chip';
+            b.textContent = phT(o2[1]);
+            b.onclick = function () { m.tyyppi = o2[0]; if (o2[0] === 'syotto') m.perilla = true; piirra(); tallennaLuonnos(); };
+            chips.appendChild(b);
+          });
+        }
+        if (m.tyyppi === 'kaksinpeli') {
+          var opts = onHyokkays1v1(m)
+            ? [['ohitti', 'Ohitti'], ['ei_ohittanut', 'Ei ohittanut'], ['rikottiin', 'Rikottiin']]
+            : [['voitti', 'Voitti'], ['viivytti', 'Viivytti'], ['ohitettiin', 'Ohitettiin']];
+          vipu(chips, 'Tulos', opts, m, 'tulos');
+        }
+        if (m.tyyppi === 'laukaus_vastaan') {
+          vipu(chips, 'Tulos', [['blokattu', 'Blokattu'], ['torjuttu', 'Torjuttu'], ['maali', 'Maali'], ['ohi', 'Ohi']], m, 'tulos');
+          if (m.tulos === 'blokattu') vipu(chips, 'Pelaaja blokkasi', [[true, '✓', '']], m, 'itse');
+        }
+        if (m.tyyppi === 'riisto') vipu(chips, 'Miten', [['katkaisu', 'Katkaisu'], ['taklaus', 'Taklaus'], ['irtopallo', 'Irtopallo']], m, 'tapa');
+        if (m.tyyppi === 'riisto' || (onPuolustus1v1(m) && m.tulos === 'voitti')) {
+          vipu(chips, 'Riiston jälkeen', Object.keys(TXT_JATKOD).map(function (k) {
+            return [k, TXT_JATKOD[k].charAt(0).toUpperCase() + TXT_JATKOD[k].slice(1)];
+          }), m, 'jatko');
+        }
+        if (m.tyyppi === 'syotto') vipu(chips, 'Perillä', [[true, '✓', ''], [false, '✗', 'bad']], m, 'perilla');
+        if (m.tyyppi === 'kuljetus') {
+          vipu(chips, 'Lopputuote', Object.keys(TXT_LOPPU).map(function (k) { return [k, TXT_LOPPU[k]]; }), m, 'lopputuote');
+          var juuriOn1v1 = m.ketju && S.merkinnat.some(function (x) { return x.id === m.ketju && x.tyyppi === 'kaksinpeli'; });
+          if (!juuriOn1v1) vipu(chips, 'Ohitti matkalla', [[true, '✓', '']], m, 'ohitus');
+        }
+        if (vaatiiReaktion(m)) {
+          vipu(chips, onPuolustus1v1(m) ? 'Palautui' : 'Reaktio', [['heti', '✓ Heti', ''], ['jai', '✗ Jäi', 'bad']], m, 'reaktio');
+        }
+        if ((m.tyyppi === 'syotto' || m.tyyppi === 'kuljetus') && !m.ketju) {
+          vipu(chips, 'Skannasi', [[true, '✓', ''], [false, '✗', 'bad']], m, 'skannasi');
+        }
+        if (!m.ketju) {
+          var sel = document.createElement('select'); sel.className = 'konsepti';
+          sel.setAttribute('aria-label', phT('Konsepti'));
+          var op0 = document.createElement('option'); op0.value = ''; op0.textContent = phT('Konsepti…');
+          sel.appendChild(op0);
+          konseptiRyhmat().forEach(function (g) {
+            var og = document.createElement('optgroup'); og.label = g[0];
+            (g[1] || []).forEach(function (c) {
+              var op = document.createElement('option');
+              op.value = c.avain;                      // KANONINEN avain, ei näyttönimi
+              op.textContent = (c.koodi ? c.koodi + ' ' : '') + (c.nimi || c.avain);
+              if (c.avain === m.konsepti) op.selected = true;
+              og.appendChild(op);
+            });
+            sel.appendChild(og);
+          });
+          sel.onchange = function () { m.konsepti = sel.value; tallennaLuonnos(); };
+          chips.appendChild(sel);
+        }
+      }
+      if (chips.childNodes.length) d.appendChild(chips);
+      lista.appendChild(d);
+    });
+
+    piirraKetjut();
+    piirraYhteenveto();
+  }
+
+  function dokumentti() {
+    return {
+      ottelu: { pelimuoto: S.pelimuoto, vastustaja: S.vastustaja || null, kalenteriId: S.kalenteriId || null },
+      ikataso: S.ikataso,
+      kirjattavat: rastitListaksi(),
+      merkinnat: S.merkinnat,
+    };
+  }
+
+  function piirraKetjut() {
+    var el = q('ketjut');
+    var ketjut = PH.phKetjut ? PH.phKetjut(dokumentti()) : [];
+    if (!ketjut.length) { el.innerHTML = ''; return; }
+    var byId = {};
+    S.merkinnat.forEach(function (m) { byId[m.id] = m; });
+    var h = '<div class="pmeta" style="margin-top:10px">' + esc(phT('Ketjut')) + '</div>';
+    ketjut.forEach(function (k) {
+      var osat = (k.jasenet || []).map(function (id) {
+        var m = byId[id];
+        var avain = (m && PH.phKetjuNimi) ? PH.phKetjuNimi(m, S.pelimuoto) : null;
+        return esc(phT(TXT_KETJU[avain] || avain || ''));
+      }).filter(Boolean);
+      h += '<div class="ketju' + (k.menetetty ? ' menetetty' : '') + '">' + osat.join(' → ')
+        + (naytaLuvut() ? ' <b>' + esc(num(Math.round(k.uhka * 100) / 10, true)) + '</b>' : '') + '</div>';
+    });
+    el.innerHTML = h;
+  }
+
+  /* Yhteenveto tulee KOKONAAN phYhteenveto:sta. Rastittamaton lähde on null, ja null renderöityy
+     viivana — nolla väittäisi mittausta jota ei tehty. */
+  function piirraYhteenveto() {
+    var el = q('yhteenveto');
+    var y = PH.phYhteenveto ? PH.phYhteenveto(dokumentti()) : null;
+    if (!y) { el.innerHTML = ''; return; }
+    if (!naytaLuvut()) {
+      el.innerHTML = '<div class="pmeta" style="margin-top:12px">' + esc(phT('Yhteenveto')) + '</div>'
+        + '<div class="tyhja">' + esc(phT('Alle 13-vuotiaille ei näytetä lukuja — tilanteet riittävät.')) + '</div>';
+      return;
+    }
+    var L = y.luvut || {};
+    var solu = function (arvo, avain) {
+      return '<div class="sumcell"><div class="v">' + esc(arvo == null ? '—' : arvo) + '</div>'
+        + '<div class="k">' + esc(phT(avain)) + '</div></div>';
+    };
+    var suhde = function (o, a, b) { return o ? (o[a] + '/' + o[b]) : null; };
+    var h = '<div class="pmeta" style="margin-top:12px">' + esc(phT('Yhteenveto')) + '</div><div class="sum">';
+    h += solu(L.syotot ? suhde(L.syotot, 'perille', 'yhteensa') : null, 'syötöt perille');
+    h += solu(L.kuljetukset ? L.kuljetukset.n : null, 'kuljetukset');
+    h += solu(L.tulot && L.tulot.hyokkayskolmannes ? L.tulot.hyokkayskolmannes.yhteensa : null, 'tulot hyökkäyskolmannekselle');
+    h += solu(L.tulot && L.tulot.boksi ? L.tulot.boksi.yhteensa : null, 'tulot boksiin');
+    h += solu(L.luotuUhka ? num(Math.round(L.luotuUhka.pisteet * 100) / 10, true) : null, 'luotu uhka');
+    h += solu(L.xg ? L.xg.summa.toFixed(2).replace('.', ',') : null, 'xG');
+    h += solu(L.ykkosetHyokkays ? suhde(L.ykkosetHyokkays, 'onnistui', 'yritykset') : null, '1v1 hyökkäys');
+    h += solu(L.ykkosetPuolustus ? suhde(L.ykkosetPuolustus, 'voitti', 'kaikki') : null, '1v1 puolustus');
+    h += solu(L.riistot ? L.riistot.n : null, 'riistot');
+    h += solu(L.vastaprassi ? L.vastaprassi.riistot : null, 'vastaprässiriistot');
+    h += solu(L.menetykset ? L.menetykset.n : null, 'menetykset');
+    h += solu(L.vastustaja ? L.vastustaja.laukauksia : null, 'vastustajan laukaukset');
+    h += '</div>';
+    el.innerHTML = h;
+  }
+
+  /* ── LUONNOS (offline-first) ───────────────────────────────────────── */
+  function luonnosAvain() {
+    var pvm = new Date().toISOString().slice(0, 10);
+    return 'tm_ph_luonnos_' + S.seuraId + '_' + S.pelaajaId + '_' + pvm + '_' + S.puoliaika;
+  }
+  function tallennaLuonnos() {
+    try {
+      localStorage.setItem(luonnosAvain(), JSON.stringify({
+        merkinnat: S.merkinnat, seq: S.seq, puoliaika: S.puoliaika, seisoo: S.seisoo,
+        pelimuoto: S.pelimuoto, pelipaikka: S.pelipaikka, kirjattavat: rastitListaksi(),
+        vastustaja: S.vastustaja, kalenteriId: S.kalenteriId, alkoi: S.alkoi,
+      }));
+      q('tallennustila').textContent = phT('tallennettu laitteelle');
+    } catch (e) { /* privaattitila / kiintiö täynnä: kirjaus jatkuu muistissa */ }
+  }
+  function lataaLuonnos() {
+    try {
+      var raaka = localStorage.getItem(luonnosAvain());
+      if (!raaka) return false;
+      var d = JSON.parse(raaka);
+      if (!d || !Array.isArray(d.merkinnat)) return false;
+      S.merkinnat = d.merkinnat;
+      S.seq = d.seq || d.merkinnat.reduce(function (a, m) { return Math.max(a, m.id || 0); }, 0);
+      S.seisoo = d.seisoo || S.seisoo;
+      S.pelimuoto = d.pelimuoto || S.pelimuoto;
+      S.vastustaja = d.vastustaja || '';
+      S.kalenteriId = d.kalenteriId || null;
+      S.alkoi = d.alkoi || Date.now();
+      if (d.pelipaikka != null) asetaPohja(d.pelipaikka);
+      if (Array.isArray(d.kirjattavat)) {
+        K = {};
+        d.kirjattavat.forEach(function (x) { K[x] = true; });
+      }
+      return true;
+    } catch (e) { return false; }
+  }
+  function poistaLuonnos() {
+    try { localStorage.removeItem(luonnosAvain()); } catch (e) { /* ei kriittinen */ }
+  }
+  window._phLuonnosApi = { tallenna: tallennaLuonnos, lataa: lataaLuonnos, poista: poistaLuonnos, avain: luonnosAvain };
+
+  /* ── ASETUSRIVI ────────────────────────────────────────────────────── */
+  function piirraAsetukset() {
+    var TT = window.TM_TT_API || window;
+    var h = '';
+    h += '<div class="grp"><span class="lbl">' + esc(phT('Puoliaika')) + '</span><span class="seg">'
+      + '<button type="button" data-puoliaika="1" aria-pressed="' + (S.puoliaika === 1) + '">1.</button>'
+      + '<button type="button" data-puoliaika="2" aria-pressed="' + (S.puoliaika === 2) + '">2.</button></span></div>';
+    h += '<div class="grp"><span class="lbl">' + esc(phT('Seison')) + '</span><span class="seg">'
+      + '<button type="button" data-seisoo="lahi" aria-pressed="' + (S.seisoo === 'lahi') + '">' + esc(phT('lähilaita')) + '</button>'
+      + '<button type="button" data-seisoo="kauko" aria-pressed="' + (S.seisoo === 'kauko') + '">' + esc(phT('vastalaita')) + '</button></span></div>';
+    h += '<div class="grp"><span class="lbl">' + esc(phT('Pelimuoto')) + '</span><span class="seg">'
+      + ['5v5', '8v8', '11v11'].map(function (pm) {
+        return '<button type="button" data-pelimuoto="' + pm + '" aria-pressed="' + (S.pelimuoto === pm) + '">' + pm + '</button>';
+      }).join('') + '</span></div>';
+
+    var ppNimi = '';
+    if (S.pelipaikka && TT.TM_TT_PELIPAIKAT && TT.TM_TT_PELIPAIKAT[S.pelipaikka]) {
+      var v = TT.TM_TT_PELIPAIKAT[S.pelipaikka];
+      ppNimi = String((v && v.nimi) || v || S.pelipaikka);
+    }
+    h += '<div class="grp"><span class="lbl">' + esc(phT('Pohja')) + '</span>'
+      + '<span style="font-size:12px;color:var(--ink2)">' + esc(phT('Pelaajatarkkailu'))
+      + (ppNimi ? ' · ' + esc(ppNimi) : '') + '</span>'
+      + '<button type="button" class="linkbtn" id="btnMuokkaa">' + esc(phT('Muokkaa')) + '</button></div>';
+
+    h += '<div class="grp"><span class="lbl">' + esc(phT('Vastustaja (valinnainen)')) + '</span>'
+      + '<input type="text" id="inVastustaja" value="' + esc(S.vastustaja) + '"></div>';
+
+    h += '<div class="rastit" id="rastit">';
+    h += '<div class="grp" style="width:100%"><span class="lbl">' + esc(phT('Pelipaikka (valinnainen)')) + '</span>'
+      + '<select id="selPelipaikka"><option value="">' + esc(phT('— ei pelipaikkaa —')) + '</option>'
+      + Object.keys((TT.TM_TT_PELIPAIKAT || {})).map(function (k) {
+        var val = TT.TM_TT_PELIPAIKAT[k];
+        var nimi = String((val && val.nimi) || val || k);
+        return '<option value="' + esc(k) + '"' + (S.pelipaikka === k ? ' selected' : '') + '>' + esc(nimi) + '</option>';
+      }).join('') + '</select></div>';
+    (PH.PH_KIRJATTAVAT || []).forEach(function (avain) {
+      h += '<button type="button" class="rasti" data-rasti="' + esc(avain) + '" aria-pressed="' + (!!K[avain]) + '">'
+        + esc(phT(RASTI_NIMI[avain] || avain)) + '</button>';
+    });
+    h += '</div>';
+    q('asetukset').innerHTML = h;
+
+    q('asetukset').querySelectorAll('[data-puoliaika]').forEach(function (b) {
+      b.onclick = function () { S.puoliaika = Number(b.getAttribute('data-puoliaika')); piirraAsetukset(); paivitaPalkki(); piirra(); };
+    });
+    q('asetukset').querySelectorAll('[data-seisoo]').forEach(function (b) {
+      b.onclick = function () { S.seisoo = b.getAttribute('data-seisoo'); piirraAsetukset(); paivitaPalkki(); piirra(); };
+    });
+    q('asetukset').querySelectorAll('[data-pelimuoto]').forEach(function (b) {
+      b.onclick = function () { S.pelimuoto = b.getAttribute('data-pelimuoto'); piirraAsetukset(); piirra(); tallennaLuonnos(); };
+    });
+    q('asetukset').querySelectorAll('[data-rasti]').forEach(function (b) {
+      b.onclick = function () {
+        var a = b.getAttribute('data-rasti'); K[a] = !K[a];
+        b.setAttribute('aria-pressed', String(!!K[a]));
+        piirra(); tallennaLuonnos();
+      };
+    });
+    var btnM = q('btnMuokkaa');
+    if (btnM) btnM.onclick = function () { q('rastit').classList.toggle('auki'); };
+    var inV = q('inVastustaja');
+    if (inV) inV.onchange = function () { S.vastustaja = inV.value; tallennaLuonnos(); };
+    var selP = q('selPelipaikka');
+    if (selP) selP.onchange = function () { asetaPohja(selP.value); piirraAsetukset(); q('rastit').classList.add('auki'); piirra(); tallennaLuonnos(); };
+  }
+  var RASTI_NIMI = {
+    syotto: 'Syötöt', kuljetus: 'Kuljetukset', v1: '1v1', laukaus: 'Omat laukaukset',
+    riisto: 'Riistot', menetys: 'Menetykset', juoksu: 'Juoksut ilman palloa',
+    reaktio: 'Reaktiokysely', vastustajan_laukaus: 'Vastustajan laukaukset',
+  };
+
+  function paivitaPalkki() {
+    var p = S.pelaaja || {};
+    var nimi = ((p.etunimi || '') + ' ' + (p.sukunimi || '')).trim() || phT('Pelaaja');
+    var h = '<span class="nimi">' + esc(nimi) + '</span>';
+    if (p.pelinumero != null) h += '<span class="num">#' + esc(p.pelinumero) + '</span>';
+    if (S.jaksofokus) {
+      var jf = (typeof tmKonseptiResolvoi === 'function') ? tmKonseptiResolvoi(S.jaksofokus, S.seuraId) : null;
+      if (jf) h += '<span class="fokus">' + esc((jf.koodi ? jf.koodi + ' ' : '') + (jf.nimi || S.jaksofokus)) + '</span>';
+    }
+    h += '<span class="sp"></span><span class="dir">' + esc(S.puoliaika === 2 ? '← ' + phT('HYÖKKÄYS') : phT('HYÖKKÄYS') + ' →') + '</span>';
+    q('pbar').innerHTML = h;
+  }
+
+  /* ── KÄYNNISTYS ────────────────────────────────────────────────────── */
+  function param(nimi) {
+    try { return new URLSearchParams(window.location.search).get(nimi); } catch (e) { return null; }
+  }
+  function virhe(t) { q('porttiVirhe').textContent = phT(t); }
+
+  async function lataaPelaaja() {
+    var snap = await _db.collection('seurat').doc(S.seuraId).collection('pelaajat').doc(S.pelaajaId).get();
+    if (!snap.exists) throw new Error('pelaajaa ei löydy');
+    var p = snap.data() || {};
+    p.id = snap.id;
+    S.pelaaja = p;
+    /* Pikakentät pelaajadokumentista — EI alikokoelmakyselyjä (§26). */
+    S.pelipaikka = '';
+    S.jaksofokus = p.jaksofokus || (p.jaksofokus_avain || null);
+    var ika = null;
+    if (p.syntymaVuosi) ika = new Date().getFullYear() - Number(p.syntymaVuosi);
+    S.ikataso = PH.phIkataso ? PH.phIkataso(ika) : 'u812';
+    S.pelimuoto = oletusPelimuoto(S.ikataso);
+    asetaPohja(p.pelipaikka || '');
+    try {
+      var ssnap = await _db.collection('seurat').doc(S.seuraId).get();
+      S.seura = ssnap.exists ? ssnap.data() : null;
+    } catch (e) { S.seura = null; }
+  }
+
+  async function kaynnista() {
+    svg = q('pitch');
+    laatikko = q('kenttalaatikko');
+    piirraKentta();
+    alustaEleet();
+    if (!lataaLuonnos()) S.alkoi = Date.now();
+    piirraAsetukset();
+    paivitaPalkki();
+    piirra();
+    q('portti').style.display = 'none';
+    q('sovellus').style.display = '';
+    if (typeof tmLokalisoiCommon === 'function') tmLokalisoiCommon(document, null);
+
+    q('btnKumoa').onclick = kumoa;
+    q('btnHetki').onclick = function () { suljeValitsin(false); lisaa({ tyyppi: 'hetki' }); };
+    q('btnUlkotila').onclick = function () {
+      var on = document.body.classList.toggle('ulkotila');
+      q('btnUlkotila').setAttribute('aria-pressed', String(on));
+    };
+    q('btnTallenna').onclick = function () {
+      tallennaLuonnos();
+      q('tallennustila').textContent = phT('tallennettu laitteelle');
+    };
+    /* Wake lock on valinnainen mukavuus: hylkäys ei saa kaataa kirjaamista. */
+    try {
+      if (navigator.wakeLock && navigator.wakeLock.request) navigator.wakeLock.request('screen').catch(function () {});
+    } catch (e) { /* ei tuettu */ }
+  }
+
+  function naytaPortti(viesti, kentat) {
+    q('portti').style.display = '';
+    q('porttiTeksti').textContent = phT(viesti);
+    q('porttiKentat').innerHTML = kentat || '';
+  }
+
+  async function alusta() {
+    S.seuraId = param('seuraId');
+    S.pelaajaId = param('pelaajaId');
+    _auth.onAuthStateChanged(async function (u) {
+      if (!u) {
+        naytaPortti('Kirjaudu seuran tunnuksella.',
+          '<input type="email" id="inEmail" placeholder="' + esc(phT('sähköposti')) + '">'
+          + '<input type="password" id="inSalasana" placeholder="' + esc(phT('salasana')) + '">'
+          + '<button type="button" id="btnKirjaudu">' + esc(phT('Kirjaudu')) + '</button>');
+        var b = q('btnKirjaudu');
+        if (b) {
+          b.onclick = function () {
+            virhe('');
+            _auth.signInWithEmailAndPassword(q('inEmail').value.trim(), q('inSalasana').value)
+              .catch(function (e) { virhe('Kirjautuminen epäonnistui.'); console.warn('[pelihavainto]', e && e.code); });
+          };
+        }
+        return;
+      }
+      S.uid = u.uid;
+      try {
+        var tok = await u.getIdTokenResult(true);
+        S.rooli = (tok.claims && tok.claims.rooli) || null;
+        S.superAdmin = (S.rooli === 'super_admin' || S.rooli === 'superadmin');
+        if (!S.seuraId) S.seuraId = (tok.claims && tok.claims.seuraId) || null;
+      } catch (e) { /* claimit puuttuvat → seuravalitsin */ }
+
+      /* SA:lla ei ole seuraId-claimia → seuravalitsin on AINA pakollinen (§3): automaattinen
+         haku palauttaisi satunnaisen seuran. */
+      if (!S.seuraId) { await naytaSeuraValitsin(); return; }
+      if (!S.pelaajaId) { await naytaPelaajaValitsin(); return; }
+      try { await lataaPelaaja(); } catch (e) {
+        naytaPortti('Pelaajan tietoja ei saatu haettua.', '');
+        virhe('Tarkista linkki.');
+        return;
+      }
+      await kaynnista();
+    });
+  }
+
+  async function naytaSeuraValitsin() {
+    naytaPortti('Valitse seura.', '<select id="selSeura"></select><button type="button" id="btnSeura">'
+      + esc(phT('Jatka')) + '</button>');
+    try {
+      var snap = await _db.collection('seurat').get();
+      var sel = q('selSeura');
+      snap.docs.forEach(function (d) {
+        var o = document.createElement('option');
+        o.value = d.id; o.textContent = (d.data() || {}).nimi || d.id;
+        sel.appendChild(o);
+      });
+    } catch (e) { virhe('Seuroja ei saatu haettua.'); }
+    q('btnSeura').onclick = function () {
+      S.seuraId = q('selSeura').value;
+      if (!S.pelaajaId) { naytaPelaajaValitsin(); return; }
+      lataaPelaaja().then(kaynnista).catch(function () { virhe('Pelaajan haku epäonnistui.'); });
+    };
+  }
+
+  /* Pelaajahaku joukkueen listasta. §18: joukkuejäsenyys on KAHDESSA kentässä, joten kysely on
+     kaksoiskysely rinnakkain ja tulokset yhdistetään doc-ID:n perusteella. */
+  async function haeJoukkueenPelaajat(joukkueNimi, joukkueId) {
+    var col = _db.collection('seurat').doc(S.seuraId).collection('pelaajat');
+    var kyselyt = [];
+    if (joukkueNimi) kyselyt.push(col.where('joukkue', '==', joukkueNimi).get());
+    if (joukkueId) kyselyt.push(col.where('joukkueet', 'array-contains', joukkueId).get());
+    if (!kyselyt.length) kyselyt.push(col.limit(300).get());
+    var tulokset = await Promise.all(kyselyt);
+    var kartta = new Map();
+    tulokset.forEach(function (s) {
+      s.docs.forEach(function (d) { kartta.set(d.id, Object.assign({ id: d.id }, d.data())); });
+    });
+    return Array.from(kartta.values());
+  }
+  window._phHaeJoukkueenPelaajat = haeJoukkueenPelaajat;
+
+  async function naytaPelaajaValitsin() {
+    naytaPortti('Valitse pelaaja.', '<select id="selPelaaja"></select><button type="button" id="btnPelaaja">'
+      + esc(phT('Jatka')) + '</button>');
+    try {
+      var pelaajat = await haeJoukkueenPelaajat(param('joukkue'), param('joukkueId'));
+      pelaajat.sort(function (a, b) { return String(a.sukunimi || '').localeCompare(String(b.sukunimi || '')); });
+      var sel = q('selPelaaja');
+      pelaajat.forEach(function (p) {
+        var o = document.createElement('option');
+        o.value = p.id;
+        o.textContent = ((p.etunimi || '') + ' ' + (p.sukunimi || '')).trim() + (p.joukkue ? ' · ' + p.joukkue : '');
+        sel.appendChild(o);
+      });
+      if (!pelaajat.length) virhe('Joukkueesta ei löytynyt pelaajia.');
+    } catch (e) { virhe('Pelaajia ei saatu haettua.'); }
+    q('btnPelaaja').onclick = function () {
+      S.pelaajaId = q('selPelaaja').value;
+      lataaPelaaja().then(kaynnista).catch(function () { virhe('Pelaajan haku epäonnistui.'); });
+    };
+  }
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', alusta);
+  else alusta();
+})();
+</script>
+</body>
+</html>
