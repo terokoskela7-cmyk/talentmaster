@@ -489,3 +489,17 @@ test('koostaSeuranData: testitulosten ja liikeketjujen mediaanit; alle 3 pelaaja
   assert.ok(yksi.indexOf('4,42') < 0 && yksi.indexOf('2,2') < 0, 'yksilön arvot eivät saa näkyä: ' + yksi);
   assert.ok(yksi.indexOf('testituloksia alle 3 pelaajalla (ei koostetta)') >= 0, yksi);
 });
+
+test('yhdistaTulokset: ennätykset ensin, vanhat tuonnit täydentyvät hh_viimeisin/tk_lajit-pikakentistä', () => {
+  const r = va.yhdistaTulokset({ ennatykset: { lin30m: { paras: 4.9 }, flei: { paras: 60 } },
+    hh_viimeisin: { lin30m: 5.2, cmj: 31 }, tk_lajit_viimeisin: { pujottelu_s: 12.4 }, sm_juoksu_viimeisin: 6.1 });
+  assert.deepStrictEqual(r, { lin30m: { paras: 4.9 }, cmj: { paras: 31 }, sm_juoksu: { paras: 6.1 }, pujottelu: { paras: 12.4 } });
+  assert.strictEqual(va.yhdistaTulokset({ nimi: 'x' }), null);
+});
+
+test('koostaSeuranData: H-H-tason mediaani vain kun ≥3 pelaajaa', () => {
+  const t = va.koostaSeuranData({ pelaajat: [{ joukkue: 'SJK P13', hhTaso: 3 }, { joukkue: 'SJK P13', hhTaso: 4 }, { joukkue: 'SJK P13', hhTaso: 2 }] }, ['SJK P13']);
+  assert.ok(t.indexOf('H-H-fyysistasot asteikolla 1–5 (mediaani) 3 (n=3)') >= 0, t);
+  const k = va.koostaSeuranData({ pelaajat: [{ joukkue: 'SJK P13', hhTaso: 3 }, { joukkue: 'SJK P13', hhTaso: 4 }] }, ['SJK P13']);
+  assert.ok(k.indexOf('H-H-fyysistasot') < 0, k);
+});
