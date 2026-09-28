@@ -462,6 +462,13 @@ function tunnistaJoukkueet(teksti, data) {
   });
 }
 
+/** Puhdas: näyttääkö kysymys ruotsinkieliseltä (kontekstirivi on suomeksi → malli alkaisi muuten suomeksi). */
+function onRuotsiksi(teksti) {
+  const t = ' ' + String(teksti || '').toLowerCase().replace(/[^\p{L}\s]/gu, ' ') + ' ';
+  const sanat = [' och ', ' att ', ' ska ', ' vad ', ' hur ', ' det ', ' för ', ' som ', ' är ', ' med ', ' på ', ' lära ', ' kommande ', ' säsong', ' laget ', ' spelare'];
+  return sanat.filter(function (w) { return t.indexOf(w) >= 0; }).length >= 2;
+}
+
 /**
  * Puhdas: jos kysymys näyttää mainitsevan joukkueen (P15, T2014, U13…), jota seuran datasta ei löytynyt,
  * palautetaan huomio mallille — muuten se päättelee koko seuran koosteesta väärin "joukkueesta ei ole dataa".
@@ -794,6 +801,9 @@ function kasittelija(admin, functions, riip) {
         const huomio = joukkueHuomio(viimeinen.content, seuraTiedot.data, mainitut);
         konteksti = rakennaKonteksti(onSA, kontekstiPilotti, seuraTiedot.seura,
           seuraTiedot.data ? (huomio ? huomio + ' ' : '') + koostaSeuranData(seuraTiedot.data, joukkueet) : null);
+        if (konteksti && onRuotsiksi(viimeinen.content)) {
+          konteksti += '\nKysymys on ruotsiksi: vastaa alusta loppuun ruotsiksi ja käännä koosteen termit ruotsin sanaston mukaan (ei yhtään suomenkielistä sanaa).';
+        }
       }
       const mallille = konteksti
         ? viestit.slice(0, -1).concat([{ role: 'user', content: konteksti + '\n\n' + viimeinen.content }])
@@ -856,6 +866,7 @@ module.exports = {
   yhdistaTulokset,
   tunnistaJoukkueet,
   joukkueHuomio,
+  onRuotsiksi,
   puraVastaus,
   vertexUrl,
   asetukset,
