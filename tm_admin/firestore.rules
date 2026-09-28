@@ -1,9 +1,18 @@
 rules_version = '2';
 // ══════════════════════════════════════════════════════════════════════════
-// TalentMaster™ — firestore.rules v3.21
+// TalentMaster™ — firestore.rules v3.22
 //
 // Lähde:  tm_admin/firestore.rules
 // Deploy: PR → N4-CI deployaa automaattisesti (Console-käsityö poistui).
+//
+// Muutokset v3.21 → v3.22 (ADAR-tietosuoja, vaihe 1):
+//   · `havainnot` read: anonyymi pelaajaistunto JA huoltaja näkevät vain `nakyvyys=='pelaaja'`
+//     -havainnot. Aiemmin kumpikin näki kaikki valmiit, joten Taso 1:n valmentajan muistiinpano
+//     meni 8–12-vuotiaalle sellaisenaan. Kyselyssä on oltava nakyvyys-ehto (Rules ei suodata).
+//   · `havainnot` update: anonyymi saa muuttaa VAIN `pelaaja_lukenut`-kentän ja vain
+//     pelaajalle näkyvässä havainnossa. Aiemmin se sai muuttaa mitä tahansa kenttää.
+//   · ⚠ JÄRJESTYS: migraatio (scripts/migroi_havainto_nakyvyys.js) ENNEN tämän deployta,
+//     muuten vanhat havainnot katoavat pelaajilta hetkeksi.
 //
 // Muutokset v3.20 → v3.21 (Havainnon kumoaminen):
 //   · `havainnot` update: kun `tila` muuttuu arvoon 'peruttu', vaaditaan että kirjoittaja on
@@ -741,14 +750,23 @@ service cloud.firestore {
         // read: + anonyymi PIN (Pelaaja-näkymä) + huoltaja (v2.3)
         // update: + anonyymi PIN, jotta pelaaja_lukenut-merkintä toimii (§13 P6)
         match /havainnot/{havaintoId} {
+          /* NÄKYVYYS (v3.22): anonyymi pelaajaistunto ja huoltaja näkevät VAIN havainnot, jotka
+             valmentaja on merkinnyt pelaajalle. Aiemmin kumpikin näki kaikki valmiit havainnot,
+             joten Taso 1:n "Valmentajan muistiinpano" meni 8–12-vuotiaalle sellaisenaan.
+             Rules EI suodata: kyselyssä on oltava `nakyvyys=='pelaaja'`, muuten se hylätään. */
           allow read:   if onSuperAdmin()
                         || onOmaSeura(seuraId)
-                        || onAnonymous()
-                        || onLapsenHuoltaja(seuraId, pelaajaId);
+                        || (onAnonymous() && resource.data.get('nakyvyys', '') == 'pelaaja')
+                        || (onLapsenHuoltaja(seuraId, pelaajaId)
+                            && resource.data.get('nakyvyys', '') == 'pelaaja');
           allow create: if (onSuperAdmin() || onOmanJoukkueenValmentaja(seuraId, pelaajaId))   // permissio-joukkulukko (johto ohittaa)
                         && luotuLuontiKelpaa();                       // A5
+          /* ANONYYMIN KIRJOITUS RAJATTU (v3.22): pelaajaistunto tarvitsee vain lukukuittauksen,
+             mutta sai muuttaa mitä tahansa kenttää — myös omia pisteitään ja näkyvyyttään. */
           allow update: if (onSuperAdmin() || onOmanJoukkueenValmentaja(seuraId, pelaajaId)
-                        || onAnonymous())
+                        || (onAnonymous()
+                            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['pelaaja_lukenut'])
+                            && resource.data.get('nakyvyys', '') == 'pelaaja'))
                         && luotuPaivitysKelpaa()                      // A5
                         && peruminenKelpaa();                         // v3.21 — kumous vain tekijältä
           allow delete: if onSuperAdmin() || (onOmaSeura(seuraId) && onJohtoRooli());

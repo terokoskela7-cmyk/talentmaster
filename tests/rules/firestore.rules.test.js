@@ -129,6 +129,12 @@ async function seedHavainto() {
     await setDoc(doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'havainnot', 'hav1'), {
       tyyppi: 'adar', tila: 'valmis', pelaaja_lukenut: false,
       valmentajaUid: VALM_A_UID, narratiivi: 'Hyvä liike',
+      // Rules v3.22: pelaajalle näkyvä havainto on `nakyvyys:'pelaaja'`. Vanhoille
+      // havainnoille kenttä asetetaan migraatiossa (scripts/migroi_havainto_nakyvyys.js)
+      // ENNEN Rules-deployta, joten tuotannossa kenttä on olemassa — fixtuuri vastaa sitä.
+      // Fail-closed-puoli (kenttä puuttuu → ei lukuoikeutta) testataan erikseen
+      // "Havainnon näkyvyys (v3.22)" -ryhmässä omalla seedillään.
+      nakyvyys: 'pelaaja',
     });
   });
 }
@@ -1544,9 +1550,12 @@ describe('P6 anon havainnot LISTEN (bugi-diagnoosi)', () => {
   it('anon LIST-query where(tila==valmis).limit(50) → RATKAISEVA (P6-bugi)', async () => {
     await seedAdminDoc(); await seedSeuraAndPelaaja(); await seedHavainto();
     const db = anonContext().firestore();
+    // Kysely on SAMA kuin Pelaaja_v7 `_p6KaynnistakuuntelIja`:ssa. v3.22 lisäsi
+    // `nakyvyys=='pelaaja'` -ehdon sekä sääntöön että kyselyyn — jos tämä ja
+    // tuotantokysely eriävät, testi ei enää mittaa oikeaa kyselyä.
     const q = query(
       collection(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'havainnot'),
-      where('tila', '==', 'valmis'), limit(50)
+      where('tila', '==', 'valmis'), where('nakyvyys', '==', 'pelaaja'), limit(50)
     );
     // assertFails → get()-haara rikkoo LIST-kyselyn → rule-korjaus (allow get/list -jako).
     // assertSucceeds → rule OK → bugi on ajoitus/client (Pelaaja_v7 P6-listener).
@@ -2472,6 +2481,7 @@ describe('Havainnon kumoaminen — vain tekijä (v3.21)', () => {
         tyyppi: 'adar_pikakortti', tila: 'valmis', pelaaja_lukenut: false,
         tekija_uid: tekija, pisteet: { A: 2, D: 1 },
         luotu: new Date(), pvm: '2026-09-28',
+        nakyvyys: 'pelaaja',   // v3.22: P6-kuittaustesti vaatii pelaajalle näkyvän havainnon
       });
     });
   }
@@ -2556,5 +2566,135 @@ describe('Havainnon kumoaminen — vain tekijä (v3.21)', () => {
       await seedPeruttu();
       await assertSucceeds(updateDoc(polkuH(saContext().firestore(), 'hav-jo-peruttu'), { tila: 'valmis' }));
     });
+  });
+});
+
+/* ══ NÄKYVYYS (v3.22) ═════════════════════════════════════════════════════
+   Anonyymi pelaajaistunto ja huoltaja näkivät kaikki valmiit havainnot, joten Taso 1:n
+   "Valmentajan muistiinpano" meni 8–12-vuotiaalle sellaisenaan. Nyt kumpikin näkee vain
+   havainnot, jotka valmentaja on merkinnyt pelaajalle. */
+describe('Havainnon näkyvyys — vain merkityt pelaajalle (v3.22)', () => {
+  const polkuN = (db, id) => doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'havainnot', id);
+
+  async function seedNak(id, nakyvyys) {
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      const data = {
+        tyyppi: 'adar_pikakortti', tila: 'valmis', pelaaja_lukenut: false,
+        tekija_uid: VALM_A_UID, narratiivi: 'Hyvä liike', pisteet: { A: 2 }, luotu: new Date(),
+      };
+      if (nakyvyys !== undefined) data.nakyvyys = nakyvyys;
+      await setDoc(polkuN(context.firestore(), id), data);
+    });
+  }
+
+  beforeEach(async () => {
+    await seedAdminDoc();
+    await seedSeuraAndPelaaja();
+  });
+
+  // ── LUKU ────────────────────────────────────────────────────────────────
+  it('anonyymi lukee pelaajalle merkityn', async () => {
+    await seedNak('n-pelaaja', 'pelaaja');
+    await assertSucceeds(getDoc(polkuN(anonContext().firestore(), 'n-pelaaja')));
+  });
+
+  it('anonyymi EI lue valmentajille merkittyä', async () => {
+    await seedNak('n-valm', 'valmentajat');
+    await assertFails(getDoc(polkuN(anonContext().firestore(), 'n-valm')));
+  });
+
+  /* Migraatio asettaa vanhoille 'pelaaja'. Puuttuva arvo tarkoittaa siis kirjoitusta, joka ei
+     ole käynyt kytkimen läpi — fail-closed. */
+  it('anonyymi EI lue havaintoa jolta kenttä puuttuu (fail-closed)', async () => {
+    await seedNak('n-puuttuu', undefined);
+    await assertFails(getDoc(polkuN(anonContext().firestore(), 'n-puuttuu')));
+  });
+
+  it.each([['pelaaja', true], ['valmentajat', false]])(
+    'huoltaja ja nakyvyys=%s → sallittu=%s', async (arvo, sallittu) => {
+      await seedNak('n-h-' + arvo, arvo);
+      const p = getDoc(polkuN(huoltajaContext().firestore(), 'n-h-' + arvo));
+      if (sallittu) await assertSucceeds(p); else await assertFails(p);
+    });
+
+  it('valmentaja lukee kaikki (näkyvyys ei rajaa henkilöstöä)', async () => {
+    await seedNak('n-valm2', 'valmentajat');
+    const db = valmentajaContext(VALM_A_UID, SEURA_A).firestore();
+    await assertSucceeds(getDoc(polkuN(db, 'n-valm2')));
+  });
+
+  // ── ANONYYMIN KIRJOITUS ─────────────────────────────────────────────────
+  it('anonyymi voi merkitä luetuksi', async () => {
+    await seedNak('n-luku', 'pelaaja');
+    await assertSucceeds(updateDoc(polkuN(anonContext().firestore(), 'n-luku'), { pelaaja_lukenut: true }));
+  });
+
+  /* Anonyymi sai aiemmin muuttaa MITÄ TAHANSA kenttää — myös omia pisteitään ja näkyvyyttään. */
+  it.each([
+    ['pisteet', { pisteet: { A: 3 } }],
+    ['narratiivi', { narratiivi: 'muutettu' }],
+    ['tila', { tila: 'luonnos' }],
+    ['nakyvyys', { nakyvyys: 'valmentajat' }],
+  ])('anonyymi EI voi muuttaa kenttää %s', async (_n, muutos) => {
+    await seedNak('n-kirj', 'pelaaja');
+    await assertFails(updateDoc(polkuN(anonContext().firestore(), 'n-kirj'), muutos));
+  });
+
+  it('anonyymi ei voi liittää lukukuittaukseen muuta kenttää', async () => {
+    await seedNak('n-yhd', 'pelaaja');
+    await assertFails(updateDoc(polkuN(anonContext().firestore(), 'n-yhd'),
+      { pelaaja_lukenut: true, pisteet: { A: 3 } }));
+  });
+
+  it('anonyymi ei voi kuitata valmentajille merkittyä', async () => {
+    await seedNak('n-valm3', 'valmentajat');
+    await assertFails(updateDoc(polkuN(anonContext().firestore(), 'n-valm3'), { pelaaja_lukenut: true }));
+  });
+
+  // ── LIST-KYSELY ─────────────────────────────────────────────────────────
+  /* Firestore hyväksyy LIST-kyselyn vain jos sääntö toteutuu KAIKILLE mahdollisille
+     osumille. Siksi `nakyvyys`-ehto on pakko olla itse kyselyssä — ei vain suodattimena
+     clientissä. Tämä pari pitää Pelaaja_v7:n kyselyn ja säännön synkassa: jos
+     `_p6KaynnistakuuntelIja`:sta poistaisi ehdon, alempi testi kertoo että listener
+     lakkaisi toimimasta kokonaan (ei siis "vuotaisi" vaan hylkäisi kyselyn). */
+  const listKysely = (db, ehdot) => query(
+    collection(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'havainnot'), ...ehdot);
+
+  it('anon LIST nakyvyys-ehdolla → sallittu', async () => {
+    await seedNak('n-list', 'pelaaja');
+    await assertSucceeds(getDocs(listKysely(anonContext().firestore(),
+      [where('tila', '==', 'valmis'), where('nakyvyys', '==', 'pelaaja'), limit(50)])));
+  });
+
+  it('anon LIST ILMAN nakyvyys-ehtoa → hylätty', async () => {
+    await seedNak('n-list2', 'pelaaja');
+    await assertFails(getDocs(listKysely(anonContext().firestore(),
+      [where('tila', '==', 'valmis'), limit(50)])));
+  });
+
+  /* Vanhempi_v2 lukee saman kokoelman ERI kyselyllä (tyyppi:'valmentaja_viesti') ja
+     anonyymina (r.1443). Se rikkoutui katselmoinnissa juuri tästä: ilman nakyvyys-ehtoa
+     koko kysely hylätään, jolloin Viestit-välilehti tyhjenee myös vanhoista viesteistä
+     — ei siis vuoda vaan katoaa. */
+  async function seedViesti(id) {
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await setDoc(polkuN(context.firestore(), id), {
+        tyyppi: 'valmentaja_viesti', tila: 'valmis', nakyvyys: 'pelaaja',
+        teksti: 'Hienoa työtä!', valmentajaUid: VALM_A_UID,
+        pelaaja_lukenut: false, vanhempi_lukenut: false, luotu: new Date(),
+      });
+    });
+  }
+
+  it('Vanhempi_v2:n kysely (tyyppi + nakyvyys) → sallittu', async () => {
+    await seedViesti('n-viesti');
+    await assertSucceeds(getDocs(listKysely(anonContext().firestore(),
+      [where('tyyppi', '==', 'valmentaja_viesti'), where('nakyvyys', '==', 'pelaaja'), limit(20)])));
+  });
+
+  it('Vanhempi_v2:n kysely ILMAN nakyvyys-ehtoa → hylätty', async () => {
+    await seedViesti('n-viesti2');
+    await assertFails(getDocs(listKysely(anonContext().firestore(),
+      [where('tyyppi', '==', 'valmentaja_viesti'), limit(20)])));
   });
 });

@@ -1726,79 +1726,15 @@ exports.aiProxy = functions
   // Output: { narratiivi }
   // ═══════════════════════════════════════════════════════════════════════
   if (task === 'adar_vision_narratiivi') {
-    const kuva      = body.kuva;
-    const konteksti = (body.konteksti || '').slice(0, 800);
-    const ohje      = (body.ohje      || '').slice(0, 600);
-
-    if (!kuva || !kuva.base64 || !kuva.mime) {
-      return res.status(400).json({ code: 'MISSING_IMAGE', message: 'kuva.base64 ja kuva.mime vaaditaan' });
-    }
-
-    const sallitutMimet = ['image/jpeg','image/jpg','image/png','image/webp'];
-    if (!sallitutMimet.includes(kuva.mime)) {
-      return res.status(400).json({ code: 'INVALID_MIME', message: 'Sallitut tyypit: jpeg/jpg/png/webp' });
-    }
-
-    // Jos OPENAI_API_KEY puuttuu — graceful fallback, ei kaada tallennusta
-    const openaiKey = process.env.OPENAI_API_KEY;
-    if (!openaiKey) {
-      console.warn('[ADAR Vision] OPENAI_API_KEY puuttuu — palautetaan tyhjä narratiivi');
-      return res.status(200).json({ narratiivi: '', huomio: 'AI-avain puuttuu' });
-    }
-
-    // System-prompt: ohjaa AI:n kirjoittamaan havaintonarratiivi, ei arvosanoja
-    const systemPrompt = [
-      'Olet jalkapallovalmentajan kenttaapuri TalentMaster-alustassa.',
-      'Tehtavasi: analysoi valmentajan lahettama kuva ja kirjoita lyhyt (2-3 lausetta)',
-      'havaintonarratiiivi suomeksi valmentajan aanella.',
-      'ALA anna numeroarvosanoja tai pisteytyksia — kirjoita havaintona, ei arviona.',
-      'ALA tee diagnooseja yhdesta kuvasta.',
-      'KERRO rehellisesti jos kuvasta ei voi tehda ADAR-arviota.',
-      'Narratiivi menee valmentajalle ensin — pelaaja ei nae sita ennen hyvaksynta.'
-    ].join(' ');
-
-    const userPrompt = (ohje || 'Analysoi kuva ja kirjoita lyhyt havaintonarratiiivi.') +
-                       (konteksti ? ' KONTEKSTI: ' + konteksti : '');
-
-    try {
-      const openaiResp = await fetch('https://api.openai.com/v1/chat/completions', {
-        method:  'POST',
-        headers: { 'Authorization': 'Bearer ' + openaiKey, 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model:       'gpt-4o',   // gpt-4o tukee vision-pyyntoja
-          max_tokens:  300,         // ~3 lausetta riittaa
-          temperature: 0.4,         // matala = johdonmukaisempi tulos
-          messages: [
-            { role: 'system', content: systemPrompt },
-            { role: 'user', content: [
-              // Kuva base64-muodossa — GPT-4o Vision API-muoto
-              { type: 'image_url', image_url: {
-                  url:    'data:' + kuva.mime + ';base64,' + kuva.base64,
-                  detail: 'low'   // 'low' = 85 tokenia/kuva, riittaa havaintoanalyysiin
-              }},
-              { type: 'text', text: userPrompt }
-            ]}
-          ]
-        })
-      });
-
-      if (!openaiResp.ok) {
-        const err = await openaiResp.text();
-        console.error('[ADAR Vision] OpenAI virhe:', openaiResp.status, err.slice(0, 200));
-        return res.status(200).json({ narratiivi: '', huomio: 'AI-palvelu ei tavoitettavissa' });
-      }
-
-      const data       = await openaiResp.json();
-      const narratiivi = data.choices?.[0]?.message?.content?.trim() || '';
-      const tokenit    = data.usage?.total_tokens || 0;
-      console.log('[ADAR Vision] OK — ' + tokenit + ' tok, ' + narratiivi.length + ' merkk');
-
-      return res.status(200).json({ narratiivi });
-
-    } catch (e) {
-      console.error('[ADAR Vision] Catch:', e.message);
-      return res.status(200).json({ narratiivi: '', huomio: 'AI-yhteys epaonnistui' });
-    }
+    /* TOIMINTO POISTETTU (tietosuoja, vaihe 1). Kuva alaikäisestä lähti tästä OpenAI:lle
+       Yhdysvaltoihin ilman suostumusmekanismia ja EU-reittiä. Vastaus annetaan ENNEN kuin
+       kuvaa luetaan tai välitetään eteenpäin — näin myös vanha, välimuistissa oleva client
+       torjutaan. Käyttäjän `ohje`-kenttää ei enää käytetä lainkaan; jos toiminto joskus
+       palaa, ohje asetetaan palvelimella. Palautuksen ehdot: CODE_BRIEF_ADAR_TIETOSUOJA §Liite. */
+    return res.status(410).json({
+      code: 'POISTETTU',
+      message: 'ADAR Vision -kuva-analyysi on poistettu käytöstä tietosuojasyistä.',
+    });
   }
  else {
         const nodeFetch = require('node-fetch');
@@ -2293,6 +2229,16 @@ exports.poistaPelaajaGDPR = functions
         await bucket.deleteFiles({ prefix }).catch((e) => {
           mediaPoistettu = false;
           console.warn('[poistaPelaajaGDPR] Storage prefix ' + prefix + ': ' + e.message);
+        });
+      }
+      /* Prefiksi EI riitä: kuvat kirjoitettiin polkuun `havainnot/pre_<aikaleima>/…`, ei
+         havainnon id:n alle, joten per-havainto-prefiksi ei löytänyt niitä ja GDPR-poisto jätti
+         ne Storageen. Poistetaan siksi myös media[]-kentästä johdetut objektipolut. */
+      for (const polku of (manifesti.storagePolut || [])) {
+        await bucket.file(polku).delete().catch((e) => {
+          if (e && e.code === 404) return;   // jo poistettu — ei virhe
+          mediaPoistettu = false;
+          console.warn('[poistaPelaajaGDPR] Storage polku ' + polku + ': ' + e.message);
         });
       }
     } catch (e) {

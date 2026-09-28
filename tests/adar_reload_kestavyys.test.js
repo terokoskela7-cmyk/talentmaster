@@ -32,12 +32,6 @@ function funktio(nimi) {
   return ADAR.slice(i, loppu);
 }
 
-/** Vakio lähteestä (esim. `const ADAR_KUVA_MAX_PX = 1600;`). */
-function vakio(nimi) {
-  const m = ADAR.match(new RegExp('const\\s+' + nimi + '\\s*=\\s*([\\d.]+)'));
-  expect(m, nimi + ' puuttuu').toBeTruthy();
-  return Number(m[1]);
-}
 
 /* ── Pienet mutta toimivat selain-faket ─────────────────────────────────── */
 
@@ -74,6 +68,9 @@ function teeIndexedDB(varasto) {
               put: (v, k) => { varasto[k] = v; return tee(true); },
               get: (k) => tee(varasto[k]),
               delete: (k) => { delete varasto[k]; return tee(true); },
+              /* clear() = koko storen tyhjennys (tietosuoja, vaihe 1). Ilman tätä tyngässä
+                 vartija ei voisi todistaa, että vanhat kuvat oikeasti häviävät laitteelta. */
+              clear: () => { Object.keys(varasto).forEach((k) => delete varasto[k]); return tee(true); },
             });
             return tx;
           },
@@ -152,16 +149,15 @@ function teeSandbox(opt) {
     + ' const ADAR_TIERIT = ["t1","t2","t3"];'
     + ' const ADAR_KENTAT = ["-pelaaja-id","-ikä","-tilanne","-pvm","-narr"];'
     + ' const ADAR_T3_LISA = ["t3-pelipaikka","t3-reflektio"];'
-    + ' const ADAR_KUVA_MAX_PX = ' + vakio('ADAR_KUVA_MAX_PX') + ';'
-    + ' const ADAR_KUVA_LAATU = ' + vakio('ADAR_KUVA_LAATU') + ';'
-    + ' window._kuvaFiles = { t1:null, t2:null, t3:null };'
-    + ' window._kuvaPreviewUrlit = { t1:null, t2:null, t3:null };'
     + ' let _luonnosAjastin = null;', sandbox);
 
+  /* KUVAFUNKTIOT POISTETTU (tietosuoja, vaihe 1): _skaalaaKuva, _kuvaNaytaPreview,
+     _kuvaVapautaPreview ja _luonnosTallennaKuva/HaeKuva/PoistaKuva eivät ole enää olemassa.
+     Luonnos-, reload-, persistenssi- ja banneritestit säilyvät ja kohdistuvat samoihin
+     funktioihin kuin ennen. */
   [
-    'function _kuvaVapautaPreview(', 'function _skaalaaKuva(', 'function _kuvaNaytaPreview(',
     'function _luonnosAvain(', 'function _idbAvaa(', 'function _idbToimi(',
-    'function _luonnosTallennaKuva(', 'function _luonnosHaeKuva(', 'function _luonnosPoistaKuva(',
+    'function _luonnosTyhjennaKuvaStore(',
     'function _luonnosKeraa(', 'function _luonnosTallenna(', 'function _luonnosTyhjenna(',
     'async function _luonnosPalauta(', 'function _adarNaytaBanneri(',
   ].forEach((n) => vm.runInContext(funktio(n), sandbox));
@@ -200,49 +196,37 @@ describe('ADAR · reload-kestävyys', () => {
     expect(b.toastit.join(' '), 'käyttäjälle ei kerrottu palautuksesta').toContain('Palautettiin');
   });
 
-  it('KUVA säilyy reloadin yli — IDB-Blobina, EI base64 localStoragessa', async () => {
-    const a = teeSandbox();
-    const blob = { __blob: true, size: 999, koko: 'alkuperainen' };
-    await a.sandbox._luonnosTallennaKuva('t2', blob);
-    await odota();
-
-    /* Kiintiövartija: localStorageen ei saa päätyä kuvadataa. */
-    const ls = JSON.stringify(a.ls.data);
-    expect(ls, 'kuva tallentui base64:na localStorageen (kiintiöriski)').not.toContain('data:image');
-    expect(ls, 'kuvadataa localStoragessa').not.toContain('__blob');
-
-    const b = teeSandbox({ localStorage: a.ls.data, idb: a.idbVarasto });
-    await b.sandbox._luonnosPalauta();
-    expect(b.sandbox.window._kuvaFiles.t2, 'kuva ei palautunut reloadin jälkeen').toBeTruthy();
-    expect(b.sandbox.window._kuvaFiles.t2.size).toBe(999);
-    expect(b.dom.document.getElementById('t2-kuva-img').src, 'esikatselua ei palautettu').toContain('blob:');
-  });
 
   it('TALLENNUS tyhjentää luonnoksen (ei tarjota jo lähetettyä uudelleen)', async () => {
     const a = teeSandbox({ kentat: { 't2-narr': 'Tallennettu havainto.' } });
     a.sandbox._luonnosTallenna();
     await odota(500);
-    await a.sandbox._luonnosTallennaKuva('t2', { __blob: true, size: 1 });
-    await odota();
     a.sandbox._luonnosTyhjenna();
     await odota();
     expect(a.ls.data[a.sandbox._luonnosAvain()], 'luonnos jäi localStorageen').toBeUndefined();
-    expect(a.idbVarasto.t2, 'kuva jäi IDB:hen').toBeUndefined();
   });
 
-  it('KUVA SKAALATAAN ennen esikatselua ja lähetystä', async () => {
-    const y = teeSandbox({ kuvaLeveys: 4000, kuvaKorkeus: 3000 });
-    const iso = { size: 4 * 1024 * 1024, koko: 'alkuperainen' };
-    const tulos = await y.sandbox._skaalaaKuva(iso, y.sandbox.ADAR_KUVA_MAX_PX || 1600, 0.85);
-    expect(tulos.koko, 'isoa kuvaa ei skaalattu → muistipaine säilyy').toBe('skaalattu');
+  /* TIETOSUOJA (vaihe 1): laitteille on voinut jäädä kuvia lapsista vanhasta kuvatoiminnosta.
+     Koodin poisto ei riitä — object store on TYHJENNETTÄVÄ. Seedataan varasto suoraan, koska
+     kirjoitusfunktiota ei enää ole. */
+  it('KUVAVARASTO tyhjennetään — vanhat kuvat eivät jää laitteelle', async () => {
+    const a = teeSandbox({ kentat: {} });
+    a.idbVarasto.t1 = { __blob: true, size: 1 };
+    a.idbVarasto.t2 = { __blob: true, size: 1 };
+    await a.sandbox._luonnosTyhjennaKuvaStore();
+    await odota();
+    expect(Object.keys(a.idbVarasto), 'kuvia jäi laitteelle').toEqual([]);
   });
 
-  it('SKAALAUS ei kasvata pientä kuvaa (ei turhaa uudelleenpakkausta)', async () => {
-    const y = teeSandbox({ kuvaLeveys: 800, kuvaKorkeus: 600 });
-    const pieni = { size: 120000, koko: 'alkuperainen' };
-    const tulos = await y.sandbox._skaalaaKuva(pieni, 1600, 0.85);
-    expect(tulos.koko).toBe('alkuperainen');
+  it('luonnoksen tyhjennys tyhjentää myös kuvavaraston', async () => {
+    const a = teeSandbox({ kentat: {} });
+    a.idbVarasto.t3 = { __blob: true, size: 1 };
+    a.sandbox._luonnosTyhjenna();
+    await odota();
+    expect(a.idbVarasto.t3, 'kuva jäi IDB:hen').toBeUndefined();
   });
+
+
 
   it('AUTH-NULL ei slammaa login-banneria heti (reload-välitila)', async () => {
     const y = teeSandbox({ user: null });
@@ -263,16 +247,6 @@ describe('ADAR · reload-kestävyys', () => {
       'aidosti kirjautumaton ei saa jäädä ilman banneria').toBe('flex');
   });
 
-  it('KUVAINPUTEISSA ei ole capture-attribuuttia (galleriavalinta mahdollinen)', () => {
-    /* capture pakotti kameran: ei galleriaa, ja natiivi kamera taustoittaa
-       WebView'n herkemmin → juuri se reload. */
-    const inputit = ADAR.match(/<input[^>]*id="t[123]-kuva-input"[^>]*>/g) || [];
-    expect(inputit.length, 'kuvainputteja ei löytynyt').toBe(3);
-    inputit.forEach((rivi) => {
-      expect(rivi, 'capture pakottaa yhä kameran').not.toContain('capture');
-      expect(rivi, 'accept-attribuutti hävisi').toContain('accept="image/*"');
-    });
-  });
 
   it('PERSISTENSSI on eksplisiittinen LOCAL (istunto säilyy reloadin yli)', () => {
     expect(ADAR, 'setPersistence puuttuu → istunto oletuksen varassa')

@@ -13,7 +13,10 @@
  *
  * Cache-versio on NOSTETTAVA aina kun ADARin HTML tai tämä tiedosto muuttuu.
  */
-const CACHE = 'tm-adar-v1';
+/* v2 (tietosuoja, vaihe 1): kuvatoiminto poistettu. Versio ON nostettava — muuten vanha,
+   kuvallinen HTML palvelisi yhä välimuistista ja kuvia voisi yhä lähettää. activate siivoaa
+   kaikki muut cachet kuin nykyisen. */
+const CACHE = 'tm-adar-v2';
 
 const OMA_HTML = '/TalentMaster_ADAR_Pikakortti.html';
 

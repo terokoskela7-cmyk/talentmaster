@@ -74,10 +74,32 @@ async function ristiviiteDoc(ref, varoitukset, tunniste) {
   }
 }
 
-// Storage-prefiksit (per havainto, EI koko havainnot/-prefix → ei poista muiden pelaajien mediaa) + media-urlit.
+/* URL → Storage-objektin POLKU. Kaksi muotoa:
+     gs://bucket/seurat/x/havainnot/y/media_0.jpg
+     https://firebasestorage.googleapis.com/.../o/<url-enkoodattu polku>?alt=media&token=... */
+function mediaPolku(url) {
+  if (!url || typeof url !== 'string') return null;
+  if (url.indexOf('gs://') === 0) {
+    const ilman = url.slice(5);
+    const i = ilman.indexOf('/');
+    return i > 0 ? ilman.slice(i + 1) : null;
+  }
+  const m = url.match(/\/o\/([^?]+)/);
+  if (m) { try { return decodeURIComponent(m[1]); } catch (e) { return m[1]; } }
+  return null;
+}
+
+/* Storage-prefiksit (per havainto, EI koko havainnot/-prefix → ei poista muiden pelaajien mediaa)
+   + media-urlit + niistä johdetut OBJEKTIPOLUT.
+   KORJAUS (tietosuoja, vaihe 1): kuvat kirjoitettiin polkuun `havainnot/pre_<aikaleima>/…`, EI
+   havainnon id:n alle. Pelkkä `havainnot/{h.id}/` -prefiksi ei siis löytänyt niitä, ja GDPR-poisto
+   jätti kuvat Storageen. Nyt polku johdetaan myös media[]-kentän urleista, jolloin `pre_`-polut
+   löytyvät. Orvot kuvat (lataus onnistui, havainnon tallennus ei) löytyvät vain listaamalla —
+   ks. scripts/diag_adar_media.js. */
 function keraaMedia(havainnot, seuraId) {
   const prefiksit = [];
   const urlit = [];
+  const polut = [];
   for (const h of havainnot) {
     // §15: ADAR-media tallennetaan polkuun seurat/{sid}/havainnot/{havaintoId}/media_*.jpg
     prefiksit.push('seurat/' + seuraId + '/havainnot/' + h.id + '/');
@@ -85,9 +107,11 @@ function keraaMedia(havainnot, seuraId) {
     for (const m of media) {
       const u = m && (m.download_url || m.storage_url);
       if (u) urlit.push(u);
+      const pStorage = mediaPolku(m && m.storage_url) || mediaPolku(m && m.download_url);
+      if (pStorage && polut.indexOf(pStorage) < 0) polut.push(pStorage);
     }
   }
-  return { prefiksit, urlit };
+  return { prefiksit, urlit, polut };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -109,7 +133,7 @@ async function keraaPelaajanManifesti(db, seuraId, pelaajaId, opts = {}) {
     return {
       loytyi: false, seuraId, pelaajaId, palloID: null,
       paaDoc: null, alikokoelmat: {}, ristiviitteet: {}, solo: null, soloRef: null,
-      media: [], storagePrefiksit: [], authUid: pelaajaId,
+      media: [], storagePrefiksit: [], storagePolut: [], authUid: pelaajaId,
       lukumaarat: nollaLukumaarat(), varoitukset,
     };
   }
@@ -169,13 +193,13 @@ async function keraaPelaajanManifesti(db, seuraId, pelaajaId, opts = {}) {
   }
 
   // 4) Storage-media (per havainto) + Auth
-  const { prefiksit, urlit } = keraaMedia(alikokoelmat.havainnot, seuraId);
+  const { prefiksit, urlit, polut } = keraaMedia(alikokoelmat.havainnot, seuraId);
 
   const manifesti = {
     loytyi: true, seuraId, pelaajaId, palloID,
     paaDoc: { id: paaSnap.id, data: paaData, ref: paaRef },
     alikokoelmat, ristiviitteet, solo, soloRef,
-    media: urlit, storagePrefiksit: prefiksit, authUid: pelaajaId, varoitukset,
+    media: urlit, storagePrefiksit: prefiksit, storagePolut: polut, authUid: pelaajaId, varoitukset,
   };
   manifesti.lukumaarat = rakennaLukumaarat(manifesti);
   return manifesti;
