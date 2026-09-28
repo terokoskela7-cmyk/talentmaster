@@ -117,11 +117,16 @@ test('ohjeVersio + paivanAvain + vertexUrl', () => {
   assert.strictEqual(va.vertexUrl({ alue: 'us', projekti: 'p', malli: 'm' }),
     'https://aiplatform.us.rep.googleapis.com/v1/projects/p/locations/us/publishers/anthropic/models/m:rawPredict');
 });
-test('asetukset: oletuksena Vertex EU', () => {
+test('asetukset: oletuksena Bedrock EU (CI-deploy ilman .env:iä = sama kuin paikallinen)', () => {
   const a = va.asetukset({});
-  assert.strictEqual(a.provider, 'vertex');
-  assert.strictEqual(a.alue, 'eu');
+  assert.strictEqual(a.provider, 'bedrock');
+  assert.strictEqual(a.malli, 'eu.anthropic.claude-sonnet-4-6');
+  assert.strictEqual(a.alue, 'eu-north-1');
   assert.strictEqual(a.paivaKiintio, 40);
+  const v = va.asetukset({ VALMENNUSAPURI_PROVIDER: 'vertex' });
+  assert.strictEqual(v.provider, 'vertex');
+  assert.strictEqual(v.alue, 'eu');
+  assert.strictEqual(v.malli, 'claude-sonnet-5');
 });
 test('onKayttoOikeus: SA aina, pilotti vain aktiivisena', () => {
   assert.strictEqual(va.onKayttoOikeus(true, null), true);
@@ -165,7 +170,7 @@ test('kasittelija: pilotti kysyy → vastaus, koodit suodatettu, loki kirjoitett
   const r = await h(kysymys(), ctx('v1'));
   assert.strictEqual(r.vastaus, 'Opetetaan tuen tarjoamista.');
   assert.strictEqual(r.ohjeVersio, '0.7');
-  assert.strictEqual(kutsut[0].asetus.provider, 'vertex');
+  assert.strictEqual(kutsut[0].asetus.provider, 'bedrock');
   const loki = db.data['valmennusapuri_loki/' + r.lokiId];
   assert.strictEqual(loki.uid, 'v1');
   assert.strictEqual(loki.seuraId, 'kpv');

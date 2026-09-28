@@ -16,7 +16,7 @@
  *     valmennusapuri/OHJEISTUS_v0.7.md          ← uusin versio valitaan automaattisesti
  *     valmennusapuri/tietopohja/00_jarjestelma.md … 50_arviointi_ja_kehityskeskustelu.md
  *
- * MALLI: oletuksena Claude Vertex AI:n EU-alueen kautta (data pysyy EU:ssa). Kehityksessä voi
+ * MALLI: oletuksena Claude AWS Bedrockista EU:ssa (Plan B, 28.9.2026). Vertex EU: VALMENNUSAPURI_PROVIDER=vertex. Kehityksessä voi
  *   käyttää suoraa Anthropic API:a: VALMENNUSAPURI_PROVIDER=anthropic (ANTHROPIC_API_KEY-secret).
  *   Plan B (2026-09-28): VALMENNUSAPURI_PROVIDER=bedrock → Claude AWS Bedrockista EU:ssa
  *   (eu-north-1, `eu.`-inference-profiili). Avaimet Secret Managerissa:
@@ -59,7 +59,9 @@ const BEDROCK_OLETUSALUE = 'eu-north-1';
 
 function asetukset(env) {
   const e = env || process.env;
-  const provider = (e.VALMENNUSAPURI_PROVIDER || 'vertex').toLowerCase();
+  // Oletus bedrock (28.9.2026): Vertex EU -kiintiö on 0. Oletus on koodissa eikä vain functions/.env:ssä,
+  // koska CI-deploy (deploy-functions.yml) ei näe paikallista .env:iä → sama tulos koneelta ja CI:stä.
+  const provider = (e.VALMENNUSAPURI_PROVIDER || 'bedrock').toLowerCase();
   const bedrock = provider === 'bedrock';
   return {
     provider: provider,
