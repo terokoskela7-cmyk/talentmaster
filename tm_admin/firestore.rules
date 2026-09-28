@@ -1,9 +1,16 @@
 rules_version = '2';
 // ══════════════════════════════════════════════════════════════════════════
-// TalentMaster™ — firestore.rules v3.22
+// TalentMaster™ — firestore.rules v3.23
 //
 // Lähde:  tm_admin/firestore.rules
 // Deploy: PR → N4-CI deployaa automaattisesti (Console-käsityö poistui).
+//
+// Muutokset v3.22 → v3.23 (Perumisen oikeus):
+//   · `peruminenKelpaa(seuraId)`: tekijäkenttä kattaa myös `valmentajaUid` (valmentaja_viesti),
+//     ja seuran JOHTO (VP / urheilutoimenjohtaja) saa perua oman seuran merkinnän.
+//     Juurisyy: viestin kirjoittaja ei voinut perua omaa viestiään, koska sääntö vertasi vain
+//     `tekija_uid`-kenttään, jota viesteillä ei ole. Muut valmentajat eivät edelleenkään saa perua.
+//     Peruttu pysyy lukittuna (vain SA palauttaa); pisteitä ei saa muuttaa samassa kirjoituksessa.
 //
 // Muutokset v3.21 → v3.22 (ADAR-tietosuoja, vaihe 1):
 //   · `havainnot` read: anonyymi pelaajaistunto JA huoltaja näkevät vain `nakyvyys=='pelaaja'`
@@ -471,9 +478,24 @@ service cloud.firestore {
       return request.resource.data.get('tila', '') == 'peruttu'
           && resource.data.get('tila', '') != 'peruttu';
     }
-    function peruminenKelpaa() {
+    /* v3.23 — KUKA SAA PERUA:
+         · TEKIJÄ ilman aikarajaa. Tekijäkenttä on kaksi: `tekija_uid` (pikakortti) ja
+           `valmentajaUid` (valmentaja_viesti). Ilman jälkimmäistä viestin kirjoittaja EI voinut
+           perua omaa viestiään — vain SA pystyi siihen, eikä sille ollut käyttöliittymää.
+         · SEURAN JOHTO (VP, urheilutoimenjohtaja) minka tahansa oman seuran merkinnän, esim.
+           asiattoman tekstin. Muut valmentajat EIVÄT saa perua kollegan arviota.
+         · SA.
+       Peruttu pysyy lukittuna (vain SA palauttaa), eikä pisteitä saa muuttaa samassa
+       kirjoituksessa — muuten peruttua voisi "korjata" hiljaa. */
+    function onPerujaSallittu(seuraId) {
+      return onSuperAdmin()
+          || resource.data.get('tekija_uid', '') == request.auth.uid
+          || resource.data.get('valmentajaUid', '') == request.auth.uid
+          || ( onOmaSeura(seuraId) && onJohtoRooli() );
+    }
+    function peruminenKelpaa(seuraId) {
       return ( !onPeruminen()
-            || ( ( onSuperAdmin() || resource.data.get('tekija_uid', '') == request.auth.uid )
+            || ( onPerujaSallittu(seuraId)
               && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['pisteet']) ) )
           // Jo peruttu havainto on LUKITTU: muuten kuka tahansa joukkueen valmentaja voisi
           // palauttaa sen 'valmis'-tilaan tai muuttaa pisteitä, jolloin peruutus ei pitäisi.
@@ -768,7 +790,7 @@ service cloud.firestore {
                             && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['pelaaja_lukenut'])
                             && resource.data.get('nakyvyys', '') == 'pelaaja'))
                         && luotuPaivitysKelpaa()                      // A5
-                        && peruminenKelpaa();                         // v3.21 — kumous vain tekijältä
+                        && peruminenKelpaa(seuraId);                  // v3.23 — tekijä tai seuran johto
           allow delete: if onSuperAdmin() || (onOmaSeura(seuraId) && onJohtoRooli());
         }
 

@@ -388,6 +388,19 @@ button{font-family:var(--font-b);cursor:pointer}
 .hav-close:hover{color:rgba(242,239,230,.7)}
 .hav-merkki{display:inline-flex;align-items:center;gap:5px;background:rgba(26,122,94,.15);border:.5px solid rgba(26,122,94,.3);border-radius:20px;padding:3px 10px;font-size:10px;color:#28B090;font-family:var(--font-m,'DM Mono',monospace);cursor:pointer;margin-left:8px;vertical-align:middle}
 .hav-merkki .hm-dot{width:6px;height:6px;border-radius:50%;background:#1A7A5E;flex-shrink:0}
+/* Valmentajalta-osio (Meistä): kortin tausta PEITTÄÄ — vanha overlay oli läpikuultava. */
+.vk{padding:18px 20px 4px}
+.vk-sec{font-size:10px;font-weight:600;letter-spacing:.16em;text-transform:uppercase;color:#28B090;margin:14px 0 4px}
+.vk-sec.dim{color:var(--muted,#8BA0BC)}
+.vk-msg{background:var(--card,#161614);border:.5px solid rgba(242,239,230,.12);padding:14px;margin:10px 0}
+.vk-msg.uusi{border-left:2px solid #28B090}
+.vk-h{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.vk-from{font-size:12px;color:var(--muted,#8BA0BC)}
+.vk-from b{color:var(--text,#F2EFE6);font-weight:500}
+.vk-badge{font-size:9px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;padding:3px 8px;border:.5px solid rgba(40,176,144,.3);background:rgba(40,176,144,.1);color:#28B090}
+.vk-kind{font-size:10.5px;color:var(--muted,#8BA0BC)}
+.vk-txt{font-family:var(--font-d,Georgia,serif);font-style:italic;font-size:17px;line-height:1.35;margin:8px 0 10px;color:var(--text,#F2EFE6);white-space:pre-wrap}
+.vk-btn{width:100%;font-size:11.5px;font-weight:500;padding:9px 14px;border:.5px solid rgba(40,176,144,.3);background:rgba(40,176,144,.1);color:#28B090;cursor:pointer;font-family:inherit}
 .hav-ov{position:fixed;inset:0;z-index:800;background:rgba(6,9,15,.94);overflow-y:auto;padding:20px 16px 48px}
 .hav-ov-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px}
 .hav-ov-title{font-family:var(--font-s,'Cormorant Garamond',serif);font-size:20px;color:rgba(242,239,230,.9)}
@@ -505,6 +518,7 @@ input::placeholder,textarea::placeholder{color:#8C8B86;opacity:1}
 <script src="lib/tm_lang.js?v=15"></script>   <!-- i18n V0 putki · V1-A/A2 · V4-A3: +pelaaja.nain_teet/kirjaa_tehdyksi/pallo_joka_paiva/rae_q4 (kotinäytön chrome sv) -->
 <script src="lib/tm_eerikkila_normit.js?v=40"></script>
 <script src="docs/testit_indeksit.js?v=9"></script>
+<script src="lib/tm_havaintohistoria.js?v=1"></script>   <!-- vain tmHhRivit: jarjestys + tekijanimi (ei pisteita, 7.22) -->
 <script src="harjoitelogiikka_v4.js?v=13"></script>
 <script src="lib/tm-microcycles.js?v=3"></script>
 <script src="tm-bus.js?v=3"></script>
@@ -3740,12 +3754,72 @@ function rMeista() {
   return `
 <div class="scroll" style="background:var(--bg)">
   ${hdr(T('meista'))}
-  <section style="padding:28px 20px 20px;text-align:center">
+  ${rValmentajalta()}
+  <section style="padding:22px 20px 20px;text-align:center">
     <div class="ey ac" style="margin-bottom:10px">${T('meista')}</div>
     <div style="font-family:var(--font-d);font-weight:300;font-size:22px;color:var(--text);margin-bottom:8px">Sisältö tulossa</div>
-    <div class="meta" style="line-height:1.55;max-width:280px;margin:0 auto">Joukkue, valmentajat, viestit, kalenteri — Vaihe B3.</div>
+    <div class="meta" style="line-height:1.55;max-width:280px;margin:0 auto">Joukkue, valmentajat, kalenteri — Vaihe B3.</div>
   </section>
 </div>`;
+}
+
+/* ══ VALMENTAJALTA ═══════════════════════════════════════════════
+   Pelaaja näki AIEMMIN vain lukemattomat: luettu viesti katosi kokonaan. Nyt luettu siirtyy
+   osioon "Aiemmat" ja jää talteen.
+
+   §7.22: pelaajalle EI näytetä pisteitä eikä tasolukuja — vain teksti. Siksi tässä EI käytetä
+   `tmHhHTML`:ää (se näyttää pistechipit valmentajalle), vaan vain `tmHhRivit`-normalisointia
+   järjestykseen ja tekijänimeen. Teksti escapoidaan: valmentajan kirjoittama `<img onerror=...>`
+   suorittuisi muuten lapsen sovelluksessa. */
+function _mEscP(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+    return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+  });
+}
+
+function _valmentajaltaRivit() {
+  var docs = window._havKaikki || [];
+  if (typeof tmHhRivit === 'function') return tmHhRivit(docs);
+  /* Graceful: ilman libiä järjestys uusimmasta, tekijä ilman sähköpostia. */
+  return docs.slice().map(function (d) {
+    var nimi = d.tekija_nimi || d.valmentajaNimi || 'Valmentaja';
+    if (String(nimi).indexOf('@') >= 0) nimi = 'Valmentaja';
+    return {
+      id: d._id || d.id, teksti: d.narratiivi || d.teksti || d.oppimisnakokohta || '',
+      tekija: nimi, pvm: '', luettu: !!d.pelaaja_lukenut,
+      laji: d.tyyppi === 'valmentaja_viesti' ? 'viesti' : 'havainto'
+    };
+  });
+}
+
+function rValmentajalta() {
+  var rivit = _valmentajaltaRivit().filter(function (r) { return r.teksti; });
+  if (!rivit.length) return '';
+  var uudet = rivit.filter(function (r) { return !r.luettu; });
+  var vanhat = rivit.filter(function (r) { return r.luettu; });
+  var p7 = window._p7Pelaaja || {};
+  var kortti = function (r, uusi) {
+    var lue = uusi
+      ? '<button class="vk-btn" onclick="_p6Luetuksi(\'' + _mEscP(r.id) + '\',\''
+        + _mEscP(p7.seuraId || '') + '\',\'' + _mEscP(p7.pelaajaId || '') + '\')">&#10003; Luettu</button>'
+      : '';
+    return '<div class="vk-msg' + (uusi ? ' uusi' : '') + '" id="vk-' + _mEscP(r.id) + '">'
+      + '<div class="vk-h"><span class="vk-from"><b>' + _mEscP(r.tekija) + '</b>'
+      + (r.pvm ? ' &middot; ' + _mEscP(r.pvm) : '') + '</span>'
+      + (uusi ? '<span class="vk-badge">uusi</span>'
+              : '<span class="vk-kind">' + (r.laji === 'viesti' ? 'viesti' : 'pelihavainto') + '</span>')
+      + '</div>'
+      + '<div class="vk-txt">' + _mEscP(r.teksti) + '</div>'
+      + lue + '</div>';
+  };
+  var h = '<section class="vk" id="valmentajalta"><div class="ey ac" style="margin-bottom:6px">Valmentajalta</div>';
+  if (uudet.length) {
+    h += '<div class="vk-sec">Uusi</div>' + uudet.map(function (r) { return kortti(r, true); }).join('');
+  }
+  if (vanhat.length) {
+    h += '<div class="vk-sec dim">Aiemmat</div>' + vanhat.map(function (r) { return kortti(r, false); }).join('');
+  }
+  return h + '</section>';
 }
 
 /* BOTTOM TABS */
@@ -3771,7 +3845,7 @@ function hdr(v){
     <div style="font-family:var(--font-d);font-weight:300;font-size:26px;margin-top:4px;color:var(--text);line-height:1.1">${_pelaaja?.etunimi||'–'}</div>
   </div>
   <div style="display:flex;align-items:center;gap:10px">
-    ${streak>0?`<div class="streak-b"><span class="fl">🔥</span><span class="streak-n">${streak} pv</span></div>`:''}${window._havLkm>0?`<span class="hav-merkki" onclick="_avaaHavainnot()"><span class="hm-dot"></span>${window._havLkm} uutta</span>`:''}
+    ${streak>0?`<div class="streak-b"><span class="fl">🔥</span><span class="streak-n">${streak} pv</span></div>`:''}${window._havLkm>0?`<span class="hav-merkki" onclick="_avaaValmentajalta()"><span class="hm-dot"></span>${window._havLkm} uutta</span>`:''}
     <button onclick="kirjauduUlos()" title="Kirjaudu ulos"
       style="background:rgba(242,239,230,.06);border:.5px solid rgba(242,239,230,.14);
              border-radius:8px;padding:7px 10px;cursor:pointer;color:rgba(242,239,230,.5);
@@ -6144,15 +6218,16 @@ function _p6Tilaa(seuraId, pelaajaId, yritys) {
     .where('nakyvyys', '==', 'pelaaja')
     .limit(50)
     .onSnapshot(function(snap) {
-      var lukemattomat = snap.docs.filter(function(d) {
-        var data = d.data();
-        // Juurisyy 2: lukematon JA pelaajalle näytettävää sisältöä (ei tyhjiä ADAR-pistehavaintoja).
-        return data.pelaaja_lukenut === false && _p6NakyyPelaajalle(data);
+      /* KAIKKI näytettävät rivit talteen — ei vain lukemattomia. Aiemmin luettu viesti KATOSI
+         pelaajalta kokonaan, koska vain lukemattomat tallennettiin. Lukemattomia tarvitaan
+         edelleen "N uutta" -merkkiin. */
+      var nakyvat = snap.docs.filter(function(d) { return _p6NakyyPelaajalle(d.data()); });
+      window._havKaikki = nakyvat.map(function(d) {
+        return Object.assign({ _id: d.id, id: d.id }, d.data());
       });
+      var lukemattomat = window._havKaikki.filter(function(x) { return x.pelaaja_lukenut === false; });
       window._havLkm  = lukemattomat.length;
-      window._havData = lukemattomat.map(function(d) {
-        return Object.assign({ _id: d.id }, d.data());
-      });
+      window._havData = lukemattomat;
       // Päivitä KOTI-näkymän merkki jos se on renderöitynä
       _p6PaivitaMerkki();
       // Värähtely kun uusi havainto saapuu (mobiili, reaaliajassa)
@@ -6182,6 +6257,19 @@ function _p6PaivitaMerkki() {
     el.style.display = 'none';
   }
 }
+
+/* "N uutta" -merkki avaa MEISTÄ-välilehden Valmentajalta-osion. Vanha overlay jää pois
+   käytöstä: sen tausta oli läpikuultava, järjestys puuttui ja korteissa oli × UUSI-merkin
+   päällä — eikä luettu viesti jäänyt mihinkään talteen. */
+function _avaaValmentajalta() {
+  _tab = 'meista';
+  draw();
+  setTimeout(function () {
+    var el = document.getElementById('valmentajalta');
+    if (el && el.scrollIntoView) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, 60);
+}
+window._avaaValmentajalta = _avaaValmentajalta;
 
 // Avaa overlay jossa pelaaja lukee valmentajan havainnot.
 // Pelaaja näkee narratiivin ja oppimisnäkökohdan — ei ADAR-pisteitä (numeroita).
@@ -6231,16 +6319,20 @@ async function _p6Luetuksi(havId, seuraId, pelaajaId) {
       .collection('pelaajat').doc(pelaajaId)
       .collection('havainnot').doc(havId)
       .update({ pelaaja_lukenut: true });
-    // Animoi poisto
+    /* Luettu EI KATOA: onSnapshot päivittää rivin, ja Meistä-näkymä siirtää sen osioon
+       "Aiemmat". Aiemmin kortti poistettiin DOM:ista, jolloin viesti hävisi lapselta
+       lopullisesti. Paikallinen päivitys pitää näkymän ajan tasalla myös ilman verkkoa. */
+    (window._havKaikki || []).forEach(function (x) {
+      if ((x._id || x.id) === havId) x.pelaaja_lukenut = true;
+    });
+    window._havData = (window._havKaikki || []).filter(function (x) { return x.pelaaja_lukenut === false; });
+    window._havLkm = window._havData.length;
+    if (_tab === 'meista') draw(); else _p6PaivitaMerkki();
     const el = document.getElementById('hk-' + havId);
     if (el) {
       el.style.cssText += 'transition:opacity .3s,transform .3s;opacity:0;transform:translateX(20px)';
       setTimeout(function() { el.remove(); }, 320);
     }
-    // Sulje overlay automaattisesti kun kaikki on luettu
-    setTimeout(function() {
-      if (window._havLkm === 0) _suljeHavainnot();
-    }, 400);
   } catch(e) {
     console.warn('[P6] luetuksi-virhe:', e.message);
   }

@@ -806,9 +806,28 @@ function _viikkoRivitHtml(){
 function _vEsc(s){ return String(s==null?'':s).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
 function _vViestiTeksti(v){ return v.teksti || v.sisalto || v.narratiivi || v.viesti || ''; }
 function _vViestiPvm(v){
+  /* Normalisoitu rivi (tmHhRivit) kantaa valmiin pvm-merkkijonon; raakadokumentissa on `luotu`. */
+  if (v && typeof v.pvm === 'string' && v.pvm) return v.pvm;
   const a = (v.luotu && v.luotu.toDate) ? v.luotu.toDate() : (v.luotu ? new Date(v.luotu) : null);
   return a ? a.toLocaleDateString('fi-FI', {day:'numeric', month:'numeric'}) : '';
 }
+
+/* "UUSI" perheelle on PAIKALLINEN merkintä: viimeksi nähty aikaleima laitteessa.
+   Perhe EI saa kirjoittaa `vanhempi_lukenut`-kenttää — anonyymi istunto saa päivittää vain
+   `pelaaja_lukenut`-kentän (v3.22), eikä perheen kuulu merkitä lapsen viestiä luetuksi. */
+const _V_NAHTY_AVAIN = 'tm_vanhempi_viestit_nahty';
+function _vViimeksiNahty(){
+  try { return Number(localStorage.getItem(_V_NAHTY_AVAIN) || 0) || 0; } catch(e) { return 0; }
+}
+function _vMerkitseNahdyksi(){
+  try { localStorage.setItem(_V_NAHTY_AVAIN, String(Date.now())); } catch(e) { /* ei tuettu */ }
+}
+function _vOnUusi(v){
+  const ms = (v && typeof v._ms === 'number') ? v._ms
+    : ((v && v.luotu && v.luotu.toDate) ? v.luotu.toDate().getTime() : 0);
+  return ms > 0 && ms > _vViimeksiNahty();
+}
+
 
 // Valmentajan UUSIN viesti OIKEASTA Firestore-datasta (_valmentajaViestit) tai tyhjä tila.
 function _valmentajaUusinHtml(){
@@ -834,13 +853,23 @@ function _valmentajaListaHtml(){
       <div style="font-size:13px;color:var(--ink3);line-height:1.6">${t('vanhempi.koti_valmentaja_tyhja')}</div>
     </div>`;
   }
-  return _valmentajaViestit.map(function(v){
+  /* UUSI-merkki on VIIVA, ei sana: uusi käyttöliittymäteksti vaatisi uuden i18n-avaimen, ja
+     sv-pariteettiportti hylkäisi fi-avaimen ilman ruotsia — ruotsia ei kirjoiteta tässä PR:ssä
+     (sanktiointi kulkee Geminin kautta). Sama koskee tekstia "Pelihavainto, jonka valmentaja
+     jakoi {nimi}:lle": se lisätään i18n-vaiheessa. Toiminnallisuus (perhe näkee samat tekstit
+     kuin pelaaja) on tässä kokonaan. */
+  const h = _valmentajaViestit.map(function(v){
     const pvm = _vViestiPvm(v);
-    return `<div class="card2" style="padding:14px;margin-bottom:8px">
-      <div style="font-size:10px;color:var(--teal-d);letter-spacing:.12em;font-weight:600;margin-bottom:6px">${pvm}</div>
+    const uusi = _vOnUusi(v);
+    const tekija = v.tekija ? _vEsc(v.tekija) : '';
+    return `<div class="card2" style="padding:14px;margin-bottom:8px${uusi ? ';border-left:2px solid var(--teal-d)' : ''}">
+      <div style="font-size:10px;color:var(--teal-d);letter-spacing:.12em;font-weight:600;margin-bottom:6px">${tekija}${tekija && pvm ? ' · ' : ''}${pvm}</div>
       <div style="font-size:12px;color:var(--ink2);line-height:1.55">${_vEsc(_vViestiTeksti(v))}</div>
     </div>`;
   }).join('');
+  /* Lista nähtiin → seuraavalla avauksella "uusi" koskee vain tämän jälkeen tulleita. */
+  _vMerkitseNahdyksi();
+  return h;
 }
 
 function rViikko(){
@@ -1697,13 +1726,22 @@ async function _haeViimeisinKirjaus() {
     // Rules ei suodata kyselyä — ilman ehtoa KOKO kysely hylätään (permission-denied),
     // jolloin Viestit-välilehti tyhjenisi myös vanhoista viesteistä. Kaksi
     // yhtäsuuruusehtoa + limit ei vaadi komposiitti-indeksiä.
+    /* PERHE NÄKEE SAMAT TEKSTIT KUIN PELAAJA (päätös 28.9.2026): myös pelaajalle jaetut
+       PELIHAVAINNOT, ei vain `valmentaja_viesti`-tyyppiä. Ne ovat samaa palautetta.
+       Kysely rajaa `tila` + `nakyvyys` (kaksi yhtäsuuruusehtoa, ei komposiitti-indeksiä):
+         · `nakyvyys` on PAKKO olla, koska Rules ei suodata — ilman sitä koko kysely hylätään
+         · `tila=='valmis'` pudottaa perutut automaattisesti pois
+       Järjestys tulee jaetusta kirjastosta, jotta perhe näkee rivit samassa järjestyksessä
+       kuin pelaaja ja valmentaja. */
     try {
       const vSnap = await _db.collection('seurat').doc(urlSeura)
         .collection('pelaajat').doc(urlUid).collection('havainnot')
-        .where('tyyppi', '==', 'valmentaja_viesti')
-        .where('nakyvyys', '==', 'pelaaja').limit(20).get();
-      _valmentajaViestit = vSnap.docs.map(d => ({ id: d.id, ...d.data() }))
-        .sort(function(a, b){
+        .where('tila', '==', 'valmis')
+        .where('nakyvyys', '==', 'pelaaja').limit(50).get();
+      const docs = vSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+      _valmentajaViestit = (typeof tmHhRivit === 'function')
+        ? tmHhRivit(docs).filter(function (r) { return r.teksti; })
+        : docs.sort(function (a, b) {
           const ta = (a.luotu && a.luotu.toDate) ? a.luotu.toDate().getTime() : 0;
           const tb = (b.luotu && b.luotu.toDate) ? b.luotu.toDate().getTime() : 0;
           return tb - ta;

@@ -10,7 +10,7 @@
    - Omat JS-moduulit + manifest + ikonit + versioidut fontit/SDK → cache-first.
    - KAIKKI muu (toisten appien sivut, raw.githubusercontent, jne.) → suoraan verkkoon, EI cachea.
    Scopea ei voi kaventaa (SW juuressa) → allowlist hoitaa rajaamisen. CLAUDE.md §27.4. */
-const CACHE = 'tm-pelaaja-v32';   // kirjauksen `luotu` (A5-create) — puhelinten haettava korjattu sivu
+const CACHE = 'tm-pelaaja-v33';   // Valmentajalta-osio (luettu ei enää katoa) — puhelinten haettava uusi sivu
 const SHELL = './TalentMaster_Pelaaja_v7.html';
 // VAIN oma shell — JS-moduulit ovat ?v=-versioituja (bare-polku ei matchaisi), allowlist cachettaa ne
 // pyydettäessä. (Vanha PRECACHE viittasi /talentmaster/tm_eerikkila_normit.js → 404, jota Pelaaja ei lataa
@@ -70,6 +70,7 @@ function onAllowlist(url) {
   if (url.indexOf('/lib/tm_konsepti_resolve.js') !== -1) return true;   // vain kaanon-haku (tmKonseptiKaanon)
   if (url.indexOf('/lib/tm_teknistaktiset_sv.js') !== -1) return true;   // konseptikortin sisällön sv
   if (url.indexOf('/lib/tm_appcheck.js') !== -1) return true;   // V2 App Check — site key + aktivointi
+  if (url.indexOf('/lib/tm_havaintohistoria.js') !== -1) return true;   // Valmentajalta-osion jarjestys
   // HUOM: reCAPTCHA Enterprise (www.google.com/recaptcha/, gstatic.com/recaptcha/) EI ole
   // allowlistissa — attestointi on tuore-kutsu, ei cachettavaa. 'gstatic.com/firebasejs/'
   // -match on kapea eikä osu recaptchaan; app-check-compat.js cachettuu versioidulla URL:lla.
