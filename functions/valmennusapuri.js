@@ -277,15 +277,73 @@ function syottosuoja(teksti, kuviot) {
   return { teksti: t, maarat: maarat };
 }
 
-/** Puhdas: HP-johtajan kontekstirivi palvelimen tiedoista. null = ei riviä (SA tai ei pilottia). */
-function rakennaKonteksti(onSA, pilotti, seura) {
-  if (onSA || !pilotti) return null;
+// ── Seuran datan kooste HP-johtajalle (porras 1: agentti lukee, ei kirjoita) ──
+// Vain koosteita: ei nimiä, ei yksittäisen pelaajan arvoja. Kasvuvaihe (terveystietoa) vain lukumäärinä.
+const PHV_NIMET = { PRE: 'ennen kasvupyrähdystä', LAH: 'lähestyy', PH: 'huipussa', POST: 'ohi', AN: 'ohi yli vuoden' };
+
+function _kk(pvm) {
+  if (!pvm) return null;
+  const d = pvm.toDate ? pvm.toDate() : new Date(pvm);
+  if (isNaN(d.getTime())) return null;
+  return String(d.getUTCMonth() + 1).padStart(2, '0') + '/' + d.getUTCFullYear();
+}
+function _uusinEnsin(lista) {
+  return lista.filter(function (x) { return x.pvm; })
+    .sort(function (a, b) { return (b.pvm.toDate ? b.pvm.toDate() : new Date(b.pvm)) - (a.pvm.toDate ? a.pvm.toDate() : new Date(a.pvm)); });
+}
+
+/** Puhdas: seuran datasta lyhyt koosteteksti kontekstiriville. joukkueet = pilotin joukkueet (valinnainen). */
+function koostaSeuranData(d, joukkueet) {
+  d = d || {};
+  const pelaajat = d.pelaajat || [];
+  const kart = _uusinEnsin(d.kartoitukset || []);
+  const testit = _uusinEnsin(d.testit || []);
+  const osat = [];
+  if (kart.length) {
+    const nahty = new Set();
+    const rivit = [];
+    kart.forEach(function (k) {
+      const avain = k.joukkue || 'joukkue ei tiedossa';
+      if (nahty.has(avain) || rivit.length >= 4) return;
+      nahty.add(avain);
+      rivit.push(avain + ' ' + (_kk(k.pvm) || ''));
+    });
+    osat.push('harjoitettavuuskartoitus tehty (' + rivit.join(', ').trim() + ')');
+  } else {
+    osat.push('harjoitettavuuskartoitusta ei ole tehty');
+  }
+  const mitatut = pelaajat.filter(function (p) { return p.phv && PHV_NIMET[p.phv]; });
+  osat.push(mitatut.length ? 'kasvumittaus ' + mitatut.length + '/' + pelaajat.length + ' pelaajalla' : 'kasvumittausta ei ole tehty');
+  if (testit.length) osat.push('testitapahtumia ' + testit.length + ' (viimeisin ' + (_kk(testit[0].pvm) || '?') + ')');
+  osat.push('kuormakirjaukset ei tiedossa');
+  let teksti = 'Seuran data: ' + osat.join('; ') + '.';
+
+  if (mitatut.length) {
+    const rajatut = (joukkueet && joukkueet.length)
+      ? mitatut.filter(function (p) { return joukkueet.indexOf(p.joukkue) >= 0; }) : mitatut;
+    const ryhmat = {};
+    rajatut.forEach(function (p) {
+      const j = (joukkueet && joukkueet.length) ? p.joukkue : 'koko seura';
+      ryhmat[j] = ryhmat[j] || {};
+      ryhmat[j][p.phv] = (ryhmat[j][p.phv] || 0) + 1;
+    });
+    const kuvaukset = Object.keys(ryhmat).map(function (j) {
+      return j + ': ' + Object.keys(PHV_NIMET).filter(function (k) { return ryhmat[j][k]; })
+        .map(function (k) { return PHV_NIMET[k] + ' ' + ryhmat[j][k]; }).join(', ');
+    });
+    if (kuvaukset.length) teksti += ' Kasvuvaiheet (lukumäärät) – ' + kuvaukset.join('; ') + '.';
+  }
+  return teksti;
+}
+
+/** Puhdas: HP-johtajan kontekstirivi palvelimen tiedoista. null = ei riviä (ei pilottia eikä SA:n seuravalintaa). */
+function rakennaKonteksti(onSA, pilotti, seura, dataTeksti) {
+  if (!pilotti) return null;
   const osat = [pilotti.tehtava || 'valmentaja'];
   const seuraNimi = (seura && seura.nimi) || pilotti.seuraId;
   if (seuraNimi) osat.push('seura ' + seuraNimi + (seura && seura.taso ? ' (' + seura.taso + ')' : ''));
   osat.push(pilotti.lisenssi ? 'koulutus ' + pilotti.lisenssi : 'koulutus ei tiedossa');
-  osat.push('testi- ja kasvumittausdata ei tiedossa');
-  return 'Konteksti: ' + osat.join(', ') + '.';
+  return 'Konteksti: ' + osat.join(', ') + '. ' + (dataTeksti || 'Seuran data: ei tiedossa.');
 }
 
 // Seuran pelaajanimet ja seuradokumentti (välimuisti 10 min / seura)
@@ -294,16 +352,27 @@ async function haeSeuranTiedot(db, seuraId) {
   if (!seuraId) return { nimet: [], seura: null };
   const v = _seuraCache[seuraId];
   if (v && Date.now() - v.aika < TIETOPOHJA_CACHE_MS) return v.arvo;
-  const [seuraSnap, pelSnap] = await Promise.all([
-    db.collection('seurat').doc(seuraId).get(),
-    db.collection('seurat').doc(seuraId).collection('pelaajat').get(),
+  const seuraRef = db.collection('seurat').doc(seuraId);
+  const [seuraSnap, pelSnap, kartSnap, testiSnap] = await Promise.all([
+    seuraRef.get(),
+    seuraRef.collection('pelaajat').get(),
+    // select(): vain kooste-kentät, ei tuloksia eikä pelaajalistoja (testitapahtumassa on nimiä)
+    seuraRef.collection('kartoitukset').select('joukkue', 'testauspvm').get().catch(function () { return null; }),
+    seuraRef.collection('testitapahtumat').select('joukkue', 'pvm').get().catch(function () { return null; }),
   ]);
   const nimet = [];
+  const pelaajat = [];
   pelSnap.forEach(function (d) {
     const x = d.data() || {};
     [x.nimi, x.etunimi, x.sukunimi, x.kutsumanimi].forEach(function (n) { if (n) nimet.push(n); });
+    pelaajat.push({ joukkue: x.joukkue || null, phv: x.phv_tila || null });
   });
-  const arvo = { nimet: nimet, seura: seuraSnap.exists ? seuraSnap.data() : null };
+  const kartoitukset = [];
+  if (kartSnap) kartSnap.forEach(function (d) { const x = d.data() || {}; kartoitukset.push({ joukkue: x.joukkue, pvm: x.testauspvm }); });
+  const testit = [];
+  if (testiSnap) testiSnap.forEach(function (d) { const x = d.data() || {}; testit.push({ joukkue: x.joukkue, pvm: x.pvm }); });
+  const arvo = { nimet: nimet, seura: seuraSnap.exists ? seuraSnap.data() : null,
+    data: { pelaajat: pelaajat, kartoitukset: kartoitukset, testit: testit } };
   _seuraCache[seuraId] = { aika: Date.now(), arvo: arvo };
   return arvo;
 }
@@ -559,7 +628,11 @@ function kasittelija(admin, functions, riip) {
       if (!onSA) await kuluKiintio(db, uid, a.paivaKiintio);
 
       const alku = Date.now();
-      const seuraTiedot = await _seura(db, pilotti && pilotti.seuraId);
+      // SA voi testata seuran datalla: data.seuraId (vain SA; muilla aina oma pilottiseura).
+      const saSeura = onSA && typeof (data && data.seuraId) === 'string' && /^[a-z0-9_-]{1,40}$/.test(data.seuraId) ? data.seuraId : null;
+      const seuraId = (pilotti && pilotti.seuraId) || saSeura;
+      const kontekstiPilotti = pilotti || (saSeura ? { seuraId: saSeura, tehtava: 'valmentaja' } : null);
+      const seuraTiedot = await _seura(db, seuraId);
       const kuviot = nimiKuviot(seuraTiedot.nimet);
       const suojaYht = { nimet: 0, tunnisteet: 0, yhteystiedot: 0 };
       const viestit = kysely.viestit.map(function (v) {
@@ -571,7 +644,10 @@ function kasittelija(admin, functions, riip) {
       let konteksti = null;
       const viimeinen = viestit[viestit.length - 1];
       if (rooli === 'hp' && !/^\s*Konteksti:/i.test(viimeinen.content)) {
-        konteksti = rakennaKonteksti(onSA, pilotti, seuraTiedot.seura);
+        const joukkueet = kontekstiPilotti && (Array.isArray(kontekstiPilotti.joukkueet) ? kontekstiPilotti.joukkueet
+          : (kontekstiPilotti.joukkue ? [kontekstiPilotti.joukkue] : []));
+        konteksti = rakennaKonteksti(onSA, kontekstiPilotti, seuraTiedot.seura,
+          seuraTiedot.data ? koostaSeuranData(seuraTiedot.data, joukkueet) : null);
       }
       const mallille = konteksti
         ? viestit.slice(0, -1).concat([{ role: 'user', content: konteksti + '\n\n' + viimeinen.content }])
@@ -586,7 +662,7 @@ function kasittelija(admin, functions, riip) {
 
       const loki = await db.collection('valmennusapuri_loki').add({
         uid: uid,
-        seuraId: (pilotti && pilotti.seuraId) || null,
+        seuraId: seuraId || null,
         kysymys: kayttajan[kayttajan.length - 1],
         historiaViesteja: kysely.viestit.length,
         vastaus: suodatettu.teksti,
@@ -630,6 +706,7 @@ module.exports = {
   syottosuoja,
   nimiKuviot,
   rakennaKonteksti,
+  koostaSeuranData,
   puraVastaus,
   vertexUrl,
   asetukset,

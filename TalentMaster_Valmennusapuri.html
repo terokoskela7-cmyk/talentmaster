@@ -473,7 +473,10 @@ input, textarea { font-family: var(--font-body); font-size: 16px; color: var(--i
     $('vaLaheta').disabled = true;
     renderoiLoki();
     var viestit = historia.map(function (v) { return { role: v.role, content: v.content }; });
-    apuriCF({ toiminto: 'kysy', viestit: viestit, kieli: kieli, rooli: rooli }).then(function (res) {
+    var pyynto = { toiminto: 'kysy', viestit: viestit, kieli: kieli, rooli: rooli };
+    // SA-testaus: ?seura=kpv → HP-johtaja saa seuran datan koosteen. Palvelin hyväksyy tämän vain SA:lta.
+    try { var sp = new URLSearchParams(location.search).get('seura'); if (sp) pyynto.seuraId = sp; } catch (e) { /* ei URL-tukea */ }
+    apuriCF(pyynto).then(function (res) {
       var d = res.data || {};
       historia.push({ role: 'assistant', content: d.vastaus || '', lokiId: d.lokiId, katkesi: !!d.katkesi });
       if (kiintio.m) kiintio.k++;
