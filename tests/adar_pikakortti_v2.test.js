@@ -498,7 +498,7 @@ describe('(9) Masterin ja linkkien sopimukset säilyvät', () => {
   it('App Check aktivoidaan heti initin jälkeen (§38)', () => {
     const i = SIVU.indexOf('firebase.initializeApp(cfg)');
     const a = SIVU.indexOf('tmAppCheckAktivoi()');
-    const db = SIVU.indexOf('window._tmDB   = firebase.firestore()');
+    const db = SIVU.indexOf('_PH_DB   = firebase.firestore()');
     expect(a, 'App Check puuttuu').toBeGreaterThan(-1);
     expect(a, 'App Check ennen initiä').toBeGreaterThan(i);
     expect(a, 'App Check ei liity jälkikäteen jo luotuun palveluinstanssiin').toBeLessThan(db);

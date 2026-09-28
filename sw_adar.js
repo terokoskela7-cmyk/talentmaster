@@ -16,7 +16,7 @@
 /* v2 (tietosuoja, vaihe 1): kuvatoiminto poistettu. Versio ON nostettava — muuten vanha,
    kuvallinen HTML palvelisi yhä välimuistista ja kuvia voisi yhä lähettää. activate siivoaa
    kaikki muut cachet kuin nykyisen. */
-const CACHE = 'tm-adar-v3';   // PR 2B: koko HTML uusittu -> vanha ei saa palvella
+const CACHE = 'tm-adar-v4';   // realm-korjaus: upotetun tallennuksen rikkonut HTML pois cachesta
 
 const OMA_HTML = '/TalentMaster_ADAR_Pikakortti.html';
 

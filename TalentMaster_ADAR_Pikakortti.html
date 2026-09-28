@@ -229,9 +229,26 @@ if ('serviceWorker' in navigator && location.protocol === 'https:') {
 <script>
 // ══════════════════════════════════════════════════════════════════════════════
 // FIREBASE-ALUSTUS
-// Upotettuna Master injektoi _tmDB/_tmAuth/_tmSeuraId/_tmPelaajaId/_tmRooli/_tmEmbedded,
-// mutta itsenäinen avaus toimii yhtä lailla — siksi alustus on aina tässä.
+//
+// ⚠ REALM-INVARIANTTI — ÄLÄ KÄYTÄ ISÄIKKUNAN INSTANSSIA (juurisyy 2026-09-28):
+// Upotettuna (Masterin iframe) tämä sivu rakentaa havaintodokumentin OMASSA
+// JavaScript-realmissaan. Jos kirjoitus tehdään isäikkunan Firestore-instanssilla,
+// SDK vertaa objektin prototyyppiä OMAN ikkunansa `Object.prototype`:een — iframen
+// objektilla se on eri, joten kirjoitus hylätään:
+//     "Data must be an object, but it was: a custom Object object"
+// Sama koskee `FieldValue.serverTimestamp()`-sentinelliä: eri SDK-kopion olio.
+// Tämä kaatoi JOKAISEN upotetun kirjoituksen (havainto, pikakentät, kumoaminen)
+// siitä asti kun Master alkoi injektoida instanssit (64f01b5, 12.7.2026).
+//
+// Siksi: `_PH_DB` ja `_PH_AUTH` ovat TÄMÄN sivun omat instanssit, ja niitä käytetään
+// kaikissa luvuissa ja kirjoituksissa. Injektoituja `_tmDB`/`_tmAuth`-arvoja EI lueta.
+// Auth toimii iframessa ilman injektiota: sama origin + LOCAL-persistenssi (IndexedDB)
+// → oma `onAuthStateChanged` saa saman käyttäjän.
+//
+// Injektio jatkuu muilta osin: _tmSeuraId, _tmPelaajaId, _tmRooli, _tmEmbedded.
 // ══════════════════════════════════════════════════════════════════════════════
+var _PH_DB = null, _PH_AUTH = null;
+
 (function _initFirebase() {
   var cfg = {
     apiKey:            "AIzaSyAp471lOIntzP33p9bIW3y4KbeEyBt5kIo",
@@ -246,8 +263,8 @@ if ('serviceWorker' in navigator && location.protocol === 'https:') {
   // luotuun palveluinstanssiin. Guard: puuttuva lib ei saa kaataa kenttatyokalua.
   try { if (typeof tmAppCheckAktivoi === 'function') tmAppCheckAktivoi(); }
   catch (e) { console.warn('[ADAR] App Check ei aktivoitunut:', e && e.message); }
-  window._tmDB   = firebase.firestore();
-  window._tmAuth = firebase.auth();
+  _PH_DB   = firebase.firestore();
+  _PH_AUTH = firebase.auth();
   /* §15 OFFLINE-ENSIN: IndexedDB-persistenssi -> luvut toimivat verkotta ja havainnon
      tallennus JONOTTUU, synkaten kun verkko palaa. Tämä on B4:n koko perusta: erillistä
      omaa offline-jonoa EI enää ole. Epaonnistuu odotetusti jos sama origin on auki
@@ -284,22 +301,45 @@ function _adarNakeeKaikki(rooli) {
   return ADAR_JOUKKUERAJAUS_OHITTAVAT.indexOf(r) >= 0;
 }
 
-/** Valmentajan omat joukkueet (ID-lista). Luetaan vain rajatulle roolille. */
+/** Valmentajan omat joukkueet (ID-lista) + näyttönimi. */
 window._omatJoukkueet = null;
+window._tmKayttajaNimi = null;
 async function _adarLataaOmatJoukkueet(seuraId, uid) {
+  var nakeeKaikki = _adarNakeeKaikki();
+  /* Joukkuerajausta ohittava rooli ei tarvitse joukkuelistaa — mutta dokumentti luetaan silti,
+     koska siitä saadaan NÄYTTÖNIMI havaintoon (ks. _adarTekijaNimi). SA:lla ei ole tätä
+     dokumenttia (§3) → lukuyritys ei löydä mitään, ja nimi jää oletukseen. */
+  if (nakeeKaikki) window._omatJoukkueet = null;
   try {
-    if (_adarNakeeKaikki()) { window._omatJoukkueet = null; return; }   // ei tarvita
-    if (!window._tmDB || !seuraId || !uid) { window._omatJoukkueet = []; return; }
-    var d = await window._tmDB.collection('seurat').doc(seuraId).collection('kayttajat').doc(uid).get();
+    if (!_PH_DB || !seuraId || !uid) { if (!nakeeKaikki) window._omatJoukkueet = []; return; }
+    var d = await _PH_DB.collection('seurat').doc(seuraId).collection('kayttajat').doc(uid).get();
     var data = d && d.exists ? d.data() : {};
-    window._omatJoukkueet = Array.isArray(data.joukkueet) ? data.joukkueet : [];
+    if (!nakeeKaikki) window._omatJoukkueet = Array.isArray(data.joukkueet) ? data.joukkueet : [];
+    var nimi = ((data.etunimi || '') + ' ' + (data.sukunimi || '')).trim();
+    window._tmKayttajaNimi = nimi || null;
     /* Dokumentin rooli EI ohjaa oikeuspäättelyä (se tulee claimista) — se talletetaan vain,
        jotta virheilmoitus osaa kertoa, jos lähteet ovat ristiriidassa. */
     window._tmDokRooli = data.rooli || null;
   } catch (e) {
     /* FAIL-CLOSED kuten sääntö: lukuvirhe → ei oleteta pääsyä. */
-    window._omatJoukkueet = [];
+    if (!nakeeKaikki) window._omatJoukkueet = [];
   }
+}
+
+/* Havainnon tekijän nimi. LAPSI NÄKEE TÄMÄN kortissaan, joten sähköposti ei kelpaa:
+   Topiaksen appissa luki "talentmasterid@gmail.com". Järjestys on
+   displayName → kayttajat/{uid} etunimi+sukunimi → 'Valmentaja'. Sähköpostia ei käytetä
+   missään haarassa, ei edes viimeisenä oljenkortena. */
+function _adarTekijaNimi(user) {
+  /* `displayName` voi itsekin olla sähköposti (osa tunnuksista on luotu niin), joten
+     @-merkin sisältävä arvo hylätään — muuten invariantti olisi vain aikomus. */
+  var kelpaa = function (v) {
+    var s = (v == null) ? '' : String(v).trim();
+    return (s && s.indexOf('@') < 0) ? s : '';
+  };
+  return kelpaa(user && user.displayName)
+      || kelpaa(window._tmKayttajaNimi)
+      || 'Valmentaja';
 }
 
 /** Miksi kirjoitus estyi? Palauttaa käyttäjälle näytettävän syyn. */
@@ -350,7 +390,7 @@ function _adarPoiminOhje() {
 /* Eksplisiittinen LOCAL-persistenssi ENNEN kuuntelijaa (sama kuin Seura/Admin).
    Ilman tätä istunto nojaa oletukseen, joka in-app-selaimessa / partitioidussa
    storagessa ei aina palaudu → käyttäjä jää login-bannerille kesken kenttätyön. */
-try { window._tmAuth.setPersistence(window.firebase.auth.Auth.Persistence.LOCAL); } catch (e) { /* ei tuettu → oletus */ }
+try { _PH_AUTH.setPersistence(window.firebase.auth.Auth.Persistence.LOCAL); } catch (e) { /* ei tuettu → oletus */ }
 
 /* BANNERIN ARMONAIKA: `onAuthStateChanged` laukeaa sivunlatauksessa ENSIN
    null:lla, ennen kuin persistoitu istunto on palautettu. Bannerin slammaaminen
@@ -363,7 +403,7 @@ function _adarNaytaBanneri(nayta) {
   if (!nayta) { b.style.display = 'none'; return; }
   window._adarAuthArmo = setTimeout(function () {
     /* Vielä kirjautumaton armonajan jälkeen → aito kirjautumaton tila. */
-    if (!(window._tmAuth && window._tmAuth.currentUser)) b.style.display = 'flex';
+    if (!(_PH_AUTH && _PH_AUTH.currentUser)) b.style.display = 'flex';
     window._adarAuthArmo = null;
   }, 1500);
 }
@@ -374,7 +414,7 @@ async function _tmKirjaudu() {
   const err = document.getElementById('tm-login-err');
   if (err) err.textContent = '';
   try {
-    await window._tmAuth.signInWithEmailAndPassword((em && em.value) || '', (pw && pw.value) || '');
+    await _PH_AUTH.signInWithEmailAndPassword((em && em.value) || '', (pw && pw.value) || '');
   } catch (e) {
     if (err) err.textContent = 'Kirjautuminen ei onnistunut — tarkista tunnus ja salasana.';
   }
@@ -395,7 +435,7 @@ window._showToast = _showToast;
 async function _naytaSuperAdminSeuraValitsin() {
   let seurat = [];
   try {
-    const snap = await window._tmDB.collection('seurat').orderBy('nimi').get();
+    const snap = await _PH_DB.collection('seurat').orderBy('nimi').get();
     seurat = snap.docs.map(d => ({ id: d.id, nimi: d.data().nimi || d.id }));
   } catch (e) { console.error('[ADAR] Seurat:', e); }
 
@@ -429,7 +469,7 @@ window._vahvistaSeuraValinta = _vahvistaSeuraValinta;
 /** Lataa seuran pelaajat `_pelaajaMap`:iin ja renderöi poimimen uudelleen. */
 async function _adarLataaPelaajat(seuraId) {
   try {
-    const snap = await window._tmDB
+    const snap = await _PH_DB
       .collection('seurat').doc(seuraId).collection('pelaajat').orderBy('sukunimi').get();
     window._pelaajaMap = window._pelaajaMap || {};
     snap.docs.forEach(function (d) {
@@ -458,7 +498,7 @@ async function _adarLataaPelaajat(seuraId) {
   _phRender();
 }
 
-window._tmAuth.onAuthStateChanged(async function (user) {
+_PH_AUTH.onAuthStateChanged(async function (user) {
   if (!user) { _adarNaytaBanneri(true); return; }
   _adarNaytaBanneri(false);
 
@@ -485,7 +525,7 @@ window._tmAuth.onAuthStateChanged(async function (user) {
     /* Kirjautumisaikaleima omaan kayttajat-dokkiin (§0) — VAI+ n4 lukee tätä.
        SA ohitetaan: ei kayttajat-dokkia seuran alla (§3). Best-effort. */
     if (!isSuperAdmin && typeof tmMerkitseKirjautuminen === 'function') {
-      tmMerkitseKirjautuminen(window._tmDB, seuraId, user.uid);
+      tmMerkitseKirjautuminen(_PH_DB, seuraId, user.uid);
     }
 
     /* Omat joukkueet ENNEN poimimen täyttöä — muuten rajattu rooli näkisi
@@ -1037,7 +1077,7 @@ function _phKumoaNakyy() {
 // ══════════════════════════════════════════════════════════════════════════════
 
 function _phPelaajaRef(seuraId, pelaajaId) {
-  return window._tmDB.collection('seurat').doc(seuraId).collection('pelaajat').doc(pelaajaId);
+  return _PH_DB.collection('seurat').doc(seuraId).collection('pelaajat').doc(pelaajaId);
 }
 
 /** Pikakentät (§26) libin kanonisella funktiolla — tässä tiedostossa ei ole omaa laskentaa. */
@@ -1080,7 +1120,7 @@ async function _phTallenna() {
   dims.forEach(function (k) { if (S.pisteet[k]) pisteet[k] = S.pisteet[k]; });
   if (!Object.keys(pisteet).length) return;                 // Tallenna on disabled, mutta fail-closed
 
-  var db = window._tmDB, auth = window._tmAuth;
+  var db = _PH_DB, auth = _PH_AUTH;
   var seuraId = window._tmSeuraId || '', pelaajaId = S.pelaajaId;
   if (!db || !auth || !auth.currentUser) { _showToast('⚠ Kirjaudu ensin sisään'); return; }
   if (!seuraId || !pelaajaId) { _showToast('⚠ Valitse pelaaja ensin'); return; }
@@ -1111,7 +1151,7 @@ async function _phTallenna() {
     tila: 'valmis',
     pelaaja_lukenut: false,
     tekija_uid: user.uid,
-    tekija_nimi: user.displayName || user.email,
+    tekija_nimi: _adarTekijaNimi(user),   // EI sähköpostia — lapsi näkee tämän kortissaan
     tekija_rooli: window._tmRooli || null,
     pelaaja_id: pelaajaId,
     seura_id: seuraId,
@@ -1177,7 +1217,7 @@ function _phSeuraaKirjoitusta(ref) {
 async function _phKumoa() {
   var S = window._phTila, v = S.viimeisin;
   if (!v || !v.ref || v.kumottu) return;
-  var uid = (window._tmAuth && window._tmAuth.currentUser) ? window._tmAuth.currentUser.uid : null;
+  var uid = (_PH_AUTH && _PH_AUTH.currentUser) ? _PH_AUTH.currentUser.uid : null;
   try {
     await v.ref.update({
       tila: 'peruttu',
@@ -1359,7 +1399,7 @@ async function _idbPoista(localId) {
 }
 
 async function _synkronoiOfflineJono() {
-  var db = window._tmDB, auth = window._tmAuth;
+  var db = _PH_DB, auth = _PH_AUTH;
   if (!db || !auth || !auth.currentUser) return;
 
   var merkinnat;
