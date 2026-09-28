@@ -10168,11 +10168,17 @@ function _avaaPikakorttiUpotettu(pid) {
   ifr.setAttribute('title', masterT('ADAR-pikakortti'));
   ifr.onload = function () {
     // Same-origin: injektoi konteksti pikakortin ikkunaan (se lukee näitä globaaleja; ei seura-porttia upotettuna).
+    //
+    // ⚠ ÄLÄ INJEKTOI `_tmDB`:tä EIKÄ `_tmAuth`:ia (poistettu 2026-09-28). Pikakortti rakentaa
+    // havaintodokumentin OMASSA realmissaan; tämän ikkunan Firestore-instanssi vertaa objektin
+    // prototyyppiä OMAN ikkunansa Object.prototype:een ja hylkää iframen objektin:
+    //     "Data must be an object, but it was: a custom Object object"
+    // Sama koskee FieldValue-sentinellejä. Injektio kaatoi JOKAISEN upotetun tallennuksen
+    // 12.7.2026 lähtien (64f01b5). Pikakortilla on oma instanssi (_PH_DB/_PH_AUTH), ja auth
+    // jaetaan saman originin LOCAL-persistenssin kautta — injektiota ei tarvita.
     try {
       var w = ifr.contentWindow;
       if (w) {
-        w._tmDB = (typeof _db !== 'undefined') ? _db : null;
-        w._tmAuth = (typeof firebase !== 'undefined') ? firebase.auth() : null;
         w._tmSeuraId = _seuraId || null;
         w._tmPelaajaId = pid || null;
         /* CLAIMIN rooli, ei dokumentin: pikakortti päättää tällä, näytetäänkö koko seura, ja

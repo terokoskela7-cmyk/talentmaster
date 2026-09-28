@@ -289,26 +289,28 @@ describe('ADAR · offline-jonon synkronointi', () => {
       _idbPoista: async (id) => { poistetut.push(id); },
       _paivitaOfflineBadge: () => {},
       _showToast: (s) => toastit.push(s),
-      window: {
-        _tmDB: {
-          collection: () => ({
-            doc: () => ({
-              collection: () => ({
-                doc: () => ({
-                  collection: () => ({
-                    add: async (d) => {
-                      const v = (virheet || {})[d.pelaaja_id];
-                      if (v) { const e = new Error('nope'); e.code = v; throw e; }
-                      lisatyt.push(d);
-                      return { id: 'x' };
-                    },
-                  }),
+      /* REALM-KORJAUS 2026-09-28: instanssit ovat sivun OMIA (_PH_DB/_PH_AUTH), eivät
+         isäikkunan injektoimia. Ympäristö seuraa sitä. */
+      _PH_AUTH: { currentUser: { uid: 'u1' } },
+      _PH_DB: {
+        collection: () => ({
+          doc: () => ({
+            collection: () => ({
+              doc: () => ({
+                collection: () => ({
+                  add: async (d) => {
+                    const v = (virheet || {})[d.pelaaja_id];
+                    if (v) { const e = new Error('nope'); e.code = v; throw e; }
+                    lisatyt.push(d);
+                    return { id: 'x' };
+                  },
                 }),
               }),
             }),
           }),
-        },
-        _tmAuth: { currentUser: { uid: 'u1' } },
+        }),
+      },
+      window: {
         firebase: { firestore: { FieldValue: { serverTimestamp: () => sentinel } } },
       },
     };

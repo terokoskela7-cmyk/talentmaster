@@ -133,7 +133,7 @@ function teeSandbox(opt) {
     },
     _showToast: (v) => toastit.push(v),
     _tmSeuraId: 'sjk',
-    _tmAuth: { currentUser: o.user || null },
+    _PH_AUTH: { currentUser: o.user || null },   // realm-korjaus: sivun oma instanssi
     /* PR 2B: luonnos persistoi HAVAINTOTILAN, ei DOM-kenttiä. Siksi se kestää myös näkymän
        uudelleenrakennuksen — ei vain sivunlatausta. */
     _phTila: o.phTila || {
@@ -250,7 +250,7 @@ describe('ADAR · reload-kestävyys', () => {
     const b = y.dom.document.getElementById('tm-login-banner');
     expect(b.style.display, 'banneri lävähti heti = näyttää uloskirjautumiselta').not.toBe('flex');
     /* Istunto palautuu armonajan sisällä → banneria ei saa koskaan näyttää. */
-    y.sandbox._tmAuth.currentUser = { uid: 'u1' };
+    y.sandbox._PH_AUTH.currentUser = { uid: 'u1' };
     await odota(1700);
     expect(b.style.display, 'banneri näytettiin vaikka istunto palautui').not.toBe('flex');
   });
