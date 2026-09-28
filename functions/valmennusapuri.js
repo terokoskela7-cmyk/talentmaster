@@ -279,6 +279,38 @@ function syottosuoja(teksti, kuviot) {
 
 // ── Seuran datan kooste HP-johtajalle (porras 1: agentti lukee, ei kirjoita) ──
 // Vain koosteita: ei nimiä, ei yksittäisen pelaajan arvoja. Kasvuvaihe (terveystietoa) vain lukumäärinä.
+const MIN_RYHMA = 3;   // kooste vain, jos arvo vähintään kolmelta pelaajalta (muuten mediaani = yksilön tulos)
+const TESTI_NIMET = {
+  lin5m: ['5 m', 's'], lin10m: ['10 m', 's'], lin30m: ['30 m', 's'], cmj: ['CMJ-hyppy', 'cm'], mas: ['MAS', 'km/h'],
+  kasirata: ['kasirata', 's'], sm_juoksu: ['suunnanmuutosjuoksu', 's'], sm_pallo: ['suunnanmuutos pallon kanssa', 's'],
+  ponnauttelu: ['ponnauttelu', ''], syotto: ['syöttötesti', 's'], pujottelu: ['pujottelu', 's'], kuljetus_laukaus: ['kuljetus + laukaus', 's'],
+};
+const KETJU_NIMET = { sbl: 'Vauhtiketju', sfl: 'Lähtöketju', ll: 'Sivuketju', diag: 'Diagonaaliketju', dfl: 'Hallintaketju' };
+function _mediaani(a) {
+  const x = a.slice().sort(function (p, q) { return p - q; });
+  const m = Math.floor(x.length / 2);
+  return x.length % 2 ? x[m] : (x[m - 1] + x[m]) / 2;
+}
+function _luku(v, des) { return (Math.round(v * Math.pow(10, des)) / Math.pow(10, des)).toString().replace('.', ','); }
+
+/**
+ * Puhdas: pelaajan testitulokset yhteen muotoon {testi:{paras}}. Ennätykset (PB, 06/2026 alkaen) ensin;
+ * vanhemmista tuonneista puuttuvat testit täydennetään viimeisimmistä pikakentistä (hh_viimeisin, tk_lajit_viimeisin).
+ */
+function yhdistaTulokset(x) {
+  x = x || {};
+  const ulos = {};
+  const lisaa = function (t, v) { const n = Number(v); if (v != null && v !== '' && !isNaN(n) && !ulos[t]) ulos[t] = { paras: n }; };
+  const e = x.ennatykset || {};
+  Object.keys(e).forEach(function (t) { if (TESTI_NIMET[t] && e[t]) lisaa(t, e[t].paras); });
+  const hh = x.hh_viimeisin || {};
+  ['lin5m', 'lin10m', 'lin30m', 'cmj', 'mas', 'kasirata', 'sm_juoksu', 'sm_pallo'].forEach(function (t) { lisaa(t, hh[t]); });
+  lisaa('sm_juoksu', x.sm_juoksu_viimeisin); lisaa('sm_pallo', x.sm_pallo_viimeisin); lisaa('mas', x.mas_kmh);
+  const tk = x.tk_lajit_viimeisin || {};
+  ['ponnauttelu', 'syotto', 'pujottelu', 'kuljetus_laukaus'].forEach(function (t) { lisaa(t, tk[t + '_s']); });
+  return Object.keys(ulos).length ? ulos : null;
+}
+
 const PHV_NIMET = { PRE: 'ennen kasvupyrähdystä', LAH: 'lähestyy', PH: 'huipussa', POST: 'ohi', AN: 'ohi yli vuoden' };
 
 function _kk(pvm) {
@@ -318,21 +350,53 @@ function koostaSeuranData(d, joukkueet) {
   osat.push('kuormakirjaukset ei tiedossa');
   let teksti = 'Seuran data: ' + osat.join('; ') + '.';
 
-  if (mitatut.length) {
-    const rajatut = (joukkueet && joukkueet.length)
-      ? mitatut.filter(function (p) { return joukkueet.indexOf(p.joukkue) >= 0; }) : mitatut;
-    const ryhmat = {};
-    rajatut.forEach(function (p) {
-      const j = (joukkueet && joukkueet.length) ? p.joukkue : 'koko seura';
-      ryhmat[j] = ryhmat[j] || {};
-      ryhmat[j][p.phv] = (ryhmat[j][p.phv] || 0) + 1;
+  // Ryhmät: pilotin/kysymyksen joukkueet tai koko seura
+  const rajattu = !!(joukkueet && joukkueet.length);
+  const ryhmat = {};
+  pelaajat.forEach(function (p) {
+    if (rajattu && joukkueet.indexOf(p.joukkue) < 0) return;
+    const j = rajattu ? p.joukkue : 'koko seura';
+    (ryhmat[j] = ryhmat[j] || []).push(p);
+  });
+  Object.keys(ryhmat).forEach(function (j) {
+    const ryhma = ryhmat[j];
+    const osat2 = [];
+    // Kasvuvaiheet lukumäärinä
+    const phv = ryhma.filter(function (p) { return p.phv && PHV_NIMET[p.phv]; });
+    if (phv.length >= MIN_RYHMA) {
+      const laskut = {};
+      phv.forEach(function (p) { laskut[p.phv] = (laskut[p.phv] || 0) + 1; });
+      osat2.push('kasvuvaiheet (lukumäärät): ' + Object.keys(PHV_NIMET).filter(function (k) { return laskut[k]; })
+        .map(function (k) { return PHV_NIMET[k] + ' ' + laskut[k]; }).join(', '));
+    } else if (phv.length) {
+      osat2.push('kasvuvaihe mitattu alle ' + MIN_RYHMA + ' pelaajalla (ei koostetta)');
+    }
+    // Liikeketjut 1–3 (mediaani), heikoin nimetään
+    const ketjut = [];
+    Object.keys(KETJU_NIMET).forEach(function (k) {
+      const arvot = ryhma.map(function (p) { return p.ketjut && Number(p.ketjut[k]); }).filter(function (v) { return v >= 1 && v <= 3; });
+      if (arvot.length >= MIN_RYHMA) ketjut.push({ nimi: KETJU_NIMET[k], m: _mediaani(arvot), n: arvot.length });
     });
-    const kuvaukset = Object.keys(ryhmat).map(function (j) {
-      return j + ': ' + Object.keys(PHV_NIMET).filter(function (k) { return ryhmat[j][k]; })
-        .map(function (k) { return PHV_NIMET[k] + ' ' + ryhmat[j][k]; }).join(', ');
+    if (ketjut.length) {
+      const heikoin = ketjut.slice().sort(function (a, b) { return a.m - b.m; })[0];
+      osat2.push('liikeketjut asteikolla 1–3 (mediaani): ' + ketjut.map(function (k) { return k.nimi + ' ' + _luku(k.m, 1); }).join(', ') +
+        ' – heikoin ' + heikoin.nimi + ' (n=' + ketjut[0].n + ')');
+    }
+    // Testitulokset: pelaajien parhaiden tulosten mediaani testeittäin
+    const testit2 = [];
+    Object.keys(TESTI_NIMET).forEach(function (t) {
+      const arvot = ryhma.map(function (p) { return p.ennatykset && p.ennatykset[t] && Number(p.ennatykset[t].paras); })
+        .filter(function (v) { return typeof v === 'number' && !isNaN(v); });
+      if (arvot.length >= MIN_RYHMA) testit2.push(TESTI_NIMET[t][0] + ' ' + _luku(_mediaani(arvot), 2) + (TESTI_NIMET[t][1] ? ' ' + TESTI_NIMET[t][1] : '') + ' (n=' + arvot.length + ')');
     });
-    if (kuvaukset.length) teksti += ' Kasvuvaiheet (lukumäärät) – ' + kuvaukset.join('; ') + '.';
-  }
+    const hhT = ryhma.map(function (p) { return p.hhTaso; }).filter(function (v) { return typeof v === 'number' && v >= 1 && v <= 5; });
+    if (hhT.length >= MIN_RYHMA) osat2.push('H-H-fyysistasot asteikolla 1–5 (mediaani) ' + _luku(_mediaani(hhT), 1) + ' (n=' + hhT.length + ')');
+    if (testit2.length) osat2.push('testitulokset (mediaani, paras tai viimeisin tulos): ' + testit2.join(', '));
+    else if (ryhma.some(function (p) { return p.ennatykset && Object.keys(p.ennatykset).length; })) {
+      osat2.push('testituloksia alle ' + MIN_RYHMA + ' pelaajalla (ei koostetta)');
+    }
+    if (osat2.length) teksti += ' ' + j + ' (' + ryhma.length + ' pelaajaa): ' + osat2.join('; ') + '.';
+  });
   return teksti;
 }
 
@@ -379,7 +443,9 @@ async function haeSeuranTiedot(db, seuraId) {
   pelSnap.forEach(function (d) {
     const x = d.data() || {};
     [x.nimi, x.etunimi, x.sukunimi, x.kutsumanimi].forEach(function (n) { if (n) nimet.push(n); });
-    pelaajat.push({ joukkue: x.joukkue || null, phv: x.phv_tila || null });
+    pelaajat.push({ joukkue: x.joukkue || null, phv: x.phv_tila || null, ennatykset: yhdistaTulokset(x),
+      hhTaso: (typeof x.hh_taso === 'number') ? x.hh_taso : null,
+      ketjut: { sbl: x.sbl, sfl: x.sfl, ll: x.ll, diag: x.diag, dfl: x.dfl } });
   });
   const kartoitukset = [];
   if (kartSnap) kartSnap.forEach(function (d) { const x = d.data() || {}; kartoitukset.push({ joukkue: x.joukkue, pvm: x.testauspvm }); });
@@ -724,6 +790,7 @@ module.exports = {
   nimiKuviot,
   rakennaKonteksti,
   koostaSeuranData,
+  yhdistaTulokset,
   tunnistaJoukkueet,
   puraVastaus,
   vertexUrl,
