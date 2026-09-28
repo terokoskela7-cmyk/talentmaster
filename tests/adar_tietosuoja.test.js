@@ -14,9 +14,11 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
+import { createRequire } from 'module';
 
 const juuri = join(dirname(fileURLToPath(import.meta.url)), '..');
 const lue = (f) => readFileSync(join(juuri, f), 'utf8');
+const vaadi = createRequire(import.meta.url);
 const ADAR = lue('TalentMaster_ADAR_Pikakortti.html');
 const PELAAJA = lue('TalentMaster_Pelaaja_v7.html');
 
@@ -292,9 +294,19 @@ describe('(6) Pelaaja_v7 näyttää vain pelaajalle merkityt', () => {
 
 describe('(7) valmentaja näkee listassa kummalle havainto meni', () => {
   it('Masterin havaintolista merkitsee "vain valmentajille"', () => {
+    /* Lista siirtyi jaettuun kirjastoon (lib/tm_havaintohistoria.js), joten näkyvyysmerkintä
+       tulee sieltä. Vartijan MERKITYS on sama: valmentajan on nähtävä yhdellä silmäyksellä,
+       menikö teksti lapselle. Nyt se ajetaan, ei haeta merkkijonona. */
+    const HH = vaadi('../lib/tm_havaintohistoria.js');
+    const rivit = HH.tmHhRivit([
+      { id: 'a', teksti: 'x', nakyvyys: 'valmentajat', luotu: '2026-09-28' },
+      { id: 'b', teksti: 'y', nakyvyys: 'pelaaja', luotu: '2026-09-27' },
+    ]);
+    const html = HH.tmHhHTML(rivit, {});
+    expect(html).toContain('Vain valmentajille');
+    expect(html).toContain('Pelaaja näkee');
     const M = lue('TalentMaster_Master_v16.html');
-    expect(M).toContain("hav.nakyvyys === 'valmentajat'");
-    expect(M).toContain("masterT('vain valmentajille')");
+    expect(M, 'Master ei käytä jaettua listaa').toContain('tmHhHTML(');
   });
 });
 

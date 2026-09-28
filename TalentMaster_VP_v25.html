@@ -38,6 +38,7 @@
 <script src="lib/tm_pvm.js?v=3"></script>   <!-- pvm-helperit: tmOnVanhaMittaus / tmKuukausiaMittauksesta / tmPvmFi (datan tuoreus) -->
 <script src="lib/tm_arviointi_taksonomia.js?v=11"></script>   <!-- Vaihe 2: arviointitaksonomia + pääteemat + kehysrekisteri (mitattu + havaittu 1–5) -->
 <script src="lib/tm_pelialy_yksilo.js?v=4"></script>   <!-- P1: pelihavainto peliäly → yksilöteema · v3: Vaihe B ristiinarvio-konsensus -->
+<script src="lib/tm_havaintohistoria.js?v=1"></script>   <!-- jaettu havainto-/viestihistoria (VP + Master) -->
 <script src="lib/tm_arviointi_silta.js?v=3"></script>   <!-- Vaihe 5: arviointi→resepti-silta (heikoin havaittu D2 → ehdotettu jaksofokus) · v2 = I3a SSOT-osoitin tm_kehityspolku -->
 <script src="lib/tm_idp.js?v=9"></script>   <!-- I3a: + kesto valmentajan asetettavaksi (opts.kestoVk) · I2: lahde+pvm/idp_lahde/idpVahvinDim 1–3 -->
 <script src="lib/tm_teknistaktiset.js?v=5"></script>   <!-- Vaihe 4a: teknis-taktinen curriculum (VP:n jaksofokus talenteille) · v5 = I3a pelipaikkaportti U14+ + harjoite-tägit/jalka -->
@@ -1813,6 +1814,10 @@ body {
 .jsp-adar-row { display: flex; align-items: center; gap: 12px; padding: 8px 0; border-bottom: .5px solid var(--border); font-size: 12.5px; flex-wrap: wrap; }
 .jsp-adar-row:last-of-type { border-bottom: none; }
 .jsp-adar-row.locked { opacity: .45; }
+/* Porras-tikkaat: nelja askelta, avautuneet korostettuna. Ikaa ei mainita. */
+.jsp-adar-ladder { display:flex; gap:3px; margin:8px 0 6px; }
+.jsp-adar-ladder i { flex:1; height:3px; background:var(--border); }
+.jsp-adar-ladder i.on { background:var(--teal); }
 .jsp-adar-an { color: var(--ink); flex: 0 0 200px; } .jsp-adar-an small { color: var(--ink3); font-size: 9px; }
 .jsp-scale3 { display: flex; gap: 4px; } .jsp-scale3 i { width: 20px; height: 6px; border-radius: 3px; background: var(--ov-2); }
 .jsp-scale3 i.on { background: var(--teal); } .jsp-scale3.low i.on { background: var(--amber); }
@@ -4490,6 +4495,50 @@ function _vpPhCtaKuuntelija() {
     ev.preventDefault(); ev.stopPropagation();
     avaaAdarKenttatyokalu(a.getAttribute('data-pid') || '', a.getAttribute('data-nimi') || '');
   });
+  /* Havaintohistoria samalla delegointikuviolla: lukulohkossa ei saa olla inline-onclickeja. */
+  document.addEventListener('click', function (ev) {
+    var a = ev.target && ev.target.closest ? ev.target.closest('.jsp-hh-link') : null;
+    if (!a) return;
+    ev.preventDefault(); ev.stopPropagation();
+    avaaHavaintohistoria(a.getAttribute('data-pid') || '', a.getAttribute('data-nimi') || '');
+  });
+}
+
+/* ══ HAVAINTOHISTORIA ════════════════════════════════════════════════
+   VP ei nähnyt havaintojen tekstejä missään — vain pikakenttien pisteet. Lista on sama
+   jaettu komponentti kuin valmentajan sovelluksessa (lib/tm_havaintohistoria.js), joten
+   kumpikaan ei voi näyttää eri asiaa samasta datasta.
+   ON-DEMAND: alikokoelma luetaan vasta klikkauksesta (§26). */
+window._vpHhRivit = [];
+window._vpHhSuodatin = 'kaikki';
+
+async function avaaHavaintohistoria(pelaajaId, pelaajaNimi) {
+  if (!pelaajaId || !_seuraId || typeof tmHhRivit !== 'function') return;
+  window._vpHhSuodatin = 'kaikki';
+  window._vpHhSulje = avaaAlasivu({
+    id: '_vpHhModal',
+    otsikko: vpT('Havainnot ja viestit'),
+    meta: (pelaajaNimi || pelaajaId),
+    sisaltoHTML: '<div id="_vpHhSisalto" style="font-size:12.5px;color:var(--ink3)">' + vpT('Ladataan…') + '</div>',
+  });
+  var snap = await _db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(pelaajaId)
+    .collection('havainnot').get().catch(function () { return { docs: [] }; });
+  window._vpHhRivit = tmHhRivit(snap.docs.map(function (d) {
+    return Object.assign({ id: d.id }, d.data());
+  }));
+  _vpHhPiirra();
+}
+window.avaaHavaintohistoria = avaaHavaintohistoria;
+
+function _vpHhPiirra() {
+  var el = document.getElementById('_vpHhSisalto');
+  if (!el) return;
+  el.innerHTML = '<style>' + tmHhCss() + '</style>'
+    + tmHhSuodatinHTML(window._vpHhSuodatin, vpT)
+    + tmHhHTML(window._vpHhRivit, { suodatin: window._vpHhSuodatin, t: vpT });
+  el.querySelectorAll('[data-hh-suodatin]').forEach(function (b) {
+    b.onclick = function () { window._vpHhSuodatin = b.getAttribute('data-hh-suodatin'); _vpHhPiirra(); };
+  });
 }
 if (typeof document !== 'undefined') {
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', _vpPhCtaKuuntelija);
@@ -5169,7 +5218,9 @@ async function avaaPelaajaMuistiinpanoModal(pelaajaId, pelaajaNimi) {
       h += '<div style="font-size:10px;letter-spacing:.1em;color:' + kategoriaVari + ';text-transform:uppercase">' + (m.kategoria||'muu') + '</div>';
       h += '<div style="font-size:10px;color:var(--ink3)">' + pvm + ' · ' + nakyvyysTxt + '</div>';
       h += '</div>';
-      h += '<div style="font-size:13px;color:var(--ink);line-height:1.5">' + m.teksti + '</div>';
+      /* ESCAPE: teksti on kayttajan kirjoittamaa. Escapoimaton `<img onerror=…>` suorittuisi
+         taman listan renderoinnissa. */
+      h += '<div style="font-size:13px;color:var(--ink);line-height:1.5">' + _jsvEsc(m.teksti) + '</div>';
       h += '</div>';
     });
   }
@@ -5954,32 +6005,75 @@ function _vpArvAdarKoostumusHTML(p, ika) {
     return '<div class="jsp-adar-koostumus"><div class="jsp-arv-legend" style="margin:0 0 8px">' + _hdr + '</div>'
       + '<div style="font-size:12.5px;color:var(--ink3);text-align:center;padding:8px 0 10px">' + vpT('Ei pelihavaintoja vielä — peliäly rakentuu pelihavainnoista.') + '</div>' + _adarCta + '</div>';
   }
-  const sallitut = (typeof tmAdarIkaTier === 'function') ? tmAdarIkaTier(ika) : ['a', 'd', 'ac', 'r'];
-  const rLukossa = sallitut.indexOf('r') < 0;
+  /* PORRAS VOITTAA IÄN (2A). Tämä lohko jäi 2A:sta: se näytti vielä nimiä
+     "Havaitse/Päätä/Toimi/Arvioi", ikäportin `tmAdarIkaTier` ja tekstin "avautuu 16 v".
+     Valmentajan sovellus oli jo siirtynyt portaisiin, joten sama pelaaja näytti VP:lle ja
+     valmentajalle eri asiaa. Porras, bändi ja nimet tulevat nyt libistä — ei omaa logiikkaa. */
+  const _porras = p.havainto_porras || ((typeof tmAdarIkaPorras === 'function') ? tmAdarIkaPorras(ika) : 4);
+  const _band = (typeof tmAdarBand === 'function') ? tmAdarBand(ika, _porras) : ['a', 'd', 'ac', 'r'];
+  const _KAN = (typeof TM_ADAR_NIMET !== 'undefined' && TM_ADAR_NIMET.valmentaja)
+    || { a: 'Havainnointi', d: 'Päätös', ac: 'Toteutus', r: 'Palautuminen' };
   const OSAT = [
-    { k: 'a', nimi: 'Havaitse', sel: 'a · näkeekö tilanteen' },
-    { k: 'd', nimi: 'Päätä', sel: 'd · valitseeko oikein' },
-    { k: 'ac', nimi: 'Toimi', sel: 'ac · toteuttaako' },
-    { k: 'r', nimi: 'Arvioi', sel: 'r · lukee uudelleen' }
+    { k: 'a', nimi: _KAN.a, lyh: 'A' },
+    { k: 'd', nimi: _KAN.d, lyh: 'D' },
+    { k: 'ac', nimi: _KAN.ac, lyh: 'Ac' },
+    { k: 'r', nimi: _KAN.r, lyh: 'R' }
   ];
+  /* Uusin portaalle nostettu ulottuvuus merkitään — sen luku on vasta kehittymässä. Ehto on
+     sama kuin Master_v16:ssa ja Pelaaja_v7:ssä: merkki vaatii TALLENNETUN portaan (ikäsuositus
+     koskee kaikkia) eikä uusimmasta ulottuvuudesta saa olla vielä kolmea havaintoa. */
+  const _ehdHist = (p.havainto_porras_ehdotus && p.havainto_porras_ehdotus.hist) || [];
+  const _uusinDim = (p.havainto_porras && p.havainto_porras > 1 && _ehdHist.length < 3
+    && typeof TM_ADAR_PORTAAT !== 'undefined' && TM_ADAR_PORTAAT[p.havainto_porras])
+    ? TM_ADAR_PORTAAT[p.havainto_porras][p.havainto_porras - 1] : null;
+
   let rows = '', summa = 0, nAkt = 0;
-  OSAT.forEach(function (o) {
-    const locked = sallitut.indexOf(o.k) < 0;
-    const arvo = (!locked && av[o.k] != null) ? Math.max(1, Math.min(3, Math.round(av[o.k]))) : null;
+  OSAT.forEach(function (o, idx) {
+    const lukossa = _band.indexOf(o.k) < 0;
+    const arvo = (!lukossa && av[o.k] != null) ? Math.max(1, Math.min(3, Math.round(av[o.k]))) : null;
     let dots = '';
     for (let i = 1; i <= 3; i++) dots += '<i class="' + ((arvo != null && i <= arvo) ? 'on' : '') + '"></i>';
     const low = (arvo != null && arvo < 3);
-    const avLbl = locked ? vpT('avautuu 16 v')
-      : (arvo != null ? '<b>' + arvo + '</b>/3 · ' + (arvo >= 3 ? vpT('itsenäisesti') : arvo === 2 ? 'ohjatusti' : vpT('ei näy vielä')) : '<span style="color:var(--ink3)">' + vpT('— ei havaintoa') + '</span>');
+    /* Lukittu rivi kertoo PORTAAN, ei ikää: "porras 3" on toimintaohje (nosta porras),
+       kun taas "avautuu 16 v" oli odotusohje, johon valmentaja ei voi vaikuttaa. */
+    const avLbl = lukossa ? (vpT('porras') + ' ' + (idx + 1))
+      : (arvo != null
+        ? '<b>' + arvo + '</b>/3 · ' + (arvo >= 3 ? vpT('hallitsee') : arvo === 2 ? vpT('kehittyvä') : vpT('harjoittelussa'))
+        : '<span style="color:var(--ink3)">' + vpT('— ei havaintoa') + '</span>');
     if (arvo != null) { summa += arvo; nAkt++; }
-    rows += '<div class="jsp-adar-row' + (locked ? ' locked' : '') + '"><span class="jsp-adar-an">' + _jsvEsc(o.nimi) + ' <small>(' + _jsvEsc(o.sel) + ')</small></span>'
-      + '<span class="jsp-scale3' + (low ? ' low' : '') + '">' + dots + '</span><span class="jsp-adar-av">' + avLbl + '</span></div>';
+    const uusi = (o.k === _uusinDim)
+      ? ' <span style="font-size:8.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--teal);border:.5px solid rgba(40,176,144,.4);padding:1px 5px;margin-left:5px">' + vpT('uusi porras') + '</span>' : '';
+    rows += '<div class="jsp-adar-row' + (lukossa ? ' locked' : '') + '"><span class="jsp-adar-an">'
+      + _jsvEsc(vpT(o.nimi)) + ' <small>(' + o.lyh + ')</small>' + uusi + '</span>'
+      + '<span class="jsp-scale3' + (low ? ' low' : '') + '">' + dots + '</span>'
+      + '<span class="jsp-adar-av">' + avLbl + '</span></div>';
   });
+
+  /* Tikkaat: mitkä taidot ovat avautuneet ja mitkä seuraavaksi. Ikää ei mainita. */
+  let tikkaat = '<div class="jsp-adar-ladder">';
+  for (let i = 1; i <= 4; i++) tikkaat += '<i class="' + (i <= _porras ? 'on' : '') + '"></i>';
+  tikkaat += '</div>';
+
   const pvm = av.pvm ? (typeof _pvmLyhyt === 'function' ? _pvmLyhyt(av.pvm) : _jsvEsc(av.pvm)) : '';
   let h = '<div class="jsp-adar-koostumus"><div class="jsp-arv-legend" style="margin:0 0 4px">' + _hdr + (pvm ? ' <span style="color:var(--ink3);font-weight:400">· ' + pvm + '</span>' : '') + '</div>';
-  h += '<div style="font-size:10.5px;color:var(--ink3);margin-bottom:8px;line-height:1.5">' + vpT('Mitä "peliäly" -luvun takana on: neljä osaa, ikäportitettu.') + (rLukossa ? vpT(' U13-portti → Havaitse · Päätä · Toimi (Arvioi avautuu 16 v).') : '') + vpT(' Ei muunneta 1–5:een — pysyy 1–3.') + '</div>';
+  h += '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-top:2px">'
+    + '<b style="font-family:var(--font-serif,Georgia,serif);font-weight:400;font-size:17px;color:var(--ink)">'
+    + vpT('Porras') + ' ' + _porras + ' / 4</b></div>';
+  h += tikkaat;
+  h += '<div style="font-size:10.5px;color:var(--ink3);margin-bottom:8px;line-height:1.5">'
+    + vpT('Neljä osaa, porras kerrallaan. Ikä on ohje, ei raja — porras ratkaisee mitä arvioidaan.')
+    + vpT(' Ei muunneta 1–5:een — pysyy 1–3.') + '</div>';
   h += rows;
-  h += '<div style="font-size:11px;color:var(--ink3);margin-top:8px;padding-top:6px;border-top:.5px solid var(--border)">' + vpT('Kokonais ') + '<b style="color:var(--ink2)">' + summa + '/' + (nAkt * 3) + '</b>' + (rLukossa ? vpT(' · U13-portti (') + nAkt + vpT(' osaa)') : '') + (av.yht != null ? vpT(' · tutkassa ') + (Math.round(av.yht * 10) / 10) + '/5' : '') + '</div>';
+  h += '<div style="font-size:11px;color:var(--ink3);margin-top:8px;padding-top:6px;border-top:.5px solid var(--border)">' + vpT('Kokonais ') + '<b style="color:var(--ink2)">' + summa + '/' + (nAkt * 3) + '</b>' + (av.yht != null ? vpT(' · tutkassa ') + (Math.round(av.yht * 10) / 10) + '/5' : '') + '</div>';
+  /* HAVAINNOT-LINKKI: lista ladataan vasta klikkauksesta (§26 — ei alikokoelmakyselyä
+     renderöinnissä). Luku tulee pikakentästä `adar_havaintoja`; viestien määrä selviää
+     vasta listasta, joten sitä ei luvata otsikossa. */
+  const _hLkm = (typeof p.adar_havaintoja === 'number' && p.adar_havaintoja > 0) ? (' · ' + p.adar_havaintoja) : '';
+  h += '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:12px;padding-top:12px;border-top:.5px solid var(--border)">'
+    + '<a href="#" class="jsp-hh-link" data-pid="' + _jsvEsc(p.id || '') + '"'
+    + ' data-nimi="' + _jsvEsc(((p.etunimi || '') + ' ' + (p.sukunimi || '')).trim()) + '"'
+    + ' style="font-size:12px;color:var(--teal);text-decoration:none;font-weight:500">'
+    + vpT('Havainnot') + _hLkm + ' →</a></div>';
   // FOLD-IN (R3.B-korjaus): ristiinarvio (multi-rater konkordanssi) + add-CTA — ent. f3:n arvokkaat osat, ei hukata.
   h += (typeof _vpRistiinarvio === 'function') ? _vpRistiinarvio(p) : '';
   h += _adarCta;

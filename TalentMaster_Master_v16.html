@@ -93,6 +93,7 @@ window.TM_KAAVIO_HOST = {
 <script src="lib/tm_arviointi_taksonomia.js?v=11"></script>   <!-- P1: TM_ARVIOINTI_ASTEIKKO + D4-taksonomia + tmAdarHavaittu (Pelihavainto-talteenotto) -->
 <script src="lib/tm_idp.js?v=9"></script>   <!-- I3a: + kesto valmentajan asetettavaksi (opts.kestoVk) · I2 (C): valmentajan IDP-kausitavoite-kortti -->
 <script src="lib/tm_pelialy_yksilo.js?v=4"></script>   <!-- P1: pelihavainto peliäly → yksilöteema (Kartta A) · v3: Vaihe B multi-rater konsensus (tmAdarKonsensus/RistiinarvioAvoin/TalenttiSignaali) -->
+<script src="lib/tm_havaintohistoria.js?v=1"></script>   <!-- jaettu havainto-/viestihistoria (VP + Master) -->
 <script src="lib/tm_kehityskaari.js?v=3"></script>   <!-- Trendi Vaihe 2: yksilön kehityskaari (render hh_historia/tki_historia:sta) -->
 <script src="lib/tm_aani.js?v=2"></script>   <!-- Vaihe 0: puhdas nauhoitin (reflektio + VP:n ääripalaute samasta ytimestä) -->
 <script src="lib/tm_reflektio.js?v=3"></script>   <!-- Vaihe 1: jaettu äänireflektio (Master + VP) — irrotettu Masterin inlinestä -->
@@ -4876,7 +4877,7 @@ function renderHavainnot() {
       return '<div class="koti-kortti" style="cursor:pointer" onclick="pickPlayer(\'' + p.id + '\');setWs(\'dev\')">'
         + '<div class="kk-ikoni">🧠</div>'
         + '<div class="kk-txt"><b>' + _iaNimi(p) + '</b> · ' + masterT('Peliäly') + ' ' + yht + ' · ' + p.adar_havaintoja + masterT(' havaintoa') + (pvmTxt ? ' · ' + pvmTxt : '') + '</div>'
-        + '<button onclick="event.stopPropagation();_hkAvaaHavainnot(\'' + p.id + '\')" style="background:none;border:.5px solid var(--line);border-radius:20px;color:var(--ink2);font-size:10.5px;font-weight:600;padding:5px 11px;cursor:pointer;white-space:nowrap">' + masterT('📋 Taktiikkataulu') + '</button>'
+        + '<button onclick="event.stopPropagation();_hkAvaaHavainnot(\'' + p.id + '\')" style="background:none;border:.5px solid var(--line);border-radius:20px;color:var(--ink2);font-size:10.5px;font-weight:600;padding:5px 11px;cursor:pointer;white-space:nowrap">' + masterT('▷ Havainnot') + '</button>'
         + '<span style="color:var(--teal);margin-left:8px">→</span></div>';
     }).join('') + '</div>';
   } else {
@@ -4910,7 +4911,7 @@ window._hkAvaaHavainnot = async function (pelaajaId) {
   var box = document.createElement('div');
   box.style.cssText = 'background:var(--card);border:.5px solid var(--border);border-radius:12px;width:560px;max-width:100%;max-height:88vh;overflow:auto;padding:16px 18px';
   box.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">'
-    + '<div style="font-family:\'Cormorant Garamond\',serif;font-size:19px;color:var(--ink)">📋 ' + masterT('Pelihavainnot') + ' · ' + _mEsc(_pkPelaajaNimi(pelaajaId)) + '</div>'
+    + '<div style="font-family:\'Cormorant Garamond\',serif;font-size:19px;color:var(--ink)">▷ ' + masterT('Havainnot ja viestit') + ' · ' + _mEsc(_pkPelaajaNimi(pelaajaId)) + '</div>'
     + '<button onclick="document.getElementById(\'_hkModal\').remove()" style="background:none;border:none;color:var(--ink3);font-size:22px;cursor:pointer">×</button></div>'
     + '<div id="_hkLista" style="font-size:12px;color:var(--ink3)">' + masterT('Ladataan…') + '</div>';
   modal.appendChild(box); document.body.appendChild(modal);
@@ -4921,47 +4922,64 @@ async function _hkRenderLista(pelaajaId) {
   var el = document.getElementById('_hkLista'); if (!el) return;
   var snap = await _db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(pelaajaId)
     .collection('havainnot').get().catch(function () { return { docs: [] }; });
-  /* Client-sort (§26-kuvio): ei komposiitti-indeksiä. Vain pelihavainnot —
-     valmentaja_viesti ei ole havainto (D2a-erittely). */
-  var havainnot = snap.docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); })
-    .filter(function (h) { return h.tyyppi !== 'valmentaja_viesti'; })
-    .sort(function (a, b) { return _luotuToMs(b.luotu) - _luotuToMs(a.luotu); });
-  if (!havainnot.length) {
-    el.innerHTML = '<div class="koti-tyhja" style="font-size:13px">' + masterT('Ei pelihavaintoja vielä — kirjaa ensimmäinen peliälytyökalulla.') + '</div>';
+  var docs = snap.docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); });
+  /* JAETTU KOMPONENTTI (lib/tm_havaintohistoria.js): sama lista kuin VP:llä. Aiemmin tämä
+     näkymä katkaisi tekstin 110 merkkiin ja suodatti viestit kokonaan pois — valmentaja ei
+     siis nähnyt, mitä oli itse kirjoittanut. Kirjasto escapoi kaiken tekstin. */
+  window._hkRivit = (typeof tmHhRivit === 'function') ? tmHhRivit(docs) : [];
+  window._hkPid = pelaajaId;
+  /* Kaavio-id per havainto: liitosnappi on TÄMÄN listan alkuperäinen tehtävä, joten se
+     säilyy rivikohtaisena toimintona kirjaston rivin alla. */
+  window._hkKaaviot = {};
+  docs.forEach(function (hav) {
+    var todiste = _klippiLahde(hav);
+    if (todiste && todiste.tyyppi === 'kaavio') window._hkKaaviot[hav.id] = todiste.id;
+  });
+  _hkPiirraLista();
+}
+
+window._hkSuodatin = 'kaikki';
+
+function _hkPiirraLista() {
+  var el = document.getElementById('_hkLista'); if (!el) return;
+  var rivit = window._hkRivit || [];
+  if (!rivit.length) {
+    el.innerHTML = '<div class="koti-tyhja" style="font-size:13px">' + masterT('Ei havaintoja eikä viestejä vielä.') + '</div>';
     return;
   }
-  var h = '';
-  havainnot.forEach(function (hav) {
-    /* SAUMA A: todiste luetaan `_klippiLahde`:n kautta — tuleva klippilähde
-       (Teams/SharePoint/Taso-video) vaihtaa vain sauman sisuksen. */
-    var todiste = _klippiLahde(hav);
-    var kid = (todiste && todiste.tyyppi === 'kaavio') ? todiste.id : null;
-    var pvm = hav.pvm || (_luotuToMs(hav.luotu) ? new Date(_luotuToMs(hav.luotu)).toISOString().slice(0, 10) : '');
-    var teksti = (hav.narratiivi || hav.teksti || '').slice(0, 110);
-    h += '<div style="border-bottom:.5px solid var(--border);padding:10px 0">'
-      + '<div style="display:flex;align-items:center;gap:8px">'
-      + '<div style="flex:1;min-width:0"><div style="color:var(--ink);font-size:12.5px">' + (teksti ? _mEsc(teksti) : masterT('(ei narratiivia)')) + '</div>'
-      /* Havainto kantaa nykyään `porras`-kentän; `adar_taso` on vanhojen havaintojen jäänne. */
-      + '<div style="font-size:10.5px;color:var(--ink3);margin-top:2px">' + _mEsc(pvm)
-      + (hav.porras ? (' · ' + masterT('porras ') + hav.porras)
-        : (hav.adar_taso ? (' · ' + masterT('taso ') + hav.adar_taso) : ''))
-      /* Näkyvyys esiin listassa: valmentajan on nähtävä yhdellä silmäyksellä, meneekö teksti
-         lapselle vai ei — muuten kytkimen valinta jää näkymättömäksi jälkikäteen. */
-      + (hav.nakyvyys === 'valmentajat' ? (' · ' + masterT('vain valmentajille')) : '') + '</div></div>'
-      + (kid
-        ? '<span style="font-size:10.5px;color:var(--teal);white-space:nowrap">✓ ' + masterT('Taktiikkataulu') + '</span>'
-        : '<button onclick="_hkLiita(\'' + pelaajaId + '\',\'' + hav.id + '\')" style="background:rgba(40,176,144,.14);border:.5px solid rgba(40,176,144,.45);border-radius:20px;color:var(--teal);font-size:10.5px;font-weight:600;padding:5px 11px;cursor:pointer;white-space:nowrap">' + masterT('+ Liitä taktiikkataulu') + '</button>')
-      + '</div>'
-      + (kid ? '<div id="_hkThumb_' + hav.id + '" style="margin-top:8px;max-width:260px"></div>' : '')
-      + '</div>';
+  el.innerHTML = '<style>' + tmHhCss() + '</style>'
+    + tmHhSuodatinHTML(window._hkSuodatin, masterT)
+    + tmHhHTML(rivit, { suodatin: window._hkSuodatin, t: masterT });
+  el.querySelectorAll('[data-hh-suodatin]').forEach(function (b) {
+    b.onclick = function () { window._hkSuodatin = b.getAttribute('data-hh-suodatin'); _hkPiirraLista(); };
   });
-  el.innerHTML = h;
+  /* Taktiikkataulu-liitos rivin alle — vain pelihavainnoille, ei viesteille. */
+  rivit.forEach(function (r) {
+    if (r.laji !== 'havainto') return;
+    var rivi = el.querySelector('[data-hh-id="' + r.id + '"]');
+    if (!rivi) return;
+    var kid = (window._hkKaaviot || {})[r.id];
+    var lisa = document.createElement('div');
+    lisa.style.cssText = 'margin-top:8px';
+    if (kid) {
+      lisa.innerHTML = '<span style="font-size:10.5px;color:var(--teal)">✓ ' + masterT('Taktiikkataulu') + '</span>'
+        + '<div id="_hkThumb_' + r.id + '" style="margin-top:8px;max-width:260px"></div>';
+    } else {
+      lisa.innerHTML = '<button data-hk-liita="' + r.id + '" style="background:rgba(40,176,144,.14);'
+        + 'border:.5px solid rgba(40,176,144,.45);border-radius:20px;color:var(--teal);font-size:10.5px;'
+        + 'font-weight:600;padding:5px 11px;cursor:pointer;white-space:nowrap;font-family:inherit">'
+        + masterT('+ Liitä taktiikkataulu') + '</button>';
+    }
+    rivi.appendChild(lisa);
+  });
+  el.querySelectorAll('[data-hk-liita]').forEach(function (b) {
+    b.onclick = function () { _hkLiita(window._hkPid, b.getAttribute('data-hk-liita')); };
+  });
   /* Thumbnailit JAETULLA renderöijällä (tm_kaavio_render.js) — ei omaa piirtoa. */
-  havainnot.forEach(async function (hav) {
-    var kid = (typeof tmHavaintoKaavio !== 'undefined') ? tmHavaintoKaavio.kaavioId(hav) : null;
-    if (!kid) return;
-    var k = await tmHavaintoKaavio.haeKaavio(_db, _seuraId, kid);
-    var kohde = document.getElementById('_hkThumb_' + hav.id);
+  Object.keys(window._hkKaaviot || {}).forEach(async function (hid) {
+    if (typeof tmHavaintoKaavio === 'undefined') return;
+    var k = await tmHavaintoKaavio.haeKaavio(_db, _seuraId, window._hkKaaviot[hid]);
+    var kohde = document.getElementById('_hkThumb_' + hid);
     if (k && k.spec && kohde) tmHavaintoKaavio.piirraThumb(kohde, k.spec, { lang: (typeof tmKieli === 'function') ? tmKieli() : 'fi' });
   });
 }
