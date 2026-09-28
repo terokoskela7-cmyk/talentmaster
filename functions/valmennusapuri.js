@@ -347,8 +347,11 @@ function koostaSeuranData(d, joukkueet) {
   } else {
     osat.push('harjoitettavuuskartoitusta ei ole tehty');
   }
-  const mitatut = pelaajat.filter(function (p) { return p.phv && PHV_NIMET[p.phv]; });
-  osat.push(mitatut.length ? 'kasvumittaus ' + mitatut.length + '/' + pelaajat.length + ' pelaajalla' : 'kasvumittausta ei ole tehty');
+  // Kun joukkue on rajattu, kasvumittauksen lukumäärä lasketaan siitä joukkueesta (muuten malli sekoittaa seuran ja joukkueen)
+  const rajatut = (joukkueet && joukkueet.length) ? pelaajat.filter(function (p) { return joukkueet.indexOf(p.joukkue) >= 0; }) : pelaajat;
+  const mitatut = rajatut.filter(function (p) { return p.phv && PHV_NIMET[p.phv]; });
+  const kohde = (joukkueet && joukkueet.length) ? ' (' + joukkueet.join(', ') + ')' : '';
+  osat.push(mitatut.length ? 'kasvumittaus ' + mitatut.length + '/' + rajatut.length + ' pelaajalla' + kohde : 'kasvumittausta ei ole tehty' + kohde);
   if (testit.length) osat.push('testitapahtumia ' + testit.length + ' (viimeisin ' + (_kk(testit[0].pvm) || '?') + ')');
   osat.push('kuormakirjaukset ei tiedossa');
   let teksti = 'Seuran data: ' + osat.join('; ') + '.';

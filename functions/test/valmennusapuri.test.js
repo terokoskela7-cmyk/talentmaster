@@ -436,7 +436,7 @@ test('koostaSeuranData: kartoitus, kasvumittaus, testit ja kasvuvaiheet lukum채�
   };
   const t = va.koostaSeuranData(d, ['KPV U13']);
   assert.ok(t.indexOf('harjoitettavuuskartoitus tehty (KPV U13 09/2026, KPV U15 03/2026)') >= 0, t);
-  assert.ok(t.indexOf('kasvumittaus 4/5 pelaajalla') >= 0, t);
+  assert.ok(t.indexOf('kasvumittaus 3/4 pelaajalla (KPV U13)') >= 0, t);
   assert.ok(t.indexOf('testitapahtumia 2 (viimeisin 09/2026)') >= 0, t);
   assert.ok(t.indexOf('KPV U13 (4 pelaajaa): kasvuvaiheet (lukum채채r채t): l채hestyy 1, huipussa 2') >= 0, t);
   assert.ok(t.indexOf('KPV U15') < 0 || t.indexOf('KPV U15 (') < 0, 'vain pilotin joukkue: ' + t);
