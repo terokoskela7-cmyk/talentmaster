@@ -384,7 +384,7 @@ test('syottosuoja: valmennussisältö säilyy (ikäluokat, pelinumerot, vuodet, 
 
 test('rakennaKonteksti: pilotin ja seuran tiedoista; SA:lle ei riviä', () => {
   assert.strictEqual(va.rakennaKonteksti(false, { seuraId: 'kpv', tehtava: 'valmennuspäällikkö', lisenssi: 'UEFA B' }, { nimi: 'KPV', taso: 'seura' }),
-    'Konteksti: valmennuspäällikkö, seura KPV (seura), koulutus UEFA B, testi- ja kasvumittausdata ei tiedossa.');
+    'Konteksti: valmennuspäällikkö, seura KPV (seura), koulutus UEFA B. Seuran data: ei tiedossa.');
   assert.ok(va.rakennaKonteksti(false, { seuraId: 'kpv' }, null).indexOf('Konteksti: valmentaja, seura kpv, koulutus ei tiedossa') === 0);
   assert.strictEqual(va.rakennaKonteksti(true, null, null), null);
 });
@@ -422,4 +422,52 @@ test('kasittelija: oma Konteksti-rivi (testaus) → palvelin ei lisää toista',
   });
   await h({ rooli: 'hp', viestit: [{ role: 'user', content: 'Konteksti: fysiikkavalmentaja, U15. Kysymys.' }] }, ctx('v1'));
   assert.strictEqual(mallille[0][0].content, 'Konteksti: fysiikkavalmentaja, U15. Kysymys.');
+});
+
+// ── Porras 1: seuran datan kooste HP-johtajalle ──────────────────────────────
+test('koostaSeuranData: kartoitus, kasvumittaus, testit ja kasvuvaiheet lukumäärinä joukkueittain', () => {
+  const d = {
+    pelaajat: [
+      { joukkue: 'KPV U13', phv: 'PH' }, { joukkue: 'KPV U13', phv: 'PH' }, { joukkue: 'KPV U13', phv: 'LAH' },
+      { joukkue: 'KPV U15', phv: 'POST' }, { joukkue: 'KPV U13', phv: null },
+    ],
+    kartoitukset: [{ joukkue: 'KPV U13', pvm: '2026-09-10T09:00:00Z' }, { joukkue: 'KPV U15', pvm: '2026-03-22T09:00:00Z' }],
+    testit: [{ joukkue: 'KPV U13', pvm: '2026-09-12' }, { joukkue: 'KPV U15', pvm: '2026-05-01' }],
+  };
+  const t = va.koostaSeuranData(d, ['KPV U13']);
+  assert.ok(t.indexOf('harjoitettavuuskartoitus tehty (KPV U13 09/2026, KPV U15 03/2026)') >= 0, t);
+  assert.ok(t.indexOf('kasvumittaus 4/5 pelaajalla') >= 0, t);
+  assert.ok(t.indexOf('testitapahtumia 2 (viimeisin 09/2026)') >= 0, t);
+  assert.ok(t.indexOf('KPV U13: lähestyy 1, huipussa 2') >= 0, t);
+  assert.ok(t.indexOf('KPV U15:') < 0, 'vain pilotin joukkue: ' + t);
+});
+
+test('koostaSeuranData: ei dataa → kerrotaan puuttuvan; ilman joukkuetta kooste koko seurasta', () => {
+  const tyhja = va.koostaSeuranData({ pelaajat: [{ joukkue: 'A' }], kartoitukset: [], testit: [] }, []);
+  assert.ok(tyhja.indexOf('harjoitettavuuskartoitusta ei ole tehty') >= 0 && tyhja.indexOf('kasvumittausta ei ole tehty') >= 0, tyhja);
+  const seura = va.koostaSeuranData({ pelaajat: [{ joukkue: 'A', phv: 'PRE' }, { joukkue: 'B', phv: 'PRE' }] }, []);
+  assert.ok(seura.indexOf('koko seura: ennen kasvupyrähdystä 2') >= 0, seura);
+});
+
+test('kasittelija: HP-kontekstiin seuran datan kooste; SA voi testata seuraId:llä, muut eivät', async () => {
+  const db = muistiDb({ 'valmennusapuri_pilotti/v1': { aktiivinen: true, seuraId: 'kpv', roolit: ['hp'], joukkue: 'KPV U13' } });
+  const pyydetyt = [];
+  const mallille = [];
+  const h = va.kasittelija({ firestore: () => db }, functions, {
+    env: {}, haeTietopohja: async () => TP,
+    haeSeuranTiedot: async (_db, sid) => { pyydetyt.push(sid); return { nimet: [], seura: { nimi: 'KPV' },
+      data: { pelaajat: [{ joukkue: 'KPV U13', phv: 'PH' }], kartoitukset: [], testit: [] } }; },
+    kutsuMallia: async (_a, _s, _y, v) => { mallille.push(v[v.length - 1].content); return { teksti: 'ok', syy: 'end_turn', tokenit: {} }; },
+  });
+  await h({ rooli: 'hp', viestit: [{ role: 'user', content: 'Kysymys.' }] }, ctx('v1'));
+  assert.ok(mallille[0].indexOf('Seuran data: harjoitettavuuskartoitusta ei ole tehty; kasvumittaus 1/1 pelaajalla') >= 0, mallille[0]);
+  assert.ok(mallille[0].indexOf('KPV U13: huipussa 1') >= 0, mallille[0]);
+  // pilotti ei voi vaihtaa seuraa
+  await h({ rooli: 'hp', seuraId: 'hjk', viestit: [{ role: 'user', content: 'Kysymys.' }] }, ctx('v1'));
+  assert.deepStrictEqual(pyydetyt, ['kpv', 'kpv']);
+  // SA: seuraId → konteksti; ilman seuraId:tä ei kontekstia
+  await h({ rooli: 'hp', seuraId: 'kpv', viestit: [{ role: 'user', content: 'Kysymys.' }] }, ctx(va.SA_UID));
+  assert.ok(mallille[2].indexOf('Konteksti: valmentaja, seura KPV') === 0, mallille[2]);
+  await h({ rooli: 'hp', viestit: [{ role: 'user', content: 'Kysymys.' }] }, ctx(va.SA_UID));
+  assert.strictEqual(mallille[3], 'Kysymys.');
 });
