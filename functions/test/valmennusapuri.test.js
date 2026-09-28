@@ -438,15 +438,15 @@ test('koostaSeuranData: kartoitus, kasvumittaus, testit ja kasvuvaiheet lukumä�
   assert.ok(t.indexOf('harjoitettavuuskartoitus tehty (KPV U13 09/2026, KPV U15 03/2026)') >= 0, t);
   assert.ok(t.indexOf('kasvumittaus 4/5 pelaajalla') >= 0, t);
   assert.ok(t.indexOf('testitapahtumia 2 (viimeisin 09/2026)') >= 0, t);
-  assert.ok(t.indexOf('KPV U13: lähestyy 1, huipussa 2') >= 0, t);
-  assert.ok(t.indexOf('KPV U15:') < 0, 'vain pilotin joukkue: ' + t);
+  assert.ok(t.indexOf('KPV U13 (4 pelaajaa): kasvuvaiheet (lukumäärät): lähestyy 1, huipussa 2') >= 0, t);
+  assert.ok(t.indexOf('KPV U15') < 0 || t.indexOf('KPV U15 (') < 0, 'vain pilotin joukkue: ' + t);
 });
 
 test('koostaSeuranData: ei dataa → kerrotaan puuttuvan; ilman joukkuetta kooste koko seurasta', () => {
   const tyhja = va.koostaSeuranData({ pelaajat: [{ joukkue: 'A' }], kartoitukset: [], testit: [] }, []);
   assert.ok(tyhja.indexOf('harjoitettavuuskartoitusta ei ole tehty') >= 0 && tyhja.indexOf('kasvumittausta ei ole tehty') >= 0, tyhja);
-  const seura = va.koostaSeuranData({ pelaajat: [{ joukkue: 'A', phv: 'PRE' }, { joukkue: 'B', phv: 'PRE' }] }, []);
-  assert.ok(seura.indexOf('koko seura: ennen kasvupyrähdystä 2') >= 0, seura);
+  const seura = va.koostaSeuranData({ pelaajat: [{ joukkue: 'A', phv: 'PRE' }, { joukkue: 'B', phv: 'PRE' }, { joukkue: 'B', phv: 'PRE' }] }, []);
+  assert.ok(seura.indexOf('koko seura (3 pelaajaa): kasvuvaiheet (lukumäärät): ennen kasvupyrähdystä 3') >= 0, seura);
 });
 
 test('kasittelija: HP-kontekstiin seuran datan kooste; SA voi testata seuraId:llä, muut eivät', async () => {
@@ -461,7 +461,7 @@ test('kasittelija: HP-kontekstiin seuran datan kooste; SA voi testata seuraId:ll
   });
   await h({ rooli: 'hp', viestit: [{ role: 'user', content: 'Kysymys.' }] }, ctx('v1'));
   assert.ok(mallille[0].indexOf('Seuran data: harjoitettavuuskartoitusta ei ole tehty; kasvumittaus 1/1 pelaajalla') >= 0, mallille[0]);
-  assert.ok(mallille[0].indexOf('KPV U13: huipussa 1') >= 0, mallille[0]);
+  assert.ok(mallille[0].indexOf('KPV U13 (1 pelaajaa): kasvuvaihe mitattu alle 3 pelaajalla (ei koostetta)') >= 0, mallille[0]);
   // pilotti ei voi vaihtaa seuraa
   await h({ rooli: 'hp', seuraId: 'hjk', viestit: [{ role: 'user', content: 'Kysymys.' }] }, ctx('v1'));
   assert.deepStrictEqual(pyydetyt, ['kpv', 'kpv']);
@@ -478,4 +478,14 @@ test('tunnistaJoukkueet: kysymyksessä mainittu joukkue, myös ilman seuran etul
   assert.deepStrictEqual(va.tunnistaJoukkueet('miten p14 kuormitetaan?', data), ['KPV P14']);
   assert.deepStrictEqual(va.tunnistaJoukkueet('U13-ikäisille yleisesti', data), []);
   assert.deepStrictEqual(va.tunnistaJoukkueet('P133 ei ole joukkue', data), []);
+});
+
+test('koostaSeuranData: testitulosten ja liikeketjujen mediaanit; alle 3 pelaajaa → ei arvoja (yksityisyys)', () => {
+  const pel = (lin30m, sbl, ll) => ({ joukkue: 'KPV P13', ennatykset: { lin30m: { paras: lin30m } }, ketjut: { sbl: sbl, sfl: 2.3, ll: ll, diag: 2.4, dfl: 2.2 } });
+  const t = va.koostaSeuranData({ pelaajat: [pel(5.1, 2.2, 2.0), pel(4.9, 2.1, 1.9), pel(5.3, 2.4, 2.1), { joukkue: 'KPV P14' }] }, ['KPV P13']);
+  assert.ok(t.indexOf('30 m 5,1 s (n=3)') >= 0, t);
+  assert.ok(t.indexOf('Vauhtiketju 2,2') >= 0 && t.indexOf('heikoin Sivuketju') >= 0, t);
+  const yksi = va.koostaSeuranData({ pelaajat: [pel(4.42, 2.16, 2.1)] }, ['KPV P13']);
+  assert.ok(yksi.indexOf('4,42') < 0 && yksi.indexOf('2,2') < 0, 'yksilön arvot eivät saa näkyä: ' + yksi);
+  assert.ok(yksi.indexOf('testituloksia alle 3 pelaajalla (ei koostetta)') >= 0, yksi);
 });
