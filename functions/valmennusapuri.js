@@ -283,7 +283,9 @@ const MIN_RYHMA = 3;   // kooste vain, jos arvo vähintään kolmelta pelaajalta
 const TESTI_NIMET = {
   lin5m: ['5 m', 's'], lin10m: ['10 m', 's'], lin30m: ['30 m', 's'], cmj: ['CMJ-hyppy', 'cm'], mas: ['MAS', 'km/h'],
   kasirata: ['kasirata', 's'], sm_juoksu: ['suunnanmuutosjuoksu', 's'], sm_pallo: ['suunnanmuutos pallon kanssa', 's'],
-  ponnauttelu: ['ponnauttelu', ''], syotto: ['syöttötesti', 's'], pujottelu: ['pujottelu', 's'], kuljetus_laukaus: ['kuljetus + laukaus', 's'],
+  // Tekniikkakilpailun lajit: pallotehtävä ajanottona (sekuntia, pienempi parempi). Ponnauttelu = pallon ponnauttelu, ei hyppy.
+  ponnauttelu: ['tekniikkakilpailu: pallon ponnauttelu', 's'], syotto: ['tekniikkakilpailu: syöttö', 's'],
+  pujottelu: ['tekniikkakilpailu: pujottelu pallon kanssa', 's'], kuljetus_laukaus: ['tekniikkakilpailu: kuljetus + laukaus', 's'],
 };
 const KETJU_NIMET = { sbl: 'Vauhtiketju', sfl: 'Lähtöketju', ll: 'Sivuketju', diag: 'Diagonaaliketju', dfl: 'Hallintaketju' };
 function _mediaani(a) {
@@ -405,6 +407,26 @@ function koostaSeuranData(d, joukkueet) {
       tasoRivit.push(TASO_NIMET[k] + ' mediaani ' + _luku(_mediaani(a), 1) + ' (n=' + a.length + '; tasolla 1–1,9: ' + jak[0] +
         ', 2–2,9: ' + jak[1] + ', 3–3,9: ' + jak[2] + ', 4–5: ' + jak[3] + ')');
     });
+    // Tekniikkakilpailu: TKI (0–100, ikäluokan rajat) + merkit + yleisimmät lajikohtaiset vahvuudet/kehityskohteet
+    const tkiA = ryhma.map(function (p) { return p.tki && p.tki.indeksi; }).filter(function (v) { return typeof v === 'number' && v >= 0 && v <= 100; });
+    if (tkiA.length >= MIN_RYHMA) {
+      const tkiP = ryhma.filter(function (p) { return p.tki && typeof p.tki.indeksi === 'number'; });
+      const lkm = function (avain) {
+        const c = {};
+        tkiP.forEach(function (p) { const l = p.tki[avain]; if (l) c[l] = (c[l] || 0) + 1; });
+        return Object.keys(c).sort(function (a, b) { return c[b] - c[a]; })
+          .map(function (l) { return (TESTI_NIMET[l] ? TESTI_NIMET[l][0].replace('tekniikkakilpailu: ', '') : l) + ' ' + c[l]; }).join(', ');
+      };
+      const m = { kulta: 0, hopea: 0, pronssi: 0 };
+      tkiP.forEach(function (p) { if (m[p.tki.merkki] != null) m[p.tki.merkki]++; });
+      const ilman = tkiP.length - m.kulta - m.hopea - m.pronssi;
+      let r = 'tekniikkakilpailu: TKI-indeksi (0–100 ikäluokan rajoihin suhteutettuna: pronssiraja 40, hopea 60, kulta 80) mediaani ' +
+        _luku(_mediaani(tkiA), 0) + ' (n=' + tkiA.length + '); merkit: kulta ' + m.kulta + ', hopea ' + m.hopea + ', pronssi ' + m.pronssi + ', ei merkkiä ' + ilman;
+      const kk = lkm('kehityskohde'), vv = lkm('vahvuus');
+      if (kk) r += '; pelaajien oma kehityskohde (lukumäärä): ' + kk;
+      if (vv) r += '; pelaajien oma vahvuus (lukumäärä): ' + vv;
+      osat2.push(r);
+    }
     if (tasoRivit.length) osat2.push('tasot asteikolla 1–5 ikäluokan normeihin suhteutettuna: ' + tasoRivit.join(', '));
     // TSI: pelaajakohtainen ero (pallon kanssa − ilman), mediaani — oikeampi kuin kahden mediaanin erotus
     const tsi = ryhma.map(function (p) { const e = p.ennatykset || {};
@@ -481,6 +503,7 @@ async function haeSeuranTiedot(db, seuraId) {
     [x.nimi, x.etunimi, x.sukunimi, x.kutsumanimi].forEach(function (n) { if (n) nimet.push(n); });
     pelaajat.push({ joukkue: x.joukkue || null, phv: x.phv_tila || null, ennatykset: yhdistaTulokset(x),
       tasot: { hh: _num(x.hh_taso), d1: _num(x.d1_taso), d2: _num(x.d2_taso) },
+      tki: { indeksi: _num(x.tki_viimeisin), merkki: x.tki_merkki || null, vahvuus: x.tki_vahvuus || null, kehityskohde: x.tki_kehityskohde || null },
       ketjut: { sbl: x.sbl, sfl: x.sfl, ll: x.ll, diag: x.diag, dfl: x.dfl } });
   });
   const kartoitukset = [];

@@ -525,3 +525,13 @@ test('koostaSeuranData: TSI pelaajakohtaisen eron mediaanina', () => {
   const t = va.koostaSeuranData({ pelaajat: [p(8, 9), p(8.2, 9.8), p(7.9, 9.1)] }, ['SJK T16']);
   assert.ok(t.indexOf('pelaajakohtaisen eron mediaani) 1,2 s (n=3)') >= 0, t);
 });
+
+test('koostaSeuranData: tekniikkakilpailun TKI, merkit ja kehityskohteet; ponnauttelu on pallotehtävä', () => {
+  const p = (tki, merkki, kk, e) => ({ joukkue: 'Sibbo P9', tki: { indeksi: tki, merkki: merkki, kehityskohde: kk, vahvuus: 'pujottelu' }, ennatykset: e });
+  const e = { ponnauttelu: { paras: 30 } };
+  const t = va.koostaSeuranData({ pelaajat: [p(35, null, 'syotto', e), p(62, 'hopea', 'syotto', e), p(45, 'pronssi', 'ponnauttelu', e)] }, ['Sibbo P9']);
+  assert.ok(t.indexOf('TKI-indeksi (0–100') >= 0 && t.indexOf('mediaani 45 (n=3)') >= 0, t);
+  assert.ok(t.indexOf('kulta 0, hopea 1, pronssi 1, ei merkkiä 1') >= 0, t);
+  assert.ok(t.indexOf('oma kehityskohde (lukumäärä): syöttö 2, pallon ponnauttelu 1') >= 0, t);
+  assert.ok(t.indexOf('tekniikkakilpailu: pallon ponnauttelu 30 s') >= 0, t);
+});
