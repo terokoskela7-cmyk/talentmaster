@@ -105,10 +105,15 @@ describe('Firebase-SDK:n kytkentä tarjoiltavissa appeissa', () => {
        (`__bundler/`, `DecompressionStream`) ja blob-skriptin/-fontin kuviot
        tarkistetaan erikseen `tests/csp_blob_hygienia.test.js`:n
        BLOB_SKRIPTI_KUVIOT-listalla — se on se turvaominaisuus, ei merkkijono. */
-    for (const sdk of ['app', 'app-check', 'auth', 'firestore', 'storage']) {
+    /* `storage` EI ole listassa: kuvatoiminto (Storage-lataus + aiProxy) poistettiin
+       tietosuojasyistä vaiheessa 1, joten ADAR ei enää koske Storageen. Turhan SDK:n
+       lataaminen olisi sekä painoa että tarpeeton kyky. Alempi rivi lukitsee sen pois. */
+    for (const sdk of ['app', 'app-check', 'auth', 'firestore']) {
       expect(s, `firebase-${sdk}-compat puuttuu`).toContain(`firebase-${sdk}-compat.js`);
     }
     expect(s).toContain('lib/tm_appcheck.js');
+    expect(s, 'Storage-SDK ei kuulu ADARiin enää (kuvatoiminto poistettu)')
+      .not.toContain('firebase-storage-compat.js');
   });
 
   it('ADARin offline-kyky (§15) sailyy de-bundlen jalkeen', () => {

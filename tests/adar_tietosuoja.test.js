@@ -57,8 +57,10 @@ describe('(1) kuvatoiminto on poistettu clientistä', () => {
       .forEach((s) => expect(ADAR, 'UI-jäänne: ' + s).not.toContain(s));
   });
 
-  it('saveCard ei kirjoita media-kenttää', () => {
-    const f = pura(ADAR, 'async function saveCard(');
+  /* PR 2B: tallennusfunktio on `_phTallenna` (saveCard poistui tasovälilehtien mukana).
+     Vartijan kohde on sama: havaintodokumenttiin ei kirjoiteta media-kenttää. */
+  it('tallennus ei kirjoita media-kenttää', () => {
+    const f = pura(ADAR, 'async function _phTallenna(');
     expect(ilmanKommentteja(f)).not.toMatch(/\bmedia\s*[:=]/);
   });
 
@@ -71,8 +73,10 @@ describe('(1) kuvatoiminto on poistettu clientistä', () => {
   });
 
   it('service workerin välimuistiversio on nostettu (vanha HTML ei saa palvella)', () => {
+    /* Väljä alaraja: versio saa nousta myöhemmissä PR:issä (2B nosti v3:een), mutta se ei saa
+       palata kuvallista HTML:ää palvelleeseen v1:een. */
     const sw = lue('sw_adar.js');
-    expect(sw).toContain("const CACHE = 'tm-adar-v2'");
+    expect(sw).toMatch(/const CACHE = 'tm-adar-v([2-9]|\d\d+)'/);
     expect(sw).not.toContain("'tm-adar-v1'");
   });
 });
@@ -176,19 +180,17 @@ describe('(4) GDPR-poisto löytää myös pre_-polkuiset kuvat', () => {
 /* ── 2 · NÄKYVYYS ─────────────────────────────────────────────────────── */
 
 describe('(5) näkyvyys on valmentajan valinta, ei oletus', () => {
-  function ajaNak(tier, syntymaVuosi) {
-    const solmut = {};
-    const hae = (id) => {
-      if (!solmut[id]) {
-        solmut[id] = { id, value: id.indexOf('pelaaja-id') >= 0 ? 'p1' : '',
-          textContent: '', attrs: {},
-          setAttribute(k, v) { this.attrs[k] = v; } };
-      }
-      return solmut[id];
-    };
+  /* PR 2B: tasot poistuivat, joten näkyvyys ei ole enää per tier vaan per havainto
+     (`window._phTila.nakyvyys`). Vartijat AJAVAT yhä aidot funktiot lähteestä — merkkijonohaku
+     kertoisi vain, että jokin logiikka on olemassa, ei että se valitsee oikein. */
+  function ajaNak(syntymaVuosi) {
     const store = {
-      document: { getElementById: hae }, Date, Number, String, Object,
-      window: { _pelaajaMap: { p1: { syntymaVuosi } } },
+      Date, Number, String, Object, isNaN,
+      window: {
+        _pelaajaMap: { p1: { syntymaVuosi } },
+        _phTila: { pelaajaId: 'p1', nakyvyys: null },
+      },
+      _phRender: () => {},
     };
     store.window.window = store.window;
     const ymp = new Proxy(store, {
@@ -196,67 +198,79 @@ describe('(5) näkyvyys on valmentajan valinta, ei oletus', () => {
       get: (t2, k) => (k === Symbol.unscopables ? undefined : (k in t2 ? t2[k] : undefined)),
       set: (t2, k, v) => { t2[k] = v; return true; },
     });
-    const runko = ['window._nakTila = { t1: false, t2: true, t3: true };',
+    const runko = [
+      pura(ADAR, 'function _phPelaaja('), pura(ADAR, 'function _phIka('),
       pura(ADAR, 'function _nakPelaajanIka('), pura(ADAR, 'function _nakOletus('),
-      pura(ADAR, 'function _nakAseta('), pura(ADAR, 'function _nakVaihda('),
-      pura(ADAR, 'function _nakNollaa('), pura(ADAR, 'function _nakArvo(')].join('\n');
+      pura(ADAR, 'function _nakVaihda('), pura(ADAR, 'function _nakNollaa('),
+      pura(ADAR, 'function _nakArvo('),
+    ].join('\n');
     // eslint-disable-next-line no-new-func
     const api = new Function('__ymp', 'with(__ymp){' + runko
-      + '\nreturn { nollaa: _nakNollaa, vaihda: _nakVaihda, arvo: _nakArvo, solmut: () => solmut };}')(
-      Object.assign(ymp, {}));
-    api.nollaa(tier);
-    return { api, solmut };
+      + '\nreturn { nollaa: _nakNollaa, vaihda: _nakVaihda, arvo: _nakArvo, oletus: _nakOletus };}')(ymp);
+    api.nollaa('p1');
+    return api;
   }
 
   const vuosiIalle = (ika) => new Date().getFullYear() - ika;
 
   it('alle 13-vuotiaalla oletus on POIS — muistiinpano ei mene lapselle', () => {
-    const { api } = ajaNak('t1', vuosiIalle(10));
-    expect(api.arvo('t1')).toBe('valmentajat');
+    expect(ajaNak(vuosiIalle(10)).arvo()).toBe('valmentajat');
   });
 
   it('13+ oletus on PÄÄLLÄ', () => {
-    const { api } = ajaNak('t2', vuosiIalle(14));
-    expect(api.arvo('t2')).toBe('pelaaja');
+    expect(ajaNak(vuosiIalle(14)).arvo()).toBe('pelaaja');
   });
 
-  it('ikä ratkaisee, ei taso: 10-vuotias Taso 2:lla on yhä pois', () => {
-    const { api } = ajaNak('t2', vuosiIalle(10));
-    expect(api.arvo('t2')).toBe('valmentajat');
+  it('IKÄ ratkaisee, EI porras (porras vaihtuu, oletus ei)', () => {
+    /* Porras on arvioinnin laajuus, ikä on tietosuojaperuste. Jos oletus seuraisi porrasta,
+       10-vuotias portaalla 3 saisi muistiinpanon näkyviin. */
+    const f = pura(ADAR, 'function _nakOletus(');
+    expect(f, 'oletus lukee ikää').toContain('_nakPelaajanIka(');
+    expect(f, 'oletus ei saa lukea porrasta').not.toContain('porras');
+    expect(ajaNak(vuosiIalle(10)).arvo()).toBe('valmentajat');
+  });
+
+  it('ikä tuntematon → FAIL-CLOSED (ei lapselle)', () => {
+    expect(ajaNak(null).arvo()).toBe('valmentajat');
   });
 
   it('otsikko ja selite kertovat kummalle näkyy', () => {
-    const { api, solmut } = ajaNak('t1', vuosiIalle(10));
-    expect(solmut['t1-narr-label'].textContent).toBe('Muistiinpano · vain valmentajille');
-    api.vaihda('t1');
-    expect(api.arvo('t1')).toBe('pelaaja');
-    expect(solmut['t1-narr-label'].textContent).toBe('Viesti pelaajalle');
-    expect(solmut['t1-nak-teksti'].textContent).toContain('Pelaaja näkee tämän tekstin');
+    const f = pura(ADAR, 'function _phRenderHavainto(');
+    expect(f).toContain("'Viesti pelaajalle'");
+    expect(f).toContain("'Muistiinpano · vain valmentajille'");
+    expect(f, 'selite ei kerro että pelaaja ei näe havaintoa lainkaan')
+      .toContain('Pelaaja ei näe tätä havaintoa lainkaan');
+    expect(f, 'otsikko ei riipu kytkimestä').toContain('on ?');
   });
 
   it('valinta EI jää muistiin: nollaus palauttaa oletukseen', () => {
-    const { api } = ajaNak('t1', vuosiIalle(10));
-    api.vaihda('t1');
-    expect(api.arvo('t1')).toBe('pelaaja');
-    api.nollaa('t1');
-    expect(api.arvo('t1'), 'edellisen havainnon valinta vuoti seuraavaan').toBe('valmentajat');
+    const api = ajaNak(vuosiIalle(10));
+    api.vaihda();
+    expect(api.arvo()).toBe('pelaaja');
+    api.nollaa('p1');
+    expect(api.arvo(), 'edellisen havainnon valinta vuoti seuraavaan').toBe('valmentajat');
   });
 
   it('tallennus lukee kytkimen, ei kovakoodaa arvoa', () => {
-    const f = pura(ADAR, 'async function saveCard(');
-    expect(f).toContain('_nakArvo(tier)');
-    expect(ilmanKommentteja(f), 'kovakoodattu oletus').not.toMatch(/nakyvyys:\s*'pelaaja',/);
+    const f = pura(ADAR, 'async function _phTallenna(');
+    expect(f).toContain('nakyvyys: _nakArvo()');
+    expect(ilmanKommentteja(f), 'kovakoodattu oletus').not.toMatch(/nakyvyys:\s*'pelaaja'/);
   });
 
-  it('kytkin nollautuu pelaajan vaihtuessa ja tallennuksen jälkeen', () => {
-    expect(ADAR).toContain("onchange=\"_nakNollaa('t1')\"");
-    expect(pura(ADAR, 'async function saveCard(')).toContain('_nakNollaa(tier)');
+  it('kytkin nollautuu pelaajan vaihtuessa (myös Seuraava pelaaja -ketjussa)', () => {
+    /* Yksi polku pelaajan avaukseen → nollaus ei voi unohtua toisesta. */
+    const f = pura(ADAR, 'function _phAvaaPelaaja(');
+    expect(f).toContain('S.nakyvyys = _nakOletus(pid)');
+    const ok = pura(ADAR, 'function _phRenderOk(');
+    expect(ok, 'Seuraava pelaaja ei kulje _phAvaaPelaaja:n kautta').toContain('_phAvaaPelaaja(');
   });
 
-  it('toast kertoo kummalle tallennettiin', () => {
-    const f = pura(ADAR, 'async function saveCard(');
-    expect(f).toContain('pelaaja näkee viestin');
-    expect(f).toContain('vain valmentajille');
+  it('vahvistus kertoo kummalle tallennettiin', () => {
+    /* Toastin tilalla on pysyvä merkintä Tallennettu-näkymässä: se ei katoa 3 sekunnissa. */
+    const f = pura(ADAR, 'function _phRenderOk(');
+    expect(f).toContain('Pelaaja näkee viestin');
+    expect(f).toContain('Vain valmentajille');
+    expect(f, 'merkintä ei riipu tallennetusta näkyvyydestä').toContain("nakyvyys === 'pelaaja'");
   });
 });
 
