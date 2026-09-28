@@ -163,7 +163,7 @@ pelimuodon kenttäkoosta (`XT_KENTTAKOOT`), 11v11 = 105 × 68 m.
 ## 5. Osa D — Kohdennettu pelihavainto: kenttätyökalu (TOTEUTETTAVA)
 
 **Toimiva mockup:** https://claude.ai/artifact/SwzsUXTsqEEUGtvimL1FcQ (versio 5) ja sama tiedosto repossa
-`docs/prototyypit/pelihavainto_kenttatyokalu_mockup.html` (avautuu selaimessa, kaikki logiikka inline).
+`docs/prototyypit/pelihavainto_kenttatyokalu_v6.html` (avautuu selaimessa, kaikki logiikka inline).
 **Mockup on UX:n ja laskennan referenssi.** Tuotantokoodi kirjoitetaan uudelleen repon konventioilla.
 
 ### 5.1 Mitä tämä on (ja mitä ei)

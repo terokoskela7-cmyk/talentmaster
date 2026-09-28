@@ -1037,3 +1037,123 @@ describe('(v6-8) Kirjattavat — rastittamaton ei ole nolla', () => {
     expect(y.luvut.tulot.hyokkayskolmannes.kuljetukset).toBeNull();
   });
 });
+
+describe('(v6-9) phKetjuNimi — kaksinpelin jokainen haara omalla avaimellaan', () => {
+  const kp = (rooli, tulos) => ({ id: 'x', tyyppi: 'kaksinpeli', rooli, tulos, piste: { len: 50, wid: 50 } });
+
+  /* Laaja "muu kaksinpeli = menetys" nimesi kolme tilannetta vaarin. Kirjasto sanoo itse
+     phArvo:ssa, ettei ohitetuksi tuleminen ole menetys — pallo ei vaihtanut omistajaa. */
+  it('puolustuksen viivytti ja ohitettiin EIVÄT ole menetys', () => {
+    expect(PH.phKetjuNimi(kp('puolustus', 'viivytti'), '11v11')).toBe('viivytti');
+    expect(PH.phKetjuNimi(kp('puolustus', 'ohitettiin'), '11v11')).toBe('ohitettiin');
+  });
+
+  it('tuntematon tulos on neutraali kaksinpeli, ei menetys', () => {
+    expect(PH.phKetjuNimi(kp('hyokkays', null), '11v11')).toBe('kaksinpeli');
+    expect(PH.phKetjuNimi(kp('puolustus', null), '11v11')).toBe('kaksinpeli');
+    expect(PH.phKetjuNimi(kp('hyokkays', 'jotain_muuta'), '11v11')).toBe('kaksinpeli');
+    expect(PH.phKetjuNimi(kp(null, 'voitti'), '11v11')).toBe('kaksinpeli');
+  });
+
+  it('vain hävitty hyökkäys-1v1 on menetys', () => {
+    expect(PH.phKetjuNimi(kp('hyokkays', 'ei_ohittanut'), '11v11')).toBe('menetys');
+  });
+
+  it('voitot saavat omat avaimensa', () => {
+    expect(PH.phKetjuNimi(kp('hyokkays', 'ohitti'), '11v11')).toBe('voitto_1v1');
+    expect(PH.phKetjuNimi(kp('hyokkays', 'rikottiin'), '11v11')).toBe('voitto_1v1');
+    expect(PH.phKetjuNimi(kp('puolustus', 'voitti'), '11v11')).toBe('riisto');
+  });
+
+  it('jokainen PH_KAKSINPELI_TULOS-arvo saa avaimen, eikä sama avain kata kahta eri lopputulosta', () => {
+    const nimet = {};
+    ['hyokkays', 'puolustus'].forEach((rooli) => {
+      PH.PH_KAKSINPELI_TULOS[rooli].forEach((tulos) => {
+        const nimi = PH.phKetjuNimi(kp(rooli, tulos), '11v11');
+        expect(nimi, rooli + '/' + tulos).toBeTruthy();
+        expect(nimi, rooli + '/' + tulos + ' ei saa olla neutraali').not.toBe('kaksinpeli');
+        nimet[nimi] = (nimet[nimi] || 0) + 1;
+      });
+    });
+    // 'voitto_1v1' kattaa ohitti+rikottiin (molemmat onnistumisia); muut ovat 1:1.
+    Object.keys(nimet).forEach((n) => {
+      if (n !== 'voitto_1v1') expect(nimet[n], n + ' kattaa kaksi eri lopputulosta').toBe(1);
+    });
+  });
+});
+
+describe('(v6-10) Rastittamaton ei ole nolla — myös koostelukujen ja ADAR-rivien osalta', () => {
+  const merkinnat = [
+    { id: 's', tyyppi: 'syotto', alku: { len: 40, wid: 50 }, loppu: { len: 70, wid: 50 }, perilla: true, skannasi: true, t: 1 },
+    { id: 'k', tyyppi: 'kuljetus', alku: { len: 40, wid: 40 }, loppu: { len: 60, wid: 40 }, lopputuote: 'avoin', t: 2 },
+    { id: 'r', tyyppi: 'riisto', piste: { len: 40, wid: 50 }, t: 3 },
+    { id: 'd', tyyppi: 'kaksinpeli', rooli: 'puolustus', tulos: 'voitti', piste: { len: 40, wid: 50 }, t: 4 },
+    { id: 'j', tyyppi: 'juoksu', alku: { len: 40, wid: 60 }, loppu: { len: 70, wid: 60 }, t: 5 },
+    { id: 'm', tyyppi: 'menetys', piste: { len: 60, wid: 50 }, reaktio: 'heti', t: 6 },
+    { id: 'l', tyyppi: 'laukaus', piste: { len: 88, wid: 50 }, t: 7 },
+  ];
+
+  it('ilman yhtäkään rastia JOKAINEN luku ja ADAR-rivi on null', () => {
+    const y = PH.phYhteenveto(dokV6(merkinnat, { kirjattavat: [] }));
+    Object.keys(y.luvut).forEach((avain) => {
+      if (avain === 'tulot') {
+        expect(y.luvut.tulot.hyokkayskolmannes, 'tulot.hyokkayskolmannes').toBeNull();
+        expect(y.luvut.tulot.boksi, 'tulot.boksi').toBeNull();
+        return;
+      }
+      expect(y.luvut[avain], 'luvut.' + avain).toBeNull();
+    });
+    expect(y.adar.ennenPalloa.juoksut).toBeNull();
+    expect(y.adar.ennenPalloa.skannasi).toBeNull();
+    expect(y.adar.pallonKanssa.ykkosetHyokkays).toBeNull();
+    expect(y.adar.pallonKanssa.syotot).toBeNull();
+    expect(y.adar.pallonKanssa.kuljetukset).toBeNull();
+    expect(y.adar.puolustaminen.ykkosetPuolustus).toBeNull();
+    expect(y.adar.puolustaminen.riistot).toBeNull();
+    expect(y.adar.riistonJalkeen).toBeNull();
+    expect(y.adar.menetyksenJalkeen).toBeNull();
+  });
+
+  /* Juurisyy jota tama vartioi: luvut- ja adar-lohko gatettiin erikseen, jolloin luvut.syotot oli
+     null mutta adar.pallonKanssa.syotot samasta datasta {0,0}. Kaksi kuluttajaa, kaksi totuutta. */
+  it('luvut ja ADAR kertovat samasta asiasta saman — rastilla ja ilman', () => {
+    [[], ['syotto'], ['syotto', 'kuljetus', 'v1', 'riisto'], PH.PH_KIRJATTAVAT].forEach((rastit) => {
+      const y = PH.phYhteenveto(dokV6(merkinnat, { kirjattavat: rastit }));
+      const nimi = 'rastit=' + JSON.stringify(rastit);
+      expect(y.adar.pallonKanssa.syotot, nimi).toEqual(y.luvut.syotot);
+      expect(y.adar.pallonKanssa.kuljetukset, nimi).toEqual(y.luvut.kuljetukset);
+      expect(y.adar.pallonKanssa.ykkosetHyokkays, nimi).toEqual(y.luvut.ykkosetHyokkays);
+      expect(y.adar.puolustaminen.ykkosetPuolustus, nimi).toEqual(y.luvut.ykkosetPuolustus);
+      expect(y.adar.riistonJalkeen, nimi).toEqual(y.luvut.siirtyma);
+      const riistojaLuvuissa = y.luvut.riistot === null ? null : y.luvut.riistot.n;
+      expect(y.adar.puolustaminen.riistot, nimi).toEqual(riistojaLuvuissa);
+    });
+  });
+
+  it('luotu uhka ja skannaus vaativat pallollisen rastin — kumpi tahansa riittää', () => {
+    expect(PH.phYhteenveto(dokV6(merkinnat, { kirjattavat: ['riisto'] })).luvut.luotuUhka).toBeNull();
+    expect(PH.phYhteenveto(dokV6(merkinnat, { kirjattavat: ['riisto'] })).adar.ennenPalloa.skannasi).toBeNull();
+    ['syotto', 'kuljetus'].forEach((rasti) => {
+      const y = PH.phYhteenveto(dokV6(merkinnat, { kirjattavat: [rasti] }));
+      expect(y.luvut.luotuUhka, rasti).not.toBeNull();
+      expect(y.adar.ennenPalloa.skannasi, rasti).not.toBeNull();
+    });
+  });
+
+  it('siirtymä ja riistonJälkeen vaativat riisto-rastin', () => {
+    const ilman = PH.phYhteenveto(dokV6(merkinnat, { kirjattavat: ['syotto'] }));
+    expect(ilman.luvut.siirtyma).toBeNull();
+    expect(ilman.adar.riistonJalkeen).toBeNull();
+    const kanssa = PH.phYhteenveto(dokV6(merkinnat, { kirjattavat: ['riisto'] }));
+    expect(kanssa.luvut.siirtyma).not.toBeNull();
+  });
+
+  it('ilman kirjattavat-kenttää kaikki koosteluvut ovat ennallaan (taaksepäin)', () => {
+    const y = PH.phYhteenveto(dokV6(merkinnat));
+    ['luotuUhka', 'siirtyma', 'syotot', 'kuljetukset', 'riistot'].forEach((a) => {
+      expect(y.luvut[a], 'luvut.' + a).not.toBeNull();
+    });
+    expect(y.adar.ennenPalloa.skannasi).not.toBeNull();
+    expect(y.adar.riistonJalkeen).not.toBeNull();
+  });
+});
