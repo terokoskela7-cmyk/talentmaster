@@ -306,7 +306,10 @@ function masterCLohko() {
 describe('(10) Master lukee portaan ja näyttää sen', () => {
   it('porras luetaan pelaajadokumentista', () => {
     const lohko = masterCLohko();
-    expect(lohko, 'ilman tätä Master jää ikälogiikkaan').toContain('p.havainto_porras');
+    /* Tarkka sijoitus, ei pelkkä osamerkkijono: `p.havainto_porras_ehdotus` sisältää saman
+       alun, joten löyhä haku pysyisi vihreänä vaikka porras jäisi lukematta. */
+    expect(lohko, 'ilman tätä Master jää ikälogiikkaan')
+      .toContain('const _porrasC = p.havainto_porras || null;');
     expect(lohko).toContain('tmAdarBand(_ikaC, _porrasC)');
   });
 
@@ -317,8 +320,8 @@ describe('(10) Master lukee portaan ja näyttää sen', () => {
     expect(lohko, 'osien määrä merkkinä').not.toContain('_osatAll.length >= 4');
   });
 
-  it('uusin porrasulottuvuus johdetaan portaasta', () => {
-    expect(masterCLohko()).toContain('TM_ADAR_PORTAAT[_porrasNyt][_porrasNyt - 1]');
+  it('uusin porrasulottuvuus johdetaan TALLENNETUSTA portaasta', () => {
+    expect(masterCLohko()).toContain('TM_ADAR_PORTAAT[_porrasC][_porrasC - 1]');
   });
 
   it('pikakentät lasketaan libissä, ei Masterissa', () => {
@@ -379,16 +382,28 @@ describe('(9) §7.22 — portaan nousu ei näy lapselle laskuna', () => {
     throw new Error('rAdar-lohko ei pääty');
   })();
 
-  it('kaista lasketaan VAKIINTUNEISTA (porras−1), ei uusimmasta', () => {
-    expect(lohko).toContain('const osat = _vakiintuneet.map');
-    expect(lohko, 'koko portaan band veisi uusimman lukuineen listaan').not.toMatch(/const osat = _band\.map/);
+  /* Laskentaporras on porras−1 VAIN kun uusin on aidosti harjoittelussa; muuten koko porras
+     (ja ilman tallennettua porrasta koko ikäbändi, kuten ennen). */
+  it('laskentaporras kytkeytyy _uusiNakyy-ehtoon, ei porrasta suoraan', () => {
+    expect(lohko).toContain('const osat = _lasketaan.map');
+    expect(lohko).toContain('_laskentaPorras = _uusiNakyy ? Math.max(1, _porras - 1) : _porras');
+  });
+
+  it('"uusi taito" vaatii TALLENNETUN portaan ja alle kolme havaintoa', () => {
+    expect(lohko).toContain('_porrasTallennettu && _porrasTallennettu > 1');
+    expect(lohko).toContain('_ehdHist.length < 3');
+    /* Pelkkä _porras sisältää ikäsuosituksen → koskisi jokaista 13+ -pelaajaa. */
+    const i5 = lohko.indexOf('const _uusiNakyy');
+    const rivi5 = lohko.slice(i5, lohko.indexOf(';', i5));
+    expect(rivi5, 'ikäsuositus ei ole portaan nosto').not.toMatch(/_porras &&/);
   });
 
   /* yht on kaistan lähde: jos se lasketaan koko portaasta, kaista putoaa portaan noustessa. */
-  it('yht lasketaan VAKIINTUNEISTA, ei koko portaasta', () => {
+  it('yht lasketaan SAMASTA portaasta kuin osat', () => {
     const i3 = lohko.indexOf('const _yht');
     const rivi = lohko.slice(i3, lohko.indexOf(';', i3));
-    expect(rivi).toContain('Math.max(1, _porras - 1)');
+    expect(rivi).toContain('_laskentaPorras');
+    /* Eri porras kaistalle ja riveille kertoisi kaksi eri asiaa samasta pelaajasta. */
     expect(rivi, 'koko porras kaistan lähteenä').not.toMatch(/tmAdarYht\(av, _ika, _porras\)/);
   });
 
@@ -415,5 +430,107 @@ describe('(9) §7.22 — portaan nousu ei näy lapselle laskuna', () => {
     const jalkeen = L.tmAdarYht(av, 12, Math.max(1, 2 - 1));
     expect(jalkeen, 'vakiintuneiden luku säilyy').toBe(ennen);
     expect(L.tmAdarYht(av, 12, 2), 'valmentajan luku sen sijaan laskee').toBeLessThan(ennen);
+  });
+});
+
+/* == (11) AJETTU PELAAJANAKYMA ============================================
+   Aiempi §7.22-vartija vertasi LIB-funktioita, ei nakymaa — ja siksi se ei nahnyt, etta
+   ikasuositus valui "uudeksi taidoksi" jokaiselle 13+ -pelaajalle, jolla ei ole porrasta
+   tallennettuna. Tama ryhma ajaa rAdar():n oikeasti ja vertaa tulosta. */
+describe('(11) rAdar ajettuna — ilman porrasta mikään ei muutu', () => {
+  const src = readFileSync(join(juuri, 'TalentMaster_Pelaaja_v7.html'), 'utf8');
+
+  function ajaRAdar(pelaaja) {
+    const i = src.indexOf('function rAdar() {');
+    let syvyys = 0, runko = '';
+    for (let j = src.indexOf('{', i); j < src.length; j++) {
+      if (src[j] === '{') syvyys++;
+      else if (src[j] === '}') { syvyys--; if (!syvyys) { runko = src.slice(i, j + 1); break; } }
+    }
+    const store = {
+      _pelaaja: pelaaja, console, Math, Number, String, Object, Array, Date, isNaN,
+      tmAdarBand: L.tmAdarBand, tmAdarYht: L.tmAdarYht, tmAdarBonusOsat: L.tmAdarBonusOsat,
+      tmAdarIkaPorras: L.tmAdarIkaPorras,
+      TM_ADAR_PORTAAT: L.TM_ADAR_PORTAAT, TM_ADAR_NIMET: L.TM_ADAR_NIMET,
+    };
+    const ymp = new Proxy(store, {
+      has: (t2, k) => (k in t2) || !(k in globalThis),
+      get: (t2, k) => (k === Symbol.unscopables ? undefined : (k in t2 ? t2[k] : undefined)),
+      set: (t2, k, v) => { t2[k] = v; return true; },
+    });
+    // eslint-disable-next-line no-new-func
+    return new Function('__ymp', 'with(__ymp){' + runko + '\nreturn rAdar();}')(ymp);
+  }
+
+  const AV = { a: 3, d: 2, ac: 2, r: 1 };
+  const N = L.TM_ADAR_NIMET.pelaaja;
+
+  /* Ratkaiseva regressiovartija: nykyisilla pelaajilla EI ole havainto_porras-kenttaa. */
+  it.each([[12, ['a']], [14, ['a', 'd', 'ac']], [17, ['a', 'd', 'ac', 'r']]])(
+    'ikä %i ilman porrasta: samat ulottuvuudet kuin ennen PR:ää', (ika, odotetut) => {
+      const h = ajaRAdar({ ika, adar_viimeisin: AV });
+      L.ADAR_JARJ.forEach((dk) => {
+        const pitaaNakya = odotetut.indexOf(dk) >= 0;
+        const palkkirivi = h.indexOf('>' + N[dk] + '<') >= 0 || h.indexOf('askel: ' + N[dk] + '<') >= 0;
+        expect(palkkirivi, 'ikä ' + ika + ' dim ' + dk).toBe(pitaaNakya);
+      });
+    });
+
+  it.each([12, 14, 17])('ikä %i ilman porrasta: EI "Uusi taito" -riviä', (ika) => {
+    expect(ajaRAdar({ ika, adar_viimeisin: AV }), 'ikäsuositus ei ole portaan nosto')
+      .not.toContain('Uusi taito');
+  });
+
+  it('ilman porrasta kaista lasketaan koko ikäbändistä', () => {
+    const h = ajaRAdar({ ika: 14, adar_viimeisin: AV });
+    /* (3+2+2)/3 = 2,3 -> "Kehittyva"; jos Ac pudotettaisiin, (3+2)/2 = 2,5 -> "Vahva". */
+    expect(h).toContain('Kehittyvä pelinäkemys');
+  });
+
+  it('EI VACUOUS: tallennettu porras näkyy merkissä', () => {
+    expect(ajaRAdar({ ika: 14, adar_viimeisin: AV, havainto_porras: 2 })).toContain('Porras 2');
+  });
+
+  it('porras 2, hist=[2] → uusin ulottuvuus näkyy ILMAN lukua', () => {
+    const h = ajaRAdar({
+      ika: 12, adar_viimeisin: { a: 3, d: 1 },
+      havainto_porras: 2, havainto_porras_ehdotus: { hist: [2], valmis: false },
+    });
+    expect(h).toContain('Uusi taito');
+    expect(h).toContain(N.d);
+    /* Jos d olisi palkkirivina, kaista putoaisi: (3+1)/2 = 2 -> "Kehittyva". */
+    expect(h, 'kaista ei saa pudota portaan noususta').toContain('Vahva pelinäkemys');
+  });
+
+  it('porras 2, hist=[2,3,2] → uusin on vakiintunut ja näkyy lukuineen', () => {
+    const h = ajaRAdar({
+      ika: 12, adar_viimeisin: { a: 3, d: 1 },
+      havainto_porras: 2, havainto_porras_ehdotus: { hist: [2, 3, 2], valmis: false },
+    });
+    expect(h, 'kolmen havainnon jälkeen taito ei ole enää uusi').not.toContain('Uusi taito');
+    expect(h, 'nyt d lasketaan mukaan → kaista putoaa').toContain('Kehittyvä pelinäkemys');
+  });
+
+  it('porras 1 ei koskaan tuota "uutta taitoa" (ei edellistä porrasta)', () => {
+    const h = ajaRAdar({
+      ika: 12, adar_viimeisin: { a: 3 },
+      havainto_porras: 1, havainto_porras_ehdotus: { hist: [], valmis: false },
+    });
+    expect(h).not.toContain('Uusi taito');
+  });
+});
+
+describe('(12) Master merkitsee "uusi" samalla ehdolla', () => {
+  it('merkki vaatii TALLENNETUN portaan ja alle kolme havaintoa', () => {
+    const lohko = masterCLohko();
+    expect(lohko).toContain('_porrasC && _porrasC > 1 && _ehdHistC.length < 3');
+  });
+
+  it('merkki ei nojaa ikäsuositukseen (_porrasNyt)', () => {
+    const lohko = masterCLohko();
+    const i = lohko.indexOf('const _uusinDim');
+    const rivi = lohko.slice(i, lohko.indexOf(';', i));
+    expect(rivi, 'ikäsuositus merkitsisi jokaisen 13+ -pelaajan Toteutuksen uudeksi')
+      .not.toContain('_porrasNyt');
   });
 });

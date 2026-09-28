@@ -7370,9 +7370,14 @@ function _renderPinfoFirestore(p) {
        joku kirjasi ylimääräisen ulottuvuuden, vaikka pelaajan porras ei ollut muuttunut. */
     const _porrasNyt = _porrasC || ((typeof tmAdarIkaPorras === 'function') ? tmAdarIkaPorras(_ikaC) : 4);
     const _tasoMerkki = masterT('Porras') + ' ' + _porrasNyt + ' / 4';
-    /* Uusin portaalle nostettu ulottuvuus merkitään — sen luku on vasta kehittymässä. */
-    const _uusinDim = (typeof TM_ADAR_PORTAAT !== 'undefined' && TM_ADAR_PORTAAT[_porrasNyt])
-      ? TM_ADAR_PORTAAT[_porrasNyt][_porrasNyt - 1] : null;
+    /* Uusin portaalle nostettu ulottuvuus merkitään — sen luku on vasta kehittymässä. Ehto on
+       sama kuin Pelaaja_v7:ssä: merkki vaatii TALLENNETUN portaan (ikäsuositus koskee kaikkia,
+       joten sillä merkittäisiin jokaisen 13+ -pelaajan Toteutus "uudeksi") eikä uusimmasta
+       ulottuvuudesta saa olla vielä kolmea havaintoa. */
+    const _ehdHistC = (p.havainto_porras_ehdotus && p.havainto_porras_ehdotus.hist) || [];
+    const _uusinDim = (_porrasC && _porrasC > 1 && _ehdHistC.length < 3
+      && typeof TM_ADAR_PORTAAT !== 'undefined' && TM_ADAR_PORTAAT[_porrasC])
+      ? TM_ADAR_PORTAAT[_porrasC][_porrasC - 1] : null;
     const _bar = o => {
       const v = o[2], pct = Math.max(8, Math.min(100, v / 3 * 100));
       const col = v >= 2.5 ? 'var(--teal)' : v >= 1.8 ? 'var(--amber)' : 'var(--red)';
