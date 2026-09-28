@@ -336,6 +336,20 @@ function koostaSeuranData(d, joukkueet) {
   return teksti;
 }
 
+/** Puhdas: seuran joukkueet, jotka mainitaan tekstissä (kirjainkoolla ei väliä; myös ilman seuran etuliitettä, esim. "P13"). */
+function tunnistaJoukkueet(teksti, data) {
+  const t = String(teksti || '').toLowerCase();
+  const kaikki = new Set();
+  ((data && data.pelaajat) || []).concat((data && data.kartoitukset) || [], (data && data.testit) || [])
+    .forEach(function (x) { if (x && x.joukkue) kaikki.add(String(x.joukkue)); });
+  return Array.from(kaikki).filter(function (j) {
+    const jl = j.toLowerCase();
+    if (t.indexOf(jl) >= 0) return true;
+    const loppu = jl.split(/\s+/).pop();                       // "KPV P13" → "p13"
+    return loppu.length >= 2 && /\d/.test(loppu) && new RegExp('(?<![\\p{L}\\d])' + loppu + '(?![\\p{L}\\d])', 'u').test(t);
+  });
+}
+
 /** Puhdas: HP-johtajan kontekstirivi palvelimen tiedoista. null = ei riviä (ei pilottia eikä SA:n seuravalintaa). */
 function rakennaKonteksti(onSA, pilotti, seura, dataTeksti) {
   if (!pilotti) return null;
@@ -644,8 +658,11 @@ function kasittelija(admin, functions, riip) {
       let konteksti = null;
       const viimeinen = viestit[viestit.length - 1];
       if (rooli === 'hp' && !/^\s*Konteksti:/i.test(viimeinen.content)) {
-        const joukkueet = kontekstiPilotti && (Array.isArray(kontekstiPilotti.joukkueet) ? kontekstiPilotti.joukkueet
+        let joukkueet = kontekstiPilotti && (Array.isArray(kontekstiPilotti.joukkueet) ? kontekstiPilotti.joukkueet
           : (kontekstiPilotti.joukkue ? [kontekstiPilotti.joukkue] : []));
+        // Kysymyksessä mainittu seuran joukkue (esim. "KPV P13") rajaa koosteen siihen joukkueeseen.
+        const mainitut = tunnistaJoukkueet(viimeinen.content, seuraTiedot.data);
+        if (mainitut.length) joukkueet = mainitut;
         konteksti = rakennaKonteksti(onSA, kontekstiPilotti, seuraTiedot.seura,
           seuraTiedot.data ? koostaSeuranData(seuraTiedot.data, joukkueet) : null);
       }
@@ -707,6 +724,7 @@ module.exports = {
   nimiKuviot,
   rakennaKonteksti,
   koostaSeuranData,
+  tunnistaJoukkueet,
   puraVastaus,
   vertexUrl,
   asetukset,
