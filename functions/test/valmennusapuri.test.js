@@ -519,3 +519,9 @@ test('joukkueHuomio: tunnistamaton joukkue → huomio ja joukkuelista; tunnistet
   assert.strictEqual(va.joukkueHuomio('Kerro P2010 tilanne', data, ['SJK P2010']), null);
   assert.strictEqual(va.joukkueHuomio('Yleisiä plyometrisiä harjoitteita', data, []), null);
 });
+
+test('koostaSeuranData: TSI pelaajakohtaisen eron mediaanina', () => {
+  const p = (j, b) => ({ joukkue: 'SJK T16', ennatykset: { sm_juoksu: { paras: j }, sm_pallo: { paras: b } } });
+  const t = va.koostaSeuranData({ pelaajat: [p(8, 9), p(8.2, 9.8), p(7.9, 9.1)] }, ['SJK T16']);
+  assert.ok(t.indexOf('pelaajakohtaisen eron mediaani) 1,2 s (n=3)') >= 0, t);
+});

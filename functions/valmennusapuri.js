@@ -406,6 +406,11 @@ function koostaSeuranData(d, joukkueet) {
         ', 2–2,9: ' + jak[1] + ', 3–3,9: ' + jak[2] + ', 4–5: ' + jak[3] + ')');
     });
     if (tasoRivit.length) osat2.push('tasot asteikolla 1–5 ikäluokan normeihin suhteutettuna: ' + tasoRivit.join(', '));
+    // TSI: pelaajakohtainen ero (pallon kanssa − ilman), mediaani — oikeampi kuin kahden mediaanin erotus
+    const tsi = ryhma.map(function (p) { const e = p.ennatykset || {};
+      return (e.sm_juoksu && e.sm_pallo) ? Number(e.sm_pallo.paras) - Number(e.sm_juoksu.paras) : null; })
+      .filter(function (v) { return typeof v === 'number' && !isNaN(v); });
+    if (tsi.length >= MIN_RYHMA) testit2.push('suunnanmuutoksen pallokustannus (TSI = pallon kanssa − ilman, pelaajakohtaisen eron mediaani) ' + _luku(_mediaani(tsi), 2) + ' s (n=' + tsi.length + ')');
     if (testit2.length) osat2.push('testitulokset (mediaani, paras tai viimeisin tulos): ' + testit2.join(', '));
     else if (ryhma.some(function (p) { return p.ennatykset && Object.keys(p.ennatykset).length; })) {
       osat2.push('testituloksia alle ' + MIN_RYHMA + ' pelaajalla (ei koostetta)');
