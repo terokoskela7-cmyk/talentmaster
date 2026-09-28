@@ -2309,6 +2309,10 @@ describe('Kenttätarkkailut — valmentajan havainto, EI pelaajalle (v3.20)', ()
   }, lisa2 || {});
 
   const polku = (db, pid, id) => doc(db, 'seurat', SEURA_A, 'pelaajat', pid || PELAAJA_UID, 'kenttatarkkailut', id);
+  /* v3.20 id-lukko: doc-id on paatyttava KIRJOITTAJAN uid:hen. Jos assertFails-testi kayttaisi
+     muuta id:ta, se kaatuisi id-lukkoon eika siihen saantoon jota se vaittaa testaavansa —
+     eli olisi vihrea vaarasta syysta. Siksi jokainen luontitesti rakentaa id:n tekijan uid:sta. */
+  const idOma = (uid, etuliite) => (etuliite || '2026-09-28_1000') + '_' + uid;
 
   async function seedTarkkailu(id, data) {
     await testEnv.withSecurityRulesDisabled(async (context) => {
@@ -2352,34 +2356,34 @@ describe('Kenttätarkkailut — valmentajan havainto, EI pelaajalle (v3.20)', ()
   // ── LUONTI ──────────────────────────────────────────────────────────────
   it('oman joukkueen valmentaja luo tarkkailun omalla uid:lla → sallittu', async () => {
     const db = valmentajaContext(VALM_A_UID, SEURA_A).firestore();
-    await assertSucceeds(setDoc(polku(db, null, '2026-09-28_1_valm'), tarkkailu(VALM_A_UID)));
+    await assertSucceeds(setDoc(polku(db, null, idOma(VALM_A_UID)), tarkkailu(VALM_A_UID)));
   });
 
   it('tarkkailu TOISEN valmentajan nimissä → estetty', async () => {
     const db = valmentajaContext(VALM_A_UID, SEURA_A).firestore();
-    await assertFails(setDoc(polku(db, null, '2026-09-28_1_vaara'), tarkkailu(VP_A_UID)));
+    await assertFails(setDoc(polku(db, null, idOma(VALM_A_UID)), tarkkailu(VP_A_UID)));
   });
 
   it('valmentaja EI luo MUUN joukkueen pelaajaan → estetty', async () => {
     const db = valmentajaContext(VALM_A_UID, SEURA_A).firestore();
-    await assertFails(setDoc(polku(db, PELAAJA_A2_UID, '2026-09-28_1_muu'), tarkkailu(VALM_A_UID)));
+    await assertFails(setDoc(polku(db, PELAAJA_A2_UID, idOma(VALM_A_UID)), tarkkailu(VALM_A_UID)));
   });
 
   it('tenant-eristys: seuran B valmentaja ei kirjoita seuran A pelaajaan', async () => {
     const db = valmentajaContext(VALM_B_UID, SEURA_B).firestore();
-    await assertFails(setDoc(polku(db, null, '2026-09-28_1_tenant'), tarkkailu(VALM_B_UID)));
+    await assertFails(setDoc(polku(db, null, idOma(VALM_B_UID)), tarkkailu(VALM_B_UID)));
   });
 
   it('anonyymi EI luo tarkkailua', async () => {
-    await assertFails(setDoc(polku(anonContext().firestore(), null, '2026-09-28_1_anon'), tarkkailu(ANON_UID)));
+    await assertFails(setDoc(polku(anonContext().firestore(), null, idOma(ANON_UID)), tarkkailu(ANON_UID)));
   });
 
   it('luotu-vartija: ilman kelvollista luotu-kenttää luonti estyy (A5)', async () => {
     const db = valmentajaContext(VALM_A_UID, SEURA_A).firestore();
     const ilman = tarkkailu(VALM_A_UID);
     delete ilman.luotu;
-    await assertFails(setDoc(polku(db, null, '2026-09-28_1_eiluotua'), ilman));
-    await assertFails(setDoc(polku(db, null, '2026-09-28_1_strluotu'),
+    await assertFails(setDoc(polku(db, null, idOma(VALM_A_UID, 'eiluotua')), ilman));
+    await assertFails(setDoc(polku(db, null, idOma(VALM_A_UID, 'strluotu')),
       Object.assign({}, tarkkailu(VALM_A_UID), { luotu: '2026-09-28' })));
   });
 
@@ -2392,7 +2396,7 @@ describe('Kenttätarkkailut — valmentajan havainto, EI pelaajalle (v3.20)', ()
       const db = valmentajaContext(VALM_A_UID, SEURA_A).firestore();
       const data = tarkkailu(VALM_A_UID);
       data[kentta] = kentta === 'pisteet' ? { a: 3 } : 'tekstiä lapselle';
-      await assertFails(setDoc(polku(db, null, '2026-09-28_1_kielletty'), data));
+      await assertFails(setDoc(polku(db, null, idOma(VALM_A_UID, 'kielletty')), data));
     });
 
   it.each(['pisteet', 'narratiivi', 'teksti', 'oppimisnakokohta'])(
@@ -2410,12 +2414,12 @@ describe('Kenttätarkkailut — valmentajan havainto, EI pelaajalle (v3.20)', ()
      torjuisi sen, koska resource.data.valmentajaUid ei ole hän. Hiljainen lukko. */
   it('id ei saa päättyä TOISEN valmentajan uid:hen', async () => {
     const db = valmentajaContext(VALM_A_UID, SEURA_A).firestore();
-    await assertFails(setDoc(polku(db, null, '2026-09-28_1000_' + VP_A_UID), tarkkailu(VALM_A_UID)));
+    await assertFails(setDoc(polku(db, null, idOma(VP_A_UID)), tarkkailu(VALM_A_UID)));
   });
 
   it('EI VACUOUS: omalla uid:llä päättyvä id kelpaa', async () => {
     const db = valmentajaContext(VALM_A_UID, SEURA_A).firestore();
-    await assertSucceeds(setDoc(polku(db, null, '2026-09-28_1000_' + VALM_A_UID), tarkkailu(VALM_A_UID)));
+    await assertSucceeds(setDoc(polku(db, null, idOma(VALM_A_UID)), tarkkailu(VALM_A_UID)));
   });
 
   it('tekijää ei voi vaihtaa päivityksessä (dokumenttia ei siirretä toisen nimiin)', async () => {

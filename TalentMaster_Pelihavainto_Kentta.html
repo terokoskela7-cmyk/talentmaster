@@ -1129,7 +1129,10 @@ const _db = firebase.firestore();
      Valmentaja on mukana, jotta kaksi tarkkailijaa samasta ottelusta eivät törmää — ja koska
      Rules sallii päivityksen vain dokumentin omalle kirjoittajalle. */
   function tarkkailuId() {
-    return S.otteluAvain + '_' + String(S.uid || 'tuntematon').replace(/[^\w-]/g, '_');
+    /* uid EI saa muuntua: Rules vaatii id:n paattyvan RAAKAAN request.auth.uid:hen (v3.20 id-lukko),
+       joten siivottu uid katkaisisi luonnin. Firebase-uid on joka tapauksessa aakkosnumeerinen.
+       otteluAvain on siivottu jo syntyessaan. */
+    return S.otteluAvain + '_' + String(S.uid || 'tuntematon');
   }
   function tarkkailuPayload() {
     var d = dokumentti();

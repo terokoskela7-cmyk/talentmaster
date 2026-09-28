@@ -487,6 +487,17 @@ describe('(9) tallennus — oma kokoelma, kielletyt kentät, idempotenssi', () =
     expect(f, 'puoliaika ei kuulu identiteettiin').not.toContain('S.puoliaika');
   });
 
+  /* Rules (v3.20) vaatii id:n päättyvän RAAKAAN request.auth.uid:hen. Jos klientti muuntaisi
+     uid:n (esim. siivoaisi merkkejä), luonti estyisi — ja virhe näkyisi vasta kentällä. */
+  it('id päättyy muuntamattomaan uid:hen (Rules-lukko vertaa raakaan uid:hen)', () => {
+    const f = pura('function tarkkailuId() {');
+    expect(f, 'uid:tä ei saa siivota').not.toMatch(/S\.uid[^;]*replace\(/);
+    const id = aja(['function tarkkailuId() {'], 'return tarkkailuId();',
+      { S: { otteluAvain: '2026-09-28_1000', uid: 'AbC123xyz' } });
+    expect(id).toBe('2026-09-28_1000_AbC123xyz');
+    expect(id.endsWith('AbC123xyz'), 'Rules-regex .*_<uid> ei täsmäisi').toBe(true);
+  });
+
   it('payload kantaa puoliajat JOHDETTUNA merkinnöistä', () => {
     const f = pura('function tarkkailuPayload() {');
     expect(f).toContain('puoliajat: puoliajatMerkinnoista(d.merkinnat)');
