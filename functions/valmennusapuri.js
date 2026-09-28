@@ -16,11 +16,22 @@
  *     valmennusapuri/OHJEISTUS_v0.7.md          ← uusin versio valitaan automaattisesti
  *     valmennusapuri/tietopohja/00_jarjestelma.md … 50_arviointi_ja_kehityskeskustelu.md
  *
- * MALLI: oletuksena Claude Vertex AI:n EU-alueen kautta (data pysyy EU:ssa). Kehityksessä voi
+ * MALLI: oletuksena Claude AWS Bedrockista EU:ssa (Plan B, 28.9.2026). Vertex EU: VALMENNUSAPURI_PROVIDER=vertex. Kehityksessä voi
  *   käyttää suoraa Anthropic API:a: VALMENNUSAPURI_PROVIDER=anthropic (ANTHROPIC_API_KEY-secret).
+ *   Plan B (2026-09-28): VALMENNUSAPURI_PROVIDER=bedrock → Claude AWS Bedrockista EU:ssa
+ *   (eu-north-1, `eu.`-inference-profiili). Avaimet Secret Managerissa:
+ *   AWS_BEDROCK_ACCESS_KEY_ID + AWS_BEDROCK_SECRET_ACCESS_KEY (IAM-käyttäjä talentmaster-aiproxy,
+ *   vain bedrock:InvokeModel). Allekirjoitus SigV4 Noden cryptolla → ei AWS SDK -riippuvuutta.
+ *   EU-VARTIJA: bedrock-kutsu estetään, jos alue ei ole eu-* tai malli-ID ei ole eu./in-region
+ *   (global./us./apac. poistaisivat EU-rajan — alaikäisten data, ei neuvoteltavissa).
  *
  * PÄÄSY: super admin aina (CLAUDE.md §3) + pilottilista `valmennusapuri_pilotti/{uid}`
- *   ({ aktiivinen: true, seuraId, nimi }). Muut → permission-denied.
+ *   ({ aktiivinen: true, seuraId, nimi, roolit? }). Muut → permission-denied.
+ *
+ * ROOLIT (2026-09-28): data.rooli = 'valmennusapuri' (oletus) | 'hp' (HP-johtaja).
+ *   HP-johtajan ohjeistus + tietopohja: Storage `valmennusapuri/hp_johtaja/` (kootaan yksityisestä
+ *   kansiosta kokoa_apuri.py:llä, EI repossa). HP-rooli: SA aina, pilottikäyttäjä vain jos
+ *   pilottidokumentissa roolit: ['hp'].
  *
  * LOKI: jokainen kysymys + vastaus → `valmennusapuri_loki/{id}` (laadunseuranta, NotebookLM-
  *   pistokokeet). Ei client-pääsyä (Firestore Rules: ei match-blokkia = deny); SA lukee Consolesta.
@@ -41,15 +52,27 @@ const TIETOPOHJA_CACHE_MS = 10 * 60 * 1000;
 // Sama koodisto kuin testiajurissa (valmennusapuri/testaus/aja_testit.mjs)
 const KOODI = /\b(?:Y|J)-[HPSE]\d{1,2}[a-h]?\b|\b(?:T|LP|KK|KY|KH|LA|MV)-[HP]\d[a-h]?\b/g;
 
+// Bedrock-oletukset: Sonnet 4.6 EU-profiililla (Sonnet 5 vaatii AWS-tuen avauksen → vaihda
+// VALMENNUSAPURI_MALLI=eu.anthropic.claude-sonnet-5... kun pääsy on auki, ks. Bedrock_EU_runbook.md).
+const BEDROCK_OLETUSMALLI = 'eu.anthropic.claude-sonnet-4-6';
+const BEDROCK_OLETUSALUE = 'eu-north-1';
+
 function asetukset(env) {
   const e = env || process.env;
+  // Oletus bedrock (28.9.2026): Vertex EU -kiintiö on 0. Oletus on koodissa eikä vain functions/.env:ssä,
+  // koska CI-deploy (deploy-functions.yml) ei näe paikallista .env:iä → sama tulos koneelta ja CI:stä.
+  const provider = (e.VALMENNUSAPURI_PROVIDER || 'bedrock').toLowerCase();
+  const bedrock = provider === 'bedrock';
   return {
-    provider: (e.VALMENNUSAPURI_PROVIDER || 'vertex').toLowerCase(),
-    malli: e.VALMENNUSAPURI_MALLI || 'claude-sonnet-5',
-    alue: e.VALMENNUSAPURI_ALUE || 'eu',            // EU-monialue-endpoint (aiplatform.eu.rep.googleapis.com) — data pysyy EU:ssa. 'europe-west1' EI ole tuettu Claude Sonnet 5:lle.
+    provider: provider,
+    malli: e.VALMENNUSAPURI_MALLI || (bedrock ? BEDROCK_OLETUSMALLI : 'claude-sonnet-5'),
+    // Vertex: EU-monialue-endpoint (aiplatform.eu.rep.googleapis.com) — data pysyy EU:ssa. 'europe-west1' EI ole tuettu Claude Sonnet 5:lle.
+    // Bedrock: AWS-alue (eu-north-1 = Tukholma).
+    alue: e.VALMENNUSAPURI_ALUE || (bedrock ? BEDROCK_OLETUSALUE : 'eu'),
     projekti: e.GCLOUD_PROJECT || e.GCP_PROJECT || 'talentmaster-pilot',
     bucket: e.VALMENNUSAPURI_BUCKET || '',                  // tyhjä = Firebasen oletus-bucket
     polku: e.VALMENNUSAPURI_POLKU || 'valmennusapuri/',
+    hpPolku: e.VALMENNUSAPURI_HP_POLKU || 'valmennusapuri/hp_johtaja/',
     paivaKiintio: Number(e.VALMENNUSAPURI_PAIVAKIINTIO || 40),
   };
 }
@@ -162,6 +185,22 @@ function paivanAvain(uid, nyt) {
   return uid + '_' + pvm;
 }
 
+/** Pyydetty rooli: puuttuva = valmennusapuri; tuntematon arvo = virhe (ei hiljaista oletusta). */
+const ROOLIT = ['valmennusapuri', 'hp'];
+function valitseRooli(data) {
+  const r = data && data.rooli;
+  if (r === undefined || r === null || r === '') return 'valmennusapuri';
+  if (ROOLIT.indexOf(r) < 0) throw virhe('invalid-argument', 'tuntematon rooli');
+  return r;
+}
+
+/** Käyttäjän roolit: SA kaikki; pilottikäyttäjä valmennusapuri + pilottidokumentin roolit. */
+function roolitKayttajalle(onSA, pilottiData) {
+  if (onSA) return ROOLIT.slice();
+  const lisat = (pilottiData && Array.isArray(pilottiData.roolit)) ? pilottiData.roolit : [];
+  return ROOLIT.filter(function (r) { return r === 'valmennusapuri' || lisat.indexOf(r) >= 0; });
+}
+
 /** Pääsypäätös: SA aina; muuten aktiivinen pilottidokumentti. */
 function onKayttoOikeus(onSA, pilottiData) {
   if (onSA) return true;
@@ -189,7 +228,7 @@ function puraVastaus(json) {
   };
 }
 
-// ── Mallikutsu (Vertex EU tai suora Anthropic) ──────────────────────────────
+// ── Mallikutsu (Vertex EU, Bedrock EU tai suora Anthropic) ──────────────────────────────
 function vertexUrl(a) {
   // 'global' -> yhteinen globaali endpoint. 'eu'/'us' -> monialue-endpoint (data pysyy alueella,
   // mutta reititetään usean alueen kesken -> parempi saatavuus). Muu arvo (esim. 'europe-west1')
@@ -206,11 +245,90 @@ function vertexUrl(a) {
     '/publishers/anthropic/models/' + a.malli + ':rawPredict';
 }
 
+// ── AWS Bedrock (Plan B): SigV4 + EU-vartija ────────────────────────────────
+const crypto = require('crypto');
+
+function _sha256hex(s) { return crypto.createHash('sha256').update(s, 'utf8').digest('hex'); }
+function _hmac(k, s) { return crypto.createHmac('sha256', k).update(s, 'utf8').digest(); }
+/** RFC 3986 -koodaus AWS:n tapaan (encodeURIComponent jättää !'()* koodaamatta). */
+function _awsUriEnc(s) {
+  return encodeURIComponent(s).replace(/[!'()*]/g, function (c) { return '%' + c.charCodeAt(0).toString(16).toUpperCase(); });
+}
+
+/**
+ * AWS Signature Version 4. Puhdas funktio (aika annetaan) → testataan AWS:n julkaistulla vektorilla.
+ * p: { method, canonicalUri, canonicalQuery, headers (pienet kirjaimet), payload, region, service,
+ *      accessKeyId, secretAccessKey, amzDate 'YYYYMMDDTHHMMSSZ' }
+ */
+function allekirjoitaSigV4(p) {
+  const nimet = Object.keys(p.headers).sort();
+  const kanonisetOtsakkeet = nimet.map(function (k) {
+    return k + ':' + String(p.headers[k]).trim().replace(/\s+/g, ' ') + '\n';
+  }).join('');
+  const allekirjoitetut = nimet.join(';');
+  const kanoninen = [p.method, p.canonicalUri, p.canonicalQuery || '', kanonisetOtsakkeet,
+    allekirjoitetut, _sha256hex(p.payload || '')].join('\n');
+  const pvm = p.amzDate.slice(0, 8);
+  const scope = pvm + '/' + p.region + '/' + p.service + '/aws4_request';
+  const allekirjoitettava = ['AWS4-HMAC-SHA256', p.amzDate, scope, _sha256hex(kanoninen)].join('\n');
+  let k = _hmac('AWS4' + p.secretAccessKey, pvm);
+  k = _hmac(k, p.region);
+  k = _hmac(k, p.service);
+  k = _hmac(k, 'aws4_request');
+  const signature = crypto.createHmac('sha256', k).update(allekirjoitettava, 'utf8').digest('hex');
+  return {
+    signature: signature,
+    authorization: 'AWS4-HMAC-SHA256 Credential=' + p.accessKeyId + '/' + scope +
+      ', SignedHeaders=' + allekirjoitetut + ', Signature=' + signature,
+  };
+}
+
+/** EU-raja: vain eu-*-alue ja eu.-profiili tai alueen oma malli-ID. Muuten failed-precondition. */
+function tarkistaBedrockEU(a) {
+  if (!/^eu-[a-z]+-\d$/.test(a.alue || '')) {
+    throw virhe('failed-precondition', 'Bedrock-alueen on oltava EU-alue (eu-*), nyt: ' + a.alue);
+  }
+  if (!/^(eu\.)?anthropic\./.test(a.malli || '')) {
+    throw virhe('failed-precondition', 'Bedrock-mallin on oltava eu.-profiili tai EU-alueen malli-ID, nyt: ' + a.malli);
+  }
+}
+
+/** Rakentaa allekirjoitetun InvokeModel-pyynnön. Puhdas (avaimet ja aika annetaan). */
+function bedrockPyynto(a, runko, avaimet, nyt) {
+  tarkistaBedrockEU(a);
+  const host = 'bedrock-runtime.' + a.alue + '.amazonaws.com';
+  const osat = ['model', a.malli, 'invoke'];
+  // Pyyntöpolku koodataan kerran; kanoninen URI (muut palvelut kuin S3) koodataan kahdesti.
+  const polku = '/' + osat.map(_awsUriEnc).join('/');
+  const kanoninenUri = '/' + osat.map(function (o) { return _awsUriEnc(_awsUriEnc(o)); }).join('/');
+  const amzDate = (nyt || new Date()).toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
+  const sisaltoHash = _sha256hex(runko);   // kuten AWS SDK: x-amz-content-sha256 allekirjoitetaan mukaan
+  const otsakkeet = { accept: 'application/json', 'content-type': 'application/json', host: host,
+    'x-amz-content-sha256': sisaltoHash, 'x-amz-date': amzDate };
+  const s = allekirjoitaSigV4({
+    method: 'POST', canonicalUri: kanoninenUri, canonicalQuery: '', headers: otsakkeet, payload: runko,
+    region: a.alue, service: 'bedrock', accessKeyId: avaimet.id, secretAccessKey: avaimet.salainen, amzDate: amzDate,
+  });
+  // host-otsakkeen asettaa fetch itse (sama arvo kuin allekirjoituksessa).
+  return {
+    url: 'https://' + host + polku,
+    headers: { accept: 'application/json', 'content-type': 'application/json', 'x-amz-content-sha256': sisaltoHash,
+      'x-amz-date': amzDate, authorization: s.authorization },
+  };
+}
+
 async function kutsuMallia(admin, a, system, viestit) {
   let url;
   let headers;
   let body;
-  if (a.provider === 'anthropic') {
+  let bedrockAvaimet = null;
+  if (a.provider === 'bedrock') {
+    bedrockAvaimet = { id: process.env.AWS_BEDROCK_ACCESS_KEY_ID, salainen: process.env.AWS_BEDROCK_SECRET_ACCESS_KEY };
+    if (!bedrockAvaimet.id || !bedrockAvaimet.salainen) throw virhe('failed-precondition', 'AWS_BEDROCK_*-avaimet puuttuvat');
+    tarkistaBedrockEU(a);
+    // Bedrockin InvokeModel käyttää Anthropicin Messages-muotoa → sama system (cache_control) ja puraVastaus.
+    body = { anthropic_version: 'bedrock-2023-05-31', max_tokens: MAX_TOKENS, system: system, messages: viestit };
+  } else if (a.provider === 'anthropic') {
     const avain = process.env.ANTHROPIC_API_KEY;
     if (!avain) throw virhe('failed-precondition', 'ANTHROPIC_API_KEY puuttuu');
     url = 'https://api.anthropic.com/v1/messages';
@@ -224,7 +342,14 @@ async function kutsuMallia(admin, a, system, viestit) {
   }
   let viimeisin = '';
   for (let yritys = 1; yritys <= 2; yritys++) {
-    const res = await fetch(url, { method: 'POST', headers: headers, body: JSON.stringify(body) });
+    const runko = JSON.stringify(body);
+    if (bedrockAvaimet) {
+      // Allekirjoitus uusitaan joka yrityksellä (x-amz-date on osa allekirjoitusta).
+      const pyynto = bedrockPyynto(a, runko, bedrockAvaimet);
+      url = pyynto.url;
+      headers = pyynto.headers;
+    }
+    const res = await fetch(url, { method: 'POST', headers: headers, body: runko });
     if (res.ok) {
       const tulos = puraVastaus(await res.json());
       if (tulos.teksti) return tulos;
@@ -240,31 +365,33 @@ async function kutsuMallia(admin, a, system, viestit) {
 }
 
 // ── Tietopohja Storagesta (välimuistissa instanssin eliniän, max 10 min) ────
-let _tpCache = null;
+const _tpCache = {};   // polku → { aika, arvo }
 
-async function haeTietopohja(admin, a) {
-  if (_tpCache && Date.now() - _tpCache.aika < TIETOPOHJA_CACHE_MS) return _tpCache.arvo;
+async function haeTietopohja(admin, a, polku) {
+  polku = polku || a.polku;
+  const valimuisti = _tpCache[polku];
+  if (valimuisti && Date.now() - valimuisti.aika < TIETOPOHJA_CACHE_MS) return valimuisti.arvo;
   const bucket = a.bucket ? admin.storage().bucket(a.bucket) : admin.storage().bucket();
-  const [tiedostot] = await bucket.getFiles({ prefix: a.polku });
+  const [tiedostot] = await bucket.getFiles({ prefix: polku });
   const juuri = [];
   const tp = [];
   tiedostot.forEach(function (f) {
-    const suhteellinen = f.name.slice(a.polku.length);
+    const suhteellinen = f.name.slice(polku.length);
     if (!suhteellinen.endsWith('.md')) return;
     if (suhteellinen.indexOf('tietopohja/') === 0) tp.push(f);
     else if (suhteellinen.indexOf('/') < 0) juuri.push(f);
   });
-  const ohjeNimi = valitseOhjeistus(juuri.map(function (f) { return f.name.slice(a.polku.length); }));
+  const ohjeNimi = valitseOhjeistus(juuri.map(function (f) { return f.name.slice(polku.length); }));
   if (!ohjeNimi || !tp.length) {
-    throw virhe('failed-precondition', 'Tietopohja puuttuu Storagesta (' + a.polku + ')');
+    throw virhe('failed-precondition', 'Tietopohja puuttuu Storagesta (' + polku + ')');
   }
-  const ohjeTiedosto = juuri.find(function (f) { return f.name === a.polku + ohjeNimi; });
+  const ohjeTiedosto = juuri.find(function (f) { return f.name === polku + ohjeNimi; });
   const ohjeistus = (await ohjeTiedosto.download())[0].toString('utf8');
   const sisallot = await Promise.all(tp.map(async function (f) {
-    return { nimi: f.name.slice((a.polku + 'tietopohja/').length), sisalto: (await f.download())[0].toString('utf8') };
+    return { nimi: f.name.slice((polku + 'tietopohja/').length), sisalto: (await f.download())[0].toString('utf8') };
   }));
   const arvo = { system: rakennaSystem(ohjeistus, sisallot), versio: ohjeVersio(ohjeistus), tiedostoja: sisallot.length };
-  _tpCache = { aika: Date.now(), arvo: arvo };
+  _tpCache[polku] = { aika: Date.now(), arvo: arvo };
   return arvo;
 }
 
@@ -321,7 +448,8 @@ function kasittelija(admin, functions, riip) {
       const toiminto = (data && data.toiminto) || 'kysy';
 
       if (toiminto === 'tila') {
-        return { oikeus: true, paivaKiintio: onSA ? null : a.paivaKiintio, kaytetty: onSA ? 0 : await lueKaytetty(db, uid) };
+        return { oikeus: true, paivaKiintio: onSA ? null : a.paivaKiintio, kaytetty: onSA ? 0 : await lueKaytetty(db, uid),
+          roolit: roolitKayttajalle(onSA, pilotti) };
       }
 
       if (toiminto === 'palaute') {
@@ -343,10 +471,14 @@ function kasittelija(admin, functions, riip) {
       if (toiminto !== 'kysy') throw virhe('invalid-argument', 'tuntematon toiminto');
 
       const kysely = validoiKysely(data);
+      const rooli = valitseRooli(data);
+      if (roolitKayttajalle(onSA, pilotti).indexOf(rooli) < 0) {
+        throw new functions.https.HttpsError('permission-denied', 'Ei oikeutta tähän rooliin.');
+      }
       if (!onSA) await kuluKiintio(db, uid, a.paivaKiintio);
 
       const alku = Date.now();
-      const tp = await _hae(admin, a);
+      const tp = await _hae(admin, a, rooli === 'hp' ? a.hpPolku : a.polku);
       const malli = await _kutsu(admin, a, tp.system, kysely.viestit);
       const kayttajan = kysely.viestit.filter(function (v) { return v.role === 'user'; }).map(function (v) { return v.content; });
       const suodatettu = suodataKoodit(malli.teksti, kayttajan);
@@ -361,10 +493,11 @@ function kasittelija(admin, functions, riip) {
         historiaViesteja: kysely.viestit.length,
         vastaus: suodatettu.teksti,
         kieli: kysely.kieli,
+        rooli: rooli,
         ohjeVersio: tp.versio,
         provider: a.provider,
         malli: a.malli,
-        alue: a.provider === 'vertex' ? a.alue : null,
+        alue: a.provider === 'anthropic' ? null : a.alue,
         tokenit: malli.tokenit,
         stopReason: malli.syy,
         poistetutKoodit: suodatettu.poistettu,
@@ -373,7 +506,7 @@ function kasittelija(admin, functions, riip) {
         palaute: null,
       });
 
-      return { vastaus: suodatettu.teksti, lokiId: loki.id, ohjeVersio: tp.versio, katkesi: malli.syy === 'max_tokens' };
+      return { vastaus: suodatettu.teksti, lokiId: loki.id, ohjeVersio: tp.versio, rooli: rooli, katkesi: malli.syy === 'max_tokens' };
     } catch (e) {
       if (!(e instanceof functions.https.HttpsError) && !e.tmKoodi) console.error('[valmennusapuri]', e);
       throw httpsVirhe(e);
@@ -392,8 +525,14 @@ module.exports = {
   ohjeVersio,
   paivanAvain,
   onKayttoOikeus,
+  valitseRooli,
+  roolitKayttajalle,
   puraVastaus,
   vertexUrl,
   asetukset,
+  allekirjoitaSigV4,
+  tarkistaBedrockEU,
+  bedrockPyynto,
+  kutsuMallia,
   SA_UID,
 };

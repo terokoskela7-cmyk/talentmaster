@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>TalentMaster™ — Valmennusapuri</title>
 <script>/* §33 Versio-tarkistus (cache): pakottaa reloadin kun uusi versio deployattu. APP_VERSION leimataan scripts/bump_version.js:llä. */
-(function(){var APP_VERSION='1790585913151';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
+(function(){var APP_VERSION='1790598743219';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
 <link rel="stylesheet" href="colors_and_type.css">
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-check-compat.js"></script>
@@ -27,6 +27,12 @@ input, textarea { font-family: var(--font-body); font-size: 16px; color: var(--i
 .va-kieli button { background: transparent; border: 0; padding: 6px 10px; font-size: 12px; color: var(--ink2); }
 .va-kieli button[aria-pressed="true"] { background: var(--carbon); color: var(--bone); }
 .va-linkki { background: transparent; border: 0; color: var(--ink2); font-size: 13px; padding: 6px 4px; text-decoration: underline; }
+.va-rooli[hidden] { display: none; }
+@media (max-width: 520px) {
+  .va-top { flex-wrap: wrap; }
+  .va-rooli { order: 10; width: 100%; }
+  .va-rooli button { flex: 1; padding: 8px 10px; }
+}
 
 .va-nakyma { flex: 1; display: none; flex-direction: column; width: 100%; max-width: 760px; margin: 0 auto; }
 .va-nakyma.aktiivinen { display: flex; }
@@ -87,8 +93,12 @@ input, textarea { font-family: var(--font-body); font-size: 16px; color: var(--i
 <body>
 
 <header class="va-top">
-  <div class="va-brand"><span data-t="otsikko">Valmennusapuri</span><small data-t="alaotsikko">TalentMaster · pilotti</small></div>
+  <div class="va-brand"><span data-t="otsikko">Valmennusapuri</span><small id="vaAlaotsikko" data-t="alaotsikko">TalentMaster · pilotti</small></div>
   <div class="va-spacer"></div>
+  <div class="va-kieli va-rooli" role="group" id="vaRooli" aria-label="Rooli / Roll" hidden>
+    <button type="button" data-rooli="valmennusapuri" aria-pressed="true" data-t="rooliVa">Valmennus</button>
+    <button type="button" data-rooli="hp" aria-pressed="false" data-t="rooliHp">HP-johtaja</button>
+  </div>
   <div class="va-kieli" role="group" aria-label="Kieli / Språk">
     <button type="button" data-kieli="fi" aria-pressed="true">FI</button>
     <button type="button" data-kieli="sv" aria-pressed="false">SV</button>
@@ -185,7 +195,16 @@ input, textarea { font-family: var(--font-body); font-size: 16px; color: var(--i
       vUnauth: 'Istunto vanheni. Kirjaudu uudelleen.', vKiintio: 'Päivän kysymyskiintiö on täynnä. Jatka huomenna.',
       vYhteys: 'Apuri ei vastannut juuri nyt. Yritä hetken päästä uudelleen.', vYleinen: 'Jokin meni vikaan: ',
       vKirjaudu: 'Kirjautuminen epäonnistui. Tarkista sähköposti ja salasana.', vEmail: 'Kirjoita ensin sähköpostiosoitteesi.',
-      resetOk: 'Salasanan vaihtolinkki lähetettiin sähköpostiisi.', kirjautuneena: 'Kirjautuneena: '
+      resetOk: 'Salasanan vaihtolinkki lähetettiin sähköpostiisi.', kirjautuneena: 'Kirjautuneena: ',
+      rooliVa: 'Valmennus', rooliHp: 'HP-johtaja', alaotsikkoHp: 'TalentMaster · HP-johtaja · pilotti',
+      tervetuloOtsikkoHp: 'Fyysinen kehitys koko polulla',
+      tervetuloTekstiHp: 'Kysy kuormasta, kasvupyrähdyksestä, liikkeen laadusta tai siitä, miten fyysinen teema viedään peliin. Kerro ikäryhmä, kuka kysyy (esim. valmentaja tai valmennuspäällikkö) ja onko seuralla testi- tai kasvumittausdataa. HP-johtaja vastaa yhdellä muutoksella ja havaintomerkillä.',
+      kysymysPhHp: 'Kerro ikäryhmä, roolisi ja mitä haluat ratkaista…',
+      esimerkitHp: [
+        'Valmentaja, U13, seura tekee kasvumittauksen. #7 on ollut hukassa ja kompastelee, kasvanut nopeasti tänä syksynä. Pitäisikö hänen tehdä lisää toistoja?',
+        'Valmentaja, U14. Haluan aloittaa pudotushypyt koko joukkueelle, jotta kimmoisuus paranee. Miten aloitan?',
+        'Valmennuspäällikkö. U12:ssa pelaajat eivät irtaudu vartijasta. Pitäisikö koko U11–U13 ottaa sama teema?'
+      ]
     },
     sv: {
       otsikko: 'Tränarassistenten', alaotsikko: 'TalentMaster · pilot', kirjauduUlos: 'Logga ut', ladataan: 'Laddar…',
@@ -209,7 +228,16 @@ input, textarea { font-family: var(--font-body); font-size: 16px; color: var(--i
       vUnauth: 'Sessionen har gått ut. Logga in igen.', vKiintio: 'Dagens frågekvot är full. Fortsätt i morgon.',
       vYhteys: 'Assistenten svarade inte just nu. Försök igen om en stund.', vYleinen: 'Något gick fel: ',
       vKirjaudu: 'Inloggningen misslyckades. Kontrollera e-post och lösenord.', vEmail: 'Skriv först din e-postadress.',
-      resetOk: 'En länk för att byta lösenord skickades till din e-post.', kirjautuneena: 'Inloggad som: '
+      resetOk: 'En länk för att byta lösenord skickades till din e-post.', kirjautuneena: 'Inloggad som: ',
+      rooliVa: 'Träning', rooliHp: 'HP-ansvarig', alaotsikkoHp: 'TalentMaster · HP-ansvarig · pilot',
+      tervetuloOtsikkoHp: 'Fysisk utveckling genom hela spelarvägen',
+      tervetuloTekstiHp: 'Fråga om belastning, tillväxtspurt, rörelsekvalitet eller hur ett fysiskt tema förs in i spelet. Berätta åldersgrupp, vem som frågar (t.ex. tränare eller fotbollsutvecklare) och om föreningen har test- eller tillväxtdata. HP-ansvarig svarar med en förändring och ett observationstecken.',
+      kysymysPhHp: 'Berätta åldersgrupp, din roll och vad du vill lösa…',
+      esimerkitHp: [
+        'Tränare, U13, föreningen mäter tillväxt. #7 har varit vilsen och snubblar, har vuxit snabbt i höst. Ska han göra fler repetitioner?',
+        'Tränare, U17. Hur lägger jag upp styrketräningen under säsongen?',
+        'Fotbollsutvecklare. I U12 frigör sig spelarna inte från sin markering. Ska hela U11–U13 ta samma tema?'
+      ]
     }
   };
 
@@ -217,6 +245,23 @@ input, textarea { font-family: var(--font-body); font-size: 16px; color: var(--i
   try { var tallennettu = localStorage.getItem('tm_va_kieli'); if (tallennettu === 'sv' || tallennettu === 'fi') kieli = tallennettu; } catch (e) { /* ei storagea */ }
 
   function t(avain) { return (T[kieli] && T[kieli][avain]) || T.fi[avain] || avain; }
+
+  // ── Rooli: valmennusapuri / HP-johtaja (näkyy vain, jos palvelin antaa roolin 'hp') ──
+  var rooli = 'valmennusapuri';
+  var roolit = ['valmennusapuri'];
+  function rt(avain) { return rooli === 'hp' ? t(avain + 'Hp') : t(avain); }   // roolikohtainen teksti
+  function asetaRooli(r) {
+    if (roolit.indexOf(r) < 0) r = 'valmennusapuri';
+    var vaihtui = r !== rooli;
+    rooli = r;
+    try { localStorage.setItem('tm_va_rooli', r); } catch (e) { /* ei storagea */ }
+    document.querySelectorAll('[data-rooli]').forEach(function (b) { b.setAttribute('aria-pressed', String(b.getAttribute('data-rooli') === r)); });
+    $('vaRooli').hidden = roolit.indexOf('hp') < 0;
+    $('vaAlaotsikko').setAttribute('data-t', r === 'hp' ? 'alaotsikkoHp' : 'alaotsikko');
+    $('vaKysymys').setAttribute('data-ph', r === 'hp' ? 'kysymysPhHp' : 'kysymysPh');
+    if (vaihtui) historia = [];          // eri rooli = eri ohjeistus → uusi keskustelu
+    asetaKieli(kieli);                   // päivittää tekstit ja renderöi lokin
+  }
 
   function asetaKieli(k) {
     kieli = k;
@@ -316,12 +361,12 @@ input, textarea { font-family: var(--font-body); font-size: 16px; color: var(--i
       var tyhja = document.createElement('div');
       tyhja.className = 'va-tyhja';
       var h = document.createElement('h2');
-      h.textContent = t('tervetuloOtsikko');
+      h.textContent = rt('tervetuloOtsikko');
       var p = document.createElement('p');
-      p.textContent = t('tervetuloTeksti');
+      p.textContent = rt('tervetuloTeksti');
       var esim = document.createElement('div');
       esim.className = 'va-esimerkit';
-      t('esimerkit').forEach(function (teksti) {
+      rt('esimerkit').forEach(function (teksti) {
         var b = document.createElement('button');
         b.type = 'button';
         b.className = 'va-esimerkki';
@@ -428,7 +473,7 @@ input, textarea { font-family: var(--font-body); font-size: 16px; color: var(--i
     $('vaLaheta').disabled = true;
     renderoiLoki();
     var viestit = historia.map(function (v) { return { role: v.role, content: v.content }; });
-    apuriCF({ toiminto: 'kysy', viestit: viestit, kieli: kieli }).then(function (res) {
+    apuriCF({ toiminto: 'kysy', viestit: viestit, kieli: kieli, rooli: rooli }).then(function (res) {
       var d = res.data || {};
       historia.push({ role: 'assistant', content: d.vastaus || '', lokiId: d.lokiId, katkesi: !!d.katkesi });
       if (kiintio.m) kiintio.k++;
@@ -463,6 +508,9 @@ input, textarea { font-family: var(--font-body); font-size: 16px; color: var(--i
   }
 
   // ── Tapahtumat ─────────────────────────────────────────────────────────────
+  document.querySelectorAll('[data-rooli]').forEach(function (b) {
+    b.addEventListener('click', function () { if (!odottaa) asetaRooli(b.getAttribute('data-rooli')); });
+  });
   document.querySelectorAll('[data-kieli]').forEach(function (b) {
     b.addEventListener('click', function () { asetaKieli(b.getAttribute('data-kieli')); });
   });
@@ -521,9 +569,11 @@ input, textarea { font-family: var(--font-body); font-size: 16px; color: var(--i
     }).then(function (res) {
       var d = res.data || {};
       kiintio = { m: d.paivaKiintio || null, k: d.kaytetty || 0 };
+      roolit = Array.isArray(d.roolit) && d.roolit.length ? d.roolit : ['valmennusapuri'];
+      var toivottu = 'valmennusapuri';
+      try { toivottu = localStorage.getItem('tm_va_rooli') || 'valmennusapuri'; } catch (e) { /* ei storagea */ }
       nayta('vaApuri');
-      renderoiLoki();
-      paivitaKiintio();
+      asetaRooli(toivottu);
     }).catch(function (e) {
       if (e && e.code && e.code.indexOf('permission-denied') >= 0) {
         $('vaTunnus').textContent = t('kirjautuneena') + (kayttaja.email || kayttaja.uid);

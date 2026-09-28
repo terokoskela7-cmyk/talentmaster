@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>TalentMaster™ — Valmentaja v16</title>
 <script>/* Versio-tarkistus (cache): pakottaa reloadin kun uusi versio deployattu. APP_VERSION leimataan scripts/bump_version.js:llä. */
-(function(){var APP_VERSION='1790585913151';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
+(function(){var APP_VERSION='1790598743219';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
 <!-- TalentMaster_Master_v16.html — V10-typografia + V12-rakenne + Firestore-pohjainen valmentajanäkymä -->
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 
@@ -18,6 +18,7 @@
 <script src="lib/tm_appcheck.js?v=1"></script>
 <script src="lib/tm_pelihavainto_valinta.js?v=1"></script>   <!-- §7: YKSI sisäänkäynti pelihavaintoon (jaettu, ei kopioita) -->
 <script src="lib/tm_aktiivisuus.js?v=1"></script>   <!-- Toimihenkilon kirjautumisaikaleima — jaettu kirjoituspiste, ks. lib-header -->
+<script src="lib/tm_arviointi_historia.js?v=1"></script>   <!-- kausiavain: tmKausiNyt (CPD-raportin "Kausi:") — sama lähde kuin VP/Admin -->
 <script src="lib/tm_lang.js?v=14"></script>   <!-- i18n V0 — fi/sv/en käännöstaulukko + t() + kieli-init (putkitus) -->
 <script src="lib/tm_i18n_common.js?v=10"></script>   <!-- i18n Vaihe 0 — JAETTU henkilöstö-i18n + lukittu glossaari (ENNEN sivukarttaa) -->
 <script src="lib/tm_master_i18n.js?v=27"></script>   <!-- i18n Vaihe 5 Raita B — Master sv (sivukartta); masterT/masterLokalisoi delegoivat commoniin -->
@@ -8183,7 +8184,14 @@ tmReflektio.mount({
   onMuutos: function () { if (typeof avaaValmentajaKehitys === 'function') avaaValmentajaKehitys(); }
 });
 // ── CPD-vaatimukset (SA/johto) → konfiguraatio/harjoitusarviointi.cpd_vaatimus_h { grassroots,c,b,a,pro } ──
-function _mkKausi() { const d = new Date(), y = d.getFullYear(); return (d.getMonth() >= 6) ? (y + '/' + String(y + 1).slice(-2)) : ((y - 1) + '/' + String(y).slice(-2)); }
+/* KAUSI SEURAN KAUSIMALLISTA (lib): Suomessa kalenterivuosi, ei heina–kesa. CPD-raportin
+   "Kausi:"-rivi on vain nayttoa, mutta sen on kerrottava sama kausi kuin VP:n tuloskortin. */
+function _mkKausi() {
+  const AH = window.TM_ARVIOINTI_HISTORIA;
+  const seura = (typeof _seura !== 'undefined' && _seura) ? _seura : null;
+  if (AH && AH.tmKausiNyt) return AH.tmKausiNyt(seura);
+  return String(new Date().getFullYear());
+}
 window._cpdAsetaVaatimus = function () {
   const konf = window._mkCpdVaatimusKonf || {};
   const vanha = document.getElementById('cpdVaatModal'); if (vanha) vanha.remove();

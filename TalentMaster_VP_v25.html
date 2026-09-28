@@ -3435,8 +3435,7 @@ function naytaDash(user, isSuperAdmin) {
   const h = new Date().getHours();
   const greet = _greeting();
   const _setTxt = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = v; };
-  const _y = new Date().getFullYear();
-  const _kausi = (new Date().getMonth() >= 6) ? (_y + '/' + (_y + 1)) : ((_y - 1) + '/' + _y);
+  const _kausi = (typeof _vpTkKausi === 'function') ? _vpTkKausi() : String(new Date().getFullYear());
   _setTxt('greeting-tervehdys', greet);
   _setTxt('greeting-name', _greetingNimi(user, isSuperAdmin));
   _setTxt('greeting-summary', seuraLabel + ' · ' + vpT('joukkueiden pulssi ja kriittiset signaalit reaaliaikaisesti.'));
@@ -4830,10 +4829,23 @@ function vahvistaHylkays() {
    SPRINT 2 — VAI (Valmentajan Aktiivisuusindeksi)
    Painot: ADAR 35% · Käynti 25% · Harjoittelu 25% · Kontakti 15%
    ════════════════════════════════════════════════════════════ */
-/* Kauden alku: heinäkuu = kauden vaihde (sama logiikka kuin _vpTkKausi). */
+/* Kauden alku seuran kausimallista: kalenterikaudella 1.1., heina–kesa-mallissa 1.7.
+   PAATOS (Tero 28.9.): "Kauden kertyma" seuraa kautta, joten se nollautuu vuodenvaihteessa.
+   Tuoreus nakyy erikseen 30 paivan ikkunassa, joten tammikuun pienet luvut eivat jaa ainoaksi
+   signaaliksi. */
 function _vpKaudenAlku() {
-  var d = new Date(), y = d.getFullYear();
-  return new Date((d.getMonth() >= 6 ? y : y - 1), 6, 1);
+  var AH = window.TM_ARVIOINTI_HISTORIA;
+  if (AH && AH.tmKausiAlku && AH.tmKausiNyt) {
+    var seura = (typeof _seura !== 'undefined' && _seura) ? _seura : null;
+    var d2 = AH.tmKausiAlku(AH.tmKausiNyt(seura), AH.tmKausimalli(seura));
+    if (d2) return d2;
+  }
+  return new Date(new Date().getFullYear(), 0, 1);   // graceful: FI-oletus 1.1.
+}
+/** Kauden alun kuukausi tekstina ("1.1." / "1.7.") — vihjeteksti ei saa vaittaa vaaraa paivaa. */
+function _vpKaudenAlkuTeksti() {
+  var d = _vpKaudenAlku();
+  return d ? (d.getDate() + '.' + (d.getMonth() + 1) + '.') : '1.1.';
 }
 
 /* Aikaleima → ms. Kentät ovat kolmea muotoa: Firestore Timestamp (luotu/aika/
@@ -4882,7 +4894,7 @@ function _cmKausiKertymaHTML(kausi) {
     h += (n ? '<div class="cm-kausi-item">' : '<div class="cm-kausi-item tyhja">')
       + '<div class="cm-kausi-val">' + n + '</div><div class="cm-kausi-lbl">' + r[1] + '</div></div>';
   });
-  return h + '</div><div class="cm-kausi-vihje">' + vpT('Kauden alusta (1.7.) — raakoja tapahtumamääriä, ei arvosana.') + '</div></div>';
+  return h + '</div><div class="cm-kausi-vihje">' + vpT('Kauden alusta') + ' (' + _jsvEsc(_vpKaudenAlkuTeksti()) + ') — ' + vpT('raakoja tapahtumamääriä, ei arvosana.') + '</div></div>';
 }
 
 async function laskeVAI(valmentajaUid) {
@@ -4890,7 +4902,7 @@ async function laskeVAI(valmentajaUid) {
   var nytMs = Date.now();
   var raja = new Date(nytMs - 30 * 86400000);
   var rajaMs = raja.getTime();
-  /* Kauden alku on PAIKALLINEN keskiyö 1.7. — vertailu tehdään ms-tasolla,
+  /* Kauden alku on PAIKALLINEN keskiyö (kalenterikaudella 1.1.) — vertailu tehdään ms-tasolla,
      joten aikavyöhyke ei siirrä rajaa. */
   var kausiMs = _vpKaudenAlku().getTime();
 
@@ -6220,7 +6232,13 @@ function _vpArviointiHTML(p) {
   // P3.1 — "TalentMaster Analytics — kehityskerros" -vyöhyke + brändipalaute SIIRRETTY ⓘ Tietoa kehyksestä -paneeliin
   //   (metaa, ei tarvitse olla joka katselukerralla esillä). Johda arvioinnilla: kohteet + kalibraatio kärjessä.
   // FA-potentiaali — Scouting-linssin ala-osio (gold), SELVÄSTI 5D-arvioinnin ulkopuolella (ei osa 5D:tä/IDP:tä).
-  if (typeof _vpPotentiaaliHTML === 'function') h += _vpPotentiaaliHTML(p, _arvioiTila ? { piilotaNykyarvo: true } : null);
+  if (typeof _vpPotentiaaliHTML === 'function') {
+    h += _vpPotentiaaliHTML(p, _arvioiTila
+      ? { arvioiTila: true,
+          omaArvo: (typeof _vpArvOmaPotentiaali === 'function') ? _vpArvOmaPotentiaali(p) : null,
+          omaHuomiot: (typeof _vpArvOmaPotHuomiot === 'function') ? _vpArvOmaPotHuomiot(p) : '' }
+      : { vainKatselu: true });
+  }
   return h;
 }
 // R-selitteet — ⓘ tap/klik-popover: näyttää attribuutin kuvaus_fi:n (title hoitaa hoverin työpöydällä; tämä kosketuslaitteet).
@@ -6271,15 +6289,28 @@ function _vpPotentiaaliHTML(p, opts) {
   // Portti = JOHTO-only (VP/johto/SA) — täsmää Firestore-sääntöön (onJohtoRooli). EI _vpVoiMuokata(p): se päästää
   // R1:n jälkeen myös oman joukkueen valmentajan → kontrolli näkyisi mutta kirjoitus permission-failaisi (#319 L1).
   // R2-A V2: opts.readonly → read-only näyttö (raporttikortti; asetus pysyy VP-cockpitissa) — piilottaa asetuskontrollin.
-  var voi = (opts && opts.readonly) ? false : ((typeof _vpSeurantaOnJohto === 'function') ? _vpSeurantaOnJohto() : false);
-  /* Arvioi-tilassa (review C) asetus näkyy ILMAN nykyarvoa: nykyiset tähdet ovat seuran
-     viimeisin arvio, ja ne ankkuroisivat arvioijan ennen omaa valintaa. Arvo palaa näkyviin
-     Katso-tilassa ja oman tallennuksen jälkeen (tallennus vaihtaa p.scout_potentiaali:n). */
-  var piilotaNykyarvo = (opts && opts.piilotaNykyarvo) || false;
-  var val = (!piilotaNykyarvo && p.scout_potentiaali != null) ? Number(p.scout_potentiaali) : null;
+  /* KOLME TILAA:
+       readonly    (raporttikortti) = ei kontrolleja lainkaan
+       vainKatselu (Katso)          = seuran tila, EI arviointikontrolleja; "Poista arvio" jaa
+                                      johdolle, koska se on hallintatoimi eika arvio
+       arvioiTila  (Arvioi)         = asetus + VAIN oma arvo, ei koskaan seuran arvoa portaassa */
+  var o = opts || {};
+  var arvioiTila = !!o.arvioiTila;
+  var johto = (typeof _vpSeurantaOnJohto === 'function') ? _vpSeurantaOnJohto() : false;
+  var voi = o.readonly ? false : johto;                       // portaat klikattavia + oma perustelu
+  if (o.vainKatselu) voi = false;
+  var saaPoistaa = johto && !o.readonly && !arvioiTila;
+  /* Arvioi-tilassa (review C) portaassa nakyy VAIN oma arvio: seuran viimeisin ankkuroisi
+     arvioijan ennen omaa valintaa. Oma arvo tulee omasta avoimesta kerrasta, ei pikakentasta. */
+  /* Oma arvo validoidaan portaaksi 1–5: pelkka Number() tekisi tyhjasta arvosta nollan ja
+     nayttaisi "0★ · <ensimmainen porras>" seka paastaisi seuran arvon naytolle sen perassa. */
+  var _omaNro = Number(o.omaArvo);
+  var val = arvioiTila
+    ? ((o.omaArvo != null && isFinite(_omaNro) && _omaNro >= 1 && _omaNro <= 5) ? _omaNro : null)
+    : (p.scout_potentiaali != null ? Number(p.scout_potentiaali) : null);
   /* Huomiot ovat edellisen arvioijan PERUSTELU — se ankkuroisi vahvemmin kuin pelkkä luku,
-     joten Arvioi-tilassa kenttä avataan tyhjänä (review C). */
-  var huom = (opts && opts.piilotaNykyarvo) ? '' : (p.scout_potentiaali_huomiot || '');
+     joten Arvioi-tilassa kenttään tulee vain arvioijan OMA perustelu (tyhjä ennen ensimmäistä). */
+  var huom = arvioiTila ? (o.omaHuomiot || '') : (p.scout_potentiaali_huomiot || '');
   var pid = _jesc(p.id);
   var GB = 'rgba(217,164,65,.4)', GD = 'rgba(217,164,65,.13)';
   var h = '<div style="margin-top:16px;background:' + GD + ';border:.5px solid ' + GB + ';border-radius:12px;padding:16px 18px">';
@@ -6305,16 +6336,27 @@ function _vpPotentiaaliHTML(p, opts) {
   } else {
     var rr = _vpPotRivi(val);
     h += '<div style="font-size:12px;color:var(--ink2);line-height:1.5"><b style="color:var(--gold)">' + val + '★ · ' + _jsvEsc(rr ? rr.lyhyt : '') + '</b>'
-      + (p.scout_potentiaali_arvioija ? ' <span style="color:var(--ink3)">· ' + _jsvEsc(p.scout_potentiaali_arvioija) + (p.scout_potentiaali_pvm ? ' · ' + _jsvEsc(_pvmLyhyt(p.scout_potentiaali_pvm)) : '') + '</span>' : '') + '</div>';
+      + ((!arvioiTila && p.scout_potentiaali_arvioija) ? ' <span style="color:var(--ink3)">· ' + _jsvEsc(p.scout_potentiaali_arvioija) + (p.scout_potentiaali_pvm ? ' · ' + _jsvEsc(_pvmLyhyt(p.scout_potentiaali_pvm)) : '') + '</span>' : '') + '</div>';
+    /* Seuran arvo saa nakya VASTA oman arvion jalkeen ja vain neutraalina tekstina — sama
+       riippumattomuussaanto kuin kohteilla (seuranViimeisin). */
+    if (arvioiTila && p.scout_potentiaali != null) {
+      h += '<div class="jsp-arv-muut" style="margin-top:5px">' + vpT('Seuran viimeisin:') + ' ' + _jsvEsc(String(p.scout_potentiaali)) + '★'
+        + (p.scout_potentiaali_pvm ? ' · ' + _jsvEsc(_pvmLyhyt(p.scout_potentiaali_pvm)) : '') + '</div>';
+    }
   }
   if (voi) {
     h += '<div style="margin-top:10px"><textarea id="_vpPotHuomiot" onclick="event.stopPropagation()" placeholder="' + vpT('Perustelu / huomiot (scouttausprojektio — ei terveystietoa)') + '" style="width:100%;min-height:52px;background:var(--surface);border:.5px solid var(--border);border-radius:8px;color:var(--ink);font-family:var(--font-sans),\\\'DM Sans\\\',sans-serif;font-size:12px;padding:8px;resize:vertical">' + _jsvEsc(huom) + '</textarea>'
       + '<div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">'
       + '<button onclick="event.stopPropagation();_vpTallennaPotentiaali(\'' + pid + '\',null,true)" style="font-size:11px;font-weight:500;padding:7px 13px;border-radius:7px;border:.5px solid ' + GB + ';color:var(--gold);background:' + GD + ';cursor:pointer">' + vpT('Tallenna huomio') + '</button>'
-      + (val != null ? '<button onclick="event.stopPropagation();_vpPoistaPotentiaali(\'' + pid + '\')" style="font-size:11px;font-weight:500;padding:7px 13px;border-radius:7px;border:.5px solid var(--border);color:var(--ink2);background:transparent;cursor:pointer">' + vpT('Poista arvio') + '</button>' : '')
+      + ((saaPoistaa && p.scout_potentiaali != null) ? '<button onclick="event.stopPropagation();_vpPoistaPotentiaali(\'' + pid + '\')" style="font-size:11px;font-weight:500;padding:7px 13px;border-radius:7px;border:.5px solid var(--border);color:var(--ink2);background:transparent;cursor:pointer">' + vpT('Poista arvio') + '</button>' : '')
       + '</div></div>';
-  } else if (huom) {
-    h += '<div style="margin-top:9px;font-size:12px;color:var(--ink2);font-style:italic;line-height:1.5">”' + _jsvEsc(huom) + '”</div>';
+  } else {
+    if (huom) h += '<div style="margin-top:9px;font-size:12px;color:var(--ink2);font-style:italic;line-height:1.5">”' + _jsvEsc(huom) + '”</div>';
+    /* Hallintatoimi, ei arvio: johto saa poistaa arvion myos Katso-tilassa, jossa asetuskontrolli
+       on piilossa (review C: "Katso = seuran tila, EI arviointinappeja"). */
+    if (saaPoistaa && p.scout_potentiaali != null) {
+      h += '<div style="margin-top:10px"><button onclick="event.stopPropagation();_vpPoistaPotentiaali(\'' + pid + '\')" style="font-size:11px;font-weight:500;padding:7px 13px;border-radius:7px;border:.5px solid var(--border);color:var(--ink2);background:transparent;cursor:pointer">' + vpT('Poista arvio') + '</button></div>';
+    }
   }
   h += '</div>';
   return h;
@@ -6331,16 +6373,39 @@ function _vpPotReRender(p) {
 window._vpTallennaPotentiaali = async function (pid, tahdet, huomioVain) {
   var p = (typeof _vpIdpPelaaja === 'function') ? _vpIdpPelaaja(pid) : null; if (!p) return;
   if (!_vpSeurantaOnJohto()) { if (typeof toast === 'function') toast(vpT('Potentiaali on VP:n/johdon oikeus'), 'error'); return; }   // johto-only (täsmää sääntöön)
+  var arvioiTila = (window._vpArvTila === 'arvioi');
+  var omaEnnen = (typeof _vpArvOmaPotentiaali === 'function') ? _vpArvOmaPotentiaali(p) : null;
+  var omaHuomEnnen = (typeof _vpArvOmaPotHuomiot === 'function') ? _vpArvOmaPotHuomiot(p) : '';
   var huomEl = document.getElementById('_vpPotHuomiot');
-  var huom = huomEl ? huomEl.value : (p.scout_potentiaali_huomiot || '');
-  var t = huomioVain ? (p.scout_potentiaali != null ? Number(p.scout_potentiaali) : null) : Number(tahdet);
+  var huom = huomEl ? huomEl.value : (arvioiTila ? omaHuomEnnen : (p.scout_potentiaali_huomiot || ''));
+  /* "Tallenna huomio" otti tahdet SEURAN pikakentasta, eli edellisen arvioijan arvosta. Koska se
+     ei ollut null, se kirjoittui NYKYISEN kayttajan kertaan ja hanen nimiinsa — toisen arvioijan
+     arvio olisi tallentunut historiaan vaaralle arvioijalle. Arvioi-tilassa kelpaa vain oma arvo. */
+  var t;
+  if (huomioVain) {
+    t = arvioiTila ? omaEnnen : (p.scout_potentiaali != null ? Number(p.scout_potentiaali) : null);
+    if (arvioiTila && t == null) {
+      if (typeof toast === 'function') toast(vpT('Valitse ensin porras'), 'error');
+      return;
+    }
+  } else t = Number(tahdet);
   if (t != null && !(t >= 1 && t <= 5)) return;                      // validointi: vain 1–5 (tai null huomio-vain-tilassa ilman tähtiä)
   var taso = (t != null) ? _vpPotTaso(t) : null;
   var arvioija = (window._vpNimi) || ((firebase.auth().currentUser || {}).displayName) || 'VP';
   var pvm = new Date().toISOString();
-  p.scout_potentiaali = t; p.scout_potentiaali_taso = taso; p.scout_potentiaali_huomiot = huom; p.scout_potentiaali_pvm = pvm; p.scout_potentiaali_arvioija = arvioija;
+  /* Oma kerta merkitaan HETI (sama kuvio kuin kohteilla, _vpTallennaHavaittu) → Arvioi-tila nayttaa
+     valinnan ilman verkkoviivetta. Epaonnistunut tallennus perutaan catch-haarassa. */
+  if (typeof _vpArvMerkitseOmaPotentiaali === 'function') _vpArvMerkitseOmaPotentiaali(p, t, huom);
+  /* SEURAN pikakentta on eri asia kuin oma arvio: sita ei saa paivittaa ennen kuin arvioijan
+     organisaatio on tiedossa. Aiemmin se asetettiin heti, joten Palloliiton arvioijan (mahd.
+     sisainen) arvio nakyi seuran Katso-tilassa uudelleenlataukseen asti, vaikka Firestoreen sita
+     ei kirjoitettu. */
+  var paivitaSeuranNakyma = function () {
+    p.scout_potentiaali = t; p.scout_potentiaali_taso = taso; p.scout_potentiaali_huomiot = huom;
+    p.scout_potentiaali_pvm = pvm; p.scout_potentiaali_arvioija = arvioija;
+  };
   _vpPotReRender(p);
-  if (_isDemoMode || !_seuraId) { if (typeof toast === 'function') toast(vpT('Potentiaali tallennettu (demo)'), 'ok'); return; }
+  if (_isDemoMode || !_seuraId) { paivitaSeuranNakyma(); _vpPotReRender(p); if (typeof toast === 'function') toast(vpT('Potentiaali tallennettu (demo)'), 'ok'); return; }
   try {
     var cu = firebase.auth().currentUser; if (cu) await cu.getIdToken(true);
     var pRef = db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(p.id);
@@ -6380,15 +6445,24 @@ window._vpTallennaPotentiaali = async function (pid, tahdet, huomioVain) {
            tapauksessa, ja Palloliiton oma näkymä laskee koosteensa kerroista. */
         if (orgP === 'seura') tx.set(pRef, pika, { merge: true });
       });
+      if (orgP === 'seura') { paivitaSeuranNakyma(); _vpPotReRender(p); }
     } else {
       await pRef.set(pika, { merge: true });
+      paivitaSeuranNakyma(); _vpPotReRender(p);
     }
     if (typeof toast === 'function') toast(vpT('💎 Potentiaali tallennettu'), 'ok');
-  } catch (e) { console.warn('[potentiaali]', e && e.message); if (typeof toast === 'function') toast(vpT('Tallennus epäonnistui (tarkista Firestore-säännöt: scout_potentiaali*)'), 'error'); }
+  } catch (e) {
+    console.warn('[potentiaali]', e && e.message);
+    /* Peru optimistinen oma arvio: tallentamaton arvo ei saa jaada nakymaan omana kertana. */
+    if (typeof _vpArvMerkitseOmaPotentiaali === 'function') _vpArvMerkitseOmaPotentiaali(p, omaEnnen, omaHuomEnnen);
+    _vpPotReRender(p);
+    if (typeof toast === 'function') toast(vpT('Tallennus epäonnistui (tarkista Firestore-säännöt: scout_potentiaali*)'), 'error');
+  }
 };
 window._vpPoistaPotentiaali = async function (pid) {
   var p = (typeof _vpIdpPelaaja === 'function') ? _vpIdpPelaaja(pid) : null; if (!p || !_vpSeurantaOnJohto()) return;   // johto-only (täsmää sääntöön)
   p.scout_potentiaali = null; p.scout_potentiaali_taso = null; p.scout_potentiaali_huomiot = ''; p.scout_potentiaali_pvm = null; p.scout_potentiaali_arvioija = null;
+  if (typeof _vpArvMerkitseOmaPotentiaali === 'function') _vpArvMerkitseOmaPotentiaali(p, null, '');
   _vpPotReRender(p);
   if (_isDemoMode || !_seuraId) { if (typeof toast === 'function') toast(vpT('Arvio poistettu (demo)'), 'ok'); return; }
   try {
@@ -10744,7 +10818,7 @@ function _vpArvKtxEditoriHTML(p) {
    kadonnut arvio. Nyt korostus tulee VAIN arvioijan omasta avoimesta kerrasta (tämä arvioija,
    tämä päivä, tämä konteksti). Seuran viimeisin näytetään neutraalina tekstinä vasta, kun oma
    arvo on tallennettu samalle kohteelle. */
-window._vpArvOmaKerta = null;   // { pid, kertaId, kohteet: {avain: arvo} }
+window._vpArvOmaKerta = null;   // { pid, kertaId, kohteet: {avain: arvo}, potentiaali: {tahdet, huomiot}|null }
 
 /* ── KATSO / ARVIOI (review C) ───────────────────────────────────────────────────────────
    Korostus oli jo omasta kerrasta, mutta samalla rivillä näkyi yhä SEURAN arvo numerona,
@@ -10820,10 +10894,39 @@ function _vpArvOmaKirjattu(p, avain) {
   return !!(s.kohteet && s.kohteet[avain] != null);
 }
 
+/* Potentiaali oli ainoa arviointikohde, joka EI kayttanyt omaa kertaa: Arvioi-tilassa
+   `piilotaNykyarvo` piilotti arvon ehdoitta, joten oma valinta katosi heti uudelleenrenderoinnissa
+   (kommentti "arvo palaa nakyviin oman tallennuksen jalkeen" ei pitanyt paikkaansa). Nyt
+   potentiaali elaa samassa tilassa kuin kohteet, samalla pid- ja kerta-id-tarkistuksella. */
+function _vpArvOmaPotentiaali(p) {
+  const s = window._vpArvOmaKerta;
+  if (!s || !p || s.pid !== p.id || s.kertaId !== _vpArvOmaKertaId(p)) return null;
+  const t = s.potentiaali && s.potentiaali.tahdet;
+  return (typeof t === 'number') ? t : null;
+}
+
+/** Oman kerran potentiaalihuomio (oma perustelu, EI edellisen arvioijan). */
+function _vpArvOmaPotHuomiot(p) {
+  const s = window._vpArvOmaKerta;
+  if (!s || !p || s.pid !== p.id || s.kertaId !== _vpArvOmaKertaId(p)) return '';
+  return (s.potentiaali && s.potentiaali.huomiot) || '';
+}
+
+function _vpArvMerkitseOmaPotentiaali(p, tahdet, huomiot) {
+  const id = _vpArvOmaKertaId(p);
+  const s = window._vpArvOmaKerta;
+  if (!s || s.pid !== p.id || s.kertaId !== id) window._vpArvOmaKerta = { pid: p.id, kertaId: id, kohteet: {}, potentiaali: null };
+  window._vpArvOmaKerta.potentiaali = (tahdet == null) ? null
+    : { tahdet: Number(tahdet), huomiot: huomiot || '' };
+}
+window._vpArvOmaPotentiaali = _vpArvOmaPotentiaali;
+window._vpArvOmaPotHuomiot = _vpArvOmaPotHuomiot;
+window._vpArvMerkitseOmaPotentiaali = _vpArvMerkitseOmaPotentiaali;
+
 function _vpArvMerkitseOma(p, avain, arvo) {
   const id = _vpArvOmaKertaId(p);
   const s = window._vpArvOmaKerta;
-  if (!s || s.pid !== p.id || s.kertaId !== id) window._vpArvOmaKerta = { pid: p.id, kertaId: id, kohteet: {} };
+  if (!s || s.pid !== p.id || s.kertaId !== id) window._vpArvOmaKerta = { pid: p.id, kertaId: id, kohteet: {}, potentiaali: null };
   if (arvo === 'ei_nahty') delete window._vpArvOmaKerta.kohteet[avain];
   else window._vpArvOmaKerta.kohteet[avain] = (arvo == null) ? 'NA' : arvo;
 }
@@ -10839,11 +10942,18 @@ async function _vpArvLataaOmaKerta(p) {
     const snap = await db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(p.id)
       .collection('arviointikerrat').doc(id).get();
     const kohteet = {};
+    let potentiaali = null;
     if (snap.exists) {
-      const k = (snap.data() || {}).kohteet || {};
+      const d = snap.data() || {};
+      const k = d.kohteet || {};
       Object.keys(k).forEach(function (a) { if (k[a] && k[a].arvo != null) kohteet[a] = k[a].arvo; });
+      /* Myos potentiaali luetaan, jotta paluu samaan nakymaan samana paivana nayttaa oman
+         tahtivalinnan eika tyhjaa porrasta. */
+      if (d.potentiaali && d.potentiaali.tahdet != null) {
+        potentiaali = { tahdet: Number(d.potentiaali.tahdet), huomiot: d.potentiaali.huomiot || '' };
+      }
     }
-    window._vpArvOmaKerta = { pid: p.id, kertaId: id, kohteet: kohteet };
+    window._vpArvOmaKerta = { pid: p.id, kertaId: id, kohteet: kohteet, potentiaali: potentiaali };
     const slot = document.getElementById('_jspTab5');
     if (slot && typeof _vpArviointiHTML === 'function') slot.innerHTML = _vpArviointiHTML(p);
   } catch (e) { /* graceful: ilman omaa kertaa ruudukko on tyhjä, mikä on oikea oletus */ }
@@ -17906,9 +18016,20 @@ window.vpAvaaHarjoitusarviointi = async function (valmentajaUid, valmentajaNimi)
 };
 
 var _vpTavoitteet;
+var _vpTavoitteetLahde = null;   // legacy-kausiavain josta tavoitteet luettiin, tai null
 var _vpSegmentit;        // {akatemia:[joukkuenimet]} konfiguraatio/segmentit:stä (§6b)
 var _vpKohortti;         // undefined=auto, 'akatemia'|'kaikki'|<joukkuenimi>
-function _vpTkKausi(){ var d=new Date(), y=d.getFullYear(); return (d.getMonth()>=6)?(y+'/'+String(y+1).slice(-2)):((y-1)+'/'+String(y).slice(-2)); }
+/* KAUSI TULEE SEURAN KAUSIMALLISTA (lib), EI kovakoodatusta heina–kesa-rajasta. Suomessa kausi
+   on kalenterivuosi, ja tama sama merkkijono on `konfiguraatio/tavoitteet`-dokumentin AVAIN —
+   vaara kausi luki ja kirjoitti siis vaaraa riviä. Sama funktio on Adminissa (`_tkKausi`), joten
+   molempien on pakko johtaa se samasta lahteesta tai ne erkanevat. */
+function _vpKausimalli(){ var AH=window.TM_ARVIOINTI_HISTORIA; return AH ? AH.tmKausimalli((typeof _seura!=='undefined' && _seura) ? _seura : null) : 'kalenteri'; }
+function _vpTkKausi(){
+  var AH = window.TM_ARVIOINTI_HISTORIA;
+  if (AH && AH.tmKausiNyt) return AH.tmKausiNyt((typeof _seura!=='undefined' && _seura) ? _seura : null);
+  return String(new Date().getFullYear());   // graceful: lib puuttuu → kalenterivuosi (FI-oletus)
+}
+window._vpTkKausi = _vpTkKausi; window._vpKausimalli = _vpKausimalli;
 function _vpJoukkueLista(){ var s={}; (_pelaajat||[]).forEach(function(p){ if (p.joukkue && p.joukkue!=='—') s[p.joukkue]=1; }); return Object.keys(s).sort(); }
 function _vpAkatemia(){ return (_vpSegmentit && Array.isArray(_vpSegmentit.akatemia)) ? _vpSegmentit.akatemia : []; }
 // Kohortti → joukkuelista laskeTaso3Osuus:lle (null = kaikki). Oletus: akatemia jos merkitty, muuten kaikki.
@@ -17937,9 +18058,20 @@ function renderVPTuloskortti(){
   var el = document.getElementById('vpTuloskortti'); if (!el) return;
   if (typeof laskeVPTuloskortti !== 'function') { el.innerHTML = ''; return; }
   if (_vpTavoitteet === undefined && _seuraId && _seuraId !== 'demo') {
-    _vpTavoitteet = null;
+    _vpTavoitteet = null; _vpTavoitteetLahde = null;
     db.collection('seurat').doc(_seuraId).collection('konfiguraatio').doc('tavoitteet').get()
-      .then(function(s){ _vpTavoitteet = (s.exists ? (s.data()||{})[_vpTkKausi()] : null) || null; renderVPTuloskortti(); })
+      .then(function(s){
+        /* Nykyiset tavoitteet on tallennettu vanhalla slash-avaimella ('2026/27'). Pelkka avaimen
+           vaihto katoaisi ne nakyvista, joten luku hyvaksyy legacy-avaimen — kirjoitus menee silti
+           aina uuteen avaimeen (vanhaa ei poisteta). */
+        var AH = window.TM_ARVIOINTI_HISTORIA;
+        var d = s.exists ? (s.data()||{}) : {};
+        var r = (AH && AH.tmTavoitteetKaudelle) ? AH.tmTavoitteetKaudelle(d, _vpTkKausi(), _vpKausimalli())
+          : { tavoitteet: d[_vpTkKausi()] || null, avain: _vpTkKausi(), legacy: false };
+        _vpTavoitteet = r.tavoitteet || null;
+        _vpTavoitteetLahde = r.legacy ? r.avain : null;
+        renderVPTuloskortti();
+      })
       .catch(function(){ _vpTavoitteet = null; });
   }
   if (_vpSegmentit === undefined && _seuraId && _seuraId !== 'demo') {
@@ -18009,6 +18141,12 @@ window._vpAvaaTavoiteModal = function(){
   var vanha = document.getElementById('vpTkModal'); if (vanha) vanha.remove();
   var m = document.createElement('div'); m.id = 'vpTkModal'; m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9300;display:flex;align-items:center;justify-content:center;padding:16px'; m.onclick = function(e){ if (e.target===m) m.remove(); };
   var h = '<div onclick="event.stopPropagation()" style="background:var(--bg2);border:.5px solid var(--border);border-radius:12px;width:min(440px,94vw);max-height:90vh;overflow-y:auto;padding:20px 22px"><div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px"><div style="font-size:16px;font-weight:600;color:var(--ink)">' + vpT('Kausitavoitteet') + ' ' + _vpTkKausi() + '</div><button onclick="document.getElementById(\'vpTkModal\').remove()" style="background:none;border:none;color:var(--ink3);font-size:22px;cursor:pointer">×</button></div><div style="font-size:11px;color:var(--ink3);margin-bottom:14px">' + vpT('Jokainen tavoite kuuluu alueeseen (I–IV). Tyhjä = ei tavoitetta.') + '</div>';
+  /* Tavoitteet tulivat vanhalta kausiavaimelta: kerro se, jottei kayttaja luule niiden olevan
+     jo talla kaudella. Tallennus kirjoittaa ne uuteen avaimeen. */
+  if (_vpTavoitteetLahde) {
+    h += '<div style="margin-bottom:12px;padding:9px 11px;border-radius:8px;background:rgba(224,160,64,.12);border:.5px solid rgba(224,160,64,.4);font-size:11.5px;color:var(--ink2);line-height:1.45">'
+      + vpT('Tavoitteet luettu kaudelta') + ' ' + _jsvEsc(_vpTavoitteetLahde) + '. ' + vpT('Tallenna vahvistaaksesi kaudelle') + ' ' + _jsvEsc(_vpTkKausi()) + '.</div>';
+  }
   _VP_TK_MITTARIT.forEach(function(mt){ var cur = (nyk[mt[0]] && nyk[mt[0]].tavoite!=null) ? nyk[mt[0]].tavoite : ''; h += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><span style="flex:1;font-size:12px;color:var(--ink2)">' + mt[1] + ' <span style="opacity:.6">[' + mt[2] + ']</span></span><input type="number" id="vptk_' + mt[0] + '" value="' + cur + '" placeholder="—" style="width:72px;padding:5px 8px;border:.5px solid var(--border);border-radius:6px;background:var(--surface);color:var(--ink);font-size:13px;text-align:center"></div>'; });
   h += '<button onclick="_vpTallennaTavoitteet()" style="width:100%;margin-top:12px;padding:9px;border:none;border-radius:8px;background:var(--teal);color:#fff;font-size:13px;cursor:pointer">' + vpT('Tallenna tavoitteet') + '</button></div>';
   m.innerHTML = h; document.body.appendChild(m);
@@ -18020,7 +18158,7 @@ window._vpTallennaTavoitteet = async function(){
     _VP_TK_MITTARIT.forEach(function(mt){ var el = document.getElementById('vptk_' + mt[0]); var v = el && el.value!=='' ? Number(el.value) : null; if (v!=null && !isNaN(v)) tav[mt[0]] = { tavoite: v, alue: mt[2] }; });
     var doc = {}; doc[kausi] = tav;
     await db.collection('seurat').doc(_seuraId).collection('konfiguraatio').doc('tavoitteet').set(doc, { merge: true });
-    _vpTavoitteet = tav;
+    _vpTavoitteet = tav; _vpTavoitteetLahde = null;   // vahvistettu talle kaudelle
     if (typeof toast === 'function') toast(vpT('✓ Kausitavoitteet tallennettu'), 'ok');
     var m = document.getElementById('vpTkModal'); if (m) m.remove();
     renderVPTuloskortti();

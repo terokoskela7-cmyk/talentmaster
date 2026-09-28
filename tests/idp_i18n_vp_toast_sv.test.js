@@ -114,11 +114,27 @@ describe('ilmoituskanavat · kattavuus', () => {
   });
 });
 
+/* SANKTIOINTIA ODOTTAVAT RIVIT — merge-esto, ei ohitus (sama mekanismi kuin render-dom-portissa).
+   Uusi toast-teksti, jonka sv on Gemini-erässä. Omaa ruotsia EI kirjoiteta. Portti pysyy tiukkana:
+   jos käännös ilmestyy, alempi testi punertaa ja rivi on poistettava listalta. */
+const SV_ODOTTAA_SANKTIOINTIA = [
+  'Valitse ensin porras',
+];
+
 describe('ilmoituskanavat · resolvi (kääre ei yksin riitä)', () => {
   it('jokainen kääritty avain palauttaa AJOSSA sv:n, ei fi:tä', () => {
     const sb = svSandbox();
     const ei = [...new Set(TULOS.routed)].filter((t) => sb.vpT(t) === t);
-    expect(ei).toEqual([]);
+    expect(ei.filter((k) => SV_ODOTTAA_SANKTIOINTIA.indexOf(k) < 0)).toEqual([]);
+  });
+
+  it('odotuslista ei saa jäädä elämään: jokainen rivi on yhä käännöstä vailla ja yhä käytössä', () => {
+    const sb = svSandbox();
+    expect(SV_ODOTTAA_SANKTIOINTIA.filter((k) => sb.vpT(k) !== k),
+      'käännös on saapunut → poista rivi odotuslistalta').toEqual([]);
+    const kaytossa = new Set(TULOS.routed);
+    expect(SV_ODOTTAA_SANKTIOINTIA.filter((k) => !kaytossa.has(k)),
+      'avainta ei enää reititetä → poista rivi odotuslistalta').toEqual([]);
   });
   it('fi-tilassa sama teksti palautuu muuttumattomana (ei regressiota suomelle)', () => {
     const sb = svSandbox();

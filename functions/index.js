@@ -2572,10 +2572,12 @@ exports.kuittaaKaavioYmmarretty = functions
 // Pääsy: SA aina + valmennusapuri_pilotti/{uid}. Loki: valmennusapuri_loki (ei client-pääsyä).
 // Client: firebase.app().functions('europe-west1').httpsCallable('valmennusapuri', { timeout: 120000 })
 // ANTHROPIC_API_KEY bindataan vain VALMENNUSAPURI_PROVIDER=anthropic -kehitysreittiä varten.
+// AWS_BEDROCK_* bindataan Plan B -reittiä varten (VALMENNUSAPURI_PROVIDER=bedrock, Bedrock EU).
 // ============================================================
 exports.valmennusapuri = functions
   .region('europe-west1')
-  .runWith({ timeoutSeconds: 120, memory: '512MB', secrets: ['ANTHROPIC_API_KEY'] })
+  .runWith({ timeoutSeconds: 120, memory: '512MB',
+    secrets: ['ANTHROPIC_API_KEY', 'AWS_BEDROCK_ACCESS_KEY_ID', 'AWS_BEDROCK_SECRET_ACCESS_KEY'] })
   .https.onCall(valmennusapuri.kasittelija(admin, functions));
 
 

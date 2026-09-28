@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>TalentMaster™ — Admin</title>
 <script>/* §33 Versio-tarkistus (cache): pakottaa reloadin kun uusi versio deployattu. APP_VERSION leimataan scripts/bump_version.js:llä. */
-(function(){var APP_VERSION='1790585913151';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
+(function(){var APP_VERSION='1790598743219';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,400&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -17,6 +17,7 @@
 <script src="lib/tm_appcheck.js?v=1"></script>
 <script src="lib/tm_eerikkila_normit.js?v=40"></script>
 <script src="lib/tm_joukkue.js?v=3"></script>   <!-- §18-jäsenyys: kanoninen nimi + team-id yhdestä paikasta -->
+<script src="lib/tm_arviointi_historia.js?v=1"></script>   <!-- kausiavain: tmKausiNyt/tmTavoitteetKaudelle — SAMA lähde kuin VP:llä (sama tavoitteet-dokumentti) -->
 <script src="tm_auth.js"></script>
 
 <style>
@@ -1430,12 +1431,12 @@ async function renderPilotinTila(alue) {
         try { const kSnap = await db.collection('seurat').doc(seura.id).collection('kayttajat').get();
           valm = kSnap.docs.map(d => d.data()).filter(v => ['valmentaja','talenttivalmentaja','fysiikkavalmentaja','vp','urheilutoimenjohtaja'].indexOf(v.rooli) >= 0); } catch (e) {}
         try { const tSnap = await db.collection('seurat').doc(seura.id).collection('konfiguraatio').doc('tavoitteet').get();
-          if (tSnap.exists) tavoitteet = (tSnap.data() || {})[_tkKausi()] || null; } catch (e) {}
+          if (tSnap.exists) tavoitteet = _tkTavoitteet(tSnap.data(), seura).tavoitteet || null; } catch (e) {}
         let akatemia = [];
         try { const segSnap = await db.collection('seurat').doc(seura.id).collection('konfiguraatio').doc('segmentit').get();
           if (segSnap.exists && Array.isArray((segSnap.data() || {}).akatemia)) akatemia = segSnap.data().akatemia; } catch (e) {}
         // Cache per seura → kohortti-valitsin voi laskea uudelleen ilman koko näkymän reloadia (§6b)
-        _adminTkData[seura.id] = { pd, valm, tavoitteet, akatemia, kohortti: undefined };
+        _adminTkData[seura.id] = { pd, valm, tavoitteet, akatemia, kohortti: undefined, seura };
         if (typeof laskeVPTuloskortti === 'function') kortti = laskeVPTuloskortti(pd, valm, tavoitteet, Date.now(), { taso3Joukkueet: _tkKohorttiJoukkueet(seura.id) });
         rivit.push({ id: seura.id, nimi: seura.nimi || seura.id, n, pilotti, odottaa, annettu, konv, testattu, adar, phv, flei, viimMs, blok, toim, kortti });
       } catch (e) {
@@ -1525,7 +1526,31 @@ async function muistutaSeuraa(seuraId, n) {
 }
 
 // ── VP-TULOSKORTTI (governance-audit, VP_TULOSKORTTI_SPEC §2) — string concat §7.1/§18 ──
-function _tkKausi() { const d = new Date(), y = d.getFullYear(); return (d.getMonth() >= 6) ? (y + '/' + String(y + 1).slice(-2)) : ((y - 1) + '/' + String(y).slice(-2)); }
+/* KAUSI SEURAN KAUSIMALLISTA (lib), EI kovakoodattua heina–kesa-rajaa. Tama on sama
+   `konfiguraatio/tavoitteet`-dokumentin AVAIN kuin VP_v25:n `_vpTkKausi` — jos nama kaksi
+   eroavat, Admin ja VP lukevat eri riviä samasta dokumentista. Siksi molemmat johtavat sen
+   samasta lib-funktiosta. Seuradokumentti ei ole Adminissa aina ladattuna → null = FI-oletus. */
+/* Admin on monen seuran nakyma, joten kausimalli on luettava KOHDESEURASTA — ei yhdesta
+   globaalista. Argumentti saa olla seuradokumentti tai seuraId (jolloin se haetaan jo ladatusta
+   _adminTkData-valimuistista). Tuntematon → null → tmKausimalli(null) = FI = kalenteri. */
+function _tkSeura(x) {
+  if (x && typeof x === 'object') return x;
+  const c = (typeof _adminTkData !== 'undefined' && _adminTkData && x) ? _adminTkData[x] : null;
+  return (c && c.seura) || null;
+}
+function _tkKausimalli(x) { const AH = window.TM_ARVIOINTI_HISTORIA; return AH ? AH.tmKausimalli(_tkSeura(x)) : 'kalenteri'; }
+function _tkKausi(x) {
+  const AH = window.TM_ARVIOINTI_HISTORIA;
+  if (AH && AH.tmKausiNyt) return AH.tmKausiNyt(_tkSeura(x));
+  return String(new Date().getFullYear());   // graceful: lib puuttuu → kalenterivuosi (FI-oletus)
+}
+/** Tavoitteet kaudelle legacy-avain huomioiden (luku); kirjoitus menee aina uuteen avaimeen. */
+function _tkTavoitteet(data, x) {
+  const AH = window.TM_ARVIOINTI_HISTORIA;
+  const d = data || {};
+  return (AH && AH.tmTavoitteetKaudelle) ? AH.tmTavoitteetKaudelle(d, _tkKausi(x), _tkKausimalli(x))
+    : { tavoitteet: d[_tkKausi(x)] || null, avain: _tkKausi(x), legacy: false };
+}
 function _tkVari(s) { return s === 'vihrea' ? 'var(--teal)' : s === 'amber' ? 'var(--amber)' : s === 'punainen' ? 'var(--red)' : 'var(--ink3)'; }
 function _tkMerkki(s) { return s === 'vihrea' ? '🟢' : s === 'amber' ? '🟠' : s === 'punainen' ? '🔴' : '⚪'; }
 function _tkAlueHTML(nimi, alue) {
@@ -1624,13 +1649,16 @@ const _TK_MITTARIT = [
 ];
 async function _avaaTavoiteModal(seuraId) {
   let nyk = {};
-  try { const s = await db.collection('seurat').doc(seuraId).collection('konfiguraatio').doc('tavoitteet').get(); if (s.exists) nyk = (s.data() || {})[_tkKausi()] || {}; } catch (e) {}
+  let nykLahde = null;
+  try { const s = await db.collection('seurat').doc(seuraId).collection('konfiguraatio').doc('tavoitteet').get();
+    if (s.exists) { const r = _tkTavoitteet(s.data(), seuraId); nyk = r.tavoitteet || {}; nykLahde = r.legacy ? r.avain : null; } } catch (e) {}
   const vanha = document.getElementById('tkModal'); if (vanha) vanha.remove();
   const m = document.createElement('div'); m.id = 'tkModal';
   m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9300;display:flex;align-items:center;justify-content:center;padding:16px';
   m.onclick = function (e) { if (e.target === m) m.remove(); };
   let h = '<div onclick="event.stopPropagation()" style="background:var(--bg2);border:1px solid var(--border);border-radius:12px;width:min(440px,94vw);max-height:90vh;overflow-y:auto;padding:20px 22px">'
-    + '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px"><div style="font-size:16px;font-weight:600">Kausitavoitteet ' + _tkKausi() + '</div><button onclick="document.getElementById(\'tkModal\').remove()" style="background:none;border:none;color:var(--ink3);font-size:22px;cursor:pointer">×</button></div>'
+    + '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px"><div style="font-size:16px;font-weight:600">Kausitavoitteet ' + _tkKausi(seuraId) + '</div><button onclick="document.getElementById(\'tkModal\').remove()" style="background:none;border:none;color:var(--ink3);font-size:22px;cursor:pointer">×</button></div>'
+    + (nykLahde ? ('<div style="margin-bottom:12px;padding:9px 11px;border-radius:8px;background:rgba(224,160,64,.12);border:.5px solid rgba(224,160,64,.4);font-size:11.5px;color:var(--ink2);line-height:1.45">Tavoitteet luettu kaudelta ' + nykLahde + '. Tallenna vahvistaaksesi kaudelle ' + _tkKausi(seuraId) + '.</div>') : '')
     + '<div style="font-size:11px;color:var(--ink3);margin-bottom:14px">Jokainen tavoite kuuluu alueeseen (I–IV). Tyhjä = ei tavoitetta.</div>';
   _TK_MITTARIT.forEach(function (mt) {
     const cur = (nyk[mt[0]] && nyk[mt[0]].tavoite != null) ? nyk[mt[0]].tavoite : '';
@@ -1643,7 +1671,7 @@ async function _avaaTavoiteModal(seuraId) {
 async function _tallennaTavoitteet(seuraId) {
   try {
     if (auth.currentUser) await auth.currentUser.getIdToken(true);   // §7.2 tuore token
-    const kausi = _tkKausi(), tav = {};
+    const kausi = _tkKausi(seuraId), tav = {};   // kirjoitus VAIN uuteen avaimeen (legacy jää talteen)
     _TK_MITTARIT.forEach(function (mt) { const el = document.getElementById('tk_' + mt[0]); const v = el && el.value !== '' ? Number(el.value) : null; if (v != null && !isNaN(v)) tav[mt[0]] = { tavoite: v, alue: mt[2] }; });
     const doc = {}; doc[kausi] = tav;
     await db.collection('seurat').doc(seuraId).collection('konfiguraatio').doc('tavoitteet').set(doc, { merge: true });
