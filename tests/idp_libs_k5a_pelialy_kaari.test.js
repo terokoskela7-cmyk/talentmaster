@@ -113,11 +113,17 @@ describe('kaappaus (adar_edellinen, §29 pvm-vahti — ei clobbaa uudelleenlaske
     expect(MASTER).toContain('if (_oldAv && _oldAv.pvm && uusinPvm && _oldAv.pvm !== uusinPvm) {');
     expect(MASTER).toContain('_adarKentat.adar_edellinen = {');
   });
-  it('ADAR_Pikakortti (bundler-template): sama kaappaus lukee vanhan + conditional (raw escapattu sisältö)', () => {
-    // Raw-string-tarkistus (bundler-template = literaalit escapatun JSON:n sisällä; ei JSON.parse-riippuvuutta).
-    expect(PIKAKORTTI).toContain('_oldAv = (_oldAvDoc && _oldAvDoc.exists && _oldAvDoc.data().adar_viimeisin) || null;');
-    expect(PIKAKORTTI).toContain('if (_oldAv && _oldAv.pvm && uusinPvm && _oldAv.pvm !== uusinPvm) { _adarSet.adar_edellinen = { a: _oldAv.a');
-    expect(PIKAKORTTI).toContain('await _pRef.set(_adarSet, { merge: true });');
+  /* PR 2B: pikakortin INLINE-kopio poistettiin. Kaappaus on nyt libissä (`tmAdarPikakentat`,
+     `opts.edellinen`), joten vartija mittaa DELEGOINTIA — sitä, että kopio ei palaa. Sama
+     ehto (`_oldAv.pvm !== uusinPvm`) on yhä olemassa, mutta yhdessä paikassa. */
+  it('ADAR_Pikakortti: ei omaa kaappausta — edellinen arvo välitetään libille', () => {
+    expect(PIKAKORTTI, 'edellinen luetaan dokumentista (ei paikallisesta välimuistista)')
+      .toContain("_oldAv = (_oldAvDoc && _oldAvDoc.exists && _oldAvDoc.data().adar_viimeisin) || null;");
+    expect(PIKAKORTTI, 'kaappaus on delegoitava libille').toContain('{ edellinen: _oldAv }');
+    expect(PIKAKORTTI, 'pikakentät kirjoitetaan mergellä').toContain("pRef.set(kentat, { merge: true })");
+    /* KOPIOVARTIJA: inline-konsensus ei saa palata (yhtä asiaa ei lasketa kahdessa paikassa). */
+    expect(PIKAKORTTI, 'inline-konsensus palasi pikakorttiin').not.toContain('adar_yhtenevyys_taso:');
+    expect(PIKAKORTTI, 'inline-konsensus palasi pikakorttiin').not.toContain('_adarSet');
   });
   it('SW-cache nostettu (§27, Pelaaja-app muuttui)', () => {
     expect(readFileSync(join(__dir, '..', 'sw_pelaaja.js'), 'utf8')).toMatch(/const CACHE = 'tm-pelaaja-v(1[1-9]|[2-9]\d)';/);   // ≥v11 (löysä: kestää tulevat cache-bumpit, esim. i18n V0 → v12)

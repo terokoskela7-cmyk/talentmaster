@@ -138,20 +138,39 @@ describe('ADAR · pelaajapoiminta roolin mukaan', () => {
     expect(client, 'seurasihteeri ei läpäise onValmentajaRooli-ehtoa').not.toContain('seurasihteeri');
   });
 
-  it('MOLEMMAT POIMIMET käyttävät samaa suodatusta (grid + vision-select)', () => {
-    /* Kaksi rakentajaa = kaksi paikkaa unohtaa. Molempien on kuljettava saman
-       funktion läpi, muuten toinen tarjoaa kiellettyjä pelaajia. */
-    const grid = funktio('function _paivitaPikaPelaajat(');
-    expect(grid, 'pikagrid ei käytä roolisuodatusta').toContain('_adarNakyvatPelaajat(');
-    expect(grid, 'pikagrid rakentaa yhä suodattamattomasta snapista').not.toContain('snap.docs.map');
-    const sel = funktio('function _adarTaytaSelectit(');
-    expect(sel, 'vision-selectit eivät käytä roolisuodatusta').toContain('_adarNakyvatPelaajat(');
+  /* PR 2B: tasovälilehdet ja erillinen pikatila poistuivat, joten poimimia ei ole enää kahta.
+     Vartijan MERKITYS on sama: jokainen pelaajalistan rakentaja on kuljettava roolisuodatuksen
+     läpi. Lista-rakentajat johdetaan LÄHTEESTÄ (`.plist`-merkkaus), jottei uusi lista voi
+     ohittaa suodatusta hiljaa. */
+  it('JOKAINEN pelaajalistan rakentaja käyttää roolisuodatusta', () => {
+    const nimet = [...ADAR.matchAll(/function\s+([A-Za-z_$][\w$]*)\s*\(/g)]
+      .map((m) => ({ nimi: m[1], runko: funktio('function ' + m[1] + '(') }))
+      .filter((f) => f.runko.includes('class="plist"'));
+    expect(nimet.length, 'pelaajalistaa rakentavia funktioita ei löytynyt — vartija olisi tyhjä')
+      .toBeGreaterThanOrEqual(2);
+    nimet.forEach((f) => {
+      expect(f.runko, f.nimi + ' rakentaa listan ilman roolisuodatusta').toContain('_adarNakyvatPelaajat(');
+    });
+  });
+
+  it('SUODATUS on ainoa reitti _pelaajaMap:iin listaa rakennettaessa', () => {
+    /* Suora `Object.keys(window._pelaajaMap)` listassa ohittaisi suodatuksen. Se sallitaan
+       VAIN suodatinfunktiossa itsessään. */
+    const suodatin = funktio('function _adarNakyvatPelaajat(');
+    expect(suodatin).toContain('Object.keys(map)');
+    const muualla = ADAR.split(suodatin).join('');
+    expect(muualla, 'joku iteroi _pelaajaMap:ia suodatuksen ohi')
+      .not.toMatch(/Object\.keys\(\s*window\._pelaajaMap/);
   });
 
   it('PELAAJAN joukkueet[] luetaan mappiin (sääntö täsmää ID:llä, ei nimellä)', () => {
-    /* Ilman tätä suodatus vertaisi tyhjää taulukkoa ja kaikki putoaisi pois. */
+    /* Ilman tätä suodatus vertaisi tyhjää taulukkoa ja kaikki putoaisi pois.
+       PR 2B: rakentajia on nyt YKSI (`_adarLataaPelaajat`) — myös SA-polku kulkee sen kautta,
+       joten kenttä ei voi unohtua toisesta kopiosta. */
     const osumat = (ADAR.match(/joukkueet:\s*Array\.isArray\(p\.joukkueet\)/g) || []).length;
-    expect(osumat, 'joukkueet[] puuttuu jommastakummasta _pelaajaMap-rakentajasta').toBe(2);
+    expect(osumat, '_pelaajaMap-rakentajia ei ole tasan yksi, tai joukkueet[] puuttuu').toBe(1);
+    const rakentaja = funktio('async function _adarLataaPelaajat(');
+    expect(rakentaja).toContain('joukkueet: Array.isArray(p.joukkueet)');
   });
 
   /* Virheteksti on nyt omassa funktiossaan, koska syitä on KAKSI ja ne vaativat eri ohjeen.
@@ -209,10 +228,12 @@ describe('ADAR · pelaajapoiminta roolin mukaan', () => {
     expect(ajaEstonSyy('vp', [])).toBe('Voit havainnoida vain oman joukkueesi pelaajia');
   });
 
-  it('HAKUKENTÄT ovat kaikissa poimimissa (t1/t2/t3 + pikagrid)', () => {
-    ['t1', 't2', 't3', 'pika'].forEach((k) => {
-      expect(ADAR, 'hakukenttä puuttuu: ' + k).toContain('id="adar-haku-' + k + '"');
-    });
+  it('HAKUKENTTÄ on poimimessa ja se syöttää suodatusta', () => {
+    /* Yksi poimin → yksi hakukenttä. Pelkkä kentän olemassaolo ei riitä: haun on
+       päädyttävä samaan suodattimeen, muuten se näyttäisi suodattavan mutta ei suodattaisi. */
+    const poimin = funktio('function _phRenderValitse(');
+    expect(poimin, 'hakukenttä puuttuu poimimesta').toContain('id="ph-haku"');
+    expect(poimin, 'haku ei kulje roolisuodatuksen läpi').toContain('_adarNakyvatPelaajat(S.haku)');
   });
 });
 

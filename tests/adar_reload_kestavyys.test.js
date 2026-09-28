@@ -134,10 +134,15 @@ function teeSandbox(opt) {
     _showToast: (v) => toastit.push(v),
     _tmSeuraId: 'sjk',
     _tmAuth: { currentUser: o.user || null },
-    scores: { t1: { A: null }, t2: { A: null, D: null, Act: null }, t3: { A: null, D: null, Act: null, R: null } },
-    _phaseState: { t2: { phase: '', kpi: '' }, t3: { phase: '', kpi: '' } },
-    _pikaState: { pelaajaId: null, pelaajaNimi: null, seuraId: null, adar: null, piste: null },
-    updateTotal: () => {},
+    /* PR 2B: luonnos persistoi HAVAINTOTILAN, ei DOM-kenttiä. Siksi se kestää myös näkymän
+       uudelleenrakennuksen — ei vain sivunlatausta. */
+    _phTila: o.phTila || {
+      naytto: 'havainto', pelaajaId: null, haku: '',
+      porras: 1, porrasTallennettu: null, porrasNostettu: false, ehdotusOhitettu: false,
+      konteksti: 'harjoitus', pisteet: {}, havaitut: {}, auki: {}, teksti: '', nakyvyys: false,
+      tehdyt: {}, sheet: false, peruttu: false, viimeisin: null, odottaa: false,
+    },
+    _phRender: () => {},
   };
   sandbox.window = sandbox;
   sandbox.self = sandbox;
@@ -146,9 +151,6 @@ function teeSandbox(opt) {
   /* Vakiot + funktiot lähteestä — ei uudelleenkirjoitettuja kopioita. */
   vm.runInContext(
     'const ADAR_IDB_NIMI = "tm_adar_luonnos"; const ADAR_IDB_STORE = "kuvat";'
-    + ' const ADAR_TIERIT = ["t1","t2","t3"];'
-    + ' const ADAR_KENTAT = ["-pelaaja-id","-ikä","-tilanne","-pvm","-narr"];'
-    + ' const ADAR_T3_LISA = ["t3-pelipaikka","t3-reflektio"];'
     + ' let _luonnosAjastin = null;', sandbox);
 
   /* KUVAFUNKTIOT POISTETTU (tietosuoja, vaihe 1): _skaalaaKuva, _kuvaNaytaPreview,
@@ -168,31 +170,45 @@ function teeSandbox(opt) {
 const odota = (ms) => new Promise((r) => setTimeout(r, ms || 40));
 
 describe('ADAR · reload-kestävyys', () => {
-  it('EI VACUOUS: luonnos kerää lomakkeen kentät ja pisteet', () => {
-    const y = teeSandbox({ kentat: { 't2-narr': 'Hyvä skannaus ennen syöttöä.' } });
-    y.sandbox.scores.t2.A = 3;
+  it('EI VACUOUS: luonnos kerää havaintotilan', () => {
+    const y = teeSandbox({});
+    Object.assign(y.sandbox._phTila, {
+      pelaajaId: 'p1', porras: 2, konteksti: 'ottelu',
+      pisteet: { A: 3, D: 2 }, havaitut: { A: ['Katsoo ylös'] },
+      teksti: 'Hyvä skannaus ennen syöttöä.', nakyvyys: true,
+    });
     const tila = y.sandbox._luonnosKeraa();
-    expect(tila.tierit.t2['-narr']).toBe('Hyvä skannaus ennen syöttöä.');
-    expect(tila.pisteet.t2.A).toBe(3);
+    expect(tila.pelaajaId).toBe('p1');
+    expect(tila.pisteet.A).toBe(3);
+    expect(tila.teksti).toBe('Hyvä skannaus ennen syöttöä.');
+    expect(tila.havaitut.A).toEqual(['Katsoo ylös']);
   });
 
-  it('RELOAD ei hukkaa havaintoa — kentät ja pisteet palautuvat', async () => {
+  it('RELOAD ei hukkaa havaintoa — tila palautuu kokonaan', async () => {
     /* 1. kenttätyö */
-    const a = teeSandbox({ kentat: { 't2-narr': 'Pelaaja skannasi ennen vastaanottoa.', 't2-tilanne': 'Ottelu' } });
-    a.sandbox.scores.t2.A = 3;
-    a.sandbox._pikaState.pelaajaId = 'p1';
+    const a = teeSandbox({});
+    Object.assign(a.sandbox._phTila, {
+      pelaajaId: 'p1', porras: 2, porrasTallennettu: 1, porrasNostettu: true, konteksti: 'ottelu',
+      pisteet: { A: 3, D: 2 }, havaitut: { A: ['Katsoo ylös'] },
+      teksti: 'Pelaaja skannasi ennen vastaanottoa.', nakyvyys: true,
+    });
     a.sandbox._luonnosTallenna();
     await odota(500);   // debounce 400 ms — ei saa jauhaa joka nappaimenpainalluksella
     expect(Object.keys(a.ls.data).length, 'luonnosta ei kirjoitettu lainkaan').toBeGreaterThan(0);
 
-    /* 2. RELOAD: uusi sandbox, sama storage, tyhjä lomake */
+    /* 2. RELOAD: uusi sandbox, sama storage, tyhjä tila */
     const b = teeSandbox({ localStorage: a.ls.data, idb: a.idbVarasto });
     await b.sandbox._luonnosPalauta();
-    expect(b.dom.document.getElementById('t2-narr').value, 'narratiivi hukkui reloadissa')
-      .toBe('Pelaaja skannasi ennen vastaanottoa.');
-    expect(b.dom.document.getElementById('t2-tilanne').value).toBe('Ottelu');
-    expect(b.sandbox.scores.t2.A, 'pisteet hukkuivat reloadissa').toBe(3);
-    expect(b.sandbox._pikaState.pelaajaId, 'pikatilan pelaaja hukkui').toBe('p1');
+    const S = b.sandbox._phTila;
+    expect(S.pelaajaId, 'pelaaja hukkui reloadissa').toBe('p1');
+    expect(S.teksti, 'narratiivi hukkui reloadissa').toBe('Pelaaja skannasi ennen vastaanottoa.');
+    expect(S.pisteet, 'pisteet hukkuivat reloadissa').toEqual({ A: 3, D: 2 });
+    expect(S.havaitut.A, '"Mitä näit" -valinnat hukkuivat').toEqual(['Katsoo ylös']);
+    expect(S.konteksti).toBe('ottelu');
+    expect(S.nakyvyys, 'näkyvyysvalinta hukkui — oletus olisi voinut mennä lapselle').toBe(true);
+    expect(S.porras, 'porras hukkui').toBe(2);
+    expect(S.porrasNostettu, 'portaan nosto hukkui — tallennus kirjoittaisi väärän portaan').toBe(true);
+    expect(S.naytto, 'palautus ei avannut havaintoa').toBe('havainto');
     expect(b.toastit.join(' '), 'käyttäjälle ei kerrottu palautuksesta').toContain('Palautettiin');
   });
 
