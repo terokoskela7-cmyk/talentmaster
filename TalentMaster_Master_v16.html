@@ -10057,7 +10057,10 @@ async function _mkAvaaTarkkailut() {
   el.innerHTML = '<div class="empty">' + masterT('Haetaan…') + '</div>';
   try {
     var snap = await db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(pid)
-      .collection('kenttatarkkailut').limit(20).get();
+      /* orderBy ENNEN limitia: pelkka limit(20) palauttaa mielivaltaiset 20 ja uusimmat voivat
+         jaada pois heti kun tarkkailuja on enemman. Yhden kentan jarjestys ei vaadi
+         komposiitti-indeksia. */
+      .collection('kenttatarkkailut').orderBy('luotu', 'desc').limit(20).get();
     var rivit = snap.docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); });
     /* Client-sort: ei komposiitti-indeksiä pelkän listauksen vuoksi (sama kuvio kuin ADAR). */
     rivit.sort(function (a, b) {

@@ -23,8 +23,6 @@ beforeAll(() => {
   AK = new Function(
     'var vpT = function(x){return x;};\n' +
     'var _jsvEsc = function(s){return String(s==null?"":s);};\n' +
-    /* _jesc = JS-merkkijonopako inline-onclickin argumenteille (pelihavainto-CTA). */
-    'var _jesc = function(s){return String(s==null?"":s).replace(/\\\\/g,"\\\\\\\\").replace(/\x27/g,"\\\\\x27");};\n' +
     'var _pvmLyhyt = function(s){return "1.6.2025";};\n' +
     'var _seuraId = "kpv";\n' +
     'var window = { _tmIBtn: function(){ return "<span class=\\"ibtn\\">ⓘ</span>"; } };\n' +

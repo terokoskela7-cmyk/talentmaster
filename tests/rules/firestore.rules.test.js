@@ -2404,6 +2404,27 @@ describe('Kenttätarkkailut — valmentajan havainto, EI pelaajalle (v3.20)', ()
       await assertFails(setDoc(polku(db, null, 't1'), data));
     });
 
+  // ── ID-LUKKO JA TEKIJÄN MUUTTUMATTOMUUS (review 3) ──────────────────────
+  /* Ilman id-lukkoa valmentaja voisi varata dokumentin TOISEN uid:llä päättyvällä id:llä. Kun
+     tämä toinen sitten tallentaisi omansa, kirjoitus olisi update eikä create — ja update-sääntö
+     torjuisi sen, koska resource.data.valmentajaUid ei ole hän. Hiljainen lukko. */
+  it('id ei saa päättyä TOISEN valmentajan uid:hen', async () => {
+    const db = valmentajaContext(VALM_A_UID, SEURA_A).firestore();
+    await assertFails(setDoc(polku(db, null, '2026-09-28_1000_' + VP_A_UID), tarkkailu(VALM_A_UID)));
+  });
+
+  it('EI VACUOUS: omalla uid:llä päättyvä id kelpaa', async () => {
+    const db = valmentajaContext(VALM_A_UID, SEURA_A).firestore();
+    await assertSucceeds(setDoc(polku(db, null, '2026-09-28_1000_' + VALM_A_UID), tarkkailu(VALM_A_UID)));
+  });
+
+  it('tekijää ei voi vaihtaa päivityksessä (dokumenttia ei siirretä toisen nimiin)', async () => {
+    await seedTarkkailu('t1', tarkkailu(VALM_A_UID));
+    const db = valmentajaContext(VALM_A_UID, SEURA_A).firestore();
+    await assertFails(setDoc(polku(db, null, 't1'),
+      Object.assign({}, tarkkailu(VALM_A_UID), { valmentajaUid: VP_A_UID })));
+  });
+
   // ── PÄIVITYS ────────────────────────────────────────────────────────────
   it('sama valmentaja päivittää oman tarkkailunsa (2. puoliaika samaan dokumenttiin)', async () => {
     await seedTarkkailu('t1', tarkkailu(VALM_A_UID));

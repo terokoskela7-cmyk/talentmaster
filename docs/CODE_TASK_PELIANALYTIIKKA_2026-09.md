@@ -327,14 +327,28 @@ Koodin lukeminen käänsi päätöksen:
 
 Rules-blokki: `tm_admin/firestore.rules` v3.20. **Deploy-järjestys: Rules ensin, sitten sivu.**
 
+**YKSI DOKUMENTTI PER OTTELU, ei per puoliaika.** `otteluAvain` = `kalenteriId` tai
+`{paikallinen pvm}_{HHMM aloitushetkestä}`, ja se syntyy **kirjauksen alkaessa** — ei
+tallennushetkestä. Puoliaika on merkinnän kenttä (`m.puoliaika`), ja dokumentin `puoliajat`
+johdetaan merkinnöistä. Perustelu: työkalu pitää molemmat puoliajat samassa istunnossa ja
+tallentaa kaikki merkinnät, joten puoliaikakohtainen id (a) kahdentaisi 1. puoliajan Masterissa,
+(b) ylikirjoittaisi 2. puoliajan luonnoksen välilehden uudelleenlatauksessa ja (c) ylikirjoittaisi
+turnauksen ensimmäisen ottelun. Päivämäärä on paikallinen, koska UTC-pvm eroaisi luonnoksen
+avaimesta yön yli kestäneen verkkokatkon jälkeen.
+
+Luonnoksen avain on `tm_ph_luonnos_{seura}_{pelaaja}_{otteluAvain}` (ei puoliaikaa). Työkalu
+tarjoaa käynnistyksessä keskeneräisen jatkamista, jos tallentamattomia luonnoksia on — myös
+eilisiä.
+
 ```
-seurat/{sid}/pelaajat/{pid}/kenttatarkkailut/{id}      ← doc-id {pvm}_{puoliaika}_{valmentajaUid}
+seurat/{sid}/pelaajat/{pid}/kenttatarkkailut/{id}      ← doc-id {otteluAvain}_{valmentajaUid}
   tyyppi: 'kenttatarkkailu'
   palloId, pelaajaId, seuraId, valmentajaUid
   tila: 'luonnos' | 'valmis'          // 'valmis' vasta kun liitetty pelihavaintoon
   luotu: serverTimestamp()
-  ottelu: { kalenteriId|null, vastustaja|null, pvm: 'YYYY-MM-DD', pelimuoto: '11v11'|'8v8'|'5v5' }
-  puoliaika: 1|2
+  ottelu: { kalenteriId|null, vastustaja|null, pvm: 'YYYY-MM-DD', pelimuoto: '11v11'|'8v8'|'5v5',
+            otteluAvain }                              // pvm = ALOITUSpäivä PAIKALLISENA (ei UTC)
+  puoliajat: [1,2]                    // JOHDETAAN merkinnöistä — dokumentti kattaa koko ottelun
   suunta: { hyokkaysOikealle: bool, seisoo: 'lahi'|'kauko' }   // vain näyttöä varten; data on aina kanonisessa muodossa
   ikataso: 'u812'|'u1315'|'u16'
   pelipaikka: 'LA'|'KH'|'KY'|'KK'|'LP'|'T'|'MV'|null   // VALINNAINEN (v6) — null → pohja 'yleinen'

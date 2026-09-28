@@ -13,7 +13,10 @@ rules_version = '2';
 //     oma kokoelma rajaa luvun heti oikein koskematta laajempaan onAnonymous()-aukkoon.
 //   · read: SA | oman seuran johto TAI valmentaja. EI anonyymiä, EI huoltajaa.
 //   · create: SA | oman joukkueen valmentaja, `valmentajaUid == auth.uid`, luotu-vartija.
-//   · update: vain OMAN dokumentin kirjoittaja (tai SA) — toisen tarkkailua ei muokata.
+//   · update: vain OMAN dokumentin kirjoittaja (tai SA) — toisen tarkkailua ei muokata, eikä
+//     tekijää voi vaihtaa (`valmentajaUid` on muuttumaton).
+//   · create: doc-id päättyy kirjoittajan uid:hen — muuten toisen uid:llä varattu id kääntäisi
+//     hänen oman tallennuksensa päivitykseksi, jonka update-sääntö torjuu.
 //   · create/update kieltävät kentät `pisteet`/`narratiivi`/`teksti`/`oppimisnakokohta`:
 //     ne kääntäisivät toisen näkymän tulkitsemaan dokumentin väärin (Masterin ADAR-pikakentät
 //     lukisivat `pisteet`:n ADAR-pisteinä; Pelaaja_v7 näyttäisi tekstin lapselle).
@@ -739,11 +742,16 @@ service cloud.firestore {
           allow create: if (onSuperAdmin() || onOmanJoukkueenValmentaja(seuraId, pelaajaId))
                         && luotuLuontiKelpaa()
                         && request.resource.data.valmentajaUid == request.auth.uid
+                        // id paattyy omaan uid:hen: toisen uid:lla varattu id kaantaisi hanen oman
+                        // tallennuksensa paivitykseksi, jonka update-saanto torjuu (hiljainen lukko)
+                        && (onSuperAdmin() || tarkkailuId.matches('.*_' + request.auth.uid))
                         && !request.resource.data.keys().hasAny(['pisteet','narratiivi','teksti','oppimisnakokohta']);
           allow update: if (onSuperAdmin()
                         || (onOmanJoukkueenValmentaja(seuraId, pelaajaId)
                             && resource.data.valmentajaUid == request.auth.uid))
                         && luotuPaivitysKelpaa()
+                        // tekijaa ei voi vaihtaa: muuten dokumentin voisi siirtaa toisen nimiin
+                        && request.resource.data.valmentajaUid == resource.data.valmentajaUid
                         && !request.resource.data.keys().hasAny(['pisteet','narratiivi','teksti','oppimisnakokohta']);
           allow delete: if onSuperAdmin() || (onOmaSeura(seuraId) && onJohtoRooli());
         }
