@@ -519,7 +519,7 @@ describe('(9) tallennus — oma kokoelma, kielletyt kentät, idempotenssi', () =
      tietosuoja: `havainnot`-lukusääntö sisältää onAnonymous()-ehdon (pelaajan PIN-istunto)
      eikä sitä ole rajattu omaan pelaajaan. */
   it('kirjoitus menee kenttatarkkailut-kokoelmaan, EI havainnot-kokoelmaan', () => {
-    const f = pura('async function tallennaFirestoreen() {');
+    const f = pura('async function tallennaFirestoreen(opts) {');
     expect(f).toContain("collection('kenttatarkkailut')");
     expect(f).not.toContain("collection('havainnot')");
     expect(SIVU_KOODI).not.toMatch(/collection\('havainnot'\)/);
@@ -575,18 +575,18 @@ describe('(9) tallennus — oma kokoelma, kielletyt kentät, idempotenssi', () =
   });
 
   it('luotu lähetetään VAIN luonnissa (A5 + Rules-vartija)', () => {
-    const f = pura('async function tallennaFirestoreen() {');
+    const f = pura('async function tallennaFirestoreen(opts) {');
     expect(f).toContain('if (!snap.exists) data.luotu = firebase.firestore.FieldValue.serverTimestamp();');
     /* Ehdoton serverTimestamp nollaisi alkuperäisen aikaleiman uudelleentallennuksessa. */
     expect(f).not.toMatch(/^\s*data\.luotu = firebase/m);
   });
 
   it('tuore token ennen kirjoitusta (§7.2)', () => {
-    expect(pura('async function tallennaFirestoreen() {')).toContain('getIdToken(true)');
+    expect(pura('async function tallennaFirestoreen(opts) {')).toContain('getIdToken(true)');
   });
 
   it('luonnos poistetaan VASTA onnistuneen kirjoituksen jälkeen', () => {
-    const f = pura('async function tallennaFirestoreen() {');
+    const f = pura('async function tallennaFirestoreen(opts) {');
     const iSet = f.indexOf('await ref.set(');
     const iPoisto = f.indexOf('poistaLuonnos()');
     expect(iSet).toBeGreaterThan(0);
@@ -1420,7 +1420,7 @@ describe('(16) tallennus: undefined ei saa paasta dokumenttiin', () => {
   it('payload kulkee puhdistuksen lapi ja sentinel lisataan VASTA sen jalkeen', () => {
     const f = pura('function tarkkailuPayload() {');
     expect(f, 'payloadia ei puhdisteta').toContain('phPuhdista({');
-    const tal = pura('async function tallennaFirestoreen() {');
+    const tal = pura('async function tallennaFirestoreen(opts) {');
     const iPayload = tal.indexOf('tarkkailuPayload()');
     const iSentinel = tal.indexOf('serverTimestamp()');
     expect(iSentinel, 'sentinel puuttuu').toBeGreaterThan(-1);
@@ -1429,7 +1429,7 @@ describe('(16) tallennus: undefined ei saa paasta dokumenttiin', () => {
   });
 
   it('VIRHEVIESTI kertoo syyn, ei pelkkaa yleistekstia', () => {
-    const f = pura('async function tallennaFirestoreen() {');
+    const f = pura('async function tallennaFirestoreen(opts) {');
     expect(f, 'oikeusvirhe pitaa erottaa muusta').toContain("e.code === 'permission-denied'");
     expect(f).toContain('Ei oikeutta tallentaa t\u00e4lle pelaajalle');
     expect(f, 'koodi on nakyvissa, jotta syy voi selvittaa').toContain("(e && e.code) || 'virhe'");
@@ -1437,7 +1437,7 @@ describe('(16) tallennus: undefined ei saa paasta dokumenttiin', () => {
   });
 
   it('tallennus palauttaa onnistumisen (lopetus tarvitsee sen)', () => {
-    const f = pura('async function tallennaFirestoreen() {');
+    const f = pura('async function tallennaFirestoreen(opts) {');
     expect(f).toContain('return true;');
     expect(f).toContain('return false;');
   });
@@ -1487,7 +1487,8 @@ describe('(17) ottelun kulku: puoliaika ja lopetus', () => {
 
   it('LOPETUS: tallennus, kello seis, naytto vapaaksi, loppunakyma', () => {
     const f = pura('async function lopetaOttelu() {');
-    expect(f).toContain('await tallennaFirestoreen()');
+    expect(f, 'vain lopetus poistaa luonnoksen laitteelta')
+      .toContain('await tallennaFirestoreen({ lopullinen: true })');
     expect(f).toContain('S.paattynyt = true;');
     expect(f).toContain('clearInterval(window._phKelloAjastin)');
     expect(f).toContain('vapautaNaytto()');
@@ -1506,11 +1507,27 @@ describe('(17) ottelun kulku: puoliaika ja lopetus', () => {
 
   it('LUONNOS sailyy kun lopetus epaonnistuu', () => {
     /* poistaLuonnos() ajetaan vain onnistuneen kirjoituksen jalkeen. */
-    const f = pura('async function tallennaFirestoreen() {');
+    const f = pura('async function tallennaFirestoreen(opts) {');
     const iPoisto = f.indexOf('poistaLuonnos()');
     const iCatch = f.indexOf('} catch (e) {');
     expect(iPoisto).toBeGreaterThan(-1);
     expect(iPoisto, 'luonnos poistetaan virhehaarassa').toBeLessThan(iCatch);
+  });
+
+  /* Valitallennus ei saa siivota laitetta: `lopullinen` on portti. */
+  it('POISTO on lopullinen-portin takana', () => {
+    const f = pura('async function tallennaFirestoreen(opts) {');
+    expect(f, 'poisto ilman porttia vie jatkamismahdollisuuden')
+      .toContain('if (opts && opts.lopullinen) poistaLuonnos();');
+  });
+
+  it('VALITALLENNUS ei pyyda lopullista: Tallenna-nappi eika puoliajan vaihto', () => {
+    const nappi = pura("    q('btnTallenna').onclick = function () {");
+    expect(nappi, 'Tallenna on valitallennus').toContain('tallennaFirestoreen();');
+    expect(nappi).not.toContain('lopullinen');
+    const pa = pura('async function paataPuoliaika() {');
+    expect(pa, 'puoliajan vaihto on valitallennus').toContain('tallennaFirestoreen();');
+    expect(pa).not.toContain('lopullinen');
   });
 
   it('naytto vapautetaan: wakeLock ja koko naytto', () => {
@@ -1554,5 +1571,135 @@ describe('(17) ottelun kulku: puoliaika ja lopetus', () => {
        menisi lapi vaikka itse merkki olisi poistettu sirusta. */
     const f = ilmanKommentteja(pura('function paivitaPalkki() {'));
     expect(f, 'ratas katosi sirusta').toContain('\u2699');
+  });
+});
+
+
+/* ── 18 · LUONNOS ELÄÄ OTTELUN LOPPUUN ───────────────────────
+   Onnistunut VÄLItallennus pyyhki luonnoksen laitteelta, ja koska sekä "Tallenna"-nappi että
+   puoliajan vaihto tallentavat, 2. puoliaika jäi ilman paikallista varmuuskopiota: välilehden
+   uudelleenlataus tauolla aloitti tyhjän ottelun uudella otteluAvaimella, ja 1. puoliajan
+   kirjaukset jäivät erilliseen dokumenttiin.
+   Ajettu todiste oikeilla funktioilla, ei grep: vain tallennuksen epäonnistuminen on jujutettu. */
+describe('(18) luonnos säilyy puoliajan vaihdon yli', () => {
+  function ymparisto(kirjoitusOnnistuu) {
+    const store = {};
+    const ls = {
+      getItem: (k) => (Object.prototype.hasOwnProperty.call(store, k) ? store[k] : null),
+      setItem: (k, v) => { store[k] = v; },
+      removeItem: (k) => { delete store[k]; },
+      get length() { return Object.keys(store).length; },
+      key: (i) => Object.keys(store)[i],
+    };
+    const S = {
+      seuraId: 'sjk', pelaajaId: 'p1', uid: 'valm1',
+      merkinnat: [{ id: 1, tyyppi: 'laukaus', piste: { len: 88, wid: 50 }, t: 12, puoliaika: 1 }],
+      seq: 1, puoliaika: 1, seisoo: 'lahi', pelimuoto: '8v8', pelipaikka: 'LA',
+      vastustaja: 'FC X', kalenteriId: null, alkoi: 1000, alkoi2: null,
+      otteluAvain: '2026-09-28_1000', viimeisinId: 1,
+    };
+    const kirjoitetut = [];
+    /* Tynkä vastaa MIHIN TAHANSA collection/doc-ketjuun: matala tynkä päätyi undefinediin,
+       jonka catch nielaisi — testi näytti vihreältä vaikka kirjoitusta ei koskaan tapahtunut.
+       Juuri sen kiinni ottaminen on alla olevan virhevartijan tehtävä. */
+    const solmu = {
+      collection: () => solmu,
+      doc: () => solmu,
+      get: () => Promise.resolve({ exists: false }),
+      set: (d) => (kirjoitusOnnistuu
+        ? (kirjoitetut.push(d), Promise.resolve())
+        : Promise.reject(Object.assign(new Error('nope'), { code: 'permission-denied' }))),
+    };
+    const virheet = [];
+    const kutsuttu = [];
+    const api = aja(
+      ['function luonnosEtuliite() {', 'function luonnosAvain() {',
+        'function keskeneraisetLuonnokset() {', 'function tallennaLuonnos() {',
+        'function lataaLuonnos(avain) {', 'function poistaLuonnos() {',
+        'async function tallennaFirestoreen(opts) {', 'async function paataPuoliaika() {',
+        'async function lopetaOttelu() {'],
+      'return { tallenna: tallennaLuonnos, lataa: lataaLuonnos, avain: luonnosAvain,'
+      + ' keskeneraiset: keskeneraisetLuonnokset, synkka: tallennaFirestoreen,'
+      + ' vaihda: paataPuoliaika, lopeta: lopetaOttelu };',
+      {
+        S, K: { syotto: true }, PH, localStorage: ls, LUONNOS_ETULIITE: 'tm_ph_luonnos_',
+        rastitListaksi: () => ['syotto'],
+        asetaPohja: (pp) => { S.pelipaikka = pp; },
+        q: () => ({ textContent: '', disabled: false, style: {} }),
+        phT: (s) => s,
+        _auth: { currentUser: null },
+        _db: solmu,
+        console: { error: (...x) => virheet.push(x.map(String).join(' ')), log: () => {} },
+        firebase: { firestore: { FieldValue: { serverTimestamp: () => 'TS' } } },
+        tarkkailuId: () => 'id1',
+        tarkkailuPayload: () => ({ merkinnat: S.merkinnat, puoliaika: S.puoliaika }),
+        asetaTallennustila: () => {},
+        tyhjennaVahvistus: () => {}, piilotaKumoa: () => {}, suljeLehti: () => {},
+        asettele: () => {}, piirraKentta: () => {}, piirra: () => {},
+        paivitaVaihepainike: () => {}, naytaToast: (x) => kutsuttu.push(x),
+        naytaVahvistus: (x) => kutsuttu.push('vahvistus:' + x),
+        naytaLoppunakyma: () => kutsuttu.push('loppu'), vapautaNaytto: () => {},
+        kelloSekunnit: () => 42, PYSTY: false, clearInterval: () => {},
+      },
+    );
+    return { api, S, store, ls, kirjoitetut, kutsuttu, virheet };
+  }
+
+  it('puoliajan vaihto: luonnos SÄILYY ja sisältää 2. puoliajan tilan', async () => {
+    const { api, S, store } = ymparisto(true);
+    api.tallenna();
+    await api.vaihda();
+    await new Promise((r) => setTimeout(r, 0));          // synkka ei ole awaitattu — anna sen ajaa
+    const avaimet = Object.keys(store);
+    expect(avaimet.length, 'onnistunut välitallennus pyyhki luonnoksen').toBe(1);
+    const d = JSON.parse(store[avaimet[0]]);
+    expect(d.puoliaika, 'luonnokseen jäi 1. puoliaika').toBe(2);
+    expect(d.alkoi2, '2. puoliajan alku puuttuu → kello alkaisi väärin').toBe(S.alkoi2);
+    expect(d.otteluAvain).toBe('2026-09-28_1000');
+  });
+
+  it('EI VACUOUS: synkka todella ajettiin vaihdon yhteydessä', async () => {
+    const { api, kirjoitetut, virheet } = ymparisto(true);
+    api.tallenna();
+    await api.vaihda();
+    await new Promise((r) => setTimeout(r, 0));
+    expect(kirjoitetut.length, 'vaihto ei yrittänyt synkata lainkaan').toBe(1);
+    /* catch nielaisee kaiken — ilman tätä vartijaa rikkoutunut tynkä näyttäisi vihreältä. */
+    expect(virheet, 'tallennus kaatui hiljaa').toEqual([]);
+  });
+
+  it('UUDELLEENLATAUS tauolla jatkaa 2. puoliaikaa samalla otteluAvaimella', async () => {
+    const { api, S, store } = ymparisto(true);
+    api.tallenna();
+    await api.vaihda();
+    await new Promise((r) => setTimeout(r, 0));
+    const alkoi2 = S.alkoi2;
+
+    /* Uudelleenlataus: tila nollautuu, vain localStorage jää. */
+    const loytyneet = api.keskeneraiset();
+    expect(loytyneet.length, 'keskeneräistä ei tarjottu jatkettavaksi').toBe(1);
+    S.merkinnat = []; S.seq = 0; S.puoliaika = 1; S.alkoi2 = null; S.otteluAvain = 'VAARA';
+
+    expect(api.lataa(loytyneet[0].avain)).toBe(true);
+    expect(S.puoliaika, '2. puoliaika ei jatkunut').toBe(2);
+    expect(S.alkoi2, '2. puoliajan kello alkoi alusta').toBe(alkoi2);
+    expect(S.otteluAvain, 'uusi avain → puoliajat eri dokumentteihin').toBe('2026-09-28_1000');
+    expect(S.merkinnat.length, '1. puoliajan kirjaukset hävisivät').toBe(1);
+  });
+
+  it('LOPETUS siivoaa luonnoksen', async () => {
+    const { api, store } = ymparisto(true);
+    api.tallenna();
+    await api.lopeta();
+    expect(Object.keys(store).length, 'päättyneen ottelun luonnos jäi roikkumaan').toBe(0);
+  });
+
+  it('EI VACUOUS: epäonnistunut lopetus jättää luonnoksen laitteelle', async () => {
+    const { api, S, store, kutsuttu } = ymparisto(false);
+    api.tallenna();
+    await api.lopeta();
+    expect(Object.keys(store).length, 'kirjaukset hävisivät kun verkko petti').toBe(1);
+    expect(S.paattynyt, 'ottelu merkittiin päättyneeksi ilman tallennusta').not.toBe(true);
+    expect(kutsuttu.join(' ')).toContain('vahvistus:');
   });
 });

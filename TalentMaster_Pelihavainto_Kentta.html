@@ -1510,7 +1510,13 @@ const _db = firebase.firestore();
   window._phTarkkailuPayload = tarkkailuPayload;
   window._phTarkkailuId = tarkkailuId;
 
-  async function tallennaFirestoreen() {
+  /* LUONNOS POISTETAAN VAIN LOPETUKSESSA (`opts.lopullinen`). Välitallennus — "Tallenna"-nappi ja
+     puoliajan vaihto — synkkaa pilveen mutta JÄTTÄÄ luonnoksen laitteelle: kesken ottelun tehty
+     onnistunut synkka ei saa viedä mahdollisuutta jatkaa, jos välilehti latautuu uudelleen, akku
+     loppuu tai selain tappaa taustavälilehden. Ilman tätä 2. puoliaika alkoi tyhjästä uudella
+     otteluAvaimella, koska luonnos oli juuri pyyhitty. Sama otteluAvain → sama dokumentti
+     (tarkkailuId), joten jatkaminen päivittää eikä kahdenna. */
+  async function tallennaFirestoreen(opts) {
     var btn = q('btnTallenna');
     if (btn) btn.disabled = true;
     try {
@@ -1524,7 +1530,7 @@ const _db = firebase.firestore();
       var snap = await ref.get();
       if (!snap.exists) data.luotu = firebase.firestore.FieldValue.serverTimestamp();
       await ref.set(data, { merge: true });
-      poistaLuonnos();                                          // vasta onnistuneen kirjoituksen jälkeen
+      if (opts && opts.lopullinen) poistaLuonnos();              // vain ottelun lopetus siivoaa laitteen
       asetaTallennustila('verkossa');
       return true;
     } catch (e) {
@@ -1756,7 +1762,7 @@ const _db = firebase.firestore();
     q('btnTallenna').onclick = function () {
       tallennaLuonnos();                                        // laite ensin, sitten verkko
       asetaTallennustila('laitteella');
-      tallennaFirestoreen();
+      tallennaFirestoreen();                                    // välitallennus: luonnos EI poistu
     };
     /* Silta pikakorttiin: valmentaja kirjoittaa varsinaisen pelihavainnon samalle pelaajalle. */
     q('btnPikakortti').onclick = function () {
@@ -1891,8 +1897,10 @@ const _db = firebase.firestore();
     S.alkoi2 = Date.now();
     S.viimeisinId = null;                 // kumoa ei ylitä rajaa
     piilotaKumoa();
-    tallennaLuonnos();
-    /* Synkka yritetään, mutta EI estä jatkamista: tauko on lyhyt eikä verkko ole varma. */
+    tallennaLuonnos();                    // laitteelle: puoliaika 2 + alkoi2 talteen
+    /* Synkka yritetään, mutta EI estä jatkamista: tauko on lyhyt eikä verkko ole varma.
+       Välitallennus → luonnos säilyy, joten tauolla tapahtuva uudelleenlataus jatkaa
+       2. puoliaikaa samalla otteluAvaimella. */
     tallennaFirestoreen();
     suljeLehti();
     asettele(); piirraKentta(); piirra();
@@ -1912,7 +1920,7 @@ const _db = firebase.firestore();
 
   async function lopetaOttelu() {
     tyhjennaVahvistus();
-    var ok = await tallennaFirestoreen();
+    var ok = await tallennaFirestoreen({ lopullinen: true });
     if (!ok) {
       /* Ottelu PYSYY AUKI ja luonnos säilyy — uusi yritys on yksi painallus. */
       naytaVahvistus(phT('Tallessa laitteella — yritä uudelleen.'), phT('Yritä uudelleen'), lopetaOttelu);
