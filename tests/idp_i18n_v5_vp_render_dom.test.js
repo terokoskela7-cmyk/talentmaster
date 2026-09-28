@@ -729,6 +729,17 @@ describe('VP_v25 resolvi-portti — jokaisella reititetyllä avaimella on sv-riv
      Omaa ruotsia EI kirjoiteta. Portti pysyy tiukkana: (a) jos jollekin ilmestyy käännös, alempi
      testi punertaa ja rivi on poistettava listalta, ja (b) mikä tahansa MUU puuttuva avain punertaa. */
   const SV_ODOTTAA_SANKTIOINTIA = [
+    /* PR "havaintohistoria" (A): VP:n D4-lohko siirtyi portaisiin (2A-nimet pois) ja
+       sai Havainnot-linkin. sv tulee Gemini-erässä — omaa ruotsia ei kirjoiteta. */
+    'Porras',
+    'porras',
+    'uusi porras',
+    'hallitsee',
+    'kehittyvä',
+    'harjoittelussa',
+    'Neljä osaa, porras kerrallaan. Ikä on ohje, ei raja — porras ratkaisee mitä arvioidaan.',
+    'Havainnot',
+    'Havainnot ja viestit',
     // PR "arviointi-potentiaali-kausi" (A+B): Gemini-erä GEMINI_ERA_POTENTIAALI_KAUSI.json.
     'Valitse ensin porras',
     'Seuran viimeisin:',
