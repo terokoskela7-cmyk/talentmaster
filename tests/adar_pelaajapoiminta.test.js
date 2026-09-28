@@ -154,17 +154,219 @@ describe('ADAR · pelaajapoiminta roolin mukaan', () => {
     expect(osumat, 'joukkueet[] puuttuu jommastakummasta _pelaajaMap-rakentajasta').toBe(2);
   });
 
+  /* Virheteksti on nyt omassa funktiossaan, koska syitä on KAKSI ja ne vaativat eri ohjeen.
+     Vartija AJAA funktion molemmilla haaroilla — pelkkä merkkijonohaku kertoisi vain, että
+     jokin teksti on olemassa, ei että oikea teksti valitaan oikeassa tilanteessa. */
+  function ajaEstonSyy(rooli, omatJoukkueet) {
+    const store = {
+      window: { _tmRooli: rooli, _omatJoukkueet: omatJoukkueet },
+      ADAR_JOUKKUERAJAUS_OHITTAVAT: ['super_admin', 'superadmin', 'vp', 'urheilutoimenjohtaja', 'talenttivalmentaja'],
+    };
+    store.window.window = store.window;
+    const ymp = new Proxy(store, {
+      has: (t2, k) => (k in t2) || !(k in globalThis),
+      get: (t2, k) => (k === Symbol.unscopables ? undefined : (k in t2 ? t2[k] : undefined)),
+      set: (t2, k, v) => { t2[k] = v; return true; },
+    });
+    const poimi = (sig) => {
+      const alku = ADAR.indexOf(sig);
+      if (alku < 0) throw new Error('ei löydy: ' + sig);
+      let syvyys = 0;
+      for (let j = ADAR.indexOf('{', alku); j < ADAR.length; j++) {
+        if (ADAR[j] === '{') syvyys++;
+        else if (ADAR[j] === '}') { syvyys--; if (!syvyys) return ADAR.slice(alku, j + 1); }
+      }
+      throw new Error('sulkeet eivät täsmää');
+    };
+    const runko = [poimi('function _adarNakeeKaikki(rooli) {'), poimi('function _adarEstonSyy() {')].join('\n');
+    // eslint-disable-next-line no-new-func
+    return new Function('__ymp', 'with(__ymp){' + runko + '\nreturn _adarEstonSyy();}')(ymp);
+  }
+
   it('SELKEÄ VIRHE: permission-denied kertoo syyn, ei "katso konsoli"', () => {
     const i = ADAR.indexOf("err.code === 'permission-denied'");
     expect(i, 'permission-denied-haaraa ei ole').toBeGreaterThan(-1);
-    const lohko = ADAR.slice(i, i + 900);
-    expect(lohko, 'kentällä ei ole konsolia — virheen on kerrottava syy')
-      .toContain('vain oman joukkueesi pelaajia');
+    /* Lohko = permission-denied-haarasta sen else-haaraan. Kiinteä merkkimäärä olisi hauras:
+       debug-rivit ovat pitkiä, ja haara kasvoi juuri yli 900 merkin. */
+    const loppu = ADAR.indexOf('} else {', i);
+    expect(loppu, 'haaran loppua ei löydy').toBeGreaterThan(i);
+    const lohko = ADAR.slice(i, loppu);
+    expect(lohko, 'syy on haettava funktiosta, ei kovakoodattava').toContain('_adarEstonSyy()');
+    expect(lohko, 'kentällä ei ole konsolia — käyttäjälle on näytettävä teksti').toContain('_showToast(');
+  });
+
+  it('joukkuerajaus: syy on joukkuerajaus kun omia joukkueita ON', () => {
+    expect(ajaEstonSyy('valmentaja', ['sibbo_p12'])).toBe('Voit havainnoida vain oman joukkueesi pelaajia');
+  });
+
+  /* Ilman joukkueita leikkaus on AINA tyhjä — valmentaja ei voi korjata sitä itse, joten
+     "vain oman joukkueesi pelaajia" olisi harhaanjohtava ohje. */
+  it('puuttuva joukkuetieto ohjaa pääkäyttäjälle', () => {
+    expect(ajaEstonSyy('valmentaja', [])).toBe('Käyttäjätunnuksesi joukkuetieto puuttuu — ota yhteys seuran pääkäyttäjään');
+  });
+
+  it('koko seuran näkevällä roolilla syy EI ole joukkuetieto', () => {
+    expect(ajaEstonSyy('vp', [])).toBe('Voit havainnoida vain oman joukkueesi pelaajia');
   });
 
   it('HAKUKENTÄT ovat kaikissa poimimissa (t1/t2/t3 + pikagrid)', () => {
     ['t1', 't2', 't3', 'pika'].forEach((k) => {
       expect(ADAR, 'hakukenttä puuttuu: ' + k).toContain('id="adar-haku-' + k + '"');
     });
+  });
+});
+
+/* ══ ROOLILÄHDE — KLIENTTI JA RULES SAMASTA PAIKASTA ══════════════════════
+   Rules lukee roolin TOKENIN claimista. Jos klientti päättelee sen Firestore-dokumentista,
+   lähteet voivat erota (dokumentissa 'vp', claimissa 'valmentaja') — poimin näyttää koko seuran
+   ja Rules hylkää tallennuksen vasta kentällä. */
+describe('ADAR · roolin yksi lähde (claim)', () => {
+  const ADAR2 = readFileSync(join(juuri, 'TalentMaster_ADAR_Pikakortti.html'), 'utf8');
+  const MASTER2 = readFileSync(join(juuri, 'TalentMaster_Master_v16.html'), 'utf8');
+
+  it('pikakortti asettaa _tmRooli CLAIMISTA', () => {
+    expect(ADAR2).toContain('window._tmRooli = token.claims.rooli');
+  });
+
+  it('itsenäinen avaus toimii: asetus ei vaadi Masterin injektiota', () => {
+    /* Ennen tätä `_tmRooli` asetettiin VAIN Masterin upotuksessa, joten VP näki itsenäisessä
+       pikakortissa vain oman joukkueensa ja `tekija_rooli` jäi nulliksi. */
+    expect(ADAR2).toContain('if (!window._tmRooli) window._tmRooli = token.claims.rooli');
+  });
+
+  it('Master injektoi CLAIMIN roolin, ei dokumentin roolia', () => {
+    expect(MASTER2).toContain('window._tmClaimRooli = claims.rooli');
+    expect(MASTER2).toContain('w._tmRooli = window._tmClaimRooli');
+    expect(MASTER2, 'dokumentin rooli ei saa mennä pikakorttiin').not.toContain('w._tmRooli = _rooli');
+  });
+
+  it('dokumentin rooli luetaan vain virheilmoitusta varten, ei oikeuspäättelyyn', () => {
+    expect(ADAR2).toContain('window._tmDokRooli = data.rooli');
+    /* _adarNakeeKaikki lukee _tmRooli:n (claim), ei _tmDokRooli:a. */
+    const i = ADAR2.indexOf('function _adarNakeeKaikki(rooli) {');
+    const lohko = ADAR2.slice(i, i + 300);
+    expect(lohko).toContain('window._tmRooli');
+    expect(lohko).not.toContain('_tmDokRooli');
+  });
+});
+
+/* ══ OFFLINE-JONO ═════════════════════════════════════════════════════════
+   Jonoon `luotu` päätyi ISO-merkkijonona tai serverTimestamp-sentinelinä, joka ei serialisoidu
+   IndexedDB:hen. Rules vaatii `luotu is timestamp`, joten jonon merkintä hylättiin AINA ja
+   `break` pysäytti koko jonon pysyvästi. */
+describe('ADAR · offline-jonon synkronointi', () => {
+  const ADAR3 = readFileSync(join(juuri, 'TalentMaster_ADAR_Pikakortti.html'), 'utf8');
+
+  function ajaSynkka(jono, virheet) {
+    const lisatyt = [];
+    const poistetut = [];
+    const toastit = [];
+    const sentinel = { __sentinel: 'serverTimestamp' };
+    const store = {
+      console: { log() {}, warn() {} },
+      _idbHaeKaikki: async () => jono,
+      _idbPoista: async (id) => { poistetut.push(id); },
+      _paivitaOfflineBadge: () => {},
+      _showToast: (s) => toastit.push(s),
+      window: {
+        _tmDB: {
+          collection: () => ({
+            doc: () => ({
+              collection: () => ({
+                doc: () => ({
+                  collection: () => ({
+                    add: async (d) => {
+                      const v = (virheet || {})[d.pelaaja_id];
+                      if (v) { const e = new Error('nope'); e.code = v; throw e; }
+                      lisatyt.push(d);
+                      return { id: 'x' };
+                    },
+                  }),
+                }),
+              }),
+            }),
+          }),
+        },
+        _tmAuth: { currentUser: { uid: 'u1' } },
+        firebase: { firestore: { FieldValue: { serverTimestamp: () => sentinel } } },
+      },
+    };
+    store.window.window = store.window;
+    const ymp = new Proxy(store, {
+      has: (t2, k) => (k in t2) || !(k in globalThis),
+      get: (t2, k) => (k === Symbol.unscopables ? undefined : (k in t2 ? t2[k] : undefined)),
+      set: (t2, k, v) => { t2[k] = v; return true; },
+    });
+    const alku = ADAR3.indexOf('async function _synkronoiOfflineJono() {');
+    let syvyys = 0, runko = '';
+    for (let j = ADAR3.indexOf('{', alku); j < ADAR3.length; j++) {
+      if (ADAR3[j] === '{') syvyys++;
+      else if (ADAR3[j] === '}') { syvyys--; if (!syvyys) { runko = ADAR3.slice(alku, j + 1); break; } }
+    }
+    // eslint-disable-next-line no-new-func
+    const fn = new Function('__ymp', 'with(__ymp){' + runko + '\nreturn _synkronoiOfflineJono;}')(ymp);
+    return fn().then(() => ({ lisatyt, poistetut, toastit, sentinel }));
+  }
+
+  const merkinta = (id, luotu) => ({
+    localId: id, seura_id: 'sibbovargarna', pelaaja_id: 'p' + id,
+    tyyppi: 'adar_pikakirjaus', luotu,
+  });
+
+  it('luotu lähetetään serverTimestampina, ei ISO-merkkijonona', async () => {
+    const r = await ajaSynkka([merkinta(1, '2026-09-28T10:00:00.000Z')]);
+    expect(r.lisatyt.length).toBe(1);
+    expect(r.lisatyt[0].luotu, 'Rules vaatii timestampin').toBe(r.sentinel);
+    expect(typeof r.lisatyt[0].luotu).not.toBe('string');
+  });
+
+  it('alkuperäinen kirjausaika säilyy omassa kentässään', async () => {
+    const r = await ajaSynkka([merkinta(1, '2026-09-28T10:00:00.000Z')]);
+    expect(r.lisatyt[0].luotu_laitteella).toBe('2026-09-28T10:00:00.000Z');
+  });
+
+  it('serialisoitumaton sentinel jonossa ei päädy kirjoitukseen', async () => {
+    const r = await ajaSynkka([merkinta(1, { rikki: true })]);
+    expect(r.lisatyt[0].luotu).toBe(r.sentinel);
+    expect(r.lisatyt[0].luotu_laitteella, 'vain merkkijono kelpaa').toBeNull();
+  });
+
+  it('localId ei vuoda Firestoreen', async () => {
+    const r = await ajaSynkka([merkinta(1, '2026-09-28T10:00:00.000Z')]);
+    expect(r.lisatyt[0].localId).toBeUndefined();
+  });
+
+  it('onnistunut merkintä poistetaan jonosta', async () => {
+    const r = await ajaSynkka([merkinta(1, 'x'), merkinta(2, 'y')]);
+    expect(r.poistetut).toEqual([1, 2]);
+  });
+
+  /* Yksi kelvoton merkintä ei saa jumittaa koko jonoa — se oli oireen ydin. */
+  it('permission-denied ohitetaan, loput synkronoituvat', async () => {
+    const r = await ajaSynkka([merkinta(1, 'x'), merkinta(2, 'y'), merkinta(3, 'z')],
+      { p2: 'permission-denied' });
+    expect(r.lisatyt.length, 'kelvolliset menivät läpi').toBe(2);
+    expect(r.poistetut).toEqual([1, 3]);
+    expect(r.toastit.join(' ')).toContain('ei kelvannut');
+  });
+
+  it('verkkovirhe pysäyttää jonon (yritetään myöhemmin uudelleen)', async () => {
+    const r = await ajaSynkka([merkinta(1, 'x'), merkinta(2, 'y'), merkinta(3, 'z')],
+      { p2: 'unavailable' });
+    expect(r.lisatyt.length, 'vain ennen virhettä ollut').toBe(1);
+    expect(r.poistetut).toEqual([1]);
+  });
+
+  it('tyhjästä jonosta ei tule toastia', async () => {
+    const r = await ajaSynkka([]);
+    expect(r.toastit).toEqual([]);
+  });
+
+  it('lähdevartija: synkronointi EI lähetä jonon luotu-kenttää sellaisenaan', () => {
+    const i = ADAR3.indexOf('async function _synkronoiOfflineJono() {');
+    const lohko = ADAR3.slice(i, i + 2600);
+    expect(lohko, 'koko merkintä levitettynä veisi rikkinäisen luotu-kentän mukanaan')
+      .not.toMatch(/add\(\{\s*\.\.\.m,/);
+    expect(lohko).toContain('luotu: window.firebase.firestore.FieldValue.serverTimestamp()');
   });
 });

@@ -2484,6 +2484,11 @@ async function _lataaValmentaja(uid) {
          Best-effort, ei awaitia: ei saa hidastaa eikä kaataa kirjautumista. */
       if (typeof tmMerkitseKirjautuminen === 'function') tmMerkitseKirjautuminen(_db, _seuraId, uid);
       _rooli   = d.rooli || claims.rooli || 'valmentaja';
+      /* CLAIMIN rooli talteen erikseen: Rules lukee roolin claimista, joten kaikki oikeus-
+         päättely (esim. ADAR-pikakortin pelaajapoimin) on tehtävä sillä eikä dokumentin
+         roolilla. Jos dokumentissa lukee 'vp' mutta claimissa 'valmentaja', poimin näyttäisi
+         koko seuran ja Rules hylkäisi tallennuksen vasta kentällä. */
+      window._tmClaimRooli = claims.rooli || null;
       _joukkue = d.joukkue || d.joukkueNimi || (d.joukkueet||[])[0] || '';
       window._valmentajaData = d;  // sendReply tarvitsee valmentajan nimen
       const nimi = (d.etunimi || '') + ' ' + (d.sukunimi || '');
@@ -10130,7 +10135,9 @@ function _avaaPikakorttiUpotettu(pid) {
         w._tmAuth = (typeof firebase !== 'undefined') ? firebase.auth() : null;
         w._tmSeuraId = _seuraId || null;
         w._tmPelaajaId = pid || null;
-        w._tmRooli = _rooli || null;   // Vaihe B: arvioijan rooli havaintoon (tekija_rooli)
+        /* CLAIMIN rooli, ei dokumentin: pikakortti päättää tällä, näytetäänkö koko seura, ja
+           Rules tekee saman päätöksen samasta lähteestä. Ks. window._tmClaimRooli yllä. */
+        w._tmRooli = window._tmClaimRooli || null;   // Vaihe B: arvioijan rooli havaintoon (tekija_rooli)
         w._tmEmbedded = true;
       }
     } catch (e) { console.warn('[pikakortti-inject]', e && e.message); }

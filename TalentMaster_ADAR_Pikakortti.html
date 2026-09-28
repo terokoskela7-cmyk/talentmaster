@@ -3042,11 +3042,23 @@ async function _adarLataaOmatJoukkueet(seuraId, uid) {
     var d = await window._tmDB.collection('seurat').doc(seuraId).collection('kayttajat').doc(uid).get();
     var data = d && d.exists ? d.data() : {};
     window._omatJoukkueet = Array.isArray(data.joukkueet) ? data.joukkueet : [];
+    /* Dokumentin rooli EI ohjaa oikeuspäättelyä (se tulee claimista) — se talletetaan vain,
+       jotta virheilmoitus osaa kertoa, jos lähteet ovat ristiriidassa. */
+    window._tmDokRooli = data.rooli || null;
   } catch (e) {
     /* FAIL-CLOSED kuten sääntö: lukuvirhe → ei oleteta pääsyä. */
     window._omatJoukkueet = [];
   }
 }
+
+/** Miksi kirjoitus estyi? Palauttaa käyttäjälle näytettävän syyn. */
+function _adarEstonSyy() {
+  if (!_adarNakeeKaikki() && !(window._omatJoukkueet || []).length) {
+    return 'Käyttäjätunnuksesi joukkuetieto puuttuu — ota yhteys seuran pääkäyttäjään';
+  }
+  return 'Voit havainnoida vain oman joukkueesi pelaajia';
+}
+window._adarEstonSyy = _adarEstonSyy;
 
 /** Saako kirjautunut havainnoida tätä pelaajaa? Sama logiikka kuin sääntö. */
 function _adarSaaHavainnoida(pelaajaId) {
@@ -3150,6 +3162,12 @@ window._tmAuth.onAuthStateChanged(async (user) => {
   // Hae valmentajan seura Custom Claims -tokenista
   try {
     const token = await user.getIdTokenResult(true);
+    /* ROOLIN YKSI LÄHDE = CLAIM. Rules lukee request.auth.token.rooli:n, joten klientin on
+       päätettävä samasta lähteestä tai ne ajautuvat erilleen: poimin näyttäisi enemmän kuin
+       Rules sallii, ja tallennus kaatuisi vasta kentällä. Jos Master on jo injektoinut arvon
+       (upotettu tila), sitä kunnioitetaan — Master injektoi nykyään myös claimin roolin. */
+    if (!window._tmRooli) window._tmRooli = token.claims.rooli || null;
+    window._tmClaimRooli = token.claims.rooli || null;
     const seuraId = token.claims.seuraId;
     const isSuperAdmin = token.claims.rooli === 'super_admin'
       || token.claims.rooli === 'superadmin'
@@ -3835,9 +3853,14 @@ async function saveCard(level) {
       console.warn('[ADAR Debug] Polku: seurat/' + seuraIdDbg + '/pelaajat/' + pelaajaDbg + '/havainnot');
       console.warn('[ADAR Debug] Käyttäjä:', emailDbg, '| Rooli:', rooliDbg);
       /* VARAKAISTA: poimin on jo suodatettu, mutta jos create silti hylätään,
-         kerrotaan SYY eikä "katso konsoli". Kentällä konsolia ei ole. */
-      btn.textContent = '⚠ Voit havainnoida vain oman joukkueesi pelaajia';
-      _showToast('⚠ Voit havainnoida vain oman joukkueesi pelaajia');
+         kerrotaan SYY eikä "katso konsoli". Kentällä konsolia ei ole.
+         Kaksi eri syytä, kaksi eri ohjetta:
+           · käyttäjällä ei ole joukkueita → leikkaus on AINA tyhjä, eikä valmentaja voi
+             korjata sitä itse → ohjataan pääkäyttäjälle
+           · joukkueita on, mutta tämä pelaaja ei kuulu niihin → rajaus toimii oikein */
+      const viesti = _adarEstonSyy();
+      btn.textContent = '⚠ ' + viesti;
+      _showToast('⚠ ' + viesti);
     } else {
       btn.textContent = '⚠ Tallennusvirhe — yritä uudelleen';
     }
@@ -4167,23 +4190,44 @@ async function _synkronoiOfflineJono() {
 
   console.log(`[Pika] Synkronoidaan ${merkinnät.length} offline-merkintää`);
 
+  /* `luotu` ON RAKENNETTAVA UUDELLEEN. Jonoon se päätyi joko ISO-merkkijonona (offline-haara)
+     tai serverTimestamp-sentinelinä, joka ei serialisoidu IndexedDB:hen kelvollisesti. Rules
+     vaatii `luotu is timestamp` (luotuLuontiKelpaa, A5), joten jonon merkintä hylättiin AINA —
+     ja `break` pysäytti koko jonon pysyvästi. Alkuperäinen kirjausaika säilyy omassa kentässään. */
+  let synkattu = 0, ohitettu = 0;
   for (const m of merkinnät) {
+    const { localId, luotu, ...data } = m;
     try {
       await db
         .collection('seurat').doc(m.seura_id)
         .collection('pelaajat').doc(m.pelaaja_id)
         .collection('havainnot')
-        .add({ ...m, synkronoitu: window.firebase.firestore.FieldValue.serverTimestamp() });
-      await _idbPoista(m.localId);
+        .add({
+          ...data,
+          luotu: window.firebase.firestore.FieldValue.serverTimestamp(),
+          luotu_laitteella: (typeof luotu === 'string') ? luotu : null,
+          synkronoitu: window.firebase.firestore.FieldValue.serverTimestamp(),
+        });
+      await _idbPoista(localId);
+      synkattu++;
     } catch (e) {
-      console.warn('[Pika] Synkronointi epäonnistui:', e.message);
-      break; // Yritetään uudelleen seuraavalla kerralla
+      console.warn('[Pika] Synkronointi epäonnistui:', e.code || '', e.message);
+      /* Verkko-ongelma on ohimenevä → lopeta ja yritä myöhemmin. Muu virhe (esim.
+         permission-denied) ei korjaannu odottamalla, joten se ohitetaan — muuten YKSI
+         kelvoton merkintä jumittaisi koko jonon pysyvästi. Merkintä jää jonoon näkyviin. */
+      if (e.code === 'unavailable' || e.code === 'deadline-exceeded') break;
+      ohitettu++;
     }
   }
 
   // Päivitä offline-badge
   _paivitaOfflineBadge();
-  _showToast('✓ Offline-merkinnät synkronoitu');
+  if (synkattu) {
+    _showToast(ohitettu ? ('✓ ' + synkattu + ' synkronoitu · ' + ohitettu + ' ei kelvannut')
+      : '✓ Offline-merkinnät synkronoitu');
+  } else if (ohitettu) {
+    _showToast('⚠ ' + ohitettu + ' offline-merkintää ei kelvannut — ota yhteys pääkäyttäjään');
+  }
 }
 
 async function _paivitaOfflineBadge() {
