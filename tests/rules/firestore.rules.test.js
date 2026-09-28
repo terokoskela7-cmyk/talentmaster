@@ -2587,6 +2587,50 @@ describe('Havainnon kumoaminen — vain tekijä (v3.21)', () => {
       await assertSucceeds(updateDoc(polkuH(saContext().firestore(), 'hav-jo-peruttu'), { tila: 'valmis' }));
     });
   });
+
+  /* v3.23 — PERUMISEN OIKEUS LAAJENI. Juurisyy: `valmentaja_viesti`-dokumenteilla ei ole
+     `tekija_uid`-kenttää vaan `valmentajaUid`, joten viestin kirjoittaja EI voinut perua
+     omaa viestiään — vain SA pystyi. Lisäksi seuran johdon on voitava poistaa asiaton
+     teksti lapsen näkymistä. */
+  async function seedViestiDoc(lahettaja) {
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await setDoc(polkuH(context.firestore()), {
+        tyyppi: 'valmentaja_viesti', tila: 'valmis', nakyvyys: 'pelaaja',
+        teksti: 'Hyvä treeni', valmentajaUid: lahettaja,
+        pelaaja_lukenut: false, luotu: new Date(), pvm: '2026-09-28',
+      });
+    });
+  }
+
+  it('viestin kirjoittaja voi perua OMAN viestinsä (valmentajaUid)', async () => {
+    await seedViestiDoc(VALM_A_UID);
+    const db = valmentajaContext(VALM_A_UID, SEURA_A).firestore();
+    await assertSucceeds(updateDoc(polkuH(db), peru));
+  });
+
+  it('toinen valmentaja EI voi perua kollegan viestiä', async () => {
+    await seedViestiDoc(VALM_A_UID);
+    const db = valmentajaContext(VALM_B_UID, SEURA_A).firestore();
+    await assertFails(updateDoc(polkuH(db), { ...peru, peruttu_uid: VALM_B_UID }));
+  });
+
+  it('VP voi perua toisen valmentajan havainnon (asiaton teksti)', async () => {
+    await seedKumottava(VALM_A_UID);
+    const db = vpContext(SEURA_A).firestore();
+    await assertSucceeds(updateDoc(polkuH(db), { ...peru, peruttu_uid: VP_A_UID }));
+  });
+
+  it('VP EI voi perua TOISEN SEURAN merkintää', async () => {
+    await seedKumottava(VALM_A_UID);
+    const db = vpContext(SEURA_B).firestore();
+    await assertFails(updateDoc(polkuH(db), { ...peru, peruttu_uid: VP_A_UID }));
+  });
+
+  it('VP ei voi muuttaa pisteitä samassa kirjoituksessa', async () => {
+    await seedKumottava(VALM_A_UID);
+    const db = vpContext(SEURA_A).firestore();
+    await assertFails(updateDoc(polkuH(db), { ...peru, pisteet: { A: 3 } }));
+  });
 });
 
 /* ══ NÄKYVYYS (v3.22) ═════════════════════════════════════════════════════

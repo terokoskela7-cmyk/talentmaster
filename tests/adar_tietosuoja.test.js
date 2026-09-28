@@ -326,16 +326,33 @@ describe('(8) valmentajan viesti perheelle säilyy näkyvänä', () => {
 
   /* Kirjoituspuoli: JOKAINEN valmentaja_viesti-kirjoitus saa kentän. Laskenta lähteestä
      (ei kovakoodattua kahta kohtaa), jotta uusi kirjoituspiste ei livahda vartijan ohi. */
-  it('jokainen valmentaja_viesti-kirjoitus asettaa nakyvyys:pelaaja', () => {
-    const kirjoitukset = MASTER_KOODI.split(/tyyppi:\s*'valmentaja_viesti'/).slice(1);
-    expect(kirjoitukset.length, 'kirjoituspisteitä ei löytynyt — vartija olisi tyhjä')
-      .toBeGreaterThanOrEqual(2);
-    kirjoitukset.forEach((jalkeen, i) => {
-      /* Kenttä on samassa objektiliteraalissa: riittää tarkistaa seuraavat rivit ennen
-         objektin sulkeutumista. Kiinteä ikkuna riittää — objektit ovat lyhyitä. */
-      expect(jalkeen.slice(0, 600), 'kirjoituspiste #' + (i + 1) + ' ilman nakyvyys-kenttää')
-        .toContain("nakyvyys: 'pelaaja'");
+  it('valmentaja_viesti kirjoitetaan VAIN jaetun funktion kautta', () => {
+    /* Kirjoituspisteitä on kolme (Masterin sendReply ja inboxReact, VP:n pelaajakortti).
+       Kolme kopiota ajautuisi erilleen — juuri siksi `nakyvyys` puuttui aikanaan. Vartija
+       ei siis enää tarkista kenttaa per kirjoituspiste, vaan sitä ettei kirjoituspisteitä
+       ole kuin yksi: itse kirjasto. */
+    const VP2 = lue('TalentMaster_VP_v25.html');
+    [['Master', MASTER_KOODI], ['VP', ilmanKommentteja(VP2)]].forEach(([nimi, koodi]) => {
+      expect(koodi, nimi + ' rakentaa viestidokumentin itse')
+        .not.toMatch(/tyyppi:\s*'valmentaja_viesti'/);
+      expect(koodi, nimi + ' ei kutsu jaettua kirjoituspistettä')
+        .toContain('tmLahetaValmentajaViesti(');
     });
+  });
+
+  it('jaettu funktio asettaa nakyvyyden ja timestampin', () => {
+    /* Tämä on se paikka, jossa invariantit elävät. */
+    const lib = lue('lib/tm_valmentajaviesti.js');
+    expect(lib).toContain("nakyvyys: 'pelaaja'");
+    expect(lib).toContain('o.sentinel.serverTimestamp()');
+    expect(lib, 'ilman sentinelia Rules hylkäisi luonnin (A5)').toContain('serverTimestamp-sentinel puuttuu');
+  });
+
+  it('lähettäjän nimi ei voi olla sähköposti (lapsi näkee sen)', () => {
+    const V = vaadi('../lib/tm_valmentajaviesti.js');
+    expect(V.tmViestiNimi(['talentmasterid@gmail.com'])).toBe('Valmentaja');
+    expect(V.tmViestiNimi(['Tero Koskela'])).toBe('Tero Koskela');
+    expect(V.tmViestiNimi([''])).toBe('Valmentaja');
   });
 
   /* Lukupuoli: vanhemman kysely. Tämä on se kohta joka hajosi katselmoinnissa. */
@@ -343,9 +360,11 @@ describe('(8) valmentajan viesti perheelle säilyy näkyvänä', () => {
     expect(VANHEMPI).toContain(".where('nakyvyys', '==', 'pelaaja')");
   });
 
-  it('Vanhempi_v2:n nakyvyys-ehto on SAMASSA kyselyssä kuin tyyppi-ehto', () => {
-    const i = VANHEMPI.indexOf(".where('tyyppi', '==', 'valmentaja_viesti')");
-    expect(i, 'valmentaja_viesti-kyselyä ei löydy').toBeGreaterThan(-1);
+  it('Vanhempi_v2:n nakyvyys-ehto on SAMASSA kyselyssä kuin tila-ehto', () => {
+    /* Kysely laajeni: perhe näkee myös pelaajalle jaetut PELIHAVAINNOT, joten rajaus on
+       `tila` + `nakyvyys` eikä enää `tyyppi`. `tila=='valmis'` pudottaa perutut pois. */
+    const i = VANHEMPI.indexOf(".where('tila', '==', 'valmis')");
+    expect(i, 'tila-rajausta ei löydy').toBeGreaterThan(-1);
     /* Ehtojen on oltava samassa ketjussa ennen .get():iä — erillinen where muualla ei auta. */
     const ketju = VANHEMPI.slice(i, VANHEMPI.indexOf('.get()', i));
     expect(ketju).toContain(".where('nakyvyys', '==', 'pelaaja')");

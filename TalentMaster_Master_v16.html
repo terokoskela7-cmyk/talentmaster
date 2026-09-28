@@ -94,6 +94,7 @@ window.TM_KAAVIO_HOST = {
 <script src="lib/tm_idp.js?v=9"></script>   <!-- I3a: + kesto valmentajan asetettavaksi (opts.kestoVk) · I2 (C): valmentajan IDP-kausitavoite-kortti -->
 <script src="lib/tm_pelialy_yksilo.js?v=4"></script>   <!-- P1: pelihavainto peliäly → yksilöteema (Kartta A) · v3: Vaihe B multi-rater konsensus (tmAdarKonsensus/RistiinarvioAvoin/TalenttiSignaali) -->
 <script src="lib/tm_havaintohistoria.js?v=1"></script>   <!-- jaettu havainto-/viestihistoria (VP + Master) -->
+<script src="lib/tm_valmentajaviesti.js?v=1"></script>   <!-- YKSI kirjoituspiste valmentajan viestille -->
 <script src="lib/tm_kehityskaari.js?v=3"></script>   <!-- Trendi Vaihe 2: yksilön kehityskaari (render hh_historia/tki_historia:sta) -->
 <script src="lib/tm_aani.js?v=2"></script>   <!-- Vaihe 0: puhdas nauhoitin (reflektio + VP:n ääripalaute samasta ytimestä) -->
 <script src="lib/tm_reflektio.js?v=3"></script>   <!-- Vaihe 1: jaettu äänireflektio (Master + VP) — irrotettu Masterin inlinestä -->
@@ -4166,33 +4167,59 @@ function inboxReact(eid,emoji,nimi,pid){
   markSeen(eid);
   // Tallenna Firestoreen → pelaaja näkee P6-kuuntelijan kautta
   if (_seuraId && _uid && pid) {
-    var vNimi = (window._valmentajaData && _valmentajaData.etunimi
-      ? _valmentajaData.etunimi + ' ' + (_valmentajaData.sukunimi||'')
-      : 'Valmentaja').trim();
-    _db.collection('seurat').doc(_seuraId)
-      .collection('pelaajat').doc(pid)
-      .collection('havainnot').add({
-        tyyppi: 'valmentaja_viesti',
-        tila: 'valmis',
-        /* Rules v3.22: pelaaja ja huoltaja lukevat vain `nakyvyys=='pelaaja'`. Valmentajan
-           viesti on nimenomaan perheelle tarkoitettu, joten se on aina 'pelaaja' — ei
-           kytkintä (toisin kuin ADAR-havainnossa, jossa valmentaja valitsee näkyvyyden). */
-        nakyvyys: 'pelaaja',
-        teksti: emoji,
-        valmentajaUid: _uid,
-        valmentajaNimi: vNimi,
-        pelaajaId: pid,
-        seuraId: _seuraId,
-        luotu: firebase.firestore.FieldValue.serverTimestamp(),   // A5: havainto on reaaliaikainen → serverTimestamp (ei ISO-string)
-        pelaaja_lukenut: false,
-        vanhempi_lukenut: false
-      }).catch(function(e) { console.warn('[v16] reaktio:', e.message); });
+    tmLahetaValmentajaViesti(_db, {
+      seuraId: _seuraId, pelaajaId: pid, teksti: emoji, uid: _uid, nimi: _viestiLahettajanNimi(),
+      sentinel: firebase.firestore.FieldValue,
+    }).catch(function (e) { console.warn('[v16] reaktio:', e.message); });
   }
   if(window.TMBus){
     TMBus.publish('coach_react',{playerId:pid,emoji:emoji,refEventId:eid});
   }
   toast(`${emoji} ${nimi}:lle`);
   renderInbox();
+}
+
+/* VIESTI PELAAJALLE pelaajakortilta. Sama dokumenttimuoto kuin Viestit-syötteen vastauksessa,
+   koska molemmat kutsuvat jaettua kirjoituspistettä (lib/tm_valmentajaviesti.js). */
+window._avaaViestiPelaajalle = function (pelaajaId) {
+  if (!_seuraId || !pelaajaId || !_db) return;
+  document.getElementById('_vpvModal')?.remove();
+  var modal = document.createElement('div');
+  modal.id = '_vpvModal';
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.82);z-index:9600;display:flex;align-items:center;justify-content:center;padding:12px';
+  modal.addEventListener('click', function (e) { if (e.target === modal) modal.remove(); });
+  var box = document.createElement('div');
+  box.style.cssText = 'background:var(--card);border:.5px solid var(--border);border-radius:12px;width:460px;max-width:100%;padding:16px 18px';
+  box.innerHTML = '<div style="font-family:\'Cormorant Garamond\',serif;font-size:19px;color:var(--ink);margin-bottom:4px">'
+    + '✉ ' + masterT('Viesti pelaajalle') + ' · ' + _mEsc(_pkPelaajaNimi(pelaajaId)) + '</div>'
+    + '<div style="font-size:11.5px;color:var(--ink3);margin-bottom:10px;line-height:1.45">'
+    + masterT('Menee pelaajan appiin ja perheen appiin. Kirjoita niin kuin lapsi lukisi.') + '</div>'
+    + '<textarea id="_vpvTeksti" style="width:100%;min-height:96px;background:rgba(242,239,230,.04);border:.5px solid var(--border);color:var(--ink);font-family:inherit;font-size:13.5px;padding:10px 12px;resize:vertical"></textarea>'
+    + '<div style="display:flex;gap:8px;margin-top:12px">'
+    + '<button id="_vpvLahet" style="flex:1;padding:11px;background:var(--teal);color:#08110E;border:none;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit">' + masterT('Lähetä viesti') + '</button>'
+    + '<button onclick="document.getElementById(\'_vpvModal\').remove()" style="padding:11px 16px;background:none;border:.5px solid var(--border);color:var(--ink2);border-radius:6px;font-size:13px;cursor:pointer;font-family:inherit">' + masterT('Peruuta') + '</button>'
+    + '</div>';
+  modal.appendChild(box); document.body.appendChild(modal);
+  document.getElementById('_vpvLahet').onclick = async function () {
+    var teksti = (document.getElementById('_vpvTeksti') || {}).value || '';
+    if (!teksti.trim()) { if (typeof toast === 'function') toast(masterT('Kirjoita ensin teksti'), 'warn'); return; }
+    try {
+      await tmLahetaValmentajaViesti(_db, {
+        seuraId: _seuraId, pelaajaId: pelaajaId, teksti: teksti, uid: _uid,
+        nimi: _viestiLahettajanNimi(), sentinel: firebase.firestore.FieldValue,
+      });
+      if (typeof toast === 'function') toast(masterT('Viesti lähetetty'), 'ok');
+      modal.remove();
+    } catch (e) {
+      if (typeof toast === 'function') toast(masterT('Viestin lähetys ei onnistunut'), 'err');
+    }
+  };
+};
+
+/* Lähettäjän nimi yhdestä paikasta: sama arvo sekä vastaukseen että reaktioon. */
+function _viestiLahettajanNimi() {
+  var d = window._valmentajaData || {};
+  return ((d.etunimi || '') + ' ' + (d.sukunimi || '')).trim();
 }
 
 /* Reply-modal */
@@ -4214,24 +4241,15 @@ function sendReply(){
   if (!msg || !_replyCtx) return;
   // Firestore-tallennus: havainnot-kokoelmaan (vanhempi + pelaaja lukevat)
   if (_seuraId && _uid && _replyCtx.pid) {
-    var havaintoData = {
-      tyyppi: 'valmentaja_viesti',
-      tila: 'valmis',
-      nakyvyys: 'pelaaja',   // v3.22: viesti perheelle → aina pelaajalle näkyvä (ks. inboxReact)
-      teksti: msg,
-      valmentajaUid: _uid,
-      valmentajaNimi: (window._valmentajaData && _valmentajaData.etunimi ? _valmentajaData.etunimi + ' ' + (_valmentajaData.sukunimi||'') : 'Valmentaja').trim(),
-      pelaajaId: _replyCtx.pid,
-      seuraId: _seuraId,
-      luotu: firebase.firestore.FieldValue.serverTimestamp(),   // A5: viesti on reaaliaikainen → serverTimestamp (ei ISO-string)
-      pelaaja_lukenut: false,
-      vanhempi_lukenut: false
-    };
-    _db.collection('seurat').doc(_seuraId)
-      .collection('pelaajat').doc(_replyCtx.pid)
-      .collection('havainnot').add(havaintoData)
-      .then(function() { console.log('[v16] Viesti tallennettu havaintoihin'); })
-      .catch(function(e) { console.warn('[v16] Viesti-tallennus:', e.message); });
+    /* YKSI KIRJOITUSPISTE (lib/tm_valmentajaviesti.js): sama dokumentti syntyy myös
+       `inboxReact`:sta ja VP:n pelaajakortilta. Kolme kopiota ajautuisi erilleen —
+       `nakyvyys` puuttui aikanaan juuri siksi. */
+    tmLahetaValmentajaViesti(_db, {
+      seuraId: _seuraId, pelaajaId: _replyCtx.pid, teksti: msg, uid: _uid,
+      nimi: _viestiLahettajanNimi(),
+      sentinel: firebase.firestore.FieldValue,
+    }).then(function () { console.log('[v16] Viesti tallennettu havaintoihin'); })
+      .catch(function (e) { console.warn('[v16] Viesti-tallennus:', e.message); });
   }
   // TMBus (demo-yhteensopivuus)
   if (window.TMBus) {
@@ -4878,6 +4896,8 @@ function renderHavainnot() {
         + '<div class="kk-ikoni">🧠</div>'
         + '<div class="kk-txt"><b>' + _iaNimi(p) + '</b> · ' + masterT('Peliäly') + ' ' + yht + ' · ' + p.adar_havaintoja + masterT(' havaintoa') + (pvmTxt ? ' · ' + pvmTxt : '') + '</div>'
         + '<button onclick="event.stopPropagation();_hkAvaaHavainnot(\'' + p.id + '\')" style="background:none;border:.5px solid var(--line);border-radius:20px;color:var(--ink2);font-size:10.5px;font-weight:600;padding:5px 11px;cursor:pointer;white-space:nowrap">' + masterT('▷ Havainnot') + '</button>'
+        /* Viestin voi nyt lähettää myös pelaajakortilta — ei vain Viestit-syötteen vastauksena. */
+        + '<button onclick="event.stopPropagation();_avaaViestiPelaajalle(\'' + p.id + '\')" style="background:none;border:.5px solid var(--line);border-radius:20px;color:var(--ink2);font-size:10.5px;font-weight:600;padding:5px 11px;cursor:pointer;white-space:nowrap;margin-left:6px">' + masterT('✉ Viesti') + '</button>'
         + '<span style="color:var(--teal);margin-left:8px">→</span></div>';
     }).join('') + '</div>';
   } else {

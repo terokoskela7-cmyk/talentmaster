@@ -62,6 +62,7 @@ const APP_GLOBALS = {
   tmAdarPorrasEhdotus: 'readonly', tmAdarPikakentat: 'readonly',
   tmValmennusKaari: 'readonly', tmValmennusIkkuna: 'readonly',
   // Havaintohistoria (2026-09): sama `root.X`-vienti kuin yllä → nimetty lista.
+  TM_VALMENTAJAVIESTI: 'readonly', tmLahetaValmentajaViesti: 'readonly', tmViestiNimi: 'readonly',
   TM_HAVAINTOHISTORIA: 'readonly', tmHhRivit: 'readonly', tmHhHTML: 'readonly',
   tmHhCss: 'readonly', tmHhSuodatinHTML: 'readonly',
   tm_bioika: 'readonly', laskeMirwald: 'readonly', laskeBioIkaDokumentti: 'readonly',

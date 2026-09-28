@@ -282,11 +282,17 @@ describe('VP · jaettu alasivu-shell', () => {
        2-saraketta migraatio olisi pelkkä leveyden muutos. */
     expect(f, 'historia ja lomake eivät ole rinnakkain → migraatio ei tuo mitään')
       .toContain('class="sh-2col"');
-    /* Lomakkeen kenttä-id:t: _tallennaPMP lukee näitä suoraan. */
-    ['_pmpTeksti', '_pmpVal', '_pmpPel'].forEach((id) => {
+    /* Lomakkeen kenttä-id:t: _tallennaPMP lukee näitä suoraan.
+       `_pmpVal` ja `_pmpPel` POISTETTU: ruudut tallentuivat, mutta mikään sovellus ei lukenut
+       niitä — VP:n kirjoittama viesti ei koskaan menyt perille. Tilalla on kaksijakoinen
+       kohteen valinta (oma muistiinpano / viesti pelaajalle). */
+    ['_pmpTeksti', '_pmpTallenna'].forEach((id) => {
       expect(f, 'lomakekenttä katosi → _tallennaPMP tallentaisi tyhjää: ' + id)
         .toContain('id="' + id + '"');
     });
+    expect(f, 'kuolleet ruudut palasivat').not.toContain('id="_pmpVal"');
+    expect(f, 'kuolleet ruudut palasivat').not.toContain('id="_pmpPel"');
+    expect(f, 'kohteen valinta puuttuu').toContain('data-pmp-kohde="viesti"');
   });
 
   it('SULKIJA: muistiinpanon tallennus sulkee shellin sen omalla sulkijalla', () => {
