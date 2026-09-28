@@ -3434,8 +3434,7 @@ function naytaDash(user, isSuperAdmin) {
   const h = new Date().getHours();
   const greet = _greeting();
   const _setTxt = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = v; };
-  const _y = new Date().getFullYear();
-  const _kausi = (new Date().getMonth() >= 6) ? (_y + '/' + (_y + 1)) : ((_y - 1) + '/' + _y);
+  const _kausi = (typeof _vpTkKausi === 'function') ? _vpTkKausi() : String(new Date().getFullYear());
   _setTxt('greeting-tervehdys', greet);
   _setTxt('greeting-name', _greetingNimi(user, isSuperAdmin));
   _setTxt('greeting-summary', seuraLabel + ' · ' + vpT('joukkueiden pulssi ja kriittiset signaalit reaaliaikaisesti.'));
@@ -4801,10 +4800,23 @@ function vahvistaHylkays() {
    SPRINT 2 — VAI (Valmentajan Aktiivisuusindeksi)
    Painot: ADAR 35% · Käynti 25% · Harjoittelu 25% · Kontakti 15%
    ════════════════════════════════════════════════════════════ */
-/* Kauden alku: heinäkuu = kauden vaihde (sama logiikka kuin _vpTkKausi). */
+/* Kauden alku seuran kausimallista: kalenterikaudella 1.1., heina–kesa-mallissa 1.7.
+   PAATOS (Tero 28.9.): "Kauden kertyma" seuraa kautta, joten se nollautuu vuodenvaihteessa.
+   Tuoreus nakyy erikseen 30 paivan ikkunassa, joten tammikuun pienet luvut eivat jaa ainoaksi
+   signaaliksi. */
 function _vpKaudenAlku() {
-  var d = new Date(), y = d.getFullYear();
-  return new Date((d.getMonth() >= 6 ? y : y - 1), 6, 1);
+  var AH = window.TM_ARVIOINTI_HISTORIA;
+  if (AH && AH.tmKausiAlku && AH.tmKausiNyt) {
+    var seura = (typeof _seura !== 'undefined' && _seura) ? _seura : null;
+    var d2 = AH.tmKausiAlku(AH.tmKausiNyt(seura), AH.tmKausimalli(seura));
+    if (d2) return d2;
+  }
+  return new Date(new Date().getFullYear(), 0, 1);   // graceful: FI-oletus 1.1.
+}
+/** Kauden alun kuukausi tekstina ("1.1." / "1.7.") — vihjeteksti ei saa vaittaa vaaraa paivaa. */
+function _vpKaudenAlkuTeksti() {
+  var d = _vpKaudenAlku();
+  return d ? (d.getDate() + '.' + (d.getMonth() + 1) + '.') : '1.1.';
 }
 
 /* Aikaleima → ms. Kentät ovat kolmea muotoa: Firestore Timestamp (luotu/aika/
@@ -4853,7 +4865,7 @@ function _cmKausiKertymaHTML(kausi) {
     h += (n ? '<div class="cm-kausi-item">' : '<div class="cm-kausi-item tyhja">')
       + '<div class="cm-kausi-val">' + n + '</div><div class="cm-kausi-lbl">' + r[1] + '</div></div>';
   });
-  return h + '</div><div class="cm-kausi-vihje">' + vpT('Kauden alusta (1.7.) — raakoja tapahtumamääriä, ei arvosana.') + '</div></div>';
+  return h + '</div><div class="cm-kausi-vihje">' + vpT('Kauden alusta') + ' (' + _jsvEsc(_vpKaudenAlkuTeksti()) + ') — ' + vpT('raakoja tapahtumamääriä, ei arvosana.') + '</div></div>';
 }
 
 async function laskeVAI(valmentajaUid) {
@@ -4861,7 +4873,7 @@ async function laskeVAI(valmentajaUid) {
   var nytMs = Date.now();
   var raja = new Date(nytMs - 30 * 86400000);
   var rajaMs = raja.getTime();
-  /* Kauden alku on PAIKALLINEN keskiyö 1.7. — vertailu tehdään ms-tasolla,
+  /* Kauden alku on PAIKALLINEN keskiyö (kalenterikaudella 1.1.) — vertailu tehdään ms-tasolla,
      joten aikavyöhyke ei siirrä rajaa. */
   var kausiMs = _vpKaudenAlku().getTime();
 
@@ -17966,9 +17978,20 @@ window.vpAvaaHarjoitusarviointi = async function (valmentajaUid, valmentajaNimi)
 };
 
 var _vpTavoitteet;
+var _vpTavoitteetLahde = null;   // legacy-kausiavain josta tavoitteet luettiin, tai null
 var _vpSegmentit;        // {akatemia:[joukkuenimet]} konfiguraatio/segmentit:stä (§6b)
 var _vpKohortti;         // undefined=auto, 'akatemia'|'kaikki'|<joukkuenimi>
-function _vpTkKausi(){ var d=new Date(), y=d.getFullYear(); return (d.getMonth()>=6)?(y+'/'+String(y+1).slice(-2)):((y-1)+'/'+String(y).slice(-2)); }
+/* KAUSI TULEE SEURAN KAUSIMALLISTA (lib), EI kovakoodatusta heina–kesa-rajasta. Suomessa kausi
+   on kalenterivuosi, ja tama sama merkkijono on `konfiguraatio/tavoitteet`-dokumentin AVAIN —
+   vaara kausi luki ja kirjoitti siis vaaraa riviä. Sama funktio on Adminissa (`_tkKausi`), joten
+   molempien on pakko johtaa se samasta lahteesta tai ne erkanevat. */
+function _vpKausimalli(){ var AH=window.TM_ARVIOINTI_HISTORIA; return AH ? AH.tmKausimalli((typeof _seura!=='undefined' && _seura) ? _seura : null) : 'kalenteri'; }
+function _vpTkKausi(){
+  var AH = window.TM_ARVIOINTI_HISTORIA;
+  if (AH && AH.tmKausiNyt) return AH.tmKausiNyt((typeof _seura!=='undefined' && _seura) ? _seura : null);
+  return String(new Date().getFullYear());   // graceful: lib puuttuu → kalenterivuosi (FI-oletus)
+}
+window._vpTkKausi = _vpTkKausi; window._vpKausimalli = _vpKausimalli;
 function _vpJoukkueLista(){ var s={}; (_pelaajat||[]).forEach(function(p){ if (p.joukkue && p.joukkue!=='—') s[p.joukkue]=1; }); return Object.keys(s).sort(); }
 function _vpAkatemia(){ return (_vpSegmentit && Array.isArray(_vpSegmentit.akatemia)) ? _vpSegmentit.akatemia : []; }
 // Kohortti → joukkuelista laskeTaso3Osuus:lle (null = kaikki). Oletus: akatemia jos merkitty, muuten kaikki.
@@ -17997,9 +18020,20 @@ function renderVPTuloskortti(){
   var el = document.getElementById('vpTuloskortti'); if (!el) return;
   if (typeof laskeVPTuloskortti !== 'function') { el.innerHTML = ''; return; }
   if (_vpTavoitteet === undefined && _seuraId && _seuraId !== 'demo') {
-    _vpTavoitteet = null;
+    _vpTavoitteet = null; _vpTavoitteetLahde = null;
     db.collection('seurat').doc(_seuraId).collection('konfiguraatio').doc('tavoitteet').get()
-      .then(function(s){ _vpTavoitteet = (s.exists ? (s.data()||{})[_vpTkKausi()] : null) || null; renderVPTuloskortti(); })
+      .then(function(s){
+        /* Nykyiset tavoitteet on tallennettu vanhalla slash-avaimella ('2026/27'). Pelkka avaimen
+           vaihto katoaisi ne nakyvista, joten luku hyvaksyy legacy-avaimen — kirjoitus menee silti
+           aina uuteen avaimeen (vanhaa ei poisteta). */
+        var AH = window.TM_ARVIOINTI_HISTORIA;
+        var d = s.exists ? (s.data()||{}) : {};
+        var r = (AH && AH.tmTavoitteetKaudelle) ? AH.tmTavoitteetKaudelle(d, _vpTkKausi(), _vpKausimalli())
+          : { tavoitteet: d[_vpTkKausi()] || null, avain: _vpTkKausi(), legacy: false };
+        _vpTavoitteet = r.tavoitteet || null;
+        _vpTavoitteetLahde = r.legacy ? r.avain : null;
+        renderVPTuloskortti();
+      })
       .catch(function(){ _vpTavoitteet = null; });
   }
   if (_vpSegmentit === undefined && _seuraId && _seuraId !== 'demo') {
@@ -18069,6 +18103,12 @@ window._vpAvaaTavoiteModal = function(){
   var vanha = document.getElementById('vpTkModal'); if (vanha) vanha.remove();
   var m = document.createElement('div'); m.id = 'vpTkModal'; m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9300;display:flex;align-items:center;justify-content:center;padding:16px'; m.onclick = function(e){ if (e.target===m) m.remove(); };
   var h = '<div onclick="event.stopPropagation()" style="background:var(--bg2);border:.5px solid var(--border);border-radius:12px;width:min(440px,94vw);max-height:90vh;overflow-y:auto;padding:20px 22px"><div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px"><div style="font-size:16px;font-weight:600;color:var(--ink)">' + vpT('Kausitavoitteet') + ' ' + _vpTkKausi() + '</div><button onclick="document.getElementById(\'vpTkModal\').remove()" style="background:none;border:none;color:var(--ink3);font-size:22px;cursor:pointer">×</button></div><div style="font-size:11px;color:var(--ink3);margin-bottom:14px">' + vpT('Jokainen tavoite kuuluu alueeseen (I–IV). Tyhjä = ei tavoitetta.') + '</div>';
+  /* Tavoitteet tulivat vanhalta kausiavaimelta: kerro se, jottei kayttaja luule niiden olevan
+     jo talla kaudella. Tallennus kirjoittaa ne uuteen avaimeen. */
+  if (_vpTavoitteetLahde) {
+    h += '<div style="margin-bottom:12px;padding:9px 11px;border-radius:8px;background:rgba(224,160,64,.12);border:.5px solid rgba(224,160,64,.4);font-size:11.5px;color:var(--ink2);line-height:1.45">'
+      + vpT('Tavoitteet luettu kaudelta') + ' ' + _jsvEsc(_vpTavoitteetLahde) + '. ' + vpT('Tallenna vahvistaaksesi kaudelle') + ' ' + _jsvEsc(_vpTkKausi()) + '.</div>';
+  }
   _VP_TK_MITTARIT.forEach(function(mt){ var cur = (nyk[mt[0]] && nyk[mt[0]].tavoite!=null) ? nyk[mt[0]].tavoite : ''; h += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><span style="flex:1;font-size:12px;color:var(--ink2)">' + mt[1] + ' <span style="opacity:.6">[' + mt[2] + ']</span></span><input type="number" id="vptk_' + mt[0] + '" value="' + cur + '" placeholder="—" style="width:72px;padding:5px 8px;border:.5px solid var(--border);border-radius:6px;background:var(--surface);color:var(--ink);font-size:13px;text-align:center"></div>'; });
   h += '<button onclick="_vpTallennaTavoitteet()" style="width:100%;margin-top:12px;padding:9px;border:none;border-radius:8px;background:var(--teal);color:#fff;font-size:13px;cursor:pointer">' + vpT('Tallenna tavoitteet') + '</button></div>';
   m.innerHTML = h; document.body.appendChild(m);
@@ -18080,7 +18120,7 @@ window._vpTallennaTavoitteet = async function(){
     _VP_TK_MITTARIT.forEach(function(mt){ var el = document.getElementById('vptk_' + mt[0]); var v = el && el.value!=='' ? Number(el.value) : null; if (v!=null && !isNaN(v)) tav[mt[0]] = { tavoite: v, alue: mt[2] }; });
     var doc = {}; doc[kausi] = tav;
     await db.collection('seurat').doc(_seuraId).collection('konfiguraatio').doc('tavoitteet').set(doc, { merge: true });
-    _vpTavoitteet = tav;
+    _vpTavoitteet = tav; _vpTavoitteetLahde = null;   // vahvistettu talle kaudelle
     if (typeof toast === 'function') toast(vpT('✓ Kausitavoitteet tallennettu'), 'ok');
     var m = document.getElementById('vpTkModal'); if (m) m.remove();
     renderVPTuloskortti();
