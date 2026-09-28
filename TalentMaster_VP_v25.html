@@ -26,6 +26,7 @@
 
 <script src="lib/tm_eerikkila_normit.js?v=45"></script>   <!-- v43: D2-kortti d2_taso-ensin (renderKehityskorttiHTML, PR #264 · §30/#262) -->
 <script src="lib/tm_historia.js?v=1"></script>
+<script src="lib/tm_pelihavainto_valinta.js?v=1"></script>   <!-- §7: YKSI sisäänkäynti pelihavaintoon (jaettu, ei kopioita) -->
 <script src="lib/tm_arviointi_historia.js?v=1"></script>   <!-- H1: arviointikerrat (append-only) + tmKausi + kooste; PURE, ks. lib-header -->          <!-- P2.1: hh_historia/tki_historia Pikakirjauksessa (tmHhSnapshot/tmTkiSnapshot/tmHistoriaLisaa) -->
 <script src="lib/tm_tki_core.js?v=1"></script>         <!-- P2.1: TKI-ytimen extrakti (IIFE → TM_TESTIT); antaa VP:lle TKI-pariteetin (VP ei voi ladata testit_indeksit.js:ää — const-törmäys). ENNEN tm_pikakentat.js:ää. -->
 <script src="lib/tm_pikakentat.js?v=2"></script>       <!-- P2.0: §26-pikakenttien kanoninen laskenta (tmLaskePikakentat) — VP: H-H + TKI (tm_tki_core.js → TM_TESTIT) -->
@@ -4474,9 +4475,37 @@ window.avaaPelaaja             = window.avaaPelaaja             || function(pid)
 // P0: rikki stub → ohjaa Testit-hubiin (onboardingin "Luo testi →" -kutsujat ~2991/~3013). Ei enää placeholder-signaalia.
 window.avaaUusiTestiModaali    = function(){ if (typeof setWs === 'function') setWs('testit'); };
 window.avaaKutsuValmentaja     = window.avaaKutsuValmentaja     || function(){ _sigStub('Kutsu valmentaja — avaa Seurahallinta'); };
-// ADAR-kenttätyökalu — avaa ADAR_Pikakortti.html (ainoa työkalu joka persistoi havainnot).
-// seuraId-konteksti välitetään; valmentajalla resolvoituu myös claimista, SA:lla seuravalitsimesta.
-window.avaaAdarKenttatyokalu   = window.avaaAdarKenttatyokalu   || function(){ window.open('TalentMaster_ADAR_Pikakortti.html?seuraId=' + (_seuraId || ''), '_blank'); };
+/* PELIHAVAINTO — YKSI SISÄÄNKÄYNTI (§7). Aiemmin tämä avasi suoraan pikakortin, ja kenttätyökalu
+   olisi ollut viides erillinen reitti. Nyt kaikki neljä sisäänkäyntiä kulkevat saman jaetun
+   valintaikkunan läpi (lib/tm_pelihavainto_valinta.js), jotta vaihtoehdot ovat samat riippumatta
+   siitä mistä käyttäjä tuli. Nimi säilyy taaksepäin yhteensopivuuden vuoksi (nav-linkit). */
+/* Yksi delegoitu kuuntelija koko sivulle: pelaajakortti renderöidään uudelleen usein, joten
+   per-elementti sidottu käsittelijä katoaisi jokaisella renderöinnillä. */
+function _vpPhCtaKuuntelija() {
+  if (window._vpPhCtaKytketty) return;
+  window._vpPhCtaKytketty = true;
+  document.addEventListener('click', function (ev) {
+    var a = ev.target && ev.target.closest ? ev.target.closest('.jsp-ph-cta') : null;
+    if (!a) return;
+    ev.preventDefault(); ev.stopPropagation();
+    avaaAdarKenttatyokalu(a.getAttribute('data-pid') || '', a.getAttribute('data-nimi') || '');
+  });
+}
+if (typeof document !== 'undefined') {
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', _vpPhCtaKuuntelija);
+  else _vpPhCtaKuuntelija();
+}
+
+window.avaaAdarKenttatyokalu = window.avaaAdarKenttatyokalu || function (pelaajaId, pelaajaNimi) {
+  if (typeof tmPhAvaaValinta !== 'function') {   // graceful: ilman libiä vanha suora reitti
+    window.open('TalentMaster_ADAR_Pikakortti.html?seuraId=' + (_seuraId || ''), '_blank');
+    return;
+  }
+  tmPhAvaaValinta({
+    seuraId: _seuraId || '', pelaajaId: pelaajaId || '', pelaajaNimi: pelaajaNimi || '',
+    t: (typeof vpT === 'function') ? vpT : null,
+  });
+};
 
 async function renderSignals(seuraId) {
   const lista = document.getElementById('signaalitLista');
@@ -5909,7 +5938,16 @@ function _ttPpNimi(koodi) {                     // pelipaikan NÄYTTÖnimi (kood
 function _vpArvAdarKoostumusHTML(p, ika) {
   const av = p.adar_viimeisin;
   // R3.B-korjaus: f3:n arvokkaat osat konsolidoitu tänne (yksi ADAR, suomeksi) — add-CTA + ⓘ + empty-state + ristiinarvio.
-  const _adarCta = '<div style="margin-top:12px;text-align:center"><a href="TalentMaster_ADAR_Pikakortti.html?seuraId=' + encodeURIComponent(_seuraId || '') + '&pelaajaId=' + encodeURIComponent(p.id || '') + '" target="_blank" style="font-size:12px;color:var(--teal);text-decoration:none;border:.5px solid rgba(40,176,144,.4);border-radius:6px;padding:6px 12px;display:inline-block">' + vpT('➕ Lisää pelihavainto') + '</a></div>';
+  /* Pelaajakortilta pelaaja on jo tiedossa → valintaikkuna saa sen mukaan, eikä kenttätyökalu
+     kysy sitä uudelleen. Sama jaettu funktio kuin sivupalkissa (§7).
+     DELEGOINTI, EI inline-onclickia: tämä lohko on read-only-koostumus, ja sen vartija kieltää
+     inline-käsittelijät (ne olisivat ensimmäinen askel kohti kirjoittavaa kontrollia lukulohkossa).
+     Käsittelijä on yksi dokumenttitason kuuntelija, ks. _vpPhCtaKuuntelija. */
+  const _adarCta = '<div style="margin-top:12px;text-align:center"><a href="#" class="jsp-ph-cta"'
+    + ' data-pid="' + _jsvEsc(p.id || '') + '"'
+    + ' data-nimi="' + _jsvEsc(((p.etunimi || '') + ' ' + (p.sukunimi || '')).trim()) + '"'
+    + ' style="font-size:12px;color:var(--teal);text-decoration:none;border:.5px solid rgba(40,176,144,.4);border-radius:6px;padding:6px 12px;display:inline-block">'
+    + vpT('➕ Lisää pelihavainto') + '</a></div>';
   const _hdr = '<b style="color:var(--teal)">' + vpT('D4 Peliäly · pelihavainnosta · 1–3') + '</b>' + ((typeof window._tmIBtn === 'function') ? window._tmIBtn('adar') : '');
   if (!av) {
     // Ei pelihavaintoja → tyhjätila-CTA (ent. f3:n empty-state, konsolidoitu). Entry point EI häviä.

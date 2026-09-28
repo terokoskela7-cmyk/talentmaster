@@ -81,9 +81,22 @@ describe('kytkentä _vpArviointiHTML:ään (v3-järjestys)', () => {
     expect(iAdar).toBeGreaterThan(0);
     expect(iAdar).toBeLessThan(iD3);
   });
+  /* Lohko on LUKUNÄKYMÄ: ei inline-käsittelijöitä eikä automaattitallennusta. Navigointi-CTA
+     ("Lisää pelihavainto") on sallittu, mutta se kulkee delegoidun kuuntelijan kautta — inline
+     onclick tässä olisi ensimmäinen askel kohti kirjoittavaa kontrollia lukulohkossa. */
   it('read-only: ei onclick/autosavea koostumuslohkossa', () => {
-    const T = extract('function _vpArvAdarKoostumusHTML(p, ika) {');
+    /* Kommentit riisutaan: sääntöä KUVAAVA kommentti ei saa punertaa vartijaa, joka valvoo
+       koodia. Ilman riisuntaa vartija rankaisisi juuri siitä, että sääntö on kirjattu. */
+    const T = extract('function _vpArvAdarKoostumusHTML(p, ika) {')
+      .replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:])\/\/[^\n]*/g, '$1 ');
     expect(T).not.toContain('onclick');
     expect(T).not.toContain('tallentu');
+  });
+
+  it('EI VACUOUS: riisunta ei tyhjennä lohkoa — koodi on yhä tarkistettavana', () => {
+    const T = extract('function _vpArvAdarKoostumusHTML(p, ika) {')
+      .replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:])\/\/[^\n]*/g, '$1 ');
+    expect(T).toContain('jsp-ph-cta');          // navigointi-CTA on yhä lohkossa
+    expect(T.length).toBeGreaterThan(400);
   });
 });

@@ -1,9 +1,25 @@
 rules_version = '2';
 // ══════════════════════════════════════════════════════════════════════════
-// TalentMaster™ — firestore.rules v3.19
+// TalentMaster™ — firestore.rules v3.20
 //
 // Lähde:  tm_admin/firestore.rules
 // Deploy: PR → N4-CI deployaa automaattisesti (Console-käsityö poistui).
+//
+// Muutokset v3.19 → v3.20 (Kenttätarkkailut — kohdennettu pelihavainto):
+//   · UUSI kokoelma `seurat/{sid}/pelaajat/{pid}/kenttatarkkailut/{id}`.
+//   · EI `havainnot`-kokoelmaan: sen lukusääntö sisältää onAnonymous()-ehdon (pelaajan
+//     PIN-istunto) eikä sitä ole rajattu omaan pelaajaan. Kenttätarkkailu on valmentajan
+//     havainto alaikäisestä eikä sitä tarvitse näyttää pelaajalle lainkaan (§7.22), joten
+//     oma kokoelma rajaa luvun heti oikein koskematta laajempaan onAnonymous()-aukkoon.
+//   · read: SA | oman seuran johto TAI valmentaja. EI anonyymiä, EI huoltajaa.
+//   · create: SA | oman joukkueen valmentaja, `valmentajaUid == auth.uid`, luotu-vartija.
+//   · update: vain OMAN dokumentin kirjoittaja (tai SA) — toisen tarkkailua ei muokata, eikä
+//     tekijää voi vaihtaa (`valmentajaUid` on muuttumaton).
+//   · create: doc-id päättyy kirjoittajan uid:hen — muuten toisen uid:llä varattu id kääntäisi
+//     hänen oman tallennuksensa päivitykseksi, jonka update-sääntö torjuu.
+//   · create/update kieltävät kentät `pisteet`/`narratiivi`/`teksti`/`oppimisnakokohta`:
+//     ne kääntäisivät toisen näkymän tulkitsemaan dokumentin väärin (Masterin ADAR-pikakentät
+//     lukisivat `pisteet`:n ADAR-pisteinä; Pelaaja_v7 näyttäisi tekstin lapselle).
 //
 // Muutokset v3.18 → v3.19 (Johto näkee vain valmiit kaaviot):
 //   · kaaviot-luku: `|| onJohtoRooli()` poistettu oman seuran haarasta. onValmentajaRooli()
@@ -706,6 +722,37 @@ service cloud.firestore {
           allow update: if (onSuperAdmin() || onOmanJoukkueenValmentaja(seuraId, pelaajaId)
                         || onAnonymous())
                         && luotuPaivitysKelpaa();                     // A5
+          allow delete: if onSuperAdmin() || (onOmaSeura(seuraId) && onJohtoRooli());
+        }
+
+        // ── Kenttatarkkailut — kohdennettu pelihavainto (ottelun aikainen kirjaus) ──
+        // OMA KOKOELMA, EI `havainnot`. Kaksi syyta:
+        //  1) TIETOSUOJA: `havainnot`-lukusaanto sisaltaa onAnonymous()-ehdon (pelaajan PIN-istunto),
+        //     eika sita ole rajattu omaan pelaajaan. Kenttatarkkailu on valmentajan havainto
+        //     alaikaisesta, eika sita tarvitse nayttaa pelaajalle lainkaan (§7.22). Omalla
+        //     kokoelmalla luku rajataan heti oikein koskematta laajempaan onAnonymous()-aukkoon.
+        //  2) `havainnot`-kokoelmaa lukee moni (ADAR-pikakentat, VAI+, pelaajan P6-kuuntelija,
+        //     pelaajakortin listat) — jokainen niista pitaisi muuten vartioida erikseen.
+        // EI anonyymia eika huoltajaa. Kielletyt kentat estetaan Rules-tasolla, koska ne
+        // kaantaisivat toisen nakyman tulkitsemaan dokumentin vaarin (pisteet → ADAR-pisteet,
+        // narratiivi/teksti/oppimisnakokohta → naytetaan pelaajalle).
+        match /kenttatarkkailut/{tarkkailuId} {
+          allow read:   if onSuperAdmin()
+                        || (onOmaSeura(seuraId) && (onJohtoRooli() || onValmentajaRooli()));
+          allow create: if (onSuperAdmin() || onOmanJoukkueenValmentaja(seuraId, pelaajaId))
+                        && luotuLuontiKelpaa()
+                        && request.resource.data.valmentajaUid == request.auth.uid
+                        // id paattyy omaan uid:hen: toisen uid:lla varattu id kaantaisi hanen oman
+                        // tallennuksensa paivitykseksi, jonka update-saanto torjuu (hiljainen lukko)
+                        && (onSuperAdmin() || tarkkailuId.matches('.*_' + request.auth.uid))
+                        && !request.resource.data.keys().hasAny(['pisteet','narratiivi','teksti','oppimisnakokohta']);
+          allow update: if (onSuperAdmin()
+                        || (onOmanJoukkueenValmentaja(seuraId, pelaajaId)
+                            && resource.data.valmentajaUid == request.auth.uid))
+                        && luotuPaivitysKelpaa()
+                        // tekijaa ei voi vaihtaa: muuten dokumentin voisi siirtaa toisen nimiin
+                        && request.resource.data.valmentajaUid == resource.data.valmentajaUid
+                        && !request.resource.data.keys().hasAny(['pisteet','narratiivi','teksti','oppimisnakokohta']);
           allow delete: if onSuperAdmin() || (onOmaSeura(seuraId) && onJohtoRooli());
         }
 

@@ -5,7 +5,8 @@
      LASKENTA TULEE VAIN lib/tm_pelihavainto.js:STÄ — sivulla ei ole omaa xT-taulukkoa, xG-kaavaa
      eikä boksirajoja. Kopio ajautuisi erilleen libistä eikä kalibrointi enää näkyisi (§5.6).
      Datamuoto = tallennettava muoto (§5.6): tyyppi/alku/loppu/piste/t. Laskettuja arvoja ei
-     tallenneta. Tässä vaiheessa tallennus on VAIN paikallinen (localStorage). -->
+     tallenneta. Tallennus: seurat/{sid}/pelaajat/{pid}/kenttatarkkailut/{pvm}_{puoliaika}_{uid}
+     (OMA kokoelma, ei `havainnot` — ks. Rules v3.20 -perustelu). -->
 <html lang="fi">
 <head>
 <meta charset="UTF-8">
@@ -214,6 +215,7 @@
         <button class="tbtn sec" type="button" id="btnHetki" data-i18n="📌 Hetki">📌 Hetki</button>
         <button class="tbtn sec" type="button" id="btnUlkotila" aria-pressed="false" data-i18n="☀ Ulkotila">☀ Ulkotila</button>
         <button class="tbtn" type="button" id="btnTallenna" data-i18n="Tallenna">Tallenna</button>
+        <button class="tbtn sec" type="button" id="btnPikakortti" data-i18n="Tee pelihavainto tämän pohjalta">Tee pelihavainto tämän pohjalta</button>
         <span id="tallennustila"></span>
       </div>
     </div>
@@ -266,8 +268,8 @@ const _db = firebase.firestore();
   var S = {
     seuraId: null, pelaajaId: null, pelaaja: null, seura: null,
     rooli: null, superAdmin: false, uid: null,
-    ikataso: 'u812', pelimuoto: '11v11', pelipaikka: '',
-    puoliaika: 1, seisoo: 'lahi', kello: 0, alkoi: null,
+    ikataso: 'u812', pelimuoto: '11v11', pelipaikka: '', lukutila: false,
+    puoliaika: 1, seisoo: 'lahi', kello: 0, alkoi: null, otteluAvain: null,
     vastustaja: '', kalenteriId: null, jaksofokus: null,
     kirjattavat: [], merkinnat: [], seq: 0, viimeisinId: null, odottaa: null,
   };
@@ -281,6 +283,39 @@ const _db = firebase.firestore();
     K = {};
     (PH.phPohja ? PH.phPohja(S.pelipaikka) : []).forEach(function (x) { K[x] = true; });
   }
+
+  /* ── OTTELUN TUNNISTE ──────────────────────────────────────────────
+     YKSI DOKUMENTTI PER OTTELU, ei per puoliaika. Tunniste syntyy ALOITUSHETKESTÄ eikä
+     tallennushetkestä, ja puoliaika on merkinnän kenttä (`m.puoliaika`), ei dokumentin identiteetti.
+
+     Miksi näin: työkalu pitää molemmat puoliajat samassa istunnossa ja tallentaa KAIKKI merkinnät.
+     Jos id sisältäisi nykyisen puoliajan, (a) 2. puoliajan dokumentti sisältäisi myös 1. puoliajan
+     merkinnät ja Master laskisi ne kahdesti, (b) välilehden uudelleenlataus 2. puoliajalla avaisi
+     puoliajan 1 ja ylikirjoittaisi 2. puoliajan luonnoksen ilman sen merkintöjä, ja (c) turnauksen
+     toinen ottelu samana päivänä ylikirjoittaisi ensimmäisen. Kaikki kolme hävittävät dataa.
+
+     Päivämäärä on PAIKALLINEN eikä UTC: verkkokatkon jälkeen seuraavana päivänä tallennettaessa
+     UTC-pvm olisi eri kuin luonnoksen avaimessa, eikä luonnosta löytyisi lainkaan. */
+  function paikallinenPvm(ms) {
+    var d = new Date(ms == null ? Date.now() : ms);
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0')
+      + '-' + String(d.getDate()).padStart(2, '0');
+  }
+  function otteluAvainNyt(alkoiMs, kalenteriId) {
+    if (kalenteriId) return String(kalenteriId).replace(/[^\w-]/g, '_');
+    var d = new Date(alkoiMs == null ? Date.now() : alkoiMs);
+    var hhmm = String(d.getHours()).padStart(2, '0') + String(d.getMinutes()).padStart(2, '0');
+    return paikallinenPvm(alkoiMs) + '_' + hhmm;
+  }
+  /** Puoliajat JOHDETAAN merkinnöistä — dokumentti kattaa molemmat. */
+  function puoliajatMerkinnoista(merkinnat) {
+    var nahty = {};
+    (merkinnat || []).forEach(function (m) { if (m && m.puoliaika) nahty[m.puoliaika] = true; });
+    return Object.keys(nahty).map(Number).sort(function (a, b) { return a - b; });
+  }
+  window._phOtteluAvain = otteluAvainNyt;
+  window._phPuoliajat = puoliajatMerkinnoista;
+  window._phPaikallinenPvm = paikallinenPvm;
 
   /* ── PELIMUOTO IKÄTASON MUKAAN ─────────────────────────────────────── */
   function oletusPelimuoto(ikataso) {
@@ -1021,29 +1056,50 @@ const _db = firebase.firestore();
   }
 
   /* ── LUONNOS (offline-first) ───────────────────────────────────────── */
-  function luonnosAvain() {
-    var pvm = new Date().toISOString().slice(0, 10);
-    return 'tm_ph_luonnos_' + S.seuraId + '_' + S.pelaajaId + '_' + pvm + '_' + S.puoliaika;
+  var LUONNOS_ETULIITE = 'tm_ph_luonnos_';
+  function luonnosEtuliite() { return LUONNOS_ETULIITE + S.seuraId + '_' + S.pelaajaId + '_'; }
+  /* Avaimessa EI ole puoliaikaa: sama ottelu = sama luonnos, molemmat puoliajat yhdessä. */
+  function luonnosAvain() { return luonnosEtuliite() + S.otteluAvain; }
+
+  /** Tämän pelaajan tallentamattomat luonnokset, uusin ensin. Myös eiliset löytyvät. */
+  function keskeneraisetLuonnokset() {
+    var out = [];
+    try {
+      var etu = luonnosEtuliite();
+      for (var i = 0; i < localStorage.length; i++) {
+        var k = localStorage.key(i);
+        if (!k || k.indexOf(etu) !== 0) continue;
+        var d = JSON.parse(localStorage.getItem(k) || 'null');
+        if (!d || !Array.isArray(d.merkinnat) || !d.merkinnat.length) continue;
+        out.push({ avain: k, otteluAvain: k.slice(etu.length), data: d });
+      }
+    } catch (e) { return []; }
+    out.sort(function (a, b) { return (b.data.alkoi || 0) - (a.data.alkoi || 0); });
+    return out;
   }
+  window._phKeskeneraiset = keskeneraisetLuonnokset;
   function tallennaLuonnos() {
     try {
       localStorage.setItem(luonnosAvain(), JSON.stringify({
         merkinnat: S.merkinnat, seq: S.seq, puoliaika: S.puoliaika, seisoo: S.seisoo,
+        otteluAvain: S.otteluAvain,
         pelimuoto: S.pelimuoto, pelipaikka: S.pelipaikka, kirjattavat: rastitListaksi(),
         vastustaja: S.vastustaja, kalenteriId: S.kalenteriId, alkoi: S.alkoi,
       }));
       q('tallennustila').textContent = phT('tallennettu laitteelle');
     } catch (e) { /* privaattitila / kiintiö täynnä: kirjaus jatkuu muistissa */ }
   }
-  function lataaLuonnos() {
+  function lataaLuonnos(avain) {
     try {
-      var raaka = localStorage.getItem(luonnosAvain());
+      var raaka = localStorage.getItem(avain || luonnosAvain());
       if (!raaka) return false;
       var d = JSON.parse(raaka);
       if (!d || !Array.isArray(d.merkinnat)) return false;
       S.merkinnat = d.merkinnat;
       S.seq = d.seq || d.merkinnat.reduce(function (a, m) { return Math.max(a, m.id || 0); }, 0);
       S.seisoo = d.seisoo || S.seisoo;
+      S.puoliaika = d.puoliaika || S.puoliaika;
+      S.otteluAvain = d.otteluAvain || S.otteluAvain;
       S.pelimuoto = d.pelimuoto || S.pelimuoto;
       S.vastustaja = d.vastustaja || '';
       S.kalenteriId = d.kalenteriId || null;
@@ -1060,6 +1116,80 @@ const _db = firebase.firestore();
     try { localStorage.removeItem(luonnosAvain()); } catch (e) { /* ei kriittinen */ }
   }
   window._phLuonnosApi = { tallenna: tallennaLuonnos, lataa: lataaLuonnos, poista: poistaLuonnos, avain: luonnosAvain };
+
+  /* ── TALLENNUS FIRESTOREEN ─────────────────────────────────────────
+     Dokumentti-id on IDEMPOTENTTI: {pvm}_{puoliaika}_{valmentajaUid}. Sama puoliaika
+     tallennetaan samaan dokumenttiin, joten verkkokatkon jälkeen uudelleentallennus päivittää
+     eikä kahdenna. Rules sallii päivityksen vain dokumentin omalle kirjoittajalle.
+
+     KIELLETYT KENTÄT (§5.6): `pisteet` kääntäisi Masterin ADAR-pikakenttälaskennan lukemaan
+     tämän ADAR-pisteinä, ja `narratiivi`/`teksti`/`oppimisnakokohta` päätyisi Pelaaja_v7:n
+     näkymään lapselle. Niitä ei kirjoiteta, ja Rules torjuu ne myös palvelinpuolella. */
+  /* Id = OTTELU + valmentaja. Puoliaika ei ole osa identiteettiä (ks. otteluAvainNyt).
+     Valmentaja on mukana, jotta kaksi tarkkailijaa samasta ottelusta eivät törmää — ja koska
+     Rules sallii päivityksen vain dokumentin omalle kirjoittajalle. */
+  function tarkkailuId() {
+    /* uid EI saa muuntua: Rules vaatii id:n paattyvan RAAKAAN request.auth.uid:hen (v3.20 id-lukko),
+       joten siivottu uid katkaisisi luonnin. Firebase-uid on joka tapauksessa aakkosnumeerinen.
+       otteluAvain on siivottu jo syntyessaan. */
+    return S.otteluAvain + '_' + String(S.uid || 'tuntematon');
+  }
+  function tarkkailuPayload() {
+    var d = dokumentti();
+    return {
+      tyyppi: 'kenttatarkkailu',
+      palloId: (S.pelaaja && (S.pelaaja.tunniste || S.pelaaja.palloID)) || null,
+      pelaajaId: S.pelaajaId, seuraId: S.seuraId, valmentajaUid: S.uid,
+      tila: 'valmis',
+      /* pvm on ALOITUSpäivä paikallisena — ei tallennushetki eikä UTC. */
+      ottelu: Object.assign({ pvm: paikallinenPvm(S.alkoi), otteluAvain: S.otteluAvain }, d.ottelu),
+      puoliajat: puoliajatMerkinnoista(d.merkinnat),
+      suunta: { hyokkaysOikealle: S.puoliaika !== 2, seisoo: S.seisoo },
+      ikataso: S.ikataso,
+      pelipaikka: S.pelipaikka || null,
+      kirjattavat: d.kirjattavat,
+      jaksofokus: S.jaksofokus || null,
+      malli: { xt: xtMalliId(), xg: PH.PH_XG_OLETUS || null, boksi: PH.PH_BOKSI_OLETUS || null },
+      /* Array ei kestä serverTimestamp():ia (§7.6) — aika on sekunteina ottelun alusta. */
+      merkinnat: d.merkinnat,
+      lahde: 'live',                 // videolta tehty kirjaus merkitään myöhemmin 'video'
+      paivitetty: new Date().toISOString(),
+    };
+  }
+  function xtMalliId() {
+    try {
+      var XT = window.TM_XT;
+      var prof = XT && XT.xtProfiili ? XT.xtProfiili(S.pelimuoto) : null;
+      return (prof && prof.malli) || null;
+    } catch (e) { return null; }
+  }
+  window._phTarkkailuPayload = tarkkailuPayload;
+  window._phTarkkailuId = tarkkailuId;
+
+  async function tallennaFirestoreen() {
+    var btn = q('btnTallenna');
+    if (btn) btn.disabled = true;
+    try {
+      var cu = _auth.currentUser;
+      if (cu) await cu.getIdToken(true);                       // §7.2 tuore token ennen kirjoitusta
+      var ref = _db.collection('seurat').doc(S.seuraId).collection('pelaajat').doc(S.pelaajaId)
+        .collection('kenttatarkkailut').doc(tarkkailuId());
+      var data = tarkkailuPayload();
+      /* `luotu` VAIN luonnissa (A5 + Rules-vartija): uudelleentallennus ei saa nollata
+         alkuperäistä aikaleimaa. */
+      var snap = await ref.get();
+      if (!snap.exists) data.luotu = firebase.firestore.FieldValue.serverTimestamp();
+      await ref.set(data, { merge: true });
+      poistaLuonnos();                                          // vasta onnistuneen kirjoituksen jälkeen
+      q('tallennustila').textContent = phT('tallennettu');
+    } catch (e) {
+      console.warn('[pelihavainto]', e && e.message);
+      /* Luonnos SÄILYY: kentällä epäonnistunut synkka ei saa hävittää kirjauksia. */
+      q('tallennustila').textContent = phT('tallennus epäonnistui — kirjaukset ovat tallessa laitteella');
+    } finally {
+      if (btn) btn.disabled = false;
+    }
+  }
 
   /* ── ASETUSRIVI ────────────────────────────────────────────────────── */
   function piirraAsetukset() {
@@ -1105,7 +1235,12 @@ const _db = firebase.firestore();
     q('asetukset').innerHTML = h;
 
     q('asetukset').querySelectorAll('[data-puoliaika]').forEach(function (b) {
-      b.onclick = function () { S.puoliaika = Number(b.getAttribute('data-puoliaika')); piirraAsetukset(); paivitaPalkki(); piirra(); };
+      b.onclick = function () {
+        S.puoliaika = Number(b.getAttribute('data-puoliaika'));
+        piirraAsetukset(); paivitaPalkki(); piirra();
+        /* Sama ottelu, sama luonnos — vaihto vain kirjaa puoliajan, ei vaihda dokumenttia. */
+        tallennaLuonnos();
+      };
     });
     q('asetukset').querySelectorAll('[data-seisoo]').forEach(function (b) {
       b.onclick = function () { S.seisoo = b.getAttribute('data-seisoo'); piirraAsetukset(); paivitaPalkki(); piirra(); };
@@ -1172,12 +1307,71 @@ const _db = firebase.firestore();
     } catch (e) { S.seura = null; }
   }
 
+  /* LUKU-TILA: Masterin "Ottelutarkkailut" avaa tallennetun tarkkailun samaan läpikäyntiin.
+     Sama renderöintipolku kuin kirjauksessa — erillinen katselunäkymä ajautuisi erilleen ja
+     näyttäisi eri luvut kuin työkalu. Kentällä ei ole eleitä eikä tallennusta. */
+  async function lataaTarkkailu(id) {
+    var snap = await _db.collection('seurat').doc(S.seuraId).collection('pelaajat').doc(S.pelaajaId)
+      .collection('kenttatarkkailut').doc(id).get();
+    if (!snap.exists) throw new Error('tarkkailua ei löydy');
+    var d = snap.data() || {};
+    S.merkinnat = Array.isArray(d.merkinnat) ? d.merkinnat : [];
+    S.seq = S.merkinnat.reduce(function (a, m) { return Math.max(a, m.id || 0); }, 0);
+    S.puoliaika = d.puoliaika || 1;
+    S.seisoo = (d.suunta && d.suunta.seisoo) || 'lahi';
+    S.pelimuoto = (d.ottelu && d.ottelu.pelimuoto) || S.pelimuoto;
+    S.vastustaja = (d.ottelu && d.ottelu.vastustaja) || '';
+    S.ikataso = d.ikataso || S.ikataso;
+    S.jaksofokus = d.jaksofokus || S.jaksofokus;
+    if (d.pelipaikka != null) asetaPohja(d.pelipaikka);
+    if (Array.isArray(d.kirjattavat)) {
+      K = {};
+      d.kirjattavat.forEach(function (x) { K[x] = true; });
+    }
+    S.otteluAvain = (d.ottelu && d.ottelu.otteluAvain) || id;
+    S.alkoi = null;
+    S.lukutila = true;
+  }
+
+  /* Uusi ottelu: tunniste syntyy NYT, ja se on sama koko istunnon ajan (myös puoliajan vaihdon
+     ja välilehden uudelleenlatauksen yli, koska se tallentuu luonnokseen). */
+  function aloitaUusiOttelu() {
+    S.alkoi = Date.now();
+    S.merkinnat = []; S.seq = 0; S.viimeisinId = null; S.puoliaika = 1;
+    S.otteluAvain = otteluAvainNyt(S.alkoi, S.kalenteriId);
+  }
+  function jatkaLuonnoksesta(l) {
+    S.otteluAvain = l.otteluAvain;
+    if (!lataaLuonnos(l.avain)) aloitaUusiOttelu();
+  }
+
+  /* Kaksi napautusta riittää aloitukseen: tämä valinta on toinen. Näytetään vain kun
+     keskeneräisiä oikeasti on — muuten työkalu aukeaa suoraan. */
+  function naytaJatkaValinta(luonnokset) {
+    var l = luonnokset[0];
+    var pvm = l.data.alkoi ? new Date(l.data.alkoi) : null;
+    var kuvaus = (pvm ? pvm.toLocaleDateString('fi-FI', { weekday: 'short', day: 'numeric', month: 'numeric' }) : l.otteluAvain)
+      + ' · ' + l.data.merkinnat.length + ' ' + phT('merkintää');
+    naytaPortti('Keskeneräinen kirjaus löytyi.',
+      '<button type="button" id="btnJatka">' + esc(phT('Jatka keskeneräistä')) + ' (' + esc(kuvaus) + ')</button>'
+      + '<button type="button" id="btnUusi" style="background:transparent;border:.5px solid var(--border);color:var(--ink2)">'
+      + esc(phT('Aloita uusi ottelu')) + '</button>');
+    return new Promise(function (resolve) {
+      q('btnJatka').onclick = function () { jatkaLuonnoksesta(l); resolve(); };
+      q('btnUusi').onclick = function () { aloitaUusiOttelu(); resolve(); };
+    });
+  }
+
   async function kaynnista() {
+    if (!S.lukutila && !S.otteluAvain) {
+      var kesken = keskeneraisetLuonnokset();
+      if (kesken.length) await naytaJatkaValinta(kesken);
+      else aloitaUusiOttelu();
+    }
     svg = q('pitch');
     laatikko = q('kenttalaatikko');
     piirraKentta();
-    alustaEleet();
-    if (!lataaLuonnos()) S.alkoi = Date.now();
+    if (!S.lukutila) alustaEleet();
     piirraAsetukset();
     paivitaPalkki();
     piirra();
@@ -1185,6 +1379,12 @@ const _db = firebase.firestore();
     q('sovellus').style.display = '';
     if (typeof tmLokalisoiCommon === 'function') tmLokalisoiCommon(document, null);
 
+    if (S.lukutila) {
+      ['btnKumoa', 'btnHetki', 'btnTallenna'].forEach(function (id) {
+        var b = q(id); if (b) { b.disabled = true; b.style.display = 'none'; }
+      });
+      q('tallennustila').textContent = phT('tallennettu tarkkailu — vain luku');
+    }
     q('btnKumoa').onclick = kumoa;
     q('btnHetki').onclick = function () { suljeValitsin(false); lisaa({ tyyppi: 'hetki' }); };
     q('btnUlkotila').onclick = function () {
@@ -1192,8 +1392,15 @@ const _db = firebase.firestore();
       q('btnUlkotila').setAttribute('aria-pressed', String(on));
     };
     q('btnTallenna').onclick = function () {
-      tallennaLuonnos();
+      tallennaLuonnos();                                        // laite ensin, sitten verkko
       q('tallennustila').textContent = phT('tallennettu laitteelle');
+      tallennaFirestoreen();
+    };
+    /* Silta pikakorttiin: valmentaja kirjoittaa varsinaisen pelihavainnon samalle pelaajalle. */
+    q('btnPikakortti').onclick = function () {
+      var url = 'TalentMaster_ADAR_Pikakortti.html?seuraId=' + encodeURIComponent(S.seuraId || '')
+        + '&pelaajaId=' + encodeURIComponent(S.pelaajaId || '');
+      window.open(url, '_blank');
     };
     /* Wake lock on valinnainen mukavuus: hylkäys ei saa kaataa kirjaamista. */
     try {
@@ -1242,6 +1449,14 @@ const _db = firebase.firestore();
         naytaPortti('Pelaajan tietoja ei saatu haettua.', '');
         virhe('Tarkista linkki.');
         return;
+      }
+      var tid = param('tarkkailuId');
+      if (tid) {
+        try { await lataaTarkkailu(tid); } catch (e) {
+          naytaPortti('Tarkkailua ei saatu haettua.', '');
+          virhe('Tarkista linkki.');
+          return;
+        }
       }
       await kaynnista();
     });

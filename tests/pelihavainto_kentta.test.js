@@ -39,6 +39,18 @@ function pura(tunniste) {
   throw new Error('sulkeet eivät täsmää: ' + tunniste);
 }
 
+/** Sama poiminta toisesta lähteestä (VP/Master). */
+function pura2(lahde, tunniste) {
+  const alku = lahde.indexOf(tunniste);
+  if (alku < 0) throw new Error('ei löydy: ' + tunniste);
+  let syvyys = 0;
+  for (let j = lahde.indexOf('{', alku); j < lahde.length; j++) {
+    if (lahde[j] === '{') syvyys++;
+    else if (lahde[j] === '}') { syvyys--; if (!syvyys) return lahde.slice(alku, j + 1); }
+  }
+  throw new Error('sulkeet eivät täsmää: ' + tunniste);
+}
+
 /** Ajaa sivun funktion ympäristössä, jossa PH on oikea lib. */
 function aja(tunnisteet, palauta, lisa) {
   const store = Object.assign({
@@ -267,8 +279,11 @@ describe('(5) datamuoto on sama kuin tallennettava (§5.6)', () => {
     expect(f).toContain('kirjattavat: rastitListaksi()');
   });
 
-  it('kaikki merkintätyypit ovat libin tuntemia', () => {
-    const tyypit = [...SIVU.matchAll(/tyyppi:\s*'([a-z_]+)'/g)].map((m) => m[1]);
+  it('kaikki MERKINTÖJEN tyypit ovat libin tuntemia', () => {
+    /* Dokumentin oma `tyyppi: 'kenttatarkkailu'` on eri asia kuin merkinnän tyyppi — se rajataan
+       pois, koska se ei kuulu merkintöjen enumiin. */
+    const tyypit = [...SIVU.matchAll(/tyyppi:\s*'([a-z_]+)'/g)]
+      .map((m) => m[1]).filter((x) => x !== 'kenttatarkkailu');
     const SALLITUT = ['syotto', 'kuljetus', 'etenee', 'juoksu', 'riisto', 'laukaus', 'menetys',
       'kaksinpeli', 'hetki', 'laukaus_vastaan'];
     expect(tyypit.length).toBeGreaterThan(5);
@@ -290,13 +305,14 @@ describe('(6) luonnos — offline-first', () => {
     const S = {
       seuraId: 'sjk', pelaajaId: 'p1', merkinnat: [{ id: 1, tyyppi: 'laukaus', piste: { len: 88, wid: 50 }, t: 12 }],
       seq: 1, puoliaika: 1, seisoo: 'lahi', pelimuoto: '11v11', pelipaikka: 'LA',
-      vastustaja: 'FC X', kalenteriId: null, alkoi: 1000,
+      vastustaja: 'FC X', kalenteriId: null, alkoi: 1000, otteluAvain: '2026-09-28_1000',
     };
     const api = aja(
-      ['function luonnosAvain() {', 'function tallennaLuonnos() {', 'function lataaLuonnos() {', 'function poistaLuonnos() {'],
+      ['function luonnosEtuliite() {', 'function luonnosAvain() {', 'function tallennaLuonnos() {',
+        'function lataaLuonnos(avain) {', 'function poistaLuonnos() {'],
       'return { avain: luonnosAvain, tallenna: tallennaLuonnos, lataa: lataaLuonnos, poista: poistaLuonnos };',
       {
-        S, K: { syotto: true }, PH, localStorage: ls,
+        S, K: { syotto: true }, PH, localStorage: ls, LUONNOS_ETULIITE: 'tm_ph_luonnos_',
         rastitListaksi: () => ['syotto'],
         asetaPohja: (pp) => { S.pelipaikka = pp; },
         q: () => ({ textContent: '' }),
@@ -306,9 +322,10 @@ describe('(6) luonnos — offline-first', () => {
     return { api, S, store };
   }
 
-  it('avain erottelee seuran, pelaajan, päivän ja puoliajan', () => {
+  /* Avain erottelee seuran, pelaajan ja OTTELUN — ei puoliaikaa (§review 1). */
+  it('avain erottelee seuran, pelaajan ja ottelun', () => {
     const { api } = luonnosApi();
-    expect(api.avain()).toMatch(/^tm_ph_luonnos_sjk_p1_\d{4}-\d{2}-\d{2}_1$/);
+    expect(api.avain()).toBe('tm_ph_luonnos_sjk_p1_2026-09-28_1000');
   });
 
   it('tallennus ja palautus säilyttävät merkinnät ja rastit', () => {
@@ -433,23 +450,101 @@ describe('(8) §7.22 · U8–12 ei näe lukuja', () => {
   });
 });
 
-describe('(9) tässä PR:ssä ei kirjoiteta Firestoreen', () => {
-  /* Rajaus on FIRESTORE-kirjoitus, ei mikä tahansa .set — Map.set on eri asia. Siksi vartija
-     osuu Firestore-ketjuihin ja aikaleimaan, ei nimen loppuosaan. */
-  it('sivu ei kirjoita pelihavaintoa Firestoreen (tallennus on PR B)', () => {
-    expect(SIVU_KOODI, 'doc().set').not.toMatch(/\.doc\([^)]*\)[\s\S]{0,40}?\.set\(/);
-    expect(SIVU_KOODI, 'collection().add').not.toMatch(/\.collection\([^)]*\)[\s\S]{0,40}?\.add\(/);
-    expect(SIVU_KOODI, 'update').not.toMatch(/\.update\(/);
-    expect(SIVU_KOODI, 'runTransaction').not.toMatch(/runTransaction/);
-    expect(SIVU_KOODI, 'serverTimestamp').not.toMatch(/serverTimestamp/);
+describe('(9) tallennus — oma kokoelma, kielletyt kentät, idempotenssi', () => {
+  /* Tallennus menee OMAAN `kenttatarkkailut`-kokoelmaan, EI `havainnot`-kokoelmaan. Syy on
+     tietosuoja: `havainnot`-lukusääntö sisältää onAnonymous()-ehdon (pelaajan PIN-istunto)
+     eikä sitä ole rajattu omaan pelaajaan. */
+  it('kirjoitus menee kenttatarkkailut-kokoelmaan, EI havainnot-kokoelmaan', () => {
+    const f = pura('async function tallennaFirestoreen() {');
+    expect(f).toContain("collection('kenttatarkkailut')");
+    expect(f).not.toContain("collection('havainnot')");
+    expect(SIVU_KOODI).not.toMatch(/collection\('havainnot'\)/);
   });
 
-  it('EI VACUOUS: sivu kuitenkin LUKEE Firestoresta (pelaaja ja seura)', () => {
+  it('payload EI sisällä kiellettyjä kenttiä (§5.6)', () => {
+    const f = pura('function tarkkailuPayload() {');
+    ['pisteet', 'narratiivi', 'teksti', 'oppimisnakokohta'].forEach((k) => {
+      expect(f, 'kielletty kenttä ' + k).not.toMatch(new RegExp('\\b' + k + '\\s*:'));
+    });
+  });
+
+  it('payload EI sisällä laskettuja arvoja — vain raakamerkinnät ja malli-id:t', () => {
+    const f = pura('function tarkkailuPayload() {');
+    expect(f).toContain('merkinnat: d.merkinnat');
+    expect(f).toContain('malli:');
+    ['xgSumma', 'uhka', 'yhteenveto', 'ketjut'].forEach((k) => {
+      expect(f.toLowerCase(), 'laskettua arvoa ei tallenneta').not.toContain(k.toLowerCase());
+    });
+  });
+
+  /* YKSI DOKUMENTTI PER OTTELU. Puoliaika EI saa olla osa id:tä: työkalu pitää molemmat
+     puoliajat samassa istunnossa ja tallentaa kaikki merkinnät, joten puoliaikakohtainen id
+     kahdentaisi 1. puoliajan ja ylikirjoittaisi luonnoksia. */
+  it('dokumentti-id on ottelu + valmentaja, EI puoliaika', () => {
+    const f = pura('function tarkkailuId() {');
+    expect(f).toContain('S.otteluAvain');
+    expect(f).toContain('S.uid');
+    expect(f, 'puoliaika ei kuulu identiteettiin').not.toContain('S.puoliaika');
+  });
+
+  /* Rules (v3.20) vaatii id:n päättyvän RAAKAAN request.auth.uid:hen. Jos klientti muuntaisi
+     uid:n (esim. siivoaisi merkkejä), luonti estyisi — ja virhe näkyisi vasta kentällä. */
+  it('id päättyy muuntamattomaan uid:hen (Rules-lukko vertaa raakaan uid:hen)', () => {
+    const f = pura('function tarkkailuId() {');
+    expect(f, 'uid:tä ei saa siivota').not.toMatch(/S\.uid[^;]*replace\(/);
+    const id = aja(['function tarkkailuId() {'], 'return tarkkailuId();',
+      { S: { otteluAvain: '2026-09-28_1000', uid: 'AbC123xyz' } });
+    expect(id).toBe('2026-09-28_1000_AbC123xyz');
+    expect(id.endsWith('AbC123xyz'), 'Rules-regex .*_<uid> ei täsmäisi').toBe(true);
+  });
+
+  it('payload kantaa puoliajat JOHDETTUNA merkinnöistä', () => {
+    const f = pura('function tarkkailuPayload() {');
+    expect(f).toContain('puoliajat: puoliajatMerkinnoista(d.merkinnat)');
+    expect(f, 'yksittäinen puoliaika kertoisi väärin').not.toMatch(/puoliaika:\s*S\.puoliaika/);
+  });
+
+  it('ottelun pvm on ALOITUSpäivä paikallisena, ei tallennushetki UTC:nä', () => {
+    const f = pura('function tarkkailuPayload() {');
+    expect(f).toContain('paikallinenPvm(S.alkoi)');
+    expect(f).not.toContain('toISOString().slice(0, 10)');
+  });
+
+  it('luotu lähetetään VAIN luonnissa (A5 + Rules-vartija)', () => {
+    const f = pura('async function tallennaFirestoreen() {');
+    expect(f).toContain('if (!snap.exists) data.luotu = firebase.firestore.FieldValue.serverTimestamp();');
+    /* Ehdoton serverTimestamp nollaisi alkuperäisen aikaleiman uudelleentallennuksessa. */
+    expect(f).not.toMatch(/^\s*data\.luotu = firebase/m);
+  });
+
+  it('tuore token ennen kirjoitusta (§7.2)', () => {
+    expect(pura('async function tallennaFirestoreen() {')).toContain('getIdToken(true)');
+  });
+
+  it('luonnos poistetaan VASTA onnistuneen kirjoituksen jälkeen', () => {
+    const f = pura('async function tallennaFirestoreen() {');
+    const iSet = f.indexOf('await ref.set(');
+    const iPoisto = f.indexOf('poistaLuonnos()');
+    expect(iSet).toBeGreaterThan(0);
+    expect(iPoisto, 'poisto ennen kirjoitusta hävittäisi kirjaukset').toBeGreaterThan(iSet);
+    /* Virhehaarassa luonnosta EI poisteta. */
+    const catchOsa = f.slice(f.indexOf('} catch'));
+    expect(catchOsa).not.toContain('poistaLuonnos()');
+    expect(catchOsa).toContain('tallessa laitteella');
+  });
+
+  it('lähde merkitään (live vs. myöhemmin video)', () => {
+    expect(pura('function tarkkailuPayload() {')).toContain("lahde: 'live'");
+  });
+
+  it('EI VACUOUS: sivu lukee Firestoresta myös pelaajan', () => {
     expect(SIVU_KOODI).toMatch(/\.doc\(S\.pelaajaId\)\.get\(\)/);
   });
 
-  it('Tallenna-nappi tallentaa laitteelle ja sanoo sen', () => {
+  it('Tallenna tallentaa ensin laitteelle ja vasta sitten verkkoon', () => {
     expect(SIVU).toContain("phT('tallennettu laitteelle')");
+    const f = pura("    q('btnTallenna').onclick = function () {");
+    expect(f.indexOf('tallennaLuonnos()')).toBeLessThan(f.indexOf('tallennaFirestoreen()'));
   });
 
   /* §18: jäsenyys on KAHDESSA kentässä ja yhden kentän kysely jättäisi puolet pelaajista pois.
@@ -537,5 +632,446 @@ describe('(10) konventiot', () => {
   it('SA:lle seuravalitsin on pakollinen (§3: automaattihaku antaisi satunnaisen seuran)', () => {
     const f = pura('async function alusta() {');
     expect(f).toContain('if (!S.seuraId) { await naytaSeuraValitsin(); return; }');
+  });
+});
+
+/* ── 4 · LUKU-TILA ────────────────────────────────────────────────────── */
+
+describe('(11) luku-tila (?tarkkailuId=)', () => {
+  it('luku-tilassa eleitä ei kytketä eikä keskeneräistä kysytä', () => {
+    const f = pura('  async function kaynnista() {');
+    expect(f).toContain('if (!S.lukutila) alustaEleet();');
+    expect(f).toContain('if (!S.lukutila && !S.otteluAvain) {');
+  });
+
+  it('luku-tilassa kirjaus- ja tallennusnapit piilotetaan', () => {
+    const f = pura('async function kaynnista() {');
+    expect(f).toContain("['btnKumoa', 'btnHetki', 'btnTallenna']");
+    expect(f).toContain("phT('tallennettu tarkkailu — vain luku')");
+  });
+
+  it('luku-tila käyttää SAMAA läpikäyntiä (ei erillistä katselunäkymää)', () => {
+    /* Erillinen katselupolku ajautuisi erilleen ja näyttäisi eri luvut kuin työkalu. */
+    const f = pura('async function lataaTarkkailu(id) {');
+    expect(f).toContain('S.merkinnat =');
+    expect(f).toContain('S.lukutila = true;');
+    expect(SIVU_KOODI).not.toMatch(/function\s+piirraLukutila/);
+  });
+});
+
+/* ── 5 · YKSI SISÄÄNKÄYNTI ────────────────────────────────────────────── */
+
+describe('(12) yksi sisäänkäynti — kaikki reitit jaetun funktion kautta (§7)', () => {
+  const VP = readFileSync(join(juuri, 'TalentMaster_VP_v25.html'), 'utf8');
+  const MASTER = readFileSync(join(juuri, 'TalentMaster_Master_v16.html'), 'utf8');
+  const VALINTA = vaadi('../lib/tm_pelihavainto_valinta.js');
+
+  it('molemmat sovellukset lataavat jaetun kirjaston', () => {
+    expect(VP).toMatch(/<script src="lib\/tm_pelihavainto_valinta\.js/);
+    expect(MASTER).toMatch(/<script src="lib\/tm_pelihavainto_valinta\.js/);
+  });
+
+  /* AJETTU todiste, ei grep: `if (false) tmPhAvaaValinta(...)` jättäisi merkkijonon paikalleen
+     ja grep-vartija pysyisi vihreänä vaikka reitti ohittaisi valintaikkunan. */
+  function ajaSisaankaynti(lahde, tunniste, kutsuNimi, lisa) {
+    const kutsut = [];
+    const avaukset = [];
+    const store = Object.assign({
+      console, Math, JSON, String, Number, Object, Array,
+      tmPhAvaaValinta: (o) => { kutsut.push(o); return {}; },
+      _seuraId: 'sjk',
+      window: { open: (u) => avaukset.push(u) },
+      document: { getElementById: () => null },
+    }, lisa || {});
+    store.window.window = store.window;
+    const ymp = new Proxy(store, {
+      has: (t2, k) => (k in t2) || !(k in globalThis),
+      get: (t2, k) => (k === Symbol.unscopables ? undefined : (k in t2 ? t2[k] : undefined)),
+      set: (t2, k, v) => { t2[k] = v; return true; },
+    });
+    // eslint-disable-next-line no-new-func
+    const fn = new Function('__ymp', 'with(__ymp){' + pura2(lahde, tunniste) + '\nreturn ' + kutsuNimi + ';}')(ymp);
+    fn('p1', 'Testi Pelaaja');
+    return { kutsut, avaukset };
+  }
+
+  it('VP:n sisäänkäynti KUTSUU jaettua funktiota eikä avaa työkalua suoraan', () => {
+    const r = ajaSisaankaynti(
+      VP,
+      'window.avaaAdarKenttatyokalu = window.avaaAdarKenttatyokalu || function (pelaajaId, pelaajaNimi) {',
+      'window.avaaAdarKenttatyokalu',
+    );
+    expect(r.kutsut.length, 'valintaikkunaa ei kutsuttu').toBe(1);
+    expect(r.kutsut[0].pelaajaId).toBe('p1');
+    expect(r.kutsut[0].seuraId).toBe('sjk');
+    expect(r.avaukset, 'työkalu avattiin suoraan valintaikkunan ohi').toEqual([]);
+  });
+
+  it('Masterin sisäänkäynti KUTSUU jaettua funktiota', () => {
+    const r = ajaSisaankaynti(
+      MASTER,
+      'function _avaaPikakorttiIframe(pid) {',
+      '_avaaPikakorttiIframe',
+      { _pelaajatData: [{ id: 'p1', etunimi: 'Testi', sukunimi: 'Pelaaja', joukkue: 'SJK P13' }],
+        _avaaPikakorttiUpotettu: () => { throw new Error('upotettu avattiin valintaikkunan ohi'); } },
+    );
+    expect(r.kutsut.length, 'valintaikkunaa ei kutsuttu').toBe(1);
+    expect(r.kutsut[0].pelaajaId).toBe('p1');
+    expect(r.kutsut[0].joukkue).toBe('SJK P13');
+  });
+
+  it('Masterin valinta ohjaa ottelun omaan välilehteen ja yksittäisen upotukseen', () => {
+    const avaukset = [];
+    const upotetut = [];
+    const r = ajaSisaankaynti(
+      MASTER,
+      'function _avaaPikakorttiIframe(pid) {',
+      '_avaaPikakorttiIframe',
+      { _pelaajatData: [{ id: 'p1' }],
+        _avaaPikakorttiUpotettu: (pid) => upotetut.push(pid),
+        tmPhAvaaValinta: (o) => { o.avaa('URL_OTTELU', 'ottelu'); o.avaa('URL_YKSI', 'yksi'); return {}; },
+        window: { open: (u) => avaukset.push(u) } },
+    );
+    expect(avaukset, 'ottelu kuuluu omaan välilehteen').toEqual(['URL_OTTELU']);
+    expect(upotetut, 'yksittäinen havainto upotetaan kuten ennen').toEqual(['p1']);
+    expect(r.kutsut.length).toBe(0);   // stubattu tmPhAvaaValinta ei kirjaa kutsuja
+  });
+
+  it('pelaajakortin CTA ohjaa samaan sisäänkäyntiin (delegoitu, ei inline onclick)', () => {
+    expect(VP).toContain('jsp-ph-cta');
+    expect(VP).toContain("closest('.jsp-ph-cta')");
+    expect(VP).toContain('avaaAdarKenttatyokalu(a.getAttribute');
+  });
+
+  it('VP:n datapolku käyttää samaa funktiota', () => {
+    expect(VP).toContain("fn: 'avaaAdarKenttatyokalu()'");
+  });
+
+  /* Kopio kahdessa paikassa ajautuisi erilleen: käyttäjä näkisi eri vaihtoehdot riippuen
+     siitä mistä hän tuli. Vartija vaatii, ettei valintaikkunaa rakenneta sovelluksissa. */
+  it('valintaikkunaa EI rakenneta sovelluksissa (vain libissä)', () => {
+    /* Kommentit riisutaan: sisäänkäynnin KUVAUS mainitsee vaihtoehtojen nimet, eikä vartija saa
+       punertaa siitä että ratkaisu on dokumentoitu. */
+    [VP, MASTER].forEach((src) => {
+      const koodi = ilmanKommentteja(src);
+      expect(koodi).not.toContain('data-ph-valinta');
+      expect(koodi).not.toContain('Yksi havainto nyt');
+      expect(koodi).not.toContain('Seuraan ottelua');
+    });
+  });
+
+  it('EI VACUOUS: libissä vaihtoehdot ovat', () => {
+    const lib = readFileSync(join(juuri, 'lib/tm_pelihavainto_valinta.js'), 'utf8');
+    expect(lib).toContain('data-ph-valinta');
+    expect(lib).toContain('Yksi havainto nyt');
+    expect(lib).toContain('Seuraan ottelua');
+  });
+
+  it('kaksi vaihtoehtoa, oikeat kohteet ja pelaaja mukana', () => {
+    const u = VALINTA.tmPhValintaUrlit({ seuraId: 'sjk', pelaajaId: 'p1' });
+    expect(Object.keys(u).sort()).toEqual(['ottelu', 'yksi']);
+    expect(u.yksi).toContain('TalentMaster_ADAR_Pikakortti.html');
+    expect(u.ottelu).toContain('TalentMaster_Pelihavainto_Kentta.html');
+    ['seuraId=sjk', 'pelaajaId=p1'].forEach((s) => {
+      expect(u.yksi).toContain(s);
+      expect(u.ottelu).toContain(s);
+    });
+  });
+
+  it('ilman pelaajaa parametri jätetään pois (kenttätyökalu kysyy sen)', () => {
+    const u = VALINTA.tmPhValintaUrlit({ seuraId: 'sjk' });
+    expect(u.ottelu).not.toContain('pelaajaId=');
+    expect(u.ottelu).toContain('seuraId=sjk');
+  });
+
+  it('joukkuekonteksti välitetään vain kenttätyökalulle', () => {
+    const u = VALINTA.tmPhValintaUrlit({ seuraId: 'sjk', joukkue: 'SJK P13', joukkueId: 'sjk_p13' });
+    expect(u.ottelu).toContain('joukkue=SJK%20P13');
+    expect(u.ottelu).toContain('joukkueId=sjk_p13');
+    expect(u.yksi).not.toContain('joukkue');
+  });
+
+  it('arvot enkoodataan (& tai välilyönti ei riko URLia)', () => {
+    const u = VALINTA.tmPhValintaUrlit({ seuraId: 'a&b', pelaajaId: 'p 1', joukkue: 'SJK/P13' });
+    expect(u.ottelu).toContain('seuraId=a%26b');
+    expect(u.ottelu).toContain('pelaajaId=p%201');
+    expect(u.ottelu).toContain('joukkue=SJK%2FP13');
+  });
+});
+
+/* ── 6 · MASTERIN OTTELUTARKKAILUT ───────────────────────────────────── */
+
+describe('(13) Masterin ottelutarkkailut', () => {
+  const MASTER = readFileSync(join(juuri, 'TalentMaster_Master_v16.html'), 'utf8');
+
+  it('lista luetaan VASTA avattaessa (§26: ei alikokoelmakyselyä renderöinnissä)', () => {
+    const f = pura2(MASTER, 'async function _mkAvaaTarkkailut() {');
+    expect(f).toContain("collection('kenttatarkkailut')");
+    /* Kutsu tulee käyttäjän klikistä, ei renderöintifunktiosta. */
+    expect(MASTER).toContain('onclick="_mkAvaaTarkkailut()"');
+    const renderit = MASTER.split('_mkAvaaTarkkailut(').length - 1;
+    expect(renderit, 'vain määrittely, window-vienti ja yksi klikkikutsu').toBeLessThanOrEqual(4);
+  });
+
+  /* AJETTU todiste: `if (false) rivit.sort(...)` jättäisi merkkijonon paikalleen. Tyngältä
+     tulee tarkoituksella väärässä järjestyksessä, ja tulos on luettava uusin ensin. */
+  async function ajaTarkkailulista(docit) {
+    let html = '';
+    const el = { set innerHTML(v) { html = v; }, get innerHTML() { return html; } };
+    const store = {
+      console, Math, JSON, String, Number, Object, Array, Promise,
+      _activePelaaja: 'p1', _seuraId: 'sjk',
+      masterT: (s) => s, _mEsc: (s) => String(s == null ? '' : s),
+      document: { getElementById: () => el },
+      /* Ketju kuten tuotannossa: collection→doc→collection→doc→collection→limit→get. */
+      db: {
+        collection: () => ({
+          doc: () => ({
+            collection: () => ({
+              doc: () => ({
+                collection: () => ({
+                  orderBy: (kentta, suunta) => {
+                    store.jarjestys = kentta + ' ' + suunta;
+                    return { limit: () => ({ get: async () => ({ docs: docit }) }) };
+                  },
+                }),
+              }),
+            }),
+          }),
+        }),
+      },
+    };
+    const ymp = new Proxy(store, {
+      has: (t2, k) => (k in t2) || !(k in globalThis),
+      get: (t2, k) => (k === Symbol.unscopables ? undefined : (k in t2 ? t2[k] : undefined)),
+      set: (t2, k, v) => { t2[k] = v; return true; },
+    });
+    // eslint-disable-next-line no-new-func
+    const fn = new Function('__ymp', 'with(__ymp){' + pura2(MASTER, 'async function _mkAvaaTarkkailut() {')
+      + '\nreturn _mkAvaaTarkkailut;}')(ymp);
+    await fn();
+    return html;
+  }
+
+  it('lista järjestyy uusin ensin (näyttöjärjestys ottelupäivän mukaan)', async () => {
+    const html = await ajaTarkkailulista([
+      { id: 'vanha', data: () => ({ ottelu: { pvm: '2026-09-01', vastustaja: 'VANHA' }, puoliaika: 1, merkinnat: [1] }) },
+      { id: 'uusi', data: () => ({ ottelu: { pvm: '2026-09-28', vastustaja: 'UUSI' }, puoliaika: 2, merkinnat: [1, 2] }) },
+    ]);
+    expect(html.indexOf('UUSI'), 'uusin ei ollut ensimmäisenä').toBeLessThan(html.indexOf('VANHA'));
+  });
+
+  /* Kaksi eri asiaa: orderBy VALITSEE mitkä 20 haetaan (pelkkä limit palauttaisi mielivaltaiset
+     20 ja uusimmat voisivat jäädä pois), client-sort järjestää NÄYTÖN ottelupäivän mukaan. */
+  it('haku järjestää palvelimella ennen limitiä', () => {
+    const f = pura2(MASTER, 'async function _mkAvaaTarkkailut() {');
+    expect(f).toMatch(/orderBy\('luotu', 'desc'\)[\s\S]{0,20}limit\(20\)/);
+  });
+
+  it('järjestys on yhden kentän mukaan (ei komposiitti-indeksiä)', () => {
+    const f = pura2(MASTER, 'async function _mkAvaaTarkkailut() {');
+    expect((f.match(/orderBy\(/g) || []).length, 'kaksi orderBy:ta vaatisi indeksin').toBe(1);
+    expect(f).not.toContain('where(');
+  });
+
+  it('tyhjä lista kerrotaan eikä jäädä lataustilaan', async () => {
+    const html = await ajaTarkkailulista([]);
+    expect(html).toContain('Ei ottelutarkkailuja vielä.');
+  });
+
+  it('tyhjä ja virhetila kerrotaan, ei jätetä lataustilaan', () => {
+    const f = pura2(MASTER, 'async function _mkAvaaTarkkailut() {');
+    expect(f).toContain('Ei ottelutarkkailuja vielä.');
+    expect(f).toContain('Tarkkailuja ei saatu haettua.');
+  });
+});
+
+/* ── 7 · PELAAJA- JA HUOLTAJANÄKYMÄT EIVÄT LUE ───────────────────────── */
+
+describe('(14) kenttatarkkailut eivät näy pelaajalle eikä huoltajalle', () => {
+  it.each(['TalentMaster_Pelaaja_v7.html', 'TalentMaster_Vanhempi_v2.html'])(
+    '%s ei lue kenttatarkkailut-kokoelmaa', (tiedosto) => {
+      const src = readFileSync(join(juuri, tiedosto), 'utf8');
+      expect(src, 'alaikäisen havainto ei kuulu pelaajan näkymään (§7.22)').not.toContain('kenttatarkkailut');
+    });
+
+  it('EI VACUOUS: ne lukevat havainnot-kokoelmaa (eli haku toimii)', () => {
+    const src = readFileSync(join(juuri, 'TalentMaster_Pelaaja_v7.html'), 'utf8');
+    expect(src).toContain('havainnot');
+  });
+});
+
+/* ── 8 · REVIEW-KORJAUKSET ────────────────────────────────────────────── */
+
+describe('(15) yksi dokumentti per ottelu — ei puoliajan eikä päivän mukaan', () => {
+  const apu = () => aja(
+    ['function paikallinenPvm(ms) {', 'function otteluAvainNyt(alkoiMs, kalenteriId) {',
+      'function puoliajatMerkinnoista(merkinnat) {'],
+    'return { pvm: paikallinenPvm, avain: otteluAvainNyt, puoliajat: puoliajatMerkinnoista };',
+    {},
+  );
+
+  /* Aikavyöhyke pakotetaan, koska CI ajaa UTC:ssä: siellä paikallinen ja UTC ovat sama päivä,
+     eikä ero paljastuisi lainkaan. UTC+14:ssä aamupäivä on UTC:ssä vielä edellistä päivää —
+     juuri se tilanne, jossa yön yli kestäneen verkkokatkon luonnos jäisi löytymättä. */
+  it('päivämäärä on PAIKALLINEN eikä UTC (eilinen luonnos ei saa kadota)', () => {
+    const vanhaTZ = process.env.TZ;
+    try {
+      process.env.TZ = 'Pacific/Kiritimati';        // UTC+14
+      const { pvm } = apu();
+      const d = new Date(2026, 8, 28, 10, 0);       // paikallinen 28.9., UTC 27.9.
+      expect(d.toISOString().slice(0, 10), 'esiehto: vyöhyke-ero on olemassa').toBe('2026-09-27');
+      expect(pvm(d.getTime()), 'UTC-pvm vie luonnoksen väärälle päivälle').toBe('2026-09-28');
+    } finally {
+      if (vanhaTZ === undefined) delete process.env.TZ; else process.env.TZ = vanhaTZ;
+    }
+  });
+
+  it('otteluavain käyttää samaa paikallista päivää', () => {
+    const vanhaTZ = process.env.TZ;
+    try {
+      process.env.TZ = 'Pacific/Kiritimati';
+      const { avain } = apu();
+      expect(avain(new Date(2026, 8, 28, 10, 0).getTime())).toBe('2026-09-28_1000');
+    } finally {
+      if (vanhaTZ === undefined) delete process.env.TZ; else process.env.TZ = vanhaTZ;
+    }
+  });
+
+  it('kaksi ottelua samana päivänä saa ERI avaimen (turnaus)', () => {
+    const { avain } = apu();
+    const a1 = avain(new Date(2026, 8, 28, 10, 0).getTime());
+    const a2 = avain(new Date(2026, 8, 28, 14, 30).getTime());
+    expect(a1).not.toBe(a2);
+    expect(a1).toContain('2026-09-28');
+    expect(a2).toContain('2026-09-28');
+  });
+
+  it('kalenteritapahtuma voittaa kellonajan (sama ottelu, sama avain)', () => {
+    const { avain } = apu();
+    expect(avain(Date.now(), 'kal_123')).toBe('kal_123');
+    expect(avain(Date.now(), 'kal/123 x')).toBe('kal_123_x');   // siivottu doc-id:ksi
+  });
+
+  it('puoliajat johdetaan merkinnöistä, molemmat mukana', () => {
+    const { puoliajat } = apu();
+    expect(puoliajat([{ puoliaika: 1 }, { puoliaika: 2 }, { puoliaika: 1 }])).toEqual([1, 2]);
+    expect(puoliajat([{ puoliaika: 2 }])).toEqual([2]);
+    expect(puoliajat([])).toEqual([]);
+    expect(puoliajat(null)).toEqual([]);
+  });
+
+  it('luonnoksen avain EI sisällä puoliaikaa (sama ottelu = sama luonnos)', () => {
+    const f = pura('function luonnosAvain() {');
+    expect(f).toContain('S.otteluAvain');
+    expect(f).not.toContain('S.puoliaika');
+  });
+
+  it('puoliajan vaihto tallentaa luonnoksen eikä vaihda dokumenttia', () => {
+    const f = pura('    q(\'asetukset\').querySelectorAll(\'[data-puoliaika]\').forEach(function (b) {');
+    expect(f).toContain('tallennaLuonnos()');
+    expect(f, 'otteluAvain ei saa vaihtua puoliajan mukana').not.toContain('otteluAvain');
+  });
+});
+
+describe('(16) keskeneräisen jatkaminen', () => {
+  function ajaKesken(tallennetut) {
+    const store = {};
+    Object.keys(tallennetut || {}).forEach((k) => { store[k] = JSON.stringify(tallennetut[k]); });
+    const ls = {
+      get length() { return Object.keys(store).length; },
+      key: (i) => Object.keys(store)[i],
+      getItem: (k) => (Object.prototype.hasOwnProperty.call(store, k) ? store[k] : null),
+    };
+    return aja(
+      ['function luonnosEtuliite() {', 'function keskeneraisetLuonnokset() {'],
+      'return keskeneraisetLuonnokset();',
+      { S: { seuraId: 'sjk', pelaajaId: 'p1' }, localStorage: ls, LUONNOS_ETULIITE: 'tm_ph_luonnos_' },
+    );
+  }
+
+  it('löytää myös EILISEN luonnoksen (verkkokatko yön yli)', () => {
+    const r = ajaKesken({
+      'tm_ph_luonnos_sjk_p1_2026-09-27_1830': { merkinnat: [{ id: 1 }], alkoi: 1000 },
+    });
+    expect(r.length).toBe(1);
+    expect(r[0].otteluAvain).toBe('2026-09-27_1830');
+  });
+
+  it('järjestää uusin ensin', () => {
+    const r = ajaKesken({
+      'tm_ph_luonnos_sjk_p1_2026-09-27_1830': { merkinnat: [{ id: 1 }], alkoi: 1000 },
+      'tm_ph_luonnos_sjk_p1_2026-09-28_1000': { merkinnat: [{ id: 2 }], alkoi: 9000 },
+    });
+    expect(r.map((x) => x.otteluAvain)).toEqual(['2026-09-28_1000', '2026-09-27_1830']);
+  });
+
+  it('toisen pelaajan tai seuran luonnos ei vuoda', () => {
+    const r = ajaKesken({
+      'tm_ph_luonnos_sjk_p9_2026-09-28_1000': { merkinnat: [{ id: 1 }], alkoi: 1 },
+      'tm_ph_luonnos_kpv_p1_2026-09-28_1000': { merkinnat: [{ id: 1 }], alkoi: 1 },
+    });
+    expect(r).toEqual([]);
+  });
+
+  it('tyhjä luonnos ei tarjoa jatkamista', () => {
+    expect(ajaKesken({ 'tm_ph_luonnos_sjk_p1_2026-09-28_1000': { merkinnat: [], alkoi: 1 } })).toEqual([]);
+  });
+
+  it('rikkinäinen luonnos ei kaada hakua', () => {
+    const store = { 'tm_ph_luonnos_sjk_p1_x': '{rikki' };
+    const ls = {
+      get length() { return 1; }, key: () => 'tm_ph_luonnos_sjk_p1_x',
+      getItem: (k) => store[k],
+    };
+    const r = aja(
+      ['function luonnosEtuliite() {', 'function keskeneraisetLuonnokset() {'],
+      'return keskeneraisetLuonnokset();',
+      { S: { seuraId: 'sjk', pelaajaId: 'p1' }, localStorage: ls, LUONNOS_ETULIITE: 'tm_ph_luonnos_' },
+    );
+    expect(r).toEqual([]);
+  });
+
+  it('uusi ottelu nollaa merkinnät ja luo uuden avaimen', () => {
+    const f = pura('function aloitaUusiOttelu() {');
+    expect(f).toContain('S.merkinnat = []');
+    expect(f).toContain('S.otteluAvain = otteluAvainNyt(S.alkoi, S.kalenteriId)');
+    expect(f).toContain('S.puoliaika = 1');
+  });
+
+  it('valinta näytetään vain kun keskeneräisiä on', () => {
+    const f = pura('  async function kaynnista() {');
+    expect(f).toContain('if (kesken.length) await naytaJatkaValinta(kesken);');
+    expect(f).toContain('else aloitaUusiOttelu();');
+  });
+});
+
+describe('(17) valintaikkunan teksti on oikeaa suomea', () => {
+  const VALINTA = vaadi('../lib/tm_pelihavainto_valinta.js');
+
+  /* "Mita olet tekemassa?" näkyi sisäänkäynnin ensimmäisenä näkymänä: vpT/masterT palauttaa
+     tuntemattoman avaimen sellaisenaan, joten käyttäjä näki ä:ttömän tekstin. */
+  it('otsikossa on ä (ei "Mita olet tekemassa?")', () => {
+    expect(VALINTA.TM_PH_TEKSTIT.otsikko).toBe('Mitä olet tekemässä?');
+  });
+
+  it('otteluselitteessä on ä', () => {
+    expect(VALINTA.TM_PH_TEKSTIT.otteluSelite).toContain('läpikäynti');
+  });
+
+  it('lib-lähteessä EI ole raakoja ä/ö-merkkejä (vartija voimassa)', () => {
+    const src = readFileSync(join(juuri, 'lib/tm_pelihavainto_valinta.js'), 'utf8');
+    const koodi = src.replace(/\/\*[\s\S]*?\*\//g, ' ');
+    expect(koodi, 'escapet, ei raakoja umlautteja').not.toMatch(/[äöÄÖ]/);
+  });
+
+  it('kaikki tekstit kulkevat käännösfunktion läpi (ei kovakoodattua näyttöä)', () => {
+    const src = readFileSync(join(juuri, 'lib/tm_pelihavainto_valinta.js'), 'utf8');
+    expect(src).toContain('t(TM_PH_TEKSTIT.otsikko)');
+    /* Korttien tekstit menevät _tmPhKortti:n läpi, joka kääntää ne t():llä. */
+    expect(src).toMatch(/_tmPhEsc\(t\(otsikko\)\)/);
+    expect(src).toMatch(/_tmPhEsc\(t\(selite\)\)/);
+    expect(src).toContain("_tmPhKortti('yksi', TM_PH_TEKSTIT.yksi");
+    expect(src).toContain("_tmPhKortti('ottelu', TM_PH_TEKSTIT.ottelu");
   });
 });
