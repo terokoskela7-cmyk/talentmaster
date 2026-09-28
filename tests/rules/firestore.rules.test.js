@@ -2355,6 +2355,32 @@ describe('Kenttätarkkailut — valmentajan havainto, EI pelaajalle (v3.20)', ()
   });
 
   // ── LUKU ────────────────────────────────────────────────────────────────
+  /* VP-POLKU (2026-09-28): "vp pääsi nyt sisään mutta tallennus epäonnistui". Tämä pari
+     erottaa kaksi mahdollista syytä: onko säännössä vika vai tunnuksessa. Jos tämä on
+     vihreä, sääntö sallii VP:n luonnin — ja jos tallennus silti epäonnistuu tuotannossa,
+     syy on claimissa (rooli ei ole 'vp') tai datassa, ei säännössä.
+     Pelaaja ILMAN joukkuetta on tarkoituksellinen: se on tiukin tapaus, koska pelkkä
+     valmentaja ei pääse siihen käsiksi lainkaan. */
+  async function seedJoukkueetonPelaaja() {
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await setDoc(doc(context.firestore(), 'seurat', SEURA_A, 'pelaajat', 'p-ei-joukkuetta'), {
+        etunimi: 'Ei', sukunimi: 'Joukkuetta', seuraId: SEURA_A, joukkueet: [], aktiivinen: true,
+      });
+    });
+  }
+
+  it('VP luo kenttätarkkailun myös pelaajalle jolla EI ole joukkuetta', async () => {
+    await seedJoukkueetonPelaaja();
+    const db = vpContext(SEURA_A).firestore();
+    await assertSucceeds(setDoc(polku(db, 'p-ei-joukkuetta', idOma(VP_A_UID)), tarkkailu(VP_A_UID)));
+  });
+
+  it('EI VACUOUS: pelkkä valmentaja EI luo joukkueettomalle pelaajalle', async () => {
+    await seedJoukkueetonPelaaja();
+    const db = valmentajaContext(VALM_A_UID, SEURA_A).firestore();
+    await assertFails(setDoc(polku(db, 'p-ei-joukkuetta', idOma(VALM_A_UID)), tarkkailu(VALM_A_UID)));
+  });
+
   it('TIETOSUOJA: anonyymi PIN-istunto EI lue kenttätarkkailua', async () => {
     await seedTarkkailu('t1', tarkkailu(VALM_A_UID));
     await assertFails(getDoc(polku(anonContext().firestore(), null, 't1')));

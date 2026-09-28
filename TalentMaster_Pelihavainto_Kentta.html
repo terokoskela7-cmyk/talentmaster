@@ -24,7 +24,7 @@
 <script src="lib/tm_lang.js?v=14"></script>
 <script src="lib/tm_i18n_common.js?v=10"></script>
 <script src="lib/tm_xt.js?v=1"></script>                     <!-- xT-ruudukko: tm_pelihavainto käyttää, EI kopiota -->
-<script src="lib/tm_pelihavainto.js?v=2"></script>           <!-- KANONINEN laskenta (§5.6). NOSTA ?v KUN LIB MUUTTUU: vanha lib + uusi sivu = pystyasennon napautus tallentuisi vaakakaavalla vaaraan kohtaan ILMAN virheilmoitusta (§27.4 CDN-cache). -->
+<script src="lib/tm_pelihavainto.js?v=3"></script>           <!-- KANONINEN laskenta (§5.6). NOSTA ?v KUN LIB MUUTTUU: vanha lib + uusi sivu = pystyasennon napautus tallentuisi vaakakaavalla vaaraan kohtaan ILMAN virheilmoitusta (§27.4 CDN-cache). -->
 <script src="lib/tm_teknistaktiset.js?v=1"></script>         <!-- konseptien kaanon -->
 <script src="lib/tm_konsepti_resolve.js?v=1"></script>       <!-- seuran omat nimet + piilotukset -->
 <script src="lib/tm_joukkue.js?v=3"></script>                <!-- §18 joukkuejäsenyys -->
@@ -133,6 +133,14 @@
   .saved{display:flex;align-items:center;gap:5px;font-family:var(--font-mono);font-size:10.5px;color:var(--ink3);flex:none}
   .saved i{width:6px;height:6px;border-radius:50%;background:var(--accent);display:inline-block}
   .saved.odottaa i{background:var(--amber)}
+  .pasiru{font-size:11.5px;font-weight:600;letter-spacing:.06em;padding:6px 10px;border-radius:7px;
+          border:.5px solid var(--border);background:var(--surface2);color:var(--ink2);cursor:pointer;
+          font-family:var(--font-sans);flex:none}
+  .pasiru.toinen{border-color:var(--teal-brd);background:var(--teal-dim);color:var(--accent)}
+  #vaiheVahvistus{width:100%;font-size:12px;color:var(--ink2);line-height:1.5}
+  #vaiheVahvistus .rivi{padding:10px 12px;border:.5px solid var(--amber-brd);background:var(--amber-dim);border-radius:8px;margin-bottom:8px}
+  #vaiheVahvistus .napit{display:flex;gap:8px;margin-top:10px}
+  #loppuVirhe.virhe{color:var(--amber)}
   .clock{font-family:var(--font-mono);font-size:14px;color:var(--ink);display:flex;align-items:center;gap:7px;
          font-variant-numeric:tabular-nums;flex:none;background:var(--surface2);border:.5px solid var(--border);
          padding:5px 9px;border-radius:7px}
@@ -317,6 +325,7 @@
       <span class="sp"></span>
       <span class="saved" id="tallennustila"><i></i><span class="lbltxt" id="tallennusmerkki"></span></span>
       <button type="button" class="iconbtn" id="btnUlkotila" aria-pressed="false" title="Ulkotila (aurinko)" data-i18n="☀">☀</button>
+      <button type="button" class="pasiru" id="pasiru" title="Puoliajan läpikäynti">1. pa</button>
       <span class="clock"><span class="dot"></span><span id="kello">00:00</span></span>
       <button type="button" class="iconbtn" id="btnFs" title="Koko näyttö">⛶</button>
     </div>
@@ -347,10 +356,31 @@
       <div id="yhteenveto"></div>
     </div>
     <div class="foot">
-      <button class="tbtn" type="button" id="btnTallenna" data-i18n="Tallenna">Tallenna</button>
+      <!-- PÄÄPAINIKE riippuu ottelun tilasta: 1. pa → "Päätä 1. puoliaika", 2. pa → "Lopeta ottelu".
+           Aiemmin ottelua EI voinut lopettaa lainkaan: Tallenna tallensi, mutta kello kävi,
+           näyttö pysyi päällä eikä valmentaja saanut vahvistusta siitä että ottelu on valmis. -->
+      <button class="tbtn" type="button" id="btnVaihe"></button>
+      <div id="vaiheVahvistus"></div>
+      <button class="tbtn sec" type="button" id="btnTallenna" data-i18n="Tallenna">Tallenna</button>
       <button class="tbtn sec" type="button" id="btnPikakortti" data-i18n="Tee pelihavainto tämän pohjalta">Tee pelihavainto tämän pohjalta</button>
       <span id="tallennusteksti"></span>
     </div>
+  </div>
+</div>
+
+<!-- LOPPUNÄKYMÄ: ottelu on valmis. Näyttää luvut ja vie eteenpäin — valmentajan ei tarvitse
+     arvailla, menikö tallennus läpi. -->
+<div id="loppu" class="overlay" style="display:none">
+  <div class="card">
+    <div class="eyebrow" data-i18n="Ottelu">Ottelu</div>
+    <h1 id="loppuOtsikko"></h1>
+    <p class="lead" id="loppuLuvut"></p>
+    <button class="primary" type="button" id="loppuPikakortti" data-i18n="Tee pelihavainto tämän pohjalta">Tee pelihavainto tämän pohjalta</button>
+    <div style="display:flex;gap:8px;margin-top:10px">
+      <button class="tbtn sec" type="button" id="loppuUusi" style="flex:1" data-i18n="Uusi ottelu">Uusi ottelu</button>
+      <button class="tbtn sec" type="button" id="loppuSulje" style="flex:1" data-i18n="Sulje">Sulje</button>
+    </div>
+    <p class="fine" id="loppuVirhe"></p>
   </div>
 </div>
 
@@ -936,13 +966,28 @@ const _db = firebase.firestore();
     ], PH.PH_VALINTA_IKKUNA_MS, function () { piirra(); });
   }
   function kysyLaukaus(sp, piste, juuri) {
-    var mk = function (t) { return function () { lisaa({ tyyppi: 'laukaus', piste: piste, tulos: t, ketju: juuri || undefined }); }; };
+    /* `ketju` KIRJOITETAAN VAIN JOS SE ON. Aiemmin tassa oli `ketju: juuri || undefined`, ja
+       Firestore compat -SDK hylkaa KOKO set()-kutsun jos yhdessakin kentassa on undefined
+       ("Unsupported field value: undefined ... merkinnat.N.ketju"). Luonnos (JSON) pudottaa
+       kentan pois, joten vika katosi sivunlatauksen jalkeen — siksi se nayttaytyi satunnaisena
+       "tallennus epaonnistui — kirjaukset ovat tallessa laitteella". */
+    var mk = function (t) {
+      return function () {
+        var m = { tyyppi: 'laukaus', piste: piste, tulos: t };
+        if (juuri) m.ketju = juuri;
+        lisaa(m);
+      };
+    };
     naytaValitsin(sp, [
       { cls: 'teal', t: 'Maali', fn: mk('maali') },
       { cls: 'teal', t: 'Torjuttu', fn: mk('torjuttu') },
       { cls: '', t: 'Ohi', fn: mk('ohi') },
       { cls: '', t: 'Blokattu', fn: mk('blokattu') },
-    ], PH.PH_VALINTA_IKKUNA_MS, function () { lisaa({ tyyppi: 'laukaus', piste: piste, tulos: null, ketju: juuri || undefined }); });
+    ], PH.PH_VALINTA_IKKUNA_MS, function () {
+      var m = { tyyppi: 'laukaus', piste: piste, tulos: null };
+      if (juuri) m.ketju = juuri;
+      lisaa(m);
+    });
   }
 
   var vihjeEl = null;
@@ -970,9 +1015,18 @@ const _db = firebase.firestore();
     if (vaatiiReaktion(m) && K.reaktio) kysyReaktio(m);
     return m;
   }
+  /* Kello näyttää KULUVAN PUOLIAJAN ajan nollasta. Merkinnän `t` on sekunteja oman puoliajan
+     alusta, ja `puoliaika`-kenttä erottaa ne — muuten 2. puoliajan merkinnät saisivat ajat,
+     jotka jatkuvat ensimmäisestä ja näyttäisivät vääriltä läpikäynnissä. */
+  function puoliajanAlku() {
+    if (S.puoliaika === 2) return S.alkoi2 || S.alkoi;
+    return S.alkoi;
+  }
   function kelloSekunnit() {
-    if (!S.alkoi) return 0;
-    return Math.max(0, Math.round((Date.now() - S.alkoi) / 1000));
+    var alku = puoliajanAlku();
+    if (!alku) return 0;
+    if (S.paattynyt) return S.kelloPysahtyi || 0;
+    return Math.max(0, Math.round((Date.now() - alku) / 1000));
   }
 
   var kumoaEl = null, kumoaAjastin = null;
@@ -996,6 +1050,11 @@ const _db = firebase.firestore();
   function kumoa() {
     if (S.viimeisinId == null) return;
     var id = S.viimeisinId;
+    /* PUOLIAJAN RAJA: 1. puoliajan merkintää ei saa kumota 2. puoliajalla. Kumoa on
+       "viimeisin virhe pois", ei yleinen poistotoiminto — tauon jälkeen edellinen merkintä
+       ei ole enää se, jonka valmentaja luulee kumoavansa. */
+    var kohde = S.merkinnat.filter(function (x) { return x.id === id; })[0];
+    if (kohde && kohde.puoliaika !== S.puoliaika) { S.viimeisinId = null; piilotaKumoa(); return; }
     S.merkinnat = S.merkinnat.filter(function (x) { return x.id !== id; });
     if (S.odottaa && S.odottaa.juuriId === id) { S.odottaa = null; vihje(null); }
     S.viimeisinId = null; piilotaKumoa();
@@ -1038,7 +1097,14 @@ const _db = firebase.firestore();
   }
 
   /* ── ARVOT LIBISTÄ ─────────────────────────────────────────────────── */
-  function naytaLuvut() { return PH.phNaytaLuvut ? PH.phNaytaLuvut(S.ikataso) : true; }
+  /* LUVUT NAKYVAT AINA. Tama on VALMENTAJAN ja VP:n tyokalu — ei pelaajan. Aiemmin sivu kutsui
+     libin `phNaytaLuvut(ikataso)`:a, jolloin alle 13-vuotiaan (ja jokaisen pelaajan, jolta
+     puuttuu syntymaVuosi → ikataso 'u812') kohdalla jokaisen merkinnan arvo oli "· ei lukuja"
+     ja yhteenvedon tilalla luki "Alle 13-vuotiaille ei nayteta lukuja". Laskenta toimi koko
+     ajan; vain naytto oli estetty, eika seura nahnyt omaa dataansa.
+     Pelaajan ja perheen saanto EI muutu: se on libissa `phNaytaLuvutPelaajalle`, eika tama
+     sivu kutsu sita. (Tuotepaatos 28.9.2026, Tero.) */
+  function naytaLuvut() { return true; }
 
   function tiedot(m) {
     var o = { kuvaus: '', arvo: '', ala: '', hi: false };
@@ -1087,7 +1153,6 @@ const _db = firebase.firestore();
     }
     /* §5.5 / §7.22: U8–12 ei näe lukuja lainkaan — ei työkalussakaan, ettei valmentaja lue niitä
        ääneen lapselle. Tilanteet ja 1v1-tulokset näkyvät, luvut eivät. */
-    if (!naytaLuvut()) { o.arvo = '·'; o.ala = phT('ei lukuja'); o.hi = false; }
     return o;
   }
 
@@ -1148,6 +1213,7 @@ const _db = firebase.firestore();
   function piirra() {
     piirraMerkinnat();
     paivitaPalkki();
+    if (typeof paivitaVaihepainike === 'function') paivitaVaihepainike();
     var juuret = S.merkinnat.filter(function (m) { return m.ketju == null; });
     q('rmeta').textContent = juuret.length + ' ' + phT('tilannetta');
 
@@ -1283,11 +1349,6 @@ const _db = firebase.firestore();
     var el = q('yhteenveto');
     var y = PH.phYhteenveto ? PH.phYhteenveto(dokumentti()) : null;
     if (!y) { el.innerHTML = ''; return; }
-    if (!naytaLuvut()) {
-      el.innerHTML = '<div class="pmeta" style="margin-top:12px">' + esc(phT('Yhteenveto')) + '</div>'
-        + '<div class="tyhja">' + esc(phT('Alle 13-vuotiaille ei näytetä lukuja — tilanteet riittävät.')) + '</div>';
-      return;
-    }
     var L = y.luvut || {};
     var solu = function (arvo, avain) {
       return '<div class="sumcell"><div class="v">' + esc(arvo == null ? '—' : arvo) + '</div>'
@@ -1308,6 +1369,14 @@ const _db = firebase.firestore();
     h += solu(L.menetykset ? L.menetykset.n : null, 'menetykset');
     h += solu(L.vastustaja ? L.vastustaja.laukauksia : null, 'vastustajan laukaukset');
     h += '</div>';
+    /* PIENKENTTIEN VARAUMA: uhka-arvo on johdettu 11v11-datasta ja xG-malli on kalibroimaton
+       (`xg_geom_v0_esimerkki`). Luku näytetään, koska valmentaja tarvitsee sen — mutta sitä ei
+       saa lukea tarkkana. Sama huomautus kuin xT:llä, samasta libistä. */
+    var huomio = (typeof xtPelimuotoHuomio === 'function') ? xtPelimuotoHuomio(S.pelimuoto) : null;
+    if (huomio) {
+      h += '<div class="tyhja" style="font-size:11px;line-height:1.5">' + esc(phT(huomio))
+        + ' ' + esc(phT('Maaliodotusarvo on suuntaa-antava, kunnes malli kalibroidaan.')) + '</div>';
+    }
     el.innerHTML = h;
   }
 
@@ -1340,7 +1409,7 @@ const _db = firebase.firestore();
         merkinnat: S.merkinnat, seq: S.seq, puoliaika: S.puoliaika, seisoo: S.seisoo,
         otteluAvain: S.otteluAvain,
         pelimuoto: S.pelimuoto, pelipaikka: S.pelipaikka, kirjattavat: rastitListaksi(),
-        vastustaja: S.vastustaja, kalenteriId: S.kalenteriId, alkoi: S.alkoi,
+        vastustaja: S.vastustaja, kalenteriId: S.kalenteriId, alkoi: S.alkoi, alkoi2: S.alkoi2 || null,
       }));
       q('tallennustila').textContent = phT('tallennettu laitteelle');
     } catch (e) { /* privaattitila / kiintiö täynnä: kirjaus jatkuu muistissa */ }
@@ -1360,6 +1429,7 @@ const _db = firebase.firestore();
       S.vastustaja = d.vastustaja || '';
       S.kalenteriId = d.kalenteriId || null;
       S.alkoi = d.alkoi || Date.now();
+      S.alkoi2 = d.alkoi2 || null;
       if (d.pelipaikka != null) asetaPohja(d.pelipaikka);
       if (Array.isArray(d.kirjattavat)) {
         K = {};
@@ -1390,9 +1460,27 @@ const _db = firebase.firestore();
        otteluAvain on siivottu jo syntyessaan. */
     return S.otteluAvain + '_' + String(S.uid || 'tuntematon');
   }
+  /* SYVA PUHDISTUS: yksikin undefined missa tahansa kentassa hylkaa koko set()-kutsun.
+     Tama on VARAKAISTA — kirjoituskohdat eivat saa tuottaa undefinedia, mutta yksi unohdus
+     ei saa kaataa kokonaisen ottelun tallennusta. Sentinel (serverTimestamp) lisataan VASTA
+     puhdistuksen jalkeen, koska se on olio jota ei saa purkaa. */
+  function phPuhdista(v) {
+    if (Array.isArray(v)) return v.map(phPuhdista).filter(function (x) { return x !== undefined; });
+    if (v && typeof v === 'object' && Object.getPrototypeOf(v) === Object.prototype) {
+      var out = {};
+      Object.keys(v).forEach(function (k) {
+        var p2 = phPuhdista(v[k]);
+        if (p2 !== undefined) out[k] = p2;
+      });
+      return out;
+    }
+    return v;
+  }
+  window._phPuhdista = phPuhdista;
+
   function tarkkailuPayload() {
     var d = dokumentti();
-    return {
+    return phPuhdista({
       tyyppi: 'kenttatarkkailu',
       palloId: (S.pelaaja && (S.pelaaja.tunniste || S.pelaaja.palloID)) || null,
       pelaajaId: S.pelaajaId, seuraId: S.seuraId, valmentajaUid: S.uid,
@@ -1410,7 +1498,7 @@ const _db = firebase.firestore();
       merkinnat: d.merkinnat,
       lahde: 'live',                 // videolta tehty kirjaus merkitään myöhemmin 'video'
       paivitetty: new Date().toISOString(),
-    };
+    });
   }
   function xtMalliId() {
     try {
@@ -1438,11 +1526,21 @@ const _db = firebase.firestore();
       await ref.set(data, { merge: true });
       poistaLuonnos();                                          // vasta onnistuneen kirjoituksen jälkeen
       asetaTallennustila('verkossa');
+      return true;
     } catch (e) {
-      console.warn('[pelihavainto]', e && e.message);
-      /* Luonnos SÄILYY: kentällä epäonnistunut synkka ei saa hävittää kirjauksia. */
+      /* KOKO virhe konsoliin — kentalla ei ole konsolia, mutta jalkikateen se on ainoa
+         tapa selvittaa syy. Kayttajalle naytetaan SYY, ei pelkka yleisteksti: aiempi
+         "kirjaukset ovat tallessa laitteella" ei kertonut, onko kyse oikeuksista vai datasta. */
+      console.error('[pelihavainto] tallennus epaonnistui', e);
       var _te = q('tallennusteksti');
-      if (_te) _te.textContent = phT('tallennus epäonnistui — kirjaukset ovat tallessa laitteella');
+      if (_te) {
+        _te.textContent = (e && e.code === 'permission-denied')
+          ? phT('Ei oikeutta tallentaa tälle pelaajalle — ota yhteys seuran pääkäyttäjään')
+          : (phT('Tallennus epäonnistui') + ' (' + ((e && e.code) || 'virhe') + ') — '
+             + phT('kirjaukset ovat tallessa laitteella'));
+      }
+      /* Luonnos SÄILYY: kentällä epäonnistunut synkka ei saa hävittää kirjauksia. */
+      return false;
     } finally {
       if (btn) btn.disabled = false;
     }
@@ -1533,9 +1631,12 @@ const _db = firebase.firestore();
     var juuria = S.merkinnat.filter(function (m) { return m.ketju == null; }).length;
     var chip = q('pchip');
     if (chip) {
+      /* ⚙ kertoo että sirusta pääsee asetuksiin — aiemmin siinä luki vain "— 0",
+         eikä mikään vihjannut että sieltä vaihdetaan esimerkiksi seisomapaikka. */
       chip.innerHTML = '<span class="nro">' + esc(p.pelinumero != null ? '#' + p.pelinumero : '–') + '</span>'
         + '<span class="nm">' + esc(nimi) + '</span>'
-        + '<span class="c">' + juuria + '</span>';
+        + '<span class="c">' + juuria + '</span>'
+        + '<span class="c" aria-hidden="true">⚙</span>';
     }
     var lkm = q('merkintaLkm');
     if (lkm) lkm.textContent = String(juuria);
@@ -1740,6 +1841,116 @@ const _db = firebase.firestore();
     window._phKelloAjastin = setInterval(piirraKello, 1000);
   }
 
+  /* ══ OTTELUN KULKU ══════════════════════════════════════════════════
+     Aiemmin puoliajan vaihto oli piilossa (pelaajasiru → aloitusruutu → "2." → Jatka), eikä
+     ottelua voinut lopettaa lainkaan. Nyt Merkinnät-lehden pääpainike kertoo, mitä seuraavaksi
+     tapahtuu, ja vahvistus kertoo mitä se tarkoittaa. */
+  function paivitaVaihepainike() {
+    var b = q('btnVaihe');
+    if (!b) return;
+    if (S.lukutila) { b.style.display = 'none'; return; }
+    b.style.display = '';
+    b.textContent = (S.puoliaika === 2) ? phT('Lopeta ottelu') : (phT('Päätä 1. puoliaika') + ' →');
+    var siru = q('pasiru');
+    if (siru) {
+      siru.textContent = S.puoliaika + '. ' + phT('pa');
+      siru.classList.toggle('toinen', S.puoliaika === 2);
+    }
+  }
+
+  function tyhjennaVahvistus() {
+    var v = q('vaiheVahvistus');
+    if (v) v.innerHTML = '';
+    var b = q('btnVaihe');
+    if (b) b.style.display = S.lukutila ? 'none' : '';
+  }
+
+  function naytaVahvistus(teksti, nappiTeksti, fn) {
+    var v = q('vaiheVahvistus');
+    if (!v) return;
+    q('btnVaihe').style.display = 'none';
+    v.innerHTML = '<div class="rivi">' + esc(teksti)
+      + '<div class="napit"><button class="tbtn" type="button" id="vahvOk">' + esc(nappiTeksti) + '</button>'
+      + '<button class="tbtn sec" type="button" id="vahvEi">' + esc(phT('Takaisin')) + '</button></div></div>';
+    q('vahvOk').onclick = fn;
+    q('vahvEi').onclick = tyhjennaVahvistus;
+  }
+
+  function vaihePainettu() {
+    if (S.puoliaika === 2) {
+      naytaVahvistus(phT('Ottelu tallennetaan ja kello pysähtyy.'), phT('Lopeta ottelu'), lopetaOttelu);
+    } else {
+      naytaVahvistus(phT('2. puoliaika alkaa. Hyökkäyssuunta kääntyy.'),
+        phT('Päätä 1. puoliaika'), paataPuoliaika);
+    }
+  }
+
+  async function paataPuoliaika() {
+    tyhjennaVahvistus();
+    S.puoliaika = 2;
+    S.alkoi2 = Date.now();
+    S.viimeisinId = null;                 // kumoa ei ylitä rajaa
+    piilotaKumoa();
+    tallennaLuonnos();
+    /* Synkka yritetään, mutta EI estä jatkamista: tauko on lyhyt eikä verkko ole varma. */
+    tallennaFirestoreen();
+    suljeLehti();
+    asettele(); piirraKentta(); piirra();
+    paivitaVaihepainike();
+    var nuoli = PYSTY ? '↓' : '←';
+    naytaToast(phT('2. puoliaika') + ' · ' + phT('hyökkäys') + ' ' + nuoli);
+  }
+
+  /* Kevyt toast: kenttätilassa ei ole muuta ilmoituskanavaa. */
+  function naytaToast(teksti) {
+    var el = document.createElement('div');
+    el.className = 'toast';
+    el.textContent = teksti;
+    laatikko.appendChild(el);
+    setTimeout(function () { if (el.parentNode) el.parentNode.removeChild(el); }, 2600);
+  }
+
+  async function lopetaOttelu() {
+    tyhjennaVahvistus();
+    var ok = await tallennaFirestoreen();
+    if (!ok) {
+      /* Ottelu PYSYY AUKI ja luonnos säilyy — uusi yritys on yksi painallus. */
+      naytaVahvistus(phT('Tallessa laitteella — yritä uudelleen.'), phT('Yritä uudelleen'), lopetaOttelu);
+      return;
+    }
+    S.paattynyt = true;
+    S.kelloPysahtyi = kelloSekunnit();
+    if (window._phKelloAjastin) { clearInterval(window._phKelloAjastin); window._phKelloAjastin = null; }
+    vapautaNaytto();
+    suljeLehti();
+    naytaLoppunakyma();
+  }
+
+  function vapautaNaytto() {
+    try { if (wakeLock && wakeLock.release) wakeLock.release(); } catch (e) { /* ei tuettu */ }
+    wakeLock = null;
+    try {
+      if (document.fullscreenElement && document.exitFullscreen) document.exitFullscreen().catch(function () {});
+      else if (document.webkitFullscreenElement && document.webkitExitFullscreen) document.webkitExitFullscreen();
+    } catch (e) { /* ei tuettu */ }
+  }
+
+  function naytaLoppunakyma() {
+    var y = PH.phYhteenveto ? PH.phYhteenveto(dokumentti()) : null;
+    var L = (y && y.luvut) || {};
+    var juuria = S.merkinnat.filter(function (m) { return m.ketju == null; }).length;
+    var uhka = L.luotuUhka ? num(Math.round(L.luotuUhka.pisteet * 100) / 10, true) : '—';
+    var xg = L.xg ? L.xg.summa.toFixed(2).replace('.', ',') : '—';
+    q('loppuOtsikko').textContent = phT('Ottelu tallennettu');
+    q('loppuLuvut').textContent = juuria + ' ' + phT('tilannetta') + ' · '
+      + phT('luotu uhka') + ' ' + uhka + ' · xG ' + xg;
+    var virhe = q('loppuVirhe');
+    if (virhe) { virhe.textContent = ''; virhe.className = 'fine'; }
+    q('kenttatila').style.display = 'none';
+    q('loppu').style.display = '';
+    document.body.classList.remove('kenttatilassa');
+  }
+
   function alustaKenttatila() {
     var aloita = q('btnAloita');
     if (aloita) aloita.onclick = function () {
@@ -1756,6 +1967,32 @@ const _db = firebase.firestore();
     if (lista) lista.onclick = function () { q('sheet').classList.contains('auki') ? suljeLehti() : avaaLehti(); };
     var scrim = q('scrim');
     if (scrim) scrim.onclick = suljeLehti;
+
+    /* Puoliaikasiru vie suoraan läpikäyntiin — se on tauolla ensimmäinen asia jota tarvitaan. */
+    var siru = q('pasiru');
+    if (siru) siru.onclick = function () { avaaLehti(); };
+    var vaihe = q('btnVaihe');
+    if (vaihe) vaihe.onclick = vaihePainettu;
+    paivitaVaihepainike();
+
+    var lPk = q('loppuPikakortti');
+    if (lPk) lPk.onclick = function () {
+      window.open('TalentMaster_ADAR_Pikakortti.html?seuraId=' + encodeURIComponent(S.seuraId || '')
+        + '&pelaajaId=' + encodeURIComponent(S.pelaajaId || ''), '_blank');
+    };
+    var lUusi = q('loppuUusi');
+    if (lUusi) lUusi.onclick = function () {
+      /* UUSI OTTELU = uusi otteluAvain. Vanha on jo tallennettu ja sen luonnos poistettu. */
+      S.merkinnat = []; S.seq = 0; S.viimeisinId = null; S.odottaa = null;
+      S.puoliaika = 1; S.alkoi = Date.now(); S.alkoi2 = null;
+      S.paattynyt = false; S.kelloPysahtyi = 0;
+      S.otteluAvain = otteluAvainNyt(S.alkoi, S.kalenteriId);
+      q('loppu').style.display = 'none';
+      asetaTallennustila('');
+      avaaAsetukset();
+    };
+    var lSulje = q('loppuSulje');
+    if (lSulje) lSulje.onclick = function () { q('loppu').style.display = 'none'; };
 
     /* Kenttä seuraa puhelimen asentoa. Valitsin suljetaan ENNEN uudelleenasettelua, jottei se
        jää roikkumaan väärään kohtaan käännön jälkeen. Merkinnät eivät katoa: ne ovat

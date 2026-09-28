@@ -192,12 +192,38 @@ describe('(3) Maaliodotusarvo', () => {
     expect(keskelta).toBeGreaterThan(sivusta);
   });
 
-  it('PIENKENTTA: maalin leveys vahvistamatta → null (ei arvausta)', () => {
+  /* PIENKENTTIEN MAALIT VAHVISTETTU (Tero 28.9.2026): 8v8 = 5 m, 5v5 = 3 m. Aiemmin nama
+     olivat null, jolloin phXg palautti null — ja koska aloitusruudun oletus on 8v8, xG
+     puuttui kaytannossa AINA junioreilta. */
+  it('PIENKENTTA: maalin leveys on vahvistettu', () => {
     expect(PH.phMaalinLeveys('11v11')).toBe(7.32);
-    expect(PH.phMaalinLeveys('8v8')).toBeNull();
-    expect(PH.phMaalinLeveys('5v5')).toBeNull();
-    expect(PH.phXg({ len: 80, wid: 50 }, '5v5')).toBeNull();
-    expect(PH.phXg({ len: 80, wid: 50 }, '8v8')).toBeNull();
+    expect(PH.phMaalinLeveys('8v8')).toBe(5);
+    expect(PH.phMaalinLeveys('5v5')).toBe(3);
+  });
+
+  it('PIENKENTTA: xG on luku 0–1, ei null', () => {
+    ['8v8', '5v5'].forEach((pm) => {
+      const x = PH.phXg({ len: 80, wid: 50 }, pm);
+      expect(x, pm + ': xG puuttuu').toBeTruthy();
+      expect(x.todennakoisyys).toBeGreaterThan(0);
+      expect(x.todennakoisyys).toBeLessThan(1);
+    });
+  });
+
+  it('PIENKENTTA: xG kasvaa kun laukaus on lahempana maalia', () => {
+    ['8v8', '5v5'].forEach((pm) => {
+      const kaukaa = PH.phXg({ len: 70, wid: 50 }, pm).todennakoisyys;
+      const lahelta = PH.phXg({ len: 92, wid: 50 }, pm).todennakoisyys;
+      expect(lahelta, pm + ': lahempaa ei ole todennakoisempi').toBeGreaterThan(kaukaa);
+    });
+  });
+
+  it('KAPEAMPI MAALI → pienempi kulma samasta pisteesta', () => {
+    /* 5v5:n maali on 3 m ja 8v8:n 5 m. Sama piste antaa kapeammalla maalilla pienemman
+       kulman — muuten maalin leveys ei vaikuttaisi malliin lainkaan. */
+    const piste = { len: 85, wid: 50 };
+    expect(PH.phXg(piste, '5v5').kulma_rad)
+      .toBeLessThan(PH.phXg(piste, '8v8').kulma_rad);
   });
 
   it('3v3 → null (xT/xG ei kaytossa)', () => {
@@ -548,10 +574,11 @@ describe('(5) Yhteenveto ja siirtyma (§5.4 / §5.4.1)', () => {
     const y = PH.phYhteenveto(dok([laukaus]));
     expect(y.luvut.xg.laukauksia).toBe(1);
     expect(y.luvut.xg.summa).toBeCloseTo(0.43, 2);
+    /* Pienkentta LASKEE nyt xG:n (maalin leveys vahvistettu 28.9.2026). */
     const pieni = PH.phYhteenveto(dok([laukaus], { ottelu: { pelimuoto: '5v5' } }));
     expect(pieni.luvut.xg.laukauksia).toBe(1);
-    expect(pieni.luvut.xg.laskettu).toBe(0);
-    expect(pieni.luvut.xg.summa).toBe(0);
+    expect(pieni.luvut.xg.laskettu).toBe(1);
+    expect(pieni.luvut.xg.summa).toBeGreaterThan(0);
   });
 
   it('menetykset: menetys + harhasyotto + havitty hyokkays-1v1, korkea riski eriteltyna', () => {

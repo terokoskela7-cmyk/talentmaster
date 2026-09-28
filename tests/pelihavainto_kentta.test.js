@@ -261,7 +261,9 @@ describe('(4) laskenta tulee VAIN libistä', () => {
 
   it('arvot, ketjut ja yhteenveto tulevat libin funktioista', () => {
     ['PH.phArvo(', 'PH.phYhteenveto(', 'PH.phKetjut(', 'PH.phKetjuNimi(', 'PH.phVyohyke(',
-      'PH.phPohja(', 'PH.phIkataso(', 'PH.phNaytaLuvut(', 'PH.PH_KIRJATTAVAT'].forEach((s) => {
+      /* `PH.phNaytaLuvut(` POISTETTU listalta: se on PELAAJAN nayttosaanto, ei laskentaa.
+         Kenttatyokalu (valmentaja/VP) ei saa kutsua sita — ks. ryhma (8). */
+      'PH.phPohja(', 'PH.phIkataso(', 'PH.PH_KIRJATTAVAT'].forEach((s) => {
       expect(koodi, s + ' puuttuu → laskenta ei tule libistä').toContain(s);
     });
   });
@@ -462,15 +464,53 @@ describe('(7) konseptit — kanoniset avaimet ja pelipaikkaehto', () => {
   });
 });
 
-describe('(8) §7.22 · U8–12 ei näe lukuja', () => {
-  it('arvo korvautuu pisteellä kun phNaytaLuvut on false', () => {
-    const f = pura('function tiedot(m) {');
-    expect(f).toContain("if (!naytaLuvut()) { o.arvo = '·'");
-    expect(pura('function naytaLuvut() {')).toContain('PH.phNaytaLuvut(S.ikataso)');
+/* TUOTEPÄÄTÖS 28.9.2026 (Tero): kenttätyökalu on VALMENTAJAN ja VP:n työkalu, ja siellä luvut
+   näkyvät aina. Aiemmin sivu kutsui libin `phNaytaLuvut(ikataso)`:a, jolloin alle 13-vuotiaalta
+   — ja jokaiselta pelaajalta, jolta puuttuu `syntymaVuosi` → ikataso 'u812' — piiloutuivat
+   uhka, xG ja koko yhteenveto. Laskenta toimi koko ajan; vain näyttö oli estetty.
+   §7.22 EI kumoutunut: sääntö koskee pelaajaa ja perhettä, ja se elää libissä nimellä
+   `phNaytaLuvutPelaajalle`. Tämä ryhmä vartioi molempia puolia. */
+describe('(8) luvut valmentajalle — §7.22 säilyy pelaajan puolella', () => {
+  it('kenttätyökalu EI kutsu pelaajan näyttösääntöä', () => {
+    expect(SIVU_KOODI, 'pelaajan sääntö palasi valmentajan työkaluun')
+      .not.toContain('phNaytaLuvut');
   });
 
-  it('yhteenveto piilotetaan kokonaan U8–12-tasolla', () => {
-    expect(pura('function piirraYhteenveto() {')).toContain('if (!naytaLuvut()) {');
+  it('arvoa ei korvata pisteellä millään ikätasolla', () => {
+    const f = pura('function tiedot(m) {');
+    expect(f, '"ei lukuja" -haara jäi').not.toContain("o.arvo = '·'");
+    /* Kommentit riisuttuna: sivun oma perustelu KERTOO mitä poistettiin, joten raaka haku
+       osuisi siihen ja vartija punertaisi juuri siitä että syy on kirjattu. */
+    expect(SIVU_KOODI, 'teksti jäi sivulle').not.toContain('ei lukuja');
+  });
+
+  it('yhteenvetoa ei piiloteta', () => {
+    const f = pura('function piirraYhteenveto() {');
+    expect(f, 'yhteenvedon esto jäi').not.toContain('if (!naytaLuvut()) {');
+    expect(SIVU_KOODI).not.toContain('Alle 13-vuotiaille ei näytetä lukuja');
+  });
+
+  it('SÄÄNTÖ SÄILYY LIBISSÄ: pelaajalle ei näytetä lukuja U8–12-tasolla', () => {
+    expect(PH.phNaytaLuvutPelaajalle('u812')).toBe(false);
+    expect(PH.phNaytaLuvutPelaajalle('u1315')).toBe(true);
+    expect(PH.phNaytaLuvutPelaajalle('u16')).toBe(true);
+  });
+
+  it('EI VACUOUS: merkinnän arvo on numero myös ilman ikää', () => {
+    /* Ikä puuttuu → ikataso 'u812'. Tämä oli se hiljainen haara, joka piilotti luvut
+       myös 17-vuotiaalta, jolta puuttui syntymävuosi. */
+    const arvo = PH.phArvo({ tyyppi: 'laukaus', piste: { len: 90, wid: 50 }, tulos: 'maali' },
+      { pelimuoto: '11v11' });
+    expect(arvo).toBeTruthy();
+    expect(typeof (arvo.arvo != null ? arvo.arvo : arvo.pisteet)).not.toBe('undefined');
+  });
+
+  it('PELAAJAN PUOLI: kenttätarkkailun dataa ei lueta pelaajan eikä perheen näkymässä', () => {
+    ['TalentMaster_Pelaaja_v7.html', 'TalentMaster_Vanhempi_v2.html'].forEach((tiedosto) => {
+      const s = readFileSync(join(juuri, tiedosto), 'utf8');
+      expect(s, tiedosto + ' lukee kenttätarkkailuja — luvut vuotaisivat lapselle')
+        .not.toContain('kenttatarkkailut');
+    });
   });
 });
 
@@ -1333,5 +1373,186 @@ describe('(15) kosketuspiste osuu sormen kohdalle', () => {
     const f = pura('function alustaEleet() {');
     expect(f).toContain('ev.clientX - veto.ruutuAlku.x');
     expect(f).toContain('LIIKE_RAJA_PX');
+  });
+});
+
+
+/* ── 16 · TALLENNUSVIKA (undefined-kentta) ──────────────────────────
+   "vp pääsi nyt sisään mutta tallennus epäonnistui — kirjaukset ovat tallessa laitteella."
+   Vika EI ollut oikeuksissa vaan datassa: laukaus ilman ketjua kirjoitettiin muodossa
+   `ketju: juuri || undefined`, ja Firestore compat -SDK hylkaa KOKO set()-kutsun jos
+   yhdessakin kentassa on undefined. Luonnos (JSON) pudottaa kentan pois, joten vika katosi
+   sivunlatauksen jalkeen — siksi se nayttaytyi satunnaisena. */
+describe('(16) tallennus: undefined ei saa paasta dokumenttiin', () => {
+  it('laukaus ilman ketjua EI kirjoita ketju-kenttaa', () => {
+    /* Kommentit riisuttuna: funktion oma perustelu SISÄLTÄÄ vanhan muodon, joten raaka haku
+       osuisi siihen ja vartija punertaisi juuri siitä että syy on kirjattu. */
+    const f = ilmanKommentteja(pura('function kysyLaukaus(sp, piste, juuri) {'));
+    expect(f, 'undefined-arvo hylkaa koko set()-kutsun')
+      .not.toContain('ketju: juuri || undefined');
+    expect(f, 'ketju kirjoitetaan vain kun se on').toContain('if (juuri) m.ketju = juuri;');
+  });
+
+  it('EI VACUOUS: ketju kirjoitetaan kun juuri on olemassa', () => {
+    const f = ilmanKommentteja(pura('function kysyLaukaus(sp, piste, juuri) {'));
+    expect((f.match(/if \(juuri\) m\.ketju = juuri;/g) || []).length,
+      'molemmat haarat (valinta + aikakatkaisu) on katettava').toBeGreaterThanOrEqual(2);
+  });
+
+  it('PUHDISTUS poistaa undefinedin syvalta rakenteesta', () => {
+    const puhdista = aja(['function phPuhdista(v) {'], 'return phPuhdista;', { Object, Array });
+    const ulos = puhdista({
+      a: 1, b: undefined,
+      merkinnat: [{ id: 1, ketju: undefined, piste: { len: 1, wid: undefined } }],
+      syva: { x: { y: undefined, z: 0 } },
+    });
+    const lapi = JSON.stringify(ulos);
+    expect(lapi).not.toContain('undefined');
+    expect(Object.prototype.hasOwnProperty.call(ulos, 'b'), 'undefined-kentta jai').toBe(false);
+    expect(Object.prototype.hasOwnProperty.call(ulos.merkinnat[0], 'ketju')).toBe(false);
+    expect(Object.prototype.hasOwnProperty.call(ulos.merkinnat[0].piste, 'wid')).toBe(false);
+    /* EI VACUOUS: kelvolliset arvot sailyvat, myos 0 ja null. */
+    expect(ulos.a).toBe(1);
+    expect(ulos.syva.x.z).toBe(0);
+    expect(ulos.merkinnat[0].piste.len).toBe(1);
+  });
+
+  it('payload kulkee puhdistuksen lapi ja sentinel lisataan VASTA sen jalkeen', () => {
+    const f = pura('function tarkkailuPayload() {');
+    expect(f, 'payloadia ei puhdisteta').toContain('phPuhdista({');
+    const tal = pura('async function tallennaFirestoreen() {');
+    const iPayload = tal.indexOf('tarkkailuPayload()');
+    const iSentinel = tal.indexOf('serverTimestamp()');
+    expect(iSentinel, 'sentinel puuttuu').toBeGreaterThan(-1);
+    expect(iSentinel, 'sentinel lisattiin ennen puhdistusta → puhdistus purkaisi sen')
+      .toBeGreaterThan(iPayload);
+  });
+
+  it('VIRHEVIESTI kertoo syyn, ei pelkkaa yleistekstia', () => {
+    const f = pura('async function tallennaFirestoreen() {');
+    expect(f, 'oikeusvirhe pitaa erottaa muusta').toContain("e.code === 'permission-denied'");
+    expect(f).toContain('Ei oikeutta tallentaa t\u00e4lle pelaajalle');
+    expect(f, 'koodi on nakyvissa, jotta syy voi selvittaa').toContain("(e && e.code) || 'virhe'");
+    expect(f, 'koko virhe konsoliin').toContain('console.error');
+  });
+
+  it('tallennus palauttaa onnistumisen (lopetus tarvitsee sen)', () => {
+    const f = pura('async function tallennaFirestoreen() {');
+    expect(f).toContain('return true;');
+    expect(f).toContain('return false;');
+  });
+});
+
+/* ── 17 · PUOLIAJAN VAIHTO JA OTTELUN LOPETUS ──────────────────────
+   "otteluhavainnon lopetus ei onnistu. puoliajan vaihto." Puoliajan vaihto oli piilossa
+   (pelaajasiru → aloitusruutu → "2." → Jatka), eika ottelua voinut lopettaa lainkaan:
+   Tallenna tallensi, mutta kello kavi ja naytto pysyi paalla. */
+describe('(17) ottelun kulku: puoliaika ja lopetus', () => {
+  it('ylapalkissa on puoliaikasiru, joka avaa lapikaynnin', () => {
+    expect(SIVU).toContain('id="pasiru"');
+    const f = pura('function alustaKenttatila() {');
+    expect(f).toContain("siru.onclick = function () { avaaLehti(); }");
+  });
+
+  it('paapainike riippuu puoliajasta', () => {
+    const f = pura('function paivitaVaihepainike() {');
+    expect(f).toContain("phT('Lopeta ottelu')");
+    expect(f).toContain("phT('P\u00e4\u00e4t\u00e4 1. puoliaika')");
+    expect(f, 'valinta tehdaan puoliajan mukaan').toContain('S.puoliaika === 2');
+  });
+
+  it('vahvistus kertoo mita tapahtuu', () => {
+    const f = pura('function vaihePainettu() {');
+    expect(f).toContain('2. puoliaika alkaa. Hy\u00f6kk\u00e4yssuunta k\u00e4\u00e4ntyy.');
+    expect(f).toContain('Ottelu tallennetaan ja kello pys\u00e4htyy.');
+  });
+
+  it('puoliajan vaihto: tila, luonnos, synkka ja uudelleenpiirto', () => {
+    const f = pura('async function paataPuoliaika() {');
+    expect(f).toContain('S.puoliaika = 2;');
+    expect(f, '2. puoliajan kello alkaa nollasta').toContain('S.alkoi2 = Date.now();');
+    expect(f).toContain('tallennaLuonnos();');
+    expect(f, 'synkka yritetaan mutta ei estä jatkamista').toContain('tallennaFirestoreen();');
+    expect(f, 'suunta on piirrettava uudelleen').toContain('piirraKentta();');
+    expect(f, 'kumoa ei saa ylittaa rajaa').toContain('S.viimeisinId = null;');
+  });
+
+  it('KELLO nayttaa kuluvan puoliajan ajan nollasta', () => {
+    const f = pura('function puoliajanAlku() {');
+    expect(f).toContain('S.alkoi2 || S.alkoi');
+    const k = pura('function kelloSekunnit() {');
+    expect(k).toContain('puoliajanAlku()');
+    expect(k, 'paattyneen ottelun kello on pysahtynyt').toContain('S.paattynyt');
+  });
+
+  it('LOPETUS: tallennus, kello seis, naytto vapaaksi, loppunakyma', () => {
+    const f = pura('async function lopetaOttelu() {');
+    expect(f).toContain('await tallennaFirestoreen()');
+    expect(f).toContain('S.paattynyt = true;');
+    expect(f).toContain('clearInterval(window._phKelloAjastin)');
+    expect(f).toContain('vapautaNaytto()');
+    expect(f).toContain('naytaLoppunakyma()');
+  });
+
+  it('LOPETUS EPAONNISTUU: ottelu pysyy auki ja uusi yritys on yksi painallus', () => {
+    const f = pura('async function lopetaOttelu() {');
+    expect(f, 'epaonnistunut tallennus ei saa paattaa ottelua').toContain('if (!ok) {');
+    expect(f).toContain('Tallessa laitteella');
+    expect(f).toContain('lopetaOttelu);');
+    const i = f.indexOf('if (!ok) {');
+    expect(f.slice(i, f.indexOf('return;', i)), 'ottelu merkittiin paattyneeksi silti')
+      .not.toContain('S.paattynyt = true');
+  });
+
+  it('LUONNOS sailyy kun lopetus epaonnistuu', () => {
+    /* poistaLuonnos() ajetaan vain onnistuneen kirjoituksen jalkeen. */
+    const f = pura('async function tallennaFirestoreen() {');
+    const iPoisto = f.indexOf('poistaLuonnos()');
+    const iCatch = f.indexOf('} catch (e) {');
+    expect(iPoisto).toBeGreaterThan(-1);
+    expect(iPoisto, 'luonnos poistetaan virhehaarassa').toBeLessThan(iCatch);
+  });
+
+  it('naytto vapautetaan: wakeLock ja koko naytto', () => {
+    const f = pura('function vapautaNaytto() {');
+    expect(f).toContain('wakeLock.release()');
+    expect(f).toContain('exitFullscreen');
+  });
+
+  it('LOPPUNAKYMA nayttaa luvut ja vie eteenpain', () => {
+    const f = pura('function naytaLoppunakyma() {');
+    expect(f).toContain('Ottelu tallennettu');
+    expect(f).toContain('luotu uhka');
+    expect(f).toContain('xG');
+    ['loppuPikakortti', 'loppuUusi', 'loppuSulje'].forEach((id) => {
+      expect(SIVU, 'loppunakymasta puuttuu ' + id).toContain('id="' + id + '"');
+    });
+  });
+
+  it('UUSI OTTELU luo uuden otteluavaimen', () => {
+    const f = pura('function alustaKenttatila() {');
+    const i = f.indexOf("lUusi.onclick");
+    const lohko = f.slice(i, f.indexOf('};', i));
+    expect(lohko).toContain('S.otteluAvain = otteluAvainNyt(');
+    expect(lohko, 'merkinnat on nollattava').toContain('S.merkinnat = [];');
+    expect(lohko, 'puoliaika alkaa alusta').toContain('S.puoliaika = 1;');
+  });
+
+  it('KUMOA ei ylita puoliajan rajaa', () => {
+    const f = pura('function kumoa() {');
+    expect(f).toContain('kohde.puoliaika !== S.puoliaika');
+  });
+
+  it('"Tallenna" sailyy valitallennuksena eika lopeta ottelua', () => {
+    expect(SIVU).toContain('id="btnTallenna"');
+    const f = pura('function alustaKenttatila() {');
+    expect(f, 'Tallenna ei saa kutsua lopetusta').not.toMatch(/btnTallenna[\s\S]{0,200}lopetaOttelu/);
+  });
+
+  it('pelaajasirussa on ratas, jotta asetukset loytyvat', () => {
+    /* Kommentit riisuttuna: funktion oma perustelu mainitsee rattaan, joten raaka haku
+       menisi lapi vaikka itse merkki olisi poistettu sirusta. */
+    const f = ilmanKommentteja(pura('function paivitaPalkki() {'));
+    expect(f, 'ratas katosi sirusta').toContain('\u2699');
   });
 });
