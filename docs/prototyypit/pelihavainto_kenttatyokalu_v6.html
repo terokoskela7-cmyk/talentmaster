@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- REFERENSSI-MOCKUP (ei tuotantokoodia): kohdennetun pelihavainnon kenttätyökalu. Spec: docs/CODE_TASK_PELIANALYTIIKKA_2026-09.md §5.
+<!-- REFERENSSI-MOCKUP (ei tuotantokoodia): kohdennetun pelihavainnon kenttätyökalu. Spec: docs/CODE_TASK_PELIANALYTIIKKA_2026-09.md §5 + SKENAARIO_PELIHAVAINTO_KOKONAISUUS.md (versio 6: kierros 1 + pohja + vastustajan laukaus + konseptiavaimet).
      Kuvitteellinen esimerkkidata. Avaa selaimessa sellaisenaan. -->
 <html lang="fi">
 <head>
@@ -235,7 +235,7 @@
   .chip[aria-pressed="true"].sel{color:var(--ink);border-color:var(--ink3);background:var(--surface2)}
   .chip.static{cursor:default}
   .chips .lab{font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink3);font-weight:600}
-  select.concept{font-family:var(--font-sans);font-size:10.5px;padding:4px 6px;border:.5px solid var(--border);background:var(--surface2);color:var(--ink2);border-radius:2px;max-width:170px}
+  select.concept{font-family:var(--font-sans);font-size:10.5px;padding:4px 6px;border:.5px solid var(--border);background:var(--surface2);color:var(--ink2);border-radius:2px;max-width:240px}
 
   .summary{margin-top:18px;background:var(--surface);border:.5px solid var(--border);border-left:2px solid var(--accent);border-radius:3px;padding:16px 18px}
   .kpis{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 16px;margin:12px 0 14px}
@@ -247,6 +247,25 @@
   .adar div b{font-weight:500;color:var(--ink)}
   .adar .k{font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink3);font-weight:600;padding-top:2px}
   @media (max-width:520px){ .adar div{grid-template-columns:1fr;gap:0} .chips{margin-left:0} }
+  .uutta{margin-top:18px;border:.5px solid var(--teal-brd);background:var(--teal-dim);border-radius:3px;padding:12px 16px;max-width:760px}
+  .uutta ul{margin:6px 0 0;padding-left:18px;font-size:12.5px;color:var(--ink2)}
+  .uutta li{margin:2px 0}
+  .uutta b{color:var(--ink);font-weight:500}
+  .pohja{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .pohja .val{font-size:12px;color:var(--accent);border:.5px solid var(--teal-brd);background:var(--teal-dim);padding:6px 10px;border-radius:3px}
+  .linkbtn{font-size:11.5px;background:transparent;border:0;color:var(--ink2);text-decoration:underline;text-underline-offset:3px;cursor:pointer;padding:4px 2px}
+  .rastit{flex-basis:100%;border-top:.5px solid var(--border);padding-top:12px;display:flex;flex-direction:column;gap:10px}
+  .rastit[hidden]{display:none}
+  .rastit .rgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:4px 16px}
+  .rastit label{display:flex;gap:8px;align-items:flex-start;font-size:12.5px;color:var(--ink);cursor:pointer;padding:3px 0}
+  .rastit input{accent-color:var(--accent);margin-top:3px}
+  .rastit .der{display:block;font-size:10.5px;color:var(--ink3)}
+  .rastit .rnote{font-size:11px;color:var(--ink3)}
+  .type.vlaukaus{color:var(--red);border:.5px solid var(--red-brd);background:var(--red-dim)}
+  .chains{margin:4px 0 14px;display:flex;flex-direction:column;gap:6px}
+  .chains .ch{display:flex;justify-content:space-between;gap:10px;font-size:12.5px;color:var(--ink);border-top:.5px dashed var(--border2);padding-top:6px}
+  .chains .ch span:last-child{font-family:var(--font-mono);font-size:11px;color:var(--accent);white-space:nowrap}
+  .chains .ch.lost span:last-child{color:var(--amber)}
   .footnote{margin-top:34px;font-size:12px;color:var(--ink3);max-width:760px;border-top:.5px solid var(--border);padding-top:16px}
   .footnote b{color:var(--ink2);font-weight:500}
 </style>
@@ -256,12 +275,22 @@
 <button class="themebtn" type="button" onclick="(function(){var r=document.documentElement;var cur=r.getAttribute('data-theme');var dark=cur?cur==='dark':!window.matchMedia('(prefers-color-scheme: light)').matches;r.setAttribute('data-theme',dark?'light':'dark');})()">vaihda teema</button>
 
 <div class="wrap">
-  <div class="eyebrow">TalentMaster™ · pelihavainto · versio 5</div>
+  <div class="eyebrow">TalentMaster™ · pelihavainto · versio 6</div>
   <h1>Katse pysyy pelissä, <em>peukalo kentällä</em>.</h1>
   <p class="lede">Yksi pelaaja, yksi puoliaika, 5–10 tilannetta. Syötöt ja kuljetukset erotellaan, kuljetukselle kirjataan lopputuote, 1v1-tilanteet seurataan molempiin suuntiin, ja riiston jälkeen nähdään, mitä pelaaja teki voitetulla pallolla.</p>
   <div class="hero-actions">
     <button type="button" class="cta" id="btnOpenFs">⛶ Avaa kenttätyökalu koko näytölle</button>
     <span class="badge-example">◐ Kuvitteellinen esimerkki. Kenttä toimii, kokeile.</span>
+  </div>
+  <div class="uutta">
+    <div class="eyebrow">Uutta versiossa 6 · pilottipalautteen pohjalta</div>
+    <ul>
+      <li><b>6 sekuntia</b> jatkovalintoihin (oli 4).</li>
+      <li><b>Pohja valmiina:</b> kaikki perustoiminnot heti. <b>Pelipaikka on valinnainen</b>: nuoremmilla sitä ei tarvita, ja jos sen valitsee, rastit painottuvat pelipaikan mukaan. Rastit ovat "Muokkaa"-linkin takana.</li>
+      <li><b>Vastustajan laukaus:</b> napauta <i>omalla kolmanneksella</i>, niin Laukaisun tilalla on Vastustajan laukaus. Valikossa edelleen neljä vaihtoehtoa. Päällä toppari- ja maalivahtipohjassa, muuten rasti kohdasta Muokkaa.</li>
+      <li><b>Ketjut</b> luettavana sarjana ja <b>tulot boksiin / hyökkäyskolmannekselle</b> (syötöt ja kuljetukset) yhteenvedossa.</li>
+      <li><b>Konsepti</b> valitaan TM-konsepteista (LA-H4, J-S1 …), ei vapaana tekstinä.</li>
+    </ul>
   </div>
 
   <div class="setup" role="group" aria-label="Asetukset ennen puoliaikaa">
@@ -287,7 +316,19 @@
         <button type="button" data-v="far" aria-pressed="false">Vastakkaisella laidalla</button>
       </div>
     </div>
+    <div class="grp">
+      <span class="lbl">Pohja</span>
+      <div class="pohja"><span class="val" id="pohjaTxt">Pelaajatarkkailu</span><button type="button" class="linkbtn" id="btnMuokkaa" aria-expanded="false" aria-controls="rastit">Muokkaa</button></div>
+    </div>
     <div class="note" id="tierNote"></div>
+    <div class="rastit" id="rastit" hidden>
+      <div class="grp">
+        <span class="lbl">Pelipaikka (valinnainen)</span>
+        <div class="seg" id="segPos"></div>
+      </div>
+      <div class="rgrid" id="rgrid"></div>
+      <div class="rnote">Rastit vain karsivat valikoita. Harmaa alarivi = tulee automaattisesti ilman lisätyötä. Rastin voi lisätä kesken ottelun.</div>
+    </div>
   </div>
 
   <div class="cols">
@@ -300,8 +341,8 @@
       <div class="device" id="device">
         <div class="screen" id="screen">
           <div class="sbar">
-            <div class="who"><span class="name">Aleksi Mäkinen</span><span class="num">#8 · laituri</span></div>
-            <span class="focus" title="Pelaajan nykyinen jaksofokus">📍 Jaksofokus: 1v1-hyökkäys laidalla</span>
+            <div class="who"><span class="name">Aleksi Mäkinen</span><span class="num" id="pelNum">#8</span></div>
+            <span class="focus" title="Pelaajan nykyinen jaksofokus">📍 Jaksofokus: LA-H4 1v1 ja edun luominen</span>
             <span class="sp"></span>
             <button type="button" class="iconbtn" id="btnOutdoor" aria-pressed="false" title="Korkeakontrastinen tila aurinkoon">☀</button>
             <span class="clock"><span class="dot"></span><span id="clock">36:40</span></span>
@@ -328,6 +369,7 @@
       <div class="howto" aria-label="Eleet">
         <span><kbd>pyyhkäisy</kbd> syöttö tai kuljetus</span>
         <span><kbd>napautus</kbd> laukaisu, riisto, menetys tai 1v1</span>
+        <span><kbd>napautus omalla kolmanneksella</kbd> vastustajan laukaus</span>
         <span><kbd>pidä + pyyhkäise</kbd> juoksu ilman palloa</span>
       </div>
 
@@ -337,7 +379,7 @@
           <div class="st"><b>Pyyhkäisy</b>Alku- ja loppupiste. Loppupisteeseen aukeaa valinta.</div>
           <div class="st"><b>Syöttö ✓ tai ✗</b>Perillä oleva syöttö saa uhka-arvon. Epäonnistunut on menetys, ja siitä seuraa reaktiokysely.</div>
           <div class="st"><b>Kuljetus → lopputuote</b>Syöttö, laukaisu, menetys, rikottiin tai pallo säilyi. Syötön voi pyyhkäistä heti perään, ja se liittyy samaan ketjuun.</div>
-          <div class="st"><b>Ei ehtinyt?</b>Valinta sulkeutuu neljässä sekunnissa ja jää täydennettäväksi tauolla.</div>
+          <div class="st"><b>Ei ehtinyt?</b>Valinta sulkeutuu kuudessa sekunnissa ja jää täydennettäväksi tauolla.</div>
         </div>
       </div>
 
@@ -378,6 +420,7 @@
       <div class="summary">
         <div class="eyebrow">Pelihavainnon tuki · ADAR</div>
         <div class="kpis" id="kpis"></div>
+        <div class="chains" id="chains"></div>
         <div class="adar" id="adar"></div>
       </div>
     </div>
@@ -388,6 +431,9 @@
 
 <script>
 (function(){
+  // ---------- asetukset: valintaikkuna ----------
+  var PH_VALINTA_IKKUNA_MS = 6000;   // pilottipalaute: 4 s liian nopea
+
   // ---------- malli ----------
   var XT = [
     [0.00638303,0.00779616,0.00844854,0.00977659,0.01126267,0.01248344,0.01473596,0.0174506,0.02122129,0.02756312,0.03485072,0.0379259],
@@ -410,6 +456,9 @@
     var a=Math.atan2(7.32*X, X*X+C*C-13.44); if(a<0) a+=Math.PI;
     return 1/(1+Math.exp(-(0 + 1.6*a - 0.12*d)));
   }
+  function inBox(p){ return p.len>=84 && p.wid>=21 && p.wid<=79; }        // boksi_v0_esimerkki (11v11), kalibroitava
+  function inFinal(p){ return p.len>=66.7; }
+  function xgOpp(p){ return xg({len:100-p.len, wid:100-p.wid}); }             // vastustajan laukaus kohti omaa maalia
   function riskLevel(p){ return p>=5?'korkea':(p>=2?'kohonnut':'matala'); }
   function zoneName(p){
     var t = p.len<33.3?'oma kolmannes':(p.len<66.7?'keskialue':'hyökkäyskolmannes');
@@ -427,33 +476,74 @@
   var S = {
     tier:'u1315', half:1, side:'near', clock:2200, seq:100, lastId:null, await:null,
     entries:[
-      {id:1,half:1,t:250, type:'kaksinpeli', rooli:'hyokkays', tulos:'ohitti', at:{len:52,wid:74}, jatko:'kuljetus', konsepti:'1v1-hyökkäys'},
+      {id:1,half:1,t:250, type:'kaksinpeli', rooli:'hyokkays', tulos:'ohitti', at:{len:52,wid:74}, jatko:'kuljetus', konsepti:'la_h4'},
       {id:2,half:1,t:252, type:'kuljetus', from:{len:52,wid:74}, to:{len:70,wid:82}, lopputuote:'syotto', ketju:1},
       {id:3,half:1,t:255, type:'syotto', from:{len:70,wid:82}, to:{len:88,wid:34}, perilla:true, ketju:2},
       {id:4,half:1,t:690, type:'syotto', from:{len:58,wid:66}, to:{len:78,wid:52}, perilla:false, reaktio:'heti', skan:false, konsepti:''},
-      {id:5,half:1,t:1145,type:'juoksu', from:{len:68,wid:84}, to:{len:86,wid:70}, konsepti:'Syvyysjuoksu'},
-      {id:6,half:1,t:1350,type:'kaksinpeli', rooli:'puolustus', tulos:'voitti', at:{len:24,wid:78}, jatko:'menetys', konsepti:'Puolustaminen 1v1'},
+      {id:5,half:1,t:1145,type:'juoksu', from:{len:68,wid:84}, to:{len:86,wid:70}, konsepti:'y_h7'},
+      {id:6,half:1,t:1350,type:'kaksinpeli', rooli:'puolustus', tulos:'voitti', at:{len:24,wid:78}, jatko:'menetys', konsepti:'y_p1'},
       {id:61,half:1,t:1352,type:'menetys', at:{len:24,wid:78}, ketju:6, reaktio:'heti'},
-      {id:7,half:1,t:1664,type:'riisto', tapa:'katkaisu', at:{len:30,wid:66}, jatko:'syotto', konsepti:'Vastapainostus'},
+      {id:7,half:1,t:1664,type:'riisto', tapa:'katkaisu', at:{len:30,wid:66}, jatko:'syotto', konsepti:'j_s1'},
       {id:71,half:1,t:1666,type:'syotto', from:{len:30,wid:66}, to:{len:55,wid:84}, perilla:true, ketju:7},
-      {id:72,half:1,t:1820,type:'riisto', tapa:'taklaus', at:{len:46,wid:40}, jatko:'sailyi', konsepti:'Vastapainostus'},
+      {id:72,half:1,t:1820,type:'riisto', tapa:'taklaus', at:{len:46,wid:40}, jatko:'sailyi', konsepti:'j_s1'},
       {id:73,half:1,t:1905,type:'riisto', tapa:'irtopallo', at:{len:9,wid:52}, jatko:'selvitys', konsepti:''},
-      {id:8,half:1,t:1990,type:'kuljetus', from:{len:66,wid:78}, to:{len:83,wid:58}, lopputuote:'laukaus', ohitus:true, skan:true, konsepti:'1v1-hyökkäys'},
+      {id:8,half:1,t:1990,type:'kuljetus', from:{len:66,wid:78}, to:{len:83,wid:58}, lopputuote:'laukaus', ohitus:true, skan:true, konsepti:'la_h4'},
       {id:9,half:1,t:1993,type:'laukaus', at:{len:83,wid:58}, tulos:'torjuttu', ketju:8},
       {id:10,half:1,t:2080,type:'kaksinpeli', rooli:'puolustus', tulos:'ohitettiin', at:{len:18,wid:82}, reaktio:'heti', konsepti:''},
       {id:11,half:1,t:2140,type:'menetys', at:{len:12,wid:66}, reaktio:'jai', konsepti:'', aani:true},
+      {id:13,half:1,t:1500,type:'laukaus_vastaan', at:{len:11,wid:46}, tulos:'blokattu', itse:true, konsepti:''},
+      {id:14,half:1,t:1740,type:'laukaus_vastaan', at:{len:16,wid:62}, tulos:'torjuttu'},
+      {id:15,half:1,t:2143,type:'riisto', tapa:'taklaus', at:{len:15,wid:60}, jatko:'sailyi', konsepti:'j_s1'},
       {id:12,half:1,t:2185,type:'hetki'}
     ]
   };
-  var CONCEPTS=['','1v1-hyökkäys','Puolustaminen 1v1','Syvyysjuoksu','Läpisyöttö','Keskitys','Vastaanotto paineessa','Vastapainostus'];
+  // Konseptit = kanoniset TM-avaimet (lib/tm_teknistaktiset.js). Mockupissa vain laiturin fundamentit + siirtymäkonseptit.
+  var CG_YOUTH=[['y_h0','Y-H0 Havainnointi'],['y_h1','Y-H1 Haltuunotto'],['y_h2','Y-H2 Syöttäminen'],['y_h3','Y-H3 Tempokuljetus'],['y_h4','Y-H4 Harhauttaminen'],['y_h5','Y-H5 Pallon suojaaminen'],['y_h6','Y-H6 Tuen tarjoaminen'],['y_h7','Y-H7 Vartioinnista irtaantuminen'],['y_h8','Y-H8 Leveyteen ja syvyyteen pelaaminen'],['y_h9','Y-H9 Viimeistely'],['y_p1','Y-P1 1v1-puolustaminen'],['y_p2','Y-P2 Vartiointi'],['y_p3','Y-P3 Varmistaminen'],['y_p4','Y-P4 Tilan puolustaminen ja merkkauksen vaihto']];
+  var CG_POS={LA:[
+    ['Laituri (LA) · hyökkäys',[['la_h1','LA-H1 Leveyden hallinta'],['la_h2','LA-H2 Vapaat juoksut'],['la_h3','LA-H3 Tukipelaaminen'],['la_h4','LA-H4 1v1 ja edun luominen'],['la_h5','LA-H5 Keskittäminen ja takatolppa'],['la_h6','LA-H6 Viimeistely ja jatkotilanteet']]],
+    ['Laituri (LA) · puolustus',[['la_p1','LA-P1 Tasapaino laidalla'],['la_p2','LA-P2 Vartiointi ja laidan sulkeminen'],['la_p3','LA-P3 Pudottaminen ja nousujen seuraaminen'],['la_p4','LA-P4 Kaksinkamppailut ja vastaprässi'],['la_p5','LA-P5 Vastahyökkäysase ja jatkotilanteet']]]
+  ]};   // mockupissa vain LA; tuotannossa TM_TT_FUNDAMENTIT[pelipaikka]
+  var JAKSOFOKUS=['la_h4','LA-H4 1v1 ja edun luominen'];   // valmentajan asettama, näkyy aina pelipaikasta riippumatta
+  function conceptGroups(){
+    var g=[['📍 Jaksofokus',[JAKSOFOKUS]]];
+    (CG_POS[POS]||[]).forEach(function(x){ g.push([x[0], x[1].filter(function(c){ return c[0]!==JAKSOFOKUS[0]; })]); });
+    g.push(['Yksilökonseptit (kaikki ikäluokat)',CG_YOUTH]);
+    g.push(['Joukkue · siirtymät',[['j_s1','J-S1 Vastaprässi menetyshetkellä'],['j_s2','J-S2 Puolustuksesta hyökkäykseen']]]);
+    return g;
+  }
+  // Kirjattavat (rastit). Pohja = pelipaikan mukaan; rastit vain karsivat valikoita.
+  var KIRJ=[
+    ['syotto','Syötöt','⚙ tulot hyökkäyskolmannekselle ja boksiin · uhka'],
+    ['kuljetus','Kuljetukset','⚙ tulot kuljettamalla · uhka'],
+    ['v1','1v1 (hyökkäys ja puolustus)',''],
+    ['laukaus','Omat laukaukset','⚙ xG'],
+    ['riisto','Riistot','⚙ puolustusarvo · vastaprässiriisto (≤ 5 s)'],
+    ['menetys','Menetykset','⚙ menetysriski'],
+    ['juoksu','Juoksut ilman palloa',''],
+    ['reaktio','Reaktiokysely menetyksen jälkeen',''],
+    ['vlauk','Vastustajan laukaukset ja blokit','⚙ xG vastaan · blokit · torjunnat']
+  ];
+  var POHJAT={
+    '':{n:'',               k:['syotto','kuljetus','v1','laukaus','riisto','menetys','juoksu','reaktio']},   // oletus: ei pelipaikkaa
+    LA:{n:'laituri',        k:['syotto','kuljetus','v1','laukaus','riisto','menetys','juoksu','reaktio']},
+    KH:{n:'keskushyökkääjä',k:['laukaus','v1','juoksu','riisto','menetys','reaktio','syotto']},
+    KK:{n:'keskikenttä',    k:['syotto','kuljetus','riisto','v1','menetys','reaktio']},
+    T: {n:'toppari',        k:['syotto','v1','riisto','menetys','reaktio','vlauk']},
+    MV:{n:'maalivahti',     k:['syotto','vlauk']}
+  };
+  var POS='', K={};
+  function setPohja(pos){ POS=pos; K={}; POHJAT[pos].k.forEach(function(x){ K[x]=true; }); }
+  setPohja('');
   var LOPPU={syotto:'Syöttö',laukaus:'Laukaisu',menetys:'Menetys',rikottiin:'Rikottiin',sailyi:'Pallo säilyi'};
   var JATKO={syotto:'syöttö',kuljetus:'kuljetus',laukaus:'laukaisu',menetys:'menetys',sailyi:'pallo säilyi'};
   var TAPA={katkaisu:'Katkaisu',taklaus:'Taklaus',irtopallo:'Irtopallo'};
   var JATKOD={syotto:'syöttö',kuljetus:'kuljetus',sailyi:'säilyi omilla',selvitys:'selvitys',menetys:'menetys heti',rikottiin:'rikottiin'};
+  var VLTXT={blokattu:'blokattu',torjuttu:'torjuttu',maali:'maali',ohi:'ohi'};
   var V1TXT={ohitti:'Ohitti',ei:'Ei ohittanut',rikottiin:'Rikottiin',voitti:'Voitti pallon',viivytti:'Viivytti',ohitettiin:'Ohitettiin'};
   function label(e){
     if(e.type==='syotto') return e.perilla===false?'Syöttö ✗':(e.perilla===true?'Syöttö ✓':'Syöttö');
     if(e.type==='kaksinpeli') return '1v1 '+(e.rooli==='hyokkays'?'hyökkäys':'puolustus')+' · '+(V1TXT[e.tulos]||'tulos?');
+    if(e.type==='laukaus_vastaan') return 'Vastustajan laukaus'+(e.tulos?' · '+VLTXT[e.tulos]:'');
     return {kuljetus:'Kuljetus',etenee:'Eteni',juoksu:'Juoksu ilman palloa',riisto:'Riisto',laukaus:'Laukaisu',menetys:'Menetys',hetki:'Hetki'}[e.type];
   }
 
@@ -487,6 +577,7 @@
   function colorOf(e){
     if(e.type==='juoksu') return 'var(--violet)';
     if(e.type==='riisto') return 'var(--blue)';
+    if(e.type==='laukaus_vastaan') return 'var(--red)';
     if(isDef1v1(e)) return e.tulos==='voitti'?'var(--blue)':(e.tulos==='ohitettiin'?'var(--red)':'var(--ink3)');
     if(isLoss(e)) return 'var(--amber)';
     return 'var(--accent)';
@@ -515,7 +606,8 @@
         }
         if(e.type==='menetys' && riskLevel(pts(xtOpp(e.at)))==='korkea') el('circle',{cx:p.x,cy:p.y,r:17,fill:'none',stroke:'var(--red)','stroke-width':1.2,'stroke-dasharray':'2 3'},layerEntries);
         if(e.type==='laukaus') el('circle',{cx:p.x,cy:p.y,r:13,fill:'none',stroke:c,'stroke-width':1.2},layerEntries);
-        if(root) badge(p,n,c,e.type!=='laukaus');
+        if(e.type==='laukaus_vastaan') el('circle',{cx:p.x,cy:p.y,r:13,fill:'none',stroke:c,'stroke-width':1.2,'stroke-dasharray':'3 3'},layerEntries);
+        if(root) badge(p,n,c,e.type!=='laukaus' && e.type!=='laukaus_vastaan');
       }
     });
     if(S.await){ var w=toScreen(S.await); el('circle',{cx:w.x,cy:w.y,r:12,fill:'var(--teal-dim)',stroke:'var(--accent)','stroke-width':1.5},layerEntries); }
@@ -593,7 +685,7 @@
     svg.setPointerCapture(ev.pointerId);
     var p=svgPoint(ev);
     drag={start:p,moved:false,held:false,line:null};
-    drag.holdTimer=setTimeout(function(){ if(drag && !drag.moved){ drag.held=true; buzz(8); el('circle',{cx:p.x,cy:p.y,r:14,fill:'none',stroke:'var(--violet)','stroke-width':1.5},layerLive);} },380);
+    drag.holdTimer=setTimeout(function(){ if(drag && !drag.moved && K.juoksu){ drag.held=true; buzz(8); el('circle',{cx:p.x,cy:p.y,r:14,fill:'none',stroke:'var(--violet)','stroke-width':1.5},layerLive);} },380);
   });
   svg.addEventListener('pointermove',function(ev){
     if(!drag) return;
@@ -613,7 +705,7 @@
     var p=svgPoint(ev);
     if(d.moved){
       var from=toPitch(d.start.x,d.start.y), to=toPitch(p.x,p.y);
-      if(d.held){ addEntry({type:'juoksu',from:from,to:to}); return; }
+      if(d.held && K.juoksu){ addEntry({type:'juoksu',from:from,to:to}); return; }
       if(S.await){
         var w=S.await; S.await=null; setHint(null);
         if(w.kind==='syotto'){ askPassResult(p,{type:'syotto',from:from,to:to,ketju:w.parentId}); return; }
@@ -628,13 +720,24 @@
   svg.addEventListener('pointercancel',endDrag);
 
   function openTapMenu(sp){
-    var at=toPitch(sp.x,sp.y);
+    var at=toPitch(sp.x,sp.y), items=[];
+    // Konteksti: omalla kolmanneksella laukaisu on vastustajan laukaus (omaa laukausta ei ammuta sieltä).
+    if(at.len<33.3 && K.vlauk) items.push({cls:'red',ic:'⚠',t:'Vastustajan laukaus',fn:function(){ askOppShot(sp,at); }});
+    else if(K.laukaus) items.push({cls:'teal',ic:'🎯',t:'Laukaisu',fn:function(){ askShot(sp,at,null); }});
+    if(K.riisto) items.push({cls:'blue',ic:'🛡️',t:'Riisto',fn:function(){ var e=addEntry({type:'riisto',at:at}); askFollowDef(sp,e); }});
+    if(K.menetys) items.push({cls:'amber',ic:'↩',t:'Menetys',fn:function(){ addEntry({type:'menetys',at:at}); }});
+    if(K.v1) items.push({cls:'ink',ic:'⚔',t:'1v1',fn:function(){ ask1v1(sp,at); }});
+    if(!items.length) return;
+    showChooser(sp,items,0,null);
+  }
+  function askOppShot(sp,at){
+    var mk=function(t){ return function(){ addEntry({type:'laukaus_vastaan',at:at,tulos:t}); }; };
     showChooser(sp,[
-      {cls:'teal',ic:'🎯',t:'Laukaisu',fn:function(){ askShot(sp,at,null); }},
-      {cls:'blue',ic:'🛡️',t:'Riisto',fn:function(){ var e=addEntry({type:'riisto',at:at}); askFollowDef(sp,e); }},
-      {cls:'amber',ic:'↩',t:'Menetys',fn:function(){ addEntry({type:'menetys',at:at}); }},
-      {cls:'ink',ic:'⚔',t:'1v1',fn:function(){ ask1v1(sp,at); }}
-    ],0,null);
+      {cls:'blue',t:'Blokattu',fn:mk('blokattu')},
+      {cls:'',t:'Torjuttu',fn:mk('torjuttu')},
+      {cls:'red',t:'Maali',fn:mk('maali')},
+      {cls:'',t:'Ohi',fn:mk('ohi')}
+    ],PH_VALINTA_IKKUNA_MS,function(){ addEntry({type:'laukaus_vastaan',at:at,tulos:null}); });
   }
   function ask1v1(sp,at){
     var mk=function(rooli,tulos){ return function(){ var e=addEntry({type:'kaksinpeli',rooli:rooli,tulos:tulos,at:at}); if(rooli==='hyokkays'&&tulos==='ohitti') askFollow(sp,e); if(rooli==='puolustus'&&tulos==='voitti') askFollowDef(sp,e); }; };
@@ -655,7 +758,7 @@
       {cls:'ink',ic:'⤴',t:'Selvitys',fn:function(){ e.jatko='selvitys'; render(); }},
       {cls:'amber',ic:'↩',t:'Menetys',fn:function(){ e.jatko='menetys'; addEntry({type:'menetys',at:e.at,ketju:e.id}); }},
       {cls:'blue',ic:'⚑',t:'Rikottiin',fn:function(){ e.jatko='rikottiin'; render(); }}
-    ],4000,function(){ render(); });
+    ],PH_VALINTA_IKKUNA_MS,function(){ render(); });
   }
   function askFollow(sp,e){
     showChooser(sp,[
@@ -664,24 +767,28 @@
       {cls:'teal',ic:'🎯',t:'Laukaisu',fn:function(){ e.jatko='laukaus'; render(); askShot(sp,e.at,e.id); }},
       {cls:'amber',ic:'↩',t:'Menetys',fn:function(){ e.jatko='menetys'; addEntry({type:'menetys',at:e.at,ketju:e.id}); }},
       {cls:'',ic:'●',t:'Säilyi',fn:function(){ e.jatko='sailyi'; render(); }}
-    ],4000,function(){ render(); });
+    ],PH_VALINTA_IKKUNA_MS,function(){ render(); });
   }
   function waitFor(at,parentId,kind){
+    if(!K[kind]){ render(); return; }   // rasti pois: lopputulos kirjataan, pyyhkäisyä ei pyydetä
     S.await={len:at.len,wid:at.wid,parentId:parentId,kind:kind};
     setHint(kind==='syotto'?'Pyyhkäise syöttö':'Pyyhkäise kuljetus'); render();
   }
   function askMoveType(sp,from,to){
-    showChooser(sp,[
+    if(!K.syotto && !K.kuljetus) return;
+    if(!K.syotto){ var ek=addEntry({type:'kuljetus',from:from,to:to}); askCarryEnd(sp,ek); return; }   // vain kuljetus: ei valintaa
+    var items=[
       {cls:'teal',ic:'✓',t:'Syöttö perille',fn:function(){ addEntry({type:'syotto',from:from,to:to,perilla:true}); }},
-      {cls:'amber',ic:'✗',t:'Syöttö ei perille',fn:function(){ addEntry({type:'syotto',from:from,to:to,perilla:false}); }},
-      {cls:'teal',ic:'➜',t:'Kuljetus',fn:function(){ var e=addEntry({type:'kuljetus',from:from,to:to}); askCarryEnd(sp,e); }}
-    ],4000,function(){ addEntry({type:'etenee',from:from,to:to}); });
+      {cls:'amber',ic:'✗',t:'Syöttö ei perille',fn:function(){ addEntry({type:'syotto',from:from,to:to,perilla:false}); }}
+    ];
+    if(K.kuljetus) items.push({cls:'teal',ic:'➜',t:'Kuljetus',fn:function(){ var e=addEntry({type:'kuljetus',from:from,to:to}); askCarryEnd(sp,e); }});
+    showChooser(sp,items,PH_VALINTA_IKKUNA_MS,function(){ addEntry(K.kuljetus?{type:'etenee',from:from,to:to}:{type:'syotto',from:from,to:to}); });
   }
   function askPassResult(sp,base){
     showChooser(sp,[
       {cls:'teal',ic:'✓',t:'Perillä',fn:function(){ base.perilla=true; addEntry(base); }},
       {cls:'amber',ic:'✗',t:'Ei perillä',fn:function(){ base.perilla=false; addEntry(base); }}
-    ],4000,function(){ addEntry(base); });
+    ],PH_VALINTA_IKKUNA_MS,function(){ addEntry(base); });
   }
   function askCarryEnd(sp,e){
     showChooser(sp,[
@@ -690,7 +797,7 @@
       {cls:'amber',ic:'↩',t:'Menetys',fn:function(){ e.lopputuote='menetys'; addEntry({type:'menetys',at:e.to,ketju:e.id}); }},
       {cls:'blue',ic:'⚑',t:'Rikottiin',fn:function(){ e.lopputuote='rikottiin'; render(); }},
       {cls:'',ic:'●',t:'Säilyi',fn:function(){ e.lopputuote='sailyi'; render(); }}
-    ],4000,function(){ render(); });
+    ],PH_VALINTA_IKKUNA_MS,function(){ render(); });
   }
   function askShot(sp,at,parent){
     var mk=function(t){ return function(){ addEntry({type:'laukaus',at:at,tulos:t,ketju:parent||undefined}); }; };
@@ -699,7 +806,7 @@
       {cls:'teal',t:'Torjuttu',fn:mk('torjuttu')},
       {cls:'',t:'Ohi',fn:mk('ohi')},
       {cls:'',t:'Blokattu',fn:mk('blokattu')}
-    ],4000,function(){ addEntry({type:'laukaus',at:at,tulos:null,ketju:parent||undefined}); });
+    ],PH_VALINTA_IKKUNA_MS,function(){ addEntry({type:'laukaus',at:at,tulos:null,ketju:parent||undefined}); });
   }
   var hintEl=null;
   function setHint(t){
@@ -714,7 +821,7 @@
     e.id=++S.seq; e.half=S.half; e.t=S.clock; e.konsepti=e.konsepti||'';
     S.entries.push(e); S.lastId=e.id;
     buzz(15); render(); showToast(e);
-    if(needsReaction(e)) askReaction(e);
+    if(needsReaction(e) && K.reaktio) askReaction(e);
     return e;
   }
   var toastEl=null, toastTimer=null;
@@ -779,6 +886,7 @@
     else if(e.type==='juoksu'){ var v2=pts(xt(e.to)-xt(e.from)); o.desc='Juoksu tilaan, pallo ei tullut: '+zoneName(e.to); o.val=fmt(v2,true); o.sub='potentiaali'; }
     else if(e.type==='riisto'){ var v3=pts(xtOpp(e.at)); o.desc=(e.tapa?TAPA[e.tapa]+': ':'Voitti pallon: ')+zoneName(e.at)+(e.jatko?' → '+JATKOD[e.jatko]:''); o.val=fmt(v3,true); o.sub='puolustusarvo'; }
     else if(e.type==='laukaus'){ var X=(100-e.at.len)/100*105, C=(e.at.wid-50)/100*68; o.desc='Noin '+Math.round(Math.sqrt(X*X+C*C))+' m, '+(Math.abs(e.at.wid-50)<12?'keskeltä':'sivusta')+' · '+(e.tulos||'tulos puuttuu'); o.val=xg(e.at).toFixed(2).replace('.',','); o.sub='maaliodotusarvo'; }
+    else if(e.type==='laukaus_vastaan'){ var Xo=e.at.len/100*105, Co=(e.at.wid-50)/100*68, g=xgOpp(e.at); o.desc='Vastustaja, noin '+Math.round(Math.sqrt(Xo*Xo+Co*Co))+' m omasta maalista · '+(e.tulos||'tulos puuttuu')+(e.tulos==='blokattu'&&e.itse?' · pelaaja blokkasi':''); o.val=g.toFixed(2).replace('.',','); o.sub=(e.tulos==='blokattu'&&e.itse)?'estetty xG':'xG vastaan'; }
     else if(e.type==='menetys'){ var r=pts(xtOpp(e.at)), l2=riskLevel(r); o.desc='Menetti pallon: '+zoneName(e.at); o.val=l2; o.sub='menetysriski'; o.hi=l2==='korkea'; }
     else if(e.type==='kaksinpeli'){
       o.desc=zoneName(e.at);
@@ -797,6 +905,7 @@
   }
   function typeClass(e){
     if(e.type==='syotto' && e.perilla===false) return 'syotto-x';
+    if(e.type==='laukaus_vastaan') return 'vlaukaus';
     if(e.type==='kaksinpeli'){
       if(isAtt1v1(e)) return e.tulos==='ei_ohittanut'?'v1-x':'v1-ok';
       return e.tulos==='voitti'?'v1-def':(e.tulos==='ohitettiin'?'v1-beaten':'v1-neutral');
@@ -844,6 +953,7 @@
           var opts = isAtt1v1(e) ? [['ohitti','Ohitti'],['ei_ohittanut','Ei ohittanut'],['rikottiin','Rikottiin']] : [['voitti','Voitti'],['viivytti','Viivytti'],['ohitettiin','Ohitettiin']];
           pick(chips,'Tulos',opts,e,'tulos');
         }
+        if(e.type==='laukaus_vastaan'){ pick(chips,'Tulos',[['blokattu','Blokattu'],['torjuttu','Torjuttu'],['maali','Maali'],['ohi','Ohi']],e,'tulos'); if(e.tulos==='blokattu') toggle(chips,'Pelaaja blokkasi',[[true,'✓','ok']],e,'itse'); }
         if(e.type==='riisto'){ pick(chips,'Miten',[['katkaisu','Katkaisu'],['taklaus','Taklaus'],['irtopallo','Irtopallo']],e,'tapa'); }
         if(e.type==='riisto' || (isDef1v1(e) && e.tulos==='voitti')){
           pick(chips,'Riiston jälkeen',Object.keys(JATKOD).map(function(k){return [k,JATKOD[k].charAt(0).toUpperCase()+JATKOD[k].slice(1)];}),e,'jatko');
@@ -857,7 +967,12 @@
         if((e.type==='syotto' || e.type==='kuljetus') && !e.ketju){ toggle(chips,'Skannasi',[[true,'✓','ok'],[false,'✗','bad']],e,'skan'); }
         if(!e.ketju){
           var sel=document.createElement('select'); sel.className='concept'; sel.setAttribute('aria-label','Konsepti');
-          CONCEPTS.forEach(function(c){ var op=document.createElement('option'); op.value=c; op.textContent=c||'Konsepti…'; if(c===e.konsepti) op.selected=true; sel.appendChild(op); });
+          var op0=document.createElement('option'); op0.value=''; op0.textContent='Konsepti…'; sel.appendChild(op0);
+          conceptGroups().forEach(function(g){
+            var og=document.createElement('optgroup'); og.label=g[0];
+            g[1].forEach(function(c){ var op=document.createElement('option'); op.value=c[0]; op.textContent=c[1]; if(c[0]===e.konsepti) op.selected=true; og.appendChild(op); });
+            sel.appendChild(og);
+          });
           sel.onchange=function(){ e.konsepti=sel.value; };
           chips.appendChild(sel);
           var mic=document.createElement('button'); mic.type='button'; mic.className='chip rec'; mic.setAttribute('aria-pressed',e.aani?'true':'false');
@@ -931,6 +1046,24 @@
       if(loc && ((e.type==='syotto' && e.perilla!==false) || e.type==='kuljetus' || e.type==='etenee')) sumXT+=pts(xt(e.to)-xt(e.from));
     });
     var dAll=dWon+dDelay+dBeaten;
+    // Tulot hyökkäyskolmannekselle / boksiin (syötöt perillä + kuljetukset ilman menetystä)
+    var fS=0,fK=0,bS=0,bK=0;
+    S.entries.forEach(function(e){
+      if(!e.from || e.eiSijaintia) return;
+      var ok=(e.type==='syotto' && e.perilla===true) || (e.type==='kuljetus' && e.lopputuote!=='menetys');
+      if(!ok) return;
+      if(inFinal(e.to) && !inFinal(e.from)){ if(e.type==='syotto') fS++; else fK++; }
+      if(inBox(e.to) && !inBox(e.from)){ if(e.type==='syotto') bS++; else bK++; }
+    });
+    // Vastustajan laukaukset
+    var vN=0,vXG=0,vBlk=0,vBlkXG=0,vSave=0;
+    S.entries.forEach(function(e){ if(e.type!=='laukaus_vastaan') return; vN++; var g=xgOpp(e.at); vXG+=g; if(e.tulos==='blokattu'){ vBlk++; if(e.itse) vBlkXG+=g; } if(e.tulos==='torjuttu') vSave++; });
+    // Vastaprässiriisto: riisto ≤ 5 s omasta menetyksestä
+    var cp=0;
+    S.entries.forEach(function(e){
+      if(e.type!=='riisto' && !(isDef1v1(e) && e.tulos==='voitti')) return;
+      if(S.entries.some(function(l){ return isLoss(l) && l.half===e.half && e.t-l.t>=0 && e.t-l.t<=5 && l.id!==e.id; })) cp++;
+    });
     var loppuTxt=Object.keys(loppu).map(function(k){ return LOPPU[k].toLowerCase()+(loppu[k]>1?' ×'+loppu[k]:''); }).join(', ');
     var v=showVals();
     var k=[
@@ -941,8 +1074,11 @@
       ['Luotu uhka', v?fmt(sumXT,true):'·', v?('josta riistoista '+fmt(tXT,true)):'syötöt ja kuljetukset'],
       ['Syötöt perille', pAll?(pOk+'/'+pAll):'–', nCarry+' kuljetusta'+(loppuTxt?(' → '+loppuTxt):'')],
       ['Maaliodotusarvo', v?sumXG.toFixed(2).replace('.',','):'·', nShot+' laukaisua'],
-      ['Menetykset', String(nLoss), v?(nHigh+' korkealla riskillä'):'sis. hävityt 1v1 ja syötöt']
+      ['Menetykset', String(nLoss), (v?(nHigh+' korkealla riskillä · '):'')+'vastaprässiriisto '+cp+'/'+nLoss],
+      ['Tulot hyökkäyskolm.', String(fS+fK), 'syöttö '+fS+' · kuljetus '+fK],
+      ['Tulot boksiin', String(bS+bK), 'syöttö '+bS+' · kuljetus '+bK+' · boksi_v0_esimerkki']
     ];
+    if(K.vlauk || vN){ k.push(['xG vastaan', v?vXG.toFixed(2).replace('.',','):'·', vN+' laukausta · torjuttu '+vSave]); k.push(['Blokit', String(vBlk), v?('pelaaja: estetty xG '+vBlkXG.toFixed(2).replace('.',',')):'blokattuja laukauksia']); }
     document.getElementById('kpis').innerHTML=k.map(function(x){return '<div class="kpi"><div class="l">'+x[0]+'</div><div class="v">'+x[1]+'</div><div class="s">'+x[2]+'</div></div>';}).join('');
     var rows=[
       ['Ennen palloa', nRun+' juoksua ilman palloa'+(skAll?(' · skannasi '+skOk+'/'+skAll+' ennen vastaanottoa'):'')],
@@ -951,8 +1087,57 @@
       ['Riiston jälkeen', tAll||tClear ? ('pallo säilyi '+tKept+'/'+tAll+' · eteni heti '+tFwd+' · menetys heti '+tFast+(tClear?(' · selvitys '+tClear):'')+(v&&tXT?(' · siirtymän uhka '+fmt(tXT,true)):'')) : 'jatko puuttuu'],
       ['Menetyksen jälkeen', rAll? ('reagoi heti '+rHeti+'/'+rAll+' kertaa (menetykset ja ohitetuksi tuleminen)') : 'ei kirjauksia']
     ];
+    document.getElementById('chains').innerHTML=chainsHTML(byId,v);
     document.getElementById('adar').innerHTML=rows.map(function(r){return '<div><span class="k">'+r[0]+'</span><span><b>'+r[1]+'</b></span></div>';}).join('');
   }
+
+  // ---------- ketjut luettavana sarjana ----------
+  var CHL={syotto:'syöttö',kuljetus:'kuljetus',laukaus:'laukaus',menetys:'menetys',riisto:'riisto',juoksu:'juoksu'};
+  function chName(e){
+    if(e.type==='syotto'){ if(e.perilla===false) return 'syöttö ✗'; return inBox(e.to)&&!inBox(e.from)?'keskitys':'syöttö'; }
+    if(e.type==='kaksinpeli') return isAtt1v1(e)?'ohitus':'1v1 voitto';
+    if(e.type==='laukaus') return 'laukaus'+(e.tulos?' ('+e.tulos+')':'');
+    return CHL[e.type]||e.type;
+  }
+  function chainsHTML(byId,v){
+    var roots=S.entries.filter(function(e){ return !e.ketju && S.entries.some(function(c){ return c.ketju===e.id; }); });
+    if(!roots.length) return '';
+    var out=roots.sort(function(a,b){return a.t-b.t;}).map(function(r){
+      var mem=[r], g=0, grow=true;
+      while(grow && g++<10){ grow=false; S.entries.forEach(function(c){ if(c.ketju && mem.some(function(m){return m.id===c.ketju;}) && mem.indexOf(c)<0){ mem.push(c); grow=true; } }); }
+      mem.sort(function(a,b){return a.t-b.t||a.id-b.id;});
+      var u=0; mem.forEach(function(m){ if(m.from && !m.eiSijaintia && ((m.type==='syotto'&&m.perilla!==false)||m.type==='kuljetus')) u+=pts(xt(m.to)-xt(m.from)); });
+      var lost=mem.some(function(m){ return isLoss(m); });
+      var txt=mem.map(chName).join(' ➜ ');
+      txt=txt.charAt(0).toUpperCase()+txt.slice(1);
+      return '<div class="ch'+(lost?' lost':'')+'"><span>'+tstr(r.t)+' · '+txt+'</span><span>'+(v?('uhka '+fmt(u,true)):(lost?'menetys':'säilyi'))+'</span></div>';
+    }).join('');
+    return '<div class="adar"><div><span class="k">Ketjut</span><span></span></div></div>'+out;
+  }
+
+  // ---------- pohja ja rastit ----------
+  function renderPohja(){
+    document.getElementById('pohjaTxt').textContent='Pelaajatarkkailu'+(POS?(' · '+POHJAT[POS].n):'');
+    document.getElementById('pelNum').textContent='#8'+(POS?(' · '+POHJAT[POS].n):'');
+    var sp=document.getElementById('segPos'); sp.innerHTML='';
+    Object.keys(POHJAT).forEach(function(k){
+      var b=document.createElement('button'); b.type='button'; b.textContent=k||'Ei pelipaikkaa'; b.title=POHJAT[k].n||'Kaikki perustoiminnot';
+      b.setAttribute('aria-pressed',k===POS?'true':'false');
+      b.onclick=function(){ setPohja(k); renderPohja(); render(); };
+      sp.appendChild(b);
+    });
+    var rg=document.getElementById('rgrid'); rg.innerHTML='';
+    KIRJ.forEach(function(r){
+      var id='rk_'+r[0], l=document.createElement('label'); l.setAttribute('for',id);
+      l.innerHTML='<input type="checkbox" id="'+id+'"'+(K[r[0]]?' checked':'')+'><span>'+r[1]+(r[2]&&K[r[0]]?'<span class="der">'+r[2]+'</span>':'')+'</span>';
+      l.querySelector('input').onchange=function(){ if(this.checked) K[r[0]]=true; else delete K[r[0]]; renderPohja(); render(); };
+      rg.appendChild(l);
+    });
+  }
+  document.getElementById('btnMuokkaa').onclick=function(){
+    var r=document.getElementById('rastit'), open=r.hidden; r.hidden=!open;
+    this.setAttribute('aria-expanded',open?'true':'false'); this.textContent=open?'Sulje':'Muokkaa';
+  };
 
   // ---------- asetukset ----------
   function seg(id,key,parse){
@@ -1002,7 +1187,7 @@
   document.addEventListener('keydown',function(e){ if(e.key==='Escape' && device.classList.contains('fs')) setFs(false); });
 
   setInterval(function(){ S.clock++; document.getElementById('clock').textContent=tstr(S.clock); },1000);
-  drawPitch(); updateDir(); tierNote(); render();
+  drawPitch(); updateDir(); tierNote(); renderPohja(); render();
   document.getElementById('clock').textContent=tstr(S.clock);
 })();
 </script>
