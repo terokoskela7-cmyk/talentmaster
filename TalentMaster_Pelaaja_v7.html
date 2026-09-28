@@ -4421,7 +4421,18 @@ async function _tmKirjaa(avain, arvo) {
       : window._db.collection('pelaajat').doc(_pelaaja.id)
           .collection('kirjaukset').doc(pvm); // fallback legacy
     await ref.set(
-      { [avain]: arvo, lahde: 'pelaaja', paivitetty: firebase.firestore.FieldValue.serverTimestamp() },
+      {
+        [avain]: arvo,
+        lahde: 'pelaaja',
+        paivitetty: firebase.firestore.FieldValue.serverTimestamp(),
+        /* A5-VARTIJA VAATII `luotu`:n LUONNISSA. Ilman tätä päivän ENSIMMÄINEN kirjaus on
+           create ilman `luotu`-kenttää → `luotuLuontiKelpaa()` hylkää → pelaaja näki
+           "tallennus ei onnistunut" aina kun fiilis/kuormitus/kesto kirjattiin ennen
+           Tänään-harjoitetta (joka loi dokumentin `_tallennaKirjaus`:lla).
+           Arvo = TREENIPÄIVÄ, sama tuotepäätös ja sama lauseke kuin `_tallennaKirjaus`:ssa:
+           idempotentti, joten myöhempi merge ei muuta kenttää eikä `luotuPaivitysKelpaa` kaadu. */
+        luotu: firebase.firestore.Timestamp.fromDate(new Date(pvm)),
+      },
       { merge: true }
     );
     return true;

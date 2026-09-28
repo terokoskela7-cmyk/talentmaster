@@ -407,6 +407,26 @@ describe('Anonymous PIN (pelaaja)', () => {
     ));
   });
 
+  /* LIVE-BUGI 2026-09-28: päivän ENSIMMÄINEN kirjaus oli fiilis tai kuormitus, jolloin
+     `_tmKirjaa` teki createn ilman `luotu`-kenttää → hylätty. Se toimi vain, jos
+     Tänään-harjoite oli jo luonut päivän dokumentin — mistä syntyi "toimii joskus".
+     Nämä kaksi lukitsevat SYYN: kenttä on pakollinen, ei muu kirjauksen sisältö. */
+  it('Anon luo MINIMIkirjauksen (vain fiilinki) kun `luotu` on mukana', async () => {
+    const db = anonContext().firestore();
+    await assertSucceeds(setDoc(
+      doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'kirjaukset', '2026-09-28'),
+      { fiilinki: 4, lahde: 'pelaaja', paivitetty: new Date(), luotu: new Date('2026-09-28') }
+    ));
+  });
+
+  it('Anon EI luo minimikirjausta ilman `luotu`-kenttää (tämä oli bugin syy)', async () => {
+    const db = anonContext().firestore();
+    await assertFails(setDoc(
+      doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'kirjaukset', '2026-09-28'),
+      { fiilinki: 4, lahde: 'pelaaja', paivitetty: new Date() }
+    ));
+  });
+
   it('Anon päivittää xp/streak pelaajadokumentissa (rajattu affectedKeys)', async () => {
     const db = anonContext().firestore();
     await assertSucceeds(updateDoc(
