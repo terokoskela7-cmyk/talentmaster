@@ -2671,4 +2671,30 @@ describe('Havainnon näkyvyys — vain merkityt pelaajalle (v3.22)', () => {
     await assertFails(getDocs(listKysely(anonContext().firestore(),
       [where('tila', '==', 'valmis'), limit(50)])));
   });
+
+  /* Vanhempi_v2 lukee saman kokoelman ERI kyselyllä (tyyppi:'valmentaja_viesti') ja
+     anonyymina (r.1443). Se rikkoutui katselmoinnissa juuri tästä: ilman nakyvyys-ehtoa
+     koko kysely hylätään, jolloin Viestit-välilehti tyhjenee myös vanhoista viesteistä
+     — ei siis vuoda vaan katoaa. */
+  async function seedViesti(id) {
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await setDoc(polkuN(context.firestore(), id), {
+        tyyppi: 'valmentaja_viesti', tila: 'valmis', nakyvyys: 'pelaaja',
+        teksti: 'Hienoa työtä!', valmentajaUid: VALM_A_UID,
+        pelaaja_lukenut: false, vanhempi_lukenut: false, luotu: new Date(),
+      });
+    });
+  }
+
+  it('Vanhempi_v2:n kysely (tyyppi + nakyvyys) → sallittu', async () => {
+    await seedViesti('n-viesti');
+    await assertSucceeds(getDocs(listKysely(anonContext().firestore(),
+      [where('tyyppi', '==', 'valmentaja_viesti'), where('nakyvyys', '==', 'pelaaja'), limit(20)])));
+  });
+
+  it('Vanhempi_v2:n kysely ILMAN nakyvyys-ehtoa → hylätty', async () => {
+    await seedViesti('n-viesti2');
+    await assertFails(getDocs(listKysely(anonContext().firestore(),
+      [where('tyyppi', '==', 'valmentaja_viesti'), limit(20)])));
+  });
 });

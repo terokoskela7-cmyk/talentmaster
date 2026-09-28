@@ -1691,10 +1691,17 @@ async function _haeViimeisinKirjaus() {
 
     // Valmentajan viestit (havainnot, tyyppi:'valmentaja_viesti'). Suodatus client-puolella
     // (ei vaadi composite-indeksiä); järjestys luotu desc.
+    //
+    // ⚠ `nakyvyys`-ehto on PAKOLLINEN, ei valinnainen suodatin: tämä näkymä lukee
+    // anonyymina (r.1443), ja Rules v3.22 sallii anonyymille vain `nakyvyys=='pelaaja'`.
+    // Rules ei suodata kyselyä — ilman ehtoa KOKO kysely hylätään (permission-denied),
+    // jolloin Viestit-välilehti tyhjenisi myös vanhoista viesteistä. Kaksi
+    // yhtäsuuruusehtoa + limit ei vaadi komposiitti-indeksiä.
     try {
       const vSnap = await _db.collection('seurat').doc(urlSeura)
         .collection('pelaajat').doc(urlUid).collection('havainnot')
-        .where('tyyppi', '==', 'valmentaja_viesti').limit(20).get();
+        .where('tyyppi', '==', 'valmentaja_viesti')
+        .where('nakyvyys', '==', 'pelaaja').limit(20).get();
       _valmentajaViestit = vSnap.docs.map(d => ({ id: d.id, ...d.data() }))
         .sort(function(a, b){
           const ta = (a.luotu && a.luotu.toDate) ? a.luotu.toDate().getTime() : 0;

@@ -4173,6 +4173,10 @@ function inboxReact(eid,emoji,nimi,pid){
       .collection('havainnot').add({
         tyyppi: 'valmentaja_viesti',
         tila: 'valmis',
+        /* Rules v3.22: pelaaja ja huoltaja lukevat vain `nakyvyys=='pelaaja'`. Valmentajan
+           viesti on nimenomaan perheelle tarkoitettu, joten se on aina 'pelaaja' — ei
+           kytkintä (toisin kuin ADAR-havainnossa, jossa valmentaja valitsee näkyvyyden). */
+        nakyvyys: 'pelaaja',
         teksti: emoji,
         valmentajaUid: _uid,
         valmentajaNimi: vNimi,
@@ -4212,6 +4216,7 @@ function sendReply(){
     var havaintoData = {
       tyyppi: 'valmentaja_viesti',
       tila: 'valmis',
+      nakyvyys: 'pelaaja',   // v3.22: viesti perheelle → aina pelaajalle näkyvä (ks. inboxReact)
       teksti: msg,
       valmentajaUid: _uid,
       valmentajaNimi: (window._valmentajaData && _valmentajaData.etunimi ? _valmentajaData.etunimi + ' ' + (_valmentajaData.sukunimi||'') : 'Valmentaja').trim(),

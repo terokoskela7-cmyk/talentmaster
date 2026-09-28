@@ -283,3 +283,49 @@ describe('(7) valmentaja näkee listassa kummalle havainto meni', () => {
     expect(M).toContain("masterT('vain valmentajille')");
   });
 });
+
+
+/* ── 8 · VALMENTAJAN VIESTIT PERHEELLE ───────────────────────
+   Näkyvyysrajaus koskee KOKO `havainnot`-kokoelmaa, ei vain ADAR-havaintoja. Sama polku
+   kuljettaa valmentajan viestit perheelle (Master `sendReply` + `inboxReact`), ja ne luetaan
+   kahdesta paikasta: Pelaaja_v7 (anonyymi PIN) ja Vanhempi_v2 (anonyymi, r.1443).
+
+   Ilman kenttää kirjoitettu viesti katoaisi pelaajalta, ja ilman kyselyehtoa Rules hylkäisi
+   huoltajan KOKO kyselyn — Viestit-välilehti tyhjenisi myös vanhoista viesteistä. Kirjoitus-
+   ja lukupuoli on siis vartioitava parina. */
+describe('(8) valmentajan viesti perheelle säilyy näkyvänä', () => {
+  const MASTER = lue('TalentMaster_Master_v16.html');
+  const VANHEMPI = lue('TalentMaster_Vanhempi_v2.html');
+  const MASTER_KOODI = ilmanKommentteja(MASTER);
+
+  /* Kirjoituspuoli: JOKAINEN valmentaja_viesti-kirjoitus saa kentän. Laskenta lähteestä
+     (ei kovakoodattua kahta kohtaa), jotta uusi kirjoituspiste ei livahda vartijan ohi. */
+  it('jokainen valmentaja_viesti-kirjoitus asettaa nakyvyys:pelaaja', () => {
+    const kirjoitukset = MASTER_KOODI.split(/tyyppi:\s*'valmentaja_viesti'/).slice(1);
+    expect(kirjoitukset.length, 'kirjoituspisteitä ei löytynyt — vartija olisi tyhjä')
+      .toBeGreaterThanOrEqual(2);
+    kirjoitukset.forEach((jalkeen, i) => {
+      /* Kenttä on samassa objektiliteraalissa: riittää tarkistaa seuraavat rivit ennen
+         objektin sulkeutumista. Kiinteä ikkuna riittää — objektit ovat lyhyitä. */
+      expect(jalkeen.slice(0, 600), 'kirjoituspiste #' + (i + 1) + ' ilman nakyvyys-kenttää')
+        .toContain("nakyvyys: 'pelaaja'");
+    });
+  });
+
+  /* Lukupuoli: vanhemman kysely. Tämä on se kohta joka hajosi katselmoinnissa. */
+  it('Vanhempi_v2 kysyy nakyvyys-ehdolla (muuten koko kysely hylätään)', () => {
+    expect(VANHEMPI).toContain(".where('nakyvyys', '==', 'pelaaja')");
+  });
+
+  it('Vanhempi_v2:n nakyvyys-ehto on SAMASSA kyselyssä kuin tyyppi-ehto', () => {
+    const i = VANHEMPI.indexOf(".where('tyyppi', '==', 'valmentaja_viesti')");
+    expect(i, 'valmentaja_viesti-kyselyä ei löydy').toBeGreaterThan(-1);
+    /* Ehtojen on oltava samassa ketjussa ennen .get():iä — erillinen where muualla ei auta. */
+    const ketju = VANHEMPI.slice(i, VANHEMPI.indexOf('.get()', i));
+    expect(ketju).toContain(".where('nakyvyys', '==', 'pelaaja')");
+  });
+
+  it('EI VACUOUS: Vanhempi_v2 lukee yhä anonyyminä (siksi rajaus koskee sitä)', () => {
+    expect(VANHEMPI).toContain('signInAnonymously');
+  });
+});
