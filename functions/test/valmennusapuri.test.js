@@ -471,3 +471,11 @@ test('kasittelija: HP-kontekstiin seuran datan kooste; SA voi testata seuraId:ll
   await h({ rooli: 'hp', viestit: [{ role: 'user', content: 'Kysymys.' }] }, ctx(va.SA_UID));
   assert.strictEqual(mallille[3], 'Kysymys.');
 });
+
+test('tunnistaJoukkueet: kysymyksessä mainittu joukkue, myös ilman seuran etuliitettä', () => {
+  const data = { pelaajat: [{ joukkue: 'KPV P13' }, { joukkue: 'KPV P14' }, { joukkue: 'KPV T18' }], kartoitukset: [], testit: [] };
+  assert.deepStrictEqual(va.tunnistaJoukkueet('Kerro KPV P13 joukkueen fyysinen tilannekatsaus', data), ['KPV P13']);
+  assert.deepStrictEqual(va.tunnistaJoukkueet('miten p14 kuormitetaan?', data), ['KPV P14']);
+  assert.deepStrictEqual(va.tunnistaJoukkueet('U13-ikäisille yleisesti', data), []);
+  assert.deepStrictEqual(va.tunnistaJoukkueet('P133 ei ole joukkue', data), []);
+});
