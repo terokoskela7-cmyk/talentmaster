@@ -41,7 +41,7 @@ describe('tmKaariAdarBlokki — VP täysi (2-piste palkit)', () => {
     const dim = lib.tmKaariAdarDimensiot({ a: 2.4, d: 2.2, ac: 2.6, r: 2.0 }, { a: 2.1, d: 2.0, ac: 2.5, r: 1.9 }, 13);
     const h = lib.tmKaariAdarBlokki(dim, { esc, ika: 13, havaintoja: 12 });
     expect(h).toContain('2 pist. · dimensioittain');
-    expect(h).toContain('Havaitse (A)');
+    expect(h).toContain('Havainnointi (A)');
     expect(h).toContain('2.1→<b');       // lähtö→nyt
     expect(h).toContain('12 havaintoa');
     expect(h).toContain('U11 ≠ U16');    // §28-guard
@@ -66,7 +66,7 @@ describe('tmKaariAdarBlokki — Pelaaja §7.22 (ei lukuja/palkkeja/vertailua)', 
     const dim = lib.tmKaariAdarDimensiot({ a: 2.4, d: 2.0, ac: 2.6 }, { a: 2.1, d: 2.0, ac: 2.5 }, 13);
     const h = lib.tmKaariAdarBlokki(dim, { esc, ika: 13, rooli: 'pelaaja' });
     expect(h).toContain('kehittyi');
-    expect(h).toContain('Havaitse');
+    expect(h).toContain('Havainnointi');
     expect(h).not.toContain('Päätä');     // d ei parantunut → ei näytetä
     expect(h).not.toContain('2.4');       // §7.22 ei tasolukuja
     expect(h).not.toContain('width:');    // ei palkkeja (tasoindikaattori)
@@ -84,8 +84,8 @@ describe('tmKehityskaari adar-haara (TODO ratkaistu, option b: data.dimensiot)',
     const el = { ownerDocument: { getElementById: () => ({}), createElement: () => ({ appendChild() {} }), head: { appendChild() {} } }, set innerHTML(v) { html = v; }, get innerHTML() { return html; } };
     lib.tmKehityskaari(el, { ika: 16, dimensiot: { a: { nyt: 2.4, lahto: 2.1 }, r: { nyt: 2.0, lahto: 1.9 } } }, { ominaisuus: 'adar' });
     expect(html).toContain('peliäly · dimensioittain');
-    expect(html).toContain('Havaitse (A)');
-    expect(html).toContain('Arvioi (R)');   // U16 → R mukana
+    expect(html).toContain('Havainnointi (A)');
+    expect(html).toContain('Palautuminen (R)');   // U16 → R mukana
     expect(html).not.toContain('<svg');      // ei sparklinea
   });
 });

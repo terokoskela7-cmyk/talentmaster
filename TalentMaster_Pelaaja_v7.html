@@ -5904,13 +5904,34 @@ function rAdar() {
 
   // Malli A (§4, PR #266) — Rakentaja-lohko: vahvuus edellä, EI punaista (§7.22), heikoin = "🎯 Seuraava askel",
   // ikätason yli menevä osa = bonus, kokonaisluku = kehityskaista + tasomerkki (EI murtolukua). Lapsen kieli.
-  const NIMET = { a: 'Havainnointi', d: 'Päätöksenteko', ac: 'Toteutus', r: 'Pelin lukeminen' };
-  const KUVAUS = { a: 'Skannaat kentän ennen kosketusta', d: 'Teet oikean ratkaisun oikeaan aikaan', ac: 'Toteutat ratkaisun paineessa', r: 'Luet pelin kulun etukäteen' };
+  /* NIMIKANONI libistä. R oli täällä "Pelin lukeminen" ja kuvaus "Luet pelin kulun etukäteen",
+     mutta pikakortti pisteyttää R:llä VIRHEESTÄ PALAUTUMISTA — näytetty ja mitattu asia eivät
+     vastanneet toisiaan, eli lapselle kerrottiin väärä asia hänen omasta arviostaan. */
+  const _KAN = (typeof TM_ADAR_NIMET !== 'undefined' && TM_ADAR_NIMET.pelaaja)
+    || { a: 'Havainnointi', d: 'Päätöksenteko', ac: 'Toteutus', r: 'Palautuminen' };
+  const NIMET = { a: _KAN.a, d: _KAN.d, ac: _KAN.ac, r: _KAN.r };
+  const KUVAUS = { a: 'Skannaat kentän ennen kosketusta', d: 'Teet oikean ratkaisun oikeaan aikaan', ac: 'Toteutat ratkaisun paineessa', r: 'Palaat peliin nopeasti virheen jälkeen' };
   const _ika = (_pelaaja && _pelaaja.ika != null) ? _pelaaja.ika : (_pelaaja && _pelaaja.syntymaVuosi ? (new Date().getFullYear() - _pelaaja.syntymaVuosi) : null);
-  const _band = (typeof tmAdarBand === 'function') ? tmAdarBand(_ika) : DIM_KEYS;
+  /* PORRAS: erotellaan TALLENNETTU portaasta, joka on vain ikäsuositus. Ero on ratkaiseva:
+     ikäsuositus koskee jokaista pelaajaa, joten sen kohtelu "juuri nostettuna" muuttaisi näkymän
+     kaikilla 13+ -pelaajilla (Toteutus/Palautuminen lipsahtaisi "uudeksi taidoksi" vaikka siitä
+     on kirjattu havaintoja koko kauden). Ilman tallennettua porrasta EI muutu mikään. */
+  const _porrasTallennettu = (_pelaaja && _pelaaja.havainto_porras) || null;
+  const _porras = _porrasTallennettu
+    || ((typeof tmAdarIkaPorras === 'function') ? tmAdarIkaPorras(_ika) : null);
+  const _uusinDim = (_porras && typeof TM_ADAR_PORTAAT !== 'undefined' && TM_ADAR_PORTAAT[_porras])
+    ? TM_ADAR_PORTAAT[_porras][_porras - 1] : null;
+  /* §7.22 — PORTAAN NOUSU EI SAA NÄKYÄ LAPSELLE LASKUNA. Uusin ulottuvuus on harjoittelussa VAIN
+     niin kauan kuin siitä ei ole kolmea havaintoa; sen jälkeen se on vakiintunut ja näkyy lukuineen
+     kuten muutkin. Havaintojen määrä luetaan porrasehdotuksen historiasta (pikakenttä). */
+  const _ehdHist = (_pelaaja && _pelaaja.havainto_porras_ehdotus && _pelaaja.havainto_porras_ehdotus.hist) || [];
+  const _uusiNakyy = !!(_porrasTallennettu && _porrasTallennettu > 1 && _uusinDim && _ehdHist.length < 3);
+  /* Kaista ja luku lasketaan VAKIINTUNEISTA vain kun uusin on aidosti harjoittelussa. */
+  const _laskentaPorras = _uusiNakyy ? Math.max(1, _porras - 1) : _porras;
+  const _lasketaan = (typeof tmAdarBand === 'function') ? tmAdarBand(_ika, _laskentaPorras) : DIM_KEYS;
   const _cap = v => (v != null && !isNaN(v)) ? Math.max(1, Math.min(3, Math.round(v))) : null;
-  const osat = _band.map(k => ({ key: k, lbl: NIMET[k], kuvaus: KUVAUS[k], val: _cap(av[k]) })).filter(o => o.val != null);
-  const bonus = ((typeof tmAdarBonusOsat === 'function') ? tmAdarBonusOsat(av, _ika) : [])
+  const osat = _lasketaan.map(k => ({ key: k, lbl: NIMET[k], kuvaus: KUVAUS[k], val: _cap(av[k]) })).filter(o => o.val != null);
+  const bonus = ((typeof tmAdarBonusOsat === 'function') ? tmAdarBonusOsat(av, _ika, _porras) : [])
     .map(k => ({ key: k, lbl: NIMET[k] })).filter(o => o.lbl);
   if (!osat.length && !bonus.length) return '<div style="color:var(--ink3);font-size:12px;padding:12px 0">Ei ADAR-arviota vielä — valmentaja kirjaa havaintonsa harjoituksessa.</div>';
 
@@ -5918,16 +5939,19 @@ function rAdar() {
   osat.forEach(o => { if (!vahvin || o.val > vahvin.val) vahvin = o; if (!heikoin || o.val < heikoin.val) heikoin = o; });
   const monta = osat.length > 1;
   // Kokonaiskehyskaista (EI murtoluku, §7.22) — ikäporitettu yht (1–3) → positiivinen band-label + tasomerkki
-  const _yht = (typeof tmAdarYht === 'function') ? tmAdarYht(av, _ika) : av.yht;
+  /* yht samasta portaasta kuin osat — muuten kaista ja rivit kertoisivat eri asiaa. */
+  const _yht = (typeof tmAdarYht === 'function') ? tmAdarYht(av, _ika, _laskentaPorras) : av.yht;
   const kaista = _yht == null ? 'Rakentuu' : _yht >= 2.5 ? 'Vahva pelinäkemys' : _yht >= 1.8 ? 'Kehittyvä pelinäkemys' : 'Pelinäkemys rakentuu';
-  const _kaikkiN = osat.length + bonus.length;
-  const tasoMerkki = _kaikkiN >= 4 ? 'Taso 3' : _kaikkiN >= 3 ? 'Taso 2' : 'Taso 1';
+  /* Merkki kertoo PORTAAN — osien määrä nousi aina kun joku kirjasi ylimääräisen ulottuvuuden. */
+  const tasoMerkki = 'Porras ' + (_porras || 1);
 
   let h = '<div style="margin-top:8px">';
   h += '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px">'
     + '<div style="font-size:13px;font-weight:600;color:#28B090">🧠 ' + kaista + '</div>'
     + '<div style="font-size:10px;color:var(--ink3);border:.5px solid var(--border);border-radius:10px;padding:1px 8px">' + tasoMerkki + '</div></div>';
   if (monta && vahvin) h += '<div style="font-size:12px;color:var(--text);margin-bottom:10px">💪 <b>Vahvin: ' + vahvin.lbl + '</b> — hieno juttu, pidä siitä kiinni!</div>';
+  /* Uusi taito ILMAN LUKUA: se on harjoittelussa, eikä sitä arvostella lapselle (§7.22). */
+  if (_uusiNakyy) h += '<div style="font-size:12px;color:var(--ink3);margin-bottom:10px">🌱 Uusi taito: <b style="color:var(--text)">' + NIMET[_uusinDim] + '</b> · harjoittelussa</div>';
   osat.forEach(o => {
     const onHeikoin = monta && heikoin && o.key === heikoin.key;
     const col = onHeikoin ? '#E0A653' : (o.val >= 2 ? '#28B090' : '#E0A653');   // EI punaista — vain teal/amber (§7.22)

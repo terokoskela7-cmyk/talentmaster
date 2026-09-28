@@ -2459,3 +2459,102 @@ describe('Kenttätarkkailut — valmentajan havainto, EI pelaajalle (v3.20)', ()
     await assertSucceeds(deleteDoc(polku(saContext().firestore(), null, 't2')));
   });
 });
+
+/* ══ HAVAINNON KUMOAMINEN (v3.21) ═════════════════════════════════════════
+   Kumoaminen on tilamuutos eikä poisto. Vain TEKIJÄ saa perua oman havaintonsa — muuten toinen
+   valmentaja voisi pyyhkiä kollegan arvion peliälystä pois. */
+describe('Havainnon kumoaminen — vain tekijä (v3.21)', () => {
+  const polkuH = (db, id) => doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'havainnot', id || 'hav-kumo');
+
+  async function seedKumottava(tekija) {
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await setDoc(polkuH(context.firestore()), {
+        tyyppi: 'adar_pikakortti', tila: 'valmis', pelaaja_lukenut: false,
+        tekija_uid: tekija, pisteet: { A: 2, D: 1 },
+        luotu: new Date(), pvm: '2026-09-28',
+      });
+    });
+  }
+
+  const peru = { tila: 'peruttu', peruttu: new Date(), peruttu_uid: VALM_A_UID };
+
+  beforeEach(async () => {
+    await seedAdminDoc();
+    await seedSeuraAndPelaaja();
+  });
+
+  it('tekijä voi perua oman havaintonsa', async () => {
+    await seedKumottava(VALM_A_UID);
+    const db = valmentajaContext(VALM_A_UID, SEURA_A).firestore();
+    await assertSucceeds(updateDoc(polkuH(db), peru));
+  });
+
+  it('toinen saman joukkueen valmentaja EI voi perua', async () => {
+    await seedKumottava(VP_A_UID);
+    const db = valmentajaContext(VALM_A_UID, SEURA_A).firestore();
+    await assertFails(updateDoc(polkuH(db), Object.assign({}, peru, { peruttu_uid: VALM_A_UID })));
+  });
+
+  it('anonyymi (PIN) EI voi perua', async () => {
+    await seedKumottava(VALM_A_UID);
+    await assertFails(updateDoc(polkuH(anonContext().firestore()), peru));
+  });
+
+  it('pisteitä ei voi muuttaa samassa kirjoituksessa (peruttua ei "korjata" hiljaa)', async () => {
+    await seedKumottava(VALM_A_UID);
+    const db = valmentajaContext(VALM_A_UID, SEURA_A).firestore();
+    await assertFails(updateDoc(polkuH(db), Object.assign({}, peru, { pisteet: { A: 3, D: 3 } })));
+  });
+
+  it('SA voi perua kenen tahansa havainnon', async () => {
+    await seedKumottava(VP_A_UID);
+    await assertSucceeds(updateDoc(polkuH(saContext().firestore()), peru));
+  });
+
+  /* Sääntö saa koskea VAIN peruutukseen — tavallinen päivitys ei saa kiristyä. */
+  it('EI VACUOUS: tavallinen päivitys toimii yhä toisen havaintoon', async () => {
+    await seedKumottava(VP_A_UID);
+    const db = valmentajaContext(VALM_A_UID, SEURA_A).firestore();
+    await assertSucceeds(updateDoc(polkuH(db), { narratiivi: 'täydennys' }));
+  });
+
+  it('anonyymi saa yhä merkitä luetuksi (P6-kuittaus ennallaan)', async () => {
+    await seedKumottava(VALM_A_UID);
+    await assertSucceeds(updateDoc(polkuH(anonContext().firestore()), { pelaaja_lukenut: true }));
+  });
+
+  /* Peruutus ei saa olla kumottavissa: ilman lukkoa kuka tahansa joukkueen valmentaja voisi
+     palauttaa perutun havainnon 'valmis'-tilaan tai muuttaa sen pisteitä. */
+  describe('jo peruttu havainto on lukittu', () => {
+    async function seedPeruttu() {
+      await testEnv.withSecurityRulesDisabled(async (context) => {
+        await setDoc(polkuH(context.firestore(), 'hav-jo-peruttu'), {
+          tyyppi: 'adar_pikakortti', tila: 'peruttu', tekija_uid: VALM_A_UID,
+          pisteet: { A: 2 }, luotu: new Date(), peruttu_uid: VALM_A_UID,
+        });
+      });
+    }
+
+    it('tekijä EI voi palauttaa sitä valmis-tilaan', async () => {
+      await seedPeruttu();
+      const db = valmentajaContext(VALM_A_UID, SEURA_A).firestore();
+      await assertFails(updateDoc(polkuH(db, 'hav-jo-peruttu'), { tila: 'valmis' }));
+    });
+
+    it('toinen valmentaja EI voi muuttaa sen pisteitä', async () => {
+      await seedPeruttu();
+      const db = valmentajaContext(VP_A_UID, SEURA_A).firestore();
+      await assertFails(updateDoc(polkuH(db, 'hav-jo-peruttu'), { pisteet: { A: 3 } }));
+    });
+
+    it('anonyymi EI voi koskea siihen', async () => {
+      await seedPeruttu();
+      await assertFails(updateDoc(polkuH(anonContext().firestore(), 'hav-jo-peruttu'), { pelaaja_lukenut: true }));
+    });
+
+    it('SA voi korjata (hallintatoimi)', async () => {
+      await seedPeruttu();
+      await assertSucceeds(updateDoc(polkuH(saContext().firestore(), 'hav-jo-peruttu'), { tila: 'valmis' }));
+    });
+  });
+});

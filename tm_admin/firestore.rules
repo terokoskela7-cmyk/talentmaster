@@ -1,9 +1,18 @@
 rules_version = '2';
 // ══════════════════════════════════════════════════════════════════════════
-// TalentMaster™ — firestore.rules v3.20
+// TalentMaster™ — firestore.rules v3.21
 //
 // Lähde:  tm_admin/firestore.rules
 // Deploy: PR → N4-CI deployaa automaattisesti (Console-käsityö poistui).
+//
+// Muutokset v3.20 → v3.21 (Havainnon kumoaminen):
+//   · `havainnot` update: kun `tila` muuttuu arvoon 'peruttu', vaaditaan että kirjoittaja on
+//     havainnon TEKIJÄ (SA ohittaa) eikä `pisteet` muutu samassa kirjoituksessa.
+//   · Kumoaminen on tilamuutos eikä poisto: valmentajalla ei ole poisto-oikeutta, ja peruttu
+//     havainto jää historiaan. Peliälylaskenta ohittaa perutut (lib tmAdarKonsensus).
+//   · Aikaikkunaa EI ole säännössä — offline-kumous synkkaa myöhemmin eikä saa kaatua siihen.
+//   · Jo peruttu havainto on LUKITTU (vain SA päivittää): muuten peruutuksen olisi voinut
+//     kumota kuka tahansa joukkueen valmentaja palauttamalla tilan 'valmis'-arvoon.
 //
 // Muutokset v3.19 → v3.20 (Kenttätarkkailut — kohdennettu pelihavainto):
 //   · UUSI kokoelma `seurat/{sid}/pelaajat/{pid}/kenttatarkkailut/{id}`.
@@ -442,6 +451,25 @@ service cloud.firestore {
       return 'luotu' in request.resource.data
           && request.resource.data.luotu is timestamp;
     }
+    /* ── HAVAINNON KUMOAMINEN (v3.21) ─────────────────────────────────────────────────────
+       Kumoaminen on `tila:'peruttu'`, EI poisto: valmentajalla ei ole poisto-oikeutta, ja jälki
+       jää historiaan. Vain TEKIJÄ saa perua oman havaintonsa — muuten toinen valmentaja voisi
+       pyyhkiä kollegan arvion peliälystä pois. Samassa kirjoituksessa ei saa muuttaa `pisteet`:iä,
+       jottei peruttua voi "korjata" hiljaa.
+       AIKAIKKUNAA EI OLE SÄÄNNÖSSÄ: offline-kumous synkkaa myöhemmin eikä saa kaatua siihen.
+       10 minuutin ikkuna on käyttöliittymän asia. */
+    function onPeruminen() {
+      return request.resource.data.get('tila', '') == 'peruttu'
+          && resource.data.get('tila', '') != 'peruttu';
+    }
+    function peruminenKelpaa() {
+      return ( !onPeruminen()
+            || ( ( onSuperAdmin() || resource.data.get('tekija_uid', '') == request.auth.uid )
+              && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['pisteet']) ) )
+          // Jo peruttu havainto on LUKITTU: muuten kuka tahansa joukkueen valmentaja voisi
+          // palauttaa sen 'valmis'-tilaan tai muuttaa pisteitä, jolloin peruutus ei pitäisi.
+          && ( resource.data.get('tila', '') != 'peruttu' || onSuperAdmin() );
+    }
     function luotuPaivitysKelpaa() {
       return !request.resource.data.diff(resource.data).affectedKeys().hasAny(['luotu'])
           || ('luotu' in request.resource.data
@@ -721,7 +749,8 @@ service cloud.firestore {
                         && luotuLuontiKelpaa();                       // A5
           allow update: if (onSuperAdmin() || onOmanJoukkueenValmentaja(seuraId, pelaajaId)
                         || onAnonymous())
-                        && luotuPaivitysKelpaa();                     // A5
+                        && luotuPaivitysKelpaa()                      // A5
+                        && peruminenKelpaa();                         // v3.21 — kumous vain tekijältä
           allow delete: if onSuperAdmin() || (onOmaSeura(seuraId) && onJohtoRooli());
         }
 

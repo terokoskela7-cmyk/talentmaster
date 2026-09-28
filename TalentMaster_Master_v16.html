@@ -4936,7 +4936,10 @@ async function _hkRenderLista(pelaajaId) {
     h += '<div style="border-bottom:.5px solid var(--border);padding:10px 0">'
       + '<div style="display:flex;align-items:center;gap:8px">'
       + '<div style="flex:1;min-width:0"><div style="color:var(--ink);font-size:12.5px">' + (teksti ? _mEsc(teksti) : masterT('(ei narratiivia)')) + '</div>'
-      + '<div style="font-size:10.5px;color:var(--ink3);margin-top:2px">' + _mEsc(pvm) + (hav.adar_taso ? (' · ' + masterT('taso ') + hav.adar_taso) : '') + '</div></div>'
+      /* Havainto kantaa nykyään `porras`-kentän; `adar_taso` on vanhojen havaintojen jäänne. */
+      + '<div style="font-size:10.5px;color:var(--ink3);margin-top:2px">' + _mEsc(pvm)
+      + (hav.porras ? (' · ' + masterT('porras ') + hav.porras)
+        : (hav.adar_taso ? (' · ' + masterT('taso ') + hav.adar_taso) : '')) + '</div></div>'
       + (kid
         ? '<span style="font-size:10.5px;color:var(--teal);white-space:nowrap">✓ ' + masterT('Taktiikkataulu') + '</span>'
         : '<button onclick="_hkLiita(\'' + pelaajaId + '\',\'' + hav.id + '\')" style="background:rgba(40,176,144,.14);border:.5px solid rgba(40,176,144,.45);border-radius:20px;color:var(--teal);font-size:10.5px;font-weight:600;padding:5px 11px;cursor:pointer;white-space:nowrap">' + masterT('+ Liitä taktiikkataulu') + '</button>')
@@ -7356,17 +7359,35 @@ function _renderPinfoFirestore(p) {
   if (_av && (_av.a != null || _av.d != null || _av.ac != null || _av.r != null)) {
     // §4 Malli A (PR #266): jaa osat ikätason (band) ja ikätason yli menevään (bonus). yht laskee vain band-osista.
     const _ikaC = (typeof _devIkaSp === 'function') ? _devIkaSp(p).ika : null;
-    const _band = (typeof tmAdarBand === 'function') ? tmAdarBand(_ikaC) : ['a', 'd', 'ac', 'r'];
-    const _NIMET = { a: masterT('Havaitse'), d: masterT('Päätä'), ac: masterT('Toimi'), r: masterT('Arvioi') };
+    /* PORRAS voittaa iän: ikä on vain ohje, ja valmentaja on voinut nostaa tai laskea porrasta. */
+    const _porrasC = p.havainto_porras || null;
+    const _band = (typeof tmAdarBand === 'function') ? tmAdarBand(_ikaC, _porrasC) : ['a', 'd', 'ac', 'r'];
+    /* YKSI NIMIKANONI (lib). Master käytti omia nimiä "Havaitse/Päätä/Toimi/Arvioi", jolloin sama
+       ulottuvuus esiintyi eri nimellä eri näkymissä. */
+    const _KAN = (typeof TM_ADAR_NIMET !== 'undefined' && TM_ADAR_NIMET.valmentaja)
+      || { a: 'Havainnointi', d: 'Päätös', ac: 'Toteutus', r: 'Palautuminen' };
+    const _NIMET = { a: masterT(_KAN.a), d: masterT(_KAN.d), ac: masterT(_KAN.ac), r: masterT(_KAN.r) };
     const _osatAll = ['a', 'd', 'ac', 'r'].filter(k => _av[k] != null).map(k => [k, _NIMET[k], _av[k]]);
     const _osat  = _osatAll.filter(o => _band.indexOf(o[0]) >= 0);   // lasketaan D4:ään
     const _bonus = _osatAll.filter(o => _band.indexOf(o[0]) < 0);    // ikätason yli — ei laske D4:ään
     const _gate = (p.adar_havaintoja || 0) >= 3;
-    const _tasoMerkki = _osatAll.length >= 4 ? masterT('Taso 3') : _osatAll.length >= 3 ? masterT('Taso 2') : masterT('Taso 1');
+    /* Merkki kertoo PORTAAN, ei osien määrää. Osien määrä oli harhaanjohtava: se nousi aina kun
+       joku kirjasi ylimääräisen ulottuvuuden, vaikka pelaajan porras ei ollut muuttunut. */
+    const _porrasNyt = _porrasC || ((typeof tmAdarIkaPorras === 'function') ? tmAdarIkaPorras(_ikaC) : 4);
+    const _tasoMerkki = masterT('Porras') + ' ' + _porrasNyt + ' / 4';
+    /* Uusin portaalle nostettu ulottuvuus merkitään — sen luku on vasta kehittymässä. Ehto on
+       sama kuin Pelaaja_v7:ssä: merkki vaatii TALLENNETUN portaan (ikäsuositus koskee kaikkia,
+       joten sillä merkittäisiin jokaisen 13+ -pelaajan Toteutus "uudeksi") eikä uusimmasta
+       ulottuvuudesta saa olla vielä kolmea havaintoa. */
+    const _ehdHistC = (p.havainto_porras_ehdotus && p.havainto_porras_ehdotus.hist) || [];
+    const _uusinDim = (_porrasC && _porrasC > 1 && _ehdHistC.length < 3
+      && typeof TM_ADAR_PORTAAT !== 'undefined' && TM_ADAR_PORTAAT[_porrasC])
+      ? TM_ADAR_PORTAAT[_porrasC][_porrasC - 1] : null;
     const _bar = o => {
       const v = o[2], pct = Math.max(8, Math.min(100, v / 3 * 100));
       const col = v >= 2.5 ? 'var(--teal)' : v >= 1.8 ? 'var(--amber)' : 'var(--red)';
-      return '<div style="flex:1;min-width:68px"><div style="font-size:9px;color:var(--ink3);margin-bottom:2px">' + o[1] + '</div>'
+      const uusi = (o[0] === _uusinDim) ? ' <span style="color:var(--teal);font-size:8px">' + masterT('uusi') + '</span>' : '';
+      return '<div style="flex:1;min-width:68px"><div style="font-size:9px;color:var(--ink3);margin-bottom:2px">' + o[1] + uusi + '</div>'
         + '<div style="height:5px;border-radius:3px;background:rgba(255,255,255,.05)"><div style="height:5px;border-radius:3px;width:' + pct + '%;background:' + col + '"></div></div>'
         + '<div style="font-size:10px;color:' + col + ';margin-top:1px;font-family:var(--font-m,monospace)">' + v + '/3</div></div>';
     };
@@ -9922,16 +9943,26 @@ async function paivitaAdarPikakentat(pelaajaId) {
     havainnot.forEach(h => { const t = h.tilanne || 'muu'; tilJak[t] = (tilJak[t] || 0) + 1; });
     // §4 Malli A (PR #266): yht lasketaan VAIN ikätason osista → ikä pelaajadokumentista (syntymaVuosi;
     // sama kaava kuin Pelaaja_v7 _ika). Ikätason yli menevä osa (esim. U13:n Reading) säilyy datassa, ei nosta lukua.
-    let _ikaAdar = null, _oldAv = null;   // K5a — _oldAv = pre-write adar_viimeisin (adar_edellinen-kaappaus, §29-kuvio)
+    let _ikaAdar = null, _oldAv = null, _pdAdar = null;   // K5a — _oldAv = pre-write adar_viimeisin (adar_edellinen-kaappaus, §29-kuvio)
     try {
       const _pdoc = await _db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(pelaajaId).get();
       const _pd = _pdoc.exists ? _pdoc.data() : {};
+      _pdAdar = _pd;
       _ikaAdar = _pd.syntymaVuosi ? (new Date().getFullYear() - _pd.syntymaVuosi) : (_pd.ika != null ? _pd.ika : null);
       _oldAv = _pd.adar_viimeisin || null;
     } catch (e) { /* ikä tuntematon → tmAdarYht turvaverkko (kaikki osat) */ }
-    // Vaihe B — KONSENSUS (multi-rater): D4 = §4-ikäportitettu keskiarvo arvioijien VIIMEISIMMISTÄ
-    // havainnoista (kukin uid painaa kerran, uusin). Ei "viimeisin voittaa". lib/tm_pelialy_yksilo.js.
-    // Fallback jos lib puuttuu: viimeisin yksittäinen havainto (vanha käytös).
+    /* YKSI LASKENTA (lib tmAdarPikakentat): sama funktio palvelee Masteria ja pikakorttia, joten
+       ne eivät voi ajautua erilleen. Porras luetaan pelaajadokumentista — ikä on vain varapolku. */
+    if (typeof tmAdarPikakentat === 'function') {
+      const _porrasP = _pdAdar ? (_pdAdar.havainto_porras || null) : null;
+      const _kentat = tmAdarPikakentat(havainnot, _ikaAdar, _porrasP, { edellinen: _oldAv });
+      if (_kentat) {
+        await _db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(pelaajaId)
+          .set(_kentat, { merge: true });
+      }
+      return;
+    }
+    // Fallback jos lib puuttuu: vanha käytös (konsensus tai viimeisin yksittäinen havainto).
     let kons;
     if (typeof tmAdarKonsensus === 'function') {
       kons = tmAdarKonsensus(havainnot, _ikaAdar);
@@ -9993,6 +10024,7 @@ window._ehdotaTalentti = async function (pid) {
 // jo tallessa). Idempotentti, additiivinen (vain yht muuttuu). dryRun tulostaa yht vanha→uusi. Tero ajaa.
 window.backfillAdarPikakentat = async function(seuraIdArg, dryRun) {
   if (dryRun === undefined) dryRun = true;
+  /* Porras luetaan pelaajakohtaisesti (havainto_porras) — ilman sitä ikä ratkaisee kuten ennen. */
   if (!_superAdmin) { console.warn('[backfillAdarPikakentat] Vain Super Admin'); return; }
   const sid = seuraIdArg || _seuraId;
   if (!sid) { console.warn('[backfillAdarPikakentat] Käyttö: backfillAdarPikakentat(seuraId, dryRun=true)'); return; }
