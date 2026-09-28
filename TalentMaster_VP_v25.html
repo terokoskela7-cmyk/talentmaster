@@ -6182,7 +6182,13 @@ function _vpArviointiHTML(p) {
   // P3.1 — "TalentMaster Analytics — kehityskerros" -vyöhyke + brändipalaute SIIRRETTY ⓘ Tietoa kehyksestä -paneeliin
   //   (metaa, ei tarvitse olla joka katselukerralla esillä). Johda arvioinnilla: kohteet + kalibraatio kärjessä.
   // FA-potentiaali — Scouting-linssin ala-osio (gold), SELVÄSTI 5D-arvioinnin ulkopuolella (ei osa 5D:tä/IDP:tä).
-  if (typeof _vpPotentiaaliHTML === 'function') h += _vpPotentiaaliHTML(p, _arvioiTila ? { piilotaNykyarvo: true } : null);
+  if (typeof _vpPotentiaaliHTML === 'function') {
+    h += _vpPotentiaaliHTML(p, _arvioiTila
+      ? { arvioiTila: true,
+          omaArvo: (typeof _vpArvOmaPotentiaali === 'function') ? _vpArvOmaPotentiaali(p) : null,
+          omaHuomiot: (typeof _vpArvOmaPotHuomiot === 'function') ? _vpArvOmaPotHuomiot(p) : '' }
+      : { vainKatselu: true });
+  }
   return h;
 }
 // R-selitteet — ⓘ tap/klik-popover: näyttää attribuutin kuvaus_fi:n (title hoitaa hoverin työpöydällä; tämä kosketuslaitteet).
@@ -6233,15 +6239,28 @@ function _vpPotentiaaliHTML(p, opts) {
   // Portti = JOHTO-only (VP/johto/SA) — täsmää Firestore-sääntöön (onJohtoRooli). EI _vpVoiMuokata(p): se päästää
   // R1:n jälkeen myös oman joukkueen valmentajan → kontrolli näkyisi mutta kirjoitus permission-failaisi (#319 L1).
   // R2-A V2: opts.readonly → read-only näyttö (raporttikortti; asetus pysyy VP-cockpitissa) — piilottaa asetuskontrollin.
-  var voi = (opts && opts.readonly) ? false : ((typeof _vpSeurantaOnJohto === 'function') ? _vpSeurantaOnJohto() : false);
-  /* Arvioi-tilassa (review C) asetus näkyy ILMAN nykyarvoa: nykyiset tähdet ovat seuran
-     viimeisin arvio, ja ne ankkuroisivat arvioijan ennen omaa valintaa. Arvo palaa näkyviin
-     Katso-tilassa ja oman tallennuksen jälkeen (tallennus vaihtaa p.scout_potentiaali:n). */
-  var piilotaNykyarvo = (opts && opts.piilotaNykyarvo) || false;
-  var val = (!piilotaNykyarvo && p.scout_potentiaali != null) ? Number(p.scout_potentiaali) : null;
+  /* KOLME TILAA:
+       readonly    (raporttikortti) = ei kontrolleja lainkaan
+       vainKatselu (Katso)          = seuran tila, EI arviointikontrolleja; "Poista arvio" jaa
+                                      johdolle, koska se on hallintatoimi eika arvio
+       arvioiTila  (Arvioi)         = asetus + VAIN oma arvo, ei koskaan seuran arvoa portaassa */
+  var o = opts || {};
+  var arvioiTila = !!o.arvioiTila;
+  var johto = (typeof _vpSeurantaOnJohto === 'function') ? _vpSeurantaOnJohto() : false;
+  var voi = o.readonly ? false : johto;                       // portaat klikattavia + oma perustelu
+  if (o.vainKatselu) voi = false;
+  var saaPoistaa = johto && !o.readonly && !arvioiTila;
+  /* Arvioi-tilassa (review C) portaassa nakyy VAIN oma arvio: seuran viimeisin ankkuroisi
+     arvioijan ennen omaa valintaa. Oma arvo tulee omasta avoimesta kerrasta, ei pikakentasta. */
+  /* Oma arvo validoidaan portaaksi 1–5: pelkka Number() tekisi tyhjasta arvosta nollan ja
+     nayttaisi "0★ · <ensimmainen porras>" seka paastaisi seuran arvon naytolle sen perassa. */
+  var _omaNro = Number(o.omaArvo);
+  var val = arvioiTila
+    ? ((o.omaArvo != null && isFinite(_omaNro) && _omaNro >= 1 && _omaNro <= 5) ? _omaNro : null)
+    : (p.scout_potentiaali != null ? Number(p.scout_potentiaali) : null);
   /* Huomiot ovat edellisen arvioijan PERUSTELU — se ankkuroisi vahvemmin kuin pelkkä luku,
-     joten Arvioi-tilassa kenttä avataan tyhjänä (review C). */
-  var huom = (opts && opts.piilotaNykyarvo) ? '' : (p.scout_potentiaali_huomiot || '');
+     joten Arvioi-tilassa kenttään tulee vain arvioijan OMA perustelu (tyhjä ennen ensimmäistä). */
+  var huom = arvioiTila ? (o.omaHuomiot || '') : (p.scout_potentiaali_huomiot || '');
   var pid = _jesc(p.id);
   var GB = 'rgba(217,164,65,.4)', GD = 'rgba(217,164,65,.13)';
   var h = '<div style="margin-top:16px;background:' + GD + ';border:.5px solid ' + GB + ';border-radius:12px;padding:16px 18px">';
@@ -6267,16 +6286,27 @@ function _vpPotentiaaliHTML(p, opts) {
   } else {
     var rr = _vpPotRivi(val);
     h += '<div style="font-size:12px;color:var(--ink2);line-height:1.5"><b style="color:var(--gold)">' + val + '★ · ' + _jsvEsc(rr ? rr.lyhyt : '') + '</b>'
-      + (p.scout_potentiaali_arvioija ? ' <span style="color:var(--ink3)">· ' + _jsvEsc(p.scout_potentiaali_arvioija) + (p.scout_potentiaali_pvm ? ' · ' + _jsvEsc(_pvmLyhyt(p.scout_potentiaali_pvm)) : '') + '</span>' : '') + '</div>';
+      + ((!arvioiTila && p.scout_potentiaali_arvioija) ? ' <span style="color:var(--ink3)">· ' + _jsvEsc(p.scout_potentiaali_arvioija) + (p.scout_potentiaali_pvm ? ' · ' + _jsvEsc(_pvmLyhyt(p.scout_potentiaali_pvm)) : '') + '</span>' : '') + '</div>';
+    /* Seuran arvo saa nakya VASTA oman arvion jalkeen ja vain neutraalina tekstina — sama
+       riippumattomuussaanto kuin kohteilla (seuranViimeisin). */
+    if (arvioiTila && p.scout_potentiaali != null) {
+      h += '<div class="jsp-arv-muut" style="margin-top:5px">' + vpT('Seuran viimeisin:') + ' ' + _jsvEsc(String(p.scout_potentiaali)) + '★'
+        + (p.scout_potentiaali_pvm ? ' · ' + _jsvEsc(_pvmLyhyt(p.scout_potentiaali_pvm)) : '') + '</div>';
+    }
   }
   if (voi) {
     h += '<div style="margin-top:10px"><textarea id="_vpPotHuomiot" onclick="event.stopPropagation()" placeholder="' + vpT('Perustelu / huomiot (scouttausprojektio — ei terveystietoa)') + '" style="width:100%;min-height:52px;background:var(--surface);border:.5px solid var(--border);border-radius:8px;color:var(--ink);font-family:var(--font-sans),\\\'DM Sans\\\',sans-serif;font-size:12px;padding:8px;resize:vertical">' + _jsvEsc(huom) + '</textarea>'
       + '<div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">'
       + '<button onclick="event.stopPropagation();_vpTallennaPotentiaali(\'' + pid + '\',null,true)" style="font-size:11px;font-weight:500;padding:7px 13px;border-radius:7px;border:.5px solid ' + GB + ';color:var(--gold);background:' + GD + ';cursor:pointer">' + vpT('Tallenna huomio') + '</button>'
-      + (val != null ? '<button onclick="event.stopPropagation();_vpPoistaPotentiaali(\'' + pid + '\')" style="font-size:11px;font-weight:500;padding:7px 13px;border-radius:7px;border:.5px solid var(--border);color:var(--ink2);background:transparent;cursor:pointer">' + vpT('Poista arvio') + '</button>' : '')
+      + ((saaPoistaa && p.scout_potentiaali != null) ? '<button onclick="event.stopPropagation();_vpPoistaPotentiaali(\'' + pid + '\')" style="font-size:11px;font-weight:500;padding:7px 13px;border-radius:7px;border:.5px solid var(--border);color:var(--ink2);background:transparent;cursor:pointer">' + vpT('Poista arvio') + '</button>' : '')
       + '</div></div>';
-  } else if (huom) {
-    h += '<div style="margin-top:9px;font-size:12px;color:var(--ink2);font-style:italic;line-height:1.5">”' + _jsvEsc(huom) + '”</div>';
+  } else {
+    if (huom) h += '<div style="margin-top:9px;font-size:12px;color:var(--ink2);font-style:italic;line-height:1.5">”' + _jsvEsc(huom) + '”</div>';
+    /* Hallintatoimi, ei arvio: johto saa poistaa arvion myos Katso-tilassa, jossa asetuskontrolli
+       on piilossa (review C: "Katso = seuran tila, EI arviointinappeja"). */
+    if (saaPoistaa && p.scout_potentiaali != null) {
+      h += '<div style="margin-top:10px"><button onclick="event.stopPropagation();_vpPoistaPotentiaali(\'' + pid + '\')" style="font-size:11px;font-weight:500;padding:7px 13px;border-radius:7px;border:.5px solid var(--border);color:var(--ink2);background:transparent;cursor:pointer">' + vpT('Poista arvio') + '</button></div>';
+    }
   }
   h += '</div>';
   return h;
@@ -6293,16 +6323,39 @@ function _vpPotReRender(p) {
 window._vpTallennaPotentiaali = async function (pid, tahdet, huomioVain) {
   var p = (typeof _vpIdpPelaaja === 'function') ? _vpIdpPelaaja(pid) : null; if (!p) return;
   if (!_vpSeurantaOnJohto()) { if (typeof toast === 'function') toast(vpT('Potentiaali on VP:n/johdon oikeus'), 'error'); return; }   // johto-only (täsmää sääntöön)
+  var arvioiTila = (window._vpArvTila === 'arvioi');
+  var omaEnnen = (typeof _vpArvOmaPotentiaali === 'function') ? _vpArvOmaPotentiaali(p) : null;
+  var omaHuomEnnen = (typeof _vpArvOmaPotHuomiot === 'function') ? _vpArvOmaPotHuomiot(p) : '';
   var huomEl = document.getElementById('_vpPotHuomiot');
-  var huom = huomEl ? huomEl.value : (p.scout_potentiaali_huomiot || '');
-  var t = huomioVain ? (p.scout_potentiaali != null ? Number(p.scout_potentiaali) : null) : Number(tahdet);
+  var huom = huomEl ? huomEl.value : (arvioiTila ? omaHuomEnnen : (p.scout_potentiaali_huomiot || ''));
+  /* "Tallenna huomio" otti tahdet SEURAN pikakentasta, eli edellisen arvioijan arvosta. Koska se
+     ei ollut null, se kirjoittui NYKYISEN kayttajan kertaan ja hanen nimiinsa — toisen arvioijan
+     arvio olisi tallentunut historiaan vaaralle arvioijalle. Arvioi-tilassa kelpaa vain oma arvo. */
+  var t;
+  if (huomioVain) {
+    t = arvioiTila ? omaEnnen : (p.scout_potentiaali != null ? Number(p.scout_potentiaali) : null);
+    if (arvioiTila && t == null) {
+      if (typeof toast === 'function') toast(vpT('Valitse ensin porras'), 'error');
+      return;
+    }
+  } else t = Number(tahdet);
   if (t != null && !(t >= 1 && t <= 5)) return;                      // validointi: vain 1–5 (tai null huomio-vain-tilassa ilman tähtiä)
   var taso = (t != null) ? _vpPotTaso(t) : null;
   var arvioija = (window._vpNimi) || ((firebase.auth().currentUser || {}).displayName) || 'VP';
   var pvm = new Date().toISOString();
-  p.scout_potentiaali = t; p.scout_potentiaali_taso = taso; p.scout_potentiaali_huomiot = huom; p.scout_potentiaali_pvm = pvm; p.scout_potentiaali_arvioija = arvioija;
+  /* Oma kerta merkitaan HETI (sama kuvio kuin kohteilla, _vpTallennaHavaittu) → Arvioi-tila nayttaa
+     valinnan ilman verkkoviivetta. Epaonnistunut tallennus perutaan catch-haarassa. */
+  if (typeof _vpArvMerkitseOmaPotentiaali === 'function') _vpArvMerkitseOmaPotentiaali(p, t, huom);
+  /* SEURAN pikakentta on eri asia kuin oma arvio: sita ei saa paivittaa ennen kuin arvioijan
+     organisaatio on tiedossa. Aiemmin se asetettiin heti, joten Palloliiton arvioijan (mahd.
+     sisainen) arvio nakyi seuran Katso-tilassa uudelleenlataukseen asti, vaikka Firestoreen sita
+     ei kirjoitettu. */
+  var paivitaSeuranNakyma = function () {
+    p.scout_potentiaali = t; p.scout_potentiaali_taso = taso; p.scout_potentiaali_huomiot = huom;
+    p.scout_potentiaali_pvm = pvm; p.scout_potentiaali_arvioija = arvioija;
+  };
   _vpPotReRender(p);
-  if (_isDemoMode || !_seuraId) { if (typeof toast === 'function') toast(vpT('Potentiaali tallennettu (demo)'), 'ok'); return; }
+  if (_isDemoMode || !_seuraId) { paivitaSeuranNakyma(); _vpPotReRender(p); if (typeof toast === 'function') toast(vpT('Potentiaali tallennettu (demo)'), 'ok'); return; }
   try {
     var cu = firebase.auth().currentUser; if (cu) await cu.getIdToken(true);
     var pRef = db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(p.id);
@@ -6342,15 +6395,24 @@ window._vpTallennaPotentiaali = async function (pid, tahdet, huomioVain) {
            tapauksessa, ja Palloliiton oma näkymä laskee koosteensa kerroista. */
         if (orgP === 'seura') tx.set(pRef, pika, { merge: true });
       });
+      if (orgP === 'seura') { paivitaSeuranNakyma(); _vpPotReRender(p); }
     } else {
       await pRef.set(pika, { merge: true });
+      paivitaSeuranNakyma(); _vpPotReRender(p);
     }
     if (typeof toast === 'function') toast(vpT('💎 Potentiaali tallennettu'), 'ok');
-  } catch (e) { console.warn('[potentiaali]', e && e.message); if (typeof toast === 'function') toast(vpT('Tallennus epäonnistui (tarkista Firestore-säännöt: scout_potentiaali*)'), 'error'); }
+  } catch (e) {
+    console.warn('[potentiaali]', e && e.message);
+    /* Peru optimistinen oma arvio: tallentamaton arvo ei saa jaada nakymaan omana kertana. */
+    if (typeof _vpArvMerkitseOmaPotentiaali === 'function') _vpArvMerkitseOmaPotentiaali(p, omaEnnen, omaHuomEnnen);
+    _vpPotReRender(p);
+    if (typeof toast === 'function') toast(vpT('Tallennus epäonnistui (tarkista Firestore-säännöt: scout_potentiaali*)'), 'error');
+  }
 };
 window._vpPoistaPotentiaali = async function (pid) {
   var p = (typeof _vpIdpPelaaja === 'function') ? _vpIdpPelaaja(pid) : null; if (!p || !_vpSeurantaOnJohto()) return;   // johto-only (täsmää sääntöön)
   p.scout_potentiaali = null; p.scout_potentiaali_taso = null; p.scout_potentiaali_huomiot = ''; p.scout_potentiaali_pvm = null; p.scout_potentiaali_arvioija = null;
+  if (typeof _vpArvMerkitseOmaPotentiaali === 'function') _vpArvMerkitseOmaPotentiaali(p, null, '');
   _vpPotReRender(p);
   if (_isDemoMode || !_seuraId) { if (typeof toast === 'function') toast(vpT('Arvio poistettu (demo)'), 'ok'); return; }
   try {
@@ -10706,7 +10768,7 @@ function _vpArvKtxEditoriHTML(p) {
    kadonnut arvio. Nyt korostus tulee VAIN arvioijan omasta avoimesta kerrasta (tämä arvioija,
    tämä päivä, tämä konteksti). Seuran viimeisin näytetään neutraalina tekstinä vasta, kun oma
    arvo on tallennettu samalle kohteelle. */
-window._vpArvOmaKerta = null;   // { pid, kertaId, kohteet: {avain: arvo} }
+window._vpArvOmaKerta = null;   // { pid, kertaId, kohteet: {avain: arvo}, potentiaali: {tahdet, huomiot}|null }
 
 /* ── KATSO / ARVIOI (review C) ───────────────────────────────────────────────────────────
    Korostus oli jo omasta kerrasta, mutta samalla rivillä näkyi yhä SEURAN arvo numerona,
@@ -10782,10 +10844,39 @@ function _vpArvOmaKirjattu(p, avain) {
   return !!(s.kohteet && s.kohteet[avain] != null);
 }
 
+/* Potentiaali oli ainoa arviointikohde, joka EI kayttanyt omaa kertaa: Arvioi-tilassa
+   `piilotaNykyarvo` piilotti arvon ehdoitta, joten oma valinta katosi heti uudelleenrenderoinnissa
+   (kommentti "arvo palaa nakyviin oman tallennuksen jalkeen" ei pitanyt paikkaansa). Nyt
+   potentiaali elaa samassa tilassa kuin kohteet, samalla pid- ja kerta-id-tarkistuksella. */
+function _vpArvOmaPotentiaali(p) {
+  const s = window._vpArvOmaKerta;
+  if (!s || !p || s.pid !== p.id || s.kertaId !== _vpArvOmaKertaId(p)) return null;
+  const t = s.potentiaali && s.potentiaali.tahdet;
+  return (typeof t === 'number') ? t : null;
+}
+
+/** Oman kerran potentiaalihuomio (oma perustelu, EI edellisen arvioijan). */
+function _vpArvOmaPotHuomiot(p) {
+  const s = window._vpArvOmaKerta;
+  if (!s || !p || s.pid !== p.id || s.kertaId !== _vpArvOmaKertaId(p)) return '';
+  return (s.potentiaali && s.potentiaali.huomiot) || '';
+}
+
+function _vpArvMerkitseOmaPotentiaali(p, tahdet, huomiot) {
+  const id = _vpArvOmaKertaId(p);
+  const s = window._vpArvOmaKerta;
+  if (!s || s.pid !== p.id || s.kertaId !== id) window._vpArvOmaKerta = { pid: p.id, kertaId: id, kohteet: {}, potentiaali: null };
+  window._vpArvOmaKerta.potentiaali = (tahdet == null) ? null
+    : { tahdet: Number(tahdet), huomiot: huomiot || '' };
+}
+window._vpArvOmaPotentiaali = _vpArvOmaPotentiaali;
+window._vpArvOmaPotHuomiot = _vpArvOmaPotHuomiot;
+window._vpArvMerkitseOmaPotentiaali = _vpArvMerkitseOmaPotentiaali;
+
 function _vpArvMerkitseOma(p, avain, arvo) {
   const id = _vpArvOmaKertaId(p);
   const s = window._vpArvOmaKerta;
-  if (!s || s.pid !== p.id || s.kertaId !== id) window._vpArvOmaKerta = { pid: p.id, kertaId: id, kohteet: {} };
+  if (!s || s.pid !== p.id || s.kertaId !== id) window._vpArvOmaKerta = { pid: p.id, kertaId: id, kohteet: {}, potentiaali: null };
   if (arvo === 'ei_nahty') delete window._vpArvOmaKerta.kohteet[avain];
   else window._vpArvOmaKerta.kohteet[avain] = (arvo == null) ? 'NA' : arvo;
 }
@@ -10801,11 +10892,18 @@ async function _vpArvLataaOmaKerta(p) {
     const snap = await db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(p.id)
       .collection('arviointikerrat').doc(id).get();
     const kohteet = {};
+    let potentiaali = null;
     if (snap.exists) {
-      const k = (snap.data() || {}).kohteet || {};
+      const d = snap.data() || {};
+      const k = d.kohteet || {};
       Object.keys(k).forEach(function (a) { if (k[a] && k[a].arvo != null) kohteet[a] = k[a].arvo; });
+      /* Myos potentiaali luetaan, jotta paluu samaan nakymaan samana paivana nayttaa oman
+         tahtivalinnan eika tyhjaa porrasta. */
+      if (d.potentiaali && d.potentiaali.tahdet != null) {
+        potentiaali = { tahdet: Number(d.potentiaali.tahdet), huomiot: d.potentiaali.huomiot || '' };
+      }
     }
-    window._vpArvOmaKerta = { pid: p.id, kertaId: id, kohteet: kohteet };
+    window._vpArvOmaKerta = { pid: p.id, kertaId: id, kohteet: kohteet, potentiaali: potentiaali };
     const slot = document.getElementById('_jspTab5');
     if (slot && typeof _vpArviointiHTML === 'function') slot.innerHTML = _vpArviointiHTML(p);
   } catch (e) { /* graceful: ilman omaa kertaa ruudukko on tyhjä, mikä on oikea oletus */ }

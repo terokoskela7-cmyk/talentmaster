@@ -729,6 +729,9 @@ describe('VP_v25 resolvi-portti — jokaisella reititetyllä avaimella on sv-riv
      Omaa ruotsia EI kirjoiteta. Portti pysyy tiukkana: (a) jos jollekin ilmestyy käännös, alempi
      testi punertaa ja rivi on poistettava listalta, ja (b) mikä tahansa MUU puuttuva avain punertaa. */
   const SV_ODOTTAA_SANKTIOINTIA = [
+    // PR "arviointi-potentiaali-kausi" (A): Gemini-erä GEMINI_ERA_POTENTIAALI_KAUSI.json.
+    'Valitse ensin porras',
+    'Seuran viimeisin:',
     'Näytä koko kypsyysperustelu',
     'Näytä kuormituksen tiedot',
     'Piilota kuormituksen tiedot',

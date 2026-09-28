@@ -941,3 +941,353 @@ describe('(21) arvioijien nimet näkyvät Katso-tilassa ja tulevat alikokoelmast
     expect(h).toMatch(/jsp-arv-num mut/);
   });
 });
+
+/* ══ (22) OMA POTENTIAALI ARVIOI-TILASSA ══════════════════════════════════
+   Arvioi-tilassa `piilotaNykyarvo` piilotti arvon EHDOITTA, joten arvioijan oma tähtivalinta
+   katosi heti uudelleenrenderöinnissä. Renderöity todiste: sama näkymä ajetaan omalla kerralla
+   ja ilman sitä, ja tuloksesta luetaan kumpi arvo portaassa on korostettuna. */
+describe('(22) Arvioi-tila näyttää oman potentiaaliarvion, ei seuran', () => {
+  const _esc3 = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+  const P = {
+    id: 'p1', joukkue: 'SJK P13', phv_tila: 'PRE',
+    arviointi_havaittu: { pelin_lukeminen: 3 },
+    scout_potentiaali: 4, scout_potentiaali_arvioija: 'Toinen Arvioija', scout_potentiaali_pvm: '2026-09-01',
+    scout_potentiaali_huomiot: 'kansallinen kärki',
+  };
+
+  /** omaKerta = window._vpArvOmaKerta-tila; kertaId 'id-x' vastaa _vpArvOmaKertaId-tynkää. */
+  function nakyma(tila, omaKerta, lisaP) {
+    const TAKS = [{ avain: 'pelin_lukeminen', nimi: 'Pelin lukeminen', dim: 'D4', kategoria: 'peliaaly' }];
+    const AST = { 1: { koodi: '1' }, 2: { koodi: '2' }, 3: { koodi: '3' }, 4: { koodi: '4' }, 5: { koodi: '5' } };
+    const store = {
+      __p: Object.assign({}, P, lisaP || {}),
+      vpT: (s) => s, _jsvEsc: _esc3, _jesc: _esc3,
+      ARVIOINTI_KEHYKSET: {}, ARVIOINTI_KEHYS_OLETUS: 'palloliitto',
+      ARVIOINTI_TAKSONOMIA: TAKS, TM_ARVIOINTI_ASTEIKKO: AST,
+      tmKehys: () => ({ nimi: 'Palloliitto', taksonomia: TAKS, asteikko: AST }),
+      tmTeemat: () => [{ avain: 'D4_peliaaly', nimi: 'Peliäly' }],
+      _taksNimi: (i) => i.nimi, _taksAst: () => '',
+      _dimIkaSp: () => ({ ika: 13, sp: 'P' }),
+      V5: () => '#fff', _pvmLyhyt: (x) => String(x),
+      _vpArvKontekstiOletus: () => ({ tyyppi: 'kooste' }),
+      _vpArvOmaKertaId: () => 'id-x',
+      _uid: 'uid-a',
+      SCOUT_POTENTIAALI: [
+        { tahdet: 2, lyhyt: 'Alue', kuvaus: 'k2' },
+        { tahdet: 4, lyhyt: 'Kansallinen kärki', kuvaus: 'k4' },
+      ],
+      _vpPotRivi: (v) => ({ 2: { lyhyt: 'Alue' }, 4: { lyhyt: 'Kansallinen kärki' } }[v] || null),
+      _vpSeurantaOnJohto: () => true,
+      _vpSiltaPaneeliHTML: () => '', _vpD1SiltaPaneeliHTML: () => '',
+      _vpFyysEhdotus: () => ({ prioriteetti: false }),
+      _vpArvAdarKoostumusHTML: () => '', _vpD3KalibraatioHTML: () => '',
+      window: { _vpArvTila: tila, _vpArvKehys: 'palloliitto', _vpArvTeema: 'D4_peliaaly',
+        _vpArvOmaKerta: omaKerta || null, TM_ARVIOINTI_HISTORIA: AH },
+      document: { getElementById: () => null },
+    };
+    store.window.window = store.window;
+    const ymp = new Proxy(store, {
+      has: (t2, k) => (k in t2) || !(k in globalThis),
+      get: (t2, k) => (k === Symbol.unscopables ? undefined : (k in t2 ? t2[k] : () => '')),
+      set: (t2, k, v) => { t2[k] = v; return true; },
+    });
+    const runko = [
+      'function _vpArvOmaArvo(p, avain) {',
+      'function _vpArvOmaKirjattu(p, avain) {',
+      'function _vpArvOmaPotentiaali(p) {',
+      'function _vpArvOmaPotHuomiot(p) {',
+      'function _vpArvTilaHTML(p) {',
+      'function _vpArvKontekstiHTML(p) {',
+      'function _vpArvKtxEditoriHTML(p) {',
+      'function _vpPotentiaaliHTML(p, opts) {',
+      'function _vpArviointiHTML(p) {',
+    ].map(pura).join('\n');
+    // eslint-disable-next-line no-new-func
+    return new Function('__ymp', 'with(__ymp){' + runko + '\nreturn _vpArviointiHTML(__p);}')(ymp);
+  }
+
+  const OMA = { pid: 'p1', kertaId: 'id-x', kohteet: {}, potentiaali: { tahdet: 2, huomiot: 'oma perustelu' } };
+
+  it('oma arvo 2 korostuu, seuran 4 ei', () => {
+    const h = nakyma('arvioi', OMA);
+    const portaat = h.split('_vpTallennaPotentiaali').filter((s) => s.indexOf('★') >= 0);
+    expect(h).toContain('● valittu');
+    // Korostus on 2-portaan rivillä: sen jälkeen ei tule 4-porrasta ennen "● valittu".
+    const valittu = h.indexOf('● valittu');
+    const p2 = h.indexOf('Alue'), p4 = h.indexOf('Kansallinen kärki');
+    expect(p2).toBeGreaterThan(-1);
+    expect(valittu - p2, 'valittu-merkki kuuluu omalle portaalle 2').toBeGreaterThan(0);
+    expect(valittu, 'valittu-merkki ei saa olla seuran portaalla 4').toBeLessThan(p4);
+    expect(portaat.length).toBeGreaterThan(1);
+  });
+
+  it('oman arvon jälkeen seuran viimeisin näkyy NEUTRAALINA tekstinä, ei portaassa', () => {
+    const h = nakyma('arvioi', OMA);
+    expect(h).toContain('Seuran viimeisin:');
+    expect(h).toContain('4★');
+    expect(h).not.toContain('Toinen Arvioija');    // arvioijan nimi ei tule Arvioi-tilaan
+  });
+
+  it('ILMAN omaa arvoa kumpaakaan ei näy (riippumattomuus ennen ensimmäistä arviota)', () => {
+    const h = nakyma('arvioi', null);
+    expect(h).toContain('Ei vielä arvioitu');
+    expect(h).not.toContain('● valittu');
+    expect(h).not.toContain('Seuran viimeisin:');
+    expect(h).not.toContain('Toinen Arvioija');
+  });
+
+  it('toisen pelaajan tila ei vuoda tähän pelaajaan', () => {
+    const h = nakyma('arvioi', { pid: 'p9', kertaId: 'id-x', kohteet: {}, potentiaali: { tahdet: 2 } });
+    expect(h).toContain('Ei vielä arvioitu');
+    expect(h).not.toContain('● valittu');
+  });
+
+  it('eri kerta-id (uusi päivä / konteksti) ei näytä vanhaa omaa arvoa', () => {
+    const h = nakyma('arvioi', { pid: 'p1', kertaId: 'id-eilinen', kohteet: {}, potentiaali: { tahdet: 2 } });
+    expect(h).toContain('Ei vielä arvioitu');
+    expect(h).not.toContain('● valittu');
+  });
+
+  it('oma perustelu palaa tekstikenttään, edellisen arvioijan ei', () => {
+    const h = nakyma('arvioi', OMA);
+    expect(h).toContain('oma perustelu');
+    expect(h).not.toContain('kansallinen kärki');
+  });
+
+  /* Review C: "Katso = seuran tila, EI arviointinappeja." Kohteilla näin oli, mutta potentiaalin
+     porras ja "Tallenna huomio" olivat Katso-tilassa aktiivisia → VP saattoi arvioida potentiaalin
+     nähtyään seuran arvon, mikä ohitti Arvioi-tilan riippumattomuuden. */
+  it('Katso-tilassa potentiaalia EI voi asettaa (ei arviointinappeja)', () => {
+    const KATSO = nakyma('katso', null);
+    expect(KATSO).not.toContain('_vpTallennaPotentiaali');
+    expect(KATSO).not.toContain('_vpPotHuomiot');
+    expect(KATSO).toContain('Poista arvio');          // hallintatoimi jää johdolle
+    expect(KATSO).toContain('Toinen Arvioija');       // seuran tila näkyy
+    /* "Seuran viimeisin" on ARVIOI-tilan riippumattomuusrivi. Katso-tilassa seuran arvo ON jo
+       pääarvo, joten sama luku toistuisi kahdesti eri otsikolla. */
+    expect(KATSO).not.toContain('Seuran viimeisin:');
+  });
+
+  it('EI VACUOUS: Arvioi-tilassa asetuskontrollit ovat DOM:issa', () => {
+    const A = nakyma('arvioi', null);
+    expect(A).toContain('_vpTallennaPotentiaali');
+    expect(A).toContain('_vpPotHuomiot');
+    expect(A).not.toContain('Poista arvio');          // poisto ei kuulu arviointikertaan
+  });
+});
+
+/* ══ (23) HUOMION TALLENNUS EI SAA KIRJOITTAA TOISEN ARVIOIJAN TÄHTIÄ ══════
+   `huomioVain`-haara otti tähdet p.scout_potentiaali:sta eli SEURAN pikakentästä. Koska se ei
+   ollut null, edellisen arvioijan arvo kirjoittui nykyisen käyttäjän kertaan ja hänen nimiinsä. */
+describe('(23) "Tallenna huomio" ei kirjoita edellisen arvioijan tähtiä', () => {
+  /** Ajaa oikean _vpTallennaPotentiaali-funktion; palauttaa { tk, toastit, p }. */
+  async function aja(opts) {
+    const o = opts || {};
+    const p = { id: 'p1', tunniste: '123', joukkue: 'SJK P13',
+      scout_potentiaali: 4, scout_potentiaali_taso: 'NATIONAL_TOP', scout_potentiaali_huomiot: 'edellisen perustelu',
+      scout_potentiaali_arvioija: 'Toinen Arvioija', scout_potentiaali_pvm: '2026-09-01' };
+    const tk = tynka(o.olemassa);
+    const toastit = [];
+    const store = {
+      _vpIdpPelaaja: () => p,
+      _vpSeurantaOnJohto: () => true,
+      _vpPotTaso: (n) => 'TASO' + n,
+      _vpPotReRender: () => {},
+      _vpArvKontekstiOletus: () => ({ tyyppi: 'kooste' }),
+      _vpArvTilannekuva: () => ({ ika: 13 }),
+      _vpArvArvioija: async () => ({ uid: 'uid-a', nimi: 'Minä Itse', rooli: 'vp', org: o.org || 'seura' }),
+      _vpArvOmaPotentiaali: () => (o.omaArvo == null ? null : o.omaArvo),
+      _vpArvOmaPotHuomiot: () => o.omaHuomiot || '',
+      _vpArvMerkitseOmaPotentiaali: (pp, tahdet, huom) => { store.__merkitty = { tahdet, huom }; },
+      _isDemoMode: false, _seuraId: 'sjk', _seura: { maa: 'FI' }, db: tk.db,
+      firebase: tk.firebase, toast: (t2) => toastit.push(t2), vpT: (s) => s,
+      document: { getElementById: () => (o.huomioKentta == null ? null : { value: o.huomioKentta }) },
+      console: { warn() {} },
+      window: { _vpArvTila: o.tila || 'arvioi', TM_ARVIOINTI_HISTORIA: AH, _vpNimi: 'Minä Itse' },
+    };
+    store.window.window = store.window;
+    const ymp = new Proxy(store, {
+      has: (t2, k) => (k in t2) || !(k in globalThis),
+      get: (t2, k) => (k === Symbol.unscopables ? undefined : (k in t2 ? t2[k] : undefined)),
+      set: (t2, k, v) => { t2[k] = v; return true; },
+    });
+    const runko = pura('window._vpTallennaPotentiaali = async function (pid, tahdet, huomioVain) {');
+    // eslint-disable-next-line no-new-func
+    const fn = new Function('__ymp', 'with(__ymp){' + runko + '\nreturn window._vpTallennaPotentiaali;}')(ymp);
+    await fn('p1', null, true);
+    return { tk, toastit, p, merkitty: store.__merkitty };
+  }
+
+  it('Arvioi-tilassa ILMAN omaa arvoa: ei kirjoituksia, ohjaava toast', async () => {
+    const r = await aja({ omaArvo: null, huomioKentta: 'oma perustelu' });
+    expect(r.tk.kirjoitukset.length, 'mitään ei saa kirjoittaa').toBe(0);
+    expect(r.toastit).toContain('Valitse ensin porras');
+    expect(r.p.scout_potentiaali, 'seuran arvo ei muutu').toBe(4);
+  });
+
+  it('Arvioi-tilassa OMALLA arvolla: kertaan menee oma 2, ei seuran 4', async () => {
+    const r = await aja({ omaArvo: 2, huomioKentta: 'oma perustelu' });
+    const k = kerta(r.tk);
+    expect(k, 'kerta on kirjoitettava').toBeTruthy();
+    expect(k.data.potentiaali.tahdet).toBe(2);
+    const pk = pelaajaKirjoitus(r.tk);
+    expect(pk.data.scout_potentiaali).toBe(2);
+    expect(pk.data.scout_potentiaali_arvioija).toBe('Minä Itse');
+  });
+
+  it('EI VACUOUS: sama ajo ilman korjausta olisi kirjoittanut 4 — nyt seuran arvo ei päädy kertaan', async () => {
+    const r = await aja({ omaArvo: 2, huomioKentta: 'x' });
+    expect(kerta(r.tk).data.potentiaali.tahdet).not.toBe(4);
+  });
+});
+
+/* ══ (24) PALLOLIITON ARVIO EI VUODA SEURAN NÄKYMÄÄN EDES PAIKALLISESTI ════
+   Firestoreen pikakenttä kirjoitettiin oikein vain seuran arvioijalta, mutta paikallinen objekti
+   asetettiin ENNEN kuin organisaatio tiedettiin → Katso-tila näytti Palloliiton (mahd. sisäisen)
+   arvion uudelleenlataukseen asti. */
+describe('(24) Palloliiton potentiaali ei muuta paikallista pelaajaobjektia', () => {
+  async function ajaTahdilla(org) {
+    const p = { id: 'p1', tunniste: '123', joukkue: 'SJK P13',
+      scout_potentiaali: 4, scout_potentiaali_arvioija: 'Seuran VP', scout_potentiaali_pvm: '2026-09-01' };
+    const tk = tynka(false);
+    const store = {
+      _vpIdpPelaaja: () => p,
+      _vpSeurantaOnJohto: () => true,
+      _vpPotTaso: (n) => 'TASO' + n,
+      _vpPotReRender: () => {},
+      _vpArvKontekstiOletus: () => ({ tyyppi: 'kooste' }),
+      _vpArvTilannekuva: () => ({ ika: 13 }),
+      _vpArvArvioija: async () => ({ uid: 'uid-pl', nimi: 'Liiton Arvioija', rooli: 'palloliitto_arvioija', org }),
+      _vpArvOmaPotentiaali: () => null,
+      _vpArvOmaPotHuomiot: () => '',
+      _vpArvMerkitseOmaPotentiaali: () => {},
+      _isDemoMode: false, _seuraId: 'sjk', _seura: { maa: 'FI' }, db: tk.db,
+      firebase: tk.firebase, toast: () => {}, vpT: (s) => s,
+      document: { getElementById: () => null }, console: { warn() {} },
+      window: { _vpArvTila: 'arvioi', TM_ARVIOINTI_HISTORIA: AH, _vpNimi: 'Liiton Arvioija' },
+    };
+    store.window.window = store.window;
+    const ymp = new Proxy(store, {
+      has: (t2, k) => (k in t2) || !(k in globalThis),
+      get: (t2, k) => (k === Symbol.unscopables ? undefined : (k in t2 ? t2[k] : undefined)),
+      set: (t2, k, v) => { t2[k] = v; return true; },
+    });
+    const runko = pura('window._vpTallennaPotentiaali = async function (pid, tahdet, huomioVain) {');
+    // eslint-disable-next-line no-new-func
+    const fn = new Function('__ymp', 'with(__ymp){' + runko + '\nreturn window._vpTallennaPotentiaali;}')(ymp);
+    await fn('p1', 2);
+    return { tk, p };
+  }
+
+  it('Palloliiton arvioija: paikallinen scout_potentiaali EI muutu', async () => {
+    const r = await ajaTahdilla('palloliitto');
+    expect(r.p.scout_potentiaali, 'seuran näkymä näyttäisi liiton arvion').toBe(4);
+    expect(r.p.scout_potentiaali_arvioija).toBe('Seuran VP');
+    expect(pelaajaKirjoitus(r.tk), 'eikä pikakenttää kirjoiteta').toBeFalsy();
+    expect(kerta(r.tk).data.potentiaali.tahdet, 'kerta säilyy silti').toBe(2);
+  });
+
+  it('EI VACUOUS: seuran arvioijalta paikallinen arvo päivittyy', async () => {
+    const r = await ajaTahdilla('seura');
+    expect(r.p.scout_potentiaali).toBe(2);
+    expect(pelaajaKirjoitus(r.tk)).toBeTruthy();
+  });
+});
+
+/* ══ (25) OMA KERTA LADATAAN POTENTIAALEINEEN ═════════════════════════════
+   Paluu samaan näkymään samana päivänä luki vain kohteet, joten oma tähtivalinta näytti
+   tyhjältä vaikka se oli Firestoressa. */
+describe('(25) saman päivän oma kerta palauttaa myös potentiaalin', () => {
+  async function lataa(kertaData) {
+    let out = null;
+    const p = { id: 'p1' };
+    const store = {
+      _isDemoMode: false, _seuraId: 'sjk', _uid: 'uid-a',
+      db: { collection: () => ({ doc: () => ({ collection: () => ({ doc: () => ({ collection: () => ({
+        doc: () => ({ get: async () => ({ exists: !!kertaData, data: () => kertaData }) }),
+      }) }) }) }) }) },
+      _vpArvOmaKertaId: () => 'id-x',
+      _vpArviointiHTML: () => '',
+      document: { getElementById: () => null },
+      window: {},
+    };
+    store.window.window = store.window;
+    const ymp = new Proxy(store, {
+      has: (t2, k) => (k in t2) || !(k in globalThis),
+      get: (t2, k) => (k === Symbol.unscopables ? undefined : (k in t2 ? t2[k] : undefined)),
+      set: (t2, k, v) => { t2[k] = v; return true; },
+    });
+    const runko = pura('async function _vpArvLataaOmaKerta(p) {');
+    // eslint-disable-next-line no-new-func
+    const fn = new Function('__ymp', 'with(__ymp){' + runko + '\nreturn _vpArvLataaOmaKerta;}')(ymp);
+    await fn(p);
+    out = store.window._vpArvOmaKerta;
+    return out;
+  }
+
+  it('potentiaali luetaan kerta-dokumentista', async () => {
+    const s = await lataa({ kohteet: { pelin_lukeminen: { arvo: 3 } }, potentiaali: { tahdet: 2, huomiot: 'oma' } });
+    expect(s.kohteet.pelin_lukeminen).toBe(3);
+    expect(s.potentiaali).toEqual({ tahdet: 2, huomiot: 'oma' });
+  });
+
+  it('ilman potentiaalia tila on null, ei nolla', async () => {
+    const s = await lataa({ kohteet: {} });
+    expect(s.potentiaali).toBeNull();
+  });
+
+  it('tyhjä kerta ei kaada latausta', async () => {
+    const s = await lataa(null);
+    expect(s).toEqual({ pid: 'p1', kertaId: 'id-x', kohteet: {}, potentiaali: null });
+  });
+});
+
+/* ══ (26) EPÄONNISTUNUT TALLENNUS EI JÄÄ NÄKYMÄÄN OMANA ARVIONA ═══════════
+   Oma kerta merkitään optimistisesti heti (sama kuvio kuin kohteilla), joten virhepolun on
+   peruttava se — muuten portaassa loistaisi arvio, jota ei ole missään tallessa. */
+describe('(26) tallennusvirhe peruu optimistisen oman arvion', () => {
+  async function ajaVirheella(kaada) {
+    const p = { id: 'p1', tunniste: '123', joukkue: 'SJK P13' };
+    const merkinnat = [];
+    const store = {
+      _vpIdpPelaaja: () => p,
+      _vpSeurantaOnJohto: () => true,
+      _vpPotTaso: () => 'TASO',
+      _vpPotReRender: () => {},
+      _vpArvKontekstiOletus: () => ({ tyyppi: 'kooste' }),
+      _vpArvTilannekuva: () => ({ ika: 13 }),
+      _vpArvArvioija: async () => { if (kaada) throw new Error('verkko'); return { uid: 'u', nimi: 'N', rooli: 'vp', org: 'seura' }; },
+      _vpArvOmaPotentiaali: () => null,
+      _vpArvOmaPotHuomiot: () => '',
+      _vpArvMerkitseOmaPotentiaali: (pp, tahdet) => { merkinnat.push(tahdet); },
+      _isDemoMode: false, _seuraId: 'sjk', _seura: { maa: 'FI' },
+      db: tynka(false).db, firebase: tynka(false).firebase,
+      toast: () => {}, vpT: (s) => s,
+      document: { getElementById: () => null }, console: { warn() {} },
+      window: { _vpArvTila: 'arvioi', TM_ARVIOINTI_HISTORIA: AH, _vpNimi: 'N' },
+    };
+    store.window.window = store.window;
+    const ymp = new Proxy(store, {
+      has: (t2, k) => (k in t2) || !(k in globalThis),
+      get: (t2, k) => (k === Symbol.unscopables ? undefined : (k in t2 ? t2[k] : undefined)),
+      set: (t2, k, v) => { t2[k] = v; return true; },
+    });
+    const runko = pura('window._vpTallennaPotentiaali = async function (pid, tahdet, huomioVain) {');
+    // eslint-disable-next-line no-new-func
+    const fn = new Function('__ymp', 'with(__ymp){' + runko + '\nreturn window._vpTallennaPotentiaali;}')(ymp);
+    await fn('p1', 3);
+    return merkinnat;
+  }
+
+  it('virhe peruu merkinnän takaisin edelliseen (null)', async () => {
+    const m = await ajaVirheella(true);
+    expect(m[0], 'optimistinen merkintä tehdään ensin').toBe(3);
+    expect(m[m.length - 1], 'virhe palauttaa edellisen arvon').toBeNull();
+  });
+
+  it('EI VACUOUS: onnistuessa merkintää ei peruta', async () => {
+    const m = await ajaVirheella(false);
+    expect(m).toEqual([3]);
+  });
+});
