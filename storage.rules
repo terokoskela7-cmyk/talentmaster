@@ -31,16 +31,20 @@ service firebase.storage {
       allow delete: if request.auth != null && (request.auth.uid == uid || onSuperAdmin());
     }
 
-    // ── ADAR Vision -media (§15) — elävä sääntö: seurat/{sid}/havainnot/{hid}/media_*.jpg ──
-    // read: oma seura (seuraId-claim) TAI SA. write: oman seuran valmentaja-roolit (valmentaja/vp/UTJ/
-    // talentti/fysiikka) TAI SA; image/(jpeg|jpg|png|webp) + kokokatto 10 MB.
+    // ── ADAR Vision -media — TOIMINTO POISTETTU (tietosuoja, vaihe 1) ──────────────────────
+    // MIKSI: kuva alaikäisestä tallentui tänne ja lähti aiProxyn kautta OpenAI:lle Yhdysvaltoihin
+    // ilman suostumusmekanismia. Client ei enää lataa kuvia, mutta polku suljetaan myös täällä,
+    // jottei vanha välimuistissa oleva sivu voi kirjoittaa. Vanhat objektit jäävät paikoilleen
+    // inventaariota varten (scripts/diag_adar_media.js) — poisto on erillinen päätös.
+    //   write:  vain SA (delete SA:lle siivousta varten)
+    //   read:   SA tai oman seuran johto (inventaario)
     match /seurat/{sid}/havainnot/{hid}/{file=**} {
-      allow read:  if request.auth != null && (onSuperAdmin() || request.auth.token.seuraId == sid);
-      allow write: if request.auth != null
-                   && (onSuperAdmin() || (request.auth.token.seuraId == sid
-                       && request.auth.token.rooli in ['valmentaja', 'vp', 'urheilutoimenjohtaja', 'talenttivalmentaja', 'fysiikkavalmentaja']))
-                   && request.resource.contentType.matches('image/(jpeg|jpg|png|webp)')
-                   && request.resource.size < 10 * 1024 * 1024;
+      allow read:   if request.auth != null
+                    && (onSuperAdmin()
+                        || (request.auth.token.seuraId == sid
+                            && request.auth.token.rooli in ['vp', 'urheilutoimenjohtaja']));
+      allow write:  if onSuperAdmin();
+      allow delete: if onSuperAdmin();
     }
 
     // ── Brändi-logo (white-label Vaihe 3A) — seuran logo harjoitusarviointi-artefakteihin ──

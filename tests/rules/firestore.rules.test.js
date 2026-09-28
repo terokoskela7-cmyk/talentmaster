@@ -2558,3 +2558,86 @@ describe('Havainnon kumoaminen — vain tekijä (v3.21)', () => {
     });
   });
 });
+
+/* ══ NÄKYVYYS (v3.22) ═════════════════════════════════════════════════════
+   Anonyymi pelaajaistunto ja huoltaja näkivät kaikki valmiit havainnot, joten Taso 1:n
+   "Valmentajan muistiinpano" meni 8–12-vuotiaalle sellaisenaan. Nyt kumpikin näkee vain
+   havainnot, jotka valmentaja on merkinnyt pelaajalle. */
+describe('Havainnon näkyvyys — vain merkityt pelaajalle (v3.22)', () => {
+  const polkuN = (db, id) => doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'havainnot', id);
+
+  async function seedNak(id, nakyvyys) {
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      const data = {
+        tyyppi: 'adar_pikakortti', tila: 'valmis', pelaaja_lukenut: false,
+        tekija_uid: VALM_A_UID, narratiivi: 'Hyvä liike', pisteet: { A: 2 }, luotu: new Date(),
+      };
+      if (nakyvyys !== undefined) data.nakyvyys = nakyvyys;
+      await setDoc(polkuN(context.firestore(), id), data);
+    });
+  }
+
+  beforeEach(async () => {
+    await seedAdminDoc();
+    await seedSeuraAndPelaaja();
+  });
+
+  // ── LUKU ────────────────────────────────────────────────────────────────
+  it('anonyymi lukee pelaajalle merkityn', async () => {
+    await seedNak('n-pelaaja', 'pelaaja');
+    await assertSucceeds(getDoc(polkuN(anonContext().firestore(), 'n-pelaaja')));
+  });
+
+  it('anonyymi EI lue valmentajille merkittyä', async () => {
+    await seedNak('n-valm', 'valmentajat');
+    await assertFails(getDoc(polkuN(anonContext().firestore(), 'n-valm')));
+  });
+
+  /* Migraatio asettaa vanhoille 'pelaaja'. Puuttuva arvo tarkoittaa siis kirjoitusta, joka ei
+     ole käynyt kytkimen läpi — fail-closed. */
+  it('anonyymi EI lue havaintoa jolta kenttä puuttuu (fail-closed)', async () => {
+    await seedNak('n-puuttuu', undefined);
+    await assertFails(getDoc(polkuN(anonContext().firestore(), 'n-puuttuu')));
+  });
+
+  it.each([['pelaaja', true], ['valmentajat', false]])(
+    'huoltaja ja nakyvyys=%s → sallittu=%s', async (arvo, sallittu) => {
+      await seedNak('n-h-' + arvo, arvo);
+      const p = getDoc(polkuN(huoltajaContext().firestore(), 'n-h-' + arvo));
+      if (sallittu) await assertSucceeds(p); else await assertFails(p);
+    });
+
+  it('valmentaja lukee kaikki (näkyvyys ei rajaa henkilöstöä)', async () => {
+    await seedNak('n-valm2', 'valmentajat');
+    const db = valmentajaContext(VALM_A_UID, SEURA_A).firestore();
+    await assertSucceeds(getDoc(polkuN(db, 'n-valm2')));
+  });
+
+  // ── ANONYYMIN KIRJOITUS ─────────────────────────────────────────────────
+  it('anonyymi voi merkitä luetuksi', async () => {
+    await seedNak('n-luku', 'pelaaja');
+    await assertSucceeds(updateDoc(polkuN(anonContext().firestore(), 'n-luku'), { pelaaja_lukenut: true }));
+  });
+
+  /* Anonyymi sai aiemmin muuttaa MITÄ TAHANSA kenttää — myös omia pisteitään ja näkyvyyttään. */
+  it.each([
+    ['pisteet', { pisteet: { A: 3 } }],
+    ['narratiivi', { narratiivi: 'muutettu' }],
+    ['tila', { tila: 'luonnos' }],
+    ['nakyvyys', { nakyvyys: 'valmentajat' }],
+  ])('anonyymi EI voi muuttaa kenttää %s', async (_n, muutos) => {
+    await seedNak('n-kirj', 'pelaaja');
+    await assertFails(updateDoc(polkuN(anonContext().firestore(), 'n-kirj'), muutos));
+  });
+
+  it('anonyymi ei voi liittää lukukuittaukseen muuta kenttää', async () => {
+    await seedNak('n-yhd', 'pelaaja');
+    await assertFails(updateDoc(polkuN(anonContext().firestore(), 'n-yhd'),
+      { pelaaja_lukenut: true, pisteet: { A: 3 } }));
+  });
+
+  it('anonyymi ei voi kuitata valmentajille merkittyä', async () => {
+    await seedNak('n-valm3', 'valmentajat');
+    await assertFails(updateDoc(polkuN(anonContext().firestore(), 'n-valm3'), { pelaaja_lukenut: true }));
+  });
+});

@@ -6101,8 +6101,15 @@ function _p6MuotoilePvm(v) {
 // Juurisyy 2 (tyhjät kortit): pelaajalle näytetään VAIN havainnot joilla on pelaajapinnalle renderöityvää sisältöä
 // (narratiivi/teksti/oppimisnäkökohta). ADAR-pistehavainnot ilman hyväksyttyä narratiivia (esim. pelkät pisteet /
 // ai_narratiivi ennen hyväksyntää §15) EIVÄT näy — muuten tyhjä UUSI-kortti + väärä laskuri. Ei datamallin muutosta.
+/* NÄKYVYYS ON VALMENTAJAN VALINTA (tietosuoja, vaihe 1). Aiemmin jokainen valmis havainto,
+   jossa oli tekstiä, näytettiin pelaajalle — myös Taso 1:n "Valmentajan muistiinpano", joka on
+   valmentajan työkalu eikä viesti lapselle. Nyt vaaditaan nimenomainen `nakyvyys:'pelaaja'`.
+   PUUTTUVA kenttä EI kelpaa: migraatio asettaa vanhoille havainnoille 'pelaaja' ennen Rules-
+   deployta, joten puuttuva arvo tarkoittaa tämän jälkeen kirjoitusta, joka ei ole käynyt
+   kytkimen läpi. Client-suodatin on varakaista — Rules ja kysely rajaavat jo. */
 function _p6NakyyPelaajalle(d) {
   if (!d) return false;
+  if (d.nakyvyys !== 'pelaaja') return false;
   var t = function (x) { return (x != null && String(x).trim() !== ''); };
   return t(d.narratiivi) || t(d.teksti) || t(d.oppimisnakokohta);
 }
@@ -6113,14 +6120,17 @@ function _p6Tilaa(seuraId, pelaajaId, yritys) {
   if (!db) return;
   if (window._havUnsub) { window._havUnsub(); window._havUnsub = null; }   // pura ennen uutta tilausta (retry)
 
-  // reaaliaikainen kuuntelija — reagoi välittömästi kun valmentaja tallentaa
-  // Yksinkertaistettu query: vain tila=='valmis' + limit (ei vaadi composite indexiä).
-  // pelaaja_lukenut suodatetaan clientissa.
+  /* reaaliaikainen kuuntelija — reagoi välittömästi kun valmentaja tallentaa.
+     KAKSI yhtäsuuruusehtoa (tila + nakyvyys) ei vaadi komposiitti-indeksiä. `nakyvyys` on
+     PAKKO olla kyselyssä, koska Rules ei suodata: anonyymin lukuoikeus on rajattu
+     `nakyvyys=='pelaaja'`-dokumentteihin, joten ilman ehtoa koko kysely hylättäisiin.
+     pelaaja_lukenut suodatetaan clientissa. */
   window._havUnsub = db
     .collection('seurat').doc(seuraId)
     .collection('pelaajat').doc(pelaajaId)
     .collection('havainnot')
     .where('tila', '==', 'valmis')
+    .where('nakyvyys', '==', 'pelaaja')
     .limit(50)
     .onSnapshot(function(snap) {
       var lukemattomat = snap.docs.filter(function(d) {
