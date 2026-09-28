@@ -45,6 +45,7 @@ function teeKasittelija(db, vastausTeksti, env) {
   const h = va.kasittelija(admin, functions, {
     env: Object.assign({ VALMENNUSAPURI_PAIVAKIINTIO: '2' }, env || {}),
     haeTietopohja: async () => TP,
+    haeSeuranTiedot: async () => ({ nimet: [], seura: null }),
     kutsuMallia: async (_a, asetus, system, viestit) => {
       kutsut.push({ asetus, system, viestit });
       return { teksti: vastausTeksti || 'Vastaus', syy: 'end_turn', tokenit: { syote: 1, tuotos: 2, valimuistiLuettu: 0, valimuistiKirjoitettu: 0 } };
@@ -306,6 +307,7 @@ function teeRoolikasittelija(db) {
   const h = va.kasittelija(admin, functions, {
     env: { VALMENNUSAPURI_PAIVAKIINTIO: '5' },
     haeTietopohja: async (_admin, _a, polku) => { polut.push(polku); return TP; },
+    haeSeuranTiedot: async () => ({ nimet: [], seura: null }),
     kutsuMallia: async () => ({ teksti: 'HP-vastaus', syy: 'end_turn', tokenit: { syote: 1, tuotos: 1, valimuistiLuettu: 0, valimuistiKirjoitettu: 0 } }),
   });
   return { h, polut };
@@ -357,4 +359,67 @@ test('kasittelija: pilotti roolit [hp] → pääsee HP-johtajaan', async () => {
   assert.deepStrictEqual(polut, ['valmennusapuri/hp_johtaja/']);
   const t = await h({ toiminto: 'tila' }, ctx('v1'));
   assert.deepStrictEqual(t.roolit, ['valmennusapuri', 'hp']);
+});
+
+// ── Syöttösuoja + kontekstirivi (2026-09-28) ────────────────────────────────
+test('syottosuoja: rekisterin nimet taivutettuina, -nen-parit, tunnisteet ja yhteystiedot pois', () => {
+  const k = va.nimiKuviot(['Matti Virtanen', 'Aino Mäkelä', 'Topias Koskela']);
+  const r = va.syottosuoja('Matti Virtanen (U11). Matin isä, Matille sopii. Aino ja Ainolla, Mäkelän polvi. ' +
+    'Topiaksella meni. Pekka Korhonen. PalloID 34650191, hetu 150313A123B, 040 123 4567, tero@example.com', k);
+  for (const kielletty of ['Matti', 'Matin', 'Matille', 'Virtanen', 'Aino', 'Mäkelä', 'Topias', 'Korhonen', '34650191', '150313A123B', '040 123', 'tero@']) {
+    assert.ok(r.teksti.indexOf(kielletty) < 0, kielletty + ' jäi: ' + r.teksti);
+  }
+  assert.ok(r.maarat.nimet >= 9);
+  assert.strictEqual(r.maarat.tunnisteet, 2);
+  assert.strictEqual(r.maarat.yhteystiedot, 2);
+});
+
+test('syottosuoja: valmennussisältö säilyy (ikäluokat, pelinumerot, vuodet, tavalliset sanat)', () => {
+  const k = va.nimiKuviot(['Aino Mäkelä']);
+  const t = 'Aina kun U13 pelaa 8v8, #7 ja #10 menettävät pallon. 2013 syntyneet, 60 min, 3 × 10–12 toistoa.';
+  const r = va.syottosuoja(t, k);
+  assert.strictEqual(r.teksti, t);
+  assert.deepStrictEqual(r.maarat, { nimet: 0, tunnisteet: 0, yhteystiedot: 0 });
+});
+
+test('rakennaKonteksti: pilotin ja seuran tiedoista; SA:lle ei riviä', () => {
+  assert.strictEqual(va.rakennaKonteksti(false, { seuraId: 'kpv', tehtava: 'valmennuspäällikkö', lisenssi: 'UEFA B' }, { nimi: 'KPV', taso: 'seura' }),
+    'Konteksti: valmennuspäällikkö, seura KPV (seura), koulutus UEFA B, testi- ja kasvumittausdata ei tiedossa.');
+  assert.ok(va.rakennaKonteksti(false, { seuraId: 'kpv' }, null).indexOf('Konteksti: valmentaja, seura kpv, koulutus ei tiedossa') === 0);
+  assert.strictEqual(va.rakennaKonteksti(true, null, null), null);
+});
+
+test('kasittelija: malli ja loki saavat suojatun tekstin, HP saa kontekstirivin, loki vain lukumäärät', async () => {
+  const db = muistiDb({ 'valmennusapuri_pilotti/v1': { aktiivinen: true, seuraId: 'kpv', roolit: ['hp'], lisenssi: 'UEFA C' } });
+  const admin = { firestore: () => db };
+  const mallille = [];
+  const h = va.kasittelija(admin, functions, {
+    env: { VALMENNUSAPURI_PAIVAKIINTIO: '5' },
+    haeTietopohja: async () => TP,
+    haeSeuranTiedot: async () => ({ nimet: ['Matti Virtanen'], seura: { nimi: 'KPV' } }),
+    kutsuMallia: async (_a, _asetus, _system, viestit) => { mallille.push(viestit); return { teksti: 'ok', syy: 'end_turn', tokenit: {} }; },
+  });
+  const r = await h({ rooli: 'hp', viestit: [{ role: 'user', content: 'Matin polvi, PalloID 34650191. Mitä teen?' }] }, ctx('v1'));
+  const viesti = mallille[0][0].content;
+  assert.ok(viesti.indexOf('Konteksti: valmentaja, seura KPV, koulutus UEFA C') === 0, viesti);
+  assert.ok(viesti.indexOf('Matin') < 0 && viesti.indexOf('34650191') < 0, viesti);
+  const loki = db.data['valmennusapuri_loki/' + r.lokiId];
+  assert.ok(loki.kysymys.indexOf('Matin') < 0 && loki.kysymys.indexOf('34650191') < 0, loki.kysymys);
+  assert.deepStrictEqual(loki.syottosuoja, { nimet: 1, tunnisteet: 1, yhteystiedot: 0 });
+  assert.ok(loki.konteksti.indexOf('Konteksti:') === 0);
+  // Valmennusapuri-rooli: suoja kyllä, kontekstiriviä ei
+  const r2 = await h({ viestit: [{ role: 'user', content: 'Matti Virtanen ei tarjoa tukea.' }] }, ctx('v1'));
+  assert.strictEqual(mallille[1][0].content, '[nimi] [nimi] ei tarjoa tukea.');
+  assert.strictEqual(db.data['valmennusapuri_loki/' + r2.lokiId].konteksti, null);
+});
+
+test('kasittelija: oma Konteksti-rivi (testaus) → palvelin ei lisää toista', async () => {
+  const db = muistiDb({ 'valmennusapuri_pilotti/v1': { aktiivinen: true, seuraId: 'kpv', roolit: ['hp'] } });
+  const mallille = [];
+  const h = va.kasittelija({ firestore: () => db }, functions, {
+    env: {}, haeTietopohja: async () => TP, haeSeuranTiedot: async () => ({ nimet: [], seura: null }),
+    kutsuMallia: async (_a, _s, _y, v) => { mallille.push(v); return { teksti: 'ok', syy: 'end_turn', tokenit: {} }; },
+  });
+  await h({ rooli: 'hp', viestit: [{ role: 'user', content: 'Konteksti: fysiikkavalmentaja, U15. Kysymys.' }] }, ctx('v1'));
+  assert.strictEqual(mallille[0][0].content, 'Konteksti: fysiikkavalmentaja, U15. Kysymys.');
 });

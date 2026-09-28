@@ -33,6 +33,15 @@
  *   kansiosta kokoa_apuri.py:llä, EI repossa). HP-rooli: SA aina, pilottikäyttäjä vain jos
  *   pilottidokumentissa roolit: ['hp'].
  *
+ * SYÖTTÖSUOJA (2026-09-28): ennen mallikutsua valmentajan viesteistä poistetaan seuran pelaajien
+ *   nimet (pelaajarekisteristä, myös taivutetut muodot), "Etunimi Sukunimi-nen"-parit, PalloID- ja
+ *   muut numerotunnisteet, henkilötunnukset, sähköpostit ja puhelinnumerot → [nimi] / [tunniste] /
+ *   [yhteystieto]. Malli EI näe niitä, eikä loki tallenna niitä (loki saa vain lukumäärät).
+ *
+ * KONTEKSTI (HP-rooli): palvelin lisää viimeiseen viestiin rivin "Konteksti: …" pilottidokumentista
+ *   (tehtava, lisenssi) ja seuran dokumentista (nimi, taso). Ei SA:lle eikä jos viesti alkaa jo
+ *   "Konteksti:"-rivillä (testaus).
+ *
  * LOKI: jokainen kysymys + vastaus → `valmennusapuri_loki/{id}` (laadunseuranta, NotebookLM-
  *   pistokokeet). Ei client-pääsyä (Firestore Rules: ei match-blokkia = deny); SA lukee Consolesta.
  *
@@ -226,6 +235,77 @@ function puraVastaus(json) {
       valimuistiKirjoitettu: u.cache_creation_input_tokens || 0,
     },
   };
+}
+
+// ── Syöttösuoja (henkilötiedot pois ennen mallikutsua) ──────────────────────
+const SUOJA_KUVIOT = [
+  ['yhteystieto', /[^\s@]+@[^\s@]+\.[a-z]{2,}/gi],                                   // sähköposti
+  ['tunniste', /\b\d{6}[-+A-FU-Y]\d{3}[0-9A-Y]\b/gi],                                 // henkilötunnus
+  ['yhteystieto', /(?:\+358|\b0)[\s-]?\d{1,3}(?:[\s-]?\d){5,8}\b/g],                 // puhelin
+  ['tunniste', /\b\d{7,10}\b/g],                                                      // PalloID ym. numerotunnisteet
+];
+// "Etunimi Sukunimi" kun sukunimi päättyy -nen (yleisin suomalainen sukunimimuoto), myös taivutettuna.
+const NEN_NIMI = /(?<!\p{L})\p{Lu}\p{Ll}+ \p{Lu}\p{Ll}*(?:nen|sen|se)\p{Ll}{0,5}(?!\p{L})/gu;
+
+function _escRe(x) { return x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+
+/** Pelaajarekisterin nimistä kuviot, jotka tunnistavat myös taivutetut muodot (Matti → Matin, Matille). */
+function nimiKuviot(nimet) {
+  const osat = new Set();
+  (nimet || []).forEach(function (n) {
+    String(n || '').split(/[\s-]+/).forEach(function (o) {
+      o = o.trim();
+      if (o.length >= 3 && /^\p{Lu}/u.test(o)) osat.add(o);
+    });
+  });
+  return Array.from(osat).map(function (o) {
+    const runko = o.length <= 4 ? o : o.slice(0, o.length - 2);   // Aino → Aino…, Matti → Mat…, Virtanen → Virtan…
+    return new RegExp('(?<!\\p{L})' + _escRe(runko) + '\\p{L}{0,8}(?!\\p{L})', 'gu');
+  });
+}
+
+/** Puhdas: poistaa henkilötiedot tekstistä. Palauttaa tekstin ja lukumäärät (EI poistettuja arvoja). */
+function syottosuoja(teksti, kuviot) {
+  const maarat = { nimet: 0, tunnisteet: 0, yhteystiedot: 0 };
+  let t = String(teksti || '');
+  SUOJA_KUVIOT.forEach(function (k) {
+    t = t.replace(k[1], function () { maarat[k[0] === 'tunniste' ? 'tunnisteet' : 'yhteystiedot']++; return '[' + k[0] + ']'; });
+  });
+  (kuviot || []).concat([NEN_NIMI]).forEach(function (re) {
+    t = t.replace(re, function () { maarat.nimet++; return '[nimi]'; });
+  });
+  return { teksti: t, maarat: maarat };
+}
+
+/** Puhdas: HP-johtajan kontekstirivi palvelimen tiedoista. null = ei riviä (SA tai ei pilottia). */
+function rakennaKonteksti(onSA, pilotti, seura) {
+  if (onSA || !pilotti) return null;
+  const osat = [pilotti.tehtava || 'valmentaja'];
+  const seuraNimi = (seura && seura.nimi) || pilotti.seuraId;
+  if (seuraNimi) osat.push('seura ' + seuraNimi + (seura && seura.taso ? ' (' + seura.taso + ')' : ''));
+  osat.push(pilotti.lisenssi ? 'koulutus ' + pilotti.lisenssi : 'koulutus ei tiedossa');
+  osat.push('testi- ja kasvumittausdata ei tiedossa');
+  return 'Konteksti: ' + osat.join(', ') + '.';
+}
+
+// Seuran pelaajanimet ja seuradokumentti (välimuisti 10 min / seura)
+const _seuraCache = {};
+async function haeSeuranTiedot(db, seuraId) {
+  if (!seuraId) return { nimet: [], seura: null };
+  const v = _seuraCache[seuraId];
+  if (v && Date.now() - v.aika < TIETOPOHJA_CACHE_MS) return v.arvo;
+  const [seuraSnap, pelSnap] = await Promise.all([
+    db.collection('seurat').doc(seuraId).get(),
+    db.collection('seurat').doc(seuraId).collection('pelaajat').get(),
+  ]);
+  const nimet = [];
+  pelSnap.forEach(function (d) {
+    const x = d.data() || {};
+    [x.nimi, x.etunimi, x.sukunimi, x.kutsumanimi].forEach(function (n) { if (n) nimet.push(n); });
+  });
+  const arvo = { nimet: nimet, seura: seuraSnap.exists ? seuraSnap.data() : null };
+  _seuraCache[seuraId] = { aika: Date.now(), arvo: arvo };
+  return arvo;
 }
 
 // ── Mallikutsu (Vertex EU, Bedrock EU tai suora Anthropic) ──────────────────────────────
@@ -422,6 +502,7 @@ function kasittelija(admin, functions, riip) {
   const r = riip || {};
   const _hae = r.haeTietopohja || haeTietopohja;
   const _kutsu = r.kutsuMallia || kutsuMallia;
+  const _seura = r.haeSeuranTiedot || haeSeuranTiedot;
 
   function httpsVirhe(e) {
     if (e instanceof functions.https.HttpsError) return e;
@@ -478,9 +559,26 @@ function kasittelija(admin, functions, riip) {
       if (!onSA) await kuluKiintio(db, uid, a.paivaKiintio);
 
       const alku = Date.now();
+      const seuraTiedot = await _seura(db, pilotti && pilotti.seuraId);
+      const kuviot = nimiKuviot(seuraTiedot.nimet);
+      const suojaYht = { nimet: 0, tunnisteet: 0, yhteystiedot: 0 };
+      const viestit = kysely.viestit.map(function (v) {
+        if (v.role !== 'user') return v;
+        const sj = syottosuoja(v.content, kuviot);
+        Object.keys(suojaYht).forEach(function (k) { suojaYht[k] += sj.maarat[k]; });
+        return { role: v.role, content: sj.teksti };
+      });
+      let konteksti = null;
+      const viimeinen = viestit[viestit.length - 1];
+      if (rooli === 'hp' && !/^\s*Konteksti:/i.test(viimeinen.content)) {
+        konteksti = rakennaKonteksti(onSA, pilotti, seuraTiedot.seura);
+      }
+      const mallille = konteksti
+        ? viestit.slice(0, -1).concat([{ role: 'user', content: konteksti + '\n\n' + viimeinen.content }])
+        : viestit;
       const tp = await _hae(admin, a, rooli === 'hp' ? a.hpPolku : a.polku);
-      const malli = await _kutsu(admin, a, tp.system, kysely.viestit);
-      const kayttajan = kysely.viestit.filter(function (v) { return v.role === 'user'; }).map(function (v) { return v.content; });
+      const malli = await _kutsu(admin, a, tp.system, mallille);
+      const kayttajan = viestit.filter(function (v) { return v.role === 'user'; }).map(function (v) { return v.content; });
       const suodatettu = suodataKoodit(malli.teksti, kayttajan);
       if (suodatettu.poistettu.length) {
         console.warn('[valmennusapuri] koodit poistettu vastauksesta:', suodatettu.poistettu.join(', '));
@@ -494,6 +592,8 @@ function kasittelija(admin, functions, riip) {
         vastaus: suodatettu.teksti,
         kieli: kysely.kieli,
         rooli: rooli,
+        konteksti: konteksti,
+        syottosuoja: suojaYht,
         ohjeVersio: tp.versio,
         provider: a.provider,
         malli: a.malli,
@@ -527,6 +627,9 @@ module.exports = {
   onKayttoOikeus,
   valitseRooli,
   roolitKayttajalle,
+  syottosuoja,
+  nimiKuviot,
+  rakennaKonteksti,
   puraVastaus,
   vertexUrl,
   asetukset,
