@@ -53,8 +53,9 @@
 const SA_UID = 'dqUzvJA61Wb9fgj5UiK0riSA4NI2';            // CLAUDE.md §3 — ei koskaan riko
 const KIELET = ['fi', 'sv', 'en'];
 const MAX_VIESTEJA = 12;                                    // historiasta mukaan viimeiset N viestiä
-const MAX_MERKKEJA_VIESTI = 4000;
-const MAX_MERKKEJA_YHTEENSA = 24000;
+const MAX_MERKKEJA_VIESTI = 4000;                            // valmentajan kysymys
+const MAX_MERKKEJA_VASTAUS = 12000;                          // apurin aiempi vastaus historiassa (lyhennetään, ei hylätä)
+const MAX_MERKKEJA_YHTEENSA = 40000;
 const MAX_TOKENS = 4000;
 const TIETOPOHJA_CACHE_MS = 10 * 60 * 1000;
 
@@ -106,8 +107,10 @@ function validoiKysely(data) {
     }
     const content = v.content.trim();
     if (!content) throw virhe('invalid-argument', 'tyhjä viesti');
-    if (content.length > MAX_MERKKEJA_VIESTI) throw virhe('invalid-argument', 'viesti on liian pitkä');
-    return { role: v.role, content: content };
+    // Raja koskee vain valmentajan viestejä. Apurin omat vastaukset ovat usein yli 4000 merkkiä
+    // ja kulkevat historiassa takaisin → lyhennetään, jotta jatkokysymys ei kaadu.
+    if (v.role === 'user' && content.length > MAX_MERKKEJA_VIESTI) throw virhe('invalid-argument', 'viesti on liian pitkä');
+    return { role: v.role, content: v.role === 'assistant' && content.length > MAX_MERKKEJA_VASTAUS ? content.slice(0, MAX_MERKKEJA_VASTAUS) + ' […]' : content };
   });
   if (viestit[viestit.length - 1].role !== 'user') {
     throw virhe('invalid-argument', 'viimeisen viestin pitää olla valmentajan');

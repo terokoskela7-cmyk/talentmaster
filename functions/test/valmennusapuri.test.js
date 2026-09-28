@@ -535,3 +535,11 @@ test('koostaSeuranData: tekniikkakilpailun TKI, merkit ja kehityskohteet; ponnau
   assert.ok(t.indexOf('järjestelmän laskema pelaajittain (pelaajia): syöttö 2, pallon ponnauttelu 1') >= 0, t);
   assert.ok(t.indexOf('tekniikkakilpailu: pallon ponnauttelu 30 s') >= 0, t);
 });
+
+test('validoiKysely: pitkä apurin vastaus historiassa ei kaada jatkokysymystä; pitkä kysymys hylätään', () => {
+  const r = va.validoiKysely({ viestit: [{ role: 'user', content: 'Kysymys' }, { role: 'assistant', content: 'x'.repeat(7000) }, { role: 'user', content: 'Jatko' }] });
+  assert.strictEqual(r.viestit.length, 3);
+  const valtava = va.validoiKysely({ viestit: [{ role: 'user', content: 'K' }, { role: 'assistant', content: 'y'.repeat(20000) }, { role: 'user', content: 'J' }] });
+  assert.ok(valtava.viestit[1].content.length < 12100, 'lyhennetty');
+  assert.throws(() => va.validoiKysely({ viestit: [{ role: 'user', content: 'z'.repeat(4001) }] }), /liian pitkä/);
+});
