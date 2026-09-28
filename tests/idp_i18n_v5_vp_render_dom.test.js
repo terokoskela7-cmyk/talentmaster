@@ -729,6 +729,27 @@ describe('VP_v25 resolvi-portti — jokaisella reititetyllä avaimella on sv-riv
      Omaa ruotsia EI kirjoiteta. Portti pysyy tiukkana: (a) jos jollekin ilmestyy käännös, alempi
      testi punertaa ja rivi on poistettava listalta, ja (b) mikä tahansa MUU puuttuva avain punertaa. */
   const SV_ODOTTAA_SANKTIOINTIA = [
+    /* PR "viesti-pelaajalle" (B6): perumisen vahvistusteksti. sv Gemini-erässä. */
+    'Perutaanko?',
+    'Teksti poistuu pelaajan ja perheen appista heti, myös jos se on jo luettu.',
+    'Havainto ei enää laske peliälyyn.',
+    'Se jää tähän historiaan merkinnällä Peruttu.',
+    'Merkintä peruttu',
+    'Peruminen ei onnistunut',
+    /* PR "viesti-pelaajalle" (B): VP:n kirjoituslomake korvasi kuolleet ruudut.
+       sv tulee Gemini-erässä — omaa ruotsia ei kirjoiteta. */
+    'Kenelle',
+    'Lähetä viesti',
+    'Menee pelaajan appiin kohtaan Valmentajalta ja perheen appiin. Kirjoita niin kuin lapsi lukisi.',
+    'Muistiinpanot ja viestit',
+    'oma muistiinpano',
+    'Oma muistiinpano',
+    'Pelaaja ja perhe näkevät',
+    'Vain VP näkee tämän. Ei mene valmentajalle, pelaajalle eikä perheelle.',
+    'Vain VP näkee',
+    'Viesti lähetetty pelaajalle ja perheelle',
+    'Viesti pelaajalle',
+    'Viestin lähetys ei onnistunut',
     /* PR "havaintohistoria" (A): VP:n D4-lohko siirtyi portaisiin (2A-nimet pois) ja
        sai Havainnot-linkin. sv tulee Gemini-erässä — omaa ruotsia ei kirjoiteta. */
     'Porras',

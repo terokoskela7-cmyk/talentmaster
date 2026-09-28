@@ -39,6 +39,7 @@
 <script src="lib/tm_arviointi_taksonomia.js?v=11"></script>   <!-- Vaihe 2: arviointitaksonomia + pääteemat + kehysrekisteri (mitattu + havaittu 1–5) -->
 <script src="lib/tm_pelialy_yksilo.js?v=4"></script>   <!-- P1: pelihavainto peliäly → yksilöteema · v3: Vaihe B ristiinarvio-konsensus -->
 <script src="lib/tm_havaintohistoria.js?v=1"></script>   <!-- jaettu havainto-/viestihistoria (VP + Master) -->
+<script src="lib/tm_valmentajaviesti.js?v=1"></script>   <!-- YKSI kirjoituspiste valmentajan viestille -->
 <script src="lib/tm_arviointi_silta.js?v=3"></script>   <!-- Vaihe 5: arviointi→resepti-silta (heikoin havaittu D2 → ehdotettu jaksofokus) · v2 = I3a SSOT-osoitin tm_kehityspolku -->
 <script src="lib/tm_idp.js?v=9"></script>   <!-- I3a: + kesto valmentajan asetettavaksi (opts.kestoVk) · I2: lahde+pvm/idp_lahde/idpVahvinDim 1–3 -->
 <script src="lib/tm_teknistaktiset.js?v=5"></script>   <!-- Vaihe 4a: teknis-taktinen curriculum (VP:n jaksofokus talenteille) · v5 = I3a pelipaikkaportti U14+ + harjoite-tägit/jalka -->
@@ -1818,6 +1819,13 @@ body {
 .jsp-adar-ladder { display:flex; gap:3px; margin:8px 0 6px; }
 .jsp-adar-ladder i { flex:1; height:3px; background:var(--border); }
 .jsp-adar-ladder i.on { background:var(--teal); }
+/* VP:n kirjoituslomake: kaksi selkeaa kohdetta ruutujen tilalla. */
+.pmp-seg { display:grid; grid-template-columns:1fr 1fr; border:.5px solid var(--border); margin:10px 0 0; }
+.pmp-seg button { background:transparent; border:0; border-right:.5px solid var(--border); padding:11px 10px; text-align:left; cursor:pointer; color:var(--ink2); font-family:inherit; }
+.pmp-seg button:last-child { border-right:0; }
+.pmp-seg button b { display:block; font-size:12.5px; font-weight:500; color:var(--ink); }
+.pmp-seg button span { font-size:11px; color:var(--ink3); }
+.pmp-seg button[aria-pressed="true"] { background:rgba(40,176,144,.12); box-shadow:inset 0 -2px 0 var(--teal); }
 .jsp-adar-an { color: var(--ink); flex: 0 0 200px; } .jsp-adar-an small { color: var(--ink3); font-size: 9px; }
 .jsp-scale3 { display: flex; gap: 4px; } .jsp-scale3 i { width: 20px; height: 6px; border-radius: 3px; background: var(--ov-2); }
 .jsp-scale3 i.on { background: var(--teal); } .jsp-scale3.low i.on { background: var(--amber); }
@@ -4515,6 +4523,7 @@ window._vpHhSuodatin = 'kaikki';
 async function avaaHavaintohistoria(pelaajaId, pelaajaNimi) {
   if (!pelaajaId || !_seuraId || typeof tmHhRivit !== 'function') return;
   window._vpHhSuodatin = 'kaikki';
+  window._vpHhPelaajaId = pelaajaId;
   window._vpHhSulje = avaaAlasivu({
     id: '_vpHhModal',
     otsikko: vpT('Havainnot ja viestit'),
@@ -4535,10 +4544,82 @@ function _vpHhPiirra() {
   if (!el) return;
   el.innerHTML = '<style>' + tmHhCss() + '</style>'
     + tmHhSuodatinHTML(window._vpHhSuodatin, vpT)
-    + tmHhHTML(window._vpHhRivit, { suodatin: window._vpHhSuodatin, t: vpT });
+    + tmHhHTML(window._vpHhRivit, {
+      suodatin: window._vpHhSuodatin, t: vpT, peruSallittu: _vpSaaPerua,
+    });
   el.querySelectorAll('[data-hh-suodatin]').forEach(function (b) {
     b.onclick = function () { window._vpHhSuodatin = b.getAttribute('data-hh-suodatin'); _vpHhPiirra(); };
   });
+  el.querySelectorAll('[data-hh-peru]').forEach(function (b) {
+    b.onclick = function () { _vpHhVahvista(b.getAttribute('data-hh-peru'), b); };
+  });
+}
+
+/* PERUMISEN OIKEUS peilaa sääntöä (v3.23): tekijä tai seuran johto. Jos UI näyttäisi napin
+   laajemmin kuin sääntö sallii, klikkaus kaatuisi vasta permission-deniediin. */
+var VP_JOHTOROOLIT = ['vp', 'urheilutoimenjohtaja', 'super_admin', 'superadmin'];
+function _vpSaaPerua(rivi) {
+  if (!rivi) return false;
+  if (rivi.tekijaUid && rivi.tekijaUid === _uid) return true;
+  return VP_JOHTOROOLIT.indexOf(window._tmClaimRooli || window._tmRooli || '') >= 0;
+}
+
+/* Vahvistus on RIVIN SISÄLLÄ, ei erillisenä dialogina: teksti kertoo mitä tapahtuu, ja
+   peruminen on lopullinen lapsen näkymän kannalta (teksti poistuu myös luettuna). */
+function _vpHhVahvista(havId, nappi) {
+  var rivi = (window._vpHhRivit || []).filter(function (r) { return r.id === havId; })[0];
+  if (!rivi || !nappi) return;
+  var laatikko = document.createElement('div');
+  laatikko.style.cssText = 'margin-top:8px;padding:10px 12px;border:.5px solid var(--border);background:rgba(242,239,230,.04);font-size:12px;color:var(--ink2);line-height:1.5';
+  laatikko.innerHTML = '<b style="color:var(--ink)">' + vpT('Perutaanko?') + '</b> '
+    + (rivi.nakyvyys === 'pelaaja' ? vpT('Teksti poistuu pelaajan ja perheen appista heti, myös jos se on jo luettu.') + ' ' : '')
+    + (rivi.laji === 'havainto' ? vpT('Havainto ei enää laske peliälyyn.') + ' ' : '')
+    + vpT('Se jää tähän historiaan merkinnällä Peruttu.')
+    + '<div style="display:flex;gap:8px;margin-top:10px">'
+    + '<button type="button" data-hh-ok style="font-size:11.5px;padding:8px 14px;border:.5px solid var(--teal-brd);background:rgba(40,176,144,.12);color:var(--teal);cursor:pointer;font-family:inherit">' + vpT('Peru') + '</button>'
+    + '<button type="button" data-hh-ei style="font-size:11.5px;padding:8px 14px;border:.5px solid var(--border);background:transparent;color:var(--ink2);cursor:pointer;font-family:inherit">' + vpT('Takaisin') + '</button>'
+    + '</div>';
+  nappi.parentNode.appendChild(laatikko);
+  nappi.style.display = 'none';
+  laatikko.querySelector('[data-hh-ok]').onclick = function () { _vpHhPeru(havId); };
+  laatikko.querySelector('[data-hh-ei]').onclick = function () { _vpHhPiirra(); };
+}
+
+async function _vpHhPeru(havId) {
+  var pid = window._vpHhPelaajaId;
+  if (!pid || !havId) return;
+  try {
+    await db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(pid)
+      .collection('havainnot').doc(havId).update({
+        tila: 'peruttu',
+        peruttu: firebase.firestore.FieldValue.serverTimestamp(),
+        peruttu_uid: _uid,
+      });
+  } catch (e) {
+    toast(vpT('Peruminen ei onnistunut'), 'warn');
+    return;
+  }
+  /* Pikakentät uudelleen: libin konsensus ohittaa perutut, joten peliäly palautuu itsesään.
+     PORRASTA EI palauteta automaattisesti — se vaatisi päättelyä siitä, nostettiinko porras
+     juuri tässä havainnossa. Kerrotaan se sen sijaan. */
+  await _vpHhPaivitaPikakentat(pid);
+  (window._vpHhRivit || []).forEach(function (r) { if (r.id === havId) r.peruttu = true; });
+  _vpHhPiirra();
+  toast(vpT('Merkintä peruttu'), 'ok');
+}
+
+async function _vpHhPaivitaPikakentat(pelaajaId) {
+  if (typeof tmAdarPikakentat !== 'function') return;
+  try {
+    var pRef = db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(pelaajaId);
+    var snap = await pRef.collection('havainnot').get();
+    var havainnot = snap.docs.map(function (d) { return d.data(); });
+    var pdoc = await pRef.get();
+    var pd = pdoc.exists ? pdoc.data() : {};
+    var ika = pd.syntymaVuosi ? (new Date().getFullYear() - Number(pd.syntymaVuosi)) : null;
+    var kentat = tmAdarPikakentat(havainnot, ika, pd.havainto_porras || null, { edellinen: pd.adar_viimeisin || null });
+    if (kentat) await pRef.set(kentat, { merge: true });
+  } catch (e) { console.warn('[vpHh] pikakentat', e && e.message); }
 }
 if (typeof document !== 'undefined') {
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', _vpPhCtaKuuntelija);
@@ -5209,10 +5290,10 @@ async function avaaPelaajaMuistiinpanoModal(pelaajaId, pelaajaNimi) {
     muistiinpanot.forEach(m => {
       const pvm = m.luotu ? m.luotu.split('T')[0] : '—';
       const kategoriaVari = {kehu:'#28B090',kehitysidea:'#5B8FE0',huomio:'#E0A040',muu:'#8A8A8A'}[m.kategoria||'muu'];
-      const nakyvyys = [];
-      if (m.naytaValmentajalle) nakyvyys.push('valmentaja');
-      if (m.naytaPelaajalle) nakyvyys.push('pelaaja');
-      const nakyvyysTxt = nakyvyys.length ? '+ ' + nakyvyys.join(' + ') : 'vain VP';
+      /* Vanha "+ valmentaja + pelaaja" -teksti POISTETTU: ruudut tallentuivat, mutta mikään
+         sovellus ei lukenut niitä — teksti lupasi jotain mitä ei tapahtunut. Kaikki
+         muistiinpanot ovat ja ovat aina olleet vain VP:n omia. */
+      const nakyvyysTxt = vpT('oma muistiinpano');
       h += '<div style="background:rgba(242,239,230,.04);padding:12px 14px;margin-bottom:8px;border-left:2px solid ' + kategoriaVari + '">';
       h += '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px">';
       h += '<div style="font-size:10px;letter-spacing:.1em;color:' + kategoriaVari + ';text-transform:uppercase">' + (m.kategoria||'muu') + '</div>';
@@ -5238,23 +5319,65 @@ async function avaaPelaajaMuistiinpanoModal(pelaajaId, pelaajaNimi) {
   });
   h += '</div>';
   h += '<style>[data-pmp-kat].on{background:rgba(40,176,144,.18)!important;border-color:rgba(40,176,144,.5)!important;color:#28B090!important}</style>';
-  h += '<div style="display:flex;gap:14px;margin-bottom:14px;font-size:11px;color:var(--ink2)">';
-  h += '<label style="display:flex;align-items:center;gap:6px;cursor:pointer"><input type="checkbox" id="_pmpVal" style="cursor:pointer">' + vpT('Näytä valmentajalle') + '</label>';
-  h += '<label style="display:flex;align-items:center;gap:6px;cursor:pointer"><input type="checkbox" id="_pmpPel" style="cursor:pointer">' + vpT('Näytä pelaajalle') + '</label>';
+  /* KAKSI SELKEÄÄ VALINTAA korvaa ruudut "Näytä valmentajalle" / "Näytä pelaajalle".
+     Ruudut tallentuivat, mutta mikään sovellus ei lukenut niitä: VP:n kirjoittama viesti ei
+     koskaan menyt perille. Nyt kohde valitaan, ja viesti kirjoitetaan samaan muotoon kuin
+     valmentajan "Viestitä perheelle" (jaettu lib/tm_valmentajaviesti.js). */
+  h += '<div class="pmp-seg" role="group" aria-label="' + vpT('Kenelle') + '">';
+  h += '<button type="button" data-pmp-kohde="muisti" aria-pressed="true"><b>' + vpT('Oma muistiinpano') + '</b><span>' + vpT('Vain VP näkee') + '</span></button>';
+  h += '<button type="button" data-pmp-kohde="viesti" aria-pressed="false"><b>' + vpT('Viesti pelaajalle') + '</b><span>' + vpT('Pelaaja ja perhe näkevät') + '</span></button>';
   h += '</div>';
-  h += '<button onclick="_tallennaPMP(\'' + pelaajaId + '\',\'' + (pelaajaNimi||'').replace(/[\'"]/g,'') + '\')" style="width:100%;padding:11px;background:var(--teal);color:#fff;border:none;border-radius:4px;font-size:12px;font-weight:600;cursor:pointer;letter-spacing:.08em">' + vpT('Tallenna muistiinpano') + '</button>';
+  h += '<div id="_pmpVihje" style="font-size:11.5px;color:var(--ink3);margin:8px 0 12px;line-height:1.45"></div>';
+  h += '<button id="_pmpTallenna" style="width:100%;padding:11px;background:var(--teal);color:#08110E;border:none;border-radius:4px;font-size:12px;font-weight:600;cursor:pointer;letter-spacing:.08em;font-family:inherit"></button>';
   h += '</div>';
 
   h += '</div></div>';   // sulkee lomakelohkon + oikean sarakkeen (.sh-2col)
 
   window._pmpSulje = avaaAlasivu({
     id: '_pmpModal',
-    otsikko: vpT('VP:n muistiinpanot'),
+    otsikko: vpT('Muistiinpanot ja viestit'),
     meta: (pelaajaNimi || pelaajaId),
     sisaltoHTML: h,
   });
+  _pmpKytkeLomake(pelaajaId, pelaajaNimi);
 }
 window.avaaPelaajaMuistiinpanoModal = avaaPelaajaMuistiinpanoModal;
+
+/* Kohteen valinta ohjaa sekä vihjetekstin että tallennuspainikkeen. Vihje on olennainen:
+   se kertoo, KUKA tekstin lukee — juuri se tieto puuttui vanhoista ruuduista. */
+window._pmpKohde = 'muisti';
+function _pmpKytkeLomake(pelaajaId, pelaajaNimi) {
+  var etu = String(pelaajaNimi || '').split(' ')[0] || vpT('pelaaja');
+  var VIHJE = {
+    muisti: vpT('Vain VP näkee tämän. Ei mene valmentajalle, pelaajalle eikä perheelle.'),
+    viesti: vpT('Menee pelaajan appiin kohtaan Valmentajalta ja perheen appiin. Kirjoita niin kuin lapsi lukisi.')
+  };
+  var NAPPI = { muisti: vpT('Tallenna muistiinpano'), viesti: vpT('Lähetä viesti') };
+  window._pmpKohde = 'muisti';
+  var paivita = function () {
+    var v = document.getElementById('_pmpVihje');
+    var b = document.getElementById('_pmpTallenna');
+    if (v) v.textContent = VIHJE[window._pmpKohde];
+    if (b) b.textContent = NAPPI[window._pmpKohde];
+    /* Kategoriat kuuluvat vain omaan muistiinpanoon — viesti perheelle ei ole luokiteltu. */
+    document.querySelectorAll('[data-pmp-kat]').forEach(function (el) {
+      el.style.display = (window._pmpKohde === 'muisti') ? '' : 'none';
+    });
+  };
+  document.querySelectorAll('[data-pmp-kohde]').forEach(function (b) {
+    b.onclick = function () {
+      window._pmpKohde = b.getAttribute('data-pmp-kohde');
+      document.querySelectorAll('[data-pmp-kohde]').forEach(function (x) {
+        x.setAttribute('aria-pressed', String(x === b));
+      });
+      paivita();
+    };
+  });
+  var tal = document.getElementById('_pmpTallenna');
+  if (tal) tal.onclick = function () { _tallennaPMP(pelaajaId, pelaajaNimi); };
+  paivita();
+  if (etu) { /* etunimi varattu tulevaan vihjetekstiin (i18n vaihe 3) */ }
+}
 
 // ── Bio-banding V1 (Mirwald) — ryhmittele pelaajat kehitysvaiheen mukaan (§26 pikakentät, ei alikokoelmakyselyjä).
 // docs/BIOBANDING_ARKKITEHTUURI.md §6/§8. EI Khamis-Rochea (V2). §7.22: valmentaja/VP-työkalu, ei lapselle.
@@ -5339,13 +5462,46 @@ function avaaBioBanding() {
 }
 window.avaaBioBanding = avaaBioBanding;
 
+/* VP:n oma nayttonimi kayttajat-dokumentista. Luetaan VAIN tarvittaessa (viestia
+   lahetettaessa), eika sahkoposti kelpaa: lapsi nakee taman nimen kortissaan. */
+async function _vpOmaNimi() {
+  if (window._vpOmaNimiArvo) return window._vpOmaNimiArvo;
+  try {
+    const d = await db.collection('seurat').doc(_seuraId).collection('kayttajat').doc(_uid).get();
+    const x = d.exists ? d.data() : {};
+    window._vpOmaNimiArvo = tmViestiNimi([((x.etunimi || '') + ' ' + (x.sukunimi || '')).trim()]);
+  } catch (e) { window._vpOmaNimiArvo = 'Valmentaja'; }
+  return window._vpOmaNimiArvo;
+}
+
 async function _tallennaPMP(pelaajaId, pelaajaNimi) {
   const teksti = document.getElementById('_pmpTeksti')?.value;
   const kategoria = document.querySelector('[data-pmp-kat].on')?.dataset.pmpKat || 'muu';
-  const naytaVal = document.getElementById('_pmpVal')?.checked;
-  const naytaPel = document.getElementById('_pmpPel')?.checked;
   if (!teksti?.trim()) { toast(vpT('Kirjoita ensin teksti'), 'warn'); return; }
-  const ok = await tallennaPelaajaMuistiinpano(pelaajaId, teksti, kategoria, naytaVal, naytaPel);
+
+  /* VIESTI PELAAJALLE kulkee JAETUN kirjoituspisteen kautta — sama dokumenttimuoto kuin
+     valmentajan sovelluksessa. Ilman sitä VP:n viesti olisi kolmas kopio, ja juuri kopiot
+     ovat syy siihen että `nakyvyys` puuttui aikanaan. */
+  if (window._pmpKohde === 'viesti') {
+    try {
+      await tmLahetaValmentajaViesti(db, {
+        seuraId: _seuraId, pelaajaId: pelaajaId, teksti: teksti, uid: _uid,
+        nimi: await _vpOmaNimi(), sentinel: firebase.firestore.FieldValue,
+      });
+      toast(vpT('Viesti lähetetty pelaajalle ja perheelle'), 'ok');
+    } catch (e) {
+      toast(vpT('Viestin lähetys ei onnistunut'), 'warn');
+      return;
+    }
+    if (typeof window._pmpSulje === 'function') { window._pmpSulje(); window._pmpSulje = null; }
+    else document.getElementById('_pmpModal')?.remove();
+    setTimeout(() => avaaPelaajaMuistiinpanoModal(pelaajaId, pelaajaNimi), 200);
+    return;
+  }
+
+  /* Oma muistiinpano ennallaan. Uusiin EI kirjoiteta naytaValmentajalle/naytaPelaajalle:
+     ne eivat koskaan ohjanneet mitaan. */
+  const ok = await tallennaPelaajaMuistiinpano(pelaajaId, teksti, kategoria, false, false);
   if (ok) {
     /* Shellin oma sulkija: pelkkä .remove() jättäisi Esc-kuuntelijan vuotamaan. */
     if (typeof window._pmpSulje === 'function') { window._pmpSulje(); window._pmpSulje = null; }

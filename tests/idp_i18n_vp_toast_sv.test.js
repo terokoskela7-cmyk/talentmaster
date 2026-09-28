@@ -119,6 +119,12 @@ describe('ilmoituskanavat · kattavuus', () => {
    jos käännös ilmestyy, alempi testi punertaa ja rivi on poistettava listalta. */
 const SV_ODOTTAA_SANKTIOINTIA = [
   'Valitse ensin porras',
+  // PR "viesti-pelaajalle" (B): VP:n uusi viestitoiminto — sv Gemini-erässä.
+  'Viesti lähetetty pelaajalle ja perheelle',
+  'Viestin lähetys ei onnistunut',
+  // PR "viesti-pelaajalle" (B6): peruminen.
+  'Merkintä peruttu',
+  'Peruminen ei onnistunut',
 ];
 
 describe('ilmoituskanavat · resolvi (kääre ei yksin riitä)', () => {
