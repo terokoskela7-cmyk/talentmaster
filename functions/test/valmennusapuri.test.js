@@ -543,3 +543,10 @@ test('validoiKysely: pitkä apurin vastaus historiassa ei kaada jatkokysymystä;
   assert.ok(valtava.viestit[1].content.length < 12100, 'lyhennetty');
   assert.throws(() => va.validoiKysely({ viestit: [{ role: 'user', content: 'z'.repeat(4001) }] }), /liian pitkä/);
 });
+
+test('onRuotsiksi: ruotsinkielinen kysymys tunnistetaan, suomenkielinen ei', () => {
+  assert.strictEqual(va.onRuotsiksi('Vad ska Sibbo P9 lära sig de kommande säsongerna?'), true);
+  assert.strictEqual(va.onRuotsiksi('Hur lägger jag upp styrketräningen för laget?'), true);
+  assert.strictEqual(va.onRuotsiksi('Mitä Sibbo P9 joukkueen tulisi oppia seuraavana kahtena kautena?'), false);
+  assert.strictEqual(va.onRuotsiksi('Nosta P9 joukkueesta kaksi kehityskohdetta'), false);
+});
