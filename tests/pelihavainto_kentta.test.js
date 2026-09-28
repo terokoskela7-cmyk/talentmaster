@@ -1220,6 +1220,20 @@ describe('(12) kenttä täyttää näytön, kumpikin asento on käyttötila', ()
     expect(SIVU).not.toContain('viewBox="0 0 530 350"');
   });
 
+  it('LIB-VERSIO on nostettu (vanha lib + uusi sivu = hiljainen väärä piste)', () => {
+    /* Pages välimuistittaa tiedostot erikseen. Jos selain saa uuden sivun mutta VANHAN libin,
+       `phNaytolta` ohittaa `pysty`-asetuksen ja pystyasennon napautus tallentuu vaakakaavalla
+       väärään kohtaan kenttää — ILMAN virheilmoitusta. Siksi lib-version on noustava.
+       Kynnys on sidottu libin SISÄLTÖÖN: kun `pysty`-tuki on libissä, sivun on pyydettävä
+       vähintään v2. Seuraava libmuutos nostaa kynnystä samalla tavalla. */
+    const lib = readFileSync(join(juuri, 'lib', 'tm_pelihavainto.js'), 'utf8');
+    const onPystytuki = lib.includes('_phPysty');
+    expect(onPystytuki, 'libin pysty-tuki katosi — päivitä myös tämä vartija').toBe(true);
+    const m = SIVU.match(/lib\/tm_pelihavainto\.js\?v=(\d+)/);
+    expect(m, 'sivu ei lataa libiä versioidulla URL:lla').toBeTruthy();
+    expect(Number(m[1]), 'lib muuttui mutta ?v ei noussut').toBeGreaterThanOrEqual(2);
+  });
+
   it('turva-alueet huomioidaan (lovi ja kotipalkki eivät syö kenttää)', () => {
     expect(SIVU).toContain('env(safe-area-inset-top');
     expect(SIVU).toContain('padding:var(--sat) var(--sar) var(--sab) var(--sal)');
