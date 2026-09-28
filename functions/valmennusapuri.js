@@ -311,6 +311,9 @@ function yhdistaTulokset(x) {
   return Object.keys(ulos).length ? ulos : null;
 }
 
+const TASO_NIMET = { hh: 'H-H-fyysistaso', d1: 'fyysinen valmius (D1)', d2: 'tekninen taso (D2)' };
+function _num(v) { const n = Number(v); return (v == null || v === '' || isNaN(n)) ? null : n; }
+
 const PHV_NIMET = { PRE: 'ennen kasvupyrähdystä', LAH: 'lähestyy', PH: 'huipussa', POST: 'ohi', AN: 'ohi yli vuoden' };
 
 function _kk(pvm) {
@@ -344,8 +347,11 @@ function koostaSeuranData(d, joukkueet) {
   } else {
     osat.push('harjoitettavuuskartoitusta ei ole tehty');
   }
-  const mitatut = pelaajat.filter(function (p) { return p.phv && PHV_NIMET[p.phv]; });
-  osat.push(mitatut.length ? 'kasvumittaus ' + mitatut.length + '/' + pelaajat.length + ' pelaajalla' : 'kasvumittausta ei ole tehty');
+  // Kun joukkue on rajattu, kasvumittauksen lukumäärä lasketaan siitä joukkueesta (muuten malli sekoittaa seuran ja joukkueen)
+  const rajatut = (joukkueet && joukkueet.length) ? pelaajat.filter(function (p) { return joukkueet.indexOf(p.joukkue) >= 0; }) : pelaajat;
+  const mitatut = rajatut.filter(function (p) { return p.phv && PHV_NIMET[p.phv]; });
+  const kohde = (joukkueet && joukkueet.length) ? ' (' + joukkueet.join(', ') + ')' : '';
+  osat.push(mitatut.length ? 'kasvumittaus ' + mitatut.length + '/' + rajatut.length + ' pelaajalla' + kohde : 'kasvumittausta ei ole tehty' + kohde);
   if (testit.length) osat.push('testitapahtumia ' + testit.length + ' (viimeisin ' + (_kk(testit[0].pvm) || '?') + ')');
   osat.push('kuormakirjaukset ei tiedossa');
   let teksti = 'Seuran data: ' + osat.join('; ') + '.';
@@ -389,8 +395,17 @@ function koostaSeuranData(d, joukkueet) {
         .filter(function (v) { return typeof v === 'number' && !isNaN(v); });
       if (arvot.length >= MIN_RYHMA) testit2.push(TESTI_NIMET[t][0] + ' ' + _luku(_mediaani(arvot), 2) + (TESTI_NIMET[t][1] ? ' ' + TESTI_NIMET[t][1] : '') + ' (n=' + arvot.length + ')');
     });
-    const hhT = ryhma.map(function (p) { return p.hhTaso; }).filter(function (v) { return typeof v === 'number' && v >= 1 && v <= 5; });
-    if (hhT.length >= MIN_RYHMA) osat2.push('H-H-fyysistasot asteikolla 1–5 (mediaani) ' + _luku(_mediaani(hhT), 1) + ' (n=' + hhT.length + ')');
+    // Tasot 1–5 (H-H, D1, D2): mediaani + jakauma, jotta joukkueen hajonta näkyy ilman yksilötietoja
+    const tasoRivit = [];
+    Object.keys(TASO_NIMET).forEach(function (k) {
+      const a = ryhma.map(function (p) { return p.tasot && p.tasot[k]; }).filter(function (v) { return typeof v === 'number' && v >= 1 && v <= 5; });
+      if (a.length < MIN_RYHMA) return;
+      const jak = [0, 0, 0, 0];
+      a.forEach(function (v) { jak[v < 2 ? 0 : v < 3 ? 1 : v < 4 ? 2 : 3]++; });
+      tasoRivit.push(TASO_NIMET[k] + ' mediaani ' + _luku(_mediaani(a), 1) + ' (n=' + a.length + '; tasolla 1–1,9: ' + jak[0] +
+        ', 2–2,9: ' + jak[1] + ', 3–3,9: ' + jak[2] + ', 4–5: ' + jak[3] + ')');
+    });
+    if (tasoRivit.length) osat2.push('tasot asteikolla 1–5 ikäluokan normeihin suhteutettuna: ' + tasoRivit.join(', '));
     if (testit2.length) osat2.push('testitulokset (mediaani, paras tai viimeisin tulos): ' + testit2.join(', '));
     else if (ryhma.some(function (p) { return p.ennatykset && Object.keys(p.ennatykset).length; })) {
       osat2.push('testituloksia alle ' + MIN_RYHMA + ' pelaajalla (ei koostetta)');
@@ -409,9 +424,25 @@ function tunnistaJoukkueet(teksti, data) {
   return Array.from(kaikki).filter(function (j) {
     const jl = j.toLowerCase();
     if (t.indexOf(jl) >= 0) return true;
-    const loppu = jl.split(/\s+/).pop();                       // "KPV P13" → "p13"
-    return loppu.length >= 2 && /\d/.test(loppu) && new RegExp('(?<![\\p{L}\\d])' + loppu + '(?![\\p{L}\\d])', 'u').test(t);
+    // Mikä tahansa numeron sisältävä osa nimestä: "KPV P13" → "p13", "SJK P15 Musta" → "p15", "SJK 2011" → "2011"
+    return jl.split(/[\s\-_/]+/).some(function (osa) {
+      const o = osa.replace(/[^\p{L}\d]/gu, '');
+      return o.length >= 2 && /\d/.test(o) && new RegExp('(?<![\\p{L}\\d])' + o + '(?![\\p{L}\\d])', 'u').test(t);
+    });
   });
+}
+
+/**
+ * Puhdas: jos kysymys näyttää mainitsevan joukkueen (P15, T2014, U13…), jota seuran datasta ei löytynyt,
+ * palautetaan huomio mallille — muuten se päättelee koko seuran koosteesta väärin "joukkueesta ei ole dataa".
+ */
+function joukkueHuomio(teksti, data, mainitut) {
+  if (mainitut && mainitut.length) return null;
+  if (!/(?<![\p{L}\d])[ptun]\d{2,4}(?![\p{L}\d])/iu.test(String(teksti || ''))) return null;
+  const kaikki = Array.from(new Set(((data && data.pelaajat) || []).map(function (p) { return p.joukkue; }).filter(Boolean))).sort();
+  return 'Kysymyksessä mainittua joukkuetta ei tunnistettu seuran joukkueista' +
+    (kaikki.length ? ' (seuran joukkueet: ' + kaikki.slice(0, 20).join(', ') + ')' : '') +
+    '. Alla oleva kooste on koko seurasta: älä päättele siitä mainitun joukkueen tilannetta, vaan pyydä tarkentamaan joukkueen nimi.';
 }
 
 /** Puhdas: HP-johtajan kontekstirivi palvelimen tiedoista. null = ei riviä (ei pilottia eikä SA:n seuravalintaa). */
@@ -444,7 +475,7 @@ async function haeSeuranTiedot(db, seuraId) {
     const x = d.data() || {};
     [x.nimi, x.etunimi, x.sukunimi, x.kutsumanimi].forEach(function (n) { if (n) nimet.push(n); });
     pelaajat.push({ joukkue: x.joukkue || null, phv: x.phv_tila || null, ennatykset: yhdistaTulokset(x),
-      hhTaso: (typeof x.hh_taso === 'number') ? x.hh_taso : null,
+      tasot: { hh: _num(x.hh_taso), d1: _num(x.d1_taso), d2: _num(x.d2_taso) },
       ketjut: { sbl: x.sbl, sfl: x.sfl, ll: x.ll, diag: x.diag, dfl: x.dfl } });
   });
   const kartoitukset = [];
@@ -729,8 +760,9 @@ function kasittelija(admin, functions, riip) {
         // Kysymyksessä mainittu seuran joukkue (esim. "KPV P13") rajaa koosteen siihen joukkueeseen.
         const mainitut = tunnistaJoukkueet(viimeinen.content, seuraTiedot.data);
         if (mainitut.length) joukkueet = mainitut;
+        const huomio = joukkueHuomio(viimeinen.content, seuraTiedot.data, mainitut);
         konteksti = rakennaKonteksti(onSA, kontekstiPilotti, seuraTiedot.seura,
-          seuraTiedot.data ? koostaSeuranData(seuraTiedot.data, joukkueet) : null);
+          seuraTiedot.data ? (huomio ? huomio + ' ' : '') + koostaSeuranData(seuraTiedot.data, joukkueet) : null);
       }
       const mallille = konteksti
         ? viestit.slice(0, -1).concat([{ role: 'user', content: konteksti + '\n\n' + viimeinen.content }])
@@ -792,6 +824,7 @@ module.exports = {
   koostaSeuranData,
   yhdistaTulokset,
   tunnistaJoukkueet,
+  joukkueHuomio,
   puraVastaus,
   vertexUrl,
   asetukset,

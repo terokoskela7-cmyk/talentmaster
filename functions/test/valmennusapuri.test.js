@@ -436,7 +436,7 @@ test('koostaSeuranData: kartoitus, kasvumittaus, testit ja kasvuvaiheet lukumä�
   };
   const t = va.koostaSeuranData(d, ['KPV U13']);
   assert.ok(t.indexOf('harjoitettavuuskartoitus tehty (KPV U13 09/2026, KPV U15 03/2026)') >= 0, t);
-  assert.ok(t.indexOf('kasvumittaus 4/5 pelaajalla') >= 0, t);
+  assert.ok(t.indexOf('kasvumittaus 3/4 pelaajalla (KPV U13)') >= 0, t);
   assert.ok(t.indexOf('testitapahtumia 2 (viimeisin 09/2026)') >= 0, t);
   assert.ok(t.indexOf('KPV U13 (4 pelaajaa): kasvuvaiheet (lukumäärät): lähestyy 1, huipussa 2') >= 0, t);
   assert.ok(t.indexOf('KPV U15') < 0 || t.indexOf('KPV U15 (') < 0, 'vain pilotin joukkue: ' + t);
@@ -497,9 +497,25 @@ test('yhdistaTulokset: ennätykset ensin, vanhat tuonnit täydentyvät hh_viimei
   assert.strictEqual(va.yhdistaTulokset({ nimi: 'x' }), null);
 });
 
-test('koostaSeuranData: H-H-tason mediaani vain kun ≥3 pelaajaa', () => {
-  const t = va.koostaSeuranData({ pelaajat: [{ joukkue: 'SJK P13', hhTaso: 3 }, { joukkue: 'SJK P13', hhTaso: 4 }, { joukkue: 'SJK P13', hhTaso: 2 }] }, ['SJK P13']);
-  assert.ok(t.indexOf('H-H-fyysistasot asteikolla 1–5 (mediaani) 3 (n=3)') >= 0, t);
-  const k = va.koostaSeuranData({ pelaajat: [{ joukkue: 'SJK P13', hhTaso: 3 }, { joukkue: 'SJK P13', hhTaso: 4 }] }, ['SJK P13']);
-  assert.ok(k.indexOf('H-H-fyysistasot') < 0, k);
+test('koostaSeuranData: tasojen (H-H, D1, D2) mediaani ja jakauma vain kun ≥3 pelaajaa', () => {
+  const p = (hh, d1, d2) => ({ joukkue: 'SJK P15', tasot: { hh: hh, d1: d1, d2: d2 } });
+  const t = va.koostaSeuranData({ pelaajat: [p(2.3, 2.2, 2), p(1.3, 1.4, 1), p(3.7, 3, 4), p(1, null, 1)] }, ['SJK P15']);
+  assert.ok(t.indexOf('H-H-fyysistaso mediaani 1,8 (n=4; tasolla 1–1,9: 2, 2–2,9: 1, 3–3,9: 1, 4–5: 0)') >= 0, t);
+  assert.ok(t.indexOf('fyysinen valmius (D1) mediaani 2,2 (n=3') >= 0 && t.indexOf('tekninen taso (D2) mediaani 1,5 (n=4') >= 0, t);
+  const k = va.koostaSeuranData({ pelaajat: [p(3, 3, 3), p(2, 2, 2)] }, ['SJK P15']);
+  assert.ok(k.indexOf('mediaani') < 0, k);
+});
+
+test('tunnistaJoukkueet: numero-osa missä kohtaa nimeä tahansa', () => {
+  const data = { pelaajat: [{ joukkue: 'SJK P15 Musta' }, { joukkue: 'SJK 2011' }, { joukkue: 'SJK P14' }] };
+  assert.deepStrictEqual(va.tunnistaJoukkueet('kerro p15 tilanne', data), ['SJK P15 Musta']);
+  assert.deepStrictEqual(va.tunnistaJoukkueet('entä 2011-syntyneet', data), ['SJK 2011']);
+});
+
+test('joukkueHuomio: tunnistamaton joukkue → huomio ja joukkuelista; tunnistettu tai ei mainintaa → null', () => {
+  const data = { pelaajat: [{ joukkue: 'SJK P2010' }, { joukkue: 'SJK P2011' }] };
+  const h = va.joukkueHuomio('Kerro SJK P15 fyysinen tilanne', data, []);
+  assert.ok(h.indexOf('ei tunnistettu') >= 0 && h.indexOf('SJK P2010, SJK P2011') >= 0, h);
+  assert.strictEqual(va.joukkueHuomio('Kerro P2010 tilanne', data, ['SJK P2010']), null);
+  assert.strictEqual(va.joukkueHuomio('Yleisiä plyometrisiä harjoitteita', data, []), null);
 });
