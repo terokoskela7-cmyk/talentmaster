@@ -41,10 +41,13 @@ describe('kohdejoukko (johdettu datasta, ei kovakoodattu)', () => {
      tassa datasta johdetussa kohdejoukossa. Nyt se lataa firebase-app-compatin ulkoisesti ja
      kuuluu App Check -vaatimuksen piiriin siina missa muutkin. */
   /* 20 compat: Valmennusapuri (Vaihe 2, 2026-09) liittyi joukkoon — App Check kytketty samalla SDK:lla (9.22.1). */
-  it('22 elävää appia = 20 compat + 2 modular', () => {
-    expect(compat.length, 'compat-appeja').toBe(20);
+  /* 21 compat: Pelihavainto-kenttätyökalu (2026-09) — uusi appi, App Check kytketty 10.7.1:llä.
+     Portti punersi sen automaattisesti, kun tiedosto ilmestyi juureen: se on tämän testin tarkoitus. */
+  it('23 elävää appia = 21 compat + 2 modular', () => {
+    expect(compat.length, 'compat-appeja').toBe(21);
     expect(scope.filter((n) => MODULAR.includes(n)).length, 'modular-appeja').toBe(2);
-    expect(scope.length).toBe(22);
+    expect(scope.length).toBe(23);
+    expect(compat, 'kenttätyökalu kuuluu joukkoon').toContain('TalentMaster_Pelihavainto_Kentta.html');
     expect(compat, 'de-bundlattu ADAR kuuluu joukkoon').toContain('TalentMaster_ADAR_Pikakortti.html');
   });
   /* Regressiovahti: jos jokin näistä palaa juureen ilman App Check -kytkentää, se olisi Pagesissa
