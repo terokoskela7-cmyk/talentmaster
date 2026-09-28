@@ -16,6 +16,7 @@
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-storage-compat.js"></script>
 <script src="lib/tm_appcheck.js?v=1"></script>
+<script src="lib/tm_pelihavainto_valinta.js?v=1"></script>   <!-- §7: YKSI sisäänkäynti pelihavaintoon (jaettu, ei kopioita) -->
 <script src="lib/tm_aktiivisuus.js?v=1"></script>   <!-- Toimihenkilon kirjautumisaikaleima — jaettu kirjoituspiste, ks. lib-header -->
 <script src="lib/tm_lang.js?v=14"></script>   <!-- i18n V0 — fi/sv/en käännöstaulukko + t() + kieli-init (putkitus) -->
 <script src="lib/tm_i18n_common.js?v=10"></script>   <!-- i18n Vaihe 0 — JAETTU henkilöstö-i18n + lukittu glossaari (ENNEN sivukarttaa) -->
@@ -1702,6 +1703,13 @@ textarea.jsp-rv-inp { resize: vertical; min-height: 44px; }
         <span class="sect-link" onclick="openDrill('adar')" data-i18n="+ Uusi havainto">+ Uusi havainto</span>
       </div>
       <div class="adar-list" id="adarList"></div>
+
+      <!-- Ottelutarkkailut (kohdennettu pelihavainto) — luetaan VASTA avattaessa (§26) -->
+      <div class="sect-hdr">
+        <div class="caps" data-i18n="Ottelutarkkailut">Ottelutarkkailut</div>
+        <span class="sect-link" onclick="_mkAvaaTarkkailut()" data-i18n="Näytä →">Näytä →</span>
+      </div>
+      <div class="adar-list" id="tarkkailuList"></div>
 
       <!-- Pelaajat tänään -->
       <div class="sect-hdr">
@@ -10017,7 +10025,71 @@ function _pikakorttiRefresh(pid) {
     if (typeof _renderPinfoFirestore === 'function' && typeof _ttPelaaja === 'function') { var p = _ttPelaaja(pid); if (p) _renderPinfoFirestore(p); }
   }).catch(function () {});
 }
+/* §7: sisäänkäynti kulkee JAETUN valintaikkunan kautta. "Yksi havainto nyt" avaa pikakortin
+   upotettuna kuten ennen; "Seuraan ottelua" avaa kenttätyökalun omaan välilehteen (ottelu kestää
+   koko puoliajan, joten se ei kuulu modaaliin). */
 function _avaaPikakorttiIframe(pid) {
+  if (typeof tmPhAvaaValinta === 'function') {
+    var _p = ((typeof _pelaajatData !== 'undefined' && _pelaajatData) || []).find(function (x) { return x.id === pid; }) || {};
+    tmPhAvaaValinta({
+      seuraId: _seuraId || '', pelaajaId: pid || '',
+      pelaajaNimi: ((_p.etunimi || '') + ' ' + (_p.sukunimi || '')).trim(),
+      joukkue: _p.joukkue || '',
+      t: (typeof masterT === 'function') ? masterT : null,
+      avaa: function (url, laji) {
+        if (laji === 'ottelu') { window.open(url, '_blank'); return; }
+        _avaaPikakorttiUpotettu(pid);
+      },
+    });
+    return;
+  }
+  _avaaPikakorttiUpotettu(pid);
+}
+/* ── OTTELUTARKKAILUT (kohdennettu pelihavainto) ─────────────────────────────────────────
+   Lista luetaan VASTA kun käyttäjä avaa sen (§26: ei alikokoelmakyselyjä renderöinnin yhteydessä).
+   Dokumentit ovat omassa `kenttatarkkailut`-kokoelmassaan, jota pelaaja- ja huoltajanäkymät eivät
+   lue lainkaan (Rules v3.20). */
+async function _mkAvaaTarkkailut() {
+  var el = document.getElementById('tarkkailuList');
+  if (!el) return;
+  var pid = _activePelaaja;
+  if (!pid || !_seuraId) { el.innerHTML = '<div class="empty">' + masterT('Valitse pelaaja.') + '</div>'; return; }
+  el.innerHTML = '<div class="empty">' + masterT('Haetaan…') + '</div>';
+  try {
+    var snap = await db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(pid)
+      .collection('kenttatarkkailut').limit(20).get();
+    var rivit = snap.docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); });
+    /* Client-sort: ei komposiitti-indeksiä pelkän listauksen vuoksi (sama kuvio kuin ADAR). */
+    rivit.sort(function (a, b) {
+      return String((b.ottelu && b.ottelu.pvm) || '').localeCompare(String((a.ottelu && a.ottelu.pvm) || ''));
+    });
+    if (!rivit.length) {
+      el.innerHTML = '<div class="empty">' + masterT('Ei ottelutarkkailuja vielä.') + '</div>';
+      return;
+    }
+    el.innerHTML = rivit.map(function (r) {
+      var o = r.ottelu || {};
+      var n = Array.isArray(r.merkinnat) ? r.merkinnat.length : 0;
+      return '<div class="adar-item" onclick="_mkAvaaTarkkailu(\'' + _mEsc(r.id) + '\')">'
+        + '<div class="adar-meta">' + _mEsc(o.pvm || '') + ' · ' + _mEsc(o.vastustaja || masterT('vastustaja ?'))
+        + ' · ' + masterT('puoliaika') + ' ' + _mEsc(String(r.puoliaika || '?')) + '</div>'
+        + '<div class="adar-txt">' + n + ' ' + masterT('tilannetta') + '</div></div>';
+    }).join('');
+  } catch (e) {
+    console.warn('[tarkkailut]', e && e.message);
+    el.innerHTML = '<div class="empty">' + masterT('Tarkkailuja ei saatu haettua.') + '</div>';
+  }
+}
+/* Avaa läpikäynnin LUKU-tilassa kenttätyökalussa (sama näkymä, ei uutta renderöintipolkua). */
+function _mkAvaaTarkkailu(id) {
+  var url = 'TalentMaster_Pelihavainto_Kentta.html?seuraId=' + encodeURIComponent(_seuraId || '')
+    + '&pelaajaId=' + encodeURIComponent(_activePelaaja || '') + '&tarkkailuId=' + encodeURIComponent(id);
+  window.open(url, '_blank');
+}
+window._mkAvaaTarkkailut = _mkAvaaTarkkailut;
+window._mkAvaaTarkkailu = _mkAvaaTarkkailu;
+
+function _avaaPikakorttiUpotettu(pid) {
   document.getElementById('_pkModal')?.remove();
   window._pikakorttiPid = pid || '';
   var src = 'TalentMaster_ADAR_Pikakortti.html?embedded=1&seuraId=' + encodeURIComponent(_seuraId || '') + (pid ? ('&pelaajaId=' + encodeURIComponent(pid)) : '');

@@ -23,6 +23,8 @@ beforeAll(() => {
   AK = new Function(
     'var vpT = function(x){return x;};\n' +
     'var _jsvEsc = function(s){return String(s==null?"":s);};\n' +
+    /* _jesc = JS-merkkijonopako inline-onclickin argumenteille (pelihavainto-CTA). */
+    'var _jesc = function(s){return String(s==null?"":s).replace(/\\\\/g,"\\\\\\\\").replace(/\x27/g,"\\\\\x27");};\n' +
     'var _pvmLyhyt = function(s){return "1.6.2025";};\n' +
     'var _seuraId = "kpv";\n' +
     'var window = { _tmIBtn: function(){ return "<span class=\\"ibtn\\">ⓘ</span>"; } };\n' +
@@ -81,9 +83,22 @@ describe('kytkentä _vpArviointiHTML:ään (v3-järjestys)', () => {
     expect(iAdar).toBeGreaterThan(0);
     expect(iAdar).toBeLessThan(iD3);
   });
+  /* Lohko on LUKUNÄKYMÄ: ei inline-käsittelijöitä eikä automaattitallennusta. Navigointi-CTA
+     ("Lisää pelihavainto") on sallittu, mutta se kulkee delegoidun kuuntelijan kautta — inline
+     onclick tässä olisi ensimmäinen askel kohti kirjoittavaa kontrollia lukulohkossa. */
   it('read-only: ei onclick/autosavea koostumuslohkossa', () => {
-    const T = extract('function _vpArvAdarKoostumusHTML(p, ika) {');
+    /* Kommentit riisutaan: sääntöä KUVAAVA kommentti ei saa punertaa vartijaa, joka valvoo
+       koodia. Ilman riisuntaa vartija rankaisisi juuri siitä, että sääntö on kirjattu. */
+    const T = extract('function _vpArvAdarKoostumusHTML(p, ika) {')
+      .replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:])\/\/[^\n]*/g, '$1 ');
     expect(T).not.toContain('onclick');
     expect(T).not.toContain('tallentu');
+  });
+
+  it('EI VACUOUS: riisunta ei tyhjennä lohkoa — koodi on yhä tarkistettavana', () => {
+    const T = extract('function _vpArvAdarKoostumusHTML(p, ika) {')
+      .replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:])\/\/[^\n]*/g, '$1 ');
+    expect(T).toContain('jsp-ph-cta');          // navigointi-CTA on yhä lohkossa
+    expect(T.length).toBeGreaterThan(400);
   });
 });

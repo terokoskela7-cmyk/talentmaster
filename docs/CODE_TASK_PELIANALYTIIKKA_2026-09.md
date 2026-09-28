@@ -310,12 +310,25 @@ Pienkenttäprofiili valitaan ottelun pelimuodosta (5v5/8v8/11v11).
 
 ### 5.6 Datamalli
 
-**Suositus: yksi dokumentti per pelaaja per puoliaika olemassa olevaan havainnot-kokoelmaan.** Ei uutta
-Rules-blokkia (havainnot: valmentaja kirjoittaa, SA/oma seura lukee, §12), ei alikokoelmakyselyjä
-renderöinnissä, ja merkintöjä on enintään ~10.
+**PÄÄTETTY (2026-09-28): oma alikokoelma `kenttatarkkailut`, EI `havainnot`.** Yksi dokumentti per
+pelaaja per puoliaika; merkintöjä on enintään ~10; ei alikokoelmakyselyjä renderöinnissä.
+
+Alkuperäinen ehdotus oli `havainnot`-kokoelma, koska se ei olisi vaatinut uutta Rules-blokkia.
+Koodin lukeminen käänsi päätöksen:
+
+1. **Tietosuoja (ratkaiseva):** `havainnot`-kokoelman lukusääntö sisältää `onAnonymous()`-ehdon
+   (pelaajasovelluksen PIN-istunto), eikä sitä ole rajattu omaan pelaajaan tai seuraan.
+   Kenttätarkkailu on valmentajan havainto alaikäisestä, eikä sitä tarvitse näyttää pelaajalle
+   lainkaan (§7.22). Omalla kokoelmalla luku rajataan heti oikein ilman, että tunnettuun
+   laajempaan `onAnonymous()`-aukkoon tarvitsee koskea tässä PR:ssä.
+2. **Sivuvaikutukset:** `havainnot`-kokoelmaa lukevat ADAR-pikakenttien laskenta (Master,
+   suodattaa `pisteet`), VAI+-aktiivisuus (VP), pelaajan P6-kuuntelija ja pelaajakortin
+   havaintolistat. Jokainen niistä olisi pitänyt vartioida erikseen.
+
+Rules-blokki: `tm_admin/firestore.rules` v3.20. **Deploy-järjestys: Rules ensin, sitten sivu.**
 
 ```
-seurat/{sid}/pelaajat/{pid}/havainnot/{hid}
+seurat/{sid}/pelaajat/{pid}/kenttatarkkailut/{id}      ← doc-id {pvm}_{puoliaika}_{valmentajaUid}
   tyyppi: 'kenttatarkkailu'
   palloId, pelaajaId, seuraId, valmentajaUid
   tila: 'luonnos' | 'valmis'          // 'valmis' vasta kun liitetty pelihavaintoon
@@ -361,8 +374,13 @@ eikä riistoihin. Yhteenvedossa `luvut.vastustaja` (laukauksia, xgSumma, tulokse
 Taktiikkataulun speciin (Opta, `suunta:'ylos'`) muunnos: `x = wid`, `y = 100 − len`.
 
 **EHDOTTOMAT kentät, joita EI käytetä:** `pisteet` (Master `paivitaAdarPikakentat` lukisi sen ADAR-pisteinä),
-`narratiivi` ja `teksti` raakadokumentissa (Pelaaja_v7 näyttäisi sen pelaajalle). Pelaajalle näkyvä teksti
-syntyy vain valmentajan kirjoittamasta pelihavainnosta.
+`narratiivi`, `teksti` ja `oppimisnakokohta` raakadokumentissa (Pelaaja_v7 näyttäisi sen pelaajalle).
+Pelaajalle näkyvä teksti syntyy vain valmentajan kirjoittamasta pelihavainnosta.
+**Rules torjuu nämä neljä kenttää myös palvelinpuolella** (v3.20) — klientin vartija yksin ei riitä,
+koska kirjoitus voi tulla mistä tahansa.
+
+**`lahde`:** `'live'` (ottelun aikana kirjattu) tai myöhemmin `'video'`. Luotettavuus on eri asia
+kummassakin, joten se merkitään eikä pääteltäisi jälkikäteen.
 
 **Laskettuja arvoja ei tallenneta.** Ne lasketaan lennossa (`lib/tm_pelihavainto.js`), jotta kertoimien
 päivitys (xG-kalibrointi, nuorten oma ruudukko, XT_KAYTTOONOTTO Vaihe 4) ei vaadi datamigraatiota.

@@ -5,7 +5,8 @@
      LASKENTA TULEE VAIN lib/tm_pelihavainto.js:STÄ — sivulla ei ole omaa xT-taulukkoa, xG-kaavaa
      eikä boksirajoja. Kopio ajautuisi erilleen libistä eikä kalibrointi enää näkyisi (§5.6).
      Datamuoto = tallennettava muoto (§5.6): tyyppi/alku/loppu/piste/t. Laskettuja arvoja ei
-     tallenneta. Tässä vaiheessa tallennus on VAIN paikallinen (localStorage). -->
+     tallenneta. Tallennus: seurat/{sid}/pelaajat/{pid}/kenttatarkkailut/{pvm}_{puoliaika}_{uid}
+     (OMA kokoelma, ei `havainnot` — ks. Rules v3.20 -perustelu). -->
 <html lang="fi">
 <head>
 <meta charset="UTF-8">
@@ -214,6 +215,7 @@
         <button class="tbtn sec" type="button" id="btnHetki" data-i18n="📌 Hetki">📌 Hetki</button>
         <button class="tbtn sec" type="button" id="btnUlkotila" aria-pressed="false" data-i18n="☀ Ulkotila">☀ Ulkotila</button>
         <button class="tbtn" type="button" id="btnTallenna" data-i18n="Tallenna">Tallenna</button>
+        <button class="tbtn sec" type="button" id="btnPikakortti" data-i18n="Tee pelihavainto tämän pohjalta">Tee pelihavainto tämän pohjalta</button>
         <span id="tallennustila"></span>
       </div>
     </div>
@@ -266,7 +268,7 @@ const _db = firebase.firestore();
   var S = {
     seuraId: null, pelaajaId: null, pelaaja: null, seura: null,
     rooli: null, superAdmin: false, uid: null,
-    ikataso: 'u812', pelimuoto: '11v11', pelipaikka: '',
+    ikataso: 'u812', pelimuoto: '11v11', pelipaikka: '', lukutila: false,
     puoliaika: 1, seisoo: 'lahi', kello: 0, alkoi: null,
     vastustaja: '', kalenteriId: null, jaksofokus: null,
     kirjattavat: [], merkinnat: [], seq: 0, viimeisinId: null, odottaa: null,
@@ -1061,6 +1063,74 @@ const _db = firebase.firestore();
   }
   window._phLuonnosApi = { tallenna: tallennaLuonnos, lataa: lataaLuonnos, poista: poistaLuonnos, avain: luonnosAvain };
 
+  /* ── TALLENNUS FIRESTOREEN ─────────────────────────────────────────
+     Dokumentti-id on IDEMPOTENTTI: {pvm}_{puoliaika}_{valmentajaUid}. Sama puoliaika
+     tallennetaan samaan dokumenttiin, joten verkkokatkon jälkeen uudelleentallennus päivittää
+     eikä kahdenna. Rules sallii päivityksen vain dokumentin omalle kirjoittajalle.
+
+     KIELLETYT KENTÄT (§5.6): `pisteet` kääntäisi Masterin ADAR-pikakenttälaskennan lukemaan
+     tämän ADAR-pisteinä, ja `narratiivi`/`teksti`/`oppimisnakokohta` päätyisi Pelaaja_v7:n
+     näkymään lapselle. Niitä ei kirjoiteta, ja Rules torjuu ne myös palvelinpuolella. */
+  function tarkkailuId() {
+    var pvm = new Date().toISOString().slice(0, 10);
+    return pvm + '_' + S.puoliaika + '_' + String(S.uid || 'tuntematon').replace(/[^\w-]/g, '_');
+  }
+  function tarkkailuPayload() {
+    var d = dokumentti();
+    return {
+      tyyppi: 'kenttatarkkailu',
+      palloId: (S.pelaaja && (S.pelaaja.tunniste || S.pelaaja.palloID)) || null,
+      pelaajaId: S.pelaajaId, seuraId: S.seuraId, valmentajaUid: S.uid,
+      tila: 'valmis',
+      ottelu: Object.assign({ pvm: new Date().toISOString().slice(0, 10) }, d.ottelu),
+      puoliaika: S.puoliaika,
+      suunta: { hyokkaysOikealle: S.puoliaika !== 2, seisoo: S.seisoo },
+      ikataso: S.ikataso,
+      pelipaikka: S.pelipaikka || null,
+      kirjattavat: d.kirjattavat,
+      jaksofokus: S.jaksofokus || null,
+      malli: { xt: xtMalliId(), xg: PH.PH_XG_OLETUS || null, boksi: PH.PH_BOKSI_OLETUS || null },
+      /* Array ei kestä serverTimestamp():ia (§7.6) — aika on sekunteina ottelun alusta. */
+      merkinnat: d.merkinnat,
+      lahde: 'live',                 // videolta tehty kirjaus merkitään myöhemmin 'video'
+      paivitetty: new Date().toISOString(),
+    };
+  }
+  function xtMalliId() {
+    try {
+      var XT = window.TM_XT;
+      var prof = XT && XT.xtProfiili ? XT.xtProfiili(S.pelimuoto) : null;
+      return (prof && prof.malli) || null;
+    } catch (e) { return null; }
+  }
+  window._phTarkkailuPayload = tarkkailuPayload;
+  window._phTarkkailuId = tarkkailuId;
+
+  async function tallennaFirestoreen() {
+    var btn = q('btnTallenna');
+    if (btn) btn.disabled = true;
+    try {
+      var cu = _auth.currentUser;
+      if (cu) await cu.getIdToken(true);                       // §7.2 tuore token ennen kirjoitusta
+      var ref = _db.collection('seurat').doc(S.seuraId).collection('pelaajat').doc(S.pelaajaId)
+        .collection('kenttatarkkailut').doc(tarkkailuId());
+      var data = tarkkailuPayload();
+      /* `luotu` VAIN luonnissa (A5 + Rules-vartija): uudelleentallennus ei saa nollata
+         alkuperäistä aikaleimaa. */
+      var snap = await ref.get();
+      if (!snap.exists) data.luotu = firebase.firestore.FieldValue.serverTimestamp();
+      await ref.set(data, { merge: true });
+      poistaLuonnos();                                          // vasta onnistuneen kirjoituksen jälkeen
+      q('tallennustila').textContent = phT('tallennettu');
+    } catch (e) {
+      console.warn('[pelihavainto]', e && e.message);
+      /* Luonnos SÄILYY: kentällä epäonnistunut synkka ei saa hävittää kirjauksia. */
+      q('tallennustila').textContent = phT('tallennus epäonnistui — kirjaukset ovat tallessa laitteella');
+    } finally {
+      if (btn) btn.disabled = false;
+    }
+  }
+
   /* ── ASETUSRIVI ────────────────────────────────────────────────────── */
   function piirraAsetukset() {
     var TT = window.TM_TT_API || window;
@@ -1172,12 +1242,36 @@ const _db = firebase.firestore();
     } catch (e) { S.seura = null; }
   }
 
+  /* LUKU-TILA: Masterin "Ottelutarkkailut" avaa tallennetun tarkkailun samaan läpikäyntiin.
+     Sama renderöintipolku kuin kirjauksessa — erillinen katselunäkymä ajautuisi erilleen ja
+     näyttäisi eri luvut kuin työkalu. Kentällä ei ole eleitä eikä tallennusta. */
+  async function lataaTarkkailu(id) {
+    var snap = await _db.collection('seurat').doc(S.seuraId).collection('pelaajat').doc(S.pelaajaId)
+      .collection('kenttatarkkailut').doc(id).get();
+    if (!snap.exists) throw new Error('tarkkailua ei löydy');
+    var d = snap.data() || {};
+    S.merkinnat = Array.isArray(d.merkinnat) ? d.merkinnat : [];
+    S.seq = S.merkinnat.reduce(function (a, m) { return Math.max(a, m.id || 0); }, 0);
+    S.puoliaika = d.puoliaika || 1;
+    S.seisoo = (d.suunta && d.suunta.seisoo) || 'lahi';
+    S.pelimuoto = (d.ottelu && d.ottelu.pelimuoto) || S.pelimuoto;
+    S.vastustaja = (d.ottelu && d.ottelu.vastustaja) || '';
+    S.ikataso = d.ikataso || S.ikataso;
+    S.jaksofokus = d.jaksofokus || S.jaksofokus;
+    if (d.pelipaikka != null) asetaPohja(d.pelipaikka);
+    if (Array.isArray(d.kirjattavat)) {
+      K = {};
+      d.kirjattavat.forEach(function (x) { K[x] = true; });
+    }
+    S.lukutila = true;
+  }
+
   async function kaynnista() {
     svg = q('pitch');
     laatikko = q('kenttalaatikko');
     piirraKentta();
-    alustaEleet();
-    if (!lataaLuonnos()) S.alkoi = Date.now();
+    if (!S.lukutila) alustaEleet();
+    if (!S.lukutila && !lataaLuonnos()) S.alkoi = Date.now();
     piirraAsetukset();
     paivitaPalkki();
     piirra();
@@ -1185,6 +1279,12 @@ const _db = firebase.firestore();
     q('sovellus').style.display = '';
     if (typeof tmLokalisoiCommon === 'function') tmLokalisoiCommon(document, null);
 
+    if (S.lukutila) {
+      ['btnKumoa', 'btnHetki', 'btnTallenna'].forEach(function (id) {
+        var b = q(id); if (b) { b.disabled = true; b.style.display = 'none'; }
+      });
+      q('tallennustila').textContent = phT('tallennettu tarkkailu — vain luku');
+    }
     q('btnKumoa').onclick = kumoa;
     q('btnHetki').onclick = function () { suljeValitsin(false); lisaa({ tyyppi: 'hetki' }); };
     q('btnUlkotila').onclick = function () {
@@ -1192,8 +1292,15 @@ const _db = firebase.firestore();
       q('btnUlkotila').setAttribute('aria-pressed', String(on));
     };
     q('btnTallenna').onclick = function () {
-      tallennaLuonnos();
+      tallennaLuonnos();                                        // laite ensin, sitten verkko
       q('tallennustila').textContent = phT('tallennettu laitteelle');
+      tallennaFirestoreen();
+    };
+    /* Silta pikakorttiin: valmentaja kirjoittaa varsinaisen pelihavainnon samalle pelaajalle. */
+    q('btnPikakortti').onclick = function () {
+      var url = 'TalentMaster_ADAR_Pikakortti.html?seuraId=' + encodeURIComponent(S.seuraId || '')
+        + '&pelaajaId=' + encodeURIComponent(S.pelaajaId || '');
+      window.open(url, '_blank');
     };
     /* Wake lock on valinnainen mukavuus: hylkäys ei saa kaataa kirjaamista. */
     try {
@@ -1242,6 +1349,14 @@ const _db = firebase.firestore();
         naytaPortti('Pelaajan tietoja ei saatu haettua.', '');
         virhe('Tarkista linkki.');
         return;
+      }
+      var tid = param('tarkkailuId');
+      if (tid) {
+        try { await lataaTarkkailu(tid); } catch (e) {
+          naytaPortti('Tarkkailua ei saatu haettua.', '');
+          virhe('Tarkista linkki.');
+          return;
+        }
       }
       await kaynnista();
     });
