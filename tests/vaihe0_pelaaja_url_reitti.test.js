@@ -34,7 +34,7 @@ describe('Vaihe 0 · Pelaaja_v7: ei kirjautumista URL-parametreilla', () => {
   });
 
   it('anonyymi käyttäjä ohjataan PIN-näkymään', () => {
-    expect(kuuntelija).toMatch(/if \(user\.isAnonymous\) \{\s*go\('pin'\);\s*return;\s*\}/);
+    expect(kuuntelija).toMatch(/if \(user\.isAnonymous\) \{\s*_vanhaPinSessioOhjaus\(\);\s*go\('pin'\);\s*return;\s*\}/);
   });
 
   it('URL-reitin apufunktio on poistettu', () => {
@@ -50,7 +50,15 @@ describe('Vaihe 0 · Pelaaja_v7: ei kirjautumista URL-parametreilla', () => {
     expect(kuuntelija.indexOf('_lataaFirebasePelaaja(')).toBeGreaterThan(kuuntelija.indexOf('user.isAnonymous'));
   });
 
-  it('PIN-istunto (tm_pin_sessio) toimii yhä kirjautumattomalle', () => {
+  /* PR 1: vanha anonyymi PIN-istunto EI enää jatku — se ohjataan KERRAN uuteen kirjautumiseen
+     (PalloID + PIN palvelimella), eikä istuntoa avata anonyymisti. */
+  it('vanha PIN-istunto (tm_pin_sessio) ohjataan uuteen kirjautumiseen, ei jatketa anonyymisti', () => {
     expect(kuuntelija).toContain('await _tarkistaPinSessio(auth, db)');
+    const f = pura(KOODI, 'function _vanhaPinSessioOhjaus() {');
+    expect(f).toContain("localStorage.removeItem('tm_pin_sessio')");
+    expect(f).toContain("_pinIlmoitus = 'Kirjaudu kerran uudelleen'");
+    const t = pura(KOODI, 'async function _tarkistaPinSessio(auth, db) {');
+    expect(t).not.toContain('signInAnonymously');
+    expect(t).toContain('return false');
   });
 });

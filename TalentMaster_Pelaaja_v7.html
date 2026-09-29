@@ -514,6 +514,7 @@ input::placeholder,textarea::placeholder{color:#8C8B86;opacity:1}
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-check-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-functions-compat.js"></script>   <!-- Vaihe 0 / PR 1: pelaajaKirjaudu -->
 <script src="lib/tm_appcheck.js?v=1"></script>
 <script src="lib/tm_lang.js?v=15"></script>   <!-- i18n V0 putki · V1-A/A2 · V4-A3: +pelaaja.nain_teet/kirjaa_tehdyksi/pallo_joka_paiva/rae_q4 (kotinäytön chrome sv) -->
 <script src="lib/tm_eerikkila_normit.js?v=40"></script>
@@ -719,7 +720,7 @@ function bind(){
       const k=b.dataset.k;
       if(k==='⌫'){_pin=_pin.slice(0,-1);}
       else if(_pin.length<4){_pin+=k;}
-      if(_pin.length===4){setTimeout(()=>_kirjauduPinilla(_pin),280);}
+      if(_pin.length===4){setTimeout(()=>_kirjaudu(_pin),280);}
       body.querySelectorAll('.pd').forEach((d,i)=>d.classList.toggle('on',i<_pin.length));
     });
   });
@@ -858,6 +859,11 @@ function rPin(){
 
   <!-- PIN-ALUE (kiinteä alareuna; flex-shrink:0 → näppäimistö ei purista lyhyellä näytöllä) -->
   <div style="flex-shrink:0;background:#111110;border-top:1px solid rgba(242,239,230,.06);padding:14px 20px 20px">
+    <!-- Vaihe 0 / PR 1: kirjautuminen = PalloID + PIN palvelimella. PalloID muistetaan laitteelle,
+         jolloin lapsi kirjoittaa jatkossa vain PIN:n. -->
+    <input id="pinTunnus" inputmode="numeric" autocomplete="username" placeholder="PalloID" value="${_muistettuTunnus().replace(/[^0-9A-Za-z]/g,'')}"
+      style="width:100%;background:rgba(242,239,230,.06);border:1px solid rgba(242,239,230,.18);padding:10px 12px;color:#F2EFE6;font-size:15px;box-sizing:border-box;margin-bottom:12px;outline:none;font-family:var(--font-m);text-align:center;letter-spacing:.12em">
+    <div id="pinIlmoitus" style="font-size:11px;color:rgba(242,239,230,.6);text-align:center;margin-bottom:8px;min-height:0">${_pinIlmoitus ? _pinIlmoitus.replace(/[<>&"]/g,'') : ''}</div>
     <div style="font-family:var(--font-m);font-size:10px;text-align:center;color:rgba(242,239,230,.35);text-transform:uppercase;letter-spacing:.15em">${t('pelaaja.syota_pin')}</div>
     <div class="pin-dots" style="margin:12px 0 12px">
       ${[0,1,2,3].map(i=>`<div class="pd${i<_pin.length?' on':''}"></div>`).join('')}
@@ -3930,6 +3936,7 @@ function _initFirebase() {
          CODE_BRIEF_PELAAJAN_TUNNISTUS v2). SA:n esikatselu kulkee sähköposti/Google-kirjautumisen
          kautta (_lataaFirebasePelaaja), ei tätä haaraa. */
       if (user.isAnonymous) {
+        _vanhaPinSessioOhjaus();   // vanha PIN-istunto → "Kirjaudu kerran uudelleen" (PR 1)
         go('pin');
         return;
       }
@@ -3958,6 +3965,12 @@ async function _lataaFirebasePelaaja(auth, db, user) {
   try {
     const tokenTulos = await user.getIdTokenResult(true);
     const claims = tokenTulos.claims || {};
+
+    // ── Pelaaja (palvelinkirjautuminen, Vaihe 0 / PR 1) ─────────────
+    if (claims.rooli === 'pelaaja' && claims.pelaajaSeuraId && claims.pelaajaId) {
+      await _lataaOmaPelaaja(db, claims.pelaajaSeuraId, claims.pelaajaId);
+      return;
+    }
 
     // ── Super admin ──────────────────────────────────────────────
     if (claims.super_admin || claims.superAdmin) {
@@ -4057,31 +4070,20 @@ async function _lataaFirebasePelaaja(auth, db, user) {
 }
 
 /* ══ PIN-SESSIO TARKISTUS ══════════════════════════════════════ */
-async function _tarkistaPinSessio(auth, db) {
+/* Vanha 30 päivän anonyymi PIN-istunto (tm_pin_sessio). Vaihe 0 / PR 1: istuntoa EI jatketa
+   anonyymisti — pelaaja ohjataan KERRAN uuteen kirjautumiseen (PalloID + PIN). Palauttaa aina false,
+   jolloin kutsuja näyttää PIN-näkymän. */
+function _vanhaPinSessioOhjaus() {
   try {
-    const raw = localStorage.getItem('tm_pin_sessio');
-    if (!raw) return false;
-    const sessio = JSON.parse(raw);
-    // Sessio vanhenee 30 päivässä
-    if (!sessio.ts || Date.now() - sessio.ts > 30 * 86400000) {
-      localStorage.removeItem('tm_pin_sessio');
-      return false;
-    }
-    if (!auth.currentUser) {
-      await auth.signInAnonymously().catch(()=>{});
-    }
-    // Lataa pelaaja sessiosta
-    const snap = await db.collection('seurat').doc(sessio.seuraId)
-      .collection('pelaajat').doc(sessio.pelaajaId).get();
-    if (!snap.exists) return false;
-    _pelaaja = { id: snap.id, seuraId: sessio.seuraId, ...snap.data() };
-    window._seuraId = sessio.seuraId;
-    _kaynnistaAppUI();
-    return true;
-  } catch(e) {
-    console.warn('[pin-sessio]', e.message);
-    return false;
-  }
+    if (!localStorage.getItem('tm_pin_sessio')) return false;
+    localStorage.removeItem('tm_pin_sessio');
+  } catch (e) { return false; }
+  _pinIlmoitus = 'Kirjaudu kerran uudelleen';
+  return true;
+}
+async function _tarkistaPinSessio(auth, db) {
+  _vanhaPinSessioOhjaus();
+  return false;
 }
 
 /* ══ ULOSKIRJAUTUMINEN ═══════════════════════════════════════ */
@@ -4809,6 +4811,56 @@ window._tallennaTakautuva = _tallennaTakautuva;
 
 
 /* ══ PIN-KIRJAUTUMINEN FIRESTOREEN ══════════════════════════════ */
+/* ══ PELAAJAN KIRJAUTUMINEN PALVELIMELLA (Vaihe 0 / PR 1) ═══════════════════════
+   { liittoTunnus: PalloID, pin } → pelaajaKirjaudu (europe-west1, App Check) → custom token
+   { rooli:'pelaaja', pelaajaSeuraId, pelaajaId } → signInWithCustomToken. PIN:iä EI enää haeta
+   selaimessa (vaati koko pelaajakokoelman anonyymin lukuoikeuden, kovakoodattu seuralista).
+   SIIRTYMÄ: jos funktio ei ole saatavilla (ei deployattu / verkko / App Check -häiriö), käytetään
+   vanhaa PIN-polkua (_kirjauduPinilla) — se poistuu PR 3:ssa, kun anonyymi pääsy suljetaan.
+   Tunnus- ja PIN-virhe EIVÄT pudota vanhaan polkuun. */
+const _TUNNUS_LS = 'tm_pelaaja_tunnus';
+let _pinIlmoitus = '';
+function _muistettuTunnus() { try { return localStorage.getItem(_TUNNUS_LS) || ''; } catch (e) { return ''; } }
+function _pinVirhe(t) { const e = document.getElementById('pinVirhe'); if (e) e.textContent = t; }
+const _PK_VIRHE_TUNNISTUS = 'Tunnus tai PIN on väärin.';
+
+async function _kirjaudu(pin) {
+  const tunnus = String((document.getElementById('pinTunnus') || {}).value || '').replace(/[\s-]/g, '');
+  if (!tunnus) { _pin = ''; draw(); _pinVirhe('Kirjoita ensin PalloID.'); return; }
+  try {
+    const fn = firebase.app().functions('europe-west1').httpsCallable('pelaajaKirjaudu');
+    const r = await fn({ liittoTunnus: tunnus, pin: pin });
+    const d = r && r.data;
+    if (!d || !d.token) throw Object.assign(new Error('ei tokenia'), { code: 'internal' });
+    _kirjautuminenKesken = true;
+    await window._auth.signInWithCustomToken(d.token);
+    try { localStorage.setItem(_TUNNUS_LS, tunnus); localStorage.removeItem('tm_pin_sessio'); } catch (e) { /* estetty */ }
+    _pinIlmoitus = '';
+    await _lataaOmaPelaaja(window._db, d.seuraId, d.pelaajaId);
+  } catch (e) {
+    const koodi = String((e && e.code) || '').replace(/^functions\//, '');
+    const viesti = String((e && e.message) || '');
+    _pin = ''; draw();
+    if (koodi === 'resource-exhausted') { _pinVirhe(viesti || 'Liian monta yritystä. Yritä myöhemmin.'); return; }
+    if (koodi === 'invalid-argument' || viesti === _PK_VIRHE_TUNNISTUS) { _pinVirhe(_PK_VIRHE_TUNNISTUS); return; }
+    console.warn('[pelaajaKirjaudu] ei saatavilla → vanha PIN-polku (siirtymä):', koodi || viesti);
+    await _kirjauduPinilla(pin);
+  } finally {
+    _kirjautuminenKesken = false;
+  }
+}
+
+/* Oma pelaajadokumentti tokenin tunnisteilla — Rules v3.25 onPelaajaItse sallii vain tämän. */
+async function _lataaOmaPelaaja(db, seuraId, pelaajaId) {
+  const snap = await db.collection('seurat').doc(seuraId).collection('pelaajat').doc(pelaajaId).get();
+  if (!snap.exists) { _pinVirhe(_PK_VIRHE_TUNNISTUS); return false; }
+  _pelaaja = { id: snap.id, seuraId: seuraId, ...snap.data() };
+  window._seuraId = seuraId;
+  window._p7Pelaaja = { seuraId: seuraId, pelaajaId: pelaajaId };
+  _kaynnistaAppUI();
+  return true;
+}
+
 async function _kirjauduPinilla(pin) {
   if (!pin || pin.length !== 4) return;
   if (!window._db || !window._auth) return;

@@ -15,7 +15,8 @@ const https     = require('https');
 const { kayttajaRooliSallittu } = require('./authz_paatos');   // pure authz-päätös (#71, testattava)
 const { keraaPelaajanManifesti, rakennaAuditPayload } = require('./gdpr_locator');   // GDPR RTBF/export -locator (#96)
 const { kaavioKohdistuuServer } = require('./kaavio_policy');   // kaavion kohdistus (peili lib/tm_kaavio_policy.js)
-const valmennusapuri = require('./valmennusapuri');           // Valmennusapuri-pilotti (Vaihe 2): ohjeistus+tietopohja palvelimella
+const valmennusapuri = require('./valmennusapuri');
+const pelaajakirjautuminen = require('./pelaajakirjautuminen');   // Vaihe 0 / PR 1: PalloID + PIN → custom token           // Valmennusapuri-pilotti (Vaihe 2): ohjeistus+tietopohja palvelimella
 if (!admin.apps.length) {
   admin.initializeApp();
 }
@@ -297,7 +298,7 @@ function pohjaPelaajaSivu({
       </a>
     </div>
     <p style="font-size:13px;color:#555;line-height:1.5;margin:4px 0 16px;text-align:center;">
-      ⚽ Pelaaja kirjautuu omalla PIN-koodillaan. PIN näkyy Vanhemman sivulla kirjautumisen jälkeen.
+      ⚽ Avaa linkki ja kirjaudu lapsen PalloID:llä ja PIN-koodilla. PIN näkyy Vanhemman sivulla kirjautumisen jälkeen.
     </p>
     <p style="font-size:13px;color:#555;line-height:1.6;margin:20px 0 0;">
       💡 Lisää sivut puhelimen kotinäytölle (selaimen valikosta "Lisää aloitusnäytölle"), niin ne ovat aina tallessa.
@@ -2485,6 +2486,11 @@ exports.kuittaaKaavioYmmarretty = functions
     const seuraId   = String((data && data.seuraId) || '').trim();
     const kaavioId  = String((data && data.kaavioId) || '').trim();
     const pelaajaId = String((data && data.pelaajaId) || '').trim();
+    /* Vaihe 0 / PR 1: pelaajatokenilla identiteetti tulee TOKENISTA. Selaimen antama seura/pelaaja
+       hylätään, jos se on eri kuin tokenissa (pelaaja ei voi kuitata toisen puolesta). */
+    const tk = context.auth.token || {};
+    if (tk.rooli === 'pelaaja' && (tk.pelaajaSeuraId !== seuraId || tk.pelaajaId !== pelaajaId))
+      throw new functions.https.HttpsError('permission-denied', 'Pelaaja voi kuitata vain oman kaavionsa.');
     if (!seuraId || !kaavioId || !pelaajaId)
       throw new functions.https.HttpsError('invalid-argument', 'seuraId, kaavioId ja pelaajaId ovat pakollisia.');
 
@@ -2573,3 +2579,22 @@ exports.arviointikertaOnWrite = functions
     }
     return null;
   });
+
+// ============================================================
+// PELAAJAN KIRJAUTUMINEN — Vaihe 0 / PR 1 (CODE_BRIEF_PELAAJAN_TUNNISTUS v2)
+// { liittoTunnus (PalloID), pin } → custom token { rooli:'pelaaja', pelaajaSeuraId, pelaajaId }.
+// App Check PAKOLLINEN (uusi funktio → ei katkosta olemassa oleville). Lukitus tunnuskohtaisesti
+// (5 väärää → 15 min) + IP-katto; laskurit `_kirjautumisyritykset` (vain Admin SDK, Rules deny-all).
+// Logiikka + perustelut: functions/pelaajakirjautuminen.js · testit: tests/pelaajakirjautuminen.test.js
+// Client: firebase.app().functions('europe-west1').httpsCallable('pelaajaKirjaudu')
+// ============================================================
+exports.pelaajaKirjaudu = functions
+  .region('europe-west1')
+  .runWith({ enforceAppCheck: true })
+  .https.onCall(pelaajakirjautuminen.luoKasittelija({
+    db, auth,
+    HttpsError: functions.https.HttpsError,
+    audit: (toiminto, tiedot) => db.collection('audit').add(Object.assign({
+      toiminto, aikaleima: admin.firestore.FieldValue.serverTimestamp(),
+    }, tiedot)).catch(() => {}),
+  }));

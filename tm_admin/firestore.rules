@@ -1,9 +1,20 @@
 rules_version = '2';
 // ══════════════════════════════════════════════════════════════════════════
-// TalentMaster™ — firestore.rules v3.24
+// TalentMaster™ — firestore.rules v3.25
 //
 // Lähde:  tm_admin/firestore.rules
 // Deploy: PR → N4-CI deployaa automaattisesti (Console-käsityö poistui).
+//
+// Muutokset v3.24 → v3.25 (Vaihe 0 / PR 1 — palvelinkirjautuminen, VAIN LISÄYS):
+//   · Uudet funktiot onPelaaja / onPelaajaItse(seuraId, pelaajaId) / onPelaajanSeura(seuraId):
+//     token `pelaajaKirjaudu`-funktiolta (PalloID + PIN), claim `pelaajaSeuraId` (EI `seuraId`).
+//   · Jokaisen seuraan sidotun onAnonymous()-haaran (27 kpl) rinnalle `|| onPelaajaItse(...)`
+//     SAMOILLA kenttärajauksilla (`(onAnonymous() || onPelaajaItse(...)) && affectedKeys...`).
+//     Pelaajan omat polut → onPelaajaItse; läsnäolon kirjoitus → vain oma rivi (osallistujaId);
+//     seura-tason luvut (kalenteri, läsnäolon luku, harjoitusprioriteetti) → onPelaajanSeura.
+//     Solo `players` ennallaan. onAnonymous() EI poistu (PR 3).
+//   · konseptit: pelaaja lukee oman seuransa linjan.
+//   · _kirjautumisyritykset + _pelaajaPin: vain Admin SDK (deny-all).
 //
 // Muutokset v3.23 → v3.24 (Vaihe 0 / PR 0 — CODE_BRIEF_PELAAJAN_TUNNISTUS v2):
 //   · `admins/{uid}` read: vain SA tai käyttäjä itse (`request.auth.uid == uid`). Aiemmin kuka
@@ -302,6 +313,26 @@ service cloud.firestore {
           && request.auth.token.firebase.sign_in_provider == 'anonymous';
     }
 
+    /* v3.25 — PELAAJAN OMA IDENTITEETTI (Vaihe 0 / PR 1). Token tulee palvelimelta
+       (`pelaajaKirjaudu`, PalloID + PIN): { rooli:'pelaaja', pelaajaSeuraId, pelaajaId }.
+       ⚠ Claim on `pelaajaSeuraId`, EI `seuraId`: onOmaSeura() lukee pelkän token.seuraId:n, ja moni
+       lukusääntö on muotoa onKirjautunut() && onOmaSeura(seuraId) ilman roolitarkistusta — seuraId-claim
+       avaisi pelaajalle koko seuran (myös valmentajien havainnot). .get() → puuttuva claim ei kaada. */
+    function onPelaaja() {
+      return request.auth != null
+          && request.auth.token.get('rooli', '') == 'pelaaja'
+          && request.auth.token.get('pelaajaSeuraId', '') is string
+          && request.auth.token.get('pelaajaId', '') is string;
+    }
+    function onPelaajaItse(seuraId, pelaajaId) {
+      return onPelaaja()
+          && request.auth.token.pelaajaSeuraId == seuraId
+          && request.auth.token.pelaajaId == pelaajaId;
+    }
+    function onPelaajanSeura(seuraId) {
+      return onPelaaja() && request.auth.token.pelaajaSeuraId == seuraId;
+    }
+
     function onValmentajaRooli() {
       // HUOM: seurasihteeri + testivastaava POISTETTU tästä (2026-06-05) — ne eivät saa
       // broad valmennusdata-kirjoitusta. Rajatut oikeudet onSeuraSihteeri/onTestivastaava-kautta.
@@ -531,6 +562,12 @@ service cloud.firestore {
     // ──────────────────────────────────────────────────────────────────────
     // ADMINS — super admin -taulukko
     // ──────────────────────────────────────────────────────────────────────
+    // v3.25 — kirjautumisen yrityslaskurit ja PIN-hajautukset: VAIN Admin SDK (pelaajaKirjaudu).
+    // Oma kokoelma, koska pelaajadokumentit ovat (vielä) laajasti luettavissa: 4-numeroisen PIN:in
+    // hajautus pelaajadokumentissa murtuisi 10 000 kokeilulla.
+    match /_kirjautumisyritykset/{avain} { allow read, write: if false; }
+    match /_pelaajaPin/{avain}           { allow read, write: if false; }
+
     match /admins/{uid} {
       // v3.24: vain SA tai käyttäjä itse. Kaikki selainlukijat lukevat omaa dokumenttiaan
       // (SA-fallback roolintunnistuksessa); muiden adminien listaus ei ole kenenkään tarve.
@@ -674,7 +711,8 @@ service cloud.firestore {
       //   delete sama portti: "palauta kaanoniin" poistaa koko override-dokumentin.
       // Sisältö on seuran pedagogista tekstiä (ei pelaajaa yksilöivää) → ei GDPR-erityiskäsittelyä.
       match /konseptit/{konseptiAvain} {
-        allow read:   if onSuperAdmin() || (onKirjautunut() && onOmaSeura(seuraId));
+        // v3.25: pelaaja lukee oman seuransa linjan (A3) — vain oma seura, ei muita.
+        allow read:   if onSuperAdmin() || (onKirjautunut() && onOmaSeura(seuraId)) || onPelaajanSeura(seuraId);
         allow create: if onSuperAdmin() || onKonseptiMuokkaaja(seuraId);
         allow update: if onSuperAdmin() || onKonseptiMuokkaaja(seuraId);
         allow delete: if onSuperAdmin() || onKonseptiMuokkaaja(seuraId);
@@ -721,7 +759,7 @@ service cloud.firestore {
       match /pelaajat/{pelaajaId} {
         allow read:   if onSuperAdmin()
                       || (onKirjautunut() && onOmaSeura(seuraId))
-                      || onAnonymous()
+                      || (onAnonymous() || onPelaajaItse(seuraId, pelaajaId))
                       || (onKirjautunut()
                           && request.auth.token.email is string
                           && resource.data.huoltajaEmail is string
@@ -733,20 +771,20 @@ service cloud.firestore {
                       || (onOmaSeura(seuraId) && request.auth.uid == pelaajaId)
                       // PIN-pelaaja (anonyymi) saa päivittää VAIN oman xp/streak-pelillistyksen
                       // (_tallennaKirjaus-batch). Sama luottamusmalli kuin kirjaukset-onAnonymous.
-                      || (onAnonymous() && request.resource.data.diff(resource.data).affectedKeys()
+                      || ((onAnonymous() || onPelaajaItse(seuraId, pelaajaId)) && request.resource.data.diff(resource.data).affectedKeys()
                           .hasOnly(['xp', 'streak', 'streak_paivitetty']))
                       // PIN-pelaaja: D3-psyykkinen itsearvio (§C) — vain d3-pikakentät omaan dokumenttiin.
                       // Valmentajan pisteet[dim].valmentaja säilyvät: client tekee merge nykyisistä (sama
                       // anon-luottamusmalli kuin xp/kirjaukset; nested-validointia rules ei tee).
                       // d3_varmuus = johdettu pikakenttä (D3_KALIBRAATIO_SPEC malli A): pelaaja kirjoittaa
                       // 'itsearvio'/'trianguloitu' lahteet[]:stä → kuuluu sallittuihin avaimiin.
-                      || (onAnonymous() && request.resource.data.diff(resource.data).affectedKeys()
+                      || ((onAnonymous() || onPelaajaItse(seuraId, pelaajaId)) && request.resource.data.diff(resource.data).affectedKeys()
                           .hasOnly(['d3_viimeisin', 'd3_taso', 'd3_pvm', 'd3_varmuus']))
                       // IDP-kortti v2 §4 — PIN-pelaaja: oma sitoumus-pikakenttä (idp_sitoumus_pvm). Sama anon-luottamusmalli.
-                      || (onAnonymous() && request.resource.data.diff(resource.data).affectedKeys()
+                      || ((onAnonymous() || onPelaajaItse(seuraId, pelaajaId)) && request.resource.data.diff(resource.data).affectedKeys()
                           .hasOnly(['idp_sitoumus_pvm']))
                       // P7-c.4a — PIN-pelaaja/vanhempi: oma notif-asetus (opt-out / hiljaiset tunnit). Sama anon-luottamusmalli.
-                      || (onAnonymous() && request.resource.data.diff(resource.data).affectedKeys()
+                      || ((onAnonymous() || onPelaajaItse(seuraId, pelaajaId)) && request.resource.data.diff(resource.data).affectedKeys()
                           .hasOnly(['notif_asetukset']))
                       // Vaihe 4a — jaksofokus + tt_positio_aktiivinen (operatiivinen teknis-taktinen pelitavoite, §4
                       // roolimalli). Kenttäomistajuus: valmentaja/talenttivalmentaja/VP (onValmentajaRooli) saavat
@@ -790,7 +828,7 @@ service cloud.firestore {
              Rules EI suodata: kyselyssä on oltava `nakyvyys=='pelaaja'`, muuten se hylätään. */
           allow read:   if onSuperAdmin()
                         || onOmaSeura(seuraId)
-                        || (onAnonymous() && resource.data.get('nakyvyys', '') == 'pelaaja')
+                        || ((onAnonymous() || onPelaajaItse(seuraId, pelaajaId)) && resource.data.get('nakyvyys', '') == 'pelaaja')
                         || (onLapsenHuoltaja(seuraId, pelaajaId)
                             && resource.data.get('nakyvyys', '') == 'pelaaja');
           allow create: if (onSuperAdmin() || onOmanJoukkueenValmentaja(seuraId, pelaajaId))   // permissio-joukkulukko (johto ohittaa)
@@ -798,7 +836,7 @@ service cloud.firestore {
           /* ANONYYMIN KIRJOITUS RAJATTU (v3.22): pelaajaistunto tarvitsee vain lukukuittauksen,
              mutta sai muuttaa mitä tahansa kenttää — myös omia pisteitään ja näkyvyyttään. */
           allow update: if (onSuperAdmin() || onOmanJoukkueenValmentaja(seuraId, pelaajaId)
-                        || (onAnonymous()
+                        || ((onAnonymous() || onPelaajaItse(seuraId, pelaajaId))
                             && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['pelaaja_lukenut'])
                             && resource.data.get('nakyvyys', '') == 'pelaaja'))
                         && luotuPaivitysKelpaa()                      // A5
@@ -865,11 +903,11 @@ service cloud.firestore {
         match /kirjaukset/{pvm} {
           allow read:   if onSuperAdmin()
                         || onOmaSeura(seuraId)
-                        || onAnonymous()
+                        || (onAnonymous() || onPelaajaItse(seuraId, pelaajaId))
                         || onLapsenHuoltaja(seuraId, pelaajaId);
           allow create: if (onSuperAdmin()
                         || onOmanSeuranValmentaja(seuraId)
-                        || onAnonymous()   // pelaaja kirjaa itse PIN-tilassa
+                        || (onAnonymous() || onPelaajaItse(seuraId, pelaajaId))   // pelaaja kirjaa itse PIN-tilassa
                         || (onOmaSeura(seuraId) && request.auth.uid == pelaajaId)
                         || (onOmaSeura(seuraId) && request.auth.token.rooli == 'vp')
                         || (onOmaSeura(seuraId) && request.auth.token.rooli == 'urheilutoimenjohtaja')
@@ -878,7 +916,7 @@ service cloud.firestore {
                         && luotuLuontiKelpaa();                       // A5
           allow update: if (onSuperAdmin()
                         || onOmanSeuranValmentaja(seuraId)
-                        || onAnonymous()
+                        || (onAnonymous() || onPelaajaItse(seuraId, pelaajaId))
                         || (onOmaSeura(seuraId) && request.auth.uid == pelaajaId)
                         || (onOmaSeura(seuraId) && request.auth.token.rooli == 'vp')
                         || (onOmaSeura(seuraId) && request.auth.token.rooli == 'urheilutoimenjohtaja')
@@ -892,9 +930,9 @@ service cloud.firestore {
         // → ei uid-skooppausta (sama laaja anon-malli kuin c.1/c.3). CREATE vain SA/CF → client (myös anon) EI voi
         // väärentää toisen notifia (turvakriittinen). Anon-update rajattu affectedKeysilla vain 'luettu'-merkintään.
         match /notifikaatiot/{notifId} {
-          allow read:   if onSuperAdmin() || onOmaSeura(seuraId) || onAnonymous() || onLapsenHuoltaja(seuraId, pelaajaId);
+          allow read:   if onSuperAdmin() || onOmaSeura(seuraId) || (onAnonymous() || onPelaajaItse(seuraId, pelaajaId)) || onLapsenHuoltaja(seuraId, pelaajaId);
           allow update: if onSuperAdmin()
-                        || (onAnonymous() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['luettu', 'luettu_pvm']));
+                        || ((onAnonymous() || onPelaajaItse(seuraId, pelaajaId)) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['luettu', 'luettu_pvm']));
           allow create: if onSuperAdmin();   // vain CF/SA (admin-SDK) — client ei väärennä
           allow delete: if onSuperAdmin();
         }
@@ -926,7 +964,7 @@ service cloud.firestore {
                         || (resource.data.naytaValmentajalle == true
                             && onOmanSeuranValmentaja(seuraId))
                         || (resource.data.naytaPelaajalle == true
-                            && onAnonymous());
+                            && (onAnonymous() || onPelaajaItse(seuraId, pelaajaId)));
           allow create: if onSuperAdmin()
                         || (onOmaSeura(seuraId) && onJohtoRooli());
           allow update: if onSuperAdmin()
@@ -942,7 +980,7 @@ service cloud.firestore {
         match /testitulokset/{pvmProto} {
           allow read:   if onSuperAdmin()
                         || onOmaSeura(seuraId)
-                        || onAnonymous()
+                        || (onAnonymous() || onPelaajaItse(seuraId, pelaajaId))
                         || onLapsenHuoltaja(seuraId, pelaajaId);
           // Kirjoitus: VP/UTJ (johto) + testivastaava. EI seurasihteeri (valmennusdata).
           allow create: if onSuperAdmin()
@@ -966,7 +1004,7 @@ service cloud.firestore {
         match /biologinen_ika/{mittausPvm} {
           allow read:   if onSuperAdmin()
                         || onOmaSeura(seuraId)
-                        || onAnonymous()
+                        || (onAnonymous() || onPelaajaItse(seuraId, pelaajaId))
                         || onLapsenHuoltaja(seuraId, pelaajaId);
           allow create: if onSuperAdmin() || onOmanSeuranValmentaja(seuraId);
           allow update: if onSuperAdmin() || onOmanSeuranValmentaja(seuraId);
@@ -1038,19 +1076,19 @@ service cloud.firestore {
         match /idp_kausi/{vuosi} {
           allow read:   if onSuperAdmin()
                         || (onOmaSeura(seuraId) && (onJohtoRooli() || onValmentajaRooli()))
-                        || onAnonymous();   // pelaaja lukee oman kausitavoitteensa (3c-peili)
+                        || (onAnonymous() || onPelaajaItse(seuraId, pelaajaId));   // pelaaja lukee oman kausitavoitteensa (3c-peili)
           allow create: if onSuperAdmin()
                         || onOmanSeuranValmentaja(seuraId)
                         || (onOmaSeura(seuraId) && onJohtoRooli())
                         // IDP-kortti v2 §4 — PIN-pelaaja saa luoda OMAN sitoumuksensa jos dokkia ei vielä ole (vain pelaaja_sitoumus).
-                        || (onAnonymous() && request.resource.data.keys().hasOnly(['pelaaja_sitoumus'])
+                        || ((onAnonymous() || onPelaajaItse(seuraId, pelaajaId)) && request.resource.data.keys().hasOnly(['pelaaja_sitoumus'])
                             && request.resource.data.pelaaja_sitoumus.vahvistettu_pvm == null);
           allow update: if onSuperAdmin()
                         || onOmanSeuranValmentaja(seuraId)
                         || (onOmaSeura(seuraId) && onJohtoRooli())
                         // IDP-kortti v2 §4 — PIN-pelaaja: OMA sitoumus (vain pelaaja_sitoumus + paivitetty). EI tavoitteita,
                         // EI VP-vahvistusta (vahvistettu_pvm pysyy nykyisenä/null — vain VP/johto asettaa sen).
-                        || (onAnonymous()
+                        || ((onAnonymous() || onPelaajaItse(seuraId, pelaajaId))
                             && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['pelaaja_sitoumus', 'paivitetty'])
                             && request.resource.data.pelaaja_sitoumus.vahvistettu_pvm ==
                                (('pelaaja_sitoumus' in resource.data) ? resource.data.pelaaja_sitoumus.get('vahvistettu_pvm', null) : null));
@@ -1064,13 +1102,13 @@ service cloud.firestore {
         // mutta EI muokata muita kenttiä → diff.affectedKeys.hasOnly([...]).
         match /kehut/{kehuId} {
           allow read:   if onSuperAdmin()
-                        || onAnonymous()
+                        || (onAnonymous() || onPelaajaItse(seuraId, pelaajaId))
                         || onLapsenHuoltaja(seuraId, pelaajaId);
           allow create: if (onSuperAdmin()
                         || onLapsenHuoltaja(seuraId, pelaajaId))
                         && luotuLuontiKelpaa();                       // A5
           allow update: if (onSuperAdmin()
-                        || (onAnonymous()
+                        || ((onAnonymous() || onPelaajaItse(seuraId, pelaajaId))
                             && request.resource.data.diff(resource.data).affectedKeys()
                                .hasOnly(['nahty', 'nahtyKlo'])))
                         && luotuPaivitysKelpaa();                     // A5
@@ -1085,7 +1123,7 @@ service cloud.firestore {
           allow read:   if onSuperAdmin()
                         || onOmaSeura(seuraId)
                         || (resource.data.nakyvyys == 'pelaaja'
-                            && (onAnonymous() || onLapsenHuoltaja(seuraId, pelaajaId)));
+                            && ((onAnonymous() || onPelaajaItse(seuraId, pelaajaId)) || onLapsenHuoltaja(seuraId, pelaajaId)));
           allow create: if onSuperAdmin() || onOmanJoukkueenValmentaja(seuraId, pelaajaId);   // permissio-joukkulukko (johto ohittaa)
           allow update: if onSuperAdmin() || onOmanJoukkueenValmentaja(seuraId, pelaajaId);
           allow delete: if onSuperAdmin() || (onOmaSeura(seuraId) && onJohtoRooli());
@@ -1151,7 +1189,7 @@ service cloud.firestore {
         // testidatasta (doc 'aktiivinen'). Koko seura lukee (Tänään-fokus +
         // mahdollinen Pelaaja-näkymä). Firestore ei periydy → oma blokki.
         match /harjoitusprioriteetti/{prioriteettiId} {
-          allow read:   if onSuperAdmin() || onOmaSeura(seuraId) || onAnonymous();
+          allow read:   if onSuperAdmin() || onOmaSeura(seuraId) || (onAnonymous() || onPelaajanSeura(seuraId));
           allow create: if onSuperAdmin() || onOmanSeuranValmentaja(seuraId);
           allow update: if onSuperAdmin() || onOmanSeuranValmentaja(seuraId);
           allow delete: if onSuperAdmin() || (onOmaSeura(seuraId) && onJohtoRooli());
@@ -1219,7 +1257,7 @@ service cloud.firestore {
         match /tulokset/{pelaajaId} {
           allow read:   if onSuperAdmin()
                         || onOmaSeura(seuraId)
-                        || onAnonymous()
+                        || (onAnonymous() || onPelaajaItse(seuraId, pelaajaId))
                         || onLapsenHuoltaja(seuraId, pelaajaId);
           allow create: if onSuperAdmin() || onOmanSeuranValmentaja(seuraId) || onTestivastaava(seuraId);
           allow update: if onSuperAdmin() || onOmanSeuranValmentaja(seuraId) || onTestivastaava(seuraId);
@@ -1270,7 +1308,7 @@ service cloud.firestore {
         // APPISSA (query), ei Rulesissa (sama tietoinen kompromissi kuin pelaajat/harjoitusprioriteetti). Write ENNALLAAN.
         allow read:   if onSuperAdmin()
                       || (onKirjautunut() && onOmaSeura(seuraId))
-                      || onAnonymous();
+                      || (onAnonymous() || onPelaajanSeura(seuraId));
 
         // Luonti: VP/johto (vapaa) TAI valmentajarooli joka asettaa luoja_uid == oma uid.
         allow create: if onSuperAdmin()
@@ -1301,7 +1339,7 @@ service cloud.firestore {
         match /lasnaolijat/{osallistujaId} {
           allow read:   if onSuperAdmin()
                         || (onKirjautunut() && onOmaSeura(seuraId))
-                        || onAnonymous();   // P7-c.1: PIN-pelaaja/vanhempi näkee läsnäolon (oma poissaolo-write vasta c.3)
+                        || (onAnonymous() || onPelaajanSeura(seuraId));   // P7-c.1: PIN-pelaaja/vanhempi näkee läsnäolon (oma poissaolo-write vasta c.3)
           // P7-c.3 + RSVP-erotus: PIN-pelaaja/vanhempi (anon) ilmoittaa oman SAATAVUUTENSA (RSVP: tulossa/estynyt).
           // Anon-token ei kanna pelaajaId:tä (uid ≠ osallistujaId) → ei uid-skooppausta; laaja anon-luottamusmalli
           // rajattuna affectedKeysilla VAIN saatavuus (+ paivitetty/rooli). ⚠️ Turvaparannus: anon EI voi kirjoittaa
@@ -1311,12 +1349,12 @@ service cloud.firestore {
                         || (onOmaSeura(seuraId) && onJohtoRooli())
                         || onOmanSeuranValmentaja(seuraId)
                         || (onOmaSeura(seuraId) && request.auth.uid == osallistujaId)
-                        || (onAnonymous() && request.resource.data.keys().hasOnly(['saatavuus', 'paivitetty', 'rooli']));
+                        || ((onAnonymous() || onPelaajaItse(seuraId, osallistujaId)) && request.resource.data.keys().hasOnly(['saatavuus', 'paivitetty', 'rooli']));
           allow update: if onSuperAdmin()
                         || (onOmaSeura(seuraId) && onJohtoRooli())
                         || onOmanSeuranValmentaja(seuraId)
                         || (onOmaSeura(seuraId) && request.auth.uid == osallistujaId)
-                        || (onAnonymous() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['saatavuus', 'paivitetty', 'rooli']));
+                        || ((onAnonymous() || onPelaajaItse(seuraId, osallistujaId)) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['saatavuus', 'paivitetty', 'rooli']));
           allow delete: if onSuperAdmin() || (onOmaSeura(seuraId) && onJohtoRooli());
         }
       }
