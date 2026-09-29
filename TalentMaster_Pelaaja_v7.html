@@ -515,7 +515,7 @@ input::placeholder,textarea::placeholder{color:#8C8B86;opacity:1}
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-functions-compat.js"></script>   <!-- Vaihe 0 / PR 1: pelaajaKirjaudu -->
-<script src="lib/tm_appcheck.js?v=1"></script>
+<script src="lib/tm_appcheck.js?v=2"></script>
 <script src="lib/tm_lang.js?v=15"></script>   <!-- i18n V0 putki · V1-A/A2 · V4-A3: +pelaaja.nain_teet/kirjaa_tehdyksi/pallo_joka_paiva/rae_q4 (kotinäytön chrome sv) -->
 <script src="lib/tm_eerikkila_normit.js?v=40"></script>
 <script src="docs/testit_indeksit.js?v=9"></script>
@@ -633,7 +633,11 @@ function ic(name,sz=20,col='currentColor',sw=1.5){
 /* ══════════════════════════════════════
    STATE
 ══════════════════════════════════════ */
-let _sc='pin', _tab='tanaan', _cOpen=false;
+/* Käynnistys alkaa LATAUSNÄKYMÄSTÄ, ei PIN-ruudusta: PIN välähti ennen automaattista
+   sisäänkirjautumista ja näytti uloskirjautumiselta. PIN vasta, kun ensimmäinen
+   onAuthStateChanged on lauennut eikä käyttäjää ole (ks. _goPin). */
+let _sc='lataa', _tab='tanaan', _cOpen=false;
+let _authTilaSelvilla = false;
 let _takautuvaTyyppi = null;  // takautuva-modaalin valinta
 let _takautuvaKesto  = null;  // takautuva-modaalin kesto
 
@@ -688,9 +692,10 @@ const EX=[
 const body=document.getElementById('phBody');
 
 function draw(){
-  const hideTabs=_sc==='pin'||_sc==='train';
+  const hideTabs=_sc==='pin'||_sc==='train'||_sc==='lataa';
   let html='';
-  if(_sc==='pin')        html=rPin();
+  if(_sc==='lataa')      html=rLataa();
+  else if(_sc==='pin')   html=rPin();
   else if(_sc==='train') html=rTrain();
   else if(_sc==='haptic')html=rHaptic();
   else if(_sc==='offline')html=rOffline();
@@ -788,6 +793,20 @@ function startEx(){
 ══════════════════════════════════════ */
 
 /* D – PIN */
+function rLataa(){
+  return '<div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:60vh;gap:14px">'
+    + '<div style="font-family:var(--font-d);font-size:22px;color:#F2EFE6">TalentMaster<span style="color:#28B090">™</span></div>'
+    + '<div style="font-family:var(--font-m);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:rgba(242,239,230,.45)">' + t('yleiset.latautuu') + '</div>'
+    + '</div>';
+}
+
+/* PIN-ruutu AINA syyn kanssa (diagnostiikka 30.9.2026): jokainen reitti kirjaa, miksi pelaaja
+   näkee PIN-ruudun. Ilman tätä "heitti ulos" ei ole selvitettävissä jälkikäteen. */
+function _goPin(syy) {
+  try { console.warn('[pin] ' + syy); } catch (e) { /* ei konsolia */ }
+  go('pin');
+}
+
 function rPin(){
   const keys=['1','2','3','4','5','6','7','8','9','','0','⌫'];
   const p=_pelaaja;
@@ -916,7 +935,7 @@ async function _kirjauduEmaililla() {
   const btn = document.querySelector('#emailLoginForm button:last-child');
   if (btn) btn.textContent = 'Kirjaudutaan...';
   try {
-    await firebase.auth().signInWithEmailAndPassword(email, pass);
+    await window._auth.signInWithEmailAndPassword(email, pass);
     // onAuthStateChanged hoitaa loput
   } catch(e) {
     const msg = e.code === 'auth/wrong-password' ? 'Väärä salasana.' :
@@ -1990,7 +2009,7 @@ async function _p7KuittaaKaavio() {
   } catch (e) { /* estetty (private mode) — CF-kirjoitus on silti totuus */ }
   if (vainPaikallinen) return;
   try {
-    var fn = firebase.app().functions('europe-west1').httpsCallable('kuittaaKaavioYmmarretty');
+    var fn = window._fbApp.functions('europe-west1').httpsCallable('kuittaaKaavioYmmarretty');
     await fn({ seuraId: sid, kaavioId: k.id, pelaajaId: pid });
   } catch (e) {
     // Palautus: poista peili ja nappi takaisin — lapselle ei jää valheellista ✓.
@@ -2243,7 +2262,7 @@ function _p7DemoNotif() {
 async function _p7LataaNotif() {
   if (_ladattu.notif) return;   // latch/race-fix: ei latchia not-ready-tilassa (kuten _p7LataaKalenteri)
   if (_isDemoUser) { _ladattu.notif = true; window._p7Notif = _p7DemoNotif(); if (typeof draw === 'function') draw(); return; }
-  var authReady = !!(typeof firebase !== 'undefined' && firebase.auth && firebase.auth().currentUser);
+  var authReady = !!(window._auth && window._auth.currentUser);
   if (!_pelaaja || !_pelaaja.seuraId || !_pelaaja.id || !window._db || !authReady) return;   // ei valmis → yritetään uudelleen
   _ladattu.notif = true;
   try {
@@ -2284,7 +2303,7 @@ async function _p7MerkitseLuettu(id) {
   n.luettu = true; if (typeof draw === 'function') draw();   // optimistinen
   if (_isDemoUser || !_pelaaja || !_pelaaja.seuraId || !_pelaaja.id || !window._db) return;
   try {
-    var cu = (typeof firebase !== 'undefined' && firebase.auth) ? firebase.auth().currentUser : null; if (cu) await cu.getIdToken(true);
+    var cu = window._auth ? window._auth.currentUser : null; if (cu) await cu.getIdToken(true);
     await window._db.collection('seurat').doc(_pelaaja.seuraId).collection('pelaajat').doc(_pelaaja.id)
       .collection('notifikaatiot').doc(id).set({ luettu: true, luettu_pvm: new Date().toISOString() }, { merge: true });
   } catch (e) { console.warn('[p7 notif read]', e && e.message); }
@@ -2298,7 +2317,7 @@ async function _p7LataaKalenteri() {
   if (_ladattu.kalenteri) return;
   var _rerender = function () { if (_tab !== 'mina' && _tab !== 'meista' && _sc === 'main') draw(); };
   if (_isDemoUser) { _ladattu.kalenteri = true; window._p7Kalenteri = _p7DemoKalenteri(); _rerender(); return; }
-  var authReady = !!(typeof firebase !== 'undefined' && firebase.auth && firebase.auth().currentUser);
+  var authReady = !!(window._auth && window._auth.currentUser);
   if (!_pelaaja || !_pelaaja.seuraId || !window._db || !authReady) return;   // ei valmis → EI latchia, EI [] (yritetään uudelleen)
   _ladattu.kalenteri = true;   // vasta kun oikea .get() tehdään
   try {
@@ -2352,7 +2371,7 @@ async function _p7MerkitseLasna(evId, saatavuus) {
   ev._omaSaatavuus = saatavuus; if (typeof draw === 'function') draw();   // optimistinen UI
   if (_isDemoUser || !_pelaaja || !_pelaaja.seuraId || !_pelaaja.id || !window._db) return;   // demo/ei-Firestore → vain UI
   try {
-    var cu = (typeof firebase !== 'undefined' && firebase.auth) ? firebase.auth().currentUser : null;
+    var cu = window._auth ? window._auth.currentUser : null;
     if (cu) await cu.getIdToken(true);
     await window._db.collection('seurat').doc(_pelaaja.seuraId).collection('kalenteri').doc(evId)
       .collection('lasnaolijat').doc(_pelaaja.id)
@@ -2665,7 +2684,7 @@ async function _tallennaSitoumus() {
     return;
   }
   try {
-    var cu = (typeof firebase !== 'undefined' && firebase.auth) ? firebase.auth().currentUser : null;
+    var cu = window._auth ? window._auth.currentUser : null;
     if (cu) { try { await cu.getIdToken(true); } catch (e) { /* jatka silti */ } }
     var vuosi = idpKausivuosi(new Date());
     var ref = window._db.collection('seurat').doc(_pelaaja.seuraId).collection('pelaajat').doc(_pelaaja.id);
@@ -3906,25 +3925,33 @@ const _URL = (() => {
   return { pelaajaId: p.get('p'), seuraId: urlSeuraId, demo: p.get('demo')==='1' };
 })();
 
+/* NIMETTY FIREBASE-APPI 'tm-pelaaja' (juurisyy 30.9.2026): kaikki samassa originissa olevat apit
+   jakoivat OLETUSAPIN Auth-istunnon. signInWithCustomToken (pelaajaKirjaudu) korvasi selaimen
+   yhteisen istunnon → Master/VP näkivät käyttäjän ilman seuraId-claimia ja kutsuivat signOut(), mikä
+   kirjasi ulos KAIKKI välilehdet (myös pelaajan: currentUser=null, P6 permission-denied). Nimetyn
+   apin istunto tallentuu omalla avaimellaan → pelaajan ja henkilökunnan istunnot eivät koske toisiinsa.
+   KAIKKI tämän sivun Firebase-palvelut tulevat tästä appista (window._fbApp/_auth/_db); sivu EI
+   alusta oletusappia lainkaan, joten firebase.auth()/firestore()-kutsu kaatuisi heti (vartija testissä). */
 function _initFirebase() {
   if (_fbInited) return;
-  firebase.initializeApp(_fbCfg);
-  tmAppCheckAktivoi();   // App Check heti initin jälkeen, ennen 1. backend-kutsua
-  // _functions ladataan tarvittaessa myöhemmin
+  const app = firebase.initializeApp(_fbCfg, 'tm-pelaaja');
+  tmAppCheckAktivoi(app);   // App Check heti initin jälkeen, ennen 1. backend-kutsua — NIMETTYYN appiin
   _fbInited = true;
+  window._fbApp = app;
 
-  const auth = firebase.auth();
-  const db   = firebase.firestore();
+  const auth = app.auth();
+  const db   = app.firestore();
   window._db   = db;
   window._auth = auth;
 
   // ══ AUTH STATE LISTENER — kaikki reitit (v3-logiikka) ══════════
   auth.onAuthStateChanged(async user => {
+    _authTilaSelvilla = true;
     if (_kirjautuminenKesken) return;
 
     // Manuaalisesti uloskirjautunut → älä kirjaudu automaattisesti
     if (_uloskirjautunut) {
-      go('pin');
+      _goPin('uloskirjautunut käsin');
       return;
     }
 
@@ -3937,7 +3964,7 @@ function _initFirebase() {
          kautta (_lataaFirebasePelaaja), ei tätä haaraa. */
       if (user.isAnonymous) {
         _vanhaPinSessioOhjaus();   // vanha PIN-istunto → "Kirjaudu kerran uudelleen" (PR 1)
-        go('pin');
+        _goPin('anonyymi istunto (vanha polku) — kirjaudu PalloID:llä');
         return;
       }
 
@@ -3954,7 +3981,7 @@ function _initFirebase() {
     if (pinOk) return;
 
     /* URL-parametrit eivät käynnistä anonyymiä kirjautumista (PR 0). */
-    go('pin');
+    _goPin('ei kirjautunutta käyttäjää');
   });
 }
 
@@ -4053,8 +4080,7 @@ async function _lataaFirebasePelaaja(auth, db, user) {
     }
 
     // ── Ei löydy → kirjautumisruutu ─────────────────────────────
-    console.warn('[v4] Pelaajaa ei löydy — näytetään PIN');
-    go('pin');
+    _goPin('kirjautunut käyttäjä, mutta pelaajaa ei löydy');
 
   } catch(e) {
     console.warn('[_lataaFirebasePelaaja]', e.message);
@@ -4065,7 +4091,7 @@ async function _lataaFirebasePelaaja(auth, db, user) {
         ts: firebase.firestore.FieldValue.serverTimestamp(),
       }).catch(()=>{});
     }
-    go('pin');
+    _goPin('_lataaFirebasePelaaja heitti: ' + (e && e.message));
   }
 }
 
@@ -4096,8 +4122,8 @@ async function kirjauduUlos() {
     const tmKeys = Object.keys(localStorage).filter(k => /^tm_|^tm-/.test(k));
     tmKeys.forEach(k => localStorage.removeItem(k));
   } catch(e) {}
-  try { await firebase.auth().signOut(); } catch(e) {}
-  go('pin');
+  try { if (window._auth) await window._auth.signOut(); } catch(e) {}
+  _goPin('uloskirjautuminen');
 }
 
 /* ══ DEMO-KIRJAUTUMINEN ══════════════════════════════════════ */
@@ -4230,7 +4256,7 @@ function _tmPwaKehote(appNimi) {
 
 function _kaynnistaAppUI() {
   const p = _pelaaja;
-  if (!p) { go('pin'); return; }
+  if (!p) { _goPin('_kaynnistaAppUI ilman pelaajaa'); return; }
   // V4-A3 Osa B: sovella seuran oletuskieli pelaajadokin kieli-kentästä (denormalisoitu, reitti 1).
   // tmKieliInitSeura: käyttäjän manuaalivalinta (localStorage['tm_kieli']) VOITTAA yhä seura-oletuksen.
   if (typeof tmKieliInitSeura === 'function') tmKieliInitSeura(p && p.kieli ? p.kieli : null);
@@ -4440,7 +4466,7 @@ async function _tmKirjaa(avain, arvo) {
   // Varmista tuore token ennen kirjoitusta (kuten _tallennaKirjaus) — vanhentunut sessio →
   // muuten permission-denied joka aiemmin niellettiin = valeonnistuminen (ks. silent-failure-muistiinpano).
   try {
-    const u = window._auth?.currentUser || firebase.auth().currentUser;
+    const u = window._auth?.currentUser || null;
     if (u) await u.getIdToken(true);
   } catch (_) { /* ei estä kirjausta */ }
   try {
@@ -4489,7 +4515,7 @@ async function _tallennaKirjaus(tyyppi, xp, kaikki, ekstra) {
   // pitkän tauon jälkeen (esim. puhelimen nukkuessa). getIdToken(true) pakottaa
   // Firebase Auth:n hakemaan uuden tokenin palvelimelta.
   try {
-    const u = window._auth?.currentUser || firebase.auth().currentUser;
+    const u = window._auth?.currentUser || null;
     if (u) await u.getIdToken(true);
   } catch (_) { /* ei estä kirjausta */ }
 
@@ -4702,7 +4728,7 @@ async function _kirjaaTakautuva(pvm, tyyppi, kestoMin) {
   if (!sid || !pid || !pvm || !tyyppi) return;
 
   try {
-    const u = window._auth?.currentUser || firebase.auth().currentUser;
+    const u = window._auth?.currentUser || null;
     if (u) await u.getIdToken(true);
   } catch(_) {}
 
@@ -4828,7 +4854,7 @@ async function _kirjaudu(pin) {
   const tunnus = String((document.getElementById('pinTunnus') || {}).value || '').replace(/[\s-]/g, '');
   if (!tunnus) { _pin = ''; draw(); _pinVirhe('Kirjoita ensin PalloID.'); return; }
   try {
-    const fn = firebase.app().functions('europe-west1').httpsCallable('pelaajaKirjaudu');
+    const fn = window._fbApp.functions('europe-west1').httpsCallable('pelaajaKirjaudu');
     const r = await fn({ liittoTunnus: tunnus, pin: pin });
     const d = r && r.data;
     if (!d || !d.token) throw Object.assign(new Error('ei tokenia'), { code: 'internal' });
@@ -5000,8 +5026,12 @@ function ikaCfg() { return IKA[_stage] || IKA['2_rakentaja']; }
 ══════════════════════════════════════════════════════════ */
 // Käynnistä Firebase auth — ei häiritse malli-drawia
 document.addEventListener('DOMContentLoaded', () => {
-  _initFirebase();
+  try { _initFirebase(); } catch (e) { _goPin('Firebase-alustus epäonnistui: ' + (e && e.message)); }
   _initTMBus();
+  /* Latausnäkymä ei saa jäädä ikuiseksi (verkko, demo-polku joka ei käynnistä näkymää): 15 s → PIN. */
+  setTimeout(() => {
+    if (_sc === 'lataa') _goPin(_authTilaSelvilla ? 'latausnäkymä jäi päälle (ei käynnistystä)' : 'auth-tila ei selvinnyt 15 s:ssa (verkko?)');
+  }, 15000);
 });
 
 /* ══ TMBus-integraatio ══════════════════════════════════════
@@ -6179,7 +6209,7 @@ function _p6KaynnistakuuntelIja(seuraId, pelaajaId) {
   // AJOITUSKORJAUS (2026-06-16): varmista anon-token VALMIS ennen onSnapshot-tilausta.
   // Aiemmin listener käynnistyi heti signInAnonymously jälkeen ennen tokenin propagoitumista
   // → transientti permission-denied → listener kuoli (ei retryä) → havainnot eivät tavoittaneet pelaajaa.
-  const auth = window._auth || (window.firebase && firebase.auth ? firebase.auth() : null);
+  const auth = window._auth || null;
   if (auth && auth.currentUser) {
     auth.currentUser.getIdToken().then(function(){ _p6Tilaa(seuraId, pelaajaId, 0); })
                                  .catch(function(){ _p6Tilaa(seuraId, pelaajaId, 0); });

@@ -22,7 +22,7 @@ import {
 import { readFileSync } from 'fs';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
-import { setDoc, getDoc, doc, collection, addDoc, updateDoc, deleteDoc, query, where, limit, getDocs, serverTimestamp, runTransaction, deleteField } from 'firebase/firestore';
+import { setDoc, getDoc, doc, collection, addDoc, updateDoc, deleteDoc, query, where, limit, getDocs, serverTimestamp, runTransaction, deleteField, orderBy, documentId } from 'firebase/firestore';
 import { createRequire } from 'module';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -2963,5 +2963,75 @@ describe('v3.25 · pelaajatoken (onPelaajaItse)', () => {
   it('väärennetty token ilman rooli:pelaaja (pelkät pelaajaSeuraId/pelaajaId) EI saa pääsyä', async () => {
     const vaara = testEnv.authenticatedContext('x', { pelaajaSeuraId: SEURA_A, pelaajaId: PELAAJA_UID }).firestore();
     await assertFails(getDoc(doc(vaara, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID)));
+  });
+});
+
+/* ══════════════════════════════════════════════════════════════════════════════════════════
+   PELAAJA_V7:N OIKEAT KYSELYT PELAAJATOKENILLA (30.9.2026)
+   Aiemmat pelaajatoken-testit kattoivat vain getDoc-haut. Nämä ajavat sivun TODELLISET kyselyt
+   (sama muoto: where/orderBy/limit/documentId), koska Firestore hylkää list-kyselyn, jonka säännön
+   se ei pysty todistamaan KAIKILLE tuloksille — getDoc voi toimia, vaikka sivun kysely ei.
+══════════════════════════════════════════════════════════════════════════════════════════ */
+describe('Pelaaja_v7 · oikeat kyselyt pelaajatokenilla', () => {
+  const pel = () => pelaajaContext(SEURA_A, PELAAJA_UID).firestore();
+  const P = (db, ...polku) => collection(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, ...polku);
+  beforeEach(async () => {
+    await seedSeuraAndPelaaja();
+    await seedHavainto();
+    await seedKehu();
+    await testEnv.withSecurityRulesDisabled(async (c) => {
+      const db = c.firestore();
+      const pp = (...x) => doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, ...x);
+      await setDoc(pp('kirjaukset', '2026-09-29'), { tyyppi: 'T', lahde: 'pelaaja', paivitetty: new Date(), luotu: new Date('2026-09-29') });
+      await setDoc(pp('notifikaatiot', 'n1'), { tyyppi: 'palaute', luotu: new Date(), luettu: false });
+      await setDoc(pp('idp_kausi', '2026'), { tavoitteet: [] });
+      await setDoc(pp('testitulokset', '2026-06-01_tekniikkakilpailu'), { protokolla: 'tekniikkakilpailu', testit: {} });
+      await setDoc(doc(db, 'seurat', SEURA_A, 'kalenteri', 'k1'), { otsikko: 'Treeni', poistettu: false });
+      await setDoc(doc(db, 'seurat', SEURA_A, 'kalenteri', 'k1', 'lasnaolijat', PELAAJA_UID), { saatavuus: 'tulossa' });
+      await setDoc(doc(db, 'seurat', SEURA_A, 'kaaviot', 'kv1'), { review: { status: 'hyvaksytty' }, nakyvyys: 'seura' });
+      await setDoc(doc(db, 'kaaviot', 'kan1'), { spec: { avain: 'x' } });
+    });
+  });
+
+  it('P6: havainnot where(tila==valmis) where(nakyvyys==pelaaja) limit(50)', async () => {
+    await assertSucceeds(getDocs(query(P(pel(), 'havainnot'), where('tila', '==', 'valmis'), where('nakyvyys', '==', 'pelaaja'), limit(50))));
+  });
+  it('EI VACUOUS: sama havaintokysely ILMAN nakyvyys-ehtoa hylätään (sisäiset havainnot)', async () => {
+    await assertFails(getDocs(query(P(pel(), 'havainnot'), where('tila', '==', 'valmis'), limit(50))));
+  });
+  it('kirjaukset: päivän doc, orderBy(paivitetty desc) limit(30), documentId >= raja, oma set(merge)', async () => {
+    await assertSucceeds(getDoc(doc(pel(), 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'kirjaukset', '2026-09-29')));
+    await assertSucceeds(getDocs(query(P(pel(), 'kirjaukset'), orderBy('paivitetty', 'desc'), limit(30))));
+    await assertSucceeds(getDocs(query(P(pel(), 'kirjaukset'), where(documentId(), '>=', '2026-09-01'))));
+    await assertSucceeds(setDoc(doc(pel(), 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'kirjaukset', '2026-09-30'),
+      { fiilinki: 4, lahde: 'pelaaja', paivitetty: serverTimestamp(), luotu: new Date('2026-09-30') }, { merge: true }));
+  });
+  it('kehut: orderBy(luotu desc) limit(10)', async () => {
+    await assertSucceeds(getDocs(query(P(pel(), 'kehut'), orderBy('luotu', 'desc'), limit(10))));
+  });
+  it('notifikaatiot: orderBy(luotu desc) limit(20)', async () => {
+    await assertSucceeds(getDocs(query(P(pel(), 'notifikaatiot'), orderBy('luotu', 'desc'), limit(20))));
+  });
+  it('idp_kausi: vuoden doc + pelaaja_sitoumus set(merge)', async () => {
+    await assertSucceeds(getDoc(doc(pel(), 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'idp_kausi', '2026')));
+    await assertSucceeds(setDoc(doc(pel(), 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'idp_kausi', '2026'),
+      { pelaaja_sitoumus: {           // sama muoto kuin Pelaaja_v7 (vahvistettu_* säilytetään, Rules-vartija)
+        itsearvio: { q1: 'a', q2: 'b', q3: 'c' }, sitoumus_pvm: '2026-09-30', jakso_alkoi: '2026-09-01',
+        vahvistettu_pvm: null, vahvistettu_jakso_alkoi: null, vahvistaja_rooli: null,
+      } }, { merge: true }));
+  });
+  it('testitulokset: koko kokoelma (tekniikkaprofiili)', async () => {
+    await assertSucceeds(getDocs(P(pel(), 'testitulokset')));
+  });
+  it('kalenteri: koko seuran kokoelma + oma läsnäolorivi', async () => {
+    await assertSucceeds(getDocs(collection(pel(), 'seurat', SEURA_A, 'kalenteri')));
+    await assertSucceeds(getDoc(doc(pel(), 'seurat', SEURA_A, 'kalenteri', 'k1', 'lasnaolijat', PELAAJA_UID)));
+  });
+  it('kaaviot: seuran hyväksytyt (where review.status) + kanoniset', async () => {
+    await assertSucceeds(getDocs(query(collection(pel(), 'seurat', SEURA_A, 'kaaviot'), where('review.status', '==', 'hyvaksytty'))));
+    await assertSucceeds(getDocs(collection(pel(), 'kaaviot')));
+  });
+  it('pelaajadokumentin idp_sitoumus_pvm-pikakenttä set(merge)', async () => {
+    await assertSucceeds(setDoc(doc(pel(), 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID), { idp_sitoumus_pvm: '2026-09-30' }, { merge: true }));
   });
 });
