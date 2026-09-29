@@ -24,7 +24,7 @@
 <script src="lib/tm_lang.js?v=14"></script>
 <script src="lib/tm_i18n_common.js?v=10"></script>
 <script src="lib/tm_xt.js?v=1"></script>                     <!-- xT-ruudukko: tm_pelihavainto käyttää, EI kopiota -->
-<script src="lib/tm_pelihavainto.js?v=3"></script>           <!-- KANONINEN laskenta (§5.6). NOSTA ?v KUN LIB MUUTTUU: vanha lib + uusi sivu = pystyasennon napautus tallentuisi vaakakaavalla vaaraan kohtaan ILMAN virheilmoitusta (§27.4 CDN-cache). -->
+<script src="lib/tm_pelihavainto.js?v=4"></script>           <!-- KANONINEN laskenta (§5.6). NOSTA ?v KUN LIB MUUTTUU: vanha lib + uusi sivu = pystyasennon napautus tallentuisi vaakakaavalla vaaraan kohtaan ILMAN virheilmoitusta (§27.4 CDN-cache). -->
 <script src="lib/tm_teknistaktiset.js?v=1"></script>         <!-- konseptien kaanon -->
 <script src="lib/tm_konsepti_resolve.js?v=1"></script>       <!-- seuran omat nimet + piilotukset -->
 <script src="lib/tm_joukkue.js?v=3"></script>                <!-- §18 joukkuejäsenyys -->
@@ -518,11 +518,8 @@ const _db = firebase.firestore();
     var m = Math.floor(s / 60), ss = s % 60;
     return (m < 10 ? '0' : '') + m + ':' + (ss < 10 ? '0' : '') + ss;
   }
-  function num(v, merkki) {
-    var s = Math.abs(v).toFixed(1).replace('.', ',');
-    if (!merkki) return s;
-    return v > 0 ? '+' + s : (v < 0 ? '−' + s : '±0,0');
-  }
+  /* Uhkapisteet näytölle VAIN libin kautta: arvot ovat jo uhkapisteinä, sivu ei skaalaa eikä pyöristä. */
+  function uhkaTeksti(pisteet) { return PH.phMuotoileUhka(pisteet) || '—'; }
 
   function onHyokkays1v1(m) { return m.tyyppi === 'kaksinpeli' && m.rooli === 'hyokkays'; }
   function onPuolustus1v1(m) { return m.tyyppi === 'kaksinpeli' && m.rooli === 'puolustus'; }
@@ -1139,10 +1136,10 @@ const _db = firebase.firestore();
 
     if (!a) { o.arvo = '—'; }
     else if (a.laji === 'uhka' || a.laji === 'potentiaali') {
-      o.arvo = num(Math.round(a.pisteet * 1000) / 10, true);
+      o.arvo = uhkaTeksti(a.pisteet);
       o.ala = phT(a.laji === 'uhka' ? 'uhka-arvo' : 'potentiaali');
     } else if (a.laji === 'puolustus') {
-      o.arvo = num(Math.round(a.pisteet * 1000) / 10, true); o.ala = phT('puolustusarvo');
+      o.arvo = uhkaTeksti(a.pisteet); o.ala = phT('puolustusarvo');
     } else if (a.laji === 'menetysriski' || a.laji === 'tilanteen_vaara') {
       o.arvo = phT(a.taso || ''); o.ala = phT(a.laji === 'menetysriski' ? 'menetysriski' : 'tilanteen vaara');
       o.hi = (a.taso === 'korkea');
@@ -1338,7 +1335,7 @@ const _db = firebase.firestore();
         return esc(phT(TXT_KETJU[avain] || avain || ''));
       }).filter(Boolean);
       h += '<div class="ketju' + (k.menetetty ? ' menetetty' : '') + '">' + osat.join(' → ')
-        + (naytaLuvut() ? ' <b>' + esc(num(Math.round(k.uhka * 100) / 10, true)) + '</b>' : '') + '</div>';
+        + (naytaLuvut() ? ' <b>' + esc(uhkaTeksti(k.uhka)) + '</b>' : '') + '</div>';
     });
     el.innerHTML = h;
   }
@@ -1360,7 +1357,7 @@ const _db = firebase.firestore();
     h += solu(L.kuljetukset ? L.kuljetukset.n : null, 'kuljetukset');
     h += solu(L.tulot && L.tulot.hyokkayskolmannes ? L.tulot.hyokkayskolmannes.yhteensa : null, 'tulot hyökkäyskolmannekselle');
     h += solu(L.tulot && L.tulot.boksi ? L.tulot.boksi.yhteensa : null, 'tulot boksiin');
-    h += solu(L.luotuUhka ? num(Math.round(L.luotuUhka.pisteet * 100) / 10, true) : null, 'luotu uhka');
+    h += solu(L.luotuUhka ? uhkaTeksti(L.luotuUhka.pisteet) : null, 'luotu uhka');
     h += solu(L.xg ? L.xg.summa.toFixed(2).replace('.', ',') : null, 'xG');
     h += solu(L.ykkosetHyokkays ? suhde(L.ykkosetHyokkays, 'onnistui', 'yritykset') : null, '1v1 hyökkäys');
     h += solu(L.ykkosetPuolustus ? suhde(L.ykkosetPuolustus, 'voitti', 'kaikki') : null, '1v1 puolustus');
@@ -1947,7 +1944,7 @@ const _db = firebase.firestore();
     var y = PH.phYhteenveto ? PH.phYhteenveto(dokumentti()) : null;
     var L = (y && y.luvut) || {};
     var juuria = S.merkinnat.filter(function (m) { return m.ketju == null; }).length;
-    var uhka = L.luotuUhka ? num(Math.round(L.luotuUhka.pisteet * 100) / 10, true) : '—';
+    var uhka = L.luotuUhka ? uhkaTeksti(L.luotuUhka.pisteet) : '—';
     var xg = L.xg ? L.xg.summa.toFixed(2).replace('.', ',') : '—';
     q('loppuOtsikko').textContent = phT('Ottelu tallennettu');
     q('loppuLuvut').textContent = juuria + ' ' + phT('tilannetta') + ' · '
