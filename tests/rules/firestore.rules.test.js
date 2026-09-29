@@ -3035,3 +3035,95 @@ describe('Pelaaja_v7 · oikeat kyselyt pelaajatokenilla', () => {
     await assertSucceeds(setDoc(doc(pel(), 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID), { idp_sitoumus_pvm: '2026-09-30' }, { merge: true }));
   });
 });
+
+/* ══════════════════════════════════════════════════════════════════════════════════════════
+   v3.26 · SOLO-LAPSEN TOKEN (onSoloLapsiItse) — Vaihe 0 / PR 2b
+   Token `soloLapsiKirjaudu`-funktiolta: { rooli:'solo_lapsi', soloPlayerId }.
+   Kyselyt = Player_Homen (lapsiKirjaudu) ja Solo_Kodin (_haeFirestore, kirjaus) oikeat kyselyt.
+══════════════════════════════════════════════════════════════════════════════════════════ */
+const SOLO_PID = 'solo-p-001';
+const SOLO_PID_2 = 'solo-p-002';
+const SOLO_PARENT = 'solo-parent-001';
+function soloContext(playerId) {
+  return testEnv.authenticatedContext('solo_' + playerId, {
+    rooli: 'solo_lapsi', soloPlayerId: playerId,
+    firebase: { sign_in_provider: 'custom' },
+  });
+}
+async function seedSolo() {
+  await testEnv.withSecurityRulesDisabled(async (c) => {
+    const db = c.firestore();
+    const pelaaja = (pid, code) => ({
+      playerId: pid, parent_uid: SOLO_PARENT, playerCode: code, child_pin: '4821',
+      seuraId: null, nimi: 'Solo', synVuosi: 2016, lahde: 'polku_b',
+    });
+    await setDoc(doc(db, 'players', SOLO_PID), pelaaja(SOLO_PID, 'TMP-AAAAAA'));
+    await setDoc(doc(db, 'players', SOLO_PID_2), pelaaja(SOLO_PID_2, 'TMP-BBBBBB'));
+    await setDoc(doc(db, 'playerCodes', 'TMP-AAAAAA'), { playerId: SOLO_PID, parent_uid: SOLO_PARENT });
+    await setDoc(doc(db, '_soloPin', SOLO_PID), { hash: 'scrypt$x$y' });
+    await setDoc(doc(db, 'players', SOLO_PID, 'kirjaukset', '2026-09-30'), { tyyppi: 'T', tehty: true });
+  });
+}
+
+describe('v3.26 · Solo-lapsen token (onSoloLapsiItse)', () => {
+  beforeEach(async () => { await seedSolo(); await seedSeuraAndPelaaja(); });
+  const solo = () => soloContext(SOLO_PID).firestore();
+
+  it('Player_Home lapsiKirjaudu / Solo_Koti _haeFirestore: players/{oma}.get() onnistuu', async () => {
+    await assertSucceeds(getDoc(doc(solo(), 'players', SOLO_PID)));
+  });
+  it('EI lue toisen Solo-pelaajan dokumenttia eikä listaa players-kokoelmaa', async () => {
+    await assertFails(getDoc(doc(solo(), 'players', SOLO_PID_2)));
+    await assertFails(getDocs(collection(solo(), 'players')));
+    await assertFails(getDocs(query(collection(solo(), 'players'), where('parent_uid', '==', SOLO_PARENT))));
+  });
+  it('update omaan dokkiin: sallittu kun parent_uid/child_pin/playerCode/seuraId pysyvät', async () => {
+    await assertSucceeds(updateDoc(doc(solo(), 'players', SOLO_PID), { kortti_taso: 'sharp', pp: 'KH' }));
+  });
+  it('update EI saa muuttaa suojattuja kenttiä eikä toisen dokkia', async () => {
+    await assertFails(updateDoc(doc(solo(), 'players', SOLO_PID), { parent_uid: 'hyokkaaja' }));
+    await assertFails(updateDoc(doc(solo(), 'players', SOLO_PID), { child_pin: '0000' }));
+    await assertFails(updateDoc(doc(solo(), 'players', SOLO_PID), { playerCode: 'TMP-ZZZZZZ' }));
+    await assertFails(updateDoc(doc(solo(), 'players', SOLO_PID), { seuraId: SEURA_A }));
+    await assertFails(updateDoc(doc(solo(), 'players', SOLO_PID_2), { kortti_taso: 'elite' }));
+  });
+  it('EI create toisen vanhemman nimiin eikä delete omaa players-dokkia', async () => {
+    // (create omalla uid:lla parent_uid:nä on nykyinen yleissääntö kaikille kirjautuneille — ei PR 2b:n muutos.)
+    await assertFails(setDoc(doc(solo(), 'players', 'uusi'), { parent_uid: SOLO_PARENT }));
+    await assertFails(deleteDoc(doc(solo(), 'players', SOLO_PID)));
+  });
+  it('NYKYTILA (ei muutosta PR 2b:ssä): Solo_Kodin kirjaus players/{oma}/kirjaukset on vain vanhemmalle → evätty myös Solo-tokenilla', async () => {
+    await assertFails(setDoc(doc(solo(), 'players', SOLO_PID, 'kirjaukset', '2026-09-30'),
+      { tyyppi: 'T', tehty: true, lahde: 'solo', paivitetty: serverTimestamp() }, { merge: true }));
+    await assertFails(getDoc(doc(solo(), 'players', SOLO_PID, 'kirjaukset', '2026-09-30')));
+  });
+  it('_soloPin ja _pelaajaPin: ei luku- eikä kirjoitusoikeutta Solo-tokenilla eikä vanhemmalla', async () => {
+    await assertFails(getDoc(doc(solo(), '_soloPin', SOLO_PID)));
+    await assertFails(setDoc(doc(solo(), '_soloPin', SOLO_PID), { hash: 'x' }));
+    const vanh = testEnv.authenticatedContext(SOLO_PARENT).firestore();
+    await assertFails(getDoc(doc(vanh, '_soloPin', SOLO_PID)));
+    await assertFails(getDoc(doc(solo(), '_pelaajaPin', SEURA_A + '_' + PELAAJA_UID)));
+  });
+  it('VARTIJA: Solo-token EI läpäise seura- eikä pelaajahaaroja (onOmaSeura / onPelaajaItse)', async () => {
+    await assertFails(getDoc(doc(solo(), 'seurat', SEURA_A)));
+    await assertFails(getDoc(doc(solo(), 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID)));
+    await assertFails(getDocs(collection(solo(), 'seurat', SEURA_A, 'pelaajat')));
+    await assertFails(getDoc(doc(solo(), 'seurat', SEURA_A, 'kayttajat', VALM_A_UID)));
+  });
+  it('VARTIJA: väärennetty Solo-token, jossa soloPlayerId puuttuu tai rooli on pelaaja → evätty', async () => {
+    const ilmanId = testEnv.authenticatedContext('solo_x', { rooli: 'solo_lapsi', firebase: { sign_in_provider: 'custom' } }).firestore();
+    await assertFails(getDoc(doc(ilmanId, 'players', SOLO_PID)));
+    const vaaraRooli = testEnv.authenticatedContext('solo_y', { rooli: 'pelaaja', soloPlayerId: SOLO_PID, firebase: { sign_in_provider: 'custom' } }).firestore();
+    await assertFails(getDoc(doc(vaaraRooli, 'players', SOLO_PID)));
+  });
+  it('vanhempi (parent_uid) toimii ennallaan: get, list omat, kirjaukset', async () => {
+    const vanh = testEnv.authenticatedContext(SOLO_PARENT).firestore();
+    await assertSucceeds(getDoc(doc(vanh, 'players', SOLO_PID)));
+    await assertSucceeds(getDocs(query(collection(vanh, 'players'), where('parent_uid', '==', SOLO_PARENT))));
+    await assertSucceeds(getDoc(doc(vanh, 'players', SOLO_PID, 'kirjaukset', '2026-09-30')));
+  });
+  it('NYKYTILA (poistuu PR 3:ssa): anonyymi haara on yhä auki players/{id}.get():lle', async () => {
+    const anon = testEnv.authenticatedContext(ANON_UID, { firebase: { sign_in_provider: 'anonymous' } }).firestore();
+    await assertSucceeds(getDoc(doc(anon, 'players', SOLO_PID)));
+  });
+});

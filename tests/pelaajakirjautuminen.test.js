@@ -249,7 +249,7 @@ describe('pelaajakirjautuminen · rinnakkaisuus ja ajoitus (review #675)', () =>
     const src = fs.readFileSync(path.join(__dirname, '..', 'functions', 'pelaajakirjautuminen.js'), 'utf8');
     const iTx = src.indexOf('await db.runTransaction(');
     expect(iTx).toBeGreaterThan(0);
-    expect(src.indexOf('await haeEhdokkaat(tunnus)')).toBeGreaterThan(iTx);
+    expect(src.indexOf('await malli.haeEhdokkaat(db, tunnus)')).toBeGreaterThan(iTx);
     expect(src).toContain('if (!scryptAjettu) tarkistaPin(pin, NAENNAINEN_HAJAUTUS)');
   });
 });

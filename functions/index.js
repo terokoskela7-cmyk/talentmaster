@@ -2139,7 +2139,8 @@ exports.soloHyvaksyLupa = functions
     });
     batch.set(playerRef.collection('suostumukset').doc('perus'), { ok: true, tyyppi: 'perus', antaja_uid: uid, antaja_email: email, versio: 'v1', pvm: TS });
     if (benchmark === true) batch.set(playerRef.collection('suostumukset').doc('benchmark'), { ok: true, tyyppi: 'benchmark', antaja_uid: uid, antaja_email: email, versio: 'v1', pvm: TS });
-    batch.set(ref, { status: 'hyvaksytty', playerId, child_pin, hyvaksyja_uid: uid, hyvaksytty_pvm: TS }, { merge: true });
+    // playerCode mukaan (PR 2b): lapsen laite kirjautuu soloLapsiKirjaudu({ playerCode, pin }) -reitillä.
+    batch.set(ref, { status: 'hyvaksytty', playerId, playerCode: code, child_pin, hyvaksyja_uid: uid, hyvaksytty_pvm: TS }, { merge: true });
     await batch.commit();
 
     await db.collection('audit').add({ toiminto: 'solo_lupa_hyvaksytty', requestId, playerId, hyvaksyja_uid: uid, aikaleima: TS }).catch(() => {});
@@ -2592,6 +2593,21 @@ exports.pelaajaKirjaudu = functions
   .region('europe-west1')
   .runWith({ enforceAppCheck: true })
   .https.onCall(pelaajakirjautuminen.luoKasittelija({
+    db, auth,
+    FieldValue: admin.firestore.FieldValue,
+    HttpsError: functions.https.HttpsError,
+    audit: (toiminto, tiedot) => db.collection('audit').add(Object.assign({
+      toiminto, aikaleima: admin.firestore.FieldValue.serverTimestamp(),
+    }, tiedot)).catch(() => {}),
+  }));
+
+/* Vaihe 0 / PR 2b — Solo-lapsen kirjautuminen { playerCode, pin } → custom token
+   { rooli:'solo_lapsi', soloPlayerId }. Sama ydin kuin pelaajaKirjaudu (lukitus, IP-katto,
+   näennäinen scrypt, hajautus deny-all-kokoelmaan `_soloPin`, child_pin-siirtymä). */
+exports.soloLapsiKirjaudu = functions
+  .region('europe-west1')
+  .runWith({ enforceAppCheck: true })
+  .https.onCall(pelaajakirjautuminen.luoSoloKasittelija({
     db, auth,
     FieldValue: admin.firestore.FieldValue,
     HttpsError: functions.https.HttpsError,
