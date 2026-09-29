@@ -87,7 +87,8 @@ describe('compat-polku (18 appia)', () => {
     const iChk = rivi(/firebase-app-check-compat\.js/);
     const iLib = rivi(/lib\/tm_appcheck\.js/);
     const iInit = rivi(/initializeApp/);
-    const iAkt = rivi(/tmAppCheckAktivoi\(\)/);
+    /* Nimetty appi (Pelaaja_v7: 'tm-pelaaja') aktivoidaan argumentilla — järjestysvaatimus sama. */
+    const iAkt = rivi(/tmAppCheckAktivoi\((?:[\w.]*)\)/);
     expect(iLib, 'lib/tm_appcheck.js puuttuu').toBeGreaterThan(-1);
     expect(iAkt, 'tmAppCheckAktivoi()-kutsu puuttuu').toBeGreaterThan(-1);
     expect(iApp).toBeLessThan(iChk);          // app-compat ennen app-checkiä
