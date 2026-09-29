@@ -87,9 +87,10 @@ function masterTynka(kirjoitus) {
     firebase: { firestore: { FieldValue: { serverTimestamp: () => 'ts' } } },
     _db: {}, _seuraId: 'kpv', _uid: 'valm-1',
     _replyCtx: { pid: 'p1', pname: 'Topias', eid: 'e1' },
-    _doneReacts: {},
+    _doneReacts: {}, _reaktioIdt: {}, kutsut: [],
     _viestiLahettajanNimi: () => 'Valmentaja',
-    tmLahetaValmentajaViesti: () => kirjoitus(),
+    tmViestiUusiId: () => 'id-' + (++store._idN), _idN: 0,
+    tmLahetaValmentajaViesti: (db, o) => { store.kutsut.push({ id: o.id, uusiYritys: o.uusiYritys }); return kirjoitus(); },
     tmViestiAikarajalla: V.tmViestiAikarajalla,
     tmViestiVirheAvain: V.tmViestiVirheAvain,
     document: { getElementById: (id) => el(id) },
@@ -177,7 +178,82 @@ describe('(T2-4) vartijat: ei "lähetetty"-toastia ennen awaitia', () => {
   });
 
   it('lib-versio nostettu molemmissa sivuissa (uudet funktiot, vanha lib = ReferenceError)', () => {
-    expect(MASTER).toContain('lib/tm_valmentajaviesti.js?v=2');
-    expect(VP).toContain('lib/tm_valmentajaviesti.js?v=2');
+    expect(MASTER).toContain('lib/tm_valmentajaviesti.js?v=3');
+    expect(VP).toContain('lib/tm_valmentajaviesti.js?v=3');
+  });
+});
+
+/* ── TUPLAESTO ──────────────────────────────────────────────────────────────────────────────
+   Aikaraja voi laueta, vaikka kirjoitus ehtii palvelimelle. Ilman idempotenttia id:tä "Yritä
+   uudelleen" loisi toisen viestin. Nyt id luodaan kerran ja uusintayritys lukee ensin get(). */
+function tynkaDb(olemassa) {
+  const loki = [];
+  const ref = (id) => ({
+    id,
+    get: () => { loki.push(['get', id]); return Promise.resolve({ exists: olemassa.has(id) }); },
+    set: (d) => { loki.push(['set', id]); olemassa.add(id); return Promise.resolve(); },
+  });
+  const kok = {
+    doc: (id) => ref(id || 'auto-1'),
+    add: () => { loki.push(['add']); return Promise.resolve(ref('auto-add')); },
+  };
+  const db = { collection: () => ({ doc: () => ({ collection: () => ({ doc: () => ({ collection: () => kok }) }) }) }) };
+  return { db, loki };
+}
+const perus = { seuraId: 'kpv', pelaajaId: 'p1', teksti: 'Hei', uid: 'u', nimi: 'V', sentinel: { serverTimestamp: () => 'ts' } };
+
+describe('(T2-5) tuplaesto: idempotentti id + get() uusintayrityksessä', () => {
+  it('1. yritys id:llä → set(id), ei add()', async () => {
+    const { db, loki } = tynkaDb(new Set());
+    await V.tmLahetaValmentajaViesti(db, Object.assign({ id: 'v1' }, perus));
+    expect(loki).toEqual([['set', 'v1']]);
+  });
+  it('uusintayritys, 1. yritys EHTI perille → get() löytää, EI toista kirjoitusta', async () => {
+    const { db, loki } = tynkaDb(new Set(['v1']));
+    await V.tmLahetaValmentajaViesti(db, Object.assign({ id: 'v1', uusiYritys: true }, perus));
+    expect(loki).toEqual([['get', 'v1']]);
+  });
+  it('uusintayritys, 1. yritys EI mennyt perille → get() + set(samalla id:llä)', async () => {
+    const { db, loki } = tynkaDb(new Set());
+    await V.tmLahetaValmentajaViesti(db, Object.assign({ id: 'v1', uusiYritys: true }, perus));
+    expect(loki).toEqual([['get', 'v1'], ['set', 'v1']]);
+  });
+  it('ilman id:tä toimii kuten ennen (add)', async () => {
+    const { db, loki } = tynkaDb(new Set());
+    await V.tmLahetaValmentajaViesti(db, perus);
+    expect(loki).toEqual([['add']]);
+  });
+
+  it('Master sendReply: virheen jälkeinen uusi yritys käyttää SAMAA id:tä ja uusiYritys=true', async () => {
+    let n = 0;
+    const st = masterTynka(() => (++n === 1 ? Promise.reject(Object.assign(new Error('x'), { code: 'unavailable' })) : Promise.resolve({})));
+    const F = ['function _replyTila(lahettaa, virhe) {', 'function closeReply(){', 'async function sendReply(){'];
+    await ajaMasterFunktio(F, 'return sendReply();', st);
+    await ajaMasterFunktio(F, 'return sendReply();', st);
+    expect(st.kutsut).toEqual([{ id: 'id-1', uusiYritys: false }, { id: 'id-1', uusiYritys: true }]);
+    expect(st.toasts).toEqual(['Viesti lähetetty Topias:n perheelle']);
+  });
+
+  it('Master inboxReact: uusi napautus virheen jälkeen → sama id, uusiYritys=true', async () => {
+    let n = 0;
+    const st = masterTynka(() => (++n === 1 ? Promise.reject(Object.assign(new Error('x'), { code: 'unavailable' })) : Promise.resolve({})));
+    const F = ['async function inboxReact(eid,emoji,nimi,pid){'];
+    await ajaMasterFunktio(F, "return inboxReact('e1','❤️','Topias','p1');", st);
+    await ajaMasterFunktio(F, "return inboxReact('e1','❤️','Topias','p1');", st);
+    expect(st.kutsut).toEqual([{ id: 'id-1', uusiYritys: false }, { id: 'id-1', uusiYritys: true }]);
+  });
+
+  it('VP: uusi ikkuna nollaa id:n (suljetun ikkunan id ei periydy seuraavaan viestiin)', () => {
+    const f = pura(VP, 'async function avaaPelaajaMuistiinpanoModal(pelaajaId, pelaajaNimi) {');
+    expect(f.slice(0, 200)).toContain('window._pmpViestiId = null;');
+    const t = ilmanKommentteja(pura(VP, 'async function _tallennaPMP(pelaajaId, pelaajaNimi) {'));
+    expect(t).toContain('id: window._pmpViestiId.id, uusiYritys: uusiYritys');
+    expect(t.indexOf('window._pmpViestiId = null;')).toBeGreaterThan(t.indexOf('await tmViestiAikarajalla('));
+  });
+
+  it('Master _avaaViestiPelaajalle: id per ikkuna, uusiYritys kun id on jo', () => {
+    const f = ilmanKommentteja(pura(MASTER, 'window._avaaViestiPelaajalle = function (pelaajaId) {'));
+    expect(f).toContain('var viestiId = null;');
+    expect(f).toContain('id: viestiId, uusiYritys: uusiYritys');
   });
 });

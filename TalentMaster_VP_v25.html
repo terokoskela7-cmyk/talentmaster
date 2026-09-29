@@ -39,7 +39,7 @@
 <script src="lib/tm_arviointi_taksonomia.js?v=11"></script>   <!-- Vaihe 2: arviointitaksonomia + pääteemat + kehysrekisteri (mitattu + havaittu 1–5) -->
 <script src="lib/tm_pelialy_yksilo.js?v=4"></script>   <!-- P1: pelihavainto peliäly → yksilöteema · v3: Vaihe B ristiinarvio-konsensus -->
 <script src="lib/tm_havaintohistoria.js?v=1"></script>   <!-- jaettu havainto-/viestihistoria (VP + Master) -->
-<script src="lib/tm_valmentajaviesti.js?v=2"></script>   <!-- YKSI kirjoituspiste valmentajan viestille -->
+<script src="lib/tm_valmentajaviesti.js?v=3"></script>   <!-- YKSI kirjoituspiste valmentajan viestille -->
 <script src="lib/tm_arviointi_silta.js?v=3"></script>   <!-- Vaihe 5: arviointi→resepti-silta (heikoin havaittu D2 → ehdotettu jaksofokus) · v2 = I3a SSOT-osoitin tm_kehityspolku -->
 <script src="lib/tm_idp.js?v=9"></script>   <!-- I3a: + kesto valmentajan asetettavaksi (opts.kestoVk) · I2: lahde+pvm/idp_lahde/idpVahvinDim 1–3 -->
 <script src="lib/tm_teknistaktiset.js?v=5"></script>   <!-- Vaihe 4a: teknis-taktinen curriculum (VP:n jaksofokus talenteille) · v5 = I3a pelipaikkaportti U14+ + harjoite-tägit/jalka -->
@@ -5275,6 +5275,7 @@ async function tallennaPelaajaMuistiinpano(pelaajaId, teksti, kategoria, naytaVa
 }
 
 async function avaaPelaajaMuistiinpanoModal(pelaajaId, pelaajaNimi) {
+  window._pmpViestiId = null;   // uusi ikkuna = uusi viesti (tuplaeston id ei periydy)
   /* VAIHE 2 — VP:n muistiinpanot jaettuun 840px-alasivu-shelliin.
      Aito alasivu: historiavirta + kirjauslomake. 480px:ssä ne olivat
      ALLEKKAIN, joten pitkän historian jälkeen lomakkeelle piti vierittää
@@ -5487,11 +5488,17 @@ async function _tallennaPMP(pelaajaId, pelaajaNimi) {
        teksti säilyvät virheessä; toast ja sulkeminen vasta onnistuneen tallennuksen jälkeen. */
     const nappi = document.getElementById('_pmpTallenna');
     if (nappi) { nappi.disabled = true; nappi.textContent = vpT('Lähetetään…'); }
+    /* TUPLAESTO: id sidotaan avoimeen ikkunaan (window._pmpViestiId, nollataan onnistuessa ja
+       uutta ikkunaa avattaessa); uusintayritys tarkistaa ensin get(). */
+    const uusiYritys = !!(window._pmpViestiId && window._pmpViestiId.pelaajaId === pelaajaId);
+    if (!uusiYritys) window._pmpViestiId = { pelaajaId, id: tmViestiUusiId(db, _seuraId, pelaajaId) };
     try {
       await tmViestiAikarajalla(tmLahetaValmentajaViesti(db, {
         seuraId: _seuraId, pelaajaId: pelaajaId, teksti: teksti, uid: _uid,
         nimi: await _vpOmaNimi(), sentinel: firebase.firestore.FieldValue,
+        id: window._pmpViestiId.id, uusiYritys: uusiYritys,
       }));
+      window._pmpViestiId = null;
       toast(vpT('Viesti lähetetty pelaajalle ja perheelle'), 'ok');
     } catch (e) {
       console.warn('[vp] viesti pelaajalle:', e && (e.code || e.message));

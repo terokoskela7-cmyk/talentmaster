@@ -94,7 +94,7 @@ window.TM_KAAVIO_HOST = {
 <script src="lib/tm_idp.js?v=9"></script>   <!-- I3a: + kesto valmentajan asetettavaksi (opts.kestoVk) · I2 (C): valmentajan IDP-kausitavoite-kortti -->
 <script src="lib/tm_pelialy_yksilo.js?v=4"></script>   <!-- P1: pelihavainto peliäly → yksilöteema (Kartta A) · v3: Vaihe B multi-rater konsensus (tmAdarKonsensus/RistiinarvioAvoin/TalenttiSignaali) -->
 <script src="lib/tm_havaintohistoria.js?v=1"></script>   <!-- jaettu havainto-/viestihistoria (VP + Master) -->
-<script src="lib/tm_valmentajaviesti.js?v=2"></script>   <!-- YKSI kirjoituspiste valmentajan viestille -->
+<script src="lib/tm_valmentajaviesti.js?v=3"></script>   <!-- YKSI kirjoituspiste valmentajan viestille -->
 <script src="lib/tm_kehityskaari.js?v=3"></script>   <!-- Trendi Vaihe 2: yksilön kehityskaari (render hh_historia/tki_historia:sta) -->
 <script src="lib/tm_aani.js?v=2"></script>   <!-- Vaihe 0: puhdas nauhoitin (reflektio + VP:n ääripalaute samasta ytimestä) -->
 <script src="lib/tm_reflektio.js?v=3"></script>   <!-- Vaihe 1: jaettu äänireflektio (Master + VP) — irrotettu Masterin inlinestä -->
@@ -4161,14 +4161,20 @@ function kuittaaKaikki(){
   renderInbox();
 }
 
+var _reaktioIdt = {};   // (eid|emoji) → idempotentti viesti-id (tuplaesto)
 /* Reaktio merkitään tehdyksi VASTA kun tallennus onnistui (Vaihe 0 / T2). Aiemmin toast ja
    merkintä tulivat heti, ja tallennusvirhe meni vain konsoliin. */
 async function inboxReact(eid,emoji,nimi,pid){
   if (_seuraId && _uid && pid) {
+    /* TUPLAESTO: id per (tapahtuma, emoji) — uusi napautus virheen jälkeen ei luo toista reaktiota. */
+    var avain = eid + '|' + emoji;
+    var uusiYritys = !!_reaktioIdt[avain];
+    if (!_reaktioIdt[avain]) _reaktioIdt[avain] = tmViestiUusiId(_db, _seuraId, pid);
     try {
       await tmViestiAikarajalla(tmLahetaValmentajaViesti(_db, {
         seuraId: _seuraId, pelaajaId: pid, teksti: emoji, uid: _uid, nimi: _viestiLahettajanNimi(),
         sentinel: firebase.firestore.FieldValue,
+        id: _reaktioIdt[avain], uusiYritys: uusiYritys,
       }));
     } catch (e) {
       console.warn('[v16] reaktio:', e && (e.code || e.message));
@@ -4213,16 +4219,20 @@ window._avaaViestiPelaajalle = function (pelaajaId) {
   virheEl.setAttribute('role', 'alert');
   virheEl.style.cssText = 'display:none;font-size:12.5px;color:var(--amber);margin-top:8px';
   box.insertBefore(virheEl, box.lastElementChild);
+  var viestiId = null;   // TUPLAESTO: luodaan 1. lähetyksessä, säilyy uusintayrityksissä
   nappi.onclick = async function () {
     var teksti = (document.getElementById('_vpvTeksti') || {}).value || '';
     if (!teksti.trim()) { if (typeof toast === 'function') toast(masterT('Kirjoita ensin teksti'), 'warn'); return; }
     /* Vaihe 0 / T2: toast ja sulkeminen VASTA tallennuksen jälkeen; virheessä ikkuna ja teksti
        säilyvät, ja nappi muuttuu "Yritä uudelleen". */
     nappi.disabled = true; nappi.textContent = masterT('Lähetetään…'); virheEl.style.display = 'none';
+    var uusiYritys = !!viestiId;
+    if (!viestiId) viestiId = tmViestiUusiId(_db, _seuraId, pelaajaId);
     try {
       await tmViestiAikarajalla(tmLahetaValmentajaViesti(_db, {
         seuraId: _seuraId, pelaajaId: pelaajaId, teksti: teksti, uid: _uid,
         nimi: _viestiLahettajanNimi(), sentinel: firebase.firestore.FieldValue,
+        id: viestiId, uusiYritys: uusiYritys,
       }));
       if (typeof toast === 'function') toast(masterT('Viesti lähetetty'), 'ok');
       modal.remove();
@@ -4272,11 +4282,15 @@ async function sendReply(){
        `inboxReact`:sta ja VP:n pelaajakortilta. Kolme kopiota ajautuisi erilleen —
        `nakyvyys` puuttui aikanaan juuri siksi. */
     _replyTila(true, '');
+    /* TUPLAESTO: sama id koko lähetyksen ajan; uusintayritys tarkistaa ensin get(). */
+    var uusiYritys = !!ctx.viestiId;
+    if (!ctx.viestiId) ctx.viestiId = tmViestiUusiId(_db, _seuraId, ctx.pid);
     try {
       await tmViestiAikarajalla(tmLahetaValmentajaViesti(_db, {
         seuraId: _seuraId, pelaajaId: ctx.pid, teksti: msg, uid: _uid,
         nimi: _viestiLahettajanNimi(),
         sentinel: firebase.firestore.FieldValue,
+        id: ctx.viestiId, uusiYritys: uusiYritys,
       }));
     } catch (e) {
       console.warn('[v16] Viesti-tallennus:', e && (e.code || e.message));
