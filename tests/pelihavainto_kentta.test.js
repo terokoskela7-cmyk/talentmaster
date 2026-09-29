@@ -408,59 +408,25 @@ describe('(6) luonnos — offline-first', () => {
   });
 });
 
-describe('(7) konseptit — kanoniset avaimet ja pelipaikkaehto', () => {
-  function ryhmat(pelipaikka, jaksofokus) {
-    return aja(
-      ['function konseptiRyhmat() {'],
-      'return konseptiRyhmat();',
-      {
-        S: { seuraId: 'sjk', pelipaikka: pelipaikka, jaksofokus: jaksofokus || null },
-        PH, phT: (s) => s,
-        window: { TM_TT_API: TT },
-        tmKonseptiListaa: (items) => items || [],
-        tmKonseptiResolvoi: (a) => (a ? { avain: a, nimi: 'X', koodi: 'K' } : null),
-        tmKonseptiOnPiilotettu: () => false,
-      },
-    );
-  }
-
-  it('ilman pelipaikkaa EI näytetä pelipaikan fundamentteja', () => {
-    const g = ryhmat('');
-    const avaimet = g.flatMap((r) => r[1].map((c) => c.avain));
-    const fundamentit = Object.keys(TT.TM_TT_FUNDAMENTIT).flatMap((pp) => TT.TM_TT_FUNDAMENTIT[pp].map((c) => c.avain));
-    expect(avaimet.filter((a) => fundamentit.indexOf(a) >= 0), 'pelipaikka on valinnainen').toEqual([]);
+/* Konseptivalinta POISTETTU kenttätyökalusta (Tero 29.9.2026): toi kentälle hämmennystä ja
+   tuotti vääriä konsepteja. Konsepti valitaan pikakortissa (P1-silta). */
+describe('(7) konseptit — EI kenttätyökalussa', () => {
+  it('sivulla ei ole konseptivalitsinta eikä konseptiryhmiä', () => {
+    expect(SIVU_KOODI).not.toMatch(/select\.konsepti|className = 'konsepti'|class="konsepti"/);
+    expect(SIVU_KOODI).not.toContain('konseptiRyhmat');
+    expect(SIVU_KOODI).not.toContain('_phKonseptiRyhmat');
+    expect(SIVU_KOODI).not.toContain('tmKonsepti');
   });
 
-  it('EI VACUOUS: pelipaikan kanssa fundamentit tulevat mukaan', () => {
-    const pp = Object.keys(TT.TM_TT_FUNDAMENTIT)[0];
-    const avaimet = ryhmat(pp).flatMap((r) => r[1].map((c) => c.avain));
-    const omat = TT.TM_TT_FUNDAMENTIT[pp].map((c) => c.avain);
-    expect(avaimet.some((a) => omat.indexOf(a) >= 0)).toBe(true);
+  it('uusille merkinnöille ei kirjoiteta konsepti-kenttää', () => {
+    const f = pura('function lisaa(m) {');
+    expect(f).not.toContain('konsepti');
   });
 
-  it('yksilökonseptit ja joukkueen siirtymät näkyvät aina', () => {
-    const avaimet = ryhmat('').flatMap((r) => r[1].map((c) => c.avain));
-    expect(avaimet).toContain(TT.TM_TT_YOUTH[0].avain);
-    expect(avaimet).toContain(TT.TM_TT_JOUKKUE[0].avain);
-  });
-
-  it('jaksofokus on ENSIMMÄISENÄ eikä toistu alempana', () => {
-    const jf = TT.TM_TT_YOUTH[0].avain;
-    const g = ryhmat('', jf);
-    expect(g[0][1][0].avain).toBe(jf);
-    const muut = g.slice(1).flatMap((r) => r[1].map((c) => c.avain));
-    expect(muut.filter((a) => a === jf), 'jaksofokus toistui').toEqual([]);
-  });
-
-  it('valikon arvo on KANONINEN avain, ei näyttönimi', () => {
-    const f = pura('function piirra() {');
-    expect(f).toContain('op.value = c.avain;');
-  });
-
-  it('konseptit kulkevat resolvoinnin kautta (seuran nimet ja piilotukset)', () => {
-    expect(SIVU).toContain('tmKonseptiListaa(');
-    expect(SIVU).toContain('tmKonseptiResolvoi(');
-    expect(SIVU).toMatch(/<script src="lib\/tm_konsepti_resolve\.js/);
+  it('konseptiresoluutio ei lataudu; teknistaktiset jää pelipaikkalistaa varten', () => {
+    expect(SIVU).not.toMatch(/<script src="lib\/tm_konsepti_resolve\.js/);
+    expect(SIVU).toMatch(/<script src="lib\/tm_teknistaktiset\.js/);
+    expect(SIVU_KOODI).toContain('TM_TT_PELIPAIKAT');
   });
 });
 
@@ -606,7 +572,8 @@ describe('(9) tallennus — oma kokoelma, kielletyt kentät, idempotenssi', () =
   });
 
   it('Tallenna tallentaa ensin laitteelle ja vasta sitten verkkoon', () => {
-    expect(SIVU).toContain("phT('tallennettu laitteelle')");
+    /* Tallennustila on ikoni: luonnos merkitään tilaan 'laitteella' (●), ei tekstinä palkkiin. */
+    expect(pura('function tallennaLuonnos() {')).toContain("asetaTallennustila('laitteella')");
     const f = pura("    q('btnTallenna').onclick = function () {");
     expect(f.indexOf('tallennaLuonnos()')).toBeLessThan(f.indexOf('tallennaFirestoreen()'));
   });
@@ -1117,10 +1084,252 @@ describe('(16) keskeneräisen jatkaminen', () => {
     expect(f).toContain('S.puoliaika = 1');
   });
 
-  it('valinta näytetään vain kun keskeneräisiä on', () => {
+  it('valinta näytetään vain kun keskeneräinen on VANHA; tuore jatkuu suoraan', () => {
     const f = pura('  async function kaynnista() {');
-    expect(f).toContain('if (kesken.length) await naytaJatkaValinta(kesken);');
+    expect(f).toContain('if (kesken.length && luonnosOnTuore(kesken[0])) jatkaLuonnoksesta(kesken[0]);');
+    expect(f).toContain('else if (kesken.length) await naytaJatkaValinta(kesken);');
     expect(f).toContain('else aloitaUusiOttelu();');
+  });
+});
+
+/* ── LUONNOKSEN IKÄ (Teron kuva: kello 1267 min) ─────────────────────────
+   21 h vanha luonnos jatkui ja kello laski siitä. Nyt: ≤ 3 h jatkuu suoraan, vanhempi kysytään.
+   AJETTU: kaynnista-haara tyngillä — kumpi polku oikeasti valitaan. */
+describe('(18) luonnoksen ikä: 3 h raja', () => {
+  const H = 60 * 60 * 1000;
+  async function ajaAlku(alkoiMsSitten) {
+    const kutsut = [];
+    const kesken = alkoiMsSitten == null ? [{ data: { merkinnat: [{}] } }]
+      : [{ data: { alkoi: Date.now() - alkoiMsSitten, merkinnat: [{}] } }];
+    const el = { style: {}, classList: { add() {}, remove() {}, toggle() {} }, setAttribute() {}, getAttribute() { return null; } };
+    const store = {
+      S: { lukutila: false, otteluAvain: null },
+      keskeneraisetLuonnokset: () => kesken,
+      jatkaLuonnoksesta: () => kutsut.push('jatka'),
+      naytaJatkaValinta: async () => { kutsut.push('kysy'); },
+      aloitaUusiOttelu: () => kutsut.push('uusi'),
+      q: () => el,
+      piirraKentta() {}, alustaEleet() {}, piirraAsetukset() {}, paivitaPalkki() {}, piirra() {},
+      asetaTallennustila() {}, alustaKenttatila() {}, document: {},
+    };
+    const kaynnista = aja(['function luonnosOnTuore(l, nyt) {', '  async function kaynnista() {'],
+      'return kaynnista;', Object.assign(store, { LUONNOS_TUORE_MS: 3 * H }));
+    await kaynnista();
+    return kutsut;
+  }
+
+  it('2 h vanha luonnos jatkuu suoraan ilman kysymystä', async () => {
+    expect(await ajaAlku(2 * H)).toEqual(['jatka']);
+  });
+  it('yli 3 h vanha luonnos → kysymys', async () => {
+    expect(await ajaAlku(3 * H + 60000)).toEqual(['kysy']);
+  });
+  it('21 h vanha (Teron tapaus) → kysymys', async () => {
+    expect(await ajaAlku(21 * H)).toEqual(['kysy']);
+  });
+  it('alkoi puuttuu → kysytään (ei arvata tuoreeksi)', async () => {
+    expect(await ajaAlku(null)).toEqual(['kysy']);
+  });
+
+  it('"Tallenna ja aloita uusi" aloittaa uuden VASTA onnistuneen tallennuksen jälkeen', () => {
+    const f = ilmanKommentteja(pura('function naytaJatkaValinta(luonnokset) {'));
+    const iTall = f.indexOf('await tallennaFirestoreen({ lopullinen: true })');
+    const iEi = f.indexOf('if (!ok)');
+    const iUusi = f.indexOf('aloitaUusiOttelu()');
+    expect(iTall).toBeGreaterThan(0);
+    expect(iEi).toBeGreaterThan(iTall);
+    expect(iUusi, 'uusi ottelu vasta tallennuksen jälkeen').toBeGreaterThan(iEi);
+    expect(f.slice(iEi, iUusi)).toContain('return;');
+    expect(f).toContain("phT('Tallenna ja aloita uusi')");
+  });
+
+  it('kello: yli 120 min näytetään "120+"', () => {
+    const kn = aja(['function kelloTeksti(s) {', 'function kelloNaytto(s) {'], 'return kelloNaytto;', { KELLO_MAX_S: 7200 });
+    expect(kn(7200)).toBe('120:00');
+    expect(kn(7201)).toBe('120+');
+    expect(kn(1267 * 60)).toBe('120+');
+    expect(kn(65)).toBe('01:05');
+    expect(pura('function kaynnistaKello() {')).toContain('kelloNaytto(kelloSekunnit())');
+  });
+});
+
+/* ── SYÖTÖN LAATU: avainsyöttö / murtava ──────────────────────────────────
+   Kirjoitetaan VAIN arvolla true; poistossa `delete`. Tynkä hylkää undefinedin kuten Firestore
+   compat (koko set() kaatuu) — ja kirjoittaja ajetaan ILMAN phPuhdista-varakaistaa. */
+describe('(19) avainsyöttö ja murtava: kenttä vain arvolla true', () => {
+  function firestoreTynka(v, polku) {
+    if (v === undefined) throw new Error('Unsupported field value: undefined (' + polku + ')');
+    if (v && typeof v === 'object') Object.keys(v).forEach((k) => firestoreTynka(v[k], polku + '.' + k));
+  }
+  function ajaKytkin() {
+    const napit = [];
+    const document = {
+      createElement: () => {
+        const b = { attrs: {}, setAttribute(k, v) { this.attrs[k] = v; }, textContent: '', onclick: null };
+        napit.push(b); return b;
+      },
+    };
+    const kytkin = aja(['function kytkin(parent, otsikko, m, avain) {'], 'return kytkin;', {
+      document, phT: (x) => x, piirra() {}, tallennaLuonnos() {},
+    });
+    return { kytkin, napit };
+  }
+
+  it('päälle → true; pois → kenttä poistuu (ei false/null/undefined)', () => {
+    const { kytkin, napit } = ajaKytkin();
+    const m = { id: 1, tyyppi: 'syotto', perilla: true };
+    kytkin({ appendChild() {} }, 'Avain', m, 'avain');
+    napit[0].onclick();
+    expect(m.avain).toBe(true);
+    firestoreTynka(m, 'merkinta');
+    napit[0].onclick();
+    expect(Object.prototype.hasOwnProperty.call(m, 'avain'), 'kenttä jäi').toBe(false);
+    firestoreTynka(m, 'merkinta');
+    expect(JSON.stringify(m)).not.toContain('avain');
+  });
+
+  it('EI VACUOUS: tynkä oikeasti hylkää undefinedin', () => {
+    expect(() => firestoreTynka({ merkinnat: [{ avain: undefined }] }, 'd')).toThrow(/undefined/);
+  });
+
+  it('kytkimet näkyvät vain perillä olevalla syötöllä, ja laukauksen tulos on korjattavissa', () => {
+    const f = pura('function piirra() {');
+    expect(f).toContain("if (m.tyyppi === 'syotto' && m.perilla !== false) {");
+    expect(f).toContain("kytkin(laatu, '🔑 Avainsyöttö', m, 'avain');");
+    expect(f).toContain("kytkin(laatu, '⇡ Murtava', m, 'murtava');");
+    expect(f).toMatch(/if \(m\.tyyppi === 'laukaus'\) \{\s*vipu\(chips, 'Tulos', \[\['maali'/);
+  });
+
+  it('kytkimiä EI kysytä kesken pelin (valitsimet eivät sisällä niitä)', () => {
+    ['function kysySiirronTyyppi(sp, alku, loppu) {', 'function kysySyotonTulos(sp, pohja) {'].forEach((t) => {
+      const f = pura(t);
+      expect(f).not.toContain('avain');
+      expect(f).not.toContain('murtava');
+    });
+  });
+});
+
+/* ── TILASTONÄKYMÄ ────────────────────────────────────────────────────────
+   AJETTU renderöijä oikealla libillä. Kirjaamaton lähde ei näy: ei riviä, ei saraketta, ei välilehteä. */
+describe('(20) tilastonäkymä: pääluvut, kartta, lista', () => {
+  const XT = vaadi('../lib/tm_xt.js');
+  const FUNKTIOT = [
+    'function xgTeksti(v) {', 'function luku(v) {', 'function tilastoPaaluvut(L) {',
+    'function karttaValilehdet(kp) {', 'function karttaSvg(kp, tab, pelimuoto) {',
+    'function karttaSelite(tab, kp) {', 'function tilastoLista(L) {',
+    'function tilastoHuomio(pelimuoto) {', 'function tilastoHtml(dok, opts) {',
+  ];
+  function renderoi(dok, lisa) {
+    return aja(FUNKTIOT.concat(['function esc(s) {']), 'return tilastoHtml(__dok, __opts);', Object.assign({
+      __dok: dok, __opts: undefined, karttaTab: null, phT: (x) => x,
+      uhkaTeksti: (p) => PH.phMuotoileUhka(p) || '—',
+      window: { TM_XT: XT }, xtPelimuotoHuomio: XT.xtPelimuotoHuomio,
+    }, lisa || {}));
+  }
+  const dok = (merkinnat, kirjattavat, pelimuoto) => ({
+    ottelu: { pelimuoto: pelimuoto || '11v11' }, ikataso: 'u1315', kirjattavat, merkinnat,
+  });
+  const KAIKKI = ['syotto', 'kuljetus', 'v1', 'laukaus', 'riisto', 'menetys', 'reaktio', 'vastustajan_laukaus'];
+  const OTTELU = [
+    { id: 1, tyyppi: 'syotto', alku: { len: 45, wid: 50 }, loppu: { len: 80, wid: 45 }, perilla: true, avain: true, t: 10 },
+    { id: 2, tyyppi: 'syotto', alku: { len: 50, wid: 20 }, loppu: { len: 75, wid: 30 }, perilla: true, murtava: true, t: 20 },
+    { id: 3, tyyppi: 'syotto', alku: { len: 30, wid: 50 }, loppu: { len: 55, wid: 60 }, perilla: false, t: 30 },
+    { id: 4, tyyppi: 'laukaus', piste: { len: 88, wid: 50 }, tulos: 'torjuttu', t: 40 },
+    { id: 5, tyyppi: 'laukaus', piste: { len: 80, wid: 40 }, tulos: null, t: 50 },
+    { id: 6, tyyppi: 'laukaus_vastaan', piste: { len: 15, wid: 50 }, tulos: 'ohi', t: 60 },
+    { id: 7, tyyppi: 'menetys', piste: { len: 40, wid: 30 }, reaktio: 'heti', t: 70 },
+    { id: 8, tyyppi: 'kaksinpeli', rooli: 'puolustus', tulos: 'ohitettiin', piste: { len: 30, wid: 50 }, t: 80 },
+  ];
+
+  it('laattaruudukko on poistettu', () => {
+    expect(SIVU_KOODI).not.toContain('sumcell');
+    expect(SIVU_KOODI).not.toMatch(/class="sum"/);
+    expect(renderoi(dok(OTTELU, KAIKKI))).not.toContain('sumcell');
+  });
+
+  it('pääluvut: xG · xG vastaan · luotu uhka; xG vastaan pois kun vastustajaa ei kirjattu', () => {
+    const kaikki = renderoi(dok(OTTELU, KAIKKI));
+    expect(kaikki).toContain('--sarakkeet:3');
+    expect(kaikki).toContain('xG vastaan');
+    const ilman = renderoi(dok(OTTELU.filter((m) => m.tyyppi !== 'laukaus_vastaan'), KAIKKI.filter((k) => k !== 'vastustajan_laukaus')));
+    expect(ilman).toContain('--sarakkeet:2');
+    expect(ilman).not.toContain('xG vastaan');
+  });
+
+  it('kirjaamaton 1v1 → ei Kaksinkamppailut-riviä; kirjattu → rivi', () => {
+    expect(renderoi(dok(OTTELU, KAIKKI.filter((k) => k !== 'v1')))).not.toContain('Kaksinkamppailut');
+    expect(renderoi(dok(OTTELU, KAIKKI))).toContain('Kaksinkamppailut');
+  });
+
+  it('syöttörivi: avain · murtava · etenevä; nollat pois tarkennuksesta', () => {
+    const h = renderoi(dok(OTTELU, KAIKKI));
+    expect(h).toMatch(/Syötöt<span class="t">1 avainsyöttö · 1 murtava · \d+ etenevää?<\/span>/);
+    const vanha = OTTELU.map((m) => { const c = Object.assign({}, m); delete c.avain; delete c.murtava; return c; });
+    const hv = renderoi(dok(vanha, KAIKKI));
+    expect(hv, 'vanha tarkkailu: avain puuttuu tarkennuksesta').not.toContain('avainsyöttö');
+    expect(hv).not.toContain('murtava');
+    expect(hv, 'etenevät lasketaan myös vanhoista').toMatch(/\d+ etenevää?/);
+  });
+
+  it('yksikkö ja monikko: "1 avainsyöttö" / "2 avainsyöttöä"', () => {
+    const kaksi = OTTELU.map((m) => (m.id <= 2 ? Object.assign({}, m, { avain: true, murtava: true }) : m));
+    const h = renderoi(dok(kaksi, KAIKKI));
+    expect(h).toContain('2 avainsyöttöä');
+    expect(h).toContain('2 murtavaa');
+    const yksi = renderoi(dok(OTTELU, KAIKKI));
+    expect(yksi).toContain('1 avainsyöttö ');
+    expect(yksi).not.toContain('1 avainsyöttöä');
+    expect(yksi).not.toContain('1 murtavaa');
+  });
+
+  it('reaktiot erikseen: 1 menetys (heti) + 1 ohitettiin (jäi) → "reagoi heti 1/1" ja "palautui heti 0/1"', () => {
+    const m = [
+      { id: 1, tyyppi: 'menetys', piste: { len: 40, wid: 30 }, reaktio: 'heti', t: 1 },
+      { id: 2, tyyppi: 'kaksinpeli', rooli: 'puolustus', tulos: 'ohitettiin', piste: { len: 30, wid: 50 }, reaktio: 'jai', t: 2 },
+    ];
+    const h = renderoi(dok(m, ['menetys', 'v1', 'reaktio']));
+    expect(h).toMatch(/Menetykset<span class="t">reagoi heti 1\/1<\/span>/);
+    expect(h).toContain('palautui heti 0/1');
+    expect(h, 'vanha yhdistetty luku 1/2 ei saa näkyä').not.toContain('reagoi heti 1/2');
+  });
+
+  it('kartan välilehdet vain datalle; laukaus ilman tulosta piirtyy himmeänä', () => {
+    const h = renderoi(dok(OTTELU, KAIKKI));
+    ['laukaukset', 'syotot', 'pallo'].forEach((t) => expect(h).toContain('data-kartta="' + t + '"'));
+    expect(h).toContain('stroke-dasharray');
+    const vain = renderoi(dok([OTTELU[0]], ['syotto']));
+    expect(vain).toContain('data-kartta="syotot"');
+    expect(vain).not.toContain('data-kartta="laukaukset"');
+    expect(renderoi(dok([], ['syotto']))).not.toContain('<svg');
+  });
+
+  it('kartan viewBox pelimuodon mitoilla (8v8 = 40 × 60 m)', () => {
+    const h = renderoi(dok(OTTELU, KAIKKI, '8v8'));
+    expect(h).toMatch(/viewBox="-2\.00 -2\.00 44\.00 64\.00"/);
+    expect(h).toContain('ⓘ 8v8: uhka ja xG ovat suuntaa-antavia.');
+  });
+
+  it('kaikki teksti escapataan', () => {
+    const h = renderoi(dok(OTTELU, KAIKKI), { phT: (x) => x + '<i>' });
+    expect(h).not.toContain('<i>');
+    expect(h).toContain('&lt;i&gt;');
+  });
+
+  it('loppunäkymän jako: vainPaaluvut = pelkät pääluvut; ilmanPaalukuja = kartta + lista ilman päälukuja', () => {
+    const vain = renderoi(dok(OTTELU, KAIKKI), { __opts: { vainPaaluvut: true } });
+    expect(vain).toContain('tv-paa');
+    expect(vain).not.toContain('<svg');
+    expect(vain).not.toContain('tv-lista');
+    const loput = renderoi(dok(OTTELU, KAIKKI), { __opts: { ilmanPaalukuja: true } });
+    expect(loput).not.toContain('tv-paa');
+    expect(loput).toContain('<svg');
+    expect(loput).toContain('tv-lista');
+  });
+
+  it('värit CSS-muuttujista (molemmat teemat), ei kovakoodattuja heksoja kartassa', () => {
+    const f = pura('function karttaSvg(kp, tab, pelimuoto) {');
+    expect(f).not.toMatch(/#[0-9a-fA-F]{3,6}\b/);
+    expect(f).toContain('var(--accent)');
   });
 });
 
@@ -1285,6 +1494,9 @@ describe('(12) kenttä täyttää näytön, kumpikin asento on käyttötila', ()
     /* P0: sivu kutsuu phMuotoileUhka-funktiota. Vanha lib (v3) + uusi sivu = TypeError renderöinnissä. */
     expect(lib.includes('function phMuotoileUhka'), 'phMuotoileUhka katosi libistä — päivitä myös tämä vartija').toBe(true);
     expect(Number(m[1]), 'phMuotoileUhka vaatii ?v>=4').toBeGreaterThanOrEqual(4);
+    /* Tilastonäkymä kutsuu phKarttaPisteet-funktiota: vanha lib (v4) + uusi sivu = TypeError. */
+    expect(lib.includes('function phKarttaPisteet'), 'phKarttaPisteet katosi libistä — päivitä vartija').toBe(true);
+    expect(Number(m[1]), 'phKarttaPisteet vaatii ?v>=5').toBeGreaterThanOrEqual(5);
   });
 
   it('turva-alueet huomioidaan (lovi ja kotipalkki eivät syö kenttää)', () => {
@@ -1552,8 +1764,14 @@ describe('(17) ottelun kulku: puoliaika ja lopetus', () => {
   it('LOPPUNAKYMA nayttaa luvut ja vie eteenpain', () => {
     const f = pura('function naytaLoppunakyma() {');
     expect(f).toContain('Ottelu tallennettu');
-    expect(f).toContain('luotu uhka');
-    expect(f).toContain('xG');
+    /* Sama tilastonäkymä kuin läpikäynnissä (pääluvut xG · xG vastaan · luotu uhka). */
+    expect(f).toContain("piirraTilastot(q('loppuPaaluvut'), undefined, { vainPaaluvut: true })");
+    expect(f).toContain("piirraTilastot(q('loppuTilastot'), undefined, { ilmanPaalukuja: true })");
+    /* Pääpainike HETI pääluvun jälkeen, ennen karttaa ja listaa. */
+    const iP = SIVU.indexOf('id="loppuPaaluvut"'), iB = SIVU.indexOf('id="loppuPikakortti"'), iT = SIVU.indexOf('id="loppuTilastot"');
+    expect(iP).toBeGreaterThan(0);
+    expect(iB, 'nappi pääluvun jälkeen').toBeGreaterThan(iP);
+    expect(iT, 'kartta ja lista napin jälkeen').toBeGreaterThan(iB);
     ['loppuPikakortti', 'loppuUusi', 'loppuSulje'].forEach((id) => {
       expect(SIVU, 'loppunakymasta puuttuu ' + id).toContain('id="' + id + '"');
     });
@@ -1740,6 +1958,9 @@ describe('P0 · uhka-arvot vain phMuotoileUhka-funktion kautta', () => {
     const tiedot = pura('function tiedot(');
     expect((tiedot.match(/uhkaTeksti\(a\.pisteet\)/g) || []).length, 'uhka/potentiaali + puolustus').toBe(2);
     expect(SIVU_KOODI).toContain('esc(uhkaTeksti(k.uhka))');
-    expect((SIVU_KOODI.match(/uhkaTeksti\(L\.luotuUhka\.pisteet\)/g) || []).length, 'yhteenveto + loppunäkymä').toBe(2);
+    /* Yhteenveto ja loppunäkymä jakavat saman renderöijän (tilastoPaaluvut), joten kohta on yksi. */
+    expect((SIVU_KOODI.match(/uhkaTeksti\(L\.luotuUhka\.pisteet\)/g) || []).length, 'yksi yhteinen renderöijä').toBe(1);
+    expect(pura('function naytaLoppunakyma() {')).toContain('piirraTilastot(');
+    expect(pura('function piirraYhteenveto() {')).toContain('piirraTilastot(');
   });
 });
