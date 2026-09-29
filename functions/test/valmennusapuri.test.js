@@ -550,3 +550,12 @@ test('onRuotsiksi: ruotsinkielinen kysymys tunnistetaan, suomenkielinen ei', () 
   assert.strictEqual(va.onRuotsiksi('Mitä Sibbo P9 joukkueen tulisi oppia seuraavana kahtena kautena?'), false);
   assert.strictEqual(va.onRuotsiksi('Nosta P9 joukkueesta kaksi kehityskohdetta'), false);
 });
+
+test('onTestidata: siemenskriptin testidata tunnistetaan, oikea data ei', () => {
+  assert.strictEqual(va.onTestidata({ _tag: 'testi_U12_P' }, 'abc'), true);
+  assert.strictEqual(va.onTestidata({ pelaajaId: 'TEST_kpv_001' }, 'abc'), true);
+  assert.strictEqual(va.onTestidata({ arvioija: 'TESTI – voidaan poistaa' }, 'abc'), true);
+  assert.strictEqual(va.onTestidata({}, 'TEST_kpv_002'), true);
+  assert.strictEqual(va.onTestidata({ joukkue: 'KPV P13', arvioija: 'Rasmus' }, 'm93GBdOaGCUuenMiCL0I'), false);
+  assert.strictEqual(va.onTestidata({ arvioija: 'Testinen Matti' }, 'x'), false);
+});

@@ -462,6 +462,16 @@ function tunnistaJoukkueet(teksti, data) {
   });
 }
 
+/** Puhdas: kehitystä varten luotu testi-/siemendata (seed_kartoitukset.js ym.), jota ei lasketa seuran dataksi. */
+function onTestidata(x, id) {
+  x = x || {};
+  if (typeof x._tag === 'string' && /^test/i.test(x._tag)) return true;
+  if (typeof x.pelaajaId === 'string' && /^TEST_/.test(x.pelaajaId)) return true;
+  if (typeof id === 'string' && /^TEST_/.test(id)) return true;
+  if (typeof x.arvioija === 'string' && /\bTESTI\b/.test(x.arvioija)) return true;
+  return false;
+}
+
 /** Puhdas: näyttääkö kysymys ruotsinkieliseltä (kontekstirivi on suomeksi → malli alkaisi muuten suomeksi). */
 function onRuotsiksi(teksti) {
   const t = ' ' + String(teksti || '').toLowerCase().replace(/[^\p{L}\s]/gu, ' ') + ' ';
@@ -503,13 +513,14 @@ async function haeSeuranTiedot(db, seuraId) {
     seuraRef.get(),
     seuraRef.collection('pelaajat').get(),
     // select(): vain kooste-kentät, ei tuloksia eikä pelaajalistoja (testitapahtumassa on nimiä)
-    seuraRef.collection('kartoitukset').select('joukkue', 'testauspvm').get().catch(function () { return null; }),
-    seuraRef.collection('testitapahtumat').select('joukkue', 'pvm').get().catch(function () { return null; }),
+    seuraRef.collection('kartoitukset').select('joukkue', 'testauspvm', '_tag', 'pelaajaId', 'arvioija').get().catch(function () { return null; }),
+    seuraRef.collection('testitapahtumat').select('joukkue', 'pvm', '_tag').get().catch(function () { return null; }),
   ]);
   const nimet = [];
   const pelaajat = [];
   pelSnap.forEach(function (d) {
     const x = d.data() || {};
+    if (onTestidata(x, d.id)) return;
     [x.nimi, x.etunimi, x.sukunimi, x.kutsumanimi].forEach(function (n) { if (n) nimet.push(n); });
     pelaajat.push({ joukkue: x.joukkue || null, phv: x.phv_tila || null, ennatykset: yhdistaTulokset(x),
       tasot: { hh: _num(x.hh_taso), d1: _num(x.d1_taso), d2: _num(x.d2_taso) },
@@ -517,9 +528,9 @@ async function haeSeuranTiedot(db, seuraId) {
       ketjut: { sbl: x.sbl, sfl: x.sfl, ll: x.ll, diag: x.diag, dfl: x.dfl } });
   });
   const kartoitukset = [];
-  if (kartSnap) kartSnap.forEach(function (d) { const x = d.data() || {}; kartoitukset.push({ joukkue: x.joukkue, pvm: x.testauspvm }); });
+  if (kartSnap) kartSnap.forEach(function (d) { const x = d.data() || {}; if (onTestidata(x, d.id)) return; kartoitukset.push({ joukkue: x.joukkue, pvm: x.testauspvm }); });
   const testit = [];
-  if (testiSnap) testiSnap.forEach(function (d) { const x = d.data() || {}; testit.push({ joukkue: x.joukkue, pvm: x.pvm }); });
+  if (testiSnap) testiSnap.forEach(function (d) { const x = d.data() || {}; if (onTestidata(x, d.id)) return; testit.push({ joukkue: x.joukkue, pvm: x.pvm }); });
   const arvo = { nimet: nimet, seura: seuraSnap.exists ? seuraSnap.data() : null,
     data: { pelaajat: pelaajat, kartoitukset: kartoitukset, testit: testit } };
   _seuraCache[seuraId] = { aika: Date.now(), arvo: arvo };
@@ -802,7 +813,8 @@ function kasittelija(admin, functions, riip) {
         konteksti = rakennaKonteksti(onSA, kontekstiPilotti, seuraTiedot.seura,
           seuraTiedot.data ? (huomio ? huomio + ' ' : '') + koostaSeuranData(seuraTiedot.data, joukkueet) : null);
         if (konteksti && onRuotsiksi(viimeinen.content)) {
-          konteksti += '\nKysymys on ruotsiksi: vastaa alusta loppuun ruotsiksi ja käännä koosteen termit ruotsin sanaston mukaan (ei yhtään suomenkielistä sanaa).';
+          // Ohje ENNEN koostetta: muuten malli kopioi koosteen ensimmäisen lauseen suomeksi.
+          konteksti = 'SVARA PÅ SVENSKA. Kysymys on ruotsiksi: vastaa alusta loppuun ruotsiksi, myös ensimmäinen lause. Alla oleva kooste on suomeksi – käännä sen termit ruotsin sanaston mukaan, älä lainaa sen lauseita.\n' + konteksti;
         }
       }
       const mallille = konteksti
@@ -867,6 +879,7 @@ module.exports = {
   tunnistaJoukkueet,
   joukkueHuomio,
   onRuotsiksi,
+  onTestidata,
   puraVastaus,
   vertexUrl,
   asetukset,
