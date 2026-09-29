@@ -1,9 +1,19 @@
 rules_version = '2';
 // ══════════════════════════════════════════════════════════════════════════
-// TalentMaster™ — firestore.rules v3.23
+// TalentMaster™ — firestore.rules v3.24
 //
 // Lähde:  tm_admin/firestore.rules
 // Deploy: PR → N4-CI deployaa automaattisesti (Console-käsityö poistui).
+//
+// Muutokset v3.23 → v3.24 (Vaihe 0 / PR 0 — CODE_BRIEF_PELAAJAN_TUNNISTUS v2):
+//   · `admins/{uid}` read: vain SA tai käyttäjä itse (`request.auth.uid == uid`). Aiemmin kuka
+//     tahansa kirjautunut — myös anonyymi — sai lukea super-admin-taulukon. Kaikki selainpuolen
+//     lukijat (Admin, Seura, Master, VP, UTJ, Testaus_v9, Excel_Tuonti, Testituonti_Master) lukevat
+//     VAIN omaa dokumenttiaan (`doc(user.uid)`) SA-fallbackina → rajaus ei riko niitä. Admin SDK
+//     (functions, tm_admin-skriptit) ohittaa säännöt.
+//   · Anonyymi pääsy (`onAnonymous()`, 35 haaraa) on YHÄ AUKI: se suljetaan vasta PR 3:ssa, kun
+//     palvelinkirjautuminen (PR 1, `pelaajaKirjaudu`) on käytössä. Tavoitetila on kirjattu
+//     punaisina testeinä (`it.fails`) tests/rules/firestore.rules.test.js → "Vaihe 0 · tavoitetila".
 //
 // Muutokset v3.22 → v3.23 (Perumisen oikeus):
 //   · `peruminenKelpaa(seuraId)`: tekijäkenttä kattaa myös `valmentajaUid` (valmentaja_viesti),
@@ -522,7 +532,9 @@ service cloud.firestore {
     // ADMINS — super admin -taulukko
     // ──────────────────────────────────────────────────────────────────────
     match /admins/{uid} {
-      allow read:  if onKirjautunut();
+      // v3.24: vain SA tai käyttäjä itse. Kaikki selainlukijat lukevat omaa dokumenttiaan
+      // (SA-fallback roolintunnistuksessa); muiden adminien listaus ei ole kenenkään tarve.
+      allow read:  if onSuperAdmin() || (onKirjautunut() && request.auth.uid == uid);
       allow write: if onSuperAdmin();
     }
 

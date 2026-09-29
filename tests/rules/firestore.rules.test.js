@@ -2788,3 +2788,96 @@ describe('Havainnon näkyvyys — vain merkityt pelaajalle (v3.22)', () => {
       [where('tyyppi', '==', 'valmentaja_viesti'), limit(20)])));
   });
 });
+
+/* ══════════════════════════════════════════════════════════════════════════════════════════
+   VAIHE 0 · TAVOITETILA (CODE_BRIEF_PELAAJAN_TUNNISTUS v2, PR 0)
+   Nämä kuvaavat tilan PR 3:n jälkeen. `it.fails` = testi ON punainen nykysäännöillä (v3.24), ja
+   Vitest raportoi sen vihreänä vain koska se epäonnistuu. PR 3 poistaa `.fails`-merkinnän.
+   EI VACUOUS: jokaisella punaisella testillä on alla "NYKYTILA (aukko)" -pari, joka AJAA saman
+   operaation ja osoittaa, että se ONNISTUU tänään. Ilman paria it.fails menisi läpi myös
+   kirjoitusvirheestä (esim. väärä polku). PR 3:ssa nykytila-parit poistetaan.
+   Pelaajatunnus = TÄNÄÄN anonyymi PIN-istunto. PR 1:n custom token (`rooli:'pelaaja'`,
+   `pelaajaSeuraId`) evätään jo nyt, koska siinä ei ole `seuraId`-claimia — siksi testi 4
+   mallinnetaan anonyyminä, ja token-variantti on erillinen vihreä vartija.
+══════════════════════════════════════════════════════════════════════════════════════════ */
+describe('Vaihe 0 · tavoitetila (punaiset, it.fails → vihreiksi PR 3:ssa)', () => {
+  beforeEach(async () => { await seedSeuraAndPelaaja(); });
+
+  const kirjaus = () => ({ tyyppi: 'T', tehty: true, kesto_min: 30, fiilinki: 4, rpe: 6, lahde: 'pelaaja', luotu: new Date() });
+
+  it.fails('anonyymi listaa toisen seuran pelaajat → evätty', async () => {
+    await assertFails(getDocs(collection(anonContext().firestore(), 'seurat', SEURA_B, 'pelaajat')));
+  });
+  it('NYKYTILA (aukko): anonyymi listaa toisen seuran pelaajat — ja saa PIN:it', async () => {
+    const snap = await assertSucceeds(getDocs(collection(anonContext().firestore(), 'seurat', SEURA_B, 'pelaajat')));
+    expect(snap.docs.map((d) => d.id)).toContain(PELAAJA_B_UID);
+    expect(snap.docs[0].data().pin, 'pin-kenttä vuotaa listauksessa').toBeTruthy();
+  });
+
+  it.fails('anonyymi hakee yksittäisen toisen seuran pelaajan → evätty', async () => {
+    await assertFails(getDoc(doc(anonContext().firestore(), 'seurat', SEURA_B, 'pelaajat', PELAAJA_B_UID)));
+  });
+  it('NYKYTILA (aukko): anonyymi hakee toisen seuran pelaajan', async () => {
+    const s = await assertSucceeds(getDoc(doc(anonContext().firestore(), 'seurat', SEURA_B, 'pelaajat', PELAAJA_B_UID)));
+    expect(s.exists()).toBe(true);
+  });
+
+  it.fails('anonyymi luo kirjaukset-merkinnän → evätty', async () => {
+    await assertFails(setDoc(
+      doc(anonContext().firestore(), 'seurat', SEURA_B, 'pelaajat', PELAAJA_B_UID, 'kirjaukset', '2026-09-29'), kirjaus()));
+  });
+  it('NYKYTILA (aukko): anonyymi luo kirjauksen MILLE TAHANSA pelaajalle', async () => {
+    await assertSucceeds(setDoc(
+      doc(anonContext().firestore(), 'seurat', SEURA_B, 'pelaajat', PELAAJA_B_UID, 'kirjaukset', '2026-09-29'), kirjaus()));
+  });
+
+  /* Pelaaja A = PELAAJA_UID (seura A), pelaaja B = PELAAJA_A2_UID (sama seura). Anonyymi istunto
+     ei kanna pelaajan identiteettiä lainkaan, joten A:n istunto lukee B:n dokumentin. */
+  it.fails('pelaajatunnus A lukee pelaajan B samassa seurassa → evätty', async () => {
+    await assertFails(getDoc(doc(anonContext().firestore(), 'seurat', SEURA_A, 'pelaajat', PELAAJA_A2_UID)));
+  });
+  it('NYKYTILA (aukko): pelaajan A istunto lukee pelaajan B dokumentin (sama seura)', async () => {
+    const s = await assertSucceeds(getDoc(doc(anonContext().firestore(), 'seurat', SEURA_A, 'pelaajat', PELAAJA_A2_UID)));
+    expect(s.data().pin).toBe('4321');
+  });
+
+  /* PR 1:n token: claim on `pelaajaSeuraId`, EI `seuraId` — `onOmaSeura()` lukee pelkän
+     `token.seuraId`:n, joten `seuraId`-claim avaisi pelaajalle koko seuran (myös valmentajien
+     havainnot). Tämä vartija on vihreä jo nyt ja pysyy vihreänä. */
+  it('VARTIJA: pelaajatoken (pelaajaSeuraId) EI läpäise onOmaSeura-haaroja — ei lue toista pelaajaa', async () => {
+    const pel = testEnv.authenticatedContext('pel_' + SEURA_A + '_' + PELAAJA_UID, {
+      rooli: 'pelaaja', pelaajaSeuraId: SEURA_A, pelaajaId: PELAAJA_UID,
+      firebase: { sign_in_provider: 'custom' },
+    }).firestore();
+    await assertFails(getDoc(doc(pel, 'seurat', SEURA_A, 'pelaajat', PELAAJA_A2_UID)));
+    await assertFails(getDocs(collection(pel, 'seurat', SEURA_A, 'pelaajat')));
+  });
+});
+
+describe('admins (v3.24): vain SA ja käyttäjä itse', () => {
+  beforeEach(async () => {
+    await seedAdminDoc();
+    await seedSeuraAndPelaaja();
+  });
+
+  it('SA lukee admins-dokumentin', async () => {
+    await assertSucceeds(getDoc(doc(saContext().firestore(), 'admins', SA_UID)));
+  });
+  it('käyttäjä lukee OMAN admins-dokumenttinsa (SA-fallback roolintunnistuksessa; ei olemassa → silti sallittu)', async () => {
+    await assertSucceeds(getDoc(doc(vpContext(SEURA_A).firestore(), 'admins', VP_A_UID)));
+    await assertSucceeds(getDoc(doc(anonContext().firestore(), 'admins', ANON_UID)));
+  });
+  it('VP EI lue SA:n admins-dokumenttia', async () => {
+    await assertFails(getDoc(doc(vpContext(SEURA_A).firestore(), 'admins', SA_UID)));
+  });
+  it('anonyymi EI lue SA:n admins-dokumenttia', async () => {
+    await assertFails(getDoc(doc(anonContext().firestore(), 'admins', SA_UID)));
+  });
+  it('kirjautunut EI listaa admins-kokoelmaa', async () => {
+    await assertFails(getDocs(collection(valmentajaContext(VALM_A_UID, SEURA_A).firestore(), 'admins')));
+  });
+  it('SA kirjoittaa edelleen, muut eivät', async () => {
+    await assertSucceeds(setDoc(doc(saContext().firestore(), 'admins', 'uusi-admin'), { email: 'x@test.fi' }));
+    await assertFails(setDoc(doc(vpContext(SEURA_A).firestore(), 'admins', VP_A_UID), { email: 'x@test.fi' }));
+  });
+});
