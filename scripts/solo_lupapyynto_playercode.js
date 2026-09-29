@@ -5,6 +5,9 @@
  * Syy: ennen PR 2b:tä hyväksytyissä lupapyynnöissä ei ole playerCodea → lapsen "Aloita" putoaa
  * anonyymiin varapolkuun (Sentry "ei-koodia"). Tämän jälkeen palvelinreitti toimii myös vanhoilla.
  *
+ * Kirjoitetaan VAIN jos (a) playerCodes/{koodi}.playerId == lupapyynnön playerId ja (b) pelaajalla
+ * on child_pin. Muut jäävät varapolulle ja käsitellään PR 4:ssä.
+ *
  * Tulostaa VAIN lukumäärät — ei nimiä, id:itä eikä PIN:ejä.
  * Idempotentti: olemassa olevaa playerCodea ei koskaan ylikirjoiteta.
  *
@@ -31,6 +34,8 @@ const onKoodi = (v) => typeof v === 'string' && /^TMP-[A-Z0-9]{4,12}$/.test(v.tr
     eiPlayerId: 0,
     pelaajaaEiLoydy: 0,
     pelaajallaEiKoodia: 0,
+    indeksiEiTasmaa: 0,
+    pelaajallaEiPinia: 0,
     kirjoitettu: 0,
   };
   const korjattavat = [];
@@ -43,6 +48,12 @@ const onKoodi = (v) => typeof v === 'string' && /^TMP-[A-Z0-9]{4,12}$/.test(v.tr
     if (!p.exists) { t.pelaajaaEiLoydy++; continue; }
     const koodi = (p.data() || {}).playerCode;
     if (!onKoodi(koodi)) { t.pelaajallaEiKoodia++; continue; }
+    // (a) indeksi osoittaa samaan pelaajaan kuin lupapyyntö (muuten soloLapsiKirjaudu hylkäisi joka tapauksessa)
+    const ix = await db.collection('playerCodes').doc(koodi.trim()).get();
+    if (!ix.exists || String((ix.data() || {}).playerId) !== String(x.playerId)) { t.indeksiEiTasmaa++; continue; }
+    // (b) pelaajalla on child_pin (ilman sitä palvelinreitillä ei ole mitä tarkistaa)
+    const pin = (p.data() || {}).child_pin;
+    if (pin == null || String(pin).trim() === '') { t.pelaajallaEiPinia++; continue; }
     t.korjattavissa++;
     korjattavat.push({ ref: d.ref, koodi: koodi.trim() });
   }
