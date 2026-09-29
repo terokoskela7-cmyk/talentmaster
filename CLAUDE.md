@@ -3,7 +3,32 @@
 > Ensimmäinen tiedosto jonka liität uuteen Claude-sessioon. Keskittyy **teknisiin invariantteihin**.
 > Strategia, RAE-tiede, kansainvälistyminen, bisnesmalli, sprintit ja avoimet tehtävät: **`docs/STRATEGIA.md`**.
 > Operatiivinen roadmap-historia: `docs/ROADMAP.md`. Solo-tuotteen täysi kuvaus: `docs/ARKKITEHTUURI.md §11`.
-> Viimeksi päivitetty: 2026-07-03 (**Sibbo T2014 historiatuonti** — 17 uutta pelaajaa (roster, Seura-massatuonti) + 66 testitulosta (`hh_laaja`, historiapohja/Moodi B, 10m/30m/kasirata, 4 testikertaa 2024–2025); `recalcHH('sibbovargarna',false,true)` ajettu → 25 pelaajalle D1/D2 · **JOUKKUENIMI-INVARIANTTI (kausi-vuosi):** ikäluokan T/P-numero = `year(nyt) − syntymävuosi` (kausi 2026: 2014→T12 · 2015→T11 · 2013→T13). ⚠ ERI KUIN testivuoden numero — 9 olemassa olevaa Sibbo-pelaajaa + roster korjattu tähän · **METODOLOGIA-INVARIANTTI (vahvistettu):** H-H/TKI-taso = **tilannekuva testihetken iästä** (`normiIka(syntymaVuosi, testipvm)` §26, idempotentti), EI vanheneta nykyikään — 2025-tulos = "taso X ikäisekseen 2025", ei nykytila. **Datan ikä ESITETTÄVÄ** ettei valmentaja luule nykytasoksi · **Uusi brief `docs/CODE_TASK_DATA_TUOREUS.md`** (⏳ odottaa Codea): VP joukkuetasolle mittauspäivä + **"📍 Päivitä mittaus"** (>6 kk/eri kausi, EI "data vanhaa" -kieltä) + KAIKKI pvm **pp.kk.vvvv** (`_pvmFiVP`), kk-välit auki ("huhti–loka 2025"). Juurisyy live-verify: VP Tilanne kehysti Sibbon 2025-datan kiireellisenä nykytilana ilman pvm:ää · Alexia Halonen PalloID 35272720→35160391 (Sibbo) · ⚠ tämä header + CODE_TASK_DATA_TUOREUS COMMITTOIMATTA (työtila) · edellinen 06-29: **indeksit vakautettu + analysoitu** `docs/INDEKSIANALYYSI_2026-06.md`: D2 lukittu TKI→TK→H-H→sm_pallo (sm_juoksu→D1-ketteryys, persistoitu hh_viimeisin:iin), recalcHH sm_pallo-fallback (SJK d2 'sm_pallo'), Kehityskohde (ent. "Erityistuki") suhteelliseksi heikoin ~20% + `onNeutraaliPrePHV` §28, TSI ikäkehys, #67-norm-bugi korjattu (pojat M teamSpMN) · **Tavoitetaso-välilehti + per-testi-radar** (dual-scale taso-3/TKI≥60, `tavoiteRadarAkselit`) · **Kohortti-valitsin** (Paras/Top-5/Top-10/joukkue, `valitseKohortti`/`_tasoLvl`) · **VP-audit** `docs/VP_NAKYMA_AUDIT_2026-06.md` → kevennetty Yhteenveto (ei Tavoitetaso-päällekkäisyyttä, painopiste+datapolku-CTA), tyhjät tilat CTA:ksi · **tumma teema oletus** · `_jspModal` overflow:auto+sticky · **KRIITTINEN `tarkistaOikeus`-korjaus DEPLOYATTU**: 'vp' roolilistaan (`functions/authz_paatos.js`) → seuran 2. VP saa oikeudet (Sibbo-kutsubugi) · Pallo-Iirot 3 tapahtumaa tuotu+verifioitu, cross-club (Pallo-Iirot/SJK/Sibbo) OK · OPAS_VP_JA_VALMENTAJA §1.2 + docs/HINNOITTELU_LASKUTUS + docs/SIBBO_PILOTTISOPIMUS päivitetty/lisätty · ⚠ nämä docs + tämä header COMMITTOIMATTA (työtila) · edellinen 06-24: **kalenteri K1+K2+K3 valmis** `seurat/{sid}/kalenteri` — konsolidointi + läsnäolo (3 roolia, Rules v3.5) + toistuvat (jaettu `lib/tm_kalenteri.js`) §35 · **kortti-järjestelmä** Vaihe 0–1.5 rakennettu (saavutukset/tekniikkamerkit/liekki-lepo/Ennätykset-PB), pikakenttä `ennatykset` §36 · **termit julkisiksi** FLEI→"Kehon valmius", Pelaajaraportti (EI "MDT"), Mittaus/Ottelu/Pelihavainto (EI Signs/Samples/SEO) + in-app aloitusopas 4 roolille + OPAS_PERHE/OPAS_VP_JA_VALMENTAJA §37 · **suostumus-integriteetti** invariantti EI KOSKAAN annettu→odottaa + SendGrid-salasanalinkki + toast-z-index §13/§33 · edellinen 06-15: B2 Sentry §33 · §26 `d1_taso`)
+> Viimeksi päivitetty: 2026-09-29 — **tiivistys:** sovellus-, mittari-, biologia- ja infrayksityiskohdat ovat laiskoissa taidoissa (`.claude/skills/tm-*`, ks. §40). Muutoshistoria on git-lokissa.
+
+---
+
+## 0. ÄLÄ KOSKAAN — ehdottomat säännöt (voittavat kaiken muun)
+
+**Työnkulku**
+- **Claude/Code ei pushaa mainiin eikä mergeä.** Jokainen muutos omalle haaralle `origin/main`in päältä → PR. Tero mergeää.
+- **Git-historiaa ei kirjoiteta uudelleen:** ei force-pushia, ei rebasea jaetulle haaralle, ei `commit --amend`ia pushattuun.
+- **Ruotsinkieliset tekstit vain Geminin kautta.** Claude/Code ei kirjoita sv-käännöksiä eikä sv-luonnoksia; uudet sv-avaimet jätetään tyhjiksi / odotuslistalle.
+- **ÄLÄ aja `npm run version:bump` feature-haaroissa** — `bump-version.yml` hoitaa sen mainissa (§33 taidossa `tm-infra`).
+- **ÄLÄ vaihda GitHub Pages -lähdettä "branch"-tilaan** — lähde on "GitHub Actions" (`deploy-pages.yml`).
+
+**Testaus ja data**
+- **Toiminta varmistetaan seurakäyttäjällä, ei SA:lla.** SA näkee kaiken, joten SA-testi ei todista oikeuksia.
+- **Suojatut alaikäiset: vain luku.** Ainoa sallittu testipelaaja kirjoituksille ja kirjautumiselle on **Topias** (§10).
+- **Pikakenttäpari päivitetään atomisesti** (`hh_viimeisin`+`hh_pvm`, `tki_viimeisin`+`tki_pvm` jne. samasta testituloksesta) — §26 taidossa `tm-mittarit-ja-testit`.
+
+**Turva ja tietosuoja**
+- **Tunnukset repon ulkopuolella; API-avaimet eivät koskaan selaimeen** (Secret Manager + `runWith({secrets})`, §39).
+- **§7.22 lapselle:** ei XP/progressbaria/loss aversion -kieltä, ei tasolukuja, ei vertailua muihin, ei TKI-laskua pelaajalle eikä vanhemmalle.
+- **Rules:** jokainen alikokoelma oma `match`-blokki (§7.15), muutos = versio + changelog + Rules-testi, deploy vain CI:llä (§12).
+- **Uusi appi joka koskee backendiin → App Check pakollinen** (§38).
+- **Service Worker cachettaa vain omat tiedostonsa** (allowlist, §27.4).
+- **Ei uusia `onAnonymous()`-haaroja Rulesiin.** Anonyymi pääsy suljetaan vaiheessa 0 (CODE_BRIEF_PELAAJAN_TUNNISTUS). Uusi pelaajan pääsy tehdään `onPelaajaItse`-funktiolla, kun se on olemassa (PR 1).
+- **Ei uusia tekoälykutsuja EU:n ulkopuolelle.** Käytä Bedrock EU:ta (`tarkistaBedrockEU`) tai muuta EU-reittiä. Suora OpenAI tai Anthropic vain kehityslipun takana.
 
 ---
 
@@ -32,16 +57,7 @@ Filosofia: *"Pelaaja ensin, hallinto vahvistaa"* — rakentuu lapsen kehitystarp
 | Sähköposti | Nodemailer Cloud Functionissa | Firebase Extension incompatible eur3 |
 
 ### Firebase-config (Blaze plan)
-```javascript
-const firebaseConfig = {
-  apiKey: "AIzaSyAp471lOIntzP33p9bIW3y4KbeEyBt5kIo",
-  authDomain: "talentmaster-pilot.firebaseapp.com",
-  projectId: "talentmaster-pilot",
-  storageBucket: "talentmaster-pilot.firebasestorage.app",
-  messagingSenderId: "872561784446",
-  appId: "1:872561784446:web:05c4c7996dfd46ddd14a2f"
-};
-```
+Projekti `talentmaster-pilot`. Konfiguraatio on sama jokaisen sovellus-HTML:n alussa (`firebaseConfig`) — kopioi sieltä, älä kirjoita käsin.
 
 ### Cloud Functions — KRIITTINEN SÄÄNTÖ
 ```javascript
@@ -117,7 +133,7 @@ per tiedosto** (kaksi lohkoa kumoaa toisen — Seura.html:n bugi oli juuri täm�
 6. **`serverTimestamp()` ei toimi array:n sisällä** → `new Date().toISOString()`
 7. **FLEI raakadata 1–3** Firestoreen — normalisointi koodissa, ei tallennettuna
 8. **Topias doc-ID:** `m93GBdOaGCUuenMiCL0I` — KAKSI u:ta (m93GBdOaGCU**u**enMiCL0I)
-9. **Firestore Rules Consolesta** — ei GitHub Actionsilla (403)
+9. **Firestore Rules deployataan CI:llä** — `.github/workflows/deploy-rules.yml` ajaa main-pushissa emulaattoritestit (`tests/rules`) ja sen jälkeen `firebase deploy --only firestore:rules,firestore:indexes,storage`. EI käsin Consolesta (vanha 403-ohje on historiaa).
 10. **Bundler-template:** raw JSON-string indeksihaku, EI `json.loads()`+`json.dumps()`
 11. **`syntymaVuosi` numerona** — `syntymaaika` on Timestamp erikseen; syntymäpäivä `Date.UTC()`, ei `new Date(string)`
 12. **`sukupuoli: "M"/"N"`** Firestoressa — ei "poika"/"tyttö". Excel käyttää P/T → muunna aina (P→M, T→N)
@@ -160,7 +176,7 @@ per tiedosto** (kaksi lohkoa kumoaa toisen — Seura.html:n bugi oli juuri täm�
 | `TalentMaster_Testaus_v8.html` · `..._Harjoitettavuus_Lomake_v4.html` | Edeltäjät | ⚠️ arkistoidaan kun v9 pilottitestattu |
 | `TalentMaster_VP_v20/v21.html` · `..._Master_v15.html` | Vanhat versiot | Arkisto |
 | `functions/index.js` | 7 Cloud Functionia + aiProxy | ✅ §13 |
-| `tm_admin/firestore.rules` | Security Rules **v3.3** (Consolesta) | ⏳ v3.3 odottaa Console-deployta (kirjaus-permissionit PÄÄTÖS 1+2) |
+| `tm_admin/firestore.rules` | Security Rules **v3.24** — deploy CI:llä (`deploy-rules.yml`, main-push, emulaattoritestit ensin) | ✅ §12 |
 | `lib/tm_bioika.js` | Bio-ikä — Mirwald 2002 PHV (Excel-verifioitu) + KR-runko (lukittu) | ✅ §25 |
 | `docs/testit_indeksit.js` | Canonical TKI/TSI/FLEI-laskenta + TKI-analyysimalli (§34) | ✅ §23/§34 |
 | `docs/TKI_ANALYYSIMALLI.md` | Kanoninen TKI-analyysimalli (3 viitekehystä + kehitysvauhti) | ✅ §34 |
@@ -282,10 +298,9 @@ admins/{uid}: email, rooli, superAdmin, luotu
 
 ---
 
-## 12. FIRESTORE SECURITY RULES — `tm_admin/firestore.rules` v2.9
+## 12. FIRESTORE SECURITY RULES — `tm_admin/firestore.rules` v3.24
 
-**DEPLOATAAN Firebase Consolesta — EI GitHub Actionsilla (403).** Konsoli → Firestore → Rules → liitä → Julkaise.
-✅ v2.9 deployattu 2026-05-26 (`biologinen_ika`, seura-tason `tapahtumat`, `vp_kalenteri`).
+**DEPLOY = CI** (`.github/workflows/deploy-rules.yml`): main-pushissa ensin emulaattoritestit (`npm run test:rules`, Java ≥21), sitten deploy. Nykyversio **v3.24** (Vaihe 0 / PR 0: `admins` vain SA/itse; anonyymin pääsyn tavoitetila `it.fails`-testeinä). Jokainen muutos: versio + changelog tiedoston alkuun + Rules-testi. Sääntöjä EI muokata Consolesta.
 
 **KRIITTISIN MUISTISÄÄNTÖ:** Rules EI periydy alikokoelmiin. Jokainen alikokoelma vaatii oman `match`-blokin.
 `match /seurat/{id} { allow read }` sallii vain SEURADOKUMENTIN. (v2.0:n puuttuva `seurat/{id}/pelaajat/`
@@ -316,34 +331,6 @@ Logout → dispatch `tm:logout` → odota 50 ms → `signOut()`.
 
 ---
 
-## 13. CLOUD FUNCTIONS (europe-west1)
-
-| Funktio | Kuvaus |
-|---|---|
-| `lahetaRekisteriKutsu` | Yksittäinen kutsu huoltajalle |
-| `luoKayttaja` | Luo Firebase Auth -käyttäjän (sama email eri rooli OK) |
-| `lahetaHuoltajaKutsu` | Massakutsu huoltajille |
-| `deaktivioiKayttaja` | Pehmeä poisto — data säilyy |
-| `lahetaPelaajaSivuLinkki` | Linkki pelaajan näkymään |
-| `haeOrLuoHuoltajaAuth` | Huoltajan autentikointi |
-| `aiProxy` | AI-välitys: GPT-4o Vision, Whisper, narratiivi |
-| `tasoHaeSeuranOttelut` | TASO-integraatio (deployattu) |
-| `lahetaResetLinkki` | Henkilöstön salasana-reset-linkki (authz: SA/seuran johto `tarkistaOikeus`, kohde-email seuran kayttajat:issa) — ei datakirjoitusta |
-| `vaihdaKayttajanRooli` | Vaihtaa käyttäjän roolin: `seurat/{seuraId}/kayttajat/{uid}.rooli` update + `setCustomUserClaims` + `revokeRefreshTokens` + vp_uid-hallinta. Params `{uid, seuraId, uusiRooli}`, sallitut `vp`/`valmentaja`/`talenttivalmentaja`/`seura_admin`. Authz `tarkistaOikeus` |
-| `vahvistaSuostumus` | Suostumuksen vahvistus + Auth-luonti + reset-linkki. Admin SDK varmentaa huoltajaEmail-täsmäyksen (permission-denied jos ei) → kirjoittaa palvelinpuolella KOKO kutsuflow'n (suostumusTila 'annettu' + aux-kentät tila/antaja/bio-pituudet + kutsut→'hyvaksytty') koska Rekisterointi_Suostumus.html on autentikoimaton → haeOrLuoHuoltajaAuth → passwordResetLink. Kirjoittaa myös huoltajaEmail (vahvistus), syntymaaika+syntymaVuosi, sukupuoli (P/T→M/N), suostumukset[] + suostumus{}-objekti. Params: seuraId/pelaajaId/hEmail/suostumusTeksti/antaja/bioPituudet/kutsuId/syntyma/sukupuoli/suostumukset/suostumusMap/antajaRooli/aikaleima |
-
-**API-avaimet → Secret Manager + `runWith({secrets})` (2026-06-23 migraatio, docs/SECRET_MANAGER_MIGRAATIO.md).** `SENDGRID_API_KEY`/`OPENAI_API_KEY`/`ANTHROPIC_API_KEY` ovat Firebase Secret Managerissa; funktiot bindaavat ne `runWith({secrets:[...]})`-lohkossa → luetaan `process.env.X`:stä ajonaikaisesti. **EI enää plaintext-env-vareja eikä CI:n `.env`-injektiota avaimille** (vanha malli paljasti avaimet Console-Variablesissa). `SENDGRID_API_KEY` vain `lahetaSahkoposti`-kutsujilla (lahetaRekisteriKutsu/lahetaMuistutukset/luoKayttaja/lahetaPelaajaSivuLinkki/notifKoosteEmail); `OPENAI/ANTHROPIC` vain `aiProxy`:lla. **`SENDGRID_FROM_EMAIL` ei ole salainen** → committattu `functions/.env`. API-avaimet ei ikinä selaimessa. Uusi secret: `firebase functions:secrets:set X` ENNEN runWith-deployta (muuten deploy hylkää). (GEMINI_API_KEY pois — secret puuttuu + gemini-taskit ei käytössä.)
-**Reset-linkin continueUrl (HOLD 2026-06-02):** `generatePasswordResetLink(email, {url, handleCodeInApp:false})` — `url` PAKOLLINEN (ilman → 500). Käyttäjä laskeutuu Firebasen reset-sivulle, sitten `url`. Yhtenäistä `url` halutuksi landingiksi `luoKayttaja`/`lahetaResetLinkki`/`lahetaPelaajaSivuLinkki`-funktioissa.
-
-**Roolinvaihto-invariantit:**
-- Roolinvaihto AINA `vaihdaKayttajanRooli`-CF:n kautta — ei suoraan Firestoreen.
-- CF tekee aina: `Firestore.update` + `setCustomUserClaims` + `revokeRefreshTokens`.
-- Ilman `setCustomUserClaims` Rules ei näe muutosta (Rules lukee `request.auth.token.rooli`-claimia).
-- `revokeRefreshTokens` yksin EI pudota aktiivisia sessioita — defensiivinen UI-tarkistus (claims vs Firestore `kayttajat.rooli`, onAuthStateChanged) on välttämätön pari. Toteutettu VP_v25:ssä.
-- `tarkistaOikeus` lukee `vp_uid`:tä eikä pelkkiä claimseja — stale `vp_uid` voi antaa palvelinpuolen VP-oikeudet demotoinnin jälkeen ~hetken. Tietoinen kompromissi, korjataan omassa sprintissä.
-
----
-
 ## 14. METODOLOGIA — ÄLÄ MUUTA ILMAN LUPAA
 
 **5D Framework:** D1 Fyysinen · D2 Tekninen · D3 Psykologinen · D4 Peliäly · D5 Sosiaalinen.
@@ -363,548 +350,12 @@ taso lasketaan lennossa. pienempi=parempi: nopeustestit, pujottelu, syöttö · 
 **Biologinen ikä:** Mirwald 2002 (PHV); PHV-status ohittaa Stage-luokituksen (§25).
 **RAE-korjaus** = oletusarvo kaikkialla (tausta + tiede: `docs/STRATEGIA.md §2`).
 
+**Invariantit (siirretty otsakkeen muutoshistoriasta 29.9.2026, sanatarkasti):**
+- **JOUKKUENIMI-INVARIANTTI (kausi-vuosi):** ikäluokan T/P-numero = `year(nyt) − syntymävuosi` (kausi 2026: 2014→T12 · 2015→T11 · 2013→T13). ⚠ ERI KUIN testivuoden numero — 9 olemassa olevaa Sibbo-pelaajaa + roster korjattu tähän
+- **METODOLOGIA-INVARIANTTI (vahvistettu):** H-H/TKI-taso = **tilannekuva testihetken iästä** (`normiIka(syntymaVuosi, testipvm)` §26, idempotentti), EI vanheneta nykyikään — 2025-tulos = "taso X ikäisekseen 2025", ei nykytila. **Datan ikä ESITETTÄVÄ** ettei valmentaja luule nykytasoksi
+
 **Terminologia (julkinen kieli):** FLEI → kehon valmiusindeksi · fascia-linja → liikehallintaketju ·
 jousitusindeksi → kimmovoima-indeksi · D4 → peliäly.
-
----
-
-## 15. ADAR PIKAKORTTI — `TalentMaster_ADAR_Pikakortti.html`
-
-### Bundler-rakenne (offline kentällä)
-Fontit + Firebase SDK inlinena base64/gzip. Script-tyypit `__bundler/manifest`, `__bundler/ext_resources`,
-`__bundler/template`. Päälogiikka on JSON-enkoodattuna `__bundler/template` -skriptissä.
-```python
-# OIKEIN — raw JSON-string indeksihaulla:
-idx = template_raw.find("etsittava"); template_raw = template_raw[:start] + uusi + template_raw[end:]
-# VÄÄRIN — json.loads()+json.dumps() → double-encoding korruptoi tiedoston
-```
-
-### Firebase-muuttujat
-`window._tmDB` (Firestore) · `_tmAuth` · `_tmSeuraId` · `_tmRooli` · `_pelaajaMap {pelaajaId:{tunniste,nimi,joukkue}}`
-
-### saveCard() → `seurat/{seuraId}/pelaajat/{pelaajaId}/havainnot/{id}`
-```javascript
-await havaintoRef.set({
-  palloId, pelaajaId, seuraId, valmentajaUid: firebase.auth().currentUser?.uid,
-  tila: 'valmis',          // Pelaaja-näkymä kuuntelee tätä
-  pelaaja_lukenut: false, luotu: new Date().toISOString(),
-  // ADAR-pisteet, narratiivi jne.
-});
-```
-
-### ADAR Vision
-- Kuva → Storage `seurat/{id}/havainnot/{id}/media_0.jpg`; `media[]` taulukko (video myöhemmin)
-- `otettu: new Date().toISOString()` — EI serverTimestamp() (array-rajoitus!)
-- `_pyydaAINarratiivi()` → aiProxy → GPT-4o Vision → `ai_narratiivi .update()`; `ai_luottamus:'matala'` aina (ihminen hyväksyy ennen kuin pelaaja näkee)
-
-### Pikatila (3-vaiheinen)
-`_pikaValitsePelaaja(id,nimi,seuraId,btn)` → `_pikaAdar(vaihe,btn)` → `_pikaSetPiste(piste,btn)` → `_pikaTallenna()` (→ `tila:'luonnos'`).
-
----
-
-## 16. PELAAJAN APP — `TalentMaster_Pelaaja_v7.html` (v=25)
-
-**Kirjautuminen:** `_kirjauduPinilla(pin)` → Anonymous Auth → haku `seurat/{id}/pelaajat` jossa `pin==arvo` → `_kaynnistaAppUI()`.
-**`getIdToken(true)`** pakollinen ennen Firestore-kirjoitusta (sessio vanhentuu).
-
-**Tekniikkatavoite (MINÄ → Tekniikkaprofiili, 2026-06-11, §34/§5.3):** tavoiterivit pikakentistä (§26) lapsen kielellä —
-⭐vahvuus (`tki_vahvuus`; "kärkitasoa" vain jos taso erinomainen, `tkLajiViite`) · 🎯seuraava askel (välitavoite: gap≤3s→`viite.hyva`,
-muuten arvo−3s/0.5s tarkkuus — **saavutettava askel, ei koko matka**) · 🏅mitalimatka VAIN positiivisena ja vain ≤15s · 📈abs-parannus
-VAIN >0 · 🔥kultaikkuna ≤12v ILMAN uhkakehystä. Tyhjätila "Tekniikkakisa tulossa" (ei "Ei tuloksia"). TÄNÄÄN-T-kortti saa saatteen
-kehityskohteesta (`_tekTavoiteSaate`). **§7.22-EHDOTON:** ei XP/progressbaria/loss aversion -kieltä ("menetät/putoat/sulkeutuu"),
-ei vertailua muihin, **TKI-laskua EI näytetä pelaajalle lainkaan** (vain abs-parannus kun positiivinen, §34 §3.2). Pelaaja lataa
-`docs/testit_indeksit.js` → funktiot `window.TM_TESTIT`:stä, EI inline-kopiota. SW `tm-pelaaja-v3` (§27.4).
-
-**Perheviestintä (Vanhempi_v2 Kortti-tab, 2026-06-11, §34/§5.4):** vanhemmalle SAMA §7.22-kehys kuin pelaajalle +
-"miten tukea" -kerros (`rVanhempiTekniikka`, `TUKIVINKIT`). Ei tasolukuja (T1–T5)/percentiilejä, ei vertailua muihin,
-ei TKI-laskua/punaisia deltoja vanhemmallekaan — **painostusmekanismi**: lapsi ei ahdistu datasta vaan vanhemman
-paineesta. AINA: vahvuus ensin · prosessikehu (Dweck) · autonomiaa tukevat vinkit (Deci & Ryan SDT). Data pikakentistä
-(§26), `tkLajiViite`/`tkSekuntibudjetti` `window.TM_TESTIT`:stä (lib script-tagilla, ei inline). SW `tm-vanhempi-v4`.
-
-**Kirjausrakenne:** `pelaajat/{id}/kirjaukset/{pvm}` — tyyppi 'T'|'D'|'S'|'P' (Tekniikka/Dual/Strength/Peli),
-tehty, xp, kesto_min, rpe 1-10, fiilinki 1-5, aika ilta|aamu|paiva.
-
-**Syntymäpäiväyllätys:** `_onkoSynttari(p)` / `_synttariKonfetti()` / `_synttariBanner(p)` —
-**string concatenation `+`** (nested template literals rikkoivat parserin → musta ruutu v=23:ssa).
-
-**PHV-kehitysvaihekortti:** lukee `phv_tila` (§25); KR-rivi "Tulossa myöhemmin".
-
-### P6 — Valmentajan havainto + viesti → Pelaajan näkymä (✅ 2026-06-07)
-```javascript
-_p6KaynnistakuuntelIja(seuraId, pelaajaId)  // onSnapshot: tila=='valmis' && pelaaja_lukenut==false
-// → "1 uutta" merkki → _avaaHavainnot() overlay narratiivilla (ei pisteitä) → _p6Luetuksi(): pelaaja_lukenut:true
-// PIN success asettaa window._p7Pelaaja = {seuraId, pelaajaId} → kuuntelija käynnistyy
-```
-**Valmentajan viestit:** `tyyppi:'valmentaja_viesti'` + `tila:'valmis'` → P6-kuuntelija näkee automaattisesti.
-Fallback: `h.teksti` (viesti) || `h.narratiivi` (ADAR). Tekijä: `h.valmentajaNimi` || `h.tekija_nimi`.
-
-### Perhekehu ← Vanhempi (✅ toteutettu)
-```javascript
-_haePerhekehu()  // lukee seurat/{sid}/pelaajat/{pid}/kehut, luotu >= 48h, nahty==false
-// → hav-card KOTI-näkymässä → _kuittaaKehu() → nahty:true
-```
-
----
-
-## 17. SEURAHALLINTA — `TalentMaster_Seura.html`
-
-**Toiminnot:** Yhteenveto (4 KPI + pilottibanner + suostumus-%) · Pelaajat (suodattimet
-Kaikki/Pilotti/Kutsu/Rekisteröity/Ilman PalloID + nimihaku) · Joukkueet · Henkilöstö · Sopimukset ·
-Tuo Excel (xlsx GitHubista → SheetJS → Firestore) · Massakutsu (`lahetaHuoltajaKutsu`) ·
-Talentit-välilehti (`talenttiOhjelma:true`, ryhmittely perus/laajennettu).
-**Pilottiprosessi:** 1) Tuo → `pilotti` · 2) Kutsu → `odottaa` · 3) Suostumus → `annettu`.
-
-**Muokkausmodaali:** etunimi, sukunimi, syntymäpäivä (→ syntymaVuosi auto), sukupuoli M/N, joukkueet
-(checkboxit, monta), pelipaikka, huoltajaEmail, palloID, talenttiohjelma-toggle. SA lisäksi: sbl/sfl/ll/diag/dfl (1.0–3.0).
-
-**Joukkueen nimen muokkaus:** `avaaJoukkueMuokkaus(id,nimi,ikaryhma,vuosi)` / `tallennaJoukkueMuutos(joukkueId,vanhanimi)`
-— päivittää joukkueet-kokoelman dokumentin JA batch-päivittää kaikki pelaajat (sekä `joukkue`- että `joukkueet[]`-kenttä).
-
-**Excel-pohja dynaaminen:** `lataaRekisteriPohja()` hakee seuran joukkueet Firestoresta, generoi Excelin
-SheetJS:llä, joukkue-sarakkeessa valmis dropdown. Tiedosto `TalentMaster_{SeuraId}_{pvm}.xlsx`.
-
-**Duplikaattisuoja tuonnissa:** 1) palloID-tarkistus, 2) etunimi+sukunimi+joukkue. Ohitetut `⏭`-merkillä
-(`ohitettu`-laskuriin, ei virheisiin). Yhteenveto: `X tuotu · Y ohitettu · Z epäonnistui`.
-
----
-
-## 18. ADMIN-NÄKYMÄ — `TalentMaster_Admin.html`
-
-**Toiminnot:** Seurat (muokkaa/poista/"+Lisää seura" `avaaLisaaSeuraModal`) · Käyttäjät
-(✏️ Hallinnoi → roolinmuutos + salasana-reset + PIN + deaktivointi) · Joukkueet (dynaaminen,
-"+Lisää joukkue" POISTETTU → käytä Seura.html) · Tilastot (KPI + seurataulukko suostumuspalkilla) · Massakutsu.
-
-**Massakutsu = kaksivaiheinen:** Vaihe 1 tallentaa `suostumusTila:'odottaa'`, EI lähetä sähköpostia.
-Nappi "💾 Tuo pelaajat järjestelmään" + amber-varoitus "VAIHE 1/2". Vaihe 2 (tuleva): "Lähetä suostumuspyynnöt".
-
-**KRIITTINEN:** Tilastot-funktio käyttää **string concatenationia** (`'<div>'+x+'</div>'`), EI template literaleja
-(Python-generoinnin double-encoding rikkoo nested-literaalit).
-
----
-
-## 19. VP_v22 — TILA (`TalentMaster_VP_v22.html`)
-
-**Työtilat:** Tilanne (kauden jakso + joukkuepulssi + signaalit + IDP-jono) · Valmentajat (profiilit +
-mentorointi-paneeli + kalibraatiopaja + kehitysindeksit) · Pelaajat (IDP-jono + 6 suodatinta + taulukko) ·
-Kalenteri (testitapahtumat + linkki Testaus) · Raportointi (Head of Talent -koosto + talenttisuositukset).
-**Työkalut:** Arvioi harjoitus (Sprint 4). **Asetukset:** Metodologia · Kalibraatio · Kriteeristö · Benchmark.
-
-**Syvänäkymä-analytiikka (VP_v25, 2026-06-11, §34):** joukkue-syvänäkymä (`avaaJoukkueSyvanakyma`) Yhteenveto-välilehti = TKI-histogrammi +
-per-laji joukkueprofiili vs `tkLajiViite`-eliittiviite (label AINA `_lahde`-kentästä) + "lähellä merkkiä" (`tkSekuntibudjetti`) + kehitysvauhti
-(abs + TKI, §3.2) + treeniteema-CTA (`_jsvLuoTapahtuma` esitäyttö). **Tuki**-välilehti = gap-järjestys + harjoitusryhmäjako (📋 leikepöytä) +
-**aito taantuma -merkki (TKI<0 JA abs<0)**. Radar <3 dim → kompakti dimensiokortti. Per-pelaaja `_jspModal` Tekninen = per-laji + sekuntibudjetti
-+ delta/vauhti + kultaikkuna (jaetut `_jsvPerLajiHTML`/`_jsvBudjettiRivi`; TSI-rivi piiloon kun ei SM-dataa). Joukkuekorttien suunta = H-H
-ensisijainen → **TKI-fallback** (`lahde`-kenttä) → "2. mittaus puuttuu" vasta kun molemmat puuttuvat; pelaajalistan delta-badget (H-H + TKI).
-Kanoniset TKI-funktiot + `TK_LAJIVIITTEET`/`TK_KOKONAISRAJAT` **inline-kopioituna VP:hen** (synkassa testit_indeksit.js:ään; `jsv-an-*` globaalit → toimivat myös `_jspModal`issa).
-
-**Mentorointi-loop (natiivi):** VP → `seurat/{id}/viestit/` (kentät `lahettajaUid`, `vastaanottajaUid`, `teksti`, `aika`, `luettu`) → valmentajan Inbox (Master_v16 `_kuunteleVpViestit` onSnapshot). Ei sähköpostia/Slackia.
-
-**Tekninen tila (2026-06-07):**
-- **Kausipalkki dynaaminen:** `_laskeKausi(nyt)` — yksi totuuslähde (kevät 1.4–30.6, syksy 1.8–28.2). Ei kovakoodattua.
-- **Pelaajalista-sarakkeet:** FLEI | TKI | Signaali | PHV. TKI pikakentästä `tki_viimeisin` (`_tkiSoluVP`), merkki `tki_merkki`-kentästä. Ei alikokoelmakyselyjä.
-- **Signaalihehku:** `.signal-card.crit/.alert` → box-shadow rgba(201,64,64,.15); `.warn` → rgba(204,138,58,.12). Emojit → CSS-pisteet `.sig-dot--crit/--warn`.
-- **KPI-kontekstitekstit** (vain ladatusta datasta): Pelaajia → joukkuejakauma · FLEI ka. → ↑/↓ trendi (`flei_historia`) · Avoimet testit → "vanhin X pv sitten".
-- **Neliosainen joukkuepulssi** `renderTeamPulse` (§26) + **kattavuussignaalit S6–S9** `renderSignals` (§26).
-- **Joukkueen syvänäkymä** `avaaJoukkueSyvanakyma`: pulssikortin klikkaus → modaali 3 välilehteä (Tekniikka TKI-ranking · Tuki ryhmittely kehityskohteittain · Yhteenveto TKI-jakauma). Vain pikakentistä. (Korvasi `avaaJoukkueTrendiModal`:n.)
-  - **Dual-taso-radar (§28/§30, 2026-07-01):** Tavoitetaso-välilehden per-testi-radariin **Ikäluokka | Kehitysvaihe | Molemmat** -toggle (`_jsvRadarNayta`/`_jsvRadarSisalto`). Kehitysvaihe-taso `TM_KEHITYSVAIHE.kehitysvaiheTaso` per-pelaaja (offset=`biologinenIka_viimeisin.maturity_offset`) VAIN fyysisille akseleille (lin10m/lin30m/cmj/mas, MAS ÷3.6); SM-akselit → ikäluokka-arvo. `_tmRadar5D` sai additiivisen `opts.overlay`-sarjan (Molemmat = keh teal-täyttö + ika `--blue` viiva). **Graceful:** ei PHV/lib → toggle lukossa, ikäluokka-radar ennallaan (Sibbo TKI-only OK). Per-pelaaja Tekninen-osiossa **COD-raakadata** (`hh_viimeisin.sm_juoksu`→`sm_pallo`) + TSI §21-värillä.
-  - **PR B (2026-07-02, live-verifioitu demo-DOM:issa):** välilehdet **4→3** — Yhteenveto+Tavoitetaso yhdistetty **"Tilanne"**-välilehdeksi (`_jsvTilanneHTML` = radar-hero `_jsvRadarBlokki` + painopiste-CTA + collapse[per-testi-jakaumat, oletus kiinni] + datapolku). Järjestys `Tilanne · Tuki · Pelaajat`, oletus Tilanne. Radar isompi (`_tmRadar5D` additiivinen `opts.maxW`, hero 420px; vasen 5D-radar 320 ennallaan). Ristiviitteet päivitetty (`_jsvBtn0→Pelaajat=2`, `_jsvBtn3→Tilanne=0`), `_jsvVaihda`-silmukka 4→3. Per-pelaaja TSI-otsikko "TSI (pallon hidastus)". **Jäljellä (pikku-polish):** vasemman vitals-kortin D1/D2-palkkien §28-tavoitetikki (nyt arvopohjainen väri kuten ennen).
-- **VAI+ (5-komponenttinen):** ADAR 30% · Käynnit 20% · Harjoittelu 20% · Kontakti 15% · **Kehitys 15%** (joukkueen TKI/H-H Δ pelaajadatasta). Profiilipaneeli: UEFA-lisenssitaso (Grassroots/C/B/A/Pro) + erikoistuminen + CPD-tunnit + koulutushistoria. Lisenssibadge coach-kortissa.
-- **Coach-modaali (2026-06-07):** `avaaCoachPanel(id)` → dynaaminen center-modal (`#coachModal`) 4 välilehteä: Profiili (lisenssi+CPD+koulutukset) | VAI+ (5 progress bar + hälytykset + kehitysinfo) | Harjoituslaatu (SPL 7 kriteeriä) | Mentorointi (viesti+historia). `_cmTab(idx)` vaihtaa tabit. Seuraa `avaaJoukkueSyvanakyma`-patternia. `suljePaneeli()` = `modal.remove()`.
-- **Avoin:** Raportointi "Lähetä HoT:lle" = vain `toast()`.
-
----
-
-## 20. INTEGRAATIOARKKITEHTUURI — ekosysteemistrategia
-
-Platform johon datalähteet konvergoivat; lock-in tulee datasta, ei sopimuksista.
-
-**`lahde`-kenttä kaikkialle:** `lahde: 'manuaalinen'|'catapult'|'polar'|'taso'|'wyscout'|'palloliiton_api'`,
-`lahde_id: string|null` (synkronointi + deduplikointi).
-
-**TASO (osittain):** `tasoHaeSeuranOttelut` deployattu (passit, laukaukset, minuutit, arvosanat).
-Puuttuva (Sprint 4–5): valmentaja lataa TASO-datan kalenteriin → kohderakenne:
-```
-seurat/{id}/tapahtumat/{otteluId}: tyyppi 'ottelu', vastustaja, pvm, joukkue, taso_ottelu_id
-pelaajat/{id}/pelidata/{otteluId}: minuutit, laukaukset, passit, taso_arvosana, lahde 'taso', lahde_id
-```
-**iCal-vienti (Sprint 5):** CF → `/api/kalenteri/{seuraId}/{joukkue}.ics` → Google/Outlook/Apple.
-
-**Prioriteetti:** 🔴 TASO→kalenteri+pelidata (4–5) · 🟡 iCal (5) · 🟡 Catapult/Polar (6–7) ·
-🟢 Palloliiton API (8+) · 🟢 Wyscout/InStat (8+).
-
----
-
-## 21. AI-ARKKITEHTUURI
-
-**Behavioural Science -agentti (Sprint 6–8):** `Firestore trigger → Cloud Function → Anthropic API → pelaajan näkymä`.
-Triggerit: streak katkeaa · 3pv streak · fiilinki matala 2pv · uusi viikko · PHV-huippu.
-Käyttäytymistiede: habit loop (Duhigg), implementation intention (Gollwitzer), loss aversion, temptation bundling (Milkman).
-Tekninen: `tm_ai.js` provider-agnostic wrapper, `TM_AI.call()` — ei suoria API-kutsuja UI:sta, CF = AI-proxy (API-avaimet ei selaimessa).
-
-**RAG:** Firebase Vector Search (beta) tai Pinecone — aktivoidaan kun **500+ pelaajaa** usealta kaudelta, ei aiemmin.
-
-**MCP / Open API:** Palloliiton MCP-server on jo (`jsvirtane/tulospalvelu-mcp`); TM rakentaa oman.
-`llms.txt`: api.talentmasterid.com/llms.txt. Versiointi `/v1/`, OpenAPI 3.1.
-Auth: API-avain (seurat) · OAuth 2.0 PKCE (scoutit) · JWT (Palloliitto). Rate: 1000/100/10000 per h.
-
----
-
-## 22. TESTAUSINFRASTRUKTUURI
-
-### Testikerrokset
-| Kerros | Tiedosto | Käyttötapa | Firestore-polku |
-|---|---|---|---|
-| **Yhdistetty** | `Testaus_v9.html` | Wizard + korttinäkymä + offline-ensin (v8 + Harjoitettavuus) | `testitapahtumat/{id}/tulokset/{pid}` + `joukkueet/{jid}/kalenteri/{kid}` |
-| Massatuonti | `Excel_Tuonti.html` | Historiallinen data + Palloliiton PDF (§24) | `testitulokset/`, `testitapahtumat/.../tulokset/` |
-
-> v8 + Harjoitettavuus_v4 arkistoidaan kun pilottiseura on testannut v9:n.
-
-### Testaus_v9 — kolme sovellusta yhdessä tiedostossa
-1. **Suunnittelu** (toimistossa, vaiheet 1–4): protokolla + alusta + joukkue + osallistujat + ryhmäjako
-2. **Kenttänäkymä** (testipäivänä, vaihe 5): korttinäkymä yksi pelaaja kerrallaan · rotaatio ·
-   **offline-ensin (localStorage→Firestore)** · vihreä välähdys 800 ms · 1–3 p pisteytys · ℹ-kenttäohjeet ·
-   Palloliiton kuljetus-laukaus-erikoissyöttö (raaka + 4 rangaistuskenttää + auto-tulos) · reaaliaikainen TKI + merkki
-3. **Tarkastelu** (jälkeen, vaiheet 6–8): sync-status per pelaaja · "Merkitse valmiiksi" · FLEI/TKI/TSI värikoodattu taulukko · A4-print per pelaaja (Carbon→valkoinen)
-
-**Kalenteri-kirjoitus = kaksi polkua:** `testitapahtumat/{id}` (POLKU 1) + `joukkueet/{jid}/kalenteri/{kid}`
-(POLKU 2, try-catch best-effort; vaati Rules v2.7 kalenteri-blokin).
-**Offline-ensin:** kentällä localStorageen, synkka taustalla kun verkko auki.
-
-### Excel-kiertokulku (testit ilman nettiä)
-VP luo tapahtuman → valitsee protokollan + aktiiviset testit + pelaajat → `testitapahtumat/{id}` →
-"📥 Excel" generoi SheetJS:llä (pelaajat esitäytetty, vain valitut testit, ohjeet-lehti + tapahtuma-ID
-metadatana, tiedosto `TM_2026-syksy_kpv-u15_20260915.xlsx`) → testaaja täyttää kentällä → VP lataa
-Excel-tuontiin (PalloID pakollinen, P/T → M/N, esikatselu, batch write).
-
-### Tapahtuma-Firestore-rakenne (lukittu)
-```javascript
-testitapahtumat/{tapahtumaId} {
-  nimi, protokolla: "hh_laaja"|"vapaa", aktiiviset_testit: ["lin_5m", ...],  // VP valitsi
-  // vapaa-moodissa: omat_testit_meta: [{id, nimi, yksikko}, ...]
-  kausi: "2026-syksy", pvm_alku, joukkue, arvioija, tila: "suunniteltu"|"avoin"|"valmis",
-  pelaajatData: [{id, etunimi, sukunimi, tunniste, phv_tila}],
-  tulokset/{pelaajaId} { testit: {lin_5m: 1.12, ...}, testauspvm, kausi, tunniste }
-}
-```
-
-### Testi-ID:t (Firestore + Excel + indeksilaskenta)
-| ID | Selitys | Yks | Ketju | Logiikka |
-|---|---|---|---|---|
-| `lin_5m`/`lin_10m`/`lin_30m` | Lineaarinopeus (30m = TSI:n perusta) | s | SBL | pienempi=parempi |
-| `505_oikea`/`505_vasen` | 5-0-5 ketteryys per puoli | s | LL | pienempi |
-| `kasirata` | Ketteryyskasirata (kahdeksikko) | s | LL | pienempi |
-| `sm_juoksu` | Suunnanmuutos ilman palloa | s | DIAG | pienempi |
-| `sm_pallo` | Suunnanmuutos pallolla (lajitekniikka) | s | DIAG | pienempi |
-| `hyppy_cj`/`hyppy_sj` | Kevennyshyppy (CMJ) / staattinen (SJ) | cm | SFL | suurempi |
-| `mas` | MAS-juoksutesti (max aerobinen nopeus) | km/h | SFL | suurempi |
-| `pujottelu`(`_hh`) | Pujottelu | s | LL | pienempi |
-| `syotto`(`_hh`) | Syöttö | s | DIAG | pienempi |
-| `ponnauttelu` | Ponnauttelu (sarjan suoritusaika) | s | DFL | pienempi |
-| `kuljetus_laukaus` | Kuljetus-laukaus (tarkkuusvähennyksin) | s | DIAG | pienempi |
-| `pituuspotku` | Pituuspotku (aikabonus metrit/5, max 20s) | m | SBL | suurempi |
-
-**TSI (Tekninen suunnanmuutos-indeksi)** = `sm_pallo − sm_juoksu`. Positiivinen → fysiikka > tekniikka;
-lähellä nollaa → tekniikka vahva. Hyvä pelaaja häviää ~0.3–0.6 s pallon kanssa; selvästi enemmän → lajitekniikkavaje.
-
-**MAS-käännöskorjaus `−20.3 s`** (MyE.Way-pariteetti, 2026-07-01): `MAS m/s = 1200 / (kokonaissek − 20.3)`,
-`km/h = ms × 3.6`. Verifioitu 2 MyE.Way-referenssipisteellä. **Kolme kopiota** eri arvoilla ennen korjausta →
-yhtenäistetty: `Excel_Tuonti.html` (`MAS_KAANNOSKORJAUS_S`, ent. 20) · `tm_testipankki.js` (`TM_LASKE_MAS`, oli jo
-oikein) · `Testituonti_Master.html` (`masAikaKmh`, oli korjaamaton — elävä, Master_v16 `_avaaTuonti`). **Tekninen
-velka:** single-source + re-export (sama kuin PHV-vakio); lisäksi Excel_Tuonti pyöristää ms:n ENNEN ×3.6 (→ MyE.Way-tarkka),
-Testituonti_Master pyöristää vasta lopuksi (ero ≤0.01 km/h pyöristysrajalla, ei korjauksesta). **PÄÄTÖS 2026-07-01:
-vanhaa MAS-dataa EI lasketa uudelleen** (SJK poikien 04-01 MAS −20-perustalla, ero ≤0.05 km/h). Regressio: `tests/mas_myeway.test.js`.
-
-**Alustaherkkyys (`ALUSTAHERKAT_TESTIT`):** juoksu- ja ketteryystestit (`lin_*`, `505_*`, `kasirata`,
-`sm_*`, `kuljetus_laukaus`, `pujottelu*`, `syotto*`, `mas`) vaativat alusta-tiedon (tulokset eivät vertailukelpoisia
-eri alustoilla). Liikkuvuus-/harjoitettavuustestit (kyykky, lankku jne.) eivät ole alustaherkkiä.
-
-### Historiapohja-tuonti (Excel_Tuonti, kaksi moodia)
-- **Moodi A — Tapahtumapohjainen** (default): vaatii Tapahtuma-ID:n → `seurat/{sid}/testitapahtumat/{tid}/tulokset/{palloID}`.
-- **Moodi B — Historiapohjainen**: EI vaadi tapahtumaa → `seurat/{sid}/pelaajat/{palloID}/testitulokset/{pvm}_{protokolla}`:
-```javascript
-{ testit: {ponnauttelu:48, ...}, kausi, protokolla: "tekniikkakilpailu"|"hh_laaja"|"harjoitettavuus_u12",
-  lahde: "historiapohja", testauspvm, tuotu, tuojaUid, flei_pct, tki, phv_tila, tallennettu: serverTimestamp() }
-```
-Doc-ID `{pvm}_{protokolla}` (estää konfliktit usean protokollan samana päivänä).
-**Pelaajaprofiili päivitetään VAIN jos PalloID löytyy** ristiintarkistuksessa; tunnistamattomat → vain
-`testitulokset`-alikokoelmaan (review-jono). **WriteBatch** atomisuus max 400 dok/erä (raja 500);
-`flei_historia`-array käyttää `new Date().toISOString()` (ei serverTimestamp arrayssa).
-
-### Pelaajatunniste-arkkitehtuuri (kv-valmius)
-Tunnistearvo `tunniste`/legacy `palloID` -kentässä + `tunnistetyyppi`-metakenttä (audit-jälki):
-`'palloID'` (Suomi, virallinen) · `'tunniste'` (seuran/järjestelmän oma: Excel `Tunniste`/`PlayerID`/`SpelareID`/`Spieler-ID`) · `'muu'` (fallback).
-Excel-tuonti tunnistaa sarakkeet monikielisesti, prioriteetti PalloID → järjestelmätunnisteet. Sama Firestore-rakenne
-palvelee koti- + kv-dataa ilman migraatiota. Kv-laajennus tarvitsee maakohtaisen
-`seurat/{sid}/konfiguraatio/tunnistetyyppi: 'DFB-ID'|'NIF-ID'|...` + saksankielinen otsikkohaku (Sprint 3.2).
-
----
-
-## 23. TEKNIIKKAKILPAILU & TKI — AIKAPOHJAINEN (canonical: `docs/testit_indeksit.js`)
-
-**Kaikki 5 lajia mitataan sekunteina, pienempi = parempi** (TK_LAJIT_META kaikki `kaanteinen:true`).
-Ei lajikohtaisia merkkirajoja — käytössä **`TK_KOKONAISRAJAT`** (kokonaistulosrajat sekunteina per ikä+sukupuoli 8–13).
-
-| Laji | Yritykset | Yks | Erikoislogiikka |
-|---|---|---|---|
-| Ponnauttelu | 2 | s | Sarjan suoritusaika, paras (pienin) |
-| Syöttö | 2 | s | Paras aika. Näyttönimi yhtenäisesti **"Syöttö"** (ent. "Syöttö pujotellen"); sisäinen id `syotto` |
-| Pujottelu | 2 | s | Paras aika |
-| Kuljetus-laukaus | 2 | s | Raaka − tarkkuusvähennykset (+ ennenaikaiset ×10 s) |
-| Pituuspotku | 2+2 (oik+vas) | m | metrit/5 → aikabonus (max 20 s) **vähennetään** kokonaisajasta, vain U12–13 |
-
-**Kuljetus-laukaus vähennykset:** Nurkka ilmassa −5 s · Nurkka maata −2 s · Keski ilmassa −3 s · Keski maata −1 s.
-
-**Kokonaistulos** = ponnauttelu + syotto + pujottelu + kuljetus_laukaus.tulos − pituuspotku-aikabonus (ika ≥ 12).
-
-**TKI — nelivyöhyke kokonaistuloksesta** (EI lajeittain), lasketaan vain ika 8–13 (muuten TKI=null):
-- Kulta (≤ kultaraja): **80–99** — `ideaali = Math.min(rajat.kulta*0.5, kokonaistulos*0.5)` → sileä gradientti, ei litisty 99:ään
-- Kulta–hopea: **60–80** · Hopea–pronssi: **40–60** · Pronssin alle: **0–40** (vertailupohja pronssi×1.5)
-
-**Merkki AINA kokonaistuloksesta** `tkLaskeMerkki(kokonaistulos, ika, sp, rajatOverride?)` — käyttää `<` (ei `<=`;
-tasan rajalla EI merkkiä), 4. param = testitulokseen tallennettu `merkkirajat`, muuten `TK_KOKONAISRAJAT`.
-Renderöinti (`_tkiMerkkiM`/`_tkiMerkkiVP`) lukee **VAIN `tki_merkki`-kentästä** (`const m = merkkiKentta || null`,
-ei TKI-johdettua fallbackia). Recalc kirjoittaa `tki_merkki:null` myös puuttuessa → ylikirjoittaa vanhan väärän.
-
-**Canonical-funktiot** `docs/testit_indeksit.js`: `tkLaskeMerkki` · `tkLaskeTKI` · `laskeKokonaistulos` ·
-`_laskeVahvuudetJaKehityskohteet` + **TKI-analyysimalli (§34):** `tkLajiViite` · `tkLajiGapit` · `tkSekuntibudjetti` ·
-`tkVaadittuVuosivauhti` · `tkAbsDelta`. Inline-kopiot Testaus_v9 + Excel_Tuonti (+ VP_v25 analyysifunktiot, synkronointikommentilla).
-**KORJAUS 2026-06-11: `TK_KOKONAISRAJAT` T13 pronssi = 135** (oli 130; kaksi riippumatonta alueellista PDF:ää vahvisti, TKI_ANALYYSIMALLI.md §8.8).
-Korjattu 3 kopioon (testit_indeksit + Excel_Tuonti + VP_v25). Päivitä Vitest-odotukset jos muutat.
-
-**TKI-benchmark (VP_v25):** `TK_KANSALLINEN_BENCHMARK` -vakio (valtak. tekniikkakilpailut 2022–2025), **P ja T erikseen**
-(esim. P10=85, T12=87). `lyhennaNimi(nimi)` → benchmark-avain; ei avainta → palkki "—". Taso: ≥80 erinomainen · ≥60 hyvä · ≥40 kehitys · <40 prioriteetti.
-
----
-
-## 24. EXCEL-TUONTI & PALLOLIITON PDF-PARSERI — `TalentMaster_Excel_Tuonti.html`
-
-Kaksi tuontityyppiä: 📊 Excel ja 📄 Palloliiton PDF. **Kahden lähteen periaate:** kenttätyökalu (Testaus_v9) =
-seuran kontrolliharjoitus; Palloliiton PDF = virallinen kilpailu. Molemmat näkyvät Pelaaja_v7 Tekniikkaprofiilissa lähdemerkinnällä.
-
-### PalloID-haku — KENTÄLLÄ, EI doc-ID:llä (KRIITTINEN)
-Doc-ID on Firebase UID, EI PalloID. `_haePelaajaPalloIdilla(palloIdStr)`:
-1. `where('tunniste','==',String(palloId)).limit(1)` — ensisijainen
-2. `where('palloID','==',String(palloId))` — fallback
-3. `.doc(palloIdStr)` — legacy (vanhat tuonnit joissa doc-ID oli PalloID)
-
-Tallennus käyttää löydetyn dokumentin oikeaa ID:tä (`_firestoreDocId`). `.doc(palloId)` palautti ennen aina
-"not found" rekisteröidyille — se oli juurisyy. PalloID **aina** `String(palloId).trim()`; pohjageneraattori
-pakottaa A-sarakkeen tekstimuotoon (`t:'s'`, `z:'@'`) — `_pohjaPakotaTekstisarake`.
-
-### Monisuoritusparsinta (`_1/_2/_3`)
-`_pohjaHeaderMap()` kääntää otsikot `{testId, kind, yritys}`-metaksi (eksakti), fallback `tunnistaTestiId()` +
-suffiksin riisunta. Per testiryhmä: skalaari (`laskeParas`) → `p.testit` (validointi/TKI); rakenne → `p.testitRakenne`.
-- Kuljetus-laukaus: `{y1:{raaka,vahennys,netto}, y2:{...}, paras, tulos}` (netto=raaka−vähennys, paras=min)
-- Pituuspotku: `{oikea:{y1,y2,paras}, vasen:{...}, paras_m, metrit, aikabonus_s}` (`metrit` → `laskeKokonaistulos` lukee bonuksen)
-
-Tallennus kirjoittaa TKI + `merkki` testitulokset-dokumenttiin + pikakentät pelaajaan (§26). TK-aikavalidointi
-lievennetty: >200 s / <1 s → keltainen varoitus, ei estä tallennusta. Excel-pohjan sarake `Syotto_s` (ei `Syotto_pujotellen_s`).
-
-### Palloliiton PDF — `PDF_VERSIO = 'kaksipassi-v5'` (pdf.js 3.11.174 CDN, ei npm)
-**Rivinparsinta POSITIOPOHJAINEN** (`_pdfParsiPelaajarivi`), EI x-lähikartoitus (vanha x-nearest konkatenoi
-sarakkeet → 10× liian suuri). Solut x-järjestyksessä → tokenit → numerot. Sija/viiva strippataan nimen alusta;
-seuranimi poistetaan (`PDF_SEURANIMET` + valittu `seuraNimi`); `ES`→null; syntymävuosi (`\d{4}`) erotellaan nimestä.
-
-**P12 sarakekartoitus — LOPPUANKKUROINTI:** `lopputulos = nums[n-1]`, `ponnauttelu = nums[n-2]` (vakaa kaikille
-ikäluokille); etu vakaa (kl_aika/vah/tulos, syotto, pujottelu = 0–4); pituuspotku = väliin (5..n-3) jäävät
-(vain P12–P13, ehto `ctx.ika>=12 && n>=8`). Korvasi hauraan `onU12 = n>=10`-ehdon.
-**O+V "X+Y"-muoto:** pituuspotkun yhdistelmäsolu (esim. "18+26") puretaan **kahdeksi** numeroksi (pp_o, pp_v).
-
-**MONIPÖYTÄTUKI — KAKSIPASSINEN PARSINTA:** sama PDF voi sisältää useita ikäluokkia (P12+P10+P9).
-- **Passi 1:** etsii otsikkorivit (`IKAOTSIKKO = /^(T|P)(\d+)$/i`, koko rivi = täsmälleen "P12") → rivivälit
-  `{ikaluokka, sukupuoli, ika, alku, loppu}`. **Dedup:** sama otsikko voi toistua sivunvaihdon yli (P9 sivuilla 1 JA 2)
-  → osiot yhdistetään, duplikaattiotsikkorivit ohitetaan Passi 2:ssa.
-- **Passi 2:** parsii osiot omalla **`ctx`-OBJEKTILLA** `{ikaluokka, ika, sukupuoli}` — **ctx PAKKO olla objekti**
-  (string → `ctx.ika` undefined → P12-kartoitus 7-sarakkeiseksi + TKI laskematta). P12-minimi `nums.length >= 5`, muut >= 6.
-- Testattu Sibbon tulosteella: P12 23 · P10 26 · P9 15 = 64 riviä, 62 yhdistyi nimellä, 0 duplikaattia ✅.
-
-**Yhdistää nimellä:** `where('sukunimi','==')`+`where('etunimi','==')` → 1 auto, 2+ manuaalivalinta, 0 ei löydy.
-**EI luo uusia pelaajia automaattisesti.** **Duplikaattisuojaus:** docKey `{pvm}_tekniikkakilpailu_{ikäluokka}`;
-PalloID-yhdistämisen jälkeen `tarkistaDuplikaatit()` (Promise.all) → 🟡 "Tallennettu X · Uusi Y" + [Ohita]/[Korvaa]
-(oletus Ohita; ohitus vain tallennuksessa `_pdfTallennetaanko`, kaikki rivit näkyvät esikatselussa).
-**Tallennus:** per rivi oma `ikaluokka`/`sukupuoli`; litteät kentät (`syotto_s`…`kokonaistulos_s`) **+ `testit:{}`-map**
-(Pelaaja_v7-renderöinti); `lahde:'palloliitto_pdf'`; TKI/merkki kanonisilla funktioilla per rivin `ika`.
-
-### Admin-työkalut (SA only)
-- **↻ Laske TKI uudelleen** (topbar): laskee `tki_viimeisin` + pikakentät uudelleen pelaajan viimeisimmästä
-  tekniikkakilpailu-tuloksesta. **Ikä pelaajan `syntymaVuosi`-kentästä** (EI testituloksen ikäluokasta — ikäluokka =
-  kilpailusarja), **kilpailuvuosi testituloksen `d.pvm`-kentästä** (ika = kilpailuvuosi − syntymaVuosi). Ei vaadi PDF:ää.
-  Kun `tki == null` recalc **NOLLAA** `tki_viimeisin` + `tki_merkki` (poistaa vanhan väärän arvon).
-- **`siivoaBugisetTulokset(seuraId, ikaluokka, maxKokonais, dryRun=true)`** konsolifunktio — poistaa testitulokset
-  joissa `kokonaistulos_s < maxKokonais` (dry-run oletus listaa, `false` poistaa).
-- **`recalcIkaluokasta(seuraId, joukkue, dryRun=true)`** (topbar-nappi + konsoli, SA): recalc kun **`syntymaVuosi` puuttuu**
-  (esim. Sibbo). Johtaa iän+sp testituloksen **`ikaluokka`-kentästä** ("P10"→10/'P'), **OHITTAA tallennetun `merkkirajat`-kentän**
-  (= P10→P9-bugin lähde) → `TK_KOKONAISRAJAT[sp][ika]`. Valitsee pelaajan **joukkueen** ikäluokkaa vastaavan tuloksen (ohittaa stray-docit).
-- **Molemmat recalc-funktiot hyväksyvät historiapohja-docit (KORJAUS 80cb332):** suodatin = `kokonaistulos_s != null` **TAI**
-  (`protokolla=='tekniikkakilpailu'` && ei-tyhjä `testit`-map). Kokonaistulos lasketaan kanonisella `laskeKokonaistulos(d.testit, ika, sp)`:lla
-  kun litteä `kokonaistulos_s` puuttuu (§22 Moodi B -tuonnit eivät enää ohitu hiljaa). pvm-vahti + `_edellinen`-logiikka ennallaan.
-
-**CDN-versiovaroitus:** `PDF_VERSIO` konsolissa + `_tarkistaCdnVersio()` vertaa raw.githubusercontent.com:iin (vain
-github.io-hostilla) → amber-banneri jos vanha. Raw-linkki näyttää lähdekoodin (text/plain) — todellinen tuoreutus on `?v=`.
-
----
-
-## 25. BIOLOGINEN IKÄ — `lib/tm_bioika.js`
-
-### Kahden menetelmän jako (eivät kilpaile — Eerikkilä/Palloliitto MyEWay)
-| Menetelmä | Kysymys | Käyttö | Tila |
-|---|---|---|---|
-| **PHV (Mirwald 2002)** | "Mitä pelaajassa tapahtuu nyt?" | Harjoittelun ohjaus, kuormarajoitin, loukkaantumisriski | ✅ Toteutettu |
-| **Khamis-Roche (1995 erratum)** | "Kuinka kypsä suhteessa muihin?" | Bio-banding, ryhmittely, %PAH | ⏳ LUKITTU (`KR_KERTOIMET_PUUTTUU`) |
-
-### PHV — Mirwald 2002 (Excel-verifioitu identtiseksi)
-**Lähde:** Mirwald RL et al. Med Sci Sports Exerc 2002;34(4):689-694.
-**Toteutus:** `laskeMirwald()` + `laskeBioIkaDokumentti()` + `bioIkaTallennusOperaatiot()`.
-Verifioitu `TalentMaster_BioIka.xlsx`:stä ZIP-XML-tasolla (11 kerrointa identtiset, PHV-kynnykset, yli-ikäisyystaulukko).
-**Poikien Mirwald-vakio `−9.3236`** (MyE.Way-pariteetti, 2026-07-01, verifioitu 2 referenssipisteellä — eroaa
-julkaistusta Mirwald 2002 -arvosta `−9.236` 0.088 v/~1 kk, koska Palloliiton live-tuote MyE.Way käyttää tätä →
-täsmäävät PHV-luvut SJK-ekosysteemissä); **tytöt `−9.376`** (jo identtinen MyE.Way'n kanssa, ennallaan).
-**Kolme kopiota:** `tm_bioika.js` (kanoninen) · `tm_testipankki.js` · `tm_ylaikaisyys.js` — **päivitettävä yhdessä**
-(tekninen velka: → single-source + re-export). Regressio: `tests/bioika_myeway.test.js` lukitsee pariteetin.
-
-**Pakolliset muuttujat:** `ika` (desimaali, `syntymapaiva` → `Date.UTC()`) · `pituus` (cm, 2× ka) ·
-`paino` (kg, 2× ka) · `istumapituus` (cm, 1×, kriittinen) · `sukupuoli` `'P'`/`'T'` (erilliset kaavat).
-Sukupuoli normalisoidaan: `M`→`P`, `N`→`T` (`normSukupuoli()`).
-**Tulos:** `maturity_offset` (vuosia PHV-huipusta) · `phv_ika = ika − offset` · `phv_tila_koodi` · `yli_ikaisyys.poikkeuslupa`.
-
-**PHV-tilakoodi (CANONICAL — käytä KAIKKIALLA):**
-| Koodi | Merkitys | offset |
-|---|---|---|
-| `PRE` | Ennen kasvupyrähdystä | < −1.0 |
-| `LAH` | Lähestyy | −1.0 … −0.5 |
-| `PH` | Kasvupyrähdyksessä ⚠️ **VAROITUSTILA** | −0.5 … +0.5 |
-| `POST` | Jälkeen | +0.5 … +1.0 |
-| `AN` | Jälki-PHV | > +1.0 |
-
-**EI** `pre_phv`/`circa_phv`/`huippu`/`PHV` (vanhat koodit vain backward-compat: Pelaaja_v7 `_laskeStage`/signaalit).
-**`phv_tila === 'PH'` → kuormarajoitin:** voimaharjoittelu max 80 % 1RM, hyppyvolyymi −20 %, juoksuvolyymi seurattava.
-
-### Bio-banding V1 (Mirwald-pohjainen — EI Khamis-Rochea) — `docs/BIOBANDING_ARKKITEHTUURI.md`
-Rakentuu vain olemassa olevaan Mirwald-PHV:hen (ei riippuvuuksia). **PÄÄTÖS 2026-07-01: V2 (Khamis-Roche %PAH + maturity z-score + dual-taso) LYKÄTTY** — Palloliitto vasta *kokeilee* KR-testejä → KR-data ei luotettavaa/laajaa. V1 tuottaa arvoa heti (SJK 8 PHV-pelaajaa).
-- **`kehitysvaiheKaista(phv_tila_koodi)` → `'pre'|'circa'|'post'`** (bio-banding circa = ±1v PHV:stä): PRE→pre · LAH+PH+POST→circa · AN→post. Pikakenttä `kehitysvaihe_kaista` (biologinen_ika-dok + pelaajadok).
-- **`laskeKasvutahti(pituus_nyt, pvm_nyt, pituus_edell, pvm_edell)` → `{cm_v, vyohyke}`**: vyöhykkeet **hidas <3,0 · kohtalainen 3,0–7,2 · nopea ≥7,2 cm/v**. **≥7,2 = loukkaantumisriskisignaali** (PMC6293374, PH-kuormarajoittimen rinnalle). Guard: `null` kun <2 kasvumittausta. Pikakentät `kasvutahti_cm_v`/`kasvutahti_vyohyke` (Testaus_v9 hakee edellisen `biologinen_ika`-dokin → `syote.edellinen`).
-- **Yli-ikäisyys −0,75 näkyviin:** `yli_ikaisyys.poikkeuslupa` (jo laskettu, `YLI_IKAISYYS_KYNNYS` + `phv_ika >= kynnys`, **Palloliitto-pariteetti verifioitu — ÄLÄ muuta**) surfacataan VP bio-banding-näkymässä + Pelaaja-kortissa (positiivinen mahdollisuus, §7.22-turvallinen).
-- **Bio-banding-ryhmittelynäkymä** `avaaBioBanding()` (VP_v25 Työkalut-sidebar): ryhmittelee `_pelaajat` kaistoittain pikakentistä (fallback `phv_tila` → toimii SJK:n olemassa olevalla datalla). **§7.22:** kaista + kasvutahti = valmentaja/VP-työkaluja, EI lapselle rankingina.
-- Regressio: `tests/biobanding_v1.test.js` (kaista · kasvutahti-rajat · yli-ikäisyys 4 kanonista esimerkkiä).
-
-### Khamis-Roche — LUKITTU (kertoimet verifioitava ennen aktivointia)
-Alkuperäinen Khamis & Roche 1994 sisälsi **virheellisiä kertoimia** → käytettävä **Pediatrics 1995;95:457 erratum**
-(selittää miksi KR oli aiemmin poistettu). `KR_VERIFIOITU = false` → `laskeKR()` palauttaa `{error:'KR_KERTOIMET_PUUTTUU'}`.
-Aktivointi: lisää erratum-kertoimet `KR_KERTOIMET`:iin + `KR_VERIFIOITU = true`.
-- Kertoimet **imperiaalisia** (tuumat/paunat) — muunna cm/kg ennen, tulos takaisin cm. Puolen vuoden intervallit → **lineaarinen interpolointi** murto-iille (4–17.5 v).
-- **Midparent:** pojat `(isä+äiti+13)/2`, tytöt `(isä+äiti−13)/2`.
-- **Vanhempien fallback** (puuttuville, THL FinRavinto 2017): isä **179 cm**, äiti **166 cm** (EI 181/168 — yläkanttiin → systemaattisesti liian suuret ennusteet). Epstein-korjaus (itseraportoinnin yliarviointi): isä −1.5 cm, äiti −1.0 cm. UI merkitsee AINA "arvio".
-- **Virhe näytetään AINA:** 11–15 v ±2.5 cm, muu ±2.0 cm, +1.5 cm jos estimoitu. Tyttöjen KR tarkempi (keskivirhe 4.3 cm vs. pojat 5.6 cm). Etninen kalibrointi: Fels-aineisto (valkoihoiset pohjoisamerikkalaiset) → maahanmuuttajataustaisilla tarkkuus voi heiketä (rajoitus, ei este).
-
-### Firestore + kasvumittaus
-- **Historia:** `seurat/{sid}/pelaajat/{pid}/biologinen_ika/{pvm}` (oma dok per mittauspäivä, oma Rules-blokki §12).
-- **Bio-pikakentät pelaajadokumentissa:** `phv_tila` (koodi) + `biologinenIka_viimeisin` (koko viimeisin mittausdok). KR Sprint 4: `kr_isa_cm`/`kr_aiti_cm`.
-- **Vanhempien pituudet** (rekisteröinnistä): `isa_pituus_cm` / `aiti_pituus_cm` / `vanhempi_pituus_puuttuu`. Validointi isä 140–220, äiti 130–200; vapaaehtoisia (adoptio/yksinhuoltaja). GDPR-informointi: käytetään biologisen kypsyyden arviointiin.
-- **Kasvumittaus (Testaus_v9 `kasvumittaus`-protokolla):** pituus 2× + paino 2× (`laskentatapa:'keskiarvo'`) + istumapituus 1×.
-  `_v5SyotaYritys`: jos `laskentatapa==='keskiarvo'` → `obj.paras` = yritysten keskiarvo (ei "paras"). PHV lasketaan +
-  tallennetaan kahteen polkuun "Merkitse valmiiksi" -toiminnossa. Mittausaika ~3–4 min/pelaaja. Väli: U10–12 2×/v · U13–15 3×/v · U16–19 1–2×/v.
-- **Älä kopioi `tm_bioika.js`:ää** — repon versio on auktoritatiivinen (287 riviä, Excel-verifioitu); laajenna sitä.
-
----
-
-## 26. MITTARISTOARKKITEHTUURI
-
-**Periaate:** jokainen Firestoreen tallennettu testidatasetti tuottaa automaattisesti **(1) pikakentät**
-pelaajadokumenttiin, **(2) joukkuetason KPI:t** VP-dashboardiin (ka + kattavuus n/koko), **(3) suunnan**
-(↑/→/↓ kun ≥2 mittausta), **(4) kattavuussignaalin** kun kattavuus heikko. Pikakentät luetaan dashboardissa
-suoraan pelaajadokumentista — **ei alikokoelmakyselyjä renderöinnissä.**
-
-> **⚠️ PARI-INVARIANTTI — arvo + pvm päivitetään AINA atomisesti samasta testituloksesta (2026-07-02):**
-> pikakenttä-pari `hh_viimeisin` + `hh_pvm` (samoin `tki_viimeisin`/`tki_pvm`, `tk_lajit_viimeisin`/`tk_lajit_pvm`,
-> `flei_viimeisin`/`flei_pvm`) kirjoitetaan **yhdessä**, samasta test-docin pvm:stä. **Juurisyy-bugi:** `recalcHHsplits`
-> (+ `recalcHH` sm-persistointi) päivittivät `hh_viimeisin`-ARVOT muttei `hh_pvm`:ää → SJK:lla ~76 % pelaajista väärä
-> "viimeisin testi" -pvm (arvot tuoreita, pvm jäi 1.4.). Väärä `hh_pvm` rikkoo §29-kehitysvauhdin pvm-vahdin +
-> "vanhin testi X pv" -signaalit (§17/§18). **Korjattu:** `recalcHHsplits` kirjoittaa nyt `hh_pvm`:n lähde-testistä;
-> **`korjaaHhPvm(seuraId, dryRun=true)`** (Excel_Tuonti admin, `recalcHH`-perheen vieressä) reconciloi `hh_pvm` =
-> **VIIMEISIN (max) vaikuttanut H-H-testipäivä** (A-semantiikka: "milloin viimeksi testattiin"; fyysinen TAI
-> H-H-tekniikka syöttö/pujottelu, EI TKI). **EI backdate** — merge-pelaaja (fys 5.6. + tekn 9.6.) → `hh_pvm` 9.6.
-> Idempotentti, EI koske arvoihin. Backfill ajettu käsin 46 pelaajalle (SJK 45 + palloiirot 1), 0 ristiriitaa.
-> Aja `korjaaHhPvm` kaikille pilottiseuroille + uusien seurojen tuonnin jälkeen. **Per-patteristo-pvm:t** (fyysinen/tekniikka/TKI/PHV erikseen) = pikakenttä `testipaivat` (§ per-pelaaja-detalji).
-
-| Datasetti | Pikakentät | Tila |
-|---|---|---|
-| **TKI** | `tki_viimeisin` · `tki_pvm` · `tki_merkki` (kulta/hopea/pronssi) · `tki_vahvuus` · `tki_kehityskohde` (laji-id) · `tki_edellinen`(+`_pvm`) | ✅ Excel/PDF |
-| **TK-lajit** (§34) | `tk_lajit_viimeisin {ponnauttelu_s, syotto_s, pujottelu_s, kuljetus_laukaus_s (NETTO), pituuspotku_bonus_s (vain ≥12v)}` · `tk_lajit_pvm` · `tk_kokonaistulos_viimeisin/_edellinen/_edellinen_pvm` (pvm-vahti; **recalc EI vangitse edellistä**) | ✅ Excel/PDF/recalc×2 (`_tkLajitPikakentat`) |
-| **H-H** | `hh_viimeisin {lin30m, cmj, mas}` · `hh_pvm` · `hh_taso` (1–5, `laskeHHTaso` Eerikkilä) | ✅ Excel (hh_laaja/suppea) |
-| **FLEI** | `flei_viimeisin` · `flei_pvm` · `flei_historia[]` | ✅ (odottaa kenttädataa) |
-| **PHV** | `phv_tila` · `biologinenIka_viimeisin` (offset + pvm) | ✅ Testaus_v9 |
-| **ADAR** | `adar_viimeisin {a,d,ac,r,yht,pvm}` · `adar_pvm` · `adar_havaintoja` · `adar_vahvin` · `adar_heikoin` | ✅ kytketty: ADAR_Pikakortti `saveCard()` kirjoittaa (kanoninen replika Master-helperistä, 2026-06-15) |
-
-> **⚠️ Normipäivitys 2026-06-05 (pojat + tytöt VALMIS):** Kaikki H-H-normit päivitetty Palloliiton
-> **FINAL2024**-virallisiin arvoihin. Identtiset MyWayn kanssa. Koskee: 5m, 10m, 20m, 30m, kasirata,
-> SM-juoksu, SM-pallo, CMJ, MAS, pujottelu (3-portainen), syöttö (3-portainen).
-> **PAKOLLINEN: aja `recalcHH` kaikille pilottiseuroille ennen VP-näyttöä:** sjk, sibbo, kpv, grifk, palloiirot.
->
-> **Normiarkkitehtuurin periaatteet (pysyvät):**
-> 1. **`EERIKKILA_NORMIT` (`tm_eerikkila_normit.js`) on single source of truth** kaikille H-H-normeille.
-> 2. **`HH_NORMIT_PIKA`** (Excel_Tuonti + VP_v25) sisältää vain 30m/CMJ/MAS — muut haetaan EERIKKILA-libistä.
-> 3. **`testit_indeksit.js` `HH_NORMIT`** on täydellinen kopio kaikista testeistä, molemmat sukupuolet.
-> 4. **10m ja 20m: EI `HH_NORMIT`:ssa** — EERIKKILA lib on ainoa lähde (VP lukee ne `eerikkilaTaso`:lla).
-> 5. **H-H pujottelu/syöttö = 3-portainen normisto** (taso 1-3, vain P/T 10-15). TK pujottelu/syöttö = TKI-laskenta
->    + mitalit. Fyysisesti sama rata, eri protokolla ja normi. Sama tulos voidaan tallentaa molempiin.
-> 6. **Tyttöjen PDF (FINAL2024) = sama normisto kuin pojilla**, eri raja-arvot.
->
-> **INVARIANTTI — protokollavalinta (Excel-tuonti):** Pujottelu ja syöttö voivat olla H-H tai TK protokollalla
-> — protokollavalinta pakollinen Excel-tuonnissa (esikatselun valintapaneeli; H-H → `hh_viimeisin.{pujottelu|syotto}`
-> + `testit.{id}_protokolla:'hh'`; TK → TKI-laskenta + `'tk'`). **Ponnauttelu = aina TK. 10m/30m/CMJ = aina H-H.**
->
-> Tekn. huom: `hhLaskeTaso` yleistetty taulukon pituuden mukaan (4→1-5, 2→1-3); 3-portaiset normalisoidaan
-> OVR:ssä 5-portaiselle skaalalle (1→1, 2→3, 3→5). `hhLaskeTaso`-ikälookup cappaa 19:ään → M/N-rivit datassa
-> valmiina mutta käyttöön vasta jos lookup laajennetaan; 3-portaiset 16+ → null (ei bogus-tasoa).
->
-> **✅ IKÄLÄHDE-EPÄJOHDONMUKAISUUS — RATKAISTU (§24/§26, 2026-06-17, docs/IKAKONVENTIO_SPEC.md):**
-> Aiemmin recalcHH + Excel-tuonti käyttivät eri ikää (joukkuenimi vs 1.7.-kronologinen) → eri `hh_taso` samalle
-> pelaajalle. **Yksi kanoninen `normiIka(syntymaVuosi, pvm, joukkue)` lib:ssä** (`tm_eerikkila_normit.js`):
-> **norminhaun ikä = ikäluokka = `year(testipvm) − syntymaVuosi`** (EI 1.7.-vähennystä — normit ovat ikäluokkapohjaisia).
-> Pvm puuttuu → currentYear; syntymaVuosi puuttuu → joukkuenimi-fallback. **Bio-ika (Mirwald/PHV §25) pidetään
-> erillään desimaalina** (`syntymaaika`/365.25, EI normiIka:n läpi). Korvattu: Excel `laskeIka` (→normiIka), recalcHH
-> ikäjohto (idempotentti — ika deterministinen tallennetuista kentistä), `perTestTasot`-kutsut, `_devIkaSp` (Master,
-> testipvm:stä ei Date.now()), `_dimIkaSp`/`_jsvPelaajaIka` (VP, per-pelaaja). TKI-pää (§24) oli jo oikein → ei muutettu.
-> **RAE (§14/§30):** `raeKvartaali(syntymaaika)` → pikakenttä `rae_kvartaali` (tuonti+recalc) + `RAE_KERROIN`
-> {Q1:0.92·Q2:0.96·Q3:1.02·Q4:1.06} lib:ssä valmiina; **sovelluskohta talent/OVR-laskennassa = TODO** (ei keksitty OVR-logiikkaa).
-> Vitest: normiIka (3 haaraa) · raeKvartaali (Q-rajat) · idempotenssi · bio erillään. **Re-backfill = erillinen
-> runtime-vaihe** vasta kun seurojen `hh_pvm` on korjattu (SJK: korjaa testipäivä ✎-napilla ensin; spec §6).
->
-> **✅ VALMIS (2026-06-15): `recalcHH` tallentaa `d1_taso`:n.** `recalcHH` (Excel_Tuonti.html:3877–3916) laskee ja
-> kirjoittaa `d1_taso`:n `merge`-setillä. **Ajettu SJK:lle: 58/61 pelaajalla `d1_taso` + `d2_taso` 56** → Master_v16
-> Kehitys-näkymän D1/D2-KPI näkyy nyt SJK:lle. **`d1_taso` = D1-fyysisen dimension taso (1–5) = keskiarvo Eerikkilä-tasoista**
-> testeistä `lin10m, lin30m, cmj, mas (÷3.6 → m/s), kasirata` — vain niistä jotka pelaajalla on, pyöristys 1 des, null jos 0 testiä.
-> **HUOM:** laajempi kuin `hh_taso` (joka käyttää vain `lin30m/cmj/mas`). Ei johdeta lennossa raakadatasta (`hh_viimeisin` =
-> raa'at arvot, ei tasoja) — fabrikoitu taso rikkoisi "näytä mitä on" -periaatteen. **Aja muille seuroille kun H-H-data tuodaan**
-> (06-15: vain SJK:lla H-H-mittaukset; grifk/palloiirot rosterit ilman testidataa, Sibbo TKI-only). `d1_lahde`/`d1_pvm` ei vielä erikseen.
->
-> **✅ JOUSTAVA INDEKSILASKENTA (2026-06-17, §30/§14):** indeksit lasketaan *niistä testeistä jotka on tehty* — ei vaadita kiinteää
-> patteria (ulkomaiset/erilaiset testit: esim. Pallo-Iirot P10 = H-H 10m/30m + syöttö/pujottelu, ei cmj/mas/TKI). **Kanoniset funktiot
-> `lib/tm_eerikkila_normit.js`** (ladattu KAIKISSA: Excel_Tuonti + Master/VP/Pelaaja/Vanhempi → ei kopioita):
-> `laskeD1Joustava(hh,ika,sp)` (fyysisten H-H-tasojen ka, sm_pallo pois), `laskeD2HH(hh,ika,sp)` (**D2 myös syöttö/pujottelusta**:
-> ka `eerikkilaTaso` 3-portaisista 1–3 → normalisoitu 1–5 kaavalla `(t-1)*2+1`), `laskeD2Joustava(p,ika,sp)` (prioriteetti TKI→H-H→d2_taso).
-> **Kirjoitus:** `prosessoiExcel` (~2967) + `recalcHH` (~3905, käyttää kanonisia) → pikakentät `d1_taso/d1_lahde/d1_kattavuus`
-> + `d2_taso/d2_lahde('tki'|'sm'|'hh'|'tk')/d2_kattavuus`. recalcHH **backfillaa jo tuodun H-H-datan** (aja `recalcHH(seuraId,false,true)`).
-> TKI/SM/TK-pelaajat ennallaan (H-H vain lisätty fallbackiksi). **Luku:** näkymät lukevat pikakentät + näyttävät **lähteen ja kattavuuden**
-> (§29: "näytä mitä on") — Master MITTARI 1 fallback `d1_taso`, MITTARI 3 D2-lähdemerkintä; VP `_d2Lahde`/`laskeJoukkueD2`/hero/solu
-> tunnistavat 'hh'/'tk'; Pelaaja FIFA-kortti lukee `d2_taso` (norm5) + `rMinaTekniikkaprofiili` näyttää H-H syöttö/pujottelun **lapsen
-> kielellä sekunteina (§7.22: EI tasolukuja pelaajalle)**. Testit: `tests/eerikkila_normit.test.js` (15 uutta). **Vaihe 2:** kansainvälinen
-> testi→dimensio-mäppäys (ei-Eerikkilä-testit).
-
-**Joukkuepulssi (`renderTeamPulse`):** neliosainen rivi per joukkue — **FLEI · TKI · H-H taso · ADAR ka.**,
-kukin `ka` + `n=testattu/koko` + suunta (`_pulssiSuunta` flei_historiasta FLEI/TKI:lle; H-H/ADAR ei historiaa → ei nuolta).
-ADAR ka. = `adar_viimeisin.yht` keskiarvo pelaajista joilla **≥3 havaintoa**.
-
-**Kattavuussignaalit (`renderSignals`, vain ladatusta `_pelaajat`-datasta, ei uusia kyselyjä):**
-- **S6** TKI < 40 % · **S7** H-H < 40 % · **S8** FLEI < 40 % → amber (vaativat ≥3 pelaajan joukkueen)
-- **S9** ADAR: joukkue > 5 pelaajaa mutta < 30 % saanut ≥3 havaintoa viim. 30 pv → amber. **Eri kuin S1** (S1 = valmentaja ei kirjaa lainkaan; S9 = kirjaa mutta ei havainnoi tarpeeksi)
-
-**ADAR — kirjoituspiste KYTKETTY (2026-06-15):** pikakentät viim. 10 havainnon dimensiokeskiarvosta. Kanoninen
-logiikka `paivitaAdarPikakentat(pelaajaId)` Master_v16:ssa; **`ADAR_Pikakortti.html` `saveCard()` REPLIKOI sen
-inline** (eri bundlattu tiedosto → ei voi kutsua Master-helperiä; pidä synkassa). `.get()` kaikki + client-sort
-`_luotuToMs`:llä (EI komposiitti-indeksiä), vahvin/heikoin = `'assess'/'decide'/'act'/'reassess'`, `adar_pvm` ISO.
-Master_v16:n `openDrill('adar')` OHJAA nyt Pikakorttiin (ei enää mockup). **Launcher:** Master sidebar + VP_v25
-"Työkalut"→ADAR-kenttätyökalu, molemmat `?seuraId=`. Lukupuoli (joukkuepulssi + S9 + VAI+) toimii kun pikakentät täyttyvät.
 
 ---
 
@@ -930,299 +381,8 @@ Master_v16:n `openDrill('adar')` OHJAA nyt Pikakorttiin (ei enää mockup). **La
    - **PRECACHE-polkujen PAKKO palauttaa 200 — `cache.addAll` on ATOMINEN:** yksikin 404 kaataa koko installin → SW ei
      aktivoidu (FC-bonuslöydös: vanha PRECACHE viittasi `/talentmaster/tm_eerikkila_normit.js` joka on `lib/`-alla → 404).
      Pidä PRECACHE minimaalisena (vain oma shell-HTML); versioidut JS-moduulit allowlist cachettaa pyydettäessä.
-5. **Security Rules:** Firebase Consolesta JA `tm_admin/firestore.rules` (erilliset)
+5. **Security Rules:** vain `tm_admin/firestore.rules` → PR → CI deployaa (§7.9, §12). Consolea ei käytetä.
 6. **Chrome MCP:** Firestore-kirjoitukset app-tabista (Firebase alustettu)
-
----
-
-## 28. KEHITYSIKKUNAT — herkkyysvaiheet (KOKO SIGNALOINNIN BIOLOGINEN PERUSTA)
-
-> Hidden Gem, X-Factor, pikakenttäpainotukset ja VP:n toimenpide-ehdotukset ovat **kaikki tämän biologisen totuuden käyttöliittymä.** Täysi tieteellinen perustelu: `docs/STRATEGIA.md §2`. Liittyy §14 (metodologia) + §25 (PHV).
-
-**Perusperiaate:** herkkyysikkuna ≠ "milloin ominaisuus on tärkeä", vaan **milloin sen kehittäminen on poikkeuksellisen herkkää** — sama harjoitusmäärä tuottaa moninkertaisen vaikutuksen. Ikkunan sulkeuduttua sama tulos vaatii 3–5× työn — tai jää saavuttamatta.
-
-| Ominaisuus (mittari) | Herkkyysikkuna | Mekanismi | **Signaali-invariantti (koodi)** |
-|---|---|---|---|
-| **Taito/tekniikka** (D2: TSI, SM-pallo) | **~6–13 v (pre-PHV)** | hermoston plastisuus, motoriset ohjelmat | **TSI = kriittisin yksittäinen indikaattori** — paljastaa onko ikkuna käytetty. U14+ uusi perustaito 3–5× työ |
-| **Koordinaatio/liikehallinta** (FLEI) | pre-PHV | faskiaalinen adaptoituvuus | matala FLEI pre-PHV = **vakava** (perustaidot jäivät rakentumatta). FLEI≥65 U12 = poikkeuksellinen. Post-PHV nousee hitaammin |
-| **Kiihdytys 5–10m** (D1 osa) | **KAKSI ikkunaa:** ~7–13 (neuraalinen) + post-PHV (voima) | SSC, aktivaationopeus → myöh. lihasmassa | 5m/10m osittain harjoiteltavissa jo pre-PHV (poikkeus muista nopeusmittareista) |
-| **Maksiminopeus 30m + aerobinen** (MAS) (D1) | **post-PHV** (P ~U14–18, T ~U12–16) | testosteroni/GH | **pre-PHV heikko 30m/MAS = NEUTRAALI, ei negatiivinen signaali** |
-| **Voima** (CMJ, 5RM) | **post-PHV** | anaboliset hormonit | **CMJ pre-PHV = koordinaation mittari, EI voiman.** Post-PHV 3–4× voimakasvu |
-| **Peliäly** (D4: ADAR) | laaja ~U10→U19 (kortikaalinen) | strateginen taso kypsyy myöhään | **ADAR-kynnykset ikävaihekohtaisia** — U11 ≠ U16, ei suoraa vertailua |
-
-### Signaloinnin invariantit (Hidden Gem & FVP — ÄLÄ KOODAA ILMAN NÄITÄ)
-1. **Hidden Gem on PHV-tilakohtainen.** korkea D2 + matala D1 **PRE-PHV** = aito gem (fysiikka tulee automaattisesti 2–4 v sisällä). **POST-PHV** sama profiili = fyysinen nousuvara EI enää tule automaattisesti → hyvä pelaaja, mutta ei "jalostamaton timantti". Sama luku, eri merkitys.
-2. **FVP (5m/30m) tulkittava PHV-kontekstissa.** matala FVP pre-PHV = normaali (nopeusprofiili odotettu); post-PHV = aito voimanpuute. **Ilman PHV-dataa (Sibbo/SJK) FVP-arvoa EI saa tulkita voimaksi** — VP:lle näytettävä ilman voimajohtopäätöstä.
-3. **Pre-PHV heikko 30m/MAS/CMJ ei laske talenttiarviota** — biologisesti odotettua, ei kehityskohde.
-4. **Kullankimpale:** korkea FLEI + korkea D2 **pre-PHV** = molemmat kriittiset ikkunat käytetty samanaikaisesti → ansaitsee oman merkin/painokertoimen Hidden Gem -logiikassa.
-5. **Varhainen tekniikkamitali = longitudinaalinen vahvistus (vahvin signaali).** Tekniikkakilpailun **kulta/hopea U8–U12** todistaa että tekninen ohjelma rakentui plastisimmassa ikkunassa → **motorinen automatisaatio** (taito siirtyy tietoisesta kontrollista alitajuntaan) → vapauttaa kognitiivista kapasiteettia peliälylle (D4) 3–5 v myöhemmin. *Palloliitto: "Peliä on mahdollista havainnoida tehokkaasti vasta kun motoriset suoritukset ovat saavuttaneet riittävän tason."* **Eri luokan löytö** kuin korkea D2 tänään (joka voi olla myöhäiskehitystä tai yksittäinen testipäivä). → Hidden Gem -porras "Tekninen varhaiskehitys vahvistettu".
-
-**Toteutus:** tekniikkakilpailutulokset ovat `testitulokset/`-alikokoelmassa (`merkki`/`ika`/`pvm`), mutta §26 = ei alikokoelmakyselyjä renderöinnissä → **pikakenttä** `tekninen_varhaiskehitys: {merkki, ika, pvm}` (null jos ei) lasketaan tuonnissa/recalcissa pelaajan tekniikkakilpailuhistoriasta (paras kulta/hopea kun ika 8–12).
-
-**Käytännön rajoite (2026-06):** pilottidatassa ei vielä PHV:tä → Hidden Gem porrastettava: **ehdokas** (korkea D2 + matala D1, toimii nyt) → **vahvistettu** (+ PRE-PHV, kun bio-ikä mitattu) → **varhaiskehitys vahvistettu** (+ tekniikkamitali U8–U12, longitudinaalinen).
-
-**Toteutus — FC-kortin OVR-lattia (Pelaaja_v7 `naytaFcOverlay`, 2026-06-16):** invariantti #3:n koodisuoja. PRE/LAH-tilassa D1 lasketaan OVR:ään `ovrVal = Math.max(norm5(d1_taso), 50)` (neutraali lattia 50 = taso 3) → raaka pre-PHV-fyysinen ei vedä late-developerin OVR:ää neutraalin alle. Kortti näyttää yhä 🌱 (FYS-ruutu = `state:'grow'`, ei lukua). Vain OVR-osuus lattioidaan; gate ≥3, painot (.40) ja RAE ennallaan. `norm5 = t→round((t-1)/4*99)`.
-
----
-
-## 29. SULJETTU KEHITYSSILMUKKA — Testi→Diagnoosi→Resepti→Seuranta (Master_v16 Kehitys, 2026-06)
-
-> Suunnitelma 4 vaihetta: **1** detail-paneelit · **2** kehitysvauhti/delta · **3** kehitysikkunat · **4** reseptimalli. VAIHE 1–2 toteutettu.
-
-**VAIHE 1 — detail-paneelit** (`_avaaDetail` → `_buildHHDetail`/`_buildTSIDetail`/`_buildTKIDetail`, modal `#detailModal`). KPI-kortin (H-H/TKI/TSI, →-vihje) klikkaus → mistä numero koostuu + Eerikkilä-normivertailu + suositus.
-- Normit lennossa: `eerikkilaTaso` + uusi **`eerikkilaNormiarvo(testi,ika,sp)`** (taso-3 kynnys = ikäluokan keskitaso, "Normi"-sarake). `lib/tm_eerikkila_normit.js` ladataan Masteriin (`?v=1`).
-- Ikä/sp: `syntymaVuosi` tai **joukkuenimi-fallback** ("SJK P15"→15/M) — pilottidatassa syntymaVuosi usein puuttuu.
-- **⚠️ MAS-yksikkö:** data on **km/h**, Eerikkilä-normi **m/s** → `eerikkilaTaso(mas/3.6,…)` laskentaan, normi ×3.6 näyttöön. Ilman muunnosta MAS näyttää aina tasoa 5. (30m/CMJ/SM-juoksu ei muunnosta.)
-
-**VAIHE 2 — kehitysvauhti (delta)** — "kertoo kehittyykö pelaaja, ei vain missä on".
-- Uudet pelaajakentät **`hh_taso_edellinen`/`tki_edellinen`** (+`_pvm`). Vangitaan **vain aidolla uudella testillä** — **pvm-vahti** `vanhaPvm !== uusiPvm` (Excel-pää­tuonti `p._firestoreData`:sta + recalcIkaluokasta). Estää re-importin nolladeltan.
-- **recalcHH EI vangitse edellistä** (laskee saman datan uudelleen = norm-migraatio, ei kehitys). Vangitseminen vain aidossa uuden testin tuonnissa.
-- Näkymä: Master KPI-badge `_deltaBadge` (↑+ vihreä / ↓− punainen / → harmaa, H-H 1 des / TKI 0 des). VP `laskeJoukkueSuunta` (käytti jo `hh_taso_edellinen`) → pulssikortin H-H-suunta + **"(n/N parantunut)"**. Delta syttyy 2. testillä.
-
-**Tämän kierroksen Kehitys-invariantit:**
-- **renderDev kirjautuneena AINA Firestore** (`!_demo && _seuraId`, EI `_pelaajatData.length>0`) → tyhjällä datalla lataustila, ei demo-/TMBus-seediä tuotannossa.
-- **Joukkue-haku case-insensitive fallback** (`_lataaPelaajat`): Firestore `where` on case-sensitive → "SIBBO-VARGARNA P10" ≠ "Sibbo-Vargarna P10" → 0 osumaa. Jos tarkka kysely = 0, hae kaikki seuran pelaajat + suodata clientissa case-insensitively (joukkue/joukkueet[]).
-- **D1/D2-KPI näkyy kun `d1_taso`+`d2_taso` olemassa** — recalcHH kirjoittaa `d1_taso`:n (✅ ajettu SJK 2026-06-15, 58/61), §26. Seurat ilman H-H-recalcia → KPI piilossa (ei lennossa-johtoa raakadatasta).
-- KPI-prioriteetti (`_renderPinfoFirestore`): M1 FLEI→H-H, M2 TKI→TSI, M3 D1/D2 (ei JOUKKUE). "Näytä mitä on, piilota mitä ei" — ei "Ei mittauksia".
-
----
-
-## 30. KPI MASTER ARCHITECTURE — kanoninen viite indeksi-/mittari-/detail-työlle (2026-06-07)
-
-> **Täysi kanoninen doc: [`docs/KPI_MASTER_ARCHITECTURE.md`](docs/KPI_MASTER_ARCHITECTURE.md)** — 17 testiä, 10 indeksiä,
-> detail-spec, signaalit, seuradatakartta, Firestore-kenttäluettelo, tutkimusperusta. Ristiriidassa **täysi doc voittaa**.
-> Tämä §30 = tiivistys avainluvuilla. Lue ennen kaikkea indeksi-/mittari-/detail-paneelityötä.
-
-**11 arkkitehtuuriperiaatetta (pysyvät):** raakadata Firestoreen, indeksit lennossa · Eerikkilä = SSOT fyysinen (5-port) ·
-TK-merkkirajat = SSOT tekninen · H-H pujottelu/syöttö = FINAL2024 3-port · mittaus universaali, normit lokaalit ·
-sama testi + eri protokolla → **molemmat rinnakkain** · data-tietoinen UI · **OVR ei aktivoidu ennen ≥3 dimensiota** ·
-**FLEI = pohjavalmiusindeksi, EI dimensio** · **RAE-korjaus** (Q1 0.92 · Q2 0.96 · Q3 1.02 · Q4 1.06) ·
-**PHV ohittaa kronologisen iän AINA**.
-
-**Raakadata = 17 testiä:** D1 fyysinen `hh_viimeisin.{lin5m,lin10m,lin30m,cmj,sj,mas,kasirata}` (Eerikkilä 5-port) ·
-`sm_juoksu`(D1→D2-silta)/`sm_pallo`(D2) · H-H tekniikka `pujottelu/syotto` (FINAL2024 3-port) ·
-TK U8–13 (ponnauttelu/syöttö/pujottelu/kulj-laukaus/pituuspotku, merkkirajat) · FLEI 5 ketjua (SBL/SFL/LL/DIAG/DFL, 1–3).
-FLEI-normalisointi `(arvo-1)/2×100` = 0–100 %; **<40 % → klinikkalähetys**. **MAS tallennettu km/h, normi m/s → ÷3.6 laskentaan.**
-
-**Johdetut indeksit — Kerros B (koodi valmis, UI puuttuu, `docs/testit_indeksit.js`):**
-- **EI** = CMJ − SJ (näytä kun SJ saatavilla; tavoite ikäkohtainen, esim. ≥5 cm)
-- **FVP** = Lin5m / (Lin30m/6) — <0.90 nopeus · >1.10 voima · väliin tasapainoinen
-- **VNE** = EI+FVP+nopeus → Räjähdys/Jousi/Moottori/Rakentaja/Perusta
-- **OVR** = D1·0.40+D2·0.25+D3·0.15+D4·0.10+D5·0.10 — **EI VIELÄ** (vaatii ≥3 dim) + RAE-korjaus myöhemmin
-
-**Pujottelu/syöttö — kaksi protokollaa, yksi rata:** H-H = populaationormi ("vertaa kaikkiin ikäisiin",
-`eerikkilaTaso` 3-port) · TK = huippukynnys ("mitalitasolla?", `TK_MERKKIRAJAT`/`tkLaskeMerkki`) → **molemmat rinnakkain**.
-
-**Detail-paneelien laajennukset (VAIHE 1 jatko, §29):** H-H-detailiin **EI/FVP/VNE** kun laaja H-H (SJ+lin5m) ·
-TSI-detailiin **H-H pujottelu/syöttö** (3-port) kun saatavilla · TKI-detailiin **per-laji TK_MERKKIRAJAT-kynnykset**
-(kulta/hopea/pronssi näkyviin) + kultaikkuna-konteksti (≤12 🔥 auki · 13–14 ⚡ sulkeutuu · ≥15 📊 toistot).
-
-**Signaalit (kynnykset):** Hidden Gem = **D2≥3.5 + D1≤2.5 + erotus≥1.0** · X-Factor = mikä tahansa testi taso 5 ·
-Kehitysvauhti ↓ delta<−0.3 / ↑ >+0.5 · FLEI<40 % → KLINIKKA · TSI>1.5s → PALLO ⚠️ · Kultaikkuna = ikä≤12 + TKI<40.
-
-**Normifunktiot (lennossa, EI tallenneta):** `eerikkilaTaso(arvo,testi,ika,sp)` 1–5/1–3 · `eerikkilaNormiarvo(testi,ika,sp)`
-taso-3-kynnys · `tkLaskeMerkki` · `tkLaskeTKI` (syöttö·0.40+pujottelu·0.30+ponnauttelu·0.20+KL·0.10) ·
-`laskeEI(cmj,sj,ika)` · `laskeFVP(m5,m30,paikka)` · `laskeVNE(...)` · `laskeTSI(smPallo,smJuoksu)`.
-
-**Seuradatakartta (LIVE 2026-06-15, Firestoresta luettu):**
-**SJK** (n=61) = `d1_taso`/`hh_taso` 58 · `d2_taso` 56 · hh_viimeisin/tsi — **EI TKI/FLEI/PHV** · recalcHH ajettu ·
-**Sibbo** (n=223) = `tki_viimeisin` 214 (+ kehityskohde/vahvuus, merkki usein null) — **EI H-H/FLEI/PHV** ·
-**KPV** (n=34) = vain Topias-testipelaaja (FLEI + ketjut + TKI + d2 + PHV, ei d1/hh) ·
-**palloiirot** (n=67) / **grifk** (n=145) = **pelkät rosterit, 0 mittausta** (odottaa testidataa).
-`d1_taso` ✅ ajettu SJK:lle (§26). Täysi kartta + Firestore-kenttäluettelo: canonical doc §8/§11.
-
-**Tutkimusperusta (roadmap, canonical doc §9):** FIFA 11+ Kids (Sprint 5) · FMS+YBT+CMJ-seulonta (Sprint 5–6) ·
-rotaatiotaito/DIAG-harjoitteet (Sprint 5) · bio-banding = kehitysikkunat (VAIHE 3) · quadrant/HRV (Sprint 6+).
-
-**🔭 ROADMAP — seuratason longitudinaalikoonti (gate = ≥2 mittausta/pelaaja, useampi kausi):** kun pituussuuntaista dataa
-on tarpeeksi, seuran laajuinen koonti kahdesta kysymyksestä — **(1) kehitysvauhti-%** = kuinka moni kehittynyt vähintään
-ikäluokkavaatimuksen mukaisesti (aggregoi `hh_taso_edellinen`/`tki_edellinen`/`tk_kokonaistulos_edellinen`-deltat yli joukkueiden;
-**§3.2/§34-invariantti: vauhti abs-parannuksesta, EI pelkästä TKI-laskusta**) · **(2) taso-≥3-osuus** = montako pelaajaa
-normitaso ≥3 (`hh_taso`/`d1_taso`/`d2_taso` + `perTestTasot`-helper §8, laske `≥3`-osuus poolista). **EI uutta arkkitehtuuria** —
-`perTestTasot` (§8) + delta-kentät (§29) ovat rakennuspalikat; luonteva sijainti Admin "Pilotin tila" (§33) tai VP-raportointi.
-Kytkeytyy §29 suljettuun kehityssilmukkaan. Ei rakenneta ennen kuin datamäärä riittää (pullonkaula = datapisteet, ei koodi).
-
----
-
-## 31. TK PER-LAJI VIITETASOT (Sprint 5)
-
-> (Numero §31, koska §29 on jo SULJETTU KEHITYSSILMUKKA — sisältö = käyttäjän "§29 TK per-laji"-linjaus.)
-
-Tekniikkakilpailu = **kokonaisaikakilpailu**. Mitali jaetaan **VAIN kokonaisajasta** (`TK_KOKONAISRAJAT[sp][ika]`,
-`tkLaskeMerkki(kokonaistulos, ika, sp)`). **Per-laji mitaleja EI OLE — SPL ei anna niitä.**
-
-`docs/testit_indeksit.js`: **`TK_MERKKIRAJAT` per-laji EI OLE koodissa** — vanhat kommentit riveillä 290/299 ovat
-harhaanjohtavia (kuvaavat rakennetta jota ei ole / viittaavat poistettuun dataan). Per-laji-kynnyksiä ei ole;
-`TK_LAJIT_META` sisältää vain nimi/yksikkö/suunta. Per-laji-ulottuvuus joka on olemassa = **suhteellinen
-vahvuus/kehityskohde** (lajin osuus kokonaisajasta, `_laskeVahvuudetJaKehityskohteet`).
-
-**✅ TOTEUTETTU 2026-06 (§34):** per-laji viitetasot ovat **`TK_LAJIVIITTEET`** (testit_indeksit.js; P8–13 + T8–13,
-`_lahde` valtakunnallinen/alueellinen). Per-laji-taso = **VIITETASO** loppukilpailu-/aluedatasta (`tkLajiViite` → erinomainen/hyvä/kehitettävä),
-**EI mitali** — tämä invariantti SÄILYY (mitali jaetaan vain kokonaisajasta). TK-raaka-arvot tallennetaan pikakentiksi (`tk_lajit_viimeisin`, §26).
-Sekuntibudjetti/gap/vauhti johdetaan näistä (§34). Eliittiviite näkyy VP-Yhteenvedossa, valmentajan TKI-detailissa ja pelaajan tavoiteriveissä.
-
-**Detail (kokonaiskuva):** kokonaisaika-mitalirajat (🥇/🥈/🥉 `TK_KOKONAISRAJAT`) + per-laji-eliittiviite (`TK_LAJIVIITTEET`, §34) +
-suhteellinen vahvuus/kehityskohde (★/←). Ks. myös §23 (TKI aikapohjainen) + §34 + canonical doc §3/§4.
-
----
-
-## 32. VIESTIKETJU — roolien välinen kommunikaatio (2026-06-07)
-
-> Kaikki viestintäpolut Firestore-pohjaisia (persistoituja). TMBus = demo-yhteensopivuus.
-> Rules: `viestit/` (v2.3), `havainnot/` (v3.4) — molemmat livenä, ei deployta tarvita.
-
-### Polut ja Firestore-rakenteet
-
-| Suunta | Firestore-polku | Tyyppi/kenttä | Luku | Kirjoitus |
-|---|---|---|---|---|
-| **VP → Valmentaja** | `seurat/{sid}/viestit/{id}` | `lahettajaUid`, `vastaanottajaUid`, `teksti`, `aika`, `luettu`, `fromRole:'vp'` | Master_v16 `_kuunteleVpViestit()` (onSnapshot, `vastaanottajaUid==uid`) | VP_v25 `lahetaMentorointiViesti()` |
-| **Valmentaja → Pelaaja+Vanhempi** | `seurat/{sid}/pelaajat/{pid}/havainnot/{id}` | `tyyppi:'valmentaja_viesti'`, `tila:'valmis'`, `teksti`, `valmentajaNimi`, `pelaaja_lukenut`, `vanhempi_lukenut` | Pelaaja_v7 `_p6KaynnistakuuntelIja` (onSnapshot) · Vanhempi_v2 `.where('tyyppi','==','valmentaja_viesti')` | Master_v16 `sendReply()` |
-| **Pelaaja → Valmentaja** | `seurat/{sid}/pelaajat/{pid}/kirjaukset/{pvm}` | `tyyppi`, `kesto_min`, `fiilinki`, `rpe`, `lahde:'pelaaja'`, `paivitetty` (serverTimestamp) | Master_v16 `_lataaKirjaukset()` (`.orderBy('paivitetty')`) | Pelaaja_v7 `_tallennaKirjaus()` |
-| **Vanhempi → Pelaaja** | `seurat/{sid}/pelaajat/{pid}/kehut/{id}` | `emoji`, `teksti`, `lahettaja:'Vanhempi'`, `luotu`, `nahty`, `kirjausId` | Pelaaja_v7 `_haePerhekehu()` (luotu>=48h, nahty==false) | Vanhempi_v2 `_lahetaKehu()` |
-| **Vanhempi ← Valmentaja** | sama `havainnot/` kuin yllä | | Vanhempi_v2 Viestit-tab | (kuten yllä) |
-
-### Master_v16 Inbox — yhdistetty syöte
-`_getInboxEvents()` yhdistää `_kirjaukset` (pelaajien omatoimiset) + `_vpViestit` (VP:n mentorointi),
-järjestää aikaleiman mukaan. VP-viestit purple-tagilla `note.to_coach`, pelaajien kirjaukset fiilis-emojilla.
-Reaktiot (❤️💪⭐🔥) + "Viestitä perheelle →" -nappi jokaisessa kortissa.
-
-### Korjatut bugit (2026-06-07)
-- **`fiilinki_paivitetty` → `paivitetty`** (Master_v16): kirjaukset eivät näkyneet valmentajalle koska orderBy-kenttä ei ollut olemassa. Lisätty Timestamp `toDate()`-käsittely.
-- **`from/to` → `lahettajaUid/vastaanottajaUid`** (VP_v25): Security Rules odottivat eri kenttänimiä kuin koodi kirjoitti.
-
-### Ei toteutettu (tietoinen rajaus)
-- ✅ ADAR-pikakenttien kirjoituspiste KYTKETTY (2026-06-15): ADAR_Pikakortti `saveCard()` replikoi kanonisen logiikan (§26)
-- Sähköposti-/push-notifikaatiot — pilotissa ei tarvita, lisätään Sprint 6–7
-- Pelaaja ei voi vastata valmentajalle (yksisuuntainen toistaiseksi)
-
-## 33. SKAALAUTUVUUS & TEKNINEN VELKA — Sprint 6 + SaaS-suunta (2026-06-07)
-
-Täysi suunnitelma: **`docs/SKAALAUTUVUUS_JA_TEKNINEN_VELKA.md`** (kanoninen). Tislaus:
-
-**Lähtötila:** datakerros (multi-tenant, server-authz, domain-logiikka) skaalautuu. Este avoimelle
-kehitykselle = insinöörikuri puuttuu: 0 testiä, ei index-as-codea (lisätty nyt), Rules käsin Consolesta,
-frontend 6 000-rivisiä monoliitteja, funktio-törmäyksiä. Tähänastiset bugit = **hiljaisia failit**.
-
-**Sprint 6 (P0) — maksa ennen toista kehittäjää:**
-- A1 ✅ VALMIS: `firestore.indexes.json` = täydellinen totuus (9 indeksiä + 1 field override, vedetty `firebase firestore:indexes`-dumpilla) + deployattu tuotantoon + `firebase.json` kytketty. Composite-queryt voivat nyt palata server-side-muotoon (luopua limit-ikkuna-kompromissista 333c36a/786f43e).
-- A2 ✅ VALMIS: **Vitest** (`npm test`=`vitest run`), `tests/*.test.js` = 85 testiä vihreät (testit_indeksit 64 + eerikkila 21, sis. MAS km/h→m/s -saturaatioregressio) + CI `.github/workflows/test.yml` (`npm ci && npm test`). Root package.json oli väärin nimetty tsconfig → tsconfig.json. Lisää vielä: TSI-vyöhykerajat, Hidden Gem, ADAR.
-- A3 ✅ VALMIS: `laskeEI/laskeFVP` eerikkilä-libissä → `_simple` + backward-compat alias (Master lataa molemmat→rikas objekti; VP vain eerikkilän→simple numero). `tkLaskeMerkki/tkLaskeTKI` saivat `rajatOverride`-paramin + `<=→<` (§23).
-- A3 funktio-törmäysten purku (laskeEI ym. 2 tiedostossa, last-loaded-wins) — A2:n edellytys.
-- A4 ✅ VALMIS: **Rules-testit** (`@firebase/rules-unit-testing` v5 + Vitest), `tests/rules/firestore.rules.test.js` = 69 testiä (10 describe-ryhmää: SA, tenant isolation, anon PIN, roolipohjainen kirjoitus, huoltaja, viestit, kehut-yksityisyys, kalenteri field-level, suostumukset, IDP-jono). CI `.github/workflows/test.yml` kaksi jobi: `unit-tests` (npm test, ei emulaattoria) + `rules-tests` (Java 21 + firebase emulators:exec). Ajo lokaali: `npm run test:rules` (vaatii Java ≥21). `npm test` excludaa rules-testit (ei tarvitse emulaattoria). HUOM: GitHub Actions 403 = Rules **deploy** ongelma (SA-rooli), ei koske emulaattori-testejä.
-- A5 ✅ VALMIS: `luotu` kaksi vikaluokkaa korjattu — tyyppi-mismatch (Master ISO) + **puuttuva kenttä** (Pelaaja kirjaukset ilman luotua → 144 kirjausta näkymättömiä vanhemmille). Plan B kaikki 4 stepiä: (1) Rules-vartija `luotuLuontiKelpaa`/`luotuPaivitysKelpaa` (havainnot/kirjaukset/kehut, affectedKeys-update) + 6 rules-testiä. (2) writer-fix: Master 3498/3537→serverTimestamp, Pelaaja→`Timestamp.fromDate(new Date(pvm))` (TUOTEPÄÄTÖS luotu=treenipäivä, paivitetty=kirjaushetki); cascade `_luotuToMs()` 3861/3879/5508 + `adar_pvm` ISO-stringinä (VP-turva). (3) migraatio `scripts/migrate_luotu_a5.js` (REST, idempotentti): 145 docia (1 havainto + 144 kirjaus-backfill pvm:stä), 0 virhettä. (4) vartija deployattu (CLI), live-ruleset REST-varmistettu. **Myöhemmin:** sama `aika`-kentälle (mentoroinnit, VP+tm_import) — oma vartija+writer-fix.
-- A6 repo-siivous: poista Master_v9/Pelaaja_v3, yhdistä tm_auth.js/tm-auth.js, versio pois tiedostonimestä.
-  - **`src/lib`-duplikaattien reconciliointi (löydös 2026-06-15) — ✅ OSITTAIN TEHTY 2026-06-16:** `lib/` = kanoninen + deployattu (Pelaaja lataa `lib/tm-microcycles.js?v=2`); `src/lib/`-puuta EI lataa kukaan (grep-varmistettu: vain tm_bioika.js ladataan, Testaus_v9). **Tehty:** `src/lib/tm-methodology.js` · `tm-prescription.js` · `tm-kortit.js` olivat bitti-identtiset `lib/`-versioiden kanssa → tehty re-exporteiksi (`module.exports = require('../../lib/<nimi>.js')`, node-varmistettu sama moduuliviite). **EI tehty — vaatii päätöksen:** `src/lib/tm-microcycles.js` EI ole duplikaatti (divergoi 74 riviä; `lib/`-versio uudempi A7 Vaihe 1 deps+PANKKI-injektio, src/lib vanhempi placeholder). Jätettiin ennalleen (matalan riskin pass ei ylikirjoita divergoitua koodia) — src/lib-kopio on kuollutta (kukaan ei lataa); suositus: re-export myös se `lib/`-kanoniin kun vahvistettu ettei src/lib:n uniikkia sisältöä tarvita. HUOM: `tm_bioika.js` (§25) auktoritatiivinen — EI kosketa SISÄLTÖÄ; **siirretty V3a:ssa `src/lib/` → `lib/`** (Hosting ignoroi `src/**` → olisi 404 custom-domainilla); `src/lib/harjoitelogiikka_v4.js` jo re-export.
-
-**⚠ DEPLOY-TYÖNKULKU (versio-tarkistus):** GitHub Pages cachettaa HTML:n 10 min (max-age=600) → moni "ei toimi" on ollut cache. Ratkaisu: `version.json` + `APP_VERSION` jokaisessa apissa (Master/Pelaaja/Vanhempi), `<head>`-skripti pakottaa reloadin uudesta versiosta. **ÄLÄ aja `npm run version:bump` feature-haaroissa** — se leimaa samat 5 tiedostoa (version.json + Admin/Master/Pelaaja/Vanhempi) joka PR:ssä → jatkuvat merge-konfliktit (juurisyy #53). **Konventio (2026-06-26):** (1) tavalliset PR:t EIVÄT bumppaa versiota — Pages-cache (~10 min) + `?cb`-cache-bust riittää useimpiin muutoksiin; (2) versio bumpataan **automaattisesti mainissa**: `.github/workflows/bump-version.yml` ajaa jokaisen main-pushin (mergen) jälkeen → `npm run version:bump` + commit `[skip ci]` (estää silmukan, ei laukaise tätä eikä muita workfloweja uudelleen) + push (`secrets.BUMP_PAT`, oltava oikeus pushata suojattuun mainiin). **EI käsin-bumppia** — ei feature-haaroissa eikä mainissa; workflow hoitaa. Jos käyttäjä näkee vanhaa, syy on cache; seuraava main-merge laukaisee automaattisen bumpin.
-
-**⚠ PAGES-DEPLOY = eksplisiittinen workflow (2026-07-05, PR #127):** Pages-lähde on **"GitHub Actions"** (EI "Deploy from a branch") + oma workflow `.github/workflows/deploy-pages.yml` (`actions/upload-pages-artifact` path `.` + `deploy-pages`). **Juurisyy jonka tämä korjasi:** vanha dynaaminen `pages-build-deployment` (Source=branch) ajoi joka main-pushissa, ja koska `bump-version` pushaa mergen jälkeen **toisen** commitin, syntyi kaksi rinnakkaista Pages-buildia → `deploy-pages` löysi 2 `github-pages`-artifaktia → **"Multiple artifacts named github-pages"** -deploy-fail (`[skip ci]` ei estä GitHubin sisäistä dynaamista buildia). **Korjaus:** (1) `concurrency: {group:'pages', cancel-in-progress:true}` workflow'ssa; (2) `[skip ci]` bump-commitissa estää nyt myös tämän repo-workflow'n → deploy ajaa **vain kerran per merge** (merge-commitista, ei bump-commitista). **Seuraus:** version.json-bump ei deployaudu ennen seuraavaa main-pushia (yksi bump jäljessä served) — ei kriittistä (cache-bust `?cb`/`?v` riittää). **ÄLÄ vaihda Pages-lähdettä takaisin "branch"-tilaan** (dynaaminen build palaisi + törmäys). Deploy-tila: GitHub → Actions → "Deploy to GitHub Pages".
-
-**SaaS-suunta:** B1 frontend moduuleiksi (Vite, strangler) · **B2 observability ✅ VALMIS (2026-06-15)** · B3 tenant-self-service onboarding · **B4 GDPR (alaikäisten dataa EU — riski + kilpailuetu): retention, oikeus tulla unohdetuksi, audit, field-level Rules** · B5 suorituskyky/kustannus · B6 datamallin versiointi · B7 white-label/API/AI-insightit.
-- **B2 ✅ VALMIS (2026-06-15):** Sentry Browser **v10.58.0** errors-only `bundle.min.js` (`tracesSampleRate:0`, EI Session Replayta → tietoisesti EI Loader Scriptiä joka kytkisi replayn; alaikäisdata), **EU-region** `ingest.de.sentry.io`. `beforeSend`/`beforeBreadcrumb` **PII-skrubi**: deny-list (`email|nimi|etunimi|sukunimi|huoltaja|pin|puhelin|osoite`→`[redacted]`) + email→`[email]` + 4-num→`****` + `user`→`{id}` + query/cookies/headers pois; `sendDefaultPii:false`; skrubin heitto→event drop. **GUARD** (Sentry/DSN puuttuu→no-op, offline-first säilyy). **SRI-integrity** (verifioitu palvellusta tiedostosta, ei docsista). **SW** `tm-pelaaja-v7`/`tm-vanhempi-v5`, `tm_sentry.js` allowlistissa, Sentry CDN+ingest pass-through. Scope: Pelaaja_v7/Vanhempi_v2/Rekisterointi + jaettu `tm_sentry.js` (`window.tmSentryContext` = pseudonyymitagit `app/seuraId/rooli/uid`). Commitit `1e8cb59`→`723f062`→`6c4c5a5`. **Verifioitu tuotannossa** (testievent EU-dashboardiin, PII todennettu).
-- **Onboarding-integriteetti ✅ A tehty (2026-06-16):** ennaltaehkäisevä client-validointi (**warn-not-block**, ei uutta infraa, käyttää jo ladattua dataa) — dup `huoltajaEmail` (Seura+Admin massakutsu-confirm + Seuran pelaajatallennus `luoRekisteriLinkki` vs rosteri `_pelaajatKaikki`) · dup PalloID / nimi+joukkue + puuttuva PalloID (Excel_Tuonti-esikatselupaneeli; Excel = testidata, ei emailia). Operaattori kuittaa (sisarukset/jaettu email laillisia → ei pakkoesto). **B1 ✅ tehty (2026-06-16):** audit-loki laajennettu aukkoihin (`functions/index.js`: `huoltajakutsu_lahetetty`/`suostumus_annettu` = `info` + `suostumus_estetty_email_ristiriita` = **`alert`** = väärä-lapsi-yritys, best-effort `.catch`), uusi `haeAuditLoki`-callable (europe-west1, SA-gate `admins`-doc; severity-suodatus CF:ssä → **ei composite-indeksiä, ei index-deployta**) + Admin **"Audit-loki / Hälytykset"** -näkymä (read-only, alert amber-korostus, "vain hälytykset" -suodatin). Audit pysyy ei-client-luettavana (**EI Rules-deployta**). **B2 (Firestore-trigger client-kenttämuutoksille, esim. huoltajaEmail-vaihto) avoin.**
-- **"Pilotin tila" -komentokeskus ✅ tehty (2026-06-16):** Admin uusi nav `🛰️ Pilotin tila` (`renderPilotinTila`) — read-only, laskee KAIKEN **pikakentistä** (§26) `renderTilastot`:n samasta per-seura `pelaajat.get()`-latauksesta (EI uusia/alikokoelmakyselyjä). Per seura: suostumussuppilo (tuotu→kutsuttu→annettu + konversio-% = go-live >70 %), datakypsyys-% (Testattu/ADAR/PHV/FLEI), viimeisin mittaus-pvm, **🟠 sääntöpohjainen blokkeri + toimenpide** (0 mittausta→testidata · konversio<70 %→muistuta · indeksoimatta→recalcHH · 0 PHV→kasvumittaus). Spec: `docs/PILOTIN_TILA_SPEC.md`. Rajaus (vaihe 2): GDPR-ops · laskutus · login-aktiivisuus.
-- **Nudge (kutsumuistutus) ✅ tehty (2026-06-16):** CF `lahetaMuistutukset` (europe-west1 callable, authz `tarkistaOikeus`) — **operaattorin käynnistämä**, frekvenssikatto **MIN_DAYS=5 / MAX_KPL=3**, vain server-side luettuihin (korjattuihin) `huoltajaEmail`-osoitteisiin; kohde `suostumusTila=='odottaa'` (tai yksittäinen `pelaajaId`); päivittää `muistutus_pvm`/`muistutus_kpl` (increment) + audit `muistutus_lahetetty`. Lempeä template `pohjaMuistutus` (EI painostava, alaikäiset/GDPR). Admin **Pilotin tila** per-seura "🔔 Muistuta odottavia (N)" → **kuivaAjo-preview → confirm (varoittaa alaikäisistä) → lähetys** → toast. Ohitussyyt: `ei_emailia`/`liian_pian`/`max_saavutettu`. Variantti olemassa olevasta `lahetaRekisteriKutsu`-infrasta.
-- **CF-runtime: Node 22 + firebase-functions 6.6.0 — TEHTY 2026-06-23.** Kaikki 18 funktiota deployattu **Node 22 (1st Gen)** + `firebase-functions` **6.6.0** (admin 12.7.0; node-fetch 2.7.0 + form-data 4.0.6 eksplisiittisinä deps:einä). v6 breaking: 1st-gen API tuotava `firebase-functions/v1`:stä (index.js:10). `runWith({secrets})` säilytetty (Secret Manager). **Jäljellä (omat vaiheet):** (1) SDK **7.2.5** (CLI varoittaa "outdated"; pinottu v6:een tarkoituksella) · (2) **1st-gen → v2 -migraatio** (`onCall`/`onSchedule`/`onDocumentCreated`). Node 20 EOL 2026-10-31 → kova takaraja ohitettu.
-
----
-
-## 34. TKI-ANALYYSIMALLI — kolme viitekehystä + kehitysvauhti (2026-06)
-
-> **Täysi kanoninen doc: [`docs/TKI_ANALYYSIMALLI.md`](docs/TKI_ANALYYSIMALLI.md)** — viitekehykset, roolinäkymät (VP/valmentaja/pelaaja),
-> kehitysvauhti, H-H-triangulaatio, datalähteet. **Ristiriidassa täysi doc voittaa** (sama pattern kuin §30). Tämä §34 = tislaus.
-> Täydentää §23 (TKI aikapohjainen) + §31 (per-laji = viite, ei mitali) + §26 (pikakentät). Suljettu ketju: sama totuus VP:lle, valmentajalle ja pelaajalle.
-
-**Kolme viitekehystä — sama tulos, kolme vertailua:**
-- **A Kriteeriviite (mitali):** `TK_KOKONAISRAJAT[sp][ika]` — 🥇🥈🥉 **VAIN kokonaisajasta**. Kertoo TASON.
-- **B Eliittiviite (per-laji):** `TK_LAJIVIITTEET[sp][ika][laji] = {erinomainen, hyva}` + `_n` + `_lahde`. **EI mitali** (§31). Kertoo KOHTEEN + MÄÄRÄN (sekunteina).
-- **C Populaatioviite (H-H):** FINAL2024 3-portainen (`eerikkilaTaso`, vain pujottelu+syöttö). Kertoo POHJAN.
-
-**`TK_LAJIVIITTEET` (testit_indeksit.js + inline-kopiot Excel/VP):** kattavuus **P8–P13, T8–T13**. erinomainen=P25 · hyva=P50 ·
-pituuspotku_bonus käänteinen (P75/P50). Lähteet: **valtakunnalliset** loppukilpailut 2023–25 (P9/P10/P12 + T9/T10/T11/T12) ·
-**alueelliset** = Palloliiton tuloskooste 2023–25 (~60 kilpailua / 4 aluetta, 3 477 pelaajaa dedup, top-20 kokonaisajalla) (P8/P11/P13/T8/T13, kaikki _n=20).
-**UI-label AINA `_lahde`-kentästä:** valtakunnallinen→"Loppukilpailutaso 2023–25" · alueellinen→"Alueellinen huipputaso 2023–25" · `_n<10`→"(n=X)" (ei enää laukea).
-**EI interpolointia** puuttuville ikäluokille (`tkLajiViite` → null kun ika<8 / >13; radat ikäluokkakohtaisia). Vuosipäivitys:
-`docs/data/parse_taitokisa.py` (valtak.) + **`parse_taitokisa_csv.py`** (alue, lisää uusi CSV) → regeneroi `docs/tk_lajiviitteet.js` → synkkaa inline-kopiot. **Koko historia 2013–22 EI viitteisiin** (taso noussut).
-
-**`TK_LAJITASOT` (1–5 populaatioviite — neljäs vertailutaso, testit_indeksit.js + VP_v25):** kohortin P20/P40/P60/P80-rajat
-KOKO kilpailupoolista (ei top-20). `tkLajiTaso(laji, arvo, ika, sp)` → 1–5 **STRICT <** (maksimiajat 40/60 s → taso 1;
-välitasot voivat degeneroitua nuorimmissa). Valmentaja/VP-viite + tuleva D2/OVR-input — **pelaajalle EI tasolukua (§7.22)**;
-H-H pujottelu/syöttö FINAL2024-normilla, TK-tulos TK_LAJITASOT:illa — **ei ristiin (§30)**. Otos = kilpailukohortti, ei väestönormi.
-
-**Kanoniset funktiot (testit_indeksit.js, §23):** `tkLajiViite(laji,ika,sp)` →{erinomainen,hyva,n,lahde}|null · `tkLajiGapit(tkLajit,ika,sp)`
-(järjestetty gap laskevasti) · `tkSekuntibudjetti(kokonaistulos,ika,sp)` →seuraava saavuttamaton mitali (`<` ei `<=`; <kulta→null) ·
-`tkVaadittuVuosivauhti(ika,sp,taso)` (= `[ika]−[ika+1]`; **9→10 null** rata muuttuu; ika+1>13 null) · `tkAbsDelta(...)` →{abs_s, validi, bonus_osuus_s}.
-
-**KAKSI DELTAA -INVARIANTTI (§3.2 — EHDOTON):** abs-delta (kehittyikö suoritus) JA TKI-delta (riittikö vauhti ikäluokkavaatimukseen)
-näytetään AINA erikseen. **TKI-laskua EI saa näyttää punaisena jos abs-delta on positiivinen** (pelaaja kehittyy, vaatimus koveni enemmän).
-**Pelaajalle TKI-laskua ei näytetä lainkaan** (§16/§7.22) — vain abs-parannus kun positiivinen. Vaadittu vuosivauhti ~5–10 s/v;
-**P11→P12 −20 s** (sis. uuden pituuspotkubonuksen → `tkAbsDelta.bonus_osuus_s` erottaa aidon parannuksen bonuksesta).
-
-**Roolinäkymät (sama data, kolme kieltä):** VP_v25 joukkue-Yhteenveto + Tuki (§19) · valmentaja Master TKI-detail (§29/§30) ·
-pelaaja MINÄ-tavoiterivit + TÄNÄÄN-saate (§16). Kaikki pikakentistä (§26), ei alikokoelmakyselyjä.
-
----
-
-## 35. KALENTERI — YKSILÄHTEINEN (2026-06-24, K1+K2+K3 valmis)
-
-> Täysi kanoninen doc: **[`docs/KALENTERI_ARKKITEHTUURI.md`](docs/KALENTERI_ARKKITEHTUURI.md)** (visio + K1–K6-suunnitelma + kv-benchmarkit + §12 K2/§13 K3). Ristiriidassa täysi doc voittaa. Tämä §35 = tislaus + invariantit.
-
-**Yksi totuuslähde:** `seurat/{seuraId}/kalenteri/{tapahtumaId}` (konsolidoitu, **Rules v3.5**). **K1 (commit `d1bc8c7`) poisti kaikki legacy-kalenterilähteet** — sekä VP_v25 (`lataaMuutTapahtumat`/`lataaVpKalenteri`/`_muutTapahtumat`/`_vpKalenteri`/`vpAvaaMentorointiModal`) että Master_v16 (legacy `tapahtumat`-concat) → ei enää duplikaattilähdettä, ei hiljaisia kirjoituksia kuolleeseen kokoelmaan. **Live-verifioitu** (grep 0 legacy-symbolia, `renderKalenteri` ehjä).
-
-**Invariantit:**
-1. **Kalenteri renderöityy VAIN kahdesta lähteestä:** `kalenteri` (poistettu==false) + `testitapahtumat` (§22-testityökalu) + TASO-ottelut (§20). EI muita.
-2. **Pehmeä poisto** (`poistettu:true`) — säilyttää audit-jäljen, ei hard-delete.
-3. **11 KALENTERI_TYYPIT** (VP_v25 ~5911). `avaaUusiTapahtuma()` kirjoittaa `kalenteri.add()` (~6082). `renderKalenteri()` yhdistää `_tapahtumat`(testitapahtumat) + `_kalenteriTapahtumat`.
-4. Master_v16 `_lataaKalenteriTapahtumat` lukee saman `kalenteri`-kokoelman; kuollut `_avaaUusiTapahtuma` (avasi arkistoidun Testaus_v8:n) poistettu (commit `e5f6944`) — ainoa määritelmä on ~6800.
-5. **Rules v3.5:** kalenteri-event: johto = täysi CRUD · valmentaja/talenttivalmentaja = täysi omiin (`luoja_uid==auth.uid`) + field-level muiden (muistiinpanot+lasnaolo_kooste) · create vaatii `luoja_uid==auth.uid`. `lasnaolijat`: johto + valmentajaroolit merkitsee, pelaaja self-RSVP (K2b). **Deployattu Consolesta 2026-06-24.**
-
-**✅ K2 LÄSNÄOLO VALMIS (2026-06-24, kolme merkitsijäroolia):** valmentaja merkitsee toteutuneen läsnäolon (paikalla/myöhässä/poissa+syy) tapahtumanäkymässä → `kalenteri/{tid}/lasnaolijat/{pelaajaId}` (`merkitsija_uid`, serverTimestamp) + denorm. `lasnaolo_kooste` event-dokkiin (kalenterikortti "X/N", §26 ei alikokoelmakyselyä). Roster 3 tapauksessa: `pelaajat_id[]` → joukkue/joukkueet[] (§18) → `talenttiOhjelma==true` (talenttien lisätreenit). **Master_v16** (valmentaja/talenttivalmentaja) + **VP_v25** (johto, tuplaroolit — VP myös valmentaa, ei roolinvaihtoa). Tapahtuman LUONTI nyt myös valmentajalle/talenttivalmentajalle (`luoja_uid`); täysi muokkaus omiin, field-level muiden. Spec KALENTERI §12.
-
-**✅ K3 TOISTUVAT VALMIS (2026-06-24):** jokainen toisto = aito `kalenteri`-dokki jaetulla `toistuvuus_sarja_id`:llä (EI virtuaali — K2-läsnäolo kiinnittyy per session). Jaettu `lib/tm_kalenteri.js` (`tmKalenteriOccurrences`/`tmToistuvuusPaiva`/`tmSarjaId`/`tmCadenceNimi`, 10 Vitest). Cadence viikoittain/2_viikottain/kuukausittain, cap 60, horisontti = kauden loppu. Muokkaus/poisto 3 skooppia (vain tämä `sarja_poikkeus` / tämä+seuraavat / koko sarja), poisto = soft-delete. Ei Rules-muutosta. Spec KALENTERI §13.
-
-**Suunnitelma (KALENTERI_ARKKITEHTUURI §8/§11):** ✅ K1 konsolidointi · ✅ K2 läsnäolo (3 roolia) · ✅ K3 toistuvat → **jäljellä:** K4 muistutukset → **K5 kuorma+dropout-erottautuja** (läsnäolo→kuorma, ainutlaatuinen arvo — nyt avattu, K2+K3 tuottavat raakadatan) → K6 iCal-vienti (yksi feed kattaa Outlook+Teams). JOPOX-rajapinta = vain kirjanpito-API:t + TASO-ottelut (ei avointa kalenteri-API:a) §4.5; Outlook/Teams = jaettu M365-kalenteri → yksi iCal-feed, kaksisuuntainen Graph Sprint 8+ §4.6.
-
----
-
-## 36. KORTTI-JÄRJESTELMÄ — keräilykortit (2026-06-24, Vaihe 0–1.5 rakennettu)
-
-> Täydet docit: **[`docs/KORTTI_VISIO.md`](docs/KORTTI_VISIO.md)** (visio + SDT/Dweck-motivaatio + §10 3-kerros-arkkitehtuuri) + **[`docs/KORTTI_KATALOGI.md`](docs/KORTTI_KATALOGI.md)** (datavetoinen rekisteri, kaikki vaiheet). Ristiriidassa täydet docit voittavat.
-
-**Periaate:** datavetoinen (`KORTTI_KATALOGI`-dataobjekti, EI kovakoodattu UI), ansainta **pikakentistä/teoista** (§26), EI vertailusta muihin (§7.22) eikä numero-grindistä lapselle näkyvänä (§22). Renderöinti pikakentistä — ei alikokoelmakyselyjä.
-
-**Kolme keräilykerrosta (KORTTI_VISIO §10):**
-- **Matkamerkit** (Vaihe 1) — tiheät pienet voitot, ratkaisee "pitkän odotuksen ennen avausta": saavutukset (`ach_*`), tekniikkamerkit per laji (pronssi→hopea→kulta = oma suhde `tkLajiViite`-viitetasoon + oma parannus), liekki-lepo (`liekki_tila`, väliin jäänyt päivä = lepopäivä, EI nollu).
-- **Ennätykset (Vaihe 1.5)** — PB per testi, "voita oma itsesi". Uusi pikakenttä **`ennatykset: { <testi>: {paras, pvm, alusta} }`**, päivitetään kirjoitushetkellä (Excel_Tuonti/recalc/Testaus_v9). **Reunaehdot (pakolliset):** suunta per testi (`TK_LAJIT_META.kaanteinen`) · alustaherkkyys (§22, PB-vertailu vain saman alustan sisällä — tärkein vartija) · PHV-neutraalius (§28, ei "huononit"-kehystä) · kohina-kynnys.
-- **Legendat (Vaihe 2)** + **Tähtikokoelma (Vaihe 3)** — arkkityypit (§14), EI oikeita nimiä (IP). Arvostetuin = **Sisukas** (sinnikkyys > lahjakkuus, Dweck) = tuotteen filosofia korttina. Idoli = lapsen oma valinta.
-
-**Ikävaihe-gating (`_laskeStage`, §16):** leikkijä (U12) yksinkertaisin, **EI OVR-lukua**; rakentaja (U13–15); showcase (U16+). Saavutus-/merkki-/legendakortit toimivat KAIKISSA ikävaiheissa (positiivisia); vain pääkortin OVR-luku on ikägeitattu (gate ≥3 ulottuvuutta, OVR-lattia §28).
-
-**Tila:** Vaihe 0 tasokortti (`naytaFcOverlay`, v3) ✅ · Vaihe 1 saavutukset+tekniikkamerkit+liekki-lepo (`rMinaKokoelma` Pelaaja_v7) ✅ · Vaihe 1.5 Ennätykset ✅. **Jäljellä:** Vaihe 2 legendat · Vaihe 3 tähtikokoelma · Vaihe 4 paljastus+kausi (pack-opening).
-
----
-
-## 37. JULKINEN KIELI + KÄYTTÄJÄOPPAAT (2026-06-24)
-
-**Termit julkisiksi (sisäinen jargon pois käyttöliittymästä):**
-- **FLEI → "Kehon valmius"** (kehon valmiusindeksi, §14). Sisäinen `flei_*`-kenttänimi säilyy koodissa; vain UI-teksti vaihtuu. IDP "Fascia Load Efficiency Index" -jargon siivottu.
-- **"Pelaajaraportti"** — EI "MDT" (termiä ei käytetä jalkapallossa). MDT = monialainen tiimi (terveydenhuollon termi), poistettu käyttäjäpinnasta. Spec: `docs/MDT_RAPORTTI_SPEC.md §0`.
-- **Mittaus / Ottelu / Pelihavainto** — EI englanninkielisiä "Signs / Samples / SEO". (SEO=Sport Event Observation jne. = sisäisiä lyhenteitä, poistettu.)
-- **ADAR ei ole enää käytössä** julkisena terminä (kenttähavainto-työkalu toimii silti §15/§26).
-
-**Pelaajaraportti — roolit (§32, `docs/MDT_RAPORTTI_SPEC.md`):** valmentajalla on oikeus **omiin pelaajiinsa** — kirjaa tavoitteita + palautetta (Master_v16 Vaihe 2). VP näkee tavoitteet **read-only** (VP_v25 Vaihe 2.1, `_mdtJohtajaPaneeli`). VP + valmentaja keskustelevat näkökulmista. **Harjoitusarviointi-rooli (korjattu):** VP täyttää sekä malli A:n että malli B:n; **kalibraatio = ero valmentajan B-itsearvion ja VP:n B-havainnon välillä.**
-
-**ROOLIMALLI-INVARIANTTI — pelitavoitteet (jaksofokus vs kausitavoite, 2026-07-05, PR #115 mainissa, `docs/CODE_TASK_VAIHE4A_ROOLIT_JA_DROPDOWN.md`):** kaksi tasoa, hyväksyntä oikeaan paikkaan. **Operatiivinen jaksofokus / teknis-taktinen pelitavoite (meso, Vaihe 4a toimintakortti)** = **valmentaja** asettaa omille pelaajilleen (omistaa kentän) · **talenttivalmentaja** talenteille · **VP** talenteille + oversight/override + näkee kaikki. **EI vaadi erillistä hyväksyntää** (ei byrokratisoida päivittäistä valmennusta). **Strateginen kausitavoite (makro, IDP 3a/3b)** = **VP asettaa/hyväksyy**; valmentaja ehdottaa Pelaajaraportissa. VP-hyväksyntä kohdistuu **kausitasoon, EI jokaiseen jaksoon.** Talenttipelaajilla (`talenttiOhjelma:true`) VP + talenttivalmentaja ensisijaiset. **Rules (deployattu):** field-level `jaksofokus`/`tt_positio_aktiivinen` -kirjoitus `onOmaSeura && (onValmentajaRooli()||onJohtoRooli())`. VP-toimintakortti talenteille (`_vpTtKorttiHTML`, `lahde:'vp'`). Konseptivalinta = **custom-dropdown** (`top:100%`, aukeaa alas — natiivi `<select>` aukesi ylös).
-
-**ARVIOINTIKEHYS vs CURRICULUM -INVARIANTTI (2026-07-05, `docs/ARVIOINTIKEHYS_VS_CURRICULUM.md`):** kaksi eri kerrosta, EI yhdistetä. **Palloliitto-taksonomia** (`lib/tm_arviointi_taksonomia.js`, VP arviointi-välisivu, `ARVIOINTI_KEHYS_OLETUS='palloliitto'`) = **arviointikehys** — ~50 ominaisuutta D1–D5, mitattu 🟢 + havaittu 🔵 **1–5** ("mitä osaa", talenttivalmentajan profilointi). **OMA_VERSIO teknistaktinen** (`lib/tm_teknistaktiset.js`) = **valmennuskehys/curriculum** — konsepti→cue→harjoite **1–3** ("mitä harjoitellaan", toimintakortti/jaksofokus). Oma malli **EI tuoda arviointikehykseksi** (eri asteikko, eri tarkoitus). Kohtaavat vain suunnitellussa **silta-kytkennässä** (Palloliitto-heikko pääteema → ehdota OMA-konsepti+cue jaksofokukseksi = 4c/4d-alue, EI vielä rakennettu).
-
-**Vaihe 4b — pelaajan cue-kerros (`docs/CODE_TASK_VAIHE4B_PELAAJA_CUE.md`, §0b jaettu ymmärrys):** valmentajan valitsema jaksofokus → pelaaja näkee **saman konseptin** Pelaaja_v7 MINÄ-näkymässä lapsen kielellä (mikä + miksi + **yksi cue-kysymys**). Uusi lib-helper `tmTtPelaaja(avain)` (ei KPI-lukuja) + `pelaaja_miksi`-sisältöpass 14 youth-konseptille. **§7.22:** ei tasolukuja/arvosanaa/vertailua. Data jaksofokus-pikakentästä (§26), fallback kehityskohde→vaihe-oletus. Perheen peilinäkymä = 3c-b/erikseen.
-
-**Käyttäjäoppaat (`docs/`):**
-- **OPAS_VP_JA_VALMENTAJA.md** — henkilöstön pelikirja (VP:n 5 johtamisaluetta · valmentaja · Pelaajaraportti+yhteistyö · data-herää-silmukka · in-app-suunnitelma).
-- **OPAS_PERHE.md** — vanhempi+pelaaja (profiili rakentuu progressiivisesti · ikävaiheittain syvenevä data · Tänään-tehtävien alkuperä harjoitegeneraattorista + miksi · §7.22-turvallinen).
-- **In-app aloitusopas** — 4 roolille (Pelaaja_v7 `_naytaTervetulo` · Vanhempi_v2 `_naytaVanhTervetulo` "kultainen sääntö: ei kavereihin" · VP/valmentaja "Aloita tästä" -kortit). Spec: `docs/INAPP_ALOITUSOPAS_SPEC.md`.
-
-**Tänään-tehtävät (pelaaja-app):** tulevat `harjoitelogiikka_v4.js`-generaattorista (§A7/§7.25) — S-harjoite kohdistuu heikoimpaan FLEI-ketjuun, T-harjoite joka päivä. Oppaissa selitetty miksi ne näkyvät, mistä tulevat, miksi kannattaa tehdä — §7.22-kehyksessä (ei numeroita/vertailua lapselle).
 
 ---
 
@@ -1270,3 +430,27 @@ Pages** ja monitoring näyttää tervettä verified-liikennettä. Mittari
 `firebaseappcheck.googleapis.com/services/verification_count`, label `security`: `VALID` = verified,
 `MISSING_*` = ei tokenia. Flippaa palvelu kerrallaan (Firestore → Functions → Storage), **un-enforce heti
 jos verified% tippuu.**
+
+---
+
+## 39. TIETOSUOJA (GDPR) — alaikäisten data EU:ssa
+
+> Pysyy juuressa (ei laiskassa taidossa). Yksityiskohdat: `tm-infra` §33 (B2/B4), `tm-sovellukset` §13.
+
+- **Data EU:ssa:** Firestore `eur3`, Cloud Functions `europe-west1`, Storage `europe-west1` (§2). Uusi ulkoinen palvelu → EU-sijainti tai Teron hyväksyntä + alihankkijalista.
+- **API-avaimet Secret Managerissa** (`SENDGRID_API_KEY`/`OPENAI_API_KEY`/`ANTHROPIC_API_KEY`, `runWith({secrets})`), luetaan vain funktiossa `process.env`:stä. EI plaintext-env-vareja, EI CI:n `.env`-injektiota, EI koskaan selaimeen.
+- **Sentry:** errors-only, EU-region (`ingest.de.sentry.io`), EI Session Replayta, `beforeSend`/`beforeBreadcrumb` PII-skrubi (nimet, email, huoltaja, PIN, puhelin, osoite → redacted), `sendDefaultPii:false`. Skrubin heitto → event drop.
+- **Suostumus-integriteetti:** `suostumusTila` EI KOSKAAN `annettu` → `odottaa`. Suostumus vahvistetaan palvelimella (`vahvistaSuostumus`, huoltajaEmail-täsmäys).
+- **Audit-loki ei ole client-luettava** (luku vain SA-gatetun `haeAuditLoki`-funktion kautta).
+- **Kielletyt kentät pelaajalle näkyvissä dokumenteissa** (esim. `pisteet`/`narratiivi` kenttätarkkailuissa) ja `nakyvyys`-rajaus havainnoissa ovat Rules-tason sääntöjä — älä kierrä niitä clientissa.
+- **B4-suunta:** retention, oikeus tulla unohdetuksi, audit, field-level Rules (§33).
+
+## 40. LAISKAT TAIDOT — yksityiskohdat ladataan tarvittaessa
+
+| Taito | Osiot (alkuperäinen numerointi) | Lataa kun |
+|---|---|---|
+| `.claude/skills/tm-mittarit-ja-testit` | §22 testausinfra · §23 TK & TKI · §24 Excel/PDF · §26 mittaristo · §29 kehityssilmukka · §30 KPI Master · §31 TK per-laji · §34 TKI-analyysimalli | testi-, indeksi-, normi-, tuonti- tai pikakenttäkoodi |
+| `.claude/skills/tm-kehitysbiologia` | §25 biologinen ikä · §28 kehitysikkunat | PHV, bio-banding, talentti-signaalit |
+| `.claude/skills/tm-sovellukset` | §13 Cloud Functions · §15 ADAR · §16 Pelaaja · §17 Seura · §18 Admin · §19 VP_v25 · §20 integraatiot · §21 AI · §32 viestiketju · §35 kalenteri · §36 kortit · §37 julkinen kieli | sovellus- tai funktiomuutos |
+| `.claude/skills/tm-infra` | §33 skaalautuvuus, deploy-työnkulku, SaaS-suunta | CI, versiointi, Pages, Sentry, CF-runtime |
+
