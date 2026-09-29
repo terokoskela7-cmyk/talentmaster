@@ -370,7 +370,11 @@ describe('(8) valmentajan viesti perheelle säilyy näkyvänä', () => {
     expect(ketju).toContain(".where('nakyvyys', '==', 'pelaaja')");
   });
 
-  it('EI VACUOUS: Vanhempi_v2 lukee yhä anonyyminä (siksi rajaus koskee sitä)', () => {
-    expect(VANHEMPI).toContain('signInAnonymously');
+  /* Vaihe 0 / PR 2: Vanhempi_v2:n ehdoton anonyymi istunto poistettiin (huoltaja kirjautuu
+     sähköpostilla, nimetty appi 'tm-vanhempi'). nakyvyys-rajaus koskee yhä huoltajan kyselyä
+     (onLapsenHuoltaja), joten ylempi vartija on edelleen tarpeen. */
+  it('Vanhempi_v2 EI enää kirjaudu anonyymisti (PR 2)', () => {
+    const koodi = VANHEMPI.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:])\/\/[^\n]*/g, '$1 ');
+    expect(koodi).not.toContain('signInAnonymously');
   });
 });

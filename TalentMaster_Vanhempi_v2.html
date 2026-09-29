@@ -120,7 +120,7 @@ body.demo-mode #devChrome{display:block}
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-functions-compat.js"></script>
-<script src="lib/tm_appcheck.js?v=1"></script>
+<script src="lib/tm_appcheck.js?v=2"></script>
 <script src="lib/tm_lang.js?v=15"></script>   <!-- i18n V0 putki · V1-B/B2: +vanhempi./nav.-avaimet + kielivalitsin + syväsisältö (nimen taivutus poistettu) -->
 <script src="docs/testit_indeksit.js?v=9"></script>
 <script src="tm-bus.js?v=3"></script>
@@ -389,7 +389,7 @@ async function _teeSisaankirjautuminen() {
   draw();
 
   try {
-    await firebase.auth().signInWithEmailAndPassword(email, pass);
+    await _auth.signInWithEmailAndPassword(email, pass);
     // onAuthStateChanged hoitaa loput — siirtyy kotiin automaattisesti
     _loginPass = '';  // älä säilytä salasanaa muistissa
   } catch(e) {
@@ -412,7 +412,7 @@ async function _lahetaSalasananpalautus() {
     draw(); return;
   }
   try {
-    await firebase.auth().sendPasswordResetEmail(email);
+    await _auth.sendPasswordResetEmail(email);
     _loginErr = '';
     _toast(t('vanhempi.toast_reset_linkki'));
   } catch(e) {
@@ -498,7 +498,7 @@ async function _vanhLataaNotif() {
   var _demo = false; try { _demo = new URLSearchParams(location.search).get('demo') === '1'; } catch (e) { /* ei estä */ }
   if (_demo) { window._vanhNotifLadattu = true; window._vanhNotif = _vanhDemoNotif(); if (typeof draw === 'function') draw(); return; }
   var L = window._lapsi;
-  var authReady = !!(typeof firebase !== 'undefined' && firebase.auth && firebase.auth().currentUser);
+  var authReady = !!(_auth && _auth.currentUser);
   if (!_db || !L || !L.seuraId || !L.id || !authReady) return;   // ei valmis → yritä uudelleen (ei latchia)
   window._vanhNotifLadattu = true;
   try {
@@ -539,7 +539,7 @@ async function _vanhMerkitseLuettu(id) {
   var L = window._lapsi;
   if (_demo || !_db || !L || !L.seuraId || !L.id) return;
   try {
-    var cu = (typeof firebase !== 'undefined' && firebase.auth) ? firebase.auth().currentUser : null; if (cu) await cu.getIdToken(true);
+    var cu = _auth ? _auth.currentUser : null; if (cu) await cu.getIdToken(true);
     await _db.collection('seurat').doc(L.seuraId).collection('pelaajat').doc(L.id)
       .collection('notifikaatiot').doc(id).set({ luettu: true, luettu_pvm: new Date().toISOString() }, { merge: true });
   } catch (e) { console.warn('[vanh notif read]', e && e.message); }
@@ -554,7 +554,7 @@ async function _vanhLataaKalenteri() {
   var _demo = false; try { _demo = new URLSearchParams(location.search).get('demo') === '1'; } catch (e) { /* ei estä */ }
   if (_demo) { window._vanhKalLadattu = true; window._vanhKalenteri = _vanhDemoKalenteri(); if (typeof draw === 'function') draw(); return; }
   var L = window._lapsi;
-  var authReady = !!(typeof firebase !== 'undefined' && firebase.auth && firebase.auth().currentUser);
+  var authReady = !!(_auth && _auth.currentUser);
   // Ei valmis → älä latchaa, älä näytä demoa: pidä 'ladataan'-tila (null) ja yritä uudelleen kun _lapsi/auth valmistuu.
   if (!_db || !L || !L.seuraId || !authReady) return;
   window._vanhKalLadattu = true;   // vasta kun oikea yritys tehdään
@@ -602,7 +602,7 @@ async function _vanhMerkitseLasna(evId, saatavuus) {
   var L = window._lapsi;
   if (_demo || !_db || !L || !L.seuraId || !L.id) return;   // demo/ei-Firestore → vain UI
   try {
-    var cu = (typeof firebase !== 'undefined' && firebase.auth) ? firebase.auth().currentUser : null;
+    var cu = _auth ? _auth.currentUser : null;
     if (cu) await cu.getIdToken(true);
     await _db.collection('seurat').doc(L.seuraId).collection('kalenteri').doc(evId)
       .collection('lasnaolijat').doc(L.id)
@@ -1462,14 +1462,19 @@ const _fbCfg = {
 };
 
 try {
-  if (!firebase.apps.length) firebase.initializeApp(_fbCfg);
-  tmAppCheckAktivoi();   // App Check heti initin jälkeen, ennen 1. backend-kutsua
-  _db   = firebase.firestore();
-  _auth = firebase.auth();
-
-  // Anonyymi kirjautuminen — vain Firestore-rules varten (lukuoikeus)
-  // Tämä EI kirjaa vanhempaa sisään — oikea kirjautuminen vaatii sähköposti+salasana
-  _auth.signInAnonymously().catch(() => {});
+  /* NIMETTY APPI 'tm-vanhempi' (Vaihe 0 / PR 2): huoltajan istunto ei korvaa henkilökunnan istuntoa
+     samassa selaimessa eikä päinvastoin (sama juurisyy kuin Pelaaja_v7:n #676). Sivu ei alusta
+     oletusappia; kaikki palvelut tästä appista (window._fbApp/_auth/_db).
+     EHDOTON signInAnonymously() POISTETTU: se ajettiin jokaisella latauksella oletusappiin ja korvasi
+     saman selaimen henkilökunnan istunnon kaikissa välilehdissä. Anonyymiä ei tarvittu mihinkään:
+     sivu ei lue Firestorea ennen kirjautumista (kaikki haut käynnistyvät onAuthStateChanged-haarasta
+     tunnistetulle käyttäjälle), ja sähköpostikirjautuminen korvasi anonyymin istunnon joka tapauksessa. */
+  const _vApp = firebase.apps.find(function (a) { return a.name === 'tm-vanhempi'; })
+    || firebase.initializeApp(_fbCfg, 'tm-vanhempi');
+  tmAppCheckAktivoi(_vApp);   // App Check heti initin jälkeen, ennen 1. backend-kutsua — nimettyyn appiin
+  window._fbApp = _vApp;
+  _db   = _vApp.firestore();
+  _auth = _vApp.auth();
 
   // Hae pelaajan viimeisimmät kirjaukset kun autentikointi ok
   window.addEventListener('beforeinstallprompt', function (e) { e.preventDefault(); window._tmDeferredPrompt = e; });
@@ -1660,7 +1665,7 @@ async function _haeViimeisinKirjaus() {
     const user = _auth.currentUser;
     if (!user || !user.email) return;
     try {
-      const haeLapsi = firebase.app().functions('europe-west1').httpsCallable('haeLapsiHuoltajalle');
+      const haeLapsi = window._fbApp.functions('europe-west1').httpsCallable('haeLapsiHuoltajalle');
       const res = await haeLapsi();
       const lapset = (res.data && res.data.lapset) || [];
       if (!lapset.length) {
@@ -1855,8 +1860,8 @@ function _kirjauduUlos() {
       .forEach(k => localStorage.removeItem(k));
   } catch(e) {}
   try {
-    if (window.firebase && firebase.auth) {
-      firebase.auth().signOut().then(() => {
+    if (_auth) {
+      _auth.signOut().then(() => {
         // onAuthStateChanged hoitaa siirtymisen login-näkymään
       }).catch(() => {});
     }
