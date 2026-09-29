@@ -900,8 +900,9 @@ describe('(13) Masterin ottelutarkkailut', () => {
       _activePelaaja: 'p1', _seuraId: 'sjk',
       masterT: (s) => s, _mEsc: (s) => String(s == null ? '' : s),
       document: { getElementById: () => el },
-      /* Ketju kuten tuotannossa: collection→doc→collection→doc→collection→limit→get. */
-      db: {
+      /* Ketju kuten tuotannossa: collection→doc→collection→doc→collection→limit→get.
+         Nimi `_db` kuten Masterissa: tynkä nimellä `db` peitti ReferenceErrorin (lista ei toiminut). */
+      _db: {
         collection: () => ({
           doc: () => ({
             collection: () => ({
