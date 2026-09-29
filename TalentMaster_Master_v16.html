@@ -2354,14 +2354,19 @@ async function kirjauduGooglella() {
   }
 }
 
+/* DEMO ILMAN KIRJAUTUMISTA (Vaihe 0 / PR 2): demo käyttää vain paikallista DEMO-dataa (tm-demo.js).
+   Aiemmin demo kirjautui anonyymisti, ja anonyymi istunto (a) korvasi saman selaimen jaetun
+   oletusapin istunnon ja (b) teki demossa oikeaan seuraan (kpv) kohdistuvia Firestore-lukuja
+   (konfiguraatio/harjoitusarviointi, konfiguraatio/brandi, harjoitusarvioinnit). Säännöt hylkäsivät
+   ne, mutta demo ei saa yrittää lukea oikeaa dataa. Ilman käyttäjää nämä polut pysähtyvät omaan
+   `_auth.currentUser`-tarkistukseensa ennen hakua. */
 async function loginDemo() {
-  _kirjautuminenKesken = true;
-  try {
-    await _auth.signInAnonymously();
-    _kirjautuminenKesken = false;
-    _demo = true;
-    _kaynnistaDemoTila();
-  } catch(e) { _kirjautuminenKesken = false; }
+  _demo = true;
+  _kaynnistaDemoTila();
+  /* Sama kielipyyhkäisy kuin auth-kuuntelijan demo-haarassa: staattiset data-i18n-otsikot
+     muuten fi:nä, vaikka käyttäjä on valinnut sv:n (localStorage-valinta säilyy). */
+  if (typeof masterLokalisoi === 'function') masterLokalisoi();
+  if (typeof masterPaivitaKielivalitsin === 'function') masterPaivitaKielivalitsin();
 }
 
 async function logout() {
