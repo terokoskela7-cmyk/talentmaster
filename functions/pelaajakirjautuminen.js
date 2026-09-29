@@ -108,48 +108,39 @@ function pelaajaClaims(seuraId, pelaajaId) {
   return { rooli: 'pelaaja', pelaajaSeuraId: seuraId, pelaajaId: pelaajaId };
 }
 
-/* ── KÄSITTELIJÄ (Admin SDK injektoidaan → testattavissa ilman emulaattoria) ──
-   deps = { db, auth, FieldValue, HttpsError, audit(tapahtuma, tiedot), nyt() } */
-function luoKasittelija(deps) {
+/* ── YHTEINEN KIRJAUTUMISYDIN ─────────────────────────────────────────────────────────────
+   Sama logiikka seuran pelaajalle (pelaajaKirjaudu) ja Solo-lapselle (soloLapsiKirjaudu):
+   varaus transaktiossa ENNEN PIN-tarkistusta (tunnus + IP), näennäinen scrypt, sama virhe
+   tunnukselle ja PIN:lle, moniselitteinen osuma hylätään, selkoteksti-PIN → hajautus siirtymässä.
+   Malli (`malli`) kertoo vain sen, mikä eroaa:
+     laskuriEtuliite   · lukitusavaimen etuliite (eri tunnusavaruudet eivät lukitse toisiaan)
+     normalisoi(data)  · → tunnus tai null
+     haeEhdokkaat(db, tunnus) · → [{ avain, data, pinRef, vanhaPin, uid, claims, palaute }]
+     auditEtuliite     · audit-tapahtumien etuliite */
+function luoKirjautuja(deps, malli) {
   const { db, auth, HttpsError } = deps;
   const nytF = deps.nyt || (() => Date.now());
   const audit = deps.audit || (async () => {});
 
-  async function haeEhdokkaat(tunnus) {
-    const kentat = ['tunniste', 'palloID', 'palloId'];
-    const tulos = new Map();
-    for (const k of kentat) {
-      const snap = await db.collectionGroup('pelaajat').where(k, '==', tunnus).limit(10).get();
-      snap.docs.forEach((d) => {
-        // Vain seurojen pelaajat (seurat/{sid}/pelaajat/{pid}); Solo-`pelaajat` ohitetaan.
-        const seura = d.ref.parent.parent;
-        if (!seura || seura.parent.id !== 'seurat') return;
-        tulos.set(seura.id + '/' + d.id, { seuraId: seura.id, pelaajaId: d.id, data: d.data() || {} });
-      });
-    }
-    return Array.from(tulos.values());
-  }
-
   async function pinOikein(ehdokas, pin) {
-    const pinRef = db.collection('_pelaajaPin').doc(ehdokas.seuraId + '_' + ehdokas.pelaajaId);
-    const pinSnap = await pinRef.get();
+    const pinSnap = await ehdokas.pinRef.get();
     if (pinSnap.exists && pinSnap.data() && pinSnap.data().hash) {
-      return { ok: tarkistaPin(pin, pinSnap.data().hash), pinRef, siirretty: false, scrypt: true };
+      return { ok: tarkistaPin(pin, pinSnap.data().hash), siirretty: false, scrypt: true };
     }
-    const vanha = ehdokas.data.pin;
-    if (vanha == null || String(vanha).trim() === '') return { ok: false, pinRef, siirretty: false };
-    return { ok: vakioaikainenSama(String(vanha).trim(), pin), pinRef, siirretty: true };
+    const vanha = ehdokas.vanhaPin;
+    if (vanha == null || String(vanha).trim() === '') return { ok: false, siirretty: false };
+    return { ok: vakioaikainenSama(String(vanha).trim(), pin), siirretty: true };
   }
 
-  return async function pelaajaKirjaudu(data, context) {
+  return async function kirjaudu(data, context) {
     const nyt = nytF();
-    const tunnus = normalisoiTunnus(data && (data.liittoTunnus != null ? data.liittoTunnus : data.tunnus));
+    const tunnus = malli.normalisoi(data);
     const pin = normalisoiPin(data && data.pin);
     if (!tunnus || !pin) throw new HttpsError('invalid-argument', VIRHE_TUNNISTUS);
 
     const ip = String((context && context.rawRequest && context.rawRequest.ip) || 'tuntematon');
     const ipRef = db.collection('_kirjautumisyritykset').doc('ip_' + laskuriAvain(ip));
-    const tRef = db.collection('_kirjautumisyritykset').doc('t_' + laskuriAvain(tunnus));
+    const tRef = db.collection('_kirjautumisyritykset').doc(malli.laskuriEtuliite + laskuriAvain(tunnus));
 
     // 1) VARAA yritys atomisesti ENNEN PIN-tarkistusta (rinnakkaiset pyynnöt eivät ohita lukitusta).
     const varaus = await db.runTransaction(async (tx) => {
@@ -161,10 +152,10 @@ function luoKasittelija(deps) {
       return v;
     });
     if (!varaus.sallittu) throw new HttpsError('resource-exhausted', VIRHE_LUKITTU);
-    if (varaus.t.lukittuKerran) await audit('pelaaja_kirjautuminen_lukittu', { avain: laskuriAvain(tunnus), severity: 'alert' });
+    if (varaus.t.lukittuKerran) await audit(malli.auditEtuliite + '_lukittu', { avain: laskuriAvain(tunnus), severity: 'alert' });
 
     // 2) PIN-tarkistus vasta varauksen jälkeen.
-    const ehdokkaat = await haeEhdokkaat(tunnus);
+    const ehdokkaat = await malli.haeEhdokkaat(db, tunnus);
     const osumat = [];
     let scryptAjettu = false;
     for (const e of ehdokkaat) {
@@ -176,7 +167,7 @@ function luoKasittelija(deps) {
 
     if (osumat.length !== 1) {
       // Väärä PIN, tuntematon tunnus TAI moniselitteinen. Yritys on jo varattu (laskettu) kohdassa 1.
-      if (osumat.length > 1) await audit('pelaaja_kirjautuminen_moniselitteinen', { avain: laskuriAvain(tunnus), severity: 'alert' });
+      if (osumat.length > 1) await audit(malli.auditEtuliite + '_moniselitteinen', { avain: laskuriAvain(tunnus), severity: 'alert' });
       throw new HttpsError('unauthenticated', VIRHE_TUNNISTUS);
     }
 
@@ -190,15 +181,86 @@ function luoKasittelija(deps) {
        kirjautumiset kuluttaisivat kattoa). Laskuria ei nollata. */
     await tRef.delete().catch(() => {});
     if (deps.FieldValue) await ipRef.set({ virheet: deps.FieldValue.increment(-1) }, { merge: true }).catch(() => {});
-    const token = await auth.createCustomToken(pelaajaUid(o.seuraId, o.pelaajaId), pelaajaClaims(o.seuraId, o.pelaajaId));
-    await audit('pelaaja_kirjautuminen', { seuraId: o.seuraId, pelaajaId: o.pelaajaId, severity: 'info' });
-    return { token: token, seuraId: o.seuraId, pelaajaId: o.pelaajaId };
+    const token = await auth.createCustomToken(o.uid, o.claims);
+    await audit(malli.auditEtuliite, Object.assign({ severity: 'info' }, o.auditTiedot || {}));
+    return Object.assign({ token: token }, o.palaute);
   };
+}
+
+/* ── SEURAN PELAAJA (Vaihe 0 / PR 1): { liittoTunnus (PalloID), pin } ── */
+function luoKasittelija(deps) {
+  return luoKirjautuja(deps, {
+    laskuriEtuliite: 't_',
+    auditEtuliite: 'pelaaja_kirjautuminen',
+    normalisoi: (data) => normalisoiTunnus(data && (data.liittoTunnus != null ? data.liittoTunnus : data.tunnus)),
+    haeEhdokkaat: async (db, tunnus) => {
+      const tulos = new Map();
+      for (const k of ['tunniste', 'palloID', 'palloId']) {
+        const snap = await db.collectionGroup('pelaajat').where(k, '==', tunnus).limit(10).get();
+        snap.docs.forEach((d) => {
+          // Vain seurojen pelaajat (seurat/{sid}/pelaajat/{pid}); Solo-`pelaajat` ohitetaan.
+          const seura = d.ref.parent.parent;
+          if (!seura || seura.parent.id !== 'seurat') return;
+          const data = d.data() || {};
+          tulos.set(seura.id + '/' + d.id, {
+            pinRef: db.collection('_pelaajaPin').doc(seura.id + '_' + d.id),
+            vanhaPin: data.pin,
+            uid: pelaajaUid(seura.id, d.id),
+            claims: pelaajaClaims(seura.id, d.id),
+            auditTiedot: { seuraId: seura.id, pelaajaId: d.id },
+            palaute: { seuraId: seura.id, pelaajaId: d.id },
+          });
+        });
+      }
+      return Array.from(tulos.values());
+    },
+  });
+}
+
+/* ── SOLO-LAPSI (Vaihe 0 / PR 2b): { playerCode (TMP-XXXXXX), pin } ──
+   Eri tunnistemalli kuin seuran pelaajalla: ylätason `players`, tunnus playerCode, ei seuraa.
+   ⚠ Claimit { rooli:'solo_lapsi', soloPlayerId } — EI seuraId/pelaajaSeuraId/pelaajaId: Solo-lapsi
+   ei saa missään tilanteessa läpäistä seurapelaajan (onPelaajaItse) eikä seuran (onOmaSeura) sääntöjä. */
+function normalisoiSoloKoodi(v) {
+  if (v == null) return null;
+  const s = String(v).trim().toUpperCase().replace(/\s/g, '');
+  const m = /^TMP-?([A-Z0-9]{4,12})$/.exec(s);
+  return m ? 'TMP-' + m[1] : null;
+}
+function soloUid(playerId) { return 'solo_' + playerId; }
+function soloClaims(playerId) { return { rooli: 'solo_lapsi', soloPlayerId: playerId }; }
+
+function luoSoloKasittelija(deps) {
+  return luoKirjautuja(deps, {
+    laskuriEtuliite: 'so_',
+    auditEtuliite: 'solo_kirjautuminen',
+    normalisoi: (data) => normalisoiSoloKoodi(data && data.playerCode),
+    haeEhdokkaat: async (db, koodi) => {
+      /* playerCodes/{koodi} → playerId; pelaajadokumentin playerCode:n on täsmättävä (indeksi voi
+         sisältää varauksia ilman pelaajaa). Tuntematon koodi → [] (näennäinen scrypt tasaa ajan). */
+      const ix = await db.collection('playerCodes').doc(koodi).get();
+      const playerId = ix.exists && ix.data() ? ix.data().playerId : null;
+      if (!playerId) return [];
+      const p = await db.collection('players').doc(String(playerId)).get();
+      if (!p.exists) return [];
+      const data = p.data() || {};
+      if (data.playerCode !== koodi) return [];
+      return [{
+        pinRef: db.collection('_soloPin').doc(String(playerId)),
+        vanhaPin: data.child_pin,
+        uid: soloUid(playerId),
+        claims: soloClaims(playerId),
+        auditTiedot: { playerId: playerId },
+        palaute: { playerId: playerId, playerCode: koodi },
+      }];
+    },
+  });
 }
 
 module.exports = {
   normalisoiTunnus, normalisoiPin, laskuriAvain,
   onLukittu, kirjaaVirhe, ipYlittyy, kirjaaIpVirhe, varaaYritys,
   hajautaPin, tarkistaPin, pelaajaUid, pelaajaClaims, luoKasittelija,
+  luoKirjautuja, luoSoloKasittelija, normalisoiSoloKoodi, soloUid, soloClaims,
   LUKITUS_YRITYKSET, LUKITUS_MS, IP_KATTO, VIRHE_TUNNISTUS, VIRHE_LUKITTU,
 };
