@@ -9,7 +9,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-check-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-<script src="lib/tm_appcheck.js?v=1"></script>
+<script src="lib/tm_appcheck.js?v=2"></script>
 <script src="lib/tm_solo_data.js?v=2"></script>
 <script src="harjoitelogiikka_v4.js?v=13"></script>
 <style>
@@ -165,11 +165,12 @@ var POS={hyokkaaja:'Hyökkääjä', keskikentta:'Keskikenttä', puolustaja:'Puol
   _pid=localStorage.getItem('tm_active_player')||null;
   try {
     if(typeof firebase!=='undefined'){
-      firebase.initializeApp({ apiKey:"AIzaSyAp471lOIntzP33p9bIW3y4KbeEyBt5kIo", authDomain:"talentmaster-pilot.firebaseapp.com",
+      // Nimetty appi 'tm-solo' (Vaihe 0 / PR 2b): sama istunto kuin Player_Home (lapsen Solo-token / vanhempi).
+      var app=firebase.initializeApp({ apiKey:"AIzaSyAp471lOIntzP33p9bIW3y4KbeEyBt5kIo", authDomain:"talentmaster-pilot.firebaseapp.com",
         projectId:"talentmaster-pilot", storageBucket:"talentmaster-pilot.firebasestorage.app",
-        messagingSenderId:"872561784446", appId:"1:872561784446:web:05c4c7996dfd46ddd14a2f" });
-      tmAppCheckAktivoi();   // App Check heti initin jälkeen, ennen 1. backend-kutsua
-      _auth=firebase.auth(); _db=firebase.firestore(); _fbReady=true;
+        messagingSenderId:"872561784446", appId:"1:872561784446:web:05c4c7996dfd46ddd14a2f" }, 'tm-solo');
+      tmAppCheckAktivoi(app);   // App Check heti initin jälkeen, ennen 1. backend-kutsua
+      _auth=app.auth(); _db=app.firestore(); _fbReady=true;
       _auth.onAuthStateChanged(function(u){ if(u){ _uid=u.uid; _haeFirestore(); } });
     }
   } catch(e){ console.warn('[koti] fb', e&&e.message); }

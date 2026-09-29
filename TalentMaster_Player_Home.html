@@ -6,12 +6,16 @@
 <title>TalentMaster Player™</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,700;9..40,800&family=DM+Mono:wght@500&display=swap" rel="stylesheet">
 <!-- Firebase (compat) + Solo-datakerros -->
+<!-- Sentry (Vaihe 0 / PR 2b): Solo-kirjautumisen varapolku hälyttää samalla mallilla kuin Pelaaja_v7. PII-skrubi tm_sentry.js:ssä. -->
+<script>window.TM_SENTRY={app:'solo'};</script>
+<script src="https://browser.sentry-cdn.com/10.58.0/bundle.min.js" integrity="sha384-rtfUMq82bneIHVOpL/60roC5pIJ9kDO15w13yGEBKZSJp3aIbrOAhimB61EwPClB" crossorigin="anonymous"></script>
+<script src="tm_sentry.js?v=1"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-check-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-functions-compat.js"></script>
-<script src="lib/tm_appcheck.js?v=1"></script>
+<script src="lib/tm_appcheck.js?v=2"></script>
 <script src="lib/tm_solo_data.js?v=1"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
@@ -540,7 +544,8 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
     <div class="step-hint">Tässä on PIN-koodisi — vanhempasi näkee sen myös sähköpostissaan.</div>
     <div style="font-size:40px;letter-spacing:8px;text-align:center;color:#f5b700;font-weight:800;margin:16px 0" id="waitPin">—</div>
     <div class="spacer"></div>
-    <button class="btn-primary" onclick="lapsiKirjaudu()">Aloita →</button>
+    <div class="microfeed" id="feedWait"></div>
+    <button class="btn-primary" id="btnLapsi" onclick="lapsiKirjaudu()">Aloita →</button>
   </div>
 </div>
 
@@ -657,16 +662,19 @@ var _fbReady = false, _auth = null, _db = null, _uid = null, _email = null;
 (function initFirebase(){
   try {
     if (typeof firebase === 'undefined') return;
-    firebase.initializeApp({
+    /* Nimetty appi 'tm-solo' (Vaihe 0 / PR 2b): oma Auth-istunto, ei törmää saman originin muihin
+       appeihin (Pelaaja/Vanhempi/Master). Player_Home, Solo_Koti ja Solo_Profiili jakavat tämän. */
+    var app = firebase.initializeApp({
       apiKey: "AIzaSyAp471lOIntzP33p9bIW3y4KbeEyBt5kIo",
       authDomain: "talentmaster-pilot.firebaseapp.com",
       projectId: "talentmaster-pilot",
       storageBucket: "talentmaster-pilot.firebasestorage.app",
       messagingSenderId: "872561784446",
       appId: "1:872561784446:web:05c4c7996dfd46ddd14a2f"
-    });
-    tmAppCheckAktivoi();   // App Check heti initin jälkeen, ennen 1. backend-kutsua
-    _auth = firebase.auth(); _db = firebase.firestore(); _fbReady = true;
+    }, 'tm-solo');
+    tmAppCheckAktivoi(app);   // App Check heti initin jälkeen, ennen 1. backend-kutsua
+    window._soloApp = app;
+    _auth = app.auth(); _db = app.firestore(); _fbReady = true;
     _auth.onAuthStateChanged(function(u){ if (u){ _uid = u.uid; _email = u.email || _email; } });
   } catch(e){ console.warn('[solo] firebase init', e && e.message); }
 })();
@@ -783,7 +791,7 @@ async function lahetaLupapyynto(){
     });
     localStorage.setItem('tm_lupapyynto', rid);
     // CF-kutsu EI inner-catchiin: jos lähetys kaatuu → todellinen virhe, ei valheellista "Pyyntö lähetetty".
-    await firebase.app().functions('europe-west1').httpsCallable('soloLupapyyntoEmail')({ requestId: rid });
+    await window._soloApp.functions('europe-west1').httpsCallable('soloLupapyyntoEmail')({ requestId: rid });
     _kuunteleLupa(rid);
     goStep('Wait');
   } catch(e){ console.warn('[solo] lupapyyntö', e&&e.message); _feed('feedReq','Emme saaneet lähetettyä — yritä uudelleen.','#ff6b6b'); btn.disabled=false; btn.textContent='Lähetä pyyntö →'; }
@@ -797,15 +805,63 @@ function _kuunteleLupa(rid){
       document.getElementById('waitPin').textContent=d.child_pin||'—';
       document.getElementById('waitState').classList.add('hidden');
       document.getElementById('waitDone').classList.remove('hidden');
-      window._soloApproved={ playerId:d.playerId||null, pin:d.child_pin||null };
+      window._soloApproved={ playerId:d.playerId||null, playerCode:d.playerCode||null, pin:d.child_pin||null };
     }
   }, function(err){ console.warn('[solo] lupakuuntelu', err&&err.message); });
 }
-async function lapsiKirjaudu(){
+/* Vaihe 0 / PR 2b — lapsi kirjautuu PALVELIMEN kautta: soloLapsiKirjaudu({ playerCode, pin }) →
+   custom token { rooli:'solo_lapsi', soloPlayerId } (Rules v3.26 onSoloLapsiItse). Vanha anonyymi
+   polku on VARAPOLKU vain infravirheissä (App Check / funktio ei saatavilla) tai kun hyväksynnästä
+   puuttuu playerCode (ennen PR 2b:tä hyväksytyt) — jokainen pudotus Sentryyn syykoodilla. Poistuu PR 3:ssa. */
+var _SOLO_VIRHE_TUNNISTUS = 'Tunnus tai PIN on väärin.';
+function _soloVarapolunSyy(koodi, viesti){
+  if (/app.?check/i.test(viesti) || (koodi === 'unauthenticated' && viesti !== _SOLO_VIRHE_TUNNISTUS)) return 'app-check';
+  if (koodi === 'internal') return 'internal';
+  if (koodi === 'unavailable' || koodi === 'deadline-exceeded') return 'unavailable';
+  if (koodi === 'not-found') return 'not-found';
+  return koodi || 'muu';
+}
+/* Ei PII:tä: vain syykoodi (ei koodia, ei PIN:iä). */
+function _soloRaportoiVarapolku(syy){
   try {
-    if(_fbReady && _auth && !_auth.currentUser) await _auth.signInAnonymously();
-    var ap=window._soloApproved;
-    if(_fbReady && ap && ap.playerId){
+    if (window.Sentry && typeof window.Sentry.captureMessage === 'function') {
+      window.Sentry.captureMessage('soloLapsiKirjaudu → varapolku: ' + syy, { level: 'warning', tags: { tm_varapolku: syy } });
+    }
+  } catch(e){ /* Sentry ei saa kaataa kirjautumista */ }
+}
+var _lapsiKesken = false;
+async function lapsiKirjaudu(){
+  if (_lapsiKesken) return;
+  _lapsiKesken = true;
+  var btn = document.getElementById('btnLapsi');
+  if (btn){ btn.disabled = true; btn.textContent = 'Kirjaudutaan…'; }
+  try {
+    var ap = window._soloApproved;
+    if (_fbReady && ap && ap.playerId){
+      var varapolku = null;
+      if (!ap.playerCode || !ap.pin) varapolku = 'ei-koodia';
+      else {
+        try {
+          var res = await window._soloApp.functions('europe-west1').httpsCallable('soloLapsiKirjaudu')({ playerCode: ap.playerCode, pin: ap.pin });
+          var d = res && res.data;
+          if (!d || !d.token) throw Object.assign(new Error('ei tokenia'), { code: 'internal' });
+          await _auth.signInWithCustomToken(d.token);
+        } catch(e){
+          var koodi = String((e && e.code) || '').replace(/^functions\//, '');
+          var viesti = String((e && e.message) || '');
+          if (koodi === 'resource-exhausted' || koodi === 'invalid-argument' || viesti === _SOLO_VIRHE_TUNNISTUS){
+            _feed('feedWait', koodi === 'resource-exhausted' ? (viesti || 'Liian monta yritystä. Yritä myöhemmin.') : 'Kirjautuminen ei onnistunut. Pyydä vanhempaa tarkistamaan PIN.', '#ff6b6b');
+            if (btn){ btn.disabled = false; btn.textContent = 'Aloita →'; }
+            return;
+          }
+          varapolku = _soloVarapolunSyy(koodi, viesti);
+        }
+      }
+      if (varapolku){
+        console.warn('[soloLapsiKirjaudu] ei saatavilla → vanha anonyymi polku (siirtymä):', varapolku);
+        _soloRaportoiVarapolku(varapolku);
+        if (!_auth.currentUser) await _auth.signInAnonymously();
+      }
       var pdoc=await _db.collection('players').doc(ap.playerId).get();
       if(pdoc.exists){ var pl=pdoc.data();
         localStorage.setItem('tm_active_player', ap.playerId);
@@ -814,6 +870,7 @@ async function lapsiKirjaudu(){
       }
     }
   } catch(e){ console.warn('[solo] lapsiKirjaudu', e&&e.message); }
+  finally { _lapsiKesken = false; }
   window.location.href='TalentMaster_Solo_Koti.html';
 }
 // ── Vanhemman tili ──
