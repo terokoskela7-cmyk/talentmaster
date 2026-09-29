@@ -24,9 +24,8 @@
 <script src="lib/tm_lang.js?v=14"></script>
 <script src="lib/tm_i18n_common.js?v=10"></script>
 <script src="lib/tm_xt.js?v=1"></script>                     <!-- xT-ruudukko: tm_pelihavainto käyttää, EI kopiota -->
-<script src="lib/tm_pelihavainto.js?v=4"></script>           <!-- KANONINEN laskenta (§5.6). NOSTA ?v KUN LIB MUUTTUU: vanha lib + uusi sivu = pystyasennon napautus tallentuisi vaakakaavalla vaaraan kohtaan ILMAN virheilmoitusta (§27.4 CDN-cache). -->
-<script src="lib/tm_teknistaktiset.js?v=1"></script>         <!-- konseptien kaanon -->
-<script src="lib/tm_konsepti_resolve.js?v=1"></script>       <!-- seuran omat nimet + piilotukset -->
+<script src="lib/tm_pelihavainto.js?v=5"></script>           <!-- KANONINEN laskenta (§5.6). NOSTA ?v KUN LIB MUUTTUU: vanha lib + uusi sivu = pystyasennon napautus tallentuisi vaakakaavalla vaaraan kohtaan ILMAN virheilmoitusta (§27.4 CDN-cache). -->
+<script src="lib/tm_teknistaktiset.js?v=1"></script>         <!-- pelipaikkalista (TM_TT_PELIPAIKAT) asetuksissa. Konseptivalinta EI ole tässä työkalussa: se tehdään pikakortissa. -->
 <script src="lib/tm_joukkue.js?v=3"></script>                <!-- §18 joukkuejäsenyys -->
 
 <style>
@@ -130,9 +129,14 @@
   .pchip .nm{overflow:hidden;text-overflow:ellipsis}
   .pchip .c{font-family:var(--font-mono);font-size:10.5px;color:var(--ink3);flex:none}
   .sbar .sp{flex:1 1 0}
-  .saved{display:flex;align-items:center;gap:5px;font-family:var(--font-mono);font-size:10.5px;color:var(--ink3);flex:none}
-  .saved i{width:6px;height:6px;border-radius:50%;background:var(--accent);display:inline-block}
-  .saved.odottaa i{background:var(--amber)}
+  /* Tallennustila on PELKKÄ IKONI (● laitteella · ✓ verkossa); teksti näkyy napautuksella toastina.
+     Teksti vei pystyasennossa tilan ja leikkasi kellon oikeasta reunasta. */
+  .saved{display:flex;align-items:center;justify-content:center;width:26px;height:34px;padding:0;border:0;
+         background:transparent;font-family:var(--font-mono);font-size:13px;color:var(--ink3);flex:none;cursor:pointer}
+  .saved .ico{color:var(--ink3);line-height:1}
+  .saved.odottaa .ico{color:var(--amber)}
+  .saved.verkossa .ico{color:var(--accent)}
+  .saved .lbltxt{display:none}
   .pasiru{font-size:11.5px;font-weight:600;letter-spacing:.06em;padding:6px 10px;border-radius:7px;
           border:.5px solid var(--border);background:var(--surface2);color:var(--ink2);cursor:pointer;
           font-family:var(--font-sans);flex:none}
@@ -264,11 +268,28 @@
   .chip{font-size:10.5px;padding:4px 8px;border-radius:12px;border:.5px solid var(--border);background:transparent;color:var(--ink2);cursor:pointer}
   .chip[aria-pressed="true"]{background:var(--teal-dim);border-color:var(--teal-brd);color:var(--accent)}
   .chip.bad[aria-pressed="true"]{background:var(--amber-dim);border-color:var(--amber-brd);color:var(--amber)}
-  select.konsepti{font-size:10.5px;padding:4px 7px;border-radius:7px;border:.5px solid var(--border);background:var(--surface2);color:var(--ink2);font-family:inherit;max-width:100%}
-  .sum{display:grid;grid-template-columns:repeat(auto-fit,minmax(104px,1fr));gap:8px;margin-top:10px}
-  .sumcell{padding:8px 9px;border:.5px solid var(--border2);border-radius:8px;background:var(--surface2)}
-  .sumcell .v{font-family:var(--font-mono);font-size:15px;color:var(--ink)}
-  .sumcell .k{font-size:9px;color:var(--ink3);letter-spacing:.06em;margin-top:1px}
+  /* ── TILASTONÄKYMÄ (läpikäynti · loppunäkymä · Masterin lukunäkymä — yksi renderöijä) ── */
+  .tv{margin-top:12px}
+  .tv-paa{display:grid;grid-template-columns:repeat(var(--sarakkeet,3),minmax(0,1fr));gap:8px;padding:6px 0 12px;border-bottom:.5px solid var(--border2)}
+  .tv-paa .pl{min-width:0}
+  .tv-paa .v{font-family:var(--font-serif);font-weight:400;font-size:34px;line-height:1.05;color:var(--ink);font-variant-numeric:tabular-nums}
+  .tv-paa .v.vastaan{color:var(--red);opacity:.72}
+  .tv-paa .k{font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink3);margin-top:3px;overflow-wrap:anywhere}
+  .tv-tabs{display:flex;gap:6px;margin:12px 0 8px;flex-wrap:wrap}
+  .tv-tab{font-size:11.5px;padding:6px 11px;border-radius:14px;border:.5px solid var(--border);background:transparent;color:var(--ink2);cursor:pointer;font-family:inherit}
+  .tv-tab[aria-pressed="true"]{background:var(--teal-dim);border-color:var(--teal-brd);color:var(--accent);font-weight:500}
+  .tv-kartta{display:block;width:100%;max-width:320px;height:auto;margin:0 auto;background:var(--pitch);border-radius:6px}
+  .tv-selite{font-size:10px;color:var(--ink3);text-align:center;margin:6px 0 4px;line-height:1.5;display:flex;flex-wrap:wrap;justify-content:center;gap:2px 8px}
+  .tv-selite span{white-space:nowrap}
+  .tv-lista{margin-top:10px}
+  .tv-rivi{display:flex;justify-content:space-between;align-items:baseline;gap:12px;padding:9px 0;border-bottom:.5px solid var(--border2)}
+  .tv-rivi .n{font-size:13px;color:var(--ink);min-width:0}
+  .tv-rivi .t{display:block;font-size:11px;color:var(--ink3);margin-top:2px;overflow-wrap:anywhere}
+  .tv-rivi .a{font-family:var(--font-serif);font-size:22px;color:var(--ink);flex:none;font-variant-numeric:tabular-nums}
+  .tv-huom{margin-top:10px;font-size:11px;color:var(--ink3);line-height:1.5}
+  .tv-huom summary{cursor:pointer;list-style:none}
+  .tv-huom summary::-webkit-details-marker{display:none}
+  .tv-huom p{margin:6px 0 0}
   .ketju{font-size:11.5px;color:var(--ink2);padding:5px 0;border-bottom:.5px solid var(--border2)}
   .ketju b{color:var(--accent);font-weight:500}
   .ketju.menetetty b{color:var(--amber)}
@@ -280,7 +301,8 @@
     .rail{flex-direction:row;padding:4px 8px 8px 8px}
     .pitchbox{padding:4px 6px}
     .pchip .nm{display:none}
-    .saved .lbltxt{display:none}
+    .clock{padding:5px 7px;font-size:13px}
+    .sbar{gap:6px}
   }
 
   /* YKSI @media(max-width:768px) per tiedosto (§6) — älä lisää toista lohkoa. */
@@ -288,7 +310,7 @@
     h1{font-size:21px}
     .setup{gap:10px 14px;padding:10px}
     .erow{grid-template-columns:38px minmax(0,1fr) auto}
-    .sum{grid-template-columns:repeat(auto-fit,minmax(88px,1fr))}
+    .tv-paa .v{font-size:28px}
     .overlay{padding-left:10px;padding-right:10px}
   }
 </style>
@@ -323,7 +345,7 @@
     <div class="sbar">
       <button type="button" class="pchip" id="pchip" title="Asetukset"></button>
       <span class="sp"></span>
-      <span class="saved" id="tallennustila"><i></i><span class="lbltxt" id="tallennusmerkki"></span></span>
+      <button type="button" class="saved" id="tallennustila" title="Tallennustila"><span class="ico" id="tallennusikoni" aria-hidden="true">●</span><span class="lbltxt" id="tallennusmerkki"></span></button>
       <button type="button" class="iconbtn" id="btnUlkotila" aria-pressed="false" title="Ulkotila (aurinko)" data-i18n="☀">☀</button>
       <button type="button" class="pasiru" id="pasiru" title="Puoliajan läpikäynti">1. pa</button>
       <span class="clock"><span class="dot"></span><span id="kello">00:00</span></span>
@@ -375,6 +397,7 @@
     <div class="eyebrow" data-i18n="Ottelu">Ottelu</div>
     <h1 id="loppuOtsikko"></h1>
     <p class="lead" id="loppuLuvut"></p>
+    <div id="loppuTilastot"></div>
     <button class="primary" type="button" id="loppuPikakortti" data-i18n="Tee pelihavainto tämän pohjalta">Tee pelihavainto tämän pohjalta</button>
     <div style="display:flex;gap:8px;margin-top:10px">
       <button class="tbtn sec" type="button" id="loppuUusi" style="flex:1" data-i18n="Uusi ottelu">Uusi ottelu</button>
@@ -514,6 +537,9 @@ const _db = firebase.firestore();
     if (!v) return '';
     return phT(TXT_KOLMANNES[v.kolmannes] || v.kolmannes) + ', ' + phT(TXT_KAISTA[v.kaista] || v.kaista);
   }
+  var KELLO_MAX_S = 120 * 60;
+  function kelloNaytto(s) { return s > KELLO_MAX_S ? '120+' : kelloTeksti(s); }
+  window._phKelloNaytto = kelloNaytto;   // testivartija
   function kelloTeksti(s) {
     var m = Math.floor(s / 60), ss = s % 60;
     return (m < 10 ? '0' : '') + m + ':' + (ss < 10 ? '0' : '') + ss;
@@ -1002,7 +1028,6 @@ const _db = firebase.firestore();
     m.id = ++S.seq;
     m.puoliaika = S.puoliaika;
     m.t = kelloSekunnit();
-    if (m.konsepti == null) m.konsepti = '';
     S.merkinnat.push(m);
     S.viimeisinId = m.id;
     varise(15);
@@ -1163,36 +1188,10 @@ const _db = firebase.firestore();
     return m.tyyppi;
   }
 
-  /* ── KONSEPTIT (seuran nimet ja piilotukset huomioiden) ────────────── */
-  function konseptiRyhmat() {
-    var TT = window.TM_TT_API || window;
-    var sid = S.seuraId;
-    var listaa = function (items) {
-      return (typeof tmKonseptiListaa === 'function') ? tmKonseptiListaa(items || [], sid) : (items || []);
-    };
-    var ryhmat = [];
-    if (S.jaksofokus) {
-      var jf = (typeof tmKonseptiResolvoi === 'function') ? tmKonseptiResolvoi(S.jaksofokus, sid) : null;
-      if (jf && !(typeof tmKonseptiOnPiilotettu === 'function' && tmKonseptiOnPiilotettu(S.jaksofokus, sid))) {
-        ryhmat.push([phT('📍 Jaksofokus'), [jf]]);
-      }
-    }
-    /* Pelipaikan fundamentit VAIN jos pelipaikka on valittu — pelipaikka on valinnainen (§0.1). */
-    var fundamentit = S.pelipaikka ? ((TT.TM_TT_FUNDAMENTIT || {})[S.pelipaikka] || null) : null;
-    if (fundamentit) {
-      var nimi = (TT.TM_TT_PELIPAIKAT && TT.TM_TT_PELIPAIKAT[S.pelipaikka]
-        && (TT.TM_TT_PELIPAIKAT[S.pelipaikka].nimi || TT.TM_TT_PELIPAIKAT[S.pelipaikka])) || S.pelipaikka;
-      ryhmat.push([String(nimi), listaa(fundamentit)]);
-    }
-    if (TT.TM_TT_YOUTH) ryhmat.push([phT('Yksilökonseptit (kaikki ikäluokat)'), listaa(TT.TM_TT_YOUTH)]);
-    if (TT.TM_TT_JOUKKUE) ryhmat.push([phT('Joukkue · siirtymät'), listaa(TT.TM_TT_JOUKKUE)]);
-    /* Jaksofokus ei saa toistua alempana — se on jo omana ryhmänään. */
-    return ryhmat.map(function (g, i) {
-      if (i === 0 && S.jaksofokus) return g;
-      return [g[0], (g[1] || []).filter(function (c) { return c && c.avain !== S.jaksofokus; })];
-    }).filter(function (g) { return (g[1] || []).length; });
-  }
-  window._phKonseptiRyhmat = konseptiRyhmat;   // testivartija
+  /* KONSEPTIVALINTA EI OLE TÄSSÄ TYÖKALUSSA (Tero 29.9.2026, Android-testi): se toi kentälle vain
+     hämmennystä, ja pikavalinta tuotti vääriä konsepteja (puolustuksen 1v1 "ohitettiin" → Y-H5
+     Pallon suojaaminen). Konsepti valitaan pikakortissa, kun tarkkailusta tehdään pelihavainto.
+     Vanhojen dokumenttien `m.konsepti` saa jäädä — kukaan ei lue sitä. */
 
   /* ── LÄPIKÄYNTI ────────────────────────────────────────────────────── */
   function lab(p, t) { var l = document.createElement('span'); l.className = 'lab'; l.textContent = phT(t); p.appendChild(l); }
@@ -1206,6 +1205,21 @@ const _db = firebase.firestore();
       parent.appendChild(b);
     });
   }
+
+  /* KYTKIN, joka kirjoittaa kentän VAIN arvolla true ja poistaa sen muuten (`delete`). Firestore
+     compat hylkää koko set()-kutsun, jos jossakin kentässä on undefined (sama syy kuin `ketju`-
+     kentän ehdollisessa kirjoituksessa, ks. kysyLaukaus), ja false/null olisi turha kenttä. */
+  function kytkin(parent, otsikko, m, avain) {
+    var b = document.createElement('button'); b.type = 'button'; b.className = 'chip';
+    b.setAttribute('aria-pressed', m[avain] === true ? 'true' : 'false');
+    b.textContent = phT(otsikko);
+    b.onclick = function () {
+      if (m[avain] === true) delete m[avain]; else m[avain] = true;
+      piirra(); tallennaLuonnos();
+    };
+    parent.appendChild(b);
+  }
+  window._phKytkin = kytkin;   // testivartija
 
   function piirra() {
     piirraMerkinnat();
@@ -1284,24 +1298,19 @@ const _db = firebase.firestore();
         if ((m.tyyppi === 'syotto' || m.tyyppi === 'kuljetus') && !m.ketju) {
           vipu(chips, 'Skannasi', [[true, '✓', ''], [false, '✗', 'bad']], m, 'skannasi');
         }
-        if (!m.ketju) {
-          var sel = document.createElement('select'); sel.className = 'konsepti';
-          sel.setAttribute('aria-label', phT('Konsepti'));
-          var op0 = document.createElement('option'); op0.value = ''; op0.textContent = phT('Konsepti…');
-          sel.appendChild(op0);
-          konseptiRyhmat().forEach(function (g) {
-            var og = document.createElement('optgroup'); og.label = g[0];
-            (g[1] || []).forEach(function (c) {
-              var op = document.createElement('option');
-              op.value = c.avain;                      // KANONINEN avain, ei näyttönimi
-              op.textContent = (c.koodi ? c.koodi + ' ' : '') + (c.nimi || c.avain);
-              if (c.avain === m.konsepti) op.selected = true;
-              og.appendChild(op);
-            });
-            sel.appendChild(og);
-          });
-          sel.onchange = function () { m.konsepti = sel.value; tallennaLuonnos(); };
-          chips.appendChild(sel);
+        /* Syötön laatu kirjataan VAIN läpikäynnissä (ei kesken pelin — livekirjaus pysyy yhtä nopeana).
+           Kumpaakaan ei voi päätellä datasta: työkalu seuraa yhtä pelaajaa, eikä vastustajan linjoja kirjata. */
+        if (m.tyyppi === 'syotto' && m.perilla !== false) {
+          var laatu = document.createElement('div'); laatu.className = 'chips';
+          lab(laatu, 'Syöttö');
+          kytkin(laatu, '🔑 Avainsyöttö', m, 'avain');
+          kytkin(laatu, '⇡ Murtava', m, 'murtava');
+          chips.appendChild(laatu);
+        }
+        /* Laukauksen tulos korjattavaksi: kentän valinta-aikaikkuna umpeutuu helposti (tulos: null),
+           ja laukauskartta tarvitsee tuloksen. */
+        if (m.tyyppi === 'laukaus') {
+          vipu(chips, 'Tulos', [['maali', 'Maali'], ['torjuttu', 'Torjuttu'], ['ohi', 'Ohi'], ['blokattu', 'Blokattu']], m, 'tulos');
         }
       }
       if (chips.childNodes.length) d.appendChild(chips);
@@ -1340,41 +1349,247 @@ const _db = firebase.firestore();
     el.innerHTML = h;
   }
 
-  /* Yhteenveto tulee KOKONAAN phYhteenveto:sta. Rastittamaton lähde on null, ja null renderöityy
-     viivana — nolla väittäisi mittausta jota ei tehty. */
-  function piirraYhteenveto() {
-    var el = q('yhteenveto');
-    var y = PH.phYhteenveto ? PH.phYhteenveto(dokumentti()) : null;
-    if (!y) { el.innerHTML = ''; return; }
-    var L = y.luvut || {};
-    var solu = function (arvo, avain) {
-      return '<div class="sumcell"><div class="v">' + esc(arvo == null ? '—' : arvo) + '</div>'
-        + '<div class="k">' + esc(phT(avain)) + '</div></div>';
+  /* ══ TILASTONÄKYMÄ ══════════════════════════════════════════════════
+     YKSI renderöijä kolmelle paikalle: puoliajan läpikäynti, loppunäkymä ja Masterin lukunäkymä
+     (sama sivu lukutilassa). Kaikki luvut tulevat libistä (phYhteenveto · phKarttaPisteet);
+     sivu vain piirtää. Järjestys: pääluvut → kartta → lista → huomautus.
+     KIRJAAMATON EI NÄY: rastittamaton lähde on libissä null, eikä sille piirretä riviä, saraketta
+     eikä karttavälilehteä — viiva tai nolla väittäisi mittausta, jota ei tehty.
+     NÄKYVYYS: vain valmentaja ja VP (tämä sivu). Pelaajan ja perheen näkymiin tämä ei tule. */
+  var karttaTab = null;
+
+  function xgTeksti(v) { return (typeof v === 'number' && isFinite(v)) ? v.toFixed(2).replace('.', ',') : '—'; }
+  function luku(v) { return (typeof v === 'number' && isFinite(v)) ? v.toFixed(2) : '0'; }
+
+  function tilastoPaaluvut(L) {
+    var sar = [];
+    if (L.xg) sar.push({ v: xgTeksti(L.xg.summa), k: 'xG' });
+    if (L.vastustaja) sar.push({ v: xgTeksti(L.vastustaja.xgSumma), k: 'xG vastaan', vastaan: true });
+    if (L.luotuUhka) sar.push({ v: uhkaTeksti(L.luotuUhka.pisteet), k: 'luotu uhka' });
+    if (!sar.length) return '';
+    return '<div class="tv-paa" style="--sarakkeet:' + sar.length + '">' + sar.map(function (c) {
+      return '<div class="pl"><div class="v' + (c.vastaan ? ' vastaan' : '') + '">' + esc(c.v) + '</div>'
+        + '<div class="k">' + esc(phT(c.k)) + '</div></div>';
+    }).join('') + '</div>';
+  }
+
+  /* Välilehdet VAIN sille, jolle on dataa. */
+  function karttaValilehdet(kp) {
+    var pit = function (x) { return !!(x && x.length); };
+    var out = [];
+    if (pit(kp.laukaukset) || pit(kp.vastaan)) out.push(['laukaukset', 'Laukaukset']);
+    if (pit(kp.syotot)) out.push(['syotot', 'Syötöt']);
+    if (pit(kp.menetykset) || pit(kp.riistot) || pit(kp.ohitettiin)) out.push(['pallo', 'Pallo menetetty / voitettu']);
+    return out;
+  }
+
+  /* Kartta: hyökkäys YLÖSPÄIN (sama kuin työkalun "hyökkäys ↑", 1. puoliaika lähilaidalta),
+     viewBox pelimuodon METREISSÄ, jotta mittasuhteet ovat oikeat. Kääntö libin phNaytolle:lla. */
+  function karttaSvg(kp, tab, pelimuoto) {
+    var XT = window.TM_XT;
+    var prof = (XT && XT.xtProfiili ? XT.xtProfiili(pelimuoto) : null) || { pituus: 105, leveys: 68 };
+    var Lm = prof.pituus, Wm = prof.leveys, M = 2;
+    var sk = Wm / 68;                                   // viivojen ja merkkien mittakaava
+    var xy = function (p) {
+      var n = PH.phNaytolle(p, { puoliaika: 1, seisoo: 'lahi', pysty: true });
+      return n ? { x: n.x / 100 * Wm, y: n.y / 100 * Lm } : null;
     };
-    var suhde = function (o, a, b) { return o ? (o[a] + '/' + o[b]) : null; };
-    var h = '<div class="pmeta" style="margin-top:12px">' + esc(phT('Yhteenveto')) + '</div><div class="sum">';
-    h += solu(L.syotot ? suhde(L.syotot, 'perille', 'yhteensa') : null, 'syötöt perille');
-    h += solu(L.kuljetukset ? L.kuljetukset.n : null, 'kuljetukset');
-    h += solu(L.tulot && L.tulot.hyokkayskolmannes ? L.tulot.hyokkayskolmannes.yhteensa : null, 'tulot hyökkäyskolmannekselle');
-    h += solu(L.tulot && L.tulot.boksi ? L.tulot.boksi.yhteensa : null, 'tulot boksiin');
-    h += solu(L.luotuUhka ? uhkaTeksti(L.luotuUhka.pisteet) : null, 'luotu uhka');
-    h += solu(L.xg ? L.xg.summa.toFixed(2).replace('.', ',') : null, 'xG');
-    h += solu(L.ykkosetHyokkays ? suhde(L.ykkosetHyokkays, 'onnistui', 'yritykset') : null, '1v1 hyökkäys');
-    h += solu(L.ykkosetPuolustus ? suhde(L.ykkosetPuolustus, 'voitti', 'kaikki') : null, '1v1 puolustus');
-    h += solu(L.riistot ? L.riistot.n : null, 'riistot');
-    h += solu(L.vastaprassi ? L.vastaprassi.riistot : null, 'vastaprässiriistot');
-    h += solu(L.menetykset ? L.menetykset.n : null, 'menetykset');
-    h += solu(L.vastustaja ? L.vastustaja.laukauksia : null, 'vastustajan laukaukset');
-    h += '</div>';
-    /* PIENKENTTIEN VARAUMA: uhka-arvo on johdettu 11v11-datasta ja xG-malli on kalibroimaton
-       (`xg_geom_v0_esimerkki`). Luku näytetään, koska valmentaja tarvitsee sen — mutta sitä ei
-       saa lukea tarkkana. Sama huomautus kuin xT:llä, samasta libistä. */
-    var huomio = (typeof xtPelimuotoHuomio === 'function') ? xtPelimuotoHuomio(S.pelimuoto) : null;
-    if (huomio) {
-      h += '<div class="tyhja" style="font-size:11px;line-height:1.5">' + esc(phT(huomio))
-        + ' ' + esc(phT('Maaliodotusarvo on suuntaa-antava, kunnes malli kalibroidaan.')) + '</div>';
+    var viiva = 'fill="none" stroke="var(--pitch-line)" stroke-width="' + luku(0.35 * sk) + '"';
+    var h = '<svg class="tv-kartta" viewBox="' + luku(-M) + ' ' + luku(-M) + ' ' + luku(Wm + 2 * M) + ' ' + luku(Lm + 2 * M)
+      + '" role="img" aria-label="' + esc(phT('Kartta')) + '">';
+    h += '<rect x="0" y="0" width="' + luku(Wm) + '" height="' + luku(Lm) + '" ' + viiva + '/>';
+    h += '<line x1="0" y1="' + luku(Lm / 2) + '" x2="' + luku(Wm) + '" y2="' + luku(Lm / 2) + '" ' + viiva + '/>';
+    h += '<circle cx="' + luku(Wm / 2) + '" cy="' + luku(Lm / 2) + '" r="' + luku(9.15 * sk) + '" ' + viiva + '/>';
+    var bw = 40.3 * sk, bd = 16.5 * Lm / 105, gw = 18.3 * sk, gd = 5.5 * Lm / 105;
+    [0, 1].forEach(function (i) {
+      var y0 = i ? Lm - bd : 0, y1 = i ? Lm - gd : 0;
+      h += '<rect x="' + luku((Wm - bw) / 2) + '" y="' + luku(y0) + '" width="' + luku(bw) + '" height="' + luku(bd) + '" ' + viiva + '/>';
+      h += '<rect x="' + luku((Wm - gw) / 2) + '" y="' + luku(y1) + '" width="' + luku(gw) + '" height="' + luku(gd) + '" ' + viiva + '/>';
+    });
+    var r0 = 1.1 * sk;
+
+    if (tab === 'laukaukset') {
+      var laukaus = function (p, vastaan) {
+        var c = xy(p); if (!c) return '';
+        var r = (typeof p.xg === 'number' && p.xg > 0) ? Math.max(r0, 6 * sk * Math.sqrt(p.xg)) : r0 * 1.3;
+        var vari = vastaan ? 'var(--red)' : 'var(--accent)';
+        var op = vastaan ? 0.6 : 1;
+        var sw = luku(0.45 * sk);
+        var ymp = function (fill, stroke, o) {
+          return '<circle cx="' + luku(c.x) + '" cy="' + luku(c.y) + '" r="' + luku(r) + '" fill="' + fill
+            + '" stroke="' + stroke + '" stroke-width="' + sw + '" opacity="' + o + '"/>';
+        };
+        if (p.tulos === 'maali') return ymp(vari, vari, op);
+        if (p.tulos === 'torjuttu') return ymp('none', vari, op);
+        if (p.tulos === 'ohi') return ymp('none', vari, op * 0.4);
+        if (p.tulos === 'blokattu') {
+          var d = r * 0.75;
+          return ymp('none', vari, op * 0.35)
+            + '<path d="M' + luku(c.x - d) + ' ' + luku(c.y - d) + 'L' + luku(c.x + d) + ' ' + luku(c.y + d)
+            + 'M' + luku(c.x + d) + ' ' + luku(c.y - d) + 'L' + luku(c.x - d) + ' ' + luku(c.y + d)
+            + '" stroke="' + vari + '" stroke-width="' + luku(0.6 * sk) + '" opacity="' + op + '"/>';
+        }
+        /* Tulos puuttuu → himmeä ympyrä (laukaus ei katoa kartalta). */
+        return '<circle cx="' + luku(c.x) + '" cy="' + luku(c.y) + '" r="' + luku(r) + '" fill="var(--ink3)" fill-opacity=".18" stroke="var(--ink3)" stroke-width="' + sw + '" stroke-dasharray="' + luku(0.8 * sk) + ' ' + luku(0.6 * sk) + '"/>';
+      };
+      (kp.vastaan || []).forEach(function (p) { h += laukaus(p, true); });
+      (kp.laukaukset || []).forEach(function (p) { h += laukaus(p, false); });
+    } else if (tab === 'syotot') {
+      /* Järjestys: tavalliset alle, avainsyötöt päällimmäisiksi. */
+      var jarj = (kp.syotot || []).slice().sort(function (a, b) {
+        var w = function (x) { return x.avain ? 3 : (x.murtava ? 2 : (x.perilla ? 1 : 0)); };
+        return w(a) - w(b);
+      });
+      jarj.forEach(function (sy) {
+        var a = xy(sy.alku), b = xy(sy.loppu); if (!a || !b) return;
+        var vari = !sy.perilla ? 'var(--amber)' : ((sy.avain || sy.murtava) ? 'var(--accent)' : 'var(--ink3)');
+        var lev = sy.avain ? 0.95 : (sy.murtava ? 0.6 : 0.4);
+        var op = (sy.perilla && !sy.avain && !sy.murtava) ? 0.55 : 1;
+        var dash = (sy.murtava && !sy.avain) ? ' stroke-dasharray="' + luku(1.6 * sk) + ' ' + luku(1 * sk) + '"' : '';
+        var dx = b.x - a.x, dy = b.y - a.y, pit = Math.sqrt(dx * dx + dy * dy) || 1;
+        var ux = dx / pit, uy = dy / pit, kr = (1.4 + lev) * sk;
+        var kx = b.x - ux * kr, ky = b.y - uy * kr;
+        h += '<line x1="' + luku(a.x) + '" y1="' + luku(a.y) + '" x2="' + luku(kx) + '" y2="' + luku(ky)
+          + '" stroke="' + vari + '" stroke-width="' + luku(lev * sk) + '" stroke-linecap="round" opacity="' + op + '"' + dash + '/>';
+        h += '<path d="M' + luku(b.x) + ' ' + luku(b.y) + 'L' + luku(kx - uy * kr * 0.55) + ' ' + luku(ky + ux * kr * 0.55)
+          + 'L' + luku(kx + uy * kr * 0.55) + ' ' + luku(ky - ux * kr * 0.55) + 'Z" fill="' + vari + '" opacity="' + op + '"/>';
+      });
+    } else if (tab === 'pallo') {
+      (kp.menetykset || []).forEach(function (p) {
+        var c = xy(p); if (!c) return;
+        var r = (p.taso === 'korkea') ? 1.9 * sk : 1.1 * sk;
+        h += '<circle cx="' + luku(c.x) + '" cy="' + luku(c.y) + '" r="' + luku(r) + '" fill="var(--amber)" opacity=".9"/>';
+      });
+      (kp.riistot || []).forEach(function (p) {
+        var c = xy(p); if (!c) return;
+        var d = 1.5 * sk;
+        h += '<path d="M' + luku(c.x) + ' ' + luku(c.y - d) + 'L' + luku(c.x + d) + ' ' + luku(c.y) + 'L' + luku(c.x) + ' ' + luku(c.y + d)
+          + 'L' + luku(c.x - d) + ' ' + luku(c.y) + 'Z" fill="var(--blue)"/>';
+      });
+      (kp.ohitettiin || []).forEach(function (p) {
+        var c = xy(p); if (!c) return;
+        h += '<circle cx="' + luku(c.x) + '" cy="' + luku(c.y) + '" r="' + luku(1.7 * sk) + '" fill="none" stroke="var(--red)" stroke-width="' + luku(0.5 * sk) + '"/>';
+      });
     }
-    el.innerHTML = h;
+    return h + '</svg>';
+  }
+
+  /* Selite YHDELLÄ rivillä 360 px:llä: symboli värillisenä (sama väri kuin kartalla) + lyhyt sana. */
+  function karttaSelite(tab, kp) {
+    var osat = [];
+    if (tab === 'laukaukset') {
+      osat = [['●', 'maali', 'var(--accent)'], ['○', 'torjuttu', 'var(--accent)'], ['◌', 'ohi', 'var(--ink3)'],
+        ['✕', 'blokattu', 'var(--accent)']];
+      if (kp.vastaan && kp.vastaan.length) osat.push(['●', 'vastustaja', 'var(--red)']);
+      osat.push(['', 'koko = xG', '']);
+    } else if (tab === 'syotot') {
+      osat = [['━', 'avain', 'var(--accent)'], ['┅', 'murtava', 'var(--accent)'], ['─', 'perillä', 'var(--ink3)'],
+        ['─', 'ei perillä', 'var(--amber)']];
+    } else if (tab === 'pallo') {
+      osat = [['●', 'menetys', 'var(--amber)'], ['◆', 'riisto', 'var(--blue)'], ['○', 'ohitettiin', 'var(--red)'],
+        ['', 'iso = korkea riski', '']];
+    }
+    return '<div class="tv-selite">' + osat.map(function (o) {
+      return '<span>' + (o[0] ? '<b style="color:' + o[2] + ';font-weight:400">' + esc(o[0]) + '</b> ' : '') + esc(phT(o[1])) + '</span>';
+    }).join(' ') + '</div>';
+  }
+
+  function tilastoLista(L, y) {
+    var rivit = [];
+    var rivi = function (nimi, arvo, tarkennus) {
+      var t = (tarkennus || []).filter(Boolean);
+      rivit.push('<div class="tv-rivi"><div class="n">' + esc(phT(nimi))
+        + (t.length ? '<span class="t">' + esc(t.join(' · ')) + '</span>' : '') + '</div>'
+        + '<div class="a">' + esc(arvo) + '</div></div>');
+    };
+    var kpl = function (n, yks) { return n ? n + ' ' + phT(yks) : null; };   // nolla jätetään pois
+    if (L.syotot) {
+      rivi('Syötöt', L.syotot.perille + '/' + L.syotot.yhteensa, [
+        kpl(L.syotot.avain, 'avainsyöttöä'), kpl(L.syotot.murtava, 'murtavaa'), kpl(L.syotot.etenevat, 'etenevää'),
+      ]);
+    }
+    var tulot = L.tulot || {};
+    if (tulot.hyokkayskolmannes) {
+      rivi('Tulot hyökkäyskolmannekselle', String(tulot.hyokkayskolmannes.yhteensa),
+        [tulot.boksi ? kpl(tulot.boksi.yhteensa, 'boksiin') : null]);
+    }
+    if (L.kuljetukset) {
+      var lt = L.kuljetukset.lopputuotteet || {};
+      rivi('Kuljetukset', String(L.kuljetukset.n),
+        [kpl((lt.laukaus || 0) + (lt.syotto || 0), 'päättyi laukaukseen tai syöttöön')]);
+    }
+    if (L.ykkosetHyokkays || L.ykkosetPuolustus) {
+      var H = L.ykkosetHyokkays || { onnistui: 0, yritykset: 0 }, P = L.ykkosetPuolustus || { voitti: 0, kaikki: 0 };
+      rivi('Kaksinkamppailut', (H.onnistui + P.voitti) + '/' + (H.yritykset + P.kaikki), [
+        H.yritykset ? phT('hyökkäys') + ' ' + H.onnistui + '/' + H.yritykset : null,
+        P.kaikki ? phT('puolustus') + ' ' + P.voitti + '/' + P.kaikki : null,
+      ]);
+    }
+    if (L.menetykset) {
+      var re = y && y.adar ? y.adar.menetyksenJalkeen : null;
+      rivi('Menetykset', String(L.menetykset.n), [
+        kpl(L.menetykset.korkeallaRiskilla, 'korkealla riskillä'),
+        (re && re.yhteensa) ? phT('reagoi heti') + ' ' + re.reagoiHeti + '/' + re.yhteensa : null,
+      ]);
+    }
+    if (L.riistot) {
+      rivi('Riistot', String(L.riistot.n), [L.vastaprassi ? kpl(L.vastaprassi.riistot, 'vastaprässistä') : null]);
+    }
+    return rivit.length ? '<div class="tv-lista">' + rivit.join('') + '</div>' : '';
+  }
+
+  /* PIENKENTTÄ- JA KALIBROINTIHUOMAUTUS yhtenä rivinä; pitkä teksti avautuu napautuksella. */
+  function tilastoHuomio(pelimuoto) {
+    var pitka = (typeof xtPelimuotoHuomio === 'function') ? xtPelimuotoHuomio(pelimuoto) : null;
+    var pieni = /^(5v5|8v8)$/.test(pelimuoto || '');
+    var lyhyt = pieni ? ('ⓘ ' + pelimuoto + ': ' + phT('uhka ja xG ovat suuntaa-antavia.'))
+      : ('ⓘ ' + phT('xG on suuntaa-antava, kunnes malli kalibroidaan.'));
+    var teksti = (pitka ? phT(pitka) + ' ' : '') + phT('Maaliodotusarvo on suuntaa-antava, kunnes malli kalibroidaan.');
+    return '<details class="tv-huom"><summary>' + esc(lyhyt) + '</summary><p>' + esc(teksti) + '</p></details>';
+  }
+
+  function tilastoHtml(dok) {
+    var y = PH.phYhteenveto ? PH.phYhteenveto(dok) : null;
+    if (!y) return '';
+    var L = y.luvut || {};
+    var kp = PH.phKarttaPisteet ? PH.phKarttaPisteet(dok) : {};
+    var pm = (dok.ottelu && dok.ottelu.pelimuoto) || '11v11';
+    var tabs = karttaValilehdet(kp);
+    var h = '<div class="tv">' + tilastoPaaluvut(L);
+    if (tabs.length) {
+      var valittu = tabs.some(function (t) { return t[0] === karttaTab; }) ? karttaTab : tabs[0][0];
+      h += '<div class="tv-tabs" role="tablist">' + tabs.map(function (t) {
+        return '<button type="button" class="tv-tab" data-kartta="' + esc(t[0]) + '" aria-pressed="' + (t[0] === valittu) + '">'
+          + esc(phT(t[1])) + '</button>';
+      }).join('') + '</div>';
+      h += karttaSvg(kp, valittu, pm) + karttaSelite(valittu, kp);
+    }
+    h += tilastoLista(L, y);
+    h += tilastoHuomio(pm);
+    return h + '</div>';
+  }
+  window._phTilastoHtml = tilastoHtml;   // testivartija
+
+  /* Piirtää tilastonäkymän elementtiin ja kytkee välilehdet (delegointi: innerHTML vaihtuu). */
+  function piirraTilastot(el, otsikko) {
+    if (!el) return;
+    if (otsikko !== undefined) el._tvOtsikko = otsikko;
+    var sisalto = tilastoHtml(dokumentti());
+    el.innerHTML = (el._tvOtsikko && sisalto)
+      ? '<div class="pmeta" style="margin-top:12px">' + esc(el._tvOtsikko) + '</div>' + sisalto : sisalto;
+    if (!el._tvKytketty) {
+      el._tvKytketty = true;
+      el.addEventListener('click', function (ev) {
+        var b = ev.target && ev.target.closest ? ev.target.closest('[data-kartta]') : null;
+        if (!b) return;
+        karttaTab = b.getAttribute('data-kartta');
+        piirraTilastot(el);
+      });
+    }
+  }
+
+  function piirraYhteenveto() {
+    piirraTilastot(q('yhteenveto'), phT('Yhteenveto'));
   }
 
   /* ── LUONNOS (offline-first) ───────────────────────────────────────── */
@@ -1408,7 +1623,7 @@ const _db = firebase.firestore();
         pelimuoto: S.pelimuoto, pelipaikka: S.pelipaikka, kirjattavat: rastitListaksi(),
         vastustaja: S.vastustaja, kalenteriId: S.kalenteriId, alkoi: S.alkoi, alkoi2: S.alkoi2 || null,
       }));
-      q('tallennustila').textContent = phT('tallennettu laitteelle');
+      asetaTallennustila('laitteella');
     } catch (e) { /* privaattitila / kiintiö täynnä: kirjaus jatkuu muistissa */ }
   }
   function lataaLuonnos(avain) {
@@ -1710,27 +1925,53 @@ const _db = firebase.firestore();
     if (!lataaLuonnos(l.avain)) aloitaUusiOttelu();
   }
 
-  /* Kaksi napautusta riittää aloitukseen: tämä valinta on toinen. Näytetään vain kun
-     keskeneräisiä oikeasti on — muuten työkalu aukeaa suoraan. */
+  /* KESKENERÄINEN LUONNOS: tuore (≤ 3 h) jatkuu suoraan — tauko, välilehden lataus tai akun
+     loppuminen ei saa vaatia valintaa. Vanhempi kysytään: 21 h vanha luonnos jatkui aiemmin ja
+     kello näytti 1267 min. Merkintöjä EI poisteta kysymättä — "Tallenna ja aloita uusi" vie vanhan
+     ottelun ensin pilveen ja aloittaa uuden vasta onnistuneen tallennuksen jälkeen. */
+  var LUONNOS_TUORE_MS = 3 * 60 * 60 * 1000;
+  function luonnosOnTuore(l, nyt) {
+    var alkoi = l && l.data ? l.data.alkoi : null;
+    return typeof alkoi === 'number' && ((nyt == null ? Date.now() : nyt) - alkoi) <= LUONNOS_TUORE_MS;
+  }
+  window._phLuonnosOnTuore = luonnosOnTuore;   // testivartija
+
   function naytaJatkaValinta(luonnokset) {
     var l = luonnokset[0];
     var pvm = l.data.alkoi ? new Date(l.data.alkoi) : null;
     var kuvaus = (pvm ? pvm.toLocaleDateString('fi-FI', { weekday: 'short', day: 'numeric', month: 'numeric' }) : l.otteluAvain)
-      + ' · ' + l.data.merkinnat.length + ' ' + phT('merkintää');
-    naytaPortti('Keskeneräinen kirjaus löytyi.',
-      '<button type="button" id="btnJatka">' + esc(phT('Jatka keskeneräistä')) + ' (' + esc(kuvaus) + ')</button>'
+      + (l.data.vastustaja ? ', ' + phT('vastustaja') + ' ' + l.data.vastustaja : '');
+    naytaPortti(phT('Keskeneräinen ottelu') + ' (' + kuvaus + ').',
+      '<button type="button" id="btnJatka">' + esc(phT('Jatka')) + '</button>'
       + '<button type="button" id="btnUusi" style="background:transparent;border:.5px solid var(--border);color:var(--ink2)">'
-      + esc(phT('Aloita uusi ottelu')) + '</button>');
+      + esc(phT('Tallenna ja aloita uusi')) + '</button>');
     return new Promise(function (resolve) {
       q('btnJatka').onclick = function () { jatkaLuonnoksesta(l); resolve(); };
-      q('btnUusi').onclick = function () { aloitaUusiOttelu(); resolve(); };
+      q('btnUusi').onclick = async function () {
+        var b = q('btnUusi'); if (b) b.disabled = true;
+        virhe('');
+        jatkaLuonnoksesta(l);                                    // vanha ottelu tilaan → tallennus sen avaimella
+        var ok = await tallennaFirestoreen({ lopullinen: true });
+        if (!ok) {
+          /* Tallennus epäonnistui: vanha luonnos SÄILYY laitteella, eikä uutta aloiteta. */
+          virhe('Tallennus epäonnistui — keskeneräinen ottelu on tallessa laitteella. Yritä uudelleen tai jatka sitä.');
+          if (b) b.disabled = false;
+          return;
+        }
+        /* Uusi ottelu ei peri vanhan puoliaikaa, toisen puoliajan alkua eikä vastustajaa. */
+        S.alkoi2 = null; S.vastustaja = ''; S.paattynyt = false; S.kelloPysahtyi = 0;
+        aloitaUusiOttelu();
+        asetaTallennustila('');
+        resolve();
+      };
     });
   }
 
   async function kaynnista() {
     if (!S.lukutila && !S.otteluAvain) {
       var kesken = keskeneraisetLuonnokset();
-      if (kesken.length) await naytaJatkaValinta(kesken);
+      if (kesken.length && luonnosOnTuore(kesken[0])) jatkaLuonnoksesta(kesken[0]);
+      else if (kesken.length) await naytaJatkaValinta(kesken);
       else aloitaUusiOttelu();
     }
     svg = q('pitch');
@@ -1824,11 +2065,20 @@ const _db = firebase.firestore();
     q('scrim').classList.remove('auki');
   }
 
+  /* Yläpalkissa PELKKÄ IKONI: ● = tallessa laitteella (ei vielä verkossa) · ✓ = tallennettu verkkoon.
+     Teksti näkyy napautuksella toastina (ks. alustaKenttatila) ja lehden alaosassa. */
   function asetaTallennustila(tila) {
     var el = q('tallennustila'), teksti = q('tallennusteksti');
     var sanat = { laitteella: 'Tallessa laitteella', verkossa: 'Tallennettu', luku: 'vain luku' };
     var s = phT(sanat[tila] || '');
-    if (el) el.classList.toggle('odottaa', tila === 'laitteella');
+    if (el) {
+      el.classList.toggle('odottaa', tila === 'laitteella');
+      el.classList.toggle('verkossa', tila === 'verkossa');
+      el.setAttribute('aria-label', s || phT('Tallennustila'));
+      el.setAttribute('data-teksti', s);
+    }
+    var ikoni = q('tallennusikoni');
+    if (ikoni) ikoni.textContent = (tila === 'verkossa') ? '✓' : (tila === 'luku' ? '👁' : '●');
     var merkki = q('tallennusmerkki');
     if (merkki) merkki.textContent = s;
     if (teksti) teksti.textContent = s;
@@ -1839,7 +2089,8 @@ const _db = firebase.firestore();
   function kaynnistaKello() {
     if (window._phKelloAjastin) clearInterval(window._phKelloAjastin);
     var el = q('kello');
-    var piirraKello = function () { if (el) el.textContent = kelloTeksti(kelloSekunnit()); };
+    /* Yli 120 min → "120+": kello ei saa näyttää mahdottomia lukuja (vanha luonnos näytti 1267 min). */
+    var piirraKello = function () { if (el) el.textContent = kelloNaytto(kelloSekunnit()); };
     piirraKello();
     window._phKelloAjastin = setInterval(piirraKello, 1000);
   }
@@ -1941,14 +2192,12 @@ const _db = firebase.firestore();
   }
 
   function naytaLoppunakyma() {
-    var y = PH.phYhteenveto ? PH.phYhteenveto(dokumentti()) : null;
-    var L = (y && y.luvut) || {};
+    /* Sama tilastonäkymä kuin läpikäynnissä — ei omaa yhden rivin koostetta. */
     var juuria = S.merkinnat.filter(function (m) { return m.ketju == null; }).length;
-    var uhka = L.luotuUhka ? uhkaTeksti(L.luotuUhka.pisteet) : '—';
-    var xg = L.xg ? L.xg.summa.toFixed(2).replace('.', ',') : '—';
     q('loppuOtsikko').textContent = phT('Ottelu tallennettu');
-    q('loppuLuvut').textContent = juuria + ' ' + phT('tilannetta') + ' · '
-      + phT('luotu uhka') + ' ' + uhka + ' · xG ' + xg;
+    q('loppuLuvut').textContent = juuria + ' ' + phT('tilannetta')
+      + (S.vastustaja ? ' · ' + phT('vastustaja') + ' ' + S.vastustaja : '');
+    piirraTilastot(q('loppuTilastot'));
     var virhe = q('loppuVirhe');
     if (virhe) { virhe.textContent = ''; virhe.className = 'fine'; }
     q('kenttatila').style.display = 'none';
@@ -1976,6 +2225,11 @@ const _db = firebase.firestore();
     /* Puoliaikasiru vie suoraan läpikäyntiin — se on tauolla ensimmäinen asia jota tarvitaan. */
     var siru = q('pasiru');
     if (siru) siru.onclick = function () { avaaLehti(); };
+    /* Tallennustila on ikoni; teksti tulee napautuksella. */
+    var tila = q('tallennustila');
+    if (tila) tila.onclick = function () {
+      naytaToast(tila.getAttribute('data-teksti') || phT('Ei vielä tallennettu'));
+    };
     var vaihe = q('btnVaihe');
     if (vaihe) vaihe.onclick = vaihePainettu;
     paivitaVaihepainike();

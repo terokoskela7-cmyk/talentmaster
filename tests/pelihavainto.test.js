@@ -267,7 +267,7 @@ describe('(4) Merkinnan arvo', () => {
       ottelu: { pelimuoto: '11v11' },
       merkinnat: [{ id: '1', tyyppi: 'syotto', alku: { len: 50, wid: 50 }, loppu: { len: 80, wid: 50 }, perilla: null }]
     });
-    expect(y.luvut.syotot).toEqual({ perille: 1, yhteensa: 1 });
+    expect(y.luvut.syotot).toMatchObject({ perille: 1, yhteensa: 1 });
     expect(y.luvut.menetykset.n).toBe(0);
   });
 
@@ -399,7 +399,7 @@ describe('(5) Yhteenveto ja siirtyma (§5.4 / §5.4.1)', () => {
       { id: '2', tyyppi: 'syotto', alku: { len: 60, wid: 50 }, loppu: { len: 80, wid: 50 }, perilla: false },
       { id: '3', tyyppi: 'kuljetus', alku: { len: 50, wid: 40 }, loppu: { len: 65, wid: 45 }, lopputuote: 'syotto', ohitus: true },
     ]));
-    expect(y.luvut.syotot).toEqual({ perille: 1, yhteensa: 2 });
+    expect(y.luvut.syotot).toMatchObject({ perille: 1, yhteensa: 2 });
     expect(y.luvut.kuljetukset.n).toBe(1);
     expect(y.luvut.kuljetukset.lopputuotteet).toEqual({ syotto: 1 });
     expect(y.luvut.menetykset.n).toBe(1);
@@ -1383,5 +1383,106 @@ describe('(P0-3) Vanhan tallennusmuodon dokumentti → arvot oikeassa mittakaava
     expect(y.luvut.luotuUhka.pisteet).toBeGreaterThan(0);
     expect(Math.abs(y.luvut.luotuUhka.pisteet)).toBeLessThan(PH.PH_UHKA_MITTAKAAVA_MAX);
     expect(PH.phMuotoileUhka(y.luvut.luotuUhka.pisteet)).toMatch(/^\+\d{1,2},\d$/);
+  });
+});
+
+/* ══════════════════════════════════════════════════════════════════════════════════════════
+   TILASTONÄKYMÄ (29.9.2026): avainsyöttö · murtava · etenevä + phKarttaPisteet
+══════════════════════════════════════════════════════════════════════════════════════════ */
+describe('(T-1) syötöt: avain · murtava · etenevät', () => {
+  const s = (id, alku, loppu, lisa) => Object.assign({ id, tyyppi: 'syotto', alku, loppu, perilla: true, t: id }, lisa || {});
+
+  it('avain ja murtava lasketaan perille menneistä; harhasyötön merkintä ei laske', () => {
+    const y = PH.phYhteenveto(dokV6([
+      s(1, { len: 45, wid: 50 }, { len: 80, wid: 50 }, { avain: true }),
+      s(2, { len: 45, wid: 50 }, { len: 70, wid: 30 }, { murtava: true }),
+      s(3, { len: 45, wid: 50 }, { len: 70, wid: 50 }, { perilla: false, avain: true, murtava: true }),
+    ], { kirjattavat: ['syotto'] }));
+    expect(y.luvut.syotot).toMatchObject({ perille: 2, yhteensa: 3, avain: 1, murtava: 1 });
+  });
+
+  it('syöttöjä ei kirjattu → koko luku null (ei nollia)', () => {
+    const y = PH.phYhteenveto(dokV6([s(1, { len: 45, wid: 50 }, { len: 80, wid: 50 }, { avain: true })], { kirjattavat: ['laukaus'] }));
+    expect(y.luvut.syotot).toBeNull();
+  });
+
+  it('vanha dokumentti ilman avain/murtava-kenttiä → 0, etenevät lasketaan silti', () => {
+    const y = PH.phYhteenveto(dokV6([s(1, { len: 40, wid: 50 }, { len: 75, wid: 50 })], { kirjattavat: ['syotto'] }));
+    expect(y.luvut.syotot).toMatchObject({ avain: 0, murtava: 0, etenevat: 1 });
+  });
+
+  it('harhasyöttö ei ole etenevä', () => {
+    expect(PH.phOnEteneva(s(1, { len: 40, wid: 50 }, { len: 80, wid: 50 }, { perilla: false }), '11v11')).toBe(false);
+  });
+
+  it('raja molemmin puolin (11v11): 24 % ei laske, 26 % laskee', () => {
+    expect(PH.PH_ETENEVA_OSUUS).toBe(0.25);
+    expect(PH.phOnEteneva(s(1, { len: 40, wid: 50 }, { len: 54.4, wid: 50 }), '11v11'), '24 %').toBe(false);
+    expect(PH.phOnEteneva(s(1, { len: 40, wid: 50 }, { len: 55.6, wid: 50 }), '11v11'), '26 %').toBe(true);
+  });
+
+  it('raja molemmin puolin (8v8, metrimitoilla): 24 % ei laske, 26 % laskee', () => {
+    expect(PH.phOnEteneva(s(1, { len: 50, wid: 50 }, { len: 62, wid: 50 }), '8v8'), '24 %').toBe(false);
+    expect(PH.phOnEteneva(s(1, { len: 50, wid: 50 }, { len: 63, wid: 50 }), '8v8'), '26 %').toBe(true);
+  });
+
+  it('8v8: METRIT, ei kanoniset yksiköt — laidalta keskelle ei ole etenevä, vaikka 0–100-luvuilla olisi', () => {
+    /* Kanonisilla yksiköillä lyhenemä olisi 30 %, metreillä (40 × 60 m) 19 %. Leveys on
+       pienkentällä kapeampi suhteessa pituuteen, joten sivuttaissiirto ei ole etenemistä. */
+    expect(PH.phOnEteneva(s(1, { len: 50, wid: 5 }, { len: 53, wid: 50 }), '8v8')).toBe(false);
+  });
+
+  it('oman pään pikkusyöttö ei laske (loppu.len < 40), vaikka lyhenemä ylittäisi rajan', () => {
+    expect(PH.PH_ETENEVA_MIN_LEN).toBe(40);
+    expect(PH.phOnEteneva(s(1, { len: 5, wid: 50 }, { len: 39, wid: 50 }), '11v11')).toBe(false);
+    expect(PH.phOnEteneva(s(1, { len: 5, wid: 50 }, { len: 41, wid: 50 }), '11v11'), 'EI VACUOUS').toBe(true);
+  });
+});
+
+describe('(T-2) phKarttaPisteet — kerrokset kanonisissa koordinaateissa', () => {
+  const M = [
+    { id: 1, tyyppi: 'laukaus', piste: { len: 88, wid: 50 }, tulos: null, t: 1 },
+    { id: 2, tyyppi: 'laukaus_vastaan', piste: { len: 12, wid: 50 }, tulos: 'maali', t: 2 },
+    { id: 3, tyyppi: 'syotto', alku: { len: 40, wid: 50 }, loppu: { len: 70, wid: 50 }, perilla: true, avain: true, t: 3 },
+    { id: 4, tyyppi: 'syotto', alku: { len: 40, wid: 50 }, loppu: { len: 60, wid: 20 }, perilla: false, t: 4 },
+    { id: 5, tyyppi: 'menetys', piste: { len: 45, wid: 40 }, t: 5 },
+    { id: 6, tyyppi: 'riisto', piste: { len: 30, wid: 60 }, t: 6 },
+    { id: 7, tyyppi: 'kaksinpeli', rooli: 'puolustus', tulos: 'ohitettiin', piste: { len: 25, wid: 50 }, t: 7 },
+    { id: 8, tyyppi: 'hetki', eiSijaintia: true, t: 8 },
+  ];
+  const KAIKKI = ['syotto', 'kuljetus', 'v1', 'laukaus', 'riisto', 'menetys', 'vastustajan_laukaus'];
+
+  it('laukaus ilman tulosta on mukana (tulos: null) ja saa xG:n', () => {
+    const k = PH.phKarttaPisteet(dokV6(M, { kirjattavat: KAIKKI }));
+    expect(k.laukaukset).toHaveLength(1);
+    expect(k.laukaukset[0].tulos).toBeNull();
+    expect(k.laukaukset[0].xg).toBeGreaterThan(0);
+    expect(k.vastaan[0]).toMatchObject({ len: 12, wid: 50, tulos: 'maali' });
+    expect(k.vastaan[0].xg).toBeGreaterThan(0);
+  });
+
+  it('syötöt: avain/murtava/perillä totuusarvoina; menetykset sis. harhasyötön loppupisteen', () => {
+    const k = PH.phKarttaPisteet(dokV6(M, { kirjattavat: KAIKKI }));
+    expect(k.syotot).toEqual([
+      { alku: { len: 40, wid: 50 }, loppu: { len: 70, wid: 50 }, perilla: true, avain: true, murtava: false },
+      { alku: { len: 40, wid: 50 }, loppu: { len: 60, wid: 20 }, perilla: false, avain: false, murtava: false },
+    ]);
+    expect(k.menetykset.map((p) => [p.len, p.wid])).toEqual([[60, 20], [45, 40]]);
+    expect(k.menetykset.every((p) => ['matala', 'kohonnut', 'korkea'].indexOf(p.taso) >= 0)).toBe(true);
+    expect(k.riistot).toEqual([{ len: 30, wid: 60 }]);
+    expect(k.ohitettiin).toEqual([{ len: 25, wid: 50 }]);
+  });
+
+  it('kirjaamaton lähde → kerros null (ei tyhjä lista)', () => {
+    const k = PH.phKarttaPisteet(dokV6(M, { kirjattavat: ['syotto'] }));
+    expect(k.syotot).not.toBeNull();
+    ['laukaukset', 'vastaan', 'menetykset', 'riistot', 'ohitettiin'].forEach((kerros) => {
+      expect(k[kerros], kerros).toBeNull();
+    });
+  });
+
+  it('kirjattu mutta ei merkintöjä → tyhjä lista (eri asia kuin null)', () => {
+    const k = PH.phKarttaPisteet(dokV6([], { kirjattavat: ['laukaus'] }));
+    expect(k.laukaukset).toEqual([]);
   });
 });
