@@ -94,7 +94,7 @@ window.TM_KAAVIO_HOST = {
 <script src="lib/tm_idp.js?v=9"></script>   <!-- I3a: + kesto valmentajan asetettavaksi (opts.kestoVk) · I2 (C): valmentajan IDP-kausitavoite-kortti -->
 <script src="lib/tm_pelialy_yksilo.js?v=4"></script>   <!-- P1: pelihavainto peliäly → yksilöteema (Kartta A) · v3: Vaihe B multi-rater konsensus (tmAdarKonsensus/RistiinarvioAvoin/TalenttiSignaali) -->
 <script src="lib/tm_havaintohistoria.js?v=1"></script>   <!-- jaettu havainto-/viestihistoria (VP + Master) -->
-<script src="lib/tm_valmentajaviesti.js?v=1"></script>   <!-- YKSI kirjoituspiste valmentajan viestille -->
+<script src="lib/tm_valmentajaviesti.js?v=2"></script>   <!-- YKSI kirjoituspiste valmentajan viestille -->
 <script src="lib/tm_kehityskaari.js?v=3"></script>   <!-- Trendi Vaihe 2: yksilön kehityskaari (render hh_historia/tki_historia:sta) -->
 <script src="lib/tm_aani.js?v=2"></script>   <!-- Vaihe 0: puhdas nauhoitin (reflektio + VP:n ääripalaute samasta ytimestä) -->
 <script src="lib/tm_reflektio.js?v=3"></script>   <!-- Vaihe 1: jaettu äänireflektio (Master + VP) — irrotettu Masterin inlinestä -->
@@ -2019,9 +2019,10 @@ textarea.jsp-rv-inp { resize: vertical; min-height: 44px; }
     <div class="caps" data-i18n="Viesti perheelle">Viesti perheelle</div>
     <h3 id="replyTitle">Viesti perheelle</h3>
     <textarea id="replyText" placeholder="Kirjoita lyhyt, henkilökohtainen viesti perheelle…" data-i18n-ph="Kirjoita lyhyt, henkilökohtainen viesti perheelle…"></textarea>
+    <div id="replyVirhe" role="alert" style="display:none;font-size:12.5px;color:var(--amber);margin-top:8px"></div>
     <div class="actions">
       <button onclick="closeReply()" data-i18n="Peru">Peru</button>
-      <button class="primary" onclick="sendReply()" data-i18n="Lähetä">Lähetä</button>
+      <button class="primary" id="replyLaheta" onclick="sendReply()" data-i18n="Lähetä">Lähetä</button>
     </div>
   </div>
 </div>
@@ -4160,18 +4161,25 @@ function kuittaaKaikki(){
   renderInbox();
 }
 
-function inboxReact(eid,emoji,nimi,pid){
+/* Reaktio merkitään tehdyksi VASTA kun tallennus onnistui (Vaihe 0 / T2). Aiemmin toast ja
+   merkintä tulivat heti, ja tallennusvirhe meni vain konsoliin. */
+async function inboxReact(eid,emoji,nimi,pid){
+  if (_seuraId && _uid && pid) {
+    try {
+      await tmViestiAikarajalla(tmLahetaValmentajaViesti(_db, {
+        seuraId: _seuraId, pelaajaId: pid, teksti: emoji, uid: _uid, nimi: _viestiLahettajanNimi(),
+        sentinel: firebase.firestore.FieldValue,
+      }));
+    } catch (e) {
+      console.warn('[v16] reaktio:', e && (e.code || e.message));
+      toast(masterT(tmViestiVirheAvain(e)), 'err');
+      return;
+    }
+  }
   _doneReacts[eid]=_doneReacts[eid]||{};
   _doneReacts[eid][emoji]=true;
   localStorage.setItem('tm-inbox-reacts',JSON.stringify(_doneReacts));
   markSeen(eid);
-  // Tallenna Firestoreen → pelaaja näkee P6-kuuntelijan kautta
-  if (_seuraId && _uid && pid) {
-    tmLahetaValmentajaViesti(_db, {
-      seuraId: _seuraId, pelaajaId: pid, teksti: emoji, uid: _uid, nimi: _viestiLahettajanNimi(),
-      sentinel: firebase.firestore.FieldValue,
-    }).catch(function (e) { console.warn('[v16] reaktio:', e.message); });
-  }
   if(window.TMBus){
     TMBus.publish('coach_react',{playerId:pid,emoji:emoji,refEventId:eid});
   }
@@ -4200,18 +4208,29 @@ window._avaaViestiPelaajalle = function (pelaajaId) {
     + '<button onclick="document.getElementById(\'_vpvModal\').remove()" style="padding:11px 16px;background:none;border:.5px solid var(--border);color:var(--ink2);border-radius:6px;font-size:13px;cursor:pointer;font-family:inherit">' + masterT('Peruuta') + '</button>'
     + '</div>';
   modal.appendChild(box); document.body.appendChild(modal);
-  document.getElementById('_vpvLahet').onclick = async function () {
+  var nappi = document.getElementById('_vpvLahet');
+  var virheEl = document.createElement('div');
+  virheEl.setAttribute('role', 'alert');
+  virheEl.style.cssText = 'display:none;font-size:12.5px;color:var(--amber);margin-top:8px';
+  box.insertBefore(virheEl, box.lastElementChild);
+  nappi.onclick = async function () {
     var teksti = (document.getElementById('_vpvTeksti') || {}).value || '';
     if (!teksti.trim()) { if (typeof toast === 'function') toast(masterT('Kirjoita ensin teksti'), 'warn'); return; }
+    /* Vaihe 0 / T2: toast ja sulkeminen VASTA tallennuksen jälkeen; virheessä ikkuna ja teksti
+       säilyvät, ja nappi muuttuu "Yritä uudelleen". */
+    nappi.disabled = true; nappi.textContent = masterT('Lähetetään…'); virheEl.style.display = 'none';
     try {
-      await tmLahetaValmentajaViesti(_db, {
+      await tmViestiAikarajalla(tmLahetaValmentajaViesti(_db, {
         seuraId: _seuraId, pelaajaId: pelaajaId, teksti: teksti, uid: _uid,
         nimi: _viestiLahettajanNimi(), sentinel: firebase.firestore.FieldValue,
-      });
+      }));
       if (typeof toast === 'function') toast(masterT('Viesti lähetetty'), 'ok');
       modal.remove();
     } catch (e) {
-      if (typeof toast === 'function') toast(masterT('Viestin lähetys ei onnistunut'), 'err');
+      console.warn('[v16] viesti pelaajalle:', e && (e.code || e.message));
+      virheEl.textContent = masterT(tmViestiVirheAvain(e));
+      virheEl.style.display = '';
+      nappi.disabled = false; nappi.textContent = masterT('Yritä uudelleen');
     }
   };
 };
@@ -4234,29 +4253,43 @@ function openReply(pid,pname,eid){
   if(ov) ov.classList.add('on');
   setTimeout(()=>ta?.focus(),50);
 }
-function closeReply(){ document.getElementById('replyOverlay')?.classList.remove('on'); }
-function sendReply(){
+function _replyTila(lahettaa, virhe) {
+  var b = document.getElementById('replyLaheta'), v = document.getElementById('replyVirhe');
+  if (b) { b.disabled = !!lahettaa; b.textContent = lahettaa ? masterT('Lähetetään…') : masterT(virhe ? 'Yritä uudelleen' : 'Lähetä'); }
+  if (v) { v.textContent = virhe || ''; v.style.display = virhe ? '' : 'none'; }
+}
+function closeReply(){ _replyTila(false, ''); document.getElementById('replyOverlay')?.classList.remove('on'); }
+/* Vaihe 0 / T2: "Viesti lähetetty" VASTA kun tallennus on valmis. Aiemmin toast ja sulkeminen
+   tulivat heti, ja virhe meni vain konsoliin. Virheessä ikkuna ja teksti säilyvät. */
+async function sendReply(){
   var txt = document.getElementById('replyText');
   var msg = txt ? txt.value.trim() : '';
   if (!msg || !_replyCtx) return;
+  var ctx = _replyCtx;
   // Firestore-tallennus: havainnot-kokoelmaan (vanhempi + pelaaja lukevat)
-  if (_seuraId && _uid && _replyCtx.pid) {
+  if (_seuraId && _uid && ctx.pid) {
     /* YKSI KIRJOITUSPISTE (lib/tm_valmentajaviesti.js): sama dokumentti syntyy myös
        `inboxReact`:sta ja VP:n pelaajakortilta. Kolme kopiota ajautuisi erilleen —
        `nakyvyys` puuttui aikanaan juuri siksi. */
-    tmLahetaValmentajaViesti(_db, {
-      seuraId: _seuraId, pelaajaId: _replyCtx.pid, teksti: msg, uid: _uid,
-      nimi: _viestiLahettajanNimi(),
-      sentinel: firebase.firestore.FieldValue,
-    }).then(function () { console.log('[v16] Viesti tallennettu havaintoihin'); })
-      .catch(function (e) { console.warn('[v16] Viesti-tallennus:', e.message); });
+    _replyTila(true, '');
+    try {
+      await tmViestiAikarajalla(tmLahetaValmentajaViesti(_db, {
+        seuraId: _seuraId, pelaajaId: ctx.pid, teksti: msg, uid: _uid,
+        nimi: _viestiLahettajanNimi(),
+        sentinel: firebase.firestore.FieldValue,
+      }));
+    } catch (e) {
+      console.warn('[v16] Viesti-tallennus:', e && (e.code || e.message));
+      _replyTila(false, masterT(tmViestiVirheAvain(e)));
+      return;                                   // ikkuna ja teksti säilyvät
+    }
   }
   // TMBus (demo-yhteensopivuus)
   if (window.TMBus) {
-    TMBus.publish('coach_message', {playerId:_replyCtx.pid, channel:'family', text:msg, refEventId:_replyCtx.eid});
+    TMBus.publish('coach_message', {playerId:ctx.pid, channel:'family', text:msg, refEventId:ctx.eid});
   }
-  markSeen(_replyCtx.eid);
-  toast('Viesti lähetetty ' + _replyCtx.pname + ':n perheelle');
+  markSeen(ctx.eid);
+  toast('Viesti lähetetty ' + ctx.pname + ':n perheelle');
   closeReply();
 }
 
