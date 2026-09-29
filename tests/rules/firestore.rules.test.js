@@ -2881,3 +2881,87 @@ describe('admins (v3.24): vain SA ja käyttäjä itse', () => {
     await assertFails(setDoc(doc(vpContext(SEURA_A).firestore(), 'admins', VP_A_UID), { email: 'x@test.fi' }));
   });
 });
+
+/* ══════════════════════════════════════════════════════════════════════════════════════════
+   v3.25 · PELAAJATOKEN (onPelaajaItse) — Vaihe 0 / PR 1
+   Token `pelaajaKirjaudu`-funktiolta: { rooli:'pelaaja', pelaajaSeuraId, pelaajaId }.
+══════════════════════════════════════════════════════════════════════════════════════════ */
+function pelaajaContext(seuraId, pelaajaId) {
+  return testEnv.authenticatedContext('pel_' + seuraId + '_' + pelaajaId, {
+    rooli: 'pelaaja', pelaajaSeuraId: seuraId, pelaajaId: pelaajaId,
+    firebase: { sign_in_provider: 'custom' },
+  });
+}
+
+describe('v3.25 · pelaajatoken (onPelaajaItse)', () => {
+  beforeEach(async () => {
+    await seedSeuraAndPelaaja();
+    await seedHavainto();
+    await testEnv.withSecurityRulesDisabled(async (c) => {
+      const db = c.firestore();
+      // Valmentajan sisäinen havainto (ei nakyvyys:'pelaaja') — pelaaja EI saa nähdä.
+      await setDoc(doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'havainnot', 'sisainen'), {
+        tyyppi: 'adar', tila: 'valmis', valmentajaUid: VALM_A_UID, narratiivi: 'vain valmentajille',
+      });
+      await setDoc(doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_A2_UID, 'havainnot', 'toisen'), {
+        tyyppi: 'adar', tila: 'valmis', nakyvyys: 'pelaaja', narratiivi: 'toisen pelaajan',
+      });
+      await setDoc(doc(db, 'seurat', SEURA_A, 'kalenteri', 'k1'), { otsikko: 'Treeni', poistettu: false });
+      await setDoc(doc(db, 'seurat', SEURA_B, 'kalenteri', 'k2'), { otsikko: 'Muu seura', poistettu: false });
+      await setDoc(doc(db, 'seurat', SEURA_A, 'konseptit', 'y1'), { nimi: 'Linja' });
+      await setDoc(doc(db, 'seurat', SEURA_B, 'konseptit', 'y1'), { nimi: 'Muun seuran linja' });
+    });
+  });
+  const pel = () => pelaajaContext(SEURA_A, PELAAJA_UID).firestore();
+
+  it('lukee OMAN pelaajadokumenttinsa', async () => {
+    await assertSucceeds(getDoc(doc(pel(), 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID)));
+  });
+  it('EI lue toisen pelaajan dokumenttia (sama seura) eikä listaa pelaajia', async () => {
+    await assertFails(getDoc(doc(pel(), 'seurat', SEURA_A, 'pelaajat', PELAAJA_A2_UID)));
+    await assertFails(getDocs(collection(pel(), 'seurat', SEURA_A, 'pelaajat')));
+    await assertFails(getDoc(doc(pel(), 'seurat', SEURA_B, 'pelaajat', PELAAJA_B_UID)));
+  });
+  it('lukee omat havainnot, joissa nakyvyys==pelaaja — EI sisäisiä eikä toisen', async () => {
+    await assertSucceeds(getDoc(doc(pel(), 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'havainnot', 'hav1')));
+    await assertFails(getDoc(doc(pel(), 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'havainnot', 'sisainen')));
+    await assertFails(getDoc(doc(pel(), 'seurat', SEURA_A, 'pelaajat', PELAAJA_A2_UID, 'havainnot', 'toisen')));
+  });
+  it('pelaajatoken EI läpäise onOmaSeura-haaroja (seuradokumentti, käyttäjät)', async () => {
+    await assertFails(getDoc(doc(pel(), 'seurat', SEURA_A)));
+    await assertFails(getDoc(doc(pel(), 'seurat', SEURA_A, 'kayttajat', VALM_A_UID)));
+  });
+  it('päivittää omasta dokumentistaan VAIN samat kentät kuin anonyymi (xp/streak) — ei muuta', async () => {
+    await assertSucceeds(updateDoc(doc(pel(), 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID), { xp: 10, streak: 2 }));
+    await assertFails(updateDoc(doc(pel(), 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID), { pin: '0000' }));
+    await assertFails(updateDoc(doc(pel(), 'seurat', SEURA_A, 'pelaajat', PELAAJA_A2_UID), { xp: 10 }));
+  });
+  it('luo oman kirjauksen — EI toisen pelaajan kirjausta', async () => {
+    const k = { tyyppi: 'T', tehty: true, kesto_min: 30, fiilinki: 4, rpe: 6, lahde: 'pelaaja', luotu: new Date() };
+    await assertSucceeds(setDoc(doc(pel(), 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'kirjaukset', '2026-09-29'), k));
+    await assertFails(setDoc(doc(pel(), 'seurat', SEURA_A, 'pelaajat', PELAAJA_A2_UID, 'kirjaukset', '2026-09-29'), k));
+  });
+  it('kalenteri: oman seuran luku, ei muun seuran', async () => {
+    await assertSucceeds(getDoc(doc(pel(), 'seurat', SEURA_A, 'kalenteri', 'k1')));
+    await assertFails(getDoc(doc(pel(), 'seurat', SEURA_B, 'kalenteri', 'k2')));
+  });
+  it('läsnäolo: RSVP vain OMAAN riviin (saatavuus-kentät), ei toisen puolesta', async () => {
+    const r = { saatavuus: 'tulossa', paivitetty: new Date().toISOString(), rooli: 'pelaaja' };
+    await assertSucceeds(setDoc(doc(pel(), 'seurat', SEURA_A, 'kalenteri', 'k1', 'lasnaolijat', PELAAJA_UID), r));
+    await assertFails(setDoc(doc(pel(), 'seurat', SEURA_A, 'kalenteri', 'k1', 'lasnaolijat', PELAAJA_A2_UID), r));
+    await assertFails(setDoc(doc(pel(), 'seurat', SEURA_A, 'kalenteri', 'k1', 'lasnaolijat', PELAAJA_UID + 'x'), { tila: 'paikalla' }));
+  });
+  it('konseptit: oman seuran linja luetaan, muun seuran ei', async () => {
+    await assertSucceeds(getDoc(doc(pel(), 'seurat', SEURA_A, 'konseptit', 'y1')));
+    await assertFails(getDoc(doc(pel(), 'seurat', SEURA_B, 'konseptit', 'y1')));
+  });
+  it('kirjautumislaskurit ja PIN-hajautukset: ei kenellekään clientille (myös SA:lle vain Admin SDK)', async () => {
+    await assertFails(getDoc(doc(pel(), '_kirjautumisyritykset', 'x')));
+    await assertFails(getDoc(doc(saContext().firestore(), '_pelaajaPin', 'fcl_' + PELAAJA_UID)));
+    await assertFails(setDoc(doc(anonContext().firestore(), '_pelaajaPin', 'x'), { hash: 'h' }));
+  });
+  it('väärennetty token ilman rooli:pelaaja (pelkät pelaajaSeuraId/pelaajaId) EI saa pääsyä', async () => {
+    const vaara = testEnv.authenticatedContext('x', { pelaajaSeuraId: SEURA_A, pelaajaId: PELAAJA_UID }).firestore();
+    await assertFails(getDoc(doc(vaara, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID)));
+  });
+});
