@@ -1325,3 +1325,63 @@ describe('(P0-2) Arvot fixtuurilla oikeassa mittakaavassa (XT_KAYTTOONOTTO §2)'
     arvot.forEach(([nimi, v]) => expect(Math.abs(v), nimi + ' = ' + v).toBeLessThan(PH.PH_UHKA_MITTAKAAVA_MAX));
   });
 });
+
+/* Vanha tallennusmuoto: Firestoreen tallentuu vain raakakoordinaatit + malli-id, EI laskettuja
+   arvoja (§5.6). Siksi ennen P0:aa tallennetut tarkkailut kulkevat samaan laskentaan eivätkä
+   tarvitse migraatiota. Dokumentti on SYNTEETTINEN, rakenteeltaan sama kuin tuotannon
+   kenttatarkkailu (juuri- ja merkintäkentät), ei kenenkään pelaajan dataa. */
+describe('(P0-3) Vanhan tallennusmuodon dokumentti → arvot oikeassa mittakaavassa', () => {
+  const vanha = {
+    tyyppi: 'kenttatarkkailu', lahde: 'live', tila: 'valmis',
+    seuraId: 'testiseura', pelaajaId: 'testipelaaja', valmentajaUid: 'testivalmentaja', palloId: null,
+    ikataso: 'u1315', pelipaikka: null, jaksofokus: null, suunta: 'oikealle',
+    ottelu: { pelimuoto: '11v11', vastustaja: 'Synteettinen FC' },
+    malli: { xt: 'singh_12x8_v1', xg: 'xg_geom_v0_esimerkki', boksi: 'boksi_v0_esimerkki' },
+    kirjattavat: ['syotto', 'kuljetus', 'v1', 'laukaus', 'riisto', 'menetys', 'juoksu', 'reaktio', 'laukaus_vastaan'],
+    puoliajat: [1, 2],
+    merkinnat: [
+      { id: 'a1', tyyppi: 'syotto', alku: { len: 48, wid: 50 }, loppu: { len: 70, wid: 50 }, perilla: true, puoliaika: 1, t: 34 },
+      { id: 'a2', tyyppi: 'riisto', piste: { len: 52, wid: 65 }, jatko: 'kuljetus', puoliaika: 1, t: 54 },
+      { id: 'a3', tyyppi: 'kuljetus', ketju: 'a2', alku: { len: 52, wid: 65 }, loppu: { len: 72, wid: 80 }, lopputuote: 'syotto', puoliaika: 1, t: 60 },
+      { id: 'a4', tyyppi: 'syotto', ketju: 'a3', alku: { len: 72, wid: 80 }, loppu: { len: 90, wid: 50 }, perilla: true, puoliaika: 1, t: 64 },
+      { id: 'a5', tyyppi: 'laukaus', piste: { len: 89, wid: 50 }, puoliaika: 1, t: 107 },
+      { id: 'a6', tyyppi: 'laukaus_vastaan', piste: { len: 20, wid: 45 }, puoliaika: 2, t: 182 },
+      { id: 'a7', tyyppi: 'menetys', piste: { len: 40, wid: 30 }, konsepti: 'Y-H1', puoliaika: 2, t: 240 },
+    ],
+  };
+
+  it('dokumentissa EI ole tallennettuja pisteitä (lasketaan aina uudelleen)', () => {
+    expect(JSON.stringify(vanha)).not.toMatch(/"pisteet"|"uhka"|"arvo"/);
+  });
+
+  it('merkinnät, ketju ja yhteenveto: realistinen väli, |x| < 30', () => {
+    const opts = { xgMalli: vanha.malli.xg };
+    const arvot = vanha.merkinnat.map((m) => [m.id, PH.phArvo(m, vanha.ottelu.pelimuoto, opts)]);
+    const uhkat = arvot.filter(([, a]) => a && a.yksikko === 'uhkapisteet');
+    expect(uhkat.length, 'EI VACUOUS').toBeGreaterThanOrEqual(5);
+    uhkat.forEach(([id, a]) => expect(Math.abs(a.pisteet), id + ' ' + a.laji + ' = ' + a.pisteet).toBeLessThan(PH.PH_UHKA_MITTAKAAVA_MAX));
+
+    const syotto = arvot.find(([id]) => id === 'a1')[1];
+    expect(syotto.pisteet, 'keskialue → hyökkäyskolmannes').toBeGreaterThanOrEqual(0.1);
+    expect(syotto.pisteet).toBeLessThanOrEqual(10);
+    const riisto = arvot.find(([id]) => id === 'a2')[1];
+    expect(riisto.laji).toBe('puolustus');
+    expect(riisto.pisteet).toBeLessThan(5);
+
+    const xgt = arvot.filter(([, a]) => a && a.yksikko === 'todennakoisyys');
+    expect(xgt.map(([, a]) => a.laji).sort(), 'oma laukaus + vastustajan laukaus').toEqual(['xg', 'xg_vastaan']);
+    xgt.forEach(([id, a]) => {
+      expect(a.pisteet, id + ' xG').toBeGreaterThan(0);
+      expect(a.pisteet, id + ' xG').toBeLessThan(1);
+    });
+
+    const ketjut = PH.phKetjut(vanha);
+    expect(ketjut.length).toBe(1);
+    expect(Math.abs(ketjut[0].uhka)).toBeLessThan(PH.PH_UHKA_MITTAKAAVA_MAX);
+
+    const y = PH.phYhteenveto(vanha);
+    expect(y.luvut.luotuUhka.pisteet).toBeGreaterThan(0);
+    expect(Math.abs(y.luvut.luotuUhka.pisteet)).toBeLessThan(PH.PH_UHKA_MITTAKAAVA_MAX);
+    expect(PH.phMuotoileUhka(y.luvut.luotuUhka.pisteet)).toMatch(/^\+\d{1,2},\d$/);
+  });
+});
