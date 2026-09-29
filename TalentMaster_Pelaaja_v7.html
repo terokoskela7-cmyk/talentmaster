@@ -3925,13 +3925,12 @@ function _initFirebase() {
     if (user) {
       _user = user;
 
-      // Anonyymi käyttäjä → URL-param reitti
+      /* Anonyymi käyttäjä → PIN-näkymä. URL-parametrit (?pelaajaId=&seuraId=) EIVÄT enää kirjaa
+         ketään sisään: reitti avasi minkä tahansa pelaajan profiilin ilman PIN:iä (Vaihe 0 / PR 0,
+         CODE_BRIEF_PELAAJAN_TUNNISTUS v2). SA:n esikatselu kulkee sähköposti/Google-kirjautumisen
+         kautta (_lataaFirebasePelaaja), ei tätä haaraa. */
       if (user.isAnonymous) {
-        if (_URL.pelaajaId && _URL.seuraId) {
-          await _lataaProfiiliFirestore(db, _URL.pelaajaId);
-        } else {
-          go('pin');
-        }
+        go('pin');
         return;
       }
 
@@ -3947,53 +3946,9 @@ function _initFirebase() {
     const pinOk = await _tarkistaPinSessio(auth, db);
     if (pinOk) return;
 
-    // Kokeile URL-parametreja
-    if (_URL.pelaajaId && _URL.seuraId) {
-      _kirjautuminenKesken = true;
-      try { await auth.signInAnonymously(); } catch(e) { console.warn('[anon]', e.message); }
-      _kirjautuminenKesken = false;
-      return;
-    }
-
+    /* URL-parametrit eivät käynnistä anonyymiä kirjautumista (PR 0). */
     go('pin');
   });
-}
-
-async function _lataaProfiiliFirestore(db, uid) {
-  try {
-    // Hae seuraId Custom Claimsista (tokenista)
-    let seuraId = null;
-    try {
-      const tokenResult = await firebase.auth().currentUser?.getIdTokenResult();
-      seuraId = tokenResult?.claims?.seuraId || null;
-    } catch(e) {}
-    window._seuraId = seuraId;
-
-    if (seuraId) {
-      // Oikea polku: seurat/{seuraId}/pelaajat/{uid}
-      const snap = await db.collection('seurat').doc(seuraId)
-        .collection('pelaajat').doc(uid).get();
-      if (snap.exists) {
-        _pelaaja = { id: uid, seuraId, ...snap.data() };
-        _stage = _laskeStage(_pelaaja.syntymaVuosi, _pelaaja.phv_tila);
-        _flei  = _laskeFlei(_pelaaja);
-        _paivitaDemoData();
-        _lataaCStreak(); // Lataa streak Firestoreen
-        _paivitaEXHarjoitelogiikasta(); // Päivitä harjoiteohjelma
-        return;
-      }
-    }
-    // Fallback: flat pelaajat/{uid} (legacy / URL-param reitti)
-    const snap2 = await db.collection('pelaajat').doc(uid).get();
-    if (snap2.exists) {
-      _pelaaja = { id: uid, seuraId, ...snap2.data() };
-      _stage = _laskeStage(_pelaaja.syntymaVuosi, _pelaaja.phv_tila);
-      _flei  = _laskeFlei(_pelaaja);
-      _paivitaDemoData();
-    }
-  } catch(e) {
-    console.warn('[v4 profiili]', e.message);
-  }
 }
 
 /* ══ LATAA FIREBASE PELAAJA — täysi v3-flow ══════════════════════
