@@ -881,6 +881,15 @@ describe('(13) Masterin ottelutarkkailut', () => {
     expect(renderit, 'vain määrittely, window-vienti ja yksi klikkikutsu').toBeLessThanOrEqual(4);
   });
 
+  it('käyttää Masterin Firestore-kahvaa `_db` (ei määrittelemätöntä `db`)', () => {
+    /* #642–#668: `db.collection(...)` → ReferenceError, jonka catch muutti viestiksi
+       "Tarkkailuja ei saatu haettua" — lista ei toiminut koskaan. */
+    expect(MASTER).toContain('const _db   = firebase.firestore();');
+    const f = pura2(MASTER, 'async function _mkAvaaTarkkailut() {');
+    expect(f).toContain('await _db.collection(');
+    expect(f).not.toMatch(/[^_\w]db\.collection\(/);
+  });
+
   /* AJETTU todiste: `if (false) rivit.sort(...)` jättäisi merkkijonon paikalleen. Tyngältä
      tulee tarkoituksella väärässä järjestyksessä, ja tulos on luettava uusin ensin. */
   async function ajaTarkkailulista(docit) {
@@ -891,8 +900,9 @@ describe('(13) Masterin ottelutarkkailut', () => {
       _activePelaaja: 'p1', _seuraId: 'sjk',
       masterT: (s) => s, _mEsc: (s) => String(s == null ? '' : s),
       document: { getElementById: () => el },
-      /* Ketju kuten tuotannossa: collection→doc→collection→doc→collection→limit→get. */
-      db: {
+      /* Ketju kuten tuotannossa: collection→doc→collection→doc→collection→limit→get.
+         Nimi `_db` kuten Masterissa: tynkä nimellä `db` peitti ReferenceErrorin (lista ei toiminut). */
+      _db: {
         collection: () => ({
           doc: () => ({
             collection: () => ({
@@ -1272,6 +1282,9 @@ describe('(12) kenttä täyttää näytön, kumpikin asento on käyttötila', ()
     const m = SIVU.match(/lib\/tm_pelihavainto\.js\?v=(\d+)/);
     expect(m, 'sivu ei lataa libiä versioidulla URL:lla').toBeTruthy();
     expect(Number(m[1]), 'lib muuttui mutta ?v ei noussut').toBeGreaterThanOrEqual(2);
+    /* P0: sivu kutsuu phMuotoileUhka-funktiota. Vanha lib (v3) + uusi sivu = TypeError renderöinnissä. */
+    expect(lib.includes('function phMuotoileUhka'), 'phMuotoileUhka katosi libistä — päivitä myös tämä vartija').toBe(true);
+    expect(Number(m[1]), 'phMuotoileUhka vaatii ?v>=4').toBeGreaterThanOrEqual(4);
   });
 
   it('turva-alueet huomioidaan (lovi ja kotipalkki eivät syö kenttää)', () => {
@@ -1701,5 +1714,32 @@ describe('(18) luonnos säilyy puoliajan vaihdon yli', () => {
     expect(Object.keys(store).length, 'kirjaukset hävisivät kun verkko petti').toBe(1);
     expect(S.paattynyt, 'ottelu merkittiin päättyneeksi ilman tallennusta').not.toBe(true);
     expect(kutsuttu.join(' ')).toContain('vahvistus:');
+  });
+});
+
+/* P0 · Uhkapisteiden mittakaava: lib palauttaa arvot VALMIIKSI uhkapisteinä. Sivun oma kertolasku
+   antoi 100x liian suuria lukuja (Riisto +190,0, oikea +1,9). Kaikki uhka-arvon näyttö libin kautta. */
+describe('P0 · uhka-arvot vain phMuotoileUhka-funktion kautta', () => {
+  it('sivun koodissa ei ole omaa uhka-arvon skaalausta', () => {
+    for (const kielletty of [/pisteet\s*\*\s*1000/, /pisteet\s*\*\s*100\b/, /uhka\s*\*\s*100\b/, /uhka\s*\*\s*10\b/, /pisteet\s*\*\s*10\b/]) {
+      expect(SIVU_KOODI, 'kielletty kertolasku ' + kielletty).not.toMatch(kielletty);
+    }
+  });
+
+  it('EI VACUOUS: vartija nappaisi vanhan muodon', () => {
+    expect('num(Math.round(a.pisteet * 1000) / 10, true)').toMatch(/pisteet\s*\*\s*1000/);
+    expect('num(Math.round(k.uhka * 100) / 10, true)').toMatch(/uhka\s*\*\s*100\b/);
+  });
+
+  it('sivulla ei ole omaa uhkapisteiden muotoilijaa (num poistettu)', () => {
+    expect(SIVU_KOODI).not.toMatch(/function num\(/);
+    expect(SIVU_KOODI).toContain('PH.phMuotoileUhka(');
+  });
+
+  it('kaikki viisi näyttökohtaa käyttävät uhkaTeksti-funktiota', () => {
+    const tiedot = pura('function tiedot(');
+    expect((tiedot.match(/uhkaTeksti\(a\.pisteet\)/g) || []).length, 'uhka/potentiaali + puolustus').toBe(2);
+    expect(SIVU_KOODI).toContain('esc(uhkaTeksti(k.uhka))');
+    expect((SIVU_KOODI.match(/uhkaTeksti\(L\.luotuUhka\.pisteet\)/g) || []).length, 'yhteenveto + loppunäkymä').toBe(2);
   });
 });
