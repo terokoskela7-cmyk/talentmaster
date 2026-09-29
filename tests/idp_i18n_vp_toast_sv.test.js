@@ -122,6 +122,9 @@ const SV_ODOTTAA_SANKTIOINTIA = [
   // PR "viesti-pelaajalle" (B): VP:n uusi viestitoiminto — sv Gemini-erässä.
   'Viesti lähetetty pelaajalle ja perheelle',
   'Viestin lähetys ei onnistunut',
+  // Vaihe 0 / T2: syykohtainen lähetysvirhe — sv Gemini-erässä.
+  'Ei oikeutta lähettää tälle pelaajalle',
+  'Ei yhteyttä, yritä uudelleen',
   // PR "viesti-pelaajalle" (B6): peruminen.
   'Merkintä peruttu',
   'Peruminen ei onnistunut',

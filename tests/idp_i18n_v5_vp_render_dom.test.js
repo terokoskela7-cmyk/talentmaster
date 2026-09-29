@@ -750,6 +750,10 @@ describe('VP_v25 resolvi-portti — jokaisella reititetyllä avaimella on sv-riv
     'Viesti lähetetty pelaajalle ja perheelle',
     'Viesti pelaajalle',
     'Viestin lähetys ei onnistunut',
+    /* Vaihe 0 / T2: lähetys odottaa tallennusta (nappi + syykohtainen virhe). sv Gemini-erässä. */
+    'Lähetetään…',
+    'Ei oikeutta lähettää tälle pelaajalle',
+    'Ei yhteyttä, yritä uudelleen',
     /* PR "havaintohistoria" (A): VP:n D4-lohko siirtyi portaisiin (2A-nimet pois) ja
        sai Havainnot-linkin. sv tulee Gemini-erässä — omaa ruotsia ei kirjoiteta. */
     'Porras',
