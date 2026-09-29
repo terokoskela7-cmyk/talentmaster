@@ -1,9 +1,17 @@
 rules_version = '2';
 // ══════════════════════════════════════════════════════════════════════════
-// TalentMaster™ — firestore.rules v3.25
+// TalentMaster™ — firestore.rules v3.26
 //
 // Lähde:  tm_admin/firestore.rules
 // Deploy: PR → N4-CI deployaa automaattisesti (Console-käsityö poistui).
+//
+// Muutokset v3.25 → v3.26 (Vaihe 0 / PR 2b — Solo-lapsen palvelinkirjautuminen, VAIN LISÄYS):
+//   · Uusi funktio onSoloLapsiItse(playerId): token `soloLapsiKirjaudu`-funktiolta
+//     (playerCode + PIN), claimit { rooli:'solo_lapsi', soloPlayerId } — EI seura-avaruuden kenttiä.
+//   · players/{playerId} get/update: anonyymin haaran rinnalle `|| onSoloLapsiItse(playerId)`
+//     SAMOILLA kenttärajauksilla (parent_uid/child_pin/playerCode/seuraId muuttumattomia).
+//     Anonyymiä haaraa EI poisteta vielä (PR 3).
+//   · _soloPin: Solo-PIN-hajautukset, vain Admin SDK (deny-all).
 //
 // Muutokset v3.24 → v3.25 (Vaihe 0 / PR 1 — palvelinkirjautuminen, VAIN LISÄYS):
 //   · Uudet funktiot onPelaaja / onPelaajaItse(seuraId, pelaajaId) / onPelaajanSeura(seuraId):
@@ -333,6 +341,15 @@ service cloud.firestore {
       return onPelaaja() && request.auth.token.pelaajaSeuraId == seuraId;
     }
 
+    /* v3.26 — SOLO-LAPSEN OMA IDENTITEETTI (Vaihe 0 / PR 2b). Token `soloLapsiKirjaudu`-funktiolta
+       (playerCode + PIN): { rooli:'solo_lapsi', soloPlayerId }. Ei seuraId/pelaajaSeuraId/pelaajaId
+       → ei läpäise onOmaSeura/onPelaaja-haaroja. Käytössä VAIN players/{playerId}-blokissa. */
+    function onSoloLapsiItse(playerId) {
+      return request.auth != null
+          && request.auth.token.get('rooli', '') == 'solo_lapsi'
+          && request.auth.token.get('soloPlayerId', '') == playerId;
+    }
+
     function onValmentajaRooli() {
       // HUOM: seurasihteeri + testivastaava POISTETTU tästä (2026-06-05) — ne eivät saa
       // broad valmennusdata-kirjoitusta. Rajatut oikeudet onSeuraSihteeri/onTestivastaava-kautta.
@@ -567,6 +584,8 @@ service cloud.firestore {
     // hajautus pelaajadokumentissa murtuisi 10 000 kokeilulla.
     match /_kirjautumisyritykset/{avain} { allow read, write: if false; }
     match /_pelaajaPin/{avain}           { allow read, write: if false; }
+    // v3.26 — Solo-lapsen PIN-hajautukset (soloLapsiKirjaudu): VAIN Admin SDK.
+    match /_soloPin/{avain}              { allow read, write: if false; }
 
     match /admins/{uid} {
       // v3.24: vain SA tai käyttäjä itse. Kaikki selainlukijat lukevat omaa dokumenttiaan
@@ -1506,12 +1525,14 @@ service cloud.firestore {
       // Vanhempi: täysi omistus. Lapsi (anonymous, Polku B): single-doc GET + rajattu UPDATE omaan
       // dokkiin (child_pin). PlayerCode/playerId resolvoidaan lupapyynnöstä → ei enumeraatiota.
       // EI list anonyymille (estää koko players-kokoelman luvun). SOLO_P0_SPEC §9.
+      // v3.26: palvelimen tunnistama Solo-lapsi (onSoloLapsiItse) anonyymin rinnalle; anonyymi pois PR 3:ssa.
       allow get:    if (request.auth != null && request.auth.uid == resource.data.parent_uid)
-                    || (onAnonymous() && resource.data.child_pin != null);
+                    || (onAnonymous() && resource.data.child_pin != null)
+                    || onSoloLapsiItse(playerId);
       allow list:   if request.auth != null && request.auth.uid == resource.data.parent_uid;
       allow create: if request.auth != null && request.auth.uid == request.resource.data.parent_uid;
       allow update: if (request.auth != null && request.auth.uid == resource.data.parent_uid)
-                    || (onAnonymous() && resource.data.child_pin != null
+                    || (((onAnonymous() && resource.data.child_pin != null) || onSoloLapsiItse(playerId))
                         && request.resource.data.parent_uid == resource.data.parent_uid
                         && request.resource.data.child_pin  == resource.data.child_pin
                         && request.resource.data.playerCode == resource.data.playerCode
