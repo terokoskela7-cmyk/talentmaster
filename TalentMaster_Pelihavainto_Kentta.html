@@ -397,8 +397,10 @@
     <div class="eyebrow" data-i18n="Ottelu">Ottelu</div>
     <h1 id="loppuOtsikko"></h1>
     <p class="lead" id="loppuLuvut"></p>
-    <div id="loppuTilastot"></div>
+    <div id="loppuPaaluvut"></div>
+    <!-- Pääpainike HETI pääluvun jälkeen: kartta ja lista ovat pitkiä, eikä jatkon pidä vaatia vieritystä. -->
     <button class="primary" type="button" id="loppuPikakortti" data-i18n="Tee pelihavainto tämän pohjalta">Tee pelihavainto tämän pohjalta</button>
+    <div id="loppuTilastot"></div>
     <div style="display:flex;gap:8px;margin-top:10px">
       <button class="tbtn sec" type="button" id="loppuUusi" style="flex:1" data-i18n="Uusi ottelu">Uusi ottelu</button>
       <button class="tbtn sec" type="button" id="loppuSulje" style="flex:1" data-i18n="Sulje">Sulje</button>
@@ -1494,7 +1496,7 @@ const _db = firebase.firestore();
     }).join(' ') + '</div>';
   }
 
-  function tilastoLista(L, y) {
+  function tilastoLista(L) {
     var rivit = [];
     var rivi = function (nimi, arvo, tarkennus) {
       var t = (tarkennus || []).filter(Boolean);
@@ -1502,10 +1504,14 @@ const _db = firebase.firestore();
         + (t.length ? '<span class="t">' + esc(t.join(' · ')) + '</span>' : '') + '</div>'
         + '<div class="a">' + esc(arvo) + '</div></div>');
     };
-    var kpl = function (n, yks) { return n ? n + ' ' + phT(yks) : null; };   // nolla jätetään pois
+    /* Nolla jätetään pois. Yksikkö ja monikko erikseen: "1 avainsyöttö" / "2 avainsyöttöä".
+       Muuttumattomat (esim. "boksiin") annetaan yhdellä muodolla. */
+    var kpl = function (n, yks, mon) { return n ? n + ' ' + phT(n === 1 ? yks : (mon || yks)) : null; };
+    var re = L.reaktio || null;
     if (L.syotot) {
       rivi('Syötöt', L.syotot.perille + '/' + L.syotot.yhteensa, [
-        kpl(L.syotot.avain, 'avainsyöttöä'), kpl(L.syotot.murtava, 'murtavaa'), kpl(L.syotot.etenevat, 'etenevää'),
+        kpl(L.syotot.avain, 'avainsyöttö', 'avainsyöttöä'), kpl(L.syotot.murtava, 'murtava', 'murtavaa'),
+        kpl(L.syotot.etenevat, 'etenevä', 'etenevää'),
       ]);
     }
     var tulot = L.tulot || {};
@@ -1523,13 +1529,14 @@ const _db = firebase.firestore();
       rivi('Kaksinkamppailut', (H.onnistui + P.voitti) + '/' + (H.yritykset + P.kaikki), [
         H.yritykset ? phT('hyökkäys') + ' ' + H.onnistui + '/' + H.yritykset : null,
         P.kaikki ? phT('puolustus') + ' ' + P.voitti + '/' + P.kaikki : null,
+        (re && re.ohitettiin.yhteensa) ? phT('palautui heti') + ' ' + re.ohitettiin.heti + '/' + re.ohitettiin.yhteensa : null,
       ]);
     }
     if (L.menetykset) {
-      var re = y && y.adar ? y.adar.menetyksenJalkeen : null;
+      /* VAIN menetysten reaktiot — ohitetuksi tulemisen palautuminen on 1v1-rivillä. */
       rivi('Menetykset', String(L.menetykset.n), [
         kpl(L.menetykset.korkeallaRiskilla, 'korkealla riskillä'),
-        (re && re.yhteensa) ? phT('reagoi heti') + ' ' + re.reagoiHeti + '/' + re.yhteensa : null,
+        (re && re.menetykset.yhteensa) ? phT('reagoi heti') + ' ' + re.menetykset.heti + '/' + re.menetykset.yhteensa : null,
       ]);
     }
     if (L.riistot) {
@@ -1548,14 +1555,18 @@ const _db = firebase.firestore();
     return '<details class="tv-huom"><summary>' + esc(lyhyt) + '</summary><p>' + esc(teksti) + '</p></details>';
   }
 
-  function tilastoHtml(dok) {
+  /* opts.vainPaaluvut / opts.ilmanPaalukuja: loppunäkymä jakaa näkymän kahtia, jotta pääpainike
+     mahtuu pääluvun ja kartan väliin. Sama renderöijä, ei toista koostetta. */
+  function tilastoHtml(dok, opts) {
+    opts = opts || {};
     var y = PH.phYhteenveto ? PH.phYhteenveto(dok) : null;
     if (!y) return '';
     var L = y.luvut || {};
     var kp = PH.phKarttaPisteet ? PH.phKarttaPisteet(dok) : {};
     var pm = (dok.ottelu && dok.ottelu.pelimuoto) || '11v11';
     var tabs = karttaValilehdet(kp);
-    var h = '<div class="tv">' + tilastoPaaluvut(L);
+    if (opts.vainPaaluvut) return tilastoPaaluvut(L) ? '<div class="tv">' + tilastoPaaluvut(L) + '</div>' : '';
+    var h = '<div class="tv">' + (opts.ilmanPaalukuja ? '' : tilastoPaaluvut(L));
     if (tabs.length) {
       var valittu = tabs.some(function (t) { return t[0] === karttaTab; }) ? karttaTab : tabs[0][0];
       h += '<div class="tv-tabs" role="tablist">' + tabs.map(function (t) {
@@ -1564,17 +1575,18 @@ const _db = firebase.firestore();
       }).join('') + '</div>';
       h += karttaSvg(kp, valittu, pm) + karttaSelite(valittu, kp);
     }
-    h += tilastoLista(L, y);
+    h += tilastoLista(L);
     h += tilastoHuomio(pm);
     return h + '</div>';
   }
   window._phTilastoHtml = tilastoHtml;   // testivartija
 
   /* Piirtää tilastonäkymän elementtiin ja kytkee välilehdet (delegointi: innerHTML vaihtuu). */
-  function piirraTilastot(el, otsikko) {
+  function piirraTilastot(el, otsikko, opts) {
     if (!el) return;
     if (otsikko !== undefined) el._tvOtsikko = otsikko;
-    var sisalto = tilastoHtml(dokumentti());
+    if (opts !== undefined) el._tvOpts = opts;
+    var sisalto = tilastoHtml(dokumentti(), el._tvOpts);
     el.innerHTML = (el._tvOtsikko && sisalto)
       ? '<div class="pmeta" style="margin-top:12px">' + esc(el._tvOtsikko) + '</div>' + sisalto : sisalto;
     if (!el._tvKytketty) {
@@ -2197,7 +2209,8 @@ const _db = firebase.firestore();
     q('loppuOtsikko').textContent = phT('Ottelu tallennettu');
     q('loppuLuvut').textContent = juuria + ' ' + phT('tilannetta')
       + (S.vastustaja ? ' · ' + phT('vastustaja') + ' ' + S.vastustaja : '');
-    piirraTilastot(q('loppuTilastot'));
+    piirraTilastot(q('loppuPaaluvut'), undefined, { vainPaaluvut: true });
+    piirraTilastot(q('loppuTilastot'), undefined, { ilmanPaalukuja: true });
     var virhe = q('loppuVirhe');
     if (virhe) { virhe.textContent = ''; virhe.className = 'fine'; }
     q('kenttatila').style.display = 'none';

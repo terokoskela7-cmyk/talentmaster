@@ -1486,3 +1486,26 @@ describe('(T-2) phKarttaPisteet — kerrokset kanonisissa koordinaateissa', () =
     expect(k.laukaukset).toEqual([]);
   });
 });
+
+describe('(T-3) reaktiot erikseen: menetykset vs ohitettiin', () => {
+  const M = [
+    { id: 1, tyyppi: 'menetys', piste: { len: 40, wid: 30 }, reaktio: 'heti', t: 1 },
+    { id: 2, tyyppi: 'kaksinpeli', rooli: 'puolustus', tulos: 'ohitettiin', piste: { len: 30, wid: 50 }, reaktio: 'jai', t: 2 },
+    { id: 3, tyyppi: 'syotto', alku: { len: 30, wid: 50 }, loppu: { len: 60, wid: 50 }, perilla: false, reaktio: 'ei', t: 3 },
+  ];
+
+  it('menetys + ohitettiin → menetykset 1/1, ohitettiin 0/1; aikakatkaisu ("ei") ei ole nimittäjässä', () => {
+    const y = PH.phYhteenveto(dokV6(M, { kirjattavat: ['menetys', 'v1', 'reaktio', 'syotto'] }));
+    expect(y.luvut.reaktio).toEqual({ menetykset: { heti: 1, yhteensa: 1 }, ohitettiin: { heti: 0, yhteensa: 1 } });
+  });
+
+  it('vanha yhdistetty kenttä säilyy ennallaan (adar.menetyksenJalkeen)', () => {
+    const y = PH.phYhteenveto(dokV6(M, { kirjattavat: ['menetys', 'v1', 'reaktio', 'syotto'] }));
+    expect(y.adar.menetyksenJalkeen).toEqual({ reagoiHeti: 1, yhteensa: 2 });
+  });
+
+  it('reaktiokyselyä ei rastitettu → null', () => {
+    const y = PH.phYhteenveto(dokV6(M, { kirjattavat: ['menetys', 'v1'] }));
+    expect(y.luvut.reaktio).toBeNull();
+  });
+});

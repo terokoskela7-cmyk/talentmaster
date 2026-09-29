@@ -1216,12 +1216,12 @@ describe('(20) tilastonäkymä: pääluvut, kartta, lista', () => {
   const FUNKTIOT = [
     'function xgTeksti(v) {', 'function luku(v) {', 'function tilastoPaaluvut(L) {',
     'function karttaValilehdet(kp) {', 'function karttaSvg(kp, tab, pelimuoto) {',
-    'function karttaSelite(tab, kp) {', 'function tilastoLista(L, y) {',
-    'function tilastoHuomio(pelimuoto) {', 'function tilastoHtml(dok) {',
+    'function karttaSelite(tab, kp) {', 'function tilastoLista(L) {',
+    'function tilastoHuomio(pelimuoto) {', 'function tilastoHtml(dok, opts) {',
   ];
   function renderoi(dok, lisa) {
-    return aja(FUNKTIOT.concat(['function esc(s) {']), 'return tilastoHtml(__dok);', Object.assign({
-      __dok: dok, karttaTab: null, phT: (x) => x,
+    return aja(FUNKTIOT.concat(['function esc(s) {']), 'return tilastoHtml(__dok, __opts);', Object.assign({
+      __dok: dok, __opts: undefined, karttaTab: null, phT: (x) => x,
       uhkaTeksti: (p) => PH.phMuotoileUhka(p) || '—',
       window: { TM_XT: XT }, xtPelimuotoHuomio: XT.xtPelimuotoHuomio,
     }, lisa || {}));
@@ -1263,12 +1263,34 @@ describe('(20) tilastonäkymä: pääluvut, kartta, lista', () => {
 
   it('syöttörivi: avain · murtava · etenevä; nollat pois tarkennuksesta', () => {
     const h = renderoi(dok(OTTELU, KAIKKI));
-    expect(h).toMatch(/Syötöt<span class="t">1 avainsyöttöä · 1 murtavaa · \d+ etenevää<\/span>/);
+    expect(h).toMatch(/Syötöt<span class="t">1 avainsyöttö · 1 murtava · \d+ etenevää?<\/span>/);
     const vanha = OTTELU.map((m) => { const c = Object.assign({}, m); delete c.avain; delete c.murtava; return c; });
     const hv = renderoi(dok(vanha, KAIKKI));
-    expect(hv, 'vanha tarkkailu: avain puuttuu tarkennuksesta').not.toContain('avainsyöttöä');
-    expect(hv).not.toContain('murtavaa');
-    expect(hv, 'etenevät lasketaan myös vanhoista').toContain('etenevää');
+    expect(hv, 'vanha tarkkailu: avain puuttuu tarkennuksesta').not.toContain('avainsyöttö');
+    expect(hv).not.toContain('murtava');
+    expect(hv, 'etenevät lasketaan myös vanhoista').toMatch(/\d+ etenevää?/);
+  });
+
+  it('yksikkö ja monikko: "1 avainsyöttö" / "2 avainsyöttöä"', () => {
+    const kaksi = OTTELU.map((m) => (m.id <= 2 ? Object.assign({}, m, { avain: true, murtava: true }) : m));
+    const h = renderoi(dok(kaksi, KAIKKI));
+    expect(h).toContain('2 avainsyöttöä');
+    expect(h).toContain('2 murtavaa');
+    const yksi = renderoi(dok(OTTELU, KAIKKI));
+    expect(yksi).toContain('1 avainsyöttö ');
+    expect(yksi).not.toContain('1 avainsyöttöä');
+    expect(yksi).not.toContain('1 murtavaa');
+  });
+
+  it('reaktiot erikseen: 1 menetys (heti) + 1 ohitettiin (jäi) → "reagoi heti 1/1" ja "palautui heti 0/1"', () => {
+    const m = [
+      { id: 1, tyyppi: 'menetys', piste: { len: 40, wid: 30 }, reaktio: 'heti', t: 1 },
+      { id: 2, tyyppi: 'kaksinpeli', rooli: 'puolustus', tulos: 'ohitettiin', piste: { len: 30, wid: 50 }, reaktio: 'jai', t: 2 },
+    ];
+    const h = renderoi(dok(m, ['menetys', 'v1', 'reaktio']));
+    expect(h).toMatch(/Menetykset<span class="t">reagoi heti 1\/1<\/span>/);
+    expect(h).toContain('palautui heti 0/1');
+    expect(h, 'vanha yhdistetty luku 1/2 ei saa näkyä').not.toContain('reagoi heti 1/2');
   });
 
   it('kartan välilehdet vain datalle; laukaus ilman tulosta piirtyy himmeänä', () => {
@@ -1291,6 +1313,17 @@ describe('(20) tilastonäkymä: pääluvut, kartta, lista', () => {
     const h = renderoi(dok(OTTELU, KAIKKI), { phT: (x) => x + '<i>' });
     expect(h).not.toContain('<i>');
     expect(h).toContain('&lt;i&gt;');
+  });
+
+  it('loppunäkymän jako: vainPaaluvut = pelkät pääluvut; ilmanPaalukuja = kartta + lista ilman päälukuja', () => {
+    const vain = renderoi(dok(OTTELU, KAIKKI), { __opts: { vainPaaluvut: true } });
+    expect(vain).toContain('tv-paa');
+    expect(vain).not.toContain('<svg');
+    expect(vain).not.toContain('tv-lista');
+    const loput = renderoi(dok(OTTELU, KAIKKI), { __opts: { ilmanPaalukuja: true } });
+    expect(loput).not.toContain('tv-paa');
+    expect(loput).toContain('<svg');
+    expect(loput).toContain('tv-lista');
   });
 
   it('värit CSS-muuttujista (molemmat teemat), ei kovakoodattuja heksoja kartassa', () => {
@@ -1732,8 +1765,13 @@ describe('(17) ottelun kulku: puoliaika ja lopetus', () => {
     const f = pura('function naytaLoppunakyma() {');
     expect(f).toContain('Ottelu tallennettu');
     /* Sama tilastonäkymä kuin läpikäynnissä (pääluvut xG · xG vastaan · luotu uhka). */
-    expect(f).toContain("piirraTilastot(q('loppuTilastot'))");
-    expect(SIVU).toContain('id="loppuTilastot"');
+    expect(f).toContain("piirraTilastot(q('loppuPaaluvut'), undefined, { vainPaaluvut: true })");
+    expect(f).toContain("piirraTilastot(q('loppuTilastot'), undefined, { ilmanPaalukuja: true })");
+    /* Pääpainike HETI pääluvun jälkeen, ennen karttaa ja listaa. */
+    const iP = SIVU.indexOf('id="loppuPaaluvut"'), iB = SIVU.indexOf('id="loppuPikakortti"'), iT = SIVU.indexOf('id="loppuTilastot"');
+    expect(iP).toBeGreaterThan(0);
+    expect(iB, 'nappi pääluvun jälkeen').toBeGreaterThan(iP);
+    expect(iT, 'kartta ja lista napin jälkeen').toBeGreaterThan(iB);
     ['loppuPikakortti', 'loppuUusi', 'loppuSulje'].forEach((id) => {
       expect(SIVU, 'loppunakymasta puuttuu ' + id).toContain('id="' + id + '"');
     });
