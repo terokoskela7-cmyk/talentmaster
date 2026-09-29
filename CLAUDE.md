@@ -27,6 +27,8 @@
 - **Rules:** jokainen alikokoelma oma `match`-blokki (§7.15), muutos = versio + changelog + Rules-testi, deploy vain CI:llä (§12).
 - **Uusi appi joka koskee backendiin → App Check pakollinen** (§38).
 - **Service Worker cachettaa vain omat tiedostonsa** (allowlist, §27.4).
+- **Ei uusia `onAnonymous()`-haaroja Rulesiin.** Anonyymi pääsy suljetaan vaiheessa 0 (CODE_BRIEF_PELAAJAN_TUNNISTUS). Uusi pelaajan pääsy tehdään `onPelaajaItse`-funktiolla, kun se on olemassa (PR 1).
+- **Ei uusia tekoälykutsuja EU:n ulkopuolelle.** Käytä Bedrock EU:ta (`tarkistaBedrockEU`) tai muuta EU-reittiä. Suora OpenAI tai Anthropic vain kehityslipun takana.
 
 ---
 
