@@ -23,6 +23,7 @@ import { readFileSync } from 'fs';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { setDoc, getDoc, doc, collection, addDoc, updateDoc, deleteDoc, query, where, limit, getDocs, serverTimestamp, runTransaction, deleteField, orderBy, documentId } from 'firebase/firestore';
+import * as FS_MOD from 'firebase/firestore';
 import { createRequire } from 'module';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -3125,5 +3126,108 @@ describe('v3.26 · Solo-lapsen token (onSoloLapsiItse)', () => {
   it('NYKYTILA (poistuu PR 3:ssa): anonyymi haara on yhä auki players/{id}.get():lle', async () => {
     const anon = testEnv.authenticatedContext(ANON_UID, { firebase: { sign_in_provider: 'anonymous' } }).firestore();
     await assertSucceeds(getDoc(doc(anon, 'players', SOLO_PID)));
+  });
+});
+
+/* ══════════════════════════════════════════════════════════════════════════════════════════
+   v3.27 · SOLO POLKU A — profiilierä + alikokoelmakirjoitus getAfter():lla
+   Juurisyy: Player_Homen erä (parents + players + suostumukset/perus) loi pelaajan samassa erässä;
+   alikokoelman get() näki tilan ennen erää → koko erä PERMISSION_DENIED → playerCodes-varaus orvoksi.
+   Ajetaan OIKEA lib/tm_solo_data.js (tmLuoSoloProfiili / tmMigroiLocalStorage) emulaattoria vasten.
+══════════════════════════════════════════════════════════════════════════════════════════ */
+const TM_SOLO = createRequire(import.meta.url)('../../lib/tm_solo_data.js');
+const POLKU_A_UID = 'polku-a-vanhempi';
+const VIERAS_UID = 'polku-a-vieras';
+function compatFb() {
+  // lib käyttää compat-muotoa fb.firestore.FieldValue.serverTimestamp()/arrayUnion()
+  const { serverTimestamp: st, arrayUnion: au } = FS_MOD;
+  return { firestore: { FieldValue: { serverTimestamp: st, arrayUnion: au } } };
+}
+function lsTynka(alku) {
+  const m = new Map(Object.entries(alku || {}));
+  return { getItem: (k) => (m.has(k) ? m.get(k) : null), setItem: (k, v) => m.set(k, String(v)), _m: m };
+}
+async function laske(db, uid) {
+  const pl = await getDocs(query(collection(db, 'players'), where('parent_uid', '==', uid)));
+  const pc = await getDocs(query(collection(db, 'playerCodes'), where('parent_uid', '==', uid)));
+  return { pelaajat: pl.docs.map((d) => d.id), koodit: pc.docs.map((d) => ({ id: d.id, playerId: d.data().playerId })) };
+}
+const EHDOT = { tos: true, privacy: true };
+
+describe('v3.27 · Solo Polku A -profiilierä (getAfter)', () => {
+  it('vanhemman erä parents + players + suostumukset menee läpi (oikea tmLuoSoloProfiili)', async () => {
+    const db = testEnv.authenticatedContext(POLKU_A_UID).firestore();
+    const r = await assertSucceeds(TM_SOLO.tmLuoSoloProfiili(db, compatFb(), {
+      uid: POLKU_A_UID, email: 'a@example.test', ehdot: EHDOT, benchmark: true, profiili: { nimi: 'Testi' },
+    }));
+    const t = await laske(db, POLKU_A_UID);
+    expect(t.pelaajat).toEqual([r.playerId]);
+    expect(t.koodit).toEqual([{ id: r.playerCode, playerId: r.playerId }]);
+    await assertSucceeds(getDoc(doc(db, 'players', r.playerId, 'suostumukset', 'perus')));
+    await assertSucceeds(getDoc(doc(db, 'players', r.playerId, 'suostumukset', 'benchmark')));
+  });
+
+  it('vieraan kirjoitus toisen pelaajan alikokoelmaan hylätään edelleen', async () => {
+    await testEnv.withSecurityRulesDisabled(async (c) => {
+      await setDoc(doc(c.firestore(), 'players', 'uhri'), { parent_uid: POLKU_A_UID, playerCode: 'TMP-UHRI01', seuraId: null });
+    });
+    const vieras = testEnv.authenticatedContext(VIERAS_UID).firestore();
+    await assertFails(setDoc(doc(vieras, 'players', 'uhri', 'suostumukset', 'perus'), { ok: true }));
+    await assertFails(setDoc(doc(vieras, 'players', 'uhri', 'tkk_historia', 'x'), { a: 1 }));
+    await assertFails(getDoc(doc(vieras, 'players', 'uhri', 'suostumukset', 'perus')));
+  });
+
+  it('erä, jossa vieras vaihtaa samalla pelaajan parent_uid:n itselleen, hylätään', async () => {
+    await testEnv.withSecurityRulesDisabled(async (c) => {
+      await setDoc(doc(c.firestore(), 'players', 'uhri'), { parent_uid: POLKU_A_UID, playerCode: 'TMP-UHRI01', seuraId: null });
+    });
+    const vieras = testEnv.authenticatedContext(VIERAS_UID).firestore();
+    const b = FS_MOD.writeBatch(vieras);
+    b.update(doc(vieras, 'players', 'uhri'), { parent_uid: VIERAS_UID });
+    b.set(doc(vieras, 'players', 'uhri', 'suostumukset', 'perus'), { ok: true });
+    await assertFails(b.commit());
+    // Pelkkä parent_uid-päivitys ilman alikokoelmaa (regressio: {sub=**} täsmäsi myös pelaajadokkiin).
+    await assertFails(updateDoc(doc(vieras, 'players', 'uhri'), { parent_uid: VIERAS_UID }));
+    await assertFails(setDoc(doc(vieras, 'players', 'uhri'), { parent_uid: VIERAS_UID }));
+    let tila;
+    await testEnv.withSecurityRulesDisabled(async (c) => { tila = (await getDoc(doc(c.firestore(), 'players', 'uhri'))).data(); });
+    expect(tila.parent_uid).toBe(POLKU_A_UID);
+    // Myös anonyymi ja Solo-lapsi: parent_uid:n vaihto ei ole sallittu → erä hylätään.
+    const anon = testEnv.authenticatedContext('anon-x', { firebase: { sign_in_provider: 'anonymous' } }).firestore();
+    const b2 = FS_MOD.writeBatch(anon);
+    b2.update(doc(anon, 'players', 'uhri'), { parent_uid: 'anon-x' });
+    b2.set(doc(anon, 'players', 'uhri', 'suostumukset', 'perus'), { ok: true });
+    await assertFails(b2.commit());
+  });
+
+  it('laitteelle jäänyt profiili (epäonnistunut tallennus, ei koodia laitteella) siirtyy: 1 pelaaja + 1 indeksi, uusinta ei tuplaa', async () => {
+    const db = testEnv.authenticatedContext(POLKU_A_UID).firestore();
+    const ls = lsTynka({ tm_solo_profiili: JSON.stringify({ nimi: 'Laite', synVuosi: 2013 }) });
+    const opts = { uid: POLKU_A_UID, email: 'a@example.test', ehdot: EHDOT };
+    const pid = await TM_SOLO.tmMigroiLocalStorage(db, compatFb(), ls, opts);
+    expect(pid).toBeTruthy();
+    expect(ls.getItem('tm_migrated')).toBe(pid);
+    const pid2 = await TM_SOLO.tmMigroiLocalStorage(db, compatFb(), ls, opts);
+    expect(pid2).toBe(pid);
+    const t = await laske(db, POLKU_A_UID);
+    expect(t.pelaajat).toEqual([pid]);
+    expect(t.koodit.filter((k) => k.playerId === pid)).toHaveLength(1);
+    expect(t.koodit).toHaveLength(1);
+  });
+
+  it('laitteella orpo koodi (oma varaus, pelaajaa ei ole) → käytetään sitä: 1 pelaaja + indeksi osoittaa siihen', async () => {
+    const ORPO = 'TMP-QRST23';
+    await testEnv.withSecurityRulesDisabled(async (c) => {
+      await setDoc(doc(c.firestore(), 'playerCodes', ORPO), { playerId: 'eiOleOlemassa', parent_uid: POLKU_A_UID });
+    });
+    expect(TM_SOLO.tmPlayerCodeKelpaa(ORPO)).toBe(true);
+    const db = testEnv.authenticatedContext(POLKU_A_UID).firestore();
+    const ls = lsTynka({ tm_solo_profiili: JSON.stringify({ nimi: 'Laite' }), tm_player_code: ORPO });
+    const pid = await TM_SOLO.tmMigroiLocalStorage(db, compatFb(), ls, { uid: POLKU_A_UID, email: 'a@example.test', ehdot: EHDOT });
+    const t = await laske(db, POLKU_A_UID);
+    expect(t.pelaajat).toEqual([pid]);
+    expect(t.koodit).toEqual([{ id: ORPO, playerId: pid }]);
+    const p = await getDoc(doc(db, 'players', pid));
+    expect(p.data().playerCode).toBe(ORPO);
   });
 });
