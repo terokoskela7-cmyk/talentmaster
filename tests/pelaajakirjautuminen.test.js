@@ -12,17 +12,47 @@ class HttpsError extends Error { constructor(code, msg) { super(msg); this.code 
 
 function tynka(pelaajat, pinHashit) {
   const kokoelmat = { _kirjautumisyritykset: new Map(), _pelaajaPin: new Map(pinHashit || []) };
+  const kirjoita = (kok, id, d, opts) => {
+    if (opts && opts.merge) {
+      const vanha = Object.assign({}, kokoelmat[kok].get(id) || {});
+      Object.keys(d).forEach((k) => {
+        const v = d[k];
+        vanha[k] = (v && v.__inc != null) ? (vanha[k] || 0) + v.__inc : v;
+      });
+      kokoelmat[kok].set(id, vanha);
+    } else kokoelmat[kok].set(id, d);
+  };
   const docRef = (kok, id) => ({
+    _kok: kok, _id: id,
     get: async () => ({ exists: kokoelmat[kok].has(id), data: () => kokoelmat[kok].get(id) }),
-    set: async (d) => { kokoelmat[kok].set(id, d); },
+    set: async (d, opts) => { kirjoita(kok, id, d, opts); },
     delete: async () => { kokoelmat[kok].delete(id); },
   });
+  /* Transaktio mallinnetaan SARJOITETTUNA (kuten Firestore: rinnakkaiset konfliktoivat ja ajetaan
+     uudelleen → lopputulos on sarjallinen). Kirjoitukset puskuroidaan ja tehdään lopussa. */
+  let lukko = Promise.resolve();
+  const runTransaction = (fn) => {
+    const ajo = lukko.then(async () => {
+      const puskuri = [];
+      const tx = {
+        get: (ref) => ref.get(),
+        set: (ref, d, opts) => { puskuri.push([ref, d, opts]); },
+      };
+      const tulos = await fn(tx);
+      puskuri.forEach(([ref, d, opts]) => kirjoita(ref._kok, ref._id, d, opts));
+      return tulos;
+    });
+    lukko = ajo.catch(() => {});
+    return ajo;
+  };
+  let cgKyselyt = 0;
   const db = {
+    runTransaction,
     collection: (kok) => ({ doc: (id) => docRef(kok, id) }),
     collectionGroup: () => ({
       where: (kentta, _op, arvo) => ({
         limit: () => ({
-          get: async () => ({
+          get: async () => (cgKyselyt++, {
             docs: pelaajat.filter((p) => p.data[kentta] === arvo).map((p) => ({
               id: p.pelaajaId, data: () => p.data,
               ref: { parent: { parent: { id: p.seuraId, parent: { id: p.juuri || 'seurat' } } } },
@@ -35,8 +65,9 @@ function tynka(pelaajat, pinHashit) {
   const tokenit = [];
   const auth = { createCustomToken: async (uid, claims) => { tokenit.push({ uid, claims }); return 'TOKEN'; } };
   const audit = []; let nyt = 1_000_000;
-  const f = K.luoKasittelija({ db, auth, HttpsError, audit: async (t, x) => audit.push([t, x]), nyt: () => nyt });
-  return { f, tokenit, audit, kokoelmat, siirra: (ms) => { nyt += ms; } };
+  const FieldValue = { increment: (n) => ({ __inc: n }) };
+  const f = K.luoKasittelija({ db, auth, HttpsError, FieldValue, audit: async (t, x) => audit.push([t, x]), nyt: () => nyt });
+  return { f, tokenit, audit, kokoelmat, siirra: (ms) => { nyt += ms; }, cg: () => cgKyselyt };
 }
 const TOPIAS = { seuraId: 'kpv', pelaajaId: 'm93', data: { tunniste: '12345678', pin: '9278' } };
 const ctx = { rawRequest: { ip: '1.2.3.4' } };
@@ -160,5 +191,65 @@ describe('pelaajaKirjaudu · kytkentä index.js:ään', () => {
     const i = src.indexOf('exports.kuittaaKaavioYmmarretty');
     const blok = src.slice(i, i + 1400);
     expect(blok).toContain("tk.rooli === 'pelaaja' && (tk.pelaajaSeuraId !== seuraId || tk.pelaajaId !== pelaajaId)");
+  });
+});
+
+describe('pelaajakirjautuminen · rinnakkaisuus ja ajoitus (review #675)', () => {
+  it('20 RINNAKKAISTA väärää yritystä → ≥15 resource-exhausted, PIN tarkistetaan korkeintaan 5 kertaa', async () => {
+    const t = tynka([TOPIAS]);
+    const tulokset = await Promise.all(Array.from({ length: 20 }, (_, i) =>
+      virhe(t.f({ liittoTunnus: '12345678', pin: String(1000 + i) }, { rawRequest: { ip: '10.0.0.' + i } }))));
+    const lukittu = tulokset.filter((e) => e && e.code === 'resource-exhausted').length;
+    const tarkistettu = t.cg() / 3;               // haeEhdokkaat = 3 kokoelmaryhmäkyselyä / tarkistus
+    expect(lukittu).toBeGreaterThanOrEqual(15);
+    expect(tarkistettu).toBeLessThanOrEqual(5);
+    expect(t.tokenit).toEqual([]);
+  });
+
+  it('EI VACUOUS: sarjallinen 5 yritystä kulkee tarkistukseen asti (varaus ei estä liikaa)', async () => {
+    const t = tynka([TOPIAS]);
+    for (let i = 0; i < 5; i++) await virhe(t.f({ liittoTunnus: '12345678', pin: '0000' }, ctx));
+    expect(t.cg() / 3).toBe(5);
+  });
+
+  it('onnistunut kirjautuminen nollaa tunnuksen laskurin ja palauttaa IP-varauksen', async () => {
+    const t = tynka([TOPIAS]);
+    await virhe(t.f({ liittoTunnus: '12345678', pin: '0000' }, ctx));
+    await t.f({ liittoTunnus: '12345678', pin: '9278' }, ctx);
+    const avaimet = Array.from(t.kokoelmat._kirjautumisyritykset.keys());
+    expect(avaimet.filter((k) => k.startsWith('t_'))).toEqual([]);
+    const ip = t.kokoelmat._kirjautumisyritykset.get(avaimet.find((k) => k.startsWith('ip_')));
+    expect(ip.virheet, '1 väärä jää, onnistunut palautetaan').toBe(1);
+  });
+
+  it('tuntematon tunnus ajaa näennäisen scryptin — sama määrä scrypt-laskentaa kuin tunnetulla väärällä PIN:llä', async () => {
+    /* Deterministinen: lasketaan scryptSync-kutsut (ajastus olisi epävakaa kuormassa). */
+    const crypto = require('crypto');
+    const alkup = crypto.scryptSync;
+    let n = 0;
+    crypto.scryptSync = function () { n++; return alkup.apply(this, arguments); };
+    try {
+      const tuntematon = tynka([]);
+      await virhe(tuntematon.f({ liittoTunnus: '99999999', pin: '1234' }, ctx));
+      const nTuntematon = n; n = 0;
+      const tunnettu = tynka([TOPIAS], [['kpv_m93', { hash: K.hajautaPin('9278') }]]);
+      n = 0;
+      await virhe(tunnettu.f({ liittoTunnus: '12345678', pin: '1111' }, ctx));
+      const nTunnettu = n; n = 0;
+      const selko = tynka([TOPIAS]);   // vain vanha selkoteksti-PIN → ei hajautusta → näennäinen ajetaan
+      await virhe(selko.f({ liittoTunnus: '12345678', pin: '1111' }, ctx));
+      expect(nTuntematon).toBe(1);
+      expect(nTunnettu).toBe(1);
+      expect(n).toBe(1);
+    } finally { crypto.scryptSync = alkup; }
+  });
+
+  it('lähde: varaus transaktiossa ENNEN ehdokashakua ja PIN-tarkistusta', () => {
+    const fs = require('fs'); const path = require('path');
+    const src = fs.readFileSync(path.join(__dirname, '..', 'functions', 'pelaajakirjautuminen.js'), 'utf8');
+    const iTx = src.indexOf('await db.runTransaction(');
+    expect(iTx).toBeGreaterThan(0);
+    expect(src.indexOf('await haeEhdokkaat(tunnus)')).toBeGreaterThan(iTx);
+    expect(src).toContain('if (!scryptAjettu) tarkistaPin(pin, NAENNAINEN_HAJAUTUS)');
   });
 });

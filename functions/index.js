@@ -2593,6 +2593,7 @@ exports.pelaajaKirjaudu = functions
   .runWith({ enforceAppCheck: true })
   .https.onCall(pelaajakirjautuminen.luoKasittelija({
     db, auth,
+    FieldValue: admin.firestore.FieldValue,
     HttpsError: functions.https.HttpsError,
     audit: (toiminto, tiedot) => db.collection('audit').add(Object.assign({
       toiminto, aikaleima: admin.firestore.FieldValue.serverTimestamp(),

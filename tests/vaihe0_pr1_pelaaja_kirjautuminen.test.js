@@ -52,4 +52,23 @@ describe('PR 1 · Pelaaja_v7 palvelinkirjautuminen', () => {
     expect(f).toContain(".collection('pelaajat').doc(pelaajaId).get()");
     expect(f).not.toContain('.where(');
   });
+  it('varapolun käyttö raportoidaan Sentryyn syykoodilla (ei PII:tä)', () => {
+    const f = pura('async function _kirjaudu(pin) {');
+    const iRap = f.indexOf('_raportoiVarapolku(syy)');
+    expect(iRap).toBeGreaterThan(0);
+    expect(iRap).toBeLessThan(f.indexOf('await _kirjauduPinilla(pin)'));
+    const r = pura('function _raportoiVarapolku(syy) {');
+    expect(r).toContain("captureMessage('pelaajaKirjaudu → varapolku: ' + syy");
+    expect(r).not.toMatch(/tunnus|pin\b/i);
+  });
+  it('syykoodit: app-check · internal · unavailable · not-found', () => {
+    const f = pura('function _varapolunSyy(koodi, viesti) {');
+    // eslint-disable-next-line no-new-func
+    const syy = new Function('_PK_VIRHE_TUNNISTUS', f + '; return _varapolunSyy;')('Tunnus tai PIN on väärin.');
+    expect(syy('unauthenticated', 'Unauthenticated')).toBe('app-check');
+    expect(syy('failed-precondition', 'App Check token is invalid')).toBe('app-check');
+    expect(syy('internal', 'INTERNAL')).toBe('internal');
+    expect(syy('unavailable', '')).toBe('unavailable');
+    expect(syy('not-found', '')).toBe('not-found');
+  });
 });

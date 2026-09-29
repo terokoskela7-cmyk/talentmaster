@@ -4843,11 +4843,31 @@ async function _kirjaudu(pin) {
     _pin = ''; draw();
     if (koodi === 'resource-exhausted') { _pinVirhe(viesti || 'Liian monta yritystä. Yritä myöhemmin.'); return; }
     if (koodi === 'invalid-argument' || viesti === _PK_VIRHE_TUNNISTUS) { _pinVirhe(_PK_VIRHE_TUNNISTUS); return; }
-    console.warn('[pelaajaKirjaudu] ei saatavilla → vanha PIN-polku (siirtymä):', koodi || viesti);
+    const syy = _varapolunSyy(koodi, viesti);
+    console.warn('[pelaajaKirjaudu] ei saatavilla → vanha PIN-polku (siirtymä):', syy);
+    _raportoiVarapolku(syy);
     await _kirjauduPinilla(pin);
   } finally {
     _kirjautuminenKesken = false;
   }
+}
+
+/* VARAPOLUN HÄLYTYS (review #675): jokainen pudotus vanhaan polkuun näkyy Sentryssä syykoodilla,
+   muuten App Check- tai IAM-vika (createCustomToken/signBlob) jäisi huomaamatta, koska kirjautuminen
+   "toimii". Ei PII:tä: vain syykoodi (ei tunnusta, ei PIN:iä). */
+function _varapolunSyy(koodi, viesti) {
+  if (/app.?check/i.test(viesti) || (koodi === 'unauthenticated' && viesti !== _PK_VIRHE_TUNNISTUS)) return 'app-check';
+  if (koodi === 'internal') return 'internal';
+  if (koodi === 'unavailable' || koodi === 'deadline-exceeded') return 'unavailable';
+  if (koodi === 'not-found') return 'not-found';
+  return koodi || 'muu';
+}
+function _raportoiVarapolku(syy) {
+  try {
+    if (window.Sentry && typeof window.Sentry.captureMessage === 'function') {
+      window.Sentry.captureMessage('pelaajaKirjaudu → varapolku: ' + syy, { level: 'warning', tags: { tm_varapolku: syy } });
+    }
+  } catch (e) { /* Sentry ei saa kaataa kirjautumista */ }
 }
 
 /* Oma pelaajadokumentti tokenin tunnisteilla — Rules v3.25 onPelaajaItse sallii vain tämän. */

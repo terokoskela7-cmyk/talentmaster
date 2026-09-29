@@ -69,6 +69,17 @@ function kirjaaIpVirhe(tila, nyt) {
   return { alku: tila.alku, virheet: (tila.virheet || 0) + 1 };
 }
 
+/* YRITYKSEN VARAUS — puhdas, ajetaan TRANSAKTIOSSA ennen PIN-tarkistusta.
+   Aiemmin laskuri luettiin, PIN tarkistettiin (scrypt ~50 ms) ja laskuri kirjoitettiin vasta sitten
+   ilman transaktiota: 200 rinnakkaista pyyntöä luki kaikki tilan "0 virhettä", ja lopuksi laskuriin
+   jäi 1 — 5 yrityksen lukitus ei rajoittanut mitään. Nyt jokainen yritys VARATAAN atomisesti:
+   laskuri kasvaa ennen tarkistusta, ja 5. varaus asettaa lukituksen seuraaville.
+   → { sallittu:false } tai { sallittu:true, t, ip } (uudet tilat kirjoitettavaksi). */
+function varaaYritys(tTila, ipTila, nyt) {
+  if (onLukittu(tTila, nyt) || ipYlittyy(ipTila, nyt)) return { sallittu: false };
+  return { sallittu: true, t: kirjaaVirhe(tTila, nyt), ip: kirjaaIpVirhe(ipTila, nyt) };
+}
+
 /* PIN-HAJAUTUS — scrypt, muoto 'scrypt$N$r$p$suola$hash' (hex). */
 function hajautaPin(pin, suola) {
   const s = suola || crypto.randomBytes(16).toString('hex');
@@ -87,6 +98,10 @@ function tarkistaPin(pin, hajautus) {
   const laskettu = crypto.scryptSync(String(pin), suola, h.length / 2, { N: +N, r: +r, p: +p }).toString('hex');
   return vakioaikainenSama(laskettu, h);
 }
+
+/* Näennäinen hajautus: ajetaan, kun yhtään scryptiä ei muuten laskettu (tuntematon tunnus tai vain
+   selkoteksti-PIN), jotta vastausajasta ei voi päätellä, onko PalloID olemassa. */
+const NAENNAINEN_HAJAUTUS = hajautaPin('0000', '00000000000000000000000000000000');
 
 function pelaajaUid(seuraId, pelaajaId) { return 'pel_' + seuraId + '_' + pelaajaId; }
 function pelaajaClaims(seuraId, pelaajaId) {
@@ -119,7 +134,7 @@ function luoKasittelija(deps) {
     const pinRef = db.collection('_pelaajaPin').doc(ehdokas.seuraId + '_' + ehdokas.pelaajaId);
     const pinSnap = await pinRef.get();
     if (pinSnap.exists && pinSnap.data() && pinSnap.data().hash) {
-      return { ok: tarkistaPin(pin, pinSnap.data().hash), pinRef, siirretty: false };
+      return { ok: tarkistaPin(pin, pinSnap.data().hash), pinRef, siirretty: false, scrypt: true };
     }
     const vanha = ehdokas.data.pin;
     if (vanha == null || String(vanha).trim() === '') return { ok: false, pinRef, siirretty: false };
@@ -135,28 +150,32 @@ function luoKasittelija(deps) {
     const ip = String((context && context.rawRequest && context.rawRequest.ip) || 'tuntematon');
     const ipRef = db.collection('_kirjautumisyritykset').doc('ip_' + laskuriAvain(ip));
     const tRef = db.collection('_kirjautumisyritykset').doc('t_' + laskuriAvain(tunnus));
-    const [ipSnap, tSnap] = await Promise.all([ipRef.get(), tRef.get()]);
-    const ipTila = ipSnap.exists ? ipSnap.data() : null;
-    const tTila = tSnap.exists ? tSnap.data() : null;
-    if (onLukittu(tTila, nyt) || ipYlittyy(ipTila, nyt)) {
-      throw new HttpsError('resource-exhausted', VIRHE_LUKITTU);
-    }
 
+    // 1) VARAA yritys atomisesti ENNEN PIN-tarkistusta (rinnakkaiset pyynnöt eivät ohita lukitusta).
+    const varaus = await db.runTransaction(async (tx) => {
+      const [ipSnap, tSnap] = await Promise.all([tx.get(ipRef), tx.get(tRef)]);
+      const v = varaaYritys(tSnap.exists ? tSnap.data() : null, ipSnap.exists ? ipSnap.data() : null, nyt);
+      if (!v.sallittu) return v;
+      tx.set(tRef, Object.assign({}, v.t, { paivitetty: nyt }));
+      tx.set(ipRef, Object.assign({}, v.ip, { paivitetty: nyt }));
+      return v;
+    });
+    if (!varaus.sallittu) throw new HttpsError('resource-exhausted', VIRHE_LUKITTU);
+    if (varaus.t.lukittuKerran) await audit('pelaaja_kirjautuminen_lukittu', { avain: laskuriAvain(tunnus), severity: 'alert' });
+
+    // 2) PIN-tarkistus vasta varauksen jälkeen.
     const ehdokkaat = await haeEhdokkaat(tunnus);
     const osumat = [];
+    let scryptAjettu = false;
     for (const e of ehdokkaat) {
       const t = await pinOikein(e, pin);
+      if (t.scrypt) scryptAjettu = true;
       if (t.ok) osumat.push(Object.assign({}, e, t));
     }
+    if (!scryptAjettu) tarkistaPin(pin, NAENNAINEN_HAJAUTUS);   // tasaa vastausajan (ks. NAENNAINEN_HAJAUTUS)
 
     if (osumat.length !== 1) {
-      // Väärä PIN, tuntematon tunnus TAI moniselitteinen (sama PalloID + sama PIN kahdella pelaajalla).
-      const uusi = kirjaaVirhe(tTila, nyt);
-      await Promise.all([
-        tRef.set(Object.assign({}, uusi, { paivitetty: nyt })),
-        ipRef.set(Object.assign(kirjaaIpVirhe(ipTila, nyt), { paivitetty: nyt })),
-      ]);
-      if (uusi.lukittuKerran) await audit('pelaaja_kirjautuminen_lukittu', { avain: laskuriAvain(tunnus), severity: 'alert' });
+      // Väärä PIN, tuntematon tunnus TAI moniselitteinen. Yritys on jo varattu (laskettu) kohdassa 1.
       if (osumat.length > 1) await audit('pelaaja_kirjautuminen_moniselitteinen', { avain: laskuriAvain(tunnus), severity: 'alert' });
       throw new HttpsError('unauthenticated', VIRHE_TUNNISTUS);
     }
@@ -166,7 +185,11 @@ function luoKasittelija(deps) {
       // Siirtymä: vanha selkoteksti-PIN oli oikein → tallennetaan hajautus (vanha kenttä jää PR 4:ään asti).
       await o.pinRef.set({ hash: hajautaPin(pin), luotu: nyt, lahde: 'siirto_kirjautumisessa' });
     }
+    /* Onnistui: tunnuksen laskuri nollataan. IP-laskurista palautetaan TÄMÄN yrityksen varaus
+       (IP-katto koskee epäonnistuneita — muuten saman verkon (koulu/seuran WiFi) onnistuneet
+       kirjautumiset kuluttaisivat kattoa). Laskuria ei nollata. */
     await tRef.delete().catch(() => {});
+    if (deps.FieldValue) await ipRef.set({ virheet: deps.FieldValue.increment(-1) }, { merge: true }).catch(() => {});
     const token = await auth.createCustomToken(pelaajaUid(o.seuraId, o.pelaajaId), pelaajaClaims(o.seuraId, o.pelaajaId));
     await audit('pelaaja_kirjautuminen', { seuraId: o.seuraId, pelaajaId: o.pelaajaId, severity: 'info' });
     return { token: token, seuraId: o.seuraId, pelaajaId: o.pelaajaId };
@@ -175,7 +198,7 @@ function luoKasittelija(deps) {
 
 module.exports = {
   normalisoiTunnus, normalisoiPin, laskuriAvain,
-  onLukittu, kirjaaVirhe, ipYlittyy, kirjaaIpVirhe,
+  onLukittu, kirjaaVirhe, ipYlittyy, kirjaaIpVirhe, varaaYritys,
   hajautaPin, tarkistaPin, pelaajaUid, pelaajaClaims, luoKasittelija,
   LUKITUS_YRITYKSET, LUKITUS_MS, IP_KATTO, VIRHE_TUNNISTUS, VIRHE_LUKITTU,
 };
