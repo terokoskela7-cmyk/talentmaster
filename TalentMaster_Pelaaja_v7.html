@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <title>TalentMaster™ — Pelaaja v7</title>
 <script>/* Versio-tarkistus (cache): pakottaa reloadin kun uusi versio deployattu. APP_VERSION leimataan scripts/bump_version.js:llä. */
-(function(){var APP_VERSION='1790762679323';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
+(function(){var APP_VERSION='1790772376866';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
 <!-- B2 Sentry-virheseuranta (onboarding-kriittinen). PII-skrubi tm_sentry.js:ssä. Guard: offline → no-op.
      ⚠️ ENNEN PUSHIA: liitä EU-DSN tm_sentry.js:ään + verifioi integrity-hash bundle.min.js@10.58.0 (väärä SRI estää Sentryn hiljaa). -->
 <script>window.TM_SENTRY={app:'pelaaja'};</script>
@@ -516,7 +516,7 @@ input::placeholder,textarea::placeholder{color:#8C8B86;opacity:1}
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-functions-compat.js"></script>   <!-- Vaihe 0 / PR 1: pelaajaKirjaudu -->
 <script src="lib/tm_appcheck.js?v=2"></script>
-<script src="lib/tm_lang.js?v=15"></script>   <!-- i18n V0 putki · V1-A/A2 · V4-A3: +pelaaja.nain_teet/kirjaa_tehdyksi/pallo_joka_paiva/rae_q4 (kotinäytön chrome sv) -->
+<script src="lib/tm_lang.js?v=16"></script>   <!-- i18n V0 putki · V1-A/A2 · V4-A3: +pelaaja.nain_teet/kirjaa_tehdyksi/pallo_joka_paiva/rae_q4 (kotinäytön chrome sv) -->
 <script src="lib/tm_eerikkila_normit.js?v=40"></script>
 <script src="docs/testit_indeksit.js?v=9"></script>
 <script src="lib/tm_havaintohistoria.js?v=1"></script>   <!-- vain tmHhRivit: jarjestys + tekijanimi (ei pisteita, 7.22) -->
@@ -880,10 +880,11 @@ function rPin(){
   <div style="flex-shrink:0;background:#111110;border-top:1px solid rgba(242,239,230,.06);padding:14px 20px 20px">
     <!-- Vaihe 0 / PR 1: kirjautuminen = PalloID + PIN palvelimella. PalloID muistetaan laitteelle,
          jolloin lapsi kirjoittaa jatkossa vain PIN:n. -->
-    <input id="pinTunnus" inputmode="numeric" autocomplete="username" placeholder="PalloID" value="${_muistettuTunnus().replace(/[^0-9A-Za-z]/g,'')}"
-      style="width:100%;background:rgba(242,239,230,.06);border:1px solid rgba(242,239,230,.18);padding:10px 12px;color:#F2EFE6;font-size:15px;box-sizing:border-box;margin-bottom:12px;outline:none;font-family:var(--font-m);text-align:center;letter-spacing:.12em">
+    <!-- Kirjautumisen helpotus: henkilökohtaisella linkillä (?p=&seura=) PalloID-kenttä piilossa → pelkkä PIN. -->
+    ${_linkkiKirjautuminen() ? '' : `<input id="pinTunnus" inputmode="numeric" autocomplete="username" placeholder="PalloID" value="${_muistettuTunnus().replace(/[^0-9A-Za-z]/g,'')}"
+      style="width:100%;background:rgba(242,239,230,.06);border:1px solid rgba(242,239,230,.18);padding:10px 12px;color:#F2EFE6;font-size:15px;box-sizing:border-box;margin-bottom:12px;outline:none;font-family:var(--font-m);text-align:center;letter-spacing:.12em">`}
     <div id="pinIlmoitus" style="font-size:11px;color:rgba(242,239,230,.6);text-align:center;margin-bottom:8px;min-height:0">${_pinIlmoitus ? _pinIlmoitus.replace(/[<>&"]/g,'') : ''}</div>
-    <div style="font-family:var(--font-m);font-size:10px;text-align:center;color:rgba(242,239,230,.35);text-transform:uppercase;letter-spacing:.15em">${t('pelaaja.syota_pin')}</div>
+    <div style="font-family:var(--font-m);font-size:10px;text-align:center;color:rgba(242,239,230,.35);text-transform:uppercase;letter-spacing:.15em">${_linkkiKirjautuminen() ? t('pelaaja.syota_pin_koodisi') : t('pelaaja.syota_pin')}</div>
     <div class="pin-dots" style="margin:12px 0 12px">
       ${[0,1,2,3].map(i=>`<div class="pd${i<_pin.length?' on':''}"></div>`).join('')}
     </div>
@@ -891,6 +892,8 @@ function rPin(){
     <div class="kpad">
       ${keys.map(k=>k===''?'<div></div>':`<button class="key" data-k="${k}"${k==='⌫'?' style="font-size:14px;opacity:.5"':''}>${k}</button>`).join('')}
     </div>
+    ${_linkkiKirjautuminen() ? `<button id="pinPalloIdLinkki" onclick="_naytaPalloIdKentta()"
+      style="width:100%;background:transparent;border:none;font-family:var(--font-b);font-size:11px;color:rgba(40,176,144,.7);cursor:pointer;padding:10px 0 0;text-align:center">${t('pelaaja.kirjaudu_palloidlla')}</button>` : ''}
 
     <!-- Sähköpostikirjautuminen — vanhemmille ja pelaajille joilla on Firebase-tili -->
     <div id="emailLoginWrap" style="margin-top:16px">
@@ -3921,7 +3924,7 @@ const _URL = (() => {
   const p = new URLSearchParams(location.search);
   const urlSeuraId = p.get('seura') || p.get('seuraId');
   if (urlSeuraId) window._seuraId = urlSeuraId;
-  return { pelaajaId: p.get('p'), seuraId: urlSeuraId, demo: p.get('demo')==='1' };
+  return { pelaajaId: p.get('p') || p.get('pelaajaId'), seuraId: urlSeuraId, demo: p.get('demo')==='1' };
 })();
 
 /* NIMETTY FIREBASE-APPI 'tm-pelaaja' (juurisyy 30.9.2026): kaikki samassa originissa olevat apit
@@ -4853,17 +4856,34 @@ function _pinVirhe(t) { const e = document.getElementById('pinVirhe'); if (e) e.
 const _PK_VIRHE_TUNNISTUS = 'Tunnus tai PIN on väärin.';
 const _PK_VIRHE_INFRA = 'Kirjautuminen ei juuri nyt onnistu. Yritä hetken päästä uudelleen.';
 
+/* KIRJAUTUMISEN HELPOTUS: henkilökohtainen linkki (?p=&seura= tai ?pelaajaId=&seuraId=) kertoo KUKA,
+   PIN todistaa → pelkkä PIN-näppäimistö. URL EI kirjaa sisään eikä lue mitään ennen PIN:iä: tunnisteet
+   menevät vain pelaajaKirjaudu-funktiolle ({ seuraId, pelaajaId, pin }). "Kirjaudu PalloID:llä" palauttaa
+   PalloID-kentän. */
+var _pinPalloIdTila = false;   // var (ei let): rPin voi ajautua ennen tätä riviä → hoistattu undefined = epätosi
+function _linkkiKirjautuminen() {
+  if (_pinPalloIdTila) return null;
+  let u;
+  try { u = _URL; } catch (e) { return null; }   // _URL (const) määritellään myöhemmin tiedostossa — TDZ-suoja
+  if (!u || !u.pelaajaId || !u.seuraId) return null;
+  return { seuraId: u.seuraId, pelaajaId: u.pelaajaId };
+}
+function _naytaPalloIdKentta() { _pinPalloIdTila = true; _pin = ''; draw(); }
+
 async function _kirjaudu(pin) {
-  const tunnus = String((document.getElementById('pinTunnus') || {}).value || '').replace(/[\s-]/g, '');
-  if (!tunnus) { _pin = ''; draw(); _pinVirhe('Kirjoita ensin PalloID.'); return; }
+  const linkki = _linkkiKirjautuminen();
+  const tunnus = linkki ? '' : String((document.getElementById('pinTunnus') || {}).value || '').replace(/[\s-]/g, '');
+  if (!linkki && !tunnus) { _pin = ''; draw(); _pinVirhe('Kirjoita ensin PalloID.'); return; }
   try {
     const fn = window._fbApp.functions('europe-west1').httpsCallable('pelaajaKirjaudu');
-    const r = await fn({ liittoTunnus: tunnus, pin: pin });
+    const r = await fn(linkki ? { seuraId: linkki.seuraId, pelaajaId: linkki.pelaajaId, pin: pin } : { liittoTunnus: tunnus, pin: pin });
     const d = r && r.data;
     if (!d || !d.token) throw Object.assign(new Error('ei tokenia'), { code: 'internal' });
     _kirjautuminenKesken = true;
     await window._auth.signInWithCustomToken(d.token);
-    try { localStorage.setItem(_TUNNUS_LS, tunnus); localStorage.removeItem('tm_pin_sessio'); } catch (e) { /* estetty */ }
+    // Palvelin palauttaa PalloID:n → laite muistaa sen seuraavaa kertaa varten (myös linkkireitillä).
+    const muista = String(d.palloId || tunnus || '').replace(/[\s-]/g, '');
+    try { if (muista) localStorage.setItem(_TUNNUS_LS, muista); localStorage.removeItem('tm_pin_sessio'); } catch (e) { /* estetty */ }
     _pinIlmoitus = '';
     await _lataaOmaPelaaja(window._db, d.seuraId, d.pelaajaId);
   } catch (e) {
