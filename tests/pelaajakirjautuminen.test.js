@@ -190,7 +190,7 @@ describe('pelaajaKirjaudu · kytkentä index.js:ään', () => {
   it('kuittaaKaavioYmmarretty hylkää pelaajatokenilla eri pelaajan', () => {
     const i = src.indexOf('exports.kuittaaKaavioYmmarretty');
     const blok = src.slice(i, i + 1400);
-    expect(blok).toContain("tk.rooli === 'pelaaja' && (tk.pelaajaSeuraId !== seuraId || tk.pelaajaId !== pelaajaId)");
+    expect(blok).toContain('kuittausPaatos(context.auth, seuraId, pelaajaId)');   // PR 3: ajotesti tests/vaihe0_pr3_callablet.test.js
   });
 });
 
