@@ -43,7 +43,9 @@ const TM_BASE_URL = (process.env.TM_BASE_URL || 'https://talentmasterid.com').re
 // ─────────────────────────────────────────────────────────────────────────────
 async function lahetaSahkoposti({ to, subject, html, fromName }) {
   const apiKey    = process.env.SENDGRID_API_KEY;
-  const fromEmail = process.env.SENDGRID_FROM_EMAIL;
+  // Ei salainen → oletus koodissa: CI-deploy (deploy-functions.yml) ei luo functions/.env-tiedostoa,
+  // joten ilman oletusta lähettäjä oli tyhjä ja jokainen lähetys kaatui "SendGrid-credentiaalit puuttuvat".
+  const fromEmail = process.env.SENDGRID_FROM_EMAIL || 'noreply@talentmasterid.com';
   console.log('[SendGrid] SENDGRID_API_KEY:', apiKey
     ? 'SG.' + apiKey.substring(3, 8) + '***' : 'PUUTTUU');
   console.log('[SendGrid] SENDGRID_FROM_EMAIL:', fromEmail || 'PUUTTUU');
@@ -354,7 +356,7 @@ function pohjaSuostumusLinkki({ lapsiNimi, resetLinkki, pin }) {
 exports.lahetaRekisteriKutsu = functions
   .region('europe-west1')
   .runWith({ secrets: ['SENDGRID_API_KEY'] })
-  // SENDGRID_API_KEY: Secret Manager (runWith yllä) → process.env. SENDGRID_FROM_EMAIL committattu .env:hen.
+  // SENDGRID_API_KEY: Secret Manager (runWith yllä) → process.env. SENDGRID_FROM_EMAIL: oletus koodissa (lahetaSahkoposti).
   // (deploy_functions.yml), kuten ANTHROPIC/OPENAI. EI runWith({secrets}): GitHub Actions -SA:lta
   // puuttuu secretmanager.versions.get → deploy-aikainen Secret Manager -validointi kaatuu (403).
   .https.onCall(async (data, context) => {
