@@ -439,6 +439,7 @@ jos verified% tippuu.**
 
 - **Data EU:ssa:** Firestore `eur3`, Cloud Functions `europe-west1`, Storage `europe-west1` (§2). Uusi ulkoinen palvelu → EU-sijainti tai Teron hyväksyntä + alihankkijalista.
 - **API-avaimet Secret Managerissa** (`SENDGRID_API_KEY`/`OPENAI_API_KEY`/`ANTHROPIC_API_KEY`, `runWith({secrets})`), luetaan vain funktiossa `process.env`:stä. EI plaintext-env-vareja, EI CI:n `.env`-injektiota, EI koskaan selaimeen.
+- **CI-deploy ei lue `functions/.env`:iä** → jokainen EI-salainen asetus tarvitsee oletusarvon koodiin (`process.env.X || 'oletus'`), ks. `tm-sovellukset` §13.
 - **Sentry:** errors-only, EU-region (`ingest.de.sentry.io`), EI Session Replayta, `beforeSend`/`beforeBreadcrumb` PII-skrubi (nimet, email, huoltaja, PIN, puhelin, osoite → redacted), `sendDefaultPii:false`. Skrubin heitto → event drop.
 - **Suostumus-integriteetti:** `suostumusTila` EI KOSKAAN `annettu` → `odottaa`. Suostumus vahvistetaan palvelimella (`vahvistaSuostumus`, huoltajaEmail-täsmäys).
 - **Audit-loki ei ole client-luettava** (luku vain SA-gatetun `haeAuditLoki`-funktion kautta).
