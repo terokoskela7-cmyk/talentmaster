@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>TalentMaster™ — Perhe v1</title>
 <script>/* Versio-tarkistus (cache): pakottaa reloadin kun uusi versio deployattu. APP_VERSION leimataan scripts/bump_version.js:llä. */
-(function(){var APP_VERSION='1790762679323';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
+(function(){var APP_VERSION='1790772376866';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
 <!-- B2 Sentry-virheseuranta (onboarding-kriittinen). PII-skrubi tm_sentry.js:ssä. Guard: offline → no-op.
      ⚠️ ENNEN PUSHIA: liitä EU-DSN tm_sentry.js:ään + verifioi integrity-hash bundle.min.js@10.58.0 (väärä SRI estää Sentryn hiljaa). -->
 <script>window.TM_SENTRY={app:'vanhempi'};</script>
@@ -121,7 +121,7 @@ body.demo-mode #devChrome{display:block}
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-functions-compat.js"></script>
 <script src="lib/tm_appcheck.js?v=2"></script>
-<script src="lib/tm_lang.js?v=15"></script>   <!-- i18n V0 putki · V1-B/B2: +vanhempi./nav.-avaimet + kielivalitsin + syväsisältö (nimen taivutus poistettu) -->
+<script src="lib/tm_lang.js?v=16"></script>   <!-- i18n V0 putki · V1-B/B2: +vanhempi./nav.-avaimet + kielivalitsin + syväsisältö (nimen taivutus poistettu) -->
 <script src="docs/testit_indeksit.js?v=9"></script>
 <script src="tm-bus.js?v=3"></script>
 <script src="tm-demo.js?v=3"></script>
@@ -1320,6 +1320,7 @@ function rAsetukset(){
     || (_auth && _auth.currentUser && (_auth.currentUser.displayName || _auth.currentUser.email))
     || '—';
   const pin = (L.pin != null && /^[0-9]{4}$/.test(String(L.pin))) ? String(L.pin) : null;
+  const palloId = _lapsenPalloId(L);
   return `
 <div class="scroll">
   <div style="padding:14px 2px 18px">
@@ -1341,17 +1342,10 @@ function rAsetukset(){
     ${ic('edit',16,'#8BA0BC',1.5)}
   </div>
 
-  <!-- Pelaajan PIN-koodi (oikea _lapsi.pin tai ohje) -->
+  <!-- Pelaajan kirjautuminen (Kirjautumisen helpotus): PalloID + PIN + henkilökohtainen linkki.
+       Linkki kertoo KUKA, PIN todistaa → lapsi syöttää linkistä avattuna vain PIN:n (Pelaaja_v7). -->
   <div class="ey" style="margin:16px 2px 10px">${t('vanhempi.pelaajan_kirjautuminen')}</div>
-  <div class="card2" style="padding:16px;margin-bottom:14px">
-    ${pin
-      ? `<div style="font-size:11px;color:var(--ink3);margin-bottom:8px">${t('vanhempi.aset_pin_ohje').replace('{nimi}', d.nimi)}</div>
-         <div style="display:flex;align-items:center;gap:12px">
-           <div style="font-family:var(--font-m);font-size:30px;letter-spacing:7px;color:var(--teal-d);font-weight:700">${pin}</div>
-           <button onclick="_kopioiPin('${pin}')" style="padding:8px 14px;background:rgba(26,122,94,.12);border:.5px solid rgba(26,122,94,.35);border-radius:8px;color:var(--teal-d);font-size:11px;font-weight:600;cursor:pointer">${t('vanhempi.kopioi')}</button>
-         </div>`
-      : `<div style="font-size:12px;color:var(--ink3);line-height:1.6">${t('vanhempi.aset_pin_puuttuu')}</div>`}
-  </div>
+  <div class="card2" style="padding:16px;margin-bottom:14px">${_pelaajanKirjautuminenHTML(d.nimi, palloId, pin)}</div>
 
   <!-- Ikä-säätö -->
   <div class="ey" style="margin:16px 2px 10px">${t('vanhempi.lapsen_ikaryhma')}</div>
@@ -1361,7 +1355,7 @@ function rAsetukset(){
         <div style="font-size:13px;font-weight:600;color:var(--text)">${d.nimi} · ${d.ika} v</div>
         <div style="font-size:10px;color:var(--ink3)">${_age==='u12'?t('vanhempi.aset_rooli_u12'):_age==='u15'?t('vanhempi.aset_rooli_u15'):t('vanhempi.aset_rooli_u19')}</div>
       </div>
-      <div class="ey ac">${_age.toUpperCase()}</div>
+      <div class="ey ac">${_ikavaiheTeksti(_age)}</div>
     </div>
     <div style="font-size:10px;color:var(--ink3);line-height:1.55;padding:10px;background:rgba(242,239,230,.02);border-radius:6px">
       ${_age==='u12'?t('vanhempi.aset_rooli_selite_u12'):_age==='u15'?t('vanhempi.aset_rooli_selite_u15').replace('{nimi}', d.nimi):t('vanhempi.aset_rooli_selite_u19').replace('{nimi}', d.nimi)}
@@ -1404,7 +1398,7 @@ function rAsetukset(){
   <button onclick="_kirjauduUlos()" style="width:100%;padding:12px;background:transparent;border:.5px solid rgba(184,92,56,.3);border-radius:8px;color:var(--fire);font-size:11px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;cursor:pointer">${t('vanhempi.aset_kirjaudu_ulos')}</button>
 
   <div style="margin-top:14px;text-align:center;font-size:9px;color:var(--ink3);letter-spacing:.04em">
-    TalentMaster — Perhe v1 · ${_age.toUpperCase()}
+    TalentMaster — Perhe v1 · ${_ikavaiheTeksti(_age)}
   </div>
 </div>`;
 }
@@ -1652,7 +1646,7 @@ async function _haeViimeisinKirjaus() {
     try {
       const pd = await _db.collection('seurat').doc(urlSeura)
         .collection('pelaajat').doc(urlUid).get();
-      if (pd.exists) _kasitteleLapsi(pd.data());
+      if (pd.exists) { window._lapsiTunnisteet = { seuraId: urlSeura, pelaajaId: urlUid }; _kasitteleLapsi(pd.data()); }
     } catch(e) {
       console.warn('[Perhe] suora pelaajalataus epäonnistui:', e.message);
     }
@@ -1678,7 +1672,7 @@ async function _haeViimeisinKirjaus() {
       urlUid   = lapsi.uid;
       const pSnap = await _db.collection('seurat').doc(urlSeura)
         .collection('pelaajat').doc(urlUid).get();
-      if (pSnap.exists) _kasitteleLapsi(pSnap.data());
+      if (pSnap.exists) { window._lapsiTunnisteet = { seuraId: urlSeura, pelaajaId: urlUid }; _kasitteleLapsi(pSnap.data()); }
     } catch(e) {
       console.warn('[Perhe] lapsi-haku epäonnistui:', e.code || '', e.message);
       _toast(t('vanhempi.toast_lapsi_haku_virhe'));
@@ -1844,6 +1838,68 @@ function _tarinaKuvaus(k) {
 
 
 /* ── Kopioi pelaajan PIN leikepöydälle ── */
+/* ── Pelaajan kirjautuminen -kortti (Kirjautumisen helpotus) ── */
+function _lapsenPalloId(L) {
+  var v = L && (L.palloID || L.palloId || L.tunniste);
+  return v == null || String(v).trim() === '' ? null : String(v).trim();
+}
+/* Lapsen henkilökohtainen linkki: ?p=&seura= (Pelaaja_v7 näyttää silloin pelkän PIN-näppäimistön).
+   Linkki EI kirjaa sisään ilman PIN:iä eikä sisällä PIN:iä. */
+function _pelaajanLinkki() {
+  var tt = window._lapsiTunnisteet;
+  if (!tt || !tt.seuraId || !tt.pelaajaId) return null;
+  var u = new URL('TalentMaster_Pelaaja_v7.html', location.href);
+  u.search = '?p=' + encodeURIComponent(tt.pelaajaId) + '&seura=' + encodeURIComponent(tt.seuraId);
+  return u.toString();
+}
+function _pelaajanKirjautuminenHTML(nimi, palloId, pin) {
+  if (!pin) return '<div style="font-size:12px;color:var(--ink3);line-height:1.6">' + t('vanhempi.aset_pin_puuttuu') + '</div>';
+  var nappi = 'padding:8px 14px;background:rgba(26,122,94,.12);border:.5px solid rgba(26,122,94,.35);border-radius:8px;color:var(--teal-d);font-size:11px;font-weight:600;cursor:pointer';
+  var rivi = function (otsikko, arvo, kopio) {
+    return '<div style="display:flex;align-items:center;gap:12px;margin-top:8px">'
+      + '<div style="width:64px;font-size:10px;color:var(--ink3);text-transform:uppercase;letter-spacing:.1em">' + otsikko + '</div>'
+      + '<div style="flex:1;font-family:var(--font-m);font-size:22px;letter-spacing:4px;color:var(--teal-d);font-weight:700">' + _vEsc(arvo) + '</div>'
+      + '<button onclick="' + kopio + '" style="' + nappi + '">' + t('vanhempi.kopioi') + '</button></div>';
+  };
+  var linkki = _pelaajanLinkki();
+  return '<div style="font-size:12px;color:var(--ink2);line-height:1.55">' + _vEsc(t('vanhempi.kirj_ohje', { nimi: nimi })) + '</div>'
+    + (palloId
+      ? rivi('PalloID', palloId, "_kopioiTeksti('" + _vEsc(palloId).replace(/'/g, '') + "')")
+      : '<div style="margin-top:8px;font-size:12px;color:var(--ink3);opacity:.7">' + t('vanhempi.kirj_palloid_puuttuu') + '</div>')
+    + rivi('PIN', pin, "_kopioiPin('" + pin + "')")
+    + (linkki
+      ? '<button onclick="_jaaPelaajanLinkki()" style="width:100%;margin-top:14px;padding:12px;background:var(--teal-d);border:none;border-radius:10px;color:#fff;font-size:13px;font-weight:600;cursor:pointer">'
+          + _vEsc(t('vanhempi.kirj_jaa_linkki', { nimi: nimi })) + ' →</button>'
+        + '<a href="' + _vEsc(linkki) + '" target="_blank" rel="noopener" style="display:block;text-align:center;margin-top:10px;font-size:12px;color:var(--teal-d);font-weight:600;text-decoration:none">'
+          + t('vanhempi.kirj_avaa_sivu') + ' →</a>'
+      : '');
+}
+/* Jakoteksti EI sisällä PIN:iä — lapsi syöttää sen itse. Web Share API, muuten kopioidaan linkki. */
+function _jaaPelaajanLinkki() {
+  var linkki = _pelaajanLinkki();
+  if (!linkki) return;
+  var L = window._lapsi || {};
+  var nimi = (IKA[_age] && IKA[_age].nimi) || L.etunimi || '';
+  var teksti = t('vanhempi.kirj_jakoteksti', { gen: _genetiivi(nimi), nimi: nimi });
+  if (navigator.share) {
+    navigator.share({ title: 'TalentMaster', text: teksti, url: linkki }).catch(function () { /* peruttu */ });
+    return;
+  }
+  _kopioiTeksti(teksti + ' ' + linkki, t('vanhempi.toast_linkki_kopioitu'));
+}
+function _kopioiTeksti(teksti, ilmoitus) {
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(String(teksti))
+      .then(function(){ _toast(ilmoitus || t('vanhempi.toast_kopioitu')); })
+      .catch(function(){ _toast(t('vanhempi.toast_kopioi_kasin')); });
+  } else { _toast(t('vanhempi.toast_kopioi_kasin')); }
+}
+/* Ikävaihe (ei joukkue): _age = 'u12'|'u15'|'u19' → '10–12 v' / '13–15 v' / '16–19 v'. */
+function _ikavaiheTeksti(a) {
+  var r = { u12: [10, 12], u15: [13, 15], u19: [16, 19] }[a];
+  return r ? t('vanhempi.ikavaihe_v', { a: r[0], b: r[1] }) : '';
+}
+
 function _kopioiPin(pin) {
   if (!pin) return;
   if (navigator.clipboard && navigator.clipboard.writeText) {

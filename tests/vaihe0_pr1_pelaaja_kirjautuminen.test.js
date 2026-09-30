@@ -31,9 +31,10 @@ describe('PR 1 · Pelaaja_v7 palvelinkirjautuminen', () => {
   it('kutsu: europe-west1 + pelaajaKirjaudu + { liittoTunnus, pin } → signInWithCustomToken', () => {
     const f = pura('async function _kirjaudu(pin) {');
     expect(f).toContain("window._fbApp.functions('europe-west1').httpsCallable('pelaajaKirjaudu')");
-    expect(f).toContain('fn({ liittoTunnus: tunnus, pin: pin })');
+    expect(f).toContain('{ liittoTunnus: tunnus, pin: pin }');
+    expect(f).toContain('{ seuraId: linkki.seuraId, pelaajaId: linkki.pelaajaId, pin: pin }');   // Kirjautumisen helpotus
     expect(f).toContain('signInWithCustomToken(d.token)');
-    expect(f).toContain('localStorage.setItem(_TUNNUS_LS, tunnus)');
+    expect(f).toContain('localStorage.setItem(_TUNNUS_LS, muista)');
   });
   it('PR 3: vanha anonyymi PIN-polku on poistettu kokonaan', () => {
     expect(KOODI).not.toContain('_kirjauduPinilla');
@@ -97,6 +98,7 @@ function ajaKirjaudu(virhe) {
       Sentry: { captureMessage: (m, o) => loki.sentry.push([m, o.level, o.tags.tm_kirjautumisvirhe]) },
     },
     _pin: '1234', draw() {}, _kirjautuminenKesken: false, _pinIlmoitus: '',
+    _URL: { pelaajaId: null, seuraId: null }, _pinPalloIdTila: false,   // PalloID-reitti (linkkireitti: tests/kirjautumisen_helpotus.test.js)
     _TUNNUS_LS: 'tm_pelaaja_tunnus',
     _PK_VIRHE_TUNNISTUS: 'Tunnus tai PIN on väärin.',
     _PK_VIRHE_INFRA: 'Kirjautuminen ei juuri nyt onnistu. Yritä hetken päästä uudelleen.',
@@ -105,7 +107,7 @@ function ajaKirjaudu(virhe) {
   };
   vm.createContext(ctx);
   vm.runInContext([puraRaaka('function _infraVirheenSyy(koodi, viesti) {'), puraRaaka('function _raportoiKirjautumisvirhe(syy) {'),
-    puraRaaka('async function _kirjaudu(pin) {')].join('\n') + '\nthis._kirjaudu = _kirjaudu;', ctx);
+    puraRaaka('function _linkkiKirjautuminen() {'), puraRaaka('async function _kirjaudu(pin) {')].join('\n') + '\nthis._kirjaudu = _kirjaudu;', ctx);
   return { loki, ajo: ctx._kirjaudu('1234') };
 }
 
