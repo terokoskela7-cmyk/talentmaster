@@ -239,6 +239,22 @@ describe('Admin · Audit-loki-näkymä', () => {
     expect(r[0]).toBe('aika;toiminto;nimi;severity;seuraId;kohde;tekija;id');
     expect(r[1]).toBe('2026-09-28T19:53:14.000Z;suostumuslinkki_epaonnistui;⚠ Tunnusten lähetys epäonnistui;warn;kpv;"p1 · x;y@z.fi";—;a1');
   });
+  it('CSV-injektio: = + - @ sarkain ja rivinvaihto alussa → etuliite \' (kaava ei suoritu Excelissä)', () => {
+    const c = ajaAdmin();
+    const rivi = (antaja) => c.csv([{ id: 'x', toiminto: 'suostumus_annettu', antaja }]).replace(/^\ufeff/, '').trim().split('\n').slice(1).join('\n');
+    expect(rivi('=HYPERLINK("http://paha","klikkaa")')).toContain(`;"'=HYPERLINK(""http://paha"",""klikkaa"")";`);
+    expect(rivi('+SUM(1,2)')).toContain(";'+SUM(1,2);");
+    expect(rivi('-2+3')).toContain(";'-2+3;");
+    expect(rivi('@cmd')).toContain(";'@cmd;");
+    expect(rivi('\tTAB')).toContain(";'\tTAB;");
+    expect(rivi('\n=1')).toContain(`;"'\n=1";`);
+    expect(rivi('Matti Meikäläinen')).toContain(';Matti Meikäläinen;');   // tavallinen arvo ennallaan
+  });
+  it('CSV-napin vieressä henkilötietohuomautus; sähköpostit säilyvät (ei peittämistä)', () => {
+    expect(ADMIN).toContain('Sisältää henkilötietoja, säilytä turvallisesti ja poista, kun et enää tarvitse');
+    const c = ajaAdmin();
+    expect(c.csv([{ id: 'x', toiminto: 'suostumuslinkki_epaonnistui', hEmail: 'huoltaja@x.fi' }])).toContain('huoltaja@x.fi');
+  });
   it('tuntematon toiminto näytetään teknisellä nimellä; nimikirjasto ladataan sivulle', () => {
     expect(ajaAdmin().nimi('outo_toiminto')).toBe('outo_toiminto');
     expect(ADMIN).toContain('<script src="lib/tm_audit_nimet.js?v=1"></script>');

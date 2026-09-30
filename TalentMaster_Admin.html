@@ -1040,12 +1040,19 @@ function _auditPiirra() {
   html += '<div style="margin-top:12px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">'
     + (_audit.lataa ? '<span style="color:var(--ink3)">Ladataan…</span>' : '')
     + (!_audit.lataa && _audit.seuraava ? '<button onclick="_auditLisaa()" style="' + nappi + '">Lataa lisää</button>' : '')
-    + (rivit.length ? '<button onclick="_auditLataaCsv()" style="' + nappi + '">⬇ Lataa CSV</button>' : '')
+    + (rivit.length ? '<button onclick="_auditLataaCsv()" style="' + nappi + '">⬇ Lataa CSV</button>'
+        + '<span style="font-size:11px;color:var(--amber,#E0A040)">Sisältää henkilötietoja, säilytä turvallisesti ja poista, kun et enää tarvitse</span>' : '')
     + '<span style="font-size:11px;color:var(--ink3)">' + rivit.length + ' riviä' + (_audit.seuraava ? ' · lisää saatavilla' : '') + ' (read-only)</span></div>';
   sis.innerHTML = html;
 }
 /* CSV (;-eroteltu, UTF-8 BOM → Excel fi) — näkyvät rivit poikkeamarekisteriä varten. */
-function _auditCsvArvo(v) { const t = String(v == null ? '' : v); return /[";\n\r]/.test(t) ? '"' + t.replace(/"/g, '""') + '"' : t; }
+/* CSV-injektio: arvo, joka alkaa = + - @ sarkaimella tai rivinvaihdolla, tulkittaisiin Excelissä kaavaksi
+   (esim. suostumuksen antajan nimi tulee julkiselta lomakkeelta) → etuliite ' tekee siitä tekstiä. */
+function _auditCsvArvo(v) {
+  let t = String(v == null ? '' : v);
+  if (/^[=+\-@\t\r\n]/.test(t)) t = "'" + t;
+  return /[";\n\r]/.test(t) ? '"' + t.replace(/"/g, '""') + '"' : t;
+}
 function _auditCsv(rivit) {
   const sarakkeet = ['aika', 'toiminto', 'nimi', 'severity', 'seuraId', 'kohde', 'tekija', 'id'];
   const rivitCsv = rivit.map((r) => [r.aikaleima || '', r.toiminto || '', _auditNimi(r.toiminto), r.severity || '', r.seuraId || '',

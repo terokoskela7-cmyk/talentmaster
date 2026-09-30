@@ -14,8 +14,8 @@ const admin     = require('firebase-admin');
 const https     = require('https');
 const { kayttajaRooliSallittu } = require('./authz_paatos');   // pure authz-päätös (#71, testattava)
 const { keraaPelaajanManifesti, rakennaAuditPayload } = require('./gdpr_locator');   // GDPR RTBF/export -locator (#96)
-const { kaavioKohdistuuServer } = require('./kaavio_policy');
-const auditloki = require('./auditloki');   // haeAuditLoki: suodattimet + sivutus (SA)   // kaavion kohdistus (peili lib/tm_kaavio_policy.js)
+const { kaavioKohdistuuServer } = require('./kaavio_policy');   // kaavion kohdistus (peili lib/tm_kaavio_policy.js)
+const auditloki = require('./auditloki');   // haeAuditLoki: suodattimet + sivutus (SA)
 const valmennusapuri = require('./valmennusapuri');
 const pelaajakirjautuminen = require('./pelaajakirjautuminen');   // Vaihe 0 / PR 1: PalloID + PIN → custom token           // Valmennusapuri-pilotti (Vaihe 2): ohjeistus+tietopohja palvelimella
 if (!admin.apps.length) {
