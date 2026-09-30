@@ -30,9 +30,10 @@ describe('PR 1 · Pelaaja_v7 palvelinkirjautuminen', () => {
   it('kutsu: europe-west1 + pelaajaKirjaudu + { liittoTunnus, pin } → signInWithCustomToken', () => {
     const f = pura('async function _kirjaudu(pin) {');
     expect(f).toContain("window._fbApp.functions('europe-west1').httpsCallable('pelaajaKirjaudu')");
-    expect(f).toContain('fn({ liittoTunnus: tunnus, pin: pin })');
+    expect(f).toContain('{ liittoTunnus: tunnus, pin: pin }');
+    expect(f).toContain('{ seuraId: linkki.seuraId, pelaajaId: linkki.pelaajaId, pin: pin }');   // Kirjautumisen helpotus
     expect(f).toContain('signInWithCustomToken(d.token)');
-    expect(f).toContain('localStorage.setItem(_TUNNUS_LS, tunnus)');
+    expect(f).toContain('localStorage.setItem(_TUNNUS_LS, muista)');
   });
   it('tunnus- tai PIN-virhe EI pudota vanhaan anonyymiin polkuun; vain palvelinhäiriö pudottaa', () => {
     const f = pura('async function _kirjaudu(pin) {');
