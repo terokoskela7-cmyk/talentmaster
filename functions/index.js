@@ -923,10 +923,27 @@ exports.lahetaPelaajaSivuLinkki = functions
   .region('europe-west1')
   .runWith({ secrets: ['SENDGRID_API_KEY'] })
   .https.onCall(async (data, context) => {
-    const { hEmail, pelaajaId, seuraId, etunimi, sukunimi, seura, joukkue } = data;
+    /* Vaihe 0 / PR 3 — KRIITTINEN: funktiossa EI ollut kirjautumistarkistusta, ja se PALAUTTI
+       salasanan asetuslinkin kutsujalle → kuka tahansa sai reset-linkin mille tahansa tilille
+       (myös henkilökunnan: haeOrLuoHuoltajaAuth palauttaa olemassa olevan käyttäjän).
+       Nyt: vain seuran johto / SA, hEmail = pelaajan tallennettu huoltajaEmail, eikä linkkiä
+       palauteta (se menee vain huoltajan sähköpostiin). */
+    if (!context.auth) {
+      throw new functions.https.HttpsError('unauthenticated', 'Kirjaudu ensin.');
+    }
+    const { hEmail, pelaajaId, seuraId, etunimi, sukunimi, seura, joukkue } = data || {};
     if (!hEmail || !pelaajaId || !seuraId) {
       throw new functions.https.HttpsError('invalid-argument',
         'hEmail, pelaajaId ja seuraId ovat pakollisia.');
+    }
+    if (!(await tarkistaOikeus(context.auth.uid, seuraId)).sallittu) {
+      throw new functions.https.HttpsError('permission-denied', 'Ei oikeutta tähän seuraan.');
+    }
+    const pelSnap = await db.collection('seurat').doc(seuraId).collection('pelaajat').doc(pelaajaId).get();
+    const tallennettu = pelSnap.exists ? String(pelSnap.get('huoltajaEmail') || '').trim().toLowerCase() : '';
+    if (!tallennettu || tallennettu !== String(hEmail).trim().toLowerCase()) {
+      throw new functions.https.HttpsError('failed-precondition',
+        'Sähköposti ei vastaa pelaajan tallennettua huoltajasähköpostia. Tallenna huoltajan sähköposti ensin.');
     }
     const pelaajaNimi = [etunimi, sukunimi].filter(Boolean).join(' ') || 'pelaaja';
     const seuraNimi   = seura || 'TalentMaster-seura';
@@ -968,7 +985,7 @@ exports.lahetaPelaajaSivuLinkki = functions
           salasanaLinkLahetetty: salasanaLinkki
             ? admin.firestore.FieldValue.serverTimestamp() : null,
         }).catch(() => {});
-      return { ok: true, linkki: pelaajaLinkki, salasanaLinkki };
+      return { ok: true, linkki: pelaajaLinkki, salasanaLinkkiLahetetty: !!salasanaLinkki };
     } catch (e) {
       console.error('lahetaPelaajaSivuLinkki virhe:', e.message);
       throw new functions.https.HttpsError('internal', `Lähetys epäonnistui: ${e.message}`);
