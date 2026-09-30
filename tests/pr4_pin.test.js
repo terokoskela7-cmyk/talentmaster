@@ -6,6 +6,10 @@
  */
 import { describe, it, expect } from 'vitest';
 import { createRequire } from 'module';
+import { readFileSync } from 'fs';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
+import vm from 'vm';
 const require = createRequire(import.meta.url);
 const P = require('../functions/pelaajapin.js');
 const K = require('../functions/pelaajakirjautuminen.js');
@@ -15,7 +19,7 @@ const FieldValue = { serverTimestamp: () => 'TS', increment: (n) => ({ __inc: n 
 
 function fakeDb(alku) {
   const D = new Map(Object.entries(alku || {}));   // 'a/b/c/d' → data
-  const loki = { commits: 0, batchOps: [] };
+  const loki = { commits: 0, batchOps: [], auto: 0 };
   const snap = (path) => ({ id: path.split('/').pop(), exists: D.has(path), data: () => D.get(path), get: (k) => (D.get(path) || {})[k], ref: docRef(path) });
   function kirjoita(path, d, opts) {
     if (opts && opts.merge) {
@@ -39,6 +43,7 @@ function fakeDb(alku) {
     const lapset = () => [...D.keys()].filter((k) => k.startsWith(path + '/') && k.slice(path.length + 1).indexOf('/') < 0);
     return {
       doc: (id) => docRef(path + '/' + id),
+      add: async (d) => { const id = 'auto' + (++loki.auto); kirjoita(path + '/' + id, d); return docRef(path + '/' + id); },
       where: (k, op, v) => colRef(path, ehdot.concat([[k, op, v]])),
       limit: () => colRef(path, ehdot),
       get: async () => ({ docs: lapset().filter((p) => ehdot.every(([k, op, v]) => {
@@ -207,4 +212,64 @@ describe('luoPinitSeuralle', () => {
     expect(r.eria).toBeGreaterThan(1);
     expect(Math.max(...y.f.loki.batchOps)).toBeLessThanOrEqual(P.ERAKOKO);
   }, 30000);
+});
+
+
+/* ── Solo: soloHyvaksyLupa (CF-runko vm:ssä, sama tynkä) ── */
+const CF = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', 'functions', 'index.js'), 'utf8');
+function puraFn(nimi) {
+  const i = CF.indexOf('function ' + nimi + '(');
+  let d = 0;
+  for (let j = CF.indexOf(') {', i) + 2; j < CF.length; j++) { if (CF[j] === '{') d++; else if (CF[j] === '}') { d--; if (!d) return CF.slice(i, j + 1); } }
+  throw new Error(nimi);
+}
+function hyvaksyja(alku) {
+  const f = fakeDb(alku);
+  const i = CF.indexOf('exports.soloHyvaksyLupa = functions');
+  const runko = CF.slice(i, CF.indexOf('\n  });', i) + 6);
+  const ketju = { region() { return ketju; }, runWith() { return ketju; }, https: { onCall: (fn) => fn, HttpsError } };
+  const ctx = {
+    functions: ketju, exports: {}, db: f.db, require, String, Object, JSON, console: { log() {}, warn() {} },
+    admin: { firestore: { FieldValue: { serverTimestamp: () => 'TS', arrayUnion: (x) => [x], delete: () => undefined } } },
+    soloVaraaPlayerCode: async () => 'TMP-QWERTY', pelaajapin: P, pelaajakirjautuminen: K,
+  };
+  vm.createContext(ctx);
+  vm.runInContext(puraFn('soloTokenHash') + '\n' + puraFn('soloLupaToken') + '\n' + runko + '\nthis.h = soloTokenHash;', ctx);
+  return { f, fn: ctx.exports.soloHyvaksyLupa, hash: ctx.h };
+}
+const VANHEMPI = { auth: { uid: 'vanhempi-1', token: { email: 'v@x.fi' } } };
+
+describe('soloHyvaksyLupa (PR 4)', () => {
+  it('uusi pyyntö (token_hash): 6-numeroinen child_pin + _soloPin; tulos alidokumentissa, päädokissa EI PIN:iä eikä koodia', async () => {
+    const tmp = hyvaksyja({});
+    const alku = { 'lupapyynnot/r1': { status: 'odottaa', child_etunimi: 'Aa', token_hash: tmp.hash('tok-1') } };
+    const { f, fn } = hyvaksyja(alku);
+    const r = await fn({ requestId: 'r1', token: 'tok-1' }, VANHEMPI);
+    expect(r.child_pin).toMatch(/^\d{6}$/);
+    expect(P.onTriviaaliPin(r.child_pin)).toBe(false);
+    const paa = f.D.get('lupapyynnot/r1');
+    expect(paa.status).toBe('hyvaksytty');
+    expect(paa).not.toHaveProperty('child_pin');
+    expect(paa).not.toHaveProperty('playerCode');
+    expect(paa.token).toBeUndefined();
+    expect(f.D.get('lupapyynnot/r1/tulos/tok-1')).toMatchObject({ child_pin: r.child_pin, playerCode: 'TMP-QWERTY', playerId: r.playerId });
+    expect(K.tarkistaPin(r.child_pin, f.D.get('_soloPin/' + r.playerId).hash)).toBe(true);
+    expect(f.D.get('players/' + r.playerId).child_pin).toBe(r.child_pin);
+    // idempotentti uudelleenkutsu palauttaa saman
+    await expect(fn({ requestId: 'r1', token: 'tok-1' }, VANHEMPI)).resolves.toMatchObject({ child_pin: r.child_pin, playerCode: 'TMP-QWERTY' });
+  });
+  it('väärä token → permission-denied (ei hyväksyntää, ei tulosta)', async () => {
+    const tmp = hyvaksyja({});
+    const { f, fn } = hyvaksyja({ 'lupapyynnot/r2': { status: 'odottaa', token_hash: tmp.hash('oikea') } });
+    await expect(fn({ requestId: 'r2', token: 'vaara' }, VANHEMPI)).rejects.toMatchObject({ code: 'permission-denied' });
+    expect(f.D.get('lupapyynnot/r2').status).toBe('odottaa');
+    expect([...f.D.keys()].some((k) => k.includes('/tulos/'))).toBe(false);
+  });
+  it('vanha pyyntö (selväkielinen token) toimii ja token korvataan hashilla', async () => {
+    const { f, fn, hash } = hyvaksyja({ 'lupapyynnot/r3': { status: 'odottaa', token: 'vanha-tok' } });
+    const r = await fn({ requestId: 'r3', token: 'vanha-tok' }, VANHEMPI);
+    expect(f.D.get('lupapyynnot/r3/tulos/vanha-tok').child_pin).toBe(r.child_pin);
+    expect(f.D.get('lupapyynnot/r3').token_hash).toBe(hash('vanha-tok'));
+    expect(f.D.get('lupapyynnot/r3').token).toBeUndefined();
+  });
 });

@@ -789,28 +789,48 @@ async function lahetaLupapyynto(){
   var btn=document.getElementById('btnReq'); btn.disabled=true; btn.textContent='Lähetetään…';
   try {
     var rid=_uuid(), tok=_uuid();
+    /* PR 4: päädokumentti on get:if true -luettava pelkällä requestId:llä → siihen vain tokenin HASH.
+       Raaka token on vain tällä laitteella ja vanhemman linkissä; hyväksynnän tulos (PIN + koodi) on
+       alidokumentissa tulos/{token} (Rules v3.30). */
     await _db.collection('lupapyynnot').doc(rid).set({
       status:'odottaa', child_etunimi:etu, synVuosi:P.vuosi||null, synKuukausi:P.kuukausi||null,
-      parent_email:em, token:tok, luotu: firebase.firestore.FieldValue.serverTimestamp()
+      parent_email:em, token_hash: await _soloTokenHash(tok), luotu: firebase.firestore.FieldValue.serverTimestamp()
     });
     localStorage.setItem('tm_lupapyynto', rid);
+    localStorage.setItem('tm_lupapyynto_tok', tok);
     // CF-kutsu EI inner-catchiin: jos lähetys kaatuu → todellinen virhe, ei valheellista "Pyyntö lähetetty".
-    await window._soloApp.functions('europe-west1').httpsCallable('soloLupapyyntoEmail')({ requestId: rid });
-    _kuunteleLupa(rid);
+    await window._soloApp.functions('europe-west1').httpsCallable('soloLupapyyntoEmail')({ requestId: rid, token: tok });
+    _kuunteleLupa(rid, tok);
     goStep('Wait');
   } catch(e){ console.warn('[solo] lupapyyntö', e&&e.message); _feed('feedReq','Emme saaneet lähetettyä — yritä uudelleen.','#ff6b6b'); btn.disabled=false; btn.textContent='Lähetä pyyntö →'; }
 }
-function _kuunteleLupa(rid){
+/* SHA-256('tm-solo-lupa:' + token) hex — sama kuin functions/index.js soloTokenHash. */
+async function _soloTokenHash(tok){
+  var b = await crypto.subtle.digest('SHA-256', new TextEncoder().encode('tm-solo-lupa:' + tok));
+  return Array.from(new Uint8Array(b)).map(function(x){ return x.toString(16).padStart(2,'0'); }).join('');
+}
+function _naytaLupaTulos(t){
+  document.getElementById('waitPin').textContent=t.child_pin||'—';
+  document.getElementById('waitState').classList.add('hidden');
+  document.getElementById('waitDone').classList.remove('hidden');
+  window._soloApproved={ playerId:t.playerId||null, playerCode:t.playerCode||null, pin:t.child_pin||null };
+}
+/* PR 4: tulos luetaan alidokumentista tulos/{token} (ilmestyy hyväksynnässä). Vanha pyyntö (ennen PR 4:ää,
+   tokenia ei tallessa): tulos päädokumentista. */
+function _kuunteleLupa(rid, tok){
   if(!_fbReady) return;
+  if(tok){
+    _db.collection('lupapyynnot').doc(rid).collection('tulos').doc(tok).onSnapshot(function(snap){
+      if(snap.exists) _naytaLupaTulos(snap.data());
+    }, function(err){ console.warn('[solo] lupakuuntelu', err&&err.message); });
+    return;
+  }
+  var tulosKuuntelu = null;
   _db.collection('lupapyynnot').doc(rid).onSnapshot(function(snap){
     if(!snap.exists) return;
     var d=snap.data();
-    if(d.status==='hyvaksytty'){
-      document.getElementById('waitPin').textContent=d.child_pin||'—';
-      document.getElementById('waitState').classList.add('hidden');
-      document.getElementById('waitDone').classList.remove('hidden');
-      window._soloApproved={ playerId:d.playerId||null, playerCode:d.playerCode||null, pin:d.child_pin||null };
-    }
+    if(d.status==='hyvaksytty' && d.child_pin){ _naytaLupaTulos(d); return; }   // hyväksytty ennen PR 4:ää
+    if(d.token && !tulosKuuntelu){ tulosKuuntelu = true; _kuunteleLupa(rid, d.token); }   // vanha odottava pyyntö
   }, function(err){ console.warn('[solo] lupakuuntelu', err&&err.message); });
 }
 /* Vaihe 0 / PR 2b — lapsi kirjautuu PALVELIMEN kautta: soloLapsiKirjaudu({ playerCode, pin }) →

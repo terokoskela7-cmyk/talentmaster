@@ -87,7 +87,13 @@ function feed(id,t,c){var e=$(id);if(e){e.textContent=t||'';e.style.color=c||'#9
   _db.collection('lupapyynnot').doc(_req).get().then(function(s){
     if(!s.exists){ $('vLataa').innerHTML='<h1>Pyyntöä ei löytynyt</h1>'; return; }
     _data=s.data();
-    if(_data.status==='hyvaksytty'){ $('vPin').textContent=_data.child_pin||'—'; show('vValmis'); return; }
+    // PR 4: tulos (PIN) alidokumentissa tulos/{token}; vanha pyyntö: päädokumentista.
+    if(_data.status==='hyvaksytty'){
+      _db.collection('lupapyynnot').doc(_req).collection('tulos').doc(_tok).get()
+        .then(function(t){ $('vPin').textContent=(t.exists&&t.data().child_pin)||_data.child_pin||'—'; })
+        .catch(function(){ $('vPin').textContent=_data.child_pin||'—'; });
+      show('vValmis'); return;
+    }
     $('lNimi').textContent=_data.child_etunimi||'Lapsesi';
     if(_data.synVuosi)$('lSyn').textContent=' (s. '+_data.synVuosi+')';
     _auth.onAuthStateChanged(function(u){ show(u?'vLupa':'vAuth'); });

@@ -723,10 +723,14 @@ function bind(){
   body.querySelectorAll('.key').forEach(b=>{
     b.addEventListener('click',()=>{
       const k=b.dataset.k;
+      /* PR 4: PIN on 6 numeroa (uusi) tai 4 (vanha). 6. numero lähettää automaattisesti; 4 numeron jälkeen
+         näkyy OK-nappi vanhaa PIN:iä varten. */
+      if(k==='ok'){ if(_pin.length===4) _kirjaudu(_pin); return; }
       if(k==='⌫'){_pin=_pin.slice(0,-1);}
-      else if(_pin.length<4){_pin+=k;}
-      if(_pin.length===4){setTimeout(()=>_kirjaudu(_pin),280);}
+      else if(_pin.length<6){_pin+=k;}
+      if(_pin.length===6){setTimeout(()=>_kirjaudu(_pin),280);}
       body.querySelectorAll('.pd').forEach((d,i)=>d.classList.toggle('on',i<_pin.length));
+      const ok=body.querySelector('#pinOk'); if(ok) ok.style.visibility=_pin.length===4?'visible':'hidden';
     });
   });
   // Tabs
@@ -886,11 +890,11 @@ function rPin(){
     <div id="pinIlmoitus" style="font-size:11px;color:rgba(242,239,230,.6);text-align:center;margin-bottom:8px;min-height:0">${_pinIlmoitus ? _pinIlmoitus.replace(/[<>&"]/g,'') : ''}</div>
     <div style="font-family:var(--font-m);font-size:10px;text-align:center;color:rgba(242,239,230,.35);text-transform:uppercase;letter-spacing:.15em">${_linkkiKirjautuminen() ? t('pelaaja.syota_pin_koodisi') : t('pelaaja.syota_pin')}</div>
     <div class="pin-dots" style="margin:12px 0 12px">
-      ${[0,1,2,3].map(i=>`<div class="pd${i<_pin.length?' on':''}"></div>`).join('')}
+      ${[0,1,2,3,4,5].map(i=>`<div class="pd${i<_pin.length?' on':''}"></div>`).join('')}
     </div>
     <div id="pinVirhe" style="font-size:11px;color:#E05C38;min-height:15px;text-align:center;letter-spacing:.04em;margin-bottom:6px"></div>
     <div class="kpad">
-      ${keys.map(k=>k===''?'<div></div>':`<button class="key" data-k="${k}"${k==='⌫'?' style="font-size:14px;opacity:.5"':''}>${k}</button>`).join('')}
+      ${keys.map(k=>k===''?`<button class="key" id="pinOk" data-k="ok" style="font-size:14px;visibility:${_pin.length===4?'visible':'hidden'}">OK</button>`:`<button class="key" data-k="${k}"${k==='⌫'?' style="font-size:14px;opacity:.5"':''}>${k}</button>`).join('')}
     </div>
     ${_linkkiKirjautuminen() ? `<button id="pinPalloIdLinkki" onclick="_naytaPalloIdKentta()"
       style="width:100%;background:transparent;border:none;font-family:var(--font-b);font-size:11px;color:rgba(40,176,144,.7);cursor:pointer;padding:10px 0 0;text-align:center">${t('pelaaja.kirjaudu_palloidlla')}</button>` : ''}

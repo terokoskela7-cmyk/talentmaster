@@ -45,7 +45,12 @@ describe('Solo-sivut · nimetty appi', () => {
     expect(riisu(S)).toContain("window._soloApp.functions('europe-west1').httpsCallable('soloLupapyyntoEmail')");
   });
   it('lupakuuntelija ottaa playerCoden talteen hyväksynnästä', () => {
-    expect(riisu(lue('TalentMaster_Player_Home.html'))).toContain('playerCode:d.playerCode||null');
+    // PR 4: tulos (PIN + koodi) alidokumentista tulos/{token}, ei päädokumentista
+    const PHK = riisu(lue('TalentMaster_Player_Home.html'));
+    expect(PHK).toContain('playerCode:t.playerCode||null');
+    expect(PHK).toContain(".collection('tulos').doc(tok).onSnapshot(");
+    expect(PHK).toContain('token_hash: await _soloTokenHash(tok)');
+    expect(PHK).not.toMatch(/parent_email:em, token:tok/);
   });
 });
 
