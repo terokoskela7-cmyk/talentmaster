@@ -14,7 +14,8 @@ const admin     = require('firebase-admin');
 const https     = require('https');
 const { kayttajaRooliSallittu } = require('./authz_paatos');   // pure authz-päätös (#71, testattava)
 const { keraaPelaajanManifesti, rakennaAuditPayload } = require('./gdpr_locator');   // GDPR RTBF/export -locator (#96)
-const { kaavioKohdistuuServer } = require('./kaavio_policy');   // kaavion kohdistus (peili lib/tm_kaavio_policy.js)
+const { kaavioKohdistuuServer } = require('./kaavio_policy');
+const auditloki = require('./auditloki');   // haeAuditLoki: suodattimet + sivutus (SA)   // kaavion kohdistus (peili lib/tm_kaavio_policy.js)
 const valmennusapuri = require('./valmennusapuri');
 const pelaajakirjautuminen = require('./pelaajakirjautuminen');   // Vaihe 0 / PR 1: PalloID + PIN → custom token           // Valmennusapuri-pilotti (Vaihe 2): ohjeistus+tietopohja palvelimella
 if (!admin.apps.length) {
@@ -375,7 +376,7 @@ exports.lahetaRekisteriKutsu = functions
         html: pohjaRekisteriKutsu({ seuraNimi, pelaajaNimi, joukkueNimi, linkki }),
       });
       await db.collection('audit').add({
-        toiminto: 'rekisterikutsu_lahetetty',
+        toiminto: 'rekisterikutsu_lahetetty', severity: 'info',
         hEmail, pelaajaNimi, seura: seuraNimi,
         tekija_uid: context.auth.uid,
         aikaleima: admin.firestore.FieldValue.serverTimestamp(),
@@ -664,7 +665,7 @@ exports.luoKayttaja = functions
       }
     }
     await db.collection('audit').add({
-      toiminto: 'kayttaja_luotu', kohde_uid: uid, kohde_email: email,
+      toiminto: 'kayttaja_luotu', severity: 'info', kohde_uid: uid, kohde_email: email,
       kohde_rooli: rooli, seuraId, tekija_uid: kutsujaUid, aikaleima: nyt,
     }).catch(() => {});
     return {
@@ -829,7 +830,7 @@ exports.korjaaJoukkueenTestipvm = functions
 
     // 4. Audit-jälki.
     await db.collection('audit').add({
-      toiminto: 'testipvm_korjattu',
+      toiminto: 'testipvm_korjattu', severity: 'info',
       seuraId, joukkue, testityyppi, kentat, uusiPvm, vanhaPvm: vanhaPvm || null,
       paivitetty, tekija_uid: kutsujaUid, tekija_rooli: rooli,
       aikaleima: admin.firestore.FieldValue.serverTimestamp(),
@@ -907,7 +908,7 @@ exports.deaktivioiKayttaja = functions
         deaktivoija_uid: context.auth.uid,
       });
     await db.collection('audit').add({
-      toiminto: 'kayttaja_deaktivoitu', kohde_uid: kohdeUid,
+      toiminto: 'kayttaja_deaktivoitu', severity: 'info', kohde_uid: kohdeUid,
       seuraId, tekija_uid: context.auth.uid,
       aikaleima: admin.firestore.FieldValue.serverTimestamp(),
     }).catch(() => {});
@@ -1219,19 +1220,12 @@ exports.haeAuditLoki = functions
     if (!onSA) {
       throw new functions.https.HttpsError('permission-denied', 'Vain super-admin.');
     }
-    const limit = Math.min(Math.max(parseInt((data && data.limit) || 100, 10) || 100, 1), 500);
-    const severity = (data && data.severity) ? String(data.severity) : null;
-    // orderBy(aikaleima desc) = yksikenttäinen auto-indeksi (ei composite-indeksiä tarvita).
-    // severity suodatetaan tässä CF:ssä haetun ikkunan yli → EI vaadi audit-composite-indeksiä eikä index-deployta.
-    const hakuLimit = severity ? Math.max(limit, 300) : limit;
-    const snap = await db.collection('audit').orderBy('aikaleima', 'desc').limit(hakuLimit).get();
-    let rivit = snap.docs.map((d) => {
-      const x = d.data();
-      const ts = (x.aikaleima && x.aikaleima.toDate) ? x.aikaleima.toDate().toISOString() : null;
-      return { id: d.id, ...x, aikaleima: ts };
-    });
-    if (severity) rivit = rivit.filter((r) => r.severity === severity);
-    return { ok: true, rivit: rivit.slice(0, limit), n: rivit.length };
+    /* Suodattimet + sivutus (functions/auditloki.js): toiminto + aikaväli Firestore-kyselynä,
+       seura / taso / kirjautumisrivit palvelimella sivutetun skannauksen yli (ei katoavia rivejä).
+       Kursori `seuraava` → `jalkeen` seuraavalla kutsulla. */
+    const s = auditloki.normalisoiSuodatin(data);
+    const { rivit, seuraava, skannattu } = await auditloki.haeAuditRivit(db, s);
+    return { ok: true, rivit, n: rivit.length, seuraava, skannattu };
   });
 // ─────────────────────────────────────────────────────────────────────────────
 // TASO-INTEGRAATIO — Palloliiton tulospalvelu
@@ -2106,7 +2100,7 @@ exports.soloLupapyyntoEmail = functions
       });
       await ref.set({ email_lahetetty_pvm: admin.firestore.FieldValue.serverTimestamp() }, { merge: true }).catch(() => {});
       await db.collection('audit').add({
-        toiminto: 'solo_lupapyynto_email', requestId, parent_email: email,
+        toiminto: 'solo_lupapyynto_email', severity: 'info', requestId, parent_email: email,
         aikaleima: admin.firestore.FieldValue.serverTimestamp(),
       }).catch(() => {});
       return { ok: true };
@@ -2162,7 +2156,7 @@ exports.soloHyvaksyLupa = functions
     batch.set(ref, { status: 'hyvaksytty', playerId, playerCode: code, child_pin, hyvaksyja_uid: uid, hyvaksytty_pvm: TS }, { merge: true });
     await batch.commit();
 
-    await db.collection('audit').add({ toiminto: 'solo_lupa_hyvaksytty', requestId, playerId, hyvaksyja_uid: uid, aikaleima: TS }).catch(() => {});
+    await db.collection('audit').add({ toiminto: 'solo_lupa_hyvaksytty', severity: 'info', requestId, playerId, hyvaksyja_uid: uid, aikaleima: TS }).catch(() => {});
     return { playerId, playerCode: code, child_pin };
   });
 

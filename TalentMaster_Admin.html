@@ -18,6 +18,7 @@
 <script src="lib/tm_eerikkila_normit.js?v=40"></script>
 <script src="lib/tm_joukkue.js?v=3"></script>   <!-- §18-jäsenyys: kanoninen nimi + team-id yhdestä paikasta -->
 <script src="lib/tm_arviointi_historia.js?v=1"></script>   <!-- kausiavain: tmKausiNyt/tmTavoitteetKaudelle — SAMA lähde kuin VP:llä (sama tavoitteet-dokumentti) -->
+<script src="lib/tm_audit_nimet.js?v=1"></script>   <!-- audit-toimintojen selkokieliset nimet (Audit-loki) -->
 <script src="tm_auth.js"></script>
 
 <style>
@@ -963,54 +964,144 @@ function renderoi(nakyma) {
 // NÄKYMÄ: AUDIT-LOKI / HÄLYTYKSET (SA-only, haeAuditLoki-CF). Read-only.
 // Audit-kokoelma pysyy EI-client-luettavana (Rules) → luetaan VAIN callable-CF:llä.
 // ─────────────────────────────────────────
-let _auditVainHalytykset = false;
+/* Poikkeamaselvityksen työkalu (30.9.2026): suodattimet (toiminto / seura / taso / aikaväli /
+   kirjautumiset), sivutus kursorilla ("Lataa lisää") ja CSV rekisteriä varten. Haku on palvelimella
+   (functions/auditloki.js) — rivejä ei katoa 200 uusimman ikkunan taakse. */
+const _audit = { toiminto: '', seuraId: '', taso: '', alku: '', loppu: '', kirjautumiset: false,
+  rivit: [], seuraava: null, lataa: false, virhe: '' };
+function _auditNimi(t) { return (window.TM_AUDIT_NIMET && window.TM_AUDIT_NIMET.nimi(t)) || String(t || '—'); }
+function _auditToiminnotLista() {
+  const N = (window.TM_AUDIT_NIMET && window.TM_AUDIT_NIMET.NIMET) || {};
+  return Object.keys(N).sort((a, b) => N[a].replace(/^[^\wÅÄÖåäö]+/, '').localeCompare(N[b].replace(/^[^\wÅÄÖåäö]+/, ''), 'fi'));
+}
+function _auditEpaonnistuneet() { return (window.TM_AUDIT_NIMET && window.TM_AUDIT_NIMET.epaonnistuneet()) || ['suostumuslinkki_epaonnistui']; }
+/* toiminto voi olla yksi arvo tai pikanapin lista ('a|b') */
+function _auditParametrit(jatka) {
+  const p = { limit: 100, piilotaKirjautumiset: !_audit.kirjautumiset };
+  if (_audit.toiminto) p.toiminto = _audit.toiminto.indexOf('|') >= 0 ? _audit.toiminto.split('|') : _audit.toiminto;
+  if (_audit.seuraId) p.seuraId = _audit.seuraId;
+  if (_audit.taso) p.severity = _audit.taso;
+  if (_audit.alku) p.alku = _audit.alku;
+  if (_audit.loppu) p.loppu = _audit.loppu;
+  if (jatka && _audit.seuraava) p.jalkeen = _audit.seuraava;
+  return p;
+}
+async function _auditHae(jatka) {
+  if (_audit.lataa) return;
+  _audit.lataa = true; _audit.virhe = '';
+  if (!jatka) { _audit.rivit = []; _audit.seuraava = null; }
+  _auditPiirra();
+  try {
+    const fn = firebase.app().functions('europe-west1').httpsCallable('haeAuditLoki');
+    const res = await fn(_auditParametrit(jatka));
+    const d = (res && res.data) || {};
+    _audit.rivit = _audit.rivit.concat(d.rivit || []);
+    _audit.seuraava = d.seuraava || null;
+  } catch (e) {
+    _audit.virhe = ((e && e.message) || 'tuntematon') + ((e && e.code === 'functions/permission-denied') || (e && e.code === 'permission-denied') ? ' (vain super-admin)' : '');
+  } finally {
+    _audit.lataa = false;
+    _auditPiirra();
+  }
+}
+window._auditAseta = function (kentta, arvo) { _audit[kentta] = arvo; _auditHae(false); };
+window._auditPika = function (mika) {
+  if (mika === 'epaonnistuneet') { _audit.toiminto = _auditEpaonnistuneet().join('|'); _audit.taso = ''; }
+  if (mika === 'halytykset') { _audit.toiminto = ''; _audit.taso = 'alert'; }
+  if (mika === 'tyhjenna') { Object.assign(_audit, { toiminto: '', seuraId: '', taso: '', alku: '', loppu: '', kirjautumiset: false }); }
+  renderAudit(document.getElementById('nakymaAlue'));
+};
+window._auditLisaa = function () { _auditHae(true); };
+function _auditKohde(r) { return [r.pelaajaId || r.playerId, r.hEmail || r.yritettyEmail || r.huoltajaEmail].filter(Boolean).join(' · ') || '—'; }
+function _auditTekija(r) { return r.antaja || r.tekija_uid || r.lahettaja_uid || r.hyvaksyja_uid || '—'; }
+function _auditPiirra() {
+  const sis = document.getElementById('auditSisalto');
+  if (!sis) return;
+  const rivit = _audit.rivit;
+  let html = '';
+  if (_audit.virhe) html += '<div style="padding:16px;color:#D85A5A">Audit-lokin haku epäonnistui: ' + _auditEsc(_audit.virhe) + '</div>';
+  if (!rivit.length && !_audit.lataa && !_audit.virhe) html += '<div style="padding:20px 0">Ei rivejä näillä suodattimilla.</div>';
+  if (rivit.length) {
+    html += '<table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr style="text-align:left;color:var(--ink3)">'
+      + '<th style="padding:6px 8px">Aika</th><th style="padding:6px 8px">Toiminto</th><th style="padding:6px 8px">Seura</th><th style="padding:6px 8px">Kohde</th><th style="padding:6px 8px">Tekijä</th></tr></thead><tbody>';
+    rivit.forEach((r) => {
+      const tausta = r.severity === 'alert' ? 'background:rgba(224,120,40,.18);' : r.severity === 'warn' ? 'background:rgba(224,190,64,.14);' : '';
+      const aika = r.aikaleima ? new Date(r.aikaleima).toLocaleString('fi-FI') : '—';
+      html += '<tr style="border-top:.5px solid rgba(242,239,230,.1);' + tausta + '">'
+        + '<td style="padding:6px 8px;white-space:nowrap;color:var(--ink3)">' + aika + '</td>'
+        + '<td style="padding:6px 8px">' + _auditEsc(_auditNimi(r.toiminto)) + ' <span style="color:var(--ink3);font-size:10px">' + _auditEsc(r.toiminto || '') + '</span></td>'
+        + '<td style="padding:6px 8px;color:var(--ink2)">' + _auditEsc(r.seuraId || '—') + '</td>'
+        + '<td style="padding:6px 8px;color:var(--ink2)">' + _auditEsc(_auditKohde(r)) + '</td>'
+        + '<td style="padding:6px 8px;color:var(--ink3)">' + _auditEsc(_auditTekija(r)) + '</td></tr>';
+    });
+    html += '</tbody></table>';
+  }
+  const nappi = 'font-size:12px;padding:6px 12px;border:.5px solid var(--ink3);background:none;color:var(--ink2);border-radius:6px;cursor:pointer';
+  html += '<div style="margin-top:12px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">'
+    + (_audit.lataa ? '<span style="color:var(--ink3)">Ladataan…</span>' : '')
+    + (!_audit.lataa && _audit.seuraava ? '<button onclick="_auditLisaa()" style="' + nappi + '">Lataa lisää</button>' : '')
+    + (rivit.length ? '<button onclick="_auditLataaCsv()" style="' + nappi + '">⬇ Lataa CSV</button>' : '')
+    + '<span style="font-size:11px;color:var(--ink3)">' + rivit.length + ' riviä' + (_audit.seuraava ? ' · lisää saatavilla' : '') + ' (read-only)</span></div>';
+  sis.innerHTML = html;
+}
+/* CSV (;-eroteltu, UTF-8 BOM → Excel fi) — näkyvät rivit poikkeamarekisteriä varten. */
+function _auditCsvArvo(v) { const t = String(v == null ? '' : v); return /[";\n\r]/.test(t) ? '"' + t.replace(/"/g, '""') + '"' : t; }
+function _auditCsv(rivit) {
+  const sarakkeet = ['aika', 'toiminto', 'nimi', 'severity', 'seuraId', 'kohde', 'tekija', 'id'];
+  const rivitCsv = rivit.map((r) => [r.aikaleima || '', r.toiminto || '', _auditNimi(r.toiminto), r.severity || '', r.seuraId || '',
+    _auditKohde(r), _auditTekija(r), r.id || ''].map(_auditCsvArvo).join(';'));
+  return '﻿' + sarakkeet.join(';') + '\n' + rivitCsv.join('\n') + '\n';
+}
+window._auditLataaCsv = function () {
+  const blob = new Blob([_auditCsv(_audit.rivit)], { type: 'text/csv;charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'audit_' + new Date().toISOString().slice(0, 10) + '.csv';
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+};
 async function renderAudit(alue) {
+  const valinta = (arvo, nyk) => (arvo === nyk ? ' selected' : '');
+  const toiminnot = _auditToiminnotLista();
+  const epa = _auditEpaonnistuneet().join('|');
+  const kentta = 'font-size:12px;padding:5px 8px;background:var(--bg2,transparent);color:var(--ink1,inherit);border:.5px solid var(--ink3);border-radius:6px';
+  const nappi = 'font-size:12px;padding:6px 12px;border:.5px solid var(--ink3);background:none;color:var(--ink2);border-radius:6px;cursor:pointer';
   alue.innerHTML = `
     <div class="sivuOtsikko">
       <div class="sivuEyebrow">Valvonta</div>
       <div class="sivuH1">Audit-loki / Hälytykset</div>
     </div>
-    <div style="margin:12px 0;display:flex;align-items:center;gap:16px;flex-wrap:wrap">
-      <label style="font-size:13px;display:flex;align-items:center;gap:6px;cursor:pointer">
-        <input type="checkbox" id="auditVainHal" ${_auditVainHalytykset ? 'checked' : ''}
-          onchange="_auditVainHalytykset=this.checked;renderAudit(document.getElementById('nakymaAlue'))">
-        Vain hälytykset (🟠 alert)
+    <div style="margin:12px 0 8px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+      <select id="auditToiminto" style="${kentta}" onchange="_auditAseta('toiminto', this.value)">
+        <option value=""${valinta('', _audit.toiminto)}>Kaikki toiminnot</option>
+        ${_audit.toiminto === epa ? `<option value="${epa}" selected>⚠ Epäonnistuneet lähetykset</option>` : ''}
+        ${toiminnot.map((t) => `<option value="${t}"${valinta(t, _audit.toiminto)}>${_auditEsc(_auditNimi(t))}</option>`).join('')}
+      </select>
+      <select id="auditSeura" style="${kentta}" onchange="_auditAseta('seuraId', this.value)">
+        <option value="">Kaikki seurat</option>
+        ${(tila.seurat || []).map((s) => `<option value="${_auditEsc(s.id)}"${valinta(s.id, _audit.seuraId)}>${_auditEsc(s.nimi || s.id)}</option>`).join('')}
+      </select>
+      <select id="auditTaso" style="${kentta}" onchange="_auditAseta('taso', this.value)">
+        <option value=""${valinta('', _audit.taso)}>Kaikki tasot</option>
+        <option value="warn+"${valinta('warn+', _audit.taso)}>Varoitukset ja hälytykset</option>
+        <option value="alert"${valinta('alert', _audit.taso)}>Vain hälytykset</option>
+      </select>
+      <input type="date" id="auditAlku" value="${_audit.alku}" style="${kentta}" onchange="_auditAseta('alku', this.value)" title="Alkaen">
+      <span style="color:var(--ink3)">–</span>
+      <input type="date" id="auditLoppu" value="${_audit.loppu}" style="${kentta}" onchange="_auditAseta('loppu', this.value)" title="Asti">
+      <label style="font-size:12px;display:flex;align-items:center;gap:6px;cursor:pointer">
+        <input type="checkbox" id="auditKirjautumiset" ${_audit.kirjautumiset ? 'checked' : ''} onchange="_auditAseta('kirjautumiset', this.checked)">
+        Näytä kirjautumiset
       </label>
-      <button onclick="renderAudit(document.getElementById('nakymaAlue'))"
-        style="font-size:12px;padding:6px 12px;border:.5px solid var(--ink3);background:none;color:var(--ink3);border-radius:6px;cursor:pointer">↻ Päivitä</button>
     </div>
-    <div id="auditSisalto" style="font-size:13px;color:var(--ink3)">Ladataan…</div>`;
-  const sis = document.getElementById('auditSisalto');
-  try {
-    const fn = firebase.app().functions('europe-west1').httpsCallable('haeAuditLoki');
-    const res = await fn({ limit: 200, severity: _auditVainHalytykset ? 'alert' : null });
-    const rivit = (res && res.data && res.data.rivit) || [];
-    if (!rivit.length) {
-      sis.innerHTML = '<div style="padding:20px 0">Ei audit-rivejä' + (_auditVainHalytykset ? ' (hälytyksiä)' : '') + '.</div>';
-      return;
-    }
-    let html = '<table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr style="text-align:left;color:var(--ink3)">'
-      + '<th style="padding:6px 8px">Aika</th><th style="padding:6px 8px">Toiminto</th><th style="padding:6px 8px">Kohde</th><th style="padding:6px 8px">Tekijä</th></tr></thead><tbody>';
-    rivit.forEach((r) => {
-      const onAlert = r.severity === 'alert';
-      const aika = r.aikaleima ? new Date(r.aikaleima).toLocaleString('fi-FI') : '—';
-      const kohde = [r.pelaajaId, r.seuraId, r.hEmail || r.yritettyEmail].filter(Boolean).join(' · ') || '—';
-      const tekija = r.antaja || r.tekija_uid || '—';
-      const rivityyli = 'border-top:.5px solid rgba(242,239,230,.1);' + (onAlert ? 'background:rgba(224,160,64,.14);' : '');
-      const merkki = onAlert ? '<span style="color:var(--amber);font-weight:700">🟠 </span>' : '';
-      html += '<tr style="' + rivityyli + '">'
-        + '<td style="padding:6px 8px;white-space:nowrap;color:var(--ink3)">' + aika + '</td>'
-        + '<td style="padding:6px 8px">' + merkki + _auditEsc(r.toiminto || '—') + '</td>'
-        + '<td style="padding:6px 8px;color:var(--ink2)">' + _auditEsc(kohde) + '</td>'
-        + '<td style="padding:6px 8px;color:var(--ink3)">' + _auditEsc(tekija) + '</td></tr>';
-    });
-    html += '</tbody></table>';
-    html += '<div style="margin-top:10px;font-size:11px;color:var(--ink3)">' + rivit.length + ' riviä (read-only). Audit on palvelinpuolinen — ei client-luettava; haettu SA-callable-CF:llä.</div>';
-    sis.innerHTML = html;
-  } catch (e) {
-    sis.innerHTML = '<div style="padding:16px;color:#D85A5A">Audit-lokin haku epäonnistui: '
-      + _auditEsc((e && e.message) || 'tuntematon') + ((e && e.code === 'permission-denied') ? ' (vain super-admin)' : '') + '</div>';
-  }
+    <div style="margin:0 0 12px;display:flex;gap:8px;flex-wrap:wrap">
+      <button onclick="_auditPika('epaonnistuneet')" style="${nappi}">⚠ Epäonnistuneet lähetykset</button>
+      <button onclick="_auditPika('halytykset')" style="${nappi}">🟠 Hälytykset</button>
+      <button onclick="_auditPika('tyhjenna')" style="${nappi}">Tyhjennä suodattimet</button>
+      <button onclick="_auditHae(false)" style="${nappi}">↻ Päivitä</button>
+    </div>
+    <div id="auditSisalto" style="font-size:13px;color:var(--ink3)"></div>`;
+  await _auditHae(false);
 }
 function _auditEsc(s) {
   return String(s == null ? '' : s).replace(/[&<>"]/g, function(c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; });
