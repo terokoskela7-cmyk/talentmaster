@@ -1713,6 +1713,15 @@ describe('Solo Player (v3.7)', () => {
     await assertFails(updateDoc(doc(pc(P2).firestore(), 'playerCodes', 'TMP-ABCDEF'), { parent_uid: P2 }));
   });
 
+  it('v3.29 · PlayerCode: get kirjautuneelle (myös puuttuva koodi = törmäystarkistus), list EI kenellekään', async () => {
+    await assertSucceeds(getDoc(doc(pc(P2).firestore(), 'playerCodes', 'TMP-ABCDEF')));
+    await assertSucceeds(getDoc(doc(pc(P2).firestore(), 'playerCodes', 'TMP-EIOLE1')));
+    await assertFails(getDocs(collection(pc(P2).firestore(), 'playerCodes')));
+    await assertFails(getDocs(query(collection(pc(P1).firestore(), 'playerCodes'), where('parent_uid', '==', P1))));
+    await assertFails(getDocs(collection(anonContext().firestore(), 'playerCodes')));
+    await assertFails(getDoc(doc(unauthContext().firestore(), 'playerCodes', 'TMP-ABCDEF')));
+  });
+
   it('Kirjautumaton EI pääse Solo-dataan', async () => {
     const db = unauthContext().firestore();
     await assertFails(getDoc(doc(db, 'players', 'pl1')));
@@ -3206,8 +3215,13 @@ function lsTynka(alku) {
 }
 async function laske(db, uid) {
   const pl = await getDocs(query(collection(db, 'players'), where('parent_uid', '==', uid)));
-  const pc = await getDocs(query(collection(db, 'playerCodes'), where('parent_uid', '==', uid)));
-  return { pelaajat: pl.docs.map((d) => d.id), koodit: pc.docs.map((d) => ({ id: d.id, playerId: d.data().playerId })) };
+  // v3.29: playerCodes list on suljettu clientilta → lasketaan säännöt ohittaen (tarkistus, ei käyttäjän kysely).
+  let koodit = [];
+  await testEnv.withSecurityRulesDisabled(async (c) => {
+    const pc = await getDocs(query(collection(c.firestore(), 'playerCodes'), where('parent_uid', '==', uid)));
+    koodit = pc.docs.map((d) => ({ id: d.id, playerId: d.data().playerId }));
+  });
+  return { pelaajat: pl.docs.map((d) => d.id), koodit };
 }
 const EHDOT = { tos: true, privacy: true };
 

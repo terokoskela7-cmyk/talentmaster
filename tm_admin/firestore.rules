@@ -1,9 +1,13 @@
 rules_version = '2';
 // ══════════════════════════════════════════════════════════════════════════
-// TalentMaster™ — firestore.rules v3.28
+// TalentMaster™ — firestore.rules v3.29
 //
 // Lähde:  tm_admin/firestore.rules
 // Deploy: PR → N4-CI deployaa automaattisesti (Console-käsityö poistui).
+//
+// Muutokset v3.28 → v3.29 (Vaihe 0 / PR 3b):
+//   · playerCodes: `read` → `get` kirjautuneelle + `list: if false`. Selain tarvitsee vain getin
+//     (tmVaraaPlayerCode); pelaajaKirjaudu/soloLapsiKirjaudu ja skriptit käyttävät Admin SDK:ta.
 //
 // Muutokset v3.27 → v3.28 (Vaihe 0 / PR 3 — ANONYYMIN SULKU, CODE_BRIEF_PELAAJAN_TUNNISTUS v2):
 //   · Anonyymi-funktio POISTETTU kokonaan (funktio + 29 haaraa: 27 seurapuussa, 2 Solon players-säännössä). Pelaajan polut sallivat vain
@@ -13,7 +17,7 @@ rules_version = '2';
 //     pelaajat PIN-kenttineen, loi kirjauksia mille tahansa pelaajalle ja luki Solo-pelaajan, jolla child_pin.
 //   · Haaroja, jotka sallivat anonyymin ILMAN rinnakkaishaaraa, ei ollut. onKirjautunut()-ehdon
 //     (ilman roolia) anonyymi läpäisee yhä, kunnes Anonymous-provider suljetaan Consolesta:
-//     errors create, kaaviot (hyväksytyn luku), playerCodes read — ks. PR-kuvaus (ei muutettu tässä).
+//     errors create, kaaviot (hyväksytyn luku), playerCodes get (list suljettu v3.29).
 //
 // Muutokset v3.26 → v3.27 (Solo Polku A -tallennuskorjaus):
 //   · players/{playerId}/{sub=**} → /{alikokoelma}/{polku=**}: kirjoitus get() → getAfter(), luku
@@ -1563,7 +1567,11 @@ service cloud.firestore {
     // PlayerCode-indeksi (club-bridge, P2-valmis) — luo oma vanhempi; luku kirjautuneelle.
     match /playerCodes/{code} {
       allow create:         if request.auth != null && request.auth.uid == request.resource.data.parent_uid;
-      allow read:           if request.auth != null;
+      // v3.29: vain yksittäinen get (tmVaraaPlayerCode: törmäystarkistus). list suljettu — koko indeksin
+      // listaus paljasti jokaisen playerCoden (puolet Solo-lapsen tunnuksesta) kenelle tahansa
+      // kirjautuneelle, myös Google-rekisteröityneelle Solo-vanhemmalle. Admin SDK ohittaa.
+      allow get:            if request.auth != null;
+      allow list:           if false;
       allow update, delete: if request.auth != null && request.auth.uid == resource.data.parent_uid;
     }
     // Lupapyynnöt (Polku B) — lapsi luo, vanhempi hyväksyy VAIN CF:ssä (Admin SDK). SOLO_P0_SPEC §9.

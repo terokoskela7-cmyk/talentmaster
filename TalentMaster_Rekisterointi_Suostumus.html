@@ -487,7 +487,8 @@ function toStep3() {
       // Sivu on autentikoimaton (ei auth-compat) → Firestore Rules estää KAIKKI suorat
       // update-kirjoitukset (permission-denied). CF (Admin SDK) tarkistaa hEmail === tallennettu
       // huoltajaEmail, merkitsee suostumuksen + aux-kentät (tila/antaja/bio-pituudet) + kutsun
-      // hyväksytyksi, ja palauttaa salasanan asetuslinkin. EI suoria client-kirjoituksia tässä.
+      // hyväksytyksi ja lähettää salasanalinkin + PIN:in huoltajan sähköpostiin (PR 3b: EI palauta niitä).
+      // EI suoria client-kirjoituksia tässä.
       // seuraId/pelaajaId/hEmail tulevat kutsulinkin URL-parametreista.
       var hEmailParam = (_urlParams.hEmail || raporttiEmail || '').toLowerCase();
       var suostumusTekstiStr = 'Hyväksytyt suostumukset (' + suostumusNimet.length + ' kpl): '
@@ -516,10 +517,9 @@ function toStep3() {
           aikaleima:       aikaleima
         })
         .then(function(res) {
-          // CF palauttaa salasanan asetuslinkin → näytetään onnistumisnäytöllä (QR + kopioi)
-          window._suostumusResetLinkki = (res && res.data && res.data.passwordResetLink) || null;
-          window._suostumusPin = (res && res.data && res.data.pin) || null;
+          // PR 3b: CF ei palauta linkkiä eikä PIN:iä — vain tiedon, lähtikö sähköposti.
           window._suostumusEmailLahetetty = !!(res && res.data && res.data.emailLahetetty === true);
+          window._suostumusKutsuflow = true;
         });
 
     } else {
@@ -599,9 +599,9 @@ function toStep3() {
 
   tallennusPromise
     .then(function() {
-      // HUOM: lahetaPelaajaSivuLinkki-kutsu poistettu — se generoi oman reset-linkin,
-      // joka invalidoisi vahvistaSuostumus-CF:n palauttaman QR-linkin ENNEN skannausta.
-      // vahvistaSuostumus hoitaa nyt Auth-luonnin + reset-linkin (näytetään QR + kopioi).
+      // vahvistaSuostumus hoitaa Auth-luonnin ja lähettää salasanalinkin + PIN:in sähköpostiin.
+      // PR 3b: QR-, kopioi- ja PIN-laatikot poistettu — ne paljastivat tunnukset kenelle tahansa,
+      // joka tiesi seuraId + pelaajaId + huoltajaEmail (luettavissa anonyymisti v3.28:aan asti).
 
       el('receipt').innerHTML =
         '<div class="rrow"><span class="rk">Rekisterointitunnus</span><span class="rv">'+rid+'</span></div>'
@@ -616,34 +616,6 @@ function toStep3() {
           ?'<div class="rrow"><span class="rk">Tallennettu</span><span class="rv" style="color:var(--teal)">TalentMaster-rekisteriin</span></div>'
           :'<div class="rrow"><span class="rk">Tila</span><span class="rv" style="color:var(--amber)">Odottaa synkronointia</span></div>');
 
-      // Pelaajan PIN-koodi (vahvistaSuostumus-CF generoi) — näkyvästi, annetaan pelaajalle
-      if (window._suostumusPin) {
-        el('receipt').innerHTML +=
-          '<div style="margin-top:14px;padding:16px;background:var(--ink3);border:1px solid var(--teal);border-radius:9px;text-align:center">'
-          + '<div style="font-size:12px;color:var(--muted);margin-bottom:6px">&#128100; Pelaajan PIN-koodi</div>'
-          + '<div style="font-family:\'Bebas Neue\',monospace;font-size:38px;letter-spacing:8px;color:var(--teal);font-weight:700">' + window._suostumusPin + '</div>'
-          + '<div style="font-size:12px;color:var(--text);margin-top:6px">Anna t&auml;m&auml; pelaajalle &mdash; h&auml;n kirjautuu omaan n&auml;kym&auml;&auml;ns&auml; PIN-koodilla.</div>'
-          + '</div>';
-      }
-
-      // Salasanan asetuslinkki (vahvistaSuostumus-CF) — QR + kopioitava linkki (Seura.html-kaava)
-      if (window._suostumusResetLinkki) {
-        var _rl = window._suostumusResetLinkki;
-        var _qr = 'https://api.qrserver.com/v1/create-qr-code/?size=170x170&margin=8&data=' + encodeURIComponent(_rl);
-        var _emailOk = window._suostumusEmailLahetetty === true;
-        el('receipt').innerHTML +=
-          '<div style="margin-top:14px;padding:14px;background:var(--ink3);border:1px solid var(--line2);border-radius:9px">'
-          + '<div style="font-size:13px;font-weight:700;color:var(--teal);margin-bottom:4px">' + (_emailOk ? '&#128273; Tai aseta salasana QR-koodista' : '&#128273; Aseta salasanasi') + '</div>'
-          + '<div style="font-size:12px;color:var(--muted);margin-bottom:10px">' + (_emailOk ? 'Varapolku, jos s&auml;hk&ouml;posti ei tule perille — lue QR puhelimella tai kopioi linkki.' : 'Lue QR-koodi puhelimella tai kopioi linkki — paaset asettamaan TalentMaster-salasanasi.') + '</div>'
-          + '<div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">'
-          +   '<img src="' + _qr + '" alt="QR-koodi" width="120" height="120" style="background:#fff;border-radius:6px;padding:4px" onerror="this.style.display=\'none\'">'
-          +   '<div style="flex:1;min-width:180px">'
-          +     '<div style="font-size:11px;color:var(--text);word-break:break-all;background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:8px;margin-bottom:8px">' + _rl + '</div>'
-          +     '<button type="button" onclick="window._suostumusKopioiLinkki()" style="background:var(--teal);color:#0b1118;border:none;border-radius:7px;padding:8px 14px;font-weight:700;font-size:13px;cursor:pointer;font-family:inherit">&#128203; Kopioi linkki</button>'
-          +   '</div>'
-          + '</div></div>';
-      }
-
       // Salasanaohje — todenmukainen viesti emailLahetetty-lipun mukaan (ei luvata sähköpostia ellei lähetetty).
       var _siEl = document.getElementById('salasanaInfo');
       if (_siEl) {
@@ -651,13 +623,13 @@ function toStep3() {
         var _em = _esE(raporttiEmail || _urlParams.hEmail || '');   // #60: bare 'hEmail' oli määrittelemätön → oikea lähde _urlParams.hEmail (URL-param, ks. rivi 288)
         var _emEl = _em ? ('<strong style="color:var(--teal)">' + _em + '</strong>') : '';
         if (window._suostumusEmailLahetetty === true) {
-          _siEl.innerHTML = '<div class="info-t" style="color:var(--teal)">&#9989; L&auml;hetimme salasanalinkin s&auml;hk&ouml;postiisi</div>'
-            + '<p style="color:#7ecfc0;line-height:1.8;">L&auml;hetimme salasanalinkin' + (_em ? (' osoitteeseen ' + _emEl) : ' s&auml;hk&ouml;postiisi') + '. Avaa viesti ja aseta salasanasi (tai k&auml;yt&auml; alla n&auml;kyv&auml;&auml; QR-koodia).<br>'
+          _siEl.innerHTML = '<div class="info-t" style="color:var(--teal)">&#9989; Tunnukset l&auml;hetetty s&auml;hk&ouml;postiisi</div>'
+            + '<p style="color:#7ecfc0;line-height:1.8;">L&auml;hetimme salasanalinkin ja pelaajan PIN-koodin' + (_em ? (' osoitteeseen ' + _emEl) : ' s&auml;hk&ouml;postiisi') + '. Avaa viesti ja aseta salasanasi.<br>'
             + 'Salasanan asetettuasi p&auml;&auml;set vanhemman n&auml;kym&auml;&auml;n &mdash; kirjaudu samalla s&auml;hk&ouml;postiosoitteella ja uudella salasanalla.</p>';
-        } else {
-          _siEl.innerHTML = '<div class="info-t" style="color:var(--teal)">&#128273; Aseta salasanasi</div>'
-            + '<p style="color:#7ecfc0;line-height:1.8;">Aseta TalentMaster-salasanasi yll&auml; n&auml;kyv&auml;st&auml; linkist&auml;: <strong>lue QR-koodi puhelimella tai kopioi linkki</strong>.<br>'
-            + 'Salasanan asetettuasi p&auml;&auml;set vanhemman n&auml;kym&auml;&auml;n &mdash; kirjaudu ' + (_em ? (_emEl + '-osoitteella') : 's&auml;hk&ouml;postiosoitteellasi') + ' ja uudella salasanalla.</p>';
+        } else if (window._suostumusKutsuflow === true) {
+          _siEl.innerHTML = '<div class="info-t" style="color:var(--amber)">&#9888; S&auml;hk&ouml;posti ei l&auml;htenyt</div>'
+            + '<p style="color:#7ecfc0;line-height:1.8;">Suostumus on tallennettu, mutta tunnusten l&auml;hetys' + (_em ? (' osoitteeseen ' + _emEl) : '') + ' ep&auml;onnistui. '
+            + '<strong>Pyyd&auml; seuraa l&auml;hett&auml;m&auml;&auml;n tunnukset uudelleen</strong> (seuran hallinta &rarr; pelaaja &rarr; l&auml;het&auml; pelaajasivulinkki).</p>';
         }
       }
       setStep(3);
@@ -669,18 +641,6 @@ function toStep3() {
     });
 }
 
-// Kopioi salasanan asetuslinkki leikepöydälle (sama kaava kuin Seura.html _resetKopioi)
-window._suostumusKopioiLinkki = function() {
-  var l = window._suostumusResetLinkki;
-  if (!l) return;
-  if (navigator.clipboard && navigator.clipboard.writeText) {
-    navigator.clipboard.writeText(l)
-      .then(function(){ toast('Linkki kopioitu leikepoydalle!', false); })
-      .catch(function(){ toast('Kopioi linkki manuaalisesti', true); });
-  } else {
-    toast('Kopioi linkki manuaalisesti', true);
-  }
-};
 </script>
 </body>
 </html>
