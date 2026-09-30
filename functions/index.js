@@ -15,6 +15,7 @@ const https     = require('https');
 const { kayttajaRooliSallittu, tunnisteTyyppi, kuittausPaatos } = require('./authz_paatos');   // pure authz-päätös (#71, PR 3, testattava)
 const { keraaPelaajanManifesti, rakennaAuditPayload } = require('./gdpr_locator');   // GDPR RTBF/export -locator (#96)
 const { kaavioKohdistuuServer } = require('./kaavio_policy');   // kaavion kohdistus (peili lib/tm_kaavio_policy.js)
+const pelaajapin = require('./pelaajapin');   // PR 4: PIN vain palvelimella (asetaPelaajanPin / luoPinitSeuralle)
 const valmennusapuri = require('./valmennusapuri');
 const pelaajakirjautuminen = require('./pelaajakirjautuminen');   // Vaihe 0 / PR 1: PalloID + PIN → custom token           // Valmennusapuri-pilotti (Vaihe 2): ohjeistus+tietopohja palvelimella
 if (!admin.apps.length) {
@@ -248,8 +249,20 @@ function pohjaMuistutus({ seuraNimi, pelaajaNimi, linkki }) {
 }
 function pohjaPelaajaSivu({
   seuraNimi, pelaajaNimi, joukkueNimi,
-  salasanaLinkki, vanhempiLinkki, pelaajaLinkki, hEmail
+  salasanaLinkki, vanhempiLinkki, pelaajaLinkki, hEmail, palloId, pin
 }) {
+  /* PR 4: tunnukset (PalloID + PIN) samaan viestiin, jotta huoltaja voi jakaa ne lapselle heti
+     (sama malli kuin suostumussähköpostissa #687). Linkillä avattuna pelaaja syöttää pelkän PIN:n. */
+  const tunnusOsio = pin ? `
+    <div style="margin:20px 0;padding:16px;border:1px solid #28B090;border-radius:10px;text-align:center;">
+      <div style="font-size:13px;color:#555;margin-bottom:8px;">Pelaajan tunnukset</div>
+      ${palloId ? `<div style="font-size:14px;color:#333;margin-bottom:4px;">PalloID <strong style="letter-spacing:2px;">${palloId}</strong></div>` : ''}
+      <div style="font-size:14px;color:#333;">PIN <strong style="font-size:22px;letter-spacing:5px;color:#28B090;">${pin}</strong></div>
+      <div style="font-size:13px;color:#555;margin-top:10px;line-height:1.5;">Anna ne pelaajalle. Pelaajan omasta linkistä avattuna riittää pelkkä PIN.</div>
+    </div>` : `
+    <p style="font-size:13px;color:#555;line-height:1.5;margin:4px 0 16px;text-align:center;">
+      ⚽ Avaa linkki ja kirjaudu lapsen PalloID:llä ja PIN-koodilla. PIN näkyy Vanhemman sivulla kirjautumisen jälkeen.
+    </p>`;
   const salasanaOsio = salasanaLinkki ? `
     <div style="background:#f0fdf8;border:2px solid #28B090;border-radius:12px;
                 padding:20px;margin:24px 0;">
@@ -299,9 +312,7 @@ function pohjaPelaajaSivu({
         ⚽ Pelaajan oma sivu →
       </a>
     </div>
-    <p style="font-size:13px;color:#555;line-height:1.5;margin:4px 0 16px;text-align:center;">
-      ⚽ Avaa linkki ja kirjaudu lapsen PalloID:llä ja PIN-koodilla. PIN näkyy Vanhemman sivulla kirjautumisen jälkeen.
-    </p>
+    ${tunnusOsio}
     <p style="font-size:13px;color:#555;line-height:1.6;margin:20px 0 0;">
       💡 Lisää sivut puhelimen kotinäytölle (selaimen valikosta "Lisää aloitusnäytölle"), niin ne ovat aina tallessa.
       Osoitteen voi aina palauttaa mieleen: <strong>talentmasterid.com</strong>
@@ -965,9 +976,12 @@ exports.lahetaPelaajaSivuLinkki = functions
     const seuraNimi   = seura || 'TalentMaster-seura';
     const joukkueNimi = await haeJoukkueNimi(seuraId, joukkue);
     const baseUrl = TM_BASE_URL;
+    // PR 4: henkilökohtainen linkki ?p=&seura= (Pelaaja_v7 → pelkkä PIN-näppäimistö), ei nimiä URL:iin.
     const pelaajaLinkki = `${baseUrl}/TalentMaster_Pelaaja_v7.html` +
-      `?pelaajaId=${pelaajaId}&seuraId=${seuraId}` +
-      `&etunimi=${encodeURIComponent(etunimi||'')}&sukunimi=${encodeURIComponent(sukunimi||'')}`;
+      `?p=${encodeURIComponent(pelaajaId)}&seura=${encodeURIComponent(seuraId)}`;
+    const pd = pelSnap.data() || {};
+    const pinNyt = (pd.pin != null && /^(\d{4}|\d{6})$/.test(String(pd.pin))) ? String(pd.pin) : null;
+    const palloIdNyt = pelaajakirjautuminen.pelaajanPalloId(pd);
     const vanhempiLinkki = `${baseUrl}/TalentMaster_Vanhempi_v2.html` +
       `?pelaajaId=${pelaajaId}&seuraId=${seuraId}` +
       `&etunimi=${encodeURIComponent(etunimi||'')}&sukunimi=${encodeURIComponent(sukunimi||'')}`;
@@ -990,7 +1004,7 @@ exports.lahetaPelaajaSivuLinkki = functions
         fromName: seuraNimi,
         html: pohjaPelaajaSivu({
           seuraNimi, pelaajaNimi, joukkueNimi,
-          salasanaLinkki, vanhempiLinkki, pelaajaLinkki, hEmail,
+          salasanaLinkki, vanhempiLinkki, pelaajaLinkki, hEmail, palloId: palloIdNyt, pin: pinNyt,
         }),
       });
       await db.collection('seurat').doc(seuraId)
@@ -1116,8 +1130,8 @@ exports.vahvistaSuostumus = functions
     // PIN: käytä olemassa olevaa validia (idempotentti; sama logiikka kuin Seura.html luoPelaajaPIN). UUDEN PIN:in generointi (Firestore-kyselyt)
     // siirretty kriittisen update-kirjoituksen JÄLKEEN best-effortiksi (Sibbo-korjaus) — ei-kriittinen
     // PIN-haku ei saa enää kaataa pelaajan aktivointia.
-    let pin = (snap.get('pin') && /^\d{4}$/.test(String(snap.get('pin')))) ? String(snap.get('pin')) : null;
-    if (pin) paivitys.pin = pin;
+    // PR 4: olemassa oleva 4- tai 6-numeroinen PIN kelpaa sellaisenaan (ei kirjoiteta uudelleen).
+    let pin = (snap.get('pin') && /^(\d{4}|\d{6})$/.test(String(snap.get('pin')))) ? String(snap.get('pin')) : null;
 
     try {
       await pelRef.update(paivitys);
@@ -1127,15 +1141,16 @@ exports.vahvistaSuostumus = functions
     }
 
     // PIN-generointi best-effort — pelaaja on jo aktivoitu yllä, tämä ei saa kaataa mitään (Sibbo-korjaus).
+    // PR 4: 6-numeroinen PIN samalla apufunktiolla kuin asetaPelaajanPin (hajautus + selväkielinen samassa
+    // erässä, lukitukset nollataan). Yksilöllisyyttä seuran sisällä ei enää tarvita (kirjautumisessa aina
+    // PalloID tai linkki mukana).
     if (!pin) {
       try {
-        const pelaajatCol = db.collection('seurat').doc(seuraId).collection('pelaajat');
-        for (let yritys = 0; yritys < 20 && !pin; yritys++) {
-          const ehdokas = String(Math.floor(1000 + Math.random() * 9000));
-          const kaytossa = await pelaajatCol.where('pin', '==', ehdokas).limit(1).get();
-          if (kaytossa.empty || kaytossa.docs[0].id === pelaajaId) pin = ehdokas;
-        }
-        if (pin) await pelRef.update({ pin });
+        const uusi = pelaajapin.generoiPin();
+        const b = db.batch();
+        pelaajapin.lisaaPinKirjoitukset(db, b, { seuraId, pelaajaId, data: snap.data() || {}, pin: uusi, lahde: 'vahvistaSuostumus', TS });
+        await b.commit();
+        pin = uusi;
       } catch (e) {
         pin = null;
         console.warn('[vahvistaSuostumus] PIN-generointi epäonnistui (ei-kriittinen):', e.message);
@@ -2101,6 +2116,18 @@ function pohjaSoloLupa({ child_etunimi, linkki }) {
 }
 
 // soloLupapyyntoEmail — lapsi (anon/kirjautumaton) loi lupapyynnon → CF lähettää vanhemmalle magic-linkin.
+/* PR 4 · Solo-lupapyynnön token: päädokumentissa vain SHA-256 (token_hash). Vanhoissa pyynnöissä
+   selväkielinen `token`. Palauttaa kelpaavan tokenin tai null. */
+function soloTokenHash(token) {
+  return require('crypto').createHash('sha256').update('tm-solo-lupa:' + String(token)).digest('hex');
+}
+function soloLupaToken(d, annettu) {
+  if (!d) return null;
+  if (d.token_hash) return (annettu && soloTokenHash(annettu) === d.token_hash) ? String(annettu) : null;
+  if (d.token) return (annettu == null || String(annettu) === d.token) ? String(d.token) : null;   // vanha pyyntö
+  return null;
+}
+
 exports.soloLupapyyntoEmail = functions
   .region('europe-west1')
   .runWith({ secrets: ['SENDGRID_API_KEY'] })
@@ -2118,7 +2145,11 @@ exports.soloLupapyyntoEmail = functions
     if (d.email_lahetetty_pvm && d.email_lahetetty_pvm.toMillis && (Date.now() - d.email_lahetetty_pvm.toMillis()) < 120000) {
       return { ok: true, viesti: 'Linkki lähetettiin juuri — tarkista sähköpostisi.' };
     }
-    const linkki = SOLO_BASE_URL + '/TalentMaster_Solo_Lupa.html?r=' + encodeURIComponent(requestId) + '&t=' + encodeURIComponent(d.token || '');
+    /* PR 4: uusi lupapyyntö tallentaa vain token_hash:n (tulos/{token} ei saa olla luettavissa päädokumentista).
+       Lapsen laite antaa tokenin tässä kutsussa → tarkistetaan hashia vasten. Vanha pyyntö: d.token. */
+    const token = soloLupaToken(d, data && data.token);
+    if (!token) throw new functions.https.HttpsError('permission-denied', 'Virheellinen vahvistustunnus.');
+    const linkki = SOLO_BASE_URL + '/TalentMaster_Solo_Lupa.html?r=' + encodeURIComponent(requestId) + '&t=' + encodeURIComponent(token);
     try {
       await lahetaSahkoposti({
         to: email,
@@ -2128,7 +2159,7 @@ exports.soloLupapyyntoEmail = functions
       });
       await ref.set({ email_lahetetty_pvm: admin.firestore.FieldValue.serverTimestamp() }, { merge: true }).catch(() => {});
       await db.collection('audit').add({
-        toiminto: 'solo_lupapyynto_email', requestId, parent_email: email,
+        toiminto: 'solo_lupapyynto_email', severity: 'info', requestId, parent_email: email,
         aikaleima: admin.firestore.FieldValue.serverTimestamp(),
       }).catch(() => {});
       return { ok: true };
@@ -2152,11 +2183,15 @@ exports.soloHyvaksyLupa = functions
     const snap = await ref.get();
     if (!snap.exists) throw new functions.https.HttpsError('not-found', 'Lupapyyntöä ei löytynyt.');
     const d = snap.data();
-    if (d.token !== token) throw new functions.https.HttpsError('permission-denied', 'Virheellinen vahvistustunnus.');
-    // Idempotentti: jo hyväksytty → palauta olemassa olevat tiedot.
+    if (!soloLupaToken(d, token)) throw new functions.https.HttpsError('permission-denied', 'Virheellinen vahvistustunnus.');
+    const tulosRef = ref.collection('tulos').doc(String(token));
+    // Idempotentti: jo hyväksytty → palauta olemassa olevat tiedot (tulos/{token}, vanha pyyntö päädokista).
     if (d.status === 'hyvaksytty' && d.playerId) {
+      const t = await tulosRef.get();
+      const td = t.exists ? (t.data() || {}) : {};
       const ex = await db.collection('players').doc(d.playerId).get();
-      return { playerId: d.playerId, child_pin: d.child_pin || null, playerCode: ex.exists ? (ex.data().playerCode || null) : null };
+      return { playerId: d.playerId, child_pin: td.child_pin || d.child_pin || null,
+        playerCode: td.playerCode || (ex.exists ? (ex.data().playerCode || null) : null) };
     }
     if (d.status !== 'odottaa') throw new functions.https.HttpsError('failed-precondition', 'Pyyntö on jo käsitelty.');
 
@@ -2164,7 +2199,7 @@ exports.soloHyvaksyLupa = functions
     const playerRef = db.collection('players').doc();
     const playerId = playerRef.id;
     const code = await soloVaraaPlayerCode(uid, playerId);
-    const child_pin = String(Math.floor(1000 + Math.random() * 9000));
+    const child_pin = pelaajapin.generoiPin();   // PR 4: 6 numeroa, crypto.randomInt, ei triviaaleja
 
     const batch = db.batch();
     batch.set(db.collection('parents').doc(uid), {
@@ -2180,8 +2215,14 @@ exports.soloHyvaksyLupa = functions
     });
     batch.set(playerRef.collection('suostumukset').doc('perus'), { ok: true, tyyppi: 'perus', antaja_uid: uid, antaja_email: email, versio: 'v1', pvm: TS });
     if (benchmark === true) batch.set(playerRef.collection('suostumukset').doc('benchmark'), { ok: true, tyyppi: 'benchmark', antaja_uid: uid, antaja_email: email, versio: 'v1', pvm: TS });
-    // playerCode mukaan (PR 2b): lapsen laite kirjautuu soloLapsiKirjaudu({ playerCode, pin }) -reitillä.
-    batch.set(ref, { status: 'hyvaksytty', playerId, playerCode: code, child_pin, hyvaksyja_uid: uid, hyvaksytty_pvm: TS }, { merge: true });
+    // PR 4: hajautus heti (soloLapsiKirjaudu käyttää sitä; selväkielinen child_pin jää jakamista varten).
+    batch.set(db.collection('_soloPin').doc(playerId), { hash: pelaajakirjautuminen.hajautaPin(child_pin), luotu: TS, lahde: 'soloHyvaksyLupa' });
+    /* PR 4: tulos (PIN + koodi) ALIDOKUMENTTIIN tulos/{token}. Päädokumentti on get:if true -luettava pelkällä
+       requestId:llä, joten siinä ei saa olla PIN:iä eikä koodia. Token on vain lapsen laitteella ja
+       vanhemman linkissä (päädokissa vain token_hash). Vanhan pyynnön selväkielinen token poistetaan. */
+    batch.set(tulosRef, { playerId, playerCode: code, child_pin, luotu: TS });
+    batch.set(ref, { status: 'hyvaksytty', playerId, hyvaksyja_uid: uid, hyvaksytty_pvm: TS,
+      token: admin.firestore.FieldValue.delete(), token_hash: soloTokenHash(token) }, { merge: true });
     await batch.commit();
 
     await db.collection('audit').add({ toiminto: 'solo_lupa_hyvaksytty', requestId, playerId, hyvaksyja_uid: uid, aikaleima: TS }).catch(() => {});
@@ -2657,3 +2698,23 @@ exports.soloLapsiKirjaudu = functions
       toiminto, aikaleima: admin.firestore.FieldValue.serverTimestamp(),
     }, tiedot)).catch(() => {}),
   }));
+
+/* Vaihe 0 / PR 4 — PIN asetetaan VAIN palvelimella (functions/pelaajapin.js). Hajautus + selväkielinen
+   kopio samassa erässä, lukitukset nollataan. Oikeus: johto/SA koko seura, joukkueen valmentaja oma
+   joukkue (Teron päätös 30.9.2026). PIN:iä ei kirjoiteta audit-lokiin. */
+const pinDeps = {
+  db, tarkistaOikeus,
+  FieldValue: admin.firestore.FieldValue,
+  HttpsError: functions.https.HttpsError,
+  audit: (toiminto, tiedot) => db.collection('audit').add(Object.assign({
+    toiminto, aikaleima: admin.firestore.FieldValue.serverTimestamp(),
+  }, tiedot)).catch(() => {}),
+};
+exports.asetaPelaajanPin = functions
+  .region('europe-west1')
+  .runWith({ enforceAppCheck: true })
+  .https.onCall(pelaajapin.luoAsetaPelaajanPin(pinDeps));
+exports.luoPinitSeuralle = functions
+  .region('europe-west1')
+  .runWith({ enforceAppCheck: true, timeoutSeconds: 300 })
+  .https.onCall(pelaajapin.luoLuoPinitSeuralle(pinDeps));

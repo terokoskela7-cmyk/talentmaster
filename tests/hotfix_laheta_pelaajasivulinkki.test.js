@@ -12,6 +12,8 @@ import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import vm from 'vm';
+import { createRequire } from 'module';
+const require_ = createRequire(import.meta.url);
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const CF = readFileSync(join(ROOT, 'functions', 'index.js'), 'utf8');
@@ -33,7 +35,7 @@ function aja(auth, { oikeus = false, tallennettu = 'huoltaja@x.fi' } = {}) {
   const ctx = {
     functions: ketju, exports: {}, console: { log() {}, warn() {}, error() {} }, encodeURIComponent, String,
     db: { collection: () => ({ doc: () => ({ collection: () => ({ doc: () => ({
-      get: async () => ({ exists: true, get: (k) => (k === 'huoltajaEmail' ? tallennettu : null) }),
+      get: async () => { const d = { huoltajaEmail: tallennettu, pin: '482915', tunniste: '12345678' }; return { exists: true, get: (k) => d[k], data: () => d }; },
       update: () => Promise.resolve(),
     }) }) }) }) },
     admin: { firestore: { FieldValue: { serverTimestamp: () => 'TS' } } },
@@ -41,8 +43,9 @@ function aja(auth, { oikeus = false, tallennettu = 'huoltaja@x.fi' } = {}) {
     tarkistaOikeus: async (uid, sid) => { loki.oikeus.push([uid, sid]); return { sallittu: oikeus }; },
     haeJoukkueNimi: async () => 'U12',
     haeOrLuoHuoltajaAuth: async () => { loki.luotu++; },
-    lahetaSahkoposti: async () => { loki.sposti++; },
-    pohjaPelaajaSivu: () => '<html>',
+    lahetaSahkoposti: async (m) => { loki.sposti++; loki.viesti = m; },
+    pohjaPelaajaSivu: (o) => JSON.stringify(o),
+      pelaajakirjautuminen: require_('../functions/pelaajakirjautuminen.js'),
     TM_BASE_URL: 'https://tm',
   };
   vm.createContext(ctx);
@@ -82,5 +85,12 @@ describe('HOTFIX · lahetaPelaajaSivuLinkki (ajettu)', () => {
     expect(r.ok).toBe(true);
     expect(r).not.toHaveProperty('salasanaLinkki');
     expect(JSON.stringify(r)).not.toContain('SALAINEN');
+  });
+  it('PR 4: sähköpostissa PalloID + PIN + henkilökohtainen linkki ?p=&seura= (ei nimiä URL:ssa); vastauksessa ei PIN:iä', async () => {
+    const t = aja(VP, { oikeus: true });
+    const r = await t.ajo;
+    const o = JSON.parse(t.loki.viesti.html);
+    expect(o).toMatchObject({ pin: '482915', palloId: '12345678', pelaajaLinkki: 'https://tm/TalentMaster_Pelaaja_v7.html?p=p1&seura=fcl' });
+    expect(JSON.stringify(r)).not.toContain('482915');
   });
 });

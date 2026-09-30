@@ -653,12 +653,12 @@ tbody td:first-child { font-weight:600; color:var(--ink); }
         </span>
       </div>
       <div class="kenttaRyhma" style="margin:0;">
-        <label class="kenttaLabel">PIN-koodi *</label>
+        <label class="kenttaLabel">PIN-koodi</label>
         <input class="kenttaInput" type="text" id="rek_pin"
-          placeholder="esim. 4721" maxlength="4" pattern="[0-9]{4}"
+          placeholder="jätä tyhjäksi" maxlength="6" pattern="[0-9]{6}"
           inputmode="numeric">
         <span style="font-size:11px;color:var(--ink3);margin-top:3px;display:block;">
-          4 numeroa — pelaaja kirjautuu tällä. Täytä tai generoidaan automaattisesti.
+          6 numeroa — pelaaja kirjautuu tällä. Jätä tyhjäksi, niin palvelin luo PIN:n.
         </span>
       </div>
     </div>
@@ -1973,6 +1973,21 @@ async function renderPelaajat(alue) {
           style="background:none;border:1px solid var(--border);font-size:11px;color:var(--ink3);">
           ⬇ Lataa Excel-pohja
         </button>
+        <!-- PR 4: tunnusten jako. Kohde = valitut pelaajat, muuten aktiivinen joukkuesuodatin (tai koko seura). -->
+        <span style="flex-basis:100%;height:0"></span>
+        <button class="lisaaNappi" onclick="luoPuuttuvatPinit()"
+          style="background:rgba(0,212,170,.12);border:1px solid rgba(0,212,170,.35);color:#00D4AA;">
+          🔑 Luo puuttuvat PIN-koodit
+        </button>
+        <button class="lisaaNappi" onclick="tulostaPinKortit()"
+          style="background:none;border:1px solid var(--border);color:var(--ink2);">
+          🖨️ Tulosta PIN-kortit
+        </button>
+        <button class="lisaaNappi" onclick="lahetaTunnuksetHuoltajille()"
+          style="background:none;border:1px solid var(--border);color:var(--ink2);">
+          📨 Lähetä tunnukset huoltajille
+        </button>
+        <span id="tunnusTila" style="font-size:11px;color:var(--ink3);"></span>
       </div>
       <div id="pelaajaListaAlue" style="padding:20px;color:var(--ink3);font-size:13px;">
         <div style="display:flex;align-items:center;gap:10px;">
@@ -3268,13 +3283,9 @@ async function lahetaRekisteriSahkoposti() {
 
       // Luodaan uusi dokumentti vain jos pelaajaa ei löydy
       if (!pelaajaId) {
-        // ── Generoidaan PIN automaattisesti jos ei annettu ──────────────────
-        // PIN on 4 numeroa, tallennetaan pelaajadokumenttiin
-        // Pelaaja kirjautuu tällä PIN:llä Pelaaja v1 -näkymään
+        // PR 4: PIN asetetaan VAIN palvelimella (asetaPelaajanPin) pelaajan luonnin jälkeen — Rules v3.30
+        // hylkää pin-kentän selaimesta. Tyhjä kenttä → palvelin luo 6-numeroisen PIN:n.
         const syotettyPin = document.getElementById('rek_pin')?.value?.trim() || '';
-        const pin = syotettyPin.length === 4 && /^[0-9]{4}$/.test(syotettyPin)
-          ? syotettyPin
-          : String(Math.floor(1000 + Math.random() * 9000));
 
         const palloIdArvo   = (document.getElementById('rek_palloId')?.value?.trim()    || null);   // #60: poistettu skooppaamaton 'palloId' (ReferenceError-riski tyhjällä kentällä — kenttäarvo jo luettu yllä)
         const sporttiIdArvo = (document.getElementById('rek_sporttiId')?.value?.trim()  || null);
@@ -3296,7 +3307,6 @@ async function lahetaRekisteriSahkoposti() {
           pelaajaId:     pelaajaId,
           suostumusTila: 'odottaa',
           // ── Kirjautumistunnisteet ──────────────────────────────────────
-          pin:           pin,         // 4-numeroinen PIN → Pelaaja v1
           palloID:       palloIdArvo, // Palloliiton tunniste (null jos ei annettu)
           sporttiID:     sporttiIdArvo, // Universaali urheilija-ID (null toistaiseksi)
           // ──────────────────────────────────────────────────────────────
@@ -3304,8 +3314,14 @@ async function lahetaRekisteriSahkoposti() {
           tuoja:         tila.kayttaja?.email || 'tuntematon',
         }));
 
-        // Näytetään generoitu PIN VP:lle toast-viestissä
-        naytaToast(`✅ Pelaaja luotu — PIN: ${pin}`, 'ok');
+        // PIN palvelimella; epäonnistuminen EI kaada luontia, mutta näytetään toimintaohje (ei hiljaista virhettä).
+        try {
+          const r = await _pinFn('asetaPelaajanPin')(Object.assign({ seuraId: tila.seuraId, pelaajaId: pelaajaId },
+            syotettyPin ? { pin: syotettyPin } : {}));
+          naytaToast(`✅ Pelaaja luotu — PIN: ${r.data.pin}`, 'ok');
+        } catch (pinErr) {
+          naytaToast('Pelaaja luotu, mutta PIN:n asetus epäonnistui (' + _pinVirheTeksti(pinErr) + '). Luo PIN pelaajakortin "Uusi PIN" -napista.', 'varoitus');
+        }
         console.log(`[TM] Pelaaja ${etunimi} ${sukunimi} luotu, PalloID: ${palloIdArvo}`);
       } else {
         // Päivitetään olemassa oleva dokumentti — §33: EI saa alentaa jo annettua suostumusta.
@@ -4327,23 +4343,20 @@ async function naytaPelaajaTiedot(pelaajaId) {
             <div style="font-size:12px;color:var(--ink2);">${p.huoltajaEmail || '—'}</div>
           </div>
         </div>
+        <!-- PR 4: PIN vain palvelimella (asetaPelaajanPin). Tyhjä kenttä → palvelin luo 6-numeroisen.
+             Vanha PIN lakkaa toimimasta heti (myös jo kirjautuneella pelaajalla). -->
         <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;align-items:center;">
-          <input id="pin-syote-${pelaajaId}" type="text" maxlength="4" pattern="[0-9]{4}"
-            inputmode="numeric" placeholder="${p.pin ? 'Uusi PIN' : 'esim. 2507'}"
-            style="width:100px;background:rgba(0,0,0,.3);border:1px solid rgba(0,212,170,.3);
-            border-radius:6px;padding:6px 10px;font-size:16px;font-family:monospace;
-            color:#00D4AA;letter-spacing:3px;text-align:center;"
-            onkeydown="if(event.key==='Enter')tallennaPelaajaPIN('${pelaajaId}')">
           <button class="lisaaNappi" style="background:rgba(0,212,170,.2);border:1px solid rgba(0,212,170,.4);
             color:#00D4AA;font-size:12px;padding:6px 14px;"
-            onclick="luoPelaajaPIN('${pelaajaId}')">
-            🎲 Generoi
+            onclick="uusiPelaajaPIN('${pelaajaId}')">
+            🔑 Uusi PIN
           </button>
-          <button class="lisaaNappi" style="background:rgba(42,93,176,.15);border:1px solid rgba(42,93,176,.3);
-            color:var(--blue);font-size:12px;padding:6px 12px;"
-            onclick="tallennaPelaajaPIN('${pelaajaId}')">
-            💾 Tallenna PIN
-          </button>
+          <input id="pin-syote-${pelaajaId}" type="text" maxlength="6" pattern="[0-9]{6}"
+            inputmode="numeric" placeholder="oma PIN (valinnainen)"
+            style="width:170px;background:rgba(0,0,0,.3);border:1px solid rgba(0,212,170,.3);
+            border-radius:6px;padding:6px 10px;font-size:14px;font-family:monospace;
+            color:#00D4AA;letter-spacing:2px;text-align:center;"
+            onkeydown="if(event.key==='Enter')uusiPelaajaPIN('${pelaajaId}')">
         </div>
         ${p.huoltajaEmail ? `
         <button class="lisaaNappi" style="margin-top:10px;width:100%;
@@ -5517,59 +5530,185 @@ async function lataaRekisteriPohja() {
 
 
 // ─────────────────────────────────────────────────────────────────
-// PIN-HALLINTA — luoPelaajaPIN ja tallennaPelaajaPIN
-// VP ja super-admin voivat luoda tai vaihtaa PIN-koodin
+// PIN-HALLINTA (PR 4) — PIN asetetaan VAIN palvelimella: asetaPelaajanPin / luoPinitSeuralle.
+// Hajautus + selväkielinen kopio samassa erässä, lukitukset nollataan (vanha PIN lakkaa toimimasta heti).
+// Oikeus: johto/SA koko seura, joukkueen valmentaja oma joukkue (palvelin tarkistaa).
 // ─────────────────────────────────────────────────────────────────
-function luoPelaajaPIN(pelaajaId) {
-  const pin = String(Math.floor(1000 + Math.random() * 9000));
-  const syote = document.getElementById('pin-syote-' + pelaajaId);
-  if (syote) {
-    syote.value = pin;
-    syote.style.borderColor = 'rgba(0,212,170,.6)';
-    syote.focus();
+function _pinFn(nimi) { return firebase.app().functions('europe-west1').httpsCallable(nimi, { timeout: 300000 }); }
+function _pinVirheTeksti(e) {
+  const koodi = String((e && e.code) || '').replace(/^functions\//, '');
+  if (koodi === 'permission-denied') return 'ei oikeutta tälle pelaajalle';
+  if (koodi === 'invalid-argument') return (e && e.message) || 'virheellinen PIN';
+  return (e && e.message) || 'tuntematon virhe';
+}
+function _paivitaPinPaikallisesti(pelaajaId, pin) {
+  const p = (window._pelaajatKaikki || []).find((x) => x.id === pelaajaId);
+  if (p) p.pin = pin;
+  const nakytys = document.getElementById('pin-nakytys-' + pelaajaId);
+  if (nakytys) {
+    nakytys.textContent = pin;
+    nakytys.style.background = 'rgba(0,212,170,.15)';
+    setTimeout(() => { if (nakytys) nakytys.style.background = 'rgba(0,0,0,.25)'; }, 1500);
   }
-  naytaToast('PIN generoitu: ' + pin + ' — paina Tallenna PIN', 'info');
+}
+/* Kohdejoukko tunnustyökaluille: valitut (checkbox) → muuten aktiivinen joukkue → muuten koko seura. */
+function _tunnusKohde() {
+  const valitut = Array.from(document.querySelectorAll('.pelValinta:checked')).map((c) => c.value);
+  const kaikki = window._pelaajatKaikki || [];
+  if (valitut.length) return { kuvaus: valitut.length + ' valittua pelaajaa', lista: kaikki.filter((p) => valitut.indexOf(p.id) >= 0), joukkue: null, valitut: true };
+  const j = window._aktiiviJoukkue || '';
+  if (j) {
+    const lista = kaikki.filter((p) => Array.isArray(p.joukkueet) && p.joukkueet.length ? p.joukkueet.includes(j) : p.joukkue === j);
+    const nimi = (lista[0] && (lista[0].joukkueNimi || lista[0].joukkue)) || j;
+    return { kuvaus: 'joukkue ' + nimi, lista, joukkue: j, valitut: false };
+  }
+  return { kuvaus: 'koko seura', lista: kaikki, joukkue: null, valitut: false };
+}
+function _tunnusTila(t) { const el = document.getElementById('tunnusTila'); if (el) el.textContent = t || ''; }
+function _pelaajaLinkki(p) {
+  const u = new URL('TalentMaster_Pelaaja_v7.html', location.href);
+  u.search = '?p=' + encodeURIComponent(p.id) + '&seura=' + encodeURIComponent(tila.seuraId);
+  return u.toString();
+}
+function _pinPalloId(p) { const v = p.palloID || p.palloId || p.tunniste; return v == null || String(v).trim() === '' ? '' : String(v).trim(); }
+
+/* Luo puuttuvat PIN-koodit (luoPinitSeuralle): kuiva-ajo → vahvistus lukumäärällä → luonti. Valituille
+   pelaajille ajetaan asetaPelaajanPin yksitellen (vain niille, joilta PIN puuttuu). */
+async function luoPuuttuvatPinit() {
+  const k = _tunnusKohde();
+  try {
+    if (k.valitut) {
+      const ilman = k.lista.filter((p) => !p.pin);
+      if (!ilman.length) { naytaToast('Kaikilla valituilla on jo PIN.', 'info'); return; }
+      if (!confirm('Luodaanko PIN-koodi ' + ilman.length + ' valitulle pelaajalle, joilta se puuttuu?')) return;
+      let ok = 0, virhe = 0;
+      for (const p of ilman) {
+        _tunnusTila('PIN ' + (ok + virhe + 1) + '/' + ilman.length + '…');
+        try { const r = await _pinFn('asetaPelaajanPin')({ seuraId: tila.seuraId, pelaajaId: p.id }); _paivitaPinPaikallisesti(p.id, r.data.pin); ok++; }
+        catch (e) { virhe++; console.warn('[PIN]', p.id, e && e.message); }
+      }
+      _tunnusTila('');
+      naytaToast('✅ PIN luotu ' + ok + ' pelaajalle' + (virhe ? ' · ' + virhe + ' epäonnistui (ei oikeutta tai virhe)' : ''), virhe ? 'varoitus' : 'ok');
+    } else {
+      const arg = Object.assign({ seuraId: tila.seuraId, vainPuuttuvat: true }, k.joukkue ? { joukkue: k.joukkue } : {});
+      _tunnusTila('Lasketaan…');
+      const esi = await _pinFn('luoPinitSeuralle')(Object.assign({ kuivaAjo: true }, arg));
+      _tunnusTila('');
+      const n = esi.data.luotaisiin || 0;
+      if (!n) { naytaToast('Kaikilla pelaajilla (' + k.kuvaus + ') on jo PIN.', 'info'); return; }
+      if (!confirm('Luodaanko uusi 6-numeroinen PIN ' + n + ' pelaajalle (' + k.kuvaus + ')?\nPelaajat, joilla on jo PIN, eivät muutu.')) return;
+      _tunnusTila('Luodaan PIN-koodeja…');
+      const r = await _pinFn('luoPinitSeuralle')(arg);
+      _tunnusTila('');
+      naytaToast('✅ PIN luotu ' + r.data.luotu + ' pelaajalle (' + k.kuvaus + ')', 'ok');
+    }
+    setTimeout(() => renderPelaajat(document.getElementById('nakymaAlue')), 600);
+  } catch (e) {
+    _tunnusTila('');
+    naytaToast('PIN-koodien luonti epäonnistui: ' + _pinVirheTeksti(e), 'virhe');
+  }
 }
 
-async function tallennaPelaajaPIN(pelaajaId) {
-  const syote = document.getElementById('pin-syote-' + pelaajaId);
-  const pin = (syote?.value || '').trim();
+/* PIN-kortit: A4-sivulle 8 korttia (2 × 4). Kortissa nimi, joukkue, PalloID, PIN ja QR pelaajan
+   henkilökohtaiseen linkkiin (?p=&seura= → Pelaaja_v7 näyttää pelkän PIN-näppäimistön). Ei muita
+   henkilötietoja. QR-kirjasto ladataan cdnjs:stä vasta tarvittaessa. */
+function _lataaQrKirjasto() {
+  if (window.QRCode) return Promise.resolve();
+  return new Promise((ok, virhe) => {
+    const sc = document.createElement('script');
+    sc.src = 'https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js';
+    sc.onload = () => ok(); sc.onerror = () => virhe(new Error('QR-kirjaston lataus epäonnistui'));
+    document.head.appendChild(sc);
+  });
+}
+function _qrDataUrl(teksti) {
+  const d = document.createElement('div');
+  new window.QRCode(d, { text: teksti, width: 180, height: 180, correctLevel: window.QRCode.CorrectLevel.M });
+  const c = d.querySelector('canvas');
+  return c ? c.toDataURL('image/png') : ((d.querySelector('img') || {}).src || '');
+}
+function _pinKortitHtml(kortit) {
+  const esc = (x) => String(x == null ? '' : x).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const kortti = (k) => '<div class="k"><div class="n">' + esc(k.nimi) + '</div><div class="j">' + esc(k.joukkue) + '</div>'
+    + '<div class="r"><img src="' + k.qr + '" alt="QR"><div class="t">'
+    + (k.palloId ? '<div class="l">PalloID</div><div class="v">' + esc(k.palloId) + '</div>' : '')
+    + '<div class="l">PIN</div><div class="v pin">' + esc(k.pin) + '</div></div></div>'
+    + '<div class="o">Skannaa ja syötä PIN</div></div>';
+  let sivut = '';
+  for (let i = 0; i < kortit.length; i += 8) sivut += '<div class="s">' + kortit.slice(i, i + 8).map(kortti).join('') + '</div>';
+  return '<!doctype html><html lang="fi"><head><meta charset="utf-8"><title>PIN-kortit</title><style>'
+    + '@page{size:A4;margin:10mm}body{margin:0;font-family:Arial,sans-serif;color:#111}'
+    + '.s{display:grid;grid-template-columns:1fr 1fr;grid-template-rows:repeat(4,1fr);gap:4mm;height:277mm;page-break-after:always}'
+    + '.k{border:1px dashed #888;border-radius:3mm;padding:4mm;display:flex;flex-direction:column}'
+    + '.n{font-size:15pt;font-weight:bold}.j{font-size:10pt;color:#555;margin-bottom:2mm}'
+    + '.r{display:flex;gap:4mm;align-items:center;flex:1}.r img{width:32mm;height:32mm}'
+    + '.l{font-size:8pt;color:#666;text-transform:uppercase;letter-spacing:.05em;margin-top:1mm}.v{font-size:14pt;font-family:monospace;letter-spacing:1.5px}'
+    + '.pin{font-size:20pt;font-weight:bold;letter-spacing:4px}.o{font-size:9pt;color:#333;text-align:center;margin-top:1mm}'
+    + '</style></head><body>' + sivut + '<script>window.onload=function(){setTimeout(function(){window.print()},300)}<\/script></body></html>';
+}
+async function tulostaPinKortit() {
+  const k = _tunnusKohde();
+  const lista = k.lista.filter((p) => p.pin);
+  const ilman = k.lista.length - lista.length;
+  if (!lista.length) { naytaToast('Kenelläkään (' + k.kuvaus + ') ei ole PIN:iä. Luo ensin PIN-koodit.', 'varoitus'); return; }
+  const w = window.open('', '_blank');   // avataan heti (ponnahdusikkunan esto), täytetään kun QR:t valmiit
+  if (!w) { naytaToast('Selain esti tulostusikkunan — salli ponnahdusikkunat tälle sivulle.', 'virhe'); return; }
+  try {
+    await _lataaQrKirjasto();
+    const kortit = lista.slice().sort((a, b) => ((a.sukunimi || '') + (a.etunimi || '')).localeCompare((b.sukunimi || '') + (b.etunimi || ''), 'fi'))
+      .map((p) => ({ nimi: ((p.etunimi || '') + ' ' + (p.sukunimi || '')).trim(), joukkue: p.joukkueNimi || p.joukkue || '',
+        palloId: _pinPalloId(p), pin: p.pin, qr: _qrDataUrl(_pelaajaLinkki(p)) }));
+    w.document.open(); w.document.write(_pinKortitHtml(kortit)); w.document.close();
+    if (ilman) naytaToast(ilman + ' pelaajalta puuttuu PIN, eikä heille tehty korttia.', 'varoitus');
+  } catch (e) {
+    try { w.close(); } catch (_) {}
+    naytaToast('PIN-korttien teko epäonnistui: ' + ((e && e.message) || e), 'virhe');
+  }
+}
 
-  if (!/^[0-9]{4}$/.test(pin)) {
-    naytaToast('PIN pitää olla täsmälleen 4 numeroa (esim. 2507).', 'virhe');
+/* Lähetä tunnukset huoltajille: lahetaPelaajaSivuLinkki sarjassa (sähköpostissa PalloID + PIN + linkki).
+   Ohitetaan pelaajat ilman huoltajaEmailia tai PIN:iä — lukumäärät näytetään. */
+async function lahetaTunnuksetHuoltajille() {
+  const k = _tunnusKohde();
+  const eiEmailia = k.lista.filter((p) => !p.huoltajaEmail).length;
+  const eiPinia = k.lista.filter((p) => p.huoltajaEmail && !p.pin).length;
+  const kohteet = k.lista.filter((p) => p.huoltajaEmail && p.pin);
+  if (!kohteet.length) { naytaToast('Ei lähetettävää (' + k.kuvaus + '): ' + eiEmailia + ' ilman huoltajan sähköpostia, ' + eiPinia + ' ilman PIN:iä.', 'varoitus'); return; }
+  if (!confirm('Lähetetäänkö tunnukset (PalloID, PIN ja linkki) ' + kohteet.length + ' huoltajalle (' + k.kuvaus + ')?'
+    + (eiEmailia ? '\n' + eiEmailia + ' ohitetaan: ei huoltajan sähköpostia.' : '')
+    + (eiPinia ? '\n' + eiPinia + ' ohitetaan: ei PIN:iä (luo ensin PIN-koodit).' : ''))) return;
+  const fn = firebase.app().functions('europe-west1').httpsCallable('lahetaPelaajaSivuLinkki');
+  let ok = 0, virhe = 0;
+  for (const p of kohteet) {
+    _tunnusTila('Lähetetään ' + (ok + virhe + 1) + '/' + kohteet.length + '…');
+    try {
+      await fn({ hEmail: p.huoltajaEmail, pelaajaId: p.id, seuraId: tila.seuraId, etunimi: p.etunimi || '', sukunimi: p.sukunimi || '',
+        seura: tila.seuraNimi || tila.seuraId, joukkue: p.joukkue || '' });
+      ok++;
+    } catch (e) { virhe++; console.warn('[tunnukset]', p.id, e && e.message); }
+  }
+  _tunnusTila('');
+  naytaToast('✅ Tunnukset lähetetty ' + ok + ' huoltajalle' + (virhe ? ' · ' + virhe + ' epäonnistui' : '')
+    + (eiEmailia ? ' · ' + eiEmailia + ' ilman sähköpostia' : '') + (eiPinia ? ' · ' + eiPinia + ' ilman PIN:iä' : ''), virhe ? 'varoitus' : 'ok');
+}
+
+async function uusiPelaajaPIN(pelaajaId) {
+  const syote = document.getElementById('pin-syote-' + pelaajaId);
+  const oma = (syote?.value || '').trim();
+  if (oma && !/^[0-9]{6}$/.test(oma)) {
+    naytaToast('Oman PIN:n on oltava 6 numeroa — tai jätä kenttä tyhjäksi, niin palvelin luo PIN:n.', 'virhe');
     if (syote) { syote.style.borderColor = 'rgba(217,96,96,.6)'; syote.focus(); }
     return;
   }
-
+  const p = (window._pelaajatKaikki || []).find((x) => x.id === pelaajaId);
+  if (p && p.pin && !confirm('Luodaanko uusi PIN? Vanha PIN (' + p.pin + ') lakkaa toimimasta heti.')) return;
   try {
-    const olemassa = await db.collection('seurat').doc(tila.seuraId)
-      .collection('pelaajat')
-      .where('pin', '==', pin)
-      .limit(1).get();
-    if (!olemassa.empty && olemassa.docs[0].id !== pelaajaId) {
-      naytaToast('PIN ' + pin + ' on jo käytössä toisella pelaajalla. Valitse eri koodi.', 'virhe');
-      return;
-    }
-  } catch(e) { console.warn('[PIN]', e.message); }
-
-  try {
-    await db.collection('seurat').doc(tila.seuraId)
-      .collection('pelaajat').doc(pelaajaId)
-      .update({
-        pin: pin,
-        muokattu: firebase.firestore.FieldValue.serverTimestamp(),
-      });
-
-    const nakytys = document.getElementById('pin-nakytys-' + pelaajaId);
-    if (nakytys) {
-      nakytys.textContent = pin;
-      nakytys.style.background = 'rgba(0,212,170,.15)';
-      setTimeout(() => { if (nakytys) nakytys.style.background = 'rgba(0,0,0,.25)'; }, 1500);
-    }
+    const r = await _pinFn('asetaPelaajanPin')(Object.assign({ seuraId: tila.seuraId, pelaajaId: pelaajaId }, oma ? { pin: oma } : {}));
+    _paivitaPinPaikallisesti(pelaajaId, r.data.pin);
     if (syote) { syote.value = ''; syote.style.borderColor = 'rgba(0,212,170,.3)'; }
-    naytaToast('✅ PIN ' + pin + ' tallennettu! Pelaaja voi nyt kirjautua.', 'ok');
-  } catch(e) {
-    naytaToast('Tallennus epäonnistui: ' + e.message, 'virhe');
+    naytaToast('✅ Uusi PIN ' + r.data.pin + ' — vanha PIN ei enää toimi.', 'ok');
+  } catch (e) {
+    naytaToast('PIN:n asetus epäonnistui: ' + _pinVirheTeksti(e), 'virhe');
   }
 }
 
@@ -6103,6 +6242,15 @@ async function ajaExcelTuonti(lahetaKutsut = false) {
   if (onni) {
     onni.textContent = `✅ ${msg}`;
     onni.style.display = 'block';
+    // PR 4: Excel-tuonti ei aseta PIN:iä → kehote luoda ne heti (palvelimella, luoPinitSeuralle).
+    if (tuotu > 0) {
+      const kehote = document.createElement('button');
+      kehote.className = 'lisaaNappi';
+      kehote.style.cssText = 'margin-top:10px;display:block;background:rgba(0,212,170,.15);border:1px solid rgba(0,212,170,.35);color:#00D4AA;';
+      kehote.textContent = 'Luo PIN-koodit tuoduille pelaajille →';
+      kehote.onclick = () => { window._aktiiviJoukkue = ''; renderPelaajat(document.getElementById('nakymaAlue')).then(() => luoPuuttuvatPinit()); };
+      onni.appendChild(kehote);
+    }
   }
   if (virhe && virheet === 0) virhe.textContent = ''; // tyhjennä virheviesti jos kaikki ok
 

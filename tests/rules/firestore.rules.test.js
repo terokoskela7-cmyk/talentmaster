@@ -3302,3 +3302,67 @@ describe('v3.27 · Solo Polku A -profiilierä (getAfter)', () => {
     expect(p.data().playerCode).toBe(ORPO);
   });
 });
+
+/* ══════════════════════════════════════════════════════════════════════════════════════════
+   v3.30 · PIN VAIN PALVELIMELLA (Vaihe 0 / PR 4)
+   Selain ei aseta eikä muuta pin-kenttää (hajautus _pelaajaPin ja selväkielinen kopio pysyvät samana).
+   Solo: child_pin vain palvelimella. Lupapyynnön tulos alidokumentissa tulos/{token}.
+══════════════════════════════════════════════════════════════════════════════════════════ */
+describe('v3.30 · PIN vain palvelimella', () => {
+  beforeEach(async () => { await seedSeuraAndPelaaja(); await seedAdminDoc(); });
+  const pel = (db) => doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID);
+
+  it('henkilökunta (VP, oman joukkueen valmentaja) EI päivitä pin-kenttää — muut kentät ennallaan', async () => {
+    for (const db of [vpContext(SEURA_A).firestore(), valmentajaContext(VALM_A_UID, SEURA_A).firestore()]) {
+      await assertFails(updateDoc(pel(db), { pin: '482915' }));
+      await assertFails(updateDoc(pel(db), { pin_asetettu: new Date() }));
+      await assertFails(updateDoc(pel(db), { pelipaikka: 'KH', pin: '482915' }));
+      await assertSucceeds(updateDoc(pel(db), { pelipaikka: 'KH' }));
+    }
+  });
+  it('SA:kaan EI päivitä pin-kenttää selaimesta (Admin SDK ohittaa säännöt)', async () => {
+    await assertFails(updateDoc(pel(saContext().firestore()), { pin: '482915' }));
+    await assertSucceeds(updateDoc(pel(saContext().firestore()), { pelipaikka: 'OP' }));
+  });
+  it('create ilman pin-kenttää onnistuu, pin-kentän kanssa hylätään', async () => {
+    const db = vpContext(SEURA_A).firestore();
+    await assertSucceeds(setDoc(doc(db, 'seurat', SEURA_A, 'pelaajat', 'uusi-ok'), { etunimi: 'Uusi', joukkueet: [JOUKKUE_A1] }));
+    await assertFails(setDoc(doc(db, 'seurat', SEURA_A, 'pelaajat', 'uusi-pin'), { etunimi: 'Uusi', joukkueet: [JOUKKUE_A1], pin: '482915' }));
+  });
+  it('pelaajatoken EI muuta omaa pin-kenttäänsä', async () => {
+    await assertFails(updateDoc(pel(pelaajaItseContext().firestore()), { pin: '482915' }));
+  });
+
+  it('Solo: vanhempi EI aseta (create) eikä muuta child_pin-kenttää; muu profiili ennallaan', async () => {
+    const P = 'solo-pin-vanhempi';
+    const v = testEnv.authenticatedContext(P).firestore();
+    await assertFails(setDoc(doc(v, 'players', 'sp-1'), { parent_uid: P, nimi: 'L', child_pin: '482915' }));
+    await assertSucceeds(setDoc(doc(v, 'players', 'sp-2'), { parent_uid: P, nimi: 'L' }));
+    await testEnv.withSecurityRulesDisabled(async (c) => {
+      await setDoc(doc(c.firestore(), 'players', 'sp-3'), { parent_uid: P, nimi: 'L', child_pin: '482915', playerCode: 'TMP-ABCDEF' });
+    });
+    await assertFails(updateDoc(doc(v, 'players', 'sp-3'), { child_pin: '000111' }));
+    await assertSucceeds(updateDoc(doc(v, 'players', 'sp-3'), { nimi: 'Uusi nimi' }));
+    await assertSucceeds(setDoc(doc(v, 'players', 'sp-3'), { pp: 'oikea' }, { merge: true }));   // Solo_Profiilin tallennus
+  });
+
+  it('lupapyynnot/{rid}/tulos/{token}: get tunnetulla tokenilla, EI list, EI kirjoitusta; väärä token → ei löydy', async () => {
+    await testEnv.withSecurityRulesDisabled(async (c) => {
+      await setDoc(doc(c.firestore(), 'lupapyynnot', 'rq-1'), { status: 'hyvaksytty', token_hash: 'h', playerId: 'p1' });
+      await setDoc(doc(c.firestore(), 'lupapyynnot', 'rq-1', 'tulos', 'tok-oikea'), { child_pin: '482915', playerCode: 'TMP-ABCDEF', playerId: 'p1' });
+    });
+    const anon = unauthContext().firestore();
+    const s = await assertSucceeds(getDoc(doc(anon, 'lupapyynnot', 'rq-1', 'tulos', 'tok-oikea')));
+    expect(s.data().child_pin).toBe('482915');
+    const vaara = await assertSucceeds(getDoc(doc(anon, 'lupapyynnot', 'rq-1', 'tulos', 'tok-vaara')));
+    expect(vaara.exists()).toBe(false);
+    await assertFails(getDocs(collection(anon, 'lupapyynnot', 'rq-1', 'tulos')));
+    await assertFails(setDoc(doc(anon, 'lupapyynnot', 'rq-1', 'tulos', 'tok-x'), { child_pin: '1' }));
+    const kirj = testEnv.authenticatedContext('joku').firestore();
+    await assertFails(getDocs(collection(kirj, 'lupapyynnot', 'rq-1', 'tulos')));
+    // Päädokumentissa ei ole PIN:iä eikä koodia (uusi malli)
+    const paa = await assertSucceeds(getDoc(doc(anon, 'lupapyynnot', 'rq-1')));
+    expect(paa.data()).not.toHaveProperty('child_pin');
+    expect(paa.data()).not.toHaveProperty('playerCode');
+  });
+});

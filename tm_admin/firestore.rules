@@ -1,9 +1,17 @@
 rules_version = '2';
 // ══════════════════════════════════════════════════════════════════════════
-// TalentMaster™ — firestore.rules v3.29
+// TalentMaster™ — firestore.rules v3.30
 //
 // Lähde:  tm_admin/firestore.rules
 // Deploy: PR → N4-CI deployaa automaattisesti (Console-käsityö poistui).
+//
+// Muutokset v3.29 → v3.30 (Vaihe 0 / PR 4 — PIN vain palvelimella):
+//   · seurat/{sid}/pelaajat: selain EI aseta (create) eikä muuta (update) kenttiä pin / pin_asetettu —
+//     myöskään SA. PIN kirjoitetaan asetaPelaajanPin / luoPinitSeuralle / vahvistaSuostumus -funktioissa,
+//     jotka kirjoittavat hajautuksen (_pelaajaPin) ja selväkielisen kopion samassa erässä.
+//   · players (Solo): vanhempi ei aseta eikä muuta child_pin-kenttää (soloHyvaksyLupa + _soloPin).
+//   · lupapyynnot/{rid}/tulos/{token}: get sallittu, list ja kirjoitus kielletty. Päädokumentissa ei enää
+//     child_pin/playerCode (uudet pyynnöt: vain token_hash).
 //
 // Muutokset v3.28 → v3.29 (Vaihe 0 / PR 3b):
 //   · playerCodes: `read` → `get` kirjautuneelle + `list: if false`. Selain tarvitsee vain getin
@@ -484,6 +492,14 @@ service cloud.firestore {
     //     EI lisätä onJohtoRooli:on (talenttivalmentaja ei ole hallintorooli); ohitus vain tässä joukkulukossa.
     // SA erikseen kutsupaikoissa.
     // Fail-closed: pelaajalla/valmentajalla ei joukkueet-kenttää → [] → hasAny false → estetty (ellei ohittava rooli).
+    // v3.30 (PR 4) — PIN vain palvelimella: selain ei aseta eikä muuta pin-kenttää (Admin SDK ohittaa säännöt).
+    function pinEiAsetetaClientista() {
+      return !request.resource.data.keys().hasAny(['pin', 'pin_asetettu']);
+    }
+    function pinEiMuutuClientista() {
+      return !request.resource.data.diff(resource.data).affectedKeys().hasAny(['pin', 'pin_asetettu']);
+    }
+
     function onOmanJoukkueenValmentaja(seuraId, pelaajaId) {
       return onOmanSeuranValmentaja(seuraId)
           && ( onJohtoRooli()
@@ -798,8 +814,11 @@ service cloud.firestore {
                           && resource.data.huoltajaEmail is string
                           && request.auth.token.email.lower()
                              == resource.data.huoltajaEmail.lower());
-        allow create: if onSuperAdmin() || onOmanSeuranValmentaja(seuraId);
-        allow update: if onSuperAdmin() || onOmanJoukkueenValmentaja(seuraId, pelaajaId)   // permissio-joukkulukko: ADAR-pikakentät ym. vain oman joukkueen pelaajaan (johto ohittaa)
+        // v3.30 (PR 4): PIN asetetaan VAIN palvelimella (asetaPelaajanPin / luoPinitSeuralle / vahvistaSuostumus),
+        // jotta hajautus (_pelaajaPin) ja selväkielinen kopio pysyvät samana. Koskee myös SA:n selainkirjoituksia.
+        allow create: if (onSuperAdmin() || onOmanSeuranValmentaja(seuraId)) && pinEiAsetetaClientista();
+        allow update: if pinEiMuutuClientista() && (
+                         onSuperAdmin() || onOmanJoukkueenValmentaja(seuraId, pelaajaId)   // permissio-joukkulukko: ADAR-pikakentät ym. vain oman joukkueen pelaajaan (johto ohittaa)
                       || onTestivastaava(seuraId)   // testituonnin profiili-pikakentät (hh_taso/hh_viimeisin/mas_kmh)
                       || (onOmaSeura(seuraId) && request.auth.uid == pelaajaId)
                       // Pelaaja itse saa päivittää VAIN oman xp/streak-pelillistyksen
@@ -844,7 +863,7 @@ service cloud.firestore {
                       // vain scout_potentiaali*-pikakentät (ei koske 5D/IDP:tä). ⏳ ODOTTAA CONSOLE-DEPLOYTA (§12).
                       || (onOmaSeura(seuraId) && onJohtoRooli()
                           && request.resource.data.diff(resource.data).affectedKeys()
-                             .hasOnly(['scout_potentiaali', 'scout_potentiaali_taso', 'scout_potentiaali_huomiot', 'scout_potentiaali_pvm', 'scout_potentiaali_arvioija']));
+                             .hasOnly(['scout_potentiaali', 'scout_potentiaali_taso', 'scout_potentiaali_huomiot', 'scout_potentiaali_pvm', 'scout_potentiaali_arvioija'])));
         // GDPR (#96): pelaajan pääDocin poisto VAIN SA (client). Aiempi johto-client-delete poisti vain
         // pääDocin → JÄTTI orvoiksi alikokoelmat + ristiviitteet + Storage-media + Auth (GDPR-rikkomus,
         // spec §0.1/§0.5). Johto poistaa nyt RTBF-CF:n (poistaPelaajaGDPR) kautta, joka tekee TÄYDEN
@@ -1541,8 +1560,12 @@ service cloud.firestore {
       allow get:    if (request.auth != null && request.auth.uid == resource.data.parent_uid)
                     || onSoloLapsiItse(playerId);
       allow list:   if request.auth != null && request.auth.uid == resource.data.parent_uid;
-      allow create: if request.auth != null && request.auth.uid == request.resource.data.parent_uid;
-      allow update: if (request.auth != null && request.auth.uid == resource.data.parent_uid)
+      // v3.30 (PR 4): child_pin asetetaan VAIN palvelimella (soloHyvaksyLupa kirjoittaa myös _soloPin-hajautuksen).
+      // Selaimesta asetettu/vaihdettu child_pin ei päivittäisi hajautusta → kirjautuminen hajoaisi.
+      allow create: if request.auth != null && request.auth.uid == request.resource.data.parent_uid
+                    && !request.resource.data.keys().hasAny(['child_pin']);
+      allow update: if (request.auth != null && request.auth.uid == resource.data.parent_uid
+                        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['child_pin']))
                     || (onSoloLapsiItse(playerId)
                         && request.resource.data.parent_uid == resource.data.parent_uid
                         && request.resource.data.child_pin  == resource.data.child_pin
@@ -1589,6 +1612,13 @@ service cloud.firestore {
       allow get:            if true;                                          // lapsen laite pollaa OMAA requestId:tä (token vain hakijalla)
       allow list:           if false;                                        // ei enumeraatiota
       allow update, delete: if false;                                        // VAIN CF (Admin SDK) hyväksynnässä/hylkäyksessä
+      // v3.30 (PR 4): hyväksynnän tulos (child_pin + playerCode) alidokumentissa tulos/{token}. Päädokumentti on
+      // get:if true, joten siinä ei ole PIN:iä eikä koodia (vain token_hash). Token on vain lapsen laitteella ja
+      // vanhemman linkissä → get tunnetulla tokenilla, EI list, EI kirjoitusta.
+      match /tulos/{token} {
+        allow get:          if true;
+        allow list, write:  if false;
+      }
     }
   }
 }
