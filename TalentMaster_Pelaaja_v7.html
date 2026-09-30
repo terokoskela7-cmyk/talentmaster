@@ -3963,8 +3963,12 @@ function _initFirebase() {
          CODE_BRIEF_PELAAJAN_TUNNISTUS v2). SA:n esikatselu kulkee sähköposti/Google-kirjautumisen
          kautta (_lataaFirebasePelaaja), ei tätä haaraa. */
       if (user.isAnonymous) {
-        _vanhaPinSessioOhjaus();   // vanha PIN-istunto → "Kirjaudu kerran uudelleen" (PR 1)
-        _goPin('anonyymi istunto (vanha polku) — kirjaudu PalloID:llä');
+        /* PR 3 (Rules v3.28): anonyymi istunto ei enää lue mitään → kirjataan ulos, muuten pelaaja
+           näkisi tyhjää dataa ymmärtämättä miksi. signOut laukaisee kuuntelijan uudelleen (user=null). */
+        _vanhaPinSessioOhjaus();   // tm_pin_sessio pois
+        _pinIlmoitus = 'Kirjaudu kerran uudelleen';
+        try { await auth.signOut(); } catch (e) { console.warn('[auth] anonyymin uloskirjaus', e && e.message); }
+        _goPin('anonyymi istunto (suljettu v3.28) — kirjaudu PalloID:llä');
         return;
       }
 
@@ -4627,7 +4631,7 @@ async function _kirjaaHarjoite(tyyppi) {
     }
   } catch (e) {
     console.warn('[kirjaaHarjoite]', tyyppi, e.code || '', e.message);
-    // Rules sallivat anonyymin PIN-kirjauksen → permission-denied = istunto vanhentunut → kirjaudu uudelleen.
+    // Rules sallivat pelaajan oman kirjauksen (pelaajatoken) → permission-denied = istunto vanhentunut → kirjaudu uudelleen.
     _naytaKirjausVirhe((e && e.code === 'permission-denied')
       ? 'Kirjaus ei tallentunut — kirjaudu uudelleen PIN-koodilla.'
       : 'Kirjaus ei tallentunut — tarkista verkkoyhteys ja yritä uudelleen.');
@@ -4841,14 +4845,14 @@ window._tallennaTakautuva = _tallennaTakautuva;
    { liittoTunnus: PalloID, pin } → pelaajaKirjaudu (europe-west1, App Check) → custom token
    { rooli:'pelaaja', pelaajaSeuraId, pelaajaId } → signInWithCustomToken. PIN:iä EI enää haeta
    selaimessa (vaati koko pelaajakokoelman anonyymin lukuoikeuden, kovakoodattu seuralista).
-   SIIRTYMÄ: jos funktio ei ole saatavilla (ei deployattu / verkko / App Check -häiriö), käytetään
-   vanhaa PIN-polkua (_kirjauduPinilla) — se poistuu PR 3:ssa, kun anonyymi pääsy suljetaan.
-   Tunnus- ja PIN-virhe EIVÄT pudota vanhaan polkuun. */
+   PR 3 (Rules v3.28): anonyymi varapolku POISTETTU. Palvelinhäiriö (App Check / internal /
+   unavailable) näytetään pelaajalle ja raportoidaan Sentryyn virheenä — ei pudotusta mihinkään. */
 const _TUNNUS_LS = 'tm_pelaaja_tunnus';
 let _pinIlmoitus = '';
 function _muistettuTunnus() { try { return localStorage.getItem(_TUNNUS_LS) || ''; } catch (e) { return ''; } }
 function _pinVirhe(t) { const e = document.getElementById('pinVirhe'); if (e) e.textContent = t; }
 const _PK_VIRHE_TUNNISTUS = 'Tunnus tai PIN on väärin.';
+const _PK_VIRHE_INFRA = 'Kirjautuminen ei juuri nyt onnistu. Yritä hetken päästä uudelleen.';
 
 async function _kirjaudu(pin) {
   const tunnus = String((document.getElementById('pinTunnus') || {}).value || '').replace(/[\s-]/g, '');
@@ -4869,29 +4873,29 @@ async function _kirjaudu(pin) {
     _pin = ''; draw();
     if (koodi === 'resource-exhausted') { _pinVirhe(viesti || 'Liian monta yritystä. Yritä myöhemmin.'); return; }
     if (koodi === 'invalid-argument' || viesti === _PK_VIRHE_TUNNISTUS) { _pinVirhe(_PK_VIRHE_TUNNISTUS); return; }
-    const syy = _varapolunSyy(koodi, viesti);
-    console.warn('[pelaajaKirjaudu] ei saatavilla → vanha PIN-polku (siirtymä):', syy);
-    _raportoiVarapolku(syy);
-    await _kirjauduPinilla(pin);
+    const syy = _infraVirheenSyy(koodi, viesti);
+    console.error('[pelaajaKirjaudu] palvelinvirhe:', syy);
+    _raportoiKirjautumisvirhe(syy);
+    _pinVirhe(_PK_VIRHE_INFRA);
   } finally {
     _kirjautuminenKesken = false;
   }
 }
 
-/* VARAPOLUN HÄLYTYS (review #675): jokainen pudotus vanhaan polkuun näkyy Sentryssä syykoodilla,
-   muuten App Check- tai IAM-vika (createCustomToken/signBlob) jäisi huomaamatta, koska kirjautuminen
-   "toimii". Ei PII:tä: vain syykoodi (ei tunnusta, ei PIN:iä). */
-function _varapolunSyy(koodi, viesti) {
+/* KIRJAUTUMISVIRHEEN HÄLYTYS (review #675, PR 3): palvelinhäiriö estää kirjautumisen kokonaan, joten
+   se raportoidaan Sentryyn VIRHEENÄ syykoodilla (App Check / IAM createCustomToken/signBlob / verkko).
+   Ei PII:tä: vain syykoodi (ei tunnusta, ei PIN:iä). */
+function _infraVirheenSyy(koodi, viesti) {
   if (/app.?check/i.test(viesti) || (koodi === 'unauthenticated' && viesti !== _PK_VIRHE_TUNNISTUS)) return 'app-check';
   if (koodi === 'internal') return 'internal';
   if (koodi === 'unavailable' || koodi === 'deadline-exceeded') return 'unavailable';
   if (koodi === 'not-found') return 'not-found';
   return koodi || 'muu';
 }
-function _raportoiVarapolku(syy) {
+function _raportoiKirjautumisvirhe(syy) {
   try {
     if (window.Sentry && typeof window.Sentry.captureMessage === 'function') {
-      window.Sentry.captureMessage('pelaajaKirjaudu → varapolku: ' + syy, { level: 'warning', tags: { tm_varapolku: syy } });
+      window.Sentry.captureMessage('pelaajaKirjaudu epäonnistui: ' + syy, { level: 'error', tags: { tm_kirjautumisvirhe: syy } });
     }
   } catch (e) { /* Sentry ei saa kaataa kirjautumista */ }
 }
@@ -4906,94 +4910,6 @@ async function _lataaOmaPelaaja(db, seuraId, pelaajaId) {
   _kaynnistaAppUI();
   return true;
 }
-
-async function _kirjauduPinilla(pin) {
-  if (!pin || pin.length !== 4) return;
-  if (!window._db || !window._auth) return;
-
-  const db   = window._db;
-  const auth = window._auth;
-
-  try {
-    // Anonyymi auth tarvitaan Firestore-rules:ia varten
-    if (!auth.currentUser) {
-      _kirjautuminenKesken = true;
-      await auth.signInAnonymously().catch(e => console.warn('[anon]', e.message));
-      _kirjautuminenKesken = false;
-    }
-
-    // Hae PIN-hakemistosta (kaikki pilottiseurat)
-    const SEURAT = ['kpv','fcl','palloiirot','yvies','sjk','grifk','vifk'];
-    let found = null;
-    let foundSeura = null;
-
-    for (const seura of SEURAT) {
-      try {
-        const snap = await db.collection('seurat').doc(seura)
-          .collection('pelaajat')
-          .where('pin', '==', pin).limit(1).get();
-        if (!snap.empty) {
-          found = { id: snap.docs[0].id, seuraId: seura, ...snap.docs[0].data() };
-          foundSeura = seura;
-          break;
-        }
-      } catch(e) { /* seura ei ole käytössä */ }
-    }
-
-    if (!found) {
-      // Fallback: tarkista demo-pelaajat (kehitys- ja demokäyttö)
-      const DEMO_PINIT = {
-        '1234': { etunimi:'Aleksi', sukunimi:'Mäkinen', pelaajaProfiili:'P14 · RAILGUN',
-                  seuraId:'kpv', id:'demo_aleksi', _demo:true,
-                  taso:7, xp:620, streak:14, flei_viimeisin:84, syntymaVuosi:2012,
-                  pelipaikka:'KH', joukkueId:'KPV P14 Musta',
-                  sbl:2.7, sfl:1.6, ll:2.3, diag:2.2, dfl:2.0 },
-        '9012': { etunimi:'Anton',  sukunimi:'M',       pelaajaProfiili:'P14 · MUSTA',
-                  seuraId:'kpv', id:'demo_anton',  _demo:true,
-                  taso:7, xp:620, streak:14, flei_viimeisin:71, syntymaVuosi:2011,
-                  pelipaikka:'P', joukkueId:'KPV P14 Musta',
-                  sbl:2.1, sfl:1.8, ll:2.0, diag:1.5, dfl:2.2 },
-        '5555': { etunimi:'Demo',   sukunimi:'Pelaaja', pelaajaProfiili:'Demo',
-                  seuraId:'kpv', id:'demo_5555',   _demo:true,
-                  taso:3, xp:180, streak:3, flei_viimeisin:60, syntymaVuosi:2012,
-                  pelipaikka:'–', joukkueId:'Demo',
-                  sbl:1.8, sfl:1.6, ll:1.7, diag:1.4, dfl:1.9 },
-      };
-      // Käytetään demoKirjaudu()-funktiota jossa on täydellinen pelaajadata (sbl/sfl/ll/diag/dfl)
-      const DEMO_PIN_MAP = { '1234':'aleksi', '9012':'aleksi', '5555':'aleksi' };
-      if (DEMO_PIN_MAP[pin]) {
-        // Demo-paneeli vain ?demo=1:llä — demoKirjaudu() hoitaa loput
-        demoKirjaudu(DEMO_PIN_MAP[pin]);
-        return;
-      }
-      // Ei löydy mistään — näytä virhe
-      const errEl = document.querySelector('.pin-err, #pinVirhe');
-      if (errEl) errEl.textContent = 'Virheellinen PIN. Tarkista koodi.';
-      else { _pin=''; draw(); } // resetoi PIN-ruutu
-      return;
-    }
-
-    // Tallenna sessio localStorage:een (30 pv)
-    localStorage.setItem('tm_pin_sessio', JSON.stringify({
-      pelaajaId: found.id, seuraId: foundSeura,
-      ts: Date.now()
-    }));
-
-    _pelaaja = found;
-    window._seuraId = foundSeura;
-    // P6 — havainto-kuuntelija käynnistyy _kaynnistaAppUI():n sisällä,
-    // joka tarkistaa window._p7Pelaaja:n. Asetetaan se ennen kutsua,
-    // jotta _p6KaynnistakuuntelIja saa oikeat tunnisteet.
-    window._p7Pelaaja = { seuraId: foundSeura, pelaajaId: found.id };
-    _kaynnistaAppUI();
-
-  } catch(e) {
-    console.warn('[PIN kirjautuminen]', e.message);
-    const errEl = document.querySelector('.pin-err, #pinVirhe');
-    if (errEl) errEl.textContent = 'Verkkovirhe — yritä uudelleen.';
-  }
-}
-
 
 /* ══════════════════════════════════════════════════════════
    WHY-LAUSEET (Tero Koskela, v1.1)
@@ -6264,7 +6180,7 @@ function _p6Tilaa(seuraId, pelaajaId, yritys) {
 
   /* reaaliaikainen kuuntelija — reagoi välittömästi kun valmentaja tallentaa.
      KAKSI yhtäsuuruusehtoa (tila + nakyvyys) ei vaadi komposiitti-indeksiä. `nakyvyys` on
-     PAKKO olla kyselyssä, koska Rules ei suodata: anonyymin lukuoikeus on rajattu
+     PAKKO olla kyselyssä, koska Rules ei suodata: pelaajan lukuoikeus on rajattu
      `nakyvyys=='pelaaja'`-dokumentteihin, joten ilman ehtoa koko kysely hylättäisiin.
      pelaaja_lukenut suodatetaan clientissa. */
   window._havUnsub = db

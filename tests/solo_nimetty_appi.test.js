@@ -50,8 +50,8 @@ describe('Solo-sivut · nimetty appi', () => {
 });
 
 /* ── lapsiKirjaudu ajettuna ── */
-function pura(K, tunniste) {
-  const alku = K.indexOf(tunniste);
+function pura(K, tunniste, alkaen = 0) {
+  const alku = K.indexOf(tunniste, alkaen);
   if (alku < 0) throw new Error('ei löydy: ' + tunniste);
   let d = 0;
   for (let j = K.indexOf('{', alku); j < K.length; j++) {
@@ -62,13 +62,15 @@ function pura(K, tunniste) {
 const PH = lue('TalentMaster_Player_Home.html');
 const LAHDE = [
   "var _SOLO_VIRHE_TUNNISTUS = 'Tunnus tai PIN on väärin.';",
-  pura(PH, 'function _soloVarapolunSyy('),
-  pura(PH, 'function _soloRaportoiVarapolku('),
+  "var _SOLO_VIRHE_INFRA = 'Kirjautuminen ei juuri nyt onnistu. Yritä hetken päästä uudelleen.';",
+  "var _SOLO_VIRHE_EI_KOODIA = 'Kirjautuminen ei onnistu. Pyydä vanhempaa tekemään uusi lupapyyntö.';",
+  pura(PH, 'function _soloInfraVirheenSyy('),
+  pura(PH, 'function _soloRaportoiKirjautumisvirhe('),
   'var _lapsiKesken = false;',
   pura(PH, 'async function lapsiKirjaudu('),
 ].join('\n');
 
-function aja({ approved, kutsu }) {
+function aja({ approved, kutsu, fbReady = true }) {
   const loki = { kutsut: [], custom: [], anon: 0, sentry: [], feed: [], href: null, luettu: [] };
   const auth = {
     currentUser: null,
@@ -78,8 +80,8 @@ function aja({ approved, kutsu }) {
   const ls = new Map();
   const nappi = { disabled: false, textContent: 'Aloita →' };
   const ymp = {
-    console: { warn() {}, log() {} },
-    _fbReady: true, _auth: auth,
+    console: { warn() {}, log() {}, error() {} },
+    _fbReady: fbReady, _auth: auth,
     _db: { collection: () => ({ doc: (id) => ({ get: async () => (loki.luettu.push(id), { exists: true, data: () => ({ nimi: 'Solo', playerCode: 'TMP-AB12CD' }) }) }) }) },
     _feed: (id, t) => loki.feed.push([id, t]),
     localStorage: { setItem: (k, v) => ls.set(k, v), getItem: (k) => ls.get(k) || null },
@@ -89,7 +91,7 @@ function aja({ approved, kutsu }) {
   ymp.window = {
     _soloApproved: approved,
     _soloApp: { functions: () => ({ httpsCallable: (nimi) => async (data) => { loki.kutsut.push([nimi, data]); return kutsu(data); } }) },
-    Sentry: { captureMessage: (m, o) => loki.sentry.push([m, o.tags.tm_varapolku]) },
+    Sentry: { captureMessage: (m, o) => loki.sentry.push([m, o.tags.tm_kirjautumisvirhe, o.level]) },
     location: { set href(v) { loki.href = v; }, get href() { return loki.href; } },
   };
   vm.createContext(ymp);
@@ -111,29 +113,48 @@ describe('Player_Home · lapsiKirjaudu (ajettu)', () => {
     expect(t.ls.get('tm_active_player')).toBe('solo1');
     expect(t.loki.href).toBe('TalentMaster_Solo_Koti.html');
   });
-  it('infravirhe (App Check) → Sentry-hälytys syykoodilla + vanha anonyymi varapolku', async () => {
+  /* PR 3: ei anonyymiä varapolkua. Epäonnistuminen → virhe näkyviin + Sentry error, EI siirtymää Solo_Kotiin. */
+  const INFRA = 'Kirjautuminen ei juuri nyt onnistu. Yritä hetken päästä uudelleen.';
+  it('infravirhe (App Check) → selkeä virhe + Sentry error, EI anonyymiä, EI siirtymää, nappi vapautuu', async () => {
     const t = aja({ approved: OK, kutsu: async () => { throw httpsVirhe('functions/unauthenticated', 'App Check token is invalid.'); } });
     await t.run();
-    expect(t.loki.sentry).toEqual([['soloLapsiKirjaudu → varapolku: app-check', 'app-check']]);
-    expect(t.loki.anon).toBe(1);
-    expect(t.loki.href).toBe('TalentMaster_Solo_Koti.html');
+    expect(t.loki.sentry).toEqual([['soloLapsiKirjaudu epäonnistui: app-check', 'app-check', 'error']]);
+    expect(t.loki.anon).toBe(0);
+    expect(t.loki.luettu).toEqual([]);
+    expect(t.loki.href).toBeNull();
+    expect(t.loki.feed).toEqual([['feedWait', INFRA]]);
+    expect(t.nappi.disabled).toBe(false);
   });
-  it("funktio puuttuu (not-found) / internal → varapolku + Sentry", async () => {
+  it('funktio puuttuu (not-found) / internal / unavailable → virhe + Sentry, EI anonyymiä, EI siirtymää', async () => {
     for (const [code, syy] of [['functions/not-found', 'not-found'], ['functions/internal', 'internal'], ['functions/unavailable', 'unavailable']]) {
       const t = aja({ approved: OK, kutsu: async () => { throw httpsVirhe(code, 'x'); } });
       await t.run();
       expect(t.loki.sentry[0][1]).toBe(syy);
-      expect(t.loki.anon).toBe(1);
+      expect(t.loki.anon).toBe(0);
+      expect(t.loki.href).toBeNull();
     }
   });
-  it('hyväksynnästä puuttuu playerCode (ennen PR 2b:tä) → varapolku syyllä ei-koodia, funktiota ei kutsuta', async () => {
+  it('hyväksynnästä puuttuu playerCode → "Pyydä vanhempaa tekemään uusi lupapyyntö", funktiota ei kutsuta, EI siirtymää', async () => {
     const t = aja({ approved: { playerId: 'solo1', playerCode: null, pin: '4821' }, kutsu: async () => ({}) });
     await t.run();
     expect(t.loki.kutsut).toEqual([]);
     expect(t.loki.sentry[0][1]).toBe('ei-koodia');
-    expect(t.loki.anon).toBe(1);
+    expect(t.loki.anon).toBe(0);
+    expect(t.loki.href).toBeNull();
+    expect(t.loki.feed).toEqual([['feedWait', 'Kirjautuminen ei onnistu. Pyydä vanhempaa tekemään uusi lupapyyntö.']]);
   });
-  it('väärä PIN / lukitus → EI varapolkua, EI siirtymää; virhe näytetään ja nappi vapautuu', async () => {
+  it('Firebase ei käytössä → virhe, EI siirtymää Solo_Kotiin', async () => {
+    const t = aja({ approved: OK, fbReady: false, kutsu: async () => ({ data: { token: 'T' } }) });
+    await t.run();
+    expect(t.loki.kutsut).toEqual([]);
+    expect(t.loki.href).toBeNull();
+    expect(t.loki.feed).toEqual([['feedWait', INFRA]]);
+  });
+  it('sivulla ei ole signInAnonymously-kutsua (Player_Home, Solo_Koti)', () => {
+    expect(riisu(PH)).not.toContain('signInAnonymously');
+    expect(riisu(lue('TalentMaster_Solo_Koti.html'))).not.toContain('signInAnonymously');
+  });
+  it('väärä PIN / lukitus → EI Sentryä, EI siirtymää; virhe näytetään ja nappi vapautuu', async () => {
     for (const e of [httpsVirhe('functions/unauthenticated', 'Tunnus tai PIN on väärin.'), httpsVirhe('functions/resource-exhausted', 'Liian monta yritystä.')]) {
       const t = aja({ approved: OK, kutsu: async () => { throw e; } });
       await t.run();
@@ -151,3 +172,35 @@ describe('Player_Home · lapsiKirjaudu (ajettu)', () => {
     expect(n).toBe(1);
   });
 });
+
+/* PR 3: PR 2b:n varapolulta jäänyt anonyymi tm-solo-istunto kirjataan ulos (Player_Home, Solo_Koti). */
+describe('Solo · anonyymi istunto kirjataan ulos (ajettu)', () => {
+  for (const nimi of ['TalentMaster_Player_Home.html', 'TalentMaster_Solo_Koti.html']) {
+    const K = riisu(lue(nimi));
+    const kuuntelija = pura(K, 'function(u){', K.indexOf('_auth.onAuthStateChanged('));
+    function ajaK(u) {
+      const loki = { ulos: 0, haku: 0 };
+      const ymp = {
+        console: { warn() {} },
+        _auth: { signOut: () => { loki.ulos++; return Promise.resolve(); } },
+        _uid: null, _email: null, _haeFirestore: () => { loki.haku++; },
+      };
+      vm.createContext(ymp);
+      vm.runInContext('this.k = ' + kuuntelija, ymp);
+      ymp.k(u);
+      return { loki, ymp };
+    }
+    it(nimi + ': anonyymi → signOut, EI uid:tä eikä hakua', () => {
+      const { loki, ymp } = ajaK({ uid: 'anon', isAnonymous: true });
+      expect(loki.ulos).toBe(1);
+      expect(ymp._uid).toBeNull();
+      expect(loki.haku).toBe(0);
+    });
+    it(nimi + ': Solo-token / vanhempi → ei uloskirjausta', () => {
+      const { loki, ymp } = ajaK({ uid: 'solo_x', isAnonymous: false });
+      expect(loki.ulos).toBe(0);
+      expect(ymp._uid).toBe('solo_x');
+    });
+  }
+});
+
