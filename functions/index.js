@@ -1082,8 +1082,9 @@ exports.vahvistaSuostumus = functions
     }
 
     /* 2b. Sisarusbugi (30.9.2026): sähköposti täsmää myös SISARUKSELLE (sama huoltaja). Lomakkeen etunimi ja
-       syntymäaika verrataan tunnisteen osoittamaan pelaajaan ENNEN kirjoituksia. Ristiriita → ei kirjoituksia,
-       audit (warn, ei nimiä), failed-precondition 'pelaaja_ristiriita'. Tyhjä tallennettu kenttä → ei tarkistusta. */
+       syntymävuosi verrataan tunnisteen osoittamaan pelaajaan ENNEN kirjoituksia (salliva täsmäys,
+       functions/suostumus_tarkistus.js). Hylätään vain, jos MOLEMMAT eroavat → ei kirjoituksia, audit (warn,
+       ei nimiä), failed-precondition 'pelaaja_ristiriita'. Yksittäinen poikkeama → hyväksytään + lomake_poikkeama. */
     const kohde = suostumusTarkistus.tarkistaSuostumusKohde(snap.data() || {}, { etunimi, syntyma, sukupuoli });
     if (kohde.ristiriita) {
       await db.collection('audit').add({
@@ -1177,9 +1178,12 @@ exports.vahvistaSuostumus = functions
     // Onboarding-integriteetti B1 — suostumus annettu (best-effort). Autentikoimaton sivu → uid usein null,
     // siksi kirjataan antaja + hEmail jäljitettävyyttä varten.
     db.collection('audit').add({
-      toiminto: 'suostumus_annettu', severity: 'info',
+      // Sisarusbugi: yksittäinen poikkeama (etunimi TAI vuosi) hyväksytään, mutta kirjataan warn-tasolla,
+      // jotta seura voi tarkistaa tiedot jälkikäteen (esim. kaksoset samalla kutsulinkillä).
+      toiminto: 'suostumus_annettu', severity: kohde.poikkeama.length ? 'warn' : 'info',
       pelaajaId, seuraId, hEmail: hEmailNorm, antaja: antaja || null,
       lomakeEtunimi_tasmasi: kohde.etunimiTasmasi,   // true/false/null (ei nimeä)
+      lomake_poikkeama: kohde.poikkeama,             // [] | ['etunimi'] | ['vuosi']
       tekija_uid: (context.auth && context.auth.uid) || null,
       aikaleima: admin.firestore.FieldValue.serverTimestamp(),
     }).catch(() => {});

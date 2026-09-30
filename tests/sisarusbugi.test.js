@@ -126,26 +126,34 @@ describe('Seura · uusi pelaaja on aina uusi pelaaja (ajettu)', () => {
   });
 });
 
-describe('suostumus_tarkistus (puhdas)', () => {
-  const P = { etunimi: 'Topias', syntymaaika: { toDate: () => new Date(Date.UTC(2013, 2, 15)) }, syntymaVuosi: 2013, sukupuoli: 'M' };
-  it('eri syntymäaika tai eri etunimi → ristiriita', () => {
-    expect(T.tarkistaSuostumusKohde(P, { etunimi: 'Topias', syntyma: '2014-05-01' })).toMatchObject({ ristiriita: true, syyt: ['syntymaaika'] });
-    expect(T.tarkistaSuostumusKohde(P, { etunimi: 'Toppari', syntyma: '2013-03-15' })).toMatchObject({ ristiriita: true, syyt: ['etunimi'], etunimiTasmasi: false });
+describe('suostumus_tarkistus (puhdas, salliva täsmäys)', () => {
+  const P = { etunimi: 'Onni-Matti', sukunimi: 'Virtanen', syntymaaika: { toDate: () => new Date(Date.UTC(2013, 2, 15)) }, syntymaVuosi: 2013, sukupuoli: 'M' };
+  const k = (etunimi, syntyma, p) => T.tarkistaSuostumusKohde(p || P, { etunimi, syntyma });
+  it('nimet väärin päin (etunimi = tallennettu sukunimi) → hyväksytään ilman poikkeamaa', () => {
+    expect(k('Virtanen', '2013-03-15')).toMatchObject({ ristiriita: false, poikkeama: [], etunimiTasmasi: true });
   });
-  it('sama pelaaja: normalisoitu nimi kelpaa; ei ylikirjoitusta', () => {
-    const r = T.tarkistaSuostumusKohde(P, { etunimi: '  topias ', syntyma: '2013-03-15', sukupuoli: 'T' });
-    expect(r).toMatchObject({ ristiriita: false, etunimiTasmasi: true, tayttoKentat: {} });
+  it('"Onni Matti" vs "Onni-Matti", "Onni" ↔ "Onni-Matti", "Matti" (osa) → täsmää', () => {
+    ['Onni Matti', 'onni-matti', 'Onni', 'Matti', '  ONNI  '].forEach((e) => expect(k(e, '2013-03-15').etunimiTasmasi, e).toBe(true));
+    expect(T.etunimiTasmaa({ etunimi: 'Onni' }, 'Onni-Matti')).toBe(true);
   });
-  it('tyhjä tallennettu syntymäaika/sukupuoli → täytetään lomakkeelta; vain vuosi tallennettu → verrataan vuotta', () => {
+  it('sama vuosi, eri päivä → hyväksytään ilman poikkeamaa (vain vuosi verrataan)', () => {
+    expect(k('Onni', '2013-12-31')).toMatchObject({ ristiriita: false, poikkeama: [] });
+  });
+  it('SISARUS: eri nimi JA eri vuosi → hylätään', () => {
+    expect(k('Aino', '2015-06-01')).toMatchObject({ ristiriita: true, syyt: ['etunimi', 'vuosi'], poikkeama: [] });
+  });
+  it('KAKSOSET: eri nimi, sama vuosi → hyväksytään, poikkeama etunimi', () => {
+    expect(k('Aino', '2013-03-15')).toMatchObject({ ristiriita: false, poikkeama: ['etunimi'], etunimiTasmasi: false });
+  });
+  it('sama nimi, eri vuosi → hyväksytään, poikkeama vuosi; tallennettua EI ylikirjoiteta', () => {
+    expect(k('Onni', '2014-01-01')).toMatchObject({ ristiriita: false, poikkeama: ['vuosi'], tayttoKentat: {} });
+  });
+  it('tyhjä tallennettu syntymäaika/sukupuoli → täytetään lomakkeelta; puuttuva lomakkeen etunimi → null', () => {
     const r = T.tarkistaSuostumusKohde({ etunimi: 'Uusi' }, { etunimi: 'Uusi', syntyma: '2014-06-01', sukupuoli: 'P' });
     expect(r.ristiriita).toBe(false);
     expect(r.tayttoKentat.syntymaPaiva.toISOString().slice(0, 10)).toBe('2014-06-01');
     expect(r.tayttoKentat).toMatchObject({ syntymaVuosi: 2014, sukupuoli: 'M' });
-    expect(T.tarkistaSuostumusKohde({ syntymaVuosi: 2013 }, { syntyma: '2014-06-01' })).toMatchObject({ ristiriita: true, syyt: ['syntymaaika'] });
-    expect(T.tarkistaSuostumusKohde({ syntymaVuosi: 2013 }, { syntyma: '2013-06-01' }).tayttoKentat).toEqual({ syntymaPaiva: new Date(Date.UTC(2013, 5, 1)) });
-  });
-  it('lomakkeelta puuttuva etunimi → ei tarkistusta (null)', () => {
-    expect(T.tarkistaSuostumusKohde(P, { syntyma: '2013-03-15' })).toMatchObject({ ristiriita: false, etunimiTasmasi: null });
+    expect(k(undefined, '2015-01-01')).toMatchObject({ ristiriita: false, poikkeama: ['vuosi'], etunimiTasmasi: null });
   });
 });
 
@@ -175,18 +183,34 @@ const TOPIAS_DOC = () => ({ etunimi: 'Topias', sukunimi: 'Koskela', huoltajaEmai
   syntymaVuosi: 2013, sukupuoli: 'M', isa_pituus_cm: 180, pin: '591217', suostumusTila: 'odottaa' });
 
 describe('vahvistaSuostumus · ristiriidan tarkistus (ajettu)', () => {
-  it('eri syntymäaika → failed-precondition pelaaja_ristiriita, EI kirjoituksia, audit (ei nimiä)', async () => {
+  it('SISARUS (eri nimi + eri vuosi) → failed-precondition pelaaja_ristiriita, EI kirjoituksia, audit (ei nimiä)', async () => {
     const v = vahvista(TOPIAS_DOC());
     const ennen = JSON.stringify(v.f.D.get('seurat/kpv/pelaajat/m93'));
-    await expect(v.fn(LOMAKE({ etunimi: 'Topias', syntyma: '2014-01-01' }), {})).rejects.toMatchObject({ code: 'failed-precondition', message: 'pelaaja_ristiriita' });
+    await expect(v.fn(LOMAKE({ etunimi: 'Toppari', syntyma: '2014-01-01' }), {})).rejects.toMatchObject({ code: 'failed-precondition', message: 'pelaaja_ristiriita' });
     expect(JSON.stringify(v.f.D.get('seurat/kpv/pelaajat/m93'))).toBe(ennen);
-    expect(v.audit()).toEqual([expect.objectContaining({ toiminto: 'suostumus_estetty_pelaaja_ristiriita', severity: 'warn', pelaajaId: 'm93', syyt: ['syntymaaika'] })]);
+    expect(v.audit()).toEqual([expect.objectContaining({ toiminto: 'suostumus_estetty_pelaaja_ristiriita', severity: 'warn', pelaajaId: 'm93', syyt: ['etunimi', 'vuosi'] })]);
     expect(JSON.stringify(v.audit())).not.toMatch(/Topias|Toppari|Koskela/);
   });
-  it('eri etunimi (sisarus samalla linkillä) → sama', async () => {
+  it('KAKSOSET (eri nimi, sama vuosi) → hyväksytään, suostumus_annettu warn + lomake_poikkeama [etunimi]', async () => {
     const v = vahvista(TOPIAS_DOC());
-    await expect(v.fn(LOMAKE({ etunimi: 'Toppari', syntyma: '2013-03-15' }), {})).rejects.toMatchObject({ code: 'failed-precondition' });
-    expect(v.f.D.get('seurat/kpv/pelaajat/m93').suostumusTila).toBe('odottaa');
+    const r = await v.fn(LOMAKE({ etunimi: 'Toppari', syntyma: '2013-07-07' }), {});
+    expect(r.ok).toBe(true);
+    const a = v.audit().find((x) => x.toiminto === 'suostumus_annettu');
+    expect(a).toMatchObject({ severity: 'warn', lomake_poikkeama: ['etunimi'], lomakeEtunimi_tasmasi: false });
+    expect(v.f.D.get('seurat/kpv/pelaajat/m93').syntymaaika.toDate().toISOString().slice(0, 10)).toBe('2013-03-15');   // ei ylikirjoitusta
+  });
+  it('sama nimi, eri vuosi → hyväksytään, poikkeama [vuosi], syntymäaikaa EI ylikirjoiteta', async () => {
+    const v = vahvista(TOPIAS_DOC());
+    await v.fn(LOMAKE({ etunimi: 'Topias', syntyma: '2014-01-01' }), {});
+    expect(v.audit().find((x) => x.toiminto === 'suostumus_annettu')).toMatchObject({ severity: 'warn', lomake_poikkeama: ['vuosi'] });
+    const x = v.f.D.get('seurat/kpv/pelaajat/m93');
+    expect(x.syntymaVuosi).toBe(2013);
+    expect(x.syntymaaika.toDate().toISOString().slice(0, 10)).toBe('2013-03-15');
+  });
+  it('nimet väärin päin tuonnissa (etunimi = tallennettu sukunimi) → hyväksytään ilman poikkeamaa', async () => {
+    const v = vahvista(TOPIAS_DOC());
+    await v.fn(LOMAKE({ etunimi: 'Koskela', syntyma: '2013-03-15' }), {});
+    expect(v.audit().find((x) => x.toiminto === 'suostumus_annettu')).toMatchObject({ severity: 'info', lomake_poikkeama: [] });
   });
   it('tyhjä syntymäaika pelaajalla → lomakkeen arvo kirjoitetaan', async () => {
     const d = TOPIAS_DOC(); delete d.syntymaaika; delete d.syntymaVuosi; delete d.sukupuoli;
@@ -196,14 +220,12 @@ describe('vahvistaSuostumus · ristiriidan tarkistus (ajettu)', () => {
     expect(x.syntymaaika.iso.slice(0, 10)).toBe('2013-03-15');
     expect(x).toMatchObject({ syntymaVuosi: 2013, sukupuoli: 'M', suostumusTila: 'annettu' });
   });
-  it('sama pelaaja + samat tiedot → toimii kuten ennen; olemassa olevaa sukupuolta EI ylikirjoiteta; audit lomakeEtunimi_tasmasi', async () => {
+  it('sama pelaaja + samat tiedot → toimii kuten ennen; sukupuolta EI ylikirjoiteta; audit info', async () => {
     const v = vahvista(TOPIAS_DOC());
     const r = await v.fn(LOMAKE({ etunimi: 'Topias', syntyma: '2013-03-15', sukupuoli: 'T' }), {});
     expect(r.ok).toBe(true);
-    const x = v.f.D.get('seurat/kpv/pelaajat/m93');
-    expect(x).toMatchObject({ suostumusTila: 'annettu', sukupuoli: 'M', suostumuksenAntaja: 'Tero Koskela' });
-    expect(x.syntymaaika.toDate().toISOString().slice(0, 10)).toBe('2013-03-15');
-    expect(v.audit().find((a) => a.toiminto === 'suostumus_annettu')).toMatchObject({ lomakeEtunimi_tasmasi: true });
+    expect(v.f.D.get('seurat/kpv/pelaajat/m93')).toMatchObject({ suostumusTila: 'annettu', sukupuoli: 'M', suostumuksenAntaja: 'Tero Koskela' });
+    expect(v.audit().find((a) => a.toiminto === 'suostumus_annettu')).toMatchObject({ severity: 'info', lomakeEtunimi_tasmasi: true, lomake_poikkeama: [] });
   });
 });
 
