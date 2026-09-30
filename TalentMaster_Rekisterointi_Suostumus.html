@@ -514,7 +514,8 @@ function toStep3() {
           suostumukset:    suostumusNimet,
           suostumusMap:    suostumusMap,
           antajaRooli:     age < 18 ? 'huoltaja' : 'itse',
-          aikaleima:       aikaleima
+          aikaleima:       aikaleima,
+          etunimi:         val('i_etu')   // sisarusbugi: palvelin vertaa tunnisteen pelaajaan
         })
         .then(function(res) {
           // PR 3b: CF ei palauta linkkiä eikä PIN:iä — vain tiedon, lähtikö sähköposti.
@@ -636,6 +637,26 @@ function toStep3() {
     })
     .catch(function(err) {
       console.error('[SUOSTUMUS] Tallennus epäonnistui:', err);
+      /* Sisarusbugi: lomakkeen nimi/syntymäaika ei vastaa linkin pelaajaa → toisen lapsen kutsu.
+         Pelaajan nimeä EI näytetä. */
+      var _ristiriita = err && (err.message === 'pelaaja_ristiriita' || (err.details && err.details.syy === 'pelaaja_ristiriita'));
+      if (_ristiriita) {
+        var _viesti = 'Tämä kutsulinkki koskee toista pelaajaa. Jos rekisteröit eri lasta, pyydä seuralta hänelle oma kutsu.';
+        toast(_viesti, true);
+        if (nappi) {
+          nappi.disabled = false; nappi.textContent = 'Vahvista ja laheta';
+          var _ilm = el('ristiriitaIlmoitus');
+          if (!_ilm) {
+            _ilm = document.createElement('div');
+            _ilm.id = 'ristiriitaIlmoitus';
+            _ilm.setAttribute('role', 'alert');
+            _ilm.style.cssText = 'margin-top:12px;padding:12px 14px;border:1px solid rgba(240,68,68,.6);border-radius:9px;color:#f5b5b5;font-size:14px;line-height:1.5';
+            nappi.parentNode.insertBefore(_ilm, nappi.nextSibling);
+          }
+          _ilm.textContent = _viesti;
+        }
+        return;
+      }
       toast('Tallennus epaonnistui: ' + err.message, true);
       if (nappi) { nappi.disabled = false; nappi.textContent = 'Vahvista ja laheta'; }
     });
