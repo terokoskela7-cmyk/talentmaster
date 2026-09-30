@@ -325,7 +325,7 @@ function pohjaSalasanaAsetus({ etunimi, rooli, resetLinkki }) {
     </div>`;
 }
 // Suostumus-flow: huoltajan salasanalinkki perhepintaan (§16/§7.22 — ei tasoja/lukuja/vertailua).
-function pohjaSuostumusLinkki({ lapsiNimi, resetLinkki }) {
+function pohjaSuostumusLinkki({ lapsiNimi, resetLinkki, pin }) {
   return `
     <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px;">
       <h2 style="color:#28B090;">Tervetuloa TalentMasteriin!</h2>
@@ -341,7 +341,12 @@ function pohjaSuostumusLinkki({ lapsiNimi, resetLinkki }) {
       </div>
       <p style="font-size:14px;color:#333;line-height:1.6;">
         Salasanan asetettuasi p&auml;&auml;set vanhemman n&auml;kym&auml;&auml;n &mdash; kirjaudu t&auml;ll&auml; s&auml;hk&ouml;postiosoitteella ja uudella salasanalla.
-      </p>
+      </p>${pin ? `
+      <div style="margin:20px 0;padding:14px;border:1px solid #28B090;border-radius:8px;text-align:center;">
+        <div style="font-size:13px;color:#555;">Pelaajan PIN-koodi</div>
+        <div style="font-size:30px;letter-spacing:6px;font-weight:bold;color:#28B090;">${pin}</div>
+        <div style="font-size:13px;color:#333;">Anna t&auml;m&auml; pelaajalle &mdash; h&auml;n kirjautuu omaan n&auml;kym&auml;&auml;ns&auml; PalloID:ll&auml; ja PIN-koodilla.</div>
+      </div>` : ''}
       <p style="color:#999;font-size:12px;">Jos painike ei toimi, kopioi t&auml;m&auml; osoite selaimeen:<br>${resetLinkki}</p>
     </div>`;
 }
@@ -1011,8 +1016,8 @@ exports.lahetaPelaajaSivuLinkki = functions
 // tallennettu huoltajaEmail) ennen kuin suostumus merkitään. Kirjoittaa palvelinpuolella
 // KAIKKI kutsuflow'n kirjoitukset (suostumusTila + aux-kentät tila/antaja/bio-pituudet +
 // kutsut→'hyvaksytty'), koska sivu on autentikoimaton eikä saa kirjoittaa Firestoreen suoraan.
-// Lisäksi luo/hakee huoltajan Auth-tilin ja palauttaa salasanan asetuslinkin (sama kaava kuin
-// lahetaPelaajaSivuLinkki / lahetaResetLinkki — url PAKOLLINEN, muuten 500, ks. §13).
+// Lisäksi luo/hakee huoltajan Auth-tilin ja LÄHETTÄÄ salasanan asetuslinkin + pelaajan PIN:in
+// huoltajan sähköpostiin (url PAKOLLINEN, muuten 500, ks. §13). PR 3b: linkkiä/PIN:iä EI palauteta.
 // Käytössä: TalentMaster_Rekisterointi_Suostumus.html (kutsuflow).
 // ─────────────────────────────────────────────────────────────────────────────
 exports.vahvistaSuostumus = functions
@@ -1158,10 +1163,7 @@ exports.vahvistaSuostumus = functions
 
     // 4. + 5. Luo/hae huoltajan Auth-tili ja generoi salasanan asetuslinkki.
     // Suostumus on jo tallennettu — linkin generoinnin epäonnistuminen ei saa
-    // hukata sitä, joten linkki palautetaan null:ina virhetilanteessa (graceful).
-    //
-    // TODO: Kun SendGrid korjattu: siirrä sähköpostilähetys tähän best-effort
-    // try/catch -lohkoon, poista QR UI:sta.
+    // hukata sitä (graceful: emailLahetetty:false → sivu ohjaa pyytämään seuralta uuden linkin).
     try {
       const etunimi  = snap.get('etunimi')  || '';
       const sukunimi = snap.get('sukunimi') || '';
@@ -1174,7 +1176,7 @@ exports.vahvistaSuostumus = functions
         handleCodeInApp: false,
       });
       // 6. Lähetä salasanalinkki sähköpostiin (best-effort §13). EI kaadeta suostumusta jos lähetys
-      //    epäonnistuu — passwordResetLink palautetaan yhä (QR-varapolku säilyy). Suostumus on jo tallennettu yllä.
+      //    epäonnistuu — suostumus on jo tallennettu yllä; seura lähettää linkin uudelleen (Seura.html).
       let emailLahetetty = false, emailVirhe = null;
       try {
         const lapsiNimi = String(snap.get('etunimi') || '').trim();
@@ -1182,7 +1184,7 @@ exports.vahvistaSuostumus = functions
           to: hEmailNorm,
           subject: 'Aseta TalentMaster-salasanasi',
           fromName: 'TalentMaster',
-          html: pohjaSuostumusLinkki({ lapsiNimi, resetLinkki: passwordResetLink }),
+          html: pohjaSuostumusLinkki({ lapsiNimi, resetLinkki: passwordResetLink, pin }),
         });
         emailLahetetty = true;
         db.collection('audit').add({
@@ -1199,10 +1201,14 @@ exports.vahvistaSuostumus = functions
           aikaleima: admin.firestore.FieldValue.serverTimestamp(),
         }).catch(() => {});
       }
-      return { ok: true, passwordResetLink, pin, emailLahetetty, emailVirhe };
+      /* Vaihe 0 / PR 3b: salasanalinkkiä ja PIN:iä EI palauteta kutsujalle. Funktio toimii ilman
+         kirjautumista, ja seuraId + pelaajaId + huoltajaEmail olivat anonyymisti luettavissa v3.28:aan
+         asti → vastauksesta sai huoltajan tilin ja lapsen PIN:in. Nyt ne menevät VAIN tallennettuun
+         huoltajaEmailiin (tarkistettu yllä). Epäonnistunut lähetys → seura lähettää uudelleen. */
+      return { ok: true, emailLahetetty, emailVirhe };
     } catch (e) {
       console.warn('[vahvistaSuostumus] Reset-linkki epäonnistui:', e.message);
-      return { ok: true, passwordResetLink: null, linkkiVirhe: e.message, pin };
+      return { ok: true, emailLahetetty: false, linkkiVirhe: e.message };
     }
     } catch (_wrapErr) {
       if (_wrapErr instanceof functions.https.HttpsError) throw _wrapErr;

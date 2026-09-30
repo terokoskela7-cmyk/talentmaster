@@ -189,3 +189,65 @@ describe('muut callablet: henkilökuntatarkistus lähteessä', () => {
     expect(r).toMatch(/verifyIdToken\(token\)[\s\S]*tunnisteTyyppi\(\{ token: decoded \}\) !== 'kayttaja'[\s\S]*status\(403\)/);
   });
 });
+
+/* PR 3b · vahvistaSuostumus: toimii ilman kirjautumista (suostumuslomake), joten vastaus EI saa
+   sisältää salasanalinkkiä eikä PIN:iä — ne menevät vain tallennettuun huoltajaEmailiin. */
+describe('vahvistaSuostumus (ajettu) — tunnukset vain sähköpostiin', () => {
+  function aja({ tallennettu = 'huoltaja@x.fi', pin = '4821', sposti = 'ok' } = {}) {
+    const loki = { sposti: [], reset: 0 };
+    const DATA = { huoltajaEmail: tallennettu, pin, etunimi: 'Aa', sukunimi: 'Bb', suostumusTila: 'odottaa' };
+    const snap = { exists: true, empty: true, docs: [], get: (k) => DATA[k], data: () => DATA };
+    // Yleistynkä: mikä tahansa ketju (collection/doc/where/limit/batch…) → sama tynkä; päätteet palauttavat lupauksen.
+    const tynka = new Proxy(function () {}, {
+      get: (_t, k) => {
+        if (k === 'then') return undefined;
+        if (k === 'get') return async () => snap;
+        if (['update', 'set', 'add', 'commit', 'delete'].includes(k)) return () => Promise.resolve();
+        return () => tynka;
+      },
+      apply: () => tynka,
+    });
+    const fn = ajaCf('vahvistaSuostumus', {
+      db: tynka,
+      admin: { firestore: { FieldValue: { serverTimestamp: () => 'TS', arrayUnion: () => 'AU', delete: () => 'DEL' }, Timestamp: { fromDate: () => 'T', now: () => 'T' } } },
+      auth: { generatePasswordResetLink: async () => { loki.reset++; return 'https://reset/SALAINEN'; } },
+      haeOrLuoHuoltajaAuth: async () => ({}),
+      lahetaSahkoposti: async (m) => { if (sposti !== 'ok') throw new Error('sendgrid'); loki.sposti.push(m); },
+      pohjaSuostumusLinkki: (o) => JSON.stringify(o),
+      TM_BASE_URL: 'https://tm', Date, Math, JSON, Number, isNaN, parseInt, parseFloat,
+    });
+    const data = { seuraId: 'fcl', pelaajaId: 'p1', hEmail: 'Huoltaja@x.fi', suostumusTeksti: 'x', antaja: 'A', kutsuId: null,
+      suostumukset: [], suostumusMap: {}, antajaRooli: 'huoltaja', aikaleima: '2026-10-01' };
+    return { loki, ajo: fn(data, {}) };
+  }
+  it('onnistuminen: vastauksessa EI linkkiä eikä PIN:iä; sähköpostissa on molemmat', async () => {
+    const t = aja();
+    const r = await t.ajo;
+    expect(r).toEqual({ ok: true, emailLahetetty: true, emailVirhe: null });
+    expect(JSON.stringify(r)).not.toMatch(/SALAINEN|4821/);
+    expect(t.loki.sposti).toHaveLength(1);
+    expect(t.loki.sposti[0].to).toBe('huoltaja@x.fi');
+    expect(t.loki.sposti[0].html).toContain('SALAINEN');
+    expect(t.loki.sposti[0].html).toContain('4821');
+  });
+  it('sähköposti epäonnistuu: emailLahetetty:false, ei linkkiä/PIN:iä vastauksessa', async () => {
+    const r = await aja({ sposti: 'virhe' }).ajo;
+    expect(r.emailLahetetty).toBe(false);
+    expect(JSON.stringify(r)).not.toMatch(/SALAINEN|4821/);
+  });
+  it('hEmail ≠ tallennettu huoltajaEmail → permission-denied, ei linkkiä eikä sähköpostia', async () => {
+    const t = aja({ tallennettu: 'oikea@x.fi' });
+    await expect(t.ajo).rejects.toMatchObject({ code: 'permission-denied' });
+    expect(t.loki.reset).toBe(0);
+    expect(t.loki.sposti).toEqual([]);
+  });
+});
+
+describe('Rekisterointi_Suostumus · ei QR:ää, kopiointia eikä PIN:iä sivulla', () => {
+  const S = readFileSync(join(ROOT, 'TalentMaster_Rekisterointi_Suostumus.html'), 'utf8');
+  it('sivu ei lue eikä näytä linkkiä/PIN:iä', () => {
+    expect(S).not.toMatch(/passwordResetLink|res\.data\.pin|_suostumusResetLinkki|_suostumusPin|qrserver/);
+    expect(S).toContain('Tunnukset l&auml;hetetty s&auml;hk&ouml;postiisi');
+    expect(S).toContain('Pyyd&auml; seuraa l&auml;hett&auml;m&auml;&auml;n tunnukset uudelleen');
+  });
+});
