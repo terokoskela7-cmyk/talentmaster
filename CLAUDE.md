@@ -176,7 +176,7 @@ per tiedosto** (kaksi lohkoa kumoaa toisen — Seura.html:n bugi oli juuri täm�
 | `TalentMaster_Testaus_v8.html` · `..._Harjoitettavuus_Lomake_v4.html` | Edeltäjät | ⚠️ arkistoidaan kun v9 pilottitestattu |
 | `TalentMaster_VP_v20/v21.html` · `..._Master_v15.html` | Vanhat versiot | Arkisto |
 | `functions/index.js` | 7 Cloud Functionia + aiProxy | ✅ §13 |
-| `tm_admin/firestore.rules` | Security Rules **v3.28** — deploy CI:llä (`deploy-rules.yml`, main-push, emulaattoritestit ensin) | ✅ §12 |
+| `tm_admin/firestore.rules` | Security Rules **v3.29** — deploy CI:llä (`deploy-rules.yml`, main-push, emulaattoritestit ensin) | ✅ §12 |
 | `lib/tm_bioika.js` | Bio-ikä — Mirwald 2002 PHV (Excel-verifioitu) + KR-runko (lukittu) | ✅ §25 |
 | `docs/testit_indeksit.js` | Canonical TKI/TSI/FLEI-laskenta + TKI-analyysimalli (§34) | ✅ §23/§34 |
 | `docs/TKI_ANALYYSIMALLI.md` | Kanoninen TKI-analyysimalli (3 viitekehystä + kehitysvauhti) | ✅ §34 |
@@ -298,9 +298,9 @@ admins/{uid}: email, rooli, superAdmin, luotu
 
 ---
 
-## 12. FIRESTORE SECURITY RULES — `tm_admin/firestore.rules` v3.28
+## 12. FIRESTORE SECURITY RULES — `tm_admin/firestore.rules` v3.29
 
-**DEPLOY = CI** (`.github/workflows/deploy-rules.yml`): main-pushissa ensin emulaattoritestit (`npm run test:rules`, Java ≥21), sitten deploy. Nykyversio **v3.28** (Vaihe 0 / PR 3: **anonyymi pääsy suljettu** — ei `onAnonymous`-funktiota, vartijatesti estää paluun). Jokainen muutos: versio + changelog tiedoston alkuun + Rules-testi. Sääntöjä EI muokata Consolesta.
+**DEPLOY = CI** (`.github/workflows/deploy-rules.yml`): main-pushissa ensin emulaattoritestit (`npm run test:rules`, Java ≥21), sitten deploy. Nykyversio **v3.29** (v3.29: playerCodes list suljettu · Vaihe 0 / PR 3: **anonyymi pääsy suljettu** — ei `onAnonymous`-funktiota, vartijatesti estää paluun). Jokainen muutos: versio + changelog tiedoston alkuun + Rules-testi. Sääntöjä EI muokata Consolesta.
 
 **Tunnistetyypit (vain nämä avaavat dataa):**
 - **Henkilökunta** — sähköposti/Google, claim `seuraId` + `rooli` → `onOmaSeura` / `onJohtoRooli` / `onValmentajaRooli`
@@ -308,7 +308,7 @@ admins/{uid}: email, rooli, superAdmin, luotu
 - **Huoltaja** — sähköposti → `onLapsenHuoltaja` (pelaajan `huoltajaEmail`)
 - **Solo-vanhempi** — `players.parent_uid == auth.uid`; **Solo-lapsi** — `soloLapsiKirjaudu` → `{ rooli:'solo_lapsi', soloPlayerId }` → `onSoloLapsiItse`
 - **SA** — `admins/{uid}` tai claim `super_admin`
-- **Anonyymi** — EI mitään pelaaja-/Solo-dataa. Läpäisee vain roolittomat `onKirjautunut()`-ehdot (errors create, kaaviot-luku, playerCodes read) kunnes Anonymous-provider suljetaan Consolesta.
+- **Anonyymi** — EI mitään pelaaja-/Solo-dataa. Läpäisee vain roolittomat `onKirjautunut()`-ehdot (errors create, kaaviot-luku, playerCodes get) kunnes Anonymous-provider suljetaan Consolesta.
 - **Callablet:** `context.auth` EI riitä → `tarkistaOikeus` (henkilökunta) tai `authz_paatos.tunnisteTyyppi` / `kuittausPaatos`.
 
 **KRIITTISIN MUISTISÄÄNTÖ:** Rules EI periydy alikokoelmiin. Jokainen alikokoelma vaatii oman `match`-blokin.
