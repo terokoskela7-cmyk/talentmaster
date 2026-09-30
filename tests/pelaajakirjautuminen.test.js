@@ -48,7 +48,13 @@ function tynka(pelaajat, pinHashit) {
   let cgKyselyt = 0;
   const db = {
     runTransaction,
-    collection: (kok) => ({ doc: (id) => docRef(kok, id) }),
+    collection: (kok) => ({ doc: (id) => (kok === 'seurat'
+      // Linkkireitti: seurat/{sid}/pelaajat/{pid}.get() — vain seurojen pelaajat (ei Solo-juurta).
+      ? { collection: () => ({ doc: (pid) => ({ get: async () => {
+          const p = pelaajat.find((x) => x.seuraId === id && x.pelaajaId === pid && (x.juuri || 'seurat') === 'seurat');
+          return { exists: !!p, data: () => (p ? p.data : undefined) };
+        } }) }) }
+      : docRef(kok, id)) }),
     collectionGroup: () => ({
       where: (kentta, _op, arvo) => ({
         limit: () => ({
@@ -119,7 +125,7 @@ describe('pelaajakirjautuminen · käsittelijä (ajettu tyngällä)', () => {
   it('oikea PalloID + PIN → token oikeilla claimeilla; vanha PIN siirretään hajautukseksi', async () => {
     const t = tynka([TOPIAS]);
     const r = await t.f({ liittoTunnus: '1234 5678', pin: '9278' }, ctx);
-    expect(r).toEqual({ token: 'TOKEN', seuraId: 'kpv', pelaajaId: 'm93' });
+    expect(r).toEqual({ token: 'TOKEN', seuraId: 'kpv', pelaajaId: 'm93', palloId: '12345678' });
     expect(t.tokenit).toEqual([{ uid: 'pel_kpv_m93', claims: { rooli: 'pelaaja', pelaajaSeuraId: 'kpv', pelaajaId: 'm93' } }]);
     const h = t.kokoelmat._pelaajaPin.get('kpv_m93');
     expect(h.hash).toMatch(/^scrypt\$/);
@@ -253,3 +259,70 @@ describe('pelaajakirjautuminen · rinnakkaisuus ja ajoitus (review #675)', () =>
     expect(src).toContain('if (!scryptAjettu) tarkistaPin(pin, NAENNAINEN_HAJAUTUS)');
   });
 });
+
+/* ── KIRJAUTUMISEN HELPOTUS · linkkireitti { seuraId, pelaajaId, pin } ── */
+describe('pelaajaKirjaudu · linkkireitti (seuraId + pelaajaId + PIN)', () => {
+  const L = (pin, o) => Object.assign({ seuraId: 'kpv', pelaajaId: 'm93', pin }, o || {});
+  it('oikea PIN → token SAMOILLA claimeilla kuin PalloID-reitillä + PalloID palautetaan laitteelle', async () => {
+    const t = tynka([TOPIAS]);
+    const r = await t.f(L('9278'), ctx);
+    expect(r).toEqual({ token: 'TOKEN', seuraId: 'kpv', pelaajaId: 'm93', palloId: '12345678' });
+    const t2 = tynka([TOPIAS]);
+    await t2.f({ liittoTunnus: '12345678', pin: '9278' }, ctx);
+    expect(t.tokenit).toEqual(t2.tokenit);
+    expect(t.tokenit[0]).toEqual({ uid: 'pel_kpv_m93', claims: { rooli: 'pelaaja', pelaajaSeuraId: 'kpv', pelaajaId: 'm93' } });
+    expect(t.kokoelmat._pelaajaPin.get('kpv_m93').hash).toMatch(/^scrypt\$/);   // sama hajautus + siirtymä
+    expect(t.audit.at(-1)).toEqual(['pelaaja_kirjautuminen', { severity: 'info', seuraId: 'kpv', pelaajaId: 'm93', reitti: 'linkki' }]);
+  });
+  it('PalloID-reitti palauttaa myös PalloID:n (laite muistaa sen)', async () => {
+    const r = await tynka([TOPIAS]).f({ liittoTunnus: '1234 5678', pin: '9278' }, ctx);
+    expect(r.palloId).toBe('12345678');
+  });
+  it('väärä PIN ja tuntematon pelaajaId → SAMA virhe, scrypt ajetaan kummassakin', async () => {
+    const crypto = require('crypto');
+    const orig = crypto.scryptSync; let n = 0;
+    crypto.scryptSync = function () { n++; return orig.apply(this, arguments); };
+    try {
+      const t = tynka([TOPIAS], [['kpv_m93', { hash: K.hajautaPin('9278') }]]);
+      n = 0; const e1 = await t.f(L('1111'), ctx).catch((e) => e); const nVaara = n;
+      n = 0; const e2 = await t.f(L('1111', { pelaajaId: 'eiole' }), ctx).catch((e) => e); const nTuntematon = n;
+      expect([e1.code, e1.message]).toEqual(['unauthenticated', K.VIRHE_TUNNISTUS]);
+      expect([e2.code, e2.message]).toEqual(['unauthenticated', K.VIRHE_TUNNISTUS]);
+      expect(nVaara).toBe(1);
+      expect(nTuntematon).toBe(1);
+    } finally { crypto.scryptSync = orig; }
+  });
+  it('5 väärää → lukittu (oikeakaan PIN ei kelpaa), 15 min jälkeen onnistuu', async () => {
+    const t = tynka([TOPIAS]);
+    for (let i = 0; i < 5; i++) await t.f(L('0000'), ctx).catch(() => {});
+    await expect(t.f(L('9278'), ctx)).rejects.toMatchObject({ code: 'resource-exhausted' });
+    expect(t.audit.some(([n]) => n === 'pelaaja_kirjautuminen_lukittu')).toBe(true);
+    t.siirra(K.LUKITUS_MS + 1);
+    await expect(t.f(L('9278'), ctx)).resolves.toMatchObject({ token: 'TOKEN' });
+  });
+  it('20 RINNAKKAISTA väärää → ≥15 resource-exhausted', async () => {
+    const t = tynka([TOPIAS]);
+    const ctxt = Array.from({ length: 20 }, (_, i) => ({ rawRequest: { ip: '10.0.0.' + i } }));
+    const tul = await Promise.all(ctxt.map((c) => t.f(L('0000'), c).then(() => 'ok', (e) => e.code)));
+    expect(tul.filter((c) => c === 'resource-exhausted').length).toBeGreaterThanOrEqual(15);
+    expect(tul).not.toContain('ok');
+  });
+  it('lukitus EI vuoda avaruudesta toiseen (linkki ↔ PalloID)', async () => {
+    const t = tynka([TOPIAS]);
+    for (let i = 0; i < 5; i++) await t.f(L('0000'), ctx).catch(() => {});
+    await expect(t.f(L('9278'), ctx)).rejects.toMatchObject({ code: 'resource-exhausted' });
+    await expect(t.f({ liittoTunnus: '12345678', pin: '9278' }, ctx)).resolves.toMatchObject({ token: 'TOKEN' });
+    const t2 = tynka([TOPIAS]);
+    for (let i = 0; i < 5; i++) await t2.f({ liittoTunnus: '12345678', pin: '0000' }, ctx).catch(() => {});
+    await expect(t2.f({ liittoTunnus: '12345678', pin: '9278' }, ctx)).rejects.toMatchObject({ code: 'resource-exhausted' });
+    await expect(t2.f(L('9278'), ctx)).resolves.toMatchObject({ token: 'TOKEN' });
+  });
+  it('Solo-juuren `pelaajat` ja polkuinjektio eivät kelpaa', async () => {
+    const solo = { seuraId: 'kpv', pelaajaId: 'x1', juuri: 'players', data: { pin: '1234' } };
+    await expect(tynka([solo]).f(L('1234', { pelaajaId: 'x1' }), ctx)).rejects.toMatchObject({ code: 'unauthenticated' });
+    for (const huono of ['a/b', '..', '__x__', '']) {
+      await expect(tynka([TOPIAS]).f(L('9278', { pelaajaId: huono }), ctx)).rejects.toMatchObject({ code: 'invalid-argument' });
+    }
+  });
+});
+

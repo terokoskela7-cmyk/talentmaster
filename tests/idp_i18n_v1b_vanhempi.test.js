@@ -60,7 +60,7 @@ describe('Vanhempi_v2 — irrotus t():hen', () => {
   it('rAsetukset: otsikot + kopioi + kielivalitsin', () => {
     expect(V).toContain("${t('vanhempi.asetukset_alaotsikko')}");
     expect(V).toContain("${t('vanhempi.pelaajan_kirjautuminen')}");
-    expect(V).toContain("${t('vanhempi.kopioi')}");
+    expect(V).toContain("t('vanhempi.kopioi')");   // Kirjautumisen helpotus: kortti rakennetaan _pelaajanKirjautuminenHTML:ssä
     expect(V).toContain("${t('vanhempi.lapsen_ikaryhma')}");
   });
 });

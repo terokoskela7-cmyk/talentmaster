@@ -1,7 +1,8 @@
 /* ════════════════════════════════════════════════════════════════════════
    pelaajakirjautuminen.js — Vaihe 0 / PR 1 (CODE_BRIEF_PELAAJAN_TUNNISTUS v2)
 
-   Pelaaja kirjautuu PALVELIMEN kautta: { liittoTunnus, pin } → custom token.
+   Pelaaja kirjautuu PALVELIMEN kautta: { liittoTunnus, pin } TAI linkistä { seuraId, pelaajaId, pin }
+   → custom token.
    Korvaa selaimen PIN-haun (Pelaaja_v7 `_kirjauduPinilla`: anonyymi auth + where('pin','==',…)
    kovakoodatusta seuralistasta), joka vaati koko pelaajakokoelman anonyymin lukuoikeuden.
 
@@ -187,8 +188,67 @@ function luoKirjautuja(deps, malli) {
   };
 }
 
-/* ── SEURAN PELAAJA (Vaihe 0 / PR 1): { liittoTunnus (PalloID), pin } ── */
+/* Pelaajadokumentin PalloID (kolme historiallista kenttänimeä, §7.13). */
+function pelaajanPalloId(data) {
+  const v = data && (data.palloID || data.palloId || data.tunniste);
+  return v == null || String(v).trim() === '' ? null : String(v).trim();
+}
+
+/* Linkkitunniste: Firestore-dokumentin id — ei '/'-merkkiä, ei '.'/'..', ei __-alkuisia (varattu).
+   Sallii ääkköset (vanhat docId:t muotoa sukunimi_etunimi, Excel_Tuonti). */
+function normalisoiDocId(v) {
+  if (v == null) return null;
+  const s = String(v).trim();
+  if (!s || s.length > 128 || s.includes('/') || s === '.' || s === '..' || /^__.*__$/.test(s)) return null;
+  return s;
+}
+
+/* ── SEURAN PELAAJA, LINKKIREITTI (Kirjautumisen helpotus): { seuraId, pelaajaId, pin } ──
+   Pelaajan henkilökohtainen linkki (?p=&seura=) kertoo KUKA; PIN todistaa. Sama ydin, sama PIN-hajautus
+   (_pelaajaPin/{sid}_{pid}), sama token ja claimit ja sama virhe kuin PalloID-reitillä. Lukitus omassa
+   avaruudessaan ('tp_'), jotta reitit eivät lukitse toisiaan. Tunnus = seuraId + '/' + pelaajaId
+   ('/' ei voi esiintyä docId:ssä → ei törmäyksiä). Olematon pelaaja → 0 ehdokasta (näennäinen scrypt). */
+function luoLinkkiKirjautuja(deps) {
+  return luoKirjautuja(deps, {
+    laskuriEtuliite: 'tp_',
+    auditEtuliite: 'pelaaja_kirjautuminen',
+    normalisoi: (data) => {
+      const sid = normalisoiDocId(data && data.seuraId);
+      const pid = normalisoiDocId(data && data.pelaajaId);
+      return sid && pid ? sid + '/' + pid : null;
+    },
+    haeEhdokkaat: async (db, tunnus) => {
+      const i = tunnus.indexOf('/');
+      const seuraId = tunnus.slice(0, i), pelaajaId = tunnus.slice(i + 1);
+      const d = await db.collection('seurat').doc(seuraId).collection('pelaajat').doc(pelaajaId).get();
+      if (!d.exists) return [];
+      const data = d.data() || {};
+      return [{
+        pinRef: db.collection('_pelaajaPin').doc(seuraId + '_' + pelaajaId),
+        vanhaPin: data.pin,
+        uid: pelaajaUid(seuraId, pelaajaId),
+        claims: pelaajaClaims(seuraId, pelaajaId),
+        auditTiedot: { seuraId: seuraId, pelaajaId: pelaajaId, reitti: 'linkki' },
+        palaute: { seuraId: seuraId, pelaajaId: pelaajaId, palloId: pelaajanPalloId(data) },
+      }];
+    },
+  });
+}
+
+/* ── SEURAN PELAAJA (Vaihe 0 / PR 1): { liittoTunnus (PalloID), pin } ──
+   Sama callable ottaa myös linkkimuodon { seuraId, pelaajaId, pin } (ks. luoLinkkiKirjautuja).
+   Reitti valitaan syötteen muodosta; PalloID voittaa, jos molemmat annetaan. */
 function luoKasittelija(deps) {
+  const linkki = luoLinkkiKirjautuja(deps);
+  const palloId = luoPalloIdKirjautuja(deps);
+  return async function pelaajaKirjaudu(data, context) {
+    const onPalloId = data && (data.liittoTunnus != null || data.tunnus != null);
+    if (!onPalloId && data && data.seuraId != null && data.pelaajaId != null) return linkki(data, context);
+    return palloId(data, context);
+  };
+}
+
+function luoPalloIdKirjautuja(deps) {
   return luoKirjautuja(deps, {
     laskuriEtuliite: 't_',
     auditEtuliite: 'pelaaja_kirjautuminen',
@@ -208,7 +268,7 @@ function luoKasittelija(deps) {
             uid: pelaajaUid(seura.id, d.id),
             claims: pelaajaClaims(seura.id, d.id),
             auditTiedot: { seuraId: seura.id, pelaajaId: d.id },
-            palaute: { seuraId: seura.id, pelaajaId: d.id },
+            palaute: { seuraId: seura.id, pelaajaId: d.id, palloId: pelaajanPalloId(data) },
           });
         });
       }
@@ -260,7 +320,7 @@ function luoSoloKasittelija(deps) {
 module.exports = {
   normalisoiTunnus, normalisoiPin, laskuriAvain,
   onLukittu, kirjaaVirhe, ipYlittyy, kirjaaIpVirhe, varaaYritys,
-  hajautaPin, tarkistaPin, pelaajaUid, pelaajaClaims, luoKasittelija,
+  hajautaPin, tarkistaPin, pelaajaUid, pelaajaClaims, luoKasittelija, normalisoiDocId, pelaajanPalloId,
   luoKirjautuja, luoSoloKasittelija, normalisoiSoloKoodi, soloUid, soloClaims,
   LUKITUS_YRITYKSET, LUKITUS_MS, IP_KATTO, VIRHE_TUNNISTUS, VIRHE_LUKITTU,
 };
