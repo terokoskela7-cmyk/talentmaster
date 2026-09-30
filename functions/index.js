@@ -16,6 +16,7 @@ const { kayttajaRooliSallittu, tunnisteTyyppi, kuittausPaatos } = require('./aut
 const { keraaPelaajanManifesti, rakennaAuditPayload } = require('./gdpr_locator');   // GDPR RTBF/export -locator (#96)
 const { kaavioKohdistuuServer } = require('./kaavio_policy');   // kaavion kohdistus (peili lib/tm_kaavio_policy.js)
 const pelaajapin = require('./pelaajapin');   // PR 4: PIN vain palvelimella (asetaPelaajanPin / luoPinitSeuralle)
+const suostumusTarkistus = require('./suostumus_tarkistus');   // sisarusbugi: lomake vs tunnisteen pelaaja
 const valmennusapuri = require('./valmennusapuri');
 const pelaajakirjautuminen = require('./pelaajakirjautuminen');   // Vaihe 0 / PR 1: PalloID + PIN → custom token           // Valmennusapuri-pilotti (Vaihe 2): ohjeistus+tietopohja palvelimella
 if (!admin.apps.length) {
@@ -387,6 +388,9 @@ exports.lahetaRekisteriKutsu = functions
     }
     const pelaajaNimi = [etunimi, sukunimi].filter(Boolean).join(' ') || 'pelaaja';
     const seuraNimi   = seura || 'TalentMaster-seura';
+    // Sisarusbugi: audit-riville AINA pelaajaId (datasta tai linkin pelaajaId-parametrista).
+    let pelaajaIdKutsu = data.pelaajaId ? String(data.pelaajaId) : null;
+    if (!pelaajaIdKutsu) { try { pelaajaIdKutsu = new URL(String(linkki)).searchParams.get('pelaajaId'); } catch (e) { pelaajaIdKutsu = null; } }
     const joukkueNimi = await haeJoukkueNimi(seuraId, joukkue);
     try {
       await lahetaSahkoposti({
@@ -397,7 +401,7 @@ exports.lahetaRekisteriKutsu = functions
       });
       await db.collection('audit').add({
         toiminto: 'rekisterikutsu_lahetetty',
-        hEmail, pelaajaNimi, seura: seuraNimi,
+        hEmail, pelaajaNimi, seura: seuraNimi, seuraId, pelaajaId: pelaajaIdKutsu,
         tekija_uid: context.auth.uid,
         aikaleima: admin.firestore.FieldValue.serverTimestamp(),
       }).catch(() => {});
@@ -1042,7 +1046,7 @@ exports.vahvistaSuostumus = functions
     // ei-arkaluonteiset kentät jotka lomake kirjoitti ennen suoraan client-puolelta — siirretty tänne,
     // koska Rekisterointi_Suostumus.html on autentikoimaton ja Rules estää sen suorat update-kirjoitukset.
     const { seuraId, pelaajaId, hEmail, suostumusTeksti, antaja, bioPituudet, kutsuId,
-            syntyma, sukupuoli, suostumukset, suostumusMap, antajaRooli, aikaleima } = data || {};
+            syntyma, sukupuoli, suostumukset, suostumusMap, antajaRooli, aikaleima, etunimi } = data || {};
     if (!seuraId || !pelaajaId || !hEmail) {
       throw new functions.https.HttpsError('invalid-argument',
         'seuraId, pelaajaId ja hEmail ovat pakollisia.');
@@ -1077,6 +1081,20 @@ exports.vahvistaSuostumus = functions
         'Huoltajan sähköposti ei täsmää pelaajan tietoihin.');
     }
 
+    /* 2b. Sisarusbugi (30.9.2026): sähköposti täsmää myös SISARUKSELLE (sama huoltaja). Lomakkeen etunimi ja
+       syntymävuosi verrataan tunnisteen osoittamaan pelaajaan ENNEN kirjoituksia (salliva täsmäys,
+       functions/suostumus_tarkistus.js). Hylätään vain, jos MOLEMMAT eroavat → ei kirjoituksia, audit (warn,
+       ei nimiä), failed-precondition 'pelaaja_ristiriita'. Yksittäinen poikkeama → hyväksytään + lomake_poikkeama. */
+    const kohde = suostumusTarkistus.tarkistaSuostumusKohde(snap.data() || {}, { etunimi, syntyma, sukupuoli });
+    if (kohde.ristiriita) {
+      await db.collection('audit').add({
+        toiminto: 'suostumus_estetty_pelaaja_ristiriita', severity: 'warn',
+        pelaajaId, seuraId, syyt: kohde.syyt,
+        aikaleima: admin.firestore.FieldValue.serverTimestamp(),
+      }).catch(() => {});
+      throw new functions.https.HttpsError('failed-precondition', 'pelaaja_ristiriita', { syy: 'pelaaja_ristiriita' });
+    }
+
     // 3. Merkitse suostumus annetuksi + kirjoita ei-arkaluonteiset aux-kentät palvelinpuolella.
     const TS = admin.firestore.FieldValue.serverTimestamp();
     const paivitys = {
@@ -1097,23 +1115,13 @@ exports.vahvistaSuostumus = functions
     // huoltajaEmail — vahvistus että varmennettu osoite tallentuu pelaajaprofiiliin
     paivitys.huoltajaEmail = hEmailNorm;
 
-    // syntymäaika lomakkeen/URL:n ISO-päivästä (YYYY-MM-DD) → Timestamp + syntymaVuosi.
-    // syntymapaiva Date.UTC():llä (§7 #11), vain validi 1990–2025.
-    if (syntyma && /^\d{4}-\d{2}-\d{2}$/.test(String(syntyma))) {
-      const osat = String(syntyma).split('-');
-      const yy = parseInt(osat[0], 10), mm = parseInt(osat[1], 10), dd = parseInt(osat[2], 10);
-      if (yy >= 1990 && yy <= 2025) {
-        paivitys.syntymaaika  = admin.firestore.Timestamp.fromDate(new Date(Date.UTC(yy, mm - 1, dd)));
-        paivitys.syntymaVuosi = yy;
-      }
-    }
-
-    // sukupuoli — normalisoi P/T → M/N (§7 #12). Kirjoitetaan vain jos tunnistettu arvo.
-    if (sukupuoli) {
-      const sp = String(sukupuoli).trim().toUpperCase();
-      const norm = (sp === 'P' || sp === 'M') ? 'M' : (sp === 'T' || sp === 'N') ? 'N' : null;
-      if (norm) paivitys.sukupuoli = norm;
-    }
+    /* syntymäaika + sukupuoli (sisarusbugi 30.9.2026): suostumus saa VAIN TÄYTTÄÄ tyhjän kentän — ei koskaan
+       ylikirjoittaa olemassa olevaa eri arvolla (muutos tehdään Seura-sivulla henkilökunnan toimesta).
+       Date.UTC() (§7 #11), vain validi 1990–2025; sukupuoli P/T → M/N (§7 #12). */
+    const tt = kohde.tayttoKentat;
+    if (tt.syntymaPaiva) paivitys.syntymaaika = admin.firestore.Timestamp.fromDate(tt.syntymaPaiva);
+    if (tt.syntymaVuosi) paivitys.syntymaVuosi = tt.syntymaVuosi;
+    if (tt.sukupuoli) paivitys.sukupuoli = tt.sukupuoli;
 
     // suostumukset — array kaikista hyväksytyistä suostumuksista + täysi suostumus-objekti
     // (sama rakenne kuin uusi-rekisteröinti-haaran .set(), §14: raakadata talteen).
@@ -1170,8 +1178,12 @@ exports.vahvistaSuostumus = functions
     // Onboarding-integriteetti B1 — suostumus annettu (best-effort). Autentikoimaton sivu → uid usein null,
     // siksi kirjataan antaja + hEmail jäljitettävyyttä varten.
     db.collection('audit').add({
-      toiminto: 'suostumus_annettu', severity: 'info',
+      // Sisarusbugi: yksittäinen poikkeama (etunimi TAI vuosi) hyväksytään, mutta kirjataan warn-tasolla,
+      // jotta seura voi tarkistaa tiedot jälkikäteen (esim. kaksoset samalla kutsulinkillä).
+      toiminto: 'suostumus_annettu', severity: kohde.poikkeama.length ? 'warn' : 'info',
       pelaajaId, seuraId, hEmail: hEmailNorm, antaja: antaja || null,
+      lomakeEtunimi_tasmasi: kohde.etunimiTasmasi,   // true/false/null (ei nimeä)
+      lomake_poikkeama: kohde.poikkeama,             // [] | ['etunimi'] | ['vuosi']
       tekija_uid: (context.auth && context.auth.uid) || null,
       aikaleima: admin.firestore.FieldValue.serverTimestamp(),
     }).catch(() => {});

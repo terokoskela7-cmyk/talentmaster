@@ -3076,8 +3076,12 @@ function avaaRekisteriModal() {
   document.getElementById('rekisteriVirhe').classList.remove('nakyvilla');
   document.getElementById('linkkiBoksi').classList.remove('nakyvilla');
   document.getElementById('lahetaSpostNappi').disabled = true;
-  tila._rekLinkki  = null;
-  tila._rekHEmail  = null;
+  /* Sisarusbugi (30.9.2026): KAIKKI kutsutila nollataan joka kerta. _rekPelaajaId jäi aiemmin edellisestä
+     "Lähetä uudelleen" -toiminnosta → uuden pelaajan kutsu ja suostumus kohdistuivat edelliselle pelaajalle.
+     Olemassa olevan pelaajan kutsu asettaa sen uudelleen (avaaRekisteriModalPelaajalle). */
+  tila._rekLinkki     = null;
+  tila._rekHEmail     = null;
+  tila._rekPelaajaId  = null;
   paivitaJoukkueValitsin();
   document.getElementById('rekisteriModal').classList.add('auki');
 }
@@ -3143,16 +3147,8 @@ function luoRekisteriLinkki() {
     return;
   }
 
-  // Onboarding-integriteetti (warn-not-block, §A): sama huoltajaEmail jo toisella seuran pelaajalla?
-  // Käytä jo ladattua rosteria (window._pelaajatKaikki) — ei uutta Firestore-kyselyä. Sisarukset = laillinen.
-  var _hLower = hEmail.toLowerCase();
-  var _samaEmail = (window._pelaajatKaikki || []).filter(function(pp) {
-    return pp.id !== tila._rekPelaajaId && String(pp.huoltajaEmail || '').toLowerCase().trim() === _hLower;
-  });
-  if (_samaEmail.length) {
-    var _nimet = _samaEmail.map(function(pp) { return ((pp.etunimi || '') + ' ' + (pp.sukunimi || '')).trim(); }).join(', ');
-    if (!confirm('🟡 Sama huoltajaEmail jo pelaajalla: ' + _nimet + ' (sisarus?). Tallenna silti?')) return;
-  }
+  // Sisarusbugi: sama huoltajan sähköposti EI ole varoituksen aihe (sisarukset ovat eri pelaajia).
+  // Duplikaattivaroitus (sama nimi) tehdään tallennuksessa (lahetaRekisteriSahkoposti).
 
   document.getElementById('rekisteriVirhe').classList.remove('nakyvilla');
 
@@ -3216,6 +3212,16 @@ function luoRekisteriLinkki() {
   naytaToast('Kutsulink​ki luotu!', 'ok');
 }
 
+/* Duplikaattiehdokas: sama etunimi + sukunimi (normalisoitu) ja — jos molemmilla tiedossa — sama syntymävuosi.
+   Pelkkä sama huoltajan sähköposti EI ole duplikaatti (sisarukset). → pelaaja | null */
+function _rekDuplikaatti(etunimi, sukunimi, syntymaVuosi) {
+  const n = (x) => String(x || '').toLowerCase().replace(/\s+/g, ' ').trim();
+  const e = n(etunimi), su = n(sukunimi);
+  if (!e || !su) return null;
+  return (window._pelaajatKaikki || []).find((p) => n(p.etunimi) === e && n(p.sukunimi) === su
+    && (!syntymaVuosi || !p.syntymaVuosi || String(p.syntymaVuosi) === String(syntymaVuosi))) || null;
+}
+
 async function lahetaRekisteriSahkoposti() {
   // Haetaan arvot suoraan kentistä — ei riippuvuutta luoRekisteriLinkki():sta
   const hEmail     = document.getElementById('rek_hEmail')?.value?.trim() || tila._rekHEmail;
@@ -3261,24 +3267,27 @@ async function lahetaRekisteriSahkoposti() {
     : { joukkue: joukkue || '', joukkueNimi: joukkue || '', joukkueet: joukkueId ? [joukkueId] : [], joukkueetNimet: joukkue ? [joukkue] : [] };
 
   try {
-    // VAIHE 1: Tarkistetaan ensin onko pelaaja jo olemassa
-    // → estää duplikaatin kun kutsu lähetetään uudelleen
+    /* VAIHE 1 — kenelle kutsu kohdistuu (sisarusbugi 30.9.2026):
+       · "Lähetä uudelleen" (pelaajakortti) → tila._rekPelaajaId = KORTIN pelaaja (asetetaan vain siellä).
+       · Muuten syntyy AINA uusi pelaaja. Aiempi haku PELKÄLLÄ huoltajan sähköpostilla löysi sisaruksen →
+         toisen lapsen kutsu ja suostumus tallentuivat ensimmäiselle, eikä toista lasta luotu.
+       · Duplikaattivaroitus vain samalla nimellä (ja syntymävuodella, jos se on tiedossa), ei sähköpostilla. */
     let pelaajaId = tila._rekPelaajaId || null;
 
     if (etunimi || sukunimi) {
-      // Jos pelaajaId on jo tiedossa (uudelleenlähetys), ei luoda uutta
-      if (!pelaajaId && tila._rekHEmail) {
-        // Haetaan onko sama sähköposti jo rekisterissä
-        try {
-          const olemassa = await db.collection('seurat').doc(tila.seuraId)
-            .collection('pelaajat')
-            .where('huoltajaEmail', '==', tila._rekHEmail.toLowerCase())
-            .limit(1).get();
-          if (!olemassa.empty) {
-            pelaajaId = olemassa.docs[0].id;
-            console.log('[Kutsu] Käytetään olemassa olevaa pelaajaa:', pelaajaId);
+      if (!pelaajaId) {
+        const dup = _rekDuplikaatti(etunimi, sukunimi, null);
+        if (dup) {
+          const luoSilti = confirm('Tämä pelaaja näyttää olevan jo rekisterissä: ' + ((dup.etunimi || '') + ' ' + (dup.sukunimi || '')).trim()
+            + (dup.syntymaVuosi ? ' (s. ' + dup.syntymaVuosi + ')' : '') + (dup.joukkue ? ', ' + dup.joukkue : '') + '.\n\n'
+            + 'OK = Luo silti uusi pelaaja\nPeruuta = Avaa olemassa oleva');
+          if (!luoSilti) {
+            nappi.disabled = false; nappi.textContent = 'Lähetä sähköpostilla';
+            document.getElementById('rekisteriModal').classList.remove('auki');
+            naytaPelaajaTiedot(dup.id);
+            return;
           }
-        } catch(e) { console.warn('[Kutsu] Haku:', e.message); }
+        }
       }
 
       // Luodaan uusi dokumentti vain jos pelaajaa ei löydy
@@ -3385,6 +3394,7 @@ async function lahetaRekisteriSahkoposti() {
       const lahetaFn = functions.httpsCallable('lahetaRekisteriKutsu');
       await lahetaFn({
         seuraId:  tila.seuraId,
+        pelaajaId: pelaajaId || null,   // sisarusbugi: audit-riville kutsun pelaaja
         hEmail:   tila._rekHEmail,
         linkki:   tila._rekLinkki,
         seura:    tila.seuraNimi || tila.seuraId,

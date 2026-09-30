@@ -216,6 +216,7 @@ describe('vahvistaSuostumus (ajettu) — tunnukset vain sähköpostiin', () => {
       lahetaSahkoposti: async (m) => { if (sposti !== 'ok') throw new Error('sendgrid'); loki.sposti.push(m); },
       pohjaSuostumusLinkki: (o) => JSON.stringify(o),
       TM_BASE_URL: 'https://tm', Date, Math, JSON, Number, isNaN, parseInt, parseFloat,
+      suostumusTarkistus: require_('../functions/suostumus_tarkistus.js'),
     });
     const data = { seuraId: 'fcl', pelaajaId: 'p1', hEmail: 'Huoltaja@x.fi', suostumusTeksti: 'x', antaja: 'A', kutsuId: null,
       suostumukset: [], suostumusMap: {}, antajaRooli: 'huoltaja', aikaleima: '2026-10-01' };
