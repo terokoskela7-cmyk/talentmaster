@@ -39,10 +39,11 @@ function normalisoiTunnus(v) {
   if (!s || s.length > 32 || !/^[0-9A-Z]+$/.test(s)) return null;
   return s;
 }
+/* PR 4: PIN on 4 (vanha) tai 6 (uusi) numeroa. Muut pituudet hylätään ennen hakua. */
 function normalisoiPin(v) {
   if (v == null) return null;
   const s = String(v).trim();
-  return /^[0-9]{4,8}$/.test(s) ? s : null;
+  return /^([0-9]{4}|[0-9]{6})$/.test(s) ? s : null;
 }
 
 /* Laskurin avain: tunnuksen hajautus (ei selkotekstinä kokoelmassa). */
@@ -105,6 +106,13 @@ function tarkistaPin(pin, hajautus) {
 const NAENNAINEN_HAJAUTUS = hajautaPin('0000', '00000000000000000000000000000000');
 
 function pelaajaUid(seuraId, pelaajaId) { return 'pel_' + seuraId + '_' + pelaajaId; }
+
+/* PR 4 · Lukitusavaimet (kokoelma _kirjautumisyritykset). Tunnistekohtaiset: PalloID-reitti 't_' + tunnus,
+   linkkireitti 'tp_' + seuraId/pelaajaId. PELAAJAKOHTAINEN 'p_' + seuraId/pelaajaId on yhteinen molemmille
+   reiteille → 5 väärää / 15 min per pelaaja riippumatta reitistä (ennen 5 + 5). */
+function pelaajaLukitusAvain(seuraId, pelaajaId) { return 'p_' + laskuriAvain(seuraId + '/' + pelaajaId); }
+function linkkiLukitusAvain(seuraId, pelaajaId) { return 'tp_' + laskuriAvain(seuraId + '/' + pelaajaId); }
+function palloIdLukitusAvain(tunnus) { return 't_' + laskuriAvain(tunnus); }
 function pelaajaClaims(seuraId, pelaajaId) {
   return { rooli: 'pelaaja', pelaajaSeuraId: seuraId, pelaajaId: pelaajaId };
 }
@@ -157,6 +165,26 @@ function luoKirjautuja(deps, malli) {
 
     // 2) PIN-tarkistus vasta varauksen jälkeen.
     const ehdokkaat = await malli.haeEhdokkaat(db, tunnus);
+
+    /* 2b) PR 4 · PELAAJAKOHTAINEN varaus (yhteinen PalloID- ja linkkireitille): ehdokkaan selvittyä ja
+       ENNEN PIN-tarkistusta, samalla transaktiomallilla. Lukittu → sama virhe kuin tunnuslukituksessa;
+       näennäinen scrypt tasaa vastausajan. */
+    const pRefs = ehdokkaat.filter((e) => e.lukitusAvain).map((e) => db.collection('_kirjautumisyritykset').doc(e.lukitusAvain));
+    if (pRefs.length) {
+      const pVaraus = await db.runTransaction(async (tx) => {
+        const snaps = await Promise.all(pRefs.map((r) => tx.get(r)));
+        if (snaps.some((sn) => onLukittu(sn.exists ? sn.data() : null, nyt))) return { sallittu: false };
+        const uudet = snaps.map((sn) => kirjaaVirhe(sn.exists ? sn.data() : null, nyt));
+        uudet.forEach((u, i) => tx.set(pRefs[i], Object.assign({}, u, { paivitetty: nyt })));
+        return { sallittu: true, lukittuKerran: uudet.some((u) => u.lukittuKerran) };
+      });
+      if (!pVaraus.sallittu) {
+        tarkistaPin(pin, NAENNAINEN_HAJAUTUS);
+        throw new HttpsError('resource-exhausted', VIRHE_LUKITTU);
+      }
+      if (pVaraus.lukittuKerran) await audit(malli.auditEtuliite + '_lukittu', { avain: 'pelaaja', severity: 'alert' });
+    }
+
     const osumat = [];
     let scryptAjettu = false;
     for (const e of ehdokkaat) {
@@ -181,6 +209,7 @@ function luoKirjautuja(deps, malli) {
        (IP-katto koskee epäonnistuneita — muuten saman verkon (koulu/seuran WiFi) onnistuneet
        kirjautumiset kuluttaisivat kattoa). Laskuria ei nollata. */
     await tRef.delete().catch(() => {});
+    if (o.lukitusAvain) await db.collection('_kirjautumisyritykset').doc(o.lukitusAvain).delete().catch(() => {});
     if (deps.FieldValue) await ipRef.set({ virheet: deps.FieldValue.increment(-1) }, { merge: true }).catch(() => {});
     const token = await auth.createCustomToken(o.uid, o.claims);
     await audit(malli.auditEtuliite, Object.assign({ severity: 'info' }, o.auditTiedot || {}));
@@ -226,6 +255,7 @@ function luoLinkkiKirjautuja(deps) {
       return [{
         pinRef: db.collection('_pelaajaPin').doc(seuraId + '_' + pelaajaId),
         vanhaPin: data.pin,
+        lukitusAvain: pelaajaLukitusAvain(seuraId, pelaajaId),
         uid: pelaajaUid(seuraId, pelaajaId),
         claims: pelaajaClaims(seuraId, pelaajaId),
         auditTiedot: { seuraId: seuraId, pelaajaId: pelaajaId, reitti: 'linkki' },
@@ -265,6 +295,7 @@ function luoPalloIdKirjautuja(deps) {
           tulos.set(seura.id + '/' + d.id, {
             pinRef: db.collection('_pelaajaPin').doc(seura.id + '_' + d.id),
             vanhaPin: data.pin,
+            lukitusAvain: pelaajaLukitusAvain(seura.id, d.id),
             uid: pelaajaUid(seura.id, d.id),
             claims: pelaajaClaims(seura.id, d.id),
             auditTiedot: { seuraId: seura.id, pelaajaId: d.id },
@@ -321,6 +352,7 @@ module.exports = {
   normalisoiTunnus, normalisoiPin, laskuriAvain,
   onLukittu, kirjaaVirhe, ipYlittyy, kirjaaIpVirhe, varaaYritys,
   hajautaPin, tarkistaPin, pelaajaUid, pelaajaClaims, luoKasittelija, normalisoiDocId, pelaajanPalloId,
+  pelaajaLukitusAvain, linkkiLukitusAvain, palloIdLukitusAvain,
   luoKirjautuja, luoSoloKasittelija, normalisoiSoloKoodi, soloUid, soloClaims,
   LUKITUS_YRITYKSET, LUKITUS_MS, IP_KATTO, VIRHE_TUNNISTUS, VIRHE_LUKITTU,
 };

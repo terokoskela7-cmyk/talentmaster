@@ -307,15 +307,37 @@ describe('pelaajaKirjaudu · linkkireitti (seuraId + pelaajaId + PIN)', () => {
     expect(tul.filter((c) => c === 'resource-exhausted').length).toBeGreaterThanOrEqual(15);
     expect(tul).not.toContain('ok');
   });
-  it('lukitus EI vuoda avaruudesta toiseen (linkki ↔ PalloID)', async () => {
+  /* PR 4 · kohta 3: PELAAJAKOHTAINEN lukitus on yhteinen molemmille reiteille (ennen 5 + 5 yritystä). */
+  it('PR 4: 3 väärää PalloID-reitillä + 3 väärää linkkireitillä samalle pelaajalle → 6. yritys lukittu (oikeakin PIN)', async () => {
     const t = tynka([TOPIAS]);
+    for (let i = 0; i < 3; i++) await expect(t.f({ liittoTunnus: '12345678', pin: '0000' }, ctx)).rejects.toMatchObject({ code: 'unauthenticated' });
+    for (let i = 0; i < 2; i++) await expect(t.f(L('0000'), ctx)).rejects.toMatchObject({ code: 'unauthenticated' });   // 5. väärä → p_ lukittuu
+    await expect(t.f(L('9278'), ctx)).rejects.toMatchObject({ code: 'resource-exhausted' });   // 6. yritys (linkki) lukittu, oikeakin PIN
+    await expect(t.f({ liittoTunnus: '12345678', pin: '9278' }, ctx)).rejects.toMatchObject({ code: 'resource-exhausted' });
+    expect(t.audit.filter(([n, x]) => n === 'pelaaja_kirjautuminen_lukittu' && x.avain === 'pelaaja')).toHaveLength(1);
+    t.siirra(K.LUKITUS_MS + 1);
+    await expect(t.f(L('9278'), ctx)).resolves.toMatchObject({ token: 'TOKEN' });
+  });
+  it('pelaajalukitus EI koske toista pelaajaa; onnistuminen nollaa pelaajalaskurin', async () => {
+    const TOINEN = { seuraId: 'kpv', pelaajaId: 'x2', data: { tunniste: '87654321', pin: '1111' } };
+    const t = tynka([TOPIAS, TOINEN]);
     for (let i = 0; i < 5; i++) await t.f(L('0000'), ctx).catch(() => {});
-    await expect(t.f(L('9278'), ctx)).rejects.toMatchObject({ code: 'resource-exhausted' });
-    await expect(t.f({ liittoTunnus: '12345678', pin: '9278' }, ctx)).resolves.toMatchObject({ token: 'TOKEN' });
+    await expect(t.f(L('1111', { pelaajaId: 'x2' }), ctx)).resolves.toMatchObject({ token: 'TOKEN' });
     const t2 = tynka([TOPIAS]);
-    for (let i = 0; i < 5; i++) await t2.f({ liittoTunnus: '12345678', pin: '0000' }, ctx).catch(() => {});
-    await expect(t2.f({ liittoTunnus: '12345678', pin: '9278' }, ctx)).rejects.toMatchObject({ code: 'resource-exhausted' });
-    await expect(t2.f(L('9278'), ctx)).resolves.toMatchObject({ token: 'TOKEN' });
+    for (let i = 0; i < 4; i++) await t2.f(L('0000'), ctx).catch(() => {});
+    await t2.f(L('9278'), ctx);
+    expect(t2.kokoelmat._kirjautumisyritykset.has(K.pelaajaLukitusAvain('kpv', 'm93'))).toBe(false);
+    for (let i = 0; i < 4; i++) await t2.f({ liittoTunnus: '12345678', pin: '0000' }, ctx).catch(() => {});
+    await expect(t2.f({ liittoTunnus: '12345678', pin: '9278' }, ctx)).resolves.toMatchObject({ token: 'TOKEN' });
+  });
+  it('PR 4: 4- ja 6-numeroinen PIN kelpaavat, muut pituudet → invalid-argument', async () => {
+    const KUUSI = { seuraId: 'kpv', pelaajaId: 'k6', data: { tunniste: '55555555' } };
+    const t = tynka([KUUSI], [['kpv_k6', { hash: K.hajautaPin('482915') }]]);
+    await expect(t.f({ liittoTunnus: '55555555', pin: '482915' }, ctx)).resolves.toMatchObject({ token: 'TOKEN' });
+    await expect(tynka([TOPIAS]).f(L('9278'), ctx)).resolves.toMatchObject({ token: 'TOKEN' });
+    for (const huono of ['123', '12345', '1234567']) {
+      await expect(tynka([TOPIAS]).f(L(huono), ctx)).rejects.toMatchObject({ code: 'invalid-argument' });
+    }
   });
   it('Solo-juuren `pelaajat` ja polkuinjektio eivät kelpaa', async () => {
     const solo = { seuraId: 'kpv', pelaajaId: 'x1', juuri: 'players', data: { pin: '1234' } };

@@ -119,7 +119,7 @@ describe('lahetaPelaajaSivuLinkki (ajettu) — ei enää auki kenellekään, ei 
     const loki = { reset: 0, luotu: 0, sposti: 0 };
     const fn = ajaCf('lahetaPelaajaSivuLinkki', {
       db: { collection: () => ({ doc: () => ({ collection: () => ({ doc: () => ({
-        get: async () => ({ exists: true, get: (k) => (k === 'huoltajaEmail' ? tallennettu : null) }),
+        get: async () => { const d = { huoltajaEmail: tallennettu, pin: '482915', tunniste: '12345678' }; return { exists: true, get: (k) => d[k], data: () => d }; },
         update: () => Promise.resolve(),
       }) }) }) }) },
       admin: { firestore: { FieldValue: { serverTimestamp: () => 'TS' } } },
@@ -127,8 +127,9 @@ describe('lahetaPelaajaSivuLinkki (ajettu) — ei enää auki kenellekään, ei 
       tarkistaOikeus: async () => ({ sallittu: oikeus }),
       haeJoukkueNimi: async () => 'U12',
       haeOrLuoHuoltajaAuth: async () => { loki.luotu++; },
-      lahetaSahkoposti: async () => { loki.sposti++; },
-      pohjaPelaajaSivu: () => '<html>',
+      lahetaSahkoposti: async (m) => { loki.sposti++; loki.viesti = m; },
+      pohjaPelaajaSivu: (o) => JSON.stringify(o),
+      pelaajakirjautuminen: require_('../functions/pelaajakirjautuminen.js'),
       TM_BASE_URL: 'https://tm',
     });
     const data = { hEmail: 'Huoltaja@x.fi', pelaajaId: 'p1', seuraId: 'fcl', etunimi: 'A' };
