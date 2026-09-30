@@ -12,7 +12,7 @@
 const functions = require('firebase-functions/v1');
 const admin     = require('firebase-admin');
 const https     = require('https');
-const { kayttajaRooliSallittu } = require('./authz_paatos');   // pure authz-päätös (#71, testattava)
+const { kayttajaRooliSallittu, tunnisteTyyppi, kuittausPaatos } = require('./authz_paatos');   // pure authz-päätös (#71, PR 3, testattava)
 const { keraaPelaajanManifesti, rakennaAuditPayload } = require('./gdpr_locator');   // GDPR RTBF/export -locator (#96)
 const { kaavioKohdistuuServer } = require('./kaavio_policy');   // kaavion kohdistus (peili lib/tm_kaavio_policy.js)
 const valmennusapuri = require('./valmennusapuri');
@@ -358,15 +358,20 @@ exports.lahetaRekisteriKutsu = functions
     if (!context.auth) {
       throw new functions.https.HttpsError('unauthenticated', 'Kirjaudu ensin.');
     }
-    const { hEmail, linkki, seura, seuraId, etunimi, sukunimi, joukkue } = data;
+    const { hEmail, linkki, seura, etunimi, sukunimi, joukkue } = data;
     if (!hEmail || !linkki) {
       throw new functions.https.HttpsError('invalid-argument', 'hEmail ja linkki ovat pakollisia.');
     }
+    /* Vaihe 0 / PR 3: pelkkä context.auth EI riitä — anonyymi (julkinen avain) lähetti seuran nimissä
+       sähköpostia mielivaltaisella linkillä. Vain seuran johto / SA (tarkistaOikeus). seuraId datasta
+       tai henkilökunnan tokenista (vanha Seura-sivu ei lähettänyt sitä). */
+    const seuraId = String(data.seuraId || (context.auth.token && context.auth.token.seuraId) || '').trim();
+    if (!seuraId || !(await tarkistaOikeus(context.auth.uid, seuraId)).sallittu) {
+      throw new functions.https.HttpsError('permission-denied', 'Ei oikeutta lähettää kutsuja tämän seuran nimissä.');
+    }
     const pelaajaNimi = [etunimi, sukunimi].filter(Boolean).join(' ') || 'pelaaja';
     const seuraNimi   = seura || 'TalentMaster-seura';
-    const joukkueNimi = seuraId
-      ? await haeJoukkueNimi(seuraId, joukkue)
-      : (joukkue || '').replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+    const joukkueNimi = await haeJoukkueNimi(seuraId, joukkue);
     try {
       await lahetaSahkoposti({
         to: hEmail,
@@ -488,6 +493,10 @@ exports.lahetaHuoltajaKutsu = functions
     if (!huoltajaEmail || !pelaajaId || !seuraId) {
       throw new functions.https.HttpsError('invalid-argument',
         'huoltajaEmail, pelaajaId ja seuraId ovat pakollisia.');
+    }
+    // Vaihe 0 / PR 3: vain seuran johto / SA — anonyymi loi kutsuja minkä tahansa seuran alle.
+    if (!(await tarkistaOikeus(context.auth.uid, seuraId)).sallittu) {
+      throw new functions.https.HttpsError('permission-denied', 'Ei oikeutta tähän seuraan.');
     }
     const suostumusLinkki =
       `${TM_BASE_URL}/` +
@@ -1699,6 +1708,13 @@ exports.aiProxy = functions
       const token    = authHeader.slice(7);
       const decoded  = await admin.auth().verifyIdToken(token);
       uid            = decoded.uid;
+      /* Vaihe 0 / PR 3: kelvollinen ID-token EI riitä — anonyymin tokenin saa kuka tahansa julkisella
+         avaimella (ja uusi uid ohittaa per-uid-rate-limitin). Vain henkilökunnan sovellukset (Master/VP)
+         kutsuvat tätä → anonyymi, pelaaja- ja Solo-lapsitoken hylätään. */
+      if (tunnisteTyyppi({ token: decoded }) !== 'kayttaja') {
+        res.status(403).json({ code: 'FORBIDDEN', message: 'Ei oikeutta.' });
+        return;
+      }
 
       // --------------------------------------------------
       // 2. PAYLOAD-VALIDOINTI
@@ -2486,19 +2502,17 @@ exports.notifKalenteriMuutos = functions
 // optimistinen versiolukko). Admin SDK ohittaa säännöt → tämä on ainoa tapa kirjata kuittaus
 // ilman että kaavio-dokumentti avataan pelaajan kirjoituksille.
 //
-// ⚠ IDENTITEETTI ON ASSERTED, EI VERIFIOITU (Teron päätös). PIN-pelaajan istunto on
-// Anonymous Auth, ja PIN ei säily loginin jälkeen (Pelaaja_v7 nollaa sen; sessiossa on vain
-// {pelaajaId, seuraId}) → PIN-verifiointi vaatisi joko PINin tallentamisen sessioon (HUONOMPI
-// turva kuin nyt) tai session-token-koneiston (custom-token-eepos). Kumpikaan ei kuulu tähän.
-// Kutsuja siis ILMOITTAA pelaajaId:nsä. Sama luottamustaso kuin nykyisessä IDP-sitoumuksessa.
-// ÄLÄ kuvaa kuittausta verifioituna — se on pehmeä sitoutumissignaali.
+// IDENTITEETTI (Vaihe 0 / PR 3): VERIFIOITU palvelintokenista. Pelaaja kirjautuu pelaajaKirjaudu-
+// funktiolla (custom token { rooli:'pelaaja', pelaajaSeuraId, pelaajaId }); pyynnön seura+pelaaja
+// on täsmättävä tokeniin (authz_paatos.kuittausPaatos). Henkilökunta: tarkistaOikeus. Anonyymi ja
+// Solo-lapsi → permission-denied. (Ennen PR 3:a identiteetti oli asserted: anonyymi PIN-istunto.)
+// Kuittaus on silti pehmeä sitoutumissignaali, EI compliance-portti.
 //
 // MITÄ CF SILTI TAKAA (tämä on sen arvo, ei identiteetti):
 //   1. KIRJOITUSEHEYS — kiinteä dot-path `review.ymmarretty.<pid>`; mitään muuta kenttää ei voi
 //      koskea riippumatta siitä mitä client lähettää. Ei versiobumppia, ei spec-clobberausta.
 //   2. ESIEHDOT — kaavion on oltava olemassa ja HYVÄKSYTTY; pelaajan on oltava olemassa;
 //      kaavion on KOHDISTUTTAVA pelaajaan. Väärinkäyttöpinta kaventuu kohdistuviin kaavioihin.
-// Täysi esto vaatii aidon pelaajaistunnon (custom token) — erillinen, läpileikkaava vaihe.
 exports.kuittaaKaavioYmmarretty = functions
   .region('europe-west1')
   .https.onCall(async (data, context) => {
@@ -2506,13 +2520,16 @@ exports.kuittaaKaavioYmmarretty = functions
     const seuraId   = String((data && data.seuraId) || '').trim();
     const kaavioId  = String((data && data.kaavioId) || '').trim();
     const pelaajaId = String((data && data.pelaajaId) || '').trim();
-    /* Vaihe 0 / PR 1: pelaajatokenilla identiteetti tulee TOKENISTA. Selaimen antama seura/pelaaja
-       hylätään, jos se on eri kuin tokenissa (pelaaja ei voi kuitata toisen puolesta). */
-    const tk = context.auth.token || {};
-    if (tk.rooli === 'pelaaja' && (tk.pelaajaSeuraId !== seuraId || tk.pelaajaId !== pelaajaId))
-      throw new functions.https.HttpsError('permission-denied', 'Pelaaja voi kuitata vain oman kaavionsa.');
     if (!seuraId || !kaavioId || !pelaajaId)
       throw new functions.https.HttpsError('invalid-argument', 'seuraId, kaavioId ja pelaajaId ovat pakollisia.');
+    /* Vaihe 0 / PR 3: pelkkä context.auth EI riitä (anonyymi kirjautuminen onnistuu, kunnes provider
+       suljetaan). Pelaajatoken: identiteetti TOKENISTA, vain oma kaavio. Henkilökunta: tarkistaOikeus.
+       Anonyymi / Solo-lapsi / toisen pelaajan puolesta → permission-denied. */
+    const paatos = kuittausPaatos(context.auth, seuraId, pelaajaId);
+    if (paatos === 'evatty')
+      throw new functions.https.HttpsError('permission-denied', 'Pelaaja voi kuitata vain oman kaavionsa.');
+    if (paatos === 'henkilokunta' && !(await tarkistaOikeus(context.auth.uid, seuraId)).sallittu)
+      throw new functions.https.HttpsError('permission-denied', 'Ei oikeutta tähän seuraan.');
 
     const ref = db.collection('seurat').doc(seuraId).collection('kaaviot').doc(kaavioId);
     const snap = await ref.get();

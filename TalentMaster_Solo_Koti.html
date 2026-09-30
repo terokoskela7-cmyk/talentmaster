@@ -171,7 +171,11 @@ var POS={hyokkaaja:'Hyökkääjä', keskikentta:'Keskikenttä', puolustaja:'Puol
         messagingSenderId:"872561784446", appId:"1:872561784446:web:05c4c7996dfd46ddd14a2f" }, 'tm-solo');
       tmAppCheckAktivoi(app);   // App Check heti initin jälkeen, ennen 1. backend-kutsua
       _auth=app.auth(); _db=app.firestore(); _fbReady=true;
-      _auth.onAuthStateChanged(function(u){ if(u){ _uid=u.uid; _haeFirestore(); } });
+      // PR 3 (Rules v3.28): anonyymi istunto (PR 2b:n varapolulta) ei lue enää mitään → ulos; koti toimii paikallisesti.
+      _auth.onAuthStateChanged(function(u){
+        if(u && u.isAnonymous){ _auth.signOut().catch(function(e){ console.warn('[koti] anonyymin uloskirjaus', e&&e.message); }); return; }
+        if(u){ _uid=u.uid; _haeFirestore(); }
+      });
     }
   } catch(e){ console.warn('[koti] fb', e&&e.message); }
   render();
