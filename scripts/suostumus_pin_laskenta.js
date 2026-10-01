@@ -5,7 +5,8 @@
  * sähköposteja, PIN-koodeja eikä uid:itä.
  *
  * Seuroittain ja joukkueittain:
- *   pelaajat · suostumus annettu · suostumus puuttuu · puuttuu MUTTA PIN olemassa · näistä kirjautunut 30 pv
+ *   pelaajat · suostumus annettu · suostumus puuttuu (josta pilotti / odottaa) · ei huoltajan sähköpostia
+ *   (suostumus puuttuu) · puuttuu MUTTA PIN olemassa · näistä kirjautunut 30 pv
  *
  * MÄÄRITELMÄT (samat kuin palvelimella):
  *   Suostumus annettu = suostumusTila === 'annettu' TAI suostumus.annettu asetettu
@@ -29,6 +30,7 @@ const PAIVA_MS = 864e5;
 const RAJA_MS = Date.now() - 30 * PAIVA_MS;
 const annettu = (p) => p.suostumusTila === 'annettu' || !!(p.suostumus && p.suostumus.annettu);
 const pinKentassa = (p) => p.pin != null && /^(\d{4}|\d{6})$/.test(String(p.pin));
+const tyhja = () => ({ yht: 0, annettu: 0, puuttuu: 0, pilotti: 0, odottaa: 0, eiEmailia: 0, puuttuuPin: 0, puuttuuPinKirj30: 0 });
 const paajoukkue = (p) => String(p.joukkue || p.joukkueNimi || (Array.isArray(p.joukkueetNimet) && p.joukkueetNimet[0]) || '').trim() || '(ei joukkuetta)';
 
 async function pelaajienKirjautumiset() {
@@ -63,11 +65,14 @@ async function pelaajienKirjautumiset() {
     const p = d.data() || {};
     const avain = s.id + '_' + d.id;
     const j = paajoukkue(p);
-    const L = ((seurat[s.id] = seurat[s.id] || {})[j] = seurat[s.id][j] || { yht: 0, annettu: 0, puuttuu: 0, puuttuuPin: 0, puuttuuPinKirj30: 0 });
+    const L = ((seurat[s.id] = seurat[s.id] || {})[j] = seurat[s.id][j] || tyhja());
     L.yht++;
     if (annettu(p)) L.annettu++;
     else {
       L.puuttuu++;
+      if (p.suostumusTila === 'pilotti') L.pilotti++;
+      else if (p.suostumusTila === 'odottaa') L.odottaa++;
+      if (!String(p.huoltajaEmail || '').trim()) L.eiEmailia++;   // QR-suostumuskortti vaatii huoltajaEmailin
       if (pinKentassa(p) || hajautetut.has(avain)) {
         L.puuttuuPin++;
         if ((kirjautumiset.get(avain) || 0) >= RAJA_MS) L.puuttuuPinKirj30++;
@@ -82,11 +87,13 @@ async function pelaajienKirjautumiset() {
 
   const sar = (x, n) => String(x).padStart(n);
   console.log('Suostumus + PIN seuroittain ja joukkueittain (kirjautuminen = viimeiset 30 pv)\n');
-  console.log('seura / joukkue'.padEnd(40) + sar('pelaajat', 9) + sar('annettu', 9) + sar('puuttuu', 9) + sar('puuttuu+PIN', 13) + sar('…kirj. 30pv', 13));
-  const yht = { yht: 0, annettu: 0, puuttuu: 0, puuttuuPin: 0, puuttuuPinKirj30: 0 };
-  const rivi = (nimi, L) => console.log(nimi.slice(0, 39).padEnd(40) + sar(L.yht, 9) + sar(L.annettu, 9) + sar(L.puuttuu, 9) + sar(L.puuttuuPin, 13) + sar(L.puuttuuPinKirj30, 13));
+  console.log('seura / joukkue'.padEnd(40) + sar('pelaajat', 9) + sar('annettu', 9) + sar('puuttuu', 9) + sar('pilotti', 9) + sar('odottaa', 9)
+    + sar('ei h-email', 11) + sar('puuttuu+PIN', 13) + sar('…kirj. 30pv', 13));
+  const yht = tyhja();
+  const rivi = (nimi, L) => console.log(nimi.slice(0, 39).padEnd(40) + sar(L.yht, 9) + sar(L.annettu, 9) + sar(L.puuttuu, 9) + sar(L.pilotti, 9) + sar(L.odottaa, 9)
+    + sar(L.eiEmailia, 11) + sar(L.puuttuuPin, 13) + sar(L.puuttuuPinKirj30, 13));
   for (const sid of Object.keys(seurat).sort()) {
-    const S = { yht: 0, annettu: 0, puuttuu: 0, puuttuuPin: 0, puuttuuPinKirj30: 0 };
+    const S = tyhja();
     for (const L of Object.values(seurat[sid])) for (const k of Object.keys(S)) S[k] += L[k];
     rivi(sid, S);
     for (const j of Object.keys(seurat[sid]).sort()) rivi('  ' + j, seurat[sid][j]);
