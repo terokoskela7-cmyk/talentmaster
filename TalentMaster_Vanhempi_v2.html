@@ -1326,7 +1326,9 @@ function rAsetukset(){
   const huoltajaNimi = (L.suostumus && L.suostumus.antaja) || L.suostumuksenAntaja   // kanoninen suostumus.antaja, vanha kenttä varalla
     || (_auth && _auth.currentUser && (_auth.currentUser.displayName || _auth.currentUser.email))
     || '—';
-  const pin = (L.pin != null && /^([0-9]{4}|[0-9]{6})$/.test(String(L.pin))) ? String(L.pin) : null;   // PR 4: 4 (vanha) tai 6 numeroa
+  // Suostumus ennen kirjautumista (1.10.2026): ilman suostumusta PIN ei toimi → ei näytetä (näkyy "PIN puuttuu").
+  const _suostumusOk = L.suostumusTila === 'annettu' || !!(L.suostumus && L.suostumus.annettu);
+  const pin = (_suostumusOk && L.pin != null && /^([0-9]{4}|[0-9]{6})$/.test(String(L.pin))) ? String(L.pin) : null;   // PR 4: 4 (vanha) tai 6 numeroa
   const palloId = _lapsenPalloId(L);
   return `
 <div class="scroll">

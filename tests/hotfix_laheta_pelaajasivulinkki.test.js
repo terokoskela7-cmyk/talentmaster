@@ -36,7 +36,7 @@ function aja(auth, { oikeus = false, tallennettu = 'huoltaja@tm-testi.fi' } = {}
   const ctx = {
     functions: ketju, exports: {}, console: { log() {}, warn() {}, error() {} }, encodeURIComponent, String,
     db: { collection: () => ({ doc: () => ({ collection: () => ({ doc: () => ({
-      get: async () => { const d = { huoltajaEmail: tallennettu, pin: '482915', tunniste: '12345678' }; return { exists: true, get: (k) => d[k], data: () => d }; },
+      get: async () => { const d = { huoltajaEmail: tallennettu, pin: '482915', tunniste: '12345678', suostumusTila: 'annettu' }; return { exists: true, get: (k) => d[k], data: () => d }; },
       update: () => Promise.resolve(),
     }) }) }) }) },
     admin: { firestore: { FieldValue: { serverTimestamp: () => 'TS' } } },
@@ -46,7 +46,7 @@ function aja(auth, { oikeus = false, tallennettu = 'huoltaja@tm-testi.fi' } = {}
     haeOrLuoHuoltajaAuth: async () => { loki.luotu++; },
     lahetaSahkoposti: async (m) => { loki.sposti++; loki.viesti = m; },
     pohjaPelaajaSivu: (o) => JSON.stringify(o),
-      pelaajakirjautuminen: require_('../functions/pelaajakirjautuminen.js'),
+      pelaajakirjautuminen: require_('../functions/pelaajakirjautuminen.js'), suostumusAnnettu: require_('../functions/suostumus.js').suostumusAnnettu,
     TM_BASE_URL: 'https://tm',
   };
   vm.createContext(ctx); lisaaPaikkamerkki(ctx);

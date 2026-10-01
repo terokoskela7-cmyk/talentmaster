@@ -4901,6 +4901,9 @@ function _muistettuTunnus() { try { return localStorage.getItem(_TUNNUS_LS) || '
 function _pinVirhe(t) { const e = document.getElementById('pinVirhe'); if (e) e.textContent = t; }
 const _PK_VIRHE_TUNNISTUS = 'Tunnus tai PIN on väärin.';
 const _PK_VIRHE_INFRA = 'Kirjautuminen ei juuri nyt onnistu. Yritä hetken päästä uudelleen.';
+/* Suostumus ennen kirjautumista (1.10.2026): oikea PIN, mutta huoltaja ei ole antanut suostumusta → ei tokenia.
+   Palvelin tarkistaa tämän VASTA oikean PIN:n jälkeen, joten viesti ei paljasta mitään väärällä PIN:llä. */
+const _PK_VIRHE_SUOSTUMUS = 'Huoltajasi ei ole vielä antanut lupaa. Pyydä vanhempaasi skannaamaan kortin QR-koodi.';
 
 /* KIRJAUTUMISEN HELPOTUS: henkilökohtainen linkki (?p=&seura= tai ?pelaajaId=&seuraId=) kertoo KUKA,
    PIN todistaa → pelkkä PIN-näppäimistö. URL EI kirjaa sisään eikä lue mitään ennen PIN:iä: tunnisteet
@@ -4948,6 +4951,7 @@ async function _kirjaudu(pin) {
     _pin = ''; draw();
     if (koodi === 'resource-exhausted') { _pinVirhe(viesti || 'Liian monta yritystä. Yritä myöhemmin.'); return; }
     if (koodi === 'invalid-argument' || viesti === _PK_VIRHE_TUNNISTUS) { _pinVirhe(_PK_VIRHE_TUNNISTUS); return; }
+    if (koodi === 'failed-precondition' && e && e.details && e.details.syy === 'suostumus_puuttuu') { _pinVirhe(_PK_VIRHE_SUOSTUMUS); return; }
     if (tmOnVerkkokatko(e)) { tmRaportoiVerkkokatko('pelaajaKirjaudu'); _pinVirhe(tmVerkkoViesti()); return; }
     const syy = _infraVirheenSyy(koodi, viesti);
     console.error('[pelaajaKirjaudu] palvelinvirhe:', syy);

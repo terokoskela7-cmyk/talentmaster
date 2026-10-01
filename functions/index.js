@@ -18,7 +18,8 @@ const { keraaPelaajanManifesti, rakennaAuditPayload } = require('./gdpr_locator'
 const { kaavioKohdistuuServer } = require('./kaavio_policy');   // kaavion kohdistus (peili lib/tm_kaavio_policy.js)
 const auditloki = require('./auditloki');   // haeAuditLoki: suodattimet + sivutus (SA)
 const pelaajapin = require('./pelaajapin');   // PR 4: PIN vain palvelimella (asetaPelaajanPin / luoPinitSeuralle)
-const suostumusTarkistus = require('./suostumus_tarkistus');   // sisarusbugi: lomake vs tunnisteen pelaaja
+const suostumusTarkistus = require('./suostumus_tarkistus');
+const { suostumusAnnettu } = require('./suostumus');   // kanoninen suostumusehto (1.10.2026)   // sisarusbugi: lomake vs tunnisteen pelaaja
 const valmennusapuri = require('./valmennusapuri');
 const { onPaikkamerkkiOsoite } = require('./paikkamerkki');   // paikkamerkkidomainien esto (1.10.2026)
 const pelaajakirjautuminen = require('./pelaajakirjautuminen');   // Vaihe 0 / PR 1: PalloID + PIN → custom token           // Valmennusapuri-pilotti (Vaihe 2): ohjeistus+tietopohja palvelimella
@@ -1173,7 +1174,8 @@ exports.lahetaPelaajaSivuLinkki = functions
     const pelaajaLinkki = `${baseUrl}/TalentMaster_Pelaaja_v7.html` +
       `?p=${encodeURIComponent(pelaajaId)}&seura=${encodeURIComponent(seuraId)}`;
     const pd = pelSnap.data() || {};
-    const pinNyt = (pd.pin != null && /^(\d{4}|\d{6})$/.test(String(pd.pin))) ? String(pd.pin) : null;
+    // Suostumus ennen kirjautumista (1.10.2026): ilman suostumusta PIN ei toimi → ei sähköpostiin.
+    const pinNyt = (suostumusAnnettu(pd) && pd.pin != null && /^(\d{4}|\d{6})$/.test(String(pd.pin))) ? String(pd.pin) : null;
     const palloIdNyt = pelaajakirjautuminen.pelaajanPalloId(pd);
     const vanhempiLinkki = `${baseUrl}/TalentMaster_Vanhempi_v2.html` +
       `?pelaajaId=${pelaajaId}&seuraId=${seuraId}` +
@@ -1301,7 +1303,7 @@ exports.vahvistaSuostumus = functions
        - ei (löytyvää) kutsua = vanha tunnisteeton linkki: hylätään, jos suostumus on jo annettu.
        Uusi kutsu ("Lähetä uudelleen") on avoin → uusi suostumus sallitaan sen kautta. Ei kirjoituksia ennen tätä. */
     const AVOIMET_KUTSUTILAT = ['odottaa', 'lahetetty', 'luotu'];
-    const joAnnettu = snap.get('suostumusTila') === 'annettu' || !!(snap.get('suostumus') && snap.get('suostumus').annettu);
+    const joAnnettu = suostumusAnnettu(snap.data());
     let kutsuRef = null;
     if (kutsuId) {
       const kr = db.collection('seurat').doc(seuraId).collection('kutsut').doc(String(kutsuId));
