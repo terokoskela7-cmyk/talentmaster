@@ -8,4 +8,9 @@ module.exports = [
   // EI VIETY (1.10.2026): Geminin sv käyttää {gen}-muuttujaa, jonka koodi täyttää SUOMEN genetiivillä
   // (_genetiivi → "Topiaksen") ja jota V1-B2-sääntö kieltää sv/en-teksteissä. Odottaa Teron/Geminin uutta versiota.
   'vanhempi.kirj_jakoteksti',
+  // Suostumuslomake: syntymäaika kolmella valikolla (1.10.2026)
+  'suostumus.syn_paiva',
+  'suostumus.syn_kuukausi',
+  'suostumus.syn_vuosi',
+  'suostumus.syn_tarkista',
 ];
