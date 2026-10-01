@@ -125,7 +125,7 @@ describe('Seura / Pelaaja / Vanhempi', () => {
   it('Seura: sama ehto, PIN-luonti / kortit / tunnukset vain suostumuksella; uusi pelaaja ei kutsu asetaPelaajanPin', () => {
     expect(SEURA).toContain("function _suostumusAnnettu(p) { return !!p && (p.suostumusTila === 'annettu' || !!(p.suostumus && p.suostumus.annettu)); }");
     expect(SEURA).toContain("const PIN_SUOSTUMUS_PUUTTUU = 'Huoltajan suostumus puuttuu – PIN luodaan suostumuksen jälkeen.';");
-    expect(SEURA).toContain('const lista = k.lista.filter((p) => p.pin && _suostumusAnnettu(p));');
+    expect(SEURA).toContain('const pelaajat = k.lista.filter((p) => _suostumusAnnettu(p) && p.pin).sort(jarj);');   // PR B: pelaajakortti vain suostumuksella
     expect(SEURA).toContain('const kohteet = k.lista.filter((p) => p.huoltajaEmail && p.pin && _suostumusAnnettu(p));');
     expect(SEURA).toContain("PIN luodaan automaattisesti, kun huoltaja antaa suostumuksen");
     expect(SEURA).toContain("${esc(_suostumusAnnettu(p) ? (p.pin || '—') : '—')}");

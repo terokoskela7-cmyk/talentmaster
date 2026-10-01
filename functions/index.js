@@ -17,7 +17,8 @@ const { kayttajaRooliSallittu, tunnisteTyyppi, kuittausPaatos } = require('./aut
 const { keraaPelaajanManifesti, rakennaAuditPayload } = require('./gdpr_locator');   // GDPR RTBF/export -locator (#96)
 const { kaavioKohdistuuServer } = require('./kaavio_policy');   // kaavion kohdistus (peili lib/tm_kaavio_policy.js)
 const auditloki = require('./auditloki');   // haeAuditLoki: suodattimet + sivutus (SA)
-const pelaajapin = require('./pelaajapin');   // PR 4: PIN vain palvelimella (asetaPelaajanPin / luoPinitSeuralle)
+const pelaajapin = require('./pelaajapin');
+const suostumuskortit = require('./suostumuskortit');   // PR B: QR-suostumuskortit   // PR 4: PIN vain palvelimella (asetaPelaajanPin / luoPinitSeuralle)
 const suostumusTarkistus = require('./suostumus_tarkistus');
 const { suostumusAnnettu } = require('./suostumus');   // kanoninen suostumusehto (1.10.2026)   // sisarusbugi: lomake vs tunnisteen pelaaja
 const valmennusapuri = require('./valmennusapuri');
@@ -1280,8 +1281,9 @@ exports.vahvistaSuostumus = functions
         pelaajaId, seuraId, yritettyEmail: hEmailNorm,
         aikaleima: admin.firestore.FieldValue.serverTimestamp(),
       }).catch(() => {});
+      // syy-koodi lomakkeelle (QR-kortti, 1.10.2026): selkeä ohje, EI tallennettua osoitetta.
       throw new functions.https.HttpsError('permission-denied',
-        'Huoltajan sähköposti ei täsmää pelaajan tietoihin.');
+        'Huoltajan sähköposti ei täsmää pelaajan tietoihin.', { syy: 'email_ristiriita' });
     }
 
     /* 2b. Sisarusbugi (30.9.2026): sähköposti täsmää myös SISARUKSELLE (sama huoltaja). Lomakkeen etunimi ja
@@ -1305,12 +1307,14 @@ exports.vahvistaSuostumus = functions
     const AVOIMET_KUTSUTILAT = ['odottaa', 'lahetetty', 'luotu'];
     const joAnnettu = suostumusAnnettu(snap.data());
     let kutsuRef = null;
+    let kutsuTyyppi = null;   // 'qr_kortti' → suostumus.lahde + audit (PR B)
     if (kutsuId) {
       const kr = db.collection('seurat').doc(seuraId).collection('kutsut').doc(String(kutsuId));
       const ks = await kr.get();
       if (ks.exists) {
         kutsuRef = kr;
         const kd = ks.data() || {};
+        kutsuTyyppi = kd.tyyppi || null;
         if (kd.pelaajaId && kd.pelaajaId !== pelaajaId) {
           await db.collection('audit').add({ toiminto: 'suostumus_estetty_kutsu_ristiriita', severity: 'warn', pelaajaId, seuraId,
             kutsuId: String(kutsuId), aikaleima: admin.firestore.FieldValue.serverTimestamp() }).catch(() => {});
@@ -1377,6 +1381,7 @@ exports.vahvistaSuostumus = functions
     // (sama rakenne kuin uusi-rekisteröinti-haaran .set(), §14: raakadata talteen).
     if (Array.isArray(suostumukset)) paivitys.suostumukset = suostumukset.filter((x) => SUOSTUMUS_AVAIMET.includes(x));
     paivitys.suostumus = {
+      ...(kutsuTyyppi === 'qr_kortti' ? { lahde: 'qr_kortti' } : {}),
       annettu:     TS,
       antaja:      antajaNimi,
       antajaRooli: antajaRooli === 'itse' ? 'itse' : (antajaRooli ? 'huoltaja' : null),
@@ -1450,6 +1455,7 @@ exports.vahvistaSuostumus = functions
       lomake_poikkeama: kohde.poikkeama,             // [] | ['etunimi'] | ['vuosi']
       tekija_uid: (context.auth && context.auth.uid) || null,
       aikaleima: admin.firestore.FieldValue.serverTimestamp(),
+      ...(kutsuTyyppi === 'qr_kortti' ? { lahde: 'qr_kortti' } : {}),   // QR-suostumuskortti (PR B)
     }).catch(() => {});
 
     // 4. + 5. Luo/hae huoltajan Auth-tili ja generoi salasanan asetuslinkki.
@@ -3002,6 +3008,11 @@ exports.asetaPelaajanPin = functions
   .region('europe-west1')
   .runWith({ enforceAppCheck: true })
   .https.onCall(pelaajapin.luoAsetaPelaajanPin(pinDeps));
+/* PR B (1.10.2026) — QR-suostumuskortit: kutsu luodaan palvelimella (functions/suostumuskortit.js). */
+exports.luoSuostumusKortit = functions
+  .region('europe-west1')
+  .runWith({ enforceAppCheck: true, timeoutSeconds: 120 })
+  .https.onCall(suostumuskortit.luoKasittelija(pinDeps));
 exports.luoPinitSeuralle = functions
   .region('europe-west1')
   .runWith({ enforceAppCheck: true, timeoutSeconds: 300 })
