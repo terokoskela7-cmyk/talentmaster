@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>TalentMaster™ — Perhe v1</title>
 <script>/* Versio-tarkistus (cache): pakottaa reloadin kun uusi versio deployattu. APP_VERSION leimataan scripts/bump_version.js:llä. */
-(function(){var APP_VERSION='1790864920073';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
+(function(){var APP_VERSION='1790866216786';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
 <!-- B2 Sentry-virheseuranta (onboarding-kriittinen). PII-skrubi tm_sentry.js:ssä. Guard: offline → no-op.
      ⚠️ ENNEN PUSHIA: liitä EU-DSN tm_sentry.js:ään + verifioi integrity-hash bundle.min.js@10.58.0 (väärä SRI estää Sentryn hiljaa). -->
 <script>window.TM_SENTRY={app:'vanhempi'};</script>
@@ -121,7 +121,7 @@ body.demo-mode #devChrome{display:block}
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-functions-compat.js"></script>
 <script src="lib/tm_appcheck.js?v=2"></script>
-<script src="lib/tm_lang.js?v=16"></script>   <!-- i18n V0 putki · V1-B/B2: +vanhempi./nav.-avaimet + kielivalitsin + syväsisältö (nimen taivutus poistettu) -->
+<script src="lib/tm_lang.js?v=17"></script>   <!-- i18n V0 putki · V1-B/B2: +vanhempi./nav.-avaimet + kielivalitsin + syväsisältö (nimen taivutus poistettu) -->
 <script src="docs/testit_indeksit.js?v=9"></script>
 <script src="tm-bus.js?v=3"></script>
 <script src="tm-demo.js?v=3"></script>
@@ -290,7 +290,8 @@ function draw(){
   else if(_sc==='valmentaja') html=rValmentaja();
   else if(_sc==='kortti') html=rKortti();
   else if(_sc==='asetukset') html=rAsetukset();
-  pb.innerHTML=`<div class="scene">${html}${rTabs()}</div>`;
+  const valitsin = (_sc!=='login' && typeof _lapsiValitsinHTML==='function') ? _lapsiValitsinHTML() : '';
+  pb.innerHTML=`<div class="scene">${valitsin}${html}${rTabs()}</div>`;
 }
 
 
@@ -505,8 +506,9 @@ async function _vanhLataaNotif() {
     var snap = await _db.collection('seurat').doc(L.seuraId).collection('pelaajat').doc(L.id)
       .collection('notifikaatiot').orderBy('luotu', 'desc').limit(20).get();
     var arr = []; snap.forEach(function (d) { arr.push(Object.assign({ id: d.id }, d.data())); });
+    if (window._lapsi !== L) return;   // lapsi vaihtui kesken haun → älä piirrä edellisen lapsen ilmoituksia
     window._vanhNotif = arr;
-  } catch (e) { console.warn('[vanh notif]', e && e.message); window._vanhNotif = []; }
+  } catch (e) { if (window._lapsi !== L) return; console.warn('[vanh notif]', e && e.message); window._vanhNotif = []; }
   if (typeof draw === 'function') draw();
 }
 function _vanhNotifHTML() {
@@ -565,8 +567,9 @@ async function _vanhLataaKalenteri() {
     evs.sort(function (a, b) { return a._d - b._d; });
     // P7-c.3 — read-back lapsen oma saatavuus näytettäville tapahtumille (best-effort, rinnakkain).
     if (L.id) { try { await Promise.all(evs.slice(0, 5).map(function (ev) { return _db.collection('seurat').doc(L.seuraId).collection('kalenteri').doc(ev.id).collection('lasnaolijat').doc(L.id).get().then(function (s) { if (s.exists) ev._omaSaatavuus = (s.data() || {}).saatavuus || null; }).catch(function () { }); })); } catch (e) { /* ei kriittinen */ } }
+    if (window._lapsi !== L) return;   // lapsi vaihtui kesken haun → älä piirrä edellisen lapsen tapahtumia
     window._vanhKalenteri = evs;
-  } catch (e) { console.warn('[vanh kalenteri]', e && e.message); window._vanhKalenteri = []; }   // virhe → tyhjä, EI demo
+  } catch (e) { if (window._lapsi !== L) return; console.warn('[vanh kalenteri]', e && e.message); window._vanhKalenteri = []; }   // virhe → tyhjä, EI demo
   if (typeof draw === 'function') draw();
 }
 // P7-c.2 — logistiikka-chipit (vain olemassa olevat kentät). Vanhemmalle myös 🚗 kimppakyyti.
@@ -1067,10 +1070,11 @@ async function _perheKirjaa(){
   }
 
   // ── Firestore: tallenna oikea kirjaus pelaajan kokoelmaan ──────────
-  // Hyväksy molemmat param-nimet (reset-linkki: pelaajaId/seuraId; legacy: uid/seura).
-  const _qs = new URLSearchParams(location.search);
-  const urlSeura = _qs.get('seura') || _qs.get('seuraId');
-  const urlUid   = _qs.get('uid')   || _qs.get('pelaajaId');
+  // Lapsenvaihdin (1.10.2026): kohde = VALITTU lapsi (_lapsiTunnisteet), ei URL — URL:n lapsi voi olla eri
+  // kuin valintarivillä valittu, ja ilman linkkiä tultaessa URL:ssa ei ole lasta lainkaan.
+  const _tt = window._lapsiTunnisteet || {};
+  const urlSeura = _tt.seuraId || null;
+  const urlUid   = _tt.pelaajaId || null;
 
   if (_db && urlSeura && urlUid) {
     // Reaalitila: tallenna Firestoreen. Epäonnistuminen EI saa näkyä hiljaa (oli aiemmin
@@ -1531,7 +1535,14 @@ try {
    EI tasoja/lukuja/vertailua. Gating: localStorage tm_vanhempi_aloitettu_<pelaajaId>. String concat §7.1.
 ══════════════════════════════════════════════════════════ */
 function _vthEsc(s){ return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+/* Lapsenvaihdin (1.10.2026): tervetulo näytetään kerran per HUOLTAJA (auth-uid), ei jokaisen lapsen kohdalla.
+   Vanha lapsikohtainen avain (_vthAvainLapsi) luetaan siirtymänä: jo nähnyt ei näe opasta uudelleen. */
 function _vthAvain(){
+  var u = _auth && _auth.currentUser;
+  if (u && u.uid) return 'tm_vanhempi_aloitettu_h_' + u.uid;
+  return _vthAvainLapsi();
+}
+function _vthAvainLapsi(){
   var L = window._lapsi || {};
   var qs = new URLSearchParams(location.search);
   var pid = L.uid || L.id || qs.get('pelaajaId') || qs.get('uid') || L.pin || '';
@@ -1540,7 +1551,11 @@ function _vthAvain(){
 function _naytaVanhTervetulo(){
   var L = window._lapsi; if (!L) return;
   var avain = _vthAvain(); if (!avain) return;
-  try { if (localStorage.getItem(avain)) return; } catch (e) { return; }
+  try {
+    if (localStorage.getItem(avain)) return;
+    var vanha = _vthAvainLapsi();
+    if (vanha && vanha !== avain && localStorage.getItem(vanha)) { localStorage.setItem(avain, '1'); return; }
+  } catch (e) { return; }
   if (document.getElementById('vanhTervetuloOv')) return;
   var nimi = _vthEsc(L.etunimi || '');
   var gen = (nimi && typeof _genetiivi === 'function') ? _vthEsc(_genetiivi(L.etunimi)) : (nimi || 'lapsesi');
@@ -1632,54 +1647,128 @@ function _kasitteleLapsi(lapsi) {
   }
 }
 
-/* ── Hae lapsen viimeisin T-kirjaus Firestoresta ── */
+/* ══ LAPSENVAIHDIN (1.10.2026) ══════════════════════════════════════════════════════════════
+   Huoltajalla voi olla useita lapsia (myös eri seuroissa). haeLapsiHuoltajalle palauttaa ne järjestyksessä
+   (vanhin ensin); 2+ lasta → valintarivi sivun yläosaan. Valinta muistetaan laitteella huoltajan uid:n mukaan.
+   Linkkireitti (?uid=&seura= / ?pelaajaId=&seuraId=): URL:n lapsi on oletusvalinta, lista haetaan silti.
+
+   _vaihdaLapsi nollaa KAIKEN lapsikohtaisen tilan (_lapsiTilaNollaa) ja lataa uuden lapsen. Pyyntötunniste
+   _lapsiPyynto: myöhässä saapuva edellisen lapsen vastaus hylätään ennen piirtoa (ei vuotoa lapselta toiselle).
+   Kalenteri/ilmoitukset vertaavat lisäksi window._lapsi-viitettä ennen kirjoitusta (omat loaderinsa). */
+window._lapsetLista = [];
+let _lapsiPyynto = 0;
+function _lapsiValintaAvain() {
+  var u = _auth && _auth.currentUser;
+  return (u && u.uid) ? ('tm_vanhempi_lapsi_' + u.uid) : '';
+}
+function _lapsiValintaLue() {
+  var a = _lapsiValintaAvain(); if (!a) return null;
+  try { var v = JSON.parse(localStorage.getItem(a) || 'null'); return (v && v.seura && v.uid) ? v : null; } catch (e) { return null; }
+}
+function _lapsiValintaTallenna(seuraId, pelaajaId) {
+  var a = _lapsiValintaAvain(); if (!a) return;
+  try { localStorage.setItem(a, JSON.stringify({ seura: seuraId, uid: pelaajaId })); } catch (e) { /* ei localStoragea → ei muistia */ }
+}
+function _lapsiTilaNollaa() {
+  window._lapsi = null;
+  window._lapsiTunnisteet = null;
+  _viimeisinKirjaus = null;
+  _viikkoKirjaukset = [];
+  _valmentajaViestit = [];
+  _kehuLahetetty = false;
+  window._vanhKalenteri = null; window._vanhKalLadattu = false;
+  window._vanhNotif = null; window._vanhNotifLadattu = false;
+  // Kesken jäänyt Kirjaa-lomake kuului edelliselle lapselle → tyhjäksi
+  _pTyypit = new Set(); _pFiilis = null; _pTeksti = ''; _pMinuutit = null;
+}
+/* Etunimi; jos kahdella lapsella sama etunimi → perään joukkue. */
+function _lapsiNimiRivilla(l, lista) {
+  var nimi = l.etunimi || '?';
+  var sama = lista.filter(function (x) { return (x.etunimi || '') === (l.etunimi || ''); }).length > 1;
+  return (sama && l.joukkueNimi) ? (nimi + ' · ' + l.joukkueNimi) : nimi;
+}
+function _lapsiValitsinHTML() {
+  var lista = window._lapsetLista || [];
+  if (lista.length < 2) return '';
+  var tt = window._lapsiTunnisteet || {};
+  var nappi = function (l) {
+    var on = (l.seura === tt.seuraId && l.uid === tt.pelaajaId);
+    return '<button type="button" role="tab" aria-selected="' + on + '" onclick="_vaihdaLapsiKlik(\'' + _vthEsc(l.seura) + '\',\'' + _vthEsc(l.uid) + '\')" style="flex-shrink:0;padding:7px 14px;border-radius:999px;border:.5px solid ' + (on ? 'var(--teal-d)' : 'var(--border2)') + ';background:' + (on ? 'var(--teal-d)' : 'transparent') + ';color:' + (on ? '#fff' : 'var(--ink2)') + ';font-size:12px;font-weight:600;font-family:inherit;cursor:pointer;white-space:nowrap">' + _vthEsc(_lapsiNimiRivilla(l, lista)) + '</button>';
+  };
+  return '<div role="tablist" aria-label="' + _vthEsc(t('vanhempi.lapsi_valitse')) + '" style="display:flex;gap:6px;overflow-x:auto;padding:12px 18px 2px;-webkit-overflow-scrolling:touch">' + lista.map(nappi).join('') + '</div>';
+}
+window._vaihdaLapsiKlik = function (seuraId, pelaajaId) {
+  var tt = window._lapsiTunnisteet || {};
+  if (tt.seuraId === seuraId && tt.pelaajaId === pelaajaId) return;
+  // URL:n lapsi ei saa voittaa käyttäjän valintaa seuraavalla latauksella → poista lapsiparametrit osoitteesta.
+  try {
+    var u = new URL(location.href);
+    ['uid', 'seura', 'pelaajaId', 'seuraId'].forEach(function (k) { u.searchParams.delete(k); });
+    history.replaceState(null, '', u.toString());
+  } catch (e) { /* ei estä vaihtoa */ }
+  _vaihdaLapsi(seuraId, pelaajaId);
+};
+async function _vaihdaLapsi(seuraId, pelaajaId) {
+  if (!_db || !seuraId || !pelaajaId) return;
+  const pyynto = ++_lapsiPyynto;
+  const ajantasalla = function () { return pyynto === _lapsiPyynto; };
+  _lapsiTilaNollaa();
+  window._lapsiTunnisteet = { seuraId: seuraId, pelaajaId: pelaajaId };
+  if (typeof draw === 'function') draw();
+  let pd;
+  try {
+    pd = await _db.collection('seurat').doc(seuraId).collection('pelaajat').doc(pelaajaId).get();
+  } catch (e) {
+    if (!ajantasalla()) return;
+    console.warn('[Perhe] pelaajalataus epäonnistui:', e.code || '', e.message);
+    _toast(t('vanhempi.toast_lapsi_haku_virhe'));
+    return;
+  }
+  if (!ajantasalla()) return;
+  if (!pd.exists) { _toast(t('vanhempi.toast_lapsi_haku_virhe')); return; }
+  _lapsiValintaTallenna(seuraId, pelaajaId);
+  // id + seuraId polusta (dokumentissa ei välttämättä ole niitä) → kalenteri, ilmoitukset ja RSVP osuvat oikeaan lapseen.
+  _kasitteleLapsi(Object.assign({}, pd.data(), { id: pelaajaId, seuraId: seuraId }));
+  await _lataaLapsenData(seuraId, pelaajaId, ajantasalla);
+}
+
+/* ── Hae huoltajan lapset + avaa valittu (kirjautumisen jälkeen) ── */
 async function _haeViimeisinKirjaus() {
   if (!_db) return;
   // Bug 1: hyväksy molemmat param-nimet — reset-linkki emittoi pelaajaId/seuraId, legacy uid/seura.
   const _qs = new URLSearchParams(location.search);
-  let urlSeura = _qs.get('seura') || _qs.get('seuraId') || 'kpv';
-  let urlUid   = _qs.get('uid')   || _qs.get('pelaajaId') || null;
+  const urlUid   = _qs.get('uid')   || _qs.get('pelaajaId') || null;
+  const urlSeura = _qs.get('seura') || _qs.get('seuraId') || (urlUid ? 'kpv' : null);
 
-  // Bug 2: lataa pelaajadokumentti AINA kun uid+seura tiedossa — riippumatta reitistä.
-  if (urlUid && urlSeura) {
-    // Suora linkki: lue pelaajadoc suoraan (huoltaja-lukuoikeus sallii, onLapsenHuoltaja).
-    try {
-      const pd = await _db.collection('seurat').doc(urlSeura)
-        .collection('pelaajat').doc(urlUid).get();
-      if (pd.exists) { window._lapsiTunnisteet = { seuraId: urlSeura, pelaajaId: urlUid }; _kasitteleLapsi(pd.data()); }
-    } catch(e) {
-      console.warn('[Perhe] suora pelaajalataus epäonnistui:', e.message);
-    }
-  } else {
-    // Fallback: ei uid:ia URL:ssa → resolvoi lapsi autentikoidusta emailista Cloud Functionilla.
-    // Client EI voi tehdä tätä: Rules estävät seurat-listauksen + cross-seura-haun, eikä
-    // huoltajalla ole seuraId-claimia. CF (Admin SDK) ohittaa Rulesit ja palauttaa VAIN ne
-    // lapset joiden huoltajaEmail == kutsujan autentikoitu email. (Linkin kautta tultaessa
-    // uid+seura on jo URL:ssa eikä tätä tarvita.)
-    const user = _auth.currentUser;
-    if (!user || !user.email) return;
+  // Lista haetaan AINA kun huoltaja on kirjautunut — myös linkkireitillä (valintarivi näkyy).
+  // Client EI voi hakea tätä itse: Rules estävät cross-seura-haun eikä huoltajalla ole seuraId-claimia.
+  // CF (Admin SDK) palauttaa VAIN ne lapset, joiden huoltajaEmail == kutsujan autentikoitu email.
+  const user = _auth && _auth.currentUser;
+  let lapset = [];
+  if (user && user.email) {
     try {
       const haeLapsi = window._fbApp.functions('europe-west1').httpsCallable('haeLapsiHuoltajalle');
       const res = await haeLapsi();
-      const lapset = (res.data && res.data.lapset) || [];
-      if (!lapset.length) {
-        console.warn('[Perhe] Ei löydy pelaajaa huoltajaEmail:lla', user.email);
-        _toast(t('vanhempi.toast_ei_lasta'));
-        return;
-      }
-      const lapsi = lapset[0];   // useampi lapsi → oletuksena ensimmäinen
-      urlSeura = lapsi.seura;
-      urlUid   = lapsi.uid;
-      const pSnap = await _db.collection('seurat').doc(urlSeura)
-        .collection('pelaajat').doc(urlUid).get();
-      if (pSnap.exists) { window._lapsiTunnisteet = { seuraId: urlSeura, pelaajaId: urlUid }; _kasitteleLapsi(pSnap.data()); }
-    } catch(e) {
+      lapset = (res.data && res.data.lapset) || [];
+    } catch (e) {
       console.warn('[Perhe] lapsi-haku epäonnistui:', e.code || '', e.message);
-      _toast(t('vanhempi.toast_lapsi_haku_virhe'));
-      return;
+      if (!urlUid) { _toast(t('vanhempi.toast_lapsi_haku_virhe')); return; }
     }
   }
+  window._lapsetLista = lapset;
 
+  if (urlUid && urlSeura) { await _vaihdaLapsi(urlSeura, urlUid); return; }
+  if (!lapset.length) {
+    if (user && user.email) { console.warn('[Perhe] Ei löydy pelaajaa huoltajaEmail:lla'); _toast(t('vanhempi.toast_ei_lasta')); }
+    return;
+  }
+  const muistettu = _lapsiValintaLue();
+  const valittu = (muistettu && lapset.find(function (l) { return l.seura === muistettu.seura && l.uid === muistettu.uid; })) || lapset[0];
+  await _vaihdaLapsi(valittu.seura, valittu.uid);
+}
+
+/* ── Lapsen kirjaukset + valmentajan viestit. ajantasalla() = false → lapsi vaihtui, tulos hylätään. ── */
+async function _lataaLapsenData(urlSeura, urlUid, ajantasalla) {
   try {
     // Viimeisin kirjaus
     const snap = await _db.collection('seurat').doc(urlSeura)
@@ -1688,6 +1777,7 @@ async function _haeViimeisinKirjaus() {
       .orderBy('luotu', 'desc')
       .limit(1)
       .get();
+    if (!ajantasalla()) return;
 
     if (!snap.empty) {
       const d = snap.docs[0].data();
@@ -1713,6 +1803,7 @@ async function _haeViimeisinKirjaus() {
       .orderBy('luotu', 'desc')
       .limit(14)
       .get();
+    if (!ajantasalla()) return;
 
     _viikkoKirjaukset = viikkoSnap.docs.map(d => ({ id: d.id, ...d.data() }));
     _kehuLahetetty = false;
@@ -1737,6 +1828,7 @@ async function _haeViimeisinKirjaus() {
         .collection('pelaajat').doc(urlUid).collection('havainnot')
         .where('tila', '==', 'valmis')
         .where('nakyvyys', '==', 'pelaaja').limit(50).get();
+      if (!ajantasalla()) return;
       const docs = vSnap.docs.map(d => ({ id: d.id, ...d.data() }));
       _valmentajaViestit = (typeof tmHhRivit === 'function')
         ? tmHhRivit(docs).filter(function (r) { return r.teksti; })
@@ -1745,7 +1837,7 @@ async function _haeViimeisinKirjaus() {
           const tb = (b.luotu && b.luotu.toDate) ? b.luotu.toDate().getTime() : 0;
           return tb - ta;
         });
-    } catch(e) { console.warn('[valmentajaViestit]', e.message); _valmentajaViestit = []; }
+    } catch(e) { if (!ajantasalla()) return; console.warn('[valmentajaViestit]', e.message); _valmentajaViestit = []; }
 
     draw();
   } catch(e) {
@@ -1922,8 +2014,9 @@ function _kirjauduUlos() {
       }).catch(() => {});
     }
   } catch(e) {}
-  _viimeisinKirjaus = null;
-  _viikkoKirjaukset = [];
+  _lapsiPyynto++;   // keskeneräiset lataukset hylätään
+  _lapsiTilaNollaa();
+  window._lapsetLista = [];
   _sc = 'login';
   draw();
   _toast(t('vanhempi.toast_kirjauduttu_ulos'));

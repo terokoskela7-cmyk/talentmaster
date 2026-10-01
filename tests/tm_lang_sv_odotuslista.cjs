@@ -14,4 +14,6 @@ module.exports = [
   'vanhempi.toast_kopioitu',
   'vanhempi.toast_kopioi_kasin',
   'vanhempi.ikavaihe_v',
+  // Lapsenvaihdin (1.10.2026)
+  'vanhempi.lapsi_valitse',
 ];
