@@ -10,8 +10,11 @@ const functions = require('firebase-functions/v1');
 const va = require('../valmennusapuri');
 
 // ── Muisti-Firestore ─────────────────────────────────────────────────────────
+/* SA tunnistetaan admins-dokumentista (P2 1.10.2026: kovakoodattu SA_UID poistettu valmennusapuri.js:stä).
+   Jokaisessa testikannassa on testi-SA:n admins-dokumentti. */
+const SA = 'sa-testi';
 function muistiDb(alku) {
-  const data = Object.assign({}, alku || {});
+  const data = Object.assign({ ['admins/' + SA]: { rooli: 'super_admin' } }, alku || {});
   let seuraava = 1;
   function snap(polku) {
     const d = data[polku];
@@ -155,9 +158,9 @@ test('kasittelija: deaktivoitu pilotti → permission-denied', async () => {
   const { h } = teeKasittelija(muistiDb({ 'valmennusapuri_pilotti/v1': { aktiivinen: false } }));
   await assert.rejects(() => h(kysymys(), ctx('v1')), (e) => e.code === 'permission-denied');
 });
-test('kasittelija: super admin pääsee aina (UID-invariantti) ilman pilottidokumenttia', async () => {
+test('kasittelija: super admin (admins-dokumentti) pääsee aina ilman pilottidokumenttia', async () => {
   const { h } = teeKasittelija(muistiDb());
-  const r = await h(kysymys(), ctx(va.SA_UID));
+  const r = await h(kysymys(), ctx(SA));
   assert.strictEqual(r.vastaus, 'Vastaus');
 });
 test('kasittelija: admins-dokumentti antaa SA-pääsyn (adminSnap.exists)', async () => {
@@ -329,7 +332,7 @@ test('roolitKayttajalle: SA kaikki, pilotti vain valmennusapuri ellei roolit: [h
 test('kasittelija: SA + rooli hp → HP-polku, rooli lokiin', async () => {
   const db = muistiDb();
   const { h, polut } = teeRoolikasittelija(db);
-  const r = await h(Object.assign(kysymys(), { rooli: 'hp' }), ctx(va.SA_UID));
+  const r = await h(Object.assign(kysymys(), { rooli: 'hp' }), ctx(SA));
   assert.strictEqual(r.rooli, 'hp');
   assert.deepStrictEqual(polut, ['valmennusapuri/hp_johtaja/']);
   assert.strictEqual(db.data['valmennusapuri_loki/' + r.lokiId].rooli, 'hp');
@@ -337,7 +340,7 @@ test('kasittelija: SA + rooli hp → HP-polku, rooli lokiin', async () => {
 
 test('kasittelija: ilman roolia → valmennusapurin polku (taaksepäin yhteensopiva)', async () => {
   const { h, polut } = teeRoolikasittelija(muistiDb());
-  const r = await h(kysymys(), ctx(va.SA_UID));
+  const r = await h(kysymys(), ctx(SA));
   assert.strictEqual(r.rooli, 'valmennusapuri');
   assert.deepStrictEqual(polut, ['valmennusapuri/']);
 });
@@ -466,9 +469,9 @@ test('kasittelija: HP-kontekstiin seuran datan kooste; SA voi testata seuraId:ll
   await h({ rooli: 'hp', seuraId: 'hjk', viestit: [{ role: 'user', content: 'Kysymys.' }] }, ctx('v1'));
   assert.deepStrictEqual(pyydetyt, ['kpv', 'kpv']);
   // SA: seuraId → konteksti; ilman seuraId:tä ei kontekstia
-  await h({ rooli: 'hp', seuraId: 'kpv', viestit: [{ role: 'user', content: 'Kysymys.' }] }, ctx(va.SA_UID));
+  await h({ rooli: 'hp', seuraId: 'kpv', viestit: [{ role: 'user', content: 'Kysymys.' }] }, ctx(SA));
   assert.ok(mallille[2].indexOf('Konteksti: valmentaja, seura KPV') === 0, mallille[2]);
-  await h({ rooli: 'hp', viestit: [{ role: 'user', content: 'Kysymys.' }] }, ctx(va.SA_UID));
+  await h({ rooli: 'hp', viestit: [{ role: 'user', content: 'Kysymys.' }] }, ctx(SA));
   assert.strictEqual(mallille[3], 'Kysymys.');
 });
 

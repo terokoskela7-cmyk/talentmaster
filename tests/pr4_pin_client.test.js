@@ -125,7 +125,8 @@ describe('PR 4 · vartijat selainpinnoissa', () => {
       expect(K, nimi).not.toMatch(/\.(update|set)\(\{[^}]*\bpin\s*[:,}]/);   // Firestore-kirjoitus pin-kentällä
       expect(K, nimi).not.toMatch(/Math\.floor\(1000 \+ Math\.random\(\) \* 9000\)/);
     }
-    expect(riisu(ADMIN)).toContain("httpsCallable('asetaPelaajanPin')");
+    // P2 (1.10.2026): Adminin Hallinnoi-modaalin PIN-osio poistettu — PIN vain pelaajakortilta Seura-sivulla.
+    expect(riisu(ADMIN)).not.toContain('ktPinInput');
     expect(riisu(SEURA)).toContain("_pinFn('asetaPelaajanPin')");
     expect(riisu(SEURA)).toContain("_pinFn('luoPinitSeuralle')");
     expect(riisu(SEURA)).not.toMatch(/function (luoPelaajaPIN|tallennaPelaajaPIN)\(/);
