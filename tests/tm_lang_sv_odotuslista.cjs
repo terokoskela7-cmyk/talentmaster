@@ -26,4 +26,7 @@ module.exports = [
   'suostumus.syn_tarkista',
   // Suostumuslomake: vanha linkki ilman pelaajan tunnistetta (Rules v3.33, 2.10.2026)
   'suostumus.pyyda_uusi_kutsu',
+  // Suostumuksen uusiminen näkyväksi (2.10.2026)
+  'seura.uusinta_vahvistus',
+  'suostumus.uusinta_selite',
 ];

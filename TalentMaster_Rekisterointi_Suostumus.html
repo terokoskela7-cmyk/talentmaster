@@ -10,7 +10,7 @@
 <script>window.TM_SENTRY={app:'rekisterointi'};</script>
 <script src="https://browser.sentry-cdn.com/10.58.0/bundle.min.js" integrity="sha384-rtfUMq82bneIHVOpL/60roC5pIJ9kDO15w13yGEBKZSJp3aIbrOAhimB61EwPClB" crossorigin="anonymous"></script>
 <script src="tm_sentry.js?v=1"></script>
-<script src="lib/tm_lang.js?v=26"></script>   <!-- i18n V0 — KORJATTU: oli /talentmaster/tm_lang.js (root, 404 tuotannossa) → lib/tm_lang.js (resolvoituu) -->
+<script src="lib/tm_lang.js?v=27"></script>   <!-- i18n V0 — KORJATTU: oli /talentmaster/tm_lang.js (root, 404 tuotannossa) → lib/tm_lang.js (resolvoituu) -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-check-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
@@ -273,6 +273,10 @@ var step = 1;
 function _rekKaanna() {
   if (typeof t !== 'function') return;
   document.querySelectorAll('[data-i18n]').forEach(function (el) { el.textContent = t(el.getAttribute('data-i18n')); });
+  var us = document.getElementById('uusintaSelite');   // uusinnan selite + uusi kutsu -ilmoitus aktiivisella kielellä
+  if (us && typeof _uusintaSelite === 'function') us.textContent = _uusintaSelite(_urlParams.suostumusAnnettu);
+  var uk = document.getElementById('uusiKutsuIlmoitus');
+  if (uk && typeof _uusiKutsuViesti === 'function') uk.textContent = _uusiKutsuViesti();
   var kk = document.getElementById('i_syn_k');   // kuukausien nimet aktiivisella kielellä, valinta säilyy
   if (kk && kk.options.length > 1 && typeof _synKuukaudet === 'function') {
     var nimet = _synKuukaudet();
@@ -328,7 +332,8 @@ window.addEventListener('DOMContentLoaded', function() {
   }
 
   if (_urlParams.hEmail)  el('h_email').value = _urlParams.hEmail;
-  if (_seuraId && !_pelaajaId) _naytaUusiKutsuIlmoitus();   // Rules v3.33: vanha linkki ilman pelaajan tunnistetta
+  if (_seuraId && !_pelaajaId) _naytaUusiKutsuIlmoitus();
+  else if (_pelaajaId && _urlParams.suostumusAnnettu) _naytaUusintaSelite(_urlParams.suostumusAnnettu);   // uusinta   // Rules v3.33: vanha linkki ilman pelaajan tunnistetta
   _synAlusta(_urlParams.syntyma);                     // valikot + esitäyttö (?syntyma=YYYY-MM-DD tai P.K.VVVV)
   if (el('i_syn') && el('i_syn').value) onAge();   // esitäytetty syntymäaika → huoltajakortti näkyviin
   if (_urlParams.palloid) {
@@ -476,6 +481,23 @@ function _uusiKutsuViesti() {
   var v = (typeof t === 'function') ? t('suostumus.pyyda_uusi_kutsu') : null;
   return (v && v !== 'suostumus.pyyda_uusi_kutsu') ? v
     : 'Pyydä seuralta uusi kutsu. Tästä linkistä puuttuu pelaajan tunniste, joten lomaketta ei voi lähettää.';
+}
+/* Suostumuksen uusiminen (2.10.2026): Seura lisää kutsulinkkiin suostumusAnnettu=YYYY-MM-DD (tai 'annettu'), kun
+   pelaajalla on jo voimassa oleva suostumus → selite ennen lomaketta. Vain näyttö; vahvistaSuostumus päättää. */
+function _uusintaSelite(arvo) {
+  var m = String(arvo || '').match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  var pvm = m ? (+m[3]) + '.' + (+m[2]) + '.' + m[1] : '';
+  var v = (typeof t === 'function') ? t('suostumus.uusinta_selite', { pvm: pvm }) : null;
+  if (!v || v === 'suostumus.uusinta_selite') v = 'Suostumus annettu ' + pvm + ' — tällä lomakkeella uusit sen.';
+  return v.replace(/\s+—/, ' —');
+}
+function _naytaUusintaSelite(arvo) {
+  var v1 = el('v1'); if (!v1 || el('uusintaSelite')) return;
+  var d = document.createElement('div');
+  d.id = 'uusintaSelite'; d.setAttribute('role', 'status');
+  d.style.cssText = 'margin-bottom:14px;padding:12px 14px;border:1px solid rgba(40,176,144,.55);border-radius:9px;color:#9fe3d2;font-size:14px;line-height:1.5';
+  d.textContent = _uusintaSelite(arvo);
+  v1.insertBefore(d, v1.firstChild);
 }
 function _naytaUusiKutsuIlmoitus() {
   var v1 = el('v1'); if (!v1 || el('uusiKutsuIlmoitus')) return;
