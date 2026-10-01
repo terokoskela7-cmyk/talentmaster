@@ -50,7 +50,6 @@
  */
 
 // ── Vakiot ──────────────────────────────────────────────────────────────────
-const SA_UID = 'dqUzvJA61Wb9fgj5UiK0riSA4NI2';            // CLAUDE.md §3 — ei koskaan riko
 const KIELET = ['fi', 'sv', 'en'];
 const MAX_VIESTEJA = 12;                                    // historiasta mukaan viimeiset N viestiä
 const MAX_MERKKEJA_VIESTI = 4000;                            // valmentajan kysymys
@@ -748,7 +747,7 @@ function kasittelija(admin, functions, riip) {
     const db = admin.firestore();
     try {
       const adminSnap = await db.collection('admins').doc(uid).get();
-      const onSA = uid === SA_UID || adminSnap.exists;
+      const onSA = adminSnap.exists;   // SA = admins-dokumentti (P2: kovakoodattu uid pois)
       const pilottiSnap = onSA ? null : await db.collection('valmennusapuri_pilotti').doc(uid).get();
       const pilotti = pilottiSnap && pilottiSnap.exists ? pilottiSnap.data() : null;
       if (!onKayttoOikeus(onSA, pilotti)) {
@@ -887,5 +886,4 @@ module.exports = {
   tarkistaBedrockEU,
   bedrockPyynto,
   kutsuMallia,
-  SA_UID,
 };
