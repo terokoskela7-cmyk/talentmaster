@@ -1257,6 +1257,37 @@ exports.vahvistaSuostumus = functions
       throw new functions.https.HttpsError('failed-precondition', 'pelaaja_ristiriita', { syy: 'pelaaja_ristiriita' });
     }
 
+    /* 2c. Avoimet kutsut (1.10.2026): käytetty tai korvattu kutsu EI saa ylikirjoittaa annettua suostumusta.
+       - kutsuId annettu ja kutsu löytyy: kutsun on oltava avoin (odottaa/lahetetty/luotu) ja samalle pelaajalle.
+       - ei (löytyvää) kutsua = vanha tunnisteeton linkki: hylätään, jos suostumus on jo annettu.
+       Uusi kutsu ("Lähetä uudelleen") on avoin → uusi suostumus sallitaan sen kautta. Ei kirjoituksia ennen tätä. */
+    const AVOIMET_KUTSUTILAT = ['odottaa', 'lahetetty', 'luotu'];
+    const joAnnettu = snap.get('suostumusTila') === 'annettu' || !!(snap.get('suostumus') && snap.get('suostumus').annettu);
+    let kutsuRef = null;
+    if (kutsuId) {
+      const kr = db.collection('seurat').doc(seuraId).collection('kutsut').doc(String(kutsuId));
+      const ks = await kr.get();
+      if (ks.exists) {
+        kutsuRef = kr;
+        const kd = ks.data() || {};
+        if (kd.pelaajaId && kd.pelaajaId !== pelaajaId) {
+          await db.collection('audit').add({ toiminto: 'suostumus_estetty_kutsu_ristiriita', severity: 'warn', pelaajaId, seuraId,
+            kutsuId: String(kutsuId), aikaleima: admin.firestore.FieldValue.serverTimestamp() }).catch(() => {});
+          throw new functions.https.HttpsError('failed-precondition', 'kutsu_ristiriita', { syy: 'kutsu_ristiriita' });
+        }
+        if (!AVOIMET_KUTSUTILAT.includes(kd.tila || 'odottaa')) {
+          await db.collection('audit').add({ toiminto: 'suostumus_estetty_kutsu_kaytetty', severity: 'warn', pelaajaId, seuraId,
+            kutsuId: String(kutsuId), kutsun_tila: String(kd.tila || ''), aikaleima: admin.firestore.FieldValue.serverTimestamp() }).catch(() => {});
+          throw new functions.https.HttpsError('failed-precondition', 'kutsu_kaytetty', { syy: 'kutsu_kaytetty' });
+        }
+      }
+    }
+    if (!kutsuRef && joAnnettu) {
+      await db.collection('audit').add({ toiminto: 'suostumus_estetty_jo_annettu', severity: 'info', pelaajaId, seuraId,
+        kutsuId_annettu: !!kutsuId, aikaleima: admin.firestore.FieldValue.serverTimestamp() }).catch(() => {});
+      throw new functions.https.HttpsError('failed-precondition', 'suostumus_jo_annettu', { syy: 'suostumus_jo_annettu' });
+    }
+
     // 3. Merkitse suostumus annetuksi + kirjoita ei-arkaluonteiset aux-kentät palvelinpuolella.
     const TS = admin.firestore.FieldValue.serverTimestamp();
     // P1: lomakkeen muut merkkijonot/rakenteet siivotaan (julkinen lomake → näkyy henkilökunnan sivuilla).
@@ -1343,14 +1374,28 @@ exports.vahvistaSuostumus = functions
       }
     }
 
-    // 3b. Merkitse kutsu hyväksytyksi (best-effort — puuttuva kutsut-doc ei saa kaataa suostumusta)
-    if (kutsuId) {
+    // 3b. Merkitse kutsu hyväksytyksi ja saman pelaajan MUUT avoimet kutsut korvatuiksi (best-effort —
+    //     kutsujen tila ei saa kaataa jo tallennettua suostumusta). Korvattu kutsu ei enää kelpaa (2c).
+    if (kutsuRef) {
       try {
-        await db.collection('seurat').doc(seuraId).collection('kutsut').doc(String(kutsuId))
-          .update({ tila: 'hyvaksytty', hyvaksyttyPvm: TS, pelaajaId, muokattu: TS });
+        await kutsuRef.update({ tila: 'hyvaksytty', hyvaksyttyPvm: TS, pelaajaId, muokattu: TS });
       } catch (e) {
         console.warn('[vahvistaSuostumus] kutsut-update epäonnistui:', e.message);
       }
+    }
+    try {
+      const muut = await db.collection('seurat').doc(seuraId).collection('kutsut').where('pelaajaId', '==', pelaajaId).get();
+      const b = db.batch();
+      let n = 0;
+      muut.docs.forEach((d) => {
+        if (kutsuRef && d.id === kutsuRef.id) return;
+        if (!AVOIMET_KUTSUTILAT.includes((d.data() || {}).tila || 'odottaa')) return;
+        b.update(d.ref, { tila: 'korvattu', korvattu: TS, korvattu_kutsulla: kutsuRef ? kutsuRef.id : null, muokattu: TS });
+        n++;
+      });
+      if (n) await b.commit();
+    } catch (e) {
+      console.warn('[vahvistaSuostumus] muiden kutsujen korvaus epäonnistui:', e.message);
     }
 
     // Onboarding-integriteetti B1 — suostumus annettu (best-effort). Autentikoimaton sivu → uid usein null,
