@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>TalentMaster™ — Admin</title>
 <script>/* §33 Versio-tarkistus (cache): pakottaa reloadin kun uusi versio deployattu. APP_VERSION leimataan scripts/bump_version.js:llä. */
-(function(){var APP_VERSION='1790841291314';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
+(function(){var APP_VERSION='1790847403812';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,400&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -19,6 +19,7 @@
 <script src="lib/tm_joukkue.js?v=3"></script>   <!-- §18-jäsenyys: kanoninen nimi + team-id yhdestä paikasta -->
 <script src="lib/tm_arviointi_historia.js?v=1"></script>   <!-- kausiavain: tmKausiNyt/tmTavoitteetKaudelle — SAMA lähde kuin VP:llä (sama tavoitteet-dokumentti) -->
 <script src="lib/tm_audit_nimet.js?v=5"></script>   <!-- audit-toimintojen selkokieliset nimet (Audit-loki) -->
+<script src="lib/tm_esc.js?v=1"></script>   <!-- P1: jaettu HTML-escape (tallennettu XSS) -->
 <script src="tm_auth.js"></script>
 
 <style>
@@ -634,7 +635,7 @@ async function lataaProfiili(kayttaja) {
       if (virheEl) {
         virheEl.innerHTML = `
           <div style="text-align:center;padding:8px 0;">
-            <div style="font-size:15px;font-weight:600;margin-bottom:8px;">👋 Hei ${kayttaja.email.split('@')[0]}!</div>
+            <div style="font-size:15px;font-weight:600;margin-bottom:8px;">👋 Hei ${esc(kayttaja.email.split('@')[0])}!</div>
             <div style="font-size:13px;color:rgba(232,238,248,.65);margin-bottom:14px;">
               Seuran hallintanäkymäsi on eri osoitteessa.<br>
               Tämä sivu on vain järjestelmän ylläpidolle.
@@ -749,7 +750,7 @@ async function lataaSeurat() {
     seuraSelect.innerHTML =
       '<option value="">— Valitse seura —</option>' +
       tila.seurat.map(s =>
-        '<option value="' + s.id + '">' + (s.nimi || s.id) + '</option>'
+        '<option value="' + esc(s.id) + '">' + esc(s.nimi || s.id) + '</option>'
       ).join('') +
       // Lisätään "Luo uusi seura..." SA:lle aina
       (onSuperAdmin
@@ -814,7 +815,7 @@ function avaaKayttajaToiminnot(uid, seuraId, email, rooli, nimi) {
   modal.innerHTML = '<div class="modalKortti" style="max-width:460px;">'
     + '<button class="modalSuljeNappi" onclick="document.getElementById(\'kayttajaToiminnotModal\').classList.remove(\'auki\')">✕ Sulje</button>'
     + '<div class="modalOtsikko">Hallinnoi käyttäjää</div>'
-    + '<div style="font-size:13px;color:var(--ink3);margin-bottom:20px;">' + (nimi.trim()||email) + ' · ' + seuraId + '</div>'
+    + '<div style="font-size:13px;color:var(--ink3);margin-bottom:20px;">' + esc(String(nimi || '').trim() || email) + ' · ' + esc(seuraId) + '</div>'
     + '<div style="display:flex;flex-direction:column;gap:14px;">'
 
     + '<div style="background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:16px;">'
@@ -825,8 +826,8 @@ function avaaKayttajaToiminnot(uid, seuraId, email, rooli, nimi) {
 
     + '<div style="background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:16px;">'
     + '<div style="font-size:11px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--ink3);margin-bottom:10px;">Salasana &amp; kirjautuminen</div>'
-    + '<button onclick="lahetaSalasananVaihto(\'' + email + '\')" style="padding:8px 14px;background:rgba(255,255,255,.06);border:1px solid var(--border);border-radius:7px;font-size:12px;font-weight:600;color:var(--ink);cursor:pointer;font-family:inherit;">🔑 Lähetä resetointilinkki</button>'
-    + '<div style="font-size:11px;color:var(--ink3);margin-top:8px;">Sähköposti: ' + email + '</div>'
+    + '<button data-email="' + esc(email) + '" onclick="lahetaSalasananVaihto(this.dataset.email)" style="padding:8px 14px;background:rgba(255,255,255,.06);border:1px solid var(--border);border-radius:7px;font-size:12px;font-weight:600;color:var(--ink);cursor:pointer;font-family:inherit;">🔑 Lähetä resetointilinkki</button>'
+    + '<div style="font-size:11px;color:var(--ink3);margin-top:8px;">Sähköposti: ' + esc(email) + '</div>'
     + '</div>'
 
     + '<div style="background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:16px;">'
@@ -852,7 +853,7 @@ async function tallennakKayttajaRooli(uid, seuraId) {
     const tEl = document.getElementById('ktTulos');
     if (tEl) { tEl.textContent = '✅ Rooli vaihdettu. Uusi rooli on voimassa, kun käyttäjä kirjautuu uudelleen.'; tEl.style.display='block'; }
     naytaToast('Rooli päivitetty', 'ok');
-    setTimeout(() => lataaKayttajaLista(), 1200);
+    await lataaKayttajaLista();
   } catch(e) { naytaToast('Virhe: ' + e.message, 'virhe'); }
 }
 
@@ -994,6 +995,7 @@ async function _auditHae(jatka) {
   _audit.lataa = true; _audit.virhe = '';
   if (!jatka) { _audit.rivit = []; _audit.seuraava = null; }
   _auditPiirra();
+  if (!_auditUidEmail) _auditLataaUidKartta().then(() => _auditPiirra()).catch(() => {});
   try {
     const fn = firebase.app().functions('europe-west1').httpsCallable('haeAuditLoki');
     const res = await fn(_auditParametrit(jatka));
@@ -1015,8 +1017,25 @@ window._auditPika = function (mika) {
   renderAudit(document.getElementById('nakymaAlue'));
 };
 window._auditLisaa = function () { _auditHae(true); };
-function _auditKohde(r) { return [r.pelaajaId || r.playerId, r.hEmail || r.yritettyEmail || r.huoltajaEmail].filter(Boolean).join(' · ') || '—'; }
-function _auditTekija(r) { return r.antaja || r.tekija_uid || r.lahettaja_uid || r.hyvaksyja_uid || '—'; }
+/* uid → sähköposti (seurojen kayttajat + admins), ladataan kerran audit-näkymään. Ei uutta kokoelmaa —
+   samat dokumentit, joita Käyttäjät-näkymä jo lukee. Tuntematon uid näytetään sellaisenaan. */
+let _auditUidEmail = null;
+async function _auditLataaUidKartta() {
+  if (_auditUidEmail) return;
+  const kartta = {};
+  await Promise.all((tila.seurat || []).map((se) => db.collection('seurat').doc(se.id).collection('kayttajat').get()
+    .then((snap) => snap.docs.forEach((d) => { const e = (d.data() || {}).email; if (e && !kartta[d.id]) kartta[d.id] = e; }))
+    .catch(() => {})));
+  try { (await db.collection('admins').get()).docs.forEach((d) => { const e = (d.data() || {}).email; if (e) kartta[d.id] = e; }); } catch (e) {}
+  _auditUidEmail = kartta;
+}
+function _auditUid(uid) { return uid ? ((_auditUidEmail && _auditUidEmail[uid]) || uid) : null; }
+function _auditKohde(r) {
+  return [_auditUid(r.kohde_uid), r.pelaajaId || r.playerId, r.hEmail || r.yritettyEmail || r.huoltajaEmail].filter(Boolean).join(' · ') || '—';
+}
+function _auditTekija(r) {
+  return r.antaja || _auditUid(r.tekija_uid || r.lahettaja_uid || r.hyvaksyja_uid) || r.requesterUid && _auditUid(r.requesterUid) || '—';
+}
 function _auditPiirra() {
   const sis = document.getElementById('auditSisalto');
   if (!sis) return;
@@ -1113,6 +1132,10 @@ async function renderAudit(alue) {
     <div id="auditSisalto" style="font-size:13px;color:var(--ink3)"></div>`;
   await _auditHae(false);
 }
+/* P1 (1.10.2026): kaikki käyttäjäperäiset arvot innerHTML-templaatteihin esc():n kautta. onclickiin EI arvoja
+   (data-*-attribuutti + käsittelijä) — esc ei suojaa JS-merkkijonoa attribuutin sisällä. Seura-ID:t ovat
+   [a-z0-9_-] (validoitu luonnissa) ja jäävät sallituiksi poikkeuksiksi onclick-kutsuissa. */
+function esc(v) { return (typeof window !== 'undefined' && window.tmEsc) ? window.tmEsc(v) : _auditEsc(v); }
 function _auditEsc(s) {
   return String(s == null ? '' : s).replace(/[&<>"]/g, function(c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; });
 }
@@ -1160,38 +1183,38 @@ function renderSeurat(alue) {
         <tbody>
           ${seurat.map(s => `
             <tr>
-              <td style="font-weight:600;">${s.nimi || s.id}</td>
-              <td style="font-family:monospace;font-size:12px;color:var(--ink3);">${s.id}</td>
-              <td>${s.paketti || '—'}</td>
-              <td>${s.laji || 'jalkapallo'}</td>
+              <td style="font-weight:600;">${esc(s.nimi || s.id)}</td>
+              <td style="font-family:monospace;font-size:12px;color:var(--ink3);">${esc(s.id)}</td>
+              <td>${esc(s.paketti || '—')}</td>
+              <td>${esc(s.laji || 'jalkapallo')}</td>
               <td><span class="badge aktiivinen">${s.aktiivinen !== false ? 'Aktiivinen' : 'Ei aktiivinen'}</span></td>
               ${tila.claims && ['superadmin','super_admin'].includes(tila.claims.rooli) ? `
               <td>
                 <div style="display:flex;gap:6px;flex-wrap:wrap;">
                   <button class="toimintaNappi"
-                    data-sid="${s.id}" data-snimi="${(s.nimi || s.id).replace(/"/g,'&quot;')}"
+                    data-sid="${esc(s.id)}" data-snimi="${esc(s.nimi || s.id)}"
                     onclick="avaaSeuraVP(this.dataset.sid, this.dataset.snimi)"
                     title="Avaa VP-dashboard tämän seuran kontekstissa">
                     📊 VP
                   </button>
                   <button class="toimintaNappi"
-                    data-sid="${s.id}" data-snimi="${(s.nimi || s.id).replace(/"/g,'&quot;')}"
+                    data-sid="${esc(s.id)}" data-snimi="${esc(s.nimi || s.id)}"
                     onclick="avaaSeuraValmentaja(this.dataset.sid, this.dataset.snimi)"
                     title="Avaa valmentajan näkymä tämän seuran kontekstissa">
                     ⚽ Valmentaja
                   </button>
                   <button class="toimintaNappi"
-                    data-sid="${s.id}"
-                    data-snimi="${(s.nimi || s.id).replace(/"/g,'&quot;')}"
-                    data-paketti="${s.paketti || 'perustaso'}"
+                    data-sid="${esc(s.id)}"
+                    data-snimi="${esc(s.nimi || s.id)}"
+                    data-paketti="${esc(s.paketti || 'perustaso')}"
                     data-aktiivinen="${s.aktiivinen !== false ? 'true' : 'false'}"
                     onclick="avaaMuokkaaSeura(this.dataset)"
                     title="Muokkaa seuran tietoja">
                     ✏️ Muokkaa
                   </button>
                   <button class="toimintaNappi vaara"
-                    data-sid="${s.id}"
-                    data-snimi="${(s.nimi || s.id).replace(/"/g,'&quot;')}"
+                    data-sid="${esc(s.id)}"
+                    data-snimi="${esc(s.nimi || s.id)}"
                     onclick="vahvistaPoistaSeura(this.dataset.sid, this.dataset.snimi)"
                     title="Poista seura pysyvästi">
                     🗑 Poista
@@ -1216,7 +1239,7 @@ async function lataaKayttajaMaara() {
       const snap = await db
         .collection('seurat').doc(seura.id)
         .collection('kayttajat').get();
-      maara += snap.size;
+      maara += snap.docs.filter(d => d.data().aktiivinen !== false).length;   // deaktivoidut eivät kuulu lukuun
     }
     const el = document.getElementById('kpiKayttajat');
     if (el) el.textContent = maara;
@@ -1263,10 +1286,11 @@ async function lataaKayttajaLista() {
       try {
         // orderBy('luotu') poistettu — vaatii Firestore-indeksin
         // Järjestetään JavaScriptissä
+        // source:'server' — lista päivittyy heti deaktivoinnin/aktivoinnin/roolinvaihdon jälkeen (ei välimuistia)
         const snap = await db
           .collection('seurat').doc(seura.id)
           .collection('kayttajat')
-          .get();
+          .get({ source: 'server' });
 
         snap.docs.forEach(doc => {
           kaikkiKayttajat.push({
@@ -1332,12 +1356,12 @@ async function lataaKayttajaLista() {
           ${kaikkiKayttajat.map(k => `
             <tr>
               <td>
-                <div>${k.etunimi || ''} ${k.sukunimi || ''}</div>
-                <div style="font-size:11px;color:var(--ink3);font-weight:400;">${k.email || k.id}</div>
+                <div>${esc(k.etunimi || '')} ${esc(k.sukunimi || '')}</div>
+                <div style="font-size:11px;color:var(--ink3);font-weight:400;">${esc(k.email || k.id)}</div>
               </td>
-              <td><span class="badge ${rooliLuokka(k.rooli)}">${rooliNimi[k.rooli] || k.rooli || '—'}</span></td>
-              <td style="font-size:12px;">${k.seuraNimi}</td>
-              <td style="font-size:12px;color:var(--ink3);">${k.joukkueNimi || k.joukkue || '—'}</td>
+              <td><span class="badge ${rooliLuokka(k.rooli)}">${esc(rooliNimi[k.rooli] || k.rooli || '—')}</span></td>
+              <td style="font-size:12px;">${esc(k.seuraNimi)}</td>
+              <td style="font-size:12px;color:var(--ink3);">${esc(k.joukkueNimi || k.joukkue || '—')}</td>
               <td>
                 <span class="badge ${k.claimsAsetettu ? 'aktiivinen' : 'ei'}">
                   ${k.claimsAsetettu ? '✓ OK' : '⏳ Odottaa'}
@@ -1346,11 +1370,13 @@ async function lataaKayttajaLista() {
               <td>
                 <div style="display:flex;gap:6px;flex-wrap:wrap;">
                   <button class="toimintaNappi"
-                    onclick="avaaKayttajaToiminnot('${k.id}','${k.seuraId}','${k.email}','${k.rooli||''}','${(k.etunimi||'')} ${(k.sukunimi||'')}')">
+                    data-uid="${esc(k.id)}" data-seura="${esc(k.seuraId)}" data-email="${esc(k.email)}" data-rooli="${esc(k.rooli || '')}"
+                    data-nimi="${esc(((k.etunimi || '') + ' ' + (k.sukunimi || '')).trim())}"
+                    onclick="avaaKayttajaToiminnot(this.dataset.uid, this.dataset.seura, this.dataset.email, this.dataset.rooli, this.dataset.nimi)">
                     ✏️ Hallinnoi
                   </button>
                   <button class="toimintaNappi"
-                    onclick="lahetaSalasananVaihto('${k.email}')">
+                    data-email="${esc(k.email)}" onclick="lahetaSalasananVaihto(this.dataset.email)">
                     🔑 Salasana
                   </button>
                   <!-- Deaktivointi: VP ja seura_admin voivat deaktivoida,
@@ -1381,7 +1407,7 @@ async function lataaKayttajaLista() {
   } catch (virhe) {
     console.error('Käyttäjälistan latausvirhe:', virhe);
     alue.innerHTML = `<div style="color:var(--ink3);padding:20px;font-size:13px;">
-      Käyttäjiä ei voitu ladata: ${virhe.message}</div>`;
+      Käyttäjiä ei voitu ladata: ${esc(virhe.message)}</div>`;
   }
 }
 
@@ -1409,7 +1435,7 @@ async function renderTilastot(alue) {
         const pct = pd.length > 0 ? Math.round(annettu / pd.length * 100) : 0;
         tilastot.push({ id: seura.id, nimi: seura.nimi || seura.id, paketti: seura.paketti || '—',
           pelaajia: pd.length, annettu, pilotti, odottaa, pct,
-          kayttajia: kaSnap.size, kutsuja: kuSnap.size });
+          kayttajia: kaSnap.docs.filter(d => d.data().aktiivinen !== false).length, kutsuja: kuSnap.size });
       } catch(e) {
         tilastot.push({ id: seura.id, nimi: seura.nimi || seura.id, virhe: e.message });
       }
@@ -1446,11 +1472,11 @@ async function renderTilastot(alue) {
       + '</div>';
 
     const rows = tilastot.map(t => {
-      if (t.virhe) return '<tr style="border-top:1px solid var(--border);"><td style="padding:12px 16px;font-weight:600;">' + t.nimi + '</td><td colspan="6" style="padding:12px 16px;color:var(--red);font-size:12px;">Virhe: ' + t.virhe + '</td></tr>';
+      if (t.virhe) return '<tr style="border-top:1px solid var(--border);"><td style="padding:12px 16px;font-weight:600;">' + esc(t.nimi) + '</td><td colspan="6" style="padding:12px 16px;color:var(--red);font-size:12px;">Virhe: ' + esc(t.virhe) + '</td></tr>';
       const bar = '<div style="height:6px;background:rgba(255,255,255,.06);border-radius:3px;overflow:hidden;min-width:80px;"><div style="height:100%;width:' + t.pct + '%;background:var(--teal);border-radius:3px;"></div></div>';
       return '<tr style="border-top:1px solid var(--border);">'
-        + '<td style="padding:12px 16px;"><div style="font-weight:600;font-size:13px;">' + t.nimi + '</div><div style="font-size:10px;font-family:monospace;color:var(--ink3);">' + t.id + '</div></td>'
-        + '<td style="padding:12px 16px;text-align:center;"><span style="font-size:11px;padding:2px 8px;border-radius:4px;background:rgba(255,255,255,.05);color:var(--ink3);">' + t.paketti + '</span></td>'
+        + '<td style="padding:12px 16px;"><div style="font-weight:600;font-size:13px;">' + esc(t.nimi) + '</div><div style="font-size:10px;font-family:monospace;color:var(--ink3);">' + esc(t.id) + '</div></td>'
+        + '<td style="padding:12px 16px;text-align:center;"><span style="font-size:11px;padding:2px 8px;border-radius:4px;background:rgba(255,255,255,.05);color:var(--ink3);">' + esc(t.paketti) + '</span></td>'
         + '<td style="padding:12px 16px;text-align:center;font-family:\'Cormorant Garamond\',serif;font-size:20px;font-weight:300;">' + t.pelaajia + '</td>'
         + '<td style="padding:12px 16px;text-align:center;"><div style="font-family:\'Cormorant Garamond\',serif;font-size:20px;font-weight:300;color:' + pctClr(t.pct) + ';">' + t.pct + '%</div><div style="font-size:10px;color:var(--ink3);">' + t.annettu + '/' + t.pelaajia + '</div></td>'
         + '<td style="padding:12px 16px;text-align:center;color:var(--amber);font-family:\'Cormorant Garamond\',serif;font-size:20px;font-weight:300;">' + (t.pilotti||0) + '</td>'
@@ -1532,7 +1558,7 @@ async function renderPilotinTila(alue) {
         // VP-tuloskortti (spec §2) — valmentajat + tavoitteet + laskeVPTuloskortti (pikakentät)
         let valm = [], tavoitteet = null, kortti = null;
         try { const kSnap = await db.collection('seurat').doc(seura.id).collection('kayttajat').get();
-          valm = kSnap.docs.map(d => d.data()).filter(v => ['valmentaja','talenttivalmentaja','fysiikkavalmentaja','vp','urheilutoimenjohtaja'].indexOf(v.rooli) >= 0); } catch (e) {}
+          valm = kSnap.docs.map(d => d.data()).filter(v => v.aktiivinen !== false && ['valmentaja','talenttivalmentaja','fysiikkavalmentaja','vp','urheilutoimenjohtaja'].indexOf(v.rooli) >= 0); } catch (e) {}
         try { const tSnap = await db.collection('seurat').doc(seura.id).collection('konfiguraatio').doc('tavoitteet').get();
           if (tSnap.exists) tavoitteet = _tkTavoitteet(tSnap.data(), seura).tavoitteet || null; } catch (e) {}
         let akatemia = [];
@@ -1693,7 +1719,6 @@ function _tkKohorttiJoukkueet(seuraId) { const k = _tkKohorttiKey(seuraId); if (
 function _tkKohorttiLabel(seuraId) { const k = _tkKohorttiKey(seuraId); if (k === 'akatemia') return 'akatemia: ' + _tkAkatemia(seuraId).length + ' joukkuetta'; if (k === 'kaikki') return 'kaikki joukkueet'; return k; }
 function _tkKohorttiRivi(seuraId, kortti) {
   const akN = _tkAkatemia(seuraId).length, kohK = _tkKohorttiKey(seuraId);
-  const esc = s => String(s).replace(/"/g, '&quot;');
   const teamOpts = _tkJoukkueLista(seuraId).map(j => '<option value="' + esc(j) + '"' + (kohK === j ? ' selected' : '') + '>' + _auditEsc(j) + '</option>').join('');
   const sel = '<select onchange="_tkVaihdaKohortti(\'' + seuraId + '\',this.value)" class="tk-no-print" style="font-size:11px;padding:4px 8px;border:.5px solid var(--border);border-radius:6px;background:var(--bg2);color:var(--text)">'
     + '<option value="akatemia"' + (kohK === 'akatemia' ? ' selected' : '') + (akN ? '' : ' disabled') + '>Akatemia/kilpa' + (akN ? ' (' + akN + ')' : '') + '</option>'
@@ -1703,7 +1728,7 @@ function _tkKohorttiRivi(seuraId, kortti) {
   const t3n = (kortti && kortti.metriikat) ? (kortti.metriikat.taso3_n_arvioidut || 0) : 0;
   let h = '<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:10px;font-size:12px">'
     + '<span style="color:var(--ink3)">Taso ≥3 -kohortti:</span>' + sel
-    + '<span style="color:var(--text)">' + _tkKohorttiLabel(seuraId) + (t3 != null ? ' · <b>' + t3 + '%</b> (' + t3n + ' arvioitu)' : '') + '</span>'
+    + '<span style="color:var(--text)">' + esc(_tkKohorttiLabel(seuraId)) + (t3 != null ? ' · <b>' + t3 + '%</b> (' + t3n + ' arvioitu)' : '') + '</span>'
     + '<button onclick="_avaaSegmenttiModalAdmin(\'' + seuraId + '\')" class="tk-no-print" style="font-size:11px;padding:4px 10px;border:.5px solid var(--teal);background:rgba(40,176,144,.1);color:var(--teal);border-radius:6px;cursor:pointer">🏅 Merkitse akatemia-joukkueet</button></div>';
   if (!akN) h += '<div style="margin:-4px 0 10px;font-size:11px;color:var(--amber)">Merkitse akatemia-/kilpajoukkueet tarkempaa taso≥3-arviota varten — nyt mukana kaikki joukkueet.</div>';
   return h;
@@ -1729,7 +1754,7 @@ window._avaaSegmenttiModalAdmin = function (seuraId) {
   const m = document.createElement('div'); m.id = 'tkSegModal'; m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9300;display:flex;align-items:center;justify-content:center;padding:16px'; m.onclick = e => { if (e.target === m) m.remove(); };
   let h = '<div onclick="event.stopPropagation()" style="background:var(--bg2);border:1px solid var(--border);border-radius:12px;width:min(440px,94vw);max-height:90vh;overflow-y:auto;padding:20px 22px"><div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px"><div style="font-size:16px;font-weight:600">Akatemia-/kilpajoukkueet</div><button onclick="document.getElementById(\'tkSegModal\').remove()" style="background:none;border:none;color:var(--ink3);font-size:22px;cursor:pointer">×</button></div><div style="font-size:11px;color:var(--ink3);margin-bottom:14px">Merkitse joukkueet joita arvioidaan taso≥3-normilla (kansallinen mittatikku). Merkitsemättömät = harraste (kehitysvauhti).</div>';
   if (!teams.length) h += '<div style="font-size:12px;color:var(--ink3)">Ei joukkueita ladattuna.</div>';
-  teams.forEach(j => { const on = akat.indexOf(j) >= 0; h += '<label style="display:flex;align-items:center;gap:8px;margin-bottom:6px;font-size:13px;color:var(--text);cursor:pointer"><input type="checkbox" class="tkSegCb" value="' + String(j).replace(/"/g, '&quot;') + '"' + (on ? ' checked' : '') + ' style="width:16px;height:16px;accent-color:var(--teal)">' + _auditEsc(j) + '</label>'; });
+  teams.forEach(j => { const on = akat.indexOf(j) >= 0; h += '<label style="display:flex;align-items:center;gap:8px;margin-bottom:6px;font-size:13px;color:var(--text);cursor:pointer"><input type="checkbox" class="tkSegCb" value="' + esc(j) + '"' + (on ? ' checked' : '') + ' style="width:16px;height:16px;accent-color:var(--teal)">' + _auditEsc(j) + '</label>'; });
   h += '<button onclick="_tallennaSegmentitAdmin(\'' + seuraId + '\')" style="width:100%;margin-top:12px;padding:9px;border:none;border-radius:8px;background:var(--teal);color:#fff;font-size:13px;cursor:pointer">Tallenna</button></div>';
   m.innerHTML = h; document.body.appendChild(m);
 };
@@ -2030,7 +2055,9 @@ async function luoUusiKayttaja() {
     nappi.textContent = 'Luo käyttäjätunnus';
 
     // Cloud Functions heittää HttpsError -objektin
-    const viesti = virhe.message || 'Tuntematon virhe.';
+    const viesti = (virhe.details?.syy === 'sa_tunnus' || virhe.message === 'sa_tunnus')
+      ? 'Super-admin-tunnusta ei lisätä seuran henkilöstöön — SA näkee seurat ilman jäsenyyttä.'
+      : (virhe.message || 'Tuntematon virhe.');
     naytaModalVirhe(viesti);
     console.error('luoKayttaja virhe:', virhe);
   }
@@ -2313,7 +2340,7 @@ async function deaktivoi(uid, seuraId, email) {
   try {
     await _kayttajaFn('deaktivioiKayttaja')({ kohdeUid: uid, seuraId: seuraId });
     naytaToast(`${email || 'Käyttäjä'} deaktivoitu.`, 'ok');
-    lataaKayttajaLista();
+    await lataaKayttajaLista();
   } catch (virhe) {
     naytaToast(`Deaktivointi epäonnistui: ${virhe.message}`, 'virhe');
   }
@@ -2323,7 +2350,7 @@ async function aktivoi(uid, seuraId, email) {
   try {
     await _kayttajaFn('aktivoiKayttaja')({ kohdeUid: uid, seuraId: seuraId });
     naytaToast(`${email || 'Käyttäjä'} aktivoitu.`, 'ok');
-    lataaKayttajaLista();
+    await lataaKayttajaLista();
   } catch (virhe) {
     naytaToast(`Aktivointi epäonnistui: ${virhe.message}`, 'virhe');
   }
@@ -2337,10 +2364,14 @@ async function poistaKokonaan(uid, seuraId, email) {
   try {
     await _kayttajaFn('poistaKayttaja')({ kohdeUid: uid, seuraId: seuraId });
     naytaToast(`${email || 'Käyttäjä'} poistettu pysyvästi.`, 'ok');
-    lataaKayttajaLista();
+    await lataaKayttajaLista();
   } catch (virhe) {
     naytaToast(`Poisto epäonnistui: ${virhe.message}`, 'virhe');
   }
+}
+function _naytaJoukkueenPelaajat(seuraId, joukkue) {
+  vaihdaNakyma('pelaajat');
+  setTimeout(() => { const s = document.getElementById('pelSeuraValinta'); if (s) { s.value = seuraId; lataaPelaajatJoukkue(joukkue); } }, 300);
 }
 function _kayttajaNappi(btn, fn) { return fn(btn.dataset.uid, btn.dataset.seura, btn.dataset.email || ''); }
 const _attr = (v) => String(v == null ? '' : v).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -2426,7 +2457,7 @@ async function renderPelaajat(alue) {
           style="background:var(--bg3);border:1px solid var(--bord2);border-radius:8px;
           padding:9px 13px;font-size:13px;color:var(--ink);outline:none;min-width:140px;max-width:100%;">
           <option value="">— Valitse seura —</option>
-          ${tila.seurat.map(s => `<option value="${s.id}">${s.nimi || s.id}</option>`).join('')}
+          ${tila.seurat.map(s => `<option value="${esc(s.id)}">${esc(s.nimi || s.id)}</option>`).join('')}
         </select>
         <button class="lisaaNappi" onclick="lataaPelaajat()">🔄 Päivitä</button>
         <button class="lisaaNappi" onclick="lataaMassakutsuSivu()"
@@ -2483,9 +2514,9 @@ async function lataaPelaajat() {
           Kaikki (${pelaajat.length})
         </button>
         ${joukkueet.map(j => `
-          <button onclick="lataaPelaajatJoukkue('${j}')"
+          <button data-joukkue="${esc(j)}" onclick="lataaPelaajatJoukkue(this.dataset.joukkue)"
             style="padding:4px 12px;border-radius:20px;border:1px solid var(--bord2);background:var(--bg3);color:var(--ink2);font-size:12px;cursor:pointer">
-            ${j}
+            ${esc(j)}
           </button>`).join('')}
       </div>
       <table>
@@ -2500,26 +2531,26 @@ async function lataaPelaajat() {
         <tbody>
           ${pelaajat.map(p => `
             <tr>
-              <td style="font-weight:500">${p.etunimi||''} ${p.sukunimi||''}</td>
+              <td style="font-weight:500">${esc(p.etunimi||'')} ${esc(p.sukunimi||'')}</td>
               <td style="font-family:monospace;font-size:12px;color:var(--ink3)">
-                ${p.palloID || p.tunniste || p.palloId || '—'}
+                ${esc(p.palloID || p.tunniste || p.palloId || '—')}
               </td>
-              <td>${p.joukkue||'—'}</td>
-              <td style="font-size:12px;color:var(--ink3)">${p.huoltajaEmail||'—'}</td>
+              <td>${esc(p.joukkue||'—')}</td>
+              <td style="font-size:12px;color:var(--ink3)">${esc(p.huoltajaEmail||'—')}</td>
               <td>
                 <span class="badge ${p.suostumusTila==='annettu' ? 'aktiivinen' : 'ei'}">
                   ${p.suostumusTila==='annettu' ? '✓ OK' : '⏳ Puuttuu'}
                 </span>
               </td>
-              <td style="font-size:11px;color:var(--ink3)">${p.lahde||'—'}</td>
+              <td style="font-size:11px;color:var(--ink3)">${esc(p.lahde||'—')}</td>
             </tr>`).join('')}
         </tbody>
       </table>
       <div style="padding:12px 20px;font-size:12px;color:var(--ink3)">
-        ${pelaajat.length} pelaajaa · ${joukkueet.join(', ')}
+        ${pelaajat.length} pelaajaa · ${esc(joukkueet.join(', '))}
       </div>`;
   } catch(e) {
-    alue.innerHTML = `<div style="color:var(--red);padding:20px;">Virhe: ${e.message}</div>`;
+    alue.innerHTML = `<div style="color:var(--red);padding:20px;">Virhe: ${esc(e.message)}</div>`;
   }
 }
 
@@ -2542,7 +2573,7 @@ async function renderJoukkueet(alue) {
           style="background:var(--bg3);border:1px solid var(--bord2);border-radius:8px;
           padding:9px 13px;font-size:13px;color:var(--ink);outline:none;min-width:140px;max-width:100%;">
           <option value="">— Valitse seura —</option>
-          ${tila.seurat.map(s => `<option value="${s.id}">${s.nimi || s.id}</option>`).join('')}
+          ${tila.seurat.map(s => `<option value="${esc(s.id)}">${esc(s.nimi || s.id)}</option>`).join('')}
         </select>
       </div>
       <div id="joukkueetAlue" style="padding:0 20px 20px;color:var(--ink3);font-size:13px;">
@@ -2581,22 +2612,22 @@ async function lataaPelaajatJoukkue(joukkue) {
           Kaikki (${kaikki.size})
         </button>
         ${joukkueet.map(j => `
-          <button onclick="lataaPelaajatJoukkue('${j}')"
+          <button data-joukkue="${esc(j)}" onclick="lataaPelaajatJoukkue(this.dataset.joukkue)"
             style="padding:4px 12px;border-radius:20px;border:${j===joukkue?'1px solid var(--teal)':'1px solid var(--bord2)'};background:${j===joukkue?'var(--teal-bg)':'var(--bg3)'};color:${j===joukkue?'var(--teal)':'var(--ink2)'};font-size:12px;cursor:pointer">
-            ${j} (${kaikki.docs.filter(d=>d.data().joukkue===j).length})
+            ${esc(j)} (${kaikki.docs.filter(d=>d.data().joukkue===j).length})
           </button>`).join('')}
       </div>
       <table>
         <thead><tr><th>Nimi</th><th>PalloID</th><th>Joukkue</th><th>Sähköposti</th><th>Suostumus</th></tr></thead>
         <tbody>${pelaajat.map(p => `<tr>
-          <td style="font-weight:500">${p.etunimi||''} ${p.sukunimi||''}</td>
-          <td style="font-family:monospace;font-size:12px;color:var(--ink3)">${p.palloID||p.tunniste||'—'}</td>
-          <td>${p.joukkue||'—'}</td>
-          <td style="font-size:12px;color:var(--ink3)">${p.huoltajaEmail||'—'}</td>
+          <td style="font-weight:500">${esc(p.etunimi||'')} ${esc(p.sukunimi||'')}</td>
+          <td style="font-family:monospace;font-size:12px;color:var(--ink3)">${esc(p.palloID||p.tunniste||'—')}</td>
+          <td>${esc(p.joukkue||'—')}</td>
+          <td style="font-size:12px;color:var(--ink3)">${esc(p.huoltajaEmail||'—')}</td>
           <td><span class="badge ${p.suostumusTila==='annettu'?'aktiivinen':'ei'}">${p.suostumusTila==='annettu'?'✓ OK':'⏳ Puuttuu'}</span></td>
         </tr>`).join('')}</tbody>
       </table>
-      <div style="padding:12px 20px;font-size:12px;color:var(--ink3)">${pelaajat.length} pelaajaa joukkueessa ${joukkue}</div>`;
+      <div style="padding:12px 20px;font-size:12px;color:var(--ink3)">${pelaajat.length} pelaajaa joukkueessa ${esc(joukkue)}</div>`;
   } catch(e) { alue.innerHTML = '<div style="color:var(--red);padding:20px">Virhe: '+e.message+'</div>'; }
 }
 async function lataaJoukkueetAdmin() {
@@ -2680,7 +2711,7 @@ async function lataaJoukkueetAdmin() {
         <tbody>
           ${joukkueet.map(j => `
             <tr>
-              <td style="font-weight:600">${j.nimi}</td>
+              <td style="font-weight:600">${esc(j.nimi)}</td>
               <td>${j.pelaajia}</td>
               <td>
                 <span style="font-size:12px;color:${j.suostumus===j.pelaajia&&j.pelaajia>0?'var(--teal)':'var(--amber)'}">
@@ -2693,8 +2724,8 @@ async function lataaJoukkueetAdmin() {
                 </span>
               </td>
               <td>
-                <button class="toimintaNappi" style="font-size:11px"
-                  onclick="vaihdaNakyma('pelaajat');setTimeout(()=>{const s=document.getElementById('pelSeuraValinta');if(s){s.value='${seuraId}';lataaPelaajatJoukkue('${j.nimi}');}},300)">
+                <button class="toimintaNappi" style="font-size:11px" data-seura="${esc(seuraId)}" data-joukkue="${esc(j.nimi)}"
+                  onclick="_naytaJoukkueenPelaajat(this.dataset.seura, this.dataset.joukkue)">
                   👁 Näytä pelaajat
                 </button>
               </td>
@@ -2705,7 +2736,7 @@ async function lataaJoukkueetAdmin() {
         Yhteensä ${pelSnap.size} pelaajaa · ${joukkueet.length} joukkuetta
       </div>`;
   } catch(e) {
-    alue.innerHTML = `<div style="color:var(--red);">Virhe: ${e.message}</div>`;
+    alue.innerHTML = `<div style="color:var(--red);">Virhe: ${esc(e.message)}</div>`;
   }
 }
 
@@ -2742,7 +2773,7 @@ function renderMassakutsu(alue) {
             style="background:var(--bg3);border:1px solid var(--bord2);border-radius:8px;
             padding:9px 13px;font-size:13px;color:var(--ink);outline:none;min-width:160px;max-width:100%;">
             <option value="">— Valitse seura —</option>
-            ${tila.seurat.map(s => `<option value="${s.id}" data-nimi="${s.nimi||s.id}">${s.nimi||s.id}</option>`).join('')}
+            ${tila.seurat.map(s => `<option value="${esc(s.id)}" data-nimi="${esc(s.nimi||s.id)}">${esc(s.nimi||s.id)}</option>`).join('')}
           </select>
         </div>
 
@@ -2855,11 +2886,11 @@ function kasitteleAdminMassaTiedosto(e) {
 
       if (tbody) tbody.innerHTML = _adminMassaData.map(r => `
         <tr>
-          <td style="padding:7px 8px;font-size:12px;font-weight:500">${r.etunimi} ${r.sukunimi}</td>
-          <td style="padding:7px 8px;font-size:11px;font-family:monospace;color:var(--ink3)">${r.palloID||'—'}</td>
-          <td style="padding:7px 8px;font-size:12px;color:var(--ink3)">${r.joukkue||'—'}</td>
+          <td style="padding:7px 8px;font-size:12px;font-weight:500">${esc(r.etunimi)} ${esc(r.sukunimi)}</td>
+          <td style="padding:7px 8px;font-size:11px;font-family:monospace;color:var(--ink3)">${esc(r.palloID||'—')}</td>
+          <td style="padding:7px 8px;font-size:12px;color:var(--ink3)">${esc(r.joukkue||'—')}</td>
           <td style="padding:7px 8px;font-size:12px;color:${r.huoltajaEmail?'var(--teal)':'var(--amber)'}">
-            ${r.huoltajaEmail||'⚠️ puuttuu'}</td>
+            ${esc(r.huoltajaEmail||'⚠️ puuttuu')}</td>
           <td style="padding:7px 8px;font-size:11px;color:var(--ink3)">⏳ Tallennetaan</td>
         </tr>`).join('');
 
@@ -3009,7 +3040,7 @@ async function lahetaAdminMassakutsu() {
       onnistui++;
     } catch(err) {
       if (tbody?.rows[i]) {
-        tbody.rows[i].cells[4].innerHTML = `<span style="color:var(--red)">❌ ${err.message.slice(0,30)}</span>`;
+        tbody.rows[i].cells[4].innerHTML = `<span style="color:var(--red)">❌ ${esc(err.message.slice(0,30))}</span>`;
       }
       virheita++;
     }

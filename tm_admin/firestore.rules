@@ -1,9 +1,14 @@
 rules_version = '2';
 // ══════════════════════════════════════════════════════════════════════════
-// TalentMaster™ — firestore.rules v3.31
+// TalentMaster™ — firestore.rules v3.32
 //
 // Lähde:  tm_admin/firestore.rules
 // Deploy: PR → N4-CI deployaa automaattisesti (Console-käsityö poistui).
+//
+// Muutokset v3.31 → v3.32 (haamuvalmentaja, 1.10.2026):
+//   · seurat/{sid}/kayttajat/{uid} create: VAIN palvelimella (luoKayttaja). Seura-sivu kirjoitti ennen koko
+//     dokumentin selaimesta luoKayttajan perään; nyt kentät kulkevat callablen kautta. luoKayttaja hylkää
+//     SA-tunnuksen (admins), joten SA:lle ei synny seuran henkilöstödokumenttia.
 //
 // Muutokset v3.30 → v3.31 (P0 — deaktivointi ei estänyt pääsyä, 1.10.2026):
 //   · seurat/{sid}/kayttajat/{uid} update: rooli, seuraId, aktiivinen, deaktivoitu/deaktivoija_uid,
@@ -1205,7 +1210,8 @@ service cloud.firestore {
         // claimsAsetettu) muutetaan VAIN palvelimella (deaktivioiKayttaja / aktivoiKayttaja / vaihdaKayttajanRooli),
         // jotta Auth (disabled), claimit ja dokumentti pysyvät samassa tilassa. Koskee myös SA:ta ja käyttäjää itseään.
         // Poisto vain palvelimella (poistaKayttaja: Auth-tili + dokumentti).
-        allow create: if onSuperAdmin() || (onOmaSeura(seuraId) && onJohtoRooli());
+        // v3.32: luonti VAIN palvelimella (luoKayttaja kirjoittaa koko dokumentin; ei SA-tunnuksille).
+        allow create: if false;
         allow update: if (onSuperAdmin() || (onOmaSeura(seuraId) && onJohtoRooli()) || request.auth.uid == uid)
                       && kayttajaPaasyKentatEnnallaan();
         allow delete: if false;

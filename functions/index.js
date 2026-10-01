@@ -605,7 +605,8 @@ exports.luoKayttaja = functions
       throw new functions.https.HttpsError('unauthenticated', 'Kirjaudu sisään.');
     }
     const kutsujaUid = context.auth.uid;
-    const { email, rooli, seuraId, etunimi, sukunimi, joukkue, joukkueNimi } = data;
+    const { email, rooli, seuraId, etunimi, sukunimi, joukkue, joukkueNimi,
+            joukkueet: joukkueetIn, joukkueNimet: joukkueNimetIn, suuntakoodi, puhelin } = data || {};
     if (!email || !email.includes('@')) {
       throw new functions.https.HttpsError('invalid-argument', 'Virheellinen sähköposti.');
     }
@@ -644,8 +645,15 @@ exports.luoKayttaja = functions
       // Käyttäjä löytyi — käytetään hänen UID:tään, ei luoda uutta tiliä
       uid = olemassaOleva.uid;
       onOlemassaOleva = true;
+      /* Haamuvalmentaja (1.10.2026): SA-tunnukselle EI luoda seuran kayttajat-dokumenttia eikä sen claimeja
+         ylikirjoiteta seuraroolilla. SA näkee kaiken ilman seurajäsenyyttä. */
+      if (await onSuperAdminUid(uid)) {
+        throw new functions.https.HttpsError('failed-precondition', 'sa_tunnus',
+          { syy: 'sa_tunnus', viesti: 'Super-admin-tunnusta ei lisätä seuran henkilöstöön.' });
+      }
       console.log(`[luoKayttaja] ${email} löytyi jo Authista (uid: ${uid}) — lisätään rooli ${rooli} seuralle ${seuraId}`);
     } catch (e) {
+      if (e instanceof functions.https.HttpsError) throw e;
       // auth/user-not-found on normaali tapaus — luodaan uusi tili
       if (e.errorInfo && e.errorInfo.code !== 'auth/user-not-found') {
         throw new functions.https.HttpsError('internal', `Auth-haku epäonnistui: ${e.message}`);
@@ -664,15 +672,24 @@ exports.luoKayttaja = functions
       }
     }
     const nyt = admin.firestore.FieldValue.serverTimestamp();
+    /* Kayttajat-dokumentti luodaan VAIN täällä (Rules v3.32: selaimen create estetty). Seura-sivun kutsu
+       välittää joukkueet[] + joukkueNimet[] + puhelimen, jotka se ennen kirjoitti selaimesta perään. */
+    const jIds = Array.isArray(joukkueetIn) ? joukkueetIn.filter((x) => typeof x === 'string' && x).slice(0, 30)
+      : (joukkue ? [joukkue] : []);
+    const jNimet = Array.isArray(joukkueNimetIn) ? joukkueNimetIn.map((x) => String(x || '').slice(0, 80)).slice(0, 30)
+      : (joukkueNimi ? [joukkueNimi] : []);
     try {
       await db.collection('seurat').doc(seuraId)
         .collection('kayttajat').doc(uid).set({
           uid, email, etunimi: etunimi || '', sukunimi: sukunimi || '',
           nimi: etunimi && sukunimi ? `${etunimi} ${sukunimi}` : (etunimi || email),
           rooli, seuraId,
-          joukkue: joukkue || null, joukkueNimi: joukkueNimi || null,
-          joukkueet: joukkue ? [joukkue] : [],
-          aktiivinen: true, luotu: nyt, luonut_uid: kutsujaUid,
+          joukkue: joukkue || jIds[0] || null, joukkueNimi: joukkueNimi || jNimet[0] || null,
+          joukkueet: jIds, joukkueNimet: jNimet,
+          suuntakoodi: String(suuntakoodi || '+358').slice(0, 6),
+          puhelin: String(puhelin || '').replace(/[^\d]/g, '').slice(0, 15),
+          aktiivinen: true, luotu: nyt, kutsuttu: nyt, luonut_uid: kutsujaUid,
+          kutsuja: (context.auth.token && context.auth.token.email) || '',
         });
       if (rooli === 'vp') {
         const seuraDoc = await db.collection('seurat').doc(seuraId).get();
@@ -1187,9 +1204,14 @@ exports.vahvistaSuostumus = functions
     /* Suostumuksen antajan nimi pakollinen (1.10.2026): lomakkeen huoltajakortti ei näkynyt koskaan, joten
        alaikäisten suostumuksista puuttui antaja. Kanoninen kenttä = suostumus.antaja (EI enää suostumuksenAntaja;
        lukijat käyttävät sitä vain vanhan datan varalla). */
-    const antajaNimi = String(antaja == null ? '' : antaja).replace(/\s+/g, ' ').trim().slice(0, 120);
+    const antajaNimi = String(antaja == null ? '' : antaja).replace(/\s+/g, ' ').trim();
     if (!antajaNimi) {
       throw new functions.https.HttpsError('invalid-argument', 'antaja_puuttuu', { syy: 'antaja_puuttuu' });
+    }
+    /* P1 (1.10.2026): julkiselta lomakkeelta tuleva vapaa teksti näytetään henkilökunnan sivuilla → ei HTML:ää,
+       enintään 100 merkkiä. Hylätään (ei siivota hiljaa), jotta lomake voi pyytää korjausta. */
+    if (antajaNimi.length > 100 || /[<>]/.test(antajaNimi)) {
+      throw new functions.https.HttpsError('invalid-argument', 'antaja_virheellinen', { syy: 'antaja_virheellinen' });
     }
     // Syvyyssuojaus (Sibbo-korjaus): mikä tahansa odottamaton poikkeus → spesifi, lokitettu
     // viesti, ei paljasta "internal":ia vanhemmalle. HttpsError-koodit menevät läpi sellaisenaan.
@@ -1237,18 +1259,35 @@ exports.vahvistaSuostumus = functions
 
     // 3. Merkitse suostumus annetuksi + kirjoita ei-arkaluonteiset aux-kentät palvelinpuolella.
     const TS = admin.firestore.FieldValue.serverTimestamp();
+    // P1: lomakkeen muut merkkijonot/rakenteet siivotaan (julkinen lomake → näkyy henkilökunnan sivuilla).
+    const SUOSTUMUS_AVAIMET = ['rekisteri', 'tietosuoja', 'testaaminen', 'biologinen_ika', 'valmentajajako', 'anon_data'];
+    const puhdasTeksti = (v, max) => (v == null || v === '') ? null : String(v).replace(/[<>]/g, '').slice(0, max);
+    const pituusNumero = (v) => { const n = typeof v === 'number' ? v : parseFloat(v); return (isFinite(n) && n >= 100 && n <= 250) ? n : null; };
+    const puhdasSuostumusMap = (suostumusMap && typeof suostumusMap === 'object' && !Array.isArray(suostumusMap))
+      ? SUOSTUMUS_AVAIMET.reduce((o, k) => { if (k in suostumusMap) o[k] = suostumusMap[k] === true; return o; }, {})
+      : null;
     const paivitys = {
       suostumusTila:    'annettu',
       suostumusAnnettu: TS,
-      suostumusTeksti:  suostumusTeksti || null,
       tila:             'aktiivinen',
       muokattu:         TS,
     };
+    /* Tyhjä = "ei muutosta" (1.10.2026): valinnainen kenttä kirjoitetaan VAIN kun lomakkeella on arvo —
+       tyhjä lomakekenttä ei nollaa tallennettua arvoa (sama periaate kuin syntymäajan täytössä). */
+    const teksti = puhdasTeksti(suostumusTeksti, 500);
+    if (teksti != null) paivitys.suostumusTeksti = teksti;
     if (bioPituudet && typeof bioPituudet === 'object') {
-      paivitys.isa_pituus_cm           = (bioPituudet.isa_pituus_cm  != null) ? bioPituudet.isa_pituus_cm  : null;
-      paivitys.aiti_pituus_cm          = (bioPituudet.aiti_pituus_cm != null) ? bioPituudet.aiti_pituus_cm : null;
-      paivitys.vanhempi_pituus_puuttuu = !!bioPituudet.vanhempi_pituus_puuttuu;
-      paivitys.vanhempi_pituus_pvm     = bioPituudet.vanhempi_pituus_pvm || null;
+      const isa = pituusNumero(bioPituudet.isa_pituus_cm), aiti = pituusNumero(bioPituudet.aiti_pituus_cm);
+      if (isa != null) paivitys.isa_pituus_cm = isa;
+      if (aiti != null) paivitys.aiti_pituus_cm = aiti;
+      if (isa != null || aiti != null) {
+        const pvm = puhdasTeksti(bioPituudet.vanhempi_pituus_pvm, 40);
+        if (pvm != null) paivitys.vanhempi_pituus_pvm = pvm;
+      }
+      // puuttuu-lippu lopputilasta (tallennettu + uusi), ei pelkästä lomakkeesta
+      const isaLopuksi = isa != null ? isa : (snap.get('isa_pituus_cm') != null ? snap.get('isa_pituus_cm') : null);
+      const aitiLopuksi = aiti != null ? aiti : (snap.get('aiti_pituus_cm') != null ? snap.get('aiti_pituus_cm') : null);
+      paivitys.vanhempi_pituus_puuttuu = (isaLopuksi == null || aitiLopuksi == null);
     }
 
     // huoltajaEmail — vahvistus että varmennettu osoite tallentuu pelaajaprofiiliin
@@ -1264,14 +1303,14 @@ exports.vahvistaSuostumus = functions
 
     // suostumukset — array kaikista hyväksytyistä suostumuksista + täysi suostumus-objekti
     // (sama rakenne kuin uusi-rekisteröinti-haaran .set(), §14: raakadata talteen).
-    if (Array.isArray(suostumukset)) paivitys.suostumukset = suostumukset;
+    if (Array.isArray(suostumukset)) paivitys.suostumukset = suostumukset.filter((x) => SUOSTUMUS_AVAIMET.includes(x));
     paivitys.suostumus = {
       annettu:     TS,
       antaja:      antajaNimi,
-      antajaRooli: antajaRooli || null,
+      antajaRooli: antajaRooli === 'itse' ? 'itse' : (antajaRooli ? 'huoltaja' : null),
       versio:      '2026-v1',
-      hyvaksytyt:  (suostumusMap && typeof suostumusMap === 'object') ? suostumusMap : null,
-      aikaleima:   aikaleima || null,
+      hyvaksytyt:  puhdasSuostumusMap,
+      aikaleima:   puhdasTeksti(aikaleima, 40),
     };
 
     // PIN: käytä olemassa olevaa validia (idempotentti; sama logiikka kuin Seura.html luoPelaajaPIN). UUDEN PIN:in generointi (Firestore-kyselyt)

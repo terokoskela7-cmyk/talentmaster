@@ -8,6 +8,8 @@ import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import vm from 'vm';
 import { fakeDb } from './_fakeFirestore.mjs';
+import { createRequire } from 'module';
+const require_ = createRequire(import.meta.url);
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const lue = (n) => readFileSync(join(ROOT, n), 'utf8');
@@ -123,7 +125,8 @@ async function seuraKortti(pelaaja, kutsut) {
   const f = fakeDb(alku);
   const modal = { classList: { add() {} }, innerHTML: '' };
   const ctx = {
-    db: f.db, tila: { seuraId: 'kpv' }, console: { warn() {} }, naytaToast() {}, Date, Object, JSON, String, Array, Promise,
+    db: f.db, tila: { seuraId: 'kpv' }, console: { warn() {} }, naytaToast() {}, Date, Object, JSON, String, Array, Promise, encodeURIComponent,
+    window: { tmEsc: require_(join(ROOT, 'lib', 'tm_esc.js')).tmEsc },
     document: { getElementById: () => modal, createElement: () => modal, body: { appendChild() {} } },
   };
   vm.createContext(ctx);
