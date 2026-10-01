@@ -13,6 +13,7 @@ import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { createRequire } from 'module';
 import vm from 'vm';
+import { lisaaPaikkamerkki, onPaikkamerkkiOsoite } from './_paikkamerkkiCtx.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const require_ = createRequire(import.meta.url);
@@ -33,7 +34,7 @@ function ajaCf(nimi, ymp) {
     functions: ketju, exports: {}, console: { log() {}, warn() {}, error() {} },
     kuittausPaatos, tunnisteTyyppi, encodeURIComponent, String, Object, Array,
   }, ymp);
-  vm.createContext(ctx);
+  vm.createContext(ctx); lisaaPaikkamerkki(ctx);
   vm.runInContext(cfRunko(nimi), ctx);
   return ctx.exports[nimi];
 }
@@ -41,7 +42,7 @@ function ajaCf(nimi, ymp) {
 const ANON = { uid: 'anon-1', token: { firebase: { sign_in_provider: 'anonymous' } } };
 const SOLO = { uid: 'solo_x', token: { rooli: 'solo_lapsi', soloPlayerId: 'p1', firebase: { sign_in_provider: 'custom' } } };
 const PEL = { uid: 'pel_fcl_p1', token: { rooli: 'pelaaja', pelaajaSeuraId: 'fcl', pelaajaId: 'p1', firebase: { sign_in_provider: 'custom' } } };
-const VP = { uid: 'vp-1', token: { seuraId: 'fcl', rooli: 'vp', email: 'vp@x.fi', firebase: { sign_in_provider: 'password' } } };
+const VP = { uid: 'vp-1', token: { seuraId: 'fcl', rooli: 'vp', email: 'vp@tm-testi.fi', firebase: { sign_in_provider: 'password' } } };
 
 describe('authz_paatos · tunnisteTyyppi / kuittausPaatos (puhdas)', () => {
   it('tunnistetyypit', () => {
@@ -115,7 +116,7 @@ describe('kuittaaKaavioYmmarretty (ajettu)', () => {
 });
 
 describe('lahetaPelaajaSivuLinkki (ajettu) — ei enää auki kenellekään, ei palauta reset-linkkiä', () => {
-  function aja(auth, { oikeus = false, tallennettu = 'huoltaja@x.fi' } = {}) {
+  function aja(auth, { oikeus = false, tallennettu = 'huoltaja@tm-testi.fi' } = {}) {
     const loki = { reset: 0, luotu: 0, sposti: 0 };
     const fn = ajaCf('lahetaPelaajaSivuLinkki', {
       db: { collection: () => ({ doc: () => ({ collection: () => ({ doc: () => ({
@@ -132,7 +133,7 @@ describe('lahetaPelaajaSivuLinkki (ajettu) — ei enää auki kenellekään, ei 
       pelaajakirjautuminen: require_('../functions/pelaajakirjautuminen.js'),
       TM_BASE_URL: 'https://tm',
     });
-    const data = { hEmail: 'Huoltaja@x.fi', pelaajaId: 'p1', seuraId: 'fcl', etunimi: 'A' };
+    const data = { hEmail: 'Huoltaja@tm-testi.fi', pelaajaId: 'p1', seuraId: 'fcl', etunimi: 'A' };
     return { loki, ajo: fn(data, { auth }) };
   }
   it('ei kirjautumista → unauthenticated, ei tiliä eikä linkkiä', async () => {
@@ -146,7 +147,7 @@ describe('lahetaPelaajaSivuLinkki (ajettu) — ei enää auki kenellekään, ei 
     expect(t.loki).toEqual({ reset: 0, luotu: 0, sposti: 0 });
   });
   it('henkilökunta, mutta sähköposti ≠ pelaajan huoltajaEmail → failed-precondition', async () => {
-    const t = aja(VP, { oikeus: true, tallennettu: 'joku.muu@x.fi' });
+    const t = aja(VP, { oikeus: true, tallennettu: 'joku.muu@tm-testi.fi' });
     await expect(t.ajo).rejects.toMatchObject({ code: 'failed-precondition' });
     expect(t.loki).toEqual({ reset: 0, luotu: 0, sposti: 0 });
   });
@@ -178,9 +179,9 @@ describe('muut callablet: henkilökuntatarkistus lähteessä', () => {
       tarkistaOikeus: async () => ({ sallittu: false }),
       haeJoukkueNimi: async () => 'U12', lahetaSahkoposti: async () => { sposti++; }, pohjaRekisteriKutsu: () => '',
     });
-    await expect(fn({ hEmail: 'uhri@x.fi', linkki: 'https://phish', seuraId: 'fcl' }, { auth: ANON }))
+    await expect(fn({ hEmail: 'uhri@tm-testi.fi', linkki: 'https://phish', seuraId: 'fcl' }, { auth: ANON }))
       .rejects.toMatchObject({ code: 'permission-denied' });
-    await expect(fn({ hEmail: 'uhri@x.fi', linkki: 'https://phish' }, { auth: ANON }))
+    await expect(fn({ hEmail: 'uhri@tm-testi.fi', linkki: 'https://phish' }, { auth: ANON }))
       .rejects.toMatchObject({ code: 'permission-denied' });
     expect(sposti).toBe(0);
   });
@@ -194,7 +195,7 @@ describe('muut callablet: henkilökuntatarkistus lähteessä', () => {
 /* PR 3b · vahvistaSuostumus: toimii ilman kirjautumista (suostumuslomake), joten vastaus EI saa
    sisältää salasanalinkkiä eikä PIN:iä — ne menevät vain tallennettuun huoltajaEmailiin. */
 describe('vahvistaSuostumus (ajettu) — tunnukset vain sähköpostiin', () => {
-  function aja({ tallennettu = 'huoltaja@x.fi', pin = '4821', sposti = 'ok' } = {}) {
+  function aja({ tallennettu = 'huoltaja@tm-testi.fi', pin = '4821', sposti = 'ok' } = {}) {
     const loki = { sposti: [], reset: 0 };
     const DATA = { huoltajaEmail: tallennettu, pin, etunimi: 'Aa', sukunimi: 'Bb', suostumusTila: 'odottaa' };
     const snap = { exists: true, empty: true, docs: [], get: (k) => DATA[k], data: () => DATA };
@@ -218,7 +219,7 @@ describe('vahvistaSuostumus (ajettu) — tunnukset vain sähköpostiin', () => {
       TM_BASE_URL: 'https://tm', Date, Math, JSON, Number, isNaN, parseInt, parseFloat,
       suostumusTarkistus: require_('../functions/suostumus_tarkistus.js'),
     });
-    const data = { seuraId: 'fcl', pelaajaId: 'p1', hEmail: 'Huoltaja@x.fi', suostumusTeksti: 'x', antaja: 'A', kutsuId: null,
+    const data = { seuraId: 'fcl', pelaajaId: 'p1', hEmail: 'Huoltaja@tm-testi.fi', suostumusTeksti: 'x', antaja: 'A', kutsuId: null,
       suostumukset: [], suostumusMap: {}, antajaRooli: 'huoltaja', aikaleima: '2026-10-01' };
     return { loki, ajo: fn(data, {}) };
   }
@@ -228,7 +229,7 @@ describe('vahvistaSuostumus (ajettu) — tunnukset vain sähköpostiin', () => {
     expect(r).toEqual({ ok: true, emailLahetetty: true, emailVirhe: null });
     expect(JSON.stringify(r)).not.toMatch(/SALAINEN|4821/);
     expect(t.loki.sposti).toHaveLength(1);
-    expect(t.loki.sposti[0].to).toBe('huoltaja@x.fi');
+    expect(t.loki.sposti[0].to).toBe('huoltaja@tm-testi.fi');
     expect(t.loki.sposti[0].html).toContain('SALAINEN');
     expect(t.loki.sposti[0].html).toContain('4821');
   });
@@ -238,7 +239,7 @@ describe('vahvistaSuostumus (ajettu) — tunnukset vain sähköpostiin', () => {
     expect(JSON.stringify(r)).not.toMatch(/SALAINEN|4821/);
   });
   it('hEmail ≠ tallennettu huoltajaEmail → permission-denied, ei linkkiä eikä sähköpostia', async () => {
-    const t = aja({ tallennettu: 'oikea@x.fi' });
+    const t = aja({ tallennettu: 'oikea@tm-testi.fi' });
     await expect(t.ajo).rejects.toMatchObject({ code: 'permission-denied' });
     expect(t.loki.reset).toBe(0);
     expect(t.loki.sposti).toEqual([]);
