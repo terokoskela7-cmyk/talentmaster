@@ -22,9 +22,10 @@ const SID = 'kpv', PID = 'm93';
 const PEL = 'seurat/kpv/pelaajat/m93';
 function perusData() {
   return {
-    [PEL]: { etunimi: 'Topias', tunniste: '12345678', pin: '9278', joukkueet: ['kpv_u13'], joukkue: 'KPV U13' },
-    'seurat/kpv/pelaajat/x2': { etunimi: 'Muu', tunniste: '87654321', joukkueet: ['kpv_u15'], joukkue: 'KPV U15' },
-    'seurat/kpv/pelaajat/x3': { etunimi: 'Vanha', joukkue: 'KPV U13' },   // vain nimikenttä (§18)
+    // Suostumus ennen PIN:iä (1.10.2026): fixturet ovat suostumuksen antaneita (uudet testit: tests/suostumus_ennen_kirjautumista.test.js).
+    [PEL]: { etunimi: 'Topias', tunniste: '12345678', pin: '9278', joukkueet: ['kpv_u13'], joukkue: 'KPV U13', suostumusTila: 'annettu' },
+    'seurat/kpv/pelaajat/x2': { etunimi: 'Muu', tunniste: '87654321', joukkueet: ['kpv_u15'], joukkue: 'KPV U15', suostumusTila: 'annettu' },
+    'seurat/kpv/pelaajat/x3': { etunimi: 'Vanha', joukkue: 'KPV U13', suostumusTila: 'annettu' },   // vain nimikenttä (§18)
     'seurat/kpv/joukkueet/kpv_u13': { nimi: 'KPV U13' },
     'seurat/kpv/kayttajat/valm-u13': { rooli: 'valmentaja', joukkueet: ['kpv_u13'] },
     'seurat/kpv/kayttajat/valm-pois': { rooli: 'valmentaja', joukkueet: ['kpv_u13'], aktiivinen: false },
@@ -144,7 +145,7 @@ describe('luoPinitSeuralle', () => {
   it('erät ≤ 400 kirjoitusta', async () => {
     const alku = perusData();
     // 5 kirjoitusta / pelaaja (hajautus + pin + 3 lukitusavainta) → 80 pelaajaa / erä. scrypt ~35 ms / PIN.
-    for (let i = 0; i < 100; i++) alku['seurat/kpv/pelaajat/p' + i] = { tunniste: String(10000000 + i), joukkueet: ['kpv_u13'] };
+    for (let i = 0; i < 100; i++) alku['seurat/kpv/pelaajat/p' + i] = { tunniste: String(10000000 + i), joukkueet: ['kpv_u13'], suostumusTila: 'annettu' };
     const y = ymparisto(alku);
     const r = await y.luo({ seuraId: SID }, VP);
     expect(r.luotu).toBe(102);

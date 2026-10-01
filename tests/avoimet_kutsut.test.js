@@ -27,7 +27,7 @@ function vahvista(alku) {
     functions: ketju, exports: {}, db: f.db, console: { log() {}, warn() {}, error() {} }, String, Object, Array, JSON, Date, encodeURIComponent, parseFloat, isFinite,
     admin: { firestore: { FieldValue: { serverTimestamp: () => 'TS' }, Timestamp: { fromDate: (d) => d } } },
     auth: { generatePasswordResetLink: async () => 'r' }, haeOrLuoHuoltajaAuth: async () => ({}), lahetaSahkoposti: async () => {}, pohjaSuostumusLinkki: () => '',
-    TM_BASE_URL: 'https://tm', suostumusTarkistus: require_(join(ROOT, 'functions', 'suostumus_tarkistus.js')), pelaajapin: require_(join(ROOT, 'functions', 'pelaajapin.js')),
+    TM_BASE_URL: 'https://tm', suostumusTarkistus: require_(join(ROOT, 'functions', 'suostumus_tarkistus.js')), suostumusAnnettu: require_(join(ROOT, 'functions', 'suostumus.js')).suostumusAnnettu, pelaajapin: require_(join(ROOT, 'functions', 'pelaajapin.js')),
   };
   vm.createContext(ctx);
   vm.runInContext(CF.slice(i, CF.indexOf('\n  });', i) + 6), ctx);

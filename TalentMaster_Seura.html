@@ -3339,14 +3339,10 @@ async function lahetaRekisteriSahkoposti() {
           tuoja:         tila.kayttaja?.email || 'tuntematon',
         }));
 
-        // PIN palvelimella; epäonnistuminen EI kaada luontia, mutta näytetään toimintaohje (ei hiljaista virhettä).
-        try {
-          const r = await _pinFn('asetaPelaajanPin')(Object.assign({ seuraId: tila.seuraId, pelaajaId: pelaajaId },
-            syotettyPin ? { pin: syotettyPin } : {}));
-          naytaToast(`✅ Pelaaja luotu — PIN: ${r.data.pin}`, 'ok');
-        } catch (pinErr) {
-          naytaToast('Pelaaja luotu, mutta PIN:n asetus epäonnistui (' + _pinVirheTeksti(pinErr) + '). Luo PIN pelaajakortin "Uusi PIN" -napista.', 'varoitus');
-        }
+        /* Suostumus ennen PIN:iä (1.10.2026): uusi pelaaja on tilassa 'odottaa' → PIN:iä EI luoda nyt.
+           Palvelin luo sen automaattisesti, kun huoltaja antaa suostumuksen (vahvistaSuostumus). */
+        naytaToast('✅ Pelaaja luotu. PIN luodaan automaattisesti, kun huoltaja antaa suostumuksen'
+          + (syotettyPin ? ' (syötettyä PIN:iä ei käytetty).' : '.'), 'ok');
         console.log(`[TM] Pelaaja ${etunimi} ${sukunimi} luotu, PalloID: ${palloIdArvo}`);
       } else {
         // Päivitetään olemassa oleva dokumentti — §33: EI saa alentaa jo annettua suostumusta.
@@ -4382,8 +4378,9 @@ async function naytaPelaajaTiedot(pelaajaId) {
             <div id="pin-nakytys-${pelaajaId}" style="font-family:monospace;font-size:22px;font-weight:900;
               color:#00D4AA;letter-spacing:4px;background:rgba(0,0,0,.25);
               padding:6px 14px;border-radius:8px;display:inline-block;min-width:80px;text-align:center;">
-              ${esc(p.pin || '—')}
+              ${esc(_suostumusAnnettu(p) ? (p.pin || '—') : '—')}
             </div>
+            ${(!_suostumusAnnettu(p) && p.pin) ? '<div style="font-size:10px;color:var(--amber);margin-top:4px;max-width:180px;">Suostumus puuttuu – PIN ei ole käytössä.</div>' : ''}
           </div>
           <div style="flex:1;min-width:180px;">
             <div style="font-size:10px;color:var(--ink3);margin-bottom:3px;">Huoltajan sähköposti</div>
@@ -5587,8 +5584,12 @@ async function lataaRekisteriPohja() {
 // Oikeus: johto/SA koko seura, joukkueen valmentaja oma joukkue (palvelin tarkistaa).
 // ─────────────────────────────────────────────────────────────────
 function _pinFn(nimi) { return firebase.app().functions('europe-west1').httpsCallable(nimi, { timeout: 300000 }); }
+/* Suostumus ennen PIN:iä (1.10.2026): sama ehto kuin palvelimella (functions/suostumus.js). */
+function _suostumusAnnettu(p) { return !!p && (p.suostumusTila === 'annettu' || !!(p.suostumus && p.suostumus.annettu)); }
+const PIN_SUOSTUMUS_PUUTTUU = 'Huoltajan suostumus puuttuu – PIN luodaan suostumuksen jälkeen.';
 function _pinVirheTeksti(e) {
   const koodi = String((e && e.code) || '').replace(/^functions\//, '');
+  if (koodi === 'failed-precondition' && e && e.details && e.details.syy === 'suostumus_puuttuu') return PIN_SUOSTUMUS_PUUTTUU;
   if (koodi === 'permission-denied') return 'ei oikeutta tälle pelaajalle';
   if (koodi === 'invalid-argument') return (e && e.message) || 'virheellinen PIN';
   return (e && e.message) || 'tuntematon virhe';
@@ -5630,9 +5631,11 @@ async function luoPuuttuvatPinit() {
   const k = _tunnusKohde();
   try {
     if (k.valitut) {
-      const ilman = k.lista.filter((p) => !p.pin);
-      if (!ilman.length) { naytaToast('Kaikilla valituilla on jo PIN.', 'info'); return; }
-      if (!confirm('Luodaanko PIN-koodi ' + ilman.length + ' valitulle pelaajalle, joilta se puuttuu?')) return;
+      const eiSuostumusta = k.lista.filter((p) => !p.pin && !_suostumusAnnettu(p)).length;
+      const ilman = k.lista.filter((p) => !p.pin && _suostumusAnnettu(p));
+      if (!ilman.length) { naytaToast(eiSuostumusta ? 'PIN luodaan vasta suostumuksen jälkeen: ' + eiSuostumusta + ' valitulta puuttuu huoltajan suostumus.' : 'Kaikilla valituilla on jo PIN.', 'info'); return; }
+      if (!confirm('Luodaanko PIN-koodi ' + ilman.length + ' valitulle pelaajalle, joilta se puuttuu?'
+        + (eiSuostumusta ? '\n' + eiSuostumusta + ' ohitetaan: huoltajan suostumus puuttuu.' : ''))) return;
       let ok = 0, virhe = 0;
       for (const p of ilman) {
         _tunnusTila('PIN ' + (ok + virhe + 1) + '/' + ilman.length + '…');
@@ -5640,19 +5643,25 @@ async function luoPuuttuvatPinit() {
         catch (e) { virhe++; console.warn('[PIN]', p.id, e && e.message); }
       }
       _tunnusTila('');
-      naytaToast('✅ PIN luotu ' + ok + ' pelaajalle' + (virhe ? ' · ' + virhe + ' epäonnistui (ei oikeutta tai virhe)' : ''), virhe ? 'varoitus' : 'ok');
+      naytaToast('✅ PIN luotu ' + ok + ' pelaajalle' + (virhe ? ' · ' + virhe + ' epäonnistui (ei oikeutta tai virhe)' : '')
+        + (eiSuostumusta ? ' · ' + eiSuostumusta + ' ohitettu (ei suostumusta)' : ''), virhe ? 'varoitus' : 'ok');
     } else {
       const arg = Object.assign({ seuraId: tila.seuraId, vainPuuttuvat: true }, k.joukkue ? { joukkue: k.joukkue } : {});
       _tunnusTila('Lasketaan…');
       const esi = await _pinFn('luoPinitSeuralle')(Object.assign({ kuivaAjo: true }, arg));
       _tunnusTila('');
       const n = esi.data.luotaisiin || 0;
-      if (!n) { naytaToast('Kaikilla pelaajilla (' + k.kuvaus + ') on jo PIN.', 'info'); return; }
-      if (!confirm('Luodaanko uusi 6-numeroinen PIN ' + n + ' pelaajalle (' + k.kuvaus + ')?\nPelaajat, joilla on jo PIN, eivät muutu.')) return;
+      const eiSuost = esi.data.ohitettuSuostumus || 0;
+      const suostTeksti = eiSuost ? eiSuost + ' pelaajalta puuttuu huoltajan suostumus – PIN luodaan suostumuksen jälkeen.' : '';
+      if (!n) { naytaToast(eiSuost ? 'Ei luotavia PIN-koodeja (' + k.kuvaus + '). ' + suostTeksti : 'Kaikilla pelaajilla (' + k.kuvaus + ') on jo PIN.', 'info'); return; }
+      if (!confirm('Luodaanko uusi 6-numeroinen PIN ' + n + ' pelaajalle (' + k.kuvaus + ')?\nPelaajat, joilla on jo PIN, eivät muutu.'
+        + (eiSuost ? '\n' + suostTeksti : ''))) return;
       _tunnusTila('Luodaan PIN-koodeja…');
       const r = await _pinFn('luoPinitSeuralle')(arg);
       _tunnusTila('');
-      naytaToast('✅ PIN luotu ' + r.data.luotu + ' pelaajalle (' + k.kuvaus + ')', 'ok');
+      naytaToast('✅ PIN luotu ' + r.data.luotu + ' pelaajalle (' + k.kuvaus + ')'
+        + (r.data.ohitettuSuostumus ? ' · ' + r.data.ohitettuSuostumus + ' ohitettu (ei suostumusta)' : '')
+        + (r.data.oliJo ? ' · ' + r.data.oliJo + ' oli jo' : ''), 'ok');
     }
     setTimeout(() => renderPelaajat(document.getElementById('nakymaAlue')), 600);
   } catch (e) {
@@ -5700,9 +5709,11 @@ function _pinKortitHtml(kortit) {
 }
 async function tulostaPinKortit() {
   const k = _tunnusKohde();
-  const lista = k.lista.filter((p) => p.pin);
-  const ilman = k.lista.length - lista.length;
-  if (!lista.length) { naytaToast('Kenelläkään (' + k.kuvaus + ') ei ole PIN:iä. Luo ensin PIN-koodit.', 'varoitus'); return; }
+  // Suostumus ennen kirjautumista (1.10.2026): PIN-kortti vain, jos PIN on TOIMIVA (suostumus annettu).
+  const lista = k.lista.filter((p) => p.pin && _suostumusAnnettu(p));
+  const eiSuostumusta = k.lista.filter((p) => !_suostumusAnnettu(p)).length;
+  const ilman = k.lista.length - lista.length - eiSuostumusta;
+  if (!lista.length) { naytaToast('Ei tulostettavia PIN-kortteja (' + k.kuvaus + ')' + (eiSuostumusta ? ': ' + eiSuostumusta + ' pelaajalta puuttuu huoltajan suostumus.' : '. Luo ensin PIN-koodit.'), 'varoitus'); return; }
   const w = window.open('', '_blank');   // avataan heti (ponnahdusikkunan esto), täytetään kun QR:t valmiit
   if (!w) { naytaToast('Selain esti tulostusikkunan — salli ponnahdusikkunat tälle sivulle.', 'virhe'); return; }
   try {
@@ -5711,7 +5722,8 @@ async function tulostaPinKortit() {
       .map((p) => ({ nimi: ((p.etunimi || '') + ' ' + (p.sukunimi || '')).trim(), joukkue: p.joukkueNimi || p.joukkue || '',
         palloId: _pinPalloId(p), pin: p.pin, qr: _qrDataUrl(_pelaajaLinkki(p)) }));
     w.document.open(); w.document.write(_pinKortitHtml(kortit)); w.document.close();
-    if (ilman) naytaToast(ilman + ' pelaajalta puuttuu PIN, eikä heille tehty korttia.', 'varoitus');
+    if (ilman || eiSuostumusta) naytaToast((ilman ? ilman + ' pelaajalta puuttuu PIN' : '') + (ilman && eiSuostumusta ? ' · ' : '')
+      + (eiSuostumusta ? eiSuostumusta + ' pelaajalta puuttuu huoltajan suostumus' : '') + ' – heille ei tehty korttia.', 'varoitus');
   } catch (e) {
     try { w.close(); } catch (_) {}
     naytaToast('PIN-korttien teko epäonnistui: ' + ((e && e.message) || e), 'virhe');
@@ -5723,12 +5735,17 @@ async function tulostaPinKortit() {
 async function lahetaTunnuksetHuoltajille() {
   const k = _tunnusKohde();
   const eiEmailia = k.lista.filter((p) => !p.huoltajaEmail).length;
-  const eiPinia = k.lista.filter((p) => p.huoltajaEmail && !p.pin).length;
-  const kohteet = k.lista.filter((p) => p.huoltajaEmail && p.pin);
-  if (!kohteet.length) { naytaToast('Ei lähetettävää (' + k.kuvaus + '): ' + eiEmailia + ' ilman huoltajan sähköpostia, ' + eiPinia + ' ilman PIN:iä.', 'varoitus'); return; }
+  // Suostumus ennen kirjautumista (1.10.2026): tunnukset vain suostumuksen antaneille; muille suostumuskutsu.
+  const eiSuostumusta = k.lista.filter((p) => p.huoltajaEmail && !_suostumusAnnettu(p)).length;
+  const eiPinia = k.lista.filter((p) => p.huoltajaEmail && _suostumusAnnettu(p) && !p.pin).length;
+  const kohteet = k.lista.filter((p) => p.huoltajaEmail && p.pin && _suostumusAnnettu(p));
+  const suostOhje = eiSuostumusta + ' ilman suostumusta – lähetä heille suostumuskutsu (Kutsut).';
+  if (!kohteet.length) { naytaToast('Ei lähetettävää (' + k.kuvaus + '): ' + eiEmailia + ' ilman huoltajan sähköpostia, ' + eiPinia + ' ilman PIN:iä'
+    + (eiSuostumusta ? ', ' + suostOhje : '.'), 'varoitus'); return; }
   if (!confirm('Lähetetäänkö tunnukset (PalloID, PIN ja linkki) ' + kohteet.length + ' huoltajalle (' + k.kuvaus + ')?'
     + (eiEmailia ? '\n' + eiEmailia + ' ohitetaan: ei huoltajan sähköpostia.' : '')
-    + (eiPinia ? '\n' + eiPinia + ' ohitetaan: ei PIN:iä (luo ensin PIN-koodit).' : ''))) return;
+    + (eiPinia ? '\n' + eiPinia + ' ohitetaan: ei PIN:iä (luo ensin PIN-koodit).' : '')
+    + (eiSuostumusta ? '\n' + eiSuostumusta + ' ohitetaan: huoltajan suostumus puuttuu – lähetä heille suostumuskutsu.' : ''))) return;
   const fn = firebase.app().functions('europe-west1').httpsCallable('lahetaPelaajaSivuLinkki');
   let ok = 0, virhe = 0;
   for (const p of kohteet) {
@@ -5741,7 +5758,8 @@ async function lahetaTunnuksetHuoltajille() {
   }
   _tunnusTila('');
   naytaToast('✅ Tunnukset lähetetty ' + ok + ' huoltajalle' + (virhe ? ' · ' + virhe + ' epäonnistui' : '')
-    + (eiEmailia ? ' · ' + eiEmailia + ' ilman sähköpostia' : '') + (eiPinia ? ' · ' + eiPinia + ' ilman PIN:iä' : ''), virhe ? 'varoitus' : 'ok');
+    + (eiEmailia ? ' · ' + eiEmailia + ' ilman sähköpostia' : '') + (eiPinia ? ' · ' + eiPinia + ' ilman PIN:iä' : '')
+    + (eiSuostumusta ? ' · ' + suostOhje : ''), virhe ? 'varoitus' : 'ok');
 }
 
 async function uusiPelaajaPIN(pelaajaId) {
@@ -6074,7 +6092,7 @@ function kasitteleExcelTuonti(event) {
           <td style="padding:7px 10px;font-size:12px;color:var(--ink3);">${p.joukkue || '—'}</td>
           <td style="padding:7px 10px;font-size:11px;font-family:monospace;color:${p.palloId ? 'var(--ink2)' : 'var(--ink3)'};">${p.palloId || '—'}</td>
           <td style="padding:7px 10px;font-size:12px;">${onTalentti ? '<span style="color:var(--teal);font-weight:700;">⭐ ' + (p.talenttiTaso||'perus') + '</span>' : '<span style="color:var(--ink3);">—</span>'}</td>
-          <td style="padding:7px 10px;font-size:12px;color:var(--teal);">${p.huoltajaEmail || '—'}</td>
+          <td style="padding:7px 10px;font-size:12px;color:${p._hylatty ? 'var(--red)' : 'var(--teal)'};">${p.huoltajaEmail || '—'}</td>
           <td style="padding:7px 10px;font-size:11px;color:${statusVari};">${status}</td>
         </tr>`;
       }).join('');
@@ -6293,31 +6311,37 @@ async function ajaExcelTuonti(lahetaKutsut = false) {
   const msg = [
     tuotu > 0    ? `${tuotu} pelaajaa tuotu` : null,
     ohitettu > 0 ? `${ohitettu} ohitettu (jo järjestelmässä)` : null,
-    hylatty > 0  ? `${hylatty} hylätty (esimerkkiosoite – korvaa huoltajan oikealla sähköpostilla)` : null,
+    hylatty > 0  ? `${hylatty} ${hylatty === 1 ? 'rivi' : 'riviä'} hylätty – esimerkkiosoite, korvaa huoltajan oikealla sähköpostilla` : null,
     lahetaKutsut ? `${kutsut} kutsua käsitelty` : null,
     virheet > 0  ? `${virheet} riviä epäonnistui` : null,
   ].filter(Boolean).join(' · ');
 
   if (onni) {
-    onni.textContent = `✅ ${msg}`;
+    /* Mitään ei tuotu (1.10.2026): oranssi varoitus ILMAN ✅ — muuten "✅ 2 hylätty" näytti onnistumiselta. */
+    const eiTuotu = tuotu === 0;
+    onni.textContent = eiTuotu ? `⚠️ Mitään ei tuotu: ${msg || 'ei tuotavia rivejä'}` : `✅ ${msg}`;
+    onni.style.color = eiTuotu ? 'var(--amber)' : 'var(--teal)';
+    onni.style.background = eiTuotu ? 'rgba(224,160,64,.1)' : 'rgba(40,176,144,.1)';
+    onni.style.borderColor = eiTuotu ? 'rgba(224,160,64,.35)' : 'rgba(40,176,144,.3)';
     onni.style.display = 'block';
-    // PR 4: Excel-tuonti ei aseta PIN:iä → kehote luoda ne heti (palvelimella, luoPinitSeuralle).
+    /* Suostumus ennen PIN:iä (1.10.2026): tuoduilla pelaajilla ei ole vielä suostumusta → PIN:iä ei luoda nyt
+       (aiempi "Luo PIN-koodit tuoduille pelaajille" -kehote ei olisi luonut yhtään). PIN syntyy suostumuksen jälkeen. */
     if (tuotu > 0) {
-      const kehote = document.createElement('button');
-      kehote.className = 'lisaaNappi';
-      kehote.style.cssText = 'margin-top:10px;display:block;background:rgba(0,212,170,.15);border:1px solid rgba(0,212,170,.35);color:#00D4AA;';
-      kehote.textContent = 'Luo PIN-koodit tuoduille pelaajille →';
-      kehote.onclick = () => { window._aktiiviJoukkue = ''; renderPelaajat(document.getElementById('nakymaAlue')).then(() => luoPuuttuvatPinit()); };
-      onni.appendChild(kehote);
+      const ohje = document.createElement('div');
+      ohje.style.cssText = 'margin-top:8px;font-size:12px;color:var(--ink2);';
+      ohje.textContent = 'PIN-koodit luodaan automaattisesti, kun huoltaja antaa suostumuksen.';
+      onni.appendChild(ohje);
     }
   }
   if (virhe && virheet === 0) virhe.textContent = ''; // tyhjennä virheviesti jos kaikki ok
 
   naytaToast(
-    lahetaKutsut
-      ? `${tuotu} pelaajaa tuotu · ${kutsut} kutsua lähetetty`
-      : `${tuotu} pelaajaa tuotu`,
-    virheet === 0 ? 'ok' : 'varoitus'
+    tuotu === 0
+      ? 'Mitään ei tuotu' + (hylatty ? ` – ${hylatty} hylätty (esimerkkiosoite)` : '')
+      : lahetaKutsut
+        ? `${tuotu} pelaajaa tuotu · ${kutsut} kutsua lähetetty`
+        : `${tuotu} pelaajaa tuotu`,
+    (virheet === 0 && tuotu > 0) ? 'ok' : 'varoitus'
   );
 
   // Päivitetään pelaajalistaus
