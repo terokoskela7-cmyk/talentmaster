@@ -7,6 +7,7 @@ import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import vm from 'vm';
 import { lisaaVerkko } from './_verkkoCtx.mjs';
+import { lisaaP7Offline } from './_p7OfflineCtx.mjs';
 
 const juuri = join(dirname(fileURLToPath(import.meta.url)), '..');
 const SIVU = readFileSync(join(juuri, 'TalentMaster_Pelaaja_v7.html'), 'utf8');
@@ -106,7 +107,7 @@ function ajaKirjaudu(virhe) {
     _pinVirhe: (t) => loki.virhe.push(t),
     _lataaOmaPelaaja: async () => { loki.lataa++; return true; },
   };
-  vm.createContext(ctx); lisaaVerkko(ctx);
+  vm.createContext(ctx); lisaaVerkko(ctx); lisaaP7Offline(ctx);
   vm.runInContext([puraRaaka('function _infraVirheenSyy(koodi, viesti) {'), puraRaaka('function _raportoiKirjautumisvirhe(syy) {'),
     puraRaaka('function _linkkiKirjautuminen() {'), puraRaaka('async function _kirjaudu(pin) {')].join('\n') + '\nthis._kirjaudu = _kirjaudu;', ctx);
   return { loki, ajo: ctx._kirjaudu('1234') };
