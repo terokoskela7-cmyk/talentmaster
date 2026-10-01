@@ -121,6 +121,7 @@ body.demo-mode #devChrome{display:block}
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-functions-compat.js"></script>
 <script src="lib/tm_appcheck.js?v=2"></script>
+<script src="lib/tm_verkko.js?v=1"></script>   <!-- verkkokatko: 1 uudelleenyritys + Yhteyskatko-ilmoitus + Sentry warning -->
 <script src="lib/tm_lang.js?v=17"></script>   <!-- i18n V0 putki · V1-B/B2: +vanhempi./nav.-avaimet + kielivalitsin + syväsisältö (nimen taivutus poistettu) -->
 <script src="docs/testit_indeksit.js?v=9"></script>
 <script src="tm-bus.js?v=3"></script>
@@ -390,12 +391,14 @@ async function _teeSisaankirjautuminen() {
   draw();
 
   try {
-    await _auth.signInWithEmailAndPassword(email, pass);
+    await tmYritaUudelleenVerkkokatkossa(() => _auth.signInWithEmailAndPassword(email, pass));   // verkkokatko → 1 uusi yritys
     // onAuthStateChanged hoitaa loput — siirtyy kotiin automaattisesti
     _loginPass = '';  // älä säilytä salasanaa muistissa
   } catch(e) {
     _loginLng = false;
+    if (tmOnVerkkokatko(e)) tmRaportoiVerkkokatko('vanhempiKirjautuminen');
     _loginErr =
+      tmOnVerkkokatko(e)                  ? tmVerkkoViesti() :
       e.code === 'auth/wrong-password'    ? t('vanhempi.login_vaara_salasana') :
       e.code === 'auth/user-not-found'    ? t('vanhempi.login_ei_sahkopostia') :
       e.code === 'auth/invalid-email'     ? t('vanhempi.login_tarkista_sahkoposti') :
