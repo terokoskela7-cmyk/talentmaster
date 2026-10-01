@@ -3366,3 +3366,50 @@ describe('v3.30 · PIN vain palvelimella', () => {
     expect(paa.data()).not.toHaveProperty('playerCode');
   });
 });
+
+/* ══════════════════════════════════════════════════════════════════════════════════════════
+   v3.31 · P0 — deaktivointi ei estänyt pääsyä (1.10.2026)
+   kayttajat-dokumentin pääsykentät (rooli, seuraId, aktiivinen + jälki, claimsAsetettu) vain palvelimella,
+   myös SA:lta ja käyttäjältä itseltään. Poisto vain palvelimella (poistaKayttaja).
+══════════════════════════════════════════════════════════════════════════════════════════ */
+describe('v3.31 · kayttajat-pääsykentät vain palvelimella', () => {
+  const K = 'valm-p0-001';
+  beforeEach(async () => {
+    await seedSeuraAndPelaaja(); await seedAdminDoc();
+    await testEnv.withSecurityRulesDisabled(async (c) => {
+      await setDoc(doc(c.firestore(), 'seurat', SEURA_A, 'kayttajat', K), { rooli: 'valmentaja', seuraId: SEURA_A, aktiivinen: true, etunimi: 'V', email: 'v@x.fi' });
+    });
+  });
+  const kd = (db) => doc(db, 'seurat', SEURA_A, 'kayttajat', K);
+
+  it('SA EI kirjoita aktiivinen-, rooli- eikä seuraId-kenttää selaimesta; muut kentät onnistuvat', async () => {
+    const db = saContext().firestore();
+    await assertFails(updateDoc(kd(db), { aktiivinen: false }));
+    await assertFails(updateDoc(kd(db), { aktiivinen: false, deaktivoitu: new Date(), deaktivoija_uid: SA_UID }));
+    await assertFails(updateDoc(kd(db), { rooli: 'vp' }));
+    await assertFails(updateDoc(kd(db), { seuraId: SEURA_B }));
+    await assertFails(updateDoc(kd(db), { claimsAsetettu: true }));
+    await assertSucceeds(updateDoc(kd(db), { puhelin: '0401234567' }));
+  });
+  it('johto (VP) EI kirjoita aktiivinen-kenttää; yhteystiedot onnistuvat', async () => {
+    const db = vpContext(SEURA_A).firestore();
+    await assertFails(updateDoc(kd(db), { aktiivinen: false }));
+    await assertFails(setDoc(kd(db), { aktiivinen: false }, { merge: true }));
+    await assertSucceeds(setDoc(kd(db), { puhelin: '0401234567' }, { merge: true }));
+  });
+  it('käyttäjä itse EI muuta omaa aktiivinen- tai rooli-kenttäänsä', async () => {
+    await testEnv.withSecurityRulesDisabled(async (c) => { await updateDoc(kd(c.firestore()), { aktiivinen: false }); });
+    const db = valmentajaContext(K, SEURA_A).firestore();
+    await assertFails(updateDoc(kd(db), { aktiivinen: true }));   // deaktivoitu ei aktivoi itseään
+    await assertFails(updateDoc(kd(db), { rooli: 'vp' }));
+    await assertSucceeds(updateDoc(kd(db), { lisenssitaso: 'c' }));
+  });
+  it('kayttajat-dokumenttia EI poisteta selaimesta (SA eikä johto) — vain poistaKayttaja-palvelinfunktio', async () => {
+    await assertFails(deleteDoc(kd(saContext().firestore())));
+    await assertFails(deleteDoc(kd(vpContext(SEURA_A).firestore())));
+  });
+  it('luonti (Seura-sivun kutsu) toimii ennallaan johdolle', async () => {
+    await assertSucceeds(setDoc(doc(vpContext(SEURA_A).firestore(), 'seurat', SEURA_A, 'kayttajat', 'uusi-k'),
+      { rooli: 'valmentaja', seuraId: SEURA_A, aktiivinen: true, claimsAsetettu: true }));
+  });
+});

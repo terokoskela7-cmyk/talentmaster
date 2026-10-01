@@ -2590,7 +2590,9 @@ async function renderHenkilosto(alue) {
               </td>
               <td><span class="badge ${rooliLuokat[h.rooli]||'muu'}">${rooliNimet[h.rooli]||h.rooli||'—'}</span></td>
               <td style="font-size:12px;color:var(--ink3);">${h.joukkueNimi||h.joukkue||'—'}</td>
-              <td><span class="badge ${h.claimsAsetettu?'ok':'odottaa'}">${h.claimsAsetettu?'✓ OK':'⏳'}</span></td>
+              <td>${h.aktiivinen === false
+                ? '<span class="badge odottaa">⛔ Deaktivoitu</span>'
+                : `<span class="badge ${h.claimsAsetettu?'ok':'odottaa'}">${h.claimsAsetettu?'✓ OK':'⏳'}</span>`}</td>
               <td>
                 <div style="display:flex;gap:6px;flex-wrap:wrap;">
                   <button class="toimNappi sininen"
@@ -2614,7 +2616,9 @@ async function renderHenkilosto(alue) {
                     onclick="lahetaSalasanaResetNapista(this)">
                     Salasana
                   </button>
-                  <button class="toimNappi vaara" onclick="deaktivoiKayttaja('${h.id}','${(h.email||'').replace(/'/g,"\\'")}')">Deaktivoi</button>
+                  ${h.aktiivinen === false
+                    ? `<button class="toimNappi" data-uid="${h.id}" data-email="${(h.email||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;')}" onclick="aktivoiKayttajaNapista(this)">Aktivoi</button>`
+                    : `<button class="toimNappi vaara" data-uid="${h.id}" data-email="${(h.email||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;')}" onclick="deaktivoiKayttajaNapista(this)">Deaktivoi</button>`}
                 </div>
               </td>
             </tr>`).join('')}
@@ -4164,16 +4168,28 @@ async function lahetaPelaajaLinkki(pelaajaId, seuraId, etunimi, sukunimi, hEmail
 }
 
 
+/* P0 (1.10.2026): deaktivointi ja aktivointi VAIN palvelimella. Selaimen aktiivinen-kirjoitus ei estänyt
+   kirjautumista (Rules lukevat claimeja) — callable estää Auth-tilin, tyhjentää claimit ja mitätöi tokenit. */
+function deaktivoiKayttajaNapista(btn) { return deaktivoiKayttaja(btn.dataset.uid, btn.dataset.email || ''); }
+function aktivoiKayttajaNapista(btn) { return aktivoiKayttaja(btn.dataset.uid, btn.dataset.email || ''); }
 async function deaktivoiKayttaja(uid, email) {
-  if (!confirm(`Deaktivoidaanko ${email}? Käyttäjä ei voi enää kirjautua.`)) return;
+  if (!confirm(`Deaktivoidaanko ${email || 'käyttäjä'}?\n\nKirjautuminen estetään heti ja oikeudet poistetaan. Auki oleva istunto menettää pääsyn viimeistään tunnin kuluessa. Tiedot säilyvät.`)) return;
   try {
-    await db.collection('seurat').doc(tila.seuraId)
-      .collection('kayttajat').doc(uid)
-      .update({ aktiivinen: false });
-    naytaToast(`${email} deaktivoitu.`, 'ok');
+    await firebase.app().functions('europe-west1').httpsCallable('deaktivioiKayttaja')({ kohdeUid: uid, seuraId: tila.seuraId });
+    naytaToast(`${email || 'Käyttäjä'} deaktivoitu.`, 'ok');
     renderHenkilosto(document.getElementById('nakymaAlue'));
   } catch (e) {
     naytaToast('Deaktivointi epäonnistui: ' + e.message, 'virhe');
+  }
+}
+async function aktivoiKayttaja(uid, email) {
+  if (!confirm(`Aktivoidaanko ${email || 'käyttäjä'} uudelleen?\n\nKirjautuminen sallitaan ja oikeudet palautetaan nykyisen roolin mukaan.`)) return;
+  try {
+    await firebase.app().functions('europe-west1').httpsCallable('aktivoiKayttaja')({ kohdeUid: uid, seuraId: tila.seuraId });
+    naytaToast(`${email || 'Käyttäjä'} aktivoitu.`, 'ok');
+    renderHenkilosto(document.getElementById('nakymaAlue'));
+  } catch (e) {
+    naytaToast('Aktivointi epäonnistui: ' + e.message, 'virhe');
   }
 }
 

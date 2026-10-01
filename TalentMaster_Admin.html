@@ -18,7 +18,7 @@
 <script src="lib/tm_eerikkila_normit.js?v=40"></script>
 <script src="lib/tm_joukkue.js?v=3"></script>   <!-- §18-jäsenyys: kanoninen nimi + team-id yhdestä paikasta -->
 <script src="lib/tm_arviointi_historia.js?v=1"></script>   <!-- kausiavain: tmKausiNyt/tmTavoitteetKaudelle — SAMA lähde kuin VP:llä (sama tavoitteet-dokumentti) -->
-<script src="lib/tm_audit_nimet.js?v=2"></script>   <!-- audit-toimintojen selkokieliset nimet (Audit-loki) -->
+<script src="lib/tm_audit_nimet.js?v=3"></script>   <!-- audit-toimintojen selkokieliset nimet (Audit-loki) -->
 <script src="tm_auth.js"></script>
 
 <style>
@@ -842,16 +842,15 @@ function avaaKayttajaToiminnot(uid, seuraId, email, rooli, nimi) {
   modal.classList.add('auki');
 }
 
+/* P0 (1.10.2026): roolinvaihto AINA vaihdaKayttajanRooli-callablella (Firestore + claims + token-mitätöinti +
+   audit rooli_vaihdettu), kuten Seura-sivulla. Selaimen rooli-kirjoitus ei päivittänyt claimeja (Rules v3.31 estää sen). */
 async function tallennakKayttajaRooli(uid, seuraId) {
   const uusiRooli = document.getElementById('ktRooliValinta')?.value;
   if (!uusiRooli) return;
   try {
-    await db.collection('seurat').doc(seuraId).collection('kayttajat').doc(uid).update({
-      rooli: uusiRooli,
-      muokattu: firebase.firestore.FieldValue.serverTimestamp(),
-    });
+    await firebase.app().functions('europe-west1').httpsCallable('vaihdaKayttajanRooli')({ uid: uid, seuraId: seuraId, uusiRooli: uusiRooli });
     const tEl = document.getElementById('ktTulos');
-    if (tEl) { tEl.textContent = '✅ Rooli päivitetty — custom claims päivittyvät seuraavalla kirjautumisella.'; tEl.style.display='block'; }
+    if (tEl) { tEl.textContent = '✅ Rooli vaihdettu. Uusi rooli on voimassa, kun käyttäjä kirjautuu uudelleen.'; tEl.style.display='block'; }
     naytaToast('Rooli päivitetty', 'ok');
     setTimeout(() => lataaKayttajaLista(), 1200);
   } catch(e) { naytaToast('Virhe: ' + e.message, 'virhe'); }
@@ -1283,8 +1282,8 @@ async function lataaKayttajaLista() {
       }
     }
     
-    // Suodatetaan epäaktiiviset pois — ne on poistettu käytöstä
-    // mutta data säilyy Firestoressa audit-trailille
+    // Deaktivoidut erotetaan omaan osioonsa (P0: aktivointi uudelleen); data säilyy audit-trailille
+    const deaktivoidut = kaikkiKayttajat.filter(k => k.aktiivinen === false);
     kaikkiKayttajat = kaikkiKayttajat.filter(k => k.aktiivinen !== false);
 
     // Järjestetään JavaScriptissä luontiajan mukaan
@@ -1301,7 +1300,7 @@ async function lataaKayttajaLista() {
           <div style="font-size:13px;color:var(--ink3);">
             Paina "Kutsu uusi käyttäjä" lisätäksesi valmentajia tai muuta henkilöstöä.
           </div>
-        </div>`;
+        </div>` + _deaktivoidutOsio(deaktivoidut);
       return;
     }
 
@@ -1359,14 +1358,16 @@ async function lataaKayttajaLista() {
                        Deaktivointi on pehmeä poisto — data säilyy,
                        käyttäjä vain menettää kirjautumisoikeuden. -->
                   <button class="toimintaNappi vaara"
-                    onclick="deaktivoi('${k.id}','${k.seuraId}','${k.email}')">
+                    data-uid="${_attr(k.id)}" data-seura="${_attr(k.seuraId)}" data-email="${_attr(k.email)}"
+                    onclick="_kayttajaNappi(this, deaktivoi)">
                     ⛔ Deaktivoi
                   </button>
                   ${tila.claims && ['superadmin','super_admin'].includes(tila.claims.rooli) ? `
                   <button class="toimintaNappi vaara"
                     style="background:rgba(140,0,0,.18);border-color:rgba(180,0,0,.5);font-size:11px;"
-                    onclick="poistaKokonaan('${k.id}','${k.seuraId}','${k.email}')"
-                    title="Vain super-admin — poistaa Firestore-dokumentin pysyvästi">
+                    data-uid="${_attr(k.id)}" data-seura="${_attr(k.seuraId)}" data-email="${_attr(k.email)}"
+                    onclick="_kayttajaNappi(this, poistaKokonaan)"
+                    title="Vain super-admin — poistaa kirjautumistilin ja käyttäjädokumentin pysyvästi">
                     🗑 Poista pysyvästi
                   </button>` : ''}
                 </div>
@@ -1375,7 +1376,7 @@ async function lataaKayttajaLista() {
           `).join('')}
         </tbody>
       </table>
-    `;
+    ` + _deaktivoidutOsio(deaktivoidut);
 
   } catch (virhe) {
     console.error('Käyttäjälistan latausvirhe:', virhe);
@@ -2297,56 +2298,64 @@ async function lahetaSalasananVaihto(email) {
 }
 
 // ─────────────────────────────────────────
-// DEAKTIVOINTI — asettaa aktiivinen:false
-// Cloud Function reagoi tähän ja poistaa Claims
+// DEAKTIVOINTI / AKTIVOINTI / POISTO — P0 (1.10.2026): VAIN palvelimella.
+// Ennen selain kirjoitti aktiivinen:false, mutta mikään ei poistanut claimeja eikä estänyt kirjautumista
+// (Rules lukevat claimeja). Callablet: Auth disabled + claimit tyhjäksi + tokenit mitätöity (+ audit).
 // ─────────────────────────────────────────
+const _kayttajaFn = (nimi) => firebase.app().functions('europe-west1').httpsCallable(nimi);
 async function deaktivoi(uid, seuraId, email) {
   if (!confirm(
-    `Deaktivoidaanko ${email}?\n\n` +
-    `Käyttäjä ei voi enää kirjautua sisään, mutta\n` +
-    `hänen datansa säilyy järjestelmässä tallessa.\n\n` +
-    `Deaktivoinnin voi perua ottamalla yhteyttä Super Adminiin.`
+    `Deaktivoidaanko ${email || 'käyttäjä'}?\n\n` +
+    `Kirjautuminen estetään heti ja oikeudet poistetaan. Auki oleva istunto\n` +
+    `menettää pääsyn viimeistään tunnin kuluessa. Tiedot säilyvät, ja\n` +
+    `käyttäjän voi aktivoida uudelleen.`
   )) return;
-
   try {
-    await db
-      .collection('seurat').doc(seuraId)
-      .collection('kayttajat').doc(uid)
-      .update({
-        aktiivinen: false,
-        deaktivoitu: firebase.firestore.FieldValue.serverTimestamp(),
-        deaktivoija_uid: tila.kayttaja?.uid || 'tuntematon',
-      });
-
-    naytaToast(`${email} deaktivoitu. Data säilyy tallessa.`, 'ok');
+    await _kayttajaFn('deaktivioiKayttaja')({ kohdeUid: uid, seuraId: seuraId });
+    naytaToast(`${email || 'Käyttäjä'} deaktivoitu.`, 'ok');
     lataaKayttajaLista();
   } catch (virhe) {
-    naytaToast(`Epäonnistui: ${virhe.message}`, 'virhe');
+    naytaToast(`Deaktivointi epäonnistui: ${virhe.message}`, 'virhe');
   }
 }
-
-// ─────────────────────────────────────────
-// POISTA KOKONAAN — vain super-admin
-// Poistaa Firestore-dokumentin pysyvästi.
-// Firebase Auth -tili säilyy (Admin SDK tarvitaan sen poistoon).
-// ─────────────────────────────────────────
+async function aktivoi(uid, seuraId, email) {
+  if (!confirm(`Aktivoidaanko ${email || 'käyttäjä'} uudelleen?\n\nKirjautuminen sallitaan ja oikeudet palautetaan nykyisen roolin mukaan.`)) return;
+  try {
+    await _kayttajaFn('aktivoiKayttaja')({ kohdeUid: uid, seuraId: seuraId });
+    naytaToast(`${email || 'Käyttäjä'} aktivoitu.`, 'ok');
+    lataaKayttajaLista();
+  } catch (virhe) {
+    naytaToast(`Aktivointi epäonnistui: ${virhe.message}`, 'virhe');
+  }
+}
+// POISTA PYSYVÄSTI — vain super-admin (palvelin tarkistaa): ensin pääsy pois, sitten Auth-tili ja dokumentti.
 async function poistaKokonaan(uid, seuraId, email) {
   if (!confirm(
-    `PYSYVÄ POISTO\n\n${email}\n\nPoistaako Firestore-dokumentin kokonaan?\n` +
-    `Firebase Auth -tili jää — sen voi poistaa Firebase Consolesta.`
+    `PYSYVÄ POISTO\n\n${email || uid}\n\nKirjautumistili ja käyttäjädokumentti poistetaan pysyvästi.\n` +
+    `Jos sama sähköposti on myös huoltajan tunnus, huoltajan kirjautuminen lakkaa.\n\nJatketaanko?`
   )) return;
-
   try {
-    await db
-      .collection('seurat').doc(seuraId)
-      .collection('kayttajat').doc(uid)
-      .delete();
-
-    naytaToast(`${email} poistettu kokonaan.`, 'ok');
+    await _kayttajaFn('poistaKayttaja')({ kohdeUid: uid, seuraId: seuraId });
+    naytaToast(`${email || 'Käyttäjä'} poistettu pysyvästi.`, 'ok');
     lataaKayttajaLista();
   } catch (virhe) {
     naytaToast(`Poisto epäonnistui: ${virhe.message}`, 'virhe');
   }
+}
+function _kayttajaNappi(btn, fn) { return fn(btn.dataset.uid, btn.dataset.seura, btn.dataset.email || ''); }
+const _attr = (v) => String(v == null ? '' : v).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+function _deaktivoidutOsio(lista) {
+  if (!lista || !lista.length) return '';
+  const onSA = tila.claims && ['superadmin', 'super_admin'].includes(tila.claims.rooli);
+  return '<details style="margin-top:18px;"><summary style="cursor:pointer;font-size:13px;color:var(--ink2);">⛔ Deaktivoidut käyttäjät (' + lista.length + ')</summary>'
+    + '<table style="margin-top:8px;"><tbody>' + lista.map((k) => '<tr>'
+      + '<td><div>' + _attr(((k.etunimi || '') + ' ' + (k.sukunimi || '')).trim() || '—') + '</div>'
+      + '<div style="font-size:11px;color:var(--ink3);">' + _attr(k.email || k.id) + '</div></td>'
+      + '<td style="font-size:12px;">' + _attr(k.seuraNimi) + '</td>'
+      + '<td><div style="display:flex;gap:6px;flex-wrap:wrap;">'
+      + '<button class="toimintaNappi" data-uid="' + _attr(k.id) + '" data-seura="' + _attr(k.seuraId) + '" data-email="' + _attr(k.email) + '" onclick="_kayttajaNappi(this, aktivoi)">✅ Aktivoi</button>'
+      + (onSA ? '<button class="toimintaNappi vaara" data-uid="' + _attr(k.id) + '" data-seura="' + _attr(k.seuraId) + '" data-email="' + _attr(k.email) + '" onclick="_kayttajaNappi(this, poistaKokonaan)">🗑 Poista pysyvästi</button>' : '')
+      + '</div></td></tr>').join('') + '</tbody></table></details>';
 }
 
 // ─────────────────────────────────────────
