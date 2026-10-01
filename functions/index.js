@@ -2122,6 +2122,16 @@ exports.aiProxy = functions
 // joiden huoltajaEmail == kutsujan autentikoitu (Firebase Auth lowercasaa) email.
 // Vaatii collectionGroup-indeksin pelaajat.huoltajaEmail (firestore.indexes.json).
 // ─────────────────────────────────────────────────────────────────────────────
+/* Lapsenvaihdin (1.10.2026): deterministinen järjestys — vanhin ensin (syntymaVuosi nouseva), sitten etunimi.
+   Ilman järjestystä "ensimmäinen lapsi" oli satunnainen. Puuttuva syntymävuosi → loppuun. */
+function jarjestaHuoltajanLapset(lapset) {
+  return lapset.slice().sort((a, b) => {
+    const ya = a.syntymaVuosi == null ? Infinity : a.syntymaVuosi;
+    const yb = b.syntymaVuosi == null ? Infinity : b.syntymaVuosi;
+    if (ya !== yb) return ya - yb;
+    return String(a.etunimi).localeCompare(String(b.etunimi), 'fi') || String(a.uid).localeCompare(String(b.uid));
+  });
+}
 exports.haeLapsiHuoltajalle = functions
   .region('europe-west1')
   .https.onCall(async (data, context) => {
@@ -2139,13 +2149,22 @@ exports.haeLapsiHuoltajalle = functions
       if (snap.empty) {
         return { found: false, lapset: [] };
       }
-      const lapset = snap.docs.map((d) => ({
-        seura:    d.ref.parent.parent.id,
-        uid:      d.id,
-        etunimi:  d.data().etunimi  || '',
-        sukunimi: d.data().sukunimi || '',
-      }));
-      return { found: true, lapset };
+      const lapset = jarjestaHuoltajanLapset(snap.docs
+        // collectionGroup osuu myös juuritason pelaajat/{palloID}-kokoelmaan → vain seurat/{sid}/pelaajat
+        .filter((d) => d.ref.parent.parent && d.ref.parent.parent.parent && d.ref.parent.parent.parent.id === 'seurat')
+        .map((d) => {
+          const x = d.data();
+          const vuosi = (x.syntymaVuosi == null || x.syntymaVuosi === '') ? NaN : Number(x.syntymaVuosi);
+          return {
+            seura:       d.ref.parent.parent.id,
+            uid:         d.id,
+            etunimi:     x.etunimi  || '',
+            sukunimi:    x.sukunimi || '',
+            joukkueNimi: x.joukkueNimi || x.joukkue || '',
+            syntymaVuosi: Number.isFinite(vuosi) ? vuosi : null,
+          };
+        }));
+      return { found: lapset.length > 0, lapset };
     } catch (e) {
       console.error('[haeLapsiHuoltajalle]', email, e.message);
       throw new functions.https.HttpsError('internal', 'Lapsen haku epäonnistui.');

@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>TalentMaster™ — Admin</title>
 <script>/* §33 Versio-tarkistus (cache): pakottaa reloadin kun uusi versio deployattu. APP_VERSION leimataan scripts/bump_version.js:llä. */
-(function(){var APP_VERSION='1790864920073';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
+(function(){var APP_VERSION='1790875707371';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,400&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -281,9 +281,6 @@ tbody td:first-child{font-weight:600;color:var(--ink);}
     </div>
     <div class="navNappi" onclick="vaihdaNakyma('joukkueet',this)">
       <span class="navIkoni">⚽</span>Joukkueet
-    </div>
-    <div class="navNappi" onclick="vaihdaNakyma('massakutsu',this)">
-      <span class="navIkoni">📋</span>Massakutsu
     </div>
     <div class="navNappi" onclick="vaihdaNakyma('audit',this)">
       <span class="navIkoni">🔍</span>Audit-loki
@@ -599,19 +596,8 @@ async function lataaProfiili(kayttaja) {
       } catch(e) { console.warn('Admin-tarkistus epäonnistui:', e.message); }
     }
 
-    // ── VP-fallback: tarkista vp_uid seuradokumenteista ──────────────────
-    if (!rooli) {
-      try {
-        const seuratSnap = await db.collection('seurat').get();
-        for (const doc of seuratSnap.docs) {
-          if (doc.data().vp_uid === kayttaja.uid) {
-            rooli = 'vp';
-            tila.claims = { ...tila.claims, rooli: 'vp', seuraId: doc.id };
-            break;
-          }
-        }
-      } catch(e) { console.warn('VP-tarkistus epäonnistui:', e.message); }
-    }
+    /* P2 (1.10.2026): VP-fallback (luki KAIKKI seuradokumentit roolittomalle käyttäjälle ja kirjasi hänet
+       silti ulos) poistettu. Rooli tulee claimeista; SA:lle admins-fallback yllä. */
 
     // ── ROOLIOHJAUS ──────────────────────────────────────────────────────────
     // Admin-näkymä on VAIN Super Adminin työkalu järjestelmän hallintaan.
@@ -742,6 +728,9 @@ async function lataaSeurat() {
       .map(d => ({ id: d.id, ...d.data() }))
       .filter(s => s.id !== 'demo')   // demo on appien fixture-seura — ei näy/valittavissa Adminissa (valitsimet + oletusseura)
       .sort((a, b) => (a.nimi || a.id).localeCompare(b.nimi || b.id));
+    // P2: arkistoidut seurat pois listoilta ja valitsimista; näkyvät vain Seurat-näkymän "Arkistoidut"-osiossa.
+    tila.seuratArkistoidut = tila.seurat.filter(s => s.tila === 'arkistoitu');
+    tila.seurat = tila.seurat.filter(s => s.tila !== 'arkistoitu');
 
     // Päivitä dropdown
     const seuraSelect = document.getElementById('uusiSeura');
@@ -830,12 +819,6 @@ function avaaKayttajaToiminnot(uid, seuraId, email, rooli, nimi) {
     + '<div style="font-size:11px;color:var(--ink3);margin-top:8px;">Sähköposti: ' + esc(email) + '</div>'
     + '</div>'
 
-    + '<div style="background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:16px;">'
-    + '<div style="font-size:11px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--ink3);margin-bottom:10px;">Pelaajan PIN (jos pelaaja-rooli)</div>'
-    + '<div style="display:flex;gap:8px;align-items:center;">'
-    + '<input id="ktPinInput" type="text" maxlength="6" inputmode="numeric" placeholder="tyhjä = luo" style="width:120px;background:var(--bg2);border:1px solid var(--bord2);border-radius:8px;padding:8px 12px;font-size:16px;font-family:monospace;color:var(--ink);outline:none;letter-spacing:4px;">'
-    + '<button onclick="tallennaKayttajaPin(\'' + uid + '\',\'' + seuraId + '\')" style="padding:8px 14px;background:rgba(255,255,255,.06);border:1px solid var(--border);border-radius:7px;font-size:12px;font-weight:600;color:var(--ink);cursor:pointer;font-family:inherit;">🔑 Uusi PIN</button>'
-    + '</div></div>'
     + '</div>'
     + '<div id="ktTulos" style="margin-top:14px;font-size:12px;color:var(--teal);display:none;"></div>'
     + '</div>';
@@ -857,34 +840,8 @@ async function tallennakKayttajaRooli(uid, seuraId) {
   } catch(e) { naytaToast('Virhe: ' + e.message, 'virhe'); }
 }
 
-/* PR 4: PIN asetetaan VAIN palvelimella (asetaPelaajanPin): hajautus + selväkielinen samassa erässä,
-   lukitukset nollataan. Rules v3.30 hylkää pin-kentän selaimesta (myös SA:lta). Tyhjä → palvelin luo. */
-async function tallennaKayttajaPin(uid, seuraId) {
-  const pin = (document.getElementById('ktPinInput')?.value || '').trim();
-  if (pin && !/^[0-9]{6}$/.test(pin)) { naytaToast('PIN:n on oltava 6 numeroa — tai jätä tyhjäksi, niin palvelin luo sen.', 'virhe'); return; }
-  try {
-    const fn = firebase.app().functions('europe-west1').httpsCallable('asetaPelaajanPin');
-    const r = await fn(Object.assign({ seuraId: seuraId, pelaajaId: uid }, pin ? { pin: pin } : {}));
-    const tEl = document.getElementById('ktTulos');
-    if (tEl) { tEl.textContent = '✅ Uusi PIN ' + r.data.pin + ' — vanha PIN ei enää toimi.'; tEl.style.display='block'; }
-    naytaToast('PIN päivitetty', 'ok');
-  } catch(e) { naytaToast('PIN-virhe: ' + ((e && e.message) || e), 'virhe'); }
-}
-
-// ══ XLSX-LATAUS ════════════════════════════════════════════════
-async function lataaAdminExcelMalli() {
-  try {
-    naytaToast('Ladataan Excel-pohjaa...', 'info');
-    const resp = await fetch('https://raw.githubusercontent.com/terokoskela7-cmyk/talentmaster/main/TalentMaster_Pelaajarekisteri.xlsx');
-    if (!resp.ok) throw new Error('HTTP ' + resp.status);
-    const blob = await resp.blob();
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = 'TalentMaster_Pelaajarekisteri.xlsx';
-    a.click();
-    naytaToast('✅ Excel-pohja ladattu!', 'ok');
-  } catch(e) { naytaToast('Lataus epäonnistui: ' + e.message, 'virhe'); }
-}
+/* P2 (1.10.2026): Hallinnoi-modaalin "Pelaajan PIN" -osio poistettu — henkilökunnan käyttäjä ei ole pelaaja eikä
+   uid ole pelaajaId. PIN hoidetaan pelaajakortilta Seura-sivulla (asetaPelaajanPin). */
 
 // ══ ALKUPERÄINEN FUNKTIO ═══════════════════════════════════════
 // Self-service salasanan palautus login-sivulta (olemassa oleva sendPasswordResetEmail; ei uutta logiikkaa).
@@ -958,7 +915,6 @@ function renderoi(nakyma) {
     case 'pilotti':    renderPilotinTila(alue); break;
     case 'pelaajat':   renderPelaajat(alue);   break;
     case 'joukkueet':  renderJoukkueet(alue);  break;
-    case 'massakutsu': renderMassakutsu(alue); break;
     case 'audit':      renderAudit(alue);      break;
   }
 }
@@ -1143,6 +1099,17 @@ function _auditEsc(s) {
 // ─────────────────────────────────────────
 // NÄKYMÄ: SEURAT
 // ─────────────────────────────────────────
+/* P2: arkistoidut seurat omana osionaan (kiinni oletuksena) — palautus yhdellä napilla. */
+function _arkistoidutSeuratHTML() {
+  const ark = tila.seuratArkistoidut || [];
+  if (!ark.length) return '';
+  return '<details style="margin-top:18px;"><summary style="cursor:pointer;font-size:12px;color:var(--ink3);">🗄 Arkistoidut seurat (' + ark.length + ')</summary>'
+    + '<div style="margin-top:10px;">' + ark.map(function (s) {
+      return '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 0;border-top:1px solid var(--border);">'
+        + '<span style="font-size:13px;">' + esc(s.nimi || s.id) + ' <span style="color:var(--ink3);font-size:11px;">(' + esc(s.id) + ')</span></span>'
+        + '<button class="toimintaNappi" data-sid="' + esc(s.id) + '" data-snimi="' + esc(s.nimi || s.id) + '" onclick="palautaSeura(this.dataset.sid, this.dataset.snimi)">↩ Palauta</button></div>';
+    }).join('') + '</div></details>';
+}
 function renderSeurat(alue) {
   const seurat = tila.seurat;
 
@@ -1215,9 +1182,9 @@ function renderSeurat(alue) {
                   <button class="toimintaNappi vaara"
                     data-sid="${esc(s.id)}"
                     data-snimi="${esc(s.nimi || s.id)}"
-                    onclick="vahvistaPoistaSeura(this.dataset.sid, this.dataset.snimi)"
-                    title="Poista seura pysyvästi">
-                    🗑 Poista
+                    onclick="arkistoiSeura(this.dataset.sid, this.dataset.snimi)"
+                    title="Arkistoi seura — piilotetaan listoista, tiedot säilyvät">
+                    🗄 Arkistoi
                   </button>
                 </div>
               </td>` : ''}
@@ -1226,6 +1193,7 @@ function renderSeurat(alue) {
         </tbody>
       </table>
     </div>
+    ${_arkistoidutSeuratHTML()}
   `;
 
   // Haetaan käyttäjämäärä asynkronisesti
@@ -2294,22 +2262,26 @@ async function tallennaSeuraaMuokkaus() {
   }
 }
 
-function vahvistaPoistaSeura(seuraId, seuraNimi) {
-  const ok = confirm(`⚠️ POISTA SEURA: "${seuraNimi}"\n\nTämä poistaa seuradokumentin pysyvästi.\nKäyttäjät ja joukkueet eivät poistu automaattisesti.\n\nJatketaanko?`);
-  if (!ok) return;
-  const id = prompt(`Kirjoita seuran ID vahvistaaksesi:\n(ID: ${seuraId})`);
-  if (id !== seuraId) { naytaToast('Poisto peruttu — ID ei täsmää.', 'virhe'); return; }
-  suoritaPoistaSeura(seuraId, seuraNimi);
+/* P2 (1.10.2026): seuran poisto korvattu arkistoinnilla. Poisto poisti vain seuradokumentin ja jätti pelaajat,
+   käyttäjät ja alikokoelmat orvoiksi (henkilötietoja ilman näkyvää omistajaa). Arkistointi = tila:'arkistoitu',
+   seura piilotetaan Adminin listoista; tiedot säilyvät ja seuran voi palauttaa. Varsinainen GDPR-poisto tehdään
+   myöhemmin palvelinfunktiona. */
+async function arkistoiSeura(seuraId, seuraNimi) {
+  if (!confirm(`Arkistoidaanko seura "${seuraNimi}"?\n\nSeura piilotetaan Adminin listoista. Pelaajat, käyttäjät ja muut tiedot säilyvät, eikä kirjautumisia estetä. Seuran voi palauttaa Arkistoidut-osiosta.`)) return;
+  await _asetaSeuranArkistointi(seuraId, seuraNimi, true);
 }
-
-async function suoritaPoistaSeura(seuraId, seuraNimi) {
+async function palautaSeura(seuraId, seuraNimi) {
+  await _asetaSeuranArkistointi(seuraId, seuraNimi, false);
+}
+async function _asetaSeuranArkistointi(seuraId, seuraNimi, arkistoi) {
   try {
-    await db.collection('seurat').doc(seuraId).delete();
-    tila.seurat = tila.seurat.filter(s => s.id !== seuraId);
-    naytaToast(`🗑 ${seuraNimi} poistettu.`, 'ok');
-    if (tila.aktiivNakyma === 'seurat') renderSeurat(document.getElementById('nakymaAlue'));
+    const FV = firebase.firestore.FieldValue;
+    await db.collection('seurat').doc(seuraId).update(arkistoi
+      ? { tila: 'arkistoitu', arkistoitu: FV.serverTimestamp(), arkistoija_uid: auth.currentUser ? auth.currentUser.uid : null }
+      : { tila: FV.delete(), arkistoitu: FV.delete(), arkistoija_uid: FV.delete() });
+    naytaToast(arkistoi ? `🗄 ${seuraNimi} arkistoitu.` : `${seuraNimi} palautettu.`, 'ok');
   } catch (e) {
-    naytaToast('Poisto epäonnistui: ' + e.message, 'virhe');
+    naytaToast((arkistoi ? 'Arkistointi' : 'Palautus') + ' epäonnistui: ' + e.message, 'virhe');
   }
 }
 
@@ -2462,10 +2434,6 @@ async function renderPelaajat(alue) {
           ${tila.seurat.map(s => `<option value="${esc(s.id)}">${esc(s.nimi || s.id)}</option>`).join('')}
         </select>
         <button class="lisaaNappi" onclick="lataaPelaajat()">🔄 Päivitä</button>
-        <button class="lisaaNappi" onclick="lataaMassakutsuSivu()"
-          style="background:rgba(40,176,144,.15);border:1px solid rgba(40,176,144,.3);color:var(--teal);">
-          📨 Massakutsu tälle seuralle
-        </button>
       </div>
       <div id="pelaajaAlue" style="padding:20px;color:var(--ink3);font-size:13px;">
         Ladataan...
@@ -2496,7 +2464,7 @@ async function lataaPelaajat() {
           <div style="font-size:32px;margin-bottom:12px;opacity:.3;">👤</div>
           <div style="font-size:14px;color:var(--ink2);margin-bottom:6px;">Ei vielä pelaajia</div>
           <div style="font-size:13px;color:var(--ink3);">
-            Lähetä rekisteröintikutsut tai tuo pelaajat massakutsun kautta.
+            Tuo pelaajat seuran Seura-sivulla (Tuo Excel).
           </div>
         </div>`;
       return;
@@ -2563,7 +2531,7 @@ async function renderJoukkueet(alue) {
   alue.innerHTML = `
     <div class="sivuOtsikko">
       <div class="sivuEyebrow">Hallinta</div>
-      <div class="sivuH1">Joukkueet</div>
+      <div class="sivuH1">Joukkueet <span style="font-size:13px;color:var(--ink3);font-weight:400;">(vain luku)</span></div>
     </div>
     <div class="taulukkoKortti">
       <div class="taulukkoHeader">
@@ -2746,339 +2714,12 @@ async function lataaJoukkueetAdmin() {
 // Seura.html käyttää .doc(id)-metodia käyttäjän antamalla ID:llä → siisti dokumentti-ID
 // Admin-sivu käytti .add()-metodia → automaattinen Firebase-ID → yhteensopimaton
 
-async function poistaJoukkueAdmin(seuraId, joukkueId, nimi) {
-  if (!confirm(`Poistetaanko joukkue "${nimi}"?`)) return;
-  try {
-    await db.collection('seurat').doc(seuraId).collection('joukkueet').doc(joukkueId).delete();
-    naytaToast('Joukkue poistettu', 'ok');
-    lataaJoukkueetAdmin();
-  } catch(e) { naytaToast('Virhe: ' + e.message, 'virhe'); }
-}
+// P2 (1.10.2026): Joukkueet-näkymä on vain luku. Poisto jätti pelaajien joukkueet[]-viittaukset orvoiksi;
+// joukkueet poistetaan Seura-sivulla.
 
-// ═══════════════════════════════════════════════════════════════
-// MASSAKUTSU — Super Admin lähettää rekisteröintikutsut kaikille
-// ═══════════════════════════════════════════════════════════════
-function renderMassakutsu(alue) {
-  alue.innerHTML = `
-    <div class="sivuOtsikko">
-      <div class="sivuEyebrow">Rekisteröinti</div>
-      <div class="sivuH1">Massakutsu</div>
-    </div>
-    <div class="taulukkoKortti">
-      <div class="taulukkoHeader">
-        <span class="taulukkoOtsikko">📋 Tuo pelaajat järjestelmään</span>
-      </div>
-      <div style="padding:20px;">
-        <div style="margin-bottom:16px;">
-          <label style="font-size:11px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:var(--ink3);display:block;margin-bottom:6px;">Kohdaseura</label>
-          <select id="massaSeuraValinta"
-            style="background:var(--bg3);border:1px solid var(--bord2);border-radius:8px;
-            padding:9px 13px;font-size:13px;color:var(--ink);outline:none;min-width:160px;max-width:100%;">
-            <option value="">— Valitse seura —</option>
-            ${tila.seurat.map(s => `<option value="${esc(s.id)}" data-nimi="${esc(s.nimi||s.id)}">${esc(s.nimi||s.id)}</option>`).join('')}
-          </select>
-        </div>
-
-        <div style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:14px;margin-bottom:16px;">
-          <div style="font-size:12px;font-weight:600;color:var(--ink3);margin-bottom:8px;">CSV / EXCEL -TIEDOSTON RAKENNE</div>
-          <div style="font-family:monospace;font-size:12px;color:var(--teal);">
-            PalloID | Etunimi | Sukunimi | HuoltajaEmail | Joukkue
-          </div>
-          <div style="font-size:11px;color:var(--ink3);margin-top:6px;">
-            HuoltajaEmail pakollinen. PalloID suositellaan — ilman sitä pelaaja rekisteröidään nimellä.
-          </div>
-          <button onclick="lataaAdminExcelMalli()"
-            style="margin-top:10px;background:none;border:1px solid var(--border);
-            border-radius:6px;padding:5px 12px;font-size:12px;color:var(--ink3);cursor:pointer;">
-            ⬇ Lataa Excel-malli
-          </button>
-        </div>
-
-        <input type="file" id="adminMassaFile" accept=".xlsx,.csv"
-          style="display:none" onchange="kasitteleAdminMassaTiedosto(event)">
-        <button onclick="document.getElementById('adminMassaFile').click()"
-          style="width:100%;padding:12px;background:var(--bg3);border:2px dashed var(--border);
-          border-radius:8px;color:var(--ink3);cursor:pointer;font-size:13px;margin-bottom:12px;">
-          📁 Valitse Excel tai CSV -tiedosto
-        </button>
-
-        <div id="adminMassaEsikatselu" style="display:none;margin-bottom:14px;">
-          <div style="font-size:12px;font-weight:600;color:var(--ink3);margin-bottom:8px;" id="adminMassaLkm"></div>
-          <div style="max-height:220px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;">
-            <table style="width:100%">
-              <thead><tr style="background:var(--bg3);">
-                <th style="padding:8px;font-size:11px;text-align:left;">Nimi</th>
-                <th style="padding:8px;font-size:11px;text-align:left;">PalloID</th>
-                <th style="padding:8px;font-size:11px;text-align:left;">Joukkue</th>
-                <th style="padding:8px;font-size:11px;text-align:left;">HuoltajaEmail</th>
-                <th style="padding:8px;font-size:11px;text-align:left;">Status</th>
-              </tr></thead>
-              <tbody id="adminMassaTbody"></tbody>
-            </table>
-          </div>
-        </div>
-
-        <div style="margin-bottom:16px;padding:16px 18px;background:rgba(224,160,64,.1);border:2px solid var(--amber);border-radius:8px;">
-          <div style="font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--amber);margin-bottom:8px;">⚠️ VAIHE 1 / 2 — DATANTUONTI ILMAN SUOSTUMUSPYYNTÖÄ</div>
-          <div style="font-size:13px;color:var(--ink);line-height:1.6;">
-            Pelaajat tuodaan järjestelmään <strong>ilman suostumuspyyntöä</strong>. Vanhemmille ei lähde mitään viestejä tässä vaiheessa.
-          </div>
-          <div style="font-size:12px;color:var(--ink3);margin-top:8px;line-height:1.5;">
-            Suostumuspyynnöt lähetetään erikseen myöhemmin — vasta kun kaikki näkymät on tarkastettu ja hyväksytty pilottikoordinaattorin kanssa.
-          </div>
-        </div>
-        <div id="adminMassaProgress" style="display:none;margin-bottom:12px;">
-          <div style="background:var(--bg3);border-radius:6px;height:6px;overflow:hidden;">
-            <div id="adminMassaBar" style="height:100%;background:var(--teal);width:0%;transition:width .3s;"></div>
-          </div>
-          <div id="adminMassaStatus" style="font-size:12px;color:var(--ink3);margin-top:6px;text-align:center;"></div>
-        </div>
-
-        <button id="adminMassaLahetaNappi" data-action="tuonti" onclick="lahetaAdminMassakutsu()" disabled
-          style="width:100%;padding:13px;background:var(--teal);border:none;border-radius:10px;
-          color:#000;font-size:15px;font-weight:700;cursor:pointer;opacity:.5;">
-          💾 Tuo pelaajat järjestelmään
-        </button>
-        <div id="adminMassaVirhe" style="color:var(--red);font-size:13px;margin-top:8px;text-align:center;"></div>
-      </div>
-    </div>`;
-}
-
-let _adminMassaData = [];
-
-function kasitteleAdminMassaTiedosto(e) {
-  const file = e.target.files[0];
-  if (!file) return;
-  const reader = new FileReader();
-  reader.onload = function(ev) {
-    try {
-      let rivit = [];
-      const data = new Uint8Array(ev.target.result);
-      if (file.name.endsWith('.csv')) {
-        const teksti = new TextDecoder('utf-8').decode(data);
-        const lines = teksti.split('\n').map(r=>r.trim()).filter(r=>r);
-        const otsikot = lines[0].split(/[,;\t]/).map(o=>o.trim().toLowerCase());
-        rivit = lines.slice(1).map(line => {
-          const arvot = line.split(/[,;\t]/);
-          const obj = {};
-          otsikot.forEach((o,i) => obj[o] = (arvot[i]||'').trim().replace(/^"|"$/g,''));
-          return obj;
-        });
-      } else {
-        const wb = XLSX.read(data, {type:'array'});
-        rivit = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], {raw:false});
-      }
-
-      _adminMassaData = rivit.map(r => ({
-        // PalloID — tukee kaikkia kirjoitusasuja
-        palloID:       r['palloID']||r['PalloID']||r['palloid']||r['palloId']||'',
-        etunimi:       r['etunimi']||r['Etunimi']||r['firstName']||'',
-        sukunimi:      r['sukunimi']||r['Sukunimi']||r['lastName']||'',
-        huoltajaEmail: String(r['huoltajaemail']||r['HuoltajaEmail']||r['huoltaja_email']||r['email']||r['Email']||'').trim().toLowerCase(),
-        joukkue:       r['joukkue']||r['Joukkue']||r['team']||'',
-        syntymaVuosi:  r['syntymavuosi']||r['syntymaVuosi']||r['Syntymavuosi']||r['birthYear']||'',
-        sukupuoli:     r['sukupuoli']||r['Sukupuoli']||r['gender']||'',
-        pelipaikka:    r['pelipaikka']||r['Pelipaikka']||r['position']||'',
-      })).filter(r => r.etunimi || r.sukunimi); // ei vaadi sähköpostia
-
-      const tbody = document.getElementById('adminMassaTbody');
-      const lkm   = document.getElementById('adminMassaLkm');
-      const esi   = document.getElementById('adminMassaEsikatselu');
-      const nappi = document.getElementById('adminMassaLahetaNappi');
-
-      if (tbody) tbody.innerHTML = _adminMassaData.map(r => `
-        <tr>
-          <td style="padding:7px 8px;font-size:12px;font-weight:500">${esc(r.etunimi)} ${esc(r.sukunimi)}</td>
-          <td style="padding:7px 8px;font-size:11px;font-family:monospace;color:var(--ink3)">${esc(r.palloID||'—')}</td>
-          <td style="padding:7px 8px;font-size:12px;color:var(--ink3)">${esc(r.joukkue||'—')}</td>
-          <td style="padding:7px 8px;font-size:12px;color:${r.huoltajaEmail?'var(--teal)':'var(--amber)'}">
-            ${esc(r.huoltajaEmail||'⚠️ puuttuu')}</td>
-          <td style="padding:7px 8px;font-size:11px;color:var(--ink3)">⏳ Tallennetaan</td>
-        </tr>`).join('');
-
-      if (lkm) lkm.textContent = _adminMassaData.length + ' pelaajaa tunnistettu';
-      if (esi) esi.style.display = '';
-      if (nappi) { nappi.disabled = _adminMassaData.length === 0; nappi.style.opacity = _adminMassaData.length > 0 ? '1' : '.5'; }
-    } catch(err) {
-      const virhe = document.getElementById('adminMassaVirhe');
-      if (virhe) virhe.textContent = 'Tiedoston luku epäonnistui: ' + err.message;
-    }
-  };
-  reader.readAsArrayBuffer(file);
-}
-
-// VAIHE 1: Tallenna pelaajat Firestoreen — EI lähetä sähköpostia
-// Suostumuspyynnöt lähetetään erikseen kun kaikki näkymät ovat valmiit
-async function lahetaAdminMassakutsu() {
-  if (!_adminMassaData.length) return;
-  const seuraValinta = document.getElementById('massaSeuraValinta');
-  const seuraId = seuraValinta?.value;
-
-  if (!seuraId) {
-    document.getElementById('adminMassaVirhe').textContent = 'Valitse kohdaseura.';
-    return;
-  }
-
-  // Onboarding-integriteetti (warn-not-block, §A): sama huoltajaEmail usealla tuotavalla? (sisarukset vai ristiin?)
-  const _emR = {};
-  _adminMassaData.forEach(p => {
-    const e = String(p.huoltajaEmail || '').toLowerCase().trim();
-    if (e) { (_emR[e] = _emR[e] || []).push(`${p.etunimi || ''} ${p.sukunimi || ''}`.trim()); }
-  });
-  const _jaetutEmailit = Object.keys(_emR).filter(e => _emR[e].length > 1);
-  if (_jaetutEmailit.length) {
-    const _viesti = '🟡 Sama huoltajaEmail usealla pelaajalla (sisarukset vai ristiin? Tarkista):\n\n'
-      + _jaetutEmailit.map(e => `• ${e}: ${_emR[e].join(', ')}`).join('\n')
-      + '\n\nTuo silti?';
-    if (!confirm(_viesti)) return;
-  }
-
-  const nappi    = document.getElementById('adminMassaLahetaNappi');
-  const progress = document.getElementById('adminMassaProgress');
-  const bar      = document.getElementById('adminMassaBar');
-  const status   = document.getElementById('adminMassaStatus');
-  const tbody    = document.getElementById('adminMassaTbody');
-
-  if (nappi) { nappi.disabled = true; nappi.textContent = 'Tallennetaan pelaajia...'; }
-  if (progress) progress.style.display = '';
-
-  let onnistui = 0, ohitettu = 0, virheita = 0, suostumusSailytetty = 0;
-
-  /* A3 — uusi pelaaja perii seuran kielen. Luetaan KERRAN ennen silmukkaa. Pelaaja-app lukee
-     kielen pelaajadokista, koska anonyymi PIN-kirjautuja ei saa lukea seuradokia. 'fi' jätetään
-     pois (oletus). Olemassa olevaan pelaajaan EI kosketa: kieli on hänen asetuksensa. */
-  /* §18: joukkuedokumentit kerran ennen silmukkaa. Ilman näitä tuonti kirjoitti pelkän
-     NIMEN eikä joukkueet[]-id:tä lainkaan → pelaaja ei näkynyt seurahallinnassa minkään
-     joukkueen alla, ja uudelleentuonnissa vanha väärä id jäi voimaan. */
-  let _joukkueLista = [];
-  try {
-    const _js = await db.collection('seurat').doc(seuraId).collection('joukkueet').get();
-    _joukkueLista = _js.docs.map((d) => ({ id: d.id, nimi: (d.data() || {}).nimi || d.id }));
-  } catch (e) { /* ilman listaa kaikki rivit ovat orpoja → merkitään, ei arvata */ }
-  const _orvot = {};   // nimi → montako riviä
-
-  let _seuranKieli = null;
-  try {
-    const _sd = await db.collection('seurat').doc(seuraId).get();
-    const _k = _sd.exists ? String(_sd.data().kieli || '').toLowerCase().trim() : '';
-    _seuranKieli = (_k && _k !== 'fi') ? _k : null;
-  } catch (e) { /* graceful: ilman seuradokia kieli jää oletukseksi */ }
-
-  for (let i = 0; i < _adminMassaData.length; i++) {
-    const p = _adminMassaData[i];
-    if (bar)    bar.style.width = Math.round((i+1)/_adminMassaData.length*100) + '%';
-    if (status) status.textContent = `${i+1}/${_adminMassaData.length} — ${p.etunimi} ${p.sukunimi}`;
-
-    // Hyppää yli jos ei nimeä
-    if (!p.etunimi && !p.sukunimi) { ohitettu++; continue; }
-
-    try {
-      // Tarkista onko pelaaja jo olemassa palloID:n perusteella
-      /* §18-jäsenyys jaetusta rakentajasta. Nimen kanonisointi korjaa samalla Excelin
-         kirjoitusasun; orpo (nimi ei vastaa yhtään team-docia) EI saa väärää id:tä. */
-      const _jasen = (typeof tmJoukkueJasenyys === 'function')
-        ? tmJoukkueJasenyys(p.joukkue, _joukkueLista)
-        : { joukkue: p.joukkue || '', joukkueNimi: p.joukkue || '', joukkueet: [], joukkueetNimet: [], orpo: false };
-      if (_jasen.orpo) _orvot[_jasen.joukkue] = (_orvot[_jasen.joukkue] || 0) + 1;
-
-      let olemassaDoc = null;
-      if (p.palloID) {
-        const olemassa = await db.collection('seurat').doc(seuraId).collection('pelaajat')
-          .where('palloID', '==', p.palloID).limit(1).get();
-        if (!olemassa.empty) {
-          olemassaDoc = olemassa.docs[0];
-        }
-      }
-
-      const pelaajaData = {
-        etunimi:       p.etunimi || '',
-        sukunimi:      p.sukunimi || '',
-        palloID:       p.palloID || '',
-        tunniste:      p.palloID || '',  // synkronoidaan molemmat kentät
-        /* §18-jäsenyys jaetusta rakentajasta: kanoninen nimi + team-id. Orvolle (nimi ei
-           vastaa yhtään team-docia) EI arvata id:tä — joukkueet jää tyhjäksi ja rivi merkitään. */
-        joukkue:        _jasen.joukkue,
-        joukkueNimi:    _jasen.joukkueNimi,
-        joukkueet:      _jasen.joukkueet,
-        joukkueetNimet: _jasen.joukkueetNimet,
-        huoltajaEmail: p.huoltajaEmail ? String(p.huoltajaEmail).trim().toLowerCase() : '',
-        syntymaVuosi:  p.syntymaVuosi ? parseInt(p.syntymaVuosi) || null : null,
-        sukupuoli:     p.sukupuoli || '',
-        pelipaikka:    p.pelipaikka || '',
-        seuraId,
-        // TÄRKEÄÄ: suostumusta EI lähetetä vielä
-        suostumusTila: 'odottaa',
-        tila:          'aktiivinen',
-        lahde:         'excel_tuonti',
-        tuotu:         firebase.firestore.FieldValue.serverTimestamp(),
-        tuoja:         tila.kayttaja?.uid || 'superadmin',
-      };
-
-      if (olemassaDoc) {
-        // Päivitä olemassa oleva pelaaja — §33 onboarding-integriteetti: re-import EI saa nollata
-        // jo annettua suostumusta ('annettu' → 'odottaa'). Säilytä nykyinen status jos jo annettu.
-        const _ex = (olemassaDoc.data && olemassaDoc.data()) || {};
-        const _paivitys = Object.assign({}, pelaajaData);
-        if (_ex.suostumusTila === 'annettu' || (_ex.suostumus && _ex.suostumus.annettu)) {
-          delete _paivitys.suostumusTila;   // älä ylikirjoita annettua
-          suostumusSailytetty++;
-        }
-        await olemassaDoc.ref.update(_paivitys);
-        if (tbody?.rows[i]) {
-          tbody.rows[i].cells[4].innerHTML = _jasen.orpo
-            ? '<span style="color:var(--amber)">⚠ Päivitetty · joukkuetta ei löytynyt — luo joukkue ensin</span>'
-            : '<span style="color:var(--teal)">✓ Päivitetty</span>';
-        }
-      } else {
-        // Luo uusi pelaajadokumentti
-        await db.collection('seurat').doc(seuraId).collection('pelaajat')
-          .add(_seuranKieli ? Object.assign({ kieli: _seuranKieli }, pelaajaData) : pelaajaData);
-        if (tbody?.rows[i]) {
-          tbody.rows[i].cells[4].innerHTML = _jasen.orpo
-            ? '<span style="color:var(--amber)">⚠ Lisätty · joukkuetta ei löytynyt — luo joukkue ensin</span>'
-            : '<span style="color:var(--teal)">✓ Lisätty</span>';
-        }
-      }
-      onnistui++;
-    } catch(err) {
-      if (tbody?.rows[i]) {
-        tbody.rows[i].cells[4].innerHTML = `<span style="color:var(--red)">❌ ${esc(err.message.slice(0,30))}</span>`;
-      }
-      virheita++;
-    }
-    // Pieni viive Firestore rate limiting -rajoitusten vuoksi
-    await new Promise(r => setTimeout(r, 50));
-  }
-
-  /* ORPOJEN KOONTI: tuonti ei arvaa joukkue-id:tä, joten operaattorin on nähtävä MIHIN
-     nimiin osumaa ei löytynyt — muuten pelaajat jäävät hiljaa ilman joukkuetta. */
-  const _orpoNimet = Object.keys(_orvot);
-  const _orpoYht = _orpoNimet.reduce((s, n) => s + _orvot[n], 0);
-  if (status) status.textContent =
-    `✅ Valmis! ${onnistui} pelaajaa tallennettu` +
-    (ohitettu  ? `, ${ohitettu} ohitettu`  : '') +
-    (virheita  ? `, ${virheita} virhettä`   : '') +
-    (suostumusSailytetty ? `, ${suostumusSailytetty} suostumus säilytetty` : '') +
-    (_orpoYht ? ` · ⚠ ${_orpoYht} pelaajaa ilman joukkuetta: ${_orpoNimet.map(n => `${n} (${_orvot[n]})`).join(', ')} — luo joukkue ja aja tuonti uudelleen` : '') +
-    ` — Suostumuspyynnöt lähetetään erikseen myöhemmin.`;
-
-  if (nappi) { nappi.textContent = `✅ ${onnistui} pelaajaa tallennettu`; }
-  naytaToast(
-    `${onnistui}/${_adminMassaData.length} pelaajaa tallennettu Firestoreen`,
-    virheita === 0 ? 'ok' : 'virhe'
-  );
-  _adminMassaData = [];
-}
-
-
-
-function lataaMassakutsuSivu() {
-  vaihdaNakyma('massakutsu', document.querySelector('[onclick*="massakutsu"]'));
-  // Asetetaan sama seura valintaan
-  const pelSel = document.getElementById('pelSeuraValinta');
-  const massSel = document.getElementById('massaSeuraValinta');
-  if (pelSel && massSel) massSel.value = pelSel.value;
-}
+/* P2 (1.10.2026): Massakutsu poistettu Administa. Nimi oli harhaanjohtava (ei lähettänyt kutsuja), ja olemassa
+   olevan pelaajan päivitys saattoi nollata kenttiä. Pelaajatuonti tehdään Seura-sivun Excel-tuonnilla; SA pääsee
+   seuran näkymään Seurat-listan "Avaa näkymä" -napilla. */
 
 </script>
 </body>

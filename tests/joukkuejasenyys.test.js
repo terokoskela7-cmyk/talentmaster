@@ -78,50 +78,13 @@ describe('tmJoukkueJasenyys — §18-rakenne yhdestä paikasta', () => {
 });
 
 /* ── ADMIN EXCEL-TUONTI ───────────────────────────────────────────────── */
-describe('Admin Excel-tuonti kirjoittaa molemmat rakenteet', () => {
-  it('lib on ladattu (puuttui Administa kokonaan)', () => {
-    expect(ADMIN).toContain('lib/tm_joukkue.js');
-  });
-
-  /* Väite kohdistuu TUONNIN omaan hakuun: geneerinen "collection('joukkueet').get()" osuu myös
-     toiseen funktioon tiedoston ylempänä, joten mutaatio (haku pois) jäi vihreäksi. */
-  it('joukkuelista haetaan KERRAN ennen silmukkaa, ei per rivi', () => {
-    const haku = ADMIN.indexOf("_joukkueLista = _js.docs.map(");
-    const kysely = ADMIN.indexOf("const _js = await db.collection('seurat').doc(seuraId).collection('joukkueet').get();");
-    const loop = ADMIN.indexOf('for (let i = 0; i < _adminMassaData.length; i++)');
-    expect(kysely).toBeGreaterThan(-1);
-    expect(haku).toBeGreaterThan(-1);
-    expect(haku).toBeLessThan(loop);
-    // ja rivikohtainen kanonisointi tapahtuu silmukassa, ei uutta kyselyä
-    expect(ADMIN.indexOf('tmJoukkueJasenyys(p.joukkue, _joukkueLista)')).toBeGreaterThan(loop);
-  });
-
-  it('kirjoitusobjekti saa joukkueet[] ja joukkueetNimet[] jaetusta rakentajasta', () => {
-    expect(ADMIN).toContain('tmJoukkueJasenyys(p.joukkue, _joukkueLista)');
-    expect(ADMIN).toContain('joukkueet:      _jasen.joukkueet');
-    expect(ADMIN).toContain('joukkueetNimet: _jasen.joukkueetNimet');
-  });
-
-  it('EI enää kirjoita raakaa Excel-nimeä suoraan', () => {
-    expect(ADMIN).not.toContain("joukkue:       p.joukkue || '',");
-  });
-
-  it('uudelleentuonti KORVAA joukkueet[]:n (ei arrayUnion → vanha id ei jää)', () => {
-    const i = ADMIN.indexOf('const _paivitys = Object.assign({}, pelaajaData);');
-    expect(i).toBeGreaterThan(-1);
-    const haara = ADMIN.slice(i, i + 600);
-    expect(haara).not.toContain('arrayUnion');
-  });
-
-  it('orpo merkitään riville JA kootaan yhteenvetoon', () => {
-    expect(ADMIN).toContain('_orvot[_jasen.joukkue] = (_orvot[_jasen.joukkue] || 0) + 1');
-    expect(ADMIN).toContain('joukkuetta ei löytynyt — luo joukkue ensin');
-    expect(ADMIN).toContain('pelaajaa ilman joukkuetta');
-  });
-
-  it('suostumus-logiikka säilyy ennallaan (§33)', () => {
-    expect(ADMIN).toContain("delete _paivitys.suostumusTila;");
-    expect(ADMIN).toContain('suostumusSailytetty++');
+/* P2 (1.10.2026): Adminin Massakutsu-tuonti poistettu. Pelaajatuonti = Seura-sivun Excel-tuonti, joka
+   ohittaa olemassa olevat pelaajat (ei nollaa kenttiä). Admin ei siis enää rakenna jäsenyyttä lainkaan. */
+describe('Admin ei enää tuo pelaajia', () => {
+  it('Massakutsu-tuonti on poistettu (ei toista jäsenyyden rakentajaa Adminissa)', () => {
+    expect(ADMIN).not.toContain('_adminMassaData');
+    expect(ADMIN).not.toContain('lahetaAdminMassakutsu');
+    expect(ADMIN).not.toContain('tmJoukkueJasenyys(');
   });
 
   /* Brief sijoitti korjaustyökalut Adminiin; ne ovat tosiasiassa Excel_Tuonti.html:ssä.
@@ -161,8 +124,7 @@ describe('Seurahallinnan rekisteröinti kirjoittaa ID:n, ei nimeä', () => {
 
 /* ── MOLEMMAT POLUT SAMASTA LÄHTEESTÄ ─────────────────────────────────── */
 describe('polut eivät voi erkaantua', () => {
-  it('kumpikaan polku ei rakenna jäsenyyttä käsin', () => {
-    expect(ADMIN).toContain('tmJoukkueJasenyys(');
+  it('Seuran rekisteröinti rakentaa jäsenyyden jaetulla rakentajalla (Adminin tuonti poistettu P2:ssa)', () => {
     expect(SEURA).toContain('tmJoukkueJasenyysIdlla(');
   });
 
