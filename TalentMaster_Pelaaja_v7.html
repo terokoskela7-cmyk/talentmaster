@@ -517,7 +517,7 @@ input::placeholder,textarea::placeholder{color:#8C8B86;opacity:1}
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-functions-compat.js"></script>   <!-- Vaihe 0 / PR 1: pelaajaKirjaudu -->
 <script src="lib/tm_appcheck.js?v=2"></script>
 <script src="lib/tm_verkko.js?v=1"></script>   <!-- verkkokatko: 1 uudelleenyritys + Yhteyskatko-ilmoitus + Sentry warning -->
-<script src="lib/tm_lang.js?v=20"></script>   <!-- i18n V0 putki · V1-A/A2 · V4-A3: +pelaaja.nain_teet/kirjaa_tehdyksi/pallo_joka_paiva/rae_q4 (kotinäytön chrome sv) -->
+<script src="lib/tm_lang.js?v=22"></script>   <!-- i18n V0 putki · V1-A/A2 · V4-A3: +pelaaja.nain_teet/kirjaa_tehdyksi/pallo_joka_paiva/rae_q4 (kotinäytön chrome sv) -->
 <script src="lib/tm_eerikkila_normit.js?v=40"></script>
 <script src="docs/testit_indeksit.js?v=9"></script>
 <script src="lib/tm_havaintohistoria.js?v=1"></script>   <!-- vain tmHhRivit: jarjestys + tekijanimi (ei pisteita, 7.22) -->
@@ -732,6 +732,7 @@ function bind(){
       if(_pin.length===6){setTimeout(()=>_kirjaudu(_pin),280);}
       body.querySelectorAll('.pd').forEach((d,i)=>d.classList.toggle('on',i<_pin.length));
       const ok=body.querySelector('#pinOk'); if(ok) ok.style.visibility=_pin.length===4?'visible':'hidden';
+      const v4=body.querySelector('#pin4Vihje'); if(v4) v4.style.visibility=_pin.length===4?'visible':'hidden';
     });
   });
   // Tabs
@@ -894,8 +895,10 @@ function rPin(){
       ${[0,1,2,3,4,5].map(i=>`<div class="pd${i<_pin.length?' on':''}"></div>`).join('')}
     </div>
     <div id="pinVirhe" style="font-size:11px;color:#E05C38;min-height:15px;text-align:center;letter-spacing:.04em;margin-bottom:6px"></div>
+    <!-- 4 numeroa syötetty → vihje vanhalle 4-numeroiselle PIN:lle (näkyvyys kuten OK-napilla; ei logiikkamuutosta) -->
+    <div id="pin4Vihje" style="font-size:11px;color:#28B090;text-align:center;margin:-2px 0 8px;visibility:${_pin.length===4?'visible':'hidden'}">${t('pelaaja.pin4_vihje')}</div>
     <div class="kpad">
-      ${keys.map(k=>k===''?`<button class="key" id="pinOk" data-k="ok" style="font-size:14px;visibility:${_pin.length===4?'visible':'hidden'}">OK</button>`:`<button class="key" data-k="${k}"${k==='⌫'?' style="font-size:14px;opacity:.5"':''}>${k}</button>`).join('')}
+      ${keys.map(k=>k===''?`<button class="key" id="pinOk" data-k="ok" style="font-size:14px;font-weight:700;background:#28B090;color:#fff;border-color:#28B090;visibility:${_pin.length===4?'visible':'hidden'}">OK</button>`:`<button class="key" data-k="${k}"${k==='⌫'?' style="font-size:14px;opacity:.5"':''}>${k}</button>`).join('')}
     </div>
     ${_linkkiKirjautuminen() ? `<button id="pinPalloIdLinkki" onclick="_naytaPalloIdKentta()"
       style="width:100%;background:transparent;border:none;font-family:var(--font-b);font-size:11px;color:rgba(40,176,144,.7);cursor:pointer;padding:10px 0 0;text-align:center">${t('pelaaja.kirjaudu_palloidlla')}</button>` : ''}

@@ -47,4 +47,6 @@ module.exports = [
   'seura.kortti_skannaa_pin',
   'seura.suostumuskortti_teksti',
   'seura.suostumuskortti_ala',
+  // Kortti + PIN-vihje (1.10.2026)
+  'pelaaja.pin4_vihje',
 ];
