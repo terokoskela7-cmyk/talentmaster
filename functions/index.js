@@ -18,9 +18,10 @@ const { keraaPelaajanManifesti, rakennaAuditPayload } = require('./gdpr_locator'
 const { kaavioKohdistuuServer } = require('./kaavio_policy');   // kaavion kohdistus (peili lib/tm_kaavio_policy.js)
 const auditloki = require('./auditloki');   // haeAuditLoki: suodattimet + sivutus (SA)
 const pelaajapin = require('./pelaajapin');
+const huoltajaemail = require('./huoltajaemail');   // Rules v3.33: huoltajaEmail vain palvelimella
 const suostumuskortit = require('./suostumuskortit');   // PR B: QR-suostumuskortit   // PR 4: PIN vain palvelimella (asetaPelaajanPin / luoPinitSeuralle)
 const suostumusTarkistus = require('./suostumus_tarkistus');
-const { suostumusAnnettu } = require('./suostumus');   // kanoninen suostumusehto (1.10.2026)   // sisarusbugi: lomake vs tunnisteen pelaaja
+const { suostumusAnnettu, suostumusTilaKutsunJalkeen } = require('./suostumus');   // kanoninen suostumusehto (1.10.2026)   // sisarusbugi: lomake vs tunnisteen pelaaja
 const valmennusapuri = require('./valmennusapuri');
 const { onPaikkamerkkiOsoite } = require('./paikkamerkki');   // paikkamerkkidomainien esto (1.10.2026)
 const pelaajakirjautuminen = require('./pelaajakirjautuminen');   // Vaihe 0 / PR 1: PalloID + PIN → custom token           // Valmennusapuri-pilotti (Vaihe 2): ohjeistus+tietopohja palvelimella
@@ -479,6 +480,16 @@ exports.lahetaRekisteriKutsu = functions
         tekija_uid: context.auth.uid,
         aikaleima: admin.firestore.FieldValue.serverTimestamp(),
       }).catch(() => {});
+      // Rules v3.33: suostumusTila → 'odottaa' VAIN palvelimella (ennen Seura-sivu kirjoitti selaimesta).
+      // Annettua ei koskaan alenneta. Epäonnistuminen ei kaada jo lähetettyä kutsua.
+      if (pelaajaIdKutsu) {
+        try {
+          const pRef = db.collection('seurat').doc(seuraId).collection('pelaajat').doc(String(pelaajaIdKutsu));
+          const pSnap = await pRef.get();
+          const paiv = pSnap.exists ? suostumusTilaKutsunJalkeen(pSnap.data() || {}) : null;
+          if (paiv) await pRef.update(Object.assign(paiv, { muokattu: admin.firestore.FieldValue.serverTimestamp() }));
+        } catch (e) { console.error('[lahetaRekisteriKutsu] suostumusTila-päivitys:', e.message); }
+      }
       return { ok: true, viesti: `Kutsu lähetetty: ${hEmail}` };
     } catch (e) {
       console.error('lahetaRekisteriKutsu virhe:', e.message);
@@ -3013,6 +3024,11 @@ exports.luoSuostumusKortit = functions
   .region('europe-west1')
   .runWith({ enforceAppCheck: true, timeoutSeconds: 120 })
   .https.onCall(suostumuskortit.luoKasittelija(pinDeps));
+/* Rules v3.33 (2.10.2026) — huoltajaEmail vain palvelimella (functions/huoltajaemail.js). */
+exports.asetaHuoltajaEmail = functions
+  .region('europe-west1')
+  .runWith({ enforceAppCheck: true })
+  .https.onCall(huoltajaemail.luoKasittelija(pinDeps));
 exports.luoPinitSeuralle = functions
   .region('europe-west1')
   .runWith({ enforceAppCheck: true, timeoutSeconds: 300 })

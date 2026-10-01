@@ -19,7 +19,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <!-- #92 joukkue-normalisointi (kanonisointi tuonnissa) -->
 <script src="lib/tm_esc.js?v=1"></script>   <!-- P1: jaettu HTML-escape -->
-<script src="lib/tm_lang.js?v=25"></script>   <!-- i18n V0 — fi/sv/en käännöstaulukko + t() + kieli-init (putkitus) -->
+<script src="lib/tm_lang.js?v=26"></script>   <!-- i18n V0 — fi/sv/en käännöstaulukko + t() + kieli-init (putkitus) -->
 <script src="lib/tm_joukkue.js?v=4"></script>
 <script src="lib/tm_paikkamerkki.js?v=1"></script>   <!-- paikkamerkkidomainien esto (huoltajan sähköposti) -->
 <!-- tm_import.js ja tm_empty_state.js ladataan dynaamisesti jos saatavilla -->
@@ -3325,16 +3325,13 @@ async function lahetaRekisteriSahkoposti() {
           + (syotettyPin ? ' (syötettyä PIN:iä ei käytetty).' : '.'), 'ok');
         console.log(`[TM] Pelaaja ${etunimi} ${sukunimi} luotu, PalloID: ${palloIdArvo}`);
       } else {
-        // Päivitetään olemassa oleva dokumentti — §33: EI saa alentaa jo annettua suostumusta.
-        const _exSnap = await db.collection('seurat').doc(tila.seuraId).collection('pelaajat').doc(pelaajaId).get();
-        const _ex = _exSnap.exists ? (_exSnap.data() || {}) : {};
-        const _joAnnettu = _ex.suostumusTila === 'annettu' || !!(_ex.suostumus && _ex.suostumus.annettu);
+        // Päivitetään olemassa oleva dokumentti — §33: EI saa alentaa jo annettua suostumusta (suostumusTila ei tässä).
         /* Nimen päivitys yksin jätti vanhan joukkueet[]-id:n voimaan → pelaaja näkyi yhä
            väärän joukkueen alla. Kirjoitetaan koko jäsenyys (KORVAA, ei lisää). */
         const _upd = { joukkue: _jasenyys.joukkue, joukkueNimi: _jasenyys.joukkueNimi,
           joukkueet: _jasenyys.joukkueet, joukkueetNimet: _jasenyys.joukkueetNimet,
           muokattu: firebase.firestore.FieldValue.serverTimestamp() };
-        if (!_joAnnettu) _upd.suostumusTila = 'odottaa';   // vain jos ei jo annettu — älä nollata
+        // suostumusTila → 'odottaa' asettuu palvelimella (lahetaRekisteriKutsu, Rules v3.33); annettua ei alenneta.
         await db.collection('seurat').doc(tila.seuraId)
           .collection('pelaajat').doc(pelaajaId)
           .update(_upd).catch(() => {});
@@ -4701,7 +4698,7 @@ async function tallennaMusokkausPelaaja(pelaajaId) {
     joukkueet:   valitutIds,
     joukkue:     valitutNimet[0] || valitutIds[0] || '',   // ensisijainen, vanha kenttä
     sukupuoli,
-    huoltajaEmail: hEmail ? hEmail.trim().toLowerCase() : null,   // lowercase: email-login exact-match + CF haeLapsiHuoltajalle
+    // huoltajaEmail EI tässä: Rules v3.33 → vain palvelimella (asetaHuoltajaEmail alla, kun osoite muuttui).
     pelipaikka:  pelipaikka || null,
     positio:     pelipaikka || null,
     vahvempi_jalka: vahvempiJalka || null,   // 2d perustieto (dominanssi; eri kuin weaker_foot-pelikäyttö)
@@ -4752,6 +4749,11 @@ async function tallennaMusokkausPelaaja(pelaajaId) {
     await db.collection('seurat').doc(tila.seuraId)
       .collection('pelaajat').doc(pelaajaId)
       .update(paivitys);
+    const _hUusi = hEmail ? hEmail.trim().toLowerCase() : null;
+    const _hVanha = (((window._pelaajatKaikki || []).find((x) => x.id === pelaajaId) || {}).huoltajaEmail || '').trim().toLowerCase() || null;
+    if (_hUusi !== _hVanha) {
+      await firebase.app().functions('europe-west1').httpsCallable('asetaHuoltajaEmail')({ seuraId: tila.seuraId, pelaajaId, huoltajaEmail: _hUusi });
+    }
 
     document.getElementById('muokkaaPelaajaModal').classList.remove('auki');
     const infot = [etunimi + ' ' + sukunimi];
@@ -5329,6 +5331,7 @@ async function lahetaMassakutsu() {
           linkki:   linkkiKutsuId,
           seura:    seuraNimi,
           seuraId:  tila.seuraId,
+          pelaajaId: p.pelaajaId || null,   // palvelin asettaa suostumusTila 'odottaa' tälle pelaajalle
           etunimi:  p.etunimi,
           sukunimi: p.sukunimi,
           joukkue:  p.joukkue,
@@ -5339,15 +5342,8 @@ async function lahetaMassakutsu() {
         // §33 onboarding-integriteetti — ÄLÄ alenna jo annettua suostumusta (todettu tuotannossa:
         // kutsu nollasi annetun). Warn-not-block: status säilytetään, operaattori näkee ohitetun yhteenvedosta.
         const _joAnnettu = (p.suostumusTila === 'annettu') || !!(p.suostumus && p.suostumus.annettu);
-        if (_joAnnettu) {
-          ohitettuSuostumus++;
-        } else if (p.pelaajaId && p.suostumusTila !== 'odottaa') {
-          try {
-            await db.collection('seurat').doc(tila.seuraId)
-              .collection('pelaajat').doc(p.pelaajaId)
-              .update({ suostumusTila: 'odottaa' });
-          } catch(e) { console.warn('[Massakutsu] suostumusTila-päivitys:', e.message); }
-        }
+        // Tila 'odottaa' asettuu palvelimella (lahetaRekisteriKutsu, Rules v3.33); jo annettua ei alenneta.
+        if (_joAnnettu) ohitettuSuostumus++;
       } catch(mailErr) {
         console.warn('[Massakutsu] Sähköposti epäonnistui rivillä', i + 1, ':', mailErr.message);
         sahkopostiVirhe++;
