@@ -63,6 +63,8 @@ function seura(SEURA_LAHDE, lisat) {
   const osat = ['function _rekBaseUrl() {', 'function avaaRekisteriModal() {', 'function avaaRekisteriModalPelaajalle(',
     'function luoRekisteriLinkki() {', 'async function lahetaRekisteriSahkoposti() {'];
   if (S.indexOf('function _rekDuplikaatti(') >= 0) osat.push('function _rekDuplikaatti(');
+  // Suostumuksen uusiminen (2.10.2026): vahvistus, kun pelaajalla on jo annettu suostumus
+  ['function _suostumusAnnettu(', 'function _suostumusPvm(', 'function _tkKieli(', 'function _tk('].forEach((o) => { if (S.indexOf(o) >= 0) osat.push(o); });
   vm.runInContext(osat.map((o) => pura(S, o)).join('\n')
     + '\nthis.uusi=avaaRekisteriModal; this.vanha=avaaRekisteriModalPelaajalle; this.laheta=lahetaRekisteriSahkoposti;', ctx);
   const tayta = (etu, suku, email) => { E('rek_etunimi').value = etu; E('rek_sukunimi').value = suku; E('rek_hEmail').value = email; E('rek_joukkue').value = 'kpv_u13'; };
@@ -309,5 +311,44 @@ describe('vartijat', () => {
   });
   it('rekisterikutsu_lahetetty-audit sisältää seuraId:n ja pelaajaId:n', () => {
     expect(lue('functions/index.js')).toContain("hEmail, pelaajaNimi, seura: seuraNimi, seuraId, pelaajaId: pelaajaIdKutsu,");
+  });
+});
+
+/* Suostumuksen uusiminen näkyväksi (2.10.2026): annettu suostumus → vahvistus + päivämäärä linkkiin. */
+describe('Seura · suostumuksen uusiminen (ajettu)', () => {
+  const ANNETTU = { id: 'u1', etunimi: 'Uuno', sukunimi: 'Uusija', huoltajaEmail: 'u@tm-testi.fi', joukkueet: ['kpv_u13'],
+    suostumusTila: 'annettu', suostumusAnnettu: { seconds: Date.UTC(2026, 5, 12, 10) / 1000 } };
+  it('annettu → vahvistus päivämäärällä; Peruuta → ei kutsua eikä sähköpostia', async () => {
+    const t = seura(null, [ANNETTU]);
+    t.ctx._confirmVastaus = false;
+    t.ctx.vanha('u1', 'Uuno', 'Uusija', 'kpv_u13', 'u@tm-testi.fi', '', '', '');
+    await t.ctx.laheta();
+    expect(t.loki.confirm).toEqual(['Suostumus on jo annettu 12.6.2026. Lähetetäänkö huoltajalle suostumuksen uusimispyyntö?']);
+    expect(t.kutsut()).toEqual([]);
+    expect(t.loki.kutsuFn.filter(([n]) => n === 'lahetaRekisteriKutsu')).toEqual([]);
+  });
+  it('OK → kutsu lähtee, linkissä suostumusAnnettu=2026-06-12 + kutsuId (avoin kutsu → vahvistaSuostumus hyväksyy uusinnan)', async () => {
+    const t = seura(null, [ANNETTU]);
+    t.ctx.vanha('u1', 'Uuno', 'Uusija', 'kpv_u13', 'u@tm-testi.fi', '', '', '');
+    await t.ctx.laheta();
+    const l = new URL(t.kutsut()[0].linkki);
+    expect(l.searchParams.get('pelaajaId')).toBe('u1');
+    expect(l.searchParams.get('suostumusAnnettu')).toBe('2026-06-12');
+    expect(l.searchParams.get('kutsuId')).toBeTruthy();
+    expect(t.kutsut()[0].tila).toBe('odottaa');
+  });
+  it('annettu ilman päivämäärää → vahvistus ilman päivää, linkissä suostumusAnnettu=annettu', async () => {
+    const t = seura(null, [Object.assign({}, ANNETTU, { suostumusAnnettu: undefined, suostumus: { annettu: true } })]);
+    t.ctx.vanha('u1', 'Uuno', 'Uusija', 'kpv_u13', 'u@tm-testi.fi', '', '', '');
+    await t.ctx.laheta();
+    expect(t.loki.confirm[0]).toBe('Suostumus on jo annettu. Lähetetäänkö huoltajalle suostumuksen uusimispyyntö?');
+    expect(new URL(t.kutsut()[0].linkki).searchParams.get('suostumusAnnettu')).toBe('annettu');
+  });
+  it('ei suostumusta → ei vahvistusta eikä parametria', async () => {
+    const t = seura();
+    t.ctx.vanha('m93', 'Topias', 'Koskela', 'kpv_u13', 'h@tm-testi.fi', '', '', '');
+    await t.ctx.laheta();
+    expect(t.loki.confirm).toEqual([]);
+    expect(new URL(t.kutsut()[0].linkki).searchParams.get('suostumusAnnettu')).toBeNull();
   });
 });

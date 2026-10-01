@@ -19,7 +19,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <!-- #92 joukkue-normalisointi (kanonisointi tuonnissa) -->
 <script src="lib/tm_esc.js?v=1"></script>   <!-- P1: jaettu HTML-escape -->
-<script src="lib/tm_lang.js?v=26"></script>   <!-- i18n V0 — fi/sv/en käännöstaulukko + t() + kieli-init (putkitus) -->
+<script src="lib/tm_lang.js?v=27"></script>   <!-- i18n V0 — fi/sv/en käännöstaulukko + t() + kieli-init (putkitus) -->
 <script src="lib/tm_joukkue.js?v=4"></script>
 <script src="lib/tm_paikkamerkki.js?v=1"></script>   <!-- paikkamerkkidomainien esto (huoltajan sähköposti) -->
 <!-- tm_import.js ja tm_empty_state.js ladataan dynaamisesti jos saatavilla -->
@@ -3231,6 +3231,19 @@ async function lahetaRekisteriSahkoposti() {
   }
   if (tmOnPaikkamerkkiOsoite(hEmail)) { naytaToast(PAIKKAMERKKI_SYY + '.', 'virhe'); return; }
 
+  /* Suostumuksen uusiminen näkyväksi (2.10.2026): olemassa olevalla pelaajalla on jo annettu suostumus →
+     vahvistus ennen lähetystä. Linkkiin päivämäärä (suostumusAnnettu=YYYY-MM-DD), jotta suostumussivu kertoo
+     huoltajalle, että lomakkeella uusitaan suostumus. vahvistaSuostumus hyväksyy uusinnan avoimella kutsulla (kutsuId). */
+  let _uusintaParam = null;
+  const _uusP = tila._rekPelaajaId ? (window._pelaajatKaikki || []).find((x) => x.id === tila._rekPelaajaId) : null;
+  if (_uusP && _suostumusAnnettu(_uusP)) {
+    const _pvm = _suostumusPvm(_uusP);
+    const _pvmTeksti = _pvm ? _pvm.getDate() + '.' + (_pvm.getMonth() + 1) + '.' + _pvm.getFullYear() : '';
+    if (!confirm(_tk('seura.uusinta_vahvistus', 'Suostumus on jo annettu {pvm}. Lähetetäänkö huoltajalle suostumuksen uusimispyyntö?',
+      { pvm: _pvmTeksti }).replace(/ \./, '.'))) return;
+    _uusintaParam = _pvm ? _pvm.getFullYear() + '-' + String(_pvm.getMonth() + 1).padStart(2, '0') + '-' + String(_pvm.getDate()).padStart(2, '0') : 'annettu';
+  }
+
   // Rakennetaan linkki jos sitä ei vielä ole
   if (!tila._rekLinkki) {
     luoRekisteriLinkki();
@@ -3345,6 +3358,7 @@ async function lahetaRekisteriSahkoposti() {
         etunimi, sukunimi, joukkue,
         hEmail:    tila._rekHEmail,
       });
+      if (_uusintaParam) params.set('suostumusAnnettu', _uusintaParam);   // suostumussivun selite (uusinta)
       tila._rekLinkki = baseUrl + '?' + params.toString();
       // Päivitetään myös UI:hin näkyvä linkki
       const linkkiEl = document.getElementById('linkkiTekstiEl');
@@ -5573,6 +5587,15 @@ async function lataaRekisteriPohja() {
 function _pinFn(nimi) { return firebase.app().functions('europe-west1').httpsCallable(nimi, { timeout: 300000 }); }
 /* Suostumus ennen PIN:iä (1.10.2026): sama ehto kuin palvelimella (functions/suostumus.js). */
 function _suostumusAnnettu(p) { return !!p && (p.suostumusTila === 'annettu' || !!(p.suostumus && p.suostumus.annettu)); }
+/* Suostumuksen päivä: suostumusAnnettu (palvelin) tai suostumus.annettu (Timestamp / {seconds} / ISO) → Date | null. */
+function _suostumusPvm(p) {
+  const v = p && (p.suostumusAnnettu || (p.suostumus && p.suostumus.annettu));
+  if (!v || v === true) return null;
+  if (typeof v.toDate === 'function') return v.toDate();
+  if (typeof v.seconds === 'number') return new Date(v.seconds * 1000);
+  if (typeof v === 'string') { const d = new Date(v); return isNaN(d.getTime()) ? null : d; }
+  return null;
+}
 const PIN_SUOSTUMUS_PUUTTUU = 'Huoltajan suostumus puuttuu – PIN luodaan suostumuksen jälkeen.';
 function _pinVirheTeksti(e) {
   const koodi = String((e && e.code) || '').replace(/^functions\//, '');
