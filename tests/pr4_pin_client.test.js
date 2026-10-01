@@ -27,10 +27,10 @@ function pura(S, tunniste) {
 }
 
 const PELAAJAT = [
-  { id: 'a1', etunimi: 'Aino', sukunimi: 'Aalto', joukkueet: ['kpv_u13'], joukkueNimi: 'KPV U13', tunniste: '11111111', pin: '482915', huoltajaEmail: 'a@x.fi', syntymaVuosi: 2013, huoltaja: { puhelin: '040' } },
-  { id: 'b2', etunimi: 'Bea', sukunimi: 'Berg', joukkueet: ['kpv_u13'], joukkueNimi: 'KPV U13', pin: '9278' },
-  { id: 'c3', etunimi: 'Cee', sukunimi: 'Cox', joukkueet: ['kpv_u13'], joukkueNimi: 'KPV U13', huoltajaEmail: 'c@x.fi' },
-  { id: 'd4', etunimi: 'Dee', sukunimi: 'Dahl', joukkueet: ['kpv_u15'], joukkueNimi: 'KPV U15', pin: '135790', huoltajaEmail: 'd@x.fi' },
+  { id: 'a1', etunimi: 'Aino', sukunimi: 'Aalto', joukkueet: ['kpv_u13'], joukkueNimi: 'KPV U13', tunniste: '11111111', pin: '482915', huoltajaEmail: 'a@x.fi', syntymaVuosi: 2013, huoltaja: { puhelin: '040' }, suostumusTila: 'annettu' },
+  { id: 'b2', etunimi: 'Bea', sukunimi: 'Berg', joukkueet: ['kpv_u13'], joukkueNimi: 'KPV U13', pin: '9278', suostumusTila: 'annettu' },
+  { id: 'c3', etunimi: 'Cee', sukunimi: 'Cox', joukkueet: ['kpv_u13'], joukkueNimi: 'KPV U13', huoltajaEmail: 'c@x.fi', suostumusTila: 'annettu' },
+  { id: 'd4', etunimi: 'Dee', sukunimi: 'Dahl', joukkueet: ['kpv_u15'], joukkueNimi: 'KPV U15', pin: '135790', huoltajaEmail: 'd@x.fi', suostumusTila: 'annettu' },
 ];
 
 function ajaSeura({ valitut = [], joukkue = '', vahvista = true } = {}) {
@@ -56,10 +56,10 @@ function ajaSeura({ valitut = [], joukkue = '', vahvista = true } = {}) {
     } }) }) },
   };
   vm.createContext(ctx);
-  const osat = ['function _pinFn(nimi) {', 'function _pinVirheTeksti(e) {', 'function _paivitaPinPaikallisesti(pelaajaId, pin) {',
+  const osat = ['function _suostumusAnnettu(p) {', 'function _pinFn(nimi) {', 'function _pinVirheTeksti(e) {', 'function _paivitaPinPaikallisesti(pelaajaId, pin) {',
     'function _tunnusKohde() {', 'function _tunnusTila(t) {', 'function _pelaajaLinkki(p) {', 'function _pinPalloId(p) {',
     'async function luoPuuttuvatPinit() {', 'function _pinKortitHtml(kortit) {', 'async function lahetaTunnuksetHuoltajille() {'];
-  vm.runInContext(osat.map((o) => pura(SEURA, o)).join('\n')
+  vm.runInContext(SEURA.match(/const PIN_SUOSTUMUS_PUUTTUU = '[^']*';/)[0].replace('const', 'var') + '\n' + osat.map((o) => pura(SEURA, o)).join('\n')
     + '\nthis.kohde=_tunnusKohde; this.luo=luoPuuttuvatPinit; this.kortit=_pinKortitHtml; this.laheta=lahetaTunnuksetHuoltajille; this.linkki=_pelaajaLinkki;', ctx);
   return { loki, ctx };
 }

@@ -17,6 +17,10 @@
 'use strict';
 const crypto = require('crypto');
 const K = require('./pelaajakirjautuminen');
+const { suostumusAnnettu, SUOSTUMUS_PUUTTUU } = require('./suostumus');
+/* Suostumus ennen PIN:iä (1.10.2026): PIN luodaan vain pelaajalle, jolla on huoltajan suostumus.
+   Ilman suostumusta PIN syntyy vahvistaSuostumuksessa (best-effort) heti suostumuksen jälkeen. */
+const VIRHE_PIN_SUOSTUMUS = 'Huoltajan suostumus puuttuu – PIN luodaan suostumuksen jälkeen.';
 
 const VALMENTAJAROOLIT = ['valmentaja', 'talenttivalmentaja', 'fysiikkavalmentaja'];
 const ERAKOKO = 400;   // Firestore-erän raja 500 → varaa tilaa
@@ -110,6 +114,7 @@ function luoAsetaPelaajanPin(deps) {
     if (!snap.exists) throw new HttpsError('not-found', 'Pelaajaa ei löytynyt.');
     const pd = snap.data() || {};
     if (!saaPelaajalle(oikeus, pd)) throw new HttpsError('permission-denied', 'Valmentaja voi asettaa PIN:n vain oman joukkueensa pelaajalle.');
+    if (!suostumusAnnettu(pd)) throw new HttpsError('failed-precondition', VIRHE_PIN_SUOSTUMUS, { syy: SUOSTUMUS_PUUTTUU });
     const TS = FieldValue.serverTimestamp();
     const batch = db.batch();
     lisaaPinKirjoitukset(db, batch, { seuraId, pelaajaId, data: pd, pin, lahde: 'asetaPelaajanPin', TS });
@@ -151,14 +156,15 @@ function luoLuoPinitSeuralle(deps) {
       (await col.get()).docs.forEach((d) => docs.set(d.id, d));
     }
     const kohteet = [];
-    let ohitettu = 0;
+    let ohitettu = 0, ohitettuSuostumus = 0, oliJo = 0;
     docs.forEach((d) => {
       const pd = d.data() || {};
       if (!saaPelaajalle(oikeus, pd)) { ohitettu++; return; }   // valmentaja: nimikentän kautta löytynyt vieras
-      if (vainPuuttuvat && pd.pin != null && String(pd.pin).trim() !== '') { ohitettu++; return; }
+      if (!suostumusAnnettu(pd)) { ohitettu++; ohitettuSuostumus++; return; }   // ei PIN:iä ilman suostumusta
+      if (vainPuuttuvat && pd.pin != null && String(pd.pin).trim() !== '') { ohitettu++; oliJo++; return; }
       kohteet.push({ id: d.id, pd });
     });
-    if (kuivaAjo) return { ok: true, kuivaAjo: true, luotaisiin: kohteet.length, ohitettu, yhteensa: docs.size };
+    if (kuivaAjo) return { ok: true, kuivaAjo: true, luotaisiin: kohteet.length, ohitettu, ohitettuSuostumus, oliJo, yhteensa: docs.size };
     const TS = FieldValue.serverTimestamp();
     let batch = db.batch(), opit = 0, eria = 0, luotu = 0;
     for (const k of kohteet) {
@@ -168,12 +174,12 @@ function luoLuoPinitSeuralle(deps) {
       luotu++;
     }
     if (opit) { await batch.commit(); eria++; }
-    await audit('pinit_luotu', { seuraId, joukkue: joukkue || null, luotu, ohitettu, vainPuuttuvat, tekija_uid: context.auth.uid, severity: 'info' });
-    return { ok: true, luotu, ohitettu, yhteensa: docs.size, eria };
+    await audit('pinit_luotu', { seuraId, joukkue: joukkue || null, luotu, ohitettu, ohitettuSuostumus, oliJo, vainPuuttuvat, tekija_uid: context.auth.uid, severity: 'info' });
+    return { ok: true, luotu, ohitettu, ohitettuSuostumus, oliJo, yhteensa: docs.size, eria };
   };
 }
 
 module.exports = {
   onTriviaaliPin, generoiPin, normalisoiUusiPin, lukitusAvaimet, lisaaPinKirjoitukset,
-  pinOikeus, saaPelaajalle, luoAsetaPelaajanPin, luoLuoPinitSeuralle, VALMENTAJAROOLIT, ERAKOKO,
+  pinOikeus, saaPelaajalle, luoAsetaPelaajanPin, luoLuoPinitSeuralle, VALMENTAJAROOLIT, ERAKOKO, VIRHE_PIN_SUOSTUMUS,
 };

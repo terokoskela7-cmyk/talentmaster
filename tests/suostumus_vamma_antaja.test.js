@@ -130,7 +130,7 @@ async function seuraKortti(pelaaja, kutsut) {
     document: { getElementById: () => modal, createElement: () => modal, body: { appendChild() {} } },
   };
   vm.createContext(ctx);
-  vm.runInContext(pura(S, 'async function naytaPelaajaTiedot(pelaajaId) {') + '\nthis.nayta = naytaPelaajaTiedot;', ctx);
+  vm.runInContext(pura(S, 'function _suostumusAnnettu(p) {') + '\n' + pura(S, 'async function naytaPelaajaTiedot(pelaajaId) {') + '\nthis.nayta = naytaPelaajaTiedot;', ctx);
   await ctx.nayta('p1').catch(() => {});
   return modal.innerHTML;
 }

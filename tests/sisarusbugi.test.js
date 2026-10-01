@@ -214,7 +214,7 @@ function vahvista(pelaaja) {
     admin: { firestore: { FieldValue: { serverTimestamp: () => 'TS' }, Timestamp: { fromDate: (d) => ({ toDate: () => d, iso: d.toISOString() }) } } },
     auth: { generatePasswordResetLink: async () => 'https://reset' },
     haeOrLuoHuoltajaAuth: async () => ({}), lahetaSahkoposti: async () => {}, pohjaSuostumusLinkki: () => '',
-    TM_BASE_URL: 'https://tm', suostumusTarkistus: T, pelaajapin: require_(join(ROOT, 'functions', 'pelaajapin.js')),
+    TM_BASE_URL: 'https://tm', suostumusTarkistus: T, suostumusAnnettu: require_(join(ROOT, 'functions', 'suostumus.js')).suostumusAnnettu, pelaajapin: require_(join(ROOT, 'functions', 'pelaajapin.js')),
   };
   vm.createContext(ctx);
   vm.runInContext(runko, ctx);

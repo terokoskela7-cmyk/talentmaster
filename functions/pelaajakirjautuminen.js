@@ -21,6 +21,7 @@
    Puhtaat osat (normalisointi, lukitus, hajautus) testataan tests/pelaajakirjautuminen.test.js.
 ════════════════════════════════════════════════════════════════════════ */
 'use strict';
+const { suostumusAnnettu, SUOSTUMUS_PUUTTUU } = require('./suostumus');
 const crypto = require('crypto');
 
 const LUKITUS_YRITYKSET = 5;
@@ -106,6 +107,11 @@ function tarkistaPin(pin, hajautus) {
 const NAENNAINEN_HAJAUTUS = hajautaPin('0000', '00000000000000000000000000000000');
 
 function pelaajaUid(seuraId, pelaajaId) { return 'pel_' + seuraId + '_' + pelaajaId; }
+
+/* Suostumus ennen kirjautumista (1.10.2026): seuran pelaaja ei kirjaudu ilman huoltajan suostumusta.
+   Tarkistus VASTA yksiselitteisen ja oikean PIN:n jälkeen → väärä PIN / tuntematon tunnus saa yhä saman
+   virheen (VIRHE_TUNNISTUS), eikä suostumustila paljastu ilman oikeaa PIN:iä. */
+const VIRHE_SUOSTUMUS = 'Huoltajasi ei ole vielä antanut lupaa. Pyydä vanhempaasi skannaamaan kortin QR-koodi.';
 
 /* PR 4 · Lukitusavaimet (kokoelma _kirjautumisyritykset). Tunnistekohtaiset: PalloID-reitti 't_' + tunnus,
    linkkireitti 'tp_' + seuraId/pelaajaId. PELAAJAKOHTAINEN 'p_' + seuraId/pelaajaId on yhteinen molemmille
@@ -211,6 +217,11 @@ function luoKirjautuja(deps, malli) {
     await tRef.delete().catch(() => {});
     if (o.lukitusAvain) await db.collection('_kirjautumisyritykset').doc(o.lukitusAvain).delete().catch(() => {});
     if (deps.FieldValue) await ipRef.set({ virheet: deps.FieldValue.increment(-1) }, { merge: true }).catch(() => {});
+    // PIN oli oikein (laskurit nollattu yllä), mutta seuran pelaajalla ei ole huoltajan suostumusta → ei tokenia.
+    if (o.suostumusOk === false) {
+      await audit('pelaaja_kirjautuminen_estetty_suostumus', Object.assign({ severity: 'info' }, o.auditTiedot || {}));
+      throw new HttpsError('failed-precondition', VIRHE_SUOSTUMUS, { syy: SUOSTUMUS_PUUTTUU });
+    }
     const token = await auth.createCustomToken(o.uid, o.claims);
     await audit(malli.auditEtuliite, Object.assign({ severity: 'info' }, o.auditTiedot || {}));
     return Object.assign({ token: token }, o.palaute);
@@ -259,6 +270,7 @@ function luoLinkkiKirjautuja(deps) {
         uid: pelaajaUid(seuraId, pelaajaId),
         claims: pelaajaClaims(seuraId, pelaajaId),
         auditTiedot: { seuraId: seuraId, pelaajaId: pelaajaId, reitti: 'linkki' },
+        suostumusOk: suostumusAnnettu(data),
         palaute: { seuraId: seuraId, pelaajaId: pelaajaId, palloId: pelaajanPalloId(data) },
       }];
     },
@@ -299,6 +311,7 @@ function luoPalloIdKirjautuja(deps) {
             uid: pelaajaUid(seura.id, d.id),
             claims: pelaajaClaims(seura.id, d.id),
             auditTiedot: { seuraId: seura.id, pelaajaId: d.id },
+            suostumusOk: suostumusAnnettu(data),
             palaute: { seuraId: seura.id, pelaajaId: d.id, palloId: pelaajanPalloId(data) },
           });
         });
@@ -354,5 +367,5 @@ module.exports = {
   hajautaPin, tarkistaPin, pelaajaUid, pelaajaClaims, luoKasittelija, normalisoiDocId, pelaajanPalloId,
   pelaajaLukitusAvain, linkkiLukitusAvain, palloIdLukitusAvain,
   luoKirjautuja, luoSoloKasittelija, normalisoiSoloKoodi, soloUid, soloClaims,
-  LUKITUS_YRITYKSET, LUKITUS_MS, IP_KATTO, VIRHE_TUNNISTUS, VIRHE_LUKITTU,
+  LUKITUS_YRITYKSET, LUKITUS_MS, IP_KATTO, VIRHE_TUNNISTUS, VIRHE_LUKITTU, VIRHE_SUOSTUMUS,
 };

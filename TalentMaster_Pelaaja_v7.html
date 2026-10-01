@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <title>TalentMaster™ — Pelaaja v7</title>
 <script>/* Versio-tarkistus (cache): pakottaa reloadin kun uusi versio deployattu. APP_VERSION leimataan scripts/bump_version.js:llä. */
-(function(){var APP_VERSION='1790879930828';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
+(function(){var APP_VERSION='1790881134482';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
 <!-- B2 Sentry-virheseuranta (onboarding-kriittinen). PII-skrubi tm_sentry.js:ssä. Guard: offline → no-op.
      ⚠️ ENNEN PUSHIA: liitä EU-DSN tm_sentry.js:ään + verifioi integrity-hash bundle.min.js@10.58.0 (väärä SRI estää Sentryn hiljaa). -->
 <script>window.TM_SENTRY={app:'pelaaja'};</script>
@@ -4901,6 +4901,9 @@ function _muistettuTunnus() { try { return localStorage.getItem(_TUNNUS_LS) || '
 function _pinVirhe(t) { const e = document.getElementById('pinVirhe'); if (e) e.textContent = t; }
 const _PK_VIRHE_TUNNISTUS = 'Tunnus tai PIN on väärin.';
 const _PK_VIRHE_INFRA = 'Kirjautuminen ei juuri nyt onnistu. Yritä hetken päästä uudelleen.';
+/* Suostumus ennen kirjautumista (1.10.2026): oikea PIN, mutta huoltaja ei ole antanut suostumusta → ei tokenia.
+   Palvelin tarkistaa tämän VASTA oikean PIN:n jälkeen, joten viesti ei paljasta mitään väärällä PIN:llä. */
+const _PK_VIRHE_SUOSTUMUS = 'Huoltajasi ei ole vielä antanut lupaa. Pyydä vanhempaasi skannaamaan kortin QR-koodi.';
 
 /* KIRJAUTUMISEN HELPOTUS: henkilökohtainen linkki (?p=&seura= tai ?pelaajaId=&seuraId=) kertoo KUKA,
    PIN todistaa → pelkkä PIN-näppäimistö. URL EI kirjaa sisään eikä lue mitään ennen PIN:iä: tunnisteet
@@ -4948,6 +4951,7 @@ async function _kirjaudu(pin) {
     _pin = ''; draw();
     if (koodi === 'resource-exhausted') { _pinVirhe(viesti || 'Liian monta yritystä. Yritä myöhemmin.'); return; }
     if (koodi === 'invalid-argument' || viesti === _PK_VIRHE_TUNNISTUS) { _pinVirhe(_PK_VIRHE_TUNNISTUS); return; }
+    if (koodi === 'failed-precondition' && e && e.details && e.details.syy === 'suostumus_puuttuu') { _pinVirhe(_PK_VIRHE_SUOSTUMUS); return; }
     if (tmOnVerkkokatko(e)) { tmRaportoiVerkkokatko('pelaajaKirjaudu'); _pinVirhe(tmVerkkoViesti()); return; }
     const syy = _infraVirheenSyy(koodi, viesti);
     console.error('[pelaajaKirjaudu] palvelinvirhe:', syy);
