@@ -1,9 +1,21 @@
 rules_version = '2';
 // ══════════════════════════════════════════════════════════════════════════
-// TalentMaster™ — firestore.rules v3.32
+// TalentMaster™ — firestore.rules v3.33
 //
 // Lähde:  tm_admin/firestore.rules
 // Deploy: PR → N4-CI deployaa automaattisesti (Console-käsityö poistui).
+//
+// Muutokset v3.32 → v3.33 (suostumus-kovennus, 2.10.2026):
+//   · seurat/{sid}/pelaajat: suostumusTila, suostumus, suostumusAnnettu, suostumukset ja huoltajaEmail
+//     muuttuvat VAIN palvelimella (vahvistaSuostumus / lahetaRekisteriKutsu / luoSuostumusKortit /
+//     asetaHuoltajaEmail) — myös SA:lta estetty. Luonnissa (uusi pelaaja, Excel-tuonti) huoltajaEmail sallitaan,
+//     suostumusTila vain 'pilotti' tai 'odottaa', eikä suostumus-/suostumusAnnettu-/suostumukset-kenttiä.
+//     → Henkilökunta ei voi enää merkitä suostumusta annetuksi selaimesta.
+//   · seurat/{sid}/kutsut update: ei enää kirjautumatonta päivitystä tilassa 'odottaa' (suostumuslomakkeen
+//     vanha reitti poistettu; vahvistaSuostumus hyväksyy kutsun palvelimella).
+//   · Ylätason suostumukset/{id}: ei selainkirjoituksia (oli create: if true + kirjautumaton update);
+//     luku vain SA. Kokoelmaa ei käytä mikään koodi.
+//   · audit/{id}: nimenomainen esto (luku vain haeAuditLoki-funktion kautta, kirjoitus vain palvelimelta).
 //
 // Muutokset v3.31 → v3.32 (haamuvalmentaja, 1.10.2026):
 //   · seurat/{sid}/kayttajat/{uid} create: VAIN palvelimella (luoKayttaja). Seura-sivu kirjoitti ennen koko
@@ -510,6 +522,17 @@ service cloud.firestore {
     function pinEiMuutuClientista() {
       return !request.resource.data.diff(resource.data).affectedKeys().hasAny(['pin', 'pin_asetettu']);
     }
+    // v3.33: suostumus + huoltajaEmail vain palvelimella. Luonnissa huoltajaEmail sallitaan (uusi pelaaja / tuonti),
+    // suostumusTila vain 'pilotti' tai 'odottaa', ei suostumus-/annettu-kenttiä.
+    function suostumusEiAsetetaClientista() {
+      return !request.resource.data.keys().hasAny(['suostumus', 'suostumusAnnettu', 'suostumukset'])
+          && (!('suostumusTila' in request.resource.data)
+              || request.resource.data.suostumusTila in ['pilotti', 'odottaa']);
+    }
+    function suostumusEiMuutuClientista() {
+      return !request.resource.data.diff(resource.data).affectedKeys()
+          .hasAny(['suostumusTila', 'suostumus', 'suostumusAnnettu', 'suostumukset', 'huoltajaEmail']);
+    }
 
     function onOmanJoukkueenValmentaja(seuraId, pelaajaId) {
       return onOmanSeuranValmentaja(seuraId)
@@ -833,8 +856,9 @@ service cloud.firestore {
                              == resource.data.huoltajaEmail.lower());
         // v3.30 (PR 4): PIN asetetaan VAIN palvelimella (asetaPelaajanPin / luoPinitSeuralle / vahvistaSuostumus),
         // jotta hajautus (_pelaajaPin) ja selväkielinen kopio pysyvät samana. Koskee myös SA:n selainkirjoituksia.
-        allow create: if (onSuperAdmin() || onOmanSeuranValmentaja(seuraId)) && pinEiAsetetaClientista();
-        allow update: if pinEiMuutuClientista() && (
+        allow create: if (onSuperAdmin() || onOmanSeuranValmentaja(seuraId)) && pinEiAsetetaClientista()
+                      && suostumusEiAsetetaClientista();
+        allow update: if pinEiMuutuClientista() && suostumusEiMuutuClientista() && (
                          onSuperAdmin() || onOmanJoukkueenValmentaja(seuraId, pelaajaId)   // permissio-joukkulukko: ADAR-pikakentät ym. vain oman joukkueen pelaajaan (johto ohittaa)
                       || onTestivastaava(seuraId)   // testituonnin profiili-pikakentät (hh_taso/hh_viimeisin/mas_kmh)
                       || (onOmaSeura(seuraId) && request.auth.uid == pelaajaId)
@@ -1273,8 +1297,8 @@ service cloud.firestore {
       match /kutsut/{kutsuId} {
         allow read:   if onSuperAdmin() || onOmaSeura(seuraId);
         allow create: if onSuperAdmin() || onOmanSeuranValmentaja(seuraId);
-        allow update: if onSuperAdmin() || onOmanSeuranValmentaja(seuraId)
-                      || resource.data.tila == 'odottaa';
+        // v3.33: ei kirjautumatonta päivitystä (oli: || resource.data.tila == 'odottaa').
+        allow update: if onSuperAdmin() || onOmanSeuranValmentaja(seuraId);
         allow delete: if onSuperAdmin() || (onOmaSeura(seuraId) && onJohtoRooli());
       }
 
@@ -1542,17 +1566,17 @@ service cloud.firestore {
     }
 
     // ──────────────────────────────────────────────────────────────────────
-    // SUOSTUMUKSET — ylätaso (Rekisterointi_Suostumus.html kirjoittaa)
+    // SUOSTUMUKSET — ylätaso (ei käytössä v3.33 alkaen)
     // ──────────────────────────────────────────────────────────────────────
+    // v3.33: vanha julkisen lomakkeen kokoelma — ei käytössä. Ei selainkirjoituksia, luku vain SA.
     match /suostumukset/{suostumusId} {
-      allow read:   if onSuperAdmin()
-                    || request.auth.uid == suostumusId
-                    || resource.data.suostumusTila == 'odottaa';
-      allow create: if true;  // suostumuslomake on julkinen
-      allow update: if onSuperAdmin()
-                    || request.auth.uid == suostumusId
-                    || resource.data.suostumusTila == 'odottaa';
-      allow delete: if onSuperAdmin();
+      allow read:  if onSuperAdmin();
+      allow write: if false;
+    }
+
+    // v3.33: audit-loki — kirjoitus vain palvelimelta (Admin SDK ohittaa Rulesin), luku haeAuditLoki-funktion kautta.
+    match /audit/{auditId} {
+      allow read, write: if false;
     }
 
     // ──────────────────────────────────────────────────────────────────────
