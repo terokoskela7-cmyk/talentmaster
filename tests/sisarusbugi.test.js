@@ -31,16 +31,18 @@ function pura(S, tunniste) {
 
 /* ── Seura-sivun rekisteröintiketju ── */
 const TOPIAS = { id: 'm93', etunimi: 'Topias', sukunimi: 'Koskela', huoltajaEmail: 'h@x.fi', syntymaVuosi: 2013, joukkueet: ['kpv_u13'] };
-function seura(SEURA_LAHDE) {
+function seura(SEURA_LAHDE, lisat) {
   const S = SEURA_LAHDE || lue('TalentMaster_Seura.html');
-  const f = fakeDb({ 'seurat/kpv/pelaajat/m93': Object.assign({}, TOPIAS) });
+  const alku = { 'seurat/kpv/pelaajat/m93': Object.assign({}, TOPIAS) };
+  (lisat || []).forEach((p) => { alku['seurat/kpv/pelaajat/' + p.id] = Object.assign({}, p); });
+  const f = fakeDb(alku);
   const el = {};
   const E = (id) => el[id] || (el[id] = { id, value: '', textContent: '', disabled: false, style: {},
     classList: { add() {}, remove() {} }, options: [{ text: 'KPV U13' }], selectedIndex: 0 });
   const loki = { kutsuFn: [], confirm: [], avattu: [] };
   const ctx = {
     document: { getElementById: E, querySelector: () => null },
-    window: { _pelaajatKaikki: [Object.assign({}, TOPIAS)] },
+    window: { _pelaajatKaikki: [Object.assign({}, TOPIAS)].concat((lisat || []).map((p) => Object.assign({}, p))) },
     location: { href: 'https://tm.example/talentmaster/TalentMaster_Seura.html' },
     URL, URLSearchParams, Promise, Object, String, Array, console: { log() {}, warn() {}, error() {} },
     setTimeout: (fn) => fn(),
@@ -123,6 +125,46 @@ describe('Seura · uusi pelaaja on aina uusi pelaaja (ajettu)', () => {
     t.ctx.uusi(); t.tayta('Toppari', 'Testi', 'h@x.fi'); await t.ctx.laheta();
     expect(t.pelaajat()).toHaveLength(1);                            // uutta pelaajaa EI syntynyt
     expect(t.linkinPid(t.kutsut()[0].linkki)).toBe('m93');          // kutsu Topiakselle
+  });
+});
+
+describe('KOLMEN LAPSEN sisarustapaus (#689 jatko)', () => {
+  const B = { id: 'top2', etunimi: 'Toppari', sukunimi: 'Testi', huoltajaEmail: 'h@x.fi', syntymaVuosi: 2006, joukkueet: ['kpv_u13'] };
+  it('A ja B olemassa, C lisätään samalla sähköpostilla → C:n linkki, esitäyttö ja kutsun sähköposti viittaavat C:hen', async () => {
+    const t = seura(undefined, [B]);
+    t.ctx.uusi(); t.tayta('Tero', 'Testaaja', 'h@x.fi'); await t.ctx.laheta();
+    const c = t.pelaajat().find((x) => x.etunimi === 'Tero');
+    expect(c && c.id).toBeTruthy();
+    expect([c.id]).not.toContain('m93');
+    const k = t.kutsut();
+    expect(k).toHaveLength(1);
+    const url = new URL(k[0].linkki);
+    expect(url.searchParams.get('pelaajaId')).toBe(c.id);                     // URL
+    expect([url.searchParams.get('etunimi'), url.searchParams.get('sukunimi')]).toEqual(['Tero', 'Testaaja']);   // esitäyttö
+    expect(k[0].pelaajaId).toBe(c.id);                                         // kutsudokumentti
+    const [nimi, data] = t.loki.kutsuFn[0];
+    expect(nimi).toBe('lahetaRekisteriKutsu');
+    expect(data.pelaajaId).toBe(c.id);                                         // sähköposti/audit
+    expect(new URL(data.linkki).searchParams.get('pelaajaId')).toBe(c.id);
+    expect(t.f.D.get('seurat/kpv/pelaajat/m93')).toEqual(TOPIAS);              // A ennallaan
+    expect(t.f.D.get('seurat/kpv/pelaajat/top2')).toEqual(B);                  // B ennallaan
+    expect(t.loki.confirm).toEqual([]);                                        // sama sähköposti ei varoita
+  });
+  it('vahvistaSuostumus C:n linkillä ja C:n tiedoilla kirjoittaa C:lle (syntymäaika täyttyy tyhjään)', async () => {
+    const v = vahvista({ etunimi: 'Tero', sukunimi: 'Testaaja', huoltajaEmail: 'h@x.fi', suostumusTila: 'odottaa' });
+    await v.fn(LOMAKE({ etunimi: 'Tero', syntyma: '2010-04-04' }), {});
+    const x = v.f.D.get('seurat/kpv/pelaajat/m93');   // harnessin dokumentti = C
+    expect(x).toMatchObject({ suostumusTila: 'annettu', syntymaVuosi: 2010 });
+    expect(v.audit().find((a) => a.toiminto === 'suostumus_annettu')).toMatchObject({ lomake_poikkeama: [], severity: 'info' });
+  });
+  it('VANHA LINKKI: A:n linkki + C:n tiedot (eri nimi, eri vuosi) → pelaaja_ristiriita, ei kirjoituksia, vastauksessa vain syykoodi', async () => {
+    const v = vahvista(TOPIAS_DOC());
+    const ennen = JSON.stringify(v.f.D.get('seurat/kpv/pelaajat/m93'));
+    const e = await v.fn(LOMAKE({ etunimi: 'Tero', syntyma: '2010-04-04' }), {}).catch((x) => x);
+    expect(e).toMatchObject({ code: 'failed-precondition', message: 'pelaaja_ristiriita', details: { syy: 'pelaaja_ristiriita' } });
+    expect(Object.keys(e.details)).toEqual(['syy']);                            // ei pelaajatietoja selaimelle
+    expect(JSON.stringify(v.f.D.get('seurat/kpv/pelaajat/m93'))).toBe(ennen);
+    expect(v.audit().map((a) => a.toiminto)).toEqual(['suostumus_estetty_pelaaja_ristiriita']);
   });
 });
 
