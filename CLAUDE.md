@@ -27,7 +27,7 @@
 - **Rules:** jokainen alikokoelma oma `match`-blokki (§7.15), muutos = versio + changelog + Rules-testi, deploy vain CI:llä (§12).
 - **Uusi appi joka koskee backendiin → App Check pakollinen** (§38).
 - **Service Worker cachettaa vain omat tiedostonsa** (allowlist, §27.4).
-- **Ei uusia `onAnonymous()`-haaroja Rulesiin.** Anonyymi pääsy suljetaan vaiheessa 0 (CODE_BRIEF_PELAAJAN_TUNNISTUS). Uusi pelaajan pääsy tehdään `onPelaajaItse`-funktiolla, kun se on olemassa (PR 1).
+- **Ei anonyymiä pääsyä Rulesiin eikä callableihin.** Suljettu v3.28:ssa (Vaihe 0 / PR 3). Pelaajan pääsy = `onPelaajaItse` / `onPelaajanSeura`, Solo-lapsen = `onSoloLapsiItse`; callableissa pelkkä `context.auth` ei riitä.
 - **Ei uusia tekoälykutsuja EU:n ulkopuolelle.** Käytä Bedrock EU:ta (`tarkistaBedrockEU`) tai muuta EU-reittiä. Suora OpenAI tai Anthropic vain kehityslipun takana.
 
 ---
@@ -176,7 +176,7 @@ per tiedosto** (kaksi lohkoa kumoaa toisen — Seura.html:n bugi oli juuri täm�
 | `TalentMaster_Testaus_v8.html` · `..._Harjoitettavuus_Lomake_v4.html` | Edeltäjät | ⚠️ arkistoidaan kun v9 pilottitestattu |
 | `TalentMaster_VP_v20/v21.html` · `..._Master_v15.html` | Vanhat versiot | Arkisto |
 | `functions/index.js` | 7 Cloud Functionia + aiProxy | ✅ §13 |
-| `tm_admin/firestore.rules` | Security Rules **v3.24** — deploy CI:llä (`deploy-rules.yml`, main-push, emulaattoritestit ensin) | ✅ §12 |
+| `tm_admin/firestore.rules` | Security Rules **v3.30** — deploy CI:llä (`deploy-rules.yml`, main-push, emulaattoritestit ensin) | ✅ §12 |
 | `lib/tm_bioika.js` | Bio-ikä — Mirwald 2002 PHV (Excel-verifioitu) + KR-runko (lukittu) | ✅ §25 |
 | `docs/testit_indeksit.js` | Canonical TKI/TSI/FLEI-laskenta + TKI-analyysimalli (§34) | ✅ §23/§34 |
 | `docs/TKI_ANALYYSIMALLI.md` | Kanoninen TKI-analyysimalli (3 viitekehystä + kehitysvauhti) | ✅ §34 |
@@ -298,9 +298,19 @@ admins/{uid}: email, rooli, superAdmin, luotu
 
 ---
 
-## 12. FIRESTORE SECURITY RULES — `tm_admin/firestore.rules` v3.24
+## 12. FIRESTORE SECURITY RULES — `tm_admin/firestore.rules` v3.30
 
-**DEPLOY = CI** (`.github/workflows/deploy-rules.yml`): main-pushissa ensin emulaattoritestit (`npm run test:rules`, Java ≥21), sitten deploy. Nykyversio **v3.24** (Vaihe 0 / PR 0: `admins` vain SA/itse; anonyymin pääsyn tavoitetila `it.fails`-testeinä). Jokainen muutos: versio + changelog tiedoston alkuun + Rules-testi. Sääntöjä EI muokata Consolesta.
+**DEPLOY = CI** (`.github/workflows/deploy-rules.yml`): main-pushissa ensin emulaattoritestit (`npm run test:rules`, Java ≥21), sitten deploy. Nykyversio **v3.30** (v3.30: PIN vain palvelimella · v3.29: playerCodes list suljettu · Vaihe 0 / PR 3: **anonyymi pääsy suljettu** — ei `onAnonymous`-funktiota, vartijatesti estää paluun). Jokainen muutos: versio + changelog tiedoston alkuun + Rules-testi. Sääntöjä EI muokata Consolesta.
+
+**Tunnistetyypit (vain nämä avaavat dataa):**
+- **Henkilökunta** — sähköposti/Google, claim `seuraId` + `rooli` → `onOmaSeura` / `onJohtoRooli` / `onValmentajaRooli`
+- **Seuran pelaaja** — `pelaajaKirjaudu` (PalloID + PIN tai linkki `{seuraId, pelaajaId}` + PIN; PIN 4 tai 6 numeroa, lukitus myös pelaajakohtainen `p_` yli reittien) → custom token `{ rooli:'pelaaja', pelaajaSeuraId, pelaajaId }` → `onPelaajaItse(sid, pid)` / `onPelaajanSeura(sid)`. ⚠ claim on `pelaajaSeuraId`, EI `seuraId` (muuten `onOmaSeura` avaisi koko seuran).
+- **Huoltaja** — sähköposti → `onLapsenHuoltaja` (pelaajan `huoltajaEmail`)
+- **Solo-vanhempi** — `players.parent_uid == auth.uid`; **Solo-lapsi** — `soloLapsiKirjaudu` → `{ rooli:'solo_lapsi', soloPlayerId }` → `onSoloLapsiItse`
+- **SA** — `admins/{uid}` tai claim `super_admin`
+- **Anonyymi** — EI mitään pelaaja-/Solo-dataa. Läpäisee vain roolittomat `onKirjautunut()`-ehdot (errors create, kaaviot-luku, playerCodes get) kunnes Anonymous-provider suljetaan Consolesta.
+- **Callablet:** `context.auth` EI riitä → `tarkistaOikeus` (henkilökunta) tai `authz_paatos.tunnisteTyyppi` / `kuittausPaatos`.
+- **PIN VAIN PALVELIMELLA (v3.30, PR 4):** selain ei kirjoita `pin`-kenttää (myös SA) eikä Solon `child_pin`:iä. PIN asetetaan `asetaPelaajanPin` / `luoPinitSeuralle` / `vahvistaSuostumus` / `soloHyvaksyLupa` -funktioissa, jotka kirjoittavat hajautuksen (`_pelaajaPin` / `_soloPin`) ja selväkielisen jakokopion samassa erässä. Oikeus: johto/SA koko seura, joukkueen valmentaja oma joukkue. Uudet PIN:t 6 numeroa (`crypto.randomInt`, ei triviaaleja).
 
 **KRIITTISIN MUISTISÄÄNTÖ:** Rules EI periydy alikokoelmiin. Jokainen alikokoelma vaatii oman `match`-blokin.
 `match /seurat/{id} { allow read }` sallii vain SEURADOKUMENTIN. (v2.0:n puuttuva `seurat/{id}/pelaajat/`
@@ -308,7 +318,8 @@ admins/{uid}: email, rooli, superAdmin, luotu
 
 ### Funktiot + keskeiset blokit
 ```javascript
-onAnonymous()   // PIN-kirjautuminen — lukee pelaajat + havainnot
+onPelaajaItse(sid, pid) / onPelaajanSeura(sid)  // pelaajatoken (v3.25) — anonyymi poistettu v3.28
+onSoloLapsiItse(playerId)                       // Solo-lapsen token (v3.26)
 onSuperAdmin()  // custom claim super_admin TAI admins/{uid} exists  ← ei tarvitse Custom Claimsia
 onOmaSeura(id)  // custom claim seuraId
 onJohtoRooli()  // vp|urheilutoimenjohtaja|seurasihteeri
@@ -316,7 +327,7 @@ onValmentajaRooli() // + valmentaja|talenttivalmentaja|...   onOmanSeuranValment
 
 seurat/{id}/kayttajat/{uid}:           read: onSuperAdmin() || (onOmaSeura() && onJohtoRooli()) || oma UID
 seurat/{id}/pelaajat/{pid}:            read: onSuperAdmin()||onSeuranJasen;  write: onSuperAdmin()||onHallinto||valmentajaroolit
-seurat/{id}/pelaajat/{pid}/havainnot/{hid}:  read: onSuperAdmin()||onOmaSeura()||onAnonymous();  write: onOmanSeuranValmentaja()||onSuperAdmin()  ← ADAR Pikakortti
+seurat/{id}/pelaajat/{pid}/havainnot/{hid}:  read: onSuperAdmin()||onOmaSeura()||(onPelaajaItse()||onLapsenHuoltaja() && nakyvyys=='pelaaja');  write: onOmanSeuranValmentaja()||onSuperAdmin()  ← ADAR Pikakortti
 seurat/{id}/pelaajat/{pid}/kirjaukset/{pv}:  päivittäiset harjoituskirjaukset
 seurat/{id}/pelaajat/{pid}/biologinen_ika/{pvm}:  read: SA||onSeuranJasen||onHuoltaja;  create/update: SA||onOmanSeuranValmentaja;  delete: SA
 seurat/{id}/testitapahtumat/{tid}/tulokset/{pid}:  testauslomake + kenttätyökalu kirjoittavat

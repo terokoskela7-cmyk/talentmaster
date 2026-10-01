@@ -33,8 +33,8 @@ describe('Vaihe 0 · Pelaaja_v7: ei kirjautumista URL-parametreilla', () => {
     expect(kuuntelija).not.toContain('signInAnonymously');
   });
 
-  it('anonyymi käyttäjä ohjataan PIN-näkymään', () => {
-    expect(kuuntelija).toMatch(/if \(user\.isAnonymous\) \{\s*_vanhaPinSessioOhjaus\(\);\s*_goPin\('[^']+'\);\s*return;\s*\}/);
+  it('anonyymi käyttäjä kirjataan ulos ja ohjataan PIN-näkymään (PR 3)', () => {
+    expect(kuuntelija).toMatch(/if \(user\.isAnonymous\) \{[^}]*_vanhaPinSessioOhjaus\(\);[\s\S]*?await auth\.signOut\(\);[\s\S]*?_goPin\('[^']+'\);\s*return;\s*\}/);
   });
 
   it('URL-reitin apufunktio on poistettu', () => {

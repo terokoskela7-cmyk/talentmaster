@@ -233,6 +233,12 @@ function anonContext() {
   });
 }
 
+/* v3.28: pelaajan oma istunto = palvelintoken (pelaajaKirjaudu). Korvaa entisen anonyymin
+   PIN-istunnon testeissä, jotka kohdistuvat SEURA_A / PELAAJA_UID -polkuihin. */
+function pelaajaItseContext() {
+  return pelaajaContext(SEURA_A, PELAAJA_UID);
+}
+
 function huoltajaContext() {
   return testEnv.authenticatedContext(HUOLTAJA_UID, {
     email: 'huoltaja@test.fi',  // lowercase — Rules vertaa .lower()
@@ -354,54 +360,54 @@ describe('Tenant isolation', () => {
 // 3. ANONYMOUS PIN — pelaajan lukuoikeus
 // ═══════════════════════════════════════════════════════════════════════════
 
-describe('Anonymous PIN (pelaaja)', () => {
+describe('Pelaaja itse (palvelintoken, v3.28)', () => {
   beforeEach(async () => {
     await seedSeuraAndPelaaja();
     await seedHavainto();
     await seedKehu();
   });
 
-  it('Anon lukee pelaajat (PIN-haku)', async () => {
-    const db = anonContext().firestore();
+  it('Pelaaja lukee pelaajat (PIN-haku)', async () => {
+    const db = pelaajaItseContext().firestore();
     await assertSucceeds(getDoc(doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID)));
   });
 
-  it('Anon lukee havainnot', async () => {
-    const db = anonContext().firestore();
+  it('Pelaaja lukee havainnot', async () => {
+    const db = pelaajaItseContext().firestore();
     await assertSucceeds(getDoc(doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'havainnot', 'hav1')));
   });
 
-  it('Anon lukee kehut', async () => {
-    const db = anonContext().firestore();
+  it('Pelaaja lukee kehut', async () => {
+    const db = pelaajaItseContext().firestore();
     await assertSucceeds(getDoc(doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'kehut', 'kehu1')));
   });
 
-  it('Anon päivittää pelaaja_lukenut havaintoon', async () => {
-    const db = anonContext().firestore();
+  it('Pelaaja päivittää pelaaja_lukenut havaintoon', async () => {
+    const db = pelaajaItseContext().firestore();
     await assertSucceeds(updateDoc(
       doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'havainnot', 'hav1'),
       { pelaaja_lukenut: true }
     ));
   });
 
-  it('Anon kuittaa kehun nahty-kentän', async () => {
-    const db = anonContext().firestore();
+  it('Pelaaja kuittaa kehun nahty-kentän', async () => {
+    const db = pelaajaItseContext().firestore();
     await assertSucceeds(updateDoc(
       doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'kehut', 'kehu1'),
       { nahty: true, nahtyKlo: new Date().toISOString() }
     ));
   });
 
-  it('Anon EI muokkaa kehun muita kenttiä', async () => {
-    const db = anonContext().firestore();
+  it('Pelaaja EI muokkaa kehun muita kenttiä', async () => {
+    const db = pelaajaItseContext().firestore();
     await assertFails(updateDoc(
       doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'kehut', 'kehu1'),
       { teksti: 'hakkeroitu' }
     ));
   });
 
-  it('Anon luo kirjauksen (pelaajan oma kirjaus)', async () => {
-    const db = anonContext().firestore();
+  it('Pelaaja luo kirjauksen (pelaajan oma kirjaus)', async () => {
+    const db = pelaajaItseContext().firestore();
     await assertSucceeds(setDoc(
       doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'kirjaukset', '2026-06-07'),
       { tyyppi: 'T', tehty: true, kesto_min: 30, fiilinki: 4, rpe: 6, lahde: 'pelaaja', luotu: new Date() }
@@ -412,32 +418,32 @@ describe('Anonymous PIN (pelaaja)', () => {
      `_tmKirjaa` teki createn ilman `luotu`-kenttää → hylätty. Se toimi vain, jos
      Tänään-harjoite oli jo luonut päivän dokumentin — mistä syntyi "toimii joskus".
      Nämä kaksi lukitsevat SYYN: kenttä on pakollinen, ei muu kirjauksen sisältö. */
-  it('Anon luo MINIMIkirjauksen (vain fiilinki) kun `luotu` on mukana', async () => {
-    const db = anonContext().firestore();
+  it('Pelaaja luo MINIMIkirjauksen (vain fiilinki) kun `luotu` on mukana', async () => {
+    const db = pelaajaItseContext().firestore();
     await assertSucceeds(setDoc(
       doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'kirjaukset', '2026-09-28'),
       { fiilinki: 4, lahde: 'pelaaja', paivitetty: new Date(), luotu: new Date('2026-09-28') }
     ));
   });
 
-  it('Anon EI luo minimikirjausta ilman `luotu`-kenttää (tämä oli bugin syy)', async () => {
-    const db = anonContext().firestore();
+  it('Pelaaja EI luo minimikirjausta ilman `luotu`-kenttää (tämä oli bugin syy)', async () => {
+    const db = pelaajaItseContext().firestore();
     await assertFails(setDoc(
       doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'kirjaukset', '2026-09-28'),
       { fiilinki: 4, lahde: 'pelaaja', paivitetty: new Date() }
     ));
   });
 
-  it('Anon päivittää xp/streak pelaajadokumentissa (rajattu affectedKeys)', async () => {
-    const db = anonContext().firestore();
+  it('Pelaaja päivittää xp/streak pelaajadokumentissa (rajattu affectedKeys)', async () => {
+    const db = pelaajaItseContext().firestore();
     await assertSucceeds(updateDoc(
       doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID),
       { xp: 150, streak: 3, streak_paivitetty: new Date().toISOString() }
     ));
   });
 
-  it('Anon päivittää d3-itsearvion pikakentät (§C D3, rajattu affectedKeys)', async () => {
-    const db = anonContext().firestore();
+  it('Pelaaja päivittää d3-itsearvion pikakentät (§C D3, rajattu affectedKeys)', async () => {
+    const db = pelaajaItseContext().firestore();
     await assertSucceeds(updateDoc(
       doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID),
       {
@@ -449,37 +455,37 @@ describe('Anonymous PIN (pelaaja)', () => {
     ));
   });
 
-  it('Anon EI päivitä d3:n ohella muuta kenttää', async () => {
-    const db = anonContext().firestore();
+  it('Pelaaja EI päivitä d3:n ohella muuta kenttää', async () => {
+    const db = pelaajaItseContext().firestore();
     await assertFails(updateDoc(
       doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID),
       { d3_taso: 4, hh_taso: 5 }
     ));
   });
 
-  it('Anon EI päivitä pelaajan muita kenttiä', async () => {
-    const db = anonContext().firestore();
+  it('Pelaaja EI päivitä pelaajan muita kenttiä', async () => {
+    const db = pelaajaItseContext().firestore();
     await assertFails(updateDoc(
       doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID),
       { etunimi: 'Hakkeri' }
     ));
   });
 
-  it('Anon EI lue seuradokumenttia', async () => {
-    const db = anonContext().firestore();
+  it('Pelaaja EI lue seuradokumenttia', async () => {
+    const db = pelaajaItseContext().firestore();
     await assertFails(getDoc(doc(db, 'seurat', SEURA_A)));
   });
 
-  it('Anon EI luo havaintoa', async () => {
-    const db = anonContext().firestore();
+  it('Pelaaja EI luo havaintoa', async () => {
+    const db = pelaajaItseContext().firestore();
     await assertFails(setDoc(
       doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'havainnot', 'hav-fake'),
       { tyyppi: 'adar', narratiivi: 'injektoitu' }
     ));
   });
 
-  it('Anon EI poista havaintoa', async () => {
-    const db = anonContext().firestore();
+  it('Pelaaja EI poista havaintoa', async () => {
+    const db = pelaajaItseContext().firestore();
     await assertFails(deleteDoc(
       doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'havainnot', 'hav1')
     ));
@@ -806,8 +812,8 @@ describe('Vaihe 4a — jaksofokus / tt_positio_aktiivinen (§4 roolimalli)', () 
     const db = randomContext().firestore();
     await assertFails(updateDoc(doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID), { jaksofokus: JF }));
   });
-  it('Anon PIN -pelaaja EI aseta jaksofokusta (ei sallituissa avaimissa)', async () => {
-    const db = anonContext().firestore();
+  it('Pelaaja EI aseta jaksofokusta (ei sallituissa avaimissa)', async () => {
+    const db = pelaajaItseContext().firestore();
     await assertFails(updateDoc(doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID), { jaksofokus: JF }));
   });
   it('Huoltaja EI aseta jaksofokusta', async () => {
@@ -1079,13 +1085,13 @@ describe('Kalenteri (v3.5 — omistajuus + läsnäolo)', () => {
   });
 
   // ── P7-c.1: anon-luku (PIN-pelaaja/vanhempi näkee seuran aikataulun) ──
-  it('Anon lukee kalenterin (P7-c.1)', async () => {
-    const db = anonContext().firestore();
+  it('Pelaaja lukee kalenterin (P7-c.1)', async () => {
+    const db = pelaajaItseContext().firestore();
     await assertSucceeds(getDoc(doc(db, 'seurat', SEURA_A, 'kalenteri', 'kal1')));
   });
 
-  it('Anon lukee kalenterin läsnäolijat (P7-c.1)', async () => {
-    const db = anonContext().firestore();
+  it('Pelaaja lukee kalenterin läsnäolijat (P7-c.1)', async () => {
+    const db = pelaajaItseContext().firestore();
     await assertSucceeds(getDoc(doc(db, 'seurat', SEURA_A, 'kalenteri', 'kal1', 'lasnaolijat', PELAAJA_UID)));
   });
 
@@ -1246,48 +1252,48 @@ describe('Kalenteri (v3.5 — omistajuus + läsnäolo)', () => {
   });
 
   // ── P7-c.3 + RSVP-erotus: anon (PIN-pelaaja/vanhempi) ilmoittaa oman SAATAVUUTENSA — vain saatavuus/rooli/paivitetty ──
-  it('Anon luo oman saatavuuden (vain saatavuus/rooli/paivitetty)', async () => {
-    const db = anonContext().firestore();
+  it('Pelaaja luo oman saatavuuden (vain saatavuus/rooli/paivitetty)', async () => {
+    const db = pelaajaItseContext().firestore();
     await assertSucceeds(setDoc(
       doc(db, 'seurat', SEURA_A, 'kalenteri', 'kal1', 'lasnaolijat', PELAAJA_UID),
       { saatavuus: 'estynyt', rooli: 'pelaaja', paivitetty: new Date().toISOString() }
     ));
   });
 
-  it('Anon EI voi kirjoittaa tila:aa (valmentajan toteutunut läsnäolo — väärennössuoja)', async () => {
-    const db = anonContext().firestore();
+  it('Pelaaja EI voi kirjoittaa tila:aa (valmentajan toteutunut läsnäolo — väärennössuoja)', async () => {
+    const db = pelaajaItseContext().firestore();
     await assertFails(setDoc(
       doc(db, 'seurat', SEURA_A, 'kalenteri', 'kal1', 'lasnaolijat', PELAAJA_UID),
       { tila: 'paikalla', rooli: 'pelaaja', paivitetty: new Date().toISOString() }
     ));
   });
 
-  it('Anon EI saa kirjoittaa syytä saatavuuteen (GDPR)', async () => {
-    const db = anonContext().firestore();
+  it('Pelaaja EI saa kirjoittaa syytä saatavuuteen (GDPR)', async () => {
+    const db = pelaajaItseContext().firestore();
     await assertFails(setDoc(
       doc(db, 'seurat', SEURA_A, 'kalenteri', 'kal1', 'lasnaolijat', PELAAJA_UID),
       { saatavuus: 'estynyt', rooli: 'pelaaja', paivitetty: new Date().toISOString(), syy: 'sairaus' }
     ));
   });
 
-  it('Anon päivittää oman saatavuuden (coach-luotu doc, tila säilyy)', async () => {
+  it('Pelaaja päivittää oman saatavuuden (coach-luotu doc, tila säilyy)', async () => {
     await testEnv.withSecurityRulesDisabled(async (ctx) => {
       await setDoc(doc(ctx.firestore(), 'seurat', SEURA_A, 'kalenteri', 'kal1', 'lasnaolijat', PELAAJA_UID),
         { tila: 'paikalla', merkitsija_uid: VALM_A_UID, nimi: 'Pelaaja' });
     });
-    const db = anonContext().firestore();
+    const db = pelaajaItseContext().firestore();
     await assertSucceeds(updateDoc(
       doc(db, 'seurat', SEURA_A, 'kalenteri', 'kal1', 'lasnaolijat', PELAAJA_UID),
       { saatavuus: 'tulossa', rooli: 'pelaaja', paivitetty: new Date().toISOString() }
     ));
   });
 
-  it('Anon EI muuta läsnäolon tila:aa update:ssa (väärennössuoja)', async () => {
+  it('Pelaaja EI muuta läsnäolon tila:aa update:ssa (väärennössuoja)', async () => {
     await testEnv.withSecurityRulesDisabled(async (ctx) => {
       await setDoc(doc(ctx.firestore(), 'seurat', SEURA_A, 'kalenteri', 'kal1', 'lasnaolijat', PELAAJA_UID),
         { tila: 'poissa', nimi: 'Pelaaja' });
     });
-    const db = anonContext().firestore();
+    const db = pelaajaItseContext().firestore();
     await assertFails(updateDoc(
       doc(db, 'seurat', SEURA_A, 'kalenteri', 'kal1', 'lasnaolijat', PELAAJA_UID),
       { tila: 'paikalla' }
@@ -1315,31 +1321,31 @@ describe('P7-c.4a kuluttaja-notifikaatiot', () => {
     });
   });
 
-  it('Anon lukee oman notifin', async () => {
-    const db = anonContext().firestore();
+  it('Pelaaja lukee oman notifin', async () => {
+    const db = pelaajaItseContext().firestore();
     await assertSucceeds(getDoc(doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'notifikaatiot', 'n1')));
   });
 
-  it('Anon EI voi LUODA notifia (väärennössuoja — vain CF/SA)', async () => {
-    const db = anonContext().firestore();
+  it('Pelaaja EI voi LUODA notifia (väärennössuoja — vain CF/SA)', async () => {
+    const db = pelaajaItseContext().firestore();
     await assertFails(setDoc(doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'notifikaatiot', 'vaara'),
       { tyyppi: 'muistutus', teksti: 'väärennös', luettu: false }));
   });
 
-  it('Anon merkitsee oman notifin luetuksi (vain luettu)', async () => {
-    const db = anonContext().firestore();
+  it('Pelaaja merkitsee oman notifin luetuksi (vain luettu)', async () => {
+    const db = pelaajaItseContext().firestore();
     await assertSucceeds(updateDoc(doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'notifikaatiot', 'n1'),
       { luettu: true, luettu_pvm: new Date().toISOString() }));
   });
 
-  it('Anon EI muuta notifin tekstiä', async () => {
-    const db = anonContext().firestore();
+  it('Pelaaja EI muuta notifin tekstiä', async () => {
+    const db = pelaajaItseContext().firestore();
     await assertFails(updateDoc(doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'notifikaatiot', 'n1'),
       { teksti: 'hakkeroitu' }));
   });
 
-  it('Anon kirjoittaa oman notif_asetuksen (opt-out)', async () => {
-    const db = anonContext().firestore();
+  it('Pelaaja kirjoittaa oman notif_asetuksen (opt-out)', async () => {
+    const db = pelaajaItseContext().firestore();
     await assertSucceeds(updateDoc(doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID),
       { notif_asetukset: { inapp: { enabled: false } } }));
   });
@@ -1540,11 +1546,11 @@ describe('Aikaleima-vartija (A5)', () => {
     ));
   });
 
-  it('Lukukuittaus (anon) toimii vaikka luotu puuttuu — affectedKeys ohittaa vartijan', async () => {
+  it('Lukukuittaus (token) toimii vaikka luotu puuttuu — affectedKeys ohittaa vartijan', async () => {
     // Regressiosuoja: update-vartija ei saa estää lukukuittausta luotu-puuttuvassa
     // (vanhassa) dokumentissa. seedHavainto luo hav1:n ILMAN luotu-kenttää.
     await seedHavainto();
-    const db = anonContext().firestore();
+    const db = pelaajaItseContext().firestore();
     await assertSucceeds(updateDoc(
       doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'havainnot', 'hav1'),
       { pelaaja_lukenut: true }
@@ -1559,18 +1565,18 @@ describe('Aikaleima-vartija (A5)', () => {
 // Vrt. pelaajat-LIST (where pin==) toimii anonyyminä — sen viimeinen OR-haara
 // käyttää resource.data:aa (sallittu list:ssä), EI get():iä.
 // ═══════════════════════════════════════════════════════════════════════════
-describe('P6 anon havainnot LISTEN (bugi-diagnoosi)', () => {
-  it('anon GET yksittäinen havainto → sallittu (baseline)', async () => {
+describe('P6 pelaaja havainnot LISTEN (bugi-diagnoosi)', () => {
+  it('pelaaja GET yksittäinen havainto → sallittu (baseline)', async () => {
     await seedAdminDoc(); await seedSeuraAndPelaaja(); await seedHavainto();
-    const db = anonContext().firestore();
+    const db = pelaajaItseContext().firestore();
     await assertSucceeds(getDoc(
       doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'havainnot', 'hav1')
     ));
   });
 
-  it('anon LIST-query where(tila==valmis).limit(50) → RATKAISEVA (P6-bugi)', async () => {
+  it('pelaaja LIST-query where(tila==valmis).limit(50) → RATKAISEVA (P6-bugi)', async () => {
     await seedAdminDoc(); await seedSeuraAndPelaaja(); await seedHavainto();
-    const db = anonContext().firestore();
+    const db = pelaajaItseContext().firestore();
     // Kysely on SAMA kuin Pelaaja_v7 `_p6KaynnistakuuntelIja`:ssa. v3.22 lisäsi
     // `nakyvyys=='pelaaja'` -ehdon sekä sääntöön että kyselyyn — jos tämä ja
     // tuotantokysely eriävät, testi ei enää mittaa oikeaa kyselyä.
@@ -1650,8 +1656,8 @@ describe('Tavoitteet (IDP, Vaihe 2)', () => {
     ));
   });
 
-  it('Anonyymi EI luo eikä lue tavoitetta', async () => {
-    const db = anonContext().firestore();
+  it('Pelaaja EI luo eikä lue tavoitetta', async () => {
+    const db = pelaajaItseContext().firestore();
     await assertFails(setDoc(
       doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'tavoitteet', 'tav-anon'),
       { teksti: 'anon', tila: 'kaynnissa', luotu: new Date() }
@@ -1707,6 +1713,15 @@ describe('Solo Player (v3.7)', () => {
     await assertFails(updateDoc(doc(pc(P2).firestore(), 'playerCodes', 'TMP-ABCDEF'), { parent_uid: P2 }));
   });
 
+  it('v3.29 · PlayerCode: get kirjautuneelle (myös puuttuva koodi = törmäystarkistus), list EI kenellekään', async () => {
+    await assertSucceeds(getDoc(doc(pc(P2).firestore(), 'playerCodes', 'TMP-ABCDEF')));
+    await assertSucceeds(getDoc(doc(pc(P2).firestore(), 'playerCodes', 'TMP-EIOLE1')));
+    await assertFails(getDocs(collection(pc(P2).firestore(), 'playerCodes')));
+    await assertFails(getDocs(query(collection(pc(P1).firestore(), 'playerCodes'), where('parent_uid', '==', P1))));
+    await assertFails(getDocs(collection(anonContext().firestore(), 'playerCodes')));
+    await assertFails(getDoc(doc(unauthContext().firestore(), 'playerCodes', 'TMP-ABCDEF')));
+  });
+
   it('Kirjautumaton EI pääse Solo-dataan', async () => {
     const db = unauthContext().firestore();
     await assertFails(getDoc(doc(db, 'players', 'pl1')));
@@ -1744,16 +1759,16 @@ describe('Solo Polku B (v3.8)', () => {
     await assertFails(updateDoc(doc(pc(P1).firestore(), 'lupapyynnot', 'req-1'), { status: 'hyvaksytty' }));
     await assertFails(deleteDoc(doc(pc(P1).firestore(), 'lupapyynnot', 'req-1')));
   });
-  it('Lapsi-PIN: anonyymi GET pelaajan jolla child_pin', async () => {
-    await assertSucceeds(getDoc(doc(anonContext().firestore(), 'players', 'pl-pin')));
+  it('v3.28: anonyymi EI enää GET pelaajaa, jolla child_pin (lapsi = soloLapsiKirjaudu-token)', async () => {
+    await assertFails(getDoc(doc(anonContext().firestore(), 'players', 'pl-pin')));
   });
   it('Lapsi-PIN: anonyymi EI saa listata players-kokoelmaa', async () => {
     const db = anonContext().firestore();
     await assertFails(getDocs(query(collection(db, 'players'), where('child_pin', '==', '1234'))));
   });
-  it('Lapsi-PIN: anonyymi päivittää profiilikentän, EI parent_uid/child_pin', async () => {
+  it('v3.28: anonyymi EI päivitä profiilikenttää eikä parent_uid/child_pin', async () => {
     const db = anonContext().firestore();
-    await assertSucceeds(updateDoc(doc(db, 'players', 'pl-pin'), { nimi: 'Uusi nimi' }));
+    await assertFails(updateDoc(doc(db, 'players', 'pl-pin'), { nimi: 'Uusi nimi' }));
     await assertFails(updateDoc(doc(db, 'players', 'pl-pin'), { parent_uid: 'hax' }));
     await assertFails(updateDoc(doc(db, 'players', 'pl-pin'), { child_pin: '0000' }));
   });
@@ -1791,8 +1806,8 @@ describe('GDPR RTBF delete-gate (#96)', () => {
     await assertFails(deleteDoc(doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID)));
   });
 
-  it('Anonyymi PIN EI POISTA pelaajan pääDocia', async () => {
-    const db = anonContext().firestore();
+  it('Pelaaja EI POISTA pelaajan pääDocia', async () => {
+    const db = pelaajaItseContext().firestore();
     await assertFails(deleteDoc(doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID)));
   });
 
@@ -1801,8 +1816,8 @@ describe('GDPR RTBF delete-gate (#96)', () => {
     await assertFails(deleteDoc(doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'havainnot', 'hav1')));
   });
 
-  it('Anonyymi PIN EI POISTA havaintoa (alikokoelma)', async () => {
-    const db = anonContext().firestore();
+  it('Pelaaja EI POISTA havaintoa (alikokoelma)', async () => {
+    const db = pelaajaItseContext().firestore();
     await assertFails(deleteDoc(doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'havainnot', 'hav1')));
   });
 });
@@ -1824,11 +1839,11 @@ describe('IDP-kausitavoite (idp_kausi) — Vaihe 3a', () => {
   it('Toisen seuran valmentaja EI kirjoita (tenant-eristys)', async () => {
     await assertFails(setDoc(idpRef(randomContext().firestore(), SEURA_A), KAUSITAVOITE));
   });
-  it('Pelaaja (PIN/anon) LUKEE oman kausitavoitteen (3c-peili)', async () => {
-    await assertSucceeds(getDoc(idpRef(anonContext().firestore(), SEURA_A)));
+  it('Pelaaja (token) LUKEE oman kausitavoitteen (3c-peili)', async () => {
+    await assertSucceeds(getDoc(idpRef(pelaajaItseContext().firestore(), SEURA_A)));
   });
-  it('Pelaaja (PIN/anon) EI kirjoita kausitavoitetta', async () => {
-    await assertFails(setDoc(idpRef(anonContext().firestore(), SEURA_A), KAUSITAVOITE));
+  it('Pelaaja (token) EI kirjoita kausitavoitetta', async () => {
+    await assertFails(setDoc(idpRef(pelaajaItseContext().firestore(), SEURA_A), KAUSITAVOITE));
   });
   it('Huoltaja EI lue kausitavoitetta (VP-työkalu; §7.22-peili erikseen)', async () => {
     await assertFails(getDoc(idpRef(huoltajaContext().firestore(), SEURA_A)));
@@ -1838,18 +1853,18 @@ describe('IDP-kausitavoite (idp_kausi) — Vaihe 3a', () => {
   });
   // IDP-kortti v2 §4 — pelaajan sitoumus (field-level anon-write)
   const SIT = { pelaaja_sitoumus: { itsearvio: { q1: 'a', q2: 'b', q3: 'c' }, rekisteri: 'showcase', sitoumus_pvm: '2026-07-09T10:00:00.000Z', vahvistettu_pvm: null } };
-  it('Pelaaja (anon) LUO oman sitoumuksensa (vain pelaaja_sitoumus)', async () => {
-    await assertSucceeds(setDoc(idpRef(anonContext().firestore(), SEURA_A), SIT));
+  it('Pelaaja (token) LUO oman sitoumuksensa (vain pelaaja_sitoumus)', async () => {
+    await assertSucceeds(setDoc(idpRef(pelaajaItseContext().firestore(), SEURA_A), SIT));
   });
-  it('Pelaaja (anon) PÄIVITTÄÄ sitoumuksen olemassa olevaan dokkiin (merge, ei koske tavoitteita)', async () => {
+  it('Pelaaja (token) PÄIVITTÄÄ sitoumuksen olemassa olevaan dokkiin (merge, ei koske tavoitteita)', async () => {
     await setDoc(idpRef(vpContext(SEURA_A).firestore(), SEURA_A), KAUSITAVOITE);
-    await assertSucceeds(setDoc(idpRef(anonContext().firestore(), SEURA_A), SIT, { merge: true }));
+    await assertSucceeds(setDoc(idpRef(pelaajaItseContext().firestore(), SEURA_A), SIT, { merge: true }));
   });
-  it('Pelaaja (anon) EI voi asettaa vahvistettu_pvm (vain VP vahvistaa)', async () => {
-    await assertFails(setDoc(idpRef(anonContext().firestore(), SEURA_A), { pelaaja_sitoumus: { itsearvio: {}, sitoumus_pvm: 'x', vahvistettu_pvm: '2026-07-09T00:00:00.000Z' } }));
+  it('Pelaaja (token) EI voi asettaa vahvistettu_pvm (vain VP vahvistaa)', async () => {
+    await assertFails(setDoc(idpRef(pelaajaItseContext().firestore(), SEURA_A), { pelaaja_sitoumus: { itsearvio: {}, sitoumus_pvm: 'x', vahvistettu_pvm: '2026-07-09T00:00:00.000Z' } }));
   });
-  it('Pelaaja (anon) EI voi lisätä tavoitteita sitoumuksen ohella', async () => {
-    await assertFails(setDoc(idpRef(anonContext().firestore(), SEURA_A), Object.assign({ tavoitteet: [] }, SIT)));
+  it('Pelaaja (token) EI voi lisätä tavoitteita sitoumuksen ohella', async () => {
+    await assertFails(setDoc(idpRef(pelaajaItseContext().firestore(), SEURA_A), Object.assign({ tavoitteet: [] }, SIT)));
   });
 });
 
@@ -1883,8 +1898,8 @@ describe('Ohjelmakirjasto (v3.12 — seurat/{sid}/ohjelmat)', () => {
     const db = fysiikkavalmentajaContext('fys-kpv-001', 'kpv').firestore();
     await assertFails(setDoc(ohjRef(db, SEURA_A, 'ohj-bad'), OHJ));
   });
-  it('Pelaaja (anon PIN) EI kirjoita', async () => {
-    const db = anonContext().firestore();
+  it('Pelaaja (token) EI kirjoita', async () => {
+    const db = pelaajaItseContext().firestore();
     await assertFails(setDoc(ohjRef(db, SEURA_A, 'ohj-anon'), OHJ));
   });
   it('Oman seuran jäsen lukee kirjaston', async () => {
@@ -2204,7 +2219,7 @@ describe('Arviointikerrat — append-only, arvio kuuluu arvioijalle (H1)', () =>
     await assertSucceeds(getDocs(rajattu));
   });
 
-  it('§7.22: anonyymi (pelaajan PIN) ei lue arviointikertoja', async () => {
+  it('§7.22: pelaaja (pelaajan PIN) ei lue arviointikertoja', async () => {
     await seedKerta('k-jaettu', kerta(VALM_A_UID));
     const db = testEnv.unauthenticatedContext().firestore();
     await assertFails(getDoc(doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'arviointikerrat', 'k-jaettu')));
@@ -2552,9 +2567,9 @@ describe('Havainnon kumoaminen — vain tekijä (v3.21)', () => {
     await assertFails(updateDoc(polkuH(db), Object.assign({}, peru, { peruttu_uid: VALM_A_UID })));
   });
 
-  it('anonyymi (PIN) EI voi perua', async () => {
+  it('pelaaja (PIN) EI voi perua', async () => {
     await seedKumottava(VALM_A_UID);
-    await assertFails(updateDoc(polkuH(anonContext().firestore()), peru));
+    await assertFails(updateDoc(polkuH(pelaajaItseContext().firestore()), peru));
   });
 
   it('pisteitä ei voi muuttaa samassa kirjoituksessa (peruttua ei "korjata" hiljaa)', async () => {
@@ -2575,9 +2590,9 @@ describe('Havainnon kumoaminen — vain tekijä (v3.21)', () => {
     await assertSucceeds(updateDoc(polkuH(db), { narratiivi: 'täydennys' }));
   });
 
-  it('anonyymi saa yhä merkitä luetuksi (P6-kuittaus ennallaan)', async () => {
+  it('pelaaja saa yhä merkitä luetuksi (P6-kuittaus ennallaan)', async () => {
     await seedKumottava(VALM_A_UID);
-    await assertSucceeds(updateDoc(polkuH(anonContext().firestore()), { pelaaja_lukenut: true }));
+    await assertSucceeds(updateDoc(polkuH(pelaajaItseContext().firestore()), { pelaaja_lukenut: true }));
   });
 
   /* Peruutus ei saa olla kumottavissa: ilman lukkoa kuka tahansa joukkueen valmentaja voisi
@@ -2604,9 +2619,9 @@ describe('Havainnon kumoaminen — vain tekijä (v3.21)', () => {
       await assertFails(updateDoc(polkuH(db, 'hav-jo-peruttu'), { pisteet: { A: 3 } }));
     });
 
-    it('anonyymi EI voi koskea siihen', async () => {
+    it('pelaaja EI voi koskea siihen', async () => {
       await seedPeruttu();
-      await assertFails(updateDoc(polkuH(anonContext().firestore(), 'hav-jo-peruttu'), { pelaaja_lukenut: true }));
+      await assertFails(updateDoc(polkuH(pelaajaItseContext().firestore(), 'hav-jo-peruttu'), { pelaaja_lukenut: true }));
     });
 
     it('SA voi korjata (hallintatoimi)', async () => {
@@ -2684,21 +2699,21 @@ describe('Havainnon näkyvyys — vain merkityt pelaajalle (v3.22)', () => {
   });
 
   // ── LUKU ────────────────────────────────────────────────────────────────
-  it('anonyymi lukee pelaajalle merkityn', async () => {
+  it('pelaaja lukee pelaajalle merkityn', async () => {
     await seedNak('n-pelaaja', 'pelaaja');
-    await assertSucceeds(getDoc(polkuN(anonContext().firestore(), 'n-pelaaja')));
+    await assertSucceeds(getDoc(polkuN(pelaajaItseContext().firestore(), 'n-pelaaja')));
   });
 
-  it('anonyymi EI lue valmentajille merkittyä', async () => {
+  it('pelaaja EI lue valmentajille merkittyä', async () => {
     await seedNak('n-valm', 'valmentajat');
-    await assertFails(getDoc(polkuN(anonContext().firestore(), 'n-valm')));
+    await assertFails(getDoc(polkuN(pelaajaItseContext().firestore(), 'n-valm')));
   });
 
   /* Migraatio asettaa vanhoille 'pelaaja'. Puuttuva arvo tarkoittaa siis kirjoitusta, joka ei
      ole käynyt kytkimen läpi — fail-closed. */
-  it('anonyymi EI lue havaintoa jolta kenttä puuttuu (fail-closed)', async () => {
+  it('pelaaja EI lue havaintoa jolta kenttä puuttuu (fail-closed)', async () => {
     await seedNak('n-puuttuu', undefined);
-    await assertFails(getDoc(polkuN(anonContext().firestore(), 'n-puuttuu')));
+    await assertFails(getDoc(polkuN(pelaajaItseContext().firestore(), 'n-puuttuu')));
   });
 
   it.each([['pelaaja', true], ['valmentajat', false]])(
@@ -2715,9 +2730,9 @@ describe('Havainnon näkyvyys — vain merkityt pelaajalle (v3.22)', () => {
   });
 
   // ── ANONYYMIN KIRJOITUS ─────────────────────────────────────────────────
-  it('anonyymi voi merkitä luetuksi', async () => {
+  it('pelaaja voi merkitä luetuksi', async () => {
     await seedNak('n-luku', 'pelaaja');
-    await assertSucceeds(updateDoc(polkuN(anonContext().firestore(), 'n-luku'), { pelaaja_lukenut: true }));
+    await assertSucceeds(updateDoc(polkuN(pelaajaItseContext().firestore(), 'n-luku'), { pelaaja_lukenut: true }));
   });
 
   /* Anonyymi sai aiemmin muuttaa MITÄ TAHANSA kenttää — myös omia pisteitään ja näkyvyyttään. */
@@ -2728,18 +2743,18 @@ describe('Havainnon näkyvyys — vain merkityt pelaajalle (v3.22)', () => {
     ['nakyvyys', { nakyvyys: 'valmentajat' }],
   ])('anonyymi EI voi muuttaa kenttää %s', async (_n, muutos) => {
     await seedNak('n-kirj', 'pelaaja');
-    await assertFails(updateDoc(polkuN(anonContext().firestore(), 'n-kirj'), muutos));
+    await assertFails(updateDoc(polkuN(pelaajaItseContext().firestore(), 'n-kirj'), muutos));
   });
 
-  it('anonyymi ei voi liittää lukukuittaukseen muuta kenttää', async () => {
+  it('pelaaja ei voi liittää lukukuittaukseen muuta kenttää', async () => {
     await seedNak('n-yhd', 'pelaaja');
-    await assertFails(updateDoc(polkuN(anonContext().firestore(), 'n-yhd'),
+    await assertFails(updateDoc(polkuN(pelaajaItseContext().firestore(), 'n-yhd'),
       { pelaaja_lukenut: true, pisteet: { A: 3 } }));
   });
 
-  it('anonyymi ei voi kuitata valmentajille merkittyä', async () => {
+  it('pelaaja ei voi kuitata valmentajille merkittyä', async () => {
     await seedNak('n-valm3', 'valmentajat');
-    await assertFails(updateDoc(polkuN(anonContext().firestore(), 'n-valm3'), { pelaaja_lukenut: true }));
+    await assertFails(updateDoc(polkuN(pelaajaItseContext().firestore(), 'n-valm3'), { pelaaja_lukenut: true }));
   });
 
   // ── LIST-KYSELY ─────────────────────────────────────────────────────────
@@ -2751,15 +2766,15 @@ describe('Havainnon näkyvyys — vain merkityt pelaajalle (v3.22)', () => {
   const listKysely = (db, ehdot) => query(
     collection(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'havainnot'), ...ehdot);
 
-  it('anon LIST nakyvyys-ehdolla → sallittu', async () => {
+  it('pelaaja LIST nakyvyys-ehdolla → sallittu', async () => {
     await seedNak('n-list', 'pelaaja');
-    await assertSucceeds(getDocs(listKysely(anonContext().firestore(),
+    await assertSucceeds(getDocs(listKysely(pelaajaItseContext().firestore(),
       [where('tila', '==', 'valmis'), where('nakyvyys', '==', 'pelaaja'), limit(50)])));
   });
 
-  it('anon LIST ILMAN nakyvyys-ehtoa → hylätty', async () => {
+  it('pelaaja LIST ILMAN nakyvyys-ehtoa → hylätty', async () => {
     await seedNak('n-list2', 'pelaaja');
-    await assertFails(getDocs(listKysely(anonContext().firestore(),
+    await assertFails(getDocs(listKysely(pelaajaItseContext().firestore(),
       [where('tila', '==', 'valmis'), limit(50)])));
   });
 
@@ -2779,69 +2794,119 @@ describe('Havainnon näkyvyys — vain merkityt pelaajalle (v3.22)', () => {
 
   it('Vanhempi_v2:n kysely (tyyppi + nakyvyys) → sallittu', async () => {
     await seedViesti('n-viesti');
-    await assertSucceeds(getDocs(listKysely(anonContext().firestore(),
+    await assertSucceeds(getDocs(listKysely(huoltajaContext().firestore(),
       [where('tyyppi', '==', 'valmentaja_viesti'), where('nakyvyys', '==', 'pelaaja'), limit(20)])));
   });
 
   it('Vanhempi_v2:n kysely ILMAN nakyvyys-ehtoa → hylätty', async () => {
     await seedViesti('n-viesti2');
-    await assertFails(getDocs(listKysely(anonContext().firestore(),
+    await assertFails(getDocs(listKysely(huoltajaContext().firestore(),
       [where('tyyppi', '==', 'valmentaja_viesti'), limit(20)])));
   });
 });
 
 /* ══════════════════════════════════════════════════════════════════════════════════════════
-   VAIHE 0 · TAVOITETILA (CODE_BRIEF_PELAAJAN_TUNNISTUS v2, PR 0)
-   Nämä kuvaavat tilan PR 3:n jälkeen. `it.fails` = testi ON punainen nykysäännöillä (v3.24), ja
-   Vitest raportoi sen vihreänä vain koska se epäonnistuu. PR 3 poistaa `.fails`-merkinnän.
-   EI VACUOUS: jokaisella punaisella testillä on alla "NYKYTILA (aukko)" -pari, joka AJAA saman
-   operaation ja osoittaa, että se ONNISTUU tänään. Ilman paria it.fails menisi läpi myös
-   kirjoitusvirheestä (esim. väärä polku). PR 3:ssa nykytila-parit poistetaan.
-   Pelaajatunnus = TÄNÄÄN anonyymi PIN-istunto. PR 1:n custom token (`rooli:'pelaaja'`,
-   `pelaajaSeuraId`) evätään jo nyt, koska siinä ei ole `seuraId`-claimia — siksi testi 4
-   mallinnetaan anonyyminä, ja token-variantti on erillinen vihreä vartija.
+   VAIHE 0 · TAVOITETILA (CODE_BRIEF_PELAAJAN_TUNNISTUS v2) — VIHREÄ v3.28:sta (PR 3)
+   PR 0 kirjasi nämä punaisina (`it.fails`) NYKYTILA-parien kanssa; PR 3 sulki anonyymin pääsyn,
+   joten `.fails` ja NYKYTILA-parit on poistettu. Anonyymi istunto on yhä mahdollinen julkisella
+   avaimella (kunnes provider suljetaan), joten nämä pysyvät regressiovartijoina.
 ══════════════════════════════════════════════════════════════════════════════════════════ */
-describe('Vaihe 0 · tavoitetila (punaiset, it.fails → vihreiksi PR 3:ssa)', () => {
+describe('Vaihe 0 · tavoitetila (v3.28: anonyymi suljettu)', () => {
   beforeEach(async () => { await seedSeuraAndPelaaja(); });
 
   const kirjaus = () => ({ tyyppi: 'T', tehty: true, kesto_min: 30, fiilinki: 4, rpe: 6, lahde: 'pelaaja', luotu: new Date() });
 
-  it.fails('anonyymi listaa toisen seuran pelaajat → evätty', async () => {
+  /* EI VACUOUS: jokainen evätty operaatio ajetaan ensin oikealla identiteetillä (assertSucceeds),
+     joten assertFails ei voi mennä läpi kirjoitusvirheestä (väärä polku / puuttuva seed). */
+  it('anonyymi listaa toisen seuran pelaajat → evätty (seuran VP listaa)', async () => {
+    await assertSucceeds(getDocs(collection(vpContext(SEURA_B).firestore(), 'seurat', SEURA_B, 'pelaajat')));
     await assertFails(getDocs(collection(anonContext().firestore(), 'seurat', SEURA_B, 'pelaajat')));
   });
-  it('NYKYTILA (aukko): anonyymi listaa toisen seuran pelaajat — ja saa PIN:it', async () => {
-    const snap = await assertSucceeds(getDocs(collection(anonContext().firestore(), 'seurat', SEURA_B, 'pelaajat')));
-    expect(snap.docs.map((d) => d.id)).toContain(PELAAJA_B_UID);
-    expect(snap.docs[0].data().pin, 'pin-kenttä vuotaa listauksessa').toBeTruthy();
-  });
-
-  it.fails('anonyymi hakee yksittäisen toisen seuran pelaajan → evätty', async () => {
+  it('anonyymi hakee yksittäisen toisen seuran pelaajan → evätty (pelaaja itse hakee)', async () => {
+    await assertSucceeds(getDoc(doc(pelaajaContext(SEURA_B, PELAAJA_B_UID).firestore(), 'seurat', SEURA_B, 'pelaajat', PELAAJA_B_UID)));
     await assertFails(getDoc(doc(anonContext().firestore(), 'seurat', SEURA_B, 'pelaajat', PELAAJA_B_UID)));
   });
-  it('NYKYTILA (aukko): anonyymi hakee toisen seuran pelaajan', async () => {
-    const s = await assertSucceeds(getDoc(doc(anonContext().firestore(), 'seurat', SEURA_B, 'pelaajat', PELAAJA_B_UID)));
-    expect(s.exists()).toBe(true);
-  });
-
-  it.fails('anonyymi luo kirjaukset-merkinnän → evätty', async () => {
+  it('anonyymi luo kirjaukset-merkinnän → evätty (pelaaja itse luo)', async () => {
     await assertFails(setDoc(
       doc(anonContext().firestore(), 'seurat', SEURA_B, 'pelaajat', PELAAJA_B_UID, 'kirjaukset', '2026-09-29'), kirjaus()));
-  });
-  it('NYKYTILA (aukko): anonyymi luo kirjauksen MILLE TAHANSA pelaajalle', async () => {
     await assertSucceeds(setDoc(
-      doc(anonContext().firestore(), 'seurat', SEURA_B, 'pelaajat', PELAAJA_B_UID, 'kirjaukset', '2026-09-29'), kirjaus()));
+      doc(pelaajaContext(SEURA_B, PELAAJA_B_UID).firestore(), 'seurat', SEURA_B, 'pelaajat', PELAAJA_B_UID, 'kirjaukset', '2026-09-29'), kirjaus()));
   });
-
-  /* Pelaaja A = PELAAJA_UID (seura A), pelaaja B = PELAAJA_A2_UID (sama seura). Anonyymi istunto
-     ei kanna pelaajan identiteettiä lainkaan, joten A:n istunto lukee B:n dokumentin. */
-  it.fails('pelaajatunnus A lukee pelaajan B samassa seurassa → evätty', async () => {
+  /* Pelaaja A = PELAAJA_UID (seura A), pelaaja B = PELAAJA_A2_UID (sama seura). Ennen v3.28:aa
+     anonyymi PIN-istunto ei kantanut pelaajan identiteettiä, joten A:n istunto luki B:n dokumentin. */
+  it('pelaajatunnus A lukee pelaajan B samassa seurassa → evätty (B itse lukee)', async () => {
+    await assertSucceeds(getDoc(doc(pelaajaContext(SEURA_A, PELAAJA_A2_UID).firestore(), 'seurat', SEURA_A, 'pelaajat', PELAAJA_A2_UID)));
     await assertFails(getDoc(doc(anonContext().firestore(), 'seurat', SEURA_A, 'pelaajat', PELAAJA_A2_UID)));
+    await assertFails(getDoc(doc(pelaajaItseContext().firestore(), 'seurat', SEURA_A, 'pelaajat', PELAAJA_A2_UID)));
   });
-  it('NYKYTILA (aukko): pelaajan A istunto lukee pelaajan B dokumentin (sama seura)', async () => {
-    const s = await assertSucceeds(getDoc(doc(anonContext().firestore(), 'seurat', SEURA_A, 'pelaajat', PELAAJA_A2_UID)));
-    expect(s.data().pin).toBe('4321');
-  });
+});
 
+/* ══════════════════════════════════════════════════════════════════════════════════════════
+   v3.28 · ANONYYMI EVÄTTY KAIKILLA ENTISILLÄ PELAAJAPOLUILLA (Vaihe 0 / PR 3)
+   Jokainen rivi on operaatio, joka ennen v3.28:aa ONNISTUI anonyymina. Sama operaatio ajetaan
+   pelaajatokenilla (assertSucceeds = positiivinen kontrolli) ja anonyymina (assertFails).
+══════════════════════════════════════════════════════════════════════════════════════════ */
+describe('v3.28 · anonyymi evätty (positiivinen kontrolli pelaajatokenilla)', () => {
+  const P = (...seg) => ['seurat', SEURA_A, 'pelaajat', PELAAJA_UID, ...seg];
+  beforeEach(async () => {
+    await seedSeuraAndPelaaja();
+    await seedHavainto();
+    await seedKehu();
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      const f = ctx.firestore();
+      await setDoc(doc(f, 'seurat', SEURA_A, 'kalenteri', 'kal-anon'), { otsikko: 'Treeni', luoja_uid: VALM_A_UID });
+      await setDoc(doc(f, ...P('notifikaatiot', 'n-anon')), { tyyppi: 'peruttu', teksti: 'x', luettu: false });
+      await setDoc(doc(f, ...P('havainnot', 'n-anon')), { tila: 'valmis', nakyvyys: 'pelaaja', pelaaja_lukenut: false });
+      await setDoc(doc(f, ...P('havainnot', 'v-anon')), { tyyppi: 'valmentaja_viesti', tila: 'valmis', nakyvyys: 'pelaaja', teksti: 'x', valmentajaUid: VALM_A_UID, luotu: new Date() });
+      await setDoc(doc(f, ...P('idp_kausi', '2026')), { tavoitteet: [] });
+      await setDoc(doc(f, ...P('idp', 'idp-anon')), { teksti: 'x' });
+      await setDoc(doc(f, 'seurat', SEURA_A, 'kalenteri', 'kal-anon', 'lasnaolijat', PELAAJA_UID), { tila: 'paikalla' });
+    });
+  });
+  const OPS = [
+    ['pelaajadokumentin get', (db) => getDoc(doc(db, ...P()))],
+    ['xp/streak-päivitys', (db) => updateDoc(doc(db, ...P()), { xp: 10, streak: 1 })],
+    ['havainnon luku (nakyvyys=pelaaja)', (db) => getDoc(doc(db, ...P('havainnot', 'n-anon')))],
+    ['havaintojen list nakyvyys-ehdolla', (db) => getDocs(query(collection(db, ...P('havainnot')), where('nakyvyys', '==', 'pelaaja'), limit(50)))],
+    ['havainnon lukukuittaus', (db) => updateDoc(doc(db, ...P('havainnot', 'n-anon')), { pelaaja_lukenut: true })],
+    ['kehun luku', (db) => getDoc(doc(db, ...P('kehut', 'kehu1')))],
+    ['kirjauksen luonti', (db) => setDoc(doc(db, ...P('kirjaukset', '2026-10-01')), { fiilinki: 4, lahde: 'pelaaja', luotu: new Date() })],
+    ['notifikaation luku', (db) => getDoc(doc(db, ...P('notifikaatiot', 'n-anon')))],
+    ['kalenterin luku', (db) => getDoc(doc(db, 'seurat', SEURA_A, 'kalenteri', 'kal-anon'))],
+    ['viestit (valmentaja_viesti, Vanhempi/Pelaaja-kysely)', (db) => getDocs(query(collection(db, ...P('havainnot')),
+      where('tyyppi', '==', 'valmentaja_viesti'), where('nakyvyys', '==', 'pelaaja'), limit(20)))],
+    ['kausitavoitteen luku (idp_kausi)', (db) => getDoc(doc(db, ...P('idp_kausi', '2026')))],
+    ['kausitavoitteen sitoumus (idp_kausi write)', (db) => setDoc(doc(db, ...P('idp_kausi', '2026')),
+      { pelaaja_sitoumus: { itsearvio: { q1: 'a' }, sitoumus_pvm: '2026-10-01T10:00:00.000Z', vahvistettu_pvm: null } }, { merge: true })],
+    ['läsnäolon luku', (db) => getDoc(doc(db, 'seurat', SEURA_A, 'kalenteri', 'kal-anon', 'lasnaolijat', PELAAJA_UID))],
+    ['oma saatavuus (RSVP, olemassa oleva rivi)', (db) => updateDoc(doc(db, 'seurat', SEURA_A, 'kalenteri', 'kal-anon', 'lasnaolijat', PELAAJA_UID),
+      { saatavuus: 'tulossa', rooli: 'pelaaja', paivitetty: new Date().toISOString() })],
+  ];
+  for (const [nimi, op] of OPS) {
+    it(nimi + ': pelaajatoken sallittu, anonyymi evätty', async () => {
+      await assertSucceeds(op(pelaajaItseContext().firestore()));
+      await assertFails(op(anonContext().firestore()));
+    });
+  }
+  it('IDP (idp/{id}): huoltaja lukee (kontrolli), anonyymi ei lue eikä kirjoita', async () => {
+    await assertSucceeds(getDoc(doc(huoltajaContext().firestore(), ...P('idp', 'idp-anon'))));
+    await assertFails(getDoc(doc(anonContext().firestore(), ...P('idp', 'idp-anon'))));
+    await assertFails(setDoc(doc(anonContext().firestore(), ...P('idp', 'idp-uusi')), { teksti: 'x' }));
+  });
+  it('VARTIJA: pelaajatoken (seura) EI pääse Solon players-kokoelmaan', async () => {
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), 'players', 'solo-v328'), { parent_uid: 'p-v328', child_pin: '1234', playerCode: 'TMP-V328AA', seuraId: null, nimi: 'L' });
+    });
+    const pel = pelaajaItseContext().firestore();
+    await assertFails(getDoc(doc(pel, 'players', 'solo-v328')));
+    await assertFails(updateDoc(doc(pel, 'players', 'solo-v328'), { nimi: 'X' }));
+    await assertFails(getDocs(collection(pel, 'players')));
+  });
+  it('VARTIJA: Rules-tiedostossa ei ole onAnonymous-sanaa eikä anonymous-provider-ehtoa (ei palaa kopioimalla)', () => {
+    const rules = readFileSync(RULES_PATH, 'utf8');
+    expect(rules).not.toMatch(/onAnonymous/);
+    expect(rules).not.toMatch(/sign_in_provider\s*==\s*'anonymous'/);
+  });
   /* PR 1:n token: claim on `pelaajaSeuraId`, EI `seuraId` — `onOmaSeura()` lukee pelkän
      `token.seuraId`:n, joten `seuraId`-claim avaisi pelaajalle koko seuran (myös valmentajien
      havainnot). Tämä vartija on vihreä jo nyt ja pysyy vihreänä. */
@@ -2932,7 +2997,7 @@ describe('v3.25 · pelaajatoken (onPelaajaItse)', () => {
     await assertFails(getDoc(doc(pel(), 'seurat', SEURA_A)));
     await assertFails(getDoc(doc(pel(), 'seurat', SEURA_A, 'kayttajat', VALM_A_UID)));
   });
-  it('päivittää omasta dokumentistaan VAIN samat kentät kuin anonyymi (xp/streak) — ei muuta', async () => {
+  it('päivittää omasta dokumentistaan VAIN samat kentät kuin pelaaja (xp/streak) — ei muuta', async () => {
     await assertSucceeds(updateDoc(doc(pel(), 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID), { xp: 10, streak: 2 }));
     await assertFails(updateDoc(doc(pel(), 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID), { pin: '0000' }));
     await assertFails(updateDoc(doc(pel(), 'seurat', SEURA_A, 'pelaajat', PELAAJA_A2_UID), { xp: 10 }));
@@ -3123,9 +3188,10 @@ describe('v3.26 · Solo-lapsen token (onSoloLapsiItse)', () => {
     await assertSucceeds(getDocs(query(collection(vanh, 'players'), where('parent_uid', '==', SOLO_PARENT))));
     await assertSucceeds(getDoc(doc(vanh, 'players', SOLO_PID, 'kirjaukset', '2026-09-30')));
   });
-  it('NYKYTILA (poistuu PR 3:ssa): anonyymi haara on yhä auki players/{id}.get():lle', async () => {
+  it('v3.28: anonyymi haara suljettu — players/{id} get ja update evätään', async () => {
     const anon = testEnv.authenticatedContext(ANON_UID, { firebase: { sign_in_provider: 'anonymous' } }).firestore();
-    await assertSucceeds(getDoc(doc(anon, 'players', SOLO_PID)));
+    await assertFails(getDoc(doc(anon, 'players', SOLO_PID)));
+    await assertFails(updateDoc(doc(anon, 'players', SOLO_PID), { nimi: 'X' }));
   });
 });
 
@@ -3149,8 +3215,13 @@ function lsTynka(alku) {
 }
 async function laske(db, uid) {
   const pl = await getDocs(query(collection(db, 'players'), where('parent_uid', '==', uid)));
-  const pc = await getDocs(query(collection(db, 'playerCodes'), where('parent_uid', '==', uid)));
-  return { pelaajat: pl.docs.map((d) => d.id), koodit: pc.docs.map((d) => ({ id: d.id, playerId: d.data().playerId })) };
+  // v3.29: playerCodes list on suljettu clientilta → lasketaan säännöt ohittaen (tarkistus, ei käyttäjän kysely).
+  let koodit = [];
+  await testEnv.withSecurityRulesDisabled(async (c) => {
+    const pc = await getDocs(query(collection(c.firestore(), 'playerCodes'), where('parent_uid', '==', uid)));
+    koodit = pc.docs.map((d) => ({ id: d.id, playerId: d.data().playerId }));
+  });
+  return { pelaajat: pl.docs.map((d) => d.id), koodit };
 }
 const EHDOT = { tos: true, privacy: true };
 
@@ -3229,5 +3300,69 @@ describe('v3.27 · Solo Polku A -profiilierä (getAfter)', () => {
     expect(t.koodit).toEqual([{ id: ORPO, playerId: pid }]);
     const p = await getDoc(doc(db, 'players', pid));
     expect(p.data().playerCode).toBe(ORPO);
+  });
+});
+
+/* ══════════════════════════════════════════════════════════════════════════════════════════
+   v3.30 · PIN VAIN PALVELIMELLA (Vaihe 0 / PR 4)
+   Selain ei aseta eikä muuta pin-kenttää (hajautus _pelaajaPin ja selväkielinen kopio pysyvät samana).
+   Solo: child_pin vain palvelimella. Lupapyynnön tulos alidokumentissa tulos/{token}.
+══════════════════════════════════════════════════════════════════════════════════════════ */
+describe('v3.30 · PIN vain palvelimella', () => {
+  beforeEach(async () => { await seedSeuraAndPelaaja(); await seedAdminDoc(); });
+  const pel = (db) => doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID);
+
+  it('henkilökunta (VP, oman joukkueen valmentaja) EI päivitä pin-kenttää — muut kentät ennallaan', async () => {
+    for (const db of [vpContext(SEURA_A).firestore(), valmentajaContext(VALM_A_UID, SEURA_A).firestore()]) {
+      await assertFails(updateDoc(pel(db), { pin: '482915' }));
+      await assertFails(updateDoc(pel(db), { pin_asetettu: new Date() }));
+      await assertFails(updateDoc(pel(db), { pelipaikka: 'KH', pin: '482915' }));
+      await assertSucceeds(updateDoc(pel(db), { pelipaikka: 'KH' }));
+    }
+  });
+  it('SA:kaan EI päivitä pin-kenttää selaimesta (Admin SDK ohittaa säännöt)', async () => {
+    await assertFails(updateDoc(pel(saContext().firestore()), { pin: '482915' }));
+    await assertSucceeds(updateDoc(pel(saContext().firestore()), { pelipaikka: 'OP' }));
+  });
+  it('create ilman pin-kenttää onnistuu, pin-kentän kanssa hylätään', async () => {
+    const db = vpContext(SEURA_A).firestore();
+    await assertSucceeds(setDoc(doc(db, 'seurat', SEURA_A, 'pelaajat', 'uusi-ok'), { etunimi: 'Uusi', joukkueet: [JOUKKUE_A1] }));
+    await assertFails(setDoc(doc(db, 'seurat', SEURA_A, 'pelaajat', 'uusi-pin'), { etunimi: 'Uusi', joukkueet: [JOUKKUE_A1], pin: '482915' }));
+  });
+  it('pelaajatoken EI muuta omaa pin-kenttäänsä', async () => {
+    await assertFails(updateDoc(pel(pelaajaItseContext().firestore()), { pin: '482915' }));
+  });
+
+  it('Solo: vanhempi EI aseta (create) eikä muuta child_pin-kenttää; muu profiili ennallaan', async () => {
+    const P = 'solo-pin-vanhempi';
+    const v = testEnv.authenticatedContext(P).firestore();
+    await assertFails(setDoc(doc(v, 'players', 'sp-1'), { parent_uid: P, nimi: 'L', child_pin: '482915' }));
+    await assertSucceeds(setDoc(doc(v, 'players', 'sp-2'), { parent_uid: P, nimi: 'L' }));
+    await testEnv.withSecurityRulesDisabled(async (c) => {
+      await setDoc(doc(c.firestore(), 'players', 'sp-3'), { parent_uid: P, nimi: 'L', child_pin: '482915', playerCode: 'TMP-ABCDEF' });
+    });
+    await assertFails(updateDoc(doc(v, 'players', 'sp-3'), { child_pin: '000111' }));
+    await assertSucceeds(updateDoc(doc(v, 'players', 'sp-3'), { nimi: 'Uusi nimi' }));
+    await assertSucceeds(setDoc(doc(v, 'players', 'sp-3'), { pp: 'oikea' }, { merge: true }));   // Solo_Profiilin tallennus
+  });
+
+  it('lupapyynnot/{rid}/tulos/{token}: get tunnetulla tokenilla, EI list, EI kirjoitusta; väärä token → ei löydy', async () => {
+    await testEnv.withSecurityRulesDisabled(async (c) => {
+      await setDoc(doc(c.firestore(), 'lupapyynnot', 'rq-1'), { status: 'hyvaksytty', token_hash: 'h', playerId: 'p1' });
+      await setDoc(doc(c.firestore(), 'lupapyynnot', 'rq-1', 'tulos', 'tok-oikea'), { child_pin: '482915', playerCode: 'TMP-ABCDEF', playerId: 'p1' });
+    });
+    const anon = unauthContext().firestore();
+    const s = await assertSucceeds(getDoc(doc(anon, 'lupapyynnot', 'rq-1', 'tulos', 'tok-oikea')));
+    expect(s.data().child_pin).toBe('482915');
+    const vaara = await assertSucceeds(getDoc(doc(anon, 'lupapyynnot', 'rq-1', 'tulos', 'tok-vaara')));
+    expect(vaara.exists()).toBe(false);
+    await assertFails(getDocs(collection(anon, 'lupapyynnot', 'rq-1', 'tulos')));
+    await assertFails(setDoc(doc(anon, 'lupapyynnot', 'rq-1', 'tulos', 'tok-x'), { child_pin: '1' }));
+    const kirj = testEnv.authenticatedContext('joku').firestore();
+    await assertFails(getDocs(collection(kirj, 'lupapyynnot', 'rq-1', 'tulos')));
+    // Päädokumentissa ei ole PIN:iä eikä koodia (uusi malli)
+    const paa = await assertSucceeds(getDoc(doc(anon, 'lupapyynnot', 'rq-1')));
+    expect(paa.data()).not.toHaveProperty('child_pin');
+    expect(paa.data()).not.toHaveProperty('playerCode');
   });
 });

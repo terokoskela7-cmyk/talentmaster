@@ -5,7 +5,7 @@
  *   B) ESIEHDOT — olemassaolo · hyväksyntä · pelaajan olemassaolo · kohdistus, kukin omalla koodillaan
  *   C) PARITEETTI — vendoroitu functions/kaavio_policy.js vastaa lib/tm_kaavio_policy.js:ää
  *   D) CLIENT — optimistinen ✓ + localStorage-peili + palautus virheessä; §7.22: 0 lukua
- *   E) REHELLISYYS — identiteetti on ASSERTED, ei verifioitu; koodi sanoo sen ääneen
+ *   E) IDENTITEETTI — PR 3:sta verifioitu pelaajatokenista (ennen: asserted, anonyymi istunto)
  *
  * (A) ja (E) ovat erän ydin. CF:n arvo EI ole identiteetti (anon-token ei kanna sitä) vaan se,
  * että kaavio-dokumenttia ei tarvitse avata pelaajan kirjoituksille. Jos kirjoitus voisi
@@ -163,19 +163,22 @@ describe('D — client: optimistinen kuittaus ja palautus', () => {
   });
 });
 
-describe('E — rehellisyys: identiteetti on asserted, ei verifioitu', () => {
-  it('CF ei väitä verifioivansa kutsujaa — rajoite on kirjoitettu auki', () => {
+describe('E — identiteetti (Vaihe 0 / PR 3): verifioitu pelaajatokenista', () => {
+  it('CF kertoo identiteetin tulevan tokenista (ei enää asserted)', () => {
     const otsikko = CF.slice(CF.indexOf('KAAVIO ERÄ D2'), CF.indexOf('exports.kuittaaKaavioYmmarretty'));
-    expect(otsikko).toMatch(/ASSERTED|asserted/);
-    expect(otsikko).toMatch(/Anonymous Auth/);
-    expect(otsikko).not.toMatch(/verifioi(tu|daan) (pelaaja|kutsuja)/i);
+    expect(otsikko).toMatch(/VERIFIOITU palvelintokenista/);
+    expect(otsikko).toMatch(/kuittausPaatos/);
   });
-  it('CF EI käytä context.auth.uid:tä pelaajaidentiteettinä (se on anon-uid)', () => {
-    expect(cfRunko).not.toMatch(/context\.auth\.uid/);
+  it('päätös tehdään ENNEN kaavion lukua; context.auth.uid vain henkilökunnan tarkistaOikeuteen', () => {
+    expect(cfRunko.indexOf('kuittausPaatos(context.auth, seuraId, pelaajaId)')).toBeGreaterThan(0);
+    expect(cfRunko.indexOf('kuittausPaatos(')).toBeLessThan(cfRunko.indexOf('await ref.get()'));
+    expect(cfRunko.match(/context\.auth\.uid/g)).toEqual(['context.auth.uid']);
+    expect(cfRunko).toMatch(/tarkistaOikeus\(context\.auth\.uid, seuraId\)/);
   });
-  it('client sanoo saman — ei "verifioitu"-lupausta pelaajalle', () => {
+  it('client ei lupaa enempää kuin pehmeän signaalin', () => {
     const lohko = PEL.slice(PEL.indexOf('ERÄ D2 ·'), PEL.indexOf('window._p7KuittaaKaavio'));
-    expect(lohko).toMatch(/ASSERTED|asserted/);
+    expect(lohko).toMatch(/pelaajaKirjaudu-tokeniin/);
+    expect(lohko).toMatch(/pehmeä signaali/);
   });
 });
 

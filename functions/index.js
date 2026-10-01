@@ -12,10 +12,12 @@
 const functions = require('firebase-functions/v1');
 const admin     = require('firebase-admin');
 const https     = require('https');
-const { kayttajaRooliSallittu } = require('./authz_paatos');   // pure authz-päätös (#71, testattava)
+const { kayttajaRooliSallittu, tunnisteTyyppi, kuittausPaatos } = require('./authz_paatos');   // pure authz-päätös (#71, PR 3, testattava)
 const { keraaPelaajanManifesti, rakennaAuditPayload } = require('./gdpr_locator');   // GDPR RTBF/export -locator (#96)
 const { kaavioKohdistuuServer } = require('./kaavio_policy');   // kaavion kohdistus (peili lib/tm_kaavio_policy.js)
 const auditloki = require('./auditloki');   // haeAuditLoki: suodattimet + sivutus (SA)
+const pelaajapin = require('./pelaajapin');   // PR 4: PIN vain palvelimella (asetaPelaajanPin / luoPinitSeuralle)
+const suostumusTarkistus = require('./suostumus_tarkistus');   // sisarusbugi: lomake vs tunnisteen pelaaja
 const valmennusapuri = require('./valmennusapuri');
 const pelaajakirjautuminen = require('./pelaajakirjautuminen');   // Vaihe 0 / PR 1: PalloID + PIN → custom token           // Valmennusapuri-pilotti (Vaihe 2): ohjeistus+tietopohja palvelimella
 if (!admin.apps.length) {
@@ -249,8 +251,20 @@ function pohjaMuistutus({ seuraNimi, pelaajaNimi, linkki }) {
 }
 function pohjaPelaajaSivu({
   seuraNimi, pelaajaNimi, joukkueNimi,
-  salasanaLinkki, vanhempiLinkki, pelaajaLinkki, hEmail
+  salasanaLinkki, vanhempiLinkki, pelaajaLinkki, hEmail, palloId, pin
 }) {
+  /* PR 4: tunnukset (PalloID + PIN) samaan viestiin, jotta huoltaja voi jakaa ne lapselle heti
+     (sama malli kuin suostumussähköpostissa #687). Linkillä avattuna pelaaja syöttää pelkän PIN:n. */
+  const tunnusOsio = pin ? `
+    <div style="margin:20px 0;padding:16px;border:1px solid #28B090;border-radius:10px;text-align:center;">
+      <div style="font-size:13px;color:#555;margin-bottom:8px;">Pelaajan tunnukset</div>
+      ${palloId ? `<div style="font-size:14px;color:#333;margin-bottom:4px;">PalloID <strong style="letter-spacing:2px;">${palloId}</strong></div>` : ''}
+      <div style="font-size:14px;color:#333;">PIN <strong style="font-size:22px;letter-spacing:5px;color:#28B090;">${pin}</strong></div>
+      <div style="font-size:13px;color:#555;margin-top:10px;line-height:1.5;">Anna ne pelaajalle. Pelaajan omasta linkistä avattuna riittää pelkkä PIN.</div>
+    </div>` : `
+    <p style="font-size:13px;color:#555;line-height:1.5;margin:4px 0 16px;text-align:center;">
+      ⚽ Avaa linkki ja kirjaudu lapsen PalloID:llä ja PIN-koodilla. PIN näkyy Vanhemman sivulla kirjautumisen jälkeen.
+    </p>`;
   const salasanaOsio = salasanaLinkki ? `
     <div style="background:#f0fdf8;border:2px solid #28B090;border-radius:12px;
                 padding:20px;margin:24px 0;">
@@ -300,9 +314,7 @@ function pohjaPelaajaSivu({
         ⚽ Pelaajan oma sivu →
       </a>
     </div>
-    <p style="font-size:13px;color:#555;line-height:1.5;margin:4px 0 16px;text-align:center;">
-      ⚽ Avaa linkki ja kirjaudu lapsen PalloID:llä ja PIN-koodilla. PIN näkyy Vanhemman sivulla kirjautumisen jälkeen.
-    </p>
+    ${tunnusOsio}
     <p style="font-size:13px;color:#555;line-height:1.6;margin:20px 0 0;">
       💡 Lisää sivut puhelimen kotinäytölle (selaimen valikosta "Lisää aloitusnäytölle"), niin ne ovat aina tallessa.
       Osoitteen voi aina palauttaa mieleen: <strong>talentmasterid.com</strong>
@@ -326,7 +338,7 @@ function pohjaSalasanaAsetus({ etunimi, rooli, resetLinkki }) {
     </div>`;
 }
 // Suostumus-flow: huoltajan salasanalinkki perhepintaan (§16/§7.22 — ei tasoja/lukuja/vertailua).
-function pohjaSuostumusLinkki({ lapsiNimi, resetLinkki }) {
+function pohjaSuostumusLinkki({ lapsiNimi, resetLinkki, pin }) {
   return `
     <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px;">
       <h2 style="color:#28B090;">Tervetuloa TalentMasteriin!</h2>
@@ -342,7 +354,12 @@ function pohjaSuostumusLinkki({ lapsiNimi, resetLinkki }) {
       </div>
       <p style="font-size:14px;color:#333;line-height:1.6;">
         Salasanan asetettuasi p&auml;&auml;set vanhemman n&auml;kym&auml;&auml;n &mdash; kirjaudu t&auml;ll&auml; s&auml;hk&ouml;postiosoitteella ja uudella salasanalla.
-      </p>
+      </p>${pin ? `
+      <div style="margin:20px 0;padding:14px;border:1px solid #28B090;border-radius:8px;text-align:center;">
+        <div style="font-size:13px;color:#555;">Pelaajan PIN-koodi</div>
+        <div style="font-size:30px;letter-spacing:6px;font-weight:bold;color:#28B090;">${pin}</div>
+        <div style="font-size:13px;color:#333;">Anna t&auml;m&auml; pelaajalle &mdash; h&auml;n kirjautuu omaan n&auml;kym&auml;&auml;ns&auml; PalloID:ll&auml; ja PIN-koodilla.</div>
+      </div>` : ''}
       <p style="color:#999;font-size:12px;">Jos painike ei toimi, kopioi t&auml;m&auml; osoite selaimeen:<br>${resetLinkki}</p>
     </div>`;
 }
@@ -359,15 +376,23 @@ exports.lahetaRekisteriKutsu = functions
     if (!context.auth) {
       throw new functions.https.HttpsError('unauthenticated', 'Kirjaudu ensin.');
     }
-    const { hEmail, linkki, seura, seuraId, etunimi, sukunimi, joukkue } = data;
+    const { hEmail, linkki, seura, etunimi, sukunimi, joukkue } = data;
     if (!hEmail || !linkki) {
       throw new functions.https.HttpsError('invalid-argument', 'hEmail ja linkki ovat pakollisia.');
     }
+    /* Vaihe 0 / PR 3: pelkkä context.auth EI riitä — anonyymi (julkinen avain) lähetti seuran nimissä
+       sähköpostia mielivaltaisella linkillä. Vain seuran johto / SA (tarkistaOikeus). seuraId datasta
+       tai henkilökunnan tokenista (vanha Seura-sivu ei lähettänyt sitä). */
+    const seuraId = String(data.seuraId || (context.auth.token && context.auth.token.seuraId) || '').trim();
+    if (!seuraId || !(await tarkistaOikeus(context.auth.uid, seuraId)).sallittu) {
+      throw new functions.https.HttpsError('permission-denied', 'Ei oikeutta lähettää kutsuja tämän seuran nimissä.');
+    }
     const pelaajaNimi = [etunimi, sukunimi].filter(Boolean).join(' ') || 'pelaaja';
     const seuraNimi   = seura || 'TalentMaster-seura';
-    const joukkueNimi = seuraId
-      ? await haeJoukkueNimi(seuraId, joukkue)
-      : (joukkue || '').replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+    // Sisarusbugi: audit-riville AINA pelaajaId (datasta tai linkin pelaajaId-parametrista).
+    let pelaajaIdKutsu = data.pelaajaId ? String(data.pelaajaId) : null;
+    if (!pelaajaIdKutsu) { try { pelaajaIdKutsu = new URL(String(linkki)).searchParams.get('pelaajaId'); } catch (e) { pelaajaIdKutsu = null; } }
+    const joukkueNimi = await haeJoukkueNimi(seuraId, joukkue);
     try {
       await lahetaSahkoposti({
         to: hEmail,
@@ -377,7 +402,7 @@ exports.lahetaRekisteriKutsu = functions
       });
       await db.collection('audit').add({
         toiminto: 'rekisterikutsu_lahetetty', severity: 'info',
-        hEmail, pelaajaNimi, seura: seuraNimi,
+        hEmail, pelaajaNimi, seura: seuraNimi, seuraId, pelaajaId: pelaajaIdKutsu,
         tekija_uid: context.auth.uid,
         aikaleima: admin.firestore.FieldValue.serverTimestamp(),
       }).catch(() => {});
@@ -489,6 +514,10 @@ exports.lahetaHuoltajaKutsu = functions
     if (!huoltajaEmail || !pelaajaId || !seuraId) {
       throw new functions.https.HttpsError('invalid-argument',
         'huoltajaEmail, pelaajaId ja seuraId ovat pakollisia.');
+    }
+    // Vaihe 0 / PR 3: vain seuran johto / SA — anonyymi loi kutsuja minkä tahansa seuran alle.
+    if (!(await tarkistaOikeus(context.auth.uid, seuraId)).sallittu) {
+      throw new functions.https.HttpsError('permission-denied', 'Ei oikeutta tähän seuraan.');
     }
     const suostumusLinkki =
       `${TM_BASE_URL}/` +
@@ -952,9 +981,12 @@ exports.lahetaPelaajaSivuLinkki = functions
     const seuraNimi   = seura || 'TalentMaster-seura';
     const joukkueNimi = await haeJoukkueNimi(seuraId, joukkue);
     const baseUrl = TM_BASE_URL;
+    // PR 4: henkilökohtainen linkki ?p=&seura= (Pelaaja_v7 → pelkkä PIN-näppäimistö), ei nimiä URL:iin.
     const pelaajaLinkki = `${baseUrl}/TalentMaster_Pelaaja_v7.html` +
-      `?pelaajaId=${pelaajaId}&seuraId=${seuraId}` +
-      `&etunimi=${encodeURIComponent(etunimi||'')}&sukunimi=${encodeURIComponent(sukunimi||'')}`;
+      `?p=${encodeURIComponent(pelaajaId)}&seura=${encodeURIComponent(seuraId)}`;
+    const pd = pelSnap.data() || {};
+    const pinNyt = (pd.pin != null && /^(\d{4}|\d{6})$/.test(String(pd.pin))) ? String(pd.pin) : null;
+    const palloIdNyt = pelaajakirjautuminen.pelaajanPalloId(pd);
     const vanhempiLinkki = `${baseUrl}/TalentMaster_Vanhempi_v2.html` +
       `?pelaajaId=${pelaajaId}&seuraId=${seuraId}` +
       `&etunimi=${encodeURIComponent(etunimi||'')}&sukunimi=${encodeURIComponent(sukunimi||'')}`;
@@ -977,7 +1009,7 @@ exports.lahetaPelaajaSivuLinkki = functions
         fromName: seuraNimi,
         html: pohjaPelaajaSivu({
           seuraNimi, pelaajaNimi, joukkueNimi,
-          salasanaLinkki, vanhempiLinkki, pelaajaLinkki, hEmail,
+          salasanaLinkki, vanhempiLinkki, pelaajaLinkki, hEmail, palloId: palloIdNyt, pin: pinNyt,
         }),
       });
       await db.collection('seurat').doc(seuraId)
@@ -1003,8 +1035,8 @@ exports.lahetaPelaajaSivuLinkki = functions
 // tallennettu huoltajaEmail) ennen kuin suostumus merkitään. Kirjoittaa palvelinpuolella
 // KAIKKI kutsuflow'n kirjoitukset (suostumusTila + aux-kentät tila/antaja/bio-pituudet +
 // kutsut→'hyvaksytty'), koska sivu on autentikoimaton eikä saa kirjoittaa Firestoreen suoraan.
-// Lisäksi luo/hakee huoltajan Auth-tilin ja palauttaa salasanan asetuslinkin (sama kaava kuin
-// lahetaPelaajaSivuLinkki / lahetaResetLinkki — url PAKOLLINEN, muuten 500, ks. §13).
+// Lisäksi luo/hakee huoltajan Auth-tilin ja LÄHETTÄÄ salasanan asetuslinkin + pelaajan PIN:in
+// huoltajan sähköpostiin (url PAKOLLINEN, muuten 500, ks. §13). PR 3b: linkkiä/PIN:iä EI palauteta.
 // Käytössä: TalentMaster_Rekisterointi_Suostumus.html (kutsuflow).
 // ─────────────────────────────────────────────────────────────────────────────
 exports.vahvistaSuostumus = functions
@@ -1015,7 +1047,7 @@ exports.vahvistaSuostumus = functions
     // ei-arkaluonteiset kentät jotka lomake kirjoitti ennen suoraan client-puolelta — siirretty tänne,
     // koska Rekisterointi_Suostumus.html on autentikoimaton ja Rules estää sen suorat update-kirjoitukset.
     const { seuraId, pelaajaId, hEmail, suostumusTeksti, antaja, bioPituudet, kutsuId,
-            syntyma, sukupuoli, suostumukset, suostumusMap, antajaRooli, aikaleima } = data || {};
+            syntyma, sukupuoli, suostumukset, suostumusMap, antajaRooli, aikaleima, etunimi } = data || {};
     if (!seuraId || !pelaajaId || !hEmail) {
       throw new functions.https.HttpsError('invalid-argument',
         'seuraId, pelaajaId ja hEmail ovat pakollisia.');
@@ -1050,6 +1082,20 @@ exports.vahvistaSuostumus = functions
         'Huoltajan sähköposti ei täsmää pelaajan tietoihin.');
     }
 
+    /* 2b. Sisarusbugi (30.9.2026): sähköposti täsmää myös SISARUKSELLE (sama huoltaja). Lomakkeen etunimi ja
+       syntymävuosi verrataan tunnisteen osoittamaan pelaajaan ENNEN kirjoituksia (salliva täsmäys,
+       functions/suostumus_tarkistus.js). Hylätään vain, jos MOLEMMAT eroavat → ei kirjoituksia, audit (warn,
+       ei nimiä), failed-precondition 'pelaaja_ristiriita'. Yksittäinen poikkeama → hyväksytään + lomake_poikkeama. */
+    const kohde = suostumusTarkistus.tarkistaSuostumusKohde(snap.data() || {}, { etunimi, syntyma, sukupuoli });
+    if (kohde.ristiriita) {
+      await db.collection('audit').add({
+        toiminto: 'suostumus_estetty_pelaaja_ristiriita', severity: 'warn',
+        pelaajaId, seuraId, syyt: kohde.syyt,
+        aikaleima: admin.firestore.FieldValue.serverTimestamp(),
+      }).catch(() => {});
+      throw new functions.https.HttpsError('failed-precondition', 'pelaaja_ristiriita', { syy: 'pelaaja_ristiriita' });
+    }
+
     // 3. Merkitse suostumus annetuksi + kirjoita ei-arkaluonteiset aux-kentät palvelinpuolella.
     const TS = admin.firestore.FieldValue.serverTimestamp();
     const paivitys = {
@@ -1070,23 +1116,13 @@ exports.vahvistaSuostumus = functions
     // huoltajaEmail — vahvistus että varmennettu osoite tallentuu pelaajaprofiiliin
     paivitys.huoltajaEmail = hEmailNorm;
 
-    // syntymäaika lomakkeen/URL:n ISO-päivästä (YYYY-MM-DD) → Timestamp + syntymaVuosi.
-    // syntymapaiva Date.UTC():llä (§7 #11), vain validi 1990–2025.
-    if (syntyma && /^\d{4}-\d{2}-\d{2}$/.test(String(syntyma))) {
-      const osat = String(syntyma).split('-');
-      const yy = parseInt(osat[0], 10), mm = parseInt(osat[1], 10), dd = parseInt(osat[2], 10);
-      if (yy >= 1990 && yy <= 2025) {
-        paivitys.syntymaaika  = admin.firestore.Timestamp.fromDate(new Date(Date.UTC(yy, mm - 1, dd)));
-        paivitys.syntymaVuosi = yy;
-      }
-    }
-
-    // sukupuoli — normalisoi P/T → M/N (§7 #12). Kirjoitetaan vain jos tunnistettu arvo.
-    if (sukupuoli) {
-      const sp = String(sukupuoli).trim().toUpperCase();
-      const norm = (sp === 'P' || sp === 'M') ? 'M' : (sp === 'T' || sp === 'N') ? 'N' : null;
-      if (norm) paivitys.sukupuoli = norm;
-    }
+    /* syntymäaika + sukupuoli (sisarusbugi 30.9.2026): suostumus saa VAIN TÄYTTÄÄ tyhjän kentän — ei koskaan
+       ylikirjoittaa olemassa olevaa eri arvolla (muutos tehdään Seura-sivulla henkilökunnan toimesta).
+       Date.UTC() (§7 #11), vain validi 1990–2025; sukupuoli P/T → M/N (§7 #12). */
+    const tt = kohde.tayttoKentat;
+    if (tt.syntymaPaiva) paivitys.syntymaaika = admin.firestore.Timestamp.fromDate(tt.syntymaPaiva);
+    if (tt.syntymaVuosi) paivitys.syntymaVuosi = tt.syntymaVuosi;
+    if (tt.sukupuoli) paivitys.sukupuoli = tt.sukupuoli;
 
     // suostumukset — array kaikista hyväksytyistä suostumuksista + täysi suostumus-objekti
     // (sama rakenne kuin uusi-rekisteröinti-haaran .set(), §14: raakadata talteen).
@@ -1103,8 +1139,8 @@ exports.vahvistaSuostumus = functions
     // PIN: käytä olemassa olevaa validia (idempotentti; sama logiikka kuin Seura.html luoPelaajaPIN). UUDEN PIN:in generointi (Firestore-kyselyt)
     // siirretty kriittisen update-kirjoituksen JÄLKEEN best-effortiksi (Sibbo-korjaus) — ei-kriittinen
     // PIN-haku ei saa enää kaataa pelaajan aktivointia.
-    let pin = (snap.get('pin') && /^\d{4}$/.test(String(snap.get('pin')))) ? String(snap.get('pin')) : null;
-    if (pin) paivitys.pin = pin;
+    // PR 4: olemassa oleva 4- tai 6-numeroinen PIN kelpaa sellaisenaan (ei kirjoiteta uudelleen).
+    let pin = (snap.get('pin') && /^(\d{4}|\d{6})$/.test(String(snap.get('pin')))) ? String(snap.get('pin')) : null;
 
     try {
       await pelRef.update(paivitys);
@@ -1114,15 +1150,16 @@ exports.vahvistaSuostumus = functions
     }
 
     // PIN-generointi best-effort — pelaaja on jo aktivoitu yllä, tämä ei saa kaataa mitään (Sibbo-korjaus).
+    // PR 4: 6-numeroinen PIN samalla apufunktiolla kuin asetaPelaajanPin (hajautus + selväkielinen samassa
+    // erässä, lukitukset nollataan). Yksilöllisyyttä seuran sisällä ei enää tarvita (kirjautumisessa aina
+    // PalloID tai linkki mukana).
     if (!pin) {
       try {
-        const pelaajatCol = db.collection('seurat').doc(seuraId).collection('pelaajat');
-        for (let yritys = 0; yritys < 20 && !pin; yritys++) {
-          const ehdokas = String(Math.floor(1000 + Math.random() * 9000));
-          const kaytossa = await pelaajatCol.where('pin', '==', ehdokas).limit(1).get();
-          if (kaytossa.empty || kaytossa.docs[0].id === pelaajaId) pin = ehdokas;
-        }
-        if (pin) await pelRef.update({ pin });
+        const uusi = pelaajapin.generoiPin();
+        const b = db.batch();
+        pelaajapin.lisaaPinKirjoitukset(db, b, { seuraId, pelaajaId, data: snap.data() || {}, pin: uusi, lahde: 'vahvistaSuostumus', TS });
+        await b.commit();
+        pin = uusi;
       } catch (e) {
         pin = null;
         console.warn('[vahvistaSuostumus] PIN-generointi epäonnistui (ei-kriittinen):', e.message);
@@ -1142,18 +1179,19 @@ exports.vahvistaSuostumus = functions
     // Onboarding-integriteetti B1 — suostumus annettu (best-effort). Autentikoimaton sivu → uid usein null,
     // siksi kirjataan antaja + hEmail jäljitettävyyttä varten.
     db.collection('audit').add({
-      toiminto: 'suostumus_annettu', severity: 'info',
+      // Sisarusbugi: yksittäinen poikkeama (etunimi TAI vuosi) hyväksytään, mutta kirjataan warn-tasolla,
+      // jotta seura voi tarkistaa tiedot jälkikäteen (esim. kaksoset samalla kutsulinkillä).
+      toiminto: 'suostumus_annettu', severity: kohde.poikkeama.length ? 'warn' : 'info',
       pelaajaId, seuraId, hEmail: hEmailNorm, antaja: antaja || null,
+      lomakeEtunimi_tasmasi: kohde.etunimiTasmasi,   // true/false/null (ei nimeä)
+      lomake_poikkeama: kohde.poikkeama,             // [] | ['etunimi'] | ['vuosi']
       tekija_uid: (context.auth && context.auth.uid) || null,
       aikaleima: admin.firestore.FieldValue.serverTimestamp(),
     }).catch(() => {});
 
     // 4. + 5. Luo/hae huoltajan Auth-tili ja generoi salasanan asetuslinkki.
     // Suostumus on jo tallennettu — linkin generoinnin epäonnistuminen ei saa
-    // hukata sitä, joten linkki palautetaan null:ina virhetilanteessa (graceful).
-    //
-    // TODO: Kun SendGrid korjattu: siirrä sähköpostilähetys tähän best-effort
-    // try/catch -lohkoon, poista QR UI:sta.
+    // hukata sitä (graceful: emailLahetetty:false → sivu ohjaa pyytämään seuralta uuden linkin).
     try {
       const etunimi  = snap.get('etunimi')  || '';
       const sukunimi = snap.get('sukunimi') || '';
@@ -1166,7 +1204,7 @@ exports.vahvistaSuostumus = functions
         handleCodeInApp: false,
       });
       // 6. Lähetä salasanalinkki sähköpostiin (best-effort §13). EI kaadeta suostumusta jos lähetys
-      //    epäonnistuu — passwordResetLink palautetaan yhä (QR-varapolku säilyy). Suostumus on jo tallennettu yllä.
+      //    epäonnistuu — suostumus on jo tallennettu yllä; seura lähettää linkin uudelleen (Seura.html).
       let emailLahetetty = false, emailVirhe = null;
       try {
         const lapsiNimi = String(snap.get('etunimi') || '').trim();
@@ -1174,7 +1212,7 @@ exports.vahvistaSuostumus = functions
           to: hEmailNorm,
           subject: 'Aseta TalentMaster-salasanasi',
           fromName: 'TalentMaster',
-          html: pohjaSuostumusLinkki({ lapsiNimi, resetLinkki: passwordResetLink }),
+          html: pohjaSuostumusLinkki({ lapsiNimi, resetLinkki: passwordResetLink, pin }),
         });
         emailLahetetty = true;
         db.collection('audit').add({
@@ -1191,10 +1229,14 @@ exports.vahvistaSuostumus = functions
           aikaleima: admin.firestore.FieldValue.serverTimestamp(),
         }).catch(() => {});
       }
-      return { ok: true, passwordResetLink, pin, emailLahetetty, emailVirhe };
+      /* Vaihe 0 / PR 3b: salasanalinkkiä ja PIN:iä EI palauteta kutsujalle. Funktio toimii ilman
+         kirjautumista, ja seuraId + pelaajaId + huoltajaEmail olivat anonyymisti luettavissa v3.28:aan
+         asti → vastauksesta sai huoltajan tilin ja lapsen PIN:in. Nyt ne menevät VAIN tallennettuun
+         huoltajaEmailiin (tarkistettu yllä). Epäonnistunut lähetys → seura lähettää uudelleen. */
+      return { ok: true, emailLahetetty, emailVirhe };
     } catch (e) {
       console.warn('[vahvistaSuostumus] Reset-linkki epäonnistui:', e.message);
-      return { ok: true, passwordResetLink: null, linkkiVirhe: e.message, pin };
+      return { ok: true, emailLahetetty: false, linkkiVirhe: e.message };
     }
     } catch (_wrapErr) {
       if (_wrapErr instanceof functions.https.HttpsError) throw _wrapErr;
@@ -1693,6 +1735,13 @@ exports.aiProxy = functions
       const token    = authHeader.slice(7);
       const decoded  = await admin.auth().verifyIdToken(token);
       uid            = decoded.uid;
+      /* Vaihe 0 / PR 3: kelvollinen ID-token EI riitä — anonyymin tokenin saa kuka tahansa julkisella
+         avaimella (ja uusi uid ohittaa per-uid-rate-limitin). Vain henkilökunnan sovellukset (Master/VP)
+         kutsuvat tätä → anonyymi, pelaaja- ja Solo-lapsitoken hylätään. */
+      if (tunnisteTyyppi({ token: decoded }) !== 'kayttaja') {
+        res.status(403).json({ code: 'FORBIDDEN', message: 'Ei oikeutta.' });
+        return;
+      }
 
       // --------------------------------------------------
       // 2. PAYLOAD-VALIDOINTI
@@ -2073,6 +2122,18 @@ function pohjaSoloLupa({ child_etunimi, linkki }) {
 }
 
 // soloLupapyyntoEmail — lapsi (anon/kirjautumaton) loi lupapyynnon → CF lähettää vanhemmalle magic-linkin.
+/* PR 4 · Solo-lupapyynnön token: päädokumentissa vain SHA-256 (token_hash). Vanhoissa pyynnöissä
+   selväkielinen `token`. Palauttaa kelpaavan tokenin tai null. */
+function soloTokenHash(token) {
+  return require('crypto').createHash('sha256').update('tm-solo-lupa:' + String(token)).digest('hex');
+}
+function soloLupaToken(d, annettu) {
+  if (!d) return null;
+  if (d.token_hash) return (annettu && soloTokenHash(annettu) === d.token_hash) ? String(annettu) : null;
+  if (d.token) return (annettu == null || String(annettu) === d.token) ? String(d.token) : null;   // vanha pyyntö
+  return null;
+}
+
 exports.soloLupapyyntoEmail = functions
   .region('europe-west1')
   .runWith({ secrets: ['SENDGRID_API_KEY'] })
@@ -2090,7 +2151,11 @@ exports.soloLupapyyntoEmail = functions
     if (d.email_lahetetty_pvm && d.email_lahetetty_pvm.toMillis && (Date.now() - d.email_lahetetty_pvm.toMillis()) < 120000) {
       return { ok: true, viesti: 'Linkki lähetettiin juuri — tarkista sähköpostisi.' };
     }
-    const linkki = SOLO_BASE_URL + '/TalentMaster_Solo_Lupa.html?r=' + encodeURIComponent(requestId) + '&t=' + encodeURIComponent(d.token || '');
+    /* PR 4: uusi lupapyyntö tallentaa vain token_hash:n (tulos/{token} ei saa olla luettavissa päädokumentista).
+       Lapsen laite antaa tokenin tässä kutsussa → tarkistetaan hashia vasten. Vanha pyyntö: d.token. */
+    const token = soloLupaToken(d, data && data.token);
+    if (!token) throw new functions.https.HttpsError('permission-denied', 'Virheellinen vahvistustunnus.');
+    const linkki = SOLO_BASE_URL + '/TalentMaster_Solo_Lupa.html?r=' + encodeURIComponent(requestId) + '&t=' + encodeURIComponent(token);
     try {
       await lahetaSahkoposti({
         to: email,
@@ -2124,11 +2189,15 @@ exports.soloHyvaksyLupa = functions
     const snap = await ref.get();
     if (!snap.exists) throw new functions.https.HttpsError('not-found', 'Lupapyyntöä ei löytynyt.');
     const d = snap.data();
-    if (d.token !== token) throw new functions.https.HttpsError('permission-denied', 'Virheellinen vahvistustunnus.');
-    // Idempotentti: jo hyväksytty → palauta olemassa olevat tiedot.
+    if (!soloLupaToken(d, token)) throw new functions.https.HttpsError('permission-denied', 'Virheellinen vahvistustunnus.');
+    const tulosRef = ref.collection('tulos').doc(String(token));
+    // Idempotentti: jo hyväksytty → palauta olemassa olevat tiedot (tulos/{token}, vanha pyyntö päädokista).
     if (d.status === 'hyvaksytty' && d.playerId) {
+      const t = await tulosRef.get();
+      const td = t.exists ? (t.data() || {}) : {};
       const ex = await db.collection('players').doc(d.playerId).get();
-      return { playerId: d.playerId, child_pin: d.child_pin || null, playerCode: ex.exists ? (ex.data().playerCode || null) : null };
+      return { playerId: d.playerId, child_pin: td.child_pin || d.child_pin || null,
+        playerCode: td.playerCode || (ex.exists ? (ex.data().playerCode || null) : null) };
     }
     if (d.status !== 'odottaa') throw new functions.https.HttpsError('failed-precondition', 'Pyyntö on jo käsitelty.');
 
@@ -2136,7 +2205,7 @@ exports.soloHyvaksyLupa = functions
     const playerRef = db.collection('players').doc();
     const playerId = playerRef.id;
     const code = await soloVaraaPlayerCode(uid, playerId);
-    const child_pin = String(Math.floor(1000 + Math.random() * 9000));
+    const child_pin = pelaajapin.generoiPin();   // PR 4: 6 numeroa, crypto.randomInt, ei triviaaleja
 
     const batch = db.batch();
     batch.set(db.collection('parents').doc(uid), {
@@ -2152,8 +2221,14 @@ exports.soloHyvaksyLupa = functions
     });
     batch.set(playerRef.collection('suostumukset').doc('perus'), { ok: true, tyyppi: 'perus', antaja_uid: uid, antaja_email: email, versio: 'v1', pvm: TS });
     if (benchmark === true) batch.set(playerRef.collection('suostumukset').doc('benchmark'), { ok: true, tyyppi: 'benchmark', antaja_uid: uid, antaja_email: email, versio: 'v1', pvm: TS });
-    // playerCode mukaan (PR 2b): lapsen laite kirjautuu soloLapsiKirjaudu({ playerCode, pin }) -reitillä.
-    batch.set(ref, { status: 'hyvaksytty', playerId, playerCode: code, child_pin, hyvaksyja_uid: uid, hyvaksytty_pvm: TS }, { merge: true });
+    // PR 4: hajautus heti (soloLapsiKirjaudu käyttää sitä; selväkielinen child_pin jää jakamista varten).
+    batch.set(db.collection('_soloPin').doc(playerId), { hash: pelaajakirjautuminen.hajautaPin(child_pin), luotu: TS, lahde: 'soloHyvaksyLupa' });
+    /* PR 4: tulos (PIN + koodi) ALIDOKUMENTTIIN tulos/{token}. Päädokumentti on get:if true -luettava pelkällä
+       requestId:llä, joten siinä ei saa olla PIN:iä eikä koodia. Token on vain lapsen laitteella ja
+       vanhemman linkissä (päädokissa vain token_hash). Vanhan pyynnön selväkielinen token poistetaan. */
+    batch.set(tulosRef, { playerId, playerCode: code, child_pin, luotu: TS });
+    batch.set(ref, { status: 'hyvaksytty', playerId, hyvaksyja_uid: uid, hyvaksytty_pvm: TS,
+      token: admin.firestore.FieldValue.delete(), token_hash: soloTokenHash(token) }, { merge: true });
     await batch.commit();
 
     await db.collection('audit').add({ toiminto: 'solo_lupa_hyvaksytty', severity: 'info', requestId, playerId, hyvaksyja_uid: uid, aikaleima: TS }).catch(() => {});
@@ -2480,19 +2555,17 @@ exports.notifKalenteriMuutos = functions
 // optimistinen versiolukko). Admin SDK ohittaa säännöt → tämä on ainoa tapa kirjata kuittaus
 // ilman että kaavio-dokumentti avataan pelaajan kirjoituksille.
 //
-// ⚠ IDENTITEETTI ON ASSERTED, EI VERIFIOITU (Teron päätös). PIN-pelaajan istunto on
-// Anonymous Auth, ja PIN ei säily loginin jälkeen (Pelaaja_v7 nollaa sen; sessiossa on vain
-// {pelaajaId, seuraId}) → PIN-verifiointi vaatisi joko PINin tallentamisen sessioon (HUONOMPI
-// turva kuin nyt) tai session-token-koneiston (custom-token-eepos). Kumpikaan ei kuulu tähän.
-// Kutsuja siis ILMOITTAA pelaajaId:nsä. Sama luottamustaso kuin nykyisessä IDP-sitoumuksessa.
-// ÄLÄ kuvaa kuittausta verifioituna — se on pehmeä sitoutumissignaali.
+// IDENTITEETTI (Vaihe 0 / PR 3): VERIFIOITU palvelintokenista. Pelaaja kirjautuu pelaajaKirjaudu-
+// funktiolla (custom token { rooli:'pelaaja', pelaajaSeuraId, pelaajaId }); pyynnön seura+pelaaja
+// on täsmättävä tokeniin (authz_paatos.kuittausPaatos). Henkilökunta: tarkistaOikeus. Anonyymi ja
+// Solo-lapsi → permission-denied. (Ennen PR 3:a identiteetti oli asserted: anonyymi PIN-istunto.)
+// Kuittaus on silti pehmeä sitoutumissignaali, EI compliance-portti.
 //
 // MITÄ CF SILTI TAKAA (tämä on sen arvo, ei identiteetti):
 //   1. KIRJOITUSEHEYS — kiinteä dot-path `review.ymmarretty.<pid>`; mitään muuta kenttää ei voi
 //      koskea riippumatta siitä mitä client lähettää. Ei versiobumppia, ei spec-clobberausta.
 //   2. ESIEHDOT — kaavion on oltava olemassa ja HYVÄKSYTTY; pelaajan on oltava olemassa;
 //      kaavion on KOHDISTUTTAVA pelaajaan. Väärinkäyttöpinta kaventuu kohdistuviin kaavioihin.
-// Täysi esto vaatii aidon pelaajaistunnon (custom token) — erillinen, läpileikkaava vaihe.
 exports.kuittaaKaavioYmmarretty = functions
   .region('europe-west1')
   .https.onCall(async (data, context) => {
@@ -2500,13 +2573,16 @@ exports.kuittaaKaavioYmmarretty = functions
     const seuraId   = String((data && data.seuraId) || '').trim();
     const kaavioId  = String((data && data.kaavioId) || '').trim();
     const pelaajaId = String((data && data.pelaajaId) || '').trim();
-    /* Vaihe 0 / PR 1: pelaajatokenilla identiteetti tulee TOKENISTA. Selaimen antama seura/pelaaja
-       hylätään, jos se on eri kuin tokenissa (pelaaja ei voi kuitata toisen puolesta). */
-    const tk = context.auth.token || {};
-    if (tk.rooli === 'pelaaja' && (tk.pelaajaSeuraId !== seuraId || tk.pelaajaId !== pelaajaId))
-      throw new functions.https.HttpsError('permission-denied', 'Pelaaja voi kuitata vain oman kaavionsa.');
     if (!seuraId || !kaavioId || !pelaajaId)
       throw new functions.https.HttpsError('invalid-argument', 'seuraId, kaavioId ja pelaajaId ovat pakollisia.');
+    /* Vaihe 0 / PR 3: pelkkä context.auth EI riitä (anonyymi kirjautuminen onnistuu, kunnes provider
+       suljetaan). Pelaajatoken: identiteetti TOKENISTA, vain oma kaavio. Henkilökunta: tarkistaOikeus.
+       Anonyymi / Solo-lapsi / toisen pelaajan puolesta → permission-denied. */
+    const paatos = kuittausPaatos(context.auth, seuraId, pelaajaId);
+    if (paatos === 'evatty')
+      throw new functions.https.HttpsError('permission-denied', 'Pelaaja voi kuitata vain oman kaavionsa.');
+    if (paatos === 'henkilokunta' && !(await tarkistaOikeus(context.auth.uid, seuraId)).sallittu)
+      throw new functions.https.HttpsError('permission-denied', 'Ei oikeutta tähän seuraan.');
 
     const ref = db.collection('seurat').doc(seuraId).collection('kaaviot').doc(kaavioId);
     const snap = await ref.get();
@@ -2628,3 +2704,23 @@ exports.soloLapsiKirjaudu = functions
       toiminto, aikaleima: admin.firestore.FieldValue.serverTimestamp(),
     }, tiedot)).catch(() => {}),
   }));
+
+/* Vaihe 0 / PR 4 — PIN asetetaan VAIN palvelimella (functions/pelaajapin.js). Hajautus + selväkielinen
+   kopio samassa erässä, lukitukset nollataan. Oikeus: johto/SA koko seura, joukkueen valmentaja oma
+   joukkue (Teron päätös 30.9.2026). PIN:iä ei kirjoiteta audit-lokiin. */
+const pinDeps = {
+  db, tarkistaOikeus,
+  FieldValue: admin.firestore.FieldValue,
+  HttpsError: functions.https.HttpsError,
+  audit: (toiminto, tiedot) => db.collection('audit').add(Object.assign({
+    toiminto, aikaleima: admin.firestore.FieldValue.serverTimestamp(),
+  }, tiedot)).catch(() => {}),
+};
+exports.asetaPelaajanPin = functions
+  .region('europe-west1')
+  .runWith({ enforceAppCheck: true })
+  .https.onCall(pelaajapin.luoAsetaPelaajanPin(pinDeps));
+exports.luoPinitSeuralle = functions
+  .region('europe-west1')
+  .runWith({ enforceAppCheck: true, timeoutSeconds: 300 })
+  .https.onCall(pelaajapin.luoLuoPinitSeuralle(pinDeps));

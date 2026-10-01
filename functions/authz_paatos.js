@@ -13,4 +13,34 @@ function kayttajaRooliSallittu(kayttajaData) {
   return SALLITUT_KAYTTAJA_ROOLIT.includes(kayttajaData.rooli) ? kayttajaData.rooli : null;
 }
 
-module.exports = { kayttajaRooliSallittu, SALLITUT_KAYTTAJA_ROOLIT };
+/* Vaihe 0 / PR 3 — callable-tunnisteen luokitus. Anonyymi kirjautuminen onnistuu Authissa niin kauan
+   kuin Anonymous-provider on päällä, joten pelkkä `context.auth` EI riitä. Palauttaa:
+     'pelaaja'      — palvelintoken (pelaajaKirjaudu): { rooli:'pelaaja', pelaajaSeuraId, pelaajaId }
+     'solo_lapsi'   — palvelintoken (soloLapsiKirjaudu)
+     'anonyymi'     — sign_in_provider 'anonymous'
+     'kayttaja'     — muu kirjautunut (henkilökunta / vanhempi); oikeus tarkistetaan erikseen
+     null           — ei kirjautumista */
+function tunnisteTyyppi(auth) {
+  if (!auth) return null;
+  const tk = auth.token || {};
+  if (tk.firebase && tk.firebase.sign_in_provider === 'anonymous') return 'anonyymi';
+  if (tk.rooli === 'pelaaja') return 'pelaaja';
+  if (tk.rooli === 'solo_lapsi') return 'solo_lapsi';
+  return 'kayttaja';
+}
+
+/* kuittaaKaavioYmmarretty: kuka saa kuitata pelaajan puolesta?
+     'ok'            — pelaajatoken, jonka seura+pelaaja täsmää pyyntöön (identiteetti tokenista)
+     'henkilokunta'  — muu kirjautunut → kutsuja tarkistaa tarkistaOikeus(uid, seuraId)
+     'evatty'        — anonyymi, Solo-lapsi, toisen pelaajan puolesta, ei kirjautumista */
+function kuittausPaatos(auth, seuraId, pelaajaId) {
+  const t = tunnisteTyyppi(auth);
+  if (t === 'pelaaja') {
+    const tk = auth.token;
+    return (tk.pelaajaSeuraId === seuraId && tk.pelaajaId === pelaajaId) ? 'ok' : 'evatty';
+  }
+  if (t === 'kayttaja') return 'henkilokunta';
+  return 'evatty';
+}
+
+module.exports = { kayttajaRooliSallittu, SALLITUT_KAYTTAJA_ROOLIT, tunnisteTyyppi, kuittausPaatos };

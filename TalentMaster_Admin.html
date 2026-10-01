@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>TalentMaster™ — Admin</title>
 <script>/* §33 Versio-tarkistus (cache): pakottaa reloadin kun uusi versio deployattu. APP_VERSION leimataan scripts/bump_version.js:llä. */
-(function(){var APP_VERSION='1790762679323';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
+(function(){var APP_VERSION='1790836528689';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,400&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -832,8 +832,8 @@ function avaaKayttajaToiminnot(uid, seuraId, email, rooli, nimi) {
     + '<div style="background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:16px;">'
     + '<div style="font-size:11px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--ink3);margin-bottom:10px;">Pelaajan PIN (jos pelaaja-rooli)</div>'
     + '<div style="display:flex;gap:8px;align-items:center;">'
-    + '<input id="ktPinInput" type="text" maxlength="4" inputmode="numeric" placeholder="4 num." style="width:90px;background:var(--bg2);border:1px solid var(--bord2);border-radius:8px;padding:8px 12px;font-size:16px;font-family:monospace;color:var(--ink);outline:none;letter-spacing:4px;">'
-    + '<button onclick="tallennaKayttajaPin(\'' + uid + '\',\'' + seuraId + '\')" style="padding:8px 14px;background:rgba(255,255,255,.06);border:1px solid var(--border);border-radius:7px;font-size:12px;font-weight:600;color:var(--ink);cursor:pointer;font-family:inherit;">Tallenna PIN</button>'
+    + '<input id="ktPinInput" type="text" maxlength="6" inputmode="numeric" placeholder="tyhjä = luo" style="width:120px;background:var(--bg2);border:1px solid var(--bord2);border-radius:8px;padding:8px 12px;font-size:16px;font-family:monospace;color:var(--ink);outline:none;letter-spacing:4px;">'
+    + '<button onclick="tallennaKayttajaPin(\'' + uid + '\',\'' + seuraId + '\')" style="padding:8px 14px;background:rgba(255,255,255,.06);border:1px solid var(--border);border-radius:7px;font-size:12px;font-weight:600;color:var(--ink);cursor:pointer;font-family:inherit;">🔑 Uusi PIN</button>'
     + '</div></div>'
     + '</div>'
     + '<div id="ktTulos" style="margin-top:14px;font-size:12px;color:var(--teal);display:none;"></div>'
@@ -857,15 +857,18 @@ async function tallennakKayttajaRooli(uid, seuraId) {
   } catch(e) { naytaToast('Virhe: ' + e.message, 'virhe'); }
 }
 
+/* PR 4: PIN asetetaan VAIN palvelimella (asetaPelaajanPin): hajautus + selväkielinen samassa erässä,
+   lukitukset nollataan. Rules v3.30 hylkää pin-kentän selaimesta (myös SA:lta). Tyhjä → palvelin luo. */
 async function tallennaKayttajaPin(uid, seuraId) {
   const pin = (document.getElementById('ktPinInput')?.value || '').trim();
-  if (!/^[0-9]{4}$/.test(pin)) { naytaToast('PIN pitää olla 4 numeroa', 'virhe'); return; }
+  if (pin && !/^[0-9]{6}$/.test(pin)) { naytaToast('PIN:n on oltava 6 numeroa — tai jätä tyhjäksi, niin palvelin luo sen.', 'virhe'); return; }
   try {
-    await db.collection('seurat').doc(seuraId).collection('pelaajat').doc(uid).update({ pin });
+    const fn = firebase.app().functions('europe-west1').httpsCallable('asetaPelaajanPin');
+    const r = await fn(Object.assign({ seuraId: seuraId, pelaajaId: uid }, pin ? { pin: pin } : {}));
     const tEl = document.getElementById('ktTulos');
-    if (tEl) { tEl.textContent = '✅ PIN päivitetty.'; tEl.style.display='block'; }
+    if (tEl) { tEl.textContent = '✅ Uusi PIN ' + r.data.pin + ' — vanha PIN ei enää toimi.'; tEl.style.display='block'; }
     naytaToast('PIN päivitetty', 'ok');
-  } catch(e) { naytaToast('PIN-virhe: ' + e.message, 'virhe'); }
+  } catch(e) { naytaToast('PIN-virhe: ' + ((e && e.message) || e), 'virhe'); }
 }
 
 // ══ XLSX-LATAUS ════════════════════════════════════════════════
