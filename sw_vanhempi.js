@@ -10,7 +10,7 @@
    - Omat staattiset assetit (manifest, ikonit) + versioidut fontit/SDK → cache-first.
    - KAIKKI muu (toisten appien sivut, raw.githubusercontent, jne.) → suoraan verkkoon, EI cachea.
    Scopea ei voi kaventaa (SW juuressa) → allowlist hoitaa rajaamisen. CLAUDE.md §27.4. */
-const CACHE = 'tm-vanhempi-v24';   // 1.10.2026: lapsenvaihdin (useamman lapsen perheet) + tm_lang ?v=17
+const CACHE = 'tm-vanhempi-v25';   // 1.10.2026: verkkokatkon käsittely kirjautumisessa (lib/tm_verkko.js); v24 = lapsenvaihdin + tm_lang ?v=17
 const SHELL = './TalentMaster_Vanhempi_v2.html';
 const PRECACHE = [SHELL];
 
@@ -55,6 +55,7 @@ function onAllowlist(url) {
   if (url.indexOf('/tm_sentry.js') !== -1) return true;             // B2 Sentry-wrapper (?v= → cache-first)
   if (url.indexOf('/lib/tm_lang.js') !== -1) return true;           // i18n V0 — käännöstaulukko offline-cacheen
   if (url.indexOf('/lib/tm_appcheck.js') !== -1) return true;   // V2 App Check — site key + aktivointi
+  if (url.indexOf('/lib/tm_verkko.js') !== -1) return true;   // verkkokatkon käsittely kirjautumisessa
   // HUOM: reCAPTCHA Enterprise (www.google.com/recaptcha/, gstatic.com/recaptcha/) EI ole
   // allowlistissa — attestointi on tuore-kutsu, ei cachettavaa. 'gstatic.com/firebasejs/'
   // -match on kapea eikä osu recaptchaan; app-check-compat.js cachettuu versioidulla URL:lla.

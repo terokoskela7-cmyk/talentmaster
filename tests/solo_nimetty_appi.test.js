@@ -9,6 +9,7 @@ import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import vm from 'vm';
+import { lisaaVerkko } from './_verkkoCtx.mjs';
 
 const juuri = join(dirname(fileURLToPath(import.meta.url)), '..');
 const lue = (n) => readFileSync(join(juuri, n), 'utf8');
@@ -99,7 +100,7 @@ function aja({ approved, kutsu, fbReady = true }) {
     Sentry: { captureMessage: (m, o) => loki.sentry.push([m, o.tags.tm_kirjautumisvirhe, o.level]) },
     location: { set href(v) { loki.href = v; }, get href() { return loki.href; } },
   };
-  vm.createContext(ymp);
+  vm.createContext(ymp); lisaaVerkko(ymp);
   vm.runInContext(LAHDE, ymp);
   return { loki, ls, nappi, run: () => vm.runInContext('lapsiKirjaudu()', ymp) };
 }

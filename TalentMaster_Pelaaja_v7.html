@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <title>TalentMaster™ — Pelaaja v7</title>
 <script>/* Versio-tarkistus (cache): pakottaa reloadin kun uusi versio deployattu. APP_VERSION leimataan scripts/bump_version.js:llä. */
-(function(){var APP_VERSION='1790875707371';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
+(function(){var APP_VERSION='1790876999644';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
 <!-- B2 Sentry-virheseuranta (onboarding-kriittinen). PII-skrubi tm_sentry.js:ssä. Guard: offline → no-op.
      ⚠️ ENNEN PUSHIA: liitä EU-DSN tm_sentry.js:ään + verifioi integrity-hash bundle.min.js@10.58.0 (väärä SRI estää Sentryn hiljaa). -->
 <script>window.TM_SENTRY={app:'pelaaja'};</script>
@@ -516,6 +516,7 @@ input::placeholder,textarea::placeholder{color:#8C8B86;opacity:1}
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-functions-compat.js"></script>   <!-- Vaihe 0 / PR 1: pelaajaKirjaudu -->
 <script src="lib/tm_appcheck.js?v=2"></script>
+<script src="lib/tm_verkko.js?v=1"></script>   <!-- verkkokatko: 1 uudelleenyritys + Yhteyskatko-ilmoitus + Sentry warning -->
 <script src="lib/tm_lang.js?v=17"></script>   <!-- i18n V0 putki · V1-A/A2 · V4-A3: +pelaaja.nain_teet/kirjaa_tehdyksi/pallo_joka_paiva/rae_q4 (kotinäytön chrome sv) -->
 <script src="lib/tm_eerikkila_normit.js?v=40"></script>
 <script src="docs/testit_indeksit.js?v=9"></script>
@@ -4880,7 +4881,8 @@ async function _kirjaudu(pin) {
   if (!linkki && !tunnus) { _pin = ''; draw(); _pinVirhe('Kirjoita ensin PalloID.'); return; }
   try {
     const fn = window._fbApp.functions('europe-west1').httpsCallable('pelaajaKirjaudu');
-    const r = await fn(linkki ? { seuraId: linkki.seuraId, pelaajaId: linkki.pelaajaId, pin: pin } : { liittoTunnus: tunnus, pin: pin });
+    const syote = linkki ? { seuraId: linkki.seuraId, pelaajaId: linkki.pelaajaId, pin: pin } : { liittoTunnus: tunnus, pin: pin };
+    const r = await tmYritaUudelleenVerkkokatkossa(() => fn(syote));   // verkkokatko → 1 uusi yritys 2 s päästä
     const d = r && r.data;
     if (!d || !d.token) throw Object.assign(new Error('ei tokenia'), { code: 'internal' });
     _kirjautuminenKesken = true;
@@ -4896,6 +4898,7 @@ async function _kirjaudu(pin) {
     _pin = ''; draw();
     if (koodi === 'resource-exhausted') { _pinVirhe(viesti || 'Liian monta yritystä. Yritä myöhemmin.'); return; }
     if (koodi === 'invalid-argument' || viesti === _PK_VIRHE_TUNNISTUS) { _pinVirhe(_PK_VIRHE_TUNNISTUS); return; }
+    if (tmOnVerkkokatko(e)) { tmRaportoiVerkkokatko('pelaajaKirjaudu'); _pinVirhe(tmVerkkoViesti()); return; }
     const syy = _infraVirheenSyy(koodi, viesti);
     console.error('[pelaajaKirjaudu] palvelinvirhe:', syy);
     _raportoiKirjautumisvirhe(syy);

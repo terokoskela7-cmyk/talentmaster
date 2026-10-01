@@ -17,6 +17,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-functions-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-storage-compat.js"></script>   <!-- Vaihe A: ääripalautteen audio-upload (tmAani.lataa). VP:N OMA SDK-versio, EI Masterin 9.22.1 (§38 sekaversio). -->
 <script src="lib/tm_appcheck.js?v=1"></script>
+<script src="lib/tm_verkko.js?v=1"></script>   <!-- verkkokatko: 1 uudelleenyritys + Yhteyskatko-ilmoitus + Sentry warning -->
 <script src="lib/tm_aktiivisuus.js?v=1"></script>   <!-- Toimihenkilon kirjautumisaikaleima — jaettu kirjoituspiste, ks. lib-header -->
 <script src="lib/tm_joukkue.js?v=4"></script>   <!-- henkilöstön joukkueet näyttöön (tmHenkiloJoukkueTeksti) -->
 <!-- Eerikkilä-normit + universaali testirekisteri (eerikkilaTaso, laskeFVP) — 10m/5m-tasot + FVP-profiili -->
@@ -20233,7 +20234,8 @@ function kirjaudu() {
     document.getElementById('loginErr').style.display = 'block';
     return;
   }
-  auth.signInWithEmailAndPassword(email, pass).catch(e => {
+  tmYritaUudelleenVerkkokatkossa(() => auth.signInWithEmailAndPassword(email, pass)).catch(e => {   // verkkokatko → 1 uusi yritys
+    if (tmOnVerkkokatko(e)) { tmRaportoiVerkkokatko('vpKirjautuminen'); document.getElementById('lErr').textContent = tmVerkkoViesti('fi'); return; }
     const msg = (e.code === 'auth/invalid-credential' || e.code === 'auth/wrong-password')
       ? 'Väärä salasana. Jos olet Super Admin, käytä Google-kirjautumista yllä.'
       : 'Kirjautuminen epäonnistui: ' + e.message;

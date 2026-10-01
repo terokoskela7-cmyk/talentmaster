@@ -13,6 +13,7 @@
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-functions-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-storage-compat.js"></script>
 <script src="lib/tm_appcheck.js?v=1"></script>
+<script src="lib/tm_verkko.js?v=1"></script>   <!-- verkkokatko: 1 uudelleenyritys + Yhteyskatko-ilmoitus + Sentry warning -->
 <script src="lib/tm_aktiivisuus.js?v=1"></script>   <!-- Toimihenkilon kirjautumisaikaleima — jaettu kirjoituspiste, ks. lib-header -->
 <!-- Excel-tuonti: SheetJS -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -5791,10 +5792,11 @@ async function kirjauduSisaan() {
   document.getElementById('kirjautumisVirhe').classList.remove('nakyvilla');
 
   try {
-    await auth.signInWithEmailAndPassword(email, salasana);
+    await tmYritaUudelleenVerkkokatkossa(() => auth.signInWithEmailAndPassword(email, salasana));   // verkkokatko → 1 uusi yritys
   } catch (e) {
     nappi.disabled    = false;
     nappi.textContent = 'Kirjaudu sisään';
+    if (tmOnVerkkokatko(e)) { tmRaportoiVerkkokatko('seuraKirjautuminen'); naytaVirhe('kirjautumisVirhe', tmVerkkoViesti('fi')); return; }
     const koodit = {
       'auth/user-not-found':     'Sähköpostia ei löydy.',
       'auth/wrong-password':     'Väärä salasana.',

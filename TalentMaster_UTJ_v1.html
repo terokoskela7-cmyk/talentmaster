@@ -393,6 +393,7 @@ const db=firebase.firestore(),auth=firebase.auth();
 let _sid=null,_snm='',_kirjautuu=false,_kirjautuminenKesken=false,_talentit=[],_tS='k',_jD=[];
 let _tL=false,_jL=false,_sL=false,_kL=false,_dnaL=false;
 
+const UTJ_ROOLIT=['urheilutoimenjohtaja','utj'];
 auth.onAuthStateChanged(async u=>{
   if(_kirjautuu||_kirjautuminenKesken)return;
   if(!u){show('l');return;}
@@ -400,8 +401,10 @@ auth.onAuthStateChanged(async u=>{
   const ad=await db.collection('admins').doc(u.uid).get().catch(()=>null);
   const isSu=!!ad?.exists;
   const tok=await u.getIdTokenResult().catch(()=>null);
-  const rooli=tok?.claims?.rooli||'',cS=tok?.claims?.seura||'';
-  if(!isSu&&rooli!=='utj'){toast('Ei UTJ-oikeuksia','err');auth.signOut();return;}
+  /* UTJ-rooli (1.10.2026): henkilöstön claim on 'urheilutoimenjohtaja' (luoKayttaja/SALLITUT_ROOLIT_VAIHTO); vanha
+     'utj' (tm_admin/setup_seurat.js) hyväksytään yhä. Seura claimissa = seuraId (legacy 'seura' varalla). */
+  const rooli=tok?.claims?.rooli||'',cS=tok?.claims?.seuraId||tok?.claims?.seura||'';
+  if(!isSu&&!UTJ_ROOLIT.includes(rooli)){toast('Ei UTJ-oikeuksia','err');auth.signOut();return;}
   if(isSu){const s=await db.collection('seurat').limit(1).get().catch(()=>null);_sid=s&&!s.empty?s.docs[0].id:'kpv';_snm=s&&!s.empty?s.docs[0].data().nimi||_sid:'Super Admin';}
   else{
     _sid=cS;
