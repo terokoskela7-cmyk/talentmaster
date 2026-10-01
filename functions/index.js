@@ -616,6 +616,17 @@ exports.luoKayttaja = functions
       throw new functions.https.HttpsError('permission-denied',
         `Ei oikeuksia seuralle "${seuraId}".`);
     }
+    /* HOTFIX 1.10.2026 — oikeuksien korotus: rooli meni tarkistamatta claimeihin, ja Rules pitää claimia
+       rooli:'super_admin'/'superadmin' super-adminina → seuran johto pystyi tekemään kenestä tahansa (myös
+       itsestään, olemassa olevan sähköpostin kautta) super-adminin. Nyt vain seuran henkilöstöroolit. */
+    if (!SALLITUT_ROOLIT_VAIHTO.includes(rooli)) {
+      await db.collection('audit').add({
+        toiminto: 'kayttaja_rooli_estetty', severity: 'alert', yritetty_rooli: String(rooli).slice(0, 40),
+        seuraId, tekija_uid: kutsujaUid, lahde: 'luoKayttaja',
+        aikaleima: admin.firestore.FieldValue.serverTimestamp(),
+      }).catch(() => {});
+      throw new functions.https.HttpsError('invalid-argument', `Virheellinen rooli: ${String(rooli).slice(0, 40)}`);
+    }
     // ── KORJAUS 2026-04-06: sama henkilö voi toimia useassa roolissa ──────────
     // Aikaisempi koodi heitti 'already-exists'-virheen jos sähköposti löytyi jo
     // Authista. Tämä kaatoi prosessin tilanteessa jossa esim. henkilö on ensin
@@ -1015,6 +1026,10 @@ exports.aktivoiKayttaja = functions
     const { kRef, kDoc } = await tarkistaKayttajaToimenpide(context, kohdeUid, seuraId, false);
     const rooli = kDoc.get('rooli');
     if (!rooli) throw new functions.https.HttpsError('failed-precondition', 'Käyttäjällä ei ole roolia — aseta rooli ensin.');
+    // HOTFIX 1.10.2026: dokumentin rooli palautetaan claimeihin vain, jos se on seuran henkilöstörooli (ei super_admin)
+    if (!SALLITUT_ROOLIT_VAIHTO.includes(rooli)) {
+      throw new functions.https.HttpsError('failed-precondition', `Rooli "${String(rooli).slice(0, 40)}" ei ole sallittu seuraroolina.`);
+    }
     try {
       await auth.updateUser(kohdeUid, { disabled: false });
     } catch (e) {
