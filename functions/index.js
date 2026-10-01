@@ -18,6 +18,7 @@ const { keraaPelaajanManifesti, rakennaAuditPayload } = require('./gdpr_locator'
 const { kaavioKohdistuuServer } = require('./kaavio_policy');   // kaavion kohdistus (peili lib/tm_kaavio_policy.js)
 const auditloki = require('./auditloki');   // haeAuditLoki: suodattimet + sivutus (SA)
 const pelaajapin = require('./pelaajapin');
+const { rakennaSendGridPayload } = require('./sahkoposti_payload');   // SendGrid-seuranta pois (§39)
 const huoltajaemail = require('./huoltajaemail');   // Rules v3.33: huoltajaEmail vain palvelimella
 const suostumuskortit = require('./suostumuskortit');   // PR B: QR-suostumuskortit   // PR 4: PIN vain palvelimella (asetaPelaajanPin / luoPinitSeuralle)
 const suostumusTarkistus = require('./suostumus_tarkistus');
@@ -64,16 +65,9 @@ async function lahetaSahkoposti({ to, subject, html, fromName }) {
       'SENDGRID_FROM_EMAIL=' + (fromEmail ? 'OK' : 'TYHJÄ')
     );
   }
-  const payload = JSON.stringify({
-    personalizations: [{ to: [{ email: to }] }],
-    from: { email: fromEmail, name: fromName || 'TalentMaster™' },
-    subject,
-    content: [{ type: 'text/html', value: html }],
-    tracking_settings: {
-      click_tracking: { enable: true },
-      open_tracking:  { enable: true },
-    },
-  });
+  // Seuranta (klikki/avaus/tilaus/GA) POIS — perustelu functions/sahkoposti_payload.js (§39 + salasanatoken).
+  // ÄLÄ lisää tracking_settings-kenttää tähän; vartija tests/sendgrid_seuranta_pois.test.js.
+  const payload = JSON.stringify(rakennaSendGridPayload({ to, fromEmail, fromName, subject, html }));
   return new Promise((resolve, reject) => {
     const req = https.request(
       {
