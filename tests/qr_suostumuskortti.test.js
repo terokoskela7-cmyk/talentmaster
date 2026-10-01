@@ -148,6 +148,13 @@ describe('Seura · QR-linkki ja kortit (ajettu)', () => {
     expect(loki.html).not.toContain('135790');                                     // suostumuskortti EI näytä (vanhaa) PIN:iä
     expect(loki.html).not.toContain('Ilman');                                      // ilman sähköpostia → ei korttia
   });
+  it('_tk määritelty kerran (#706 + #707) ja tm_lang-versio sama kaikilla sivuilla', () => {
+    expect((SEURA.match(/^function _tk\(/gm) || []).length).toBe(1);
+    const fs = require_('fs');
+    const versiot = new Set(fs.readdirSync(ROOT).filter((f) => f.endsWith('.html'))
+      .flatMap((f) => [...lue(f).matchAll(/lib\/tm_lang\.js\?v=(\d+)/g)].map((m) => m[1])));
+    expect([...versiot]).toHaveLength(1);
+  });
   it('nimi: "Tulosta kortit" (ei "Tulosta PIN-kortit")', () => {
     expect(SEURA).toContain('🖨️ Tulosta kortit');
     expect(SEURA).not.toContain('Tulosta PIN-kortit');
