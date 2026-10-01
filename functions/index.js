@@ -152,6 +152,60 @@ async function tarkistaOikeus(kutsujaUid, kohdeSeuraId) {
   return { sallittu: false, rooli: null };
 }
 // ─────────────────────────────────────────────────────────────────────────────
+// APUFUNKTIOT: henkilökunnan pääsyn hallinta (P0 1.10.2026)
+// Deaktivointi tehtiin ennen selaimesta (kayttajat.aktiivinen=false), mutta Rules lukevat oikeudet
+// CLAIMEISTA eikä aktiivinen-kenttää tarkisteta → deaktivoitu käyttäjä säilytti pääsynsä. Nyt pääsy
+// poistetaan Authista: disabled + claimit tyhjäksi + refresh-tokenit mitätöity.
+// ─────────────────────────────────────────────────────────────────────────────
+async function onSuperAdminUid(uid) {
+  if (!uid) return false;
+  const d = await db.collection('admins').doc(uid).get();
+  const x = d.exists ? (d.data() || {}) : null;
+  return !!(x && (x.superAdmin === true || x.rooli === 'super_admin' || x.rooli === 'superadmin'));
+}
+const _authEiLoydy = (e) => !!(e && (e.code === 'auth/user-not-found' || (e.errorInfo && e.errorInfo.code === 'auth/user-not-found')));
+async function poistaKirjautumisoikeus(uid) {
+  try {
+    await auth.updateUser(uid, { disabled: true });
+    await auth.setCustomUserClaims(uid, {});
+    await auth.revokeRefreshTokens(uid);
+    return { authOlemassa: true };
+  } catch (e) {
+    if (_authEiLoydy(e)) return { authOlemassa: false };
+    throw e;
+  }
+}
+/* tarkistaOikeus myöntää oikeudet seuran vp_uid-kentän perusteella tarkistamatta aktiivinen-kenttää →
+   deaktivoitu/poistettu VP vapautetaan vp_uid:stä. */
+async function vapautaVpUid(seuraId, uid) {
+  const sRef = db.collection('seurat').doc(seuraId);
+  const sDoc = await sRef.get();
+  if (sDoc.exists && sDoc.get('vp_uid') === uid) await sRef.update({ vp_uid: null });
+}
+/* Yhteinen tarkistus deaktivoinnille/aktivoinnille/poistolle: kutsuja = SA tai seuran johto (tarkistaOikeus),
+   kohde on seuran kayttajat-dokumentti, johto ei kohdista SA:han eikä itseensä. Palauttaa { oikeus, kRef, kDoc }. */
+async function tarkistaKayttajaToimenpide(context, kohdeUid, seuraId, vainSA) {
+  if (!context.auth) throw new functions.https.HttpsError('unauthenticated', 'Kirjaudu ensin.');
+  if (!kohdeUid || !seuraId) throw new functions.https.HttpsError('invalid-argument', 'kohdeUid ja seuraId pakollisia.');
+  const oikeus = await tarkistaOikeus(context.auth.uid, seuraId);
+  if (!oikeus.sallittu || (vainSA && oikeus.rooli !== 'superadmin')) {
+    throw new functions.https.HttpsError('permission-denied', 'Ei oikeutta tähän käyttäjään.');
+  }
+  if (kohdeUid === context.auth.uid) {
+    throw new functions.https.HttpsError('failed-precondition', 'Omaa tunnusta ei voi muuttaa tällä toiminnolla.');
+  }
+  if (await onSuperAdminUid(kohdeUid)) {
+    throw new functions.https.HttpsError('permission-denied', 'Super-adminin tunnusta ei voi muuttaa tällä toiminnolla.');
+  }
+  const kRef = db.collection('seurat').doc(seuraId).collection('kayttajat').doc(kohdeUid);
+  const kDoc = await kRef.get();
+  if (!kDoc.exists) throw new functions.https.HttpsError('not-found', 'Käyttäjää ei löydy tästä seurasta.');
+  if (kDoc.get('seuraId') && kDoc.get('seuraId') !== seuraId) {
+    throw new functions.https.HttpsError('permission-denied', 'Käyttäjän seura ei täsmää.');
+  }
+  return { oikeus, kRef, kDoc };
+}
+// ─────────────────────────────────────────────────────────────────────────────
 // APUFUNKTIO: Hae tai luo Auth-käyttäjä huoltajalle
 //
 // MIKSI TÄMÄ TARVITAAN:
@@ -717,7 +771,8 @@ exports.luoKayttaja = functions
 // request.auth.token.rooli -claimia, ei Firestore-kenttää).
 // HUOM: kayttajat on alikokoelma seurat/{seuraId}/kayttajat/{uid} (EI top-level).
 // ─────────────────────────────────────────────────────────────────────────────
-const SALLITUT_ROOLIT_VAIHTO = ['vp', 'valmentaja', 'talenttivalmentaja', 'urheilutoimenjohtaja', 'seurasihteeri', 'testivastaava'];
+const SALLITUT_ROOLIT_VAIHTO = ['vp', 'valmentaja', 'talenttivalmentaja', 'urheilutoimenjohtaja', 'seurasihteeri', 'testivastaava',
+  'fysiikkavalmentaja', 'fysioterapeutti'];   // P0: Adminin roolivalikon roolit (Admin käyttää nyt tätä callablea)
 exports.vaihdaKayttajanRooli = functions
   .region('europe-west1')
   .https.onCall(async (data, context) => {
@@ -747,6 +802,17 @@ exports.vaihdaKayttajanRooli = functions
     if (kDoc.data().seuraId && kDoc.data().seuraId !== seuraId) {
       throw new functions.https.HttpsError('permission-denied', 'Käyttäjän seuraId ei täsmää parametriin.');
     }
+    // P0: johto ei vaihda omaa eikä super-adminin roolia; deaktivoidulle ei palauteta claimeja roolinvaihdolla.
+    if (oikeus.rooli !== 'superadmin' && uid === kutsujaUid) {
+      throw new functions.https.HttpsError('failed-precondition', 'Omaa roolia ei voi vaihtaa.');
+    }
+    if (await onSuperAdminUid(uid)) {
+      throw new functions.https.HttpsError('permission-denied', 'Super-adminin roolia ei voi vaihtaa.');
+    }
+    if (kDoc.data().aktiivinen === false) {
+      throw new functions.https.HttpsError('failed-precondition', 'Käyttäjä on deaktivoitu — aktivoi ensin.');
+    }
+    const vanhaRooli = kDoc.data().rooli || null;
 
     // 3. Firestore-rooli
     await kRef.update({ rooli: uusiRooli });
@@ -772,6 +838,11 @@ exports.vaihdaKayttajanRooli = functions
     //    pakota refreshiä → OSA 3 (defensiivinen claims-vs-Firestore-tarkistus) on välttämätön pari.
     await auth.revokeRefreshTokens(uid);
 
+    await db.collection('audit').add({
+      toiminto: 'rooli_vaihdettu', severity: 'info', kohde_uid: uid, seuraId,
+      vanha_rooli: vanhaRooli, uusi_rooli: uusiRooli, tekija_uid: kutsujaUid,
+      aikaleima: admin.firestore.FieldValue.serverTimestamp(),
+    }).catch(() => {});
     console.log(`[vaihdaKayttajanRooli] ${uid} → ${uusiRooli} (seura ${seuraId}): Firestore+claims+revoke OK`);
     return {
       ok: true,
@@ -918,30 +989,76 @@ exports.lahetaResetLinkki = functions
 exports.deaktivioiKayttaja = functions
   .region('europe-west1')
   .https.onCall(async (data, context) => {
-    if (!context.auth) {
-      throw new functions.https.HttpsError('unauthenticated', 'Kirjaudu ensin.');
-    }
-    const { kohdeUid, seuraId } = data;
-    if (!kohdeUid || !seuraId) {
-      throw new functions.https.HttpsError('invalid-argument', 'kohdeUid ja seuraId pakollisia.');
-    }
-    const oikeus = await tarkistaOikeus(context.auth.uid, seuraId);
-    if (!oikeus.sallittu) {
-      throw new functions.https.HttpsError('permission-denied', 'Ei oikeutta deaktivoida.');
-    }
-    await auth.updateUser(kohdeUid, { disabled: true });
-    await db.collection('seurat').doc(seuraId)
-      .collection('kayttajat').doc(kohdeUid).update({
-        aktiivinen: false,
-        deaktivoitu: admin.firestore.FieldValue.serverTimestamp(),
-        deaktivoija_uid: context.auth.uid,
-      });
+    const { kohdeUid, seuraId } = data || {};
+    const { kRef } = await tarkistaKayttajaToimenpide(context, kohdeUid, seuraId, false);
+    const { authOlemassa } = await poistaKirjautumisoikeus(kohdeUid);
+    await vapautaVpUid(seuraId, kohdeUid);
+    await kRef.update({
+      aktiivinen: false,
+      deaktivoitu: admin.firestore.FieldValue.serverTimestamp(),
+      deaktivoija_uid: context.auth.uid,
+      claimsAsetettu: false,
+    });
     await db.collection('audit').add({
       toiminto: 'kayttaja_deaktivoitu', severity: 'info', kohde_uid: kohdeUid,
+      seuraId, tekija_uid: context.auth.uid, auth_olemassa: authOlemassa,
+      aikaleima: admin.firestore.FieldValue.serverTimestamp(),
+    }).catch(() => {});
+    return { ok: true, viesti: 'Käyttäjä deaktivoitu: kirjautuminen estetty ja oikeudet poistettu.' };
+  });
+
+/* aktivoiKayttaja (P0): SA tai seuran johto. Auth käyttöön, claimit Firestoren rooli + seuraId -kentistä. */
+exports.aktivoiKayttaja = functions
+  .region('europe-west1')
+  .https.onCall(async (data, context) => {
+    const { kohdeUid, seuraId } = data || {};
+    const { kRef, kDoc } = await tarkistaKayttajaToimenpide(context, kohdeUid, seuraId, false);
+    const rooli = kDoc.get('rooli');
+    if (!rooli) throw new functions.https.HttpsError('failed-precondition', 'Käyttäjällä ei ole roolia — aseta rooli ensin.');
+    try {
+      await auth.updateUser(kohdeUid, { disabled: false });
+    } catch (e) {
+      if (_authEiLoydy(e)) throw new functions.https.HttpsError('not-found', 'Käyttäjän kirjautumistiliä ei ole — luo käyttäjä uudelleen.');
+      throw e;
+    }
+    await auth.setCustomUserClaims(kohdeUid, { rooli, seuraId });
+    if (rooli === 'vp') {   // palauta seuran vp_uid vain jos se on tyhjä (ei syrjäytetä toista VP:tä)
+      const sRef = db.collection('seurat').doc(seuraId);
+      const sDoc = await sRef.get();
+      if (sDoc.exists && !sDoc.get('vp_uid')) await sRef.update({ vp_uid: kohdeUid });
+    }
+    await kRef.update({
+      aktiivinen: true,
+      aktivoitu: admin.firestore.FieldValue.serverTimestamp(),
+      aktivoija_uid: context.auth.uid,
+      claimsAsetettu: true,
+    });
+    await db.collection('audit').add({
+      toiminto: 'kayttaja_aktivoitu', severity: 'info', kohde_uid: kohdeUid, rooli,
       seuraId, tekija_uid: context.auth.uid,
       aikaleima: admin.firestore.FieldValue.serverTimestamp(),
     }).catch(() => {});
-    return { ok: true, viesti: 'Käyttäjä deaktivoitu.' };
+    return { ok: true, viesti: 'Käyttäjä aktivoitu. Hän voi kirjautua uudelleen.' };
+  });
+
+/* poistaKayttaja (P0): VAIN SA. Ensin pääsy pois (kuten deaktivointi), sitten Auth-tili ja kayttajat-dokumentti. */
+exports.poistaKayttaja = functions
+  .region('europe-west1')
+  .https.onCall(async (data, context) => {
+    const { kohdeUid, seuraId } = data || {};
+    const { kRef } = await tarkistaKayttajaToimenpide(context, kohdeUid, seuraId, true);
+    const { authOlemassa } = await poistaKirjautumisoikeus(kohdeUid);
+    await vapautaVpUid(seuraId, kohdeUid);
+    if (authOlemassa) {
+      try { await auth.deleteUser(kohdeUid); } catch (e) { if (!_authEiLoydy(e)) throw e; }
+    }
+    await kRef.delete();
+    await db.collection('audit').add({
+      toiminto: 'kayttaja_poistettu', severity: 'warn', kohde_uid: kohdeUid,
+      seuraId, tekija_uid: context.auth.uid, auth_olemassa: authOlemassa,
+      aikaleima: admin.firestore.FieldValue.serverTimestamp(),
+    }).catch(() => {});
+    return { ok: true, viesti: 'Käyttäjä poistettu pysyvästi.' };
   });
 // ─────────────────────────────────────────────────────────────────────────────
 // lahetaPelaajaSivuLinkki

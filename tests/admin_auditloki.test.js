@@ -283,7 +283,7 @@ describe('Admin · Audit-loki-näkymä', () => {
   });
   it('tuntematon toiminto näytetään teknisellä nimellä; nimikirjasto ladataan sivulle', () => {
     expect(ajaAdmin().nimi('outo_toiminto')).toBe('outo_toiminto');
-    expect(ADMIN).toContain('<script src="lib/tm_audit_nimet.js?v=2"></script>');
+    expect(ADMIN).toContain('<script src="lib/tm_audit_nimet.js?v=3"></script>');
     expect(ADMIN).toContain("_auditPika('epaonnistuneet')");
     expect(ADMIN).toContain("_auditPika('halytykset')");
     expect(ADMIN).not.toContain('limit: 200');

@@ -176,7 +176,7 @@ per tiedosto** (kaksi lohkoa kumoaa toisen — Seura.html:n bugi oli juuri täm�
 | `TalentMaster_Testaus_v8.html` · `..._Harjoitettavuus_Lomake_v4.html` | Edeltäjät | ⚠️ arkistoidaan kun v9 pilottitestattu |
 | `TalentMaster_VP_v20/v21.html` · `..._Master_v15.html` | Vanhat versiot | Arkisto |
 | `functions/index.js` | 7 Cloud Functionia + aiProxy | ✅ §13 |
-| `tm_admin/firestore.rules` | Security Rules **v3.30** — deploy CI:llä (`deploy-rules.yml`, main-push, emulaattoritestit ensin) | ✅ §12 |
+| `tm_admin/firestore.rules` | Security Rules **v3.31** — deploy CI:llä (`deploy-rules.yml`, main-push, emulaattoritestit ensin) | ✅ §12 |
 | `lib/tm_bioika.js` | Bio-ikä — Mirwald 2002 PHV (Excel-verifioitu) + KR-runko (lukittu) | ✅ §25 |
 | `docs/testit_indeksit.js` | Canonical TKI/TSI/FLEI-laskenta + TKI-analyysimalli (§34) | ✅ §23/§34 |
 | `docs/TKI_ANALYYSIMALLI.md` | Kanoninen TKI-analyysimalli (3 viitekehystä + kehitysvauhti) | ✅ §34 |
@@ -298,9 +298,9 @@ admins/{uid}: email, rooli, superAdmin, luotu
 
 ---
 
-## 12. FIRESTORE SECURITY RULES — `tm_admin/firestore.rules` v3.30
+## 12. FIRESTORE SECURITY RULES — `tm_admin/firestore.rules` v3.31
 
-**DEPLOY = CI** (`.github/workflows/deploy-rules.yml`): main-pushissa ensin emulaattoritestit (`npm run test:rules`, Java ≥21), sitten deploy. Nykyversio **v3.30** (v3.30: PIN vain palvelimella · v3.29: playerCodes list suljettu · Vaihe 0 / PR 3: **anonyymi pääsy suljettu** — ei `onAnonymous`-funktiota, vartijatesti estää paluun). Jokainen muutos: versio + changelog tiedoston alkuun + Rules-testi. Sääntöjä EI muokata Consolesta.
+**DEPLOY = CI** (`.github/workflows/deploy-rules.yml`): main-pushissa ensin emulaattoritestit (`npm run test:rules`, Java ≥21), sitten deploy. Nykyversio **v3.31** (v3.31: kayttajat-pääsykentät + poisto vain palvelimella · v3.30: PIN vain palvelimella · v3.29: playerCodes list suljettu · Vaihe 0 / PR 3: **anonyymi pääsy suljettu** — ei `onAnonymous`-funktiota, vartijatesti estää paluun). Jokainen muutos: versio + changelog tiedoston alkuun + Rules-testi. Sääntöjä EI muokata Consolesta.
 
 **Tunnistetyypit (vain nämä avaavat dataa):**
 - **Henkilökunta** — sähköposti/Google, claim `seuraId` + `rooli` → `onOmaSeura` / `onJohtoRooli` / `onValmentajaRooli`
@@ -309,6 +309,7 @@ admins/{uid}: email, rooli, superAdmin, luotu
 - **Solo-vanhempi** — `players.parent_uid == auth.uid`; **Solo-lapsi** — `soloLapsiKirjaudu` → `{ rooli:'solo_lapsi', soloPlayerId }` → `onSoloLapsiItse`
 - **SA** — `admins/{uid}` tai claim `super_admin`
 - **Anonyymi** — EI mitään pelaaja-/Solo-dataa. Läpäisee vain roolittomat `onKirjautunut()`-ehdot (errors create, kaaviot-luku, playerCodes get) kunnes Anonymous-provider suljetaan Consolesta.
+- **Henkilökunnan pääsy (v3.31, P0):** deaktivointi/aktivointi/poisto/roolinvaihto VAIN callableilla (`deaktivioiKayttaja` / `aktivoiKayttaja` / `poistaKayttaja` / `vaihdaKayttajanRooli`): Auth `disabled` + claimit + token-mitätöinti + `vp_uid` samassa. Rules eivät tarkista `aktiivinen`-kenttää — pääsy katkeaa vain Authista.
 - **Callablet:** `context.auth` EI riitä → `tarkistaOikeus` (henkilökunta) tai `authz_paatos.tunnisteTyyppi` / `kuittausPaatos`.
 - **PIN VAIN PALVELIMELLA (v3.30, PR 4):** selain ei kirjoita `pin`-kenttää (myös SA) eikä Solon `child_pin`:iä. PIN asetetaan `asetaPelaajanPin` / `luoPinitSeuralle` / `vahvistaSuostumus` / `soloHyvaksyLupa` -funktioissa, jotka kirjoittavat hajautuksen (`_pelaajaPin` / `_soloPin`) ja selväkielisen jakokopion samassa erässä. Oikeus: johto/SA koko seura, joukkueen valmentaja oma joukkue. Uudet PIN:t 6 numeroa (`crypto.randomInt`, ei triviaaleja).
 
