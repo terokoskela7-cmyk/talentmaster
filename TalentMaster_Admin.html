@@ -18,7 +18,7 @@
 <script src="lib/tm_eerikkila_normit.js?v=40"></script>
 <script src="lib/tm_joukkue.js?v=3"></script>   <!-- §18-jäsenyys: kanoninen nimi + team-id yhdestä paikasta -->
 <script src="lib/tm_arviointi_historia.js?v=1"></script>   <!-- kausiavain: tmKausiNyt/tmTavoitteetKaudelle — SAMA lähde kuin VP:llä (sama tavoitteet-dokumentti) -->
-<script src="lib/tm_audit_nimet.js?v=1"></script>   <!-- audit-toimintojen selkokieliset nimet (Audit-loki) -->
+<script src="lib/tm_audit_nimet.js?v=2"></script>   <!-- audit-toimintojen selkokieliset nimet (Audit-loki) -->
 <script src="tm_auth.js"></script>
 
 <style>
@@ -973,6 +973,7 @@ function renderoi(nakyma) {
 const _audit = { toiminto: '', seuraId: '', taso: '', alku: '', loppu: '', kirjautumiset: false,
   rivit: [], seuraava: null, lataa: false, virhe: '' };
 function _auditNimi(t) { return (window.TM_AUDIT_NIMET && window.TM_AUDIT_NIMET.nimi(t)) || String(t || '—'); }
+function _auditRivinNimi(r) { return (window.TM_AUDIT_NIMET && window.TM_AUDIT_NIMET.rivinNimi && window.TM_AUDIT_NIMET.rivinNimi(r)) || _auditNimi(r && r.toiminto); }
 function _auditToiminnotLista() {
   const N = (window.TM_AUDIT_NIMET && window.TM_AUDIT_NIMET.NIMET) || {};
   return Object.keys(N).sort((a, b) => N[a].replace(/^[^\wÅÄÖåäö]+/, '').localeCompare(N[b].replace(/^[^\wÅÄÖåäö]+/, ''), 'fi'));
@@ -1032,7 +1033,7 @@ function _auditPiirra() {
       const aika = r.aikaleima ? new Date(r.aikaleima).toLocaleString('fi-FI') : '—';
       html += '<tr style="border-top:.5px solid rgba(242,239,230,.1);' + tausta + '">'
         + '<td style="padding:6px 8px;white-space:nowrap;color:var(--ink3)">' + aika + '</td>'
-        + '<td style="padding:6px 8px">' + _auditEsc(_auditNimi(r.toiminto)) + ' <span style="color:var(--ink3);font-size:10px">' + _auditEsc(r.toiminto || '') + '</span></td>'
+        + '<td style="padding:6px 8px">' + _auditEsc(_auditRivinNimi(r)) + ' <span style="color:var(--ink3);font-size:10px">' + _auditEsc(r.toiminto || '') + '</span></td>'
         + '<td style="padding:6px 8px;color:var(--ink2)">' + _auditEsc(r.seuraId || '—') + '</td>'
         + '<td style="padding:6px 8px;color:var(--ink2)">' + _auditEsc(_auditKohde(r)) + '</td>'
         + '<td style="padding:6px 8px;color:var(--ink3)">' + _auditEsc(_auditTekija(r)) + '</td></tr>';
@@ -1058,7 +1059,7 @@ function _auditCsvArvo(v) {
 }
 function _auditCsv(rivit) {
   const sarakkeet = ['aika', 'toiminto', 'nimi', 'severity', 'seuraId', 'kohde', 'tekija', 'id'];
-  const rivitCsv = rivit.map((r) => [r.aikaleima || '', r.toiminto || '', _auditNimi(r.toiminto), r.severity || '', r.seuraId || '',
+  const rivitCsv = rivit.map((r) => [r.aikaleima || '', r.toiminto || '', _auditRivinNimi(r), r.severity || '', r.seuraId || '',
     _auditKohde(r), _auditTekija(r), r.id || ''].map(_auditCsvArvo).join(';'));
   return '﻿' + sarakkeet.join(';') + '\n' + rivitCsv.join('\n') + '\n';
 }

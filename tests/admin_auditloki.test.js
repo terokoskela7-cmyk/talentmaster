@@ -183,6 +183,12 @@ function kirjoittajienToiminnot() {
     }
     for (const m of s.matchAll(/rakennaAuditPayload\(\{\s*tyyppi:\s*'([a-z_]+)'/g)) t.add(m[1]);
     for (const m of s.matchAll(/auditEtuliite:\s*'([a-z_]+)'/g)) ['', '_lukittu', '_moniselitteinen'].forEach((x) => t.add(m[1] + x));
+    // apufunktiokutsut: audit('pin_asetettu', …) (pelaajapin.js ym.)
+    for (const m of s.matchAll(/\baudit\(\s*'([a-z_]+)'/g)) t.add(m[1]);
+    // monirivinen tai Object.assign-muoto: kaikki toiminto: '…' -literaalit audit-kirjoituksen läheltä
+    for (const m of s.matchAll(/collection\('audit'\)\.(?:add|doc)\(([\s\S]{0,900}?)\)\s*[.;]/g)) {
+      for (const tt of m[1].matchAll(/toiminto:\s*'([a-z_]+)'/g)) t.add(tt[1]);
+    }
   }
   return [...t].sort();
 }
@@ -191,6 +197,26 @@ describe('vartijat: audit-kirjoittajat', () => {
     const t = kirjoittajienToiminnot();
     expect(t.length).toBeGreaterThanOrEqual(20);
     expect(t.filter((x) => !NIMET.NIMET[x]), 'puuttuvat nimet').toEqual([]);
+  });
+  it('vartija löytää mainiin tulleet toiminnot (apufunktio- ja monirivikirjoittajat), ei vain index.js:n .add({toiminto})', () => {
+    const t = kirjoittajienToiminnot();
+    ['pin_asetettu', 'pinit_luotu', 'suostumus_estetty_pelaaja_ristiriita', 'suostumus_estetty_email_ristiriita',
+      'pelaaja_kirjautuminen_lukittu', 'gdpr_rtbf', 'lupapyynto_tulos_siirto'].forEach((x) => expect(t).toContain(x));
+  });
+  it('selkokieliset nimet (Teron linjaus 1.10.2026)', () => {
+    expect(NIMET.NIMET.pin_asetettu).toBe('PIN asetettu');
+    expect(NIMET.NIMET.pinit_luotu).toBe('PIN-koodit luotu (massa)');
+    expect(NIMET.NIMET.suostumus_estetty_pelaaja_ristiriita).toBe('⚠ Suostumus estetty: lomake koskee eri pelaajaa');
+    expect(NIMET.MERKINNAT.lomake_poikkeama).toBe('⚠ Suostumuslomakkeessa poikkeama');
+  });
+  it('lomake_poikkeama: suostumus_annettu-rivi saa poikkeamanimen; ilman poikkeamaa tavallinen nimi', () => {
+    expect(NIMET.rivinNimi({ toiminto: 'suostumus_annettu', severity: 'warn', lomake_poikkeama: ['etunimi'] })).toBe('⚠ Suostumuslomakkeessa poikkeama (etunimi)');
+    expect(NIMET.rivinNimi({ toiminto: 'suostumus_annettu', severity: 'info', lomake_poikkeama: [] })).toBe('Suostumus annettu');
+    expect(NIMET.rivinNimi({ toiminto: 'tuntematon_x' })).toBe('tuntematon_x');
+  });
+  it('poikkeamarivi on warn → näkyy "Varoitukset ja hälytykset" -tasolla (CF asettaa severityn poikkeamasta)', () => {
+    expect(CF).toMatch(/toiminto: 'suostumus_annettu', severity: kohde\.poikkeama\.length \? 'warn' : 'info'/);
+    expect(A.riviKelpaa({ toiminto: 'suostumus_annettu', severity: 'warn' }, A.normalisoiSuodatin({ taso: 'warn+' }))).toBe(true);
   });
   it('jokainen functions/index.js:n audit-kirjoitus asettaa aikaleiman ja severityn', () => {
     const puuttuu = [];
@@ -257,7 +283,7 @@ describe('Admin · Audit-loki-näkymä', () => {
   });
   it('tuntematon toiminto näytetään teknisellä nimellä; nimikirjasto ladataan sivulle', () => {
     expect(ajaAdmin().nimi('outo_toiminto')).toBe('outo_toiminto');
-    expect(ADMIN).toContain('<script src="lib/tm_audit_nimet.js?v=1"></script>');
+    expect(ADMIN).toContain('<script src="lib/tm_audit_nimet.js?v=2"></script>');
     expect(ADMIN).toContain("_auditPika('epaonnistuneet')");
     expect(ADMIN).toContain("_auditPika('halytykset')");
     expect(ADMIN).not.toContain('limit: 200');
