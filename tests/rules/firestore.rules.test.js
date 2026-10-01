@@ -1422,20 +1422,13 @@ describe('Seurakerros TIER 1 — seurat/{sid}/konseptit (v3.13)', () => {
   });
 });
 
-describe('Suostumukset (ylätaso, v3.33: ei käytössä)', () => {
-  it('kirjautumaton EI luo suostumusta (oli create: if true)', async () => {
-    await assertFails(setDoc(doc(unauthContext().firestore(), 'suostumukset', 'suost-1'), { suostumusTila: 'odottaa', seuraId: SEURA_A }));
-  });
-  it('VP ja SA eivät kirjoita; SA lukee; kirjautumaton ei päivitä odottaa-tilaista', async () => {
-    await seedAdminDoc();
-    await testEnv.withSecurityRulesDisabled(async (ctx) => {
-      await setDoc(doc(ctx.firestore(), 'suostumukset', 'suost-odottaa'), { suostumusTila: 'odottaa' });
-    });
-    await assertFails(setDoc(doc(vpContext(SEURA_A).firestore(), 'suostumukset', 'suost-2'), { suostumusTila: 'odottaa' }));
-    await assertFails(setDoc(doc(saContext().firestore(), 'suostumukset', 'suost-3'), { suostumusTila: 'odottaa' }));
-    await assertFails(updateDoc(doc(unauthContext().firestore(), 'suostumukset', 'suost-odottaa'), { suostumusTila: 'annettu' }));
-    await assertFails(getDoc(doc(unauthContext().firestore(), 'suostumukset', 'suost-odottaa')));
-    await assertSucceeds(getDoc(doc(saContext().firestore(), 'suostumukset', 'suost-odottaa')));
+describe('Suostumukset', () => {
+  it('Kuka tahansa luo suostumuksen (julkinen lomake)', async () => {
+    const db = unauthContext().firestore();
+    await assertSucceeds(setDoc(
+      doc(db, 'suostumukset', 'suost-1'),
+      { suostumusTila: 'odottaa', seuraId: SEURA_A }
+    ));
   });
 
   it('Kirjautumaton EI lue toisen suostumusta (ei odottaa-tilassa)', async () => {
@@ -3421,85 +3414,5 @@ describe('v3.31 · kayttajat-pääsykentät vain palvelimella', () => {
     await assertFails(setDoc(doc(saContext().firestore(), 'seurat', SEURA_A, 'kayttajat', 'uusi-k2'), data));
     await assertFails(setDoc(doc(saContext().firestore(), 'seurat', SEURA_A, 'kayttajat', SA_UID), { notif_asetukset: {} }, { merge: true }));
     await assertFails(setDoc(doc(valmentajaContext('itse-uusi', SEURA_A).firestore(), 'seurat', SEURA_A, 'kayttajat', 'itse-uusi'), { lisenssitaso: 'c' }, { merge: true }));
-  });
-});
-
-// ═══════════════════════════════════════════════════════════════════════════
-// v3.33 — suostumus-kovennus: suostumusTila / huoltajaEmail vain palvelimella, kutsut, audit
-// ═══════════════════════════════════════════════════════════════════════════
-describe('v3.33 · suostumuskentät ja huoltajaEmail vain palvelimella', () => {
-  beforeEach(async () => { await seedAdminDoc(); await seedSeuraAndPelaaja(); });
-  const pel = (ctx) => doc(ctx.firestore(), 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID);
-
-  it('VP ei merkitse suostumusta annetuksi eikä muuta suostumusTilaa, suostumus-objektia tai huoltajaEmailia', async () => {
-    const vp = vpContext(SEURA_A);
-    await assertFails(updateDoc(pel(vp), { suostumusTila: 'annettu' }));
-    await assertFails(updateDoc(pel(vp), { suostumusTila: 'odottaa' }));
-    await assertFails(updateDoc(pel(vp), { suostumus: { annettu: true } }));
-    await assertFails(updateDoc(pel(vp), { suostumusAnnettu: serverTimestamp() }));
-    await assertFails(updateDoc(pel(vp), { huoltajaEmail: 'uusi@test.fi' }));
-    await assertFails(setDoc(pel(vp), { huoltajaEmail: 'uusi@test.fi' }, { merge: true }));
-  });
-  it('myös SA ja oman joukkueen valmentaja estetty', async () => {
-    await assertFails(updateDoc(pel(saContext()), { suostumusTila: 'annettu' }));
-    await assertFails(updateDoc(pel(saContext()), { huoltajaEmail: 'sa@test.fi' }));
-    await assertFails(updateDoc(pel(valmentajaContext(VALM_A_UID, SEURA_A)), { suostumusTila: 'annettu' }));
-  });
-  it('muut kentät päivittyvät edelleen (myös kun huoltajaEmail on mukana muuttumattomana)', async () => {
-    const vp = vpContext(SEURA_A);
-    await assertSucceeds(updateDoc(pel(vp), { etunimi: 'Uusi', joukkueet: [JOUKKUE_A1] }));
-    await assertSucceeds(setDoc(pel(vp), { etunimi: 'Uusi2', huoltajaEmail: 'Huoltaja@Test.fi' }, { merge: true }));
-  });
-  it('luonti: huoltajaEmail + pilotti/odottaa sallittu; annettu / suostumus / suostumusAnnettu / suostumukset estetty', async () => {
-    const vp = vpContext(SEURA_A).firestore();
-    const uusi = (id) => doc(vp, 'seurat', SEURA_A, 'pelaajat', id);
-    const pohja = { etunimi: 'U', sukunimi: 'P', joukkueet: [JOUKKUE_A1], huoltajaEmail: 'h@test.fi' };
-    await assertSucceeds(setDoc(uusi('n1'), { ...pohja, suostumusTila: 'odottaa' }));
-    await assertSucceeds(setDoc(uusi('n2'), { ...pohja, suostumusTila: 'pilotti' }));
-    await assertSucceeds(setDoc(uusi('n3'), pohja));
-    await assertFails(setDoc(uusi('n4'), { ...pohja, suostumusTila: 'annettu' }));
-    await assertFails(setDoc(uusi('n5'), { ...pohja, suostumus: { annettu: true } }));
-    await assertFails(setDoc(uusi('n6'), { ...pohja, suostumusAnnettu: serverTimestamp() }));
-    await assertFails(setDoc(uusi('n7'), { ...pohja, suostumukset: ['rekisteri'] }));
-  });
-  it('kirjautumaton ei luo pelaajaa suostumus annettuna (suostumuslomakkeen vanha reitti)', async () => {
-    await assertFails(setDoc(doc(unauthContext().firestore(), 'seurat', SEURA_A, 'pelaajat', 'lomake-uusi'),
-      { etunimi: 'X', suostumusTila: 'annettu' }));
-  });
-});
-
-describe('v3.33 · kutsut: ei kirjautumatonta päivitystä', () => {
-  beforeEach(async () => {
-    await seedAdminDoc(); await seedSeuraAndPelaaja();
-    await testEnv.withSecurityRulesDisabled(async (ctx) => {
-      await setDoc(doc(ctx.firestore(), 'seurat', SEURA_A, 'kutsut', 'k-odottaa'), { tila: 'odottaa', pelaajaId: PELAAJA_UID });
-    });
-  });
-  const kutsu = (ctx) => doc(ctx.firestore(), 'seurat', SEURA_A, 'kutsut', 'k-odottaa');
-  it('kirjautumaton ei hyväksy odottaa-kutsua (oli sallittu)', async () => {
-    await assertFails(updateDoc(kutsu(unauthContext()), { tila: 'hyvaksytty', pelaajaId: 'muu' }));
-  });
-  it('toisen seuran valmentaja ei päivitä; oman seuran VP päivittää', async () => {
-    await assertFails(updateDoc(kutsu(valmentajaContext(VALM_B_UID, SEURA_B)), { tila: 'lahetetty' }));
-    await assertSucceeds(updateDoc(kutsu(vpContext(SEURA_A)), { tila: 'lahetetty' }));
-  });
-});
-
-describe('v3.33 · audit: selain ei lue eikä kirjoita (myös SA)', () => {
-  beforeEach(async () => {
-    await seedAdminDoc();
-    await testEnv.withSecurityRulesDisabled(async (ctx) => {
-      await setDoc(doc(ctx.firestore(), 'audit', 'a1'), { toiminto: 'pin_asetettu', severity: 'info' });
-    });
-  });
-  it('SA, VP, valmentaja ja kirjautumaton: ei getiä, listaa, luontia, päivitystä eikä poistoa', async () => {
-    for (const ctx of [saContext(), vpContext(SEURA_A), valmentajaContext(VALM_A_UID, SEURA_A), unauthContext()]) {
-      const db = ctx.firestore();
-      await assertFails(getDoc(doc(db, 'audit', 'a1')));
-      await assertFails(getDocs(collection(db, 'audit')));
-      await assertFails(setDoc(doc(db, 'audit', 'uusi'), { toiminto: 'x' }));
-      await assertFails(updateDoc(doc(db, 'audit', 'a1'), { severity: 'warn' }));
-      await assertFails(deleteDoc(doc(db, 'audit', 'a1')));
-    }
   });
 });
