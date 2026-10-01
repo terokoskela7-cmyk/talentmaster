@@ -20,6 +20,7 @@
 <script src="lib/tm_esc.js?v=1"></script>   <!-- P1: jaettu HTML-escape -->
 <script src="lib/tm_lang.js?v=16"></script>   <!-- i18n V0 — fi/sv/en käännöstaulukko + t() + kieli-init (putkitus) -->
 <script src="lib/tm_joukkue.js?v=4"></script>
+<script src="lib/tm_paikkamerkki.js?v=1"></script>   <!-- paikkamerkkidomainien esto (huoltajan sähköposti) -->
 <!-- tm_import.js ja tm_empty_state.js ladataan dynaamisesti jos saatavilla -->
 
 <style>
@@ -3154,6 +3155,7 @@ function luoRekisteriLinkki() {
     naytaModalVirhe('rekisteriVirhe', 'Huoltajan sähköposti on pakollinen.');
     return;
   }
+  if (tmOnPaikkamerkkiOsoite(hEmail)) { naytaModalVirhe('rekisteriVirhe', PAIKKAMERKKI_SYY + '.'); return; }
   if (!joukkue) {
     naytaModalVirhe('rekisteriVirhe', 'Valitse joukkue.');
     return;
@@ -3246,6 +3248,7 @@ async function lahetaRekisteriSahkoposti() {
     naytaToast('Täytä huoltajan sähköpostiosoite ensin.', 'virhe');
     return;
   }
+  if (tmOnPaikkamerkkiOsoite(hEmail)) { naytaToast(PAIKKAMERKKI_SYY + '.', 'virhe'); return; }
 
   // Rakennetaan linkki jos sitä ei vielä ole
   if (!tila._rekLinkki) {
@@ -3864,7 +3867,7 @@ async function tallennaKutsu() {
     console.error('Kutsu epäonnistui:', e);
     const virheViesti = (e.details?.syy === 'sa_tunnus' || e.message === 'sa_tunnus')
       ? 'Tämä on TalentMasterin ylläpitäjän tunnus — sitä ei lisätä seuran henkilöstöön.'
-      : (e.details?.syy === 'toisen_seuran_kayttaja')
+      : (e.details?.syy === 'toisen_seuran_kayttaja' || e.details?.syy === 'paikkamerkki_osoite')
       ? e.details.viesti
       : e.code === 'already-exists' || e.message?.includes('already exists')
       ? 'Sähköpostiosoite on jo käytössä.'
@@ -4705,6 +4708,11 @@ async function tallennaMusokkausPelaaja(pelaajaId) {
   if (!etunimi && !sukunimi) {
     const v = document.getElementById('mp_virhe');
     if (v) { v.textContent = 'Nimi on pakollinen.'; v.style.display='block'; }
+    return;
+  }
+  if (hEmail && tmOnPaikkamerkkiOsoite(hEmail)) {
+    const v = document.getElementById('mp_virhe');
+    if (v) { v.textContent = PAIKKAMERKKI_SYY + '.'; v.style.display='block'; }
     return;
   }
 
@@ -6029,7 +6037,9 @@ function kasitteleExcelTuonti(event) {
             talenttiTaso:  iTaso     >= 0 ? String(r[iTaso]    || '').trim().toLowerCase() : '',
             _rivi: otsikkoRiviIdx + idx + 2,
           };
-        });
+        })
+        // Paikkamerkkiosoite (esim. pohjan esimerkkirivi huoltaja@example.com) → rivi hylätään tuonnissa.
+        .map(r => Object.assign(r, { _hylatty: (r.huoltajaEmail && tmOnPaikkamerkkiOsoite(r.huoltajaEmail)) ? PAIKKAMERKKI_SYY : null }));
 
       // _excelData on jo oikeassa muodossa
       _excelData = rivit.filter(r => r.etunimi || r.sukunimi);
@@ -6050,12 +6060,13 @@ function kasitteleExcelTuonti(event) {
         const emailOk   = p.huoltajaEmail && p.huoltajaEmail.includes('@');
         const joukkueOk = p.joukkue;
         const onTalentti = p.talentti === 'kyllä' || p.talentti === 'kylla' || p.talentti === 'yes' || p.talentti === 'k';
-        const status    = !nimiOk ? '⚠️ Nimi puuttuu'
+        const status    = p._hylatty ? '⛔ ' + p._hylatty
+          : !nimiOk ? '⚠️ Nimi puuttuu'
           : !joukkueOk ? '⚠️ Joukkue?'
           : p._joukkueOrpo ? '⚠️ Joukkue ei listassa'   // #92 warn-not-block: ei osu seuran joukkuet-doceihin
           : !emailOk   ? '⚠️ Email?'
           : '✓ Valmis';
-        const statusVari = status.startsWith('⚠') ? 'var(--amber)' : 'var(--teal)';
+        const statusVari = p._hylatty ? 'var(--red)' : status.startsWith('⚠') ? 'var(--amber)' : 'var(--teal)';
         return `<tr style="border-bottom:1px solid var(--border);">
           <td style="padding:7px 10px;font-size:12px;font-weight:600;">${p.etunimi} ${p.sukunimi}</td>
           <td style="padding:7px 10px;font-size:12px;color:var(--ink3);">${p.joukkue || '—'}</td>
@@ -6066,7 +6077,8 @@ function kasitteleExcelTuonti(event) {
         </tr>`;
       }).join('');
 
-      if (lkm) lkm.textContent = _excelData.length + ' pelaajaa tunnistettu';
+      const _hylLkm = _excelData.filter(p => p._hylatty).length;
+      if (lkm) lkm.textContent = _excelData.length + ' pelaajaa tunnistettu' + (_hylLkm ? ' · ' + _hylLkm + ' hylätään (esimerkkiosoite)' : '');
       if (esi) esi.style.display = '';
 
       // Tarkista PalloID-duplikaatit Excel-tiedoston sisällä
@@ -6133,10 +6145,11 @@ async function ajaExcelTuonti(lahetaKutsut = false) {
   const seuraNimi = tila.seuraNimi || tila.seuraId;
   const nyt = firebase.firestore.FieldValue.serverTimestamp();
 
-  let tuotu = 0, virheet = 0, ohitettu = 0, kutsut = 0;
+  let tuotu = 0, virheet = 0, ohitettu = 0, kutsut = 0, hylatty = 0;
 
   for (let i = 0; i < _excelData.length; i++) {
     const p = _excelData[i];
+    if (p._hylatty) { hylatty++; continue; }   // paikkamerkkiosoite — ei tuoda, ei kutsuta
     const pct = Math.round((i + 1) / _excelData.length * 100);
     if (bar)    bar.style.width = pct + '%';
     if (teksti) teksti.textContent = (i + 1) + '/' + _excelData.length + ' — ' + p.etunimi + ' ' + p.sukunimi;
@@ -6278,6 +6291,7 @@ async function ajaExcelTuonti(lahetaKutsut = false) {
   const msg = [
     tuotu > 0    ? `${tuotu} pelaajaa tuotu` : null,
     ohitettu > 0 ? `${ohitettu} ohitettu (jo järjestelmässä)` : null,
+    hylatty > 0  ? `${hylatty} hylätty (esimerkkiosoite – korvaa huoltajan oikealla sähköpostilla)` : null,
     lahetaKutsut ? `${kutsut} kutsua käsitelty` : null,
     virheet > 0  ? `${virheet} riviä epäonnistui` : null,
   ].filter(Boolean).join(' · ');

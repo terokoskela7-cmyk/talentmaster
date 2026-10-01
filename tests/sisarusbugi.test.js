@@ -16,6 +16,7 @@ import { fakeDb } from './_fakeFirestore.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const require_ = createRequire(import.meta.url);
+const PM = require_(join(dirname(fileURLToPath(import.meta.url)), '..', 'lib', 'tm_paikkamerkki.js'));
 const T = require_(join(ROOT, 'functions', 'suostumus_tarkistus.js'));
 const lue = (n) => readFileSync(join(ROOT, n), 'utf8');
 
@@ -30,7 +31,7 @@ function pura(S, tunniste) {
 }
 
 /* ── Seura-sivun rekisteröintiketju ── */
-const TOPIAS = { id: 'm93', etunimi: 'Topias', sukunimi: 'Koskela', huoltajaEmail: 'h@x.fi', syntymaVuosi: 2013, joukkueet: ['kpv_u13'] };
+const TOPIAS = { id: 'm93', etunimi: 'Topias', sukunimi: 'Koskela', huoltajaEmail: 'h@tm-testi.fi', syntymaVuosi: 2013, joukkueet: ['kpv_u13'] };
 function seura(SEURA_LAHDE, lisat) {
   const S = SEURA_LAHDE || lue('TalentMaster_Seura.html');
   const alku = { 'seurat/kpv/pelaajat/m93': Object.assign({}, TOPIAS) };
@@ -46,13 +47,14 @@ function seura(SEURA_LAHDE, lisat) {
     location: { href: 'https://tm.example/talentmaster/TalentMaster_Seura.html' },
     URL, URLSearchParams, Promise, Object, String, Array, console: { log() {}, warn() {}, error() {} },
     setTimeout: (fn) => fn(),
-    tila: { seuraId: 'kpv', seuraNimi: 'KPV', joukkueet: [{ id: 'kpv_u13', nimi: 'KPV U13' }], kayttaja: { uid: 'vp', email: 'vp@x.fi' } },
+    tila: { seuraId: 'kpv', seuraNimi: 'KPV', joukkueet: [{ id: 'kpv_u13', nimi: 'KPV U13' }], kayttaja: { uid: 'vp', email: 'vp@tm-testi.fi' } },
     db: f.db,
     firebase: { firestore: { FieldValue: { serverTimestamp: () => 'TS' } } },
     functions: { httpsCallable: (n) => async (d) => { loki.kutsuFn.push([n, d]); return { data: { ok: true } }; } },
     _pinFn: () => async () => ({ data: { pin: '700123' } }),
     _pinVirheTeksti: () => 'x',
     _tmPelaajanKieli: () => ({}),
+    tmOnPaikkamerkkiOsoite: PM.tmOnPaikkamerkkiOsoite, PAIKKAMERKKI_SYY: PM.PAIKKAMERKKI_SYY,
     paivitaJoukkueValitsin() {}, naytaModalVirhe() {}, naytaToast() {},
     naytaPelaajaTiedot: (id) => loki.avattu.push(id),
     confirm: (t) => { loki.confirm.push(t); return ctx._confirmVastaus !== false; },
@@ -73,8 +75,8 @@ function seura(SEURA_LAHDE, lisat) {
 describe('Seura · uusi pelaaja on aina uusi pelaaja (ajettu)', () => {
   it('SISARUS: sama huoltajan sähköposti, kaksi eri lasta → kaksi pelaajadokumenttia, kaksi kutsua eri pelaajaId:llä', async () => {
     const t = seura();
-    t.ctx.uusi(); t.tayta('Toppari', 'Testi', 'h@x.fi'); await t.ctx.laheta();
-    t.ctx.uusi(); t.tayta('Tiina', 'Testi', 'h@x.fi'); await t.ctx.laheta();
+    t.ctx.uusi(); t.tayta('Toppari', 'Testi', 'h@tm-testi.fi'); await t.ctx.laheta();
+    t.ctx.uusi(); t.tayta('Tiina', 'Testi', 'h@tm-testi.fi'); await t.ctx.laheta();
     const p = t.pelaajat();
     expect(p.map((x) => x.etunimi).sort()).toEqual(['Tiina', 'Topias', 'Toppari']);
     const k = t.kutsut();
@@ -90,13 +92,13 @@ describe('Seura · uusi pelaaja on aina uusi pelaaja (ajettu)', () => {
   });
   it('VANHA TILA: pelaajan A "Lähetä uudelleen" ja sitten uusi pelaaja B → B:n linkissä B:n pelaajaId', async () => {
     const t = seura();
-    t.ctx.vanha('m93', 'Topias', 'Koskela', 'kpv_u13', 'h@x.fi', '', '', '');
+    t.ctx.vanha('m93', 'Topias', 'Koskela', 'kpv_u13', 'h@tm-testi.fi', '', '', '');
     expect(t.ctx.tila._rekPelaajaId).toBe('m93');
     await t.ctx.laheta();   // Topiaksen uudelleenlähetys → kohdistuu Topiakseen (oikein)
     expect(t.linkinPid(t.kutsut()[0].linkki)).toBe('m93');
     t.ctx.uusi();
     expect(t.ctx.tila._rekPelaajaId).toBe(null);
-    t.tayta('Bea', 'Berg', 'toinen@x.fi'); await t.ctx.laheta();
+    t.tayta('Bea', 'Berg', 'toinen@tm-testi.fi'); await t.ctx.laheta();
     const b = t.pelaajat().find((x) => x.etunimi === 'Bea');
     expect(b).toBeTruthy();
     expect(t.linkinPid(t.kutsut()[1].linkki)).toBe(b.id);
@@ -104,7 +106,7 @@ describe('Seura · uusi pelaaja on aina uusi pelaaja (ajettu)', () => {
   it('DUPLIKAATTIVAROITUS: sama nimi → varoitus; "Avaa" avaa olemassa olevan eikä luo uutta', async () => {
     const t = seura();
     t.ctx._confirmVastaus = false;
-    t.ctx.uusi(); t.tayta('topias', 'KOSKELA', 'muu@x.fi'); await t.ctx.laheta();
+    t.ctx.uusi(); t.tayta('topias', 'KOSKELA', 'muu@tm-testi.fi'); await t.ctx.laheta();
     expect(t.loki.confirm[0]).toMatch(/näyttää olevan jo rekisterissä/);
     expect(t.loki.avattu).toEqual(['m93']);
     expect(t.pelaajat()).toHaveLength(1);
@@ -112,7 +114,7 @@ describe('Seura · uusi pelaaja on aina uusi pelaaja (ajettu)', () => {
   });
   it('DUPLIKAATTIVAROITUS: "Luo silti uusi" luo uuden', async () => {
     const t = seura();
-    t.ctx.uusi(); t.tayta('Topias', 'Koskela', 'h@x.fi'); await t.ctx.laheta();
+    t.ctx.uusi(); t.tayta('Topias', 'Koskela', 'h@tm-testi.fi'); await t.ctx.laheta();
     expect(t.loki.confirm).toHaveLength(1);
     expect(t.pelaajat()).toHaveLength(2);
   });
@@ -122,17 +124,17 @@ describe('Seura · uusi pelaaja on aina uusi pelaaja (ajettu)', () => {
     try { vanha = execSync('git show 0b32b947:TalentMaster_Seura.html', { cwd: ROOT, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 }); }
     catch (e) { return; }   // commit ei saatavilla (esim. matala klooni CI:ssä) → ohitetaan
     const t = seura(vanha);
-    t.ctx.uusi(); t.tayta('Toppari', 'Testi', 'h@x.fi'); await t.ctx.laheta();
+    t.ctx.uusi(); t.tayta('Toppari', 'Testi', 'h@tm-testi.fi'); await t.ctx.laheta();
     expect(t.pelaajat()).toHaveLength(1);                            // uutta pelaajaa EI syntynyt
     expect(t.linkinPid(t.kutsut()[0].linkki)).toBe('m93');          // kutsu Topiakselle
   });
 });
 
 describe('KOLMEN LAPSEN sisarustapaus (#689 jatko)', () => {
-  const B = { id: 'top2', etunimi: 'Toppari', sukunimi: 'Testi', huoltajaEmail: 'h@x.fi', syntymaVuosi: 2006, joukkueet: ['kpv_u13'] };
+  const B = { id: 'top2', etunimi: 'Toppari', sukunimi: 'Testi', huoltajaEmail: 'h@tm-testi.fi', syntymaVuosi: 2006, joukkueet: ['kpv_u13'] };
   it('A ja B olemassa, C lisätään samalla sähköpostilla → C:n linkki, esitäyttö ja kutsun sähköposti viittaavat C:hen', async () => {
     const t = seura(undefined, [B]);
-    t.ctx.uusi(); t.tayta('Tero', 'Testaaja', 'h@x.fi'); await t.ctx.laheta();
+    t.ctx.uusi(); t.tayta('Tero', 'Testaaja', 'h@tm-testi.fi'); await t.ctx.laheta();
     const c = t.pelaajat().find((x) => x.etunimi === 'Tero');
     expect(c && c.id).toBeTruthy();
     expect([c.id]).not.toContain('m93');
@@ -151,7 +153,7 @@ describe('KOLMEN LAPSEN sisarustapaus (#689 jatko)', () => {
     expect(t.loki.confirm).toEqual([]);                                        // sama sähköposti ei varoita
   });
   it('vahvistaSuostumus C:n linkillä ja C:n tiedoilla kirjoittaa C:lle (syntymäaika täyttyy tyhjään)', async () => {
-    const v = vahvista({ etunimi: 'Tero', sukunimi: 'Testaaja', huoltajaEmail: 'h@x.fi', suostumusTila: 'odottaa' });
+    const v = vahvista({ etunimi: 'Tero', sukunimi: 'Testaaja', huoltajaEmail: 'h@tm-testi.fi', suostumusTila: 'odottaa' });
     await v.fn(LOMAKE({ etunimi: 'Tero', syntyma: '2010-04-04' }), {});
     const x = v.f.D.get('seurat/kpv/pelaajat/m93');   // harnessin dokumentti = C
     expect(x).toMatchObject({ suostumusTila: 'annettu', syntymaVuosi: 2010 });
@@ -219,9 +221,9 @@ function vahvista(pelaaja) {
   const audit = () => [...f.D.entries()].filter(([k]) => k.startsWith('audit/')).map(([, v]) => v);
   return { f, fn: ctx.exports.vahvistaSuostumus, audit };
 }
-const LOMAKE = (o) => Object.assign({ seuraId: 'kpv', pelaajaId: 'm93', hEmail: 'h@x.fi', antaja: 'Tero Koskela', antajaRooli: 'huoltaja',
+const LOMAKE = (o) => Object.assign({ seuraId: 'kpv', pelaajaId: 'm93', hEmail: 'h@tm-testi.fi', antaja: 'Tero Koskela', antajaRooli: 'huoltaja',
   suostumukset: ['perus'], suostumusMap: { perus: true }, aikaleima: 'x' }, o);
-const TOPIAS_DOC = () => ({ etunimi: 'Topias', sukunimi: 'Koskela', huoltajaEmail: 'h@x.fi', syntymaaika: { toDate: () => new Date(Date.UTC(2013, 2, 15)) },
+const TOPIAS_DOC = () => ({ etunimi: 'Topias', sukunimi: 'Koskela', huoltajaEmail: 'h@tm-testi.fi', syntymaaika: { toDate: () => new Date(Date.UTC(2013, 2, 15)) },
   syntymaVuosi: 2013, sukupuoli: 'M', isa_pituus_cm: 180, pin: '591217', suostumusTila: 'odottaa' });
 
 describe('vahvistaSuostumus · ristiriidan tarkistus (ajettu)', () => {

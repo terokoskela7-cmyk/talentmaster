@@ -12,6 +12,7 @@ import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { createRequire } from 'module';
 import vm from 'vm';
+import { lisaaPaikkamerkki, onPaikkamerkkiOsoite } from './_paikkamerkkiCtx.mjs';
 import { fakeDb } from './_fakeFirestore.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -37,7 +38,7 @@ function luoKayttaja(alku, authUsers) {
   const ketju = { region() { return ketju; }, runWith() { return ketju; }, https: { onCall: (fn) => fn, HttpsError } };
   const ctx = {
     functions: ketju, exports: {}, db: f.db, auth, kayttajaRooliSallittu, console: { log() {}, warn() {}, error() {} },
-    String, Object, Array, Math, JSON, crypto: require_('crypto'), admin: { firestore: { FieldValue: { serverTimestamp: () => 'TS' } } },
+    String, Object, Array, Math, JSON, crypto: require_('crypto'), onPaikkamerkkiOsoite, admin: { firestore: { FieldValue: { serverTimestamp: () => 'TS' } } },
     lahetaSahkoposti: async () => {}, pohjaSalasanaAsetus: () => '', TM_BASE_URL: 'https://tm',
   };
   vm.createContext(ctx);
@@ -47,7 +48,7 @@ function luoKayttaja(alku, authUsers) {
     + valilta('const SALLITUT_ROOLIT_VAIHTO', 'exports.vaihdaKayttajanRooli') + '\n' + runko('luoKayttaja'), ctx);
   return { f, loki, fn: ctx.exports.luoKayttaja };
 }
-const SA = { auth: { uid: 'sa-1', token: { email: 'sa@x.fi' } } };
+const SA = { auth: { uid: 'sa-1', token: { email: 'sa@tm-testi.fi' } } };
 const DATA = () => ({ 'admins/sa-1': { superAdmin: true }, 'seurat/kpv': { nimi: 'KPV' }, 'seurat/kpv/kayttajat/vp-1': { rooli: 'vp', seuraId: 'kpv', aktiivinen: true } });
 
 describe('luoKayttaja (ajettu)', () => {
@@ -60,11 +61,11 @@ describe('luoKayttaja (ajettu)', () => {
   });
   it('tavallinen kutsu: palvelin kirjoittaa koko dokumentin (joukkueet[], joukkueetNimet[], puhelin, kutsuja)', async () => {
     const t = luoKayttaja(DATA(), {});
-    const r = await t.fn({ email: 'v@x.fi', etunimi: 'Ville', sukunimi: 'V', rooli: 'valmentaja', seuraId: 'kpv',
+    const r = await t.fn({ email: 'v@tm-testi.fi', etunimi: 'Ville', sukunimi: 'V', rooli: 'valmentaja', seuraId: 'kpv',
       joukkueet: ['kpv_u13', 'kpv_u14'], joukkueetNimet: ['KPV U13', 'KPV U14'], suuntakoodi: '+358', puhelin: '040 123-4567' }, SA);
     const d = t.f.D.get('seurat/kpv/kayttajat/' + r.uid);
-    expect(d).toMatchObject({ email: 'v@x.fi', rooli: 'valmentaja', seuraId: 'kpv', aktiivinen: true, joukkueet: ['kpv_u13', 'kpv_u14'],
-      joukkueetNimet: ['KPV U13', 'KPV U14'], joukkue: 'kpv_u13', joukkueNimi: 'KPV U13', puhelin: '0401234567', kutsuja: 'sa@x.fi', claimsAsetettu: true });
+    expect(d).toMatchObject({ email: 'v@tm-testi.fi', rooli: 'valmentaja', seuraId: 'kpv', aktiivinen: true, joukkueet: ['kpv_u13', 'kpv_u14'],
+      joukkueetNimet: ['KPV U13', 'KPV U14'], joukkue: 'kpv_u13', joukkueNimi: 'KPV U13', puhelin: '0401234567', kutsuja: 'sa@tm-testi.fi', claimsAsetettu: true });
     expect(t.loki.claims).toEqual([[r.uid, { rooli: 'valmentaja', seuraId: 'kpv' }]]);
   });
 });
@@ -94,7 +95,7 @@ describe('VP · lataaValmentajat (ajettu)', () => {
       'seurat/kpv/kayttajat/a': { etunimi: 'Aktiivi', rooli: 'valmentaja', aktiivinen: true },
       'seurat/kpv/kayttajat/d': { etunimi: 'Deakt', rooli: 'valmentaja', aktiivinen: false },
       'seurat/kpv/kayttajat/haamu': { notif_asetukset: { email: { enabled: true } } },
-      'seurat/kpv/kayttajat/e': { email: 'pelkka@x.fi', rooli: 'valmentaja' },
+      'seurat/kpv/kayttajat/e': { email: 'pelkka@tm-testi.fi', rooli: 'valmentaja' },
     });
     const ctx = { db: f.db, _seuraId: 'kpv', console: { warn() {}, error() {} }, String, Object, Array, Promise,
       lataaVAIArvot: async () => {}, _tmHenkiloNimi: (x) => [x.etunimi, x.sukunimi].filter(Boolean).join(' ') || x.email || 'Nimetön' };

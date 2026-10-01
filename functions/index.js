@@ -20,6 +20,7 @@ const auditloki = require('./auditloki');   // haeAuditLoki: suodattimet + sivut
 const pelaajapin = require('./pelaajapin');   // PR 4: PIN vain palvelimella (asetaPelaajanPin / luoPinitSeuralle)
 const suostumusTarkistus = require('./suostumus_tarkistus');   // sisarusbugi: lomake vs tunnisteen pelaaja
 const valmennusapuri = require('./valmennusapuri');
+const { onPaikkamerkkiOsoite } = require('./paikkamerkki');   // paikkamerkkidomainien esto (1.10.2026)
 const pelaajakirjautuminen = require('./pelaajakirjautuminen');   // Vaihe 0 / PR 1: PalloID + PIN → custom token           // Valmennusapuri-pilotti (Vaihe 2): ohjeistus+tietopohja palvelimella
 if (!admin.apps.length) {
   admin.initializeApp();
@@ -224,7 +225,15 @@ async function tarkistaKayttajaToimenpide(context, kohdeUid, seuraId, vainSA) {
 function uusiValiaikainenSalasana() {
   return 'TM_' + crypto.randomBytes(18).toString('base64url');
 }
+/* Paikkamerkkiosoite (talentmaster.fi, example.com …) → hylätään ennen kuin Auth-tiliä haetaan tai luodaan. */
+function estaPaikkamerkkiOsoite(email) {
+  if (onPaikkamerkkiOsoite(email)) {
+    throw new functions.https.HttpsError('failed-precondition', 'paikkamerkki_osoite',
+      { syy: 'paikkamerkki_osoite', viesti: 'Esimerkkiosoite – korvaa oikealla sähköpostiosoitteella.' });
+  }
+}
 async function haeOrLuoHuoltajaAuth(hEmail, etunimi, sukunimi) {
+  estaPaikkamerkkiOsoite(hEmail);
   try {
     const olemassa = await auth.getUserByEmail(hEmail);
     console.log('[haeOrLuoHuoltajaAuth] Käyttäjä löytyi:', hEmail);
@@ -618,6 +627,7 @@ exports.luoKayttaja = functions
     if (!email || !email.includes('@')) {
       throw new functions.https.HttpsError('invalid-argument', 'Virheellinen sähköposti.');
     }
+    estaPaikkamerkkiOsoite(email);
     if (!rooli)   throw new functions.https.HttpsError('invalid-argument', 'Rooli pakollinen.');
     if (!seuraId) throw new functions.https.HttpsError('invalid-argument', 'Seura pakollinen.');
     const oikeus = await tarkistaOikeus(kutsujaUid, seuraId);
@@ -1142,6 +1152,8 @@ exports.lahetaPelaajaSivuLinkki = functions
       throw new functions.https.HttpsError('invalid-argument',
         'hEmail, pelaajaId ja seuraId ovat pakollisia.');
     }
+    // Paikkamerkki ennen kaikkea muuta: alla haeOrLuoHuoltajaAuth-virhe niellään ja sähköposti lähtisi silti.
+    estaPaikkamerkkiOsoite(hEmail);
     if (!(await tarkistaOikeus(context.auth.uid, seuraId)).sallittu) {
       throw new functions.https.HttpsError('permission-denied', 'Ei oikeutta tähän seuraan.');
     }
