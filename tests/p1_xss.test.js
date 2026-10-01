@@ -120,6 +120,23 @@ function vahvista() {
 }
 const L = (o) => Object.assign({ seuraId: 'kpv', pelaajaId: 'm93', hEmail: 'h@x.fi', antaja: 'Tero Koskela', antajaRooli: 'huoltaja', etunimi: 'Topias', syntyma: '2013-03-15',
   suostumukset: ['rekisteri'], suostumusMap: { rekisteri: true }, aikaleima: '1.10.2026' }, o);
+describe('vahvistaSuostumus (ajettu) · tyhjä = ei muutosta', () => {
+  it('tallennettu pituus, pvm ja suostumusteksti säilyvät, kun lomakkeen kenttä on tyhjä', async () => {
+    const v = vahvista();
+    const ref = 'seurat/kpv/pelaajat/m93';
+    v.f.D.set(ref, Object.assign({}, v.f.D.get(ref), { isa_pituus_cm: 182, aiti_pituus_cm: 168, vanhempi_pituus_pvm: '2026-05-01', vanhempi_pituus_puuttuu: false, suostumusTeksti: 'vanha' }));
+    await v.fn(L({ suostumusTeksti: '', bioPituudet: { isa_pituus_cm: null, aiti_pituus_cm: '', vanhempi_pituus_puuttuu: true, vanhempi_pituus_pvm: '2026-10-01' } }), {});
+    expect(v.f.D.get(ref)).toMatchObject({ isa_pituus_cm: 182, aiti_pituus_cm: 168, vanhempi_pituus_pvm: '2026-05-01', vanhempi_pituus_puuttuu: false, suostumusTeksti: 'vanha' });
+  });
+  it('uusi arvo päivittää vain annetun kentän; puuttuu-lippu lasketaan lopputilasta', async () => {
+    const v = vahvista();
+    const ref = 'seurat/kpv/pelaajat/m93';
+    v.f.D.set(ref, Object.assign({}, v.f.D.get(ref), { isa_pituus_cm: 182 }));
+    await v.fn(L({ bioPituudet: { aiti_pituus_cm: 170, vanhempi_pituus_pvm: '2026-10-01' } }), {});
+    expect(v.f.D.get(ref)).toMatchObject({ isa_pituus_cm: 182, aiti_pituus_cm: 170, vanhempi_pituus_pvm: '2026-10-01', vanhempi_pituus_puuttuu: false });
+  });
+});
+
 describe('vahvistaSuostumus (ajettu) · P1', () => {
   it.each([['Tero <b>Koskela</b>'], ['<script>'], ['x'.repeat(101)]])('antaja %s → invalid-argument antaja_virheellinen, ei kirjoituksia', async (a) => {
     const v = vahvista();
@@ -142,7 +159,7 @@ describe('vahvistaSuostumus (ajettu) · P1', () => {
     expect(x.suostumukset).toEqual(['rekisteri']);
     expect(x.suostumus.aikaleima).toBe('b1.10/b');
     expect(x.suostumusTeksti).toBe('ok script');
-    expect(x.isa_pituus_cm).toBe(null);
+    expect(x).not.toHaveProperty('isa_pituus_cm');   // virheellinen = ei muutosta (ei null-kirjoitusta)
     expect(x.aiti_pituus_cm).toBe(165);
   });
 });

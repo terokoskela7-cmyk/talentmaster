@@ -1254,15 +1254,25 @@ exports.vahvistaSuostumus = functions
     const paivitys = {
       suostumusTila:    'annettu',
       suostumusAnnettu: TS,
-      suostumusTeksti:  puhdasTeksti(suostumusTeksti, 500),
       tila:             'aktiivinen',
       muokattu:         TS,
     };
+    /* Tyhjä = "ei muutosta" (1.10.2026): valinnainen kenttä kirjoitetaan VAIN kun lomakkeella on arvo —
+       tyhjä lomakekenttä ei nollaa tallennettua arvoa (sama periaate kuin syntymäajan täytössä). */
+    const teksti = puhdasTeksti(suostumusTeksti, 500);
+    if (teksti != null) paivitys.suostumusTeksti = teksti;
     if (bioPituudet && typeof bioPituudet === 'object') {
-      paivitys.isa_pituus_cm           = pituusNumero(bioPituudet.isa_pituus_cm);
-      paivitys.aiti_pituus_cm          = pituusNumero(bioPituudet.aiti_pituus_cm);
-      paivitys.vanhempi_pituus_puuttuu = !!bioPituudet.vanhempi_pituus_puuttuu;
-      paivitys.vanhempi_pituus_pvm     = puhdasTeksti(bioPituudet.vanhempi_pituus_pvm, 40);
+      const isa = pituusNumero(bioPituudet.isa_pituus_cm), aiti = pituusNumero(bioPituudet.aiti_pituus_cm);
+      if (isa != null) paivitys.isa_pituus_cm = isa;
+      if (aiti != null) paivitys.aiti_pituus_cm = aiti;
+      if (isa != null || aiti != null) {
+        const pvm = puhdasTeksti(bioPituudet.vanhempi_pituus_pvm, 40);
+        if (pvm != null) paivitys.vanhempi_pituus_pvm = pvm;
+      }
+      // puuttuu-lippu lopputilasta (tallennettu + uusi), ei pelkästä lomakkeesta
+      const isaLopuksi = isa != null ? isa : (snap.get('isa_pituus_cm') != null ? snap.get('isa_pituus_cm') : null);
+      const aitiLopuksi = aiti != null ? aiti : (snap.get('aiti_pituus_cm') != null ? snap.get('aiti_pituus_cm') : null);
+      paivitys.vanhempi_pituus_puuttuu = (isaLopuksi == null || aitiLopuksi == null);
     }
 
     // huoltajaEmail — vahvistus että varmennettu osoite tallentuu pelaajaprofiiliin
