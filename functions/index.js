@@ -12,6 +12,7 @@
 const functions = require('firebase-functions/v1');
 const admin     = require('firebase-admin');
 const https     = require('https');
+const crypto    = require('crypto');
 const { kayttajaRooliSallittu, tunnisteTyyppi, kuittausPaatos } = require('./authz_paatos');   // pure authz-päätös (#71, PR 3, testattava)
 const { keraaPelaajanManifesti, rakennaAuditPayload } = require('./gdpr_locator');   // GDPR RTBF/export -locator (#96)
 const { kaavioKohdistuuServer } = require('./kaavio_policy');   // kaavion kohdistus (peili lib/tm_kaavio_policy.js)
@@ -217,6 +218,12 @@ async function tarkistaKayttajaToimenpide(context, kohdeUid, seuraId, vainSA) {
 // Huoltaja asettaa oman salasanansa reset-linkin kautta — väliaikaista
 // salasanaa ei koskaan näytetä kenellekään.
 // ─────────────────────────────────────────────────────────────────────────────
+/* Väliaikainen salasana uudelle Auth-tilille (luoKayttaja, haeOrLuoHuoltajaAuth). Kukaan ei näe sitä — käyttäjä
+   asettaa oman salasanan reset-linkillä — mutta se on voimassa siihen asti. Math.random (8 merkkiä [0-9A-Z]) ei
+   ole kryptografinen → crypto.randomBytes, 144 bittiä. */
+function uusiValiaikainenSalasana() {
+  return 'TM_' + crypto.randomBytes(18).toString('base64url');
+}
 async function haeOrLuoHuoltajaAuth(hEmail, etunimi, sukunimi) {
   try {
     const olemassa = await auth.getUserByEmail(hEmail);
@@ -228,7 +235,7 @@ async function haeOrLuoHuoltajaAuth(hEmail, etunimi, sukunimi) {
   }
   // Luodaan Auth-tili — väliaikainen salasana on tekninen pakko,
   // käyttäjä ei koskaan näe sitä vaan asettaa oman reset-linkin kautta
-  const valiaikainenSalasana = 'TM_' + Math.random().toString(36).slice(2, 10).toUpperCase();
+  const valiaikainenSalasana = uusiValiaikainenSalasana();
   const uusiKayttaja = await auth.createUser({
     email:         hEmail,
     password:      valiaikainenSalasana,
@@ -606,7 +613,8 @@ exports.luoKayttaja = functions
     }
     const kutsujaUid = context.auth.uid;
     const { email, rooli, seuraId, etunimi, sukunimi, joukkue, joukkueNimi,
-            joukkueet: joukkueetIn, joukkueNimet: joukkueNimetIn, suuntakoodi, puhelin } = data || {};
+            joukkueet: joukkueetIn, joukkueetNimet: joukkueetNimetIn, joukkueNimet: joukkueNimetVanha,
+            suuntakoodi, puhelin } = data || {};
     if (!email || !email.includes('@')) {
       throw new functions.https.HttpsError('invalid-argument', 'Virheellinen sähköposti.');
     }
@@ -651,6 +659,20 @@ exports.luoKayttaja = functions
         throw new functions.https.HttpsError('failed-precondition', 'sa_tunnus',
           { syy: 'sa_tunnus', viesti: 'Super-admin-tunnusta ei lisätä seuran henkilöstöön.' });
       }
+      /* Toisen seuran käyttäjä (1.10.2026): claimeissa on yksi seuraId, ja Rules avaavat datan sen mukaan
+         (onOmaSeura). Ylikirjoitus siirtäisi henkilön hiljaa tähän seuraan ja katkaisisi pääsyn hänen omaan
+         seuraansa. Estetään ennen kirjoituksia → ei puolivalmista tilaa (dokumentti ilman claimeja). */
+      const vanhaSeura = (olemassaOleva.customClaims || {}).seuraId;
+      if (vanhaSeura && vanhaSeura !== seuraId) {
+        await db.collection('audit').add({
+          toiminto: 'kayttaja_toisen_seuran_estetty', severity: 'alert', kohde_uid: uid, kohde_email: email,
+          seuraId, toinen_seuraId: vanhaSeura, tekija_uid: kutsujaUid, lahde: 'luoKayttaja',
+          aikaleima: admin.firestore.FieldValue.serverTimestamp(),
+        }).catch(() => {});
+        throw new functions.https.HttpsError('failed-precondition', 'toisen_seuran_kayttaja',
+          { syy: 'toisen_seuran_kayttaja',
+            viesti: 'Tämä sähköposti on jo toisen seuran henkilöstössä. Sama tunnus voi toimia vain yhdessä seurassa — käytä eri sähköpostia tai ota yhteyttä TalentMaster-tukeen.' });
+      }
       console.log(`[luoKayttaja] ${email} löytyi jo Authista (uid: ${uid}) — lisätään rooli ${rooli} seuralle ${seuraId}`);
     } catch (e) {
       if (e instanceof functions.https.HttpsError) throw e;
@@ -658,7 +680,7 @@ exports.luoKayttaja = functions
       if (e.errorInfo && e.errorInfo.code !== 'auth/user-not-found') {
         throw new functions.https.HttpsError('internal', `Auth-haku epäonnistui: ${e.message}`);
       }
-      const valiaikainenSalasana = 'TM_' + Math.random().toString(36).slice(2, 10).toUpperCase();
+      const valiaikainenSalasana = uusiValiaikainenSalasana();
       try {
         const uusiKayttaja = await auth.createUser({
           email, password: valiaikainenSalasana,
@@ -673,10 +695,13 @@ exports.luoKayttaja = functions
     }
     const nyt = admin.firestore.FieldValue.serverTimestamp();
     /* Kayttajat-dokumentti luodaan VAIN täällä (Rules v3.32: selaimen create estetty). Seura-sivun kutsu
-       välittää joukkueet[] + joukkueNimet[] + puhelimen, jotka se ennen kirjoitti selaimesta perään. */
+       välittää joukkueet[] + nimet + puhelimen, jotka se ennen kirjoitti selaimesta perään.
+       Kanoninen kenttä on joukkueetNimet (Seura-muokkaus kirjoittaa ja Master lukee sitä). #693 kirjoitti
+       väärällä nimellä joukkueNimet → otetaan vastaan molemmat, kirjoitetaan vain kanoninen. */
+    const nimetIn = Array.isArray(joukkueetNimetIn) ? joukkueetNimetIn : joukkueNimetVanha;
     const jIds = Array.isArray(joukkueetIn) ? joukkueetIn.filter((x) => typeof x === 'string' && x).slice(0, 30)
       : (joukkue ? [joukkue] : []);
-    const jNimet = Array.isArray(joukkueNimetIn) ? joukkueNimetIn.map((x) => String(x || '').slice(0, 80)).slice(0, 30)
+    const jNimet = Array.isArray(nimetIn) ? nimetIn.map((x) => String(x || '').slice(0, 80)).slice(0, 30)
       : (joukkueNimi ? [joukkueNimi] : []);
     try {
       await db.collection('seurat').doc(seuraId)
@@ -685,7 +710,7 @@ exports.luoKayttaja = functions
           nimi: etunimi && sukunimi ? `${etunimi} ${sukunimi}` : (etunimi || email),
           rooli, seuraId,
           joukkue: joukkue || jIds[0] || null, joukkueNimi: joukkueNimi || jNimet[0] || null,
-          joukkueet: jIds, joukkueNimet: jNimet,
+          joukkueet: jIds, joukkueetNimet: jNimet,
           suuntakoodi: String(suuntakoodi || '+358').slice(0, 6),
           puhelin: String(puhelin || '').replace(/[^\d]/g, '').slice(0, 15),
           aktiivinen: true, luotu: nyt, kutsuttu: nyt, luonut_uid: kutsujaUid,

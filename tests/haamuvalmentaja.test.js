@@ -37,11 +37,12 @@ function luoKayttaja(alku, authUsers) {
   const ketju = { region() { return ketju; }, runWith() { return ketju; }, https: { onCall: (fn) => fn, HttpsError } };
   const ctx = {
     functions: ketju, exports: {}, db: f.db, auth, kayttajaRooliSallittu, console: { log() {}, warn() {}, error() {} },
-    String, Object, Array, Math, JSON, admin: { firestore: { FieldValue: { serverTimestamp: () => 'TS' } } },
+    String, Object, Array, Math, JSON, crypto: require_('crypto'), admin: { firestore: { FieldValue: { serverTimestamp: () => 'TS' } } },
     lahetaSahkoposti: async () => {}, pohjaSalasanaAsetus: () => '', TM_BASE_URL: 'https://tm',
   };
   vm.createContext(ctx);
   vm.runInContext(valilta('async function tarkistaOikeus(', '// ─────────────────────────────────────────────────────────────────────────────\n// APUFUNKTIOT: henkilökunnan')
+    + valilta('function uusiValiaikainenSalasana(', 'async function haeOrLuoHuoltajaAuth(')
     + valilta('async function onSuperAdminUid(', 'const _authEiLoydy') + '\n'
     + valilta('const SALLITUT_ROOLIT_VAIHTO', 'exports.vaihdaKayttajanRooli') + '\n' + runko('luoKayttaja'), ctx);
   return { f, loki, fn: ctx.exports.luoKayttaja };
@@ -57,13 +58,13 @@ describe('luoKayttaja (ajettu)', () => {
     expect(t.f.D.has('seurat/kpv/kayttajat/sa-1')).toBe(false);
     expect(t.loki.claims).toEqual([]);
   });
-  it('tavallinen kutsu: palvelin kirjoittaa koko dokumentin (joukkueet[], joukkueNimet[], puhelin, kutsuja)', async () => {
+  it('tavallinen kutsu: palvelin kirjoittaa koko dokumentin (joukkueet[], joukkueetNimet[], puhelin, kutsuja)', async () => {
     const t = luoKayttaja(DATA(), {});
     const r = await t.fn({ email: 'v@x.fi', etunimi: 'Ville', sukunimi: 'V', rooli: 'valmentaja', seuraId: 'kpv',
-      joukkueet: ['kpv_u13', 'kpv_u14'], joukkueNimet: ['KPV U13', 'KPV U14'], suuntakoodi: '+358', puhelin: '040 123-4567' }, SA);
+      joukkueet: ['kpv_u13', 'kpv_u14'], joukkueetNimet: ['KPV U13', 'KPV U14'], suuntakoodi: '+358', puhelin: '040 123-4567' }, SA);
     const d = t.f.D.get('seurat/kpv/kayttajat/' + r.uid);
     expect(d).toMatchObject({ email: 'v@x.fi', rooli: 'valmentaja', seuraId: 'kpv', aktiivinen: true, joukkueet: ['kpv_u13', 'kpv_u14'],
-      joukkueNimet: ['KPV U13', 'KPV U14'], joukkue: 'kpv_u13', joukkueNimi: 'KPV U13', puhelin: '0401234567', kutsuja: 'sa@x.fi', claimsAsetettu: true });
+      joukkueetNimet: ['KPV U13', 'KPV U14'], joukkue: 'kpv_u13', joukkueNimi: 'KPV U13', puhelin: '0401234567', kutsuja: 'sa@x.fi', claimsAsetettu: true });
     expect(t.loki.claims).toEqual([[r.uid, { rooli: 'valmentaja', seuraId: 'kpv' }]]);
   });
 });
@@ -72,7 +73,7 @@ describe('vartijat', () => {
   it('Seura-sivu ei enää luo kayttajat-dokumenttia selaimesta (luoKayttaja hoitaa)', () => {
     const S = lue('TalentMaster_Seura.html');
     expect(S).not.toMatch(/collection\('kayttajat'\)\.doc\(uid\)\.set\(\{\s*uid,/);
-    expect(S).toMatch(/joukkueNimet: joukkueet\.map\(j => j\.nimi\)/);
+    expect(S).toMatch(/joukkueetNimet: joukkueet\.map\(j => j\.nimi\)/);
   });
   it('yksikään sivukirjoitus ei käytä set(merge):ä kayttajat-dokkiin (#540-periaate pysyy)', () => {
     for (const f of ['TalentMaster_Master_v16.html', 'TalentMaster_VP_v25.html', 'lib/tm_harjoitusarviointi.js', 'lib/tm_aktiivisuus.js', 'lib/tm_reflektio.js']) {
