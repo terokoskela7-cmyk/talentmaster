@@ -9,6 +9,8 @@ import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import vm from 'vm';
+import { createRequire } from 'module';
+const require_SP = () => createRequire(import.meta.url)('../functions/sahkoposti_payload.js');
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const CF = readFileSync(join(ROOT, 'functions', 'index.js'), 'utf8');
@@ -32,7 +34,8 @@ function aja(env) {
       end() { cb({ statusCode: 202, on(ev, f) { if (ev === 'end') f(); return this; }, setEncoding() {} }); },
     }),
   };
-  const ctx = { process: { env }, https, console: { log() {}, warn() {}, error() {} }, JSON, Promise, Buffer, String, Error };
+  const ctx = { process: { env }, https, console: { log() {}, warn() {}, error() {} }, JSON, Promise, Buffer, String, Error,
+    rakennaSendGridPayload: require_SP().rakennaSendGridPayload };   // payload-moduuli (seuranta pois, 2.10.2026)
   vm.createContext(ctx);
   vm.runInContext(pura('async function lahetaSahkoposti(') + '\nthis.lahetaSahkoposti = lahetaSahkoposti;', ctx);
   return { loki, ajo: ctx.lahetaSahkoposti({ to: 'huoltaja@x.fi', subject: 'S', html: '<p>', fromName: 'Seura' }) };
