@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>TalentMaster™ — Admin</title>
 <script>/* §33 Versio-tarkistus (cache): pakottaa reloadin kun uusi versio deployattu. APP_VERSION leimataan scripts/bump_version.js:llä. */
-(function(){var APP_VERSION='1790853735812';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
+(function(){var APP_VERSION='1790864920073';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,400&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -16,9 +16,9 @@
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-functions-compat.js"></script>
 <script src="lib/tm_appcheck.js?v=1"></script>
 <script src="lib/tm_eerikkila_normit.js?v=40"></script>
-<script src="lib/tm_joukkue.js?v=3"></script>   <!-- §18-jäsenyys: kanoninen nimi + team-id yhdestä paikasta -->
+<script src="lib/tm_joukkue.js?v=4"></script>   <!-- §18-jäsenyys: kanoninen nimi + team-id yhdestä paikasta -->
 <script src="lib/tm_arviointi_historia.js?v=1"></script>   <!-- kausiavain: tmKausiNyt/tmTavoitteetKaudelle — SAMA lähde kuin VP:llä (sama tavoitteet-dokumentti) -->
-<script src="lib/tm_audit_nimet.js?v=6"></script>   <!-- audit-toimintojen selkokieliset nimet (Audit-loki) -->
+<script src="lib/tm_audit_nimet.js?v=7"></script>   <!-- audit-toimintojen selkokieliset nimet (Audit-loki) -->
 <script src="lib/tm_esc.js?v=1"></script>   <!-- P1: jaettu HTML-escape (tallennettu XSS) -->
 <script src="tm_auth.js"></script>
 
@@ -1361,7 +1361,7 @@ async function lataaKayttajaLista() {
               </td>
               <td><span class="badge ${rooliLuokka(k.rooli)}">${esc(rooliNimi[k.rooli] || k.rooli || '—')}</span></td>
               <td style="font-size:12px;">${esc(k.seuraNimi)}</td>
-              <td style="font-size:12px;color:var(--ink3);">${esc(k.joukkueNimi || k.joukkue || '—')}</td>
+              <td style="font-size:12px;color:var(--ink3);">${esc(tmHenkiloJoukkueTeksti(k, '—'))}</td>
               <td>
                 <span class="badge ${k.claimsAsetettu ? 'aktiivinen' : 'ei'}">
                   ${k.claimsAsetettu ? '✓ OK' : '⏳ Odottaa'}
@@ -2057,6 +2057,8 @@ async function luoUusiKayttaja() {
     // Cloud Functions heittää HttpsError -objektin
     const viesti = (virhe.details?.syy === 'sa_tunnus' || virhe.message === 'sa_tunnus')
       ? 'Super-admin-tunnusta ei lisätä seuran henkilöstöön — SA näkee seurat ilman jäsenyyttä.'
+      : (virhe.details?.syy === 'toisen_seuran_kayttaja')
+      ? virhe.details.viesti
       : (virhe.message || 'Tuntematon virhe.');
     naytaModalVirhe(viesti);
     console.error('luoKayttaja virhe:', virhe);
