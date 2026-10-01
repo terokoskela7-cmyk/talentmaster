@@ -518,6 +518,7 @@ function toStep3() {
     return;
   }
   if (!_antajaTarkistus) { toast('Suostumuksen antajan nimi puuttuu', true); return; }
+  if (_antajaTarkistus.length > 100 || /[<>]/.test(_antajaTarkistus)) { toast('Tarkista nimi: enintään 100 merkkiä, ei merkkejä < tai >', true); return; }
   _lahetysKaynnissa = true;
   _poistaRistiriitaIlmoitus();
   var nappi = el('btnok');
@@ -705,6 +706,12 @@ function toStep3() {
         return;
       }
       var _syy = (err && err.details && err.details.syy) || (err && err.message);
+      if (_syy === 'antaja_virheellinen') {
+        toast('Tarkista huoltajan nimi: enintään 100 merkkiä, ei merkkejä < tai >', true);
+        if (nappi) { nappi.disabled = false; nappi.textContent = 'Vahvista ja lähetä'; }
+        setStep(1); onAge();
+        return;
+      }
       if (_syy === 'antaja_puuttuu') {
         toast('Täytä huoltajan etunimi ja sukunimi', true);
         if (nappi) { nappi.disabled = false; nappi.textContent = 'Vahvista ja lähetä'; }
