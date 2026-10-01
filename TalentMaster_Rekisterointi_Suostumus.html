@@ -10,7 +10,7 @@
 <script>window.TM_SENTRY={app:'rekisterointi'};</script>
 <script src="https://browser.sentry-cdn.com/10.58.0/bundle.min.js" integrity="sha384-rtfUMq82bneIHVOpL/60roC5pIJ9kDO15w13yGEBKZSJp3aIbrOAhimB61EwPClB" crossorigin="anonymous"></script>
 <script src="tm_sentry.js?v=1"></script>
-<script src="lib/tm_lang.js?v=25"></script>   <!-- i18n V0 — KORJATTU: oli /talentmaster/tm_lang.js (root, 404 tuotannossa) → lib/tm_lang.js (resolvoituu) -->
+<script src="lib/tm_lang.js?v=26"></script>   <!-- i18n V0 — KORJATTU: oli /talentmaster/tm_lang.js (root, 404 tuotannossa) → lib/tm_lang.js (resolvoituu) -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-check-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
@@ -328,6 +328,7 @@ window.addEventListener('DOMContentLoaded', function() {
   }
 
   if (_urlParams.hEmail)  el('h_email').value = _urlParams.hEmail;
+  if (_seuraId && !_pelaajaId) _naytaUusiKutsuIlmoitus();   // Rules v3.33: vanha linkki ilman pelaajan tunnistetta
   _synAlusta(_urlParams.syntyma);                     // valikot + esitäyttö (?syntyma=YYYY-MM-DD tai P.K.VVVV)
   if (el('i_syn') && el('i_syn').value) onAge();   // esitäytetty syntymäaika → huoltajakortti näkyviin
   if (_urlParams.palloid) {
@@ -470,6 +471,20 @@ function _naytaRistiriitaIlmoitus(viesti) {
   d.textContent = viesti;
   nav.parentNode.insertBefore(d, nav.nextSibling);
 }
+/* Linkissä ei pelaajan tunnistetta (Rules v3.33): lomake ei voi luoda pelaajaa → pyydetään uusi kutsu. */
+function _uusiKutsuViesti() {
+  var v = (typeof t === 'function') ? t('suostumus.pyyda_uusi_kutsu') : null;
+  return (v && v !== 'suostumus.pyyda_uusi_kutsu') ? v
+    : 'Pyydä seuralta uusi kutsu. Tästä linkistä puuttuu pelaajan tunniste, joten lomaketta ei voi lähettää.';
+}
+function _naytaUusiKutsuIlmoitus() {
+  var v1 = el('v1'); if (!v1 || el('uusiKutsuIlmoitus')) return;
+  var d = document.createElement('div');
+  d.id = 'uusiKutsuIlmoitus'; d.setAttribute('role', 'alert');
+  d.style.cssText = 'margin-bottom:14px;padding:12px 14px;border:1px solid rgba(240,68,68,.6);border-radius:9px;color:#f5b5b5;font-size:14px;line-height:1.5';
+  d.textContent = _uusiKutsuViesti();
+  v1.insertBefore(d, v1.firstChild);
+}
 /* Vain koodi failed-precondition + syy pelaaja_ristiriita näyttää ristiriitailmoituksen; muut virheet yleisen. */
 function _onPelaajaRistiriita(err) {
   var koodi = String((err && err.code) || '').replace(/^functions\//, '');
@@ -600,6 +615,8 @@ function toStep3() {
   }
   if (!_antajaTarkistus) { toast('Suostumuksen antajan nimi puuttuu', true); return; }
   if (_antajaTarkistus.length > 100 || /[<>]/.test(_antajaTarkistus)) { toast('Tarkista nimi: enintään 100 merkkiä, ei merkkejä < tai >', true); return; }
+  // Rules v3.33: lomake ei luo pelaajaa selaimesta. Ilman pelaajan tunnistetta linkki on vanha → uusi kutsu seuralta.
+  if (_fbDb && _seuraId && !dokumenttiId) { var _uk = _uusiKutsuViesti(); toast(_uk, true); _naytaRistiriitaIlmoitus(_uk); return; }
   _lahetysKaynnissa = true;
   _poistaRistiriitaIlmoitus();
   var nappi = el('btnok');
@@ -608,8 +625,6 @@ function toStep3() {
   var tallennusPromise;
 
   if (_fbDb && _seuraId) {
-    var colRef = _fbDb.collection('seurat').doc(_seuraId).collection('pelaajat');
-
     if (dokumenttiId) {
       // ── KUTSUFLOW: dokumentti on jo olemassa, päivitetään vain suostumustiedot ──
       // Tämä on tarkasti rajattu update joka vastaa rules-hasOnly()-listaa.
@@ -655,67 +670,9 @@ function toStep3() {
         });
 
     } else {
-      // ── UUSI REKISTERÖINTI: dokumenttia ei ole, luodaan se kokonaan ──
-      // Tässä tilanteessa vanhempi on täyttänyt lomakkeen ilman kutsua,
-      // joten kaikki kentät kirjoitetaan uuteen dokumenttiin.
-      var pelRef2 = colRef.doc();
-      var tallId2 = pelRef2.id;
-
-      var pelaajaDoc = {
-        etunimi:          val('i_etu'),
-        sukunimi:         val('i_suku'),
-        nimi:             val('i_etu') + ' ' + val('i_suku'),
-        syntymaaika:      (function() {
-          if (!syntyma || sv < SYN_ALKUVUOSI || sv > new Date().getFullYear()) return null;
-          return firebase.firestore.Timestamp.fromDate(new Date(Date.UTC(sv,parseInt(so[1],10)-1,parseInt(so[2],10))));
-        })(),
-        sukupuoli:        el('i_sp').value || '',
-        seura:            val('i_seura'),
-        seuraId:          _seuraId || 'tuntematon',
-        joukkue:          val('i_jou'),
-        huoltajaEmail:    raporttiEmail ? raporttiEmail.trim().toLowerCase() : null,
-        palloID:          palloId || '',
-        email:            val('i_email') || '',
-        raportteihin:     raporttiEmail,
-        huoltaja: age < 18 ? {
-          etunimi:  val('h_etu'),
-          sukunimi: val('h_suku'),
-          email:    val('h_email'),
-          puhelin:  val('h_puh') || ''
-        } : null,
-        suostumus: {
-          annettu:     nyt,
-          antaja:      age < 18 ? (val('h_etu')+' '+val('h_suku')).trim() : (val('i_etu')+' '+val('i_suku')).trim(),
-          antajaRooli: age < 18 ? 'huoltaja' : 'itse',
-          versio:      '2026-v1',
-          hyvaksytyt:  suostumusMap,
-          aikaleima:   aikaleima,
-        },
-        isa_pituus_cm:           bioPituudet.isa_pituus_cm,
-        aiti_pituus_cm:          bioPituudet.aiti_pituus_cm,
-        vanhempi_pituus_puuttuu: bioPituudet.vanhempi_pituus_puuttuu,
-        vanhempi_pituus_pvm:     bioPituudet.vanhempi_pituus_pvm,
-        kutsuId:          _kutsuId || null,
-        rekisterointiId:  rid,
-        suostumusTila:    'annettu',
-        aktiivinen:       true,
-        tila:             'aktiivinen',
-        pelaajaId:        tallId2,
-        luotu:            nyt,
-        muokattu:         nyt,
-      };
-
-      // Uusi dokumentti — .set() on oikein, ei tarvitse rules-rajoituksia
-      tallennusPromise = pelRef2.set(pelaajaDoc)
-        .then(function() {
-          if (_kutsuId) {
-            return _fbDb.collection('seurat').doc(_seuraId).collection('kutsut').doc(_kutsuId)
-              .update({ tila: 'hyvaksytty', hyvaksyttyPvm: nyt, pelaajaId: tallId2, muokattu: nyt });
-          }
-        });
-
-      // tallId viittauksiin myöhemmin
-      rid = tallId2;
+      /* Rules v3.33 (2.10.2026): vanha reitti, joka LOI pelaajan selaimesta suostumus valmiiksi annettuna ja hyväksyi
+         kutsun kirjautumatta, on poistettu. Tähän ei päädytä (tarkistus yllä: _uusiKutsuViesti). */
+      tallennusPromise = Promise.reject(new Error(_uusiKutsuViesti()));
     }
 
   } else {

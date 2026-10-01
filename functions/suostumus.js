@@ -10,4 +10,12 @@ function suostumusAnnettu(pelaaja) {
   return p.suostumusTila === 'annettu' || !!(p.suostumus && p.suostumus.annettu);
 }
 const SUOSTUMUS_PUUTTUU = 'suostumus_puuttuu';
-module.exports = { suostumusAnnettu, SUOSTUMUS_PUUTTUU };
+/* Kutsun lähetyksen jälkeen (Rules v3.33: vain palvelimella): pilotti/puuttuva → 'odottaa'.
+   Annettua ei koskaan alenneta (suostumus-integriteetti), 'odottaa' ei muutu. → päivitysobjekti tai null. */
+function suostumusTilaKutsunJalkeen(pelaaja) {
+  if (suostumusAnnettu(pelaaja || {})) return null;
+  if ((pelaaja || {}).suostumusTila === 'odottaa') return null;
+  return { suostumusTila: 'odottaa' };
+}
+
+module.exports = { suostumusAnnettu, suostumusTilaKutsunJalkeen, SUOSTUMUS_PUUTTUU };
