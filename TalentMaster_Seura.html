@@ -19,7 +19,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <!-- #92 joukkue-normalisointi (kanonisointi tuonnissa) -->
 <script src="lib/tm_esc.js?v=1"></script>   <!-- P1: jaettu HTML-escape -->
-<script src="lib/tm_lang.js?v=20"></script>   <!-- i18n V0 — fi/sv/en käännöstaulukko + t() + kieli-init (putkitus) -->
+<script src="lib/tm_lang.js?v=21"></script>   <!-- i18n V0 — fi/sv/en käännöstaulukko + t() + kieli-init (putkitus) -->
 <script src="lib/tm_joukkue.js?v=4"></script>
 <script src="lib/tm_paikkamerkki.js?v=1"></script>   <!-- paikkamerkkidomainien esto (huoltajan sähköposti) -->
 <!-- tm_import.js ja tm_empty_state.js ladataan dynaamisesti jos saatavilla -->
@@ -1328,7 +1328,9 @@ async function asetaAktiivinenSeura(seuraId) {
     tila.seuraNimi    = data.nimi    || seuraId;
     tila.seuraPaketti = data.paketti || 'Perustaso';
     tila.seuraKieli   = data.kieli || null;   // A3: peritään uudelle pelaajalle (anon PIN ei voi lukea seuradokia)
-    if (typeof tmKieliInitSeura === 'function') tmKieliInitSeura(data.kieli);   // i18n V0 — keskitetty kieli-init seurat/{id}.kieli:stä (§11)
+    /* Päätös 1.10.2026: seurahallinta on suomeksi toistaiseksi → EI tmKieliInitSeura(data.kieli) (vaihtaisi koko sivun
+       kielen, myös localStorage-valinnasta). Seuran kieli (tila.seuraKieli) säilyy: uusi pelaaja perii sen (A3) ja
+       perheille menevä sisältö (tulostettavat kortit) tehdään sillä — _tkKieli. */
   } else {
     tila.seuraNimi    = seuraId;
     tila.seuraPaketti = '—';
@@ -5392,15 +5394,18 @@ async function lahetaMassakutsu() {
 
 /* i18n (1.10.2026): Seura-sivun tekstit tm_langista (seura.*), suomi varana jos avain/kirjasto puuttuu.
    (Vanha lataaExcelMalli poistettu: latasi staattisen pohjan GitHubista ilman Syntymävuosi-saraketta, ei kutsujia.) */
-function _tk(avain, fi, muuttujat) {
-  let v = null;
-  try { v = (typeof t === 'function') ? t(avain, muuttujat || {}) : null; } catch (e) { v = null; }
-  if (!v || v === avain) {
-    v = fi;
-    Object.keys(muuttujat || {}).forEach((k) => { v = v.replace(new RegExp('\\{' + k + '\\}', 'g'), muuttujat[k]); });
-  }
+/* Teksti ANNETULLA kielellä vaihtamatta sivun kieltä (1.10.2026). Haku TM_LANG[kieli] → en → fi-varateksti;
+   muuttujat {nimi} korvataan. Käyttö: perheille menevä sisältö seuran kielellä (tila.seuraKieli). */
+function _tkKieli(avain, kieli, fi, muuttujat) {
+  const L = (typeof window !== 'undefined' && window.TM_LANG) || null;
+  const hae = (k) => avain.split('.').reduce((o, x) => (o && o[x] != null ? o[x] : undefined), L && L[k]);
+  let v = L ? (hae(kieli || 'fi') ?? hae('en')) : undefined;
+  if (typeof v !== 'string' || !v) v = fi;
+  Object.keys(muuttujat || {}).forEach((k) => { v = v.replace(new RegExp('\\{' + k + '\\}', 'g'), muuttujat[k]); });
   return v;
 }
+/* Seurahallinnan käyttöliittymä on AINA suomeksi (päätös 1.10.2026) — myös ruotsinkielisillä seuroilla. */
+function _tk(avain, fi, muuttujat) { return _tkKieli(avain, 'fi', fi, muuttujat); }
 /* Syntymävuosi Excelistä: tasan 4 numeroa, 1990…kuluva vuosi → numero, muuten null (1.10.2026). */
 function _tmSyntymaVuosi(v) {
   const s = String(v == null ? '' : v).trim();
@@ -5684,20 +5689,23 @@ function _suostumusLinkki(pelaajaId, kutsuId) {
 /* Kortit A4:lle 8 kpl (2 × 4). Pelaajakortti: nimi, joukkue, PalloID, PIN, QR omaan linkkiin.
    Suostumuskortti: etunimi, joukkue, QR suostumuslomakkeeseen + ohje — EI PIN:iä eikä PalloID:tä. */
 function _pinKortitHtml(kortit) {
+  // Perheille menevä sisältö SEURAN kielellä (tila.seuraKieli), sivu pysyy suomeksi.
+  const kieli = (typeof tila !== 'undefined' && tila.seuraKieli) || 'fi';
+  const tp = (avain, fi) => _tkKieli(avain, kieli, fi);
   const esc = (x) => String(x == null ? '' : x).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const pelaajakortti = (k) => '<div class="k"><div class="n">' + esc(k.nimi) + '</div><div class="j">' + esc(k.joukkue) + '</div>'
     + '<div class="r"><img src="' + k.qr + '" alt="QR"><div class="t">'
     + (k.palloId ? '<div class="l">PalloID</div><div class="v">' + esc(k.palloId) + '</div>' : '')
     + '<div class="l">PIN</div><div class="v pin">' + esc(k.pin) + '</div></div></div>'
-    + '<div class="o">' + esc(_tk('seura.kortti_skannaa_pin', 'Skannaa ja syötä PIN')) + '</div></div>';
+    + '<div class="o">' + esc(tp('seura.kortti_skannaa_pin', 'Skannaa ja syötä PIN')) + '</div></div>';
   const suostumuskortti = (k) => '<div class="k ks"><div class="n">' + esc(k.etunimi) + '</div><div class="j">' + esc(k.joukkue) + '</div>'
     + '<div class="r"><img src="' + k.qr + '" alt="QR"><div class="t sk">'
-    + esc(_tk('seura.suostumuskortti_teksti', 'Näytä tämä vanhemmallesi. Kun huoltaja on antanut luvan (2 min), TalentMaster aukeaa.'))
-    + '</div></div><div class="o">' + esc(_tk('seura.suostumuskortti_ala', 'Huoltajan lupa · TalentMaster')) + '</div></div>';
+    + esc(tp('seura.suostumuskortti_teksti', 'Näytä tämä vanhemmallesi. Kun huoltaja on antanut luvan (2 min), TalentMaster aukeaa.'))
+    + '</div></div><div class="o">' + esc(tp('seura.suostumuskortti_ala', 'Huoltajan lupa · TalentMaster')) + '</div></div>';
   const kortti = (k) => (k.tyyppi === 'suostumus' ? suostumuskortti(k) : pelaajakortti(k));
   let sivut = '';
   for (let i = 0; i < kortit.length; i += 8) sivut += '<div class="s">' + kortit.slice(i, i + 8).map(kortti).join('') + '</div>';
-  return '<!doctype html><html lang="fi"><head><meta charset="utf-8"><title>Kortit</title><style>'
+  return '<!doctype html><html lang="' + esc(kieli) + '"><head><meta charset="utf-8"><title>' + esc(tp('seura.kortit_otsikko', 'Kortit')) + '</title><style>'
     + '@page{size:A4;margin:10mm}body{margin:0;font-family:Arial,sans-serif;color:#111}'
     + '.s{display:grid;grid-template-columns:1fr 1fr;grid-template-rows:repeat(4,1fr);gap:4mm;height:277mm;page-break-after:always}'
     + '.k{border:1px dashed #888;border-radius:3mm;padding:4mm;display:flex;flex-direction:column}'

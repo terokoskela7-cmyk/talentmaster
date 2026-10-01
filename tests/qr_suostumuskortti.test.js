@@ -107,7 +107,7 @@ function seuraYmp(pelaajat, palvelin) {
   ctx.open = ctx.window.open;
   vm.createContext(ctx);
   vm.runInContext(SEURA.match(/const PIN_SUOSTUMUS_PUUTTUU = '[^']*';/)[0].replace('const', 'var') + '\n'
-    + ['function _tk(avain, fi, muuttujat) {', 'function _suostumusAnnettu(p) {', 'function _pinFn(nimi) {', 'function _pinVirheTeksti(e) {',
+    + ['function _tkKieli(avain, kieli, fi, muuttujat) {', 'function _tk(avain, fi, muuttujat) {', 'function _suostumusAnnettu(p) {', 'function _pinFn(nimi) {', 'function _pinVirheTeksti(e) {',
       'function _tunnusKohde() {', 'function _tunnusTila(t) {', 'function _pelaajaLinkki(p) {', 'function _pinPalloId(p) {',
       'function _suostumusLinkki(pelaajaId, kutsuId) {', 'function _pinKortitHtml(kortit) {', 'async function tulostaKortit() {'].map(pura).join('\n')
     + '\nthis.linkki = _suostumusLinkki; this.html = _pinKortitHtml; this.tulosta = tulostaKortit;', ctx);
@@ -219,14 +219,14 @@ describe('suostumuslomake', () => {
     expect(LOM).toContain("'Sähköposti ei vastaa seuran tietoja. Käytä osoitetta, jonka annoit seuralle, tai ota yhteys joukkueenjohtajaan.'");
     expect(LOM).toContain("if (_syy === 'email_ristiriita') {");
   });
-  it('tekstit tm_langissa fi + en, sv odotuslistalla', () => {
+  it('tekstit tm_langissa fi + en + sv (Gemini)', () => {
     global.window = {};
     require_(join(ROOT, 'lib', 'tm_lang.js'));
     const L = global.window.TM_LANG;
     const SV = require_(join(ROOT, 'tests', 'tm_lang_sv_odotuslista.cjs'));
     for (const [ns, k] of [['suostumus', 'email_ristiriita'], ['suostumus', 'qr_info_teksti'], ['seura', 'suostumuskortti_teksti'], ['seura', 'kortit_yhteenveto']]) {
       expect(L.fi[ns][k], ns + '.' + k).toBeTruthy(); expect(L.en[ns][k], ns + '.' + k).toBeTruthy();
-      expect(L.sv[ns][k]).toBeUndefined(); expect(SV).toContain(ns + '.' + k);
+      expect(typeof L.sv[ns][k]).toBe('string'); expect(SV).not.toContain(ns + '.' + k);   // Gemini-ruotsinnos 1.10.2026
     }
     delete global.window;
   });

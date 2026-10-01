@@ -170,10 +170,10 @@ describe('rakenne', () => {
     expect(omat.length).toBeGreaterThan(15);
     expect(omat.filter((s) => !onAllowlist('https://x/talentmaster/' + s))).toEqual([]);
   });
-  it('tekstit tm_langissa fi + en, sv odotuslistalla', () => {
+  it('tekstit tm_langissa fi + en (+ sv Geminiltä)', () => {
     const L = readFileSync(join(ROOT, 'lib', 'tm_lang.js'), 'utf8');
     expect(L).toContain("ei_yhteytta_kirjaus:    '" + EI_YHTEYTTA + "'");
     expect(L).toContain("ei_yhteytta_kirjaus:    'No connection – your entry was not saved. Log it again when you are back online.'");
-    expect(readFileSync(join(ROOT, 'tests', 'tm_lang_sv_odotuslista.cjs'), 'utf8')).toContain("'pelaaja.ei_yhteytta_kirjaus'");
+    expect(readFileSync(join(ROOT, 'tests', 'tm_lang_sv_odotuslista.cjs'), 'utf8')).not.toContain("'pelaaja.ei_yhteytta_kirjaus'");   // sv Geminiltä 1.10.2026
   });
 });

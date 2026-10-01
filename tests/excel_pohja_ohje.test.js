@@ -17,7 +17,7 @@ const pura = (t) => { const a = SEURA.indexOf(t); if (a < 0) throw new Error(t);
 function apurit() {
   const ctx = { String, Number, Date, Object, RegExp };
   vm.createContext(ctx);
-  vm.runInContext(pura('function _tmSyntymaVuosi(v) {') + '\n' + pura('function _tk(avain, fi, muuttujat) {'), ctx);
+  vm.runInContext(pura('function _tmSyntymaVuosi(v) {') + '\n' + pura('function _tkKieli(avain, kieli, fi, muuttujat) {') + '\n' + pura('function _tk(avain, fi, muuttujat) {'), ctx);
   return ctx;
 }
 
@@ -40,7 +40,7 @@ describe('lataaRekisteriPohja (ajettu SheetJS-tyngällä)', () => {
         : { get: async () => ({ docs: [] }) }) }) }) },
     };
     vm.createContext(ctx);
-    vm.runInContext(pura('function _tk(avain, fi, muuttujat) {') + '\n' + pura('async function lataaRekisteriPohja() {'), ctx);
+    vm.runInContext(pura('function _tkKieli(avain, kieli, fi, muuttujat) {') + '\n' + pura('function _tk(avain, fi, muuttujat) {') + '\n' + pura('async function lataaRekisteriPohja() {'), ctx);
     await ctx.lataaRekisteriPohja();
     return { lehdet, toastit, nappi };
   }
@@ -98,7 +98,7 @@ describe('nimet ja ohjemodaali', () => {
     expect(SEURA).toContain("📨 ${_tk('seura.tuo_pelaajat_excelista', 'Tuo pelaajat Excelistä')}");
     expect(SEURA).toContain("⬇ ${_tk('seura.lataa_excel_pohja', 'Lataa Excel-pohja')}");
   });
-  it('modaalin tekstit = briefin tekstit; jokainen data-tm-k-avain löytyy tm_langista fi + en (sv odotuslistalla)', () => {
+  it('modaalin tekstit = briefin tekstit; jokainen data-tm-k-avain löytyy tm_langista fi + en + sv', () => {
     global.window = {};
     require_(join(ROOT, 'lib', 'tm_lang.js'));
     const L = global.window.TM_LANG;
@@ -109,8 +109,8 @@ describe('nimet ja ohjemodaali', () => {
       const k = avain.split('.')[1];
       expect(L.fi.seura[k], avain).toBe(fi.trim());
       expect(L.en.seura[k], avain).toBeTruthy();
-      expect(L.sv.seura[k], avain).toBeUndefined();
-      expect(SV).toContain(avain);
+      expect(typeof L.sv.seura[k], avain).toBe('string');   // Gemini-ruotsinnos 1.10.2026
+      expect(SV).not.toContain(avain);
     }
     expect(L.fi.seura.excel_v3_teksti).toBe('Paina Minulla on täytetty Excel → Tuo järjestelmään. Tarkista esikatselu: punaiset rivit eivät tuonnissa mene läpi. Valitse Tuo vain, jos haluat lähettää kutsut myöhemmin, tai Tuo + lähetä kutsut, jolloin huoltajat saavat suostumuspyynnön sähköpostiin heti.');
     delete global.window;
