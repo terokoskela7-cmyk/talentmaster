@@ -42,7 +42,8 @@ function luoKayttaja(alku, authUsers) {
   };
   vm.createContext(ctx);
   vm.runInContext(valilta('async function tarkistaOikeus(', '// ─────────────────────────────────────────────────────────────────────────────\n// APUFUNKTIOT: henkilökunnan')
-    + valilta('async function onSuperAdminUid(', 'const _authEiLoydy') + '\n' + runko('luoKayttaja'), ctx);
+    + valilta('async function onSuperAdminUid(', 'const _authEiLoydy') + '\n'
+    + valilta('const SALLITUT_ROOLIT_VAIHTO', 'exports.vaihdaKayttajanRooli') + '\n' + runko('luoKayttaja'), ctx);
   return { f, loki, fn: ctx.exports.luoKayttaja };
 }
 const SA = { auth: { uid: 'sa-1', token: { email: 'sa@x.fi' } } };

@@ -39,9 +39,12 @@ const db = admin.firestore();
 // ─────────────────────────────────────────────────────────────────
 function rakennaClaims(data, seuraId, onAdmin) {
   const rooli = data.rooli || null;
-  if (onAdmin || data.superAdmin === true || rooli === 'super_admin' || rooli === 'superadmin') {
+  // HOTFIX 1.10.2026: super-admin-claimit VAIN admins-kokoelman dokumentista. Seuran kayttajat-dokumentin
+  // rooli 'super_admin'/'superadmin' tai superAdmin-kenttä EI anna SA:ta (ohitetaan, ks. kasittele).
+  if (onAdmin) {
     return { rooli: 'superadmin', superAdmin: true, seuraId: null, joukkue: null };
   }
+  if (data.superAdmin === true || rooli === 'super_admin' || rooli === 'superadmin') return null;
   return {
     rooli:   rooli,
     seuraId: seuraId || data.seuraId || null,
@@ -60,11 +63,21 @@ const LIPPU = function () {
 // Asettaa claimsit + kirjoittaa lipun yhdelle dokumentille. Palauttaa true/false.
 async function kasittele(ref, uid, data, seuraId, onAdmin, tila) {
   const claims = rakennaClaims(data, seuraId, onAdmin);
+  if (!claims) {   // seuradokumentti väittää SA:ta → ei koskaan claimeja tästä
+    tila.ohitettu++;
+    console.log(`⏭  uid=${uid} — seuradokumentin rooli on super-admin, ohitetaan (SA vain admins-kokoelmasta)\n`);
+    return false;
+  }
+  if (!onAdmin && data.aktiivinen === false) {   // deaktivoidulle ei palauteta claimeja (P0)
+    tila.ohitettu++;
+    console.log(`⏭  uid=${uid} — deaktivoitu, ohitetaan\n`);
+    return false;
+  }
   const email = data.email || '(ei email-kenttää)';
   const tunniste = `${email} | rooli=${claims.rooli} | seura=${seuraId || '(kaikki)'}`;
   try {
     await admin.auth().setCustomUserClaims(uid, claims);
-    await ref.set(LIPPU(), { merge: true });
+    await ref.update(LIPPU());   // update ei luo puuttuvaa dokumenttia (fcl/dpYc-haamu syntyi set(merge):stä)
     console.log(`✅ ${tunniste}`);
     console.log(`   uid=${uid} | claims=${JSON.stringify(claims)}\n`);
     tila.onnistui++;
