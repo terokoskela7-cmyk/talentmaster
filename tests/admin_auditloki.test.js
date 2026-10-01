@@ -209,6 +209,10 @@ describe('vartijat: audit-kirjoittajat', () => {
     expect(NIMET.NIMET.suostumus_estetty_pelaaja_ristiriita).toBe('⚠ Suostumus estetty: lomake koskee eri pelaajaa');
     expect(NIMET.MERKINNAT.lomake_poikkeama).toBe('⚠ Suostumuslomakkeessa poikkeama');
   });
+  it('rooli_vaihdettu näyttää vanha → uusi', () => {
+    expect(NIMET.rivinNimi({ toiminto: 'rooli_vaihdettu', vanha_rooli: 'valmentaja', uusi_rooli: 'vp' })).toBe('Käyttäjän rooli vaihdettu (valmentaja → vp)');
+    expect(NIMET.rivinNimi({ toiminto: 'rooli_vaihdettu' })).toBe('Käyttäjän rooli vaihdettu');
+  });
   it('lomake_poikkeama: suostumus_annettu-rivi saa poikkeamanimen; ilman poikkeamaa tavallinen nimi', () => {
     expect(NIMET.rivinNimi({ toiminto: 'suostumus_annettu', severity: 'warn', lomake_poikkeama: ['etunimi'] })).toBe('⚠ Suostumuslomakkeessa poikkeama (etunimi)');
     expect(NIMET.rivinNimi({ toiminto: 'suostumus_annettu', severity: 'info', lomake_poikkeama: [] })).toBe('Suostumus annettu');
@@ -283,9 +287,40 @@ describe('Admin · Audit-loki-näkymä', () => {
   });
   it('tuntematon toiminto näytetään teknisellä nimellä; nimikirjasto ladataan sivulle', () => {
     expect(ajaAdmin().nimi('outo_toiminto')).toBe('outo_toiminto');
-    expect(ADMIN).toContain('<script src="lib/tm_audit_nimet.js?v=3"></script>');
+    expect(ADMIN).toContain('<script src="lib/tm_audit_nimet.js?v=4"></script>');
     expect(ADMIN).toContain("_auditPika('epaonnistuneet')");
     expect(ADMIN).toContain("_auditPika('halytykset')");
     expect(ADMIN).not.toContain('limit: 200');
+  });
+});
+
+describe('Admin · audit-rivin kohde ja tekijä sähköpostina (ajettu)', () => {
+  function aja() {
+    const a = ADMIN.indexOf('let _auditUidEmail = null;');
+    const b = ADMIN.indexOf('function _auditPiirra()', a);
+    const c = ADMIN.indexOf('function _auditCsvArvo(');
+    const d = ADMIN.indexOf('window._auditLataaCsv', c);
+    const db = { collection: (n) => ({
+      doc: () => ({ collection: () => ({ get: async () => ({ docs: [{ id: 'valm-1', data: () => ({ email: 'valm@x.fi' }) }, { id: 'vp-1', data: () => ({ email: 'vp@x.fi' }) }] }) }) }),
+      get: async () => ({ docs: n === 'admins' ? [{ id: 'sa-1', data: () => ({ email: 'sa@x.fi' }) }] : [] }),
+    }) };
+    const ctx = { db, tila: { seurat: [{ id: 'kpv' }] }, Promise, String, Object, Array, JSON,
+      _auditRivinNimi: (r) => NIMET.rivinNimi(r) };
+    vm.createContext(ctx);
+    vm.runInContext(ADMIN.slice(a, b) + ADMIN.slice(c, d) + '\nthis.lataa = _auditLataaUidKartta; this.kohde = _auditKohde; this.tekija = _auditTekija; this.csv = _auditCsv;', ctx);
+    return ctx;
+  }
+  it('kohde_uid ja tekija_uid → sähköposti kun uid tunnetaan; tuntematon uid sellaisenaan; rooli_vaihdettu CSV:ssä vanha → uusi', async () => {
+    const t = aja();
+    const r = { toiminto: 'rooli_vaihdettu', kohde_uid: 'valm-1', tekija_uid: 'sa-1', vanha_rooli: 'valmentaja', uusi_rooli: 'vp', seuraId: 'kpv', aikaleima: 'x', id: 'a1' };
+    expect(t.kohde(r)).toBe('valm-1');   // ennen latausta: uid
+    await t.lataa();
+    expect(t.kohde(r)).toBe('valm@x.fi');
+    expect(t.tekija(r)).toBe('sa@x.fi');
+    expect(t.tekija({ tekija_uid: 'tuntematon-uid' })).toBe('tuntematon-uid');
+    expect(t.kohde({ kohde_uid: 'vp-1', pelaajaId: 'p1' })).toBe('vp@x.fi · p1');
+    const csv = t.csv([r]);
+    expect(csv).toContain('Käyttäjän rooli vaihdettu (valmentaja → vp)');
+    expect(csv).toContain(';valm@x.fi;sa@x.fi;');
   });
 });
