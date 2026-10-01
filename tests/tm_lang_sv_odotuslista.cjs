@@ -18,4 +18,14 @@ module.exports = [
   'vanhempi.lapsi_valitse',
   // Pelaaja ilman verkkoa (1.10.2026)
   'pelaaja.ei_yhteytta_kirjaus',
+  // QR-suostumuskortti (PR B, 1.10.2026)
+  'suostumus.qr_info_otsikko',
+  'suostumus.qr_info_teksti',
+  'suostumus.email_ristiriita',
+  'seura.kortit_tulosta',
+  'seura.kortit_yhteenveto',
+  'seura.kortit_ei_emailia',
+  'seura.kortti_skannaa_pin',
+  'seura.suostumuskortti_teksti',
+  'seura.suostumuskortti_ala',
 ];

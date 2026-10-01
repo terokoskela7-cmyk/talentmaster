@@ -10,7 +10,7 @@
 <script>window.TM_SENTRY={app:'rekisterointi'};</script>
 <script src="https://browser.sentry-cdn.com/10.58.0/bundle.min.js" integrity="sha384-rtfUMq82bneIHVOpL/60roC5pIJ9kDO15w13yGEBKZSJp3aIbrOAhimB61EwPClB" crossorigin="anonymous"></script>
 <script src="tm_sentry.js?v=1"></script>
-<script src="lib/tm_lang.js?v=18"></script>   <!-- i18n V0 — KORJATTU: oli /talentmaster/tm_lang.js (root, 404 tuotannossa) → lib/tm_lang.js (resolvoituu) -->
+<script src="lib/tm_lang.js?v=20"></script>   <!-- i18n V0 — KORJATTU: oli /talentmaster/tm_lang.js (root, 404 tuotannossa) → lib/tm_lang.js (resolvoituu) -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-check-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
@@ -323,8 +323,17 @@ window.addEventListener('DOMContentLoaded', function() {
     var infoDiv = document.createElement('div');
     infoDiv.className = 'info';
     infoDiv.style.margin = '0 0 16px 0';
-    infoDiv.innerHTML = '<div class="info-t">Kutsu ' + (_urlParams.seura || 'seuralta') + '</div>'
-      + '<p>Seura on esitäyttänyt osan tiedoista puolestasi. Tarkista tiedot ja täydennä puuttuvat kentät.</p>';
+    /* QR-suostumuskortti (PR B): linkissä vain kutsuId + seuraId + pelaajaId → ei esitäyttöä; huoltaja kirjoittaa
+       tiedot itse. Teksti DOM-solmuina (ei innerHTML:ää URL-parametrista). */
+    var _esitaytetty = !!(_urlParams.etunimi || _urlParams.hEmail || _urlParams.seura);
+    var _tt = function (k, fi) { var v = (typeof t === 'function') ? t(k) : null; return (v && v !== k) ? v : fi; };
+    var _io = document.createElement('div'); _io.className = 'info-t';
+    _io.textContent = _esitaytetty ? ('Kutsu ' + (_urlParams.seura || 'seuralta')) : _tt('suostumus.qr_info_otsikko', 'Lupa pelaajan tunnuksiin');
+    var _ip = document.createElement('p');
+    _ip.textContent = _esitaytetty
+      ? 'Seura on esitäyttänyt osan tiedoista puolestasi. Tarkista tiedot ja täydennä puuttuvat kentät.'
+      : _tt('suostumus.qr_info_teksti', 'Täytä lapsen tiedot ja oma sähköpostiosoitteesi. Käytä samaa sähköpostia, jonka annoit seuralle.');
+    infoDiv.appendChild(_io); infoDiv.appendChild(_ip);
     var wrap = document.querySelector('.wrap');
     var v1   = el('v1');
     if (wrap && v1) wrap.insertBefore(infoDiv, v1);
@@ -709,8 +718,18 @@ function toStep3() {
       var _kutsuViestit = {
         kutsu_kaytetty: 'Tämä kutsulinkki on jo käytetty tai korvattu uudemmalla. Käytä seuran uusinta kutsua tai pyydä seuralta uusi.',
         suostumus_jo_annettu: 'Suostumus on jo annettu tälle pelaajalle. Jos haluat muuttaa suostumusta, pyydä seuralta uusi kutsu.',
-        kutsu_ristiriita: 'Tämä kutsulinkki koskee toista pelaajaa. Pyydä seuralta oikea kutsu.'
+        kutsu_ristiriita: 'Tämä kutsulinkki koskee toista pelaajaa. Pyydä seuralta oikea kutsu.',
+        // QR-kortti (PR B): ei paljasta tallennettua osoitetta; huoltaja voi korjata ja yrittää uudelleen.
+        email_ristiriita: (typeof t === 'function' && t('suostumus.email_ristiriita') !== 'suostumus.email_ristiriita')
+          ? t('suostumus.email_ristiriita')
+          : 'Sähköposti ei vastaa seuran tietoja. Käytä osoitetta, jonka annoit seuralle, tai ota yhteys joukkueenjohtajaan.'
       };
+      if (_syy === 'email_ristiriita') {   // korjattavissa → nappi pysyy käytössä, palataan sähköpostikenttään
+        toast(_kutsuViestit.email_ristiriita, true);
+        _naytaRistiriitaIlmoitus(_kutsuViestit.email_ristiriita);
+        if (nappi) { nappi.disabled = false; nappi.textContent = 'Vahvista ja lähetä'; }
+        return;
+      }
       if (_kutsuViestit[_syy]) {
         toast(_kutsuViestit[_syy], true);
         _naytaRistiriitaIlmoitus(_kutsuViestit[_syy]);
