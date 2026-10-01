@@ -10,7 +10,7 @@
 <script>window.TM_SENTRY={app:'rekisterointi'};</script>
 <script src="https://browser.sentry-cdn.com/10.58.0/bundle.min.js" integrity="sha384-rtfUMq82bneIHVOpL/60roC5pIJ9kDO15w13yGEBKZSJp3aIbrOAhimB61EwPClB" crossorigin="anonymous"></script>
 <script src="tm_sentry.js?v=1"></script>
-<script src="lib/tm_lang.js?v=24"></script>   <!-- i18n V0 — KORJATTU: oli /talentmaster/tm_lang.js (root, 404 tuotannossa) → lib/tm_lang.js (resolvoituu) -->
+<script src="lib/tm_lang.js?v=25"></script>   <!-- i18n V0 — KORJATTU: oli /talentmaster/tm_lang.js (root, 404 tuotannossa) → lib/tm_lang.js (resolvoituu) -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-check-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
@@ -42,7 +42,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;fon
 .f input,.f select,.f textarea{background:var(--ink3);border:1px solid var(--line2);border-radius:7px;padding:9px 12px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px;outline:none;transition:border-color .2s;width:100%;}
 .f input:focus,.f select:focus,.f textarea:focus{border-color:var(--teal);}
 .f input.err,.f select.err{border-color:var(--red)!important;}
-.f select option{background:var(--ink3);}.f textarea{resize:vertical;min-height:80px;}
+.f select option{background:var(--ink3);}.syn-rivi{display:grid;grid-template-columns:1fr 1.6fr 1.2fr;gap:6px;}.syn-rivi select{padding:9px 6px;}.syn-virhe{font-size:12px;color:var(--red);min-height:0;}.f textarea{resize:vertical;min-height:80px;}
 .hint{font-size:11px;color:var(--muted);margin-top:2px;line-height:1.5;}
 .info{background:rgba(255,184,48,.08);border:1px solid rgba(255,184,48,.25);border-radius:7px;padding:12px 14px;margin-bottom:14px;}
 .info-t{font-size:12px;font-weight:700;color:var(--amber);margin-bottom:4px;}
@@ -100,7 +100,17 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;fon
       <div class="grid">
         <div class="f"><label>Etunimi <span class="r">*</span></label><input id="i_etu" placeholder="esim. Mikael"></div>
         <div class="f"><label>Sukunimi <span class="r">*</span></label><input id="i_suku" placeholder="esim. Korhonen"></div>
-        <div class="f"><label>Syntymäaika <span class="r">*</span></label><input id="i_syn" type="date" onchange="onAge()" oninput="onAge()"></div>
+        <div class="f" id="f_syn"><label>Syntymäaika <span class="r">*</span></label>
+          <!-- 1.10.2026: kolme valikkoa natiivin type="date"-kalenterin tilalle (kännykällä epäselvä, vuoden 2015 valinta vaati
+               kymmenen vuoden selaamisen). Piilotettu i_syn pitää arvon YYYY-MM-DD → onAge/validointi/lähetys ennallaan. -->
+          <div class="syn-rivi">
+            <select id="i_syn_p" aria-label="Päivä" onchange="_synMuuttui()"><option value="" data-i18n="suostumus.syn_paiva">Päivä</option></select>
+            <select id="i_syn_k" aria-label="Kuukausi" onchange="_synMuuttui()"><option value="" data-i18n="suostumus.syn_kuukausi">Kuukausi</option></select>
+            <select id="i_syn_v" aria-label="Vuosi" onchange="_synMuuttui()"><option value="" data-i18n="suostumus.syn_vuosi">Vuosi</option></select>
+          </div>
+          <input id="i_syn" type="hidden">
+          <div id="synVirhe" class="syn-virhe" role="alert"></div>
+        </div>
         <div class="f">
           <label>Sukupuoli</label>
           <select id="i_sp">
@@ -263,6 +273,11 @@ var step = 1;
 function _rekKaanna() {
   if (typeof t !== 'function') return;
   document.querySelectorAll('[data-i18n]').forEach(function (el) { el.textContent = t(el.getAttribute('data-i18n')); });
+  var kk = document.getElementById('i_syn_k');   // kuukausien nimet aktiivisella kielellä, valinta säilyy
+  if (kk && kk.options.length > 1 && typeof _synKuukaudet === 'function') {
+    var nimet = _synKuukaudet();
+    for (var i = 1; i < kk.options.length; i++) kk.options[i].textContent = nimet[i - 1];
+  }
 }
 // Korosta aktiivinen kieli valitsimessa (teal). Ei numeroa/lukua — pelkkä valinta.
 function _rekPaivitaKieliValitsin() {
@@ -313,6 +328,7 @@ window.addEventListener('DOMContentLoaded', function() {
   }
 
   if (_urlParams.hEmail)  el('h_email').value = _urlParams.hEmail;
+  _synAlusta(_urlParams.syntyma);                     // valikot + esitäyttö (?syntyma=YYYY-MM-DD tai P.K.VVVV)
   if (el('i_syn') && el('i_syn').value) onAge();   // esitäytetty syntymäaika → huoltajakortti näkyviin
   if (_urlParams.palloid) {
     var pidI = document.getElementById('i_pid');
@@ -375,6 +391,58 @@ function _naytaHuoltajakortti(age) {
   if (!k) return;
   if (age != null && age < 18) k.classList.remove('hide'); else k.classList.add('hide');
 }
+/* Syntymäaika kolmella valikolla (1.10.2026). Piilotettu i_syn = YYYY-MM-DD vain kun päivämäärä on olemassa
+   eikä ole tulevaisuudessa; muuten tyhjä. Vuodet kuluvasta vuodesta taaksepäin vuoteen SYN_ALKUVUOSI. */
+var SYN_ALKUVUOSI = 1990;
+function _synTt(k, fi) { var v = (typeof t === 'function') ? t(k) : null; return (v && v !== k) ? v : fi; }
+function _synVirheTeksti() { return _synTt('suostumus.syn_tarkista', 'Tarkista syntymäaika'); }
+function _synKuukaudet() {
+  var kieli = (typeof tmNykyinenKieli === 'function') ? tmNykyinenKieli() : 'fi', nimet = [];
+  for (var m = 0; m < 12; m++) {
+    var n = '';
+    try { n = new Intl.DateTimeFormat(kieli, { month: 'long', timeZone: 'UTC' }).format(new Date(Date.UTC(2000, m, 1))); } catch (e) {}
+    nimet.push(n ? n.charAt(0).toUpperCase() + n.slice(1) : String(m + 1));
+  }
+  return nimet;
+}
+function _synTayta(id, arvot) {   // [ [value, teksti], ... ] — ensimmäinen (tyhjä) vaihtoehto säilyy
+  var s = el(id); if (!s) return;
+  while (s.options.length > 1) s.remove(1);
+  arvot.forEach(function (a) { var o = document.createElement('option'); o.value = a[0]; o.textContent = a[1]; s.appendChild(o); });
+}
+function _synAlusta(esitaytto) {
+  if (!el('i_syn_p')) return;
+  var paivat = [], kk = [], vuodet = [], nyt = new Date().getFullYear();
+  for (var p = 1; p <= 31; p++) paivat.push([String(p), String(p)]);
+  _synKuukaudet().forEach(function (n, i) { kk.push([String(i + 1), n]); });
+  for (var v = nyt; v >= SYN_ALKUVUOSI; v--) vuodet.push([String(v), String(v)]);   // uusin ensin
+  _synTayta('i_syn_p', paivat); _synTayta('i_syn_k', kk); _synTayta('i_syn_v', vuodet);
+  var m = String(esitaytto || '').trim().match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/), m2 = String(esitaytto || '').trim().match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/);
+  var o = m ? [m[3], m[2], m[1]] : m2 ? [m2[1], m2[2], m2[3]] : null;
+  if (o) { el('i_syn_p').value = String(+o[0]); el('i_syn_k').value = String(+o[1]); el('i_syn_v').value = String(+o[2]); }
+  _synMuuttui(true);
+}
+function _synTila() {
+  var p = +((el('i_syn_p') || {}).value || 0), k = +((el('i_syn_k') || {}).value || 0), v = +((el('i_syn_v') || {}).value || 0);
+  if (!p || !k || !v) return { taysi: false, kelpaa: false, arvo: '' };
+  var pvm = new Date(Date.UTC(v, k - 1, p));
+  var olemassa = pvm.getUTCFullYear() === v && pvm.getUTCMonth() === k - 1 && pvm.getUTCDate() === p;   // 31.2. → ei
+  var tanaan = new Date(), tanaanUtc = Date.UTC(tanaan.getFullYear(), tanaan.getMonth(), tanaan.getDate());
+  var kelpaa = olemassa && pvm.getTime() <= tanaanUtc && v >= SYN_ALKUVUOSI;
+  var arvo = v + '-' + (k < 10 ? '0' : '') + k + '-' + (p < 10 ? '0' : '') + p;
+  return { taysi: true, kelpaa: kelpaa, arvo: kelpaa ? arvo : '' };
+}
+function _synKorosta(paalla, teksti) {
+  ['i_syn_p', 'i_syn_k', 'i_syn_v'].forEach(function (id) { var s = el(id); if (s) s.classList.toggle('err', !!paalla && (!teksti ? !s.value : true)); });
+  var v = el('synVirhe'); if (v) v.textContent = paalla && teksti ? teksti : '';
+}
+function _synMuuttui(hiljaa) {
+  var s = _synTila();
+  el('i_syn').value = s.arvo;
+  if (s.taysi && !s.kelpaa) { if (hiljaa !== true) _synKorosta(true, _synVirheTeksti()); }
+  else _synKorosta(false);
+  onAge();
+}
 function onAge() {
   _naytaHuoltajakortti(_ikaVuosina(el('i_syn').value));
 }
@@ -422,16 +490,20 @@ function toast(msg, err) {
 
 function toStep2() {
   var ok = true;
-  ['i_etu','i_suku','i_syn'].forEach(function(id) {
+  ['i_etu','i_suku'].forEach(function(id) {
     var e = el(id);
     if (!e || !e.value.trim()) { if(e) e.classList.add('err'); ok = false; }
     else e.classList.remove('err');
   });
+  var syn = _synTila();
+  if (!syn.taysi) { _synKorosta(true, ''); ok = false; }
   if (!ok) { toast('Täytä pakolliset kentät (merkitty *)', true); return; }
+  // Mahdoton päivä (31.2.) tai tulevaisuus → hylätään; yläraja = kuluva päivä (ei kovakoodattua vuotta).
+  if (!syn.kelpaa) { _synKorosta(true, _synVirheTeksti()); toast(_synVirheTeksti(), true); return; }
+  _synKorosta(false);
   var d = el('i_syn').value;
   if (d) {
     var so = d.split('-'), sv = so.length===3 ? parseInt(so[0],10) : 0;
-    if (sv < 1990 || sv > 2025) { el('i_syn').classList.add('err'); toast('Tarkista syntymäaika -- vuoden pitää olla 1990-2025', true); return; }
     var age = _ikaVuosina(d);
     _naytaHuoltajakortti(age);
     // Alaikäinen: huoltajan nimi ja sähköposti pakollisia (suostumuksen antaja)
@@ -556,7 +628,7 @@ function toStep3() {
         ? (val('h_etu') + ' ' + val('h_suku')).trim()
         : (val('i_etu') + ' ' + val('i_suku')).trim();
       // syntymä/sukupuoli: ensisijaisesti URL-parametri (kutsulinkki), muuten lomakekenttä
-      var syntymaParam   = (_urlParams.syntyma || el('i_syn').value || '');
+      var syntymaParam   = (el('i_syn').value || _urlParams.syntyma || '');   // lomakkeen arvo ensin: esitäytetty URL-arvo on jo valikoissa, korjaus voittaa
       var sukupuoliParam = (_urlParams.sukupuoli || (el('i_sp') ? el('i_sp').value : '') || '');
       var vahvistaFn = firebase.app().functions('europe-west1').httpsCallable('vahvistaSuostumus');
 
@@ -594,7 +666,7 @@ function toStep3() {
         sukunimi:         val('i_suku'),
         nimi:             val('i_etu') + ' ' + val('i_suku'),
         syntymaaika:      (function() {
-          if (!syntyma || sv < 1990 || sv > 2025) return null;
+          if (!syntyma || sv < SYN_ALKUVUOSI || sv > new Date().getFullYear()) return null;
           return firebase.firestore.Timestamp.fromDate(new Date(Date.UTC(sv,parseInt(so[1],10)-1,parseInt(so[2],10))));
         })(),
         sukupuoli:        el('i_sp').value || '',

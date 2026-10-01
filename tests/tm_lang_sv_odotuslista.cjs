@@ -19,4 +19,9 @@ module.exports = [
   'seura.kortit_ei_tulostettavaa',
   // Kortti + PIN-vihje (1.10.2026)
   'pelaaja.pin4_vihje',
+  // Suostumuslomake: syntymäaika kolmella valikolla (1.10.2026)
+  'suostumus.syn_paiva',
+  'suostumus.syn_kuukausi',
+  'suostumus.syn_vuosi',
+  'suostumus.syn_tarkista',
 ];

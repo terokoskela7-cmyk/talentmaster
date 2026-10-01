@@ -49,12 +49,12 @@ describe('vartija · vammahistoria poistettu (GDPR 9 art.)', () => {
 /* ── Lomake ajettuna: huoltajakortti, validointi, lähetettävä data ── */
 function lomake(arvot, ika) {
   const els = {};
-  const luokat = (alku) => { const s = new Set(alku); return { add: (c) => s.add(c), remove: (c) => s.delete(c), contains: (c) => s.has(c), _s: s }; };
+  const luokat = (alku) => { const s = new Set(alku); return { add: (c) => s.add(c), remove: (c) => s.delete(c), toggle: (c, on) => (on ? s.add(c) : s.delete(c)), contains: (c) => s.has(c), _s: s }; };
   const E = (id) => els[id] || (els[id] = { id, value: (arvot || {})[id] || '', checked: ['c1', 'c2'].includes(id), disabled: false, textContent: '', style: {},
     classList: luokat(id === 'hcard' ? ['card', 'hide'] : []), closest: () => null, parentNode: null, scrollIntoView() {} });
   const nyt = new Date();
   const syn = ika == null ? '' : (nyt.getUTCFullYear() - ika - 1) + '-01-15';
-  if (syn) E('i_syn').value = syn;
+  if (syn) { E('i_syn').value = syn; E('i_syn_v').value = syn.slice(0, 4); E('i_syn_k').value = '1'; E('i_syn_p').value = '15'; }   // 3 valikkoa (1.10.2026)
   const loki = { kutsut: [], askel: [], toast: [] };
   const ctx = {
     el: E, toast: (m) => loki.toast.push(m), setStep: (n) => loki.askel.push(n), console: { error() {}, warn() {} },
@@ -68,6 +68,7 @@ function lomake(arvot, ika) {
   vm.createContext(ctx);
   vm.runInContext('var _lahetysKaynnissa = false, _lahetettyOnnistuneesti = false;\n'
     + pura(LOMAKE, 'function val(id) {') + '\n' + pura(LOMAKE, 'function _ikaVuosina(d) {') + '\n' + pura(LOMAKE, 'function _naytaHuoltajakortti(age) {') + '\n'
+    + 'var SYN_ALKUVUOSI = 1990;\n' + ['function _synTt(k, fi) {', 'function _synVirheTeksti() {', 'function _synTila() {', 'function _synKorosta(paalla, teksti) {'].map((x) => pura(LOMAKE, x)).join('\n') + '\n'
     + pura(LOMAKE, 'function onAge() {') + '\n' + pura(LOMAKE, 'function toStep2() {') + '\n'
     + pura(LOMAKE, 'function _poistaRistiriitaIlmoitus() {') + '\n' + pura(LOMAKE, 'function _naytaRistiriitaIlmoitus(viesti) {') + '\n'
     + pura(LOMAKE, 'function _onPelaajaRistiriita(err) {') + '\n' + pura(LOMAKE, 'function toStep3() {')
