@@ -54,7 +54,8 @@ describe('Gemini-ruotsinnokset (sellaisenaan)', () => {
   it('tm_lang-versio on yksi kaikilla sivuilla', () => {
     const fs = require_('fs');
     const v = new Set(fs.readdirSync(ROOT).filter((f) => f.endsWith('.html')).flatMap((f) => [...lue(f).matchAll(/lib\/tm_lang\.js\?v=(\d+)/g)].map((m) => m[1])));
-    expect([...v]).toEqual(['21']);
+    expect([...v]).toHaveLength(1);
+    expect(Number([...v][0])).toBeGreaterThanOrEqual(21);   // ≥21 (sv-ruotsinnokset); myöhemmät nostot sallittu
   });
 });
 

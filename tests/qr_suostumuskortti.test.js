@@ -132,22 +132,7 @@ describe('Seura · QR-linkki ja kortit (ajettu)', () => {
     const p = ctx.html([{ tyyppi: 'pelaaja', nimi: 'Topias K', joukkue: 'KPV U13', qr: 'QR:y', pin: '482915', palloId: '12345678' }]);
     expect(p).toContain('482915'); expect(p).toContain('12345678');
   });
-  it('Tulosta kortit: yhteenveto ennen tulostusta, palvelin vain suostumuskorteille, molemmat korttityypit samaan tulosteeseen', async () => {
-    const pelaajat = [
-      { id: 'ok', etunimi: 'Topias', sukunimi: 'K', joukkueNimi: 'KPV U13', pin: '482915', tunniste: '12345678', huoltajaEmail: 'h1@tm-testi.fi', suostumusTila: 'annettu' },
-      { id: 'uusi', etunimi: 'Uusi', sukunimi: 'P', joukkueNimi: 'KPV U13', huoltajaEmail: 'h2@tm-testi.fi', suostumusTila: 'pilotti', pin: '135790' },
-      { id: 'eiemail', etunimi: 'Ilman', sukunimi: 'E', joukkueNimi: 'KPV U13', suostumusTila: 'pilotti' },
-    ];
-    const { ctx, loki } = seuraYmp(pelaajat, (nimi, d) => ({ data: { kortit: d.pelaajaIds.map((p) => ({ pelaajaId: p, tyyppi: 'suostumuskortti', kutsuId: 'K-' + p })) } }));
-    await ctx.tulosta();
-    expect(loki.confirm[0]).toContain('1 pelaajakorttia, 1 suostumuskorttia, 1 ilman huoltajan sähköpostia.');
-    expect(loki.confirm[0]).toContain('1 pelaajalta puuttuu huoltajan sähköposti – lisää se pelaajakortille.');
-    expect(loki.kutsut).toEqual([['luoSuostumusKortit', { seuraId: 'kpv', pelaajaIds: ['uusi'] }]]);
-    expect(loki.html).toContain('482915');                                         // pelaajakortti
-    expect(loki.html).toContain('QR:https://tm.example/talentmaster/TalentMaster_Rekisterointi_Suostumus.html?kutsuId=K-uusi&amp;seuraId=kpv&amp;pelaajaId=uusi'.replace(/&amp;/g, '&'));
-    expect(loki.html).not.toContain('135790');                                     // suostumuskortti EI näytä (vanhaa) PIN:iä
-    expect(loki.html).not.toContain('Ilman');                                      // ilman sähköpostia → ei korttia
-  });
+  // Tulosta kortit -kulku (ikkuna ensin, vahvistus ikkunassa, erät, virhe): tests/tulosta_kortit_ikkuna.test.js
   it('_tk määritelty kerran (#706 + #707) ja tm_lang-versio sama kaikilla sivuilla', () => {
     expect((SEURA.match(/^function _tk\(/gm) || []).length).toBe(1);
     const fs = require_('fs');
