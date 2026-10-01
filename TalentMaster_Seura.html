@@ -2544,10 +2544,11 @@ async function renderHenkilosto(alue) {
     </div>`;
 
   try {
+    // source:'server' — lista päivittyy heti deaktivoinnin/aktivoinnin/roolinvaihdon jälkeen (ei välimuistia)
     const snap = await db
       .collection('seurat').doc(tila.seuraId)
       .collection('kayttajat')
-      .get();
+      .get({ source: 'server' });
 
     const alueEl = document.getElementById('henkilostoListaAlue');
     if (!alueEl) return;
@@ -4168,7 +4169,7 @@ async function deaktivoiKayttaja(uid, email) {
   try {
     await firebase.app().functions('europe-west1').httpsCallable('deaktivioiKayttaja')({ kohdeUid: uid, seuraId: tila.seuraId });
     naytaToast(`${email || 'Käyttäjä'} deaktivoitu.`, 'ok');
-    renderHenkilosto(document.getElementById('nakymaAlue'));
+    await renderHenkilosto(document.getElementById('nakymaAlue'));
   } catch (e) {
     naytaToast('Deaktivointi epäonnistui: ' + e.message, 'virhe');
   }
@@ -4178,7 +4179,7 @@ async function aktivoiKayttaja(uid, email) {
   try {
     await firebase.app().functions('europe-west1').httpsCallable('aktivoiKayttaja')({ kohdeUid: uid, seuraId: tila.seuraId });
     naytaToast(`${email || 'Käyttäjä'} aktivoitu.`, 'ok');
-    renderHenkilosto(document.getElementById('nakymaAlue'));
+    await renderHenkilosto(document.getElementById('nakymaAlue'));
   } catch (e) {
     naytaToast('Aktivointi epäonnistui: ' + e.message, 'virhe');
   }

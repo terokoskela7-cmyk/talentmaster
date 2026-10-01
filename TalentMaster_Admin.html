@@ -18,7 +18,7 @@
 <script src="lib/tm_eerikkila_normit.js?v=40"></script>
 <script src="lib/tm_joukkue.js?v=3"></script>   <!-- §18-jäsenyys: kanoninen nimi + team-id yhdestä paikasta -->
 <script src="lib/tm_arviointi_historia.js?v=1"></script>   <!-- kausiavain: tmKausiNyt/tmTavoitteetKaudelle — SAMA lähde kuin VP:llä (sama tavoitteet-dokumentti) -->
-<script src="lib/tm_audit_nimet.js?v=3"></script>
+<script src="lib/tm_audit_nimet.js?v=4"></script>
 <script src="lib/tm_esc.js?v=1"></script>   <!-- P1: jaettu HTML-escape (tallennettu XSS) -->   <!-- audit-toimintojen selkokieliset nimet (Audit-loki) -->
 <script src="tm_auth.js"></script>
 
@@ -853,7 +853,7 @@ async function tallennakKayttajaRooli(uid, seuraId) {
     const tEl = document.getElementById('ktTulos');
     if (tEl) { tEl.textContent = '✅ Rooli vaihdettu. Uusi rooli on voimassa, kun käyttäjä kirjautuu uudelleen.'; tEl.style.display='block'; }
     naytaToast('Rooli päivitetty', 'ok');
-    setTimeout(() => lataaKayttajaLista(), 1200);
+    await lataaKayttajaLista();
   } catch(e) { naytaToast('Virhe: ' + e.message, 'virhe'); }
 }
 
@@ -995,6 +995,7 @@ async function _auditHae(jatka) {
   _audit.lataa = true; _audit.virhe = '';
   if (!jatka) { _audit.rivit = []; _audit.seuraava = null; }
   _auditPiirra();
+  if (!_auditUidEmail) _auditLataaUidKartta().then(() => _auditPiirra()).catch(() => {});
   try {
     const fn = firebase.app().functions('europe-west1').httpsCallable('haeAuditLoki');
     const res = await fn(_auditParametrit(jatka));
@@ -1016,8 +1017,25 @@ window._auditPika = function (mika) {
   renderAudit(document.getElementById('nakymaAlue'));
 };
 window._auditLisaa = function () { _auditHae(true); };
-function _auditKohde(r) { return [r.pelaajaId || r.playerId, r.hEmail || r.yritettyEmail || r.huoltajaEmail].filter(Boolean).join(' · ') || '—'; }
-function _auditTekija(r) { return r.antaja || r.tekija_uid || r.lahettaja_uid || r.hyvaksyja_uid || '—'; }
+/* uid → sähköposti (seurojen kayttajat + admins), ladataan kerran audit-näkymään. Ei uutta kokoelmaa —
+   samat dokumentit, joita Käyttäjät-näkymä jo lukee. Tuntematon uid näytetään sellaisenaan. */
+let _auditUidEmail = null;
+async function _auditLataaUidKartta() {
+  if (_auditUidEmail) return;
+  const kartta = {};
+  await Promise.all((tila.seurat || []).map((se) => db.collection('seurat').doc(se.id).collection('kayttajat').get()
+    .then((snap) => snap.docs.forEach((d) => { const e = (d.data() || {}).email; if (e && !kartta[d.id]) kartta[d.id] = e; }))
+    .catch(() => {})));
+  try { (await db.collection('admins').get()).docs.forEach((d) => { const e = (d.data() || {}).email; if (e) kartta[d.id] = e; }); } catch (e) {}
+  _auditUidEmail = kartta;
+}
+function _auditUid(uid) { return uid ? ((_auditUidEmail && _auditUidEmail[uid]) || uid) : null; }
+function _auditKohde(r) {
+  return [_auditUid(r.kohde_uid), r.pelaajaId || r.playerId, r.hEmail || r.yritettyEmail || r.huoltajaEmail].filter(Boolean).join(' · ') || '—';
+}
+function _auditTekija(r) {
+  return r.antaja || _auditUid(r.tekija_uid || r.lahettaja_uid || r.hyvaksyja_uid) || r.requesterUid && _auditUid(r.requesterUid) || '—';
+}
 function _auditPiirra() {
   const sis = document.getElementById('auditSisalto');
   if (!sis) return;
@@ -1268,10 +1286,11 @@ async function lataaKayttajaLista() {
       try {
         // orderBy('luotu') poistettu — vaatii Firestore-indeksin
         // Järjestetään JavaScriptissä
+        // source:'server' — lista päivittyy heti deaktivoinnin/aktivoinnin/roolinvaihdon jälkeen (ei välimuistia)
         const snap = await db
           .collection('seurat').doc(seura.id)
           .collection('kayttajat')
-          .get();
+          .get({ source: 'server' });
 
         snap.docs.forEach(doc => {
           kaikkiKayttajat.push({
@@ -2321,7 +2340,7 @@ async function deaktivoi(uid, seuraId, email) {
   try {
     await _kayttajaFn('deaktivioiKayttaja')({ kohdeUid: uid, seuraId: seuraId });
     naytaToast(`${email || 'Käyttäjä'} deaktivoitu.`, 'ok');
-    lataaKayttajaLista();
+    await lataaKayttajaLista();
   } catch (virhe) {
     naytaToast(`Deaktivointi epäonnistui: ${virhe.message}`, 'virhe');
   }
@@ -2331,7 +2350,7 @@ async function aktivoi(uid, seuraId, email) {
   try {
     await _kayttajaFn('aktivoiKayttaja')({ kohdeUid: uid, seuraId: seuraId });
     naytaToast(`${email || 'Käyttäjä'} aktivoitu.`, 'ok');
-    lataaKayttajaLista();
+    await lataaKayttajaLista();
   } catch (virhe) {
     naytaToast(`Aktivointi epäonnistui: ${virhe.message}`, 'virhe');
   }
@@ -2345,7 +2364,7 @@ async function poistaKokonaan(uid, seuraId, email) {
   try {
     await _kayttajaFn('poistaKayttaja')({ kohdeUid: uid, seuraId: seuraId });
     naytaToast(`${email || 'Käyttäjä'} poistettu pysyvästi.`, 'ok');
-    lataaKayttajaLista();
+    await lataaKayttajaLista();
   } catch (virhe) {
     naytaToast(`Poisto epäonnistui: ${virhe.message}`, 'virhe');
   }
