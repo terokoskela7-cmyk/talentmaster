@@ -19,7 +19,7 @@
 <!-- #92 joukkue-normalisointi (kanonisointi tuonnissa) -->
 <script src="lib/tm_esc.js?v=1"></script>   <!-- P1: jaettu HTML-escape -->
 <script src="lib/tm_lang.js?v=16"></script>   <!-- i18n V0 — fi/sv/en käännöstaulukko + t() + kieli-init (putkitus) -->
-<script src="lib/tm_joukkue.js?v=3"></script>
+<script src="lib/tm_joukkue.js?v=4"></script>
 <!-- tm_import.js ja tm_empty_state.js ladataan dynaamisesti jos saatavilla -->
 
 <style>
@@ -2597,7 +2597,7 @@ async function renderHenkilosto(alue) {
                 ${h.puhelin ? ('<div style="font-size:11px;color:var(--ink3);">📞 ' + (h.suuntakoodi||'+358') + ' ' + h.puhelin + '</div>') : '<div style="font-size:11px;color:var(--amber);">📞 ei puhelinta</div>'}
               </td>
               <td><span class="badge ${rooliLuokat[h.rooli]||'muu'}">${rooliNimet[h.rooli]||h.rooli||'—'}</span></td>
-              <td style="font-size:12px;color:var(--ink3);">${h.joukkueNimi||h.joukkue||'—'}</td>
+              <td style="font-size:12px;color:var(--ink3);">${_escHtml(tmHenkiloJoukkueTeksti(h, '—'))}</td>
               <td>${h.aktiivinen === false
                 ? '<span class="badge odottaa">⛔ Deaktivoitu</span>'
                 : `<span class="badge ${h.claimsAsetettu?'ok':'odottaa'}">${h.claimsAsetettu?'✓ OK':'⏳'}</span>`}</td>
@@ -3801,7 +3801,7 @@ async function tallennaKutsu() {
       rooli,
       seuraId:      tila.seuraId,
       joukkueet:    joukkueet.map(j => j.id),
-      joukkueNimet: joukkueet.map(j => j.nimi),
+      joukkueetNimet: joukkueet.map(j => j.nimi),
       suuntakoodi:  document.getElementById('kutsu_suuntakoodi')?.value || '+358',
       puhelin:      (document.getElementById('kutsu_puhelin')?.value || '').replace(/[^\d]/g, ''),
     });
@@ -3864,6 +3864,8 @@ async function tallennaKutsu() {
     console.error('Kutsu epäonnistui:', e);
     const virheViesti = (e.details?.syy === 'sa_tunnus' || e.message === 'sa_tunnus')
       ? 'Tämä on TalentMasterin ylläpitäjän tunnus — sitä ei lisätä seuran henkilöstöön.'
+      : (e.details?.syy === 'toisen_seuran_kayttaja')
+      ? e.details.viesti
       : e.code === 'already-exists' || e.message?.includes('already exists')
       ? 'Sähköpostiosoite on jo käytössä.'
       : (e.code === 'permission-denied' || e.message?.includes('permission'))
