@@ -3408,8 +3408,11 @@ describe('v3.31 · kayttajat-pääsykentät vain palvelimella', () => {
     await assertFails(deleteDoc(kd(saContext().firestore())));
     await assertFails(deleteDoc(kd(vpContext(SEURA_A).firestore())));
   });
-  it('luonti (Seura-sivun kutsu) toimii ennallaan johdolle', async () => {
-    await assertSucceeds(setDoc(doc(vpContext(SEURA_A).firestore(), 'seurat', SEURA_A, 'kayttajat', 'uusi-k'),
-      { rooli: 'valmentaja', seuraId: SEURA_A, aktiivinen: true, claimsAsetettu: true }));
+  it('v3.32: kayttajat-dokumentin luonti selaimesta hylätään (SA, johto, käyttäjä itse) — vain luoKayttaja', async () => {
+    const data = { rooli: 'valmentaja', seuraId: SEURA_A, aktiivinen: true, claimsAsetettu: true };
+    await assertFails(setDoc(doc(vpContext(SEURA_A).firestore(), 'seurat', SEURA_A, 'kayttajat', 'uusi-k'), data));
+    await assertFails(setDoc(doc(saContext().firestore(), 'seurat', SEURA_A, 'kayttajat', 'uusi-k2'), data));
+    await assertFails(setDoc(doc(saContext().firestore(), 'seurat', SEURA_A, 'kayttajat', SA_UID), { notif_asetukset: {} }, { merge: true }));
+    await assertFails(setDoc(doc(valmentajaContext('itse-uusi', SEURA_A).firestore(), 'seurat', SEURA_A, 'kayttajat', 'itse-uusi'), { lisenssitaso: 'c' }, { merge: true }));
   });
 });

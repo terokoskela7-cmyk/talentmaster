@@ -1216,7 +1216,7 @@ async function lataaKayttajaMaara() {
       const snap = await db
         .collection('seurat').doc(seura.id)
         .collection('kayttajat').get();
-      maara += snap.size;
+      maara += snap.docs.filter(d => d.data().aktiivinen !== false).length;   // deaktivoidut eivät kuulu lukuun
     }
     const el = document.getElementById('kpiKayttajat');
     if (el) el.textContent = maara;
@@ -1409,7 +1409,7 @@ async function renderTilastot(alue) {
         const pct = pd.length > 0 ? Math.round(annettu / pd.length * 100) : 0;
         tilastot.push({ id: seura.id, nimi: seura.nimi || seura.id, paketti: seura.paketti || '—',
           pelaajia: pd.length, annettu, pilotti, odottaa, pct,
-          kayttajia: kaSnap.size, kutsuja: kuSnap.size });
+          kayttajia: kaSnap.docs.filter(d => d.data().aktiivinen !== false).length, kutsuja: kuSnap.size });
       } catch(e) {
         tilastot.push({ id: seura.id, nimi: seura.nimi || seura.id, virhe: e.message });
       }
@@ -1532,7 +1532,7 @@ async function renderPilotinTila(alue) {
         // VP-tuloskortti (spec §2) — valmentajat + tavoitteet + laskeVPTuloskortti (pikakentät)
         let valm = [], tavoitteet = null, kortti = null;
         try { const kSnap = await db.collection('seurat').doc(seura.id).collection('kayttajat').get();
-          valm = kSnap.docs.map(d => d.data()).filter(v => ['valmentaja','talenttivalmentaja','fysiikkavalmentaja','vp','urheilutoimenjohtaja'].indexOf(v.rooli) >= 0); } catch (e) {}
+          valm = kSnap.docs.map(d => d.data()).filter(v => v.aktiivinen !== false && ['valmentaja','talenttivalmentaja','fysiikkavalmentaja','vp','urheilutoimenjohtaja'].indexOf(v.rooli) >= 0); } catch (e) {}
         try { const tSnap = await db.collection('seurat').doc(seura.id).collection('konfiguraatio').doc('tavoitteet').get();
           if (tSnap.exists) tavoitteet = _tkTavoitteet(tSnap.data(), seura).tavoitteet || null; } catch (e) {}
         let akatemia = [];
@@ -2030,7 +2030,9 @@ async function luoUusiKayttaja() {
     nappi.textContent = 'Luo käyttäjätunnus';
 
     // Cloud Functions heittää HttpsError -objektin
-    const viesti = virhe.message || 'Tuntematon virhe.';
+    const viesti = (virhe.details?.syy === 'sa_tunnus' || virhe.message === 'sa_tunnus')
+      ? 'Super-admin-tunnusta ei lisätä seuran henkilöstöön — SA näkee seurat ilman jäsenyyttä.'
+      : (virhe.message || 'Tuntematon virhe.');
     naytaModalVirhe(viesti);
     console.error('luoKayttaja virhe:', virhe);
   }

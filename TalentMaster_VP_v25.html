@@ -3248,6 +3248,7 @@ const db   = firebase.firestore();
 // ─── STATE ───────────────────────────────────────────────
 let _seuraId = null, _uid = null, _isDemoMode = false;
 let _pelaajat = [], _valmentajat = [], _tapahtumat = [], _idpJono = [];
+let _valmentajatKaikki = [];   // myös deaktivoidut — VAIN nimihakuun vanhoille merkinnöille (1.10.2026)
 let _seurantaKuittaukset = [];   // Vaihe C — VP-seurannan hälytyskuittaukset (audit, ei hard-delete)
 let _tilanneSkooppi = 'seura';   // Tilanne-KPI-skooppi: 'seura'|'talentit'|'top10'|'top5' (client-side suodatus, ei uutta hakua)
 let _currentWs = 'koti';   // §IA oletusnäkymä = Koti
@@ -3409,7 +3410,7 @@ async function superAdminVaihdaSeura(uusiSeuraId) {
   // Nollaa data ja lataa uudelle seuralle
   // TIER 1 -ERISTYS: konseptikerros on seurakohtainen → tyhjennä edellisen seuran kerros ennen latausta.
   if (typeof tmKonseptiTyhjennaKerros === 'function') tmKonseptiTyhjennaKerros();
-  _pelaajat = []; _valmentajat = []; _tapahtumat = []; _idpJono = [];
+  _pelaajat = []; _valmentajat = []; _valmentajatKaikki = []; _tapahtumat = []; _idpJono = [];
   await lataaKaikki();
 
   // Harjoittelun laatu -dashboard: nollaa välimuisti seuravaihdossa + lataa uudelleen jos näkymä on auki
@@ -3863,6 +3864,11 @@ async function lataaPelaajat() {
   }
 }
 
+/* Haamuprofiili: ei nimeä, ei sähköpostia eikä roolia (syntyi ennen #540:tä set(merge)-sivukirjoituksesta). */
+function _vpOnHaamuprofiili(v) {
+  const t = (x) => String(x == null ? '' : x).trim();
+  return !!v && (!t(v.nimi) || v.nimi === 'Nimetön') && !t(v.etunimi) && !t(v.sukunimi) && !t(v.email) && !t(v._rooliAlkuperainen);
+}
 async function lataaValmentajat() {
   try {
     const snap = await db.collection('seurat').doc(_seuraId).collection('kayttajat').get();
@@ -3875,9 +3881,15 @@ async function lataaValmentajat() {
         nimi: _tmHenkiloNimi(data),
         joukkue: data.joukkue || data.joukkueNimi || (data.joukkueNimet||[])[0] || '—',
         rooli: data.rooli || 'valmentaja',
+        _rooliAlkuperainen: data.rooli || '',
         aktiivinen: data.aktiivinen !== false,
       };
     });
+    /* Deaktivoidut ja super-admin-tunnukset EIVÄT kuulu Valmentajatiimiin eivätkä lukuihin (haamuvalmentaja
+       1.10.2026: SA:n uid:lle syntynyt nimetön dokumentti näkyi "Nimetön"-valmentajana). Kaikki säilyvät
+       _valmentajatKaikki-listassa vanhojen merkintöjen nimihakua varten. */
+    _valmentajatKaikki = _valmentajat.slice();
+    _valmentajat = _valmentajat.filter(v => v.aktiivinen !== false && !_vpOnHaamuprofiili(v));
     // Lajittele: ensin valmentajat, sitten muut
     _valmentajat.sort((a,b) => {
       const rOrder = { valmentaja:0, talenttivalmentaja:1, fysiikkavalmentaja:2, testivastaava:3, vp:4 };
@@ -5037,7 +5049,7 @@ async function laskeVAI(valmentajaUid) {
   var kausiMs = _vpKaudenAlku().getTime();
 
   try {
-    var vObj = _valmentajat.find(function (x) { return x.id === valmentajaUid; });
+    var vObj = ((typeof _valmentajatKaikki !== 'undefined' && _valmentajatKaikki.length) ? _valmentajatKaikki : _valmentajat).find(function (x) { return x.id === valmentajaUid; });
     var joukkueNimi = (vObj && vObj.joukkue) ? vObj.joukkue : null;
     var base = db.collection('seurat').doc(_seuraId);
     var tyhja = function () { return { docs: [] }; };

@@ -605,7 +605,8 @@ exports.luoKayttaja = functions
       throw new functions.https.HttpsError('unauthenticated', 'Kirjaudu sisään.');
     }
     const kutsujaUid = context.auth.uid;
-    const { email, rooli, seuraId, etunimi, sukunimi, joukkue, joukkueNimi } = data;
+    const { email, rooli, seuraId, etunimi, sukunimi, joukkue, joukkueNimi,
+            joukkueet: joukkueetIn, joukkueNimet: joukkueNimetIn, suuntakoodi, puhelin } = data || {};
     if (!email || !email.includes('@')) {
       throw new functions.https.HttpsError('invalid-argument', 'Virheellinen sähköposti.');
     }
@@ -633,8 +634,15 @@ exports.luoKayttaja = functions
       // Käyttäjä löytyi — käytetään hänen UID:tään, ei luoda uutta tiliä
       uid = olemassaOleva.uid;
       onOlemassaOleva = true;
+      /* Haamuvalmentaja (1.10.2026): SA-tunnukselle EI luoda seuran kayttajat-dokumenttia eikä sen claimeja
+         ylikirjoiteta seuraroolilla. SA näkee kaiken ilman seurajäsenyyttä. */
+      if (await onSuperAdminUid(uid)) {
+        throw new functions.https.HttpsError('failed-precondition', 'sa_tunnus',
+          { syy: 'sa_tunnus', viesti: 'Super-admin-tunnusta ei lisätä seuran henkilöstöön.' });
+      }
       console.log(`[luoKayttaja] ${email} löytyi jo Authista (uid: ${uid}) — lisätään rooli ${rooli} seuralle ${seuraId}`);
     } catch (e) {
+      if (e instanceof functions.https.HttpsError) throw e;
       // auth/user-not-found on normaali tapaus — luodaan uusi tili
       if (e.errorInfo && e.errorInfo.code !== 'auth/user-not-found') {
         throw new functions.https.HttpsError('internal', `Auth-haku epäonnistui: ${e.message}`);
@@ -653,15 +661,24 @@ exports.luoKayttaja = functions
       }
     }
     const nyt = admin.firestore.FieldValue.serverTimestamp();
+    /* Kayttajat-dokumentti luodaan VAIN täällä (Rules v3.32: selaimen create estetty). Seura-sivun kutsu
+       välittää joukkueet[] + joukkueNimet[] + puhelimen, jotka se ennen kirjoitti selaimesta perään. */
+    const jIds = Array.isArray(joukkueetIn) ? joukkueetIn.filter((x) => typeof x === 'string' && x).slice(0, 30)
+      : (joukkue ? [joukkue] : []);
+    const jNimet = Array.isArray(joukkueNimetIn) ? joukkueNimetIn.map((x) => String(x || '').slice(0, 80)).slice(0, 30)
+      : (joukkueNimi ? [joukkueNimi] : []);
     try {
       await db.collection('seurat').doc(seuraId)
         .collection('kayttajat').doc(uid).set({
           uid, email, etunimi: etunimi || '', sukunimi: sukunimi || '',
           nimi: etunimi && sukunimi ? `${etunimi} ${sukunimi}` : (etunimi || email),
           rooli, seuraId,
-          joukkue: joukkue || null, joukkueNimi: joukkueNimi || null,
-          joukkueet: joukkue ? [joukkue] : [],
-          aktiivinen: true, luotu: nyt, luonut_uid: kutsujaUid,
+          joukkue: joukkue || jIds[0] || null, joukkueNimi: joukkueNimi || jNimet[0] || null,
+          joukkueet: jIds, joukkueNimet: jNimet,
+          suuntakoodi: String(suuntakoodi || '+358').slice(0, 6),
+          puhelin: String(puhelin || '').replace(/[^\d]/g, '').slice(0, 15),
+          aktiivinen: true, luotu: nyt, kutsuttu: nyt, luonut_uid: kutsujaUid,
+          kutsuja: (context.auth.token && context.auth.token.email) || '',
         });
       if (rooli === 'vp') {
         const seuraDoc = await db.collection('seurat').doc(seuraId).get();

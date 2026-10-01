@@ -1624,6 +1624,7 @@ async function lataaYhteenvetoKPIt() {
     let operatiiviset = 0;
     let hallinnolliset = 0;
     henkilostoSnap.forEach(doc => {
+      if (doc.data().aktiivinen === false) return;   // deaktivoidut eivät kuulu lukuihin (1.10.2026)
       const rooli = doc.data().rooli || '';
       if (operatiivisetRoolit.includes(rooli)) operatiiviset++;
       else if (hallinnollisetRoolit.includes(rooli)) hallinnolliset++;
@@ -1648,7 +1649,7 @@ async function lataaYhteenvetoKPIt() {
         valmentajat: (() => {
           const op = ['valmentaja','talenttivalmentaja','fysiikkavalmentaja',
                       'testivastaava','fysioterapeutti'];
-          return henkilostoSnap.docs.filter(d => op.includes(d.data().rooli)).length;
+          return henkilostoSnap.docs.filter(d => op.includes(d.data().rooli) && d.data().aktiivinen !== false).length;
         })()
       };
       TMEmptyState.tarkistaJaNayta('nakymaAlue', stats, {
@@ -2573,7 +2574,11 @@ async function renderHenkilosto(alue) {
 
     const henkilot = snap.docs
       .map(d => ({ id: d.id, ...d.data() }))
-      .sort((a,b) => (a.sukunimi||a.email||'').localeCompare(b.sukunimi||b.email||''));
+      .sort((a,b) => ((a.aktiivinen === false) - (b.aktiivinen === false))
+        || (a.sukunimi||a.email||'').localeCompare(b.sukunimi||b.email||''));
+    // Deaktivoidut omaan osioonsa aktiivisten alle (1.10.2026) — eivät näy aktiivisten joukossa
+    const deaktLkm = henkilot.filter(h => h.aktiivinen === false).length;
+    const ekaDeakt = henkilot.findIndex(h => h.aktiivinen === false);
 
     alueEl.innerHTML = `
       <table>
@@ -2581,8 +2586,9 @@ async function renderHenkilosto(alue) {
           <th>Nimi / Sähköposti</th><th>Rooli</th><th>Joukkue</th><th>Claims</th><th>Toiminnot</th>
         </tr></thead>
         <tbody>
-          ${henkilot.map(h => `
-            <tr>
+          ${henkilot.map((h, hi) => `
+            ${hi === ekaDeakt ? `<tr><td colspan="5" style="padding:14px 8px 6px;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--ink3);">⛔ Deaktivoidut (${deaktLkm})</td></tr>` : ''}
+            <tr${h.aktiivinen === false ? ' style="opacity:.55"' : ''}>
               <td>
                 <div>${henkiloNimi(h)}</div>
                 <div style="font-size:11px;color:var(--ink3);">${h.email || HENKILO_EI_EMAILIA}</div>
@@ -3785,39 +3791,21 @@ async function tallennaKutsu() {
     // Funktio luo Firebase Auth -tilin, asettaa custom claims
     // ja palauttaa uuden käyttäjän UID:n
     const luoFn = firebase.app().functions('europe-west1').httpsCallable('luoKayttaja');
+    // Palvelin luo kayttajat-dokumentin kaikkine kenttineen (selaimen create estetty, Rules v3.32).
     const tulos = await luoFn({
       email,
       etunimi,
       sukunimi,
       rooli,
-      seuraId:   tila.seuraId,
-      joukkueet: joukkueet.map(j => j.id)
+      seuraId:      tila.seuraId,
+      joukkueet:    joukkueet.map(j => j.id),
+      joukkueNimet: joukkueet.map(j => j.nimi),
+      suuntakoodi:  document.getElementById('kutsu_suuntakoodi')?.value || '+358',
+      puhelin:      (document.getElementById('kutsu_puhelin')?.value || '').replace(/[^\d]/g, ''),
     });
 
     const uid = tulos.data?.uid;
     if (!uid) throw new Error('Cloud Function ei palauttanut UID:ta');
-
-    // ── Tallennetaan kayttajat-kokoelmaan ───────────────────────
-    // Tämä on se dokumentti jonka henkilöstö-välilehti näyttää
-    await db.collection('seurat').doc(tila.seuraId)
-      .collection('kayttajat').doc(uid).set({
-        uid,
-        email,
-        etunimi,
-        sukunimi,
-        rooli,
-        seuraId:       tila.seuraId,
-        joukkueet:     joukkueet.map(j => j.id),
-        joukkueNimet:  joukkueet.map(j => j.nimi),
-        joukkueNimi:   joukkueet[0]?.nimi || '',
-        suuntakoodi:   document.getElementById('kutsu_suuntakoodi')?.value || '+358',
-        puhelin:       (document.getElementById('kutsu_puhelin')?.value || '').replace(/[^\d]/g, ''),
-        claimsAsetettu: true,
-        aktiivinen:    true,
-        luotu:         firebase.firestore.FieldValue.serverTimestamp(),
-        kutsuttu:      firebase.firestore.FieldValue.serverTimestamp(),
-        kutsuja:       tila.kayttajaEmail || ''
-      });
 
     // ── Onnistui — näytetään tuloskortti linkin jakamiseen ────────
     // Linkki tulee luoKayttaja-funktiosta AINA (myös jos sähköposti epäonnistui),
@@ -3872,7 +3860,9 @@ async function tallennaKutsu() {
 
   } catch(e) {
     console.error('Kutsu epäonnistui:', e);
-    const virheViesti = e.code === 'already-exists' || e.message?.includes('already exists')
+    const virheViesti = (e.details?.syy === 'sa_tunnus' || e.message === 'sa_tunnus')
+      ? 'Tämä on TalentMasterin ylläpitäjän tunnus — sitä ei lisätä seuran henkilöstöön.'
+      : e.code === 'already-exists' || e.message?.includes('already exists')
       ? 'Sähköpostiosoite on jo käytössä.'
       : (e.code === 'permission-denied' || e.message?.includes('permission'))
       ? 'Ei oikeuksia — tarkista että olet kirjautunut VP:nä tai sihteerinä.'
