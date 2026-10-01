@@ -17,6 +17,7 @@
 <!-- Excel-tuonti: SheetJS -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <!-- #92 joukkue-normalisointi (kanonisointi tuonnissa) -->
+<script src="lib/tm_esc.js?v=1"></script>   <!-- P1: jaettu HTML-escape -->
 <script src="lib/tm_lang.js?v=16"></script>   <!-- i18n V0 — fi/sv/en käännöstaulukko + t() + kieli-init (putkitus) -->
 <script src="lib/tm_joukkue.js?v=3"></script>
 <!-- tm_import.js ja tm_empty_state.js ladataan dynaamisesti jos saatavilla -->
@@ -1624,6 +1625,7 @@ async function lataaYhteenvetoKPIt() {
     let operatiiviset = 0;
     let hallinnolliset = 0;
     henkilostoSnap.forEach(doc => {
+      if (doc.data().aktiivinen === false) return;   // deaktivoidut eivät kuulu lukuihin (1.10.2026)
       const rooli = doc.data().rooli || '';
       if (operatiivisetRoolit.includes(rooli)) operatiiviset++;
       else if (hallinnollisetRoolit.includes(rooli)) hallinnolliset++;
@@ -1648,7 +1650,7 @@ async function lataaYhteenvetoKPIt() {
         valmentajat: (() => {
           const op = ['valmentaja','talenttivalmentaja','fysiikkavalmentaja',
                       'testivastaava','fysioterapeutti'];
-          return henkilostoSnap.docs.filter(d => op.includes(d.data().rooli)).length;
+          return henkilostoSnap.docs.filter(d => op.includes(d.data().rooli) && d.data().aktiivinen !== false).length;
         })()
       };
       TMEmptyState.tarkistaJaNayta('nakymaAlue', stats, {
@@ -2542,10 +2544,11 @@ async function renderHenkilosto(alue) {
     </div>`;
 
   try {
+    // source:'server' — lista päivittyy heti deaktivoinnin/aktivoinnin/roolinvaihdon jälkeen (ei välimuistia)
     const snap = await db
       .collection('seurat').doc(tila.seuraId)
       .collection('kayttajat')
-      .get();
+      .get({ source: 'server' });
 
     const alueEl = document.getElementById('henkilostoListaAlue');
     if (!alueEl) return;
@@ -2573,7 +2576,11 @@ async function renderHenkilosto(alue) {
 
     const henkilot = snap.docs
       .map(d => ({ id: d.id, ...d.data() }))
-      .sort((a,b) => (a.sukunimi||a.email||'').localeCompare(b.sukunimi||b.email||''));
+      .sort((a,b) => ((a.aktiivinen === false) - (b.aktiivinen === false))
+        || (a.sukunimi||a.email||'').localeCompare(b.sukunimi||b.email||''));
+    // Deaktivoidut omaan osioonsa aktiivisten alle (1.10.2026) — eivät näy aktiivisten joukossa
+    const deaktLkm = henkilot.filter(h => h.aktiivinen === false).length;
+    const ekaDeakt = henkilot.findIndex(h => h.aktiivinen === false);
 
     alueEl.innerHTML = `
       <table>
@@ -2581,8 +2588,9 @@ async function renderHenkilosto(alue) {
           <th>Nimi / Sähköposti</th><th>Rooli</th><th>Joukkue</th><th>Claims</th><th>Toiminnot</th>
         </tr></thead>
         <tbody>
-          ${henkilot.map(h => `
-            <tr>
+          ${henkilot.map((h, hi) => `
+            ${hi === ekaDeakt ? `<tr><td colspan="5" style="padding:14px 8px 6px;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--ink3);">⛔ Deaktivoidut (${deaktLkm})</td></tr>` : ''}
+            <tr${h.aktiivinen === false ? ' style="opacity:.55"' : ''}>
               <td>
                 <div>${henkiloNimi(h)}</div>
                 <div style="font-size:11px;color:var(--ink3);">${h.email || HENKILO_EI_EMAILIA}</div>
@@ -3785,39 +3793,21 @@ async function tallennaKutsu() {
     // Funktio luo Firebase Auth -tilin, asettaa custom claims
     // ja palauttaa uuden käyttäjän UID:n
     const luoFn = firebase.app().functions('europe-west1').httpsCallable('luoKayttaja');
+    // Palvelin luo kayttajat-dokumentin kaikkine kenttineen (selaimen create estetty, Rules v3.32).
     const tulos = await luoFn({
       email,
       etunimi,
       sukunimi,
       rooli,
-      seuraId:   tila.seuraId,
-      joukkueet: joukkueet.map(j => j.id)
+      seuraId:      tila.seuraId,
+      joukkueet:    joukkueet.map(j => j.id),
+      joukkueNimet: joukkueet.map(j => j.nimi),
+      suuntakoodi:  document.getElementById('kutsu_suuntakoodi')?.value || '+358',
+      puhelin:      (document.getElementById('kutsu_puhelin')?.value || '').replace(/[^\d]/g, ''),
     });
 
     const uid = tulos.data?.uid;
     if (!uid) throw new Error('Cloud Function ei palauttanut UID:ta');
-
-    // ── Tallennetaan kayttajat-kokoelmaan ───────────────────────
-    // Tämä on se dokumentti jonka henkilöstö-välilehti näyttää
-    await db.collection('seurat').doc(tila.seuraId)
-      .collection('kayttajat').doc(uid).set({
-        uid,
-        email,
-        etunimi,
-        sukunimi,
-        rooli,
-        seuraId:       tila.seuraId,
-        joukkueet:     joukkueet.map(j => j.id),
-        joukkueNimet:  joukkueet.map(j => j.nimi),
-        joukkueNimi:   joukkueet[0]?.nimi || '',
-        suuntakoodi:   document.getElementById('kutsu_suuntakoodi')?.value || '+358',
-        puhelin:       (document.getElementById('kutsu_puhelin')?.value || '').replace(/[^\d]/g, ''),
-        claimsAsetettu: true,
-        aktiivinen:    true,
-        luotu:         firebase.firestore.FieldValue.serverTimestamp(),
-        kutsuttu:      firebase.firestore.FieldValue.serverTimestamp(),
-        kutsuja:       tila.kayttajaEmail || ''
-      });
 
     // ── Onnistui — näytetään tuloskortti linkin jakamiseen ────────
     // Linkki tulee luoKayttaja-funktiosta AINA (myös jos sähköposti epäonnistui),
@@ -3872,7 +3862,9 @@ async function tallennaKutsu() {
 
   } catch(e) {
     console.error('Kutsu epäonnistui:', e);
-    const virheViesti = e.code === 'already-exists' || e.message?.includes('already exists')
+    const virheViesti = (e.details?.syy === 'sa_tunnus' || e.message === 'sa_tunnus')
+      ? 'Tämä on TalentMasterin ylläpitäjän tunnus — sitä ei lisätä seuran henkilöstöön.'
+      : e.code === 'already-exists' || e.message?.includes('already exists')
       ? 'Sähköpostiosoite on jo käytössä.'
       : (e.code === 'permission-denied' || e.message?.includes('permission'))
       ? 'Ei oikeuksia — tarkista että olet kirjautunut VP:nä tai sihteerinä.'
@@ -4177,7 +4169,7 @@ async function deaktivoiKayttaja(uid, email) {
   try {
     await firebase.app().functions('europe-west1').httpsCallable('deaktivioiKayttaja')({ kohdeUid: uid, seuraId: tila.seuraId });
     naytaToast(`${email || 'Käyttäjä'} deaktivoitu.`, 'ok');
-    renderHenkilosto(document.getElementById('nakymaAlue'));
+    await renderHenkilosto(document.getElementById('nakymaAlue'));
   } catch (e) {
     naytaToast('Deaktivointi epäonnistui: ' + e.message, 'virhe');
   }
@@ -4187,7 +4179,7 @@ async function aktivoiKayttaja(uid, email) {
   try {
     await firebase.app().functions('europe-west1').httpsCallable('aktivoiKayttaja')({ kohdeUid: uid, seuraId: tila.seuraId });
     naytaToast(`${email || 'Käyttäjä'} aktivoitu.`, 'ok');
-    renderHenkilosto(document.getElementById('nakymaAlue'));
+    await renderHenkilosto(document.getElementById('nakymaAlue'));
   } catch (e) {
     naytaToast('Aktivointi epäonnistui: ' + e.message, 'virhe');
   }
@@ -4217,6 +4209,11 @@ async function naytaPelaajaTiedot(pelaajaId) {
   if (!p) { naytaToast('Pelaajan tietoja ei löydy.', 'virhe'); return; }
 
   const nimi = p.nimi || `${p.etunimi||''} ${p.sukunimi||''}`.trim();
+  /* P1 (1.10.2026): käyttäjäperäiset arvot esc():n kautta (osa tulee julkiselta suostumuslomakkeelta), eikä
+     niitä upoteta onclickiin — napit lukevat ne window._pkd-oliosta (O'Brien rikkoi ennen napit). */
+  const esc = (v) => (window.tmEsc ? window.tmEsc(v) : _escHtml(v));
+  window._pkd = { pelaajaId, seuraId: tila.seuraId, etunimi: p.etunimi || '', sukunimi: p.sukunimi || '', joukkue: p.joukkue || '',
+    huoltajaEmail: p.huoltajaEmail || '', palloID: p.palloID || '', nimi };
   const onAnnettu = p.suostumusTila === 'annettu' || !!p.suostumus?.annettu;
   const syntVuosi = p.syntymaaika
     ? new Date(p.syntymaaika.seconds*1000).getFullYear() : '—';
@@ -4240,7 +4237,7 @@ async function naytaPelaajaTiedot(pelaajaId) {
     .map(([k, v]) =>
     `<div style="display:flex;justify-content:space-between;padding:5px 0;
       border-bottom:1px solid rgba(255,255,255,.05);font-size:12px;">
-      <span style="color:var(--ink3);">${k}</span>
+      <span style="color:var(--ink3);">${esc(k)}</span>
       <span style="${v ? 'color:var(--teal)' : 'color:var(--amber)'}">${v ? '✓ Hyväksytty' : '✗ Ei hyväksytty'}</span>
     </div>`
   ).join('') || '<div style="color:var(--ink3);font-size:12px;">Ei suostumustietoja</div>';
@@ -4258,7 +4255,7 @@ async function naytaPelaajaTiedot(pelaajaId) {
         return `<div style="display:flex;justify-content:space-between;align-items:center;
           padding:6px 0;border-bottom:1px solid rgba(255,255,255,.05);font-size:12px;">
           <div>
-            <span style="color:var(--ink1);">${k.hEmail || '—'}</span>
+            <span style="color:var(--ink1);">${esc(k.hEmail || '—')}</span>
             <span style="color:var(--ink3);margin-left:8px;">${pvm}</span>
           </div>
           <span style="color:${vari};">${tila_k}</span>
@@ -4274,9 +4271,9 @@ async function naytaPelaajaTiedot(pelaajaId) {
   const huoltajaNimiNayta  = huoltaja ? `${huoltaja.etunimi || ''} ${huoltaja.sukunimi || ''}`.trim() : '';
   const huoltajaHtml = (huoltajaNimiNayta || huoltajaEmailNayta)
     ? `<div style="font-size:13px;color:var(--ink2);">
-        ${huoltajaNimiNayta}
-        ${huoltajaEmailNayta ? `<span style="color:var(--ink3);margin-left:8px;">${huoltajaEmailNayta}</span>` : ''}
-        ${huoltaja && huoltaja.puhelin ? `<span style="color:var(--ink3);margin-left:8px;">${huoltaja.puhelin}</span>` : ''}
+        ${esc(huoltajaNimiNayta)}
+        ${huoltajaEmailNayta ? `<span style="color:var(--ink3);margin-left:8px;">${esc(huoltajaEmailNayta)}</span>` : ''}
+        ${huoltaja && huoltaja.puhelin ? `<span style="color:var(--ink3);margin-left:8px;">${esc(huoltaja.puhelin)}</span>` : ''}
        </div>`
     : `<div style="color:var(--ink3);font-size:12px;">—</div>`;
 
@@ -4308,8 +4305,8 @@ async function naytaPelaajaTiedot(pelaajaId) {
           ⚽
         </div>
         <div>
-          <div style="font-size:18px;font-weight:700;color:var(--ink1);">${nimi}</div>
-          <div style="font-size:13px;color:var(--ink3);">${p.joukkue || '—'} · ${syntVuosi}</div>
+          <div style="font-size:18px;font-weight:700;color:var(--ink1);">${esc(nimi)}</div>
+          <div style="font-size:13px;color:var(--ink3);">${esc(p.joukkue || '—')} · ${esc(syntVuosi)}</div>
         </div>
         <span class="badge ${onAnnettu ? 'ok' : 'odottaa'}" style="margin-left:auto;">
           ${onAnnettu ? '✓ Rekisteröity' : '⏳ Kutsu lähetetty'}
@@ -4330,8 +4327,8 @@ async function naytaPelaajaTiedot(pelaajaId) {
             ['PalloID', p.palloID || p.palloId || '—'],
           ].map(([k,v]) => `
             <div style="background:rgba(255,255,255,.04);border-radius:8px;padding:8px 12px;">
-              <div style="font-size:10px;color:var(--ink3);margin-bottom:3px;">${k}</div>
-              <div style="font-size:13px;color:var(--ink1);font-weight:500;">${v}</div>
+              <div style="font-size:10px;color:var(--ink3);margin-bottom:3px;">${esc(k)}</div>
+              <div style="font-size:13px;color:var(--ink1);font-weight:500;">${esc(v)}</div>
             </div>`).join('')}
         </div>
       </div>
@@ -4349,7 +4346,7 @@ async function naytaPelaajaTiedot(pelaajaId) {
           color:var(--ink3);text-transform:uppercase;margin-bottom:8px;">Suostumukset</div>
         ${onAnnettu
           ? `<div style="font-size:12px;color:var(--ink3);margin-bottom:8px;">
-              Antaja: <strong style="color:var(--ink2);">${antaja}</strong> · ${antajaPvm}
+              Antaja: <strong style="color:var(--ink2);">${esc(antaja)}</strong> · ${esc(antajaPvm)}
              </div>`
           : ''}
         <div style="background:rgba(255,255,255,.03);border-radius:8px;padding:10px 14px;">
@@ -4379,12 +4376,12 @@ async function naytaPelaajaTiedot(pelaajaId) {
             <div id="pin-nakytys-${pelaajaId}" style="font-family:monospace;font-size:22px;font-weight:900;
               color:#00D4AA;letter-spacing:4px;background:rgba(0,0,0,.25);
               padding:6px 14px;border-radius:8px;display:inline-block;min-width:80px;text-align:center;">
-              ${p.pin || '—'}
+              ${esc(p.pin || '—')}
             </div>
           </div>
           <div style="flex:1;min-width:180px;">
             <div style="font-size:10px;color:var(--ink3);margin-bottom:3px;">Huoltajan sähköposti</div>
-            <div style="font-size:12px;color:var(--ink2);">${p.huoltajaEmail || '—'}</div>
+            <div style="font-size:12px;color:var(--ink2);">${esc(p.huoltajaEmail || '—')}</div>
           </div>
         </div>
         <!-- PR 4: PIN vain palvelimella (asetaPelaajanPin). Tyhjä kenttä → palvelin luo 6-numeroisen.
@@ -4406,7 +4403,7 @@ async function naytaPelaajaTiedot(pelaajaId) {
         <button class="lisaaNappi" style="margin-top:10px;width:100%;
           background:rgba(0,212,170,.15);border:1px solid rgba(0,212,170,.3);
           color:#00D4AA;font-weight:700;"
-          onclick="lahetaPelaajaLinkki('${pelaajaId}','${tila.seuraId}','${(p.etunimi||'').replace(/'/g,"\\'")}','${(p.sukunimi||'').replace(/'/g,"\\'")}','${p.huoltajaEmail}','${(p.joukkue||'').replace(/'/g,"\\'")}')">
+          onclick="lahetaPelaajaLinkki(_pkd.pelaajaId, _pkd.seuraId, _pkd.etunimi, _pkd.sukunimi, _pkd.huoltajaEmail, _pkd.joukkue)">
           📨 Lähetä pelaajasivu-linkki huoltajalle uudelleen
         </button>` : `
         <div style="margin-top:8px;font-size:11px;color:var(--amber);">
@@ -4424,12 +4421,12 @@ async function naytaPelaajaTiedot(pelaajaId) {
           📋 Avaa kehityskortti (IDP)
         </button>
         <button class="lisaaNappi" style="background:rgba(40,176,144,.12);border:1px solid rgba(40,176,144,.3);flex:1;"
-          onclick="document.getElementById('${modalId}').classList.remove('auki'); avaaRekisteriModalPelaajalle('${pelaajaId}','${p.etunimi||''}','${p.sukunimi||''}','${p.joukkue||''}','${p.huoltajaEmail||''}','${p.palloID||''}');">
+          onclick="document.getElementById('${modalId}').classList.remove('auki'); avaaRekisteriModalPelaajalle(_pkd.pelaajaId, _pkd.etunimi, _pkd.sukunimi, _pkd.joukkue, _pkd.huoltajaEmail, _pkd.palloID);">
           ✉️ Lähetä rekisteröintikutsu
         </button>
         ${!onAnnettu ? `
         <button class="lisaaNappi" style="background:rgba(42,93,176,.15);flex:1;"
-          onclick="document.getElementById('${modalId}').classList.remove('auki'); avaaRekisteriModalPelaajalle('${pelaajaId}','${p.etunimi||''}','${p.sukunimi||''}','${p.joukkue||''}','${p.huoltajaEmail||''}','${p.palloID||''}');">
+          onclick="document.getElementById('${modalId}').classList.remove('auki'); avaaRekisteriModalPelaajalle(_pkd.pelaajaId, _pkd.etunimi, _pkd.sukunimi, _pkd.joukkue, _pkd.huoltajaEmail, _pkd.palloID);">
           ✉️ Lähetä rekisteröintikutsu
         </button>` : ''}
       </div>
@@ -4445,7 +4442,7 @@ async function naytaPelaajaTiedot(pelaajaId) {
           </button>
           <button class="lisaaNappi"
             style="background:rgba(224,160,64,.1);border:1px solid rgba(224,160,64,.3);flex:1;font-size:12px;"
-            onclick="avaaVaihdaJoukkuePelaajaModal('${pelaajaId}', '${(p.joukkue||'').replace(/'/g,String.fromCharCode(39))}')">
+            onclick="avaaVaihdaJoukkuePelaajaModal(_pkd.pelaajaId, _pkd.joukkue)">
             🔄 Vaihda joukkue
           </button>
         </div>
@@ -4457,7 +4454,7 @@ async function naytaPelaajaTiedot(pelaajaId) {
         <button class="lisaaNappi" style="width:100%;
           background:rgba(220,50,50,.1);border:1px solid rgba(220,50,50,.3);
           color:rgba(255,120,120,.9);font-size:12px;"
-          onclick="vahvistaPelaajanPoisto('${pelaajaId}', '${nimi.replace(/'/g,String.fromCharCode(39))}')">
+          onclick="vahvistaPelaajanPoisto(_pkd.pelaajaId, _pkd.nimi)">
           🗑️ Poista pelaaja pysyvästi
         </button>
       </div>` : ''}
