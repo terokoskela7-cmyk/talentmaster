@@ -17,4 +17,6 @@ module.exports = [
   'seura.kortit_peruuta',
   'seura.kortit_virhe',
   'seura.kortit_ei_tulostettavaa',
+  // Kortti + PIN-vihje (1.10.2026)
+  'pelaaja.pin4_vihje',
 ];

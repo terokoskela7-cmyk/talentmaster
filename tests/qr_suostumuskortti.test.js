@@ -127,7 +127,7 @@ describe('Seura · QR-linkki ja kortit (ajettu)', () => {
   it('suostumuskortissa EI PIN:iä eikä PalloID:tä, vaikka data sisältäisi ne; pelaajakortissa on', () => {
     const { ctx } = seuraYmp([], () => ({}));
     const s = ctx.html([{ tyyppi: 'suostumus', etunimi: 'Uusi', joukkue: 'KPV U13', qr: 'QR:x', pin: '999999', palloId: '55554444' }]);
-    expect(s).toContain('Näytä tämä vanhemmallesi. Kun huoltaja on antanut luvan (2 min), TalentMaster aukeaa.');
+    expect(s).toContain('Näytä tämä vanhemmallesi. Kun huoltaja antaa luvan (2 min), hän saa tunnuksesi sähköpostiin.');
     expect(s).not.toMatch(/999999|55554444|>PIN<|PalloID/);
     const p = ctx.html([{ tyyppi: 'pelaaja', nimi: 'Topias K', joukkue: 'KPV U13', qr: 'QR:y', pin: '482915', palloId: '12345678' }]);
     expect(p).toContain('482915'); expect(p).toContain('12345678');
