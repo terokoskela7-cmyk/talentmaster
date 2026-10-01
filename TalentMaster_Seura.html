@@ -19,7 +19,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <!-- #92 joukkue-normalisointi (kanonisointi tuonnissa) -->
 <script src="lib/tm_esc.js?v=1"></script>   <!-- P1: jaettu HTML-escape -->
-<script src="lib/tm_lang.js?v=24"></script>   <!-- i18n V0 — fi/sv/en käännöstaulukko + t() + kieli-init (putkitus) -->
+<script src="lib/tm_lang.js?v=25"></script>   <!-- i18n V0 — fi/sv/en käännöstaulukko + t() + kieli-init (putkitus) -->
 <script src="lib/tm_joukkue.js?v=4"></script>
 <script src="lib/tm_paikkamerkki.js?v=1"></script>   <!-- paikkamerkkidomainien esto (huoltajan sähköposti) -->
 <!-- tm_import.js ja tm_empty_state.js ladataan dynaamisesti jos saatavilla -->
@@ -5700,7 +5700,7 @@ function _pinKortitHtml(kortit) {
     + '<div class="o">' + esc(tp('seura.kortti_skannaa_pin', 'Skannaa ja syötä PIN')) + '</div></div>';
   const suostumuskortti = (k) => '<div class="k ks"><div class="n">' + esc(k.etunimi) + '</div><div class="j">' + esc(k.joukkue) + '</div>'
     + '<div class="r"><img src="' + k.qr + '" alt="QR"><div class="t sk">'
-    + esc(tp('seura.suostumuskortti_teksti', 'Näytä tämä vanhemmallesi. Kun huoltaja on antanut luvan (2 min), TalentMaster aukeaa.'))
+    + esc(tp('seura.suostumuskortti_teksti', 'Näytä tämä vanhemmallesi. Kun huoltaja antaa luvan (2 min), hän saa tunnuksesi sähköpostiin.'))
     + '</div></div><div class="o">' + esc(tp('seura.suostumuskortti_ala', 'Huoltajan lupa · TalentMaster')) + '</div></div>';
   const kortti = (k) => (k.tyyppi === 'suostumus' ? suostumuskortti(k) : pelaajakortti(k));
   let sivut = '';
@@ -5717,9 +5717,44 @@ function _pinKortitHtml(kortit) {
     + '.sk{font-size:11pt;line-height:1.4}'
     + '</style></head><body>' + sivut + '<script>window.onload=function(){setTimeout(function(){window.print()},300)}<\/script></body></html>';
 }
+/* Tulostusikkunan tilasivu (1.10.2026): ikkuna avataan HETI napinpainalluksessa (muuten selain estää ponnahduksen),
+   ja siihen kirjoitetaan tila — ei tyhjää valkoista sivua. Henkilökunnan näkymä → suomeksi (_tk). */
+function _korttiIkkuna(w, otsikko, teksti, napit) {
+  const esc = (x) => String(x == null ? '' : x).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  try {
+    w.document.open();
+    w.document.write('<!doctype html><html lang="fi"><head><meta charset="utf-8"><title>' + esc(_tk('seura.kortit_otsikko', 'Kortit')) + '</title>'
+      + '<style>body{font-family:Arial,sans-serif;color:#111;max-width:560px;margin:48px auto;padding:0 20px}h1{font-size:18pt}'
+      + 'p{white-space:pre-line;line-height:1.5}button{font-size:12pt;padding:10px 20px;margin-right:10px;border-radius:6px;cursor:pointer;border:1px solid #888;background:#fff}'
+      + '#tkJatka{background:#28B090;border-color:#28B090;color:#fff;font-weight:bold}</style></head><body>'
+      + '<h1>' + esc(otsikko) + '</h1>' + (teksti ? '<p id="tkTeksti">' + esc(teksti) + '</p>' : '')
+      + (napit ? '<div><button id="tkJatka">' + esc(_tk('seura.kortit_tulosta_nappi', 'Tulosta')) + '</button>'
+        + '<button id="tkPeru">' + esc(_tk('seura.kortit_peruuta', 'Peruuta')) + '</button></div>' : '')
+      + '</body></html>');
+    w.document.close();
+  } catch (e) { /* ikkuna suljettu */ }
+}
+/* Vahvistus tulostusikkunassa (ei confirm(): uuden ikkunan alla taustavälilehdelle jäävä dialogi ei näy Safarissa).
+   → Promise<boolean>; ikkunan sulkeminen = peruutus. */
+function _korttiVahvistus(w, otsikko, teksti) {
+  return new Promise((valmis) => {
+    let tehty = false;
+    const lopeta = (arvo) => { if (tehty) return; tehty = true; clearInterval(vahti); valmis(arvo); };
+    _korttiIkkuna(w, otsikko, teksti, true);
+    const jatka = w.document.getElementById('tkJatka'), peru = w.document.getElementById('tkPeru');
+    if (jatka) jatka.addEventListener('click', () => lopeta(true));
+    if (peru) peru.addEventListener('click', () => lopeta(false));
+    const vahti = setInterval(() => { if (w.closed) lopeta(false); }, 500);
+  });
+}
+const KORTTI_ERA = 10;   // luoSuostumusKortit-kutsut 10 pelaajan erissä → edistyminen X/N näkyy ikkunassa
 /* Tulosta kortit (PR B): suostumuksen antaneet → pelaajakortti; suostumus puuttuu + huoltajaEmail → suostumuskortti
-   (kutsu palvelimella: luoSuostumusKortit, avoin kutsu uudelleenkäytetään); ilman huoltajaEmailia → ei korttia. */
+   (kutsu palvelimella: luoSuostumusKortit, avoin kutsu uudelleenkäytetään); ilman huoltajaEmailia → ei korttia.
+   1.10.2026: ikkuna ENSIN (ponnahdusesto), vahvistus ikkunassa, edistyminen ja virhe ikkunaan. */
 async function tulostaKortit() {
+  const w = window.open('', '_blank');   // HETI napinpainalluksessa — ennen mitään awaitia tai dialogia
+  if (!w) { naytaToast(_tk('seura.kortit_ponnahdus_estetty', 'Selain esti tulostusikkunan. Salli ponnahdusikkunat tälle sivulle ja paina uudelleen.'), 'virhe'); return; }
+  _korttiIkkuna(w, _tk('seura.kortit_valmistellaan', 'Valmistellaan kortteja…'));
   const k = _tunnusKohde();
   const jarj = (a, b) => ((a.sukunimi || '') + (a.etunimi || '')).localeCompare((b.sukunimi || '') + (b.etunimi || ''), 'fi');
   const pelaajat = k.lista.filter((p) => _suostumusAnnettu(p) && p.pin).sort(jarj);
@@ -5730,18 +5765,22 @@ async function tulostaKortit() {
     { x: pelaajat.length, y: suostumus.length, z: eiEmailia });
   const lisat = (eiEmailia ? '\n' + _tk('seura.kortit_ei_emailia', '{n} pelaajalta puuttuu huoltajan sähköposti – lisää se pelaajakortille.', { n: eiEmailia }) : '')
     + (ilmanPinia ? '\n' + ilmanPinia + ' pelaajalla on suostumus mutta ei PIN:iä – luo ensin PIN-koodit.' : '');
-  if (!pelaajat.length && !suostumus.length) { naytaToast('Ei tulostettavia kortteja (' + k.kuvaus + '). ' + yhteenveto + lisat.replace(/\n/g, ' '), 'varoitus'); return; }
-  if (!confirm(_tk('seura.kortit_tulosta', 'Tulosta kortit') + ' (' + k.kuvaus + ')?\n' + yhteenveto + lisat)) return;
-  const w = window.open('', '_blank');   // avataan heti (ponnahdusikkunan esto), täytetään kun QR:t valmiit
-  if (!w) { naytaToast('Selain esti tulostusikkunan — salli ponnahdusikkunat tälle sivulle.', 'virhe'); return; }
+  if (!pelaajat.length && !suostumus.length) {
+    _korttiIkkuna(w, _tk('seura.kortit_ei_tulostettavaa', 'Ei tulostettavia kortteja'), k.kuvaus + '\n' + yhteenveto + lisat);
+    naytaToast('Ei tulostettavia kortteja (' + k.kuvaus + '). ' + yhteenveto + lisat.replace(/\n/g, ' '), 'varoitus');
+    return;
+  }
+  const jatketaan = await _korttiVahvistus(w, _tk('seura.kortit_tulosta', 'Tulosta kortit') + ' (' + k.kuvaus + ')', yhteenveto + lisat);
+  if (!jatketaan) { try { w.close(); } catch (_) {} return; }
   try {
-    let kutsut = {};
-    if (suostumus.length) {
-      _tunnusTila('Luodaan suostumuskortteja…');
-      const r = await _pinFn('luoSuostumusKortit')({ seuraId: tila.seuraId, pelaajaIds: suostumus.map((p) => p.id) });
+    const kutsut = {};
+    for (let i = 0; i < suostumus.length; i += KORTTI_ERA) {
+      _korttiIkkuna(w, _tk('seura.kortit_luodaan', 'Luodaan suostumuskortteja… {x}/{n}', { x: i, n: suostumus.length }));
+      const era = suostumus.slice(i, i + KORTTI_ERA);
+      const r = await _pinFn('luoSuostumusKortit')({ seuraId: tila.seuraId, pelaajaIds: era.map((p) => p.id) });
       (r.data.kortit || []).forEach((x) => { if (x.tyyppi === 'suostumuskortti' && x.kutsuId) kutsut[x.pelaajaId] = x.kutsuId; });
-      _tunnusTila('');
     }
+    _korttiIkkuna(w, _tk('seura.kortit_qr', 'Luodaan QR-koodeja…'));
     await _lataaQrKirjasto();
     const kortit = pelaajat.map((p) => ({ tyyppi: 'pelaaja', nimi: ((p.etunimi || '') + ' ' + (p.sukunimi || '')).trim(),
       joukkue: p.joukkueNimi || p.joukkue || '', palloId: _pinPalloId(p), pin: p.pin, qr: _qrDataUrl(_pelaajaLinkki(p)) }))
@@ -5752,9 +5791,9 @@ async function tulostaKortit() {
     if (puuttui) naytaToast(puuttui + ' suostumuskorttia jäi tekemättä (ei oikeutta tai pelaajaa ei löytynyt).', 'varoitus');
     setTimeout(() => renderPelaajat(document.getElementById('nakymaAlue')), 600);   // tila → "Kutsu lähetetty"
   } catch (e) {
-    _tunnusTila('');
-    try { w.close(); } catch (_) {}
-    naytaToast('Korttien teko epäonnistui: ' + _pinVirheTeksti(e), 'virhe');
+    const syy = _pinVirheTeksti(e);
+    _korttiIkkuna(w, _tk('seura.kortit_virhe', 'Korttien teko epäonnistui'), syy);   // virhe ikkunaan, ei hiljaista sulkemista
+    naytaToast('Korttien teko epäonnistui: ' + syy, 'virhe');
   }
 }
 
