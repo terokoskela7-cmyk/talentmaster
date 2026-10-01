@@ -457,6 +457,7 @@ exports.lahetaRekisteriKutsu = functions
     if (!seuraId || !(await tarkistaOikeus(context.auth.uid, seuraId)).sallittu) {
       throw new functions.https.HttpsError('permission-denied', 'Ei oikeutta lähettää kutsuja tämän seuran nimissä.');
     }
+    estaPaikkamerkkiOsoite(hEmail);   // ei kutsua eikä audit-riviä esimerkkiosoitteeseen
     const pelaajaNimi = [etunimi, sukunimi].filter(Boolean).join(' ') || 'pelaaja';
     const seuraNimi   = seura || 'TalentMaster-seura';
     // Sisarusbugi: audit-riville AINA pelaajaId (datasta tai linkin pelaajaId-parametrista).
@@ -589,6 +590,7 @@ exports.lahetaHuoltajaKutsu = functions
     if (!(await tarkistaOikeus(context.auth.uid, seuraId)).sallittu) {
       throw new functions.https.HttpsError('permission-denied', 'Ei oikeutta tähän seuraan.');
     }
+    estaPaikkamerkkiOsoite(huoltajaEmail);   // ei kutsudokumenttia esimerkkiosoitteelle
     const suostumusLinkki =
       `${TM_BASE_URL}/` +
       `TalentMaster_Rekisterointi_Suostumus.html` +

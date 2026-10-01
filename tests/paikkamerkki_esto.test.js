@@ -8,7 +8,7 @@ import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { createRequire } from 'module';
 import vm from 'vm';
-import { ESTA_LAHDE } from './_paikkamerkkiCtx.mjs';
+import { ESTA_LAHDE, lisaaPaikkamerkki } from './_paikkamerkkiCtx.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const require_ = createRequire(import.meta.url);
@@ -94,5 +94,50 @@ describe('Seura-sivu', () => {
   });
   it('syyteksti on briefin mukainen', () => {
     expect(LIB.PAIKKAMERKKI_SYY).toBe('Esimerkkiosoite – korvaa huoltajan oikealla sähköpostilla');
+  });
+});
+
+/* Kutsufunktiot ajettuna (oikea lähde): paikkamerkkiosoite hylätään oikeustarkistuksen JÄLKEEN (anonyymi saa yhä
+   permission-denied, ei tietoa osoitteesta) ja ENNEN sähköpostia, kutsudokumenttia tai audit-riviä. */
+describe('lahetaRekisteriKutsu / lahetaHuoltajaKutsu (ajettu)', () => {
+  const runko = (nimi) => { const i = CF.indexOf('exports.' + nimi + ' = functions'); return CF.slice(i, CF.indexOf('\n  });', i) + 6); };
+  const VP = { uid: 'vp-1', token: { seuraId: 'kpv', rooli: 'vp', email: 'vp@tm-testi.fi' } };
+  function aja(nimi, sallittu = true) {
+    const loki = { sposti: 0, kirjoitukset: 0 };
+    const ketju = { region() { return ketju; }, runWith() { return ketju; }, https: { onCall: (f) => f, HttpsError } };
+    const kokoelma = () => ({ add: async () => { loki.kirjoitukset++; return { id: 'k1' }; }, doc: () => ({ collection: kokoelma, update: async () => { loki.kirjoitukset++; } }) });
+    const ctx = {
+      functions: ketju, exports: {}, console: { log() {}, warn() {}, error() {} }, String, Object, Array, URL, encodeURIComponent,
+      db: { collection: kokoelma }, admin: { firestore: { FieldValue: { serverTimestamp: () => 'TS' } } },
+      tarkistaOikeus: async () => ({ sallittu }), haeJoukkueNimi: async () => 'U12',
+      lahetaSahkoposti: async () => { loki.sposti++; }, pohjaRekisteriKutsu: () => '', TM_BASE_URL: 'https://tm',
+    };
+    vm.createContext(ctx); lisaaPaikkamerkki(ctx);
+    vm.runInContext(runko(nimi), ctx);
+    return { fn: ctx.exports[nimi], loki };
+  }
+  it('lahetaRekisteriKutsu: example.com → paikkamerkki_osoite, ei sähköpostia eikä kirjoituksia', async () => {
+    const { fn, loki } = aja('lahetaRekisteriKutsu');
+    await expect(fn({ hEmail: 'huoltaja@example.com', linkki: 'https://tm/x?pelaajaId=p1', seuraId: 'kpv' }, { auth: VP }))
+      .rejects.toMatchObject({ code: 'failed-precondition', details: { syy: 'paikkamerkki_osoite' } });
+    expect(loki).toEqual({ sposti: 0, kirjoitukset: 0 });
+  });
+  it('lahetaHuoltajaKutsu: talentmaster.fi → paikkamerkki_osoite, ei kutsudokumenttia', async () => {
+    const { fn, loki } = aja('lahetaHuoltajaKutsu');
+    await expect(fn({ huoltajaEmail: 'h.fcl@talentmaster.fi', pelaajaId: 'p1', seuraId: 'kpv' }, { auth: VP }))
+      .rejects.toMatchObject({ code: 'failed-precondition', details: { syy: 'paikkamerkki_osoite' } });
+    expect(loki).toEqual({ sposti: 0, kirjoitukset: 0 });
+  });
+  it('oikeustarkistus ensin: ilman oikeutta → permission-denied myös paikkamerkkiosoitteella', async () => {
+    for (const [nimi, data] of [['lahetaRekisteriKutsu', { hEmail: 'a@example.com', linkki: 'https://tm/x', seuraId: 'kpv' }],
+      ['lahetaHuoltajaKutsu', { huoltajaEmail: 'a@example.com', pelaajaId: 'p1', seuraId: 'kpv' }]]) {
+      const { fn } = aja(nimi, false);
+      await expect(fn(data, { auth: VP })).rejects.toMatchObject({ code: 'permission-denied' });
+    }
+  });
+  it('oikea osoite → kutsu etenee kuten ennen', async () => {
+    const r = aja('lahetaHuoltajaKutsu');
+    await r.fn({ huoltajaEmail: 'vanhempi@gmail.com', pelaajaId: 'p1', seuraId: 'kpv' }, { auth: VP });
+    expect(r.loki.kirjoitukset).toBeGreaterThan(0);
   });
 });
