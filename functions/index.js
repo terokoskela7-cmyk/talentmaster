@@ -1052,6 +1052,13 @@ exports.vahvistaSuostumus = functions
       throw new functions.https.HttpsError('invalid-argument',
         'seuraId, pelaajaId ja hEmail ovat pakollisia.');
     }
+    /* Suostumuksen antajan nimi pakollinen (1.10.2026): lomakkeen huoltajakortti ei näkynyt koskaan, joten
+       alaikäisten suostumuksista puuttui antaja. Kanoninen kenttä = suostumus.antaja (EI enää suostumuksenAntaja;
+       lukijat käyttävät sitä vain vanhan datan varalla). */
+    const antajaNimi = String(antaja == null ? '' : antaja).replace(/\s+/g, ' ').trim().slice(0, 120);
+    if (!antajaNimi) {
+      throw new functions.https.HttpsError('invalid-argument', 'antaja_puuttuu', { syy: 'antaja_puuttuu' });
+    }
     // Syvyyssuojaus (Sibbo-korjaus): mikä tahansa odottamaton poikkeus → spesifi, lokitettu
     // viesti, ei paljasta "internal":ia vanhemmalle. HttpsError-koodit menevät läpi sellaisenaan.
     try {
@@ -1105,7 +1112,6 @@ exports.vahvistaSuostumus = functions
       tila:             'aktiivinen',
       muokattu:         TS,
     };
-    if (antaja) paivitys.suostumuksenAntaja = String(antaja);
     if (bioPituudet && typeof bioPituudet === 'object') {
       paivitys.isa_pituus_cm           = (bioPituudet.isa_pituus_cm  != null) ? bioPituudet.isa_pituus_cm  : null;
       paivitys.aiti_pituus_cm          = (bioPituudet.aiti_pituus_cm != null) ? bioPituudet.aiti_pituus_cm : null;
@@ -1129,7 +1135,7 @@ exports.vahvistaSuostumus = functions
     if (Array.isArray(suostumukset)) paivitys.suostumukset = suostumukset;
     paivitys.suostumus = {
       annettu:     TS,
-      antaja:      antaja ? String(antaja) : null,
+      antaja:      antajaNimi,
       antajaRooli: antajaRooli || null,
       versio:      '2026-v1',
       hyvaksytyt:  (suostumusMap && typeof suostumusMap === 'object') ? suostumusMap : null,
@@ -1177,12 +1183,12 @@ exports.vahvistaSuostumus = functions
     }
 
     // Onboarding-integriteetti B1 — suostumus annettu (best-effort). Autentikoimaton sivu → uid usein null,
-    // siksi kirjataan antaja + hEmail jäljitettävyyttä varten.
+    // siksi kirjataan hEmail jäljitettävyyttä varten (antajan nimeä EI audit-riville, vain antajaNimi_annettu).
     db.collection('audit').add({
       // Sisarusbugi: yksittäinen poikkeama (etunimi TAI vuosi) hyväksytään, mutta kirjataan warn-tasolla,
       // jotta seura voi tarkistaa tiedot jälkikäteen (esim. kaksoset samalla kutsulinkillä).
       toiminto: 'suostumus_annettu', severity: kohde.poikkeama.length ? 'warn' : 'info',
-      pelaajaId, seuraId, hEmail: hEmailNorm, antaja: antaja || null,
+      pelaajaId, seuraId, hEmail: hEmailNorm, antajaNimi_annettu: !!antajaNimi,   // ei nimeä audit-riville
       lomakeEtunimi_tasmasi: kohde.etunimiTasmasi,   // true/false/null (ei nimeä)
       lomake_poikkeama: kohde.poikkeama,             // [] | ['etunimi'] | ['vuosi']
       tekija_uid: (context.auth && context.auth.uid) || null,

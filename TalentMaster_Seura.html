@@ -4191,7 +4191,9 @@ async function naytaPelaajaTiedot(pelaajaId) {
       .collection('kutsut')
       .where('pelaajaId', '==', pelaajaId)
       .get();
-    kutsut = kSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+    // Kutsuhistoria uusin ensin (1.10.2026)
+    const _kutsuMs = (k) => { const t = k.luotu || k.lahetetty; return t && t.seconds ? t.seconds * 1000 : (t ? (Date.parse(t) || 0) : 0); };
+    kutsut = kSnap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => _kutsuMs(b) - _kutsuMs(a));
   } catch(e) {
     console.warn('[Profiili] Haku epäonnistui:', e.message);
   }
@@ -4203,9 +4205,23 @@ async function naytaPelaajaTiedot(pelaajaId) {
   const syntVuosi = p.syntymaaika
     ? new Date(p.syntymaaika.seconds*1000).getFullYear() : '—';
 
-  // Suostumukset eriteltynä
+  // Suostumukset eriteltynä — selkokieliset nimet lomakkeen järjestyksessä (1.10.2026).
+  // 'ei_kaytossa' = lomakkeen piilotettu c7, poistunut suostumus (aina false) → ei näytetä.
+  const SUOSTUMUS_NIMET = {
+    rekisteri:      'Tietojen tallentaminen rekisteriin',
+    tietosuoja:     'Tietosuojaseloste luettu',
+    testaaminen:    'Testaaminen ja kehitysseuranta',
+    biologinen_ika: 'Biologisen iän arviointi',
+    valmentajajako: 'Tietojen jakaminen valmentajille',
+    anon_data:      'Anonyymi tilastokäyttö',
+  };
   const suostumukset = p.suostumus?.hyvaksytyt || {};
-  const suostumusRivit = Object.entries(suostumukset).map(([k, v]) =>
+  const _jarj = Object.keys(SUOSTUMUS_NIMET);
+  const suostumusRivit = Object.entries(suostumukset)
+    .filter(([k]) => k !== 'ei_kaytossa')
+    .sort(([a], [b]) => (_jarj.indexOf(a) < 0 ? 99 : _jarj.indexOf(a)) - (_jarj.indexOf(b) < 0 ? 99 : _jarj.indexOf(b)))
+    .map(([k, v]) => [SUOSTUMUS_NIMET[k] || k, v])
+    .map(([k, v]) =>
     `<div style="display:flex;justify-content:space-between;padding:5px 0;
       border-bottom:1px solid rgba(255,255,255,.05);font-size:12px;">
       <span style="color:var(--ink3);">${k}</span>
@@ -4249,7 +4265,9 @@ async function naytaPelaajaTiedot(pelaajaId) {
     : `<div style="color:var(--ink3);font-size:12px;">—</div>`;
 
   // Suostumuksen antaja + aika
-  const antaja = p.suostumus?.antaja || '—';
+  // Kanoninen suostumus.antaja; vanhat kentät varalla (suostumuksenAntaja, huoltaja-objekti)
+  const antaja = (p.suostumus?.antaja || p.suostumuksenAntaja
+    || (huoltaja ? `${huoltaja.etunimi || ''} ${huoltaja.sukunimi || ''}`.trim() : '') || '—');
   const antajaPvm = p.suostumus?.annettu?.seconds
     ? new Date(p.suostumus.annettu.seconds*1000).toLocaleString('fi-FI') : '—';
 

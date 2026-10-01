@@ -115,7 +115,7 @@ describe('tuplapainallus', () => {
     const E = (id) => elementit[id] || (elementit[id] = { id, value: '', checked: ['c1', 'c2'].includes(id), disabled: false, textContent: '', style: {}, classList: { add() {}, remove() {} },
       closest: () => null, parentNode: null });
     const ctx = {
-      el: E, val: () => '', toast() {}, setStep: (n) => kutsut.push('step' + n), console: { error() {}, warn() {} },
+      el: E, val: (id) => ({ h_etu: 'Tero', h_suku: 'Koskela' })[id] || '', toast() {}, setStep: (n) => kutsut.push('step' + n), console: { error() {}, warn() {} },
       Date, Math, JSON, String, parseInt, parseFloat, isNaN, Object, Array, Promise,
       _fbDb: { collection: () => ({ doc: () => ({ collection: () => ({ doc: () => ({}) }) }) }) }, _seuraId: 'kpv', _pelaajaId: 'p1', _kutsuId: null, _urlParams: { hEmail: 'h@x.fi' },
       firebase: { firestore: { FieldValue: { serverTimestamp: () => 'TS' } },
