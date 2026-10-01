@@ -21,6 +21,7 @@ const { suostumusAnnettu } = require('./suostumus');
 
 const AVOIMET_KUTSUTILAT = ['odottaa', 'lahetetty', 'luotu'];   // sama kuin vahvistaSuostumus
 const MAKS_PELAAJAT = 300;
+const RINNAKKAIN = 10;   // pelaajaa kerrallaan (1.10.2026: ennen sarjassa → 33 pelaajaa kesti kymmeniä sekunteja)
 
 function luoKasittelija(deps) {
   const { db, tarkistaOikeus, HttpsError, FieldValue } = deps;
@@ -36,31 +37,34 @@ function luoKasittelija(deps) {
 
     const seura = db.collection('seurat').doc(seuraId);
     const TS = FieldValue.serverTimestamp();
-    const tulos = [];
     let luotu = 0, uudelleen = 0;
-    for (const pid of Array.from(new Set(idt))) {
+    /* Yksi pelaaja: luku → tyyppi → (avoin kutsu uudelleen | uusi kutsu). Pelaajat ovat toisistaan riippumattomia
+       → ajetaan RINNAKKAIN erissä (RINNAKKAIN kpl kerrallaan). Ennen sarjassa: 33 pelaajan joukkue = ~33 × 3–4
+       peräkkäistä Firestore-kierrosta. Järjestys palautetaan syötteen mukaisena. */
+    async function kasittele(pid) {
       const ps = await seura.collection('pelaajat').doc(pid).get();
-      if (!ps.exists) { tulos.push({ pelaajaId: pid, tyyppi: 'ei_loydy' }); continue; }
+      if (!ps.exists) return { pelaajaId: pid, tyyppi: 'ei_loydy' };
       const pd = ps.data() || {};
-      if (!P.saaPelaajalle(oikeus, pd)) { tulos.push({ pelaajaId: pid, tyyppi: 'ei_oikeutta' }); continue; }
-      if (suostumusAnnettu(pd)) { tulos.push({ pelaajaId: pid, tyyppi: 'pelaajakortti' }); continue; }
-      if (!String(pd.huoltajaEmail || '').trim()) { tulos.push({ pelaajaId: pid, tyyppi: 'ei_emailia' }); continue; }
-
+      if (!P.saaPelaajalle(oikeus, pd)) return { pelaajaId: pid, tyyppi: 'ei_oikeutta' };
+      if (suostumusAnnettu(pd)) return { pelaajaId: pid, tyyppi: 'pelaajakortti' };
+      if (!String(pd.huoltajaEmail || '').trim()) return { pelaajaId: pid, tyyppi: 'ei_emailia' };
       // Avoin kutsu uudelleen (ei composite-indeksiä: pelaajaId-ehto + tila suodatetaan tässä).
       const ks = await seura.collection('kutsut').where('pelaajaId', '==', pid).get();
       const avoin = ks.docs.find((d) => AVOIMET_KUTSUTILAT.indexOf((d.data() || {}).tila || 'odottaa') >= 0);
-      let kutsuId;
-      if (avoin) { kutsuId = avoin.id; uudelleen++; }
-      else {
-        const ref = await seura.collection('kutsut').add({
-          tyyppi: 'qr_kortti', tila: 'luotu', pelaajaId: pid,
-          luotu: TS, luoja_uid: context.auth.uid,
-        });
-        kutsuId = ref.id; luotu++;
-        // Tila "Kutsu lähetetty" listoille (pilotti/puuttuva → odottaa). Annettua ei koskaan alenneta (yllä).
-        if (pd.suostumusTila !== 'odottaa') await seura.collection('pelaajat').doc(pid).update({ suostumusTila: 'odottaa', muokattu: TS });
-      }
-      tulos.push({ pelaajaId: pid, tyyppi: 'suostumuskortti', kutsuId });
+      if (avoin) { uudelleen++; return { pelaajaId: pid, tyyppi: 'suostumuskortti', kutsuId: avoin.id }; }
+      const ref = await seura.collection('kutsut').add({
+        tyyppi: 'qr_kortti', tila: 'luotu', pelaajaId: pid,
+        luotu: TS, luoja_uid: context.auth.uid,
+      });
+      luotu++;
+      // Tila "Kutsu lähetetty" listoille (pilotti/puuttuva → odottaa). Annettua ei koskaan alenneta (yllä).
+      if (pd.suostumusTila !== 'odottaa') await seura.collection('pelaajat').doc(pid).update({ suostumusTila: 'odottaa', muokattu: TS });
+      return { pelaajaId: pid, tyyppi: 'suostumuskortti', kutsuId: ref.id };
+    }
+    const yksilot = Array.from(new Set(idt));
+    const tulos = [];
+    for (let i = 0; i < yksilot.length; i += RINNAKKAIN) {
+      tulos.push(...await Promise.all(yksilot.slice(i, i + RINNAKKAIN).map(kasittele)));
     }
     await audit('suostumuskortit_luotu', { seuraId, pelaajia: tulos.length, kutsuja_luotu: luotu, kutsuja_uudelleen: uudelleen,
       tekija_uid: context.auth.uid, severity: 'info' });
@@ -68,4 +72,4 @@ function luoKasittelija(deps) {
   };
 }
 
-module.exports = { luoKasittelija, AVOIMET_KUTSUTILAT, MAKS_PELAAJAT };
+module.exports = { luoKasittelija, AVOIMET_KUTSUTILAT, MAKS_PELAAJAT, RINNAKKAIN };

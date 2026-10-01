@@ -8,6 +8,15 @@ module.exports = [
   // EI VIETY (1.10.2026): Geminin sv käyttää {gen}-muuttujaa, jonka koodi täyttää SUOMEN genetiivillä
   // (_genetiivi → "Topiaksen") ja jota V1-B2-sääntö kieltää sv/en-teksteissä. Odottaa Teron/Geminin uutta versiota.
   'vanhempi.kirj_jakoteksti',
+  // Tulosta kortit: ikkuna ensin (1.10.2026)
+  'seura.kortit_valmistellaan',
+  'seura.kortit_luodaan',
+  'seura.kortit_qr',
+  'seura.kortit_ponnahdus_estetty',
+  'seura.kortit_tulosta_nappi',
+  'seura.kortit_peruuta',
+  'seura.kortit_virhe',
+  'seura.kortit_ei_tulostettavaa',
   // Kortti + PIN-vihje (1.10.2026)
   'pelaaja.pin4_vihje',
 ];
