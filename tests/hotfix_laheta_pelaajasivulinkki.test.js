@@ -12,6 +12,7 @@ import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import vm from 'vm';
+import { lisaaPaikkamerkki, onPaikkamerkkiOsoite } from './_paikkamerkkiCtx.mjs';
 import { createRequire } from 'module';
 const require_ = createRequire(import.meta.url);
 
@@ -29,7 +30,7 @@ class HttpsError extends Error { constructor(code, msg) { super(msg); this.code 
 const ANON = { uid: 'anon-1', token: { firebase: { sign_in_provider: 'anonymous' } } };
 const VP = { uid: 'vp-1', token: { seuraId: 'fcl', rooli: 'vp', firebase: { sign_in_provider: 'password' } } };
 
-function aja(auth, { oikeus = false, tallennettu = 'huoltaja@x.fi' } = {}) {
+function aja(auth, { oikeus = false, tallennettu = 'huoltaja@tm-testi.fi' } = {}) {
   const loki = { reset: 0, luotu: 0, sposti: 0, oikeus: [] };
   const ketju = { region() { return ketju; }, runWith() { return ketju; }, https: { onCall: (f) => f, HttpsError } };
   const ctx = {
@@ -48,9 +49,9 @@ function aja(auth, { oikeus = false, tallennettu = 'huoltaja@x.fi' } = {}) {
       pelaajakirjautuminen: require_('../functions/pelaajakirjautuminen.js'),
     TM_BASE_URL: 'https://tm',
   };
-  vm.createContext(ctx);
+  vm.createContext(ctx); lisaaPaikkamerkki(ctx);
   vm.runInContext(cfRunko('lahetaPelaajaSivuLinkki'), ctx);
-  const data = { hEmail: 'Huoltaja@x.fi', pelaajaId: 'p1', seuraId: 'fcl', etunimi: 'A' };
+  const data = { hEmail: 'Huoltaja@tm-testi.fi', pelaajaId: 'p1', seuraId: 'fcl', etunimi: 'A' };
   return { loki, ajo: ctx.exports.lahetaPelaajaSivuLinkki(data, { auth }) };
 }
 const EI_MITAAN = { reset: 0, luotu: 0, sposti: 0 };
@@ -69,7 +70,7 @@ describe('HOTFIX · lahetaPelaajaSivuLinkki (ajettu)', () => {
     expect(sivuvaikutukset(t.loki)).toEqual(EI_MITAAN);
   });
   it('johto, mutta sähköposti ≠ pelaajan tallennettu huoltajaEmail → failed-precondition', async () => {
-    const t = aja(VP, { oikeus: true, tallennettu: 'joku.muu@x.fi' });
+    const t = aja(VP, { oikeus: true, tallennettu: 'joku.muu@tm-testi.fi' });
     await expect(t.ajo).rejects.toMatchObject({ code: 'failed-precondition' });
     expect(sivuvaikutukset(t.loki)).toEqual(EI_MITAAN);
   });
