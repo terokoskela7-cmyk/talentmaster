@@ -266,8 +266,30 @@ describe('vahvistaSuostumus · ristiriidan tarkistus (ajettu)', () => {
     const v = vahvista(TOPIAS_DOC());
     const r = await v.fn(LOMAKE({ etunimi: 'Topias', syntyma: '2013-03-15', sukupuoli: 'T' }), {});
     expect(r.ok).toBe(true);
-    expect(v.f.D.get('seurat/kpv/pelaajat/m93')).toMatchObject({ suostumusTila: 'annettu', sukupuoli: 'M', suostumuksenAntaja: 'Tero Koskela' });
+    expect(v.f.D.get('seurat/kpv/pelaajat/m93')).toMatchObject({ suostumusTila: 'annettu', sukupuoli: 'M', suostumus: expect.objectContaining({ antaja: 'Tero Koskela' }) });
     expect(v.audit().find((a) => a.toiminto === 'suostumus_annettu')).toMatchObject({ severity: 'info', lomakeEtunimi_tasmasi: true, lomake_poikkeama: [] });
+  });
+});
+
+describe('vahvistaSuostumus · suostumuksen antaja (1.10.2026, ajettu)', () => {
+  it.each([[undefined], [''], ['   '], [null]])('antaja %o → invalid-argument antaja_puuttuu, EI kirjoituksia eikä audit-riviä', async (antaja) => {
+    const v = vahvista(TOPIAS_DOC());
+    const ennen = JSON.stringify(v.f.D.get('seurat/kpv/pelaajat/m93'));
+    const e = await v.fn(LOMAKE({ etunimi: 'Topias', syntyma: '2013-03-15', antaja }), {}).catch((x) => x);
+    expect(e).toMatchObject({ code: 'invalid-argument', message: 'antaja_puuttuu' });
+    expect(JSON.stringify(v.f.D.get('seurat/kpv/pelaajat/m93'))).toBe(ennen);
+    expect(v.audit()).toEqual([]);
+  });
+  it('nimellä → kanoninen suostumus.antaja (normalisoitu); vanhaa suostumuksenAntaja-kenttää EI kirjoiteta; audit antajaNimi_annettu ilman nimeä', async () => {
+    const v = vahvista(TOPIAS_DOC());
+    await v.fn(LOMAKE({ etunimi: 'Topias', syntyma: '2013-03-15', antaja: '  Tero   Koskela ' }), {});
+    const x = v.f.D.get('seurat/kpv/pelaajat/m93');
+    expect(x.suostumus).toMatchObject({ antaja: 'Tero Koskela', antajaRooli: 'huoltaja' });
+    expect(x).not.toHaveProperty('suostumuksenAntaja');
+    const a = v.audit().find((r) => r.toiminto === 'suostumus_annettu');
+    expect(a).toMatchObject({ antajaNimi_annettu: true });
+    expect(a).not.toHaveProperty('antaja');
+    expect(JSON.stringify(a)).not.toContain('Koskela');
   });
 });
 
