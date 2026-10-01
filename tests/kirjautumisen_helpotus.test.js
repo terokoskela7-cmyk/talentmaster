@@ -10,6 +10,7 @@ import { dirname, join } from 'path';
 import { createRequire } from 'module';
 import vm from 'vm';
 import { lisaaVerkko } from './_verkkoCtx.mjs';
+import { lisaaP7Offline } from './_p7OfflineCtx.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const require_ = createRequire(import.meta.url);
@@ -46,7 +47,7 @@ function ajaPelaaja({ url, kentta = '', vastaus }) {
       _fbApp: { functions: () => ({ httpsCallable: () => async (data) => { loki.kutsu = data; return { data: vastaus }; } }) },
     },
   };
-  vm.createContext(ctx); lisaaVerkko(ctx);
+  vm.createContext(ctx); lisaaVerkko(ctx); lisaaP7Offline(ctx);
   vm.runInContext([
     pura(PEL, 'function _linkkiKirjautuminen() {'),
     pura(PEL, 'function _naytaPalloIdKentta() {'),
@@ -113,7 +114,7 @@ function ajaVanhempi({ L, tunnisteet, share = true }) {
       : { clipboard: { writeText: (x) => { loki.leike = x; return Promise.resolve(); } } },
     _toast: (x) => loki.toast.push(x),
   };
-  vm.createContext(ctx); lisaaVerkko(ctx);
+  vm.createContext(ctx); lisaaVerkko(ctx); lisaaP7Offline(ctx);
   vm.runInContext([
     VAN.slice(VAN.indexOf('function _genetiivi(nimi) {'), VAN.indexOf('\n}\n', VAN.indexOf('function _genetiivi(nimi) {')) + 2),
     VAN.slice(VAN.indexOf('function _vEsc(s){'), VAN.indexOf('\n', VAN.indexOf('function _vEsc(s){'))),

@@ -9,6 +9,7 @@ import { dirname, join } from 'path';
 import { createRequire } from 'module';
 import vm from 'vm';
 import { lisaaVerkko } from './_verkkoCtx.mjs';
+import { lisaaP7Offline } from './_p7OfflineCtx.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const require_ = createRequire(import.meta.url);
@@ -86,7 +87,7 @@ function pelaaja(virheet) {
     _PK_VIRHE_TUNNISTUS: 'Tunnus tai PIN on väärin.', _PK_VIRHE_INFRA: 'Kirjautuminen ei juuri nyt onnistu. Yritä hetken päästä uudelleen.',
     _pinVirhe: (t) => loki.virhe.push(t), _lataaOmaPelaaja: async () => { loki.lataa++; return true; },
   };
-  vm.createContext(ctx); lisaaVerkko(ctx);
+  vm.createContext(ctx); lisaaVerkko(ctx); lisaaP7Offline(ctx);
   vm.runInContext([puraRaaka('function _infraVirheenSyy(koodi, viesti) {'), puraRaaka('function _raportoiKirjautumisvirhe(syy) {'),
     puraRaaka('function _linkkiKirjautuminen() {'), puraRaaka('async function _kirjaudu(pin) {')].join('\n') + '\nthis._kirjaudu = _kirjaudu;', ctx);
   return { loki, ajo: ctx._kirjaudu('1234') };
@@ -118,7 +119,7 @@ describe('Pelaaja_v7 · verkkokatko kirjautumisessa (ajettu)', () => {
 
 describe('kytkentä kirjautumissivuilla', () => {
   it.each([
-    ['TalentMaster_Pelaaja_v7.html', 'tmYritaUudelleenVerkkokatkossa(() => fn(syote))', "tmRaportoiVerkkokatko('pelaajaKirjaudu')"],
+    ['TalentMaster_Pelaaja_v7.html', 'tmYritaUudelleenVerkkokatkossa(kutsuAikarajalla)', "tmRaportoiVerkkokatko('pelaajaKirjaudu')"],
     ['TalentMaster_Player_Home.html', 'tmYritaUudelleenVerkkokatkossa(function(){ return _soloFn(', "tmRaportoiVerkkokatko('soloLapsiKirjaudu')"],
     ['TalentMaster_Vanhempi_v2.html', 'tmYritaUudelleenVerkkokatkossa(() => _auth.signInWithEmailAndPassword(email, pass))', "tmRaportoiVerkkokatko('vanhempiKirjautuminen')"],
     ['TalentMaster_Seura.html', 'tmYritaUudelleenVerkkokatkossa(() => auth.signInWithEmailAndPassword(email, salasana))', "tmRaportoiVerkkokatko('seuraKirjautuminen')"],

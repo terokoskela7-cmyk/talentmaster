@@ -517,7 +517,7 @@ input::placeholder,textarea::placeholder{color:#8C8B86;opacity:1}
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-functions-compat.js"></script>   <!-- Vaihe 0 / PR 1: pelaajaKirjaudu -->
 <script src="lib/tm_appcheck.js?v=2"></script>
 <script src="lib/tm_verkko.js?v=1"></script>   <!-- verkkokatko: 1 uudelleenyritys + Yhteyskatko-ilmoitus + Sentry warning -->
-<script src="lib/tm_lang.js?v=17"></script>   <!-- i18n V0 putki · V1-A/A2 · V4-A3: +pelaaja.nain_teet/kirjaa_tehdyksi/pallo_joka_paiva/rae_q4 (kotinäytön chrome sv) -->
+<script src="lib/tm_lang.js?v=18"></script>   <!-- i18n V0 putki · V1-A/A2 · V4-A3: +pelaaja.nain_teet/kirjaa_tehdyksi/pallo_joka_paiva/rae_q4 (kotinäytön chrome sv) -->
 <script src="lib/tm_eerikkila_normit.js?v=40"></script>
 <script src="docs/testit_indeksit.js?v=9"></script>
 <script src="lib/tm_havaintohistoria.js?v=1"></script>   <!-- vain tmHhRivit: jarjestys + tekijanimi (ei pisteita, 7.22) -->
@@ -2375,15 +2375,24 @@ function _p7SaatavuusHTML(ev) {
 }
 async function _p7MerkitseLasna(evId, saatavuus) {
   var ev = (window._p7Kalenteri || []).find(function (e) { return e.id === evId; }); if (!ev) return;
+  var edellinen = ev._omaSaatavuus || null;
   ev._omaSaatavuus = saatavuus; if (typeof draw === 'function') draw();   // optimistinen UI
   if (_isDemoUser || !_pelaaja || !_pelaaja.seuraId || !_pelaaja.id || !window._db) return;   // demo/ei-Firestore → vain UI
   try {
+    /* Ilman verkkoa (1.10.2026): onLine-tarkistus + palvelinluku aikarajalla ENNEN kirjoitusta → offline-tilassa
+       jonoon ei jää kirjoitusta, joka laskeutuisi myöhemmin palautetun valinnan päälle. */
+    if (!_p7Verkossa()) throw _p7EiYhteyttaVirhe();
     var cu = window._auth ? window._auth.currentUser : null;
-    if (cu) await cu.getIdToken(true);
-    await window._db.collection('seurat').doc(_pelaaja.seuraId).collection('kalenteri').doc(evId)
-      .collection('lasnaolijat').doc(_pelaaja.id)
-      .set({ saatavuus: saatavuus, rooli: 'pelaaja', paivitetty: new Date().toISOString() }, { merge: true });   // vain saatavuus (Rules RSVP-erotus)
-  } catch (e) { console.warn('[p7 lasna]', e && e.message); }
+    if (cu) await _p7Aikaraja(cu.getIdToken(true));
+    var tapahtuma = window._db.collection('seurat').doc(_pelaaja.seuraId).collection('kalenteri').doc(evId);
+    await _p7Aikaraja(tapahtuma.get());   // yhteystesti palvelinluvulla ennen kirjoitusta
+    await _p7Aikaraja(tapahtuma.collection('lasnaolijat').doc(_pelaaja.id)
+      .set({ saatavuus: saatavuus, rooli: 'pelaaja', paivitetty: new Date().toISOString() }, { merge: true }));   // vain saatavuus (Rules RSVP-erotus)
+  } catch (e) {
+    console.warn('[p7 lasna]', e && (e.code || ''), e && e.message);
+    if (ev._omaSaatavuus === saatavuus) { ev._omaSaatavuus = edellinen; if (typeof draw === 'function') draw(); }   // palauta edellinen valinta
+    if (typeof _naytaKirjausVirhe === 'function') _naytaKirjausVirhe(_p7OnYhteysvirhe(e) ? _p7EiYhteyttaTeksti() : 'Valinta ei tallentunut — yritä uudelleen.');
+  }
 }
 function _p7AikatauluKortti(ev) {
   var tt = _P7_TT[ev.tyyppi] || _P7_TT.muu;
@@ -3235,9 +3244,8 @@ function rTDone(){
       konteksti: taso===1 ? 'bola_sempre' : 'paivan_ohjelma',
     }).catch(e => {
       console.warn('[treeni kirjaus]', e.code || '', e.message);
-      if (typeof _naytaKirjausVirhe === 'function') _naytaKirjausVirhe((e && e.code === 'permission-denied')
-        ? 'Kirjaus ei tallentunut — kirjaudu uudelleen PIN-koodilla.'
-        : 'Kirjaus ei tallentunut — tarkista verkkoyhteys ja yritä uudelleen.');
+      _tdoneCalled = false;   // ei tallentunut → seuraava Valmis yrittää uudelleen
+      if (typeof _naytaKirjausVirhe === 'function') _naytaKirjausVirhe(_p7KirjausVirheTeksti(e));
     });
   }
   // §7.22 palkintohetki (KOHTA 2b) — korvaa poistetun XP-progressbarin paikan. Virstanpylväs (7/14 pv) = juhlistava
@@ -3588,7 +3596,12 @@ function _tallennaVapaa(){
     kesto_min: _vaMin,
     fiilinki:  _vaFiilis,
     konteksti: _vaTyyppi,
-  }).catch(e => console.warn('[vapaa kirjaus]', e.message));
+  }).catch(e => {
+    console.warn('[vapaa kirjaus]', e.code || '', e.message);
+    _vaSaved = false;   // ei tallentunut → lomake palaa, pelaaja voi kirjata uudelleen
+    if (typeof draw === 'function') draw();
+    if (typeof _naytaKirjausVirhe === 'function') _naytaKirjausVirhe(_p7KirjausVirheTeksti(e));
+  });
 
   // ── TMBus: julkaise ekosysteemille ──
   try{
@@ -4468,10 +4481,40 @@ function _paivitaDemoData() {
   draw();
 }
 
+/* ══ ILMAN VERKKOA (1.10.2026) ═══════════════════════════════════════════════════════════════════
+   Firestoressa EI ole persistenssiä (tarkoituksella: alaikäisen tiedot yhteiskäyttöisellä laitteella → ei
+   enablePersistenceä). Ilman verkkoa get() epäonnistuu ('unavailable') ja set/commit jää odottamaan loputtomiin.
+   Siksi: (1) navigator.onLine === false → ei yritetä lainkaan, (2) ennen kirjoitusta palvelinluku aikarajalla —
+   jos luku ei onnistu, kirjoitusta EI aloiteta (jonoon ei jää myöhemmin laskeutuvaa kirjoitusta),
+   (3) commit 8 s aikarajalla. Paikallinen tila (XP, streak, RSVP-valinta) päivitetään vasta onnistuneen commitin jälkeen. */
+const _P7_AIKARAJA_MS = 8000;
+function _p7EiYhteyttaVirhe() { return Object.assign(new Error('ei yhteyttä'), { code: 'tm/ei-yhteytta' }); }
+function _p7Verkossa() { return !(typeof navigator !== 'undefined' && navigator.onLine === false); }
+function _p7Aikaraja(lupaus, ms) {
+  let h;
+  const raja = new Promise(function (_, hylkaa) { h = setTimeout(function () { hylkaa(_p7EiYhteyttaVirhe()); }, ms || _P7_AIKARAJA_MS); });
+  return Promise.race([lupaus, raja]).finally(function () { clearTimeout(h); });
+}
+function _p7OnYhteysvirhe(e) {
+  const k = String((e && e.code) || '').replace(/^firestore\//, '');
+  return k === 'tm/ei-yhteytta' || k === 'unavailable' || k === 'deadline-exceeded';
+}
+function _p7EiYhteyttaTeksti() {
+  return (typeof t === 'function') ? t('pelaaja.ei_yhteytta_kirjaus') : 'Ei yhteyttä – kirjausta ei tallennettu. Kirjaa uudelleen, kun verkko palaa.';
+}
+/* Kirjausvirheen viesti: yhteys → Ei yhteyttä; permission-denied → kirjaudu uudelleen; muu → tarkista verkko. */
+function _p7KirjausVirheTeksti(e) {
+  if (_p7OnYhteysvirhe(e)) return _p7EiYhteyttaTeksti();
+  return (e && e.code === 'permission-denied')
+    ? 'Kirjaus ei tallentunut — kirjaudu uudelleen PIN-koodilla.'
+    : 'Kirjaus ei tallentunut — tarkista verkkoyhteys ja yritä uudelleen.';
+}
+
 // Firestore-kirjaus — kutsu aina kun tehty-nappia painetaan
 async function _tmKirjaa(avain, arvo) {
   if (_isDemoUser) return true;                        // demo: ei Firestore-kirjoitusta, UI reagoi silti
   if (!_pelaaja?.id || !window._db) return false;
+  if (!_p7Verkossa()) return false;   // ei verkkoa → ei jonoon jäävää kirjoitusta; kutsuja näyttää toastin
   const pvm = _paivaIso();
   const seuraId = window._seuraId || _pelaaja?.seuraId || null;
   // Varmista tuore token ennen kirjoitusta (kuten _tallennaKirjaus) — vanhentunut sessio →
@@ -4488,7 +4531,7 @@ async function _tmKirjaa(avain, arvo) {
           .collection('kirjaukset').doc(pvm)
       : window._db.collection('pelaajat').doc(_pelaaja.id)
           .collection('kirjaukset').doc(pvm); // fallback legacy
-    await ref.set(
+    await _p7Aikaraja(ref.set(
       {
         [avain]: arvo,
         lahde: 'pelaaja',
@@ -4502,7 +4545,7 @@ async function _tmKirjaa(avain, arvo) {
         luotu: firebase.firestore.Timestamp.fromDate(new Date(pvm)),
       },
       { merge: true }
-    );
+    ));
     return true;
   } catch(e) {
     console.warn('[v4 kirjaus]', e.code || '', e.message);
@@ -4521,6 +4564,7 @@ async function _tallennaKirjaus(tyyppi, xp, kaikki, ekstra) {
   const sid = window._seuraId || _pelaaja.seuraId;
   const pid = _pelaaja.id;
   if (!sid || !pid || pid === 'super_admin_view') return false;
+  if (!_p7Verkossa()) throw _p7EiYhteyttaVirhe();   // ilman verkkoa ei aloiteta (commit jäisi odottamaan)
 
   // Varmista tuore token ennen Firestore-kirjoitusta — sessio voi vanhentua
   // pitkän tauon jälkeen (esim. puhelimen nukkuessa). getIdToken(true) pakottaa
@@ -4570,11 +4614,12 @@ async function _tallennaKirjaus(tyyppi, xp, kaikki, ekstra) {
     const _sk = 'pelaaja:' + tyyppi;
     const _sessioP = { sk: _sk, lahde: 'pelaaja', tyyppi, konteksti: ekstra?.konteksti || null, kesto_min: ekstra?.kesto_min || null, rpe: ekstra?.rpe || null };
     const _skOf = function (s) { return (s && (s.sk || (s.lahde === 'pelaaja' ? 'pelaaja:' + (s.tyyppi || 'x') : s.lahde))) || 'valmentaja'; };
-    try {
-      const _snap = await kirjausDok.get();
-      const _existing = (_snap.exists && Array.isArray((_snap.data() || {}).sessiot)) ? _snap.data().sessiot : [];
-      kirjausData.sessiot = _existing.filter(function (s) { return _skOf(s) !== _sk; }).concat([_sessioP]);
-    } catch (_) { kirjausData.sessiot = [_sessioP]; }
+    /* P0 EHEYS (1.10.2026): jos päivän dokumentin luku epäonnistuu, kirjaus KESKEYTETÄÄN. Ennen luku-
+       virhe tuotti sessiot=[_sessioP], ja merge:true korvasi valmentajan saman päivän sessiot. Virhe
+       heitetään kutsujalle (toast). Luku aikarajalla: ilman verkkoa get() voi viipyä. */
+    const _snap = await _p7Aikaraja(kirjausDok.get());
+    const _existing = (_snap.exists && Array.isArray((_snap.data() || {}).sessiot)) ? _snap.data().sessiot : [];
+    kirjausData.sessiot = _existing.filter(function (s) { return _skOf(s) !== _sk; }).concat([_sessioP]);
 
     const batch = db.batch();
 
@@ -4588,17 +4633,15 @@ async function _tallennaKirjaus(tyyppi, xp, kaikki, ekstra) {
     if (kaikki) {
       // Ei lisätä streakia jos sama päivä on jo kirjattu
       const uusiStreak = (_streak || 0) + ((_streakLastDate === pvm) ? 0 : 1);
-      _streak = uusiStreak;
       paivitys.streak            = uusiStreak;
       paivitys.streak_paivitetty = pvm;
-      _streakLastDate            = pvm;
     }
     batch.update(pelaajaDok, paivitys);
 
-    // Päivitä lokaalisti heti — UI päivittyy ennen Firestore-vahvistusta
+    await _p7Aikaraja(batch.commit());
+    // Paikallinen tila VASTA onnistuneen commitin jälkeen (ei XP:n/streakin kasvua epäonnistuneesta kirjauksesta).
     _pelaaja.xp = paivitys.xp;
-
-    await batch.commit();
+    if (kaikki) { _streak = paivitys.streak; _streakLastDate = pvm; }
     console.log('[v5] Kirjaus OK:', tyyppi, xp, 'XP | streak:', _streak);
     return true;
 
@@ -4639,9 +4682,7 @@ async function _kirjaaHarjoite(tyyppi) {
   } catch (e) {
     console.warn('[kirjaaHarjoite]', tyyppi, e.code || '', e.message);
     // Rules sallivat pelaajan oman kirjauksen (pelaajatoken) → permission-denied = istunto vanhentunut → kirjaudu uudelleen.
-    _naytaKirjausVirhe((e && e.code === 'permission-denied')
-      ? 'Kirjaus ei tallentunut — kirjaudu uudelleen PIN-koodilla.'
-      : 'Kirjaus ei tallentunut — tarkista verkkoyhteys ja yritä uudelleen.');
+    _naytaKirjausVirhe(_p7KirjausVirheTeksti(e));
   }
 }
 
@@ -4879,10 +4920,19 @@ async function _kirjaudu(pin) {
   const linkki = _linkkiKirjautuminen();
   const tunnus = linkki ? '' : String((document.getElementById('pinTunnus') || {}).value || '').replace(/[\s-]/g, '');
   if (!linkki && !tunnus) { _pin = ''; draw(); _pinVirhe('Kirjoita ensin PalloID.'); return; }
+  // Ilman verkkoa (1.10.2026): ei kutsua lainkaan → heti Yhteyskatko (ei Sentryä: laitteen oma offline-tila, ei häiriö).
+  if (!_p7Verkossa()) { _pin = ''; draw(); _pinVirhe(tmVerkkoViesti()); return; }
   try {
     const fn = window._fbApp.functions('europe-west1').httpsCallable('pelaajaKirjaudu');
     const syote = linkki ? { seuraId: linkki.seuraId, pelaajaId: linkki.pelaajaId, pin: pin } : { liittoTunnus: tunnus, pin: pin };
-    const r = await tmYritaUudelleenVerkkokatkossa(() => fn(syote));   // verkkokatko → 1 uusi yritys 2 s päästä
+    /* Oma 15 s aikaraja: SDK hakee App Check -tokenin ENNEN omaa aikarajaansa, ja jos reCAPTCHA-skripti ei latautunut
+       (offline, ei välimuistissa), kutsu jäi odottamaan loputtomiin ilman viestiä. Aikaraja = SDK:n deadline-muoto
+       → tmOnVerkkokatko tunnistaa → 1 uusi yritys → Yhteyskatko. */
+    const kutsuAikarajalla = () => _p7Aikaraja(fn(syote), 15000).catch((e) => {
+      if (e && e.code === 'tm/ei-yhteytta') throw Object.assign(new Error('deadline-exceeded'), { code: 'functions/deadline-exceeded' });
+      throw e;
+    });
+    const r = await tmYritaUudelleenVerkkokatkossa(kutsuAikarajalla);   // verkkokatko → 1 uusi yritys 2 s päästä
     const d = r && r.data;
     if (!d || !d.token) throw Object.assign(new Error('ei tokenia'), { code: 'internal' });
     _kirjautuminenKesken = true;
