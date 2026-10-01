@@ -10,7 +10,7 @@
    - Omat JS-moduulit + manifest + ikonit + versioidut fontit/SDK → cache-first.
    - KAIKKI muu (toisten appien sivut, raw.githubusercontent, jne.) → suoraan verkkoon, EI cachea.
    Scopea ei voi kaventaa (SW juuressa) → allowlist hoitaa rajaamisen. CLAUDE.md §27.4. */
-const CACHE = 'tm-pelaaja-v38';   // 1.10.2026: verkkokatkon käsittely kirjautumisessa (lib/tm_verkko.js); v37 = tm_lang ?v=17
+const CACHE = 'tm-pelaaja-v39';   // 1.10.2026: kirjaus/RSVP ilman verkkoa + tm_lang ?v=18
 const SHELL = './TalentMaster_Pelaaja_v7.html';
 // VAIN oma shell — JS-moduulit ovat ?v=-versioituja (bare-polku ei matchaisi), allowlist cachettaa ne
 // pyydettäessä. (Vanha PRECACHE viittasi /talentmaster/tm_eerikkila_normit.js → 404, jota Pelaaja ei lataa
@@ -72,6 +72,9 @@ function onAllowlist(url) {
   if (url.indexOf('/lib/tm_appcheck.js') !== -1) return true;   // V2 App Check — site key + aktivointi
   if (url.indexOf('/lib/tm_verkko.js') !== -1) return true;   // verkkokatkon käsittely kirjautumisessa
   if (url.indexOf('/lib/tm_havaintohistoria.js') !== -1) return true;   // Valmentajalta-osion jarjestys
+  // 1.10.2026: loput Pelaajan omat kirjastot (versioituja) — offline-avaus ilman verkkoa ei saa jättää niitä lataamatta.
+  // tests/pelaaja_offline.test.js vaatii, että JOKAINEN Pelaaja_v7:n oma <script src> osuu allowlistiin.
+  if (/\/lib\/tm_(piirros|adar_rubriikki|kortti_rubriikit|pelialy_yksilo|kehityskaari)\.js/.test(url)) return true;
   // HUOM: reCAPTCHA Enterprise (www.google.com/recaptcha/, gstatic.com/recaptcha/) EI ole
   // allowlistissa — attestointi on tuore-kutsu, ei cachettavaa. 'gstatic.com/firebasejs/'
   // -match on kapea eikä osu recaptchaan; app-check-compat.js cachettuu versioidulla URL:lla.

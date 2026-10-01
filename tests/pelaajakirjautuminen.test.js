@@ -11,6 +11,8 @@ const K = require('../functions/pelaajakirjautuminen.js');
 class HttpsError extends Error { constructor(code, msg) { super(msg); this.code = code; } }
 
 function tynka(pelaajat, pinHashit) {
+  // Suostumus ennen kirjautumista (1.10.2026): fixturet ovat suostumuksen antaneita, ellei data kerro muuta.
+  pelaajat = pelaajat.map((p) => Object.assign({}, p, { data: Object.assign({ suostumusTila: 'annettu' }, p.data) }));
   const kokoelmat = { _kirjautumisyritykset: new Map(), _pelaajaPin: new Map(pinHashit || []) };
   const kirjoita = (kok, id, d, opts) => {
     if (opts && opts.merge) {

@@ -130,7 +130,7 @@ describe('lahetaPelaajaSivuLinkki (ajettu) — ei enää auki kenellekään, ei 
       haeOrLuoHuoltajaAuth: async () => { loki.luotu++; },
       lahetaSahkoposti: async (m) => { loki.sposti++; loki.viesti = m; },
       pohjaPelaajaSivu: (o) => JSON.stringify(o),
-      pelaajakirjautuminen: require_('../functions/pelaajakirjautuminen.js'),
+      pelaajakirjautuminen: require_('../functions/pelaajakirjautuminen.js'), suostumusAnnettu: require_('../functions/suostumus.js').suostumusAnnettu,
       TM_BASE_URL: 'https://tm',
     });
     const data = { hEmail: 'Huoltaja@tm-testi.fi', pelaajaId: 'p1', seuraId: 'fcl', etunimi: 'A' };
@@ -217,7 +217,7 @@ describe('vahvistaSuostumus (ajettu) — tunnukset vain sähköpostiin', () => {
       lahetaSahkoposti: async (m) => { if (sposti !== 'ok') throw new Error('sendgrid'); loki.sposti.push(m); },
       pohjaSuostumusLinkki: (o) => JSON.stringify(o),
       TM_BASE_URL: 'https://tm', Date, Math, JSON, Number, isNaN, parseInt, parseFloat,
-      suostumusTarkistus: require_('../functions/suostumus_tarkistus.js'),
+      suostumusTarkistus: require_('../functions/suostumus_tarkistus.js'), suostumusAnnettu: require_('../functions/suostumus.js').suostumusAnnettu,
     });
     const data = { seuraId: 'fcl', pelaajaId: 'p1', hEmail: 'Huoltaja@tm-testi.fi', suostumusTeksti: 'x', antaja: 'A', kutsuId: null,
       suostumukset: [], suostumusMap: {}, antajaRooli: 'huoltaja', aikaleima: '2026-10-01' };

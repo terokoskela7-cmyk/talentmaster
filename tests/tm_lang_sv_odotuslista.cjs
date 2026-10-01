@@ -16,4 +16,6 @@ module.exports = [
   'vanhempi.ikavaihe_v',
   // Lapsenvaihdin (1.10.2026)
   'vanhempi.lapsi_valitse',
+  // Pelaaja ilman verkkoa (1.10.2026)
+  'pelaaja.ei_yhteytta_kirjaus',
 ];
