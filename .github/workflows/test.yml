@@ -22,6 +22,23 @@ jobs:
       - run: npm ci
       - run: npm test
 
+  # Functions-testit (functions/test, node --test). Ennen 1.10.2026 ne ajettiin VAIN deploy-functions.yml:n
+  # porttina mainissa → #698 rikkoi ne (SA_UID poistettiin) eikä PR:n CI huomannut, deploy pysähtyi.
+  # Sama Node 22 ja komennot kuin deploy-portissa.
+  functions-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Asenna functions-riippuvuudet
+        working-directory: functions
+        run: npm ci
+      - name: Funktiotestit
+        working-directory: functions
+        run: npm test
+
   # #60 — ESLint no-undef -portti (defektiluokan vartija, esim. 'sp is not defined' -luokka).
   # VAIHE 2: ESTÄVÄ — 5 residuaalilöydöstä triagattu+korjattu (0 jäljellä) → uudet undefined-viittaukset kaatavat buildin.
   lint:
