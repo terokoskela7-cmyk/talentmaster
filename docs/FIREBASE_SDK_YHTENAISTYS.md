@@ -57,14 +57,14 @@ Yhteenveto: **9.22.0** ×2 · **9.22.1** ×7 · **9.22.2** ×2 · **9.23.0** ×1
 
 ### Mitä on saatavilla (tarkistettu 3.10.2026)
 - npm `firebase@latest` = **12.19.0** (9.9.2026). Compat-tiedostot (`firebase-{app,app-check,auth,firestore,functions,storage}-compat.js`) ovat CDN:ssä (gstatic) vastaavasti 12.19.0:lle, 11.10.0:lle, 10.14.1:lle ja 10.7.1:lle (HTTP 200).
-- Compat on yhä julkaistu 12.x:ssä (`@firebase/app-compat@0.5.x`, `auth-compat@0.6.x`, `firestore-compat@0.4.x`). Luetuissa release noteissa (11.0.0, 12.0.0) ei ole compatin poistoilmoitusta; compat on kuitenkin Firebasen oman ohjeen mukaan migraatioapu, ei pitkän aikavälin API.
+- Compat on yhä julkaistu 12.x:ssä (`@firebase/app-compat@0.5.x`, `auth-compat@0.6.x`, `firestore-compat@0.4.x`). Luetuissa release noteissa (11.0.0, 12.0.0) ei ole compatin poistoilmoitusta; compat on kuitenkin nimensä mukaisesti yhteensopivuuskerros modular-API:n rinnalla, joten sen pitkän aikavälin tulevaisuutta ei voi pitää varmana (ei todennettu tässä).
 - `firebase-firestore-compat.js` raakakoko: 9.22.1 ≈ 339 kB · 10.7.1 ≈ 340 kB · 10.14.1 ≈ 344 kB · **12.19.0 ≈ 548 kB** (+61 %). Pelaaja/Vanhempi ovat puhelin-PWA:ita → iso hyppy 12.x:ään maksaa latausaikaa ja dataa.
 
 ### Mitä 9.x → 10.x rikkoo compat-API:ssa (luettu firebase-js-sdk:n CHANGELOGeista)
 - **Firestore 3.x → 4.0** (firebase 10.0.0): vain **TypeScript-tyypitys** (`FirestoreDataConverter`, `updateDoc`-tyypit). Ei ajonaikaista API-muutosta compat-puolella.
 - **Auth 0.x → 1.0** (10.0.0): `RecaptchaVerifier`-parametrien järjestys (modular; compat-kääre säilyttää oman signatuurinsa) ja React Native -entry — ei vaikuta tähän repoon.
 - **Auth 1.5.0:** `INVALID_LOGIN_CREDENTIALS` näkyy virhekoodina **`auth/invalid-credential`**. Sovelluskohtainen vaikutus: ks. §3 (Pelaaja_v7 ei käsittele tätä koodia).
-- **`enablePersistence({synchronizeTabs})`** (vain ADAR_Pikakortti käyttää): metodi on compat-tiedostossa tallella kaikissa tarkistetuissa versioissa (9.22.1, 10.7.1, 10.14.1, 12.19.0; merkkijonohaku tiedostosta). Firestoren IndexedDB-formaatin muutos oli jo 9.6-aikaan (firestore 3.4.7) — ei 9.22 → 10.x -välillä.
+- **`enablePersistence({synchronizeTabs})`** (vain ADAR_Pikakortti käyttää): metodi on compat-tiedostossa tallella kaikissa tarkistetuissa versioissa (9.22.1, 10.7.1, 10.14.1, 12.19.0; merkkijonohaku tiedostosta). Firestoren IndexedDB-formaatin muutos oli jo firestore 3.4.7:ssä (v9-sarjan alkupuoli, selvästi ennen 9.22) — ei 9.22 → 10.x -välillä.
 - **`auth.setPersistence(LOCAL)`** (Admin, Seura, ADAR): ennallaan.
 - **Firestore-ajonaikaiset korjaukset 4.x:ssä** (hyödyt uudemmasta): fetch-streamien käyttöönotto (4.2.0) peruttiin jumittavien kyselyiden takia (4.3.2) — 10.7.1 on tämän perumisen **jälkeen**; "Backend didn't respond within 10 seconds" -virheiden esto (4.6.1, ≥10.12); multi-tab-persistencen korjaukset (4.6.3, 4.7.2; ≥10.12–10.14) — relevantteja vain ADAR:lle.
 - **Versio 11.0.0:** ES5-bundlet poistettu, **vähimmäisvaatimus ES2017**. **12.0.0:** build-kohde ES2020, Node ≥20 (vain Node-paketit). → vanhat iOS/Android-selaimet voivat tippua pois 11+:ssa. 10.x pysyy ES5-yhteensopivana.
@@ -72,10 +72,10 @@ Yhteenveto: **9.22.0** ×2 · **9.22.1** ×7 · **9.22.2** ×2 · **9.23.0** ×1
 ### Vaihtoehdot
 | Vaihtoehto | Muuttuvat sivut | Plussat | Miinukset |
 |---|---|---|---|
-| **A. 10.7.1 (suositus)** | 12 / 21 | Jo tuotannossa isoimmalla apilla (VP: ~440 Firestore-viitettä) ja 8 muulla; sama versio kuin App Check ENFORCEn jälkeen jo todennettu liikenne; pienin muutosjoukko; ES5-yhteensopiva; ei kokokasvua | Ei saa 4.6.x/4.7.x-korjauksia (multi-tab, 10 s -virheet) — ei vaikuta tunnettuihin ongelmiin |
+| **A. 10.7.1 (suositus)** | 12 / 21 | Jo tuotannossa isoimmalla apilla (VP: ~440 Firestore-viitettä) ja 8 muulla; pienin muutosjoukko; ES5-yhteensopiva; ei kokokasvua | Ei saa 4.6.x/4.7.x-korjauksia (multi-tab, 10 s -virheet) — ei vaikuta tunnettuihin ongelmiin |
 | B. 10.14.1 (viimeinen 10.x) | 21 / 21 (myös VP) | Uusimmat 10.x-korjaukset; ES5 | Kaikki sivut muuttuvat, myös jo vakaa VP; ei tuotantotodistetta |
 | C. 11.10.0 | 21 / 21 | — | ES2017-raja ilman selvää hyötyä |
-| D. 12.19.0 | 21 / 21 | Uusin | +61 % Firestore-compat-koko; ES2020; compat on migraatioapu; suurin regressioriski |
+| D. 12.19.0 | 21 / 21 | Uusin | +61 % Firestore-compat-koko; ES2020; compat-kerroksen tulevaisuus epävarma; suurin regressioriski |
 
 **Suositus A.** Perustelu: tavoite on *yhtenäisyys*, ei uusin versio — A poistaa 4 vanhaa versiota pienimmällä muutosjoukolla ja jo koetellulla versiolla. Uudemmasta versiosta päätetään erikseen, kun yhtenäisyys on saavutettu (silloin versio-bump koskee 21 sivua yhdellä vakiolla ja yhdellä regressiokierroksella).
 
@@ -100,7 +100,7 @@ Yhteenveto: **9.22.0** ×2 · **9.22.1** ×7 · **9.22.2** ×2 · **9.23.0** ×1
 
 **Offline-persistence / IndexedDB**
 - Firestore `enablePersistence` käytössä vain **ADAR_Pikakortti.html** (`synchronizeTabs:true`). Admin ja Seura ovat poistaneet sen (IndexedDB-konflikti Auth-sessionin kanssa, 2026-03-27); Pelaaja/Vanhempi eivät käytä Firestore-persistenceä (offline hoituu SW:llä).
-- Firestoren IndexedDB-skeema ei muutu 9.22 → 10.7.1 (changelog: formaattimuutos oli 9.6:ssa). Auth `setPersistence(LOCAL)` ennallaan. Silti **ADAR kuuluu omaan erään**: sama SDK, mutta vanha cache + uusi SDK kokeillaan oikealla laitteella (offline-kirjoitus, monta välilehteä).
+- Firestoren IndexedDB-skeema ei muutu 9.22 → 10.7.1 (changelog: formaattimuutos oli firestore 3.4.7:ssä, ennen 9.22:ta). Auth `setPersistence(LOCAL)` ennallaan. Silti **ADAR kuuluu omaan erään**: sama SDK, mutta vanha cache + uusi SDK kokeillaan oikealla laitteella (offline-kirjoitus, monta välilehteä).
 
 **Auth-virhekoodit (Auth 1.5.0)**
 - `auth/invalid-credential` (väärä sähköposti tai salasana). Admin, Seura, Vanhempi, VP ja `tm_auth.js` käsittelevät sen. **Pelaaja_v7** käsittelee vain `wrong-password` ja `user-not-found` (rivit ~952–953) → 10.x:ssä väärä salasana voi tulla uudella koodilla ja näkyä yleisviestinä. Tarkistetaan erässä 6; tarvittaessa lisätään koodi viestikarttaan (erillinen pieni muutos, ei SDK-erän sisällä).
