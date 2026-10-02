@@ -3568,7 +3568,7 @@ async function _lataaKalenteriTapahtumat() {
       // Muunna Timestamp → pvm/alkaa/paattyy string (yhteensopivuus renderCal:n kanssa)
       var alkaaD = data.alkaa && data.alkaa.toDate ? data.alkaa.toDate() : null;
       var paattyyD = data.paattyy && data.paattyy.toDate ? data.paattyy.toDate() : null;
-      var pvmStr = alkaaD ? alkaaD.toISOString().slice(0, 10) : '';
+      var pvmStr = alkaaD ? tmPaivaIso(alkaaD) : '';
       var alkaaStr = alkaaD ? (String(alkaaD.getHours()).padStart(2,'0') + ':' + String(alkaaD.getMinutes()).padStart(2,'0')) : '';
       var paattyyStr = paattyyD ? (String(paattyyD.getHours()).padStart(2,'0') + ':' + String(paattyyD.getMinutes()).padStart(2,'0')) : '';
       return Object.assign({ id: d.id, _lahde: 'kalenteri' }, data, {
@@ -4929,7 +4929,7 @@ function renderHavainnot() {
     h += '<div style="font-size:12px;color:var(--ink3);margin-bottom:10px">' + masterT('Ei tuoretta peliälyhavaintoa (0 tai yli 30 pv) — napauta havainnoidaksesi.') + '</div>';
     h += '<div class="koti-kortit">' + ilmanAdar.map(p => {
       const ms = _iaMs(p.adar_pvm);
-      const tila = (p.adar_havaintoja||0) === 0 ? masterT('ei havaintoja') : masterT('viimeksi ') + (ms ? _pvmFiM(new Date(ms).toISOString().slice(0,10)) : '—');
+      const tila = (p.adar_havaintoja||0) === 0 ? masterT('ei havaintoja') : masterT('viimeksi ') + (ms ? _pvmFiM(tmPaivaIso(new Date(ms))) : '—');
       return '<div class="koti-kortti" style="cursor:pointer" onclick="openDrill(\'adar\')">'
         + '<div class="kk-ikoni">👁</div>'
         + '<div class="kk-txt"><b>' + _iaNimi(p) + '</b> · ' + tila + '</div>'
@@ -4944,7 +4944,7 @@ function renderHavainnot() {
   if (havaitut.length) {
     h += '<div class="koti-kortit">' + havaitut.map(p => {
       const ms = _iaMs(p.adar_pvm);
-      const pvmTxt = ms ? _pvmFiM(new Date(ms).toISOString().slice(0,10)) : '';
+      const pvmTxt = ms ? _pvmFiM(tmPaivaIso(new Date(ms))) : '';
       const yht = (p.adar_viimeisin && p.adar_viimeisin.yht != null) ? p.adar_viimeisin.yht + '/3' : '—';
       /* Taktiikkataulu-jälkirikastus: kortista pääsee pelaajan yksittäisiin
          havaintoihin, joihin kaavio liitetään pöydän ääressä (kenttäkirjaus
@@ -9008,12 +9008,12 @@ function renderCal() {
   if (subEl) subEl.textContent = masterT('Kausi ') + monday.getFullYear() + '/' + (monday.getFullYear()+1).toString().slice(-2) + masterT(' · Viikko ') + weekNum;
 
   const days = ['Ma','Ti','Ke','To','Pe','La','Su'];
-  const todayStr = today.toISOString().slice(0,10);
+  const todayStr = tmPaivaIso(today);
 
   // ── Tapahtumat: testit + mentoroinnit = all-day (ylärivi); harjoitukset/ottelut = tuntiruudukko ──
   const suodataJoukkue = t => !_joukkue || (!t.joukkue && !t.joukkue_nimi) || t.joukkue === _joukkue || t.joukkue_nimi === _joukkue;
   const lisaaJoukkue = !_joukkue; // näytä joukkueen nimi chipissä kun useita joukkueita näkyvissä
-  const dayIdxOf = (pvm) => dates.findIndex(dd => dd.toISOString().slice(0,10) === pvm);
+  const dayIdxOf = (pvm) => dates.findIndex(dd => tmPaivaIso(dd) === pvm);
 
   // Testitapahtumat → all-day (teal). Ei kellonaikaan sidottuja.
   const testiEvts = (_testitapahtumat || []).filter(suodataJoukkue)
@@ -9039,7 +9039,7 @@ function renderCal() {
   // ── Rakenna grid: päiväotsikot ──
   let html = '<div class="cal-day-hdr" style="background:var(--card)"></div>';
   days.forEach((d,i) => {
-    const isToday = dates[i].toISOString().slice(0,10) === todayStr;
+    const isToday = tmPaivaIso(dates[i]) === todayStr;
     html += '<div class="cal-day-hdr' + (isToday?' today':'') + '">'
       + '<div class="cal-day-name">' + masterT(d) + '</div>'
       + '<div class="cal-day-num">' + dates[i].getDate() + '</div>'
@@ -9049,7 +9049,7 @@ function renderCal() {
   // ── All-day -rivi: testitapahtumat (teal) + mentoroinnit (violetti) — ei kellonaikaa ──
   html += '<div class="cal-time-lbl" style="display:flex;align-items:center;">' + masterT('Koko pvm') + '</div>';
   for (let d = 0; d < 7; d++) {
-    const isToday = dates[d].toISOString().slice(0,10) === todayStr;
+    const isToday = tmPaivaIso(dates[d]) === todayStr;
     let chips = '';
     testiEvts.filter(t => t._dayIdx === d).forEach(t => {
       chips += _calChip(_calEvtTyyli(t,'testi'), t, lisaaJoukkue, "event.stopPropagation();_avaaKentta('" + t.id + "')", '');
@@ -9064,7 +9064,7 @@ function renderCal() {
   c.hours.forEach(h => {
     html += '<div class="cal-time-lbl">' + h + ':00</div>';
     for (let d = 0; d < 7; d++) {
-      const isToday = dates[d].toISOString().slice(0,10) === todayStr;
+      const isToday = tmPaivaIso(dates[d]) === todayStr;
       let chips = '';
       if (_demo) (c.events||[]).filter(e => e.day === d && e.hour === h).forEach(e => {
         chips += '<div class="cal-evt ' + (e.type||'team') + '" onclick="event.stopPropagation();calEventClick(\'' + (e.type||'team') + '\',' + d + ',' + h + ')" title="' + (e.title||'') + '"><div class="cal-evt-title">' + (e.title||'') + '</div><div class="cal-evt-meta">' + (e.meta||'') + '</div></div>';
