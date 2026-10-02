@@ -3529,11 +3529,17 @@ describe('v3.34 · kehitysasetukset ja seuratuki', () => {
   }
 });
 
-describe('v3.34 · kausikuvat (vain luonti, vain demoseura kunnes GDPR-poisto kattaa kausikuvat)', () => {
+describe('v3.34/v3.35 · kausikuvat (vain luonti; v3.35: demorajaus purettu, GDPR-poisto kattaa kausikuvat)', () => {
   beforeEach(async () => { await seedAdminDoc(); await seedSeuraAndPelaaja(); });
   const kuva = { kausi: '2026', luotu: 1, pelaajat: [{ id: 'p1' }] };
-  it('oikea (ei-demo) seura: luonti estetty myös VP:ltä', async () => {
-    await assertFails(setDoc(doc(vpContext(SEURA_A).firestore(), 'seurat', SEURA_A, 'kausikuvat', '2026'), kuva));
+  it('v3.35: oikea (ei-demo) seura: VP ja UTJ voivat luoda; valmentaja ja sihteeri eivät; toinen seura ei', async () => {
+    await assertSucceeds(setDoc(doc(vpContext(SEURA_A).firestore(), 'seurat', SEURA_A, 'kausikuvat', '2026'), kuva));
+    const utj = testEnv.authenticatedContext('utj-fcl-001', { rooli: 'urheilutoimenjohtaja', seuraId: SEURA_A });
+    await assertSucceeds(setDoc(doc(utj.firestore(), 'seurat', SEURA_A, 'kausikuvat', '2025'), Object.assign({}, kuva, { kausi: '2025' })));
+    await assertFails(setDoc(doc(valmentajaContext(VALM_A_UID, SEURA_A).firestore(), 'seurat', SEURA_A, 'kausikuvat', '2024'), Object.assign({}, kuva, { kausi: '2024' })));
+    await assertFails(setDoc(doc(sihteeriContext(SEURA_A).firestore(), 'seurat', SEURA_A, 'kausikuvat', '2024'), Object.assign({}, kuva, { kausi: '2024' })));
+    const toinen = testEnv.authenticatedContext('vp-kpv-001', { rooli: 'vp', seuraId: SEURA_B });
+    await assertFails(setDoc(doc(toinen.firestore(), 'seurat', SEURA_A, 'kausikuvat', '2024'), Object.assign({}, kuva, { kausi: '2024' })));
   });
   it('demoseura: VP luo kerran; päivitys ja poisto estetty; toinen tallennus samalle kaudelle estetty', async () => {
     await testEnv.withSecurityRulesDisabled(async (ctx) => { await setDoc(doc(ctx.firestore(), 'seurat', SEURA_A), { nimi: 'FC Lahti', demo: true }, { merge: true }); });

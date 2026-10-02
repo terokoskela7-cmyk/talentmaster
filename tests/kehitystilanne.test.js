@@ -119,10 +119,11 @@ describe('raportti ja koodivartijat', () => {
       expect(t).not.toMatch(/sid\s*===\s*['"]|seuraId\s*===\s*['"]/);
     }
   });
-  it('Seura.html: yksi @media(max-width:768px)-lohko; kausikuva vain demoseuralle; raportti avaa ikkunan ensin', () => {
+  it('Seura.html: yksi @media(max-width:768px)-lohko; kausikuva kerran per kausi (demorajaus purettu v3.35); raportti avaa ikkunan ensin', () => {
     const SEURA = readFileSync(join(ROOT, 'TalentMaster_Seura.html'), 'utf8');
     expect(SEURA.match(/@media\(max-width:768px\)/g)).toHaveLength(1);
-    expect(SEURA).toContain('const kausikuvaSallittu = K.data.seura.demo === true');
+    expect(SEURA).toContain('const kausikuvaSallittu = !K.data.kausikuvat.some(');
+    expect(SEURA).not.toMatch(/seura\.demo !== true\) \{ naytaToast\('Kausikuva/);
     const f = SEURA.slice(SEURA.indexOf('function ktVieRaportti('));
     expect(f.indexOf("window.open('', '_blank')")).toBeLessThan(f.indexOf('TM_KEHITYSTILANNE.raporttiHTML'));
   });

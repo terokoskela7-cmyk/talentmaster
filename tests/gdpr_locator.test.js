@@ -227,6 +227,22 @@ describe('GDPR-locator — kerääPelaajanManifesti', () => {
     expect(rtbf).not.toMatch(/omat_kirjaukset[^\n]*batch\.delete/);
     expect(src.slice(src.indexOf('exports.viePelaajanDataGDPR'))).toMatch(/omat_kirjaukset: dataMap\(manifesti\.ristiviitteet\.omat_kirjaukset\)/);
   });
+  it('kausikuvat: löytää pelaajan rivin; manifestissa VAIN pelaajan oma rivi (ei muiden); RTBF poistaa rivin transaktiossa', async () => {
+    const db = makeDb(taysiSpec({ cols: {
+      [`seurat/${SID}/kausikuvat`]: [
+        { id: '2025', data: { kausi: '2025', pelaajat: [{ id: PID, joukkue: 'P14' }, { id: 'toinen', joukkue: 'P14' }] } },
+        { id: '2026', data: { kausi: '2026', pelaajat: [{ id: 'toinen', joukkue: 'P15' }] } },
+      ],
+    } }));
+    const m = await keraaPelaajanManifesti(db, SID, PID);
+    expect(m.ristiviitteet.kausikuvat).toHaveLength(1);
+    expect(m.ristiviitteet.kausikuvat[0].data).toEqual({ kausi: '2025', pelaajanRivi: { id: PID, joukkue: 'P14' } });
+    expect(JSON.stringify(m.ristiviitteet.kausikuvat)).not.toContain('toinen');
+    expect(m.lukumaarat.kausikuvat).toBe(1);
+    const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'functions', 'index.js'), 'utf8');
+    const rtbf = src.slice(src.indexOf('exports.poistaPelaajaGDPR'), src.indexOf('exports.viePelaajanDataGDPR'));
+    expect(rtbf).toMatch(/ristiviitteet\.kausikuvat[\s\S]*runTransaction[\s\S]*filter\(\(p\) => !\(p && p\.id === pelaajaId\)\)[\s\S]*tx\.update\(kk\.ref, \{ pelaajat: uusi \}\)/);
+  });
   it('heittää jos seuraId/pelaajaId puuttuu', async () => {
     const db = makeDb(taysiSpec());
     await expect(keraaPelaajanManifesti(db, SID, null)).rejects.toThrow();

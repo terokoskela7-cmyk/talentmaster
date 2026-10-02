@@ -15,6 +15,8 @@ rules_version = '2';
 //     (maara: 1, summa/viimeisin: luku, kylla_ei: bool). Summa-tyypissä EI pelaajalinkkiä (ei pelaajakohtaisia summia);
 //     pelaajalinkin pelaajan oltava seuran pelaaja. Arkistoituun tavoitteeseen ei kirjata.
 //     GDPR: poistaPelaajaGDPR (Admin SDK) nollaa pelaajaId:n kirjauksista; Rules eivät salli sitä selaimesta.
+//   · kausikuvat/{kausi}: demorajaus (demo == true) PURETTU. poistaPelaajaGDPR poistaa nyt pelaajan rivin
+//     kausikuvista (Admin SDK), joten kausikuvan voi tallentaa oikeallekin seuralle. Muuten ennallaan (vain luonti).
 //
 // Muutokset v3.33 → v3.34 (Kehitystilanne v0, 2.10.2026):
 //   · seurat/{sid}/kehitysasetukset/{vuosi} ja seuratuki/{vuosi}: lukevat seuran johtoroolit (vp, urheilutoimenjohtaja,
@@ -911,7 +913,6 @@ service cloud.firestore {
         allow read:   if onSuperAdmin() || (onOmaSeura(seuraId) && onJohtoRooli());
         allow create: if (onSuperAdmin()
                           || (onOmaSeura(seuraId) && request.auth.token.rooli in ['vp', 'urheilutoimenjohtaja']))
-                      && get(/databases/$(database)/documents/seurat/$(seuraId)).data.get('demo', false) == true
                       && request.resource.data.keys().hasAll(['kausi', 'luotu', 'pelaajat'])
                       && request.resource.data.pelaajat is list;
         allow update, delete: if false;   // muuttumaton; GDPR-poisto Admin SDK:lla (palvelin)

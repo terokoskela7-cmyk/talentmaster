@@ -2654,8 +2654,8 @@ function _ktPiirra() {
   const malli = TM_KEHITYSTILANNE.rakennaMalli(K.data, { vuosi: K.vuosi, jakso: v.jakso, sukupuoli: v.sukupuoli, ikavaihe: v.ikavaihe });
   K.malli = malli;
   const saaKirjoittaa = KT_KIRJOITTAJAT.indexOf(tila.rooli) >= 0;
-  // Kausikuva: poistaPelaajaGDPR ei vielä poista pelaajaa kausikuvista → tallennus vain demoseuralle (sama raja Rulesissa).
-  const kausikuvaSallittu = K.data.seura.demo === true && !K.data.kausikuvat.some((k) => String(k.kausi) === String(K.vuosi));
+  // Kausikuva: yksi per kausi (muuttumaton, Rules v3.35). poistaPelaajaGDPR poistaa pelaajan rivin kausikuvista.
+  const kausikuvaSallittu = !K.data.kausikuvat.some((k) => String(k.kausi) === String(K.vuosi));
   // Ensinäkymä (KISS) ensin; yksityiskohtainen v0-näkymä vain "Kaikki luvut" -valinnalla.
   const ro = { saaKirjoittaa, kausikuvaSallittu, auki: v.auki, avoin: v.avoin || null, info: !!v.info, k1bRef: v.k1bRef || 'kal', kaikki: !!v.kaikki };
   let h = TM_KEHITYSTILANNE.renderEnsinakyma(malli, ro);
@@ -2860,7 +2860,6 @@ async function ktTallennaSeuratuki() {
 }
 async function ktTallennaKausikuva() {
   const K = window._kt; if (!K) return;
-  if (K.data.seura.demo !== true) { naytaToast('Kausikuva avautuu, kun pelaajan GDPR-poisto poistaa pelaajan myös kausikuvista.', 'varoitus'); return; }
   if (!confirm('Tallennetaanko kauden ' + K.vuosi + ' kausikuva? Kuvaa ei voi muuttaa tallennuksen jälkeen.')) return;
   const pelaajat = K.data.pelaajat.filter((p) => p.tila !== 'arkistoitu').map((p) => ({ id: p.id, joukkue: p.joukkue || null,
     ikaluokka: p.syntymaVuosi ? (p.sukupuoli === 'N' ? 'T' : 'P') + (K.vuosi - p.syntymaVuosi) : null, sukupuoli: p.sukupuoli || null,

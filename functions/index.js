@@ -2025,6 +2025,17 @@ exports.poistaPelaajaGDPR = functions
       nollattavat.slice(i, i + 400).forEach((r) => batch.update(r, { pelaajaId: null }));
       await batch.commit();
     }
+    // 2c) Kausikuvat: poista pelaajan rivi pelaajat[]-listasta transaktiossa (muut rivit ja kentät säilyvät)
+    for (const kk of (manifesti.ristiviitteet.kausikuvat || [])) {
+      if (!kk.ref) continue;
+      await db.runTransaction(async (tx) => {
+        const s = await tx.get(kk.ref);
+        if (!s.exists) return;
+        const lista = Array.isArray(s.data().pelaajat) ? s.data().pelaajat : [];
+        const uusi = lista.filter((p) => !(p && p.id === pelaajaId));
+        if (uusi.length !== lista.length) tx.update(kk.ref, { pelaajat: uusi });
+      });
+    }
     // 3) Solo (litteä pelaajat/{palloID} + alikokoelmat)
     if (manifesti.soloRef) await db.recursiveDelete(manifesti.soloRef);
     // 4) Storage-media (per havainto -prefiksit; ei poista muiden pelaajien mediaa)
@@ -2120,6 +2131,7 @@ exports.viePelaajanDataGDPR = functions
       testitapahtuma_tulokset: dataMap(manifesti.ristiviitteet.testitapahtuma_tulokset),
       palloID_viitteet: dataMap(manifesti.ristiviitteet.palloID_viitteet),
       omat_kirjaukset: dataMap(manifesti.ristiviitteet.omat_kirjaukset),
+      kausikuvat: dataMap(manifesti.ristiviitteet.kausikuvat),   // vain pelaajan oma rivi per kausi (locator)
       solo: manifesti.solo ? Object.assign({ _id: manifesti.solo.id }, manifesti.solo.data, { _alikokoelmat: soloAli }) : null,
       media: manifesti.media,
     };
