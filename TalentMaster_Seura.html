@@ -30,9 +30,9 @@
 <script src="lib/tm_eerikkila_normit.js?v=46"></script>
 <script src="lib/tm_idp.js?v=9"></script>
 <script src="lib/tm_arviointi_taksonomia.js?v=11"></script>
-<script src="lib/tm_mittarit.js?v=2"></script>
+<script src="lib/tm_mittarit.js?v=3"></script>
 <script src="lib/tm_kehikot.js?v=2"></script>
-<script src="lib/tm_kehitystilanne.js?v=4"></script>   <!-- paikkamerkkidomainien esto (huoltajan sähköposti) -->
+<script src="lib/tm_kehitystilanne.js?v=5"></script>   <!-- paikkamerkkidomainien esto (huoltajan sähköposti) -->
 <!-- tm_import.js ja tm_empty_state.js ladataan dynaamisesti jos saatavilla -->
 
 <style>
@@ -423,7 +423,7 @@ tbody td:first-child { font-weight:600; color:var(--ink); }
 .kt-privi td { font-size:12px; color:var(--ink2); background:rgba(255,255,255,.015); }
 .kt-lista { margin:6px 0 0 18px; padding:0; font-size:12px; color:var(--ink2); line-height:1.6; }
 .kt-lomake label { display:block; font-size:12px; color:var(--ink2); margin:10px 0 4px; }
-.kt-lomake input, .kt-lomake textarea { width:100%; box-sizing:border-box; background:var(--bg3,#1C1C1A); color:var(--ink); border:1px solid var(--border); border-radius:6px; padding:8px; font-family:inherit; font-size:13px; }
+.kt-lomake input, .kt-lomake textarea, .kt-lomake select { width:100%; box-sizing:border-box; background:var(--bg3,#1C1C1A); color:var(--ink); border:1px solid var(--border); border-radius:6px; padding:8px; font-family:inherit; font-size:13px; }
 .kt-lomake .kt-check { display:flex; gap:8px; align-items:center; }
 .kt-lomake .kt-check input { width:auto; }
 /* Kehitystilanne · ensinäkymä (KISS ja Oura-tyyli): rengas · lause · Seuraavaksi · kolme tekijää. Ei taulukoita. */
@@ -2636,6 +2636,15 @@ async function _ktLataa(sid, vuosi) {
       }));
     }
   }
+  // Seuran omat vapaat tavoitteet (v0.1): määritelmät + kirjaukset (monivuotisia → ei vuosisuodatusta)
+  data.omatTavoitteet = [];
+  const omSnap = await _ktLueTurvallisesti(S.collection('omat_tavoitteet').get(), puuttuu, 'omat_tavoitteet');
+  if (omSnap) {
+    data.omatTavoitteet = await Promise.all(omSnap.docs.map(async (d) => {
+      const k = await _ktLueTurvallisesti(d.ref.collection('kirjaukset').get(), puuttuu, 'omat_tavoitteet/kirjaukset');
+      return Object.assign({ id: d.id }, d.data(), { kirjaukset: k ? k.docs.map((x) => Object.assign({ id: x.id }, x.data())) : [] });
+    }));
+  }
   data._puuttuu = Array.from(new Set(puuttuu));
   return data;
 }
@@ -2698,7 +2707,111 @@ function ktAvaaTavoitteet() {
   }).join('');
   const krit = ['a1', 'a2', 'a3', 'a4', 'a5', 'a6', 'a7'].map((k) => '<label class="kt-check"><input type="checkbox" data-kt-krit="' + k + '"' + (kriteerit.indexOf(k) >= 0 ? ' checked' : '') + '> ' + k + '</label>').join('');
   _ktModaali('<div class="modalOtsikko">Seuran tavoitteet ' + K.vuosi + '</div><div class="modalKuvaus">Tyhjä kenttä = Palloliiton taso. Tila lasketaan seuran tavoitetta vasten.</div><div class="kt-lomake">' + rivit
-    + '<label>Harjoittelun laadun näytettävät kriteerit (malli Palloliitto)</label>' + krit + '</div><div style="margin-top:16px"><button class="toimNappi" onclick="ktTallennaTavoitteet()">Tallenna</button></div>');
+    + '<label>Harjoittelun laadun näytettävät kriteerit (malli Palloliitto)</label>' + krit + '</div><div style="margin-top:16px"><button class="toimNappi" onclick="ktTallennaTavoitteet()">Tallenna</button></div>'
+    + _ktOmatListaHTML());
+}
+/* ── Seuran omat vapaat tavoitteet (v0.1) ── seurat/{sid}/omat_tavoitteet/{id} + /kirjaukset/{autoId} (vain luonti, Rules v3.35) */
+const KT_OMA_TYYPIT = { maara: 'Määrä (jokainen kirjaus +1)', summa: 'Summa (kirjausten arvot yhteen)', viimeisin: 'Viimeisin arvo', kylla_ei: 'Kyllä / ei' };
+const KT_TEKIJAT = { pelaajat: 'Pelaajat kehittyvät', valmennus: 'Valmennuksen laatu', seura: 'Seura ja rakenteet' };
+function _ktOmatListaHTML() {
+  const K = window._kt, e = TM_KEHITYSTILANNE.esc, omat = (K.data.omatTavoitteet || []).filter((t) => !t.arkistoitu);
+  return '<div class="modalOtsikko" style="margin-top:22px">Seuran omat tavoitteet</div>'
+    + '<div class="modalKuvaus">Vapaat tavoitteet omilla kirjauksilla, esim. edustukseen nousut. Ei pelaajakohtaisia sopimussummia eikä terveystietoa.</div>'
+    + (omat.length ? omat.map((t) => '<div class="kt-check" style="justify-content:space-between;border-bottom:1px solid var(--border);padding:8px 0"><span>' + e(t.nimi) + ' <span class="kt-meta">'
+      + e(KT_OMA_TYYPIT[t.tyyppi] || t.tyyppi) + ' · ' + e(KT_TEKIJAT[t.tekija] || '') + ' · aikaraja ' + e(TM_MITTARIT.pvmFi(t.aikaraja)) + '</span></span>'
+      + '<span><button class="kt-linkki" onclick="ktAvaaKirjaus(\'' + e(t.id) + '\')">Kirjaa ›</button> <button class="kt-linkki" onclick="ktArkistoiOma(\'' + e(t.id) + '\')">Arkistoi</button></span></div>').join('')
+      : '<div class="kt-meta">Ei omia tavoitteita.</div>')
+    + '<div style="margin-top:12px"><button class="toimNappi" onclick="ktAvaaOmaTavoite()">+ Lisää oma tavoite</button></div>';
+}
+function ktAvaaOmaTavoite() {
+  const K = window._kt; if (!K) return;
+  const opt = (o) => Object.keys(o).map((k) => '<option value="' + k + '">' + TM_KEHITYSTILANNE.esc(o[k]) + '</option>').join('');
+  _ktModaali('<div class="modalOtsikko">Lisää oma tavoite</div><div class="modalKuvaus">Tila ja ennuste lasketaan kuten muissa tavoitteissa. Palloliitto-vertailua ei ole. Ei pelaajakohtaisia sopimussummia eikä terveystietoa.</div><div class="kt-lomake">'
+    + '<label>Nimi</label><input id="kto_nimi" maxlength="120" placeholder="esim. Omat kasvatit edustukseen">'
+    + '<label>Tyyppi</label><select id="kto_tyyppi" onchange="_ktOmaTyyppiVaihtui()">' + opt(KT_OMA_TYYPIT) + '</select>'
+    + '<div id="kto_arvoRivi"><label>Tavoitearvo</label><input id="kto_tavoite" type="number" step="any"><label>Yksikkö</label><input id="kto_yksikko" maxlength="20" placeholder="esim. pelaajaa, €, %"></div>'
+    + '<div id="kto_suuntaRivi" style="display:none"><label>Suunta</label><select id="kto_suunta"><option value="suurempi">Suurempi on parempi</option><option value="pienempi">Pienempi on parempi</option></select></div>'
+    + '<label>Alkaa</label><input id="kto_alkaa" type="date" value="' + new Date().toISOString().slice(0, 10) + '">'
+    + '<label>Aikaraja</label><input id="kto_aikaraja" type="date" value="' + K.vuosi + '-12-31">'
+    + '<label>Tekijäryhmä</label><select id="kto_tekija">' + opt(KT_TEKIJAT) + '</select>'
+    + '</div><div style="margin-top:16px"><button class="toimNappi" onclick="ktTallennaOmaTavoite()">Tallenna tavoite</button></div>');
+}
+function _ktOmaTyyppiVaihtui() {
+  const t = document.getElementById('kto_tyyppi').value;
+  document.getElementById('kto_arvoRivi').style.display = t === 'kylla_ei' ? 'none' : '';
+  document.getElementById('kto_suuntaRivi').style.display = t === 'viimeisin' ? '' : 'none';
+}
+async function ktTallennaOmaTavoite() {
+  const K = window._kt; if (!K) return;
+  const arvo = (id) => document.getElementById(id).value.trim(), tyyppi = arvo('kto_tyyppi');
+  const doc = { nimi: arvo('kto_nimi'), tyyppi, tavoite: tyyppi === 'kylla_ei' ? true : (arvo('kto_tavoite') === '' ? null : Number(arvo('kto_tavoite'))),
+    yksikko: tyyppi === 'kylla_ei' ? '' : arvo('kto_yksikko'), suunta: tyyppi === 'viimeisin' ? arvo('kto_suunta') : 'suurempi',
+    alkaa: arvo('kto_alkaa'), aikaraja: arvo('kto_aikaraja'), tekija: arvo('kto_tekija') };
+  const virheet = TM_MITTARIT.omaTavoiteVirheet(doc);
+  if (virheet.length) { naytaToast('Tarkista: ' + virheet.join(', '), 'virhe'); return; }
+  try {
+    if (tila.kayttaja) await tila.kayttaja.getIdToken(true);
+    Object.assign(doc, { luotu: firebase.firestore.FieldValue.serverTimestamp(), luoja_uid: tila.kayttaja.uid, arkistoitu: false });
+    const ref = await db.collection('seurat').doc(K.sid).collection('omat_tavoitteet').add(doc);
+    K.data.omatTavoitteet = (K.data.omatTavoitteet || []).concat([Object.assign({ id: ref.id }, doc, { kirjaukset: [] })]);
+    document.getElementById('ktModal').classList.remove('auki'); naytaToast('Oma tavoite tallennettu', 'ok'); _ktPiirra();
+  } catch (e) { naytaToast('Tallennus epäonnistui: ' + e.message, 'virhe'); }
+}
+async function ktArkistoiOma(tid) {
+  const K = window._kt; if (!K) return;
+  try {
+    if (tila.kayttaja) await tila.kayttaja.getIdToken(true);
+    await db.collection('seurat').doc(K.sid).collection('omat_tavoitteet').doc(tid).update({ arkistoitu: true, paivitetty: firebase.firestore.FieldValue.serverTimestamp(), paivittaja_uid: tila.kayttaja.uid });
+    const t = (K.data.omatTavoitteet || []).find((x) => x.id === tid); if (t) t.arkistoitu = true;
+    document.getElementById('ktModal').classList.remove('auki'); naytaToast('Tavoite arkistoitu (kirjaukset säilyvät)', 'ok'); _ktPiirra();
+  } catch (e) { naytaToast('Arkistointi epäonnistui: ' + e.message, 'virhe'); }
+}
+function ktAvaaKirjaus(tid) {
+  const K = window._kt; if (!K) return;
+  const t = (K.data.omatTavoitteet || []).find((x) => x.id === tid); if (!t) return;
+  const e = TM_KEHITYSTILANNE.esc, nimiP = (pid) => { const p = K.data.pelaajat.find((x) => x.id === pid); return p ? ((p.etunimi || '') + ' ' + (p.sukunimi || '')).trim() : 'poistettu pelaaja'; };
+  const kumotut = {}; t.kirjaukset.forEach((k) => { if (k.mitatoi) kumotut[k.mitatoi] = k; });
+  const nayta = (k) => k.arvo === true ? 'Kyllä' : k.arvo === false ? 'Ei' : (k.arvo == null ? '' : String(k.arvo).replace('.', ',') + (t.yksikko ? ' ' + t.yksikko : ''));
+  const historia = t.kirjaukset.slice().sort((a, b) => (a.pvm < b.pvm ? 1 : a.pvm > b.pvm ? -1 : 0)).map((k) => '<div style="border-bottom:1px solid var(--border);padding:6px 0;font-size:13px">'
+    + e(TM_MITTARIT.pvmFi(k.pvm)) + ' · ' + (k.mitatoi ? '<span class="kt-meta">kumoaa aiemman kirjauksen</span>' : '<b' + (kumotut[k.id] ? ' style="text-decoration:line-through"' : '') + '>' + e(nayta(k) || '+1') + '</b>')
+    + (k.pelaajaId ? ' · ' + e(nimiP(k.pelaajaId)) : '') + (k.huomio ? ' · <span class="kt-meta">' + e(k.huomio) + '</span>' : '')
+    + (!k.mitatoi && !kumotut[k.id] ? ' <button class="kt-linkki" onclick="ktKumoaKirjaus(\'' + e(tid) + '\',\'' + e(k.id) + '\')">Kumoa</button>' : '') + '</div>').join('');
+  const arvoKentta = t.tyyppi === 'maara' ? '<div class="kt-meta">Kirjaus lisää yhden (+1).</div>'
+    : t.tyyppi === 'kylla_ei' ? '<label>Arvo</label><select id="ktk_arvo"><option value="true">Kyllä</option><option value="false">Ei</option></select>'
+    : '<label>Arvo' + (t.yksikko ? ' (' + e(t.yksikko) + ')' : '') + '</label><input id="ktk_arvo" type="number" step="any">';
+  const pelaajat = K.data.pelaajat.slice().sort((a, b) => String(a.sukunimi || '').localeCompare(String(b.sukunimi || ''), 'fi'));
+  const pelaajaKentta = t.tyyppi === 'summa' ? '<div class="kt-meta">Summa-tavoitteeseen ei liitetä pelaajaa (ei pelaajakohtaisia summia).</div>'
+    : '<label>Pelaaja (valinnainen)</label><select id="ktk_pelaaja"><option value="">–</option>' + pelaajat.map((p) => '<option value="' + e(p.id) + '">' + e((p.sukunimi || '') + ' ' + (p.etunimi || '') + (p.joukkue ? ' · ' + p.joukkue : '')) + '</option>').join('') + '</select>';
+  _ktModaali('<div class="modalOtsikko">Kirjaa: ' + e(t.nimi) + '</div><div class="modalKuvaus">Kirjaukset säilyvät. Virheen voi kumota, jolloin kumoaminen jää historiaan. Ei terveystietoa eikä sopimussummia huomioon.</div><div class="kt-lomake">'
+    + '<label>Päivämäärä</label><input id="ktk_pvm" type="date" value="' + new Date().toISOString().slice(0, 10) + '">' + arvoKentta + pelaajaKentta
+    + '<label>Huomio (valinnainen)</label><input id="ktk_huomio" maxlength="280">'
+    + '</div><div style="margin-top:16px"><button class="toimNappi" onclick="ktTallennaKirjaus(\'' + e(tid) + '\')">Tallenna kirjaus</button></div>'
+    + '<div class="modalOtsikko" style="margin-top:22px">Historia</div>' + (historia || '<div class="kt-meta">Ei vielä kirjauksia.</div>'));
+}
+async function _ktLisaaKirjaus(tid, kirjaus) {
+  const K = window._kt;
+  if (tila.kayttaja) await tila.kayttaja.getIdToken(true);
+  const doc = Object.assign({ luoja_uid: tila.kayttaja.uid, luotu: firebase.firestore.FieldValue.serverTimestamp() }, kirjaus);
+  const ref = await db.collection('seurat').doc(K.sid).collection('omat_tavoitteet').doc(tid).collection('kirjaukset').add(doc);
+  const t = K.data.omatTavoitteet.find((x) => x.id === tid); t.kirjaukset.push(Object.assign({ id: ref.id }, doc));
+}
+async function ktTallennaKirjaus(tid) {
+  const K = window._kt; const t = K && (K.data.omatTavoitteet || []).find((x) => x.id === tid); if (!t) return;
+  const el = (id) => document.getElementById(id), pvm = el('ktk_pvm').value;
+  let arvo = 1;
+  if (t.tyyppi === 'kylla_ei') arvo = el('ktk_arvo').value === 'true';
+  else if (t.tyyppi !== 'maara') { const v = el('ktk_arvo').value; if (v === '' || !isFinite(Number(v))) { naytaToast('Anna arvo numerona', 'virhe'); return; } arvo = Number(v); }
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(pvm)) { naytaToast('Anna päivämäärä', 'virhe'); return; }
+  try {
+    await _ktLisaaKirjaus(tid, { pvm, arvo, pelaajaId: t.tyyppi === 'summa' ? null : (el('ktk_pelaaja').value || null), huomio: el('ktk_huomio').value.trim().slice(0, 280), mitatoi: null });
+    naytaToast('Kirjaus tallennettu', 'ok'); _ktPiirra(); ktAvaaKirjaus(tid);
+  } catch (e) { naytaToast('Tallennus epäonnistui: ' + e.message, 'virhe'); }
+}
+async function ktKumoaKirjaus(tid, kid) {
+  try {
+    await _ktLisaaKirjaus(tid, { pvm: new Date().toISOString().slice(0, 10), arvo: null, pelaajaId: null, huomio: 'Kumottu kirjaus', mitatoi: kid });
+    naytaToast('Kirjaus kumottu (näkyy historiassa)', 'ok'); _ktPiirra(); ktAvaaKirjaus(tid);
+  } catch (e) { naytaToast('Kumoaminen epäonnistui: ' + e.message, 'virhe'); }
 }
 async function ktTallennaTavoitteet() {
   const K = window._kt; if (!K) return;
@@ -2708,8 +2821,9 @@ async function ktTallennaTavoitteet() {
   try {
     if (tila.kayttaja) await tila.kayttaja.getIdToken(true);
     const doc = { vuosi: K.vuosi, tavoitteet, c3_kriteerit: c3.length ? c3 : ['a1', 'a2'], paivitetty: firebase.firestore.FieldValue.serverTimestamp(), paivittaja_uid: tila.kayttaja ? tila.kayttaja.uid : null };
-    await db.collection('seurat').doc(K.sid).collection('kehitysasetukset').doc(String(K.vuosi)).set(doc);
-    K.data.asetukset = Object.assign({}, doc); document.getElementById('ktModal').classList.remove('auki'); naytaToast('Tavoitteet tallennettu', 'ok'); _ktPiirra();
+    // mergeFields: korvaa vain lomakkeen kentät kokonaan (poistettu tavoite poistuu), muut dokumentin kentät säilyvät
+    await db.collection('seurat').doc(K.sid).collection('kehitysasetukset').doc(String(K.vuosi)).set(doc, { mergeFields: Object.keys(doc) });
+    K.data.asetukset = Object.assign({}, K.data.asetukset || {}, doc); document.getElementById('ktModal').classList.remove('auki'); naytaToast('Tavoitteet tallennettu', 'ok'); _ktPiirra();
   } catch (e) { naytaToast('Tallennus epäonnistui: ' + e.message, 'virhe'); }
 }
 function ktAvaaSeuratuki() {

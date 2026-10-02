@@ -2018,6 +2018,13 @@ exports.poistaPelaajaGDPR = functions
       era.forEach((r) => batch.delete(r));
       await batch.commit();
     }
+    // 2b) Pseudonymisointi: seuran omien tavoitteiden kirjaukset jäävät (seuran tilasto), pelaajaId nollataan
+    const nollattavat = (manifesti.ristiviitteet.omat_kirjaukset || []).map((x) => x.ref).filter(Boolean);
+    for (let i = 0; i < nollattavat.length; i += 400) {
+      const batch = db.batch();
+      nollattavat.slice(i, i + 400).forEach((r) => batch.update(r, { pelaajaId: null }));
+      await batch.commit();
+    }
     // 3) Solo (litteä pelaajat/{palloID} + alikokoelmat)
     if (manifesti.soloRef) await db.recursiveDelete(manifesti.soloRef);
     // 4) Storage-media (per havainto -prefiksit; ei poista muiden pelaajien mediaa)
@@ -2112,6 +2119,7 @@ exports.viePelaajanDataGDPR = functions
       lasnaolo: dataMap(manifesti.ristiviitteet.lasnaolo),
       testitapahtuma_tulokset: dataMap(manifesti.ristiviitteet.testitapahtuma_tulokset),
       palloID_viitteet: dataMap(manifesti.ristiviitteet.palloID_viitteet),
+      omat_kirjaukset: dataMap(manifesti.ristiviitteet.omat_kirjaukset),
       solo: manifesti.solo ? Object.assign({ _id: manifesti.solo.id }, manifesti.solo.data, { _alikokoelmat: soloAli }) : null,
       media: manifesti.media,
     };

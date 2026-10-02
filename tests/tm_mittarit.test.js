@@ -207,3 +207,38 @@ describe('apurit', () => {
     expect(L).not.toMatch(/\b(eps|kpv|sjk|grifk|sibbovargarna|palloiirot|yilves|vifk|demo-fc|Espoo|Pallo-Iirot)\b/i);
   });
 });
+
+describe('seuran omat vapaat tavoitteet (v0.1)', () => {
+  const K = (id, pvm, arvo, x) => Object.assign({ id, pvm, arvo }, x || {});
+  it('toteuma tyypeittäin: määrä = kirjausten lukumäärä, summa, viimeisin, kyllä/ei; ei kirjauksia → null (Puuttuu, ei 0)', () => {
+    expect(M.omanTavoitteenToteuma({ tyyppi: 'maara' }, [K('a', '2026-03-15', 1), K('b', '2026-08-20', 1)], '2026-10-02')).toEqual({ arvo: 2, N: 2, pvm: '2026-08-20' });
+    expect(M.omanTavoitteenToteuma({ tyyppi: 'summa' }, [K('a', '2026-02-10', 6000), K('b', '2026-07-01', 4500.5)], '2026-10-02').arvo).toBe(10500.5);
+    expect(M.omanTavoitteenToteuma({ tyyppi: 'viimeisin' }, [K('a', '2026-09-30', 31), K('b', '2026-04-30', 22)], '2026-10-02').arvo).toBe(31);
+    expect(M.omanTavoitteenToteuma({ tyyppi: 'kylla_ei' }, [K('a', '2026-01-10', false), K('b', '2026-06-01', true)], '2026-10-02').arvo).toBe(true);
+    expect(M.omanTavoitteenToteuma({ tyyppi: 'maara' }, [], '2026-10-02')).toEqual({ arvo: null, N: 0, pvm: null });
+  });
+  it('kumoava kirjaus (mitatoi) poistaa kumotun toteumasta; kumoava ei itse laske; tulevat päivät eivät laske', () => {
+    const k = [K('a', '2026-02-10', 6000), K('b', '2026-05-05', 5000), K('c', '2026-05-06', null, { mitatoi: 'b' }), K('d', '2026-12-01', 900)];
+    expect(M.omanTavoitteenToteuma({ tyyppi: 'summa' }, k, '2026-10-02')).toEqual({ arvo: 6000, N: 1, pvm: '2026-02-10' });
+  });
+  it('tila ja ennuste monivuotiselle määrätavoitteelle: lineaarinen alkaa … aikaraja', () => {
+    // 2/3, jakso 1.1.2026–31.12.2028, kulunut ~25 % → ennuste ~8 → Raiteilla
+    const r = M.tavoitteenTila({ toteuma: 2, tavoite: 3, tyyppi: 'maara', nyt: '2026-10-02', vuosi: 2026, alkaa: '2026-01-01', aikaraja: '2028-12-31' });
+    expect(r.tila).toBe('raiteilla'); expect(r.ennuste).toBeGreaterThan(7); expect(r.ennuste).toBeLessThan(9);
+    // aikaraja ohi → ennuste = toteuma
+    expect(M.tavoitteenTila({ toteuma: 2, tavoite: 3, tyyppi: 'maara', nyt: '2029-02-01', vuosi: 2029, alkaa: '2026-01-01', aikaraja: '2028-12-31' })).toEqual({ tila: 'riskissa', ennuste: 2 });
+    // ilman alkaa/aikarajaa ennallaan (kalenterivuosi)
+    expect(M.tavoitteenTila({ toteuma: 130, tavoite: 250, tyyppi: 'maara', nyt: '2026-10-02', vuosi: 2026 }).ennuste).toBe(M.ennuste31_12(130, '2026-10-02', 2026));
+  });
+  it('määritelmän tarkistus: nimi, tyyppi, tavoitearvo, suunta vain viimeisin, tekijä, aikaraja alun jälkeen', () => {
+    const ok = { nimi: 'Edustukseen', tyyppi: 'maara', tavoite: 3, tekija: 'seura', alkaa: '2026-01-01', aikaraja: '2028-12-31' };
+    expect(M.omaTavoiteVirheet(ok)).toEqual([]);
+    expect(M.omaTavoiteVirheet(Object.assign({}, ok, { nimi: 'x' }))).toContain('nimi 2–120 merkkiä');
+    expect(M.omaTavoiteVirheet(Object.assign({}, ok, { suunta: 'pienempi' })).length).toBe(1);
+    expect(M.omaTavoiteVirheet(Object.assign({}, ok, { tyyppi: 'viimeisin', suunta: 'pienempi' }))).toEqual([]);
+    expect(M.omaTavoiteVirheet(Object.assign({}, ok, { tyyppi: 'kylla_ei', tavoite: 3 }))).toContain('tavoitearvo');
+    expect(M.omaTavoiteVirheet(Object.assign({}, ok, { tyyppi: 'kylla_ei', tavoite: true }))).toEqual([]);
+    expect(M.omaTavoiteVirheet(Object.assign({}, ok, { aikaraja: '2025-12-31' }))).toContain('aikaraja ennen alkua');
+    expect(M.omaTavoiteVirheet(Object.assign({}, ok, { tekija: 'talous' }))).toContain('tekijäryhmä');
+  });
+});

@@ -1,9 +1,20 @@
 rules_version = '2';
 // ══════════════════════════════════════════════════════════════════════════
-// TalentMaster™ — firestore.rules v3.34
+// TalentMaster™ — firestore.rules v3.35
 //
 // Lähde:  tm_admin/firestore.rules
 // Deploy: PR → N4-CI deployaa automaattisesti (Console-käsityö poistui).
+//
+// Muutokset v3.34 → v3.35 (Kehitystilanne v0.1: seuran omat vapaat tavoitteet, 2.10.2026):
+//   · seurat/{sid}/omat_tavoitteet/{tid}: luku johtoroolit + SA; luonti vp ja urheilutoimenjohtaja + SA, kenttien
+//     tarkistus (tyyppi maara/summa/viimeisin/kylla_ei, tekijä, aikaraja pvm, suunta "pienempi" vain viimeisin-tyypille,
+//     luoja_uid == auth.uid, arkistoitu == false). Päivitys VAIN arkistointi (arkistoitu/paivitetty/paivittaja_uid).
+//     Poisto estetty (historia; kirjaukset viittaavat tavoitteeseen).
+//   · …/omat_tavoitteet/{tid}/kirjaukset/{kid}: luku johtoroolit + SA; VAIN luonti (ei päivitystä, ei poistoa) →
+//     historia säilyy. Korjaus = uusi kirjaus, jonka mitatoi = kumottavan kirjauksen id (arvo null). Arvo tyypin mukaan
+//     (maara: 1, summa/viimeisin: luku, kylla_ei: bool). Summa-tyypissä EI pelaajalinkkiä (ei pelaajakohtaisia summia);
+//     pelaajalinkin pelaajan oltava seuran pelaaja. Arkistoituun tavoitteeseen ei kirjata.
+//     GDPR: poistaPelaajaGDPR (Admin SDK) nollaa pelaajaId:n kirjauksista; Rules eivät salli sitä selaimesta.
 //
 // Muutokset v3.33 → v3.34 (Kehitystilanne v0, 2.10.2026):
 //   · seurat/{sid}/kehitysasetukset/{vuosi} ja seuratuki/{vuosi}: lukevat seuran johtoroolit (vp, urheilutoimenjohtaja,
@@ -840,6 +851,61 @@ service cloud.firestore {
         allow create, update: if onSuperAdmin()
                       || (onOmaSeura(seuraId) && request.auth.token.rooli in ['vp', 'urheilutoimenjohtaja']);
         allow delete: if onSuperAdmin();
+      }
+      // ── SEURAN OMAT VAPAAT TAVOITTEET (v3.35, Kehitystilanne v0.1) ─────────
+      match /omat_tavoitteet/{tid} {
+        function omaKirjoittaja() {
+          return onSuperAdmin() || (onOmaSeura(seuraId) && request.auth.token.rooli in ['vp', 'urheilutoimenjohtaja']);
+        }
+        function onPvm(x) { return x is string && x.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$'); }
+        function omaTavoiteKelpaa(d) {
+          return d.keys().hasAll(['nimi', 'tyyppi', 'tavoite', 'aikaraja', 'tekija', 'luoja_uid', 'arkistoitu'])
+            && d.keys().hasOnly(['nimi', 'tyyppi', 'tavoite', 'yksikko', 'suunta', 'alkaa', 'aikaraja', 'tekija', 'luotu', 'luoja_uid', 'arkistoitu'])
+            && d.nimi is string && d.nimi.size() >= 2 && d.nimi.size() <= 120
+            && d.tyyppi in ['maara', 'summa', 'viimeisin', 'kylla_ei']
+            && d.tekija in ['pelaajat', 'valmennus', 'seura']
+            && onPvm(d.aikaraja)
+            && (!('alkaa' in d) || (onPvm(d.alkaa) && d.alkaa < d.aikaraja))
+            && (!('yksikko' in d) || (d.yksikko is string && d.yksikko.size() <= 20))
+            && ((d.tyyppi == 'kylla_ei' && d.tavoite == true) || (d.tyyppi != 'kylla_ei' && d.tavoite is number))
+            && (!('suunta' in d) || d.suunta == 'suurempi' || (d.suunta == 'pienempi' && d.tyyppi == 'viimeisin'))
+            && (!('luotu' in d) || d.luotu == request.time)
+            && d.luoja_uid == request.auth.uid
+            && d.arkistoitu == false;
+        }
+        allow read:   if onSuperAdmin() || (onOmaSeura(seuraId) && onJohtoRooli());
+        allow create: if omaKirjoittaja() && omaTavoiteKelpaa(request.resource.data);
+        allow update: if omaKirjoittaja()
+                      && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['arkistoitu', 'paivitetty', 'paivittaja_uid'])
+                      && request.resource.data.arkistoitu is bool;
+        allow delete: if false;
+
+        match /kirjaukset/{kid} {
+          function omaKirjausKelpaa(d, t) {
+            return t.arkistoitu == false
+              && d.keys().hasAll(['pvm', 'arvo', 'luoja_uid'])
+              && d.keys().hasOnly(['pvm', 'arvo', 'pelaajaId', 'huomio', 'luoja_uid', 'luotu', 'mitatoi'])
+              && onPvm(d.pvm)
+              && d.luoja_uid == request.auth.uid
+              && (!('luotu' in d) || d.luotu == request.time)
+              && (!('huomio' in d) || (d.huomio is string && d.huomio.size() <= 280))
+              && (!('pelaajaId' in d) || d.pelaajaId == null
+                  || (d.pelaajaId is string && t.tyyppi != 'summa'
+                      && exists(/databases/$(database)/documents/seurat/$(seuraId)/pelaajat/$(d.pelaajaId))))
+              && (
+                ('mitatoi' in d && d.mitatoi is string && d.arvo == null
+                  && exists(/databases/$(database)/documents/seurat/$(seuraId)/omat_tavoitteet/$(tid)/kirjaukset/$(d.mitatoi)))
+                || ((!('mitatoi' in d) || d.mitatoi == null)
+                  && ((t.tyyppi == 'maara' && d.arvo == 1)
+                    || (t.tyyppi in ['summa', 'viimeisin'] && d.arvo is number)
+                    || (t.tyyppi == 'kylla_ei' && d.arvo is bool)))
+              );
+          }
+          allow read:   if onSuperAdmin() || (onOmaSeura(seuraId) && onJohtoRooli());
+          allow create: if omaKirjoittaja()
+                        && omaKirjausKelpaa(request.resource.data, get(/databases/$(database)/documents/seurat/$(seuraId)/omat_tavoitteet/$(tid)).data);
+          allow update, delete: if false;
+        }
       }
       match /kausikuvat/{kausi} {
         allow read:   if onSuperAdmin() || (onOmaSeura(seuraId) && onJohtoRooli());

@@ -33,6 +33,11 @@ const VUOSI = 2026;   // seurantavuosi (kehitysasetukset/seuratuki/kausikuvat): 
 const ARGS = process.argv.slice(2);
 const KIRJOITA = ARGS.includes('--kirjoita');
 const DRY = !KIRJOITA || ARGS.includes('--dry-run');
+/* --vain=omat_tavoitteet: kirjoittaa VAIN seurat/demo-fc/omat_tavoitteet/** (v0.1-lisäys olemassa olevaan Demo FC:hen).
+   Ei koske Authiin eikä muihin dokumentteihin; vaatii olemassa olevan vp.demo-käyttäjän, EI salasanaa. */
+const VAIN = (ARGS.find((a) => a.startsWith('--vain=')) || '').split('=')[1] || null;
+if (VAIN && VAIN !== 'omat_tavoitteet') { console.error('KESKEYTETTY: --vain tukee vain arvoa omat_tavoitteet'); process.exit(2); }
+const VAIN_ETULIITE = VAIN ? 'seurat/demo-fc/omat_tavoitteet/' : null;
 const kohdeArg = (ARGS.find((a) => a.startsWith('--seura=')) || '').split('=')[1];
 if (kohdeArg && kohdeArg !== SEURA_ID) { console.error('KESKEYTETTY: kohde "' + kohdeArg + '" ei ole ' + SEURA_ID + '. Skripti kirjoittaa vain Demo FC:hen.'); process.exit(2); }
 
@@ -427,6 +432,30 @@ kirjoita(SEURA_POLKU + '/kehitysasetukset/' + VUOSI, {
   c3_kriteerit: ['a1', 'a2'],
   paivitetty: serverTs(), demo: true,
 });
+/* ── Seuran omat vapaat tavoitteet (v0.1): kolme esimerkkiä, ei pelaajalinkkejä, ei sopimussummia ──
+   Edustukseen nousut (määrä, 2/3, monivuotinen) · kasvattajaraha (summa €, yksi kumottu virhekirjaus) ·
+   kasvattien peliminuuttiosuus edustuksessa (viimeisin arvo %). Kirjauksen id deterministinen → sama tuloste joka ajolla. */
+const OMAT = [
+  { id: 'demo_edustusnousut', nimi: 'Omat kasvatit edustukseen', tyyppi: 'maara', tavoite: 3, yksikko: 'pelaajaa', suunta: 'suurempi',
+    alkaa: '2026-01-01', aikaraja: '2028-12-31', tekija: 'pelaajat',
+    kirjaukset: [{ pvm: '2026-03-15', arvo: 1, huomio: 'Nousu edustusjoukkueen kokoonpanoon' }, { pvm: '2026-08-20', arvo: 1, huomio: 'Nousu edustusjoukkueen kokoonpanoon' }] },
+  { id: 'demo_kasvattajaraha', nimi: 'Kasvattajakorvaukset', tyyppi: 'summa', tavoite: 20000, yksikko: '€', suunta: 'suurempi',
+    alkaa: '2026-01-01', aikaraja: '2026-12-31', tekija: 'seura',
+    kirjaukset: [{ pvm: '2026-02-10', arvo: 6000, huomio: 'Koulutuskorvaus' }, { pvm: '2026-05-05', arvo: 5000, huomio: 'Kirjattu väärälle kaudelle' },
+      { pvm: '2026-05-06', arvo: null, mitatoi: 2, huomio: 'Korjaus: kirjattu väärälle kaudelle' }, { pvm: '2026-07-01', arvo: 4500, huomio: 'Koulutuskorvaus' }] },
+  { id: 'demo_kasvattiminuutit', nimi: 'Kasvattien peliminuuttiosuus edustuksessa', tyyppi: 'viimeisin', tavoite: 30, yksikko: '%', suunta: 'suurempi',
+    alkaa: '2026-01-01', aikaraja: '2026-12-31', tekija: 'pelaajat',
+    kirjaukset: [{ pvm: '2026-04-30', arvo: 22, huomio: 'Kevätkierros' }, { pvm: '2026-06-30', arvo: 26, huomio: '' }, { pvm: '2026-09-30', arvo: 31, huomio: 'Syyskierros' }] },
+];
+OMAT.forEach((t) => {
+  const T = SEURA_POLKU + '/omat_tavoitteet/' + t.id;
+  kirjoita(T, { nimi: t.nimi, tyyppi: t.tyyppi, tavoite: t.tavoite, yksikko: t.yksikko, suunta: t.suunta, alkaa: t.alkaa, aikaraja: t.aikaraja, tekija: t.tekija,
+    arkistoitu: false, luotu: serverTs(), luoja_uid: VP_UID_PAIKKA, demo: true });
+  t.kirjaukset.forEach((k, i) => kirjoita(T + '/kirjaukset/k' + String(i + 1).padStart(2, '0'), {
+    pvm: k.pvm, arvo: k.arvo, pelaajaId: null, huomio: k.huomio || '', mitatoi: k.mitatoi ? 'k' + String(k.mitatoi).padStart(2, '0') : null,
+    luoja_uid: VP_UID_PAIKKA, luotu: ts(k.pvm + 'T12:00:00Z'), demo: true }));
+});
+
 kirjoita(SEURA_POLKU + '/kausikuvat/' + VUOSI, {
   kausi: String(VUOSI), luotu: serverTs(), luoja: 'setup_demo_kehitys',
   pelaajat: pelaajat.map((p) => ({ id: p.id, joukkue: p.j.nimi, ikaluokka: p.j.ikaryhma, sukupuoli: p.j.sp, syntymavuosi: p.j.sv,
@@ -491,6 +520,15 @@ function yhteenveto() {
     .forEach(([nimi, id]) => console.log('    ' + id.replace('demo_', '') + '  ' + nimi.padEnd(28) + kuvaa(id)));
   console.log('    ' + REUNA.pysahtynyt.replace('demo_', '') + '  ' + 'pysähtynyt IDP'.padEnd(28) + (t0 ? 'tavoite luotu ' + t0.luotu.slice(0, 10) + ', arviot: ' + t0.arviot.map((a) => a.pvm + ' ' + a.dvi_suunta).join(', ') : 'PUUTTUU'));
 
+  console.log('\n  Seuran omat tavoitteet (lib/tm_mittarit.js: toteuma + tila, sama laskenta kuin näkymässä):');
+  const kirjOmat = (tid) => JONO.filter((x) => x.polku.startsWith(SEURA_POLKU + '/omat_tavoitteet/' + tid + '/kirjaukset/')).map((x) => Object.assign({ id: x.polku.split('/').pop() }, x.data));
+  OMAT.forEach((t) => {
+    const k = kirjOmat(t.id), to = M.omanTavoitteenToteuma(t, k, DEMO_NYT);
+    const ti = M.tavoitteenTila({ toteuma: to.arvo, tavoite: t.tavoite, tyyppi: M.OMA_TYYPIT[t.tyyppi].kertyma, nyt: DEMO_NYT, vuosi: VUOSI, alkaa: t.alkaa, aikaraja: t.aikaraja });
+    console.log('    ' + t.nimi.padEnd(44) + String(to.arvo).padStart(6) + ' / ' + String(t.tavoite).padEnd(6) + t.yksikko.padEnd(9) + (ti.tila || '–').padEnd(10)
+      + 'ennuste ' + String(ti.ennuste) + ' · ' + k.length + ' kirjausta (' + to.N + ' voimassa) · pelaajalinkkejä ' + k.filter((x) => x.pelaajaId).length);
+  });
+
   const juuret = {}; JONO.forEach(({ polku }) => { const o = polku.split('/'); const k = o.slice(0, Math.min(o.length, 3)).join('/'); juuret[k] = (juuret[k] || 0) + 1; });
   if (DRY) juuret[AJON_LISAYS.juuri] = (juuret[AJON_LISAYS.juuri] || 0) + 1;
   const yhtKpl = JONO.length + (DRY ? 1 : 0);
@@ -527,7 +565,9 @@ async function main() {
     } catch (e) { console.log('  (Firestore-tarkistus ei onnistunut: ' + e.message + ')'); }
   }
   const claims = { rooli: 'vp', seuraId: SEURA_ID };
-  if (olemassa) {
+  if (VAIN) {
+    console.log('  --vain=omat_tavoitteet: Authiin EI muutoksia · ' + VP_EMAIL + ' ' + (olemassa ? 'löytyy (uid ' + olemassa.uid.slice(0, 4) + '…)' : (admin ? 'PUUTTUU → kirjoittava ajo keskeytyy' : 'tarkistetaan kirjoittavassa ajossa')));
+  } else if (olemassa) {
     const c = olemassa.customClaims || {};
     if (c.seuraId && c.seuraId !== SEURA_ID) { console.error('  KESKEYTETTY: ' + VP_EMAIL + ' kuuluu seuraan ' + c.seuraId); process.exit(3); }
     console.log('  ' + VP_EMAIL + ' on olemassa → päivitetään salasana (TM_DEMO_PW) ja claims ' + JSON.stringify(claims));
@@ -535,7 +575,7 @@ async function main() {
     console.log('  LUODAAN Auth-käyttäjä ' + VP_EMAIL + ' · salasana ympäristömuuttujasta TM_DEMO_PW' + (DRY ? ' (luetaan vasta kirjoittavassa ajossa)' : ''));
     console.log('  custom claims ' + JSON.stringify(claims));
   }
-  console.log('  + ' + SEURA_POLKU + '/kayttajat/{uid}: rooli vp, aktiivinen, claimsAsetettu, demo: true');
+  if (!VAIN) console.log('  + ' + SEURA_POLKU + '/kayttajat/{uid}: rooli vp, aktiivinen, claimsAsetettu, demo: true');
   console.log('  + ' + SEURA_POLKU + ': vp_uid, vp_email; VP:n uid harjoitusarviointien arvioijaUid- ja mentorointien vpUid-kenttiin');
 
   console.log('\n── Esimerkkipelaaja kokonaisuudessaan ──');
@@ -547,10 +587,26 @@ async function main() {
     + ' · vain yksi mittaus: ' + REUNA.yksi_mittaus + ' · pysähtynyt IDP: ' + REUNA.pysahtynyt);
   console.log('  Lohko 1: C1 Täyttynyt (135/130) · C3 havainnot Raiteilla omaa tavoitetta 50 vasten (Palloliitto 250: Riskissä) · a1 Riskissä · J3 Puuttuu');
 
-  if (DRY) { console.log('\nDRY-RUN valmis. Mitään ei kirjoitettu. Kirjoittava ajo omassa terminaalissa: read -s TM_DEMO_PW && export TM_DEMO_PW && node tm_admin/setup_demo_kehitys.js --kirjoita'); return; }
+  if (VAIN) console.log('\n── RAJAUS --vain=omat_tavoitteet: kirjoitettaisiin VAIN ' + JONO.filter((x) => x.polku.startsWith(VAIN_ETULIITE)).length + ' dokumenttia polkuun ' + VAIN_ETULIITE + '** · Auth: ei muutoksia (luoja_uid = olemassa olevan ' + VP_EMAIL + ' uid) ──');
+  if (DRY) { console.log('\nDRY-RUN valmis. Mitään ei kirjoitettu. Kirjoittava ajo omassa terminaalissa: ' + (VAIN ? 'node tm_admin/setup_demo_kehitys.js --kirjoita --vain=omat_tavoitteet (ei salasanaa)' : 'read -s TM_DEMO_PW && export TM_DEMO_PW && node tm_admin/setup_demo_kehitys.js --kirjoita')); return; }
 
   /* ── KIRJOITTAVA AJO ── */
   if (!admin) throw new Error('firebase-admin puuttuu');
+  if (VAIN) {
+    if (!olemassa) throw new Error(VP_EMAIL + ' puuttuu: --vain vaatii olemassa olevan Demo FC:n');
+    if ((olemassa.customClaims || {}).seuraId !== SEURA_ID) throw new Error(VP_EMAIL + ' ei kuulu seuraan ' + SEURA_ID + ' (claims)');
+    const kohde = JONO.filter((x) => x.polku.startsWith(VAIN_ETULIITE));
+    kohde.forEach((x) => { if (x.data.luoja_uid === VP_UID_PAIKKA) x.data.luoja_uid = olemassa.uid; });
+    const db0 = admin.firestore(), muunna0 = (v) => (v && v.__ts ? Timestamp.fromDate(new Date(v.__ts)) : v && v.__serverTimestamp ? ServerTS() : v);
+    const b0 = db0.batch();
+    kohde.forEach((x) => {
+      if (!x.polku.startsWith(VAIN_ETULIITE)) throw new Error('TURVA');
+      b0.set(db0.doc(x.polku), Object.fromEntries(Object.entries(x.data).map(([k, v]) => [k, muunna0(v)])));
+    });
+    await b0.commit();
+    console.log('VALMIS: ' + kohde.length + ' dokumenttia polkuun ' + VAIN_ETULIITE + '** (Auth ennallaan)');
+    return;
+  }
   const pw = process.env.TM_DEMO_PW;
   if (!pw || pw.length < 12) throw new Error('TM_DEMO_PW puuttuu tai on alle 12 merkkiä');
   const user = olemassa ? await admin.auth().updateUser(olemassa.uid, { password: pw, disabled: false })
@@ -561,7 +617,7 @@ async function main() {
     luotu: serverTs(), demo: true });
   const seuraDoc = JONO.find((x) => x.polku === SEURA_POLKU);
   seuraDoc.data.vp_uid = user.uid; seuraDoc.data.vp_email = VP_EMAIL;
-  JONO.forEach((x) => { ['arvioijaUid', 'vpUid'].forEach((k) => { if (x.data[k] === VP_UID_PAIKKA) x.data[k] = user.uid; }); });
+  JONO.forEach((x) => { ['arvioijaUid', 'vpUid', 'luoja_uid'].forEach((k) => { if (x.data[k] === VP_UID_PAIKKA) x.data[k] = user.uid; }); });
   // Aikaleimat oikeiksi (dry-runin paikkamerkit → Timestamp / serverTimestamp)
   const muunna = (v) => (v && v.__ts ? Timestamp.fromDate(new Date(v.__ts)) : v && v.__serverTimestamp ? ServerTS()
     : Array.isArray(v) ? v.map(muunna) : (v && typeof v === 'object' && !(v instanceof Timestamp)) ? Object.fromEntries(Object.entries(v).map(([k, x]) => [k, muunna(x)])) : v);

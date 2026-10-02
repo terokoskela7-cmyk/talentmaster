@@ -204,6 +204,29 @@ describe('GDPR-locator — kerääPelaajanManifesti', () => {
     expect(m.lukumaarat.solo).toBe(0);
   });
 
+  it('seuran omien tavoitteiden kirjaukset: löytää pelaajaId-kentällä viitatut, ei muiden pelaajien eikä linkittömiä', async () => {
+    const db = makeDb(taysiSpec({ cols: {
+      [`seurat/${SID}/omat_tavoitteet`]: [{ id: 'tA', data: { tyyppi: 'maara' } }, { id: 'tB', data: { tyyppi: 'viimeisin' } }],
+      [`seurat/${SID}/omat_tavoitteet/tA/kirjaukset`]: [
+        { id: 'k1', data: { pvm: '2026-03-15', arvo: 1, pelaajaId: PID } },
+        { id: 'k2', data: { pvm: '2026-08-20', arvo: 1, pelaajaId: 'toinen' } },
+        { id: 'k3', data: { pvm: '2026-09-01', arvo: 1, pelaajaId: null } },
+      ],
+      [`seurat/${SID}/omat_tavoitteet/tB/kirjaukset`]: [{ id: 'k4', data: { pvm: '2026-09-30', arvo: 31, pelaajaId: PID } }],
+    } }));
+    const m = await keraaPelaajanManifesti(db, SID, PID);
+    expect(m.ristiviitteet.omat_kirjaukset.map((x) => x.ref.path).sort()).toEqual([
+      `seurat/${SID}/omat_tavoitteet/tA/kirjaukset/k1`, `seurat/${SID}/omat_tavoitteet/tB/kirjaukset/k4`]);
+    expect(m.lukumaarat.omat_kirjaukset).toBe(2);
+    expect(m.varoitukset).toEqual([]);
+  });
+  it('RTBF nollaa omien tavoitteiden kirjausten pelaajaId:n (ei poista kirjausta) ja export sisältää ne', () => {
+    const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'functions', 'index.js'), 'utf8');
+    const rtbf = src.slice(src.indexOf('exports.poistaPelaajaGDPR'), src.indexOf('exports.viePelaajanDataGDPR'));
+    expect(rtbf).toMatch(/omat_kirjaukset[\s\S]*batch\.update\(r, \{ pelaajaId: null \}\)/);
+    expect(rtbf).not.toMatch(/omat_kirjaukset[^\n]*batch\.delete/);
+    expect(src.slice(src.indexOf('exports.viePelaajanDataGDPR'))).toMatch(/omat_kirjaukset: dataMap\(manifesti\.ristiviitteet\.omat_kirjaukset\)/);
+  });
   it('heittää jos seuraId/pelaajaId puuttuu', async () => {
     const db = makeDb(taysiSpec());
     await expect(keraaPelaajanManifesti(db, SID, null)).rejects.toThrow();

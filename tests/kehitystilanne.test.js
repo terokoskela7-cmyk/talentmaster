@@ -23,7 +23,7 @@ describe('Lohko 1: tilat ja Palloliiton vertailu', () => {
     expect(tila('C3_havainnot').tila).toBe('raiteilla');
     expect(tila('C3_a1').tila).toBe('riskissa');
     expect(tila('J3_yhteistyoseurat').tila).toBe('puuttuu');
-    expect(m.lohko1.laskuri).toMatchObject({ tayttynyt: expect.any(Number), raiteilla: 1, puuttuu: 1 });
+    expect(m.lohko1.laskuri).toMatchObject({ tayttynyt: expect.any(Number), raiteilla: 2, puuttuu: 1 });   // raiteilla: C3 + oma tavoite (edustukseen 2/3)
   });
   it('seuran tavoite Palloliiton tasoa matalampi → rivillä myös Palloliiton tila', () => {
     expect(tila('C3_havainnot')).toMatchObject({ lahde: 'seura', tavoite: 35, palloliitto: 250, plTila: 'riskissa' });
@@ -193,5 +193,52 @@ describe('Ensinäkymä (KISS ja Oura-tyyli)', () => {
     const h = KT.renderEnsinakyma(KT.rakennaMalli(tyhja, { nyt: NYT }), { avoin: 'pelaajat' });
     expect(h).not.toMatch(/Demo|demo_/);
     expect(h).toContain('Ei vielä dataa');
+  });
+});
+
+describe('Seuran omat vapaat tavoitteet (v0.1, demodata)', () => {
+  const rivi = (m, id) => m.lohko1.rivit.find((r) => r.avain === 'oma_' + id);
+  it('demodatan kolme tavoitetta: 2/3 edustukseen Raiteilla, kasvattajaraha Riskissä (kumottu kirjaus ei laske), peliminuutit Täyttynyt', () => {
+    const m = malli();
+    expect(rivi(m, 'demo_edustusnousut')).toMatchObject({ oma: true, tila: 'raiteilla', toteuma: { arvo: 2, N: 2 }, tavoite: 3, palloliitto: null, tekija: 'pelaajat' });
+    expect(rivi(m, 'demo_kasvattajaraha')).toMatchObject({ tila: 'riskissa', toteuma: { arvo: 10500, N: 2 }, tekija: 'seura' });
+    expect(rivi(m, 'demo_kasvattiminuutit')).toMatchObject({ tila: 'tayttynyt', toteuma: { arvo: 31 } });
+  });
+  it('mukana renkaassa ja oikean tekijän kortissa; sukupuolisuodatin ei muuta niitä', () => {
+    const e = KT.ensinakymaMalli(malli());
+    expect(e.rivit.filter((r) => r.oma).length).toBe(3);
+    expect(e.tekijat.find((t) => t.id === 'pelaajat').rivit.filter((r) => r.oma).map((r) => r.omaId).sort()).toEqual(['demo_edustusnousut', 'demo_kasvattiminuutit']);
+    expect(e.tekijat.find((t) => t.id === 'seura').rivit.some((r) => r.omaId === 'demo_kasvattajaraha')).toBe(true);
+    expect(rivi(malli({ sukupuoli: 'N' }), 'demo_kasvattajaraha').toteuma).toEqual(rivi(malli(), 'demo_kasvattajaraha').toteuma);
+  });
+  it('näkymä: Palloliitto-sarakkeessa "oma tavoite", Kirjaa-nappi vain kirjoittajille, summa suomalaisittain', () => {
+    const h = KT.renderEnsinakyma(malli(), { avoin: 'seura', saaKirjoittaa: true });
+    expect(h).toContain('Kasvattajakorvaukset'); expect(h).toContain('Palloliitto: oma tavoite'); expect(h).toContain("ktAvaaKirjaus('demo_kasvattajaraha')");
+    expect(h).toContain('10 500 €');
+    expect(KT.renderEnsinakyma(malli(), { avoin: 'seura' })).not.toContain('ktAvaaKirjaus');
+    expect(KT.renderEnsinakyma(malli(), { avoin: 'pelaajat', saaKirjoittaa: true })).toContain('Seuran omat tavoitteet');
+    expect(KT.renderNakyma(malli(), {})).toContain('<span class="kt-meta">oma tavoite</span>');
+  });
+  it('raportit: seuran raportissa kirjaukset vain määrinä, ei pelaajanimiä; Palloliitto-raportissa ei omia tavoitteita', () => {
+    const d = JSON.parse(JSON.stringify(DATA));
+    const p = d.pelaajat[0];
+    d.omatTavoitteet.find((t) => t.id === 'demo_edustusnousut').kirjaukset[0].pelaajaId = p.id;   // pelaajalinkki
+    const m = KT.rakennaMalli(d, { nyt: NYT });
+    const s = KT.raporttiHTML(m, 'seura'), pl = KT.raporttiHTML(m, 'palloliitto');
+    expect(s).toContain('Omat kasvatit edustukseen'); expect(s).toContain('(2 kirjausta)');
+    expect(s).not.toContain(p.etunimi + ' ' + p.sukunimi); expect(s).not.toContain(p.id);
+    expect(pl).not.toContain('Omat kasvatit edustukseen'); expect(pl).not.toContain('Kasvattajakorvaukset');
+  });
+  it('arkistoitu tavoite ei näy; ei omia tavoitteita → ei omia rivejä eikä kaatumista', () => {
+    const d = JSON.parse(JSON.stringify(DATA));
+    d.omatTavoitteet.forEach((t) => { t.arkistoitu = true; });
+    expect(KT.rakennaMalli(d, { nyt: NYT }).lohko1.rivit.some((r) => r.oma)).toBe(false);
+    delete d.omatTavoitteet;
+    expect(() => KT.renderEnsinakyma(KT.rakennaMalli(d, { nyt: NYT }), { avoin: 'seura' })).not.toThrow();
+  });
+  it('Seura.html: kehitysasetukset tallennetaan mergeFields-asetuksella (ei ylikirjoita muita kenttiä)', () => {
+    const f = readFileSync(join(ROOT, 'TalentMaster_Seura.html'), 'utf8');
+    expect(f).toMatch(/collection\('kehitysasetukset'\)\.doc\(String\(K\.vuosi\)\)\.set\(doc, \{ mergeFields: Object\.keys\(doc\) \}\)/);
+    expect(f).not.toMatch(/collection\('kehitysasetukset'\)\.doc\(String\(K\.vuosi\)\)\.set\(doc\);/);
   });
 });
