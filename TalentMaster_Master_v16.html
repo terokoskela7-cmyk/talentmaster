@@ -1,6 +1,8 @@
 <!doctype html>
 <html lang="fi" data-theme="dark">
 <head>
+<script>/* OFFLINE-SPIKE (erä 0, EI TUOTANTOON): ?spike=1&dbg=<debug-token> asettaa liput localStorageen (puhelintesti ilman konsolia) ja siivoaa URLin. */
+(function(){try{var q=new URLSearchParams(location.search);var ch=false;if(q.get('spike')==='1'){localStorage.setItem('tm_offline_spike','1');ch=true;}if(q.get('dbg')){localStorage.setItem('tm_appcheck_debug',q.get('dbg'));ch=true;}if(q.get('spike')==='0'){localStorage.removeItem('tm_offline_spike');ch=true;}if(ch){q.delete('spike');q.delete('dbg');history.replaceState(null,'',location.pathname+(q.toString()?'?'+q.toString():'')+location.hash);}}catch(e){}})();</script>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>TalentMaster™ — Valmentaja v16</title>
@@ -2088,6 +2090,25 @@ const _db   = firebase.firestore();
   };
   S.ledger = function () { return S.ledger_.map(function (x) { return x.id + ' ' + x.tila + ' ' + x.polku + (x.virhe ? ' ' + x.virhe : ''); }); };
   S.tila = function () { return { onLine: navigator.onLine, porttiKiinni: porttiKiinni, uid: _auth.currentUser && _auth.currentUser.uid, ledger: S.ledger(), loki: S.loki.slice(-12) }; };
+  /* Pieni paneeli puhelintestiin (ei konsolia): tila, kirjoita Topiakselle, portti auki/kiinni, tallennustila */
+  var TOPIAS = 'seurat/kpv/pelaajat/m93GBdOaGCUuenMiCL0I';
+  function rakennaPaneeli() {
+    var d = document.createElement('div'); d.id = 'tmSpikePaneeli';
+    d.style.cssText = 'position:fixed;left:6px;right:6px;bottom:6px;z-index:99999;background:#111110;color:#EDEDE8;border:1px solid #28B090;border-radius:10px;padding:8px;font:11px/1.35 monospace;max-height:42vh;overflow:auto';
+    d.innerHTML = '<div id="spTila" style="white-space:pre-wrap;margin-bottom:6px"></div><div id="spNapit" style="display:flex;flex-wrap:wrap;gap:6px"></div>';
+    document.body.appendChild(d);
+    function nappi(t, f) { var b = document.createElement('button'); b.textContent = t; b.style.cssText = 'padding:7px 9px;font-size:11px;background:#1C1C1A;color:#28B090;border:1px solid #28B090;border-radius:7px'; b.onclick = function () { Promise.resolve(f()).then(paivita); }; document.getElementById('spNapit').appendChild(b); }
+    nappi('Kirjoita (Topias)', function () { S.kirjoita(TOPIAS, { spike_offline_ts: new Date().toISOString(), spike_laite: navigator.userAgent.slice(0, 60) }); });
+    nappi('Portti auki', function () { return S.portti.auki(); });
+    nappi('Portti kiinni', function () { return S.portti.kiinni(); });
+    nappi('Odottavat (FS)', function () { return Promise.race([_db.waitForPendingWrites().then(function () { l('waitForPendingWrites', 'resolved'); }), new Promise(function (r) { setTimeout(function () { l('waitForPendingWrites', 'timeout 3 s (odottavia)'); r(); }, 3000); })]); });
+    nappi('Tallennustila', function () { return (navigator.storage && navigator.storage.estimate ? navigator.storage.estimate() : Promise.resolve({})).then(function (e) { return (navigator.storage && navigator.storage.persisted ? navigator.storage.persisted() : Promise.resolve(null)).then(function (p) { l('storage', 'käyttö ' + Math.round((e.usage || 0) / 1024) + ' kB / kiintiö ' + Math.round((e.quota || 0) / 1048576) + ' MB, persisted=' + p); }); }); });
+    nappi('Pyydä persist()', function () { return (navigator.storage && navigator.storage.persist ? navigator.storage.persist() : Promise.resolve(null)).then(function (r) { l('persist()', r); }); });
+    nappi('Tyhjennä välimuisti', function () { return _db.terminate().then(function () { return _db.clearPersistence(); }).then(function () { l('clearPersistence', 'ok → lataa sivu uudelleen'); }, function (e) { l('clearPersistence-virhe', e.code); }); });
+    function paivita() { var t = S.tila(); var el = document.getElementById('spTila'); if (el) el.textContent = 'SDK ' + firebase.SDK_VERSION + ' | online=' + t.onLine + ' | portti ' + (t.porttiKiinni ? 'KIINNI' : 'AUKI') + ' | uid ' + (t.uid ? t.uid.slice(0, 6) : '—') + '\n' + (t.ledger.length ? t.ledger.join('\n') + '\n' : '(ledger tyhjä)\n') + t.loki.slice(-6).map(function (x) { return x.t + 'ms ' + x.k + (x.v ? ' ' + (typeof x.v === 'object' ? JSON.stringify(x.v) : x.v) : ''); }).join('\n'); }
+    paivita(); setInterval(paivita, 1000);
+  }
+  if (document.body) rakennaPaneeli(); else document.addEventListener('DOMContentLoaded', rakennaPaneeli);
   l('spike paalla', { sdk: firebase.SDK_VERSION });
 })();
 
