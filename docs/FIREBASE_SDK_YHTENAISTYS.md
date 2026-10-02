@@ -1,17 +1,29 @@
 # Firebase SDK -versioiden yhtenäistys — suunnitelma
 
-> **Vain suunnitelma.** Ei koodi-, HTML- eikä Rules-muutoksia tässä PR:ssä. Laadittu 3.10.2026; luvut laskettu repon `main`-tilasta
+> **Suunnitelma + päätökset.** Laadittu 3.10.2026, päätökset kirjattu samana päivänä (§0); luvut laskettu repon `main`-tilasta
 > (`archive/` ohitettu — siellä on vanhoja versioita, joita ei tarjoilla eikä yhtenäistetä).
+
+## 0. Päätökset (Tero, 3.10.2026)
+
+1. **Kohdeversio 10.7.1** kaikille compat-sivuille. **Modular-sivut pysyvät 10.12.0:ssa.**
+2. **Aikataulu:** erä 0 nyt. **Erät 1–6 alkavat vasta, kun päivämääräkorjauksen PR 2 (`fix/tama-paiva-tallennus`) on mergetty.**
+   - Erät 1–3: **yksi arkipäivä per erä.**
+   - Erät 4–5: **kahden päivän välein**; **erää 5 (Rekisteröinti_Suostumus) ei tehdä päivänä, jolloin huoltajakutsuja lähtee.**
+   - Erä 6: **viikon varoajan jälkeen** (kun erät 3–5 ovat olleet viikon ilman verified-%-laskua).
+3. **Revert-kriteeri:** verified-% laskee **yli 2 %-yksikköä** TAI siirretystä sivusta tulee **yksikin uusi App Check- tai permission-denied-virhe Sentryyn**. **Toimenpide on ENSIN revert-PR; un-enforce vain viimeisenä keinona** (se on projektinlaajuinen). (§5 päivitetty tähän muotoon.)
+4. **`auth/invalid-credential`-tuki Pelaaja_v7:n virheviestikarttaan omana pienenä PR:nä nyt** (PR #728), ei erässä 6.
+
+**Tila:** erä 0 = portti `tests/firebase_sdk_versio.test.js` + CLAUDE.md §38 -korjaus + tämä dokumentti (ei SDK-muutoksia). `MIGRAATIOLISTA`ssa 12 sivua (erä 1: 3 · erä 2: 3 · erä 3: 2 · erä 4: 1 · erä 5: 1 · erä 6: 2).
 
 ## TL;DR
 
 - **Nykytila:** 23 elävää sivua, 5 compat-versiota (9.22.0 · 9.22.1 · 9.22.2 · 9.23.0 · 10.7.1) + modular 10.12.0 (2 sivua). Yksikään tiedosto ei sekoita versioita sisällään.
 - **Suositus: yksi compat-versio kaikille 21 compat-sivulle = `10.7.1`.** Se on jo tuotannossa isoimmalla apilla (VP) ja 9 muulla sivulla, joten 9 sivua ei muutu lainkaan; 12 sivua siirtyy 9.x → 10.7.1.
   Modular-sivut jäävät `10.12.0`:aan (oma erillinen kohdeversio; ei downgradea).
-- **Toteutus 6 erässä** (+ erä 0: portti ilman SDK-muutoksia), yksi PR per erä, matalimmasta riskistä korkeimpaan: PWA:t (Pelaaja_v7, Vanhempi_v2) viimeisenä.
+- **Toteutus 6 erässä** (+ erä 0: portti ilman SDK-muutoksia), yksi PR per erä, matalimmasta riskistä korkeimpaan: PWA:t (Pelaaja_v7, Vanhempi_v2) viimeisenä. Aikataulu ja revert-kriteeri: §0.
 - **Myöhempi askel (oma päätös):** siirto uudempaan versioon (10.14.1 tai 12.x) vasta, kun kaikki ovat samassa versiossa — silloin se on yhden vakion vaihto + yksi regressiokierros eikä 5 erillistä.
 
-⚠ **Korjattava havainto:** CLAUDE.md §38 sanoo "compat (18 appia)" ja listaa viisi versiota; todellinen luku on **21 compat-sivua** (+ 2 modular = 23; `tests/appcheck_kytkenta.test.js` laskee saman). Korjataan erässä 0.
+✅ **Korjattu erässä 0:** CLAUDE.md §38 sanoi "compat (18 appia)"; todellinen luku on **21 compat-sivua** (+ 2 modular = 23; `tests/appcheck_kytkenta.test.js` laskee saman).
 
 ---
 
@@ -102,8 +114,8 @@ Yhteenveto: **9.22.0** ×2 · **9.22.1** ×7 · **9.22.2** ×2 · **9.23.0** ×1
 - Firestore `enablePersistence` käytössä vain **ADAR_Pikakortti.html** (`synchronizeTabs:true`). Admin ja Seura ovat poistaneet sen (IndexedDB-konflikti Auth-sessionin kanssa, 2026-03-27); Pelaaja/Vanhempi eivät käytä Firestore-persistenceä (offline hoituu SW:llä).
 - Firestoren IndexedDB-skeema ei muutu 9.22 → 10.7.1 (changelog: formaattimuutos oli firestore 3.4.7:ssä, ennen 9.22:ta). Auth `setPersistence(LOCAL)` ennallaan. Silti **ADAR kuuluu omaan erään**: sama SDK, mutta vanha cache + uusi SDK kokeillaan oikealla laitteella (offline-kirjoitus, monta välilehteä).
 
-**Auth-virhekoodit (Auth 1.5.0)**
-- `auth/invalid-credential` (väärä sähköposti tai salasana). Admin, Seura, Vanhempi, VP ja `tm_auth.js` käsittelevät sen. **Pelaaja_v7** käsittelee vain `wrong-password` ja `user-not-found` (rivit ~952–953) → 10.x:ssä väärä salasana voi tulla uudella koodilla ja näkyä yleisviestinä. Tarkistetaan erässä 6; tarvittaessa lisätään koodi viestikarttaan (erillinen pieni muutos, ei SDK-erän sisällä).
+**Auth-virhekoodit (Auth 1.5.0)** — *ratkaistu erillisellä PR:llä #728 (päätös §0.4), ei erässä 6*
+- `auth/invalid-credential` (väärä sähköposti tai salasana). Admin, Seura, Vanhempi, VP ja `tm_auth.js` käsittelevät sen. **Pelaaja_v7** käsittelee vain `wrong-password` ja `user-not-found` (rivit ~952–953) → 10.x:ssä väärä salasana voi tulla uudella koodilla ja näkyä yleisviestinä. Korjattu omana pienenä PR:nä (#728): `auth/invalid-credential` → sama viesti kuin `wrong-password`. Erässä 6 tarkistetaan silti väärän salasanan viesti puhelimella.
 - `Solo_Lupa` (10.7.1) luo tilin `auth/user-not-found`-koodilla — ei muutu tässä suunnitelmassa.
 
 **Kirjautumistavat**
@@ -121,7 +133,7 @@ Yhteenveto: **9.22.0** ×2 · **9.22.1** ×7 · **9.22.2** ×2 · **9.23.0** ×1
 
 | Erä | Sisältö | Muuttuu | Peruste |
 |---|---|---|---|
-| **0** | Portti-testi (§6) + CLAUDE.md §38 -korjaus (21 compat, kohdeversio) + `lib/tm_appcheck.js`-kommentti. **Ei SDK-muutoksia.** | — | Portti ensin: estää uuden hajaantumisen ja pakottaa erät etenemään |
+| **0** | Portti-testi `tests/firebase_sdk_versio.test.js` (§6) + CLAUDE.md §38 -korjaus (21 compat) + tämä dokumentti. **Ei SDK-muutoksia.** (`lib/tm_appcheck.js`:n versiokommentti päivitetään erässä 1.) | — | Portti ensin: estää uuden hajaantumisen ja pakottaa erät etenemään |
 | **1** | Sisäiset työkalut: `UTJ_v1`, `Testituonti_Master`, `IDP_Kortti_v4` | 9.22.1 / 9.22.2 / 9.22.0 → 10.7.1 | Ei tuotantokäyttäjiä / harva käyttö; ei PWA:ta |
 | **2** | Henkilöstön työkalut: `Admin`, `Excel_Tuonti`, `Valmennusapuri` | 9.22.1 / 9.22.2 → 10.7.1 | SA/johto-käyttö, ei pelaajia; Excel_Tuonti kirjoittaa paljon (batch) → testataan Topiaksella + testidatalla |
 | **3** | Ydin-henkilöstöapit: `Seura`, `Master_v16` | 9.22.0 / 9.22.1 → 10.7.1 | Suurimmat käyttömäärät (~110 / ~170 collection-kutsua), kaikki seurat; Google-popup (Master) |
@@ -130,7 +142,7 @@ Yhteenveto: **9.22.0** ×2 · **9.22.1** ×7 · **9.22.2** ×2 · **9.23.0** ×1
 | **6** | `Pelaaja_v7` + `Vanhempi_v2` | 9.22.1 → 10.7.1 | Alaikäiset + huoltajat, PWA, custom token + Auth-virhekoodit; viimeisenä kun versio on todennettu muualla |
 
 Solo-sivut (`Solo_Koti/Lupa/Profiili`, `Player_Home`), `VP_v25`, `Testaus_v9`, `Harjoitettavuus_Lomake_v4`, `Pelihavainto_Kentta`, `Valmentajakortti` ovat jo 10.7.1:ssä — ei muutoksia.
-Erien välillä vähintään **yksi päivä** tuotannossa (tai seuraava kirjautumisväli) ennen seuraavaa; erä 6 vasta kun erät 3–5 ovat olleet viikon ilman verified-%-laskua.
+**Aikataulu (päätös §0):** erät 1–6 vasta kun PR 2 (päivämäärät) on mergetty · erät 1–3 yksi arkipäivä per erä · erät 4–5 kahden päivän välein, erää 5 ei päivänä jolloin huoltajakutsuja lähtee · erä 6 viikon varoajan jälkeen.
 
 ---
 
@@ -139,7 +151,7 @@ Erien välillä vähintään **yksi päivä** tuotannossa (tai seuraava kirjautu
 **Yhteinen kaikille erille**
 1. **Savutesti SEURAKÄYTTÄJÄLLÄ, ei SA:lla** (CLAUDE.md §0: SA näkee kaiken → ei todista oikeuksia). Henkilöstöerät: VP- tai valmentajatunnus KPV:ssä.
 2. **Kirjoitukset vain Topiakselle** (KPV, doc-ID `m93GBdOaGCUuenMiCL0I` — kaksi u:ta). Muut alaikäiset: vain luku.
-3. **App Check -mittari ennen ja jälkeen:** `firebaseappcheck.googleapis.com/services/verification_count`, label `security` (`VALID` vs `MISSING_*`), per palvelu (Firestore, Functions, Storage, Identity Toolkit). Perustaso = edelliset 7 päivää (sama viikonpäivä-/kellonaikaprofiili); mittaus 24 h erän tuotantoon menon jälkeen. **Pysäytys/revert-kriteeri (ehdotus):** verified-% laskee yli 2 %-yksikköä tai `MISSING_*` kasvaa; ENFORCE-tilassa tarvittaessa **un-enforce heti** (§38) ja revert.
+3. **App Check -mittari ennen ja jälkeen:** `firebaseappcheck.googleapis.com/services/verification_count`, label `security` (`VALID` vs `MISSING_*`), per palvelu (Firestore, Functions, Storage, Identity Toolkit). Perustaso = edelliset 7 päivää (sama viikonpäivä-/kellonaikaprofiili); mittaus 24 h erän tuotantoon menon jälkeen. **Revert-kriteeri (päätös §0.3):** verified-% laskee **yli 2 %-yksikköä** TAI siirretystä sivusta tulee **yksikin uusi App Check- tai permission-denied-virhe Sentryyn** (seuranta: Sentry-haku sivun `app`-tagilla + `permission-denied`/`appCheck`-virheet ennen/jälkeen). **Toimenpide: ENSIN revert-PR** (URL-muutos palautuu); **un-enforce (§38) vain viimeisenä keinona**, koska se on projektinlaajuinen ja avaa kaikki apit.
 4. **Konsoli:** ei CSP-rikkomuksia, ei `firebase.*` is not a function / ReferenceError; Sentry-testivirhe näkyy oikealla `app`-tagilla ilman henkilötietoja.
 5. **Hosting-preview-kanava** ennen mergeä (CSP + oikea domain + App Check debug-token tarvittaessa, §38).
 6. Autom. testit: koko `npm test` + portti (§6) vihreä.
@@ -154,7 +166,9 @@ Erien välillä vähintään **yksi päivä** tuotannossa (tai seuraava kirjautu
 
 ---
 
-## 6. Portti-ehdotus (kuvaus, EI toteutusta)
+## 6. Portti — TOTEUTETTU erässä 0 (`tests/firebase_sdk_versio.test.js`)
+
+> Toteutus noudattaa alla olevaa kuvausta: `KOHDEVERSIO='10.7.1'`, `MODULAR_VERSIO='10.12.0'`, `MIGRAATIOLISTA` = 12 sivua erä-numeroineen ja nykyversioineen; failaa jos listan ulkopuolinen sivu poikkeaa tai listan sivu on jo siirretty. Erän PR päivittää sivun version ja poistaa rivin listalta (sekä päivittää testin lukumääräassertiot).
 
 Uusi `tests/firebase_sdk_versio.test.js` (vrt. `tests/appcheck_kytkenta.test.js`: kohdejoukko **johdetaan datasta**, ei kovakoodata):
 - Kohdejoukko = juuren `*.html`, jotka lataavat `firebase-app(-compat).js` (sama johto kuin App Check -portissa).
@@ -186,9 +200,9 @@ Ehdotus: yksi `lib/`-skripti, joka kirjoittaa SDK-skriptitagit sivulle (`documen
 
 ---
 
-## 8. Avoimet päätökset (Terolle)
+## 8. Päätökset (ratkaistu 3.10.2026, ks. §0)
 
-1. Hyväksytäänkö kohdeversioksi **10.7.1** (suositus) vai halutaanko 10.14.1 / 12.x suoraan (suuremmat muutosjoukot)?
-2. Erien aikataulu (suositus: yksi erä / päivä tai viikko, erä 6 vasta viikon varoajalla).
-3. Revert-kriteerin kynnys (ehdotus 2 %-yksikköä verified-%) ja kuka seuraa App Check -mittaria.
-4. Auth-virhekoodien tuki Pelaaja_v7:ssä (`invalid-credential`) erillisenä pienenä muutoksena ennen erää 6?
+1. ~~Kohdeversio~~ → **10.7.1** (hyväksytty).
+2. ~~Aikataulu~~ → ks. §0.2.
+3. ~~Revert-kriteeri~~ → ks. §0.3. **Avoin:** kuka seuraa App Check -mittaria ja Sentryä erien jälkeen (ehdotus: erän tekijä + Tero, 24 h).
+4. ~~`invalid-credential`~~ → PR #728.
