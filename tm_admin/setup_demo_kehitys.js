@@ -161,7 +161,8 @@ pelaajat.forEach((p) => {
   pvmt.forEach((pvm, k) => {
     const kierros = TESTIPVM.indexOf(pvm) >= 0 ? TESTIPVM.indexOf(pvm) : 2;
     // Arvot SAMAN viiteiän normista (ensimmäinen kierros) → kierrosten ero = todellinen muutos (trendi), ei normin ikäsiirtymää
-    const ika = EN.normiIka(j.sv, pvmt[0]);
+    const ika = EN.normiIka(j.sv, pvmt[0]);          // arvojen tuottaminen (viiteikä)
+    const mittausIka = EN.normiIka(j.sv, pvm);       // tasot mittaushetken iällä (kuten Excel_Tuonti, normiIka §26)
     const z = zPohja + trendi * kierros;
     const hv = {};
     TESTIT.forEach(([avain, eer, pienempi, kmh]) => {
@@ -172,8 +173,8 @@ pelaajat.forEach((p) => {
     const excelMuoto = (p.i + k) % 2 === 0;
     const snap = Object.assign({ pvm }, hv);
     if (excelMuoto) {
-      const hh = EN.laskeHHTaso({ lin30m: hv.lin30m, hyppy_cj: hv.cmj, mas: hv.mas }, ika, j.sp);
-      const d1 = EN.laskeD1Joustava(hv, ika, j.sp);
+      const hh = EN.laskeHHTaso({ lin30m: hv.lin30m, hyppy_cj: hv.cmj, mas: hv.mas }, mittausIka, j.sp);
+      const d1 = EN.laskeD1Joustava(hv, mittausIka, j.sp);
       if (hh != null) snap.hh_taso = hh;
       if (d1) snap.d1_taso = d1.taso;
     } else snap.alusta = 'tekonurmi';
