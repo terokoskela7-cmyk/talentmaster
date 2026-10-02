@@ -88,7 +88,7 @@ super_admin           → TalentMaster (Tero)              [1. Platform]
 vp, seurasihteeri, urheilutoimenjohtaja                  [2. Seuran hallinto]
 valmentaja, talenttivalmentaja, fysiikkavalmentaja,
   fysioterapeutti, testivastaava                         [3. Operatiivinen]
-pelaaja               → PIN-kirjautuminen (Anonymous Auth)
+pelaaja               → pelaajaKirjaudu (PalloID/linkki + PIN, custom token)
 vanhempi
 ```
 
@@ -150,6 +150,7 @@ per tiedosto** (kaksi lohkoa kumoaa toisen — Seura.html:n bugi oli juuri täm�
 23. **orderBy-kenttä AINA sama kuin write-kenttä.** Pelaaja_v7 kirjoittaa `paivitetty`, Master_v16 kysyi `fiilinki_paivitetty` → 0 tulosta. Firestore palauttaa tyhjän tuloksen orderBy-kentällä jota ei ole — ei virheilmoitusta. Timestamp-kenttä: käytä `.toDate()` ennen `.getTime()` (serverTimestamp → Firestore Timestamp-objekti, ei ISO-string)
 24. **Security Rules -kenttänimet = koodi-kenttänimet.** Rules lukee `vastaanottajaUid`/`lahettajaUid` → kirjoittavan koodin PAKKO asettaa nämä kentät (ei pelkkä `to`/`from`). Tarkista Rules ENNEN kirjoituskoodia
 25. **`harjoitelogiikka_v4.js` — root on ainoa totuus (A7 2026-06-15).** `src/lib/`-versio on re-export rootiin, EI itsenäinen tiedosto. Pelaaja_v7 lataa rootin Pagesista `?v=6`. `generoimTehtavatV2` + `generoimViikoOhjelma` = dead code (0 HTML-kutsua, ei module.exports) — älä käytä. `valitsePaivanHarjoite(pelaaja, pankki, pvm)` — jos `pankki.T` puuttuu (kuten `window.PANKKI`-stub), funktio ignoroi argumentin ja käyttää sisäistä PANKKIa. `generoiMiksiteksti(p, null, iv)` HEITTÄÄ — kietoa aina try/catchiin. `laskeTekninenKehityskohde` ei-datalle: `{lahde:'ikavaihe', varmuus:'oletus'}` (ei `lahde:'oletus'`). ADAR-override: `adar_pisteet < 40` NUMERONA (ei `{ac}`-objektina). Characterization-testit: `tests/harjoitelogiikka.characterization.test.js` (21 testiä) — aja ennen muutoksia.
+26. **Tämä päivä = `tmPaivaIso()` (paikallinen päivä), ei `toISOString().slice(0,10)`** (UTC antaa Suomessa klo 0–3 edellisen päivän). Portti `tests/tama_paiva_paikallinen.test.js` (sallittu lista B/C-poikkeuksille). **Palvelimella Helsingin päivä:** `functions/helsinki_paiva.js` (`huomisenRajat`, `kelloHelsinki`; Cloud Functions -ajoympäristö on UTC) (#722, #723).
 
 ---
 
@@ -176,7 +177,7 @@ per tiedosto** (kaksi lohkoa kumoaa toisen — Seura.html:n bugi oli juuri täm�
 | `TalentMaster_Testaus_v8.html` · `..._Harjoitettavuus_Lomake_v4.html` | Edeltäjät | ⚠️ arkistoidaan kun v9 pilottitestattu |
 | `TalentMaster_VP_v20/v21.html` · `..._Master_v15.html` | Vanhat versiot | Arkisto |
 | `functions/index.js` | 7 Cloud Functionia + aiProxy | ✅ §13 |
-| `tm_admin/firestore.rules` | Security Rules **v3.32** — deploy CI:llä (`deploy-rules.yml`, main-push, emulaattoritestit ensin) | ✅ §12 |
+| `tm_admin/firestore.rules` | Security Rules **v3.35** — deploy CI:llä (`deploy-rules.yml`, main-push, emulaattoritestit ensin) | ✅ §12 |
 | `lib/tm_bioika.js` | Bio-ikä — Mirwald 2002 PHV (Excel-verifioitu) + KR-runko (lukittu) | ✅ §25 |
 | `docs/testit_indeksit.js` | Canonical TKI/TSI/FLEI-laskenta + TKI-analyysimalli (§34) | ✅ §23/§34 |
 | `docs/TKI_ANALYYSIMALLI.md` | Kanoninen TKI-analyysimalli (3 viitekehystä + kehitysvauhti) | ✅ §34 |
@@ -298,9 +299,9 @@ admins/{uid}: email, rooli, superAdmin, luotu
 
 ---
 
-## 12. FIRESTORE SECURITY RULES — `tm_admin/firestore.rules` v3.32
+## 12. FIRESTORE SECURITY RULES — `tm_admin/firestore.rules` v3.35
 
-**DEPLOY = CI** (`.github/workflows/deploy-rules.yml`): main-pushissa ensin emulaattoritestit (`npm run test:rules`, Java ≥21), sitten deploy. Nykyversio **v3.32** (v3.32: kayttajat-luonti vain luoKayttajalla, ei SA:lle · v3.31: kayttajat-pääsykentät + poisto vain palvelimella · v3.30: PIN vain palvelimella · v3.29: playerCodes list suljettu · Vaihe 0 / PR 3: **anonyymi pääsy suljettu** — ei `onAnonymous`-funktiota, vartijatesti estää paluun). Jokainen muutos: versio + changelog tiedoston alkuun + Rules-testi. Sääntöjä EI muokata Consolesta.
+**DEPLOY = CI** (`.github/workflows/deploy-rules.yml`): main-pushissa ensin emulaattoritestit (`npm run test:rules`, Java ≥21), sitten deploy. Nykyversio **v3.35** (v3.35: seuran omat vapaat tavoitteet `omat_tavoitteet` (+ `kirjaukset` vain luonti, korjaus = mitätöivä kirjaus), `kausikuvat` demorajaus purettu · v3.34: Kehitystilanne v0 — `kehitysasetukset`/`seuratuki` johtoroolit, `kausikuvat` vain luonti · v3.33: suostumus-kovennus — `suostumusTila`/`suostumus`/`suostumusAnnettu`/`suostumukset`/`huoltajaEmail` muuttuvat VAIN palvelimella (SA:ltakin estetty; luonnissa `suostumusTila` vain `pilotti`/`odottaa`), `kutsut`-update ei enää kirjautumatonta, ylätason `suostumukset` kiinni (luku vain SA), `audit` nimenomainen esto (luku vain `haeAuditLoki`, kirjoitus vain palvelin) · v3.32: kayttajat-luonti vain luoKayttajalla, ei SA:lle · v3.31: kayttajat-pääsykentät + poisto vain palvelimella · v3.30: PIN vain palvelimella · v3.29: playerCodes list suljettu · Vaihe 0 / PR 3: **anonyymi pääsy suljettu** — ei `onAnonymous`-funktiota, vartijatesti estää paluun). Jokainen muutos: versio + changelog tiedoston alkuun + Rules-testi. Sääntöjä EI muokata Consolesta.
 
 **Tunnistetyypit (vain nämä avaavat dataa):**
 - **Henkilökunta** — sähköposti/Google, claim `seuraId` + `rooli` → `onOmaSeura` / `onJohtoRooli` / `onValmentajaRooli`
@@ -308,7 +309,7 @@ admins/{uid}: email, rooli, superAdmin, luotu
 - **Huoltaja** — sähköposti → `onLapsenHuoltaja` (pelaajan `huoltajaEmail`)
 - **Solo-vanhempi** — `players.parent_uid == auth.uid`; **Solo-lapsi** — `soloLapsiKirjaudu` → `{ rooli:'solo_lapsi', soloPlayerId }` → `onSoloLapsiItse`
 - **SA** — `admins/{uid}` tai claim `super_admin`
-- **Anonyymi** — EI mitään pelaaja-/Solo-dataa. Läpäisee vain roolittomat `onKirjautunut()`-ehdot (errors create, kaaviot-luku, playerCodes get) kunnes Anonymous-provider suljetaan Consolesta.
+- **Anonyymi** — EI mitään pelaaja-/Solo-dataa. Anonymous-provider **suljettu Consolesta 2.10.2026**; läpäisee vain roolittomat `onKirjautunut()`-ehdot (errors create, kaaviot-luku, playerCodes get).
 - **Henkilökunnan pääsy (v3.31, P0):** deaktivointi/aktivointi/poisto/roolinvaihto VAIN callableilla (`deaktivioiKayttaja` / `aktivoiKayttaja` / `poistaKayttaja` / `vaihdaKayttajanRooli`): Auth `disabled` + claimit + token-mitätöinti + `vp_uid` samassa. Rules eivät tarkista `aktiivinen`-kenttää — pääsy katkeaa vain Authista.
 - **Callablet:** `context.auth` EI riitä → `tarkistaOikeus` (henkilökunta) tai `authz_paatos.tunnisteTyyppi` / `kuittausPaatos`.
 - **PIN VAIN PALVELIMELLA (v3.30, PR 4):** selain ei kirjoita `pin`-kenttää (myös SA) eikä Solon `child_pin`:iä. PIN asetetaan `asetaPelaajanPin` / `luoPinitSeuralle` / `vahvistaSuostumus` / `soloHyvaksyLupa` -funktioissa, jotka kirjoittavat hajautuksen (`_pelaajaPin` / `_soloPin`) ja selväkielisen jakokopion samassa erässä. Oikeus: johto/SA koko seura, joukkueen valmentaja oma joukkue. Uudet PIN:t 6 numeroa (`crypto.randomInt`, ei triviaaleja).
@@ -398,7 +399,7 @@ jousitusindeksi → kimmovoima-indeksi · D4 → peliäly.
 
 ---
 
-## 38. APP CHECK — reCAPTCHA Enterprise (V2, monitoring-vaihe)
+## 38. APP CHECK — reCAPTCHA Enterprise (V2, ENFORCE päällä 2.10.2026)
 
 **Provider = reCAPTCHA Enterprise, EI klassinen v3** (Firebase vanhensi v3:n). Ero koodissa: `activate()`
 ottaa **provider-instanssin**, ei avainmerkkijonoa.
@@ -437,11 +438,11 @@ Apps → Manage debug tokens. Emulaattori-sääntötestit (`npm run test:rules`)
 `/recaptcha/enterprise/clr`-XHR ovat kolme eri direktiiviä — token myönnetään vaikka clr estyisi, joten
 puute EI näy tokenin puuttumisena vaan vain konsolissa).
 
-**ENFORCE = projektinlaajuinen per palvelu, ei per ympäristö.** Esiehto: **kaikki elävät apit → main →
-Pages** ja monitoring näyttää tervettä verified-liikennettä. Mittari
+**ENFORCE PÄÄLLÄ (2.10.2026)** — projektinlaajuinen per palvelu, ei per ympäristö. **Un-enforce heti
+(Console → App Check → palvelu), jos verified% putoaa.** Seuranta: mittari
 `firebaseappcheck.googleapis.com/services/verification_count`, label `security`: `VALID` = verified,
-`MISSING_*` = ei tokenia. Flippaa palvelu kerrallaan (Firestore → Functions → Storage), **un-enforce heti
-jos verified% tippuu.**
+`MISSING_*` = ei tokenia. Uusi appi ilman App Checkia ei saa tokenia → backend-kutsut hylätään; siksi
+kytkentäportti (yllä) on pakollinen.
 
 ---
 
@@ -453,6 +454,11 @@ jos verified% tippuu.**
 - **API-avaimet Secret Managerissa** (`SENDGRID_API_KEY`/`OPENAI_API_KEY`/`ANTHROPIC_API_KEY`, `runWith({secrets})`), luetaan vain funktiossa `process.env`:stä. EI plaintext-env-vareja, EI CI:n `.env`-injektiota, EI koskaan selaimeen.
 - **CI-deploy ei lue `functions/.env`:iä** → jokainen EI-salainen asetus tarvitsee oletusarvon koodiin (`process.env.X || 'oletus'`), ks. `tm-sovellukset` §13.
 - **Sentry:** errors-only, EU-region (`ingest.de.sentry.io`), EI Session Replayta, `beforeSend`/`beforeBreadcrumb` PII-skrubi (nimet, email, huoltaja, PIN, puhelin, osoite → redacted), `sendDefaultPii:false`. Skrubin heitto → event drop.
+- **SendGrid-seuranta pois (#715):** klikki-, avaus-, tilaus- ja GA-seuranta pois kaikista viesteistä; vartija `tests/sendgrid_seuranta_pois.test.js` (ÄLÄ lisää `tracking_settings`-kenttää).
+- **Sähköpostipohjat (#716):** kaikki interpoloidut arvot HTML-escapetaan (`functions/sahkoposti_pohjat.js`, `esc()`); kutsulinkki rakennetaan palvelimella (`TM_BASE_URL` + sallitut parametrit, vieras origin → `invalid-argument`) ja **seuran nimi luetaan palvelimelta** (`seurat/{id}.nimi`), ei selaimen `seura`-arvosta; `subject`/`fromName` ilman rivinvaihtoja.
+- **aiProxy suljettu (#717):** palauttaa 410 `ai_pois_kaytosta`; ei kutsuja EU:n ulkopuolisille tekoälyrajapinnoille (OpenAI/Gemini poissa koodista, Anthropic suoraan vain valmennusapurin kehityslipun takana, oletus Bedrock EU). Vartija `tests/ai_pois_kaytosta.test.js`. `OPENAI_API_KEY` ei ole sidottu mihinkään funktioon (poisto Secret Managerista päätetään erikseen). Äänen litterointi poistettu; äänen tallennus ennallaan.
+- **Sentry kaikissa henkilökunnan näkymissä (#718):** VP, Master, Seura, Admin (`window.TM_SENTRY.app`); skrubi kattaa myös palloID/tunniste/sporttiID, näyttönimet, **6-numeroisen PIN:n** ja 8-numeroisen PalloID:n merkkijonoista; `environment` production/preview/dev hostnamen mukaan.
+- **SendGrid EU-datasijainti = AVOIN PÄÄTÖS** (Teron hyväksyntä + alihankkijalista ennen jatkoa).
 - **Suostumus-integriteetti:** `suostumusTila` EI KOSKAAN `annettu` → `odottaa`. Suostumus vahvistetaan palvelimella (`vahvistaSuostumus`, huoltajaEmail-täsmäys).
 - **Audit-loki ei ole client-luettava** (luku vain SA-gatetun `haeAuditLoki`-funktion kautta).
 - **Kielletyt kentät pelaajalle näkyvissä dokumenteissa** (esim. `pisteet`/`narratiivi` kenttätarkkailuissa) ja `nakyvyys`-rajaus havainnoissa ovat Rules-tason sääntöjä — älä kierrä niitä clientissa.

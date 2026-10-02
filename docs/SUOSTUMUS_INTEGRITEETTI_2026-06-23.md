@@ -43,3 +43,13 @@ Tunnistus: `suostumusTila === 'annettu' || !!suostumus?.annettu` (sekä uusi pik
 - Palvelinpuolinen audit-jälki (`suostumus_sailytetty_re_invite`) vaatisi CF-reitityksen + deployn — ei tehty
   (downgrade oli puhtaasti client-puolella; operaattorinäkyvyys hoidettu client-yhteenvedon laskureilla).
 - Kehu-virheviestin tarkennus (permission-denied vs verkko) — ei tehty.
+
+---
+
+## Päivitys 2.10.2026 — SJK:n 20 suostumuksen audit-aukko
+
+- **Aukko:** SJK:n **20 suostumuksesta** (annettu viimeistään **16.6.2026**) puuttuu audit-rivi.
+- **Todennus:** tehty **2.10.2026 aikaleimoista**.
+- **Päätös: audit-rivejä EI jälkitäytetä.** Aukko jää dokumentoiduksi tähän.
+- Nykytila koodissa: `vahvistaSuostumus` kirjoittaa audit-rivin (`suostumus_annettu`) palvelimelta, ja Rules v3.33 sallii
+  `audit`-kirjoituksen vain palvelimelta (luku vain `haeAuditLoki`-funktion kautta).
