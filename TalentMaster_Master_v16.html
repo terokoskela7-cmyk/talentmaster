@@ -19,6 +19,7 @@
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-storage-compat.js"></script>
+<script src="lib/tm_pvm.js?v=3"></script>   <!-- tmPaivaIso: paikallinen päivä ("tänään" ≠ UTC-päivä klo 0–3) -->
 <script src="lib/tm_appcheck.js?v=1"></script>
 <script src="lib/tm_pelihavainto_valinta.js?v=1"></script>   <!-- §7: YKSI sisäänkäynti pelihavaintoon (jaettu, ei kopioita) -->
 <script src="lib/tm_aktiivisuus.js?v=1"></script>   <!-- Toimihenkilon kirjautumisaikaleima — jaettu kirjoituspiste, ks. lib-header -->
@@ -1819,7 +1820,7 @@ textarea.jsp-rv-inp { resize: vertical; min-height: 44px; }
             <button class="cal-mode" data-mode="month" onclick="setCalMode('month')" data-i18n="Kuukausi">Kuukausi</button>
             <button class="cal-mode" data-mode="season" onclick="setCalMode('season')" data-i18n="Kausi">Kausi</button>
           </div>
-          <button class="cal-add-btn" style="background:var(--card2);color:var(--ink);border:.5px solid var(--line2);letter-spacing:.08em;" onclick="_avaaUusiTapahtuma(new Date().toISOString().slice(0,10), '17:00')" data-i18n="📅 Lisää harjoitus / ottelu">📅 Lisää harjoitus / ottelu</button>
+          <button class="cal-add-btn" style="background:var(--card2);color:var(--ink);border:.5px solid var(--line2);letter-spacing:.08em;" onclick="_avaaUusiTapahtuma(tmPaivaIso(new Date()), '17:00')" data-i18n="📅 Lisää harjoitus / ottelu">📅 Lisää harjoitus / ottelu</button>
           <button class="cal-add-btn" style="letter-spacing:.08em;" onclick="_avaaTestausV9()" data-i18n="🏃 Luo testitapahtuma →">🏃 Luo testitapahtuma →</button>
         </div>
       </div>
@@ -2600,7 +2601,7 @@ async function _lataaTestitapahtumat() {
       };
     });
     // Etsi tämän päivän testit
-    const tanaan = new Date().toISOString().slice(0,10);
+    const tanaan = tmPaivaIso(new Date());
     // Suodata joukkueen mukaan myös tänään-tapahtumat
     _todayTestit = _testitapahtumat.filter(t => t.pvm === tanaan && t.tila !== 'suljettu' && (!_joukkue || (!t.joukkue && !t.joukkue_nimi) || t.joukkue === _joukkue || t.joukkue_nimi === _joukkue));
     // Päivitä badget
@@ -2831,7 +2832,7 @@ function _kaynnistaDemoTilaSisalto() {
   _seuraId = 'kpv'; // Demo-seura
   _testitapahtumat = DEMO.testitapahtumat || [];
   // Etsi tämän päivän testit (demo: 2026-04-23)
-  const tanaan = new Date().toISOString().slice(0,10);
+  const tanaan = tmPaivaIso(new Date());
   _todayTestit = _testitapahtumat.filter(t => t.pvm === '2026-04-23' && t.tila !== 'suljettu');
   document.getElementById('sbSeura').textContent = d.seura + ' · ' + d.joukkue;
   _alusta(d.etunimi);
@@ -3110,7 +3111,7 @@ function renderTestit() {
 
 // Status pvm + tila -logiikalla (sama kuin VP:llä): Tuleva / Kesken / Valmis
 function _testiStatus(t) {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = tmPaivaIso(new Date());
   if (t.tila === 'valmis' || t.tila === 'suljettu') return { label:masterT('Valmis'), color:'var(--teal)', btn:masterT('Katso tulokset →') };
   if (t.pvm && t.pvm < today)                       return { label:masterT('Kesken'), color:'var(--amber)', btn:masterT('Jatka kirjausta →') };
   return { label:masterT('Tuleva'), color:'#3DA35D', btn:masterT('Avaa kenttänäkymä →') };
@@ -3399,7 +3400,7 @@ function _laskeVaihe() {
 
   // Käyttöpäivät: tallenna ensimmäinen kirjautumispäivä localStorageen
   const ensimmainenPv = localStorage.getItem('tm-first-login-' + _seuraId);
-  const tanaan = new Date().toISOString().slice(0, 10);
+  const tanaan = tmPaivaIso(new Date());
   if (!ensimmainenPv) {
     localStorage.setItem('tm-first-login-' + _seuraId, tanaan);
   }
@@ -6255,7 +6256,7 @@ function _msJaksovali(jf) {
   var alkoi = jf && jf.alkoi ? String(jf.alkoi).slice(0, 10) : null;
   var vk = (jf && jf.kesto_vk) || 4;
   var loppuD = alkoi ? new Date(new Date(alkoi).getTime() + vk * 7 * 86400000) : new Date();
-  return { alkoi: alkoi, loppu: loppuD.toISOString().slice(0, 10) };
+  return { alkoi: alkoi, loppu: alkoi ? loppuD.toISOString().slice(0, 10) : tmPaivaIso(loppuD) };
 }
 function _msSessiot(jf, alkoi, loppu) {
   return (_kalenteriTapahtumat || []).filter(function (t) {
@@ -7583,7 +7584,7 @@ function _renderPinfoFirestore(p) {
     try {
       const _kk = laskeTekninenKehityskohde(p);
       if (_kk && _kk.lahde !== 'oletus') {   // §B3: näytä kun diagnoosissa on dataa (ei pelkkä universaali oletus)
-        const _iso = (new Date()).toISOString().slice(0, 10);
+        const _iso = tmPaivaIso(new Date());
         const _t = valitsePaivanHarjoite(p, null, _iso);
         if (_t && _t.nimi) {
           const _lahdeLbl = ({ tki: 'TKI', tsi: 'TSI', hh: 'H-H' }[_kk.lahde] || '');
@@ -8374,7 +8375,7 @@ window._cpdTodistePDF = async function () {
     + '<p>Reflektiot ' + c.reflektio_h + ' h · Koulutukset/kurssit ' + c.koulutus_h + ' h</p>' + tavoiteRivi
     + (koul ? '<h2>' + masterT('Koulutukset') + '</h2><ul>' + koul + '</ul>' : '')
     + '<h2>' + masterT('Reflektiomerkinnät') + '</h2><table><thead><tr><th>Päivä</th><th>CPD</th><th>' + masterT('Sisältö') + '</th></tr></thead><tbody>' + rivit + '</tbody></table>'
-    + '<p style="margin-top:28px;font-size:11px;color:#888">Luotu ' + new Date().toISOString().slice(0, 10) + ' · reflektio-CPD ei korvaa virallista lisenssikirjanpitoa.</p>'
+    + '<p style="margin-top:28px;font-size:11px;color:#888">Luotu ' + tmPaivaIso(new Date()) + ' · reflektio-CPD ei korvaa virallista lisenssikirjanpitoa.</p>'
     + '<button onclick="window.print()" style="margin-top:16px;padding:8px 16px;font-size:13px;cursor:pointer">' + masterT('Tulosta / Tallenna PDF') + '</button>'
     + '</body></html>';
   const w = window.open('', '_blank'); if (!w) { if (typeof toast === 'function') toast(masterT('Salli ponnahdusikkunat tulostaaksesi'), 'error'); return; }
@@ -9472,7 +9473,7 @@ function _calSkooppiDialog(t, otsikko, cb) {
 }
 async function _calSkooppiDocit(t, scope) {
   var z = function(x) { return String(x).padStart(2, '0'); };
-  if (scope === 'vain' || !t.toistuvuus_sarja_id) return [{ id: t.id, _pvmISO: t.pvm || new Date().toISOString().slice(0, 10) }];
+  if (scope === 'vain' || !t.toistuvuus_sarja_id) return [{ id: t.id, _pvmISO: t.pvm || tmPaivaIso(new Date()) }];
   var snap = await _db.collection('seurat').doc(_seuraId).collection('kalenteri').where('toistuvuus_sarja_id', '==', t.toistuvuus_sarja_id).get();
   var arr = snap.docs.map(function(d) {
     var x = d.data(); var dd = (x.alkaa && x.alkaa.toDate) ? x.alkaa.toDate() : null;
@@ -9582,7 +9583,7 @@ function calSlotClick(day, hour) {
   monday.setDate(today.getDate() - dayOfWeek + (_calWkOffset * 7));
   const clickedDate = new Date(monday);
   clickedDate.setDate(monday.getDate() + day);
-  const pvm = clickedDate.toISOString().slice(0, 10);
+  const pvm = tmPaivaIso(clickedDate);
   const klo = String(hour).padStart(2,'0') + ':00';
   _avaaUusiTapahtuma(pvm, klo);
 }
@@ -9721,7 +9722,7 @@ function _avaaUusiTapahtuma(pvm, klo) {
   // Bugi 1b — muokattava päivämäärä (esitäyttö pvm-parametrista; "Lisää harjoitus/ottelu" -nappi ei enää lukitse tähän päivään).
   var pvmL = document.createElement('label'); pvmL.style.cssText = 'font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.06em;color:var(--ink3);display:block;margin-bottom:4px'; pvmL.textContent = masterT('Päivä');
   box.appendChild(pvmL);
-  var pvmInp = document.createElement('input'); pvmInp.type = 'date'; pvmInp.id = 'tapahtumaPvm'; pvmInp.value = pvm || new Date().toISOString().slice(0, 10);
+  var pvmInp = document.createElement('input'); pvmInp.type = 'date'; pvmInp.id = 'tapahtumaPvm'; pvmInp.value = pvm || tmPaivaIso(new Date());
   pvmInp.style.cssText = 'width:100%;padding:9px 12px;border:0.5px solid var(--border);border-radius:6px;background:var(--surface);color:var(--ink);font-size:14px;box-sizing:border-box';
   pvmInp.onchange = function () { if (typeof _calToistEsik === 'function') _calToistEsik(); };   // toistuvuus-esikatselu päivittyy
   box.appendChild(pvmInp);
