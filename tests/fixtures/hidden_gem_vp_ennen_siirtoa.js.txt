@@ -1,0 +1,21 @@
+const HIDDEN_GEM_FLEI = 65;
+function laskeD2Taso(p) {
+  // D2 = per-laji Eerikkilä-keskiarvo (d2_taso, kanoninen 1–5) ENSIN — vastaa per-laji-erittelyä.
+  // TKI (0–99 kokonaisaikaindeksi) EI määrää D2:ta: lineaarinen TKI/20 ei vastaa per-laji-asteikkoa
+  // (Topias: TKI 34 → 1.7 ristiriidassa per-laji-tasojen 2/5/4/5 kanssa). TKI näkyy edelleen omana indeksinään.
+  if (p.d2_taso != null) return p.d2_taso;
+  if (p.tki_viimeisin != null) return Math.round((p.tki_viimeisin / 20) * 10) / 10;  // fallback jos d2_taso puuttuu
+  return null;
+}
+function laskeHiddenGem(p) {
+  const d1 = (p.hh_taso != null) ? p.hh_taso : null;
+  const d2 = laskeD2Taso(p);
+  const dCrit = (d1 != null && d2 != null && d2 >= 3.5 && d1 <= 2.5 && (d2 - d1) >= 1.0);
+  const prePhv = (p.phv_tila === 'PRE' || p.phv_tila === 'LAH');
+  const tv = p.tekninen_varhaiskehitys;
+  const mitali = !!(tv && (tv.merkki === 'kulta' || tv.merkki === 'hopea'));
+  let taso = null;
+  if (dCrit) { taso = mitali ? 'eliitti' : prePhv ? 'vahvistettu' : 'ehdokas'; }
+  const fleiHG = ((p.flei_viimeisin || 0) >= HIDDEN_GEM_FLEI) && p.talenttiOhjelma !== true;
+  return { taso: taso, dHG: !!taso, fleiHG: fleiHG, kimpale: (!!taso && fleiHG), mitali: mitali, prePhv: prePhv, d1: d1, d2: d2 };
+}

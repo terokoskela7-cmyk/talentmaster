@@ -30,8 +30,9 @@
 <script src="lib/tm_vp_i18n.js?v=89"></script>   <!-- i18n Vaihe 5 — VP sv (sivukartta); vpT/vpLokalisoi delegoivat commoniin -->
 
 
-<script src="lib/tm_eerikkila_normit.js?v=45"></script>   <!-- v43: D2-kortti d2_taso-ensin (renderKehityskorttiHTML, PR #264 · §30/#262) -->
+<script src="lib/tm_eerikkila_normit.js?v=46"></script>   <!-- v43: D2-kortti d2_taso-ensin (renderKehityskorttiHTML, PR #264 · §30/#262) -->
 <script src="lib/tm_historia.js?v=1"></script>
+<script src="lib/tm_mittarit.js?v=1"></script>   <!-- Kehitystilanne v0: mittarikirjasto; myös HIDDEN_GEM_FLEI + laskeD2Taso + laskeHiddenGem (siirretty VP:stä) -->
 <script src="lib/tm_pelihavainto_valinta.js?v=1"></script>   <!-- §7: YKSI sisäänkäynti pelihavaintoon (jaettu, ei kopioita) -->
 <script src="lib/tm_arviointi_historia.js?v=1"></script>   <!-- H1: arviointikerrat (append-only) + tmKausi + kooste; PURE, ks. lib-header -->          <!-- P2.1: hh_historia/tki_historia Pikakirjauksessa (tmHhSnapshot/tmTkiSnapshot/tmHistoriaLisaa) -->
 <script src="lib/tm_tki_core.js?v=1"></script>         <!-- P2.1: TKI-ytimen extrakti (IIFE → TM_TESTIT); antaa VP:lle TKI-pariteetin (VP ei voi ladata testit_indeksit.js:ää — const-törmäys). ENNEN tm_pikakentat.js:ää. -->
@@ -4201,7 +4202,7 @@ function renderTilanne() {
 //   5. PHV + 14pv hiljaa  → cross-join kirjaukset             🔴
 const PHV_KIRJAUS_RAJA_PV = 14;
 const VALMENTAJA_HILJAA_PV = 14;
-const HIDDEN_GEM_FLEI = 65;
+// HIDDEN_GEM_FLEI, laskeD2Taso ja laskeHiddenGem: lib/tm_mittarit.js (siirretty 2.10.2026, toiminta ennallaan).
 
 // ─── VAIHE 2 — DYNAAMINEN GREETING + TOIMENPIDEKESKEINEN SIGNAALIMOOTTORI ───
 function _greeting() {
@@ -20484,14 +20485,7 @@ function _dimSegRivi(taso) {
 }
 // D2-taso prioriteetilla: TKI (0–100 → 1–5) > SM-pohjainen d2_taso (jo 1–5) > null.
 // Skaalautuu: kun TKI joskus täyttyy, se korvaa SM-pohjaisen automaattisesti.
-function laskeD2Taso(p) {
-  // D2 = per-laji Eerikkilä-keskiarvo (d2_taso, kanoninen 1–5) ENSIN — vastaa per-laji-erittelyä.
-  // TKI (0–99 kokonaisaikaindeksi) EI määrää D2:ta: lineaarinen TKI/20 ei vastaa per-laji-asteikkoa
-  // (Topias: TKI 34 → 1.7 ristiriidassa per-laji-tasojen 2/5/4/5 kanssa). TKI näkyy edelleen omana indeksinään.
-  if (p.d2_taso != null) return p.d2_taso;
-  if (p.tki_viimeisin != null) return Math.round((p.tki_viimeisin / 20) * 10) / 10;  // fallback jos d2_taso puuttuu
-  return null;
-}
+
 // R-selitteet VAIHE 3 — D5-roll-up (bugikorjaus: d5_taso luettiin muttei koskaan koottu → kortti/tutka näytti "D5 —"
 // vaikka sosiaaliset attribuutit oli arvioitu, esim. Topias social_interaction/team_role = 4/4). Sama dim-keskiarvo-
 // pattern kuin D2:lla; EI uutta kaavaa. Olemassa oleva d5_taso VOITTAA (ei kosketa muihin lähteisiin); muuten keskiarvo
@@ -20513,18 +20507,7 @@ function _d2LahdeLbl(l) { return { tki:'TKI', sm:'SM-pohjainen', hh:'H-H (syött
 // D1=hh_taso · D2=laskeD2Taso · PHV=phv_tila · mitali=tekninen_varhaiskehitys (pikakenttä) · FLEI=flei_viimeisin.
 // Porras (korkein voittaa): eliitti (mitali U8–12, longitudinaalinen) > vahvistettu (PRE-PHV) > ehdokas (poikkileikkaus).
 // Kynnykset (kalibroitavissa oikealla datalla): D2≥3.5 · D1≤2.5 · erotus≥1.0. FLEI-HG = flei≥65 (erillinen). Molemmat → kullankimpale.
-function laskeHiddenGem(p) {
-  const d1 = (p.hh_taso != null) ? p.hh_taso : null;
-  const d2 = laskeD2Taso(p);
-  const dCrit = (d1 != null && d2 != null && d2 >= 3.5 && d1 <= 2.5 && (d2 - d1) >= 1.0);
-  const prePhv = (p.phv_tila === 'PRE' || p.phv_tila === 'LAH');
-  const tv = p.tekninen_varhaiskehitys;
-  const mitali = !!(tv && (tv.merkki === 'kulta' || tv.merkki === 'hopea'));
-  let taso = null;
-  if (dCrit) { taso = mitali ? 'eliitti' : prePhv ? 'vahvistettu' : 'ehdokas'; }
-  const fleiHG = ((p.flei_viimeisin || 0) >= HIDDEN_GEM_FLEI) && p.talenttiOhjelma !== true;
-  return { taso: taso, dHG: !!taso, fleiHG: fleiHG, kimpale: (!!taso && fleiHG), mitali: mitali, prePhv: prePhv, d1: d1, d2: d2 };
-}
+
 // HG-badge pelaajalle (null jos ei mikään). Kullankimpale ohittaa muut. Stored signaali:'xfactor' hoidetaan erikseen.
 // §RAE-näkyvyys VAIHE B — joukkueen BQ-rakenne (jakauma + bias + talentti×kvartaali) + Q4-suodatin. Pikakentät, ei kerrointa.
 function _vpRaeRakenneHTML(pelaajat) {
