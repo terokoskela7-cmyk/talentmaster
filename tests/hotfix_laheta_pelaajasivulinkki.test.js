@@ -42,7 +42,7 @@ function aja(auth, { oikeus = false, tallennettu = 'huoltaja@tm-testi.fi' } = {}
     admin: { firestore: { FieldValue: { serverTimestamp: () => 'TS' } } },
     auth: { generatePasswordResetLink: async () => { loki.reset++; return 'https://reset/SALAINEN'; } },
     tarkistaOikeus: async (uid, sid) => { loki.oikeus.push([uid, sid]); return { sallittu: oikeus }; },
-    haeJoukkueNimi: async () => 'U12',
+    haeJoukkueNimi: async () => 'U12', haeSeuraNimi: async () => 'FC Oikea',
     haeOrLuoHuoltajaAuth: async () => { loki.luotu++; },
     lahetaSahkoposti: async (m) => { loki.sposti++; loki.viesti = m; },
     pohjaPelaajaSivu: (o) => JSON.stringify(o),
@@ -51,7 +51,7 @@ function aja(auth, { oikeus = false, tallennettu = 'huoltaja@tm-testi.fi' } = {}
   };
   vm.createContext(ctx); lisaaPaikkamerkki(ctx);
   vm.runInContext(cfRunko('lahetaPelaajaSivuLinkki'), ctx);
-  const data = { hEmail: 'Huoltaja@tm-testi.fi', pelaajaId: 'p1', seuraId: 'fcl', etunimi: 'A' };
+  const data = { hEmail: 'Huoltaja@tm-testi.fi', pelaajaId: 'p1', seuraId: 'fcl', etunimi: 'A', seura: 'Väärä Seura' };
   return { loki, ajo: ctx.exports.lahetaPelaajaSivuLinkki(data, { auth }) };
 }
 const EI_MITAAN = { reset: 0, luotu: 0, sposti: 0 };
@@ -84,6 +84,7 @@ describe('HOTFIX · lahetaPelaajaSivuLinkki (ajettu)', () => {
     const r = await t.ajo;
     expect(t.loki.sposti).toBe(1);
     expect(r.ok).toBe(true);
+    expect(t.loki.viesti.fromName).toBe('FC Oikea');   // palvelimen nimi, ei selaimen seura-arvo
     expect(r).not.toHaveProperty('salasanaLinkki');
     expect(JSON.stringify(r)).not.toContain('SALAINEN');
   });
