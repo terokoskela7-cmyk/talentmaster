@@ -841,6 +841,22 @@ describe('VP_v25 resolvi-portti — jokaisella reititetyllä avaimella on sv-riv
     'arvioija ei tiedossa (siirretty vanhasta)',
     'Kuka arvioi ja milloin',
     'Ero ei ole virhe — eri tilanne, eri pelipaikka tai eri kehitysvaihe selittää usein sen.',
+    /* PR "vp-palaute-nakyvyys": palautteen antaminen löydettäväksi (lista, otsikko, nostot, edellinen arviointi). sv Gemini-erässä. */
+    'Avaa arviointi antaaksesi valmentajalle palautetta tekstinä tai äänenä.',
+    'Ei palautetta vielä',
+    'kans.',
+    'Kehityskohde (itsereflektio):',
+    'Vahvuus:',
+    'Nostoja arvioinnista — napauta lisätäksesi tekstiin (ei pakollinen)',
+    'Ensimmäinen havainnointi tälle valmentajalle.',
+    'Ensimmäinen itsearvio tälle valmentajalle.',
+    'Edellinen:',
+    'edelliseen verrattuna',
+    'Palaute valmentajalle',
+    'Jaettu näkyy valmentajalle ja hän saa ilmoituksen. Yksityinen jää vain sinulle.',
+    '🎙 Äänitä palaute (max 3 min)',
+    'valinnainen — jaettu/yksityinen valitaan alta',
+    'Avaa',
   ];
 
   it('0 vpT-avainta ilman sv-riviä (paitsi nimetyt sanktiointia odottavat)', () => {

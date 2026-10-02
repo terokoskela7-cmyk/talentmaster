@@ -124,11 +124,14 @@ function teeSandbox(tila) {
     tmPvmFi: (s) => String(s).slice(0, 10),
     tmPaivaIso: createRequire(import.meta.url)('../lib/tm_pvm.js').tmPaivaIso,   // oikea lib (VP lataa sen)
     _hlEsc: (s) => String(s == null ? '' : s),
+    TM_PALAUTE_KONTEKSTI: createRequire(import.meta.url)('../lib/tm_palaute_konteksti.js'),
   };
   sandbox.window = sandbox;
   vm.createContext(sandbox);
+  vm.runInContext('var _hlArvioinnit = []; var _hlPalauteMaarat = {}; var _hlConfig = {};', sandbox);   // palautteen konteksti (nostot/määrät) — lista tyhjä → ei nostoja
   vm.runInContext('var _hlAani = null; var _HL_AANI_IDT = {btn:"hlRecBtn",aika:"hlRecAika",preview:"hlPreview",litterointi:"hlLitteroiBtn"};', sandbox);
   vm.runInContext(funktio('function _hlOmaUid()'), sandbox);
+  vm.runInContext(funktio('function _hlPaivitaPalauteChip('), sandbox);
   vm.runInContext(funktio('async function _hlLataaPalaute('), sandbox);
   vm.runInContext(funktio('function _hlKuittaus('), sandbox);
   vm.runInContext(funktio('window._hlLisaaPalaute = async function'), sandbox);
