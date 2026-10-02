@@ -55,8 +55,9 @@ async function lahetaSahkoposti({ to, subject, html, fromName }) {
   // Ei salainen → oletus koodissa: CI-deploy (deploy-functions.yml) ei luo functions/.env-tiedostoa,
   // joten ilman oletusta lähettäjä oli tyhjä ja jokainen lähetys kaatui "SendGrid-credentiaalit puuttuvat".
   const fromEmail = process.env.SENDGRID_FROM_EMAIL || 'noreply@talentmasterid.com';
-  console.log('[SendGrid] SENDGRID_API_KEY:', apiKey
-    ? 'SG.' + apiKey.substring(3, 8) + '***' : 'PUUTTUU');
+  // Avaimesta EI lokiteta mitään osaa — vain OK/PUUTTUU (vartija: tests/functions_ei_avaimia_lokiin.test.js).
+  const avainTila = apiKey ? 'OK' : 'PUUTTUU';
+  console.log('[SendGrid] SENDGRID_API_KEY:', avainTila);
   console.log('[SendGrid] SENDGRID_FROM_EMAIL:', fromEmail || 'PUUTTUU');
   if (!apiKey || !fromEmail) {
     throw new Error(
