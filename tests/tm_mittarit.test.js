@@ -86,7 +86,7 @@ describe('K1 vertailupari ja tila', () => {
     expect(r.tila).toBe('vahva_ylos'); expect(r.pitkaVali).toBe(true);
   });
   it('PH jommallakummalla kerralla → ei vertailukelpoinen (kasvupyrähdys), ei ↓', () => {
-    const bio = [{ pvm: '2026-01-01', phv_tila_koodi: 'LAH' }, { pvm: '2026-06-01', phv_tila_koodi: 'PH' }];
+    const bio = [{ mittauspaiva: '2026-01-01', phv_tila_koodi: 'LAH' }, { mittauspaiva: '2026-06-01', phv_tila_koodi: 'PH' }];
     const r = M.k1Tila(Object.assign({}, pohja, { bioDocs: bio, historia: [H('2026-01-10', { lin30m: 4.5 }), H('2026-06-10', { lin30m: 4.7 })] }));
     expect(r.tila).toBe('ei_vertailukelpoinen'); expect(r.syy).toBe('kasvupyrahdys');
   });
@@ -133,7 +133,7 @@ describe('K1b ikätaso', () => {
     expect(raaka.tasoA).toBeLessThan(raaka.tasoB); expect(raaka.tila).toBe('nopeammin');
   });
   it('PH → ei vertailukelpoinen', () => {
-    const r = M.k1bTila({ sukupuoli: 'N', syntymaVuosi: 2012, bioDocs: [{ pvm: '2026-01-01', phv_tila_koodi: 'PH' }],
+    const r = M.k1bTila({ sukupuoli: 'N', syntymaVuosi: 2012, bioDocs: [{ mittauspaiva: '2026-01-01', phv_tila_koodi: 'PH' }],
       historia: [H('2026-01-10', { hh_taso: 2 }), H('2026-06-10', { hh_taso: 3 })] });
     expect(r.syy).toBe('kasvupyrahdys');
   });
