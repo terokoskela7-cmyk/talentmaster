@@ -44,24 +44,9 @@ describe('vanha Pages-osoite ei generoi linkkejä', () => {
   it('0 × projektialipolkua — pelkkä host-swap ei riitä', () => {
     expect(CF.split('/talentmaster/').length - 1).toBe(0);
   });
-  it('github.io säilyy VAIN CORS-originina, ilman alipolkua (Pages on yhä fallback)', () => {
+  it('github.io ei esiinny index.js:n koodissa (aiProxyn CORS-lista poistui 2.10.2026 — funktio vastaa vain 410)', () => {
     const osumat = CF.split('\n').filter((l) => l.includes('github.io') && !l.trim().startsWith('//'));
-    expect(osumat.length, 'github.io koodissa muualla kuin CORS-listassa').toBe(1);
-    expect(osumat[0]).toContain("'https://terokoskela7-cmyk.github.io'");
-  });
-});
-
-describe('CORS-allowlist kattaa etuoven', () => {
-  const lista = CF.slice(CF.indexOf('const allowedOrigins'), CF.indexOf('const allowedOrigins') + 1400);
-  it.each([
-    'https://talentmasterid.com',
-    'https://www.talentmasterid.com',
-    'https://talentmaster-pilot.web.app',
-    'https://talentmaster-pilot.firebaseapp.com',
-  ])('sisältää %s', (o) => expect(lista).toContain(`'${o}'`));
-  it('fallbackeja EI poistettu (Pages + localhost jäävät)', () => {
-    expect(lista).toContain("'https://terokoskela7-cmyk.github.io'");
-    expect(lista).toContain("'http://localhost:5000'");
+    expect(osumat).toEqual([]);
   });
 });
 

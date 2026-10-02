@@ -186,10 +186,10 @@ describe('muut callablet: henkilökuntatarkistus lähteessä', () => {
       .rejects.toMatchObject({ code: 'permission-denied' });
     expect(sposti).toBe(0);
   });
-  it('aiProxy hylkää muut kuin henkilökunnan tokenit heti verifyIdTokenin jälkeen', () => {
+  it('aiProxy on suljettu (410) — ei enää tokenipolkua; ks. ai_pois_kaytosta.test.js', () => {
     const i = CF.indexOf('exports.aiProxy');
-    const r = CF.slice(i, CF.indexOf('_checkRateLimit(uid, task)', i));
-    expect(r).toMatch(/verifyIdToken\(token\)[\s\S]*tunnisteTyyppi\(\{ token: decoded \}\) !== 'kayttaja'[\s\S]*status\(403\)/);
+    expect(i).toBeGreaterThan(0);
+    expect(CF.slice(i, i + 400)).toContain('status(410)');
   });
 });
 
