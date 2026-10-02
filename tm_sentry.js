@@ -31,6 +31,7 @@
     return s
       .replace(/\b[\w.+-]+@[\w-]+\.[\w.-]+\b/gi, '[email]')   // emailit ensin
       .replace(/\b\d{8}\b/g, '********')                      // PalloID (8 numeroa) ennen PINiä
+      .replace(/\b\d{6}\b/g, '******')                        // PIN 6 num (v3.30→, crypto.randomInt)
       .replace(/\b\d{4}\b/g, '****');                          // sitten 4-num PIN
   }
   function _redact(node, depth) {
@@ -85,11 +86,20 @@
     }
   }
 
+  // production: tuotanto-hostit + vanha Pages; preview: Hosting-preview-kanavat; muuten dev.
+  function _ymparisto(h) {
+    h = String(h || '').toLowerCase();
+    if (h === 'talentmasterid.com' || h === 'www.talentmasterid.com' || h === 'talentmaster-pilot.web.app' ||
+        h === 'talentmaster-pilot.firebaseapp.com' || h === 'terokoskela7-cmyk.github.io') return 'production';
+    if (/^talentmaster-pilot--[a-z0-9-]+\.web\.app$/.test(h)) return 'preview';
+    return 'dev';
+  }
+
   // ── INIT ──────────────────────────────────────────────────────────────────────
   try {
     Sentry.init({
       dsn: TM_SENTRY_DSN,
-      environment: (location.hostname.indexOf('github.io') !== -1) ? 'production' : 'dev',
+      environment: _ymparisto(location.hostname),
       release: (TMS.release || undefined),                                   // best-effort
       tracesSampleRate: 0,            // VAIN virheet — ei performance-tracingia (kustannus/volyymi matala)
       sendDefaultPii: false,          // EHDOTON: ei automaattista PII:tä (alaikäiset, §33 B4)

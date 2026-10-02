@@ -33,7 +33,7 @@ describe('henkilökunnan näkymät lataavat Sentryn', () => {
     const s = lue(tiedosto);
     const iApp = s.indexOf(`window.TM_SENTRY={app:'${app}'}`);
     const iBundle = s.indexOf(BUNDLE);
-    const iSkripti = s.indexOf('tm_sentry.js?v=2');
+    const iSkripti = s.indexOf('tm_sentry.js?v=3');
     const iFirebase = s.indexOf('firebase-app-compat.js');
     expect(iApp, 'TM_SENTRY.app puuttuu').toBeGreaterThan(-1);
     expect(iBundle, 'bundle puuttuu').toBeGreaterThan(iApp);
@@ -48,11 +48,11 @@ describe('henkilökunnan näkymät lataavat Sentryn', () => {
 });
 
 /* ── Skrubi: ajetaan tm_sentry.js vm-hiekkalaatikossa Sentry-tynkällä ───────────────────── */
-function lataaSkrubi() {
+function lataaSkrubi(hostname) {
   let opts = null; const tagit = {};
   const win = { TM_SENTRY: { app: 'vp' } };
   const ctx = {
-    window: win, location: { hostname: 'talentmaster-pilot--test.web.app' },
+    window: win, location: { hostname: hostname || 'talentmaster-pilot--test.web.app' },
     Sentry: { init: (o) => { opts = o; }, setTag: (k, v) => { tagit[k] = v; }, setUser() {} },
   };
   vm.createContext(ctx);
@@ -126,5 +126,29 @@ describe('PII-skrubi poistaa henkilökunnan näkymien kentät', () => {
     const c = opts.beforeBreadcrumb({ message: 'PalloID 12345678', data: { palloId: '12345678', url: '/a?b=1' } });
     expect(JSON.stringify(c)).not.toContain('12345678');
     expect(c.data.url).toBe('/a');
+  });
+});
+
+describe('PIN-maskaus: 6 num (v3.30→), 8 num PalloID, 4 num', () => {
+  const { opts } = lataaSkrubi();
+  const m = (s) => opts.beforeSend({ message: s }).message;
+  it('6-numeroinen PIN maskautuu', () => { expect(m('pin 482913 virhe')).toBe('pin ****** virhe'); });
+  it('8-numeroinen PalloID säilyttää oman maskinsa (ei 6+ jäännöstä)', () => { expect(m('id 12345678')).toBe('id ********'); });
+  it('4-numeroinen PIN maskautuu edelleen; sähköposti ensin', () => {
+    expect(m('pin 4821')).toBe('pin ****');
+    expect(m('a.b@example.test 482913')).toBe('[email] ******');
+  });
+  it('13-numeroinen aikaleima ei maskaudu', () => { expect(m('t 1790931923549')).toBe('t 1790931923549'); });
+});
+
+describe('Sentry environment hostnamen mukaan', () => {
+  it.each([
+    ['talentmasterid.com', 'production'], ['www.talentmasterid.com', 'production'],
+    ['talentmaster-pilot.web.app', 'production'], ['talentmaster-pilot.firebaseapp.com', 'production'],
+    ['terokoskela7-cmyk.github.io', 'production'],
+    ['talentmaster-pilot--pr-12-abc123.web.app', 'preview'],
+    ['localhost', 'dev'], ['evil.example', 'dev'], ['talentmasterid.com.evil.example', 'dev'], ['xtalentmaster-pilot--a.web.app', 'dev'],
+  ])('%s → %s', (host, odotettu) => {
+    expect(lataaSkrubi(host).opts.environment).toBe(odotettu);
   });
 });

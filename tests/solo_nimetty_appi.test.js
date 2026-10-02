@@ -40,8 +40,8 @@ describe('Solo-sivut · nimetty appi', () => {
     const S = lue('TalentMaster_Player_Home.html');
     const iS = S.indexOf("window.TM_SENTRY={app:'solo'}");
     expect(iS).toBeGreaterThan(0);
-    expect(S.indexOf('tm_sentry.js?v=2')).toBeGreaterThan(iS);
-    expect(S.indexOf('firebase-app-compat.js')).toBeGreaterThan(S.indexOf('tm_sentry.js?v=2'));
+    expect(S.indexOf('tm_sentry.js?v=3')).toBeGreaterThan(iS);
+    expect(S.indexOf('firebase-app-compat.js')).toBeGreaterThan(S.indexOf('tm_sentry.js?v=3'));
     expect(riisu(S)).toContain("window._soloApp.functions('europe-west1').httpsCallable('soloLapsiKirjaudu')");
     expect(riisu(S)).toContain("window._soloApp.functions('europe-west1').httpsCallable('soloLupapyyntoEmail')");
   });
