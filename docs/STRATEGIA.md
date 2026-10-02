@@ -156,21 +156,36 @@ Business Finland Tempo -hakemus (50–100 k€) · KIHU peer-reviewed artikkeli.
 
 ## 5. AVOIMET TEHTÄVÄT
 
+> Viimeksi päivitetty: 3.10.2026 (valmiit todennettu koodista; ks. Valmiit)
+
+### Valmiit (todennettu koodista 3.10.2026)
+- [x] **P3 Vanhemman app** huoltajaEmail-haulla — `haeLapsiHuoltajalle`-CF (`functions/index.js`) palauttaa vain lapset, joiden `huoltajaEmail` == kutsujan autentikoitu email; Vanhempi_v2 käyttää sitä.
+- [x] **P4 Firestore Rules vanhemmalle** — `onLapsenHuoltaja` (`tm_admin/firestore.rules`): `token.email.lower() == huoltajaEmail.lower()`.
+- [x] **Streak → Firestore** — Pelaaja_v7 kirjaus päivittää pelaajadokumentin `streak` + `streak_paivitetty` samassa batchissa kuin kirjaus.
+- [x] **Testaus_v8 arkistoitu** — `archive/TalentMaster_Testaus_v8.html`; juuressa vain Testaus_v9.
+- [x] **Suostumusprosessi vaihe 2** — `lahetaMuistutukset`-CF + Adminin "Nudge" ja VP:n "Muistuta odottavia" (kuivaajo → vahvistus → lähetys).
+- [x] **SPF/DKIM** (SendGrid Domain Authentication) — kirjattu kuntoon `docs/TEKNINEN_YLEISKUVA.md`:ssä; DNS-asetus, ei todennettavissa koodista. **DMARC on avoin** (alla).
+- [x] **Raportointi → "Lähetä Head of Talentille"** — `lahetaRaportti()` (VP) kokoaa oikean raportin (kausikooste, RAE/taso, signaalit, huomiot) kopioitavaksi; ei enää pelkkä `toast()`. Sähköpostilähetystä ei ole.
+
 ### Kriittiset — pilottivalmius
 - [ ] Vie GitHubiin: TalentMaster_Testaus_v9.html (paikallisesti valmis)
-- [ ] Testaus_v9 pilottitesti — KPV/GrIFK → palautteen jälkeen v8 + Harjoitettavuus_v4 arkistoidaan
+- [ ] Testaus_v9 pilottitesti — KPV/GrIFK → palautteen jälkeen Harjoitettavuus_v4 arkistoidaan (v8 jo arkistossa)
 - [ ] P6-käynnistys: PIN-callback → `window._p7Pelaaja = {seuraId, pelaajaId}`
-- [ ] Streak → Firestore (nyt localStoragessa, pakollinen ennen AI-moduuleja)
 - [ ] Testaa VP_v22 KPV:llä — kirjaudu rasmus_broberg@icloud.com
 
 ### Tärkeät
-- [ ] P3 Vanhemman app: "Eemeli" → `where('huoltajaEmail','==',email)`
-- [ ] P4 Firestore Rules vanhemmalle: `resource.data.huoltajaEmail == request.auth.token.email`
 - [ ] P5 Fiilinki ikäfaasikohtaiseksi: U13 → leikkija-kieli
-- [ ] Suostumusprosessi vaihe 2: "Lähetä suostumuspyynnöt" -nappi Admin-sivulle
-- [ ] SPF/DKIM — sähköpostit menevät roskapostiin
 - [ ] Tyttöjen PHV-kaava ennen U14/15T-aktivointia (SJK)
 - [ ] AI-narratiivi debug: `ai_narratiivi` tyhjä vaikka kuva tallentuu
+
+### Avoimet (päätökset / tekninen velka, 3.10.2026)
+- [ ] **DMARC `p=none` → `quarantine`** (SPF/DKIM kunnossa; DMARC-politiikka kiristämättä)
+- [ ] **SendGrid EU-datasijainti** — avoin päätös (CLAUDE.md §39)
+- [ ] **Firebase SDK -versiot** — compat-appit käyttävät viittä eri versiota (10.7.1 / 9.23.0 / 9.22.0–2, CLAUDE.md §38); yhtenäistys vaatii oman PR:n
+- [ ] **Masterin offline** — Master_v16 ei ole offline-first PWA (Pelaaja/Vanhempi ovat)
+- [ ] **Khamis-Roche -kertoimet** — katso "Seuraavat sprintit"
+- [ ] **Tyttöjen PHV** — katso "Tärkeät"
+- [ ] **Syntymäaika puuttuu 82 %:lta pelaajista** (2.10.2026: 501 / 612 pelaajaa kymmenessä seurassa ilman `syntymaaika`-Timestampia; 111 kpl kaikki UTC-keskiyö) → adoptio / täydennys tuonnissa
 
 ### Seuraavat sprintit
 - [ ] HH-testit Excel-kierto — testaa KPV:llä end-to-end
@@ -189,7 +204,6 @@ Business Finland Tempo -hakemus (50–100 k€) · KIHU peer-reviewed artikkeli.
 4. Underdog-filtteri Pelaajat-tabiin (7. filter `BQ4 + FLEI ≥ 60`).
 5. i18n-engine (I18N + t() + applyI18n, data-i18n-attribuutit koko UI:hin).
 6. Filter-laskurit suodatinnappuloihin (chip-numero per kategoria).
-- **Avoin:** Raportointi-näkymän "Lähetä HoT:lle" = vain `toast()` (ei oikeaa toteutusta).
 
 ---
 
