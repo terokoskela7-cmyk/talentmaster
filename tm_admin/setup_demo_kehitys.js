@@ -444,6 +444,9 @@ function tiivistelma() {
   });
   return kokoelmat;
 }
+/* Kirjoittava ajo lisää jonoon dokumentin, jonka polku riippuu Auth-uidista (ei vielä dry-runissa) → mukaan laskentaan. */
+const AJON_LISAYS = { polku: SEURA_POLKU + '/kayttajat/{VP:n uid}', juuri: SEURA_POLKU + '/kayttajat' };
+
 /* Dry-runin yhteenveto: K1-luokittelu SAMALLA kirjastolla kuin näkymä (lib/tm_mittarit.js k1Tila, SWC normista).
    Ei kopioitua logiikkaa. Kaikki ikäluokat (12–14 v) ovat normissa, joten seuran varaskaalaa ei tarvita. */
 function yhteenveto() {
@@ -489,8 +492,10 @@ function yhteenveto() {
   console.log('    ' + REUNA.pysahtynyt.replace('demo_', '') + '  ' + 'pysähtynyt IDP'.padEnd(28) + (t0 ? 'tavoite luotu ' + t0.luotu.slice(0, 10) + ', arviot: ' + t0.arviot.map((a) => a.pvm + ' ' + a.dvi_suunta).join(', ') : 'PUUTTUU'));
 
   const juuret = {}; JONO.forEach(({ polku }) => { const o = polku.split('/'); const k = o.slice(0, Math.min(o.length, 3)).join('/'); juuret[k] = (juuret[k] || 0) + 1; });
+  if (DRY) juuret[AJON_LISAYS.juuri] = (juuret[AJON_LISAYS.juuri] || 0) + 1;
+  const yhtKpl = JONO.length + (DRY ? 1 : 0);
   const ulkona = JONO.filter(({ polku }) => polku !== SEURA_POLKU && !polku.startsWith(SEURA_POLKU + '/')).length;
-  console.log('\n  Kohdepolkujen juuret (' + JONO.length + ' dokumenttia, ' + (ulkona ? ulkona + ' DEMOSEURAN ULKOPUOLELLA' : 'kaikki ' + SEURA_POLKU + ' -alla') + '):');
+  console.log('\n  Kohdepolkujen juuret (' + yhtKpl + ' dokumenttia' + (DRY ? ' sis. ' + AJON_LISAYS.polku : '') + ', ' + (ulkona ? ulkona + ' DEMOSEURAN ULKOPUOLELLA' : 'kaikki ' + SEURA_POLKU + ' -alla') + '):');
   Object.keys(juuret).sort().forEach((k) => console.log('    ' + String(juuret[k]).padStart(5) + '  ' + k));
 }
 const korvaaTs = (o) => JSON.parse(JSON.stringify(o, (k, v) => (v && v.__ts ? 'Timestamp(' + v.__ts + ')' : v && v.__serverTimestamp ? 'serverTimestamp()' : v)));
@@ -502,6 +507,7 @@ async function main() {
   console.log('\n── Dokumentit kokoelmittain ──');
   const t = tiivistelma(); let yht = 0;
   Object.keys(t).forEach((k) => { console.log('  ' + String(t[k]).padStart(5) + '  ' + k); yht += t[k]; });
+  if (DRY) { console.log('  ' + String(1).padStart(5) + '  kayttajat (VP, ' + AJON_LISAYS.polku + ', kirjoitetaan Auth-käyttäjän luonnin jälkeen)'); yht += 1; }
   console.log('  ' + String(yht).padStart(5) + '  YHTEENSÄ (kaikissa demo: true)');
 
   let admin = null;
