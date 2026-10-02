@@ -40,6 +40,14 @@ if (kohdeArg && kohdeArg !== SEURA_ID) { console.error('KESKEYTETTY: kohde "' + 
 let _s = 20261002;
 function rnd() { _s |= 0; _s = (_s + 0x6D2B79F5) | 0; let t = Math.imul(_s ^ (_s >>> 15), 1 | _s); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }
 const valitse = (arr) => arr[Math.floor(rnd() * arr.length)];
+/* Oma generaattori avaimelle (esim. pelaaja + testi): siemen = DEMO-siemen + avain (FNV-1a) → jokainen testi saa oman
+   arvonnan, eikä päävirta (rnd) kulu → muu demodata pysyy ennallaan. Sama avain → sama sarja joka ajolla. */
+function rndAvaimelle() {
+  let h = 2166136261; const s = '20261002|' + Array.prototype.join.call(arguments, '|');
+  for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
+  let a = h >>> 0;
+  return function () { a = (a + 0x6D2B79F5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+}
 const r2 = (x) => Math.round(x * 100) / 100;
 const r1 = (x) => Math.round(x * 10) / 10;
 
@@ -113,6 +121,24 @@ JOUKKUEET.forEach((j) => {
 /* Reunatapaukset (brief): PH kummallakin kerralla, yli 9 kk testiväli, vain yksi mittaus, pysähtynyt IDP. */
 const REUNA = { ph_molemmat: 'demo_p14_03', ph_viimeinen: 'demo_t14_08', pitka_vali: 'demo_p14_07', yksi_mittaus: 'demo_t14_05', pysahtynyt: 'demo_p14_02' };
 
+/* Fyysisten testien kehitys: pelaajan taipumus + testikohtainen vaihtelu (yksikkö: normin SD / testikierros).
+   SWC = 0,2 SD, joten 0,22–0,30 SD osuu lähelle rajaa (osa ↑, osa →). Yläraja 0,42 SD pitää muutokset testin
+   yksikössä uskottavina: 30 m ≤ ~0,1 s, CMJ ≤ ~2 cm, MAS ≤ ~0,4 km/h (+ mittauskohina). Kasvupyrähdyksessä (PH) iso hyppy sallittu,
+   koska heitä ei verrata. Ei kiinteää kaavaa: osa paranee kaikissa, osa ei missään, useimmilla sekaisin. */
+function taipumus(pid) {
+  if (pid === REUNA.ph_molemmat || pid === REUNA.ph_viimeinen) return 'kasvupyrahdys';
+  const x = rndAvaimelle(pid, 'taipumus')();
+  return x < 0.18 ? 'kaikki_paranee' : x < 0.32 ? 'ei_parane' : 'sekaisin';
+}
+function testinTrendi(pid, testi, tp) {
+  const r = rndAvaimelle(pid, testi), suunta = r(), koko = r();
+  const paranee = (min) => min + koko * (0.42 - min), ennallaan = () => (koko - 0.5) * 0.24, laskee = () => -(0.22 + koko * 0.16);
+  if (tp === 'kasvupyrahdys') return suunta < 0.75 ? 0.8 + koko * 0.7 : -(0.3 + koko * 0.5);
+  if (tp === 'kaikki_paranee') return paranee(0.3);
+  if (tp === 'ei_parane') return suunta < 0.55 ? ennallaan() : laskee();
+  return suunta < 0.45 ? paranee(0.22) : suunta < 0.78 ? ennallaan() : laskee();
+}
+
 /* ── Seura, joukkueet, käyttäjät ── */
 kirjoita(SEURA_POLKU, {
   id: SEURA_ID, nimi: 'Demo FC', paketti: 'kehitystaso', laji: 'jalkapallo', aktiivinen: true,
@@ -145,7 +171,10 @@ const XFACTOR = ['demo_p14_01', 'demo_p14_09', 'demo_t14_02', 'demo_t14_06'];
 
 pelaajat.forEach((p) => {
   const j = p.j, P = SEURA_POLKU + '/pelaajat/' + p.id;
-  const trendi = p.i % 5 === 0 ? -0.45 : p.i % 5 === 1 ? 0 : p.i % 5 === 2 ? 1.0 + rnd() * 0.3 : 0.3 + rnd() * 0.3;   // heikkenee / ei muutu / paranee selvästi / paranee (SD / kierros)
+  const tp = taipumus(p.id), trendit = {};
+  TESTIT.forEach(([avain]) => { trendit[avain] = testinTrendi(p.id, avain, tp); });
+  if (p.i % 5 >= 2) rnd();   // päävirta kuluu kuten ennen testikohtaisia trendejä → biologia, arvioinnit ym. ennallaan
+  const arvioSuunta = p.i % 5 === 0 ? -1 : p.i % 5 === 1 ? 0 : 1;   // D2–D5-arviointien suunta (ei sidottu fyysisiin testeihin)
   const zPohja = -0.6 + rnd() * 1.2;
   let pvmt = j.id === 't12_demo' ? T12_TESTIPVM.slice() : TESTIPVM.slice();
   if (p.id === REUNA.pitka_vali) pvmt = [TESTIPVM[0], TESTIPVM[2]];   // 12 kk väli (> 9 kk, ≤ 15 kk)
@@ -163,11 +192,10 @@ pelaajat.forEach((p) => {
     // Arvot SAMAN viiteiän normista (ensimmäinen kierros) → kierrosten ero = todellinen muutos (trendi), ei normin ikäsiirtymää
     const ika = EN.normiIka(j.sv, pvmt[0]);          // arvojen tuottaminen (viiteikä)
     const mittausIka = EN.normiIka(j.sv, pvm);       // tasot mittaushetken iällä (kuten Excel_Tuonti, normiIka §26)
-    const z = zPohja + trendi * kierros;
     const hv = {};
     TESTIT.forEach(([avain, eer, pienempi, kmh]) => {
       if (avain === 'mas' && j.id === 't12_demo') return;   // T12: ei MAS-testiä (realistinen vajaa patteri)
-      hv[avain] = normiArvo(eer, ika, j.sp, z + (rnd() - 0.5) * 0.15, pienempi, kmh);
+      hv[avain] = normiArvo(eer, ika, j.sp, zPohja + trendit[avain] * kierros + (rnd() - 0.5) * 0.15, pienempi, kmh);
     });
     // Puolet pisteistä Excel-muotoon (tasot mukana), puolet Testaus_v9-muotoon (raaka + alusta, ei tasoja → K1b laskee)
     const excelMuoto = (p.i + k) % 2 === 0;
@@ -208,7 +236,7 @@ pelaajat.forEach((p) => {
     const kohteet = {};
     Object.keys(D_AVAIMET).forEach((dim) => D_AVAIMET[dim].forEach((avain) => {
       const pohja = 2 + Math.floor(rnd() * 3);
-      const v = Math.max(1, Math.min(5, pohja + (k === 1 && trendi > 0 && rnd() < 0.6 ? 1 : 0) - (k === 1 && trendi < 0 && rnd() < 0.4 ? 1 : 0)));
+      const v = Math.max(1, Math.min(5, pohja + (k === 1 && arvioSuunta > 0 && rnd() < 0.6 ? 1 : 0) - (k === 1 && arvioSuunta < 0 && rnd() < 0.4 ? 1 : 0)));
       kohteet[avain] = { arvo: v, pvm: pvmIso };
     }));
     return { pvmIso, kohteet };
@@ -416,11 +444,61 @@ function tiivistelma() {
   });
   return kokoelmat;
 }
+/* Dry-runin yhteenveto: K1-luokittelu SAMALLA kirjastolla kuin näkymä (lib/tm_mittarit.js k1Tila, SWC normista).
+   Ei kopioitua logiikkaa. Kaikki ikäluokat (12–14 v) ovat normissa, joten seuran varaskaalaa ei tarvita. */
+function yhteenveto() {
+  const M = require(path.join(__dirname, '..', 'lib', 'tm_mittarit.js'));
+  const fi = (x, d) => String(Math.round(x * Math.pow(10, d)) / Math.pow(10, d)).replace('.', ',');
+  const yks = { lin5m: 's', lin10m: 's', lin30m: 's', cmj: 'cm', mas: 'km/h', sm_juoksu: 's', sm_pallo: 's' };
+  const pDocs = JONO.filter((x) => /^seurat\/demo-fc\/pelaajat\/[^/]+$/.test(x.polku)).map((x) => x.data);
+  const bioDocs = {}; JONO.forEach((x) => { const o = x.polku.split('/'); if (o[4] === 'biologinen_ika') (bioDocs[o[3]] = bioDocs[o[3]] || []).push(x.data); });
+  const tilat = {};   // pelaajaId → { testi → k1Tila }
+  pDocs.forEach((p) => {
+    tilat[p.pelaajaId] = {};
+    Object.keys(M.TESTIT).forEach((t) => {
+      if (!(p.hh_historia || []).some((h) => typeof h[t] === 'number')) return;
+      tilat[p.pelaajaId][t] = M.k1Tila({ historia: p.hh_historia, testi: t, sukupuoli: p.sukupuoli, syntymaVuosi: p.syntymaVuosi, joukkue: p.joukkue, bioDocs: bioDocs[p.pelaajaId] });
+    });
+  });
+  console.log('\n── YHTEENVETO (K1, lib/tm_mittarit.js · SWC normista, sama luokittelu kuin näkymässä) ──');
+  console.log('  testi        parani  vaihtelun sis.  laski  ei vk  |  SWC-raja          |  muutos (vertailukelpoiset) mediaani / max');
+  Object.keys(M.TESTIT).forEach((t) => {
+    const r = Object.values(tilat).map((x) => x[t]).filter(Boolean); if (!r.length) return;
+    const n = (k) => r.filter((x) => x.tila === k).length;
+    const swc = r.map((x) => x.swc).filter((x) => typeof x === 'number');
+    const muut = r.filter((x) => x.tila !== 'ei_vertailukelpoinen').map((x) => Math.abs(x.muutos)).sort((a, b) => a - b);
+    const d = yks[t] === 'cm' ? 1 : yks[t] === 's' ? 3 : 2;
+    console.log('  ' + M.TESTIT[t].nimi.padEnd(15) + String(n('vahva_ylos')).padStart(4) + String(n('vaihtelu') + n('mahd_ylos') + n('mahd_alas')).padStart(14)
+      + String(n('vahva_alas')).padStart(9) + String(n('ei_vertailukelpoinen')).padStart(7) + '  |  ' + (fi(Math.min.apply(null, swc), d) + '–' + fi(Math.max.apply(null, swc), d) + ' ' + yks[t]).padEnd(17)
+      + ' |  ' + (muut.length ? fi(muut[Math.floor(muut.length / 2)], d) + ' / ' + fi(muut[muut.length - 1], d) + ' ' + yks[t] : '–'));
+  });
+  const vertailtavat = (id) => Object.values(tilat[id]).filter((x) => x.tila !== 'ei_vertailukelpoinen');
+  const kaikki = Object.keys(tilat).filter((id) => vertailtavat(id).length && vertailtavat(id).every((x) => x.tila === 'vahva_ylos'));
+  const eiMitaan = Object.keys(tilat).filter((id) => vertailtavat(id).length && !vertailtavat(id).some((x) => x.tila === 'vahva_ylos'));
+  const lyh = (a) => a.map((id) => id.replace('demo_', '')).join(', ') || '–';
+  console.log('\n  Kaikki vertailukelpoiset testit paranevat (' + kaikki.length + '): ' + lyh(kaikki));
+  console.log('  Mikään testi ei parane (' + eiMitaan.length + '): ' + lyh(eiMitaan));
+  console.log('  Muut ' + (Object.keys(tilat).length - kaikki.length - eiMitaan.length) + ' pelaajaa: sekaisin tai ei vertailukelpoista paria');
+
+  console.log('\n  Reunatapaukset:');
+  const kuvaa = (id) => { const x = Object.values(tilat[id] || {}); const syyt = {}; x.forEach((k) => { const s = k.tila === 'ei_vertailukelpoinen' ? 'ei vk: ' + k.syy : k.symboli + (k.pitkaVali ? ' (pitkä väli)' : ''); syyt[s] = (syyt[s] || 0) + 1; }); return Object.keys(syyt).map((s) => syyt[s] + '× ' + s).join(', '); };
+  const idpDoc = (JONO.find((x) => x.polku === SEURA_POLKU + '/pelaajat/' + REUNA.pysahtynyt + '/idp_kausi/' + VUOSI) || {}).data;
+  const t0 = idpDoc && idpDoc.tavoitteet[0];
+  [['PH kummallakin mittauksella', REUNA.ph_molemmat], ['PH viimeisellä mittauksella', REUNA.ph_viimeinen], ['yli 9 kk testiväli', REUNA.pitka_vali], ['vain yksi mittaus', REUNA.yksi_mittaus]]
+    .forEach(([nimi, id]) => console.log('    ' + id.replace('demo_', '') + '  ' + nimi.padEnd(28) + kuvaa(id)));
+  console.log('    ' + REUNA.pysahtynyt.replace('demo_', '') + '  ' + 'pysähtynyt IDP'.padEnd(28) + (t0 ? 'tavoite luotu ' + t0.luotu.slice(0, 10) + ', arviot: ' + t0.arviot.map((a) => a.pvm + ' ' + a.dvi_suunta).join(', ') : 'PUUTTUU'));
+
+  const juuret = {}; JONO.forEach(({ polku }) => { const o = polku.split('/'); const k = o.slice(0, Math.min(o.length, 3)).join('/'); juuret[k] = (juuret[k] || 0) + 1; });
+  const ulkona = JONO.filter(({ polku }) => polku !== SEURA_POLKU && !polku.startsWith(SEURA_POLKU + '/')).length;
+  console.log('\n  Kohdepolkujen juuret (' + JONO.length + ' dokumenttia, ' + (ulkona ? ulkona + ' DEMOSEURAN ULKOPUOLELLA' : 'kaikki ' + SEURA_POLKU + ' -alla') + '):');
+  Object.keys(juuret).sort().forEach((k) => console.log('    ' + String(juuret[k]).padStart(5) + '  ' + k));
+}
 const korvaaTs = (o) => JSON.parse(JSON.stringify(o, (k, v) => (v && v.__ts ? 'Timestamp(' + v.__ts + ')' : v && v.__serverTimestamp ? 'serverTimestamp()' : v)));
 
 async function main() {
   console.log('════ setup_demo_kehitys.js · ' + (DRY ? 'DRY-RUN (ei kirjoita mitään)' : 'KIRJOITTAVA AJO') + ' ════');
   console.log('Kohde: ' + SEURA_POLKU + ' (muihin polkuihin kirjoitus estetty)');
+  yhteenveto();
   console.log('\n── Dokumentit kokoelmittain ──');
   const t = tiivistelma(); let yht = 0;
   Object.keys(t).forEach((k) => { console.log('  ' + String(t[k]).padStart(5) + '  ' + k); yht += t[k]; });
@@ -448,7 +526,7 @@ async function main() {
     if (c.seuraId && c.seuraId !== SEURA_ID) { console.error('  KESKEYTETTY: ' + VP_EMAIL + ' kuuluu seuraan ' + c.seuraId); process.exit(3); }
     console.log('  ' + VP_EMAIL + ' on olemassa → päivitetään salasana (TM_DEMO_PW) ja claims ' + JSON.stringify(claims));
   } else {
-    console.log('  LUODAAN Auth-käyttäjä ' + VP_EMAIL + ' · salasana ympäristömuuttujasta TM_DEMO_PW (' + (process.env.TM_DEMO_PW ? 'asetettu' : 'EI ASETETTU') + ')');
+    console.log('  LUODAAN Auth-käyttäjä ' + VP_EMAIL + ' · salasana ympäristömuuttujasta TM_DEMO_PW' + (DRY ? ' (luetaan vasta kirjoittavassa ajossa)' : ''));
     console.log('  custom claims ' + JSON.stringify(claims));
   }
   console.log('  + ' + SEURA_POLKU + '/kayttajat/{uid}: rooli vp, aktiivinen, claimsAsetettu, demo: true');
@@ -463,7 +541,7 @@ async function main() {
     + ' · vain yksi mittaus: ' + REUNA.yksi_mittaus + ' · pysähtynyt IDP: ' + REUNA.pysahtynyt);
   console.log('  Lohko 1: C1 Täyttynyt (135/130) · C3 havainnot Raiteilla omaa tavoitetta 50 vasten (Palloliitto 250: Riskissä) · a1 Riskissä · J3 Puuttuu');
 
-  if (DRY) { console.log('\nDRY-RUN valmis. Mitään ei kirjoitettu. Kirjoittava ajo: TM_DEMO_PW=… node tm_admin/setup_demo_kehitys.js --kirjoita'); return; }
+  if (DRY) { console.log('\nDRY-RUN valmis. Mitään ei kirjoitettu. Kirjoittava ajo omassa terminaalissa: read -s TM_DEMO_PW && export TM_DEMO_PW && node tm_admin/setup_demo_kehitys.js --kirjoita'); return; }
 
   /* ── KIRJOITTAVA AJO ── */
   if (!admin) throw new Error('firebase-admin puuttuu');
@@ -495,4 +573,4 @@ async function main() {
 }
 
 if (require.main === module) main().then(() => process.exit(0)).catch((e) => { console.error('Virhe:', e.message); process.exit(1); });
-module.exports = { JONO, SEURA_POLKU, kirjoita, tiivistelma };
+module.exports = { JONO, SEURA_POLKU, kirjoita, tiivistelma, yhteenveto };
