@@ -145,7 +145,7 @@ const XFACTOR = ['demo_p14_01', 'demo_p14_09', 'demo_t14_02', 'demo_t14_06'];
 
 pelaajat.forEach((p) => {
   const j = p.j, P = SEURA_POLKU + '/pelaajat/' + p.id;
-  const trendi = p.i % 5 === 0 ? -0.45 : p.i % 5 === 1 ? 0 : 0.3 + rnd() * 0.3;   // osa heikkenee, osa ei muutu, osa paranee (SD-yksikköä / kierros)
+  const trendi = p.i % 5 === 0 ? -0.45 : p.i % 5 === 1 ? 0 : p.i % 5 === 2 ? 1.0 + rnd() * 0.3 : 0.3 + rnd() * 0.3;   // heikkenee / ei muutu / paranee selvästi / paranee (SD / kierros)
   const zPohja = -0.6 + rnd() * 1.2;
   let pvmt = j.id === 't12_demo' ? T12_TESTIPVM.slice() : TESTIPVM.slice();
   if (p.id === REUNA.pitka_vali) pvmt = [TESTIPVM[0], TESTIPVM[2]];   // 12 kk väli (> 9 kk, ≤ 15 kk)
@@ -198,6 +198,8 @@ pelaajat.forEach((p) => {
   const ikaNyt = EN.normiIka(j.sv, viim.pvm);
   const hhNyt = EN.laskeHHTaso({ lin30m: viim.lin30m, hyppy_cj: viim.cmj, mas: viim.mas }, ikaNyt, j.sp);
   const d1Nyt = EN.laskeD1Joustava(viim, ikaNyt, j.sp);
+  // D2 testeistä kuten Excel_Tuonti: H-H syöttö/pujottelu puuttuu → sm_pallo-varapolku (d2SmPalloFallback) → Hidden Gem (S3)
+  const d2Nyt = EN.d2SmPalloFallback({ sm_pallo_viimeisin: viim.sm_pallo }, ikaNyt, j.sp, false);
   const hvNyt = {}; Object.keys(viim).forEach((k) => { if (!['pvm', 'alusta', 'hh_taso', 'd1_taso'].includes(k)) hvNyt[k] = viim[k]; });
 
   // Arviointikerrat D2–D5 kahdelta kerralta (sama arvioija). Osa paranee, osa ei.
@@ -245,6 +247,8 @@ pelaajat.forEach((p) => {
     suostumusTila: 'annettu', tila: 'aktiivinen', lahde: 'demo',
     hh_viimeisin: hvNyt, hh_pvm: viim.pvm, hh_taso: hhNyt, d1_taso: d1Nyt ? d1Nyt.taso : null, d1_lahde: d1Nyt ? 'hh' : null,
     d1_kattavuus: d1Nyt ? d1Nyt.kattavuus : null, d1_pvm: viim.pvm, hh_historia: historia,
+    d2_taso: d2Nyt ? d2Nyt.taso : null, d2_lahde: d2Nyt ? d2Nyt.lahde : null, d2_pvm: d2Nyt ? viim.pvm : null,
+    sm_pallo_viimeisin: viim.sm_pallo, sm_juoksu_viimeisin: viim.sm_juoksu,
     phv_tila: viimBio.phv_tila_koodi, biologinenIka_viimeisin: Object.assign({}, viimBio), kehitysvaihe_kaista: viimBio.kehitysvaihe_kaista,
     kasvutahti_cm_v: viimBio.kasvutahti_cm_v, kasvutahti_vyohyke: viimBio.kasvutahti_vyohyke,
     arviointi_havaittu: viimKohteet, arviointi_pvm: ARVIOINTIPVM[1], arviointi_kehys: 'palloliitto',
@@ -388,7 +392,7 @@ kirjoita(SEURA_POLKU + '/kehitysasetukset/' + VUOSI, {
   vuosi: VUOSI,
   tavoitteet: {
     A_kehittyvat: { arvo: 60 },
-    C3_havainnot: { arvo: 50 },      // seuran tavoite Palloliiton tasoa (250) matalampi → rivillä myös Palloliiton tila
+    C3_havainnot: { arvo: 35 },      // seuran tavoite Palloliiton tasoa (250) matalampi → rivillä myös Palloliiton tila; 27 nyt, ennuste 36 → Raiteilla
     C2a_kohtaamiset: { arvo: 40 },
     C3_a1: { arvo: 8 },
   },

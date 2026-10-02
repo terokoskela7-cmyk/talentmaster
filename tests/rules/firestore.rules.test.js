@@ -3503,3 +3503,47 @@ describe('v3.33 · audit: selain ei lue eikä kirjoita (myös SA)', () => {
     }
   });
 });
+
+// ═══════════════════════════════════════════════════════════════════════════
+// v3.34 — Kehitystilanne v0: kehitysasetukset, seuratuki, kausikuvat
+// ═══════════════════════════════════════════════════════════════════════════
+describe('v3.34 · kehitysasetukset ja seuratuki', () => {
+  beforeEach(async () => { await seedAdminDoc(); await seedSeuraAndPelaaja(); });
+  const utj = () => testEnv.authenticatedContext('utj-fcl-001', { rooli: 'urheilutoimenjohtaja', seuraId: SEURA_A });
+  for (const kok of ['kehitysasetukset', 'seuratuki']) {
+    it(kok + ': VP ja urheilutoimenjohtaja kirjoittavat; sihteeri lukee mutta ei kirjoita; valmentaja ei kirjoita eikä lue', async () => {
+      const ref = (ctx) => doc(ctx.firestore(), 'seurat', SEURA_A, kok, '2026');
+      await assertSucceeds(setDoc(ref(vpContext(SEURA_A)), { vuosi: 2026 }));
+      await assertSucceeds(setDoc(ref(utj()), { vuosi: 2026, paivitetty: 1 }, { merge: true }));
+      await assertSucceeds(getDoc(ref(sihteeriContext(SEURA_A))));
+      await assertFails(setDoc(ref(sihteeriContext(SEURA_A)), { vuosi: 2026 }));
+      await assertFails(setDoc(ref(valmentajaContext(VALM_A_UID, SEURA_A)), { vuosi: 2026 }));
+      await assertFails(getDoc(ref(valmentajaContext(VALM_A_UID, SEURA_A))));
+      await assertFails(deleteDoc(ref(vpContext(SEURA_A))));
+    });
+    it(kok + ': toisen seuran VP ei lue eikä kirjoita', async () => {
+      const toinen = testEnv.authenticatedContext('vp-kpv-001', { rooli: 'vp', seuraId: SEURA_B });
+      await assertFails(setDoc(doc(toinen.firestore(), 'seurat', SEURA_A, kok, '2026'), { vuosi: 2026 }));
+      await assertFails(getDoc(doc(toinen.firestore(), 'seurat', SEURA_A, kok, '2026')));
+    });
+  }
+});
+
+describe('v3.34 · kausikuvat (vain luonti, vain demoseura kunnes GDPR-poisto kattaa kausikuvat)', () => {
+  beforeEach(async () => { await seedAdminDoc(); await seedSeuraAndPelaaja(); });
+  const kuva = { kausi: '2026', luotu: 1, pelaajat: [{ id: 'p1' }] };
+  it('oikea (ei-demo) seura: luonti estetty myös VP:ltä', async () => {
+    await assertFails(setDoc(doc(vpContext(SEURA_A).firestore(), 'seurat', SEURA_A, 'kausikuvat', '2026'), kuva));
+  });
+  it('demoseura: VP luo kerran; päivitys ja poisto estetty; toinen tallennus samalle kaudelle estetty', async () => {
+    await testEnv.withSecurityRulesDisabled(async (ctx) => { await setDoc(doc(ctx.firestore(), 'seurat', SEURA_A), { nimi: 'FC Lahti', demo: true }, { merge: true }); });
+    const ref = doc(vpContext(SEURA_A).firestore(), 'seurat', SEURA_A, 'kausikuvat', '2026');
+    await assertSucceeds(setDoc(ref, kuva));
+    await assertFails(setDoc(ref, kuva));                       // olemassa → update → estetty
+    await assertFails(updateDoc(ref, { pelaajat: [] }));
+    await assertFails(deleteDoc(ref));
+    await assertSucceeds(getDoc(doc(sihteeriContext(SEURA_A).firestore(), 'seurat', SEURA_A, 'kausikuvat', '2026')));
+    await assertFails(setDoc(doc(sihteeriContext(SEURA_A).firestore(), 'seurat', SEURA_A, 'kausikuvat', '2027'), Object.assign({}, kuva, { kausi: '2027' })));
+    await assertFails(setDoc(doc(vpContext(SEURA_A).firestore(), 'seurat', SEURA_A, 'kausikuvat', '2027'), { kausi: '2027', luotu: 1 }));   // pelaajat puuttuu
+  });
+});
