@@ -42,7 +42,7 @@ Seura.html                                 Vanhemman sähköposti
 ### Tekniset edellytykset
 
 - [ ] **SendGrid-plan tarkistettu** — päiväkatto riittää (Free: 100/pv, Essentials: 100k/kk). Tarkista: [app.sendgrid.com](https://app.sendgrid.com) → Settings → Account Details.
-- [ ] **SPF/DKIM kunnossa** — SendGrid Sender Authentication → Domain Authentication. Ilman tätä bulk-viestit menevät roskapostiin. Tarkista: SendGrid → Settings → Sender Authentication.
+- [x] **SPF/DKIM kunnossa** — SendGrid Sender Authentication → Domain Authentication. Ilman tätä bulk-viestit menevät roskapostiin. Todennettu DNS:stä 2.10.2026: SPF `include:sendgrid.net`, DKIM `s1._domainkey` → SendGrid, DMARC `p=none` (raportit dmarc@talentmasterid.com, tulleet 22.9. alkaen). Avoin: `p=none` → `p=quarantine`, kun raportit puhtaat.
 - [ ] **CF:t deployattu** — GitHub Actions `deploy_functions.yml` viimeisin ajo vihreä. Tarkista: [Actions](https://github.com/terokoskela7-cmyk/talentmaster/actions/workflows/deploy_functions.yml).
 - [ ] **Firestore Rules deployattu** — `tm_admin/firestore.rules` versio vastaa Consoleen deployattua. Tarkista Firebase Console → Firestore → Rules.
 - [ ] **GitHub Pages päivitetty** — Seura.html ja Rekisterointi_Suostumus.html tuoreimmat versiot livenä (`?v=N` tarkistus).
@@ -190,7 +190,7 @@ Lähetä seuran VP:lle / WhatsApp-ryhmään:
 ```
 ☐ End-to-end testi omalla osoitteella OK
 ☐ SendGrid päiväkatto riittää
-☐ SPF/DKIM vahvistettu
+☑ SPF/DKIM vahvistettu (DNS 2.10.2026; DMARC p=none, kiristys avoin)
 ☐ Ennakkoviesti seuran VP:lle / WhatsApp-ryhmään
 ☐ Excel valmis (joukkueittain erillinen tai yksi + suodatus)
 ☐ Seura.html tuorein versio (?v=N)

@@ -50,7 +50,7 @@ Kaksi tuotetta samalla koodipohjalla:
 | Cloud Functions | **Node 22, `europe-west1`** | `firebase.app().functions('europe-west1')` — EI `firebase.functions()` (→ us-central1, hiljainen fail). |
 | Storage | Firebase Storage, europe-west1 | Kenttähavaintokuvat. |
 | Hosting | **GitHub Pages + Fastly CDN** | ~10 min cache → versionhallinta `?v=N` / `?cb=`. |
-| Sähköposti | **SendGrid** Cloud Functionissa | Firebase Extension ei toimi eur3:ssa. SPF/DKIM/DMARC kunnossa. |
+| Sähköposti | **SendGrid** Cloud Functionissa | Firebase Extension ei toimi eur3:ssa. SPF ja DKIM kunnossa, DMARC `p=none` (kiristys `quarantine`-tilaan avoin; DNS todennettu 2.10.2026). |
 
 - **Repo:** `terokoskela7-cmyk/talentmaster` · **Pages:** `https://terokoskela7-cmyk.github.io/talentmaster/` · **Domain:** talentmasterid.com
 - **Firebase-projekti:** `talentmaster-pilot` (Blaze). API-avaimet **Secret Managerissa** (`runWith({secrets})`), ei selaimessa, ei plaintext-envissä.

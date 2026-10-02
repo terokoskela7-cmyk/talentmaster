@@ -188,7 +188,7 @@ nyt datankeruu + perheiden adoptio.
 ## 🔄 KESKEN — Sprint 4 jatkuu
 
 ### Kriittiset bugit
-- [ ] **🔴 SPF/DKIM puuttuu** — sähköpostit menevät roskapostiin, katkaisee pelaajaprosessin
+- [x] **SPF/DKIM/DMARC** (ennen 🔴 puuttui → sähköpostit roskapostiin) — Todennettu DNS:stä 2.10.2026: SPF `include:sendgrid.net`, DKIM `s1._domainkey` → SendGrid, DMARC `p=none` (raportit dmarc@talentmasterid.com, tulleet 22.9. alkaen). Avoin: `p=none` → `p=quarantine`, kun raportit puhtaat.
 - [ ] **🔴 Huoltajan kirjautuminen testaamatta** — Rules OK, ei vahvistettu oikealla tilillä
 - [ ] **🟡 Fiilinki-kysely väärä U13-vaiheessa** — ikävaihe-tunnistus + leikkija-kieli
 - [ ] **🟡 joukkueNimi tallentuu ID:nä** — `Rekisterointi_Suostumus.html`

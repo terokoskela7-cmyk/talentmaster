@@ -162,13 +162,13 @@ Business Finland Tempo -hakemus (50–100 k€) · KIHU peer-reviewed artikkeli.
 - [x] **P3 Vanhemman app** huoltajaEmail-haulla — `haeLapsiHuoltajalle`-CF (`functions/index.js`) palauttaa vain lapset, joiden `huoltajaEmail` == kutsujan autentikoitu email; Vanhempi_v2 käyttää sitä.
 - [x] **P4 Firestore Rules vanhemmalle** — `onLapsenHuoltaja` (`tm_admin/firestore.rules`): `token.email.lower() == huoltajaEmail.lower()`.
 - [x] **Streak → Firestore** — Pelaaja_v7 kirjaus päivittää pelaajadokumentin `streak` + `streak_paivitetty` samassa batchissa kuin kirjaus.
+- [x] **Vie GitHubiin: Testaus_v9** — `TalentMaster_Testaus_v9.html` on repossa (juuressa).
 - [x] **Testaus_v8 arkistoitu** — `archive/TalentMaster_Testaus_v8.html`; juuressa vain Testaus_v9.
 - [x] **Suostumusprosessi vaihe 2** — `lahetaMuistutukset`-CF + Adminin "Nudge" ja VP:n "Muistuta odottavia" (kuivaajo → vahvistus → lähetys).
-- [x] **SPF/DKIM** (SendGrid Domain Authentication) — kirjattu kuntoon `docs/TEKNINEN_YLEISKUVA.md`:ssä; DNS-asetus, ei todennettavissa koodista. **DMARC on avoin** (alla).
+- [x] **SPF/DKIM/DMARC** (SendGrid Domain Authentication) — Todennettu DNS:stä 2.10.2026: SPF `include:sendgrid.net`, DKIM `s1._domainkey` → SendGrid, DMARC `p=none` (raportit dmarc@talentmasterid.com, tulleet 22.9. alkaen). Avoin: `p=none` → `p=quarantine`, kun raportit puhtaat.
 - [x] **Raportointi → "Lähetä Head of Talentille"** — `lahetaRaportti()` (VP) kokoaa oikean raportin (kausikooste, RAE/taso, signaalit, huomiot) kopioitavaksi; ei enää pelkkä `toast()`. Sähköpostilähetystä ei ole.
 
 ### Kriittiset — pilottivalmius
-- [ ] Vie GitHubiin: TalentMaster_Testaus_v9.html (paikallisesti valmis)
 - [ ] Testaus_v9 pilottitesti — KPV/GrIFK → palautteen jälkeen Harjoitettavuus_v4 arkistoidaan (v8 jo arkistossa)
 - [ ] P6-käynnistys: PIN-callback → `window._p7Pelaaja = {seuraId, pelaajaId}`
 - [ ] Testaa VP_v22 KPV:llä — kirjaudu rasmus_broberg@icloud.com
@@ -179,7 +179,7 @@ Business Finland Tempo -hakemus (50–100 k€) · KIHU peer-reviewed artikkeli.
 - [ ] AI-narratiivi debug: `ai_narratiivi` tyhjä vaikka kuva tallentuu
 
 ### Avoimet (päätökset / tekninen velka, 3.10.2026)
-- [ ] **DMARC `p=none` → `quarantine`** (SPF/DKIM kunnossa; DMARC-politiikka kiristämättä)
+- [ ] **DMARC `p=none` → `p=quarantine`**, kun raportit (dmarc@talentmasterid.com) ovat puhtaat (SPF/DKIM todennettu DNS:stä 2.10.2026)
 - [ ] **SendGrid EU-datasijainti** — avoin päätös (CLAUDE.md §39)
 - [ ] **Firebase SDK -versiot** — compat-appit käyttävät viittä eri versiota (10.7.1 / 9.23.0 / 9.22.0–2, CLAUDE.md §38); yhtenäistys vaatii oman PR:n
 - [ ] **Masterin offline** — Master_v16 ei ole offline-first PWA (Pelaaja/Vanhempi ovat)
