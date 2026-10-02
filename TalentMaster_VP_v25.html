@@ -32,7 +32,7 @@
 
 <script src="lib/tm_eerikkila_normit.js?v=46"></script>   <!-- v43: D2-kortti d2_taso-ensin (renderKehityskorttiHTML, PR #264 · §30/#262) -->
 <script src="lib/tm_historia.js?v=1"></script>
-<script src="lib/tm_mittarit.js?v=3"></script>   <!-- Kehitystilanne v0: mittarikirjasto; myös HIDDEN_GEM_FLEI + laskeD2Taso + laskeHiddenGem (siirretty VP:stä) -->
+<script src="lib/tm_mittarit.js?v=4"></script>   <!-- Kehitystilanne v0: mittarikirjasto; myös HIDDEN_GEM_FLEI + laskeD2Taso + laskeHiddenGem (siirretty VP:stä) -->
 <script src="lib/tm_pelihavainto_valinta.js?v=1"></script>   <!-- §7: YKSI sisäänkäynti pelihavaintoon (jaettu, ei kopioita) -->
 <script src="lib/tm_arviointi_historia.js?v=1"></script>   <!-- H1: arviointikerrat (append-only) + tmKausi + kooste; PURE, ks. lib-header -->          <!-- P2.1: hh_historia/tki_historia Pikakirjauksessa (tmHhSnapshot/tmTkiSnapshot/tmHistoriaLisaa) -->
 <script src="lib/tm_tki_core.js?v=1"></script>         <!-- P2.1: TKI-ytimen extrakti (IIFE → TM_TESTIT); antaa VP:lle TKI-pariteetin (VP ei voi ladata testit_indeksit.js:ää — const-törmäys). ENNEN tm_pikakentat.js:ää. -->
@@ -10525,17 +10525,17 @@ function _vpSulkuJaksovali(jf) {
   const alkoi = jf && jf.alkoi ? String(jf.alkoi).slice(0, 10) : null;
   const vk = (jf && jf.kesto_vk) || 4;
   const loppuD = alkoi ? new Date(new Date(alkoi).getTime() + vk * 7 * 86400000) : new Date();
-  return { alkoi: alkoi, loppu: loppuD.toISOString().slice(0, 10) };
+  return { alkoi: alkoi, loppu: alkoi ? loppuD.toISOString().slice(0, 10) : tmPaivaIso(loppuD) };
 }
 // Teemaharjoitukset (kalenteri) joilla treeniteema.avain === jf.konsepti_avain jaksovälillä.
 function _vpSulkuSessiot(jf, alkoi, loppu) {
   return (_kalenteriTapahtumat || []).filter(function (t) {
     if (t.poistettu || !t.treeniteema || t.treeniteema.avain !== jf.konsepti_avain) return false;
-    const pvm = (t.alkaa && t.alkaa.toDate) ? t.alkaa.toDate().toISOString().slice(0, 10) : (t.pvm || '');
+    const pvm = (t.alkaa && t.alkaa.toDate) ? tmPaivaIso(t.alkaa.toDate()) : (t.pvm || '');
     if (alkoi && pvm < alkoi) return false;
     if (pvm > loppu) return false;
     return true;
-  }).map(function (t) { return { id: t.id, treeniteema: t.treeniteema, pelaajat_id: t.pelaajat_id || [], pvm: (t.alkaa && t.alkaa.toDate) ? t.alkaa.toDate().toISOString().slice(0, 10) : (t.pvm || '') }; });
+  }).map(function (t) { return { id: t.id, treeniteema: t.treeniteema, pelaajat_id: t.pelaajat_id || [], pvm: (t.alkaa && t.alkaa.toDate) ? tmPaivaIso(t.alkaa.toDate()) : (t.pvm || '') }; });
 }
 
 // S2 — EPPP "peli edellä" -edistymäkooste (PUHDAS, testattava). Teknis-taktinen konsepti + D4 ADAR +
@@ -13071,7 +13071,7 @@ function _vpViikkoOttelut(p, st) {
   const src = (typeof _kalenteriTapahtumat !== 'undefined' && _kalenteriTapahtumat) ? _kalenteriTapahtumat : [];
   src.forEach(function (t) {
     if (t.poistettu || t.tyyppi !== 'ottelu') return;
-    const iso = (t.alkaa && t.alkaa.toDate) ? t.alkaa.toDate().toISOString().slice(0, 10) : (t.pvm || '');
+    const iso = (t.alkaa && t.alkaa.toDate) ? tmPaivaIso(t.alkaa.toDate()) : (t.pvm || '');
     if (!isot[iso]) return;
     const kuuluu = (t.joukkue && String(t.joukkue).toLowerCase() === jkl) || (Array.isArray(t.pelaajat_id) && t.pelaajat_id.indexOf(p.id) >= 0);
     if (kuuluu && out.indexOf(iso) < 0) out.push(iso);
@@ -13451,7 +13451,7 @@ window._vpViikkoTayta = async function (pid) {
   const treeniPvm = {};
   (_kalenteriTapahtumat || []).forEach(function (t) {
     if (t.poistettu) return;
-    const iso = (t.alkaa && t.alkaa.toDate) ? t.alkaa.toDate().toISOString().slice(0, 10) : (t.pvm || '');
+    const iso = (t.alkaa && t.alkaa.toDate) ? tmPaivaIso(t.alkaa.toDate()) : (t.pvm || '');
     if (!viikonIsot[iso]) return;
     const kuuluu = (t.joukkue && String(t.joukkue).toLowerCase() === jkl) || (Array.isArray(t.pelaajat_id) && t.pelaajat_id.indexOf(p.id) >= 0);
     if (!kuuluu) return;
@@ -13516,7 +13516,7 @@ async function _vpViikkoLataa(p) {
   // Läsnäolo: hae viikon kalenteri-sessioiden lasnaolijat (best-effort, ei render-polku §26)
   try {
     (_kalenteriTapahtumat || []).forEach(function (t) {
-      const iso = (t.alkaa && t.alkaa.toDate) ? t.alkaa.toDate().toISOString().slice(0, 10) : (t.pvm || '');
+      const iso = (t.alkaa && t.alkaa.toDate) ? tmPaivaIso(t.alkaa.toDate()) : (t.pvm || '');
       if (st.rows[iso] && !st.rows[iso].sessioId) st.rows[iso].sessioId = t.id;
     });
   } catch (e) { /* ei kriittinen */ }
@@ -16139,7 +16139,7 @@ function vpSetView(v) {
 
 // Tapahtuman status pvm + tila -logiikalla (hyväksytty kompromissi — ei alikokoelman laskentaa)
 function vpTapahtumaStatus(t) {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = tmPaivaIso(new Date());
   if (t.tila === 'valmis' || t.tila === 'suljettu') return { key:'valmis', label:'Valmis',  color:'var(--teal)', btn:'Katso tulokset →' };
   if (t.pvm && t.pvm < today)                       return { key:'kesken', label:'Kesken',  color:'var(--amber)', btn:'Jatka kirjausta →' };
   return { key:'tuleva', label:'Tuleva', color:'#3DA35D', btn:'Avaa kenttänäkymä →' };
@@ -16156,7 +16156,7 @@ function renderVpViikko(testit) {
   const iso = (d) => d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
   const days = []; for (let i=0;i<7;i++){ const d=new Date(monday); d.setDate(monday.getDate()+i); days.push(d); }
   const paivat = ['Ma','Ti','Ke','To','Pe','La','Su'];
-  const todayStr = new Date().toISOString().slice(0,10);
+  const todayStr = tmPaivaIso(new Date());
 
   const onejan = new Date(monday.getFullYear(),0,1);
   const vkNum = Math.ceil((((monday - onejan)/86400000) + onejan.getDay()+1)/7);
@@ -16178,7 +16178,7 @@ function renderVpViikko(testit) {
     // Kalenteri-kokoelma (joukkuesuodatus mukana)
     (_kalenteriTapahtumat||[]).filter(function(t) {
       if (!t.alkaa) return false;
-      var tPvm = t.alkaa.toDate ? t.alkaa.toDate().toISOString().slice(0,10) : (typeof t.alkaa === 'string' ? t.alkaa.slice(0,10) : '');
+      var tPvm = t.alkaa.toDate ? tmPaivaIso(t.alkaa.toDate()) : (typeof t.alkaa === 'string' ? t.alkaa.slice(0,10) : '');
       if (tPvm !== ds) return false;
       if (valittuJoukkue && t.joukkue !== valittuJoukkue && (!t.joukkueet || t.joukkueet.indexOf(valittuJoukkue) < 0)) return false;
       return true;
@@ -16288,7 +16288,7 @@ function renderKalenteri() {
     }
 
     // Päivät
-    const todayStr = new Date().toISOString().slice(0,10);
+    const todayStr = tmPaivaIso(new Date());
     for (let d = 1; d <= lastDay.getDate(); d++) {
       const dateStr = target.getFullYear() + '-' +
         String(target.getMonth()+1).padStart(2,'0') + '-' + String(d).padStart(2,'0');
@@ -16308,7 +16308,7 @@ function renderKalenteri() {
       // Kalenteri-kokoelman tapahtumat kuukausikalenterissa (joukkuesuodatus)
       (_kalenteriTapahtumat||[]).forEach(function(kt) {
         if (!kt.alkaa) return;
-        var ktPvm = kt.alkaa.toDate ? kt.alkaa.toDate().toISOString().slice(0,10) : '';
+        var ktPvm = kt.alkaa.toDate ? tmPaivaIso(kt.alkaa.toDate()) : '';
         if (ktPvm !== dateStr) return;
         if (valittuJoukkue && kt.joukkue !== valittuJoukkue && (!kt.joukkueet || kt.joukkueet.indexOf(valittuJoukkue) < 0)) return;
         var meta = KALENTERI_TYYPIT[kt.tyyppi] || KALENTERI_TYYPIT.muu;
@@ -16463,7 +16463,7 @@ function avaaUusiTapahtuma(oletusPvm, prefill) {
   // Pvm + klo rivi
   var aikaRivi = document.createElement('div'); aikaRivi.style.cssText = 'display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;';
   var pvmInp = document.createElement('input'); pvmInp.type = 'date';
-  pvmInp.value = oletusPvm || new Date().toISOString().slice(0, 10);
+  pvmInp.value = oletusPvm || tmPaivaIso(new Date());
   pvmInp.style.cssText = 'padding:9px;border:0.5px solid var(--border);border-radius:6px;background:var(--surface);color:var(--ink2);font-size:14px;';
   var alkaaInp = document.createElement('input'); alkaaInp.type = 'time'; alkaaInp.value = '17:00';
   alkaaInp.style.cssText = pvmInp.style.cssText;
@@ -16763,7 +16763,7 @@ function _vpRenderTeemakate(valittuJoukkueId, jaksoAlku, jaksoLoppu, jaksoLbl) {
     if (valittuJoukkueId && t.joukkue !== valittuJoukkueId && (!t.joukkueet || t.joukkueet.indexOf(valittuJoukkueId) < 0)) return false;
     return true;
   }).map(function (t) {
-    var pvm = (t.alkaa && t.alkaa.toDate) ? t.alkaa.toDate().toISOString().slice(0, 10) : (t.pvm || '');
+    var pvm = (t.alkaa && t.alkaa.toDate) ? tmPaivaIso(t.alkaa.toDate()) : (t.pvm || '');
     return { treeniteema: t.treeniteema, pvm: pvm };
   });
   var rivit = LIB.tmTtKate(pelaajat, tapahtumat, jaksoAlku, jaksoLoppu);
@@ -16996,7 +16996,7 @@ function _vpMuokkaaTapahtuma(t) {
   var alkaaD = t.alkaa && t.alkaa.toDate ? t.alkaa.toDate() : null;
   var paattyyD = t.paattyy && t.paattyy.toDate ? t.paattyy.toDate() : null;
   var pad = function(n) { return String(n).padStart(2, '0'); };
-  var pvmISO = alkaaD ? (alkaaD.getFullYear() + '-' + pad(alkaaD.getMonth() + 1) + '-' + pad(alkaaD.getDate())) : new Date().toISOString().slice(0, 10);
+  var pvmISO = alkaaD ? (alkaaD.getFullYear() + '-' + pad(alkaaD.getMonth() + 1) + '-' + pad(alkaaD.getDate())) : tmPaivaIso(new Date());
   var hhmm = function(D) { return D ? (pad(D.getHours()) + ':' + pad(D.getMinutes())) : ''; };
   var modal = document.createElement('div');
   modal.id = 'vpTapEditModal';
@@ -17109,7 +17109,7 @@ function _vpMuokkaaTapahtuma(t) {
 function _vpToistLbl(t) { return (t && t.toistuvuus_sarja_id) ? ' ↻' : ''; }
 function _vpKaudenLoppuISO() {
   try { var l = _laskeKausi(new Date()).loppu; var p = function(n){ return String(n).padStart(2,'0'); }; return l.getFullYear()+'-'+p(l.getMonth()+1)+'-'+p(l.getDate()); }
-  catch(e) { return new Date().toISOString().slice(0,10); }
+  catch(e) { return tmPaivaIso(new Date()); }
 }
 // Toistuvan tapahtuman Muokkaa/Poista → 3 skooppia. Ei sarjaa → cb('vain') heti.
 function _vpSkooppiDialog(t, otsikko, cb) {
@@ -17281,7 +17281,7 @@ function avaaKalenteriPaivaModal(dateStr) {
   // Kalenteri-kokoelma
   (_kalenteriTapahtumat||[]).filter(function(t) {
     if (!t.alkaa) return false;
-    var tPvm = t.alkaa.toDate ? t.alkaa.toDate().toISOString().slice(0,10) : '';
+    var tPvm = t.alkaa.toDate ? tmPaivaIso(t.alkaa.toDate()) : '';
     return tPvm === dateStr;
   }).forEach(function(t) {
     var meta = KALENTERI_TYYPIT[t.tyyppi] || KALENTERI_TYYPIT.muu;
@@ -19010,7 +19010,7 @@ function _hlOpts() {
   var opts = { malli: _hlMalli, joukkue: g('hlJoukkue') || null, ikavaihe: g('hlIka') || null, valmentaja: g('hlValm') || null };
   if (_hlMalli === 'valmennustaidot' && g('hlTapa')) opts.arviointitapa = g('hlTapa');
   var aika = g('hlAika');
-  if (aika) { var kk = aika === '3kk' ? 3 : aika === '6kk' ? 6 : 12; var d = new Date(); d.setMonth(d.getMonth() - kk); opts.aikavali = { alku: d.toISOString().slice(0, 10) }; }
+  if (aika) { var kk = aika === '3kk' ? 3 : aika === '6kk' ? 6 : 12; var d = new Date(); d.setMonth(d.getMonth() - kk); opts.aikavali = { alku: tmPaivaIso(d) }; }
   return opts;
 }
 function _hlSuodata(A, opts) {
@@ -19423,7 +19423,7 @@ async function _hlLataaPalaute(id, korostaId) {
   try { var js = await base.collection('palaute_jaettu').orderBy('pvm', 'asc').get(); jaettu = js.docs.map(function (d) { var o = d.data(); o._id = d.id; return o; }); } catch (e) {}
   try { var ys = await base.collection('palaute_yksityinen').orderBy('pvm', 'asc').get(); yksit = ys.docs.map(function (d) { var o = d.data(); o._id = d.id; return o; }); } catch (e) { /* johto-gate: ei oikeutta → ohita */ }
   var omaUid = _hlOmaUid();
-  var tanaan = new Date().toISOString().slice(0, 10);
+  var tanaan = tmPaivaIso(new Date());
   var omiaYht = jaettu.concat(yksit).filter(function (p) { return omaUid && p.tekija_uid === omaUid; }).length;
   var listaHtml = function (arr, tyhjä) {
     if (!arr.length) return '<div style="font-size:12px;color:var(--ink3)">' + tyhjä + '</div>';
@@ -19439,7 +19439,7 @@ async function _hlLataaPalaute(id, korostaId) {
       /* Oma merkintä tunnistettavaksi — "kuka sanoi" on eri asia kuin rooli. */
       var kuka = oma ? vpT('Sinä') : _hlEsc(p.tekija_rooli || '');
       var pvmTxt = _hlEsc(typeof tmPvmFi === 'function' ? (tmPvmFi(p.pvm) || (p.pvm || '').slice(0, 10)) : (p.pvm || '').slice(0, 10));
-      if (oma && (p.pvm || '').slice(0, 10) === tanaan) pvmTxt = vpT('tänään');
+      if (oma && p.pvm && tmPaivaIso(new Date(p.pvm)) === tanaan) pvmTxt = vpT('tänään');   // p.pvm = tallennettu ISO-aikaleima (UTC) → paikallinen päivä
       return '<div' + (uusi ? ' id="hlUusiRivi"' : '') + ' style="font-size:12px;color:var(--ink2);padding:6px 0;border-bottom:.5px solid var(--border);' + reuna + '">'
         + (p.teksti ? _hlEsc(p.teksti) : '<span style="color:var(--ink3)">' + vpT('🎙 Ääripalaute') + '</span>')
         + tmAani.toistoHTML(p)

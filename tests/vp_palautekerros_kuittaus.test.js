@@ -18,6 +18,7 @@ import vm from 'node:vm';
 import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
+import { createRequire } from 'module';
 
 const juuri = join(dirname(fileURLToPath(import.meta.url)), '..');
 const VP = readFileSync(join(juuri, 'TalentMaster_VP_v25.html'), 'utf8');
@@ -121,6 +122,7 @@ function teeSandbox(tila) {
     toast: (v) => toastit.push(v),
     tmAani: { luo: () => ({ nollaa() {}, onNauhoite: () => false }), tuettu: () => true, alueHTML: () => '<div id="hlRecBtn"></div>', toistoHTML: () => '' },
     tmPvmFi: (s) => String(s).slice(0, 10),
+    tmPaivaIso: createRequire(import.meta.url)('../lib/tm_pvm.js').tmPaivaIso,   // oikea lib (VP lataa sen)
     _hlEsc: (s) => String(s == null ? '' : s),
   };
   sandbox.window = sandbox;

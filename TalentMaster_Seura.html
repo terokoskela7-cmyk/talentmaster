@@ -16,6 +16,7 @@
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-functions-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-storage-compat.js"></script>
+<script src="lib/tm_pvm.js?v=3"></script>   <!-- tmPaivaIso: paikallinen päivä ("tänään" ≠ UTC-päivä klo 0–3) -->
 <script src="lib/tm_appcheck.js?v=1"></script>
 <script src="lib/tm_verkko.js?v=1"></script>   <!-- verkkokatko: 1 uudelleenyritys + Yhteyskatko-ilmoitus + Sentry warning -->
 <script src="lib/tm_aktiivisuus.js?v=1"></script>   <!-- Toimihenkilon kirjautumisaikaleima — jaettu kirjoituspiste, ks. lib-header -->
@@ -30,9 +31,9 @@
 <script src="lib/tm_eerikkila_normit.js?v=46"></script>
 <script src="lib/tm_idp.js?v=9"></script>
 <script src="lib/tm_arviointi_taksonomia.js?v=11"></script>
-<script src="lib/tm_mittarit.js?v=3"></script>
+<script src="lib/tm_mittarit.js?v=4"></script>
 <script src="lib/tm_kehikot.js?v=2"></script>
-<script src="lib/tm_kehitystilanne.js?v=5"></script>   <!-- paikkamerkkidomainien esto (huoltajan sähköposti) -->
+<script src="lib/tm_kehitystilanne.js?v=6"></script>   <!-- paikkamerkkidomainien esto (huoltajan sähköposti) -->
 <!-- tm_import.js ja tm_empty_state.js ladataan dynaamisesti jos saatavilla -->
 
 <style>
@@ -2586,7 +2587,7 @@ async function _ktLueTurvallisesti(lupaus, puuttuu, nimi) {
 }
 async function _ktLataa(sid, vuosi) {
   const S = db.collection('seurat').doc(sid), puuttuu = [];
-  const nyt = new Date().toISOString().slice(0, 10);
+  const nyt = tmPaivaIso(new Date());
   const [seuraSnap, pelSnap, haSnap, mentSnap, kalSnap, asSnap, stSnap, kkSnap, jSnap] = await Promise.all([
     S.get(),
     S.collection('pelaajat').get(),
@@ -2606,7 +2607,7 @@ async function _ktLataa(sid, vuosi) {
     kausikuvat: kkSnap ? kkSnap.docs.map((d) => Object.assign({ kausi: d.id }, d.data(), { luotu: (d.data().luotu && d.data().luotu.toDate) ? d.data().luotu.toDate().toISOString() : null })) : [],
     joukkueet: jSnap ? jSnap.docs.map((d) => Object.assign({ id: d.id }, d.data())) : (tila.joukkueet || []), _puuttuu: puuttuu };
   // Pelaajakohtaiset alikokoelmat erissä (15 rinnakkain)
-  const raja12vk = new Date(Date.now() - 84 * 864e5).toISOString().slice(0, 10);
+  const raja12vk = tmPaivaIso(new Date(Date.now() - 84 * 864e5));
   const pel = data.pelaajat;
   for (let i = 0; i < pel.length; i += 15) {
     await Promise.all(pel.slice(i, i + 15).map(async (p) => {
@@ -2628,7 +2629,7 @@ async function _ktLataa(sid, vuosi) {
   }
   // Kalenterin harjoitukset kuluvalta vuodelta + läsnäolo
   if (kalSnap) {
-    const harj = kalSnap.docs.filter((d) => { const x = d.data(); const a = x.alkaa && x.alkaa.toDate ? x.alkaa.toDate().toISOString().slice(0, 10) : ''; return x.tyyppi === 'harjoitus' && a >= vuosi + '-01-01' && a <= nyt; });
+    const harj = kalSnap.docs.filter((d) => { const x = d.data(); const a = x.alkaa && x.alkaa.toDate ? tmPaivaIso(x.alkaa.toDate()) : ''; return x.tyyppi === 'harjoitus' && a >= vuosi + '-01-01' && a <= nyt; });
     for (let i = 0; i < harj.length; i += 15) {
       await Promise.all(harj.slice(i, i + 15).map(async (d) => {
         const l = await _ktLueTurvallisesti(d.ref.collection('lasnaolijat').get(), puuttuu, 'lasnaolijat');
@@ -2731,7 +2732,7 @@ function ktAvaaOmaTavoite() {
     + '<label>Tyyppi</label><select id="kto_tyyppi" onchange="_ktOmaTyyppiVaihtui()">' + opt(KT_OMA_TYYPIT) + '</select>'
     + '<div id="kto_arvoRivi"><label>Tavoitearvo</label><input id="kto_tavoite" type="number" step="any"><label>Yksikkö</label><input id="kto_yksikko" maxlength="20" placeholder="esim. pelaajaa, €, %"></div>'
     + '<div id="kto_suuntaRivi" style="display:none"><label>Suunta</label><select id="kto_suunta"><option value="suurempi">Suurempi on parempi</option><option value="pienempi">Pienempi on parempi</option></select></div>'
-    + '<label>Alkaa</label><input id="kto_alkaa" type="date" value="' + new Date().toISOString().slice(0, 10) + '">'
+    + '<label>Alkaa</label><input id="kto_alkaa" type="date" value="' + tmPaivaIso(new Date()) + '">'
     + '<label>Aikaraja</label><input id="kto_aikaraja" type="date" value="' + K.vuosi + '-12-31">'
     + '<label>Tekijäryhmä</label><select id="kto_tekija">' + opt(KT_TEKIJAT) + '</select>'
     + '</div><div style="margin-top:16px"><button class="toimNappi" onclick="ktTallennaOmaTavoite()">Tallenna tavoite</button></div>');
@@ -2783,7 +2784,7 @@ function ktAvaaKirjaus(tid) {
   const pelaajaKentta = t.tyyppi === 'summa' ? '<div class="kt-meta">Summa-tavoitteeseen ei liitetä pelaajaa (ei pelaajakohtaisia summia).</div>'
     : '<label>Pelaaja (valinnainen)</label><select id="ktk_pelaaja"><option value="">–</option>' + pelaajat.map((p) => '<option value="' + e(p.id) + '">' + e((p.sukunimi || '') + ' ' + (p.etunimi || '') + (p.joukkue ? ' · ' + p.joukkue : '')) + '</option>').join('') + '</select>';
   _ktModaali('<div class="modalOtsikko">Kirjaa: ' + e(t.nimi) + '</div><div class="modalKuvaus">Kirjaukset säilyvät. Virheen voi kumota, jolloin kumoaminen jää historiaan. Ei terveystietoa eikä sopimussummia huomioon.</div><div class="kt-lomake">'
-    + '<label>Päivämäärä</label><input id="ktk_pvm" type="date" value="' + new Date().toISOString().slice(0, 10) + '">' + arvoKentta + pelaajaKentta
+    + '<label>Päivämäärä</label><input id="ktk_pvm" type="date" value="' + tmPaivaIso(new Date()) + '">' + arvoKentta + pelaajaKentta
     + '<label>Huomio (valinnainen)</label><input id="ktk_huomio" maxlength="280"><div class="kt-meta">Älä kirjoita pelaajan nimeä huomioon, käytä pelaajalinkkiä.</div>'
     + '</div><div style="margin-top:16px"><button class="toimNappi" onclick="ktTallennaKirjaus(\'' + e(tid) + '\')">Tallenna kirjaus</button></div>'
     + '<div class="modalOtsikko" style="margin-top:22px">Historia</div>' + (historia || '<div class="kt-meta">Ei vielä kirjauksia.</div>'));
