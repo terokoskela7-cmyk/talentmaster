@@ -124,3 +124,56 @@ describe('raportti ja koodivartijat', () => {
     expect(A.match(/\(tila\.seurat \|\| \[\]\)\.filter\(s => s\.demo !== true\)/g)).toHaveLength(2);
   });
 });
+
+describe('Ensinäkymä (KISS ja Oura-tyyli)', () => {
+  const E = () => KT.ensinakymaMalli(malli());
+  it('rengas: kaikki tavoitteet tiloittain, keskellä "X / N tavoitetta raiteilla" (raiteilla = täyttynyt + raiteilla)', () => {
+    const e = E(), m = malli();
+    const tilat = m.lohko1.rivit.filter((r) => ['tayttynyt', 'raiteilla', 'riskissa', 'puuttuu'].includes(r.tila));
+    expect(e.rivit.length).toBe(tilat.length);
+    expect(e.raiteilla).toBe(tilat.filter((r) => r.tila === 'tayttynyt' || r.tila === 'raiteilla').length);
+    const h = KT.renderEnsinakyma(m, {});
+    expect(h).toContain('tavoitetta raiteilla');
+    expect((h.match(/stroke-dasharray/g) || []).length).toBe(e.rivit.length);
+  });
+  it('kolme tekijää; jokainen tavoite kuuluu täsmälleen yhteen; tekijän tila = heikoin tavoite', () => {
+    const e = E(), J = ['tayttynyt', 'raiteilla', 'riskissa', 'puuttuu'];
+    expect(e.tekijat.map((t) => t.nimi)).toEqual(['Pelaajat kehittyvät', 'Valmennuksen laatu', 'Seura ja rakenteet']);
+    expect(e.tekijat.reduce((a, t) => a + t.rivit.length, 0)).toBe(e.rivit.length);
+    e.tekijat.forEach((t) => {
+      if (!t.rivit.length) return;
+      const heikoin = t.rivit.map((r) => r.tila).sort((a, b) => J.indexOf(b) - J.indexOf(a))[0];
+      expect(t.tila).toBe(heikoin === 'tayttynyt' ? 'raiteilla' : heikoin);
+    });
+  });
+  it('Seuraavaksi lasketaan datasta: vanhentunut testikierros → kehote joukkueelle', () => {
+    const d = JSON.parse(JSON.stringify(DATA));
+    d.pelaajat.forEach((p) => { if (p.joukkue === 'P14 Demo') { p.hh_pvm = '2025-04-01'; (p.hh_historia || []).forEach((h) => { h.pvm = h.pvm > '2025-04-01' ? '2025-04-01' : h.pvm; }); } });
+    const e = KT.ensinakymaMalli(KT.rakennaMalli(d, { nyt: NYT }));
+    expect(e.seuraavaksi).toMatch(/^Kirjaa testikierros joukkueelle P14 Demo/);
+    expect(E().seuraavaksi.length).toBeGreaterThan(10);
+  });
+  it('ei taulukoita ensinäkymässä; info-nappi; toiminnot alareunassa', () => {
+    const h = KT.renderEnsinakyma(malli(), { saaKirjoittaa: true, kausikuvaSallittu: true });
+    expect(h).not.toContain('<table');
+    expect(h).toContain('Miten luvut lasketaan');
+    ['Aseta tavoitteet', 'Kirjaa Kori 3 -tiedot', 'Tallenna kausikuva', 'Vie raportti'].forEach((t) => expect(h).toContain(t));
+    expect(h.indexOf('Aseta tavoitteet')).toBeGreaterThan(h.indexOf('ke-tekijat'));
+    expect(KT.renderEnsinakyma(malli(), { info: true })).toContain('Datan kattavuus');
+  });
+  it('tekijäkortti avaa sisällön: Pelaajat → fyysinen + K1b (kalenteri-ikä / kehitysvaihe) + joukkueet; Valmennus/Seura → omat + Palloliitto', () => {
+    const p = KT.renderEnsinakyma(malli(), { avoin: 'pelaajat' });
+    expect(p).toContain('Oliko muutos todellinen?'); expect(p).toContain('Kehittyykö vaadittua vauhtia?');
+    expect(p).toContain('Kalenteri-ikä'); expect(p).toContain('Kehitysvaihe'); expect(p).toContain('P14 Demo');
+    expect(KT.renderEnsinakyma(malli(), { avoin: 'pelaajat', k1bRef: 'bio' })).toContain('kehitysvaihe (biologinen ikä, arvio)');
+    const v = KT.renderEnsinakyma(malli(), { avoin: 'valmennus' });
+    expect(v).toContain('Omat tavoitteet ja Palloliiton taso'); expect(v).toContain('Harjoitushavainnot'); expect(v).toContain('Palloliitto 250');
+    expect(KT.renderEnsinakyma(malli(), { avoin: 'seura' })).toContain('Rakenteet ja Kori 3 -vaatimukset');
+  });
+  it('tyhjä seura: ei demo-fallbackia, ei kaatumista', () => {
+    const tyhja = { seura: {}, joukkueet: [], pelaajat: [], bio: {}, kerrat: {}, idp: {}, kartoitus: {}, kirjaukset: {}, harjoitusarvioinnit: [], mentoroinnit: [], kalenteri: [], asetukset: null, seuratuki: null, kausikuvat: [] };
+    const h = KT.renderEnsinakyma(KT.rakennaMalli(tyhja, { nyt: NYT }), { avoin: 'pelaajat' });
+    expect(h).not.toMatch(/Demo|demo_/);
+    expect(h).toContain('Ei vielä dataa');
+  });
+});

@@ -32,7 +32,7 @@ describe('Hidden Gem siirretty VP:stä: sama tulos kuin vanha koodi', () => {
   it('VP ei enää määrittele niitä itse, lataa kirjaston', () => {
     const VP = readFileSync(join(ROOT, 'TalentMaster_VP_v25.html'), 'utf8');
     expect(VP).not.toMatch(/function laskeHiddenGem\(|function laskeD2Taso\(|const HIDDEN_GEM_FLEI/);
-    expect(VP).toContain('<script src="lib/tm_mittarit.js?v=1"></script>');
+    expect(VP).toMatch(/<script src="lib\/tm_mittarit\.js\?v=\d+"><\/script>/);
   });
 });
 
@@ -123,18 +123,37 @@ describe('pelaajataso, osuudet ja N < 5', () => {
   });
 });
 
-describe('K1b ikätaso', () => {
-  it('Δ ≥ +0,5 nopeammin, ±0,5 tahdissa, ≤ −0,5 hitaammin; puuttuva taso lasketaan raaka-arvoista', () => {
-    const o = { sukupuoli: 'M', syntymaVuosi: 2012 };
-    expect(M.k1bTila(Object.assign({}, o, { historia: [H('2026-01-10', { hh_taso: 2 }), H('2026-06-10', { hh_taso: 2.7 })] })).tila).toBe('nopeammin');
-    expect(M.k1bTila(Object.assign({}, o, { historia: [H('2026-01-10', { hh_taso: 3 }), H('2026-06-10', { hh_taso: 3.3 })] })).tila).toBe('tahdissa');
-    expect(M.k1bTila(Object.assign({}, o, { historia: [H('2026-01-10', { hh_taso: 3 }), H('2026-06-10', { hh_taso: 2.5 })] })).tila).toBe('hitaammin');
-    const raaka = M.k1bTila(Object.assign({}, o, { historia: [H('2026-01-10', { lin30m: 4.60, cmj: 30 }), H('2026-06-10', { lin30m: 4.25, cmj: 36 })] }));
-    expect(raaka.tasoA).toBeLessThan(raaka.tasoB); expect(raaka.tila).toBe('nopeammin');
+describe('K1b ikätaso (normi interpoloidaan tarkalla iällä, päätetty 2.10.)', () => {
+  const pojka = { sukupuoli: 'M', syntymaVuosi: 2012, syntymaaika: '2012-05-01' };
+  it('jatkuva taso: normirajalla tasan 3,00 ja 4,00; taulukon järjestys [t5..t2] huomioitu', () => {
+    expect(M.k1bTasoPisteelle({ lin30m: 4.42 }, 13.5, 'M').taso).toBeCloseTo(3, 6);
+    expect(M.k1bTasoPisteelle({ lin30m: 4.29 }, 13.5, 'M').taso).toBeCloseTo(4, 6);
+    expect(M.k1bTasoPisteelle({ lin30m: 6.0 }, 13.5, 'M').taso).toBe(1);
+    expect(M.k1bTasoPisteelle({ cmj: 50 }, 13.5, 'M').taso).toBe(5);
+  });
+  it('tammikuun ikäluokan vaihto ei laske tasoa: sama tulos marras → tammi = tahdissa (pieni lasku)', () => {
+    const r = M.k1bTila(Object.assign({}, pojka, { historia: [H('2025-11-15', { lin30m: 4.5 }), H('2026-01-15', { lin30m: 4.5 })] }));
+    expect(r.tila).toBe('tahdissa'); expect(r.delta).toBeGreaterThan(-0.3); expect(r.delta).toBeLessThan(0);
+  });
+  it('vuoden pysähdys → hitaammin; selvä parannus → nopeammin', () => {
+    expect(M.k1bTila(Object.assign({}, pojka, { historia: [H('2025-04-15', { lin30m: 4.5, cmj: 32 }), H('2026-04-14', { lin30m: 4.5, cmj: 32 })] })).tila).toBe('hitaammin');
+    expect(M.k1bTila(Object.assign({}, pojka, { historia: [H('2025-10-14', { lin30m: 4.6, cmj: 30 }), H('2026-04-14', { lin30m: 4.3, cmj: 35 })] })).tila).toBe('nopeammin');
+  });
+  it('vaadittu vauhti: 30 m tason 3 pitäminen P14 ≈ −0,14 s / v', () => {
+    expect(M.vaadittuVauhti('lin30m', 13.5, 'M', 3)).toBeCloseTo(-0.14, 2);
+  });
+  it('kehitysvaihe: kypsyysmittaus → biologinen ikä; puuttuu → kalenteri-ikä (ei suljeta pois), merkintä', () => {
+    const h = [H('2025-10-14', { lin30m: 4.5 }), H('2026-04-14', { lin30m: 4.4 })];
+    const bio = [{ mittauspaiva: '2025-10-10', maturity_offset: -1.2 }, { mittauspaiva: '2026-04-10', maturity_offset: -0.7 }];
+    const b = M.k1bTila(Object.assign({}, pojka, { historia: h, bioDocs: bio, vertailu: 'kehitysvaihe' }));
+    const k = M.k1bTila(Object.assign({}, pojka, { historia: h, bioDocs: bio }));
+    expect(b.vertailu).toBe('kehitysvaihe'); expect(b.kalenteriVara).toBe(false); expect(b.tasoA).not.toBe(k.tasoA);
+    const ilman = M.k1bTila(Object.assign({}, pojka, { historia: h, bioDocs: [], vertailu: 'kehitysvaihe' }));
+    expect(ilman.kalenteriVara).toBe(true); expect(ilman.tasoA).toBe(k.tasoA);
   });
   it('PH → ei vertailukelpoinen', () => {
     const r = M.k1bTila({ sukupuoli: 'N', syntymaVuosi: 2012, bioDocs: [{ mittauspaiva: '2026-01-01', phv_tila_koodi: 'PH' }],
-      historia: [H('2026-01-10', { hh_taso: 2 }), H('2026-06-10', { hh_taso: 3 })] });
+      historia: [H('2026-01-10', { lin30m: 4.8 }), H('2026-06-10', { lin30m: 4.7 })] });
     expect(r.syy).toBe('kasvupyrahdys');
   });
 });
