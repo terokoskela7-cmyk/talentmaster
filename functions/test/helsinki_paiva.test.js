@@ -3,7 +3,7 @@ const { test } = require('node:test');
 const assert = require('node:assert');
 const { execFileSync } = require('node:child_process');
 const path = require('node:path');
-const { huomisenRajat: h, helsinginKeskiyo } = require('../helsinki_paiva');
+const { huomisenRajat: h, helsinginKeskiyo, kelloHelsinki } = require('../helsinki_paiva');
 
 const iso = (d) => d.toISOString();
 const rajat = (nyt) => { const r = h(new Date(nyt)); return [iso(r.alku), iso(r.loppu)]; };
@@ -41,4 +41,22 @@ test('tulos ei riipu ajoympäristön TZ:stä (UTC vs Helsinki vs New York)', () 
   const ulos = ['UTC', 'Europe/Helsinki', 'America/New_York'].map((tz) => execFileSync(process.execPath, ['-e', koodi], { env: { ...process.env, TZ: tz }, encoding: 'utf8' }).trim());
   assert.strictEqual(new Set(ulos).size, 1);
   assert.strictEqual(ulos[0], '2026-07-16T21:00:00.000Z|2026-07-17T20:59:59.000Z');
+});
+
+test('kelloHelsinki: 17:00 Helsingin aikaa kesällä (14:00Z) ja talvella (15:00Z) → "17:00"', () => {
+  assert.strictEqual(kelloHelsinki(new Date('2026-07-15T14:00:00Z')), '17:00');
+  assert.strictEqual(kelloHelsinki(new Date('2026-01-15T15:00:00Z')), '17:00');
+  assert.strictEqual(kelloHelsinki(new Date('2026-07-15T21:05:00Z')), '00:05');   // etunolla + keskiyö (h23, ei "24")
+  assert.strictEqual(kelloHelsinki(new Date('2026-01-15T07:30:00Z')), '09:30');
+});
+test('kelloHelsinki ei riipu ajoympäristön TZ:stä', () => {
+  const koodi = `const {kelloHelsinki:k}=require(${JSON.stringify(path.join(__dirname, '..', 'helsinki_paiva.js'))});console.log(k(new Date('2026-07-15T14:00:00Z')))`;
+  for (const tz of ['UTC', 'Europe/Helsinki', 'America/New_York']) {
+    assert.strictEqual(execFileSync(process.execPath, ['-e', koodi], { env: { ...process.env, TZ: tz }, encoding: 'utf8' }).trim(), '17:00', tz);
+  }
+});
+test('index.js: molemmat klo-tekstit käyttävät kelloHelsinki:ä (ei getHours)', () => {
+  const s = require('node:fs').readFileSync(path.join(__dirname, '..', 'index.js'), 'utf8');
+  assert.ok(!/aika\.getHours\(\)/.test(s));
+  assert.strictEqual(s.split('kelloHelsinki(aika)').length - 1, 2);
 });

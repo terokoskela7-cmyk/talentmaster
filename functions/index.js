@@ -270,7 +270,7 @@ async function haeOrLuoHuoltajaAuth(hEmail, etunimi, sukunimi) {
 const { pohjaHeader, pohjaFooter, pohjaRekisteriKutsu, pohjaMuistutus, pohjaPelaajaSivu, pohjaSalasanaAsetus, pohjaSuostumusLinkki, pohjaSoloLupa } = require('./sahkoposti_pohjat');
 const { otsikkoPuhdas, rakennaKutsuLinkki } = require('./sahkoposti_turva');
 const { muodostaPalauteNotif } = require('./palaute_notif');
-const { huomisenRajat } = require('./helsinki_paiva');
+const { huomisenRajat, kelloHelsinki } = require('./helsinki_paiva');
 // ─────────────────────────────────────────────────────────────────────────────
 // lahetaRekisteriKutsu
 // ─────────────────────────────────────────────────────────────────────────────
@@ -2233,7 +2233,7 @@ exports.notifTapahtumaMuistutus = functions
         const roster = await _c4Roster(sid, e);
         if (!roster.length) continue;
         const aika = (e.alkaa && e.alkaa.toDate) ? e.alkaa.toDate() : null;
-        const klo = aika ? (String(aika.getHours()).padStart(2, '0') + ':' + String(aika.getMinutes()).padStart(2, '0')) : '';
+        const klo = aika ? kelloHelsinki(aika) : '';
         const teksti = 'Huomenna: ' + (e.nimi || 'tapahtuma') + (klo ? ' klo ' + klo : '') + (e.paikka ? ' · ' + e.paikka : '');
         for (const p of roster) {
           if (_c4OptOut(p, 'muistutus')) continue;
@@ -2266,7 +2266,7 @@ exports.notifKalenteriMuutos = functions
       tyyppi = 'peruttu'; teksti = 'Peruttu: ' + (after.nimi || 'tapahtuma'); dedupe = 'peruttu_' + evId;
     } else {
       tyyppi = 'muutos';
-      const klo = aika ? (String(aika.getHours()).padStart(2, '0') + ':' + String(aika.getMinutes()).padStart(2, '0')) : '';
+      const klo = aika ? kelloHelsinki(aika) : '';
       teksti = 'Muutos: ' + (after.nimi || 'tapahtuma') + (aikaMuuttui && klo ? ' → klo ' + klo : '') + (paikkaMuuttui && after.paikka ? ' · ' + after.paikka : '');
       dedupe = null;   // muutoksesta saa ilmoittaa toistuvasti (aika voi muuttua uudelleen)
     }

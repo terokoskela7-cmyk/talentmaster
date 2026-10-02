@@ -43,4 +43,10 @@ function huomisenRajat(nyt) {
   return { alku: new Date(alku), loppu: new Date(seur - 1000) };
 }
 
-module.exports = { huomisenRajat, helsinginKeskiyo, siirtyma, AIKAVYOHYKE };
+/** Kellonaika Helsingin aikaa muodossa 'HH:MM' (sama erotin kuin viesteissä aiemmin). Ajoympäristön TZ ei vaikuta. */
+function kelloHelsinki(date) {
+  const o = _osat(date.getTime());
+  return String(o.hour).padStart(2, '0') + ':' + String(o.minute).padStart(2, '0');
+}
+
+module.exports = { kelloHelsinki, huomisenRajat, helsinginKeskiyo, siirtyma, AIKAVYOHYKE };
