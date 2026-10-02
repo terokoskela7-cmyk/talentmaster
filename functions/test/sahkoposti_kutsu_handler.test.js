@@ -86,6 +86,16 @@ test('lahetaRekisteriKutsu: selaimen seura=Väärä Seura ohitetaan → viestiss
   assert.ok(html.includes('FC Oikea') && !html.includes('Väärä Seura') && !html.includes('V%C3%A4%C3%A4r%C3%A4'));
   assert.ok(html.includes('seura=FC+Oikea') && html.includes('suostumusAnnettu=2026-09-30'));
 });
+test('lahetaRekisteriKutsu: selaimen linkissä hEmail (vanha muoto) → lähtevässä linkissä ei hEmailia, muut parametrit säilyvät', async () => {
+  DOCS['seurat/s1'] = { nimi: 'FC Oikea', vp_uid: 'vp1' };
+  const wrapped = fft.wrap(fns.lahetaRekisteriKutsu);
+  await wrapped({ seuraId: 's1', hEmail: 'huoltaja@oikeaosoite.fi', etunimi: 'Ella', sukunimi: 'K',
+    linkki: SIVU + '?seuraId=s1&pelaajaId=p1&hEmail=huoltaja%40oikeaosoite.fi&kutsuId=k1' }, { auth: { uid: 'vp1', token: {} } });
+  const html = lahetetyt[lahetetyt.length - 1].content[0].value;
+  const href = /href="([^"]+)"/.exec(html)[1].replace(/&amp;/g, '&');
+  assert.ok(!/hEmail/i.test(href) && !href.includes('%40'), href);
+  assert.ok(href.includes('pelaajaId=p1') && href.includes('kutsuId=k1'));
+});
 test('lahetaRekisteriKutsu: vieras linkki → invalid-argument, ei lähetystä', async () => {
   const n = lahetetyt.length;
   const wrapped = fft.wrap(fns.lahetaRekisteriKutsu);
