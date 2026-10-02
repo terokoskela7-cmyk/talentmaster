@@ -27,6 +27,9 @@ const APP_GLOBALS = {
   painopisteOminaisuus: 'readonly', kattavuusVajeet: 'readonly', laskeEI: 'readonly', laskeFVP: 'readonly',
   laskeTSI: 'readonly', normiIka: 'readonly', raeKvartaali: 'readonly', raeChip: 'readonly', isUnderdog: 'readonly',
   perTestTasot: 'readonly', hhSeuraavaTaso: 'readonly',
+  laskeHHTaso: 'readonly',   // siirretty Excel_Tuonnista libiin 2.10.2026
+  // lib/tm_mittarit.js + lib/tm_kehikot.js (Kehitystilanne v0; HG-funktiot siirretty VP_v25:stä)
+  TM_MITTARIT: 'readonly', TM_KEHIKOT: 'readonly', TM_KEHITYSTILANNE: 'readonly', HIDDEN_GEM_FLEI: 'readonly', laskeD2Taso: 'readonly', laskeHiddenGem: 'readonly',
   // docs/testit_indeksit.js (TKI)
   TM_TESTIT: 'readonly', tkLaskeMerkki: 'readonly', tkLaskeTKI: 'readonly', laskeKokonaistulos: 'readonly',
   tkLajiViite: 'readonly', tkLajiTaso: 'readonly', tkSekuntibudjetti: 'readonly', tkVaadittuVuosivauhti: 'readonly',

@@ -1,9 +1,16 @@
 rules_version = '2';
 // ══════════════════════════════════════════════════════════════════════════
-// TalentMaster™ — firestore.rules v3.33
+// TalentMaster™ — firestore.rules v3.34
 //
 // Lähde:  tm_admin/firestore.rules
 // Deploy: PR → N4-CI deployaa automaattisesti (Console-käsityö poistui).
+//
+// Muutokset v3.33 → v3.34 (Kehitystilanne v0, 2.10.2026):
+//   · seurat/{sid}/kehitysasetukset/{vuosi} ja seuratuki/{vuosi}: lukevat seuran johtoroolit (vp, urheilutoimenjohtaja,
+//     seurasihteeri) + SA; kirjoittavat vp ja urheilutoimenjohtaja + SA. Poisto vain SA.
+//   · seurat/{sid}/kausikuvat/{kausi}: luku johtoroolit + SA; VAIN luonti (ei päivitystä, ei poistoa selaimesta).
+//     Luonti sallitaan toistaiseksi vain seuralle, jonka dokumentissa demo == true: poistaPelaajaGDPR ei vielä poista
+//     pelaajaa kausikuvista (briefin edellytys ennen ensimmäistä oikeaa kausikuvaa).
 //
 // Muutokset v3.32 → v3.33 (suostumus-kovennus, 2.10.2026):
 //   · seurat/{sid}/pelaajat: suostumusTila, suostumus, suostumusAnnettu, suostumukset ja huoltajaEmail
@@ -821,6 +828,29 @@ service cloud.firestore {
       // Kaksimallinen harjoitusarviointi (A Palloliitto-laatu / B valmennustaidot).
       // read: SA | oma seura (valmentaja näkee omat, johto kaikki). create/update: johto + oman seuran valmentaja + SA.
       // delete: vain SA. Pikakentät (harjoituslaatu_/valmennustaito_) kirjoitetaan kayttajat-dokumenttiin (oma blokki alla).
+      // ── KEHITYSTILANNE v0 (v3.34) ───────────────────────────────────────
+      match /kehitysasetukset/{vuosi} {
+        allow read:  if onSuperAdmin() || (onOmaSeura(seuraId) && onJohtoRooli());
+        allow create, update: if onSuperAdmin()
+                      || (onOmaSeura(seuraId) && request.auth.token.rooli in ['vp', 'urheilutoimenjohtaja']);
+        allow delete: if onSuperAdmin();
+      }
+      match /seuratuki/{vuosi} {
+        allow read:  if onSuperAdmin() || (onOmaSeura(seuraId) && onJohtoRooli());
+        allow create, update: if onSuperAdmin()
+                      || (onOmaSeura(seuraId) && request.auth.token.rooli in ['vp', 'urheilutoimenjohtaja']);
+        allow delete: if onSuperAdmin();
+      }
+      match /kausikuvat/{kausi} {
+        allow read:   if onSuperAdmin() || (onOmaSeura(seuraId) && onJohtoRooli());
+        allow create: if (onSuperAdmin()
+                          || (onOmaSeura(seuraId) && request.auth.token.rooli in ['vp', 'urheilutoimenjohtaja']))
+                      && get(/databases/$(database)/documents/seurat/$(seuraId)).data.get('demo', false) == true
+                      && request.resource.data.keys().hasAll(['kausi', 'luotu', 'pelaajat'])
+                      && request.resource.data.pelaajat is list;
+        allow update, delete: if false;   // muuttumaton; GDPR-poisto Admin SDK:lla (palvelin)
+      }
+
       match /harjoitusarvioinnit/{arvioId} {
         allow read:           if onSuperAdmin() || onOmaSeura(seuraId);
         allow create, update: if onSuperAdmin() || (onOmaSeura(seuraId) && onJohtoRooli()) || onOmanSeuranValmentaja(seuraId);
