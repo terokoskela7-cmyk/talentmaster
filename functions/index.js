@@ -269,6 +269,7 @@ async function haeOrLuoHuoltajaAuth(hEmail, etunimi, sukunimi) {
 // ─────────────────────────────────────────────────────────────────────────────
 const { pohjaHeader, pohjaFooter, pohjaRekisteriKutsu, pohjaMuistutus, pohjaPelaajaSivu, pohjaSalasanaAsetus, pohjaSuostumusLinkki, pohjaSoloLupa } = require('./sahkoposti_pohjat');
 const { otsikkoPuhdas, rakennaKutsuLinkki } = require('./sahkoposti_turva');
+const { muodostaPalauteNotif } = require('./palaute_notif');
 // ─────────────────────────────────────────────────────────────────────────────
 // lahetaRekisteriKutsu
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1632,9 +1633,24 @@ exports.notifPalauteJaettu = functions
       const valmentajaUid = arv.valmentajaUid;
       if (!valmentajaUid) return null;
       if (palaute.tekija_uid && palaute.tekija_uid === valmentajaUid) return null;   // oma palaute → ei notifia
+      // Antajan etunimi PALVELIMELTA (kayttajat/{tekija_uid}.etunimi), ei selaimelta; puuttuu → rooli selkokielellä.
+      let tekijaEtunimi = '', tekijaRooli = palaute.tekija_rooli || '';
+      if (palaute.tekija_uid) {
+        try {
+          const tk = await db.collection('seurat').doc(sid).collection('kayttajat').doc(palaute.tekija_uid).get();
+          if (tk.exists) { const d = tk.data() || {}; tekijaEtunimi = d.etunimi || ''; tekijaRooli = d.rooli || tekijaRooli; }
+        } catch (e) { console.warn('[notifPalauteJaettu] tekijän haku epäonnistui:', e.message); }
+      }
+      const viesti = muodostaPalauteNotif({
+        tekijaEtunimi, tekijaRooli, onAani: !!palaute.audio_url, pvm: arv.pvm, joukkue: arv.joukkue,
+      });
       await db.collection('seurat').doc(sid).collection('kayttajat').doc(valmentajaUid).collection('notifikaatiot').add({
         tyyppi: 'palaute',
-        teksti: 'Sait uutta palautetta harjoitusarvioinnistasi' + (arv.joukkue ? ' (' + arv.joukkue + ')' : '') + '.',
+        teksti: viesti.teksti,
+        tekija_etunimi: viesti.tekija_etunimi,   // rakenteiset kentät: käännös (sv) ei vaadi tekstin jäsentämistä
+        onAani: viesti.onAani,
+        joukkue: viesti.joukkue,
+        pvm: viesti.pvm,
         linkki: { nakyma: 'palaute', aid: aid },
         luotu: admin.firestore.FieldValue.serverTimestamp(),
         luettu: false

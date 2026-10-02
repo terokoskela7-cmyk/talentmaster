@@ -18858,8 +18858,9 @@ function _notifRender() {
   if (!_notifLista.length) { el.innerHTML = '<div style="padding:18px;text-align:center;color:var(--ink3);font-size:13px">' + vpT('Ei ilmoituksia.') + '</div>'; return; }
   var ico = { palaute: '💬', review: '🔔' };
   el.innerHTML = _notifLista.map(function (x) {
+    var kuva = (x.tyyppi === 'palaute' && x.onAani === true) ? '🎙️' : (ico[x.tyyppi] || '•');   // äänipalaute 🎙️; vanhat notifit (ei onAani-kenttää) ennallaan
     return '<div onclick="_notifAvaa(\'' + x._id + '\')" class="notif-item' + (x.luettu ? '' : ' uusi') + '">'
-      + '<span class="notif-ico">' + (ico[x.tyyppi] || '•') + '</span>'
+      + '<span class="notif-ico">' + kuva + '</span>'
       + '<div class="notif-body"><div class="notif-teksti">' + _hlEsc(x.teksti || '') + '</div><div class="notif-aika">' + _notifAikaSitten(x.luotu) + '</div></div>'
       + (x.luettu ? '' : '<span class="notif-dot"></span>') + '</div>';
   }).join('');
@@ -18875,6 +18876,14 @@ window._notifAvaa = async function (id) {
   var p = document.getElementById('notifPanel'); if (p) p.classList.remove('auki');
   var lk = x.linkki || {};
   if (lk.nakyma === 'reviewit' && typeof setWs === 'function') setWs('reviewit');   // deep-link Reviewit-näkymään
+  else if (lk.nakyma === 'palaute' && lk.aid && typeof setWs === 'function') {   // deep-link: Raportointi → Harjoittelun laatu → kyseinen arviointi (palaute)
+    setWs('raportointi');
+    if (typeof _rapSeg === 'function') _rapSeg('laatu');
+    try {
+      if (!_hlArvioinnit || !_hlArvioinnit.some(function (a) { return a._id === lk.aid; })) await _hlLataaJaRender();
+      if (typeof _hlAvaaTapahtuma === 'function') _hlAvaaTapahtuma(lk.aid);
+    } catch (e) { console.warn('[notif] palautteen avaus epäonnistui:', e.message); }
+  }
 };
 window._notifKaikkiLuetuiksi = async function () {
   var uid = (auth.currentUser && auth.currentUser.uid) || _uid; if (!uid) return;

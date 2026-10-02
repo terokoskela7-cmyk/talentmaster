@@ -8264,7 +8264,7 @@ window.avaaValmentajaKehitys = async function () {
     h += '<div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--ink3);margin-bottom:8px">' + masterT('Saatu palaute') + '</div>';
     if (!withFb.length) h += '<div style="font-size:12px;color:var(--ink3);padding:6px 0;margin-bottom:14px">' + masterT('Ei jaettua palautetta vielä. VP / mentori voi jakaa palautetta harjoitusarvioinneistasi.') + '</div>';
     else withFb.forEach(b => {
-      h += '<div style="background:var(--bg2);border:.5px solid var(--line);border-radius:10px;padding:11px 14px;margin-bottom:8px">'
+      h += '<div id="saatuPalaute_' + _mEsc(b.a.id) + '" style="background:var(--bg2);border:.5px solid var(--line);border-radius:10px;padding:11px 14px;margin-bottom:8px">'
         + '<div style="font-size:12px;color:var(--ink)">' + _mEsc(b.a.joukkue || '—') + ' <span style="color:var(--ink3);font-size:11px">· ' + _mEsc(b.a.pvm || '') + ' · ' + masterT(_HA_KRIT_NIMI[b.a.malli] || b.a.malli) + '</span></div>'
         /* VP voi jättää ääripalautteen ilman tekstiä → teksti renderöidään vain jos se on.
            Ääni + litterointi jaetulla renderöijällä (tmAani.toistoHTML), sama kuin
@@ -8410,8 +8410,9 @@ function _notifRender() {
   if (!_notifLista.length) { el.innerHTML = '<div style="padding:18px;text-align:center;color:var(--ink3);font-size:13px">' + masterT('Ei ilmoituksia.') + '</div>'; return; }
   const ico = { palaute: '💬', review: '🔔', tee_itsearvio: '✍' };
   el.innerHTML = _notifLista.map(function (x) {
+    const kuva = (x.tyyppi === 'palaute' && x.onAani === true) ? '🎙️' : (ico[x.tyyppi] || '•');   // äänipalaute 🎙️; vanhat notifit (ei onAani-kenttää) ennallaan
     return '<div onclick="_notifAvaa(\'' + x._id + '\')" class="notif-item' + (x.luettu ? '' : ' uusi') + '">'
-      + '<span class="notif-ico">' + (ico[x.tyyppi] || '•') + '</span>'
+      + '<span class="notif-ico">' + kuva + '</span>'
       + '<div class="notif-body"><div class="notif-teksti">' + _mEsc(x.teksti || '') + '</div><div class="notif-aika">' + _notifAikaSitten(x.luotu) + '</div></div>'
       + (x.luettu ? '' : '<span class="notif-dot"></span>') + '</div>';
   }).join('');
@@ -8420,13 +8421,25 @@ window._notifToggle = function () {
   const p = document.getElementById('notifPanel'); if (!p) return;
   if (p.classList.toggle('auki')) _notifRender();
 };
+/* Vierittää "Saatu palaute" -listassa kyseisen arvioinnin lohkoon ja korostaa sen hetkeksi.
+   Ei löydy (esim. vanhempi kuin 25 uusinta arviointia) → lista jää auki ilman vieritystä. */
+function _notifFokusoiPalaute(aid) {
+  if (!aid) return;
+  const el = document.getElementById('saatuPalaute_' + aid); if (!el) return;
+  try { el.scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch (e) { el.scrollIntoView(); }
+  el.style.borderColor = 'var(--teal)';
+  setTimeout(function () { el.style.borderColor = ''; }, 3000);
+}
 window._notifAvaa = async function (id) {
   const x = _notifLista.filter(n => n._id === id)[0]; if (!x) return;
   const uid = _auth.currentUser && _auth.currentUser.uid;
   if (!x.luettu && uid) { try { await _db.collection('seurat').doc(_seuraId).collection('kayttajat').doc(uid).collection('notifikaatiot').doc(id).update({ luettu: true }); } catch (e) {} }
   const p = document.getElementById('notifPanel'); if (p) p.classList.remove('auki');
   const lk = x.linkki || {};
-  if (lk.nakyma === 'palaute' && typeof avaaValmentajaKehitys === 'function') avaaValmentajaKehitys();   // valmentajan oma kehitys → saatu palaute
+  if (lk.nakyma === 'palaute' && typeof avaaValmentajaKehitys === 'function') {   // valmentajan oma kehitys → saatu palaute
+    await avaaValmentajaKehitys();
+    _notifFokusoiPalaute(lk.aid);   // vie suoraan kyseiseen palautteeseen (linkki.aid)
+  }
   else if (lk.nakyma === 'itsearvio' && typeof avaaHarjoitusarviointi === 'function') avaaHarjoitusarviointi();   // N1.5: tee_itsearvio → Itsearvio-lomake
 };
 window._notifKaikkiLuetuiksi = async function () {
