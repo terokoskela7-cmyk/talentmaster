@@ -270,6 +270,7 @@ async function haeOrLuoHuoltajaAuth(hEmail, etunimi, sukunimi) {
 const { pohjaHeader, pohjaFooter, pohjaRekisteriKutsu, pohjaMuistutus, pohjaPelaajaSivu, pohjaSalasanaAsetus, pohjaSuostumusLinkki, pohjaSoloLupa } = require('./sahkoposti_pohjat');
 const { otsikkoPuhdas, rakennaKutsuLinkki } = require('./sahkoposti_turva');
 const { muodostaPalauteNotif } = require('./palaute_notif');
+const { huomisenRajat } = require('./helsinki_paiva');
 // ─────────────────────────────────────────────────────────────────────────────
 // lahetaRekisteriKutsu
 // ─────────────────────────────────────────────────────────────────────────────
@@ -2217,9 +2218,10 @@ exports.notifTapahtumaMuistutus = functions
   .pubsub.schedule('0 17 * * *')
   .timeZone('Europe/Helsinki')
   .onRun(async () => {
-    const now = new Date();
-    const alku = admin.firestore.Timestamp.fromDate(new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 0));
-    const loppu = admin.firestore.Timestamp.fromDate(new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 23, 59, 59));
+    // "Huominen" = Europe/Helsinki-vuorokausi (ajoympäristö on UTC → getDate() olisi UTC-päivä). Ks. helsinki_paiva.js.
+    const rajat = huomisenRajat(new Date());
+    const alku = admin.firestore.Timestamp.fromDate(rajat.alku);
+    const loppu = admin.firestore.Timestamp.fromDate(rajat.loppu);
     const seurat = await db.collection('seurat').get();
     for (const s of seurat.docs) {
       const sid = s.id;
