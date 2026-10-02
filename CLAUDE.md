@@ -413,9 +413,8 @@ domain-verifiointi + attestointi, ei salassapito. Portti `tests/appcheck_kytkent
 avain kopioidaan toiseen tiedostoon.
 
 **Kaksi aktivointipolkua, yksi avain:**
-- **compat (18 appia):** `<script>` app-check-compat **appin OMALLA SDK-versiolla** (repossa viisi:
-  10.7.1 / 9.23.0 / 9.22.0-2) → `lib/tm_appcheck.js?v=1` → `tmAppCheckAktivoi()` **heti initin jälkeen**.
-  ⚠ **ÄLÄ kovakoodaa yhtä versiota** — se olisi sekaversio 10 apissa.
+- **compat (21 appia; 23 elävää sivua = 21 compat + 2 modular):** `<script>` app-check-compat **appin OMALLA SDK-versiolla** (sama versio kuin `app-compat`). Kohdeversio **10.7.1** kaikille compat-sivuille; siirtymävaiheessa vanhoja versioita on vielä (9.22.0 / 9.22.1 / 9.22.2 / 9.23.0) — portti `tests/firebase_sdk_versio.test.js` (`MIGRAATIOLISTA` tyhjenee erien mukana), suunnitelma `docs/FIREBASE_SDK_YHTENAISTYS.md` → `lib/tm_appcheck.js?v=1` → `tmAppCheckAktivoi()` **heti initin jälkeen**.
+  ⚠ **Älä sekoita versioita sivun sisällä** (portti vahtii) — uusi appi käyttää kohdeversiota 10.7.1.
 - **modular (2 appia:** `tm_videopankki_admin.html`, `TM_LiikehallintaMatrix_v2.html`**):**
   `initializeAppCheck(app, {provider:new ReCaptchaEnterpriseProvider(window.TM_APPCHECK_SITE_KEY), …})`,
   avain luetaan jaetusta moduulista. `initializeAppCheck` **heittää jos sama appi aktivoidaan kahdesti**
