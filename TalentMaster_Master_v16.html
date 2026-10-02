@@ -14,11 +14,11 @@
 <script src="https://browser.sentry-cdn.com/10.58.0/bundle.min.js" integrity="sha384-rtfUMq82bneIHVOpL/60roC5pIJ9kDO15w13yGEBKZSJp3aIbrOAhimB61EwPClB" crossorigin="anonymous"></script>
 <script src="tm_sentry.js?v=3"></script>
 <!-- Firebase v9 compat -->
-<script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-check-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-storage-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-check-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-storage-compat.js"></script>
 <script src="lib/tm_pvm.js?v=3"></script>   <!-- tmPaivaIso: paikallinen päivä ("tänään" ≠ UTC-päivä klo 0–3) -->
 <script src="lib/tm_appcheck.js?v=1"></script>
 <script src="lib/tm_pelihavainto_valinta.js?v=1"></script>   <!-- §7: YKSI sisäänkäynti pelihavaintoon (jaettu, ei kopioita) -->
@@ -2055,6 +2055,41 @@ firebase.initializeApp(_FB);
 tmAppCheckAktivoi();   // App Check heti initin jälkeen, ennen 1. backend-kutsua
 const _auth = firebase.auth();
 const _db   = firebase.firestore();
+/* ══ OFFLINE-SPIKE (erä 0) — EI TUOTANTOON. Päällä vain jos localStorage.tm_offline_spike === '1'. ══
+   Tero testaa preview-kanavalla / localhostissa (App Check debug-token, §38), seurakäyttäjällä, kirjoitukset vain Topiakselle.
+   Konsolista: tmSpike.tila() · tmSpike.kirjoita(polku, data) · tmSpike.portti.auki() / .kiinni() · tmSpike.ledger() */
+(function () {
+  try { if (localStorage.getItem('tm_offline_spike') !== '1') return; } catch (e) { return; }
+  var S = window.tmSpike = { loki: [], portti: {}, ledger_: [] };
+  function l(k, v) { S.loki.push({ t: Math.round(performance.now()), k: k, v: v === undefined ? null : v }); console.log('[spike]', k, v === undefined ? '' : v); }
+  /* 1) enablePersistence HETI (ennen muita Firestore-kutsuja) + portti kiinni HETI, jotta IndexedDB-jono ei lähde ennen tokeneita */
+  var peruspromise = _db.enablePersistence({ synchronizeTabs: true }).then(function () { l('persistence', 'ok'); }, function (e) { l('persistence-virhe', e.code); });
+  var porttiKiinni = true;
+  var gate = _db.disableNetwork().then(function () { l('portti', 'kiinni (alustus)'); });
+  /* 2) portin avaus: (a) verkossa, (b) IdToken pakotettu (§7.2: tuoreet claimit), (c) App Check -token, vasta sitten enableNetwork */
+  S.portti.auki = function () {
+    var t0 = performance.now();
+    var ac = (firebase.appCheck && firebase.appCheck().getToken) ? firebase.appCheck().getToken(true).then(function (r) { l('appcheck-token', r && r.token ? 'saatu' : 'ei'); return !!(r && r.token); }, function (e) { l('appcheck-token-virhe', e && (e.code || e.message)); return false; }) : Promise.resolve(false);
+    var id = _auth.currentUser ? _auth.currentUser.getIdToken(true).then(function () { l('idtoken-refresh', 'ok'); return true; }, function (e) { l('idtoken-refresh-virhe', e.code); return false; }) : Promise.resolve(false);
+    return Promise.all([id, ac]).then(function (r) {
+      if (!r[0] || !r[1]) { l('portti', 'EI avata (token puuttuu): id=' + r[0] + ' appcheck=' + r[1]); return false; }
+      return _db.enableNetwork().then(function () { porttiKiinni = false; l('portti', 'AUKI ' + Math.round(performance.now() - t0) + ' ms'); return true; });
+    });
+  };
+  S.portti.kiinni = function () { return _db.disableNetwork().then(function () { porttiKiinni = true; l('portti', 'kiinni'); }); };
+  window.addEventListener('online', function () { l('online-tapahtuma'); S.portti.auki(); });
+  window.addEventListener('offline', function () { l('offline-tapahtuma'); S.portti.kiinni(); });
+  if (navigator.onLine) setTimeout(function () { _auth.onAuthStateChanged(function (u) { if (u) S.portti.auki(); }); }, 0);
+  /* 3) kirjoitus + ledger: ei odoteta ack:ia; kirjataan tulos */
+  S.kirjoita = function (polku, data, opts) {
+    var e = { id: 'w' + (S.ledger_.length + 1), polku: polku, aika: new Date().toISOString(), tila: 'odottaa' }; S.ledger_.push(e);
+    _db.doc(polku).set(Object.assign({}, data), opts || { merge: true }).then(function () { e.tila = 'synkattu'; e.synkattu = new Date().toISOString(); l('kirjoitus synkattu', e.id); }, function (er) { e.tila = 'hylatty'; e.virhe = er.code; l('kirjoitus HYLATTY', e.id + ' ' + er.code); });
+    return e.id;
+  };
+  S.ledger = function () { return S.ledger_.map(function (x) { return x.id + ' ' + x.tila + ' ' + x.polku + (x.virhe ? ' ' + x.virhe : ''); }); };
+  S.tila = function () { return { onLine: navigator.onLine, porttiKiinni: porttiKiinni, uid: _auth.currentUser && _auth.currentUser.uid, ledger: S.ledger(), loki: S.loki.slice(-12) }; };
+  l('spike paalla', { sdk: firebase.SDK_VERSION });
+})();
 
 /* ════════════════════════════════════════════════════════════
    TILA

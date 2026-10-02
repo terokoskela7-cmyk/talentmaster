@@ -1,0 +1,66 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>offline-spike harness (emulaattori, Firebase compat 10.7.1)</title>
+<script src="sdk/firebase-app-compat.js"></script>
+<script src="sdk/firebase-auth-compat.js"></script>
+<script src="sdk/firebase-firestore-compat.js"></script>
+<script>
+/* Erä 0 -spike: PIENI harness, joka toistaa Masterin kuvion (Auth LOCAL + enablePersistence + kirjoitukset)
+   emulaattoria vasten. EI tuotantokoodia. Parametrit: ?order=persist-first|late|none&sync=1&cache=<tavua>&tab=<nimi> */
+var Q = new URLSearchParams(location.search);
+var ORDER = Q.get('order') || 'persist-first';
+var SYNC = Q.get('sync') !== '0';
+var CACHE = Q.get('cache') ? Number(Q.get('cache')) : null;
+var LOG = window.__log = [];
+function log(k, v) { LOG.push({ t: Math.round(performance.now()), k: k, v: v === undefined ? null : v }); }
+window.__writes = {};
+var app = firebase.initializeApp({ apiKey: 'fake-key', projectId: 'demo-tm-spike', authDomain: 'localhost' });
+var auth = firebase.auth(); auth.useEmulator('http://127.0.0.1:9099', { disableWarnings: true });
+var db = firebase.firestore();
+db.useEmulator('127.0.0.1', 8080);
+window.INIT = { order: ORDER, sync: SYNC, persistErr: null, authPersistErr: null };
+window.__ready = (async function () {
+  if (CACHE) db.settings({ cacheSizeBytes: CACHE, merge: true });
+  try { await auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL); } catch (e) { INIT.authPersistErr = e.code || String(e); }
+  if (ORDER === 'persist-first') {
+    try { await db.enablePersistence({ synchronizeTabs: SYNC }); INIT.persist = 'ok'; } catch (e) { INIT.persistErr = e.code || String(e); INIT.persistMsg = String(e.message || e).slice(0, 140); }
+  } else if (ORDER === 'late') {
+    try { await db.collection('x').doc('warm').get({ source: 'cache' }).catch(function () {}); } catch (e) {}
+    try { await db.enablePersistence({ synchronizeTabs: SYNC }); INIT.persist = 'ok'; } catch (e) { INIT.persistErr = e.code || String(e); INIT.persistMsg = String(e.message || e).slice(0, 140); }
+  } else { INIT.persist = 'ei kaytossa'; }
+  if (Q.get('gate') === '1') { var tg = performance.now(); await db.disableNetwork(); INIT.gateMs = Math.round(performance.now() - tg); }   // portti: verkko kiinni HETI persistencen jälkeen
+  await new Promise(function (r) { var u = auth.onAuthStateChanged(function (x) { u(); INIT.uid = x ? x.uid : null; r(); }); });
+  log('init', INIT);
+  return INIT;
+})();
+var T = window.T = {
+  signIn: function (e, p) { return auth.signInWithEmailAndPassword(e, p).then(function (c) { return c.user.uid; }); },
+  who: function () { var u = auth.currentUser; return u ? u.uid : null; },
+  token: function (force) { var t0 = performance.now(); return auth.currentUser.getIdToken(!!force).then(function (t) { return { ok: true, ms: Math.round(performance.now() - t0), claims: JSON.parse(atob(t.split('.')[1].replace(/-/g, '+').replace(/_/g, '/'))) }; }, function (e) { return { ok: false, code: e.code, ms: Math.round(performance.now() - t0) }; }); },
+  /* Kirjoitus: EI odoteta — tulos talteen __writes[id]:hen (kuten ADAR-malli). */
+  write: function (id, path, data, opts) {
+    var t0 = performance.now(); var w = window.__writes[id] = { state: 'pending', t0: Math.round(t0) };
+    db.doc(path).set(data, opts || {}).then(function () { w.state = 'resolved'; w.ms = Math.round(performance.now() - t0); w.tEnd = Math.round(performance.now()); },
+      function (e) { w.state = 'rejected'; w.code = e.code; w.ms = Math.round(performance.now() - t0); w.tEnd = Math.round(performance.now()); });
+    return id;
+  },
+  del: function (id, path) {
+    var t0 = performance.now(); var w = window.__writes[id] = { state: 'pending', t0: Math.round(t0) };
+    db.doc(path).delete().then(function () { w.state = 'resolved'; w.ms = Math.round(performance.now() - t0); }, function (e) { w.state = 'rejected'; w.code = e.code; w.ms = Math.round(performance.now() - t0); });
+    return id;
+  },
+  writeState: function (id) { return window.__writes[id] || null; },
+  pending: function (ms) { var t0 = performance.now(); return Promise.race([db.waitForPendingWrites().then(function () { return { r: 'resolved', ms: Math.round(performance.now() - t0) }; }, function (e) { return { r: 'rejected', code: e.code }; }), new Promise(function (r) { setTimeout(function () { r({ r: 'timeout', ms: ms }); }, ms || 3000); })]); },
+  /* Metadata-kuuntelija: kirjaa hasPendingWrites/fromCache -muutokset */
+  watch: function (path, name) { var ev = window.__log; return db.doc(path).onSnapshot({ includeMetadataChanges: true }, function (s) { log('snap:' + name, { exists: s.exists, pending: s.metadata.hasPendingWrites, cache: s.metadata.fromCache }); }, function (e) { log('snaperr:' + name, e.code); }); },
+  get: function (path, source) { var t0 = performance.now(); return db.doc(path).get(source ? { source: source } : undefined).then(function (s) { return { ok: true, exists: s.exists, cache: s.metadata.fromCache, ms: Math.round(performance.now() - t0) }; }, function (e) { return { ok: false, code: e.code, ms: Math.round(performance.now() - t0) }; }); },
+  getColl: function (path, source, limit) { var t0 = performance.now(); var q = db.collection(path); if (limit) q = q.limit(limit); return q.get(source ? { source: source } : undefined).then(function (s) { return { ok: true, n: s.size, cache: s.metadata.fromCache, ms: Math.round(performance.now() - t0) }; }, function (e) { return { ok: false, code: e.code, ms: Math.round(performance.now() - t0) }; }); },
+  firstSnap: function (path, ms) { var t0 = performance.now(); return new Promise(function (res) { var done = false; var un = db.collection(path).onSnapshot({ includeMetadataChanges: false }, function (s) { if (done) return; done = true; un(); res({ ok: true, n: s.size, cache: s.metadata.fromCache, ms: Math.round(performance.now() - t0) }); }, function (e) { if (done) return; done = true; res({ ok: false, code: e.code, ms: Math.round(performance.now() - t0) }); }); setTimeout(function () { if (!done) { done = true; un(); res({ ok: false, code: 'timeout', ms: ms }); } }, ms || 15000); }); },
+  netOff: function () { var t0 = performance.now(); return db.disableNetwork().then(function () { return Math.round(performance.now() - t0); }); },
+  netOn: function () { var t0 = performance.now(); return db.enableNetwork().then(function () { return Math.round(performance.now() - t0); }); },
+  clear: async function () { var t0 = performance.now(); try { await db.terminate(); await db.clearPersistence(); return { ok: true, ms: Math.round(performance.now() - t0) }; } catch (e) { return { ok: false, code: e.code, msg: String(e.message).slice(0, 120) }; } },
+  signOut: function () { return auth.signOut(); },
+  storage: async function () { var est = navigator.storage && navigator.storage.estimate ? await navigator.storage.estimate() : null; var dbs = indexedDB.databases ? (await indexedDB.databases()).map(function (d) { return d.name; }) : null; return { usageMB: est ? +(est.usage / 1048576).toFixed(2) : null, quotaMB: est ? Math.round(est.quota / 1048576) : null, dbs: dbs, online: navigator.onLine }; },
+  info: function () { return { ua: navigator.userAgent, online: navigator.onLine, init: window.INIT }; }
+};
+</script>
