@@ -82,7 +82,7 @@ describe('valitseNostot — malli B (itsereflektion kehityskohde)', () => {
   });
 });
 
-describe('edellinenArviointi — sama valmentajaUid + sama malli', () => {
+describe('edellinenArviointi — sama valmentajaUid + sama malli + sama arviointitapa', () => {
   const L = [
     { _id: 'a', valmentajaUid: 'v1', malli: 'palloliitto', pvm: '2026-09-01', vastaukset: { a1: 5 } },
     { _id: 'b', valmentajaUid: 'v1', malli: 'palloliitto', pvm: '2026-09-15', vastaukset: { a1: 6 } },
@@ -182,9 +182,54 @@ describe('VP: edellinen arviointi + muutosnuolet (_hlRenderTapahtuma)', () => {
   });
   it('ei edellistä → "Ensimmäinen arviointi tälle valmentajalle." eikä nuolia', () => {
     const h = renderoi(lista[1]);
-    expect(h).toContain('Ensimmäinen arviointi tälle valmentajalle.');
+    expect(h).toContain('Ensimmäinen havainnointi tälle valmentajalle.');
     expect(h).not.toContain('Edellinen:');
     expect(h).not.toContain('edelliseen verrattuna');
+  });
+});
+
+describe('itsearvio ja havainnointi eivät vertaudu keskenään', () => {
+  const mk = (id, malli, tapa, pvm, v) => ({ _id: id, valmentajaUid: 'v', valmentaja: 'R', malli, arviointitapa: tapa, ikavaihe: 'lapsuus', joukkue: 'U12', pvm, vastaukset: v });
+  for (const [malli, k1, k2] of [['valmennustaidot', 'b1', 'b2'], ['palloliitto', 'a1', 'a3']]) {
+    it(malli + ': edellinen haetaan samalta tavalta; toisen tavan arviointi ohitetaan', () => {
+      const L = [mk('i1', malli, 'itsearvio', '2026-09-01', { [k1]: 3 }), mk('h1', malli, 'havainnointi', '2026-09-20', { [k1]: 5 }),
+        mk('i2', malli, 'itsearvio', '2026-10-01', { [k1]: 4 }), mk('h2', malli, 'havainnointi', '2026-10-02', { [k1]: 5 })];
+      expect(K.edellinenArviointi(L, L[2])._id).toBe('i1');   // itsearvio → itsearvio (ohittaa uudemman havainnoinnin h1)
+      expect(K.edellinenArviointi(L, L[3])._id).toBe('h1');   // havainnointi → havainnointi
+    });
+    it(malli + ': ei samaa tapaa aiemmin → null (vaikka toisen tavan arviointeja on)', () => {
+      const L = [mk('h1', malli, 'havainnointi', '2026-09-20', { [k1]: 5 }), mk('i1', malli, 'itsearvio', '2026-10-01', { [k1]: 4 })];
+      expect(K.edellinenArviointi(L, L[1])).toBeNull();
+      expect(K.edellinenKonteksti(L, L[1], () => 4).edellinen).toBeNull();
+    });
+    it(malli + ': renderöinti — "Ensimmäinen {tapa} tälle valmentajalle." eikä nuolia toisen tavan perusteella', () => {
+      const L = [mk('h1', malli, 'havainnointi', '2026-09-20', { [k1]: 5, [k2]: 2 }), mk('i1', malli, 'itsearvio', '2026-10-01', { [k1]: 4, [k2]: 3 })];
+      const { ctx, el } = sandboxi(L);
+      lataa(ctx, 'function _hlKa(', 'function _hlPvmFi(', 'function _hlRenderTapahtuma(');
+      vm.runInContext('_hlRenderTapahtuma(' + JSON.stringify(L[1]) + ')', ctx);
+      const h = el('hlTapInner').innerHTML;
+      expect(h).toContain('Ensimmäinen itsearvio tälle valmentajalle.');
+      expect(h).not.toContain('Edellinen:');
+      expect(h).not.toContain('edelliseen verrattuna');
+      vm.runInContext('_hlRenderTapahtuma(' + JSON.stringify(L[0]) + ')', ctx);
+      expect(el('hlTapInner').innerHTML).toContain('Ensimmäinen havainnointi tälle valmentajalle.');
+    });
+    it(malli + ': ↑↓= samasta parista (itsearvio↔itsearvio)', () => {
+      const L = [mk('i1', malli, 'itsearvio', '2026-09-01', { [k1]: 3, [k2]: 4 }), mk('h1', malli, 'havainnointi', '2026-09-20', { [k1]: 1, [k2]: 1 }),
+        mk('i2', malli, 'itsearvio', '2026-10-01', { [k1]: 4, [k2]: 4 })];
+      const { ctx, el } = sandboxi(L);
+      lataa(ctx, 'function _hlKa(', 'function _hlPvmFi(', 'function _hlRenderTapahtuma(');
+      vm.runInContext('_hlRenderTapahtuma(' + JSON.stringify(L[2]) + ')', ctx);
+      const h = el('hlTapInner').innerHTML;
+      expect(h).toContain("_hlAvaaTapahtuma('i1')");
+      expect(h).not.toContain("_hlAvaaTapahtuma('h1')");
+      expect((h.match(/ ↑</g) || []).length).toBe(1);   // k1: 4 vs 3 (itsearvio) — havainnoinnin 1 ei vaikuta
+      expect((h.match(/ =</g) || []).length).toBe(1);   // k2: 4 vs 4
+    });
+  }
+  it('arviointitapa puuttuu → oletus havainnointi (kuten listassa)', () => {
+    expect(K.arviointitapa({})).toBe('havainnointi');
+    expect(K.arviointitapa({ arviointitapa: 'itsearvio' })).toBe('itsearvio');
   });
 });
 
