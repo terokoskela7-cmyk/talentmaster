@@ -90,16 +90,16 @@ function mockRes() {
   r.send = (s) => { r._body = s; return r; };
   return r;
 }
-test('aiProxy: POST ilman Bearer-tokenia → 401 UNAUTHORIZED', async () => {
+test('aiProxy: suljettu → POST palauttaa 410 ai_pois_kaytosta', async () => {
   const res = mockRes();
   await fns.aiProxy({ method: 'POST', headers: {}, body: {} }, res);
-  assert.strictEqual(res._status, 401);
-  assert.strictEqual(res._json.code, 'UNAUTHORIZED');
+  assert.strictEqual(res._status, 410);
+  assert.strictEqual(res._json.virhe, 'ai_pois_kaytosta');
 });
-test('aiProxy: OPTIONS → 204 (CORS-preflight)', async () => {
+test('aiProxy: suljettu → OPTIONS palauttaa myös 410 (ei CORS-ovea)', async () => {
   const res = mockRes();
   await fns.aiProxy({ method: 'OPTIONS', headers: {}, body: {} }, res);
-  assert.strictEqual(res._status, 204);
+  assert.strictEqual(res._status, 410);
 });
 
 // ── 3) pubsub.schedule(...).onRun(context) — notifReviewEraantyy (ajastettu) ──

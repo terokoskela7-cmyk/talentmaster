@@ -144,9 +144,8 @@ describe('Reflektioaudio · koodin polku ↔ storage.rules', () => {
     expect(media, 'tallennetun toisto Storagesta').toContain('https://firebasestorage.googleapis.com');
   });
 
-  it('litterointi kulkee jo deployatun aiProxyn kautta (ei omaa CF:ää)', () => {
-    const cf = lue('functions/index.js');
-    expect(cf).toContain("task === 'voice_transcribe'");
-    expect(cf, 'aiProxy on se joka deployataan').toContain('exports.aiProxy');
+  it('litterointi poistettu (aiProxy suljettu 2.10.2026) — nauhoitin ei kutsu verkkoa', () => {
+    expect(lue('lib/tm_aani.js')).not.toMatch(/fetch\(/);
+    expect(lue('functions/index.js')).not.toContain("task === 'voice_transcribe'");
   });
 });

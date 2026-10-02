@@ -84,23 +84,21 @@ describe('(1) kuvatoiminto on poistettu clientistä', () => {
 });
 
 describe('(2) palvelin torjuu vanhatkin clientit', () => {
+  /* 2.10.2026: koko aiProxy suljettu (410) → adar_vision_narratiivi-haaraa ei enää ole; mikään task ei pääse
+     kuvaan eikä avaimiin. Vartija: ai_pois_kaytosta.test.js. */
   const CF = lue('functions/index.js');
-  const lohko = pura(CF, "if (task === 'adar_vision_narratiivi') {");
+  const i = CF.indexOf('exports.aiProxy');
+  const runko = ilmanKommentteja(CF.slice(i, CF.indexOf('\n  });', i) + 6));
 
-  it('adar_vision_narratiivi vastaa 410 POISTETTU', () => {
-    expect(lohko).toContain('410');
-    expect(lohko).toContain("code: 'POISTETTU'");
-  });
-
-  it('vastaus annetaan ENNEN kuin kuvaa luetaan tai välitetään', () => {
-    const koodi = ilmanKommentteja(lohko);
-    ['body.kuva', 'base64', 'OPENAI_API_KEY', 'systemPrompt'].forEach((s) => {
-      expect(koodi, 'kuvaa ei saa koskea: ' + s).not.toContain(s);
+  it('aiProxy vastaa 410 kaikkeen eikä luki bodya', () => {
+    expect(runko).toContain('status(410)');
+    ['req.body', 'body.kuva', 'base64', 'OPENAI_API_KEY', 'systemPrompt'].forEach((s) => {
+      expect(runko, 'kuvaa ei saa koskea: ' + s).not.toContain(s);
     });
   });
 
-  it('käyttäjän ohje-kenttää ei enää käytetä', () => {
-    expect(ilmanKommentteja(lohko)).not.toContain('body.ohje');
+  it('adar_vision_narratiivi-haaraa ei ole enää koodissa', () => {
+    expect(ilmanKommentteja(CF)).not.toContain('adar_vision_narratiivi');
   });
 });
 
