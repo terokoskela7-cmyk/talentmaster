@@ -80,3 +80,20 @@ test('linkki: vanha Pages- ja web.app-origin sallitaan mutta kirjoitetaan uudell
   assert.strictEqual(l, SIVU + '?seuraId=s1');
   assert.ok(rakennaKutsuLinkki('https://talentmaster-pilot.web.app/TalentMaster_Rekisterointi_Suostumus.html?seuraId=s1', BASE).startsWith(SIVU));
 });
+
+test('linkki: origin kavennettu — vain projektin Hosting + preview-kanavat', () => {
+  const sivu = '/TalentMaster_Rekisterointi_Suostumus.html?seuraId=s1';
+  for (const ok of ['https://talentmaster-pilot.web.app', 'https://talentmaster-pilot--pr-12-abc.web.app', 'https://talentmaster-pilot.firebaseapp.com']) {
+    assert.ok(rakennaKutsuLinkki(ok + sivu, BASE).startsWith(SIVU), ok);
+  }
+  for (const huono of ['https://evil.web.app', 'https://evil.firebaseapp.com', 'https://talentmaster-pilot.web.app.evil.example',
+    'https://xtalentmaster-pilot.web.app', 'https://talentmaster-pilot--x.firebaseapp.com']) {
+    assert.throws(() => rakennaKutsuLinkki(huono + sivu, BASE), /linkki_hylatty/, huono);
+  }
+});
+
+test('linkki: ylikirjoita asettaa seuraId + seura palvelimen arvoilla', () => {
+  const l = new URL(rakennaKutsuLinkki(SIVU + '?seuraId=muu&seura=V%C3%A4%C3%A4r%C3%A4', BASE, { seuraId: 's1', seura: 'HJK' }));
+  assert.strictEqual(l.searchParams.get('seuraId'), 's1');
+  assert.strictEqual(l.searchParams.get('seura'), 'HJK');
+});

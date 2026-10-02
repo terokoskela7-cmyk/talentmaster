@@ -30,13 +30,14 @@ const KUTSU_PARAMETRIT = ['seuraId', 'seura', 'joukkue', 'etunimi', 'sukunimi', 
   'palloid', 'sporttiid', 'pelaajaId', 'suostumusAnnettu', 'kutsuId'];
 const KUTSU_ARVO_MAX = 200;
 
-// Hyväksytty origin: oma tuotanto-origin, Firebase Hosting -domainit, vanha Pages (cutover-aika).
+// Hyväksytty origin: oma tuotanto-origin, projektin Hosting (+ preview-kanavat), vanha Pages (cutover-aika).
 function sallittuOrigin(u, baseUrl) {
   let baseOrigin = null;
   try { baseOrigin = new URL(baseUrl).origin; } catch (e) { /* ohita */ }
   if (u.protocol !== 'https:') return false;
   if (u.origin === baseOrigin) return true;
-  return /^(?:[a-z0-9-]+\.)(?:web\.app|firebaseapp\.com)$/i.test(u.hostname)
+  return /^(?:talentmaster-pilot|talentmaster-pilot--[a-z0-9-]+)\.web\.app$/i.test(u.hostname)
+    || u.hostname === 'talentmaster-pilot.firebaseapp.com'
     || u.hostname === 'terokoskela7-cmyk.github.io';
 }
 
@@ -44,7 +45,7 @@ function sallittuOrigin(u, baseUrl) {
  * Selaimen antama kutsulinkki → palvelimen rakentama linkki (baseUrl + sivu + sallitut parametrit).
  * Heittää Erroria (viesti 'linkki_hylatty') jos linkki ei ole hyväksytyllä originilla / sivulla.
  */
-function rakennaKutsuLinkki(raaka, baseUrl) {
+function rakennaKutsuLinkki(raaka, baseUrl, ylikirjoita) {
   let u;
   try { u = new URL(String(raaka)); } catch (e) { throw new Error('linkki_hylatty'); }
   if (!sallittuOrigin(u, baseUrl)) throw new Error('linkki_hylatty');
@@ -53,6 +54,9 @@ function rakennaKutsuLinkki(raaka, baseUrl) {
   for (const avain of KUTSU_PARAMETRIT) {
     const v = u.searchParams.get(avain);
     if (v !== null && v !== '') out.set(avain, v.slice(0, KUTSU_ARVO_MAX));
+  }
+  for (const [k, v] of Object.entries(ylikirjoita || {})) {
+    if (KUTSU_PARAMETRIT.includes(k) && v) out.set(k, String(v).slice(0, KUTSU_ARVO_MAX));
   }
   return String(baseUrl).replace(/\/+$/, '') + '/' + KUTSU_SIVU + (out.toString() ? '?' + out.toString() : '');
 }

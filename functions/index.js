@@ -120,6 +120,18 @@ async function haeJoukkueNimi(seuraId, joukkueTunnus) {
     .replace(/_/g, ' ')
     .replace(/\b\w/g, c => c.toUpperCase());
 }
+// Seuran nimi AINA palvelimelta (seurat/{seuraId}.nimi) — selaimen `seura`-arvoon ei luoteta
+// (muuten seuran tunnuksella voi lähettää viestin toisen seuran nimissä).
+async function haeSeuraNimi(seuraId) {
+  try {
+    const snap = await db.collection('seurat').doc(seuraId).get();
+    const nimi = snap.exists ? String((snap.data() || {}).nimi || '').trim() : '';
+    if (nimi) return nimi;
+  } catch (e) {
+    console.warn('[haeSeuraNimi] Haku epäonnistui:', e.message);
+  }
+  return seuraId;
+}
 // ─────────────────────────────────────────────────────────────────────────────
 // APUFUNKTIO: Tarkista oikeus
 // ─────────────────────────────────────────────────────────────────────────────
@@ -270,14 +282,10 @@ exports.lahetaRekisteriKutsu = functions
     if (!context.auth) {
       throw new functions.https.HttpsError('unauthenticated', 'Kirjaudu ensin.');
     }
-    const { hEmail, linkki: linkkiSelain, seura, etunimi, sukunimi, joukkue } = data;
+    const { hEmail, linkki: linkkiSelain, etunimi, sukunimi, joukkue } = data;
     if (!hEmail || !linkkiSelain) {
       throw new functions.https.HttpsError('invalid-argument', 'hEmail ja linkki ovat pakollisia.');
     }
-    // Selaimen linkkiä EI käytetä sellaisenaan: palvelin rakentaa TM_BASE_URL + sallitut parametrit.
-    let linkki;
-    try { linkki = rakennaKutsuLinkki(linkkiSelain, TM_BASE_URL); }
-    catch (e) { throw new functions.https.HttpsError('invalid-argument', 'Virheellinen kutsulinkki.'); }
     /* Vaihe 0 / PR 3: pelkkä context.auth EI riitä — anonyymi (julkinen avain) lähetti seuran nimissä
        sähköpostia mielivaltaisella linkillä. Vain seuran johto / SA (tarkistaOikeus). seuraId datasta
        tai henkilökunnan tokenista (vanha Seura-sivu ei lähettänyt sitä). */
@@ -287,7 +295,13 @@ exports.lahetaRekisteriKutsu = functions
     }
     estaPaikkamerkkiOsoite(hEmail);   // ei kutsua eikä audit-riviä esimerkkiosoitteeseen
     const pelaajaNimi = [etunimi, sukunimi].filter(Boolean).join(' ') || 'pelaaja';
-    const seuraNimi   = seura || 'TalentMaster-seura';
+    // Seuran nimi palvelimelta (viesti, fromName, linkki) — selaimen `seura` ohitetaan.
+    const seuraNimi   = await haeSeuraNimi(seuraId);
+    // Selaimen linkkiä EI käytetä sellaisenaan: palvelin rakentaa TM_BASE_URL + sallitut parametrit
+    // (seuraId ja seura ylikirjoitetaan tarkistetuilla / palvelimen arvoilla).
+    let linkki;
+    try { linkki = rakennaKutsuLinkki(linkkiSelain, TM_BASE_URL, { seuraId, seura: seuraNimi }); }
+    catch (e) { throw new functions.https.HttpsError('invalid-argument', 'Virheellinen kutsulinkki.'); }
     // Sisarusbugi: audit-riville AINA pelaajaId (datasta tai linkin pelaajaId-parametrista).
     let pelaajaIdKutsu = data.pelaajaId ? String(data.pelaajaId) : null;
     if (!pelaajaIdKutsu) { try { pelaajaIdKutsu = new URL(String(linkki)).searchParams.get('pelaajaId'); } catch (e) { pelaajaIdKutsu = null; } }
@@ -987,7 +1001,7 @@ exports.lahetaPelaajaSivuLinkki = functions
     if (!context.auth) {
       throw new functions.https.HttpsError('unauthenticated', 'Kirjaudu ensin.');
     }
-    const { hEmail, pelaajaId, seuraId, etunimi, sukunimi, seura, joukkue } = data || {};
+    const { hEmail, pelaajaId, seuraId, etunimi, sukunimi, joukkue } = data || {};
     if (!hEmail || !pelaajaId || !seuraId) {
       throw new functions.https.HttpsError('invalid-argument',
         'hEmail, pelaajaId ja seuraId ovat pakollisia.');
@@ -1004,7 +1018,7 @@ exports.lahetaPelaajaSivuLinkki = functions
         'Sähköposti ei vastaa pelaajan tallennettua huoltajasähköpostia. Tallenna huoltajan sähköposti ensin.');
     }
     const pelaajaNimi = [etunimi, sukunimi].filter(Boolean).join(' ') || 'pelaaja';
-    const seuraNimi   = seura || 'TalentMaster-seura';
+    const seuraNimi   = await haeSeuraNimi(seuraId);   // palvelimelta, ei selaimen `seura`-arvoa
     const joukkueNimi = await haeJoukkueNimi(seuraId, joukkue);
     const baseUrl = TM_BASE_URL;
     // PR 4: henkilökohtainen linkki ?p=&seura= (Pelaaja_v7 → pelkkä PIN-näppäimistö), ei nimiä URL:iin.
