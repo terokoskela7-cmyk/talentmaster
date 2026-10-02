@@ -3578,7 +3578,7 @@ function luoRekisteriLinkki() {
     joukkue:  joukkueNimi,
     ...(etunimi   && { etunimi }),
     ...(sukunimi  && { sukunimi }),
-    ...(hEmail    && { hEmail }),
+    // hEmail EI kutsulinkkiin (huoltaja kirjoittaa osoitteen itse; vahvistaSuostumus vertaa palvelimella tallennettuun)
     ...(palloId   && { palloid: palloId }),
     ...(sporttiId && { sporttiid: sporttiId }),
     // Lisätään pelaajaId jos pelaaja on jo rekisterissä — estää duplikaatin
@@ -3675,7 +3675,7 @@ async function lahetaRekisteriSahkoposti() {
     const baseUrl = _rekBaseUrl();
     const params  = new URLSearchParams({
       seuraId: tila.seuraId, seura: tila.seuraNimi || tila.seuraId,
-      etunimi: _etu, sukunimi: _suku, joukkue: _joukkue, hEmail,
+      etunimi: _etu, sukunimi: _suku, joukkue: _joukkue,   // ei hEmailia linkkiin
     });
     tila._rekLinkki = baseUrl + '?' + params.toString();
     tila._rekHEmail = hEmail;
@@ -3775,8 +3775,7 @@ async function lahetaRekisteriSahkoposti() {
         seuraId:   tila.seuraId,
         pelaajaId: pelaajaId,
         seura:     tila.seuraNimi || tila.seuraId,
-        etunimi, sukunimi, joukkue,
-        hEmail:    tila._rekHEmail,
+        etunimi, sukunimi, joukkue,   // ei hEmailia linkkiin
       });
       if (_uusintaParam) params.set('suostumusAnnettu', _uusintaParam);   // suostumussivun selite (uusinta)
       tila._rekLinkki = baseUrl + '?' + params.toString();
@@ -5735,7 +5734,6 @@ async function lahetaMassakutsu() {
       if (p.etunimi)       params.set('etunimi',  p.etunimi);
       if (p.sukunimi)      params.set('sukunimi', p.sukunimi);
       if (p.joukkue)       params.set('joukkue',  p.joukkue);
-      if (p.huoltajaEmail) params.set('hEmail',   p.huoltajaEmail);
       const linkki = baseUrl + '?' + params.toString();
 
       // Tallennetaan kutsu Firestoreen — luodaan ID etukäteen (kutsuId linkkiin)
@@ -6762,8 +6760,7 @@ async function ajaExcelTuonti(lahetaKutsut = false) {
           seura:     seuraNimi,
           etunimi:   p.etunimi,
           sukunimi:  p.sukunimi,
-          joukkue:   p.joukkue,
-          hEmail:    p.huoltajaEmail,
+          joukkue:   p.joukkue,   // ei hEmailia linkkiin
           ...(p.palloId && { palloid: p.palloId }),
         });
         const linkki = baseUrl + '?' + params.toString();

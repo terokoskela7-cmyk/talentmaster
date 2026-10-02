@@ -1,7 +1,7 @@
 'use strict';
 const { test } = require('node:test');
 const assert = require('node:assert');
-const { esc, otsikkoPuhdas, rakennaKutsuLinkki } = require('../sahkoposti_turva');
+const { esc, otsikkoPuhdas, rakennaKutsuLinkki, KUTSU_PARAMETRIT } = require('../sahkoposti_turva');
 const pohjat = require('../sahkoposti_pohjat');
 
 const BASE = 'https://talentmasterid.com';
@@ -65,13 +65,13 @@ test('linkki: ilman TM_BASE_URL-alkua / väärä sivu / ei-URL hylätään', () 
 
 test('linkki: Seura-sivun muoto + #714 suostumusAnnettu + kutsuId säilyvät', () => {
   const raaka = SIVU + '?seuraId=s1&pelaajaId=p1&seura=FC%20O%27K&etunimi=Ella&sukunimi=K&joukkue=U12'
-    + '&hEmail=a%40b.fi&suostumusAnnettu=2026-09-30&kutsuId=k9';
+    + '&hEmail=a%40b.fi&suostumusAnnettu=2026-09-30&kutsuId=k9';   // vanha linkkimuoto: hEmail mukana
   const u = new URL(rakennaKutsuLinkki(raaka, BASE));
   assert.strictEqual(u.origin + u.pathname, SIVU);
   assert.strictEqual(u.searchParams.get('suostumusAnnettu'), '2026-09-30');
   assert.strictEqual(u.searchParams.get('kutsuId'), 'k9');
   assert.strictEqual(u.searchParams.get('seura'), "FC O'K");
-  assert.strictEqual(u.searchParams.get('hEmail'), 'a@b.fi');
+  assert.strictEqual(u.searchParams.get('hEmail'), null);   // hEmail EI enää kutsulinkkiin (vanha linkki hyväksytään, parametri pudotetaan)
 });
 
 test('linkki: vanha Pages- ja web.app-origin sallitaan mutta kirjoitetaan uudelleen TM_BASE_URL:lle; tuntemattomat parametrit tippuvat', () => {
@@ -96,4 +96,12 @@ test('linkki: ylikirjoita asettaa seuraId + seura palvelimen arvoilla', () => {
   const l = new URL(rakennaKutsuLinkki(SIVU + '?seuraId=muu&seura=V%C3%A4%C3%A4r%C3%A4', BASE, { seuraId: 's1', seura: 'HJK' }));
   assert.strictEqual(l.searchParams.get('seuraId'), 's1');
   assert.strictEqual(l.searchParams.get('seura'), 'HJK');
+});
+
+test('linkki: hEmail ei koskaan päädy palvelimen rakentamaan linkkiin (myös ylikirjoita-parametrilla yritettynä)', () => {
+  const l1 = rakennaKutsuLinkki(SIVU + '?seuraId=s1&pelaajaId=p1&hEmail=a%40b.fi', BASE);
+  assert.ok(!/hEmail/i.test(l1) && !/%40/.test(l1));
+  const l2 = rakennaKutsuLinkki(SIVU + '?seuraId=s1', BASE, { hEmail: 'x@y.fi', seura: 'S' });
+  assert.ok(!/hEmail/i.test(l2));
+  assert.ok(!KUTSU_PARAMETRIT.includes('hEmail'));
 });

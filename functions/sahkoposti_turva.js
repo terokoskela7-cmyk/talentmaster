@@ -26,7 +26,9 @@ function otsikkoPuhdas(arvo, maxPituus) {
 
 const KUTSU_SIVU = 'TalentMaster_Rekisterointi_Suostumus.html';
 // Ainoat parametrit, jotka suostumussivu lukee ja Seura-sivu lähettää (#714: suostumusAnnettu).
-const KUTSU_PARAMETRIT = ['seuraId', 'seura', 'joukkue', 'etunimi', 'sukunimi', 'hEmail',
+// hEmail EI kuulu linkkiin: palvelin pudottaa sen myös selaimen linkistä (huoltajan sähköposti ei näy URL:ssa/selainhistoriassa/lokeissa;
+// suostumussivu esitäyttää sen vain vanhoista linkeistä, joissa se jo on). Huoltaja kirjoittaa osoitteen itse → vahvistaSuostumus vertaa palvelimella.
+const KUTSU_PARAMETRIT = ['seuraId', 'seura', 'joukkue', 'etunimi', 'sukunimi',
   'palloid', 'sporttiid', 'pelaajaId', 'suostumusAnnettu', 'kutsuId'];
 const KUTSU_ARVO_MAX = 200;
 
