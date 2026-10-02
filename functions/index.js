@@ -2351,7 +2351,7 @@ exports.kuittaaKaavioYmmarretty = functions
 // ============================================================
 exports.valmennusapuri = functions
   .region('europe-west1')
-  .runWith({ timeoutSeconds: 120, memory: '512MB',
+  .runWith({ timeoutSeconds: 240, memory: '512MB',
     secrets: ['ANTHROPIC_API_KEY', 'AWS_BEDROCK_ACCESS_KEY_ID', 'AWS_BEDROCK_SECRET_ACCESS_KEY'] })
   .https.onCall(valmennusapuri.kasittelija(admin, functions));
 

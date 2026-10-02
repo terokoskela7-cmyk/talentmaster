@@ -55,7 +55,7 @@ const MAX_VIESTEJA = 12;                                    // historiasta mukaa
 const MAX_MERKKEJA_VIESTI = 4000;                            // valmentajan kysymys
 const MAX_MERKKEJA_VASTAUS = 12000;                          // apurin aiempi vastaus historiassa (lyhennetään, ei hylätä)
 const MAX_MERKKEJA_YHTEENSA = 40000;
-const MAX_TOKENS = 4000;
+const MAX_TOKENS = 7000;
 const TIETOPOHJA_CACHE_MS = 10 * 60 * 1000;
 
 // Sama koodisto kuin testiajurissa (valmennusapuri/testaus/aja_testit.mjs)
@@ -484,7 +484,7 @@ function onRuotsiksi(teksti) {
  */
 function joukkueHuomio(teksti, data, mainitut) {
   if (mainitut && mainitut.length) return null;
-  if (!/(?<![\p{L}\d])[ptun]\d{2,4}(?![\p{L}\d])/iu.test(String(teksti || ''))) return null;
+  if (!/(?<![\p{L}\d])[ptun]\d{1,4}(?![\p{L}\d])/iu.test(String(teksti || ''))) return null;
   const kaikki = Array.from(new Set(((data && data.pelaajat) || []).map(function (p) { return p.joukkue; }).filter(Boolean))).sort();
   return 'Kysymyksessä mainittua joukkuetta ei tunnistettu seuran joukkueista' +
     (kaikki.length ? ' (seuran joukkueet: ' + kaikki.slice(0, 20).join(', ') + ')' : '') +
