@@ -312,7 +312,12 @@ function rakennaAuditPayload({ tyyppi, severity, seuraId, pelaajaId, requesterUi
   };
 }
 
+// RTBF: seuran oman tavoitteen kirjaus, jossa pelaajalinkki → kirjaus jää (seuran tilasto), mutta pelaajaId JA vapaa
+// huomio tyhjennetään (huomiossa voi olla nimi, vaikka lomake ohjeistaa käyttämään pelaajalinkkiä).
+const OMA_KIRJAUS_PSEUDONYMISOINTI = Object.freeze({ pelaajaId: null, huomio: '' });
+
 module.exports = {
+  OMA_KIRJAUS_PSEUDONYMISOINTI,
   ALIKOKOELMAT,
   keraaPelaajanManifesti,
   rakennaLukumaarat,

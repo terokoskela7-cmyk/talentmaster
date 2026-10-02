@@ -14,7 +14,7 @@ const admin     = require('firebase-admin');
 const https     = require('https');
 const crypto    = require('crypto');
 const { kayttajaRooliSallittu, tunnisteTyyppi, kuittausPaatos } = require('./authz_paatos');   // pure authz-päätös (#71, PR 3, testattava)
-const { keraaPelaajanManifesti, rakennaAuditPayload } = require('./gdpr_locator');   // GDPR RTBF/export -locator (#96)
+const { keraaPelaajanManifesti, rakennaAuditPayload, OMA_KIRJAUS_PSEUDONYMISOINTI } = require('./gdpr_locator');   // GDPR RTBF/export -locator (#96)
 const { kaavioKohdistuuServer } = require('./kaavio_policy');   // kaavion kohdistus (peili lib/tm_kaavio_policy.js)
 const auditloki = require('./auditloki');   // haeAuditLoki: suodattimet + sivutus (SA)
 const pelaajapin = require('./pelaajapin');
@@ -2018,11 +2018,12 @@ exports.poistaPelaajaGDPR = functions
       era.forEach((r) => batch.delete(r));
       await batch.commit();
     }
-    // 2b) Pseudonymisointi: seuran omien tavoitteiden kirjaukset jäävät (seuran tilasto), pelaajaId nollataan
+    // 2b) Pseudonymisointi: seuran omien tavoitteiden kirjaukset jäävät (seuran tilasto), pelaajaId JA huomio
+    //     tyhjennetään (vapaassa huomiossa voi olla pelaajan nimi)
     const nollattavat = (manifesti.ristiviitteet.omat_kirjaukset || []).map((x) => x.ref).filter(Boolean);
     for (let i = 0; i < nollattavat.length; i += 400) {
       const batch = db.batch();
-      nollattavat.slice(i, i + 400).forEach((r) => batch.update(r, { pelaajaId: null }));
+      nollattavat.slice(i, i + 400).forEach((r) => batch.update(r, OMA_KIRJAUS_PSEUDONYMISOINTI));
       await batch.commit();
     }
     // 2c) Kausikuvat: poista pelaajan rivi pelaajat[]-listasta transaktiossa (muut rivit ja kentät säilyvät)

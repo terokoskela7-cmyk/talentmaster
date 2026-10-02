@@ -220,10 +220,18 @@ describe('GDPR-locator — kerääPelaajanManifesti', () => {
     expect(m.lukumaarat.omat_kirjaukset).toBe(2);
     expect(m.varoitukset).toEqual([]);
   });
-  it('RTBF nollaa omien tavoitteiden kirjausten pelaajaId:n (ei poista kirjausta) ja export sisältää ne', () => {
+  it('RTBF tyhjentää omien tavoitteiden kirjauksista pelaajaId:n JA huomion (ei poista kirjausta); export sisältää ne', () => {
+    const { OMA_KIRJAUS_PSEUDONYMISOINTI } = require('../functions/gdpr_locator.js');
+    expect(OMA_KIRJAUS_PSEUDONYMISOINTI).toEqual({ pelaajaId: null, huomio: '' });
+    // Päivitys kirjaukseen, jonka huomiossa on nimi → linkki ja nimi poissa, arvo ja pvm säilyvät (seuran tilasto)
+    const kirjaus = { pvm: '2026-03-15', arvo: 1, pelaajaId: PID, huomio: 'Topias Koskela nousi edustukseen', luoja_uid: 'vp' };
+    const jalkeen = Object.assign({}, kirjaus, OMA_KIRJAUS_PSEUDONYMISOINTI);
+    expect(jalkeen).toEqual({ pvm: '2026-03-15', arvo: 1, pelaajaId: null, huomio: '', luoja_uid: 'vp' });
+    expect(JSON.stringify(jalkeen)).not.toMatch(/Topias|Koskela|UID_abc/);
     const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'functions', 'index.js'), 'utf8');
     const rtbf = src.slice(src.indexOf('exports.poistaPelaajaGDPR'), src.indexOf('exports.viePelaajanDataGDPR'));
-    expect(rtbf).toMatch(/omat_kirjaukset[\s\S]*batch\.update\(r, \{ pelaajaId: null \}\)/);
+    expect(rtbf).toMatch(/omat_kirjaukset[\s\S]*batch\.update\(r, OMA_KIRJAUS_PSEUDONYMISOINTI\)/);
+    expect(src).toMatch(/OMA_KIRJAUS_PSEUDONYMISOINTI \} = require\('\.\/gdpr_locator'\)/);
     expect(rtbf).not.toMatch(/omat_kirjaukset[^\n]*batch\.delete/);
     expect(src.slice(src.indexOf('exports.viePelaajanDataGDPR'))).toMatch(/omat_kirjaukset: dataMap\(manifesti\.ristiviitteet\.omat_kirjaukset\)/);
   });

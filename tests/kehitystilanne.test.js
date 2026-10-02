@@ -237,8 +237,9 @@ describe('Seuran omat vapaat tavoitteet (v0.1, demodata)', () => {
     delete d.omatTavoitteet;
     expect(() => KT.renderEnsinakyma(KT.rakennaMalli(d, { nyt: NYT }), { avoin: 'seura' })).not.toThrow();
   });
-  it('Seura.html: kehitysasetukset tallennetaan mergeFields-asetuksella (ei ylikirjoita muita kenttiä)', () => {
+  it('Seura.html: kehitysasetukset tallennetaan mergeFields-asetuksella (ei ylikirjoita muita kenttiä); kirjauslomakkeessa nimiohje', () => {
     const f = readFileSync(join(ROOT, 'TalentMaster_Seura.html'), 'utf8');
+    expect(f).toContain('Älä kirjoita pelaajan nimeä huomioon, käytä pelaajalinkkiä.');
     expect(f).toMatch(/collection\('kehitysasetukset'\)\.doc\(String\(K\.vuosi\)\)\.set\(doc, \{ mergeFields: Object\.keys\(doc\) \}\)/);
     expect(f).not.toMatch(/collection\('kehitysasetukset'\)\.doc\(String\(K\.vuosi\)\)\.set\(doc\);/);
   });
