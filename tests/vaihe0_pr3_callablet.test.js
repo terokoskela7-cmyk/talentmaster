@@ -126,14 +126,14 @@ describe('lahetaPelaajaSivuLinkki (ajettu) — ei enää auki kenellekään, ei 
       admin: { firestore: { FieldValue: { serverTimestamp: () => 'TS' } } },
       auth: { generatePasswordResetLink: async () => { loki.reset++; return 'https://reset/SALAINEN'; } },
       tarkistaOikeus: async () => ({ sallittu: oikeus }),
-      haeJoukkueNimi: async () => 'U12',
+      haeJoukkueNimi: async () => 'U12', haeSeuraNimi: async () => 'FC Oikea',
       haeOrLuoHuoltajaAuth: async () => { loki.luotu++; },
       lahetaSahkoposti: async (m) => { loki.sposti++; loki.viesti = m; },
       pohjaPelaajaSivu: (o) => JSON.stringify(o),
       pelaajakirjautuminen: require_('../functions/pelaajakirjautuminen.js'), suostumusAnnettu: require_('../functions/suostumus.js').suostumusAnnettu,
       TM_BASE_URL: 'https://tm',
     });
-    const data = { hEmail: 'Huoltaja@tm-testi.fi', pelaajaId: 'p1', seuraId: 'fcl', etunimi: 'A' };
+    const data = { hEmail: 'Huoltaja@tm-testi.fi', pelaajaId: 'p1', seuraId: 'fcl', etunimi: 'A', seura: 'Väärä Seura' };
     return { loki, ajo: fn(data, { auth }) };
   }
   it('ei kirjautumista → unauthenticated, ei tiliä eikä linkkiä', async () => {
@@ -156,6 +156,7 @@ describe('lahetaPelaajaSivuLinkki (ajettu) — ei enää auki kenellekään, ei 
     const r = await t.ajo;
     expect(t.loki.sposti).toBe(1);
     expect(r.ok).toBe(true);
+    expect(t.loki.viesti.fromName).toBe('FC Oikea');   // palvelimen nimi, ei selaimen seura-arvo
     expect(JSON.stringify(r)).not.toContain('SALAINEN');
     expect(r).not.toHaveProperty('salasanaLinkki');
   });
