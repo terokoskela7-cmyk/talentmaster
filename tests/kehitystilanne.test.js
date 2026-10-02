@@ -170,6 +170,17 @@ describe('Ensinäkymä (KISS ja Oura-tyyli)', () => {
     expect(v).toContain('Omat tavoitteet ja Palloliiton taso'); expect(v).toContain('Harjoitushavainnot'); expect(v).toContain('Palloliitto 250');
     expect(KT.renderEnsinakyma(malli(), { avoin: 'seura' })).toContain('Rakenteet ja Kori 3 -vaatimukset');
   });
+  it('prosentit suomalaisittain: ensinäkymässä kokonaisluku, yksityiskohdissa 1 desimaali pilkulla; aina "x %" sitovalla välilyönnillä', () => {
+    const m = malli(), kv = m.lohko2.kehittyvat;
+    expect(kv.arvo).not.toBeNull();
+    const kok = Math.round(kv.arvo) + ' %';
+    expect(KT.ensinakymaMalli(m).lause).toContain(kok + ' pelaajista kehittyy fyysisesti');
+    expect(KT.renderEnsinakyma(m, {})).toContain(kok);
+    const des = kv.arvo.toFixed(1).replace('.', ',') + ' %';
+    expect(KT.renderNakyma(m, {})).toContain(des);
+    [KT.renderEnsinakyma(m, {}), KT.renderEnsinakyma(m, { avoin: 'pelaajat', info: true }), KT.renderNakyma(m, {}), KT.raporttiHTML(m, 'seura')]
+      .forEach((h) => { expect(h).not.toMatch(/\d %/); expect(h).not.toMatch(/\d\.\d %/); });
+  });
   it('tyhjä seura: ei demo-fallbackia, ei kaatumista', () => {
     const tyhja = { seura: {}, joukkueet: [], pelaajat: [], bio: {}, kerrat: {}, idp: {}, kartoitus: {}, kirjaukset: {}, harjoitusarvioinnit: [], mentoroinnit: [], kalenteri: [], asetukset: null, seuratuki: null, kausikuvat: [] };
     const h = KT.renderEnsinakyma(KT.rakennaMalli(tyhja, { nyt: NYT }), { avoin: 'pelaajat' });
