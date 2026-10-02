@@ -245,10 +245,113 @@ Storage-SDK **ei jonota** latauksia (epäonnistuu `maxUploadRetryTime`n jälkeen
 
 ---
 
-## 9. Avoimet kysymykset (Terolle)
+## 9. Päätökset (Tero, 3.10.2026)
 
-1. Hyväksytäänkö suositus **2a (A + ledger + media-jono)** ja erä 0 -spike go/no-go-portilla?
-2. Offline-tuki **lippukohtaisena** pilotissa (käyttäjä aktivoi) vai kaikille KPV:n valmentajille? (Jaettujen laitteiden tietosuoja, §3.6.)
-3. Kuka testaa tuotantopilotin App Check -mittarin (verified-%) ja Sentryn erien jälkeen?
-4. Tarvitaanko VP:n **äänipalaute** (`palaute_jaettu`) offline-tilassa kentällä? (Tämän suunnitelman mediajono voidaan laajentaa VP:lle erillisenä erinä.)
-5. `getIdToken(true)`-poikkeus (§3.1) kirjataan CLAUDE.md §7.2:een erässä 1 — hyväksytäänkö muotoilu?
+1. **Suositus 2a hyväksytty** (`enablePersistence` + ledger + media-jono). Erä 0 -spike go/no-go-portilla (tulokset §10).
+2. **Offline-tuki lippukohtaisena:** valmentaja kytkee sen itse päälle. **Ei oletuksena kenellekään.**
+3. **Mittarit:** Tero seuraa App Check verified-%:ia ja Sentryä 24 h jokaisen erän jälkeen.
+4. **VP:n äänipalaute offline:** ei nyt; myöhemmin erillisenä.
+5. **§7.2-poikkeus hyväksytty** sillä ehdolla, että **verkossa käytös on identtinen nykyiseen** (verkossa `getIdToken(true)` kuten ennen; offline-poikkeus vain kun `navigator.onLine===false`; spiken mukaan tuore token pakotetaan joka tapauksessa ennen jonon lähetystä, §10.2).
+
+---
+
+## 10. Erä 0 (spike) — tulokset
+
+> **Spike-haara:** `spike/offline-era0` (EI mergetä, ei PR:ää). Sisältää (a) `spike/offline/` — pieni harness + ajuri, joka ajaa Firebase compat **10.7.1**:tä **Firestore- ja Auth-emulaattoreita** vasten headless Chromella (CDP: offline-emulointi, verkon esto, uudelleenlataus, useita välilehtiä) oikeilla `tm_admin/firestore.rules`-säännöillä ja custom-claimeilla; `results.json` = raakatulokset; ajo: `firebase emulators:exec --only firestore,auth --project demo-tm-spike "node spike/offline/run.mjs"` (Java 21 PATHissa); (b) `TalentMaster_Master_v16.html` nostettuna **paikallisesti 10.7.1:een** + `tmSpike`-apurit (portti, ledger, puhelinpaneeli; päällä vain `localStorage.tm_offline_spike==='1'`). Mainin MIGRAATIOLISTAan ei koskettu.
+> **Ympäristö:** Chrome 154 (headless, macOS), Firebase JS SDK compat 10.7.1, emulaattorit (ei tuotantobackendiä, ei Pagesia). Kirjoitukset emulaattoriin; **ei tuotantokirjoituksia, ei SA-tunnusta**; kirjautuminen emulaattorin seurakäyttäjänä (claims `seuraId:kpv, rooli:valmentaja`).
+> **Rajaus:** emulaattori **ei pakota App Checkiä** eikä jäljittele iOS/Android-selaimia → niille "Teron testattava" (§10.7).
+
+### 10.1 Kohta 1 — `enablePersistence` + Auth LOCAL rinnakkain (vanha "IndexedDB-konflikti")
+
+| Koe | Tulos |
+|---|---|
+| Auth `setPersistence(LOCAL)` + `enablePersistence({synchronizeTabs:true})` **heti initin jälkeen** | **OK**: ei virheitä; kirjautuminen **säilyy uudelleenlatauksen yli**; välimuistista luku latauksen jälkeen toimii. IndexedDB: Auth (`firebaseLocalStorageDb`) ja Firestore (`firestore/[DEFAULT]/<projekti>/main`) ovat **erillisiä tietokantoja** — suoraa konfliktia ei ole |
+| `enablePersistence` **vasta ensimmäisen Firestore-kutsun jälkeen** | **`failed-precondition`**: *"Firestore has already been started and persistence can no longer be enabled. You can only enable persistence before calling any other method"* → **todennäköinen syy Seuran/Adminin vanhaan "konfliktiin"** (kutsujärjestys, ei Auth-tietokanta). Sovellus jatkaa online-tilassa |
+| Kaksi välilehteä `synchronizeTabs:true` | Molemmat **OK**, sama Auth-sessio; toisen välilehden **odottava kirjoitus näkyy toisessa** (`hasPendingWrites:true`) → jono on jaettu |
+| Kaksi välilehteä **ilman** sync | 2. välilehti: `failed-precondition` *"Failed to obtain exclusive access to the persistence layer…"* → aina `synchronizeTabs:true` |
+| `terminate()` + `clearPersistence()` (uloskirjautuminen) | **OK, ~3 ms**; Firestore-IndexedDB poistuu (Auth-sessio-DB jää; `signOut()` hoitaa). **Odottavat kirjoitukset menetetään** → varoitus ennen tyhjennystä (§3.6) |
+| Konsoli | 10.7.1-compat varoittaa: *"enableMultiTabIndexedDbPersistence() will be deprecated … use FirestoreSettings.cache"* — toimii; huomioidaan tulevassa SDK-nostossa |
+
+**Päätelmä:** vanha ongelma on **kutsujärjestys**. Master kutsuu `enablePersistence` **heti `firebase.firestore()`n jälkeen**, `try/catch`, ennen mitään `get/onSnapshot`ia (ml. kirjastot, jotka kysyvät alustuksessa).
+
+### 10.2 Kohta 2 — App Check offline/synkka + `disableNetwork`/`enableNetwork`-portti
+
+**Emulaattorilla mitattu (portin mekaniikka):**
+| Koe | Tulos |
+|---|---|
+| `disableNetwork()` → kirjoitus | Jää jonoon (`pending`), **ei lähde palvelimelle** vaikka yhteys on olemassa; `enableNetwork()` → **lähtee ~0,2 s** (`flush_ms` 205) |
+| Portti suljetaan **vasta uudelleenlatauksen jälkeen** | **Vuotaa**: IndexedDB-jono lähti palvelimelle ennen kuin portti ehti kiinni (`g2` palvelimella) |
+| Portti suljetaan **heti alustuksessa** (`disableNetwork()` suoraan `enablePersistence`n jälkeen, `gateMs` 0) | **Pitää**: jono ei lähde ennen `enableNetwork()`a (`g3` ei palvelimella kun portti kiinni; palvelimella avauksen jälkeen) |
+| `getIdToken(true)` offline | **`auth/network-request-failed`** heti; `getIdToken()` (välimuistitoken) **toimii offline** |
+| ID-token yhteyden palatessa | **SDK EI päivitä tokenia itse**: kun claims muuttui palvelimella offline-aikana (rooli → `pelaaja`), jonotettu kirjoitus **meni läpi vanhalla tokenilla** (`resolved`, doc palvelimella). Vasta pakotettu `getIdToken(true)` → uudet claimit → `permission-denied` |
+
+**Päätelmät suunnitelmaan (muutokset §3.1/§3.3):**
+1. Portti **kiinni heti alustuksessa** (vain jos offline-lippu päällä), auki vasta kun (a) `online`, (b) **`getIdToken(true)`** onnistui, (c) **`appCheck().getToken(true)`** onnistui. `getIdToken(true)` on tämän takia pakollinen **ennen jonon lähetystä** (tuoreet claimit; muuten poistettu oikeus kelpaa vielä ≤ 1 h) — §7.2:n henki säilyy.
+2. §7.2-poikkeus (offline: ei pakotettua tokenia kirjoitushetkellä) on turvallinen: välimuistitoken toimii offline, ja **tuore token pakotetaan portin avauksessa**.
+3. **EI testattu emulaattorilla:** palvelimen **ENFORCE**-hylkäys ilman App Check -tokenia ja se, pudottaako Firestore hylätyn kirjoituksen. **→ Teron testattava T1** (§10.7). Suunnitelman oletus (permission-denied/unauthenticated on pysyvä virhe → kirjoitus putoaa) on yhä **olettamus**.
+
+### 10.3 Kohta 3 — hylätyn kirjoituksen näkyvyys
+
+Hylättynä kirjoituksena käytettiin `delete` suojattuun dokumenttiin (luku sallittu, poisto vain SA) sekä `set` toisen seuran polkuun.
+| Koe | Tulos |
+|---|---|
+| Online | Promise hylkää `permission-denied` heti (~45 ms) |
+| Offline-jono, **sivu pysyy auki**, yhteys palaa | Sallittu **resolved**, kielletty **rejected (`permission-denied`)**; `waitForPendingWrites()` **resolved** (ei virhettä); palvelimella vain sallittu. Paikallinen kuuntelija näytti poiston (`EI`) ja **palasi** (`on`) hylkäyksessä |
+| Offline-jono + **sivun uudelleenlataus**, yhteys palaa | Vanhat promiset **menetetty**. **Ei virhettä, ei konsolilokia** hylkäyksestä; `waitForPendingWrites()` **resolved normaalisti**. Ainoa signaali: **kuuntelija flippaa takaisin** (`EI+cache` → `on`); palvelintila = hylätty pudonnut |
+
+**Päätelmä:** hylkäys uudelleenlatauksen jälkeen on **hiljainen**. Ledger (§3.7) **ei voi luottaa promiseen eikä `waitForPendingWrites`iin**; tarvitaan **tilan verifiointi**: kun jono tyhjenee (`hasPendingWrites=false` kuuntelijassa tai `waitForPendingWrites` resolved), lue kohdedokumentti palvelimelta (`get({source:'server'})`) ja vertaa ledgerin odotukseen; ero → `hylatty (tuntematon syy)` + sisältö ledgerin tekstikopiosta. Tämä oli suunnitelmassa; spike vahvisti sen välttämättömäksi.
+
+### 10.4 Kohta 4 — cache-koko ja offline `get`-viive
+
+Aineisto: 600 pelaajaa (~2,7 kB/doc, 28 kenttää + map), 1200 havaintoa, 300 kalenteritapahtumaa.
+| Mittaus | Tulos |
+|---|---|
+| Online-luku 600 pelaajaa / 300 kalenteria | 342 ms / 136 ms |
+| IndexedDB-käyttö luvun jälkeen (900 dokumenttia) | **~2,25 MB** → oletus-LRU 40 MB ≈ 14 000 samankokoista dokumenttia; **riittää** (`cacheSizeBytes` ei tarvitse säätää) |
+| Offline `get()` (SDK tietää olevansa offline) | **24–28 ms** (600 dok), `{source:'cache'}` 7–24 ms |
+| Offline `onSnapshot` ensimmäinen | 24 ms |
+| Yhteys katkeaa **juuri ennen** `get()`iä | 9 ms |
+| Uudelleenlataus, **palvelu estetty** (nopea virhe) | `get()` 24 ms, välimuistista |
+| **Jumittava yhteys** (latenssi 60 s, kenttäverkon pahin tapaus) | **`get()` oletuksella 10 017 ms** ennen välimuistivastausta; **`{source:'cache'}` 9 ms**; kirjoitus jää `pending`, lähtyi 3 s yhteyden palattua |
+| **Ilman persistenceä** (nykytila) offline/uudelleenlatauksen jälkeen | **`get()` palauttaa 0 dokumenttia ilman virhettä** (muistivälimuisti tyhjenee kuuntelijoiden mukana) → UI voi näyttää "ei pelaajia" yhteyden pätkiessä jo **tänään** |
+
+**Päätelmä:** kenttänäkymien luku **cache-first** (`{source:'cache'}` → päivitys taustalla / `onSnapshot`), ei oletus-`get()`ia — muuten jumittava verkko = 10 s viive. Näyttö: "päivitetty hh:mm" -vihje. Nykyisen Masterin hiljainen tyhjä lista (ilman persistenceä) on oma, erillinen havainto (§5).
+
+### 10.5 Kohta 5 — iOS Safari / Android Chrome IndexedDB
+**EI testattu** (vaatii oikean laitteen) → **Teron testattava T3** (§10.7). Desktop-Chromessa: kiintiö ~10 GB, ei ongelmaa.
+
+### 10.6 Go / no-go
+
+**Suositus: GO erään 1** seuraavin **pakollisin muutoksin suunnitelmaan** (kaikki mitattu yllä):
+1. `enablePersistence({synchronizeTabs:true})` **ensimmäisenä Firestore-kutsuna**; `failed-precondition` → merkki, jatka online.
+2. **Portti kiinni heti alustuksessa**, auki vasta `online` + `getIdToken(true)` + `appCheck().getToken(true)`.
+3. Ledger + **palvelinverifiointi** hylkäyksille (ei promise/`waitForPendingWrites`).
+4. **Cache-first luku** kenttänäkymissä (jumittava verkko).
+5. Uloskirjautumisessa `terminate()` + `clearPersistence()` vasta varoituksen jälkeen.
+
+**Ehdollinen:** GO on **ehdollinen T1:lle** (ENFORCE-käytös ilman tokenia). Jos T1 osoittaa, että ENFORCE-hylätty kirjoitus **ei** putoa pysyvästi tai että portti ei estä tokenitonta lähetystä → suunnitelma yksinkertaistuu; jos portti ei toimi tuotannossa → **NO-GO** kunnes ratkaistu. Erä 1 voidaan aloittaa rinnakkain T3:n kanssa (laitetestit eivät estä toteutusta, vain julkaisun).
+
+### 10.7 Teron testattavat
+
+**Valmistelu (T1 + T3):**
+1. Deployaa spike-haara **Hosting-preview-kanavalle** (EI tuotantoon, ei Pagesiin): `firebase hosting:channel:deploy spike-offline` haarasta `spike/offline-era0` (Master 10.7.1 + `tmSpike`). Preview-URL: `https://talentmaster-pilot--spike-offline-….web.app/TalentMaster_Master_v16.html`.
+2. Rekisteröi **App Check debug-token** (§38): Console → App Check → Apps → Manage debug tokens → lisää keksimäsi UUID (`<UUID>`).
+3. Avaa URL **`…/TalentMaster_Master_v16.html?spike=1&dbg=<UUID>`** (liput menevät localStorageen ja siivoutuvat URLista). Kirjaudu **KPV:n seura-valmentajana (ei SA)**. Näytön alalaidassa on **spike-paneeli** (tila, ledger, napit). Kirjoitusnappi kirjoittaa **vain Topiaksen** dokumenttiin (`seurat/kpv/pelaajat/m93GBdOaGCUuenMiCL0I`, kenttä `spike_offline_ts`). Jos Rules hylkää tämän kentän valmentajalta, paneeli näyttää `HYLATTY permission-denied` — sekin on kelvollinen tulos (kerro).
+4. Lippu pois: `?spike=0`.
+
+**T1 — App Check ENFORCE ilman tokenia (työpöytä-Chrome, DevTools):**
+1. Paneelin pitäisi näyttää: `SDK 10.7.1`, `persistence ok`, kirjautumisen jälkeen `appcheck-token saatu` → `portti AUKI`.
+2. DevTools → Network → **Offline**. Paneeli: `offline-tapahtuma` → `portti kiinni`. Paina **Kirjoita (Topias)** → ledgerissä `w1 odottaa`.
+3. DevTools → Network → **Request blocking**: lisää `*firebaseappcheck.googleapis.com*` ja `*google.com/recaptcha*`. Poista **Offline**. Paneeli: `online-tapahtuma` → **`appcheck-token-virhe`** → **`portti EI avata (token puuttuu)`**; ledger edelleen `odottaa`. **Network-välilehdellä ei saa näkyä Firestore-kirjoituspyyntöä (`Write`-stream/`commit`).** → **PASS = portti pidätti jonon.**
+4. **(Valinnainen, selvittää ENFORCE-käytöksen):** blokkaus yhä päällä, paina **Portti auki** → token ei tule → ei avaudu. Konsolissa: `_db.enableNetwork()` pakottaa lähetyksen **ilman tokenia** → katso paneelista: `kirjoitus HYLATTY permission-denied/unauthenticated`? **Kirjaa tarkka virhekoodi** ja se, **yrittääkö SDK uudelleen** (uusi pyyntö) vai pudottaako se kirjoituksen. (Topiaksen dokumentti, harmiton.)
+5. Poista Request blocking, paina **Portti auki** → `appcheck-token saatu`, `idtoken-refresh ok`, `portti AUKI` → ledger **`synkattu`**; tarkista Firestoresta Topiaksen dokumentin `spike_offline_ts`.
+6. **App Check -mittari** (Console → App Check → Metrics) kokeen ajalta: näkyykö `MISSING`-pyyntöjä (kohta 4)?
+
+**T3 — iOS Safari ja Android Chrome (puhelin, sama preview-URL kuin yllä):**
+- **A. Peruskäytös (kumpikin):** avaa URL (`?spike=1&dbg=<UUID>`), kirjaudu. Paneelin pitää näyttää `persistence ok` (ei `persistence-virhe`). Paina **Tallennustila**: kirjaa `käyttö/kiintiö` ja `persisted=`. Paina **Pyydä persist()**: kirjaa tulos (iOS voi palauttaa `false`/`null`).
+- **B. Lentotila + jono:** kun portti on AUKI, laita puhelin **lentotilaan**. Paneeli: `offline-tapahtuma` → portti KIINNI. Paina **Kirjoita (Topias)** 2 kertaa → ledger `w1`,`w2 odottaa`. Paina **Odottavat (FS)** → odotetaan `timeout 3 s (odottavia)`.
+- **C. Sovelluksen sulkeminen jonossa:** lentotilassa **sulje välilehti/sovellus kokonaan** (iOS: pyyhkäise Safari pois sovellusvalitsimesta; Android: sulje välilehti). **Lentotila pois**, avaa URL uudelleen (`?spike=1` ei enää tarvita, liput ovat tallessa; sivu avautuu verkossa). Paneeli: `portti KIINNI (alustus)` → kirjautumisen jälkeen portti AUKI → odottavat lähtevät. **Tarkista Firestoresta**, että `spike_offline_ts` on **toisen kirjoituksen aikaleima** (ts. jono selvisi sulkemisesta). Ledger on muistissa (tyhjä uudelleenavauksen jälkeen) — **tämä on odotettua**: lähde on Firestore, ei paneeli.
+- **D. iOS-erityinen (tallennuksen säilyvyys):** tee kohta B (jono lentotilassa) ja **jätä puhelin sulkemattomana/sovellus suljettuna ~24 h** (pidempi testi: 7 pv — Safari voi poistaa asentamattoman sivun tallennuksen). Avaa verkossa; selvisikö jono (Firestore) ja onko kirjautuminen voimassa? **Kirjaa kulunut aika ja tulos.**
+- **E. Kenttäverkko (valinnainen):** huono 3G/heikko Wi-Fi: paina **Kirjoita**, katso **kuinka kauan** ledger pysyy `odottaa` ja synkkaako se itsestään.
+
+**Kerro minulle:** T1 vaihe 3 ja 4 tulokset (erityisesti virhekoodi ja uudelleenyritys), T3 A–D tulokset per laite (OS-versio + selain). Näiden perusteella päivitän §10.6:n GO-ehdon ja aloitan erän 1.
