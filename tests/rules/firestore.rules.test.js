@@ -3529,11 +3529,17 @@ describe('v3.34 · kehitysasetukset ja seuratuki', () => {
   }
 });
 
-describe('v3.34 · kausikuvat (vain luonti, vain demoseura kunnes GDPR-poisto kattaa kausikuvat)', () => {
+describe('v3.34/v3.35 · kausikuvat (vain luonti; v3.35: demorajaus purettu, GDPR-poisto kattaa kausikuvat)', () => {
   beforeEach(async () => { await seedAdminDoc(); await seedSeuraAndPelaaja(); });
   const kuva = { kausi: '2026', luotu: 1, pelaajat: [{ id: 'p1' }] };
-  it('oikea (ei-demo) seura: luonti estetty myös VP:ltä', async () => {
-    await assertFails(setDoc(doc(vpContext(SEURA_A).firestore(), 'seurat', SEURA_A, 'kausikuvat', '2026'), kuva));
+  it('v3.35: oikea (ei-demo) seura: VP ja UTJ voivat luoda; valmentaja ja sihteeri eivät; toinen seura ei', async () => {
+    await assertSucceeds(setDoc(doc(vpContext(SEURA_A).firestore(), 'seurat', SEURA_A, 'kausikuvat', '2026'), kuva));
+    const utj = testEnv.authenticatedContext('utj-fcl-001', { rooli: 'urheilutoimenjohtaja', seuraId: SEURA_A });
+    await assertSucceeds(setDoc(doc(utj.firestore(), 'seurat', SEURA_A, 'kausikuvat', '2025'), Object.assign({}, kuva, { kausi: '2025' })));
+    await assertFails(setDoc(doc(valmentajaContext(VALM_A_UID, SEURA_A).firestore(), 'seurat', SEURA_A, 'kausikuvat', '2024'), Object.assign({}, kuva, { kausi: '2024' })));
+    await assertFails(setDoc(doc(sihteeriContext(SEURA_A).firestore(), 'seurat', SEURA_A, 'kausikuvat', '2024'), Object.assign({}, kuva, { kausi: '2024' })));
+    const toinen = testEnv.authenticatedContext('vp-kpv-001', { rooli: 'vp', seuraId: SEURA_B });
+    await assertFails(setDoc(doc(toinen.firestore(), 'seurat', SEURA_A, 'kausikuvat', '2024'), Object.assign({}, kuva, { kausi: '2024' })));
   });
   it('demoseura: VP luo kerran; päivitys ja poisto estetty; toinen tallennus samalle kaudelle estetty', async () => {
     await testEnv.withSecurityRulesDisabled(async (ctx) => { await setDoc(doc(ctx.firestore(), 'seurat', SEURA_A), { nimi: 'FC Lahti', demo: true }, { merge: true }); });
@@ -3545,5 +3551,94 @@ describe('v3.34 · kausikuvat (vain luonti, vain demoseura kunnes GDPR-poisto ka
     await assertSucceeds(getDoc(doc(sihteeriContext(SEURA_A).firestore(), 'seurat', SEURA_A, 'kausikuvat', '2026')));
     await assertFails(setDoc(doc(sihteeriContext(SEURA_A).firestore(), 'seurat', SEURA_A, 'kausikuvat', '2027'), Object.assign({}, kuva, { kausi: '2027' })));
     await assertFails(setDoc(doc(vpContext(SEURA_A).firestore(), 'seurat', SEURA_A, 'kausikuvat', '2027'), { kausi: '2027', luotu: 1 }));   // pelaajat puuttuu
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// v3.35 — Kehitystilanne v0.1: seuran omat vapaat tavoitteet + kirjaukset
+// ═══════════════════════════════════════════════════════════════════════════
+describe('v3.35 · omat_tavoitteet ja kirjaukset', () => {
+  const UTJ_UID = 'utj-fcl-001';
+  const utj = () => testEnv.authenticatedContext(UTJ_UID, { rooli: 'urheilutoimenjohtaja', seuraId: SEURA_A });
+  const tav = (tyyppi, uid, extra) => Object.assign({ nimi: 'Omat kasvatit edustukseen', tyyppi, tavoite: tyyppi === 'kylla_ei' ? true : 3, yksikko: 'kpl',
+    suunta: 'suurempi', alkaa: '2026-01-01', aikaraja: '2028-12-31', tekija: 'seura', luotu: serverTimestamp(), luoja_uid: uid, arkistoitu: false }, extra || {});
+  const tRef = (ctx, id) => doc(ctx.firestore(), 'seurat', SEURA_A, 'omat_tavoitteet', id);
+  const kCol = (ctx, id) => collection(ctx.firestore(), 'seurat', SEURA_A, 'omat_tavoitteet', id, 'kirjaukset');
+  const kirjaus = (uid, extra) => Object.assign({ pvm: '2026-03-15', arvo: 1, pelaajaId: null, huomio: '', luoja_uid: uid, luotu: serverTimestamp(), mitatoi: null }, extra || {});
+  async function seedTavoite(id, tyyppi, extra) {
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), 'seurat', SEURA_A, 'omat_tavoitteet', id), Object.assign({ nimi: 'X', tyyppi, tavoite: tyyppi === 'kylla_ei' ? true : 3, aikaraja: '2028-12-31', tekija: 'seura', luoja_uid: VP_A_UID, arkistoitu: false }, extra || {}));
+    });
+  }
+  beforeEach(async () => { await seedAdminDoc(); await seedSeuraAndPelaaja(); });
+
+  it('tavoite: VP ja UTJ luovat; sihteeri lukee mutta ei luo; valmentaja ei luo eikä lue; toisen seuran VP ei pääse', async () => {
+    await assertSucceeds(setDoc(tRef(vpContext(SEURA_A), 't1'), tav('maara', VP_A_UID)));
+    await assertSucceeds(setDoc(tRef(utj(), 't2'), tav('summa', UTJ_UID, { yksikko: '€', tekija: 'pelaajat' })));
+    await assertSucceeds(getDoc(tRef(sihteeriContext(SEURA_A), 't1')));
+    await assertFails(setDoc(tRef(sihteeriContext(SEURA_A), 't3'), tav('maara', 'sihteeri-fcl-001')));
+    await assertFails(setDoc(tRef(valmentajaContext(VALM_A_UID, SEURA_A), 't3'), tav('maara', VALM_A_UID)));
+    await assertFails(getDoc(tRef(valmentajaContext(VALM_A_UID, SEURA_A), 't1')));
+    const toinen = testEnv.authenticatedContext('vp-kpv-001', { rooli: 'vp', seuraId: SEURA_B });
+    await assertFails(getDoc(tRef(toinen, 't1')));
+    await assertFails(setDoc(tRef(toinen, 't4'), tav('maara', 'vp-kpv-001')));
+  });
+  it('tavoite: kenttien tarkistus (tyyppi, tekijä, aikaraja, suunta, luoja_uid, ylimääräinen kenttä, kylla_ei-tavoite)', async () => {
+    const vp = vpContext(SEURA_A);
+    await assertFails(setDoc(tRef(vp, 'a'), tav('keskiarvo', VP_A_UID)));
+    await assertFails(setDoc(tRef(vp, 'b'), tav('maara', VP_A_UID, { tekija: 'talous' })));
+    await assertFails(setDoc(tRef(vp, 'c'), tav('maara', VP_A_UID, { aikaraja: '31.12.2028' })));
+    await assertFails(setDoc(tRef(vp, 'd'), tav('maara', VP_A_UID, { suunta: 'pienempi' })));          // pienempi vain viimeisin
+    await assertSucceeds(setDoc(tRef(vp, 'e'), tav('viimeisin', VP_A_UID, { suunta: 'pienempi', tavoite: 25 })));
+    await assertFails(setDoc(tRef(vp, 'f'), tav('maara', 'joku-muu')));
+    await assertFails(setDoc(tRef(vp, 'g'), tav('maara', VP_A_UID, { pelaajaId: 'pelaaja-001' })));
+    await assertFails(setDoc(tRef(vp, 'h'), tav('kylla_ei', VP_A_UID, { tavoite: 1 })));
+    await assertFails(setDoc(tRef(vp, 'i'), tav('maara', VP_A_UID, { arkistoitu: true })));
+    await assertFails(setDoc(tRef(vp, 'j'), tav('maara', VP_A_UID, { alkaa: '2029-01-01' })));       // alku aikarajan jälkeen
+  });
+  it('tavoite: päivitys vain arkistointi; poisto estetty myös VP:ltä', async () => {
+    await seedTavoite('t1', 'maara');
+    const vp = vpContext(SEURA_A);
+    await assertSucceeds(updateDoc(tRef(vp, 't1'), { arkistoitu: true, paivitetty: serverTimestamp(), paivittaja_uid: VP_A_UID }));
+    await assertFails(updateDoc(tRef(vp, 't1'), { tavoite: 1 }));
+    await assertFails(updateDoc(tRef(vp, 't1'), { nimi: 'Muu' }));
+    await assertFails(deleteDoc(tRef(vp, 't1')));
+  });
+  it('kirjaus: VP ja UTJ luovat; sihteeri lukee; valmentaja ja sihteeri eivät kirjoita; päivitys ja poisto estetty', async () => {
+    await seedTavoite('t1', 'maara');
+    const vp = vpContext(SEURA_A);
+    const ref = await addDoc(kCol(vp, 't1'), kirjaus(VP_A_UID));
+    await assertSucceeds(addDoc(kCol(utj(), 't1'), kirjaus(UTJ_UID, { pelaajaId: PELAAJA_UID })));
+    await assertSucceeds(getDoc(doc(kCol(sihteeriContext(SEURA_A), 't1'), ref.id)));
+    await assertFails(addDoc(kCol(sihteeriContext(SEURA_A), 't1'), kirjaus('sihteeri-fcl-001')));
+    await assertFails(addDoc(kCol(valmentajaContext(VALM_A_UID, SEURA_A), 't1'), kirjaus(VALM_A_UID)));
+    await assertFails(getDoc(doc(kCol(valmentajaContext(VALM_A_UID, SEURA_A), 't1'), ref.id)));
+    await assertFails(updateDoc(doc(kCol(vp, 't1'), ref.id), { arvo: 2 }));
+    await assertFails(deleteDoc(doc(kCol(vp, 't1'), ref.id)));
+  });
+  it('kirjaus: arvo tyypin mukaan; summa ilman pelaajalinkkiä; pelaajan oltava seuran pelaaja; vieras luoja_uid ja ylimääräinen kenttä torjutaan', async () => {
+    await seedTavoite('m', 'maara'); await seedTavoite('s', 'summa'); await seedTavoite('v', 'viimeisin'); await seedTavoite('k', 'kylla_ei');
+    const vp = vpContext(SEURA_A);
+    await assertFails(addDoc(kCol(vp, 'm'), kirjaus(VP_A_UID, { arvo: 2 })));                 // määrä = +1
+    await assertSucceeds(addDoc(kCol(vp, 's'), kirjaus(VP_A_UID, { arvo: 6000 })));
+    await assertFails(addDoc(kCol(vp, 's'), kirjaus(VP_A_UID, { arvo: 6000, pelaajaId: PELAAJA_UID })));   // ei pelaajakohtaisia summia
+    await assertSucceeds(addDoc(kCol(vp, 'v'), kirjaus(VP_A_UID, { arvo: 31.5 })));
+    await assertFails(addDoc(kCol(vp, 'v'), kirjaus(VP_A_UID, { arvo: 'paljon' })));
+    await assertSucceeds(addDoc(kCol(vp, 'k'), kirjaus(VP_A_UID, { arvo: true })));
+    await assertFails(addDoc(kCol(vp, 'k'), kirjaus(VP_A_UID, { arvo: 1 })));
+    await assertFails(addDoc(kCol(vp, 'm'), kirjaus(VP_A_UID, { pelaajaId: 'ei-ole-olemassa' })));
+    await assertFails(addDoc(kCol(vp, 'm'), kirjaus('joku-muu')));
+    await assertFails(addDoc(kCol(vp, 'm'), kirjaus(VP_A_UID, { pvm: '15.3.2026' })));
+    await assertFails(addDoc(kCol(vp, 'm'), kirjaus(VP_A_UID, { huomio: 'x'.repeat(281) })));
+    await assertFails(addDoc(kCol(vp, 'm'), kirjaus(VP_A_UID, { diagnoosi: 'polvi' })));
+  });
+  it('kirjaus: kumoava kirjaus (mitatoi) viittaa olemassa olevaan, arvo null; arkistoituun tavoitteeseen ei kirjata', async () => {
+    await seedTavoite('s', 'summa'); await seedTavoite('a', 'maara', { arkistoitu: true });
+    const vp = vpContext(SEURA_A);
+    const alkup = await addDoc(kCol(vp, 's'), kirjaus(VP_A_UID, { arvo: 5000 }));
+    await assertSucceeds(addDoc(kCol(vp, 's'), kirjaus(VP_A_UID, { arvo: null, mitatoi: alkup.id, huomio: 'Korjaus' })));
+    await assertFails(addDoc(kCol(vp, 's'), kirjaus(VP_A_UID, { arvo: 100, mitatoi: alkup.id })));   // kumoavalla ei arvoa
+    await assertFails(addDoc(kCol(vp, 's'), kirjaus(VP_A_UID, { arvo: null, mitatoi: 'ei-ole' })));
+    await assertFails(addDoc(kCol(vp, 'a'), kirjaus(VP_A_UID)));
   });
 });

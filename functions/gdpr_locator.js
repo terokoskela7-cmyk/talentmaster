@@ -62,6 +62,47 @@ async function ristiviiteIteroi(vanhemmatColRef, alaNimi, docId, varoitukset, ta
   return out;
 }
 
+// Kenttäviitteet (pelaajaId kentässä, ei doc-id:nä): iteroi vanhemmat ja lue niiden alikokoelma kokonaan, suodata
+// muistissa. Ei where-kyselyä → ei indeksitarvetta, toimii myös mockissa. Seura-rajattu rakenteellisesti.
+async function kenttaViiteIteroi(vanhemmatColRef, alaNimi, kentta, arvo, varoitukset, tag) {
+  if (!arvo || !vanhemmatColRef) return [];
+  let vanhemmat = [];
+  try {
+    const snap = await vanhemmatColRef.get();
+    vanhemmat = (snap.docs || []).map((d) => d.ref);
+  } catch (e) {
+    varoitukset.push(tag + ':vanhemmat:' + (e && e.message ? e.message : String(e)));
+    return [];
+  }
+  const out = [];
+  for (const pref of vanhemmat) {
+    try {
+      const snap = await pref.collection(alaNimi).get();
+      (snap.docs || []).forEach((d) => {
+        const data = d.data() || {};
+        if (data[kentta] === arvo) out.push({ id: d.id, data, ref: d.ref, polku: (d.ref && d.ref.path) || (tag + '/' + d.id) });
+      });
+    } catch (e) {
+      varoitukset.push(tag + ':' + (pref.id || '?') + ':' + (e && e.message ? e.message : String(e)));
+    }
+  }
+  return out;
+}
+
+async function kausikuvaViitteet(colRef, pelaajaId, varoitukset) {
+  try {
+    const snap = await colRef.get();
+    return (snap.docs || []).map((d) => {
+      const data = d.data() || {};
+      const rivit = Array.isArray(data.pelaajat) ? data.pelaajat.filter((p) => p && p.id === pelaajaId) : [];
+      return rivit.length ? { id: d.id, data: { kausi: data.kausi != null ? data.kausi : d.id, pelaajanRivi: rivit[0] }, ref: d.ref, polku: (d.ref && d.ref.path) || ('kausikuvat/' + d.id) } : null;
+    }).filter(Boolean);
+  } catch (e) {
+    varoitukset.push('kausikuvat:' + (e && e.message ? e.message : String(e)));
+    return [];
+  }
+}
+
 // Yksittäinen palloID-pohjainen doc (rekisteri/alumni/marketplace) — olemassaolo tarkistettuna.
 async function ristiviiteDoc(ref, varoitukset, tunniste) {
   try {
@@ -171,6 +212,12 @@ async function keraaPelaajanManifesti(db, seuraId, pelaajaId, opts = {}) {
     // ei pilottidatassa. Enumerointia ei toteutettu (vaatii ohjelmaluettelon) → erillinen laajennus jos käytössä.
   }
   ristiviitteet.palloID_viitteet = palloViitteet;
+  // 2d) Seuran omien tavoitteiden kirjaukset, joissa pelaajalinkki: seurat/{sid}/omat_tavoitteet/{tid}/kirjaukset/{kid}
+  //     (pelaajaId-KENTTÄ, ei doc-id). RTBF EI poista kirjausta (seuran tilasto säilyy) vaan nollaa pelaajaId:n.
+  ristiviitteet.omat_kirjaukset = await kenttaViiteIteroi(seuraRef.collection('omat_tavoitteet'), 'kirjaukset', 'pelaajaId', pelaajaId, varoitukset, 'omat_kirjaukset');
+  // 2e) Kausikuvat: seurat/{sid}/kausikuvat/{kausi}.pelaajat[] (rivi { id, joukkue, ikaluokka, … }). RTBF poistaa pelaajan
+  //     RIVIN (muut rivit säilyvät); export vie VAIN pelaajan oman rivin (ei muiden pelaajien tietoja).
+  ristiviitteet.kausikuvat = await kausikuvaViitteet(seuraRef.collection('kausikuvat'), pelaajaId, varoitukset);
 
   // 3) Solo (litteä pelaajat/{palloID} + alikokoelmat) — jos tunniste-match
   let solo = null;
@@ -220,7 +267,7 @@ function yhdistaUniikit(a, b) {
 function nollaLukumaarat() {
   return {
     pelaaja: 0, havainnot: 0, kirjaukset: 0, testitulokset: 0, biologinen_ika: 0, pelidata: 0, kehut: 0,
-    lasnaolo: 0, testitapahtuma_tulokset: 0, palloID_viitteet: 0, solo: 0, media_tiedostoja: 0, auth: 0,
+    lasnaolo: 0, testitapahtuma_tulokset: 0, palloID_viitteet: 0, omat_kirjaukset: 0, kausikuvat: 0, solo: 0, media_tiedostoja: 0, auth: 0,
   };
 }
 
@@ -241,6 +288,8 @@ function rakennaLukumaarat(m) {
     lasnaolo: pituus(r.lasnaolo),
     testitapahtuma_tulokset: pituus(r.testitapahtuma_tulokset),
     palloID_viitteet: pituus(r.palloID_viitteet),
+    omat_kirjaukset: pituus(r.omat_kirjaukset),
+    kausikuvat: pituus(r.kausikuvat),
     solo: m.solo ? 1 : 0,
     media_tiedostoja: pituus(m.media),
     auth: 1, // anonyymi PIN-tili uid==pelaajaId (try/catch poistossa jos ei ole)
@@ -263,7 +312,12 @@ function rakennaAuditPayload({ tyyppi, severity, seuraId, pelaajaId, requesterUi
   };
 }
 
+// RTBF: seuran oman tavoitteen kirjaus, jossa pelaajalinkki → kirjaus jää (seuran tilasto), mutta pelaajaId JA vapaa
+// huomio tyhjennetään (huomiossa voi olla nimi, vaikka lomake ohjeistaa käyttämään pelaajalinkkiä).
+const OMA_KIRJAUS_PSEUDONYMISOINTI = Object.freeze({ pelaajaId: null, huomio: '' });
+
 module.exports = {
+  OMA_KIRJAUS_PSEUDONYMISOINTI,
   ALIKOKOELMAT,
   keraaPelaajanManifesti,
   rakennaLukumaarat,

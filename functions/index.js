@@ -14,7 +14,7 @@ const admin     = require('firebase-admin');
 const https     = require('https');
 const crypto    = require('crypto');
 const { kayttajaRooliSallittu, tunnisteTyyppi, kuittausPaatos } = require('./authz_paatos');   // pure authz-päätös (#71, PR 3, testattava)
-const { keraaPelaajanManifesti, rakennaAuditPayload } = require('./gdpr_locator');   // GDPR RTBF/export -locator (#96)
+const { keraaPelaajanManifesti, rakennaAuditPayload, OMA_KIRJAUS_PSEUDONYMISOINTI } = require('./gdpr_locator');   // GDPR RTBF/export -locator (#96)
 const { kaavioKohdistuuServer } = require('./kaavio_policy');   // kaavion kohdistus (peili lib/tm_kaavio_policy.js)
 const auditloki = require('./auditloki');   // haeAuditLoki: suodattimet + sivutus (SA)
 const pelaajapin = require('./pelaajapin');
@@ -2018,6 +2018,25 @@ exports.poistaPelaajaGDPR = functions
       era.forEach((r) => batch.delete(r));
       await batch.commit();
     }
+    // 2b) Pseudonymisointi: seuran omien tavoitteiden kirjaukset jäävät (seuran tilasto), pelaajaId JA huomio
+    //     tyhjennetään (vapaassa huomiossa voi olla pelaajan nimi)
+    const nollattavat = (manifesti.ristiviitteet.omat_kirjaukset || []).map((x) => x.ref).filter(Boolean);
+    for (let i = 0; i < nollattavat.length; i += 400) {
+      const batch = db.batch();
+      nollattavat.slice(i, i + 400).forEach((r) => batch.update(r, OMA_KIRJAUS_PSEUDONYMISOINTI));
+      await batch.commit();
+    }
+    // 2c) Kausikuvat: poista pelaajan rivi pelaajat[]-listasta transaktiossa (muut rivit ja kentät säilyvät)
+    for (const kk of (manifesti.ristiviitteet.kausikuvat || [])) {
+      if (!kk.ref) continue;
+      await db.runTransaction(async (tx) => {
+        const s = await tx.get(kk.ref);
+        if (!s.exists) return;
+        const lista = Array.isArray(s.data().pelaajat) ? s.data().pelaajat : [];
+        const uusi = lista.filter((p) => !(p && p.id === pelaajaId));
+        if (uusi.length !== lista.length) tx.update(kk.ref, { pelaajat: uusi });
+      });
+    }
     // 3) Solo (litteä pelaajat/{palloID} + alikokoelmat)
     if (manifesti.soloRef) await db.recursiveDelete(manifesti.soloRef);
     // 4) Storage-media (per havainto -prefiksit; ei poista muiden pelaajien mediaa)
@@ -2112,6 +2131,8 @@ exports.viePelaajanDataGDPR = functions
       lasnaolo: dataMap(manifesti.ristiviitteet.lasnaolo),
       testitapahtuma_tulokset: dataMap(manifesti.ristiviitteet.testitapahtuma_tulokset),
       palloID_viitteet: dataMap(manifesti.ristiviitteet.palloID_viitteet),
+      omat_kirjaukset: dataMap(manifesti.ristiviitteet.omat_kirjaukset),
+      kausikuvat: dataMap(manifesti.ristiviitteet.kausikuvat),   // vain pelaajan oma rivi per kausi (locator)
       solo: manifesti.solo ? Object.assign({ _id: manifesti.solo.id }, manifesti.solo.data, { _alikokoelmat: soloAli }) : null,
       media: manifesti.media,
     };
