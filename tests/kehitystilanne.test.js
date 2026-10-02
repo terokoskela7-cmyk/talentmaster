@@ -40,6 +40,13 @@ describe('sukupuolisuodatin, N < 5 ja tyhjät tilat', () => {
     expect(p.lohko2.kehittyvat.N).not.toBe(t.lohko2.kehittyvat.N);
     expect(p.lohko3.map((r) => r.nimi)).toEqual(['P14 Demo']);
   });
+  it('suodatin muuttaa jokaisen pelaajista lasketun luvun (pojat + tytöt = kaikki); seuratason C/J-luvut eivät ole sukupuolikohtaisia', () => {
+    const k = malli(), p = malli({ sukupuoli: 'M' }), t = malli({ sukupuoli: 'N' });
+    const NN = (m) => [m.lohko2.kehittyvat.N, m.lohko2.M1.N, m.lohko2.P3.kattavuus.N, m.lohko2.S2.N].concat(m.lohko2.testijakaumat.map((x) => x.osuus.N));
+    NN(k).forEach((n, i) => { expect(NN(p)[i] + NN(t)[i]).toBe(n); expect(NN(p)[i]).toBeLessThan(n); });
+    const ka = (m) => m.lohko1.rivit.filter((r) => /^[CJ]/.test(r.avain)).map((r) => JSON.stringify(r.toteuma.arvo));
+    expect(ka(p)).toEqual(ka(k)); expect(ka(t)).toEqual(ka(k));
+  });
   it('alle viiden ryhmä → "liian pieni ryhmä", ei prosenttia', () => {
     const m = malli({ sukupuoli: 'N', ikavaihe: 'lapsuus' });
     expect(m.N).toBe(4);

@@ -123,6 +123,26 @@ describe('pelaajataso, osuudet ja N < 5', () => {
   });
 });
 
+describe('laskentatyypit B–D', () => {
+  it('B tavoitetasoOsuus: rajalla tasan lasketaan mukaan, suunta valittavissa, ei-numerot pois, N < 5 piilotetaan', () => {
+    expect(M.tavoitetasoOsuus([80, 79, 95, 60, 81], 80)).toMatchObject({ arvo: 60, n: 3, N: 5, tila: 'ok' });
+    expect(M.tavoitetasoOsuus([4.1, 4.3, 4.2, 4.0, 4.5], 4.2, true)).toMatchObject({ arvo: 60, n: 3, N: 5 });
+    expect(M.tavoitetasoOsuus([90, null, 'x', NaN, 85, 70, 88, 92], 80)).toMatchObject({ n: 4, N: 5 });
+    expect(M.tavoitetasoOsuus([90, 85, 70], 80)).toMatchObject({ arvo: null, tila: 'liian_pieni' });
+    expect(M.tavoitetasoOsuus([], 80)).toMatchObject({ arvo: null, tila: 'ei_dataa' });
+  });
+  it('C maaraVsTavoite: määrä ja tavoite sellaisinaan, puuttuva = null (ei 0)', () => {
+    expect(M.maaraVsTavoite(27, 35)).toEqual({ arvo: 27, tavoite: 35 });
+    expect(M.maaraVsTavoite(0, 35)).toEqual({ arvo: 0, tavoite: 35 });
+    expect(M.maaraVsTavoite(undefined, null)).toEqual({ arvo: null, tavoite: null });
+  });
+  it('D asteikonKeskiarvo: 1 desimaali, ei-numerot pois, tyhjä → null ja N 0', () => {
+    expect(M.asteikonKeskiarvo([7, 8, 6, 8])).toEqual({ arvo: 7.3, N: 4 });
+    expect(M.asteikonKeskiarvo([7, null, 'x', 9])).toEqual({ arvo: 8, N: 2 });
+    expect(M.asteikonKeskiarvo([])).toEqual({ arvo: null, N: 0 });
+  });
+});
+
 describe('K1b ikätaso (normi interpoloidaan tarkalla iällä, päätetty 2.10.)', () => {
   const pojka = { sukupuoli: 'M', syntymaVuosi: 2012, syntymaaika: '2012-05-01' };
   it('jatkuva taso: normirajalla tasan 3,00 ja 4,00; taulukon järjestys [t5..t2] huomioitu', () => {
