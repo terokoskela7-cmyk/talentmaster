@@ -48,10 +48,11 @@ const COMPAT = KAIKKI.filter((n) => !TIEDOT[n].modular);
 const MODULAR = KAIKKI.filter((n) => TIEDOT[n].modular);
 
 describe('kohdejoukko (johdettu datasta)', () => {
-  it('EI VACUOUS: 21 compat + 2 modular = 23 elävää sivua (sama luku kuin App Check -portissa)', () => {
-    expect(COMPAT.length).toBe(21);
+  // 20 compat (2026-10): TalentMaster_IDP_Kortti_v4.html arkistoitu (docs/IDP_YHDISTAMINEN.md), oli 21.
+  it('EI VACUOUS: 20 compat + 2 modular = 22 elävää sivua (sama luku kuin App Check -portissa)', () => {
+    expect(COMPAT.length).toBe(20);
     expect(MODULAR.length).toBe(2);
-    expect(KAIKKI.length).toBe(23);
+    expect(KAIKKI.length).toBe(22);
   });
   it('archive/ ei ole mukana', () => { expect(KAIKKI.some((n) => n.includes('/'))).toBe(false); });
 });
@@ -89,12 +90,12 @@ describe('versiot', () => {
     const puuttuu = Object.keys(MIGRAATIOLISTA).filter((n) => !COMPAT.includes(n));
     expect(puuttuu).toEqual([]);
   });
-  it('migraatiolista = 9 jäljellä olevaa poikkeusta, erät 2–6 (erä 1 tehty: UTJ, Testituonti_Master, IDP_Kortti_v4)', () => {
+  it('migraatiolista = 9 jäljellä olevaa poikkeusta, erät 2–6 (erä 1 tehty: UTJ, Testituonti_Master, IDP_Kortti_v4 — viimeksi mainittu sittemmin arkistoitu)', () => {
     // Tämä luku pienenee erien mukana (erä 2: −3 → 6, …). Erän PR päivittää tämän ja listan yhdessä.
     expect(Object.keys(MIGRAATIOLISTA)).toHaveLength(9);
     expect([...new Set(Object.values(MIGRAATIOLISTA).map((m) => m.era))].sort()).toEqual([2, 3, 4, 5, 6]);
   });
-  it('listan ulkopuolisia compat-sivuja on 12 (jo kohdeversiossa)', () => {
-    expect(COMPAT.filter((n) => !MIGRAATIOLISTA[n])).toHaveLength(12);
+  it('listan ulkopuolisia compat-sivuja on 11 (jo kohdeversiossa; IDP_Kortti_v4 arkistoitu 2026-10)', () => {
+    expect(COMPAT.filter((n) => !MIGRAATIOLISTA[n])).toHaveLength(11);
   });
 });

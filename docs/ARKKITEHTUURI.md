@@ -22,7 +22,7 @@ TalentMaster on multi-tenant SaaS-alusta jalkapallon pelaajankehitykseen. Asiaka
 Kerros 1: Pelaaja / Pelaaja v7     ← pelaajan arjen työkalu
 Kerros 2: Valmentaja / Master v9   ← kenttähavainto + ADAR
 Kerros 3: Game IQ / D4 / ADAR     ← kognitiivinen kehitys
-Kerros 4: IDP-kortti v3            ← yksilöllinen kehityskortti
+Kerros 4: IDP (idp_kausi + tm_idp)  ← yksilöllinen kehityssuunnitelma (VP_v25-työpöytä, Master_v16 IDP-kortti, Pelaaja_v7)
 Kerros 5: IDP-aktivointi (3 reittiä) ← aktivointilogiikka
 Kerros 6: VP / johtamisjärjestelmä ← seuran johtaminen
 Kerros 7: Fyysinen → teknis-taktinen ← lopullinen tavoite
@@ -198,7 +198,7 @@ Heikoin ketju: LL (55%) → harjoitteet ohjautuvat LL-ketjulle
 | `TalentMaster_Seura.html` | seurasihteeri/utj/vp | ✅ | Muokkausmodaali laajennettu 2026-04-28 |
 | `TalentMaster_Pelaaja_v7.html` | pelaaja | ✅ v=24 | Syntymäpäiväyllätys, toimii |
 | `TalentMaster_Vanhempi.html` | huoltaja | ✅ | ⚠️ Nimi kovakoodattu (P3 auki) |
-| `TalentMaster_IDP_Kortti_v3.html` | val/pel/van | ✅ | Toimii KPV:llä |
+| ~~`TalentMaster_IDP_Kortti_v3.html`~~ / ~~`_v4.html`~~ | – | 🗄 arkistoitu | (arkistoitu 2026-10 → IDP = `idp_kausi` + `lib/tm_idp.js`, ks. `docs/IDP_YHDISTAMINEN.md`) |
 | `TalentMaster_Rekisterointi_Suostumus.html` | huoltaja | ✅ | fi/sv/en |
 | `TalentMaster_Kortit.html` | pelaaja | ✅ | FIRE/ICON/MILESTONE/TOTY + WOW |
 | `TalentMaster_UTJ_v2.html` | utj | ✅ | DNA, CSI, 6 välilehteä |
@@ -222,9 +222,9 @@ Heikoin ketju: LL (55%) → harjoitteet ohjautuvat LL-ketjulle
 |---|---|---|
 | `harjoitelogiikka_v4.js` | leikkija/rakentaja/showcase, DIAG, Stage 1–5 | ✅ |
 | `tm_eerikkila_normit.js` | Eerikkilä-normit P10–M / T10–N, 11 testiä | ✅ 2026-04-28 |
-| `hpp_rehab_protokollat.js` | 25 kuntoutusprotokollaa | ✅ |
+| `hpp_rehab_protokollat.js` | 25 kuntoutusprotokollaa | ⏸ ei käyttäjää (vanha IDP-kortti arkistoitu 2026-10; käyttö päätetään erikseen) |
 | `tm_testipankki.js` | 64 testiä, 8 protokollaa | ✅ |
-| `tm_ketju_matriisi.js` | fascia ↔ testi ↔ pallotekniikka | ✅ |
+| `tm_ketju_matriisi.js` | fascia ↔ testi ↔ pallotekniikka | ⏸ ei käyttäjää (vanha IDP-kortti arkistoitu 2026-10; käyttö päätetään erikseen) |
 | `tm_lang.js` | fi/sv/en, 144 käännöstä | ✅ |
 | `tm_import.js`, `tm_empty_state.js` | Import + tyhjä tila | ✅ |
 | `tm_bioika.js` | Biologinen ikä, Mirwald 2002 | ✅ |

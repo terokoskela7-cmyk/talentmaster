@@ -1,6 +1,6 @@
 # TalentMaster™ — IDP-modaalin uudelleensuunnittelu · Code-brief v1
 
-> **Kohde:** `TalentMaster_IDP_Kortti_v4.html` (+ jaetut `lib/`-renderöijät, joita muut apit kutsuvat)
+> **Kohde:** ~~`TalentMaster_IDP_Kortti_v4.html`~~ — **arkistoitu 2026-10** (ei koskaan renderöitynyt, ks. `docs/IDP_YHDISTAMINEN.md` §0). IDP = `idp_kausi` + `lib/tm_idp.js` (VP_v25-työpöytä, Master_v16 IDP-kortti). (+ jaetut `lib/`-renderöijät, joita muut apit kutsuvat)
 > **Lähde-totuus (visuaalinen):** 7 design-karttaa (liitteet §10). Ristiriidassa design-kartta voittaa ulkoasusta, tämä brief arkkitehtuurista/datasta.
 > **Testipelaaja:** Topias Koskela (KPV, sanktioitu) täydelle datalle · "Eino Virtanen" (rosteri) tyhjille tiloille. **EI oikeita alaikäisten nimiä.**
 > **Periaate:** KISS · tulkinta ensin (OTO-valmentaja) · rehellinen tyhjä tila · muokattava/avoin (ei pakoteta) · molemmat teemat · brändilukko.

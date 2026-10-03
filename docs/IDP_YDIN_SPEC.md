@@ -1,6 +1,6 @@
 # IDP-ydin — spec: strukturoitu tavoite + pelaajan johtama review-sykli (V2/V3)
 
-> Lähde: co-design 2026-07-03. Osa `IDP_KORTTI_MAAILMANLUOKKA.md` (§3.3 aukot → §4 pilarit) + selkäranka V2/V3. Kohde: `IDP_Kortti_v4.html` Kehitys-paneeli. Toteutus vaiheistetaan — tämä on datamalli + UI-rakenne, ei vielä koodibrief.
+> Lähde: co-design 2026-07-03. Osa `IDP_KORTTI_MAAILMANLUOKKA.md` (§3.3 aukot → §4 pilarit) + selkäranka V2/V3. Kohde: ~~`IDP_Kortti_v4.html` Kehitys-paneeli~~ → **kortti arkistoitu 2026-10; toteutus `idp_kausi` + `lib/tm_idp.js` (VP_v25-työpöytä, Master_v16 IDP-kortti, Pelaaja_v7), ks. `docs/IDP_YHDISTAMINEN.md`**. Toteutus vaiheistetaan — tämä on datamalli + UI-rakenne, ei vielä koodibrief.
 
 ## 1. Miksi (aukko kv-huippuun)
 Nykyinen tavoite = vapaa teksti (`omaTavoiteInput`). Maailmanluokka vaatii **strukturoidun, mitattavan, pelaajan omistaman tavoitteen + säännöllisen kaksisuuntaisen review-syklin** (FA/ILP §2). Tämä spec määrittää sen niin että se on (a) datasta johdettavissa (V2), (b) seurattava (V3), (c) standardoitu ja kansallisesti koostettava (§0/V6).
