@@ -1739,6 +1739,18 @@ function _tekTavoiteSaate(p) {
 }
 
 // §3.3 — Vauhti & pallo -tavoiterivit (MINÄ). §7.22-kehys kuten tekniikkatavoite. hhSeuraavaTaso lib:stä (globaali).
+/* Edellinen mittauskerta: hh_taso_edellinen (Excel-tuonti kirjoittaa) TAI hh_historia-merkintä ennen viimeisintä.
+   Pikakirjaus/Testaus kirjoittavat vain hh_historian → ilman tätä "kehityit"-rivi ei syttynyt koskaan niillä poluilla. */
+function _minaHhEdellinen(p) {
+  const hist = Array.isArray(p.hh_historia) ? p.hh_historia.filter(function (x) { return x && x.pvm != null; }) : [];
+  hist.sort(function (a, b) { return String(a.pvm).localeCompare(String(b.pvm)); });
+  const viim = p.hh_pvm != null ? String(p.hh_pvm) : (hist.length ? String(hist[hist.length - 1].pvm) : null);
+  let ed = null;
+  for (let i = hist.length - 1; i >= 0; i--) { if (viim == null || String(hist[i].pvm) < viim) { ed = hist[i]; break; } }
+  const taso = (p.hh_taso_edellinen != null) ? p.hh_taso_edellinen : (ed && typeof ed.hh_taso === 'number' ? ed.hh_taso : null);
+  return { taso: taso, hv: ed };
+}
+
 function rMinaFyysinenTavoite() {
   const p = _pelaaja;
   if (!p || !p.hh_viimeisin) return '';                  // ei H-H-dataa → ei korttia
@@ -1771,10 +1783,41 @@ function rMinaFyysinenTavoite() {
   if (!tavoiteHtml && p.sm_pallo_viimeisin != null) tavoiteHtml = tavoiterivi('sm_pallo', '🎯', 'Pallo mukaan vauhtiin', 'SM-pallo');
   h += tavoiteHtml;
   // 📈 parannus VAIN positiivinen (hh_taso_edellinen — SJK tyhjä, syttyy 2. kierroksella, §3.2)
-  if (p.hh_taso != null && p.hh_taso_edellinen != null && (p.hh_taso - p.hh_taso_edellinen) > 0) {
+  const edel = _minaHhEdellinen(p);
+  if (p.hh_taso != null && edel.taso != null && (p.hh_taso - edel.taso) > 0) {
     h += '<div style="font-size:14px;color:#28B090;margin-top:10px">📈 Kehityit viime kerrasta — hienoa!</div>';
+    // Sekunnit/senttimetrit saa näyttää (EI tasolukuja, EI vertailua muihin, §7.22): ensimmäinen parantunut mittaus.
+    const _tk = ['lin30m', 'lin10m', 'kasirata', 'cmj'];
+    for (let i = 0; i < _tk.length; i++) {
+      const k = _tk[i], nyt = _minaHhArvo(p, k), ennen = edel.hv ? edel.hv[k] : null;
+      const m = (typeof HH_TESTI_MAP !== 'undefined') ? HH_TESTI_MAP[k] : null;
+      if (nyt == null || ennen == null || !m || isNaN(nyt) || isNaN(ennen)) continue;
+      const parempi = m.pienempi ? (Number(nyt) < Number(ennen)) : (Number(nyt) > Number(ennen));
+      if (!parempi) continue;
+      const r1 = function (x) { return Math.round(Number(x) * 10) / 10; };
+      h += '<div style="font-size:13px;color:#8C8B86;margin-top:2px">' + _MINA_HHNIMI[k] + ': ' + r1(ennen) + ' ' + m.yksikko + ' → ' + r1(nyt) + ' ' + m.yksikko + '</div>';
+      break;
+    }
   }
-  if (!h) h = '<div style="font-size:13px;color:var(--text)">⚽ Nopeustestit tulossa — silloin näet tuloksesi!</div>';
+  // Huipputaso (paras luokka jossain testissä) → ei tavoitetta, mutta positiivinen viesti. Tasolukua EI näytetä.
+  let huippu = false;
+  if (!tavoiteHtml) {
+    if (typeof hhSeuraavaTaso === 'function' && ika != null) {
+      Object.keys(p.hh_viimeisin).forEach(function (k) {
+        if (k === 'sm_pallo' || p.hh_viimeisin[k] == null || isNaN(p.hh_viimeisin[k])) return;
+        const st = hhSeuraavaTaso(k, Number(p.hh_viimeisin[k]), ika, sp);
+        if (st && st.seuraavaTaso == null && st.nykyinenTaso != null) huippu = true;
+      });
+    } else if (p.hh_taso != null && p.hh_taso >= 5) huippu = true;
+  }
+  if (huippu) h += '<div style="font-size:14px;color:var(--text);margin-top:10px">⚽ <b>Huippuvauhtia!</b> Pidä vauhti yllä.</div>';
+  // Tulokset ON mitattu (hh_viimeisin olemassa) → "tulossa"-tekstiä ei näytetä koskaan; neutraali positiivinen varaviesti.
+  if (!h) {
+    const mitattu = Object.keys(p.hh_viimeisin).some(function (k) { return p.hh_viimeisin[k] != null && !isNaN(p.hh_viimeisin[k]); }) || p.sm_pallo_viimeisin != null;
+    h = mitattu
+      ? '<div style="font-size:14px;color:var(--text)">⚽ Vauhtisi on mitattu — hienoa työtä!</div><div style="font-size:13px;color:#8C8B86;margin-top:2px">Pieni parannus joka treenissä riittää.</div>'
+      : '<div style="font-size:13px;color:var(--text)">⚽ Nopeustestit tulossa — silloin näet tuloksesi!</div>';
+  }
   return box(h);
 }
 
