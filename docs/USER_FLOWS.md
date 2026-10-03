@@ -109,8 +109,8 @@ FLEI: 5 ketjua (SBL / SFL / LL / DIAG / DFL) — DIAG = SL+FL pysyvästi (Wilke 
 |---|---|---|---|
 | VP | Hyväksyy IDP-aktivoinnin, seuraa tilastoja | VP_v18 | KESKEN aktivointilogiikka |
 | VAL | Tekee havaintoja, aktivoi IDP:n (3 reittiä) | Master v9 | KESKEN havainnot |
-| TST | FLEI → IDP automaattisesti | IDP-kortti v3 | KESKEN kytkentä |
-| PEL | Kehityskortti: vahvuudet 70%, kehityskohteet 30% | IDP_Kortti_v3.html + Pelaaja_v1 | KESKEN kortti valmis |
+| TST | FLEI → IDP automaattisesti | IDP (`idp_kausi`, VP_v25 / Master_v16) — vanha IDP-kortti arkistoitu 2026-10 | KESKEN kytkentä |
+| PEL | Kehityskortti: vahvuudet 70%, kehityskohteet 30% | IDP (`idp_kausi` + `tm_idp.js`: 70/30-ankkuri) + Pelaaja_v7 — IDP_Kortti_v3/v4 arkistoitu 2026-10 | KESKEN |
 | VAN | Lapsen kehityskortti selkokielellä | Vanhempi.html | KESKEN UI valmis |
 
 **3 aktivointireittiä:**
@@ -128,7 +128,7 @@ FLEI: 5 ketjua (SBL / SFL / LL / DIAG / DFL) — DIAG = SL+FL pysyvästi (Wilke 
 |---|---|---|---|
 | VP | Joukkueen D4-profiili, ADAR-trendit | VP_v18 | EI vielä |
 | VAL | Täyttää ADAR-arvioinnin harjoitusten yhteydessä | Master v9 ADAR | KESKEN Firebase-integraatio |
-| PEL | Peliäly-palaute ikäluokan mukaan | Pelaaja_v1 / IDP-kortti | EI vielä |
+| PEL | Peliäly-palaute ikäluokan mukaan | Pelaaja_v7 / IDP (`idp_kausi`) | EI vielä |
 
 **Ikäluokkakohtaistus:**
 - U8–U12: Havainnoija (vain Assess) — pelaaja ei tiedä
@@ -182,10 +182,10 @@ Streak-historia: EI vielä Firestoreen (localStoragessa) — Sprint 5.
 | VP | FLEI-jakauma — klinikkatrigger alle 40% | VP_v18 | EI vielä |
 | VAL | 3+1-malli alkurutiinissa, ketjuprofiili per pelaaja | Valmentaja_Matriisi.html | ✅ valmis, PENDING deploy |
 | TST | Kartoitus → FLEI → ohjelma generoidaan | Harjoitettavuus_Lomake.html | KESKEN generointi |
-| PEL | D/S/P-omatoimiohjelma + ikäkohtainen kieli + Stage-badge | Pelaaja_v1 + IDP-kortti | ✅ harjoitelogiikka v4 integroitu |
+| PEL | D/S/P-omatoimiohjelma + ikäkohtainen kieli + Stage-badge | Pelaaja_v7 | ✅ harjoitelogiikka v4 integroitu |
 | VAN | Lapsen omatoimiohjelma selkokielellä | Vanhempi.html | EI vielä |
 
-Logiikka: `harjoitelogiikka_v4.js` + `tm_ketju_matriisi.js` → `generoimTehtavat(pelaaja)` → Firestore `omatoimi_ohjelmat`
+Logiikka: `harjoitelogiikka_v4.js` → `generoimTehtavat(pelaaja)` (`tm_ketju_matriisi.js` ei ole koodissa kytketty; ⏸ ei käyttäjää 2026-10) → Firestore `omatoimi_ohjelmat`
 
 ---
 

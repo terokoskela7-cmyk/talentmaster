@@ -170,7 +170,7 @@ per tiedosto** (kaksi lohkoa kumoaa toisen — Seura.html:n bugi oli juuri täm�
 | `TalentMaster_Solo_Profiili.html` | **Solo** pelaajaprofiili + seuralinkitys (PlayerCode) | ✅ Sprint 4 |
 | `TalentMaster_Kortti_Demo.html` | **Solo** FIFA-korttitasot Starter/Sharp/Elite | ✅ Sprint 4 |
 | `TalentMaster_Solo_Arviointi.html` | **Solo** alkuarviointi (3-kerroksinen) | ⏳ PENDING |
-| `TalentMaster_IDP_Kortti_v4.html` | IDP-kortti | ✅ |
+| ~~`TalentMaster_IDP_Kortti_v4.html`~~ | Vanha IDP-kortti | 🗄 arkistoitu 2026-10 (`archive/`). IDP = `idp_kausi` + `lib/tm_idp.js`: VP_v25-työpöytä (Seuran nappi `?seura=&pelaaja=&nakyma=kehitys`), Master_v16 IDP-kortti, Pelaaja_v7. Ks. `docs/IDP_YHDISTAMINEN.md` |
 | `TalentMaster_Rekisterointi_Suostumus.html` | GDPR-suostumuslomake | ✅ |
 | `TalentMaster_Testaus_v9.html` | Yhdistetty kenttätestaustyökalu (v8 + Harjoitettavuus_v4) | ✅ 3112 riviä, §22 |
 | `TalentMaster_Excel_Tuonti.html` | Massatuonti + Palloliiton PDF-parseri | ✅ §24 |
