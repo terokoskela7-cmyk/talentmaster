@@ -1161,6 +1161,13 @@ body.nav-drawer-open .nav-burger .nb3 { transform: translateY(-7px) rotate(-45de
   transition: background .12s;
 }
 .toast-undo:hover { background: var(--teal-bg); }
+/* Verkkoyhteys (ei offline-tukea vielä): rauhallinen, ei hälyttävä (§37). Pitkä toast saa rivittyä mobiilissa. */
+.toast-item.toast-pitka { white-space: normal; max-width: min(92vw, 420px); }
+#mVerkkoIlmoitus {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 600;
+  background: var(--card2); border-bottom: .5px solid var(--line2); color: var(--ink);
+  font-size: 13px; line-height: 1.4; padding: 10px 16px; text-align: center;
+}
 
 /* ══════════════════════════════════════════════════════════════
    SKELETON LOADING (V9 korjaus #06)
@@ -2531,6 +2538,9 @@ async function _lataaValmentaja(uid) {
     // Demo VAIN anonyymille / ei-kirjautuneelle. Kirjautuneella (SA/valmentaja) lataus on jo voinut onnistua
     // (esim. 20 pelaajaa + _paivitaKaikkiNakymat) — älä putoa demoon vaikka render heitti.
     const _cu = _auth.currentUser;
+    if (_cu && !_cu.isAnonymous && (_mOnVerkkovirhe(e) || _mOnOffline())) {   // ei verkkoa: ei virhettä eikä demoa
+      _mKaynnistysVerkkovirhe = true; _mVerkkoIlmoitus(true); return;
+    }
     if (!_cu || _cu.isAnonymous) _kaynnistaDemoTila();
     else console.error('[v16 auth] kirjautuneen lataus/render heitti — EI demoa:', e);
   }
@@ -2539,8 +2549,64 @@ async function _lataaValmentaja(uid) {
 /* ════════════════════════════════════════════════════════════
    FIREBASE — REAALIDATAN LATAUS
 ════════════════════════════════════════════════════════════ */
+/* ── VERKKOYHTEYS — selkeä viesti kun verkkoa ei ole (EI offline-tukea vielä) ─────────────────────────
+   Ilman persistenceä offline-luku palauttaa TYHJÄN listan ilman virhettä (docs/MASTER_OFFLINE_SUUNNITELMA.md §10)
+   → valmentaja näki tyhjän joukkueen. Nyt: ilmoitus näkyy, vanhaa listaa ei korvata tyhjällä, yhteyden palatessa
+   ilmoitus pois + lataus uudelleen. Tallennus offline: selkeä viesti ennen kirjoitusta, lomake säilyy.
+   EI enablePersistencea, EI service workeria, EI SDK-muutosta (SDK-erä 3 + offline-erät). */
+const M_VERKKO_ILMOITUS = 'Ei verkkoyhteyttä. Tiedot päivittyvät, kun yhteys palaa.';
+const M_VERKKO_TALLENNUS = 'Tallennus ei onnistunut, koska verkkoyhteys puuttuu. Yritä uudelleen, kun yhteys palaa.';
+let _mVerkkoVirheAsti = 0;          // ms-aikaleima: tähän asti virhetoastit näyttävät verkkoviestin
+let _mKaynnistysVerkkovirhe = false; // kirjautumisen jälkeinen alkulataus kaatui verkkoon → online = uudelleenlataus
+function _mOnOffline() { return typeof navigator !== 'undefined' && navigator.onLine === false; }
+function _mOnVerkkovirhe(e) {
+  if (!e) return false;
+  const c = String(e.code || ''), m = String(e.message || '').toLowerCase();
+  return c === 'unavailable' || c === 'firestore/unavailable' || c === 'auth/network-request-failed' || c === 'tm/offline'
+    || (c.indexOf('failed-precondition') >= 0 && m.indexOf('offline') >= 0) || m.indexOf('client is offline') >= 0;
+}
+function _mVerkkoIlmoitus(nayta) {
+  let el = document.getElementById('mVerkkoIlmoitus');
+  if (!nayta) { if (el) el.remove(); return; }
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'mVerkkoIlmoitus'; el.setAttribute('role', 'status'); el.setAttribute('aria-live', 'polite');
+    document.body.appendChild(el);
+  }
+  el.textContent = masterT(M_VERKKO_ILMOITUS);
+}
+function _mTallennusVerkkovirhe() {
+  _mVerkkoVirheAsti = Date.now() + 3000;
+  if (typeof toast === 'function') toast(masterT(M_VERKKO_TALLENNUS), 'error');
+  if (_mOnOffline()) _mVerkkoIlmoitus(true);
+}
+/* Tallennuksen ensimmäinen askel (§7.2 tuore token). Offline tai verkkovirhe → selkeä viesti + heitto ENNEN kirjoitusta:
+   tallennuskohdan catch hoitaa UI:n (napit), lomakkeen sisältö ei katoa. Verkossa käytös identtinen: getIdToken(true). */
+async function _mTuoreToken(cu) {
+  if (!cu) return;
+  if (_mOnOffline()) {
+    _mTallennusVerkkovirhe();
+    const e = new Error(masterT(M_VERKKO_TALLENNUS)); e.code = 'tm/offline'; throw e;
+  }
+  try { return await cu.getIdToken(true); }
+  catch (e) { if (_mOnVerkkovirhe(e)) _mTallennusVerkkovirhe(); throw e; }
+}
+/* Lomakkeen sulkeva tallennus (optimistinen UI): tarkista verkko ENNEN lomakkeen sulkua ja paikallisen tilan muutosta. */
+function _mVerkkoEnnenSulkua() {
+  if (_demo || !_mOnOffline()) return true;
+  _mTallennusVerkkovirhe();
+  return false;
+}
+window.addEventListener('offline', function () { if (!_demo) _mVerkkoIlmoitus(true); });
+window.addEventListener('online', function () {
+  _mVerkkoIlmoitus(false);
+  if (_mKaynnistysVerkkovirhe) { location.reload(); return; }   // alkulataus ei ehtinyt valmiiksi → puhdas uudelleenlataus
+  if (!_demo && _seuraId) { _lataaPelaajat(); _lataaTestitapahtumat(); }
+});
+
 async function _lataaPelaajat() {
   if (!_seuraId) return;
+  if (_mOnOffline()) { _mVerkkoIlmoitus(true); return; }   // ei tyhjää listaa "ei pelaajia" -tilana
   await lataaKonseptikerros();   // TIER 1 ENNEN renderiä: muuten ensirender näyttäisi kaanonin seuraoverriden sijaan
   try {
     const col = _db.collection('seurat').doc(_seuraId).collection('pelaajat');
@@ -2575,6 +2641,7 @@ async function _lataaPelaajat() {
     } else {
       docs = (await col.get()).docs;
     }
+    if (!docs.length && _mOnOffline()) { _mVerkkoIlmoitus(true); return; }   // yhteys katkesi kesken: välimuistin tyhjä ≠ ei pelaajia
     _pelaajatData = docs.map(d => ({ id: d.id, ...d.data() }));
     _pelaajatData.sort((a,b) => (a.sukunimi||'').localeCompare(b.sukunimi||''));
     if (!_demo) {
@@ -2583,11 +2650,12 @@ async function _lataaPelaajat() {
       _lataaKirjaukset();
       _kuunteleVpViestit();
     }
-  } catch(e) { console.warn('[v16] Pelaajien lataus:', e.message); }
+  } catch(e) { console.warn('[v16] Pelaajien lataus:', e.message); if (_mOnVerkkovirhe(e) || _mOnOffline()) _mVerkkoIlmoitus(true); }
 }
 
 async function _lataaTestitapahtumat() {
   if (!_seuraId) return;
+  if (_mOnOffline()) { _mVerkkoIlmoitus(true); return; }
   try {
     const snap = await _db.collection('seurat').doc(_seuraId).collection('testitapahtumat')
       .orderBy('luotu', 'desc').limit(50).get();
@@ -2613,7 +2681,7 @@ async function _lataaTestitapahtumat() {
     renderCal();
     renderTestit();
     _lataaKalenteriTapahtumat();
-  } catch(e) { console.warn('[v16] Testitapahtumien lataus:', e.message); }
+  } catch(e) { console.warn('[v16] Testitapahtumien lataus:', e.message); if (_mOnVerkkovirhe(e) || _mOnOffline()) _mVerkkoIlmoitus(true); }
 }
 
 /* ── SEURAKERROS TIER 1 — seurat/{sid}/konseptit ──────────────────────────────────────────────
@@ -4785,7 +4853,7 @@ window._tallennaCoachProfiili = async function _tallennaCoachProfiili() {
   var erik = document.getElementById('cpEditErikoist').value.trim();
   var cpd = parseInt(document.getElementById('cpEditCpd').value) || 0;
   try {
-    await _auth.currentUser.getIdToken(true);
+    await _mTuoreToken(_auth.currentUser);
     await _db.collection('seurat').doc(_seuraId).collection('kayttajat').doc(_uid).update({
       lisenssitaso: lis, erikoistuminen: erik, cpd_tunnit_kausi: cpd,
       profiili_paivitetty: new Date().toISOString()
@@ -5916,7 +5984,7 @@ window._ttAsetaPositio = async function (pid, code) {
   if (typeof _renderPinfoFirestore === 'function') _renderPinfoFirestore(p);
   if (_demo || !_seuraId || typeof _db === 'undefined' || !_db) { if (typeof toast === 'function') toast('Pelipaikka aktivoitu (demo — ei kirjoitettu)', 'ok'); return; }
   try {
-    const cu = firebase.auth().currentUser; if (cu) await cu.getIdToken(true);
+    const cu = firebase.auth().currentUser; await _mTuoreToken(cu);
     await _db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(pid).set({ tt_positio_aktiivinen: code }, { merge: true });
     if (typeof toast === 'function') toast(masterT('Pelipaikka aktivoitu ✓ — pelipaikkakonseptit käytössä'), 'ok');
   } catch (e) { console.warn('[ttPositio]', e && e.message); if (typeof toast === 'function') toast('Tallennus epäonnistui', 'error'); }
@@ -5937,7 +6005,7 @@ window._ttAsetaPositio2 = async function (pid, code) {
   if (typeof _renderPinfoFirestore === 'function') _renderPinfoFirestore(p);
   if (_demo || !_seuraId || typeof _db === 'undefined' || !_db) { if (typeof toast === 'function') toast(masterT('Toissijainen pelipaikka asetettu (demo — ei kirjoitettu)'), 'ok'); return; }
   try {
-    const cu = firebase.auth().currentUser; if (cu) await cu.getIdToken(true);
+    const cu = firebase.auth().currentUser; await _mTuoreToken(cu);
     await _db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(pid).set({ tt_positio_toissijainen: norm }, { merge: true });
     if (typeof toast === 'function') toast(masterT('Toissijainen pelipaikka tallennettu ✓'), 'ok');
   } catch (e) { console.warn('[ttPositio2]', e && e.message); if (typeof toast === 'function') toast(masterT('Tallennus epäonnistui'), 'error'); }
@@ -6232,7 +6300,7 @@ window._ttVieTreeniin = async function (pid, avain) {
   if (typeof _renderPinfoFirestore === 'function') _renderPinfoFirestore(p);
   if (_demo || !_seuraId || typeof _db === 'undefined' || !_db) { if (typeof toast === 'function') toast('Jaksofokus asetettu (demo — ei kirjoitettu)', 'ok'); return; }
   try {
-    const cu = firebase.auth().currentUser; if (cu) await cu.getIdToken(true);
+    const cu = firebase.auth().currentUser; await _mTuoreToken(cu);
     await _db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(pid).set({ jaksofokus: jaksofokus }, { merge: true });
     if (typeof toast === 'function') toast(masterT('Jaksofokus viety treeniin ✓ (näkyy VP-aloitusnäkymässä)'), 'ok');
   } catch (e) { console.warn('[ttVieTreeniin]', e && e.message); if (typeof toast === 'function') toast('Tallennus epäonnistui', 'error'); }
@@ -6367,11 +6435,12 @@ window._msAsetaFyysFokus = async function (pid, teemaAvain) {
       ohjelma_id: null, luotu: new Date().toISOString() };
   }
   var jf = { konsepti_avain: teemaAvain, konsepti_nimi: teema ? teema.nimi : teemaAvain, konsepti_koodi: null, domeeni: 'fyysinen', lahde: 'silta_d1', alkoi: new Date().toISOString(), kesto_vk: 4, ohjelma: ohjelma };
+  if (!_mVerkkoEnnenSulkua()) return;   // offline: lomake jää auki, tietoja ei muuteta
   p.jaksofokus = jf;
   document.getElementById('_msFyysModal')?.remove();
   if (typeof _renderPinfoFirestore === 'function') _renderPinfoFirestore(p);
   if (_demo || !_seuraId || typeof _db === 'undefined' || !_db) { if (typeof toast === 'function') toast('Fysiikkajakso asetettu (demo)', 'ok'); return; }
-  try { var cu = firebase.auth().currentUser; if (cu) await cu.getIdToken(true);
+  try { var cu = firebase.auth().currentUser; await _mTuoreToken(cu);
     await _db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(pid).set({ jaksofokus: jf }, { merge: true });
     if (typeof toast === 'function') toast(masterT('Fysiikkajakso asetettu ✓') + (ohjelma ? ' + ohjelma' : ''), 'ok');
   } catch (e) { console.warn('[msAsetaFyysFokus]', e && e.message); if (typeof toast === 'function') toast('Tallennus epäonnistui', 'error'); }
@@ -6520,11 +6589,12 @@ window._ohjKaytaOhjelma = async function (pid, teemaAvain, ohjelmaId) {
   var jf = (p.jaksofokus && p.jaksofokus.domeeni === 'fyysinen')
     ? Object.assign({}, p.jaksofokus, { ohjelma: ohjelma })
     : { konsepti_avain: tAvain, konsepti_nimi: teema ? teema.nimi : tAvain, konsepti_koodi: null, domeeni: 'fyysinen', lahde: 'silta_d1', alkoi: new Date().toISOString(), kesto_vk: 4, ohjelma: ohjelma };
+  if (!_mVerkkoEnnenSulkua()) return;   // offline: lomake jää auki, tietoja ei muuteta
   p.jaksofokus = jf;
   document.getElementById('_ohjValitseModal')?.remove(); document.getElementById('_msFyysModal')?.remove();
   if (typeof _renderPinfoFirestore === 'function') _renderPinfoFirestore(p);
   if (_demo || !_seuraId || typeof _db === 'undefined' || !_db) { if (typeof toast === 'function') toast('Fysiikkajakso + kirjasto-ohjelma asetettu (demo)', 'ok'); return; }
-  try { var cu = firebase.auth().currentUser; if (cu) await cu.getIdToken(true);
+  try { var cu = firebase.auth().currentUser; await _mTuoreToken(cu);
     await _db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(pid).set({ jaksofokus: jf }, { merge: true });
     if (typeof toast === 'function') toast('Fysiikkajakso + kirjasto-ohjelma asetettu ✓', 'ok');
   } catch (e) { console.warn('[ohjKayta]', e && e.message); if (typeof toast === 'function') toast('Tallennus epäonnistui', 'error'); }
@@ -6532,7 +6602,7 @@ window._ohjKaytaOhjelma = async function (pid, teemaAvain, ohjelmaId) {
 window._ohjArkistoi = async function (ohjelmaId, pid, teemaAvain) {
   if (!confirm(masterT('Arkistoi ohjelma? (Pehmeä poisto — historia + käynnissä olevat jaksot säilyvät)'))) return;
   if (_demo || !_seuraId || typeof _db === 'undefined' || !_db) { var o = (window._ohjKirjasto || []).find(function (x) { return x.id === ohjelmaId; }); if (o) o.arkistoitu = true; _ohjValitseRender(pid, teemaAvain, false); return; }
-  try { var cu = firebase.auth().currentUser; if (cu) await cu.getIdToken(true);
+  try { var cu = firebase.auth().currentUser; await _mTuoreToken(cu);
     await _db.collection('seurat').doc(_seuraId).collection('ohjelmat').doc(ohjelmaId).set({ arkistoitu: true, paivitetty: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true });
     await _ohjLataaKirjasto(true); _ohjValitseRender(pid, teemaAvain, false);
     if (typeof toast === 'function') toast(masterT('Ohjelma arkistoitu'), 'ok');
@@ -6622,7 +6692,7 @@ window._ohjEditTallenna = async function () {
   }
   if (_demo || !_seuraId || typeof _db === 'undefined' || !_db) { if (typeof toast === 'function') toast('Ohjelma tallennettu (demo)', 'ok'); document.getElementById('_ohjEditModal')?.remove(); return; }
   try {
-    var cu = firebase.auth().currentUser; if (cu) await cu.getIdToken(true);
+    var cu = firebase.auth().currentUser; await _mTuoreToken(cu);
     doc.luotu = doc.luotu || firebase.firestore.FieldValue.serverTimestamp();
     doc.paivitetty = firebase.firestore.FieldValue.serverTimestamp();
     var ref = await _db.collection('seurat').doc(_seuraId).collection('ohjelmat').add(doc);
@@ -6742,6 +6812,7 @@ window._msTallenna = async function (uusiAvain) {
     ohjelma: jf.ohjelma || null,             // §2c: ohjelma → annos–vaste-rivi
     tulos: S.tulos, lahde_seuraava: uusiAvain ? (_fyysT ? 'silta_d1' : 'silta') : null, suljettu: new Date().toISOString()
   });
+  if (!_mVerkkoEnnenSulkua()) return;   // offline: sulkulomake jää auki, historiaa ei muuteta
   var hist = Array.isArray(p.jaksofokus_historia) ? p.jaksofokus_historia.slice() : [];
   hist.push(entry); p.jaksofokus_historia = hist;
   var uusiJf = null;
@@ -6754,7 +6825,7 @@ window._msTallenna = async function (uusiAvain) {
   if (typeof _renderPinfoFirestore === 'function') _renderPinfoFirestore(p);
   if (_demo || !_seuraId || typeof _db === 'undefined' || !_db) { if (typeof toast === 'function') toast('Jakso suljettu (demo — ei kirjoitettu)', 'ok'); return; }
   try {
-    var cu = firebase.auth().currentUser; if (cu) await cu.getIdToken(true);
+    var cu = firebase.auth().currentUser; await _mTuoreToken(cu);
     await _db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(p.id).set({ jaksofokus: uusiJf, jaksofokus_historia: hist }, { merge: true });
     if (typeof toast === 'function') toast(uusiAvain ? masterT('Jakso suljettu · uusi fokus asetettu ✓') : masterT('Jakso suljettu ✓'), 'ok');
   } catch (e) { console.warn('[msTallenna]', e && e.message); if (typeof toast === 'function') toast('Tallennus epäonnistui', 'error'); }
@@ -6874,7 +6945,7 @@ async function _mIdpTallennaDok(p, viesti) {
   };
   if (_demo || !_seuraId || typeof _db === 'undefined' || !_db) { _asetaPikakentat(); if (typeof toast === 'function') toast(viesti + ' (demo — ei kirjoitettu)', 'ok'); return true; }
   try {
-    const cu = firebase.auth().currentUser; if (cu) await cu.getIdToken(true);
+    const cu = firebase.auth().currentUser; await _mTuoreToken(cu);
     /* HOTFIX · tavoitetaulukko on HISTORIA — ks. sama korjaus VP:ssä. merge EI yhdistä taulukoita, joten
        yhden alkion taulukko pyyhki vanhan tavoitteen ja sen arviot. Transaktio: luku → yhdistä → kirjoitus. */
     /* FAIL-CLOSED — sama kuin VP:ssä: vanha välimuistissa oleva lib olisi `[t]`-fallbackin kautta
@@ -7007,7 +7078,7 @@ window._mIdpVtAktivoi = async function (pid, i) {
   _mIdpTallennaDok(p, masterT('Välitavoite aktivoitu jaksoksi'));
   // Kirjoita myös jaksofokus-pikakenttä (§26) — sama polku kuin _ttVieTreeniin.
   if (!_demo && _seuraId && typeof _db !== 'undefined' && _db) {
-    try { const cu = firebase.auth().currentUser; if (cu) await cu.getIdToken(true);
+    try { const cu = firebase.auth().currentUser; await _mTuoreToken(cu);
       await _db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(p.id).set({ jaksofokus: jf }, { merge: true });
     } catch (e) { console.warn('[_mIdpVtAktivoi]', e && e.message); }
   }
@@ -7776,7 +7847,7 @@ window._prTallennaTavoite = async function (pid){
   if (!_seuraId){ if (typeof toast === 'function') toast(masterT('Kirjaudu ensin'), 'error'); return; }
   if (btn){ btn.disabled = true; btn.textContent = 'Tallennetaan…'; }
   try {
-    var cu = _auth.currentUser; if (cu) await cu.getIdToken(true);   // §7.2
+    var cu = _auth.currentUser; await _mTuoreToken(cu);   // §7.2
     var vNimi = (window._valmentajaData ? (((_valmentajaData.etunimi || '') + ' ' + (_valmentajaData.sukunimi || '')).trim()) : '') || 'Valmentaja';
     await _db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(pid).collection('tavoitteet').add({
       teksti: teksti,
@@ -7796,7 +7867,7 @@ window._prTallennaTavoite = async function (pid){
 };
 window._prVaihdaTila = async function (pid, tid, tila){
   try {
-    var cu = _auth.currentUser; if (cu) await cu.getIdToken(true);
+    var cu = _auth.currentUser; await _mTuoreToken(cu);
     await _db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(pid).collection('tavoitteet').doc(tid).update({ tila: tila });
     await _prPaivitaAktiiviset(pid);
     window._prLataaTavoitteet(pid);
@@ -8338,7 +8409,7 @@ window._cpdAsetaVaatimus = function () {
 window._cpdTallennaVaatimus = async function () {
   const cu = _auth.currentUser; if (!cu || !_seuraId) return;
   try {
-    await cu.getIdToken(true);   // §7.2
+    await _mTuoreToken(cu);   // §7.2
     const v = {}; ['grassroots', 'c', 'b', 'a', 'pro'].forEach(k => { const e = document.getElementById('cpdv_' + k); const n = e && e.value !== '' ? Number(e.value) : null; if (n != null && !isNaN(n)) v[k] = n; });
     await _db.collection('seurat').doc(_seuraId).collection('konfiguraatio').doc('harjoitusarviointi').set({ cpd_vaatimus_h: v }, { merge: true });
     if (typeof toast === 'function') toast(masterT('✓ CPD-vaatimukset tallennettu'), 'ok');
@@ -8469,7 +8540,7 @@ window._notifTallennaAsetukset = async function () {
   const cu = _auth.currentUser; if (!cu || !_seuraId) return;
   const enabled = document.getElementById('notifAsEmail').checked, kad = document.getElementById('notifAsKad').value;
   try {
-    await cu.getIdToken(true);
+    await _mTuoreToken(cu);
     // SIVUKIRJOITUS EI SAA LUODA PROFIILIA. set(merge) LUO puuttuvan dokumentin → ilmoitus-
     // asetusten tallennus materialisoi "haamun" jolla ei ole nimeä, sähköpostia eikä roolia
     // (henkilöstölistassa se näkyi UID-rivinä, #538). update() ei luo puuttuvaa vaan hylkää
@@ -8861,7 +8932,7 @@ function _calSessioRpeHTML(t) {
 async function _calTallennaSessioRPE(t, n, container) {
   if (!_seuraId || !(n >= 1 && n <= 10)) return;
   try {
-    var cu = _auth.currentUser; if (cu) await cu.getIdToken(true);   // §7.2
+    var cu = _auth.currentUser; await _mTuoreToken(cu);   // §7.2
     var muid = _calMerkUid();
     await _db.collection('seurat').doc(_seuraId).collection('kalenteri').doc(t.id).set({
       valmentaja_rpe: n,
@@ -9404,7 +9475,7 @@ async function _calTallennaLasnaolo(t, roster, state, btn) {
   var cu = _auth.currentUser;
   if (btn) { btn.disabled = true; btn.textContent = masterT('Tallennetaan…'); }
   try {
-    if (cu) await cu.getIdToken(true);   // §7.2
+    await _mTuoreToken(cu);   // §7.2
     var batch = _db.batch();
     var base = _db.collection('seurat').doc(_seuraId).collection('kalenteri').doc(t.id);
     var kooste = { paikalla: 0, myohassa: 0, poissa: 0, merkitsematta: 0 };
@@ -9488,7 +9559,7 @@ function _calPoistaTapahtuma(t, modal) {
     var lbl = scope === 'sarja' ? masterT('koko sarja') : (scope === 'seuraavat' ? masterT('tämä ja seuraavat') : masterT('tämä tapahtuma'));
     if (!confirm(masterT('Poistetaanko ') + lbl + masterT('? Pehmeä poisto (palautettavissa).'))) return;
     try {
-      var cu = _auth.currentUser; if (cu) await cu.getIdToken(true);
+      var cu = _auth.currentUser; await _mTuoreToken(cu);
       var muid = _calMerkUid();
       var docit = await _calSkooppiDocit(t, scope);
       var batch = _db.batch();
@@ -9546,7 +9617,7 @@ function _calMuokkaaTapahtuma(t) {
     _calSkooppiDialog(t, masterT('Tallenna muutokset'), async function(scope) {
       tall.disabled = true; tall.textContent = masterT('Tallennetaan…');
       try {
-        var cu = _auth.currentUser; if (cu) await cu.getIdToken(true);
+        var cu = _auth.currentUser; await _mTuoreToken(cu);
         var muid = _calMerkUid();
         var yhteiset = { muistiinpanot: muistI.value.trim().slice(0, 500) || null, paivitetty: firebase.firestore.FieldValue.serverTimestamp(), muokkaaja_uid: muid };
         if (full) { yhteiset.nimi = nimiI.value.trim() || t.nimi || null; yhteiset.paikka = paikkaI.value.trim() || null; yhteiset.tila = tilaI.value; }
@@ -10123,7 +10194,7 @@ window.paivitaAdarPikakentat = paivitaAdarPikakentat;
 window._ehdotaTalentti = async function (pid) {
   if (!pid || !_seuraId || !_db) { if (typeof toast === 'function') toast(masterT('Talenttiehdotus ei onnistunut (ei yhteyttä)'), 'virhe'); return; }
   try {
-    const cu = firebase.auth().currentUser; if (cu) await cu.getIdToken(true);
+    const cu = firebase.auth().currentUser; await _mTuoreToken(cu);
     await _db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(pid).set({
       talentti_ehdotus: { lahde: 'ristiinarvio', pvm: new Date().toISOString(), ehdottaja_uid: _uid || null, ehdottaja_rooli: _rooli || null }
     }, { merge: true });
@@ -10313,7 +10384,7 @@ window._migratoiAdar13 = async function (pelaajaId, dryRun) {
     var uusi = { A: m(p.A), D: m(p.D), Act: m(p.Act), R: m(p.R) };
     console.log('[migratoiAdar13]', d.id, JSON.stringify(p), '→', JSON.stringify(uusi));
     muutettu++;
-    if (!dryRun) { var cu = firebase.auth().currentUser; if (cu) await cu.getIdToken(true); await col.doc(d.id).set({ pisteet: uusi }, { merge: true }); }
+    if (!dryRun) { var cu = firebase.auth().currentUser; await _mTuoreToken(cu); await col.doc(d.id).set({ pisteet: uusi }, { merge: true }); }
   }
   if (!dryRun) await paivitaAdarPikakentat(pelaajaId);
   console.log('[migratoiAdar13] ' + (dryRun ? '(dry-run) ' : '') + muutettu + ' havaintoa' + (dryRun ? ' migratoitaisiin' : ' migratoitu') + '.');
@@ -10422,12 +10493,15 @@ function execCmd(idx) {
    TOAST + UNDO (V9 korjaus #08)
 ════════════════════════════════════════════════════════════ */
 function toast(msg, actionKey) {
+  // Tallennuksen verkkovirhe (_mTuoreToken) näyttää selkeän viestin; tallennuskohdan oma geneerinen
+  // virhetoasti ("Tallennus epäonnistui") ei saa korvata sitä heti perään.
+  if (Date.now() < _mVerkkoVirheAsti && (actionKey === 'error' || actionKey === 'err')) msg = masterT(M_VERKKO_TALLENNUS);
   _lastAction = actionKey || null;
   const wrap = document.getElementById('toast-wrap');
   // Poista vanhat
   wrap.querySelectorAll('.toast-item').forEach(t => t.remove());
   const item = document.createElement('div');
-  item.className = 'toast-item';
+  item.className = 'toast-item' + (String(msg).length > 60 ? ' toast-pitka' : '');
   item.innerHTML = `
     <span>${msg}</span>
     <span class="toast-undo" onclick="undoAction('${actionKey||''}')">
