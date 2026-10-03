@@ -79,7 +79,7 @@ nyt datankeruu + perheiden adoptio.
 - [x] `TalentMaster_Vanhempi.html` — Huoltajan sivu
 - [x] ~~`TalentMaster_IDP_Kortti_v3.html`~~ — v3/v4 arkistoitu 2026-10; IDP = `idp_kausi` + `lib/tm_idp.js` (VP_v25 / Master_v16 / Pelaaja_v7), ks. `docs/IDP_YHDISTAMINEN.md`
 - [x] `TalentMaster_Rekisterointi_Suostumus.html` — fi/sv/en kielituki
-- [x] `TalentMaster_UTJ_v1.html` — Kasvattisuppilo-aikajana
+- [x] ~~`TalentMaster_UTJ_v1.html`~~ — Kasvattisuppilo-aikajana (arkistoitu 2026-10; DNA + Kasvattisuppilo odottavat Kehitystilanteen suunnittelua, `docs/UTJ_TALTEEN.md`)
 - [x] `TalentMaster_Kortit.html` — FIRE/ICON/MILESTONE/TOTY + WOW
 - [x] `TalentMaster_Admin.html` — Super Admin -hallinta
 - [x] `TalentMaster_ADAR_Koulutus.html` — ADAR-protokolla, neljän hetken malli

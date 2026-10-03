@@ -16,7 +16,7 @@
 | VAL | Valmentaja + kenttäroolit | TalentMaster_Master_v9.html |
 | TST | Testaaja / Fysiikkavalmentaja | TalentMaster_Harjoitettavuus_Lomake.html |
 | PEL | Pelaaja | TalentMaster_Pelaaja_v1.html |
-| UTJ | Urheilutoimenjohtaja | TalentMaster_UTJ_v1.html |
+| UTJ | Urheilutoimenjohtaja | TalentMaster_VP_v25.html + TalentMaster_Seura.html (UTJ_v1 arkistoitu 2026-10) |
 | VAN | Vanhempi / Huoltaja | TalentMaster_Vanhempi.html |
 
 ---
@@ -211,8 +211,8 @@ Avoin: Milestone-kortit eivät vielä kytkeydy Firestoreen — lukituslogiikka s
 
 | Rooli | Mitä tekee | Missä | Tila |
 |---|---|---|---|
-| UTJ | Seuraa kasvattien määrää edustusjoukkueessa | TalentMaster_UTJ_v1.html | ✅ tuotannossa |
-| VP | Strateginen metriikka | UTJ_v1.html tai VP_v18 | KESKEN |
+| UTJ | Seuraa kasvattien määrää edustusjoukkueessa | (UTJ_v1 arkistoitu 2026-10; Kasvattisuppilo odottaa Kehitystilanteen suunnittelua, `docs/UTJ_TALTEEN.md`) | EI toteutettu |
+| VP | Strateginen metriikka | VP_v25 + Seura (Kehitystilanne) | KESKEN |
 | SA | Kaikki seurat | — | EI vielä |
 
 **Firestore:** `utj_data/{kausi}` → `{kasvatteja, vlYkk, minuuttia, seurat[]}`

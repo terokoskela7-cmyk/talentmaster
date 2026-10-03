@@ -40,7 +40,7 @@ const TOIMIHENKILOAPIT = [
   'TalentMaster_Master_v16.html',
   'TalentMaster_Seura.html',
   'TalentMaster_Testaus_v9.html',
-  'TalentMaster_UTJ_v1.html',
+  // UTJ_v1 arkistoitu 2026-10 (docs/UTJ_TALTEEN.md)
   'TalentMaster_VP_v25.html',
 ];
 
