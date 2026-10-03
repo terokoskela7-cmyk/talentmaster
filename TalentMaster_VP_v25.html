@@ -36,7 +36,7 @@
 <script src="lib/tm_pelihavainto_valinta.js?v=1"></script>   <!-- §7: YKSI sisäänkäynti pelihavaintoon (jaettu, ei kopioita) -->
 <script src="lib/tm_arviointi_historia.js?v=1"></script>   <!-- H1: arviointikerrat (append-only) + tmKausi + kooste; PURE, ks. lib-header -->          <!-- P2.1: hh_historia/tki_historia Pikakirjauksessa (tmHhSnapshot/tmTkiSnapshot/tmHistoriaLisaa) -->
 <script src="lib/tm_tki_core.js?v=1"></script>         <!-- P2.1: TKI-ytimen extrakti (IIFE → TM_TESTIT); antaa VP:lle TKI-pariteetin (VP ei voi ladata testit_indeksit.js:ää — const-törmäys). ENNEN tm_pikakentat.js:ää. -->
-<script src="lib/tm_pikakentat.js?v=2"></script>       <!-- P2.0: §26-pikakenttien kanoninen laskenta (tmLaskePikakentat) — VP: H-H + TKI (tm_tki_core.js → TM_TESTIT) -->
+<script src="lib/tm_pikakentat.js?v=3"></script>       <!-- P2.0: §26-pikakenttien kanoninen laskenta (tmLaskePikakentat) — VP: H-H + TKI (tm_tki_core.js → TM_TESTIT) -->
 <script src="lib/tm_testikatalogi.js?v=1"></script>    <!-- P2.1: jaettu testikatalogi (Pikakirjaus-valitsin) -->
 <script src="lib/tm_pikakirjaus.js?v=1"></script>      <!-- P2.1: Pikakirjaus-lomake (TM_PIKAKIRJAUS.avaa) -->
 
@@ -48,7 +48,7 @@
 <script src="lib/tm_havaintohistoria.js?v=1"></script>   <!-- jaettu havainto-/viestihistoria (VP + Master) -->
 <script src="lib/tm_valmentajaviesti.js?v=3"></script>   <!-- YKSI kirjoituspiste valmentajan viestille -->
 <script src="lib/tm_arviointi_silta.js?v=3"></script>   <!-- Vaihe 5: arviointi→resepti-silta (heikoin havaittu D2 → ehdotettu jaksofokus) · v2 = I3a SSOT-osoitin tm_kehityspolku -->
-<script src="lib/tm_idp.js?v=9"></script>   <!-- I3a: + kesto valmentajan asetettavaksi (opts.kestoVk) · I2: lahde+pvm/idp_lahde/idpVahvinDim 1–3 -->
+<script src="lib/tm_idp.js?v=10"></script>   <!-- I3a: + kesto valmentajan asetettavaksi (opts.kestoVk) · I2: lahde+pvm/idp_lahde/idpVahvinDim 1–3 -->
 <script src="lib/tm_teknistaktiset.js?v=5"></script>   <!-- Vaihe 4a: teknis-taktinen curriculum (VP:n jaksofokus talenteille) · v5 = I3a pelipaikkaportti U14+ + harjoite-tägit/jalka -->
 <script src="lib/tm_piirros.js?v=1"></script>   <!-- Piirrokset Vaihe 1: fasciallinjat (D1) + pelipaikkakartta (D4), inline-SVG -->
 <script src="lib/tm_konsepti_resolve.js?v=2"></script>   <!-- Seurakerros TIER 1: seurat/{sid}/konseptit override kaanonin päälle (kaanon = oletus, ei pakko) -->
@@ -15192,7 +15192,7 @@ window._tallennaVpD3 = async function(pid) {
   D3_DIMS.forEach(d => { if (_vpD3Vastaukset[d.key] != null) { pisteet[d.key] = pisteet[d.key] || {}; pisteet[d.key].vp = _vpD3Vastaukset[d.key]; } });
   const vanhatL = (p.d3_viimeisin && p.d3_viimeisin.lahteet) || [];
   const lahteet = vanhatL.slice(); if (lahteet.indexOf('vp') < 0) lahteet.push('vp');   // d3Varmuus ohittaa vp:n → varmuus ennallaan
-  const pvm = new Date().toISOString().slice(0,10);
+  const pvm = tmPaivaIso(new Date());   // paikallinen päivä (ei UTC)
   const d3v = Object.assign({}, p.d3_viimeisin || {}, { pisteet: pisteet, lahteet: lahteet });
   if (!d3v.pvm) d3v.pvm = pvm;
   try {
@@ -17827,7 +17827,7 @@ window._mdtMerkitseReview = async function() {
   try {
     var u = firebase.auth().currentUser, rooli = 'vp';
     if (u) { var tr = await u.getIdTokenResult(true); rooli = (tr && tr.claims && tr.claims.rooli) || 'vp'; }   // §7.2 tuore token + rooli
-    var pvm = new Date().toISOString().slice(0, 10);
+    var pvm = tmPaivaIso(new Date());   // reviewit/{pvm}-doc-ID + review_viimeisin_pvm: paikallinen päivä
     var isp = (typeof _jsvJoukkueIkaSp === 'function') ? _jsvJoukkueIkaSp(p.joukkue || '') : { ika: null, sp: 'P' };
     var V = (typeof vanhempiRaporttiTekstit === 'function') ? vanhempiRaporttiTekstit(p, isp.ika, (isp.sp === 'T') ? 'N' : 'M') : null;
     var paatosEl = document.getElementById('mdtPaatos');
@@ -18811,7 +18811,7 @@ window._vpCockpitBulkMerkitse = async function () {
   var estetyt = kohteet.length - sallitut.length;
   if (!sallitut.length) { if (typeof toast === 'function') toast(vpT('Ei kirjoitusoikeutta valittuihin (') + estetyt + ' ' + vpT('estetty)'), 'error'); return; }
   if (!window.confirm(vpT('Merkitse review tehdyksi') + ' ' + sallitut.length + ' ' + vpT('pelaajalle?') + (estetyt ? ('\n(' + estetyt + ' ' + vpT('ohitetaan — ei kirjoitusoikeutta)')) : ''))) return;
-  var pvm = new Date().toISOString().slice(0, 10);
+  var pvm = tmPaivaIso(new Date());   // reviewit/{pvm}-doc-ID + review_viimeisin_pvm: paikallinen päivä
   try { var cu = firebase.auth().currentUser; if (cu) await cu.getIdToken(true); } catch (e) {}
   var rooli = window._vpRooli || 'vp', uid = (firebase.auth().currentUser || {}).uid || _uid || null;
   var ok = 0, fail = 0, RINNAKKAIN = 4, i = 0;

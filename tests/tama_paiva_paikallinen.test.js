@@ -3,8 +3,8 @@
  * Suomessa (EET UTC+2 / EEST UTC+3) UTC-päivä on EDELLINEN päivä klo 00:00–01:59 (talvi) / 00:00–02:59 (kesä).
  * 1) tmPaivaIso + Timestamp-muunnos oikein Europe/Helsinki-ajassa (ajetaan lapsiprosessissa TZ=Europe/Helsinki)
  * 2) PORTTI: elävissä sivuissa/libeissä (ei archive/, ei tests/) ei uusia `toISOString().slice(0,10)`-tyyppisiä päiväjohdannaisia.
- *    Sallitut poikkeukset alla, jokainen perusteltuna. B = tallennettava avain/kenttä → PR 2 (fix/tama-paiva-tallennus) poistaa
- *    nämä listalta. C = tarkoituksella UTC (tiedostonimi, UTC-päivälaskenta merkkijonosta, fallback, kommentti).
+ *    Sallitut poikkeukset alla, jokainen perusteltuna: C = tarkoituksella UTC (tiedostonimi, UTC-päivälaskenta merkkijonosta,
+ *    syntymäaika-Timestamp, kommentti). Tallennettavat päivät (B) siirrettiin paikallisiksi PR 2:ssa (fix/tama-paiva-tallennus).
  */
 import { describe, it, expect } from 'vitest';
 import { readFileSync, readdirSync } from 'fs';
@@ -72,28 +72,11 @@ const SALLITTU = [
   ['TalentMaster_Master_v16.html', 'alkoi ? loppuD.toISOString()', 'C', 'sama kuin VP'],
   ['lib/tm_arviointi_historia.js', 'graceful', 'C', 'fallback Intl-aikavyöhykkeen puuttuessa (ensisijainen käyttää Europe/Helsinki)'],
   ['lib/tm_bioika.js', 'mittauspaiva.toISOString().split', 'C', 'lähtee YYYY-MM-DD-merkkijonosta (UTC-keskiyö) → sama päivä'],
-  ['TalentMaster_Testaus_v9.html', "new Date(_aktiivinenTapahtuma.pvm || new Date()).toISOString().split", 'C', 'merkkijono → UTC-keskiyö → sama päivä'],
+  ['TalentMaster_Testaus_v9.html', 'new Date(_aktiivinenTapahtuma.pvm).toISOString().split', 'C', 'käyttäjän syöttämä testipvm (merkkijono → UTC-keskiyö → sama päivä); oletus "tänään" on tmPaivaIso'],
   ['lib/tm_kehitystilanne.js', "Date.parse(nyt + 'T00:00:00Z')", 'C', 'UTC-aritmeettinen päivälaskenta nyt-merkkijonosta (kolme riviä)'],
   ['lib/tm_kehitystilanne.js', "Date.parse(m.nyt + 'T00:00:00Z')", 'C', 'sama'],
   ['lib/tm_pvm.js', 'EI toISOString', 'C', 'kommentti'],
   ['TalentMaster_Pelaaja_v7.html', 'Korvaa toISOString', 'C', 'kommentti'],
-  // ── B: tallennettava avain/kenttä → PR 2 (fix/tama-paiva-tallennus) ──
-  ['TalentMaster_ADAR_Pikakortti.html', "pvm: new Date().toISOString().split('T')[0]", 'B', 'havainnon pvm-kenttä (PR 2)'],
-  ['TalentMaster_Excel_Tuonti.html', 'tsi_pvm', 'B', 'tsi_pvm-fallback (PR 2, kaksi riviä)'],
-  ['TalentMaster_Seura.html', "_ktLisaaKirjaus(tid, { pvm:", 'B', 'omat_tavoitteet/kirjaukset.pvm (PR 2)'],
-  ['TalentMaster_Vanhempi_v2.html', 'nyt.toISOString().slice', 'B', 'kirjaukset/{pvm}-doc-ID (PR 2)'],
-  ['TalentMaster_Master_v16.html', 'd3v = {', 'B', 'd3_viimeisin.pvm (PR 2)'],
-  ['TalentMaster_Pelaaja_v7.html', 'd3v = {', 'B', 'd3_viimeisin.pvm (PR 2)'],
-  ['TalentMaster_VP_v25.html', 'const pvm = new Date().toISOString().slice(0,10);', 'B', 'd3_viimeisin.pvm (PR 2)'],
-  ['TalentMaster_VP_v25.html', 'var pvm = new Date().toISOString().slice(0, 10);', 'B', 'reviewit/{pvm} + review_viimeisin_pvm (PR 2, kaksi riviä)'],
-  ['TalentMaster_TalentID_v1.html', 'var tanaan=', 'B', 'localStorage-snapshotin päiväavain (PR 2)'],
-  ['TalentMaster_Testaus_v9.html', '_aktiivinenTapahtuma.pvm', 'B', 'tallennettavan pvm:n fallback (PR 2, kolme riviä)'],
-  ['lib/tm-kortit.js', '_tanaanISO()', 'B', 'ansaintapäivät (localStorage) (PR 2)'],
-  ['lib/tm-kortit.js', 'return d.toISOString().slice', 'B', '_eilenISO (PR 2, yhdessä _tanaanISO:n kanssa)'],
-  ['lib/tm_pikakentat.js', 'new Date().toISOString().slice', 'B', 'pikakenttien pvm-fallback (PR 2; parikentät atomisesti §26)'],
-  ['lib/tm_reflektio.js', 'doc = { pvm:', 'B', 'reflektiomerkinnän pvm (PR 2)'],
-  ['lib/tm_idp.js', 'arvio_pvm:', 'B', 'IDP aikaraami.arvio_pvm (PR 2)'],
-  ['lib/tm_idp.js', 'pvm: arvio.pvm ||', 'B', 'IDP arviot[].pvm-fallback (PR 2)'],
 ];
 
 describe('PORTTI: ei uusia toISOString().slice(0,10) -päiväjohdannaisia (ei archive/)', () => {
@@ -103,7 +86,7 @@ describe('PORTTI: ei uusia toISOString().slice(0,10) -päiväjohdannaisia (ei ar
 
   it('EI VACUOUS: kohdejoukko on iso ja löytää tunnetut poikkeukset', () => {
     expect(KOHTEET.length).toBeGreaterThan(80);
-    expect(osumat.length).toBeGreaterThan(20);
+    expect(osumat.length).toBeGreaterThan(10);
   });
   it('jokainen osuma on sallitulla listalla (uusi "tänään = UTC" ei pääse läpi)', () => {
     const luvattomat = osumat.filter((o) => !sallittuRivi(o)).map((o) => o.f + ':' + o.n + '  ' + o.rivi.trim().slice(0, 110));
@@ -131,5 +114,21 @@ describe('sivut, jotka käyttävät tmPaivaIso(), lataavat lib/tm_pvm.js ENNEN k
   });
   it('lib/tm_kehitystilanne + tm_mittarit: sivu lataa tm_pvm.js (libit kutsuvat tmPaivaIso:a vasta ajossa → järjestys ei ratkaise)', () => {
     for (const f of ['TalentMaster_Seura.html', 'TalentMaster_VP_v25.html']) expect(lue(f), f).toContain('lib/tm_pvm.js');
+  });
+});
+
+describe('libit, jotka kutsuvat tmPaivaIso():a, ladataan vain sivuilla jotka lataavat myös lib/tm_pvm.js', () => {
+  const libit = readdirSync(join(juuri, 'lib')).filter((f) => f.endsWith('.js') && f !== 'tm_pvm.js')
+    .filter((f) => /\btmPaivaIso\(/.test(lue('lib/' + f)));
+  /* Poikkeukset (perusteltu): Pelaaja_v7 lataa tm_idp.js:n vain lukupuolen (idpPelaajaKaari/Konsepti) — kirjoittavia päiväfunktioita
+     (idpRakennaTavoite/idpLisaaArvio) se ei kutsu; tmPaivaIso viitataan vasta kutsuhetkellä. */
+  const POIKKEUS = { 'tm_idp.js': ['TalentMaster_Pelaaja_v7.html'] };
+  it('EI VACUOUS: tmPaivaIso-libit löytyvät (tm_reflektio, tm-kortit …)', () => {
+    expect(libit).toEqual(expect.arrayContaining(['tm_reflektio.js', 'tm-kortit.js']));
+  });
+  it.each(libit)('%s', (lib) => {
+    const sivut = readdirSync(juuri).filter((f) => /^TalentMaster_.*\.html$/.test(f)).filter((f) => lue(f).includes('lib/' + lib));
+    const ilman = sivut.filter((f) => !lue(f).includes('lib/tm_pvm.js') && !(POIKKEUS[lib] || []).includes(f));
+    expect(ilman, lib + ' ladataan sivuille ilman tm_pvm.js:ää').toEqual([]);
   });
 });

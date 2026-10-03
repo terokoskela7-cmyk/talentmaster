@@ -2921,7 +2921,7 @@ function _ennatysTuloksetTestauksesta(tul, alusta, pvm) {
 async function _v6TallennaEnnatykset() {
   if (typeof paivitaEnnatykset !== 'function') return;
   var alusta = (_aktiivinenTapahtuma && _aktiivinenTapahtuma.alusta) || 'tuntematon';
-  var pvm = (_aktiivinenTapahtuma && _aktiivinenTapahtuma.pvm) || new Date().toISOString().slice(0, 10);
+  var pvm = (_aktiivinenTapahtuma && _aktiivinenTapahtuma.pvm) || tmPaivaIso(new Date());
   var pelaajat = (_aktiivinenTapahtuma && _aktiivinenTapahtuma.pelaajatData) || [];
   for (var i = 0; i < pelaajat.length; i++) {
     var pl = pelaajat[i];
@@ -2943,7 +2943,7 @@ async function _v6TallennaEnnatykset() {
 // pvm:llä täydentää saman pisteen myöhemmin. Testijoukko-agnostinen. Testaus_v9-testi-id:t → snapshot-avaimet.
 async function _v6TallennaHistoria() {
   if (typeof tmHhSnapshot !== 'function' || typeof tmHistoriaLisaa !== 'function' || typeof tmTkiSnapshot !== 'function') return;
-  var pvm = (_aktiivinenTapahtuma && _aktiivinenTapahtuma.pvm) ? String(_aktiivinenTapahtuma.pvm).slice(0, 10) : new Date().toISOString().slice(0, 10);
+  var pvm = (_aktiivinenTapahtuma && _aktiivinenTapahtuma.pvm) ? String(_aktiivinenTapahtuma.pvm).slice(0, 10) : tmPaivaIso(new Date());
   var pelaajat = (_aktiivinenTapahtuma && _aktiivinenTapahtuma.pelaajatData) || [];
   // K1b §22 — koko kenttätestisessio = yksi alusta (raaka avain, esim. 'mondo_yleisurheilualusta'). Vain tämä
   // kirjoituspolku tuottaa aidon per-piste-alustan (Excel-tuonti ei tunne mittausalustaa → jättää null =
@@ -3036,7 +3036,7 @@ function _v6TkLajitPikakentat(testit, ika) {
 // on ajettu ennen valmiiksi-merkintää) → laskee pikakentät sen päälle, ennallaan.
 async function _v6TallennaPikakentat() {
   if (typeof normiIka !== 'function' || typeof laskeKokonaistulos !== 'function') { console.warn('[pikakentat] kanoniset funktiot puuttuvat (lib lataamatta?)'); return; }
-  var pvm = (_aktiivinenTapahtuma && _aktiivinenTapahtuma.pvm) ? String(_aktiivinenTapahtuma.pvm).slice(0, 10) : new Date().toISOString().slice(0, 10);
+  var pvm = (_aktiivinenTapahtuma && _aktiivinenTapahtuma.pvm) ? String(_aktiivinenTapahtuma.pvm).slice(0, 10) : tmPaivaIso(new Date());
   var pelaajat = (_aktiivinenTapahtuma && _aktiivinenTapahtuma.pelaajatData) || [];
   var num = function (v) { if (v == null) return null; if (typeof v === 'object') v = (v.tulos != null ? v.tulos : v.paras); var n = parseFloat(v); return isNaN(n) ? null : n; };
   for (var i = 0; i < pelaajat.length; i++) {
@@ -3188,7 +3188,7 @@ async function _kasvuTallennaPHV(p) {
   const baseRef = _db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(p.id);
 
   // Bio-banding V1: hae EDELLINEN kasvumittaus → kasvutahti (cm/v). ≥2 mittausta vaaditaan; muuten null.
-  const mittPvmStr = new Date(_aktiivinenTapahtuma.pvm || new Date()).toISOString().split('T')[0];
+  const mittPvmStr = _aktiivinenTapahtuma.pvm ? new Date(_aktiivinenTapahtuma.pvm).toISOString().split('T')[0] : tmPaivaIso(new Date());   // käyttäjän syöttämä päivä ennallaan; vain oletus 'tänään' paikalliseksi
   let edellinen = null;
   try {
     const bioSnap = await baseRef.collection('biologinen_ika').get();

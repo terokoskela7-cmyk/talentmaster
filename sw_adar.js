@@ -16,7 +16,7 @@
 /* v2 (tietosuoja, vaihe 1): kuvatoiminto poistettu. Versio ON nostettava — muuten vanha,
    kuvallinen HTML palvelisi yhä välimuistista ja kuvia voisi yhä lähettää. activate siivoaa
    kaikki muut cachet kuin nykyisen. */
-const CACHE = 'tm-adar-v4';   // realm-korjaus: upotetun tallennuksen rikkonut HTML pois cachesta
+const CACHE = 'tm-adar-v5';   // realm-korjaus: upotetun tallennuksen rikkonut HTML pois cachesta
 
 const OMA_HTML = '/TalentMaster_ADAR_Pikakortti.html';
 
@@ -33,7 +33,7 @@ const SALLITUT_ISANNAT = [
 ];
 
 /** Oman originin tiedostot jotka kuuluvat TÄLLE apille (ei muiden appien sivuja). */
-const OMAT_POLUT = [OMA_HTML, '/lib/tm_appcheck.js', '/lib/tm_aktiivisuus.js',
+const OMAT_POLUT = [OMA_HTML, '/lib/tm_appcheck.js', '/lib/tm_pvm.js', '/lib/tm_aktiivisuus.js',
   '/lib/tm_pelialy_yksilo.js', '/sw_adar.js'];
 
 const onOmaHtml = (url) => url.pathname.endsWith(OMA_HTML);
