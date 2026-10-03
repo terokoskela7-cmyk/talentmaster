@@ -19,9 +19,6 @@ const MODULAR_VERSIO = '10.12.0';
 
 /* sivu → { era, nyt }: erä jossa sivu siirretään ja sen NYKYINEN (vanha) versio. */
 const MIGRAATIOLISTA = {
-  'TalentMaster_UTJ_v1.html':               { era: 1, nyt: '9.22.1' },
-  'TalentMaster_Testituonti_Master.html':   { era: 1, nyt: '9.22.2' },
-  'TalentMaster_IDP_Kortti_v4.html':        { era: 1, nyt: '9.22.0' },
   'TalentMaster_Admin.html':                { era: 2, nyt: '9.22.1' },
   'TalentMaster_Excel_Tuonti.html':         { era: 2, nyt: '9.22.2' },
   'TalentMaster_Valmennusapuri.html':       { era: 2, nyt: '9.22.1' },
@@ -92,12 +89,12 @@ describe('versiot', () => {
     const puuttuu = Object.keys(MIGRAATIOLISTA).filter((n) => !COMPAT.includes(n));
     expect(puuttuu).toEqual([]);
   });
-  it('migraatiolista = 12 nykyistä poikkeusta, erät 1–6', () => {
-    // Tämä luku pienenee erien mukana (erä 1: −3 → 9, …). Erän PR päivittää tämän ja listan yhdessä.
-    expect(Object.keys(MIGRAATIOLISTA)).toHaveLength(12);
-    expect([...new Set(Object.values(MIGRAATIOLISTA).map((m) => m.era))].sort()).toEqual([1, 2, 3, 4, 5, 6]);
+  it('migraatiolista = 9 jäljellä olevaa poikkeusta, erät 2–6 (erä 1 tehty: UTJ, Testituonti_Master, IDP_Kortti_v4)', () => {
+    // Tämä luku pienenee erien mukana (erä 2: −3 → 6, …). Erän PR päivittää tämän ja listan yhdessä.
+    expect(Object.keys(MIGRAATIOLISTA)).toHaveLength(9);
+    expect([...new Set(Object.values(MIGRAATIOLISTA).map((m) => m.era))].sort()).toEqual([2, 3, 4, 5, 6]);
   });
-  it('listan ulkopuolisia compat-sivuja on 9 (jo kohdeversiossa)', () => {
-    expect(COMPAT.filter((n) => !MIGRAATIOLISTA[n])).toHaveLength(9);
+  it('listan ulkopuolisia compat-sivuja on 12 (jo kohdeversiossa)', () => {
+    expect(COMPAT.filter((n) => !MIGRAATIOLISTA[n])).toHaveLength(12);
   });
 });
