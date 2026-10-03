@@ -65,13 +65,9 @@
 
 Toteutusvaiheessa tarvitaan siis sääntöjen match-blokit, ja Kasvattisuppiloon myös kirjoittaja.
 
-## Dokumentteja kokoelmissa per pilottiseura (vain luku)
+## Dokumenttimäärät
 
-Pelkkä luku (count-aggregaatti), gcloud ADC. Ajo repon juuresta: `node scripts/diag_utj_kokoelmat.cjs`.
-
-| Seura | dna_konfig | kasvattisuppilo |
-|---|---|---|
-| _(täydennetään ajon jälkeen)_ | | |
+Dokumenttimäärää ei mitattu: kokoelmilla ei ole kirjoittajaa eikä Rules-blokkia, DNA on ollut vain localStoragessa.
 
 ## Kun toteutus aloitetaan (Kehitystilanteen suunnittelun jälkeen)
 
