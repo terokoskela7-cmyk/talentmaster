@@ -1,7 +1,7 @@
 /**
  * TalentMaster™ — tm_pikakentat.js (P2.0)
  * tmLaskePikakentat(pelaajaDoc, tulokset, pvm) → upd
- * IDENTTINEN Testaus_v9 Vaihe 1 _v6TallennaPikakentat-logiikan kanssa + viimeisin-vartija.
+ * IDENTTINEN Testaus_v9 Vaihe 1 _v6PikakentatUpd-logiikan kanssa + viimeisin-vartija.
  * Riippuvuudet resolvoituvat Node-requiretilla (tm_eerikkila_normit + docs/testit_indeksit).
  */
 import { describe, it, expect } from 'vitest';

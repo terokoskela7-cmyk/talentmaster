@@ -2917,34 +2917,22 @@ function _ennatysTuloksetTestauksesta(tul, alusta, pvm) {
   });
   return out;
 }
-// Päivitä ennatykset-pikakenttä jokaiselle tapahtuman pelaajalle (best-effort — ei kaada valmiiksi-merkintää).
-async function _v6TallennaEnnatykset() {
-  if (typeof paivitaEnnatykset !== 'function') return;
+// Ennatykset-pikakenttä yhdelle pelaajalle (laskenta ennallaan). d = pelaajadokin nykytila. → { ennatykset } | {}
+function _v6EnnatyksetUpd(pl, d) {
+  if (typeof paivitaEnnatykset !== 'function') return {};
   var alusta = (_aktiivinenTapahtuma && _aktiivinenTapahtuma.alusta) || 'tuntematon';
   var pvm = (_aktiivinenTapahtuma && _aktiivinenTapahtuma.pvm) || tmPaivaIso(new Date());
-  var pelaajat = (_aktiivinenTapahtuma && _aktiivinenTapahtuma.pelaajatData) || [];
-  for (var i = 0; i < pelaajat.length; i++) {
-    var pl = pelaajat[i];
-    try {
-      var tulokset = _ennatysTuloksetTestauksesta(_tulokset[pl.id] || {}, alusta, pvm);
-      if (!tulokset.length) continue;
-      var ref = _db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(pl.id);
-      var snap = await ref.get();
-      var nyky = (snap.exists && snap.data().ennatykset) || null;
-      var res = paivitaEnnatykset(nyky, tulokset);
-      await ref.update({ ennatykset: res.ennatykset });
-    } catch (e) { console.warn('[ennatykset]', pl.id, e && e.message); }
-  }
+  var tulokset = _ennatysTuloksetTestauksesta(_tulokset[pl.id] || {}, alusta, pvm);
+  if (!tulokset.length) return {};
+  return { ennatykset: paivitaEnnatykset(d.ennatykset || null, tulokset).ennatykset };
 }
 
-// Trendi Vaihe 1b — H-H/TKI-historia (aikasarja) online-testauksesta. Best-effort (ei kaada valmiiksi-merkintää),
-// sama kuvio kuin _v6TallennaEnnatykset. Snapshot ottaa VAIN mitatut RAAKA-avaimet (§26, jaettu tm_historia-lib);
+// Trendi Vaihe 1b — H-H/TKI-historia (aikasarja) online-testauksesta, yhdelle pelaajalle (laskenta ennallaan). Snapshot ottaa VAIN mitatut RAAKA-avaimet (§26, jaettu tm_historia-lib);
 // tasot (hh_taso/d1_taso) lasketaan tuonnissa/recalcHH:ssa/backfillissä (ei eerikkilä-libiä tässä apissa) → upsert
 // pvm:llä täydentää saman pisteen myöhemmin. Testijoukko-agnostinen. Testaus_v9-testi-id:t → snapshot-avaimet.
-async function _v6TallennaHistoria() {
-  if (typeof tmHhSnapshot !== 'function' || typeof tmHistoriaLisaa !== 'function' || typeof tmTkiSnapshot !== 'function') return;
+function _v6HistoriaUpd(pl, d) {
+  if (typeof tmHhSnapshot !== 'function' || typeof tmHistoriaLisaa !== 'function' || typeof tmTkiSnapshot !== 'function') return {};
   var pvm = (_aktiivinenTapahtuma && _aktiivinenTapahtuma.pvm) ? String(_aktiivinenTapahtuma.pvm).slice(0, 10) : tmPaivaIso(new Date());
-  var pelaajat = (_aktiivinenTapahtuma && _aktiivinenTapahtuma.pelaajatData) || [];
   // K1b §22 — koko kenttätestisessio = yksi alusta (raaka avain, esim. 'mondo_yleisurheilualusta'). Vain tämä
   // kirjoituspolku tuottaa aidon per-piste-alustan (Excel-tuonti ei tunne mittausalustaa → jättää null =
   // vertailukelpoinen). Tyhjä → tmHhSnapshot jättää merkitsemättä (null == null, ei regressiota vanhaan dataan).
@@ -2953,23 +2941,14 @@ async function _v6TallennaHistoria() {
   var HH_MAP = { lin_5m: 'lin5m', lin_10m: 'lin10m', lin_30m: 'lin30m', hyppy_cj: 'cmj', mas: 'mas', kasirata: 'kasirata', sm_juoksu: 'sm_juoksu', sm_pallo: 'sm_pallo', pujottelu_hh: 'pujottelu', syotto_hh: 'syotto' };
   var TK_MAP = { ponnauttelu: 'ponnauttelu', syotto: 'syotto', pujottelu: 'pujottelu', kuljetus_laukaus: 'kuljetus_laukaus', pituuspotku: 'pituuspotku_bonus' };
   var num = function (v) { if (v == null) return null; if (typeof v === 'object') v = (v.tulos != null ? v.tulos : v.paras); var n = parseFloat(v); return isNaN(n) ? null : n; };
-  for (var i = 0; i < pelaajat.length; i++) {
-    var pl = pelaajat[i];
-    try {
-      var tul = _tulokset[pl.id] || {};
-      var hv = {}, tkLajit = {};
-      Object.keys(HH_MAP).forEach(function (k) { var v = num(tul[k]); if (v != null) hv[HH_MAP[k]] = v; });
-      Object.keys(TK_MAP).forEach(function (k) { var v = num(tul[k]); if (v != null) tkLajit[TK_MAP[k]] = v; });
-      if (!Object.keys(hv).length && !Object.keys(tkLajit).length) continue;
-      var ref = _db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(pl.id);
-      var snap = await ref.get();
-      var d = (snap.exists && snap.data()) || {};
-      var upd = {};
-      if (Object.keys(hv).length) upd.hh_historia = tmHistoriaLisaa(d.hh_historia || [], tmHhSnapshot(pvm, { hv: hv, alusta: _sessioAlusta }));
-      if (Object.keys(tkLajit).length) upd.tki_historia = tmHistoriaLisaa(d.tki_historia || [], tmTkiSnapshot(pvm, { tkLajit: tkLajit }));
-      if (Object.keys(upd).length) await ref.update(upd);
-    } catch (e) { console.warn('[historia]', pl.id, e && e.message); }
-  }
+  var tul = _tulokset[pl.id] || {};
+  var hv = {}, tkLajit = {};
+  Object.keys(HH_MAP).forEach(function (k) { var v = num(tul[k]); if (v != null) hv[HH_MAP[k]] = v; });
+  Object.keys(TK_MAP).forEach(function (k) { var v = num(tul[k]); if (v != null) tkLajit[TK_MAP[k]] = v; });
+  var upd = {};
+  if (Object.keys(hv).length) upd.hh_historia = tmHistoriaLisaa(d.hh_historia || [], tmHhSnapshot(pvm, { hv: hv, alusta: _sessioAlusta }));
+  if (Object.keys(tkLajit).length) upd.tki_historia = tmHistoriaLisaa(d.tki_historia || [], tmTkiSnapshot(pvm, { tkLajit: tkLajit }));
+  return upd;
 }
 
 // ── Kenttätyökalu Vaihe 1 — §26-PIKAKENTÄT valmiiksi-merkinnässä ──────────────────────────────────────────
@@ -2987,7 +2966,7 @@ async function _v6TallennaHistoria() {
 // Vahvuus/kehityskohde (tki_vahvuus/tki_kehityskohde) jätetty pois tästä vaiheesta: vaatii _laskeVahvuudetJaKehityskohteet
 // (ei ladattu Testaus_v9:ään) — ei DoD-pakollisia. recalcHH täydentää ne. tk_lajit_viimeisin kirjoitetaan (alla).
 
-// Testaus_v9-testi-id → hh_viimeisin-avain (sama kuin _v6TallennaHistoria HH_MAP).
+// Testaus_v9-testi-id → hh_viimeisin-avain (sama kuin _v6HistoriaUpd HH_MAP).
 var _V6_HH_MAP = { lin_5m: 'lin5m', lin_10m: 'lin10m', lin_30m: 'lin30m', hyppy_cj: 'cmj', mas: 'mas', kasirata: 'kasirata', sm_juoksu: 'sm_juoksu', sm_pallo: 'sm_pallo', pujottelu_hh: 'pujottelu', syotto_hh: 'syotto' };
 
 // hh_taso (avaintestit 30m/cmj/mas — Eerikkilä-tasojen ka) kanonisella eerikkilaTaso:lla (mas km/h → m/s ÷3.6).
@@ -3034,19 +3013,11 @@ function _v6TkLajitPikakentat(testit, ika) {
 
 // Kirjoita §26-pikakentät jokaiselle tapahtuman pelaajalle (best-effort). Lukee jo synkatun datan (_synkronoiOfflineData
 // on ajettu ennen valmiiksi-merkintää) → laskee pikakentät sen päälle, ennallaan.
-async function _v6TallennaPikakentat() {
-  if (typeof normiIka !== 'function' || typeof laskeKokonaistulos !== 'function') { console.warn('[pikakentat] kanoniset funktiot puuttuvat (lib lataamatta?)'); return; }
+function _v6PikakentatUpd(pl, d) {
+  if (typeof normiIka !== 'function' || typeof laskeKokonaistulos !== 'function') { console.warn('[pikakentat] kanoniset funktiot puuttuvat (lib lataamatta?)'); return {}; }
   var pvm = (_aktiivinenTapahtuma && _aktiivinenTapahtuma.pvm) ? String(_aktiivinenTapahtuma.pvm).slice(0, 10) : tmPaivaIso(new Date());
-  var pelaajat = (_aktiivinenTapahtuma && _aktiivinenTapahtuma.pelaajatData) || [];
   var num = function (v) { if (v == null) return null; if (typeof v === 'object') v = (v.tulos != null ? v.tulos : v.paras); var n = parseFloat(v); return isNaN(n) ? null : n; };
-  for (var i = 0; i < pelaajat.length; i++) {
-    var pl = pelaajat[i];
-    try {
       var tul = _tulokset[pl.id] || {};
-      var ref = _db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(pl.id);
-      var snap = await ref.get();
-      if (!snap.exists) continue;                        // vain löydetyt profiilit (kuten Excel _loytyyFirestoresta)
-      var d = snap.data() || {};
 
       // Ikä (normiIka §26 — ikäluokka = year(pvm) − syntymaVuosi) + sukupuoli. Joukkuenimi-fallback kuten Excel.
       var syntV = d.syntymaVuosi || null;
@@ -3100,16 +3071,40 @@ async function _v6TallennaPikakentat() {
         if (tki != null) {
           upd.tki_viimeisin = tki; upd.tki_pvm = pvm;      // §26 pari-invariantti
           var merkki = tkLaskeMerkki(kt, ika, spPT);
-          if (merkki) upd.tki_merkki = merkki;
+          // Uusi TKI ilman merkkiä → vanha merkki POIS (ei jätetä voimaan väärää kultaa/hopeaa). §23: renderöinti lukee vain tki_merkki-kenttää.
+          upd.tki_merkki = merkki ? merkki : firebase.firestore.FieldValue.delete();
           var tkLajit = _v6TkLajitPikakentat(tkTestit, ika);
           if (tkLajit) { upd.tk_lajit_viimeisin = tkLajit; upd.tk_lajit_pvm = pvm; }
           if (kt != null) upd.tk_kokonaistulos_viimeisin = kt;
         }
       }
 
-      if (Object.keys(upd).length) await ref.update(upd);
-    } catch (e) { console.warn('[pikakentat]', pl.id, e && e.message); }
+      return upd;
+}
+
+/* §26 ATOMISESTI: valmiiksi-merkinnän pelaajakohtaiset kentät (ennätykset + H-H/TKI-historia + pikakentät) YHTENÄ
+   kirjoituksena per pelaaja (ennen 3 erillistä updatea, jokainen omalla luvullaan → osittainen tila mahdollinen).
+   Pelaajadokki luetaan kerran; laskentafunktiot ennallaan. Per pelaaja kaikki tai ei mitään; pelaajat toisistaan
+   riippumattomia (yhden virhe ei kaada muita, kuten ennen). Palauttaa { ok, virhe, ohitettu }. */
+async function _v6TallennaPelaajienKentat() {
+  var pelaajat = (_aktiivinenTapahtuma && _aktiivinenTapahtuma.pelaajatData) || [];
+  var tila = { ok: 0, virhe: 0, ohitettu: 0 };
+  for (var i = 0; i < pelaajat.length; i++) {
+    var pl = pelaajat[i];
+    try {
+      var ref = _db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(pl.id);
+      var snap = await ref.get();
+      if (!snap.exists) { tila.ohitettu++; continue; }   // vain löydetyt profiilit (kuten Excel _loytyyFirestoresta)
+      var d = snap.data() || {};
+      var upd = Object.assign({}, _v6EnnatyksetUpd(pl, d), _v6HistoriaUpd(pl, d), _v6PikakentatUpd(pl, d));
+      if (!Object.keys(upd).length) continue;
+      var b = _db.batch();
+      b.update(ref, upd);
+      await b.commit();
+      tila.ok++;
+    } catch (e) { tila.virhe++; console.warn('[pelaajakentat]', pl.id, e && e.message); }
   }
+  return tila;
 }
 
 window._v6MerkitseValmiiksi = async function _v6MerkitseValmiiksi() {
@@ -3131,12 +3126,12 @@ window._v6MerkitseValmiiksi = async function _v6MerkitseValmiiksi() {
       await _kasvuTallennaKaikkiPHV();
     }
 
-    // KORTTI 1c-A — päivitä ennätykset (PB) pikakenttä (best-effort, ei kaada valmiiksi-merkintää).
-    try { await _v6TallennaEnnatykset(); } catch (e) { console.warn('[ennatykset]', e && e.message); }
-    // Trendi Vaihe 1b — H-H/TKI-historia (aikasarja) online-testauksesta (best-effort).
-    try { await _v6TallennaHistoria(); } catch (e) { console.warn('[historia]', e && e.message); }
-    // Kenttätyökalu Vaihe 1 — §26-pikakentät (hh/d1/d2/tki) → näkyvät VP:llä ilman recalcHH:ta (best-effort).
-    try { await _v6TallennaPikakentat(); } catch (e) { console.warn('[pikakentat]', e && e.message); }
+    // §26: ennätykset (PB) + H-H/TKI-historia + pikakentät (hh/d1/d2/tki) YHTENÄ kirjoituksena per pelaaja
+    // → näkyvät VP:llä ilman recalcHH:ta. Best-effort: ei kaada valmiiksi-merkintää; virheet näytetään.
+    try {
+      var _kt = await _v6TallennaPelaajienKentat();
+      if (_kt.virhe) _toast('⚠ ' + _kt.virhe + ' pelaajan tietojen päivitys epäonnistui — merkitse uudelleen valmiiksi', 'err');
+    } catch (e) { console.warn('[pelaajakentat]', e && e.message); }
 
     _v6Renderoi();
     await _lataaTapahtumat();

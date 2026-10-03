@@ -1114,6 +1114,39 @@ async function _phPaivitaPikakentat(seuraId, pelaajaId, porras, kirjoitaPorras) 
   }
 }
 
+/* §26 ATOMISESTI: havainto + adar_*-pikakentät SAMASSA batchissa (kaikki tai ei mitään). Pikakentät lasketaan
+   libin kanonisella tmAdarPikakentat-funktiolla nykyisistä havainnoista + UUSI havainto (ei vielä kannassa), jolloin
+   laskenta vastaa entistä "tallenna → lue → laske" -järjestystä. Uuden havainnon luotu = new Date() (arvio; kannassa
+   serverTimestamp). Laskennan epäonnistuessa havainto kirjoitetaan silti (data ei katoa), pikakentät seuraavalla.
+   Käyttö: online-tallennus (_phTallenna) JA offline-jonon synkka (_synkronoiOfflineJono). Palauttaa commit-lupauksen;
+   onLahetetty() kutsutaan heti kun batch on annettu Firestorelle (persistence: jonottuu laitteelle). */
+async function _phKirjoitaHavaintoJaPikakentat(havRef, data, seuraId, pelaajaId, porras, kirjoitaPorras, onLahetetty) {
+  var pRef = _phPelaajaRef(seuraId, pelaajaId), kentat = null;
+  try {
+    var snap = await pRef.collection('havainnot').get();
+    var havainnot = snap.docs.filter(function (d) { return d.id !== havRef.id; }).map(function (d) { return d.data(); });
+    havainnot.push(Object.assign({}, data, { luotu: new Date() }));
+    var _oldAvDoc = await pRef.get().catch(function () { return null; });
+    var _oldAv = (_oldAvDoc && _oldAvDoc.exists && _oldAvDoc.data().adar_viimeisin) || null;
+    kentat = (typeof tmAdarPikakentat === 'function')
+      ? tmAdarPikakentat(havainnot, _phIka(pelaajaId), porras, { edellinen: _oldAv }) : null;
+    if (kentat && kirjoitaPorras) kentat.havainto_porras = porras;
+  } catch (e) { console.warn('[ADAR pikakentat]', e && (e.code || e.message)); kentat = null; }
+  var b = _PH_DB.batch();
+  b.set(havRef, data);
+  if (kentat) b.set(pRef, kentat, { merge: true });
+  var commit = b.commit();
+  if (typeof onLahetetty === 'function') onLahetetty();
+  if (kentat && window._pelaajaMap && window._pelaajaMap[pelaajaId]) {   // paikallinen map (§26), kuten _phPaivitaPikakentat
+    var m = window._pelaajaMap[pelaajaId];
+    m.adar_pvm = kentat.adar_pvm || m.adar_pvm;
+    m.adar_viimeisin = kentat.adar_viimeisin || m.adar_viimeisin;
+    m.havainto_porras_ehdotus = kentat.havainto_porras_ehdotus || null;
+    if (kirjoitaPorras) m.havainto_porras = porras;
+  }
+  return commit;
+}
+
 async function _phTallenna() {
   var S = window._phTila;
   var dims = _phDimit(S.porras);
@@ -1165,8 +1198,9 @@ async function _phTallenna() {
   var ref = _phPelaajaRef(seuraId, pelaajaId).collection('havainnot').doc();
   var porrasTallennetaan = S.porrasNostettu || S.porrasTallennettu !== S.porras;
 
-  /* EI AWAITIA: UI etenee heti, kirjoitus jonottuu tarvittaessa. */
-  ref.set(data).catch(function (err) {
+  /* EI AWAITIA: UI etenee heti, kirjoitus jonottuu tarvittaessa. Havainto + pikakentät yhdessä batchissa (§26).
+     Luonnos tyhjennetään vasta kun batch on annettu Firestorelle (onLahetetty), ei ennen. */
+  _phKirjoitaHavaintoJaPikakentat(ref, data, seuraId, pelaajaId, S.porras, porrasTallennetaan, _luonnosTyhjenna).catch(function (err) {
     console.error('[ADAR] Tallennusvirhe:', err && (err.message || err));
     if (err && (err.code === 'permission-denied' || (err.message || '').indexOf('permissions') >= 0)) {
       /* VARAKAISTA: poimin on jo suodatettu, mutta jos create silti hylätään, kerrotaan SYY
@@ -1186,13 +1220,10 @@ async function _phTallenna() {
   S.tehdyt[pelaajaId] = true;
   S.odottaa = true;
   S.naytto = 'ok';
-  /* Havainto on matkalla → luonnosta ei enää tarvita. Ilman tätä seuraava sivunlataus
-     palauttaisi jo tallennetun havainnon "keskeneräisenä". */
-  _luonnosTyhjenna();
+  /* Luonnos tyhjennetään _phKirjoitaHavaintoJaPikakentat:n onLahetetty-kutsussa (batch annettu Firestorelle). */
   _phRender();
 
   _phSeuraaKirjoitusta(ref);
-  _phPaivitaPikakentat(seuraId, pelaajaId, S.porras, porrasTallennetaan);
 
   // Ilmoita isäntäikkunalle (Master) että tallennus onnistui.
   if (window.parent && window.parent !== window) window.parent.postMessage('tm:adar:saved', '*');
@@ -1417,14 +1448,14 @@ async function _synkronoiOfflineJono() {
     var data = Object.assign({}, m);
     delete data.localId; delete data.luotu;
     try {
-      await db.collection('seurat').doc(m.seura_id)
-        .collection('pelaajat').doc(m.pelaaja_id)
-        .collection('havainnot')
-        .add(Object.assign({}, data, {
+      /* §26: synkka kirjoittaa havainnon JA adar_*-pikakentät samassa batchissa, kuten online-tallennus
+         (ennen vain havainto → synkatut havainnot eivät päivittäneet pelaajan ADAR-pikakenttiä). */
+      var havRef = _phPelaajaRef(m.seura_id, m.pelaaja_id).collection('havainnot').doc();
+      await _phKirjoitaHavaintoJaPikakentat(havRef, Object.assign({}, data, {
           luotu: window.firebase.firestore.FieldValue.serverTimestamp(),
           luotu_laitteella: (typeof luotu === 'string') ? luotu : null,
           synkronoitu: window.firebase.firestore.FieldValue.serverTimestamp()
-        }));
+        }), m.seura_id, m.pelaaja_id, data.porras || null, false);
       await _idbPoista(localId);
       synkattu++;
     } catch (e) {

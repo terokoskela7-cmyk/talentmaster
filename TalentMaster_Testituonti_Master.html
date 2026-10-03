@@ -1349,6 +1349,38 @@ function masAikaKmh(arvo) {
 // ════════════════════════════════════════
 // VAIHE E: FIRESTORE-TALLENNUS
 // ════════════════════════════════════════
+/* Yhden pelaajan tallennus (§26, §7.6). Palauttaa 'ok' | 'ohitettu'.
+   · Pelaaja haetaan PalloID-KENTÄLLÄ (tunniste → palloID, §7.13). Ei löydy → 'ohitettu': EI kirjoitusta eikä
+     haamudokkia (ennen fallback .doc(palloID) + set loi pelaajadokin, jonka doc-ID oli PalloID).
+   · Tulos + pelaajan pikakentät SAMASSA batchissa (kaikki tai ei mitään). Ennen erilliset kutsut, ja
+     serverTimestamp() arrayUnion-taulukon sisällä (§7.6) kaatoi pikakenttäpäivityksen hiljaa.
+   · FLEI-pari flei_viimeisin + flei_pvm (+ historiarivi) kirjoitetaan VAIN yhdessä, kun arvo on laskettu. */
+async function ttTallennaPelaaja(db, seuraId, tapahtuma, p, tallennusData, fleiPct) {
+  if (!p.tunniste) return 'ohitettu';
+  const pelaajat = db.collection('seurat').doc(seuraId).collection('pelaajat');
+  const tunniste = String(p.tunniste).trim();
+  let snap = await pelaajat.where('tunniste', '==', tunniste).limit(1).get();
+  if (snap.empty) snap = await pelaajat.where('palloID', '==', tunniste).limit(1).get();
+  if (snap.empty) return 'ohitettu';
+  const pelaajaRef = snap.docs[0].ref;
+  const pvm = p.testauspvm || tapahtuma.pvm || '';
+  const profiiliUpdate = {};
+  if (fleiPct !== null && pvm) {
+    profiiliUpdate.flei_viimeisin = fleiPct;
+    profiiliUpdate.flei_pvm = pvm;
+    profiiliUpdate.flei_historia = firebase.firestore.FieldValue.arrayUnion({
+      pvm: pvm, flei: fleiPct, tapahtumaId: tapahtuma.id, tallennettu: new Date().toISOString(),   // §7.6: ISO, ei serverTimestamp
+    });
+  }
+  if (p.phv_tila) profiiliUpdate.phv_tila = p.phv_tila;
+  const b = db.batch();
+  b.set(db.collection('seurat').doc(seuraId).collection('testitapahtumat').doc(tapahtuma.id)
+    .collection('tulokset').doc(tunniste), tallennusData, { merge: true });
+  if (Object.keys(profiiliUpdate).length) b.update(pelaajaRef, profiiliUpdate);
+  await b.commit();
+  return 'ok';
+}
+
 async function tallennaFirestoreen() {
   if (!tuontiData.valid) {
     toast('Korjaa validointivirheet ennen tallennusta', 'err'); return;
@@ -1372,6 +1404,7 @@ async function tallennaFirestoreen() {
   const pelaajat = tuontiData.pelaajat;
   const okRivit = [];
   const virheRivit = [];
+  const ohitetut = [];   // PalloID ei vastaa yhtään seuran pelaajaa → ei kirjoitusta, ei haamudokkia
 
   for (let i = 0; i < pelaajat.length; i++) {
     const p = pelaajat[i];
@@ -1435,49 +1468,8 @@ async function tallennaFirestoreen() {
         ...(p.joukkue ? { joukkue: p.joukkue } : {}),
       };
 
-      const ref = db.collection('seurat').doc(seuraId)
-        .collection('testitapahtumat').doc(tapahtuma.id)
-        .collection('tulokset').doc(p.tunniste);
-      await ref.set(tallennusData, { merge: true });
-
-      // Päivitä pelaajan profiili
-      if (p.tunniste) {
-        // Hae pelaajadokumentti palloID-kentän perusteella (doc ID on Firebase UID)
-        const pelaajaSnap = await db.collection('seurat').doc(seuraId)
-          .collection('pelaajat').where('palloID', '==', p.tunniste).limit(1).get()
-          .catch(() => null);
-        const pelaajaRef = (pelaajaSnap && !pelaajaSnap.empty)
-          ? pelaajaSnap.docs[0].ref
-          : db.collection('seurat').doc(seuraId).collection('pelaajat').doc(p.tunniste);
-        const profiiliUpdate = {
-          ...(fleiPct !== null ? { flei_viimeisin: fleiPct } : {}),
-          ...(p.testauspvm || tapahtuma.pvm ? { flei_pvm: p.testauspvm || tapahtuma.pvm } : {}),
-          ...(p.phv_tila ? { phv_tila: p.phv_tila } : {}),
-          flei_historia: firebase.firestore.FieldValue.arrayUnion({
-            pvm: p.testauspvm || tapahtuma.pvm || '',
-            flei: fleiPct !== null ? fleiPct : null,
-            tapahtumaId: tapahtuma.id,
-            tallennettu: firebase.firestore.FieldValue.serverTimestamp()
-          }),
-        };
-        await pelaajaRef.update(profiiliUpdate).catch(async e => {
-          // Uusi pelaaja — luo dokumentti
-          await pelaajaRef.set({
-            ...(fleiPct !== null ? { flei_viimeisin: fleiPct } : {}),
-            ...(p.testauspvm || tapahtuma.pvm ? { flei_pvm: p.testauspvm || tapahtuma.pvm } : {}),
-            ...(p.phv_tila ? { phv_tila: p.phv_tila } : {}),
-            flei_historia: [{
-              pvm: p.testauspvm || tapahtuma.pvm || '',
-              flei: fleiPct !== null ? fleiPct : null,
-              tapahtumaId: tapahtuma.id,
-              tallennettu: firebase.firestore.FieldValue.serverTimestamp()
-            }],
-            etunimi: p.etunimi || '',
-            sukunimi: p.sukunimi || '',
-          }, { merge: true }).catch(e2 => console.warn('Profiilipäivitys:', e2));
-        });
-      }
-
+      const tulos = await ttTallennaPelaaja(db, seuraId, tapahtuma, p, tallennusData, fleiPct);
+      if (tulos === 'ohitettu') { ohitetut.push(p); continue; }
       okRivit.push(p);
     } catch(e) {
       virheRivit.push({ pelaaja: p, virhe: e.message });
@@ -1488,8 +1480,13 @@ async function tallennaFirestoreen() {
   progressFill.style.width = '100%';
   progressText.textContent = `${okRivit.length} / ${pelaajat.length} tallennettu`;
 
+  if (ohitetut.length) {
+    console.warn('[Testituonti] ohitettu, PalloID ei vastaa seuran pelaajaa:', ohitetut.map(o => o.tunniste + ' ' + (o.etunimi || '') + ' ' + (o.sukunimi || '')));
+    const nimet = ohitetut.slice(0, 5).map(o => ((o.etunimi || '') + ' ' + (o.sukunimi || '')).trim() || o.tunniste || '?').join(', ');
+    progressText.textContent += ` · ${ohitetut.length} ohitettu (tuntematon PalloID: ${nimet}${ohitetut.length > 5 ? ', …' : ''})`;
+  }
   if (virheRivit.length === 0) {
-    toast(`✅ Kaikki ${okRivit.length} pelaajaa tallennettu Firestoreen!`, 'ok');
+    toast(ohitetut.length ? `✅ ${okRivit.length} tallennettu · ${ohitetut.length} ohitettu (tuntematon PalloID)` : `✅ Kaikki ${okRivit.length} pelaajaa tallennettu Firestoreen!`, ohitetut.length ? 'err' : 'ok');
     asetaStepAktiivinen(4, true);
     asetaStepAktiivinen(5, false);
     nappi.innerHTML = '✅ Tallennettu';
