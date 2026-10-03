@@ -15,7 +15,7 @@ Signaali-solu näyttää nyt **vain** Hidden Gem / X-Factor / Underdog (`signaal
 
 ### 3. IDP-sarake (uusi) — elinkaari + reititys
 Header: lisää `<th>IDP</th>`. Rivi: lue `idp_tila` (+ `idp_jono`) pikakentästä →
-- puuttuu / null → nappi **"Ehdota"** (avaa olemassa oleva IDP-flow: pelaajakortti / IDP_Kortti_v4 / idp_kausi-luonti).
+- puuttuu / null → nappi **"Ehdota"** (avaa olemassa oleva IDP-flow: pelaajan työpöytä Kehitys-välilehdellä / idp_kausi-luonti; IDP_Kortti_v4 arkistoitu 2026-10).
 - `'ehdotettu'` → nappi **"Hyväksy →"** (amber).
 - `'aktiivinen'` → **"Aktiivinen · X/Y"** (teal, tavoitteiden edistymä jos saatavilla, muuten pelkkä "Aktiivinen").
 - Hidden Gem -pelaaja ilman IDP:tä → **"Talentti-IDP"**.
