@@ -521,6 +521,7 @@ test('joukkueHuomio: tunnistamaton joukkue → huomio ja joukkuelista; tunnistet
   assert.ok(h.indexOf('ei tunnistettu') >= 0 && h.indexOf('SJK P2010, SJK P2011') >= 0, h);
   assert.strictEqual(va.joukkueHuomio('Kerro P2010 tilanne', data, ['SJK P2010']), null);
   assert.strictEqual(va.joukkueHuomio('Yleisiä plyometrisiä harjoitteita', data, []), null);
+  assert.ok(va.joukkueHuomio('Tee P9-joukkueelle kausisuunnitelma', data, []).indexOf('ei tunnistettu') >= 0);
 });
 
 test('koostaSeuranData: TSI pelaajakohtaisen eron mediaanina', () => {
