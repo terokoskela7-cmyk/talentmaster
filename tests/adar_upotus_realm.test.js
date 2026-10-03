@@ -23,6 +23,7 @@ import vm from 'node:vm';
 import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
+import { createRequire } from 'module';
 
 const juuri = join(dirname(fileURLToPath(import.meta.url)), '..');
 const ADAR = readFileSync(join(juuri, 'TalentMaster_ADAR_Pikakortti.html'), 'utf8');
@@ -98,6 +99,7 @@ function ajaLapsiRealmissa() {
       parent: null,
     },
     /* Riippuvuudet tyngiksi — mitataan TALLENNUSPOLKUA, ei niitä. */
+    tmPaivaIso: createRequire(import.meta.url)('../lib/tm_pvm.js').tmPaivaIso,   // oikea lib (ADAR lataa sen)
     _phDimit: () => ['A'],
     _phIka: () => 13,
     _nakArvo: () => 'valmentajat',
