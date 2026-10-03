@@ -3661,14 +3661,15 @@ describe('§26 atomiset batchit: testitulos/review + pikakentät', () => {
     expect((await lue(['seurat', SEURA_A, 'pelaajat', PELAAJA_UID])).hh_pvm).toBe('2026-10-03');
     expect(await lue(['seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'testitulokset', '2026-10-03_vapaa'])).toBeTruthy();
   });
-  it('valmentaja (ei testitulos-oikeutta): koko batch hylätään → EI pikakenttiä ilman tulosta', async () => {
+  it('valmentaja MUUN joukkueen pelaajaan (ei oikeutta): koko batch hylätään → EI pikakenttiä ilman tulosta', async () => {
+    // Muun joukkueen pelaaja: hylätään sekä ennen v3.36:ta että sen jälkeen (v3.36 sallii vain OMAN joukkueen).
     const db = valmentajaContext(VALM_A_UID, SEURA_A).firestore();
     const b = FS_MOD.writeBatch(db);
-    b.set(doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'testitulokset', '2026-10-03_vapaa'), { testit: { lin30m: 4.6 } }, { merge: true });
-    b.update(pel(db, SEURA_A, PELAAJA_UID), { hh_viimeisin: { lin30m: 4.6 }, hh_pvm: '2026-10-03' });
+    b.set(doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_A2_UID, 'testitulokset', '2026-10-03_vapaa'), { testit: { lin30m: 4.6 } }, { merge: true });
+    b.update(pel(db, SEURA_A, PELAAJA_A2_UID), { hh_viimeisin: { lin30m: 4.6 }, hh_pvm: '2026-10-03' });
     await assertFails(b.commit());
-    expect((await lue(['seurat', SEURA_A, 'pelaajat', PELAAJA_UID])).hh_pvm).toBeUndefined();
-    expect(await lue(['seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'testitulokset', '2026-10-03_vapaa'])).toBeUndefined();
+    expect((await lue(['seurat', SEURA_A, 'pelaajat', PELAAJA_A2_UID])).hh_pvm).toBeUndefined();
+    expect(await lue(['seurat', SEURA_A, 'pelaajat', PELAAJA_A2_UID, 'testitulokset', '2026-10-03_vapaa'])).toBeUndefined();
   });
   it('review: VP ja oman joukkueen valmentaja kirjaavat reviewit/{pvm} + review_viimeisin_pvm samassa batchissa', async () => {
     for (const [ctx, pvm] of [[vpContext(SEURA_A), '2026-10-03'], [valmentajaContext(VALM_A_UID, SEURA_A), '2026-10-04']]) {
