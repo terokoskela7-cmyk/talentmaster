@@ -207,11 +207,14 @@ describe('ADAR · pelaajapoiminta roolin mukaan', () => {
     expect(i, 'permission-denied-haaraa ei ole').toBeGreaterThan(-1);
     /* Lohko = permission-denied-haarasta sen else-haaraan. Kiinteä merkkimäärä olisi hauras:
        debug-rivit ovat pitkiä, ja haara kasvoi juuri yli 900 merkin. */
-    const loppu = ADAR.indexOf('} else {', i);
+    const loppu = ADAR.indexOf('_luonnosMerkitse(pelaajaId', i);
     expect(loppu, 'haaran loppua ei löydy').toBeGreaterThan(i);
     const lohko = ADAR.slice(i, loppu);
     expect(lohko, 'syy on haettava funktiosta, ei kovakoodattava').toContain('_adarEstonSyy()');
-    expect(lohko, 'kentällä ei ole konsolia — käyttäjälle on näytettävä teksti').toContain('_showToast(');
+    /* kentällä ei ole konsolia — syy tallentuu luonnokseen ja näytetään pysyvänä bannerina + toastina */
+    const vir = ADAR.slice(loppu, loppu + 700);
+    expect(vir).toContain("{ virhe: syy }");
+    expect(vir).toContain('_showToast(');
   });
 
   it('joukkuerajaus: syy on joukkuerajaus kun omia joukkueita ON', () => {

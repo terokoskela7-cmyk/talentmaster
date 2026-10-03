@@ -143,6 +143,7 @@ function teeSandbox(opt) {
       tehdyt: {}, sheet: false, peruttu: false, viimeisin: null, odottaa: false,
     },
     _phRender: () => {},
+    _phEsc: (s) => String(s == null ? '' : s),
   };
   sandbox.window = sandbox;
   sandbox.self = sandbox;
@@ -160,7 +161,9 @@ function teeSandbox(opt) {
   [
     'function _luonnosAvain(', 'function _idbAvaa(', 'function _idbToimi(',
     'function _luonnosTyhjennaKuvaStore(',
-    'function _luonnosKeraa(', 'function _luonnosTallenna(', 'function _luonnosTyhjenna(',
+    'function _luonnosKeraa(', 'function _luonnosLueKaikki(', 'function _luonnosKirjoitaKaikki(',
+    'function _luonnosTallenna(', 'function _luonnosTyhjenna(', 'function _luonnosMerkitse(',
+    'function _luonnosAvaa(', 'function _luonnosHylkaa(', 'function _luonnosHuomautukset(', 'function _phHuomautusHtml(',
     'async function _luonnosPalauta(', 'function _adarNaytaBanneri(',
   ].forEach((n) => vm.runInContext(funktio(n), sandbox));
 
@@ -267,5 +270,82 @@ describe('ADAR · reload-kestävyys', () => {
   it('PERSISTENSSI on eksplisiittinen LOCAL (istunto säilyy reloadin yli)', () => {
     expect(ADAR, 'setPersistence puuttuu → istunto oletuksen varassa')
       .toMatch(/setPersistence\(\s*window\.firebase\.auth\.Auth\.Persistence\.LOCAL\s*\)/);
+  });
+
+  /* ── HOTFIX: luonnos per pelaaja — toisen pelaajan valinta ei ylikirjoita eikä hyppää luonnokseen ── */
+  const tayta = (y, pid, teksti) => {
+    Object.assign(y.sandbox._phTila, { pelaajaId: pid, naytto: 'havainto', pisteet: { A: 2 }, teksti });
+  };
+
+  it('EI VACUOUS: kahden pelaajan luonnokset säilyvät rinnakkain (A:n luonnos ei ylikirjoitu kun B kirjoittaa)', async () => {
+    const y = teeSandbox({});
+    tayta(y, 'pA', 'A:n havainto'); y.sandbox._luonnosTallenna(); await odota(500);
+    tayta(y, 'pB', 'B:n havainto'); y.sandbox._luonnosTallenna(); await odota(500);
+    const m = y.sandbox._luonnosLueKaikki();
+    expect(Object.keys(m).sort()).toEqual(['pA', 'pB']);
+    expect(m.pA.tila.teksti).toBe('A:n havainto');
+    expect(m.pB.tila.teksti).toBe('B:n havainto');
+  });
+
+  it('upotettu avaus (Master) + A:n luonnos: EI hyppää A:han — lista + huomautus "Tallentamaton havainto pelaajalle A"', async () => {
+    const a = teeSandbox({});
+    tayta(a, 'pA', 'A:n havainto'); a.sandbox._luonnosTallenna(); await odota(500);
+    const b = teeSandbox({ localStorage: a.ls.data, idb: a.idbVarasto });
+    b.sandbox._tmEmbedded = true;
+    b.sandbox._pelaajaMap = { pA: { nimi: 'Aatu A' } };
+    b.sandbox._phTila.naytto = 'valitse'; b.sandbox._phTila.pelaajaId = null;
+    await b.sandbox._luonnosPalauta();
+    expect(b.sandbox._phTila.pelaajaId, 'luonnos ohitti valinnan').toBeNull();
+    const html = b.sandbox._phHuomautusHtml();
+    expect(html).toContain('Tallentamaton havainto pelaajalle Aatu A');
+    expect(html).toContain('Avaa'); expect(html).toContain('Hylkää');
+  });
+
+  it('A:n luonnos + valitaan B → B avautuu tyhjänä, A:n luonnos säilyy huomautuksena; Avaa palauttaa A:n', async () => {
+    const y = teeSandbox({});
+    y.sandbox._pelaajaMap = { pA: { nimi: 'Aatu A' }, pB: { nimi: 'Bertta B' } };
+    tayta(y, 'pA', 'A:n havainto'); y.sandbox._luonnosTallenna(); await odota(500);
+    Object.assign(y.sandbox._phTila, { pelaajaId: 'pB', pisteet: {}, teksti: '' });   // B valittu (tyhjä lomake)
+    expect(y.sandbox._luonnosHuomautukset().map((x) => x.pid)).toEqual(['pA']);
+    y.sandbox._luonnosAvaa('pA');
+    expect(y.sandbox._phTila.pelaajaId).toBe('pA');
+    expect(y.sandbox._phTila.teksti).toBe('A:n havainto');
+  });
+
+  it('Hylkää poistaa vain sen pelaajan luonnoksen', async () => {
+    const y = teeSandbox({});
+    tayta(y, 'pA', 'a'); y.sandbox._luonnosTallenna(); await odota(500);
+    tayta(y, 'pB', 'b'); y.sandbox._luonnosTallenna(); await odota(500);
+    y.sandbox._luonnosHylkaa('pA');
+    expect(Object.keys(y.sandbox._luonnosLueKaikki())).toEqual(['pB']);
+  });
+
+  it('"lähetetty" EI näy huomautuksena, "epäonnistui" näkyy ("Havaintoa ei tallennettu") ja Avaa palauttaa lomakkeen virheineen', async () => {
+    const y = teeSandbox({});
+    y.sandbox._pelaajaMap = { pA: { nimi: 'Aatu A' } };
+    tayta(y, 'pA', 'tärkeä havainto');
+    const tila = y.sandbox._luonnosKeraa();
+    y.sandbox._luonnosMerkitse('pA', 'lahetetty', null, tila);
+    Object.assign(y.sandbox._phTila, { pelaajaId: null });
+    expect(y.sandbox._luonnosHuomautukset(), 'ack-odotus ei saa huomauttaa').toEqual([]);
+    y.sandbox._luonnosMerkitse('pA', 'epaonnistui', { virhe: 'Voit havainnoida vain oman joukkueesi pelaajia' }, tila);
+    expect(y.sandbox._phHuomautusHtml()).toContain('Havaintoa ei tallennettu pelaajalle Aatu A');
+    y.sandbox._luonnosAvaa('pA', true);
+    expect(y.sandbox._phTila.teksti, 'sisältö hukkui epäonnistuneessa tallennuksessa').toBe('tärkeä havainto');
+    expect(y.sandbox._phTila.virhe).toBe('Voit havainnoida vain oman joukkueesi pelaajia');
+  });
+
+  it('kuittaus (_luonnosTyhjenna(pid)) poistaa luonnoksen; viimeisen poistuessa avain katoaa kokonaan', async () => {
+    const y = teeSandbox({});
+    tayta(y, 'pA', 'a'); y.sandbox._luonnosTallenna(); await odota(500);
+    expect(Object.keys(y.ls.data).length).toBeGreaterThan(0);
+    y.sandbox._luonnosTyhjenna('pA');
+    expect(y.ls.data[y.sandbox._luonnosAvain()]).toBeUndefined();
+  });
+
+  it('vanha yhden objektin luonnosmuoto luetaan siirtymänä (ei hukata kentällä olevaa luonnosta)', async () => {
+    const y = teeSandbox({});
+    y.ls.data[y.sandbox._luonnosAvain()] = JSON.stringify({ pelaajaId: 'pV', teksti: 'vanha', pisteet: { A: 1 } });
+    expect(y.sandbox._luonnosLueKaikki().pV.tila.teksti).toBe('vanha');
   });
 });
