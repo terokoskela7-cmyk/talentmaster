@@ -17843,6 +17843,16 @@ function _mdtTaytaPicker() {
 window._mdtValitse = function(pid){ _mdtPid = pid || null; _mdtPalaveri = false; _mdtVanhEdit = false; if (_mdtPid) _mdtLataaTavoitteet(_mdtPid); _renderMDTProfiili(); };
 window._mdtVaihdaSkin = function(skin){ _mdtSkin = skin; _mdtVanhEdit = false; _renderMDTProfiili(); };
 window._mdtPrint = function(){ window.print(); };
+/* Review-kirjaus ATOMISESTI (§26): reviewit/{pvm} + pikakentät review_viimeisin_pvm/-tyyppi yhdessä batchissa →
+   kaikki tai ei mitään. Ennen kaksi erillistä kirjoitusta: jälkimmäisen kaatuessa review jäi ilman pikakenttää
+   (status/listat eivät päivittyneet) tai päinvastoin. Rules arvioi kummankin kirjoituksen kuten ennen. */
+async function _vpKirjaaReview(pid, pvm, review) {
+  var pRef = db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(pid);
+  var b = db.batch();
+  b.set(pRef.collection('reviewit').doc(pvm), review);
+  b.set(pRef, { review_viimeisin_pvm: pvm, review_viimeisin_tyyppi: 'mdr' }, { merge: true });
+  await b.commit();
+}
 // Kirjaa MDT-review (§7.2 tuore token) → reviewit/{pvm} + pikakentät. Tallentaa VP-muokatun päätöstekstin.
 window._mdtMerkitseReview = async function() {
   if (!_mdtPid || !_seuraId) { if (typeof toast === 'function') toast(vpT('Ei pelaajaa/seuraa valittuna'), 'error'); return; }
@@ -17856,10 +17866,7 @@ window._mdtMerkitseReview = async function() {
     var V = (typeof vanhempiRaporttiTekstit === 'function') ? vanhempiRaporttiTekstit(p, isp.ika, (isp.sp === 'T') ? 'N' : 'M') : null;
     var paatosEl = document.getElementById('mdtPaatos');
     var paatos = paatosEl ? paatosEl.value : '';
-    await db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(_mdtPid).collection('reviewit').doc(pvm)
-      .set({ tyyppi: 'mdr', pvm: pvm, tekija_uid: (u ? u.uid : (_uid || null)), tekija_rooli: rooli, paatos: paatos, idp_paivitetty: false, ikavaihe: (V ? V.ikavaihe : null) });
-    await db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(_mdtPid)
-      .set({ review_viimeisin_pvm: pvm, review_viimeisin_tyyppi: 'mdr' }, { merge: true });
+    await _vpKirjaaReview(_mdtPid, pvm, { tyyppi: 'mdr', pvm: pvm, tekija_uid: (u ? u.uid : (_uid || null)), tekija_rooli: rooli, paatos: paatos, idp_paivitetty: false, ikavaihe: (V ? V.ikavaihe : null) });
     p.review_viimeisin_pvm = pvm; p.review_viimeisin_tyyppi = 'mdr';   // lokaali → status + listat päivittyvät
     if (typeof toast === 'function') toast(vpT('✓ Review merkitty tehdyksi'), 'ok');
     _renderMDTProfiili();
@@ -18841,10 +18848,7 @@ window._vpCockpitBulkMerkitse = async function () {
   var ok = 0, fail = 0, RINNAKKAIN = 4, i = 0;
   async function yksi(p) {
     try {
-      await db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(p.id).collection('reviewit').doc(pvm)
-        .set({ tyyppi: 'mdr', pvm: pvm, tekija_uid: uid, tekija_rooli: rooli, paatos: '', idp_paivitetty: false });
-      await db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(p.id)
-        .set({ review_viimeisin_pvm: pvm, review_viimeisin_tyyppi: 'mdr' }, { merge: true });
+      await _vpKirjaaReview(p.id, pvm, { tyyppi: 'mdr', pvm: pvm, tekija_uid: uid, tekija_rooli: rooli, paatos: '', idp_paivitetty: false });
       p.review_viimeisin_pvm = pvm; p.review_viimeisin_tyyppi = 'mdr'; ok++;
     } catch (e) { fail++; console.warn('[bulkReview]', p.id, e && e.message); }
   }
