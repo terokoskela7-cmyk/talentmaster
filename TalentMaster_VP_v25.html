@@ -3488,6 +3488,30 @@ async function lataaKaikki() {
   renderKotiVP();   // §IA — sis. renderVpAloitaKortti (inline 5-kohdan checklist = ainoa onboarding-pinta, #89)
   // #89: 3-vaiheinen modaali POISTETTU navin/ensikäynnin oletuksesta → inline-checklist (Master-pattern) on yksi totuuslähde.
   _alustaToimenpiteet();   // OSA 3 — generoi + lataa toimenpiteet (async, try/catch sisällä; demossa placeholder)
+  _vpAvaaUrlSyvalinkki();  // ?seura=&pelaaja=&nakyma=kehitys (Seurahallinnan IDP-nappi) → pelaajan työpöytä
+}
+
+/* URL-sisääntulo (IDP-yhdistäminen, docs/IDP_YHDISTAMINEN.md §3.1): ?seura={sid}&pelaaja={pid}&nakyma=kehitys
+   avaa pelaajan työpöydän Kehitys-välilehdelle. Ei uusia oikeuksia: pelaaja haetaan VAIN jo ladatusta
+   oman seuran listasta (_pelaajat, Rulesin rajaama). Muun seuran / tuntematon / puuttuva pelaaja → null →
+   normaali etusivu, ei virhettä eikä toastia (_pdcSiirryCockpittiin toastaisi tuntemattomasta).
+   Seura: ei-SA:lla _seuraId = claim (URL ei ohita), SA:lla seuravalitsin (?seura= valitsee, §3). */
+function _vpUrlSyvalinkki(search, seuraId, pelaajat) {
+  var q = new URLSearchParams(search || '');
+  var pid = q.get('pelaaja');
+  if (!pid || !seuraId) return null;
+  var urlSeura = q.get('seura');
+  if (urlSeura && urlSeura !== seuraId) return null;
+  if (!(pelaajat || []).some(function (x) { return x && x.id === pid; })) return null;
+  return { pid: pid, tab: q.get('nakyma') === 'kehitys' ? 3 : 0 };
+}
+var _vpSyvalinkkiKaytetty = false;   // kerran / sivunlataus: SA:n seuravaihto ajaa lataaKaikki uudelleen
+function _vpAvaaUrlSyvalinkki() {
+  if (_vpSyvalinkkiKaytetty || _isDemoMode) return;
+  _vpSyvalinkkiKaytetty = true;
+  var k = _vpUrlSyvalinkki(location.search, _seuraId, _pelaajat);
+  if (!k || typeof window._pdcSiirryCockpittiin !== 'function') return;
+  try { window._pdcSiirryCockpittiin(k.pid, k.tab); } catch (e) { console.warn('[URL-sisääntulo]', e.message); }
 }
 
 // ── SEURAKERROS TIER 1 — seurat/{sid}/konseptit → resolvoijan cache (kerran/istunto) ──────────
