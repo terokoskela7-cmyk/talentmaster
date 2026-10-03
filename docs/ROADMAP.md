@@ -77,7 +77,7 @@ nyt datankeruu + perheiden adoptio.
 - [x] `TalentMaster_Master_v9.html` — Valmentajan näkymä
 - [x] `TalentMaster_Seura.html` — Seurahallinta (UTF-8 korjattu)
 - [x] `TalentMaster_Vanhempi.html` — Huoltajan sivu
-- [x] `TalentMaster_IDP_Kortti_v3.html` — toimii KPV:llä
+- [x] ~~`TalentMaster_IDP_Kortti_v3.html`~~ — v3/v4 arkistoitu 2026-10; IDP = `idp_kausi` + `lib/tm_idp.js` (VP_v25 / Master_v16 / Pelaaja_v7), ks. `docs/IDP_YHDISTAMINEN.md`
 - [x] `TalentMaster_Rekisterointi_Suostumus.html` — fi/sv/en kielituki
 - [x] `TalentMaster_UTJ_v1.html` — Kasvattisuppilo-aikajana
 - [x] `TalentMaster_Kortit.html` — FIRE/ICON/MILESTONE/TOTY + WOW
@@ -86,9 +86,9 @@ nyt datankeruu + perheiden adoptio.
 
 ### JavaScript-kirjastot (GitHubissa)
 - [x] `harjoitelogiikka_v4.js` — leikkija/rakentaja/showcase, DIAG, Stage 1–5, YouTube
-- [x] `hpp_rehab_protokollat.js` — 25 kuntoutusprotokollaa
+- [x] `hpp_rehab_protokollat.js` — 25 kuntoutusprotokollaa (⏸ ei käyttäjää 2026-10, käyttö päätetään erikseen)
 - [x] `tm_testipankki.js` — 64 testiä, 8 protokollaa, FLEI (5 ketjua)
-- [x] `tm_ketju_matriisi.js` — fascia ↔ testi ↔ pallotekniikka
+- [x] `tm_ketju_matriisi.js` — fascia ↔ testi ↔ pallotekniikka (⏸ ei käyttäjää 2026-10, käyttö päätetään erikseen)
 - [x] `tm_lang.js` — fi/sv/en, 144 käännöstä
 - [x] `tm_import.js`, `tm_empty_state.js`, `testit_indeksit.js`
 
