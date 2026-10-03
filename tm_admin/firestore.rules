@@ -1,9 +1,17 @@
 rules_version = '2';
 // ══════════════════════════════════════════════════════════════════════════
-// TalentMaster™ — firestore.rules v3.35
+// TalentMaster™ — firestore.rules v3.36
 //
 // Lähde:  tm_admin/firestore.rules
 // Deploy: PR → N4-CI deployaa automaattisesti (Console-käsityö poistui).
+//
+// Muutokset v3.35 → v3.36 (Pikakirjaus valmentajalle, 3.10.2026 — Teron päätös A):
+//   · seurat/{sid}/pelaajat/{pid}/testitulokset/{pvmProto}: create + update += onOmanJoukkueenValmentaja(seuraId,
+//     pelaajaId) — oman joukkueen valmentaja (talenttivalmentaja ja johto koko seuraan, kuten pelaajadokin update).
+//     Masterin Pikakirjaus kirjoittaa testituloksen + pikakentät samassa batchissa (§26, #743); pelaajadokin
+//     pikakenttäpäivitys oli valmentajalle jo sallittu → ei muuta muutosta. delete ennallaan (vain SA).
+//     Seurasihteeri EI (ei valmentajarooli), pelaaja/huoltaja EI.
+//   · Kommentti tulokset/{pelaajaId}: IDP_Kortti_v4-maininta pois (kortti arkistoitu 2026-10).
 //
 // Muutokset v3.34 → v3.35 (Kehitystilanne v0.1: seuran omat vapaat tavoitteet, 2.10.2026):
 //   · seurat/{sid}/omat_tavoitteet/{tid}: luku johtoroolit + SA; luonti vp ja urheilutoimenjohtaja + SA, kenttien
@@ -1172,15 +1180,18 @@ service cloud.firestore {
                         || onOmaSeura(seuraId)
                         || onPelaajaItse(seuraId, pelaajaId)
                         || onLapsenHuoltaja(seuraId, pelaajaId);
-          // Kirjoitus: VP/UTJ (johto) + testivastaava. EI seurasihteeri (valmennusdata).
+          // Kirjoitus: VP/UTJ (johto) + testivastaava + oman joukkueen valmentaja (v3.36, Masterin Pikakirjaus).
+          // EI seurasihteeri (valmennusdata, ei valmentajarooli).
           allow create: if onSuperAdmin()
                         || (onOmaSeura(seuraId) && (request.auth.token.rooli == 'vp'
                                                     || request.auth.token.rooli == 'urheilutoimenjohtaja'))
-                        || onTestivastaava(seuraId);
+                        || onTestivastaava(seuraId)
+                        || onOmanJoukkueenValmentaja(seuraId, pelaajaId);
           allow update: if onSuperAdmin()
                         || (onOmaSeura(seuraId) && (request.auth.token.rooli == 'vp'
                                                     || request.auth.token.rooli == 'urheilutoimenjohtaja'))
-                        || onTestivastaava(seuraId);
+                        || onTestivastaava(seuraId)
+                        || onOmanJoukkueenValmentaja(seuraId, pelaajaId);
           allow delete: if onSuperAdmin();
         }
 
@@ -1447,7 +1458,7 @@ service cloud.firestore {
         allow delete: if onSuperAdmin() || (onOmaSeura(seuraId) && onJohtoRooli());
 
         // tulokset/{pelaajaId} — pelaajakohtaiset testitulokset.
-        // Huoltaja näkee oman lapsen tulokset (IDP_Kortti_v4 lukee tätä).
+        // Huoltaja näkee oman lapsen tulokset.
         match /tulokset/{pelaajaId} {
           allow read:   if onSuperAdmin()
                         || onOmaSeura(seuraId)

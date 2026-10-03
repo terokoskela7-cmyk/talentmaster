@@ -3642,3 +3642,49 @@ describe('v3.35 · omat_tavoitteet ja kirjaukset', () => {
     await assertFails(addDoc(kCol(vp, 'a'), kirjaus(VP_A_UID)));
   });
 });
+
+// ═══════════════════════════════════════════════════════════════════════════
+// v3.36 — oman joukkueen valmentaja kirjoittaa testitulokset (Masterin Pikakirjaus, Teron päätös A)
+// ═══════════════════════════════════════════════════════════════════════════
+describe('v3.36 · testitulokset: oman joukkueen valmentaja', () => {
+  beforeEach(async () => { await seedAdminDoc(); await seedSeuraAndPelaaja(); });
+  const tt = (db, sid, pid, id) => doc(db, 'seurat', sid, 'pelaajat', pid, 'testitulokset', id || '2026-10-03_vapaa');
+  const tulos = { testit: { lin30m: 4.6 }, testauspvm: '2026-10-03', protokolla: 'vapaa' };
+
+  it('oman joukkueen valmentaja: create + update sallittu, delete ei', async () => {
+    const db = valmentajaContext(VALM_A_UID, SEURA_A).firestore();
+    await assertSucceeds(setDoc(tt(db, SEURA_A, PELAAJA_UID), tulos));
+    await assertSucceeds(setDoc(tt(db, SEURA_A, PELAAJA_UID), { testit: { lin30m: 4.55 } }, { merge: true }));
+    await assertSucceeds(updateDoc(tt(db, SEURA_A, PELAAJA_UID), { alusta: 'tekonurmi' }));
+    await assertFails(deleteDoc(tt(db, SEURA_A, PELAAJA_UID)));
+  });
+  it('toisen joukkueen valmentaja (sama seura) EI; toisen seuran valmentaja EI', async () => {
+    await assertFails(setDoc(tt(valmentajaContext(VALM_A_UID, SEURA_A).firestore(), SEURA_A, PELAAJA_A2_UID), tulos));
+    await assertFails(setDoc(tt(valmentajaContext(VALM_B_UID, SEURA_B).firestore(), SEURA_A, PELAAJA_UID), tulos));
+  });
+  it('seurasihteeri, pelaaja itse ja huoltaja EIVÄT kirjoita', async () => {
+    await assertFails(setDoc(tt(sihteeriContext(SEURA_A).firestore(), SEURA_A, PELAAJA_UID), tulos));
+    await assertFails(setDoc(tt(pelaajaItseContext().firestore(), SEURA_A, PELAAJA_UID), tulos));
+    await assertFails(setDoc(tt(huoltajaContext().firestore(), SEURA_A, PELAAJA_UID), tulos));
+  });
+  it('VP ja testivastaava ennallaan (sallittu)', async () => {
+    await assertSucceeds(setDoc(tt(vpContext(SEURA_A).firestore(), SEURA_A, PELAAJA_UID, '2026-10-03_vp'), tulos));
+    await assertSucceeds(setDoc(tt(testivastaavaContext(SEURA_A).firestore(), SEURA_A, PELAAJA_UID, '2026-10-03_tv'), tulos));
+  });
+  it('batch (testitulos + pikakenttäpari) oman joukkueen valmentajalla menee läpi kokonaan; muun joukkueen hylätään kokonaan', async () => {
+    const db = valmentajaContext(VALM_A_UID, SEURA_A).firestore();
+    const kirjaa = (pid) => { const b = FS_MOD.writeBatch(db);
+      b.set(tt(db, SEURA_A, pid), tulos, { merge: true });
+      b.update(doc(db, 'seurat', SEURA_A, 'pelaajat', pid), { hh_viimeisin: { lin30m: 4.6 }, hh_pvm: '2026-10-03' });
+      return b.commit(); };
+    await assertSucceeds(kirjaa(PELAAJA_UID));
+    await assertFails(kirjaa(PELAAJA_A2_UID));
+    await testEnv.withSecurityRulesDisabled(async (c) => {
+      const f = c.firestore();
+      expect((await getDoc(doc(f, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID))).data().hh_pvm).toBe('2026-10-03');
+      expect((await getDoc(tt(f, SEURA_A, PELAAJA_UID))).exists()).toBe(true);
+      expect((await getDoc(doc(f, 'seurat', SEURA_A, 'pelaajat', PELAAJA_A2_UID))).data().hh_pvm).toBeUndefined();
+      expect((await getDoc(tt(f, SEURA_A, PELAAJA_A2_UID))).exists()).toBe(false);
+    });
+  });
+});
