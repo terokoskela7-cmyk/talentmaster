@@ -3213,8 +3213,10 @@ async function _kasvuTallennaPHV(p) {
   });
   if (!ops) return false;
   try {
-    await baseRef.collection('biologinen_ika').doc(ops.mittausPvmId).set(ops.dokumentti);
-    await baseRef.update({
+    // §26: historia-dokumentti + PHV-pikakentät SAMASSA batchissa → kaikki tai ei mitään (ennen kaksi kirjoitusta).
+    const b = baseRef.firestore.batch();
+    b.set(baseRef.collection('biologinen_ika').doc(ops.mittausPvmId), ops.dokumentti);
+    b.update(baseRef, {
       biologinenIka_viimeisin: ops.dokumentti,
       phv_tila: ops.dokumentti.phv_tila_koodi,   // 'PRE'|'LAH'|'PH'|'POST'|'AN'
       // Bio-banding V1 -pikakentät (§26) — luetaan VP/valmentaja-näkymissä ilman alikokoelmakyselyä
@@ -3222,6 +3224,7 @@ async function _kasvuTallennaPHV(p) {
       kasvutahti_cm_v:     ops.dokumentti.kasvutahti_cm_v,               // null jos <2 mittausta
       kasvutahti_vyohyke:  ops.dokumentti.kasvutahti_vyohyke || null     // 'hidas'|'kohtalainen'|'nopea'
     });
+    await b.commit();
     return true;
   } catch(e) {
     console.warn('[kasvu] tallennus', p.id, e.code, e.message);

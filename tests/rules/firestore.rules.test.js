@@ -3679,6 +3679,15 @@ describe('§26 atomiset batchit: testitulos/review + pikakentät', () => {
       expect((await lue(['seurat', SEURA_A, 'pelaajat', PELAAJA_UID])).review_viimeisin_pvm).toBe(pvm);
     }
   });
+  it('PHV: oman joukkueen valmentaja kirjaa biologinen_ika/{pvm} + phv-pikakentät samassa batchissa; muun joukkueen → hylätään kokonaan', async () => {
+    const db = valmentajaContext(VALM_A_UID, SEURA_A).firestore();
+    const kirjaa = (pid) => { const b = FS_MOD.writeBatch(db); b.set(doc(db, 'seurat', SEURA_A, 'pelaajat', pid, 'biologinen_ika', '2026-10-03'), { mittauspaiva: '2026-10-03', phv_tila_koodi: 'PRE' }); b.update(pel(db, SEURA_A, pid), { biologinenIka_viimeisin: { mittauspaiva: '2026-10-03' }, phv_tila: 'PRE' }); return b.commit(); };
+    await assertSucceeds(kirjaa(PELAAJA_UID));
+    expect((await lue(['seurat', SEURA_A, 'pelaajat', PELAAJA_UID])).phv_tila).toBe('PRE');
+    await assertFails(kirjaa(PELAAJA_A2_UID));
+    expect((await lue(['seurat', SEURA_A, 'pelaajat', PELAAJA_A2_UID])).phv_tila).toBeUndefined();
+    expect(await lue(['seurat', SEURA_A, 'pelaajat', PELAAJA_A2_UID, 'biologinen_ika', '2026-10-03'])).toBeUndefined();
+  });
   it('review: toisen seuran VP → koko batch hylätään, kumpikaan ei tallennu', async () => {
     const db = testEnv.authenticatedContext('vp-kpv-001', { rooli: 'vp', seuraId: SEURA_B }).firestore();
     const b = FS_MOD.writeBatch(db);

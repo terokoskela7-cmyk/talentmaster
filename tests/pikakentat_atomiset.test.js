@@ -120,3 +120,21 @@ describe('VP_v25 · review + review_viimeisin_pvm yhdessä batchissa', () => {
     }
   });
 });
+
+describe('Testaus_v9 · PHV-kasvumittaus: biologinen_ika/{pvm} + PHV-pikakentät yhdessä batchissa', () => {
+  const T = readFileSync(join(juuri, 'TalentMaster_Testaus_v9.html'), 'utf8');
+  const i = T.indexOf('const ops = window.TM_BioIka.bioIkaTallennusOperaatiot(');
+  const f = T.slice(i, T.indexOf('/* ── VAIHE 7', i));
+  it('historia + pikakentät samassa batchissa, yksi commit; ei erillisiä set/update-kutsuja', () => {
+    expect(f).toContain('const b = baseRef.firestore.batch();');
+    expect(f).toContain("b.set(baseRef.collection('biologinen_ika').doc(ops.mittausPvmId), ops.dokumentti);");
+    expect(f).toMatch(/b\.update\(baseRef, \{\s*biologinenIka_viimeisin: ops\.dokumentti,\s*phv_tila: ops\.dokumentti\.phv_tila_koodi/);
+    expect((f.match(/await b\.commit\(\)/g) || []).length).toBe(1);
+    expect(f).not.toMatch(/await baseRef\.(update|collection)/);
+  });
+  it('lib/tm_bioika.js:n käyttöohje neuvoo saman batch-mallin', () => {
+    const lib = readFileSync(join(juuri, 'lib/tm_bioika.js'), 'utf8');
+    expect(lib).toContain('const b = baseRef.firestore.batch();');
+    expect(lib).not.toMatch(/await baseRef\.update\(/);
+  });
+});
