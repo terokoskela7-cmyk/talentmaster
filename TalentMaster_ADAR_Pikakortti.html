@@ -57,6 +57,7 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font-sans);font-siz
 .ikoni{width:32px;height:32px;border:.5px solid var(--border);background:transparent;color:var(--ink2);border-radius:2px;cursor:pointer;font-size:14px;font-family:var(--font-sans)}
 
 .ph-bar{display:flex;align-items:center;gap:10px;padding:14px 16px 12px;border-bottom:.5px solid var(--border)}
+.ph-linkki{background:none;border:0;padding:0;color:var(--teal);font-size:12px;cursor:pointer;text-decoration:underline}
 .ph-back{width:30px;height:30px;border:.5px solid var(--border);background:transparent;color:var(--ink2);border-radius:2px;cursor:pointer;font-size:14px;flex:none}
 .ph-title{flex:1;min-width:0}
 .ph-name{font-family:var(--font-serif);font-size:22px;line-height:1.1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -639,7 +640,7 @@ window._phTila = {
   konteksti: 'harjoitus',
   pisteet: {}, havaitut: {}, auki: {}, teksti: '', nakyvyys: false,
   tehdyt: {}, sheet: false, peruttu: false,
-  viimeisin: null, odottaa: false
+  viimeisin: null, odottaa: false, virhe: null
 };
 
 function _phEsc(s) {
@@ -718,6 +719,12 @@ function _phViimeksi(pid) {
 function _phAvaaPelaaja(pid) {
   var S = window._phTila, p = _phPelaaja(pid);
   if (!p) return;
+  /* Saman pelaajan keskeneräinen/epäonnistunut luonnos palautetaan; toisen pelaajan luonnos EI ylikirjoitu (huomautus). */
+  if (typeof _luonnosLueKaikki === 'function') {
+    var _l = _luonnosLueKaikki()[pid];
+    if (_l && (_l.laheteys === 'luonnos' || _l.laheteys === 'epaonnistui' || !_l.laheteys) && _luonnosAvaa(pid, true)) return;
+  }
+  S.virhe = null;
   var ika = _phIka(pid);
   S.pelaajaId = pid;
   S.porrasTallennettu = p.havainto_porras || null;
@@ -782,6 +789,7 @@ function _phRenderValitse() {
     + '<div class="ph-name">Valitse pelaaja</div>'
     + '<div class="ph-meta">Oma joukkue · ' + idt.length + ' pelaajaa' + _phVerkkoMerkki() + '</div></div></div>';
   h += '<div class="ph-body">';
+  if (typeof _phHuomautusHtml === 'function') h += _phHuomautusHtml();
   h += '<input class="search" id="ph-haku" placeholder="Hae nimellä" value="' + _phEsc(S.haku) + '" aria-label="Hae pelaajaa">';
   if (ohje) h += '<p class="ohje varo">' + _phEsc(ohje) + '</p>';
   h += '<div><div class="lbl"><span>Pisimpään havainnoimatta ensin</span></div><div class="plist">'
@@ -862,8 +870,12 @@ function _phRenderHavainto() {
     + '<div class="ph-title"><div class="eyebrow">Pelihavainto · ' + _phEsc(_phIkavaihe(ika)) + '</div>'
     + '<div class="ph-name">' + _phEsc(p.nimi) + '</div>'
     + '<div class="ph-meta">' + (ika == null ? 'ikä ei tiedossa' : (ika + ' v')) + ' · ' + _phEsc(vm.teksti)
-    + _phVerkkoMerkki() + '</div></div></div>';
+    + _phVerkkoMerkki() + '</div><button type="button" class="ph-linkki" id="ph-vaihda">Vaihda pelaaja</button></div></div>';
   h += '<div class="ph-body">';
+  if (typeof _phHuomautusHtml === 'function') h += _phHuomautusHtml();
+  if (S.virhe != null && S.virhe !== false) {
+    h += '<div class="banner" role="alert"><b>Havaintoa ei tallennettu – yritä uudelleen.</b>' + (S.virhe ? ' ' + _phEsc(S.virhe) : '') + ' Sisältö on tallessa lomakkeessa.</div>';
+  }
 
   if (S.peruttu) {
     h += '<div class="banner"><b>Edellinen havainto peruttu.</b> Se jää historiaan, mutta ei laske '
@@ -953,6 +965,8 @@ function _phSidoHavainto() {
   var juuri = _phJuuri(), S = window._phTila;
   var back = document.getElementById('ph-back');
   if (back) back.onclick = function () { S.naytto = 'valitse'; S.peruttu = false; _phRender(); };
+  var vaihda = document.getElementById('ph-vaihda');
+  if (vaihda) vaihda.onclick = function () { S.naytto = 'valitse'; S.peruttu = false; _phRender(); };
   juuri.querySelectorAll('[data-kx]').forEach(function (b) {
     b.onclick = function () { S.konteksti = b.getAttribute('data-kx'); _phRender(); _luonnosTallenna(); };
   });
@@ -1132,10 +1146,17 @@ async function _phKirjoitaHavaintoJaPikakentat(havRef, data, seuraId, pelaajaId,
       ? tmAdarPikakentat(havainnot, _phIka(pelaajaId), porras, { edellinen: _oldAv }) : null;
     if (kentat && kirjoitaPorras) kentat.havainto_porras = porras;
   } catch (e) { console.warn('[ADAR pikakentat]', e && (e.code || e.message)); kentat = null; }
-  var b = _PH_DB.batch();
-  b.set(havRef, data);
-  if (kentat) b.set(pRef, kentat, { merge: true });
-  var commit = b.commit();
+  /* HAVAINTO ENSIN OMANA KIRJOITUKSENAAN, pikakentät erikseen (ei samaa batchia): batch hylkäytyy kokonaan jos EDES YKSI
+     op kielletään, jolloin havainto katoaisi pikakenttäoikeuden takia. Havainto on ensisijainen tieto; pikakentät ovat
+     johdettua (lasketaan uudelleen seuraavalla havainnolla). Molemmat annetaan Firestorelle heti (jonottuvat järjestyksessä
+     myös offline-tilassa); vain havainnon epäonnistuminen palautetaan kutsujalle. Pari adar_viimeisin+adar_pvm pysyy atomisena
+     (yksi set, §26). */
+  var commit = havRef.set(data);
+  if (kentat) {
+    pRef.set(kentat, { merge: true }).catch(function (e) {
+      console.warn('[ADAR pikakentat kirjoitus]', e && (e.code || e.message));
+    });
+  }
   if (typeof onLahetetty === 'function') onLahetetty();
   if (kentat && window._pelaajaMap && window._pelaajaMap[pelaajaId]) {   // paikallinen map (§26), kuten _phPaivitaPikakentat
     var m = window._pelaajaMap[pelaajaId];
@@ -1200,15 +1221,21 @@ async function _phTallenna() {
 
   /* EI AWAITIA: UI etenee heti, kirjoitus jonottuu tarvittaessa. Havainto + pikakentät yhdessä batchissa (§26).
      Luonnos tyhjennetään vasta kun batch on annettu Firestorelle (onLahetetty), ei ennen. */
-  _phKirjoitaHavaintoJaPikakentat(ref, data, seuraId, pelaajaId, S.porras, porrasTallennetaan, _luonnosTyhjenna).catch(function (err) {
+  var luonnosTila = _luonnosKeraa();
+  var _lahetetty = function () { _luonnosMerkitse(pelaajaId, 'lahetetty', null, luonnosTila); };
+  _phKirjoitaHavaintoJaPikakentat(ref, data, seuraId, pelaajaId, S.porras, porrasTallennetaan, _lahetetty).then(function () {
+    _luonnosTyhjenna(pelaajaId);   // KUITATTU palvelimelta → luonnos pois (ei ennen)
+  }).catch(function (err) {
     console.error('[ADAR] Tallennusvirhe:', err && (err.message || err));
-    if (err && (err.code === 'permission-denied' || (err.message || '').indexOf('permissions') >= 0)) {
-      /* VARAKAISTA: poimin on jo suodatettu, mutta jos create silti hylätään, kerrotaan SYY
-         eikä "katso konsoli" — kentällä konsolia ei ole. */
-      _showToast('⚠ ' + _adarEstonSyy());
-    } else {
-      _showToast('⚠ Tallennus ei onnistunut — yritä uudelleen');
-    }
+    var syy = (err && (err.code === 'permission-denied' || (err.message || '').indexOf('permissions') >= 0))
+      ? _adarEstonSyy() : '';
+    /* EI HILJAISTA KATOAMISTA: luonnos säilyy 'epaonnistui'-tilassa, lomake palautetaan ruudulle ja virhe näkyy pysyvänä
+       bannerina (toast katoaa; kentällä konsolia ei ole). */
+    _luonnosMerkitse(pelaajaId, 'epaonnistui', { virhe: syy }, luonnosTila);
+    var N = window._phTila;
+    if (N.pelaajaId === pelaajaId && N.naytto === 'ok') _luonnosAvaa(pelaajaId, true);
+    else _phRender();
+    _showToast('⚠ Havaintoa ei tallennettu – yritä uudelleen');
   });
 
   S.viimeisin = {
@@ -1220,7 +1247,7 @@ async function _phTallenna() {
   S.tehdyt[pelaajaId] = true;
   S.odottaa = true;
   S.naytto = 'ok';
-  /* Luonnos tyhjennetään _phKirjoitaHavaintoJaPikakentat:n onLahetetty-kutsussa (batch annettu Firestorelle). */
+  /* Luonnos merkitään 'lahetetty' heti ja poistetaan vasta palvelimen kuittauksella; epäonnistuessa lomake palautetaan. */
   _phRender();
 
   _phSeuraaKirjoitusta(ref);
@@ -1351,28 +1378,64 @@ function _luonnosKeraa() {
   };
 }
 
+/* LUONNOKSET — YKSI PER PELAAJA (samassa avaimessa), jotta toisen pelaajan valinta ei ylikirjoita keskeneräistä havaintoa.
+   Tallennettu muoto: { v: 2, luonnokset: { <pelaajaId>: { tila: <_luonnosKeraa()>, aika, laheteys, virhe?, havaintoId? } } }.
+   laheteys: 'luonnos' (keskeneräinen) · 'lahetetty' (batch annettu Firestorelle, kuittausta odotetaan — EI huomautusta) ·
+   'epaonnistui' (Rules/verkko hylkäsi — sisältö säilyy, huomautus + yritä uudelleen). Vanha muoto (yksi objekti, pelaajaId kentässä)
+   luetaan siirtymänä. Avain poistetaan kun viimeinenkin luonnos poistuu. */
+function _luonnosLueKaikki() {
+  var raaka = null;
+  try { raaka = localStorage.getItem(_luonnosAvain()); } catch (e) { return {}; }
+  if (!raaka) return {};
+  var t = null;
+  try { t = JSON.parse(raaka); } catch (e) { return {}; }
+  if (t && t.luonnokset && typeof t.luonnokset === 'object') return t.luonnokset;
+  if (t && t.pelaajaId) { var m = {}; m[t.pelaajaId] = { tila: t, aika: Date.now(), laheteys: 'luonnos' }; return m; }
+  return {};
+}
+function _luonnosKirjoitaKaikki(m) {
+  try {
+    if (!Object.keys(m).length) localStorage.removeItem(_luonnosAvain());
+    else localStorage.setItem(_luonnosAvain(), JSON.stringify({ v: 2, luonnokset: m }));
+  } catch (e) { /* kiintiö täynnä */ }
+}
+
 let _luonnosAjastin = null;
 function _luonnosTallenna() {
   /* Debounce: kirjoitusta ei jauheta joka näppäimenpainalluksella. */
   if (_luonnosAjastin) clearTimeout(_luonnosAjastin);
   _luonnosAjastin = setTimeout(function () {
-    try { localStorage.setItem(_luonnosAvain(), JSON.stringify(_luonnosKeraa())); } catch (e) { /* kiintiö täynnä */ }
+    var S = window._phTila;
+    if (!S.pelaajaId) return;
+    var m = _luonnosLueKaikki();
+    m[S.pelaajaId] = { tila: _luonnosKeraa(), aika: Date.now(), laheteys: 'luonnos' };
+    _luonnosKirjoitaKaikki(m);
   }, 400);
 }
 
-function _luonnosTyhjenna() {
+/** Poistaa pelaajan luonnoksen (oletus: nykyinen pelaaja). Kutsutaan kun tallennus on KUITATTU (tai käyttäjä hylkää). */
+function _luonnosTyhjenna(pid) {
   if (_luonnosAjastin) { clearTimeout(_luonnosAjastin); _luonnosAjastin = null; }
-  try { localStorage.removeItem(_luonnosAvain()); } catch (e) { /* ei tuettu */ }
+  var id = (typeof pid === 'string' && pid) ? pid : window._phTila.pelaajaId;
+  var m = _luonnosLueKaikki();
+  if (id && m[id]) { delete m[id]; _luonnosKirjoitaKaikki(m); }
   _luonnosTyhjennaKuvaStore();
 }
 
-async function _luonnosPalauta() {
-  var raaka = null;
-  try { raaka = localStorage.getItem(_luonnosAvain()); } catch (e) { return; }
-  if (!raaka) return;
-  var t = null;
-  try { t = JSON.parse(raaka); } catch (e) { return; }
-  if (!t || !t.pelaajaId) return;
+/** Merkitsee pelaajan luonnoksen tilan synkronisesti (lahetetty / epaonnistui) nykyisestä havaintotilasta TAI annetusta tilasta. */
+function _luonnosMerkitse(pid, laheteys, lisa, tila) {
+  if (_luonnosAjastin) { clearTimeout(_luonnosAjastin); _luonnosAjastin = null; }
+  var m = _luonnosLueKaikki();
+  var vanha = m[pid] || {};
+  m[pid] = Object.assign({ tila: tila || vanha.tila || _luonnosKeraa(), aika: Date.now() }, lisa || {}, { laheteys: laheteys });
+  _luonnosKirjoitaKaikki(m);
+}
+
+/** Palauttaa pelaajan luonnoksen lomakkeeseen (käyttäjä valitsi "Avaa" tai avaa saman pelaajan). */
+function _luonnosAvaa(pid, hiljainen) {
+  var m = _luonnosLueKaikki();
+  var e = m[pid]; var t = e && e.tila;
+  if (!t || !t.pelaajaId) return false;
   var S = window._phTila;
   S.pelaajaId = t.pelaajaId;
   S.porras = t.porras || 1;
@@ -1385,8 +1448,65 @@ async function _luonnosPalauta() {
   S.teksti = t.teksti || '';
   S.nakyvyys = !!t.nakyvyys;
   S.naytto = 'havainto';
-  _showToast('Palautettiin keskeneräinen havainto');
+  S.virhe = (e.laheteys === 'epaonnistui') ? (e.virhe || '') : null;
+  S.sheet = false; S.peruttu = false;
+  if (e.laheteys === 'epaonnistui' || e.laheteys === 'lahetetty') { m[pid].laheteys = 'luonnos'; delete m[pid].virhe; _luonnosKirjoitaKaikki(m); }
+  if (!hiljainen) _showToast('Palautettiin keskeneräinen havainto');
   _phRender();
+  return true;
+}
+window._luonnosAvaa = _luonnosAvaa;
+
+function _luonnosHylkaa(pid) {
+  _luonnosTyhjenna(pid);
+  _phRender();
+}
+window._luonnosHylkaa = _luonnosHylkaa;
+
+/** Muiden kuin nykyisen pelaajan keskeneräiset/epäonnistuneet luonnokset (uusin ensin) — huomautukset. 'lahetetty' ei ilmoiteta. */
+function _luonnosHuomautukset() {
+  var S = window._phTila, m = _luonnosLueKaikki();
+  return Object.keys(m).filter(function (p) {
+    return p !== S.pelaajaId && (m[p].laheteys === 'luonnos' || m[p].laheteys === 'epaonnistui' || !m[p].laheteys);
+  }).sort(function (a, b) { return (m[b].aika || 0) - (m[a].aika || 0); })
+    .map(function (p) { return { pid: p, laheteys: m[p].laheteys || 'luonnos', virhe: m[p].virhe || '' }; });
+}
+function _phHuomautusHtml() {
+  var lista = _luonnosHuomautukset();
+  if (!lista.length) return '';
+  var map = window._pelaajaMap || {};
+  return lista.map(function (x) {
+    var nimi = (map[x.pid] || {}).nimi || 'pelaaja';
+    var teksti = x.laheteys === 'epaonnistui'
+      ? 'Havaintoa ei tallennettu pelaajalle ' + nimi + ' – yritä uudelleen.'
+      : 'Tallentamaton havainto pelaajalle ' + nimi + '.';
+    var id = _phEsc(x.pid);
+    return '<div class="banner" role="status" data-luonnos="' + id + '"><b>' + _phEsc(teksti) + '</b>'
+      + (x.virhe ? ' <span>' + _phEsc(x.virhe) + '</span>' : '')
+      + ' <button type="button" class="ph-linkki" onclick="_luonnosAvaa(\'' + id + '\')">Avaa</button>'
+      + ' · <button type="button" class="ph-linkki" onclick="_luonnosHylkaa(\'' + id + '\')">Hylkää</button></div>';
+  }).join('');
+}
+
+/** Reload / avaus: palautetaan automaattisesti VAIN jos luonnos on pyydetyn pelaajan (kortilta avaus) TAI avaus on itsenäinen reload
+    ilman pyyntöä. Yleinen avaus Masterin upotuksesta (pelaajalista) EI hyppää luonnoksen pelaajaan — se ilmoitetaan huomautuksella. */
+async function _luonnosPalauta() {
+  var m = _luonnosLueKaikki();
+  /* 'lahetetty' = edellinen istunto antoi kirjoituksen Firestorelle (persistence/jono hoitaa) → ei palauteta. */
+  Object.keys(m).forEach(function (p) { if (m[p].laheteys === 'lahetetty') delete m[p]; });
+  _luonnosKirjoitaKaikki(m);
+  var pidit = Object.keys(m);
+  if (!pidit.length) { _phRender(); return; }
+  var pyydetty = window._phAloitusPelaaja || window._tmPelaajaId || null;
+  var upotettu = !!window._tmEmbedded;
+  var palautettavat = pidit.filter(function (p) { return (m[p].laheteys || 'luonnos') === 'luonnos'; });
+  var valittu = null;
+  if (pyydetty) { if (palautettavat.indexOf(pyydetty) >= 0) valittu = pyydetty; }
+  else if (!upotettu && palautettavat.length) {
+    valittu = palautettavat.sort(function (a, b) { return (m[b].aika || 0) - (m[a].aika || 0); })[0];
+  }
+  if (valittu) { _luonnosAvaa(valittu); return; }
+  _phRender();   // huomautus(huomautukset) näkyviin
 }
 window._luonnosPalauta = _luonnosPalauta;
 

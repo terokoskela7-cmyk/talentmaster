@@ -26,7 +26,8 @@ function mockDb({ docs = {}, kaada = false } = {}) {
   const erilliset = [];
   const ref = (p) => ({ id: p.split('/').pop(), path: p, collection: (n) => col(p + '/' + n),
     get: async () => ({ exists: p in docs, data: () => docs[p] }),
-    set: async () => erilliset.push(p), update: async () => erilliset.push(p) });
+    set: async (d, o) => { if (kaada) throw Object.assign(new Error('write epäonnistui'), { code: 'unavailable' }); erilliset.push(p); docs[p] = (o && o.merge) ? Object.assign({}, docs[p], d) : d; },
+    update: async () => erilliset.push(p) });
   const col = (p) => ({
     doc: (id) => ref(p + '/' + (id || 'auto' + Object.keys(docs).length)),
     get: async () => ({ docs: Object.keys(docs).filter((k) => k.startsWith(p + '/') && k.slice(p.length + 1).indexOf('/') < 0).map((k) => ({ id: k.split('/').pop(), ref: ref(k), data: () => docs[k] })) }),
@@ -112,36 +113,59 @@ describe('b) ADAR_Pikakortti · havainto + adar_*-pikakentät batchina', () => {
     const havRef = ctx.ref('kpv', 'p1').collection('havainnot').doc('h2');
     return { p: ctx.f(havRef, { pisteet: { A: 2 }, porras: 1 }, 'kpv', 'p1', 1, true, onLahetetty), nahdyt, ctx };
   };
-  it('yksi batch: havainto + pikakentät (adar_viimeisin + adar_pvm yhdessä); uusi havainto mukana laskennassa', async () => {
+  const HAV = PEL + '/havainnot/h2', HAV3 = PEL + '/havainnot/h3';
+  it('havainto OMANA kirjoituksenaan ENSIN, pikakentät (adar_viimeisin + adar_pvm yhdessä) erikseen; uusi havainto mukana laskennassa', async () => {
     const m = mockDb({ docs: { [PEL]: { etunimi: 'Topias' }, [PEL + '/havainnot/h1']: { pisteet: { A: 1 } } } });
     let lahetetty = false;
     const r = aja(m, null, () => { lahetetty = true; });
     await r.p;
     expect(lahetetty).toBe(true);
     expect(r.nahdyt).toEqual([2]);
-    expect(m.db.batches).toEqual([['set ' + PEL + '/havainnot/h2', 'set ' + PEL]]);
+    expect(m.db.erilliset, 'järjestys: havainto ensin, sitten pelaajan pikakentät').toEqual([HAV, PEL]);
+    expect(m.db.batches, 'EI yhteistä batchia: toisen opin hylkäys veisi havainnon').toEqual([]);
     expect(m.docs[PEL]).toMatchObject({ adar_pvm: '2026-10-03', adar_viimeisin: { pvm: '2026-10-03' }, havainto_porras: 1 });
     expect(r.ctx.window._pelaajaMap.p1.adar_pvm).toBe('2026-10-03');
-    expect(m.db.erilliset).toEqual([]);
   });
-  it('commit epäonnistuu → ei havaintoa eikä pikakenttiä', async () => {
+  it('havainnon kirjoitus epäonnistuu → promise hylkää (UI näyttää virheen); ei pikakenttien sivuvaikutusta havainnon puuttuessa ei ole estetty', async () => {
     const m = mockDb({ docs: { [PEL]: { etunimi: 'Topias' } }, kaada: true });
     await expect(aja(m).p).rejects.toThrow();
-    expect(m.docs).toEqual({ [PEL]: { etunimi: 'Topias' } });
+    expect(m.docs[HAV], 'havaintoa ei saa olla').toBeUndefined();
   });
   it('pikakenttälaskenta kaatuu → havainto kirjoitetaan silti (data ei katoa), pikakentät seuraavalla', async () => {
     const m = mockDb({ docs: { [PEL]: {} } });
     await aja(m, () => { throw new Error('laskenta'); }).p;
-    expect(m.db.batches).toEqual([['set ' + PEL + '/havainnot/h2']]);
+    expect(m.db.erilliset).toEqual([HAV]);
+  });
+  it('pikakenttäkirjoitus hylätään (esim. Rules) → havainto silti tallessa JA promise ei hylkää (EI vacuous: pelaajadokin set todella heittää)', async () => {
+    const m = mockDb({ docs: { [PEL]: { etunimi: 'Topias' } } });
+    let pikakenttaYritys = 0;
+    const ctx = { _PH_DB: m.db, Date, console: { warn() {} }, _phIka: () => 13,
+      tmAdarPikakentat: () => ({ adar_viimeisin: { yht: 2, pvm: '2026-10-03' }, adar_pvm: '2026-10-03' }),
+      window: { _pelaajaMap: { p1: {} } } };
+    vm.createContext(ctx);
+    vm.runInContext(pura(A, 'function _phPelaajaRef(') + '\n' + pura(A, 'async function _phKirjoitaHavaintoJaPikakentat(')
+      + '\nthis.f = _phKirjoitaHavaintoJaPikakentat; this.ref = _phPelaajaRef;', ctx);
+    const pRef = ctx.ref('kpv', 'p1');
+    const havRef = pRef.collection('havainnot').doc('h3');
+    // pelaajadokin set hylätään; havainnon set kirjautuu
+    const alkupSet = pRef.set;
+    pRef.set = async () => { pikakenttaYritys++; throw Object.assign(new Error('denied'), { code: 'permission-denied' }); };
+    ctx._phPelaajaRef = () => pRef;
+    havRef.set = async (d) => { m.docs[HAV3] = d; };
+    expect(alkupSet).toBeTruthy();
+    await ctx.f(havRef, { pisteet: { A: 2 }, porras: 1 }, 'kpv', 'p1', 1, true);
+    await new Promise((r) => setTimeout(r, 0));
+    expect(pikakenttaYritys, 'pikakenttäkirjoitusta ei yritetty → testi vacuous').toBe(1);
+    expect(m.docs[HAV3], 'havainto katosi pikakenttäkirjoituksen hylkäyksen takia').toBeTruthy();
   });
   it('online-tallennus ja offline-jonon synkka käyttävät molemmat atomista apuria', () => {
-    expect(pura(A, 'async function _phTallenna(')).toContain('_phKirjoitaHavaintoJaPikakentat(ref, data, seuraId, pelaajaId, S.porras, porrasTallennetaan, _luonnosTyhjenna).catch(');
+    expect(pura(A, 'async function _phTallenna(')).toContain('_phKirjoitaHavaintoJaPikakentat(ref, data, seuraId, pelaajaId, S.porras, porrasTallennetaan, _lahetetty).then(');
     const s = pura(A, 'async function _synkronoiOfflineJono(');
     expect(s).toContain('await _phKirjoitaHavaintoJaPikakentat(havRef,');
     expect(s).not.toContain('.add(');
   });
   it('PWA: sw_adar CACHE nostettu (HTML muuttui)', () => {
-    expect(lue('sw_adar.js')).toMatch(/const CACHE = 'tm-adar-v([6-9]|\d\d+)'/);
+    expect(lue('sw_adar.js')).toMatch(/const CACHE = 'tm-adar-v([7-9]|\d\d+)'/);
   });
 });
 

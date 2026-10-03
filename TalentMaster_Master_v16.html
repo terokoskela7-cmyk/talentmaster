@@ -6257,7 +6257,7 @@ function _ttKorttiHTML(p) {
   // Napit
   h += '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;grid-column:1/-1">'
     + '<button onclick="_ttVieTreeniin(\'' + pid + '\',\'' + item.avain + '\')" style="flex:1;min-width:150px;font-size:12.5px;font-weight:600;border-radius:9px;padding:10px 12px;border:.5px solid rgba(40,176,144,.4);background:rgba(40,176,144,.14);color:var(--teal);cursor:pointer">' + masterT('＋ Vie jakson treeniin') + '</button>'
-    + '<button onclick="openDrill(\'adar\')" style="flex:1;min-width:150px;font-size:12.5px;font-weight:600;border-radius:9px;padding:10px 12px;border:.5px solid var(--border);background:var(--ov-1);color:var(--ink2);cursor:pointer">' + masterT('Havainnoi → review') + '</button>'
+    + '<button onclick="openDrill(\'adar\',\'' + pid + '\')" style="flex:1;min-width:150px;font-size:12.5px;font-weight:600;border-radius:9px;padding:10px 12px;border:.5px solid var(--border);background:var(--ov-1);color:var(--ink2);cursor:pointer">' + masterT('Havainnoi → review') + '</button>'
     + '</div>';
   return '<div style="grid-column:1/-1;margin-top:6px;padding-top:10px;border-top:.5px solid rgba(242,239,230,.1)">'
     + '<div style="font-size:11px;letter-spacing:.04em;color:var(--ink2);text-transform:uppercase;margin-bottom:2px">' + masterT('⚽ Toimintakortti — konsepti → cue → harjoite') + '</div>' + h + '</div>';
@@ -7573,7 +7573,7 @@ function _renderPinfoFirestore(p) {
     _adarHtml = '<div style="grid-column:1/-1;margin-top:10px;padding-top:10px;border-top:.5px solid rgba(242,239,230,.1)">'
       + '<div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:6px;flex-wrap:wrap">'
       + '<span style="font-size:11px;letter-spacing:.04em;color:var(--ink2);text-transform:uppercase">' + masterT('Peliäly') + (_av.yht != null ? ' <span style="color:var(--teal);font-family:\'Cormorant Garamond\',serif;font-size:15px">' + _av.yht + '<span style="font-size:11px;color:var(--ink3)">/3</span></span>' : '') + ' <span style="font-size:9px;color:var(--ink3);border:.5px solid var(--border);border-radius:10px;padding:1px 7px;letter-spacing:.02em">' + _tasoMerkki + '</span></span>'
-      + '<span style="font-size:10px;color:var(--ink3)">' + (p.adar_havaintoja || 0) + masterT(' havaintoa') + (_gate ? '' : masterT(' · ⚠ ≥3 luotettavuuteen')) + ' · <span style="color:var(--teal);cursor:pointer" onclick="openDrill(\'adar\')">' + masterT('Peliälytyökalu →') + '</span></span></div>'
+      + '<span style="font-size:10px;color:var(--ink3)">' + (p.adar_havaintoja || 0) + masterT(' havaintoa') + (_gate ? '' : masterT(' · ⚠ ≥3 luotettavuuteen')) + ' · <span style="color:var(--teal);cursor:pointer" onclick="openDrill(\'adar\',\'' + _mEsc(String(p.id || '')) + '\')">' + masterT('Peliälytyökalu →') + '</span></span></div>'
       + (_gate
           ? '<div style="display:flex;gap:10px;flex-wrap:wrap">' + _osat.map(_bar).join('') + '</div>'
             + (_vah && _heik && _vah !== _heik ? '<div style="font-size:10px;color:var(--ink3);margin-top:7px">' + masterT('💪 Vahvin: ') + '<span style="color:var(--teal)">' + _vah[1] + '</span> · 🎯 ' + masterT('Kehitä: ') + '<span style="color:var(--amber)">' + _heik[1] + '</span></div>' : '')
@@ -10048,7 +10048,7 @@ async function _tallennaD3(pid) {
 }
 window._avaaD3Arvio = _avaaD3Arvio; window._d3Valitse = _d3Valitse; window._tallennaD3 = _tallennaD3;
 
-function openDrill(type) {
+function openDrill(type, pid) {
   _drillType = type;
   const titleEl   = document.getElementById('drillTitle');
   const contentEl = document.getElementById('drillContent');
@@ -10086,7 +10086,9 @@ function openDrill(type) {
     _avaaD3Arvio(_activePelaaja); return;
   } else if (type === 'adar') {
     // I1 (§1): ADAR-pikakortti KAANON — upota iframeen Havainnot-paneeliin. Konteksti Masterista (ei seura-porttia).
-    _avaaPikakorttiIframe(_activePelaaja || '');
+    /* HOTFIX: pelaaja välitetään VAIN kun ADAR avataan nimenomaisesti pelaajan kortilta (pid-argumentti). Yleisistä/joukkuetason
+       sisäänkäynneistä EI käytetä _activePelaaja-muistia (viimeksi avattu pelaaja) → ADAR näyttää pelaajalistan. */
+    _avaaPikakorttiIframe(pid || '');
     return; // Ei avata drill-paneelia (oma modaali)
   }
 
