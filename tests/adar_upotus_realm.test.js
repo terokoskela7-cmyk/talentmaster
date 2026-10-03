@@ -59,14 +59,23 @@ function teeDb(oma, kirjatut, nimi) {
     }
   };
   const doc = () => ({
-    _nimi: nimi,
+    _nimi: nimi, id: 'h1',
     set: (data) => { tarkista(data); kirjatut.push({ db: nimi, data }); return Promise.resolve(); },
     update: (data) => { tarkista(data); kirjatut.push({ db: nimi, data, update: true }); return Promise.resolve(); },
     get: () => Promise.resolve({ exists: false, data: () => ({}) }),
     onSnapshot: () => () => {},
     collection: () => ({ doc, get: () => Promise.resolve({ docs: [] }) }),
   });
-  return { collection: () => ({ doc, get: () => Promise.resolve({ docs: [] }) }) };
+  /* §26: havainto + pikakentät kirjoitetaan batchina → batch.set tekee saman realm-tarkistuksen kuin SDK. */
+  const batch = () => {
+    const ops = [];
+    return {
+      set: (ref, data) => { tarkista(data); ops.push({ db: nimi, data }); },
+      update: (ref, data) => { tarkista(data); ops.push({ db: nimi, data, update: true }); },
+      commit: () => { ops.forEach((o) => kirjatut.push(o)); return Promise.resolve(); },
+    };
+  };
+  return { collection: () => ({ doc, get: () => Promise.resolve({ docs: [] }) }), batch };
 }
 
 /** Rakentaa lapsirealmin (= iframe) ja ajaa siellä pikakortin tallennuspolun. */
@@ -81,7 +90,7 @@ function ajaLapsiRealmissa() {
   const isaDb = teeDb(Object.prototype, kirjatut, 'isa');
 
   Object.assign(ctx, {
-    console, Date, Promise, Object, Array, String, Number, JSON,
+    console, Date, Promise, Object, Array, String, Number, JSON, setTimeout,
     navigator: { onLine: true },
     _PH_DB: lapsiDb,
     _PH_AUTH: { currentUser: { uid: 'u1', displayName: 'Valle Valmentaja' } },
@@ -116,8 +125,10 @@ function ajaLapsiRealmissa() {
   ctx.self = ctx;
 
   vm.runInContext(pura(ADAR, 'function _phPelaajaRef(') + '\n'
+    + pura(ADAR, 'async function _phKirjoitaHavaintoJaPikakentat(') + '\n'
     + pura(ADAR, 'async function _phTallenna(') + '\n'
-    + 'globalThis.__aja = _phTallenna;', ctx);
+    // _phTallenna ei awaitaa kirjoitusta (UI etenee) → odotetaan että batch ehtii commitoitua
+    + 'globalThis.__aja = async () => { await _phTallenna(); await new Promise((r) => setTimeout(r, 0)); };', ctx);
 
   return { ctx, kirjatut, lapsiProto, isaDb };
 }

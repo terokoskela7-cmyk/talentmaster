@@ -292,6 +292,14 @@ describe('ADAR · offline-jonon synkronointi', () => {
       /* REALM-KORJAUS 2026-09-28: instanssit ovat sivun OMIA (_PH_DB/_PH_AUTH), eivät
          isäikkunan injektoimia. Ympäristö seuraa sitä. */
       _PH_AUTH: { currentUser: { uid: 'u1' } },
+      /* §26: synkka kirjoittaa havainnon + adar_*-pikakentät batchina (_phKirjoitaHavaintoJaPikakentat, oma testi
+         tests/pikakentat_atomiset.test.js). Tässä mitataan JONON logiikkaa → kirjoitus tynkänä. */
+      _phPelaajaRef: () => ({ collection: () => ({ doc: () => ({ id: 'x' }) }) }),
+      _phKirjoitaHavaintoJaPikakentat: async (ref, d, sid, pid) => {
+        const v = (virheet || {})[pid];
+        if (v) { const e = new Error('nope'); e.code = v; throw e; }
+        lisatyt.push(d);
+      },
       _PH_DB: {
         collection: () => ({
           doc: () => ({

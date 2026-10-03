@@ -178,7 +178,9 @@ describe('(2) porras ohjaa ulottuvuudet, ikä on vain ehdotus', () => {
     const f = pura('async function _phTallenna(');
     expect(f).toContain('var porrasTallennetaan = S.porrasNostettu || S.porrasTallennettu !== S.porras;');
     expect(f, 'pikakentät on laskettava UUDELLA portaalla (muuten uusi taito näkyy vakiintuneena)')
-      .toContain('_phPaivitaPikakentat(seuraId, pelaajaId, S.porras, porrasTallennetaan)');
+      .toContain('_phKirjoitaHavaintoJaPikakentat(ref, data, seuraId, pelaajaId, S.porras, porrasTallennetaan, _luonnosTyhjenna)');
+    const k = pura('async function _phKirjoitaHavaintoJaPikakentat(');
+    expect(k, 'porras kirjoitetaan vain kun kirjoitaPorras').toContain('if (kentat && kirjoitaPorras) kentat.havainto_porras = porras;');
   });
 
   it('"Ei vielä" EI kirjoita mitään — se vain piilottaa kortin', () => {
@@ -266,8 +268,10 @@ describe('(4) tallennus: yksi polku, ei omaa offline-jonoa', () => {
   const f = () => pura('async function _phTallenna(');
 
   it('kirjoitusta EI awaitata — UI etenee myös verkotta', () => {
-    expect(f(), 'awaitattu set() jumittaisi kentällä ilman verkkoa').toContain('ref.set(data).catch(');
-    expect(f()).not.toContain('await ref.set(');
+    // §26: havainto + pikakentät batchina — kutsua EI awaitata (catch hoitaa virheen), kuten ennen ref.set(data).catch
+    expect(f(), 'awaitattu kirjoitus jumittaisi kentällä ilman verkkoa')
+      .toContain('_phKirjoitaHavaintoJaPikakentat(ref, data, seuraId, pelaajaId, S.porras, porrasTallennetaan, _luonnosTyhjenna).catch(');
+    expect(f()).not.toMatch(/await (ref\.set\(|_phKirjoitaHavaintoJaPikakentat\()/);
   });
 
   it('tila luetaan hasPendingWrites:sta, ei arvailla navigator.onLinesta', () => {
