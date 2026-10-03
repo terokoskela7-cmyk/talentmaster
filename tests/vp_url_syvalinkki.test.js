@@ -81,9 +81,7 @@ describe('VP_v25 URL-sisääntulo ?seura=&pelaaja=&nakyma=kehitys', () => {
   });
   it('Seurahallinta ja UTJ eivät enää avaa vanhaa IDP-korttia; Seuran nappi osoittaa VP:n sisääntuloon', () => {
     const seura = readFileSync(join(juuri, 'TalentMaster_Seura.html'), 'utf8');
-    const utj = readFileSync(join(juuri, 'TalentMaster_UTJ_v1.html'), 'utf8');
     expect(seura).not.toContain('TalentMaster_IDP_Kortti_v4.html');
-    expect(utj).not.toContain('TalentMaster_IDP_Kortti_v4.html');
     expect(seura).toContain("window.open('TalentMaster_VP_v25.html?seura=${encodeURIComponent(tila.seuraId)}&pelaaja=${encodeURIComponent(pelaajaId)}&nakyma=kehitys', '_blank');");
   });
 });

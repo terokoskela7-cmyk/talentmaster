@@ -58,10 +58,10 @@ describe('setup-skriptit arkistossa, kovakoodattu SA-uid poissa', () => {
       expect(existsSync(join(ROOT, 'archive', 'tm_admin', f)), f).toBe(true);
     }
   });
-  it.each([['TalentMaster_VP_v25.html'], ['TalentMaster_UTJ_v1.html'], ['TalentMaster_Agent_v1.html'], ['functions/valmennusapuri.js']])(
+  // UTJ_v1 arkistoitu 2026-10 (docs/UTJ_TALTEEN.md) → poistettu listalta.
+  it.each([['TalentMaster_VP_v25.html'], ['TalentMaster_Agent_v1.html'], ['functions/valmennusapuri.js']])(
     '%s ei sisällä vanhaa SA-uid:tä', (f) => { expect(lue(f)).not.toContain('dqUzvJA61Wb9fgj5UiK0riSA4NI2'); });
-  it('UTJ ja valmennusapuri tunnistavat SA:n admins-dokumentista', () => {
-    expect(lue('TalentMaster_UTJ_v1.html')).toContain("const ad=await db.collection('admins').doc(u.uid).get().catch(()=>null);\n  const isSu=!!ad?.exists;");
+  it('valmennusapuri tunnistaa SA:n admins-dokumentista (UTJ_v1 arkistoitu 2026-10)', () => {
     expect(lue('functions/valmennusapuri.js')).toContain('const onSA = adminSnap.exists;');
   });
 });

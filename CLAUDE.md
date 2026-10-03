@@ -160,7 +160,7 @@ per tiedosto** (kaksi lohkoa kumoaa toisen — Seura.html:n bugi oli juuri täm�
 |---|---|---|
 | `TalentMaster_Seura.html` | Seurahallinta (VP, sihteeri, UTJ) | ✅ mobiili OK |
 | `TalentMaster_Admin.html` | Super Admin -hallintapaneeli | ✅ |
-| `TalentMaster_VP_v25.html` | **VP-dashboard — KANONINEN JULKINEN (2026-06-15 päätös)** | ✅ kaikki nav-linkit → v25 (Admin/Seura/Testaus_v9/UTJ/tm_dna_builder). Vaihe 1+2+3 valmis; Firebase = v22-rakenne. `?seura=` URL:sta |
+| `TalentMaster_VP_v25.html` | **VP-dashboard — KANONINEN JULKINEN (2026-06-15 päätös)** | ✅ kaikki nav-linkit → v25 (Admin/Seura/Testaus_v9/tm_dna_builder; UTJ_v1 arkistoitu 2026-10, ks. `docs/UTJ_TALTEEN.md`). Vaihe 1+2+3 valmis; Firebase = v22-rakenne. `?seura=` URL:sta |
 | `TalentMaster_VP_v22.html` | VP-dashboard (vanha tuotanto, §19) | ⚠️ korvattu v25:llä julkisena; säilytetään toistaiseksi varalla, ei enää nav-linkkien kohde |
 | `TalentMaster_Master_v16.html` | Valmentajan näkymä + Testit-työtila + VP-viestit Inbox | ✅ uusin |
 | `TalentMaster_ADAR_Pikakortti.html` | Kenttähavainto + ADAR Vision (bundler) | ✅ |

@@ -40,7 +40,7 @@ describe('tmHenkiloJoukkueNimet / tmHenkiloJoukkueTeksti', () => {
 describe('henkilöstön näyttökohdat käyttävät koko listaa', () => {
   const VP = lue('TalentMaster_VP_v25.html');
   it.each([
-    ['TalentMaster_VP_v25.html'], ['TalentMaster_Seura.html'], ['TalentMaster_UTJ_v1.html'], ['TalentMaster_Admin.html'],
+    ['TalentMaster_VP_v25.html'], ['TalentMaster_Seura.html'], ['TalentMaster_Admin.html'],   // UTJ_v1 arkistoitu 2026-10
   ])('%s lataa lib/tm_joukkue.js?v=4 ja kutsuu tmHenkiloJoukkueTeksti', (f) => {
     const s = lue(f);
     expect(s).toContain('<script src="lib/tm_joukkue.js?v=4"></script>');
@@ -52,13 +52,12 @@ describe('henkilöstön näyttökohdat käyttävät koko listaa', () => {
     expect(VP).toContain("rooliLabel + ' · ' + _jsvEsc(v.joukkueTeksti || v.joukkue || '—') + '</div></div></div>'");
     expect(VP).not.toMatch(/coach-team">\$\{rooliLabel\} · \$\{v\.joukkue/);
   });
-  it('Seura, Admin ja UTJ eivät enää näytä henkilöstölle pelkkää yksikkökenttää', () => {
+  it('Seura ja Admin eivät enää näytä henkilöstölle pelkkää yksikkökenttää (UTJ_v1 arkistoitu 2026-10)', () => {
     expect(lue('TalentMaster_Seura.html')).not.toContain("${h.joukkueNimi||h.joukkue||'—'}");
     expect(lue('TalentMaster_Admin.html')).not.toContain("${esc(k.joukkueNimi || k.joukkue || '—')}");
-    expect(lue('TalentMaster_UTJ_v1.html')).not.toContain("${e(u.joukkue||'')}");
   });
   it('ei vanhaa ?v=3-viittausta tm_joukkue.js:ään missään sivussa (stale cache)', () => {
-    for (const f of ['TalentMaster_VP_v25.html', 'TalentMaster_Seura.html', 'TalentMaster_Admin.html', 'TalentMaster_UTJ_v1.html',
+    for (const f of ['TalentMaster_VP_v25.html', 'TalentMaster_Seura.html', 'TalentMaster_Admin.html',
       'TalentMaster_Excel_Tuonti.html', 'TalentMaster_Pelihavainto_Kentta.html']) expect(lue(f)).not.toContain('tm_joukkue.js?v=3');
   });
 });

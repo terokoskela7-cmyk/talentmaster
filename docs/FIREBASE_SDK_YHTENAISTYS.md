@@ -41,7 +41,7 @@ Analytics-moduulia ei ladata missään elävässä sivussa. Service workerit (`s
 | `TalentMaster_Admin.html` | 9.22.1 | compat | app, app-check, auth, firestore, functions | 84 | 6 | 10 | 0 | 1 | 101 |
 | `TalentMaster_Master_v16.html` | 9.22.1 | compat | app, app-check, auth, firestore, storage | 313 | 0 | 29 | 0 | 2 | 344 |
 | `TalentMaster_Pelaaja_v7.html` | 9.22.1 | compat | app, app-check, auth, firestore, functions | 148 | 2 | 17 | 0 | 1 | 168 |
-| `TalentMaster_UTJ_v1.html` | 9.22.1 | compat | app, app-check, auth, firestore | 28 | 0 | 5 | 0 | 0 | 33 |
+| ~~`TalentMaster_UTJ_v1.html`~~ | 9.22.1 → 10.7.1 (erä 1) | compat | app, app-check, auth, firestore | 28 | 0 | 5 | 0 | 0 | 33 — **arkistoitu 2026-10** (`archive/`), elävät compat-sivut 20 → 19 |
 | `TalentMaster_Valmennusapuri.html` | 9.22.1 | compat | app, app-check, auth, functions | 0 | 1 | 8 | 0 | 0 | 9 |
 | `TalentMaster_Vanhempi_v2.html` | 9.22.1 | compat | app, app-check, auth, firestore, functions | 56 | 1 | 7 | 0 | 0 | 64 |
 | `TalentMaster_Excel_Tuonti.html` | 9.22.2 | compat | app, app-check, auth, firestore | 156 | 0 | 19 | 0 | 0 | 175 |
@@ -134,7 +134,7 @@ Yhteenveto: **9.22.0** ×2 · **9.22.1** ×7 · **9.22.2** ×2 · **9.23.0** ×1
 | Erä | Sisältö | Muuttuu | Peruste |
 |---|---|---|---|
 | **0** | Portti-testi `tests/firebase_sdk_versio.test.js` (§6) + CLAUDE.md §38 -korjaus (21 compat) + tämä dokumentti. **Ei SDK-muutoksia.** (`lib/tm_appcheck.js`:n versiokommentti päivitetään erässä 1.) | — | Portti ensin: estää uuden hajaantumisen ja pakottaa erät etenemään |
-| **1** | Sisäiset työkalut: `UTJ_v1`, `Testituonti_Master`, `IDP_Kortti_v4` (arkistoitu 2026-10) | 9.22.1 / 9.22.2 / 9.22.0 → 10.7.1 | Ei tuotantokäyttäjiä / harva käyttö; ei PWA:ta |
+| **1** | Sisäiset työkalut: `UTJ_v1`, `Testituonti_Master`, `IDP_Kortti_v4` (UTJ_v1 ja IDP_Kortti_v4 arkistoitu 2026-10) | 9.22.1 / 9.22.2 / 9.22.0 → 10.7.1 | Ei tuotantokäyttäjiä / harva käyttö; ei PWA:ta |
 | **2** | Henkilöstön työkalut: `Admin`, `Excel_Tuonti`, `Valmennusapuri` | 9.22.1 / 9.22.2 → 10.7.1 | SA/johto-käyttö, ei pelaajia; Excel_Tuonti kirjoittaa paljon (batch) → testataan Topiaksella + testidatalla |
 | **3** | Ydin-henkilöstöapit: `Seura`, `Master_v16` | 9.22.0 / 9.22.1 → 10.7.1 | Suurimmat käyttömäärät (~110 / ~170 collection-kutsua), kaikki seurat; Google-popup (Master) |
 | **4** | `ADAR_Pikakortti` (+ `sw_adar.js`) | 9.22.1 → 10.7.1 | PWA + `enablePersistence` + SW; erillinen offline-testi |

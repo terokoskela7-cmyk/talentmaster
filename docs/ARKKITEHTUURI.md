@@ -201,7 +201,7 @@ Heikoin ketju: LL (55%) → harjoitteet ohjautuvat LL-ketjulle
 | ~~`TalentMaster_IDP_Kortti_v3.html`~~ / ~~`_v4.html`~~ | – | 🗄 arkistoitu | (arkistoitu 2026-10 → IDP = `idp_kausi` + `lib/tm_idp.js`, ks. `docs/IDP_YHDISTAMINEN.md`) |
 | `TalentMaster_Rekisterointi_Suostumus.html` | huoltaja | ✅ | fi/sv/en |
 | `TalentMaster_Kortit.html` | pelaaja | ✅ | FIRE/ICON/MILESTONE/TOTY + WOW |
-| `TalentMaster_UTJ_v2.html` | utj | ✅ | DNA, CSI, 6 välilehteä |
+| ~~`TalentMaster_UTJ_v1/v2.html`~~ | utj | 🗄 arkistoitu 2026-10 | UTJ käyttää VP_v25:tä ja Seuraa; DNA + Kasvattisuppilo talteen, ks. `docs/UTJ_TALTEEN.md` |
 | `TalentMaster_Admin.html` | super_admin | ✅ | — |
 | `TalentMaster_ADAR_Koulutus.html` | valmentaja | ✅ | — |
 | `TalentMaster_Valmentaja_Matriisi.html` | koulutus | ✅ | 5-tabi coaching tool |
@@ -551,7 +551,7 @@ exists(/databases/$(database)/documents/admins/$(request.auth.uid))
 - [x] Excel-tuontipohja v4 (testit + kartoitus + tekniikka)
 - [x] Solo-versio: onboarding + kortti + profiili
 - [x] tm_pitch_en.html + Palloliitto_2026.pptx
-- [x] UTJ_v2.html — UTJ-dashboard v2
+- [x] UTJ_v2.html — UTJ-dashboard v2 (UTJ_v1 arkistoitu 2026-10, `docs/UTJ_TALTEEN.md`)
 - [x] tm_brand.html — brändikirja
 - [x] Palloliiton palaveri (fyysisen suorituskyvyn johtaja, Apr 13)
 
