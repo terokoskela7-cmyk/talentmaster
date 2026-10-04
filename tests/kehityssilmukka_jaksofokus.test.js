@@ -172,5 +172,5 @@ describe('ydin on PURE', () => {
     const koodi = LIB.replace(/\/\*[\s\S]*?\*\//g, '').split('\n').map((l) => l.replace(/\/\/.*$/, '')).join('\n');   // ilman kommentteja
     expect(koodi).not.toMatch(/firebase|firestore|\bdb\b|collection\(|\.set\(|\.update\(|\.add\(|batch|document\.|fetch\(|serverTimestamp|localStorage/);
   });
-  it('API: kolme funktiota', () => { expect(Object.keys(K).sort()).toEqual(['tmAsetaJaksofokus', 'tmPaivitaJaksofokus', 'tmSuljeJakso']); });
+  it('API: jaksofokus-funktiot + tmKirjaaKatselmus (R6.2a)', () => { expect(Object.keys(K).sort()).toEqual(['tmAsetaJaksofokus', 'tmKirjaaKatselmus', 'tmPaivitaJaksofokus', 'tmSuljeJakso']); });
 });

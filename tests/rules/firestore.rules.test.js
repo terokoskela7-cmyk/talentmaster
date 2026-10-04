@@ -3795,6 +3795,37 @@ describe('§26 atomiset batchit: testitulos/review + pikakentät', () => {
       expect((await lue(['seurat', SEURA_A, 'pelaajat', PELAAJA_UID])).review_viimeisin_pvm).toBe(pvm);
     }
   });
+  // R6.2a — cockpitin "Kirjaa kehityskeskustelu" kirjoittaa saman tietueen kuin MDT: reviewit/{pvm} (merge) + review_viimeisin_pvm/-tyyppi + review_tagit
+  const KK_REVIEW = (pvm) => ({ tyyppi: 'kehityskeskustelu', pvm, tekija_uid: 'vp-uid', tekija_rooli: 'vp', idp_paivitetty: true, arvio: { arvo: 4.5, pelaajan_arvio: 4 }, tagit: ['oikea-jalka'] });
+  it('R6.2a cockpit-katselmus: VP ja oman joukkueen valmentaja kirjaavat reviewit/{pvm} (merge) + pikakentät (review_tagit mukana) yhdessä batchissa', async () => {
+    for (const [ctx, pvm] of [[vpContext(SEURA_A), '2026-10-05'], [valmentajaContext(VALM_A_UID, SEURA_A), '2026-10-06']]) {
+      const db = ctx.firestore(), b = FS_MOD.writeBatch(db);
+      b.set(doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'reviewit', pvm), KK_REVIEW(pvm), { merge: true });
+      b.set(pel(db, SEURA_A, PELAAJA_UID), { review_viimeisin_pvm: pvm, review_viimeisin_tyyppi: 'kehityskeskustelu', review_tagit: ['oikea-jalka'] }, { merge: true });
+      await assertSucceeds(b.commit());
+      const d = await lue(['seurat', SEURA_A, 'pelaajat', PELAAJA_UID]);
+      expect(d.review_viimeisin_pvm).toBe(pvm); expect(d.review_viimeisin_tyyppi).toBe('kehityskeskustelu'); expect(d.review_tagit).toEqual(['oikea-jalka']);
+    }
+  });
+  it('R6.2a: saman päivän toinen katselmus (merge) päivittää olemassa olevaa reviewit/{pvm}-dokkia: MDT-kentät säilyvät', async () => {
+    const db = vpContext(SEURA_A).firestore(), pvm = '2026-10-05';
+    const r = doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'reviewit', pvm);
+    await assertSucceeds(FS_MOD.setDoc(r, { tyyppi: 'mdr', pvm, paatos: 'MDT-päätös', idp_paivitetty: false }, { merge: true }));
+    await assertSucceeds(FS_MOD.setDoc(r, { tyyppi: 'kehityskeskustelu', arvio: { arvo: 4.5, pelaajan_arvio: 4 }, tagit: ['oikea-jalka'] }, { merge: true }));
+    const d = await lue(['seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'reviewit', pvm]);
+    expect(d.paatos).toBe('MDT-päätös'); expect(d.arvio).toEqual({ arvo: 4.5, pelaajan_arvio: 4 }); expect(d.tyyppi).toBe('kehityskeskustelu');
+  });
+  it('R6.2a: muun joukkueen valmentaja, toisen seuran VP ja pelaaja EIVÄT kirjaa cockpit-katselmusta (koko batch hylätään)', async () => {
+    const yrita = (ctx, pid) => { const db = ctx.firestore(), b = FS_MOD.writeBatch(db);
+      b.set(doc(db, 'seurat', SEURA_A, 'pelaajat', pid, 'reviewit', '2026-10-05'), KK_REVIEW('2026-10-05'), { merge: true });
+      b.set(pel(db, SEURA_A, pid), { review_viimeisin_pvm: '2026-10-05', review_viimeisin_tyyppi: 'kehityskeskustelu', review_tagit: ['oikea-jalka'] }, { merge: true });
+      return b.commit(); };
+    await assertFails(yrita(valmentajaContext(VALM_A_UID, SEURA_A), PELAAJA_A2_UID));
+    await assertFails(yrita(testEnv.authenticatedContext('vp-kpv-001', { rooli: 'vp', seuraId: SEURA_B }), PELAAJA_UID));
+    await assertFails(yrita(pelaajaItseContext(), PELAAJA_UID));
+    expect((await lue(['seurat', SEURA_A, 'pelaajat', PELAAJA_A2_UID])).review_viimeisin_pvm).toBeUndefined();
+    expect(await lue(['seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'reviewit', '2026-10-05'])).toBeUndefined();
+  });
   it('PHV: oman joukkueen valmentaja kirjaa biologinen_ika/{pvm} + phv-pikakentät samassa batchissa; muun joukkueen → hylätään kokonaan', async () => {
     const db = valmentajaContext(VALM_A_UID, SEURA_A).firestore();
     const kirjaa = (pid) => { const b = FS_MOD.writeBatch(db); b.set(doc(db, 'seurat', SEURA_A, 'pelaajat', pid, 'biologinen_ika', '2026-10-03'), { mittauspaiva: '2026-10-03', phv_tila_koodi: 'PRE' }); b.update(pel(db, SEURA_A, pid), { biologinenIka_viimeisin: { mittauspaiva: '2026-10-03' }, phv_tila: 'PRE' }); return b.commit(); };

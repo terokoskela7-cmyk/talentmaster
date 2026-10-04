@@ -110,6 +110,7 @@ window.TM_KAAVIO_HOST = {
 <script src="lib/tm_kypsyys.js?v=2"></script>   <!-- IDP R1: Kypsyys/PHV -komponentti (tmKypsyys) kytketty näkyviin per-pelaaja-kortin vasempaan paneeliin (korvaa kypsyysproosan) -->
 <script src="lib/tm_treeniteema.js?v=1"></script>   <!-- Vaihe 4d: teemakattavuus PURE-ydin (jaksofokus vs suunnitellut teemaharjoitukset) -->
 <script src="lib/tm_jaksokooste.js?v=2"></script>   <!-- Vaihe 6: jakson sulku (meso-sykli) PURE-ydin — prosessi+kalibraatio+historia (geneerinen §8) -->
+<script src="lib/tm_kehityssilmukka.js?v=1"></script>   <!-- R6.2a: katselmus yhteen paikkaan (tmKirjaaKatselmus) + jaksofokuksen kirjoitusydin -->
 <script src="lib/tm_fyysteemat.js?v=4"></script>   <!-- Vaihe 7: fyysinen teemaluettelo + D1-fokuslähde + evidenssi (delta §29 + PHV-portti §28) -->
 <script src="lib/tm_ohjelma.js?v=1"></script>   <!-- Vaihe 7.2a: fysiikkaohjelmakirjasto (oversight: lue kirjasto + N-laskuri) -->
 <script src="lib/tm_ohjelma_analytiikka.js?v=2"></script>
@@ -8806,16 +8807,29 @@ window._vpTallennaReview = async function (pid) {
   // R1 — review-tagit: sanitoi vapaa syöte kuratoituun sanastoon (ei vapaita tageja) → pikakenttä review_tagit (§26, bulk-luku).
   const _tagRaw = (document.getElementById('_rvTagit') || {}).value || '';
   const _tagit = _vpReviewTagitSanitoi(_tagRaw.split(/[,;\s]+/));
-  p.review_tagit = _tagit;
   window._rvArvioVal = null;
   const m = document.getElementById('_vpReviewModal'); if (m) m.remove();
   _vpKausitavoiteReRender(false);   // K2: ei taman rivin toiminto -> avointa rivia ei vaihdeta
-  await _vpTallennaIdpDok(p, 'Review kirjattu');
-  if (!_isDemoMode && _seuraId) {   // review_tagit pelaaja-pikakenttään + review-dokkiin (aggregoitava)
-    try {
-      await db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(p.id).set({ review_tagit: _tagit }, { merge: true });
-    } catch (e) { console.warn('[reviewTagit]', e && e.message); }
-  }
+  const _ok = await _vpTallennaIdpDok(p, 'Review kirjattu');
+  if (!_ok) return;   // R6.2a: IDP-kirjoitus epäonnistui (toast näytetty) → ei katselmusmerkintää eikä valeonnistumista
+  /* R6.2a — KATSELMUS YHTEEN PAIKKAAN: sama tietue kuin MDT-/bulk-polulla (tmKirjaaKatselmus): reviewit/{pvm} + review_viimeisin_pvm/-tyyppi
+     + review_tagit yhdessä batchissa → katselmusrytmi nollautuu myös cockpitin kehityskeskustelusta ("katselmus myöhässä" ei jää näkyviin).
+     Aiemmin tässä kirjoitettiin vain review_tagit. Teksteja (pelaajan sana, valmentajan kommentti) EI kopioida reviewit-dokkiin — ne ovat IDP-arviossa. */
+  const _pvm = tmPaivaIso(new Date());   // paikallinen päivä (reviewit/{pvm} + review_viimeisin_pvm)
+  const _rooliK = window._vpRooli || 'vp', _uid2 = (firebase.auth().currentUser || {}).uid || _uid || null;
+  const _paivita = function (pk) {   // paikallinen tila VASTA onnistumisen jälkeen
+    Object.assign(p, pk); p.review_tagit = _tagit;
+    if (typeof _vpKehAskelReRender === 'function') _vpKehAskelReRender(p);
+    if (typeof renderReviewit === 'function') renderReviewit();
+    if (typeof renderTilanne === 'function') renderTilanne();
+  };
+  const _katselmus = { tyyppi: 'kehityskeskustelu', pvm: _pvm, tekija_uid: _uid2, tekija_rooli: _rooliK, idp_paivitetty: true,   /* ei paatos-kenttää: merge ei saa pyyhkiä saman päivän MDT-katselmuksen päätöstekstiä */
+    arvio: { arvo: isNaN(parseFloat(arvio.arvo)) ? null : parseFloat(arvio.arvo), pelaajan_arvio: arvio.pelaajan_arvio }, tagit: _tagit };
+  if (_isDemoMode || !_seuraId) { _paivita({ review_viimeisin_pvm: _pvm, review_viimeisin_tyyppi: 'kehityskeskustelu' }); return; }
+  try {
+    const plan = await _vpKirjoitaReview(p.id, _pvm, _katselmus, p);
+    _paivita(plan.pikakentat);
+  } catch (e) { console.warn('[vpTallennaReview katselmus]', e && e.message); if (typeof toast === 'function') toast(vpT('Tallennus epäonnistui'), 'error'); }
 };
 // Elinkaari: saavutettu / hylatty (suora); jatkuu käyttää _vpJatkuuAvaa-modaalia (uusi tavoitearvo).
 window._vpElinkaari = async function (pid, toiminto, uusiTavoitearvo) {
@@ -18117,13 +18131,20 @@ window._mdtPrint = function(){ window.print(); };
 /* R6.0a: nimi _vpKirjoitaReview — aiempi `_vpKirjaaReview` jakoi nimen window._vpKirjaaReview-modaalin kanssa (rivin ~8739 sijoitus
    ylikirjoitti tämän deklaraation → MDT-/bulk-"kirjaus" avasi modaalin eikä kirjoittanut mitään, silti "✓ Review merkitty"). Modaali pysyy
    window._vpKirjaaReview:na (onclickit). Väärä kutsu (puuttuva pvm/review) HEITTÄÄ → ei hiljaista valeonnistumista. */
-async function _vpKirjoitaReview(pid, pvm, review) {
+async function _vpKirjoitaReview(pid, pvm, review, pelaaja) {
   if (!pid || typeof pvm !== 'string' || !pvm || !review || typeof review !== 'object') throw new Error('_vpKirjoitaReview: pid, pvm ja review vaaditaan');
+  /* R6.2a — KATSELMUS YHTEEN PAIKKAAN: kummankin polun (MDT/bulk 'mdr' ja cockpitin 'kehityskeskustelu') tietue tulee lib/tm_kehityssilmukka.js
+     tmKirjaaKatselmus:sta → reviewit/{pvm} (merge) + pikakentät review_viimeisin_pvm/-tyyppi (+ review_tagit) YHDESSÄ batchissa. Rytmi nollautuu molemmista.
+     Palauttaa suunnitelman: kutsuja päivittää paikallisen tilan (Object.assign(p, plan.pikakentat)) VASTA onnistumisen jälkeen. */
+  var K = window.TM_KEHITYSSILMUKKA;
+  if (!K || typeof K.tmKirjaaKatselmus !== 'function') throw new Error('tm_kehityssilmukka.js puuttuu — katselmusta ei kirjoitettu');
+  var plan = K.tmKirjaaKatselmus(pelaaja || null, Object.assign({}, review, { pvm: pvm, tyyppi: review.tyyppi || 'mdr' }));
   var pRef = db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(pid);
   var b = db.batch();
-  b.set(pRef.collection('reviewit').doc(pvm), review);
-  b.set(pRef, { review_viimeisin_pvm: pvm, review_viimeisin_tyyppi: 'mdr' }, { merge: true });
+  b.set(pRef.collection('reviewit').doc(plan.reviewitPvm), plan.reviewitData, { merge: true });
+  if (Object.keys(plan.pikakentat).length) b.set(pRef, plan.pikakentat, { merge: true });
   await b.commit();
+  return plan;
 }
 // Kirjaa MDT-review (§7.2 tuore token) → reviewit/{pvm} + pikakentät. Tallentaa VP-muokatun päätöstekstin.
 window._mdtMerkitseReview = async function() {
@@ -18138,8 +18159,8 @@ window._mdtMerkitseReview = async function() {
     var V = (typeof vanhempiRaporttiTekstit === 'function') ? vanhempiRaporttiTekstit(p, isp.ika, (isp.sp === 'T') ? 'N' : 'M') : null;
     var paatosEl = document.getElementById('mdtPaatos');
     var paatos = paatosEl ? paatosEl.value : '';
-    await _vpKirjoitaReview(_mdtPid, pvm, { tyyppi: 'mdr', pvm: pvm, tekija_uid: (u ? u.uid : (_uid || null)), tekija_rooli: rooli, paatos: paatos, idp_paivitetty: false, ikavaihe: (V ? V.ikavaihe : null) });
-    p.review_viimeisin_pvm = pvm; p.review_viimeisin_tyyppi = 'mdr';   // lokaali → status + listat päivittyvät
+    var _plan = await _vpKirjoitaReview(_mdtPid, pvm, { tyyppi: 'mdr', pvm: pvm, tekija_uid: (u ? u.uid : (_uid || null)), tekija_rooli: rooli, paatos: paatos, idp_paivitetty: false, ikavaihe: (V ? V.ikavaihe : null) }, p);
+    Object.assign(p, _plan.pikakentat);   // lokaali VASTA kirjoituksen jälkeen → status + listat päivittyvät
     if (typeof toast === 'function') toast(vpT('✓ Review merkitty tehdyksi'), 'ok');
     _renderMDTProfiili();
     if (typeof renderReviewit === 'function') renderReviewit();
@@ -19120,8 +19141,8 @@ window._vpCockpitBulkMerkitse = async function () {
   var ok = 0, fail = 0, RINNAKKAIN = 4, i = 0;
   async function yksi(p) {
     try {
-      await _vpKirjoitaReview(p.id, pvm, { tyyppi: 'mdr', pvm: pvm, tekija_uid: uid, tekija_rooli: rooli, paatos: '', idp_paivitetty: false });
-      p.review_viimeisin_pvm = pvm; p.review_viimeisin_tyyppi = 'mdr'; ok++;
+      var _plan = await _vpKirjoitaReview(p.id, pvm, { tyyppi: 'mdr', pvm: pvm, tekija_uid: uid, tekija_rooli: rooli, paatos: '', idp_paivitetty: false }, p);
+      Object.assign(p, _plan.pikakentat); ok++;
     } catch (e) { fail++; console.warn('[bulkReview]', p.id, e && e.message); }
   }
   async function tyontekija() { while (i < sallitut.length) { var idx = i++; await yksi(sallitut[idx]); } }
