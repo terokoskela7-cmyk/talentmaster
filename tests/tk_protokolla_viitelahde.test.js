@@ -387,10 +387,13 @@ describe('b) lapsen + huoltajan tavoite AINA alueellisesta', () => {
       expect(pura(lue(f), fn), fn).not.toMatch(/loppukilpailu|valtakunnallinen'/i);
     }
   });
-  it('kaikki lapsen/huoltajan viitekutsut pyytävät alueellisen eksplisiittisesti', () => {
+  // 4.10.2026 (Teron tarkastus): välitavoite = tkLajiViiteLapsi (hyvä = LIEVEMPI alue/finaali, erinomainen alueellinen,
+  // ei aluetta → null) — tests/tk_lapsi_lievempi.test.js. Muut lapsen viitekutsut (merkit) pyytävät alueellisen eksplisiittisesti.
+  it('lapsen/huoltajan viitekutsut: tavoite tkLajiViiteLapsi:sta, muut alueellisesta eksplisiittisesti', () => {
     const kutsut = (P7 + V2).match(/tkLajiViite\([^)]*\)/g).filter((k) => !/^tkLajiViite\(laji, ika, sp\)$/.test(k));
-    expect(kutsut.length).toBe(4);
+    expect(kutsut.length).toBe(1);   // _kkMerkkiTaso (kokoelman merkit)
     kutsut.forEach((k) => expect(k).toContain("'alueellinen'"));
+    expect((P7 + V2).match(/tkLajiViiteLapsi\(/g).length).toBe(3);   // Pelaaja ×2 + Vanhempi
   });
   it('_kkMerkkiTaso (merkit kokoelmassa) alueellisesta: P10 pujottelu 26.5 → hopea (alue: erinomainen 26.3 / hyvä 27.1)', () => {
     const ctx = vm.createContext({ window: { TM_TESTIT: T }, Date, String });

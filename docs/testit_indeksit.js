@@ -850,6 +850,21 @@ function tkLajiViite(laji, ika, sp, lahde) {
   return { erinomainen: v.erinomainen, hyva: v.hyva, n: ikaV._n, lahde: ikaV._lahde };
 }
 
+// LAPSEN/HUOLTAJAN viite välitavoitteeseen (päätös 4.10.2026): "hyvä" = LIEVEMPI alueellisesta ja valtakunnallisesta,
+// kun molemmat on. Peruste: alueellinen = top-20-otos (n=20), voi olla loppukilpailutasoa tiukempi (esim. P12
+// kuljetus-laukaus alue 11.7 vs finaali 14.5) → lapsen tavoite ei saa olla finaalitasoa tiukempi. "erinomainen" =
+// alueellinen (ennallaan). Alueellinen puuttuu → null (EI finaalitasoa lapsen tavoitteeksi, rivi piiloon).
+// Henkilökunta näkee molemmat tasot ennallaan (tkLajiViite + lähde).
+function tkLajiViiteLapsi(laji, ika, sp) {
+  const alue = tkLajiViite(laji, ika, sp, 'alueellinen');
+  if (!alue) return null;
+  const valtak = tkLajiViite(laji, ika, sp, 'valtakunnallinen');
+  if (!valtak || valtak.hyva == null) return Object.assign({}, alue, { hyvaLahde: 'alueellinen' });
+  const kaant = (laji === 'pituuspotku_bonus');   // suurempi parempi → lievempi = pienempi
+  const lievempiValtak = kaant ? (valtak.hyva < alue.hyva) : (valtak.hyva > alue.hyva);
+  return Object.assign({}, alue, { hyva: lievempiValtak ? valtak.hyva : alue.hyva, hyvaLahde: lievempiValtak ? 'valtakunnallinen' : 'alueellinen' });
+}
+
 // Saavutettava välitavoite TK-lajissa (sekunteina) — YKSI LÄHDE Pelaaja_v7:n ja Vanhempi_v2:n "Nyt X s → tavoite Y s" -riville
 // (korvaa kaksi kopiota _minaValitavoite/_vanhValitavoite, 4.10.2026). Logiikka ennallaan (gap ≤ 3 s → viite.hyva, muuten
 // arvo ∓ 3 s), mutta tavoite on AINA parempi kuin nykyinen tulos (pyöristys 0.5 s parempaan suuntaan). null = ei tavoitetta
@@ -1592,7 +1607,7 @@ if (typeof module !== 'undefined' && module.exports) {
     // TKI laskenta
     tkLaskeMerkki, tkLaskeTKI, laskeKokonaistulos, _laskeVahvuudetJaKehityskohteet, tkPituuspotkuBonus,
     // TKI-analyysimalli VAIHE 1 (per-laji viite, gap, budjetti, vauhti, abs-delta)
-    tkLajiViite, tkValitavoite, tkLajiTaso, tkLajiGapit, tkSekuntibudjetti, tkVaadittuVuosivauhti, tkAbsDelta, laskeD2Tekninen,
+    tkLajiViite, tkLajiViiteLapsi, tkValitavoite, tkLajiTaso, tkLajiGapit, tkSekuntibudjetti, tkVaadittuVuosivauhti, tkAbsDelta, laskeD2Tekninen,
     // Joukkueen avainluvut
     laskeJoukkuenHHAvainluvut, laskeJoukkuenTKIAvainluvut,
     // Räjähtävyysprofiili
@@ -1607,7 +1622,7 @@ if (typeof module !== 'undefined' && module.exports) {
     TK_KOKONAISRAJAT, TK_LAJIT_META, TK_LAJIVIITTEET, TK_LAJIVIITTEET_ALUE, TK_LAJIVIITTEET_VALTAK, TK_LAJITASOT,
     hhLaskeTaso, hhLaskeMetrikat, hhLaskeOVR,
     tkLaskeMerkki, tkLaskeTKI, laskeKokonaistulos, _laskeVahvuudetJaKehityskohteet, tkPituuspotkuBonus,
-    tkLajiViite, tkValitavoite, tkLajiTaso, tkLajiGapit, tkSekuntibudjetti, tkVaadittuVuosivauhti, tkAbsDelta, laskeD2Tekninen,
+    tkLajiViite, tkLajiViiteLapsi, tkValitavoite, tkLajiTaso, tkLajiGapit, tkSekuntibudjetti, tkVaadittuVuosivauhti, tkAbsDelta, laskeD2Tekninen,
     laskeJoukkuenHHAvainluvut, laskeJoukkuenTKIAvainluvut,
     laskeEI, laskeFVP, laskeVNE,
     ADAR_DIMENSIOT, ADAR_SKENAARIOT, ADAR_IKATASOT,
