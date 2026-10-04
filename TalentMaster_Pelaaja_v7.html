@@ -1516,51 +1516,57 @@ function rMinaKehitysvaihe() {
 }
 
 // ── TEKNIIKKAPROFIILI — TKI + merkki + vahvuus/kehityskohde + lajipalkit + trendi ──
-// Lukee pelaajan tekniikkakilpailutulokset Firestoresta (testitulokset-alikokoelma).
-// Laskenta window.TM_TESTIT (docs/testit_indeksit.js, aikapohjainen).
+// Lukee §26-PIKAKENTISTÄ (tki_viimeisin, tki_merkki, tk_lajit_viimeisin, tk_lajit_pvm, tk_kokonaistulos_viimeisin/
+// _edellinen, tki_vahvuus/tki_kehityskohde) — EI alikokoelmakyselyä renderöinnissä (§26/§36). Ennen luki vain
+// testitulokset-alikokoelman protokolla==='tekniikkakilpailu' -dokumentit (vain Excel-tuonti kirjoittaa niitä) →
+// Pikakirjauksen/Testaus_v9:n/Testituonnin TK-tuloksilla profiili näytti "tulossa", vaikka pikakentät olivat asetettu.
+// Tuottaa SAMAN _tekniikkaData-muodon {tki, merkki, vahvuudet, kehityskohteet, testit, trendi, kpl} kuin ennen.
+// Laskenta window.TM_TESTIT (docs/testit_indeksit.js) — vain lajiosuuksien vahvuuslista; puuttuu → pikakenttä riittää.
 let _tekniikkaData = null;
+const _TEK_LAJIT = ['ponnauttelu', 'syotto', 'pujottelu', 'kuljetus_laukaus'];
+function _tekniikkaPikakentista(p) {
+  if (!p) return null;
+  const tl = (p.tk_lajit_viimeisin && typeof p.tk_lajit_viimeisin === 'object') ? p.tk_lajit_viimeisin : {};
+  const testit = {};
+  _TEK_LAJIT.forEach(function (l) { const v = parseFloat(tl[l + '_s']); if (!isNaN(v)) testit[l] = v; });
+  const onTki = (p.tki_viimeisin != null && p.tki_viimeisin !== '');
+  if (!onTki && !Object.keys(testit).length) {
+    // §30 joustava + §7.22: ei tekniikkakilpailua → fallback H-H syöttö/pujottelu LAPSEN KIELELLÄ (sekunnit, EI tasolukuja).
+    const _hh = p.hh_viimeisin || {};
+    const _hhTekn = [];
+    if (_hh.syotto != null)    _hhTekn.push({ laji: 'syotto',    nimi: 'Syöttö',    aika: _hh.syotto });
+    if (_hh.pujottelu != null) _hhTekn.push({ laji: 'pujottelu', nimi: 'Pujottelu', aika: _hh.pujottelu });
+    return { tyhja: true, hhTekn: _hhTekn.length ? _hhTekn : null };
+  }
+  const T = window.TM_TESTIT || {};
+  const y = parseInt(String(p.tk_lajit_pvm || p.tki_pvm || '').slice(0, 4));
+  const ika = (!isNaN(y) && p.syntymaVuosi) ? (y - p.syntymaVuosi) : (new Date().getFullYear() - (p.syntymaVuosi || 2013));
+  const vk = (typeof T._laskeVahvuudetJaKehityskohteet === 'function')
+    ? T._laskeVahvuudetJaKehityskohteet(testit, { ika: ika }, null) : { vahvuudet: [], kehityskohteet: [] };
+  const META = T.TK_LAJIT_META || {};
+  const _rivi = function (laji, teksti) { return { laji: laji, nimi: (META[laji] && META[laji].nimi) || laji, teksti: teksti }; };
+  const vahvuudet = (vk.vahvuudet || []).slice(), kehityskohteet = (vk.kehityskohteet || []).slice();
+  // Tallennettu pikakenttä (sama kanoninen laskenta kirjoitushetkellä) ensisijainen, jos lista ei jo sisällä sitä.
+  if (p.tki_vahvuus && !vahvuudet.some(function (z) { return z.laji === p.tki_vahvuus; })) vahvuudet.unshift(_rivi(p.tki_vahvuus, ''));
+  if (p.tki_kehityskohde && !kehityskohteet.some(function (z) { return z.laji === p.tki_kehityskohde; })) kehityskohteet.unshift(_rivi(p.tki_kehityskohde, ''));
+  let trendi = null;
+  const ed = parseFloat(p.tk_kokonaistulos_edellinen), vi = parseFloat(p.tk_kokonaistulos_viimeisin);
+  if (!isNaN(ed) && !isNaN(vi)) {
+    const ero = +(ed - vi).toFixed(1); // >0 = aika pienentynyt = parani
+    if (Math.abs(ero) >= 1) trendi = { ero: Math.abs(ero), parani: ero > 0 };
+  }
+  const kpl = Array.isArray(p.tki_historia) && p.tki_historia.length ? p.tki_historia.length : (!isNaN(ed) ? 2 : 1);
+  return {
+    tki: onTki ? p.tki_viimeisin : null,
+    merkki: p.tki_merkki || null,
+    vahvuudet: vahvuudet, kehityskohteet: kehityskohteet,
+    testit: testit, trendi: trendi, kpl: kpl
+  };
+}
 async function _lataaTekniikka() {
   try {
-    if (!_pelaaja || !_pelaaja.seuraId || !_pelaaja.id || !window._db || !window.TM_TESTIT) return;
-    const snap = await window._db.collection('seurat').doc(_pelaaja.seuraId)
-      .collection('pelaajat').doc(_pelaaja.id).collection('testitulokset').get();
-    const tk = snap.docs.map(d => ({ id: d.id, ...d.data() }))
-      .filter(x => x.protokolla === 'tekniikkakilpailu')
-      .sort((a, b) => String(a.testauspvm || a.id || '').localeCompare(String(b.testauspvm || b.id || '')));
-    if (tk.length === 0) {
-      // §30 joustava + §7.22: ei tekniikkakilpailua → fallback H-H syöttö/pujottelu LAPSEN KIELELLÄ (sekunnit, EI tasolukuja).
-      const _hh = _pelaaja.hh_viimeisin || {};
-      const _hhTekn = [];
-      if (_hh.syotto != null)    _hhTekn.push({ laji: 'syotto',    nimi: 'Syöttö',    aika: _hh.syotto });
-      if (_hh.pujottelu != null) _hhTekn.push({ laji: 'pujottelu', nimi: 'Pujottelu', aika: _hh.pujottelu });
-      _tekniikkaData = { tyhja: true, hhTekn: _hhTekn.length ? _hhTekn : null };
-      draw(); return;
-    }
-    const T = window.TM_TESTIT;
-    const sp = (String(_pelaaja.sukupuoli || '').toUpperCase() === 'N') ? 'T' : 'P';
-    const ikaPvm = (pvm) => {
-      const y = parseInt(String(pvm || '').slice(0, 4));
-      return (!isNaN(y) && _pelaaja.syntymaVuosi) ? (y - _pelaaja.syntymaVuosi) : null;
-    };
-    const viim = tk[tk.length - 1];
-    const ika = ikaPvm(viim.testauspvm || viim.id) || (new Date().getFullYear() - (_pelaaja.syntymaVuosi || 2013));
-    const kt = T.laskeKokonaistulos(viim.testit, ika, sp);
-    const vk = T._laskeVahvuudetJaKehityskohteet(viim.testit, { ika: ika }, null);
-    let trendi = null;
-    if (tk.length >= 2) {
-      const eka = tk[0];
-      const ktEka = T.laskeKokonaistulos(eka.testit, ikaPvm(eka.testauspvm || eka.id) || ika, sp);
-      if (ktEka != null && kt != null) {
-        const ero = +(ktEka - kt).toFixed(1); // >0 = aika pienentynyt = parani
-        if (Math.abs(ero) >= 1) trendi = { ero: Math.abs(ero), parani: ero > 0 };
-      }
-    }
-    _tekniikkaData = {
-      tki: (kt != null) ? T.tkLaskeTKI(kt, ika, sp) : null,
-      merkki: (kt != null) ? T.tkLaskeMerkki(kt, ika, sp) : null,
-      vahvuudet: vk.vahvuudet, kehityskohteet: vk.kehityskohteet,
-      testit: viim.testit, trendi: trendi, kpl: tk.length
-    };
+    if (!_pelaaja) return;
+    _tekniikkaData = _tekniikkaPikakentista(_pelaaja);
     draw();
   } catch (e) { console.warn('[tekniikka]', e.message); }
 }

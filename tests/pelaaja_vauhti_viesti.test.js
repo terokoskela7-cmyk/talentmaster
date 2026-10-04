@@ -2,6 +2,7 @@
  * Pelaaja_v7 "Vauhti & pallo": paras mahdollinen tulos (taso 5) jätti kortin tyhjäksi → "Nopeustestit tulossa" vaikka
  * tulos oli mitattu. Juurisyy: (1) tavoiterivi palauttaa '' kun ei seuraavaa tasoa; (2) Pikakirjaus ei kirjoita
  * hh_vahvuus/hh_kehityskohde/hh_taso_edellinen (vain Excel-tuonti) → h tyhjä → fallback "tulossa".
+ * (PR B 2026-10-04: Pikakirjaus kirjoittaa nyt myös nämä — lib/tm_pikakentat.js tmJohdetutPikakentat.)
  * Ajetaan SIVUN OIKEA koodi vm:ssä, data OIKEALLA Pikakirjaus-laskennalla (tmLaskePikakentat + historia).
  */
 import { describe, it, expect } from 'vitest';
@@ -55,7 +56,10 @@ describe('Pelaaja_v7 · Vauhti & pallo — mitattu tulos ei koskaan "tulossa"', 
     let d = pikakirjaa(TOPIAS, { lin_30m: 5.9 }, '2026-09-01');
     d = pikakirjaa(d, { lin_30m: 4.0 }, '2026-10-03');
     expect(d.hh_taso, 'aineisto ei ole tasolla 5').toBe(5);
-    expect(d.hh_taso_edellinen, 'Pikakirjaus ei kirjoita edellistä tasoa — korttia ei voi nojata siihen').toBeUndefined();
+    // PR B (datakatkokset): Pikakirjaus kirjoittaa nyt hh_taso_edellinen(+_pvm) jaetulla tmJohdetutPikakentat-laskennalla
+    // (pvm-vahti: eri päivä → vangitaan). Kortti toimii sekä kentästä että historiasta.
+    expect(d.hh_taso_edellinen, 'Pikakirjaus kirjoittaa edellisen tason (eri päivän testi)').toBe(1);
+    expect(d.hh_taso_edellinen_pvm).toBe('2026-09-01');
     const html = rBox(d);
     expect(html).not.toContain('tulossa');
     expect(html).toContain('Huippuvauhtia');

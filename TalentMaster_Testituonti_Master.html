@@ -14,6 +14,10 @@
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 <script src="lib/tm_appcheck.js?v=1"></script>
 <script src="lib/tm_ennatykset.js?v=1"></script>   <!-- Omat ennätykset (PB): jaettu kirjoittajille (TM_ENNATYKSET) -->
+<script src="lib/tm_pvm.js?v=3"></script>   <!-- PR B: tmPaivaIso — Excel-solun testipäivä ISO-muotoon (§26 pikakenttien *_pvm) -->
+<script src="lib/tm_eerikkila_normit.js?v=46"></script>   <!-- PR B: normiIka/eerikkilaTaso/laskeD1Joustava/laskeD2HH/hhKehityskohde (§26 H-H-pikakentät) -->
+<script src="lib/tm_tki_core.js?v=2"></script>   <!-- PR B: TKI-ydin + _laskeVahvuudetJaKehityskohteet → TM_TESTIT (IIFE) -->
+<script src="lib/tm_pikakentat.js?v=4"></script>   <!-- PR B: tmLaskePikakentat — §26-pikakentät samassa batchissa tuloksen kanssa -->
 <!-- SheetJS -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
@@ -1356,6 +1360,21 @@ function masAikaKmh(arvo) {
    · Tulos + pelaajan pikakentät SAMASSA batchissa (kaikki tai ei mitään). Ennen erilliset kutsut, ja
      serverTimestamp() arrayUnion-taulukon sisällä (§7.6) kaatoi pikakenttäpäivityksen hiljaa.
    · FLEI-pari flei_viimeisin + flei_pvm (+ historiarivi) kirjoitetaan VAIN yhdessä, kun arvo on laskettu. */
+/* Testituonnin testi-id:t → tmLaskePikakentat-syöteavaimet (lib-avaimet kuten Testaus_v9/Pikakirjaus: lin_30m jne.).
+   Vain numeeriset arvot. Muut id:t (FLEI-liikkeet, mas_aika, hyppy_sj) eivät ole §26-pikakenttiä → pois. */
+const TT_LIB_AVAIN = { lin30m: 'lin_30m', lin10m: 'lin_10m', lin5m: 'lin_5m', hyppy_cj: 'hyppy_cj', mas: 'mas', kasirata: 'kasirata',
+  sm_juoksu: 'sm_juoksu', sm_pallo: 'sm_pallo', pujottelu_hh: 'pujottelu_hh', syotto_hh: 'syotto_hh',
+  ponnauttelu: 'ponnauttelu', syotto: 'syotto', pujottelu: 'pujottelu', kuljetus_laukaus: 'kuljetus_laukaus', pituuspotku: 'pituuspotku' };
+function ttLibTulokset(testit) {
+  const out = {};
+  Object.keys(testit || {}).forEach(function (k) {
+    const avain = TT_LIB_AVAIN[k], v = testit[k];
+    if (!avain || v == null || v === '' || isNaN(parseFloat(v))) return;
+    out[avain] = parseFloat(v);
+  });
+  return out;
+}
+
 async function ttTallennaPelaaja(db, seuraId, tapahtuma, p, tallennusData, fleiPct) {
   if (!p.tunniste) return 'ohitettu';
   const pelaajat = db.collection('seurat').doc(seuraId).collection('pelaajat');
@@ -1374,6 +1393,13 @@ async function ttTallennaPelaaja(db, seuraId, tapahtuma, p, tallennusData, fleiP
     });
   }
   if (p.phv_tila) profiiliUpdate.phv_tila = p.phv_tila;
+  // §26-pikakentät (H-H + TKI + johdetut vahvuus/kehityskohde/*_edellinen) SAMASSA batchissa — jaettu
+  // lib/tm_pikakentat.js (sama kuin Pikakirjaus). Viimeisin-vartija + pvm-vahti libissä. Päivä ISO-muotoon;
+  // jäsentymätön päivä → EI pikakenttiä (pari-invariantti: arvoa ei kirjoiteta ilman oikeaa *_pvm:ää).
+  const pvmIso = (typeof tmPaivaIso === 'function' && pvm) ? tmPaivaIso(pvm) : null;
+  if (pvmIso && typeof TM_PIKAKENTAT !== 'undefined' && typeof TM_PIKAKENTAT.tmLaskePikakentat === 'function') {
+    Object.assign(profiiliUpdate, TM_PIKAKENTAT.tmLaskePikakentat(snap.docs[0].data() || {}, ttLibTulokset(tallennusData.testit), pvmIso));
+  }
   // Omat ennätykset (PB) samassa batchissa (§26) — jaettu lib/tm_ennatykset.js (sama kuin Testaus_v9/Pikakirjaus).
   // Alusta tapahtumalta (§22); puuttuu → 'tuntematon'.
   if (typeof TM_ENNATYKSET !== 'undefined' && pvm) {

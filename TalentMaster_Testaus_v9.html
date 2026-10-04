@@ -23,6 +23,8 @@
 <script src="lib/tm_ennatykset.js?v=1"></script>   <!-- Omat ennätykset (PB): jaettu kaikille kirjoittajille (TM_ENNATYKSET) -->
 <script src="lib/tm_historia.js?v=1"></script>   <!-- Trendi Vaihe 1b: H-H/TKI-historia online-tallennuksessa (tmHhSnapshot/tmTkiSnapshot/tmHistoriaLisaa) -->
 <script src="lib/tm_eerikkila_normit.js?v=46"></script>   <!-- Kenttätyökalu Vaihe 1: §26-pikakentät valmiiksi-merkinnässä (normiIka/eerikkilaTaso/laskeD1Joustava/laskeD2HH/normSukupuoliMN) -->
+<script src="lib/tm_tki_core.js?v=2"></script>   <!-- PR B: _laskeVahvuudetJaKehityskohteet → TM_TESTIT (IIFE, ei törmää inline-TKI:hin) -->
+<script src="lib/tm_pikakentat.js?v=4"></script>   <!-- PR B: tmJohdetutPikakentat — tki/hh vahvuus+kehityskohde + *_edellinen (sama kuin Pikakirjaus/Testituonti) -->
 
 <style>
 /* ═══════════════════════════════════════════════════════════════
@@ -2927,8 +2929,9 @@ function _v6HistoriaUpd(pl, d) {
 // .update()-kutsuun. hh_viimeisin MERGEtään olemassa olevaan (30 m -kirjaus ei pyyhi cmj:tä). Ikä = normiIka (§26
 // IKAKONVENTIO — EI Date.now / EI kuukausivähennys). Ennätykset/historia/PHV kirjoitetaan erikseen (ennallaan).
 //
-// Vahvuus/kehityskohde (tki_vahvuus/tki_kehityskohde) jätetty pois tästä vaiheesta: vaatii _laskeVahvuudetJaKehityskohteet
-// (ei ladattu Testaus_v9:ään) — ei DoD-pakollisia. recalcHH täydentää ne. tk_lajit_viimeisin kirjoitetaan (alla).
+// Vahvuus/kehityskohde (tki_vahvuus/tki_kehityskohde, hh_vahvuus/hh_kehityskohde) + *_edellinen (pvm-vahti): JAETTU
+// lib/tm_pikakentat.js tmJohdetutPikakentat (sama kuin Pikakirjaus/Testituonti; kanoniset funktiot tm_tki_core.js +
+// tm_eerikkila_normit.js) — lisätään _v6PikakentatUpd:n loppuun samaan upd:iin (§26 samassa kirjoituksessa).
 
 // Testaus_v9-testi-id → hh_viimeisin-avain (sama kuin _v6HistoriaUpd HH_MAP).
 var _V6_HH_MAP = { lin_5m: 'lin5m', lin_10m: 'lin10m', lin_30m: 'lin30m', hyppy_cj: 'cmj', mas: 'mas', kasirata: 'kasirata', sm_juoksu: 'sm_juoksu', sm_pallo: 'sm_pallo', pujottelu_hh: 'pujottelu', syotto_hh: 'syotto' };
@@ -3041,6 +3044,11 @@ function _v6PikakentatUpd(pl, d) {
           if (tkLajit) { upd.tk_lajit_viimeisin = tkLajit; upd.tk_lajit_pvm = pvm; }
           if (kt != null) upd.tk_kokonaistulos_viimeisin = kt;
         }
+      }
+
+      // Johdetut pikakentät (vahvuus/kehityskohde + *_edellinen) jaetulla lib-laskennalla → sama upd (§26).
+      if (typeof TM_PIKAKENTAT !== 'undefined' && typeof TM_PIKAKENTAT.tmJohdetutPikakentat === 'function') {
+        Object.assign(upd, TM_PIKAKENTAT.tmJohdetutPikakentat(d, upd, pvm));
       }
 
       return upd;
