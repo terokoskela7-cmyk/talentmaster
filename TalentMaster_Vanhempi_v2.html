@@ -124,7 +124,7 @@ body.demo-mode #devChrome{display:block}
 <script src="lib/tm_appcheck.js?v=2"></script>
 <script src="lib/tm_verkko.js?v=1"></script>   <!-- verkkokatko: 1 uudelleenyritys + Yhteyskatko-ilmoitus + Sentry warning -->
 <script src="lib/tm_lang.js?v=30"></script>   <!-- i18n V0 putki · V1-B/B2: +vanhempi./nav.-avaimet + kielivalitsin + syväsisältö (nimen taivutus poistettu) -->
-<script src="docs/testit_indeksit.js?v=10"></script>
+<script src="docs/testit_indeksit.js?v=11"></script>
 <script src="tm-bus.js?v=3"></script>
 <script src="tm-demo.js?v=3"></script>
 </head>
@@ -1160,11 +1160,10 @@ const TUKIVINKIT = {
   kuljetus_laukaus: 'vanhempi.tuki_kuljetus',
   pituuspotku: 'vanhempi.tuki_potku'
 };
-// Saavutettava välitavoite (sama logiikka kuin Pelaaja_v7 _minaValitavoite).
+// Saavutettava välitavoite: JAETTU TM_TESTIT.tkValitavoite (docs/testit_indeksit.js) — sama kuin Pelaaja_v7. null → ei tavoitelukua.
 function _vanhValitavoite(arvo, viite, kaant) {
-  const gap = kaant ? (viite.hyva - arvo) : (arvo - viite.hyva);
-  let t = (gap <= 3) ? viite.hyva : (kaant ? (arvo + 3) : (arvo - 3));
-  return Math.round(t * 2) / 2;
+  const T = window.TM_TESTIT;
+  return (T && typeof T.tkValitavoite === 'function') ? T.tkValitavoite(arvo, viite, kaant) : null;
 }
 function rVanhempiTekniikka(){
   const L = window._lapsi || {};
@@ -1195,9 +1194,9 @@ function rVanhempiTekniikka(){
   if (L.tki_kehityskohde && _VANH_LAJINIMI[L.tki_kehityskohde]) {
     const kk = L.tki_kehityskohde, arvo = arvoOf(kk), kv = viiteOf(kk);
     inner += `<div style="font-size:13px;color:var(--text);margin-top:10px">🎯 <b>${t('vanhempi.tek_seuraava_askel')}</b> ${t(_VANH_LAJINIMI[kk])}`;
-    if (arvo != null && kv) {
-      const kaant = (kk === 'pituuspotku_bonus');
-      inner += `<div style="font-size:12px;color:var(--ink2);margin-top:2px">${t('vanhempi.tek_nyt_tavoite').replace('{x}', Math.round(arvo*10)/10).replace('{y}', _vanhValitavoite(arvo, kv, kaant))}</div>
+    const _tv = (arvo != null && kv) ? _vanhValitavoite(arvo, kv, (kk === 'pituuspotku_bonus')) : null;
+    if (_tv != null) {   // ei luotettavaa viitettä / taso jo saavutettu / väärä mittakaava → EI arvattua lukua huoltajalle
+      inner += `<div style="font-size:12px;color:var(--ink2);margin-top:2px">${t('vanhempi.tek_nyt_tavoite').replace('{x}', Math.round(arvo*10)/10).replace('{y}', _tv)}</div>
         <div style="font-size:12px;color:var(--ink2)">${t('vanhempi.tek_pieni_parannus')}</div>`;
     }
     inner += `</div>`;
