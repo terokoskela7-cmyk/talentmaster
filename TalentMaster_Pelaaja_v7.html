@@ -197,6 +197,11 @@ button{font-family:var(--font-b);cursor:pointer}
    voimaan molemmille puolille → animoitu arvo voitti .fc-back{opacity:0}/.fc-flipped .fc-front{opacity:0}
    kaskadissa → kääntöpuoli peitti etupuolen pysyvästi. Wrapperissa puolet hallitsevat opacityn itse. */
 .fc-wrap{width:286px;height:470px;position:relative;flex-shrink:0;animation:fcRise 1s cubic-bezier(.22,1,.36,1) both}
+/* Mobiiliskaalaus (PR E): kortti 286×470 skaalataan näytön mukaan ULOMMASSA kääreessä — .fc-wrap:n oma transform
+   (fcRise) ja .fc-face:n flip-transform säilyvät koskemattomina. .fc-scale varaa SKAALATUN tilan layoutissa (transform
+   ei vaikuta layoutiin), .fc-scale-in skaalaa sisällön vasemmasta yläkulmasta. --fc-s asetetaan JS:llä (_fcSkaalaa). */
+.fc-scale{--fc-s:1;width:calc(286px * var(--fc-s));height:calc(470px * var(--fc-s));flex-shrink:0;position:relative}
+.fc-scale-in{width:286px;height:470px;transform:scale(var(--fc-s));transform-origin:0 0}
 .fc-face{position:absolute;inset:0;border-radius:22px;transition:opacity .45s ease,transform .6s cubic-bezier(.4,0,.2,1);backface-visibility:hidden;overflow:hidden}
 .fc-flipped .fc-front{opacity:0;transform:scale(.92) rotateY(12deg);pointer-events:none}
 .fc-flipped .fc-back{opacity:1!important;transform:scale(1) rotateY(0)!important;pointer-events:auto!important}
@@ -1160,7 +1165,8 @@ function rA1(){
       <div class="card-gold" style="margin-top:14px;padding:12px 14px;cursor:pointer;display:flex;align-items:center;gap:14px" data-card>
         <div style="font-size:28px;line-height:.9">🃏</div>
         <div style="flex:1">
-          <div class="ey" style="color:rgba(184,134,11,.7);letter-spacing:.22em">Oma kehityskorttisi · avaa kortti →</div>
+          <div style="font-family:var(--font-d);font-size:17px;line-height:1.2;color:#D4A84A">Oma kehityskorttisi</div>
+          <div style="font-size:12px;color:rgba(212,168,74,.8);margin-top:2px">Avaa kortti →</div>
         </div>
         ${ic('cR',16,'rgba(184,134,11,.6)')}
       </div>`;
@@ -2963,8 +2969,8 @@ function rMinaHero() {
     var fs = '14px';
     return '<div style="flex:1;text-align:center;padding:2px">'
       + '<div style="font-family:\'Cormorant Garamond\',serif;font-size:' + fs + ';line-height:1;color:' + col + '">' + big + '</div>'
-      + '<div style="font-size:8px;letter-spacing:.08em;text-transform:uppercase;color:#8C8B86;margin-top:3px">' + d.key + '</div>'
-      + (tag ? '<div style="font-size:7px;color:' + (d.tila === 'tulossa' ? '#5A8DD0' : '#8C8B86') + ';margin-top:1px">' + tag + '</div>' : '')
+      + '<div style="font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:#8C8B86;margin-top:3px">' + d.key + '</div>'
+      + (tag ? '<div style="font-size:9px;color:' + (d.tila === 'tulossa' ? '#5A8DD0' : '#8C8B86') + ';margin-top:1px">' + tag + '</div>' : '')
       + '</div>';
   };
   // Otsikkolohko (vasen): showcase→OVR · rakentaja→kehityskaari-rengas (ei lukua) · muu→"Kortti rakentuu"
@@ -2976,11 +2982,11 @@ function rMinaHero() {
     headBlock = '<div style="display:flex;flex-direction:column;align-items:center;gap:5px">'
       + '<div style="position:relative;width:66px;height:66px">' + _fcRengasSVG(F.rengas.mitatut, F.rengas.nimittaja, 66, 3)
       +   '<div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center"><span style="font-size:18px;color:#28B090;line-height:1">↗</span><span style="font-family:\'Cormorant Garamond\',serif;font-size:11px;color:#C9C7BE">kehittyy</span></div></div>'
-      + '<div style="font-family:\'DM Mono\',monospace;font-size:8px;letter-spacing:.08em;text-transform:uppercase;color:#8C8B86;text-align:center;line-height:1.25">Kehityskaari<br><b style="color:#28B090;font-weight:500">' + F.rengas.mitatut + ' / ' + F.rengas.nimittaja + ' mitattu</b></div>'
+      + '<div style="font-family:\'DM Mono\',monospace;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:#8C8B86;text-align:center;line-height:1.25">Kehityskaari<br><b style="color:#28B090;font-weight:500">' + F.rengas.mitatut + ' / ' + F.rengas.nimittaja + ' mitattu</b></div>'
       + '</div>';
   } else {
     headBlock = '<div style="font-family:\'Cormorant Garamond\',serif;font-size:24px;font-weight:400;color:' + ac + ';line-height:1.05">Kortti<br>rakentuu</div>'
-      + '<div style="font-family:\'DM Mono\',monospace;font-size:8px;letter-spacing:.12em;text-transform:uppercase;color:#8C8B86;margin-top:4px">' + F.mitatut.length + ' osa-aluetta avattu · hieno alku</div>';
+      + '<div style="font-family:\'DM Mono\',monospace;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:#8C8B86;margin-top:4px">' + F.mitatut.length + ' osa-aluetta avattu · hieno alku</div>';
   }
   var posTxt = F.naytaPaikka ? ('⚡ ' + esc(p.pelipaikka)) : '🔥 Monipuolinen';
   var h = '<div onclick="naytaFcOverlay()" style="margin:14px 20px 0;border:1px solid ' + acDim + '.42);border-radius:12px;overflow:hidden;cursor:pointer;'
@@ -2990,8 +2996,8 @@ function rMinaHero() {
     + '<div>' + headBlock + '</div>'
     + '<div style="text-align:right;display:flex;flex-direction:column;align-items:flex-end;gap:5px">'
     +   '<span style="font-family:\'DM Mono\',monospace;font-size:10px;font-weight:500;color:' + ac + ';border:.5px solid ' + acDim + '.4);background:' + acDim + '.10);padding:2px 8px;border-radius:3px">' + posTxt + '</span>'
-    +   '<span style="font-family:\'DM Mono\',monospace;font-size:9px;letter-spacing:.1em;color:' + ac + ';border:.5px solid ' + acDim + '.45);background:' + acDim + '.12);padding:3px 9px;border-radius:3px">⭐ ' + esc(F.tierNimi) + '</span>'
-    +   '<span style="font-family:\'DM Mono\',monospace;font-size:9px;color:#8C8B86">🇫🇮 FIN' + (F.ika != null ? (' · ' + F.ika + ' v') : '') + '</span>'
+    +   '<span style="font-family:\'DM Mono\',monospace;font-size:10px;letter-spacing:.1em;color:' + ac + ';border:.5px solid ' + acDim + '.45);background:' + acDim + '.12);padding:3px 9px;border-radius:3px">⭐ ' + esc(F.tierNimi) + '</span>'
+    +   '<span style="font-family:\'DM Mono\',monospace;font-size:10px;color:#8C8B86">🇫🇮 FIN' + (F.ika != null ? (' · ' + F.ika + ' v') : '') + '</span>'
     + '</div></div>';
   // ↗-kasvusiru (C) — vain rakentaja + kun jotain nousi
   if (vyoh !== 'leikkija' && F.nousiAlueet.length) {
@@ -3010,7 +3016,7 @@ function rMinaHero() {
   // traits
   if (F.traits.length) {
     h += '<div style="display:flex;gap:6px;justify-content:center;flex-wrap:wrap;padding:9px 16px 2px">'
-      + F.traits.map(function (t) { return '<span style="font-family:\'DM Mono\',monospace;font-size:9px;color:' + ac + ';border:.5px solid ' + acDim + '.35);background:' + acDim + '.08);padding:2px 8px;border-radius:999px">' + esc(t) + '</span>'; }).join('')
+      + F.traits.map(function (t) { return '<span style="font-family:\'DM Mono\',monospace;font-size:10px;color:' + ac + ';border:.5px solid ' + acDim + '.35);background:' + acDim + '.08);padding:2px 8px;border-radius:999px">' + esc(t) + '</span>'; }).join('')
       + '</div>';
   }
   // foot
@@ -3024,7 +3030,7 @@ function rMinaHero() {
       + '<span style="font-size:14px">🤝</span>'
       + '<span style="font-size:11px;color:#C9C7BE;line-height:1.45"><b style="color:var(--text);font-weight:500">' + esc(seuraAvaa.map(function (d) { return d.key; }).join(' · ')) + ' odottaa seuraa</b> — aukeaa kun seurasi ottaa työkalun käyttöön. Ei sinusta kiinni, eikä pienennä kehityskaartasi.</span></div>';
   }
-  h += '<div style="font-size:9px;color:#8C8B86;font-family:\'DM Mono\',monospace;margin:8px 20px 0;text-align:center">Kortti kehittyy matkalla · napautus avaa flip-kortin</div>';
+  h += '<div style="font-size:11px;color:#8C8B86;font-family:\'DM Mono\',monospace;margin:8px 20px 0;text-align:center">Kortti kehittyy matkalla · napautus avaa flip-kortin</div>';
   return h;
 }
 
@@ -5191,6 +5197,22 @@ function avaaKortti() {
   if (window.go) go('card');
 }
 
+// Kortin skaala näytön mukaan: leveys (16 px reunat) ja korkeus (napit "Miksi tämä kortti?" + "Sulje" ~160 px aina näkyvissä
+// ilman vieritystä), yläraja 1.45, alaraja 1 (ei kutisteta alkuperäisestä). Päivittyy resize/orientationchange-tapahtumassa.
+function _fcSkaala(w, h) {
+  return Math.max(1, Math.min((w - 32) / 286, (h - 160) / 470, 1.45));
+}
+function _fcSkaalaa() {
+  const sc = document.getElementById('fcScale');
+  if (!sc) return;
+  sc.style.setProperty('--fc-s', _fcSkaala(window.innerWidth, window.innerHeight).toFixed(3));
+}
+if (typeof window !== 'undefined' && !window._fcSkaalaKuuntelija) {
+  window._fcSkaalaKuuntelija = true;
+  window.addEventListener('resize', _fcSkaalaa);
+  window.addEventListener('orientationchange', _fcSkaalaa);
+}
+
 function suljeKortti() {
   const el = document.getElementById('fcOv');
   if (el) el.classList.remove('active');
@@ -5437,7 +5459,7 @@ function naytaFcOverlay() {
   const ikaTxt = (ika != null ? ('U' + ika) : '') + (naytaPaikka ? '' : (ika != null && ika <= 13 ? ' · 8v8' : ''));
 
   el.innerHTML =
-    '<div class="fc-wrap" id="fcWrap">' +
+    '<div class="fc-scale" id="fcScale"><div class="fc-scale-in"><div class="fc-wrap" id="fcWrap">' +
       '<div class="fc-face fc-front tier-' + tier + '">' +
         (synttari ? '<div class="fc-ribbon">Onnea!</div>' : '') +
         '<div class="fc-body">' +
@@ -5477,10 +5499,11 @@ function naytaFcOverlay() {
         (traits.length ? ('<div style="margin-top:10px"><div style="font-family:\'DM Sans\';font-size:8px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink3);margin-bottom:5px">Erikoismerkit</div>' + traits.map(t => '<span class="fc-trait">' + t + '</span>').join('') + '</div>') : '') +
         '<div style="margin-top:auto;font-family:\'DM Sans\';font-size:9px;color:var(--ink3);line-height:1.4;padding-top:10px">Lukitut osa-alueet (Pää · Joukkue) avautuvat kun seurasi ottaa työkalut käyttöön — ei sinusta kiinni.</div>' +
       '</div>' +
-    '</div>' +
+    '</div></div></div>' +
     '<button class="fc-flip-btn" onclick="flipKortti()"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0115-6L21 9"/><path d="M21 3V9H15"/></svg><span id="flipTxt">Miksi tämä kortti?</span></button>' +
     '<button onclick="suljeKortti()" style="margin-top:10px;background:none;border:.5px solid var(--border2);color:var(--ink3);padding:8px 16px;font-size:11px;letter-spacing:.16em;text-transform:uppercase;border-radius:20px;cursor:pointer">Sulje</button>';
   el.classList.add('active');
+  _fcSkaalaa();
 
   // Synttäri-konfetti (mockup-generaattori)
   if (synttari) {
