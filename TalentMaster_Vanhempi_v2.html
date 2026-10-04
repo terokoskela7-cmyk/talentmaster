@@ -123,8 +123,8 @@ body.demo-mode #devChrome{display:block}
 <script src="lib/tm_pvm.js?v=3"></script>   <!-- tmPaivaIso: paikallinen päivä tallennuksiin (ei UTC) -->
 <script src="lib/tm_appcheck.js?v=2"></script>
 <script src="lib/tm_verkko.js?v=1"></script>   <!-- verkkokatko: 1 uudelleenyritys + Yhteyskatko-ilmoitus + Sentry warning -->
-<script src="lib/tm_lang.js?v=27"></script>   <!-- i18n V0 putki · V1-B/B2: +vanhempi./nav.-avaimet + kielivalitsin + syväsisältö (nimen taivutus poistettu) -->
-<script src="docs/testit_indeksit.js?v=9"></script>
+<script src="lib/tm_lang.js?v=28"></script>   <!-- i18n V0 putki · V1-B/B2: +vanhempi./nav.-avaimet + kielivalitsin + syväsisältö (nimen taivutus poistettu) -->
+<script src="docs/testit_indeksit.js?v=10"></script>
 <script src="tm-bus.js?v=3"></script>
 <script src="tm-demo.js?v=3"></script>
 </head>
@@ -1244,6 +1244,40 @@ function rVanhempiTekniikka(){
   return box(inner);
 }
 
+// KORTTI 1c — Omat ennätykset vanhemmalle (pikakenttä ennatykset, §26). NEUTRAALI (§7.22 + perheviestintä §16):
+// arvo + päivä, vertailu vain lapsen omiin aiempiin tuloksiin — EI tasolukuja, EI vertailua muihin, EI edellistä
+// tulosta/deltaa (painostusmekanismi), EI juhlaa vanhemman paineeksi. Ei ennätyksiä → kortti piilossa.
+const _VANH_ENN = {
+  lin5m:['vanhempi.enn_t_lin5m','s'], lin10m:['vanhempi.enn_t_lin10m','s'], lin30m:['vanhempi.enn_t_lin30m','s'],
+  cmj:['vanhempi.enn_t_cmj','cm'], mas:['vanhempi.enn_t_mas','km/h'], kasirata:['vanhempi.enn_t_kasirata','s'],
+  sm_juoksu:['vanhempi.enn_t_sm_juoksu','s'], sm_pallo:['vanhempi.enn_t_sm_pallo','s'],
+  ponnauttelu:['vanhempi.laji_ponnauttelu','s'], syotto:['vanhempi.laji_syotto','s'], pujottelu:['vanhempi.laji_pujottelu','s'],
+  kuljetus_laukaus:['vanhempi.laji_kuljetus_laukaus','s'], pituuspotku_bonus:['vanhempi.laji_pituuspotku','s'], flei:['vanhempi.enn_t_flei','']
+};
+function _vanhEnnArvo(paras, yks) {
+  const v = Number(paras);
+  return ((yks === 's') ? v.toFixed(2).replace(/0$/, '') : String(Math.round(v * 10) / 10)) + (yks ? ' ' + yks : '');
+}
+function _vanhEnnPvm(iso) { const m = String(iso || '').match(/^(\d{4})-(\d{2})-(\d{2})/); return m ? (Number(m[3]) + '.' + Number(m[2]) + '.' + m[1]) : ''; }
+function rVanhempiEnnatykset(){
+  const L = window._lapsi || {};
+  const E = (L.ennatykset && typeof L.ennatykset === 'object') ? L.ennatykset : null;
+  const avaimet = E ? Object.keys(_VANH_ENN).filter(k => E[k] && E[k].paras != null && !isNaN(Number(E[k].paras))) : [];
+  if (!avaimet.length) return '';
+  const tanaan = (typeof tmPaivaIso === 'function') ? tmPaivaIso(new Date()) : null;   // paikallinen päivä (ei UTC)
+  const tuore = (e) => { if (!tanaan || e.edellinen == null || !e.pvm) return false; const d = (Date.parse(tanaan) - Date.parse(String(e.pvm).slice(0, 10))) / 864e5; return d >= 0 && d <= 30; };
+  const rivit = avaimet.map(k => {
+    const e = E[k], m = _VANH_ENN[k];
+    return `<div style="display:flex;align-items:baseline;gap:8px;padding:6px 0;border-bottom:.5px solid var(--border)">
+      <div style="flex:1;font-size:12px;color:var(--text)">${_vEsc(t(m[0]))}${tuore(e) ? ` <span style="font-size:10px;color:#28B090">· ${_vEsc(t('vanhempi.enn_uusi'))}</span>` : ''}</div>
+      <div style="font-size:13px;color:var(--text);font-weight:500">${_vEsc(_vanhEnnArvo(e.paras, m[1]))}</div>
+      <div style="width:72px;font-size:10px;color:var(--ink3);text-align:right">${_vEsc(_vanhEnnPvm(e.pvm))}</div></div>`;
+  }).join('');
+  return `<div class="card2" style="padding:16px;margin-bottom:12px">
+    <div class="ey ac" style="margin-bottom:4px">🏅 ${_vEsc(t('vanhempi.enn_otsikko'))}</div>
+    <div style="font-size:11px;color:var(--ink3);margin-bottom:8px">${_vEsc(t('vanhempi.enn_selite'))}</div>${rivit}</div>`;
+}
+
 function rKortti(){
   const d=IKA[_age];
   const L = window._lapsi || {};   // oikeat arvot pelaajadokumentista — ei keksittyjä lukuja
@@ -1298,6 +1332,9 @@ function rKortti(){
 
   <!-- Tekniikkaprofiili + miten tukea (perheviestinnän §7.22) — kausikortin alle -->
   ${rVanhempiTekniikka()}
+
+  <!-- Omat ennätykset (KORTTI 1c) — neutraali, vain itsevertailu -->
+  ${rVanhempiEnnatykset()}
 
   <!-- Sanasto -->
   <div class="card2" style="padding:14px;margin-bottom:12px">

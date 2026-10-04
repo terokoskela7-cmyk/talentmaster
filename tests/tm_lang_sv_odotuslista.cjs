@@ -29,4 +29,21 @@ module.exports = [
   // Suostumuksen uusiminen näkyväksi (2.10.2026)
   'seura.uusinta_vahvistus',
   'suostumus.uusinta_selite',
+  // Oma ennätys näkyviin pelaajalle + vanhemmalle (KORTTI 1c, 4.10.2026)
+  'pelaaja.ennatys_uusi',
+  'pelaaja.ennatys_otsikko',
+  'pelaaja.ennatys_kortissa',
+  'pelaaja.ennatys_jes',
+  'vanhempi.enn_otsikko',
+  'vanhempi.enn_selite',
+  'vanhempi.enn_uusi',
+  'vanhempi.enn_t_lin5m',
+  'vanhempi.enn_t_lin10m',
+  'vanhempi.enn_t_lin30m',
+  'vanhempi.enn_t_cmj',
+  'vanhempi.enn_t_mas',
+  'vanhempi.enn_t_kasirata',
+  'vanhempi.enn_t_sm_juoksu',
+  'vanhempi.enn_t_sm_pallo',
+  'vanhempi.enn_t_flei',
 ];

@@ -20,6 +20,7 @@
      domainilla (hiljainen: kasvumittaus olisi menettänyt Mirwald-laskennan). Sama vikaluokka
      kuin #491. lib/ tarjoillaan molemmilla originilla. -->
 <script src="lib/tm_bioika.js?v=3"></script>
+<script src="lib/tm_ennatykset.js?v=1"></script>   <!-- Omat ennätykset (PB): jaettu kaikille kirjoittajille (TM_ENNATYKSET) -->
 <script src="lib/tm_historia.js?v=1"></script>   <!-- Trendi Vaihe 1b: H-H/TKI-historia online-tallennuksessa (tmHhSnapshot/tmTkiSnapshot/tmHistoriaLisaa) -->
 <script src="lib/tm_eerikkila_normit.js?v=46"></script>   <!-- Kenttätyökalu Vaihe 1: §26-pikakentät valmiiksi-merkinnässä (normiIka/eerikkilaTaso/laskeD1Joustava/laskeD2HH/normSukupuoliMN) -->
 
@@ -2879,52 +2880,15 @@ window._v6Synkronoi = async function _v6Synkronoi() {
   _toast('✓ Synkronointi valmis', 'ok');
 };
 
-/* ── Ennätykset (PB per testi, KORTTI 1c-A) — inline-kopio docs/testit_indeksit.js:stä (PIDÄ SYNKASSA).
-   Kirjoitetaan kirjoitushetkellä (merkitse valmiiksi). Suunta+alusta-tietoinen, kohina-kynnys, EI "huononi" (§22/§28). ── */
-var ENNATYS_META = {
-  lin5m: { pieni:true, alusta:true }, lin10m: { pieni:true, alusta:true }, lin30m: { pieni:true, alusta:true },
-  cmj: { pieni:false, alusta:false }, mas: { pieni:false, alusta:true },
-  kasirata: { pieni:true, alusta:true }, sm_juoksu: { pieni:true, alusta:true }, sm_pallo: { pieni:true, alusta:true },
-  ponnauttelu: { pieni:true, alusta:false }, syotto: { pieni:true, alusta:true }, pujottelu: { pieni:true, alusta:true },
-  kuljetus_laukaus: { pieni:true, alusta:true }, pituuspotku_bonus: { pieni:false, alusta:false }, flei: { pieni:false, alusta:false }
-};
-function _ennatysKynnys(arvo) { return Math.max(0.03, Math.abs(Number(arvo) || 0) * 0.005); }
-function paivitaEnnatykset(nyky, tulokset) {
-  var ulos = {};
-  if (nyky && typeof nyky === 'object') { for (var k in nyky) { if (Object.prototype.hasOwnProperty.call(nyky, k)) ulos[k] = nyky[k]; } }
-  var uudet = [];
-  (tulokset || []).forEach(function (t) {
-    if (!t || !t.testi) return;
-    var meta = ENNATYS_META[t.testi]; if (!meta) return;
-    var arvo = Number(t.arvo); if (arvo == null || isNaN(arvo)) return;
-    var alusta = t.alusta || 'tuntematon';
-    var cur = ulos[t.testi];
-    if (!cur) { ulos[t.testi] = { paras: arvo, pvm: t.pvm || null, alusta: alusta }; return; }
-    if (meta.alusta && (cur.alusta || 'tuntematon') !== alusta) return;
-    var parannus = meta.pieni ? (cur.paras - arvo) : (arvo - cur.paras);
-    if (parannus > _ennatysKynnys(arvo)) { ulos[t.testi] = { paras: arvo, pvm: t.pvm || null, alusta: alusta }; uudet.push(t.testi); }
-  });
-  return { ennatykset: ulos, uudet: uudet };
-}
-// Testaus_v9 testi-id → ENNATYS_META-avain (pituuspotku/505/sj jätetään: ei suoraa PB-mallia tässä passissa).
-var _ENNAT_TESTI_MAP = { lin_5m:'lin5m', lin_10m:'lin10m', lin_30m:'lin30m', hyppy_cj:'cmj', mas:'mas', kasirata:'kasirata', sm_juoksu:'sm_juoksu', sm_pallo:'sm_pallo', ponnauttelu:'ponnauttelu', syotto:'syotto', pujottelu:'pujottelu', kuljetus_laukaus:'kuljetus_laukaus' };
-function _ennatysTuloksetTestauksesta(tul, alusta, pvm) {
-  var out = [];
-  Object.keys(_ENNAT_TESTI_MAP).forEach(function (tid) {
-    var v = tul[tid];
-    var arvo = (v && typeof v === 'object') ? (v.paras != null ? v.paras : v.tulos) : v;
-    if (arvo != null && !isNaN(Number(arvo))) out.push({ testi: _ENNAT_TESTI_MAP[tid], arvo: Number(arvo), alusta: alusta, pvm: pvm });
-  });
-  return out;
-}
+/* ── Ennätykset (PB per testi, KORTTI 1c-A) — JAETTU lib/tm_ennatykset.js (TM_ENNATYKSET; sama kuin Pikakirjaus/
+   Testituonti/Excel_Tuonti). Kirjoitetaan kirjoitushetkellä (merkitse valmiiksi). EI inline-kopiota. ── */
 // Ennatykset-pikakenttä yhdelle pelaajalle (laskenta ennallaan). d = pelaajadokin nykytila. → { ennatykset } | {}
 function _v6EnnatyksetUpd(pl, d) {
-  if (typeof paivitaEnnatykset !== 'function') return {};
+  if (typeof TM_ENNATYKSET === 'undefined') return {};
   var alusta = (_aktiivinenTapahtuma && _aktiivinenTapahtuma.alusta) || 'tuntematon';
   var pvm = (_aktiivinenTapahtuma && _aktiivinenTapahtuma.pvm) || tmPaivaIso(new Date());
-  var tulokset = _ennatysTuloksetTestauksesta(_tulokset[pl.id] || {}, alusta, pvm);
-  if (!tulokset.length) return {};
-  return { ennatykset: paivitaEnnatykset(d.ennatykset || null, tulokset).ennatykset };
+  var r = TM_ENNATYKSET.tmEnnatyksetUpd(d.ennatykset || null, _tulokset[pl.id] || {}, alusta, pvm);
+  return r ? { ennatykset: r.ennatykset } : {};
 }
 
 // Trendi Vaihe 1b — H-H/TKI-historia (aikasarja) online-testauksesta, yhdelle pelaajalle (laskenta ennallaan). Snapshot ottaa VAIN mitatut RAAKA-avaimet (§26, jaettu tm_historia-lib);
