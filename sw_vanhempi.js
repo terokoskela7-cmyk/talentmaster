@@ -10,7 +10,7 @@
    - Omat staattiset assetit (manifest, ikonit) + versioidut fontit/SDK → cache-first.
    - KAIKKI muu (toisten appien sivut, raw.githubusercontent, jne.) → suoraan verkkoon, EI cachea.
    Scopea ei voi kaventaa (SW juuressa) → allowlist hoitaa rajaamisen. CLAUDE.md §27.4. */
-const CACHE = 'tm-vanhempi-v40';   // §7.22: ei Kortti 0–99/TKI-lukua/X-Factoria huoltajalle + tm_lang v29 (4.10.2026)
+const CACHE = 'tm-vanhempi-v41';   // tm_lang v30 (PR F: alusta-avaimet) (4.10.2026)
 const SHELL = './TalentMaster_Vanhempi_v2.html';
 const PRECACHE = [SHELL];
 
