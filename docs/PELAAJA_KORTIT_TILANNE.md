@@ -196,7 +196,7 @@ Tuloste: (1) korttien pikakentät whitelistillä, ilman PIN:iä, sähköposteja,
 | Huoltajan U16+ kehityskaari ja kuukausikooste | ❌ | Pysyvä tyhjä tila, ei toteutusta |
 | Pelaajan Tekniikkaprofiili §5.3: "TKI-laskua EI näytetä lainkaan", parannus vain kun positiivinen (§16, §34) | ❌ ristiriita | TKI-luku näkyy isona, ja negatiivinen trendi *"Kokonaisaikasi on kasvanut X s"* näkyy (:2165) |
 | Pikakentät renderöinnissä, ei alikokoelmakyselyjä (§26, §36) | ⚠️ | Tekniikkaprofiili lukee `testitulokset`-alikokoelman (:1516) → näyttää eri tilan kuin pikakentistä renderöivät hero, merkit ja huoltajan tekniikkaprofiili |
-| `lib/tm-kortit.js` (idoli 7×5, ~15 saavutusta, OMA kortti) | ⚠️ orpo | Ei ladata mihinkään. Joko arkistoon tai integroidaan katalogiin. Kaksi rinnakkaista korttimallia hämmentää |
+| `lib/tm-kortit.js` (idoli 7×5, ~15 saavutusta, OMA kortti) | 🗄 arkistoitu 4.10.2026 (`archive/lib/`) | Ei ladata mihinkään. Joko arkistoon tai integroidaan katalogiin. Kaksi rinnakkaista korttimallia hämmentää |
 
 ---
 

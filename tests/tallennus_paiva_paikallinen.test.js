@@ -110,7 +110,6 @@ describe('lähdekontrakti — tallentavat kohdat eivät käytä UTC-päivää', 
     ['TalentMaster_Testaus_v9.html', "|| tmPaivaIso(new Date());", 2, 'lomakkeen oletuspäivä (#722) + ennätykset: oletus tänään'],
     ['lib/tm_idp.js', "_tmPaivaIso(new Date(nyt.getTime() + kestoVk * 7 * 86400000))", 1, 'aikaraami.arvio_pvm'],
     ['lib/tm_idp.js', "pvm: arvio.pvm || _tmPaivaIso(nyt),", 1, 'arviot[].pvm-fallback'],
-    ['lib/tm-kortit.js', "function _tanaanISO() { return tmPaivaIso(new Date()); }", 1, 'ansaintapäivät'],
   ])('%s: %s', (tiedosto, osa, n) => { expect(S(tiedosto).split(osa).length - 1, 'kohta puuttuu/kaksinkertaistui').toBe(n); });
   it('Testaus_v9: käyttäjän syöttämä testipvm (3191) ennallaan, vain oletus "tänään" paikalliseksi; fallbackit kaksi kohtaa', () => {
     const t = S('TalentMaster_Testaus_v9.html');

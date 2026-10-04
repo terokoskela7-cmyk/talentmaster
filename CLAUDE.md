@@ -191,7 +191,8 @@ per tiedosto** (kaksi lohkoa kumoaa toisen — Seura.html:n bugi oli juuri täm�
 | `tm_lang.js` | fi/sv/en, 144 käännöstä | ✅ |
 | `harjoitelogiikka_v4.js` | **CANONICAL** harjoitegeneraattori (2803r) — Pelaaja_v7 lataa Pagesista `?v=6` | ✅ §A7 |
 | `src/lib/harjoitelogiikka_v4.js` | Re-export rootiin (`module.exports = require('../../harjoitelogiikka_v4.js')`) — EI muokata | ✅ §A7 |
-| `tm-profile.js` · `tm-kortit.js` | Generointi/profiili/kortit | ⚠️ tarkista GitHub |
+| `tm-profile.js` | Generointi/profiili | ⚠️ tarkista GitHub |
+| ~~`tm-kortit.js`~~ | Vanha localStorage-korttimalli | 🗄 arkistoitu 2026-10 (`archive/lib/`) — ei ladattu mihinkään; elävä = Pelaaja_v7 `KORTTI_KATALOGI` (§36) |
 
 > **Solo (B2C "Player™")** — erillinen Club-tuotteesta. Solo-pelaaja → `players/{playerId}` (**litteä**,
 > `seuraId: null`), data localStoragessa (`tm_solo_profiili`, `tm_tkk_historia`, `tm_player_code`).
