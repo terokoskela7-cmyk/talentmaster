@@ -29,6 +29,14 @@ module.exports = [
   // Suostumuksen uusiminen näkyväksi (2.10.2026)
   'seura.uusinta_vahvistus',
   'suostumus.uusinta_selite',
+  // Pelaaja V2 P0.6: mitali vain kokonaistuloksesta + lajimerkit → oma paras (4.10.2026)
+  'pelaaja.tk_mitali',
+  'pelaaja.tk_mitali_ilman_pvm',
+  'pelaaja.tk_merkki_kulta',
+  'pelaaja.tk_merkki_hopea',
+  'pelaaja.tk_merkki_pronssi',
+  'pelaaja.laji_oma_paras',
+  'pelaaja.laji_viimeisin',
   // Oma ennätys näkyviin pelaajalle + vanhemmalle (KORTTI 1c, 4.10.2026)
   'pelaaja.ennatys_uusi',
   'pelaaja.ennatys_otsikko',

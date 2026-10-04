@@ -527,7 +527,7 @@ input::placeholder,textarea::placeholder{color:#8C8B86;opacity:1}
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-functions-compat.js"></script>   <!-- Vaihe 0 / PR 1: pelaajaKirjaudu -->
 <script src="lib/tm_appcheck.js?v=2"></script>
 <script src="lib/tm_verkko.js?v=1"></script>   <!-- verkkokatko: 1 uudelleenyritys + Yhteyskatko-ilmoitus + Sentry warning -->
-<script src="lib/tm_lang.js?v=30"></script>   <!-- i18n V0 putki · V1-A/A2 · V4-A3: +pelaaja.nain_teet/kirjaa_tehdyksi/pallo_joka_paiva/rae_q4 (kotinäytön chrome sv) -->
+<script src="lib/tm_lang.js?v=31"></script>   <!-- i18n V0 putki · V1-A/A2 · V4-A3: +pelaaja.nain_teet/kirjaa_tehdyksi/pallo_joka_paiva/rae_q4 (kotinäytön chrome sv) -->
 <script src="lib/tm_phv_tila.js?v=1"></script>   <!-- PR C: PHV-tilan YKSI lukusääntö (Mirwald, vain mittauslähteestä) -->
 <script src="lib/tm_eerikkila_normit.js?v=47"></script>
 <script src="docs/testit_indeksit.js?v=13"></script>
@@ -1680,6 +1680,25 @@ function _tekKorttiData(p) {
   if (!vahvuus && !kehitys) return null;
   return { vahvuus: vahvuus, kehitys: kehitys };
 }
+// §31 — mitali VAIN kokonaistuloksesta: tkLaskeMerkki(kokonaistulos, normiIka(syntymaVuosi, testipvm), sp). Lasketaan lukuhetkellä
+// (tallennettu tki_merkki jäisi voimaan, vaikka uusi kokonaistulos olisi heikompi) — tki_merkki vain varana, jos laskenta ei onnistu.
+// Teksti: "Tekniikkakilpailu 9/2026 · kultamerkki". → { merkki, pvm, teksti } | null
+function _tkMitali(p) {
+  if (!p) return null;
+  var T = window.TM_TESTIT, kt = p.tk_kokonaistulos_viimeisin, pvm = p.tk_lajit_pvm || p.tki_pvm || null, merkki = null;
+  if (T && typeof T.tkLaskeMerkki === 'function' && kt != null && p.syntymaVuosi && typeof normiIka === 'function') {
+    var ika = normiIka(p.syntymaVuosi, pvm);
+    var sp = (String(p.sukupuoli || '').toUpperCase() === 'N') ? 'T' : 'P';
+    if (ika != null) merkki = T.tkLaskeMerkki(kt, ika, sp) || null;
+    else merkki = p.tki_merkki || null;
+  } else merkki = p.tki_merkki || null;
+  var avain = { kulta: 'pelaaja.tk_merkki_kulta', hopea: 'pelaaja.tk_merkki_hopea', pronssi: 'pelaaja.tk_merkki_pronssi' }[merkki];
+  if (!avain) return null;   // tuntematon merkki → ei mitalia (ei arvata pronssia)
+  var mn = t(avain);   // kirjaimelliset avaimet (i18n-skanneri)
+  var m = pvm ? String(pvm).match(/^(\d{4})-(\d{2})/) : null;
+  var teksti = m ? t('pelaaja.tk_mitali', { pvm: parseInt(m[2], 10) + '/' + m[1], merkki: mn }) : t('pelaaja.tk_mitali_ilman_pvm', { merkki: mn });
+  return { merkki: merkki, pvm: pvm, teksti: teksti };
+}
 function _minaTavoiteRivit(p, d) {
   const lajit = p && p.tk_lajit_viimeisin;
   // Fallback: ei pikakenttä-lajidataa → vanhat yksinkertaiset rivit (nykyinen käytös säilyy)
@@ -1714,10 +1733,8 @@ function _minaTavoiteRivit(p, d) {
   }
 
   // 🏅 Mitali-juhla (pikakenttä) + matka seuraavaan VAIN positiivisena ja vain jos lähellä (≤ 15 s)
-  if (p.tki_merkki) {
-    const MN = { kulta: 'kultamerkki', hopea: 'hopeamerkki', pronssi: 'pronssimerkki' };
-    h += '<div style="font-size:13px;color:#28B090;margin-top:10px;font-weight:600">🏅 Sinulla on ' + (MN[p.tki_merkki] || 'mitali') + '!</div>';
-  }
+  const _mit = _tkMitali(p);   // §31: mitali VAIN kokonaistuloksesta (ei lajikohtaisesti)
+  if (_mit) h += '<div style="font-size:13px;color:#28B090;margin-top:10px;font-weight:600">🏅 ' + _thEsc(_mit.teksti) + '</div>';
   if (T && T.tkSekuntibudjetti && p.tk_kokonaistulos_viimeisin != null && ika != null) {
     const budj = T.tkSekuntibudjetti(p.tk_kokonaistulos_viimeisin, ika, sp);
     const MM = { kulta: 'kultaan', hopea: 'hopeaan', pronssi: 'pronssiin' };
@@ -2802,20 +2819,19 @@ function _kkMitattuja(p) {
   if (p.d2_taso != null) c++;
   return c;
 }
-// Tekniikkamerkin taso: 0 lukittu · 1 pronssi (osallistui) · 2 hopea (≤ hyvä) · 3 kulta (≤ erinomainen).
-// tkLajiViite = {erinomainen, hyva} (TK-lajit aikapohjaisia → pienempi parempi). Oma suhde viitetasoon, EI vertailu kavereihin.
-function _kkMerkkiTaso(p, laji) {
-  if (!p || !p.tk_lajit_viimeisin) return 0;
-  var arvo = p.tk_lajit_viimeisin[laji + '_s'];
-  if (arvo == null) return 0;
-  var T = window.TM_TESTIT;
-  var sp = (String(p.sukupuoli || '').toUpperCase() === 'N') ? 'T' : 'P';
-  var ika = p.syntymaVuosi ? (new Date().getFullYear() - p.syntymaVuosi) : null;
-  var viite = (T && T.tkLajiViite && ika != null) ? T.tkLajiViite(laji, ika, sp, 'alueellinen') : null;   // PR G: merkki alueellisesta
-  if (!viite) return 1;
-  if (arvo <= viite.erinomainen) return 3;
-  if (arvo <= viite.hyva) return 2;
-  return 1;
+// §31 — lajikohtainen merkki ei ole mitali vaan lajin OMA ennätys ("Pujottelu · oma paras 14,0 s"). Ei sijoituksia/viitetasoja, ei kulta/hopea/pronssia.
+// Lähde: oma ennätys (pääalusta-rivi, lib/tm_ennatykset.js); ennätyksettömällä lajilla (esim. kuljetus-laukaus) viimeisin tulos tk_lajit_viimeisin:stä.
+// → { arvo, paras: bool } | null (ei dataa = kortti lukittuna, ei poistu näkyvistä)
+function _kkLajiTulos(p, laji) {
+  if (!p) return null;
+  var rivit = (typeof _ennRivit === 'function') ? _ennRivit(p).filter(function (r) { return r.testi === laji && r.paras != null; }) : [];
+  if (rivit.length) { var r0 = rivit.filter(function (r) { return r.paa; })[0] || rivit[0]; return { arvo: r0.paras, paras: true }; }
+  var v = p.tk_lajit_viimeisin && p.tk_lajit_viimeisin[laji + '_s'];
+  return (v != null && isFinite(Number(v))) ? { arvo: Number(v), paras: false } : null;
+}
+function _kkLajiAla(tulos, laji) {
+  var arvo = _ennLuku(laji, tulos.arvo).replace('.', ',') + ' s';
+  return t(tulos.paras ? 'pelaaja.laji_oma_paras' : 'pelaaja.laji_viimeisin', { arvo: arvo });
 }
 // Kanoninen rekisteri (Vaihe 0 tasot + Vaihe 1 saavutukset + tekniikkamerkit). Ansainta(p) lukee pikakentät.
 var KORTTI_KATALOGI = {
@@ -2834,7 +2850,7 @@ var KORTTI_KATALOGI = {
     // vain oikeasta parannuksesta; 1. mittaus ei ansaitse). Puhdas itsevertailu (§7.22).
     { id: 'ach_omaennatys', nimi: 'Oma ennätys', tyyppi: 'saavutus', ikoni: '🏅', ansainta: function (p) { return _ennRivit(p || {}).some(function (r) { return r.edellinen != null; }); }, lukittuTeksti: 'Voita oma aiempi tuloksesi.' }
   ],
-  merkit: [   // Vaihe 1 — oma mestaruuspolku per laji (pronssi/hopea/kulta omalla matkalla)
+  merkit: [   // Vaihe 1 — lajikohtaiset kortit: lajin oma ennätys (§31: ei mitali; mitali vain kokonaistuloksesta, _tkMitali)
     { id: 'merkki_kuljetus',    nimi: 'Kuljetus',  tyyppi: 'merkki', laji: 'kuljetus_laukaus', ikoni: '🏃', lukittuTeksti: 'Tee kuljetustesti.' },
     { id: 'merkki_syotto',      nimi: 'Syöttö',    tyyppi: 'merkki', laji: 'syotto',           ikoni: '🎯', lukittuTeksti: 'Tee syöttötesti.' },
     { id: 'merkki_pujottelu',   nimi: 'Pujottelu', tyyppi: 'merkki', laji: 'pujottelu',        ikoni: '🌀', lukittuTeksti: 'Tee pujottelutesti.' },
@@ -2868,7 +2884,6 @@ function _kkLiekkiTila(streak, palannut) {
   return                   { emoji: '💤',   txt: 'Aloita putki tänään',   vari: 'var(--ink3)' };
 }
 function _kkMerkkiVari(t) { return t === 3 ? '#FFD700' : t === 2 ? '#C0C0C0' : t === 1 ? '#CD7F32' : 'var(--ink3)'; }
-function _kkMerkkiNimi(t) { return t === 3 ? 'Kulta' : t === 2 ? 'Hopea' : t === 1 ? 'Pronssi' : ''; }
 function _kkKorttiHTML(ikoni, nimi, ansaittu, alateksti, vari) {
   var w = 'flex:1 1 92px;min-width:92px;max-width:124px';
   if (ansaittu) {
@@ -3124,8 +3139,8 @@ function _kkStripKortit(p) {
     else locked.push({ rarity: 'lock', rl: 'Lukittu', ikoni: '🔒', nimi: k.nimi, path: k.lukittuTeksti });
   });
   (KORTTI_KATALOGI.merkit || []).forEach(function (k) {
-    var taso = 0; try { taso = _kkMerkkiTaso(p, k.laji); } catch (e) {}
-    if (taso > 0) earned.push({ rarity: 'base', rl: '● Merkki', ikoni: k.ikoni, nimi: k.nimi, ala: _kkMerkkiNimi(taso) });
+    var lt = null; try { lt = _kkLajiTulos(p, k.laji); } catch (e) {}
+    if (lt) earned.push({ rarity: 'base', rl: '● Merkki', ikoni: k.ikoni, nimi: k.nimi, ala: _kkLajiAla(lt, k.laji) });
     else locked.push({ rarity: 'lock', rl: 'Lukittu', ikoni: '🔒', nimi: k.nimi, path: k.lukittuTeksti });
   });
   return { earned: earned, locked: locked };
@@ -3166,7 +3181,7 @@ function rMinaKokoelma() {
   var eLeg = (KORTTI_KATALOGI.legendat || []).filter(function (k) { try { return !!k.ansainta(p); } catch (e) { return false; } }).length;
   var eRare = (KORTTI_KATALOGI.harvinaiset || []).filter(function (k) { try { return !!k.ansainta(p); } catch (e) { return false; } }).length;
   var eSaav = (KORTTI_KATALOGI.saavutukset || []).filter(function (k) { try { return !!k.ansainta(p); } catch (e) { return false; } }).length;
-  var eMerk = (KORTTI_KATALOGI.merkit || []).filter(function (k) { try { return _kkMerkkiTaso(p, k.laji) > 0; } catch (e) { return false; } }).length;
+  var eMerk = (KORTTI_KATALOGI.merkit || []).filter(function (k) { try { return !!_kkLajiTulos(p, k.laji); } catch (e) { return false; } }).length;
   var ansaitut = eLeg + eRare + eSaav + eMerk;
   var uusi = '';   // ei pysyvää "uusi 🔥" -leimaa: idolikortti on aina ansaittu → leima näkyi aina (ei uutuustietoa)
   var kortit = sets.earned.concat(sets.locked);
