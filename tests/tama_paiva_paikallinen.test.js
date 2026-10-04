@@ -123,8 +123,8 @@ describe('libit, jotka kutsuvat tmPaivaIso():a, ladataan vain sivuilla jotka lat
   /* Poikkeukset (perusteltu): Pelaaja_v7 lataa tm_idp.js:n vain lukupuolen (idpPelaajaKaari/Konsepti) — kirjoittavia päiväfunktioita
      (idpRakennaTavoite/idpLisaaArvio) se ei kutsu; tmPaivaIso viitataan vasta kutsuhetkellä. */
   const POIKKEUS = { 'tm_idp.js': ['TalentMaster_Pelaaja_v7.html'] };
-  it('EI VACUOUS: tmPaivaIso-libit löytyvät (tm_reflektio, tm-kortit …)', () => {
-    expect(libit).toEqual(expect.arrayContaining(['tm_reflektio.js', 'tm-kortit.js']));
+  it('EI VACUOUS: tmPaivaIso-libit löytyvät (tm_reflektio …; tm-kortit.js arkistoitu 4.10.2026)', () => {
+    expect(libit).toEqual(expect.arrayContaining(['tm_reflektio.js']));
   });
   it.each(libit)('%s', (lib) => {
     const sivut = readdirSync(juuri).filter((f) => /^TalentMaster_.*\.html$/.test(f)).filter((f) => lue(f).includes('lib/' + lib));

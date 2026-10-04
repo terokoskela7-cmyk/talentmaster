@@ -1,3 +1,6 @@
+/* 🗄 ARKISTOITU 4.10.2026 (Tero hyväksyi, ehdotus PR B / docs/PELAAJA_KORTIT_TILANNE.md §3): ei ladattu yhteenkään sovellukseen.
+   Elävä korttijärjestelmä = Pelaaja_v7 KORTTI_KATALOGI (§36, docs/KORTTI_KATALOGI.md). Ideat (idolikortit, sitkeys-saavutukset)
+   toteutetaan tarvittaessa katalogiin pikakentistä (§26), ei tästä localStorage-mallista. */
 /* ═══════════════════════════════════════════════════════════════════
    TalentMaster — Keräilykortit (Cards)
    
