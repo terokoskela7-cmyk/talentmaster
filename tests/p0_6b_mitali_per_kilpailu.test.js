@@ -109,6 +109,26 @@ describe('kokonaisaika riviltä', () => {
   it('pyöristys 2 desimaaliin (ei liukulukuroskaa rajalla)', () => { expect(ctx().kt({ ponnauttelu: 20.1, syotto: 20.2, pujottelu: 20.3, kuljetus_laukaus: 18.7 }, 11)).toBe(79.3); });
 });
 
+describe('varapolun kokonaisaika = KANONINEN laskeKokonaistulos (ei rinnakkaista laskentaa)', () => {
+  it('lähde kutsuu T.laskeKokonaistulos:ta eikä summaa itse', () => {
+    const l = pura('function _tkKokonaisaikaRivilta(');
+    expect(l).toContain('T.laskeKokonaistulos(testit, ika'); expect(l).not.toMatch(/summa\s*[+-]?=|Math\.round/);
+  });
+  it('PARITEETTI: rivin tulos = laskeKokonaistulos(lajit + pituuspotku metreinä) kaikilla metreillä 0–120 ja ikinä 8–14 (bonus-sekunnit = tkPituuspotkuBonus(m))', () => {
+    const lajitObj = { ponnauttelu: 21.3, syotto: 19.7, pujottelu: 22.15, kuljetus_laukaus: 17.85 };
+    for (let ika = 8; ika <= 14; ika++) {
+      for (let m = 0; m <= 120; m += 0.5) {
+        const kanoninen = TT.laskeKokonaistulos(Object.assign({}, lajitObj, { pituuspotku: m }), ika, 'P');
+        const rivi = Object.assign({}, lajitObj, { pituuspotku_bonus: TT.tkPituuspotkuBonus(m) });
+        expect(ctx().kt(rivi, ika), 'ika ' + ika + ' m ' + m).toBe(kanoninen);
+      }
+    }
+  });
+  it('kanoninen puuttuu (TM_TESTIT ei ladattu) → null (ei rinnakkaista varalaskentaa)', () => {
+    const sb = ctx({ TM_TESTIT: {} }); expect(sb.kt({ ponnauttelu: 20, syotto: 20, pujottelu: 20, kuljetus_laukaus: 20 }, 11)).toBeNull();
+  });
+});
+
 describe('viimeisin kilpailu (pikakentät) ja yhteensopivuus', () => {
   it('ei historiaa → vain viimeisin kilpailu pikakentistä (ennallaan, myös stale tki_merkki-suoja)', () => {
     expect(tekstit(ctx().lista(pel({ tk_kokonaistulos_viimeisin: 79, tk_lajit_pvm: '2026-09-12' })))).toEqual(['Tekniikkakilpailu 9/2026 · kultamerkki']);
