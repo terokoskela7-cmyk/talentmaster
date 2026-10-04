@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <title>TalentMaster™ — Pelaaja v7</title>
 <script>/* Versio-tarkistus (cache): pakottaa reloadin kun uusi versio deployattu. APP_VERSION leimataan scripts/bump_version.js:llä. */
-(function(){var APP_VERSION='1791109834489';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
+(function(){var APP_VERSION='1791112284552';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
 <!-- B2 Sentry-virheseuranta (onboarding-kriittinen). PII-skrubi tm_sentry.js:ssä. Guard: offline → no-op.
      ⚠️ ENNEN PUSHIA: liitä EU-DSN tm_sentry.js:ään + verifioi integrity-hash bundle.min.js@10.58.0 (väärä SRI estää Sentryn hiljaa). -->
 <script>window.TM_SENTRY={app:'pelaaja'};</script>
@@ -216,6 +216,11 @@ button{font-family:var(--font-b);cursor:pointer}
 .fc-shim{position:absolute;inset:0;overflow:hidden;pointer-events:none}
 .fc-shim::after{content:'';position:absolute;top:0;bottom:0;left:-110%;width:62%;background:linear-gradient(105deg,transparent 22%,rgba(255,255,255,.05) 46%,rgba(255,255,255,.13) 50%,rgba(255,255,255,.05) 54%,transparent 78%);animation:fcShim 6s 1.8s ease-in-out infinite}
 .fc-body>*{position:relative;z-index:2}
+/* Etupuoli ei saa leikata sisältöä ("Minun tavoitteeni" jäi alareunan alle): tavallinen rakentaja-kortti mahtuu
+   470 px:iin (tiivistetyt välit yllä); pidempi sisältö (leikkijän "Kortti rakentuu", pitkä oma tavoite) VIERITTYY
+   SISÄISESTI. Skaalaus (.fc-scale) ja flip ennallaan. Vierityspalkki piilossa, kosketusvieritys toimii. */
+.fc-front .fc-body{overflow-y:auto;overscroll-behavior:contain;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+.fc-front .fc-body::-webkit-scrollbar{display:none}
 .fc-num{font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:66px;line-height:.82;letter-spacing:-2px;color:var(--cf-main);text-shadow:0 0 22px var(--cf-soft),2px 2px 0 rgba(0,0,0,.5);animation:fcPop 1s .5s cubic-bezier(.34,1.56,.64,1) both}
 .fc-numtag{font-family:'DM Sans',sans-serif;font-weight:600;font-size:9px;letter-spacing:.22em;text-transform:uppercase;color:var(--cf-soft);margin-top:2px;opacity:.7}
 .fc-build{font-family:'Cormorant Garamond',serif;font-weight:300;font-size:24px;line-height:1.05;color:var(--text)}
@@ -225,15 +230,15 @@ button{font-family:var(--font-b);cursor:pointer}
 .fc-meta{font-family:'Barlow Condensed',sans-serif;font-weight:600;font-size:10.5px;letter-spacing:.04em;color:var(--ink3);margin-top:3px;display:flex;align-items:center;gap:5px;justify-content:flex-end}
 .fc-flag{width:14px;height:10px;border-radius:1px;background:linear-gradient(90deg,#fff 38%,#003580 38%,#003580 50%,#fff 50%,#fff 56%,#003580 56%);position:relative;flex-shrink:0;border:.5px solid rgba(0,0,0,.3)}
 .fc-flag::after{content:'';position:absolute;left:0;right:0;top:38%;height:24%;background:#003580}
-.fc-av{width:50px;height:50px;border-radius:50%;border:1.5px solid var(--cf-soft);display:flex;align-items:center;justify-content:center;font-family:'Cormorant Garamond',serif;font-size:20px;color:var(--cf-main);background:rgba(255,255,255,.04);box-shadow:inset 0 2px 12px rgba(0,0,0,.5),0 0 22px var(--cf-soft);animation:fcFloat 5s 1.3s ease-in-out infinite}
+.fc-av{width:40px;height:40px;border-radius:50%;border:1.5px solid var(--cf-soft);display:flex;align-items:center;justify-content:center;font-family:'Cormorant Garamond',serif;font-size:20px;color:var(--cf-main);background:rgba(255,255,255,.04);box-shadow:inset 0 2px 12px rgba(0,0,0,.5),0 0 22px var(--cf-soft);animation:fcFloat 5s 1.3s ease-in-out infinite}
 .fc-name{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:22px;letter-spacing:.3px;color:var(--cf-main);line-height:1.05;animation:fcSlide .9s .5s ease both}
 .fc-namesub{font-family:'DM Sans',sans-serif;font-size:9px;color:var(--ink3);margin-top:2px}
-.fc-div{height:1px;margin:4px 0;background:linear-gradient(90deg,transparent,var(--cf-soft) 22%,rgba(255,255,255,.35) 50%,var(--cf-soft) 78%,transparent)}
-.fc-dream{border:1px solid var(--cf-soft);background:rgba(255,255,255,.03);border-radius:11px;padding:4px 10px;display:flex;align-items:center;gap:9px}
+.fc-div{height:1px;margin:3px 0;background:linear-gradient(90deg,transparent,var(--cf-soft) 22%,rgba(255,255,255,.35) 50%,var(--cf-soft) 78%,transparent)}
+.fc-dream{border:1px solid var(--cf-soft);background:rgba(255,255,255,.03);border-radius:11px;padding:3px 10px;display:flex;align-items:center;gap:9px}
 .fc-dream .di{width:22px;height:22px;border-radius:50%;border:1px solid var(--cf-soft);display:flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0;color:var(--cf-main)}
 .fc-dream .dl{font-family:'DM Sans',sans-serif;font-weight:600;font-size:7px;letter-spacing:.2em;text-transform:uppercase;color:var(--ink3)}
 .fc-dream .dm{font-family:'Cormorant Garamond',serif;font-weight:600;font-style:italic;font-size:14px;color:var(--cf-main);margin-top:1px;line-height:1.15}
-.fc-s5{display:grid;grid-template-columns:repeat(5,1fr);gap:5px;margin-top:5px}
+.fc-s5{display:grid;grid-template-columns:repeat(5,1fr);gap:5px;margin-top:4px}
 .fc-st{text-align:center;padding:3px 1px 3px;border-radius:9px;border:1px solid rgba(242,239,230,.08);overflow:hidden}
 .fc-st .sv{font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:19px;line-height:1;color:var(--cf-main);text-shadow:0 0 10px var(--cf-soft)}
 .fc-st .sk{font-family:'DM Sans',sans-serif;font-weight:700;font-size:7.5px;letter-spacing:.04em;text-transform:uppercase;color:var(--cf-main);margin-top:1px}
@@ -242,7 +247,7 @@ button{font-family:var(--font-b);cursor:pointer}
 .fc-st.locked{opacity:.5}.fc-st.locked .sv{font-family:'DM Sans',sans-serif;font-weight:500;font-size:13px;color:var(--ink3)}.fc-st.locked .sk{color:var(--ink3)}
 .fc-st.grow{border-color:rgba(40,176,144,.22);background:rgba(40,176,144,.06)}.fc-st.grow .sv{font-family:'DM Sans',sans-serif;font-weight:600;font-size:14px;color:#7fd9c1}.fc-st.grow .sk{color:#7fd9c1}.fc-st.grow .sd{color:rgba(127,217,193,.75)}
 .fc-st.early .sv{font-size:19px;opacity:.85}.fc-st.early .sd{color:#E0A653}
-.fc-j{border:1px solid var(--cf-soft);background:rgba(255,255,255,.03);border-radius:12px;padding:7px 11px;margin-top:5px}
+.fc-j{border:1px solid var(--cf-soft);background:rgba(255,255,255,.03);border-radius:12px;padding:6px 11px;margin-top:4px}
 .fc-j .jt{display:flex;justify-content:space-between;align-items:baseline}
 .fc-j .jl{font-family:'DM Sans',sans-serif;font-weight:600;font-size:8px;letter-spacing:.14em;text-transform:uppercase;color:var(--cf-main)}
 .fc-j .jd{font-family:'DM Sans',sans-serif;font-weight:600;font-size:9px;color:#7fd9c1}
@@ -255,7 +260,7 @@ button{font-family:var(--font-b);cursor:pointer}
 .fc-j .jcap b{display:block;font-family:'Cormorant Garamond',serif;font-weight:600;font-size:11px;margin-top:0;letter-spacing:0}
 .fc-j .jline{flex:1;height:2px;border-radius:2px;position:relative;top:-7px}
 .fc-j .jfoot{margin-top:5px;font-family:'DM Sans',sans-serif;font-weight:500;font-size:8.5px;line-height:1.35;color:var(--ink2)}
-.fc-goal{margin-top:4px;border:1px dashed rgba(242,239,230,.14);border-radius:11px;padding:4px 11px;display:flex;align-items:center;gap:9px;cursor:pointer}
+.fc-goal{margin-top:3px;border:1px dashed rgba(242,239,230,.14);border-radius:11px;padding:4px 11px;display:flex;align-items:center;gap:9px;cursor:pointer}
 .fc-goal .gl{font-family:'DM Sans',sans-serif;font-weight:600;font-size:7px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink3)}
 .fc-goal .gm{font-family:'Cormorant Garamond',serif;font-style:italic;font-size:13px;color:var(--text);margin-top:1px;line-height:1.15}
 .fc-bar{display:grid;grid-template-columns:34px 1fr 30px;align-items:center;gap:8px;font-size:11px;margin-bottom:7px}
