@@ -25,9 +25,9 @@ function pura(tunniste) {
   throw new Error('sulkeet');
 }
 const ctx = () => {
-  const sb = { window: { TM_TESTIT: TT, TM_ENNATYKSET: ENN }, normiIka: EN.normiIka, t: LANG.t, Date, String, Number, Object, Array, parseInt, isFinite, Math };
+  const sb = { window: { TM_TESTIT: TT, TM_ENNATYKSET: ENN, TM_KEHITYSKAARI: require('../lib/tm_kehityskaari.js') }, normiIka: EN.normiIka, t: LANG.t, Date, String, Number, Object, Array, parseInt, isFinite, Math };
   vm.createContext(sb);
-  vm.runInContext(['function _tkMitali(', 'function _ennRivit(', 'function _kkEnnatysTiedot(', 'function _ennLuku(', 'function _kkLajiTulos(', 'function _kkLajiAla(']
+  vm.runInContext([HTML.match(/var _TK_MERKKI_AVAIN = \{[^}]*\};/)[0], 'function _tkMitaliRivi(', 'function _tkSp(', 'function _tkKokonaisaikaRivilta(', 'function _tkMitaliViimeisin(', 'function _tkMitalit(', 'function _tkMitali(', 'function _ennRivit(', 'function _kkEnnatysTiedot(', 'function _ennLuku(', 'function _kkLajiTulos(', 'function _kkLajiAla(']
     .map(pura).join('\n') + '\nthis.m = _tkMitali; this.lt = _kkLajiTulos; this.ala = _kkLajiAla;', sb);
   return sb;
 };
