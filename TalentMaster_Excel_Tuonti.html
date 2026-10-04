@@ -23,6 +23,7 @@
 <script src="lib/tm_eerikkila_normit.js?v=46"></script>
 <script src="lib/tm_joukkue.js?v=4"></script>
 <script src="lib/tm_pvm.js?v=3"></script>
+<script src="lib/tm_ennatykset.js?v=1"></script>   <!-- Omat ennätykset (PB): paivitaEnnatykset (jaettu, TM_ENNATYKSET) -->
 <script src="lib/tm_historia.js?v=1"></script>   <!-- Trendi Vaihe 1a: mittaushistorian selkäranka (tmHhSnapshot/tmTkiSnapshot/tmHistoriaLisaa) -->
 <script src="lib/tm_pohja.js?v=1"></script>   <!-- P1.2: itsekuvaava tuontipohja — TM_POHJA.sarakkeetTesteista/metaLehtiAoa/lueMetaLehti (joustava testivalitsin + Meta-lehti) -->
 
@@ -2838,33 +2839,7 @@ function laskeTKIPelaajalle(testit, ika, sukupuoli) {
   return (kt != null) ? tkLaskeTKI(kt, ika, sp) : null;
 }
 
-// ── Ennätykset (PB per testi, KORTTI 1c-A) — inline-kopio docs/testit_indeksit.js:stä (PIDÄ SYNKASSA).
-// Excelissä ei alusta-tietoa → alusta:'tuntematon' (alustaherkät bucketoituvat erikseen kenttätestien alustoista → ei valhe-PB §22).
-const ENNATYS_META = {
-  lin5m: { pieni:true, alusta:true }, lin10m: { pieni:true, alusta:true }, lin30m: { pieni:true, alusta:true },
-  cmj: { pieni:false, alusta:false }, mas: { pieni:false, alusta:true },
-  kasirata: { pieni:true, alusta:true }, sm_juoksu: { pieni:true, alusta:true }, sm_pallo: { pieni:true, alusta:true },
-  ponnauttelu: { pieni:true, alusta:false }, syotto: { pieni:true, alusta:true }, pujottelu: { pieni:true, alusta:true },
-  kuljetus_laukaus: { pieni:true, alusta:true }, pituuspotku_bonus: { pieni:false, alusta:false }, flei: { pieni:false, alusta:false }
-};
-function _ennatysKynnys(arvo) { return Math.max(0.03, Math.abs(Number(arvo) || 0) * 0.005); }
-function paivitaEnnatykset(nyky, tulokset) {
-  const ulos = {};
-  if (nyky && typeof nyky === 'object') { for (const k in nyky) { if (Object.prototype.hasOwnProperty.call(nyky, k)) ulos[k] = nyky[k]; } }
-  const uudet = [];
-  (tulokset || []).forEach(function (t) {
-    if (!t || !t.testi) return;
-    const meta = ENNATYS_META[t.testi]; if (!meta) return;
-    const arvo = Number(t.arvo); if (arvo == null || isNaN(arvo)) return;
-    const alusta = t.alusta || 'tuntematon';
-    const cur = ulos[t.testi];
-    if (!cur) { ulos[t.testi] = { paras: arvo, pvm: t.pvm || null, alusta: alusta }; return; }
-    if (meta.alusta && (cur.alusta || 'tuntematon') !== alusta) return;
-    const parannus = meta.pieni ? (cur.paras - arvo) : (arvo - cur.paras);
-    if (parannus > _ennatysKynnys(arvo)) { ulos[t.testi] = { paras: arvo, pvm: t.pvm || null, alusta: alusta }; uudet.push(t.testi); }
-  });
-  return { ennatykset: ulos, uudet: uudet };
-}
+// ── Ennätykset (PB per testi, KORTTI 1c-A) — paivitaEnnatykset JAETUSTA lib/tm_ennatykset.js:stä (EI inline-kopiota).
 // Kerää ennätys-kandidaatit varmoista pikakentistä (hhViimeisin + TK-lajit + FLEI). pituuspotku_bonus vain ≥12v (mukana _tkLajit:ssa jo).
 function _ennatysKandidaatit(hhViimeisin, tkLajit, fleiPct, pvmIso) {
   const out = [];

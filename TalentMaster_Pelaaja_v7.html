@@ -517,9 +517,9 @@ input::placeholder,textarea::placeholder{color:#8C8B86;opacity:1}
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-functions-compat.js"></script>   <!-- Vaihe 0 / PR 1: pelaajaKirjaudu -->
 <script src="lib/tm_appcheck.js?v=2"></script>
 <script src="lib/tm_verkko.js?v=1"></script>   <!-- verkkokatko: 1 uudelleenyritys + Yhteyskatko-ilmoitus + Sentry warning -->
-<script src="lib/tm_lang.js?v=27"></script>   <!-- i18n V0 putki · V1-A/A2 · V4-A3: +pelaaja.nain_teet/kirjaa_tehdyksi/pallo_joka_paiva/rae_q4 (kotinäytön chrome sv) -->
+<script src="lib/tm_lang.js?v=28"></script>   <!-- i18n V0 putki · V1-A/A2 · V4-A3: +pelaaja.nain_teet/kirjaa_tehdyksi/pallo_joka_paiva/rae_q4 (kotinäytön chrome sv) -->
 <script src="lib/tm_eerikkila_normit.js?v=46"></script>
-<script src="docs/testit_indeksit.js?v=9"></script>
+<script src="docs/testit_indeksit.js?v=10"></script>
 <script src="lib/tm_havaintohistoria.js?v=1"></script>   <!-- vain tmHhRivit: jarjestys + tekijanimi (ei pisteita, 7.22) -->
 <script src="harjoitelogiikka_v4.js?v=13"></script>
 <script src="lib/tm-microcycles.js?v=3"></script>
@@ -2859,7 +2859,7 @@ function _kkKorttiHTML(ikoni, nimi, ansaittu, alateksti, vari) {
 function _kkEnnatysTiedot(testi) {
   var M = {
     lin5m: ['5 m kiri', 's'], lin10m: ['10 m kiri', 's'], lin30m: ['30 m kiri', 's'],
-    cmj: ['Kevennyshyppy', 'cm'], mas: ['Maksiminopeus', 'km/h'], kasirata: ['Ketteryys', 's'],
+    cmj: ['Kevennyshyppy', 'cm'], mas: ['Kestävyys', 'km/h'], kasirata: ['Ketteryys', 's'],
     sm_juoksu: ['SM-juoksu', 's'], sm_pallo: ['SM-pallo', 's'], ponnauttelu: ['Ponnautus', 's'],
     syotto: ['Syöttö', 's'], pujottelu: ['Pujottelu', 's'], kuljetus_laukaus: ['Kuljetus-laukaus', 's'],
     pituuspotku_bonus: ['Pituuspotku', 's'], flei: ['Kehon valmius', '']
@@ -2877,7 +2877,7 @@ function _kkEnnatyksetHTML(p, stage) {
   } else {
     sis = '<div style="display:flex;flex-wrap:wrap;gap:8px">' + avaimet.map(function (k) {
       var t = _kkEnnatysTiedot(k), e = ennat[k];
-      var arvo = (typeof e.paras === 'number') ? (Math.round(e.paras * 100) / 100) : e.paras;
+      var arvo = isNaN(Number(e.paras)) ? e.paras : _ennLuku(k, e.paras);   // sama muotoilu kuin juhlaviestissä (4.0 s)
       var alustaTxt = (e.alusta && e.alusta !== 'tuntematon') ? (' · ' + _thEsc(String(e.alusta))) : '';
       return '<div style="flex:1 1 112px;min-width:112px;max-width:150px;text-align:center;padding:11px 8px;background:rgba(40,176,144,.06);border:1px solid #28B090;border-radius:12px">'
         + '<div style="font-size:11px;color:var(--ink3);margin-bottom:3px">' + _thEsc(t[0]) + '</div>'
@@ -2888,6 +2888,56 @@ function _kkEnnatyksetHTML(p, stage) {
   return '<div style="font-size:11px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--ink3);margin:18px 0 6px">🏅 Ennätykset</div>'
     + '<div style="font-size:11px;color:#8C8B86;margin-bottom:8px">Voita oma itsesi — jokainen parannus on voitto.</div>' + sis;
 }
+
+// Uusi oma ennätys → juhlaviesti KERRAN (KORTTI 1c). §7.22: vain itsevertailu — ei tasolukuja, ei vertailua muihin,
+// ei XP:tä/progressbaria, ei menetys-kieltä. Gating: localStorage tm_ennatys_nahty_<pelaajaId> = { <testi>: pvm }.
+// Juhlitaan VAIN oikea parannus (lib/tm_ennatykset.js kirjoittaa `edellinen`); 1. mittaus / vanha ennätys → nähdyksi hiljaa.
+// PUHDAS: (ennatykset, nahty) → { juhli:[testi], merkitse:{ testi: pvm } }
+function _ennUudetNakematta(ennat, nahty) {
+  var juhli = [], merkitse = {};
+  if (!ennat || typeof ennat !== 'object') return { juhli: juhli, merkitse: merkitse };
+  Object.keys(ennat).forEach(function (k) {
+    var e = ennat[k]; if (!e || e.paras == null || !e.pvm) return;
+    var pvm = String(e.pvm).slice(0, 10), ennen = nahty && nahty[k];
+    if (ennen && String(ennen) >= pvm) return;
+    merkitse[k] = pvm;
+    if (e.edellinen != null) juhli.push(k);
+  });
+  return { juhli: juhli, merkitse: merkitse };
+}
+function _ennLuku(k, paras) {   // aikatestit 2 des. (4.0 · 4.35), muut 1 des.
+  var v = Number(paras);
+  return (_kkEnnatysTiedot(k)[1] === 's') ? v.toFixed(2).replace(/0$/, '') : String(Math.round(v * 10) / 10);
+}
+function _ennArvoTxt(k, paras) { var y = _kkEnnatysTiedot(k)[1]; return _ennLuku(k, paras) + (y ? (' ' + y) : ''); }
+function _naytaUusiEnnatys() {
+  var p = _pelaaja; if (!p || _isDemoUser || !p.ennatykset) return;
+  if (document.getElementById('tervetuloOv') || document.getElementById('ennatysOv')) return;   // ei päällekkäin → seuraavalla avauksella
+  var pid = p.id || window._tmPlayerId || ''; if (!pid) return;
+  var avain = 'tm_ennatys_nahty_' + pid, nahty;
+  try { nahty = JSON.parse(localStorage.getItem(avain) || '{}') || {}; } catch (e) { return; }   // estetty → ei näytetä (ei toistuisi joka kerta)
+  var r = _ennUudetNakematta(p.ennatykset, nahty);
+  if (!Object.keys(r.merkitse).length) return;
+  try { localStorage.setItem(avain, JSON.stringify(Object.assign({}, nahty, r.merkitse))); } catch (e) { return; }
+  if (!r.juhli.length) return;
+  var rivit = r.juhli.map(function (k) {
+    return '<div class="th-otsikko" style="font-size:21px;margin-bottom:10px">' + _thEsc(t('pelaaja.ennatys_uusi', { testi: _kkEnnatysTiedot(k)[0], arvo: _ennArvoTxt(k, p.ennatykset[k].paras) })) + '</div>';
+  }).join('');
+  var ov = document.createElement('div');
+  ov.id = 'ennatysOv'; ov.className = 'th-ov';
+  ov.onclick = function (e) { if (e.target === ov) window._suljeEnnatys(); };
+  ov.innerHTML = '<div class="th-panel" role="dialog" aria-label="' + _thEsc(t('pelaaja.ennatys_otsikko')) + '">'
+    + rivit
+    + '<div class="th-txt" style="text-align:center;margin-top:4px">' + _thEsc(t('pelaaja.ennatys_kortissa')) + '</div>'
+    + '<div class="th-napit"><button class="th-aloita" onclick="_suljeEnnatys()">' + _thEsc(t('pelaaja.ennatys_jes')) + '</button></div></div>';
+  document.body.appendChild(ov);
+  requestAnimationFrame(function () { ov.classList.add('th-auki'); });
+  if (typeof _synttariKonfetti === 'function') { try { _synttariKonfetti(); } catch (e) { /* koriste */ } }
+}
+window._suljeEnnatys = function () {
+  var ov = document.getElementById('ennatysOv');
+  if (ov) { ov.classList.remove('th-auki'); setTimeout(function () { if (ov.parentNode) ov.remove(); }, 320); }
+};
 
 // ══ A. HERO — kehityskortti MINÄn kärkeen (kompakti). Napautus avaa täyden flip-kortin (naytaFcOverlay). ══
 // Käyttää JAETTUA _fcKorttiData:aa (sama OVR/tier/5D kuin overlay). §7.22: rakentuu-tilassa EI kovaa OVR-lukua.
@@ -4371,6 +4421,8 @@ function _kaynnistaAppUI() {
 
   // Vaihe 1 — tervetulo-overlay ensimmäisellä kirjautumisella (localStorage-gating, §7.22-turvallinen).
   setTimeout(function () { _naytaTervetulo(); }, 400);
+  // KORTTI 1c — uusi oma ennätys: juhlaviesti kerran (tervetulon jälkeen; jos tervetulo auki → seuraavalla avauksella).
+  setTimeout(function () { _naytaUusiEnnatys(); }, 1200);
 }
 
 

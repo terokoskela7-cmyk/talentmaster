@@ -80,7 +80,9 @@ describe('tm_pikakirjaus · testitulos + pikakentät yhdessä batchissa', () => 
     const upd = await F()._tallennaPelaajanTulokset(m.db, 'kpv', 'm93GBdOaGCUuenMiCL0I', {}, tulokset, pvm);
     const odotus = globalThis.TM_PIKAKENTAT.tmLaskePikakentat(d0, tulokset, pvm);
     F()._lisaaHistoria(odotus, d0, tulokset, pvm);
+    F()._lisaaEnnatykset(odotus, d0, tulokset, undefined, pvm);   // KORTTI 1c: omat ennätykset samaan upd:iin
     expect(upd).toEqual(odotus);
+    expect(upd.ennatykset).toMatchObject({ lin30m: { paras: 4.62, pvm }, cmj: { paras: 33.5 } });
   });
   it('lomakkeen _tallenna kutsuu atomista apuria (ei enää erillisiä set + update -kutsuja)', () => {
     const s = readFileSync(join(juuri, 'lib/tm_pikakirjaus.js'), 'utf8');
