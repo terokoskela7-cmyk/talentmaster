@@ -2647,7 +2647,7 @@ async function _lataaPelaajat() {
     if (!docs.length && _mOnOffline()) { _mVerkkoIlmoitus(true); return; }   // yhteys katkesi kesken: välimuistin tyhjä ≠ ei pelaajia
     // PR C: PHV-tila normalisoidaan TÄSSÄ (yksi rajapinta, kuten VP lataaPelaajat): kanoninen Mirwald-koodi vain
     // mittauslähteestä (biologinenIka_viimeisin), muuten null = tuntematon. Ilmoitettu PH → lippu henkilökunnalle.
-    _pelaajatData = docs.map(d => { const o = { id: d.id, ...d.data() }; o.phv_ilmoitettu_ph = tmPhvIlmoitettuPH(o); o.phv_tila = tmPhvKoodi(o); return o; });
+    _pelaajatData = docs.map(d => { const o = { id: d.id, ...d.data() }; o.phv_ilmoitettu_ph = tmPhvIlmoitettuPH(o); o.phv_ei_mitattu = tmPhvEiMitattu(o); o.phv_tila = tmPhvKoodi(o); return o; });
     _pelaajatData.sort((a,b) => (a.sukunimi||'').localeCompare(b.sukunimi||''));
     if (!_demo) {
       // Renderöi kaikki pelaajadataa käyttävät näkymät (alkulataus + jokainen lataus)
@@ -7517,6 +7517,9 @@ function _renderPinfoFirestore(p) {
   } else if (p.phv_ilmoitettu_ph) {
     // PR C: lomakkeelta/tuonnista ilmoitettu PH ilman mittausta → henkilökunnalle näkyviin (kuormasuoja), ei vaihetta.
     _identChips.push('<span title="' + masterT('ilmoitettu, ei mitattu') + '" style="font-size:10px;padding:2px 9px;border-radius:20px;border:.5px dashed var(--amber);color:var(--amber)">⚠ PHV PH? · ' + masterT('ilmoitettu, ei mitattu') + '</span>');
+  } else if (p.phv_ei_mitattu) {
+    // Päätös B: mittaamaton kalenteri-ikäikkunassa → harjoitusehdotukset S2-katolla. Henkilökunnalle, ei lapselle.
+    _identChips.push('<span title="' + masterT('kuorma varovainen ikäikkunassa') + '" style="font-size:10px;padding:2px 9px;border-radius:20px;border:.5px dashed var(--ink3);color:var(--ink3)">' + masterT('PHV ei mitattu') + '</span>');
   }
   if (p.talenttiTaso) {
     const _laaj = p.talenttiTaso === 'laajennettu';

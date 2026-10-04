@@ -45,7 +45,7 @@ function ymparisto({ online = true, pelaajat = [{ id: 'm93GBdOaGCUuenMiCL0I', da
     window: { addEventListener: (t, f) => { kuuntelijat[t] = f; } },
     location: { reload: () => kutsut.push('reload') },
     masterT: (t) => t, Date,
-    tmPhvKoodi: require('../lib/tm_phv_tila.js').tmPhvKoodi, tmPhvIlmoitettuPH: require('../lib/tm_phv_tila.js').tmPhvIlmoitettuPH,   // PR C
+    tmPhvKoodi: require('../lib/tm_phv_tila.js').tmPhvKoodi, tmPhvIlmoitettuPH: require('../lib/tm_phv_tila.js').tmPhvIlmoitettuPH, tmPhvEiMitattu: require('../lib/tm_phv_tila.js').tmPhvEiMitattu,   // PR C (+ päätös B)
     _demo: false, _seuraId: 'kpv', _joukkue: null, _pelaajatData: [{ id: 'vanha' }],
     _db: { collection: () => ({ doc: () => ({ collection: () => kysely }) }) },
     lataaKonseptikerros: async () => {}, _paivitaKaikkiNakymat: () => kutsut.push('render'),

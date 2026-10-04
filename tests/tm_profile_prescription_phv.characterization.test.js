@@ -52,17 +52,25 @@ describe('laskeEfektiivinenStage — PHV-portti', () => {
     expect(JSON.stringify(r.perusteKielella)).not.toMatch(/PHV|kasvupyräh/i);
   });
 
-  it("puuttuva tila (null/undefined) → kuten 'tuntematon' (PR C: ennen ei rajaa)", () => {
-    expect(P.laskeEfektiivinenStage(95, null, 17, null).stage).toBe(2);
-    expect(P.laskeEfektiivinenStage(95, undefined, 17, null).stage).toBe(2);
+  // Päätös B (4.10.2026): kutsujat antavat KUORMATILAN (tmPhvKuormaTila). null = mittaamaton IKKUNAN ULKOPUOLELLA →
+  // normaali ikävaiheen kuorma (ei S2-kattoa). Aiempi PR C -odotus (null → S2) muutettu tämän mukaiseksi.
+  it("päätös B: null/undefined (= mittaamaton ikäikkunan ulkopuolella) → EI PHV-kattoa, vain ikäportit", () => {
+    expect(P.laskeEfektiivinenStage(95, null, 17, null).stage).toBe(5);
+    expect(P.laskeEfektiivinenStage(95, undefined, 17, null).stage).toBe(5);
+    expect(P.laskeEfektiivinenStage(95, null, 13, null).stage).toBe(3);   // alle 14 v ikäportti ennallaan
   });
 });
 
 describe('koostaProfiili — phvTila pelaajadokumentista', () => {
-  it("PR C: ei phv_tila:a → phvTila 'tuntematon' (ennen oletus 'AN' = vanhassa sanastossa pre-PHV)", () => {
-    const pr = P.koostaProfiili(Object.assign({ ika: 17 }, FLEI_KORKEA));
+  it("PR C + päätös B: ei phv_tila:a, ikäikkunassa (13 v) → 'tuntematon' → varovaisin raja", () => {
+    const pr = P.koostaProfiili(Object.assign({ ika: 13 }, FLEI_KORKEA));
     expect(pr.phvTila).toBe('tuntematon');
     expect(pr.stageKokonais.stage).toBe(2);   // varovaisin raja
+  });
+  it("päätös B: ei phv_tila:a, ikkunan ulkopuolella (17 v) → normaali kuorma (ei 'tuntematon'-kattoa)", () => {
+    const pr = P.koostaProfiili(Object.assign({ ika: 17 }, FLEI_KORKEA));
+    expect(pr.phvTila).toBe(null);
+    expect(pr.stageKokonais.stage).toBe(5);
   });
 
   it("PR C: phv_tila 'AN' ILMAN mittausta → 'tuntematon' (Topiaksen tapaus), ei jälki-PHV:tä eikä pre-PHV:tä", () => {
@@ -98,10 +106,13 @@ describe('generoimYksilo — PH-ohjeet', () => {
   it('mitattu PH → PH-variantit käytössä', () => {
     expect(ohjeet(Object.assign({ flei_ketjut: { SBL: 30, SFL: 90, LL: 90, DIAG: 90, DFL: 90 } }, mitattu('PH')))).toMatch(/Naruhypyt 2×10s kevyesti/);
   });
-  it('PR C: tuntematon → varovaiset variantit (ei kevene), mutta ei PHV-mainintaa ohjeissa', () => {
-    const t = ohjeet({ flei_ketjut: { SBL: 30, SFL: 90, LL: 90, DIAG: 90, DFL: 90 } });
+  it('PR C + päätös B: tuntematon IKÄIKKUNASSA (13 v) → varovaiset variantit, mutta ei PHV-mainintaa ohjeissa', () => {
+    const t = ohjeet({ ika: 13, flei_ketjut: { SBL: 30, SFL: 90, LL: 90, DIAG: 90, DFL: 90 } });
     expect(t).toMatch(/Naruhypyt 2×10s kevyesti/);
     expect(t).not.toMatch(/PHV/);
+  });
+  it('päätös B: mittaamaton ikkunan ulkopuolella (16 v) → normaalit ohjeet', () => {
+    expect(ohjeet({ flei_ketjut: { SBL: 30, SFL: 90, LL: 90, DIAG: 90, DFL: 90 } })).not.toMatch(/Naruhypyt 2×10s kevyesti/);
   });
   it('PR C: tuntematon + heikoin DFL → "paras PHV:ssä" -variantit EIVÄT tule ohjeisiin (= normaali ohje)', () => {
     const t = ohjeet({ flei_ketjut: { SBL: 90, SFL: 90, LL: 90, DIAG: 90, DFL: 30 } });
@@ -134,7 +145,8 @@ describe('generoimPreHarkka — joukkueen kuormarajoitin', () => {
 
   it("PR C: tuntematon/puuttuva EI ole 'AN' → varovaisin raja (max S2), mutta EI PH-varoitustekstiä", () => {
     // Ennen: phvTila = phvRajoitus ? 'PH' : 'AN' → mittaamaton joukkue sai täyden kuorman.
-    const r = R.generoimPreHarkka(joukkue([{}, { phv_tila: 'AN' }, { phv_tila: 'PH' }, {}]), { paiva: new Date(2026, 9, 5) });
+    // Päätös B: joukkue ikäikkunassa (13 v) → mittaamattomat saavat varovaisimman rajan.
+    const r = R.generoimPreHarkka(joukkue([{ ika: 13 }, { ika: 13, phv_tila: 'AN' }, { ika: 13, phv_tila: 'PH' }, { ika: 13 }]), { paiva: new Date(2026, 9, 5) });
     expect(r.phvRajoitus).toBe(false);          // ei MITATTUA PH-ryhmää
     expect(r.varovainenKuorma).toBe(true);
     expect(r.phvLkm).toBe(0);
@@ -144,6 +156,13 @@ describe('generoimPreHarkka — joukkueen kuormarajoitin', () => {
       expect(b.phv_muistutus || null).toBe(null);
       expect(String(b.ohje || '')).not.toMatch(/PHV/);
     }
+  });
+
+  it('päätös B: mittaamaton joukkue IKKUNAN ULKOPUOLELLA (17 v) → normaali kuorma, ei PH-muistutusta', () => {
+    const r = R.generoimPreHarkka(joukkue([{}, {}, {}, {}]), { paiva: new Date(2026, 9, 5) });
+    expect(r.varovainenKuorma).toBe(false);
+    expect(r.blokit[1].stage).toBeGreaterThan(2);
+    expect(r.blokit[1].phv_muistutus || null).toBe(null);
   });
 
   it('PR C: lomakkeelta ilmoitetut PH:t lasketaan erikseen henkilökunnalle (phvIlmoitettuLkm), ei PH-hälytykseksi', () => {

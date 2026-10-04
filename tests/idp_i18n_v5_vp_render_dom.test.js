@@ -760,6 +760,9 @@ describe('VP_v25 resolvi-portti — jokaisella reititetyllä avaimella on sv-riv
     'porras',
     /* PR C (PHV-sanasto): henkilökunnan PH-badge lomakkeelta ilmoitetulle, mittaamattomalle PH:lle. sv Gemini-erässä. */
     'ilmoitettu, ei mitattu',
+    /* PR C / päätös B: mittaamaton kalenteri-ikäikkunassa → henkilökunnan merkintä. sv Gemini-erässä. */
+    'PHV ei mitattu',
+    'kuorma varovainen ikäikkunassa',
     'uusi porras',
     'hallitsee',
     'kehittyvä',

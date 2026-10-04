@@ -3883,6 +3883,7 @@ async function lataaPelaajat() {
         // Lomakkeelta ilmoitettu PH (ei mittausta) → oma lippu henkilökunnan PH-näkymiin ("ilmoitettu, ei mitattu").
         phv_tila: tmPhvKoodi(data),
         phv_ilmoitettu_ph: tmPhvIlmoitettuPH(data),
+        phv_ei_mitattu: tmPhvEiMitattu(data),   // päätös B: mittaamaton kalenteri-ikäikkunassa → varovainen kuorma → "PHV ei mitattu"
         signaali: data.signaali || null,
         joukkue: normalisioiJoukkue(data.joukkue || data.joukkueNimi || '—'),
       };
@@ -7519,6 +7520,8 @@ function _vpPhvTila(koodi) {
     case 'PH': return { avain: 'ph', badge: vpT('PHV-vaihe'), selite: vpT('kasvupyrähdys käynnissä'), amber: true };
     // PR C: lomakkeelta/tuonnista ilmoitettu PH ilman mittausta — henkilökunnalle näkyviin (kuormasuoja), ei vaihetta.
     case 'PH_ILMOITETTU': return { avain: 'ph_ilm', badge: vpT('PHV-vaihe') + ' ?', selite: vpT('ilmoitettu, ei mitattu'), amber: true };
+    // Päätös B: mittaamaton kalenteri-ikäikkunassa (P 12–15 / T 10–13) → harjoitusehdotukset S2-katolla. Henkilökunnalle, ei lapselle.
+    case 'EI_MITATTU': return { avain: 'ei_mit', badge: vpT('PHV ei mitattu'), selite: vpT('kuorma varovainen ikäikkunassa'), amber: false };
     case 'POST':
     case 'AN': return { avain: 'jalki', badge: vpT('Jälki-PHV'), selite: vpT('kasvupyrähdys ohi'), amber: false };
     default: return null;
@@ -7527,7 +7530,7 @@ function _vpPhvTila(koodi) {
 
 /** Valmentajan/adminin badge. selite=false → pelkka badge (ahtaaseen soluun). */
 // PR C: badge-koodi pelaajalle — mitattu tila, tai 'PH_ILMOITETTU' jos PH on vain ilmoitettu (ei mittausta).
-function _vpPhvNayttoKoodi(p) { return p ? (p.phv_tila || (p.phv_ilmoitettu_ph ? 'PH_ILMOITETTU' : null)) : null; }
+function _vpPhvNayttoKoodi(p) { return p ? (p.phv_tila || (p.phv_ilmoitettu_ph ? 'PH_ILMOITETTU' : (p.phv_ei_mitattu ? 'EI_MITATTU' : null))) : null; }
 function _vpPhvBadgeHTML(koodi, selite) {
   const s = _vpPhvTila(koodi);
   if (!s) return '<span style="color:var(--ink3)">—</span>';

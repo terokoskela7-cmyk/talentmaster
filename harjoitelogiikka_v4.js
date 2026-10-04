@@ -61,8 +61,9 @@ function _ikatyyppi(ika) {
 // Kanoninen Mirwald-sanasto (PRE/LAH/PH/POST/AN) VAIN mittauslähteestä — YKSI sääntö lib/tm_phv_tila.js.
 // Ennen: puuttuva tila sai oletuksen AN, ja AN luettiin vanhan lomakesanaston merkityksessä. Nyt mittaamaton =
 // 'tuntematon' → varovaisin kuorma (samat variantit kuin PH), mutta EI ⚠️-PH-varoitusta eikä PHV-puhetta.
+// Päätös B (4.10.2026): mittaamaton → 'tuntematon' (varovainen) VAIN kalenteri-ikäikkunassa; muuten null = normaali kuorma.
 function _phvTilaH(pelaaja) {
-  const f = (typeof tmPhvTila === 'function') ? tmPhvTila : require('./lib/tm_phv_tila.js').tmPhvTila;
+  const f = (typeof tmPhvKuormaTila === 'function') ? tmPhvKuormaTila : require('./lib/tm_phv_tila.js').tmPhvKuormaTila;
   return f(pelaaja);
 }
 function _phvVarovainen(tila) { return tila === 'PH' || tila === 'tuntematon'; }
