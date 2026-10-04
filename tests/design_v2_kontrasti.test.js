@@ -113,3 +113,29 @@ describe('Design V2 T1 — Pelaaja/Vanhempi: teal tekstinä vain --teal-d', () =
     });
   }
 });
+
+describe('Design V2 T1 — tekstin paino (300 → 400: kaikki < 18 px, Cormorant < 24 px; päätös 4.10.2026)', () => {
+  for (const f of ['TalentMaster_VP_v25.html', 'TalentMaster_Master_v16.html', 'TalentMaster_Seura.html', 'TalentMaster_Pelaaja_v7.html', 'TalentMaster_Vanhempi_v2.html']) {
+    it(`${f}: CSS-säännöissä ei font-weight:300 (< 18 px, serif < 24 px)`, () => {
+      const css = [...lue(f).matchAll(/<style[^>]*>([\s\S]*?)<\/style>/g)].map((m) => m[1]).join('\n').replace(/\/\*[\s\S]*?\*\//g, '');
+      const ohuet = [];
+      for (const m of css.matchAll(/([^{}]+)\{([^{}]*font-weight: ?300[^{}]*)\}/g)) {
+        const fs = /font-size: ?([\d.]+)px/.exec(m[2]);
+        const serif = /Cormorant|font-serif|font-d\b|font-display/.test(m[2]);
+        if (fs && (+fs[1] < 18 || (serif && +fs[1] < 24))) ohuet.push(m[1].trim() + ' ' + fs[1] + 'px');
+      }
+      expect(ohuet).toEqual([]);
+    });
+  }
+});
+
+describe('Design V2 T1 — VP kirjautumisen Google-nappi', () => {
+  it('teksti var(--ink) (ei kovakoodattua #E8EEF8, joka on vaalealla 1,1:1)', () => {
+    const html = lue('TalentMaster_VP_v25.html');
+    const i = html.indexOf('data-i18n="Kirjaudu Google-tilillä"');
+    const nappi = html.slice(html.lastIndexOf('<button', i), i);
+    expect(nappi).toContain('color:var(--ink)');
+    expect(nappi).not.toContain('#E8EEF8');
+    expect(kontrasti(tokenit(html, 'light')('--ink'), '#FAF9F4')).toBeGreaterThanOrEqual(AA);
+  });
+});
