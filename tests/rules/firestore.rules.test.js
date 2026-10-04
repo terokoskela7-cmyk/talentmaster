@@ -852,6 +852,37 @@ describe('Vaihe 4a — jaksofokus / tt_positio_aktiivinen (§4 roolimalli)', () 
     await assertFails(updateDoc(doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID), { jaksofokus_historia: HIST }));
   });
 
+  // ── R6.0b — jaksofokuksen vaihto Master_v16:ssa: YKSI update(): jaksofokus (korvaa) + jaksofokus_historia arrayUnion(ISO-rivi, sulkutapa:'korvattu') ──
+  const ARKISTORIVI = { domeeni: 'teknis_taktinen', konsepti_avain: 'y_edellinen', konsepti_nimi: 'Edellinen', alkoi: '2026-09-01T08:00:00.000Z', paattyi: '2026-10-05T12:00:00.000Z',
+    harjoituksia: 0, tulos: null, media: [], lahde_seuraava: 'valmentaja', suljettu: '2026-10-05T12:00:00.000Z', sulkutapa: 'korvattu' };
+  it('R6.0b: valmentaja (oma seura) päivittää jaksofokus + jaksofokus_historia (arrayUnion) update():lla', async () => {
+    const db = valmentajaContext(VALM_A_UID, SEURA_A).firestore();
+    await assertSucceeds(updateDoc(doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID), { jaksofokus: JF, jaksofokus_historia: FS_MOD.arrayUnion(ARKISTORIVI) }));
+  });
+  it('R6.0b: toinen arrayUnion ei ylikirjoita aiempia rivejä (additiivinen); jaksofokus korvautuu kokonaan', async () => {
+    const db = valmentajaContext(VALM_A_UID, SEURA_A).firestore();
+    const ref = doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID);
+    await assertSucceeds(updateDoc(ref, { jaksofokus: Object.assign({}, JF, { poikkeama: true }), jaksofokus_historia: FS_MOD.arrayUnion(ARKISTORIVI) }));
+    await assertSucceeds(updateDoc(ref, { jaksofokus: JF, jaksofokus_historia: FS_MOD.arrayUnion(Object.assign({}, ARKISTORIVI, { konsepti_avain: 'y_toinen', alkoi: '2026-10-05T12:00:00.000Z' })) }));
+    const d = (await getDoc(ref)).data();
+    expect(d.jaksofokus_historia.map((r) => r.konsepti_avain)).toEqual(['y_edellinen', 'y_toinen']);
+    expect(d.jaksofokus.poikkeama).toBeUndefined();   // update() korvasi kartan (set-merge olisi jättänyt jäänteen)
+  });
+  it('R6.0b: VP päivittää samalla tavalla; toisen seuran valmentaja EI saa (tenant-eristys) — fokus + historia', async () => {
+    await assertSucceeds(updateDoc(doc(vpContext(SEURA_A).firestore(), 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID), { jaksofokus: JF, jaksofokus_historia: FS_MOD.arrayUnion(ARKISTORIVI) }));
+    const muu = randomContext().firestore();
+    await assertFails(updateDoc(doc(muu, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID), { jaksofokus: JF, jaksofokus_historia: FS_MOD.arrayUnion(ARKISTORIVI) }));
+  });
+  it('R6.0b: pelaaja/huoltaja EI kirjoita jaksofokus_historiaa arrayUnionilla', async () => {
+    await assertFails(updateDoc(doc(pelaajaItseContext().firestore(), 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID), { jaksofokus_historia: FS_MOD.arrayUnion(ARKISTORIVI) }));
+    await assertFails(updateDoc(doc(huoltajaContext().firestore(), 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID), { jaksofokus_historia: FS_MOD.arrayUnion(ARKISTORIVI) }));
+  });
+  it('R6.0b: seurasihteeri (hasOnly): jaksofokus + historia sallittu, mutta + kielletty kenttä ei', async () => {
+    const db = sihteeriContext(SEURA_A).firestore();
+    await assertSucceeds(updateDoc(doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID), { jaksofokus: JF, jaksofokus_historia: FS_MOD.arrayUnion(ARKISTORIVI) }));
+    await assertFails(updateDoc(doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID), { jaksofokus: JF, jaksofokus_historia: FS_MOD.arrayUnion(ARKISTORIVI), flei_viimeisin: 1 }));
+  });
+
   // ── Vaihe 7 (v3.11) — fysioterapeutti: fyysisen jakson sulku (jaksofokus + jaksofokus_historia, EI tt_positio) ──
   const JF_FYYS = { konsepti_avain: 'fy_nopeus', konsepti_nimi: 'Nopeus', domeeni: 'fyysinen', lahde: 'silta_d1', kesto_vk: 4, alkoi: '2026-07-09' };
   it('Fysioterapeutti (oma seura) sulkee fyysisen jakson: jaksofokus + jaksofokus_historia', async () => {
