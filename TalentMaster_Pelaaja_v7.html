@@ -1681,25 +1681,65 @@ function _tekKorttiData(p) {
   if (!vahvuus && !kehitys) return null;
   return { vahvuus: vahvuus, kehitys: kehitys };
 }
-// §31 — mitali VAIN kokonaistuloksesta: tkLaskeMerkki(kokonaistulos, normiIka(syntymaVuosi, testipvm), sp). Lasketaan lukuhetkellä
-// (tallennettu tki_merkki jäisi voimaan, vaikka uusi kokonaistulos olisi heikompi) — tki_merkki vain varana, jos laskenta ei onnistu.
-// Teksti: "Tekniikkakilpailu 9/2026 · kultamerkki". → { merkki, pvm, teksti } | null
-function _tkMitali(p) {
-  if (!p) return null;
-  var T = window.TM_TESTIT, kt = p.tk_kokonaistulos_viimeisin, pvm = p.tk_lajit_pvm || p.tki_pvm || null, merkki = null;
-  if (T && typeof T.tkLaskeMerkki === 'function' && kt != null && p.syntymaVuosi && typeof normiIka === 'function') {
-    var ika = normiIka(p.syntymaVuosi, pvm);
-    var sp = (String(p.sukupuoli || '').toUpperCase() === 'N') ? 'T' : 'P';
-    if (ika != null) merkki = T.tkLaskeMerkki(kt, ika, sp) || null;
-    else merkki = p.tki_merkki || null;
-  } else merkki = p.tki_merkki || null;
-  var avain = { kulta: 'pelaaja.tk_merkki_kulta', hopea: 'pelaaja.tk_merkki_hopea', pronssi: 'pelaaja.tk_merkki_pronssi' }[merkki];
-  if (!avain) return null;   // tuntematon merkki → ei mitalia (ei arvata pronssia)
-  var mn = t(avain);   // kirjaimelliset avaimet (i18n-skanneri)
+// §31 — mitali VAIN kokonaistuloksesta: tkLaskeMerkki(kokonaistulos, normiIka(syntymaVuosi, testipvm), sp). Merkki lasketaan KUNKIN kilpailun
+// omasta kokonaisajasta ja TESTIHETKEN iästä (ei nykyiästä) → ansaittu merkki ei katoa, vaikka myöhempi tulos olisi heikompi (§7.22: ei menetystä).
+// Teksti: "Tekniikkakilpailu 9/2026 · kultamerkki". Ei vertailua muihin, ei tasolukuja.
+var _TK_MERKKI_AVAIN = { kulta: 'pelaaja.tk_merkki_kulta', hopea: 'pelaaja.tk_merkki_hopea', pronssi: 'pelaaja.tk_merkki_pronssi' };   // kirjaimelliset avaimet (i18n-skanneri)
+function _tkMitaliRivi(merkki, pvm) {   // → { merkki, pvm, teksti } | null (tuntematon merkki → ei mitalia, ei arvata pronssia)
+  var avain = _TK_MERKKI_AVAIN[merkki];
+  if (!avain) return null;
+  var mn = t(avain);
   var m = pvm ? String(pvm).match(/^(\d{4})-(\d{2})/) : null;
   var teksti = m ? t('pelaaja.tk_mitali', { pvm: parseInt(m[2], 10) + '/' + m[1], merkki: mn }) : t('pelaaja.tk_mitali_ilman_pvm', { merkki: mn });
   return { merkki: merkki, pvm: pvm, teksti: teksti };
 }
+function _tkSp(p) { return (String(p.sukupuoli || '').toUpperCase() === 'N') ? 'T' : 'P'; }
+// Kilpailun (tki_historia-rivin) kokonaisaika: tallennettu kokonaistulos(_s) tai KAIKKI neljä lajia − pituuspotkubonus (ikä ≥ 12). Vajaa rivi → null
+// (osasumma näyttäisi liian hyvältä → ei merkkiä).
+function _tkKokonaisaikaRivilta(r, ika) {
+  var luku = function (v) { return (v != null && v !== '' && isFinite(Number(v))) ? Number(v) : null; };
+  var tall = luku(r.kokonaistulos != null ? r.kokonaistulos : r.kokonaistulos_s);
+  if (tall != null) return tall;
+  var summa = 0;
+  var ok = ['ponnauttelu', 'syotto', 'pujottelu', 'kuljetus_laukaus'].every(function (l) { var a = luku(r[l]); if (a == null) return false; summa += a; return true; });
+  if (!ok) return null;
+  var bonus = (ika != null && ika >= 12) ? luku(r.pituuspotku_bonus) : null;
+  return Math.round((summa - (bonus || 0)) * 100) / 100;
+}
+// Pelaajan viimeisin kilpailu pikakentistä (kokonaistulos + testipvm); vara: tallennettu tki_merkki jos laskenta ei onnistu.
+function _tkMitaliViimeisin(p) {
+  var T = window.TM_TESTIT, kt = p.tk_kokonaistulos_viimeisin, pvm = p.tk_lajit_pvm || p.tki_pvm || null, merkki = null;
+  if (T && typeof T.tkLaskeMerkki === 'function' && kt != null && p.syntymaVuosi && typeof normiIka === 'function') {
+    var ika = normiIka(p.syntymaVuosi, pvm);
+    if (ika != null) merkki = T.tkLaskeMerkki(kt, ika, _tkSp(p)) || null;
+    else merkki = p.tki_merkki || null;
+  } else merkki = p.tki_merkki || null;
+  return _tkMitaliRivi(merkki, pvm);
+}
+// KAIKKI ansaitut merkit, uusin ensin: yksi per kilpailu (tki_historia-rivi). Viimeisimmän kilpailun merkki tulee pikakentistä (voittaa saman pvm:n
+// historiarivin); ei historiaa → vain viimeisin (ennallaan). → [{ merkki, pvm, teksti }]
+function _tkMitalit(p) {
+  if (!p) return [];
+  var T = window.TM_TESTIT, K = window.TM_KEHITYSKAARI;
+  var hist = Array.isArray(p.tki_historia) ? p.tki_historia : [];
+  if (K && typeof K.tmKaariNormalisoiTk === 'function') hist = K.tmKaariNormalisoiTk(hist);   // Pikakirjaus/Excel: <laji>_s → <laji>
+  var kartta = {};
+  if (T && typeof T.tkLaskeMerkki === 'function' && p.syntymaVuosi && typeof normiIka === 'function') {
+    hist.forEach(function (r) {
+      if (!r || !r.pvm) return;
+      var ika = normiIka(p.syntymaVuosi, r.pvm);   // TESTIHETKEN ikä
+      if (ika == null) return;
+      var kt = _tkKokonaisaikaRivilta(r, ika);
+      var rivi = (kt != null) ? _tkMitaliRivi(T.tkLaskeMerkki(kt, ika, _tkSp(p)), r.pvm) : null;
+      if (rivi) kartta[String(r.pvm).slice(0, 10)] = rivi;
+    });
+  }
+  var viim = _tkMitaliViimeisin(p), vPvm = p.tk_lajit_pvm || p.tki_pvm || null;
+  if (vPvm) { var vk = String(vPvm).slice(0, 10); if (viim) kartta[vk] = viim; else if (p.tk_kokonaistulos_viimeisin != null) delete kartta[vk]; }
+  else if (viim) kartta['_'] = viim;
+  return Object.keys(kartta).map(function (k) { return kartta[k]; }).sort(function (a, b) { return String(b.pvm || '').localeCompare(String(a.pvm || '')); });
+}
+function _tkMitali(p) { var l = _tkMitalit(p); return l.length ? l[0] : null; }   // uusin ansaittu merkki
 function _minaTavoiteRivit(p, d) {
   const lajit = p && p.tk_lajit_viimeisin;
   // Fallback: ei pikakenttä-lajidataa → vanhat yksinkertaiset rivit (nykyinen käytös säilyy)
@@ -1734,8 +1774,9 @@ function _minaTavoiteRivit(p, d) {
   }
 
   // 🏅 Mitali-juhla (pikakenttä) + matka seuraavaan VAIN positiivisena ja vain jos lähellä (≤ 15 s)
-  const _mit = _tkMitali(p);   // §31: mitali VAIN kokonaistuloksesta (ei lajikohtaisesti)
-  if (_mit) h += '<div style="font-size:13px;color:#28B090;margin-top:10px;font-weight:600">🏅 ' + _thEsc(_mit.teksti) + '</div>';
+  _tkMitalit(p).forEach(function (m, i) {   // §31: mitali VAIN kokonaistuloksesta, yksi per kilpailu, uusin ensin (ansaittu merkki ei katoa)
+    h += '<div style="font-size:13px;color:#28B090;margin-top:' + (i ? 4 : 10) + 'px;font-weight:600">🏅 ' + _thEsc(m.teksti) + '</div>';
+  });
   if (T && T.tkSekuntibudjetti && p.tk_kokonaistulos_viimeisin != null && ika != null) {
     const budj = T.tkSekuntibudjetti(p.tk_kokonaistulos_viimeisin, ika, sp);
     const MM = { kulta: 'kultaan', hopea: 'hopeaan', pronssi: 'pronssiin' };
