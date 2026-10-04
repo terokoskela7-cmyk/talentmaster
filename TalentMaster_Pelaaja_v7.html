@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <title>TalentMaster™ — Pelaaja v7</title>
 <script>/* Versio-tarkistus (cache): pakottaa reloadin kun uusi versio deployattu. APP_VERSION leimataan scripts/bump_version.js:llä. */
-(function(){var APP_VERSION='1791144560178';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
+(function(){var APP_VERSION='1791147388405';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
 <!-- B2 Sentry-virheseuranta (onboarding-kriittinen). PII-skrubi tm_sentry.js:ssä. Guard: offline → no-op.
      ⚠️ ENNEN PUSHIA: liitä EU-DSN tm_sentry.js:ään + verifioi integrity-hash bundle.min.js@10.58.0 (väärä SRI estää Sentryn hiljaa). -->
 <script>window.TM_SENTRY={app:'pelaaja'};</script>
@@ -3184,12 +3184,16 @@ function rMinaKokoelma() {
   var eMerk = (KORTTI_KATALOGI.merkit || []).filter(function (k) { try { return !!_kkLajiTulos(p, k.laji); } catch (e) { return false; } }).length;
   var ansaitut = eLeg + eRare + eSaav + eMerk;
   var uusi = '';   // ei pysyvää "uusi 🔥" -leimaa: idolikortti on aina ansaittu → leima näkyi aina (ei uutuustietoa)
+  // P0.7: murtoluku ("10/14") pois Rakentajilta (U13–15) — kasvuvaiheessa "montako puuttuu" rakentaa vertailua/kiirettä. Muille ikävaiheille ennallaan.
+  var _kkStage = (typeof _laskeStage === 'function') ? _laskeStage(p.syntymaVuosi, p) : '2_rakentaja';
+  var maaraHTML = (_kkStage === '2_rakentaja') ? ''
+    : '<span style="font-family:\'DM Mono\',monospace;font-size:10px;color:#8C8B86">' + ansaitut + ' / ' + kaikki + uusi + '</span>';
   var kortit = sets.earned.concat(sets.locked);
   if (!kortit.length) return '';
   var h = '<div style="margin:16px 0 2px">'
     + '<div style="display:flex;justify-content:space-between;align-items:baseline;padding:0 20px 8px">'
     +   '<span style="font-size:9.5px;font-weight:600;letter-spacing:.16em;text-transform:uppercase;color:#28B090">🏆 Korttikokoelma</span>'
-    +   '<span style="font-family:\'DM Mono\',monospace;font-size:10px;color:#8C8B86">' + ansaitut + ' / ' + kaikki + uusi + '</span>'
+    +   maaraHTML
     + '</div>'
     + '<div class="kstrip">' + kortit.map(_kkStripKorttiHTML).join('') + '</div>'
     + '</div>';
