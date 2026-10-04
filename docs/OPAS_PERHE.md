@@ -46,8 +46,9 @@ joka saa kehua tekemisestä, jatkaa todennäköisemmin innostuneena.
 
 ## 1.3 Kortti ja kehitysprofiili — näin luet niitä
 
-Lapsen **kortti (0–99)** kuvaa kokonaiskehitystä. Se **ei ole arvosana** vaan matka — luku nousee
-luonnollisesti iän ja harjoittelun myötä. Älä tivaa lukua äläkä vertaa sitä muihin lapsiin.
+Lapsen **kortti** kertoo hänen omasta matkastaan: harjoitusputken, omat ennätykset ja tekniikan vahvuuden.
+Kortissa **ei ole kokonaislukua eikä tasolukuja** — kehitystä verrataan vain lapsen omiin aiempiin tuloksiin,
+ei muihin lapsiin.
 
 Kehitysprofiili kokoaa ne osa-alueet, joita **seurasi mittaa** — esimerkiksi tekniikkaa, fyysisiä
 ominaisuuksia, nopeutta ja ketteryyttä tai kasvuvauhtia. Se näyttää lapsen **vahvuuden ensin** ja yhden

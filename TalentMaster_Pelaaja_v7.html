@@ -517,7 +517,7 @@ input::placeholder,textarea::placeholder{color:#8C8B86;opacity:1}
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-functions-compat.js"></script>   <!-- Vaihe 0 / PR 1: pelaajaKirjaudu -->
 <script src="lib/tm_appcheck.js?v=2"></script>
 <script src="lib/tm_verkko.js?v=1"></script>   <!-- verkkokatko: 1 uudelleenyritys + Yhteyskatko-ilmoitus + Sentry warning -->
-<script src="lib/tm_lang.js?v=28"></script>   <!-- i18n V0 putki · V1-A/A2 · V4-A3: +pelaaja.nain_teet/kirjaa_tehdyksi/pallo_joka_paiva/rae_q4 (kotinäytön chrome sv) -->
+<script src="lib/tm_lang.js?v=29"></script>   <!-- i18n V0 putki · V1-A/A2 · V4-A3: +pelaaja.nain_teet/kirjaa_tehdyksi/pallo_joka_paiva/rae_q4 (kotinäytön chrome sv) -->
 <script src="lib/tm_eerikkila_normit.js?v=46"></script>
 <script src="docs/testit_indeksit.js?v=10"></script>
 <script src="lib/tm_havaintohistoria.js?v=1"></script>   <!-- vain tmHhRivit: jarjestys + tekijanimi (ei pisteita, 7.22) -->
@@ -1155,12 +1155,12 @@ function rA1(){
   })()}
   <div style="padding:26px 20px 0">
     ${(()=>{
-      const ovr = Math.round((_pelaaja?.flei_viimeisin||0)*0.9+10);
+      // §7.22 (päätös 4.10.2026): EI lukua lapselle missään ikävaiheessa — ennen FLEI×0.9+10 "OVR" (ilman FLEI:tä "10").
       return `
       <div class="card-gold" style="margin-top:14px;padding:12px 14px;cursor:pointer;display:flex;align-items:center;gap:14px" data-card>
-        <div style="font-family:var(--font-b);font-weight:900;font-size:32px;color:#B8860B;line-height:.9">${ovr}</div>
+        <div style="font-size:28px;line-height:.9">🃏</div>
         <div style="flex:1">
-          <div class="ey" style="color:rgba(184,134,11,.7);letter-spacing:.22em">Kehittyy kohti huippua · avaa kortti →</div>
+          <div class="ey" style="color:rgba(184,134,11,.7);letter-spacing:.22em">Oma kehityskorttisi · avaa kortti →</div>
         </div>
         ${ic('cR',16,'rgba(184,134,11,.6)')}
       </div>`;
@@ -1323,10 +1323,16 @@ function rTestit(){
 // Portti = SAMA `naytaOvr` jota sisarfunktiot (_fcKorttiData · naytaFcOverlay · rMinaKortti)
 // jo käyttävät → ei uutta ikälogiikkaa, ei uusia kynnyksiä. Showcase saa luvun (§58), muut
 // saavat saman kortin ilman lukua: identiteetti, tila sanana ja merkit.
+// YKSI portti kaikille kolmelle näyttöpaikalle (rKortti · rMinaHero · naytaFcOverlay).
+// PÄÄTÖS 4.10.2026 (Tero/projektinjohto, CLAUDE.md §0 > KORTTI_VISIO Osa B): lapselle EI tasolukuja/OVR:ää
+// MISSÄÄN ikävaiheessa (myös showcase U16+). Aggregaatti _fcKorttiData().ovr jää henkilökunnan laskentaan.
+function _fcNaytaOvr(F) {
+  return false;
+}
 function rKortti(){
   const p = _pelaaja;
   const F = (typeof _fcKorttiData === 'function') ? _fcKorttiData(p) : null;
-  const naytaOvr = !!(F && F.ikavyohyke === 'showcase' && !F.rakentuu && F.ovr != null);   // §58
+  const naytaOvr = _fcNaytaOvr(F);
   const tila = _valmiusTila(p?.flei_viimeisin || 0);
   const nimi = (p?.etunimi || '–') + ' ' + ((p?.sukunimi || '')[0] || '') + (p?.sukunimi ? '.' : '');
   const paikka = (p?.pelipaikka || '') + ((p?.joukkueId) ? ' · ' + String(p.joukkueId).toUpperCase() : '');
@@ -1597,9 +1603,8 @@ function rMinaMAS() {
     const a = toMs(hist[0]), b = toMs(hist[hist.length - 1]);
     if (a != null && b != null) {
       const dd = Math.round((b - a) * 100) / 100;
-      trend = '<div style="font-size:12px;margin-top:10px;color:' + (dd > 0.05 ? '#28B090' : dd < -0.05 ? '#D4A017' : '#8C8B86') + '">'
-        + (Math.abs(dd) < 0.05 ? '→ Ei muutosta — tarkista harjoitteluärsyke'
-           : (dd > 0 ? '↑ +' : '↓ ') + dd.toFixed(2) + ' m/s — ' + (dd > 0 ? 'hyvä kehityssuunta' : 'lasku, tarkista kuormitus')) + '</div>';
+      // §7.22: vain parannus näytetään lapselle — lasku/ei muutosta = valmentajan tieto (VP), ei pelaajan kortille.
+      if (dd > 0.05) trend = '<div style="font-size:12px;margin-top:10px;color:#28B090">↑ +' + dd.toFixed(2) + ' m/s — hyvä kehityssuunta</div>';
     }
   }
   return box(ots
@@ -1751,6 +1756,18 @@ function _minaHhEdellinen(p) {
   return { taso: taso, hv: ed };
 }
 
+// Onko H-H-testin tulos ikäluokan normin ylimmällä tasolla (hhSeuraavaTaso: ei seuraavaa tasoa). YKSI tarkistus
+// "Huippuvauhtia"-tekstille JA Nopeus-legendalle → sama tulos sytyttää molemmat. Tasolukua EI näytetä (§7.22).
+function _minaHhHuipulla(p, k) {
+  try {
+    if (!p || !p.hh_viimeisin || p.hh_viimeisin[k] == null || isNaN(p.hh_viimeisin[k]) || typeof hhSeuraavaTaso !== 'function') return false;
+    var sp = (String(p.sukupuoli || '').toUpperCase() === 'N') ? 'N' : 'M';
+    var ika = p.syntymaVuosi ? (new Date().getFullYear() - p.syntymaVuosi) : null;
+    if (ika == null) return false;
+    var st = hhSeuraavaTaso(k, Number(p.hh_viimeisin[k]), ika, sp);
+    return !!(st && st.seuraavaTaso == null && st.nykyinenTaso != null);
+  } catch (e) { return false; }
+}
 function rMinaFyysinenTavoite() {
   const p = _pelaaja;
   if (!p || !p.hh_viimeisin) return '';                  // ei H-H-dataa → ei korttia
@@ -1803,11 +1820,7 @@ function rMinaFyysinenTavoite() {
   let huippu = false;
   if (!tavoiteHtml) {
     if (typeof hhSeuraavaTaso === 'function' && ika != null) {
-      Object.keys(p.hh_viimeisin).forEach(function (k) {
-        if (k === 'sm_pallo' || p.hh_viimeisin[k] == null || isNaN(p.hh_viimeisin[k])) return;
-        const st = hhSeuraavaTaso(k, Number(p.hh_viimeisin[k]), ika, sp);
-        if (st && st.seuraavaTaso == null && st.nykyinenTaso != null) huippu = true;
-      });
+      huippu = Object.keys(p.hh_viimeisin).some(function (k) { return k !== 'sm_pallo' && _minaHhHuipulla(p, k); });
     } else if (p.hh_taso != null && p.hh_taso >= 5) huippu = true;
   }
   if (huippu) h += '<div style="font-size:14px;color:var(--text);margin-top:10px">⚽ <b>Huippuvauhtia!</b> Pidä vauhti yllä.</div>';
@@ -2121,49 +2134,31 @@ function rMinaTekniikkaprofiili() {
   const lajiNimi = { ponnauttelu: 'Ponnauttelu', syotto: 'Syöttö', pujottelu: 'Pujottelu', kuljetus_laukaus: 'Kuljetus-laukaus' };
   let h = '<div style="background:var(--bg3);padding:20px;margin:14px 20px 0;border:.5px solid rgba(242,239,230,.08)">';
   h += '<div style="font-family:\'Cormorant Garamond\',serif;font-size:18px;font-weight:400;color:var(--text);margin-bottom:12px;letter-spacing:.01em">Tekniikkaprofiili</div>';
+  // §7.22/§34: TKI-lukua EI näytetä pelaajalle (indeksi = tasoluku). Mitali (ansaittu) säilyy.
   h += '<div style="display:flex;align-items:baseline;gap:10px;margin-bottom:4px">';
-  h += '<div style="font-family:\'Cormorant Garamond\',serif;font-size:40px;font-weight:300;color:#28B090;line-height:1">' + (d.tki != null ? d.tki : '—') + '</div>';
-  h += '<div style="font-family:\'DM Sans\',sans-serif;font-size:11px;color:#8C8B86">TKI</div>';
   if (d.merkki) h += '<div style="margin-left:auto;font-size:11px;font-weight:600;padding:3px 10px;border-radius:20px;background:' + (merkkiVari[d.merkki] || '#8C8B86') + '22;color:' + (merkkiVari[d.merkki] || '#8C8B86') + ';text-transform:capitalize">' + d.merkki + '</div>';
   h += '</div>';
   // §5.3 tavoiterivit (pikakentät) — korvaa vanhat yksinkertaiset vahvuus/kehityskohde-rivit; fallback sisällä
   h += _minaTavoiteRivit(_pelaaja, d);
-  // Lajipalkit (aika sekunteina, lyhyempi = nopeampi)
+  // Lajit sekunteina (lyhyempi = nopeampi). §7.22: EI palkkeja — täyttö oli suhde eliittiviitteeseen (= normivertailu +
+  // edistymispalkki). Itsevertailuun ei ole per-laji-historiaa → näytetään oma aika + ★ vahvuus / 🎯 seuraava askel.
   const lajit = ['ponnauttelu', 'syotto', 'pujottelu', 'kuljetus_laukaus'];
   const arvo = (id) => { const x = d.testit[id]; if (x == null) return null; if (typeof x === 'object') return (x.tulos != null ? x.tulos : x.paras); return x; };
   const vals = lajit.map(id => ({ id: id, val: parseFloat(arvo(id)) })).filter(x => !isNaN(x.val));
   if (vals.length) {
-    const max = Math.max.apply(null, vals.map(x => x.val));
-    // Palkin täyttö = HYVYYS (ei aika): täysi = eliittiviitteen erinomainen-taso, min 10 % (ettei katoa).
-    // Pienempi aika → pidempi palkki. tkLajiViite window.TM_TESTIT:stä; ilman viitettä KÄÄNNETTY suhteutus (max−arvo).
-    const T = window.TM_TESTIT;
-    const sp = (String(_pelaaja && _pelaaja.sukupuoli || '').toUpperCase() === 'N') ? 'T' : 'P';
-    const ika = (_pelaaja && _pelaaja.syntymaVuosi) ? (new Date().getFullYear() - _pelaaja.syntymaVuosi) : null;
-    h += '<div style="margin-top:12px;display:flex;flex-direction:column;gap:6px">';
     const tkiV = _pelaaja && _pelaaja.tki_vahvuus, tkiK = _pelaaja && _pelaaja.tki_kehityskohde;
+    h += '<div style="margin-top:12px;display:flex;flex-direction:column">';
     vals.forEach(x => {
-      const viite = (T && T.tkLajiViite && ika != null) ? T.tkLajiViite(x.id, ika, sp) : null;
-      const pct = (viite && viite.erinomainen && x.val > 0)
-        ? Math.round(Math.max(10, Math.min(100, 100 * viite.erinomainen / x.val)))
-        : Math.round(Math.max(10, Math.min(100, ((max - x.val) / max) * 100)));
-      const onV = (x.id === tkiV) || (d.vahvuudet || []).some(z => z.laji === x.id);
-      const onK = (x.id === tkiK) || (d.kehityskohteet || []).some(z => z.laji === x.id);
-      const vari = onV ? '#28B090' : onK ? '#E0A040' : '#8C8B86';
-      // §B: ★ vahvuuslajin riville, 🎯 kehityskohteen riville (pikakentistä). EI ↑-nuolta — ei per-laji-historiaa (§3.3.1 epävarma → ei nuolta).
       const mark = (x.id === tkiV) ? ' ★' : (x.id === tkiK) ? ' 🎯' : '';
-      h += '<div style="display:flex;align-items:center;gap:8px">'
-        + '<div style="width:96px;font-size:11px;color:#8C8B86;text-align:right">' + (lajiNimi[x.id] || x.id) + mark + '</div>'
-        + '<div style="flex:1;background:rgba(242,239,230,.06);border-radius:3px;height:14px;overflow:hidden"><div style="width:' + pct + '%;height:100%;background:' + vari + '"></div></div>'
-        + '<div style="width:42px;font-size:10px;color:var(--text);text-align:right">' + x.val.toFixed(1) + 's</div>'
-        + '</div>';
+      h += '<div style="display:flex;justify-content:space-between;align-items:baseline;padding:7px 0;border-top:.5px solid rgba(242,239,230,.08)">'
+        + '<span style="font-size:13px;color:var(--text)">' + (lajiNimi[x.id] || x.id) + mark + '</span>'
+        + '<span style="font-family:\'DM Sans\',sans-serif;font-size:14px;color:#28B090">' + x.val.toFixed(1) + ' s</span></div>';
     });
     h += '</div>';
   }
-  if (d.trendi) {
-    const tt = d.trendi.parani
-      ? ('Kokonaistuloksesi on parantunut ' + d.trendi.ero + ' s 🚀')
-      : ('Kokonaisaikasi on kasvanut ' + d.trendi.ero + ' s — jatketaan harjoittelua');
-    h += '<div style="font-size:11px;color:' + (d.trendi.parani ? '#28B090' : '#E0A040') + ';margin-top:10px">' + tt + '</div>';
+  // §7.22/§34 §3.2: vain parannus (abs. sekunnit) — ei negatiivista eroa pelaajalle.
+  if (d.trendi && d.trendi.parani) {
+    h += '<div style="font-size:11px;color:#28B090;margin-top:10px">Kokonaistuloksesi on parantunut ' + d.trendi.ero + ' s 🚀</div>';
   }
   h += '</div>';
   return h;
@@ -2796,15 +2791,18 @@ function _kkMerkkiTaso(p, laji) {
 var KORTTI_KATALOGI = {
   tasot: [   // Vaihe 0 — pääkortti (naytaFcOverlay näyttää tierin); rekisterissä mukana, kokoelmanäkymä ei renderöi erikseen.
     { id: 'tier_starter', nimi: 'Starter', tyyppi: 'taso', ikoni: '⭐',   ansainta: function (p) { return _kkMitattuja(p) < 3; },                          lukittuTeksti: 'Tehdään ensin mittauksia.' },
-    { id: 'tier_sharp',   nimi: 'Sharp',   tyyppi: 'taso', ikoni: '⭐⭐',  ansainta: function (p) { var n = _kkMitattuja(p); return n >= 3 && n < 5; },     lukittuTeksti: 'Mittaa lisää ulottuvuuksia.' },
-    { id: 'tier_elite',   nimi: 'Elite',   tyyppi: 'taso', ikoni: '⭐⭐⭐', ansainta: function (p) { return _kkMitattuja(p) >= 5; },                         lukittuTeksti: 'Kaikki ulottuvuudet mitattuna.' }
+    { id: 'tier_sharp',   nimi: 'Sharp',   tyyppi: 'taso', ikoni: '⭐⭐',  ansainta: function (p) { return _kkMitattuja(p) >= 3; },                         lukittuTeksti: 'Mittaa lisää ulottuvuuksia.' }
+    // Elite poistettu 4.10.2026: saavuttamaton (SOS ei laske) + hierarkkinen leima (§7.22).
   ],
   saavutukset: [   // Vaihe 1
     { id: 'ach_ensitreeni', nimi: 'Ensimmäinen treeni', tyyppi: 'saavutus', ikoni: '⚽', ansainta: function (p) { return _haeStreak() > 0 || (window._kirjauksiaYhteensa || 0) > 0; }, lukittuTeksti: 'Kirjaa ensimmäinen treenisi.' },
     { id: 'ach_liekki7',    nimi: '7 päivän liekki',     tyyppi: 'saavutus', ikoni: '🔥', ansainta: function () { return _haeStreak() >= 7; },  lukittuTeksti: 'Treenaa 7 päivää putkeen.' },
     { id: 'ach_liekki14',   nimi: '14 päivän liekki',    tyyppi: 'saavutus', ikoni: '🔥', ansainta: function () { return _haeStreak() >= 14; }, lukittuTeksti: 'Jatka putkea 14 päivään.' },
     { id: 'ach_synttari',   nimi: 'Synttärisankari',     tyyppi: 'saavutus', ikoni: '🎂', ansainta: function (p) { return (typeof _onkoSynttari === 'function') && _onkoSynttari(p); }, lukittuTeksti: 'Avautuu synttäripäivänäsi.' },
-    { id: 'ach_ekamittaus', nimi: 'Ensimmäinen mittaus', tyyppi: 'saavutus', ikoni: '📏', ansainta: function (p) { return !!(p && (p.tki_viimeisin != null || p.hh_viimeisin != null || p.flei_viimeisin != null)); }, lukittuTeksti: 'Tulee kun ensimmäinen mittaus tehdään.' }
+    { id: 'ach_ekamittaus', nimi: 'Ensimmäinen mittaus', tyyppi: 'saavutus', ikoni: '📏', ansainta: function (p) { return !!(p && (p.tki_viimeisin != null || p.hh_viimeisin != null || p.flei_viimeisin != null)); }, lukittuTeksti: 'Tulee kun ensimmäinen mittaus tehdään.' },
+    // Vaihe 1 (KATALOGI) — oma ennätys: ansaitaan kun jokin oma tulos on VOITETTU (lib/tm_ennatykset.js kirjoittaa `edellinen`
+    // vain oikeasta parannuksesta; 1. mittaus ei ansaitse). Puhdas itsevertailu (§7.22).
+    { id: 'ach_omaennatys', nimi: 'Oma ennätys', tyyppi: 'saavutus', ikoni: '🏅', ansainta: function (p) { var e = p && p.ennatykset; return !!(e && typeof e === 'object' && Object.keys(e).some(function (k) { return e[k] && e[k].edellinen != null; })); }, lukittuTeksti: 'Voita oma aiempi tuloksesi.' }
   ],
   merkit: [   // Vaihe 1 — oma mestaruuspolku per laji (pronssi/hopea/kulta omalla matkalla)
     { id: 'merkki_kuljetus',    nimi: 'Kuljetus',  tyyppi: 'merkki', laji: 'kuljetus_laukaus', ikoni: '🏃', lukittuTeksti: 'Tee kuljetustesti.' },
@@ -2818,18 +2816,17 @@ var KORTTI_KATALOGI = {
     { id: 'legend_tekniikka', nimi: 'Tekniikka-legenda', tyyppi: 'legenda', rarity: 'legend', ikoni: '⚽', ala: 'Tekniikan kulta',
       ansainta: function (p) { return !!(p && p.tki_merkki === 'kulta'); }, lukittuPolku: 'tekn. kulta →' },
     { id: 'legend_nopeus', nimi: 'Nopeus-legenda', tyyppi: 'legenda', rarity: 'legend', ikoni: '💨', ala: 'Huippunopeus',
-      ansainta: function (p) { try { if (!p || !p.hh_viimeisin || p.hh_viimeisin.lin30m == null) return false; var sp = (String(p.sukupuoli || '').toUpperCase() === 'N') ? 'N' : 'M'; var ika = p.syntymaVuosi ? (new Date().getFullYear() - p.syntymaVuosi) : null; if (ika == null || typeof hhLaskeTaso !== 'function') return false; return hhLaskeTaso('lin30m', p.hh_viimeisin.lin30m, ika, sp) >= 5; } catch (e) { return false; } }, lukittuPolku: '30 m huipputaso →' },
+      // SAMA tarkistus kuin Vauhti & pallo "Huippuvauhtia" (_minaHhHuipulla) → sama 30 m sytyttää molemmat. Ennen: hhLaskeTaso('lin30m',…,'M')
+      // testit_indeksit-avaimilla ('30m'/'P') → aina null (avainvirhe).
+      ansainta: function (p) { return _minaHhHuipulla(p, 'lin30m'); }, lukittuPolku: '30 m huipputaso →' },
     { id: 'idol', nimi: 'Idolikortti', tyyppi: 'legenda', rarity: 'legend', ikoni: '★', ala: 'Oma idoli',
       ansainta: function (p) { try { var f = (typeof _fcKorttiData === 'function') ? _fcKorttiData(p) : null; return !!(f && f.idoli); } catch (e) { return false; } } }
   ],
   // Vaihe 2 — Harvinainen-tier (◆). §28-signaalit pikakentistä.
   harvinaiset: [
-    { id: 'rare_piilohelmi', nimi: 'Piilohelmi', tyyppi: 'harvinainen', rarity: 'rare', ikoni: '💎', ala: '§28-signaali',
-      ansainta: function (p) { return !!(p && p.hidden_gem); }, lukittuPolku: 'tekniikka edellä →' },
     { id: 'rare_varhais', nimi: 'Varhaiskehittäjä', tyyppi: 'harvinainen', rarity: 'rare', ikoni: '⚡', ala: 'Varhaiskehitys',
-      ansainta: function (p) { return !!(p && p.tekninen_varhaiskehitys); }, lukittuPolku: 'tekniikkamitali U8–12 →' },
-    { id: 'rare_xfactor', nimi: 'X-Factor', tyyppi: 'harvinainen', rarity: 'rare', ikoni: '🌟', ala: 'Huipputaso',
-      ansainta: function (p) { return !!(p && p.x_factor); }, lukittuPolku: 'testi taso 5 →' }
+      ansainta: function (p) { return !!(p && p.tekninen_varhaiskehitys); }, lukittuPolku: 'tekniikkamitali U8–12 →' }
+    // Piilohelmi + X-Factor poistettu 4.10.2026: valmentajan talenttisignaaleja (§28/§7.22), eikä mikään kirjoittaja tuota niitä.
   ]
 };
 function _kkLiekkiTila(streak, palannut) {
@@ -2949,17 +2946,15 @@ function rMinaHero() {
   var ac = _minaTierVari(F.tier);
   var acDim = F.tier === 'elite' ? 'rgba(224,160,64,' : F.tier === 'sharp' ? 'rgba(40,176,144,' : 'rgba(42,93,176,';
   var vyoh = F.ikavyohyke;            // 'showcase' (U16–19) · 'rakentaja' (U13–15) · 'leikkija' (U8–12)
-  var naytaOvr = (vyoh === 'showcase' && !F.rakentuu);  // aggregaatti-OVR-luku VAIN U16–19 (§58)
-  // 5D-statti ikäadaptoituna: showcase→luku · rakentaja→taso X/5 · leikkija→✓ · tilat: tulossa (sininen) / seura-avaa (🔒)
+  var naytaOvr = _fcNaytaOvr(F);   // aina false (päätös 4.10.2026)
+  // 5D-statti: mitattu → ✓ KAIKISSA ikävaiheissa (ei tasolukua X/5 eikä 0–99 lapselle) · tilat: tulossa / seura-avaa (🔒)
   var stat = function (d) {
     var big, col, tag = '';
     if (d.tila === 'seura-avaa') { big = '🔒'; col = '#8C8B86'; tag = 'seura avaa'; }
     else if (d.tila === 'tulossa') { big = '⏳'; col = '#5A8DD0'; tag = 'tulossa'; }
     else if (d.state === 'grow') { big = '🌱'; col = '#28B090'; }               // pre-PHV fyysinen (§28)
-    else if (vyoh === 'leikkija') { big = '✓'; col = '#28B090'; }
-    else if (vyoh === 'rakentaja') { big = (d.taso5 != null ? (d.taso5 + '<span style="font-size:9px;color:#8C8B86">/5</span>') : '✓'); col = 'var(--text)'; }
-    else { big = (d.val != null ? d.val : '✓'); col = 'var(--text)'; }           // showcase → luku
-    var fs = (d.tila === 'mitattu' && d.state !== 'grow' && vyoh !== 'leikkija') ? (naytaOvr ? '18px' : '17px') : '14px';
+    else { big = '✓'; col = '#28B090'; }
+    var fs = '14px';
     return '<div style="flex:1;text-align:center;padding:2px">'
       + '<div style="font-family:\'Cormorant Garamond\',serif;font-size:' + fs + ';line-height:1;color:' + col + '">' + big + '</div>'
       + '<div style="font-size:8px;letter-spacing:.08em;text-transform:uppercase;color:#8C8B86;margin-top:3px">' + d.key + '</div>'
@@ -2971,7 +2966,7 @@ function rMinaHero() {
   if (naytaOvr) {
     headBlock = '<div style="font-family:\'Cormorant Garamond\',serif;font-size:44px;font-weight:400;color:' + ac + ';line-height:.95">' + F.ovr + '</div>'
       + '<div style="font-family:\'DM Mono\',monospace;font-size:8px;letter-spacing:.12em;text-transform:uppercase;color:#8C8B86;margin-top:2px">OVR · ' + F.mitatut.length + ' osa-aluetta</div>';
-  } else if (vyoh === 'rakentaja') {
+  } else if (vyoh !== 'leikkija') {   // rakentaja + showcase: kehityskaari-rengas (mittauskattavuus, ei tasoa)
     headBlock = '<div style="display:flex;flex-direction:column;align-items:center;gap:5px">'
       + '<div style="position:relative;width:66px;height:66px">' + _fcRengasSVG(F.rengas.mitatut, F.rengas.nimittaja, 66, 3)
       +   '<div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center"><span style="font-size:18px;color:#28B090;line-height:1">↗</span><span style="font-family:\'Cormorant Garamond\',serif;font-size:11px;color:#C9C7BE">kehittyy</span></div></div>'
@@ -2979,7 +2974,7 @@ function rMinaHero() {
       + '</div>';
   } else {
     headBlock = '<div style="font-family:\'Cormorant Garamond\',serif;font-size:24px;font-weight:400;color:' + ac + ';line-height:1.05">Kortti<br>rakentuu</div>'
-      + '<div style="font-family:\'DM Mono\',monospace;font-size:8px;letter-spacing:.12em;text-transform:uppercase;color:#8C8B86;margin-top:4px">' + F.mitatut.length + '/5 avattu · hieno alku</div>';
+      + '<div style="font-family:\'DM Mono\',monospace;font-size:8px;letter-spacing:.12em;text-transform:uppercase;color:#8C8B86;margin-top:4px">' + F.mitatut.length + ' osa-aluetta avattu · hieno alku</div>';
   }
   var posTxt = F.naytaPaikka ? ('⚡ ' + esc(p.pelipaikka)) : '🔥 Monipuolinen';
   var h = '<div onclick="naytaFcOverlay()" style="margin:14px 20px 0;border:1px solid ' + acDim + '.42);border-radius:12px;overflow:hidden;cursor:pointer;'
@@ -2993,7 +2988,7 @@ function rMinaHero() {
     +   '<span style="font-family:\'DM Mono\',monospace;font-size:9px;color:#8C8B86">🇫🇮 FIN' + (F.ika != null ? (' · ' + F.ika + ' v') : '') + '</span>'
     + '</div></div>';
   // ↗-kasvusiru (C) — vain rakentaja + kun jotain nousi
-  if (vyoh === 'rakentaja' && F.nousiAlueet.length) {
+  if (vyoh !== 'leikkija' && F.nousiAlueet.length) {
     h += '<div style="margin:8px 16px 0;display:flex;align-items:center;gap:8px;padding:8px 11px;border-radius:9px;background:rgba(40,176,144,.08);border:.5px solid rgba(40,176,144,.28)">'
       + '<span style="font-family:\'DM Mono\',monospace;color:#28B090;font-size:13px">↗</span>'
       + '<span style="font-size:11.5px;color:#C9C7BE;line-height:1.35"><b style="color:var(--text);font-weight:500">' + F.nousiAlueet.length + ' osa-aluetta nousi</b> tänä jaksona — ' + esc(F.nousiAlueet.join(' & ')) + '. Hienoa työtä!</span></div>';
@@ -3002,7 +2997,7 @@ function rMinaHero() {
   h += '<div style="text-align:center;padding:8px 16px 6px">'
     + '<div style="width:52px;height:52px;border-radius:50%;margin:2px auto 6px;background:radial-gradient(circle at 35% 30%,#2a2a24,#141310);border:1px solid ' + acDim + '.3);display:flex;align-items:center;justify-content:center;font-family:\'Cormorant Garamond\',serif;font-size:20px;color:' + ac + '">' + esc(F.ini) + '</div>'
     + '<div style="font-family:\'Cormorant Garamond\',serif;font-weight:500;font-size:21px;letter-spacing:.03em;text-transform:uppercase;color:var(--text)">' + esc(F.nimi) + '</div>'
-    + '<div style="font-family:\'Cormorant Garamond\',serif;font-style:italic;font-size:13px;color:#8C8B86;margin-top:1px">🏆 Kohti ' + esc(F.seuraavaTier) + ' — idoli ' + esc(F.idoli) + '</div>'
+    + '<div style="font-family:\'Cormorant Garamond\',serif;font-style:italic;font-size:13px;color:#8C8B86;margin-top:1px">🏆 ' + esc(F.kohtiTeksti) + ' — idoli ' + esc(F.idoli) + '</div>'
     + '</div>';
   // 5D-statit
   h += '<div style="display:flex;padding:6px 8px;border-top:.5px solid ' + acDim + '.18);border-bottom:.5px solid ' + acDim + '.18)">' + F.dims.map(stat).join('') + '</div>';
@@ -3018,7 +3013,7 @@ function rMinaHero() {
   h += '</div>';
   // Seura-avaa-huomautus (rakentaja) — nimittäjän ULKOPUOLELLA olevat osa-alueet, §82: "ei sinusta kiinni".
   var seuraAvaa = F.dims.filter(function (d) { return d.tila === 'seura-avaa'; });
-  if (vyoh === 'rakentaja' && seuraAvaa.length) {
+  if (vyoh !== 'leikkija' && seuraAvaa.length) {
     h += '<div style="margin:10px 20px 0;display:flex;gap:9px;align-items:flex-start;padding:10px 12px;border-radius:10px;background:rgba(242,239,230,.03);border:.5px solid rgba(242,239,230,.07)">'
       + '<span style="font-size:14px">🤝</span>'
       + '<span style="font-size:11px;color:#C9C7BE;line-height:1.45"><b style="color:var(--text);font-weight:500">' + esc(seuraAvaa.map(function (d) { return d.key; }).join(' · ')) + ' odottaa seuraa</b> — aukeaa kun seurasi ottaa työkalun käyttöön. Ei sinusta kiinni, eikä pienennä kehityskaartasi.</span></div>';
@@ -3100,7 +3095,7 @@ function rMinaKokoelma() {
   var eSaav = (KORTTI_KATALOGI.saavutukset || []).filter(function (k) { try { return !!k.ansainta(p); } catch (e) { return false; } }).length;
   var eMerk = (KORTTI_KATALOGI.merkit || []).filter(function (k) { try { return _kkMerkkiTaso(p, k.laji) > 0; } catch (e) { return false; } }).length;
   var ansaitut = eLeg + eRare + eSaav + eMerk;
-  var uusi = (eLeg + eRare) > 0 ? ' · uusi 🔥' : '';
+  var uusi = '';   // ei pysyvää "uusi 🔥" -leimaa: idolikortti on aina ansaittu → leima näkyi aina (ei uutuustietoa)
   var kortit = sets.earned.concat(sets.locked);
   if (!kortit.length) return '';
   var h = '<div style="margin:16px 0 2px">'
@@ -5287,9 +5282,12 @@ function _fcKorttiData(p) {
     dims.forEach(d => { if (!d.counts) return; const v = (d.ovrVal != null) ? d.ovrVal : d.val; if (v != null) { sum += v * d.w; wsum += d.w; } });
     ovr = wsum ? Math.round(rae * (sum / wsum)) : null;
   }
-  const tier = rakentuu ? 'starter' : (mitatut.length >= 5 && ovr >= 75 ? 'elite' : 'sharp');
-  const tierNimi = tier === 'elite' ? 'Elite' : tier === 'sharp' ? 'Sharp' : 'Starter';
-  const seuraavaTier = tier === 'starter' ? 'Sharp' : tier === 'sharp' ? 'Elite' : 'Mestaruus';
+  // Tier = MITTAUSKATTAVUUS (Starter <3 mitattua · Sharp ≥3), ei suoritustaso. Elite poistettu (4.10.2026): vaati 5 mitattua,
+  // mutta SOS ei koskaan laske → saavuttamaton; lisäksi OVR-raja ≥75 = tasoluku. Seuraava askel = oma matka, ei leima.
+  const tier = rakentuu ? 'starter' : 'sharp';
+  const tierNimi = tier === 'sharp' ? 'Sharp' : 'Starter';
+  const seuraavaTier = tier === 'starter' ? 'Sharp' : 'Oma paras';
+  const kohtiTeksti = tier === 'starter' ? 'Kohti Sharp' : 'Kohti omaa parastasi';
 
   // ── Pelipaikkaportti (§7.1: U14+ vasta) ──
   const naytaPaikka = (ika != null && ika >= 14 && p.pelipaikka);
@@ -5308,14 +5306,14 @@ function _fcKorttiData(p) {
   const traits = [];
   if (p.tki_merkki) traits.push('🥇 Tekniikkamestari');
   if (p.tekninen_varhaiskehitys) traits.push('⚡ Varhaiskehittäjä');
-  if (p.hidden_gem) traits.push('💎 Piilohelmi');
+  // Piilohelmi/X-Factor = valmentajan talenttisignaaleja (§28/§7.22) → EI pelaajan kortille.
   const streak = (typeof _haeStreak === 'function') ? _haeStreak() : 0;
   if (streak >= 3) traits.push('🔥 ' + streak + ' pv putki');
   // ── Journey-delta (vain positiivinen, §7.22) ──
   let jDelta = '';
-  if (p.tki_edellinen != null && p.tki_viimeisin != null) { const dd = Math.round(p.tki_viimeisin - p.tki_edellinen); if (dd > 0) jDelta = '↗ Tekniikka +' + dd; }
+  if (p.tki_edellinen != null && p.tki_viimeisin != null) { const dd = Math.round(p.tki_viimeisin - p.tki_edellinen); if (dd > 0) jDelta = '↗ Tekniikka kehittyi'; }   // ei TKI-pistemäärää (§7.22/§34)
 
-  return { ika, dims, mitatut, rakentuu, ovr, tier, tierNimi, seuraavaTier, naytaPaikka, idoli, idolTeema, ini, nimi, goal, goalKey, synttari, traits, jDelta,
+  return { ika, dims, mitatut, rakentuu, ovr, tier, tierNimi, seuraavaTier, kohtiTeksti, naytaPaikka, idoli, idolTeema, ini, nimi, goal, goalKey, synttari, traits, jDelta,
            ikavyohyke, rengas, nousiAlueet };
 }
 // Kehityskaari-rengas (SVG) — U13–15 aggregaatti-OVR-luvun tilalla. Teal-kaari = mitatut/nimittaja (§84).
@@ -5337,17 +5335,15 @@ function naytaFcOverlay() {
   const p = _pelaaja || {};
   const F = _fcKorttiData(p);
   const { ika, dims, mitatut, rakentuu, ovr, tier, tierNimi, seuraavaTier, naytaPaikka, idoli, idolTeema, ini, nimi, goal, synttari, traits, jDelta, ikavyohyke, rengas } = F;
-  const naytaOvr = (ikavyohyke === 'showcase' && !rakentuu);  // aggregaatti-OVR-luku VAIN U16–19 (§58)
+  const naytaOvr = _fcNaytaOvr(F);   // aina false (päätös 4.10.2026)
 
-  // ── 5D-statti (etupuoli) — ikäadaptoitu: showcase→luku · rakentaja→taso X/5 · leikkija→✓ · tilat tulossa/seura-avaa ──
+  // ── 5D-statti (etupuoli) — mitattu → ✓ kaikissa ikävaiheissa (ei X/5, ei 0–99) · tilat tulossa/seura-avaa ──
   const st = d => {
     let sv, cls;
     if (d.tila === 'seura-avaa') { sv = '🔒'; cls = 'locked'; }
     else if (d.tila === 'tulossa') { sv = '⏳'; cls = 'locked'; }
     else if (d.state === 'grow') { sv = '🌱'; cls = 'grow'; }                       // pre-PHV fyysinen (§28)
-    else if (ikavyohyke === 'leikkija') { sv = '✓'; cls = 'measured'; }
-    else if (ikavyohyke === 'rakentaja') { sv = (d.taso5 != null ? (d.taso5 + '<span style="font-size:9px;opacity:.55">/5</span>') : '✓'); cls = 'measured'; }
-    else { sv = (d.val != null ? d.val : '✓'); cls = (d.state === 'early' ? 'early' : 'measured'); }  // showcase
+    else { sv = '✓'; cls = (d.state === 'early' ? 'early' : 'measured'); }
     return '<div class="fc-st ' + cls + '"><div class="sv">' + sv + '</div><div class="sk">' + d.key + '</div><div class="sd">' + d.lbl + '</div></div>';
   };
   // ── 5D-palkki (takapuoli) — showcase: arvo-palkki · rakentaja/leikkija: per-osa-alue taso + "seuraavaan" (kriteeri, §7.22) ──
@@ -5369,7 +5365,7 @@ function naytaFcOverlay() {
       if (r) return '<div class="fc-bar" style="align-items:flex-start">'
         + '<span class="bk">' + d.key + '</span>'
         + '<div style="grid-column:span 2;font-size:10px;color:var(--text);line-height:1.3">'
-        +   '<div>Nyt: <b style="color:var(--cf-main,#28B090)">' + r.nyt + '</b> <span style="color:var(--ink3);font-size:8px">taso ' + r.taso + '/5</span></div>'
+        +   '<div>Nyt: <b style="color:var(--cf-main,#28B090)">' + r.nyt + '</b></div>'
         +   '<div style="color:var(--ink3);margin-top:1px">Seuraava askel: ' + r.askel + '</div>'
         + '</div></div>';
     }
@@ -5396,7 +5392,7 @@ function naytaFcOverlay() {
       if (r) return '<div class="fc-bar" style="align-items:flex-start">'
         + '<span class="bk">' + d.key + '</span>'
         + '<div style="grid-column:span 2;font-size:10px;color:var(--text);line-height:1.3">'
-        +   '<div>Nyt: <b style="color:var(--cf-main,#28B090)">' + r.nyt + '</b> <span style="color:var(--ink3);font-size:8px">taso ' + r.taso + '/5</span></div>'
+        +   '<div>Nyt: <b style="color:var(--cf-main,#28B090)">' + r.nyt + '</b></div>'
         +   '<div style="color:var(--ink3);margin-top:1px">Seuraava askel: ' + r.askel + '</div>'
         + '</div></div>';
     }
@@ -5407,19 +5403,20 @@ function naytaFcOverlay() {
       if (r) {
         let rows = '';
         if (r.vahvuus) rows += '<div>⭐ Vahvuutesi: <b style="color:var(--cf-main,#28B090)">' + r.vahvuus + '</b></div>';
-        rows += '<div' + (r.vahvuus ? ' style="margin-top:1px"' : '') + '>Nyt: <b style="color:var(--cf-main,#28B090)">' + r.nyt + '</b> <span style="color:var(--ink3);font-size:8px">taso ' + r.taso + '/5</span></div>';
+        rows += '<div' + (r.vahvuus ? ' style="margin-top:1px"' : '') + '>Nyt: <b style="color:var(--cf-main,#28B090)">' + r.nyt + '</b></div>';
         rows += '<div style="color:var(--ink3);margin-top:1px">Seuraava askel: ' + r.askel + '</div>';
         return '<div class="fc-bar" style="align-items:flex-start"><span class="bk">' + d.key + '</span>'
           + '<div style="grid-column:span 2;font-size:10px;color:var(--text);line-height:1.3">' + rows + '</div></div>';
       }
     }
-    const seuraava = t < 5 ? ('seuraavaan: taso ' + (t + 1) + '/5') : 'huipputasolla — pidä yllä!';
-    return '<div class="fc-bar"><span class="bk">' + d.key + '</span><div style="grid-column:span 2;font-size:10px;color:var(--text)">Nyt taso <b style="color:var(--cf-main,#28B090)">' + t + '/5</b> · <span style="color:var(--ink3)">' + seuraava + '</span></div></div>';
+    // Geneerinen (ei rubriikkia): ei tasonumeroa — laadullinen tila + oma matka (§7.22, päätös 4.10.2026).
+    const seuraava = t < 5 ? 'seuraava askel valmentajan kanssa' : 'vahva alue — pidä yllä!';
+    return '<div class="fc-bar"><span class="bk">' + d.key + '</span><div style="grid-column:span 2;font-size:10px;color:var(--text)">Mitattu <b style="color:var(--cf-main,#28B090)">✓</b> · <span style="color:var(--ink3)">' + seuraava + '</span></div></div>';
   };
 
   let headHtml;
   if (naytaOvr) headHtml = '<div class="fc-num">' + ovr + '</div><div class="fc-numtag">OVR · ' + mitatut.length + ' osa-aluetta</div>';
-  else if (ikavyohyke === 'rakentaja') headHtml =
+  else if (ikavyohyke !== 'leikkija') headHtml =
     '<div style="display:flex;align-items:center;gap:9px">'
     + '<div style="position:relative;width:58px;height:58px;flex-shrink:0">' + _fcRengasSVG(rengas.mitatut, rengas.nimittaja, 58, 3)
     +   '<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center"><span style="font-size:17px;color:var(--cf-main,#28B090);line-height:1">↗</span></div></div>'
@@ -5427,7 +5424,7 @@ function naytaFcOverlay() {
     +   '<div style="font-family:\'Cormorant Garamond\',serif;font-size:17px;color:var(--text);line-height:1.1">kehittyy</div>'
     +   '<div style="font-family:\'DM Sans\';font-size:9px;color:var(--cf-main,#28B090)">' + rengas.mitatut + ' / ' + rengas.nimittaja + ' mitattu</div></div>'
     + '</div>';
-  else headHtml = '<div class="fc-build">Kortti<br>rakentuu</div><div class="fc-buildsub">' + mitatut.length + '/5 avattu · hieno alku</div>';
+  else headHtml = '<div class="fc-build">Kortti<br>rakentuu</div><div class="fc-buildsub">' + mitatut.length + ' osa-aluetta avattu · hieno alku</div>';
   const posHtml = naytaPaikka
     ? '<div class="fc-pill">⚡ ' + p.pelipaikka + '</div>'
     : '<div class="fc-pill">🔥 Monipuolinen</div><div style="font-family:\'DM Sans\';font-size:8px;color:var(--ink3);margin-top:3px;text-align:right">kokeilee kaikkia paikkoja</div>';
@@ -5468,8 +5465,8 @@ function naytaFcOverlay() {
         '</div>' +
       '</div>' +
       '<div class="fc-face fc-back tier-' + tier + '">' +
-        '<div style="font-family:\'DM Sans\';font-size:9px;font-weight:600;letter-spacing:.18em;text-transform:uppercase;color:var(--cf-main)">' + (naytaOvr ? ('Miksi ' + ovr + '?') : 'Oma tasosi &amp; seuraava askel') + '</div>' +
-        '<div style="font-family:\'Cormorant Garamond\',serif;font-size:16px;font-style:italic;line-height:1.35;margin:7px 0 12px;color:var(--text)">' + (naytaOvr ? 'Numero kertoo missä olet juuri nyt. Vahvuutesi vievät eteenpäin — kortti kirkastuu kun kehityt.' : 'Tässä oma tasosi osa-alueittain ja seuraava askel — sinun matkasi, ei vertailu muihin.') + '</div>' +
+        '<div style="font-family:\'DM Sans\';font-size:9px;font-weight:600;letter-spacing:.18em;text-transform:uppercase;color:var(--cf-main)">' + (naytaOvr ? ('Miksi ' + ovr + '?') : 'Oma matkasi &amp; seuraava askel') + '</div>' +
+        '<div style="font-family:\'Cormorant Garamond\',serif;font-size:16px;font-style:italic;line-height:1.35;margin:7px 0 12px;color:var(--text)">' + (naytaOvr ? 'Numero kertoo missä olet juuri nyt. Vahvuutesi vievät eteenpäin — kortti kirkastuu kun kehityt.' : 'Tässä osa-alueesi ja seuraava askel — sinun matkasi, ei vertailu muihin.') + '</div>' +
         dims.map(bar).join('') +
         (traits.length ? ('<div style="margin-top:10px"><div style="font-family:\'DM Sans\';font-size:8px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink3);margin-bottom:5px">Erikoismerkit</div>' + traits.map(t => '<span class="fc-trait">' + t + '</span>').join('') + '</div>') : '') +
         '<div style="margin-top:auto;font-family:\'DM Sans\';font-size:9px;color:var(--ink3);line-height:1.4;padding-top:10px">Lukitut osa-alueet (Pää · Joukkue) avautuvat kun seurasi ottaa työkalut käyttöön — ei sinusta kiinni.</div>' +
@@ -6091,15 +6088,14 @@ function kirjaaRPE(arvo) {
 
 /* ═══════════════════════════════════════════════════════════
    SIGNAALILOGIIKKA v5
-   X-Factor: streak ≥ 7 päivää peräkkäin
-   Piilohelmi (Gem): FLEI noussut ≥3 pistettä kahdessa viikossa
+   Putki: streak ≥ 7 päivää peräkkäin (ei X-Factor-leimaa pelaajalle — talenttisignaalit vain valmentajalle)
    PHV: phv_tila='PHV' → kuorma max 60%, ei P-harjoitteita
 ═══════════════════════════════════════════════════════════ */
 function _tarkistaSignaalit() {
   const signaalit = [];
   
   // X-Factor: streak ≥ 7
-  if (_streak >= 7) signaalit.push({ tyyppi:'x-factor', teksti:'X-Factor — ${_streak} päivän putki', vari:'#28B090' });
+  if (_streak >= 7) signaalit.push({ tyyppi:'putki', teksti:'${_streak} päivän putki', vari:'#28B090' });   // ei "X-Factor"-leimaa (valmentajan signaali)
   
   // PHV-varoitus — uusi koodi 'PH' (tm_bioika §30), vanha 'PHV' yhteensopivuus
   if (_pelaaja?.phv_tila === 'PH' || _pelaaja?.phv_tila === 'PHV') {
@@ -6119,8 +6115,7 @@ function _tarkistaSignaalit() {
 function _signaaliLabel() {
   // Palauta signaalipalikka rA1/rA3:a varten
   const s = _pelaaja?.signaali;
-  if (s === 'x-factor') return '<div style="display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:20px;background:rgba(40,176,144,.12);border:.5px solid rgba(40,176,144,.25);font-size:11px;font-weight:600;color:#28B090;margin-bottom:10px">⚡ X-Factor</div>';
-  if (s === 'gem')      return '<div style="display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:20px;background:rgba(184,134,11,.12);border:.5px solid rgba(184,134,11,.25);font-size:11px;font-weight:600;color:#B8860B;margin-bottom:10px">💎 ' + t('pelaaja.sig_piilohelmi') + '</div>';
+  // X-Factor / Piilohelmi = valmentajan talenttisignaaleja (§28/§7.22, päätös 4.10.2026) → ei pelaajalle.
   if (s === 'phv')      return '<div style="display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:20px;background:rgba(216,90,90,.12);border:.5px solid rgba(216,90,90,.25);font-size:11px;font-weight:600;color:#D85A5A;margin-bottom:10px">⚠ ' + t('pelaaja.sig_phv') + '</div>';
   if (_streak >= 7)     return '<div style="display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:20px;background:rgba(40,176,144,.12);border:.5px solid rgba(40,176,144,.25);font-size:11px;font-weight:600;color:#28B090;margin-bottom:10px">🔥 ' + t('pelaaja.sig_putki', { n: _streak }) + '</div>';
   return '';

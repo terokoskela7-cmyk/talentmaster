@@ -26,7 +26,7 @@ const V4B_AVAIMET = [
   'kirjaa_mita_teki_nimi', 'kirjaa_pallohuom', 'kirjaa_virhe_oikeus', 'valm_viestit', 'valm_info_u19',
   'laji_ponnauttelu', 'laji_syotto', 'laji_pujottelu', 'laji_kuljetus_laukaus', 'laji_pituuspotku',
   'tuki_syotto', 'tek_mittaukset_tulossa', 'tek_vahvin_laji', 'tek_tarkeinta',
-  'kortti_kausi', 'kortti_selite_numero', 'kortti_selite_stage',
+  'kortti_kausi', 'kortti_selite_stage',
   'aset_pin_ohje', 'aset_rooli_u12', 'aset_rooli_u19', 'aset_gdpr_u15',
 ];
 
@@ -165,9 +165,8 @@ describe('S7.22 + glossaari + nimen taivutus (V1-B2)', () => {
     // fi säilyttää {gen}:n (koodi korvaa _genetiivi:llä)
     expect(/\{gen\}/.test(L.TM_LANG.fi.vanhempi.tek_vahvin_laji)).toBe(true);
   });
-  it('S7.22-perhesävy: "matka ei arvosana" säilyy sv/en (kortti_selite_numero)', () => {
-    expect(/resa/.test(L.TM_LANG.sv.vanhempi.kortti_selite_numero)).toBe(true);
-    expect(/journey/.test(L.TM_LANG.en.vanhempi.kortti_selite_numero)).toBe(true);
+  it('§7.22 (päätös 4.10.2026): "Kortti 0–99" -selite poistettu kaikista kielistä (kokonaisluku = tasoluku vanhemmalle)', () => {
+    ['fi', 'sv', 'en'].forEach((k) => expect(L.TM_LANG[k].vanhempi.kortti_selite_numero).toBeUndefined());
   });
 });
 

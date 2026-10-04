@@ -32,6 +32,10 @@ Heron napautus avaa overlayn, mutta se **jää selitys-kääntöpuolelle** ("Mik
 
 ## OSA B — Ikäadaptoitu tasomalli (OVR-kompromissi)
 
+> **⛔ KUMOTTU 4.10.2026 (Tero/projektinjohto):** CLAUDE.md §0/§7.22 voittaa Osa B:n. Lapselle EI näytetä tasolukuja
+> ("taso X/5"), OVR:ää eikä 0–99-arvoja missään ikävaiheessa (myös U16+). Kehityskaari-rengas (mittauskattavuus) ja
+> laadulliset kuvaukset säilyvät. Ks. docs/KORTTI_VISIO.md / KORTTI_KATALOGI.md päätöslaatikko.
+
 ### Periaate: erota kaksi asiaa
 - **Aggregaatti-OVR (yksi kokonaisluku)** = identiteettileima, vertailukelpoisin/pelkistävin elementti → **ikäportitetaan**.
 - **Testikohtainen taso + matka seuraavaan** = pelaajan oma mestaruuspalaute (self-referenced) → **näytetään kaikille** ikäadaptoidusti. Tämä on se, mitä pelaaja tarvitsee kehittyäkseen, EIKÄ se ole §7.22-vertailua (oma kynnys, ei muihin vertaaminen).

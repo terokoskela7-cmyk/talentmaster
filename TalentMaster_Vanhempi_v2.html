@@ -123,7 +123,7 @@ body.demo-mode #devChrome{display:block}
 <script src="lib/tm_pvm.js?v=3"></script>   <!-- tmPaivaIso: paikallinen päivä tallennuksiin (ei UTC) -->
 <script src="lib/tm_appcheck.js?v=2"></script>
 <script src="lib/tm_verkko.js?v=1"></script>   <!-- verkkokatko: 1 uudelleenyritys + Yhteyskatko-ilmoitus + Sentry warning -->
-<script src="lib/tm_lang.js?v=28"></script>   <!-- i18n V0 putki · V1-B/B2: +vanhempi./nav.-avaimet + kielivalitsin + syväsisältö (nimen taivutus poistettu) -->
+<script src="lib/tm_lang.js?v=29"></script>   <!-- i18n V0 putki · V1-B/B2: +vanhempi./nav.-avaimet + kielivalitsin + syväsisältö (nimen taivutus poistettu) -->
 <script src="docs/testit_indeksit.js?v=10"></script>
 <script src="tm-bus.js?v=3"></script>
 <script src="tm-demo.js?v=3"></script>
@@ -1183,11 +1183,8 @@ function rVanhempiTekniikka(){
   const arvoOf = (id) => { const x = lajit[id + '_s']; return (x == null || isNaN(x)) ? null : Number(x); };
   const merkkiVari = { kulta:'#D4AF37', hopea:'#9AA0A6', pronssi:'#B87333' };
   let inner = '';
-  // 1. TKI + merkki + mitattu pvm
-  inner += `<div style="display:flex;align-items:baseline;gap:10px;margin-bottom:4px">
-    <div style="font-family:var(--font-d);font-weight:300;font-size:40px;color:#28B090;line-height:1">${L.tki_viimeisin != null ? L.tki_viimeisin : '—'}</div>
-    <div style="font-size:11px;color:var(--ink3)">TKI</div>
-    ${L.tki_merkki ? `<div style="margin-left:auto;font-size:11px;font-weight:600;padding:3px 10px;border-radius:20px;background:${(merkkiVari[L.tki_merkki]||'#8C8B86')}22;color:${merkkiVari[L.tki_merkki]||'#8C8B86'};text-transform:capitalize">${L.tki_merkki}</div>` : ''}</div>`;
+  // 1. Mitali (ansaittu) + mitattu pvm. §7.22/§16: TKI-lukua EI näytetä vanhemmallekaan (indeksi = tasoluku).
+  if (L.tki_merkki) inner += `<div style="display:flex;margin-bottom:4px"><div style="margin-left:auto;font-size:11px;font-weight:600;padding:3px 10px;border-radius:20px;background:${(merkkiVari[L.tki_merkki]||'#8C8B86')}22;color:${merkkiVari[L.tki_merkki]||'#8C8B86'};text-transform:capitalize">${L.tki_merkki}</div></div>`;
   if (L.tk_lajit_pvm) inner += `<div style="font-size:10px;color:var(--ink3);margin-bottom:6px">${t('vanhempi.tek_mitattu').replace('{pvm}', L.tk_lajit_pvm)}</div>`;
   // 2. Vahvuus ensin (prosessikehu)
   if (L.tki_vahvuus && _VANH_LAJINIMI[L.tki_vahvuus]) {
@@ -1213,24 +1210,16 @@ function rVanhempiTekniikka(){
       inner += `<div style="font-size:12px;color:var(--text);margin-top:6px">${t('vanhempi.tek_matka').replace('{mitali}', MM[budj.tavoite] ? t(MM[budj.tavoite]) : '').replace('{gap}', budj.gap_s)}</div>`;
     }
   }
-  // 5. Lajipalkit — täyttö = HYVYYS (clamp(100×erinomainen/arvo,10,100)); fallback käännetty suhteutus
-  const PALKIT = ['ponnauttelu','syotto','pujottelu','kuljetus_laukaus'];
-  const vals = PALKIT.map(id => ({ id, val: arvoOf(id) })).filter(x => x.val != null);
+  // 5. Lajit sekunteina — §7.22: EI palkkeja (täyttö oli suhde eliittiviitteeseen = normivertailu). ★ vahvuus · 🎯 seuraava askel.
+  const LAJIT = ['ponnauttelu','syotto','pujottelu','kuljetus_laukaus'];
+  const vals = LAJIT.map(id => ({ id, val: arvoOf(id) })).filter(x => x.val != null);
   if (vals.length) {
-    const max = Math.max.apply(null, vals.map(x => x.val));
-    inner += `<div style="margin-top:12px;display:flex;flex-direction:column;gap:6px">`;
+    inner += `<div style="margin-top:12px;display:flex;flex-direction:column">`;
     vals.forEach(x => {
-      const viite = viiteOf(x.id);
-      const pct = (viite && viite.erinomainen && x.val > 0)
-        ? Math.round(Math.max(10, Math.min(100, 100 * viite.erinomainen / x.val)))
-        : Math.round(Math.max(10, Math.min(100, ((max - x.val) / max) * 100)));
-      const onV = (x.id === L.tki_vahvuus), onK = (x.id === L.tki_kehityskohde);
-      const vari = onV ? '#28B090' : onK ? '#E0A040' : '#8C8B86';
-      const mark = onV ? ' ★' : onK ? ' 🎯' : '';
-      inner += `<div style="display:flex;align-items:center;gap:8px">
-        <div style="width:96px;font-size:11px;color:var(--ink3);text-align:right">${_VANH_LAJINIMI[x.id]?t(_VANH_LAJINIMI[x.id]):x.id}${mark}</div>
-        <div style="flex:1;background:rgba(242,239,230,.06);border-radius:3px;height:14px;overflow:hidden"><div style="width:${pct}%;height:100%;background:${vari}"></div></div>
-        <div style="width:42px;font-size:10px;color:var(--text);text-align:right">${x.val.toFixed(1)}s</div></div>`;
+      const mark = (x.id === L.tki_vahvuus) ? ' ★' : (x.id === L.tki_kehityskohde) ? ' 🎯' : '';
+      inner += `<div style="display:flex;justify-content:space-between;align-items:baseline;padding:6px 0;border-top:.5px solid var(--border)">
+        <div style="font-size:12px;color:var(--text)">${_VANH_LAJINIMI[x.id]?t(_VANH_LAJINIMI[x.id]):x.id}${mark}</div>
+        <div style="font-size:12px;color:var(--text)">${x.val.toFixed(1)} s</div></div>`;
     });
     inner += `</div>`;
   }
@@ -1278,56 +1267,31 @@ function rVanhempiEnnatykset(){
     <div style="font-size:11px;color:var(--ink3);margin-bottom:8px">${_vEsc(t('vanhempi.enn_selite'))}</div>${rivit}</div>`;
 }
 
+// Kausikortti (päätös 4.10.2026, §7.22 + perheviestintä §16): vain se mikä on totta ja kannustavaa.
+// POIS: "Kortti 0–99" (kokonaisluku = tasoluku vanhemmalle, eikä kirjoittajaa → aina "—"), Treenejä/Stage (ei kirjoittajaa
+// → aina 0/"—"), kovakoodattu kausi "2025/26", X-Factor/Hidden Gem (valmentajan talenttisignaaleja; demossa näkyi),
+// sanasto (selitti poistetut luvut) ja jaa-nappi (ei toimintoa).
 function rKortti(){
   const d=IKA[_age];
   const L = window._lapsi || {};   // oikeat arvot pelaajadokumentista — ei keksittyjä lukuja
   return `
 <div class="scroll">
   <div style="padding:14px 2px 14px;text-align:center">
-    <div class="ey ac" style="margin-bottom:6px">${t('vanhempi.kortti_kausi')} 2025/26</div>
     <div style="font-family:var(--font-d);font-weight:400;font-size:26px;line-height:1.1;color:var(--text)">${t('vanhempi.kortti_matka_otsikko').replace('{gen}', _genetiivi(d.nimi))}</div>
   </div>
 
-  <!-- Iso kortti -->
+  <!-- Iso kortti: identiteetti + putki (oikea data) -->
   <div style="position:relative;padding:24px 20px 20px;background:linear-gradient(135deg,#1a2f25,#0d1912);border:.5px solid rgba(184,134,11,.35);border-radius:16px;overflow:hidden;margin-bottom:16px">
     <div style="position:absolute;top:-40px;right:-30px;width:160px;height:160px;background:radial-gradient(circle,rgba(184,134,11,.2),transparent 70%);border-radius:50%;pointer-events:none"></div>
-    
-    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:18px">
-      <div>
-        <div class="ey" style="color:rgba(184,134,11,.8);margin-bottom:3px">${t('vanhempi.kortti_kausipassi')}</div>
-        <div style="font-family:var(--font-d);font-weight:500;font-size:22px;color:var(--text);line-height:1">${d.nimi}</div>
-        <div style="font-size:10px;color:var(--ink3);margin-top:4px;letter-spacing:.06em">${d.ryhma}${L.pelinumero!=null?' · #'+L.pelinumero:''}</div>
-      </div>
-      <div style="text-align:right">
-        <div style="font-family:var(--font-d);font-weight:300;font-size:44px;color:var(--gold);line-height:1">${L.kortti!=null?L.kortti:'—'}</div>
-        <div class="ey" style="color:rgba(184,134,11,.8)">${t('vanhempi.kortti_kortti')}</div>
-      </div>
-    </div>
-
+    <div class="ey" style="color:rgba(184,134,11,.8);margin-bottom:3px">${t('vanhempi.kortti_kausipassi')}</div>
+    <div style="font-family:var(--font-d);font-weight:500;font-size:22px;color:var(--text);line-height:1">${d.nimi}</div>
+    <div style="font-size:10px;color:var(--ink3);margin-top:4px;letter-spacing:.06em">${d.ryhma}${L.pelinumero!=null?' · #'+L.pelinumero:''}</div>
     <div class="divider" style="background:rgba(184,134,11,.2);margin:16px 0"></div>
-
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:14px">
-      ${[
-        {l:'Streak',v:(L.streak!=null?L.streak:0),u:'pv'},
-        {l:t('vanhempi.kortti_treeneja'),v:(L.treeneja_kausi!=null?L.treeneja_kausi:0),u:t('vanhempi.kortti_kausi_yks')},
-        {l:'Stage',v:(L.stage||'—'),u:''},
-      ].map(s=>`
-        <div>
-          <div class="ey" style="color:rgba(184,134,11,.6);font-size:8px;margin-bottom:2px">${s.l}</div>
-          <div style="font-family:var(--font-d);font-size:18px;color:var(--text);font-weight:400;line-height:1">${s.v}</div>
-          ${s.u?`<div style="font-size:9px;color:var(--ink3);margin-top:1px">${s.u}</div>`:''}
-        </div>
-      `).join('')}
+    <div>
+      <div class="ey" style="color:rgba(184,134,11,.6);font-size:8px;margin-bottom:2px">Streak</div>
+      <div style="font-family:var(--font-d);font-size:18px;color:var(--text);font-weight:400;line-height:1">${L.streak!=null?L.streak:0}</div>
+      <div style="font-size:9px;color:var(--ink3);margin-top:1px">pv</div>
     </div>
-
-    <!-- Signaali (oikea data _lapsi.signaali, vain jos olemassa) -->
-    ${L.signaali==='xfactor'?`
-    <div style="display:flex;gap:6px;margin-top:10px">
-      <div style="padding:4px 10px;background:rgba(26,122,94,.15);border:.5px solid rgba(26,122,94,.35);border-radius:12px;font-size:9px;font-weight:600;color:#28B090;letter-spacing:.1em">★ X-Factor</div>
-    </div>`:L.signaali==='hidden'?`
-    <div style="display:flex;gap:6px;margin-top:10px">
-      <div style="padding:4px 10px;background:rgba(184,134,11,.15);border:.5px solid rgba(184,134,11,.35);border-radius:12px;font-size:9px;font-weight:600;color:var(--gold);letter-spacing:.1em">◆ Hidden Gem</div>
-    </div>`:''}
   </div>
 
   <!-- Tekniikkaprofiili + miten tukea (perheviestinnän §7.22) — kausikortin alle -->
@@ -1335,25 +1299,6 @@ function rKortti(){
 
   <!-- Omat ennätykset (KORTTI 1c) — neutraali, vain itsevertailu -->
   ${rVanhempiEnnatykset()}
-
-  <!-- Sanasto -->
-  <div class="card2" style="padding:14px;margin-bottom:12px">
-    <div class="ey ac" style="margin-bottom:8px">${t('vanhempi.kortti_mita_tarkoittaa')}</div>
-    <div style="font-size:11px;color:var(--ink2);line-height:1.65">
-      ${t('vanhempi.kortti_selite_numero')}<br><br>
-      ${t('vanhempi.kortti_selite_stage')}
-    </div>
-  </div>
-
-  <!-- Jakaminen -->
-  <div class="card" style="padding:14px;display:flex;gap:10px;align-items:center">
-    ${ic('star',18,'#B8860B',1.6)}
-    <div style="flex:1">
-      <div style="font-size:12px;font-weight:600;color:var(--text)">${t('vanhempi.kortti_jaa_otsikko')}</div>
-      <div style="font-size:10px;color:var(--ink3);margin-top:2px">${t('vanhempi.kortti_isovanhemmille')}</div>
-    </div>
-    <button style="padding:8px 14px;background:rgba(184,134,11,.1);border:.5px solid rgba(184,134,11,.3);border-radius:6px;color:var(--gold);font-size:10px;font-weight:600;letter-spacing:.1em">${t('vanhempi.kortti_jaa_nappi')}</button>
-  </div>
 </div>`;
 }
 

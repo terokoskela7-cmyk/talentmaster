@@ -39,9 +39,11 @@ function runko(nimi) {
 // ── Renderöi rKortti oikealla lähdekoodilla, stubattu ympäristö ──
 // Proxy-globaali: tuntematon nimi → stub (funktio JA objekti) → render ei kaadu puuttuvaan
 // apuriin, mutta AIDOT funktiot (_fcKorttiData, _valmiusTila, _laskeStage) ajetaan lähteestä.
-function renderoi(pelaaja, kieli) {
+function renderoi(pelaaja, kieli, porttiAuki) {
+  // porttiAuki = mutaatio (E): simuloi regressio jossa yhteinen OVR-portti avautuisi taas.
+  const portti = porttiAuki ? runko('_fcNaytaOvr').replace('return false;', 'return !!(F && F.ikavyohyke === \'showcase\' && !F.rakentuu && F.ovr != null);') : runko('_fcNaytaOvr');
   const src = [runko('_tMittari'), runko('_tKortti'), runko('_valmiusTila'), runko('_laskeStage'),
-               runko('_fcKorttiData'), runko('_fcRengasSVG'), runko('rKortti')];
+               runko('_fcKorttiData'), runko('_fcRengasSVG'), portti, runko('rKortti')];
   src.forEach((x, i) => { if (!x) throw new Error('funktion runkoa ei löytynyt, index ' + i); });
 
   const LANG = require_lang();
@@ -118,16 +120,18 @@ describe('A — yksi kynnys, yksi lähde', () => {
   });
 });
 
-describe('B — ikäportti on sama kuin sisarfunktioilla', () => {
-  it('rKortti käyttää _fcKorttiData + ikavyohyke==="showcase" && !rakentuu', () => {
+// PÄÄTÖS 4.10.2026 (Tero/projektinjohto): lapselle EI OVR-/tasolukua missään ikävaiheessa (myös showcase) — CLAUDE.md §0
+// voittaa KORTTI_VISIO/TASOMALLI Osa B:n. Portti on nyt YKSI funktio _fcNaytaOvr (aina false), jota kaikki kolme käyttävät.
+describe('B — yksi OVR-portti kaikille näyttöpaikoille, aina kiinni', () => {
+  it('rKortti käyttää _fcKorttiData + yhteistä _fcNaytaOvr-porttia', () => {
     const fn = runko('rKortti');
     expect(fn).toContain('_fcKorttiData(p)');
-    expect(fn).toMatch(/ikavyohyke === 'showcase' && !F\.rakentuu/);
+    expect(fn).toContain('_fcNaytaOvr(F)');
+    expect(runko('_fcNaytaOvr')).toMatch(/return false;/);
   });
-  it('portin lauseke on identtinen sisarfunktion kanssa (ei rinnakkaista ikälogiikkaa)', () => {
-    const osumat = PEL.match(/ikavyohyke === 'showcase' && !\w*\.?rakentuu/g) || [];
-    expect(osumat.length).toBeGreaterThanOrEqual(2);   // _fcKorttiData-kuluttajat + rKortti
-    expect(new Set(osumat.map((o) => o.replace(/^\w+\./, '').replace(/!\w+\./, '!'))).size).toBe(1);
+  it('kaikki kolme näyttöpaikkaa käyttävät samaa porttia; vanhaa ikäportin lauseketta ei ole (ei rinnakkaista logiikkaa)', () => {
+    expect((PEL.match(/= _fcNaytaOvr\(F\)/g) || []).length).toBe(3);   // rKortti · rMinaHero · naytaFcOverlay
+    expect(PEL).not.toMatch(/ikavyohyke === 'showcase' && !\w*\.?rakentuu/);
   });
   it('keksityt fallback-luvut 87/88 ovat poissa kortista', () => {
     // Kommentit pois: ne SELITTÄVÄT poistetut arvot ja osuisivat muuten omaan väitteeseensä.
@@ -142,7 +146,7 @@ describe('B — ikäportti on sama kuin sisarfunktioilla', () => {
 describe('C — RENDER: mitä kukin ikävaihe oikeasti näkee', () => {
   const ILMAN_TAGEJA = (h) => h.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
 
-  for (const [vaihe, ika] of [['leikkija', 11], ['rakentaja', 14]]) {
+  for (const [vaihe, ika] of [['leikkija', 11], ['rakentaja', 14], ['showcase', 17]]) {
     it(`${vaihe} (U${ika}): 0 näkyvää mittarilukua kortissa, ei "/100"`, () => {
       // joukkueId jätetään pois: 'KPV_U13' sisältää numeron joka on JOUKKUEEN NIMI, ei mittari.
       // Sekoittaisi numerosweepin; joukkuenimen renderöityminen todistetaan erikseen alla.
@@ -165,19 +169,6 @@ describe('C — RENDER: mitä kukin ikävaihe oikeasti näkee', () => {
       expect(teksti).toContain('KPV_U13');
     });
   }
-
-  it('showcase (U17): OVR-luku näkyy (§58) ja se on OIKEA aggregaatti, ei kehon valmius', () => {
-    const html = renderoi(pelaaja(17), 'fi');
-    const teksti = ILMAN_TAGEJA(html);
-    expect(teksti).toContain('OVR');
-    const m = html.match(/font-size:64px[^>]*>(\d+)</);
-    expect(m).toBeTruthy();
-    const luku = Number(m[1]);
-    expect(luku).not.toBe(62);            // ei flei_viimeisin
-    expect(luku).toBeGreaterThan(0);
-    expect(teksti).not.toMatch(/\d+\s*\/\s*100/);   // TILASTOT-rivi on sanana myös Showcasessa
-    expect(teksti).toContain('Kehittyy');
-  });
 
   it('showcase ilman mittauksia (rakentuu) EI saa lukua — portti on kaksiosainen', () => {
     const vain1 = { syntymaVuosi: VUOSI - 17, etunimi: 'Testi', sukunimi: 'P', flei_viimeisin: 62, tki_viimeisin: 72 };
@@ -221,8 +212,10 @@ describe('E — EI VACUOUS: gate punertaa aidosta vuodosta', () => {
     expect(teksti).toMatch(/\d+\s*\/\s*100/);
     expect(teksti).toMatch(/DRI\s*\d/);
   });
-  it('jos rKortti ohittaisi portin, showcase-väite ei enää erottaisi ikävaiheita', () => {
-    const rak = renderoi(pelaaja(14), 'fi'), sho = renderoi(pelaaja(17), 'fi');
-    expect(rak).not.toBe(sho);   // portti tuottaa AIDOSTI eri kortin
+  it('jos yhteinen portti avautuisi (regressio), showcase-render näyttäisi OVR-luvun → C-sweep punertaisi', () => {
+    const vuoto = renderoi(pelaaja(17), 'fi', true).replace(/<[^>]*>/g, ' ');
+    expect(vuoto).toContain('OVR');
+    expect((vuoto.match(/\d+/g) || []).length).toBeGreaterThan(1);
+    expect(renderoi(pelaaja(17), 'fi').replace(/<[^>]*>/g, ' ')).not.toContain('OVR');
   });
 });

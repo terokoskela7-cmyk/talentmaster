@@ -32,7 +32,7 @@ function rakenna(p) {
   vm.createContext(ctx);
   vm.runInContext("const _MINA_HHNIMI = { lin30m:'Nopeus', lin10m:'Kiihdytys', cmj:'Ponnistusvoima', mas:'Kestävyys', kasirata:'Ketteryys', sm_pallo:'Vauhti pallon kanssa' };"
     + SRC.slice(SRC.indexOf('function _minaHhArvo('), SRC.indexOf('\n', SRC.indexOf('function _minaHhArvo(')))
-    + '\n' + pura('function _minaHhEdellinen(') + '\n' + pura('function rMinaFyysinenTavoite(')
+    + '\n' + pura('function _minaHhEdellinen(') + '\n' + pura('function _minaHhHuipulla(') + '\n' + pura('function rMinaFyysinenTavoite(')
     + '\nthis.f = rMinaFyysinenTavoite;', ctx);
   return ctx.f();
 }

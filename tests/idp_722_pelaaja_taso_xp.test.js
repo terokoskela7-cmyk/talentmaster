@@ -43,9 +43,14 @@ describe('S7.22 - stray tasoluku/XP-renderoinnit poistettu pelaajapinnalta', () 
 });
 
 describe('FC-kortti (naytaFcOverlay) = POIKKEUS, koskematon (S28/S36)', () => {
-  it('naytaFcOverlay-ikaadaptointi (rakentaja taso5/5) sailyy', () => {
-    expect(PEL).toContain("vyoh === 'rakentaja'");
-    expect(PEL).toContain('d.taso5 != null');
+  // PAIVITETTY 4.10.2026 (Tero/projektinjohto): Osa B:n "rakentaja taso X/5" KUMOTTU — CLAUDE.md §0/§7.22 voittaa.
+  // Lapselle ei tasolukuja missaan ikavaiheessa → FC-kortti nayttaa mitatulle osa-alueelle ✓ (ei "/5").
+  it('naytaFcOverlay EI renderoi tasolukua "/5" missaan ikavaiheessa (paatos 4.10.2026)', () => {
+    const fc = PEL.slice(PEL.indexOf('function naytaFcOverlay('), PEL.indexOf('function _fcAsetaTavoite('));
+    expect(fc.length).toBeGreaterThan(1000);
+    expect(fc).not.toContain("d.taso5 + '<span");
+    expect(fc).not.toMatch(/taso ' \+ r\.taso \+ '\/5/);
+    expect(fc).toContain('_fcNaytaOvr(F)');
   });
   // POISTETTU VAITE: expect(PEL).toContain('Seuraava taso: DRI 88').
   // Vaite oli tiedostotason merkki "tama era ei koskenut korttia" — mutta merkkijono ei elanyt
