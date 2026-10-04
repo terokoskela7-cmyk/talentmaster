@@ -71,8 +71,8 @@ describe('_tkMitali — mitali vain kokonaistuloksesta', () => {
   it('testipvm puuttuu → teksti ilman päivää', () => {
     expect(ctx().m(pel({ tk_lajit_pvm: null, tki_pvm: null })).teksti).toBe('Tekniikkakilpailu · kultamerkki');
   });
-  it('tavoiterivit (tekniikkaprofiili) käyttää _tkMitali:a; vanha "Sinulla on …merkki!" poissa', () => {
-    expect(pura('function _minaTavoiteRivit(')).toContain('_tkMitali(p)');
+  it('tavoiterivit (tekniikkaprofiili) käyttää _tkMitalit:a (P0.6b: lista, ei vain viimeisin); vanha "Sinulla on …merkki!" poissa', () => {
+    expect(pura('function _minaTavoiteRivit(')).toContain('_tkMitalit(p)');
     expect(HTML).not.toMatch(/Sinulla on ' \+ \(MN/);
   });
 });
