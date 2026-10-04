@@ -23,7 +23,8 @@
 <script src="lib/tm_eerikkila_normit.js?v=46"></script>
 <script src="lib/tm_joukkue.js?v=4"></script>
 <script src="lib/tm_pvm.js?v=3"></script>
-<script src="lib/tm_ennatykset.js?v=1"></script>   <!-- Omat ennätykset (PB): paivitaEnnatykset (jaettu, TM_ENNATYKSET) -->
+<script src="lib/tm_alusta.js?v=1"></script>   <!-- PR F: yksi §22-alustasanasto (TM_ALUSTA) -->
+<script src="lib/tm_ennatykset.js?v=2"></script>   <!-- Omat ennätykset (PB): paivitaEnnatykset (jaettu, TM_ENNATYKSET) -->
 <script src="lib/tm_historia.js?v=1"></script>   <!-- Trendi Vaihe 1a: mittaushistorian selkäranka (tmHhSnapshot/tmTkiSnapshot/tmHistoriaLisaa) -->
 <script src="lib/tm_pohja.js?v=1"></script>   <!-- P1.2: itsekuvaava tuontipohja — TM_POHJA.sarakkeetTesteista/metaLehtiAoa/lueMetaLehti (joustava testivalitsin + Meta-lehti) -->
 
@@ -482,8 +483,7 @@ tbody tr:hover { background: rgba(46,213,115,0.04); }
         Alusta (§22 — nopeus-/ketteryystestejä valittu)
         <select id="pv-alusta" style="margin-left:8px;padding:6px 10px;border:1px solid var(--border);border-radius:6px;background:var(--bg3);color:var(--text);font-family:inherit;font-size:13px;">
           <option value="">(täytä pohjaan käsin)</option>
-          <option>Tekonurmi</option><option>Luonnonnurmi</option><option>Hiekkatekonurmi</option>
-          <option>Halli / parketti</option><option>Muu</option>
+          <!-- Vaihtoehdot lib/tm_alusta.js:stä (PR F) — sama sanasto kuin Testaus_v9 ja Pikakirjaus, Mondo mukana -->
         </select>
       </div>
       <div style="display:flex;gap:12px;align-items:center;margin-top:10px;flex-wrap:wrap;">
@@ -1175,6 +1175,11 @@ function _pohjaPakotaTekstisarake(ws, colIdx, bufferRivit) {
 // P1.2: hyväksyy joko protokolla-avaimen (string) TAI mukautetun listan ({nimi,testit[]} / testit[]).
 // alusta = valinnainen §22-alusta (kirjataan Ohjeet-lehteen kun alustaherka testejä mukana). Kaikki pohjat saavat
 // itsekuvaavan Meta-lehden (tuonti tunnistaa sarakkeet siitä — ei URL-/tapahtuma-riippuvuutta, ei pakota koko protokollaa).
+// PR F: pohjageneraattorin alustavalikko jaetusta sanastosta (arvo = koodi; Ohjeet-lehdelle näyttönimi).
+(function _taytaPvAlusta() {
+  var el = document.getElementById('pv-alusta');
+  if (el && typeof TM_ALUSTA !== 'undefined') el.innerHTML = TM_ALUSTA.tmAlustaOptiot(el.value, '(täytä pohjaan käsin)');
+})();
 function generoiExcelPohja(protoTaiTestit, joukkueNimi, alusta) {
   if (typeof XLSX === 'undefined') { toast('Excel-kirjasto ei latautunut', 'err'); return; }
   let protokolla = null, protoNimi = '', sar = [], tiedostoNimiOsa = 'mukautettu';
@@ -1211,7 +1216,7 @@ function generoiExcelPohja(protoTaiTestit, joukkueNimi, alusta) {
     ['TalentMaster — tuontipohja: ' + protoNimi],
     ['Joukkue', joukkueNimi || '(täytä halutessasi)'],
   ];
-  if (alustaherkkaMukana) ohje.push(['Alusta', alusta || '(täytä — nopeus-/ketteryystestit eivät ole vertailukelpoisia eri alustoilla, §22)']);
+  if (alustaherkkaMukana) ohje.push(['Alusta', alusta ? ((typeof TM_ALUSTA !== 'undefined') ? TM_ALUSTA.tmAlustaNimi(alusta) : alusta) : '(täytä — nopeus-/ketteryystestit eivät ole vertailukelpoisia eri alustoilla, §22)']);
   ohje.push(['']);
   ohje.push(['OHJEET']);
   ohje.push(['• Suorituksia voi olla 1-3 (sarakkeet _1, _2, _3). Jätä tyhjäksi jos suoritusta ei tehty.']);

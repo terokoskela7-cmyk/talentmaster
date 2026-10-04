@@ -46,4 +46,18 @@ module.exports = [
   'vanhempi.enn_t_sm_juoksu',
   'vanhempi.enn_t_sm_pallo',
   'vanhempi.enn_t_flei',
+  // Testialustat, yksi sanasto (PR F, 4.10.2026)
+  'alusta.mondo_yleisurheilualusta',
+  'alusta.keinonurmi_3g',
+  'alusta.keinonurmi_4g5g',
+  'alusta.keinonurmi_hiekka',
+  'alusta.luonnonnurmi_kuiva',
+  'alusta.luonnonnurmi_marka',
+  'alusta.sisahalli_puu',
+  'alusta.sisahalli_kumi',
+  'alusta.muu',
+  'alusta.keinonurmi',
+  'alusta.luonnonnurmi',
+  'alusta.sisahalli',
+  'alusta.tuntematon',
 ];
