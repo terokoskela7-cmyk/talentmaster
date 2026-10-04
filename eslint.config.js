@@ -59,6 +59,8 @@ const APP_GLOBALS = {
   TM_TESTIKATALOGI: 'readonly', TM_PIKAKIRJAUS: 'readonly',
   // lib/tm_ennatykset.js (KORTTI 1c — omat ennätykset, jaettu kaikille kirjoittajille)
   TM_ENNATYKSET: 'readonly', paivitaEnnatykset: 'readonly',
+  // lib/tm_alusta.js (PR F — yksi §22-alustasanasto)
+  TM_ALUSTA: 'readonly', tmAlustaKoodi: 'readonly', tmAlustaNimi: 'readonly',
   // lib/tm_pelialy_yksilo.js (ADAR §4-ikäportitus, Malli A)
   TM_PELIALY_YKSILO: 'readonly', tmAdarBand: 'readonly', tmAdarYht: 'readonly', tmAdarBonusOsat: 'readonly',
   tmAdarKonsensus: 'readonly', tmAdarRistiinarvioAvoin: 'readonly', tmAdarTalenttiSignaali: 'readonly', tmAdarKuukausiAvain: 'readonly',

@@ -20,7 +20,8 @@
      domainilla (hiljainen: kasvumittaus olisi menettänyt Mirwald-laskennan). Sama vikaluokka
      kuin #491. lib/ tarjoillaan molemmilla originilla. -->
 <script src="lib/tm_bioika.js?v=3"></script>
-<script src="lib/tm_ennatykset.js?v=1"></script>   <!-- Omat ennätykset (PB): jaettu kaikille kirjoittajille (TM_ENNATYKSET) -->
+<script src="lib/tm_alusta.js?v=1"></script>   <!-- PR F: yksi §22-alustasanasto (TM_ALUSTA) — ennen tm_ennatykset/valikkoa -->
+<script src="lib/tm_ennatykset.js?v=2"></script>   <!-- Omat ennätykset (PB): jaettu kaikille kirjoittajille (TM_ENNATYKSET) -->
 <script src="lib/tm_historia.js?v=1"></script>   <!-- Trendi Vaihe 1b: H-H/TKI-historia online-tallennuksessa (tmHhSnapshot/tmTkiSnapshot/tmHistoriaLisaa) -->
 <script src="lib/tm_eerikkila_normit.js?v=46"></script>   <!-- Kenttätyökalu Vaihe 1: §26-pikakentät valmiiksi-merkinnässä (normiIka/eerikkilaTaso/laskeD1Joustava/laskeD2HH/normSukupuoliMN) -->
 <script src="lib/tm_tki_core.js?v=2"></script>   <!-- PR B: _laskeVahvuudetJaKehityskohteet → TM_TESTIT (IIFE, ei törmää inline-TKI:hin) -->
@@ -660,14 +661,7 @@ input::placeholder, textarea::placeholder { color: var(--ink-3); opacity: 1; }
             <label class="field-label" id="v1-alusta-label">Testialusta</label>
             <select class="field-select" id="v1-alusta" onchange="_v1AlustaVaihtunut()">
               <option value="">— Valitse alusta —</option>
-              <option value="mondo_yleisurheilualusta">Mondo / yleisurheilualusta</option>
-              <option value="sisahalli_puu">Sisähalli — puulattia</option>
-              <option value="sisahalli_kumi">Sisähalli — kumi/tartan</option>
-              <option value="keinonurmi_3g">Keinonurmi (3G)</option>
-              <option value="keinonurmi_4g5g">Keinonurmi (4G/5G)</option>
-              <option value="luonnonnurmi_kuiva">Luonnonnurmi — kuiva</option>
-              <option value="luonnonnurmi_marka">Luonnonnurmi — märkä</option>
-              <option value="muu">Muu (kirjoita alle)</option>
+              <!-- Vaihtoehdot lib/tm_alusta.js:stä (_taytaAlustaValikko) — yksi sanasto kaikille työkaluille -->
             </select>
             <input class="field-input" type="text" id="v1-alusta-muu" placeholder="Tarkennus" style="display:none;margin-top:8px;">
             <div class="field-hint" id="v1-alusta-hint" style="display:none;">Pakollinen juoksu- ja ketteryystesteille — alustaherkkyys vaikuttaa tuloksiin</div>
@@ -1089,16 +1083,12 @@ const PROTOKOLLAT = {
 /* ═══════════════════════════════════════════════════════
    ALUSTA + VAPAA TESTIPANKKI + TESTI_OHJEET
 ═══════════════════════════════════════════════════════ */
-const ALUSTA_NIMET = {
-  mondo_yleisurheilualusta: 'Mondo / yleisurheilualusta',
-  sisahalli_puu: 'Sisähalli — puulattia',
-  sisahalli_kumi: 'Sisähalli — kumi/tartan',
-  keinonurmi_3g: 'Keinonurmi (3G)',
-  keinonurmi_4g5g: 'Keinonurmi (4G/5G)',
-  luonnonnurmi_kuiva: 'Luonnonnurmi — kuiva',
-  luonnonnurmi_marka: 'Luonnonnurmi — märkä',
-  muu: 'Muu'
-};
+// §22-alustat: YKSI sanasto lib/tm_alusta.js:stä (PR F) — sama lista Pikakirjauksessa ja Excel-pohjassa. EI inline-kopiota.
+const ALUSTA_NIMET = (typeof TM_ALUSTA !== 'undefined') ? TM_ALUSTA.ALUSTAT.reduce(function (o, a) { o[a.koodi] = a.nimi; return o; }, {}) : {};
+(function _taytaAlustaValikko() {
+  var el = document.getElementById('v1-alusta');
+  if (el && typeof TM_ALUSTA !== 'undefined') el.innerHTML = TM_ALUSTA.tmAlustaOptiot(el.value, '— Valitse alusta —');
+})();
 const ALUSTAHERKAT_TESTIT = [
   'lin_5m','lin_10m','lin_30m','505_oikea','505_vasen',
   'kasirata','sm_juoksu','sm_pallo','mas',
