@@ -548,7 +548,8 @@ input::placeholder,textarea::placeholder{color:#8C8B86;opacity:1}
 <script src="lib/tm_adar_rubriikki.js?v=2"></script>   <!-- Kortin ÄLY-tasokuvaus: kanoninen ADAR-rubriikki (TM_ADAR_RUBRIIKKI, §7.22) · v2 = taso 4 Re-assess-korjaus -->
 <script src="lib/tm_kortti_rubriikit.js?v=1"></script> <!-- Kortin FYS+PSY-tasokuvaus (TM_KORTTI_RUBRIIKIT, §7.22/§28) · sama kuvio kuin ÄLY/TEK -->
 <script src="lib/tm_pelialy_yksilo.js?v=3"></script>   <!-- Peliäly-lohko: ADAR §4-ikäportitus (Malli A, tmAdarBand/Yht/BonusOsat, PR #266) -->
-<script src="lib/tm_alusta.js?v=1"></script>   <!-- PR F: yksi §22-alustasanasto (TM_ALUSTA) -->
+<script src="lib/tm_alusta.js?v=2"></script>   <!-- PR D2: + pääalusta (Mondo) -->
+<script src="lib/tm_ennatykset.js?v=4"></script>   <!-- PR D2: ennätysrivit alustoittain (tmEnnatysRivit, jaettu Vanhemman kanssa) -->   <!-- PR F: yksi §22-alustasanasto (TM_ALUSTA) -->
 <script src="lib/tm_kehityskaari.js?v=5"></script>   <!-- Trendi Vaihe 2: kehityskaari (§7.22 kannustava) · v4 = K4 (FLEI "Kehon valmius" + §22 alusta-vartija pelaaja-renderissä) -->
 </head>
 <body>
@@ -2823,7 +2824,7 @@ var KORTTI_KATALOGI = {
     { id: 'ach_ekamittaus', nimi: 'Ensimmäinen mittaus', tyyppi: 'saavutus', ikoni: '📏', ansainta: function (p) { return !!(p && (p.tki_viimeisin != null || p.hh_viimeisin != null || p.flei_viimeisin != null)); }, lukittuTeksti: 'Tulee kun ensimmäinen mittaus tehdään.' },
     // Vaihe 1 (KATALOGI) — oma ennätys: ansaitaan kun jokin oma tulos on VOITETTU (lib/tm_ennatykset.js kirjoittaa `edellinen`
     // vain oikeasta parannuksesta; 1. mittaus ei ansaitse). Puhdas itsevertailu (§7.22).
-    { id: 'ach_omaennatys', nimi: 'Oma ennätys', tyyppi: 'saavutus', ikoni: '🏅', ansainta: function (p) { var e = p && p.ennatykset; return !!(e && typeof e === 'object' && Object.keys(e).some(function (k) { return e[k] && e[k].edellinen != null; })); }, lukittuTeksti: 'Voita oma aiempi tuloksesi.' }
+    { id: 'ach_omaennatys', nimi: 'Oma ennätys', tyyppi: 'saavutus', ikoni: '🏅', ansainta: function (p) { return _ennRivit(p || {}).some(function (r) { return r.edellinen != null; }); }, lukittuTeksti: 'Voita oma aiempi tuloksesi.' }
   ],
   merkit: [   // Vaihe 1 — oma mestaruuspolku per laji (pronssi/hopea/kulta omalla matkalla)
     { id: 'merkki_kuljetus',    nimi: 'Kuljetus',  tyyppi: 'merkki', laji: 'kuljetus_laukaus', ikoni: '🏃', lukittuTeksti: 'Tee kuljetustesti.' },
@@ -2891,16 +2892,25 @@ function _kkAlustaNimi(koodi) {
   return (typeof tmAlustaNimi === 'function') ? tmAlustaNimi(koodi) : koodi;
 }
 // Ennätykset-kerros (KORTTI 1c) — renderöi pikakentästä p.ennatykset (§26). Data-tietoinen, ikävaihe-gating.
+// Ennätysrivit (PR D2): JAETTU lib/tm_ennatykset.js tmEnnatysRivit — rivi per (testi, alusta), pääalusta (Mondo) ensin,
+// muut alustat omina riveinään ilman vertailua. Varalla (lib lataamatta) vanha yksi rivi per testi.
+function _ennRivit(p) {
+  var TE = (typeof window !== 'undefined') ? window.TM_ENNATYKSET : null;
+  var jr = (TE && typeof TE.tmEnnatysRivit === 'function') ? TE.tmEnnatysRivit(p) : null;
+  if (Array.isArray(jr)) return jr;
+  var E = (p && p.ennatykset && typeof p.ennatykset === 'object') ? p.ennatykset : {};
+  return Object.keys(E).filter(function (k) { return E[k] && E[k].paras != null; })
+    .map(function (k) { return { avain: k, testi: k, alusta: E[k].alusta, paras: E[k].paras, pvm: E[k].pvm || null, edellinen: E[k].edellinen != null ? E[k].edellinen : null }; });
+}
 function _kkEnnatyksetHTML(p, stage) {
-  var ennat = p && p.ennatykset;
-  var avaimet = (ennat && typeof ennat === 'object') ? Object.keys(ennat).filter(function (k) { return ennat[k] && ennat[k].paras != null; }) : [];
-  if (stage === '1_leikkija') avaimet = avaimet.slice(0, 4);
+  var rivit = _ennRivit(p);
+  if (stage === '1_leikkija') rivit = rivit.slice(0, 4);
   var sis;
-  if (!avaimet.length) {
+  if (!rivit.length) {
     sis = '<div style="font-size:12px;color:#8C8B86">Ei ennätyksiä vielä — tee testi, niin voitat itsesi!</div>';
   } else {
-    sis = '<div style="display:flex;flex-wrap:wrap;gap:8px">' + avaimet.map(function (k) {
-      var t = _kkEnnatysTiedot(k), e = ennat[k];
+    sis = '<div style="display:flex;flex-wrap:wrap;gap:8px">' + rivit.map(function (e) {
+      var k = e.testi, t = _kkEnnatysTiedot(k);
       var arvo = isNaN(Number(e.paras)) ? e.paras : _ennLuku(k, e.paras);   // sama muotoilu kuin juhlaviestissä (4.0 s)
       // §22-alusta näyttönimenä (PR F): koodi/vanha vapaateksti → kanoninen koodi → t('alusta.<koodi>'), ei raakakoodia lapselle.
       var _ak = (typeof tmAlustaKoodi === 'function') ? tmAlustaKoodi(e.alusta) : (e.alusta || 'tuntematon');
@@ -2919,12 +2929,15 @@ function _kkEnnatyksetHTML(p, stage) {
 // ei XP:tä/progressbaria, ei menetys-kieltä. Gating: localStorage tm_ennatys_nahty_<pelaajaId> = { <testi>: pvm }.
 // Juhlitaan VAIN oikea parannus (lib/tm_ennatykset.js kirjoittaa `edellinen`); 1. mittaus / vanha ennätys → nähdyksi hiljaa.
 // PUHDAS: (ennatykset, nahty) → { juhli:[testi], merkitse:{ testi: pvm } }
+// Hyväksyy rivilistan (_ennRivit, PR D2: avain 'testi@alusta') tai vanhan ennatykset-mapin (avain = testi).
+// Vanha nähty-merkki (avain = testi) kattaa saman päivän alustarivin → jo juhlittu ennätys EI juhli uudelleen D2:n jälkeen.
 function _ennUudetNakematta(ennat, nahty) {
   var juhli = [], merkitse = {};
   if (!ennat || typeof ennat !== 'object') return { juhli: juhli, merkitse: merkitse };
-  Object.keys(ennat).forEach(function (k) {
-    var e = ennat[k]; if (!e || e.paras == null || !e.pvm) return;
-    var pvm = String(e.pvm).slice(0, 10), ennen = nahty && nahty[k];
+  var lista = Array.isArray(ennat) ? ennat : Object.keys(ennat).map(function (k) { var e = ennat[k] || {}; return { avain: k, testi: k, paras: e.paras, pvm: e.pvm, edellinen: e.edellinen }; });
+  lista.forEach(function (e) {
+    var k = e.avain; if (!e || e.paras == null || !e.pvm) return;
+    var pvm = String(e.pvm).slice(0, 10), ennen = nahty && (nahty[k] || (e.testi && nahty[e.testi]));
     if (ennen && String(ennen) >= pvm) return;
     merkitse[k] = pvm;
     if (e.edellinen != null) juhli.push(k);
@@ -2937,17 +2950,21 @@ function _ennLuku(k, paras) {   // aikatestit 2 des. (4.0 · 4.35), muut 1 des.
 }
 function _ennArvoTxt(k, paras) { var y = _kkEnnatysTiedot(k)[1]; return _ennLuku(k, paras) + (y ? (' ' + y) : ''); }
 function _naytaUusiEnnatys() {
-  var p = _pelaaja; if (!p || _isDemoUser || !p.ennatykset) return;
+  var p = _pelaaja; if (!p || _isDemoUser || (!p.ennatykset && !p.ennatykset_alustat)) return;
   if (document.getElementById('tervetuloOv') || document.getElementById('ennatysOv')) return;   // ei päällekkäin → seuraavalla avauksella
   var pid = p.id || window._tmPlayerId || ''; if (!pid) return;
   var avain = 'tm_ennatys_nahty_' + pid, nahty;
   try { nahty = JSON.parse(localStorage.getItem(avain) || '{}') || {}; } catch (e) { return; }   // estetty → ei näytetä (ei toistuisi joka kerta)
-  var r = _ennUudetNakematta(p.ennatykset, nahty);
+  var _rv = _ennRivit(p), _rk = {}; _rv.forEach(function (x) { _rk[x.avain] = x; });
+  var r = _ennUudetNakematta(_rv, nahty);
   if (!Object.keys(r.merkitse).length) return;
   try { localStorage.setItem(avain, JSON.stringify(Object.assign({}, nahty, r.merkitse))); } catch (e) { return; }
   if (!r.juhli.length) return;
   var rivit = r.juhli.map(function (k) {
-    return '<div class="th-otsikko" style="font-size:21px;margin-bottom:10px">' + _thEsc(t('pelaaja.ennatys_uusi', { testi: _kkEnnatysTiedot(k)[0], arvo: _ennArvoTxt(k, p.ennatykset[k].paras) })) + '</div>';
+    var e = _rk[k];   // alusta näkyy, kun se ei ole pääalusta → "30 m kiri (Sisähalli — puulattia)" — ei vertailua alustojen välillä
+    var _ak = (typeof tmAlustaKoodi === 'function') ? tmAlustaKoodi(e.alusta) : 'tuntematon';
+    var nimi = _kkEnnatysTiedot(e.testi)[0] + ((!e.paa && _ak !== 'tuntematon') ? (' (' + _kkAlustaNimi(_ak) + ')') : '');
+    return '<div class="th-otsikko" style="font-size:21px;margin-bottom:10px">' + _thEsc(t('pelaaja.ennatys_uusi', { testi: nimi, arvo: _ennArvoTxt(e.testi, e.paras) })) + '</div>';
   }).join('');
   var ov = document.createElement('div');
   ov.id = 'ennatysOv'; ov.className = 'th-ov';

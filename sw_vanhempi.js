@@ -10,7 +10,7 @@
    - Omat staattiset assetit (manifest, ikonit) + versioidut fontit/SDK → cache-first.
    - KAIKKI muu (toisten appien sivut, raw.githubusercontent, jne.) → suoraan verkkoon, EI cachea.
    Scopea ei voi kaventaa (SW juuressa) → allowlist hoitaa rajaamisen. CLAUDE.md §27.4. */
-const CACHE = 'tm-vanhempi-v42';   // TK-välitavoite jaettu (testit_indeksit v11): ei huonompaa/arvattua tavoitetta (4.10.2026)
+const CACHE = 'tm-vanhempi-v43';   // PR D2: ennätykset alustoittain (tm_ennatykset v4 + tm_alusta v2 allowlistiin) — v59 = PR C (4.10.2026)
 const SHELL = './TalentMaster_Vanhempi_v2.html';
 const PRECACHE = [SHELL];
 
@@ -54,6 +54,8 @@ function onAllowlist(url) {
   if (url.indexOf('/manifest_vanhempi.json') !== -1) return true;
   if (url.indexOf('/tm_sentry.js') !== -1) return true;             // B2 Sentry-wrapper (?v= → cache-first)
   if (url.indexOf('/lib/tm_lang.js') !== -1) return true;           // i18n V0 — käännöstaulukko offline-cacheen
+  if (url.indexOf('/lib/tm_alusta.js') !== -1) return true;   // PR D2: ennätysrivit alustoittain
+  if (url.indexOf('/lib/tm_ennatykset.js') !== -1) return true;   // PR D2: ennätysrivit alustoittain
   if (url.indexOf('/lib/tm_appcheck.js') !== -1) return true;   // V2 App Check — site key + aktivointi
   if (url.indexOf('/lib/tm_verkko.js') !== -1) return true;   // verkkokatkon käsittely kirjautumisessa
   if (url.indexOf('/lib/tm_pvm.js') !== -1) return true;   // tmPaivaIso: kirjaukset/{pvm} paikallisena (offline-avaus ei saa kaatua ReferenceErroriin)

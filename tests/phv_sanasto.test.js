@@ -251,9 +251,11 @@ describe('lataajat: jokainen PHV-lukijalibin lataaja lataa myös lib/tm_phv_tila
     }
     expect(n).toBeGreaterThanOrEqual(8);
   });
-  it('Pelaaja-SW: tm_phv_tila.js allowlistissa + cache nostettu (v59)', () => {
+  it('Pelaaja-SW: tm_phv_tila.js allowlistissa + cache nostettu (≥ v59)', () => {
     const sw = lue('sw_pelaaja.js');
-    expect(sw).toContain("const CACHE = 'tm-pelaaja-v59';");
+    // Vähimmäisarvo, ei eksakti pinni: myöhemmät PR:t nostavat cachea (§27.4) — eksakti pinni punertaisi joka bumpissa.
+    const m = sw.match(/const CACHE = 'tm-pelaaja-v(\d+)'/);
+    expect(m).toBeTruthy(); expect(Number(m[1])).toBeGreaterThanOrEqual(59);
     expect(sw).toContain("/lib/tm_phv_tila.js");
   });
 });
