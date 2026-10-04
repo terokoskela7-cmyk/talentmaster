@@ -13,8 +13,8 @@
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 <script src="lib/tm_appcheck.js?v=1"></script>
-<script src="lib/tm_alusta.js?v=1"></script>   <!-- PR F: yksi §22-alustasanasto (TM_ALUSTA) -->
-<script src="lib/tm_ennatykset.js?v=3"></script>   <!-- Omat ennätykset (PB): jaettu kirjoittajille (TM_ENNATYKSET) -->
+<script src="lib/tm_alusta.js?v=2"></script>   <!-- PR F: yksi §22-alustasanasto (TM_ALUSTA) -->
+<script src="lib/tm_ennatykset.js?v=4"></script>   <!-- Omat ennätykset (PB): jaettu kirjoittajille (TM_ENNATYKSET) -->
 <script src="lib/tm_pvm.js?v=3"></script>   <!-- PR B: tmPaivaIso — Excel-solun testipäivä ISO-muotoon (§26 pikakenttien *_pvm) -->
 <script src="lib/tm_eerikkila_normit.js?v=46"></script>   <!-- PR B: normiIka/eerikkilaTaso/laskeD1Joustava/laskeD2HH/hhKehityskohde (§26 H-H-pikakentät) -->
 <script src="lib/tm_tki_core.js?v=2"></script>   <!-- PR B: TKI-ydin + _laskeVahvuudetJaKehityskohteet → TM_TESTIT (IIFE) -->
@@ -1406,7 +1406,7 @@ async function ttTallennaPelaaja(db, seuraId, tapahtuma, p, tallennusData, fleiP
   if (typeof TM_ENNATYKSET !== 'undefined' && pvm) {
     const _dEnn = snap.docs[0].data();   // tila ennen kirjoitusta → siemen puuttuvalle ennätykselle (PR D)
     const enn = TM_ENNATYKSET.tmEnnatyksetUpd(_dEnn.ennatykset || null, tallennusData.testit, tapahtuma.alusta || 'tuntematon', pvm, _dEnn);
-    if (enn) profiiliUpdate.ennatykset = enn.ennatykset;
+    if (enn) { profiiliUpdate.ennatykset = enn.ennatykset; if (enn.ennatykset_alustat) profiiliUpdate.ennatykset_alustat = enn.ennatykset_alustat; }   // PR D2
   }
   const b = db.batch();
   b.set(db.collection('seurat').doc(seuraId).collection('testitapahtumat').doc(tapahtuma.id)

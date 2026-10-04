@@ -106,7 +106,7 @@ describe('Kirjoittajat antavat pelaajadokin → siemen (yksi paikka: lib)', () =
     expect(lue('lib/tm_pikakirjaus.js')).toContain("E.tmEnnatyksetUpd(d.ennatykset || null, tulokset, alusta || 'tuntematon', pvm, d)");
     expect(lue('TalentMaster_Testaus_v9.html')).toContain('TM_ENNATYKSET.tmEnnatyksetUpd(d.ennatykset || null, _tulokset[pl.id] || {}, alusta, pvm, d)');
     expect(lue('TalentMaster_Testituonti_Master.html')).toContain("tapahtuma.alusta || 'tuntematon', pvm, _dEnn)");
-    expect(lue('TalentMaster_Excel_Tuonti.html')).toContain('paivitaEnnatykset(_nykyEnn, _ennatKand, _siem)');
+    expect(lue('TalentMaster_Excel_Tuonti.html')).toContain('paivitaEnnatykset(_nykyEnn, _ennatKand, _siem,');   // + ennatykset_alustat (PR D2)
     // vain lib määrittelee siemenlogiikan (ei kopioita kirjoittajiin)
     for (const f of ['lib/tm_pikakirjaus.js', 'TalentMaster_Testaus_v9.html', 'TalentMaster_Testituonti_Master.html', 'TalentMaster_Excel_Tuonti.html']) {
       expect(lue(f), f).not.toMatch(/function (tmEnnatysSiemenet|_parasSiemen)\s*\(/);
