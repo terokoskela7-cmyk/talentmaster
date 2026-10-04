@@ -1,7 +1,7 @@
 /**
  * §26 pari-invariantti — lähdedokumentti + pelaajan pikakentät ATOMISESTI (yksi batch: kaikki tai ei mitään).
  *   · lib/tm_pikakirjaus.js `_tallennaPelaajanTulokset`: testitulokset/{pvm}_{proto} + pelaajan pikakentät
- *   · TalentMaster_VP_v25.html `_vpKirjaaReview`: reviewit/{pvm} + review_viimeisin_pvm/-tyyppi (MDT-review + bulk)
+ *   · TalentMaster_VP_v25.html `_vpKirjoitaReview`: reviewit/{pvm} + review_viimeisin_pvm/-tyyppi (MDT-review + bulk)
  * Mock-Firestore: batch kerää operaatiot ja soveltaa ne VAIN commitissa; epäonnistuva commit → mitään ei tallennu.
  */
 import { describe, it, expect, beforeAll } from 'vitest';
@@ -98,7 +98,7 @@ describe('VP_v25 · review + review_viimeisin_pvm yhdessä batchissa', () => {
     const i = VP.indexOf(t); expect(i, t).toBeGreaterThan(-1);
     let syv = 0; for (let k = VP.indexOf('{', i); k < VP.length; k++) { if (VP[k] === '{') syv++; else if (VP[k] === '}') { syv--; if (syv === 0) return VP.slice(i, k + 1); } }
   }
-  function aja(m) { const ctx = { db: m.db, _seuraId: 'kpv' }; vm.createContext(ctx); vm.runInContext(runko('async function _vpKirjaaReview(') + '\nthis.f = _vpKirjaaReview;', ctx); return ctx.f; }
+  function aja(m) { const ctx = { db: m.db, _seuraId: 'kpv' }; vm.createContext(ctx); vm.runInContext(runko('async function _vpKirjoitaReview(') + '\nthis.f = _vpKirjoitaReview;', ctx); return ctx.f; }
   const review = { tyyppi: 'mdr', pvm: '2026-10-03', tekija_uid: 'vp-uid', tekija_rooli: 'vp', paatos: '', idp_paivitetty: false };
 
   it('batch kirjoittaa reviewit/{pvm} JA pikakentät; muut pelaajadokin kentät säilyvät (merge)', async () => {
@@ -117,7 +117,7 @@ describe('VP_v25 · review + review_viimeisin_pvm yhdessä batchissa', () => {
   it('MDT-review ja bulk-merkintä käyttävät molemmat atomista apuria (ei erillisiä kirjoituksia)', () => {
     for (const f of ['window._mdtMerkitseReview = async function', 'window._vpCockpitBulkMerkitse = async function']) {
       const r = runko(f);
-      expect(r, f).toMatch(/await _vpKirjaaReview\(/);
+      expect(r, f).toMatch(/await _vpKirjoitaReview\(/);
       expect(r, f).not.toMatch(/collection\('reviewit'\)|review_viimeisin_pvm: pvm, review_viimeisin_tyyppi/);
     }
   });

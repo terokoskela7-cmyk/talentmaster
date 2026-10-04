@@ -18114,7 +18114,11 @@ window._mdtPrint = function(){ window.print(); };
 /* Review-kirjaus ATOMISESTI (§26): reviewit/{pvm} + pikakentät review_viimeisin_pvm/-tyyppi yhdessä batchissa →
    kaikki tai ei mitään. Ennen kaksi erillistä kirjoitusta: jälkimmäisen kaatuessa review jäi ilman pikakenttää
    (status/listat eivät päivittyneet) tai päinvastoin. Rules arvioi kummankin kirjoituksen kuten ennen. */
-async function _vpKirjaaReview(pid, pvm, review) {
+/* R6.0a: nimi _vpKirjoitaReview — aiempi `_vpKirjaaReview` jakoi nimen window._vpKirjaaReview-modaalin kanssa (rivin ~8739 sijoitus
+   ylikirjoitti tämän deklaraation → MDT-/bulk-"kirjaus" avasi modaalin eikä kirjoittanut mitään, silti "✓ Review merkitty"). Modaali pysyy
+   window._vpKirjaaReview:na (onclickit). Väärä kutsu (puuttuva pvm/review) HEITTÄÄ → ei hiljaista valeonnistumista. */
+async function _vpKirjoitaReview(pid, pvm, review) {
+  if (!pid || typeof pvm !== 'string' || !pvm || !review || typeof review !== 'object') throw new Error('_vpKirjoitaReview: pid, pvm ja review vaaditaan');
   var pRef = db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(pid);
   var b = db.batch();
   b.set(pRef.collection('reviewit').doc(pvm), review);
@@ -18134,7 +18138,7 @@ window._mdtMerkitseReview = async function() {
     var V = (typeof vanhempiRaporttiTekstit === 'function') ? vanhempiRaporttiTekstit(p, isp.ika, (isp.sp === 'T') ? 'N' : 'M') : null;
     var paatosEl = document.getElementById('mdtPaatos');
     var paatos = paatosEl ? paatosEl.value : '';
-    await _vpKirjaaReview(_mdtPid, pvm, { tyyppi: 'mdr', pvm: pvm, tekija_uid: (u ? u.uid : (_uid || null)), tekija_rooli: rooli, paatos: paatos, idp_paivitetty: false, ikavaihe: (V ? V.ikavaihe : null) });
+    await _vpKirjoitaReview(_mdtPid, pvm, { tyyppi: 'mdr', pvm: pvm, tekija_uid: (u ? u.uid : (_uid || null)), tekija_rooli: rooli, paatos: paatos, idp_paivitetty: false, ikavaihe: (V ? V.ikavaihe : null) });
     p.review_viimeisin_pvm = pvm; p.review_viimeisin_tyyppi = 'mdr';   // lokaali → status + listat päivittyvät
     if (typeof toast === 'function') toast(vpT('✓ Review merkitty tehdyksi'), 'ok');
     _renderMDTProfiili();
@@ -19116,14 +19120,15 @@ window._vpCockpitBulkMerkitse = async function () {
   var ok = 0, fail = 0, RINNAKKAIN = 4, i = 0;
   async function yksi(p) {
     try {
-      await _vpKirjaaReview(p.id, pvm, { tyyppi: 'mdr', pvm: pvm, tekija_uid: uid, tekija_rooli: rooli, paatos: '', idp_paivitetty: false });
+      await _vpKirjoitaReview(p.id, pvm, { tyyppi: 'mdr', pvm: pvm, tekija_uid: uid, tekija_rooli: rooli, paatos: '', idp_paivitetty: false });
       p.review_viimeisin_pvm = pvm; p.review_viimeisin_tyyppi = 'mdr'; ok++;
     } catch (e) { fail++; console.warn('[bulkReview]', p.id, e && e.message); }
   }
   async function tyontekija() { while (i < sallitut.length) { var idx = i++; await yksi(sallitut[idx]); } }
   await Promise.all(Array.from({ length: Math.min(RINNAKKAIN, sallitut.length) }, tyontekija));
   _reviewSel = {}; _reviewSelMode = false;
-  if (typeof toast === 'function') toast(vpT('✓ Review merkitty') + ' ' + ok + ' ' + vpT('pelaajalle') + (fail ? (' · ' + fail + ' ' + vpT('epäonnistui')) : '') + (estetyt ? (' · ' + estetyt + ' ' + vpT('ohitettu')) : ''), fail ? 'error' : 'ok');
+  // ✓ vain jos jokin kirjoitus ONNISTUI (R6.0a: ei valeonnistumista); kaikki epäonnistuivat → pelkkä virheilmoitus
+  if (typeof toast === 'function') toast((ok ? (vpT('✓ Review merkitty') + ' ' + ok + ' ' + vpT('pelaajalle') + (fail ? ' · ' : '')) : '') + (fail ? (fail + ' ' + vpT('epäonnistui')) : '') + (estetyt ? (' · ' + estetyt + ' ' + vpT('ohitettu')) : ''), fail ? 'error' : 'ok');
   renderReviewit();
 };
 

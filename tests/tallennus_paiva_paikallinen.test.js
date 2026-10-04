@@ -122,7 +122,7 @@ describe('lähdekontrakti — tallentavat kohdat eivät käytä UTC-päivää', 
     expect(S('TalentMaster_VP_v25.html')).toContain(".set({ d3_viimeisin: d3v, d3_vp_pvm: pvm }, { merge: true });");
     // review: pari yhdessä set-kutsussa atomisen batch-apurin sisällä (§26), jota MDT-review + bulk kutsuvat
     expect(S('TalentMaster_VP_v25.html')).toContain("b.set(pRef, { review_viimeisin_pvm: pvm, review_viimeisin_tyyppi: 'mdr' }, { merge: true });");
-    expect(S('TalentMaster_VP_v25.html').split('await _vpKirjaaReview(').length - 1).toBe(2);
+    expect(S('TalentMaster_VP_v25.html').split('await _vpKirjoitaReview(').length - 1).toBe(2);
   });
   it('kirjaukset/{pvm}-lukijat vertaavat samaan paikalliseen päivään (Pelaaja _paivaIso; VP-viikkonäkymä paikallinen iso; PHV-raja _paivaIso)', () => {
     expect(S('TalentMaster_VP_v25.html')).toContain("'>=', _paivaIso(new Date(PHV_RAJA_MS))");
