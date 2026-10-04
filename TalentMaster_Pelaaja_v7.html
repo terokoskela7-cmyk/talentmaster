@@ -5982,7 +5982,17 @@ async function _kuittaaKehu() {
   } catch(e) { console.warn('[kuittaaKehu]', e.message); }
 }
 
-/* ══ OSA 2E — streak laskettuna kirjaushistoriasta (ei kenttää Firestoressa, Date.UTC) ══
+/* Putkeen lasketaan VAIN treenipäivät: päivädokumentti jossa on kirjattu treeni/harjoite (tehty / tyyppi / sessiot).
+   Pelkkä fiilis (tmFiilinki → _tmKirjaa('fiilinki') luo päivädokin ilman treeniä) EI kasvata putkea. */
+function _kirjausOnTreeni(data) {
+  if (!data || typeof data !== 'object') return false;
+  return data.tehty === true || !!data.tyyppi || (Array.isArray(data.sessiot) && data.sessiot.length > 0);
+}
+function _treeniPaivaIdt(snap) {
+  return snap.docs.filter(function (d) { return _kirjausOnTreeni(d.data()); }).map(function (d) { return d.id; });
+}
+
+/* ══ OSA 2E — streak laskettuna kirjaushistoriasta (ei kenttää Firestoressa; tämä päivä PAIKALLISENA, päiväaritmetiikka Date.UTC) ══
    kirjaukset: array {pvm:'YYYY-MM-DD'} | {id} | 'YYYY-MM-DD'. Putki taaksepäin tästä päivästä.
    0 jos ei kirjauksia TAI eilinen puuttuu (tänään kesken sallitaan: putki säilyy eiliseen asti). */
 function _laskeStreak(kirjaukset) {
@@ -5992,7 +6002,7 @@ function _laskeStreak(kirjaukset) {
   var DAY = 86400000;
   function iso(ms){ var d = new Date(ms); return d.getUTCFullYear() + '-' + String(d.getUTCMonth()+1).padStart(2,'0') + '-' + String(d.getUTCDate()).padStart(2,'0'); }
   var now = new Date();
-  var cur = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+  var cur = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());   // PAIKALLINEN päivä (§7.26) — UTC-päivä oli yöllä (0–3 EET) eilinen → putki katkesi/lipsahti
   if (!setti[iso(cur)]) {                  // ei kirjattu tänään
     if (setti[iso(cur - DAY)]) cur -= DAY; // mutta eilen on → putki elossa, tänään kesken
     else return 0;                         // ei tänään eikä eilen → ei putkea
@@ -6023,7 +6033,7 @@ async function _alustaOmatoimi() {
     var snap = await window._db.collection('seurat').doc(seuraId)
       .collection('pelaajat').doc(_pelaaja.id).collection('kirjaukset')
       .orderBy('paivitetty', 'desc').limit(60).get();
-    var ids = snap.docs.map(function(d){ return d.id; });
+    var ids = _treeniPaivaIdt(snap);   // vain treenipäivät (fiilis ei kasvata putkea)
     _streak = _laskeStreak(ids);
     _streakLastDate = ids.filter(function(s){ return /^\d{4}-\d{2}-\d{2}$/.test(s); }).sort().reverse()[0] || null;
     window._kirjauksiaYhteensa = snap.size;
@@ -6044,8 +6054,7 @@ async function _lataaCStreak() {
     const snap = await ref.get();
     
     // Laske putkessa olevat päivät
-    const paivamaarat = snap.docs
-      .map(d => d.id) // id = 'YYYY-MM-DD'
+    const paivamaarat = _treeniPaivaIdt(snap)   // id = 'YYYY-MM-DD'; vain treenipäivät (fiilis ei kasvata putkea)
       .filter(d => /^\d{4}-\d{2}-\d{2}$/.test(d))
       .sort().reverse();
     
