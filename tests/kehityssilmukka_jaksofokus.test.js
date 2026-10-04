@@ -128,6 +128,45 @@ describe('tmPaivitaJaksofokus — saman jakson osamuutos dot-polulla', () => {
   });
 });
 
+describe('R6.1a-korjaukset (katselmointi)', () => {
+  it('tmAsetaJaksofokus: uudelta jaksolta puuttuu alkoi → alkoi = nytISO (myös ilman edellistä jaksoa ja eri jaksolla)', () => {
+    const { alkoi, ...ilmanAlkoi } = UUSI; void alkoi;
+    expect(K.tmAsetaJaksofokus(topias(null), ilmanAlkoi, { nytISO: NYT }).jaksofokus.alkoi).toBe(NYT);
+    expect(K.tmAsetaJaksofokus(topias(VANHA), ilmanAlkoi, { nytISO: NYT }).jaksofokus.alkoi).toBe(NYT);
+    expect(K.tmAsetaJaksofokus({}, { konsepti_avain: 'n' }, { nytISO: NYT }).jaksofokus).toEqual({ konsepti_avain: 'n', alkoi: NYT });
+    expect(K.tmAsetaJaksofokus(topias(VANHA), Object.assign({}, ilmanAlkoi, { alkoi: '' }), { nytISO: NYT }).jaksofokus.alkoi).toBe(NYT);   // tyhjä merkkijono = puuttuu
+  });
+  it('tmAsetaJaksofokus: alkoi annettu → säilyy; SAMA jakso ilman alkoi:ta → vanha alkoi säilyy (ei nyt)', () => {
+    expect(K.tmAsetaJaksofokus(topias(null), UUSI, { nytISO: 'EI-TÄMÄ' }).jaksofokus.alkoi).toBe(NYT);
+    const { alkoi, ...samaIlmanAlkoi } = VANHA; void alkoi;
+    const r = K.tmAsetaJaksofokus(topias(VANHA), samaIlmanAlkoi, { nytISO: NYT });
+    expect(r.sama).toBe(true); expect(r.jaksofokus.alkoi).toBe(ALKOI); expect(r.historiaLisays).toEqual([]);
+  });
+  it('tmAsetaJaksofokus ei mutatoi syötettä alkoi:ta lisätessään', () => {
+    const { alkoi, ...ilmanAlkoi } = UUSI; void alkoi; const kopio = JSON.parse(JSON.stringify(ilmanAlkoi));
+    K.tmAsetaJaksofokus(topias(null), ilmanAlkoi, { nytISO: NYT }); expect(ilmanAlkoi).toEqual(kopio);
+  });
+  it('tmSuljeJakso: uudelta jaksolta puuttuu alkoi → alkoi = nytISO; annettu alkoi säilyy; ei mutatoi syötettä', () => {
+    const { alkoi, ...ilmanAlkoi } = UUSI; void alkoi; const kopio = JSON.parse(JSON.stringify(ilmanAlkoi));
+    expect(K.tmSuljeJakso(topias(VANHA), { tulos: 'parani', uusi: ilmanAlkoi }, { nytISO: NYT }).jaksofokus.alkoi).toBe(NYT);
+    expect(ilmanAlkoi).toEqual(kopio);
+    expect(K.tmSuljeJakso(topias(VANHA), { tulos: 'parani', uusi: Object.assign({}, UUSI, { alkoi: '2026-10-06T00:00:00.000Z' }) }, { nytISO: NYT }).jaksofokus.alkoi).toBe('2026-10-06T00:00:00.000Z');
+    expect(K.tmSuljeJakso(topias(VANHA), { tulos: 'parani' }, { nytISO: NYT }).jaksofokus).toBeNull();   // ei uutta → null (ei fabrikoida alkoi:ta)
+  });
+  const JF = { konsepti_avain: 'y_h2', konsepti_nimi: 'SYÖTTÄMINEN', alkoi: ALKOI };
+  it('tmPaivitaJaksofokus hylkää undefined-arvot (Firestore update kaatuu niihin) — myös sisäkkäiset objektit ja taulukot', () => {
+    [{ osa_arviot: undefined }, { osa_arviot: { a: undefined } }, { tavoitteet: [1, undefined] }, { tavoitteet: [{ nimi: undefined }] }, { 'osa_arviot.c': undefined }]
+      .forEach((o) => expect(() => K.tmPaivitaJaksofokus(topias(JF), o), JSON.stringify(Object.keys(o))).toThrow(/undefined/));
+    expect(K.tmPaivitaJaksofokus(topias(JF), { osa_arviot: { a: null, b: 0, c: '' } }).polut['jaksofokus.osa_arviot']).toEqual({ a: null, b: 0, c: '' });   // null/0/'' ovat kelvollisia
+  });
+  it('tmPaivitaJaksofokus hylkää __proto__ / constructor / prototype avaimen jokaisessa dot-polun osassa ja sisäkkäisissä arvoissa; paikallinen kopio ei saastu', () => {
+    ['__proto__', 'constructor', 'prototype', 'osa_arviot.__proto__', 'osa_arviot.constructor.x', 'a.prototype.b'].forEach((k) => expect(() => K.tmPaivitaJaksofokus(topias(JF), JSON.parse('{' + JSON.stringify(k) + ':1}')), k).toThrow(/kielletty avain/));
+    expect(() => K.tmPaivitaJaksofokus(topias(JF), { osa_arviot: JSON.parse('{"__proto__":{"saastunut":true}}') })).toThrow(/kielletyn avaimen/);
+    expect(() => K.tmPaivitaJaksofokus(topias(JF), { x: { y: JSON.parse('{"constructor":{"prototype":{"s":1}}}') } })).toThrow(/kielletyn avaimen/);
+    expect({}.saastunut).toBeUndefined(); expect({}.s).toBeUndefined();   // Object.prototype ei saastunut
+  });
+});
+
 describe('ydin on PURE', () => {
   it('ei Firestore/DOM/verkko-viittauksia (adapterit kirjoittavat) eikä serverTimestamp()', () => {
     const koodi = LIB.replace(/\/\*[\s\S]*?\*\//g, '').split('\n').map((l) => l.replace(/\/\/.*$/, '')).join('\n');   // ilman kommentteja
