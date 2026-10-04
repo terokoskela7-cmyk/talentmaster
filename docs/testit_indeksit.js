@@ -622,6 +622,28 @@ function tkLajiViite(laji, ika, sp) {
   return { erinomainen: v.erinomainen, hyva: v.hyva, n: ikaV._n, lahde: ikaV._lahde };
 }
 
+// Saavutettava välitavoite TK-lajissa (sekunteina) — YKSI LÄHDE Pelaaja_v7:n ja Vanhempi_v2:n "Nyt X s → tavoite Y s" -riville
+// (korvaa kaksi kopiota _minaValitavoite/_vanhValitavoite, 4.10.2026). Logiikka ennallaan (gap ≤ 3 s → viite.hyva, muuten
+// arvo ∓ 3 s), mutta tavoite on AINA parempi kuin nykyinen tulos (pyöristys 0.5 s parempaan suuntaan). null = ei tavoitetta
+// → kutsuja piilottaa rivin (EI arvattua lukua lapselle eikä huoltajalle):
+//   · viite tai arvo puuttuu
+//   · "hyvä"-taso jo saavutettu (ennen: tavoite = viite → HUONOMPI kuin nykyinen, esim. 25.0 s → "tavoite 25.5 s")
+//   · aikalajissa tulos epäuskottavassa mittakaavassa viitteeseen nähden (arvo/hyvä ∉ [0.6, 1.8], esim. H-H-pujottelu ~12 s TK-viitettä
+//     ~25 s vastaan = väärä protokolla) → ei verrata eri mittakaavaan.
+// kaant = suurempi parempi (pituuspotku_bonus).
+function tkValitavoite(arvo, viite, kaant) {
+  const a = Number(arvo);
+  if (arvo == null || arvo === '' || isNaN(a) || !viite || viite.hyva == null || !(viite.hyva > 0)) return null;
+  const suhde = a / viite.hyva;
+  if (!kaant && !(suhde >= 0.6 && suhde <= 1.8)) return null;   // aikalajit: väärä mittakaava (bonuksessa matala = vain heikko tulos)
+  const gap = kaant ? (viite.hyva - a) : (a - viite.hyva);
+  if (!(gap > 0)) return null;
+  let t = (gap <= 3) ? viite.hyva : (kaant ? (a + 3) : (a - 3));
+  t = kaant ? Math.ceil(t * 2) / 2 : Math.floor(t * 2) / 2;
+  if (kaant ? !(t > a) : !(t < a)) return null;
+  return t;
+}
+
 // TK-lajitaso 1–5 kilpailukohorttia vasten (TK_LAJITASOT, rajat P20/P40/P60/P80). STRICT < — tasan rajalla alempi (§23).
 // Degeneroituneet rajat (esim. P11 ponnauttelu [37.4,40,40,40]) romahduttavat välitasot (40.0→taso 1). null jos ika<8/>13.
 function tkLajiTaso(laji, arvo, ika, sp) {
@@ -1342,7 +1364,7 @@ if (typeof module !== 'undefined' && module.exports) {
     // TKI laskenta
     tkLaskeMerkki, tkLaskeTKI, laskeKokonaistulos, _laskeVahvuudetJaKehityskohteet, tkPituuspotkuBonus,
     // TKI-analyysimalli VAIHE 1 (per-laji viite, gap, budjetti, vauhti, abs-delta)
-    tkLajiViite, tkLajiTaso, tkLajiGapit, tkSekuntibudjetti, tkVaadittuVuosivauhti, tkAbsDelta, laskeD2Tekninen,
+    tkLajiViite, tkValitavoite, tkLajiTaso, tkLajiGapit, tkSekuntibudjetti, tkVaadittuVuosivauhti, tkAbsDelta, laskeD2Tekninen,
     // Joukkueen avainluvut
     laskeJoukkuenHHAvainluvut, laskeJoukkuenTKIAvainluvut,
     // Räjähtävyysprofiili
@@ -1357,7 +1379,7 @@ if (typeof module !== 'undefined' && module.exports) {
     TK_KOKONAISRAJAT, TK_LAJIT_META, TK_LAJIVIITTEET, TK_LAJITASOT,
     hhLaskeTaso, hhLaskeMetrikat, hhLaskeOVR,
     tkLaskeMerkki, tkLaskeTKI, laskeKokonaistulos, _laskeVahvuudetJaKehityskohteet, tkPituuspotkuBonus,
-    tkLajiViite, tkLajiTaso, tkLajiGapit, tkSekuntibudjetti, tkVaadittuVuosivauhti, tkAbsDelta, laskeD2Tekninen,
+    tkLajiViite, tkValitavoite, tkLajiTaso, tkLajiGapit, tkSekuntibudjetti, tkVaadittuVuosivauhti, tkAbsDelta, laskeD2Tekninen,
     laskeJoukkuenHHAvainluvut, laskeJoukkuenTKIAvainluvut,
     laskeEI, laskeFVP, laskeVNE,
     ADAR_DIMENSIOT, ADAR_SKENAARIOT, ADAR_IKATASOT,
