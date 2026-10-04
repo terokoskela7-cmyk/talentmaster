@@ -10,7 +10,7 @@
    - Omat JS-moduulit + manifest + ikonit + versioidut fontit/SDK → cache-first.
    - KAIKKI muu (toisten appien sivut, raw.githubusercontent, jne.) → suoraan verkkoon, EI cachea.
    Scopea ei voi kaventaa (SW juuressa) → allowlist hoitaa rajaamisen. CLAUDE.md §27.4. */
-const CACHE = 'tm-pelaaja-v60';   // PR D2: ennätykset alustoittain (tm_ennatykset v4 + tm_alusta v2 allowlistiin) — v59 = PR C (4.10.2026)
+const CACHE = 'tm-pelaaja-v61';   // PR G: TK-viitelähde (alueellinen lapsen tavoitteeksi) + H-H/TK-erottelu (testit_indeksit v12, kehityskaari v6, tm_ennatykset v5) — v60 = PR D2 (4.10.2026)
 const SHELL = './TalentMaster_Pelaaja_v7.html';
 // VAIN oma shell — JS-moduulit ovat ?v=-versioituja (bare-polku ei matchaisi), allowlist cachettaa ne
 // pyydettäessä. (Vanha PRECACHE viittasi /talentmaster/tm_eerikkila_normit.js → 404, jota Pelaaja ei lataa

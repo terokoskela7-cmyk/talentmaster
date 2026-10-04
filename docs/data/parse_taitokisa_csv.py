@@ -8,7 +8,8 @@ Suodattimet:
   - summavalidointi: lajisumma − Lopputulos = pituuspotkubonus (vain ≥12 v, 0–20 s)
   - swap-/korruptiosuodatus: lajikohtaiset järkevyysrajat
   - dedup per (sp, ikä, nimi): paras kokonaistulos
-Tuottaa: taitokisa_alue_data_v2.json + tk_lajiviitteet_v3.js (valtak. + alueellinen).
+Tuottaa: taitokisa_alue_2023_2025.json + docs/tk_lajiviitteet.js (TK_LAJIVIITTEET_ALUE + TK_LAJIVIITTEET_VALTAK
++ TK_LAJITASOT) + saman lohkon kopiot docs/testit_indeksit.js:ään ja TalentMaster_VP_v25.html:ään (merkkien väliin).
 """
 import csv, json, os, re
 from collections import Counter
@@ -115,9 +116,15 @@ for sp in ('P', 'T'):
 json.dump({'aggregaatti': alue_agg, '_huom': 'raakarivit: taitokisa_alue_*.csv'},
           open(f'{OUT}/taitokisa_alue_2023_2025.json', 'w'), ensure_ascii=False, indent=1)
 
-# --- tk_lajiviitteet_v3.js: kansallinen (ennallaan) + alueellinen (uusi) ---
+# --- tk_lajiviitteet.js: KAKSI RINNAKKAISTA LÄHDETTÄ (PR G, 4.10.2026) ---
+# Ennen: yksi TK_LAJIVIITTEET jossa ikäluokittain SEKALÄHDE (valtak. P9/P10/P12/T9–T12, muut alueellinen) →
+# lapsen välitavoite laskettiin osin loppukilpailun finalistien tasosta. Nyt molemmat tasot rinnakkain:
+#   TK_LAJIVIITTEET_ALUE   — alueelliset 2023–25 top-20 (KAIKKI P8–13 + T8–13) → lapsen/huoltajan tavoite + oletus
+#   TK_LAJIVIITTEET_VALTAK — valtakunnalliset loppukilpailut 2023–25 (vain ikäluokat joilla finaalidataa) → vain henkilökunta
+#   TK_LAJIVIITTEET        — alias = ALUE (taaksepäin yhteensopiva; tkLajiViite(laji, ika, sp[, lahde]) oletus 'alueellinen')
+# Sama generoitu lohko kirjoitetaan merkkien väliin docs/testit_indeksit.js:ään ja TalentMaster_VP_v25.html:ään
+# (yksi lähde → kolme identtistä kopiota; tests/tk_protokolla_viitelahde.test.js vartioi pariteetin).
 nat = json.load(open(f'{OUT}/taitokisa_2023_2025.json'))['aggregaatti']
-NAT_LUOKAT = {'P': [9, 10, 12], 'T': [9, 10, 11, 12]}   # sama jako kuin nykyisessä tk_lajiviitteet.js
 LAJIT = [('syotto', 'syotto'), ('pujottelu', 'pujottelu'), ('ponnauttelu', 'ponnauttelu'),
          ('kl_tulos', 'kuljetus_laukaus')]
 
@@ -132,31 +139,41 @@ def blokki(a, ika, lahde, kommentti):
     out.append('    },')
     return out
 
-L = []
-L.append('// TK_LAJIVIITTEET — per-laji viitetasot.')
-L.append("// Lähteet: _lahde 'valtakunnallinen' = loppukilpailut 2023–2025 (PDF, summavalidointi 0 virhettä)")
-L.append("//          _lahde 'alueellinen'      = alueelliset kilpailut 2023–2025 (Palloliiton tuloskooste,")
-L.append('//                                      ~60 kilpailua / 4 aluetta) — top-20 kokonaisajalla per ikä/sp,')
-L.append('//                                      dedup per pelaaja, summavalidointi + järkevyyssuodatus.')
-L.append('//          P8, P11 ja 13-v eivät ole valtakunnallisissa → alueellinen lähde (TKI_ANALYYSIMALLI.md §8.7).')
-L.append('// erinomainen = kohortin P25 · hyva = P50 · kehitettävä = > hyva. pituuspotku_bonus: SUUREMPI=parempi (P75/P50).')
-L.append('// EI MITALI — mitali jaetaan vain kokonaisajasta (CLAUDE.md §31). kuljetus_laukaus = NETTO.')
-L.append('// EI interpolointia puuttuville ikäluokille — radat ovat ikäluokkakohtaisia.')
-L.append('// Generointi: docs/data/parse_taitokisa_csv.py (vuosipäivitys: lisää uusi vuosi-CSV → aja uudelleen).')
-L.append('const TK_LAJIVIITTEET = {')
+GEN_ALKU = '// <<< TK_VIITTEET_GEN — generoitu: docs/data/parse_taitokisa_csv.py. ÄLÄ MUOKKAA KÄSIN (aja generaattori).'
+GEN_LOPPU = '// >>> TK_VIITTEET_GEN'
+L = [GEN_ALKU]
+L.append('// TK-lajiviitteet KAHDELLA rinnakkaisella lähteellä (per laji: erinomainen = kohortin P25 · hyva = P50 · kehitettävä > hyva;')
+L.append('// pituuspotku_bonus SUUREMPI=parempi → P75/P50). EI MITALI — mitali vain kokonaisajasta (§31). kuljetus_laukaus = NETTO.')
+L.append('// EI interpolointia puuttuville ikäluokille — radat ovat ikäluokkakohtaisia. EI fallbackia lähteestä toiseen.')
+L.append("//   TK_LAJIVIITTEET_ALUE   _lahde 'alueellinen'      = alueelliset kilpailut 2023–25 (Palloliiton tuloskooste, ~60 kilpailua /")
+L.append('//                          4 aluetta), top-20 kokonaisajalla per ikä/sp, dedup per pelaaja. KATTAA P8–13 + T8–13.')
+L.append('//                          → pelaajan + huoltajan välitavoite, merkit ja "kärkitaso" AINA tästä (oletuslähde).')
+L.append("//   TK_LAJIVIITTEET_VALTAK _lahde 'valtakunnallinen' = valtakunnalliset loppukilpailut 2023–25 (PDF, summavalidointi).")
+L.append('//                          Vain ikäluokat joilla finaalidataa (n voi olla pieni → UI näyttää n:n). VAIN henkilökunnalle')
+L.append('//                          merkinnällä "Loppukilpailutaso" — EI koskaan lapsen tavoitteeksi.')
+L.append('//   TK_LAJIVIITTEET        = TK_LAJIVIITTEET_ALUE (taaksepäin yhteensopiva alias).')
+L.append('// Vuosipäivitys: lisää uusi vuosi-CSV (alue) / aja parse_taitokisa.py (valtak.) → aja parse_taitokisa_csv.py.')
+L.append('const TK_LAJIVIITTEET_ALUE = {')
 for sp in ('P', 'T'):
     L.append('  %s: {' % sp)
     for ika in range(8, 14):
-        if ika in NAT_LUOKAT[sp] and str(ika) in nat.get(sp, {}):
-            a = nat[sp][str(ika)]
-            L += blokki(a, ika, 'valtakunnallinen', 'n=%d, loppukilpailut %s' % (a['n'], a.get('vuodet', '2023–25')))
-        elif ika in alue_agg.get(sp, {}):
+        if ika in alue_agg.get(sp, {}):
             a = alue_agg[sp][ika]
             L += blokki(a, ika, 'alueellinen', 'n=%d (pool %d), alueelliset 2023–25, top-20' % (a['n'], a['pool']))
     L.append('  },')
 L.append('};')
+L.append('const TK_LAJIVIITTEET_VALTAK = {')
+for sp in ('P', 'T'):
+    L.append('  %s: {' % sp)
+    for ika in range(8, 14):
+        if str(ika) in nat.get(sp, {}):
+            a = nat[sp][str(ika)]
+            L += blokki(a, ika, 'valtakunnallinen', 'n=%d, loppukilpailut %s' % (a['n'], a.get('vuodet', '2023–25')))
+    L.append('  },')
+L.append('};')
+L.append('const TK_LAJIVIITTEET = TK_LAJIVIITTEET_ALUE;   // alias: oletuslähde alueellinen')
 L.append('')
-L.append('// TK_LAJITASOT — populaatiotasot 1–5 KOKO kilpailupoolista (ei top-20).')
+L.append('// TK_LAJITASOT — populaatiotasot 1–5 KOKO alueellisesta kilpailupoolista (ei top-20; yksi lähde, ei sekalähdettä).')
 L.append('// Rajat = kohortin P20/P40/P60/P80. taso 5 = paras 20 % · taso 3 = kohortin keskitaso · taso 1 = hitain 20 %.')
 L.append('// Logiikka STRICT <: taso=5 jos arvo<r[0], 4 jos <r[1], 3 jos <r[2], 2 jos <r[3], muuten 1')
 L.append('// (tasan rajalla alempi taso — sama konventio kuin tkLaskeMerkki; maksimiajat 40/60 s → taso 1).')
@@ -179,6 +196,27 @@ for sp in ('P', 'T'):
         L.append('    },')
     L.append('  },')
 L.append('};')
-L.append("if (typeof module !== 'undefined') module.exports = { TK_LAJIVIITTEET, TK_LAJITASOT };")
-open(os.path.join(OUT, '..', 'tk_lajiviitteet.js'), 'w').write('\n'.join(L) + '\n')
+L.append(GEN_LOPPU)
+LOHKO = '\n'.join(L)
+
+# 1) SSOT-tiedosto
+with open(os.path.join(OUT, '..', 'tk_lajiviitteet.js'), 'w', encoding='utf-8') as f:
+    f.write(LOHKO + '\n'
+            + "if (typeof module !== 'undefined') module.exports = { TK_LAJIVIITTEET, TK_LAJIVIITTEET_ALUE, TK_LAJIVIITTEET_VALTAK, TK_LAJITASOT };\n")
 print('\nKirjoitettu docs/tk_lajiviitteet.js')
+
+# 2) Kopiot merkkien väliin (lue muuttujaan ENNEN kirjoitusta — ei in-place-truncaatiota).
+JUURI = os.path.abspath(os.path.join(OUT, '..', '..'))
+for rel in ('docs/testit_indeksit.js', 'TalentMaster_VP_v25.html'):
+    polku = os.path.join(JUURI, rel)
+    with open(polku, encoding='utf-8') as f:
+        sisalto = f.read()
+    a = sisalto.find(GEN_ALKU)
+    b = sisalto.find(GEN_LOPPU)
+    if a < 0 or b < 0 or b < a:
+        raise SystemExit('Merkit puuttuvat: ' + rel)
+    uusi = sisalto[:a] + LOHKO + sisalto[b + len(GEN_LOPPU):]
+    if uusi != sisalto:
+        with open(polku, 'w', encoding='utf-8') as f:
+            f.write(uusi)
+    print('Synkattu', rel, '(muuttui)' if uusi != sisalto else '(ennallaan)')

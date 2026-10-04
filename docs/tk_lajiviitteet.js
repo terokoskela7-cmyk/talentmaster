@@ -1,14 +1,16 @@
-// TK_LAJIVIITTEET — per-laji viitetasot.
-// Lähteet: _lahde 'valtakunnallinen' = loppukilpailut 2023–2025 (PDF, summavalidointi 0 virhettä)
-//          _lahde 'alueellinen'      = alueelliset kilpailut 2023–2025 (Palloliiton tuloskooste,
-//                                      ~60 kilpailua / 4 aluetta) — top-20 kokonaisajalla per ikä/sp,
-//                                      dedup per pelaaja, summavalidointi + järkevyyssuodatus.
-//          P8, P11 ja 13-v eivät ole valtakunnallisissa → alueellinen lähde (TKI_ANALYYSIMALLI.md §8.7).
-// erinomainen = kohortin P25 · hyva = P50 · kehitettävä = > hyva. pituuspotku_bonus: SUUREMPI=parempi (P75/P50).
-// EI MITALI — mitali jaetaan vain kokonaisajasta (CLAUDE.md §31). kuljetus_laukaus = NETTO.
-// EI interpolointia puuttuville ikäluokille — radat ovat ikäluokkakohtaisia.
-// Generointi: docs/data/parse_taitokisa_csv.py (vuosipäivitys: lisää uusi vuosi-CSV → aja uudelleen).
-const TK_LAJIVIITTEET = {
+// <<< TK_VIITTEET_GEN — generoitu: docs/data/parse_taitokisa_csv.py. ÄLÄ MUOKKAA KÄSIN (aja generaattori).
+// TK-lajiviitteet KAHDELLA rinnakkaisella lähteellä (per laji: erinomainen = kohortin P25 · hyva = P50 · kehitettävä > hyva;
+// pituuspotku_bonus SUUREMPI=parempi → P75/P50). EI MITALI — mitali vain kokonaisajasta (§31). kuljetus_laukaus = NETTO.
+// EI interpolointia puuttuville ikäluokille — radat ovat ikäluokkakohtaisia. EI fallbackia lähteestä toiseen.
+//   TK_LAJIVIITTEET_ALUE   _lahde 'alueellinen'      = alueelliset kilpailut 2023–25 (Palloliiton tuloskooste, ~60 kilpailua /
+//                          4 aluetta), top-20 kokonaisajalla per ikä/sp, dedup per pelaaja. KATTAA P8–13 + T8–13.
+//                          → pelaajan + huoltajan välitavoite, merkit ja "kärkitaso" AINA tästä (oletuslähde).
+//   TK_LAJIVIITTEET_VALTAK _lahde 'valtakunnallinen' = valtakunnalliset loppukilpailut 2023–25 (PDF, summavalidointi).
+//                          Vain ikäluokat joilla finaalidataa (n voi olla pieni → UI näyttää n:n). VAIN henkilökunnalle
+//                          merkinnällä "Loppukilpailutaso" — EI koskaan lapsen tavoitteeksi.
+//   TK_LAJIVIITTEET        = TK_LAJIVIITTEET_ALUE (taaksepäin yhteensopiva alias).
+// Vuosipäivitys: lisää uusi vuosi-CSV (alue) / aja parse_taitokisa.py (valtak.) → aja parse_taitokisa_csv.py.
+const TK_LAJIVIITTEET_ALUE = {
   P: {
     8: { // n=20 (pool 433), alueelliset 2023–25, top-20
       syotto: { erinomainen: 23.2, hyva: 24.9 },
@@ -17,19 +19,19 @@ const TK_LAJIVIITTEET = {
       kuljetus_laukaus: { erinomainen: 16.2, hyva: 16.6 },
       _n: 20, _lahde: 'alueellinen',
     },
-    9: { // n=16, loppukilpailut [2023, 2024, 2025]
-      syotto: { erinomainen: 23.0, hyva: 23.7 },
-      pujottelu: { erinomainen: 27.4, hyva: 28.3 },
-      ponnauttelu: { erinomainen: 5.1, hyva: 6.2 },
-      kuljetus_laukaus: { erinomainen: 16.8, hyva: 18.5 },
-      _n: 16, _lahde: 'valtakunnallinen',
+    9: { // n=20 (pool 459), alueelliset 2023–25, top-20
+      syotto: { erinomainen: 22.8, hyva: 23.8 },
+      pujottelu: { erinomainen: 27.3, hyva: 28.7 },
+      ponnauttelu: { erinomainen: 5.5, hyva: 7.1 },
+      kuljetus_laukaus: { erinomainen: 16.0, hyva: 17.9 },
+      _n: 20, _lahde: 'alueellinen',
     },
-    10: { // n=8, loppukilpailut [2023, 2024, 2025]
-      syotto: { erinomainen: 36.4, hyva: 37.2 },
-      pujottelu: { erinomainen: 25.7, hyva: 26.2 },
-      ponnauttelu: { erinomainen: 12.1, hyva: 13.1 },
-      kuljetus_laukaus: { erinomainen: 10.7, hyva: 13.8 },
-      _n: 8, _lahde: 'valtakunnallinen',
+    10: { // n=20 (pool 490), alueelliset 2023–25, top-20
+      syotto: { erinomainen: 37.0, hyva: 39.1 },
+      pujottelu: { erinomainen: 26.3, hyva: 27.1 },
+      ponnauttelu: { erinomainen: 13.6, hyva: 16.5 },
+      kuljetus_laukaus: { erinomainen: 14.0, hyva: 16.8 },
+      _n: 20, _lahde: 'alueellinen',
     },
     11: { // n=20 (pool 410), alueelliset 2023–25, top-20
       syotto: { erinomainen: 36.2, hyva: 37.5 },
@@ -38,13 +40,13 @@ const TK_LAJIVIITTEET = {
       kuljetus_laukaus: { erinomainen: 12.5, hyva: 14.1 },
       _n: 20, _lahde: 'alueellinen',
     },
-    12: { // n=12, loppukilpailut [2023, 2024, 2025]
-      syotto: { erinomainen: 34.0, hyva: 34.8 },
-      pujottelu: { erinomainen: 24.2, hyva: 24.9 },
-      ponnauttelu: { erinomainen: 15.2, hyva: 16.2 },
-      kuljetus_laukaus: { erinomainen: 13.5, hyva: 14.5 },
-      pituuspotku_bonus: { erinomainen: 13.2, hyva: 12.4 },
-      _n: 12, _lahde: 'valtakunnallinen',
+    12: { // n=20 (pool 309), alueelliset 2023–25, top-20
+      syotto: { erinomainen: 34.0, hyva: 36.5 },
+      pujottelu: { erinomainen: 24.1, hyva: 24.8 },
+      ponnauttelu: { erinomainen: 14.2, hyva: 16.5 },
+      kuljetus_laukaus: { erinomainen: 8.6, hyva: 11.7 },
+      pituuspotku_bonus: { erinomainen: 14.1, hyva: 13.3 },
+      _n: 20, _lahde: 'alueellinen',
     },
     13: { // n=20 (pool 176), alueelliset 2023–25, top-20
       syotto: { erinomainen: 34.6, hyva: 35.6 },
@@ -63,6 +65,78 @@ const TK_LAJIVIITTEET = {
       kuljetus_laukaus: { erinomainen: 24.1, hyva: 25.8 },
       _n: 20, _lahde: 'alueellinen',
     },
+    9: { // n=20 (pool 204), alueelliset 2023–25, top-20
+      syotto: { erinomainen: 26.2, hyva: 27.2 },
+      pujottelu: { erinomainen: 30.7, hyva: 32.0 },
+      ponnauttelu: { erinomainen: 9.4, hyva: 12.2 },
+      kuljetus_laukaus: { erinomainen: 23.2, hyva: 24.4 },
+      _n: 20, _lahde: 'alueellinen',
+    },
+    10: { // n=20 (pool 203), alueelliset 2023–25, top-20
+      syotto: { erinomainen: 43.0, hyva: 45.8 },
+      pujottelu: { erinomainen: 28.6, hyva: 29.9 },
+      ponnauttelu: { erinomainen: 6.0, hyva: 7.9 },
+      kuljetus_laukaus: { erinomainen: 19.8, hyva: 21.1 },
+      _n: 20, _lahde: 'alueellinen',
+    },
+    11: { // n=20 (pool 274), alueelliset 2023–25, top-20
+      syotto: { erinomainen: 40.8, hyva: 41.7 },
+      pujottelu: { erinomainen: 26.8, hyva: 27.8 },
+      ponnauttelu: { erinomainen: 14.9, hyva: 18.1 },
+      kuljetus_laukaus: { erinomainen: 16.4, hyva: 17.0 },
+      _n: 20, _lahde: 'alueellinen',
+    },
+    12: { // n=20 (pool 236), alueelliset 2023–25, top-20
+      syotto: { erinomainen: 35.6, hyva: 36.5 },
+      pujottelu: { erinomainen: 25.0, hyva: 25.9 },
+      ponnauttelu: { erinomainen: 18.3, hyva: 20.0 },
+      kuljetus_laukaus: { erinomainen: 11.9, hyva: 14.9 },
+      pituuspotku_bonus: { erinomainen: 12.0, hyva: 11.4 },
+      _n: 20, _lahde: 'alueellinen',
+    },
+    13: { // n=20 (pool 144), alueelliset 2023–25, top-20
+      syotto: { erinomainen: 34.8, hyva: 37.0 },
+      pujottelu: { erinomainen: 24.6, hyva: 25.6 },
+      ponnauttelu: { erinomainen: 17.4, hyva: 19.4 },
+      kuljetus_laukaus: { erinomainen: 14.1, hyva: 15.9 },
+      pituuspotku_bonus: { erinomainen: 13.2, hyva: 11.8 },
+      _n: 20, _lahde: 'alueellinen',
+    },
+  },
+};
+const TK_LAJIVIITTEET_VALTAK = {
+  P: {
+    9: { // n=16, loppukilpailut [2023, 2024, 2025]
+      syotto: { erinomainen: 23.0, hyva: 23.7 },
+      pujottelu: { erinomainen: 27.4, hyva: 28.3 },
+      ponnauttelu: { erinomainen: 5.1, hyva: 6.2 },
+      kuljetus_laukaus: { erinomainen: 16.8, hyva: 18.5 },
+      _n: 16, _lahde: 'valtakunnallinen',
+    },
+    10: { // n=8, loppukilpailut [2023, 2024, 2025]
+      syotto: { erinomainen: 36.4, hyva: 37.2 },
+      pujottelu: { erinomainen: 25.7, hyva: 26.2 },
+      ponnauttelu: { erinomainen: 12.1, hyva: 13.1 },
+      kuljetus_laukaus: { erinomainen: 10.7, hyva: 13.8 },
+      _n: 8, _lahde: 'valtakunnallinen',
+    },
+    11: { // n=2, loppukilpailut [2023]
+      syotto: { erinomainen: 34.9, hyva: 36.3 },
+      pujottelu: { erinomainen: 25.7, hyva: 26.4 },
+      ponnauttelu: { erinomainen: 16.4, hyva: 16.8 },
+      kuljetus_laukaus: { erinomainen: 14.1, hyva: 15.1 },
+      _n: 2, _lahde: 'valtakunnallinen',
+    },
+    12: { // n=12, loppukilpailut [2023, 2024, 2025]
+      syotto: { erinomainen: 34.0, hyva: 34.8 },
+      pujottelu: { erinomainen: 24.2, hyva: 24.9 },
+      ponnauttelu: { erinomainen: 15.2, hyva: 16.2 },
+      kuljetus_laukaus: { erinomainen: 13.5, hyva: 14.5 },
+      pituuspotku_bonus: { erinomainen: 13.2, hyva: 12.4 },
+      _n: 12, _lahde: 'valtakunnallinen',
+    },
+  },
+  T: {
     9: { // n=18, loppukilpailut [2023, 2024, 2025]
       syotto: { erinomainen: 25.8, hyva: 27.0 },
       pujottelu: { erinomainen: 29.3, hyva: 30.7 },
@@ -92,18 +166,11 @@ const TK_LAJIVIITTEET = {
       pituuspotku_bonus: { erinomainen: 12.2, hyva: 10.8 },
       _n: 7, _lahde: 'valtakunnallinen',
     },
-    13: { // n=20 (pool 144), alueelliset 2023–25, top-20
-      syotto: { erinomainen: 34.8, hyva: 37.0 },
-      pujottelu: { erinomainen: 24.6, hyva: 25.6 },
-      ponnauttelu: { erinomainen: 17.4, hyva: 19.4 },
-      kuljetus_laukaus: { erinomainen: 14.1, hyva: 15.9 },
-      pituuspotku_bonus: { erinomainen: 13.2, hyva: 11.8 },
-      _n: 20, _lahde: 'alueellinen',
-    },
   },
 };
+const TK_LAJIVIITTEET = TK_LAJIVIITTEET_ALUE;   // alias: oletuslähde alueellinen
 
-// TK_LAJITASOT — populaatiotasot 1–5 KOKO kilpailupoolista (ei top-20).
+// TK_LAJITASOT — populaatiotasot 1–5 KOKO alueellisesta kilpailupoolista (ei top-20; yksi lähde, ei sekalähdettä).
 // Rajat = kohortin P20/P40/P60/P80. taso 5 = paras 20 % · taso 3 = kohortin keskitaso · taso 1 = hitain 20 %.
 // Logiikka STRICT <: taso=5 jos arvo<r[0], 4 jos <r[1], 3 jos <r[2], 2 jos <r[3], muuten 1
 // (tasan rajalla alempi taso — sama konventio kuin tkLaskeMerkki; maksimiajat 40/60 s → taso 1).
@@ -200,4 +267,5 @@ const TK_LAJITASOT = {
     },
   },
 };
-if (typeof module !== 'undefined') module.exports = { TK_LAJIVIITTEET, TK_LAJITASOT };
+// >>> TK_VIITTEET_GEN
+if (typeof module !== 'undefined') module.exports = { TK_LAJIVIITTEET, TK_LAJIVIITTEET_ALUE, TK_LAJIVIITTEET_VALTAK, TK_LAJITASOT };

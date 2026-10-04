@@ -88,8 +88,10 @@ describe('5b — tekniikkabadge selkokielelle (Alue 1–5 ≠ Valtak 1–3, §34
     expect(HTML).toContain("+ d.tkTaso + vpT('/5 alue') + '</span>'");
     expect(HTML).not.toContain("'>A' + d.tkTaso + '</span>'");
   });
-  it('valtak-badge "X/3 valtak." (ei salakielinen "V"+/3)', () => {
-    expect(HTML).toContain("+ vt + vpT('/3 valtak.') + '</span>'");
+  // 4.10.2026: "valtak." → "H-H-normi" (Eerikkilä H-H), ettei sekoitu TK:n "Loppukilpailutaso"-merkintään (PR G).
+  it('H-H-normi-badge "X/3 H-H-normi" (ei salakielinen "V"+/3 eikä "valtak.")', () => {
+    expect(HTML).toContain("+ vt + vpT('/3 H-H-normi') + '</span>'");
+    expect(HTML).not.toContain("vpT('/3 valtak.')");
     expect(HTML).not.toContain("+ vt + '/3</span>'");
   });
   it('selite kevennetty lähdemaininnaksi, asteikot yhä erillään (ei yhdistetä)', () => {

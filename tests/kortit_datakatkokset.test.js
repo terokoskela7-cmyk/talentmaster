@@ -197,7 +197,8 @@ describe('a) Pelaaja_v7 · Tekniikkaprofiili lukee pikakentistä (ei alikokoelma
   it('H-H syöttö/pujottelu -fallback säilyy, kun TK-pikakenttiä ei ole; ei mitään → "tulossa"', async () => {
     const a = lataaTekniikka(Object.assign({ id: PID }, TOPIAS, { hh_viimeisin: { syotto: 9.1, pujottelu: 10.2, lin30m: 5 } }), mockDb({}).db);
     await a.lataa();
-    expect(a.data()).toEqual({ tyhja: true, hhTekn: [{ laji: 'syotto', nimi: 'Syöttö', aika: 9.1 }, { laji: 'pujottelu', nimi: 'Pujottelu', aika: 10.2 }] });
+    // PR G: H-H-arvot nimetään selvästi H-H-testiksi (eri testi kuin tekniikkakisan pujottelu/syöttö) — tunniste *_hh.
+    expect(a.data()).toEqual({ tyhja: true, hhTekn: [{ laji: 'syotto_hh', nimi: 'Syöttö (H-H-testi)', aika: 9.1 }, { laji: 'pujottelu_hh', nimi: 'Pujottelu (H-H-testi)', aika: 10.2 }] });
     const b = lataaTekniikka(Object.assign({ id: PID }, TOPIAS), mockDb({}).db);
     await b.lataa();
     expect(b.data()).toEqual({ tyhja: true, hhTekn: null });

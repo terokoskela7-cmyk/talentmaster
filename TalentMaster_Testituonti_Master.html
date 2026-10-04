@@ -14,7 +14,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 <script src="lib/tm_appcheck.js?v=1"></script>
 <script src="lib/tm_alusta.js?v=2"></script>   <!-- PR F: yksi §22-alustasanasto (TM_ALUSTA) -->
-<script src="lib/tm_ennatykset.js?v=4"></script>   <!-- Omat ennätykset (PB): jaettu kirjoittajille (TM_ENNATYKSET) -->
+<script src="lib/tm_ennatykset.js?v=5"></script>   <!-- Omat ennätykset (PB): jaettu kirjoittajille (TM_ENNATYKSET) -->
 <script src="lib/tm_pvm.js?v=3"></script>   <!-- PR B: tmPaivaIso — Excel-solun testipäivä ISO-muotoon (§26 pikakenttien *_pvm) -->
 <script src="lib/tm_phv_tila.js?v=1"></script>   <!-- PR C: PHV-tuontimuunnos + lukusääntö (kanoninen Mirwald) -->
 <script src="lib/tm_eerikkila_normit.js?v=47"></script>   <!-- PR B: normiIka/eerikkilaTaso/laskeD1Joustava/laskeD2HH/hhKehityskohde (§26 H-H-pikakentät) -->
@@ -573,15 +573,41 @@ const PROTOKOLLAT = {
   }
 };
 
-// Apufunktio: etsi testi-ID otsikkotekstistä
-function tunnistaTestiId(otsikkoTeksti) {
+// PR G — H-H- vs tekniikkakilpailu-pujottelu/-syöttö TUNNISTEELLA (ei mittakaavalla). Ennen protokollasokea haku palautti
+// ensimmäisen osuman PROTOKOLLAT-järjestyksessä: hh_laaja tulee ennen tekniikkakilpailua ja 'pujottelu (lajitekniikka)'
+// sisältää sanan 'pujottelu' → TK-Excelin "Pujottelu"/"Syöttö"-sarake luettiin H-H:ksi (pujottelu_hh → hh_viimeisin,
+// TK-sekunnit H-H-normiin, TKI:stä puuttui laji). Nyt: (1) otsikon eksplisiittinen merkintä voittaa ("H-H"/"lajitekniikka"
+// → H-H; "TK"/"tekniikkakilpailu" → TK), (2) muuten tapahtuman protokolla (protoEnsin) haetaan ENSIN, (3) vasta sitten muut.
+const TT_TKHH_PARI = { pujottelu: 'pujottelu_hh', syotto: 'syotto_hh', pujottelu_hh: 'pujottelu', syotto_hh: 'syotto' };
+function ttOtsikonProtokolla(txt) {
+  if (/(^|[^a-zäö0-9])h-?h([^a-zäö0-9]|$)|_hh(_|$)|lajitekniik/.test(txt)) return 'hh';
+  if (/(^|[^a-zäö0-9])tk([^a-zäö0-9]|$)|tekniikkakilpailu|tekniikkakisa|taitokilpailu/.test(txt)) return 'tk';
+  return null;
+}
+// Apufunktio: etsi testi-ID otsikkotekstistä. protoEnsin = tapahtuman protokolla (haetaan ensin).
+function tunnistaTestiId(otsikkoTeksti, protoEnsin) {
   const txt = otsikkoTeksti.toLowerCase().replace(/\s+/g, ' ').trim();
   // MAS-seurantasarakkeet — "MAS 12/25", "MAS 03/26" jne.
   if (/^mas\s+(\d{2}\/\d{2}|\d{4}|\d{2}\.\d{2})/.test(txt) || txt === 'mas') {
     return { id: 'mas_aika', testi: { id: 'mas_aika', nimi: 'MAS-aika', yksikko: 'mas_aika' }, proto: 'mas_seuranta' };
   }
-  // Käy läpi kaikki protokollat ja niiden testit
-  for (const protoKey of Object.keys(PROTOKOLLAT)) {
+  const osuma = ttTunnistaProtokollista(txt, protoEnsin);
+  if (osuma && TT_TKHH_PARI[osuma.id]) {
+    const merkinta = ttOtsikonProtokolla(txt);
+    const onHh = /_hh$/.test(osuma.id);
+    if ((merkinta === 'hh' && !onHh) || (merkinta === 'tk' && onHh)) {
+      const kohdeId = TT_TKHH_PARI[osuma.id], kohdeProto = (merkinta === 'hh') ? 'hh_laaja' : 'tekniikkakilpailu';
+      const t = (PROTOKOLLAT[kohdeProto].testit || []).find(x => x.id === kohdeId);
+      if (t) return { id: t.id, proto: kohdeProto, testi: t };
+    }
+  }
+  return osuma;
+}
+function ttTunnistaProtokollista(txt, protoEnsin) {
+  const jarj = Object.keys(PROTOKOLLAT);
+  if (protoEnsin && PROTOKOLLAT[protoEnsin]) { jarj.splice(jarj.indexOf(protoEnsin), 1); jarj.unshift(protoEnsin); }
+  // Käy läpi kaikki protokollat ja niiden testit (tapahtuman protokolla ensin)
+  for (const protoKey of jarj) {
     const proto = PROTOKOLLAT[protoKey];
     for (const t of proto.testit || []) {
       const nimiLower = t.nimi.toLowerCase();
@@ -912,7 +938,7 @@ function prosessoiExcel(wb) {
   for (let i = testiAlku; i < testiLoppu && i < headers.length; i++) {
     const otsikko = headers[i];
     if (!otsikko || String(otsikko).trim() === '') continue;
-    const tunnistettu = tunnistaTestiId(otsikko);
+    const tunnistettu = tunnistaTestiId(otsikko, tuontiData.tapahtumaData && tuontiData.tapahtumaData.protokolla);
     testiSarakkeet.push({
       index: i,
       otsikko: otsikko,
@@ -978,6 +1004,24 @@ function prosessoiExcel(wb) {
   naytaVaiheB();
 }
 
+// PR G: kun tapahtuman protokolla tiedetään, tunnista testisarakkeet uudelleen sillä (H-H vs TK tunnisteella) ja
+// siirrä pelaajien jo luetut arvot uusille id:ille. Idempotentti. Tyhjä/tuntematon protokolla → ei muutosta.
+function ttKohdistaProtokollaan(protokolla) {
+  if (!protokolla || !PROTOKOLLAT[protokolla]) return;
+  (tuontiData.testiSarakkeet || []).forEach(function (ts) {
+    if (!ts.testiId) return;
+    const uusi = tunnistaTestiId(String(ts.otsikko), protokolla);
+    if (!uusi || uusi.id === ts.testiId) return;
+    const vanha = ts.testiId;
+    (tuontiData.pelaajat || []).forEach(function (p) {
+      if (!p.testit || !Object.prototype.hasOwnProperty.call(p.testit, vanha)) return;
+      if (!Object.prototype.hasOwnProperty.call(p.testit, uusi.id)) p.testit[uusi.id] = p.testit[vanha];
+      delete p.testit[vanha];
+    });
+    ts.testiId = uusi.id; ts.testiData = uusi.testi; ts.protoKey = uusi.proto;
+  });
+}
+
 // ════════════════════════════════════════
 // VAIHE B: METADATA + TAPAHTUMAN TIEDOT
 // ════════════════════════════════════════
@@ -999,6 +1043,7 @@ async function naytaVaiheB() {
         tuontiData.tapahtumaData = t;
         const proto = PROTOKOLLAT[t.protokolla] || {};
         tapahtumaValid = true;
+        ttKohdistaProtokollaan(t.protokolla);   // PR G: sarakkeet uudelleen tapahtuman protokollalla (H-H vs TK tunnisteella)
         tapahtumaHtml = `
           <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-top:12px;">
             <div style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:12px;">

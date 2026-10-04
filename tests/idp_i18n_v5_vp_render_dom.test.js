@@ -729,6 +729,15 @@ describe('VP_v25 resolvi-portti — jokaisella reititetyllä avaimella on sv-riv
      Omaa ruotsia EI kirjoiteta. Portti pysyy tiukkana: (a) jos jollekin ilmestyy käännös, alempi
      testi punertaa ja rivi on poistettava listalta, ja (b) mikä tahansa MUU puuttuva avain punertaa. */
   const SV_ODOTTAA_SANKTIOINTIA = [
+    /* PR G (TK-viitelähde): loppukilpailutaso näkyviin henkilökunnalle alueellisen huipputason rinnalle. sv Gemini-erässä. */
+    'loppukilpailutaso ≤',
+    /* PR G / 4.10.2026: Eerikkilä-badge "valtak." → "H-H-normi" (ei sekoitu TK:n Loppukilpailutasoon). sv Gemini-erässä. */
+    '/3 H-H-normi',
+    'H-H-normi',
+    ' = Eerikkilä 1–3 (H-H-syöttö/-pujottelu)',
+    'H-H-normi (Eerikkilä) 1–3, 3 = paras taso. Vain H-H-syöttö &amp; -pujottelu — EI tekniikkakisan loppukilpailutaso.',
+    'loppukilpailutaso ≥',
+    ' — ei loppukilpailudataa tälle ikäluokalle',
     /* PR "viesti-pelaajalle" (B6): perumisen vahvistusteksti. sv Gemini-erässä. */
     'Perutaanko?',
     'Teksti poistuu pelaajan ja perheen appista heti, myös jos se on jo luettu.',
