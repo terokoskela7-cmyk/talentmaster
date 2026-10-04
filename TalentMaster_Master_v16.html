@@ -101,7 +101,7 @@ window.TM_KAAVIO_HOST = {
 <script src="lib/tm_havaintohistoria.js?v=1"></script>   <!-- jaettu havainto-/viestihistoria (VP + Master) -->
 <script src="lib/tm_valmentajaviesti.js?v=3"></script>   <!-- YKSI kirjoituspiste valmentajan viestille -->
 <script src="lib/tm_alusta.js?v=1"></script>   <!-- PR F: yksi §22-alustasanasto (TM_ALUSTA) -->
-<script src="lib/tm_kehityskaari.js?v=5"></script>   <!-- Trendi Vaihe 2: yksilön kehityskaari (render hh_historia/tki_historia:sta) -->
+<script src="lib/tm_kehityskaari.js?v=6"></script>   <!-- Trendi Vaihe 2: yksilön kehityskaari (render hh_historia/tki_historia:sta) -->
 <script src="lib/tm_aani.js?v=3"></script>   <!-- Vaihe 0: puhdas nauhoitin (reflektio + VP:n ääripalaute samasta ytimestä) -->
 <script src="lib/tm_reflektio.js?v=4"></script>   <!-- Vaihe 1: jaettu äänireflektio (Master + VP) — irrotettu Masterin inlinestä -->
 <script src="lib/tm_arviointi_silta.js?v=3"></script>   <!-- Vaihe 5: arviointi→resepti-silta (4a lähde-vihje: arvioinnin heikoin havaittu) · v2 = I3a SSOT-osoitin tm_kehityspolku -->
@@ -111,11 +111,11 @@ window.TM_KAAVIO_HOST = {
 <script src="lib/tm_fyysteemat.js?v=3"></script>   <!-- Vaihe 7: fyysinen teemaluettelo + D1-fokuslähde + evidenssi (fysiikkavalmentaja) -->
 <script src="lib/tm_ohjelma.js?v=1"></script>   <!-- Vaihe 7.2a: fysiikkaohjelmakirjasto (validoi/versioi/templaatista, deterministinen) -->
 <script src="lib/tm_ohjelma_analytiikka.js?v=1"></script>   <!-- Vaihe 7.2b: per-ohjelma-analytiikka (tmOhjelmaKooste — mikä ohjelma toimii kenelle) -->
-<script src="docs/testit_indeksit.js?v=11"></script>
+<script src="docs/testit_indeksit.js?v=12"></script>
 <script src="lib/tm_historia.js?v=1"></script>          <!-- P2.1: hh_historia/tki_historia Pikakirjauksessa -->
 <script src="lib/tm_pikakentat.js?v=4"></script>       <!-- P2.0: §26-pikakenttien kanoninen laskenta (tmLaskePikakentat) — Master: H-H + TKI (TM_TESTIT) -->
-<script src="lib/tm_testikatalogi.js?v=1"></script>    <!-- P2.1: jaettu testikatalogi (Pikakirjaus-valitsin) -->
-<script src="lib/tm_ennatykset.js?v=3"></script>      <!-- Omat ennätykset (PB): Pikakirjaus päivittää pelaajan ennatykset (jaettu TM_ENNATYKSET) -->
+<script src="lib/tm_testikatalogi.js?v=2"></script>    <!-- P2.1: jaettu testikatalogi (Pikakirjaus-valitsin) -->
+<script src="lib/tm_ennatykset.js?v=5"></script>      <!-- Omat ennätykset (PB): Pikakirjaus päivittää pelaajan ennatykset (jaettu TM_ENNATYKSET) -->
 <script src="lib/tm_pikakirjaus.js?v=4"></script>      <!-- P2.1: Pikakirjaus-lomake (TM_PIKAKIRJAUS.avaa) -->
 <!-- §B Resepti-moottorit (T-harjoite + S-pre-harkka). Latausjärjestys: methodology→profile→microcycles→prescription -->
 <script src="harjoitelogiikka_v4.js?v=8"></script>
@@ -5815,12 +5815,16 @@ function _buildTKIDetail(p) {
 
   if (gapit.length) {
     const maxGap = gapit[0].gap_s;
-    let nMin = null, rivit = '';
+    let nMin = null, rivit = '', _vRefV = null;
     gapit.forEach(function(g) {
       if (g.viite && g.viite.n != null) nMin = (nMin == null) ? g.viite.n : Math.min(nMin, g.viite.n);
       const kaanteinen = (g.laji === 'pituuspotku_bonus');
       const yks = kaanteinen ? '' : 's';   // Osa2.2: pituuspotku_bonus ei ole aikayksikkö käyttäjälle → ei 's'
-      const viiteTeksti = kaanteinen ? (masterT('huipputaso ≥') + g.viite.hyva + yks) : (masterT('huipputaso ≤') + g.viite.hyva + yks);
+      // PR G: loppukilpailutaso (valtakunnallinen) rinnalle — VAIN näyttö henkilökunnalle; gap/tavoite = alueellinen (g.viite).
+      const _vV = (typeof tkLajiViite === 'function') ? tkLajiViite(g.laji, ika, tkSp, 'valtakunnallinen') : null;
+      if (_vV && !_vRefV) _vRefV = _vV;
+      const viiteTeksti = (kaanteinen ? (masterT('huipputaso ≥') + g.viite.hyva + yks) : (masterT('huipputaso ≤') + g.viite.hyva + yks))
+        + (_vV ? (' · ' + (kaanteinen ? masterT('loppukilpailutaso ≥') : masterT('loppukilpailutaso ≤')) + _vV.hyva + yks) : '');
       const onErin = (g.taso === 'erinomainen');
       const onKohde = (g.gap_s === maxGap && maxGap > 0);
       const mvari = onErin ? 'var(--teal)' : (onKohde ? 'var(--amber)' : 'var(--ink3)');
@@ -5851,15 +5855,21 @@ function _buildTKIDetail(p) {
         + valtakBadge + alueBadge + '</div>'
         + '<div style="font-size:10px;color:var(--ink3);margin-top:2px"><span class="detail-viite">' + viiteTeksti + '</span> · <span class="detail-gap" style="color:' + mvari + '">' + gapTeksti + merkinta + '</span></div></div>';
     });
-    // Dynaaminen viite-label _lahde-kentästä (valtakunnallinen vs alueellinen). nMin = pienin n (suuntaa-antava < 10).
+    // Viite-label _lahde-kentästä + n AINA (PR G). Gapit/tavoite = alueellinen (tkLajiGapit oletus); loppukilpailutaso
+    // (valtakunnallinen) näytetään ERIKSEEN omalla rivillään — vain henkilökunnalle, ei koskaan lapsen tavoitteeksi.
     const _vref = (function(){ for (var i = 0; i < gapit.length; i++) { if (gapit[i].viite) return gapit[i].viite; } return null; })();
-    const _nStr = (nMin != null && nMin < 10) ? (' (n=' + nMin + ')') : '';   // ei enää laukea (kaikki _n=20)
-    const otsikko = (_vref && _vref.lahde === 'alueellinen')
+    const _nStr = (nMin != null) ? (' (n=' + nMin + ')') : '';
+    const _otsA = (_vref && _vref.lahde === 'alueellinen')
       ? (masterT('Alueellinen huipputaso 2023–25') + _nStr)
       : (masterT('Loppukilpailutaso 2023–25') + _nStr);
+    const _otsV = _vRefV
+      ? (masterT('Loppukilpailutaso 2023–25') + ' (n=' + _vRefV.n + ')')
+      : (masterT('Loppukilpailutaso 2023–25') + masterT(' — ei loppukilpailudataa tälle ikäluokalle'));
+    const otsikko = _otsA;
     const tasoInfo = (typeof TM_SELITTEET !== 'undefined' && TM_SELITTEET.tk_lajitaso)
       ? ' <span title="' + TM_SELITTEET.tk_lajitaso + '" onclick="_mSelInfo(\'tk_lajitaso\')" style="cursor:pointer;opacity:.65">ℹ️</span>' : '';
     taulukkoHtml = '<div class="detail-yhteenveto" style="margin-top:10px">' + otsikko + tasoInfo + '</div>'
+      + '<div class="detail-viitelahde-v" style="font-size:10px;color:var(--ink3);margin-top:2px">' + _otsV + '</div>'
       // Selite: KAKSI nimettyä tasoa (eri asteikko). Alue = TK-lajitaso 1–5 (kaikki lajit) · Valtak = Eerikkilä 1–3 (vain syöttö/pujottelu).
       + '<div style="font-size:10px;color:var(--ink3);margin:2px 0 6px;line-height:1.45">' + '<b>' + masterT('Alue') + '</b>' + masterT(' = TK-lajitaso 1–5 (kilpailukohortti, kaikki lajit) · ') + '<b>' + masterT('Valtak') + '</b>' + masterT(' = Eerikkilä 1–3 (vain syöttö &amp; pujottelu) · ★ huipputasolla · ← suurin kehityskohde · ') + '<b>' + '+' + '</b>' + masterT(' = matka alueen kärkeen') + '</div>'
       + '<div class="detail-taulukko">' + rivit + '</div>';

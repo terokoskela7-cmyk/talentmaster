@@ -416,7 +416,9 @@ suhteellinen vahvuus/kehityskohde (★/←). Ks. myös §23 (TKI aikapohjainen) 
 - **B Eliittiviite (per-laji):** `TK_LAJIVIITTEET[sp][ika][laji] = {erinomainen, hyva}` + `_n` + `_lahde`. **EI mitali** (§31). Kertoo KOHTEEN + MÄÄRÄN (sekunteina).
 - **C Populaatioviite (H-H):** FINAL2024 3-portainen (`eerikkilaTaso`, vain pujottelu+syöttö). Kertoo POHJAN.
 
-**`TK_LAJIVIITTEET` (testit_indeksit.js + inline-kopiot Excel/VP):** kattavuus **P8–P13, T8–T13**. erinomainen=P25 · hyva=P50 ·
+**PR G (4.10.2026) — KAKSI RINNAKKAISTA LÄHDETTÄ (korvaa alla olevan sekalähteen):** `TK_LAJIVIITTEET_ALUE` (alueellinen top-20, KAIKKI P8–13/T8–13) + `TK_LAJIVIITTEET_VALTAK` (loppukilpailut, vain ikäluokat joilla finaalidataa; P11 n=2) + alias `TK_LAJIVIITTEET = ALUE`. `tkLajiViite(laji, ika, sp, [lahde])` oletus `'alueellinen'`, EI fallbackia lähteestä toiseen. **Lapsen/huoltajan tavoite, merkit, kärkitaso + gapit AINA alueellisesta**; valtakunnallinen vain henkilökunnalle "Loppukilpailutaso 2023–25 (n=X)" -merkinnällä (VP `_jsvPerLajiHTML`, Master `_buildTKIDetail`). Generaattori `parse_taitokisa_csv.py` kirjoittaa saman lohkon `docs/tk_lajiviitteet.js` + `docs/testit_indeksit.js` + `VP_v25` merkkien `// <<< TK_VIITTEET_GEN` väliin (pariteetti: `tests/tk_protokolla_viitelahde.test.js`). **H-H vs TK pujottelu/syöttö erotellaan TUNNISTEELLA** (`pujottelu_hh` / `pujottelu` + `<laji>_protokolla` + dokin protokolla → `lib/tm_testikatalogi.js tmTestiProtokollaId/tmTkHhNormalisoi`), ei mittakaavalla.
+
+*Historia (ennen PR G):* **`TK_LAJIVIITTEET` (testit_indeksit.js + inline-kopiot Excel/VP):** kattavuus **P8–P13, T8–T13**. erinomainen=P25 · hyva=P50 ·
 pituuspotku_bonus käänteinen (P75/P50). Lähteet: **valtakunnalliset** loppukilpailut 2023–25 (P9/P10/P12 + T9/T10/T11/T12) ·
 **alueelliset** = Palloliiton tuloskooste 2023–25 (~60 kilpailua / 4 aluetta, 3 477 pelaajaa dedup, top-20 kokonaisajalla) (P8/P11/P13/T8/T13, kaikki _n=20).
 **UI-label AINA `_lahde`-kentästä:** valtakunnallinen→"Loppukilpailutaso 2023–25" · alueellinen→"Alueellinen huipputaso 2023–25" · `_n<10`→"(n=X)" (ei enää laukea).

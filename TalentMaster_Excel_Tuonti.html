@@ -24,9 +24,10 @@
 <script src="lib/tm_joukkue.js?v=4"></script>
 <script src="lib/tm_pvm.js?v=3"></script>
 <script src="lib/tm_alusta.js?v=1"></script>   <!-- PR F: yksi §22-alustasanasto (TM_ALUSTA) -->
-<script src="lib/tm_ennatykset.js?v=3"></script>   <!-- Omat ennätykset (PB): paivitaEnnatykset (jaettu, TM_ENNATYKSET) -->
+<script src="lib/tm_ennatykset.js?v=5"></script>   <!-- Omat ennätykset (PB): paivitaEnnatykset (jaettu, TM_ENNATYKSET) -->
 <script src="lib/tm_historia.js?v=1"></script>   <!-- Trendi Vaihe 1a: mittaushistorian selkäranka (tmHhSnapshot/tmTkiSnapshot/tmHistoriaLisaa) -->
 <script src="lib/tm_pohja.js?v=1"></script>   <!-- P1.2: itsekuvaava tuontipohja — TM_POHJA.sarakkeetTesteista/metaLehtiAoa/lueMetaLehti (joustava testivalitsin + Meta-lehti) -->
+<script src="lib/tm_testikatalogi.js?v=2"></script>   <!-- PR G: tmTestiProtokollaId/tmTkHhNormalisoi — H-H vs TK pujottelu/syöttö tunnisteella (IIFE → TM_TESTIKATALOGI, ei törmää inline-KATALOGI_META:an) -->
 
 <style>
 :root {
@@ -2846,6 +2847,13 @@ function laskeTKIPelaajalle(testit, ika, sukupuoli) {
 
 // ── Ennätykset (PB per testi, KORTTI 1c-A) — paivitaEnnatykset JAETUSTA lib/tm_ennatykset.js:stä (EI inline-kopiota).
 // Kerää ennätys-kandidaatit varmoista pikakentistä (hhViimeisin + TK-lajit + FLEI). pituuspotku_bonus vain ≥12v (mukana _tkLajit:ssa jo).
+// PR G: tallennettu testitulos-dokin testit-kartta kanonisin H-H/TK-avaimin (lib/tm_testikatalogi.js tmTkHhNormalisoi):
+// vanha H-H-tuonti tallensi 'pujottelu'/'syotto' + <laji>_protokolla:'hh' → nyt 'pujottelu_hh'/'syotto_hh', jottei H-H-arvo
+// valu TKI-recalciin / tk_lajeihin / tki_historiaan. Lib puuttuu → kartta sellaisenaan (vanha käytös).
+function _tkHhNorm(testit, docProtokolla) {
+  const K = (typeof TM_TESTIKATALOGI !== 'undefined') ? TM_TESTIKATALOGI : null;
+  return (K && typeof K.tmTkHhNormalisoi === 'function') ? K.tmTkHhNormalisoi(testit || {}, docProtokolla) : (testit || {});
+}
 function _ennatysKandidaatit(hhViimeisin, tkLajit, fleiPct, pvmIso) {
   const out = [];
   const lisaa = function (testi, arvo) { if (arvo != null && !isNaN(Number(arvo))) out.push({ testi: testi, arvo: Number(arvo), alusta: 'tuntematon', pvm: pvmIso }); };
@@ -2931,6 +2939,29 @@ async function tallennaFirestoreen() {
       testit.mas_aika_min = p.testit.mas_aika_min;
     }
 
+    // PR G (ent. TEHTÄVÄ 3 -reititys, siirretty ENNEN TKI:tä): pujottelu/syöttö protokollan mukaan TUNNISTEELLE.
+    // Valinta meta.protoValinta:sta (oletus tiedoston protokollasta). H-H → avain pujottelu_hh/syotto_hh (+ hh_viimeisin alla);
+    // TK → avain pujottelu/syotto (TKI-laskenta, tk_lajit, TK-ennätys). ENNEN: H-H-valinta jätti arvon TK-avaimelle →
+    // H-H-sekunnit valuivat TKI:hin, tk_lajit_viimeisin:iin, tki_historiaan ja TK-ennätykseen (reititys tehtiin vasta
+    // TKI-laskennan jälkeen). Protokollamerkintä testit.<laji>_protokolla säilyy dokumentissa (lukijat: tmTestiProtokollaId).
+    const protoValinta = (tuontiData.meta && tuontiData.meta.protoValinta) || {};
+    const _hhTekn = {};
+    [['pujottelu', 'pujottelu_hh'], ['syotto', 'syotto_hh']].forEach(function(pari) {
+      const tkId = pari[0], hhId = pari[1];
+      const onTkA = testitSkalaari[tkId] != null && !isNaN(testitSkalaari[tkId]);
+      const onHhA = testitSkalaari[hhId] != null && !isNaN(testitSkalaari[hhId]);
+      if (!onTkA && !onHhA) return;
+      if (onTkA && onHhA) { _hhTekn[tkId] = testitSkalaari[hhId]; return; }   // molemmat sarakkeet → kumpikin omalla tunnisteellaan
+      const valinta = protoValinta[tkId] || (onTekniikka ? 'tk' : 'hh');
+      const lahde = onTkA ? tkId : hhId, kohde = (valinta === 'hh') ? hhId : tkId;
+      if (lahde !== kohde) {
+        testitSkalaari[kohde] = testitSkalaari[lahde]; delete testitSkalaari[lahde];
+        testit[kohde] = testit[lahde]; delete testit[lahde];
+      }
+      testit[tkId + '_protokolla'] = valinta;          // protokollamerkintä testitulos-dokumenttiin
+      if (valinta === 'hh') _hhTekn[tkId] = testitSkalaari[kohde];
+    });
+
     // FLEI — 1-3p / num -tyyppi (skalaareista)
     let fleiPct = null;
     if (proto && (proto.tyyppi === '1-3' || proto.tyyppi === 'num')) {
@@ -3003,21 +3034,11 @@ async function tallennaFirestoreen() {
       if (_smP != null) hhViimeisin.sm_pallo  = _smP;
     }
 
-    // TEHTÄVÄ 3: pujottelu/syöttö protokollareititys. Valinta meta.protoValinta:sta (oletus tiedoston protokollasta).
-    // H-H → hh_viimeisin.{pujottelu|syotto} (raaka aika; 3-portainen taso lasketaan näytöllä eerikkilaTaso:lla) +
-    // testit.{id}_protokolla:'hh'. TK → arvo on jo testitSkalaari:ssa TKI-laskentaan (onTekniikka) + protokolla:'tk'.
-    const protoValinta = (tuontiData.meta && tuontiData.meta.protoValinta) || {};
-    [['pujottelu', 'pujottelu_hh'], ['syotto', 'syotto_hh']].forEach(function(pari) {
-      const avain = pari[0];
-      const raaka = (testitSkalaari[pari[0]] != null && !isNaN(testitSkalaari[pari[0]])) ? testitSkalaari[pari[0]]
-                  : (testitSkalaari[pari[1]] != null && !isNaN(testitSkalaari[pari[1]])) ? testitSkalaari[pari[1]] : null;
-      if (raaka == null) return;
-      const valinta = protoValinta[avain] || (onTekniikka ? 'tk' : 'hh');
-      testit[avain + '_protokolla'] = valinta;          // protokollamerkintä testitulos-dokumenttiin
-      if (valinta === 'hh') {
-        if (!hhViimeisin) hhViimeisin = {};
-        hhViimeisin[avain] = raaka;                      // H-H 3-portainen testi → hh_viimeisin
-      }
+    // H-H pujottelu/syöttö (reititetty tunnisteelle yllä, PR G) → hh_viimeisin.{pujottelu|syotto} (raaka aika; 3-portainen
+    // taso lasketaan näytöllä eerikkilaTaso:lla).
+    Object.keys(_hhTekn).forEach(function(avain) {
+      if (!hhViimeisin) hhViimeisin = {};
+      hhViimeisin[avain] = _hhTekn[avain];
     });
 
     const pvmRaw = p.testauspvm || (tapahtuma && tapahtuma.pvm) || '';
@@ -3967,19 +3988,20 @@ async function _adminLaskeTkiUudelleen() {
       if (!sp || !ika) { ohitettu++; return; }
       const rajatOverride = d.merkkirajat || null;  // käytä PDF:ään tallennettuja rajoja jos saatavilla
       // kokonaistulos: litteä kenttä jos on, muuten laske testit-mapista (käsittelee pituuspotku-bonuksen ika>=12).
-      const kt = (d.kokonaistulos_s != null) ? d.kokonaistulos_s : laskeKokonaistulos(d.testit || {}, ika, sp);
+      const _dTestit = _tkHhNorm(d.testit, d.protokolla);   // PR G: H-H-pujottelu/-syöttö EI TK-laskentaan
+      const kt = (d.kokonaistulos_s != null) ? d.kokonaistulos_s : laskeKokonaistulos(_dTestit, ika, sp);
       // tki/merkki voivat olla null (esim. ika sarjan 8–13 ulkopuolella → ei rajaa). Kirjoitetaan SILTI null
       // (EI ohiteta pelaajaa) jotta vanha väärä arvo nollautuu pelaajadokumentista.
       const tki = tkLaskeTKI(kt, ika, sp, rajatOverride);
       const merkki = tkLaskeMerkki(kt, ika, sp, rajatOverride);
-      const vk = _laskeVahvuudetJaKehityskohteet({ testit: d.testit || {} }, { ika: ika });
+      const vk = _laskeVahvuudetJaKehityskohteet({ testit: _dTestit }, { ika: ika });
       const pika = { tki_viimeisin: (tki == null ? null : tki), tki_pvm: d.pvm || d.testauspvm || '' };
       pika.tki_merkki = merkki || null;   // kirjoita AINA (myös null)
       if (vk.vahvuudet[0]) pika.tki_vahvuus = vk.vahvuudet[0].laji;
       if (vk.kehityskohteet[0]) pika.tki_kehityskohde = vk.kehityskohteet[0].laji;
       // TKI-analyysimalli VAIHE 1 — per-laji + kokonaistulos (null kun ei TKI:tä → nollaa vanha).
       // recalc EI vangitse _edellinen (norm-migraatio ≠ kehitys, §29).
-      const _tkLajit = (tki == null) ? null : _tkLajitPikakentat(d.testit || {}, ika);
+      const _tkLajit = (tki == null) ? null : _tkLajitPikakentat(_dTestit, ika);
       pika.tk_lajit_viimeisin = _tkLajit;
       pika.tk_lajit_pvm = _tkLajit ? (d.pvm || d.testauspvm || '') : null;
       pika.tk_kokonaistulos_viimeisin = (tki == null ? null : kt);
@@ -4060,16 +4082,17 @@ window.recalcIkaluokasta = async function(seuraIdArg, suodatusJoukkue, dryRun) {
     const ika = parseInt(ikaluokka.replace(/[^0-9]/g, ''), 10);
     if (!ika || ika < 8 || ika > 13) { ohitettu++; return; }
     // kokonaistulos: litteä kenttä jos on, muuten laske testit-mapista (pituuspotku-bonus ika>=12 mukana).
-    const kt = (d.kokonaistulos_s != null) ? d.kokonaistulos_s : laskeKokonaistulos(d.testit || {}, ika, sp);
+    const _dTestit = _tkHhNorm(d.testit, d.protokolla);   // PR G: H-H-pujottelu/-syöttö EI TK-laskentaan
+    const kt = (d.kokonaistulos_s != null) ? d.kokonaistulos_s : laskeKokonaistulos(_dTestit, ika, sp);
     // EI rajatOverride → TK_KOKONAISRAJAT[sp][ika] (ohittaa mahd. väärän tallennetun merkkirajat-kentän)
     const tki = tkLaskeTKI(kt, ika, sp);
     const merkki = tkLaskeMerkki(kt, ika, sp);
     const oikeatRajat = ((TK_KOKONAISRAJAT[sp] || TK_KOKONAISRAJAT.P)[ika]) || null;
-    const vk = _laskeVahvuudetJaKehityskohteet({ testit: d.testit || {} }, { ika: ika });
+    const vk = _laskeVahvuudetJaKehityskohteet({ testit: _dTestit }, { ika: ika });
     // Ohita vain jos pelaajan PIKAKENTÄT ovat JO oikein (vertaa pikakenttiin, EI testitulokseen).
     // VAIHE 1: ohita vasta kun MYÖS tk_lajit_viimeisin on olemassa → ensimmäinen ajo populoi lajipikakentät.
     if (t.pel.tki_viimeisin === tki && t.pel.tki_merkki === (merkki || null) && t.pel.tk_lajit_viimeisin != null) { ohitettu++; return; }
-    const _tkLajit = (tki == null) ? null : _tkLajitPikakentat(d.testit || {}, ika);
+    const _tkLajit = (tki == null) ? null : _tkLajitPikakentat(_dTestit, ika);
     const _d2tk = (_tkLajit && typeof laskeD2Tekninen === 'function') ? laskeD2Tekninen(_tkLajit, ika, sp) : null;   // D2-input TK-lajitasoista (§8.7)
     muutokset.push({
       pelRef: t.ref, tulRef: valittu.ref,
@@ -4406,12 +4429,15 @@ window.backfillHistoria = async function(seuraIdArg, dryRun) {
   // testit-mäpin skalaari (string TAI {paras,tulos}) → numero
   const skal = function(v){ if (v == null) return null; if (typeof v === 'object') { const x = (v.tulos != null ? v.tulos : v.paras); return x != null ? parseFloat(x) : null; } const n = parseFloat(v); return isNaN(n) ? null : n; };
   // testit-mäppi → hh_viimeisin-muotoinen hv (cmj ← hyppy_cj)
-  const hvOf = function(testit){ testit = testit || {}; const hv = {};
-    ['lin5m','lin10m','lin30m','mas','kasirata','sm_juoksu','sm_pallo','pujottelu','syotto'].forEach(function(k){ const v = skal(testit[k]); if (v != null) hv[k] = v; });
+  // PR G: H-H-pujottelu/-syöttö TUNNISTEELLA (pujottelu_hh/syotto_hh tai vanha 'pujottelu' + _protokolla:'hh' →
+  // _tkHhNorm) → hh_historia.{pujottelu|syotto}; TK-avain 'pujottelu' (TK-dokki tai merkintä 'tk') EI H-H-historiaan.
+  const hvOf = function(testit, proto){ testit = _tkHhNorm(testit, proto); const hv = {};
+    ['lin5m','lin10m','lin30m','mas','kasirata','sm_juoksu','sm_pallo'].forEach(function(k){ const v = skal(testit[k]); if (v != null) hv[k] = v; });
+    [['pujottelu_hh','pujottelu'],['syotto_hh','syotto']].forEach(function(pr){ const v = skal(testit[pr[0]]); if (v != null) hv[pr[1]] = v; });
     const cmj = skal(testit.hyppy_cj != null ? testit.hyppy_cj : testit.cmj); if (cmj != null) hv.cmj = cmj;
     return hv; };
   // TK-lajit testit-mäpistä (aikapohjaiset) → tkLajit
-  const tkLajitOf = function(testit, d){ testit = testit || {}; const tk = {};
+  const tkLajitOf = function(testit, d){ testit = _tkHhNorm(testit, d && d.protokolla); const tk = {};   // PR G: H-H-arvo ei TK-historiaan
     ['ponnauttelu','syotto','pujottelu','kuljetus_laukaus','pituuspotku_bonus','kokonaistulos'].forEach(function(k){ const v = skal(testit[k]); if (v != null) tk[k] = v; });
     if (tk.kokonaistulos == null && d && d.kokonaistulos_s != null) { const v = skal(d.kokonaistulos_s); if (v != null) tk.kokonaistulos = v; }
     return tk; };
@@ -4445,7 +4471,7 @@ window.backfillHistoria = async function(seuraIdArg, dryRun) {
         const snapT = tmTkiSnapshot(pvm, { tki: skal(d.tki), tkLajit: tkLajitOf(d.testit, d) });
         if (Object.keys(snapT).length > 1) tki_historia = tmHistoriaLisaa(tki_historia, snapT);   // pvm + ≥1 mitattu
       } else {
-        const hv = hvOf(d.testit);
+        const hv = hvOf(d.testit, d.protokolla);
         if (!Object.keys(hv).length) return;                  // ei fyysistä dataa tässä docissa
         let hh_taso = null, d1_taso = null;                    // tasot best-effort (samat helperit kuin recalcHH)
         if (sp && p.syntymaVuosi && typeof normiIka === 'function') {

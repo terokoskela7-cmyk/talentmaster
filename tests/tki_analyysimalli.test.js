@@ -26,11 +26,17 @@ const {
 // tkLajiViite — viitetaso loppukilpailudatasta, EI interpolointia
 // ═══════════════════════════════════════════════════════════════════
 describe('tkLajiViite', () => {
-  it('P12 pujottelu → valtakunnallinen viite + n + lahde', () => {
-    expect(tkLajiViite('pujottelu', 12, 'P')).toEqual({ erinomainen: 24.2, hyva: 24.9, n: 12, lahde: 'valtakunnallinen' });
+  // PR G (4.10.2026): oletuslähde on AINA alueellinen (ennen sekalähde: P12/T12 valtakunnallinen). Valtakunnallinen
+  // loppukilpailutaso haetaan eksplisiittisesti 4. parametrilla — arvot ennallaan, vain lähdevalinta muuttui.
+  it('P12 pujottelu → oletus ALUEELLINEN viite + n + lahde', () => {
+    expect(tkLajiViite('pujottelu', 12, 'P')).toEqual({ erinomainen: 24.1, hyva: 24.8, n: 20, lahde: 'alueellinen' });
   });
-  it('T12 syotto → valtakunnallinen + n=7', () => {
-    expect(tkLajiViite('syotto', 12, 'T')).toEqual({ erinomainen: 36.5, hyva: 37.0, n: 7, lahde: 'valtakunnallinen' });
+  it('P12 pujottelu, lahde valtakunnallinen → loppukilpailutaso (ennen oletus)', () => {
+    expect(tkLajiViite('pujottelu', 12, 'P', 'valtakunnallinen')).toEqual({ erinomainen: 24.2, hyva: 24.9, n: 12, lahde: 'valtakunnallinen' });
+  });
+  it('T12 syotto → oletus alueellinen; valtakunnallinen n=7 eksplisiittisesti', () => {
+    expect(tkLajiViite('syotto', 12, 'T')).toEqual({ erinomainen: 35.6, hyva: 36.5, n: 20, lahde: 'alueellinen' });
+    expect(tkLajiViite('syotto', 12, 'T', 'valtakunnallinen')).toEqual({ erinomainen: 36.5, hyva: 37.0, n: 7, lahde: 'valtakunnallinen' });
   });
   it('P11 → ALUEELLINEN viite (resync: ei enää null)', () => {
     expect(tkLajiViite('pujottelu', 11, 'P')).toEqual({ erinomainen: 25.7, hyva: 26.4, n: 20, lahde: 'alueellinen' });
@@ -50,8 +56,9 @@ describe('tkLajiViite', () => {
   it('pituuspotku_bonus ika < 12 (P10) → null (lajia ei ole alle 12)', () => {
     expect(tkLajiViite('pituuspotku_bonus', 10, 'P')).toBeNull();
   });
-  it('pituuspotku_bonus P12 → käänteinen viite löytyy', () => {
-    expect(tkLajiViite('pituuspotku_bonus', 12, 'P')).toEqual({ erinomainen: 13.2, hyva: 12.4, n: 12, lahde: 'valtakunnallinen' });
+  it('pituuspotku_bonus P12 → käänteinen viite löytyy (alueellinen oletus + valtakunnallinen eksplisiittisesti)', () => {
+    expect(tkLajiViite('pituuspotku_bonus', 12, 'P')).toEqual({ erinomainen: 14.1, hyva: 13.3, n: 20, lahde: 'alueellinen' });
+    expect(tkLajiViite('pituuspotku_bonus', 12, 'P', 'valtakunnallinen')).toEqual({ erinomainen: 13.2, hyva: 12.4, n: 12, lahde: 'valtakunnallinen' });
   });
   it('tuntematon laji / sp → null', () => {
     expect(tkLajiViite('xxx', 12, 'P')).toBeNull();
@@ -63,25 +70,27 @@ describe('tkLajiViite', () => {
 // tkLajiGapit — gap vs viite, järjestys gap_s laskevasti, käänteinen pituuspotku
 // ═══════════════════════════════════════════════════════════════════
 describe('tkLajiGapit', () => {
+  // PR G: gapit lasketaan oletuslähteestä = ALUEELLINEN (P12 ennen valtakunnallinen) → odotukset alueellisilla P12-arvoilla.
   it('järjestys gap_s laskevasti (suurin potentiaali ensin)', () => {
-    // P12: ponnauttelu hyva 16.2 (gap 3.8) · syotto hyva 34.8 (gap 5.2) ·
-    //      pujottelu hyva 24.9 (gap 0, erinomainen) · kuljetus_laukaus hyva 14.5 (gap 0)
-    const r = tkLajiGapit({ ponnauttelu_s: 20.0, syotto_s: 40.0, pujottelu_s: 24.0, kuljetus_laukaus_s: 14.0 }, 12, 'P');
-    expect(r.map(x => x.laji)).toEqual(['syotto', 'ponnauttelu', 'pujottelu', 'kuljetus_laukaus']);
-    expect(r[0].gap_s).toBe(5.2);
-    expect(r[1].gap_s).toBe(3.8);
-    expect(r[2].taso).toBe('erinomainen'); // pujottelu 24.0 <= 24.2
+    // P12 alue: ponnauttelu hyva 16.5 (gap 3.5) · syotto hyva 36.5 (gap 5.5) ·
+    //           pujottelu hyva 24.8 (24.0 ≤ erinomainen 24.1) · kuljetus_laukaus hyva 11.7 (gap 2.3)
+    const r = tkLajiGapit({ ponnauttelu_s: 20.0, syotto_s: 42.0, pujottelu_s: 24.0, kuljetus_laukaus_s: 14.0 }, 12, 'P');
+    expect(r.map(x => x.laji)).toEqual(['syotto', 'ponnauttelu', 'kuljetus_laukaus', 'pujottelu']);
+    expect(r[0].gap_s).toBe(5.5);
+    expect(r[1].gap_s).toBe(3.5);
+    expect(r[3].taso).toBe('erinomainen'); // pujottelu 24.0 <= 24.1
+    expect(r[0].viite.lahde).toBe('alueellinen');
   });
   it('aikalaji taso: erinomainen/hyva/kehitettava', () => {
-    const r = tkLajiGapit({ kuljetus_laukaus_s: 16.0 }, 12, 'P'); // hyva 14.5, erinomainen 13.5
-    expect(r[0].taso).toBe('kehitettava'); // 16.0 > 14.5
-    expect(r[0].gap_s).toBe(1.5);
+    const r = tkLajiGapit({ kuljetus_laukaus_s: 16.0 }, 12, 'P'); // alue hyva 11.7, erinomainen 8.6
+    expect(r[0].taso).toBe('kehitettava'); // 16.0 > 11.7
+    expect(r[0].gap_s).toBe(4.3);
   });
   it('pituuspotku_bonus KÄÄNTEINEN (suurempi = parempi)', () => {
-    const matala = tkLajiGapit({ pituuspotku_bonus_s: 8 }, 12, 'P'); // hyva 12.4 → gap 4.4
-    expect(matala[0].gap_s).toBe(4.4);
+    const matala = tkLajiGapit({ pituuspotku_bonus_s: 8 }, 12, 'P'); // alue hyva 13.3 → gap 5.3
+    expect(matala[0].gap_s).toBe(5.3);
     expect(matala[0].taso).toBe('kehitettava');
-    const korkea = tkLajiGapit({ pituuspotku_bonus_s: 15 }, 12, 'P'); // > erinomainen 13.2 → gap 0
+    const korkea = tkLajiGapit({ pituuspotku_bonus_s: 15 }, 12, 'P'); // > erinomainen 14.1 → gap 0
     expect(korkea[0].gap_s).toBe(0);
     expect(korkea[0].taso).toBe('erinomainen');
   });

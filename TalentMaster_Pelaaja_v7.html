@@ -529,7 +529,7 @@ input::placeholder,textarea::placeholder{color:#8C8B86;opacity:1}
 <script src="lib/tm_verkko.js?v=1"></script>   <!-- verkkokatko: 1 uudelleenyritys + Yhteyskatko-ilmoitus + Sentry warning -->
 <script src="lib/tm_lang.js?v=30"></script>   <!-- i18n V0 putki · V1-A/A2 · V4-A3: +pelaaja.nain_teet/kirjaa_tehdyksi/pallo_joka_paiva/rae_q4 (kotinäytön chrome sv) -->
 <script src="lib/tm_eerikkila_normit.js?v=46"></script>
-<script src="docs/testit_indeksit.js?v=11"></script>
+<script src="docs/testit_indeksit.js?v=12"></script>
 <script src="lib/tm_havaintohistoria.js?v=1"></script>   <!-- vain tmHhRivit: jarjestys + tekijanimi (ei pisteita, 7.22) -->
 <script src="harjoitelogiikka_v4.js?v=13"></script>
 <script src="lib/tm-microcycles.js?v=3"></script>
@@ -548,7 +548,7 @@ input::placeholder,textarea::placeholder{color:#8C8B86;opacity:1}
 <script src="lib/tm_kortti_rubriikit.js?v=1"></script> <!-- Kortin FYS+PSY-tasokuvaus (TM_KORTTI_RUBRIIKIT, §7.22/§28) · sama kuvio kuin ÄLY/TEK -->
 <script src="lib/tm_pelialy_yksilo.js?v=3"></script>   <!-- Peliäly-lohko: ADAR §4-ikäportitus (Malli A, tmAdarBand/Yht/BonusOsat, PR #266) -->
 <script src="lib/tm_alusta.js?v=1"></script>   <!-- PR F: yksi §22-alustasanasto (TM_ALUSTA) -->
-<script src="lib/tm_kehityskaari.js?v=5"></script>   <!-- Trendi Vaihe 2: kehityskaari (§7.22 kannustava) · v4 = K4 (FLEI "Kehon valmius" + §22 alusta-vartija pelaaja-renderissä) -->
+<script src="lib/tm_kehityskaari.js?v=6"></script>   <!-- Trendi Vaihe 2: kehityskaari (§7.22 kannustava) · v4 = K4 (FLEI "Kehon valmius" + §22 alusta-vartija pelaaja-renderissä) -->
 </head>
 <body>
 <div class="wrap">
@@ -1544,10 +1544,12 @@ function _tekniikkaPikakentista(p) {
   const onTki = (p.tki_viimeisin != null && p.tki_viimeisin !== '');
   if (!onTki && !Object.keys(testit).length) {
     // §30 joustava + §7.22: ei tekniikkakilpailua → fallback H-H syöttö/pujottelu LAPSEN KIELELLÄ (sekunnit, EI tasolukuja).
+    // PR G: hh_viimeisin.{syotto|pujottelu} = H-H-TESTI (eri rata/protokolla kuin tekniikkakisa) → nimetty selvästi H-H-testiksi,
+    // ettei H-H-sekunteja luule tekniikkakisan ajoiksi (eikä niitä koskaan verrata TK-viitteeseen tai -tavoitteeseen).
     const _hh = p.hh_viimeisin || {};
     const _hhTekn = [];
-    if (_hh.syotto != null)    _hhTekn.push({ laji: 'syotto',    nimi: 'Syöttö',    aika: _hh.syotto });
-    if (_hh.pujottelu != null) _hhTekn.push({ laji: 'pujottelu', nimi: 'Pujottelu', aika: _hh.pujottelu });
+    if (_hh.syotto != null)    _hhTekn.push({ laji: 'syotto_hh',    nimi: 'Syöttö (H-H-testi)',    aika: _hh.syotto });
+    if (_hh.pujottelu != null) _hhTekn.push({ laji: 'pujottelu_hh', nimi: 'Pujottelu (H-H-testi)', aika: _hh.pujottelu });
     return { tyhja: true, hhTekn: _hhTekn.length ? _hhTekn : null };
   }
   const T = window.TM_TESTIT || {};
@@ -1659,7 +1661,7 @@ function _tekKorttiData(p) {
   const T = window.TM_TESTIT;
   const sp = (String(p.sukupuoli || '').toUpperCase() === 'N') ? 'T' : 'P';
   const ika = p.syntymaVuosi ? (new Date().getFullYear() - p.syntymaVuosi) : null;
-  const viiteOf = function (laji) { return (T && T.tkLajiViite && ika != null) ? T.tkLajiViite(laji, ika, sp) : null; };
+  const viiteOf = function (laji) { return (T && T.tkLajiViite && ika != null) ? T.tkLajiViite(laji, ika, sp, 'alueellinen') : null; };   // PR G: lapsen tavoite AINA alueellisesta (ei loppukilpailutasoa)
   let vahvuus = null, kehitys = null;
   if (p.tki_vahvuus && _minaTekLajiNimi(p.tki_vahvuus) !== p.tki_vahvuus) {
     const va = lajit[p.tki_vahvuus + '_s'], vv = viiteOf(p.tki_vahvuus);
@@ -1749,7 +1751,7 @@ function _tekTavoiteSaate(p) {
       const T = window.TM_TESTIT;
       const sp = (String(p.sukupuoli || '').toUpperCase() === 'N') ? 'T' : 'P';
       const ika = p.syntymaVuosi ? (new Date().getFullYear() - p.syntymaVuosi) : null;
-      const viite = (T && T.tkLajiViite && ika != null && arvo != null) ? T.tkLajiViite(kk, ika, sp) : null;
+      const viite = (T && T.tkLajiViite && ika != null && arvo != null) ? T.tkLajiViite(kk, ika, sp, 'alueellinen') : null;
       if (!viite || arvo == null) return 'Tämä vie sinua kohti tavoitettasi: ' + nimi.toLowerCase();
       const kaant = (kk === 'pituuspotku_bonus');
       const tv = _minaValitavoite(arvo, viite, kaant);
@@ -2136,7 +2138,7 @@ function rMinaTekniikkaprofiili() {
     // näytä ne lapsen kielellä (sekunnit + ⚽, EI tasolukuja/vertailua) — muuten "kisa tulossa".
     let _body;
     if (d.hhTekn && d.hhTekn.length) {
-      _body = '<div style="font-size:13px;color:var(--text);margin-bottom:10px">⚽ Sinä olet harjoitellut näitä pallotaitoja!</div>'
+      _body = '<div style="font-size:13px;color:var(--text);margin-bottom:10px">⚽ Sinä olet harjoitellut näitä pallotaitoja H-H-testissä!</div>'
         + d.hhTekn.map(function (r) {
             return '<div style="display:flex;justify-content:space-between;align-items:baseline;padding:8px 0;border-top:.5px solid rgba(242,239,230,.08)">'
               + '<span style="font-size:14px;color:var(--text)">' + r.nimi + '</span>'
@@ -2801,7 +2803,7 @@ function _kkMerkkiTaso(p, laji) {
   var T = window.TM_TESTIT;
   var sp = (String(p.sukupuoli || '').toUpperCase() === 'N') ? 'T' : 'P';
   var ika = p.syntymaVuosi ? (new Date().getFullYear() - p.syntymaVuosi) : null;
-  var viite = (T && T.tkLajiViite && ika != null) ? T.tkLajiViite(laji, ika, sp) : null;
+  var viite = (T && T.tkLajiViite && ika != null) ? T.tkLajiViite(laji, ika, sp, 'alueellinen') : null;   // PR G: merkki alueellisesta
   if (!viite) return 1;
   if (arvo <= viite.erinomainen) return 3;
   if (arvo <= viite.hyva) return 2;
