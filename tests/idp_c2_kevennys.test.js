@@ -126,7 +126,7 @@ function viikkoKuorma(pLisa) {
 
 /* ══ (2) AINA NÄKYVISSÄ ═════════════════════════════════════════════════════ */
 describe('(2) tila, tiivistys ja luvut pysyvät näkyvissä (ne eivät saa piiloutua)', () => {
-  const kypsyys = aja(['function _vpPhvTila(koodi) {', 'function _vpPhvBadgeHTML(koodi, selite) {',
+  const kypsyys = aja(['function _vpPhvTila(koodi) {', 'function _vpPhvNayttoKoodi(p) {', 'function _vpPhvBadgeHTML(koodi, selite) {',
     'function _vpMittausKypsyysHTML(p) {'], '_vpMittausKypsyysHTML(__p)', { __p: P_JALKI });
   const tiivistys = aja(['function _vpMittausProfiili(p, d1, d2, tsi) {',
     'function _vpMittausTiivistysHTML(p, ika, d1, d2, tsi) {'],

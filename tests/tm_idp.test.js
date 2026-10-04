@@ -77,14 +77,14 @@ describe('Heikoin-valinta + §28 (idpValitseHeikoin)', () => {
       { avain: 'vision', dim: 'D4', taso: 2, lahde: 'havaittu' },
       { avain: 'balance', dim: 'D1', taso: 1, lahde: 'havaittu' }
     ];
-    expect(idpValitseHeikoin(kand, { phv_tila: 'PH' }).avain).toBe('balance');
+    expect(idpValitseHeikoin(kand, { phv_tila: 'PH', biologinenIka_viimeisin: { phv_tila_koodi: 'PH' } }).avain).toBe('balance');
   });
   it('pre-PHV: heikko speed (mitattu taso 1) OHITETAAN, valitaan tekniikka', () => {
     const kand = [
       { avain: 'speed', dim: 'D1', taso: 1, lahde: 'mitattu' },           // gated pre-PHV
       { avain: 'short_passing', dim: 'D2', taso: 3, lahde: 'mitattu' }     // ei gated
     ];
-    const v = idpValitseHeikoin(kand, { phv_tila: 'PRE' });
+    const v = idpValitseHeikoin(kand, { phv_tila: 'PRE', biologinenIka_viimeisin: { phv_tila_koodi: 'PRE' } });
     expect(v.avain).toBe('short_passing');   // speed estetty → tekniikka
   });
   it('pre-PHV: tekniikka (D2) etusijalla vaikka fyysinen ei-gated matalampi', () => {
@@ -92,11 +92,11 @@ describe('Heikoin-valinta + §28 (idpValitseHeikoin)', () => {
       { avain: 'mobility', dim: 'D1', taso: 1, lahde: 'mitattu' },        // ei gated, mutta D1
       { avain: 'dribbling', dim: 'D2', taso: 2, lahde: 'mitattu' }        // D2 → etusija pre-PHV
     ];
-    expect(idpValitseHeikoin(kand, { phv_tila: 'LAH' }).avain).toBe('dribbling');
+    expect(idpValitseHeikoin(kand, { phv_tila: 'LAH', biologinenIka_viimeisin: { phv_tila_koodi: 'LAH' } }).avain).toBe('dribbling');
   });
   it('kaikki gated pre-PHV + ei muita → null', () => {
     const kand = [{ avain: 'speed', dim: 'D1', taso: 1, lahde: 'mitattu' }, { avain: 'power', dim: 'D1', taso: 1, lahde: 'mitattu' }];
-    expect(idpValitseHeikoin(kand, { phv_tila: 'PRE' })).toBeNull();
+    expect(idpValitseHeikoin(kand, { phv_tila: 'PRE', biologinenIka_viimeisin: { phv_tila_koodi: 'PRE' } })).toBeNull();
   });
 });
 
@@ -116,7 +116,7 @@ describe('Tavoitearvo-johto (idpTavoitearvo, Achievable §28)', () => {
 describe('idpEhdotaTavoite — kokonaisluonnos', () => {
   it('Sibbo-tyyppinen (tki_kehityskohde) → status ehdotettu, lahde moottori, fokus D2', () => {
     const p = { tki_kehityskohde: 'syotto', tk_lajit_viimeisin: { syotto_s: 18 }, tk_lajit_pvm: '2026-03-10',
-      d1_taso: 3.5, d2_taso: 2.1, phv_tila: 'LAH' };
+      d1_taso: 3.5, d2_taso: 2.1, phv_tila: 'LAH', biologinenIka_viimeisin: { phv_tila_koodi: 'LAH' } };
     const t = idpEhdotaTavoite(p, baseOpts);
     expect(t.status).toBe('ehdotettu');
     expect(t.lahde).toBe('moottori');
@@ -129,19 +129,19 @@ describe('idpEhdotaTavoite — kokonaisluonnos', () => {
   });
   it('pre-PHV heikko fysiikka + tekniikkakohde → fokus tekniikka (ei fysiikka)', () => {
     const p = { hh_viimeisin: { lin30m: 6.2, cmj: 20, mas: 10 }, tki_kehityskohde: 'pujottelu',
-      tk_lajit_viimeisin: { pujottelu_s: 22 }, phv_tila: 'PRE', d1_taso: 2, d2_taso: 2 };
+      tk_lajit_viimeisin: { pujottelu_s: 22 }, phv_tila: 'PRE', biologinenIka_viimeisin: { phv_tila_koodi: 'PRE' }, d1_taso: 2, d2_taso: 2 };
     const t = idpEhdotaTavoite(p, baseOpts);
     expect(t.fokus.dim).toBe('D2');   // §28: heikko 30m/MAS/CMJ pre-PHV ei kelpaa → tekniikka
   });
   it('§7b — perustelu.teksti + perustelu.pelilause sisältää pelisovelluslauseen (mitattu D2)', () => {
-    const p = { tki_kehityskohde: 'syotto', tk_lajit_viimeisin: { syotto_s: 18 }, tk_lajit_pvm: '2026-03-10', d1_taso: 3.5, d2_taso: 2.1, phv_tila: 'LAH' };
+    const p = { tki_kehityskohde: 'syotto', tk_lajit_viimeisin: { syotto_s: 18 }, tk_lajit_pvm: '2026-03-10', d1_taso: 3.5, d2_taso: 2.1, phv_tila: 'LAH', biologinenIka_viimeisin: { phv_tila_koodi: 'LAH' } };
     const t = idpEhdotaTavoite(p, baseOpts);
     expect(t.perustelu.pelilause).toBe('Näkyy ottelussa: uskallus avata peli eteenpäin paineessa.');   // short_passing
     expect(t.perustelu.teksti).toContain('Näkyy ottelussa');
     expect(t.perustelu.teksti).toMatch(/pelissä|ottelussa/i);
   });
   it('§7b — pelilause myös havaitulle (peliäly), ei jää irralliseksi testisuoritukseksi', () => {
-    const p = { arviointi_havaittu: { vision: 2 }, phv_tila: 'PH' };
+    const p = { arviointi_havaittu: { vision: 2 }, phv_tila: 'PH', biologinenIka_viimeisin: { phv_tila_koodi: 'PH' } };
     const t = idpEhdotaTavoite(p, baseOpts);
     expect(t.fokus.alue).toBe('vision');
     expect(t.perustelu.pelilause).toBe('Näkyy pelissä: syöttöikkunan näkeminen ennen palloa.');
@@ -149,7 +149,7 @@ describe('idpEhdotaTavoite — kokonaisluonnos', () => {
   });
   it('§7b — geneerinen fallback kun avaimelle ei mäppäystä', () => {
     // physical_presence: ei IDP_PELILAUSE-avainta → dim-fallback (D1)
-    const p = { arviointi_havaittu: { physical_presence: 1 }, phv_tila: 'PH' };
+    const p = { arviointi_havaittu: { physical_presence: 1 }, phv_tila: 'PH', biologinenIka_viimeisin: { phv_tila_koodi: 'PH' } };
     const t = idpEhdotaTavoite(p, baseOpts);
     expect(t.perustelu.pelilause).toMatch(/Näkyy pelissä|näkyy pelissä/i);
     expect(t.perustelu.teksti).toContain(t.perustelu.pelilause);
@@ -490,7 +490,7 @@ describe('idpPelaajaKonsepti (mikä/miksi/mieti)', () => {
 
 describe('Kandidaattikierto (idpValitseHeikoin idx + idpEhdotaTavoite ehdotusIdx)', () => {
   // 3 havaittu-kandidaattia eri tasoilla → kierto käy kaikki läpi ja palaa alkuun.
-  const p = { arviointi_havaittu: { balance: 1, vision: 2, ball_control: 2 }, phv_tila: 'PH' };
+  const p = { arviointi_havaittu: { balance: 1, vision: 2, ball_control: 2 }, phv_tila: 'PH', biologinenIka_viimeisin: { phv_tila_koodi: 'PH' } };
   it('idx kiertää järjestettyä listaa (heikoin = idx 0)', () => {
     const kand = idpKeraaKandidaatit(p, baseOpts);
     const lista = idpJarjestaKandidaatit(kand, p);
@@ -509,7 +509,7 @@ describe('Kandidaattikierto (idpValitseHeikoin idx + idpEhdotaTavoite ehdotusIdx
     expect(idpKandidaatitJarjestetty(p, baseOpts).length).toBe(3);
   });
   it('1 kandidaatti → lista pituus 1 (VP näyttää vihjeen)', () => {
-    const p1 = { arviointi_havaittu: { vision: 2 }, phv_tila: 'PH' };
+    const p1 = { arviointi_havaittu: { vision: 2 }, phv_tila: 'PH', biologinenIka_viimeisin: { phv_tila_koodi: 'PH' } };
     expect(idpKandidaatitJarjestetty(p1, baseOpts).length).toBe(1);
   });
 });
@@ -566,7 +566,7 @@ describe('§4 — §28 kypsyysvaroitus ilman PHV-dataa', () => {
     expect(t.perustelu.teksti).toMatch(/[Kk]ypsyysdataa/);
   });
   it('fyysinen fokus PHV:n kanssa → EI varoitusta', () => {
-    const p = { hh_viimeisin: { mas: 9 }, phv_tila: 'PH' };
+    const p = { hh_viimeisin: { mas: 9 }, phv_tila: 'PH', biologinenIka_viimeisin: { phv_tila_koodi: 'PH' } };
     const t = idpRakennaTavoite(p, idpKohdeKandidaatti(p, 'endurance', baseOpts), baseOpts);
     expect(t.perustelu.kypsyysvaroitus).toBeNull();
   });

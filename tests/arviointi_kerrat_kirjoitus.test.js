@@ -66,6 +66,7 @@ function tynka(olemassa) {
 const PELAAJA = {
   id: 'p1', tunniste: '12345678', joukkue: 'SJK P13', positio: 'KP',
   phv_tila: 'PRE', rae_kvartaali: 'Q2', kehitysvaihe_kaista: 'pre',
+  biologinenIka_viimeisin: { phv_tila_koodi: 'PRE' },   // PR C: tilannekuvaan vain MITATTU PHV-tila (lib/tm_phv_tila.js)
   arviointi_havaittu: {},
 };
 
@@ -88,6 +89,7 @@ async function tallenna(opts) {
     _jsvEsc: (s) => String(s == null ? '' : s),
     vpT: (s) => s,
     console: { warn: () => {} },
+    tmPhvKoodi: vaadi('../lib/tm_phv_tila.js').tmPhvKoodi,   // PR C: VP lataa lib/tm_phv_tila.js:n
     ARVIOINTI_KEHYS_OLETUS: 'palloliitto',
   };
   store.window.window = store.window;
@@ -445,6 +447,7 @@ async function tallennaPotentiaali(opts) {
     document: { getElementById: () => null },
     toast: () => {}, vpT: (s) => s, _jsvEsc: (s) => String(s == null ? '' : s),
     console: { warn: () => {} },
+    tmPhvKoodi: vaadi('../lib/tm_phv_tila.js').tmPhvKoodi,   // PR C
     _vpIdpPelaaja: () => p,
     _vpSeurantaOnJohto: () => true,
     _vpPotTaso: () => 'kansallinen',

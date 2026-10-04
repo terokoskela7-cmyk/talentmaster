@@ -147,3 +147,42 @@ describe('INVARIANTIT — EI saa rikkoa refaktoroinnissa', () => {
     expect(d.adar_override).toBe(false);
   });
 });
+
+// ── PR C (PHV-sanaston yhtenäistys, 4.10.2026) ────────────────────────────────────────────────────
+// Kirjoitettu ENNEN muutosta: "ennallaan"-testit olivat vihreinä vanhalla koodilla, "PR C:" -testit
+// punaisina. Vanha koodi luki puuttuvan tilan oletuksella 'AN' ja tulkitsi AN:n pre-PHV:ksi
+// (vanha lomakesanasto) — nyt kanoninen Mirwald + sääntö 3 (ilman mittausta = 'tuntematon').
+describe('generoimTehtavat — PHV (PR C)', () => {
+  const mitattu = (koodi) => ({ phv_tila: koodi, biologinenIka_viimeisin: { phv_tila_koodi: koodi, mittauspaiva: '2026-09-01' } });
+  const pohja = { ika: 14, flei_ketjut: { SBL: 20, SFL: 80, LL: 80, DIAG: 80, DFL: 80 }, luotu: '2026-02-01' };
+  const dTehtava = (extra) => lib.generoimTehtavat(Object.assign({}, pohja, extra), PVM).find((x) => x.tyyppi === 'D');
+
+  it('mitattu PH → PH-variantti ⚠️-merkillä (ennallaan)', () => {
+    expect(dTehtava(mitattu('PH')).ohje).toMatch(/⚠️ Naruhypyt 2×10s kevyesti/);
+  });
+
+  it('mitattu AN (jälki-PHV) → normaali ohje ilman varianttia (ennallaan)', () => {
+    const d = dTehtava(mitattu('AN'));
+    expect(d.ohje).not.toMatch(/Naruhypyt 2×10s kevyesti/);
+    expect(d.ohje).not.toMatch(/⚠️/);
+  });
+
+  it('PR C: puuttuva tila → varovainen variantti (ennen: oletus AN → täysi kuorma), EI ⚠️-PH-varoitusta', () => {
+    const d = dTehtava({});
+    expect(d.ohje).toMatch(/Naruhypyt 2×10s kevyesti/);
+    expect(d.ohje).not.toMatch(/⚠️/);
+    expect(d.ohje).not.toMatch(/PHV/);
+  });
+
+  it('PR C: AN ilman mittausta (Topias) → tuntematon → varovainen variantti ilman ⚠️ (ennen: täysi kuorma)', () => {
+    const d = dTehtava({ phv_tila: 'AN' });
+    expect(d.ohje).toMatch(/Naruhypyt 2×10s kevyesti/);
+    expect(d.ohje).not.toMatch(/⚠️/);
+  });
+
+  it('PR C: lomakkeelta ilmoitettu PH (ei mittausta) → kuorma EI kevene, mutta lapselle ei ⚠️-PH-varoitusta', () => {
+    const d = dTehtava({ phv_tila: 'PH' });
+    expect(d.ohje).toMatch(/Naruhypyt 2×10s kevyesti/);
+    expect(d.ohje).not.toMatch(/⚠️/);
+  });
+});

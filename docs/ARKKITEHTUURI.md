@@ -115,7 +115,7 @@ seurat/
       tila: 'aktiivinen'
       kaytettavyys: 'aktiivinen'|'loukkaantunut'|'kuntoutuksessa'|'tauko'
       biologinen_ika{}             ← Mirwald 2002
-      phv_tila: 'PH'|'KV'|'AN'
+      phv_tila: 'PRE'|'LAH'|'PH'|'POST'|'AN'   ← Mirwald; voimassa vain biologinenIka_viimeisin-mittauksen kanssa (lib/tm_phv_tila.js, PR C)
 
       // FLEI — harjoitettavuuskartoitus
       // Raakadata 1.0–3.0, normalisointi (arvo-1)/2×100 = %

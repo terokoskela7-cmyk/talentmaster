@@ -758,6 +758,8 @@ describe('VP_v25 resolvi-portti — jokaisella reititetyllä avaimella on sv-riv
        sai Havainnot-linkin. sv tulee Gemini-erässä — omaa ruotsia ei kirjoiteta. */
     'Porras',
     'porras',
+    /* PR C (PHV-sanasto): henkilökunnan PH-badge lomakkeelta ilmoitetulle, mittaamattomalle PH:lle. sv Gemini-erässä. */
+    'ilmoitettu, ei mitattu',
     'uusi porras',
     'hallitsee',
     'kehittyvä',

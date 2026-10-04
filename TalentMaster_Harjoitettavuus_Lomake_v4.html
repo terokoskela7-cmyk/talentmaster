@@ -11,6 +11,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 <script src="lib/tm_pvm.js?v=3"></script>   <!-- tmPaivaIso: paikallinen päivä ("tänään" ≠ UTC-päivä klo 0–3) -->
+<script src="lib/tm_phv_tila.js?v=1"></script>   <!-- PR C: PHV-valinnat → kanoninen koodi (tmPhvTuontiKoodi) -->
 <script src="lib/tm_appcheck.js?v=1"></script>
 <!-- SheetJS -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -984,7 +985,7 @@ function rajaArvoTooltip(testiId) {
 //
 // Tyypit:
 //   'pisteet'  → liikelaatutesti, arvio 1–3p (ampelipainikkeet)
-//   'valinta'  → pudotusvalikko (PHV-tila: AN/PH/VA)
+//   'valinta'  → pudotusvalikko (PHV-tila: selkokieliset valinnat, arvona kanoninen koodi PRE/PH/POST — PR C)
 //   'luku_kg'  → voimatesti 5RM kilogrammoina — absoluuttinen luku, ei pisteytetä samoin
 //   'luku'     → numeerinen tulos (toistomäärä, senttimetri, sekuntia)
 //   'flei'     → lasketaan automaattisesti, ei syötetä käsin
@@ -994,13 +995,19 @@ function rajaArvoTooltip(testiId) {
 //   flei_voima      = voimatesteistä suhteellisena voimana (kg/kehonpaino)
 // Jos voimatestit puuttuvat (erillinen päivä), FLEI-kehonpaino lasketaan silti.
 
+// PR C (4.10.2026): kanoniset Mirwald-koodit — vanha AN/PH/VA-valikko poistettu (AN tarkoitti siinä päinvastaista
+// kuin kasvumittauksessa). Käyttäjä näkee selkokielisen tekstin, tallennukseen menee koodi.
+var PHV_OPTS = ['PRE', 'PH', 'POST'];
+var PHV_OPT_TEKSTI = { PRE: 'Ennen kasvupyrähdystä', PH: 'Kasvupyrähdyksessä', POST: 'Kasvupyrähdyksen jälkeen' };
+var PHV_OPT_LYHYT = { PRE: 'Ennen', PH: 'Kasvussa', POST: 'Jälkeen' };
+
 const TESTIT = {
 
   // ── U12: 9 testiä, max 27 pistettä ─────────────────────────────────
   // Painopiste: liiketaito + SSC + perusvoima kehonpainolla
   // Lähde: Palloliiton harjoitettavuuskartoitus 2026, s. 22
   U12: [
-    { id:'phv_tila',         label:'PHV-\ntila',              tyyppi:'valinta', opts:['AN','PH','VA'], w:65 },
+    { id:'phv_tila',         label:'PHV-\ntila',              tyyppi:'valinta', opts:PHV_OPTS, w:65 },
     { id:'valakyykky',       label:'Valakyykky\n(1-3p)',       tyyppi:'pisteet', w:80 },
     { id:'luistelijan_kyykky',label:'Luistelijan kyykky\n(1-3p)',tyyppi:'pisteet', w:92 },
     { id:'askelkyykky',      label:'Askelkyykky\n(1-3p)',      tyyppi:'pisteet', w:80 },
@@ -1018,7 +1025,7 @@ const TESTIT = {
   // ⚠️ Tarkista PHV-tila ENNEN testausta — PHV-huippu → MAX 60% kuorma
   // Lähde: Palloliiton harjoitettavuuskartoitus 2026, s. 23
   U15: [
-    { id:'phv_tila',         label:'PHV-\ntila',               tyyppi:'valinta', opts:['AN','PH','VA'], w:65 },
+    { id:'phv_tila',         label:'PHV-\ntila',               tyyppi:'valinta', opts:PHV_OPTS, w:65 },
     { id:'pistoolikyykky',   label:'Pistoolikyykky\n(1-3p)',   tyyppi:'pisteet', w:86 },
     { id:'etunojapunnerrus', label:'Etunojapunnerrus\n(1-3p)', tyyppi:'pisteet', w:92 },
     { id:'leuanveto',        label:'Leuanveto\n(1-3p)',        tyyppi:'pisteet', w:80 },
@@ -1049,7 +1056,7 @@ const TESTIT = {
   //   Voidaan tehdä kenttäolosuhteissa ilman salivälineitä.
   //   FLEI-kehonpaino lasketaan näistä heti kun lohko on täytetty.
   U19: [
-    { id:'phv_tila',         label:'PHV-\ntila',               tyyppi:'valinta', opts:['AN','PH','VA'], w:65 },
+    { id:'phv_tila',         label:'PHV-\ntila',               tyyppi:'valinta', opts:PHV_OPTS, w:65 },
     // ── Lohko A: Voimatestit 5RM ──
     { id:'takakyykky_5rm',   label:'Takakyykky 5RM\n(kg)',     tyyppi:'luku_kg', w:92, lohko:'voima' },
     { id:'trap_bar_5rm',     label:'Trap bar maastaveto 5RM\n(kg)', tyyppi:'luku_kg', w:105, lohko:'voima' },
@@ -1689,7 +1696,7 @@ function renderLomake(seuraId, joukkueId, ikäluokkaFilter, pvm) {
         html += `<td><select class="td-select" data-idx="${alkIdx}" data-kentta="${t.id}"
           onchange="merkkaaLikainen(${alkIdx}); laskeFlei(${alkIdx}); tarkistaPhv(${alkIdx},this.value,'${t.id}')">
           <option value=""></option>
-          ${t.opts.map(o => `<option value="${o}" ${val===o?'selected':''}>${o}</option>`).join('')}
+          ${t.opts.map(o => `<option value="${o}" ${val===o?'selected':''}>${(t.id==='phv_tila' && PHV_OPT_TEKSTI[o]) || o}</option>`).join('')}
         </select></td>`;
       } else if (t.tyyppi === 'pisteet') {
         const val = parseInt(p.tulokset[t.id]) || 0;
@@ -1989,13 +1996,14 @@ function renderVaihe7() {
 
   const rivit = (typeof pelaajat !== 'undefined' ? pelaajat : []).map(p => {
     const tulos = p.tulokset || {};
-    const phv = tulos.phv_tila || p.phv_tila || '—';
+    const phv = tulos.phv_tila || '—';   // PR C: vain tämän kartoituksen merkintä (pelaajadokin arvo ei ole mittaus)
     const nimi = (p.sukunimi || '') + ', ' + (p.etunimi || '');
     const yht = _laskeYhteenveto(p, ikl);
     const fleipct = yht.pct;
     const fleiC = fleipct >= 75 ? '#28B090' : fleipct >= 55 ? '#FFA502' : '#FF4757';
-    const phvTxt = phv === 'PH' ? '⚠️ Kasvupyrähdys' : phv === 'VA' ? '✅ Kasvu ohitse' : phv === 'AN' ? '📍 Ennen kasvua' : '—';
-    const phvC = phv === 'PH' ? '#FF4757' : phv === 'VA' ? '#28B090' : '#9AAAC4';
+    // PR C: vain kanoniset koodit; vanhojen tulosten AN/VA → '—' (AN moniselitteinen, ei tulkita).
+    const phvTxt = phv === 'PH' ? '⚠️ Kasvupyrähdyksessä' : phv === 'POST' ? 'Kasvupyrähdyksen jälkeen' : phv === 'PRE' ? 'Ennen kasvupyrähdystä' : phv === 'LAH' ? 'Lähestyy kasvupyrähdystä' : '—';
+    const phvC = phv === 'PH' ? '#FF4757' : phv === 'POST' ? '#28B090' : '#9AAAC4';
     const fleipctStr = fleipct !== null
       ? `<div style="font-size:13px;font-weight:700;color:${fleiC};">FLEI ${fleipct}%</div>
          <div style="font-size:11px;color:#9AAAC4;">${yht.pisteet}/${yht.maxP}p · ${yht.taytetty} testiä</div>`
@@ -2184,7 +2192,7 @@ function renderMobiiliKortti() {
     if (t.tyyppi==='valinta') {
       const val = p.tulokset[t.id]||'';
       html += `<div style="display:flex;gap:8px;">${t.opts.map(o=>`
-        <button type="button" style="flex:1;padding:12px;border-radius:8px;border:2px solid ${val===o?'var(--sininen)':'var(--reuna)'};background:${val===o?'rgba(40,176,144,.2)':'transparent'};color:${val===o?'var(--sininen)':'var(--teksti2)'};font-weight:700;font-size:15px;cursor:pointer;" onclick="asetaMobValinta(${mobiiliIdx},'${t.id}','${o}')">${o}</button>`).join('')}</div>`;
+        <button type="button" style="flex:1;padding:12px;border-radius:8px;border:2px solid ${val===o?'var(--sininen)':'var(--reuna)'};background:${val===o?'rgba(40,176,144,.2)':'transparent'};color:${val===o?'var(--sininen)':'var(--teksti2)'};font-weight:700;font-size:15px;cursor:pointer;" onclick="asetaMobValinta(${mobiiliIdx},'${t.id}','${o}')">${(t.id==='phv_tila' && PHV_OPT_LYHYT[o]) || o}</button>`).join('')}</div>`;
     } else if (t.tyyppi==='pisteet') {
       const val = parseInt(p.tulokset[t.id])||0;
       html += `<div class="mob-pisteet-rivi">
@@ -2332,7 +2340,8 @@ async function tallennaRivi(idx) {
       if (p.tulokset.slr !== undefined)   profiiliPaivitys['ketjut.hallintaketju_slr']   = p.tulokset.slr;
       if (p.tulokset.thomas !== undefined) profiiliPaivitys['ketjut.lahtöketju_thomas'] = p.tulokset.thomas;
       if (p.tulokset.fms_squat !== undefined) profiiliPaivitys['ketjut.hallintaketju_fms'] = p.tulokset.fms_squat;
-      if (p.tulokset.phv_tila !== undefined) profiiliPaivitys['phv_tila'] = p.tulokset.phv_tila;
+      // PR C: pelaajadokkiin VAIN kanoninen koodi (vanha AN/VA-arvo tai tyhjä ei kirjoitu).
+      { const _phvK = tmPhvTuontiKoodi(p.tulokset.phv_tila).koodi; if (_phvK) profiiliPaivitys['phv_tila'] = _phvK; }
 
       await pelaajaRef.update(profiiliPaivitys).catch(async e => {
         // Dokumenttia ei ole — luo se
@@ -2466,7 +2475,7 @@ function handleFile(file) {
         sarakeTesti[t.id] = t.id;
       });
 
-      let yhdistetty = 0, eiLoydy = 0;
+      let yhdistetty = 0, eiLoydy = 0, phvOhitettu = 0;
 
       data.forEach(rivi => {
         // ── Tunnista pelaaja ──────────────────────────────────────────────────
@@ -2514,8 +2523,10 @@ function handleFile(file) {
 
           // PHV-tila erikoiskäsittely
           if (sarake === 'PHV-tila' || sarake === 'PHV tila') {
-            pelaajat[pIdx].tulokset['phv_tila'] = arvo;
-            muutettu = true;
+            // PR C: selkokielinen valinta / PRE-PH-POST → koodi. Moniselitteistä AN-solua EI tulkita (lasketaan ohitetuksi).
+            const _t = tmPhvTuontiKoodi(arvo);
+            if (_t.koodi) { pelaajat[pIdx].tulokset['phv_tila'] = _t.koodi; muutettu = true; }
+            else if (_t.ongelma) phvOhitettu++;
             return;
           }
 
@@ -2568,6 +2579,7 @@ function handleFile(file) {
       const tulos = yhdistetty > 0
         ? `<span style="color:var(--vihrea)">✓ ${yhdistetty} pelaajan tulokset tuotu</span>`
           + (eiLoydy > 0 ? ` <span style="color:var(--keltainen)">· ${eiLoydy} riviä ei yhdistetty</span>` : '')
+          + (phvOhitettu > 0 ? ` <span style="color:var(--keltainen)">· ${phvOhitettu} PHV-tilaa ohitettu (AN on moniselitteinen tai arvo tuntematon — valitse Ennen kasvupyrähdystä / Kasvupyrähdyksessä / Kasvupyrähdyksen jälkeen)</span>` : '')
         : `<span style="color:var(--punainen)">⚠️ Yhtään pelaajaa ei tunnistettu — tarkista että käytät TalentMaster-pohjaa</span>`;
       document.getElementById('tuontiTulos').innerHTML = tulos;
       naytaNotif(`Excel tuotu: ${yhdistetty} pelaajaa päivitetty`, 'ok');
@@ -3220,7 +3232,7 @@ function lataaExcelPohja() {
      'Seura:', seuraTxt, '', 'Joukkue:', joukkueTxt],
     ['Palloliiton protokolla 2026', '', '', '', '', '',
      'Testipäivä:', pvmFmt, '', 'Ikäluokka:', ikl],
-    ['PHV: AN = Pre-PHV  |  PH = PHV-huippu (kuorma MAX 60%!)  |  VA = Post-PHV'],
+    ['PHV-tila: Ennen kasvupyrähdystä  |  Kasvupyrähdyksessä (kuorma MAX 60%!)  |  Kasvupyrähdyksen jälkeen  —  tyhjä jos ei tiedossa'],
     [],  // tyhjä erotusrivi
   ];
 
@@ -3394,7 +3406,7 @@ function lataaExcelPohjaCsv() {
   var csvRivit = [];
   csvRivit.push(csvRivi(['TalentMaster - Harjoitettavuuskartoitus', '', '', '', '', '', '', 'Seura: ' + seuraNimi, '', 'Joukkue: ' + joukkueNimi]));
   csvRivit.push(csvRivi(['Palloliiton protokolla 2026', '', '', '', '', '', '', 'Testipaiva: ' + pvm, '', '']));
-  csvRivit.push(csvRivi(['PHV-tila: AN = Pre-PHV | PH = PHV-huippu (MAX 60% kuorma!) | VA = Post-PHV']));
+  csvRivit.push(csvRivi(['PHV-tila: Ennen kasvupyrähdystä | Kasvupyrähdyksessä (MAX 60% kuorma!) | Kasvupyrähdyksen jälkeen - tyhjä jos ei tiedossa']));
   csvRivit.push('');
   csvRivit.push(csvRivi(kaikki_otsikot));
   rivit.forEach(function(r) { csvRivit.push(csvRivi(r)); });

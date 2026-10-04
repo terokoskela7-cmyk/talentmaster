@@ -57,6 +57,31 @@ function _ikatyyppi(ika) {
   return 'showcase';
 }
 
+// ── PHV-TILA (PR C, 4.10.2026) ───────────────────────────────────────────
+// Kanoninen Mirwald-sanasto (PRE/LAH/PH/POST/AN) VAIN mittauslähteestä — YKSI sääntö lib/tm_phv_tila.js.
+// Ennen: puuttuva tila sai oletuksen AN, ja AN luettiin vanhan lomakesanaston merkityksessä. Nyt mittaamaton =
+// 'tuntematon' → varovaisin kuorma (samat variantit kuin PH), mutta EI ⚠️-PH-varoitusta eikä PHV-puhetta.
+function _phvTilaH(pelaaja) {
+  const f = (typeof tmPhvTila === 'function') ? tmPhvTila : require('./lib/tm_phv_tila.js').tmPhvTila;
+  return f(pelaaja);
+}
+function _phvVarovainen(tila) { return tila === 'PH' || tila === 'tuntematon'; }
+// Lisää PH-variantin ohjeen perään. PH: ⚠️-merkillä (ennallaan). tuntematon: ilman merkkiä; variantit jotka
+// mainitsevat PHV:n ovat "normaali/paras PHV:ssä" -lauseita → niitä ei lisätä (= normaali ohje).
+function _phvLisa(ohje, lisa, tila, erotin) {
+  if (!lisa) return ohje;
+  if (tila === 'PH') return ohje + erotin + '⚠️ ' + lisa;
+  if (tila === 'tuntematon' && !/PHV/.test(lisa)) return ohje + erotin + lisa;
+  return ohje;
+}
+// Korvaava PH-ohje (P-/laskeutumisvaiheet): sama sääntö kuin yllä.
+function _phvKorvaa(ohje, korvaava, tila) {
+  if (!korvaava) return ohje;
+  if (tila === 'PH') return korvaava;
+  if (tila === 'tuntematon' && !/PHV/.test(korvaava)) return korvaava;
+  return ohje;
+}
+
 // ── STAGE PELAAJAN TASON MUKAAN ──────────────────────────────────────────
 // Perustuu harjoitettavuuspisteisiin ja ikään
 // Everton: training age tärkeämpi kuin kronologinen ikä
@@ -595,7 +620,7 @@ const PANKKI = {
             kesto: '15 min', xp: 35,
             yt: 'a7UGb10ViSM',
             cue: 'Stage 5: itsenäinen laadun arviointi. Asymmetria > 10% = puoliero korjattava.',
-            phv: 'Vain loikat 2×2. Nordic curl pois PHV:ssä.',
+            phv: 'Vain loikat 2×2. Nordic curl pois.',
             phv_xp: 15,
           },
         ],
@@ -1033,7 +1058,7 @@ function generoimTehtavat(pelaaja) {
   if (!pelaaja) return [];
 
   const ika     = pelaaja.ika || 13;
-  const phv     = pelaaja.phv_tila || 'AN';
+  const phv     = _phvTilaH(pelaaja);   // PR C: 'PRE'|'LAH'|'PH'|'POST'|'AN'|'tuntematon'
   const ityyppi = _ikatyyppi(ika);
   const stage   = _laskeStage(pelaaja);
   const prof    = laskeKetjuProfiili(pelaaja);
@@ -1125,8 +1150,7 @@ function generoimTehtavat(pelaaja) {
 
   if (dVaihtoehto) {
     const dOhje = _ohje(dVaihtoehto, ityyppi);
-    const dPhv  = phv === 'PH' && dVaihtoehto.phv
-      ? dOhje + '\n\n⚠️ ' + dVaihtoehto.phv : dOhje;
+    const dPhv  = _phvLisa(dOhje, dVaihtoehto.phv, phv, '\n\n');
     const dOnAdar = dKetju !== heikoin; // ADAR-override aktiivinen
     tehtavat.push({
       id: 'd_aktivointi', tyyppi: 'D',
@@ -1349,8 +1373,8 @@ function generoimTehtavat(pelaaja) {
     if (sRyyhma?.stage_tasot) {
       const sHarj  = _valitseStage(sRyyhma.stage_tasot, stage);
       const sOhje  = _ohje(sHarj, ityyppi);
-      const sPhv   = phv === 'PH' && sHarj.phv ? sOhje + '\n\n⚠️ ' + sHarj.phv : sOhje;
-      const sXp    = phv === 'PH' && sHarj.phv_xp ? sHarj.phv_xp : sHarj.xp;
+      const sPhv   = _phvLisa(sOhje, sHarj.phv, phv, '\n\n');
+      const sXp    = _phvVarovainen(phv) && sHarj.phv_xp ? sHarj.phv_xp : sHarj.xp;
 
       // Selvitetään mikä ohjasi valintaa (läpinäkyvyys pelaajalle/valmentajalle)
       const sValintaPeruste = (pelaaja.adar_pisteet < 30) ? 'adar'
@@ -1964,7 +1988,7 @@ function generoimTehtavatV2(pelaaja, jaksoViikko) {
   if (!pelaaja) return [];
 
   const ika      = pelaaja.ika || 13;
-  const phv      = pelaaja.phv_tila || 'AN';
+  const phv      = _phvTilaH(pelaaja);   // PR C
   const stage    = _laskeStage(pelaaja);
   const ityyppi  = _ikatyyppi(ika);
   const tehtavat = [];
@@ -2028,8 +2052,7 @@ function generoimTehtavatV2(pelaaja, jaksoViikko) {
 
   if (dHarjV2) {
     const dOhjeV2 = _ohje(dHarjV2, ityyppi);
-    const dPhvV2  = phv === 'PH' && dHarjV2.phv
-      ? dOhjeV2 + '\n\n⚠️ ' + dHarjV2.phv : dOhjeV2;
+    const dPhvV2  = _phvLisa(dOhjeV2, dHarjV2.phv, phv, '\n\n');
     tehtavat.push({
       id:'d_aktivointi', tyyppi:'D', label:'🔄 Päivittäinen',
       label_cue:'5–10 min · Ylläpito · Myös lepopäivät',
@@ -2137,8 +2160,8 @@ function generoimTehtavatV2(pelaaja, jaksoViikko) {
     if (sRyhmaV2?.stage_tasot) {
       const sHarjV2 = _valitseStage(sRyhmaV2.stage_tasot, stage);
       const sOhjeV2 = _ohje(sHarjV2, ityyppi);
-      const sPhvV2  = phv === 'PH' && sHarjV2.phv ? sOhjeV2 + '\n\n⚠️ ' + sHarjV2.phv : sOhjeV2;
-      const sXpV2   = phv === 'PH' && sHarjV2.phv_xp ? sHarjV2.phv_xp : sHarjV2.xp;
+      const sPhvV2  = _phvLisa(sOhjeV2, sHarjV2.phv, phv, '\n\n');
+      const sXpV2   = _phvVarovainen(phv) && sHarjV2.phv_xp ? sHarjV2.phv_xp : sHarjV2.xp;
       const sPeruste = (pelaaja.adar_pisteet < 30) ? 'adar'
         : (pelaaja.testit && Object.keys(pelaaja.testit).length > 0) ? 'testidata' : 'flei';
       tehtavat.push({
@@ -2160,8 +2183,8 @@ function generoimTehtavatV2(pelaaja, jaksoViikko) {
     const pData = HARJOITEPANKKI[heikoin]?.P;
     if (pData && pData.vaiheet) {
       const pVaihe = pData.vaiheet[pVaiheIdx];
-      const pOhje  = (phv === 'PH' && pVaihe.phv) ? pVaihe.phv : pVaihe.ohje;
-      const pXp    = phv === 'PH' ? Math.round(pVaihe.xp * 0.7) : pVaihe.xp;
+      const pOhje  = _phvKorvaa(pVaihe.ohje, pVaihe.phv, phv);
+      const pXp    = _phvVarovainen(phv) ? Math.round(pVaihe.xp * 0.7) : pVaihe.xp;
       tehtavat.push({
         id:'p_progressiivinen', tyyppi:'P', label:'Progressiivinen',
         label_cue:`Jakso: ${pVaihe.vaihe} · Viikot ${pVaihe.viikot} · ${pVaihe.intensiteetti}`,
@@ -2185,10 +2208,11 @@ function generoimTehtavatV2(pelaaja, jaksoViikko) {
    2. YJ-loikat (reaktiivisuus) — liitetään LL + SBL ketjuihin  
    3. Karhukävely (dynaaminen core) — liitetään DFL ketjuun
    
-   PHV-kytkentä (tämä on lisäarvo Evertoniin verrattuna):
-   - AN (pre-PHV):  tekniikka + kehonpaino, laatu ensin
+   PHV-kytkentä (tämä on lisäarvo Evertoniin verrattuna; kanoniset Mirwald-koodit, PR C):
+   - PRE/LAH:  tekniikka + kehonpaino, laatu ensin
    - PH (circa-PHV): VAIN tekniikka, ei reaktiivisia kontakteja
-   - VA (post-PHV):  täysi progressio, reaktiiviset harjoitteet ok
+   - POST/AN:  täysi progressio, reaktiiviset harjoitteet ok
+   - tuntematon (ei mittausta): varovaisin — samat variantit kuin PH, ilman PH-varoitusta
    
    Ikäporrastus:
    - U12: laskeutumistekniikka kehonpainolla (ei korkeutta)
@@ -2381,7 +2405,7 @@ const EVERTON_LISAYKSET = {
 function generoimViikoOhjelma(pelaaja, joukkuePaivat) {
   joukkuePaivat = joukkuePaivat || [1, 4]; // Ti + Pe oletuksena
   const ika    = pelaaja.ika || 13;
-  const phv    = pelaaja.phv_tila || 'AN';
+  const phv    = _phvTilaH(pelaaja);   // PR C
   const stage  = _laskeStage(pelaaja);
   const ityyppi = _ikatyyppi(ika);
   const prof   = laskeKetjuProfiili(pelaaja);
@@ -2438,7 +2462,7 @@ function generoimViikoOhjelma(pelaaja, joukkuePaivat) {
       harjoitteet.push({
         tyyppi: 'D',
         nimi: dHarj.nimi,
-        ohje: (phv === 'PH' && dHarj.phv) ? dOhjeVko + ' ⚠️ ' + dHarj.phv : dOhjeVko,
+        ohje: _phvLisa(dOhjeVko, dHarj.phv, phv, ' '),
         kesto: dHarj.kesto,
         xp: dHarj.xp,
         cue: dHarj.cue,
@@ -2462,9 +2486,9 @@ function generoimViikoOhjelma(pelaaja, joukkuePaivat) {
         harjoitteet.push({
           tyyppi: 'S',
           nimi: sVaihtoehto.nimi,
-          ohje: (phv === 'PH' && sVaihtoehto.phv) ? sVaihtoehto.ohje + ' ⚠️ ' + sVaihtoehto.phv : sVaihtoehto.ohje,
+          ohje: _phvLisa(sVaihtoehto.ohje, sVaihtoehto.phv, phv, ' '),
           kesto: sVaihtoehto.kesto,
-          xp: (phv === 'PH' && sVaihtoehto.phv_xp) ? sVaihtoehto.phv_xp : sVaihtoehto.xp,
+          xp: (_phvVarovainen(phv) && sVaihtoehto.phv_xp) ? sVaihtoehto.phv_xp : sVaihtoehto.xp,
           cue: sVaihtoehto.cue,
           fascia_cue: sVaihtoehto.fascia_cue,
           ketju: sKetju,
@@ -2491,9 +2515,9 @@ function generoimViikoOhjelma(pelaaja, joukkuePaivat) {
             tyyppi: 'LASKU',
             label: `🛬 Laskeutuminen — ${laskHarj.stage || ''}`,
             nimi: laskHarj.nimi,
-            ohje: (phv === 'PH' && laskHarj.phv) ? laskHarj.phv : laskHarj.ohje,
+            ohje: _phvKorvaa(laskHarj.ohje, laskHarj.phv, phv),
             kesto: laskHarj.kesto,
-            xp: (phv === 'PH' && laskHarj.phv_xp) ? laskHarj.phv_xp : laskHarj.xp,
+            xp: (_phvVarovainen(phv) && laskHarj.phv_xp) ? laskHarj.phv_xp : laskHarj.xp,
             cue: laskHarj.cue,
             fascia_cue: laskHarj.fascia_cue,
             ketju: laskKetju,
@@ -2512,9 +2536,9 @@ function generoimViikoOhjelma(pelaaja, joukkuePaivat) {
           tyyppi: 'P',
           label: `📈 ${pVaihe.vaihe} · Vk ${pVaihe.viikot} · ${pVaihe.intensiteetti}`,
           nimi: pVaihe.nimi,
-          ohje: (phv === 'PH' && pVaihe.phv) ? pVaihe.phv : pVaihe.ohje,
+          ohje: _phvKorvaa(pVaihe.ohje, pVaihe.phv, phv),
           kesto: pVaihe.kesto,
-          xp: phv === 'PH' ? Math.round(pVaihe.xp * 0.7) : pVaihe.xp,
+          xp: _phvVarovainen(phv) ? Math.round(pVaihe.xp * 0.7) : pVaihe.xp,
           mittari: pVaihe.mittari,
           ketju: heikoin,
         });
@@ -2528,7 +2552,7 @@ function generoimViikoOhjelma(pelaaja, joukkuePaivat) {
         tyyppi: 'CORE',
         label: '🐻 Dynaaminen core',
         nimi: karhu.nimi,
-        ohje: (phv === 'PH' && karhu.phv) ? karhu.ohje : karhu.ohje,
+        ohje: karhu.ohje,
         kesto: karhu.kesto,
         xp: karhu.xp,
         cue: karhu.cue,

@@ -40,8 +40,15 @@ Sukupuoli normalisoidaan: `M`→`P`, `N`→`T` (`normSukupuoli()`).
 | `POST` | Jälkeen | +0.5 … +1.0 |
 | `AN` | Jälki-PHV | > +1.0 |
 
-**EI** `pre_phv`/`circa_phv`/`huippu`/`PHV` (vanhat koodit vain backward-compat: Pelaaja_v7 `_laskeStage`/signaalit).
-**`phv_tila === 'PH'` → kuormarajoitin:** voimaharjoittelu max 80 % 1RM, hyppyvolyymi −20 %, juoksuvolyymi seurattava.
+**EI** `pre_phv`/`circa_phv`/`huippu`/`PHV`/`VA` — vanhan sanaston tukea EI ole lukijoissa (PR C, 4.10.2026; vanha lomake käytti AN:ää merkityksessä "ennen kasvua", ks. `docs/PHV_AN_ALKUPERA.md`).
+
+**PHV-tilan LUKUSÄÄNTÖ (PR C, Teron päätös 4.10.2026) — `lib/tm_phv_tila.js` (+ identtinen `functions/tm_phv_tila.js`):**
+- `tmPhvTila(pelaajaDoc)` → `'PRE'|'LAH'|'PH'|'POST'|'AN'|'tuntematon'`. Tila on voimassa VAIN mittauslähteestä: pikakenttä `biologinenIka_viimeisin` (mittaus voittaa: sen `phv_tila_koodi` ennen `phv_tila`:a). Ilman sitä → `'tuntematon'`, myös kun `phv_tila`-kentässä on lomakkeen/tuonnin arvo. `tmPhvKoodi` = sama, tuntematon → `null`.
+- **Älä lue `p.phv_tila`:a suoraan.** VP (`lataaPelaajat`) ja Master (`_lataaPelaajat`) normalisoivat latauksessa; libit kutsuvat `tmPhvKoodi`:a (lataajan PAKKO ladata `lib/tm_phv_tila.js`, vartija `tests/phv_sanasto.test.js`).
+- **Kuormasuoja:** `'tuntematon'` → varovaisin kuorma (sama raja kuin PH: `laskeEfektiivinenStage` max S2, PH-variantit), mutta EI PH-varoitustekstiä eikä "fyysiset ikkunat auki" -neuvoa. Lomakkeelta ilmoitettu PH (`tmPhvIlmoitettuPH`) → henkilökunnalle "ilmoitettu, ei mitattu" + kuormasuoja (Pelaaja `_laskeStage` kevein vaihe), lapselle ei varoitusta.
+- **Kirjoittajat** (Excel_Tuonti, Testituonti_Master, Harjoitettavuus_Lomake_v4) kirjoittavat VAIN kanonisia koodeja: `tmPhvTuontiKoodi(solu)` — selkokieliset valinnat (Ennen kasvupyrähdystä / Kasvupyrähdyksessä / Kasvupyrähdyksen jälkeen) + PRE/LAH/PH/POST; `VA` → POST; **`AN`-solu on moniselitteinen → varoitus, ei tallenneta**. `'tuntematon'` ei ole tallennettava koodi. Testaus_v9 ei kopioi `phv_tila`:a tuloksiin, Masterin Excel-pohja ei esitäytä sitä.
+- Migraatio: `scripts/migrate_phv_sanasto.js` (dry-run oletus, `--apply` vasta hyväksynnän jälkeen).
+**Mitattu `PH` → kuormarajoitin:** voimaharjoittelu max 80 % 1RM, hyppyvolyymi −20 %, juoksuvolyymi seurattava.
 
 ### Bio-banding V1 (Mirwald-pohjainen — EI Khamis-Rochea) — `docs/BIOBANDING_ARKKITEHTUURI.md`
 Rakentuu vain olemassa olevaan Mirwald-PHV:hen (ei riippuvuuksia). **PÄÄTÖS 2026-07-01: V2 (Khamis-Roche %PAH + maturity z-score + dual-taso) LYKÄTTY** — Palloliitto vasta *kokeilee* KR-testejä → KR-data ei luotettavaa/laajaa. V1 tuottaa arvoa heti (SJK 8 PHV-pelaajaa).

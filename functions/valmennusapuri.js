@@ -521,7 +521,7 @@ async function haeSeuranTiedot(db, seuraId) {
     const x = d.data() || {};
     if (onTestidata(x, d.id)) return;
     [x.nimi, x.etunimi, x.sukunimi, x.kutsumanimi].forEach(function (n) { if (n) nimet.push(n); });
-    pelaajat.push({ joukkue: x.joukkue || null, phv: x.phv_tila || null, ennatykset: yhdistaTulokset(x),
+    pelaajat.push({ joukkue: x.joukkue || null, phv: tmPhvKoodi(x), ennatykset: yhdistaTulokset(x),
       tasot: { hh: _num(x.hh_taso), d1: _num(x.d1_taso), d2: _num(x.d2_taso) },
       tki: { indeksi: _num(x.tki_viimeisin), merkki: x.tki_merkki || null, vahvuus: x.tki_vahvuus || null, kehityskohde: x.tki_kehityskohde || null },
       ketjut: { sbl: x.sbl, sfl: x.sfl, ll: x.ll, diag: x.diag, dfl: x.dfl } });
@@ -555,6 +555,8 @@ function vertexUrl(a) {
 
 // ── AWS Bedrock (Plan B): SigV4 + EU-vartija ────────────────────────────────
 const crypto = require('crypto');
+// PR C: PHV-tila vain mittauslähteestä (lomakkeen AN ei ole kasvumittaus). Identtinen kopio lib/tm_phv_tila.js:stä.
+const { tmPhvKoodi } = require('./tm_phv_tila.js');
 
 function _sha256hex(s) { return crypto.createHash('sha256').update(s, 'utf8').digest('hex'); }
 function _hmac(k, s) { return crypto.createHmac('sha256', k).update(s, 'utf8').digest(); }
