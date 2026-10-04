@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <title>TalentMaster™ — Pelaaja v7</title>
 <script>/* Versio-tarkistus (cache): pakottaa reloadin kun uusi versio deployattu. APP_VERSION leimataan scripts/bump_version.js:llä. */
-(function(){var APP_VERSION='1791139585518';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
+(function(){var APP_VERSION='1791140824807';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
 <!-- B2 Sentry-virheseuranta (onboarding-kriittinen). PII-skrubi tm_sentry.js:ssä. Guard: offline → no-op.
      ⚠️ ENNEN PUSHIA: liitä EU-DSN tm_sentry.js:ään + verifioi integrity-hash bundle.min.js@10.58.0 (väärä SRI estää Sentryn hiljaa). -->
 <script>window.TM_SENTRY={app:'pelaaja'};</script>
@@ -2710,7 +2710,13 @@ function rMinaSitoumus() {
   var ia = vanhentunut ? {} : (sit.itsearvio || {});   // ei esitäyttöä vanhoilla vastauksilla uudella jaksolla
   var esc = _thEsc;
   var h = '<div style="background:var(--bg3);padding:20px;margin:14px 20px 0;border:.5px solid rgba(242,239,230,.08);border-radius:14px">';
-  h += '<div style="font-family:\'Cormorant Garamond\',serif;font-size:18px;font-weight:400;color:var(--text);margin-bottom:4px">🤝 Sinun äänesi & sitoumus</div>';
+  // P0.1: kortin otsikko = jakson nimi (kuten Tänään/Minä muualla); "Sinun äänesi & sitoumus" pieneksi yläotsikoksi. Ei jaksoa → vanha otsikko.
+  if (fokusNimi) {
+    h += '<div style="font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:#8C8B86;margin-bottom:4px">🤝 Sinun äänesi & sitoumus</div>';
+    h += '<div style="font-family:\'Cormorant Garamond\',serif;font-size:20px;font-weight:400;color:var(--text);margin-bottom:6px">' + esc(fokusNimi) + '</div>';
+  } else {
+    h += '<div style="font-family:\'Cormorant Garamond\',serif;font-size:18px;font-weight:400;color:var(--text);margin-bottom:4px">🤝 Sinun äänesi & sitoumus</div>';
+  }
   if (!fokusNimi) {
     h += '<div style="font-size:12.5px;color:#8C8B86;line-height:1.5;margin-top:6px">Kun sinulle asetetaan jaksofokus, voit sitoutua siihen täällä ja kertoa oman näkemyksesi. 💚</div></div>';
     return h;
@@ -2719,12 +2725,12 @@ function rMinaSitoumus() {
     var edFokus = sit.fokus_nimi ? (esc(sit.fokus_nimi) + ' -jaksolle') : 'edelliselle jaksolle';
     var jAlkoi = _p7SitoumusPvmFi(_p7JaksoAlkoi());
     h += '<div style="font-size:12.5px;color:var(--text);font-weight:600;margin-bottom:3px">Uusi jakso alkoi — sitoudu tähän</div>';
-    h += '<div style="font-size:11px;color:#8C8B86;margin-bottom:10px">📍 Jaksofokus: <b style="color:#28B090">' + esc(fokusNimi) + '</b>' + (jAlkoi ? ' · alkoi ' + esc(jAlkoi) : '') + '</div>';
+    if (jAlkoi) h += '<div style="font-size:11px;color:#8C8B86;margin-bottom:10px">📍 Alkoi ' + esc(jAlkoi) + '</div>';
     h += '<div style="display:flex;align-items:flex-start;gap:9px;background:rgba(40,176,144,.09);border:.5px solid rgba(40,176,144,.3);border-radius:12px;padding:11px 13px;margin-bottom:14px">'
       + '<span style="font-size:15px;flex-shrink:0">✨</span>'
       + '<span style="font-size:12.5px;color:var(--text);line-height:1.45">Edellinen sitoumuksesi (' + edFokus + ') on arkistoitu talteen. Tämä on uusi jakso — vastaa uudestaan omin sanoin.</span></div>';
   } else {
-    h += '<div style="font-size:12px;color:#8C8B86;margin-bottom:12px">Tälle jaksolle: <b style="color:#28B090">' + esc(fokusNimi) + '</b> — kerro rehellisesti, se auttaa eniten.</div>';
+    h += '<div style="font-size:12px;color:#8C8B86;margin-bottom:12px">Kerro rehellisesti, se auttaa eniten.</div>';
   }
   // 3 kysymystä (äänirekisteri)
   var kysy = [{ id: 'q1', label: reg.q1 }, { id: 'q2', label: reg.q2 }, { id: 'q3', label: reg.q3 }];
@@ -3968,16 +3974,12 @@ function _renderOmat(){
 /* ══════════════════════════════════════
    rMeista — Meistä-tab (B1 stub, B3 täysi sisältö)
 ══════════════════════════════════════ */
+// P0.2: keskeneräinen paikkamerkki ei näy pelaajalle; Joukkue-sisältö tulee V2 Vaihe 3:ssa.
 function rMeista() {
   return `
 <div class="scroll" style="background:var(--bg)">
   ${hdr(T('meista'))}
   ${rValmentajalta()}
-  <section style="padding:22px 20px 20px;text-align:center">
-    <div class="ey ac" style="margin-bottom:10px">${T('meista')}</div>
-    <div style="font-family:var(--font-d);font-weight:300;font-size:22px;color:var(--text);margin-bottom:8px">Sisältö tulossa</div>
-    <div class="meta" style="line-height:1.55;max-width:280px;margin:0 auto">Joukkue, valmentajat, kalenteri — Vaihe B3.</div>
-  </section>
 </div>`;
 }
 

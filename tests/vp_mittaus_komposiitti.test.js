@@ -26,11 +26,8 @@ beforeAll(() => {
   _vpKomposiittiSyotteesta = api._vpKomposiittiSyotteesta;
   _vpKuljetusRangaistukset = api._vpKuljetusRangaistukset;
 
-  // Poimi primitiivin _kuljetusLaukausTulos (IIFE-sisäinen) lähteestä vertailua varten.
-  const lib = readFileSync(join(__dir, '..', 'lib', 'tm_pikakentat.js'), 'utf8').split('\n');
-  const ls = lib.findIndex(l => l.includes('function _kuljetusLaukausTulos'));
-  let le = ls + 1; while (le < lib.length && !/^\s{2}}/.test(lib[le])) le++;
-  _kuljetusLaukausTulosCanon = new Function(lib.slice(ls, le + 1).join('\n') + '\n return _kuljetusLaukausTulos;')();
+  // Kanoninen netto = lib/tm_pikakentat.js tmKlTulos (virallinen laskutapa; _kuljetusLaukausTulos delegoi siihen).
+  _kuljetusLaukausTulosCanon = require('../lib/tm_pikakentat.js').tmKlTulos;
 });
 
 describe('_vpKuljetusNetto — REPLIKA primitiivin _kuljetusLaukausTulos', () => {
