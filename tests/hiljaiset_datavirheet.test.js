@@ -159,7 +159,7 @@ describe('b) ADAR_Pikakortti · havainto + adar_*-pikakentät batchina', () => {
     expect(m.docs[HAV3], 'havainto katosi pikakenttäkirjoituksen hylkäyksen takia').toBeTruthy();
   });
   it('online-tallennus ja offline-jonon synkka käyttävät molemmat atomista apuria', () => {
-    expect(pura(A, 'async function _phTallenna(')).toContain('_phKirjoitaHavaintoJaPikakentat(ref, data, seuraId, pelaajaId, S.porras, porrasTallennetaan, _lahetetty).then(');
+    expect(pura(A, 'async function _phTallenna(')).toContain('_phKirjoitaHavaintoJaPikakentat(ref, data, seuraId, pelaajaId, S.porras, porrasTallennetaan, _lahetetty);');
     const s = pura(A, 'async function _synkronoiOfflineJono(');
     expect(s).toContain('await _phKirjoitaHavaintoJaPikakentat(havRef,');
     expect(s).not.toContain('.add(');

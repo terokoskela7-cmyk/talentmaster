@@ -270,7 +270,7 @@ describe('(4) tallennus: yksi polku, ei omaa offline-jonoa', () => {
   it('kirjoitusta EI awaitata — UI etenee myös verkotta', () => {
     // §26: havainto + pikakentät batchina — kutsua EI awaitata (catch hoitaa virheen), kuten ennen ref.set(data).catch
     expect(f(), 'awaitattu kirjoitus jumittaisi kentällä ilman verkkoa')
-      .toContain('_phKirjoitaHavaintoJaPikakentat(ref, data, seuraId, pelaajaId, S.porras, porrasTallennetaan, _lahetetty).then(');
+      .toContain('_phKirjoitaHavaintoJaPikakentat(ref, data, seuraId, pelaajaId, S.porras, porrasTallennetaan, _lahetetty);');
     expect(f()).not.toMatch(/await (ref\.set\(|_phKirjoitaHavaintoJaPikakentat\()/);
   });
 
@@ -496,7 +496,7 @@ describe('(9) Masterin ja linkkien sopimukset säilyvät', () => {
   });
 
   it('tallennuksesta ilmoitetaan isäntäikkunalle', () => {
-    expect(pura('async function _phTallenna(')).toContain("postMessage('tm:adar:saved', '*')");
+    expect(pura('async function _phTallenna(')).toMatch(/postMessage\(viesti, '\*'\)[\s\S]*tm:adar:saved/);
   });
 
   it('App Check aktivoidaan heti initin jälkeen (§38)', () => {

@@ -146,3 +146,16 @@ describe('Pikakirjaus/Testituonti/Testaus_v9 -batchit (testitulos + pelaajan pik
     await assertSucceeds((await testiBatch(ctxRooli(TESTIV, 'testivastaava'), { uid: TESTIV, pikakentat: false })).commit());
   });
 });
+
+describe('pelaajadokin adar_*-update YKSINÄÄN (Masterin varapolku: paivitaAdarPikakentat) — KPV U13 -pelaaja', () => {
+  const paivita = (ctx) => setDoc(doc(ctx.firestore(), 'seurat', SEURA, 'pelaajat', TOPIAS), kentat(true), { merge: true });
+  it('oman joukkueen valmentaja: sallittu (ei kenttärajausta adar_*:lle)', async () => {
+    await seed({ pelaaja: TOPIAS_OK, valmJoukkueet: ['kpv_u13'] });
+    await assertSucceeds(paivita(ctxRooli(VALM, 'valmentaja')));
+  });
+  it('pelaajalta puuttuu joukkueet[] → update hylätään (sama predikaatti kuin havainnon create → myös havainto olisi hylätty)', async () => {
+    const { joukkueet, ...ilman } = TOPIAS_OK;
+    await seed({ pelaaja: ilman, valmJoukkueet: ['kpv_u13'] });
+    await assertFails(paivita(ctxRooli(VALM, 'valmentaja')));
+  });
+});

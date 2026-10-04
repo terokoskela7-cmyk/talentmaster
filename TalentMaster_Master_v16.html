@@ -10119,14 +10119,14 @@ function drillDo(label) {
    Älä riko olemassa olevaa ADAR-kirjauslogiikkaa — tämä vain päivittää pikakentät.
 ════════════════════════════════════════════════════════════ */
 async function paivitaAdarPikakentat(pelaajaId) {
-  if (!_seuraId || !pelaajaId || _demo) return;
+  if (!_seuraId || !pelaajaId || _demo) return false;
   try {
     const snap = await _db.collection('seurat').doc(_seuraId)
       .collection('pelaajat').doc(pelaajaId).collection('havainnot').get();
     const havainnot = snap.docs.map(d => d.data())
       .filter(h => h && h.pisteet)
       .sort((a, b) => _luotuToMs(b.luotu) - _luotuToMs(a.luotu));   // A5: tyyppiturvallinen desc (Timestamp tai ISO-string)
-    if (!havainnot.length) return;
+    if (!havainnot.length) return false;
     // adar_tilanne_jakauma (§3): peli vs harjoitus -lkm kaikista havainnoista.
     const tilJak = {};
     havainnot.forEach(h => { const t = h.tilanne || 'muu'; tilJak[t] = (tilJak[t] || 0) + 1; });
@@ -10149,7 +10149,7 @@ async function paivitaAdarPikakentat(pelaajaId) {
         await _db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(pelaajaId)
           .set(_kentat, { merge: true });
       }
-      return;
+      return !!_kentat;
     }
     // Fallback jos lib puuttuu: vanha käytös (konsensus tai viimeisin yksittäinen havainto).
     let kons;
@@ -10187,7 +10187,8 @@ async function paivitaAdarPikakentat(pelaajaId) {
       _adarKentat.adar_edellinen = { a: _oldAv.a, d: _oldAv.d, ac: _oldAv.ac, r: _oldAv.r, yht: _oldAv.yht, pvm: _oldAv.pvm };
     }
     await _db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(pelaajaId).set(_adarKentat, { merge: true });
-  } catch (e) { console.warn('[paivitaAdarPikakentat]', e.message); }
+    return true;
+  } catch (e) { console.warn('[paivitaAdarPikakentat]', e.message); _adarSentry('paivitaAdarPikakentat', e && (e.code || e.message)); return false; }
 }
 window.paivitaAdarPikakentat = paivitaAdarPikakentat;
 
@@ -10253,11 +10254,39 @@ window.backfillAdarPikakentat = async function(seuraIdArg, dryRun) {
 // ══════════════════════════════════════════════════════════════════════════
 window._pikakorttiPid = null;
 function _pkPelaajaNimi(pid) { var p = (typeof _ttPelaaja === 'function') ? _ttPelaaja(pid) : null; return p ? (((p.etunimi || '') + ' ' + (p.sukunimi || '')).trim() || pid) : pid; }
+/* Sentry-kirjaus ADAR-pikakenttävirheistä: VAIN koodi + paikka (ei pelaajan nimeä/id:tä/tekstejä — PII-skrubi on lisäksi). */
+function _adarSentry(paikka, koodi) {
+  try { if (window.Sentry && window.Sentry.captureMessage) window.Sentry.captureMessage('ADAR pikakentat: ' + paikka + ' ' + koodi, { level: 'warning', tags: { adar: 'pikakentat', paikka: String(paikka) } }); } catch (e) { /* Sentry ei estä */ }
+}
+/* Lataa pelaajan tuore dokumentti muistiin (_pelaajatData ladataan kerran — kortit lukevat sieltä) ja piirtää kortin. */
+async function _pikakorttiLataaPelaaja(pid) {
+  try {
+    const d = await _db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(pid).get();
+    if (!d.exists) return;
+    const uusi = Object.assign({ id: d.id }, d.data());
+    const i = (_pelaajatData || []).findIndex(function (x) { return x.id === pid; });
+    if (i >= 0) _pelaajatData[i] = Object.assign({}, _pelaajatData[i], uusi);
+    if (typeof _renderPinfoFirestore === 'function') _renderPinfoFirestore(_pelaajatData[i >= 0 ? i : 0]);
+    if (typeof setWs === 'function' && typeof _ws !== 'undefined' && !document.getElementById('_pkModal')) setWs(_ws);   // rivit ("N havaintoa") uusiksi
+  } catch (e) { console.warn('[pikakorttiLataaPelaaja]', e && e.message); }
+}
+/** Pikakortin ilmoittama valmis: pelaaja VIESTISTÄ (lista-valinnassa pid ei ole tiedossa avattaessa). Pikakenttä-
+    epäonnistuminen → Master laskee yhteenvedon itse havainnoista (varapolku); jos sekin kaatuu → lievä huomautus + Sentry. */
+async function _pikakorttiValmis(pid, d) {
+  d = d || {};
+  if (!pid) return;
+  if (d.jonossa) return;                      // offline: havainto jonossa, mitään ei vielä voi lukea
+  let ok = d.pikakentat === true;
+  if (!ok) {
+    _adarSentry('adar-iframe', d.pikakenttaVirhe || 'tuntematon');
+    ok = await paivitaAdarPikakentat(pid);    // varapolku: laske havainnoista
+  }
+  if (ok) { await _pikakorttiLataaPelaaja(pid); return; }
+  if (typeof toast === 'function') toast(masterT('Havainto tallennettu – yhteenveto päivittyy myöhemmin'), 'info');
+}
 function _pikakorttiRefresh(pid) {
   if (!pid || typeof paivitaAdarPikakentat !== 'function') return;
-  Promise.resolve(paivitaAdarPikakentat(pid)).then(function () {
-    if (typeof _renderPinfoFirestore === 'function' && typeof _ttPelaaja === 'function') { var p = _ttPelaaja(pid); if (p) _renderPinfoFirestore(p); }
-  }).catch(function () {});
+  Promise.resolve(paivitaAdarPikakentat(pid)).then(function (ok) { if (ok) return _pikakorttiLataaPelaaja(pid); }).catch(function () {});
 }
 /* §7: sisäänkäynti kulkee JAETUN valintaikkunan kautta. "Yksi havainto nyt" avaa pikakortin
    upotettuna kuten ennen; "Seuraan ottelua" avaa kenttätyökalun omaan välilehteen (ottelu kestää
@@ -10395,12 +10424,18 @@ window._migratoiAdar13 = async function (pelaajaId, dryRun) {
 // Kuuntele pikakortin tallennusviesti → sulje paneeli + päivitä pikakentät + pelaajan tila.
 window.addEventListener('message', function (ev) {
   var d = ev && ev.data;
-  var isSaved = (d === 'tm:adar:saved') || (d && typeof d === 'object' && d.type === 'tm:adar:saved');
-  if (!isSaved) return;
-  var pid = window._pikakorttiPid || (d && d.pelaajaId) || null;
+  var tyyppi = (d === 'tm:adar:saved') ? 'tm:adar:saved' : (d && typeof d === 'object' ? d.type : null);
+  if (tyyppi !== 'tm:adar:saved' && tyyppi !== 'tm:adar:failed') return;
+  var pid = (d && d.pelaajaId) || window._pikakorttiPid || null;
+  if (tyyppi === 'tm:adar:failed') {
+    /* Iframe ON AUKI ja näyttää oman virhebannerinsa + säilyttää lomakkeen; Master vain kirjaa Sentryyn eikä sulje. */
+    _adarSentry('havainto-kirjoitus', (d && d.koodi) || 'virhe');
+    if (typeof toast === 'function') toast(masterT('Havaintoa ei tallennettu – yritä uudelleen'), 'virhe');
+    return;
+  }
   document.getElementById('_pkModal')?.remove();
-  _pikakorttiRefresh(pid);
   if (typeof toast === 'function') toast(masterT('Pelihavainto tallennettu ✓'), 'ok');
+  _pikakorttiValmis(pid, (d && typeof d === 'object') ? d : {});
 });
 
 /* ════════════════════════════════════════════════════════════
