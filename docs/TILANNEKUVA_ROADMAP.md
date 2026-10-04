@@ -75,7 +75,7 @@ Python-parserilla, `tm_eerikkila_normit.js` 1 914 r, `tm_idp.js`, `tm-kortit.js`
 
 **V1 · Kortti/5D-logiikka duplikoitu 4× ja testaamatta.** `_fcKorttiData`/`_laskeStage`/`_dimTaso5`/
 OVR reimplementoitu: Pelaaja, VP (`_dimNorm5Adar`/`laskeD2Taso`/`hhLaskeTaso`), Master, Admin.
-`lib/tm-kortit.js` (31 KB) + `lib/tm-profile.js` ovat käytännössä **kuollutta koodia** (ei yhtään
+`lib/tm-kortit.js` (31 KB; 🗄 arkistoitu 4.10.2026 → `archive/lib/`) + `lib/tm-profile.js` ovat käytännössä **kuollutta koodia** (ei yhtään
 app-viittausta). Riski: sama laskenta ajautuu eri apeissa; 0 käyttäytymistestiä.
 
 **V2 · Kalenteri + RSVP + läsnäolo duplikoitu.** Kuluttaja: Pelaaja `_p7LataaKalenteri/_p7Saatavuus*`
@@ -137,7 +137,7 @@ merkittyä).
 
 1. **`lib/tm_kortti_5d.js` — kortti/5D-ydin (V1).** Vedä `_fcKorttiData`/`_laskeStage`/`_dimTaso5`/
    OVR/tier + tasomalli yhteen testattuun moduuliin; Pelaaja ensin, sitten VP/Master/Admin. Elvytä
-   tai korvaa kuollut `tm-kortit.js`/`tm-profile.js`. **Testit ensin** (kortti on juuri työstetty).
+   tai korvaa kuollut `tm-profile.js` (`tm-kortit.js` arkistoitu 4.10.2026). **Testit ensin** (kortti on juuri työstetty).
 2. **`lib/tm_kalenteri.js` laajennus — kalenteri+lasnaolo-ydin (V2).** Lataus + saatavuus/tila-
    render+save moduuliin; Pelaaja/Vanhempi (kuluttaja) ja Master/VP (henkilökunta) käyttämään.
    Poistaa `_p7`/`_vanh`-copy-pasten + kaksi läsnäolotallenninta. Pienentää bugipinta-alaa.
