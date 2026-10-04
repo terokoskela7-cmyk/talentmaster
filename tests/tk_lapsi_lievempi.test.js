@@ -34,10 +34,21 @@ describe('1) tkLajiViiteLapsi — hyvä = lievempi alue/finaali', () => {
     expect(T.tkLajiViiteLapsi('pujottelu', 13, 'P')).toMatchObject({ hyva: 25.3, hyvaLahde: 'alueellinen' });
     expect(T.tkLajiViiteLapsi('pujottelu', 7, 'P')).toBeNull();
   });
-  it('ei yhtään solua, jossa lapsen hyvä olisi finaalia tiukempi', () => {
+  it('valtakunnallinen huomioidaan vain kun n ≥ 8: P11 kuljetus-laukaus (finaali n=2) → alueellinen', () => {
+    expect(T.TK_LAPSI_VALTAK_MIN_N).toBe(8);
+    expect(T.tkLajiViite('kuljetus_laukaus', 11, 'P', 'valtakunnallinen').n).toBe(2);
+    expect(T.tkLajiViiteLapsi('kuljetus_laukaus', 11, 'P')).toMatchObject({ hyva: 14.1, hyvaLahde: 'alueellinen' });
+  });
+  it('pieni finaaliotos (n < 8) ei koskaan valitse valtakunnallista', () => {
     for (const sp of ['P', 'T']) for (const ika of [8, 9, 10, 11, 12, 13]) for (const laji of ['syotto', 'pujottelu', 'ponnauttelu', 'kuljetus_laukaus', 'pituuspotku_bonus']) {
       const l = T.tkLajiViiteLapsi(laji, ika, sp), f = T.tkLajiViite(laji, ika, sp, 'valtakunnallinen');
-      if (!l || !f) continue;
+      if (l && f && f.n < 8) expect(l.hyvaLahde, sp + ika + laji).toBe('alueellinen');
+    }
+  });
+  it('ei yhtään solua (finaali n ≥ 8), jossa lapsen hyvä olisi finaalia tiukempi', () => {
+    for (const sp of ['P', 'T']) for (const ika of [8, 9, 10, 11, 12, 13]) for (const laji of ['syotto', 'pujottelu', 'ponnauttelu', 'kuljetus_laukaus', 'pituuspotku_bonus']) {
+      const l = T.tkLajiViiteLapsi(laji, ika, sp), f = T.tkLajiViite(laji, ika, sp, 'valtakunnallinen');
+      if (!l || !f || f.n < 8) continue;
       if (laji === 'pituuspotku_bonus') expect(l.hyva, sp + ika + laji).toBeLessThanOrEqual(f.hyva);
       else expect(l.hyva, sp + ika + laji).toBeGreaterThanOrEqual(f.hyva);
     }
