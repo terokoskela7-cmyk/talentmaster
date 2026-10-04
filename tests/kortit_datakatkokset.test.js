@@ -89,7 +89,7 @@ async function testaus9(m, pvm, s) {
       kuljetus_laukaus: { raaka: s.kuljetus_laukaus, rangaistukset: [], ennenaikaiset: 0 }, lin_30m: { paras: s.lin30m } } },
     normiIka: N.normiIka, normSukupuoliMN: N.normSukupuoliMN, eerikkilaTaso: N.eerikkilaTaso, laskeD1Joustava: N.laskeD1Joustava, laskeD2HH: N.laskeD2HH,
     laskeKokonaistulos: CORE.laskeKokonaistulos, tkLaskeTKI: CORE.tkLaskeTKI, tkLaskeMerkki: CORE.tkLaskeMerkki, tkPituuspotkuBonus: CORE.tkPituuspotkuBonus,
-    TM_PIKAKENTAT: PIKA, Object, Array, String, Math, parseFloat, parseInt, isNaN };
+    TM_PIKAKENTAT: PIKA, window: { TM_PIKAKENTAT: PIKA }, Object, Array, String, Math, parseFloat, parseInt, isNaN };   // Testaus_v9 _kuljetusLaukausTulos delegoi libiin (window.TM_PIKAKENTAT)
   vm.createContext(ctx);
   const src = [T9.slice(T9.indexOf('var _V6_HH_MAP ='), T9.indexOf('\n', T9.indexOf('var _V6_HH_MAP ='))),
     pura(T9, 'function _kuljetusLaukausTulos('), pura(T9, 'function _v6HhTaso('), pura(T9, 'function _v6TkLajitPikakentat('),
@@ -281,10 +281,10 @@ describe('b) Pikakirjaus / Testaus_v9 / Testituonti tuottavat johdetut pikakent�
     for (const f of ['TalentMaster_Testaus_v9.html', 'TalentMaster_Testituonti_Master.html', 'TalentMaster_VP_v25.html']) {
       const s = lue(f);
       expect(s, f).toContain('<script src="lib/tm_tki_core.js?v=2"></script>');
-      expect(s, f).toContain('<script src="lib/tm_pikakentat.js?v=5"></script>');   // PR C: v5 (PHV-sääntö)
+      expect(s, f).toContain('<script src="lib/tm_pikakentat.js?v=6"></script>');   // v6: KL virallinen laskutapa (tmKlTulos)
       expect(s.indexOf('lib/tm_tki_core.js'), f + ': TKI-ydin ennen pikakenttiä').toBeLessThan(s.indexOf('lib/tm_pikakentat.js'));
     }
-    expect(lue('TalentMaster_Master_v16.html')).toContain('<script src="lib/tm_pikakentat.js?v=5"></script>');
+    expect(lue('TalentMaster_Master_v16.html')).toContain('<script src="lib/tm_pikakentat.js?v=6"></script>');
     const tt = lue('TalentMaster_Testituonti_Master.html');
     for (const l of ['lib/tm_pvm.js?v=3', 'lib/tm_eerikkila_normit.js?v=47']) expect(tt).toContain('<script src="' + l + '"></script>');
     for (const f of ['TalentMaster_Master_v16.html', 'TalentMaster_VP_v25.html', 'TalentMaster_Testaus_v9.html', 'TalentMaster_Testituonti_Master.html', 'TalentMaster_Pelaaja_v7.html', 'TalentMaster_Vanhempi_v2.html']) {
