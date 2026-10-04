@@ -149,7 +149,7 @@ function pelaajaCtx(pelaaja, ls) {
   const ctx = { _pelaaja: pelaaja, _isDemoUser: false, window: {}, document, localStorage: ls, requestAnimationFrame: (f) => f(),
     setTimeout: () => 0, JSON, Object, String, Number, Math, t: LANG.t };
   vm.createContext(ctx);
-  vm.runInContext([pura(P7, 'function _thEsc('), pura(P7, 'function _kkEnnatysTiedot('), pura(P7, 'function _ennUudetNakematta('),
+  vm.runInContext([pura(P7, 'function _thEsc('), pura(P7, 'function _kkEnnatysTiedot('), pura(P7, 'function _ennRivit('), pura(P7, 'function _ennUudetNakematta('),
     pura(P7, 'function _ennLuku('), pura(P7, 'function _ennArvoTxt('), pura(P7, 'function _naytaUusiEnnatys('), pura(P7, 'function _kkEnnatyksetHTML(')].join('\n')
     + '\nthis.nayta = _naytaUusiEnnatys; this.puhdas = _ennUudetNakematta; this.kortti = _kkEnnatyksetHTML;', ctx);
   ctx.body = body; return ctx;

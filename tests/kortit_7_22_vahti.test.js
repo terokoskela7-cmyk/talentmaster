@@ -44,7 +44,7 @@ function lataaLib(ctx, f) { vm.runInContext(readFileSync(join(ROOT, f), 'utf8'),
 
 const PELAAJA_FN = ['function _thEsc(', 'function _laskeStage(', 'function _fcNaytaOvr(', 'function _fcKorttiData(', 'function _fcRengasSVG(',
   'function _minaTierVari(', 'function rMinaHero(', 'function naytaFcOverlay(', 'function rMinaTekniikkaprofiili(', 'function _signaaliLabel(',
-  'function _minaHhHuipulla(', 'function _kkMitattuja('];
+  'function _minaHhHuipulla(', 'function _kkMitattuja(', 'function _ennRivit('];
 function pelaajaCtx(p) {
   const fc = { innerHTML: '', classList: { add() {} } };
   const base = { console, Math, Date, JSON, String, Number, Object, Array, RegExp, Boolean, isNaN, parseFloat, parseInt, Proxy,

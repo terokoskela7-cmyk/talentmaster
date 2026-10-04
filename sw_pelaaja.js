@@ -10,7 +10,7 @@
    - Omat JS-moduulit + manifest + ikonit + versioidut fontit/SDK → cache-first.
    - KAIKKI muu (toisten appien sivut, raw.githubusercontent, jne.) → suoraan verkkoon, EI cachea.
    Scopea ei voi kaventaa (SW juuressa) → allowlist hoitaa rajaamisen. CLAUDE.md §27.4. */
-const CACHE = 'tm-pelaaja-v61';   // PR G: TK-viitelähde (alueellinen lapsen tavoitteeksi) + H-H/TK-erottelu (testit_indeksit v12, kehityskaari v6) (4.10.2026)
+const CACHE = 'tm-pelaaja-v61';   // PR G: TK-viitelähde (alueellinen lapsen tavoitteeksi) + H-H/TK-erottelu (testit_indeksit v12, kehityskaari v6, tm_ennatykset v5) — v60 = PR D2 (4.10.2026)
 const SHELL = './TalentMaster_Pelaaja_v7.html';
 // VAIN oma shell — JS-moduulit ovat ?v=-versioituja (bare-polku ei matchaisi), allowlist cachettaa ne
 // pyydettäessä. (Vanha PRECACHE viittasi /talentmaster/tm_eerikkila_normit.js → 404, jota Pelaaja ei lataa
@@ -64,7 +64,9 @@ function onAllowlist(url) {
   if (url.indexOf('/lib/tm_eerikkila_normit.js') !== -1) return true;
   if (url.indexOf('/lib/tm_idp.js') !== -1) return true;   // 3c-a pelaajan aikajana
   if (url.indexOf('/lib/tm_lang.js') !== -1) return true;   // i18n V0 — käännöstaulukko offline-cacheen
+  if (url.indexOf('/lib/tm_ennatykset.js') !== -1) return true;   // PR D2: ennätysrivit alustoittain
   if (url.indexOf('/lib/tm_alusta.js') !== -1) return true;   // PR F: §22-alustasanasto (ennätyskortin alustanimi)
+  if (url.indexOf('/lib/tm_phv_tila.js') !== -1) return true;   // PR C: PHV-tilan yksi lukusääntö (Kehitysvaihe-kortti, stage)
   // Kaavio erä D1: konseptin piirros pelaajan kortilla. Inline-SVG, ei ulkoisia origineja →
   // toimii offline kun libit ovat cachessa (itse spec tulee Firestoresta ja vaatii verkon).
   if (/\/lib\/tm_kaavio_(render|konsepti|policy)\.js/.test(url)) return true;

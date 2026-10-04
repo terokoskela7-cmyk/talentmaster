@@ -24,7 +24,7 @@ describe('Hidden Gem siirretty VP:stä: sama tulos kuin vanha koodi', () => {
     let n = 0;
     for (const hh of arvot) for (const d2 of arvot) for (const tki of [null, 30, 75]) for (const phv of [null, 'PRE', 'LAH', 'PH', 'AN'])
       for (const tv of [null, { merkki: 'kulta' }, { merkki: 'pronssi' }]) for (const flei of [null, 64, 65]) for (const to of [true, false]) {
-        const p = { hh_taso: hh, d2_taso: d2, tki_viimeisin: tki, phv_tila: phv, tekninen_varhaiskehitys: tv, flei_viimeisin: flei, talenttiOhjelma: to };
+        const p = { hh_taso: hh, d2_taso: d2, tki_viimeisin: tki, phv_tila: phv, biologinenIka_viimeisin: phv ? { phv_tila_koodi: phv } : undefined, tekninen_varhaiskehitys: tv, flei_viimeisin: flei, talenttiOhjelma: to };
         expect(M.laskeHiddenGem(p)).toEqual(ctx.hg(p)); expect(M.laskeD2Taso(p)).toEqual(ctx.d2(p)); n++;
       }
     expect(n).toBeGreaterThan(10000);

@@ -1,8 +1,9 @@
 # PHV-tila "AN": mistä Topiaksen arvo tulee?
 
 > **Selvitys 4.10.2026** (PR B, datakatkokset). Pelkkä raportti, dataan ei ole koskettu.
-> Sanaston yhtenäistys Mirwaldiin on erillinen **PR C** (Teron päätös), eikä sitä toteuteta tässä.
-> Rivinumerot viittaavat tämän PR:n haaraan (`fix/kortit-datakatkokset`).
+> Sanaston yhtenäistys Mirwaldiin toteutettiin **PR C:ssä** (`fix/phv-sanasto`, ks. §6).
+> Rivinumerot viittaavat PR B:n haaraan (`fix/kortit-datakatkokset`). **Tämä dokumentti kuvaa historiallista tilaa**
+> — §2.2:n vanha sanasto on poistettu koodista (vartija `tests/phv_sanasto.test.js` ohittaa vain tämän tiedoston).
 
 ## 1. Ongelma lyhyesti
 
@@ -86,11 +87,18 @@ ne `testitulokset`-dokumentit, joissa on `phv_tila`, ne `testitapahtumat/*/tulok
 Testaus_v9:n kopiot merkitään erikseen), `kartoitukset` ja `flei_historia`. Lopuksi se tulostaa **PÄÄTELMÄN**, joka on yksi seuraavista:
 MITTAUS / LOMAKE/TUONTI / MOLEMMAT / TUNTEMATON.
 
-## 4. Tulos (Tero liittää ajon jälkeen)
+## 4. Tulos (diag ajettu 4.10.2026)
 
-```
-(tyhjä — täytetään ajon jälkeen)
-```
+Topias, `seurat/kpv/pelaajat/m93GBdOaGCUuenMiCL0I`:
+
+- `phv_tila`: `"AN"`
+- `biologinenIka_viimeisin`: **EI ole**
+- `biologinen_ika`-alikokoelma: **0 dokumenttia**
+- lomake- tai tuontilähdettä (`testitulokset`, `testitapahtumat/*/tulokset` lomakkeen/Testituonnin kirjoittamana, `kartoitukset`) **ei löytynyt**
+- ainoa muu esiintymä: Testaus_v9:n **kopio** pelaajadokumentista tulosdokumenttiin (`kirjaaja`/`kirjattu`, ks. §2.3) — ei lähde
+
+**PÄÄTELMÄ: TUNTEMATON.** Arvo on kiertänyt ilman lähdettä (kopioijat §2.3). Sitä ei voi tulkita kumpaankaan
+suuntaan: Mirwald-mittausta ei ole, eikä lomakemerkintää löydy. 13-vuotiaalle "Kehittynyt vaihe" oli siis perusteeton.
 
 ## 5. Johtopäätös ennen ajoa (päätelty koodista)
 
@@ -99,3 +107,17 @@ MITTAUS / LOMAKE/TUONTI / MOLEMMAT / TUNTEMATON.
 - Jos mittaus löytyy ja koodi täsmää, AN on Mirwald-tulos. Silloin kannattaa tarkistaa mittauksen syötteet (pituus, istumapituus, paino ja syntymäaika),
   koska 13-vuotiaan jälki-PHV on epätodennäköinen.
 - Dataa ei korjata tässä PR:ssä. Sanaston yhtenäistys (PR C) ratkaisee merkityksen ennen kuin olemassa olevia arvoja muunnetaan.
+
+## 6. Ratkaisu (PR C, `fix/phv-sanasto`, Teron päätökset 4.10.2026)
+
+1. **Kanoninen sanasto = Mirwald PRE/LAH/PH/POST/AN kaikissa lukijoissa.** Ei lähteen mukaista tulkintaa, ei vanhan sanaston
+   tukea (`VA`/`huippu`/`PHV` poistettu Pelaaja_v7:stä ja VP_v25:stä). `harjoitelogiikka_v4.js` ja `lib/tm-profile.js`
+   (oletus `'AN'` = pre-PHV) korjattu; `src/lib/tm-profile.js` on nyt re-export.
+2. **Sääntö 3:** yksi jaettu funktio `lib/tm_phv_tila.js` → `tmPhvTila(pelaajaDoc)`. Tila voimassa vain, jos pelaajadokissa on
+   `biologinenIka_viimeisin` (mittaus voittaa), muuten `'tuntematon'`. Näkymät: tuntematon → ei vaihetekstiä
+   (Pelaaja_v7:n Kehitysvaihe-kortti piiloon). Kuormarajoitin: tuntematon = varovaisin raja (kuten PH) ilman PH-varoitusta.
+3. **Kirjoittajat** kirjoittavat vain kanonisia koodeja (`tmPhvTuontiKoodi`). Käyttäjä valitsee selkokielisesti; **AN-solu
+   tuonnissa → varoitus "moniselitteinen", ei tallenneta**. Kierto katkaistu: Testaus_v9 ei kopioi `phv_tila`:a (§2.3, :2621)
+   eikä Masterin Excel-pohja esitäytä PHV-saraketta (§2.3, :3103).
+4. **Migraatio:** `scripts/migrate_phv_sanasto.js` (dry-run oletus). Topiaksen tapaus = ryhmä (a): ehdotus **poista kenttä**
+   (lukijat näkevät jo nyt `'tuntematon'`).

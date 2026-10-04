@@ -89,12 +89,12 @@ describe('tmFyysDelta — §29 pvm-vahti', () => {
 
 describe('tmFyysPHVPortti — §28', () => {
   it('PRE/LAH → neutraali', () => {
-    expect(F.tmFyysPHVPortti({ phv_tila: 'PRE' }).neutraali).toBe(true);
-    expect(F.tmFyysPHVPortti({ phv_tila: 'LAH' }).neutraali).toBe(true);
+    expect(F.tmFyysPHVPortti({ phv_tila: 'PRE', biologinenIka_viimeisin: { phv_tila_koodi: 'PRE' } }).neutraali).toBe(true);
+    expect(F.tmFyysPHVPortti({ phv_tila: 'LAH', biologinenIka_viimeisin: { phv_tila_koodi: 'LAH' } }).neutraali).toBe(true);
   });
   it('POST/AN → ei neutraali', () => {
-    expect(F.tmFyysPHVPortti({ phv_tila: 'POST' }).neutraali).toBe(false);
-    expect(F.tmFyysPHVPortti({ phv_tila: 'AN' }).neutraali).toBe(false);
+    expect(F.tmFyysPHVPortti({ phv_tila: 'POST', biologinenIka_viimeisin: { phv_tila_koodi: 'POST' } }).neutraali).toBe(false);
+    expect(F.tmFyysPHVPortti({ phv_tila: 'AN', biologinenIka_viimeisin: { phv_tila_koodi: 'AN' } }).neutraali).toBe(false);
   });
   it('onNeutraaliPrePHV-fallback (kutsujan tulos)', () => {
     expect(F.tmFyysPHVPortti({ phv_tila: null }, true).neutraali).toBe(true);

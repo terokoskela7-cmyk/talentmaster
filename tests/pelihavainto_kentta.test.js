@@ -970,7 +970,7 @@ describe('(15) yksi dokumentti per ottelu — ei puoliajan eikä päivän mukaan
     } finally {
       if (vanhaTZ === undefined) delete process.env.TZ; else process.env.TZ = vanhaTZ;
     }
-  });
+  }, 20000);   // CI: 1. TZ-vaihto (Pacific/Kiritimati) lataa vyöhykedatan kylmänä — ylitti 5 s:n oletusrajan kuormitetulla koneella (paikallisesti ~3 ms)
 
   it('otteluavain käyttää samaa paikallista päivää', () => {
     const vanhaTZ = process.env.TZ;
@@ -981,7 +981,7 @@ describe('(15) yksi dokumentti per ottelu — ei puoliajan eikä päivän mukaan
     } finally {
       if (vanhaTZ === undefined) delete process.env.TZ; else process.env.TZ = vanhaTZ;
     }
-  });
+  }, 20000);   // CI: 1. TZ-vaihto (Pacific/Kiritimati) lataa vyöhykedatan kylmänä — ylitti 5 s:n oletusrajan kuormitetulla koneella (paikallisesti ~3 ms)
 
   it('kaksi ottelua samana päivänä saa ERI avaimen (turnaus)', () => {
     const { avain } = apu();

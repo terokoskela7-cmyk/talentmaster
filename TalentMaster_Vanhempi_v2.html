@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>TalentMaster™ — Perhe v1</title>
 <script>/* Versio-tarkistus (cache): pakottaa reloadin kun uusi versio deployattu. APP_VERSION leimataan scripts/bump_version.js:llä. */
-(function(){var APP_VERSION='1791114114072';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
+(function(){var APP_VERSION='1791116759755';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
 <!-- B2 Sentry-virheseuranta (onboarding-kriittinen). PII-skrubi tm_sentry.js:ssä. Guard: offline → no-op.
      ⚠️ ENNEN PUSHIA: liitä EU-DSN tm_sentry.js:ään + verifioi integrity-hash bundle.min.js@10.58.0 (väärä SRI estää Sentryn hiljaa). -->
 <script>window.TM_SENTRY={app:'vanhempi'};</script>
@@ -125,6 +125,8 @@ body.demo-mode #devChrome{display:block}
 <script src="lib/tm_verkko.js?v=1"></script>   <!-- verkkokatko: 1 uudelleenyritys + Yhteyskatko-ilmoitus + Sentry warning -->
 <script src="lib/tm_lang.js?v=30"></script>   <!-- i18n V0 putki · V1-B/B2: +vanhempi./nav.-avaimet + kielivalitsin + syväsisältö (nimen taivutus poistettu) -->
 <script src="docs/testit_indeksit.js?v=12"></script>
+<script src="lib/tm_alusta.js?v=2"></script>   <!-- PR D2: alustakoodi/-nimi ennätysriveille -->
+<script src="lib/tm_ennatykset.js?v=5"></script>   <!-- PR D2: ennätysrivit alustoittain (tmEnnatysRivit, jaettu Pelaajan kanssa) -->
 <script src="tm-bus.js?v=3"></script>
 <script src="tm-demo.js?v=3"></script>
 </head>
@@ -1249,15 +1251,22 @@ function _vanhEnnArvo(paras, yks) {
 function _vanhEnnPvm(iso) { const m = String(iso || '').match(/^(\d{4})-(\d{2})-(\d{2})/); return m ? (Number(m[3]) + '.' + Number(m[2]) + '.' + m[1]) : ''; }
 function rVanhempiEnnatykset(){
   const L = window._lapsi || {};
-  const E = (L.ennatykset && typeof L.ennatykset === 'object') ? L.ennatykset : null;
-  const avaimet = E ? Object.keys(_VANH_ENN).filter(k => E[k] && E[k].paras != null && !isNaN(Number(E[k].paras))) : [];
-  if (!avaimet.length) return '';
+  // PR D2: rivi per (testi, alusta) JAETUSTA lib/tm_ennatykset.js:stä (sama kuin Pelaaja) — pääalusta (Mondo) ensin,
+  // muut alustat omina riveinään ilman vertailua. Varalla (lib lataamatta) vanha yksi rivi per testi.
+  const _TE = window.TM_ENNATYKSET;
+  const E = (L.ennatykset && typeof L.ennatykset === 'object') ? L.ennatykset : {};
+  const _jr = (_TE && typeof _TE.tmEnnatysRivit === 'function') ? _TE.tmEnnatysRivit(L) : null;
+  const kaikki = Array.isArray(_jr) ? _jr : Object.keys(E).map(k => Object.assign({ avain: k, testi: k }, E[k]));
+  const rivitData = kaikki.filter(r => _VANH_ENN[r.testi] && r.paras != null && !isNaN(Number(r.paras)));
+  if (!rivitData.length) return '';
+  const _ak = (a) => (typeof tmAlustaKoodi === 'function') ? tmAlustaKoodi(a) : (a || 'tuntematon');
   const tanaan = (typeof tmPaivaIso === 'function') ? tmPaivaIso(new Date()) : null;   // paikallinen päivä (ei UTC)
   const tuore = (e) => { if (!tanaan || e.edellinen == null || !e.pvm) return false; const d = (Date.parse(tanaan) - Date.parse(String(e.pvm).slice(0, 10))) / 864e5; return d >= 0 && d <= 30; };
-  const rivit = avaimet.map(k => {
-    const e = E[k], m = _VANH_ENN[k];
+  const rivit = rivitData.map(e => {
+    const m = _VANH_ENN[e.testi], ak = _ak(e.alusta);
+    const alustaTxt = (ak !== 'tuntematon') ? ` <span style="font-size:10px;color:var(--ink3)">· ${_vEsc(t('alusta.' + ak))}</span>` : '';
     return `<div style="display:flex;align-items:baseline;gap:8px;padding:6px 0;border-bottom:.5px solid var(--border)">
-      <div style="flex:1;font-size:12px;color:var(--text)">${_vEsc(t(m[0]))}${tuore(e) ? ` <span style="font-size:10px;color:#28B090">· ${_vEsc(t('vanhempi.enn_uusi'))}</span>` : ''}</div>
+      <div style="flex:1;font-size:12px;color:var(--text)">${_vEsc(t(m[0]))}${alustaTxt}${tuore(e) ? ` <span style="font-size:10px;color:#28B090">· ${_vEsc(t('vanhempi.enn_uusi'))}</span>` : ''}</div>
       <div style="font-size:13px;color:var(--text);font-weight:500">${_vEsc(_vanhEnnArvo(e.paras, m[1]))}</div>
       <div style="width:72px;font-size:10px;color:var(--ink3);text-align:right">${_vEsc(_vanhEnnPvm(e.pvm))}</div></div>`;
   }).join('');
