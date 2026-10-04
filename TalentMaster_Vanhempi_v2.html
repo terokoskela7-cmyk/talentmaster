@@ -123,10 +123,11 @@ body.demo-mode #devChrome{display:block}
 <script src="lib/tm_pvm.js?v=3"></script>   <!-- tmPaivaIso: paikallinen päivä tallennuksiin (ei UTC) -->
 <script src="lib/tm_appcheck.js?v=2"></script>
 <script src="lib/tm_verkko.js?v=1"></script>   <!-- verkkokatko: 1 uudelleenyritys + Yhteyskatko-ilmoitus + Sentry warning -->
-<script src="lib/tm_lang.js?v=31"></script>   <!-- i18n V0 putki · V1-B/B2: +vanhempi./nav.-avaimet + kielivalitsin + syväsisältö (nimen taivutus poistettu) -->
+<script src="lib/tm_lang.js?v=32"></script>   <!-- i18n V0 putki · V1-B/B2: +vanhempi./nav.-avaimet + kielivalitsin + syväsisältö (nimen taivutus poistettu) -->
 <script src="docs/testit_indeksit.js?v=13"></script>
 <script src="lib/tm_alusta.js?v=2"></script>   <!-- PR D2: alustakoodi/-nimi ennätysriveille -->
 <script src="lib/tm_ennatykset.js?v=6"></script>   <!-- PR D2: ennätysrivit alustoittain (tmEnnatysRivit, jaettu Pelaajan kanssa) -->
+<script src="lib/tm_kalenteri_ilmoitus.js?v=1"></script>   <!-- V2 P0.4: tapahtuman päättyminen + ilmoituksen päivä (jaettu Pelaaja + Vanhempi) -->
 <script src="tm-bus.js?v=3"></script>
 <script src="tm-demo.js?v=3"></script>
 </head>
@@ -519,14 +520,18 @@ async function _vanhLataaNotif() {
 }
 function _vanhNotifHTML() {
   if (window._vanhNotif === null && !window._vanhNotifLadattu) _vanhLataaNotif();
-  var arr = window._vanhNotif || [];
+  var K = window.TM_KALENTERI_ILM, nyt = new Date();
+  var arr = (window._vanhNotif || []).map(function (n) { return { n: n, r: K ? K.tmIlmoitusRivi(n, window._vanhKalenteri, nyt) : { nakyvissa: true, runko: String(n.teksti || ''), paiva: null } }; })
+    .filter(function (x) { return x.r.nakyvissa; });   // V2 P0.4: päättyneen tapahtuman muistutus/muutos piiloon
   if (!arr.length) return '';
   var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); };
-  var unread = arr.filter(function (n) { return !n.luettu; }).length;
-  var rows = arr.slice(0, 6).map(function (n) {
+  var unread = arr.filter(function (x) { return !x.n.luettu; }).length;
+  var _paivaTxt = function (p) { return p.tyyppi === 'tanaan' ? t('vanhempi.ilm_tanaan') : p.tyyppi === 'huomenna' ? t('vanhempi.ilm_huomenna') : p.pvmTxt; };
+  var rows = arr.slice(0, 6).map(function (x) {
+    var n = x.n, teksti = x.r.paiva ? (_paivaTxt(x.r.paiva) + ': ' + x.r.runko) : x.r.runko;
     return '<div onclick="_vanhNotifTap(\'' + n.id + '\',\'' + (n.linkki || '') + '\')" style="display:flex;align-items:flex-start;gap:10px;padding:10px 12px;border-radius:9px;background:' + (n.luettu ? 'transparent' : 'var(--surface)') + ';border:.5px solid ' + (n.luettu ? 'var(--border)' : 'rgba(40,176,144,.28)') + ';margin-bottom:6px;cursor:pointer">'
       + '<span style="font-size:15px;flex-shrink:0">' + (_VANH_NOTIF_IKO[n.tyyppi] || '🔔') + '</span>'
-      + '<span style="flex:1;min-width:0;font-size:12.5px;color:var(--text);line-height:1.4">' + esc(String(n.teksti || '')) + '</span>'
+      + '<span style="flex:1;min-width:0;font-size:12.5px;color:var(--text);line-height:1.4">' + esc(teksti) + '</span>'
       + (n.luettu ? '' : '<span style="width:7px;height:7px;border-radius:50%;background:var(--teal);flex-shrink:0;margin-top:5px"></span>') + '</div>';
   }).join('');
   return '<div style="margin:16px 0 4px"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:9px">'
@@ -569,7 +574,7 @@ async function _vanhLataaKalenteri() {
   try {
     var snap = await _db.collection('seurat').doc(L.seuraId).collection('kalenteri').get();
     var now = new Date(), evs = [];
-    snap.forEach(function (doc) { var ev = Object.assign({ id: doc.id }, doc.data()); if (ev.poistettu) return; if (!_vanhEvKuuluu(ev)) return; var d = _vanhEvPvm(ev); if (!d || d < now) return; ev._d = d; evs.push(ev); });
+    snap.forEach(function (doc) { var ev = Object.assign({ id: doc.id }, doc.data()); if (ev.poistettu) return; if (!_vanhEvKuuluu(ev)) return; var d = _vanhEvPvm(ev); if (!d) return; if (window.TM_KALENTERI_ILM ? window.TM_KALENTERI_ILM.tmEvPaattynyt(ev, now) : d < now) return;   /* V2 P0.4: näkyy päättymiseensä asti (kellonajaton → päivän loppu) */ ev._d = d; evs.push(ev); });
     evs.sort(function (a, b) { return a._d - b._d; });
     // P7-c.3 — read-back lapsen oma saatavuus näytettäville tapahtumille (best-effort, rinnakkain).
     if (L.id) { try { await Promise.all(evs.slice(0, 5).map(function (ev) { return _db.collection('seurat').doc(L.seuraId).collection('kalenteri').doc(ev.id).collection('lasnaolijat').doc(L.id).get().then(function (s) { if (s.exists) ev._omaSaatavuus = (s.data() || {}).saatavuus || null; }).catch(function () { }); })); } catch (e) { /* ei kriittinen */ } }

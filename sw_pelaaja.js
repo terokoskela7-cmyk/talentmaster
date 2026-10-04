@@ -10,7 +10,7 @@
    - Omat JS-moduulit + manifest + ikonit + versioidut fontit/SDK → cache-first.
    - KAIKKI muu (toisten appien sivut, raw.githubusercontent, jne.) → suoraan verkkoon, EI cachea.
    Scopea ei voi kaventaa (SW juuressa) → allowlist hoitaa rajaamisen. CLAUDE.md §27.4. */
-const CACHE = 'tm-pelaaja-v70';   // V2 P0.3: harjoitelogiikka ?v=15 (ei kalenterisidonnaista "joulukuun alussa") — v69 = P0.5 putki paikallinen päivä (#773), v68 = P0.7 (#772)
+const CACHE = 'tm-pelaaja-v71';   // V2 P0.4 PR1: tm_kalenteri_ilmoitus.js + tm_lang v32 (ilm_tanaan/huomenna) — v70 = P0.3 (#774), v69 = P0.5 (#773), v68 = P0.7 (#772)
 const SHELL = './TalentMaster_Pelaaja_v7.html';
 // VAIN oma shell — JS-moduulit ovat ?v=-versioituja (bare-polku ei matchaisi), allowlist cachettaa ne
 // pyydettäessä. (Vanha PRECACHE viittasi /talentmaster/tm_eerikkila_normit.js → 404, jota Pelaaja ei lataa
@@ -65,6 +65,7 @@ function onAllowlist(url) {
   if (url.indexOf('/lib/tm_idp.js') !== -1) return true;   // 3c-a pelaajan aikajana
   if (url.indexOf('/lib/tm_lang.js') !== -1) return true;   // i18n V0 — käännöstaulukko offline-cacheen
   if (url.indexOf('/lib/tm_ennatykset.js') !== -1) return true;   // PR D2: ennätysrivit alustoittain
+  if (url.indexOf('/lib/tm_kalenteri_ilmoitus.js') !== -1) return true;   // V2 P0.4: tapahtuman päättyminen + ilmoituksen päivä (offline)
   if (url.indexOf('/lib/tm_alusta.js') !== -1) return true;   // PR F: §22-alustasanasto (ennätyskortin alustanimi)
   if (url.indexOf('/lib/tm_phv_tila.js') !== -1) return true;   // PR C: PHV-tilan yksi lukusääntö (Kehitysvaihe-kortti, stage)
   // Kaavio erä D1: konseptin piirros pelaajan kortilla. Inline-SVG, ei ulkoisia origineja →
