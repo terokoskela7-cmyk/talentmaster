@@ -1453,30 +1453,35 @@ function _laskeTestiRyhma(testId, ryhma, rivi) {
     return isNaN(n) ? null : n;
   };
 
-  // ── Kuljetus-laukaus: raaka − vähennys per yritys, paras = min netto ──
+  // ── Kuljetus-laukaus: raaka − vähennys (vähennykset yhteensä) per yritys, TULOS = pienin NETTO (min vasta nettojen jälkeen) ──
+  // Vähennys-sarake PUUTTUU yritykseltä (vanha pohja) → EI hiljaista nollaa: yritystä ei lasketa nettona (raaka ≠ netto) + varoitus.
+  // Tyhjä solu sarakkeen ollessa olemassa = 0 vähennystä. Ennenaikaisia ei Excelissä (ks. Testaus_v9; netto sama kaava).
   if (testId === 'kuljetus_laukaus') {
     const yritykset = {};
     for (const c of ryhma.columns) {
       const y = c.yritys || 1;
-      if (!yritykset[y]) yritykset[y] = {};
-      if (c.kind === 'kl_vahennys') yritykset[y].vahennys = lue(c.index);
+      if (!yritykset[y]) yritykset[y] = { onVah: false };
+      if (c.kind === 'kl_vahennys') { yritykset[y].vahennys = lue(c.index); yritykset[y].onVah = true; }
       else yritykset[y].raaka = lue(c.index);
     }
     const rakenne = {};
     const netot = [];
+    const puuttuu = [];
     Object.keys(yritykset).sort().forEach(y => {
       const o = yritykset[y];
       if (o.raaka == null) return;
+      if (!o.onVah) { puuttuu.push(y); rakenne['y' + y] = { raaka: o.raaka, vahennys: null, netto: null }; return; }
       const vah = o.vahennys || 0;
       const netto = Math.round((o.raaka - vah) * 100) / 100;
       rakenne['y' + y] = { raaka: o.raaka, vahennys: vah, netto: netto };
       netot.push(netto);
     });
-    if (netot.length === 0) return { skalaari: null, rakenne: null };
+    const varoitus = puuttuu.length ? ('Kuljetus-laukaus: vähennys-sarake puuttuu (suoritus ' + puuttuu.join(', ') + ') — raaka-aikaa ei käytetä nettona. Käytä uutta pohjaa (aika + vähennykset yhteensä).') : null;
+    if (netot.length === 0) return { skalaari: null, rakenne: puuttuu.length ? rakenne : null, varoitus: varoitus };
     const paras = Math.min.apply(null, netot);
     rakenne.paras = paras;
     rakenne.tulos = paras; // laskeKokonaistulos lukee v.tulos
-    return { skalaari: paras, rakenne: rakenne };
+    return { skalaari: paras, rakenne: rakenne, varoitus: varoitus };
   }
 
   // ── Pituuspotku: paras per jalka (max metrit), paras_m + metrit + aikabonus ──
@@ -2003,6 +2008,7 @@ function prosessoiExcel(wb) {
       const tulos = _laskeTestiRyhma(testId, ryhmat[testId], rivi);
       p.testit[testId] = (tulos.skalaari != null) ? String(tulos.skalaari) : '';
       if (tulos.rakenne != null) p.testitRakenne[testId] = tulos.rakenne;
+      if (tulos.varoitus) (p._tkVaroitukset = p._tkVaroitukset || []).push(tulos.varoitus);
     }
 
     // MAS — jos sarake on aikamuodossa ("4,40 min"), muunna nopeudeksi.
@@ -2342,6 +2348,9 @@ function suoritaValidointi() {
         varoitukset.push({ rivi: idx, kentta: 'MAS', msg: `${riviLabel}: MAS-aika ${p.testit.mas_aika_s} s epävalidi (0–600 s)` });
       }
     }
+
+    // 4c) Kuljetus-laukaus: vähennys-sarake puuttuu → varoitus (ei hiljaista nollaa)
+    (p._tkVaroitukset || []).forEach(m => varoitukset.push({ rivi: idx, kentta: 'Kuljetus-laukaus', msg: `${riviLabel}: ${m}` }));
 
     // 5) Testiarvojen validointi
     for (const ts of tuontiData.testiSarakkeet) {
