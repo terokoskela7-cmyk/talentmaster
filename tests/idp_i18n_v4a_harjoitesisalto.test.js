@@ -42,12 +42,20 @@ function withLang(lang, fn) {
 
 afterEach(() => { delete global.tmNykyinenKieli; });
 
+// sv-ODOTUSLISTA (CLAUDE.md §0: Claude ei kirjoita ruotsia → Gemini). Poista rivi kun käännös tulee kartaan.
+const SV_ODOTUSLISTA = [
+  'Syöttöhaaste: 20 syöttöä, eri etäisyydet (10/15/20 m). Laske pisteet: tarkka osuma = 1 p. Vertaa: oletko parempi kuin edellisellä kerralla?',   // V2 P0.3 (4.10.2026)
+];
 describe('HARJOITE_I18N.sv - sisalto kattaa reachable-joukon taydellisesti', () => {
   it('sv.sisalto: jokainen pelaajalle nakyva fi-merkkijono on kaannetty (0 puuttuvaa)', () => {
     const map = H.HARJOITE_I18N.sv.sisalto;
     const puuttuu = [];
-    reachableStrings().forEach((fi) => { if (typeof map[fi] !== 'string' || !map[fi].trim()) puuttuu.push(fi.slice(0, 40)); });
+    reachableStrings().forEach((fi) => { if (SV_ODOTUSLISTA.includes(fi)) return; if (typeof map[fi] !== 'string' || !map[fi].trim()) puuttuu.push(fi.slice(0, 40)); });
     expect(puuttuu).toEqual([]);
+  });
+  it('sv-odotuslista elävä: jokainen rivi on live-PANKISSA eikä vielä käännettynä (käännös saapui → poista rivi)', () => {
+    const live = reachableStrings();
+    SV_ODOTUSLISTA.forEach((fi) => { expect(live.has(fi), 'ei enää pankissa: ' + fi.slice(0, 40)).toBe(true); expect(H.HARJOITE_I18N.sv.sisalto[fi], 'käännös jo olemassa: ' + fi.slice(0, 40)).toBeUndefined(); });
   });
   it('sv.sisalto avaimet ovat kaikki live-PANKKIsta (ei orpoja avaimia)', () => {
     const live = reachableStrings();

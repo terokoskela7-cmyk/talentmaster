@@ -29,6 +29,11 @@ module.exports = [
   // Suostumuksen uusiminen näkyväksi (2.10.2026)
   'seura.uusinta_vahvistus',
   'suostumus.uusinta_selite',
+  // V2 P0.4 PR 1: ilmoituksen suhteellinen päivä (4.10.2026)
+  'pelaaja.ilm_tanaan',
+  'pelaaja.ilm_huomenna',
+  'vanhempi.ilm_tanaan',
+  'vanhempi.ilm_huomenna',
   // Pelaaja V2 P0.6: mitali vain kokonaistuloksesta + lajimerkit → oma paras (4.10.2026)
   'pelaaja.tk_mitali',
   'pelaaja.tk_mitali_ilman_pvm',

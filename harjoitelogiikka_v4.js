@@ -354,7 +354,7 @@ const PANKKI = {
       vk4: {
         nimi: 'Syöttö-mittaus',
         ohje_leikkija: 'Laske: montako kertaa lähetät pallon tarkasti 10 metriin? Tee 20 syöttöä ja laske pisteet.',
-        ohje_rakentaja: 'Syöttöhaaste: 20 syöttöä, eri etäisyydet (10/15/20 m). Laske pisteet: tarkka osuma = 1 p. Vertaa: oletko parempi kuin joulukuun alussa?',
+        ohje_rakentaja: 'Syöttöhaaste: 20 syöttöä, eri etäisyydet (10/15/20 m). Laske pisteet: tarkka osuma = 1 p. Vertaa: oletko parempi kuin edellisellä kerralla?',
         ohje_showcase: 'Syöttösarja 11 muotoa — montako hallitset jo? Käy läpi ja arvioi itsesi. Harjoittele 2 heikkointa 10 min.',
         kesto: '20 min', xp: 30,
         yt: 'yGHMHi9mMOQ',
@@ -2849,7 +2849,6 @@ var HARJOITE_I18N = {
       'Teininä eräs pelaaja liittyi huippuseuraan ja harjoitteli lahjakkaan nuorisoryhmän kanssa, josta moni nousi myöhemmin maailman huipulle. He voittivat yhdessä nuorten arvokisan — yhdessä kasvaminen nosti kaikkia.': 'Som tonåring gick en spelare med i en toppklubb och tränade med en begåvad ungdomsgrupp där många senare nådde världstoppen. Tillsammans vann de ett ungdomsmästerskap — att växa tillsammans lyfte alla.',
       'Syöttö-mittaus': 'Passningsmätning',
       'Laske: montako kertaa lähetät pallon tarkasti 10 metriin? Tee 20 syöttöä ja laske pisteet.': 'Räkna: hur många gånger skickar du bollen exakt på 10 meter? Gör 20 passningar och räkna poängen.',
-      'Syöttöhaaste: 20 syöttöä, eri etäisyydet (10/15/20 m). Laske pisteet: tarkka osuma = 1 p. Vertaa: oletko parempi kuin joulukuun alussa?': 'Passningsutmaning: 20 passningar, olika avstånd (10/15/20 m). Räkna poäng: exakt träff = 1 p. Jämför: är du bättre än i början av december?',
       'Syöttösarja 11 muotoa — montako hallitset jo? Käy läpi ja arvioi itsesi. Harjoittele 2 heikkointa 10 min.': 'Passningsserie 11 former — hur många behärskar du redan? Gå igenom och utvärdera dig själv. Träna de 2 svagaste 10 min.',
       'Viidennen viikon periaate — harjoittele sitä, missä tulos jäi heikoimmaksi.': 'Femte veckans princip — träna det där resultatet blev svagast.',
       'Erään huippusyöttäjän valmentaja neuvoi katsomaan, miten parhaat lyövät pallon: sulava liike molemmin jaloin. Hän harjoitteli laukaisua molemmilla jaloilla niin kauan, että oikea ja vasen olivat lopulta yhtä tarkat.': 'En stjärnpassares tränare rådde honom att se hur de bästa slår bollen: en mjuk rörelse med båda fötterna. Han tränade avslutet med båda fötterna så länge att höger och vänster till slut var lika precisa.',
