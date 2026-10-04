@@ -16,9 +16,10 @@
 <script src="lib/tm_alusta.js?v=1"></script>   <!-- PR F: yksi §22-alustasanasto (TM_ALUSTA) -->
 <script src="lib/tm_ennatykset.js?v=3"></script>   <!-- Omat ennätykset (PB): jaettu kirjoittajille (TM_ENNATYKSET) -->
 <script src="lib/tm_pvm.js?v=3"></script>   <!-- PR B: tmPaivaIso — Excel-solun testipäivä ISO-muotoon (§26 pikakenttien *_pvm) -->
-<script src="lib/tm_eerikkila_normit.js?v=46"></script>   <!-- PR B: normiIka/eerikkilaTaso/laskeD1Joustava/laskeD2HH/hhKehityskohde (§26 H-H-pikakentät) -->
+<script src="lib/tm_phv_tila.js?v=1"></script>   <!-- PR C: PHV-tuontimuunnos + lukusääntö (kanoninen Mirwald) -->
+<script src="lib/tm_eerikkila_normit.js?v=47"></script>   <!-- PR B: normiIka/eerikkilaTaso/laskeD1Joustava/laskeD2HH/hhKehityskohde (§26 H-H-pikakentät) -->
 <script src="lib/tm_tki_core.js?v=2"></script>   <!-- PR B: TKI-ydin + _laskeVahvuudetJaKehityskohteet → TM_TESTIT (IIFE) -->
-<script src="lib/tm_pikakentat.js?v=4"></script>   <!-- PR B: tmLaskePikakentat — §26-pikakentät samassa batchissa tuloksen kanssa -->
+<script src="lib/tm_pikakentat.js?v=5"></script>   <!-- PR B: tmLaskePikakentat — §26-pikakentät samassa batchissa tuloksen kanssa -->
 <!-- SheetJS -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
@@ -952,7 +953,10 @@ function prosessoiExcel(wb) {
       sukupuoli: colSukupuoli >= 0 ? String(rivi[colSukupuoli] || '').trim() : '',
       joukkue: colJoukkue >= 0 ? String(rivi[colJoukkue] || '').trim() : '',
       testauspvm: colTestauspvm >= 0 ? String(rivi[colTestauspvm] || '').trim() : '',
-      phv_tila: colPhv >= 0 ? String(rivi[colPhv] || '').trim().toUpperCase() : '',
+      // PR C: PHV-solu → kanoninen koodi (lib/tm_phv_tila.js). Selkokieliset valinnat + PRE/LAH/PH/POST; VA → POST.
+      // 'AN' on moniselitteinen (vanha pohja vs. kasvumittaus) → EI tulkita hiljaa (validointi varoittaa, ei tallenneta).
+      ...(function () { const raaka = colPhv >= 0 ? String(rivi[colPhv] || '').trim() : ''; const t = tmPhvTuontiKoodi(raaka);
+        return { phv_raaka: raaka, phv_tila: t.koodi || '', phv_ongelma: t.ongelma, phv_huom: t.huom }; })(),
       testit: {}
     };
 
@@ -1097,8 +1101,13 @@ function suoritaValidointi() {
     }
 
     // 4) PHV-tila
-    if (p.phv_tila && !['AN','PH','VA',''].includes(p.phv_tila)) {
-      virheet.push({ rivi: idx, kentta: 'PHV-tila', msg: `${riviLabel}: PHV-tila "${p.phv_tila}" — sallittu: AN, PH, VA` });
+    // PR C: kirjoitetaan VAIN kanonisia koodeja. Moniselitteinen AN → varoitus + ei tallenneta (ei hiljaista tulkintaa).
+    if (p.phv_ongelma === 'moniselitteinen') {
+      varoitukset.push({ rivi: idx, kentta: 'PHV-tila', msg: `${riviLabel}: PHV-tila "${p.phv_raaka}" on moniselitteinen (vanha Excel-pohja ja kasvumittaus käyttävät AN-merkkiä eri merkityksissä) — PHV-tilaa EI tallenneta. Valitse selkokielinen: Ennen kasvupyrähdystä / Kasvupyrähdyksessä / Kasvupyrähdyksen jälkeen, ja tuo uudelleen.` });
+    } else if (p.phv_ongelma) {
+      virheet.push({ rivi: idx, kentta: 'PHV-tila', msg: `${riviLabel}: PHV-tila "${p.phv_raaka}" — sallittu: Ennen kasvupyrähdystä, Kasvupyrähdyksessä, Kasvupyrähdyksen jälkeen (tai PRE, LAH, PH, POST)` });
+    } else if (p.phv_huom) {
+      varoitukset.push({ rivi: idx, kentta: 'PHV-tila', msg: `${riviLabel}: ${p.phv_huom}` });
     }
 
     // 5) Testiarvojen validointi
@@ -1271,9 +1280,9 @@ function naytaEsikatselu() {
     const tunnisteLuokka = !p.tunniste ? 'cell-err' : 'cell-ok';
     html += `<td class="${tunnisteLuokka}">${escapeHtml(p.tunniste || '—')}</td>`;
 
-    const phvLuokka = (p.phv_tila && !['AN','PH','VA',''].includes(p.phv_tila)) ? 'cell-err' :
+    const phvLuokka = (p.phv_ongelma === 'moniselitteinen') ? 'cell-warn' : p.phv_ongelma ? 'cell-err' :
                       (!p.phv_tila) ? 'cell-empty' : 'cell-ok';
-    html += `<td class="${phvLuokka}">${escapeHtml(p.phv_tila || '—')}</td>`;
+    html += `<td class="${phvLuokka}">${escapeHtml(p.phv_tila || p.phv_raaka || '—')}</td>`;
 
     for (const ts of tuontiData.testiSarakkeet) {
       if (!ts.testiId) continue;

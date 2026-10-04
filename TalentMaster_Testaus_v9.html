@@ -23,9 +23,10 @@
 <script src="lib/tm_alusta.js?v=1"></script>   <!-- PR F: yksi §22-alustasanasto (TM_ALUSTA) — ennen tm_ennatykset/valikkoa -->
 <script src="lib/tm_ennatykset.js?v=3"></script>   <!-- Omat ennätykset (PB): jaettu kaikille kirjoittajille (TM_ENNATYKSET) -->
 <script src="lib/tm_historia.js?v=1"></script>   <!-- Trendi Vaihe 1b: H-H/TKI-historia online-tallennuksessa (tmHhSnapshot/tmTkiSnapshot/tmHistoriaLisaa) -->
-<script src="lib/tm_eerikkila_normit.js?v=46"></script>   <!-- Kenttätyökalu Vaihe 1: §26-pikakentät valmiiksi-merkinnässä (normiIka/eerikkilaTaso/laskeD1Joustava/laskeD2HH/normSukupuoliMN) -->
+<script src="lib/tm_phv_tila.js?v=1"></script>   <!-- PR C: PHV-tilan YKSI lukusääntö (eerikkila_normit/tm_pikakentat käyttävät) -->
+<script src="lib/tm_eerikkila_normit.js?v=47"></script>   <!-- Kenttätyökalu Vaihe 1: §26-pikakentät valmiiksi-merkinnässä (normiIka/eerikkilaTaso/laskeD1Joustava/laskeD2HH/normSukupuoliMN) -->
 <script src="lib/tm_tki_core.js?v=2"></script>   <!-- PR B: _laskeVahvuudetJaKehityskohteet → TM_TESTIT (IIFE, ei törmää inline-TKI:hin) -->
-<script src="lib/tm_pikakentat.js?v=4"></script>   <!-- PR B: tmJohdetutPikakentat — tki/hh vahvuus+kehityskohde + *_edellinen (sama kuin Pikakirjaus/Testituonti) -->
+<script src="lib/tm_pikakentat.js?v=5"></script>   <!-- PR B: tmJohdetutPikakentat — tki/hh vahvuus+kehityskohde + *_edellinen (sama kuin Pikakirjaus/Testituonti) -->
 
 <style>
 /* ═══════════════════════════════════════════════════════════════
@@ -2608,7 +2609,8 @@ async function _kirjoitaFirestoreTulos(pelaajaId) {
     palloID: pel.palloID || pel.tunniste || null,
     etunimi: pel.etunimi || '',
     sukunimi: pel.sukunimi || '',
-    phv_tila: pel.phv_tila || null,
+    // PR C: phv_tila EI enää kopioida pelaajadokista tulosdokkiin — kopio kierrätti lomakkeen AN:n
+    // "lähteettömänä" eteenpäin (docs/PHV_AN_ALKUPERA.md). Mitattu PHV tulee vain kasvumittauksesta.
     alusta: _aktiivinenTapahtuma.alusta || '',
     alusta_nimi: _aktiivinenTapahtuma.alusta_nimi || '',
     kirjaaja: _kayttaja ? _kayttaja.uid : null,
@@ -2750,7 +2752,7 @@ window._tallennaTapahtuma = async function _tallennaTapahtuma() {
       sukunimi: p.sukunimi || '',
       syntymapaiva: p.syntymapaiva || p.syntymaaika || '',
       sukupuoli: p.sukupuoli || null,
-      phv_tila: p.phv_tila || null,
+      // PR C: ei phv_tila:a tapahtuman pelaajadataan (ei esitäyttöä tuontipohjaan / tuloskopioon).
       palloID: p.palloID || p.tunniste || null
     })),
     tila: 'avoin',

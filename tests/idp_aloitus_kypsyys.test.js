@@ -6,6 +6,8 @@ import { describe, it, expect, beforeAll } from 'vitest';
 import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
+import { createRequire } from 'module';
+const require = createRequire(import.meta.url);
 
 const __dir = dirname(fileURLToPath(import.meta.url));
 
@@ -15,7 +17,9 @@ beforeAll(() => {
   const s = lines.findIndex((l) => l.includes('function _vpAloitusKypsyysData(p) {'));
   const e = lines.findIndex((l) => l.includes('window._vpAloitusKypsyysData = _vpAloitusKypsyysData;'));
   if (s < 0 || e < 0) throw new Error('Aloitus-kypsyys-lohkoa ei löytynyt');
-  A = new Function('var window = {};\n' + lines.slice(s, e + 1).join('\n') + '\n return { _vpAloitusKypsyysData: _vpAloitusKypsyysData };')();
+  // PR C: VP lataa lib/tm_phv_tila.js:n (tmPhvKoodi) — sama sääntö annetaan funktiolle.
+  const { tmPhvKoodi } = require('../lib/tm_phv_tila.js');
+  A = new Function('tmPhvKoodi', 'var window = {};\n' + lines.slice(s, e + 1).join('\n') + '\n return { _vpAloitusKypsyysData: _vpAloitusKypsyysData };')(tmPhvKoodi);
 });
 
 describe('_vpAloitusKypsyysData — kokoaa pikakentistä (§26)', () => {
@@ -33,6 +37,9 @@ describe('_vpAloitusKypsyysData — kokoaa pikakentistä (§26)', () => {
     expect(A._vpAloitusKypsyysData({ kasvuhistoria: [{ pvm: '2024', pituus_cm: 155 }] }).kasvuhistoria.length).toBe(1);
     expect(A._vpAloitusKypsyysData({ biologinenIka_viimeisin: { kasvuhistoria: [{ pvm: '2024', pituus_cm: 155 }] } }).kasvuhistoria.length).toBe(1);
     expect(A._vpAloitusKypsyysData({}).kasvuhistoria).toEqual([]);
+  });
+  it('PR C: phv_tila ILMAN mittausta (Topiaksen AN) → phv_tila_koodi null → "Kypsyyttä ei mitattu", ei vaihe-neuvoja', () => {
+    expect(A._vpAloitusKypsyysData({ phv_tila: 'AN' }).phv_tila_koodi).toBeNull();
   });
   it('tyhjä pelaaja → kaikki null/[] (rehellinen tyhjä; siru gate estää renderin)', () => {
     const kd = A._vpAloitusKypsyysData({});

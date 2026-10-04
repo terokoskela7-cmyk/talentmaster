@@ -95,7 +95,7 @@ tehty, xp, kesto_min, rpe 1-10, fiilinki 1-5, aika ilta|aamu|paiva.
 **Syntymäpäiväyllätys:** `_onkoSynttari(p)` / `_synttariKonfetti()` / `_synttariBanner(p)` —
 **string concatenation `+`** (nested template literals rikkoivat parserin → musta ruutu v=23:ssa).
 
-**PHV-kehitysvaihekortti:** lukee `phv_tila` (§25); KR-rivi "Tulossa myöhemmin".
+**PHV-kehitysvaihekortti:** lukee `tmPhvTila(_pelaaja)` (`lib/tm_phv_tila.js`, §25): tuntematon (ei kasvumittausta, myös lomakkeen/tuonnin arvo) → kortti piiloon; §7.22: vain sanallinen vaihe, ei lukuja ("±0.5 v" poistettu, PR C); KR-rivi "Tulossa myöhemmin".
 
 ### P6 — Valmentajan havainto + viesti → Pelaajan näkymä (✅ 2026-06-07)
 ```javascript

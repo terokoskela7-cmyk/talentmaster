@@ -528,15 +528,16 @@ input::placeholder,textarea::placeholder{color:#8C8B86;opacity:1}
 <script src="lib/tm_appcheck.js?v=2"></script>
 <script src="lib/tm_verkko.js?v=1"></script>   <!-- verkkokatko: 1 uudelleenyritys + Yhteyskatko-ilmoitus + Sentry warning -->
 <script src="lib/tm_lang.js?v=30"></script>   <!-- i18n V0 putki · V1-A/A2 · V4-A3: +pelaaja.nain_teet/kirjaa_tehdyksi/pallo_joka_paiva/rae_q4 (kotinäytön chrome sv) -->
-<script src="lib/tm_eerikkila_normit.js?v=46"></script>
+<script src="lib/tm_phv_tila.js?v=1"></script>   <!-- PR C: PHV-tilan YKSI lukusääntö (Mirwald, vain mittauslähteestä) -->
+<script src="lib/tm_eerikkila_normit.js?v=47"></script>
 <script src="docs/testit_indeksit.js?v=11"></script>
 <script src="lib/tm_havaintohistoria.js?v=1"></script>   <!-- vain tmHhRivit: jarjestys + tekijanimi (ei pisteita, 7.22) -->
-<script src="harjoitelogiikka_v4.js?v=13"></script>
+<script src="harjoitelogiikka_v4.js?v=14"></script>
 <script src="lib/tm-microcycles.js?v=3"></script>
 <script src="tm-bus.js?v=3"></script>
 <script src="tm-demo.js?v=3"></script>
 <script src="tm_why_lauseet.js?v=3"></script>
-<script src="lib/tm_idp.js?v=5"></script>   <!-- Vaihe 3c-a: pelaajan aikajana (idpPelaajaKaari/Konsepti, §7.22-turvallinen) -->
+<script src="lib/tm_idp.js?v=11"></script>   <!-- Vaihe 3c-a: pelaajan aikajana (idpPelaajaKaari/Konsepti, §7.22-turvallinen) -->
 <script src="lib/tm_teknistaktiset.js?v=4"></script>   <!-- Vaihe 4b: pelaajan cue-kerros (tmTtPelaaja, §0b/§7.22) · v4 = parseri-korjaus (pelimuoto-saaste) -->
 <script src="lib/tm_teknistaktiset_sv.js?v=1"></script>   <!-- Konseptikortin SISÄLLÖN sv (TM_TT_SV); en-lähdettä ei ole → en-tilassa sisältö jää suomeksi, chrome kääntyy -->
 <script src="lib/tm_piirros.js?v=1"></script>   <!-- Piirrokset Vaihe 1: fasciallinjat (D1) + pelipaikkakartta (D4), inline-SVG -->
@@ -1074,7 +1075,7 @@ function rA1(){
 
   <!-- T-KORTTI / Bola Siempre — kevyin, dashed reunus, vakio (ei muutu) -->
   ${(()=>{
-    const stage = _laskeStage(_pelaaja?.syntymaVuosi, _pelaaja?.phv_tila);
+    const stage = _laskeStage(_pelaaja?.syntymaVuosi, _pelaaja);
     const _tw = (typeof getTHarjoiteWhy === 'function') ? getTHarjoiteWhy(stage) : '';
     const tWhy = (typeof _hT === 'function') ? _hT(_tw) : _tw;   // V4-A3: Bola Siempre -kannustus sv (getTHarjoiteWhy → _hT)
     return `
@@ -1475,25 +1476,24 @@ function rMinaProfiili() {
 }
 
 // Kehitysvaihe-kortti — PHV (Mirwald) + biologinen ikä (KR tulossa myöhemmin)
-// Lukee pelaajadokumentin pikakentät phv_tila + biologinenIka_viimeisin.
-// Piilotetaan kokonaan jos kasvumittausta ei ole tehty (ei phv_tila).
+// PR C (4.10.2026): tila lib/tm_phv_tila.js:n säännöllä — kanoninen Mirwald VAIN mittauslähteestä
+// (biologinenIka_viimeisin). 'tuntematon' (ei mittausta, myös lomakkeen/tuonnin arvo) → kortti piiloon,
+// EI vaihetekstiä. Ennen lomakkeen AN (= "ennen kasvua") näkyi Mirwald-merkityksellä "Kehittynyt vaihe".
 function rMinaKehitysvaihe() {
   const p = _pelaaja || {};
-  const koodi = p.phv_tila;
-  if (!koodi) return '';  // ei kasvumittausta → ei tyhjää korttia
+  const koodi = tmPhvTila(p);
+  if (koodi === 'tuntematon') return '';  // ei kasvumittausta → ei korttia
 
-  // Koodit PRE/LAH/PH/POST/AN (tm_bioika §30) + vanha 'huippu'/'PHV' yhteensopivuus
+  // Kanoniset koodit PRE/LAH/PH/POST/AN (tm_bioika §25). §7.22: lapselle vain sanallinen vaihe, ei lukuja.
   const phvHuom = 'Tärkeä vaihe — kerro valmentajallesi';
   const tilat = {
     PRE:    { vari:'#8C8B86', teksti:'Ennen kasvupyrähdystä' },
     LAH:    { vari:'#E0A040', teksti:'Lähestyy kasvupyrähdystä 🔶' },
     PH:     { vari:'#D85A5A', teksti:'Kasvupyrähdyksessä ⚠️', huom:phvHuom },
     POST:   { vari:'#28B090', teksti:'Kasvupyrähdyksen jälkeen' },
-    AN:     { vari:'#5FB87A', teksti:'Kehittynyt vaihe' },
-    huippu: { vari:'#D85A5A', teksti:'Kasvupyrähdyksessä ⚠️', huom:phvHuom },
-    PHV:    { vari:'#D85A5A', teksti:'Kasvupyrähdyksessä ⚠️', huom:phvHuom }
+    AN:     { vari:'#28B090', teksti:'Kasvupyrähdys on takana' }
   };
-  const t = tilat[koodi] || { vari:'#8C8B86', teksti:'Kasvuvaihe mitattu' };
+  const t = tilat[koodi];
   const viim = p.biologinenIka_viimeisin || {};
   const mitattu = viim.mittauspaiva ? ('Mitattu ' + viim.mittauspaiva) : '';
 
@@ -1508,7 +1508,8 @@ function rMinaKehitysvaihe() {
   h +=   '<div style="font-family:\'DM Sans\',sans-serif;font-size:13px;font-weight:600;color:' + t.vari + ';text-align:right">' + t.teksti + '</div>';
   h += '</div>';
   if (mitattu) h += '<div style="font-family:\'DM Sans\',sans-serif;font-size:10px;color:#8C8B86;text-align:right;margin-top:2px">' + mitattu + '</div>';
-  h += '<div style="font-family:\'DM Sans\',sans-serif;font-size:10px;color:#8C8B86;text-align:right;margin-top:2px">±0.5 v epävarmuus</div>';
+  // §7.22 (PR C): ei "±0.5 v epävarmuus" -lukua lapselle — sanallinen arvio riittää.
+  h += '<div style="font-family:\'DM Sans\',sans-serif;font-size:10px;color:#8C8B86;text-align:right;margin-top:2px">Arvio kasvumittauksesta</div>';
   if (t.huom) h += '<div style="font-family:\'DM Sans\',sans-serif;font-size:11px;color:' + t.vari + ';margin-top:10px;line-height:1.4">' + t.huom + '</div>';
 
   // Yli-ikäisyys (Palloliiton −0,75-kriteeri, pikakenttä) — positiivinen mahdollisuus, ohjataan aikuiskeskusteluun.
@@ -1593,7 +1594,7 @@ function rMinaMAS() {
   const sp = (String(_pelaaja.sukupuoli || '').toUpperCase() === 'N') ? 'T' : 'P';
   const ika = new Date().getFullYear() - (_pelaaja.syntymaVuosi || 2013);
   const taso = (typeof hhLaskeTaso === 'function') ? hhLaskeTaso('mas', masKmh, ika, sp) : null;
-  const stage = (typeof _laskeStage === 'function') ? _laskeStage(_pelaaja.syntymaVuosi, _pelaaja.phv_tila) : '2_rakentaja';
+  const stage = (typeof _laskeStage === 'function') ? _laskeStage(_pelaaja.syntymaVuosi, _pelaaja) : '2_rakentaja';
   const r1 = function(x){ return Math.round(x * 10) / 10; };
   const box = function(inner){ return '<div style="background:var(--bg3);padding:20px;margin:14px 20px 0;border:.5px solid rgba(242,239,230,.08)">' + inner + '</div>'; };
   const ots = '<div style="font-family:\'Cormorant Garamond\',serif;font-size:18px;font-weight:400;color:var(--text);margin-bottom:12px;letter-spacing:.01em">Juoksumoottori</div>';
@@ -2664,7 +2665,7 @@ window._tallennaItsearvio = _tallennaItsearvio;
 window._p7Sitoumus = window._p7Sitoumus || null;
 // Äänirekisteri ikävaiheesta (design-handoff renderVals): showcase U16+ · rakentaja U13–15 ja nuoremmat.
 function _p7SitoumusRekisteri() {
-  var stage = (typeof _laskeStage === 'function') ? _laskeStage(_pelaaja && _pelaaja.syntymaVuosi, _pelaaja && _pelaaja.phv_tila) : '2_rakentaja';
+  var stage = (typeof _laskeStage === 'function') ? _laskeStage(_pelaaja && _pelaaja.syntymaVuosi, _pelaaja) : '2_rakentaja';
   if (stage === '3_showcase') {
     return { rekisteri: 'showcase', q1: 'Vaikeinta juuri nyt', q2: 'Viime jaksolla onnistui', q3: 'Oma tavoitteeni' };
   }
@@ -3139,7 +3140,7 @@ function rMinaKokoelma() {
 // ══ Group 4 (Edistyminen) — liekki + lepopäivä + ennätykset. Kortit & kokoelma ovat ylhäällä. ══
 function rMinaEdistyminen() {
   var p = _pelaaja; if (!p) return '';
-  var stage = (typeof _laskeStage === 'function') ? _laskeStage(p.syntymaVuosi, p.phv_tila) : '2_rakentaja';
+  var stage = (typeof _laskeStage === 'function') ? _laskeStage(p.syntymaVuosi, p) : '2_rakentaja';
   var streak = _haeStreak();
   var palannut = (streak === 0) && (((window._kirjauksiaYhteensa) || 0) > 0 || (p.kirjaus_kpl || 0) > 0);
   var liekki = _kkLiekkiTila(streak, palannut);
@@ -4414,7 +4415,7 @@ function _kaynnistaAppUI() {
 
   // Laske FLEI ja stage
   _flei  = _laskeFlei(p);
-  _stage = _laskeStage(p.syntymaVuosi, p.phv_tila);
+  _stage = _laskeStage(p.syntymaVuosi, p);
 
   // Päivitä harjoiteohjelma logiikasta
   if (typeof _paivitaEXHarjoitelogiikasta === 'function') {
@@ -4461,7 +4462,7 @@ function _naytaTervetulo(){
   var avain = _thAvain(); if (!avain) return;
   try { if (localStorage.getItem(avain)) return; } catch (e) { return; }
   if (document.getElementById('tervetuloOv')) return;
-  var stage = (typeof _laskeStage === 'function') ? _laskeStage(p.syntymaVuosi, p.phv_tila) : '2_rakentaja';
+  var stage = (typeof _laskeStage === 'function') ? _laskeStage(p.syntymaVuosi, p) : '2_rakentaja';
   var nimi = _thEsc(p.etunimi || '');
   var otsikko, k1, k2, k3, alota;
   // V1-A2 i18n — nimi NOMINATIIVISSA (ei taivutusta → robusti sv/en). §7.1 string-concat.
@@ -4569,8 +4570,12 @@ function _streakViesti(streak) {
   return t('pelaaja.streak_14', { n: streak });
 }
 
-function _laskeStage(sy, phv) {
-  if (phv === 'huippu' || phv === 'PH') return '1_leikkija';  // PH = PHV-huippu (tm_bioika §30)
+// pd = pelaajadokumentti. PR C: PHV-tila lib/tm_phv_tila.js:n säännöllä (kanoninen, vain mittauslähteestä).
+// Mitattu PH → kevein vaihe (kuormasuoja). Lomakkeelta ilmoitettu PH (ei mittausta) → SAMA kevein vaihe
+// hiljaa (kuormasuoja ei heikkene), mutta lapselle EI PH-varoitusta. Vanhoja koodeja (huippu/PHV) ei tueta.
+function _laskeStage(sy, pd) {
+  const _pd = (pd && typeof pd === 'object') ? pd : null;
+  if (_pd && (tmPhvTila(_pd) === 'PH' || tmPhvIlmoitettuPH(_pd))) return '1_leikkija';
   const ika = new Date().getFullYear() - (sy || 2010);
   if (ika <= 12) return '1_leikkija';
   if (ika <= 15) return '2_rakentaja';
@@ -5254,7 +5259,8 @@ function _fcKorttiData(p) {
   // Ikä: syntymaVuosi tai joukkueen ikäluokasta (P15/T14)
   let ika = p.syntymaVuosi ? (nyt.getFullYear() - p.syntymaVuosi) : null;
   if (ika == null && p.joukkue) { const m = String(p.joukkue).match(/[PT](\d+)/i); if (m) ika = +m[1]; }
-  const phvKasvu = (p.phv_tila === 'PRE' || p.phv_tila === 'LAH');
+  const _phvK = tmPhvKoodi(p);   // PR C: vain mittauslähteestä
+  const phvKasvu = (_phvK === 'PRE' || _phvK === 'LAH');
 
   // ── 5D ulottuvuudet pikakentistä ──
   const dims = [];
@@ -5312,7 +5318,7 @@ function _fcKorttiData(p) {
   if (p.tki_edellinen != null && p.tki_viimeisin != null && p.tki_viimeisin > p.tki_edellinen) nousiAlueet.push('tekniikka');
   if (p.hh_taso_edellinen != null && p.hh_taso != null && p.hh_taso > p.hh_taso_edellinen) nousiAlueet.push('vauhti');
   // Ikävyöhyke (§39): _laskeStage → showcase (U16–19) / rakentaja (U13–15) / leikkija (U8–12).
-  const _stage = (typeof _laskeStage === 'function') ? _laskeStage(p.syntymaVuosi, p.phv_tila) : '2_rakentaja';
+  const _stage = (typeof _laskeStage === 'function') ? _laskeStage(p.syntymaVuosi, p) : '2_rakentaja';
   const ikavyohyke = _stage === '3_showcase' ? 'showcase' : _stage === '1_leikkija' ? 'leikkija' : 'rakentaja';
 
   // ── OVR (data-aware + RAE, §2/§30) ──
@@ -5788,7 +5794,7 @@ function _valitseHarjoite(ketju, tyyppi, stage) {
 function _luoOhjelma(pelaaja) {
   const flei = _laskeFlei(pelaaja);
   const heikoin = _heikoinKetju();  // käyttää globaalia _flei
-  const stage = _laskeStage(pelaaja.syntymaVuosi, pelaaja.phv_tila);
+  const stage = _laskeStage(pelaaja.syntymaVuosi, pelaaja);
   
   // T-ketju kiertää joka päivä kaikista 5 ketjusta (70% = kokonaisvaltainen)
   const tKierros = ['SBL','SFL','LL','DIAG','DFL'];
@@ -6134,7 +6140,7 @@ function kirjaaRPE(arvo) {
 /* ═══════════════════════════════════════════════════════════
    SIGNAALILOGIIKKA v5
    Putki: streak ≥ 7 päivää peräkkäin (ei X-Factor-leimaa pelaajalle — talenttisignaalit vain valmentajalle)
-   PHV: phv_tila='PHV' → kuorma max 60%, ei P-harjoitteita
+   PHV: MITATTU PH (tmPhvTila, PR C) → kuorma max 60%, ei P-harjoitteita
 ═══════════════════════════════════════════════════════════ */
 function _tarkistaSignaalit() {
   const signaalit = [];
@@ -6142,8 +6148,8 @@ function _tarkistaSignaalit() {
   // X-Factor: streak ≥ 7
   if (_streak >= 7) signaalit.push({ tyyppi:'putki', teksti:'${_streak} päivän putki', vari:'#28B090' });   // ei "X-Factor"-leimaa (valmentajan signaali)
   
-  // PHV-varoitus — uusi koodi 'PH' (tm_bioika §30), vanha 'PHV' yhteensopivuus
-  if (_pelaaja?.phv_tila === 'PH' || _pelaaja?.phv_tila === 'PHV') {
+  // PHV-varoitus VAIN mitatusta PH:sta (PR C: lib/tm_phv_tila.js; tuntematon/ilmoitettu → ei varoitusta lapselle)
+  if (_pelaaja && tmPhvTila(_pelaaja) === 'PH') {
     signaalit.push({ tyyppi:'phv', teksti:'PHV-kasvupyrähdys — kuorma max 60%', vari:'#D85A5A' });
   }
   
@@ -6161,7 +6167,8 @@ function _signaaliLabel() {
   // Palauta signaalipalikka rA1/rA3:a varten
   const s = _pelaaja?.signaali;
   // X-Factor / Piilohelmi = valmentajan talenttisignaaleja (§28/§7.22, päätös 4.10.2026) → ei pelaajalle.
-  if (s === 'phv')      return '<div style="display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:20px;background:rgba(216,90,90,.12);border:.5px solid rgba(216,90,90,.25);font-size:11px;font-weight:600;color:#D85A5A;margin-bottom:10px">⚠ ' + t('pelaaja.sig_phv') + '</div>';
+  // PR C: tallennettu 'phv'-signaali näytetään vain MITATULLE PH:lle (lomakkeen/tuonnin arvo = tuntematon).
+  if (s === 'phv' && _pelaaja && tmPhvTila(_pelaaja) === 'PH')      return '<div style="display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:20px;background:rgba(216,90,90,.12);border:.5px solid rgba(216,90,90,.25);font-size:11px;font-weight:600;color:#D85A5A;margin-bottom:10px">⚠ ' + t('pelaaja.sig_phv') + '</div>';
   if (_streak >= 7)     return '<div style="display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:20px;background:rgba(40,176,144,.12);border:.5px solid rgba(40,176,144,.25);font-size:11px;font-weight:600;color:#28B090;margin-bottom:10px">🔥 ' + t('pelaaja.sig_putki', { n: _streak }) + '</div>';
   return '';
 }

@@ -74,8 +74,9 @@ describe('(1) PHV-badge korvaa paljaan koodin (valmentaja/admin)', () => {
   const api = phvApi();
 
   it('kolme koodiperhettä → badge + selite', () => {
-    expect(api.tila('VA')).toMatchObject({ badge: 'Esi-PHV', selite: 'ennen kasvupyrähdystä', amber: false });
-    expect(api.tila('PRE')).toMatchObject({ badge: 'Esi-PHV' });
+    // PR C (4.10.2026): vanha lomakekoodi 'VA' EI ole enää PHV-koodi — kanoninen Mirwald-sanasto PRE/LAH/PH/POST/AN.
+    expect(api.tila('VA')).toBe(null);
+    expect(api.tila('PRE')).toMatchObject({ badge: 'Esi-PHV', selite: 'ennen kasvupyrähdystä', amber: false });
     expect(api.tila('LAH')).toMatchObject({ badge: 'Esi-PHV' });
     expect(api.tila('PH')).toMatchObject({ badge: 'PHV-vaihe', selite: 'kasvupyrähdys käynnissä', amber: true });
     expect(api.tila('AN')).toMatchObject({ badge: 'Jälki-PHV', selite: 'kasvupyrähdys ohi', amber: false });
@@ -238,12 +239,12 @@ describe('(3) Termilukko: sisäiset koodit eivät näy kuudessa näkymässä', (
 /* ══ (4) POISTETUT KOODIT EIVÄT OLE PALANNEET ═══════════════════════════════ */
 describe('(4) Paljas koodi ei ole palannut renderöintiin', () => {
   it('Pelaajat-listan PHV-sarake käyttää badgea', () => {
-    expect(VP).toContain('${_vpPhvBadgeHTML(p.phv_tila, false)}');
+    expect(VP).toContain('${_vpPhvBadgeHTML(_vpPhvNayttoKoodi(p), false)}');   // PR C: + ilmoitettu PH
     expect(VP, 'paljas phv_tila jäi listaan').not.toContain("${p.phv_tila||'—'}");
   });
 
   it('dimpop-taulukon PHV-solu käyttää badgea', () => {
-    expect(VP).toContain("+ '<td class=\"dimpop-pcol\" style=\"padding:7px 8px\">' + _vpPhvBadgeHTML(p.phv_tila, false) + '</td>'");
+    expect(VP).toContain("+ '<td class=\"dimpop-pcol\" style=\"padding:7px 8px\">' + _vpPhvBadgeHTML(_vpPhvNayttoKoodi(p), false) + '</td>'");   // PR C
     expect(VP, 'paljas koodi jäi soluun').not.toContain("_jsvEsc(p.phv_tila || '—')");
   });
 
