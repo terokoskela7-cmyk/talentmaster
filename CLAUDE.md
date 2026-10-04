@@ -18,7 +18,7 @@
 
 **Testaus ja data**
 - **Toiminta varmistetaan seurakäyttäjällä, ei SA:lla.** SA näkee kaiken, joten SA-testi ei todista oikeuksia.
-- **Suojatut alaikäiset: vain luku.** Ainoa sallittu testipelaaja kirjoituksille ja kirjautumiselle on **Topias** (§10).
+- **Suojatut alaikäiset: vain luku.** Kirjoitukset ja kirjautumistestit VAIN **KPV U13 -joukkueen testipelaajille** (Tero vahvisti 4.10.2026: joukkueen KAIKKI pelaajat ovat testipelaajia, mm. Topias ja Toppari Testi; §10). Kaikki muut pelaajat vain luku.
 - **Pikakenttäpari päivitetään atomisesti** (`hh_viimeisin`+`hh_pvm`, `tki_viimeisin`+`tki_pvm` jne. samasta testituloksesta) — §26 taidossa `tm-mittarit-ja-testit`.
 
 **Turva ja tietosuoja**
@@ -224,7 +224,10 @@ per tiedosto** (kaksi lohkoa kumoaa toisen — Seura.html:n bugi oli juuri täm�
 
 ---
 
-## 10. TESTIPELAAJA: TOPIAS KOSKELA (KPV)
+## 10. TESTIPELAAJAT: KPV U13 (Topias Koskela, Toppari Testi, …)
+
+> **Sääntö (4.10.2026):** KPV U13 -joukkueen kaikki pelaajat ovat testipelaajia → kirjoitukset ja kirjautumistestit sallittu vain heille. Muiden joukkueiden/seurojen pelaajat: vain luku. Alla Topiaksen tiedot esimerkkinä.
+
 
 ```
 Dokumentti: seurat/kpv/pelaajat/m93GBdOaGCUuenMiCL0I   ← KAKSI u:ta, doc-ID = Firebase UID (EI PalloID)

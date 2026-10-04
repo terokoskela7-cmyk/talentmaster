@@ -1152,11 +1152,16 @@ async function _phKirjoitaHavaintoJaPikakentat(havRef, data, seuraId, pelaajaId,
      myös offline-tilassa); vain havainnon epäonnistuminen palautetaan kutsujalle. Pari adar_viimeisin+adar_pvm pysyy atomisena
      (yksi set, §26). */
   var commit = havRef.set(data);
-  if (kentat) {
-    pRef.set(kentat, { merge: true }).catch(function (e) {
-      console.warn('[ADAR pikakentat kirjoitus]', e && (e.code || e.message));
-    });
-  }
+  /* commit.pikakentat = lupaus joka AINA resolvaa {ok, code}: kutsuja (Master) tietää onnistuiko yhteenveto. Aiemmin vain
+     console.warn → pikakenttien epäonnistuminen oli täysin näkymätön ja Masterin kortti jäi "ei havaintoja". */
+  var pikakentat = kentat
+    ? pRef.set(kentat, { merge: true }).then(function () { return { ok: true }; }, function (e) {
+        console.warn('[ADAR pikakentat kirjoitus]', e && (e.code || e.message));
+        return { ok: false, code: (e && e.code) || 'virhe' };
+      })
+    : Promise.resolve({ ok: false, code: 'laskenta' });
+  /* Palautettava lupaus resolvaa kun HAVAINTO on kuitattu, arvona pikakenttien tulos {ok, code}; hylkää jos havainto hylätään. */
+  commit = commit.then(function () { return pikakentat; });
   if (typeof onLahetetty === 'function') onLahetetty();
   if (kentat && window._pelaajaMap && window._pelaajaMap[pelaajaId]) {   // paikallinen map (§26), kuten _phPaivitaPikakentat
     var m = window._pelaajaMap[pelaajaId];
@@ -1223,9 +1228,23 @@ async function _phTallenna() {
      Luonnos tyhjennetään vasta kun batch on annettu Firestorelle (onLahetetty), ei ennen. */
   var luonnosTila = _luonnosKeraa();
   var _lahetetty = function () { _luonnosMerkitse(pelaajaId, 'lahetetty', null, luonnosTila); };
-  _phKirjoitaHavaintoJaPikakentat(ref, data, seuraId, pelaajaId, S.porras, porrasTallennetaan, _lahetetty).then(function () {
+  var _kirjoitus = _phKirjoitaHavaintoJaPikakentat(ref, data, seuraId, pelaajaId, S.porras, porrasTallennetaan, _lahetetty);
+  /* ISÄNNÄLLE VIESTI VASTA KUN KIRJOITUS ON KUITATTU (ei ennen): Master sulkee iframen viestistä → ennen kuittausta
+     lähetetty viesti tuhosi sivun ennen kuin virhekäsittelijä ehti näkyä (virhe jäi näkymättömäksi) ja jätti
+     pikakenttien tuloksen kertomatta. Offline: kuittausta ei tule → ilmoitetaan heti ("jonossa"). */
+  var _ilmoitaIsannalle = function (viesti) {
+    try { if (window.parent && window.parent !== window) window.parent.postMessage(viesti, '*'); } catch (e) { /* ei isäntää */ }
+  };
+  var _offline = (typeof navigator !== 'undefined' && navigator.onLine === false);
+  if (_offline) _ilmoitaIsannalle({ type: 'tm:adar:saved', pelaajaId: pelaajaId, jonossa: true });
+  _kirjoitus.then(function (pk) {
     _luonnosTyhjenna(pelaajaId);   // KUITATTU palvelimelta → luonnos pois (ei ennen)
+    return pk;
+  }).then(function (pk) {
+    if (!_offline) _ilmoitaIsannalle({ type: 'tm:adar:saved', pelaajaId: pelaajaId,
+      pikakentat: !!(pk && pk.ok), pikakenttaVirhe: (pk && pk.code) || null });
   }).catch(function (err) {
+    if (!_offline) _ilmoitaIsannalle({ type: 'tm:adar:failed', pelaajaId: pelaajaId, koodi: (err && err.code) || 'virhe' });
     console.error('[ADAR] Tallennusvirhe:', err && (err.message || err));
     var syy = (err && (err.code === 'permission-denied' || (err.message || '').indexOf('permissions') >= 0))
       ? _adarEstonSyy() : '';
@@ -1252,8 +1271,7 @@ async function _phTallenna() {
 
   _phSeuraaKirjoitusta(ref);
 
-  // Ilmoita isäntäikkunalle (Master) että tallennus onnistui.
-  if (window.parent && window.parent !== window) window.parent.postMessage('tm:adar:saved', '*');
+  /* Isännälle ilmoitetaan yllä kuittauksen jälkeen (tm:adar:saved / tm:adar:failed). */
 }
 window._phTallenna = _phTallenna;
 
