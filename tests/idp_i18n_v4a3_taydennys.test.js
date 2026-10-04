@@ -85,8 +85,10 @@ describe('Pelaaja_v7 kytkenta (Osa A) — kaikki reititetty, ei kovakoodattua', 
     expect(PEL).toContain("return t('pelaaja.streak_14', { n: streak });");
     expect(PEL).not.toContain('päivän putki — jatka huomenna');
   });
-  it('_signaaliLabel reititetty (Piilohelmi/PHV/putki)', () => {
-    expect(PEL).toContain("t('pelaaja.sig_piilohelmi')");
+  it('_signaaliLabel reititetty (PHV/putki); Piilohelmi/X-Factor EI pelaajalle (valmentajan signaali, 4.10.2026)', () => {
+    const lab = PEL.slice(PEL.indexOf('function _signaaliLabel('), PEL.indexOf('function _signaaliLabel(') + 2500);
+    expect(lab).not.toContain("t('pelaaja.sig_piilohelmi')");
+    expect(lab).not.toMatch(/s === 'x-factor'|s === 'gem'/);
     expect(PEL).toContain("t('pelaaja.sig_phv')");
     expect(PEL).toContain("t('pelaaja.sig_putki', { n: _streak })");
     expect(PEL).not.toContain('💎 Piilohelmi</div>');

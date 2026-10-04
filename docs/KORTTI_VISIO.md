@@ -5,6 +5,13 @@
 > Liittyy: CLAUDE.md §16 (pelaajan app) · §22 (XP/streak-kielto-säännöt) · §7.22 (lapsiturva) · §28 (kehitysikkunat/OVR-lattia) · §14 (profiiliarkkityypit) · §25 (PHV) · KOMMUNIKAATIOFLOW (Bola Siempre, Salzburg).
 > Nykytoteutus: `TalentMaster_Pelaaja_v7.html` `naytaFcOverlay` + `TalentMaster_Kortti_Demo.html`.
 
+> **⚖️ PÄÄTÖS 4.10.2026 (Tero/projektinjohto) — EI TASOLUKUJA LAPSELLE MISSÄÄN IKÄVAIHEESSA.** CLAUDE.md §0/§7.22 voittaa
+> `CODE_OHJE_KEHITYSKORTTI_KAANTO_JA_TASOMALLI.md` Osa B:n. Pelaajan kortilla ei näytetä OVR-lukua, 0–99-arvoja eikä
+> osa-aluetta "taso X/5" — ei myöskään showcase (U16+). Mitattu osa-alue = ✓ + laadullinen kuvaus + seuraava askel.
+> Tier (Starter/Sharp) = mittauskattavuus, ei suoritustaso; **Elite poistettu** (saavuttamaton: SOS ei laske). Talenttisignaalit
+> (**Piilohelmi, X-Factor**) ovat valmentajan työkaluja → ei pelaajan eikä huoltajan pinnalla. Huoltajalle ei "Kortti 0–99" -lukua
+> eikä TKI-lukua. Aggregaatti-OVR saa yhä elää henkilökunnan laskennassa (VP/Master).
+
 ---
 
 ## 1. VISIO
@@ -40,8 +47,8 @@ lapsiin · pakkosuorittaminen · gacha/maksu satunnaispalkinnoista. **XP tallenn
 
 ## 3. KORTTITAKSONOMIA
 
-**A. Tasokortti (pääkortti)** — Starter ⭐ → Sharp ⭐⭐ → Elite ⭐⭐⭐. Kasvaa datasta (5D), hidas.
-Nykyportti: OVR avautuu ≥3 mitattua ulottuvuutta; U12 (leikkijä) ei näytä OVR-lukua (§16).
+**A. Tasokortti (pääkortti)** — Starter ⭐ → Sharp ⭐⭐ (mittauskattavuus). Kasvaa datasta (5D), hidas.
+**4.10.2026:** OVR-lukua ei näytetä lapselle missään ikävaiheessa; Elite poistettu (ks. päätös yllä).
 
 **B. Saavutuskortit** (tiheät pienet voitot, ansaitaan teoista): 1. treeni · 7pv liekki · syntymäpäivä
 (on jo §16) · 1. mittaus · oma ennätys · kausikortti.
@@ -52,7 +59,7 @@ Nykyportti: OVR avautuu ≥3 mitattua ulottuvuutta; U12 (leikkijä) ei näytä O
 - **Maestro · Railgun · Shadowstep · Titan** — profiiliarkkityypit (§14), legendaariset versiot joita kohti kasvetaan.
 - **Sisukas** — palasi vaikeasta jaksosta (ks. §5, harvinaisin).
 
-**D. Erikoiskortit:** Piilohelmi (Hidden Gem) · kauden päätöskortti · pelipaikka-taidekortti · "Olin paikalla"
+**D. Erikoiskortit:** ~~Piilohelmi (Hidden Gem)~~ (valmentajan signaali, ei pelaajakortiksi 4.10.2026) · kauden päätöskortti · pelipaikka-taidekortti · "Olin paikalla"
 -tapahtumakortit (Tekniikkakisa 2026).
 
 ---
@@ -91,7 +98,7 @@ herää eloon kosmeettisesti kun lapsi treenaa, jo ennen ensimmäistä mittausta
 
 Lapsi ei odota "kortin avautumista" — hän kerää matkaa päivästä yksi: **liekki, leimat, merkit, legendat
 kertyvät hänen omista teoistaan, eivät mittaustahdista.** Jokainen täyttyvä 5D-ulottuvuus on oma pieni
-juhlahetki ("⚡ Voima-osasi heräsi!"). OVR-luku on myöhäinen, toissijainen paljastus (rakentaja 13+) — pieni
+juhlahetki ("⚡ Voima-osasi heräsi!"). ~~OVR-luku on myöhäinen, toissijainen paljastus (rakentaja 13+)~~ (4.10.2026: ei OVR-lukua lapselle) — pieni
 lapsi ei odota numeroa, koska sitä ei näytetä hänelle. Pitkä mittausväli ei tuota tyhjää/demotivoivaa korttia.
 
 ---
@@ -108,7 +115,7 @@ Logiikka tuotannossa: `naytaFcOverlay` (Pelaaja_v7). v3 sisältää JO:
 - **Korttitilat:** U13 "Rakentuu" (ei pelipaikkaa → "Monipuolinen", vain D2 mitattu, D1=PHV-kasvu, D3/D5 "Seura avaa") · Sharp U14+ (pelipaikka näkyy) · Elite U16 (täysi 5D) · **Syntymäpäivä** (konfetti/ribbon) · **takakortti** ("Miksi 79?" matka+tuki edellä).
 - **MATKA-hero** (start→nyt→seuraava, delta) — *co-equal OVR:n kanssa*.
 - **UNELMA/idoli-strippi** (motivaatiomoottori) · **MINUN TAVOITTEENI** (autonomia, SDT).
-- **Traits = merkit jo kortilla:** Tekniikkamestari · "8 pv putki" (streak!) · Piilohelmi · Varhaiskehittäjä · Synttärisankari.
+- **Traits = merkit jo kortilla:** Tekniikkamestari · "8 pv putki" (streak!) · Varhaiskehittäjä · Synttärisankari.
 - **Paljastusanimaatiot:** stat reveal-flip · tier-up spark burst · synttärikonfetti (= pack-opening-henki jo osin).
 - **Kovat säännöt (v3-footer):** ei pelipaikkaa U13 · matka = hero · D3/D5-lukot "seura avaa" (ei lapsen puute) · PHV positiivisesti · **ei XP-palkkia, ei leaderboardia, ei menetyskehystä.**
 
@@ -162,7 +169,7 @@ Harvinaisia kerättäviä kortteja jotka kuvaavat lapsen OMAA kehitystarinaa. Ko
 
 **B. Luonne-legendat — harvinaisimmat, palkitsevat SINNIKKYYDEN** (Dweck/prosessi):
 - **Sisukas** (HARVINAISIN, koko tuotteen filosofiakortti) — palasi tauon jälkeen / jatkoi vaikean jakson yli.
-- **Piilohelmi** (Hidden Gem -signaali) · **Varhaiskehittäjä** (tekniikkamitali U8–12, `tekninen_varhaiskehitys` §28).
+- ~~**Piilohelmi**~~ (valmentajan signaali, 4.10.2026) · **Varhaiskehittäjä** (tekniikkamitali U8–12, `tekninen_varhaiskehitys` §28).
 - Ansainta: **prosessista ja sinnikkyydestä, ei tasosta**.
 
 **C. Kausilegenda** — kauden päätöskortti, yksi per kausi (kokoelma kasvaa vuosien myötä → retentio + nostalgia).

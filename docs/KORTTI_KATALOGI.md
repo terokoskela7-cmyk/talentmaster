@@ -6,12 +6,19 @@
 > Liittyy: KORTTI_VISIO.md (visio/§10), CLAUDE.md §16 (pelaaja-app, ikävaiheet), §22 (streak/XP-säännöt),
 > §26 (pikakentät), §28 (kehitysikkunat/Hidden Gem), `naytaFcOverlay` (Pelaaja_v7), `TalentMaster_Kortit.html`.
 
+> **⚖️ PÄÄTÖS 4.10.2026 (Tero/projektinjohto) — EI TASOLUKUJA LAPSELLE MISSÄÄN IKÄVAIHEESSA.** CLAUDE.md §0/§7.22 voittaa
+> `CODE_OHJE_KEHITYSKORTTI_KAANTO_JA_TASOMALLI.md` Osa B:n. Pelaajan kortilla ei näytetä OVR-lukua, 0–99-arvoja eikä
+> osa-aluetta "taso X/5" — ei myöskään showcase (U16+). Mitattu osa-alue = ✓ + laadullinen kuvaus + seuraava askel.
+> Tier (Starter/Sharp) = mittauskattavuus, ei suoritustaso; **Elite poistettu** (saavuttamaton: SOS ei laske). Talenttisignaalit
+> (**Piilohelmi, X-Factor**) ovat valmentajan työkaluja → ei pelaajan eikä huoltajan pinnalla. Huoltajalle ei "Kortti 0–99" -lukua
+> eikä TKI-lukua. Aggregaatti-OVR saa yhä elää henkilökunnan laskennassa (VP/Master).
+
 ---
 
 ## Läpileikkaavat säännöt
 - **Ansainta = oma tekeminen / oma kehitys**, ei sijoitus tai vertailu kavereihin.
-- **Ikävaihe (`_laskeStage`):** leikkijä (U12) yksinkertaisin, EI OVR-lukua · rakentaja (U13–15) · showcase (U16+).
-  Saavutus-/merkki-/legendakortit toimivat KAIKISSA ikävaiheissa (positiivisia); vain pääkortin OVR-luku on ikägeitattu.
+- **Ikävaihe (`_laskeStage`):** leikkijä (U12) yksinkertaisin · rakentaja (U13–15) · showcase (U16+). **EI OVR-/tasolukua
+  missään ikävaiheessa** (päätös 4.10.2026). Saavutus-/merkki-/legendakortit toimivat KAIKISSA ikävaiheissa (positiivisia).
 - **Paljastus** = positiivinen pack-opening-hetki (ei gacha/maksu).
 - **Tyhjä/lukittu** = "Treeni avaa tämän" / "Tulossa" — ei lapsen puute.
 - **Data-tietoinen:** kortti aktivoituu vain kun lähde-pikakenttä on olemassa.
@@ -22,8 +29,8 @@
 | id | nimi | ansaintaehto | lähde | ikävaihe |
 |---|---|---|---|---|
 | `tier_starter` | ⭐ Starter | <3 mitattua ulottuvuutta (rakentuu) | 5D pikakentät | kaikki; U12 ei OVR-lukua |
-| `tier_sharp` | ⭐⭐ Sharp | ≥3 mitattua, OVR < 75 | OVR (RAE+§28-lattia) | rakentaja+ |
-| `tier_elite` | ⭐⭐⭐ Elite | 5 mitattua, OVR ≥ 75 | OVR | rakentaja+ |
+| `tier_sharp` | ⭐⭐ Sharp | ≥3 mitattua (mittauskattavuus) | 5D pikakentät | kaikki, ei lukua |
+| ~~`tier_elite`~~ | ~~⭐⭐⭐ Elite~~ | **POISTETTU 4.10.2026** — saavuttamaton (SOS ei laske) + OVR-raja = tasoluku | — | — |
 
 ---
 
@@ -37,7 +44,7 @@
 | `ach_liekki14` | 14 päivän liekki | streak ≥ 14 pv | `streak` (§22-tila 14+) |
 | `ach_synttari` | Synttärisankari | syntymäpäivä (on jo §16-konfetti → korttina) | `syntymaaika` |
 | `ach_ekamittaus` | Ensimmäinen mittaus | 1. testitulos ilmaantuu | `tki_viimeisin` / `hh_viimeisin` / `flei_viimeisin` |
-| `ach_omaennatys` | Oma ennätys | oma tulos parani (PB) | `tk_kokonaistulos_edellinen` vs uusi / `hh_taso_edellinen` |
+| `ach_omaennatys` | Oma ennätys | oma tulos parani (PB) | ✅ 4.10.2026: `ennatykset.<testi>.edellinen` olemassa (lib/tm_ennatykset.js kirjoittaa vain oikeasta parannuksesta; 1. mittaus ei ansaitse) |
 
 ### Tekniikkamerkit (oma mestaruuspolku per laji — pronssi→hopea→kulta, EI vertailu)
 | id | nimi | ansaintaehto | lähde |
@@ -97,7 +104,7 @@ ennätys = **puhdas itsevertailu** (ei mitään ulkoista vertailua).
 | `leg_shadowstep` | Shadowstep | ketteryys/kuljetus-virstanpylväs | TSI / `tki_*` |
 | `leg_titan` | Titan | fysiikka/voima-virstanpylväs (post-PHV) | `d1_taso` / CMJ |
 | `leg_myohaankukkija` | Myöhäänkukkija | Q4 + jatkuva tekeminen (RAE OR 2.80) | `rae_kvartaali='Q4'` + aktiivisuus |
-| `leg_piilohelmi` | Piilohelmi | Hidden Gem -signaali | `signaali` / `laskeHiddenGem` |
+| ~~`leg_piilohelmi`~~ | ~~Piilohelmi~~ | **EI pelaajakortiksi (4.10.2026)** — valmentajan talenttisignaali | — |
 | `leg_varhaiskehittaja` | Varhaiskehittäjä | tekniikkamitali U8–12 | `tekninen_varhaiskehitys` (§28) |
 | `leg_sisukas` | **Sisukas (HARVINAISIN)** | palasi tauon jälkeen / jatkoi vaikean jakson yli | streak-comeback / pitkä jatkuvuus |
 
@@ -106,7 +113,7 @@ ennätys = **puhdas itsevertailu** (ei mitään ulkoista vertailua).
 ### ✅ RAKENNETTU 2026-07 (rarity-tier-nauha, `rMinaKokoelma` strip) — MINÄ-kevennys
 Korttikokoelma renderöityy nyt **vaakascrollattavana rarity-nauhana** MINÄ-heron alla (`_kkStripKortit`/`_kkStripKorttiHTML`).
 Neljä rarity-tasoa: **★ Legenda** (FUT-premium) · **◆ Harvinainen** (§28-signaalit) · **● Merkki** (saavutukset/tekniikkamerkit/liekki) ·
-**Lukittu** (näyttää avautumispolun = koukku). Edistymä-otsikko `ansaitut / kaikki · uusi 🔥`. Ansaitut loistavat, lukitut himmeitä (dashed).
+**Lukittu** (näyttää avautumispolun = koukku). Edistymä-otsikko `ansaitut / kaikki` (pysyvä "uusi 🔥" poistettu 4.10.2026 — idolikortti aina ansaittu → leima näkyi aina). Ansaitut loistavat, lukitut himmeitä (dashed).
 Datavetoinen kuten muutkin — `KORTTI_KATALOGI.legendat[]` + `.harvinaiset[]` (ansainta(p) lukee pikakentät, §26). §7.22: ansainta OMASTA
 huipputasosta/kehityksestä, EI vertailusta muihin.
 
@@ -115,11 +122,10 @@ huipputasosta/kehityksestä, EI vertailusta muihin.
 | id | tier | nimi | ansaintaehto (pikakenttä) | lukittu-polku |
 |---|---|---|---|---|
 | `legend_tekniikka` | ★ Legenda | Tekniikka-legenda | `tki_merkki === 'kulta'` | "tekn. kulta →" |
-| `legend_nopeus` | ★ Legenda | Nopeus-legenda | 30 m Eerikkilä-taso 5 (`hh_viimeisin.lin30m`) | "30 m huipputaso →" |
+| `legend_nopeus` | ★ Legenda | Nopeus-legenda | 30 m ikäluokan normin ylin luokka (`_minaHhHuipulla`, sama kuin "Huippuvauhtia"; avainvirhe korjattu 4.10.2026) | "30 m huipputaso →" |
 | `idol` | ★ Idoli | Idolikortti ("Kuin X") | idolirinnastus (viikkoteema, `_fcKorttiData`) | — |
-| `rare_piilohelmi` | ◆ Harvinainen | Piilohelmi | `hidden_gem` (§28) | "tekniikka edellä →" |
 | `rare_varhais` | ◆ Harvinainen | Varhaiskehittäjä | `tekninen_varhaiskehitys` (§28) | "tekniikkamitali U8–12 →" |
-| `rare_xfactor` | ◆ Harvinainen | X-Factor | `x_factor` (mikä tahansa testi taso 5) | "testi taso 5 →" |
+| ~~`rare_piilohelmi`~~ / ~~`rare_xfactor`~~ | — | **POISTETTU 4.10.2026** | valmentajan talenttisignaaleja; ei kirjoittajaa → aina lukittu | — |
 
 > Nämä tarkentavat aspiraatiotaulun (`leg_maestro`/`leg_railgun`/…) ansaintaehdot toteutettaviksi pikakenttäehdoiksi.
 > Loput arkkityyppikortit (Maestro/Railgun/Shadowstep/Titan/Sisukas) rakennetaan additiivisesti samaan `legendat[]`-rekisteriin.
