@@ -45,7 +45,7 @@ describe('vartija: ei kahta samannimistä globaalia VP_v25:ssä', () => {
     expect(r.varjostus, 'varjostus').toEqual([]); expect(r.declTuplat, 'deklaraatiotuplat').toEqual([]); expect(r.winTuplat, 'window-tuplat').toEqual([]);
   });
   it('modaali window._vpKirjaaReview (1 arg) ja kirjoittaja _vpKirjoitaReview (3 arg) ovat eri nimiä; onclickit osoittavat modaaliin', () => {
-    expect(VP).toMatch(/window\._vpKirjaaReview = function \(pid\) \{/); expect(VP).toMatch(/async function _vpKirjoitaReview\(pid, pvm, review\) \{/);
+    expect(VP).toMatch(/window\._vpKirjaaReview = function \(pid\) \{/); expect(VP).toMatch(/async function _vpKirjoitaReview\(pid, pvm, review, pelaaja\) \{/);
     expect(VP).not.toMatch(/async function _vpKirjaaReview\(/);
     expect((VP.match(/onclick="_vpKirjaaReview\(/g) || []).length).toBeGreaterThanOrEqual(1);
     expect(VP).not.toMatch(/await _vpKirjaaReview\(/);   // kirjoittajaa ei kutsuta modaalin nimellä
@@ -53,7 +53,7 @@ describe('vartija: ei kahta samannimistä globaalia VP_v25:ssä', () => {
   it('REGRESSIO: selaimen globaali-semantiikka (window = global): deklaraatio + myöhempi modaali-sijoitus → kirjoittaja säilyy', () => {
     const ctx = {}; ctx.window = ctx; vm.createContext(ctx);
     vm.runInContext(pura('window._vpKirjaaReview = function (pid)').replace(/\{[\s\S]*\}$/, '{ return "modaali"; }') + ';\n' + pura('async function _vpKirjoitaReview(') + '\n', ctx);
-    expect(ctx._vpKirjoitaReview.length).toBe(3); expect(ctx._vpKirjaaReview.length).toBe(1); expect(ctx._vpKirjoitaReview).not.toBe(ctx._vpKirjaaReview);
+    expect(ctx._vpKirjoitaReview.length).toBe(4); expect(ctx._vpKirjaaReview.length).toBe(1); expect(ctx._vpKirjoitaReview).not.toBe(ctx._vpKirjaaReview);
   });
 });
 
@@ -70,7 +70,7 @@ const PID2 = 'kpvU13Testi2';
 const POLKU = (p) => 'seurat/kpv/pelaajat/' + p;
 
 describe('_vpKirjoitaReview — kirjoittaja', () => {
-  const aja = (m) => { const c = { db: m.db, _seuraId: 'kpv' }; vm.createContext(c); vm.runInContext(pura('async function _vpKirjoitaReview(') + '\nthis.f = _vpKirjoitaReview;', c); return c.f; };
+  const aja = (m) => { const c = { db: m.db, _seuraId: 'kpv', window: { TM_KEHITYSSILMUKKA: require('../lib/tm_kehityssilmukka.js') }, Object, Array }; vm.createContext(c); vm.runInContext(pura('async function _vpKirjoitaReview(') + '\nthis.f = _vpKirjoitaReview;', c); return c.f; };
   it('kirjoittaa reviewit/{pvm} + pikakentät yhteen batchiin, vain tämän pelaajan polkuihin (KPV)', async () => {
     const m = mockDb(); await aja(m)(PID, '2026-10-05', { tyyppi: 'mdr', pvm: '2026-10-05' });
     expect(m.kirjoitukset.map((o) => o.polku)).toEqual([POLKU(PID) + '/reviewit/2026-10-05', POLKU(PID)]);
@@ -90,7 +90,7 @@ describe('MDT-review (_mdtMerkitseReview): ✓ vasta onnistumisen jälkeen', () 
     const c = { db: m.db, _seuraId: 'kpv', _mdtPid: PID, _pelaajat: [p], _uid: 'vp-uid', tmPaivaIso: () => '2026-10-05', vpT: (x) => x,
       firebase: { auth: () => ({ currentUser: { uid: 'vp-uid', getIdTokenResult: async () => ({ claims: { rooli: 'vp' } }) } }) },
       document: { getElementById: () => ({ value: 'päätös' }) }, toast: (t, tyyppi) => log.toastit.push([t, tyyppi]),
-      _renderMDTProfiili: () => { log.renderit++; }, renderReviewit: () => { log.renderit++; }, renderTilanne: () => { log.renderit++; }, console: { warn() {} }, window: {} };
+      _renderMDTProfiili: () => { log.renderit++; }, renderReviewit: () => { log.renderit++; }, renderTilanne: () => { log.renderit++; }, console: { warn() {} }, window: { TM_KEHITYSSILMUKKA: require('../lib/tm_kehityssilmukka.js') }, Object, Array };
     vm.createContext(c);
     vm.runInContext(pura('async function _vpKirjoitaReview(') + '\n' + pura('window._mdtMerkitseReview = async function') + ';', c);
     return { c, log, p };
@@ -122,7 +122,7 @@ describe('Bulk (_vpCockpitBulkMerkitse): ok++ ja ✓ vasta kirjoituksen onnistut
     const c = { db, _seuraId: 'kpv', _isDemoMode: false, _reviewSel: { [PID]: 1, [PID2]: 1 }, _reviewSelMode: true, _pelajaat: null, _pelaajat: [p1, p2], _uid: 'vp-uid',
       _vpVoiMuokata: () => true, tmPaivaIso: () => '2026-10-05', vpT: (x) => x, toast: (t, tyyppi) => log.toastit.push([t, tyyppi]), renderReviewit: () => { log.renderit++; },
       firebase: { auth: () => ({ currentUser: { uid: 'vp-uid', getIdToken: async () => 't' } }) }, Array, Object, Promise, Math, console: { warn() {} },
-      window: { confirm: () => true, _vpRooli: 'vp' } };
+      window: { confirm: () => true, _vpRooli: 'vp', TM_KEHITYSSILMUKKA: require('../lib/tm_kehityssilmukka.js') } };
     vm.createContext(c);
     vm.runInContext(pura('async function _vpKirjoitaReview(') + '\n' + pura('window._vpCockpitBulkMerkitse = async function') + ';', c);
     return { c, log, p1, p2, kirjoitukset };

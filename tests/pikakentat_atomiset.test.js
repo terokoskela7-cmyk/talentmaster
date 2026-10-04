@@ -98,7 +98,8 @@ describe('VP_v25 · review + review_viimeisin_pvm yhdessä batchissa', () => {
     const i = VP.indexOf(t); expect(i, t).toBeGreaterThan(-1);
     let syv = 0; for (let k = VP.indexOf('{', i); k < VP.length; k++) { if (VP[k] === '{') syv++; else if (VP[k] === '}') { syv--; if (syv === 0) return VP.slice(i, k + 1); } }
   }
-  function aja(m) { const ctx = { db: m.db, _seuraId: 'kpv' }; vm.createContext(ctx); vm.runInContext(runko('async function _vpKirjoitaReview(') + '\nthis.f = _vpKirjoitaReview;', ctx); return ctx.f; }
+  // R6.2a: kirjoittaja käyttää tmKirjaaKatselmus:ta (window.TM_KEHITYSSILMUKKA)
+  function aja(m) { const ctx = { db: m.db, _seuraId: 'kpv', window: { TM_KEHITYSSILMUKKA: require('../lib/tm_kehityssilmukka.js') }, Object, Array }; vm.createContext(ctx); vm.runInContext(runko('async function _vpKirjoitaReview(') + '\nthis.f = _vpKirjoitaReview;', ctx); return ctx.f; }
   const review = { tyyppi: 'mdr', pvm: '2026-10-03', tekija_uid: 'vp-uid', tekija_rooli: 'vp', paatos: '', idp_paivitetty: false };
 
   it('batch kirjoittaa reviewit/{pvm} JA pikakentät; muut pelaajadokin kentät säilyvät (merge)', async () => {
