@@ -383,25 +383,18 @@ describe('b) lapsen + huoltajan tavoite AINA alueellisesta', () => {
   it('lapsen/huoltajan pinnoilla ei sanaa "loppukilpailu"', () => {
     expect(vanh(T, 28.0)).not.toMatch(/loppukilpailu/i);
     for (const [f, fn] of [['TalentMaster_Pelaaja_v7.html', 'function _minaTavoiteRivit('], ['TalentMaster_Pelaaja_v7.html', 'function rMinaTekniikkaprofiili('],
-      ['TalentMaster_Pelaaja_v7.html', 'function _kkMerkkiTaso('], ['TalentMaster_Vanhempi_v2.html', 'function rVanhempiTekniikka(']]) {
+      ['TalentMaster_Pelaaja_v7.html', 'function _kkLajiTulos('], ['TalentMaster_Vanhempi_v2.html', 'function rVanhempiTekniikka(']]) {
       expect(pura(lue(f), fn), fn).not.toMatch(/loppukilpailu|valtakunnallinen'/i);
     }
   });
   // 4.10.2026 (Teron tarkastus): välitavoite = tkLajiViiteLapsi (hyvä = LIEVEMPI alue/finaali, erinomainen alueellinen,
   // ei aluetta → null) — tests/tk_lapsi_lievempi.test.js. Muut lapsen viitekutsut (merkit) pyytävät alueellisen eksplisiittisesti.
-  it('lapsen/huoltajan viitekutsut: tavoite tkLajiViiteLapsi:sta, muut alueellisesta eksplisiittisesti', () => {
-    const kutsut = (P7 + V2).match(/tkLajiViite\([^)]*\)/g).filter((k) => !/^tkLajiViite\(laji, ika, sp\)$/.test(k));
-    expect(kutsut.length).toBe(1);   // _kkMerkkiTaso (kokoelman merkit)
-    kutsut.forEach((k) => expect(k).toContain("'alueellinen'"));
+  // 4.10.2026: välitavoite = tkLajiViiteLapsi. §31 (V2 P0.6): lajikohtainen merkki ei enää kutsu tkLajiViite:ä (oma ennätys, ei mitali)
+  // → muita lapsen viitekutsuja kuin tavoite ei ole; mahdollinen kutsu pyytäisi alueellisen eksplisiittisesti.
+  it('lapsen/huoltajan viitekutsut: tavoite tkLajiViiteLapsi:sta, ei lajimerkkien tkLajiViite-kutsua (§31)', () => {
+    const kutsut = ((P7 + V2).match(/tkLajiViite\([^)]*\)/g) || []).filter((k) => !/^tkLajiViite\(laji, ika, sp\)$/.test(k));
+    expect(kutsut.length).toBe(0);
     expect((P7 + V2).match(/tkLajiViiteLapsi\(/g).length).toBe(3);   // Pelaaja ×2 + Vanhempi
-  });
-  it('_kkMerkkiTaso (merkit kokoelmassa) alueellisesta: P10 pujottelu 26.5 → hopea (alue: erinomainen 26.3 / hyvä 27.1)', () => {
-    const ctx = vm.createContext({ window: { TM_TESTIT: T }, Date, String });
-    vm.runInContext(pura(P7, 'function _kkMerkkiTaso(') + '\nthis.f = _kkMerkkiTaso;', ctx);
-    const p = { syntymaVuosi: VUOSI - 10, sukupuoli: 'M', tk_lajit_viimeisin: { pujottelu_s: 26.0 } };
-    expect(ctx.f(p, 'pujottelu')).toBe(3);                    // ≤ alue erinomainen 26.3 (valtak. erinomainen 25.7 → olisi 2)
-    p.tk_lajit_viimeisin.pujottelu_s = 26.5;
-    expect(ctx.f(p, 'pujottelu')).toBe(2);
   });
 });
 
