@@ -111,7 +111,7 @@ describe('§7.22 — hero näyttää TILAN, ei numeroa (vaihtoehto B)', () => {
     expect(def).toContain('flei >= 40');
     // Jaettu = KAIKKI kuluttajat saavat saman kynnyksen; kopiota ei saa olla muualla.
     expect((PELAAJA.match(/flei >= 70/g) || []).length).toBe(1);
-    expect(def).toContain('var(--teal)');
+    expect(def).toContain('var(--teal-d)');   // Design V2 T1: tekstiväri tummalla = --teal-d
     expect(def).toContain('#E8A020');
     expect(def).toContain('#E04040');
     // Ei mitään MUUTA kynnystä kuin 70/40 (ei uusia maagisia lukuja)
