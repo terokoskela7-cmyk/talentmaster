@@ -2984,6 +2984,25 @@ window._suljeEnnatys = function () {
   if (ov) { ov.classList.remove('th-auki'); setTimeout(function () { if (ov.parentNode) ov.remove(); }, 320); }
 };
 
+// Ennätysjuhla myös taustalta palatessa: sovellus voi olla auki tunteja → valmentajan Pikakirjaus ei muuten juhli ennen
+// uutta avausta. visibilitychange → kevyt .get() omasta pelaajadokista (throttle 60 s, ei onSnapshotia) → _pelaaja → juhla.
+// Gating ennallaan (_naytaUusiEnnatys: pelaaja + alusta + nähty-merkki). Epäonnistunut luku → hiljaa (ei-kriittinen tausta-päivitys).
+var _ennTaustaAika = 0, _ENN_TAUSTA_MS = 60000;
+async function _ennatysTaustaltaPalatessa() {
+  var p = _pelaaja, ids = window._p7Pelaaja;
+  if (!p || _isDemoUser || p.id === 'super_admin_view' || !ids || !ids.seuraId || !ids.pelaajaId || !window._db) return;
+  if (document.getElementById('tervetuloOv') || document.getElementById('ennatysOv')) return;
+  var nyt = Date.now(); if (nyt - _ennTaustaAika < _ENN_TAUSTA_MS) return;
+  _ennTaustaAika = nyt;
+  try {
+    var snap = await window._db.collection('seurat').doc(ids.seuraId).collection('pelaajat').doc(ids.pelaajaId).get();
+    if (!snap.exists || _pelaaja !== p || _isDemoUser) return;   // uloskirjautuminen/vaihto kesken luvun → ei kosketa
+    _pelaaja = Object.assign(p, snap.data());
+    _naytaUusiEnnatys();
+  } catch (e) { /* tausta-päivitys: ei toastia, seuraava palaus yrittää uudelleen */ }
+}
+document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'visible') _ennatysTaustaltaPalatessa(); });
+
 // ══ A. HERO — kehityskortti MINÄn kärkeen (kompakti). Napautus avaa täyden flip-kortin (naytaFcOverlay). ══
 // Käyttää JAETTUA _fcKorttiData:aa (sama OVR/tier/5D kuin overlay). §7.22: rakentuu-tilassa EI kovaa OVR-lukua.
 function _minaTierVari(tier) { return tier === 'elite' ? '#E0A040' : tier === 'sharp' ? '#28B090' : '#2A5DB0'; }
