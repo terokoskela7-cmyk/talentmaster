@@ -54,6 +54,14 @@ input, textarea { font-family: var(--font-body); font-size: 16px; color: var(--i
 .va-esimerkit { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
 .va-esimerkki { text-align: left; background: var(--surface); border: 1px solid var(--border2); border-radius: var(--tm-radius-md); padding: 10px 12px; font-size: 14px; color: var(--ink); line-height: 1.45; }
 
+.va-pika { padding: 8px 16px 0; }
+.va-pika[hidden] { display: none; }
+.va-pika-rivi { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 6px; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+.va-pika-rivi::-webkit-scrollbar { display: none; }
+.va-pika-rivi.rivita { flex-wrap: wrap; overflow-x: visible; }
+.va-chip { flex: 0 0 auto; min-height: 40px; padding: 8px 14px; border-radius: 999px; border: 1px solid var(--border3); background: var(--surface); color: var(--ink); font-size: 14px; line-height: 1.2; cursor: pointer; }
+.va-chip[aria-pressed="true"] { background: var(--carbon); color: var(--bone); border-color: var(--carbon); }
+.va-pika-vihje { font-size: 13px; color: var(--ink2); padding: 0 0 6px; line-height: 1.4; }
 .va-viesti { margin: 12px 0; display: flex; flex-direction: column; }
 .va-viesti.kayttaja { align-items: flex-end; }
 .va-kupla { max-width: 92%; padding: 10px 14px; border-radius: var(--tm-radius-lg); font-size: 15px; line-height: 1.55; word-wrap: break-word; overflow-wrap: anywhere; }
@@ -141,6 +149,7 @@ input, textarea { font-family: var(--font-body); font-size: 16px; color: var(--i
   <div class="va-huomio" data-t="tietosuoja">Älä kirjoita pelaajien nimiä: käytä pelinumeroa tai pelipaikkaa. Kysymykset ja vastaukset tallennetaan pilotin laadunseurantaa varten.</div>
   <section class="va-loki" id="vaLoki" aria-live="polite"></section>
   <div class="va-alaosa">
+    <div class="va-pika" id="vaPika"></div>
     <form class="va-syotto" id="vaKysyLomake">
       <textarea id="vaKysymys" rows="2" data-ph="kysymysPh" placeholder="Kuvaa ikäryhmä, pelimuoto ja mitä näit…" aria-label="Kysymys"></textarea>
       <button class="va-nappi va-laheta" type="submit" id="vaLaheta" data-t="laheta">Lähetä</button>
@@ -353,9 +362,146 @@ input, textarea { font-family: var(--font-body); font-size: 16px; color: var(--i
     el.textContent = kiintio.m ? t('kiintio').replace('{k}', kiintio.k).replace('{m}', kiintio.m) : '';
   }
 
+  // ── Pikavalinnat: ikäryhmä + aihe → valmis kysymyksen alku (vähemmän kirjoittamista) ──
+  var PIKA_T = {
+    fi: {
+      ikaOts: 'Ikäryhmä', muotoOts: 'Pelimuoto', mitaOts: 'Mitä tarvitset?', kukaOts: 'Kuka kysyy?', aiheOts: 'Aihe',
+      vihjeAlku: 'Valitse ikäryhmä ja mitä tarvitset. Kysymyksen alku täyttyy, lisää loppuun yksi rivi.',
+      tehtavat: [
+        { nimi: 'Tee harjoitus', alku: 'Tee harjoitus tilanteeseen: ', vihje: 'Kuvaa pelitilanne, jota harjoitellaan. Esim. "pallo menetetään avauksessa".' },
+        { nimi: 'Kirjaa havainnot', alku: 'Kirjaa havainnot: ', vihje: 'Mitä näit? Käytä pelinumeroa tai pelipaikkaa, ei nimiä.' },
+        { nimi: 'Mitä havainnoin?', alku: 'Mitä minun kannattaa havainnoida: ', vihje: 'Missä tilanteessa tai teemassa? Esim. "pallon vastaanotto harjoituksessa".' },
+        { nimi: 'Taktiikka', alku: 'Taktiikka: ', vihje: 'Mikä joukkueteema tai tilanne? Esim. avaus, painostus, siirtymä.' }
+      ],
+      kukaLista: ['Valmentaja', 'Valmennuspäällikkö'],
+      aiheet: [
+        { nimi: 'Kuorma ja kasvu', alku: 'Kuorma ja kasvu: ', vihje: 'Mitä pelaajalle tai ryhmälle tapahtuu? Esim. "kasvanut nopeasti, kompastelee".' },
+        { nimi: 'Testit ja tavoitetasot', alku: 'Testit ja tavoitetasot: ', vihje: 'Mikä testi ja ikäluokka? Esim. "30 m, P13".' },
+        { nimi: 'Portti ja liikehallinta', alku: 'Liikehallintamatriisi, portti: ', vihje: 'Mitä pelaaja osaa nyt ja mihin ollaan menossa?' },
+        { nimi: 'Kausisuunnitelma', alku: 'Kausisuunnitelma: ', vihje: 'Ikäluokka, jakson pituus ja mitä tavoitellaan?' }
+      ]
+    },
+    sv: {
+      ikaOts: 'Åldersgrupp', muotoOts: 'Spelform', mitaOts: 'Vad behöver du?', kukaOts: 'Vem frågar?', aiheOts: 'Ämne',
+      vihjeAlku: 'Välj åldersgrupp och vad du behöver. Början av frågan fylls i, lägg till en rad.',
+      tehtavat: [
+        { nimi: 'Gör en träning', alku: 'Gör en träning för situationen: ', vihje: 'Beskriv spelsituationen som ska tränas. T.ex. "bollen tappas vid uppspelet".' },
+        { nimi: 'Dokumentera observationer', alku: 'Dokumentera observationer: ', vihje: 'Vad såg du? Använd tröjnummer eller position, inga namn.' },
+        { nimi: 'Vad ska jag observera?', alku: 'Vad bör jag observera: ', vihje: 'I vilken situation eller vilket tema? T.ex. "bollmottagning på träningen".' },
+        { nimi: 'Taktik', alku: 'Taktik: ', vihje: 'Vilket lagtema eller vilken situation? T.ex. uppspel, press, omställning.' }
+      ],
+      kukaLista: ['Tränare', 'Fotbollsutvecklare'],
+      aiheet: [
+        { nimi: 'Belastning och tillväxt', alku: 'Belastning och tillväxt: ', vihje: 'Vad händer med spelaren eller gruppen? T.ex. "har vuxit snabbt, snubblar".' },
+        { nimi: 'Tester och målnivåer', alku: 'Tester och målnivåer: ', vihje: 'Vilket test och vilken åldersgrupp? T.ex. "30 m, P13".' },
+        { nimi: 'Rörelsekontroll (grind)', alku: 'Rörelsematris, grind: ', vihje: 'Vad klarar spelaren nu och vart är vi på väg?' },
+        { nimi: 'Säsongsplan', alku: 'Säsongsplan: ', vihje: 'Åldersgrupp, periodens längd och vad vi siktar på?' }
+      ]
+    }
+  };
+  function pt(a) { return (PIKA_T[kieli] && PIKA_T[kieli][a]) || PIKA_T.fi[a]; }
+  var IKAVALINNAT = ['U8', 'U9', 'U10', 'U11', 'U12', 'U13', 'U14', 'U15', 'U16+'];
+  var MUODOT = ['5v5', '8v8', '11v11'];
+  var pika = { ika: null, muoto: null, kuka: null, tehtava: null, tehtavaRooli: null };
+  var pikaPohja = '';   // viimeksi automaattisesti täytetty teksti (jos käyttäjä on muokannut sitä, sitä ei ylikirjoiteta)
+  try {
+    var _p = JSON.parse(localStorage.getItem('tm_va_pika') || '{}');
+    if (IKAVALINNAT.indexOf(_p.ika) >= 0) pika.ika = _p.ika;
+    if (MUODOT.indexOf(_p.muoto) >= 0) pika.muoto = _p.muoto;
+    if (_p.kuka === 0 || _p.kuka === 1) pika.kuka = _p.kuka;
+  } catch (e) { /* ei storagea */ }
+  function tallennaPika() {
+    try { localStorage.setItem('tm_va_pika', JSON.stringify({ ika: pika.ika, muoto: pika.muoto, kuka: pika.kuka })); } catch (e) { /* ei storagea */ }
+  }
+  function oletusMuoto(ika) {
+    var n = parseInt(String(ika).replace(/\D/g, ''), 10);
+    return n <= 9 ? '5v5' : (n <= 13 ? '8v8' : '11v11');
+  }
+  function pikaLista() { return rooli === 'hp' ? pt('aiheet') : pt('tehtavat'); }
+  function pikaTeksti(alku) {
+    var osat = [];
+    if (rooli === 'hp' && pika.kuka != null) osat.push(pt('kukaLista')[pika.kuka]);
+    if (pika.ika) osat.push(pika.ika);
+    if (rooli !== 'hp' && pika.muoto) osat.push(pika.muoto);
+    return (osat.length ? osat.join(', ') + '. ' : '') + alku;
+  }
+  function taytaPohja(kohdista) {
+    var tv = pika.tehtava != null ? pikaLista()[pika.tehtava] : null;
+    if (!tv) return;
+    var ta = $('vaKysymys');
+    var uusi = pikaTeksti(tv.alku);
+    ta.value = uusi;
+    pikaPohja = uusi;
+    kasvataKentta();
+    if (kohdista) {
+      ta.focus();
+      try { ta.setSelectionRange(uusi.length, uusi.length); } catch (e) { /* ei tueta */ }
+    }
+  }
+  // Ikä/pelimuoto/kuka vaihtuu: päivitä pohja vain jos käyttäjä ei ole vielä muokannut tekstiä
+  function pikaVaihtui() {
+    tallennaPika();
+    var paivita = pika.tehtava != null && $('vaKysymys').value === pikaPohja;
+    renderoiPika();
+    if (paivita) taytaPohja(false);
+  }
+  function chipRivi(otsikko, valinnat, valittu, onValinta, rivita) {
+    var rivi = document.createElement('div');
+    rivi.className = 'va-pika-rivi' + (rivita ? ' rivita' : '');
+    rivi.setAttribute('role', 'group');
+    rivi.setAttribute('aria-label', otsikko);
+    valinnat.forEach(function (nimi, i) {
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'va-chip';
+      b.textContent = nimi;
+      b.setAttribute('aria-pressed', String(valittu === i));
+      b.addEventListener('click', function () { onValinta(i); });
+      rivi.appendChild(b);
+    });
+    return rivi;
+  }
+  function renderoiPika() {
+    var el = $('vaPika');
+    if (!el) return;
+    el.innerHTML = '';
+    if (pika.tehtavaRooli !== rooli) pika.tehtava = null;
+    if (historia.length || odottaa) { pika.tehtava = null; pikaPohja = ''; el.hidden = true; return; }
+    el.hidden = false;
+    var hp = rooli === 'hp';
+    if (hp) {
+      el.appendChild(chipRivi(pt('kukaOts'), pt('kukaLista'), pika.kuka, function (i) { pika.kuka = i; pikaVaihtui(); }));
+    }
+    el.appendChild(chipRivi(pt('ikaOts'), IKAVALINNAT, IKAVALINNAT.indexOf(pika.ika), function (i) {
+      pika.ika = IKAVALINNAT[i];
+      if (!hp) pika.muoto = oletusMuoto(pika.ika);
+      pikaVaihtui();
+    }));
+    if (!hp) {
+      el.appendChild(chipRivi(pt('muotoOts'), MUODOT, MUODOT.indexOf(pika.muoto), function (i) { pika.muoto = MUODOT[i]; pikaVaihtui(); }));
+    }
+    var lista = pikaLista();
+    el.appendChild(chipRivi(pt(hp ? 'aiheOts' : 'mitaOts'), lista.map(function (x) { return x.nimi; }), pika.tehtava, function (i) {
+      pika.tehtava = i;
+      pika.tehtavaRooli = rooli;
+      renderoiPika();
+      taytaPohja(true);
+    }, true));
+    var vihje = document.createElement('div');
+    vihje.className = 'va-pika-vihje';
+    vihje.textContent = pika.tehtava != null && lista[pika.tehtava] ? lista[pika.tehtava].vihje : pt('vihjeAlku');
+    el.appendChild(vihje);
+    // Vierittävillä riveillä valittu painike keskelle, ettei se jää näytön reunan taakse
+    el.querySelectorAll('.va-pika-rivi:not(.rivita)').forEach(function (r) {
+      var v = r.querySelector('[aria-pressed="true"]');
+      if (v) r.scrollLeft = Math.max(0, v.offsetLeft - (r.clientWidth - v.offsetWidth) / 2);
+    });
+  }
+
   function renderoiLoki() {
     var loki = $('vaLoki');
     if (!loki) return;
+    renderoiPika();
     loki.innerHTML = '';
     if (!historia.length) {
       var tyhja = document.createElement('div');

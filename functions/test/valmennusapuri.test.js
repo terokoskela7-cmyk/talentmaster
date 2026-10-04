@@ -483,6 +483,15 @@ test('tunnistaJoukkueet: kysymyksessä mainittu joukkue, myös ilman seuran etul
   assert.deepStrictEqual(va.tunnistaJoukkueet('P133 ei ole joukkue', data), []);
 });
 
+test('tunnistaJoukkueet: "p13" osuu seuran U13-joukkueeseen vain jos ikä täsmää yhteen joukkueeseen', () => {
+  const kpv = { pelaajat: [{ joukkue: 'KPV T18' }, { joukkue: 'KPV U13' }], kartoitukset: [], testit: [] };
+  assert.deepStrictEqual(va.tunnistaJoukkueet('Analysoi p13 ikäluokan testitulokset', kpv), ['KPV U13']);
+  assert.deepStrictEqual(va.tunnistaJoukkueet('analysoi t18', kpv), ['KPV T18']);
+  assert.deepStrictEqual(va.tunnistaJoukkueet('analysoi p18', kpv), []);   // T18 ei ole poikajoukkue
+  const kaksi = { pelaajat: [{ joukkue: 'A U13' }, { joukkue: 'B U13' }], kartoitukset: [], testit: [] };
+  assert.deepStrictEqual(va.tunnistaJoukkueet('p13', kaksi), []);          // monitulkintainen: ei arvata
+});
+
 test('koostaSeuranData: testitulosten ja liikeketjujen mediaanit; alle 3 pelaajaa → ei arvoja (yksityisyys)', () => {
   const pel = (lin30m, sbl, ll) => ({ joukkue: 'KPV P13', ennatykset: { lin30m: { paras: lin30m } }, ketjut: { sbl: sbl, sfl: 2.3, ll: ll, diag: 2.4, dfl: 2.2 } });
   const t = va.koostaSeuranData({ pelaajat: [pel(5.1, 2.2, 2.0), pel(4.9, 2.1, 1.9), pel(5.3, 2.4, 2.1), { joukkue: 'KPV P14' }] }, ['KPV P13']);
@@ -562,4 +571,139 @@ test('onTestidata: siemenskriptin testidata tunnistetaan, oikea data ei', () => 
   assert.strictEqual(va.onTestidata({}, 'TEST_kpv_002'), true);
   assert.strictEqual(va.onTestidata({ joukkue: 'KPV P13', arvioija: 'Rasmus' }, 'm93GBdOaGCUuenMiCL0I'), false);
   assert.strictEqual(va.onTestidata({ arvioija: 'Testinen Matti' }, 'x'), false);
+});
+
+
+test('seurakerros: rakennaSeuranLinja tekee oman välimuistilohkon seuran tunnisteella', () => {
+  const r = va.rakennaSeuranLinja('kpv', [{ nimi: '20_b.md', sisalto: 'B' }, { nimi: '10_a.md', sisalto: 'A' }]);
+  assert.strictEqual(r.tiedostoja, 2);
+  assert.ok(r.lohko.text.indexOf('<seuran_linja seura="kpv">') === 0);
+  assert.ok(r.lohko.text.indexOf('10_a.md') < r.lohko.text.indexOf('20_b.md'));
+  assert.deepStrictEqual(r.lohko.cache_control, { type: 'ephemeral' });
+});
+
+test('seurakerros: haeSeuranLinja lukee vain oman seuran polun ja hylkää väärän tunnisteen', async () => {
+  const haetut = [];
+  const tied = (nimi, sis) => ({ name: nimi, download: async () => [Buffer.from(sis)] });
+  const admin = { storage: () => ({ bucket: () => ({ getFiles: async ({ prefix }) => { haetut.push(prefix); return [[
+    tied(prefix + '10_x.md', 'X'), tied(prefix + 'alikansio/y.md', 'Y'), tied(prefix + 'luevinkki.txt', 'Z')]]; } }) }) };
+  const a = { polku: 'valmennusapuri/' };
+  assert.strictEqual(await va.haeSeuranLinja(admin, a, '../hp_johtaja'), null);
+  assert.strictEqual(await va.haeSeuranLinja(admin, a, null), null);
+  const r = await va.haeSeuranLinja(admin, a, 'testiseura1');
+  assert.deepStrictEqual(haetut, ['valmennusapuri/seurat/testiseura1/']);
+  assert.strictEqual(r.tiedostoja, 1);
+  assert.ok(r.lohko.text.indexOf('X') > 0 && r.lohko.text.indexOf('Y') < 0);
+});
+
+test('seurakerros: käsittelijä lisää seuran linjan järjestelmään vain seuralle jolla se on; virhe ei kaada vastausta', async () => {
+  const db = muistiDb({ 'valmennusapuri_pilotti/u1': { aktiivinen: true, seuraId: 'kpv', nimi: 'T', tehtava: 'valmentaja' } });
+  const kutsut = [];
+  const lohko = { type: 'text', text: '<seuran_linja seura="kpv">K</seuran_linja>' };
+  const h = va.kasittelija({ firestore: () => db }, functions, {
+    env: { VALMENNUSAPURI_PAIVAKIINTIO: '5' },
+    haeTietopohja: async () => TP,
+    haeSeuranTiedot: async () => ({ nimet: [], seura: null }),
+    haeSeuranLinja: async (_ad, _a, id) => { if (id === 'kpv') return { lohko, tiedostoja: 1 }; return null; },
+    kutsuMallia: async (_a, asetus, system) => { kutsut.push(system); return { teksti: 'V', syy: 'end_turn', tokenit: { syote: 1, tuotos: 1, valimuistiLuettu: 0, valimuistiKirjoitettu: 0 } }; },
+  });
+  await h(kysymys(), ctx('u1'));
+  assert.strictEqual(kutsut[0].length, TP.system.length + 1);
+  assert.strictEqual(kutsut[0][kutsut[0].length - 1], lohko);
+
+  const h2 = va.kasittelija({ firestore: () => db }, functions, {
+    env: { VALMENNUSAPURI_PAIVAKIINTIO: '5' },
+    haeTietopohja: async () => TP,
+    haeSeuranTiedot: async () => ({ nimet: [], seura: null }),
+    haeSeuranLinja: async () => { throw new Error('storage alhaalla'); },
+    kutsuMallia: async (_a, asetus, system) => { kutsut.push(system); return { teksti: 'V', syy: 'end_turn', tokenit: { syote: 1, tuotos: 1, valimuistiLuettu: 0, valimuistiKirjoitettu: 0 } }; },
+  });
+  const r = await h2(kysymys(), ctx('u1'));
+  assert.strictEqual(r.vastaus, 'V');
+  assert.strictEqual(kutsut[1].length, TP.system.length);
+});
+
+// ── Aihejako: vain kysymyksen aihepiiri tietopohjasta (3.10.2026) ────────────
+const u = (t) => [{ role: 'user', content: t }];
+test('tunnistaAihe: yksi selvä aihe rajaa, epävarma/usea/kausi → kaikki', () => {
+  assert.strictEqual(va.tunnistaAihe(u('Mikä on P13-pelaajan 30 m juoksun tavoitetaso?')), 'fysiikka');
+  assert.strictEqual(va.tunnistaAihe(u('Voiko U14-pelaaja aloittaa lisäpainot?')), 'fysiikka');
+  assert.strictEqual(va.tunnistaAihe(u('Anna syöttöharjoitus U10-ikäisille')), 'tekniikka');
+  assert.strictEqual(va.tunnistaAihe(u('Suunnittele kausisuunnitelma U13:lle')), 'kaikki');
+  assert.strictEqual(va.tunnistaAihe(u('Miten tekniikka ja voima yhdistetään?')), 'kaikki');
+  assert.strictEqual(va.tunnistaAihe(u('Entä U15?')), 'kaikki');
+  assert.strictEqual(va.tunnistaAihe([]), 'kaikki');
+});
+test('tunnistaAihe: aihe päätellään koko keskustelun käyttäjän viesteistä, ei apurin vastauksista', () => {
+  const v = [{ role: 'user', content: 'Tavoitetasot P13 nopeus' }, { role: 'assistant', content: 'syöttö tekniikka konsepti' }, { role: 'user', content: 'Entä U14?' }];
+  assert.strictEqual(va.tunnistaAihe(v), 'fysiikka');
+});
+test('suodataAihe: VA — ydin + paketti, tuntematon numero aina mukaan', () => {
+  const f = ['00_a.md', '01_b.md', '10_c.md', '20_d.md', '30_e.md', '40_f.md', '60_uusi.md'].map((n) => ({ nimi: n, sisalto: 'x' }));
+  assert.deepStrictEqual(va.suodataAihe(f, 'fysiikka', false).map((t) => t.nimi), ['00_a.md', '01_b.md', '30_e.md', '40_f.md', '60_uusi.md']);
+  assert.deepStrictEqual(va.suodataAihe(f, 'tekniikka', false).map((t) => t.nimi), ['00_a.md', '01_b.md', '10_c.md', '60_uusi.md']);
+  assert.strictEqual(va.suodataAihe(f, 'kaikki', false).length, f.length);
+});
+test('suodataAihe: HP — omat tiedostot (ei opas_) aina mukana, opas_-tiedostot rajataan', () => {
+  const f = ['00_aani.md', '10_periaatteet.md', '20_termit_sv.md', 'opas_00_jarjestelma.md', 'opas_10_yksilokonseptit.md', 'opas_40_liikehallintamatriisi.md']
+    .map((n) => ({ nimi: n, sisalto: 'x' }));
+  assert.deepStrictEqual(va.suodataAihe(f, 'fysiikka', true).map((t) => t.nimi),
+    ['00_aani.md', '10_periaatteet.md', '20_termit_sv.md', 'opas_00_jarjestelma.md', 'opas_40_liikehallintamatriisi.md']);
+});
+test('rakennaSystem: aihe lisää huomautuksen, ilman aihetta rakenne ennallaan', () => {
+  const t = [{ nimi: 'a.md', sisalto: 'A' }];
+  assert.ok(va.rakennaSystem('OHJE', t, 'fysiikka')[1].text.indexOf('<huomautus>') > 0);
+  assert.strictEqual(va.rakennaSystem('OHJE', t)[1].text.indexOf('<huomautus>'), -1);
+  assert.strictEqual(va.rakennaSystem('OHJE', t, 'kaikki')[1].text.indexOf('<huomautus>'), -1);
+});
+test('kasittelija: aihejako rajaa mallille menevän tietopohjan ja kirjaa aiheen; VALMENNUSAPURI_AIHEJAKO=0 palauttaa kaiken', async () => {
+  const sisallot = ['00_j.md', '01_k.md', '10_y.md', '30_p.md', '40_m.md'].map((n) => ({ nimi: n, sisalto: 'S-' + n }));
+  const TP2 = { system: [{ type: 'text', text: 'KAIKKI' }], ohjeistus: 'OHJE', sisallot, versio: '0.19', tiedostoja: 5 };
+  const aja = async (env, teksti) => {
+    const db = muistiDb();
+    const kutsut = [];
+    const h = va.kasittelija({ firestore: () => db }, functions, {
+      env: Object.assign({ VALMENNUSAPURI_PAIVAKIINTIO: '5' }, env),
+      haeTietopohja: async () => TP2,
+      haeSeuranTiedot: async () => ({ nimet: [], seura: null }),
+      kutsuMallia: async (_a, _as, system) => { kutsut.push(system); return { teksti: 'V', syy: 'end_turn', tokenit: { syote: 1, tuotos: 1, valimuistiLuettu: 0, valimuistiKirjoitettu: 0 } }; },
+    });
+    const r = await h(kysymys(teksti), ctx(SA));
+    return { kutsut, loki: db.data['valmennusapuri_loki/' + r.lokiId] };
+  };
+  const a = await aja({}, 'Mikä on P13-pelaajan 30 m juoksun tavoitetaso?');
+  const teksti = a.kutsut[0][1].text;
+  assert.ok(teksti.indexOf('40_m.md') > 0 && teksti.indexOf('30_p.md') > 0 && teksti.indexOf('00_j.md') > 0);
+  assert.strictEqual(teksti.indexOf('10_y.md'), -1);
+  assert.strictEqual(a.loki.aihe, 'fysiikka');
+  assert.strictEqual(a.loki.tietopohjaTiedostoja, 4);
+  const b = await aja({ VALMENNUSAPURI_AIHEJAKO: '0' }, 'Mikä on P13-pelaajan 30 m juoksun tavoitetaso?');
+  assert.strictEqual(b.kutsut[0][0].text, 'KAIKKI');
+  assert.strictEqual(b.loki.aihe, 'kaikki');
+  const c = await aja({}, 'Suunnittele kausisuunnitelma');
+  assert.strictEqual(c.kutsut[0][0].text, 'KAIKKI');
+});
+
+test('tunnistaAihe: taktiikka → joukkue; taktiikka + fysiikka → kaikki', () => {
+  assert.strictEqual(va.tunnistaAihe(u('U13, 8v8. Taktiikka: avaus hajoaa paineessa')), 'joukkue');
+  assert.strictEqual(va.tunnistaAihe(u('Miten pelaamme korkealla prässillä?')), 'joukkue');
+  assert.strictEqual(va.tunnistaAihe(u('Taktiikka ja voimaharjoittelu')), 'kaikki');
+});
+test('suodataAihe: joukkue-paketti sisältää yksilökonseptit mutta ei fysiikkatiedostoja', () => {
+  const f = ['00_a.md', '01_b.md', '10_c.md', '14_d.md', '20_e.md', '30_f.md', '40_g.md', '41_h.md', '42_i.md'].map((n) => ({ nimi: n, sisalto: 'x' }));
+  const nimet = va.suodataAihe(f, 'joukkue', false).map((t) => t.nimi);
+  assert.deepStrictEqual(nimet, ['00_a.md', '01_b.md', '10_c.md', '14_d.md', '20_e.md', '30_f.md']);
+});
+test('pikavalintojen pohjat osuvat oikeaan aiheeseen (kustannus + laatu)', () => {
+  const alut = {
+    'U13, 8v8. Taktiikka: ': 'joukkue',
+    'Valmennuspäällikkö, U13. Kuorma ja kasvu: ': 'fysiikka',
+    'Valmennuspäällikkö, U13. Testit ja tavoitetasot: ': 'fysiikka',
+    'Valmennuspäällikkö, U13. Liikehallintamatriisi, portti: ': 'fysiikka',
+    'Valmennuspäällikkö, U13. Kausisuunnitelma: ': 'kaikki',
+    'U13, 8v8. Tee harjoitus tilanteeseen: ': 'kaikki',
+    'U13, 8v8. Kirjaa havainnot: ': 'kaikki',
+    'U13, 8v8. Mitä minun kannattaa havainnoida: ': 'kaikki',
+  };
+  Object.keys(alut).forEach((a) => assert.strictEqual(va.tunnistaAihe(u(a)), alut[a], a));
 });

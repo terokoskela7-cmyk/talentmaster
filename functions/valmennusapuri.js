@@ -83,6 +83,7 @@ function asetukset(env) {
     polku: e.VALMENNUSAPURI_POLKU || 'valmennusapuri/',
     hpPolku: e.VALMENNUSAPURI_HP_POLKU || 'valmennusapuri/hp_johtaja/',
     paivaKiintio: Number(e.VALMENNUSAPURI_PAIVAKIINTIO || 40),
+    aihejako: e.VALMENNUSAPURI_AIHEJAKO !== '0',             // '0' = koko tietopohja jokaiseen kutsuun (paluu vanhaan)
   };
 }
 
@@ -172,17 +173,59 @@ function valitseOhjeistus(nimet) {
   return versioidut.length ? versioidut[versioidut.length - 1] : null;
 }
 
-/** Sama system-rakenne kuin laatutestauksessa (aja_testit.mjs) → testattu kokoonpano. */
-function rakennaSystem(ohjeistus, tiedostot) {
+/** Sama system-rakenne kuin laatutestauksessa (aja_testit.mjs) → testattu kokoonpano. aihe (valinnainen) lisää lyhyen huomautuksen rajatusta tietopohjasta. */
+function rakennaSystem(ohjeistus, tiedostot, aihe) {
   const tietopohja = tiedostot
     .slice()
     .sort(function (a, b) { return a.nimi.localeCompare(b.nimi); })
     .map(function (t) { return '<tiedosto nimi="' + t.nimi + '">\n' + t.sisalto + '\n</tiedosto>'; })
     .join('\n\n');
+  const huomautus = aihe && aihe !== 'kaikki'
+    ? '<huomautus>Tässä kutsussa on mukana vain kysymyksen aihepiiriin (' + aihe + ') kuuluva osa tietopohjasta. ' +
+      'Jos vastaus vaatisi aihepiiriä, jota ei ole mukana, sano lyhyesti mitä et tämän kysymyksen pohjalta voi vastata ja pyydä käyttäjää kysymään se erikseen.</huomautus>\n'
+    : '';
   return [
     { type: 'text', text: ohjeistus },
-    { type: 'text', text: '<tietopohja>\n' + tietopohja + '\n</tietopohja>', cache_control: { type: 'ephemeral' } },
+    { type: 'text', text: '<tietopohja>\n' + huomautus + tietopohja + '\n</tietopohja>', cache_control: { type: 'ephemeral' } },
   ];
+}
+
+// ── Aihejako: vain kysymyksen aihepiiri tietopohjasta (säästää tokeneita) ──────
+// Tiedostot tunnistetaan numeroetuliitteestä (VA: 30_…, HP: opas_30_…). Tuntematon numero → aina mukaan.
+// Epävarmassa tapauksessa (ei osumaa, useita aiheita, kausi/arviointi) mukaan tulee koko tietopohja.
+const AIHE_YDIN = ['00', '01'];
+const AIHE_PAKETIT = {
+  fysiikka: ['30', '40', '41', '42', '50'],
+  tekniikka: ['10', '11', '12', '13', '14', '50'],
+  joukkue: ['10', '11', '12', '13', '14', '20', '21', '30', '50'],   // joukkueteemat linkittyvät yksilön konsepteihin → ei fysiikkatiedostoja
+};
+const AIHE_SANAT = {
+  fysiikka: /voima|fysiikka|fyysi|testi|nopeus|sprint|hyppy|kestävyys|liikkuvuus|kartoitus|harjoitettavuus|\b30 ?m\b|\b5 ?rm\b|kuorma|painot|lisäpaino|kuminauha|ennätys|tavoitetaso|\bmas\b|kasvupyrähd|\bphv\b|kasvumittaus|nordic|copenhagen|ponnist|ketteryys|portti|matriisi|lihaskunto/i,
+  tekniikka: /tekniik|konseptipeli|konsepti|yksilöharjoit|syöttö|vastaanot|harhaut|kuljetus|1v1|\b(?:Y|J)-[HPSE]\d/i,
+  joukkue: /taktiik|prässi|pressi|avaus|erikoistilan|kulmapotk|vapaapotk|pelitapa|pelimalli|puolustaminen|hyökkääminen|siirtymäpeli|joukkueteema|pelaamisen malli/i,
+};
+const AIHE_KAIKKI = /kausisuunn|vuosisuunn|\bkausi|periodis|kehityskeskust|arviointi|\bIDP\b|yleiskuva|kokonaisuus/i;
+
+/** Puhdas: kysymysten (käyttäjän viestit) aihepiiri → 'fysiikka' | 'tekniikka' | 'joukkue' | 'kaikki'. */
+function tunnistaAihe(viestit) {
+  const teksti = (viestit || []).filter(function (v) { return v && v.role === 'user'; })
+    .map(function (v) { return String(v.content || ''); }).join('\n');
+  if (!teksti.trim() || AIHE_KAIKKI.test(teksti)) return 'kaikki';
+  const osumat = Object.keys(AIHE_SANAT).filter(function (k) { return AIHE_SANAT[k].test(teksti); });
+  return osumat.length === 1 ? osumat[0] : 'kaikki';
+}
+
+/** Puhdas: rajaa tiedostolistan aiheen mukaan. onHP: HP:n omat (ei opas_-etuliitteiset) tiedostot ovat aina mukana. */
+function suodataAihe(tiedostot, aihe, onHP) {
+  const paketti = AIHE_PAKETIT[aihe];
+  if (!paketti) return tiedostot;
+  const mukaan = AIHE_YDIN.concat(paketti);
+  return tiedostot.filter(function (t) {
+    const m = String(t.nimi).match(/^(opas_)?(\d\d)_/);
+    if (!m) return true;
+    if (onHP && !m[1]) return true;
+    return mukaan.indexOf(m[2]) >= 0 || !/^(00|01|10|11|12|13|14|20|21|30|40|41|42|50)$/.test(m[2]);
+  });
 }
 
 function ohjeVersio(ohjeistus) {
@@ -450,7 +493,7 @@ function tunnistaJoukkueet(teksti, data) {
   const kaikki = new Set();
   ((data && data.pelaajat) || []).concat((data && data.kartoitukset) || [], (data && data.testit) || [])
     .forEach(function (x) { if (x && x.joukkue) kaikki.add(String(x.joukkue)); });
-  return Array.from(kaikki).filter(function (j) {
+  const suora = Array.from(kaikki).filter(function (j) {
     const jl = j.toLowerCase();
     if (t.indexOf(jl) >= 0) return true;
     // Mikä tahansa numeron sisältävä osa nimestä: "KPV P13" → "p13", "SJK P15 Musta" → "p15", "SJK 2011" → "2011"
@@ -459,6 +502,25 @@ function tunnistaJoukkueet(teksti, data) {
       return o.length >= 2 && /\d/.test(o) && new RegExp('(?<![\\p{L}\\d])' + o + '(?![\\p{L}\\d])', 'u').test(t);
     });
   });
+  if (suora.length) return suora;
+  // Varalla: "P13" tarkoittaa poikia, joten sopii seuran U13-joukkueeseen (ja "T13" tyttöjen T13-joukkueeseen),
+  // mutta vain jos ikä täsmää täsmälleen yhteen joukkueeseen. Muuten ei arvata.
+  const kirjaimet = { p: 'pu', t: 't', u: 'u', n: 'tn' };
+  const ehdokkaat = new Set();
+  const re = /(?<![\p{L}\d])([ptun])(\d{1,2})(?![\p{L}\d])/giu;
+  let m;
+  while ((m = re.exec(t)) !== null) {
+    const sallitut = kirjaimet[m[1]];
+    const osuvat = Array.from(kaikki).filter(function (j) {
+      return j.toLowerCase().split(/[\s\-_/]+/).some(function (osa) {
+        const o = osa.replace(/[^\p{L}\d]/gu, '');
+        const mm = /^([ptun])(\d{1,2})$/.exec(o);
+        return mm && mm[2] === m[2] && sallitut.indexOf(mm[1]) >= 0;
+      });
+    });
+    if (osuvat.length === 1) ehdokkaat.add(osuvat[0]);
+  }
+  return Array.from(ehdokkaat);
 }
 
 /** Puhdas: kehitystä varten luotu testi-/siemendata (seed_kartoitukset.js ym.), jota ei lasketa seuran dataksi. */
@@ -700,8 +762,47 @@ async function haeTietopohja(admin, a, polku) {
   const sisallot = await Promise.all(tp.map(async function (f) {
     return { nimi: f.name.slice((polku + 'tietopohja/').length), sisalto: (await f.download())[0].toString('utf8') };
   }));
-  const arvo = { system: rakennaSystem(ohjeistus, sisallot), versio: ohjeVersio(ohjeistus), tiedostoja: sisallot.length };
+  const arvo = { system: rakennaSystem(ohjeistus, sisallot), ohjeistus: ohjeistus, sisallot: sisallot, versio: ohjeVersio(ohjeistus), tiedostoja: sisallot.length };
   _tpCache[polku] = { aika: Date.now(), arvo: arvo };
+  return arvo;
+}
+
+// ── Seurakerros: valmennusapuri/seurat/{seuraId}/*.md ────────────────────────
+// Seuran oma valmennuslinja menee omaksi järjestelmälohkokseen tietopohjan jälkeen. Se luetaan vain
+// käyttäjän omalle seuralle (pilottiseura tai SA:n valitsema seura), joten toisen seuran linja ei vuoda.
+const _slCache = {};   // polku → { aika, arvo }
+
+function rakennaSeuranLinja(seuraId, tiedostot) {
+  const sisalto = tiedostot
+    .slice()
+    .sort(function (a, b) { return a.nimi.localeCompare(b.nimi); })
+    .map(function (t) { return '<tiedosto nimi="' + t.nimi + '">\n' + t.sisalto + '\n</tiedosto>'; })
+    .join('\n\n');
+  return {
+    lohko: { type: 'text', text: '<seuran_linja seura="' + seuraId + '">\n' + sisalto + '\n</seuran_linja>', cache_control: { type: 'ephemeral' } },
+    tiedostoja: tiedostot.length,
+  };
+}
+
+async function haeSeuranLinja(admin, a, seuraId) {
+  if (typeof seuraId !== 'string' || !/^[a-z0-9_-]{1,40}$/.test(seuraId)) return null;
+  const polku = (a.polku || 'valmennusapuri/') + 'seurat/' + seuraId + '/';
+  const valimuisti = _slCache[polku];
+  if (valimuisti && Date.now() - valimuisti.aika < TIETOPOHJA_CACHE_MS) return valimuisti.arvo;
+  const bucket = a.bucket ? admin.storage().bucket(a.bucket) : admin.storage().bucket();
+  const [tiedostot] = await bucket.getFiles({ prefix: polku });
+  const md = tiedostot.filter(function (f) {
+    const suhteellinen = f.name.slice(polku.length);
+    return suhteellinen.endsWith('.md') && suhteellinen.indexOf('/') < 0;
+  });
+  let arvo = null;
+  if (md.length) {
+    const sisallot = await Promise.all(md.map(async function (f) {
+      return { nimi: f.name.slice(polku.length), sisalto: (await f.download())[0].toString('utf8') };
+    }));
+    arvo = rakennaSeuranLinja(seuraId, sisallot);
+  }
+  _slCache[polku] = { aika: Date.now(), arvo: arvo };
   return arvo;
 }
 
@@ -733,6 +834,7 @@ function kasittelija(admin, functions, riip) {
   const _hae = r.haeTietopohja || haeTietopohja;
   const _kutsu = r.kutsuMallia || kutsuMallia;
   const _seura = r.haeSeuranTiedot || haeSeuranTiedot;
+  const _haeSeuranLinja = r.haeSeuranLinja || haeSeuranLinja;
 
   function httpsVirhe(e) {
     if (e instanceof functions.https.HttpsError) return e;
@@ -822,7 +924,18 @@ function kasittelija(admin, functions, riip) {
         ? viestit.slice(0, -1).concat([{ role: 'user', content: konteksti + '\n\n' + viimeinen.content }])
         : viestit;
       const tp = await _hae(admin, a, rooli === 'hp' ? a.hpPolku : a.polku);
-      const malli = await _kutsu(admin, a, tp.system, mallille);
+      const aihe = a.aihejako ? tunnistaAihe(viestit) : 'kaikki';
+      const rajattu = aihe !== 'kaikki' && tp.ohjeistus && Array.isArray(tp.sisallot)
+        ? suodataAihe(tp.sisallot, aihe, rooli === 'hp') : null;
+      const perusSystem = rajattu ? rakennaSystem(tp.ohjeistus, rajattu, aihe) : tp.system;
+      let seuranLinja = null;
+      try {
+        seuranLinja = seuraId ? await _haeSeuranLinja(admin, a, seuraId) : null;
+      } catch (e) {
+        console.warn('[valmennusapuri] seuran linjaa ei luettu (' + seuraId + '):', e && e.message);
+      }
+      const jarjestelma = seuranLinja && Array.isArray(perusSystem) ? perusSystem.concat([seuranLinja.lohko]) : perusSystem;
+      const malli = await _kutsu(admin, a, jarjestelma, mallille);
       const kayttajan = viestit.filter(function (v) { return v.role === 'user'; }).map(function (v) { return v.content; });
       const suodatettu = suodataKoodit(malli.teksti, kayttajan);
       if (suodatettu.poistettu.length) {
@@ -840,6 +953,9 @@ function kasittelija(admin, functions, riip) {
         konteksti: konteksti,
         syottosuoja: suojaYht,
         ohjeVersio: tp.versio,
+        aihe: aihe,
+        tietopohjaTiedostoja: rajattu ? rajattu.length : (tp.tiedostoja || null),
+        seuranLinja: seuranLinja ? seuranLinja.tiedostoja : 0,
         provider: a.provider,
         malli: a.malli,
         alue: a.provider === 'anthropic' ? null : a.alue,
@@ -867,6 +983,10 @@ module.exports = {
   suodataKoodit,
   valitseOhjeistus,
   rakennaSystem,
+  tunnistaAihe,
+  suodataAihe,
+  rakennaSeuranLinja,
+  haeSeuranLinja,
   ohjeVersio,
   paivanAvain,
   onKayttoOikeus,
