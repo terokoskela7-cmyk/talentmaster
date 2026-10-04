@@ -108,7 +108,7 @@ window.TM_KAAVIO_HOST = {
 <script src="lib/tm_arviointi_silta.js?v=3"></script>   <!-- Vaihe 5: arviointi→resepti-silta (4a lähde-vihje: arvioinnin heikoin havaittu) · v2 = I3a SSOT-osoitin tm_kehityspolku -->
 <script src="lib/tm_jaksofokus.js?v=5"></script>   <!-- Vaihe 4c/6: tmJfUmpeutunut (jakson sulku -laukaisin) -->
 <script src="lib/tm_kehityspolku.js?v=2"></script>   <!-- I3a: looginen silta -resolver (idp_fokus → konsepti/fundamentti → harjoite) -->
-<script src="lib/tm_jaksokooste.js?v=1"></script>   <!-- Vaihe 6: jakson sulku (meso-sykli) — valmentaja sulkee omat pelaajansa (§4/§37) -->
+<script src="lib/tm_jaksokooste.js?v=2"></script>   <!-- Vaihe 6: jakson sulku (meso-sykli) — valmentaja sulkee omat pelaajansa (§4/§37) -->
 <script src="lib/tm_fyysteemat.js?v=4"></script>   <!-- Vaihe 7: fyysinen teemaluettelo + D1-fokuslähde + evidenssi (fysiikkavalmentaja) -->
 <script src="lib/tm_ohjelma.js?v=1"></script>   <!-- Vaihe 7.2a: fysiikkaohjelmakirjasto (validoi/versioi/templaatista, deterministinen) -->
 <script src="lib/tm_ohjelma_analytiikka.js?v=2"></script>   <!-- Vaihe 7.2b: per-ohjelma-analytiikka (tmOhjelmaKooste — mikä ohjelma toimii kenelle) -->
@@ -6288,6 +6288,18 @@ window._ttPickKonsepti = function (pid, avain) {
 };
 
 // "Vie jakson treeniin" → jaksofokus-pikakenttä (§26) → näkyy VP-aloitusnäkymässä. idp_kausi/jakso-historia myöhemmin.
+// ══ R6.0b — YKSI yhteinen jaksofokuksen vaihto (_ttVieTreeniin · _msAsetaFyysFokus · _ohjKaytaOhjelma · _mIdpVtAktivoi) ══
+// Ennen: jokainen polku korvasi p.jaksofokus:n ilman arkistointia (edellinen jakso katosi; set-merge jätti lisäksi vanhoja kenttiä) ja
+// nollasi alkoi-päivän vaikka jakso oli sama. Nyt: lib/tm_jaksokooste.js tmJaksonVaihto (sama jakso → alkoi säilyy, ei arkistoa; eri jakso →
+// edellinen jaksofokus_historiaan sulkutapa:'korvattu'). Kirjoitus YKSI update() samaan pelaajadokkiin: jaksofokus (korvaa kokonaan) +
+// jaksofokus_historia arrayUnion (additiivinen §11, ei lue–muokkaa–kirjoita-kilpatilannetta kahdella laitteella). Rivin aikaleimat ISO (§7.6).
+function _mJaksoVaihto(p, jf) { return window.TM_JAKSOKOOSTE.tmJaksonVaihto(p.jaksofokus, jf, new Date().toISOString()); }
+async function _mKirjoitaJaksofokus(p, v, pid) {
+  var upd = { jaksofokus: v.jaksofokus };
+  if (v.arkisto) upd.jaksofokus_historia = firebase.firestore.FieldValue.arrayUnion(v.arkisto);
+  await _db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(pid || p.id).update(upd);
+  if (v.arkisto) p.jaksofokus_historia = (Array.isArray(p.jaksofokus_historia) ? p.jaksofokus_historia : []).concat([v.arkisto]);   // lokaali vasta onnistumisen jälkeen
+}
 window._ttVieTreeniin = async function (pid, avain) {
   const p = _ttPelaaja(pid);
   if (!p) return;
@@ -6313,12 +6325,13 @@ window._ttVieTreeniin = async function (pid, avain) {
     const _ehdKons2 = (_ehd2 && _ehd2.tyyppi === 'teknis_taktinen') ? _ehd2.konsepti_avain : null;
     if (_ehdKons2 && _ehdKons2 !== avain) jaksofokus.poikkeama = true;
   }
-  p.jaksofokus = jaksofokus;
+  const _v = _mJaksoVaihto(p, jaksofokus);   // R6.0b: arkistoi edellinen / säilytä alkoi jos sama jakso
+  p.jaksofokus = _v.jaksofokus;
   if (typeof _renderPinfoFirestore === 'function') _renderPinfoFirestore(p);
   if (_demo || !_seuraId || typeof _db === 'undefined' || !_db) { if (typeof toast === 'function') toast('Jaksofokus asetettu (demo — ei kirjoitettu)', 'ok'); return; }
   try {
     const cu = firebase.auth().currentUser; await _mTuoreToken(cu);
-    await _db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(pid).set({ jaksofokus: jaksofokus }, { merge: true });
+    await _mKirjoitaJaksofokus(p, _v, pid);
     if (typeof toast === 'function') toast(masterT('Jaksofokus viety treeniin ✓ (näkyy VP-aloitusnäkymässä)'), 'ok');
   } catch (e) { console.warn('[ttVieTreeniin]', e && e.message); if (typeof toast === 'function') toast('Tallennus epäonnistui', 'error'); }
 };
@@ -6453,12 +6466,13 @@ window._msAsetaFyysFokus = async function (pid, teemaAvain) {
   }
   var jf = { konsepti_avain: teemaAvain, konsepti_nimi: teema ? teema.nimi : teemaAvain, konsepti_koodi: null, domeeni: 'fyysinen', lahde: 'silta_d1', alkoi: new Date().toISOString(), kesto_vk: 4, ohjelma: ohjelma };
   if (!_mVerkkoEnnenSulkua()) return;   // offline: lomake jää auki, tietoja ei muuteta
-  p.jaksofokus = jf;
+  var _v = _mJaksoVaihto(p, jf);   // R6.0b
+  p.jaksofokus = _v.jaksofokus;
   document.getElementById('_msFyysModal')?.remove();
   if (typeof _renderPinfoFirestore === 'function') _renderPinfoFirestore(p);
   if (_demo || !_seuraId || typeof _db === 'undefined' || !_db) { if (typeof toast === 'function') toast('Fysiikkajakso asetettu (demo)', 'ok'); return; }
   try { var cu = firebase.auth().currentUser; await _mTuoreToken(cu);
-    await _db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(pid).set({ jaksofokus: jf }, { merge: true });
+    await _mKirjoitaJaksofokus(p, _v, pid);
     if (typeof toast === 'function') toast(masterT('Fysiikkajakso asetettu ✓') + (ohjelma ? ' + ohjelma' : ''), 'ok');
   } catch (e) { console.warn('[msAsetaFyysFokus]', e && e.message); if (typeof toast === 'function') toast('Tallennus epäonnistui', 'error'); }
 };
@@ -6608,12 +6622,13 @@ window._ohjKaytaOhjelma = async function (pid, teemaAvain, ohjelmaId) {
     ? Object.assign({}, p.jaksofokus, { ohjelma: ohjelma })
     : { konsepti_avain: tAvain, konsepti_nimi: teema ? teema.nimi : tAvain, konsepti_koodi: null, domeeni: 'fyysinen', lahde: 'silta_d1', alkoi: new Date().toISOString(), kesto_vk: 4, ohjelma: ohjelma };
   if (!_mVerkkoEnnenSulkua()) return;   // offline: lomake jää auki, tietoja ei muuteta
-  p.jaksofokus = jf;
+  var _v = _mJaksoVaihto(p, jf);   // R6.0b
+  p.jaksofokus = _v.jaksofokus;
   document.getElementById('_ohjValitseModal')?.remove(); document.getElementById('_msFyysModal')?.remove();
   if (typeof _renderPinfoFirestore === 'function') _renderPinfoFirestore(p);
   if (_demo || !_seuraId || typeof _db === 'undefined' || !_db) { if (typeof toast === 'function') toast('Fysiikkajakso + kirjasto-ohjelma asetettu (demo)', 'ok'); return; }
   try { var cu = firebase.auth().currentUser; await _mTuoreToken(cu);
-    await _db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(pid).set({ jaksofokus: jf }, { merge: true });
+    await _mKirjoitaJaksofokus(p, _v, pid);
     if (typeof toast === 'function') toast('Fysiikkajakso + kirjasto-ohjelma asetettu ✓', 'ok');
   } catch (e) { console.warn('[ohjKayta]', e && e.message); if (typeof toast === 'function') toast('Tallennus epäonnistui', 'error'); }
 };
@@ -6844,7 +6859,8 @@ window._msTallenna = async function (uusiAvain) {
   if (_demo || !_seuraId || typeof _db === 'undefined' || !_db) { if (typeof toast === 'function') toast('Jakso suljettu (demo — ei kirjoitettu)', 'ok'); return; }
   try {
     var cu = firebase.auth().currentUser; await _mTuoreToken(cu);
-    await _db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(p.id).set({ jaksofokus: uusiJf, jaksofokus_historia: hist }, { merge: true });
+    // R6.0b: vain LISÄÄ rivin (ei muokkaa vanhoja) → arrayUnion; koko paikallisen taulukon kirjoitus ylikirjoitti toisen laitteen/polun rivit
+    await _db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(p.id).set({ jaksofokus: uusiJf, jaksofokus_historia: firebase.firestore.FieldValue.arrayUnion(entry) }, { merge: true });
     if (typeof toast === 'function') toast(uusiAvain ? masterT('Jakso suljettu · uusi fokus asetettu ✓') : masterT('Jakso suljettu ✓'), 'ok');
   } catch (e) { console.warn('[msTallenna]', e && e.message); if (typeof toast === 'function') toast('Tallennus epäonnistui', 'error'); }
 };
@@ -7091,13 +7107,14 @@ window._mIdpVtAktivoi = async function (pid, i) {
   const jf = { konsepti_avain: v.konsepti_avain || ('vt_' + i), konsepti_nimi: v.nimi, konsepti_koodi: null,
     alkoi: new Date().toISOString(), kesto_vk: v.kesto_vk || (t.aikaraami && t.aikaraami.kesto_vk) || 6, lahde: 'valmentaja',
     tavoite_alue: (t.fokus && t.fokus.alue) || null, valitavoite_idx: i };
-  p.jaksofokus = jf;
+  const _v = _mJaksoVaihto(p, jf);   // R6.0b
+  p.jaksofokus = _v.jaksofokus;
   _mIdpReRender();
   _mIdpTallennaDok(p, masterT('Välitavoite aktivoitu jaksoksi'));
   // Kirjoita myös jaksofokus-pikakenttä (§26) — sama polku kuin _ttVieTreeniin.
   if (!_demo && _seuraId && typeof _db !== 'undefined' && _db) {
     try { const cu = firebase.auth().currentUser; await _mTuoreToken(cu);
-      await _db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(p.id).set({ jaksofokus: jf }, { merge: true });
+      await _mKirjoitaJaksofokus(p, _v, p.id);
     } catch (e) { console.warn('[_mIdpVtAktivoi]', e && e.message); }
   }
 };
