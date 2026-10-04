@@ -529,7 +529,7 @@ input::placeholder,textarea::placeholder{color:#8C8B86;opacity:1}
 <script src="lib/tm_verkko.js?v=1"></script>   <!-- verkkokatko: 1 uudelleenyritys + Yhteyskatko-ilmoitus + Sentry warning -->
 <script src="lib/tm_lang.js?v=30"></script>   <!-- i18n V0 putki · V1-A/A2 · V4-A3: +pelaaja.nain_teet/kirjaa_tehdyksi/pallo_joka_paiva/rae_q4 (kotinäytön chrome sv) -->
 <script src="lib/tm_eerikkila_normit.js?v=46"></script>
-<script src="docs/testit_indeksit.js?v=10"></script>
+<script src="docs/testit_indeksit.js?v=11"></script>
 <script src="lib/tm_havaintohistoria.js?v=1"></script>   <!-- vain tmHhRivit: jarjestys + tekijanimi (ei pisteita, 7.22) -->
 <script src="harjoitelogiikka_v4.js?v=13"></script>
 <script src="lib/tm-microcycles.js?v=3"></script>
@@ -1645,10 +1645,10 @@ function _minaTekLajiNimi(id) {
   return NIMI[id] || id;
 }
 // Välitavoite: saavutettava askel, ei koko matka. gap ≤ 3 s → viite.hyva; muuten arvo − 3 s (0.5 s tarkkuus).
+// Välitavoite: JAETTU TM_TESTIT.tkValitavoite (docs/testit_indeksit.js) — sama kuin Vanhempi_v2. null → ei tavoitelukua.
 function _minaValitavoite(arvo, viite, kaant) {
-  const gap = kaant ? (viite.hyva - arvo) : (arvo - viite.hyva);
-  let t = (gap <= 3) ? viite.hyva : (kaant ? (arvo + 3) : (arvo - 3));
-  return Math.round(t * 2) / 2;
+  const T = window.TM_TESTIT;
+  return (T && typeof T.tkValitavoite === 'function') ? T.tkValitavoite(arvo, viite, kaant) : null;
 }
 // JAETTU tekniikkadata (⭐ vahvuus + 🎯 kehityskohde + sekuntitavoite) pikakentistä (§26). YKSI LÄHDE:
 // sekä MINÄ-tekniikkarivit (_minaTavoiteRivit) että kortin kääntöpuolen TEK-rivi (naytaFcOverlay) käyttävät
@@ -1670,7 +1670,7 @@ function _tekKorttiData(p) {
   if (p.tki_kehityskohde && _minaTekLajiNimi(p.tki_kehityskohde) !== p.tki_kehityskohde) {
     const kk = p.tki_kehityskohde, arvo = lajit[kk + '_s'], kv = viiteOf(kk);
     let nyt = null, tavoite = null;
-    if (arvo != null && kv) { const kaant = (kk === 'pituuspotku_bonus'); tavoite = _minaValitavoite(arvo, kv, kaant); nyt = Math.round(arvo * 10) / 10; }
+    if (arvo != null && kv) { const kaant = (kk === 'pituuspotku_bonus'); tavoite = _minaValitavoite(arvo, kv, kaant); if (tavoite != null) nyt = Math.round(arvo * 10) / 10; }
     kehitys = { laji: kk, nimi: _minaTekLajiNimi(kk), nyt: nyt, tavoite: tavoite };
   }
   if (!vahvuus && !kehitys) return null;
@@ -1752,7 +1752,9 @@ function _tekTavoiteSaate(p) {
       const viite = (T && T.tkLajiViite && ika != null && arvo != null) ? T.tkLajiViite(kk, ika, sp) : null;
       if (!viite || arvo == null) return 'Tämä vie sinua kohti tavoitettasi: ' + nimi.toLowerCase();
       const kaant = (kk === 'pituuspotku_bonus');
-      return 'Tämä vie kohti tavoitettasi: ' + nimi.toLowerCase() + (kaant ? ' yli ' : ' alle ') + _minaValitavoite(arvo, viite, kaant) + ' s';
+      const tv = _minaValitavoite(arvo, viite, kaant);
+      if (tv == null) return 'Tämä vie sinua kohti tavoitettasi: ' + nimi.toLowerCase();   // ei luotettavaa tavoitelukua → ei numeroa
+      return 'Tämä vie kohti tavoitettasi: ' + nimi.toLowerCase() + (kaant ? ' yli ' : ' alle ') + tv + ' s';
     }
   }
   // B — H-H-fallback (SJK: ei tki_kehityskohdetta). hh_kehityskohde on jo PHV-suodatettu.
