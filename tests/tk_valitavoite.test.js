@@ -92,7 +92,7 @@ describe('Pelaaja_v7 · sama jaettu tavoite (ei kopiota)', () => {
       expect(runko, f).toContain('T.tkValitavoite(arvo, viite, kaant)');
       expect(runko, f).not.toMatch(/gap <= 3|Math\.round\(t \* 2\)/);
       // PR G nosti v11 → v12 (tkLajiViite-lähdevalinta + TK_LAJIVIITTEET_ALUE/_VALTAK): stale-klientit hakevat uuden.
-      expect(s, f).toContain('docs/testit_indeksit.js?v=12"');
+      expect(s, f).toContain('docs/testit_indeksit.js?v=13"');
     }
   });
 });

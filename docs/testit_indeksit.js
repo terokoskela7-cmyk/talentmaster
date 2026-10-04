@@ -856,7 +856,7 @@ function tkLajiViite(laji, ika, sp, lahde) {
 // alueellinen (ennallaan). Alueellinen puuttuu → null (EI finaalitasoa lapsen tavoitteeksi, rivi piiloon).
 // Henkilökunta näkee molemmat tasot ennallaan (tkLajiViite + lähde).
 // Valtakunnallinen huomioidaan vain kun sen otos n ≥ TK_LAPSI_VALTAK_MIN_N (esim. P11 finaali n=2 → alueellinen).
-const TK_LAPSI_VALTAK_MIN_N = 8;
+const TK_LAPSI_VALTAK_MIN_N = 5;   // 8 → 5 (5.10.2026): T12 finaali n=7 mukaan — alueellinen on T12:ssa finaalia tiukempi kaikissa lajeissa
 function tkLajiViiteLapsi(laji, ika, sp) {
   const alue = tkLajiViite(laji, ika, sp, 'alueellinen');
   if (!alue) return null;
