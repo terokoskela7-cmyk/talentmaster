@@ -74,6 +74,9 @@ const APP_GLOBALS = {
   TM_HAVAINTOHISTORIA: 'readonly', tmHhRivit: 'readonly', tmHhHTML: 'readonly',
   tmHhCss: 'readonly', tmHhSuodatinHTML: 'readonly',
   tm_bioika: 'readonly', laskeMirwald: 'readonly', laskeBioIkaDokumentti: 'readonly',
+  // lib/tm_phv_tila.js (PR C — PHV-tilan yksi lukusääntö + tuontimuunnos)
+  TM_PHV: 'readonly', tmPhvTila: 'readonly', tmPhvKoodi: 'readonly', tmPhvKuormaVarovainen: 'readonly',
+  tmPhvIlmoitettuPH: 'readonly', tmPhvTuontiKoodi: 'readonly', tmPhvKuormaTila: 'readonly', tmPhvEiMitattu: 'readonly',
   PANKKI: 'readonly', valitsePaivanHarjoite: 'readonly', generoiMiksiteksti: 'readonly',
   // globaalit lib-objektit (väylä/moduulit, ladataan erillisillä <script>-tageilla)
   TMBus: 'readonly', TM_KALENTERI: 'readonly', TM_HARJOITUS: 'readonly', TMImport: 'readonly', TMEmptyState: 'readonly',

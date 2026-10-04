@@ -11,7 +11,8 @@ const rivi = (ohjelmaId, opts = {}) => Object.assign({
   lasnaolo: opts.paikalla != null ? { paikalla: opts.paikalla, yhteensa: opts.yhteensa, tiedossa: opts.yhteensa } : null,
   tulos: opts.tulos || null, suljettu: '2026-06-01T00:00:00Z'
 }, {});
-const pelaaja = (phv, rivit) => ({ phv_tila: phv, jaksofokus_historia: rivit });
+// PR C: pelaajadokin PHV-tila on voimassa vain mittauslähteestä (biologinenIka_viimeisin, lib/tm_phv_tila.js).
+const pelaaja = (phv, rivit) => ({ phv_tila: phv, biologinenIka_viimeisin: phv ? { phv_tila_koodi: phv } : undefined, jaksofokus_historia: rivit });
 
 describe('tmOhjelmaKooste — perusteet', () => {
   it('0-pelaajaa / tuntematon ohjelma → siisti tyhjä', () => {

@@ -283,7 +283,7 @@
                'Seura:', '', '', 'Joukkue: ' + (tapahtuma.joukkueNimi || '')]),
       csvRivi(['Palloliiton protokolla 2026', '', '', '', '', '', '', '',
                'Testipäivä: ' + (tapahtuma.pvm || ''), '', '', 'Tapahtuma: ' + (tapahtuma.nimi || '')]),
-      csvRivi(['PHV-tila: AN = Pre-PHV  |  PH = PHV-huippu MAX 60% kuorma  |  VA = Post-PHV']),
+      csvRivi(['PHV-tila: Ennen kasvupyrähdystä  |  Kasvupyrähdyksessä (MAX 60% kuorma)  |  Kasvupyrähdyksen jälkeen  -  tyhjä jos ei tiedossa']),   // PR C: selkokielinen, ei AN/PH/VA
       '',
       csvRivi(otsikot),
       ...rivit.map(r => csvRivi(r)),

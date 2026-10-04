@@ -66,6 +66,7 @@ function onAllowlist(url) {
   if (url.indexOf('/lib/tm_lang.js') !== -1) return true;   // i18n V0 — käännöstaulukko offline-cacheen
   if (url.indexOf('/lib/tm_ennatykset.js') !== -1) return true;   // PR D2: ennätysrivit alustoittain
   if (url.indexOf('/lib/tm_alusta.js') !== -1) return true;   // PR F: §22-alustasanasto (ennätyskortin alustanimi)
+  if (url.indexOf('/lib/tm_phv_tila.js') !== -1) return true;   // PR C: PHV-tilan yksi lukusääntö (Kehitysvaihe-kortti, stage)
   // Kaavio erä D1: konseptin piirros pelaajan kortilla. Inline-SVG, ei ulkoisia origineja →
   // toimii offline kun libit ovat cachessa (itse spec tulee Firestoresta ja vaatii verkon).
   if (/\/lib\/tm_kaavio_(render|konsepti|policy)\.js/.test(url)) return true;

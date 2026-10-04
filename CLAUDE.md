@@ -364,7 +364,7 @@ taso lasketaan lennossa. pienempi=parempi: nopeustestit, pujottelu, syöttö · 
 
 **Pelaajaprofiilit:** Railgun · Maestro · Shadowstep · Titan.
 **Ikävaiheryhmät:** 10–12 Competitor/leikkijä · 13–15 Builder/rakentaja · 16–19 Showcase Pro.
-**Biologinen ikä:** Mirwald 2002 (PHV); PHV-status ohittaa Stage-luokituksen (§25).
+**Biologinen ikä:** Mirwald 2002 (PHV); PHV-status ohittaa Stage-luokituksen (§25). **PHV-sanasto (PR C, 4.10.2026):** kanoninen Mirwald PRE/LAH/PH/POST/AN kaikkialla (AN = jälki-PHV, EI pre-PHV); tila voimassa VAIN mittauslähteestä (`biologinenIka_viimeisin`), muuten `'tuntematon'` → lue AINA `lib/tm_phv_tila.js` (`tmPhvTila`/`tmPhvKoodi`), älä `p.phv_tila`:a suoraan. Tuntematon = varovaisin kuorma ilman PH-tekstiä. Yksityiskohdat: taito `tm-kehitysbiologia` §25.
 **RAE-korjaus** = oletusarvo kaikkialla (tausta + tiede: `docs/STRATEGIA.md §2`).
 
 **Invariantit (siirretty otsakkeen muutoshistoriasta 29.9.2026, sanatarkasti):**

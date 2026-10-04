@@ -20,7 +20,8 @@
 <!-- pdf.js — Palloliiton PDF-tuonti (ei npm, Node.js ei käytettävissä) -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <!-- Eerikkilä-normit + universaali testirekisteri (eerikkilaTaso, EERIKKILA_NORMIT) — SM-tasot/recalcSMtasot -->
-<script src="lib/tm_eerikkila_normit.js?v=46"></script>
+<script src="lib/tm_phv_tila.js?v=1"></script>   <!-- PR C: PHV-tuontimuunnos + lukusääntö (kanoninen Mirwald) -->
+<script src="lib/tm_eerikkila_normit.js?v=47"></script>
 <script src="lib/tm_joukkue.js?v=4"></script>
 <script src="lib/tm_pvm.js?v=3"></script>
 <script src="lib/tm_alusta.js?v=2"></script>   <!-- PR F: yksi §22-alustasanasto (TM_ALUSTA) -->
@@ -1988,7 +1989,10 @@ function prosessoiExcel(wb) {
       syntymaVuosi: colSyntymaVuosi >= 0 ? (parseInt(String(rivi[colSyntymaVuosi] || '').replace(/[^0-9]/g, ''), 10) || null) : null,
       joukkue: colJoukkue >= 0 ? String(rivi[colJoukkue] || '').trim() : '',
       testauspvm: colTestauspvm >= 0 ? _solustaPvm(rivi[colTestauspvm]) : '',
-      phv_tila: colPhv >= 0 ? String(rivi[colPhv] || '').trim().toUpperCase() : '',
+      // PR C: PHV-solu → kanoninen koodi (lib/tm_phv_tila.js). Selkokieliset valinnat + PRE/LAH/PH/POST; VA → POST.
+      // 'AN' on moniselitteinen (vanha pohja vs. kasvumittaus) → EI tulkita hiljaa (validointi varoittaa, ei tallenneta).
+      ...(function () { const raaka = colPhv >= 0 ? String(rivi[colPhv] || '').trim() : ''; const t = tmPhvTuontiKoodi(raaka);
+        return { phv_raaka: raaka, phv_tila: t.koodi || '', phv_ongelma: t.ongelma, phv_huom: t.huom }; })(),
       testit: {},        // skalaari (paras) per testId — validointi/esikatselu/TKI
       testitRakenne: {}  // rakenteinen objekti per testId — Firestore (vain monisuoritus)
     };
@@ -2319,8 +2323,13 @@ function suoritaValidointi() {
     }
 
     // 4) PHV-tila
-    if (p.phv_tila && !['AN','PH','VA',''].includes(p.phv_tila)) {
-      virheet.push({ rivi: idx, kentta: 'PHV-tila', msg: `${riviLabel}: PHV-tila "${p.phv_tila}" — sallittu: AN, PH, VA` });
+    // PR C: kirjoitetaan VAIN kanonisia koodeja. Moniselitteinen AN → varoitus + ei tallenneta (ei hiljaista tulkintaa).
+    if (p.phv_ongelma === 'moniselitteinen') {
+      varoitukset.push({ rivi: idx, kentta: 'PHV-tila', msg: `${riviLabel}: PHV-tila "${p.phv_raaka}" on moniselitteinen (vanha Excel-pohja ja kasvumittaus käyttävät AN-merkkiä eri merkityksissä) — PHV-tilaa EI tallenneta. Valitse selkokielinen: Ennen kasvupyrähdystä / Kasvupyrähdyksessä / Kasvupyrähdyksen jälkeen, ja tuo uudelleen.` });
+    } else if (p.phv_ongelma) {
+      virheet.push({ rivi: idx, kentta: 'PHV-tila', msg: `${riviLabel}: PHV-tila "${p.phv_raaka}" — sallittu: Ennen kasvupyrähdystä, Kasvupyrähdyksessä, Kasvupyrähdyksen jälkeen (tai PRE, LAH, PH, POST)` });
+    } else if (p.phv_huom) {
+      varoitukset.push({ rivi: idx, kentta: 'PHV-tila', msg: `${riviLabel}: ${p.phv_huom}` });
     }
 
     // 4b) MAS-aika (kun MAS-sarake aikamuodossa) — varoitus, EI virhe (null OK)
@@ -2753,9 +2762,9 @@ function naytaEsikatselu() {
       html += '<td class="cell-err">—</td>';
     }
 
-    const phvLuokka = (p.phv_tila && !['AN','PH','VA',''].includes(p.phv_tila)) ? 'cell-err' :
+    const phvLuokka = (p.phv_ongelma === 'moniselitteinen') ? 'cell-warn' : p.phv_ongelma ? 'cell-err' :
                       (!p.phv_tila) ? 'cell-empty' : 'cell-ok';
-    html += `<td class="${phvLuokka}">${escapeHtml(p.phv_tila || '—')}</td>`;
+    html += `<td class="${phvLuokka}">${escapeHtml(p.phv_tila || p.phv_raaka || '—')}</td>`;
 
     for (const ts of tuontiData.testiSarakkeet) {
       if (!ts.testiId) continue;
@@ -3149,7 +3158,7 @@ async function tallennaFirestoreen() {
         if (testit.mas_kmh != null)      profiiliUpdate.mas_kmh = testit.mas_kmh;
         if (testit.mas_ms != null)       profiiliUpdate.mas_ms = testit.mas_ms;
         if (testit.mas_aika_min != null) profiiliUpdate.mas_aika_min = testit.mas_aika_min;
-        if (p.phv_tila)       profiiliUpdate.phv_tila = p.phv_tila;
+        if (p.phv_tila)       profiiliUpdate.phv_tila = p.phv_tila;   // PR C: aina kanoninen (tmPhvTuontiKoodi), AN-solua ei tallenneta
         // TSI-pikakentät — SM-juoksu + SM-pallo testituloksesta. TSI = SM-pallo − SM-juoksu (§22).
         if (testit && testit.sm_juoksu != null && testit.sm_pallo != null) {
           const smJ = parseFloat(testit.sm_juoksu), smP = parseFloat(testit.sm_pallo);
@@ -4340,7 +4349,7 @@ window.recalcHH = async function(seuraIdArg, dryRun, force) {
     const _d2 = d2_hh || d2_smp;   // H-H ensisijainen, sm_pallo fallback
     const hvK = Object.assign({}, hv);
     if (hvK.sm_pallo == null && p.sm_pallo_viimeisin != null) hvK.sm_pallo = p.sm_pallo_viimeisin;
-    const kk = (typeof hhKehityskohde === 'function') ? hhKehityskohde(hvK, ikaDes, sp, p.phv_tila || null) : null;
+    const kk = (typeof hhKehityskohde === 'function') ? hhKehityskohde(hvK, ikaDes, sp, tmPhvKoodi(p)) : null;   // PR C: vain mittauslähteestä
     // #69: persistoi sm_juoksu/sm_pallo hh_viimeisin:iin (ei vain transienttiin D1-kopioon) → Suunnanmuutos-rivi
     // + per-testi-radar (SM-akselit) näkevät ne. Kanoninen lib-helper, null jos ei muutosta (ei turhaa kirjoitusta).
     const _hvUusi = (typeof taydennaHvSm === 'function') ? taydennaHvSm(hv, p.sm_juoksu_viimeisin, p.sm_pallo_viimeisin) : null;

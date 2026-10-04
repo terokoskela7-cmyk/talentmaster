@@ -20,6 +20,7 @@ const path = require('path');
 const fs = require('fs');
 const vm = require('vm');
 const admin = require(path.join(__dirname, '..', 'functions', 'node_modules', 'firebase-admin'));
+const PHV = require(path.join(__dirname, '..', 'lib', 'tm_phv_tila.js'));   // PR C: sama PHV-sääntö kuin Pelaaja_v7
 
 const argv = process.argv.slice(2);
 const arg = (n, d) => { const o = argv.find((a) => a.indexOf('--' + n + '=') === 0); return o ? o.split('=').slice(1).join('=') : d; };
@@ -69,8 +70,8 @@ const lyhyt = (v) => {
 };
 
 /* ── Pelaaja_v7-logiikan peilit (rivit = TalentMaster_Pelaaja_v7.html) ── */
-function laskeStage(sy, phv) {   // :4497
-  if (phv === 'huippu' || phv === 'PH') return '1_leikkija';
+function laskeStage(sy, pd) {   // Pelaaja_v7 _laskeStage (PR C: kanoninen tila vain mittauslähteestä + ilmoitettu PH)
+  if (pd && (PHV.tmPhvTila(pd) === 'PH' || PHV.tmPhvIlmoitettuPH(pd))) return '1_leikkija';
   const ika = new Date().getFullYear() - (sy || 2010);
   if (ika <= 12) return '1_leikkija';
   if (ika <= 15) return '2_rakentaja';
@@ -111,7 +112,7 @@ function merkkiTaso(p, laji) {   // :2782
 }
 function fcDims(p) {             // :5159 (_fcKorttiData, vain 5D-tila + tier)
   const norm5 = (t) => Math.round(((t - 1) / 4) * 99);
-  const phvKasvu = (p.phv_tila === 'PRE' || p.phv_tila === 'LAH');
+  const phvKasvu = (PHV.tmPhvKoodi(p) === 'PRE' || PHV.tmPhvKoodi(p) === 'LAH');
   const dims = [];
   if (p.d1_taso != null && phvKasvu) dims.push({ key: 'FYS', tila: 'mitattu (🌱 kasvaa, ei tasoa)', counts: true, val: Math.max(norm5(p.d1_taso), 50) });
   else if (p.d1_taso != null) dims.push({ key: 'FYS', tila: 'mitattu', counts: true, val: norm5(p.d1_taso), taso5: Math.max(1, Math.min(5, Math.round(p.d1_taso))) });
@@ -181,7 +182,7 @@ function fcDims(p) {             // :5159 (_fcKorttiData, vain 5D-tila + tier)
 
   /* 3) Kortit */
   const ika = p.syntymaVuosi ? (new Date().getFullYear() - p.syntymaVuosi) : null;
-  const stage = laskeStage(p.syntymaVuosi, p.phv_tila);
+  const stage = laskeStage(p.syntymaVuosi, p);
   const spMN = (String(p.sukupuoli || '').toUpperCase() === 'N') ? 'N' : 'M';
   const spPT = spMN === 'N' ? 'T' : 'P';
   const vanhAge = ika == null ? '?' : (ika <= 12 ? 'u12' : ika <= 15 ? 'u15' : 'u19');   // Vanhempi_v2 :1619
@@ -234,7 +235,7 @@ function fcDims(p) {             // :5159 (_fcKorttiData, vain 5D-tila + tier)
   }
   const mas = p.mas_kmh != null ? p.mas_kmh : (p.hh_viimeisin && p.hh_viimeisin.mas != null ? p.hh_viimeisin.mas : null);
   out('MINÄ', 'Juoksumoottori/MAS (:1563)', mas != null ? 'NÄKYY' : 'PIILO', 'mas=' + mas + (stage === '3_showcase' ? ' (trendi vaatii mas_historia — ei kirjoittajaa)' : ''));
-  out('MINÄ', 'Kehitysvaihe (:1462)', p.phv_tila ? 'NÄKYY' : 'PIILO', p.phv_tila ? ('phv_tila=' + p.phv_tila + (bio && bio.mittauspaiva ? ' · Mitattu ' + bio.mittauspaiva : ' · ei mittauspäivää (biologinenIka_viimeisin puuttuu)') + ' · "Biologinen ikä: Tulossa myöhemmin" AINA') : 'ei kasvumittausta');
+  out('MINÄ', 'Kehitysvaihe (rMinaKehitysvaihe)', PHV.tmPhvKoodi(p) ? 'NÄKYY' : 'PIILO', PHV.tmPhvKoodi(p) ? ('phv_tila=' + PHV.tmPhvKoodi(p) + (bio && bio.mittauspaiva ? ' · Mitattu ' + bio.mittauspaiva : ' · ei mittauspäivää (biologinenIka_viimeisin puuttuu)') + ' · "Biologinen ikä: Tulossa myöhemmin" AINA') : 'ei kasvumittausta');
   out('MINÄ', 'Konseptifokus (:2078)', 'NÄKYY', 'avain=' + ((p.jaksofokus && p.jaksofokus.konsepti_avain) || 'fallback (kehityskohde/y_h1)'));
   out('MINÄ', 'Itsearvio (:2567)', 'NÄKYY', p.d3_viimeisin ? 'tehty' : 'tekemättä (toimintapiste)');
   const onHist = (p.hh_historia && p.hh_historia.length) || (p.tki_historia && p.tki_historia.length) || p.adar_viimeisin;

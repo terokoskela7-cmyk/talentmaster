@@ -423,7 +423,7 @@ describe('laskeJoukkuePoikkeamat (POIKKEUSKEHYS_SPEC)', () => {
     }
   });
   it('phv_tila POST ohittaa ikäproxyn → punainen sallittu nuorelle fyysiselle', () => {
-    const team = [{ phv_tila: 'POST', hh_viimeisin: { mas: 8 } }, { phv_tila: 'POST', hh_viimeisin: { mas: 8.5 } }];
+    const team = [{ phv_tila: 'POST', biologinenIka_viimeisin: { phv_tila_koodi: 'POST' }, hh_viimeisin: { mas: 8 } }, { phv_tila: 'POST', biologinenIka_viimeisin: { phv_tila_koodi: 'POST' }, hh_viimeisin: { mas: 8.5 } }];
     const ika = 13, sp = 'M';
     const aer = laskeD1Osaindeksit(team[0].hh_viimeisin, ika, sp).aerobinen;
     const a = laskeJoukkuePoikkeamat(team, ika, sp).find(x => x.osaAlue === 'aerobinen' && x.tyyppi === 'alle_normin');
@@ -900,7 +900,7 @@ describe('laskeD2Joustava (prioriteetti TKI → H-H → d2_taso)', () => {
 describe('perTestTasot', () => {
   // nopeus_30m P10: [4.88,5.01,5.15,5.31] (pienempi parempi): ≤4.88→5, ≤5.01→4, ...
   it('5-port: hyvä 30m → korkea taso, asteikko 5, lahde hh', () => {
-    const r = perTestTasot({ hh_viimeisin: { lin30m: 4.85 }, phv_tila: 'POST' }, 10, 'M');
+    const r = perTestTasot({ hh_viimeisin: { lin30m: 4.85 }, phv_tila: 'POST', biologinenIka_viimeisin: { phv_tila_koodi: 'POST' } }, 10, 'M');
     const m30 = r.find(x => x.label === '30m');
     expect(m30.taso).toBe(5);
     expect(m30.asteikko).toBe(5);
@@ -933,13 +933,16 @@ describe('perTestTasot', () => {
     expect(r11.neutraali).toBe(true);
     expect(r11.oletus).toBe(false);
     // PHV PRE, ika 14 → neutraali (vahvistettu pre-PHV, mikä ikä tahansa)
-    const rPre = perTestTasot({ hh_viimeisin: { lin30m: 6.0 }, phv_tila: 'PRE' }, 14, 'M').find(x => x.label === '30m');
+    const rPre = perTestTasot({ hh_viimeisin: { lin30m: 6.0 }, phv_tila: 'PRE', biologinenIka_viimeisin: { phv_tila_koodi: 'PRE' } }, 14, 'M').find(x => x.label === '30m');
     expect(rPre.neutraali).toBe(true);
     expect(rPre.oletus).toBe(false);
     // PHV POST, ika 14 → ei kumpaakaan
-    const rPost = perTestTasot({ hh_viimeisin: { lin30m: 6.0 }, phv_tila: 'POST' }, 14, 'M').find(x => x.label === '30m');
+    const rPost = perTestTasot({ hh_viimeisin: { lin30m: 6.0 }, phv_tila: 'POST', biologinenIka_viimeisin: { phv_tila_koodi: 'POST' } }, 14, 'M').find(x => x.label === '30m');
     expect(rPost.neutraali).toBe(false);
     expect(rPost.oletus).toBe(false);
+    // PR C: POST ILMAN mittausta (lomake/tuonti) = tuntematon → käyttäytyy kuin PHV puuttuisi (oletus-lippu, ei 'mitattu')
+    const rPostIlm = perTestTasot({ hh_viimeisin: { lin30m: 6.0 }, phv_tila: 'POST' }, 14, 'M').find(x => x.label === '30m');
+    expect(rPostIlm.oletus).toBe(true);
     // 5m EI saa oletus/neutraali (ei NEUTR-testi)
     const r5 = perTestTasot({ hh_viimeisin: { lin5m: 1.5 } }, 14, 'M').find(x => x.label === '5m');
     expect(r5.neutraali).toBe(false);
@@ -1189,8 +1192,8 @@ describe('Excel-tuonti sp-skooppi (regressio: 0/0 Pallo-Iirot P11)', () => {
 describe('Kehitysvaihe-neutraalius (Vaihe B, §28 + Eerikkilä §8.1)', () => {
   it('onNeutraaliPrePHV: P11 ilman PHV-dataa = pre-PHV (neutraali)', () => {
     expect(onNeutraaliPrePHV({ joukkue:'Pallo-Iirot P11', syntymaVuosi:2015, hh_pvm:'2026-02-08' })).toBe(true);
-    expect(onNeutraaliPrePHV({ phv_tila:'PRE' })).toBe(true);
-    expect(onNeutraaliPrePHV({ phv_tila:'POST' })).toBe(false);
+    expect(onNeutraaliPrePHV({ phv_tila: 'PRE', biologinenIka_viimeisin: { phv_tila_koodi: 'PRE' } })).toBe(true);
+    expect(onNeutraaliPrePHV({ phv_tila: 'POST', biologinenIka_viimeisin: { phv_tila_koodi: 'POST' } })).toBe(false);
     expect(onNeutraaliPrePHV({ joukkue:'SJK P15', syntymaVuosi:2011, hh_pvm:'2026-02-08' })).toBe(false); // 15v
   });
   it('laskeD1Joustava sisältää sm_juoksun (kattavuus kasvaa)', () => {
@@ -1559,8 +1562,13 @@ describe('Selkeys 1 — _fmtTestiArvo desimaalit + kasvumittaus-ohjaus', () => {
     expect(html).toContain('TalentMaster_Testaus_v9.html');
   });
 
+  it('PR C: lomakkeen/tuonnin phv_tila ILMAN mittausta (Topiaksen AN) → ohjaus näkyy (tila tuntematon)', () => {
+    const html = renderKehityskorttiHTML({ hh_viimeisin: { lin30m: 5.5 }, phv_tila: 'AN' }, 13, 'M');
+    expect(html).toContain('Kasvumittaus puuttuu');
+  });
+
   it('ohjaus EI näy kun PHV on mitattu (phv_tila asetettu)', () => {
-    const html = renderKehityskorttiHTML({ hh_viimeisin: { lin30m: 5.5 }, phv_tila: 'POST' }, 14, 'M');
+    const html = renderKehityskorttiHTML({ hh_viimeisin: { lin30m: 5.5 }, phv_tila: 'POST', biologinenIka_viimeisin: { phv_tila_koodi: 'POST' } }, 14, 'M');
     expect(html).not.toContain('Kasvumittaus puuttuu');
   });
 
