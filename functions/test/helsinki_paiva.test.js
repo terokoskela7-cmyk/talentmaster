@@ -55,8 +55,38 @@ test('kelloHelsinki ei riipu ajoympäristön TZ:stä', () => {
     assert.strictEqual(execFileSync(process.execPath, ['-e', koodi], { env: { ...process.env, TZ: tz }, encoding: 'utf8' }).trim(), '17:00', tz);
   }
 });
-test('index.js: molemmat klo-tekstit käyttävät kelloHelsinki:ä (ei getHours)', () => {
-  const s = require('node:fs').readFileSync(path.join(__dirname, '..', 'index.js'), 'utf8');
-  assert.ok(!/aika\.getHours\(\)/.test(s));
-  assert.strictEqual(s.split('kelloHelsinki(aika)').length - 1, 2);
+test('klo-tekstit (muistutus + muutos) käyttävät kelloHelsinki:ä yhden apurin kautta, ei getHours (index.js + kalenteri_notif.js)', () => {
+  const lue = (f) => require('node:fs').readFileSync(path.join(__dirname, '..', f), 'utf8');
+  const idx = lue('index.js'), kn = lue('kalenteri_notif.js');
+  assert.ok(!/aika\.getHours\(\)|\.getHours\(\)/.test(idx));
+  assert.ok(!/\.getHours\(\)/.test(kn));
+  assert.strictEqual(kn.split('kelloHelsinki(a)').length - 1, 1);   // _klo() — sekä muistutus että muutos käyttävät sitä
+  assert.ok(/muistutusPaatos\(e\)/.test(idx) && /muutosPaatos\(before, after/.test(idx));
+});
+
+// ── V2 P0.4 PR 2: tapahtuman päättyminen (vartijat vertaavat päättymiseen, ei alkuun) ──
+const { paivanLoppuHelsinki, onKellonaika, tapahtumaPaattyy } = require('../helsinki_paiva');
+const ts = (iso) => { const d = new Date(iso); return { toDate: () => d, toMillis: () => d.getTime() }; };
+
+test('paivanLoppuHelsinki: kesä (EEST) ja talvi (EET), päivän viimeinen ms', () => {
+  assert.strictEqual(paivanLoppuHelsinki(new Date('2026-07-15T10:00:00Z')).toISOString(), '2026-07-15T20:59:59.999Z');
+  assert.strictEqual(paivanLoppuHelsinki(new Date('2026-01-15T10:00:00Z')).toISOString(), '2026-01-15T21:59:59.999Z');
+  assert.strictEqual(paivanLoppuHelsinki(new Date('2026-07-15T21:30:00Z')).toISOString(), '2026-07-16T20:59:59.999Z');   // 00:30 EEST = jo seuraava päivä
+});
+test('onKellonaika: koko_paiva / Helsingin keskiyö ilman päättymistä = ei kellonaikaa; päättyminen > alku = kellonaika', () => {
+  assert.strictEqual(onKellonaika({ koko_paiva: true, alkaa: ts('2026-10-05T18:00:00+03:00') }), false);
+  assert.strictEqual(onKellonaika({ alkaa: ts('2026-10-04T21:00:00Z') }), false);   // 00:00 EEST 5.10., ei paattyy
+  assert.strictEqual(onKellonaika({ alkaa: ts('2026-10-04T21:00:00Z'), paattyy: ts('2026-10-04T21:00:00Z') }), false);
+  assert.strictEqual(onKellonaika({ alkaa: ts('2026-10-04T21:00:00Z'), paattyy: ts('2026-10-05T15:00:00Z') }), true);
+  assert.strictEqual(onKellonaika({ alkaa: ts('2026-10-05T15:00:00Z') }), true);
+  assert.strictEqual(onKellonaika({}), false); assert.strictEqual(onKellonaika(null), false);
+});
+test('tapahtumaPaattyy: paattyy · kellonajaton → Helsingin päivän loppu · kellonaika ilman päättymistä → alku · monipäiväinen', () => {
+  const p = (ev) => { const d = tapahtumaPaattyy(ev); return d && d.toISOString(); };
+  assert.strictEqual(p({ alkaa: ts('2026-10-05T14:00:00Z'), paattyy: ts('2026-10-05T16:30:00Z') }), '2026-10-05T16:30:00.000Z');
+  assert.strictEqual(p({ koko_paiva: true, alkaa: ts('2026-10-04T21:00:00Z') }), '2026-10-05T20:59:59.999Z');
+  assert.strictEqual(p({ alkaa: ts('2026-10-04T21:00:00Z') }), '2026-10-05T20:59:59.999Z');
+  assert.strictEqual(p({ alkaa: ts('2026-10-05T14:00:00Z') }), '2026-10-05T14:00:00.000Z');
+  assert.strictEqual(p({ koko_paiva: true, alkaa: ts('2026-10-04T21:00:00Z'), paattyy: ts('2026-10-06T10:00:00Z') }), '2026-10-06T20:59:59.999Z');
+  assert.strictEqual(p({}), null); assert.strictEqual(p(null), null);
 });

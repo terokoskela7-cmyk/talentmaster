@@ -1349,6 +1349,44 @@ describe('P7-c.4a kuluttaja-notifikaatiot', () => {
     await assertSucceeds(updateDoc(doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID),
       { notif_asetukset: { inapp: { enabled: false } } }));
   });
+
+  // V2 P0.4 PR 2 — CF kirjoittaa kiinteillä tunnisteilla (muistutus_/muutos_/peruttu_<evId>) + tapahtuma_alkaa. Wildcard {notifId}
+  // kattaa ne: luku/kuittaus toimii, luonti pysyy vain CF:llä (admin-SDK) eikä client voi muuttaa tapahtuma_alkaa:ta/tekstiä.
+  describe('kiinteät dokumenttitunnisteet + tapahtuma_alkaa', () => {
+    const TUNNISTEET = ['muistutus_ev1', 'muutos_ev1', 'peruttu_ev1'];
+    beforeEach(async () => {
+      await testEnv.withSecurityRulesDisabled(async (ctx) => {
+        for (const id of TUNNISTEET) {
+          await setDoc(doc(ctx.firestore(), 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'notifikaatiot', id),
+            { tyyppi: id.split('_')[0], teksti: 'x', linkki: 'kalenteri:ev1', dedupe: id, tapahtuma_alkaa: new Date('2026-10-05T15:00:00Z'), luettu: false, luotu: new Date().toISOString() });
+        }
+      });
+    });
+    it('Pelaaja lukee ja kuittaa luetuksi kiinteällä tunnisteella (tapahtuma_alkaa mukana)', async () => {
+      const db = pelaajaItseContext().firestore();
+      for (const id of TUNNISTEET) {
+        const ref = doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'notifikaatiot', id);
+        await assertSucceeds(getDoc(ref));
+        await assertSucceeds(updateDoc(ref, { luettu: true, luettu_pvm: new Date().toISOString() }));
+      }
+    });
+    it('Huoltaja lukee lapsen ilmoituksen kiinteällä tunnisteella', async () => {
+      const db = huoltajaContext().firestore();
+      await assertSucceeds(getDoc(doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'notifikaatiot', 'muutos_ev1')));
+    });
+    it('Pelaaja EI voi muuttaa tapahtuma_alkaa/linkki/dedupe (vain luettu + luettu_pvm)', async () => {
+      const db = pelaajaItseContext().firestore();
+      const ref = doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'notifikaatiot', 'muutos_ev1');
+      await assertFails(updateDoc(ref, { tapahtuma_alkaa: new Date('2030-01-01T00:00:00Z') }));
+      await assertFails(updateDoc(ref, { linkki: 'kalenteri:muu' }));
+      await assertFails(updateDoc(ref, { dedupe: 'muutos_muu' }));
+    });
+    it('Pelaaja EI voi luoda kiinteällä tunnisteella (vain CF/SA — väärennössuoja ennallaan)', async () => {
+      const db = pelaajaItseContext().firestore();
+      await assertFails(setDoc(doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'notifikaatiot', 'muutos_ev2'),
+        { tyyppi: 'muutos', teksti: 'väärennös', dedupe: 'muutos_ev2', tapahtuma_alkaa: new Date(), luettu: false }));
+    });
+  });
 });
 
 // ═══════════════════════════════════════════════════════════════════════════
