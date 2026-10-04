@@ -1694,17 +1694,22 @@ function _tkMitaliRivi(merkki, pvm) {   // → { merkki, pvm, teksti } | null (t
   return { merkki: merkki, pvm: pvm, teksti: teksti };
 }
 function _tkSp(p) { return (String(p.sukupuoli || '').toUpperCase() === 'N') ? 'T' : 'P'; }
-// Kilpailun (tki_historia-rivin) kokonaisaika: tallennettu kokonaistulos(_s) tai KAIKKI neljä lajia − pituuspotkubonus (ikä ≥ 12). Vajaa rivi → null
-// (osasumma näyttäisi liian hyvältä → ei merkkiä).
+// Kilpailun (tki_historia-rivin) kokonaisaika: tallennettu kokonaistulos(_s) tai KANONINEN docs/testit_indeksit.js laskeKokonaistulos (sama kuin
+// pikakentät/Testaus/Excel — ei rinnakkaista laskentaa). Vajaa rivi (< 4 lajia) → null (osasumma näyttäisi liian hyvältä → ei merkkiä).
+// Historia tallentaa pituuspotkun AIKABONUKSEN sekunteina (tkPituuspotkuBonus(metrit) = metrit/5), kanoninen laskee metreistä → välitetään
+// metrit = bonus·5 (ikärajan ≥ 12 + pyöristyksen hoitaa kanoninen; pariteetti kaikilla metreillä: tests/p0_6b_mitali_per_kilpailu.test.js).
 function _tkKokonaisaikaRivilta(r, ika) {
   var luku = function (v) { return (v != null && v !== '' && isFinite(Number(v))) ? Number(v) : null; };
   var tall = luku(r.kokonaistulos != null ? r.kokonaistulos : r.kokonaistulos_s);
   if (tall != null) return tall;
-  var summa = 0;
-  var ok = ['ponnauttelu', 'syotto', 'pujottelu', 'kuljetus_laukaus'].every(function (l) { var a = luku(r[l]); if (a == null) return false; summa += a; return true; });
+  var T = window.TM_TESTIT;
+  if (!T || typeof T.laskeKokonaistulos !== 'function') return null;
+  var testit = {};
+  var ok = ['ponnauttelu', 'syotto', 'pujottelu', 'kuljetus_laukaus'].every(function (l) { var a = luku(r[l]); if (a == null) return false; testit[l] = a; return true; });
   if (!ok) return null;
-  var bonus = (ika != null && ika >= 12) ? luku(r.pituuspotku_bonus) : null;
-  return Math.round((summa - (bonus || 0)) * 100) / 100;
+  var bonus = luku(r.pituuspotku_bonus);
+  if (bonus != null && bonus > 0) testit.pituuspotku = { metrit: bonus * 5 };
+  return T.laskeKokonaistulos(testit, ika, null);
 }
 // Pelaajan viimeisin kilpailu pikakentistä (kokonaistulos + testipvm); vara: tallennettu tki_merkki jos laskenta ei onnistu.
 function _tkMitaliViimeisin(p) {
