@@ -80,6 +80,15 @@ describe('GDPR-sanatesti: heikkous · rajoite · kriittinen eivät esiinny pelaa
     expect(M.tmTarkistaJaksoData(null)).toEqual([]); expect(M.tmTarkistaJaksoData('heikkoutta')).toEqual(['$']);
     const kehä = {}; kehä.itse = kehä; expect(() => M.tmTarkistaJaksoData(kehä)).not.toThrow();
   });
+  it('KENTTÄNIMET neutraaleja: "ase" ei saa esiintyä kenttänimissä (segmenttinä) — ase_valinta, ase, idp_kausi.ase, ase.alue hylätään; ydinvahvuus_valinta, base, phase, vaasea sallittu', () => {
+    expect(M.tmTarkistaJaksoData({ ase_valinta: { vaihtoehto: 'A' } })).toEqual(['$.ase_valinta (avain)']);
+    expect(M.tmTarkistaJaksoData({ idp_kausi: { ase: { kuvaus: 'x' } } })).toEqual(['$.idp_kausi.ase (avain)']);
+    expect(M.tmTarkistaJaksoData({ jaksofokus: { ase: { alue: { x: 1 } } } })).toEqual(['$.jaksofokus.ase (avain)']);
+    expect(M.tmTarkistaJaksoData({ x: [{ valinta_ase: 1 }] })).toEqual(['$.x.0.valinta_ase (avain)']);
+    expect(M.tmTarkistaJaksoData({ ydinvahvuus_valinta: { vaihtoehto: 'A', valittu_pvm: '2026-10-05' }, base: 1, phase: 2, vaasea: 3, asetukset: 4, notif_asetukset: 5, ydinvahvuus: YV })).toEqual([]);
+    expect(M.tmTarkistaJaksoData({ kuvaus: 'ase' }), 'arvo "ase" ei ole kenttänimi').toEqual([]);   // vain avaimet
+    ['ydinvahvuus', 'tukiosa', 'tukitarve', 'muoto', 'harjoitteet', 'ydinvahvuus_valinta', 'jakso_kuittaus'].forEach((k) => expect(M.KENTTANIMI_KIELLETTY.test(k), k).toBe(false));
+  });
   it('lib:n rakentamasta jaksodatasta (ydinvahvuus + tukiosa + kevyt + historiarivi) ei löydy sanoja; pelaajan fixture-doc vahvistettujen kenttien osalta puhdas', () => {
     const jf = Object.assign(M.tmKevytJakso({ konsepti_avain: 'y_h2', konsepti_nimi: 'Tempokuljetus', domeeni: 'teknis_taktinen', alkoi: '2026-09-01T08:00:00.000Z' }), { ydinvahvuus: M.tmYdinvahvuus(YV), tukiosa: M.tmTukiosa(TUKI) });
     const v = KS.tmAsetaJaksofokus({ jaksofokus: jf }, { konsepti_avain: 'y_h3', konsepti_nimi: 'Pallonhallinta', domeeni: 'teknis_taktinen' }, { nytISO: '2026-10-05T10:00:00.000Z' });
