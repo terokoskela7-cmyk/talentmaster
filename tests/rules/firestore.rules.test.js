@@ -4088,3 +4088,50 @@ describe('v3.37 · kirjaukset/{pvm}.jakso_kuittaus: U12-huoltaja kuittaa omaan k
     await assertFails(setDoc(uusi('2026-10-07'), { tehty: true, tyyppi: 'D', lahde: 'pelaaja', luotu: new Date() }));
   });
 });
+
+/* ══ VP-periaate (5.10.2026) · KPV:n VP-tunnus × KPV U13 -testipelaaja: katselmus, havainto, testitulos ══
+   Todistaa Rules-tasolla: VP voi samat kirjoitukset kuin valmentaja (ja ohittaa joukkuerajauksen) — myös ilman kayttajat-dokumenttia ja kun dokissa on MUU joukkue. */
+describe('VP-periaate · KPV:n VP kirjaa KPV U13 -testipelaajalle', () => {
+  const KPV = 'kpv', TOPIAS = 'm93GBdOaGCUuenMiCL0I', VP_UID = 'vp-kpv-001', VALM_UID = 'valm-kpv-u15';
+  const vpKpv = () => testEnv.authenticatedContext(VP_UID, { rooli: 'vp', seuraId: KPV });
+  const valmKpv = () => testEnv.authenticatedContext(VALM_UID, { rooli: 'valmentaja', seuraId: KPV });
+  beforeEach(async () => {
+    await seedAdminDoc();
+    await testEnv.withSecurityRulesDisabled(async (c) => { const db = c.firestore();
+      await setDoc(doc(db, 'seurat', KPV), { nimi: 'KPV', aktiivinen: true });
+      await setDoc(doc(db, 'seurat', KPV, 'pelaajat', TOPIAS), { etunimi: 'Topias', sukunimi: 'K.', syntymaVuosi: 2013, joukkue: 'KPV U13', joukkueet: ['kpv_u13'], sukupuoli: 'M' });
+      // valmentaja on KPV U15:ssä (ei U13:ssa); VP:llä on kayttajat-dokki MUUSTA joukkueesta (UI-1-tilanne) tai ei dokkia lainkaan
+      await setDoc(doc(db, 'seurat', KPV, 'kayttajat', VALM_UID), { rooli: 'valmentaja', seuraId: KPV, joukkueet: ['kpv_u15'], aktiivinen: true }); });
+  });
+  const pel = (db) => doc(db, 'seurat', KPV, 'pelaajat', TOPIAS);
+  const lue = async (...p) => { let d; await testEnv.withSecurityRulesDisabled(async (c) => { d = (await getDoc(doc(c.firestore(), ...p))).data(); }); return d; };
+  const nyt = () => new Date();
+
+  it('KATSELMUS: reviewit/{pvm} + review_viimeisin_pvm/-tyyppi samassa batchissa; VP ilman kayttajat-dokkia JA VP jonka dokissa on muu joukkue; valmentaja (U15) EI', async () => {
+    const kirjaa = (ctx, pvm) => { const db = ctx.firestore(), b = FS_MOD.writeBatch(db); b.set(doc(db, 'seurat', KPV, 'pelaajat', TOPIAS, 'reviewit', pvm), { tyyppi: 'kehityskeskustelu', pvm, tekija_uid: VP_UID, tekija_rooli: 'vp', idp_paivitetty: true }, { merge: true });
+      b.set(pel(db), { review_viimeisin_pvm: pvm, review_viimeisin_tyyppi: 'kehityskeskustelu' }, { merge: true }); return b.commit(); };
+    await assertSucceeds(kirjaa(vpKpv(), '2026-10-05'));                                                    // ei kayttajat-dokkia
+    await testEnv.withSecurityRulesDisabled(async (c) => { await setDoc(doc(c.firestore(), 'seurat', KPV, 'kayttajat', VP_UID), { rooli: 'vp', seuraId: KPV, joukkueet: ['kpv_u15'], joukkue: 'KPV U15', aktiivinen: true }); });
+    await assertSucceeds(kirjaa(vpKpv(), '2026-10-06'));                                                    // dokissa MUU joukkue
+    expect((await lue('seurat', KPV, 'pelaajat', TOPIAS)).review_viimeisin_pvm).toBe('2026-10-06');
+    await assertFails(kirjaa(valmKpv(), '2026-10-07'));                                                     // U15-valmentaja ei U13-pelaajaan
+  });
+  it('HAVAINTO: ADAR-batch (havainto + havainto_viimeisin_pvm) VP:ltä onnistuu U13-pelaajalle; U15-valmentajalta hylätään', async () => {
+    const kirjaa = (ctx, id) => { const db = ctx.firestore(), b = FS_MOD.writeBatch(db); b.set(doc(db, 'seurat', KPV, 'pelaajat', TOPIAS, 'havainnot', id), { tyyppi: 'adar_pikakortti', tila: 'valmis', pisteet: { A: 2 }, pvm: '2026-10-05', luotu: nyt() });
+      b.set(pel(db), { havainto_viimeisin_pvm: '2026-10-05' }, { merge: true }); return b.commit(); };
+    await assertSucceeds(kirjaa(vpKpv(), 'h-vp')); expect((await lue('seurat', KPV, 'pelaajat', TOPIAS)).havainto_viimeisin_pvm).toBe('2026-10-05');
+    await assertFails(kirjaa(valmKpv(), 'h-valm')); expect(await lue('seurat', KPV, 'pelaajat', TOPIAS, 'havainnot', 'h-valm')).toBeUndefined();
+  });
+  it('TESTITULOS: testitulos + hh-pikakentät samassa batchissa VP:ltä onnistuu; U15-valmentajalta hylätään (koko batch)', async () => {
+    const kirjaa = (ctx, id) => { const db = ctx.firestore(), b = FS_MOD.writeBatch(db); b.set(doc(db, 'seurat', KPV, 'pelaajat', TOPIAS, 'testitulokset', id), { testit: { lin30m: 4.6 }, testauspvm: '2026-10-05' }, { merge: true });
+      b.update(pel(db), { hh_viimeisin: { lin30m: 4.6 }, hh_pvm: '2026-10-05' }); return b.commit(); };
+    await assertSucceeds(kirjaa(vpKpv(), '2026-10-05_vapaa')); expect((await lue('seurat', KPV, 'pelaajat', TOPIAS)).hh_pvm).toBe('2026-10-05');
+    await assertFails(kirjaa(valmKpv(), '2026-10-06_vapaa')); expect(await lue('seurat', KPV, 'pelaajat', TOPIAS, 'testitulokset', '2026-10-06_vapaa')).toBeUndefined();
+  });
+  it('JOUKKUEEN JAKSO (v3.37): VP päivittää KPV U13 -joukkueen jaksofokuksen ja luo puuttuvan joukkuedokumentin; valmentaja ei luo', async () => {
+    const jk = (ctx, id) => doc(ctx.firestore(), 'seurat', KPV, 'joukkueet', id);
+    await assertSucceeds(setDoc(jk(vpKpv(), 'kpv_u13'), { nimi: 'KPV U13', jaksofokus: { konsepti_avain: 'y_h2', alkoi: '2026-10-05T10:00:00.000Z' } }));   // luonti (johto)
+    await assertSucceeds(updateDoc(jk(vpKpv(), 'kpv_u13'), { jaksofokus: { konsepti_avain: 'y_h3', alkoi: '2026-10-06T10:00:00.000Z' }, jaksofokus_historia: FS_MOD.arrayUnion({ konsepti_avain: 'y_h2', sulkutapa: 'korvattu' }) }));
+    await assertFails(setDoc(jk(valmKpv(), 'kpv_u99'), { nimi: 'X' }));
+  });
+});
