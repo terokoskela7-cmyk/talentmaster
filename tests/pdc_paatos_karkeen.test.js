@@ -22,6 +22,10 @@ const VP = readFileSync(join(juuri, 'TalentMaster_VP_v25.html'), 'utf8');
 const vaadi = createRequire(import.meta.url);
 const { laskeReviewKadenssi } = vaadi('../lib/tm_eerikkila_normit.js');
 const { idpJumissa } = vaadi('../lib/tm_idp.js');
+const SEURAAVA_ASKEL = vaadi('../lib/tm_seuraava_askel.js');
+const TM_PHV = vaadi('../lib/tm_phv_tila.js');
+const TM_JF = vaadi('../lib/tm_jaksofokus.js');
+const LIBIT = { laskeReviewKadenssi, idpJumissa, jaksoUmpeutunut: TM_JF.tmJfUmpeutunut, phvKuormaTila: TM_PHV.tmPhvKuormaTila, phvKuormaVarovainen: TM_PHV.tmPhvKuormaVarovainen, phvEiMitattu: TM_PHV.tmPhvEiMitattu };
 
 /** Funktiorunko lähteestä (sulkulaskuri). */
 function funktio(tunniste) {
@@ -45,11 +49,13 @@ function paatos(p, nyt) {
     laskeReviewKadenssi: laskeReviewKadenssi,
     idpJumissa: idpJumissa,
     vpT: (t) => t,
+    // R6.2b: _pdcPaatos on kääre → lib; kanoniset riippuvuudet injektoidaan (selaimessa luetaan globaaleista)
+    _vpSiltaKonsepti: () => null,
     tmPvmFi: (iso) => {
       const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(iso));
       return m ? m[3] + '.' + m[2] + '.' + m[1] : null;
     },
-    window: {},
+    window: { TM_SEURAAVA_ASKEL: { tmSeuraavaAskel: (p, o) => SEURAAVA_ASKEL.tmSeuraavaAskel(p, Object.assign({}, o, { deps: LIBIT })) } },
   };
   const nimet = Object.keys(ymparisto);
   const koodi = RUNKO_SITOUMUS + '\n'
@@ -93,10 +99,9 @@ describe('PDC P2 · päätösfunktio — prioriteetti ja tila', () => {
     expect(d.tila).toBe('toimenpide');
   });
 
-  it('3. kauden tavoite jumissa 8 vk (kun review + ehdotus kunnossa)', () => {
+  it('3. kauden tavoite jumissa 8 vk (kun review + ehdotus + sitoumus kunnossa; R6.2b: jumissa on portaalla 6, sitoumus 3 voittaisi sen)', () => {
     const d = paatos(puhdas({
       _idpTavoite: { luotu: iso(NYT - 200 * PV), status: 'aktiivinen' },
-      idp_sitoumus_pvm: iso(NYT - 3 * PV),     // #3 täyttyy myös → #2 voittaa
     }), NYT);
     expect(d.avain).toBe('idp_jumissa');
     expect(d.tila).toBe('toimenpide');
@@ -297,10 +302,12 @@ describe('PDC P2 · sijainti ja lukot lähteessä', () => {
   });
 
   it('kanoniset lähteet, ei omaa laskentaa', () => {
+    // R6.2b: päätös on libissä; kääre ei laske itse, lib käyttää kanonisia funktioita (injektoitu / globaali)
     const runko = funktio('window._pdcPaatos = function (p, nyt) {');
-    expect(runko).toContain('laskeReviewKadenssi(');
-    expect(runko).toContain('idpJumissa(');
-    expect(runko).toContain('_rvcSitoumusOdottaa(');
+    expect(runko).toMatch(/TM_SEURAAVA_ASKEL[\s\S]*tmSeuraavaAskel\(/);
+    expect(runko).not.toMatch(/laskeReviewKadenssi\(|idpJumissa\(|_rvcSitoumusOdottaa\(/);
+    const LIB = readFileSync(join(juuri, 'lib/tm_seuraava_askel.js'), 'utf8');
+    for (const nimi of ['laskeReviewKadenssi', 'idpJumissa', '_rvcSitoumusOdottaa', 'tmJfUmpeutunut', 'tmPhvKuormaTila']) expect(LIB, nimi).toContain(nimi);
   });
 
   it('TERMILUKKO: käyttäjästringeissä "kehityskeskustelu", EI "Review" eikä "Katselmus"', () => {
