@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="fi" data-theme="dark">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Kenttä K0 · demo (lib/tm_kentta.js)</title>
+<style>
+/* K0-demo: renderöi 09_pelaaja_kentta.html:n kaikki data-pitch-variantit KIRJASTOLLA (ei mockupin omalla JS:llä). Fontit omalta palvelimelta (ei Google Fonts). */
+@font-face{font-family:'Archivo Variable';font-style:normal;font-display:swap;font-weight:100 900;font-stretch:62% 125%;src:url(../../../../assets/fonts/archivo-latin-wdth-normal.woff2) format('woff2-variations')}
+@font-face{font-family:'DM Sans Local';src:local('DM Sans'),local('DMSans');font-display:swap}
+:root{--bg:#1C1C1A;--sur:#242421;--ink:#F2EFE6;--ink2:#CFCBC0;--ink3:#8F8C83;--line:rgba(242,239,230,.14);--chalk:rgba(242,239,230,.55);--chalk2:rgba(242,239,230,.28);
+ --teal:#28B090;--teal-dim:rgba(40,176,144,.16);--amber:#E0A040;--amber-dim:rgba(224,160,64,.16);--blue:#7FA6DE;color-scheme:dark}
+:root[data-theme="light"]{--bg:#F2EFE6;--sur:#FBFAF6;--ink:#1C1C1A;--ink2:#3E3C37;--ink3:#6B695F;--line:rgba(28,28,26,.16);--chalk:rgba(28,28,26,.45);--chalk2:rgba(28,28,26,.2);
+ --teal:#1A7A5E;--teal-dim:rgba(26,122,94,.12);--amber:#9A6512;--amber-dim:rgba(224,160,64,.2);--blue:#3D6AA8;color-scheme:light}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--ink);font-family:system-ui,sans-serif;font-size:15px;line-height:1.5;padding:20px 16px 60px}
+h1{font-family:'Archivo Variable',system-ui,sans-serif;font-variation-settings:"wdth" 72;font-weight:800;font-size:34px;line-height:.95;margin-bottom:6px}
+.meta{font-size:12.5px;color:var(--ink3)}
+.top{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin-bottom:20px}
+button{font:inherit;font-size:13px;padding:7px 12px;border:1px solid var(--line);border-radius:4px;background:transparent;color:var(--ink2);cursor:pointer}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:22px;max-width:1100px}
+.v{display:grid;gap:6px;align-content:start}
+.v b{font-family:'Archivo Variable',system-ui,sans-serif;font-variation-settings:"wdth" 75;font-weight:800;font-size:15px}
+.kt-ase b{font-family:'Archivo Variable',system-ui,sans-serif;font-variation-settings:"wdth" 75;font-size:19px}
+</style>
+<style id="kt-css"></style>
+</head>
+<body>
+<div class="top"><div><h1>Kenttä · K0-demo</h1><div class="meta">lib/tm_kentta.js · 09:n data-pitch-variantit · tokenit D10 · fontti D11</div></div><button id="theme" type="button">Teema</button></div>
+<div class="grid" id="grid"></div>
+<script src="../../../../lib/tm_kentta.js?v=1"></script>
+<script>
+(function () {
+  var errors = 0, rendered = 0;
+  var tq = /theme=(light|dark)/.exec(location.search); document.documentElement.setAttribute('data-theme', tq ? tq[1] : (window.matchMedia && matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark'));   // ?theme=light|dark, muuten järjestelmän teema
+  window.addEventListener('error', function () { errors++; document.body.setAttribute('data-kt-errors', String(errors)); });
+  var ASE = { x: 4, y: 38, w: 40, h: 44 };
+  var A = function (sub) { return { alue: ASE, nimi: 'Tempokuljetus', sub: sub == null ? 'sinun aseesi' : sub }; };
+  var OSAT = function (a, b, c) { return [{ k: 'a', nimi: a[0], x: 42, y: 58, tila: a[1] }, { k: 'b', nimi: b[0], x: 52, y: 40, tila: b[1] }, { k: 'c', nimi: c[0], x: 56, y: 20, tila: c[1] }]; };
+  var V = [
+    ['idea', { koko: 'puoli', ase: A('ase'), reitti: { loppu: 'maali' }, viikot: { n: 6, tehty: 2 }, historia: [{ loppu: 'kaveri' }] }],
+    ['today', { koko: 'puoli', ase: A(), reitti: { loppu: 'maali' }, viikot: { n: 6, tehty: 1 }, historia: [{ loppu: 'kaveri' }], osat: OSAT(['laukaus', 'ohjatusti'], ['heikompi jalka', 'nyt'], ['katse maaliin', 'ei_viela']) }],
+    ['done', { koko: 'puoli', ase: A(), reitti: { loppu: 'maali' }, viikot: { n: 6, tehty: 6, valmis: true }, historia: [{ loppu: 'kaveri' }] }],
+    ['nojakso', { koko: 'puoli', ase: A(), historia: [{ loppu: 'kaveri' }] }],
+    ['empty', { koko: 'puoli', ase: null }],
+    ['choose', { koko: 'puoli', ase: A('ase'), vaihtoehdot: [{ k: 'A', loppu: 'maali' }, { k: 'B', loppu: 'kaveri' }], viikot: { n: 6, tehty: 0 } }],
+    ['chosen', { koko: 'puoli', ase: A('ase'), reitti: { loppu: 'maali' }, viikot: { n: 6, tehty: 0 } }],
+    ['history', { koko: 'koko', ase: A(), reitti: { loppu: 'maali' }, viikot: { n: 6, tehty: 0 }, historia: [{ loppu: 'kaveri' }, { loppu: 'maali' }, { loppu: 'kausitavoite' }] }],
+    ['cb', { koko: 'koko', ase: { alue: { x: 28, y: 96, w: 44, h: 30 }, nimi: 'Avaa peli linjan ohi', sub: 'ase · keskuspuolustaja' }, reitti: { loppu: 'kausitavoite' }, viikot: { n: 6, tehty: 3 } }],
+    ['kid', { koko: 'koko', ase: null, lempipaikka: { x: 30, y: 58 } }],
+    ['kiddone', { koko: 'koko', ase: null, lempipaikka: { x: 30, y: 58 } }],
+    ['coach', { koko: 'puoli', ase: A('ase · siirrä raahaamalla'), vaihtoehdot: [{ k: 'A', loppu: 'maali' }, { k: 'B', loppu: 'kaveri' }], viikot: { n: 6, tehty: 0 }, historia: [{ loppu: 'kaveri' }] }],
+    ['coachempty', { koko: 'puoli', ase: null }],
+    ['rev0', { koko: 'puoli', ase: A(''), reitti: { loppu: 'maali' }, viikot: { n: 6, tehty: 0 }, osat: OSAT(['', 'ohjatusti'], ['', 'ei_viela'], ['', 'ohjatusti']) }],
+    ['rev1', { koko: 'puoli', ase: A(''), reitti: { loppu: 'maali' }, viikot: { n: 6, tehty: 6, valmis: true }, osat: OSAT(['', 'itsenaisesti'], ['', 'nyt'], ['', 'itsenaisesti']) }]
+  ];
+  try {
+    document.getElementById('kt-css').textContent = window.tmKenttaCss();
+    var grid = document.getElementById('grid');
+    V.forEach(function (v) {
+      var d = document.createElement('div'); d.className = 'v'; d.setAttribute('data-pitch', v[0]);
+      try { d.innerHTML = '<b>' + v[0] + '</b>' + window.tmKentta(v[1], { wrap: true, ariaLabel: 'Kenttä · ' + v[0] }); rendered++; } catch (e) { errors++; }
+      grid.appendChild(d);
+    });
+  } catch (e) { errors++; }
+  document.body.setAttribute('data-kt-errors', String(errors)); document.body.setAttribute('data-kt-rendered', String(rendered)); document.body.setAttribute('data-kt-variants', String(V.length));
+  document.getElementById('theme').addEventListener('click', function () { var r = document.documentElement; r.setAttribute('data-theme', r.getAttribute('data-theme') === 'dark' ? 'light' : 'dark'); });
+})();
+</script>
+</body>
+</html>
