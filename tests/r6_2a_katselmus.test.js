@@ -101,7 +101,7 @@ describe('RYTMI NOLLAUTUU MOLEMMISTA POLUISTA (A cockpit · B MDT)', () => {
     expect(kadenssi(e.m.docs[POLKU]).status).toBe('ajantasalla'); expect(e.m.docs[POLKU].review_viimeisin_tyyppi).toBe('mdr');
   });
   it('päätös (_pdcPaatos): review_myohassa ennen → ei enää A- eikä B-polun jälkeen', () => {
-    const aja = (doc) => { const c = { window: {}, laskeReviewKadenssi: (p, n) => N.laskeReviewKadenssi(p, n), vpT: (x) => x, tmPvmFi: (x) => x, _rvcSitoumusOdottaa: () => false, idpJumissa: () => false, Date, Object };
+    const aja = (doc) => { const LAS = (p, n) => N.laskeReviewKadenssi(p, n); const c = { window: { TM_SEURAAVA_ASKEL: { tmSeuraavaAskel: (p, o) => require('../lib/tm_seuraava_askel.js').tmSeuraavaAskel(p, Object.assign({}, o, { deps: { laskeReviewKadenssi: LAS, idpJumissa: () => false, sitoumusOdottaa: () => false, jaksoUmpeutunut: () => false } })) } }, laskeReviewKadenssi: LAS, vpT: (x) => x, tmPvmFi: (x) => x, _rvcSitoumusOdottaa: () => false, idpJumissa: () => false, Date, Object };   // R6.2b: _pdcPaatos = kääre → lib
       vm.createContext(c); vm.runInContext(pura('window._pdcPaatos = function') + ';', c); return c.window._pdcPaatos(Object.assign({ jaksofokus: { konsepti_nimi: 'X' } }, doc), NYT.getTime()); };
     expect(aja(pelaajaDoc()).avain).toBe('review_myohassa');
     return Promise.all([ymp(), ymp()]).then(async ([a, b]) => {
