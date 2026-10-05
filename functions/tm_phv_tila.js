@@ -136,6 +136,26 @@
     return { koodi: null, ongelma: 'tuntematon', huom: null };
   }
 
+  /* KUORMAKATEGORIAT (R6.2b, YKSI lähde): mikä kuorma vaatii varovaisuutta PH-vaiheessa / mittaamattomalla ikäikkunassa.
+     Lähde: kuormarajoitin (tm-kehitysbiologia: "Mitattu PH → voimaharjoittelu max 80 % 1RM, hyppyvolyymi −20 %, juoksuvolyymi seurattava")
+     + harjoitelogiikan phv_ohje-variantit (lib/tm-prescription.js, per harjoite). Ohjelmatyyppi (lib/tm_fyysteemat.js) → kategoria.
+     vahvistettu:false = Teron vahvistamatta (nopeus → juoksu: rajoittimessa juoksuvolyymi on vain "seurattava", ei rajattu). */
+  var PHV_KUORMA_KATEGORIAT = {
+    voima: { ohje: 'max 80 % 1RM', vahvistettu: true },
+    hyppy: { ohje: 'hyppyvolyymi −20 %', vahvistettu: true },
+    juoksu: { ohje: 'juoksuvolyymi seurattava', vahvistettu: true }
+  };
+  var PHV_OHJELMA_KUORMA = {
+    perusvoima: { kategoria: 'voima', vahvistettu: true },
+    nopeus_voima: { kategoria: 'hyppy', vahvistettu: true },   // plyometrinen progressio
+    nopeus: { kategoria: 'juoksu', vahvistettu: false }        // kiihdytys + maksiminopeus — TERON VAHVISTETTAVA
+  };
+  // Ohjelmatyyppi → 'voima'|'hyppy'|'juoksu' | null (ei varovaisuutta vaativa kuorma, esim. liikkuvuus/kuntoutus/muu).
+  function tmPhvOhjelmaKuorma(tyyppi) {
+    var r = (typeof tyyppi === 'string' && Object.prototype.hasOwnProperty.call(PHV_OHJELMA_KUORMA, tyyppi)) ? PHV_OHJELMA_KUORMA[tyyppi] : null;
+    return r ? r.kategoria : null;
+  }
+
   var API = {
     PHV_KANONISET: PHV_KANONISET,
     PHV_VALINNAT: PHV_VALINNAT,
@@ -148,7 +168,10 @@
     tmPhvKuormaVarovainen: tmPhvKuormaVarovainen,
     tmPhvEiMitattu: tmPhvEiMitattu,
     tmPhvIlmoitettuPH: tmPhvIlmoitettuPH,
-    tmPhvTuontiKoodi: tmPhvTuontiKoodi
+    tmPhvTuontiKoodi: tmPhvTuontiKoodi,
+    PHV_KUORMA_KATEGORIAT: PHV_KUORMA_KATEGORIAT,
+    PHV_OHJELMA_KUORMA: PHV_OHJELMA_KUORMA,
+    tmPhvOhjelmaKuorma: tmPhvOhjelmaKuorma
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = API;
   if (root) {
@@ -158,6 +181,7 @@
     root.tmPhvKuormaVarovainen = tmPhvKuormaVarovainen;
     root.tmPhvKuormaTila = tmPhvKuormaTila;
     root.tmPhvEiMitattu = tmPhvEiMitattu;
+    root.tmPhvOhjelmaKuorma = tmPhvOhjelmaKuorma;
     root.tmPhvIlmoitettuPH = tmPhvIlmoitettuPH;
     root.tmPhvTuontiKoodi = tmPhvTuontiKoodi;
   }
