@@ -98,10 +98,14 @@ vanhempi
 
 ```
 Tausta:  #111110 (Carbon, EI #06090F)   Kortit: #161614   Syvä: #1C1C1A
-Teal:    #28B090 (ainoa aksentti, EI #3EC9A7)
+Teal:    ks. Design V2 -tokenit alla (EI enää "#28B090 ainoa aksentti"; EI #3EC9A7)
 Sininen: #2A5DB0 (sekundääri, EI #4A7ED9)   Amber: #E0A040 (varoitukset, pilotti)
 rgba(42,93,176,X)=--blue · rgba(40,176,144,X)=--teal
 ```
+**Design V2 (Pakollinen kaikessa käyttöliittymätyössä R6.3:sta alkaen)** — SSOT: `docs/design/idp-v2/` (järjestys `00_projektikartta.html`, pää-SSOT `01_idp_kehitystyopoyta_kokonaiskartta.html`, pelaaja-app `05`, luettavuus `06_design_v2_luettavuus.html`) ja `docs/design/Pelaaja_app_V2_kartta.html`. Lue ne ENNEN ensimmäistäkään näkymämuutosta.
+- **T1-tokenit (kontrasti ≥ 4,5):** Pelaaja ja Vanhempi: `--teal` = `#1A7A5E` **täytteisiin**, `--teal-d` = `#28B090` **tekstiin**. VP: tekstin väri teal/amber-täytön päällä = `--on-accent`. Käytä VAIN näitä tokeneita: **ei kovakoodattuja värejä eikä uusia tokeneita ilman päätöstä.** VP:n luunsävypaletti tulee vasta T2:ssa (avoin, ei vielä).
+- **Rakenne ja kieli:** näkymät noudattavat D1–D9-päätöksiä (esim. pelaajalle välilehdet Tänään · Polku · Näyttö; alle 16-vuotiaalle edistyminen sanoin) ja §7.22:ta.
+- **Ristiriita tai aukko:** jos design ja toteutus ovat ristiriidassa tai design ei kata tilannetta → KYSY, älä keksi omaa ratkaisua. Jokaisessa UI-PR:ssä raportoidaan, mitä design-dokumentin kohtaa toteutus noudattaa.
 **Fontit:** Otsikot/KPI `Cormorant Garamond` 300/400/600 (EI Playfair Display) · Body/UI `DM Sans` 400/500/600.
 **EI KOSKAAN:** `Playfair Display`, `#3EC9A7`, `#4A7ED9`, `#06090F`.
 **Periaate:** Mobile-first. Korkein aktivointivipu: tyhjän tilan design.
