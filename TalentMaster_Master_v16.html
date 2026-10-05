@@ -110,6 +110,7 @@ window.TM_KAAVIO_HOST = {
 <script src="lib/tm_kehityspolku.js?v=2"></script>   <!-- I3a: looginen silta -resolver (idp_fokus → konsepti/fundamentti → harjoite) -->
 <script src="lib/tm_jaksokooste.js?v=2"></script>   <!-- Vaihe 6: jakson sulku (meso-sykli) — valmentaja sulkee omat pelaajansa (§4/§37) -->
 <script src="lib/tm_kehityssilmukka.js?v=2"></script>   <!-- R6.1b: jaksofokuksen yhteinen kirjoitusydin (tmAsetaJaksofokus / tmSuljeJakso) -->
+<script src="lib/tm_seuraava_askel.js?v=1"></script>   <!-- R6.2b: seuraava toimenpide yhdessä paikassa (tmSeuraavaAskel / tmSeuraavaJakso / tmTeeTastaOsa) -->
 <script src="lib/tm_fyysteemat.js?v=4"></script>   <!-- Vaihe 7: fyysinen teemaluettelo + D1-fokuslähde + evidenssi (fysiikkavalmentaja) -->
 <script src="lib/tm_ohjelma.js?v=1"></script>   <!-- Vaihe 7.2a: fysiikkaohjelmakirjasto (validoi/versioi/templaatista, deterministinen) -->
 <script src="lib/tm_ohjelma_analytiikka.js?v=2"></script>   <!-- Vaihe 7.2b: per-ohjelma-analytiikka (tmOhjelmaKooste — mikä ohjelma toimii kenelle) -->
@@ -6742,23 +6743,17 @@ window._ohjEditTallenna = async function () {
   } catch (e) { console.warn('[ohjTallenna]', e && e.message); if (typeof toast === 'function') toast('Tallennus epäonnistui: ' + (e && e.message), 'error'); }
 };
 
-function _msSeuraava(p, nykyAvain, tulos) {
-  var jf0 = p.jaksofokus || {};
-  // Vaihe 7: fyysinen domeeni → seuraava saman domeenin sisällä (tmFyysEhdota).
-  if (jf0.domeeni === 'fyysinen') {
-    var FL = window.TM_FYYSTEEMAT_LIB;
-    if (tulos === 'ennallaan') { var ft = FL ? FL.tmFyysTeema(nykyAvain) : null; return { konsepti_avain: nykyAvain, konsepti_nimi: ft ? ft.nimi : nykyAvain, jatka: true, fyysinen: true }; }
-    var fe = (typeof _msFyysEhdotus === 'function') ? _msFyysEhdotus(p, true) : null;
-    if (fe) return { konsepti_avain: fe.avain, konsepti_nimi: fe.nimi, fyysinen: true, jatka: fe.avain === nykyAvain };
-    return null;
-  }
-  if (tulos === 'ennallaan') { var k = _msSiltaKonsepti(nykyAvain); return { konsepti_avain: nykyAvain, konsepti_nimi: k ? k.nimi : nykyAvain, jatka: true }; }
-  var LIB = window.TM_ARVIOINTI_SILTA; if (!LIB || !p.arviointi_havaittu) return null;
-  var _pc = p.tt_positio_aktiivinen || (typeof _ttNormPositio === 'function' ? _ttNormPositio(p.positio || p.pelipaikka) : null);
-  var sallitut = _mTtItems({ ika: (_devIkaSp ? _devIkaSp(p).ika : null), joukkue: p.joukkue, positio: _pc, tt_positio_aktiivinen: _pc, syntymaVuosi: p.syntymaVuosi });
-  var ehd = LIB.tmSiltaEhdota(p.arviointi_havaittu, { sallitutKonseptit: sallitut, konseptiNimi: function (a) { var kk = _msSiltaKonsepti(a); return kk ? kk.nimi : a; } });
-  var eri = ehd.filter(function (e) { return e.konsepti_avain !== nykyAvain; });
-  return eri.length ? eri[0] : (ehd.length ? ehd[0] : null);
+function _msSeuraava(p, nykyAvain, tulos) {   // R6.2b KÄÄRE → lib tmSeuraavaJakso (sama ydin VP:n _vpSulkuSeuraava:n kanssa); tässä vain Masterin lähteet
+  return window.TM_SEURAAVA_ASKEL.tmSeuraavaJakso(p, nykyAvain, tulos, {
+    fyysTeema: function (a) { var FL = window.TM_FYYSTEEMAT_LIB; return FL ? FL.tmFyysTeema(a) : null; },
+    fyysEhdotus: function (pp, ohita) { return (typeof _msFyysEhdotus === 'function') ? _msFyysEhdotus(pp, ohita) : null; },
+    siltaKonsepti: function (a) { return _msSiltaKonsepti(a); },
+    siltaEhdota: window.TM_ARVIOINTI_SILTA ? window.TM_ARVIOINTI_SILTA.tmSiltaEhdota : null,
+    sallitut: function () {
+      var _pc = p.tt_positio_aktiivinen || (typeof _ttNormPositio === 'function' ? _ttNormPositio(p.positio || p.pelipaikka) : null);
+      return _mTtItems({ ika: (_devIkaSp ? _devIkaSp(p).ika : null), joukkue: p.joukkue, positio: _pc, tt_positio_aktiivinen: _pc, syntymaVuosi: p.syntymaVuosi });
+    }
+  });
 }
 function _msRender() {
   var S = window._msSulkuTila; if (!S) return;

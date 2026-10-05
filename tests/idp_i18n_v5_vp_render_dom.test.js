@@ -871,6 +871,15 @@ describe('VP_v25 resolvi-portti — jokaisella reititetyllä avaimella on sv-riv
     '🎙 Äänitä palaute (max 3 min)',
     'valinnainen — jaettu/yksityinen valitaan alta',
     'Avaa',
+    // R6.2b — tmSeuraavaAskel: uudet portaat (jakso_umpeutunut, valitavoite_valmis, havainto, kuorma_tarkista). sv Gemini-erässä.
+    'Jakson kuorma ei sovi kasvuvaiheeseen —',
+    'tarkista ohjelma ennen jatkoa.',
+    'Jakso on päättynyt —',
+    'sulje se ja valitse seuraava.',
+    'Välitavoite saavutettu —',
+    'valitse seuraava.',
+    'Arvioinnin heikoin kohta —',
+    'harkitse sen valitsemista jaksolle.',
   ];
 
   it('0 vpT-avainta ilman sv-riviä (paitsi nimetyt sanktiointia odottavat)', () => {

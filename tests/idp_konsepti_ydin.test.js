@@ -8,8 +8,10 @@ import { describe, it, expect, beforeAll } from 'vitest';
 import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
+import { createRequire } from 'module';
 
 const __dir = dirname(fileURLToPath(import.meta.url));
+const SEURAAVA_ASKEL = createRequire(import.meta.url)('../lib/tm_seuraava_askel.js');   // R6.2b: "tee tästä" -osan valinta libissä
 const HTML = readFileSync(join(__dir, '..', 'TalentMaster_VP_v25.html'), 'utf8');
 
 function extract(sig) {
@@ -24,7 +26,7 @@ function extract(sig) {
 let K;
 beforeAll(() => {
   const ITEM = { avain: 'y_h0', koodi: 'Y-H0', nimi: 'HAVAINNOINTI', pelitilanne: 'kaikki alkaa tiedosta – 99 % pelistä.', kpi: [{ koodi: 'a', teksti: 'Sijoitu diagonaalisesti' }, { koodi: 'b', teksti: 'Pidä peliasento avoimena' }, { koodi: 'c', teksti: 'Rytmitä skannaus' }] };
-  K = new Function('var vpT = function(x){return x;};\n' + 
+  K = new Function('SEURAAVA_ASKEL', 'var window = { TM_SEURAAVA_ASKEL: SEURAAVA_ASKEL };\nvar vpT = function(x){return x;};\n' + 
     'var _jsvEsc = function(s){return String(s==null?"":s);};\n' +
     'var _vpAloitusSentence = function(s){ s=String(s||""); return (s===s.toUpperCase()&&s!==s.toLowerCase())?(s.charAt(0)+s.slice(1).toLowerCase()):s; };\n' +
     'var _vpSiltaKonsepti = function(a){ return a==="y_h0" ? ' + JSON.stringify(ITEM) + ' : null; };\n' +
@@ -34,7 +36,7 @@ beforeAll(() => {
     'var _ttHarj = function(a){ return a==="Y-H0" ? [{},{}] : []; };\n' +
     'var _ttKys = function(a){ return a==="y_h0" ? ["Mitä näit ennen kuin pallo tuli?","Missä oli lähin vastustaja?"] : []; };\n' +
     extract('function _vpAloitusKonseptiYdinHTML(p) {') + '\n return { yd: _vpAloitusKonseptiYdinHTML };'
-  )().yd;
+  )(SEURAAVA_ASKEL).yd;
 });
 
 const JF = { konsepti_nimi: 'HAVAINNOINTI', konsepti_avain: 'y_h0', konsepti_koodi: 'Y-H0', domeeni: 'teknis_taktinen' };
