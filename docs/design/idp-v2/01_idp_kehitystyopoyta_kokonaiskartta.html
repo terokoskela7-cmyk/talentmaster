@@ -360,28 +360,52 @@ tr:last-child td{border-bottom:0}
  </table></div>
 </section>
 
-<!-- R6.3 LINJAUKSET 5.10. -->
+<!-- R6.3 LINJAUKSET 5.10. (koottu täsmennys, korvaa aiemmat täsmennysviestit) -->
 <section id="r63-linjaukset">
- <div class="eb">R6.3:n suunnittelu · linjaukset 5.10.2026</div>
- <h2>Kevyt jakso, joukkueen jakso, kriittinen-merkintä ja pelipaikan KPI</h2>
- <p style="font-size:14px">Linjaukset hyväksytty Coden tarkennuksin (§25, ei §28; pelipaikan minimit pois pilotista). Toteutus R6.3:ssa, ellei toisin mainita.</p>
+ <div class="eb">R6.3:n suunnittelu · linjaukset 5.10.2026 (koottu täsmennys)</div>
+ <h2>Ydinvahvuus, tukiosa, rajoittaa pelaamista, joukkueen teema ja kevyt jakso</h2>
+ <p style="font-size:14px">Koottu täsmennys (Tero 5.10.2026) korvaa aiemmat täsmennysviestit. Vain suunnittelu, ei toteutusta; toteutus R6.3:ssa. §25 (kypsyyssuoja), ei §28; pelipaikan minimit pois pilotista.</p>
  <div class="g2">
-  <div class="card"><span class="eb">Kotitehtävä (kevyt jakso)</span>
-   <p style="font-size:14px">Ei uutta <code>sulkutapa</code>-arvoa (ei <code>'kuitattu'</code>) eikä lib-muutosta. Kevyt jakso päättyy jakson vaihdossa (<code>tmJaksonVaihto</code> → <code>'korvattu'</code>), ja arkistoriville <code>lisakentat: {kuittauksia: n}</code>.</p>
-   <p style="font-size:14px"><b>Kuittaus:</b> kenttänä polkuun <code>kirjaukset/{pvm}</code>. U8–12:lla myös huoltaja voi kuitata (<code>onU12Huoltaja</code>, <code>lahde:'vanhempi'</code>).</p>
-   <p style="font-size:14px"><b>Ei riko päivän kirjausta:</b> kirjoitus merge-tilassa omaan kenttäänsä (esim. <code>kotitehtava_kuitattu</code>); ei kosketa <code>tehty</code>/<code>tyyppi</code>-kenttiin eikä vaikuta streakiin. Rulesin kenttärajaukset <code>kirjaukset</code>-polulle tarkistetaan ensin; jos muutos tarvitaan, versio ja testi.</p></div>
+  <div class="card"><span class="eb">Jakson ydin = pelaajan ydinvahvuus</span>
+   <p style="font-size:14px">Ydinvahvuus on se, mikä tekee pelaajasta vaarallisen. <b>Valmentaja havainnoi ja vahvistaa sen.</b> Kenttä <code>ydinvahvuus: {kuvaus, havaittu_pvm, rooli}</code>. <code>havaittu_pvm</code> vahvistetaan katselmuksessa.</p>
+   <p style="font-size:14px">Näytettävä sana tulee käännöksistä, ja Tero päättää sen myöhemmin. <b>Ei xfactor-nimistä kenttää.</b></p>
+</div>
+  <div class="card"><span class="eb">Tukiosa perustellaan, ei piiloteta</span>
+   <p style="font-size:14px">Kenttä <code>tukiosa: {alue, perustelu, harjoitteet[]}</code>. <code>alue</code> on neutraali (esim. <code>'kestävyys'</code>); <code>perustelu</code> sitoo tukiosan ydinvahvuuteen (esim. "jotta kuljetuksesi on vaarallinen vielä 80. minuutilla"). <b>Pelaaja näkee harjoitteet ja perustelun.</b></p>
+</div>
+  <div class="card"><span class="eb">Rajoittaa pelaamista (sisäinen funktio)</span>
+   <p style="font-size:14px">Ehto täyttyy, kun valmentaja on merkinnyt <code>tukitarve: {alue, merkitty_pvm, rooli}</code> <b>TAI</b> testitulos on Eerikkilä-normien alimmalla tasolla <code>normiIka</code>:lla. Pelipaikan KPI on myöhemmin kolmas ehto (R6.3b). <code>tukitarve</code> vahvistetaan tai poistetaan katselmuksessa.</p>
+   <p style="font-size:14px"><b>Kypsyyssuoja (§25):</b> PRE- tai LAH-vaiheessa tai tuntemattomalla PHV:llä pelkkä fyysinen testitulos ei riitä. Kun PHV on tuntematon, valmentajalle vihje "mittaa kasvu".</p>
+   <p style="font-size:14px">Aiempi "kriittinen-merkintä" korvautuu tällä (<code>tukitarve</code>); sisäinen funktio, ei pelaajan eikä huoltajan pinnoissa.</p>
+</div>
+  <div class="card"><span class="eb">GDPR: tarkastusoikeus ja tietojen vienti</span>
+   <p style="font-size:14px">Kaikki tallennettu teksti muotoillaan niin, että sen voi näyttää huoltajalle. <b>Testi:</b> sanat <i>heikkous</i>, <i>rajoite</i> ja <i>kriittinen</i> eivät esiinny pelaaja- eivätkä jaksodatassa (kentät, arvot, tekstit; lähdevartija + fixture-ajo).</p>
+</div>
+  <div class="card"><span class="eb">Kaksi eri asiaa: signaali ≠ ydinvahvuus</span>
+   <p style="font-size:14px"><b>Laskettu X-Factor-talenttisignaali</b> (vertaileva) näkyy vain henkilökunnalle, ja sen nykyiset säännöt pysyvät. <b>Ydinvahvuus</b> on pelaajan oma, ja sen päättää valmentaja. Laskettu signaali voi näkyä valmentajalle <b>ehdotuksena</b>.</p>
+   <p style="font-size:14px"><b>Kypsyyssuoja toiseen suuntaan (§25):</b> jos PHV-tila on POST tai pelaaja on varhain kypsynyt ja ydinvahvuus on fyysinen, valmentajalle näytetään vihje harkita teknistä tai taktista ydinvahvuutta.</p>
+</div>
+  <div class="card"><span class="eb">D8: ydinvahvuuden valinta</span>
+   <p style="font-size:14px">Kaksi ydinvahvuusvaihtoehtoa, joista kumpaankin voi liittyä tukiosa. <b>Pelaaja valitsee ydinvahvuuden, valmentaja päättää tukiosan.</b></p>
+   <p style="font-size:14px">Vähäisen datan tilassa ehdotukset tulevat lasketusta datasta. <b>Jakso alkaa vasta valmentajan vahvistuksesta</b>, eikä pelaaja näe vahvistamattomia ehdotuksia. (Ehdotuslogiikka: <code>tmSeuraavaJakso</code>:n syöte, R6.2b.)</p>
+</div>
+  <div class="card"><span class="eb">Joukkueen teema (vain rajapinta)</span>
+   <p style="font-size:14px">Määritellään vain <code>tmJoukkueenTeema(joukkue, pvm) → {nyt, seuraava} | null</code>. Näkymän on toimittava myös arvolla <code>null</code> (teemaa ei näytetä). <b>Lähde</b> (seuran valmennuslinja, oletuksena TalentMaster-metodologia) <b>on avoin</b>; valmennuslinjasessio päättää sen. Ensisijainen joukkue ja profiilin mukainen <code>ei_jaksofokusta</code> säilyvät aiempien linjausten mukaisina.</p>
+</div>
+  <div class="card"><span class="eb">Kotitehtävä = jakson kevyt muoto</span>
+   <p style="font-size:14px"><code>muoto:'kevyt'</code>. Päättyy jakson vaihdossa (<code>'korvattu'</code>, ei uutta <code>sulkutapa</code>-arvoa, ei lib-muutosta); arkistoriville <code>lisakentat:{kuittauksia:n}</code>.</p>
+   <p style="font-size:14px"><b>Kuittaus</b> kirjoitetaan merge-tilassa omaan kenttäänsä (esim. <code>kotitehtava_kuitattu</code>) polkuun <code>kirjaukset/{pvm}</code>; ei koske <code>tehty</code>/<code>tyyppi</code>-kenttiin eikä streakiin. U8–12-ikäisillä kuittauksen voi tehdä myös huoltaja (<code>onU12Huoltaja</code>, <code>lahde:'vanhempi'</code>). Rulesin kenttärajaukset <code>kirjaukset</code>-polulle tarkistetaan ensin; jos muutos tarvitaan, versio ja testi.</p>
+</div>
   <div class="card"><span class="eb">Joukkueen jakso</span>
-   <p style="font-size:14px">Sama <code>tmAsetaJaksofokus</code> joukkueen dokumentille. Rules: valmentajan update rajataan <code>affectedKeys().hasOnly(['jaksofokus','jaksofokus_historia'])</code>; muutokseen versio, changelog ja testi. Aikajanalla otsikko "Joukkueen jaksot".</p>
-   <p style="font-size:14px"><b>Puuttuva joukkueen dokumentti:</b> jos joukkue on olemassa vain pelaajien <code>joukkue</code>-kentässä, dokumentti luodaan jaksoa asetettaessa samalla tunnisteella kuin Seura.html:ssä (<code>.doc(id)</code>, §7.21). Pelaajan joukkue yhdistetään dokumenttiin ensin <code>joukkueet[]</code>-tunnisteen ja sitten nimen perusteella. Rules: johto saa luoda, valmentaja vain päivittää jaksokenttiä.</p>
-   <p style="font-size:14px">Seura.html:ää ei kosketa tässä (muokataan toisessa sessiossa).</p></div>
-  <div class="card"><span class="eb">Kriittinen-merkintä</span>
-   <p style="font-size:14px">Muoto <code>{merkitty_pvm, rooli}</code>; vahvistetaan tai poistetaan katselmuksessa. Kun PHV on tuntematon, valmentajalle vihje "mittaa kasvu, niin testitulokset otetaan huomioon".</p>
-   <p style="font-size:14px"><b>Vain henkilökunnalle:</b> ei näy pelaajan eikä huoltajan näkymissä eikä raporteissa (§7.22). Testi tälle (lähdevartija kaikissa pelaaja-/vanhempi-/raporttipinnoissa).</p></div>
-  <div class="card"><span class="eb">Pelipaikan KPI-tavoitteet IDP-korttiin (Tero 5.10.2026)</span>
-   <p style="font-size:14px">Kaikille pelipaikoille. Kuuluu IDP-kortin V5-paikkaan (<code>docs/IDP_KORTTI_MAAILMANLUOKKA.md</code>). <b>Toteutus myöhemmin; nyt vain tämä kirjaus.</b></p>
-   <p style="font-size:14px"><b>Rakenne:</b> <code>konfiguraatio/pelipaikka_kpi</code> per pelipaikka ja ikävaihe. TalentMaster antaa oletuksen, seura voi ohittaa (sama malli kuin D3). <b>Mittarityypit:</b> testi tai kartoitus, ja pelin KPI (pelihavainto, pelidata).</p>
-   <p style="font-size:14px">Myöhemmin "rajoittaa pelaamista" -funktio saa kolmannen ehdon: alle pelipaikan KPI-tavoitteen. Henkilökunta näkee numerot, alle 16-vuotias pelaaja sanat (D2, §7.22).</p>
-   <p style="font-size:14px"><b>Sisältö:</b> KPI-listat per pelipaikka toimittaa Tero. Code tekee vain rakenteen ja tyhjän oletuspohjan. Merkitty projektikarttaan (00) omaksi työkseen R6.3:n jälkeen.</p></div>
+   <p style="font-size:14px">Sama <code>tmAsetaJaksofokus</code> joukkueen dokumentille. Rules: valmentajan update rajataan <code>affectedKeys().hasOnly(['jaksofokus','jaksofokus_historia'])</code>; versio, changelog ja testi. Aikajanalla otsikko "Joukkueen jaksot".</p>
+   <p style="font-size:14px"><b>Puuttuva joukkueen dokumentti:</b> jos joukkue on vain pelaajien <code>joukkue</code>-kentässä, dokumentti luodaan jaksoa asetettaessa samalla tunnisteella kuin Seura.html:ssä (<code>.doc(id)</code>, §7.21). Pelaajan joukkue yhdistetään dokumenttiin ensin <code>joukkueet[]</code>-tunnisteen, sitten nimen perusteella. Rules: johto saa luoda, valmentaja vain päivittää jaksokenttiä. Seura.html:ää ei kosketa.</p>
+</div>
+  <div class="card"><span class="eb">Pelipaikan KPI-tavoitteet (R6.3b, Tero 5.10.2026)</span>
+   <p style="font-size:14px">IDP-kortin V5-paikka (<code>docs/IDP_KORTTI_MAAILMANLUOKKA.md</code>). <code>konfiguraatio/pelipaikka_kpi</code> per pelipaikka ja ikävaihe; oletus TalentMasterilta, seura voi ohittaa (kuten D3). Mittarityypit: testi/kartoitus ja pelin KPI (pelihavainto, pelidata). Kolmas ehto "rajoittaa pelaamista" -funktioon. Henkilökunta näkee numerot, alle 16-vuotias pelaaja sanat (D2, §7.22). <b>Sisällön toimittaa Tero</b>; Code tekee rakenteen ja tyhjän pohjan.</p>
+</div>
+  <div class="card"><span class="eb">Työjärjestys</span>
+   <p style="font-size:14px"><b>#787 merge → <code>havainto_viimeisin_pvm</code> (pikakenttä vapaille havainnoille; havaintorytmi laskee sen) → #786 (tämä kirjaus) → R6.3.</b></p>
+</div>
  </div>
 </section>
 
