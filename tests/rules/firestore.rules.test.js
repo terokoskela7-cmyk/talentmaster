@@ -3938,33 +3938,57 @@ describe('havainto + havainto_viimeisin_pvm samassa batchissa', () => {
   });
 });
 
-/* ══ Rules v3.37 · R6.3-B — pelaajan reitinvalinta (ase_valinta), joukkueen jakso, huoltajan jakso_kuittaus ══ */
-describe('v3.37 · ase_valinta (D8): pelaaja valitsee reitin, ei voi kirjoittaa jaksofokusta', () => {
+/* ══ Rules v3.37 · R6.3-B — pelaajan reitinvalinta (ydinvahvuus_valinta), joukkueen jakso, huoltajan jakso_kuittaus ══ */
+describe('v3.37 · ydinvahvuus_valinta (D8): pelaaja valitsee, ei voi kirjoittaa jaksofokusta; muoto rajattu', () => {
   beforeEach(async () => { await seedAdminDoc(); await seedSeuraAndPelaaja(); });
   const pel = (db, pid = PELAAJA_UID) => doc(db, 'seurat', SEURA_A, 'pelaajat', pid);
   const lue = async (...polku) => { let d; await testEnv.withSecurityRulesDisabled(async (c) => { d = (await getDoc(doc(c.firestore(), ...polku))).data(); }); return d; };
-  const VALINTA = { valittu: 'A', vaihtoehdot: ['A', 'B'], pvm: '2026-10-05' };
+  const VALINTA = { vaihtoehto: 'A', valittu_pvm: '2026-10-05' };
 
-  it('PIN-pelaaja kirjoittaa OMAAN dokkiinsa VAIN ase_valinta (map) → onnistuu, muu data säilyy', async () => {
+  it('PIN-pelaaja kirjoittaa OMAAN dokkiinsa VAIN ydinvahvuus_valinta (map) → onnistuu, muu data säilyy', async () => {
     const db = pelaajaItseContext().firestore();
-    await assertSucceeds(updateDoc(pel(db), { ase_valinta: VALINTA }));
-    const d = await lue('seurat', SEURA_A, 'pelaajat', PELAAJA_UID); expect(d.ase_valinta).toEqual(VALINTA); expect(d.etunimi).toBe('Testi');
-    await assertSucceeds(setDoc(pel(db), { ase_valinta: Object.assign({}, VALINTA, { valittu: 'B' }) }, { merge: true }));
+    await assertSucceeds(updateDoc(pel(db), { ydinvahvuus_valinta: VALINTA }));
+    const d = await lue('seurat', SEURA_A, 'pelaajat', PELAAJA_UID); expect(d.ydinvahvuus_valinta).toEqual(VALINTA); expect(d.etunimi).toBe('Testi');
+    await assertSucceeds(setDoc(pel(db), { ydinvahvuus_valinta: Object.assign({}, VALINTA, { vaihtoehto: 'B' }) }, { merge: true }));
+    await assertSucceeds(updateDoc(pel(db), { ydinvahvuus_valinta: { vaihtoehto: 'omaehdotus' } }));   // valittu_pvm valinnainen
   });
   it('pelaaja EI voi kirjoittaa jaksofokus-kenttää (eikä jaksofokus_historiaa) — ei yksin eikä ase_valinnan kanssa', async () => {
     const db = pelaajaItseContext().firestore();
     await assertFails(updateDoc(pel(db), { jaksofokus: { konsepti_avain: 'y_h2', konsepti_nimi: 'Syöttö', alkoi: '2026-10-05T10:00:00.000Z' } }));
-    await assertFails(updateDoc(pel(db), { ase_valinta: VALINTA, jaksofokus: { konsepti_avain: 'y_h2' } }));
+    await assertFails(updateDoc(pel(db), { ydinvahvuus_valinta: VALINTA, jaksofokus: { konsepti_avain: 'y_h2' } }));
     await assertFails(updateDoc(pel(db), { jaksofokus_historia: [{ konsepti_avain: 'x' }] }));
-    await assertFails(updateDoc(pel(db), { ase_valinta: VALINTA, tukitarve: { alue: 'voima' } }));
+    await assertFails(updateDoc(pel(db), { ydinvahvuus_valinta: VALINTA, tukitarve: { alue: 'voima' } }));
     await assertFails(updateDoc(pel(db), { 'jaksofokus.konsepti_avain': 'y_h3' }));
   });
-  it('ase_valinta pitää olla map (merkkijono/lista/null hylätään); toisen pelaajan istunto, huoltaja, vieras ja kirjautumaton eivät voi kirjoittaa', async () => {
+  it('ydinvahvuus_valinta pitää olla map (merkkijono/lista/null hylätään); toisen pelaajan istunto, huoltaja, vieras ja kirjautumaton eivät voi kirjoittaa', async () => {
     const db = pelaajaItseContext().firestore();
-    for (const v of ['A', ['A'], null, 5, true]) await assertFails(updateDoc(pel(db), { ase_valinta: v }));
-    await assertFails(updateDoc(pel(pelaajaContext(SEURA_A, PELAAJA_A2_UID).firestore()), { ase_valinta: VALINTA }));
-    for (const ctx of [huoltajaContext(), randomContext(), unauthContext()]) await assertFails(updateDoc(pel(ctx.firestore()), { ase_valinta: VALINTA }));
-    expect((await lue('seurat', SEURA_A, 'pelaajat', PELAAJA_UID)).ase_valinta).toBeUndefined();
+    for (const v of ['A', ['A'], null, 5, true]) await assertFails(updateDoc(pel(db), { ydinvahvuus_valinta: v }));
+    await assertFails(updateDoc(pel(pelaajaContext(SEURA_A, PELAAJA_A2_UID).firestore()), { ydinvahvuus_valinta: VALINTA }));
+    for (const ctx of [huoltajaContext(), randomContext(), unauthContext()]) await assertFails(updateDoc(pel(ctx.firestore()), { ydinvahvuus_valinta: VALINTA }));
+    expect((await lue('seurat', SEURA_A, 'pelaajat', PELAAJA_UID)).ydinvahvuus_valinta).toBeUndefined();
+  });
+  it('MUOTO RAJATTU: ylimääräinen avain hylätään; liian pitkä (61 merkkiä) hylätään, 60 sallitaan; tyhjä / ei-merkkijono / puuttuva vaihtoehto hylätään; vanha muoto hylätään', async () => {
+    const db = pelaajaItseContext().firestore();
+    await assertFails(updateDoc(pel(db), { ydinvahvuus_valinta: Object.assign({}, VALINTA, { ylimaarainen: 'x' }) }));
+    await assertFails(updateDoc(pel(db), { ydinvahvuus_valinta: Object.assign({}, VALINTA, { oma_ehdotus: 'x' }) }));
+    await assertFails(updateDoc(pel(db), { ydinvahvuus_valinta: { vaihtoehto: 'x'.repeat(61), valittu_pvm: '2026-10-05' } }));
+    await assertSucceeds(updateDoc(pel(db), { ydinvahvuus_valinta: { vaihtoehto: 'x'.repeat(60), valittu_pvm: '2026-10-05' } }));
+    await assertFails(updateDoc(pel(db), { ydinvahvuus_valinta: { vaihtoehto: '' } }));
+    for (const v of [5, true, null, ['A'], { a: 1 }]) await assertFails(updateDoc(pel(db), { ydinvahvuus_valinta: { vaihtoehto: v } }));
+    await assertFails(updateDoc(pel(db), { ydinvahvuus_valinta: { valittu_pvm: '2026-10-05' } }));                       // vaihtoehto puuttuu
+    await assertFails(updateDoc(pel(db), { ydinvahvuus_valinta: { vaihtoehto: 'A', valittu_pvm: '5.10.2026' } }));        // pvm ei 10 merkkiä
+    await assertFails(updateDoc(pel(db), { ydinvahvuus_valinta: { vaihtoehto: 'A', valittu_pvm: 20261005 } }));
+    await assertFails(updateDoc(pel(db), { ydinvahvuus_valinta: { valittu: 'A', vaihtoehdot: ['A', 'B'], pvm: '2026-10-05' } }));   // aiempi (hylätty) muoto
+    await assertFails(updateDoc(pel(db), { 'ydinvahvuus_valinta.ylimaarainen': 'x' }));
+  });
+  it('SANATESTI: "ase" ei esiinny Firestore-kenttänimissä (säännöt, testit) — neutraalit kenttänimet, näkyvä sana tulee käännöksistä', () => {
+    const rules = readFileSync(RULES_PATH, 'utf8');
+    expect(rules).not.toMatch(/ase_valinta/);
+    // kenttänimi-ilmaisut: hasOnly/hasAll/affectedKeys-listat ja .kenttä-viittaukset eivät sisällä segmenttiä "ase"
+    const nimet = [...rules.matchAll(/\b(?:hasOnly|hasAll|hasAny)\(\[([^\]]*)\]/g)].flatMap((m) => [...m[1].matchAll(/'([^']+)'/g)].map((x) => x[1]));
+    expect(nimet.length).toBeGreaterThan(50);   // ei vacuous
+    expect(nimet.filter((n) => /(^|_)ase(_|$)/i.test(n))).toEqual([]);
+    expect(rules).not.toMatch(/\.ase\b|data\.ase_|'ase'/);
   });
   it('valmentaja/VP kirjoittavat jaksofokuksen kuten ennenkin (aktivointi valmentajan sovelluksessa, D14 A) — ei regressiota', async () => {
     for (const ctx of [valmentajaContext(VALM_A_UID, SEURA_A), vpContext(SEURA_A)]) await assertSucceeds(updateDoc(pel(ctx.firestore()), { jaksofokus: { konsepti_avain: 'y_h2', konsepti_nimi: 'Syöttö', alkoi: '2026-10-05T10:00:00.000Z' } }));
@@ -3995,6 +4019,18 @@ describe('v3.37 · joukkueen jakso (joukkueet/{id}): valmentaja vain jaksokentä
     await assertFails(setDoc(jk(db, 'fcl_uusi'), { jaksofokus: JF }));                          // valmentaja ei luo (puuttuva dokumentti: johto luo)
     await assertFails(deleteDoc(jk(db, JOUKKUE_A1)));
     expect((await lue(JOUKKUE_A1)).nimi).toBe('FCL U12'); expect((await lue(JOUKKUE_A2)).jaksofokus).toBeUndefined();
+  });
+  it('TALENTTIVALMENTAJA (ei ollut oikeutta ennen v3.37:ää) VAIN jaksokentät: jaksofokus + historia kaikkiin joukkueisiin onnistuu, mutta nimi / koko dokumentin muutos / luonti / poisto hylätään', async () => {
+    const db = talenttivalmentajaContext('talval-fcl-001', SEURA_A).firestore();
+    await assertSucceeds(updateDoc(jk(db, JOUKKUE_A1), { jaksofokus: JF, jaksofokus_historia: FS_MOD.arrayUnion({ konsepti_avain: 'y_h1', sulkutapa: 'korvattu' }) }));
+    await assertSucceeds(updateDoc(jk(db, JOUKKUE_A2), { jaksofokus: JF }));
+    for (const id of [JOUKKUE_A1, JOUKKUE_A2]) { await assertFails(updateDoc(jk(db, id), { nimi: 'Hakkeroitu' })); await assertFails(updateDoc(jk(db, id), { jaksofokus: JF, nimi: 'Hakkeroitu' })); await assertFails(setDoc(jk(db, id), { nimi: 'Korvattu' })); await assertFails(deleteDoc(jk(db, id))); }
+    await assertFails(setDoc(jk(db, 'fcl_uusi'), { jaksofokus: JF }));
+    expect((await lue(JOUKKUE_A1)).nimi).toBe('FCL U12'); expect((await lue(JOUKKUE_A2)).nimi).toBe('FCL U14');
+  });
+  it('KOKO dokumentin saavat päivittää vain johto (VP, urheilutoimenjohtaja, seurasihteeri) ja SA', async () => {
+    for (const ctx of [vpContext(SEURA_A), sihteeriContext(SEURA_A), saContext(), testEnv.authenticatedContext('utj-1', { rooli: 'urheilutoimenjohtaja', seuraId: SEURA_A })]) await assertSucceeds(updateDoc(jk(ctx.firestore(), JOUKKUE_A1), { nimi: 'FCL U12 (uusi)' }));
+    for (const ctx of [valmentajaContext(VALM_A_UID, SEURA_A), talenttivalmentajaContext('talval-fcl-001', SEURA_A)]) await assertFails(updateDoc(jk(ctx.firestore(), JOUKKUE_A1), { nimi: 'X' }));
   });
   it('talenttivalmentaja, VP ja SA: kaikkien joukkueiden jaksokentät; johto (VP, seurasihteeri) luo ja poistaa joukkuedokumentin (ennallaan)', async () => {
     for (const ctx of [talenttivalmentajaContext('talval-fcl-001', SEURA_A), vpContext(SEURA_A), saContext()]) {

@@ -6,10 +6,9 @@ rules_version = '2';
 // Deploy: PR → N4-CI deployaa automaattisesti (Console-käsityö poistui).
 //
 // Muutokset v3.36 → v3.37 (R6.3-B: jakson pelaajan valinta, joukkueen jakso, kuittaus; 5.10.2026 — kaikki additiivisia, ei migraatiota):
-//   · seurat/{sid}/pelaajat/{pid}: update += PIN-pelaaja (onPelaajaItse) VAIN `ase_valinta` (map) — D8: pelaaja valitsee reitin, EI voi kirjoittaa
+//   · seurat/{sid}/pelaajat/{pid}: update += PIN-pelaaja (onPelaajaItse) VAIN `ydinvahvuus_valinta` (map {vaihtoehto ≤ 60 merkkiä, valittu_pvm?}, keys().hasOnly) — D8: pelaaja valitsee, EI voi kirjoittaa
 //     jaksofokus-kenttää (jakso alkaa vasta valmentajan vahvistuksesta/aktivoinnista, D14).
-//   · seurat/{sid}/joukkueet/{jid}: `allow write` jaettu — create + delete ennallaan (SA | johto), update += valmentaja (oman joukkueen valmentaja; talenttivalmentaja/
-//     vp/urheilutoimenjohtaja koko seuraan) VAIN affectedKeys().hasOnly(['jaksofokus','jaksofokus_historia']) (joukkueen jakso, sama tmAsetaJaksofokus). Valmentaja EI luo joukkuedokumenttia.
+//   · seurat/{sid}/joukkueet/{jid}: `allow write` jaettu — create + delete ennallaan (SA | johto), update += valmentaja (oman joukkueen valmentaja; talenttivalmentaja koko seuraan — EI ollut oikeutta ennen v3.37:ää) VAIN affectedKeys().hasOnly(['jaksofokus','jaksofokus_historia']) (joukkueen jakso, sama tmAsetaJaksofokus). Valmentaja EI luo joukkuedokumenttia.
 //   · seurat/{sid}/pelaajat/{pid}/kirjaukset/{pvm}: update += U12-huoltaja (onU12HuoltajaIka) VAIN `jakso_kuittaus` (map, lahde=='vanhempi') — kuittaus ei vaadi top-level lahde-kentän
 //     ylikirjoitusta (aiempi onU12Huoltaja vaati lahde=='vanhempi' koko dokista → merge olisi pyyhkinyt pelaajan kirjauksen lahteen). Pelaaja itse kuittaa jo nykyisillä oikeuksilla.
 //
@@ -995,10 +994,19 @@ service cloud.firestore {
                       // P7-c.4a — PIN-pelaaja/vanhempi: oma notif-asetus (opt-out / hiljaiset tunnit). Sama anon-luottamusmalli.
                       || (onPelaajaItse(seuraId, pelaajaId) && request.resource.data.diff(resource.data).affectedKeys()
                           .hasOnly(['notif_asetukset']))
-                      // R6.3-B (v3.37) — PIN-pelaaja: oma reitinvalinta (D8, `ase_valinta`). VAIN tämä kenttä (map) → pelaaja ei voi kirjoittaa jaksofokus-kenttää.
+                      // R6.3-B (v3.37) — PIN-pelaaja: oma valinta (D8, `ydinvahvuus_valinta`; kenttänimi neutraali, sana käännöksistä). VAIN tämä kenttä → pelaaja ei voi kirjoittaa
+                      // jaksofokus-kenttää. Muoto rajattu heti: map {vaihtoehto (merkkijono ≤ 60), valittu_pvm (valinnainen, YYYY-MM-DD)}; tiukennetaan kun K3 lukitaan.
                       || (onPelaajaItse(seuraId, pelaajaId) && request.resource.data.diff(resource.data).affectedKeys()
-                          .hasOnly(['ase_valinta'])
-                          && request.resource.data.ase_valinta is map)
+                          .hasOnly(['ydinvahvuus_valinta'])
+                          && request.resource.data.ydinvahvuus_valinta is map
+                          && request.resource.data.ydinvahvuus_valinta.keys().hasOnly(['vaihtoehto', 'valittu_pvm'])
+                          && request.resource.data.ydinvahvuus_valinta.keys().hasAll(['vaihtoehto'])
+                          && request.resource.data.ydinvahvuus_valinta.vaihtoehto is string
+                          && request.resource.data.ydinvahvuus_valinta.vaihtoehto.size() > 0
+                          && request.resource.data.ydinvahvuus_valinta.vaihtoehto.size() <= 60
+                          && (!('valittu_pvm' in request.resource.data.ydinvahvuus_valinta)
+                              || (request.resource.data.ydinvahvuus_valinta.valittu_pvm is string
+                                  && request.resource.data.ydinvahvuus_valinta.valittu_pvm.size() == 10)))
                       // Vaihe 4a — jaksofokus + tt_positio_aktiivinen (operatiivinen teknis-taktinen pelitavoite, §4
                       // roolimalli). Kenttäomistajuus: valmentaja/talenttivalmentaja/VP (onValmentajaRooli) saavat
                       // jo koko-dokin updaten (yllä); tämä tekee EKSPLISIITTISEKSI että myös johto (onJohtoRooli =
@@ -1400,7 +1408,7 @@ service cloud.firestore {
         allow create, delete: if onSuperAdmin() || (onOmaSeura(seuraId) && onJohtoRooli());
         allow update: if onSuperAdmin() || (onOmaSeura(seuraId) && onJohtoRooli())
                       || (onOmanSeuranValmentaja(seuraId)
-                          && (request.auth.token.rooli in ['talenttivalmentaja', 'vp', 'urheilutoimenjohtaja']
+                          && (request.auth.token.rooli == 'talenttivalmentaja'
                               || valmentajanJoukkueet(seuraId).hasAny([joukkueId]))
                           && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['jaksofokus', 'jaksofokus_historia']));
 
