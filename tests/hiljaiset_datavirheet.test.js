@@ -100,7 +100,7 @@ describe('a) Testituonti_Master · ttTallennaPelaaja', () => {
 });
 
 // ─── b) ADAR_Pikakortti ───────────────────────────────────────────────────────────────────────────────────
-describe('b) ADAR_Pikakortti · havainto + adar_*-pikakentät batchina', () => {
+describe('b) ADAR_Pikakortti · havainto + havainto_viimeisin_pvm batchina, adar_*-pikakentät erikseen', () => {
   const A = lue('TalentMaster_ADAR_Pikakortti.html');
   const PEL = 'seurat/kpv/pelaajat/p1';
   const aja = (m, laske, onLahetetty) => {
@@ -111,19 +111,19 @@ describe('b) ADAR_Pikakortti · havainto + adar_*-pikakentät batchina', () => {
     vm.createContext(ctx);
     vm.runInContext(pura(A, 'function _phPelaajaRef(') + '\n' + pura(A, 'async function _phKirjoitaHavaintoJaPikakentat(') + '\nthis.f = _phKirjoitaHavaintoJaPikakentat; this.ref = _phPelaajaRef;', ctx);
     const havRef = ctx.ref('kpv', 'p1').collection('havainnot').doc('h2');
-    return { p: ctx.f(havRef, { pisteet: { A: 2 }, porras: 1 }, 'kpv', 'p1', 1, true, onLahetetty), nahdyt, ctx };
+    return { p: ctx.f(havRef, { pisteet: { A: 2 }, porras: 1, pvm: '2026-10-03' }, 'kpv', 'p1', 1, true, onLahetetty), nahdyt, ctx };
   };
   const HAV = PEL + '/havainnot/h2', HAV3 = PEL + '/havainnot/h3';
-  it('havainto OMANA kirjoituksenaan ENSIN, pikakentät (adar_viimeisin + adar_pvm yhdessä) erikseen; uusi havainto mukana laskennassa', async () => {
+  it('havainto + havainto_viimeisin_pvm YHDESSÄ BATCHISSA (R6.2b-jatko, §26), johdetut adar_* (adar_viimeisin + adar_pvm yhdessä) erikseen; uusi havainto mukana laskennassa', async () => {
     const m = mockDb({ docs: { [PEL]: { etunimi: 'Topias' }, [PEL + '/havainnot/h1']: { pisteet: { A: 1 } } } });
     let lahetetty = false;
     const r = aja(m, null, () => { lahetetty = true; });
     await r.p;
     expect(lahetetty).toBe(true);
     expect(r.nahdyt).toEqual([2]);
-    expect(m.db.erilliset, 'järjestys: havainto ensin, sitten pelaajan pikakentät').toEqual([HAV, PEL]);
-    expect(m.db.batches, 'EI yhteistä batchia: toisen opin hylkäys veisi havainnon').toEqual([]);
-    expect(m.docs[PEL]).toMatchObject({ adar_pvm: '2026-10-03', adar_viimeisin: { pvm: '2026-10-03' }, havainto_porras: 1 });
+    expect(m.db.batches, 'havainto + rytmikenttä atomisesti (Rules-pariteetti: samat roolit saavat molemmat — tests/rules)').toEqual([['set ' + HAV, 'set ' + PEL]]);
+    expect(m.db.erilliset, 'johdetut adar_*-pikakentät ERIKSEEN (niiden epäonnistuminen ei saa hävittää havaintoa)').toEqual([PEL]);
+    expect(m.docs[PEL]).toMatchObject({ adar_pvm: '2026-10-03', adar_viimeisin: { pvm: '2026-10-03' }, havainto_porras: 1, havainto_viimeisin_pvm: '2026-10-03' });
     expect(r.ctx.window._pelaajaMap.p1.adar_pvm).toBe('2026-10-03');
   });
   it('havainnon kirjoitus epäonnistuu → promise hylkää (UI näyttää virheen); ei pikakenttien sivuvaikutusta havainnon puuttuessa ei ole estetty', async () => {
@@ -131,10 +131,10 @@ describe('b) ADAR_Pikakortti · havainto + adar_*-pikakentät batchina', () => {
     await expect(aja(m).p).rejects.toThrow();
     expect(m.docs[HAV], 'havaintoa ei saa olla').toBeUndefined();
   });
-  it('pikakenttälaskenta kaatuu → havainto kirjoitetaan silti (data ei katoa), pikakentät seuraavalla', async () => {
+  it('pikakenttälaskenta kaatuu → havainto + havainto_viimeisin_pvm kirjoitetaan silti batchissa (data ei katoa), adar_* seuraavalla', async () => {
     const m = mockDb({ docs: { [PEL]: {} } });
     await aja(m, () => { throw new Error('laskenta'); }).p;
-    expect(m.db.erilliset).toEqual([HAV]);
+    expect(m.db.batches).toEqual([['set ' + HAV, 'set ' + PEL]]); expect(m.db.erilliset).toEqual([]); expect(m.docs[PEL].havainto_viimeisin_pvm).toBe('2026-10-03');
   });
   it('pikakenttäkirjoitus hylätään (esim. Rules) → havainto silti tallessa JA promise ei hylkää (EI vacuous: pelaajadokin set todella heittää)', async () => {
     const m = mockDb({ docs: { [PEL]: { etunimi: 'Topias' } } });

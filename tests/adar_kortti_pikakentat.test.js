@@ -25,8 +25,10 @@ describe('ADAR · _phKirjoitaHavaintoJaPikakentat kertoo pikakenttien tuloksen',
     const kirjatut = [];
     const pRef = { id: 'p1', collection: () => ({ get: async () => ({ docs: [] }) }), get: async () => ({ exists: true, data: () => ({}) }),
       set: async (d) => { if (pikakenttaHylkaa) throw Object.assign(new Error('denied'), { code: 'permission-denied' }); kirjatut.push('pelaaja'); } };
-    const havRef = { id: 'h1', set: async () => { kirjatut.push('havainto'); } };
-    const ctx = { _PH_DB: {}, _phPelaajaRef: () => pRef, _phIka: () => 13, console: { warn() {} }, window: { _pelaajaMap: {} }, Date,
+    const havRef = { id: 'h1' };
+    // R6.2b-jatko: havainto kirjoitetaan BATCHILLA (+ havainto_viimeisin_pvm); adar_*-pikakentät erillisellä setillä
+    const _PH_DB = { batch: () => { const ops = []; return { set: (ref) => { ops.push(ref); }, commit: async () => { ops.forEach((r) => { if (r === havRef) kirjatut.push('havainto'); else { if (pikakenttaHylkaa) throw Object.assign(new Error('denied'), { code: 'permission-denied' }); kirjatut.push('pelaaja'); } }); } }; } };
+    const ctx = { _PH_DB, _phPelaajaRef: () => pRef, _phIka: () => 13, console: { warn() {} }, window: { _pelaajaMap: {} }, Date,
       tmAdarPikakentat: () => kentat };
     vm.createContext(ctx);
     vm.runInContext(pura(ADAR, 'async function _phKirjoitaHavaintoJaPikakentat(') + '\nthis.f = _phKirjoitaHavaintoJaPikakentat;', ctx);
