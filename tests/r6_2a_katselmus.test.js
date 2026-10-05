@@ -160,7 +160,7 @@ describe('sama päivä: MDT + cockpit eivät pyyhi toistensa kenttiä (merge)', 
 
 describe('lähdevartijat', () => {
   it('cockpit kutsuu yhteistä kirjoittajaa; MDT ja bulk päivittävät lokaalin planin pikakentistä (ei kovakoodattua mdr)', () => {
-    expect(pura('window._vpTallennaReview = async function')).toMatch(/await _vpKirjoitaReview\(p\.id, _pvm, _katselmus, p\)/);
+    expect(pura('window._vpTallennaReview = async function')).toMatch(/await _vpKirjoitaReview\(p\.id, _pvm, _katselmus, p, _vplan \? _vplan\.kirjoitus : null\)/);
     expect(pura('window._mdtMerkitseReview = async function')).toMatch(/Object\.assign\(p, _plan\.pikakentat\)/);
     expect(pura('window._vpCockpitBulkMerkitse = async function')).toMatch(/Object\.assign\(p, _plan\.pikakentat\)/);
     expect(pura('async function _vpKirjoitaReview(')).toMatch(/tmKirjaaKatselmus/);
