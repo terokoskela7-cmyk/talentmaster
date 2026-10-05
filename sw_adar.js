@@ -16,7 +16,7 @@
 /* v2 (tietosuoja, vaihe 1): kuvatoiminto poistettu. Versio ON nostettava — muuten vanha,
    kuvallinen HTML palvelisi yhä välimuistista ja kuvia voisi yhä lähettää. activate siivoaa
    kaikki muut cachet kuin nykyisen. */
-const CACHE = 'tm-adar-v9';   // havainto_viimeisin_pvm (havaintorytmi) — v8 = isäntäviesti vasta kuittauksen jälkeen + pikakenttien tulos mukana
+const CACHE = 'tm-adar-v10';   // havainto + havainto_viimeisin_pvm samassa batchissa — v9 = havainto_viimeisin_pvm (havaintorytmi) — v8 = isäntäviesti vasta kuittauksen jälkeen + pikakenttien tulos mukana
 
 const OMA_HTML = '/TalentMaster_ADAR_Pikakortti.html';
 

@@ -1147,27 +1147,28 @@ async function _phKirjoitaHavaintoJaPikakentat(havRef, data, seuraId, pelaajaId,
       ? tmAdarPikakentat(havainnot, _phIka(pelaajaId), porras, { edellinen: _oldAv }) : null;
     if (kentat && kirjoitaPorras) kentat.havainto_porras = porras;
   } catch (e) { console.warn('[ADAR pikakentat]', e && (e.code || e.message)); kentat = null; }
-  /* HAVAINTO ENSIN OMANA KIRJOITUKSENAAN, pikakentät erikseen (ei samaa batchia): batch hylkäytyy kokonaan jos EDES YKSI
-     op kielletään, jolloin havainto katoaisi pikakenttäoikeuden takia. Havainto on ensisijainen tieto; pikakentät ovat
-     johdettua (lasketaan uudelleen seuraavalla havainnolla). Molemmat annetaan Firestorelle heti (jonottuvat järjestyksessä
-     myös offline-tilassa); vain havainnon epäonnistuminen palautetaan kutsujalle. Pari adar_viimeisin+adar_pvm pysyy atomisena
-     (yksi set, §26). */
-  var commit = havRef.set(data);
-  /* commit.pikakentat = lupaus joka AINA resolvaa {ok, code}: kutsuja (Master) tietää onnistuiko yhteenveto. Aiemmin vain
-     console.warn → pikakenttien epäonnistuminen oli täysin näkymätön ja Masterin kortti jäi "ei havaintoja". */
-  /* havainto_viimeisin_pvm (havaintorytmi, lib/tm_seuraava_askel.js): KAIKKI henkilökunnan havainnot (myös ilman pisteitä), ei vain pisteelliset
-     kuten adar_pvm. Havainnon päivä (paikallinen, §7.26); ei koskaan taaksepäin (offline-synkka tuo vanhan päivän: max). Samassa setissä kuin adar_*. */
+  /* HAVAINTO + havainto_viimeisin_pvm SAMASSA BATCHISSA (§26): jokainen havainto päivittää havaintorytmin pikakentän atomisesti — ei "havainto tehty mutta rytmi
+     ei nollautunut" -väärää hälytystä (pilotti). Rules: havainnot.create = SA | onOmanJoukkueenValmentaja, pelaajadokin update sallii täsmälleen samat roolit →
+     kenttä sallittu samoille rooleille, batch ei hylkäydy oikeuksien takia (testit: tests/rules). Havainto hylätään vain jos oikeasti ei saa kirjoittaa.
+     Johdetut adar_*-pikakentät pysyvät ERIKSEEN (laskettu, lasketaan uudelleen seuraavalla havainnolla; niiden epäonnistuminen ei saa hävittää havaintoa).
+     Batch jonottuu offline-tilassa atomisena; adar_*-set annetaan heti perään (järjestys säilyy). Vain batchin epäonnistuminen palautetaan kutsujalle. */
+  /* havainto_viimeisin_pvm: KAIKKI henkilökunnan havainnot (myös ilman pisteitä), ei vain pisteelliset kuten adar_pvm. Havainnon päivä (paikallinen, §7.26);
+     myöhempi päivämäärä säilyy (offline-synkka tuo vanhan päivän: max). */
   var havPvm = (typeof data.pvm === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(data.pvm)) ? data.pvm : null;
   if (havPvm && typeof havVanha === 'string' && havVanha > havPvm) havPvm = havVanha;
-  var kirj = Object.assign({}, kentat || {});
-  if (havPvm) kirj.havainto_viimeisin_pvm = havPvm;
-  var pikakentat = Object.keys(kirj).length
-    ? pRef.set(kirj, { merge: true }).then(function () { return kentat ? { ok: true } : { ok: false, code: 'laskenta' }; }, function (e) {
+  var batch = _PH_DB.batch();
+  batch.set(havRef, data);
+  if (havPvm) batch.set(pRef, { havainto_viimeisin_pvm: havPvm }, { merge: true });
+  var commit = batch.commit();
+  /* commit.pikakentat = lupaus joka AINA resolvaa {ok, code}: kutsuja (Master) tietää onnistuiko adar-yhteenveto. Aiemmin vain
+     console.warn → pikakenttien epäonnistuminen oli täysin näkymätön ja Masterin kortti jäi "ei havaintoja". */
+  var pikakentat = kentat
+    ? pRef.set(kentat, { merge: true }).then(function () { return { ok: true }; }, function (e) {
         console.warn('[ADAR pikakentat kirjoitus]', e && (e.code || e.message));
         return { ok: false, code: (e && e.code) || 'virhe' };
       })
     : Promise.resolve({ ok: false, code: 'laskenta' });
-  /* Palautettava lupaus resolvaa kun HAVAINTO on kuitattu, arvona pikakenttien tulos {ok, code}; hylkää jos havainto hylätään. */
+  /* Palautettava lupaus resolvaa kun batch (havainto + havainto_viimeisin_pvm) on kuitattu, arvona adar-pikakenttien tulos {ok, code}; hylkää jos batch hylätään. */
   commit = commit.then(function () { return pikakentat; });
   if (typeof onLahetetty === 'function') onLahetetty();
   if (kentat && window._pelaajaMap && window._pelaajaMap[pelaajaId]) {   // paikallinen map (§26), kuten _phPaivitaPikakentat

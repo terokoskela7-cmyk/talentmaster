@@ -3872,3 +3872,68 @@ describe('§26 atomiset batchit: testitulos/review + pikakentät', () => {
     expect(await lue(['seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'reviewit', '2026-10-03'])).toBeUndefined();
   });
 });
+
+/* ══ havainto + havainto_viimeisin_pvm samassa batchissa (§26) — ADAR-pikakortin _phKirjoitaHavaintoJaPikakentat ══
+   Rules EI muutu (v3.36 pysyy): havainnot.create = super_admin | onOmanJoukkueenValmentaja; pelaajadokin update sallii täsmälleen nämä roolit
+   (+ testivastaava ym. jotka eivät luo havaintoja) ilman kenttälistaa → havainto_viimeisin_pvm on sallittu samoille rooleille, jotka saavat kirjoittaa havaintoja. */
+describe('havainto + havainto_viimeisin_pvm samassa batchissa', () => {
+  beforeEach(async () => { await seedAdminDoc(); await seedSeuraAndPelaaja(); });
+  const pelDoc = (db, pid) => doc(db, 'seurat', SEURA_A, 'pelaajat', pid);
+  const lue = async (...polku) => { let d; await testEnv.withSecurityRulesDisabled(async (c) => { d = (await getDoc(doc(c.firestore(), ...polku))).data(); }); return d; };
+  const HAV = (pid) => ({ tyyppi: 'adar_pikakortti', tila: 'valmis', pisteet: { A: 2 }, pvm: '2026-10-05', pelaaja_id: pid, seura_id: SEURA_A, luotu: new Date() });
+  const batchKirjaus = (db, pid, hid) => {
+    const b = FS_MOD.writeBatch(db);
+    b.set(doc(db, 'seurat', SEURA_A, 'pelaajat', pid, 'havainnot', hid), HAV(pid));
+    b.set(pelDoc(db, pid), { havainto_viimeisin_pvm: '2026-10-05' }, { merge: true });
+    return b;
+  };
+
+  it('oman joukkueen valmentaja, talenttivalmentaja, VP ja super_admin: havainto + havainto_viimeisin_pvm yhdessä batchissa onnistuu; kenttä ja havainto tallessa', async () => {
+    const tapaukset = [[valmentajaContext(VALM_A_UID, SEURA_A), 'h-valm'], [talenttivalmentajaContext('talval-fcl-001', SEURA_A), 'h-talval'], [vpContext(SEURA_A), 'h-vp'], [saContext(), 'h-sa']];
+    for (const [ctx, hid] of tapaukset) {
+      await assertSucceeds(batchKirjaus(ctx.firestore(), PELAAJA_UID, hid).commit());
+      expect((await lue('seurat', SEURA_A, 'pelaajat', PELAAJA_UID)).havainto_viimeisin_pvm, hid).toBe('2026-10-05');
+      expect(await lue('seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'havainnot', hid), hid).toBeTruthy();
+    }
+  });
+  it('myöhempi päivämäärä säilyy: päivitys uudemmalla päivällä menee läpi (merge), kentän lukeminen ennen kirjoitusta on clientin max-logiikkaa (ADAR-testit)', async () => {
+    const db = valmentajaContext(VALM_A_UID, SEURA_A).firestore();
+    await assertSucceeds(batchKirjaus(db, PELAAJA_UID, 'h1x').commit());
+    const b = FS_MOD.writeBatch(db);
+    b.set(doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'havainnot', 'h2x'), Object.assign(HAV(PELAAJA_UID), { pvm: '2026-10-09' }));
+    b.set(pelDoc(db, PELAAJA_UID), { havainto_viimeisin_pvm: '2026-10-09' }, { merge: true });
+    await assertSucceeds(b.commit());
+    expect((await lue('seurat', SEURA_A, 'pelaajat', PELAAJA_UID)).havainto_viimeisin_pvm).toBe('2026-10-09');
+  });
+  it('ATOMISUUS: valmentaja MUUN joukkueen pelaajaan → koko batch hylätään (ei havaintoa, ei rytmikenttää)', async () => {
+    const db = valmentajaContext(VALM_A_UID, SEURA_A).firestore();
+    await assertFails(batchKirjaus(db, PELAAJA_A2_UID, 'h-muu').commit());
+    expect((await lue('seurat', SEURA_A, 'pelaajat', PELAAJA_A2_UID)).havainto_viimeisin_pvm).toBeUndefined();
+    expect(await lue('seurat', SEURA_A, 'pelaajat', PELAAJA_A2_UID, 'havainnot', 'h-muu')).toBeUndefined();
+  });
+  it('PARITEETTI: kaikki roolit joille havainnot.create on sallittu saavat myös päivittää havainto_viimeisin_pvm (kenttä ⊇ havaintojen kirjoittajat); batch onnistuu täsmälleen heille', async () => {
+    const roolit = {
+      valmentaja: valmentajaContext(VALM_A_UID, SEURA_A), talenttivalmentaja: talenttivalmentajaContext('talval-fcl-001', SEURA_A), vp: vpContext(SEURA_A), sa: saContext(),
+      fysioterapeutti: fysioterapeuttiContext('fysio-1', SEURA_A), fysiikkavalmentaja: fysiikkavalmentajaContext('fysiikka-1', SEURA_A), seurasihteeri: sihteeriContext(SEURA_A),
+      testivastaava: testivastaavaContext(SEURA_A), pelaajaItse: pelaajaItseContext(), huoltaja: huoltajaContext(), vieras: randomContext(), kirjautumaton: unauthContext(),
+    };
+    let i = 0, luojia = 0;
+    for (const [nimi, ctx] of Object.entries(roolit)) {
+      const db = ctx.firestore(); i++;
+      let luo = false, kentta = false;
+      try { await assertSucceeds(setDoc(doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'havainnot', 'p-' + i), HAV(PELAAJA_UID))); luo = true; } catch (e) { luo = false; }
+      try { await assertSucceeds(updateDoc(pelDoc(db, PELAAJA_UID), { havainto_viimeisin_pvm: '2026-10-05' })); kentta = true; } catch (e) { kentta = false; }
+      let batch = false;
+      try { await assertSucceeds(batchKirjaus(db, PELAAJA_UID, 'b-' + i).commit()); batch = true; } catch (e) { batch = false; }
+      if (luo) { luojia++; expect(kentta, nimi + ': saa luoda havainnon mutta ei päivittää kenttää → batch hylkäytyisi').toBe(true); }
+      expect(batch, nimi + ': batch onnistuu täsmälleen kun molemmat sallittu').toBe(luo && kentta);
+    }
+    expect(luojia, 'ei vacuous: vähintään valmentaja, talenttivalmentaja, VP, SA luovat').toBeGreaterThanOrEqual(4);
+  });
+  it('ulkopuoliset: toisen seuran käyttäjä, pelaaja, huoltaja ja seurasihteeri EIVÄT kirjoita havaintoa + kenttää', async () => {
+    for (const ctx of [randomContext(), pelaajaItseContext(), huoltajaContext(), sihteeriContext(SEURA_A), unauthContext()]) {
+      await assertFails(batchKirjaus(ctx.firestore(), PELAAJA_UID, 'h-ei').commit());
+    }
+    expect((await lue('seurat', SEURA_A, 'pelaajat', PELAAJA_UID)).havainto_viimeisin_pvm).toBeUndefined();
+  });
+});
