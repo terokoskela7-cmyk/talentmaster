@@ -15,8 +15,16 @@ Visuaalinen ja looginen totuus IDP:lle, kehitystyöpöydälle, VP:n pelaajarapor
 | `06_design_v2_luettavuus.html` | 7 luettavuussääntöä, tokenit, ennen/jälkeen | T1/T2 |
 | `07_avoimet_paatokset.html` | D1–D9 + P selitettynä | päätökset |
 | `08_looginen_jatkumo_perustelut.html` | Silmukan, roolien ja teknisen selkärangan (`lib/tm_kehityssilmukka.js`) perustelut | tausta |
+| `09_pelaaja_kentta.html` | **Pelaaja-appin ilme "Kenttä"** (hyväksytty 5.10.): ase on alue kentällä, jakso on reitti, viikot merkkejä. Tänään (kaikki tilat ja kaikki v7-lohkot), Valitse reitti (D8), Oma kenttä, U8–12, valmentajan joukkuekenttä ja jakson aloitus, katselmus, huoltaja, tokenit. Puhelinkuvat: `kuvat/09_*.png` | **pelaaja-SSOT** |
+| `10_pelaaja_v7_kentta_suunnitelma.html` | Pelaaja_v7:n analyysi koodista ja siirtymä Kenttään: K0–K7 (pelaaja) + V1–V3 (valmentaja), lipun takana, additiivinen data, päätökset P1–P6 (= 07: D10–D15) | Pelaaja_v7 |
+| `11_keskuspuolustajan_idp_malli.html` | Keskuspuolustajan IDP-malli: profiilit, 5 käyttäytymistä, 💎 Ase, pelipaikka U14+ sanoin (05 P19) | pelipaikka |
 
-Brief: `docs/CODE_BRIEF_DESIGN_V2_T1_KONTRASTI.md`.
+Briefit: `docs/CODE_BRIEF_DESIGN_V2_T1_KONTRASTI.md`, `docs/CODE_BRIEF_KENTTA_K0.md` (Kenttä-kirjasto, odottaa D10–D11).
+
+## Etusijajärjestys (5.10.2026)
+- **Pelaajan ja huoltajan näkymissä 09 voittaa 05:n.** 05 pysyy voimassa rakenteen (Tänään · Minä · Joukkue, P1–P19) ja ehdollisten lohkojen osalta; hero, jakson valinta ja Minä-sivun kärki tulevat 09:stä.
+- Valmentajan ja VP:n näkymissä 01 ja 02 pysyvät pää-SSOT:na; 09:n valmentajanäkymät (joukkuekenttä, jakson aloitus kentällä, katselmus kentällä) täydentävät 01:n askelmallia, eivät korvaa sitä.
+- Kenttä-toteutus alkaa vasta kun 07:n D10–D11 on päätetty (tokenit, fontti). Järjestys ja laajuus: 10.
 
 ## Säännöt toteutukseen
 - Esimerkkidata on osin keksittyä. Topias K. (KPV U13) on testipelaaja; muut nimet keksittyjä.

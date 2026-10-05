@@ -1,0 +1,302 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Keskuspuolustajan IDP-malli</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,400&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* Layout: neljän askeleen ketju (profiili → käyttäytyminen → luvut → IDP-kortti), lopussa kortti ja TalentMaster-kytkentä. TalentMaster-tokenit, tumma ensin. */
+:root{
+  --teal:#1A7A5E;--teal-d:#28B090;--amber:#E0A040;--blue:#5A8DD0;
+  --font-serif:'Cormorant Garamond',Georgia,serif;--font-sans:'DM Sans',system-ui,sans-serif;--font-mono:'DM Mono',ui-monospace,monospace;
+  --bg:#111110;--surface:#1E1E1C;--surface2:#26261F;--ink:#F2EFE6;--ink2:#C9C6BC;--ink3:#8B887F;
+  --border:rgba(242,239,230,.12);--border2:rgba(242,239,230,.07);
+  --teal-dim:rgba(40,176,144,.10);--teal-brd:rgba(40,176,144,.30);--amber-dim:rgba(224,160,64,.10);--amber-brd:rgba(224,160,64,.30);
+  --ring:var(--teal-d);color-scheme:dark}
+@media (prefers-color-scheme:light){:root:not([data-theme="dark"]){--bg:#F2EFE6;--surface:#FBFAF6;--surface2:#EDEAE0;--ink:#1C1C1A;--ink2:#3E3C37;--ink3:#7A776E;--border:rgba(28,28,26,.14);--border2:rgba(28,28,26,.08);--teal-dim:rgba(26,122,94,.10);--teal-brd:rgba(26,122,94,.30);--amber-dim:rgba(224,160,64,.14);--amber-brd:rgba(224,160,64,.40);--ring:var(--teal);color-scheme:light}}
+:root[data-theme="light"]{--bg:#F2EFE6;--surface:#FBFAF6;--surface2:#EDEAE0;--ink:#1C1C1A;--ink2:#3E3C37;--ink3:#7A776E;--border:rgba(28,28,26,.14);--border2:rgba(28,28,26,.08);--teal-dim:rgba(26,122,94,.10);--teal-brd:rgba(26,122,94,.30);--amber-dim:rgba(224,160,64,.14);--amber-brd:rgba(224,160,64,.40);--ring:var(--teal);color-scheme:light}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--ink);font-family:var(--font-sans);font-weight:300;line-height:1.6;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1120px;margin:0 auto;padding-inline:20px;padding-block:48px 72px}
+.eb{font-size:10px;font-weight:600;letter-spacing:.2em;text-transform:uppercase;color:var(--teal-d)}
+.eb.dim{color:var(--ink3)}
+h1{font-family:var(--font-serif);font-weight:300;font-size:clamp(36px,6vw,60px);line-height:1.04;text-wrap:balance;margin:14px 0 14px}
+h1 em,h2 em{font-style:italic;color:var(--teal-d)}
+h2{font-family:var(--font-serif);font-weight:400;font-size:clamp(26px,3.6vw,32px);line-height:1.15;text-wrap:balance}
+h3{font-family:var(--font-serif);font-weight:500;font-size:20px;line-height:1.25}
+p{max-width:68ch}
+.lede{font-size:17px;color:var(--ink2)}
+.mut{color:var(--ink3);font-size:13px}
+.sec{margin-top:64px}
+.sh{margin-bottom:18px;display:grid;gap:6px}
+.card{background:var(--surface);border:.5px solid var(--border);border-radius:3px;padding:20px 22px;min-width:0}
+.card.ac{border-left:2px solid var(--teal-d)}
+.badge{display:inline-block;font-size:9px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;padding:4px 9px;color:var(--teal-d);border:.5px solid var(--teal-brd);background:var(--teal-dim);white-space:nowrap}
+.badge.am{color:var(--amber);border-color:var(--amber-brd);background:var(--amber-dim)}
+.badge.gh{color:var(--ink3);border-color:var(--border);background:transparent}
+.mono{font-family:var(--font-mono);font-size:11px;color:var(--ink3)}
+.sig{font-family:var(--font-serif);font-style:italic;font-size:17px;color:var(--ink2)}
+/* ketju */
+.chain{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:0;border:.5px solid var(--border);background:var(--surface)}
+.step{padding:18px 18px 20px;border-right:.5px solid var(--border);display:grid;gap:6px;align-content:start}
+.step:last-child{border-right:0}
+.step .n{font-family:var(--font-mono);font-size:11px;color:var(--teal-d)}
+.step .q{font-size:13px;color:var(--ink2)}
+.step .k{font-family:var(--font-serif);font-size:15px;font-style:italic;color:var(--ink3)}
+/* profiili */
+.g3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+.pbtn{all:unset;box-sizing:border-box;cursor:pointer;background:var(--surface);border:.5px solid var(--border);border-radius:3px;padding:18px 20px;display:grid;gap:8px;align-content:start}
+.pbtn[aria-pressed="true"]{border-color:var(--teal-d);box-shadow:inset 2px 0 0 var(--teal-d)}
+.pbtn:focus-visible,.seg button:focus-visible{outline:2px solid var(--teal-d);outline-offset:2px}
+.pbtn .weap{font-size:13px;color:var(--ink2)}
+.gen{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:0;border-top:.5px solid var(--border);border-bottom:.5px solid var(--border);margin-bottom:22px}
+.gen div{padding:14px 16px 14px 0;font-family:var(--font-serif);font-size:19px;line-height:1.3}
+.gen div+div{padding-left:16px;border-left:.5px solid var(--border)}
+/* käyttäytymiset */
+.beh{display:grid;gap:0;border:.5px solid var(--border);background:var(--surface)}
+.brow{display:grid;grid-template-columns:44px minmax(0,1.5fr) minmax(0,1.2fr) minmax(0,1fr);gap:16px;padding:16px 18px;border-top:.5px solid var(--border2);align-items:start}
+.brow:first-child{border-top:0}
+.brow.hd{padding-block:10px;background:var(--surface2)}
+.brow.hd span{font-size:9px;font-weight:600;letter-spacing:.16em;text-transform:uppercase;color:var(--ink3)}
+.brow .no{font-family:var(--font-serif);font-size:28px;line-height:1;color:var(--teal-d)}
+.brow.pro{background:var(--teal-dim)}
+.brow h4{font-family:var(--font-serif);font-weight:500;font-size:19px;line-height:1.2;margin-bottom:4px}
+.brow .see{font-size:13.5px;color:var(--ink2)}
+.cue{font-family:var(--font-serif);font-style:italic;font-size:18px;color:var(--ink)}
+.qq{font-size:13px;color:var(--ink2);margin-top:4px}
+.scale{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:0;border:.5px solid var(--border);margin-top:12px}
+.scale div{padding:10px 12px;font-size:12.5px;color:var(--ink2)}
+.scale div+div{border-left:.5px solid var(--border)}
+.scale b{display:block;font-family:var(--font-serif);font-weight:400;font-size:22px;color:var(--ink);line-height:1.1}
+/* luvut */
+.g2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px}
+.kpi{display:grid;gap:4px}
+.kpi .v{font-family:var(--font-serif);font-size:30px;line-height:1.05}
+.kpi .how{font-size:12.5px;color:var(--ink2)}
+.ladder{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));border:.5px solid var(--border);background:var(--surface)}
+.ladder div{padding:16px 18px;display:grid;gap:6px;align-content:start}
+.ladder div+div{border-left:.5px solid var(--border)}
+.ladder .t{font-family:var(--font-mono);font-size:11px;color:var(--amber)}
+/* IDP-kortti */
+.idp{display:grid;grid-template-columns:minmax(0,320px) minmax(0,1fr);gap:0;border:.5px solid var(--border);background:var(--surface);border-radius:10px;overflow:hidden}
+.rail{padding:24px 22px;border-right:.5px solid var(--border);display:grid;gap:18px;align-content:start;background:var(--surface2)}
+.who{display:grid;gap:4px}
+.ringw{display:grid;justify-items:center;gap:6px}
+.contrib{display:grid;gap:9px}
+.cr{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:center;font-size:13px;color:var(--ink2)}
+.dots{display:flex;gap:4px}
+.dots i{width:16px;height:6px;background:var(--border)}
+.dots i.on{background:var(--teal-d)}
+.dots.lo i.on{background:var(--amber)}
+.narr{padding:24px 26px;display:grid;gap:18px;align-content:start}
+.blk{display:grid;gap:6px;padding-bottom:16px;border-bottom:.5px solid var(--border2)}
+.blk:last-child{border-bottom:0;padding-bottom:0}
+.smart{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:0;border:.5px solid var(--border);margin-top:6px}
+.smart div{padding:9px 11px}
+.smart div+div{border-left:.5px solid var(--border)}
+.smart .l{font-size:9px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--ink3)}
+.smart .v{font-family:var(--font-serif);font-size:18px;line-height:1.2}
+.tiles{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.tile{border:.5px solid var(--border);border-radius:10px;padding:11px 12px;text-align:center;background:var(--surface)}
+.tile .l{font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink3)}
+.tile .v{font-family:var(--font-serif);font-size:24px;line-height:1.2}
+.tile .t{font-family:var(--font-mono);font-size:10.5px;color:var(--ink3)}
+.week{display:grid;gap:6px}
+.wr{display:grid;grid-template-columns:62px minmax(0,1fr);gap:10px;font-size:13.5px;color:var(--ink2)}
+.wr .d{font-family:var(--font-mono);font-size:11px;color:var(--teal-d);padding-top:2px}
+.facts{display:grid;gap:6px;border-top:.5px solid var(--border);padding-top:14px}
+.facts div{display:grid;grid-template-columns:96px minmax(0,1fr);gap:8px;font-size:12.5px}
+.facts .l{font-size:9px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--ink3);padding-top:3px}
+.facts .v{color:var(--ink)}
+.cv{display:flex;gap:10px;align-items:center}
+.pview{margin-top:14px;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:22px;border:.5px dashed var(--border);padding:20px 22px;border-radius:3px}
+.pmini{display:grid;gap:9px;align-content:start}
+@media (max-width:860px){.pview{grid-template-columns:1fr}}
+.exnote{font-family:var(--font-mono);font-size:10.5px;color:var(--amber);margin-top:10px}
+/* TM-kytkentä */
+.tw{overflow-x:auto;border:.5px solid var(--border);background:var(--surface)}
+table{border-collapse:collapse;width:100%;font-size:13.5px;min-width:640px}
+th,td{text-align:left;vertical-align:top;padding:11px 14px;border-top:.5px solid var(--border2)}
+thead th{border-top:0;font-size:9px;font-weight:600;letter-spacing:.16em;text-transform:uppercase;color:var(--ink3);background:var(--surface2)}
+td:first-child{font-family:var(--font-serif);font-size:16px;color:var(--ink);white-space:nowrap}
+td code{font-family:var(--font-mono);font-size:11.5px;color:var(--teal-d)}
+.foot{margin-top:56px;padding-top:18px;border-top:.5px solid var(--border);display:grid;gap:6px}
+@media (max-width:860px){
+ .chain{grid-template-columns:1fr 1fr}.step:nth-child(2){border-right:0}.step:nth-child(-n+2){border-bottom:.5px solid var(--border)}
+ .g3,.g2,.gen,.ladder{grid-template-columns:1fr}.gen div+div{border-left:0;padding-left:0;border-top:.5px solid var(--border)}
+ .ladder div+div{border-left:0;border-top:.5px solid var(--border)}
+ .brow{grid-template-columns:36px minmax(0,1fr)}.brow>*:nth-child(n+3){grid-column:2}.brow.hd{display:none}
+ .idp{grid-template-columns:1fr}.rail{border-right:0;border-bottom:.5px solid var(--border)}
+ .smart{grid-template-columns:1fr 1fr}.smart div:nth-child(odd){border-left:0}.smart div:nth-child(n+3){border-top:.5px solid var(--border)}
+}
+@media (max-width:480px){.chain{grid-template-columns:1fr}.step{border-right:0;border-bottom:.5px solid var(--border)}.tiles{grid-template-columns:1fr}.scale{grid-template-columns:1fr}.scale div+div{border-left:0;border-top:.5px solid var(--border)}}
+@media (prefers-reduced-motion:no-preference){.ringv{transition:stroke-dashoffset .5s ease}}
+</style>
+
+<div class="wrap">
+ <div class="eb">TalentMaster · pelipaikkaprofiili · esimerkki</div>
+ <h1>Keskuspuolustaja: <em>yksi profiili</em>, viisi käyttäytymistä, kolme lukua.</h1>
+ <p class="lede">Malli pelipaikan valmentamiseen ja mittaamiseen, joka mahtuu yhteen IDP-korttiin. Valmentaja arvioi käyttäytymistä, seura kerää luvut ja oma hyvä taso syntyy seuran omasta datasta.</p>
+
+ <section class="sec" aria-labelledby="h-ketju">
+  <div class="sh"><div class="eb">Rakenne</div><h2 id="h-ketju">Neljä askelta, sama sanasto joka tasolla</h2></div>
+  <div class="chain">
+   <div class="step"><span class="n">01</span><h3>Profiili</h3><span class="q">Kuka hän on pelaajana?</span><span class="k">valitaan kerran kaudessa</span></div>
+   <div class="step"><span class="n">02</span><h3>Käyttäytyminen</h3><span class="q">Mitä valmennetaan? Arvio 1–3.</span><span class="k">arvio kerran jaksossa</span></div>
+   <div class="step"><span class="n">03</span><h3>Luvut</h3><span class="q">Mitä mitataan ottelusta?</span><span class="k">kirjataan joka ottelu</span></div>
+   <div class="step"><span class="n">04</span><h3>IDP-kortti</h3><span class="q">Mitä tehdään tällä jaksolla?</span><span class="k">päivittyy viikoittain</span></div>
+  </div>
+ </section>
+
+ <section class="sec" aria-labelledby="h-prof">
+  <div class="sh"><div class="eb">01 · Profiili</div><h2 id="h-prof">Yleisprofiili kaikille, erityisprofiili pelaajalle</h2>
+   <p class="mut">Yleisprofiili on jokaisen keskuspuolustajan perusta. Erityisprofiili kertoo, millainen keskuspuolustaja pelaaja on, ja ase on se, mikä erottaa hänet muista. Pelaaja valitaan sen perusteella, missä hän on hyvä.</p></div>
+  <div class="gen" aria-label="Yleisprofiili">
+   <div>Suojaa maalin ja selustan ennen kaikkea muuta.</div>
+   <div>Pitää linjan kasassa ja johtaa sitä.</div>
+   <div>Aloittaa pelin puhtaasti.</div>
+  </div>
+  <div class="eb dim" style="margin-bottom:10px">Valitse erityisprofiili: kortti ja viides käyttäytyminen vaihtuvat</div>
+  <div class="g3" role="group" aria-label="Erityisprofiili">
+   <button class="pbtn" data-p="taistelija" aria-pressed="false"><span class="badge gh">Taistelija</span><h3>Voittaa kamppailut</h3><span class="weap">💎 Ase: ilmapallot ja kaksinkamppailut</span></button>
+   <button class="pbtn" data-p="riistaja" aria-pressed="false"><span class="badge gh">Riistäjä</span><h3>Katkaisee ennen kuin syntyy vaaraa</h3><span class="weap">💎 Ase: ennakointi ja katkot</span></button>
+   <button class="pbtn" data-p="rakentaja" aria-pressed="true"><span class="badge gh">Pelinrakentaja</span><h3>Avaa pelin takaa</h3><span class="weap">💎 Ase: linjan ohittava syöttö</span></button>
+  </div>
+ </section>
+
+ <section class="sec" aria-labelledby="h-beh">
+  <div class="sh"><div class="eb">02 · Käyttäytyminen</div><h2 id="h-beh">Neljä avainkäyttäytymistä kaikille ja yksi profiilin mukaan</h2>
+   <p class="mut">Jokaisessa on yksi valmennussana ja yksi kysymys pelaajalle. Arvio tehdään TalentMasterin asteikolla 1–3.</p></div>
+  <div class="scale" aria-label="Arvioasteikko" style="margin:0 0 14px">
+   <div><b>1</b>Ei näy pelissä</div><div><b>2</b>Näkyy ohjatusti</div><div><b>3</b>Näkyy itsenäisesti</div>
+  </div>
+  <div class="beh" id="beh">
+   <div class="brow hd" aria-hidden="true"><span></span><span>Käyttäytyminen · näkyy kentällä</span><span>Valmennussana · kysymys</span><span>TalentMaster</span></div>
+   <div class="brow"><span class="no">1</span><div><h4>Skannaa ja johda linjaa</h4><p class="see">Katsoo kaverit ja hyökkääjät ennen palloa ja korjaa linjan leveyden ja syvyyden.</p></div><div><span class="cue">"Linja!"</span><p class="qq">Missä vierustoverisi oli, kun pallo lähti?</p></div><div><span class="badge">T-H0</span> <span class="badge">T-P1</span></div></div>
+   <div class="brow"><span class="no">2</span><div><h4>Suojaa selusta</h4><p class="see">Ennakoi pitkän pallon ja lähtee taakse ennen hyökkääjää. Seuraa vinoa juoksua paitsiolinjaan asti ja palaa linjaan.</p></div><div><span class="cue">"Taakse!"</span><p class="qq">Mistä tiesit, että pallo tulee selustaan?</p></div><div><span class="badge">T-P3</span></div></div>
+   <div class="brow"><span class="no">3</span><div><h4>Voita kamppailu ilman ohitusta</h4><p class="see">Hidastaa viimeiset metrit, matala asento, ohjaa sivulle. Ilmapallossa ajoitus ja keho ensin.</p></div><div><span class="cue">"Hidasta!"</span><p class="qq">Miksi menit riistoon juuri silloin?</p></div><div><span class="badge">T-P4</span></div></div>
+   <div class="brow"><span class="no">4</span><div><h4>Puolusta boksi</h4><p class="see">Keskityksessä tietää tehtävänsä 1. tai 2. keskuspuolustajana ja näkee pallon ja oman pelaajansa.</p></div><div><span class="cue">"Pallo ja mies!"</span><p class="qq">Kumpi oli sinun tehtäväsi: tila vai pelaaja?</p></div><div><span class="badge">T-P5</span></div></div>
+   <div class="brow pro" id="b5"></div>
+  </div>
+ </section>
+
+ <section class="sec" aria-labelledby="h-kpi">
+  <div class="sh"><div class="eb">03 · Luvut</div><h2 id="h-kpi">Kolme lukua, jotka kuka tahansa voi kirjata ottelusta</h2>
+   <p class="mut">Luvut kirjataan ottelusta tukkimiehen kirjanpidolla tai videolta. Seura ei tarvitse analytiikkaohjelmaa: kaksi lukua on kaikille samat ja kolmas tulee profiilista.</p></div>
+  <div class="g3" id="kpis"></div>
+  <div class="sh" style="margin-top:34px"><div class="eb">Seuran oma hyvä taso</div><h3>Hyvä taso syntyy seuran omasta datasta, ei arvauksesta</h3></div>
+  <div class="ladder">
+   <div><span class="t">Kausi 1 · kerää</span><h3>Kirjataan</h3><p class="mut">Jokainen ottelu ja jokainen keskuspuolustaja. Kortissa näkyy pelaajan oma taso ja kehitys, ei vertailua.</p></div>
+   <div><span class="t">Kun dataa on riittävästi · vertaa</span><h3>Seuran oma taso</h3><p class="mut">Ikäluokan ja pelipaikan mediaani ja yläneljännes. Vertailu näytetään vasta, kun dataa on vähintään 20 pelaaja-ottelusta.</p></div>
+   <div><span class="t">Joka kausi · päivitä</span><h3>Hyvä taso</h3><p class="mut">Yläneljännes on seuran oma hyvän tason raja. Ennen 16 ikävuotta näytetään kehityskaista, ja kasvupyrähdys huomioidaan (§28).</p></div>
+  </div>
+ </section>
+
+ <section class="sec" aria-labelledby="h-idp">
+  <div class="sh"><div class="eb">04 · IDP-kortti</div><h2 id="h-idp">Valmentajan, VP:n ja UTJ:n kortti: tilanne luvuin ja faktoin</h2>
+   <p class="mut">Kymmenessä sekunnissa näkyy arvio nyt ja edellisellä jaksolla, ottelun luvut otoksineen, seuran oma taso, pelaajan ja valmentajan arvioiden ero sekä se, toteutuiko suunniteltu yksilötyö. Kortti näyttää aina myös vahvuuden. Pelaajan oma kortti on erillinen näkymä.</p></div>
+  <article class="idp" aria-label="IDP-kortti, esimerkki">
+   <div class="rail">
+    <div class="who"><span class="badge" style="justify-self:start;margin-bottom:6px">VP · valmentaja · UTJ</span><span class="eb dim">Esimerkkipelaaja · P15</span><h3>Keskuspuolustaja · <span id="cProf">Pelinrakentaja</span></h3><span class="mono">Rakentaja-vaihe · kausi 2026</span></div>
+    <div class="ringw">
+     <svg viewBox="0 0 140 140" width="150" height="150" role="img" aria-labelledby="ringT"><title id="ringT">Avainkäyttäytymiset yhteensä</title>
+      <circle cx="70" cy="70" r="58" fill="none" stroke="var(--border)" stroke-width="9"/>
+      <circle class="ringv" id="ring" cx="70" cy="70" r="58" fill="none" stroke="var(--ring)" stroke-width="9" stroke-linecap="butt" transform="rotate(-90 70 70)" stroke-dasharray="364.4" stroke-dashoffset="146"/>
+      <text x="70" y="72" text-anchor="middle" font-family="Cormorant Garamond,Georgia,serif" font-size="40" fill="var(--ink)" id="ringN">10</text>
+      <text x="70" y="94" text-anchor="middle" font-family="DM Mono,monospace" font-size="11" fill="var(--ink3)">/ 15</text>
+     </svg>
+     <span class="mono">Avainkäyttäytymiset · <b id="ringD" style="color:var(--teal-d);font-weight:500">+2</b> vs jakso 1</span>
+     <span class="mono">Arvio 6.10. · valmentaja</span>
+    </div>
+    <div class="contrib" id="contrib"></div>
+    <div class="facts">
+     <div><span class="l">Kalibraatio</span><span class="v" id="kal"></span></div>
+     <div><span class="l">Yksilöblokit</span><span class="v">7 / 8 toteutunut</span></div>
+     <div><span class="l">Peliminuutit</span><span class="v">312 / 350 · 5 ottelua</span></div>
+    </div>
+    <div><div class="eb" style="margin-bottom:4px">💎 Ase</div><div class="sig" id="cWeap">Linjan ohittava syöttö.</div></div>
+   </div>
+   <div class="narr">
+    <div class="blk"><span class="eb">🎯 Kausitavoite</span><h3>Vakiopelaaja P16-joukkueen keskuspuolustajana kauden loppuun mennessä</h3></div>
+    <div class="blk"><span class="eb" style="color:var(--amber)">📍 Jaksofokus · 6 vk · teknis-taktinen</span><h3>Suojaa selusta</h3>
+     <p class="sig">Lähden taakse jo, kun pallollinen nostaa katseensa.</p>
+     <div class="smart"><div><div class="l">Mittari</div><div class="v">Selustapallot omalta alueelta</div></div><div><div class="l">Lähtö</div><div class="v">3,0 / ottelu</div></div><div><div class="l">Nyt</div><div class="v" style="color:var(--teal-d)">2,6 ↓</div></div><div><div class="l">Tavoite · vk 46</div><div class="v">1,0 / ottelu</div></div></div>
+     <span class="mono">Jakson vk 3 / 6 · suunta oikea, tavoitteeseen vielä 1,6</span></div>
+    <div class="blk"><span class="eb">Ottelun luvut · 5 viimeistä · n = 5 ottelua</span>
+     <div class="tiles" id="tiles"></div>
+     <span class="mono">Seuran oma taso P15 keskuspuolustajat: dataa 12 / 20 pelaaja-ottelusta. Mediaani ja yläneljännes näkyvät, kun raja täyttyy.</span></div>
+    <div class="blk"><span class="eb">Tällä viikolla</span>
+     <div class="week">
+      <div class="wr"><span class="d">MA 20′</span><span>Yksilöblokki: pitkän pallon ennakointi, 2v2 selustapalloilla.</span></div>
+      <div class="wr"><span class="d">TI 20′</span><span>Yksilöblokki: <span id="wkB">avaussyötöt linjan ohi paineessa</span>.</span></div>
+      <div class="wr"><span class="d">TO 5′</span><span>Video: 3 klippiä viime ottelun selustatilanteista. Pelaaja vastaa kysymykseen ennen valmentajaa.</span></div>
+      <div class="wr"><span class="d">SU 12.11.</span><span>Jaksokeskustelu 20 min: mitä opittiin, valitaanko seuraava fokus.</span></div>
+     </div></div>
+    <p class="exnote">Esimerkki: pelaaja, luvut ja päivämäärät ovat kuvitteellisia.</p>
+   </div>
+  </article>
+  <div class="pview">
+   <div><span class="badge gh">Pelaajan oma kortti · erillinen näkymä</span><h3 style="margin-top:8px">Sama sisältö pelaajan kielellä, ilman lukuja ja vertailua</h3>
+    <p class="mut">Pelaaja ja huoltaja eivät näe tasolukuja, kokonaislukua eikä seuran vertailua (§7.22). He näkevät oman fokuksensa, viikon tekemisen ja oman kehityksensä sanoin.</p></div>
+   <div class="pmini">
+    <div class="sig">"Lähden taakse jo, kun pallollinen nostaa katseensa."</div>
+    <div class="cr"><span>Suojaa selusta</span><span class="mono" style="color:var(--teal-d)">näkyy ohjatusti</span></div>
+    <div class="cr"><span>Avaa peli linjan ohi</span><span class="mono" style="color:var(--teal-d)">näkyy itsenäisesti 💎</span></div>
+    <div class="cr"><span>Tällä viikolla</span><span class="mono">ma ja ti 20′ · video to</span></div>
+   </div>
+  </div>
+ </section>
+
+ <section class="sec" aria-labelledby="h-tm">
+  <div class="sh"><div class="eb">TalentMaster</div><h2 id="h-tm">Näin malli istuu nykyiseen IDP:hen</h2>
+   <p class="mut">Suurin osa on jo olemassa. Uutta on kaksi asiaa: pelipaikkaprofiili ja ottelun luvut seuran omine tasoineen.</p></div>
+  <div class="tw"><table>
+   <thead><tr><th>Mallissa</th><th>TalentMasterissa nyt</th><th>Mitä lisätään</th></tr></thead>
+   <tbody>
+    <tr><td>Profiili</td><td>Pelipaikat ja X-Factor-signaali.</td><td>Kenttä <code>pelipaikkaprofiili</code>: pelipaikka, erityisprofiili ja ase. VP vahvistaa kerran kaudessa.</td></tr>
+    <tr><td>Käyttäytyminen</td><td>Toppari-konseptit <code>T-H0 T-P1 T-P3 T-P4 T-P5 T-H3</code> ja asteikko 1–3.</td><td>Ei uutta dataa. Valitaan viisi konseptia profiilin mukaan ja näytetään ne kortissa yhtenä lukuna.</td></tr>
+    <tr><td>Luvut</td><td>Testit (D1) ja pelihavainnot (D4).</td><td>Ottelukirjaus: kolme lukua per ottelu. Seuran taso lasketaan ikäluokittain ja pelipaikoittain, kun dataa on vähintään 20 pelaaja-ottelusta.</td></tr>
+    <tr><td>Jaksofokus</td><td><code>jaksofokus</code>, domeeni teknis-taktinen, SMART.</td><td>SMART-mittariksi voi valita suoraan ottelun luvun.</td></tr>
+    <tr><td>Viikko</td><td>Viikkosuunnitelma ja harjoitepankki.</td><td>Yksilöblokki viikkorytmiin (esim. ma ja ti 20 min). Harjoite tulee jaksofokuksen konseptista.</td></tr>
+    <tr><td>Näkymät</td><td>VP_v25-kortti ja PDC (raportointi) sekä erillinen pelaajan ja huoltajan kortti.</td><td>Luvut, vertailu ja kalibraatio VP:lle, valmentajalle ja UTJ:lle. Pelaajan kortti pysyy sanallisena (§7.22).</td></tr>
+    <tr><td>Arviointi</td><td>Itsearvio ja havainnointi sekä kalibraatio.</td><td>Pelaaja arvioi samat viisi käyttäytymistä. Ero valmentajan arvioon näkyy kalibraationa.</td></tr>
+   </tbody></table></div>
+ </section>
+
+ <div class="foot">
+  <span class="eb dim">Lähteet ja oikeudet</span>
+  <p class="mut">Rakenteen idea (profiili, avainkäyttäytymiset, KPI, IDP-rytmi) on saatu EPS:n Project players -mallista ja omista Ekkono-pohjaisista keskuspuolustajan konsepteista. Kaikki tekstit on kirjoitettu omin sanoin TalentMasterin konseptien pohjalta. Seurojen tai Ekkonon tekstejä ei ole kopioitu.</p>
+ </div>
+</div>
+
+<script>
+const P={
+ taistelija:{nimi:'Taistelija',ase:'Ilmapallot ja kaksinkamppailut.',b5:['Voita ilmapallo','Ajoittaa hypyn, käyttää kehoa ennen palloa ja suuntaa pään puskun pois vaarasta.','"Keho ensin!"','Milloin lähdit hyppyyn: ennen vai jälkeen hyökkääjän?','T-P4'],
+  k3:['Ilmapallot voitettu','%','Voitetut ilmakamppailut / kaikki ilmakamppailut.','64 %','60 %','↑'],wk:'puskut ja ilmapallot vastustajan kanssa',v:[3,2,2,2,3],pv:[2,2,2,1,3],sv:[3,3,3,2,3]},
+ riistaja:{nimi:'Riistäjä',ase:'Ennakointi ja katkot.',b5:['Katkaise ennakoiden','Lukee syötön ennen kuin se lähtee ja astuu eteen ilman, että selusta aukeaa.','"Eteen!"','Mistä näit, että syöttö tulee hyökkääjälle?','T-P2'],
+  k3:['Katkot','/ ottelu','Syötöt, jotka katkaistaan ennen kuin ne tulevat hyökkääjälle.','4,2','3,6','↑'],wk:'katkopelit 3v3, piste ennakoidusta katkosta',v:[2,2,2,2,3],pv:[2,1,2,2,2],sv:[3,2,3,2,3]},
+ rakentaja:{nimi:'Pelinrakentaja',ase:'Linjan ohittava syöttö.',b5:['Avaa peli linjan ohi','Syöttää ensimmäisen prässilinjan ohi tai kuljettaa houkutellakseen prässin. Menetys omalla kolmanneksella vältetään.','"Ohi!"','Kenet näit vapaana ennen kuin sait pallon?','T-H3'],
+  k3:['Linjan ohittavat syötöt','/ ottelu','Syötöt, jotka ohittavat vähintään yhden vastustajan linjan.','6,4','5,1','↑'],wk:'avaussyötöt linjan ohi paineessa',v:[2,1,2,2,3],pv:[1,1,2,1,3],sv:[3,2,2,2,3]}
+};
+const KPI=[['Kaksinkamppailut voitettu','%','Voitetut maa- ja ilmakamppailut / kaikki kamppailut.','58 %','52 %','↑'],['Selustapallot omalta alueelta','/ ottelu','Pallot, jotka menevät linjan taakse hänen alueeltaan. Vähemmän on parempi.','2,6','3,0','↓']];
+const BEH=['Skannaa ja johda linjaa','Suojaa selusta','Voita kamppailu','Puolusta boksi'];
+const esc=s=>s.replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function kpiCard(k,i,pro){return `<div class="card${pro?' ac':''} kpi"><span class="eb${pro?'':' dim'}">${pro?'Profiilin luku':'Kaikille · '+(i+1)}</span><h3>${esc(k[0])}</h3><span class="how">${esc(k[2])}</span></div>`}
+function render(id){
+ const p=P[id];document.querySelectorAll('.pbtn').forEach(b=>b.setAttribute('aria-pressed',b.dataset.p===id));
+ const b=p.b5;document.getElementById('b5').innerHTML=`<span class="no">5</span><div><span class="badge" style="margin-bottom:6px">Profiili · ${esc(p.nimi)}</span><h4>${esc(b[0])}</h4><p class="see">${esc(b[1])}</p></div><div><span class="cue">${esc(b[2])}</span><p class="qq">${esc(b[3])}</p></div><div><span class="badge">${b[4]}</span></div>`;
+ document.getElementById('kpis').innerHTML=KPI.map((k,i)=>kpiCard(k,i,false)).join('')+kpiCard(p.k3,2,true);
+ document.getElementById('cProf').textContent=p.nimi;document.getElementById('cWeap').textContent=p.ase;document.getElementById('wkB').textContent=p.wk;
+ const names=BEH.concat([b[0]]);const sum=p.v.reduce((a,c)=>a+c,0);
+ const psum=p.pv.reduce((a,c)=>a+c,0),ssum=p.sv.reduce((a,c)=>a+c,0),d=sum-psum;
+ document.getElementById('contrib').innerHTML=names.map((n,i)=>`<div class="cr"><span>${esc(n)}</span><span class="cv"><span class="mono">${p.pv[i]}→<b style="color:var(--ink);font-weight:500">${p.v[i]}</b></span><span class="dots${p.v[i]===1?' lo':''}" aria-label="${p.v[i]} / 3">${[1,2,3].map(j=>`<i class="${j<=p.v[i]?'on':''}"></i>`).join('')}</span></span></div>`).join('');
+ document.getElementById('ringD').textContent=(d>0?'+':'')+d;
+ document.getElementById('kal').textContent=`pelaaja ${ssum} · valmentaja ${sum} · ero ${ssum-sum>0?'+':''}${ssum-sum}`;
+ document.getElementById('ringN').textContent=sum;document.getElementById('ring').setAttribute('stroke-dashoffset',(364.4*(1-sum/15)).toFixed(1));
+ const tiles=KPI.concat([p.k3]);
+ document.getElementById('tiles').innerHTML=tiles.map(k=>`<div class="tile"><div class="l">${esc(k[0])}</div><div class="v">${esc(k[3])} <span style="font-size:15px;color:var(--teal-d)">${k[5]}</span></div><div class="t">kauden alku ${esc(k[4])}</div><div class="t">seura P50 – · P75 –</div></div>`).join('');
+}
+document.addEventListener('click',e=>{const b=e.target.closest('.pbtn');if(b)render(b.dataset.p)});
+render('rakentaja');
+</script>
+
+</body></html>

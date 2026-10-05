@@ -1,0 +1,692 @@
+<!doctype html>
+<html lang="fi">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>IDP V2 Kenttä</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap">
+<style>
+/* TalentMaster-väritys (carbon / bone / teal) Kenttä-ideaan. Tumma = operatiivinen oletus. */
+:root{--bg:#1C1C1A;--sur:#242421;--sur2:#2C2C28;--ink:#F2EFE6;--ink2:#CFCBC0;--ink3:#8F8C83;--line:rgba(242,239,230,.14);--chalk:rgba(242,239,230,.55);--chalk2:rgba(242,239,230,.28);
+ --teal:#28B090;--teal-dim:rgba(40,176,144,.16);--teal-brd:rgba(40,176,144,.45);--amber:#E0A040;--amber-dim:rgba(224,160,64,.16);--red:#D06A5A;--red-dim:rgba(208,106,90,.14);--blue:#7FA6DE;color-scheme:dark}
+@media (prefers-color-scheme:light){:root:not([data-theme="dark"]){--bg:#F2EFE6;--sur:#FBFAF6;--sur2:#EAE6DA;--ink:#1C1C1A;--ink2:#3E3C37;--ink3:#6B695F;--line:rgba(28,28,26,.16);--chalk:rgba(28,28,26,.45);--chalk2:rgba(28,28,26,.2);--teal:#1A7A5E;--teal-dim:rgba(26,122,94,.12);--teal-brd:rgba(26,122,94,.4);--amber:#9A6512;--amber-dim:rgba(224,160,64,.2);--red:#A8473A;--red-dim:rgba(168,71,58,.12);--blue:#3D6AA8;color-scheme:light}}
+:root[data-theme="light"]{--bg:#F2EFE6;--sur:#FBFAF6;--sur2:#EAE6DA;--ink:#1C1C1A;--ink2:#3E3C37;--ink3:#6B695F;--line:rgba(28,28,26,.16);--chalk:rgba(28,28,26,.45);--chalk2:rgba(28,28,26,.2);--teal:#1A7A5E;--teal-dim:rgba(26,122,94,.12);--teal-brd:rgba(26,122,94,.4);--amber:#9A6512;--amber-dim:rgba(224,160,64,.2);--red:#A8473A;--red-dim:rgba(168,71,58,.12);--blue:#3D6AA8;color-scheme:light}
+:root[data-theme="dark"]{color-scheme:dark}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--ink);font-family:'DM Sans',system-ui,sans-serif;font-size:15px;line-height:1.55;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1180px;margin:0 auto;padding:28px 16px 90px;display:grid;gap:60px}
+.wrap>*,section>*{min-width:0}
+section{display:grid;gap:18px;scroll-margin-top:12px}
+.disp{font-family:Archivo,system-ui,sans-serif;font-variation-settings:"wdth" 72;font-weight:800;line-height:.95;letter-spacing:-.01em}
+h1{font-family:Archivo;font-variation-settings:"wdth" 72;font-weight:800;font-size:clamp(44px,7vw,84px);line-height:.92;letter-spacing:-.01em;max-width:14ch}
+h2{font-family:Archivo;font-variation-settings:"wdth" 75;font-weight:800;font-size:clamp(28px,4vw,40px);line-height:1;letter-spacing:-.01em}
+h3{font-family:Archivo;font-variation-settings:"wdth" 80;font-weight:700;font-size:20px;line-height:1.1}
+p{color:var(--ink2);max-width:72ch}
+b{font-weight:600;color:var(--ink)}
+.meta{font-size:12.5px;color:var(--ink3)}
+.mono{font-family:'DM Mono',monospace;font-size:12px;color:var(--ink3)}
+code{font-family:'DM Mono',monospace;font-size:12px;color:var(--ink2)}
+.top{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between}
+.tbtn{font:inherit;font-size:13px;padding:7px 12px;border:1px solid var(--line);border-radius:4px;background:transparent;color:var(--ink2);cursor:pointer}
+.tbtn:focus-visible,.nav a:focus-visible{outline:2px solid var(--teal);outline-offset:2px}
+.nav{display:flex;flex-wrap:wrap;gap:8px}
+.nav a{font-size:13px;color:var(--ink2);text-decoration:none;border:1px solid var(--line);border-radius:4px;padding:6px 12px}
+.nav a b{color:var(--teal);font-family:'DM Mono';margin-right:6px}
+.legend{display:flex;flex-wrap:wrap;gap:8px}
+.state{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;padding:3px 9px;border-radius:3px;border:1px solid var(--line);color:var(--ink2)}
+.state.ok{color:var(--teal);border-color:var(--teal-brd);background:var(--teal-dim)}
+.state.low{color:var(--blue);border-color:var(--line)}
+.state.wait{color:var(--amber);background:var(--amber-dim);border-color:transparent}
+.state.err{color:var(--red);background:var(--red-dim);border-color:transparent}
+.decided{display:grid;gap:8px;font-size:14.5px;color:var(--ink2);max-width:80ch}
+.decided li{margin-left:18px}
+.states{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,330px),1fr));gap:24px;align-items:start}
+.states.wide{grid-template-columns:repeat(auto-fit,minmax(min(100%,520px),1fr))}
+.frame{display:grid;gap:10px;align-content:start}
+.frame>.lab{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.frame>.note{font-size:13.5px;color:var(--ink3);max-width:40ch}
+/* puhelin */
+.ph{border:1px solid var(--line);border-radius:28px;background:var(--bg);padding:16px 14px 18px;display:grid;gap:12px;max-width:370px;width:100%;justify-self:center}
+.sb{display:flex;justify-content:space-between;font-size:12px;color:var(--ink3);padding:0 4px}
+.big{font-family:Archivo;font-variation-settings:"wdth" 70;font-weight:800;font-size:52px;line-height:.9;letter-spacing:-.02em}
+.big small{display:block;font-family:'DM Sans';font-weight:500;font-size:13px;letter-spacing:0;color:var(--ink3);margin-top:6px}
+.big.md{font-size:38px}
+/* kenttä */
+.pitch{position:relative;border:1.5px solid var(--chalk);border-radius:4px;overflow:hidden;background:var(--sur)}
+.pitch svg{display:block;width:100%;height:auto}
+.pitch .zone{position:absolute;background:var(--teal-dim);border:1.5px dashed var(--teal);border-radius:3px;display:grid;align-content:end;padding:7px 8px;gap:1px}
+.pitch .zone b{font-family:Archivo;font-variation-settings:"wdth" 75;font-weight:800;font-size:19px;line-height:1;color:var(--teal)}
+.pitch .zone span{font-size:11px;color:var(--ink3)}
+.pitch .zone.dim{border-color:var(--chalk2);background:transparent}
+.pitch .zone.dim b{color:var(--ink3);font-size:14px}
+.pitch .tag{position:absolute;font-family:'DM Mono';font-size:10.5px;color:var(--ink3);background:var(--bg);padding:2px 6px;border-radius:3px;border:1px solid var(--line);white-space:nowrap}
+.pitch .tag.now{color:var(--amber);border-color:var(--amber);font-weight:500}
+/* listat */
+.osat{display:grid;border-top:1.5px solid var(--chalk)}
+.osat div{display:grid;grid-template-columns:auto 1fr auto;gap:10px;padding:9px 2px;border-bottom:1px solid var(--line);font-size:15px;font-weight:500;align-items:center}
+.osat div span{font-size:12px;color:var(--ink3);font-weight:400}
+.osat div .k{font-family:'DM Mono';font-size:12px;color:var(--ink3);width:14px}
+.osat div.now{color:var(--amber)}
+.osat div.now span,.osat div.now .k{color:var(--amber)}
+.osat div.done .k{color:var(--teal)}
+.tuki{border-left:3px solid var(--teal);padding:4px 0 4px 12px;font-size:14.5px;color:var(--ink2)}
+.tuki b{font-weight:600}
+.btn{background:var(--ink);color:var(--bg);font-family:Archivo;font-variation-settings:"wdth" 80;font-weight:800;font-size:17px;text-align:center;padding:13px;border-radius:4px}
+.btn.teal{background:var(--teal);color:#0E1E19}
+.btn.gh{background:transparent;color:var(--ink);border:1.5px solid var(--ink)}
+.btn.dis{opacity:.4}
+.navb{display:grid;grid-template-columns:repeat(3,1fr);text-align:center;font-size:12px;font-weight:600;border-top:1px solid var(--line);padding-top:12px;color:var(--ink3)}
+.navb .on{color:var(--ink)}
+.score{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.score div{border:1px solid var(--line);padding:12px;border-radius:4px;display:grid;gap:4px}
+.score b{font-family:Archivo;font-variation-settings:"wdth" 70;font-weight:800;font-size:38px;line-height:.9}
+.score span{font-size:12px;color:var(--ink3)}
+.pill3{display:flex;gap:6px;flex-wrap:wrap}
+.pill3 span{border:1px solid var(--line);border-radius:3px;padding:6px 12px;font-size:13.5px;font-weight:500;color:var(--ink2)}
+.pill3 span.on{border-color:var(--teal);background:var(--teal-dim);color:var(--teal)}
+.pcard{background:var(--sur);border:1px solid var(--line);border-radius:4px;padding:12px;display:grid;gap:8px}
+.pcard .eb{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--teal)}
+.row1{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+.lnk{font-size:13.5px;font-weight:600;color:var(--teal)}
+.quiet{border:1px dashed var(--line);border-radius:4px;padding:12px;font-size:14.5px;color:var(--ink2)}
+.choice{display:grid;grid-template-columns:auto 1fr;gap:10px;border:1px solid var(--line);border-radius:4px;padding:10px 12px;font-size:14.5px;align-items:start}
+.choice.on{border-color:var(--teal);background:var(--teal-dim)}
+.choice .k{font-family:Archivo;font-variation-settings:"wdth" 70;font-weight:800;font-size:22px;line-height:1;color:var(--teal);padding-top:2px}
+.choice.b .k{color:var(--blue)}
+.choice p{font-size:13.5px;color:var(--ink3)}
+.wk{display:flex;gap:6px}.wk span{flex:1;height:30px;border-radius:3px;border:1px solid var(--line);display:grid;place-items:center;font-size:12px;color:var(--ink3)}
+.wk span.on{background:var(--teal-dim);border-color:var(--teal);color:var(--teal);font-weight:600}
+/* työpöytä */
+.sheet{border:1px solid var(--line);border-radius:6px;background:var(--sur);padding:18px;display:grid;gap:14px}
+.sh-h{display:flex;flex-wrap:wrap;gap:10px;justify-content:space-between;align-items:baseline;border-bottom:1px solid var(--line);padding-bottom:12px}
+.who{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.who .n{font-family:Archivo;font-variation-settings:"wdth" 78;font-weight:800;font-size:24px}
+.chip{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:500;padding:3px 9px;border:1px solid var(--line);border-radius:3px;color:var(--ink2);white-space:nowrap}
+.chip.ok{color:var(--teal);border-color:var(--teal-brd);background:var(--teal-dim)}
+.two>.pitch{align-self:start}
+.two{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,230px),1fr));gap:12px}
+.fld{display:grid;gap:5px}
+.fld label{font-size:13px;font-weight:600;color:var(--ink2)}
+.inp{border:1px solid var(--line);border-radius:4px;padding:10px 12px;font-size:14.5px;color:var(--ink);background:var(--bg)}
+.inp.bad{border-color:var(--red);background:var(--red-dim)}
+.hint{font-size:13px;color:var(--ink3)}
+.hint.err{color:var(--red)}
+.cmp{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:12px;padding:9px 0;border-top:1px solid var(--line);font-size:14px;align-items:center}
+.cmp .a{color:var(--ink3);font-size:13px}.cmp .b{font-weight:600;color:var(--teal);font-size:13px}
+.dec3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.dec3 span{border:1px solid var(--line);border-radius:4px;padding:10px;text-align:center;font-weight:600;font-size:14px}
+.dec3 span.on{border-color:var(--teal);background:var(--teal-dim);color:var(--teal)}
+.btnrow{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.sbtn{font-size:14px;font-weight:600;padding:9px 16px;border-radius:4px;background:var(--teal);color:#0E1E19;display:inline-block}
+.sbtn.gh{background:transparent;color:var(--ink2);border:1px solid var(--line)}
+.sbtn.dis{opacity:.4}
+.notice{border-left:3px solid var(--amber);background:var(--amber-dim);padding:10px 12px;font-size:14px;color:var(--ink2)}
+.notice.info{border-left-color:var(--blue);background:transparent;border:1px solid var(--line);border-left-width:3px}
+/* joukkuekenttä */
+.team{position:relative;border:1.5px solid var(--chalk);border-radius:4px;background:var(--bg);overflow:hidden}
+.team svg{display:block;width:100%;height:auto}
+.team .pz{position:absolute;border:1.5px dashed var(--teal);background:var(--teal-dim);border-radius:3px;padding:5px 7px;font-size:12px;font-weight:600;line-height:1.15;display:grid;gap:1px}
+.team .pz small{font-size:10.5px;font-weight:400;color:var(--ink3);font-family:'DM Mono'}
+.team .pz.wait{border-color:var(--amber);background:var(--amber-dim)}
+.team .pz.none{border-color:var(--chalk2);background:transparent;color:var(--ink3)}
+.tw{overflow-x:auto;border:1px solid var(--line);border-radius:6px}
+table{width:100%;border-collapse:collapse;font-size:13.5px;min-width:640px}
+th,td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-size:12px;font-weight:600;color:var(--ink3);background:var(--sur2)}
+td code{white-space:nowrap}
+.tok{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,220px),1fr));gap:12px}
+.tok div{border:1px solid var(--line);border-radius:4px;padding:12px;display:grid;gap:4px;font-size:13.5px}
+.tok .sw{height:28px;border-radius:3px;border:1px solid var(--line)}
+@media (prefers-reduced-motion:no-preference){.tbtn{transition:border-color .15s}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header style="display:grid;gap:18px">
+ <div class="top"><span class="mono">TalentMaster™ · IDP V2 · Kenttä · prioriteetti 1 · luonnos 3 · 5.10.2026</span><button class="tbtn" id="theme" type="button">Vaihda teema</button></div>
+ <h1>Ase on paikka kentällä</h1>
+ <p>Pelaaja-appin uusi ilme. Kenttä on sovelluksen runko: ase on alue kentällä, jakso on reitti sieltä kohti maalia, ja viikot ovat merkkejä reitillä. Pelaaja näkee missä hän on vaarallinen ja mitä tällä viikolla tehdään, ei tasolukuja eikä vertailua (§7.22). Värit ovat TalentMasterin: hiili, luu ja teal. Esimerkkipelaaja on testipelaaja Topias K. (KPV U13, laituri); muut ovat keksittyjä.</p>
+ <div class="legend"><span class="state ok">Normaali</span><span class="state low">Vähän dataa</span><span class="state wait">Odottaa vahvistusta</span><span class="state err">Virhe / estetty</span></div>
+ <nav class="nav" aria-label="Näkymät"><a href="#n0"><b>0</b>Idea</a><a href="#n1"><b>1</b>Tänään</a><a href="#n1b"><b>1b</b>Kaikki lohkot</a><a href="#n2"><b>2</b>Valitse reitti</a><a href="#n3"><b>3</b>Oma kenttä</a><a href="#n4"><b>4</b>U8–12</a><a href="#n5"><b>5</b>Valmentaja</a><a href="#n6"><b>6</b>Katselmus</a><a href="#n7"><b>7</b>Huoltaja</a><a href="#n8"><b>8</b>Muut näkymät</a><a href="#tok"><b>T</b>Tokenit</a></nav>
+</header>
+
+<!-- ============ 0 IDEA ============ -->
+<section id="n0">
+ <h2>Yksi kuva, neljä kerrosta</h2>
+ <div class="states">
+  <div class="frame">
+   <div class="pitch" style="max-width:340px" data-pitch="idea"></div>
+   <div class="note">Sama kenttä kaikissa näkymissä. Mitä kerros tarkoittaa:</div>
+  </div>
+  <ul class="decided" style="align-self:center">
+   <li><b>Alue</b> (teal, katkoviiva) on ase: missä pelaaja on vaarallinen. Se on IDP-kortin pysyvä kohta ja pysyy kentällä jaksosta toiseen. Paikka tulee pelipaikasta, ja ilman pelipaikkaa alue on keskiympyrän kokoinen "oma alue".</li>
+   <li><b>Reitti</b> (teal, täyttyy) on käynnissä oleva jakso. Se lähtee alueelta ja päättyy siihen, mitä jakso tavoittelee: maaliin (laukaus), kaveriin (syöttö) tai kauden tavoitteen suuntaan.</li>
+   <li><b>Merkit</b> reitillä ovat viikot. Tehdyt viikot ovat täynnä, nykyinen on meripihkan värinen "nyt". Osat (a–c) ovat reitin varrella niissä kohdissa, missä ne pelissä tapahtuvat.</li>
+   <li><b>Haalea jälki</b> on edellinen jakso. Historia on kentällä, ei listassa. Katselmuksen lause on kentän alla valmentajan äänenä.</li>
+   <li>Kaikki muu (treeni, fiilis, joukkueen teema) on kentän alapuolella pienellä ja ehdollisena.</li>
+  </ul>
+ </div>
+</section>
+
+<!-- ============ 1 TÄNÄÄN ============ -->
+<section id="n1">
+ <h2>1 · Tänään</h2>
+ <p>Jakso korvaa heron. Kenttä kertoo viikon ja viikon osan, ja alla on vain päivän treeni.</p>
+ <div class="states">
+  <div class="frame"><div class="lab"><span class="state ok">Jakso käynnissä · vk 2/6</span></div>
+   <div class="ph">
+    <div class="sb"><span>Ke 11.11.</span><span>Topias</span></div>
+    <div class="big">Viikko 2<small>Kuljetus-laukaus · 6 viikkoa · 💎 Tempokuljetus</small></div>
+    <div class="pitch" data-pitch="today"></div>
+    <div class="osat">
+     <div class="done"><span class="k">a</span>Laukaus vauhdista<span>näkyy pelissä</span></div>
+     <div class="now"><span class="k">b</span>Heikompi jalka<span>tällä viikolla</span></div>
+     <div><span class="k">c</span>Katse maaliin ennen laukausta<span>harjoittelet</span></div>
+    </div>
+    <div class="btn">Päivän treeni · 12 min</div>
+    <div class="meta" style="text-align:center">Porttikuljetus + laukaus · jaksosta</div>
+    <div class="navb"><span class="on">Tänään</span><span>Minä</span><span>Joukkue</span></div>
+   </div></div>
+  <div class="frame"><div class="lab"><span class="state low">Ei jaksoa</span><span class="meta">pääversio pilotissa</span></div>
+   <div class="ph">
+    <div class="sb"><span>Ma 5.10.</span><span>Topias</span></div>
+    <div class="big md">Oma kenttä<small>valmentaja valmistelee jaksoa</small></div>
+    <div class="pitch" data-pitch="nojakso"></div>
+    <div class="quiet">Aseesi on kentällä. Kun valmentaja on valmis, saat kaksi reittiä valittavaksi.</div>
+    <div class="osat"><div><span class="k">⚽</span>Joukkue harjoittelee nyt<span>Harhauttaminen</span></div></div>
+    <div class="btn gh">Päivän treeni · 12 min</div>
+    <div class="navb"><span class="on">Tänään</span><span>Minä</span><span>Joukkue</span></div>
+   </div></div>
+  <div class="frame"><div class="lab"><span class="state low">Ei asetta eikä jaksoa</span><span class="meta">ensimmäinen viikko sovelluksessa</span></div>
+   <div class="ph">
+    <div class="sb"><span>Ma 5.10.</span><span>Pelaaja E.</span></div>
+    <div class="big md">Oma kenttä<small>vielä tyhjä, ja se on ok</small></div>
+    <div class="pitch" data-pitch="empty"></div>
+    <div class="quiet">Valmentaja katsoo pelejäsi ja merkitsee kentälle, missä olet vaarallinen. Siihen asti: pelaa.</div>
+    <div class="btn gh">Päivän treeni · 12 min</div>
+    <div class="navb"><span class="on">Tänään</span><span>Minä</span><span>Joukkue</span></div>
+   </div></div>
+  <div class="frame"><div class="lab"><span class="state wait">Sunnuntai · viikkokatsaus</span></div>
+   <div class="ph">
+    <div class="sb"><span>Su 6.12.</span><span>Topias</span></div>
+    <div class="big md">Viikko 6<small>jakso valmis · katselmus ke 9.12.</small></div>
+    <div class="pitch" data-pitch="done"></div>
+    <div class="notice"><b>Miten osat näkyivät pelissä?</b> Kolme kysymystä, noin minuutti. Vastauksesi näkyy valmentajan katselmuksessa.</div>
+    <div class="btn teal">Vastaa nyt</div>
+    <div class="navb"><span class="on">Tänään</span><span>Minä</span><span>Joukkue</span></div>
+   </div></div>
+ </div>
+</section>
+
+
+<!-- ============ 1b KAIKKI LOHKOT ============ -->
+<section id="n1b">
+ <h2>1b · Tänään, kun kaikilla lohkoilla on asiaa</h2>
+ <p>Mitään v7:n toimintoa ei poisteta. Lohkot näkyvät kentän alla vain, kun niillä on asiaa: treenin jälkeen fiilis ja kuormitus kuittauksena, seuraava tapahtuma 48 h sisällä, valmentajalta vain uutena. Joukkue-välilehti kokoaa viestinnän, kaavion ja kalenterin.</p>
+ <div class="states">
+  <div class="frame"><div class="lab"><span class="state ok">Treenipäivä · treeni tehty</span><span class="meta">kaikki ehdolliset auki</span></div>
+   <div class="ph">
+    <div class="sb"><span>Ti 10.11.</span><span>Topias · <span style="color:var(--amber)">● 2 uutta</span></span></div>
+    <div class="big md">Viikko 2<small>Kuljetus-laukaus · 💎 Tempokuljetus · 🔥 5 pv putki</small></div>
+    <div class="pitch" data-pitch="today"></div>
+    <div class="osat"><div class="done"><span class="k">✓</span>Päivän treeni tehty · 12 min<span>Porttikuljetus + laukaus</span></div></div>
+    <div class="pcard"><span class="eb">Miltä treeni tuntui?</span>
+     <div class="pill3"><span>😞</span><span>😕</span><span class="on">🙂</span><span>🤩</span></div>
+     <span class="meta">Kuinka raskas? (kuormitus)</span>
+     <div class="pill3"><span>Kevyt</span><span class="on">Sopiva</span><span>Raskas</span></div></div>
+    <div class="pcard"><div class="row1"><span class="eb">Seuraavaksi · 48 h sisällä</span><span class="meta">Ke 11.11. klo 17</span></div><span style="font-size:15px"><b>Joukkueharjoitus</b> · Kenttä 2</span><div class="pill3"><span class="on">Tulossa</span><span>Estynyt</span></div></div>
+    <div class="pcard" style="border-color:var(--teal)"><span class="eb">Valmentajalta · uusi</span><span style="font-size:14.5px">"Hyvä ohitus lauantaina. Katso ensi kerralla, missä kaveri on ennen kuin lähdet."</span><span class="lnk">✓ Luettu</span></div>
+    <div class="pcard" style="border-left:3px solid var(--amber)"><span class="eb" style="color:var(--amber)">Kehu · Pelaaja 7</span><span style="font-size:14.5px">"Mahtava syöttö treeneissä!"</span></div>
+    <div class="osat"><div><span class="k">⚽</span>Pallo joka päivä<span>kirjaa</span></div></div>
+    <div class="meta" style="text-align:center">Takautuva kirjaus · RAE-viesti pysyvät pienellä</div>
+    <div class="navb"><span class="on">Tänään</span><span>Minä</span><span>Joukkue •</span></div>
+   </div></div>
+  <div class="frame"><div class="lab"><span class="state ok">Joukkue-välilehti</span><span class="meta">ent. Meistä</span></div>
+   <div class="ph">
+    <div class="sb"><span>Joukkue</span><span>KPV U13</span></div>
+    <div class="big md">Joukkue<small>harjoittelee nyt: Harhauttaminen · seuraavaksi Kääntyminen</small></div>
+    <div class="pcard"><div class="row1"><span class="eb">Valmentajalta</span><span class="meta">2 uutta</span></div>
+     <div class="osat"><div><span class="k">●</span>Pelihavainto · la 7.11.<span>uusi</span></div><div><span class="k">●</span>Viesti · valmentaja<span>uusi</span></div><div><span class="k" style="color:var(--ink3)">·</span>Pelihavainto · 31.10.<span>luettu</span></div></div></div>
+    <div class="pcard"><div class="row1"><span class="eb">Taktiikkakaavio · kuittaa</span><span class="meta">ke harjoitus</span></div>
+     <div class="team" data-team="2" style="border-radius:3px"></div>
+     <span style="font-size:14px">Pressi laidasta: kun pallo menee laitaan, laituri painaa ja keskikenttä liukuu.</span>
+     <div class="pill3"><span class="on">Ymmärsin</span><span>Kysyn treeneissä</span></div></div>
+    <div class="pcard"><div class="row1"><span class="eb">Kalenteri</span><span class="lnk">Koko kuukausi</span></div>
+     <div class="osat"><div><span class="k">ke</span>Harjoitus 17.00 · Kenttä 2<span>Tulossa</span></div><div><span class="k">to</span>Harjoitus 17.00<span>—</span></div><div><span class="k">la</span>Ottelu · KPV – EPS<span>10.30</span></div></div></div>
+    <div class="pcard quiet" style="border:1px dashed var(--line)"><span class="eb" style="color:var(--ink3)">Meistä</span><span style="font-size:14px;color:var(--ink2)">Joukkueen yhteiset asiat tulevat tähän, kun ne on suunniteltu (V2: Meistä suunnitellaan).</span></div>
+    <div class="navb"><span>Tänään</span><span>Minä</span><span class="on">Joukkue</span></div>
+   </div></div>
+  <div class="frame"><div class="lab"><span class="state ok">Minä · haitarit ennallaan</span></div>
+   <div class="ph">
+    <div class="sb"><span>Minä</span><span>Topias</span></div>
+    <div class="big md">Oma kenttä<small>missä olet vaarallinen</small></div>
+    <div class="pitch" data-pitch="history"></div>
+    <div class="osat">
+     <div><span class="k">🎯</span>Sinun matka<span>tavoite · sitoumus</span></div>
+     <div><span class="k">⚡</span>Taidot &amp; keho<span>tekniikka · MAS · kehitysvaihe</span></div>
+     <div class="now"><span class="k">💬</span>Fiilis &amp; hyvinvointi<span>itsearvio tekemättä</span></div>
+     <div><span class="k">🏅</span>Edistyminen<span>putki · testit · ennätykset</span></div>
+     <div><span class="k">🃏</span>Kokoelma<span>kortti · mitalit</span></div>
+     <div><span class="k">⚙️</span>Asetukset<span>kieli · ilmoitukset</span></div>
+    </div>
+    <div class="navb"><span>Tänään</span><span class="on">Minä</span><span>Joukkue</span></div>
+   </div></div>
+ </div>
+ <div class="tw"><table>
+  <tr><th>v7-lohko</th><th>Kentässä</th><th>Näkyy kun</th></tr>
+  <tr><td>Putki + viesti</td><td>otsikon alarivi 🔥</td><td>putki &gt; 0</td></tr>
+  <tr><td>Fiilis (5 / 3 hymiötä)</td><td>kuittaus treenin jälkeen, sunnuntaina viikkokatsaus</td><td>treeni kirjattu tänään</td></tr>
+  <tr><td>Kuormitus / RPE</td><td>sama kuittaus, 3 vaihtoehtoa</td><td>treeni kirjattu tänään (§25-seuranta)</td></tr>
+  <tr><td>Joukkuetreenin portti + läsnäolo</td><td>Seuraavaksi-kortti, Tulossa / Estynyt</td><td>tapahtuma 48 h sisällä</td></tr>
+  <tr><td>Notifikaatiot</td><td>merkki yläpalkissa, lista Joukkue-välilehdellä</td><td>lukemattomia</td></tr>
+  <tr><td>Valmentajalta: viestit ja pelihavainnot</td><td>Tänään uutena, muuten Joukkue</td><td>uusi lukematon</td></tr>
+  <tr><td>Kehu</td><td>Tänään, amber-reuna</td><td>uusi</td></tr>
+  <tr><td>Taktiikkakaavion kuittaus</td><td>Joukkue-välilehti</td><td>kaavio julkaistu</td></tr>
+  <tr><td>Kalenteri</td><td>Joukkue-välilehti, 3 seuraavaa + koko kuukausi</td><td>aina</td></tr>
+  <tr><td>D / T / pallo joka päivä</td><td>"Kirjaa tehdyksi" treenin jälkeen; pallo omana rivinä</td><td>aina</td></tr>
+  <tr><td>RAE Q4, takautuva kirjaus</td><td>ennallaan, pienellä</td><td>kuten nyt</td></tr>
+  <tr><td>Minä: 5 haitaria + kokoelma</td><td>ennallaan kentän alla</td><td>aina</td></tr>
+ </table></div>
+</section>
+
+<!-- ============ 2 VALITSE REITTI ============ -->
+<section id="n2">
+ <h2>2 · Valitse seuraava jakso: kaksi reittiä</h2>
+ <p>D8 kentällä. Valmentajan kaksi vaihtoehtoa ovat kaksi reittiä samalta alueelta. Pelaaja napauttaa reittiä, lukee perustelun ja sitoutuu. Tukiosa on sama kummassakin.</p>
+ <div class="states">
+  <div class="frame"><div class="lab"><span class="state ok">Jakso päättyi</span></div>
+   <div class="ph">
+    <div class="sb"><span>Ke 9.12.</span><span>Topias</span></div>
+    <div class="big md">Hyvä jakso<small>Kuljetus-laukaus · 6/6 viikkoa</small></div>
+    <div class="pitch" data-pitch="done"></div>
+    <div class="tuki">Valmentaja: <b>"Laukaus vauhdista toimii jo. Seuraavaksi sama heikommalla jalalla paineessa."</b></div>
+    <div class="btn teal">Valitse seuraava jakso</div>
+    <div class="navb"><span class="on">Tänään</span><span>Minä</span><span>Joukkue</span></div>
+   </div></div>
+  <div class="frame"><div class="lab"><span class="state wait">Valittavana</span></div>
+   <div class="ph">
+    <div class="sb"><span>Valitse reitti</span><span>Topias</span></div>
+    <div class="big md">Kumpi reitti?<small>molemmat jalostavat asettasi · 💎 Tempokuljetus</small></div>
+    <div class="pitch" data-pitch="choose"></div>
+    <div class="choice on"><span class="k">A</span><div><b>Laukaus heikommalla jalalla</b><p>Tempokuljetus vie sinut maalin eteen myös vasemmalta, nyt viimeistelet sieltä.</p></div></div>
+    <div class="choice b"><span class="k">B</span><div><b>Syöttö kuljetuksesta</b><p>Kun puolustaja peruuttaa, vapaa kaveri on auki juuri silloin.</p></div></div>
+    <span class="meta" style="color:var(--teal);font-weight:600">+ Oma ehdotus valmentajalle</span>
+    <div class="tuki">Kumpaankin kuuluu: <b>pallo pysyy sinulla paineessa</b>, jotta kuljetus vie maalille asti.</div>
+    <div class="btn teal">Valitsen reitin A</div>
+    <div class="navb"><span class="on">Tänään</span><span>Minä</span><span>Joukkue</span></div>
+   </div></div>
+  <div class="frame"><div class="lab"><span class="state ok">Sitoumus</span></div>
+   <div class="ph">
+    <div class="sb"><span>Laukaus heikommalla jalalla</span><span></span></div>
+    <div class="pitch" data-pitch="chosen"></div>
+    <div class="osat">
+     <div><span class="k">a</span>Laukaus vasemmalla vauhdista<span></span></div>
+    </div>
+    <div class="pill3"><span>Osaan</span><span class="on">Harjoittelen</span><span>En vielä</span></div>
+    <div class="osat" style="border-top:0"><div><span class="k">b</span>Kosketus laukaisujalalle<span></span></div></div>
+    <div class="pill3"><span>Osaan</span><span>Harjoittelen</span><span class="on">En vielä</span></div>
+    <div class="osat" style="border-top:0"><div><span class="k">c</span>Laukaus paineessa<span></span></div></div>
+    <div class="pill3"><span>Osaan</span><span>Harjoittelen</span><span class="on">En vielä</span></div>
+    <div class="inp" style="color:var(--ink3)">Tällä jaksolla haluan…</div>
+    <div class="btn teal">Sitoudun</div>
+    <div class="meta" style="text-align:center">Valmentaja vahvistaa. U8–12: perhe kuittaa.</div>
+   </div></div>
+ </div>
+ <div class="tw"><table>
+  <tr><th>Toiminto</th><th>Kirjoitus</th><th>Kuka</th><th>Huomio</th></tr>
+  <tr><td>Valitsen reitin</td><td><code>ase_valinta {valittu:'A'|'B', pvm}</code> → <code>tmAsetaJaksofokus(pelaaja, jakso, {nytISO})</code></td><td>pelaaja kirjoittaa vain valintakentän</td><td>Rules: pelaaja ei kirjoita <code>jaksofokus</code>-kenttää suoraan [Code tarkistaa]</td></tr>
+  <tr><td>Reitin piirto</td><td><code>jaksofokus.vaihtoehdot[].reitti {alku:'ase', loppu:'maali'|'kaveri'|'kausitavoite'}</code></td><td>valmentaja valitsee lopun, kenttä piirtää</td><td>ei vapaata piirtoa, kolme päätepistettä riittää</td></tr>
+  <tr><td>Sitoudun</td><td>osien lähtöarvio + lause → <code>idp_sitoumus_pvm</code> valmentajan vahvistuksella</td><td>pelaaja → valmentaja</td><td>olemassa oleva kaksivaiheinen malli</td></tr>
+ </table></div>
+</section>
+
+<!-- ============ 3 OMA KENTTÄ ============ -->
+<section id="n3">
+ <h2>3 · Minä: oma kenttä ja historia</h2>
+ <p>Minä-välilehti on kentän pysyvä kuva. Ase, tehdyt jaksot haaleina jälkinä ja kauden suunta. Pelipaikka U14+ näkyy sanoin.</p>
+ <div class="states">
+  <div class="frame"><div class="lab"><span class="state ok">Rakentaja U13–15</span></div>
+   <div class="ph">
+    <div class="sb"><span>Minä</span><span>Topias</span></div>
+    <div class="big md">Oma kenttä<small>missä olet vaarallinen</small></div>
+    <div class="pitch" data-pitch="history"></div>
+    <div class="score"><div><b>3</b><span>jaksoa tehty tällä kaudella</span></div><div><b>2</b><span>osaa, jotka näkyvät pelissä itse</span></div></div>
+    <div class="osat">
+     <div class="done"><span class="k">✓</span>Pää ylös<span>elo–syys</span></div>
+     <div class="done"><span class="k">✓</span>Tempokuljetus<span>syys–loka</span></div>
+     <div class="done"><span class="k">✓</span>Kuljetus-laukaus<span>loka–joulu</span></div>
+     <div class="now"><span class="k">●</span>Laukaus heikommalla jalalla<span>nyt</span></div>
+    </div>
+    <div class="tuki">Kauden suunta: <b>Syötön piilotus</b> · IDP-keskustelu 2/kausi</div>
+    <div class="navb"><span>Tänään</span><span class="on">Minä</span><span>Joukkue</span></div>
+   </div></div>
+  <div class="frame"><div class="lab"><span class="state ok">Showcase U16+ · pelipaikka sanoin</span></div>
+   <div class="ph">
+    <div class="sb"><span>Minä</span><span>Pelaaja N.</span></div>
+    <div class="big md">Oma kenttä<small>keskuspuolustaja · pelinrakentaja</small></div>
+    <div class="pitch" data-pitch="cb"></div>
+    <div class="osat">
+     <div class="done"><span class="k">✓</span>Asemoituminen<span>osaat</span></div>
+     <div><span class="k">·</span>Kaksinkamppailu<span>harjoittelet</span></div>
+     <div class="now"><span class="k">●</span>Avaa peli linjan ohi<span>💎 aseesi</span></div>
+    </div>
+    <div class="meta" style="text-align:center">Sanat, ei pisteitä eikä seuran tasoa (§7.22).</div>
+    <div class="navb"><span>Tänään</span><span class="on">Minä</span><span>Joukkue</span></div>
+   </div></div>
+  <div class="frame"><div class="lab"><span class="state low">Vähän dataa</span></div>
+   <div class="ph">
+    <div class="sb"><span>Minä</span><span>Pelaaja E.</span></div>
+    <div class="big md">Oma kenttä<small>ensimmäinen kausi sovelluksessa</small></div>
+    <div class="pitch" data-pitch="empty"></div>
+    <div class="quiet">Kenttä täyttyy jaksoista. Ensimmäinen jälki tulee, kun ensimmäinen jakso on tehty.</div>
+    <div class="navb"><span>Tänään</span><span class="on">Minä</span><span>Joukkue</span></div>
+   </div></div>
+ </div>
+</section>
+
+<!-- ============ 4 U8-12 ============ -->
+<section id="n4">
+ <h2>4 · Leikkijä U8–12: missä tykkäät pelata</h2>
+ <p>Ei IDP-korttia eikä asetta. Lapsi merkitsee itse, missä tykkää pelata, ja viikossa on yksi tehtävä. Kuittaus lapselta tai huoltajalta, ei arvioita.</p>
+ <div class="states">
+  <div class="frame"><div class="lab"><span class="state ok">Lapsi · tekemättä</span></div>
+   <div class="ph">
+    <div class="sb"><span>Tänään</span><span>Aino</span></div>
+    <div class="big md">Viikon tehtävä<small>Kuljettaminen · viikko 3/3</small></div>
+    <div class="pitch" data-pitch="kid"></div>
+    <div class="tuki" style="font-size:16px"><b>⚽ 50 kosketusta seinään</b> vasemmalla jalalla. Pihalla tai kentällä.</div>
+    <div class="btn teal">Tein sen!</div>
+    <div class="wk"><span class="on">✓</span><span class="on">✓</span><span>3</span></div>
+    <div class="navb"><span class="on">Tänään</span><span>Minä</span><span>Joukkue</span></div>
+   </div></div>
+  <div class="frame"><div class="lab"><span class="state ok">Lapsi · tehty</span></div>
+   <div class="ph">
+    <div class="sb"><span>Tänään</span><span>Aino</span></div>
+    <div class="big md">Hienoa! 🎉<small>50 kosketusta tehty tällä viikolla</small></div>
+    <div class="pitch" data-pitch="kiddone"></div>
+    <div class="wk"><span class="on">✓</span><span class="on">✓</span><span class="on">✓</span></div>
+    <div class="navb"><span class="on">Tänään</span><span>Minä</span><span>Joukkue</span></div>
+   </div></div>
+  <div class="frame"><div class="lab"><span class="state ok">Huoltaja kuittaa</span><span class="meta"><code>lahde:'vanhempi'</code></span></div>
+   <div class="ph">
+    <div class="sb"><span>Perhe</span><span>Aino</span></div>
+    <div class="big md">Ainon viikko<small>Kuljettaminen · viikko 3/3</small></div>
+    <div class="tuki" style="font-size:16px"><b>50 kosketusta seinään vasemmalla</b></div>
+    <div class="btn">Teimme yhdessä · kuittaa</div>
+    <div class="meta" style="text-align:center">Kuittaus näkyy valmentajalle. Ei arvosanoja.</div>
+   </div></div>
+ </div>
+ <div class="tw"><table>
+  <tr><th>Elementti</th><th>Kenttä</th><th>Kirjoittaa</th></tr>
+  <tr><td>Missä tykkään pelata</td><td><code>pelaaja.lempipaikka {x, y}</code> · lapsi siirtää palloa kentällä</td><td>lapsi (PIN) tai huoltaja</td></tr>
+  <tr><td>Viikon tehtävä</td><td><code>jaksofokus {tyyppi:'kevyt', tehtava, kesto_vk}</code> tai joukkueen jakson <code>kotitehtava</code></td><td>valmentaja</td></tr>
+  <tr><td>Tein sen / kuittaa</td><td><code>kirjaukset/{pvm}.jakso_kuittaus {avain, viikko}</code>, <code>lahde:'pelaaja'|'vanhempi'</code></td><td>lapsi tai huoltaja (<code>onU12Huoltaja</code>)</td></tr>
+ </table></div>
+</section>
+
+<!-- ============ 5 VALMENTAJA ============ -->
+<section id="n5">
+ <h2>5 · Valmentaja: joukkue yhdellä kentällä ja jakson aloitus</h2>
+ <p>Kehitystyöpöydän etusivu on joukkueen kenttä: jokainen pelaaja on alue. Väri kertoo tilan, ei tason. Pelaajan alueesta avautuu jakson aloitus, joka on 01:n neljä askelta.</p>
+ <div class="states wide">
+  <div class="frame"><div class="lab"><span class="state ok">Joukkue · KPV U13 (testipelaajat)</span></div>
+   <div class="sheet">
+    <div class="sh-h"><div class="who"><span class="n">KPV U13</span><span class="chip">14 pelaajaa</span><span class="chip ok">9 jaksossa</span><span class="chip" style="color:var(--amber)">3 valittavana</span><span class="chip">2 ilman asetta</span></div><span class="meta">Teema: Harhauttaminen → Kääntyminen</span></div>
+    <div class="team" data-team="1"></div>
+    <div class="meta">Alue = ase. Teal = jakso käynnissä, meripihka = odottaa pelaajan valintaa tai katselmusta, katkoviiva ilman täyttöä = ase puuttuu. Napauta aluetta → pelaajan kortti. Nimet näkyvät vain henkilökunnalle.</div>
+   </div></div>
+  <div class="frame"><div class="lab"><span class="state ok">Aloita seuraava jakso · noin 2 min</span></div>
+   <div class="sheet">
+    <div class="sh-h"><div class="who"><span class="n">Topias K.</span><span class="chip">Laituri</span><span class="chip">Rakentaja</span><span class="chip">PHV: LAH</span></div><span class="meta">Katselmus 9.12.: Kuljetus-laukaus → Syvennä</span></div>
+    <div class="two">
+     <div class="pitch" data-pitch="coach"></div>
+     <div style="display:grid;gap:12px;align-content:start">
+      <div class="fld"><label>1 · Kortilta</label><div class="pill3"><span class="on">💎 Ase: Tempokuljetus</span><span>🎯 Syötön piilotus</span><span>Fyysinen: nopeus</span></div></div>
+      <div class="fld"><label>2 · Kaksi reittiä aseelta</label>
+       <div class="choice on"><span class="k">A</span><div><b>Laukaus heikommalla jalalla</b><p>loppu: maali · osat a·b·c</p></div></div>
+       <div class="choice b"><span class="k">B</span><div><b>Syöttö kuljetuksesta</b><p>loppu: kaveri · osat a·b·c</p></div></div></div>
+      <div class="fld"><label>Tukiosa · sama kummallekin</label><div class="inp">Pallon suojaaminen paineessa · Porttikuljetuspeli, Suojaa ja käänny 1v1</div><span class="hint">Lähde: merkintä 3.9. · vahvistetaan katselmuksessa</span></div>
+      <div class="fld"><label>Perustelu pelaajalle (pakollinen)</label><div class="inp">Jotta kuljetus vie maalille asti, pallo pysyy sinulla paineessa.</div></div>
+      <div class="fld"><label>3 · Kesto</label><div class="pill3"><span>4 vk</span><span class="on">6 vk</span><span>8 vk</span></div></div>
+      <div class="btnrow"><span class="sbtn">4 · Lähetä Topiakselle valittavaksi</span></div>
+     </div>
+    </div>
+   </div></div>
+  <div class="frame"><div class="lab"><span class="state low">Ase puuttuu</span><span class="meta">ehdotukset datasta, pelaaja ei näe ennen vahvistusta</span></div>
+   <div class="sheet">
+    <div class="sh-h"><div class="who"><span class="n">Pelaaja E.</span><span class="chip">U13</span><span class="chip">PHV: tuntematon</span></div></div>
+    <div class="two">
+     <div class="pitch" data-pitch="coachempty"></div>
+     <div style="display:grid;gap:12px;align-content:start">
+      <div class="notice info"><b>Merkitse ase kentälle.</b> Vedä alue siihen, missä pelaaja on vaarallinen, ja nimeä se. Alla kaksi ehdotusta testeistä ja pelihavainnoista.</div>
+      <div class="choice"><span class="k" style="color:var(--ink3)">?</span><div><b>Pallonhallinta paineessa</b><p>pelihavainto 2 kertaa · TKI</p></div></div>
+      <div class="choice"><span class="k" style="color:var(--ink3)">?</span><div><b>Pitkä syöttö</b><p>valmentajan pikakenttä 20.9.</p></div></div>
+      <div class="btnrow"><span class="sbtn">Vahvista kortille</span><span class="sbtn gh">Kirjoita oma</span></div>
+      <div class="notice info">PHV-tila on tuntematon, joten testitulos ei yksin tuo tukiosaa. Mittaa kasvu.</div>
+     </div>
+    </div>
+   </div></div>
+  <div class="frame"><div class="lab"><span class="state err">Estetty tallennus</span><span class="meta">kielletty sana perustelussa</span></div>
+   <div class="sheet">
+    <div class="fld"><label>Perustelu pelaajalle</label><div class="inp bad">Heikko pallonsuojaus rajoittaa kuljetustasi.</div><span class="hint err">Kirjoita perustelu aseen kautta. Sanoja "heikko", "heikkous", "rajoite" ja "kriittinen" ei käytetä pelaajalle näkyvissä teksteissä.</span></div>
+    <div class="btnrow"><span class="sbtn dis">Lähetä pelaajalle valittavaksi</span></div>
+   </div></div>
+ </div>
+ <div class="tw"><table>
+  <tr><th>Elementti</th><th>Kenttä (additiivinen §11) · [Code tarkistaa nimet]</th><th>Kirjoittaa</th><th>Näkyy</th></tr>
+  <tr><td>💎 Ase kentällä</td><td><code>idp_kausi/{vuosi}.ase {kuvaus, havaittu_pvm, rooli, lahde, alue:{x,y,w,h}}</code> · oletus pelipaikasta</td><td>valmentaja, VP</td><td>pelaaja, huoltaja (vain vahvistettu)</td></tr>
+  <tr><td>Reitti</td><td><code>jaksofokus.reitti {alku:'ase', loppu:'maali'|'kaveri'|'kausitavoite'}</code></td><td>valmentaja</td><td>kaikki</td></tr>
+  <tr><td>Viikkomerkit</td><td>lasketaan: <code>kesto_vk</code>, <code>alkoi</code>, viikkohavainnot</td><td>—</td><td>pelaaja: täynnä/nyt/tyhjä, ei tasoa</td></tr>
+  <tr><td>Edellinen jälki</td><td><code>jaksofokus_historia[-1].reitti</code></td><td>—</td><td>haalea</td></tr>
+  <tr><td>Joukkuekentän väri</td><td>tila: <code>'valittavana'|'kaynnissa'|'katselmus'|'ei_asetta'</code></td><td>—</td><td>vain henkilökunta</td></tr>
+  <tr><td>Tukiosa</td><td><code>jaksofokus.tukiosa {alue, perustelu, harjoitteet[]}</code></td><td>valmentaja, VP</td><td>pelaaja ja huoltaja: perustelu + harjoitteet</td></tr>
+ </table></div>
+</section>
+
+<!-- ============ 6 KATSELMUS ============ -->
+<section id="n6">
+ <h2>6 · Katselmus: reitti alussa ja nyt</h2>
+ <p>Sama kenttä kahdesti rinnakkain: jakson alku ja nyt. Osat ovat reitillä, ja täyttyneet merkit kertovat missä osat näkyivät pelissä. Alla 01:n vertailu, merkintöjen vahvistus ja kolme päätöstä.</p>
+ <div class="states wide">
+  <div class="frame"><div class="lab"><span class="state ok">Normaali</span></div>
+   <div class="sheet">
+    <div class="sh-h"><span class="mono">Katselmus · Topias K. · Kuljetus-laukaus · 💎 Tempokuljetus</span><span class="meta">koottu 9.12.</span></div>
+    <div class="two">
+     <div><div class="meta" style="margin-bottom:6px">Jakson alussa</div><div class="pitch" data-pitch="rev0"></div></div>
+     <div><div class="meta" style="margin-bottom:6px">Nyt</div><div class="pitch" data-pitch="rev1"></div></div>
+    </div>
+    <div class="cmp"><span>Osat itsenäisesti</span><span class="a">alussa 1/3</span><span class="b">nyt 2/3</span></div>
+    <div class="cmp"><span>Viikkohavainnot</span><span class="a">6 kertaa</span><span class="b">4 nousua</span></div>
+    <div class="cmp"><span>Treenin toteuma</span><span class="a">suunniteltu 12</span><span class="b">tehty 10</span></div>
+    <div class="cmp"><span>Pelaajan näkemys</span><span class="a">"harjoittelen: b"</span><span class="b">sama kuin valmentaja</span></div>
+    <div class="cmp"><span>Kasvuvaihe</span><span class="a">LAH</span><span class="b">ei muutosta</span></div>
+    <div class="mono" style="margin-top:4px">Vahvista merkinnät</div>
+    <div class="cmp"><span>💎 Ase havaittu 12.9.</span><span class="a">pitääkö yhä?</span><span class="b">Kyllä · Siirrä kentällä</span></div>
+    <div class="cmp"><span>Tukiosa: pallon suojaaminen</span><span class="a">merkintä 3.9.</span><span class="b">Vahvista · Poista</span></div>
+    <div class="mono" style="margin-top:4px">Päätös</div>
+    <div class="dec3"><span>Jatka samaa</span><span class="on">Syvennä</span><span>Vaihda kortilta</span></div>
+    <div class="fld"><label>Yksi lause pelaajalle</label><div class="inp">Laukaus vauhdista toimii jo. Seuraavaksi sama heikommalla jalalla paineessa.</div></div>
+    <div class="btnrow"><span class="sbtn">Tallenna katselmus</span><span class="meta">Lause menee heti pelaajan Tänään-sivulle.</span></div>
+   </div></div>
+  <div class="frame"><div class="lab"><span class="state wait">Merkintä vanhentunut</span><span class="meta">yli 12 vk vahvistamatta</span></div>
+   <div class="sheet">
+    <div class="notice"><b>Tukiosan merkintä on 14 viikkoa vanha.</b> Vahvista tai poista ennen kuin aloitat uuden jakson.</div>
+    <div class="cmp"><span>Tukiosa: kestävyys</span><span class="a">merkintä 10.8.</span><span class="b">Vahvista · Poista</span></div>
+    <div class="btnrow"><span class="sbtn dis">Tallenna katselmus</span></div>
+   </div>
+   <div class="lab" style="margin-top:8px"><span class="state low">Leikkijä U8–12</span></div>
+   <div class="sheet">
+    <div class="sh-h"><span class="mono">Jakson vaihto · Aino · Kuljettaminen</span></div>
+    <div class="cmp"><span>Kuittaukset</span><span class="a">3 viikkoa</span><span class="b">3/3</span></div>
+    <div class="dec3" style="grid-template-columns:1fr 1fr"><span class="on">Seuraava tehtävä</span><span>Joukkueen teemasta</span></div>
+    <span class="meta">Ei arviota eikä lausetta.</span>
+   </div></div>
+ </div>
+</section>
+
+<!-- ============ 7 HUOLTAJA ============ -->
+<section id="n7">
+ <h2>7 · Huoltaja</h2>
+ <p>Sama kenttä kuin lapsella, vain luku. Tukiosasta näkyy perustelu ja harjoitteet. Sama sanasto menee tietojen vientiin.</p>
+ <div class="states">
+  <div class="frame"><div class="lab"><span class="state ok">Normaali</span></div>
+   <div class="ph">
+    <div class="sb"><span>Perhe</span><span>Topias</span></div>
+    <div class="big md">Viikko 2<small>Laukaus heikommalla jalalla · 💎 Tempokuljetus</small></div>
+    <div class="pitch" data-pitch="today"></div>
+    <div class="tuki">Topias valitsi reitin itse 10.12. Katselmus 20.1.</div>
+    <div class="tuki">Aseen tueksi: <b>pallo pysyy paineessa</b> · 2 harjoitetta viikossa · tehty tällä viikolla 1</div>
+    <div class="meta" style="text-align:center">Ei tasolukuja, ei vertailua</div>
+   </div></div>
+  <div class="frame"><div class="lab"><span class="state ok">Tietojen vienti</span></div>
+   <div class="sheet"><pre class="mono" style="white-space:pre-wrap;color:var(--ink2);font-size:12.5px;line-height:1.6">idp_kausi: { ase: { kuvaus: "Tempokuljetus",
+  havaittu_pvm: "2026-09-12", rooli: "valmentaja",
+  alue: { x: 4, y: 28, w: 40, h: 44 } } }
+jaksofokus: {
+  kortilta: "ase", nimi: "Laukaus heikommalla jalalla",
+  reitti: { alku: "ase", loppu: "maali" },
+  tukiosa: { alue: "pallon suojaaminen paineessa",
+    perustelu: "Jotta kuljetus vie maalille asti,
+                pallo pysyy sinulla paineessa.",
+    harjoitteet: ["Porttikuljetuspeli",
+                  "Suojaa ja käänny 1v1"] } }</pre>
+   <div class="tuki">Ei tallenneta: "heikkous", "rajoite", "kriittinen" eikä laskettua X-Factor-signaalia jakson yhteydessä.</div></div></div>
+ </div>
+</section>
+
+
+<!-- ============ 8 VAIKUTUS MUIHIN ============ -->
+<section id="n8">
+ <h2>8 · Vaikutus valmentajan, VP:n, perheen ja IDP-kortin näkymiin</h2>
+ <p>Kenttä on esityskerros samalle datalle, ei uusi tietomalli. Ase, reitti, osat ja viikkomerkit luetaan samoista kentistä kuin 01:n kortti ja 02:n PDC. Sääntö: <b>henkilökunta näkee luvut ja kentän, pelaaja ja huoltaja vain kentän ja sanat</b>. Näin VP:n raportointi ja seuranta pysyvät linjassa pelaajan näkymän kanssa ilman, että kummankaan rakennetta puretaan.</p>
+ <div class="tw"><table>
+  <tr><th>Näkymä</th><th>Mitä Kenttä tuo</th><th>Mikä ei muutu</th><th>SSOT</th></tr>
+  <tr><td><b>Valmentaja · Master_v16</b><br><span class="meta">Kehitystyöpöytä → Polku</span></td><td>Joukkue yhdellä kentällä (näkymä 5) etusivulle; jakson aloitus askeleissa 1–2 saa kentän: ase merkitään alueeksi, kaksi reittiä <code>loppu</code>-valinnalla; katselmus saa kaksi kenttää rinnakkain (näkymä 6).</td><td>01:n neljä askelta, IDP-kortti kauden valikkona, katselmuksen .cmp-vertailu ja kolme päätöstä, viikkohavainto, VEO-klipit.</td><td>01 + 09 §5–6</td></tr>
+  <tr><td><b>VP · VP_v25</b><br><span class="meta">Raportointi → PDC, Seuranta</span></td><td>PDC:n "💎 Ase" -rivi saa pienen kentän (ase + reitti + viikkomerkit, 160 px) lukujen viereen. Seurantalistaan sarake "jakso: vk 2/6 · reitti A" samasta datasta. Joukkuekenttä VP:lle samalla komponentilla, tila-värit.</td><td>02:n PDC-rakenne, luvut, seuran oma taso, kalibraatio, Polun tila. VP näkee edelleen X-Factor-signaalin ja kriittinen-merkinnän; pelaaja ei.</td><td>02 + 09 §5 (tila-värit)</td></tr>
+  <tr><td><b>IDP-kortti · idp-kortti/IDP-kortti.dc.html</b><br><span class="meta">VP ja valmentaja</span></td><td>Uusi rivi "💎 Ase" kausitavoitteen ja jaksofokuksen väliin (sama paikka kuin 01:n Kärkiosaaminen); jaksofokus-lohkoon <code>reitti.loppu</code> ja osat a–c; "Muokkaa jaksofokus" -paneeliin kaksi vaihtoehtoa + tukiosa. Kentän pikkukuva valinnainen (oikea yläkulma).</td><td>Cormorant, rakenne (header · kausitavoite · jaksofokus · SMART · silta · ääni &amp; sitoumus), <code>voiceRegister</code>, <code>vpConfirmed</code>. Pelaajan oma IDP-näkymä on Kenttä (09 §3), ei tämä kortti.</td><td>idp-kortti README + 01</td></tr>
+  <tr><td><b>Perhe · Vanhempi_v2</b></td><td>Sama kenttä vain luku (näkymä 7), U8–12 kuittaus (näkymä 4), tukiosan perustelu sanoin. Videokeskustelu (04) ennallaan.</td><td>03:n Perhe-app-rakenne, tietosuoja, §7.22: ei lukuja eikä vertailua.</td><td>03/04 + 09 §4, §7</td></tr>
+  <tr><td><b>Pelaaja · Pelaaja_v7</b></td><td>Koko 09.</td><td>05:n rakenne ja ehdolliset lohkot (näkymä 1b).</td><td>09 &gt; 05</td></tr>
+ </table></div>
+ <div class="cols" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:16px">
+  <div class="sheet"><h3>Yksi data, kolme esitystä</h3><p style="font-size:14px"><code>idp_kausi.ase</code>, <code>jaksofokus.reitti</code>, <code>jaksofokus.osat</code> ja viikkohavainnot ovat yhdet kentät. VP:n PDC näyttää ne lukuina ja pikkukenttänä, valmentaja kenttänä ja lomakkeena, pelaaja kenttänä ja sanoina. Jos VP vaihtaa aseen kortilla, se vaihtuu pelaajan kentällä samalla hetkellä.</p></div>
+  <div class="sheet"><h3>Raportoinnin linja</h3><p style="font-size:14px">PDC:n "Polun tila" ja "Seuraava askel" (02) lukevat jakson tilaa (<code>valittavana</code> / <code>kaynnissa</code> / katselmus). Kenttä lisää niihin vain reitin ja viikkomerkit. Seuranta-sivun joukkuekenttä on sama komponentti kuin valmentajalla: VP näkee seuran kaikki joukkueet, valmentaja omansa.</p></div>
+  <div class="sheet"><h3>Mitä ei tehdä</h3><p style="font-size:14px">VP:n ja valmentajan IDP-korttia ei rakenneta kentän ympärille eikä Cormorantia vaihdeta niissä. Lukuja ei viedä pelaajalle kentän kautta (viikkomerkit ovat kestoa). Perheelle ei näytetä valmentajan kommentteja ennen kuin ne on merkitty pelaajalle näkyviksi (nykyinen <code>nakyvyys</code>-sääntö).</p></div>
+ </div>
+</section>
+
+<!-- ============ TOKENIT ============ -->
+<section id="tok">
+ <h2>Tokenit ja säännöt Codelle</h2>
+ <div class="tok">
+  <div><div class="sw" style="background:var(--bg)"></div><b>Kangas</b><span class="mono">--bg · hiili #1C1C1A / luu #F2EFE6</span></div>
+  <div><div class="sw" style="background:var(--teal)"></div><b>Teal</b><span class="mono">ase, reitti, tehdyt viikot, valinta</span></div>
+  <div><div class="sw" style="background:var(--amber)"></div><b>Meripihka</b><span class="mono">vain "nyt": viikko, osa, odottaa</span></div>
+  <div><div class="sw" style="border-color:var(--chalk);background:transparent"></div><b>Liitu</b><span class="mono">kentän viivat --chalk .55 / historia .28</span></div>
+  <div><div class="sw" style="background:var(--blue)"></div><b>Sininen</b><span class="mono">reitti B ja vähän dataa -tilat</span></div>
+  <div><div class="sw" style="background:var(--red)"></div><b>Punainen</b><span class="mono">vain estetty tallennus</span></div>
+ </div>
+ <ul class="decided">
+  <li><b>Tyyppi:</b> Archivo (leveys 70–80, paino 800) isoihin lukuihin ja otsikoihin: viikon numero, aseen nimi, napit. DM Sans leipätekstiin, DM Mono päivämääriin ja kenttänimiin. Cormorant jää pois pelaaja-apista; se pysyy VP:n ja raporttien äänenä. <span class="state wait">päätettävä</span></li>
+  <li><b>Kulmat 3–4 px, reunat hairline.</b> Ei varjoja, ei liukuvärejä. Kenttä on ainoa "kuva".</li>
+  <li><b>Kenttä on komponentti</b> <code>tmKentta({ase, reitti, viikot, osat, historia, lempipaikka, koko})</code>: yksi SVG, koordinaatit 0–100 kuten Opta, hyökkäyssuunta ylös. Sama komponentti pelaajalla, huoltajalla, valmentajalla ja katselmuksessa, vain kerrokset vaihtuvat.</li>
+  <li><b>Yksi korostus per näkymä:</b> meripihka on aina "nyt", eikä sitä käytetä muuhun.</li>
+  <li><b>Ei tasolukuja pelaajalle:</b> viikkomerkit ovat kestoa, eivät suoritusta. Osien tila on sana. Luvut (3 jaksoa, 2 osaa) ovat lukumääriä, eivät tasoja.</li>
+  <li><b>Molemmat teemat</b> tokeneista; kentän viivat ja alueet käyttävät vain <code>--chalk</code>, <code>--teal</code> ja <code>--amber</code>, joten vaalea teema toimii ilman erillistä kuvaa.</li>
+  <li><b>Leikkijä:</b> sama kenttä, ei asetta eikä reittiä; pallo = "missä tykkään pelata".</li>
+ </ul>
+ <p>Seuraavaksi: hyväksyntä → <code>docs/design/idp-v2/mockups/p1_kentta.html</code> ja README-rivi omalla haaralla PR:nä. Edellinen korttipohjainen luonnos 2 jää vertailuun samaan kansioon.</p>
+</section>
+
+</div>
+<script>
+(function(){
+var b=document.getElementById('theme'),r=document.documentElement;
+b.addEventListener('click',function(){var d=r.getAttribute('data-theme')||(matchMedia('(prefers-color-scheme: light)').matches?'light':'dark');r.setAttribute('data-theme',d==='dark'?'light':'dark')});
+
+/* Kenttä: viewBox 100 x 140, hyökkäys ylös. Koordinaatit 0–100 leveys. */
+var NS='http://www.w3.org/2000/svg';
+function el(n,a){var e=document.createElementNS(NS,n);for(var k in a)e.setAttribute(k,a[k]);return e}
+function lines(s){
+ var g=el('g',{fill:'none',stroke:'var(--chalk)','stroke-width':'.8'});
+ g.appendChild(el('line',{x1:0,y1:70,x2:100,y2:70}));
+ g.appendChild(el('circle',{cx:50,cy:70,r:13}));
+ g.appendChild(el('rect',{x:20,y:0,width:60,height:23}));g.appendChild(el('rect',{x:35,y:0,width:30,height:8}));
+ g.appendChild(el('rect',{x:20,y:117,width:60,height:23}));g.appendChild(el('rect',{x:35,y:132,width:30,height:8}));
+ g.appendChild(el('path',{d:'M39 23a13 13 0 0 0 22 0'}));g.appendChild(el('path',{d:'M39 117a13 13 0 0 1 22 0'}));
+ g.appendChild(el('rect',{x:43,y:-1,width:14,height:1.2,fill:'var(--chalk)',stroke:'none'}));
+ s.appendChild(g);
+}
+/* reitti: lista pisteitä, viikot merkkeinä */
+function route(s,pts,o){
+ o=o||{};var col=o.col||'var(--teal)';
+ var d=pts.map(function(p,i){return (i?'L':'M')+p[0]+' '+p[1]}).join(' ');
+ if(o.ghost){s.appendChild(el('path',{d:d,stroke:'var(--chalk2)','stroke-width':'1.6','stroke-dasharray':'2 2.5',fill:'none'}));return}
+ s.appendChild(el('path',{d:d,stroke:col,'stroke-width':'1.2','stroke-dasharray':'2 2.2',fill:'none',opacity:o.faint?.5:1}));
+ if(o.weeks){
+  var n=o.weeks,done=o.done||0;
+  for(var i=0;i<n;i++){
+   var t=(i+1)/n, p=lerpPath(pts,t);
+   var st=i<done?'done':(i===done&&!o.finished?'now':'todo');
+   var c=el('circle',{cx:p[0],cy:p[1],r:st==='now'?3.2:2.4,fill:st==='done'?col:(st==='now'?'var(--amber)':'var(--bg)'),stroke:st==='todo'?col:(st==='now'?'var(--amber)':col),'stroke-width':'1'});
+   if(o.finished&&i<n)c.setAttribute('fill',col);
+   s.appendChild(c);
+  }
+ }
+ if(o.end==='goal'){s.appendChild(el('circle',{cx:pts[pts.length-1][0],cy:pts[pts.length-1][1],r:1.6,fill:col}))}
+}
+function lerpPath(pts,t){
+ var L=[],tot=0;for(var i=1;i<pts.length;i++){var d=Math.hypot(pts[i][0]-pts[i-1][0],pts[i][1]-pts[i-1][1]);L.push(d);tot+=d}
+ var x=t*tot;for(var i=0;i<L.length;i++){if(x<=L[i]||i===L.length-1){var u=L[i]?x/L[i]:0;u=Math.min(1,u);return [pts[i][0]+(pts[i+1][0]-pts[i][0])*u,pts[i][1]+(pts[i+1][1]-pts[i][1])*u]}x-=L[i]}
+}
+function zone(host,x,y,w,h,name,sub,cls){var F=(+host.dataset.h||140)/100;
+ var z=document.createElement('div');z.className='zone'+(cls?' '+cls:'');
+ z.style.left=x+'%';z.style.top=(y/F)+'%';z.style.width=w+'%';z.style.height=(h/F)+'%';
+ z.innerHTML='<b>'+name+'</b>'+(sub?'<span>'+sub+'</span>':'');host.appendChild(z)
+}
+function tag(host,x,y,txt,now){var F=(+host.dataset.h||140)/100;var t=document.createElement('div');t.className='tag'+(now?' now':'');t.style.left=x+'%';t.style.top=(y/F)+'%';t.textContent=txt;host.appendChild(t)}
+function ball(s,x,y){s.appendChild(el('circle',{cx:x,cy:y,r:3,fill:'var(--ink)',stroke:'var(--bg)','stroke-width':'.8'}))}
+
+var ASE=[4,38,40,44]; /* vasen laita, x y w h (0–100 / 0–140) */
+var R_GOAL=[[24,60],[30,44],[38,30],[44,18],[48,8]];
+var R_PASS=[[24,60],[34,46],[46,36],[62,30],[74,24]];
+var R_OLD=[[18,80],[26,62],[36,48],[44,36]];
+
+var V={
+ idea:function(s,h){lines(s);route(s,R_OLD,{ghost:true});route(s,R_GOAL,{weeks:6,done:2,end:'goal'});zone(h,ASE[0],ASE[1],ASE[2],ASE[3],'Tempokuljetus','ase');tag(h,50,44,'vk 2 · nyt',true);tag(h,52,64,'edellinen jakso')},
+ today:function(s,h){lines(s);route(s,R_OLD,{ghost:true});route(s,R_GOAL,{weeks:6,done:1,end:'goal'});zone(h,ASE[0],ASE[1],ASE[2],ASE[3],'Tempokuljetus','sinun aseesi');tag(h,52,40,'b · heikompi jalka',true);tag(h,56,20,'c · katse maaliin');tag(h,42,58,'a · laukaus vauhdista')},
+ done:function(s,h){lines(s);route(s,R_OLD,{ghost:true});route(s,R_GOAL,{weeks:6,done:6,finished:true,end:'goal'});zone(h,ASE[0],ASE[1],ASE[2],ASE[3],'Tempokuljetus','sinun aseesi');tag(h,52,16,'6/6 viikkoa')},
+ nojakso:function(s,h){lines(s);route(s,R_OLD,{ghost:true});zone(h,ASE[0],ASE[1],ASE[2],ASE[3],'Tempokuljetus','sinun aseesi');tag(h,56,56,'edellinen jakso')},
+ empty:function(s,h){lines(s);zone(h,30,48,40,30,'Oma alue','ei vielä merkitty','dim')},
+ choose:function(s,h){lines(s);route(s,R_GOAL,{weeks:6,done:0});route(s,R_PASS,{col:'var(--blue)',faint:true});zone(h,ASE[0],ASE[1],ASE[2],ASE[3],'Tempokuljetus','ase');tag(h,42,4,'A · maali');tag(h,70,22,'B · kaveri')},
+ chosen:function(s,h){lines(s);route(s,R_GOAL,{weeks:6,done:0,end:'goal'});zone(h,ASE[0],ASE[1],ASE[2],ASE[3],'Tempokuljetus','ase');tag(h,46,4,'A · laukaus vasemmalla')},
+ history:function(s,h){lines(s);route(s,[[14,98],[18,82],[22,66]],{ghost:true});route(s,R_OLD,{ghost:true});route(s,R_GOAL,{ghost:true});route(s,[[24,60],[30,46],[38,32],[42,20],[44,10]],{weeks:6,done:0,end:'goal'});zone(h,ASE[0],ASE[1],ASE[2],ASE[3],'Tempokuljetus','ase · havaittu syksyllä');tag(h,50,70,'3 jaksoa tehty');tag(h,48,8,'nyt: 4. jakso',true)},
+ cb:function(s,h){lines(s);route(s,[[50,112],[52,92],[58,72],[66,54]],{weeks:6,done:3,col:'var(--teal)'});zone(h,28,96,44,30,'Avaa peli linjan ohi','ase · keskuspuolustaja');tag(h,60,48,'linjan ohi')},
+ kid:function(s,h){lines(s);ball(s,30,58);tag(h,34,46,'tässä tykkään pelata');},
+ kiddone:function(s,h){lines(s);ball(s,30,58);s.appendChild(el('circle',{cx:30,cy:58,r:7,fill:'none',stroke:'var(--teal)','stroke-width':'1','stroke-dasharray':'2 2'}));tag(h,36,46,'tehty ✓')},
+ coach:function(s,h){lines(s);route(s,R_OLD,{ghost:true});route(s,R_GOAL,{weeks:6,done:0});route(s,R_PASS,{col:'var(--blue)',faint:true});zone(h,ASE[0],ASE[1],ASE[2],ASE[3],'Tempokuljetus','ase · siirrä raahaamalla');tag(h,42,4,'A');tag(h,70,22,'B')},
+ coachempty:function(s,h){lines(s);zone(h,30,48,40,30,'Vedä alue tähän','ase puuttuu','dim')},
+ rev0:function(s,h){lines(s);route(s,R_GOAL,{weeks:6,done:0});zone(h,ASE[0],ASE[1],ASE[2],ASE[3],'Tempokuljetus','');tag(h,42,58,'a · ohjatusti');tag(h,52,40,'b · ei näy');tag(h,56,20,'c · ohjatusti')},
+ rev1:function(s,h){lines(s);route(s,R_GOAL,{weeks:6,done:6,finished:true,end:'goal'});zone(h,ASE[0],ASE[1],ASE[2],ASE[3],'Tempokuljetus','');tag(h,42,58,'a · itsenäisesti');tag(h,52,40,'b · ohjatusti',true);tag(h,56,20,'c · itsenäisesti')}
+};
+var FULL={history:1,cb:1,kid:1,kiddone:1};
+document.querySelectorAll('[data-pitch]').forEach(function(h){
+ var H=FULL[h.dataset.pitch]?140:84;h.dataset.h=H;
+ var s=el('svg',{viewBox:'0 0 100 '+H,role:'img','aria-label':'Kenttä'});h.appendChild(s);(V[h.dataset.pitch]||V.empty)(s,h);
+});
+
+/* joukkuekenttä: vaaka 140 x 100, vain testipelaajat / keksityt nimet */
+document.querySelectorAll('[data-team]').forEach(function(h){
+ if(h.dataset.team==='2'){var s2=el('svg',{viewBox:'0 0 140 70',role:'img','aria-label':'Kaavio'});h.appendChild(s2);var g2=el('g',{fill:'none',stroke:'var(--chalk)','stroke-width':'.8'});g2.appendChild(el('line',{x1:70,y1:0,x2:70,y2:70}));g2.appendChild(el('circle',{cx:70,cy:35,r:9}));g2.appendChild(el('rect',{x:0,y:17,width:16,height:36}));g2.appendChild(el('rect',{x:124,y:17,width:16,height:36}));s2.appendChild(g2);[[30,20],[30,50],[55,35],[80,15],[80,55],[105,35]].forEach(function(q){s2.appendChild(el('circle',{cx:q[0],cy:q[1],r:3,fill:'var(--teal)'}))});s2.appendChild(el('path',{d:'M80 15 L112 8',stroke:'var(--amber)','stroke-width':'1.4','stroke-dasharray':'2 2'}));s2.appendChild(el('circle',{cx:112,cy:8,r:2.2,fill:'var(--amber)'}));return}
+ var s=el('svg',{viewBox:'0 0 140 100',role:'img','aria-label':'Joukkueen kenttä'});h.appendChild(s);
+ var g=el('g',{fill:'none',stroke:'var(--chalk)','stroke-width':'.8'});
+ g.appendChild(el('line',{x1:70,y1:0,x2:70,y2:100}));g.appendChild(el('circle',{cx:70,cy:50,r:12}));
+ g.appendChild(el('rect',{x:0,y:22,width:22,height:56}));g.appendChild(el('rect',{x:118,y:22,width:22,height:56}));
+ s.appendChild(g);
+ var P=[['Topias K.','laituri · vk 2/6',62,6,'',],['Pelaaja 7','vk 4/6',40,30],['Pelaaja 11','valittavana',62,70,'wait'],['Pelaaja 4','vk 1/6',22,42],['Pelaaja 9','vk 2/6',84,42],['Pelaaja 5','katselmus',40,66,'wait'],['Pelaaja 10','ei asetta',98,20,'none'],['Pelaaja 2','vk 2/6',18,8],['Pelaaja 6','vk 3/6',84,8],['Pelaaja 8','valittavana',100,58,'wait'],['Pelaaja 3','vk 2/6',6,66],['Pelaaja E.','ei asetta',114,78,'none'],['Pelaaja 12','vk 5/6',120,42],['Pelaaja 1','vk 2/6',4,36]];
+ P.forEach(function(p){var z=document.createElement('div');z.className='pz'+(p[4]?' '+p[4]:'');z.style.left=(p[2]/1.4)+'%';z.style.top=p[3]+'%';z.style.width='14%';z.innerHTML=p[0]+'<small>'+p[1]+'</small>';h.appendChild(z)});
+});
+})();
+</script>
+</body>
+</html>
