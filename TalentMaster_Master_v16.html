@@ -109,7 +109,7 @@ window.TM_KAAVIO_HOST = {
 <script src="lib/tm_jaksofokus.js?v=5"></script>   <!-- Vaihe 4c/6: tmJfUmpeutunut (jakson sulku -laukaisin) -->
 <script src="lib/tm_kehityspolku.js?v=2"></script>   <!-- I3a: looginen silta -resolver (idp_fokus → konsepti/fundamentti → harjoite) -->
 <script src="lib/tm_jaksokooste.js?v=2"></script>   <!-- Vaihe 6: jakson sulku (meso-sykli) — valmentaja sulkee omat pelaajansa (§4/§37) -->
-<script src="lib/tm_kehityssilmukka.js?v=1"></script>   <!-- R6.1b: jaksofokuksen yhteinen kirjoitusydin (tmAsetaJaksofokus / tmSuljeJakso) -->
+<script src="lib/tm_kehityssilmukka.js?v=2"></script>   <!-- R6.1b: jaksofokuksen yhteinen kirjoitusydin (tmAsetaJaksofokus / tmSuljeJakso) -->
 <script src="lib/tm_fyysteemat.js?v=4"></script>   <!-- Vaihe 7: fyysinen teemaluettelo + D1-fokuslähde + evidenssi (fysiikkavalmentaja) -->
 <script src="lib/tm_ohjelma.js?v=1"></script>   <!-- Vaihe 7.2a: fysiikkaohjelmakirjasto (validoi/versioi/templaatista, deterministinen) -->
 <script src="lib/tm_ohjelma_analytiikka.js?v=2"></script>   <!-- Vaihe 7.2b: per-ohjelma-analytiikka (tmOhjelmaKooste — mikä ohjelma toimii kenelle) -->
@@ -6846,9 +6846,6 @@ window._msTallenna = async function (uusiAvain) {
   if (uusiAvain) {
     if (_fyysT) { var ft2 = window.TM_FYYSTEEMAT_LIB ? window.TM_FYYSTEEMAT_LIB.tmFyysTeema(uusiAvain) : null; uusiJf = { konsepti_avain: uusiAvain, konsepti_nimi: ft2 ? ft2.nimi : uusiAvain, konsepti_koodi: null, alkoi: new Date().toISOString(), kesto_vk: 4, lahde: 'silta_d1', domeeni: 'fyysinen' }; }
     else { var k = _msSiltaKonsepti(uusiAvain); uusiJf = { konsepti_avain: uusiAvain, konsepti_nimi: k ? k.nimi : uusiAvain, konsepti_koodi: k ? k.koodi : null, alkoi: new Date().toISOString(), kesto_vk: 4, lahde: 'silta', domeeni: 'teknis_taktinen' }; }
-    // R6.1b LINKKI: sulun jälkeinen jakso juontuu samasta kausitavoitteesta → tavoite_alue periytyy (adapterin vastuu; tmSuljeJakso ei käsittele linkkiä).
-    // valitavoite_idx/poikkeama koskevat vain suljettua jaksoa → EIVÄT periydy.
-    if (jf.tavoite_alue != null) uusiJf.tavoite_alue = jf.tavoite_alue;
   }
   // R6.1b: sulkurivi + uusi jaksofokus lib:stä (tmSuljeJakso: sulkutapa 'suljettu', lahde_seuraava uuden jakson lahde-kentästä)
   var v = window.TM_KEHITYSSILMUKKA.tmSuljeJakso({ jaksofokus: jf }, {
@@ -6857,7 +6854,7 @@ window._msTallenna = async function (uusiAvain) {
     delta_mitattu: S.deltaMitattu || null,   // Vaihe 7: kytkee mitatun deltan (V6-aukko)
     ohjelma: jf.ohjelma || null,             // §2c: ohjelma → annos–vaste-rivi
     tulos: S.tulos, uusi: uusiJf
-  }, { nytISO: new Date().toISOString() });
+  }, { nytISO: new Date().toISOString(), periytaLinkki: true });   // R6.1c: tavoite_alue periytyy vain jos uudella jaksolla ei ole omaa arvoa (lib; valitavoite_idx/poikkeama ei koskaan)
   if (!_mVerkkoEnnenSulkua()) return;   // offline: sulkulomake jää auki, historiaa ei muuteta
   p.jaksofokus = v.jaksofokus;
   document.getElementById('_msSulkuModal')?.remove(); window._msSulkuTila = null;

@@ -167,10 +167,45 @@ describe('R6.1a-korjaukset (katselmointi)', () => {
   });
 });
 
+describe('R6.1c — tmSuljeJakso periytaLinkki (opt-in) + POISTA', () => {
+  const VAN = { konsepti_avain: 'y_h2', konsepti_nimi: 'SYÖTTÄMINEN', alkoi: ALKOI, tavoite_alue: 'syotto', valitavoite_idx: 2, poikkeama: true, oma_jakso: true };
+  const sulje = (vanha, uusi, opts) => K.tmSuljeJakso(topias(vanha), { tulos: 'parani', uusi }, Object.assign({ nytISO: NYT }, opts)).jaksofokus;
+  it('oletuksena ei periytymistä (R6.1a-käytös ennallaan)', () => { expect(sulje(VAN, UUSI)).toEqual(UUSI); });
+  it('periytaLinkki: tavoite_alue periytyy KUN uudella jaksolla ei ole omaa arvoa (puuttuu / undefined)', () => {
+    expect(sulje(VAN, UUSI, { periytaLinkki: true })).toEqual(Object.assign({}, UUSI, { tavoite_alue: 'syotto' }));
+    expect(sulje(VAN, Object.assign({}, UUSI, { tavoite_alue: undefined }), { periytaLinkki: true }).tavoite_alue).toBe('syotto');
+  });
+  it('OMA arvo voittaa aina — myös null ja tyhjä merkkijono (eksplisiittinen); tyhjä ei laukaise periytymistä', () => {
+    expect(sulje(VAN, Object.assign({}, UUSI, { tavoite_alue: 'pelinluku' }), { periytaLinkki: true }).tavoite_alue).toBe('pelinluku');
+    expect(sulje(VAN, Object.assign({}, UUSI, { tavoite_alue: '' }), { periytaLinkki: true }).tavoite_alue).toBe('');
+    expect(sulje(VAN, Object.assign({}, UUSI, { tavoite_alue: null }), { periytaLinkki: true }).tavoite_alue).toBeNull();
+  });
+  it('suljetun jakson tyhjä / puuttuva / ei-merkkijono alue EI periydy', () => {
+    ['', null, undefined, 0, {}, []].forEach((v) => expect('tavoite_alue' in sulje(Object.assign({}, VAN, { tavoite_alue: v }), UUSI, { periytaLinkki: true }), JSON.stringify(v)).toBe(false));
+    expect('tavoite_alue' in sulje({ konsepti_avain: 'x', alkoi: ALKOI }, UUSI, { periytaLinkki: true })).toBe(false);
+  });
+  it('valitavoite_idx, poikkeama ja oma_jakso EIVÄT KOSKAAN periydy (kaikilla tapauksilla)', () => {
+    [UUSI, Object.assign({}, UUSI, { tavoite_alue: 'oma' }), Object.assign({}, UUSI, { tavoite_alue: '' })].forEach((u) => {
+      const j = sulje(VAN, u, { periytaLinkki: true }); expect(j.valitavoite_idx).toBeUndefined(); expect(j.poikkeama).toBeUndefined(); expect(j.oma_jakso).toBeUndefined();
+    });
+    expect(sulje(VAN, Object.assign({}, UUSI, { valitavoite_idx: 5 }), { periytaLinkki: true }).valitavoite_idx).toBe(5);   // uuden OMA arvo säilyy
+  });
+  it('ei uutta jaksoa → null (periytymistä ei fabrikoida); syötettä ei mutatoida', () => {
+    expect(K.tmSuljeJakso(topias(VAN), { tulos: 'x' }, { nytISO: NYT, periytaLinkki: true }).jaksofokus).toBeNull();
+    const u = JSON.parse(JSON.stringify(UUSI)); sulje(VAN, u, { periytaLinkki: true }); expect(u).toEqual(UUSI);
+  });
+  it('tmPaivitaJaksofokus: POISTA → polku poistetaan (adapteri: FieldValue.delete()), paikallisesta kopiosta kenttä pois; muut kentät ennallaan', () => {
+    const r = K.tmPaivitaJaksofokus(topias({ konsepti_avain: 'y_h2', alkoi: ALKOI, linkitetyt: [1], osa_arviot: { a: 1 } }), { linkitetyt: K.POISTA, 'osa_arviot.b': 2 });
+    expect(r.polut['jaksofokus.linkitetyt']).toBe(K.POISTA); expect(r.polut['jaksofokus.osa_arviot.b']).toBe(2);
+    expect(r.jaksofokus.linkitetyt).toBeUndefined(); expect(r.jaksofokus.osa_arviot).toEqual({ a: 1, b: 2 });
+    expect(() => K.tmPaivitaJaksofokus(topias({ konsepti_avain: 'y' }), { konsepti_avain: K.POISTA })).toThrow(/identiteettikenttää/);   // POISTA ei kierrä identiteettivartijaa
+  });
+});
+
 describe('ydin on PURE', () => {
   it('ei Firestore/DOM/verkko-viittauksia (adapterit kirjoittavat) eikä serverTimestamp()', () => {
     const koodi = LIB.replace(/\/\*[\s\S]*?\*\//g, '').split('\n').map((l) => l.replace(/\/\/.*$/, '')).join('\n');   // ilman kommentteja
     expect(koodi).not.toMatch(/firebase|firestore|\bdb\b|collection\(|\.set\(|\.update\(|\.add\(|batch|document\.|fetch\(|serverTimestamp|localStorage/);
   });
-  it('API: jaksofokus-funktiot + tmKirjaaKatselmus (R6.2a)', () => { expect(Object.keys(K).sort()).toEqual(['tmAsetaJaksofokus', 'tmKirjaaKatselmus', 'tmPaivitaJaksofokus', 'tmSuljeJakso']); });
+  it('API: jaksofokus-funktiot + tmKirjaaKatselmus (R6.2a)', () => { expect(Object.keys(K).sort()).toEqual(['POISTA', 'tmAsetaJaksofokus', 'tmKirjaaKatselmus', 'tmPaivitaJaksofokus', 'tmSuljeJakso']); });
 });

@@ -58,7 +58,7 @@ describe('adapterit kutsuvat libiä — ei rinnakkaista päättelyä', () => {
   });
   it('kaikki 5 kirjoittavat _mKirjoitaJaksofokus:lla (update + arrayUnion); Master lataa tm_kehityssilmukka.js', () => {
     expect((MASTER.match(/await _mKirjoitaJaksofokus\(/g) || []).length).toBe(5);
-    expect(pura('async function _mKirjoitaJaksofokus(')).toMatch(/\.update\(upd\)/); expect(MASTER).toContain('lib/tm_kehityssilmukka.js?v=1');
+    expect(pura('async function _mKirjoitaJaksofokus(')).toMatch(/\.update\(upd\)/); expect(MASTER).toContain('lib/tm_kehityssilmukka.js?v=2');
     expect(MASTER.indexOf('tm_jaksokooste.js')).toBeLessThan(MASTER.indexOf('tm_kehityssilmukka.js'));
   });
 });
@@ -143,6 +143,19 @@ describe('M5 _msTallenna (sulku) — tmSuljeJakso + yksi update', () => {
     expect(d.jaksofokus).toMatchObject({ konsepti_avain: 'y_h3', konsepti_nimi: 'Silta y_h3', domeeni: 'teknis_taktinen', lahde: 'silta', tavoite_alue: 'syotto', kesto_vk: 4 });
     expect(d.jaksofokus.valitavoite_idx).toBeUndefined(); expect(d.jaksofokus.poikkeama).toBeUndefined(); expect(d.jaksofokus.alkoi).not.toBe(ALKOI);
     expect(d.jaksofokus_historia.__arrayUnion[0]).toMatchObject({ lahde_seuraava: 'silta', sulkutapa: 'suljettu' });
+  });
+  it('R6.1c: tavoite_alue periytyy (periytaLinkki; sääntö + oma-arvo-voittaa lib-testeissä); suljetun tyhjä alue ei periydy; valitavoite_idx/poikkeama ei koskaan', async () => {
+    const jf = (o) => Object.assign({}, JF, o);
+    const aja2 = async (jaksofokus, uusiLisa) => {
+      const e = ymp({ pelaaja: { jaksofokus } });
+      e.sb._msSiltaKonsepti = (a) => Object.assign({ nimi: 'Silta ' + a, koodi: 'S1' }, uusiLisa);   // uuden jakson oma kenttä (esim. tavoite_alue) välittyy
+      await aja(e, 'y_h3'); return e.kirj[0].data.jaksofokus;
+    };
+    expect((await aja2(jf({ tavoite_alue: 'syotto' }), {})).tavoite_alue).toBe('syotto');   // puuttuu → periytyy
+    expect(pura('window._msTallenna = async function')).toMatch(/periytaLinkki: true/);
+    const tyhja = await aja2(jf({ tavoite_alue: '' }), {}); expect('tavoite_alue' in tyhja).toBe(false);   // suljetun '' ei periydy
+    const eiAlue = await aja2({ konsepti_avain: 'y_h2', konsepti_nimi: 'X', alkoi: ALKOI }, {}); expect('tavoite_alue' in eiAlue).toBe(false);
+    const j = await aja2(jf({ tavoite_alue: 'syotto', valitavoite_idx: 4, poikkeama: true }), {}); expect(j.valitavoite_idx).toBeUndefined(); expect(j.poikkeama).toBeUndefined();
   });
   it('fyysinen sulku: uusi fyysinen jakso, lahde_seuraava "silta_d1"; ei tavoite_alue-kenttää jos suljetulla ei ollut', async () => {
     const e = ymp({ pelaaja: { jaksofokus: { konsepti_avain: 'fy_nopeus', konsepti_nimi: 'Nopeus', domeeni: 'fyysinen', alkoi: ALKOI, lahde: 'silta_d1', ohjelma: { ohjelma_id: 'o1', tyyppi: 'plyo' } } } }); await aja(e, 'fy_voima');

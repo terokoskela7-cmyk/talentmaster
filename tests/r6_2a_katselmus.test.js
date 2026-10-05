@@ -166,6 +166,6 @@ describe('lähdevartijat', () => {
     expect(pura('async function _vpKirjoitaReview(')).toMatch(/tmKirjaaKatselmus/);
   });
   it('VP lataa tm_kehityssilmukka.js (jaksokooste ennen sitä)', () => {
-    expect(VP).toContain('lib/tm_kehityssilmukka.js?v=1'); expect(VP.indexOf('tm_jaksokooste.js')).toBeLessThan(VP.indexOf('tm_kehityssilmukka.js'));
+    expect(VP).toContain('lib/tm_kehityssilmukka.js?v=2'); expect(VP.indexOf('tm_jaksokooste.js')).toBeLessThan(VP.indexOf('tm_kehityssilmukka.js'));
   });
 });
