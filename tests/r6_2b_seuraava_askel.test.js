@@ -24,7 +24,7 @@ const VP = lue('TalentMaster_VP_v25.html'), MA = lue('TalentMaster_Master_v16.ht
 const NYT = new Date('2026-10-05T12:00:00Z').getTime();
 const PV = 86400000;
 const iso = (ms) => new Date(ms).toISOString().slice(0, 10);
-const DEPS = { laskeReviewKadenssi: N.laskeReviewKadenssi, idpJumissa: IDP.idpJumissa, jaksoUmpeutunut: JF.tmJfUmpeutunut, phvKuormaTila: PHV.tmPhvKuormaTila, phvKuormaVarovainen: PHV.tmPhvKuormaVarovainen, phvEiMitattu: PHV.tmPhvEiMitattu, siltaEhdota: SILTA.tmSiltaEhdota };
+const DEPS = { laskeReviewKadenssi: N.laskeReviewKadenssi, idpJumissa: IDP.idpJumissa, jaksoUmpeutunut: JF.tmJfUmpeutunut, phvKuormaTila: PHV.tmPhvKuormaTila, phvKuormaVarovainen: PHV.tmPhvKuormaVarovainen, phvEiMitattu: PHV.tmPhvEiMitattu, phvOhjelmaKuorma: PHV.tmPhvOhjelmaKuorma };
 const aja = (p, extra) => L.tmSeuraavaAskel(p, Object.assign({ nyt: NYT, deps: DEPS }, extra || {}));
 
 // Perustapaus: kaikki kunnossa → yllapito. Ikä 16 (ei PHV-ikkunassa), mittaamaton → rajoite null.
@@ -44,7 +44,9 @@ const UMPEUTUNUT = { jaksofokus: { konsepti_nimi: 'X', konsepti_avain: 'y_h2', a
 const EI_JAKSOA = { jaksofokus: null };
 const JUMISSA = { _idpTavoite: { luotu: iso(NYT - 200 * PV), status: 'aktiivinen' } };
 const VT_VALMIS = { jaksofokus: { konsepti_nimi: 'X', konsepti_avain: 'y_h2', alkoi: iso(NYT - 7 * PV), kesto_vk: 4, valitavoite_idx: 0 }, _idpTavoite: { luotu: iso(NYT - 10 * PV), status: 'aktiivinen', valitavoitteet: [{ nimi: 'Vaihtotavoite', tila: 'saavutettu' }] } };
-const HAVAINTO = { arviointi_havaittu: { ball_control: 2, short_passing: 4 } };
+// havaintorytmi: jakso alkoi 20 pv sitten (kesto 8 vk → ei umpeutunut), ei yhtään havaintoa jakson aikana → aika lasketaan jakson alusta (20 > 14)
+const jakso = (alkoiPvSitten, lisa) => (Object.assign({ konsepti_nimi: 'Saattaen vaihtaminen', konsepti_avain: 'y_h2', domeeni: 'teknis_taktinen', alkoi: iso(NYT - alkoiPvSitten * PV), kesto_vk: 8 }, lisa || {}));
+const HAVAINTO = { jaksofokus: jakso(20) };
 const KUORMA = { syntymaVuosi: 2013, jaksofokus: { konsepti_nimi: 'Voima', konsepti_avain: 'fy_voima', domeeni: 'fyysinen', alkoi: iso(NYT - 7 * PV), kesto_vk: 4, ohjelma: { tyyppi: 'perusvoima' } } };
 
 describe('tmSeuraavaAskel — jokaiselle säännölle oma tapaus (aina {avain, peruste})', () => {
@@ -61,20 +63,17 @@ describe('tmSeuraavaAskel — jokaiselle säännölle oma tapaus (aina {avain, p
   TAPAUKSET.forEach(([nimi, lisa, avain]) => it(nimi, () => {
     const r = aja(puhdas(lisa)); expect(r.avain).toBe(avain); expect(r.tila).toBe('toimenpide'); expect(r.peruste).toBeTypeOf('object'); expect(r.rajoite).toBeTypeOf('object');
   }));
-  it('perusteet: myöhässä ylimaaraPv, erääntymässä eraantyyPvm, havainto konsepti+arvo, välitavoite nimi, ehdotus nappi', () => {
+  it('perusteet: myöhässä ylimaaraPv, erääntymässä eraantyyPvm, havainto päivät+lähde, välitavoite nimi, ehdotus nappi', () => {
     expect(aja(puhdas(MYOHASSA)).peruste.ylimaaraPv).toBeGreaterThan(0);
     expect(aja(puhdas({ review_viimeisin_pvm: iso(NYT - 38 * PV) })).peruste.eraantyyPvm).toBeTruthy();
-    expect(aja(puhdas(HAVAINTO)).peruste).toMatchObject({ arvo: 2, konsepti_avain: expect.any(String) });
+    expect(aja(puhdas(HAVAINTO)).peruste).toEqual({ paivia: 20, rytmi_pv: 14, viimeisin_pvm: null, lahde: 'jakso_alku' });
     expect(aja(puhdas(VT_VALMIS)).peruste).toMatchObject({ nimi: 'Vaihtotavoite', valitavoite_idx: 0 });
     expect(aja(puhdas(EHDOTUS)).nappi).toBe('tarkista_ehdotus');
   });
-  it('rajat: ehdotus joka ei ole tallennettu / ei ehdotettu → ei toimenpide; vahvistettu sitoumus → ei; havainto 3/5 ei laukaise; havainto = käynnissä oleva jakso ei laukaise; välitavoite avoin → ei', () => {
+  it('rajat: ehdotus joka ei ole tallennettu / ei ehdotettu → ei toimenpide; vahvistettu sitoumus → ei; välitavoite avoin → ei', () => {
     expect(aja(puhdas({ _idpLuonnos: { status: 'ehdotettu' }, _luonnosTallennettu: false })).avain).toBe('yllapito');
     expect(aja(puhdas({ _idpLuonnos: { status: 'hyvaksytty' }, _luonnosTallennettu: true })).avain).toBe('yllapito');
     expect(aja(puhdas(Object.assign({}, SITOUMUS, { idp_sitoumus_vahv_jakso: puhdas().jaksofokus.alkoi }))).avain).toBe('yllapito');
-    expect(aja(puhdas({ arviointi_havaittu: { ball_control: 3 } })).avain).toBe('yllapito');
-    const sama = puhdas(HAVAINTO), h = SILTA.tmSiltaEhdota(sama.arviointi_havaittu, {})[0]; sama.jaksofokus.konsepti_avain = h.konsepti_avain;
-    expect(aja(sama).avain).toBe('yllapito');
     expect(aja(puhdas({ jaksofokus: Object.assign({}, VT_VALMIS.jaksofokus), _idpTavoite: { valitavoitteet: [{ nimi: 'x', tila: 'avoin' }] } })).avain).toBe('yllapito');
     ['aktiivinen', 'avoin', undefined].forEach((t) => expect(aja(puhdas({ jaksofokus: Object.assign({}, VT_VALMIS.jaksofokus), _idpTavoite: { valitavoitteet: [{ nimi: 'x', tila: t }] } })).avain, String(t)).toBe('yllapito'));   // vain 'saavutettu' on valmis
     expect(aja(puhdas({ jaksofokus: Object.assign({}, VT_VALMIS.jaksofokus, { valitavoite_idx: 3 }), _idpTavoite: VT_VALMIS._idpTavoite })).avain).toBe('yllapito');   // idx osoittaa olematonta → ei
@@ -109,6 +108,55 @@ describe('tmSeuraavaAskel — kun kaksi ehtoa täyttyy yhtä aikaa, JÄRJESTYS r
   });
 });
 
+describe('9 havainto = HAVAINTORYTMI (D7: oletus 14 pv; kaikki lähteet yhteen)', () => {
+  const pv = (n) => iso(NYT - n * PV);
+  it('rytmi erääntynyt: viimeisin havainto (jakson aikana) yli 14 pv sitten → havainto, peruste kertoo päivien määrän ja lähteen', () => {
+    const r = aja(puhdas({ jaksofokus: jakso(40), arviointi_pvm: pv(20) }));
+    expect(r.avain).toBe('havainto'); expect(r.peruste).toEqual({ paivia: 20, rytmi_pv: 14, viimeisin_pvm: pv(20), lahde: 'arviointi' });
+  });
+  it('rytmi kunnossa: havainto ≤ 14 pv sitten → ei laukea (yllapito)', () => {
+    expect(aja(puhdas({ jaksofokus: jakso(40), arviointi_pvm: pv(5) })).avain).toBe('yllapito');
+  });
+  it('raja: tasan 14 pv → ei; 15 pv → kyllä', () => {
+    expect(aja(puhdas({ jaksofokus: jakso(40), arviointi_pvm: pv(14) })).avain).toBe('yllapito');
+    expect(aja(puhdas({ jaksofokus: jakso(40), arviointi_pvm: pv(15) })).peruste.paivia).toBe(15);
+  });
+  it('ei havaintoja → aika lasketaan JAKSON ALUSTA: 20 pv → laukeaa; 10 pv → ei', () => {
+    expect(aja(puhdas({ jaksofokus: jakso(20) })).peruste).toMatchObject({ paivia: 20, lahde: 'jakso_alku', viimeisin_pvm: null });
+    expect(aja(puhdas({ jaksofokus: jakso(10) })).avain).toBe('yllapito');
+  });
+  it('ennen jakson alkua tehty havainto EI kohdistu käynnissä olevaan jaksoon → aika jakson alusta', () => {
+    const r = aja(puhdas({ jaksofokus: jakso(20), arviointi_pvm: pv(40), adar_viimeisin: { pvm: pv(30) } }));
+    expect(r.peruste).toMatchObject({ paivia: 20, lahde: 'jakso_alku', viimeisin_pvm: null });
+  });
+  it('ERI LÄHTEET lasketaan yhteen: tuorein voittaa (arviointi · ADAR/pelianalyysi · vapaa havainto)', () => {
+    const vanha = { jaksofokus: jakso(40), arviointi_pvm: pv(25) };
+    expect(aja(puhdas(vanha)).avain).toBe('havainto');
+    expect(aja(puhdas(Object.assign({}, vanha, { adar_viimeisin: { pvm: pv(3) } }))).avain, 'ADAR/pelianalyysi nollaa rytmin').toBe('yllapito');
+    expect(aja(puhdas(Object.assign({}, vanha, { havainto_viimeisin_pvm: pv(2) }))).avain).toBe('yllapito');
+    expect(aja(puhdas(Object.assign({}, vanha, { adar_viimeisin: { pvm: pv(18) } }))).peruste).toMatchObject({ paivia: 18, lahde: 'adar' });
+    expect(aja(puhdas({ jaksofokus: jakso(40), arviointi_pvm: pv(16), adar_viimeisin: { pvm: pv(22) } })).peruste).toMatchObject({ paivia: 16, lahde: 'arviointi' });
+  });
+  it('N on parametri (opts.havaintoRytmiPv): 30 → ei laukea, 7 → laukeaa; oletus 14', () => {
+    const p = puhdas({ jaksofokus: jakso(40), arviointi_pvm: pv(20) });
+    expect(aja(p, { havaintoRytmiPv: 30 }).avain).toBe('yllapito'); expect(aja(p, { havaintoRytmiPv: 7 }).peruste.rytmi_pv).toBe(7); expect(L.HAVAINTO_RYTMI_PV).toBe(14);
+  });
+  it('ei jaksoa → ei laukea (sääntö 5 hoitaa); jakso ilman alkoi-pvm:ää → ei arvausta; havaintopäivä tulevaisuudessa ei lasketa', () => {
+    expect(aja(puhdas({ jaksofokus: null })).avain).toBe('ei_jaksofokusta');
+    expect(aja(puhdas({ jaksofokus: { konsepti_nimi: 'X', konsepti_avain: 'y_h2', kesto_vk: 4 } })).avain).toBe('yllapito');
+    expect(aja(puhdas({ jaksofokus: jakso(20), arviointi_pvm: iso(NYT + 5 * PV) })).peruste.lahde).toBe('jakso_alku');
+  });
+  it('muut portaat voittavat havaintorytmin; "heikoin havaittu ≤2/5" EI ole enää askel (arviointi_havaittu ei laukaise mitään)', () => {
+    expect(aja(puhdas(Object.assign({}, HAVAINTO, JUMISSA))).avain).toBe('idp_jumissa');
+    expect(aja(puhdas({ arviointi_havaittu: { ball_control: 1, short_passing: 1 } })).avain).toBe('yllapito');
+  });
+  it('heikoin havaittu ≤ 2/5 elää tmSeuraavaJakso:n syötteenä (D8): heikko-lippu, ≤2 true / 3 false', () => {
+    const deps = { siltaKonsepti: (a) => ({ nimi: a }), siltaEhdota: SILTA.tmSiltaEhdota, sallitut: () => null };
+    expect(L.tmSeuraavaJakso({ jaksofokus: {}, arviointi_havaittu: { ball_control: 2 } }, 'x', 'vaihda', deps)).toMatchObject({ konsepti_avain: 'y_h1', heikko: true });
+    expect(L.tmSeuraavaJakso({ jaksofokus: {}, arviointi_havaittu: { ball_control: 3 } }, 'x', 'vaihda', deps)).toMatchObject({ konsepti_avain: 'y_h1', heikko: false });
+  });
+});
+
 describe('PHV = rajoite (rinnalla), askeleeksi vain kuorma_tarkista', () => {
   it('rajoite palautetaan MINKÄ TAHANSA askeleen rinnalla (kaikki 11 avainta)', () => {
     const PH = { syntymaVuosi: 2013, biologinenIka_viimeisin: { phv_tila_koodi: 'PH', pvm: '2026-09-01' } };
@@ -124,6 +172,14 @@ describe('PHV = rajoite (rinnalla), askeleeksi vain kuorma_tarkista', () => {
   it('mitattu POST ikkunassa → ei varovainen; raskas ohjelma ei laukaise kuorma_tarkistaa', () => {
     const p = puhdas(Object.assign({}, KUORMA, { biologinenIka_viimeisin: { phv_tila_koodi: 'POST', pvm: '2026-09-01' } }));
     expect(aja(p).rajoite.varovainen).toBe(false); expect(aja(p).avain).not.toBe('kuorma_tarkista');
+  });
+  it('kuormakategoriat = YKSI lähde lib/tm_phv_tila.js (ei omaa listaa täällä); voima/hyppy/juoksu; nopeus Teron vahvistamatta; muut ohjelmat → null', () => {
+    expect(PHV.tmPhvOhjelmaKuorma('perusvoima')).toBe('voima'); expect(PHV.tmPhvOhjelmaKuorma('nopeus_voima')).toBe('hyppy'); expect(PHV.tmPhvOhjelmaKuorma('nopeus')).toBe('juoksu');
+    ['liikkuvuus', 'kuntoutus', 'muu', 'x', null, undefined, '__proto__', 'constructor'].forEach((t) => expect(PHV.tmPhvOhjelmaKuorma(t), String(t)).toBeNull());
+    expect(PHV.PHV_OHJELMA_KUORMA.nopeus.vahvistettu, 'nopeus → juoksu odottaa Teron vahvistusta').toBe(false);
+    expect(Object.keys(PHV.PHV_KUORMA_KATEGORIAT).sort()).toEqual(['hyppy', 'juoksu', 'voima']);
+    expect(lue('lib/tm_seuraava_askel.js')).not.toMatch(/perusvoima|nopeus_voima|RASKAAT/); expect(aja(puhdas(KUORMA)).peruste).toMatchObject({ ohjelma_tyyppi: 'perusvoima', kuorma: 'voima' });
+    expect(lue('functions/tm_phv_tila.js')).toBe(lue('lib/tm_phv_tila.js'));
   });
   it('kuorma_tarkista: raskas ohjelma + (PH TAI tuntematon-ikkunassa); kevyt ohjelma / teknis-taktinen jakso / ei ohjelmaa → ei', () => {
     expect(aja(puhdas(KUORMA)).avain).toBe('kuorma_tarkista');   // tuntematon ikkunassa
@@ -193,6 +249,7 @@ describe('kääreet: VP / Master ajavat SAMAN libin; vanha päättely pois', () 
     expect(f(MYOHASSA)).toMatchObject({ avain: 'review_myohassa', askel: 'review_myohassa', tila: 'toimenpide', korostus: expect.stringContaining('pv myöhässä') });
     expect(f(EHDOTUS)).toMatchObject({ avain: 'ehdotus_odottaa', nappi: 'tarkista_ehdotus' });
     expect(f({})).toMatchObject({ avain: 'ei_xfactoria', askel: 'yllapito', tila: 'hiljainen' }); expect(f({ signaali: 'xfactor' })).toMatchObject({ avain: 'xfactor', askel: 'yllapito' });
+    expect(f(HAVAINTO)).toMatchObject({ avain: 'havainto', teksti: 'Jaksolla ei ole uutta havaintoa', korostus: '20 pv — kirjaa havainto.' });   // päivien määrä näkyy
     ['jakso_umpeutunut', 'valitavoite_valmis', 'havainto', 'kuorma_tarkista'].forEach((a, i) => {
       const d = f([UMPEUTUNUT, VT_VALMIS, HAVAINTO, KUORMA][i]); expect(d.avain).toBe(a); expect(d.teksti).toBeTruthy(); expect(d.tila).toBe('toimenpide'); expect(d.rajoite).toBeTypeOf('object');
     });

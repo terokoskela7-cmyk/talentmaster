@@ -878,8 +878,8 @@ describe('VP_v25 resolvi-portti — jokaisella reititetyllä avaimella on sv-riv
     'sulje se ja valitse seuraava.',
     'Välitavoite saavutettu —',
     'valitse seuraava.',
-    'Arvioinnin heikoin kohta —',
-    'harkitse sen valitsemista jaksolle.',
+    'Jaksolla ei ole uutta havaintoa',
+    'pv — kirjaa havainto.',
   ];
 
   it('0 vpT-avainta ilman sv-riviä (paitsi nimetyt sanktiointia odottavat)', () => {
