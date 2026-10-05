@@ -1135,13 +1135,14 @@ async function _phPaivitaPikakentat(seuraId, pelaajaId, porras, kirjoitaPorras) 
    Käyttö: online-tallennus (_phTallenna) JA offline-jonon synkka (_synkronoiOfflineJono). Palauttaa commit-lupauksen;
    onLahetetty() kutsutaan heti kun batch on annettu Firestorelle (persistence: jonottuu laitteelle). */
 async function _phKirjoitaHavaintoJaPikakentat(havRef, data, seuraId, pelaajaId, porras, kirjoitaPorras, onLahetetty) {
-  var pRef = _phPelaajaRef(seuraId, pelaajaId), kentat = null;
+  var pRef = _phPelaajaRef(seuraId, pelaajaId), kentat = null, havVanha = null;
   try {
     var snap = await pRef.collection('havainnot').get();
     var havainnot = snap.docs.filter(function (d) { return d.id !== havRef.id; }).map(function (d) { return d.data(); });
     havainnot.push(Object.assign({}, data, { luotu: new Date() }));
     var _oldAvDoc = await pRef.get().catch(function () { return null; });
     var _oldAv = (_oldAvDoc && _oldAvDoc.exists && _oldAvDoc.data().adar_viimeisin) || null;
+    havVanha = (_oldAvDoc && _oldAvDoc.exists && _oldAvDoc.data().havainto_viimeisin_pvm) || null;
     kentat = (typeof tmAdarPikakentat === 'function')
       ? tmAdarPikakentat(havainnot, _phIka(pelaajaId), porras, { edellinen: _oldAv }) : null;
     if (kentat && kirjoitaPorras) kentat.havainto_porras = porras;
@@ -1154,8 +1155,14 @@ async function _phKirjoitaHavaintoJaPikakentat(havRef, data, seuraId, pelaajaId,
   var commit = havRef.set(data);
   /* commit.pikakentat = lupaus joka AINA resolvaa {ok, code}: kutsuja (Master) tietää onnistuiko yhteenveto. Aiemmin vain
      console.warn → pikakenttien epäonnistuminen oli täysin näkymätön ja Masterin kortti jäi "ei havaintoja". */
-  var pikakentat = kentat
-    ? pRef.set(kentat, { merge: true }).then(function () { return { ok: true }; }, function (e) {
+  /* havainto_viimeisin_pvm (havaintorytmi, lib/tm_seuraava_askel.js): KAIKKI henkilökunnan havainnot (myös ilman pisteitä), ei vain pisteelliset
+     kuten adar_pvm. Havainnon päivä (paikallinen, §7.26); ei koskaan taaksepäin (offline-synkka tuo vanhan päivän: max). Samassa setissä kuin adar_*. */
+  var havPvm = (typeof data.pvm === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(data.pvm)) ? data.pvm : null;
+  if (havPvm && typeof havVanha === 'string' && havVanha > havPvm) havPvm = havVanha;
+  var kirj = Object.assign({}, kentat || {});
+  if (havPvm) kirj.havainto_viimeisin_pvm = havPvm;
+  var pikakentat = Object.keys(kirj).length
+    ? pRef.set(kirj, { merge: true }).then(function () { return kentat ? { ok: true } : { ok: false, code: 'laskenta' }; }, function (e) {
         console.warn('[ADAR pikakentat kirjoitus]', e && (e.code || e.message));
         return { ok: false, code: (e && e.code) || 'virhe' };
       })
@@ -1170,6 +1177,7 @@ async function _phKirjoitaHavaintoJaPikakentat(havRef, data, seuraId, pelaajaId,
     m.havainto_porras_ehdotus = kentat.havainto_porras_ehdotus || null;
     if (kirjoitaPorras) m.havainto_porras = porras;
   }
+  if (havPvm && window._pelaajaMap && window._pelaajaMap[pelaajaId]) window._pelaajaMap[pelaajaId].havainto_viimeisin_pvm = havPvm;
   return commit;
 }
 

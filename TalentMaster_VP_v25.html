@@ -111,6 +111,7 @@ window.TM_KAAVIO_HOST = {
 <script src="lib/tm_treeniteema.js?v=1"></script>   <!-- Vaihe 4d: teemakattavuus PURE-ydin (jaksofokus vs suunnitellut teemaharjoitukset) -->
 <script src="lib/tm_jaksokooste.js?v=2"></script>   <!-- Vaihe 6: jakson sulku (meso-sykli) PURE-ydin — prosessi+kalibraatio+historia (geneerinen §8) -->
 <script src="lib/tm_kehityssilmukka.js?v=2"></script>   <!-- R6.2a: katselmus yhteen paikkaan (tmKirjaaKatselmus) + jaksofokuksen kirjoitusydin -->
+<script src="lib/tm_seuraava_askel.js?v=1"></script>   <!-- R6.2b: seuraava toimenpide yhdessä paikassa (tmSeuraavaAskel / tmSeuraavaJakso / tmTeeTastaOsa) -->
 <script src="lib/tm_fyysteemat.js?v=4"></script>   <!-- Vaihe 7: fyysinen teemaluettelo + D1-fokuslähde + evidenssi (delta §29 + PHV-portti §28) -->
 <script src="lib/tm_ohjelma.js?v=1"></script>   <!-- Vaihe 7.2a: fysiikkaohjelmakirjasto (oversight: lue kirjasto + N-laskuri) -->
 <script src="lib/tm_ohjelma_analytiikka.js?v=2"></script>
@@ -8322,7 +8323,7 @@ function _vpAloitusKonseptiYdinHTML(p) {
   const harj = item ? _ttHarj(item.koodi || avain) : [];
   if (item && Array.isArray(item.kpi) && item.kpi.length) {
     // nextIdx = seuraava-askel-osa. Per-osa-näkyvyyttä ei ole tallennettu (R4 kaappaa) → oletus osa b (idx 1), muuten a.
-    const nextIdx = (item.kpi.length >= 2) ? 1 : 0;
+    const nextIdx = window.TM_SEURAAVA_ASKEL.tmTeeTastaOsa(item);   // R6.2b: osan valinta libissä
     h += '<div class="idp-bh"><span>' + vpT('Taidon osat pelissä') + '</span><span class="idp-sc">' + vpT('1 ei näy · 2 ohjatusti · 3 itsenäisesti') + '</span></div>';
     item.kpi.forEach(function (k, i) {
       h += '<div class="idp-kpi-row"><span class="idp-kc">' + esc(k.koodi || '·') + '</span><div class="idp-kbody"><div class="idp-kt">' + esc(k.teksti) + '</div>'
@@ -10667,25 +10668,18 @@ function _vpSulkuDots(current, fn) {
   return h;
 }
 // Seuraava fokus: 'ennallaan'→sama; muuten silta seuraavaksi heikoin (≠ nykyinen). null jos ei arviointia.
-function _vpSulkuSeuraava(p, nykyAvain, tulos) {
-  const jf = p.jaksofokus || {};
-  // Vaihe 7: fyysinen domeeni → seuraava SAMAN domeenin sisällä (tmFyysEhdota, EI D2-silta). §2.
-  if (jf.domeeni === 'fyysinen') {
-    const FL = window.TM_FYYSTEEMAT_LIB;
-    if (tulos === 'ennallaan') { const t = FL ? FL.tmFyysTeema(nykyAvain) : null; return { konsepti_avain: nykyAvain, konsepti_nimi: t ? t.nimi : nykyAvain, jatka: true, fyysinen: true }; }
-    const e = (typeof _vpFyysEhdotus === 'function') ? _vpFyysEhdotus(p, true) : null;
-    // Heikoin D1 saman domeenin sisällä; jos yhä sama teema (taso ei päivity ennen uutta mittausta) → jatka samaa.
-    if (e) return { konsepti_avain: e.avain, konsepti_nimi: e.nimi, fyysinen: true, jatka: e.avain === nykyAvain };
-    return null;
-  }
-  if (tulos === 'ennallaan') { const k = _vpSiltaKonsepti(nykyAvain); return { konsepti_avain: nykyAvain, konsepti_nimi: k ? k.nimi : nykyAvain, jatka: true }; }
-  const LIB = window.TM_ARVIOINTI_SILTA; if (!LIB || !p.arviointi_havaittu) return null;
-  const isp = (typeof _dimIkaSp === 'function') ? _dimIkaSp(p.joukkue || '', p) : { ika: null };
-  const posCode = (typeof _vpTtNormPositio === 'function') ? (p.tt_positio_aktiivinen || _vpTtNormPositio(p.positio || p.pelipaikka)) : null;
-  const sallitut = _ttItems({ ika: isp.ika, joukkue: p.joukkue, positio: posCode, tt_positio_aktiivinen: posCode, syntymaVuosi: p.syntymaVuosi });
-  const ehd = LIB.tmSiltaEhdota(p.arviointi_havaittu, { sallitutKonseptit: sallitut, konseptiNimi: function (a) { const k = _vpSiltaKonsepti(a); return k ? k.nimi : a; } });
-  const eri = ehd.filter(function (e) { return e.konsepti_avain !== nykyAvain; });
-  return eri.length ? eri[0] : (ehd.length ? ehd[0] : null);
+function _vpSulkuSeuraava(p, nykyAvain, tulos) {   // R6.2b KÄÄRE → lib tmSeuraavaJakso (sama ydin Masterin _msSeuraava:n kanssa); tässä vain VP:n lähteet
+  return window.TM_SEURAAVA_ASKEL.tmSeuraavaJakso(p, nykyAvain, tulos, {
+    fyysTeema: function (a) { const FL = window.TM_FYYSTEEMAT_LIB; return FL ? FL.tmFyysTeema(a) : null; },
+    fyysEhdotus: function (pp, ohita) { return (typeof _vpFyysEhdotus === 'function') ? _vpFyysEhdotus(pp, ohita) : null; },
+    siltaKonsepti: function (a) { return _vpSiltaKonsepti(a); },
+    siltaEhdota: window.TM_ARVIOINTI_SILTA ? window.TM_ARVIOINTI_SILTA.tmSiltaEhdota : null,
+    sallitut: function () {
+      const isp = (typeof _dimIkaSp === 'function') ? _dimIkaSp(p.joukkue || '', p) : { ika: null };
+      const posCode = (typeof _vpTtNormPositio === 'function') ? (p.tt_positio_aktiivinen || _vpTtNormPositio(p.positio || p.pelipaikka)) : null;
+      return _ttItems({ ika: isp.ika, joukkue: p.joukkue, positio: posCode, tt_positio_aktiivinen: posCode, syntymaVuosi: p.syntymaVuosi });
+    }
+  });
 }
 
 // ── K2 — Jaksosidos-evidenssi sulkuhetkeen (PUHDAS string-helper, testattava; EI DOM tmKehityskaari(el)). ──
@@ -18352,50 +18346,38 @@ function _mdtFaLista(p) {
    PUHDAS ja testattava: nyt injektoitavissa, palauttaa YHDEN (ylimmän) asian, ei listaa.
    Prioriteetti = auditin §P2 luettelojärjestys (ks. docs/CODE_BRIEF_PDC_P2_PAATOS_KARKEEN.md §3.3 tulkinnoista). */
 window._pdcPaatos = function (p, nyt) {
+  /* R6.2b — KÄÄRE: päätös (järjestys, ehdot, peruste, PHV-rajoite) = lib/tm_seuraava_askel.js (tmSeuraavaAskel, 10 porrasta + kuorma_tarkista);
+     tässä vain TEKSTIT (vpT) ja renderöijän semanttinen avain. Vanhat avaimet + muoto {avain, tila, teksti, korostus, nappi?} säilyvät;
+     lisäksi askel (lib-avain), peruste ja rajoite. Hiljainen oletus (yllapito) säilyttää vanhat avaimet xfactor / ei_xfactoria (vartijat) — askel = 'yllapito'. */
   if (!p) return null;
-  var t = p._idpTavoite || null;
-  var jfNimi = (p.jaksofokus && p.jaksofokus.konsepti_nimi) || null;
-  var rk = (typeof laskeReviewKadenssi === 'function') ? laskeReviewKadenssi(p, nyt || Date.now()) : null;
+  var L = window.TM_SEURAAVA_ASKEL;
+  var a = L.tmSeuraavaAskel(p, { nyt: nyt || Date.now() });
   var pvm = function (iso) { return (typeof tmPvmFi === 'function' && tmPvmFi(iso)) || iso; };   // pp.kk.vvvv
-  var toim = function (avain, teksti, korostus) {
-    return { avain: avain, tila: 'toimenpide', teksti: teksti, korostus: korostus || null };
+  var ps = a.peruste || {};
+  var toim = function (avain, teksti, korostus, nappi) {
+    var o = { avain: avain, tila: 'toimenpide', teksti: teksti, korostus: korostus || null };
+    if (nappi) o.nappi = nappi;   // semanttinen avain — renderöijä päättää painikkeen (funktio pysyy puhtaana)
+    return o;
   };
-  // 1. Review myöhässä — kova takaraja
-  if (rk && rk.status === 'myohassa') {
-    return toim('review_myohassa', vpT('Kehityskeskustelu on'), rk.ylimaaraPv + ' ' + vpT('pv myöhässä — pidä se nyt.'));
+  var ulos;
+  switch (a.avain) {
+    case 'kuorma_tarkista': ulos = toim('kuorma_tarkista', vpT('Jakson kuorma ei sovi kasvuvaiheeseen —'), vpT('tarkista ohjelma ennen jatkoa.')); break;
+    case 'review_myohassa': ulos = toim('review_myohassa', vpT('Kehityskeskustelu on'), ps.ylimaaraPv + ' ' + vpT('pv myöhässä — pidä se nyt.')); break;
+    case 'ehdotus_odottaa': ulos = toim('ehdotus_odottaa', vpT('Valmentaja ehdotti uutta kauden tavoitetta —'), vpT('tarkista ja ota käyttöön.'), a.nappi); break;
+    case 'sitoumus': ulos = toim('sitoumus', vpT('Pelaaja sitoutui —'), vpT('vahvista sitoumus tälle jaksolle.')); break;
+    case 'jakso_umpeutunut': ulos = toim('jakso_umpeutunut', vpT('Jakso on päättynyt —'), vpT('sulje se ja valitse seuraava.')); break;
+    case 'ei_jaksofokusta': ulos = toim('ei_jaksofokusta', vpT('Jaksolle ei ole valittu harjoiteltavaa taitoa.'), null); break;   // yksi kokonainen lause, ei sisäistä termiä "jaksofokus"
+    case 'idp_jumissa': ulos = toim('idp_jumissa', vpT('Kauden tavoite ei ole edennyt'), vpT('8 viikkoon — päivitä tai vaihda.')); break;
+    case 'valitavoite_valmis': ulos = toim('valitavoite_valmis', vpT('Välitavoite saavutettu —'), vpT('valitse seuraava.')); break;
+    case 'review_eraantymassa': ulos = toim('review_eraantymassa', vpT('Kehityskeskustelu viimeistään'), pvm(ps.eraantyyPvm) + ' — ' + vpT('sovi ajankohta.')); break;
+    case 'havainto': ulos = toim('havainto', vpT('Jaksolla ei ole uutta havaintoa'), ps.paivia + ' ' + vpT('pv — kirjaa havainto.')); break;   // havaintorytmi (D7)
+    default:   // yllapito: hiljainen, X-Factor on harvinainen → EI teal-toimenpide (brief §3.3)
+      ulos = (ps.signaali === 'xfactor')
+        ? { avain: 'xfactor', tila: 'hiljainen', teksti: vpT('X-Factor tunnistettu — vahvista suunta.'), korostus: null }
+        : { avain: 'ei_xfactoria', tila: 'hiljainen', teksti: vpT('Ei avointa toimenpidettä — nimetkää kärkivahvuus.'), korostus: null };
   }
-  /* 2. VALMENTAJAN EHDOTUS ODOTTAA VP:n tarkistusta. #619: tallennettu 'ehdotettu' latautuu luonnokseksi,
-     EI voimassa olevan tavoitteen tilalle — ilman tätä tilaa ehdotus jäisi näkymättömiin palaverissa.
-     Ennen jumissa-tilaa: jos tavoite ei ole edennyt JA uusi ehdotus odottaa, ehdotuksen tarkistus ON juuri
-     se toimenpide jota jumissa-rivi ("päivitä tai vaihda") pyytää. Status tarkistetaan eksplisiittisesti
-     (ei idpOnVoimassa-riippuvuutta): vain hyväksymätön ehdotus on toimenpide. */
-  if (p._idpLuonnos && p._luonnosTallennettu && p._idpLuonnos.status === 'ehdotettu') {
-    var ehd = toim('ehdotus_odottaa', vpT('Valmentaja ehdotti uutta kauden tavoitetta —'), vpT('tarkista ja ota käyttöön.'));
-    ehd.nappi = 'tarkista_ehdotus';   // semanttinen avain — renderöijä päättää painikkeen (funktio pysyy puhtaana)
-    return ehd;
-  }
-  // 3. Kauden tavoite jumissa (kanoninen 8 vk -sääntö, lib/tm_idp.js)
-  if (t && typeof idpJumissa === 'function' && idpJumissa(t, nyt)) {
-    return toim('idp_jumissa', vpT('Kauden tavoite ei ole edennyt'), vpT('8 viikkoon — päivitä tai vaihda.'));
-  }
-  // 4. Pelaaja sitoutui, vahvistus puuttuu tältä jaksolta
-  if (typeof _rvcSitoumusOdottaa === 'function' && _rvcSitoumusOdottaa(p)) {
-    return toim('sitoumus', vpT('Pelaaja sitoutui —'), vpT('vahvista sitoumus tälle jaksolle.'));
-  }
-  /* 5. Jaksolle ei ole valittu harjoiteltavaa taitoa. KISS: yksi kokonainen lause fragmenttiparin sijaan,
-     eikä sisäistä termiä "jaksofokus" rivitekstissä (termi jää nav-nimeen). */
-  if (!jfNimi) {
-    return toim('ei_jaksofokusta', vpT('Jaksolle ei ole valittu harjoiteltavaa taitoa.'), null);
-  }
-  // 6. Review erääntymässä (≤14 pv) — pehmeä takaraja
-  if (rk && rk.status === 'eraantymassa' && rk.eraantyyPvm) {
-    return toim('review_eraantymassa', vpT('Kehityskeskustelu viimeistään'), pvm(rk.eraantyyPvm) + ' — ' + vpT('sovi ajankohta.'));
-  }
-  // Hiljainen tila: ei avointa toimenpidettä. X-Factor on harvinainen → EI teal-toimenpide (ks. brief §3.3).
-  if (p.signaali === 'xfactor') {
-    return { avain: 'xfactor', tila: 'hiljainen', teksti: vpT('X-Factor tunnistettu — vahvista suunta.'), korostus: null };
-  }
-  return { avain: 'ei_xfactoria', tila: 'hiljainen', teksti: vpT('Ei avointa toimenpidettä — nimetkää kärkivahvuus.'), korostus: null };
+  ulos.askel = a.avain; ulos.peruste = a.peruste; ulos.rajoite = a.rajoite;
+  return ulos;
 };
 
 /* P2 — päätösrivin renderöinti. Teal VAIN toimenpiteelle (§5: teal ainoa aksentti, ei amberia/punaista:
