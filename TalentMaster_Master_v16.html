@@ -109,6 +109,7 @@ window.TM_KAAVIO_HOST = {
 <script src="lib/tm_jaksofokus.js?v=5"></script>   <!-- Vaihe 4c/6: tmJfUmpeutunut (jakson sulku -laukaisin) -->
 <script src="lib/tm_kehityspolku.js?v=2"></script>   <!-- I3a: looginen silta -resolver (idp_fokus → konsepti/fundamentti → harjoite) -->
 <script src="lib/tm_jaksokooste.js?v=2"></script>   <!-- Vaihe 6: jakson sulku (meso-sykli) — valmentaja sulkee omat pelaajansa (§4/§37) -->
+<script src="lib/tm_kehityssilmukka.js?v=1"></script>   <!-- R6.1b: jaksofokuksen yhteinen kirjoitusydin (tmAsetaJaksofokus / tmSuljeJakso) -->
 <script src="lib/tm_fyysteemat.js?v=4"></script>   <!-- Vaihe 7: fyysinen teemaluettelo + D1-fokuslähde + evidenssi (fysiikkavalmentaja) -->
 <script src="lib/tm_ohjelma.js?v=1"></script>   <!-- Vaihe 7.2a: fysiikkaohjelmakirjasto (validoi/versioi/templaatista, deterministinen) -->
 <script src="lib/tm_ohjelma_analytiikka.js?v=2"></script>   <!-- Vaihe 7.2b: per-ohjelma-analytiikka (tmOhjelmaKooste — mikä ohjelma toimii kenelle) -->
@@ -6288,17 +6289,21 @@ window._ttPickKonsepti = function (pid, avain) {
 };
 
 // "Vie jakson treeniin" → jaksofokus-pikakenttä (§26) → näkyy VP-aloitusnäkymässä. idp_kausi/jakso-historia myöhemmin.
-// ══ R6.0b — YKSI yhteinen jaksofokuksen vaihto (_ttVieTreeniin · _msAsetaFyysFokus · _ohjKaytaOhjelma · _mIdpVtAktivoi) ══
-// Ennen: jokainen polku korvasi p.jaksofokus:n ilman arkistointia (edellinen jakso katosi; set-merge jätti lisäksi vanhoja kenttiä) ja
-// nollasi alkoi-päivän vaikka jakso oli sama. Nyt: lib/tm_jaksokooste.js tmJaksonVaihto (sama jakso → alkoi säilyy, ei arkistoa; eri jakso →
-// edellinen jaksofokus_historiaan sulkutapa:'korvattu'). Kirjoitus YKSI update() samaan pelaajadokkiin: jaksofokus (korvaa kokonaan) +
-// jaksofokus_historia arrayUnion (additiivinen §11, ei lue–muokkaa–kirjoita-kilpatilannetta kahdella laitteella). Rivin aikaleimat ISO (§7.6).
-function _mJaksoVaihto(p, jf) { return window.TM_JAKSOKOOSTE.tmJaksonVaihto(p.jaksofokus, jf, new Date().toISOString()); }
+// ══ R6.0b / R6.1b — YKSI yhteinen jaksofokuksen vaihto (_ttVieTreeniin · _msAsetaFyysFokus · _ohjKaytaOhjelma · _mIdpVtAktivoi) + sulku (_msTallenna) ══
+// Ennen R6.0b: jokainen polku korvasi p.jaksofokus:n ilman arkistointia (edellinen jakso katosi; set-merge jätti lisäksi vanhoja kenttiä) ja nollasi
+// alkoi-päivän vaikka jakso oli sama. R6.1b: päättely VAIN lib/tm_kehityssilmukka.js:ssä — tmAsetaJaksofokus (vaihto; arkistointi tmJaksonVaihto:n kautta,
+// sama jakso → alkoi säilyy, ei arkistoa) ja tmSuljeJakso (arvioitu sulku). Adapteri vain kirjoittaa palautetun suunnitelman YHDELLÄ update():lla samaan
+// pelaajadokkiin: jaksofokus (korvaa kartan kokonaan) + jaksofokus_historia arrayUnion(...rivit) (additiivinen §11, ei lue–muokkaa–kirjoita-kilpailua
+// kahdella laitteella). Rivien aikaleimat ISO (§7.6). Lokaali jaksofokus_historia päivittyy vasta onnistuneen kirjoituksen jälkeen.
+// LINKKI (tavoite_alue / valitavoite_idx / poikkeama): kuuluu jf-objektiin jonka kutsuja rakentaa (adapterin vastuu) → kulkee lib:n läpi sellaisenaan;
+// saman jakson uudelleenasetuksessa vanhat linkkikentät säilyvät (vanha ⊕ uusi), eri jaksolla edellisen jakson linkki EI vuoda.
+function _mJaksoVaihto(p, jf) { return window.TM_KEHITYSSILMUKKA.tmAsetaJaksofokus(p, jf, { nytISO: new Date().toISOString() }); }
 async function _mKirjoitaJaksofokus(p, v, pid) {
+  var rivit = Array.isArray(v.historiaLisays) ? v.historiaLisays : [];
   var upd = { jaksofokus: v.jaksofokus };
-  if (v.arkisto) upd.jaksofokus_historia = firebase.firestore.FieldValue.arrayUnion(v.arkisto);
+  if (rivit.length) upd.jaksofokus_historia = firebase.firestore.FieldValue.arrayUnion.apply(null, rivit);
   await _db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(pid || p.id).update(upd);
-  if (v.arkisto) p.jaksofokus_historia = (Array.isArray(p.jaksofokus_historia) ? p.jaksofokus_historia : []).concat([v.arkisto]);   // lokaali vasta onnistumisen jälkeen
+  if (rivit.length) p.jaksofokus_historia = (Array.isArray(p.jaksofokus_historia) ? p.jaksofokus_historia : []).concat(rivit);   // lokaali vasta onnistumisen jälkeen
 }
 window._ttVieTreeniin = async function (pid, avain) {
   const p = _ttPelaaja(pid);
@@ -6837,30 +6842,34 @@ window._msTallenna = async function (uusiAvain) {
   var p = S.p, jf = S.jf;
   var kal = window.TM_JAKSOKOOSTE ? window.TM_JAKSOKOOSTE.tmKalibraatio(S.arvioItse, S.arvioAikuis) : null;
   var _fyysT = (jf.domeeni === 'fyysinen');
-  var entry = window.TM_JAKSOKOOSTE.tmHistoriaEntry({
-    domeeni: jf.domeeni || 'teknis_taktinen', konsepti_avain: jf.konsepti_avain, konsepti_nimi: jf.konsepti_nimi,
-    alkoi: S.alkoi, paattyi: S.loppu, harjoituksia: S.harjoituksia, lasnaolo: S.lasnaolo,
-    arvio_itse: S.arvioItse, arvio_valmentaja: S.arvioAikuis, arvioija_rooli: (_rooli || 'valmentaja'), kalibraatio_ero: kal,
-    delta_mitattu: S.deltaMitattu || null,   // Vaihe 7: kytkee mitatun deltan (V6-aukko)
-    ohjelma: jf.ohjelma || null,             // §2c: ohjelma → annos–vaste-rivi
-    tulos: S.tulos, lahde_seuraava: uusiAvain ? (_fyysT ? 'silta_d1' : 'silta') : null, suljettu: new Date().toISOString()
-  });
-  if (!_mVerkkoEnnenSulkua()) return;   // offline: sulkulomake jää auki, historiaa ei muuteta
-  var hist = Array.isArray(p.jaksofokus_historia) ? p.jaksofokus_historia.slice() : [];
-  hist.push(entry); p.jaksofokus_historia = hist;
   var uusiJf = null;
   if (uusiAvain) {
     if (_fyysT) { var ft2 = window.TM_FYYSTEEMAT_LIB ? window.TM_FYYSTEEMAT_LIB.tmFyysTeema(uusiAvain) : null; uusiJf = { konsepti_avain: uusiAvain, konsepti_nimi: ft2 ? ft2.nimi : uusiAvain, konsepti_koodi: null, alkoi: new Date().toISOString(), kesto_vk: 4, lahde: 'silta_d1', domeeni: 'fyysinen' }; }
     else { var k = _msSiltaKonsepti(uusiAvain); uusiJf = { konsepti_avain: uusiAvain, konsepti_nimi: k ? k.nimi : uusiAvain, konsepti_koodi: k ? k.koodi : null, alkoi: new Date().toISOString(), kesto_vk: 4, lahde: 'silta', domeeni: 'teknis_taktinen' }; }
+    // R6.1b LINKKI: sulun jälkeinen jakso juontuu samasta kausitavoitteesta → tavoite_alue periytyy (adapterin vastuu; tmSuljeJakso ei käsittele linkkiä).
+    // valitavoite_idx/poikkeama koskevat vain suljettua jaksoa → EIVÄT periydy.
+    if (jf.tavoite_alue != null) uusiJf.tavoite_alue = jf.tavoite_alue;
   }
-  p.jaksofokus = uusiJf;
+  // R6.1b: sulkurivi + uusi jaksofokus lib:stä (tmSuljeJakso: sulkutapa 'suljettu', lahde_seuraava uuden jakson lahde-kentästä)
+  var v = window.TM_KEHITYSSILMUKKA.tmSuljeJakso({ jaksofokus: jf }, {
+    alkoi: S.alkoi, loppu: S.loppu, harjoituksia: S.harjoituksia, lasnaolo: S.lasnaolo,
+    arvio_itse: S.arvioItse, arvio_valmentaja: S.arvioAikuis, arvioija_rooli: (_rooli || 'valmentaja'), kalibraatio_ero: kal,
+    delta_mitattu: S.deltaMitattu || null,   // Vaihe 7: kytkee mitatun deltan (V6-aukko)
+    ohjelma: jf.ohjelma || null,             // §2c: ohjelma → annos–vaste-rivi
+    tulos: S.tulos, uusi: uusiJf
+  }, { nytISO: new Date().toISOString() });
+  if (!_mVerkkoEnnenSulkua()) return;   // offline: sulkulomake jää auki, historiaa ei muuteta
+  p.jaksofokus = v.jaksofokus;
   document.getElementById('_msSulkuModal')?.remove(); window._msSulkuTila = null;
   if (typeof _renderPinfoFirestore === 'function') _renderPinfoFirestore(p);
-  if (_demo || !_seuraId || typeof _db === 'undefined' || !_db) { if (typeof toast === 'function') toast('Jakso suljettu (demo — ei kirjoitettu)', 'ok'); return; }
+  if (_demo || !_seuraId || typeof _db === 'undefined' || !_db) {
+    p.jaksofokus_historia = (Array.isArray(p.jaksofokus_historia) ? p.jaksofokus_historia : []).concat(v.historiaLisays);   // demo: vain lokaali
+    if (typeof toast === 'function') toast('Jakso suljettu (demo — ei kirjoitettu)', 'ok'); return;
+  }
   try {
     var cu = firebase.auth().currentUser; await _mTuoreToken(cu);
-    // R6.0b: vain LISÄÄ rivin (ei muokkaa vanhoja) → arrayUnion; koko paikallisen taulukon kirjoitus ylikirjoitti toisen laitteen/polun rivit
-    await _db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(p.id).set({ jaksofokus: uusiJf, jaksofokus_historia: firebase.firestore.FieldValue.arrayUnion(entry) }, { merge: true });
+    // YKSI update(): jaksofokus (uusi tai null) + jaksofokus_historia arrayUnion(sulkurivi) — vain LISÄÄ rivin (ei koko paikallisen taulukon kirjoitusta)
+    await _mKirjoitaJaksofokus(p, v, p.id);
     if (typeof toast === 'function') toast(uusiAvain ? masterT('Jakso suljettu · uusi fokus asetettu ✓') : masterT('Jakso suljettu ✓'), 'ok');
   } catch (e) { console.warn('[msTallenna]', e && e.message); if (typeof toast === 'function') toast('Tallennus epäonnistui', 'error'); }
 };
