@@ -1,9 +1,17 @@
 rules_version = '2';
 // ══════════════════════════════════════════════════════════════════════════
-// TalentMaster™ — firestore.rules v3.36
+// TalentMaster™ — firestore.rules v3.37
 //
 // Lähde:  tm_admin/firestore.rules
 // Deploy: PR → N4-CI deployaa automaattisesti (Console-käsityö poistui).
+//
+// Muutokset v3.36 → v3.37 (R6.3-B: jakson pelaajan valinta, joukkueen jakso, kuittaus; 5.10.2026 — kaikki additiivisia, ei migraatiota):
+//   · seurat/{sid}/pelaajat/{pid}: update += PIN-pelaaja (onPelaajaItse) VAIN `ase_valinta` (map) — D8: pelaaja valitsee reitin, EI voi kirjoittaa
+//     jaksofokus-kenttää (jakso alkaa vasta valmentajan vahvistuksesta/aktivoinnista, D14).
+//   · seurat/{sid}/joukkueet/{jid}: `allow write` jaettu — create + delete ennallaan (SA | johto), update += valmentaja (oman joukkueen valmentaja; talenttivalmentaja/
+//     vp/urheilutoimenjohtaja koko seuraan) VAIN affectedKeys().hasOnly(['jaksofokus','jaksofokus_historia']) (joukkueen jakso, sama tmAsetaJaksofokus). Valmentaja EI luo joukkuedokumenttia.
+//   · seurat/{sid}/pelaajat/{pid}/kirjaukset/{pvm}: update += U12-huoltaja (onU12HuoltajaIka) VAIN `jakso_kuittaus` (map, lahde=='vanhempi') — kuittaus ei vaadi top-level lahde-kentän
+//     ylikirjoitusta (aiempi onU12Huoltaja vaati lahde=='vanhempi' koko dokista → merge olisi pyyhkinyt pelaajan kirjauksen lahteen). Pelaaja itse kuittaa jo nykyisillä oikeuksilla.
 //
 // Muutokset v3.35 → v3.36 (Pikakirjaus valmentajalle, 3.10.2026 — Teron päätös A):
 //   · seurat/{sid}/pelaajat/{pid}/testitulokset/{pvmProto}: create + update += onOmanJoukkueenValmentaja(seuraId,
@@ -600,10 +608,13 @@ service cloud.firestore {
     //   3) kirjauksen lahde == 'vanhempi'
     //   HUOM: request.time.year() antaa kalenterivuoden (käyttäjän toMillis-kaavasta puuttui
     //   1970-offset → olisi ollut aina tosi).
-    function onU12Huoltaja(seuraId, pelaajaId) {
+    function onU12HuoltajaIka(seuraId, pelaajaId) {   // v3.37: ikä + sähköposti ilman lahde-ehtoa (kuittaus kirjoittaa vain oman kenttänsä)
       return onLapsenHuoltaja(seuraId, pelaajaId)
           && pelaajaData(seuraId, pelaajaId).syntymaVuosi is int
-          && pelaajaData(seuraId, pelaajaId).syntymaVuosi >= (request.time.year() - 12)
+          && pelaajaData(seuraId, pelaajaId).syntymaVuosi >= (request.time.year() - 12);
+    }
+    function onU12Huoltaja(seuraId, pelaajaId) {
+      return onU12HuoltajaIka(seuraId, pelaajaId)
           && request.resource.data.lahde == 'vanhempi';
     }
 
@@ -984,6 +995,10 @@ service cloud.firestore {
                       // P7-c.4a — PIN-pelaaja/vanhempi: oma notif-asetus (opt-out / hiljaiset tunnit). Sama anon-luottamusmalli.
                       || (onPelaajaItse(seuraId, pelaajaId) && request.resource.data.diff(resource.data).affectedKeys()
                           .hasOnly(['notif_asetukset']))
+                      // R6.3-B (v3.37) — PIN-pelaaja: oma reitinvalinta (D8, `ase_valinta`). VAIN tämä kenttä (map) → pelaaja ei voi kirjoittaa jaksofokus-kenttää.
+                      || (onPelaajaItse(seuraId, pelaajaId) && request.resource.data.diff(resource.data).affectedKeys()
+                          .hasOnly(['ase_valinta'])
+                          && request.resource.data.ase_valinta is map)
                       // Vaihe 4a — jaksofokus + tt_positio_aktiivinen (operatiivinen teknis-taktinen pelitavoite, §4
                       // roolimalli). Kenttäomistajuus: valmentaja/talenttivalmentaja/VP (onValmentajaRooli) saavat
                       // jo koko-dokin updaten (yllä); tämä tekee EKSPLISIITTISEKSI että myös johto (onJohtoRooli =
@@ -1119,7 +1134,12 @@ service cloud.firestore {
                         || (onOmaSeura(seuraId) && request.auth.token.rooli == 'vp')
                         || (onOmaSeura(seuraId) && request.auth.token.rooli == 'urheilutoimenjohtaja')
                         || (onOmaSeura(seuraId) && request.auth.token.rooli == 'talenttivalmentaja')
-                        || onU12Huoltaja(seuraId, pelaajaId))
+                        || onU12Huoltaja(seuraId, pelaajaId)
+                        // v3.37 (R6.3-B): U12-huoltaja kuittaa jakson kotitehtävän — VAIN `jakso_kuittaus` (merge omaan kenttään; ei kosketa tehty/tyyppi/lahde/streakiin)
+                        || (onU12HuoltajaIka(seuraId, pelaajaId)
+                            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['jakso_kuittaus'])
+                            && request.resource.data.jakso_kuittaus is map
+                            && request.resource.data.jakso_kuittaus.get('lahde', '') == 'vanhempi'))
                         && luotuPaivitysKelpaa();                     // A5
         }
 
@@ -1376,7 +1396,13 @@ service cloud.firestore {
       // ── JOUKKUEET ──────────────────────────────────────────────────────
       match /joukkueet/{joukkueId} {
         allow read:  if onKirjautunut() && (onSuperAdmin() || onOmaSeura(seuraId));
-        allow write: if onSuperAdmin() || (onOmaSeura(seuraId) && onJohtoRooli());
+        // v3.37: write jaettu. create/delete = SA | johto (valmentaja EI luo joukkuedokumenttia); update = SA | johto | valmentaja VAIN jaksokentät (joukkueen jakso).
+        allow create, delete: if onSuperAdmin() || (onOmaSeura(seuraId) && onJohtoRooli());
+        allow update: if onSuperAdmin() || (onOmaSeura(seuraId) && onJohtoRooli())
+                      || (onOmanSeuranValmentaja(seuraId)
+                          && (request.auth.token.rooli in ['talenttivalmentaja', 'vp', 'urheilutoimenjohtaja']
+                              || valmentajanJoukkueet(seuraId).hasAny([joukkueId]))
+                          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['jaksofokus', 'jaksofokus_historia']));
 
         // ── kalenteri/{kalenteriId} (v2.7) ────────────────────────────────
         // Testaus_v8._tallennaTapahtuma kirjoittaa tänne pikaviittauksen
