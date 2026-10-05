@@ -171,6 +171,30 @@ describe('K0 ei muuta näkymiä (D10/D11 vartijat)', () => {
     // vanha --amber-dim-token (Pelaaja) oli käyttämätön → arvon vaihto ei muuta mitään
     expect((PE.match(/var\(--amber-dim/g) || []).length).toBe(0);
   });
+  it('Kenttä-sisäiset tokenit (--amber, --blue, --teal-dim, --ink) vain .kt-elementissä, EI :rootissa → vanhojen elementtien värit eivät muutu', () => {
+    const rootTokenit = (h) => {   // kaikki customit joiden määrittely on :root-säännössä (ei .kt:ssä, ei .tm-kaavio:ssa)
+      const out = new Set();
+      for (const m of h.matchAll(/(?:^|\n)\s*:root(?:\[data-theme="[a-z]+"\])?\s*\{([^}]*)\}/g)) for (const t of m[1].matchAll(/(--[a-z0-9-]+)\s*:/g)) out.add(t[1]);
+      return out;
+    };
+    [PE, VH].forEach((h) => {
+      const r = rootTokenit(h);
+      ['--blue', '--teal-dim', '--amber'].forEach((t) => expect(r.has(t), t + ' ei saa olla :rootissa').toBe(false));
+      expect(r.has('--chalk') && r.has('--chalk2') && r.has('--amber-dim') && r.has('--font-k')).toBe(true);   // D10/D11 :root
+      const kt = /\.kt \{ --amber:#E0A040; --blue:#7FA6DE; --teal-dim:rgba\(40,176,144,\.16\); --ink:var\(--text\); \}/.exec(h);
+      expect(kt, '.kt-skoopatut tokenit puuttuvat').toBeTruthy();
+      expect(h).toMatch(/:root\[data-theme="light"\] \.kt \{ --amber:#9A6512; --blue:#3D6AA8; --teal-dim:rgba\(26,122,94,\.12\); \}/);
+    });
+    // vanha käyttö pysyy ennallaan: .synttari-bonus-label käyttää yhä (määrittelemätöntä) var(--amber):ia eikä --amber ole :rootissa → väri periytyy kuten ennen
+    expect(PE).toMatch(/\.synttari-bonus-label\{[^}]*color:var\(--amber\)/);
+    // vanhat :root-arvot koskemattomia (lukittu lista; ainoa muutos oli käyttämätön --amber-dim)
+    expect(PE).toMatch(/--teal:\s*#1A7A5E;\s*--teal-d:\s*#28B090;/); expect(VH).toMatch(/--teal:#1A7A5E; --teal-d:#28B090;/);
+    expect(PE).toMatch(/--bg:#111110; --bg2:#161614; --bg3:#1C1C1A;/); expect(PE).toMatch(/--text:#F2EFE6; --ink2:#A8A79F; --ink3:#8BA0BC;/);
+  });
+  it('§5 kirjaa: Kenttä-komponentin sisäiset tokenit, eivät globaaleja; 00-kartassa rivi vaalealle teemalle (Vanhempi ensin)', () => {
+    expect(lue('CLAUDE.md')).toContain('Kenttä-komponentin sisäiset tokenit, eivät globaaleja');
+    expect(lue('docs/design/idp-v2/00_projektikartta.html')).toContain('Vaalea teema Pelaaja/Vanhempi (mockup 09), Vanhempi ensin');
+  });
   it('D11: @font-face omalta palvelimelta (yksi muuttuva tiedosto), ei Google Fontsia Archivolle; fonttitiedosto olemassa, woff2, sisältää ä ö å (unicode-range kattaa U+00E4/E5/F6)', () => {
     [PE, VH].forEach((h) => {
       const m = /@font-face \{ font-family:'Archivo Variable';[\s\S]*?\}/.exec(h)[0];
