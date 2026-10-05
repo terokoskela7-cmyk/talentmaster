@@ -24,7 +24,8 @@ Briefit: `docs/CODE_BRIEF_DESIGN_V2_T1_KONTRASTI.md`, `docs/CODE_BRIEF_KENTTA_K0
 ## Etusijajärjestys (5.10.2026)
 - **Pelaajan ja huoltajan näkymissä 09 voittaa 05:n.** 05 pysyy voimassa rakenteen (Tänään · Minä · Joukkue, P1–P19) ja ehdollisten lohkojen osalta; hero, jakson valinta ja Minä-sivun kärki tulevat 09:stä.
 - Valmentajan ja VP:n näkymissä 01 ja 02 pysyvät pää-SSOT:na; 09:n valmentajanäkymät (joukkuekenttä, jakson aloitus kentällä, katselmus kentällä) täydentävät 01:n askelmallia, eivät korvaa sitä.
-- Kenttä-toteutus alkaa vasta kun 07:n D10–D11 on päätetty (tokenit, fontti). Järjestys ja laajuus: 10.
+- Kenttä-toteutus alkaa vasta kun 07:n D10–D11 on päätetty (tokenit, fontti; päätetty, K0 mergetty #792). Järjestys ja laajuus: 10.
+- **Seuran valmennuslinja (07 D16, päätetty A):** TalentMaster on menetelmä ja oletuslinja; seuran oma linja korvaa sisällön (harjoitteet, osat ja konseptien nimet, joukkueen teema, ikävaiheen painotukset, kieli). Harjoitteisiin aina `lahde:'seura'|'tm'`; `tmJoukkueenTeema` lukee seuran linjaa, ilman sitä `null`.
 
 ## Säännöt toteutukseen
 - Esimerkkidata on osin keksittyä. Topias K. (KPV U13) on testipelaaja; muut nimet keksittyjä.
