@@ -156,6 +156,32 @@
     return r ? r.kategoria : null;
   }
 
+  /* VARHAIN KYPSYNYT (R6.3, Teron linjaus 5.10.2026) — YKSI funktio, YKSI vakio. VÄLIAIKAINEN raja: tarkennetaan Palloliiton linjauksen mukaan (muuta vain PHV_VARHAIN_KYPSYNYT).
+     Ehto: biologinen ikä − kalenteri-ikä ≥ +1,0 v. Biologinen ikä = ikä jolla KESKIAIKAISESTI kypsyvä lapsi on samassa kehitysvaiheessa = keski-PHV-ikä + maturity_offset
+     (Mirwald 2002; offset = vuosia PHV-huipusta). Koska phv_ika = ikä − offset, ehto sievenee: keski-PHV-ikä − phv_ika ≥ raja (PHV on ollut ≥ 1 v ennen keskimääräistä).
+     Lähde: biologinenIka_viimeisin (mittaus; phv_ika tai ika_mittaushetkella − maturity_offset). Ei mittausta / tuntematon PHV → false (ei vihjettä).
+     EI VP:n talenttihuomion tasoeroa (se mittaa suoritusta, ei kypsyyttä). */
+  var PHV_VARHAIN_KYPSYNYT = {
+    raja_v: 1.0,                                  // väliaikainen (Palloliiton linjaus tarkentaa)
+    keski_phv_ika: { P: 13.8, T: 11.8 },          // Mirwald ym. 2002, keskimääräinen PHV-ikä (poika / tyttö)
+    tila: 'valiaikainen'
+  };
+  function _sukupuoliPT(doc) {
+    var bio = doc && doc.biologinenIka_viimeisin, v = (bio && bio.mittaukset && bio.mittaukset.sukupuoli) || (doc && doc.sukupuoli) || '';
+    v = String(v).toUpperCase();
+    return (v === 'P' || v === 'M') ? 'P' : (v === 'T' || v === 'N') ? 'T' : null;
+  }
+  function tmVarhainKypsynyt(doc) {
+    if (tmPhvTila(doc) === 'tuntematon') return false;   // PHV tuntematon (ei mittausta) → ei vihjettä
+    var bio = doc.biologinenIka_viimeisin, sp = _sukupuoliPT(doc);
+    if (!sp) return false;
+    var phvIka = (typeof bio.phv_ika === 'number' && isFinite(bio.phv_ika)) ? bio.phv_ika
+      : (typeof bio.ika_mittaushetkella === 'number' && typeof bio.maturity_offset === 'number' && isFinite(bio.ika_mittaushetkella) && isFinite(bio.maturity_offset))
+        ? bio.ika_mittaushetkella - bio.maturity_offset : null;
+    if (phvIka == null) return false;
+    return (PHV_VARHAIN_KYPSYNYT.keski_phv_ika[sp] - phvIka) >= PHV_VARHAIN_KYPSYNYT.raja_v - 1e-9;
+  }
+
   var API = {
     PHV_KANONISET: PHV_KANONISET,
     PHV_VALINNAT: PHV_VALINNAT,
@@ -171,7 +197,9 @@
     tmPhvTuontiKoodi: tmPhvTuontiKoodi,
     PHV_KUORMA_KATEGORIAT: PHV_KUORMA_KATEGORIAT,
     PHV_OHJELMA_KUORMA: PHV_OHJELMA_KUORMA,
-    tmPhvOhjelmaKuorma: tmPhvOhjelmaKuorma
+    tmPhvOhjelmaKuorma: tmPhvOhjelmaKuorma,
+    PHV_VARHAIN_KYPSYNYT: PHV_VARHAIN_KYPSYNYT,
+    tmVarhainKypsynyt: tmVarhainKypsynyt
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = API;
   if (root) {
@@ -182,6 +210,7 @@
     root.tmPhvKuormaTila = tmPhvKuormaTila;
     root.tmPhvEiMitattu = tmPhvEiMitattu;
     root.tmPhvOhjelmaKuorma = tmPhvOhjelmaKuorma;
+    root.tmVarhainKypsynyt = tmVarhainKypsynyt;
     root.tmPhvIlmoitettuPH = tmPhvIlmoitettuPH;
     root.tmPhvTuontiKoodi = tmPhvTuontiKoodi;
   }
