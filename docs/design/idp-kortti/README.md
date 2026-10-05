@@ -7,7 +7,8 @@ Visuaalinen totuus IDP-välilehdelle. Lähde: **Claude Design -handoff** *"Kansa
 
 ## Design-tokenit (design system — käytä näitä, älä kovakoodaa)
 Brändilukko: `--carbon #1C1C1A` · `--bone #F2EFE6` · `--teal #1A7A5E` · `--teal-d #28B090` · `--slate #585751`.
-Fontit: **Cormorant Garamond** (display/KPI), **DM Sans** (body), **DM Mono** (badget/aikaleimat). Terävät kulmat, hiusviivarajat, ei gradientteja. Molemmat teemat `data-theme`-attribuutilla.
+Fontit: **Cormorant Garamond** (display/KPI), **DM Sans** (body), **DM Mono** (badget/aikaleimat).
+**Poikkeus (D11 = A, lukittu 5.10.2026): pelaaja-app: Archivo display (wdth 70–80, paino 800; viikon numero, ydinvahvuuden nimi, napit), muualla Cormorant.** Cormorant säilyy VP:llä ja raporteissa. Fontit omalta palvelimelta @fontsource-paketeista (ei Google Fonts); ks. CLAUDE.md §5 ja idp-v2/07. Terävät kulmat, hiusviivarajat, ei gradientteja. Molemmat teemat `data-theme`-attribuutilla.
 Tekstiluokat: `tm-eyebrow · tm-stitle · tm-tab · tm-badge · tm-meta · tm-mono · tm-body-sm · tm-kpi · tm-signal`.
 
 Täysi DS (colors_and_type.css, styles.css, _ds_bundle.js) on Claude Design -handoff-paketissa. Toteutusohjeet: `docs/CODE_BRIEF_IDP_KORTTI.md` (+ `CODE_BRIEF_IDP_V2.md` logiikalle).
