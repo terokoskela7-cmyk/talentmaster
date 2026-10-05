@@ -146,11 +146,11 @@ td.k{color:var(--teal);font-weight:600}td.d{color:var(--red)}td.m{color:var(--am
    <ul>
     <li><code>idp_kausi/{vuosi}.ase {kuvaus, havaittu_pvm, rooli, lahde, alue:{x,y,w,h}}</code></li>
     <li><code>pelaajat.jaksofokus</code> saa: <code>kortilta</code>, <code>tila:'valittavana'|'kaynnissa'</code>, <code>vaihtoehdot[2] {k, nimi, miksi, loppu, osat[]}</code>, <code>reitti {alku, loppu}</code>, <code>osat[] {k, nimi}</code>, <code>tukiosa {alue, perustelu, harjoitteet[]}</code></li>
-    <li><code>pelaajat.ase_valinta {valittu, pvm, oma_ehdotus?}</code> — ainoa uusi kenttä, jonka pelaaja kirjoittaa</li>
+    <li><code>pelaajat.ydinvahvuus_valinta {vaihtoehto, valittu_pvm}</code> (v3.37: <code>vaihtoehto</code> merkkijono ≤ 60 merkkiä, vain nämä kaksi avainta; tiukennetaan kun K3 lukitaan; Firestoren kenttänimet neutraaleja, näkyvä sana tulee käännöksistä) — ainoa uusi kenttä, jonka pelaaja kirjoittaa</li>
     <li><code>pelaajat.lempipaikka {x,y}</code> — U8–12, lapsi tai huoltaja</li>
     <li><code>kirjaukset/{pvm}.viikkokatsaus {osat:{a,b,c}, pvm}</code> ja <code>jakso_kuittaus</code> (U8–12)</li>
    </ul>
-   <p>Rules: pelaajan päivitys <code>affectedKeys().hasOnly([...nykyiset, 'ase_valinta', 'lempipaikka'])</code>. Jakson aktivointi valinnasta tehdään valmentajan sovelluksessa tai funktiolla; pelaaja ei kirjoita <code>jaksofokus</code>-kenttää. Emulaattoritesti <code>tests/rules</code>.</p></div>
+   <p>Rules: pelaajan päivitys <code>affectedKeys().hasOnly([...nykyiset, 'ydinvahvuus_valinta', 'lempipaikka'])</code>. Jakson aktivointi valinnasta tehdään valmentajan sovelluksessa tai funktiolla; pelaaja ei kirjoita <code>jaksofokus</code>-kenttää. Emulaattoritesti <code>tests/rules</code>.</p></div>
   <div class="box"><h3>Käyttöönotto lipulla</h3><p><code>seurat/{id}.liput.kentta: true</code>. Ilman lippua v7 renderöi kuten nyt. Lipulla Tänään ja Minä käyttävät Kenttä-lohkoja. Näin KPV U13 (testipelaajat) saa ilmeen ensin, muut seurat kun Tero päättää, ja paluu on yksi boolean. Lippu poistetaan, kun kaikki seurat ovat siirtyneet.</p></div>
  </div>
 </section>
@@ -173,7 +173,7 @@ td.k{color:var(--teal);font-weight:600}td.d{color:var(--red)}td.m{color:var(--am
    <div class="done">Valmis kun: Minä-sivu vastaa mockupin näkymää 3 kolmessa tilassa; haitarit toimivat ennallaan; pelaaja ilman lippua näkee vanhan heron.</div></div></div>
 
   <div class="phase"><span class="n">K3</span><div class="b"><div class="h"><h3>Valitse reitti ja sitoumus (D8 + P6)</h3><span class="tag w">lipun takana</span><span class="tag d">rules-muutos</span><span class="tag b">1 PR + rules-PR</span></div>
-   <ul><li>Uusi ruutu <code>_sc='valinta'</code>, avautuu Tänään-sivulta kun <code>jaksofokus.tila==='valittavana'</code>: kenttä kahdella reitillä, A/B-kortit perusteluineen, "+ Oma ehdotus", tukiosa, "Valitsen reitin".</li><li>Kirjoitus: vain <code>ase_valinta</code>. Aktivointi valmentajan sovelluksessa (V1) tai Cloud Functionissa; Code valitsee ja perustelee.</li><li><code>rMinaSitoumus()</code> uusiksi: osat kolmella napilla, yksi lause, "Sitoudun" → nykyinen kaksivaiheinen malli (<code>idp_sitoumus_pvm</code>).</li><li>Rules v3.37: <code>hasOnly</code> + <code>ase_valinta</code>; emulaattoritesti, jossa pelaaja ei voi kirjoittaa <code>jaksofokus</code>-kenttää.</li></ul>
+   <ul><li>Uusi ruutu <code>_sc='valinta'</code>, avautuu Tänään-sivulta kun <code>jaksofokus.tila==='valittavana'</code>: kenttä kahdella reitillä, A/B-kortit perusteluineen, "+ Oma ehdotus", tukiosa, "Valitsen reitin".</li><li>Kirjoitus: vain <code>ydinvahvuus_valinta</code>. Aktivointi valmentajan sovelluksessa (V1) tai Cloud Functionissa; Code valitsee ja perustelee.</li><li><code>rMinaSitoumus()</code> uusiksi: osat kolmella napilla, yksi lause, "Sitoudun" → nykyinen kaksivaiheinen malli (<code>idp_sitoumus_pvm</code>).</li><li>Rules v3.37: <code>hasOnly</code> + <code>ase_valinta</code>; emulaattoritesti, jossa pelaaja ei voi kirjoittaa <code>jaksofokus</code>-kenttää.</li></ul>
    <div class="done">Valmis kun: valinta tallentuu, valmentaja saa ilmoituksen (nykyinen kanava), jakso ei ala ennen aktivointia, ja ruutu ei näy kun tila ei ole valittavana.</div></div></div>
 
   <div class="phase"><span class="n">K4</span><div class="b"><div class="h"><h3>Viikkokatsaus ja katselmuksen lause</h3><span class="tag w">lipun takana</span><span class="tag b">1 PR</span></div>
