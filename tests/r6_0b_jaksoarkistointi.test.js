@@ -16,6 +16,7 @@ import vm from 'vm';
 const require = createRequire(import.meta.url);
 const MASTER = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', 'TalentMaster_Master_v16.html'), 'utf8');
 const J = require('../lib/tm_jaksokooste.js');
+const KS = require('../lib/tm_kehityssilmukka.js');   // R6.1b: Master-adapterit kutsuvat tmAsetaJaksofokus/tmSuljeJakso (window.TM_KEHITYSSILMUKKA)
 function pura(tunniste, lahde = MASTER) {
   const i = lahde.indexOf(tunniste); expect(i, tunniste).toBeGreaterThan(-1);
   let syv = 0;
@@ -89,7 +90,7 @@ function ymp({ kaada = false, pelaaja = {}, vt } = {}) {
   const tavoite = vt || { valitavoitteet: [{ nimi: 'Vaihtotavoite', konsepti_avain: 'y_vt', kesto_vk: 5 }], aikaraami: { kesto_vk: 6 }, fokus: { alue: 'syotto' } };
   p._mIdpTavoite = tavoite;
   const sb = {
-    window: { TM_JAKSOKOOSTE: J, _ohjKirjasto: [{ id: 'o1', tyyppi: 'plyo', nimi: 'Plyo', versio: 1, laatija_uid: 'u', laatija_rooli: 'vp' }],
+    window: { TM_JAKSOKOOSTE: J, TM_KEHITYSSILMUKKA: KS, _ohjKirjasto: [{ id: 'o1', tyyppi: 'plyo', nimi: 'Plyo', versio: 1, laatija_uid: 'u', laatija_rooli: 'vp' }],
       TM_FYYSTEEMAT_LIB: { tmFyysTeema: (a) => (a ? { avain: a, nimi: 'Teema ' + a, testit: ['lin30m'] } : null), tmOhjelmaTemplaatti: (t) => ({ nimi: 'Mallipohja ' + t, kuvaus: 'k' }) } },
     _ttPelaaja: () => p, _pelaajatData: [p], _mIdpP: () => p, _mIdpReRender() {}, _mIdpTallennaDok() {}, _renderPinfoFirestore() {},
     _mTtItems: () => [{ avain: 'y_h2', nimi: 'SYÖTTÄMINEN', koodi: 'H2' }, { avain: 'y_h3', nimi: 'PELINLUKU', koodi: 'H3' }], _devIkaSp: () => ({ ika: 12 }), _ttNormPositio: () => 'KK', _mTtEhdotus: () => null,
@@ -188,14 +189,14 @@ describe('_msTallenna (jakson sulku): vain LISÄÄ rivin → arrayUnion', () => 
   it('kirjoittaa jaksofokus_historia: arrayUnion(entry) (ei koko paikallista taulukkoa); muu logiikka ennallaan', async () => {
     const asetukset = [];
     const p = { id: PID, joukkue: 'KPV U13', jaksofokus_historia: [{ konsepti_avain: 'vanhempi_rivi', alkoi: '2026-05-01T00:00:00.000Z' }], jaksofokus: { konsepti_avain: 'y_h2', konsepti_nimi: 'SYÖTTÄMINEN', alkoi: ALKOI_VANHA } };
-    const sb = { window: { TM_JAKSOKOOSTE: J, _msSulkuTila: { p, jf: p.jaksofokus, alkoi: ALKOI_VANHA, loppu: NYT, harjoituksia: 5, lasnaolo: null, arvioItse: 4, arvioAikuis: 3, tulos: 'parani', deltaMitattu: null } },
+    const sb = { window: { TM_JAKSOKOOSTE: J, TM_KEHITYSSILMUKKA: KS, _msSulkuTila: { p, jf: p.jaksofokus, alkoi: ALKOI_VANHA, loppu: NYT, harjoituksia: 5, lasnaolo: null, arvioItse: 4, arvioAikuis: 3, tulos: 'parani', deltaMitattu: null } },
       _rooli: 'valmentaja', _mVerkkoEnnenSulkua: () => true, _mTuoreToken: async () => {}, _renderPinfoFirestore() {}, _demo: false, _seuraId: 'kpv',
-      _db: { collection: () => ({ doc: () => ({ collection: () => ({ doc: (id) => ({ set: async (d, o) => asetukset.push({ id, d, o }) }) }) }) }) },
+      _db: { collection: () => ({ doc: () => ({ collection: () => ({ doc: (id) => ({ update: async (d) => asetukset.push({ id, d, o: 'update' }), set: async () => asetukset.push({ id, o: 'SET-EI-SALLITTU' }) }) }) }) }) },
       firebase: { auth: () => ({ currentUser: {} }), firestore: { FieldValue: { arrayUnion: (...a) => ({ __arrayUnion: a }) } } },
       document: { getElementById: () => null }, toast() {}, masterT: (x) => x, console: { warn() {} }, Date, Object, Array };
-    vm.createContext(sb); vm.runInContext(pura('window._msTallenna = async function') + ';', sb);
+    vm.createContext(sb); vm.runInContext(pura('async function _mKirjoitaJaksofokus(') + ';\n' + pura('window._msTallenna = async function') + ';', sb);
     await sb.window._msTallenna(null);
-    expect(asetukset.length).toBe(1); expect(asetukset[0].id).toBe(PID); expect(asetukset[0].o).toEqual({ merge: true });
+    expect(asetukset.length).toBe(1); expect(asetukset[0].id).toBe(PID); expect(asetukset[0].o).toBe('update');   // R6.1b: update() (ei set-merge)
     expect(Array.isArray(asetukset[0].d.jaksofokus_historia)).toBe(false);
     expect(asetukset[0].d.jaksofokus_historia.__arrayUnion.length).toBe(1);
     expect(asetukset[0].d.jaksofokus_historia.__arrayUnion[0]).toMatchObject({ konsepti_avain: 'y_h2', alkoi: ALKOI_VANHA, paattyi: NYT, arvio_itse: 4, arvio_valmentaja: 3, tulos: 'parani' });
@@ -210,11 +211,11 @@ describe('lähdevartijat', () => {
       const r = pura(t); expect(r, t).toMatch(/_mJaksoVaihto\(p, /); expect(r, t).toMatch(/await _mKirjoitaJaksofokus\(p, _v, /); expect(r, t).not.toMatch(/set\(\{ jaksofokus: (jf|jaksofokus) \}/);
     });
     expect(MASTER).not.toMatch(/set\(\{ jaksofokus: (jf|jaksofokus) \}, \{ merge: true \}\)/);
-    expect((MASTER.match(/await _mKirjoitaJaksofokus\(/g) || []).length).toBe(4);
+    expect((MASTER.match(/await _mKirjoitaJaksofokus\(/g) || []).length).toBe(5);   // 4 asetuspolkua + sulku (R6.1b)
   });
   it('yhteinen kirjoittaja: update() (ei set-merge) + arrayUnion + ISO-aikaleimat (ei serverTimestamp taulukossa)', () => {
     const w = pura('async function _mKirjoitaJaksofokus(');
-    expect(w).toMatch(/\.update\(upd\)/); expect(w).toMatch(/arrayUnion\(v\.arkisto\)/); expect(w).not.toMatch(/serverTimestamp|\.set\(/);
+    expect(w).toMatch(/\.update\(upd\)/); expect(w).toMatch(/arrayUnion\.apply\(null, rivit\)/);   // R6.1b: v.historiaLisays[] → arrayUnion(...rivit) expect(w).not.toMatch(/serverTimestamp|\.set\(/);
   });
   it('lib ?v nostettu (Master + VP lataavat tm_jaksokooste.js?v=2)', () => {
     expect(MASTER).toContain('lib/tm_jaksokooste.js?v=2'); expect(readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', 'TalentMaster_VP_v25.html'), 'utf8')).toContain('lib/tm_jaksokooste.js?v=2');
