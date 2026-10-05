@@ -92,6 +92,8 @@ pelaaja               → pelaajaKirjaudu (PalloID/linkki + PIN, custom token)
 vanhempi
 ```
 
+**VP-periaate (Tero 5.10.2026):** VP hallitsee koko seuran järjestelmää. **VP näkee kaiken omassa seurassaan, voi tehdä kaiken minkä valmentaja voi, ja hoitaa lisäksi hallinnon.** Kun briiffissä tai dokumentissa lukee "valmentaja tekee X", se tarkoittaa jatkossa **"valmentaja tai VP tekee X"** (Rules, callablet ja UI; joukkuekohtainen rajaus ei koske VP:tä). **Poikkeukset vain yhteiset turva- ja tietosuojainvariantit, jotka koskevat myös SA:ta:** PIN ja suostumus vain palvelimella · terveystieto (`terveys/`) oman suostumuksensa takana · audit-loki vain palvelimen kautta · ei pääsyä toisen seuran dataan. Jokainen uusi toiminto testataan sekä valmentajan että VP:n (KPV:n VP-tunnus, KPV U13 -testipelaajat) roolilla.
+
 ---
 
 ## 5. DESIGN-TOKENIT — CANONICAL (2026-04-30)
