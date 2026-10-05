@@ -528,8 +528,9 @@ describe('(4) Yksi rivi kerrallaan cockpitissa, monta raportissa', () => {
   });
 
   it('ei-vacuous: jaksofokus-kirjoitukset käyttävät tätä helperiä', () => {
-    expect(VP.split('_vpTtKirjoita(').length - 1, 'kirjoitushelperiä ei käytetä').toBeGreaterThan(5);
-    expect(VP).toMatch(/_vpTtKirjoita\(pid,[^;]*jaksofokus/);
+    // R6.1c: jaksofokus-kirjoitukset kulkevat _vpKirjoitaJaksofokus/_vpJfKirjoita (update + arrayUnion/dot-polku); _vpTtKirjoita jäi pelipaikkakirjoituksille
+    expect(VP.split('_vpKirjoitaJaksofokus(').length - 1, 'kirjoitushelperiä ei käytetä').toBeGreaterThan(5);
+    expect(VP).toMatch(/_vpKirjoitaJaksofokus\(p, _v,/);
   });
 
   it('Kauden tavoite -rivin avaus luo muokkausluonnoksen (taso 2 = lomake)', () => {
