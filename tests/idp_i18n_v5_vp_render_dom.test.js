@@ -880,7 +880,7 @@ describe('VP_v25 resolvi-portti — jokaisella reititetyllä avaimella on sv-riv
     'valitse seuraava.',
     'Jaksolla ei ole uutta havaintoa',
     'pv — kirjaa havainto.',
-    // R6.3-E — katselmuksen "Vahvista merkinnät" (09 §6). sv Gemini-erässä. (Ydinvahvuus-sana on väliaikainen: Tero päättää näkyvän sanan.)
+    // R6.3-E — katselmuksen "Vahvista merkinnät" (09 §6). sv Gemini-erässä. (Henkilökunnan sana "Ydinvahvuus" on lopullinen; väliaikainen on vain pelaajan sana "vahvuus".)
     'Vahvista merkinnät',
     'Ydinvahvuus',
     'pitääkö yhä?',
