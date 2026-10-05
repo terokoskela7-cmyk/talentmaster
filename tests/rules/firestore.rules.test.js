@@ -4088,3 +4088,70 @@ describe('v3.37 · kirjaukset/{pvm}.jakso_kuittaus: U12-huoltaja kuittaa omaan k
     await assertFails(setDoc(uusi('2026-10-07'), { tehty: true, tyyppi: 'D', lahde: 'pelaaja', luotu: new Date() }));
   });
 });
+
+/* ══ Rules v3.38 · vastuuhenkilö per pelaaja (Tero 5.10.2026) — KPV:n VP-tunnus × KPV U13 -testipelaaja ══
+   vastuuhenkilo {uid, rooli, asetettu_pvm}: asettajat SA/VP/UTJ/talenttivalmentaja/joukkueen valmentaja; ei rajaa oikeuksia. */
+describe('v3.38 · vastuuhenkilo', () => {
+  const KPV = 'kpv', TOPIAS = 'm93GBdOaGCUuenMiCL0I';
+  const ctx = (uid, rooli) => testEnv.authenticatedContext(uid, { rooli, seuraId: KPV });
+  const VPK = () => ctx('vp-kpv-001', 'vp'), UTJ = () => ctx('utj-kpv-001', 'urheilutoimenjohtaja'), TALVAL = () => ctx('talval-kpv-001', 'talenttivalmentaja');
+  const VALM13 = () => ctx('valm-kpv-u13', 'valmentaja'), VALM15 = () => ctx('valm-kpv-u15', 'valmentaja'), FYSIIKKA = () => ctx('fysiikka-kpv-001', 'fysiikkavalmentaja');
+  const FYSIO = () => ctx('fysio-kpv-001', 'fysioterapeutti'), SIHTEERI = () => ctx('sihteeri-kpv-001', 'seurasihteeri');
+  const VAARA_SEURA_VP = () => testEnv.authenticatedContext('vp-sjk-001', { rooli: 'vp', seuraId: 'sjk' });
+  const VH = (o) => Object.assign({ uid: 'valm-kpv-u13', rooli: 'valmentaja', asetettu_pvm: '2026-10-05' }, o);
+  beforeEach(async () => {
+    await seedAdminDoc();
+    await testEnv.withSecurityRulesDisabled(async (c) => { const db = c.firestore();
+      await setDoc(doc(db, 'seurat', KPV), { nimi: 'KPV', aktiivinen: true, vp_uid: 'vp-kpv-001' });
+      await setDoc(doc(db, 'seurat', KPV, 'pelaajat', TOPIAS), { etunimi: 'Topias', sukunimi: 'K.', syntymaVuosi: 2013, joukkue: 'KPV U13', joukkueet: ['kpv_u13'], sukupuoli: 'M', huoltajaEmail: 'huoltaja@test.fi' });
+      for (const [uid, rooli, jk] of [['valm-kpv-u13', 'valmentaja', ['kpv_u13']], ['valm-kpv-u15', 'valmentaja', ['kpv_u15']], ['talval-kpv-001', 'talenttivalmentaja', []], ['utj-kpv-001', 'urheilutoimenjohtaja', []],
+        ['fysiikka-kpv-001', 'fysiikkavalmentaja', ['kpv_u13']], ['fysio-kpv-001', 'fysioterapeutti', ['kpv_u13']], ['sihteeri-kpv-001', 'seurasihteeri', []]]) await setDoc(doc(db, 'seurat', KPV, 'kayttajat', uid), { rooli, seuraId: KPV, joukkueet: jk, aktiivinen: true }); });
+  });
+  const pel = (c) => doc(c.firestore(), 'seurat', KPV, 'pelaajat', TOPIAS);
+  const lue = async () => { let d; await testEnv.withSecurityRulesDisabled(async (c) => { d = (await getDoc(doc(c.firestore(), 'seurat', KPV, 'pelaajat', TOPIAS))).data(); }); return d; };
+
+  it('ASETTAJAT: VP (KPV:n VP-tunnus, ei kayttajat-dokkia), UTJ, talenttivalmentaja, KPV U13 -valmentaja ja SA asettavat vastuuhenkilön KPV U13 -testipelaajalle', async () => {
+    for (const c of [VPK(), UTJ(), TALVAL(), VALM13(), saContext()]) {
+      await assertSucceeds(updateDoc(pel(c), { vastuuhenkilo: VH() }));
+      const d = await lue(); expect(d.vastuuhenkilo).toEqual(VH()); expect(d.etunimi).toBe('Topias');   // muu data säilyy
+    }
+  });
+  it('EI-ASETTAJAT: toisen joukkueen (U15) valmentaja HYLÄTÄÄN; fysiikkavalmentaja, fysioterapeutti, seurasihteeri, pelaaja itse, huoltaja, toisen seuran VP, vieras, kirjautumaton hylätään', async () => {
+    for (const c of [VALM15(), FYSIIKKA(), FYSIO(), SIHTEERI(), pelaajaContext(KPV, TOPIAS), huoltajaContext(), VAARA_SEURA_VP(), randomContext(), unauthContext()]) await assertFails(updateDoc(pel(c), { vastuuhenkilo: VH() }));
+    expect((await lue()).vastuuhenkilo).toBeUndefined();
+  });
+  it('MUOTO: ylimääräinen avain, puuttuva avain, väärä rooli (UTJ/fysiikka/pelaaja), ei-map, tyhjä/liian pitkä uid, väärä päivämäärän pituus, uid joka ei ole seuran käyttäjä → hylätään', async () => {
+    const huono = [VH({ ylim: 'x' }), { uid: 'valm-kpv-u13', rooli: 'valmentaja' }, { uid: 'valm-kpv-u13', asetettu_pvm: '2026-10-05' }, VH({ rooli: 'urheilutoimenjohtaja' }), VH({ rooli: 'fysiikkavalmentaja' }), VH({ rooli: 'pelaaja' }), VH({ rooli: 'VP' }),
+      'valm-kpv-u13', ['valm-kpv-u13'], null, 5, true, VH({ uid: '' }), VH({ uid: 'x'.repeat(129) }), VH({ uid: 5 }), VH({ asetettu_pvm: '5.10.2026' }), VH({ asetettu_pvm: '2026-10-5' }), VH({ asetettu_pvm: 20261005 }),
+      VH({ uid: 'tuntematon-uid' }), VH({ uid: 'vieraan-seuran-vp' })];
+    for (const v of huono) await assertFails(updateDoc(pel(VPK()), { vastuuhenkilo: v }));
+    await assertFails(updateDoc(pel(VPK()), { 'vastuuhenkilo.uid': 'valm-kpv-u13' }));   // pistepolku kenttään jota ei vielä ole
+    expect((await lue()).vastuuhenkilo).toBeUndefined();
+  });
+  it('uid-tarkistus: seuran kayttajat-dokumentti TAI seura.vp_uid (VP ilman dokkia kelpaa vastuuhenkilöksi, rooli vp); talenttivalmentaja- ja apuvalmentaja-rooli kelpaavat', async () => {
+    await assertSucceeds(updateDoc(pel(TALVAL()), { vastuuhenkilo: VH({ uid: 'vp-kpv-001', rooli: 'vp' }) }));            // vp_uid, ei dokkia
+    await assertSucceeds(updateDoc(pel(VPK()), { vastuuhenkilo: VH({ uid: 'talval-kpv-001', rooli: 'talenttivalmentaja' }) }));
+    await assertSucceeds(updateDoc(pel(VALM13()), { vastuuhenkilo: VH({ rooli: 'apuvalmentaja' }) }));                    // apuvalmentaja = valmentaja-tilin rooli
+    expect((await lue()).vastuuhenkilo.rooli).toBe('apuvalmentaja');
+  });
+  it('POISTO (kenttä pois) sallittu asettajille, hylätty muille; poisto ei vaadi muotoa', async () => {
+    await testEnv.withSecurityRulesDisabled(async (c) => { await updateDoc(doc(c.firestore(), 'seurat', KPV, 'pelaajat', TOPIAS), { vastuuhenkilo: VH() }); });
+    for (const c of [VALM15(), FYSIIKKA(), SIHTEERI(), pelaajaContext(KPV, TOPIAS), huoltajaContext()]) await assertFails(updateDoc(pel(c), { vastuuhenkilo: FS_MOD.deleteField() }));
+    expect((await lue()).vastuuhenkilo).toEqual(VH());
+    await assertSucceeds(updateDoc(pel(VALM13()), { vastuuhenkilo: FS_MOD.deleteField() })); expect((await lue()).vastuuhenkilo).toBeUndefined();
+  });
+  it('EI RAJAA OIKEUKSIA: vastuuhenkilöksi nimetty ei saa lisäoikeuksia (U15-valmentaja vastuuhenkilönä ei kirjoita U13-pelaajaan), eikä muut menetä: VP ja talenttivalmentaja kirjoittavat kaikkeen kuten ennen', async () => {
+    await assertSucceeds(updateDoc(pel(VPK()), { vastuuhenkilo: VH({ uid: 'valm-kpv-u15' }) }));    // U15-valmentaja nimetään vastuuhenkilöksi
+    // HUOM: jaksofokus-kenttä on seurataso-sallittu kaikille valmentajille jo v3.x (Vaihe 4a, joukkuerajaus vain UI:ssa; backlog) — ei vastuuhenkilön asia. Joukkuerajatut kentät:
+    await assertFails(updateDoc(pel(VALM15()), { review_viimeisin_pvm: '2026-10-05' }));      // ei oikeuksia vaikka vastuuhenkilö
+    await assertFails(updateDoc(pel(VALM15()), { hh_pvm: '2026-10-05', hh_viimeisin: { lin30m: 4.6 } }));
+    for (const c of [VPK(), TALVAL(), VALM13()]) await assertSucceeds(updateDoc(pel(c), { jaksofokus: { konsepti_avain: 'y_h3', alkoi: '2026-10-06T10:00:00.000Z' } }));
+    await assertSucceeds(updateDoc(pel(VPK()), { vastuuhenkilo: VH({ uid: 'valm-kpv-u13' }) }));   // vaihto toiseen
+  });
+  it('REGRESSIO: muut kentät ennallaan — valmentaja päivittää pikakenttiä ilman vastuuhenkilö-kenttää (ei vaadi asettajaa/muotoa); fysiikkavalmentaja ei saa vastuuhenkilöä mutta muu käytös ennallaan', async () => {
+    await assertSucceeds(updateDoc(pel(VALM13()), { hh_pvm: '2026-10-05', hh_viimeisin: { lin30m: 4.6 } }));
+    await assertFails(updateDoc(pel(VALM13()), { hh_pvm: '2026-10-05', vastuuhenkilo: VH({ ylim: 1 }) }));   // yhdessä: muoto hylkää koko päivityksen
+    await assertFails(updateDoc(pel(FYSIIKKA()), { hh_pvm: '2026-10-05', vastuuhenkilo: VH() }));
+    expect((await lue()).hh_pvm).toBe('2026-10-05');
+  });
+});

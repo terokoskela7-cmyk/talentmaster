@@ -128,6 +128,9 @@ const SV_ODOTTAA_SANKTIOINTIA = [
   // PR "viesti-pelaajalle" (B6): peruminen.
   'Merkintä peruttu',
   'Peruminen ei onnistunut',
+  // Vastuuhenkilö (5.10.2026) — sv Gemini-erässä.
+  'Vastuuhenkilön asetus epäonnistui',
+  'Vastuuhenkilö tallennettu',
 ];
 
 describe('ilmoituskanavat · resolvi (kääre ei yksin riitä)', () => {
