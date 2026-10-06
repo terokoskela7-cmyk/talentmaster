@@ -10,6 +10,7 @@ rules_version = '2';
 //     Sama sanasto kuin havainnot.nakyvyys. Lukuoikeus: SA; henkilökunta kuten ennen (vastaanottaja/lähettäjä/johto) + KAIKKI oman seuran henkilökunta kun nakyvyys 'pelaaja'|'huoltaja'
 //     (keskustelu pelaajan asiasta); pelaaja vain nakyvyys=='pelaaja' && onPelaajaItse(resource.pelaajaId); huoltaja nakyvyys 'pelaaja'|'huoltaja' && onLapsenHuoltaja. Rules EI suodata → kyselyssä oltava nakyvyys-ehto.
 //   · Pelaajan/huoltajan LUOMA viesti: nakyvyys pakotettu 'pelaaja', ei video_url-kenttää, avainjoukko rajattu, lahettajaUid == auth.uid, luettu:false. Henkilökunta saa asettaa nakyvyys-arvon ja video_url:n.
+//   · KOVENNUS: vastaanottajan update VAIN `luettu` (bool) — ei nakyvyys/teksti/lahettajaUid/video_url (SA vapaa). Pelaaja/huoltaja eivät voi päivittää viestejä (R6.4 päättää lukukuittauksen).
 //   · R6.4 (Veo-linkit + keskustelu) EI rakenneta tässä — vain kenttä + Rules.
 // Muutokset v3.37 → v3.38 (vastuuhenkilö per pelaaja, 5.10.2026 — additiivinen, §11, ei migraatiota):
 //   · seurat/{sid}/pelaajat/{pid}.vastuuhenkilo = {uid, rooli, asetettu_pvm}: kertoo vain KENEN TEHTÄVÄ pelaajan asia on; EI rajaa oikeuksia (VP ja talenttivalmentaja toimivat kaikkien pelaajien kohdalla).
@@ -1746,9 +1747,13 @@ service cloud.firestore {
                           && request.resource.data.get('nakyvyys', 'henkilokunta') in ['henkilokunta', 'pelaaja', 'huoltaja']))
                       || viestiPelaajanLuonti(seuraId))
                       && aikaLuontiKelpaa();                          // A5-jälki
+        /* v3.39 — vastaanottaja saa muuttaa VAIN `luettu`-merkinnän (bool). Aiemmin mitä tahansa kenttää → hän olisi voinut vaihtaa nakyvyys:'henkilokunta' → 'pelaaja' (VP:n yksityinen viesti
+           pelaajalle/huoltajalle) tai muokata tekstiä/lahettajaUid:ta/video_url:ia. Luku-merkintää kirjoittaa vain Master (luettu); VP/Pelaaja eivät päivitä viestejä. SA vapaa. */
         allow update: if (onSuperAdmin()
                       || (onOmaSeura(seuraId)
-                          && request.auth.uid == resource.data.vastaanottajaUid))
+                          && request.auth.uid == resource.data.vastaanottajaUid
+                          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['luettu'])
+                          && request.resource.data.luettu is bool))
                       && aikaPaivitysKelpaa();                        // A5-jälki
         allow delete: if onSuperAdmin();
       }
