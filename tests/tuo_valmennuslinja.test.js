@@ -48,7 +48,7 @@ describe('1. ajo — TM:n esitäytetty Excel → kaikki luonnos', () => {
     const d = tilaan(r), a = d['harjoitepankki/rutiinit_116_1'], v = d['harjoitepankki/rutiinit_113_1'], k = d['harjoitepankki/ketteryys_132_1'];
     expect(a).toMatchObject({ nimi: 'Alkurutiini 1', tyyppi: 'T', kehityskohde: null, ketju: 'SFL', kotiin_sopiva: false, kotiin_huomio: 'ei (joukkueharjoitus)', lahde_viite: 'Nevanlinna 2014, dia 116', lahde: 'seura' });
     expect(v).toMatchObject({ kotiin_sopiva: false, kotiin_huomio: 'kyllä (tarvitsee kuvat)', ketju: null });   // ehdollinen kyllä ei ole kotiin sopiva; ei ketjua masterissa
-    expect(k).toMatchObject({ ohje: 'Pujotteluradat tötsien välissä', tarvikkeet: 'tötsät', pelaajia: 1, video_url: null, kuva_tai_video: null, kotiin_sopiva: false });
+    expect(k).toMatchObject({ ohje: 'Pujotteluradat tötsien välissä', tarvikkeet: 'tötsät', pelaajia: 1, video_url: null, kuva_url: null, kotiin_sopiva: false });
     expect(r.raportti.ehdollinenKotiin.some((x) => x.includes('Venyttelyt'))).toBe(true);
   });
   it('ohjelmat: liikkeet[] + yksi vaihe (kirjaston rakenne), ikarajat (alle 12v → max 11; yli 12v → min 12), kotiin_sopiva vain täsmälleen "kyllä", ketju liikekohtaisesti, URL vain oikeasta URL:sta', () => {
@@ -101,6 +101,31 @@ describe('ID-vakaus kuittauksessa (ei nimeä/joukkuetta ID:ssä)', () => {
     expect(poluilla(ajo(w)).filter((p) => p.includes('rutiinit_116'))).toEqual(['harjoitepankki/rutiinit_116_1', 'harjoitepankki/rutiinit_116_2']);
     const lisaa = lue('ajo1_pohja.xlsx'); lisaa.sheets.Rutiinit_ja_harjoitteet.splice(3, 0, ['Uusi rutiini', 'sis', 'ohje', 'kyllä', '116', 'Uusi', '']);
     const a = poluilla(ajo(POHJA)), b = poluilla(ajo(lisaa)); a.forEach((p) => expect(b).toContain(p)); expect(b).toContain('harjoitepankki/rutiinit_116_2');
+  });
+});
+
+describe('video_url + kuva_url -sarakkeet (uusi Excel) ja Ketteryys-ketju v2-masterista', () => {
+  const uusiKetteryys = () => { const w = lue('ajo2_kuitattu.xlsx'); const rs = w.sheets.Ketteryys_ja_nopeus; w.sheets.Ketteryys_ja_nopeus = rs.map((r, i) => (i === 0 ? ['nimi', 'kuvaus', 'valineet', 'pelaajia', 'kotiin_sopiva', 'video_url', 'kuva_url', 'lahde_dia', 'kuittaus', 'kommentti'] : [r[0], r[1], r[2], r[3], r[4], '', '', r[6], r[7], r[8]])); return w; };
+  it('Ketteryys: media = video_url TAI kuva_url (kumpi tahansa riittää); ilman mediaa pysyy luonnoksena OK-kuittauksesta huolimatta; molemmat sarakkeet tallentuvat', () => {
+    const w = uusiKetteryys(); const nyk = tilaan(ajo(POHJA));
+    let d = tilaan(ajo(w, nyk)); expect(d['harjoitepankki/ketteryys_132_1'].tila).toBe('luonnos'); expect(d['harjoitepankki/ketteryys_133_1'].tila).toBe('luonnos');
+    w.sheets.Ketteryys_ja_nopeus[1][5] = 'https://example.org/k1.mp4'; w.sheets.Ketteryys_ja_nopeus[2][6] = 'https://example.org/k2.jpg'; d = tilaan(ajo(w, nyk));
+    expect(d['harjoitepankki/ketteryys_132_1']).toMatchObject({ tila: 'hyvaksytty', video_url: 'https://example.org/k1.mp4', kuva_url: null });
+    expect(d['harjoitepankki/ketteryys_133_1']).toMatchObject({ tila: 'hyvaksytty', video_url: null, kuva_url: 'https://example.org/k2.jpg' });
+    w.sheets.Ketteryys_ja_nopeus[1][5] = 'ei url'; expect(tilaan(ajo(w, nyk))['harjoitepankki/ketteryys_132_1'].tila).toBe('luonnos');   // epäkelpo arvo ei ole mediaa
+  });
+  it('kuva_url + video_url luetaan myös Ohjelmat/Keskivartalo/Rutiinit-riveille (liikkeet[].kuva_url / video_url; harjoitepankki-doc)', () => {
+    const w = lue('ajo1_pohja.xlsx'); const oh = w.sheets.Ohjelmat; oh[0] = oh[0].concat(['kuva_url']); oh[1] = oh[1].concat(['https://example.org/liike.png']);
+    const r = w.sheets.Rutiinit_ja_harjoitteet; r[0] = r[0].concat(['kuva_url', 'video_url']); r[1] = r[1].concat(['https://example.org/rutiini.jpg', 'https://example.org/rutiini.mp4']);
+    const d = tilaan(ajo(w)); expect(d['ohjelmat/ohjelmat_97_1'].liikkeet[0].kuva_url).toBe('https://example.org/liike.png'); expect(d['ohjelmat/ohjelmat_97_1'].liikkeet[1].kuva_url).toBeNull();
+    expect(d['harjoitepankki/rutiinit_116_1']).toMatchObject({ kuva_url: 'https://example.org/rutiini.jpg', video_url: 'https://example.org/rutiini.mp4' }); expect(T.ALIAS.kuva_url).toBe('kuva_url');
+  });
+  it('Ketteryys-ketju haetaan v2-masterin Ketteryys_ja_nopeus-välilehdeltä (nimi + lahde_dia); ilman välilehteä ketju null + listaus', () => {
+    const m = lue('master_v2.xlsx'); m.sheets.Ketteryys_ja_nopeus = [['nimi', 'kuvaus', 'valineet', 'pelaajia', 'kotiin_sopiva', 'video_url', 'kuva_url', 'ketju', 'lahde_dia'], ['Ketteryys 1', '', '', 1, '', '', '', 'LL', '132'], ['Ketteryys 2', '', '', 2, '', '', '', 'SFL', '133']];
+    const d = tilaan(ajo(POHJA, {}, { master: m })); expect(d['harjoitepankki/ketteryys_132_1'].ketju).toBe('LL'); expect(d['harjoitepankki/ketteryys_133_1'].ketju).toBe('SFL');
+    expect(ajo(POHJA, {}, { master: m }).raportti.ketjutta.filter((x) => x.startsWith('Ketteryys_ja_nopeus'))).toEqual([]);
+    expect(ajo(POHJA).raportti.ketjutta.filter((x) => x.startsWith('Ketteryys_ja_nopeus')).length).toBe(2);
+    expect(d['harjoitepankki/ketteryys_132_1'].tila).toBe('luonnos');
   });
 });
 

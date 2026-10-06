@@ -9,7 +9,7 @@
  * KAKSI AJOA (kaikki tuodut dokumentit saavat tila + tarkistettu_pvm + tarkistaja):
  *   1. ajo = TM:n esitäytetty Excel (ei yhtään kuittausta) → KAIKKI tila:'luonnos' (pelaajalle ei näy mitään).
  *   2. ajo = SJK:n kuitattu Excel: OK / Muutettu → 'hyvaksytty' · Uusi → 'hyvaksytty' · Poista → dokumentti/rivi poistetaan · tyhjä → pysyy 'luonnos' ja LISTATAAN.
- *   Ketteryys_ja_nopeus: 'hyvaksytty' vasta kun kuva_tai_video on täytetty (URL/tiedosto) — muuten pysyy luonnoksena kuittauksesta riippumatta.
+ *   Ketteryys_ja_nopeus: 'hyvaksytty' vasta kun media on täytetty (video_url TAI kuva_url; vanha kuva_tai_video tuettu) — muuten pysyy luonnoksena kuittauksesta riippumatta.
  * IDEMPOTENTTI: dokumentti-ID johdetaan välilehti + lahde_dia + nimi/jarjestys (ei satunnaista) → uudelleenajo päivittää, ei tuplaa. versio +1 jokaisella muuttuneella dokumentilla; muuttumaton → ei kirjoitusta.
  * KOHDE (vain seurat/{seura}/ -polun alla): valmennuslinja/ikavaiheet · valmennuslinja/teemat (vain hyväksytyt jaksot) + valmennuslinja/teemat_luonnos (luonnokset, staff-only) ·
  *   ohjelmat/{id} (Ohjelmat + Keskivartalo) · harjoitepankki/{id} (Rutiinit_ja_harjoitteet + Ketteryys_ja_nopeus; tyyppi T, lahde 'seura').
@@ -26,7 +26,7 @@ const EI_TUODA = ['OHJE', 'Ohje', 'Puutteet', 'Kattavuus'];
 const ALIAS = {
   ohjelma: 'ohjelma_nimi', ohjelma_nimi: 'ohjelma_nimi', sarja: 'ohjelma_nimi', ikaluokka: 'ikaluokka', ikaraja: 'ikaraja', ika_min: 'ika_min', ika_max: 'ika_max',
   lahde_dia: 'lahde_viite', lahde_viite: 'lahde_viite', toistot: 'toistot', toistot_aika: 'toistot', palautus: 'palautus', pelaajan_ohje: 'pelaajan_ohje', kesto_min: 'kesto_min',
-  kotiin_sopiva: 'kotiin_sopiva', video_url: 'video_url', ketju: 'ketju', teema_avain: 'teema_avain', tyyppi: 'tyyppi', jarjestys: 'jarjestys', liike: 'liike', taso: 'taso',
+  kotiin_sopiva: 'kotiin_sopiva', video_url: 'video_url', kuva_url: 'kuva_url', ketju: 'ketju', teema_avain: 'teema_avain', tyyppi: 'tyyppi', jarjestys: 'jarjestys', liike: 'liike', taso: 'taso',
   kuittaus: 'kuittaus', kommentti: 'kommentti', joukkue: 'joukkue', jakso: 'jakso', viikot: 'viikot', teema: 'teema', konsepti: 'konsepti', alkaa_pvm: 'alkaa', alkaa: 'alkaa', paattyy_pvm: 'paattyy', paattyy: 'paattyy',
   nimi: 'nimi', kuvaus: 'kuvaus', valineet: 'valineet', pelaajia: 'pelaajia', kuva_tai_video: 'kuva_tai_video', sisalto: 'sisalto', painopisteet: 'painopisteet', totuteltava_opeteltava: 'totuteltava',
   totuteltava: 'totuteltava', suositellut_ohjelmat: 'suositellut_ohjelmat', dimensio: 'dimensio', kehityskohde: 'kehityskohde', tarvikkeet: 'tarvikkeet',
@@ -102,7 +102,7 @@ function muunna(opts) {
   const kuitattuja = Object.values(taulut).some((t) => t.some((r) => norm(r.a.kuittaus) !== ''));
   rap.ajo = opts.ajo || (kuitattuja ? 2 : 1);
   const ketjuHaku = {};
-  if (master) for (const sn of ['Ohjelmat', 'Keskivartalo', 'Rutiinit_ja_harjoitteet']) {
+  if (master) for (const sn of ['Ohjelmat', 'Keskivartalo', 'Rutiinit_ja_harjoitteet', 'Ketteryys_ja_nopeus']) {
     lueTaulu(master[sn]).forEach((r) => { if (r.a.ketju) ketjuHaku[[sn, slug(r.a.liike || r.a.nimi), norm(r.a.lahde_viite)].join('|')] = r.a.ketju.toUpperCase(); });
   }
   const ketju = (sn, a) => { const k = ketjuHaku[[sn, slug(a.liike || a.nimi), norm(a.lahde_viite)].join('|')] || null; if (!k && master) rap.ketjutta.push(sn + ': ' + (a.liike || a.nimi)); return k; };
@@ -178,7 +178,7 @@ function muunna(opts) {
         const a = r.a, avain = nimi + ' / ' + (a.liike || '?'), t = tilaRivi(sn, r, avain); if (t.ohita) return; if (t.poista) { poistettu++; return; }
         const kd = kotiinSopiva(a.kotiin_sopiva); if (kd.ehdollinen) rap.ehdollinenKotiin.push(sn + ': ' + avain + ' → "' + kd.huomio + '"');
         liikkeet.push({ jarjestys: luku(a.jarjestys) != null ? luku(a.jarjestys) : liikkeet.length + 1, taso: a.taso || null, liike: a.liike || null, toistot: a.toistot || null, palautus: a.palautus || null, pelaajan_ohje: a.pelaajan_ohje || null,
-          kesto_min: luku(a.kesto_min), kotiin_sopiva: kd.arvo, kotiin_huomio: kd.huomio, video_url: OnUrl(a.video_url) ? norm(a.video_url) : null, ketju: ketju(sn, a), lahde_viite: viite(a.lahde_viite) });
+          kesto_min: luku(a.kesto_min), kotiin_sopiva: kd.arvo, kotiin_huomio: kd.huomio, video_url: OnUrl(a.video_url) ? norm(a.video_url) : null, kuva_url: (OnUrl(a.kuva_url) || /\.(jpe?g|png|gif)$/i.test(norm(a.kuva_url))) ? norm(a.kuva_url) : null, ketju: ketju(sn, a), lahde_viite: viite(a.lahde_viite) });
         tilat.push(t.tila);
       });
       if (!liikkeet.length && poistettu === rs.length) { poista(polku); return; }
@@ -195,14 +195,14 @@ function muunna(opts) {
   for (const sn of ['Rutiinit_ja_harjoitteet', 'Ketteryys_ja_nopeus']) {
     if (!taulut[sn]) continue;
     taulut[sn].forEach((r) => {
-      const a = r.a, ketteryys = sn === 'Ketteryys_ja_nopeus', kuva = norm(a.kuva_tai_video), kuvaOk = OnUrl(kuva) || (/\.(jpe?g|png|gif|mp4|mov|webm)$/i.test(kuva));
+      const a = r.a, ketteryys = sn === 'Ketteryys_ja_nopeus', kuva = norm(a.kuva_tai_video), tiedosto = (x) => /\.(jpe?g|png|gif|mp4|mov|webm)$/i.test(norm(x)), videoUrl = OnUrl(a.video_url) ? norm(a.video_url) : (OnUrl(kuva) ? kuva : null), kuvaUrl = (OnUrl(a.kuva_url) || tiedosto(a.kuva_url)) ? norm(a.kuva_url) : (tiedosto(kuva) && !OnUrl(kuva) ? kuva : null), kuvaOk = !!(videoUrl || kuvaUrl);   // media = video_url TAI kuva_url (vanha kuva_tai_video-sarake tuettu)
       const id = (ketteryys ? 'ketteryys' : 'rutiinit') + '_' + diaId(a) + '_' + (r.sisaltoa ? nro(sn + '|' + diaId(a)) : 0), polku = 'harjoitepankki/' + id;
       const t = tilaRivi(sn, r, a.nimi || '?', ketteryys ? kuvaOk : true); if (t.ohita) return; if (t.poista) { poista(polku); return; }
       if (ketteryys && !kuvaOk && (norm(a.kuittaus) || rap.ajo === 2)) rap.odottaaKuvaa.push(a.nimi);
       const kd = kotiinSopiva(a.kotiin_sopiva); if (kd.ehdollinen) rap.ehdollinenKotiin.push(sn + ': ' + a.nimi + ' → "' + kd.huomio + '"');
       const ik = ikarajat(a);
       const data = Object.assign({ nimi: a.nimi, tyyppi: 'T', kehityskohde: null, ketju: ketju(sn, a), konsepti: null, kaytto: 'joukkue', ohje: ketteryys ? (a.kuvaus || null) : (a.pelaajan_ohje || a.sisalto || null),
-        sisalto: ketteryys ? null : (a.sisalto || null), kesto_min: luku(a.kesto_min), video_url: ketteryys ? (OnUrl(kuva) ? kuva : null) : (OnUrl(a.video_url) ? norm(a.video_url) : null), kuva_tai_video: ketteryys && kuvaOk && !OnUrl(kuva) ? kuva : null,
+        sisalto: ketteryys ? null : (a.sisalto || null), kesto_min: luku(a.kesto_min), video_url: videoUrl, kuva_url: kuvaUrl,
         tarvikkeet: a.valineet || a.tarvikkeet || null, pelaajia: luku(a.pelaajia), kotiin_sopiva: kd.arvo, kotiin_huomio: kd.huomio, lahde: 'seura', lahde_viite: viite(a.lahde_viite), laatija_rooli: 'tuonti' }, ik);
       kirjoita(polku, leima(data, t.tila));
     });
