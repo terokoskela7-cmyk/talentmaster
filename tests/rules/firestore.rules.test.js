@@ -4289,3 +4289,63 @@ describe('v3.39 · viestit.nakyvyys', () => {
     await assertFails(setDoc(ref(VPK(), 'ei_aikaa'), { tyyppi: 'x', pelaajaId: TOPIAS, lahettajaUid: 'vp-kpv-001', teksti: 'y' }));
   });
 });
+
+/* ══ Rules v3.40 · Seuran linja (B PR1, Tero 6.10.2026): valmennuslinja/{ikavaiheet,teemat}, harjoitepankki, arviointikehys, ohjelmat — ERISTYS seurojen välillä ══
+   Parametrisoitu (seuraA, seuraB) molempiin suuntiin: SJK ↔ Sibbo (sibbovargarna). Seuran sisältö on vain seuran omaa; toinen seura ei lue eikä kirjoita. */
+describe.each([['sjk', 'sibbovargarna'], ['sibbovargarna', 'sjk']])('v3.40 · seuran linja: %s ↔ %s', (A, B) => {
+  const ctx = (seura, uid, rooli) => testEnv.authenticatedContext(uid + '-' + seura, { rooli, seuraId: seura });
+  const VP = (s) => ctx(s, 'vp', 'vp'), UTJ = (s) => ctx(s, 'utj', 'urheilutoimenjohtaja'), VALM = (s) => ctx(s, 'valm', 'valmentaja'), TALVAL = (s) => ctx(s, 'talval', 'talenttivalmentaja');
+  const FYS = (s) => ctx(s, 'fys', 'fysiikkavalmentaja'), SIHT = (s) => ctx(s, 'siht', 'seurasihteeri'), PEL = (s) => pelaajaContext(s, 'p1');
+  const HUOLT = () => huoltajaContext();
+  const POLUT = {
+    ikavaiheet: (s) => ['seurat', s, 'valmennuslinja', 'ikavaiheet'], teemat: (s) => ['seurat', s, 'valmennuslinja', 'teemat'],
+    harjoitepankki: (s) => ['seurat', s, 'harjoitepankki', 'h1'], arviointikehys: (s) => ['seurat', s, 'arviointikehys', 'seura'], ohjelmat: (s) => ['seurat', s, 'ohjelmat', 'o1'],
+  };
+  const DATA = {
+    ikavaiheet: { rivit: [{ ika_min: 8, ika_max: 9, dimensio: 'D1', sisalto: ['x'], lahde_viite: 'dia 3' }] }, teemat: { jaksot: [{ joukkue: 'P12', alkaa: '2026-11-01', paattyy: '2026-11-30', teema: 'Pallonhallinta', konsepti: 'y_h2' }] },
+    harjoitepankki: { nimi: 'Rondo 4v2', tyyppi: 'T', ika_min: 8, ika_max: 10, kehityskohde: 'pallonhallinta', ohje: 'x', kesto_min: 15, lahde: 'seura', versio: 1 },
+    arviointikehys: { profiilit: [{ avain: 'k1', nimi: 'Keskuspuolustaja', dimensio: 'tekninen', pelipaikka: 'KP', lahde_viite: 'dia 9' }] }, ohjelmat: { nimi: 'Voima 1', tyyppi: 'perusvoima', teema_avain: 'fy_voima', ika_min: 12, ika_max: 14, versio: 1, arkistoitu: false },
+  };
+  const ref = (c, k, s) => doc(c.firestore(), ...POLUT[k](s));
+  beforeEach(async () => {
+    await seedAdminDoc();
+    await testEnv.withSecurityRulesDisabled(async (c) => { const db = c.firestore(); for (const s of [A, B]) for (const k of Object.keys(POLUT)) await setDoc(doc(db, ...POLUT[k](s)), DATA[k]); });
+  });
+  const KAIKKI = Object.keys(POLUT);
+
+  it('ERISTYS: toisen seuran VP, UTJ, valmentaja, talenttivalmentaja, pelaaja ja vieras eivät LUE yhtäkään polkua', async () => {
+    for (const k of KAIKKI) for (const c of [VP(B), UTJ(B), VALM(B), TALVAL(B), SIHT(B), PEL(B), randomContext(), unauthContext()]) await assertFails(getDoc(ref(c, k, A)));
+  });
+  it('ERISTYS: toisen seuran VP/UTJ/valmentaja/pelaaja eivät KIRJOITA (create/update/delete) yhtään polkua', async () => {
+    for (const k of KAIKKI) for (const c of [VP(B), UTJ(B), VALM(B), PEL(B)]) {
+      await assertFails(setDoc(ref(c, k, A), DATA[k])); await assertFails(updateDoc(ref(c, k, A), { versio: 9 })); await assertFails(deleteDoc(ref(c, k, A)));
+    }
+    for (const k of KAIKKI) expect((await (async () => { let d; await testEnv.withSecurityRulesDisabled(async (c) => { d = (await getDoc(ref(c, k, A))).data(); }); return d; })())).toEqual(DATA[k]);   // data koskematon
+  });
+  it('OMA SEURA — kirjoitus: VP ja UTJ luovat/päivittävät/poistavat; valmentaja, talenttivalmentaja, fysiikkavalmentaja, seurasihteeri, pelaaja, huoltaja eivät (ohjelmat: vain pelaaja/huoltaja kielletty)', async () => {
+    for (const k of KAIKKI) {
+      for (const c of [VP(A), UTJ(A)]) { await assertSucceeds(setDoc(ref(c, k, A), Object.assign({}, DATA[k], { versio: 2 }))); await assertSucceeds(updateDoc(ref(c, k, A), { versio: 3 })); }
+      // ohjelmat (fysiikkaohjelmakirjasto, v3.12): valmentaja/fysio/johto kirjoittavat vanhastaan → vain pelaaja ja huoltaja kielletty
+      for (const c of (k === 'ohjelmat' ? [PEL(A), HUOLT()] : [VALM(A), TALVAL(A), FYS(A), SIHT(A), PEL(A), HUOLT()])) { await assertFails(setDoc(ref(c, k, A), DATA[k])); await assertFails(updateDoc(ref(c, k, A), { versio: 9 })); await assertFails(deleteDoc(ref(c, k, A))); }
+      if (k === 'ohjelmat') await assertFails(deleteDoc(ref(VP(A), k, A)));   // ohjelmat: poisto vain SA (arkistointi päivityksenä, v3.12)
+      else await assertSucceeds(deleteDoc(ref(VP(A), k, A)));
+    }
+  });
+  // ohjelmat: kirjoitus on vanhastaan valmentajille/johdolle (kirjastoa muokkaa myös valmentaja) → tässä vain luku-/eristys-säännöt; yllä oleva kirjoitustesti kattaa VP/UTJ, ei kiellä valmentajaa → erillinen alla
+  it('OMA SEURA — luku: henkilökunta lukee kaiken; pelaaja lukee VAIN teemat + harjoitepankin (EI ikavaiheet, arviointikehys, ohjelmat); huoltaja ei lue mitään', async () => {
+    for (const k of KAIKKI) for (const c of [VP(A), UTJ(A), VALM(A), TALVAL(A), FYS(A), SIHT(A), saContext()]) await assertSucceeds(getDoc(ref(c, k, A)));
+    for (const k of ['teemat', 'harjoitepankki']) await assertSucceeds(getDoc(ref(PEL(A), k, A)));
+    for (const k of ['ikavaiheet', 'arviointikehys', 'ohjelmat']) await assertFails(getDoc(ref(PEL(A), k, A)));
+    for (const k of KAIKKI) await assertFails(getDoc(ref(HUOLT(), k, A)));
+  });
+  it('SA lukee ja kirjoittaa kaikkialla', async () => { for (const k of KAIKKI) { await assertSucceeds(getDoc(ref(saContext(), k, A))); await assertSucceeds(setDoc(ref(saContext(), k, B), Object.assign({}, DATA[k], { versio: 5 }))); } });
+  it('harjoitepankki muoto: lahde pakko "seura" (ei "tm"), tyyppi "T", nimi merkkijono → muuten hylätään; ohjelmat-kirjoitus ennallaan (valmentaja kirjoittaa, kuten ennen v3.40:tä)', async () => {
+    const h = (lisa) => Object.assign({}, DATA.harjoitepankki, lisa);
+    await assertSucceeds(setDoc(doc(VP(A).firestore(), 'seurat', A, 'harjoitepankki', 'uusi1'), h()));
+    for (const huono of [{ lahde: 'tm' }, { lahde: undefined }, { tyyppi: 'S' }, { tyyppi: undefined }, { nimi: '' }, { nimi: 5 }, { nimi: undefined }]) {
+      const d = h(huono); Object.keys(d).forEach((k) => d[k] === undefined && delete d[k]); await assertFails(setDoc(doc(VP(A).firestore(), 'seurat', A, 'harjoitepankki', 'huono'), d));
+    }
+    await assertFails(updateDoc(ref(VP(A), 'harjoitepankki', A), { lahde: 'tm' }));
+    await assertSucceeds(setDoc(doc(VALM(A).firestore(), 'seurat', A, 'ohjelmat', 'o2'), DATA.ohjelmat));   // ohjelmakirjasto: valmentaja kirjoittaa edelleen
+  });
+});
