@@ -128,6 +128,8 @@ const SV_ODOTTAA_SANKTIOINTIA = [
   // PR "viesti-pelaajalle" (B6): peruminen.
   'Merkintä peruttu',
   'Peruminen ei onnistunut',
+  // R6.3-E: katselmuksen merkintöjen vahvistus — sv Gemini-erässä.
+  'Merkintöjen vahvistus epäonnistui',
 ];
 
 describe('ilmoituskanavat · resolvi (kääre ei yksin riitä)', () => {

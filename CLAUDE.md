@@ -94,6 +94,12 @@ vanhempi
 
 **VP-periaate (Tero 5.10.2026):** VP hallitsee koko seuran järjestelmää. **VP näkee kaiken omassa seurassaan, voi tehdä kaiken minkä valmentaja voi, ja hoitaa lisäksi hallinnon.** Kun briiffissä tai dokumentissa lukee "valmentaja tekee X", se tarkoittaa jatkossa **"valmentaja tai VP tekee X"** (Rules, callablet ja UI; joukkuekohtainen rajaus ei koske VP:tä). **Poikkeukset vain yhteiset turva- ja tietosuojainvariantit, jotka koskevat myös SA:ta:** PIN ja suostumus vain palvelimella · terveystieto (`terveys/`) oman suostumuksensa takana · audit-loki vain palvelimen kautta · ei pääsyä toisen seuran dataan. Jokainen uusi toiminto testataan sekä valmentajan että VP:n (KPV:n VP-tunnus, KPV U13 -testipelaajat) roolilla.
 
+**VP-periaatteen päätökset (Tero 5.10.2026, auditoinnin jälkeen):**
+- **Yksityinen, VP ei näe:** valmentajan keskeneräiset (tallentamattomat/luonnos) kaaviot, valmentajan reflektiot (`reflektiot`) ja perheen kehut (`kehut`). **Tallennettu tai jaettu kaavio näkyy VP:lle.**
+- **VP ei muokkaa toisen tekemää arviota**, mutta voi lisätä oman arvion tai korjaavan merkinnän (tekijä-uid-omistajuus säilyy).
+- **Käyttäjän lopullinen poisto (`poistaKayttaja`) pysyy vain SA:lla.** VP voi deaktivoida käyttäjän.
+- **VP:n pääsy oman seuransa audit-lokiin** tehdään myöhemmin (00: oma rivi); audit-loki on toistaiseksi vain SA:lla palvelimen kautta.
+
 ---
 
 ## 5. DESIGN-TOKENIT — CANONICAL (2026-04-30)
