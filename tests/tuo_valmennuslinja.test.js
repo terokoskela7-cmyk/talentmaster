@@ -46,23 +46,40 @@ describe('1. ajo — TM:n esitäytetty Excel → kaikki luonnos', () => {
   it('ID:t johdettu välilehti + lahde_dia + nimi (deterministinen): sama syöte kahdesti → samat polut; ID:ssä ei satunnaisosaa', () => { expect(poluilla(ajo(POHJA))).toEqual(poluilla(r)); expect(poluilla(r).every((p) => /^[a-z0-9_/]+$/.test(p))).toBe(true); });
   it('harjoitepankki-dokumentti: tyyppi T, lahde seura, kehityskohde null (ei vahingossa korvaa TM:n oletusta), ketju v2-masterista, kotiin_sopiva-säännöt, ketteryys: kuva puuttuu → video_url null', () => {
     const d = tilaan(r), a = d['harjoitepankki/rutiinit_116_alkurutiini_1'], v = d['harjoitepankki/rutiinit_113_venyttelyt'], k = d['harjoitepankki/ketteryys_132_ketteryys_1'];
-    expect(a).toMatchObject({ nimi: 'Alkurutiini 1', tyyppi: 'T', kehityskohde: null, ketju: 'SFL', kotiin_sopiva: false, kotiin_huomio: 'ei (joukkueharjoitus)', lahde_viite: 'dia 116', lahde: 'seura' });
+    expect(a).toMatchObject({ nimi: 'Alkurutiini 1', tyyppi: 'T', kehityskohde: null, ketju: 'SFL', kotiin_sopiva: false, kotiin_huomio: 'ei (joukkueharjoitus)', lahde_viite: 'Nevanlinna 2014, dia 116', lahde: 'seura' });
     expect(v).toMatchObject({ kotiin_sopiva: false, kotiin_huomio: 'kyllä (tarvitsee kuvat)', ketju: null });   // ehdollinen kyllä ei ole kotiin sopiva; ei ketjua masterissa
     expect(k).toMatchObject({ ohje: 'Pujotteluradat tötsien välissä', tarvikkeet: 'tötsät', pelaajia: 1, video_url: null, kuva_tai_video: null, kotiin_sopiva: false });
     expect(r.raportti.ehdollinenKotiin.some((x) => x.includes('Venyttelyt'))).toBe(true);
   });
   it('ohjelmat: liikkeet[] + yksi vaihe (kirjaston rakenne), ikarajat (alle 12v → max 11; yli 12v → min 12), kotiin_sopiva vain täsmälleen "kyllä", ketju liikekohtaisesti, URL vain oikeasta URL:sta', () => {
     const d = tilaan(r), o = d['ohjelmat/ohjelmat_97_lihaskestavyys_1_alle_12v'], k = d['ohjelmat/ohjelmat_98_keppijumppa'];
-    expect(o).toMatchObject({ nimi: 'Lihaskestävyys 1 (alle 12v)', tyyppi: 'muu', ika_min: null, ika_max: 11, teema_avain: null, lahde_viite: 'dia 97', arkistoitu: false, laatija_rooli: 'tuonti' }); expect(k).toMatchObject({ ika_min: 12, ika_max: null });
+    expect(o).toMatchObject({ nimi: 'Lihaskestävyys 1 (alle 12v)', tyyppi: 'muu', ika_min: null, ika_max: 11, teema_avain: null, lahde_viite: 'Nevanlinna 2014, dia 97', arkistoitu: false, laatija_rooli: 'tuonti' }); expect(k).toMatchObject({ ika_min: 12, ika_max: null });
     expect(o.liikkeet.map((l) => [l.jarjestys, l.liike, l.ketju, l.kotiin_sopiva, l.kotiin_huomio, l.kesto_min])).toEqual([[1, 'Narulla hyppely', 'SFL', true, null, 5], [2, 'Pareittain GHR', 'SBL', false, 'kyllä (tarvitsee parin)', 1.5]]);
     expect(k.liikkeet[0]).toMatchObject({ video_url: 'https://example.org/v1', kotiin_sopiva: false, ketju: 'DFL' }); expect(o.liikkeet[0].video_url).toBeNull();
     expect(o.vaiheet).toHaveLength(1); expect(o.vaiheet[0].harjoitteet).toEqual(['Narulla hyppely', 'Pareittain GHR']);
     const { tmOhjelmaValidoi } = require('../lib/tm_ohjelma.js'); Object.entries(d).filter(([p]) => p.startsWith('ohjelmat/')).forEach(([p, x]) => expect(tmOhjelmaValidoi(x).ok, p).toBe(true));   // kirjaston validaattori hyväksyy
     expect(d['ohjelmat/keskivartalo_92_keskivartalon_perusliikkeet'].liikkeet[0]).toMatchObject({ taso: 'Taso 1', toistot: 'x10-20', ketju: 'DFL', kotiin_sopiva: true });
   });
-  it('ikavaiheet: ikärajat sarakkeista (tai ikaluokasta), sisalto[] painopisteistä ilman numerointia, lahde_viite "dia N"', () => {
+  it('ikavaiheet: ikärajat sarakkeista (tai ikaluokasta), sisalto[] painopisteistä ilman numerointia, lahde_viite "Nevanlinna 2014, dia N"', () => {
     const rv = tilaan(r)['valmennuslinja/ikavaiheet'].rivit; expect(rv.map((x) => [x.ikaluokka, x.ika_min, x.ika_max])).toEqual([['B16-17', 16, 17], ['F7', 7, 7]]);
-    expect(rv.find((x) => x.ikaluokka === 'F7')).toMatchObject({ sisalto: ['Taitavuus: tasapaino', 'Rytmikyky'], totuteltava: ['Liikkuvuus'], suositellut_ohjelmat: ['Keppijumppa'], lahde_viite: 'dia 23', dimensio: null });
+    expect(rv.find((x) => x.ikaluokka === 'F7')).toMatchObject({ sisalto: ['Taitavuus: tasapaino', 'Rytmikyky'], totuteltava: ['Liikkuvuus'], suositellut_ohjelmat: ['Keppijumppa'], lahde_viite: 'Nevanlinna 2014, dia 23', dimensio: 'D1' });
+  });
+});
+
+describe('Coworkin päätökset 6.10. (4a, 4c)', () => {
+  const r = ajo(POHJA), d = tilaan(r);
+  it('4a: KAIKKI harjoitepankkirivit kaytto "joukkue" ja kehityskohde null (tarkoituksella) — ajoista 1 ja 2, molemmat tiedostot', () => {
+    for (const rr of [r, ajo(KUITATTU, d)]) Object.entries(tilaan(rr)).filter(([p]) => p.startsWith('harjoitepankki/')).forEach(([p, x]) => { expect(x.kaytto, p).toBe('joukkue'); expect(x.kehityskohde, p).toBeNull(); expect(x.tyyppi).toBe('T'); });
+    expect(Object.keys(d).filter((p) => p.startsWith('harjoitepankki/')).length).toBe(4);
+  });
+  it('4c: dimensio "D1" ikavaiheet-riveille joiden lahde_viite sisältää Nevanlinna (dia-numerot = Nevanlinnan 2014 -aineisto); muille tyhjä; --lahde ylikirjoittaa lähteen → ei D1:tä', () => {
+    expect(d['valmennuslinja/ikavaiheet'].rivit.map((x) => [x.ikaluokka, x.dimensio, x.lahde_viite])).toEqual([['B16-17', 'D1', 'Nevanlinna 2014, dia 31'], ['F7', 'D1', 'Nevanlinna 2014, dia 23']]);
+    const muu = ajo(POHJA, {}, { lahde: 'SJK oma' }); expect(tilaan(muu)['valmennuslinja/ikavaiheet'].rivit.map((x) => [x.dimensio, x.lahde_viite])).toEqual([[null, 'SJK oma, dia 31'], [null, 'SJK oma, dia 23']]);
+    const omaTeksti = lue('ajo1_pohja.xlsx'); omaTeksti.sheets.Ikaluokat[1][5] = 'SJK:n oma dia 4'; expect(tilaan(ajo(omaTeksti))['valmennuslinja/ikavaiheet'].rivit.find((x) => x.ikaluokka === 'F7')).toMatchObject({ dimensio: null, lahde_viite: 'SJK:n oma dia 4' });
+    const eksplisiittinen = lue('ajo1_pohja.xlsx'); eksplisiittinen.sheets.Ikaluokat[0].push('dimensio'); eksplisiittinen.sheets.Ikaluokat[1][9] = 'D3'; expect(tilaan(ajo(eksplisiittinen))['valmennuslinja/ikavaiheet'].rivit.find((x) => x.ikaluokka === 'F7').dimensio).toBe('D3');
+  });
+  it('4a: --lahde CLI-lippu läpi; dry-run raportti mainitsee kaytto joukkue', () => {
+    expect(readFileSync(join(juuri, 'scripts/tuo_valmennuslinja.js'), 'utf8')).toContain("lahde: o.lahde || null"); expect(T.tulosta(r, false)).toContain("kaytto:'joukkue'");
   });
 });
 

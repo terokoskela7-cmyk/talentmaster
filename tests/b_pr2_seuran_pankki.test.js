@@ -53,6 +53,14 @@ describe('T-ohitus: seuran pankki ensin, TM varalla (kehityskohteen taso)', () =
     expect(() => jm.tmTukiosa({ alue: 'kestävyys', perustelu: 'x', harjoitteet: [{ id: 'a', nimi: 'A', lahde: 'seura', tila: 'luonnos' }] })).toThrow(/luonnos/);
     expect(jm.tmTukiosa({ alue: 'kestävyys', perustelu: 'x', harjoitteet: [{ id: 'a', nimi: 'A', lahde: 'seura', tila: 'hyvaksytty' }, { id: 'b', nimi: 'B', lahde: 'tm' }] }).harjoitteet.map((x) => x.id)).toEqual(['a', 'b']);
   });
+  it('4a KAYTTO "joukkue": joukkueharjoite (valmentajan rata) EI korvaa TM:n oletusta eikä ole koskaan päivän harjoite — samalla kohteella/ketjulla; muu kaytto (puuttuva / "koti") toimii kuten ennen', () => {
+    const ennen = lib.valitsePaivanHarjoite(PELAAJA('sjk'), lib.PANKKI, PVM(10));
+    const jk = PANKKI_OF('sjk', [H('SJK', { kaytto: 'joukkue', ketju: 'DFL' })]);
+    for (let n = 0; n < 30; n++) expect(lib.valitsePaivanHarjoite(PELAAJA('sjk'), lib.PANKKI, PVM(n), jk)).toEqual(lib.valitsePaivanHarjoite(PELAAJA('sjk'), lib.PANKKI, PVM(n)));
+    expect(lib.valitseSeuranKetjunHarjoite(PELAAJA('sjk'), jk, 'DFL', PVM(10))).toBeNull(); expect(lib.valitsePaivanHarjoite(PELAAJA('sjk'), lib.PANKKI, PVM(10), jk)).toEqual(ennen);
+    const sekaisin = PANKKI_OF('sjk', [H('SJK', { nimi: 'JOUKKUE', kaytto: 'joukkue' }), H('SJK', { nimi: 'KOTI', kaytto: 'koti' }), H('SJK', { nimi: 'ILMAN' })]);
+    const nimet = new Set(Array.from({ length: 30 }, (_, i) => lib.valitsePaivanHarjoite(PELAAJA('sjk'), lib.PANKKI, PVM(i), sekaisin).nimi)); expect([...nimet].sort()).toEqual(['ILMAN', 'KOTI']);
+  });
   it('ikärajat: ika_min/ika_max rajaavat (13-vuotias: 10–15 ✓, 14–16 ✗, ≤12 ✗); rajat puuttuvat = avoin; paljas taulukko kelpaa myös', () => {
     expect(lib.valitsePaivanHarjoite(PELAAJA('sjk'), lib.PANKKI, PVM(10), [H('SJK', { ika_min: undefined, ika_max: undefined })]).lahde).toBe('seura');
     expect(lib.valitsePaivanHarjoite(PELAAJA('sjk', { ika: 14 }), lib.PANKKI, PVM(10), PANKKI_OF('sjk', [H('SJK', { ika_min: 14, ika_max: 16 })])).lahde).toBe('seura');
