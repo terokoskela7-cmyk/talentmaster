@@ -110,6 +110,7 @@ window.TM_KAAVIO_HOST = {
 <script src="lib/tm_kypsyys.js?v=2"></script>   <!-- IDP R1: Kypsyys/PHV -komponentti (tmKypsyys) kytketty näkyviin per-pelaaja-kortin vasempaan paneeliin (korvaa kypsyysproosan) -->
 <script src="lib/tm_treeniteema.js?v=1"></script>   <!-- Vaihe 4d: teemakattavuus PURE-ydin (jaksofokus vs suunnitellut teemaharjoitukset) -->
 <script src="lib/tm_jaksokooste.js?v=2"></script>   <!-- Vaihe 6: jakson sulku (meso-sykli) PURE-ydin — prosessi+kalibraatio+historia (geneerinen §8) -->
+<script src="lib/tm_jakso_malli.js?v=1"></script>   <!-- R6.3-E: katselmuksen "Vahvista merkinnät" (tmMerkinnatTila / tmVahvistaMerkinnat) + kypsyysvihjeet -->
 <script src="lib/tm_kehityssilmukka.js?v=2"></script>   <!-- R6.2a: katselmus yhteen paikkaan (tmKirjaaKatselmus) + jaksofokuksen kirjoitusydin -->
 <script src="lib/tm_seuraava_askel.js?v=1"></script>   <!-- R6.2b: seuraava toimenpide yhdessä paikassa (tmSeuraavaAskel / tmSeuraavaJakso / tmTeeTastaOsa) -->
 <script src="lib/tm_fyysteemat.js?v=4"></script>   <!-- Vaihe 7: fyysinen teemaluettelo + D1-fokuslähde + evidenssi (delta §29 + PHV-portti §28) -->
@@ -2098,7 +2099,8 @@ body {
 
 .jsp-kt-btns { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
 .jsp-kt-btn { font-size: 12px; font-weight: 600; border-radius: 8px; padding: 7px 12px; border: .5px solid var(--border); background: var(--ov-1); color: var(--ink2); cursor: pointer; font-family: var(--font-sans); }
-.jsp-kt-btn.primary { background: rgba(40,176,144,.14); border-color: rgba(40,176,144,.4); color: var(--teal); }
+.jsp-kt-btn.primary,
+.jsp-kt-btn[aria-pressed="true"] { background: rgba(40,176,144,.14); border-color: rgba(40,176,144,.4); color: var(--teal); }   /* R6.3-E: valittu vaihtopainike (Vahvista merkinnät) */
 .jsp-kt-varo { font-size: 12px; color: var(--amber); background: rgba(224,160,64,.09); border: .5px solid rgba(224,160,64,.3); border-radius: 8px; padding: 7px 11px; margin-bottom: 8px; }
 .jsp-kt-fokval { margin-top: 10px; padding: 10px 12px; background: var(--ov-1); border: .5px solid var(--border); border-radius: 9px; }
 .jsp-kt-fokval.korosta { border-color: rgba(40,176,144,.5); box-shadow: 0 0 0 2px rgba(40,176,144,.14); }
@@ -8735,7 +8737,42 @@ function _pvmLyhyt(iso) {
 }
 
 // "＋ Kirjaa review" → 4-vaiheinen modaali (§3 flow: pelaaja arvioi ensin → mittaus → DVI → valmentaja vastaa).
+/* R6.3-E — "Vahvista merkinnät" katselmuksessa (09 §6; Teron linjaus: tukitarve ja ydinvahvuuden havaittu_pvm vahvistetaan tai poistetaan katselmuksessa).
+   Lohko näkyy VAIN kun pelaajalla on ydinvahvuus/tukitarve tai kypsyysvihje (muuten modaali ennallaan). Valinnat tallentuvat samassa batchissa kuin katselmus (§26).
+   Henkilökunnan näkymä: tukitarvetta ei näytetä pelaajalle/huoltajalle (§7.22). "Siirrä kentällä" (09 §6) tulee Kenttä-UI:n (V1) mukana — ei vielä. */
+function _vpRvMerkinnatHTML(p) {
+  const L = window.TM_JAKSO_MALLI; if (!L || !p) return '';
+  const nyt = tmPaivaIso(new Date());
+  const t = L.tmMerkinnatTila(p, nyt, { deps: { varhainKypsynyt: (typeof window.tmVarhainKypsynyt === 'function') ? window.tmVarhainKypsynyt : null } });
+  if (!t.ydinvahvuus && !t.tukitarve && !t.vihjeet.length) return '';
+  const v = window._rvVahvista || {}, esc = _jsvEsc, pvmFi = function (iso) { return (typeof tmPvmFi === 'function' && tmPvmFi(iso)) || iso; };
+  const nappi = function (kohde, arvo, teksti) {
+    const on = v[kohde] === arvo;
+    return '<button type="button" class="jsp-kt-btn" aria-pressed="' + on + '" onclick="_vpRvVahvista(\'' + kohde + '\',\'' + arvo + '\');event.stopPropagation()">' + vpT(teksti) + '</button>';
+  };
+  let h = '<div class="jsp-rv-step" data-n="5" id="_rvMerkinnat"><div class="jsp-rv-st">' + vpT('Vahvista merkinnät') + '</div>';
+  if (t.ydinvahvuus) {
+    h += '<div class="jsp-rv-sub" style="margin-top:6px"><b>' + vpT('Ydinvahvuus') + '</b> · ' + esc(t.ydinvahvuus.kuvaus) + ' · ' + vpT('havaittu') + ' ' + esc(pvmFi(t.ydinvahvuus.havaittu_pvm)) + ' — ' + vpT('pitääkö yhä?') + '</div>'
+      + '<div class="jsp-kt-btns" style="margin:4px 0 8px">' + nappi('ydinvahvuus', 'vahvista', 'Kyllä') + '</div>';
+  }
+  if (t.tukitarve) {
+    h += '<div class="jsp-rv-sub" style="margin-top:6px"><b>' + vpT('Tukiosa:') + '</b> ' + esc(t.tukitarve.alue) + ' · ' + vpT('merkintä') + ' ' + esc(pvmFi(t.tukitarve.merkitty_pvm)) + '</div>';
+    if (t.tukitarve.vanhentunut) h += '<div class="jsp-kt-muted" style="font-size:11.5px;margin:2px 0;color:var(--amber)">' + vpT('Tukiosan merkintä on') + ' ' + t.tukitarve.ika_vk + ' ' + vpT('viikkoa vanha. Vahvista tai poista ennen kuin aloitat uuden jakson.') + '</div>';
+    h += '<div class="jsp-kt-btns" style="margin:4px 0 8px">' + nappi('tukitarve', 'vahvista', 'Vahvista') + nappi('tukitarve', 'poista', 'Poista') + '</div>';
+  }
+  t.vihjeet.forEach(function (k) {
+    h += '<div class="jsp-kt-muted" style="font-size:11.5px;margin:4px 0">' + (k === 'mittaa_kasvu' ? vpT('Mittaa kasvu, niin testitulokset otetaan huomioon.') : vpT('Harkitse teknistä tai taktista ydinvahvuutta.')) + '</div>';
+  });
+  return h + '</div>';
+}
+window._vpRvVahvista = function (kohde, arvo) {   // vaihtopainike: sama valinta uudelleen = peruu
+  const v = window._rvVahvista = window._rvVahvista || { ydinvahvuus: null, tukitarve: null };
+  v[kohde] = (v[kohde] === arvo) ? null : arvo;
+  const el = document.getElementById('_rvMerkinnat'), pid = window._rvPid, p = pid && _vpIdpPelaaja(pid);
+  if (el && p) { const w = document.createElement('div'); w.innerHTML = _vpRvMerkinnatHTML(p); if (w.firstChild) el.replaceWith(w.firstChild); }
+};
 window._vpKirjaaReview = function (pid) {
+  window._rvPid = pid;
   const p = _vpIdpPelaaja(pid); const t = p && p._idpTavoite; if (!t) return;
   const mit = t.mittari || {}, yks = mit.yksikko || '', mitattava = (yks !== 'taso' && yks !== 'vapaa');
   const vanha = document.getElementById('_vpReviewModal'); if (vanha) vanha.remove();
@@ -8764,6 +8801,8 @@ window._vpKirjaaReview = function (pid) {
     // R1 — review-tagit KURATOIDUSTA sanastosta (aggregoitava HoT:lle, R2). Ei vapaita tageja: syöte sanitoidaan tallennuksessa.
     + '<input id="_rvTagit" class="jsp-rv-inp" placeholder="' + vpT('Tagit (sanastosta, esim. oikea-jalka, paineensieto)') + '" onclick="event.stopPropagation()" style="margin-top:6px">'
     + '<div class="jsp-kt-muted" style="font-size:10px;margin-top:4px">' + vpT('Sanasto: ') + Object.keys(REVIEW_TAGIT).map(function (d) { return REVIEW_TAGIT[d].slice(0, 3).join(', '); }).join(' · ') + '…</div></div>';
+  window._rvVahvista = { ydinvahvuus: null, tukitarve: null };   // R6.3-E: valinnat nollataan joka avauksella
+  h += _vpRvMerkinnatHTML(p);
   h += '<div class="jsp-kt-btns"><button class="jsp-kt-btn primary" onclick="_vpTallennaReview(\'' + pid + '\')">' + vpT('Tallenna review') + '</button>'
     + '<button class="jsp-kt-btn" onclick="document.getElementById(\'_vpReviewModal\').remove()">' + vpT('Peruuta') + '</button></div>';
   h += '<div class="jsp-rv-note">' + vpT('Review → ') + '<b>' + vpT('arviot[]') + '</b>' + vpT(' → kehityskaari kasvaa · pikakenttä ') + '<b>' + vpT('idp_edistyma') + '</b>' + vpT(' päivittyy. §7.22: pelaajapeili (3c) näyttää vain oman kaaren positiivisena.') + '</div>';
@@ -8817,15 +8856,22 @@ window._vpTallennaReview = async function (pid) {
   const _rooliK = window._vpRooli || 'vp', _uid2 = (firebase.auth().currentUser || {}).uid || _uid || null;
   const _paivita = function (pk) {   // paikallinen tila VASTA onnistumisen jälkeen
     Object.assign(p, pk); p.review_tagit = _tagit;
+    if (_vplan) Object.keys(_vplan.paikallinen).forEach(function (k) { if (_vplan.paikallinen[k] === window.TM_JAKSO_MALLI.POISTA) delete p[k]; else p[k] = _vplan.paikallinen[k]; });
     if (typeof _vpKehAskelReRender === 'function') _vpKehAskelReRender(p);
     if (typeof renderReviewit === 'function') renderReviewit();
     if (typeof renderTilanne === 'function') renderTilanne();
   };
+  /* R6.3-E — "Vahvista merkinnät": valinnat (Kyllä / Vahvista / Poista) samaan batchiin kuin katselmus; paikallinen tila vasta onnistumisen jälkeen. */
+  const _vahv = window._rvVahvista || {}; window._rvVahvista = null;
+  let _vplan = null;
+  if (window.TM_JAKSO_MALLI && (_vahv.ydinvahvuus || _vahv.tukitarve)) {
+    try { _vplan = window.TM_JAKSO_MALLI.tmVahvistaMerkinnat(p, _vahv, _pvm); } catch (e) { console.warn('[vpTallennaReview merkinnät]', e && e.message); if (typeof toast === 'function') toast(vpT('Merkintöjen vahvistus epäonnistui'), 'error'); }
+  }
   const _katselmus = { tyyppi: 'kehityskeskustelu', pvm: _pvm, tekija_uid: _uid2, tekija_rooli: _rooliK, idp_paivitetty: true,   /* ei paatos-kenttää: merge ei saa pyyhkiä saman päivän MDT-katselmuksen päätöstekstiä */
     arvio: { arvo: isNaN(parseFloat(arvio.arvo)) ? null : parseFloat(arvio.arvo), pelaajan_arvio: arvio.pelaajan_arvio }, tagit: _tagit };
-  if (_isDemoMode || !_seuraId) { _paivita({ review_viimeisin_pvm: _pvm, review_viimeisin_tyyppi: 'kehityskeskustelu' }); return; }
+  if (_isDemoMode || !_seuraId) { _paivita({ review_viimeisin_pvm: _pvm, review_viimeisin_tyyppi: 'kehityskeskustelu' }); return; }   // demo: vain paikallinen tila
   try {
-    const plan = await _vpKirjoitaReview(p.id, _pvm, _katselmus, p);
+    const plan = await _vpKirjoitaReview(p.id, _pvm, _katselmus, p, _vplan ? _vplan.kirjoitus : null);
     _paivita(plan.pikakentat);
   } catch (e) { console.warn('[vpTallennaReview katselmus]', e && e.message); if (typeof toast === 'function') toast(vpT('Tallennus epäonnistui'), 'error'); }
 };
@@ -18145,7 +18191,7 @@ window._mdtPrint = function(){ window.print(); };
 /* R6.0a: nimi _vpKirjoitaReview — aiempi `_vpKirjaaReview` jakoi nimen window._vpKirjaaReview-modaalin kanssa (rivin ~8739 sijoitus
    ylikirjoitti tämän deklaraation → MDT-/bulk-"kirjaus" avasi modaalin eikä kirjoittanut mitään, silti "✓ Review merkitty"). Modaali pysyy
    window._vpKirjaaReview:na (onclickit). Väärä kutsu (puuttuva pvm/review) HEITTÄÄ → ei hiljaista valeonnistumista. */
-async function _vpKirjoitaReview(pid, pvm, review, pelaaja) {
+async function _vpKirjoitaReview(pid, pvm, review, pelaaja, lisa) {   // lisa (valinn.): pelaajadokin lisäkentät samaan batchiin (R6.3-E: ydinvahvuus.havaittu_pvm / tukitarve) — POISTA → FieldValue.delete()
   if (!pid || typeof pvm !== 'string' || !pvm || !review || typeof review !== 'object') throw new Error('_vpKirjoitaReview: pid, pvm ja review vaaditaan');
   /* R6.2a — KATSELMUS YHTEEN PAIKKAAN: kummankin polun (MDT/bulk 'mdr' ja cockpitin 'kehityskeskustelu') tietue tulee lib/tm_kehityssilmukka.js
      tmKirjaaKatselmus:sta → reviewit/{pvm} (merge) + pikakentät review_viimeisin_pvm/-tyyppi (+ review_tagit) YHDESSÄ batchissa. Rytmi nollautuu molemmista.
@@ -18156,7 +18202,10 @@ async function _vpKirjoitaReview(pid, pvm, review, pelaaja) {
   var pRef = db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(pid);
   var b = db.batch();
   b.set(pRef.collection('reviewit').doc(plan.reviewitPvm), plan.reviewitData, { merge: true });
-  if (Object.keys(plan.pikakentat).length) b.set(pRef, plan.pikakentat, { merge: true });
+  const lisaK = {};
+  if (lisa && typeof lisa === 'object') Object.keys(lisa).forEach(function (k) { lisaK[k] = (window.TM_JAKSO_MALLI && lisa[k] === window.TM_JAKSO_MALLI.POISTA) ? firebase.firestore.FieldValue.delete() : lisa[k]; });
+  const pk = Object.assign({}, plan.pikakentat, lisaK);
+  if (Object.keys(pk).length) b.set(pRef, pk, { merge: true });
   await b.commit();
   return plan;
 }
