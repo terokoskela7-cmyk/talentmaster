@@ -13,7 +13,7 @@ import { fakeDb } from './_fakeFirestore.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const require_ = createRequire(import.meta.url);
-const { kayttajaRooliSallittu } = require_(join(ROOT, 'functions', 'authz_paatos.js'));
+const { kayttajaRooliSallittu, kayttajaRooliClaimeista } = require_(join(ROOT, 'functions', 'authz_paatos.js'));
 const CF = readFileSync(join(ROOT, 'functions', 'index.js'), 'utf8');
 const ADMIN = readFileSync(join(ROOT, 'TalentMaster_Admin.html'), 'utf8');
 const SEURA = readFileSync(join(ROOT, 'TalentMaster_Seura.html'), 'utf8');
@@ -34,7 +34,7 @@ function ymparisto(alku, authUsers) {
   };
   const ketju = { region() { return ketju; }, runWith() { return ketju; }, https: { onCall: (fn) => fn, HttpsError } };
   const ctx = {
-    functions: ketju, exports: {}, db: f.db, auth, kayttajaRooliSallittu, console: { log() {}, warn() {}, error() {} }, String, Object, Array,
+    functions: ketju, exports: {}, db: f.db, auth, kayttajaRooliSallittu, kayttajaRooliClaimeista, console: { log() {}, warn() {}, error() {} }, String, Object, Array,
     admin: { firestore: { FieldValue: { serverTimestamp: () => 'TS' } } },
   };
   vm.createContext(ctx);
