@@ -4153,6 +4153,9 @@ describe('v3.38 · vastuuhenkilo', () => {
     await assertFails(updateDoc(pel(VALM13()), { hh_pvm: '2026-10-05', vastuuhenkilo: VH({ ylim: 1 }) }));   // yhdessä: muoto hylkää koko päivityksen
     await assertFails(updateDoc(pel(FYSIIKKA()), { hh_pvm: '2026-10-05', vastuuhenkilo: VH() }));
     expect((await lue()).hh_pvm).toBe('2026-10-05');
+  });
+});
+
 /* ══ VP-periaate (5.10.2026) · KPV:n VP-tunnus × KPV U13 -testipelaaja: katselmus, havainto, testitulos ══
    Todistaa Rules-tasolla: VP voi samat kirjoitukset kuin valmentaja (ja ohittaa joukkuerajauksen) — myös ilman kayttajat-dokumenttia ja kun dokissa on MUU joukkue. */
 describe('VP-periaate · KPV:n VP kirjaa KPV U13 -testipelaajalle', () => {
