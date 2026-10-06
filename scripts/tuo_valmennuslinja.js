@@ -40,6 +40,13 @@ const luku = (v) => { const s = norm(v).replace(',', '.'); if (!s) return null; 
 // lahde_viite: pelkkä dia-numero → "<lähde>, dia N" (SJK:n Excelin dia-numerot ovat Nevanlinnan 2014 -aineiston diat; --lahde ylikirjoittaa); valmis teksti säilyy.
 let LAHDE_NIMI = 'Nevanlinna 2014';
 const viite = (v) => { const s = norm(v); if (!s) return null; return /^\d+([–-]\d+)?(,\s*\d+)*$/.test(s) ? LAHDE_NIMI + ', dia ' + s : s; };
+// "1. Taitavuus: tasapaino, rytmikyky\n2. Reaktionopeus" → [{jarjestys:1, otsikko:'Taitavuus', kohdat:['tasapaino','rytmikyky']}, {jarjestys:2, otsikko:'Reaktionopeus', kohdat:[]}] (pilkut sulkeiden sisällä eivät erota)
+const hierarkia = (v) => norm(v).split(/\n+/).map((x) => x.trim()).filter(Boolean).map((rivi, i) => {
+  const m = /^\s*(\d+)[.)]\s*(.*)$/.exec(rivi), teksti = (m ? m[2] : rivi).trim(), kaksoispiste = teksti.indexOf(':');
+  const otsikko = (kaksoispiste >= 0 ? teksti.slice(0, kaksoispiste) : teksti).trim(), loppu = kaksoispiste >= 0 ? teksti.slice(kaksoispiste + 1) : '';
+  const kohdat = []; let syvyys = 0, nyt = ''; for (const c of loppu) { if (c === '(') syvyys++; if (c === ')') syvyys = Math.max(0, syvyys - 1); if (c === ',' && !syvyys) { kohdat.push(nyt.trim()); nyt = ''; } else nyt += c; } if (nyt.trim()) kohdat.push(nyt.trim());
+  return { jarjestys: m ? Number(m[1]) : i + 1, otsikko, kohdat: kohdat.filter(Boolean) };
+});
 const rivit = (v) => norm(v).split(/\n+/).map((x) => x.replace(/^\s*\d+[.)]\s*/, '').trim()).filter(Boolean);
 const OnUrl = (s) => /^https?:\/\//i.test(norm(s));
 
@@ -111,6 +118,10 @@ function muunna(opts) {
     return { tila: valmis === false ? 'luonnos' : 'hyvaksytty' };
   };
   const leima = (data, tila) => Object.assign(data, { tila, tarkistettu_pvm: tila === 'hyvaksytty' ? pvm : null, tarkistaja: tila === 'hyvaksytty' ? tarkistaja : null });
+  // VAKAAT ID:T: välilehti + lahde_dia + järjestysnumero (n:s sisältörivi samalla dia-arvolla, Excel-järjestyksessä) — EI nimeä/joukkuetta, koska SJK korjaa niitä kuittauksessa ("Muutettu"):
+  // nimeen sidottu ID loisi korjatusta rivistä uuden dokumentin ja jättäisi vanhan haamuksi. Rivejä ei saa järjestää uudelleen eikä poistaa (OHJE: Poista = merkitse); uudet rivit lisätään loppuun.
+  const laskuri = {}; const nro = (avain) => (laskuri[avain] = (laskuri[avain] || 0) + 1);
+  const diaId = (a) => slug(a.lahde_viite || 'x');
   const docs = []; const kasitellyt = {};
   /** Yhden dokumentin kirjoitussuunnitelma: versio, op, vertailu nykyiseen. */
   const kirjoita = (polku, data) => {
@@ -125,9 +136,9 @@ function muunna(opts) {
   if (taulut.Ikaluokat) {
     const vanhat = ((nyk['valmennuslinja/ikavaiheet'] || {}).rivit || []).reduce((m, x) => { m[x.id] = x; return m; }, {}), uudet = Object.assign({}, vanhat);
     taulut.Ikaluokat.forEach((r) => {
-      const a = r.a, avain = a.ikaluokka || '(nimetön)', t = tilaRivi('Ikaluokat', r, avain), id = slug(a.ikaluokka) + '_' + slug(a.lahde_viite || 'x');
+      const a = r.a, avain = a.ikaluokka || '(nimetön)', id = 'ika_' + diaId(a) + '_' + (r.sisaltoa ? nro('Ikaluokat|' + diaId(a)) : 0), t = tilaRivi('Ikaluokat', r, avain);
       if (t.ohita) return; if (t.poista) { delete uudet[id]; return; }
-      const rv = Object.assign({ id, ikaluokka: a.ikaluokka, dimensio: a.dimensio || (/Nevanlinna/i.test(viite(a.lahde_viite) || '') ? 'D1' : null), sisalto: rivit(a.painopisteet), totuteltava: rivit(a.totuteltava), suositellut_ohjelmat: rivit(a.suositellut_ohjelmat), lahde_viite: viite(a.lahde_viite) }, ikarajat(a));
+      const rv = Object.assign({ id, ikaluokka: a.ikaluokka, dimensio: a.dimensio || (/Nevanlinna/i.test(viite(a.lahde_viite) || '') ? 'D1' : null), sisalto: rivit(a.painopisteet), painopisteet: hierarkia(a.painopisteet), totuteltava: rivit(a.totuteltava), totuteltava_hierarkia: hierarkia(a.totuteltava), suositellut_ohjelmat: rivit(a.suositellut_ohjelmat), lahde_viite: viite(a.lahde_viite) }, ikarajat(a));
       const v = vanhat[id]; const muuttui = !v || sisaltoAvain(Object.assign({}, v, { tila: 0 })) !== sisaltoAvain(Object.assign({}, rv, { versio: v.versio, tila: 0, tarkistettu_pvm: v.tarkistettu_pvm, tarkistaja: v.tarkistaja }));
       leima(rv, t.tila); rv.versio = !v ? 1 : (muuttui || v.tila !== t.tila ? (v.versio || 0) + 1 : v.versio); if (v && !muuttui && v.tila === t.tila) { rv.tarkistettu_pvm = v.tarkistettu_pvm; rv.tarkistaja = v.tarkistaja; }
       uudet[id] = rv;
@@ -141,8 +152,10 @@ function muunna(opts) {
     const vanhat = {}; ['valmennuslinja/teemat', 'valmennuslinja/teemat_luonnos'].forEach((p) => ((nyk[p] || {}).jaksot || []).forEach((j) => { vanhat[j.id] = j; }));
     const uudet = Object.assign({}, vanhat);
     taulut.Teemat.forEach((r) => {
-      const a = r.a, avain = (a.joukkue || '') + ' / ' + (a.jakso || a.teema || ''), t = tilaRivi('Teemat', r, avain), id = slug(a.jakso || a.teema) + '_' + slug(a.joukkue) + '_' + slug(a.lahde_viite || 'x');
+      const a = r.a, avain = (a.joukkue || '') + ' / ' + (a.jakso || a.teema || ''), id = 'teema_' + diaId(a) + '_' + (r.sisaltoa ? nro('Teemat|' + diaId(a)) : 0), t = tilaRivi('Teemat', r, avain);
       if (t.ohita) return; if (t.poista) { delete uudet[id]; return; }
+      const placeholder = !norm(a.joukkue) || /\besim\.?\s*$/i.test(a.joukkue) || /^uusi$/i.test(norm(a.joukkue));
+      if (placeholder) { rap.huomiot.push('Teemat rivi ' + r.rivi + ': joukkue "' + (a.joukkue || '') + '" ei ole oikea joukkuenimi (esimerkkiteksti/tyhjä) — rivi pysyy luonnoksena kunnes SJK kirjoittaa joukkueet'); t.tila = 'luonnos'; }
       const j = { id, joukkue: a.joukkue || null, jakso: a.jakso || null, viikot: a.viikot || null, alkaa: a.alkaa || null, paattyy: a.paattyy || null, teema: a.teema || null, konsepti: a.konsepti || null, lahde_viite: viite(a.lahde_viite) };
       const v = vanhat[id], sama = v && sisaltoAvain(Object.assign({}, v, { tila: 0 })) === sisaltoAvain(Object.assign({}, j, { versio: v.versio, tila: 0, tarkistettu_pvm: v.tarkistettu_pvm, tarkistaja: v.tarkistaja }));
       leima(j, t.tila); j.versio = !v ? 1 : (sama && v.tila === t.tila ? v.versio : (v.versio || 0) + 1); if (sama && v.tila === t.tila) { j.tarkistettu_pvm = v.tarkistettu_pvm; j.tarkistaja = v.tarkistaja; }
@@ -159,7 +172,7 @@ function muunna(opts) {
     const ryhmat = {}, jarj = [];
     taulut[sn].forEach((r) => { const nimi = r.a.ohjelma_nimi; if (!nimi && !r.a.liike) { if (norm(r.a.kuittaus)) tilaRivi(sn, r, '(tyhjä)'); else rap.ohitetut[sn] = (rap.ohitetut[sn] || 0) + 1; return; } const k = nimi || '(nimetön)'; if (!ryhmat[k]) { ryhmat[k] = []; jarj.push(k); } ryhmat[k].push(r); });
     jarj.forEach((nimi) => {
-      const rs = ryhmat[nimi], eka = rs.find((r) => r.a.lahde_viite) || rs[0], id = slug(sn) + '_' + slug(eka.a.lahde_viite || 'x') + '_' + slug(nimi), polku = 'ohjelmat/' + id;
+      const rs = ryhmat[nimi], eka = rs.find((r) => r.a.lahde_viite) || rs[0], id = slug(sn) + '_' + diaId(eka.a) + '_' + nro(sn + '|' + diaId(eka.a)), polku = 'ohjelmat/' + id;
       const liikkeet = []; let poistettu = 0, tilat = [];
       rs.forEach((r, i) => {
         const a = r.a, avain = nimi + ' / ' + (a.liike || '?'), t = tilaRivi(sn, r, avain); if (t.ohita) return; if (t.poista) { poistettu++; return; }
@@ -183,7 +196,7 @@ function muunna(opts) {
     if (!taulut[sn]) continue;
     taulut[sn].forEach((r) => {
       const a = r.a, ketteryys = sn === 'Ketteryys_ja_nopeus', kuva = norm(a.kuva_tai_video), kuvaOk = OnUrl(kuva) || (/\.(jpe?g|png|gif|mp4|mov|webm)$/i.test(kuva));
-      const id = (ketteryys ? 'ketteryys' : 'rutiinit') + '_' + slug(a.lahde_viite || 'x') + '_' + slug(a.nimi), polku = 'harjoitepankki/' + id;
+      const id = (ketteryys ? 'ketteryys' : 'rutiinit') + '_' + diaId(a) + '_' + (r.sisaltoa ? nro(sn + '|' + diaId(a)) : 0), polku = 'harjoitepankki/' + id;
       const t = tilaRivi(sn, r, a.nimi || '?', ketteryys ? kuvaOk : true); if (t.ohita) return; if (t.poista) { poista(polku); return; }
       if (ketteryys && !kuvaOk && (norm(a.kuittaus) || rap.ajo === 2)) rap.odottaaKuvaa.push(a.nimi);
       const kd = kotiinSopiva(a.kotiin_sopiva); if (kd.ehdollinen) rap.ehdollinenKotiin.push(sn + ': ' + a.nimi + ' → "' + kd.huomio + '"');
@@ -208,7 +221,10 @@ function tulosta(r, apply) {
   if (rp.kuittaamattomat.length) L.push('KUITTAAMATTOMAT (pysyvät luonnoksena) ' + rp.kuittaamattomat.length + ':\n  - ' + rp.kuittaamattomat.join('\n  - '));
   if (rp.odottaaKuvaa.length) L.push('Odottaa kuvaa/videota (luonnos): ' + rp.odottaaKuvaa.join(', '));
   if (rp.ehdollinenKotiin.length) L.push('Ehdollinen kotiin_sopiva (tuotu false + huomio) ' + rp.ehdollinenKotiin.length + ':\n  - ' + rp.ehdollinenKotiin.slice(0, 30).join('\n  - '));
-  if (rp.ketjutta.length) L.push('Ilman ketjua v2-masterista ' + rp.ketjutta.length + ' (esim. ' + rp.ketjutta.slice(0, 5).join('; ') + ')');
+  if (rp.ketjutta.length) {
+    const ryh = {}; rp.ketjutta.forEach((x) => { const i = x.indexOf(': '); (ryh[x.slice(0, i)] = ryh[x.slice(0, i)] || new Set()).add(x.slice(i + 2)); });
+    L.push('ILMAN KETJUA v2-masterista: ' + rp.ketjutta.length + ' riviä (' + Object.keys(ryh).map((k) => k + ' ' + ryh[k].size + ' uniikkia').join(', ') + '):\n' + Object.keys(ryh).map((k) => '  [' + k + ']\n    - ' + [...ryh[k]].join('\n    - ')).join('\n'));
+  }
   if (rp.huomiot.length) L.push('Huomiot:\n  - ' + rp.huomiot.join('\n  - '));
   if (rp.virheet.length) L.push('VIRHEET (apply estetty) ' + rp.virheet.length + ':\n  - ' + rp.virheet.join('\n  - '));
   L.push('Tulkinnat: ' + rp.tulkinnat.join(' | '));
