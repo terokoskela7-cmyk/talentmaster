@@ -13,7 +13,7 @@ const functions = require('firebase-functions/v1');
 const admin     = require('firebase-admin');
 const https     = require('https');
 const crypto    = require('crypto');
-const { kayttajaRooliSallittu, tunnisteTyyppi, kuittausPaatos } = require('./authz_paatos');   // pure authz-päätös (#71, PR 3, testattava)
+const { kayttajaRooliSallittu, kayttajaRooliClaimeista, tunnisteTyyppi, kuittausPaatos } = require('./authz_paatos');   // pure authz-päätös (#71, PR 3, testattava)
 const { keraaPelaajanManifesti, rakennaAuditPayload, OMA_KIRJAUS_PSEUDONYMISOINTI } = require('./gdpr_locator');   // GDPR RTBF/export -locator (#96)
 const { kaavioKohdistuuServer } = require('./kaavio_policy');   // kaavion kohdistus (peili lib/tm_kaavio_policy.js)
 const auditloki = require('./auditloki');   // haeAuditLoki: suodattimet + sivutus (SA)
@@ -136,7 +136,7 @@ async function haeSeuraNimi(seuraId) {
 // ─────────────────────────────────────────────────────────────────────────────
 // APUFUNKTIO: Tarkista oikeus
 // ─────────────────────────────────────────────────────────────────────────────
-async function tarkistaOikeus(kutsujaUid, kohdeSeuraId) {
+async function tarkistaOikeus(kutsujaUid, kohdeSeuraId, token) {   // token (context.auth.token) valinnainen: VP tunnistetaan myös claimeista (korjaus-PR 2)
   const adminDoc  = await db.collection('admins').doc(kutsujaUid).get();
   const adminData = adminDoc.exists ? adminDoc.data() : null;
   const onSuperAdmin = adminData && (
@@ -152,6 +152,7 @@ async function tarkistaOikeus(kutsujaUid, kohdeSeuraId) {
   const kayttajaDoc = await db
     .collection('seurat').doc(kohdeSeuraId)
     .collection('kayttajat').doc(kutsujaUid).get();
+  const kayttajaData = kayttajaDoc.exists ? kayttajaDoc.data() : null;
   if (kayttajaDoc.exists) {
     // VP mukaan: seuralla voi olla useita VP:itä, mutta vp_uid osoittaa vain yhteen (rivi 111).
     // Ilman tätä seuran 2. VP ei saa kutsu-/reset-/muistutusoikeuksia. (Sibbo-bugi 2026-06-29.)
@@ -161,6 +162,10 @@ async function tarkistaOikeus(kutsujaUid, kohdeSeuraId) {
       return { sallittu: true, rooli: sallittuRooli };
     }
   }
+  /* Korjaus-PR 2: ei vp_uid-osumaa eikä sallittua kayttajat-dokumenttia → custom claimit (rooli + seuraId; palvelimen asettamat). Dokumentti ratkaisee jos se on olemassa
+     (deaktivoitu / alennettu rooli → ei oikeuksia); vain puuttuva dokumentti (kesken jäänyt luoKayttaja, vapautettu vp_uid) → claimi. */
+  const claimRooli = kayttajaRooliClaimeista(token, kohdeSeuraId, kayttajaData);
+  if (claimRooli) return { sallittu: true, rooli: claimRooli };
   return { sallittu: false, rooli: null };
 }
 // ─────────────────────────────────────────────────────────────────────────────
@@ -199,7 +204,7 @@ async function vapautaVpUid(seuraId, uid) {
 async function tarkistaKayttajaToimenpide(context, kohdeUid, seuraId, vainSA) {
   if (!context.auth) throw new functions.https.HttpsError('unauthenticated', 'Kirjaudu ensin.');
   if (!kohdeUid || !seuraId) throw new functions.https.HttpsError('invalid-argument', 'kohdeUid ja seuraId pakollisia.');
-  const oikeus = await tarkistaOikeus(context.auth.uid, seuraId);
+  const oikeus = await tarkistaOikeus(context.auth.uid, seuraId, context.auth.token);
   if (!oikeus.sallittu || (vainSA && oikeus.rooli !== 'superadmin')) {
     throw new functions.https.HttpsError('permission-denied', 'Ei oikeutta tähän käyttäjään.');
   }
@@ -294,7 +299,7 @@ exports.lahetaRekisteriKutsu = functions
        sähköpostia mielivaltaisella linkillä. Vain seuran johto / SA (tarkistaOikeus). seuraId datasta
        tai henkilökunnan tokenista (vanha Seura-sivu ei lähettänyt sitä). */
     const seuraId = String(data.seuraId || (context.auth.token && context.auth.token.seuraId) || '').trim();
-    if (!seuraId || !(await tarkistaOikeus(context.auth.uid, seuraId)).sallittu) {
+    if (!seuraId || !(await tarkistaOikeus(context.auth.uid, seuraId, context.auth.token)).sallittu) {
       throw new functions.https.HttpsError('permission-denied', 'Ei oikeutta lähettää kutsuja tämän seuran nimissä.');
     }
     estaPaikkamerkkiOsoite(hEmail);   // ei kutsua eikä audit-riviä esimerkkiosoitteeseen
@@ -357,7 +362,7 @@ exports.lahetaMuistutukset = functions
       throw new functions.https.HttpsError('invalid-argument', 'seuraId on pakollinen.');
     }
     // authz — sama kuin lahetaHuoltajaKutsu (SA/VP/seurasihteeri/UTJ oma seura)
-    const oikeus = await tarkistaOikeus(context.auth.uid, seuraId);
+    const oikeus = await tarkistaOikeus(context.auth.uid, seuraId, context.auth.token);
     if (!oikeus.sallittu) {
       throw new functions.https.HttpsError('permission-denied', 'Ei oikeutta tähän seuraan.');
     }
@@ -443,7 +448,7 @@ exports.lahetaHuoltajaKutsu = functions
         'huoltajaEmail, pelaajaId ja seuraId ovat pakollisia.');
     }
     // Vaihe 0 / PR 3: vain seuran johto / SA — anonyymi loi kutsuja minkä tahansa seuran alle.
-    if (!(await tarkistaOikeus(context.auth.uid, seuraId)).sallittu) {
+    if (!(await tarkistaOikeus(context.auth.uid, seuraId, context.auth.token)).sallittu) {
       throw new functions.https.HttpsError('permission-denied', 'Ei oikeutta tähän seuraan.');
     }
     estaPaikkamerkkiOsoite(huoltajaEmail);   // ei kutsudokumenttia esimerkkiosoitteelle
@@ -488,7 +493,7 @@ exports.luoKayttaja = functions
     estaPaikkamerkkiOsoite(email);
     if (!rooli)   throw new functions.https.HttpsError('invalid-argument', 'Rooli pakollinen.');
     if (!seuraId) throw new functions.https.HttpsError('invalid-argument', 'Seura pakollinen.');
-    const oikeus = await tarkistaOikeus(kutsujaUid, seuraId);
+    const oikeus = await tarkistaOikeus(kutsujaUid, seuraId, context.auth && context.auth.token);
     if (!oikeus.sallittu) {
       throw new functions.https.HttpsError('permission-denied',
         `Ei oikeuksia seuralle "${seuraId}".`);
@@ -709,7 +714,7 @@ exports.vaihdaKayttajanRooli = functions
     }
 
     // 1. Oikeustarkistus — vain SA, VP, UTJ tai seurasihteeri (sama tarkistaOikeus kuin muualla)
-    const oikeus = await tarkistaOikeus(kutsujaUid, seuraId);
+    const oikeus = await tarkistaOikeus(kutsujaUid, seuraId, context.auth && context.auth.token);
     if (!oikeus.sallittu) {
       throw new functions.https.HttpsError('permission-denied', `Ei oikeuksia seuralle "${seuraId}".`);
     }
@@ -803,7 +808,7 @@ exports.korjaaJoukkueenTestipvm = functions
 
     const kutsujaUid = context.auth.uid;
     // 1. Auktorisointi — tarkistaOikeus (super-admin/vp/seurasihteeri/UTJ) + testivastaava.
-    const oikeus = await tarkistaOikeus(kutsujaUid, seuraId);
+    const oikeus = await tarkistaOikeus(kutsujaUid, seuraId, context.auth && context.auth.token);
     let sallittu = oikeus.sallittu, rooli = oikeus.rooli;
     if (!sallittu) {
       const kd = await db.collection('seurat').doc(seuraId).collection('kayttajat').doc(kutsujaUid).get();
@@ -881,7 +886,7 @@ exports.lahetaResetLinkki = functions
       throw new functions.https.HttpsError('invalid-argument', 'Seura pakollinen.');
     }
     // 1) Kutsujalla oltava oikeus tähän seuraan (SA tai seuran johto)
-    const oikeus = await tarkistaOikeus(context.auth.uid, seuraId);
+    const oikeus = await tarkistaOikeus(context.auth.uid, seuraId, context.auth.token);
     if (!oikeus.sallittu) {
       throw new functions.https.HttpsError('permission-denied',
         `Ei oikeuksia seuralle "${seuraId}".`);
@@ -1012,7 +1017,7 @@ exports.lahetaPelaajaSivuLinkki = functions
     }
     // Paikkamerkki ennen kaikkea muuta: alla haeOrLuoHuoltajaAuth-virhe niellään ja sähköposti lähtisi silti.
     estaPaikkamerkkiOsoite(hEmail);
-    if (!(await tarkistaOikeus(context.auth.uid, seuraId)).sallittu) {
+    if (!(await tarkistaOikeus(context.auth.uid, seuraId, context.auth.token)).sallittu) {
       throw new functions.https.HttpsError('permission-denied', 'Ei oikeutta tähän seuraan.');
     }
     const pelSnap = await db.collection('seurat').doc(seuraId).collection('pelaajat').doc(pelaajaId).get();
@@ -1516,7 +1521,7 @@ exports.tasoHaeSeuranOttelut = functions
     }
     const { seuraId } = data;
     if (!seuraId) throw new functions.https.HttpsError('invalid-argument', 'seuraId puuttuu.');
-    const oikeus = await tarkistaOikeus(context.auth.uid, seuraId);
+    const oikeus = await tarkistaOikeus(context.auth.uid, seuraId, context.auth.token);
     if (!oikeus.sallittu) {
       throw new functions.https.HttpsError('permission-denied', 'Ei oikeuksia tähän seuraan.');
     }
@@ -1972,7 +1977,7 @@ exports.poistaPelaajaGDPR = functions
     if (!seuraId || !pelaajaId) {
       throw new functions.https.HttpsError('invalid-argument', 'seuraId ja pelaajaId pakollisia.');
     }
-    const oikeus = await tarkistaOikeus(context.auth.uid, seuraId);
+    const oikeus = await tarkistaOikeus(context.auth.uid, seuraId, context.auth.token);
     if (!oikeus.sallittu) {
       throw new functions.https.HttpsError('permission-denied',
         `Ei oikeuksia seuralle "${seuraId}". RTBF vaatii SA:n tai seuran johdon (vp/seurasihteeri/UTJ).`);
@@ -2106,7 +2111,7 @@ exports.viePelaajanDataGDPR = functions
     if (!seuraId || !pelaajaId) {
       throw new functions.https.HttpsError('invalid-argument', 'seuraId ja pelaajaId pakollisia.');
     }
-    const oikeus = await tarkistaOikeus(context.auth.uid, seuraId);
+    const oikeus = await tarkistaOikeus(context.auth.uid, seuraId, context.auth.token);
     if (!oikeus.sallittu) {
       throw new functions.https.HttpsError('permission-denied', `Ei oikeuksia seuralle "${seuraId}".`);
     }
@@ -2286,7 +2291,7 @@ exports.kuittaaKaavioYmmarretty = functions
     const paatos = kuittausPaatos(context.auth, seuraId, pelaajaId);
     if (paatos === 'evatty')
       throw new functions.https.HttpsError('permission-denied', 'Pelaaja voi kuitata vain oman kaavionsa.');
-    if (paatos === 'henkilokunta' && !(await tarkistaOikeus(context.auth.uid, seuraId)).sallittu)
+    if (paatos === 'henkilokunta' && !(await tarkistaOikeus(context.auth.uid, seuraId, context.auth.token)).sallittu)
       throw new functions.https.HttpsError('permission-denied', 'Ei oikeutta tähän seuraan.');
 
     const ref = db.collection('seurat').doc(seuraId).collection('kaaviot').doc(kaavioId);

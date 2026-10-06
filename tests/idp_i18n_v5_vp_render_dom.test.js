@@ -883,6 +883,17 @@ describe('VP_v25 resolvi-portti — jokaisella reititetyllä avaimella on sv-riv
     // Vastuuhenkilö (5.10.2026) — sv Gemini-erässä.
     'Vastuuhenkilön asetus epäonnistui',
     'Vastuuhenkilö tallennettu',
+    // R6.3-E — katselmuksen "Vahvista merkinnät" (09 §6). sv Gemini-erässä. (Henkilökunnan sana "Ydinvahvuus" on lopullinen; väliaikainen on vain pelaajan sana "vahvuus".)
+    'Vahvista merkinnät',
+    'Ydinvahvuus',
+    'pitääkö yhä?',
+    'Tukiosa:',
+    'merkintä',
+    'Tukiosan merkintä on',
+    'viikkoa vanha. Vahvista tai poista ennen kuin aloitat uuden jakson.',
+    'Mittaa kasvu, niin testitulokset otetaan huomioon.',
+    'Harkitse teknistä tai taktista ydinvahvuutta.',
+    'Merkintöjen vahvistus epäonnistui',
   ];
 
   it('0 vpT-avainta ilman sv-riviä (paitsi nimetyt sanktiointia odottavat)', () => {

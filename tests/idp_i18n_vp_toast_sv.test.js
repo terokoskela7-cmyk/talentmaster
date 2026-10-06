@@ -131,6 +131,8 @@ const SV_ODOTTAA_SANKTIOINTIA = [
   // Vastuuhenkilö (5.10.2026) — sv Gemini-erässä.
   'Vastuuhenkilön asetus epäonnistui',
   'Vastuuhenkilö tallennettu',
+  // R6.3-E: katselmuksen merkintöjen vahvistus — sv Gemini-erässä.
+  'Merkintöjen vahvistus epäonnistui',
 ];
 
 describe('ilmoituskanavat · resolvi (kääre ei yksin riitä)', () => {
