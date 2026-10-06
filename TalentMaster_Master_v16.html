@@ -111,7 +111,8 @@ window.TM_KAAVIO_HOST = {
 <script src="lib/tm_jaksokooste.js?v=2"></script>   <!-- Vaihe 6: jakson sulku (meso-sykli) — valmentaja sulkee omat pelaajansa (§4/§37) -->
 <script src="lib/tm_valmennuslinja.js?v=1"></script>   <!-- seuran valmennuslinja: joukkueen teema (hyväksytyt + henkilökunnalle luonnos) -->
 <script src="lib/tm_vastuuhenkilo.js?v=1"></script>   <!-- vastuuhenkilö per pelaaja (vastuuhenkilo {uid, rooli, asetettu_pvm}); henkilökunnan rivi + asetus -->
-<script src="lib/tm_kehityssilmukka.js?v=2"></script>   <!-- R6.1b: jaksofokuksen yhteinen kirjoitusydin (tmAsetaJaksofokus / tmSuljeJakso) -->
+<script src="lib/tm_kehityssilmukka.js?v=2"></script>
+<script src="lib/tm_jakso_malli.js?v=1"></script>   <!-- B 2/3: ohjelma → jakson tukiosa (tmOhjelmaTukiosaan / tmLiitaTukiosaan) -->   <!-- R6.1b: jaksofokuksen yhteinen kirjoitusydin (tmAsetaJaksofokus / tmSuljeJakso) -->
 <script src="lib/tm_seuraava_askel.js?v=1"></script>   <!-- R6.2b: seuraava toimenpide yhdessä paikassa (tmSeuraavaAskel / tmSeuraavaJakso / tmTeeTastaOsa) -->
 <script src="lib/tm_fyysteemat.js?v=4"></script>   <!-- Vaihe 7: fyysinen teemaluettelo + D1-fokuslähde + evidenssi (fysiikkavalmentaja) -->
 <script src="lib/tm_ohjelma.js?v=1"></script>   <!-- Vaihe 7.2a: fysiikkaohjelmakirjasto (validoi/versioi/templaatista, deterministinen) -->
@@ -6653,6 +6654,7 @@ function _ohjValitseRender(pid, teemaAvain, naytaArkisto) {
     h += '<div style="display:flex;gap:7px;margin-top:9px;flex-wrap:wrap">';
     if (pid && !o.arkistoitu) h += '<button onclick="_ohjKaytaOhjelma(\'' + esc(pid) + '\',\'' + esc(teemaAvain || '') + '\',\'' + esc(o.id) + '\')" style="font-size:11.5px;font-weight:600;border-radius:7px;padding:6px 11px;cursor:pointer;border:.5px solid rgba(40,176,144,.4);background:rgba(40,176,144,.14);color:var(--teal)">' + masterT('✓ Käytä jaksossa') + '</button>';
     if (_ohjSaaKirjoittaa()) h += '<button onclick="_ohjEditori(\'' + esc(o.id) + '\',\'' + esc(pid || '') + '\',\'' + esc(teemaAvain || '') + '\')" style="font-size:11.5px;border-radius:7px;padding:6px 11px;cursor:pointer;border:.5px solid var(--border);background:var(--ov-1,rgba(255,255,255,.04));color:var(--ink2)">' + masterT('✏️ Muokkaa (uusi versio)') + '</button>';
+    if (pid && !o.arkistoitu && o.tila === 'hyvaksytty') h += '<button onclick="_ohjLiitaTukiosaan(\'' + esc(pid) + '\',\'' + esc(o.id) + '\')" style="font-size:11.5px;font-weight:600;border-radius:7px;padding:6px 11px;cursor:pointer;border:.5px solid rgba(40,176,144,.4);background:rgba(40,176,144,.1);color:var(--teal)">' + masterT('Liitä jakson kotiharjoitteiksi') + '</button>';
     if (_ohjSaaKirjoittaa() && !o.arkistoitu) h += '<button onclick="_ohjArkistoi(\'' + esc(o.id) + '\',\'' + esc(pid || '') + '\',\'' + esc(teemaAvain || '') + '\')" style="font-size:11.5px;border-radius:7px;padding:6px 11px;cursor:pointer;border:.5px solid var(--border);background:var(--ov-1,rgba(255,255,255,.04));color:var(--ink3)">' + masterT('🗄 Arkistoi') + '</button>';
     // 7.2b — per-ohjelma-analytiikka on-demand (§26: lataa pelaajat vasta klikattaessa, ei render-polulla).
     h += '<button onclick="_ohjNaytaAnalytiikka(\'' + esc(o.id) + '\')" style="font-size:11.5px;border-radius:7px;padding:6px 11px;cursor:pointer;border:.5px solid rgba(42,93,176,.4);background:rgba(42,93,176,.12);color:var(--blue)">' + masterT('📊 Näytä analytiikka') + '</button>';
@@ -6691,6 +6693,24 @@ window._ohjKaytaOhjelma = async function (pid, teemaAvain, ohjelmaId) {
     await _mKirjoitaJaksofokus(p, _v, pid);
     if (typeof toast === 'function') toast('Fysiikkajakso + kirjasto-ohjelma asetettu ✓', 'ok');
   } catch (e) { console.warn('[ohjKayta]', e && e.message); if (typeof toast === 'function') toast('Tallennus epäonnistui', 'error'); }
+};
+// B 2/3 — liitä seuran HYVÄKSYTTY ohjelma pelaajan jakson tukiosaan (snapshot-kopio kotiin sopivista liikkeistä; joukkuekäyttö ja luonnos pois). Ei luo tukiosaa tyhjästä (perustelu sidotaan ydinvahvuuteen, D-3).
+window._ohjLiitaTukiosaan = async function (pid, ohjelmaId) {
+  var p = (typeof _ttPelaaja === 'function') ? _ttPelaaja(pid) : (_pelaajatData || []).find(function (x) { return x.id === pid; });
+  var JM = window.TM_JAKSO_MALLI, K = window.TM_KEHITYSSILMUKKA, lib = (window._ohjKirjasto || []).find(function (o) { return o.id === ohjelmaId; });
+  if (!p || !JM || !K || !lib) { if (typeof toast === 'function') toast(masterT('Ohjelmaa ei löytynyt'), 'error'); return; }
+  var harjoitteet;
+  try { harjoitteet = JM.tmLiitaTukiosaan(p.jaksofokus && p.jaksofokus.tukiosa, JM.tmOhjelmaTukiosaan(lib)); }
+  catch (e) { console.warn('[ohjTukiosa]', e && e.message); if (typeof toast === 'function') toast(masterT('Liittäminen ei onnistu: jaksolla pitää olla tukiosa ja ohjelmassa kotiin sopivia liikkeitä.'), 'error'); return; }
+  if (!_mVerkkoEnnenSulkua()) return;
+  var plan; try { plan = K.tmPaivitaJaksofokus(p, { 'tukiosa.harjoitteet': harjoitteet }); } catch (e) { console.warn('[ohjTukiosa]', e && e.message); if (typeof toast === 'function') toast(masterT('Liittäminen ei onnistu: jaksolla pitää olla tukiosa ja ohjelmassa kotiin sopivia liikkeitä.'), 'error'); return; }
+  if (_demo || !_seuraId || typeof _db === 'undefined' || !_db) { p.jaksofokus = plan.jaksofokus; if (typeof _renderPinfoFirestore === 'function') _renderPinfoFirestore(p); return; }
+  try { await _mTuoreToken(firebase.auth().currentUser);
+    await _db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(pid).update(plan.polut);
+    p.jaksofokus = plan.jaksofokus;   // lokaali vasta onnistumisen jälkeen
+    document.getElementById('_ohjValitseModal')?.remove(); if (typeof _renderPinfoFirestore === 'function') _renderPinfoFirestore(p);
+    if (typeof toast === 'function') toast(masterT('Kotiharjoitteet liitetty jaksoon') + ' ✓', 'ok');
+  } catch (e) { console.warn('[ohjTukiosa]', e && e.message); if (typeof toast === 'function') toast(masterT('Tallennus epäonnistui'), 'error'); }
 };
 window._ohjArkistoi = async function (ohjelmaId, pid, teemaAvain) {
   if (!confirm(masterT('Arkistoi ohjelma? (Pehmeä poisto — historia + käynnissä olevat jaksot säilyvät)'))) return;
