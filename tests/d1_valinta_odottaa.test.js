@@ -57,15 +57,15 @@ describe('D-1 · valinta_odottaa', () => {
     expect(aja(p, { henkilot: [] }).peruste).toMatchObject({ vastuuhenkilo_uid: 'u-valm', vastuuhenkilo_nimi: null }); expect(aja(p).peruste.vastuuhenkilo_nimi).toBeNull();
     expect(aja(ODOTTAA(), { henkilot: HENKILOT }).peruste.vastuuhenkilo_uid).toBeNull(); expect(p).toEqual(kopio);
   });
-  it('VP-kääre: teksti "[nimi] valitsi vahvuutensa, vahvista jakso." + vastuuhenkilö jos asetettu; ei nappia; vanhat avaimet ennallaan', () => {
+  it('VP-kääre: teksti "[nimi] valitsi ydinvahvuutensa, vahvista jakso." + vastuuhenkilö jos asetettu; ei nappia; vanhat avaimet ennallaan', () => {
     const c = { window: { TM_SEURAAVA_ASKEL: { tmSeuraavaAskel: (p, o) => L.tmSeuraavaAskel(p, Object.assign({}, o, { deps: DEPS, henkilot: HENKILOT })) } }, vpT: (x) => x, tmPvmFi: (x) => x };
     vm.createContext(c);
     const i = VP.indexOf('window._pdcPaatos = function'); let d = 0, k = VP.indexOf('{', i); for (; k < VP.length; k++) { if (VP[k] === '{') d++; else if (VP[k] === '}' && !--d) break; }
     vm.runInContext(VP.slice(i, k + 1) + ';', c);
     const f = (p) => c.window._pdcPaatos(p, NYT);
-    const a = f(ODOTTAA()); expect(a).toMatchObject({ avain: 'valinta_odottaa', askel: 'valinta_odottaa', tila: 'toimenpide', teksti: 'Topias valitsi vahvuutensa,', korostus: 'vahvista jakso.' }); expect(a.nappi).toBeUndefined();
+    const a = f(ODOTTAA()); expect(a).toMatchObject({ avain: 'valinta_odottaa', askel: 'valinta_odottaa', tila: 'toimenpide', teksti: 'Topias valitsi ydinvahvuutensa,', korostus: 'vahvista jakso.' }); expect(a.nappi).toBeUndefined();
     expect(f(ODOTTAA({ vastuuhenkilo: { uid: 'u-valm', rooli: 'valmentaja' } })).korostus).toBe('vahvista jakso. Vastuuhenkilö: Veera Valmentaja');
-    expect(f(ODOTTAA({ etunimi: undefined })).teksti).toBe('valitsi vahvuutensa,');
+    expect(f(ODOTTAA({ etunimi: undefined })).teksti).toBe('valitsi ydinvahvuutensa,');
     expect(f(ODOTTAA(MYOHASSA)).avain).toBe('review_myohassa'); expect(f(puhdas())).toMatchObject({ avain: 'ei_xfactoria' });
   });
   it('§7.22 / GDPR: perusteen avaimet neutraaleja (ei heikkous/rajoite/kriittinen/ase-segmenttiä); lib ei sisällä käyttäjätekstiä; Pelaaja/Vanhempi eivät käytä libiä', () => {

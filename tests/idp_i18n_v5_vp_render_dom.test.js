@@ -731,7 +731,7 @@ describe('VP_v25 resolvi-portti — jokaisella reititetyllä avaimella on sv-riv
   const SV_ODOTTAA_SANKTIOINTIA = [
     /* PR G (TK-viitelähde): loppukilpailutaso näkyviin henkilökunnalle alueellisen huipputason rinnalle. sv Gemini-erässä. */
     // D-1 (5.10.2026) — sv Gemini-erässä.
-    'valitsi vahvuutensa,',
+    'valitsi ydinvahvuutensa,',
     'vahvista jakso.',
     'Vastuuhenkilö',
     'loppukilpailutaso ≤',
@@ -884,7 +884,7 @@ describe('VP_v25 resolvi-portti — jokaisella reititetyllä avaimella on sv-riv
     'valitse seuraava.',
     'Jaksolla ei ole uutta havaintoa',
     'pv — kirjaa havainto.',
-    // R6.3-E — katselmuksen "Vahvista merkinnät" (09 §6). sv Gemini-erässä. (Henkilökunnan sana "Ydinvahvuus" on lopullinen; väliaikainen on vain pelaajan sana "vahvuus".)
+    // R6.3-E — katselmuksen "Vahvista merkinnät" (09 §6). sv Gemini-erässä.
     'Vahvista merkinnät',
     'Ydinvahvuus',
     'pitääkö yhä?',
