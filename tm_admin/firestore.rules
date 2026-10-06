@@ -1,10 +1,15 @@
 rules_version = '2';
 // ══════════════════════════════════════════════════════════════════════════
-// TalentMaster™ — firestore.rules v3.41
+// TalentMaster™ — firestore.rules v3.42
 //
 // Lähde:  tm_admin/firestore.rules
 // Deploy: PR → N4-CI deployaa automaattisesti (Console-käsityö poistui).
 //
+// Muutokset v3.41 → v3.42 (harjoitepankki.kaytto, 6.10.2026 — kovennus, ei data-muutosta):
+//   · PELAAJA lukee harjoitepankista vain tila=='hyvaksytty' && kaytto=='koti' (arvot: koti | joukkue → ekvivalentti "kaytto != 'joukkue'", mutta FAIL-CLOSED: kaytto-kentätön rivi ei kelpaa).
+//     Joukkueharjoite (valmentajan rata/rutiini, kaytto 'joukkue') ei ole koskaan pelaajan luettavissa, vaikka se olisi hyväksytty. Henkilökunta lukee kaikki.
+//     ⚠ KYSELY: pelaajan kyselyssä PAKKO olla molemmat ehdot where('tila','==','hyvaksytty') + where('kaytto','==','koti') — Rules ei suodata, ja `get(kentta, oletus)`-muoto päästäisi
+//     rajaamattoman kyselyn läpi (testattu: where tila== yksin palautti joukkue-rivin), siksi kaytto luetaan suoraan (resource.data.kaytto). Kaksi yhtäsuuruusehtoa → ei komposiittiindeksiä.
 // Muutokset v3.40 → v3.41 (harjoitepankki.tila, 6.10.2026 — additiivinen, §11; ei vanhoja harjoitepankki-dokkeja):
 //   · seurat/{id}/harjoitepankki/{id}.tila: 'luonnos' | 'hyvaksytty' (pakollinen luonnissa/päivityksessä). PELAAJA lukee VAIN tila=='hyvaksytty' (kyselyssä oltava where('tila','==','hyvaksytty'), Rules ei suodata);
 //     henkilökunta lukee kaikki. Luonnos-rivi ei koskaan päädy pelaajalle. `valmennuslinja/teemat` = vain hyväksytyt rivit; luonnokset tuodaan staff-only-lohkoon `valmennuslinja/teemat_luonnos`
@@ -915,7 +920,7 @@ service cloud.firestore {
       match /harjoitepankki/{harjoiteId} {
         // v3.41: pelaaja vain hyväksytyt (luonnos = SJK:n kuittaamaton / TM:n esitäyttö → ei pelaajalle)
         allow read:   if onSuperAdmin() || (onKirjautunut() && onOmaSeura(seuraId))
-                      || (onPelaajanSeura(seuraId) && resource.data.get('tila', '') == 'hyvaksytty');
+                      || (onPelaajanSeura(seuraId) && resource.data.get('tila', '') == 'hyvaksytty' && resource.data.kaytto == 'koti');   // v3.42: pelaajalle vain koti-käyttöiset (joukkue-rivi ei koskaan; kaytto-kentätön → ei)
         allow create, update: if (onSuperAdmin() || onKonseptiMuokkaaja(seuraId))
                       && request.resource.data.get('lahde', '') == 'seura'
                       && request.resource.data.get('tyyppi', '') == 'T'
