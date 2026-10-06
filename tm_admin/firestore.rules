@@ -1,10 +1,17 @@
 rules_version = '2';
 // ══════════════════════════════════════════════════════════════════════════
-// TalentMaster™ — firestore.rules v3.39
+// TalentMaster™ — firestore.rules v3.40
 //
 // Lähde:  tm_admin/firestore.rules
 // Deploy: PR → N4-CI deployaa automaattisesti (Console-käsityö poistui).
 //
+// Muutokset v3.39 → v3.40 (Seuran linja -paketti, B PR1, 6.10.2026 — additiivinen, §11; uudet polut, ei migraatiota):
+//   · seurat/{id}/valmennuslinja/{lohko}: `ikavaiheet` (rivit {ika_min, ika_max, dimensio D1–D5, sisalto[], lahde_viite} — vain henkilökunta, EI pelaajalle/huoltajalle)
+//     ja `teemat` (jaksot[{joukkue, alkaa, paattyy, teema, konsepti}] — henkilökunta + oman seuran pelaajat). Kirjoitus SA | VP/UTJ (onKonseptiMuokkaaja).
+//   · seurat/{id}/harjoitepankki/{id}: henkilökunta + oman seuran pelaajat lukevat; kirjoitus SA | VP/UTJ; muoto: lahde=='seura' (seuran oma materiaali — ei TM:n oletuspankkiin), tyyppi 'T', nimi merkkijono.
+//   · seurat/{id}/arviointikehys/{docId}: SJK:n pelipaikkaprofiilit — vain data; luku oman seuran henkilökunta, kirjoitus SA | VP/UTJ. Ei pelaajalle.
+//   · `ohjelmat` ennallaan (henkilökunta lukee; pelaaja EI — ohjelma kopioidaan jaksoon). Uudet kentät (teema_avain, ika_min, ika_max, lahde_viite) mahtuvat nykysääntöön.
+//   · SEURAN SISÄLTÖ ON VAIN SEURAN OMAA: jokainen polku on seurat/{id}/-alla, `onOmaSeura`/`onPelaajanSeura` sitoo luvun omaan seuraan → toinen seura (esim. SJK ↔ Sibbo) ei lue eikä kirjoita (parametrisoidut eristystestit).
 // Muutokset v3.38 → v3.39 (viestit.nakyvyys — D-2 + R6.4:n pohja, 6.10.2026 — additiivinen, §11; vanhat viestit ilman kenttää = 'henkilokunta'):
 //   · seurat/{sid}/viestit/{id}.nakyvyys: 'henkilokunta' (oletus/puuttuva) | 'pelaaja' (pelaaja + huoltaja + henkilökunta) | 'huoltaja' (huoltaja + henkilökunta, pelaaja EI näe).
 //     Sama sanasto kuin havainnot.nakyvyys. Lukuoikeus: SA; henkilökunta kuten ennen (vastaanottaja/lähettäjä/johto) + KAIKKI oman seuran henkilökunta kun nakyvyys 'pelaaja'|'huoltaja'
@@ -891,6 +898,27 @@ service cloud.firestore {
         allow create: if onSuperAdmin() || onKonseptiMuokkaaja(seuraId);
         allow update: if onSuperAdmin() || onKonseptiMuokkaaja(seuraId);
         allow delete: if onSuperAdmin() || onKonseptiMuokkaaja(seuraId);
+      }
+
+      /* v3.40 — SEURAN LINJA (B PR1). Seuran oma valmennussisältö; vain tämän seuran polun alla → luku/kirjoitus sidottu omaan seuraan (SJK ei näe Sibbon eikä päinvastoin).
+         Rules EI periydy: jokainen alikokoelma oma blokki. Sisältö on pedagogista tekstiä (ei yksilöi pelaajaa). Seuran sisältö ei koskaan siirry TM:n oletuspankkiin. */
+      match /valmennuslinja/{lohko} {
+        // ikavaiheet = henkilökunnan työkalu (EI pelaajalle/huoltajalle); teemat näkyvät pelaajalle ("Meistä → Joukkue").
+        allow read:   if onSuperAdmin() || (onKirjautunut() && onOmaSeura(seuraId))
+                      || (lohko == 'teemat' && onPelaajanSeura(seuraId));
+        allow create, update, delete: if onSuperAdmin() || onKonseptiMuokkaaja(seuraId);
+      }
+      match /harjoitepankki/{harjoiteId} {
+        allow read:   if onSuperAdmin() || (onKirjautunut() && onOmaSeura(seuraId)) || onPelaajanSeura(seuraId);
+        allow create, update: if (onSuperAdmin() || onKonseptiMuokkaaja(seuraId))
+                      && request.resource.data.get('lahde', '') == 'seura'
+                      && request.resource.data.get('tyyppi', '') == 'T'
+                      && request.resource.data.get('nimi', null) is string && request.resource.data.nimi.size() > 0;
+        allow delete: if onSuperAdmin() || onKonseptiMuokkaaja(seuraId);
+      }
+      match /arviointikehys/{kehysId} {
+        allow read:   if onSuperAdmin() || (onKirjautunut() && onOmaSeura(seuraId));
+        allow create, update, delete: if onSuperAdmin() || onKonseptiMuokkaaja(seuraId);
       }
 
       // ── KONFIGURAATIO (v3.2) — seuran normijärjestelmä (normijarjestelma/maa/kieli) ──
