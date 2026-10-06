@@ -3995,6 +3995,44 @@ describe('v3.37 · ydinvahvuus_valinta (D8): pelaaja valitsee, ei voi kirjoittaa
   });
 });
 
+/* ══ V1 · jakson aloitus (liput.kentta): adapterin luvut + YKSI kirjoitus pelaajadokkiin — EI Rules-muutosta ══ */
+describe('V1 · jakson aloituksen luvut ja kirjoitus (valmentaja = oman joukkueen, VP): Rules riittää sellaisenaan', () => {
+  const AJ = createRequire(import.meta.url)('../../lib/tm_aloita_jakso.js'), JMV = createRequire(import.meta.url)('../../lib/tm_jakso_malli.js');
+  beforeEach(async () => {
+    await seedAdminDoc(); await seedSeuraAndPelaaja();
+    await testEnv.withSecurityRulesDisabled(async (c) => { const db = c.firestore();
+      await setDoc(doc(db, 'seurat', SEURA_A), { nimi: 'FC Lahti', aktiivinen: true, liput: { kentta: true } });
+      await setDoc(doc(db, 'seurat', SEURA_A, 'joukkueet', JOUKKUE_A1), { nimi: 'FCL U12', jaksofokus: { alku: '2026-11-10', kesto_vk: 6 } });
+      await setDoc(doc(db, 'seurat', SEURA_A, 'konfiguraatio', 'arviointi'), { kehys: 'palloliitto' });
+      await setDoc(doc(db, 'seurat', SEURA_A, 'harjoitepankki', 'h1'), { nimi: 'Seinäsyöttö', tyyppi: 'T', tila: 'hyvaksytty', kaytto: 'koti', lahde: 'seura' });
+      await setDoc(doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'havainnot', 'hv1'), { tyyppi: 'adar_pikakortti', pvm: '2026-11-03', pisteet: { A: 1 }, nakyvyys: false, tila: 'valmis' }); });
+  });
+  const lukuPolut = (db) => [doc(db, 'seurat', SEURA_A), doc(db, 'seurat', SEURA_A, 'joukkueet', JOUKKUE_A1), doc(db, 'seurat', SEURA_A, 'konfiguraatio', 'arviointi'), doc(db, 'seurat', SEURA_A, 'konfiguraatio', 'prosessiprofiili')];
+  it('luvut rinnakkain: seura (liput), joukkueet/{jid}, konfiguraatio/arviointi + prosessiprofiili (puuttuva dokumentti on sallittu luku), harjoitepankki, pelaajan havainnot where tyyppi==adar_pikakortti', async () => {
+    for (const ctx of [valmentajaContext(VALM_A_UID, SEURA_A), vpContext(SEURA_A)]) {
+      const db = ctx.firestore();
+      for (const r of lukuPolut(db)) await assertSucceeds(getDoc(r));
+      await assertSucceeds(getDocs(collection(db, 'seurat', SEURA_A, 'harjoitepankki')));
+      const hav = await assertSucceeds(getDocs(query(collection(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'havainnot'), where('tyyppi', '==', 'adar_pikakortti')))); expect(hav.size).toBe(1);
+    }
+  });
+  it('toisen seuran valmentaja ei lue näitä (eristys)', async () => {
+    const db = valmentajaContext(VALM_B_UID, SEURA_B).firestore();
+    await assertFails(getDoc(doc(db, 'seurat', SEURA_A, 'joukkueet', JOUKKUE_A1))); await assertFails(getDocs(collection(db, 'seurat', SEURA_A, 'harjoitepankki')));
+  });
+  it('kirjoitus: tmAloitaJaksoV2:n jaksofokus (tukitavoitteet + tukiosa + joukkuejakso_viite) + ydinvahvuus YHDELLÄ updatella: oman joukkueen valmentaja ✓, VP ✓; muun joukkueen valmentaja ✗', async () => {
+    const x = AJ.tmAloitaJaksoTiedot({ id: PELAAJA_UID }, { items: [{ avain: 'y_h2', nimi: 'Syöttö' }], ika: 13, tuki: { nayta: true, maksimi: 1, kortit: [], omaHarjoitteet: { tekninen_taktinen: [], fyysinen: [], henkinen: [], sosiaalinen: [] }, alku: '2026-11-10', alkuLahde: 'joukkuejakso', kesto: 6, viite: { jid: JOUKKUE_A1, alku: '2026-11-10' }, tanaan: '2026-11-10' } });
+    const arvo = (id) => ({ _ajTaito: 'y_h2', _ajYv: 'Tempokuljetus', _ajKesto: '6', _ajVh: '', _ajAlku: '2026-11-10', _ajTtV_oma: '1', _ajTtOA: 'henkinen', _ajTtOK: 'Seuraava suoritus virheen jälkeen', _ajTtP_oma: 'Jotta pysyt mukana pelissä myös virheen jälkeen' })[id] || '';
+    const r = AJ.tmAloitaJaksoV2({ id: PELAAJA_UID, syntymaVuosi: 2012 }, Object.assign({}, AJ.tmAloitaJaksoSyoteV2(arvo, x), { konsepti_nimi: 'Syöttö' }), x, { tanaan: '2026-11-10', rooli: 'valmentaja', ika: 13, nytISO: '2026-11-10T10:00:00.000Z' });
+    const upd = AJ.tmAloitaJaksoKirjoitus({ jaksofokus: r.jaksofokus, historiaLisays: [] }, r, null, { arrayUnion: (...a) => FS_MOD.arrayUnion(...a) });   // vastuuhenkilö: ennallaan (v3.38-testit)
+    expect(Object.keys(upd).sort()).toEqual(['jaksofokus', 'ydinvahvuus']); expect(upd.jaksofokus.joukkuejakso_viite).toEqual({ jid: JOUKKUE_A1, alku: '2026-11-10' }); expect(upd.jaksofokus.tukitavoitteet).toHaveLength(1); expect(JMV.tmTarkistaJaksoData(upd.jaksofokus)).toEqual([]);
+    const pel = (db, id) => doc(db, 'seurat', SEURA_A, 'pelaajat', id);
+    await assertSucceeds(updateDoc(pel(valmentajaContext(VALM_A_UID, SEURA_A).firestore(), PELAAJA_UID), upd));
+    await assertSucceeds(updateDoc(pel(vpContext(SEURA_A).firestore(), PELAAJA_UID), upd));
+    await assertFails(updateDoc(pel(valmentajaContext(VALM_A_UID, SEURA_A).firestore(), PELAAJA_A2_UID), upd));
+  });
+});
+
 describe('v3.37 · joukkueen jakso (joukkueet/{id}): valmentaja vain jaksokentät, johto luo', () => {
   beforeEach(async () => {
     await seedAdminDoc(); await seedSeuraAndPelaaja();

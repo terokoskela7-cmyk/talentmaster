@@ -14,12 +14,13 @@ const IDP = require('../lib/tm_idp.js');
 const EEK = require('../lib/tm_eerikkila_normit.js');
 const TAKS = require('../lib/tm_arviointi_taksonomia.js');
 const TANAAN = '2026-10-07';
+const KOTI = require('../lib/tm_koti_oletus.js');
 const KETJUT = /\b(SBL|SFL|LL|DIAG|DFL)\b/;
 
 const PHV = (koodi) => (koodi ? { biologinenIka_viimeisin: { phv_tila_koodi: koodi } } : {});
-// Heikko 30 m (taso 1) + heikko kiihdytys (taso 2), testattu 20.9. (≤ 6 kk)
+// Heikko 30 m (taso 1) + heikko kiihdytys (taso 2), testattu 20.9. (≤ 6 kk). Poika (sp 'P' → Eerikkilän 'M'-taulukko)
 const TOPIAS = (phv, lisa) => Object.assign({ id: 'm93GBdOaGCUuenMiCL0I', joukkue: 'KPV U13', syntymaVuosi: 2013, ydinvahvuus: { kuvaus: 'Tempokuljetus', havaittu_pvm: '2026-10-01', rooli: 'vp' },
-  hh_viimeisin: { lin30m: 5.8, lin10m: 1.95 }, hh_pvm: '2026-09-20' }, PHV(phv), lisa || {});
+  hh_viimeisin: { lin30m: 5.8, lin10m: 1.9 }, hh_pvm: '2026-09-20' }, PHV(phv), lisa || {});
 const K = (lisa) => Object.assign({ tanaan: TANAAN, ika: 13, sp: 'P', ikavaihe: 'rakentaja' }, lisa || {});
 const ADAR = (pvm, pisteet) => ({ tyyppi: 'adar_pikakortti', pvm, pisteet, havaitut: [], nakyvyys: false });
 const kaikkiTekstit = (x) => JSON.stringify(x);
@@ -232,7 +233,7 @@ describe('tmTukitavoiteEhdotukset — kypsyysvahti (§28, CLAUDE.md §14)', () =
     expect(testiEhd(l).map((e) => e.asia)).toEqual(['liikehallinta']); expect(l.some((e) => e.asia === 'speed' || e.asia === 'acceleration')).toBe(false);
   });
   it('POST/AN: kiihdytys ja nopeus sallittuja; mobility (ketteryys) ei ole kypsyysrajattu missään tilassa', () => {
-    expect(TT.tmTukitavoiteEhdotukset(TOPIAS('POST', { hh_viimeisin: { lin10m: 1.95 } }), K())[0]).toMatchObject({ asia: 'acceleration', kuvaus: 'Kiihdytys' });
+    expect(TT.tmTukitavoiteEhdotukset(TOPIAS('POST', { hh_viimeisin: { lin10m: 1.9 } }), K())[0]).toMatchObject({ asia: 'acceleration', kuvaus: 'Kiihdytys' });
     ['LAH', null, 'PH'].forEach((phv) => expect(testiEhd(TT.tmTukitavoiteEhdotukset(TOPIAS(phv, { hh_viimeisin: { kasirata: 99 } }), K())).map((e) => e.asia), String(phv)).toEqual(['mobility']));
   });
   it('POST/AN: nopeus sallittu (heikoin ensin → 30 m)', () => {
@@ -298,8 +299,8 @@ describe('tmTukitavoiteEhdotukset — lähteet ja järjestys (D19)', () => {
     expect(testiEhd(l({ lin30m: 5.8 }, '2026-04-07'))).toHaveLength(1);    // 183 pv = raja (mukana)
     expect(testiEhd(l({ lin30m: 5.8 }, '2026-04-06'))).toHaveLength(0);    // 184 pv
     expect(testiEhd(l({ lin30m: 4.2 }, '2026-09-20'))).toHaveLength(0);    // taso 5 — ei heikko
-    expect(testiEhd(l({ lin30m: 4.8 }, '2026-09-20'))).toHaveLength(0);    // taso 3 — normaali, ei heikko
-    expect(testiEhd(l({ lin30m: 4.9 }, '2026-09-20'))).toHaveLength(1);    // taso 2 — heikko
+    expect(testiEhd(l({ lin30m: 4.6 }, '2026-09-20'))).toHaveLength(0);    // taso 3 — normaali, ei heikko
+    expect(testiEhd(l({ lin30m: 4.8 }, '2026-09-20'))).toHaveLength(1);    // taso 2 — heikko
     expect(testiEhd(l({ lin30m: 5.8 }, null))).toHaveLength(0);            // päivämäärätön ei kelpaa
     expect(testiEhd(l({ lin30m: 5.8 }, '2026-10-20'))).toHaveLength(0);    // tulevaisuus
   });
@@ -374,7 +375,7 @@ describe('tmTukitavoiteEhdotukset — lähteet ja järjestys (D19)', () => {
     expect(TT.tmTukitavoiteEhdotukset(p, K({ ikavaihe: null, ika: null, havainnot: HAV, joukkuejakso: JJ })).length).toBeGreaterThan(0);
   });
   it('deduplikointi: sama alue+asia vain kerran (testi ja arviointi samasta kiihdytyksestä)', () => {
-    const p = TOPIAS('POST', { hh_viimeisin: { lin10m: 1.95 }, arviointi_havaittu: { acceleration: 1 }, arviointi_pvm: '2026-09-25' });
+    const p = TOPIAS('POST', { hh_viimeisin: { lin10m: 1.9 }, arviointi_havaittu: { acceleration: 1 }, arviointi_pvm: '2026-09-25' });
     expect(TT.tmTukitavoiteEhdotukset(p, K()).filter((e) => e.asia === 'acceleration')).toHaveLength(1);
   });
 });
@@ -398,7 +399,7 @@ describe('tmTukitavoiteEhdotukset — muoto ja vartijat', () => {
   it('KETJUNIMET (SBL/SFL/LL/DIAG/DFL) eivät esiinny missään palautetussa merkkijonossa', () => {
     // laaja otos: kaikki PHV-tilat × lähteet
     ['PRE', 'LAH', 'PH', 'POST', 'AN', null].forEach((phv) => {
-      const t = TT.tmTukitavoiteEhdotukset(TOPIAS(phv, { arviointi_havaittu: { ball_protection: 1, speed: 1, mobility: 1 }, arviointi_pvm: '2026-09-25', hh_viimeisin: { lin30m: 5.8, lin10m: 1.95, kasirata: 14, sm_juoksu: 9, cmj: 15, mas: 9 } }), k);
+      const t = TT.tmTukitavoiteEhdotukset(TOPIAS(phv, { arviointi_havaittu: { ball_protection: 1, speed: 1, mobility: 1 }, arviointi_pvm: '2026-09-25', hh_viimeisin: { lin30m: 5.8, lin10m: 1.9, kasirata: 14, sm_juoksu: 9, cmj: 15, mas: 9 } }), k);
       expect(KETJUT.test(kaikkiTekstit(t)), String(phv)).toBe(false);
     });
     expect(KETJUT.test(kaikkiTekstit(l))).toBe(false);
@@ -420,5 +421,53 @@ describe('tmTukitavoiteEhdotukset — muoto ja vartijat', () => {
   it('lib on puhdas: ei Firebasea/DOMia lähteessä; dual-export', () => {
     const src = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', 'lib', 'tm_tukitavoitteet.js'), 'utf8');
     const koodi = src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, ''); expect(koodi).not.toMatch(/firebase|firestore|document\.|getElementById|fetch\(/i); expect(src).toContain('root.TM_TUKITAVOITTEET = API'); expect(src).not.toMatch(/#[0-9a-fA-F]{6}\b/);
+  });
+});
+
+describe('V1 · tmTukitavoiteHarjoitteet (kotiharjoitevalikoima tukitavoitteen alta; D16 seura ensin, TM varalla)', () => {
+  const OHJ = (o) => Object.assign({ id: 'o1', nimi: 'Ohjelma', tila: 'hyvaksytty', teema_avain: 'fy_liikehallinta', liikkeet: [{ jarjestys: 1, liike: 'Kontrollipunnerrus', toistot: '3×10', kotiin_sopiva: true }, { jarjestys: 2, liike: 'Salilla vain', kotiin_sopiva: false }] }, o || {});
+  const PANKKI = (o) => Object.assign({ id: 'h1', nimi: 'Seinäsyöttö', tila: 'hyvaksytty', kaytto: 'koti', kotiin_sopiva: true, kehityskohde: null, ohje: 'Syötä seinään', kesto_min: 10 }, o || {});
+  const POST = { id: 'x', ...PHV('POST') }, LAH = { id: 'x', ...PHV('LAH') };
+  const ids = (l) => l.map((o) => o.id);
+  it('tekn.-takt.: seuran hyväksytty koti-harjoite ensin (lahde seura, snapshot); joukkue-/luonnos-/ei-kotiin/arkisto-sisältö ei koskaan; TM-oletus vain jos seuran sisältöä ei ole', () => {
+    const c = { seuranPankki: [PANKKI(), PANKKI({ id: 'j', kaytto: 'joukkue' }), PANKKI({ id: 'l', tila: 'luonnos' }), PANKKI({ id: 'e', kotiin_sopiva: false }), PANKKI({ id: 'k', kehityskohde: 'syotto' })], tmPankki: KOTI, ika: 13, ikavaihe: 'rakentaja' };
+    const l = TT.tmTukitavoiteHarjoitteet({ alue: 'tekninen_taktinen', asia: 'short_passing' }, POST, c); expect(ids(l)).toEqual(['h1', 'k']); expect(l.every((o) => o.lahde === 'seura' && o.harjoitteet.length === 1)).toBe(true);
+    expect(l[0].harjoitteet[0]).toMatchObject({ id: 'h1', nimi: 'Seinäsyöttö', lahde: 'seura', pelaajan_ohje: 'Syötä seinään' });
+    const tm = TT.tmTukitavoiteHarjoitteet({ alue: 'tekninen_taktinen', asia: 'short_passing' }, POST, { tmPankki: KOTI, ika: 13, ikavaihe: 'rakentaja' }); expect(tm.length).toBeGreaterThan(0); expect(tm.every((o) => o.lahde === 'tm' && o.harjoitteet[0].lahde === 'tm' && o.harjoitteet[0].lahde_nimi === 'TalentMaster')).toBe(true);
+    expect(tm[0].harjoitteet[0].pelaajan_ohje).toBe(KOTI.syotto[0].ohje_rakentaja);   // ikävaiheen ohje
+    expect(TT.tmTukitavoiteHarjoitteet({ alue: 'tekninen_taktinen', asia: 'adar:Act' }, POST, { tmPankki: KOTI })).toEqual([]);   // ei kohdetta → ei keksittyä TM-sisältöä
+  });
+  it('kehityskohde täsmää: toisen kohteen seuran harjoite ei tule (kehityskohde ≠ tavoitteen); kehityskohteeton "yleinen" tulee; ikärajat (ika_min/ika_max)', () => {
+    const c = { seuranPankki: [PANKKI({ id: 'a', kehityskohde: 'pallonhallinta' }), PANKKI({ id: 'b', kehityskohde: 'syotto' }), PANKKI({ id: 'n', ika_max: 10 })], ika: 13 };
+    expect(ids(TT.tmTukitavoiteHarjoitteet({ alue: 'tekninen_taktinen', asia: 'short_passing' }, POST, c))).toEqual(['b']);   // a ei (väärä kohde), n ei (liian nuorille)
+    expect(ids(TT.tmTukitavoiteHarjoitteet({ alue: 'tekninen_taktinen', asia: 'ball_control' }, POST, Object.assign({}, c, { ika: 9 })))).toEqual(['a', 'n']);
+  });
+  it('fyysinen: ohjelmat teema_avaimella (vain kotiin sopivat liikkeet snapshotiin); ilman täsmäävää teemaa teemattomat; TM nopeus vain kun ei kypsyysrajausta', () => {
+    const c = { seuranOhjelmat: [OHJ(), OHJ({ id: 'o2', teema_avain: null }), OHJ({ id: 'o3', tila: 'luonnos' }), OHJ({ id: 'o4', arkistoitu: true })], tmPankki: KOTI, ika: 13, ikavaihe: 'rakentaja' };
+    const l = TT.tmTukitavoiteHarjoitteet({ alue: 'fyysinen', asia: 'liikehallinta' }, POST, c); expect(ids(l)).toEqual(['ohj:o1']); expect(l[0].harjoitteet).toHaveLength(1); expect(l[0].harjoitteet[0]).toMatchObject({ nimi: 'Kontrollipunnerrus', lahde: 'seura', ohjelma_id: 'o1' });
+    expect(ids(TT.tmTukitavoiteHarjoitteet({ alue: 'fyysinen', asia: 'speed' }, POST, c))).toEqual(['ohj:o2']);   // ei fy_nopeus-ohjelmaa → teemattomat
+    const nopeus = TT.tmTukitavoiteHarjoitteet({ alue: 'fyysinen', asia: 'speed' }, POST, { tmPankki: KOTI, ika: 13, ikavaihe: 'rakentaja' }); expect(nopeus.length).toBeGreaterThan(0); expect(nopeus.every((o) => o.lahde === 'tm')).toBe(true);
+  });
+  it('KYPSYYSSUOJA: PRE/LAH/PH/tuntematon pelaajalle fyysisistä ohjelmista vain tunnettu EI-kuormaa lisäävä teema (teema null = tuntematon → pois); TM:n nopeusharjoitteet pois', () => {
+    const c = { seuranOhjelmat: [OHJ(), OHJ({ id: 'rj', teema_avain: 'fy_rajahtavyys' }), OHJ({ id: 'nt', teema_avain: null }), OHJ({ id: 'ke', teema_avain: 'fy_ketteryys' })], tmPankki: KOTI, ika: 13, ikavaihe: 'rakentaja' };
+    ['PRE', 'LAH', 'PH', null].forEach((phv) => {
+      const p = { id: 'x', ...PHV(phv) };
+      expect(ids(TT.tmTukitavoiteHarjoitteet({ alue: 'fyysinen', asia: 'liikehallinta' }, p, c)), String(phv)).toEqual(['ohj:o1']);   // vain fy_liikehallinta
+      expect(ids(TT.tmTukitavoiteHarjoitteet({ alue: 'fyysinen', asia: 'mobility' }, p, c)), String(phv)).toEqual(['ohj:ke']);        // ketteryys sallittu, räjähtävyys ja teematon eivät
+      expect(TT.tmTukitavoiteHarjoitteet({ alue: 'fyysinen', asia: 'speed' }, p, { tmPankki: KOTI, ika: 13 }), String(phv)).toEqual([]);   // TM:n nopeusharjoitteet pois
+    });
+    expect(ids(TT.tmTukitavoiteHarjoitteet({ alue: 'fyysinen', asia: 'power' }, LAH, c))).toEqual([]);   // rajahtavyys-teema on estetty, muita täsmääviä ei → ei teemattomia (tuntematon = pois)
+    expect(ids(TT.tmTukitavoiteHarjoitteet({ alue: 'fyysinen', fy_teema: 'fy_rajahtavyys' }, POST, c))).toEqual(['ohj:rj']);   // POST: räjähtävyys sallittu
+  });
+  it('henkinen/sosiaalinen: ei kotiharjoitteita; tyhjä/rikkinäinen konteksti ei heitä; enintään 6; GDPR-sanan sisältävä sisältö pudotetaan', () => {
+    ['henkinen', 'sosiaalinen', 'tuntematon', null].forEach((a) => expect(TT.tmTukitavoiteHarjoitteet({ alue: a }, POST, { seuranPankki: [PANKKI()], tmPankki: KOTI })).toEqual([]));
+    expect(() => TT.tmTukitavoiteHarjoitteet(null, null, null)).not.toThrow(); expect(TT.tmTukitavoiteHarjoitteet({ alue: 'tekninen_taktinen', asia: 'ball_control' }, POST, { seuranPankki: 'x', tmPankki: 5 })).toEqual([]);
+    const monta = []; for (let i = 0; i < 10; i++) monta.push(PANKKI({ id: 'p' + i, nimi: 'Harjoite ' + i })); expect(TT.tmTukitavoiteHarjoitteet({ alue: 'tekninen_taktinen', asia: 'ball_control' }, POST, { seuranPankki: monta })).toHaveLength(6);
+    expect(TT.tmTukitavoiteHarjoitteet({ alue: 'tekninen_taktinen', asia: 'ball_control' }, POST, { seuranPankki: [PANKKI({ nimi: 'Heikkouksien korjaus' })] })).toEqual([]);
+  });
+  it('ehdotuksella on fy_teema (kotiharjoitehakua varten): testi/arviointi → asiasta, liikehallinta → fy_liikehallinta, joukkuejakso → fyysisen avain', () => {
+    const l = TT.tmTukitavoiteEhdotukset(TOPIAS('LAH'), K({ joukkuejakso: { jid: 'kpv_u13', alku: '2026-10-13', osa_alueet: { tekninen_taktinen: { teema_avain: 't', nimi: 'S', lahde: 'seura' }, fyysinen: { avain: 'fy_ketteryys', nimi: 'Ketteryys ja nopeus', lahde: 'tm' } } } }));
+    expect(l.find((e) => e.kypsyyssuojattu).fy_teema).toBe('fy_liikehallinta'); expect(l.find((e) => e.lahde.tyyppi === 'joukkuejakso').fy_teema).toBe('fy_ketteryys');
+    expect(TT.tmTukitavoiteEhdotukset(TOPIAS('POST'), K())[0].fy_teema).toBe('fy_nopeus'); expect(TT.tmTukitavoiteEhdotukset({ id: 'x', ...PHV('POST'), arviointi_havaittu: { ball_control: 1 }, arviointi_pvm: '2026-09-25' }, K())[0].fy_teema).toBeUndefined();
   });
 });
