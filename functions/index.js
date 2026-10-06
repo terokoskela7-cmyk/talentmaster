@@ -2381,6 +2381,42 @@ exports.arviointikertaOnWrite = functions
   });
 
 // ============================================================
+// D-2 — pelaaja valitsi ydinvahvuutensa → viesti henkilökunnalle (seurat/{id}/viestit). EI sähköpostia, EI pushia.
+// Vastaanottajat: vastuuhenkilö (muuten joukkueen valmentajat + talenttivalmentaja); VP ja UTJ aina. Tunniste valinta_{pid}_{jaksoavain}_{uid};
+// uusi valinta päivittää saman dokumentin (luettu:false, set-merge). nakyvyys 'henkilokunta' (v3.39).
+// RAJAUS: funktio EI kirjoita pelaajadokumenttiin eikä jaksofokukseen — vain `viestit`-kokoelmaan (functions/test/valinta_viesti_handler.test.js lukitsee).
+// Päätöslogiikka: functions/valinta_viesti.js (PURE).
+// ============================================================
+const valintaViesti = require('./valinta_viesti');
+exports.notifValintaOdottaa = functions
+  .region('europe-west1')
+  .runWith({ timeoutSeconds: 60, memory: '256MB' })
+  .firestore.document('seurat/{seuraId}/pelaajat/{pelaajaId}')
+  .onUpdate(async (change, context) => {
+    const { seuraId, pelaajaId } = context.params;
+    const before = change.before.data() || {};
+    const after = change.after.data() || {};
+    const paatos = valintaViesti.valintaPaatos(before, after);
+    if (!paatos) return null;
+    try {
+      const seuraRef = db.collection('seurat').doc(seuraId);
+      const [seuraSnap, kSnap] = await Promise.all([seuraRef.get(), seuraRef.collection('kayttajat').get()]);
+      const seura = seuraSnap.exists ? (seuraSnap.data() || {}) : {};
+      const kayttajat = [];
+      kSnap.forEach((d) => { const k = d.data() || {}; kayttajat.push({ uid: d.id, rooli: k.rooli, joukkueet: k.joukkueet, aktiivinen: k.aktiivinen, nimi: [k.etunimi, k.sukunimi].filter(Boolean).join(' ') || k.nimi || '' }); });
+      const saajat = valintaViesti.vastaanottajat(after, kayttajat, seura);
+      const viestit = valintaViesti.rakennaViestit(pelaajaId, after, paatos, saajat, kayttajat);
+      for (const v of viestit) {
+        await seuraRef.collection('viestit').doc(v.id).set(
+          Object.assign({}, v.data, { aika: admin.firestore.FieldValue.serverTimestamp() }), { merge: true });
+      }
+    } catch (e) {
+      console.error('[notifValintaOdottaa]', seuraId, pelaajaId, e && e.message);
+    }
+    return null;
+  });
+
+// ============================================================
 // PELAAJAN KIRJAUTUMINEN — Vaihe 0 / PR 1 (CODE_BRIEF_PELAAJAN_TUNNISTUS v2)
 // { liittoTunnus (PalloID), pin } → custom token { rooli:'pelaaja', pelaajaSeuraId, pelaajaId }.
 // App Check PAKOLLINEN (uusi funktio → ei katkosta olemassa oleville). Lukitus tunnuskohtaisesti

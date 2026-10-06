@@ -2872,6 +2872,10 @@ function _kuunteleVpViestit() {
       _vpViestit = snap.docs.map(function(d) {
         var data = d.data();
         var ts = data.aika ? (data.aika.toDate ? data.aika.toDate().getTime() : new Date(data.aika).getTime()) : Date.now();
+        if (data.tyyppi === 'valinta') {   // D-2: pelaaja valitsi ydinvahvuutensa → vahvista jakso (Cloud Function kirjoittaa; nakyvyys 'henkilokunta')
+          return { id: 'vp_' + d.id, type: 'valinta.odottaa', source: 'jarjestelma', t: ts, playerId: data.pelaajaId || '', pelaajaNimi: data.pelaajaNimi || '', vaihtoehto: data.vaihtoehto || '',
+            vastuuhenkilo_nimi: data.vastuuhenkilo_nimi || '', syy: data.syy || '', luettu: data.luettu === true, _firestoreId: d.id };
+        }
         return {
           id: 'vp_' + d.id,
           type: 'note.to_coach',
@@ -4041,6 +4045,8 @@ let _inboxFilter='unseen';   // oletus: Näkemättä → Kuittaa kaikki tyhjent�
 let _seenEvents = JSON.parse(localStorage.getItem('tm-inbox-seen')||'{}');
 let _doneReacts = JSON.parse(localStorage.getItem('tm-inbox-reacts')||'{}');
 
+// Kuitattu = paikallinen kuittaus; valinta-viestillä myös Firestoren luettu (vastaanottaja merkitsee "Avaa pelaaja" -painikkeella)
+function _inboxNahty(e){ return !!_seenEvents[e.id] || (e.type==='valinta.odottaa' && e.luettu===true); }
 function setInboxFilter(f){
   _inboxFilter=f;
   document.querySelectorAll('.inbox-filter').forEach(b=>b.classList.toggle('active',b.dataset.fil===f));
@@ -4106,13 +4112,13 @@ function renderInbox(){
   if(!list) return;
   let evts=_getInboxEvents();
   // Inbox = käsittelemättömät; Arkisto = kuitatut. Kuittaus siirtää Inboxista Arkistoon.
-  if(_inboxFilter==='seen') evts=evts.filter(e=>_seenEvents[e.id]);
-  else                      evts=evts.filter(e=>!_seenEvents[e.id]);   // 'unseen' = Inbox (oletus)
+  if(_inboxFilter==='seen') evts=evts.filter(e=>_inboxNahty(e));
+  else                      evts=evts.filter(e=>!_inboxNahty(e));   // 'unseen' = Inbox (oletus)
   // Huomio-kortit (loukkaantuminen / huono fiilis / interventio) ylös Inboxissa
-  const _onHuomio=e=>(e.type==='injury'||e.fiilis===1||e.fiilis===2||e.type==='intervention.requested'||(e.payload&&e.payload.priority==='high'));
+  const _onHuomio=e=>(e.type==='valinta.odottaa'||e.type==='injury'||e.fiilis===1||e.fiilis===2||e.type==='intervention.requested'||(e.payload&&e.payload.priority==='high'));
   if(_inboxFilter!=='seen') evts=evts.slice().sort((a,b)=>{const A=_onHuomio(a),B=_onHuomio(b);if(A!==B)return A?-1:1;return (b.t||0)-(a.t||0);});
   // badge
-  const unseenN = _getInboxEvents().filter(e=>!_seenEvents[e.id]).length;
+  const unseenN = _getInboxEvents().filter(e=>!_inboxNahty(e)).length;
   const sbB=document.getElementById('sbInboxBadge');
   const wsB=document.getElementById('wsInboxBadge');
   if(sbB){sbB.textContent=unseenN;sbB.style.display=unseenN?'inline-flex':'none';}
@@ -4163,6 +4169,7 @@ function renderInbox(){
   });
 
   list.innerHTML = evts.map(e => {
+    if (e.type === 'valinta.odottaa') return _mValintaKorttiHTML(e);   // D-2: oma korttityyppi + "Avaa pelaaja"
     // VP-era tapahtumissa playerId voi olla payloadin sisällä
     const pid = e.playerId || (e.payload && e.payload.playerId);
     // Käytä _nimi-kenttää jos saatavilla (Firestore-kirjauksista)
@@ -4247,6 +4254,30 @@ function renderInbox(){
   }).join('');
 }
 
+/* D-2 — Inbox-kortti: "[nimi] valitsi ydinvahvuutensa, vahvista jakso." + vastuuhenkilö + "Avaa pelaaja" (→ Kehitys, pelaajan IDP-kortti). Vain tokenit / inbox-luokat. */
+function _mValintaKorttiHTML(e) {
+  const nahty = _inboxNahty(e), nimi = _mEsc(e.pelaajaNimi || '—');
+  const chips = (e.vaihtoehto ? '<span class="inbox-chip">' + masterT('Ydinvahvuus') + ': ' + _mEsc(e.vaihtoehto) + '</span>' : '')
+    + (e.vastuuhenkilo_nimi ? '<span class="inbox-chip">' + masterT('Vastuuhenkilö') + ': ' + _mEsc(e.vastuuhenkilo_nimi) + '</span>' : '');
+  return '<div class="inbox-card attention' + (nahty ? '' : ' unseen') + '" data-viesti-tyyppi="valinta">'
+    + '<div class="inbox-avatar">' + _mEsc(_initials(e.pelaajaNimi || '—')) + '</div>'
+    + '<div class="inbox-body"><div class="inbox-meta"><span class="inbox-who">' + nimi + '</span><span class="inbox-tag">' + masterT('Valinta') + '</span><span class="inbox-time">' + _fmtTime(e.t) + '</span></div>'
+    + '<div style="font-size:13px;color:var(--ink);font-weight:500;margin-bottom:6px">' + nimi + ' ' + masterT('valitsi ydinvahvuutensa, vahvista jakso.') + '</div>'
+    + '<div class="inbox-chips">' + chips + '</div></div>'
+    + '<div class="inbox-actions" onclick="event.stopPropagation()">'
+    + '<button class="inbox-reply" data-avaa-pelaaja onclick="_mAvaaValintaPelaaja(\'' + _mEsc(e.playerId) + '\',\'' + _mEsc(e._firestoreId || '') + '\')">' + masterT('Avaa pelaaja') + ' →</button>'
+    + (nahty ? '' : '<button onclick="markSeen(\'' + _mEsc(e.id) + '\')" title="' + _mEsc(masterT('Kuittaa')) + '" style="padding:6px 12px;background:transparent;border:.5px solid var(--line);border-radius:8px;color:var(--ink2);font-size:11px;cursor:pointer;white-space:nowrap">' + masterT('✓ Kuittaa') + '</button>')
+    + '</div></div>';
+}
+window._mAvaaValintaPelaaja = async function (pid, viestiId) {
+  if (!_demo && _seuraId && viestiId) {   // merkitse luetuksi (vastaanottaja saa päivittää omansa); virhe → ohjeellinen toast, pelaaja silti auki
+    try { await _mTuoreToken(firebase.auth().currentUser); await _db.collection('seurat').doc(_seuraId).collection('viestit').doc(viestiId).update({ luettu: true });
+      (_vpViestit || []).forEach(function (v) { if (v._firestoreId === viestiId) v.luettu = true; }); }
+    catch (err) { console.warn('[v16] viesti luetuksi:', err && err.message); if (typeof toast === 'function') toast(masterT('Viestin merkintä luetuksi epäonnistui — kuittaa se käsin.'), 'error'); }
+  }
+  if (typeof pickPlayer === 'function') pickPlayer(pid);
+  if (typeof setWs === 'function') setWs('dev');
+};
 function markSeen(eid){
   if(_seenEvents[eid]) return;
   _seenEvents[eid]=Date.now();

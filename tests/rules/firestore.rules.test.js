@@ -4202,3 +4202,90 @@ describe('VP-periaate · KPV:n VP kirjaa KPV U13 -testipelaajalle', () => {
     await assertFails(setDoc(jk(valmKpv(), 'kpv_u99'), { nimi: 'X' }));
   });
 });
+
+/* ══ Rules v3.39 · viestit.nakyvyys (D-2 + R6.4:n pohja, Tero 6.10.2026) — KPV:n VP-tunnus × KPV U13 -testipelaaja ══
+   'henkilokunta' (oletus) | 'pelaaja' (pelaaja + huoltaja + henkilökunta) | 'huoltaja' (huoltaja + henkilökunta, pelaaja EI). Sama sanasto kuin havainnot.nakyvyys. */
+describe('v3.39 · viestit.nakyvyys', () => {
+  const KPV = 'kpv', TOPIAS = 'm93GBdOaGCUuenMiCL0I', MUU = 'muu-pelaaja-id';
+  const ctx = (uid, rooli) => testEnv.authenticatedContext(uid, { rooli, seuraId: KPV });
+  const VPK = () => ctx('vp-kpv-001', 'vp'), UTJ = () => ctx('utj-kpv-001', 'urheilutoimenjohtaja'), VALM13 = () => ctx('valm-kpv-u13', 'valmentaja'), VALM15 = () => ctx('valm-kpv-u15', 'valmentaja');
+  const SIHT = () => ctx('sihteeri-kpv-001', 'seurasihteeri');
+  const PEL = () => pelaajaContext(KPV, TOPIAS), MUU_PEL = () => pelaajaContext(KPV, MUU), HUOLT = () => huoltajaContext();
+  const VAARA_SEURA_VP = () => testEnv.authenticatedContext('vp-sjk-001', { rooli: 'vp', seuraId: 'sjk' });
+  const ref = (c, id) => doc(c.firestore(), 'seurat', KPV, 'viestit', id);
+  beforeEach(async () => {
+    await seedAdminDoc();
+    await testEnv.withSecurityRulesDisabled(async (c) => { const db = c.firestore();
+      await setDoc(doc(db, 'seurat', KPV), { nimi: 'KPV', aktiivinen: true, vp_uid: 'vp-kpv-001' });
+      await setDoc(doc(db, 'seurat', KPV, 'pelaajat', TOPIAS), { etunimi: 'Topias', syntymaVuosi: 2013, joukkue: 'KPV U13', joukkueet: ['kpv_u13'], huoltajaEmail: 'huoltaja@test.fi' });
+      await setDoc(doc(db, 'seurat', KPV, 'pelaajat', MUU), { etunimi: 'Muu', syntymaVuosi: 2013, joukkue: 'KPV U13', joukkueet: ['kpv_u13'], huoltajaEmail: 'toinen@test.fi' });
+      const v = (id, nakyvyys, vast) => setDoc(doc(db, 'seurat', KPV, 'viestit', id), Object.assign({ tyyppi: 'valinta', pelaajaId: TOPIAS, jakso: 'y_h2', osa: null, luettu: false, lahettajaUid: 'jarjestelma', teksti: 'x', aika: new Date() }, vast ? { vastaanottajaUid: vast } : {}, nakyvyys ? { nakyvyys } : {}));
+      await v('v_henk', 'henkilokunta', 'vp-kpv-001'); await v('v_henk_utj', 'henkilokunta', 'utj-kpv-001'); await v('v_vanha', null, 'vp-kpv-001');
+      await v('v_pel', 'pelaaja', 'valm-kpv-u13'); await v('v_huolt', 'huoltaja', 'valm-kpv-u13'); });
+  });
+
+  it('henkilokunta (D-2:n kirjoittama): VP ja UTJ lukevat OMALLE uid:lleen osoitetun; johto (VP/UTJ/seurasihteeri) lukee muutkin kuten ennen v3.39:ää; tavallinen valmentaja ei lue toisen viestiä', async () => {
+    await assertSucceeds(getDoc(ref(VPK(), 'v_henk'))); await assertSucceeds(getDoc(ref(UTJ(), 'v_henk_utj')));
+    await assertSucceeds(getDoc(ref(UTJ(), 'v_henk'))); await assertSucceeds(getDoc(ref(SIHT(), 'v_henk')));   // onJohtoRooli lukee kaikki seuran viestit (ennallaan, ei v3.39:n muutos)
+    await assertFails(getDoc(ref(VALM13(), 'v_henk'))); await assertFails(getDoc(ref(VALM13(), 'v_henk_utj'))); await assertFails(getDoc(ref(VALM15(), 'v_henk')));
+    await assertSucceeds(getDoc(ref(saContext(), 'v_henk')));
+  });
+  it('henkilokunta: pelaaja, huoltaja, toisen seuran VP ja kirjautumaton EIVÄT lue; puuttuva nakyvyys (vanhat viestit) = henkilokunta', async () => {
+    for (const c of [PEL(), HUOLT(), VAARA_SEURA_VP(), randomContext(), unauthContext()]) { await assertFails(getDoc(ref(c, 'v_henk'))); await assertFails(getDoc(ref(c, 'v_vanha'))); }
+    await assertSucceeds(getDoc(ref(VPK(), 'v_vanha')));   // vanha viesti toimii ennallaan
+  });
+  it("'pelaaja': pelaaja (oma), huoltaja (lapsen) ja KAIKKI oman seuran henkilökunta lukevat; toisen pelaaja/huoltaja, toisen seuran VP ja vieras eivät", async () => {
+    for (const c of [PEL(), HUOLT(), VPK(), UTJ(), VALM13(), VALM15(), saContext()]) await assertSucceeds(getDoc(ref(c, 'v_pel')));
+    for (const c of [MUU_PEL(), VAARA_SEURA_VP(), randomContext(), unauthContext()]) await assertFails(getDoc(ref(c, 'v_pel')));
+    const toinenHuoltaja = testEnv.authenticatedContext('toinen-huoltaja', { email: 'toinen@test.fi' }); await assertFails(getDoc(ref(toinenHuoltaja, 'v_pel')));
+  });
+  it("'huoltaja': huoltaja ja henkilökunta lukevat; PELAAJA EI; toisen huoltaja ei", async () => {
+    for (const c of [HUOLT(), VPK(), UTJ(), VALM13(), VALM15()]) await assertSucceeds(getDoc(ref(c, 'v_huolt')));
+    for (const c of [PEL(), MUU_PEL(), VAARA_SEURA_VP(), randomContext(), unauthContext()]) await assertFails(getDoc(ref(c, 'v_huolt')));
+    const toinenHuoltaja = testEnv.authenticatedContext('toinen-huoltaja', { email: 'toinen@test.fi' }); await assertFails(getDoc(ref(toinenHuoltaja, 'v_huolt')));
+  });
+  const uusi = (lisa) => Object.assign({ tyyppi: 'keskustelu', pelaajaId: TOPIAS, luettu: false, lahettajaUid: 'pel_kpv_' + TOPIAS, teksti: 'Moi valmentaja', nakyvyys: 'pelaaja', aika: new Date() }, lisa || {});
+  it("pelaajan LUOMA viesti: nakyvyys pakotettu 'pelaaja', ei video_url, avainjoukko rajattu, lähettäjä = auth.uid, luettu:false, vain OMAAN pelaajaId:hen → muuten hylätään", async () => {
+    await assertSucceeds(setDoc(ref(PEL(), 'p_ok'), uusi()));
+    await assertFails(setDoc(ref(PEL(), 'p1'), uusi({ nakyvyys: 'huoltaja' }))); await assertFails(setDoc(ref(PEL(), 'p2'), uusi({ nakyvyys: 'henkilokunta' })));
+    await assertFails(setDoc(ref(PEL(), 'p3'), uusi({ video_url: 'https://veo.co/x' }))); await assertFails(setDoc(ref(PEL(), 'p4'), uusi({ ylim: 1 })));
+    await assertFails(setDoc(ref(PEL(), 'p5'), uusi({ lahettajaUid: 'joku-muu' }))); await assertFails(setDoc(ref(PEL(), 'p6'), uusi({ luettu: true })));
+    await assertFails(setDoc(ref(PEL(), 'p7'), uusi({ pelaajaId: MUU }))); await assertFails(setDoc(ref(PEL(), 'p8'), uusi({ teksti: '' }))); await assertFails(setDoc(ref(PEL(), 'p9'), uusi({ teksti: 'x'.repeat(2001) })));
+    const { nakyvyys, ...ilman } = uusi(); await assertFails(setDoc(ref(PEL(), 'p10'), ilman));
+    await assertFails(setDoc(ref(MUU_PEL(), 'p11'), uusi()));   // toisen pelaajan nimissä
+  });
+  it("huoltajan LUOMA viesti: nakyvyys 'pelaaja', ei video_url; toisen lapsen nimissä / kirjautumaton hylätään; pelaaja/huoltaja eivät muokkaa eivätkä poista", async () => {
+    await assertSucceeds(setDoc(ref(HUOLT(), 'h_ok'), uusi({ lahettajaUid: HUOLTAJA_UID })));
+    await assertFails(setDoc(ref(HUOLT(), 'h1'), uusi({ lahettajaUid: HUOLTAJA_UID, video_url: 'https://x' }))); await assertFails(setDoc(ref(HUOLT(), 'h2'), uusi({ lahettajaUid: HUOLTAJA_UID, nakyvyys: 'huoltaja' })));
+    await assertFails(setDoc(ref(HUOLT(), 'h3'), uusi({ lahettajaUid: HUOLTAJA_UID, pelaajaId: MUU }))); await assertFails(setDoc(ref(unauthContext(), 'h4'), uusi()));
+    await assertFails(updateDoc(ref(PEL(), 'v_pel'), { luettu: true })); await assertFails(updateDoc(ref(HUOLT(), 'v_huolt'), { teksti: 'muokattu' }));
+    await assertFails(deleteDoc(ref(PEL(), 'v_pel'))); await assertFails(deleteDoc(ref(HUOLT(), 'v_huolt')));
+  });
+  it('henkilökunnan luoma viesti: nakyvyys saa olla henkilokunta/pelaaja/huoltaja (+ video_url), muu arvo hylätään; lähettäjä oltava itse; vanha muoto (ilman nakyvyys) toimii', async () => {
+    const h = (lisa) => Object.assign({ tyyppi: 'keskustelu', pelaajaId: TOPIAS, luettu: false, lahettajaUid: 'vp-kpv-001', vastaanottajaUid: 'valm-kpv-u13', teksti: 'moi', aika: new Date() }, lisa || {});
+    for (const [i, n] of ['henkilokunta', 'pelaaja', 'huoltaja'].entries()) await assertSucceeds(setDoc(ref(VPK(), 'h_' + i), h({ nakyvyys: n, video_url: 'https://veo.co/x' })));
+    await assertFails(setDoc(ref(VPK(), 'h_x'), h({ nakyvyys: 'kaikille' }))); await assertFails(setDoc(ref(VPK(), 'h_y'), h({ lahettajaUid: 'joku-muu' })));
+    await assertSucceeds(setDoc(ref(VPK(), 'h_vanha'), h()));
+  });
+  it('KOVENNUS: vastaanottaja-valmentaja EI voi muuttaa nakyvyys henkilokunta→pelaaja/huoltaja, EIKÄ teksti/lahettajaUid/video_url/pelaajaId/vastaanottajaUid/aika; vastaanottaja VOI merkitä luetuksi (myös takaisin lukemattomaksi)', async () => {
+    const v = () => ref(VALM13(), 'v_pel');   // vastaanottaja valm-kpv-u13 (nakyvyys 'pelaaja')
+    await assertFails(updateDoc(v(), { nakyvyys: 'huoltaja' })); await assertFails(updateDoc(v(), { nakyvyys: 'henkilokunta' }));
+    await assertFails(updateDoc(v(), { luettu: true, nakyvyys: 'huoltaja' }));   // luettu + muu kenttä yhdessä hylätään
+    await assertFails(updateDoc(v(), { teksti: 'muokattu' })); await assertFails(updateDoc(v(), { lahettajaUid: 'valm-kpv-u13' })); await assertFails(updateDoc(v(), { video_url: 'https://veo.co/x' }));
+    await assertFails(updateDoc(v(), { pelaajaId: 'muu-pelaaja-id' })); await assertFails(updateDoc(v(), { vastaanottajaUid: 'valm-kpv-u15' })); await assertFails(updateDoc(v(), { aika: new Date() }));
+    await assertFails(updateDoc(v(), { luettu: 'kyllä' }));   // ei-bool
+    // VP:n yksityinen henkilokunta-viesti: vastaanottaja-VP ei voi paljastaa sitä pelaajalle/huoltajalle
+    await assertFails(updateDoc(ref(VPK(), 'v_henk'), { nakyvyys: 'pelaaja' })); await assertFails(updateDoc(ref(VPK(), 'v_henk'), { nakyvyys: 'huoltaja' }));
+    await assertSucceeds(updateDoc(v(), { luettu: true })); await assertSucceeds(updateDoc(v(), { luettu: false })); await assertSucceeds(updateDoc(ref(UTJ(), 'v_henk_utj'), { luettu: true }));
+    await assertSucceeds(updateDoc(ref(saContext(), 'v_henk'), { nakyvyys: 'pelaaja' }));   // SA vapaa
+    await assertFails(getDoc(ref(PEL(), 'v_henk_utj')));
+  });
+  it('pelaaja ja huoltaja EIVÄT voi päivittää viestejä lainkaan (myös omaa luontiaan tai lukua) — R6.4 päättää lukukuittauksen', async () => {
+    await assertFails(updateDoc(ref(PEL(), 'v_pel'), { luettu: true })); await assertFails(updateDoc(ref(HUOLT(), 'v_pel'), { luettu: true })); await assertFails(updateDoc(ref(HUOLT(), 'v_huolt'), { nakyvyys: 'pelaaja' }));
+    await assertSucceeds(setDoc(ref(PEL(), 'p_oma'), uusi())); await assertFails(updateDoc(ref(PEL(), 'p_oma'), { nakyvyys: 'huoltaja' })); await assertFails(updateDoc(ref(PEL(), 'p_oma'), { video_url: 'https://x' })); await assertFails(updateDoc(ref(PEL(), 'p_oma'), { teksti: 'muokattu' }));
+  });
+  it('regressio: vastaanottaja merkitsee omansa luetuksi (update), muu henkilökunta ei; kirjoitus ilman aika-kenttää hylätään (A5)', async () => {
+    await assertSucceeds(updateDoc(ref(VPK(), 'v_henk'), { luettu: true })); await assertFails(updateDoc(ref(UTJ(), 'v_henk'), { luettu: true }));
+    await assertFails(setDoc(ref(VPK(), 'ei_aikaa'), { tyyppi: 'x', pelaajaId: TOPIAS, lahettajaUid: 'vp-kpv-001', teksti: 'y' }));
+  });
+});
