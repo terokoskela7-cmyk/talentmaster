@@ -3124,10 +3124,62 @@ function tmKohdeOtsikko(kohde) {
 }
 
 
+// ── SEURAN OMA HARJOITEPANKKI (D16 = A: seura ensin, TM varalla; B PR2, 6.10.2026) ──────────────────────────────────────────
+// Lib pysyy PURE: kutsuja lukee `seurat/{pelaajan oma seura}/harjoitepankki/*` ja injektoi sen (EI Firestore-lukua täällä).
+// seuraPankki = { seuraId, harjoitteet:[{nimi, tyyppi:'T', ika_min, ika_max, kehityskohde, ketju, konsepti, ohje, kesto_min, lahde:'seura', …}] } TAI pelkkä taulukko.
+// OHITUS KEHITYSKOHTEEN / KETJUN TASOLLA, EI NIMEN: jos seuralla on sopivan ikäisiä harjoitteita tälle kehityskohteelle (tai ketjulle), TM:n oletus
+//   TÄLLE kohteelle/ketjulle EI käytetä lainkaan; ilman seuran harjoitteita oletuspankki toimii kuten ennen (varapolku). Muut kohteet/ketjut ennallaan.
+// SEURARAJA: wrapperin seuraId ≠ pelaajan seuraId → pankki IGNOROIDAAN (toisen seuran sisältö ei koskaan päädy pelaajalle). Vain lahde:'seura' hyväksytään.
+function _pelaajanIkaVuosina(pelaaja) {
+  if (pelaaja && pelaaja.syntymaVuosi) return (new Date().getFullYear()) - Number(pelaaja.syntymaVuosi);
+  if (pelaaja && pelaaja.ika != null) return Number(pelaaja.ika);
+  if (pelaaja && pelaaja.ikaluokka) { var mm = String(pelaaja.ikaluokka).match(/(\d+)/); if (mm) return +mm[1]; }
+  return null;
+}
+function _seuranHarjoitteet(seuraPankki, pelaaja, ehto) {
+  if (!seuraPankki) return [];
+  var lista = Array.isArray(seuraPankki) ? seuraPankki : (Array.isArray(seuraPankki.harjoitteet) ? seuraPankki.harjoitteet : []);
+  var pankinSeura = Array.isArray(seuraPankki) ? null : seuraPankki.seuraId;
+  var pelaajanSeura = pelaaja && (pelaaja.seuraId || pelaaja.seura_id);
+  if (pankinSeura && pelaajanSeura && pankinSeura !== pelaajanSeura) return [];   // eri seura → ei koskaan
+  var ika = _pelaajanIkaVuosina(pelaaja);
+  return lista.filter(function (h) {
+    if (!h || h.lahde !== 'seura' || h.tyyppi !== 'T' || typeof h.nimi !== 'string' || !h.nimi) return false;
+    if (ehto.kehityskohde != null && h.kehityskohde !== ehto.kehityskohde) return false;
+    if (ehto.ketju != null && String(h.ketju || '').toUpperCase() !== String(ehto.ketju).toUpperCase()) return false;
+    if (ika != null) { if (h.ika_min != null && ika < Number(h.ika_min)) return false; if (h.ika_max != null && ika > Number(h.ika_max)) return false; }
+    return true;
+  });
+}
+function _paivaIndeksi(pelaaja, pvm, iv, n) {
+  var pvmPaiva = _pvmEpochPaiva(pvm);
+  var aloitusPaiva = _pvmEpochPaiva(pelaaja && (pelaaja.luotu || pelaaja.tuotu));
+  var paiviaAktiivinen = (pvmPaiva != null && aloitusPaiva != null) ? (pvmPaiva - aloitusPaiva) : 0;
+  if (paiviaAktiivinen < 0) paiviaAktiivinen = 0;
+  var indeksi;
+  if (paiviaAktiivinen <= 2) indeksi = 0;
+  else if (iv === 'leikkija') indeksi = Math.floor(paiviaAktiivinen / 2) % n;
+  else indeksi = paiviaAktiivinen % n;
+  return { indeksi: indeksi, paiviaAktiivinen: paiviaAktiivinen };
+}
+function _seuranHarjoiteTulos(h, kohde, pi) {
+  // seuran teksti sellaisenaan (ei käännöstä — _hT palauttaisi fi:n joka tapauksessa)
+  return { nimi: h.nimi, ohje: h.ohje || '', kesto: h.kesto_min != null ? (h.kesto_min + ' min') : null, xp: h.xp || 20, yt: null, cue: null, tarina: null, viikkotavoite: null,
+    kehityskohde: kohde, tyyppi: 'T', paiviaAktiivinen: pi.paiviaAktiivinen, lahde: 'seura', video_url: h.video_url || null, kotiin_sopiva: h.kotiin_sopiva === true };
+}
+// Ketjutason ohitus (D/S-kortit, Pelaaja_v7 kytkee myöhemmin): palauttaa seuran harjoitteen ketjulle (esim. 'DFL') tai null → kutsuja käyttää TM:n oletusta.
+function valitseSeuranKetjunHarjoite(pelaaja, seuraPankki, ketju, pvm) {
+  var lista = _seuranHarjoitteet(seuraPankki, pelaaja, { ketju: ketju });
+  if (!lista.length) return null;
+  var pi = _paivaIndeksi(pelaaja, pvm, _laskeIkavaihe(pelaaja), lista.length);
+  var h = lista[pi.indeksi];
+  return Object.assign(_seuranHarjoiteTulos(h, h.kehityskohde || null, pi), { ketju: String(ketju).toUpperCase() });
+}
+
 // ── 1B: Päivittäinen harjoitevalinta (teema pysyy, harjoite vaihtuu) ───
 // Palauttaa valitun harjoitteen normalisoituna, TAI null jos kohteelle ei harjoitteita
 // (kutsuja tekee tällöin EX-fallbackin ikävaiheella).
-function valitsePaivanHarjoite(pelaaja, pankki, pvm) {
+function valitsePaivanHarjoite(pelaaja, pankki, pvm, seuraPankki) {
   // KORJAUS: käytä mesosykli-PANKKIa (T-haara). Jos kutsuja antoi eri rakenteen — esim.
   // Pelaaja_v7:n ketju-pohjainen window.PANKKI ({SBL,SFL,...} ilman .T:tä) — fallback
   // moduulin omaan PANKKI:in, muuten mesosykli-loop ei löydä mitään ("Ei harjoitteita").
@@ -3135,6 +3187,13 @@ function valitsePaivanHarjoite(pelaaja, pankki, pvm) {
   var kk = laskeTekninenKehityskohde(pelaaja);
   var kohde = kk.kohde;
   var iv = _laskeIkavaihe(pelaaja);
+
+  // B PR2 — seuran oma pankki ohittaa TM:n oletuksen tälle KEHITYSKOHTEELLE (seura ensin, TM varalla). Ilman seuran harjoitteita → oletuspolku ennallaan.
+  var omat = _seuranHarjoitteet(seuraPankki, pelaaja, { kehityskohde: kohde });
+  if (omat.length) {
+    var pio = _paivaIndeksi(pelaaja, pvm, iv, omat.length);
+    return _seuranHarjoiteTulos(omat[pio.indeksi], kohde, pio);
+  }
 
   // Kerää kehityskohteen harjoitteet: tagatut mesosyklit + erillispankki
   var harjoitteet = [];
@@ -3170,7 +3229,7 @@ function valitsePaivanHarjoite(pelaaja, pankki, pvm) {
     nimi: _hT(h.nimi), ohje: _hT(_ohjeIkavaiheelle(h, iv)),
     kesto: h.kesto || null, xp: h.xp || 20, yt: h.yt || null,
     cue: _hT(h.cue || null), tarina: _hT(h.tarina || null), viikkotavoite: _hT(h.viikkotavoite || null),
-    kehityskohde: kohde, tyyppi: 'T', paiviaAktiivinen: paiviaAktiivinen,
+    kehityskohde: kohde, tyyppi: 'T', paiviaAktiivinen: paiviaAktiivinen,   // EI lahde-kenttää: characterization lukitsee TM-polun muodon; puuttuva lahde = 'tm', seuran harjoitteella lahde:'seura'
   };
 }
 
@@ -3211,6 +3270,7 @@ if (typeof module !== 'undefined' && module.exports) {
     generoimTehtavat: (typeof generoimTehtavat !== 'undefined' ? generoimTehtavat : null),
     laskeTekninenKehityskohde: laskeTekninenKehityskohde,
     valitsePaivanHarjoite: valitsePaivanHarjoite,
+    valitseSeuranKetjunHarjoite: valitseSeuranKetjunHarjoite,   // B PR2: ketjutason seuraohitus
     generoiMiksiteksti: generoiMiksiteksti,
     _laskeIkavaihe: _laskeIkavaihe,
     T_MESOSYKLI_KOHDE: T_MESOSYKLI_KOHDE,
