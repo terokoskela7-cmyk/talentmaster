@@ -193,7 +193,7 @@ per tiedosto** (kaksi lohkoa kumoaa toisen — Seura.html:n bugi oli juuri täm�
 | `TalentMaster_Testaus_v8.html` · `..._Harjoitettavuus_Lomake_v4.html` | Edeltäjät | ⚠️ arkistoidaan kun v9 pilottitestattu |
 | `TalentMaster_VP_v20/v21.html` · `..._Master_v15.html` | Vanhat versiot | Arkisto |
 | `functions/index.js` | 7 Cloud Functionia + aiProxy | ✅ §13 |
-| `tm_admin/firestore.rules` | Security Rules **v3.37** — deploy CI:llä (`deploy-rules.yml`, main-push, emulaattoritestit ensin) | ✅ §12 |
+| `tm_admin/firestore.rules` | Security Rules **v3.38** — deploy CI:llä (`deploy-rules.yml`, main-push, emulaattoritestit ensin) | ✅ §12 |
 | `lib/tm_bioika.js` | Bio-ikä — Mirwald 2002 PHV (Excel-verifioitu) + KR-runko (lukittu) | ✅ §25 |
 | `docs/testit_indeksit.js` | Canonical TKI/TSI/FLEI-laskenta + TKI-analyysimalli (§34) | ✅ §23/§34 |
 | `docs/TKI_ANALYYSIMALLI.md` | Kanoninen TKI-analyysimalli (3 viitekehystä + kehitysvauhti) | ✅ §34 |
@@ -319,7 +319,7 @@ admins/{uid}: email, rooli, superAdmin, luotu
 
 ---
 
-## 12. FIRESTORE SECURITY RULES — `tm_admin/firestore.rules` v3.37
+## 12. FIRESTORE SECURITY RULES — `tm_admin/firestore.rules` v3.38
 
 **DEPLOY = CI** (`.github/workflows/deploy-rules.yml`): main-pushissa ensin emulaattoritestit (`npm run test:rules`, Java ≥21), sitten deploy. Nykyversio **v3.36** (v3.36: oman joukkueen valmentaja saa kirjoittaa `testitulokset` (Masterin Pikakirjaus) · v3.35: seuran omat vapaat tavoitteet `omat_tavoitteet` (+ `kirjaukset` vain luonti, korjaus = mitätöivä kirjaus), `kausikuvat` demorajaus purettu · v3.34: Kehitystilanne v0 — `kehitysasetukset`/`seuratuki` johtoroolit, `kausikuvat` vain luonti · v3.33: suostumus-kovennus — `suostumusTila`/`suostumus`/`suostumusAnnettu`/`suostumukset`/`huoltajaEmail` muuttuvat VAIN palvelimella (SA:ltakin estetty; luonnissa `suostumusTila` vain `pilotti`/`odottaa`), `kutsut`-update ei enää kirjautumatonta, ylätason `suostumukset` kiinni (luku vain SA), `audit` nimenomainen esto (luku vain `haeAuditLoki`, kirjoitus vain palvelin) · v3.32: kayttajat-luonti vain luoKayttajalla, ei SA:lle · v3.31: kayttajat-pääsykentät + poisto vain palvelimella · v3.30: PIN vain palvelimella · v3.29: playerCodes list suljettu · Vaihe 0 / PR 3: **anonyymi pääsy suljettu** — ei `onAnonymous`-funktiota, vartijatesti estää paluun). Jokainen muutos: versio + changelog tiedoston alkuun + Rules-testi. Sääntöjä EI muokata Consolesta.
 

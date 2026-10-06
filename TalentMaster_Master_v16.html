@@ -109,6 +109,7 @@ window.TM_KAAVIO_HOST = {
 <script src="lib/tm_jaksofokus.js?v=5"></script>   <!-- Vaihe 4c/6: tmJfUmpeutunut (jakson sulku -laukaisin) -->
 <script src="lib/tm_kehityspolku.js?v=2"></script>   <!-- I3a: looginen silta -resolver (idp_fokus → konsepti/fundamentti → harjoite) -->
 <script src="lib/tm_jaksokooste.js?v=2"></script>   <!-- Vaihe 6: jakson sulku (meso-sykli) — valmentaja sulkee omat pelaajansa (§4/§37) -->
+<script src="lib/tm_vastuuhenkilo.js?v=1"></script>   <!-- vastuuhenkilö per pelaaja (vastuuhenkilo {uid, rooli, asetettu_pvm}); henkilökunnan rivi + asetus -->
 <script src="lib/tm_kehityssilmukka.js?v=2"></script>   <!-- R6.1b: jaksofokuksen yhteinen kirjoitusydin (tmAsetaJaksofokus / tmSuljeJakso) -->
 <script src="lib/tm_seuraava_askel.js?v=1"></script>   <!-- R6.2b: seuraava toimenpide yhdessä paikassa (tmSeuraavaAskel / tmSeuraavaJakso / tmTeeTastaOsa) -->
 <script src="lib/tm_fyysteemat.js?v=4"></script>   <!-- Vaihe 7: fyysinen teemaluettelo + D1-fokuslähde + evidenssi (fysiikkavalmentaja) -->
@@ -7141,6 +7142,39 @@ window._mIdpVtAktivoi = async function (pid, i) {
   }
 };
 // Kortti (portattu _vpKausitavoiteHTML). editable=false → read-only (ei nappeja/textareoita; source-chip + kaari näkyvät).
+/* Vastuuhenkilö (additiivinen kenttä vastuuhenkilo {uid, rooli, asetettu_pvm}). Rivi IDP-kortin yläosassa; asettaa joukkueen valmentaja / VP / UTJ / talenttivalmentaja (editable = oikeus pelaajaan;
+   Rules v3.38 pakottaa: fysiikkavalmentaja ym. eivät aseta). Henkilöstö ladataan kerran (kayttajat) ja kortti piirretään uudelleen. EI "omat vastuupelaajat" -näkymää (R6.6). */
+async function _mLataaHenkilosto() {
+  if (window._mHenkilosto || window._mHenkilostoLataa || !_seuraId || _demo) return;
+  window._mHenkilostoLataa = true;
+  try {
+    const snap = await _db.collection('seurat').doc(_seuraId).collection('kayttajat').get();
+    window._mHenkilosto = snap.docs.map(function (d) { const x = d.data() || {}; return { id: d.id, nimi: _tmHenkiloNimi(x), rooli: x.rooli || '', aktiivinen: x.aktiivinen !== false }; });
+  } catch (e) { console.warn('[v16] henkilöstö:', e && e.message); window._mHenkilosto = []; }
+  window._mHenkilostoLataa = false;
+  if (typeof _mIdpReRender === 'function') _mIdpReRender();
+}
+function _mVastuuhenkiloRivi(p, editable) {
+  const L = window.TM_VASTUUHENKILO; if (!L || !p) return '';
+  if (!window._mHenkilosto) _mLataaHenkilosto();
+  return L.tmVastuuhenkiloHTML(p, window._mHenkilosto || [], { t: masterT, voiAsettaa: !!editable && !!window._mHenkilosto, onchange: '_mAsetaVastuuhenkilo' });
+}
+window._mAsetaVastuuhenkilo = async function (pid, arvo) {
+  const L = window.TM_VASTUUHENKILO, p = _mIdpP(pid); if (!L || !p) return;
+  let plan;
+  try {
+    const o = String(arvo || '').split('|');
+    plan = L.tmVastuuhenkiloAsetus(p, arvo ? { uid: o[0], rooli: o[1] } : null, tmPaivaIso(new Date()));   // paikallinen päivä (§7.26)
+  } catch (e) { console.warn('[mVastuuhenkilo]', e && e.message); if (typeof toast === 'function') toast(masterT('Vastuuhenkilön asetus epäonnistui'), 'error'); return; }
+  const paivita = function () { if (plan.paikallinen.vastuuhenkilo === L.POISTA) delete p.vastuuhenkilo; else p.vastuuhenkilo = plan.paikallinen.vastuuhenkilo; if (typeof _mIdpReRender === 'function') _mIdpReRender(); };
+  if (_demo || !_seuraId) { paivita(); return; }
+  try {
+    await _mTuoreToken(firebase.auth().currentUser);
+    await _db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(pid).update({ vastuuhenkilo: plan.kirjoitus.vastuuhenkilo === L.POISTA ? firebase.firestore.FieldValue.delete() : plan.kirjoitus.vastuuhenkilo });
+    paivita();   // paikallinen tila vasta onnistumisen jälkeen
+    if (typeof toast === 'function') toast(masterT('Vastuuhenkilö tallennettu') + ' ✓', 'ok');
+  } catch (e) { console.warn('[mVastuuhenkilo]', e && e.message); if (typeof toast === 'function') toast(masterT('Vastuuhenkilön asetus epäonnistui'), 'error'); if (typeof _mIdpReRender === 'function') _mIdpReRender(); }
+};
 function _mIdpKorttiHTML(p, editable) {
   if (!p) return '';
   window._mIdpPelaaja = p;
@@ -7151,6 +7185,7 @@ function _mIdpKorttiHTML(p, editable) {
   // Brändijako: IDP-kausitavoite = TalentMaster Analytics -kehityskerros (Palloliiton kortin päällä). Hillitty tunniste.
   let h = '<div class="jsp-kt"><div class="jsp-kt-hd" style="display:flex;justify-content:space-between;align-items:baseline;gap:8px"><span class="jsp-kt-t">' + masterT('Kauden tavoite') + ' <span style="text-transform:none;letter-spacing:0;color:var(--ink3);font-weight:400">' + masterT('· IDP-ydin') + '</span></span>'
     + '<span style="font-size:9px;letter-spacing:.04em;color:var(--teal);white-space:nowrap" title="TalentMaster Analytics — älykerros Palloliiton arviointikortin päällä">' + masterT('◆ TalentMaster Analytics') + '</span></div>';
+  h += _mVastuuhenkiloRivi(p, editable);   // vastuuhenkilö (Tero 5.10.2026): kertoo kenen tehtävä asia on; ei rajaa oikeuksia
   if (!editable) h += '<div class="jsp-kt-ro">' + masterT('🔒 Vain luku — toisen joukkueen pelaaja. Kehityssuunnitelman omistaa pelaajan oma valmentaja; sinä näet sen.') + '</div>';
   if (!t && !p.idp_tila) {
     h += editable
