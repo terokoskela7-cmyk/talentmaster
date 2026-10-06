@@ -110,13 +110,15 @@ window.TM_KAAVIO_HOST = {
 <script src="lib/tm_kypsyys.js?v=2"></script>   <!-- IDP R1: Kypsyys/PHV -komponentti (tmKypsyys) kytketty näkyviin per-pelaaja-kortin vasempaan paneeliin (korvaa kypsyysproosan) -->
 <script src="lib/tm_treeniteema.js?v=1"></script>   <!-- Vaihe 4d: teemakattavuus PURE-ydin (jaksofokus vs suunnitellut teemaharjoitukset) -->
 <script src="lib/tm_jaksokooste.js?v=2"></script>   <!-- Vaihe 6: jakson sulku (meso-sykli) PURE-ydin — prosessi+kalibraatio+historia (geneerinen §8) -->
-<script src="lib/tm_aloita_jakso.js?v=1"></script>   <!-- jaettu "Aloita jakso" -modaali (Master + VP) -->
+<script src="lib/tm_aloita_jakso.js?v=2"></script>
+<script src="lib/tm_tukitavoitteet.js?v=2"></script>   <!-- J1/V1: tukitavoitteet (ehdotusmoottori, kotiharjoitevalikoima) -->
+<script src="lib/tm_koti_oletus.js?v=1"></script>   <!-- V1: TM:n oletuskotiharjoitteet (D16: seura ensin, TM varalla); generoitu harjoitelogiikka_v4:stä -->   <!-- jaettu "Aloita jakso" -modaali (Master + VP) -->
 <script src="lib/tm_jaksokortti.js?v=1"></script>   <!-- "Jakso nyt" -kortti: taito · ydinvahvuus · tukiosa · kesto/päättyy · vastuuhenkilö · teema · kotiharjoitteet -->
 <script src="lib/tm_polun_tila.js?v=1"></script>   <!-- Polun tila -signaali + kolme kysymystä (Tänään) -->
 <script src="lib/tm_kotiharjoitteet.js?v=1"></script>   <!-- jakson kotiharjoitteet (snapshot) — katso -->
 <script src="lib/tm_valmennuslinja.js?v=1"></script>   <!-- seuran valmennuslinja: joukkueen teema (hyväksytyt + henkilökunnalle luonnos) -->
 <script src="lib/tm_vastuuhenkilo.js?v=1"></script>   <!-- vastuuhenkilö per pelaaja (vastuuhenkilo {uid, rooli, asetettu_pvm}); henkilökunnan rivi + asetus -->
-<script src="lib/tm_jakso_malli.js?v=1"></script>   <!-- R6.3-E: katselmuksen "Vahvista merkinnät" (tmMerkinnatTila / tmVahvistaMerkinnat) + kypsyysvihjeet -->
+<script src="lib/tm_jakso_malli.js?v=2"></script>   <!-- R6.3-E: katselmuksen "Vahvista merkinnät" (tmMerkinnatTila / tmVahvistaMerkinnat) + kypsyysvihjeet -->
 <script src="lib/tm_kehityssilmukka.js?v=2"></script>   <!-- R6.2a: katselmus yhteen paikkaan (tmKirjaaKatselmus) + jaksofokuksen kirjoitusydin -->
 <script src="lib/tm_seuraava_askel.js?v=1"></script>   <!-- R6.2b: seuraava toimenpide yhdessä paikassa (tmSeuraavaAskel / tmSeuraavaJakso / tmTeeTastaOsa) -->
 <script src="lib/tm_fyysteemat.js?v=4"></script>   <!-- Vaihe 7: fyysinen teemaluettelo + D1-fokuslähde + evidenssi (delta §29 + PHV-portti §28) -->
@@ -8545,12 +8547,42 @@ window._vpOhjLiitaTukiosaan = async function (pid, ohjelmaId) {
   await _vpJfKirjoita(pid, plan.polut, vpT('Kotiharjoitteet liitetty jaksoon'), function () { p.jaksofokus = plan.jaksofokus; if (typeof window._vpOhjSulje === 'function') { window._vpOhjSulje(); window._vpOhjSulje = null; } _vpJaksoReRender(p); });
 };
 // Jaettu "Aloita jakso" -modaali (lib/tm_aloita_jakso.js) — esivalintaAvain = taito esitäytettynä (esim. Arvioinnin "Aloita jakso tästä")
-window._vpAloitaJaksoAvaa = function (pid, esivalintaAvain) {
+/* V1 (liput.kentta, docs/CODE_BRIEF_V1_JAKSON_ALOITUS.md): lippu luetaan kerran per seura; tukitavoiteosion konteksti haetaan RINNAKKAIN (yhden lähteen virhe → lähde jää pois, modaali aukeaa silti).
+   arviointikehys = tmKehys(konfiguraatio/arviointi.kehys → oletus palloliitto) — EI arviointikehys/seura-dokumenttia (D31 avoin). Seuran prosessiprofiili: konfiguraatio/prosessiprofiili jos on. */
+window._vpLiput = window._vpLiput || {};
+async function _vpLataaLiput() {
+  if (!_seuraId || _isDemoMode) return {};
+  if (window._vpLiput[_seuraId]) return window._vpLiput[_seuraId];
+  let l = {};
+  try { const sd = await db.collection('seurat').doc(_seuraId).get(); l = (sd.exists && sd.data().liput) || {}; } catch (e) { console.warn('[V1] liput:', e && e.message); }
+  window._vpLiput[_seuraId] = l; return l;
+}
+async function _vpAjHaeTuki(p) {
+  const AJ = window.TM_ALOITA_JAKSO, jid = AJ.tmAjJoukkueId(p.joukkue || (Array.isArray(p.joukkueet) ? p.joukkueet[0] : '')), seura = db.collection('seurat').doc(_seuraId);
+  const hae = function (nimi, f) { return Promise.resolve().then(f).catch(function (e) { console.warn('[V1] lähde ' + nimi + ':', e && e.message); return null; }); };
+  const r = await Promise.all([
+    hae('joukkuejakso', async function () { if (!jid) return null; const sn = await seura.collection('joukkueet').doc(jid).get(); return sn.exists ? { jid: jid, data: Object.assign({ id: jid }, sn.data()) } : null; }),
+    hae('havainnot', async function () { const sn = await seura.collection('pelaajat').doc(p.id).collection('havainnot').where('tyyppi', '==', 'adar_pikakortti').get(); return sn.docs.map(function (d) { return d.data(); }); }),
+    hae('arviointikehys', async function () { const sn = await seura.collection('konfiguraatio').doc(AJ.KONF.arviointikehys).get(); const avain = sn.exists ? (sn.data() || {}).kehys : null; return (typeof tmKehys === 'function') ? tmKehys(avain || 'palloliitto') : null; }),
+    hae('prosessiprofiili', async function () { const sn = await seura.collection('konfiguraatio').doc(AJ.KONF.prosessiprofiili).get(); return sn.exists ? sn.data() : null; }),
+    hae('harjoitepankki', async function () { const sn = await seura.collection('harjoitepankki').get(); return sn.docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); }); }),
+    hae('ohjelmat', async function () { return (typeof _vpOhjLataaKirjasto === 'function') ? await _vpOhjLataaKirjasto() : null; })
+  ]);
+  return { joukkue: r[0], havainnot: r[1], kehys: r[2], profiili: r[3], seuranPankki: r[4], seuranOhjelmat: r[5] };
+}
+window._vpAloitaJaksoAvaa = async function (pid, esivalintaAvain) {
   const p = _vpTtPelaaja(pid), AJ = window.TM_ALOITA_JAKSO, VH = window.TM_VASTUUHENKILO; if (!p || !AJ) return;
   const isp = (typeof _dimIkaSp === 'function') ? _dimIkaSp(p.joukkue || '', p) : { ika: null }, posCode = p.tt_positio_aktiivinen || _vpTtNormPositio(p.positio || p.pelipaikka);
   const pp = { ika: isp.ika, joukkue: p.joukkue, positio: posCode, tt_positio_aktiivinen: posCode, syntymaVuosi: p.syntymaVuosi }, ehd = (typeof _vpTtEhdotus === 'function') ? _vpTtEhdotus(p, pp) : null;
-  const x = AJ.tmAloitaJaksoTiedot(p, { items: _ttItems(pp) || [], ehdotusAvain: ehd && ehd.tyyppi === 'teknis_taktinen' ? ehd.konsepti_avain : null, esivalintaAvain: esivalintaAvain || null, ika: isp.ika, nimi: (typeof _tmHenkiloNimi === 'function' ? _tmHenkiloNimi(p) : '') || p.nimi || '',
+  // V1: ilman lippua lomake on täsmälleen entinen; lipulla tukitavoiteosio (virhe → vanha lomake)
+  let tuki = null;
+  try {
+    const liput = await _vpLataaLiput();
+    if (liput.kentta === true && typeof AJ.tmAloitaJaksoTuki === 'function') tuki = AJ.tmAloitaJaksoTuki(p, { tanaan: tmPaivaIso(new Date()), ika: isp.ika, sp: isp.sp, haetut: await _vpAjHaeTuki(p), tmPankki: window.TM_KOTI_OLETUS || null, seuraNimi: window._vpSeuraNimi || null });
+  } catch (e) { console.warn('[V1] tukiosio:', e && e.message); tuki = null; }
+  const x = AJ.tmAloitaJaksoTiedot(p, { tuki: tuki, items: _ttItems(pp) || [], ehdotusAvain: ehd && ehd.tyyppi === 'teknis_taktinen' ? ehd.konsepti_avain : null, esivalintaAvain: esivalintaAvain || null, ika: isp.ika, nimi: (typeof _tmHenkiloNimi === 'function' ? _tmHenkiloNimi(p) : '') || p.nimi || '',
     vastuuhenkilot: VH ? VH.tmVastuuhenkiloVaihtoehdot(_valmentajat) : null });
+  window._vpAjX = x;
   document.getElementById('_vpAloitaJaksoModal')?.remove(); const w = document.createElement('div');
   w.innerHTML = AJ.tmAloitaJaksoModalHTML(x, { esc: _jsvEsc, t: vpT, modalId: '_vpAloitaJaksoModal', overlayAttrs: 'style="position:fixed;inset:0;background:rgba(17,17,16,.92);z-index:365;display:flex;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(8px)"', tallennaFn: '_vpAloitaJaksoTallenna', suljeFn: '_vpAloitaJaksoSulje' });
   document.body.appendChild(w.firstChild);
@@ -8558,14 +8590,16 @@ window._vpAloitaJaksoAvaa = function (pid, esivalintaAvain) {
 window._vpAloitaJaksoSulje = function () { document.getElementById('_vpAloitaJaksoModal')?.remove(); };
 window._vpAloitaJaksoTallenna = async function (pid) {
   const p = _vpTtPelaaja(pid), JM = window.TM_JAKSO_MALLI, VH = window.TM_VASTUUHENKILO, AJ = window.TM_ALOITA_JAKSO; if (!p || !JM || !AJ) return;
-  const arvo = function (id) { const el = document.getElementById(id); return el ? el.value : ''; };
+  const arvo = function (id) { const el = document.getElementById(id); return el ? (el.type === 'checkbox' ? (el.checked ? '1' : '') : el.value) : ''; };
   const isp = (typeof _dimIkaSp === 'function') ? _dimIkaSp(p.joukkue || '', p) : { ika: null }, posCode = p.tt_positio_aktiivinen || _vpTtNormPositio(p.positio || p.pelipaikka);
-  const syote = AJ.tmAloitaJaksoSyote(arvo), item = _ttItems({ ika: isp.ika, joukkue: p.joukkue, positio: posCode, tt_positio_aktiivinen: posCode, syntymaVuosi: p.syntymaVuosi }).find(function (it) { return it.avain === syote.konsepti_avain; });
+  const x = window._vpAjX, v1 = !!(x && x.tuki && x.pid === pid);   // V1: tukitavoiteosio vain kun modaali avattiin lipulla
+  const syote = v1 ? AJ.tmAloitaJaksoSyoteV2(arvo, x) : AJ.tmAloitaJaksoSyote(arvo), item = _ttItems({ ika: isp.ika, joukkue: p.joukkue, positio: posCode, tt_positio_aktiivinen: posCode, syntymaVuosi: p.syntymaVuosi }).find(function (it) { return it.avain === syote.konsepti_avain; });
   let tulos;
   try {
-    tulos = JM.tmAloitaJakso(p, Object.assign({}, syote, { konsepti_nimi: (typeof _vpJfKanonNimi === 'function') ? _vpJfKanonNimi(syote.konsepti_avain, 'teknis_taktinen') : (item ? item.nimi : null), konsepti_koodi: item ? item.koodi : null }),
-      { tanaan: tmPaivaIso(new Date()), rooli: (window._vpSA ? 'vp' : (window._vpRooli || 'vp')), ika: isp.ika, nytISO: new Date().toISOString() });
-  } catch (e) { console.warn('[vpAloitaJakso]', e && e.message); if (typeof toast === 'function') toast(vpT('Jaksoa ei voi aloittaa') + ': ' + String(e && e.message || '').replace(/^tm_jakso_malli:\s*/, ''), 'error'); return; }
+    const sy = Object.assign({}, syote, { konsepti_nimi: (typeof _vpJfKanonNimi === 'function') ? _vpJfKanonNimi(syote.konsepti_avain, 'teknis_taktinen') : (item ? item.nimi : null), konsepti_koodi: item ? item.koodi : null }),
+      op = { tanaan: tmPaivaIso(new Date()), rooli: (window._vpSA ? 'vp' : (window._vpRooli || 'vp')), ika: isp.ika, nytISO: new Date().toISOString() };
+    tulos = v1 ? AJ.tmAloitaJaksoV2(p, sy, x, op) : JM.tmAloitaJakso(p, sy, op);
+  } catch (e) { console.warn('[vpAloitaJakso]', e && e.message); if (typeof toast === 'function') toast(vpT('Jaksoa ei voi aloittaa') + ': ' + String(e && e.message || '').replace(/^tm_(jakso_malli|aloita_jakso|tukitavoitteet):\s*/, ''), 'error'); return; }
   let vh = null;
   if (syote.vastuuhenkilo_arvo && VH) { try { const o = syote.vastuuhenkilo_arvo.split('|'); vh = VH.tmVastuuhenkiloAsetus(p, { uid: o[0], rooli: o[1] }, tmPaivaIso(new Date())).kirjoitus.vastuuhenkilo; } catch (e) { console.warn('[vpAloitaJakso]', e && e.message); if (typeof toast === 'function') toast(vpT('Vastuuhenkilön asetus epäonnistui'), 'error'); return; } }
   if (typeof _vpJfMergeLisakentat === 'function') _vpJfMergeLisakentat(tulos.jaksofokus, p.id);   // linkitetyt + Opittu kun (kuten muut aloitukset)

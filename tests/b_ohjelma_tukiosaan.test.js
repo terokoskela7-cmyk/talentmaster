@@ -82,7 +82,7 @@ describe('Master: _ohjLiitaTukiosaan', () => {
     const d = ymp({ jaksofokus: JAKSO(TUKI), demo: true }); await d.c.window._ohjLiitaTukiosaan(PID, 'ohjelmat_97_1'); expect(d.log.upd).toEqual([]); expect(d.p.jaksofokus.tukiosa.harjoitteet.length).toBe(3);
   });
   it('lähde: nappi vain hyväksytyille ja pid:lle; Master lataa tm_jakso_malli.js; ohjelmat-kirjastoa ei kirjoiteta tässä', () => {
-    expect(MA).toContain('lib/tm_jakso_malli.js?v=1'); const m = pura('window._ohjLiitaTukiosaan = async function'); expect(m).not.toContain("collection('ohjelmat')");
+    expect(MA).toContain('lib/tm_jakso_malli.js?v=2'); const m = pura('window._ohjLiitaTukiosaan = async function'); expect(m).not.toContain("collection('ohjelmat')");
     expect(MA).toMatch(/pid && !o\.arkistoitu && o\.tila === 'hyvaksytty'\) h \+= '<button onclick="_ohjLiitaTukiosaan/);
   });
 });

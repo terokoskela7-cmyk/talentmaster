@@ -150,7 +150,7 @@ describe('VP_v25 · _vpTallennaReview: vahvistukset SAMASSA BATCHISSA katselmuks
 describe('lähdevartijat', () => {
   it('lohko lisätään modaaliin ennen Tallenna-nappeja; lib ladataan; lohkon tekstit vpT:n läpi; _vpTtKirjoita/_vpJfKirjoita ei käytetä', () => {
     const modaali = pura('window._vpKirjaaReview = function'); expect(modaali.indexOf('_vpRvMerkinnatHTML(p)')).toBeGreaterThan(-1); expect(modaali.indexOf('_vpRvMerkinnatHTML(p)')).toBeLessThan(modaali.indexOf('Tallenna review'));
-    expect(VP).toContain('lib/tm_jakso_malli.js?v=1'); expect(VP.indexOf('lib/tm_jakso_malli.js')).toBeLessThan(VP.indexOf('lib/tm_kehityssilmukka.js'));
+    expect(VP).toContain('lib/tm_jakso_malli.js?v=2'); expect(VP.indexOf('lib/tm_jakso_malli.js')).toBeLessThan(VP.indexOf('lib/tm_kehityssilmukka.js'));
     const lohko = pura('function _vpRvMerkinnatHTML('); expect(lohko).not.toMatch(/_vpTtKirjoita|_vpJfKirjoita|\.set\(|\.update\(/); expect((lohko.match(/vpT\(/g) || []).length).toBeGreaterThan(8);
   });
 });

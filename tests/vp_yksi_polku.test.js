@@ -45,7 +45,7 @@ function ymp({ pelaaja = {}, kaada = false, rooli = 'vp', teemat } = {}) {
   sb._vpJaksoVaihto = (pp, jf) => L.KS.tmAsetaJaksofokus(pp, jf, { nytISO: NYT.toISOString(), lahde: 'vp' });
   sb._vpJfKirjoita = async (pid, upd, viesti, paivita) => { try { await db.collection('seurat').doc('kpv').update(upd); if (paivita) paivita(); } catch (e) { sb.toast('virhe', 'error'); } };
   vm.createContext(sb);
-  const nimet = ['function _vpJaksoKorttiHTML(', 'function _vpPolunTilaHTML(', 'function _vpYdinvahvuusRiviHTML(', 'function _vpTanaanYlaHTML(', 'function _vpJaksoReRender(', 'window._vpAloitaJaksoAvaa = function', 'window._vpAloitaJaksoSulje = function', 'window._vpAloitaJaksoTallenna = async function'];
+  const nimet = ['function _vpJaksoKorttiHTML(', 'function _vpPolunTilaHTML(', 'function _vpYdinvahvuusRiviHTML(', 'function _vpTanaanYlaHTML(', 'function _vpJaksoReRender(', 'window._vpAloitaJaksoAvaa = async function', 'window._vpAloitaJaksoSulje = function', 'window._vpAloitaJaksoTallenna = async function'];
   vm.runInContext(nimet.map(pura).join(';\n') + ';', sb);
   return { sb, p, kirj, log };
 }
@@ -71,10 +71,10 @@ describe('Tänään — vain luku, kaikki jakson tiedot', () => {
 });
 
 describe('Aloita jakso -modaali VP:ssä (jaettu lib)', () => {
-  it('avautuu samalla lomakkeella kuin Masterissa; jakso olemassa → "Muokkaa jaksoa"; ei jaksoa → "Aloita jakso"', () => {
-    const a = ymp(); a.sb.window._vpAloitaJaksoAvaa(PID); expect(a.log.modalHTML).toContain('Muokkaa jaksoa'); expect(a.log.modalHTML).toContain('_vpAloitaJaksoTallenna');
+  it('avautuu samalla lomakkeella kuin Masterissa; jakso olemassa → "Muokkaa jaksoa"; ei jaksoa → "Aloita jakso"', async () => {
+    const a = ymp(); await a.sb.window._vpAloitaJaksoAvaa(PID); expect(a.log.modalHTML).toContain('Muokkaa jaksoa'); expect(a.log.modalHTML).toContain('_vpAloitaJaksoTallenna');
     for (const id of Object.values(L.AJ.IDS)) expect(a.log.modalHTML, id).toContain(id);
-    const b = ymp({ pelaaja: { jaksofokus: null } }); b.sb.window._vpAloitaJaksoAvaa(PID); expect(b.log.modalHTML).toContain('Aloita jakso'); expect(b.log.modalHTML).not.toContain('Muokkaa jaksoa');
+    const b = ymp({ pelaaja: { jaksofokus: null } }); await b.sb.window._vpAloitaJaksoAvaa(PID); expect(b.log.modalHTML).toContain('Aloita jakso'); expect(b.log.modalHTML).not.toContain('Muokkaa jaksoa');
   });
   it('tallennus: YKSI update pelaajadokkiin (jaksofokus+ydinvahvuus+vastuuhenkilo), asetti {rooli,pvm}, tila poistettu, paikallinen tila vasta onnistumisen jälkeen', async () => {
     const e = ymp({ pelaaja: { jaksofokus: Object.assign(JF(), { tila: 'valittavana' }) } });
