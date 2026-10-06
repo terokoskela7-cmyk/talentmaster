@@ -74,14 +74,15 @@ function render(sb) {
 }
 
 // Kiinteä chrome jonka PITÄÄ olla käännetty (fi-muoto = vuoto). Tier 2 -lib-sisältö EI ole listalla.
-const FI_CHROME = ['Ehdota jaksofokus', 'Yksilökonsepti', 'pre-PHV = tekninen ikkuna auki', 'Aseta jaksofokukseksi',
+// 6.10.2026: '🎯 Ehdota jaksofokus' → '🎯 Ehdota jaksoa' (jaksofokus-sana pois käyttäjältä); sv odottaa Teron/Gemini-erää → ei listoilla.
+const FI_CHROME = ['Yksilökonsepti', 'pre-PHV = tekninen ikkuna auki', 'Aseta jaksofokukseksi',
   'Muut ehdotukset (klik = aseta)', 'Ohjaava kysymys', 'Harjoite</div>', '· mitattu ',
   'FLEI-prioriteetti — fysiikkajakso', 'Heikoin D1 — fysiikkajakso', '>mittaus ',
   'pre-PHV: fyysinen kehitys rajallista', 'Aseta fysiikkajakso · 4 vk'];
 // sv-arvot = tm_vp_i18n:n sanktioidut käännökset (Kim/VP_SV_KAANNOSMUISTI) — EI omaa sanastoa (V8d korjasi vain avaimet).
 // 'Individkoncept' = Kimin lukitsema valinta (i18n-jäännöksen viimeistely); kartassa
 // oli kaksi sanktioitua muotoa ja kilpaileva 'Individuellt koncept' poistettiin.
-const SV_CHROME = ['Föreslå periodfokus', 'Individkoncept', 'Ange som periodfokus', 'Andra förslag (klicka = ange)',
+const SV_CHROME = ['Individkoncept', 'Ange som periodfokus', 'Andra förslag (klicka = ange)',
   'Svagaste D1 — fysikperiod', '>mätning ', 'Ange fysikperiod · 4 v'];
 
 describe('V8d · silta-paneelit sv (ajo vm-sandboxissa)', () => {
@@ -112,7 +113,7 @@ describe('V8d · silta-paneelit sv (ajo vm-sandboxissa)', () => {
   });
   it('fi: chrome ennallaan, sv-termejä ei vuoda (ei regressiota suomelle)', () => {
     const h = render(sandbox('fi'));
-    expect(h).toContain('Ehdota jaksofokus');
+    expect(h).toContain('Ehdota jaksoa');
     expect(h).toContain('Aseta fysiikkajakso · 4 vk');
     expect(SV_CHROME.filter((t) => h.includes(t))).toEqual([]);
   });

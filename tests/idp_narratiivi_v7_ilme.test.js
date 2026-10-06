@@ -69,7 +69,7 @@ describe('A — jaksofokus = teal fokus-hero (v7)', () => {
   it('tyhjä jaksofokus → rehellinen tyhjä (ei kaadu)', () => {
     const h = JF._vpAloitusJaksofokusHTML({ id: 'x1' });
     expect(h).toContain('idp-focal');
-    expect(h).toContain('Aseta jaksofokus');
+    expect(h).toContain('Aloita jakso');
   });
 });
 
@@ -103,11 +103,11 @@ describe('C — narratiivin järjestys + data-loss-vartija + CSS', () => {
   });
 
   it('SÄILYTÄ — kaikki Aloituksen apurikutsut tallella (ei sisältöhukkaa)', () => {
-    ['_vpPelaajanAaniHTML(p)', '_vpXFactorAse(p)', '_vpStatTiivisteHTML(p)', '_vpAloitusTavoiteHTML(p)',
+    ['_vpPelaajanAaniHTML(p)', '_vpXFactorYdinvahvuus(p)', '_vpStatTiivisteHTML(p)', '_vpAloitusTavoiteHTML(p)',
      '_vpAloitusJaksofokusHTML(p)', '_vpSitoumusHTML(p, pid)', '_vpPelipaikkaFundamentitHTML'].forEach((call) =>
       expect(HTML).toContain(call));
     // ⭐ Erottava ase (X-factor) + Kehityssuunnitelma-header ennallaan
-    expect(HTML).toContain('⭐ Erottava ase');
+    expect(HTML).toContain('⭐ Ydinvahvuus');
     expect(HTML).toContain('TalentMaster · Kehityssuunnitelma');
     // R1.4: selkäranka korvattu v7 2-sarakkeella (.idp-cols) — spine-kääre poistettu
     expect(HTML).toContain('<div class="idp-cols"><div class="idp-col-l">');

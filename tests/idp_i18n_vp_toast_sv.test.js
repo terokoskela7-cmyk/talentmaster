@@ -118,6 +118,9 @@ describe('ilmoituskanavat · kattavuus', () => {
    Uusi toast-teksti, jonka sv on Gemini-erässä. Omaa ruotsia EI kirjoiteta. Portti pysyy tiukkana:
    jos käännös ilmestyy, alempi testi punertaa ja rivi on poistettava listalta. */
 const SV_ODOTTAA_SANKTIOINTIA = [
+  // VP yksi polku (D4, 6.10.2026) — sv Teron/Gemini-erässä.
+  'Jaksoa ei voi aloittaa',
+  'Jakso tallennettu',
   'Valitse ensin porras',
   // PR "viesti-pelaajalle" (B): VP:n uusi viestitoiminto — sv Gemini-erässä.
   'Viesti lähetetty pelaajalle ja perheelle',

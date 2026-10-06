@@ -34,12 +34,12 @@ describe('(2) foc-header + (8) empty-state', () => {
     const T = extract('function _vpViikkoHTML(p) {');
     expect(T).toContain("vpT('Tämän viikon fokus · kannettu jaksofokuksesta')");   // V8i: reititetty
     expect(T).toContain("vpT('Opittu kun') + ': '");   // V8i: reititetty (kaksoispiste vpT:n ulkopuolella)
-    expect(T).toContain("↳ ' + vpT('Kehitys · jaksofokus') + ' (");   // V8i: reititetty
+    expect(T).toContain("↳ ' + vpT('Polku · jakso') + ' (");   // V8i: reititetty
   });
   it('empty-state kun ei jaksofokusta → CTA _jspVaihda(3)', () => {
     const T = extract('function _vpViikkoHTML(p) {');
     expect(T).toContain("vpT('Ei viikkosuunnitelmaa vielä')");   // V8i: reititetty
-    expect(T).toContain("📍 ' + vpT('Aseta jaksofokus (Kehitys) →')");   // V8i: reititetty
+    expect(T).toContain("📍 ' + vpT('Aloita jakso (Polku) →')");   // V8i: reititetty
     expect(T).toContain('_jspVaihda(3)');
   });
 });

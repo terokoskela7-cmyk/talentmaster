@@ -49,7 +49,7 @@ function onclickAttr(hakusana) {
   const lauseke = s.trim()
     .replace(/^(h|s)\s*\+=\s*/, '').replace(/^[:+]\s*/, '')
     .replace(/;\s*$/, '').replace(/\)\s*$/, '');
-  const ctx = { pid: 'ABC', vpT: (t) => t, esc: (v) => String(v) };
+  const ctx = { pid: 'ABC', vpT: (t) => t, esc: (v) => String(v), jf: { konsepti_nimi: 'x' } };
   // eslint-disable-next-line no-new-func
   const html = new Function(...Object.keys(ctx), 'return (' + lauseke + ');')(...Object.values(ctx));
   const m = String(html).match(/onclick="([^"]*)"/);
@@ -104,12 +104,12 @@ const JARJESTYS = (loki) => loki.map((x) => x.t);
 
 describe('PDC P1 · (1) EI MODAALIA PDC:llä — kaikki kolme vuotoa tukittu', () => {
   const NAPIT = [
-    ['L1 read-only-yhteenveto', "vpT('→ Kehitä jaksofokusta') + '</button></div>'"],
+    ['L1 read-only-yhteenveto', "((jf && jf.konsepti_nimi) ? vpT('→ Muokkaa jaksoa') : vpT('→ Aloita jakso')) + '</button></div>'"],
     ['L3 kauden tavoite (tyhjä)', "vpT('＋ Tee kauden tavoite')"],
     /* PR B toi saman tekstin toiseen paikkaan (Seuraava askel -laatikon painike, _vpAskelNappi),
        joten hakusana on tarkennettu tähän kutsupaikkaan — muuten haku osuisi switch-haaraan,
        josta ei synny onclick-attribuuttia lainkaan. */
-    ['L2 jaksofokus (tyhjä)', "_pdcSiirryCockpittiin(\\'' + pid + '\\',3)\">' + vpT('＋ Aseta jaksofokus')"],
+    ['L2 jaksofokus (tyhjä)', "_pdcSiirryCockpittiin(\\'' + pid + '\\',3)\">' + vpT('＋ Aloita jakso')"],
   ];
 
   it.each(NAPIT)('%s: handler PARSIUTUU ja osoittaa siirtymään (ei _jfOhjaa/_vpEhdotaTavoite)', (_nimi, hak) => {

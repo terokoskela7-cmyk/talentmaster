@@ -126,7 +126,7 @@ describe('V6 _vpJfTavoitteetTallenna — dot-path, ei jakson vaihtoa', () => {
   });
   it('ei muutoksia → EI kirjoitusta (toast silti)', async () => {
     const e = ymp({ pelaaja: { jaksofokus: JSON.parse(JSON.stringify(JF)) } }); await e.sb.window._vpJfTavoitteetTallenna(PID);
-    expect(e.kirj).toEqual([]); expect(e.log.toastit.some(([t]) => /Jaksofokus tallennettu/.test(t))).toBe(true);
+    expect(e.kirj).toEqual([]); expect(e.log.toastit.some(([t]) => /Jakso tallennettu/.test(t))).toBe(true);
   });
   it('ei jaksoa → ei mitään; kirjoitus epäonnistuu → virheilmoitus', async () => {
     const a = ymp({ pelaaja: { jaksofokus: null } }); await a.sb.window._vpJfTavoitteetTallenna(PID); expect(a.kirj).toEqual([]);

@@ -43,10 +43,10 @@ const JF = { konsepti_nimi: 'HAVAINNOINTI', konsepti_avain: 'y_h0', konsepti_koo
 
 describe('R1.3 A — origin-kohtainen otsikko', () => {
   it('silta/arviointi → "silta arvioinnista"', () => {
-    expect(K({ jaksofokus: Object.assign({}, JF, { lahde: 'arviointi' }) })).toContain('↳ Miksi tämä · silta arvioinnista');
+    expect(K({ jaksofokus: Object.assign({}, JF, { lahde: 'arviointi' }) })).toContain('↳ Miksi tämä · TalentMasterin ehdotus');
   });
   it('silta_d1/fyysinen → "silta mittauksesta"', () => {
-    expect(K({ jaksofokus: Object.assign({}, JF, { lahde: 'silta_d1', domeeni: 'fyysinen' }) })).toContain('↳ Miksi tämä · silta mittauksesta');
+    expect(K({ jaksofokus: Object.assign({}, JF, { lahde: 'silta_d1', domeeni: 'fyysinen' }) })).toContain('↳ Miksi tämä · TalentMasterin ehdotus');
   });
   it('käsin → "asetettu käsin"', () => {
     expect(K({ jaksofokus: Object.assign({}, JF, { lahde: 'vp' }) })).toContain('↳ Miksi tämä · asetettu käsin');
@@ -65,13 +65,13 @@ describe('R1.3 B — chain AIDOSTA silta-lähteestä (palloliittokohde, ei konse
   it('honest-empty: ei matchaavaa silta-ehdotusta → EI lukua eikä chainia (ei fabrikointia)', () => {
     // mismatch konsepti_avain → src null
     const h = K({ jaksofokus: Object.assign({}, JF, { konsepti_avain: 'ei_matchia', lahde: 'arviointi' }) });
-    expect(h).toContain('Havaittu <b>Arviointi-välilehdellä</b> → silta ehdotti konseptin.');
+    expect(h).toContain('Havaittu <b>Arviointi-välilehdellä</b> → TalentMasterin ehdotus.');
     expect(h).not.toContain('idp-chain');
     expect(h).not.toContain('/5');
   });
   it('d1-haara pysyy fyysisenä (ei palloliittokohde/chain)', () => {
     const h = K({ jaksofokus: Object.assign({}, JF, { lahde: 'silta_d1', domeeni: 'fyysinen' }) });
-    expect(h).toContain('fyysisestä mittauksesta');
+    expect(h).toContain('fyysinen mittaus');
     expect(h).not.toContain('idp-chain');
   });
 });

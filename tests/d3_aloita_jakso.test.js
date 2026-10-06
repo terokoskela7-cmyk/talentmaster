@@ -9,7 +9,7 @@ import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import vm from 'vm';
 const require = createRequire(import.meta.url);
-const JM = require('../lib/tm_jakso_malli.js'), K = require('../lib/tm_kehityssilmukka.js'), VH = require('../lib/tm_vastuuhenkilo.js');
+const JM = require('../lib/tm_jakso_malli.js'), K = require('../lib/tm_kehityssilmukka.js'), VH = require('../lib/tm_vastuuhenkilo.js'), AJ = require('../lib/tm_aloita_jakso.js');
 const juuri = join(dirname(fileURLToPath(import.meta.url)), '..'), MA = readFileSync(join(juuri, 'TalentMaster_Master_v16.html'), 'utf8');
 const PID = 'm93GBdOaGCUuenMiCL0I', PVM = '2026-10-07', NYT = '2026-10-07T08:00:00.000Z';
 const SYOTE = (lisa) => Object.assign({ konsepti_avain: 'y_h2', konsepti_nimi: 'Saattaen vaihtaminen', ydinvahvuus_kuvaus: 'Näkee pelin hyvin', tukiosa_alue: 'kestävyys', tukiosa_perustelu: 'Jaksaminen tukee pelin lukemista loppuun asti' }, lisa || {});
@@ -23,7 +23,7 @@ describe('lib: tmJaksonKesto (D7) + tmAloitaJakso', () => {
   });
   it('aloitus: jaksofokus {taito, alkoi, kesto, lahde valmentaja, tukiosa {alue, perustelu, harjoitteet:[]}} + ydinvahvuus {kuvaus, havaittu_pvm tänään, rooli}; oletuskesto ikävaiheesta; domeeni oletuksena teknis_taktinen', () => {
     const r = JM.tmAloitaJakso({ syntymaVuosi: 2013 }, SYOTE(), OPTS());
-    expect(r.jaksofokus).toEqual({ konsepti_avain: 'y_h2', konsepti_nimi: 'Saattaen vaihtaminen', konsepti_koodi: null, alkoi: NYT, kesto_vk: 6, lahde: 'valmentaja', domeeni: 'teknis_taktinen', tukiosa: { alue: 'kestävyys', perustelu: 'Jaksaminen tukee pelin lukemista loppuun asti', harjoitteet: [] } });
+    expect(r.jaksofokus).toEqual({ konsepti_avain: 'y_h2', konsepti_nimi: 'Saattaen vaihtaminen', konsepti_koodi: null, alkoi: NYT, kesto_vk: 6, lahde: 'valmentaja', asetti: { rooli: 'vp', pvm: PVM }, domeeni: 'teknis_taktinen', tukiosa: { alue: 'kestävyys', perustelu: 'Jaksaminen tukee pelin lukemista loppuun asti', harjoitteet: [] } });
     expect(r.ydinvahvuus).toEqual({ kuvaus: 'Näkee pelin hyvin', havaittu_pvm: PVM, rooli: 'vp' });
     expect(JM.tmAloitaJakso({}, SYOTE(), OPTS({ ika: 10 })).jaksofokus.kesto_vk).toBe(12); expect(JM.tmAloitaJakso({}, SYOTE({ kesto_vk: '8' }), OPTS()).jaksofokus.kesto_vk).toBe(8);
   });
@@ -56,11 +56,11 @@ function ymp({ pelaaja, kentat = {}, demo = false, kaada = false, rooli = 'valme
     masterT: (x) => x, tmPaivaIso: () => PVM, toast: (t, k) => log.toastit.push([t, k]), console: { warn() {} }, _rooli: rooli, _superAdmin: sa, _demo: demo, _seuraId: 'kpv', _db: { collection: () => ({ doc: () => ({ collection: () => ({ doc: () => dok }) }) }) }, _mVerkkoEnnenSulkua: () => true, _mTuoreToken: async () => {},
     firebase: { auth: () => ({ currentUser: {} }), firestore: { FieldValue: { arrayUnion: (...a) => ({ __arrayUnion: a }) } } }, _renderPinfoFirestore: () => { log.renderit++; }, _mIdpReRender: () => { log.renderit++; }, _tmHenkiloNimi: () => 'Topias K.', _mLataaHenkilosto() {},
     _mJaksoVaihto: (pp, jf) => K.tmAsetaJaksofokus(pp, jf, { nytISO: NYT }), document, Object, Array, String, Number, Promise, JSON };
-  c.window = c; c.window.TM_JAKSO_MALLI = JM; c.window.TM_VASTUUHENKILO = VH; c.window._mHenkilosto = [{ id: 'u-valm', nimi: 'Veera Valmentaja', rooli: 'valmentaja' }, { id: 'u-vp', nimi: 'Vilma VP', rooli: 'vp' }]; vm.createContext(c);
+  c.window = c; c.window.TM_JAKSO_MALLI = JM; c.window.TM_VASTUUHENKILO = VH; c.window.TM_ALOITA_JAKSO = AJ; c.window._mHenkilosto = [{ id: 'u-valm', nimi: 'Veera Valmentaja', rooli: 'valmentaja' }, { id: 'u-vp', nimi: 'Vilma VP', rooli: 'vp' }]; vm.createContext(c);
   vm.runInContext([pura('function _mAloitaJaksoRivi('), pura('function _mAjPelaajaPp('), pura('function _mPelaajaNimiAj('), pura('window._mAloitaJaksoAvaa = function'), pura('window._mAloitaJaksoSulje = function'), pura('window._mAloitaJaksoTallenna = async function')].join(';\n') + ';', c);
   return { c, p, log };
 }
-const KENTAT = (lisa) => Object.assign({ _mAjTaito: 'y_h2', _mAjYv: 'Näkee pelin hyvin', _mAjAlue: 'kestävyys', _mAjPer: 'Jaksaminen tukee pelin lukemista', _mAjKesto: '6', _mAjVh: '' }, lisa || {});
+const KENTAT = (lisa) => Object.assign({ _ajTaito: 'y_h2', _ajYv: 'Näkee pelin hyvin', _ajAlue: 'kestävyys', _ajPer: 'Jaksaminen tukee pelin lukemista', _ajKesto: '6', _ajVh: '' }, lisa || {});
 
 describe('Master: jakson aloitus (D-3)', () => {
   it('rivi: nappi vain muokkausoikeudella; "Vahvista jakso" kun pelaajan valinta odottaa (tila valittavana), muuten "Aloita jakso"', () => {
@@ -69,12 +69,12 @@ describe('Master: jakson aloitus (D-3)', () => {
   });
   it('modaali: taidot, ydinvahvuus esitäytettynä pelaajan valinnasta, kesto ikävaiheen vaihtoehdot (13 v → 6/7/8), vastuuhenkilö-valitsin; ei hex-värejä', () => {
     const e = ymp({ pelaaja: { ydinvahvuus_valinta: { vaihtoehto: 'saattaen vaihtaminen' } } }); e.c.window._mAloitaJaksoAvaa(PID); const h = e.log.modal;
-    expect(h).toContain('id="_mAjTaito"'); expect(h).toContain('Saattaen vaihtaminen'); expect(h).toContain('Pelaaja valitsi ydinvahvuutensa'); expect(h).toMatch(/id="_mAjYv"[^>]*>saattaen vaihtaminen</);
+    expect(h).toContain('id="_ajTaito"'); expect(h).toContain('Saattaen vaihtaminen'); expect(h).toContain('Pelaaja valitsi ydinvahvuutensa'); expect(h).toMatch(/id="_ajYv"[^>]*>saattaen vaihtaminen</);
     expect(h).toMatch(/<option value="6" selected>6<\/option><option value="7">7<\/option><option value="8">8<\/option>/); expect(h).toContain('Veera Valmentaja · valmentaja'); expect(h).toContain('Vilma VP · vp'); expect(h).not.toMatch(/#[0-9a-fA-F]{3,6}\b|rgb\(/);
-    const e2 = ymp({ pelaaja: { ydinvahvuus: { kuvaus: 'Oma kuvaus', havaittu_pvm: '2026-09-01', rooli: 'valmentaja' }, ydinvahvuus_valinta: { vaihtoehto: 'x' } } }); e2.c.window._mAloitaJaksoAvaa(PID); expect(e2.log.modal).toMatch(/id="_mAjYv"[^>]*>Oma kuvaus</);   // valmentajan oma voittaa esitäytössä
+    const e2 = ymp({ pelaaja: { ydinvahvuus: { kuvaus: 'Oma kuvaus', havaittu_pvm: '2026-09-01', rooli: 'valmentaja' }, ydinvahvuus_valinta: { vaihtoehto: 'x' } } }); e2.c.window._mAloitaJaksoAvaa(PID); expect(e2.log.modal).toMatch(/id="_ajYv"[^>]*>Oma kuvaus</);   // valmentajan oma voittaa esitäytössä
   });
   it('tallennus: YKSI update {jaksofokus (tukiosa + kesto + lahde valmentaja), ydinvahvuus} (+ vastuuhenkilö kun valittu); paikallinen vasta onnistumisen jälkeen; modaali sulkeutuu; toast ok', async () => {
-    const e = ymp({ kentat: KENTAT({ _mAjVh: 'u-valm|apuvalmentaja' }) }); e.c.window._mAloitaJaksoAvaa(PID); await e.c.window._mAloitaJaksoTallenna(PID);
+    const e = ymp({ kentat: KENTAT({ _ajVh: 'u-valm|apuvalmentaja' }) }); e.c.window._mAloitaJaksoAvaa(PID); await e.c.window._mAloitaJaksoTallenna(PID);
     expect(e.log.upd.length).toBe(1); const u = e.log.upd[0]; expect(Object.keys(u).sort()).toEqual(['jaksofokus', 'vastuuhenkilo', 'ydinvahvuus']);
     expect(u.jaksofokus).toMatchObject({ konsepti_avain: 'y_h2', konsepti_koodi: 'Y-H2', kesto_vk: 6, lahde: 'valmentaja', tukiosa: { alue: 'kestävyys', perustelu: 'Jaksaminen tukee pelin lukemista', harjoitteet: [] } });
     expect(u.ydinvahvuus).toEqual({ kuvaus: 'Näkee pelin hyvin', havaittu_pvm: PVM, rooli: 'valmentaja' }); expect(u.vastuuhenkilo).toEqual({ uid: 'u-valm', rooli: 'apuvalmentaja', asetettu_pvm: PVM });
@@ -90,7 +90,7 @@ describe('Master: jakson aloitus (D-3)', () => {
     const SA = require('../lib/tm_seuraava_askel.js'); expect(SA.tmSeuraavaAskel(Object.assign({}, e.p, { review_viimeisin_pvm: PVM }), { nyt: Date.parse(NYT), deps: {} }).avain).not.toBe('valinta_odottaa');
   });
   it('VIRHEET eivät kirjoita: puuttuva perustelu / GDPR-sana / liian pitkä kesto → ohjeellinen virhe-toast, ei update, ei paikallista muutosta, modaali jää auki; kirjoitusvirhe → toast + ei paikallista muutosta; demo → ei kirjoitusta', async () => {
-    for (const lisa of [{ _mAjPer: '' }, { _mAjPer: 'Tämä on heikkous' }, { _mAjKesto: '12' }, { _mAjYv: '' }, { _mAjAlue: '' }]) {
+    for (const lisa of [{ _ajPer: '' }, { _ajPer: 'Tämä on heikkous' }, { _ajKesto: '12' }, { _ajYv: '' }, { _ajAlue: '' }]) {
       const e = ymp({ kentat: KENTAT(lisa) }); e.c.window._mAloitaJaksoAvaa(PID); await e.c.window._mAloitaJaksoTallenna(PID);
       expect(e.log.upd, JSON.stringify(lisa)).toEqual([]); expect(e.p.jaksofokus).toBeUndefined(); expect(e.log.toastit.at(-1)[1]).toBe('error'); expect(e.log.toastit.at(-1)[0]).toMatch(/^Jaksoa ei voi aloittaa: /); expect(e.log.toastit.at(-1)[0]).not.toContain('tm_jakso_malli'); expect(e.log.modal).not.toBeNull();
     }
