@@ -13,6 +13,19 @@ function kayttajaRooliSallittu(kayttajaData) {
   return SALLITUT_KAYTTAJA_ROOLIT.includes(kayttajaData.rooli) ? kayttajaData.rooli : null;
 }
 
+/* Korjaus-PR 2 (VP-periaate 5.10.2026): VP tunnistetaan myös CUSTOM CLAIMEISTA (rooli + seuraId), kun seura.vp_uid on tyhjä/osoittaa muualle JA seuran kayttajat-dokumenttia
+   ei ole (esim. epäonnistunut/kesken jäänyt luoKayttaja: claimit asetettu, dokumentti puuttuu; vp_uid vapautettu deaktivoinnissa). Päätös:
+     · token.seuraId === seuraId ja token.rooli ∈ SALLITUT_KAYTTAJA_ROOLIT (vp/utj/seurasihteeri), ei anonyymi
+     · kayttajat-dokumentti on TOTUUS jos se on olemassa: aktiivinen === false → EI oikeuksia (claimi voi elää ≤ 1 h tokenissa); dokumentin rooli ei sallittu (esim. alennettu
+       valmentajaksi) → EI oikeuksia (vanhentunut claimi ei nosta). Claimit asettaa vain palvelin (luoKayttaja/vaihdaKayttajanRooli) → luotettavia. Palauttaa roolin tai null. */
+function kayttajaRooliClaimeista(token, seuraId, kayttajaData) {
+  if (!token || !seuraId || token.seuraId !== seuraId) return null;
+  if (token.firebase && token.firebase.sign_in_provider === 'anonymous') return null;
+  if (!SALLITUT_KAYTTAJA_ROOLIT.includes(token.rooli)) return null;
+  if (kayttajaData) return kayttajaRooliSallittu(kayttajaData) === token.rooli ? token.rooli : null;   // dokumentti ratkaisee (aktiivinen + rooli täsmää claimiin)
+  return token.rooli;                                                                                   // dokumenttia ei ole → claimi
+}
+
 /* Vaihe 0 / PR 3 — callable-tunnisteen luokitus. Anonyymi kirjautuminen onnistuu Authissa niin kauan
    kuin Anonymous-provider on päällä, joten pelkkä `context.auth` EI riitä. Palauttaa:
      'pelaaja'      — palvelintoken (pelaajaKirjaudu): { rooli:'pelaaja', pelaajaSeuraId, pelaajaId }
@@ -43,4 +56,4 @@ function kuittausPaatos(auth, seuraId, pelaajaId) {
   return 'evatty';
 }
 
-module.exports = { kayttajaRooliSallittu, SALLITUT_KAYTTAJA_ROOLIT, tunnisteTyyppi, kuittausPaatos };
+module.exports = { kayttajaRooliSallittu, kayttajaRooliClaimeista, SALLITUT_KAYTTAJA_ROOLIT, tunnisteTyyppi, kuittausPaatos };
