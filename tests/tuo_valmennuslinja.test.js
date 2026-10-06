@@ -32,8 +32,8 @@ describe('1. ajo — TM:n esitäytetty Excel → kaikki luonnos', () => {
   const r = ajo(POHJA);
   it('kaikki dokumentit luodaan, jokaisella tila "luonnos", ei tarkistettu_pvm/tarkistaja, versio 1; tiedollisia välilehtiä (OHJE/Puutteet/Kattavuus) ei tuoda; tyhjät UUSI-paikat ohitetaan', () => {
     expect(r.raportti.ajo).toBe(1); expect(r.docs.every((d) => d.op === 'luo' && d.versio === 1)).toBe(true);
-    expect(poluilla(r)).toEqual(['harjoitepankki/ketteryys_132_ketteryys_1', 'harjoitepankki/ketteryys_133_ketteryys_2', 'harjoitepankki/rutiinit_113_venyttelyt', 'harjoitepankki/rutiinit_116_alkurutiini_1',
-      'ohjelmat/keskivartalo_92_keskivartalon_perusliikkeet', 'ohjelmat/ohjelmat_97_lihaskestavyys_1_alle_12v', 'ohjelmat/ohjelmat_98_keppijumppa', 'ohjelmat/ohjelmat_99_poistettava_ohjelma',
+    expect(poluilla(r)).toEqual(['harjoitepankki/ketteryys_132_1', 'harjoitepankki/ketteryys_133_1', 'harjoitepankki/rutiinit_113_1', 'harjoitepankki/rutiinit_116_1',
+      'ohjelmat/keskivartalo_92_1', 'ohjelmat/ohjelmat_97_1', 'ohjelmat/ohjelmat_98_1', 'ohjelmat/ohjelmat_99_1',
       'valmennuslinja/ikavaiheet', 'valmennuslinja/teemat', 'valmennuslinja/teemat_luonnos']);
     const d = tilaan(r); for (const [p, x] of Object.entries(d)) { if (p.startsWith('valmennuslinja/')) continue; expect(x.tila, p).toBe('luonnos'); expect(x.tarkistettu_pvm).toBeNull(); expect(x.tarkistaja).toBeNull(); expect(x.lahde).toBe('seura'); }
     expect(d['valmennuslinja/teemat'].jaksot).toEqual([]); expect(d['valmennuslinja/teemat_luonnos'].jaksot.length).toBe(2); expect(d['valmennuslinja/teemat_luonnos'].jaksot.every((j) => j.tila === 'luonnos')).toBe(true);
@@ -45,23 +45,23 @@ describe('1. ajo — TM:n esitäytetty Excel → kaikki luonnos', () => {
   });
   it('ID:t johdettu välilehti + lahde_dia + nimi (deterministinen): sama syöte kahdesti → samat polut; ID:ssä ei satunnaisosaa', () => { expect(poluilla(ajo(POHJA))).toEqual(poluilla(r)); expect(poluilla(r).every((p) => /^[a-z0-9_/]+$/.test(p))).toBe(true); });
   it('harjoitepankki-dokumentti: tyyppi T, lahde seura, kehityskohde null (ei vahingossa korvaa TM:n oletusta), ketju v2-masterista, kotiin_sopiva-säännöt, ketteryys: kuva puuttuu → video_url null', () => {
-    const d = tilaan(r), a = d['harjoitepankki/rutiinit_116_alkurutiini_1'], v = d['harjoitepankki/rutiinit_113_venyttelyt'], k = d['harjoitepankki/ketteryys_132_ketteryys_1'];
+    const d = tilaan(r), a = d['harjoitepankki/rutiinit_116_1'], v = d['harjoitepankki/rutiinit_113_1'], k = d['harjoitepankki/ketteryys_132_1'];
     expect(a).toMatchObject({ nimi: 'Alkurutiini 1', tyyppi: 'T', kehityskohde: null, ketju: 'SFL', kotiin_sopiva: false, kotiin_huomio: 'ei (joukkueharjoitus)', lahde_viite: 'Nevanlinna 2014, dia 116', lahde: 'seura' });
     expect(v).toMatchObject({ kotiin_sopiva: false, kotiin_huomio: 'kyllä (tarvitsee kuvat)', ketju: null });   // ehdollinen kyllä ei ole kotiin sopiva; ei ketjua masterissa
-    expect(k).toMatchObject({ ohje: 'Pujotteluradat tötsien välissä', tarvikkeet: 'tötsät', pelaajia: 1, video_url: null, kuva_tai_video: null, kotiin_sopiva: false });
+    expect(k).toMatchObject({ ohje: 'Pujotteluradat tötsien välissä', tarvikkeet: 'tötsät', pelaajia: 1, video_url: null, kuva_url: null, kotiin_sopiva: false });
     expect(r.raportti.ehdollinenKotiin.some((x) => x.includes('Venyttelyt'))).toBe(true);
   });
   it('ohjelmat: liikkeet[] + yksi vaihe (kirjaston rakenne), ikarajat (alle 12v → max 11; yli 12v → min 12), kotiin_sopiva vain täsmälleen "kyllä", ketju liikekohtaisesti, URL vain oikeasta URL:sta', () => {
-    const d = tilaan(r), o = d['ohjelmat/ohjelmat_97_lihaskestavyys_1_alle_12v'], k = d['ohjelmat/ohjelmat_98_keppijumppa'];
+    const d = tilaan(r), o = d['ohjelmat/ohjelmat_97_1'], k = d['ohjelmat/ohjelmat_98_1'];
     expect(o).toMatchObject({ nimi: 'Lihaskestävyys 1 (alle 12v)', tyyppi: 'muu', ika_min: null, ika_max: 11, teema_avain: null, lahde_viite: 'Nevanlinna 2014, dia 97', arkistoitu: false, laatija_rooli: 'tuonti' }); expect(k).toMatchObject({ ika_min: 12, ika_max: null });
     expect(o.liikkeet.map((l) => [l.jarjestys, l.liike, l.ketju, l.kotiin_sopiva, l.kotiin_huomio, l.kesto_min])).toEqual([[1, 'Narulla hyppely', 'SFL', true, null, 5], [2, 'Pareittain GHR', 'SBL', false, 'kyllä (tarvitsee parin)', 1.5]]);
     expect(k.liikkeet[0]).toMatchObject({ video_url: 'https://example.org/v1', kotiin_sopiva: false, ketju: 'DFL' }); expect(o.liikkeet[0].video_url).toBeNull();
     expect(o.vaiheet).toHaveLength(1); expect(o.vaiheet[0].harjoitteet).toEqual(['Narulla hyppely', 'Pareittain GHR']);
     const { tmOhjelmaValidoi } = require('../lib/tm_ohjelma.js'); Object.entries(d).filter(([p]) => p.startsWith('ohjelmat/')).forEach(([p, x]) => expect(tmOhjelmaValidoi(x).ok, p).toBe(true));   // kirjaston validaattori hyväksyy
-    expect(d['ohjelmat/keskivartalo_92_keskivartalon_perusliikkeet'].liikkeet[0]).toMatchObject({ taso: 'Taso 1', toistot: 'x10-20', ketju: 'DFL', kotiin_sopiva: true });
+    expect(d['ohjelmat/keskivartalo_92_1'].liikkeet[0]).toMatchObject({ taso: 'Taso 1', toistot: 'x10-20', ketju: 'DFL', kotiin_sopiva: true });
   });
   it('ikavaiheet: ikärajat sarakkeista (tai ikaluokasta), sisalto[] painopisteistä ilman numerointia, lahde_viite "Nevanlinna 2014, dia N"', () => {
-    const rv = tilaan(r)['valmennuslinja/ikavaiheet'].rivit; expect(rv.map((x) => [x.ikaluokka, x.ika_min, x.ika_max])).toEqual([['B16-17', 16, 17], ['F7', 7, 7]]);
+    const rv = tilaan(r)['valmennuslinja/ikavaiheet'].rivit; expect(rv.map((x) => [x.ikaluokka, x.ika_min, x.ika_max])).toEqual([['F7', 7, 7], ['B16-17', 16, 17]]);
     expect(rv.find((x) => x.ikaluokka === 'F7')).toMatchObject({ sisalto: ['Taitavuus: tasapaino', 'Rytmikyky'], totuteltava: ['Liikkuvuus'], suositellut_ohjelmat: ['Keppijumppa'], lahde_viite: 'Nevanlinna 2014, dia 23', dimensio: 'D1' });
   });
 });
@@ -73,8 +73,8 @@ describe('Coworkin päätökset 6.10. (4a, 4c)', () => {
     expect(Object.keys(d).filter((p) => p.startsWith('harjoitepankki/')).length).toBe(4);
   });
   it('4c: dimensio "D1" ikavaiheet-riveille joiden lahde_viite sisältää Nevanlinna (dia-numerot = Nevanlinnan 2014 -aineisto); muille tyhjä; --lahde ylikirjoittaa lähteen → ei D1:tä', () => {
-    expect(d['valmennuslinja/ikavaiheet'].rivit.map((x) => [x.ikaluokka, x.dimensio, x.lahde_viite])).toEqual([['B16-17', 'D1', 'Nevanlinna 2014, dia 31'], ['F7', 'D1', 'Nevanlinna 2014, dia 23']]);
-    const muu = ajo(POHJA, {}, { lahde: 'SJK oma' }); expect(tilaan(muu)['valmennuslinja/ikavaiheet'].rivit.map((x) => [x.dimensio, x.lahde_viite])).toEqual([[null, 'SJK oma, dia 31'], [null, 'SJK oma, dia 23']]);
+    expect(d['valmennuslinja/ikavaiheet'].rivit.map((x) => [x.ikaluokka, x.dimensio, x.lahde_viite])).toEqual([['F7', 'D1', 'Nevanlinna 2014, dia 23'], ['B16-17', 'D1', 'Nevanlinna 2014, dia 31']]);
+    const muu = ajo(POHJA, {}, { lahde: 'SJK oma' }); expect(tilaan(muu)['valmennuslinja/ikavaiheet'].rivit.map((x) => [x.dimensio, x.lahde_viite])).toEqual([[null, 'SJK oma, dia 23'], [null, 'SJK oma, dia 31']]);
     const omaTeksti = lue('ajo1_pohja.xlsx'); omaTeksti.sheets.Ikaluokat[1][5] = 'SJK:n oma dia 4'; expect(tilaan(ajo(omaTeksti))['valmennuslinja/ikavaiheet'].rivit.find((x) => x.ikaluokka === 'F7')).toMatchObject({ dimensio: null, lahde_viite: 'SJK:n oma dia 4' });
     const eksplisiittinen = lue('ajo1_pohja.xlsx'); eksplisiittinen.sheets.Ikaluokat[0].push('dimensio'); eksplisiittinen.sheets.Ikaluokat[1][9] = 'D3'; expect(tilaan(ajo(eksplisiittinen))['valmennuslinja/ikavaiheet'].rivit.find((x) => x.ikaluokka === 'F7').dimensio).toBe('D3');
   });
@@ -83,43 +83,109 @@ describe('Coworkin päätökset 6.10. (4a, 4c)', () => {
   });
 });
 
+describe('ID-vakaus kuittauksessa (ei nimeä/joukkuetta ID:ssä)', () => {
+  it('SJK korjaa NIMEN / JOUKKUEEN / OHJELMAN NIMEN → sama dokumentti päivittyy (ei uutta dokumenttia, ei haamua): ID = välilehti + lahde_dia + järjestysnumero', () => {
+    const nyk = tilaan(ajo(POHJA)), muokattu = lue('ajo1_pohja.xlsx');
+    muokattu.sheets.Rutiinit_ja_harjoitteet[1][0] = 'Alkurutiini 1 (korjattu nimi)'; muokattu.sheets.Teemat[1][0] = 'SJK P13'; muokattu.sheets.Teemat[2][0] = 'SJK P13';
+    muokattu.sheets.Ohjelmat.forEach((rv, i) => { if (i > 0 && rv[0] === 'Keppijumppa') rv[0] = 'Keppijumppa (uusi nimi)'; });
+    muokattu.sheets.Ketteryys_ja_nopeus[1][0] = 'Ketteryys 1B';
+    const r2 = ajo(muokattu, nyk), uusi = sovella(nyk, r2);
+    expect(r2.docs.filter((x) => x.op === 'luo' || x.op === 'poista')).toEqual([]);                     // ei uusia dokumentteja, ei poistoja
+    expect(Object.keys(uusi).sort()).toEqual(Object.keys(nyk).sort());                                   // samat polut ennen/jälkeen
+    expect(uusi['harjoitepankki/rutiinit_116_1'].nimi).toBe('Alkurutiini 1 (korjattu nimi)'); expect(uusi['harjoitepankki/ketteryys_132_1'].nimi).toBe('Ketteryys 1B'); expect(uusi['ohjelmat/ohjelmat_98_1'].nimi).toBe('Keppijumppa (uusi nimi)');
+    expect(uusi['valmennuslinja/teemat_luonnos'].jaksot.map((j) => j.joukkue)).toEqual(['SJK P13', 'SJK P13']);                // joukkue vaihtui, id sama → ei kahta riviä
+    expect(uusi['valmennuslinja/teemat_luonnos'].jaksot.length).toBe(2);
+  });
+  it('samalla dia-arvolla olevat rivit saavat järjestysnumeron Excel-järjestyksessä (_1, _2…); uusi rivi loppuun jatkaa numerointia, vanhat ID:t eivät muutu', () => {
+    const w = lue('ajo1_pohja.xlsx'); w.sheets.Rutiinit_ja_harjoitteet[2][4] = '116';   // Venyttelyt samaan diaan kuin Alkurutiini 1
+    expect(poluilla(ajo(w)).filter((p) => p.includes('rutiinit_116'))).toEqual(['harjoitepankki/rutiinit_116_1', 'harjoitepankki/rutiinit_116_2']);
+    const lisaa = lue('ajo1_pohja.xlsx'); lisaa.sheets.Rutiinit_ja_harjoitteet.splice(3, 0, ['Uusi rutiini', 'sis', 'ohje', 'kyllä', '116', 'Uusi', '']);
+    const a = poluilla(ajo(POHJA)), b = poluilla(ajo(lisaa)); a.forEach((p) => expect(b).toContain(p)); expect(b).toContain('harjoitepankki/rutiinit_116_2');
+  });
+});
+
+describe('video_url + kuva_url -sarakkeet (uusi Excel) ja Ketteryys-ketju v2-masterista', () => {
+  const uusiKetteryys = () => { const w = lue('ajo2_kuitattu.xlsx'); const rs = w.sheets.Ketteryys_ja_nopeus; w.sheets.Ketteryys_ja_nopeus = rs.map((r, i) => (i === 0 ? ['nimi', 'kuvaus', 'valineet', 'pelaajia', 'kotiin_sopiva', 'video_url', 'kuva_url', 'lahde_dia', 'kuittaus', 'kommentti'] : [r[0], r[1], r[2], r[3], r[4], '', '', r[6], r[7], r[8]])); return w; };
+  it('Ketteryys: media = video_url TAI kuva_url (kumpi tahansa riittää); ilman mediaa pysyy luonnoksena OK-kuittauksesta huolimatta; molemmat sarakkeet tallentuvat', () => {
+    const w = uusiKetteryys(); const nyk = tilaan(ajo(POHJA));
+    let d = tilaan(ajo(w, nyk)); expect(d['harjoitepankki/ketteryys_132_1'].tila).toBe('luonnos'); expect(d['harjoitepankki/ketteryys_133_1'].tila).toBe('luonnos');
+    w.sheets.Ketteryys_ja_nopeus[1][5] = 'https://example.org/k1.mp4'; w.sheets.Ketteryys_ja_nopeus[2][6] = 'https://example.org/k2.jpg'; d = tilaan(ajo(w, nyk));
+    expect(d['harjoitepankki/ketteryys_132_1']).toMatchObject({ tila: 'hyvaksytty', video_url: 'https://example.org/k1.mp4', kuva_url: null });
+    expect(d['harjoitepankki/ketteryys_133_1']).toMatchObject({ tila: 'hyvaksytty', video_url: null, kuva_url: 'https://example.org/k2.jpg' });
+    w.sheets.Ketteryys_ja_nopeus[1][5] = 'ei url'; expect(tilaan(ajo(w, nyk))['harjoitepankki/ketteryys_132_1'].tila).toBe('luonnos');   // epäkelpo arvo ei ole mediaa
+  });
+  it('kuva_url + video_url luetaan myös Ohjelmat/Keskivartalo/Rutiinit-riveille (liikkeet[].kuva_url / video_url; harjoitepankki-doc)', () => {
+    const w = lue('ajo1_pohja.xlsx'); const oh = w.sheets.Ohjelmat; oh[0] = oh[0].concat(['kuva_url']); oh[1] = oh[1].concat(['https://example.org/liike.png']);
+    const r = w.sheets.Rutiinit_ja_harjoitteet; r[0] = r[0].concat(['kuva_url', 'video_url']); r[1] = r[1].concat(['https://example.org/rutiini.jpg', 'https://example.org/rutiini.mp4']);
+    const d = tilaan(ajo(w)); expect(d['ohjelmat/ohjelmat_97_1'].liikkeet[0].kuva_url).toBe('https://example.org/liike.png'); expect(d['ohjelmat/ohjelmat_97_1'].liikkeet[1].kuva_url).toBeNull();
+    expect(d['harjoitepankki/rutiinit_116_1']).toMatchObject({ kuva_url: 'https://example.org/rutiini.jpg', video_url: 'https://example.org/rutiini.mp4' }); expect(T.ALIAS.kuva_url).toBe('kuva_url');
+  });
+  it('Ketteryys-ketju haetaan v2-masterin Ketteryys_ja_nopeus-välilehdeltä (nimi + lahde_dia); ilman välilehteä ketju null + listaus', () => {
+    const m = lue('master_v2.xlsx'); m.sheets.Ketteryys_ja_nopeus = [['nimi', 'kuvaus', 'valineet', 'pelaajia', 'kotiin_sopiva', 'video_url', 'kuva_url', 'ketju', 'lahde_dia'], ['Ketteryys 1', '', '', 1, '', '', '', 'LL', '132'], ['Ketteryys 2', '', '', 2, '', '', '', 'SFL', '133']];
+    const d = tilaan(ajo(POHJA, {}, { master: m })); expect(d['harjoitepankki/ketteryys_132_1'].ketju).toBe('LL'); expect(d['harjoitepankki/ketteryys_133_1'].ketju).toBe('SFL');
+    expect(ajo(POHJA, {}, { master: m }).raportti.ketjutta.filter((x) => x.startsWith('Ketteryys_ja_nopeus'))).toEqual([]);
+    expect(ajo(POHJA).raportti.ketjutta.filter((x) => x.startsWith('Ketteryys_ja_nopeus')).length).toBe(2);
+    expect(d['harjoitepankki/ketteryys_132_1'].tila).toBe('luonnos');
+  });
+});
+
+describe('Teemat: placeholder-joukkue, hierarkkiset painopisteet, ketju-raportti', () => {
+  it('joukkue "…, esim." / tyhjä ei ole oikea joukkuenimi → HUOMIO + rivi pysyy luonnoksena myös OK-kuittauksella; oikea joukkue + OK → hyväksytty teemat-lohkoon', () => {
+    const esim = lue('ajo2_kuitattu.xlsx'); esim.sheets.Teemat[1][0] = 'SJK alle 15 v joukkueet, esim.'; esim.sheets.Teemat[1][7] = 'OK';
+    const r = ajo(esim), d = tilaan(r);
+    expect(r.raportti.huomiot.join('|')).toMatch(/Teemat rivi 2: joukkue "SJK alle 15 v joukkueet, esim\." ei ole oikea joukkuenimi/); expect(d['valmennuslinja/teemat'].jaksot).toEqual([]);
+    expect(d['valmennuslinja/teemat_luonnos'].jaksot[0]).toMatchObject({ joukkue: 'SJK alle 15 v joukkueet, esim.', tila: 'luonnos' });
+    const hyva = ajo(KUITATTU, nyk0()); expect(tilaan(hyva)['valmennuslinja/teemat'].jaksot.map((j) => j.joukkue)).toEqual(['SJK P13']); expect(hyva.raportti.huomiot.join('|')).not.toMatch(/ei ole oikea joukkuenimi/);
+  });
+  it('painopisteet hierarkkisena {jarjestys, otsikko, kohdat[]} (sisalto[] säilyy litteänä); pilkut sulkeiden sisällä eivät erota', () => {
+    const w = lue('ajo1_pohja.xlsx'); w.sheets.Ikaluokat[1][3] = '1. Taitavuus: tasapaino, rytmikyky, ketteryys\n2. Reaktionopeus\n3. Lihaskestävyys: vatsalihakset (a, b), polvien hallinta';
+    const f7 = tilaan(ajo(w))['valmennuslinja/ikavaiheet'].rivit.find((x) => x.ikaluokka === 'F7');
+    expect(f7.painopisteet).toEqual([{ jarjestys: 1, otsikko: 'Taitavuus', kohdat: ['tasapaino', 'rytmikyky', 'ketteryys'] }, { jarjestys: 2, otsikko: 'Reaktionopeus', kohdat: [] }, { jarjestys: 3, otsikko: 'Lihaskestävyys', kohdat: ['vatsalihakset (a, b)', 'polvien hallinta'] }]);
+    expect(f7.sisalto).toEqual(['Taitavuus: tasapaino, rytmikyky, ketteryys', 'Reaktionopeus', 'Lihaskestävyys: vatsalihakset (a, b), polvien hallinta']);
+  });
+  it('raportti listaa KAIKKI rivit joilta ketju puuttuu v2-masterista, välilehdittäin uniikkeina', () => {
+    const t = T.tulosta(ajo(POHJA), false); expect(t).toMatch(/ILMAN KETJUA v2-masterista: \d+ riviä \(/); expect(t).toContain('[Ketteryys_ja_nopeus]'); expect(t).toContain('- Ketteryys 1');
+  });
+});
+const nyk0 = () => tilaan(ajo(POHJA));
+
 describe('2. ajo — SJK:n kuitattu Excel', () => {
   const ensin = ajo(POHJA), nyk = tilaan(ensin), r = ajo(KUITATTU, nyk);
   const d = tilaan(r), op = (p) => (r.docs.find((x) => x.polku === p) || {}).op;
   it('ajo 2 tunnistetaan kuittauksista; OK/Muutettu/Uusi → hyväksytty (+ tarkistettu_pvm, tarkistaja), tyhjä → luonnos + LISTATTU, Poista → poisto', () => {
     expect(r.raportti.ajo).toBe(2);
-    expect(op('ohjelmat/ohjelmat_99_poistettava_ohjelma')).toBe('poista');
-    expect(d['harjoitepankki/rutiinit_116_alkurutiini_1']).toMatchObject({ tila: 'hyvaksytty', tarkistettu_pvm: '2026-10-17', tarkistaja: 'Sini SJK' });
-    expect(d['harjoitepankki/rutiinit_113_venyttelyt']).toMatchObject({ tila: 'hyvaksytty' });   // Muutettu
-    expect(d['ohjelmat/keskivartalo_92_keskivartalon_perusliikkeet'].tila).toBe('hyvaksytty');
+    expect(op('ohjelmat/ohjelmat_99_1')).toBe('poista');
+    expect(d['harjoitepankki/rutiinit_116_1']).toMatchObject({ tila: 'hyvaksytty', tarkistettu_pvm: '2026-10-17', tarkistaja: 'Sini SJK' });
+    expect(d['harjoitepankki/rutiinit_113_1']).toMatchObject({ tila: 'hyvaksytty' });   // Muutettu
+    expect(d['ohjelmat/keskivartalo_92_1'].tila).toBe('hyvaksytty');
     const jaksot = d['valmennuslinja/teemat'].jaksot, luonn = d['valmennuslinja/teemat_luonnos'].jaksot;
     expect(jaksot.map((j) => j.jakso)).toEqual(['Jakso 1']); expect(luonn.map((j) => j.jakso)).toEqual(['Jakso 2']);   // jakso 2 kuittaamaton → luonnos-lohkoon
     expect(r.raportti.kuittaamattomat.join('|')).toMatch(/Teemat.*Jakso 2/);
     expect(d['valmennuslinja/ikavaiheet'].rivit.map((x) => x.tila).sort()).toEqual(['hyvaksytty', 'hyvaksytty']);
   });
   it('ohjelma: Uusi-rivi lisää rivin ja koko ohjelma hyväksytään vasta kun KAIKKI rivit kuitattu; yksi kuittaamaton rivi pitää koko ohjelman luonnoksena', () => {
-    const o = d['ohjelmat/ohjelmat_97_lihaskestavyys_1_alle_12v']; expect(o.tila).toBe('hyvaksytty'); expect(o.liikkeet[0].pelaajan_ohje).toContain('MUUTETTU');   // Muutettu → solun uusi sisältö
-    expect(d['ohjelmat/ohjelmat_x_uusi_ohjelma']).toMatchObject({ nimi: 'Uusi ohjelma', tila: 'hyvaksytty' });
+    const o = d['ohjelmat/ohjelmat_97_1']; expect(o.tila).toBe('hyvaksytty'); expect(o.liikkeet[0].pelaajan_ohje).toContain('MUUTETTU');   // Muutettu → solun uusi sisältö
+    expect(d['ohjelmat/ohjelmat_x_1']).toMatchObject({ nimi: 'Uusi ohjelma', tila: 'hyvaksytty' });
     const osa = lue('ajo2_kuitattu.xlsx'); osa.sheets.Ohjelmat[1][11] = 'OK'; osa.sheets.Ohjelmat[2][11] = '';   // toinen rivi kuittaamatta
-    expect(tilaan(ajo(osa, nyk))['ohjelmat/ohjelmat_97_lihaskestavyys_1_alle_12v'].tila).toBe('luonnos');
+    expect(tilaan(ajo(osa, nyk))['ohjelmat/ohjelmat_97_1'].tila).toBe('luonnos');
   });
   it('KETTERYYS: hyväksytty vasta kun kuva_tai_video on täytetty (URL/tiedosto) — kuittaus OK ei riitä; odottavat listataan', () => {
-    expect(d['harjoitepankki/ketteryys_132_ketteryys_1'].tila).toBe('luonnos'); expect(d['harjoitepankki/ketteryys_133_ketteryys_2']).toMatchObject({ tila: 'hyvaksytty', video_url: 'https://example.org/ketteryys2.mp4' });
+    expect(d['harjoitepankki/ketteryys_132_1'].tila).toBe('luonnos'); expect(d['harjoitepankki/ketteryys_133_1']).toMatchObject({ tila: 'hyvaksytty', video_url: 'https://example.org/ketteryys2.mp4' });
     expect(r.raportti.odottaaKuvaa).toEqual(['Ketteryys 1']);
   });
   it('IDEMPOTENTTI: samat syötteet uudelleen (apply:n jälkeen) → kaikki "ei_muutosta" (ei tuplia, ei versio-nousua, ei uusia poistoja)', () => {
     const jalkeen = sovella(nyk, r), toinen = ajo(KUITATTU, jalkeen);
     expect(toinen.docs.filter((x) => x.op !== 'ei_muutosta').map((x) => x.polku + ':' + x.op)).toEqual([]);
-    expect(poluilla(toinen)).not.toContain('ohjelmat/ohjelmat_99_poistettava_ohjelma'); expect(Object.keys(sovella(jalkeen, toinen)).sort()).toEqual(Object.keys(jalkeen).sort());   // ei tuplia
+    expect(poluilla(toinen)).not.toContain('ohjelmat/ohjelmat_99_1'); expect(Object.keys(sovella(jalkeen, toinen)).sort()).toEqual(Object.keys(jalkeen).sort());   // ei tuplia
     expect(toinen.docs.every((x) => x.versio === (jalkeen[x.polku] || {}).versio)).toBe(true);
   });
   it('versio +1 jokaisella MUUTTUNEELLA dokumentilla (ajo 1 → 2: tila vaihtuu → versio 2), muuttumaton jää; 3. ajo muutetulla solulla → versio 3 vain siinä', () => {
-    expect(r.docs.find((x) => x.polku === 'harjoitepankki/rutiinit_116_alkurutiini_1')).toMatchObject({ op: 'paivita', versio: 2 });
+    expect(r.docs.find((x) => x.polku === 'harjoitepankki/rutiinit_116_1')).toMatchObject({ op: 'paivita', versio: 2 });
     const k3 = lue('ajo2_kuitattu.xlsx'); k3.sheets.Rutiinit_ja_harjoitteet[1][2] = 'Uusi ohje vetäjälle'; const kolmas = ajo(k3, sovella(nyk, r));
-    expect(kolmas.docs.filter((x) => x.op === 'paivita').map((x) => x.polku + ':v' + x.versio)).toEqual(['harjoitepankki/rutiinit_116_alkurutiini_1:v3']);
+    expect(kolmas.docs.filter((x) => x.op === 'paivita').map((x) => x.polku + ':v' + x.versio)).toEqual(['harjoitepankki/rutiinit_116_1:v3']);
   });
   it('poista-rivi ilman olemassa olevaa dokumenttia → huomio, ei virhettä; tuntematon kuittaus → virhe (apply estetty)', () => {
-    const tyhja = ajo(KUITATTU, {}); expect(tyhja.raportti.huomiot.join('|')).toContain('ohjelmat/ohjelmat_99_poistettava_ohjelma');
+    const tyhja = ajo(KUITATTU, {}); expect(tyhja.raportti.huomiot.join('|')).toContain('ohjelmat/ohjelmat_99_1');
     const huono = lue('ajo2_kuitattu.xlsx'); huono.sheets.Rutiinit_ja_harjoitteet[1][5] = 'ehkä'; expect(ajo(huono, nyk).raportti.virheet.join('|')).toMatch(/tuntematon kuittaus "ehkä"/);
   });
 });
