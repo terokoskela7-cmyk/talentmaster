@@ -144,12 +144,13 @@ describe('8 · demosivu renderöi kaikki 09:n data-pitch-variantit ilman JS-virh
     expect(DEMO).not.toMatch(/fonts\.googleapis|fonts\.gstatic/);   // fontit omalta palvelimelta
   });
   const CHROME = ['/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', '/usr/bin/google-chrome', '/usr/bin/chromium'].find((p) => existsSync(p));
+  // Testi käynnistää oikean Chromen (~2 s yksin), mutta on hidas koko suiten rinnakkaisajossa → pysyvä 30 s aikaraja (vitestin oletus 5 s antoi toistuvan väärän punaisen).
   (CHROME ? it : it.skip)('headless-Chrome: 15 varianttia renderöityy, 0 virhettä (window.onerror + try/catch)', () => {
     const out = execFileSync(CHROME, ['--headless=new', '--disable-gpu', '--virtual-time-budget=3000', '--dump-dom', pathToFileURL(join(juuri, DEMO_REL)).href], { encoding: 'utf8', timeout: 60000, stdio: ['ignore', 'pipe', 'ignore'] });
     const body = /<body[^>]*>/.exec(out)[0];
     expect(body).toContain('data-kt-errors="0"'); expect(body).toContain('data-kt-rendered="15"'); expect(body).toContain('data-kt-variants="15"');
     expect((out.match(/data-pitch="/g) || []).length).toBe(15); expect((out.match(/<svg class="kt-svg"/g) || []).length).toBe(15);
-  });
+  }, 30000);
 });
 
 describe('K0 ei muuta näkymiä (D10/D11 vartijat)', () => {
