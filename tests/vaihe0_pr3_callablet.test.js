@@ -166,7 +166,7 @@ describe('muut callablet: henkilökuntatarkistus lähteessä', () => {
   it('lahetaRekisteriKutsu ja lahetaHuoltajaKutsu vaativat tarkistaOikeuden', () => {
     for (const n of ['lahetaRekisteriKutsu', 'lahetaHuoltajaKutsu']) {
       const r = cfRunko(n);
-      const iOik = r.indexOf('tarkistaOikeus(context.auth.uid, seuraId)');
+      const iOik = r.indexOf('tarkistaOikeus(context.auth.uid, seuraId, context.auth.token)');
       expect(iOik, n).toBeGreaterThan(0);
       expect(iOik, n + ': tarkistus ennen lähetystä/kirjoitusta').toBeLessThan(
         Math.min(...['lahetaSahkoposti(', ".collection('kutsut')"].map((k) => r.indexOf(k)).filter((x) => x > 0)));
