@@ -26,6 +26,13 @@ describe('tmOhjelmaTukiosaan / tmHarjoiteTukiosaan (pure)', () => {
     expect(() => JM.tmOhjelmaTukiosaan(OHJ({ liikkeet: [LIIKE(1, { kotiin_sopiva: false }), LIIKE(2, { kotiin_sopiva: 'kyllä' })] }))).toThrow(/kotiin sopivia/);   // vain tosi boolean
     expect(() => JM.tmOhjelmaTukiosaan(OHJ({ liikkeet: [] }))).toThrow(/kotiin sopivia/); expect(() => JM.tmOhjelmaTukiosaan(null)).toThrow();
   });
+  it('kotiin_huomio ("keppi", "tarvitsee parin") + seuran nimi (lahde_nimi) kulkevat snapshotissa pelaajalle; GDPR-vartija tarkistaa huomion; ilman seuraNimeä ei lahde_nimeä', () => {
+    const o = OHJ({ liikkeet: [LIIKE(1, { kotiin_huomio: 'keppi' }), LIIKE(2, { kotiin_huomio: 'tarvitsee parin' }), LIIKE(3)] });
+    const r = JM.tmOhjelmaTukiosaan(o, { seuraNimi: 'KPV' }); expect(r.map((x) => [x.kotiin_huomio, x.lahde_nimi])).toEqual([['keppi', 'KPV'], ['tarvitsee parin', 'KPV'], [undefined, 'KPV']]);
+    expect(JM.tmOhjelmaTukiosaan(o).every((x) => !('lahde_nimi' in x))).toBe(true); expect(JM.tmLiitaTukiosaan(TUKI, r).find((x) => x.kotiin_huomio === 'keppi').lahde_nimi).toBe('KPV');
+    expect(() => JM.tmLiitaTukiosaan(TUKI, [Object.assign({}, r[0], { kotiin_huomio: 'rajoite' })])).toThrow(/kielletyn sanan/);
+    expect(JM.tmHarjoiteTukiosaan({ id: 'h', nimi: 'N', ohje: 'o', tila: 'hyvaksytty', kotiin_huomio: 'keppi' }, { seuraNimi: 'KPV' })).toMatchObject({ kotiin_huomio: 'keppi', lahde_nimi: 'KPV' });
+  });
   it('harjoitepankki-rivi: hyväksytty + kaytto != joukkue → kotiharjoite; joukkue/luonnos hylätään; "koti" ja tilaton kaytto kelpaavat', () => {
     const h = (l) => Object.assign({ id: 'rutiinit_113_1', nimi: 'Venyttely', ohje: 'Rauhassa', kesto_min: 10, tila: 'hyvaksytty', kaytto: 'koti', lahde: 'seura', video_url: null, kuva_url: null }, l || {});
     expect(JM.tmHarjoiteTukiosaan(h())).toEqual({ id: 'rutiinit_113_1', nimi: 'Venyttely', lahde: 'seura', liike: 'Venyttely', pelaajan_ohje: 'Rauhassa', kesto_min: 10 });
@@ -53,7 +60,7 @@ function ymp({ jaksofokus, ohjelma = OHJ(), demo = false, kaada = false } = {}) 
   const dok = { update: async (d) => { if (kaada) throw new Error('permission-denied'); log.upd.push(d); } };
   const c = { _pelaajatData: [p], _ttPelaaja: () => p, window: {}, _ohjKirjasto: [ohjelma], masterT: (x) => x, toast: (t, k) => log.toastit.push([t, k]), console: { warn() {} }, _demo: demo, _seuraId: 'kpv', _mVerkkoEnnenSulkua: () => true, _mTuoreToken: async () => {},
     firebase: { auth: () => ({ currentUser: {} }) }, _db: { collection: () => ({ doc: () => ({ collection: () => ({ doc: () => dok }) }) }) }, _renderPinfoFirestore: () => { log.renderit++; }, document: { getElementById: () => null }, Promise, Object, Array, JSON };
-  c.window = c; c.window.TM_JAKSO_MALLI = JM; c.window.TM_KEHITYSSILMUKKA = K; c.window._ohjKirjasto = [ohjelma]; vm.createContext(c);
+  c.window = c; c.window._mSeuraNimi = 'KPV'; c.window.TM_JAKSO_MALLI = JM; c.window.TM_KEHITYSSILMUKKA = K; c.window._ohjKirjasto = [ohjelma]; vm.createContext(c);
   vm.runInContext(pura('window._ohjLiitaTukiosaan = async function') + ';', c); return { c, p, log };
 }
 const JAKSO = (tukiosa) => ({ konsepti_avain: 'y_h2', konsepti_nimi: 'Syöttö', alkoi: '2026-10-05T10:00:00.000Z', kesto_vk: 4, domeeni: 'teknis_taktinen', tukiosa });
@@ -62,7 +69,7 @@ describe('Master: _ohjLiitaTukiosaan', () => {
     const e = ymp({ jaksofokus: JAKSO(TUKI) }); await e.c.window._ohjLiitaTukiosaan(PID, 'ohjelmat_97_1');
     expect(e.log.upd.length).toBe(1); expect(Object.keys(e.log.upd[0])).toEqual(['jaksofokus.tukiosa.harjoitteet']);
     expect(e.log.upd[0]['jaksofokus.tukiosa.harjoitteet'].map((x) => x.id)).toEqual(['vanha1', 'ohjelmat_97_1#1', 'ohjelmat_97_1#3']);
-    expect(e.p.jaksofokus.tukiosa).toMatchObject({ alue: 'kestävyys', perustelu: TUKI.perustelu }); expect(e.p.jaksofokus.tukiosa.harjoitteet.length).toBe(3); expect(e.log.toastit.at(-1)[1]).toBe('ok');
+    expect(e.p.jaksofokus.tukiosa).toMatchObject({ alue: 'kestävyys', perustelu: TUKI.perustelu }); expect(e.log.upd[0]['jaksofokus.tukiosa.harjoitteet'].filter((x) => x.id.startsWith('ohjelmat')).every((x) => x.lahde_nimi === 'KPV')).toBe(true);   // seuran nimi lähdemerkinnäksi expect(e.p.jaksofokus.tukiosa.harjoitteet.length).toBe(3); expect(e.log.toastit.at(-1)[1]).toBe('ok');
   });
   it('EI kirjoita kun: jaksolla ei tukiosaa / ei jaksoa; ohjelma luonnos/tilaton; ei kotiin sopivia → ohjeellinen virhe-toast, ei update, paikallinen ennallaan', async () => {
     for (const asetus of [{ jaksofokus: JAKSO(undefined) }, { jaksofokus: undefined }, { jaksofokus: JAKSO(TUKI), ohjelma: OHJ({ tila: 'luonnos' }) }, { jaksofokus: JAKSO(TUKI), ohjelma: OHJ({ liikkeet: [LIIKE(1, { kotiin_sopiva: false })] }) }]) {
