@@ -34,6 +34,10 @@ describe('lib/tm_kotiharjoitteet (pure)', () => {
     const x = K.tmKotiharjoitteetHTML(K.tmKotiharjoitteet(JF([H(1, { liike: '<img onerror=1>', pelaajan_ohje: '"><script>', lahde_nimi: '<b>' })])), { esc }); expect(x).not.toContain('<img'); expect(x).not.toContain('<script>'); expect(x).not.toContain('<b>');
     expect(K.tmKotiharjoitteetHTML([], { esc })).toBe(''); expect(K.tmKotiharjoitteetHTML(null)).toBe('');
   });
+  it('kotiin_huomio ("keppi", "tarvitsee parin") näytetään liikkeen yhteydessä sulkuina; ilman huomiota ei sulkuja; huomio escapataan', () => {
+    const h = K.tmKotiharjoitteetHTML(K.tmKotiharjoitteet(JF([H(1, { kotiin_huomio: 'keppi' }), H(2, { kotiin_huomio: 'tarvitsee parin' }), H(3), H(4, { kotiin_huomio: '<b>x</b>' })])), { esc });
+    expect(h).toContain('Liike 1 <span class="tm-kh-huomio"'); expect(h).toContain('>(keppi)</span>'); expect(h).toContain('>(tarvitsee parin)</span>'); expect(h).toMatch(/Liike 3<\/div>/); expect(h).not.toContain('<b>x</b>'); expect(K.tmKotiharjoitteet(JF([H(1, { kotiin_huomio: 'keppi' })]))[0].kotiin_huomio).toBe('keppi');
+  });
   it('§7.22 / GDPR: tuotettu data läpäisee jakso-vartijan (ei heikkous/rajoite/kriittinen, ei "ase"-avaimia); kenttänimet neutraaleja', () => {
     expect(JM.tmTarkistaJaksoData(K.tmKotiharjoitteet(JF([H(1, { video_url: 'https://example.org/v.mp4' })])))).toEqual([]);
     expect(K.tmKotiharjoitteetHTML(K.tmKotiharjoitteet(JF([H(1)])), { esc }).replace(/<[^>]+>/g, '')).not.toMatch(/heikkou|rajoit|kriittin|taso \d|vertaa/i);
