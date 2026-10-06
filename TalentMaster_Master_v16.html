@@ -2469,7 +2469,7 @@ async function _lataaValmentaja(uid) {
         }
 
         const seuraNimi = seurat.find(s => s.id === _seuraId)?.nimi || _seuraId;
-        document.getElementById('sbSeura').textContent = seuraNimi;
+        window._mSeuraNimi = seuraNimi; document.getElementById('sbSeura').textContent = seuraNimi;
 
         // Rakenna joukkuevalitsin tällä seuralle
         await _rakennaSAJoukkueValitsin(_seuraId);
@@ -2522,7 +2522,7 @@ async function _lataaValmentaja(uid) {
       // Hae seuran nimi
       const sSnap = await _db.collection('seurat').doc(_seuraId).get().catch(()=>null);
       const seuraNimi = sSnap?.exists ? (sSnap.data().nimi || _seuraId) : _seuraId;
-      document.getElementById('sbSeura').textContent = seuraNimi + (_joukkue ? ' · ' + _joukkue : '');
+      window._mSeuraNimi = seuraNimi; document.getElementById('sbSeura').textContent = seuraNimi + (_joukkue ? ' · ' + _joukkue : '');
       // MONEN JOUKKUEEN VALMENTAJA saa valitsimen. Sibbo: iso ryhmä pilkotaan pienempiin
       // joukkueisiin → valmentajalla voi olla useampi, eikä yksi yhteen möykkyyn ladattu
       // rosteri enää vastaa siihen "ketkä ovat MINUN joukkueessani".
@@ -2537,7 +2537,7 @@ async function _lataaValmentaja(uid) {
       const sSnap = await _db.collection('seurat').doc(_seuraId).get().catch(()=>null);
       const seuraNimi = sSnap?.exists ? (sSnap.data().nimi || _seuraId) : _seuraId;
       const sbSeuraEl = document.getElementById('sbSeura');
-      if (sbSeuraEl) sbSeuraEl.textContent = seuraNimi + (_joukkue ? ' · ' + _joukkue : '');
+      window._mSeuraNimi = seuraNimi; if (sbSeuraEl) sbSeuraEl.textContent = seuraNimi + (_joukkue ? ' · ' + _joukkue : '');
       if (_mSeuranLaajuusRooli()) { _joukkue = ''; await _rakennaSAJoukkueValitsin(_seuraId, { oletusKaikki: true, avain: 'tm-vp-joukkue' }); }   // VP ilman kayttajat-dokumenttia: koko seura
       _alusta(claims.rooli === 'vp' ? 'VP' : 'Valmentaja');
     } else {
@@ -6699,7 +6699,7 @@ window._ohjLiitaTukiosaan = async function (pid, ohjelmaId) {
   var JM = window.TM_JAKSO_MALLI, K = window.TM_KEHITYSSILMUKKA, lib = (window._ohjKirjasto || []).find(function (o) { return o.id === ohjelmaId; });
   if (!p || !JM || !K || !lib) { if (typeof toast === 'function') toast(masterT('Ohjelmaa ei löytynyt'), 'error'); return; }
   var harjoitteet;
-  try { harjoitteet = JM.tmLiitaTukiosaan(p.jaksofokus && p.jaksofokus.tukiosa, JM.tmOhjelmaTukiosaan(lib)); }
+  try { harjoitteet = JM.tmLiitaTukiosaan(p.jaksofokus && p.jaksofokus.tukiosa, JM.tmOhjelmaTukiosaan(lib, { seuraNimi: window._mSeuraNimi || null })); }
   catch (e) { console.warn('[ohjTukiosa]', e && e.message); if (typeof toast === 'function') toast(masterT('Liittäminen ei onnistu: jaksolla pitää olla tukiosa ja ohjelmassa kotiin sopivia liikkeitä.'), 'error'); return; }
   if (!_mVerkkoEnnenSulkua()) return;
   var plan; try { plan = K.tmPaivitaJaksofokus(p, { 'tukiosa.harjoitteet': harjoitteet }); } catch (e) { console.warn('[ohjTukiosa]', e && e.message); if (typeof toast === 'function') toast(masterT('Liittäminen ei onnistu: jaksolla pitää olla tukiosa ja ohjelmassa kotiin sopivia liikkeitä.'), 'error'); return; }
