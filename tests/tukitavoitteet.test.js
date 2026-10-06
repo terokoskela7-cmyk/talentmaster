@@ -59,6 +59,69 @@ describe('tmJoukkuejaksoOsaAlueet (D17)', () => {
   });
 });
 
+describe('J2 · tmJoukkuejaksoOsaAlueet: uusi muoto (avain/nimi/lahde) + vanha muoto luetaan edelleen', () => {
+  const UUSI = (fy, tt) => ({ tekninen_taktinen: Object.assign({ teema_avain: 'teema_45_1', nimi: 'Syöttötaito ja -peli', lahde: 'seura' }, tt || {}), fyysinen: Object.assign({ avain: 'fy_ketteryys', nimi: 'Ketteryys & suunnanmuutos', lahde: 'tm' }, fy || {}) });
+  it('uusi muoto: seuran ohjelma (ohjelma_id), TM-teema (fy_* avain), Oma (ei avainta); tekn. Oma ilman avainta', () => {
+    expect(TT.tmJoukkuejaksoOsaAlueet(UUSI()).fyysinen).toEqual({ avain: 'fy_ketteryys', nimi: 'Ketteryys & suunnanmuutos', lahde: 'tm' });
+    expect(TT.tmJoukkuejaksoOsaAlueet(UUSI({ avain: 'fy_rajahtavyys', nimi: 'Räjähtävä voima', ohjelma_id: 'ohjelmat_105_1', lahde: 'seura' })).fyysinen).toEqual({ avain: 'fy_rajahtavyys', nimi: 'Räjähtävä voima', lahde: 'seura', ohjelma_id: 'ohjelmat_105_1' });
+    expect(TT.tmJoukkuejaksoOsaAlueet(UUSI({ avain: null, nimi: 'Lankku', ohjelma_id: 'keskivartalo_94_1', lahde: 'seura' })).fyysinen.avain).toBeNull();   // ohjelma ilman teema_avainta (tuonnin ohjelmat)
+    expect(TT.tmJoukkuejaksoOsaAlueet(UUSI({ avain: null, nimi: 'Oma kuntopiiri', lahde: 'oma' })).fyysinen).toEqual({ avain: null, nimi: 'Oma kuntopiiri', lahde: 'oma' });
+    expect(TT.tmJoukkuejaksoOsaAlueet(UUSI(null, { teema_avain: null, nimi: 'Oma teema', lahde: 'oma' })).tekninen_taktinen).toEqual({ teema_avain: null, nimi: 'Oma teema', lahde: 'oma' });
+  });
+  it('fysiikan avain validoidaan TM_FYYSTEEMAT-listaa vasten: tuntematon hylätään; tm vaatii avaimen; oma ei saa sisältää avainta/ohjelmaa; seura vaatii ohjelma_id:n', () => {
+    expect(() => TT.tmJoukkuejaksoOsaAlueet(UUSI({ avain: 'fy_ei_ole' }))).toThrow(/tunnettu fyysinen teema/);
+    expect(() => TT.tmJoukkuejaksoOsaAlueet(UUSI({ avain: 'speed' }))).toThrow(/tunnettu fyysinen teema/);   // vahdin avain ei ole TM_FYYSTEEMAT-avain
+    expect(() => TT.tmJoukkuejaksoOsaAlueet(UUSI({ avain: null }))).toThrow(/fyysinen.avain puuttuu/);
+    expect(() => TT.tmJoukkuejaksoOsaAlueet(UUSI({ avain: 'fy_nopeus', lahde: 'oma' }))).toThrow(/oma \(vapaa teksti\)/);
+    expect(() => TT.tmJoukkuejaksoOsaAlueet(UUSI({ avain: null, lahde: 'oma', ohjelma_id: 'x' }))).toThrow(/oma/);
+    expect(() => TT.tmJoukkuejaksoOsaAlueet(UUSI({ avain: null, lahde: 'seura' }))).toThrow(/ohjelma_id puuttuu/);
+    expect(() => TT.tmJoukkuejaksoOsaAlueet(UUSI({ lahde: 'kalenteri' }))).toThrow(/lahde pitää olla/);
+    expect(() => TT.tmJoukkuejaksoOsaAlueet(UUSI({ nimi: '' }))).toThrow(/fyysinen.nimi puuttuu/);
+    expect(() => TT.tmJoukkuejaksoOsaAlueet(UUSI({ nimi: 'Heikkoudet kuntoon' }))).toThrow(/kielletyn sanan/);
+    expect(() => TT.tmJoukkuejaksoOsaAlueet(UUSI(null, { lahde: 'oma', teema_avain: 'x' }))).toThrow(/teema_avain pitää olla null/);
+    expect(() => TT.tmJoukkuejaksoOsaAlueet(UUSI(null, { lahde: 'seura', teema_avain: null }))).toThrow(/teema_avain puuttuu/);
+  });
+  it('vanha muoto {alue, lahde} luetaan edelleen (vanha sisään → vanha ulos) ja tmFyysinenOsaAlue lukee kumpaakin', () => {
+    const v = { tekninen_taktinen: { teema_avain: 'syotto', nimi: 'Syöttö', lahde: 'kalenteri' }, fyysinen: { alue: 'Ketteryys ja nopeus', ohjelma_id: 'o1', lahde: 'seura' } };
+    expect(TT.tmJoukkuejaksoOsaAlueet(v).fyysinen).toEqual({ alue: 'Ketteryys ja nopeus', lahde: 'seura', ohjelma_id: 'o1' });
+    expect(TT.tmFyysinenOsaAlue(v)).toEqual({ avain: null, nimi: 'Ketteryys ja nopeus', ohjelma_id: 'o1', lahde: 'seura' });
+    expect(TT.tmFyysinenOsaAlue(UUSI())).toEqual({ avain: 'fy_ketteryys', nimi: 'Ketteryys & suunnanmuutos', ohjelma_id: null, lahde: 'tm' });
+    expect(TT.tmFyysinenOsaAlue(null)).toBeNull(); expect(TT.tmFyysinenOsaAlue({ fyysinen: {} })).toBeNull();
+  });
+});
+
+describe('J2 · kypsyysvahti joukkuejakson oletusehdotukseen (fy_* → tm_idp.IDP_FY_TEEMA_AVAIN → IDP_KYPSYYS_GATED)', () => {
+  const JJ = (fy) => ({ jid: 'kpv_u13', alku: '2026-10-13', osa_alueet: { tekninen_taktinen: { teema_avain: 't', nimi: 'Syöttö', lahde: 'seura' }, fyysinen: fy } });
+  const FYS = (avain, nimi) => ({ avain: avain, nimi: nimi, lahde: 'tm' });
+  const jjEhd = (p, fy) => TT.tmTukitavoiteEhdotukset(p, K({ joukkuejakso: JJ(fy) })).filter((e) => e.lahde.tyyppi === 'joukkuejakso')[0];
+  const KOLME = [['fy_nopeus', 'Nopeus'], ['fy_kestavyys', 'Kestävyys'], ['fy_rajahtavyys', 'Räjähtävyys']];
+  it('PRE/LAH/PH/tuntematon: joukkueen fy_nopeus/kestävyys/räjähtävyys → liikehallinta (lahde säilyy joukkuejakso, kypsyyssuojattu)', () => {
+    KOLME.forEach(([avain, nimi]) => ['PRE', 'LAH', 'PH', null].forEach((phv) => {
+      const e = jjEhd({ id: 'x', ...PHV(phv) }, FYS(avain, nimi));
+      expect(e, avain + '/' + phv).toMatchObject({ alue: 'fyysinen', kuvaus: 'Liikehallinta ja kehonhallinta', kypsyyssuojattu: true, lahde: { tyyppi: 'joukkuejakso', viite: 'kpv_u13' } }); expect(e.miksi).toMatch(/Kypsyysvahti/);
+    }));
+  });
+  it('POST/AN: ei korvausta (nopeus/kestävyys/räjähtävyys sellaisenaan); fy_ketteryys ja fy_liikehallinta eivät ole kypsyysrajattuja missään tilassa', () => {
+    KOLME.forEach(([avain, nimi]) => ['POST', 'AN'].forEach((phv) => expect(jjEhd({ id: 'x', ...PHV(phv) }, FYS(avain, nimi))).toMatchObject({ kuvaus: nimi }) ));
+    [['fy_ketteryys', 'Ketteryys & suunnanmuutos'], ['fy_liikehallinta', 'Liikehallinta (kehon valmius)']].forEach(([avain, nimi]) => ['PRE', 'LAH', 'PH', null, 'POST'].forEach((phv) => {
+      const e = jjEhd({ id: 'x', ...PHV(phv) }, FYS(avain, nimi)); expect(e.kuvaus, avain + '/' + phv).toBe(nimi); expect(e.kypsyyssuojattu).toBeUndefined();
+    }));
+  });
+  it('seuran ohjelma rakenteisella avaimella suojataan samoin; ohjelma ilman avainta ja Oma (vapaa teksti) eivät (ei jäsennetä)', () => {
+    expect(jjEhd({ id: 'x', ...PHV('LAH') }, { avain: 'fy_rajahtavyys', nimi: 'Räjähtävä voima', ohjelma_id: 'o1', lahde: 'seura' })).toMatchObject({ kuvaus: 'Liikehallinta ja kehonhallinta', kypsyyssuojattu: true });
+    expect(jjEhd({ id: 'x', ...PHV('LAH') }, { avain: null, nimi: 'Räjähtävä voima', ohjelma_id: 'o1', lahde: 'seura' }).kuvaus).toBe('Räjähtävä voima');
+    expect(jjEhd({ id: 'x', ...PHV('LAH') }, { avain: null, nimi: 'Nopeutta kaikille', lahde: 'oma' }).kuvaus).toBe('Nopeutta kaikille');
+  });
+  it('vanha muoto: raaka vahdin avain (alue "power") suojataan edelleen; vapaa teksti ("Ketteryys ja nopeus") ei', () => {
+    expect(jjEhd({ id: 'x', ...PHV('PH') }, { alue: 'power', lahde: 'seura' })).toMatchObject({ kypsyyssuojattu: true });
+    expect(jjEhd({ id: 'x', ...PHV('PH') }, { alue: 'Ketteryys ja nopeus', lahde: 'seura' }).kuvaus).toBe('Ketteryys ja nopeus');
+  });
+  it('joukkuejakson osa_alueet voi tulla myös joukkueen jaksofokuksesta (jaksofokus.osa_alueet) uudessa muodossa', () => {
+    const l = TT.tmTukitavoiteEhdotukset({ id: 'x', ...PHV('LAH') }, K({ joukkuejakso: { jid: 'kpv_u13', jaksofokus: { alku: '2026-10-13', osa_alueet: JJ(FYS('fy_nopeus', 'Nopeus')).osa_alueet } } }));
+    expect(l).toHaveLength(1); expect(l[0]).toMatchObject({ kypsyyssuojattu: true });
+  });
+});
+
 describe('tmTukitavoite (D20)', () => {
   const OK = () => ({ alue: 'tekninen_taktinen', kuvaus: 'Pallon suojaaminen paineessa', perustelu: 'Jotta kuljetuksesi vie maalille asti, pallo pysyy sinulla paineessa',
     lahde: { tyyppi: 'havainto', viite: 'adar:Act', pvm: '2026-10-03' }, harjoitteet: [{ id: 'h1', nimi: 'Suojaa ja käänny 1v1', lahde: 'seura' }] });
