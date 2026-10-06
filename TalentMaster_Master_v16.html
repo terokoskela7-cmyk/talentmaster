@@ -97,7 +97,7 @@ window.TM_KAAVIO_HOST = {
 <script src="lib/tm_xt_kerros.js?v=2"></script>        <!-- Uhka-arvo: taktiikkataulun näkymäkerros (ei kirjoita speciin) -->
 <script src="lib/tm_kaavio_ui.js?v=7"></script>         <!-- Taktiikkataulun UI-ohjain, JAETTU VP_v25:n kanssa (host-adapteri yllä) -->
 <script src="lib/tm_arviointi_taksonomia.js?v=11"></script>   <!-- P1: TM_ARVIOINTI_ASTEIKKO + D4-taksonomia + tmAdarHavaittu (Pelihavainto-talteenotto) -->
-<script src="lib/tm_idp.js?v=11"></script>   <!-- I3a: + kesto valmentajan asetettavaksi (opts.kestoVk) · I2 (C): valmentajan IDP-kausitavoite-kortti -->
+<script src="lib/tm_idp.js?v=12"></script>   <!-- I3a: + kesto valmentajan asetettavaksi (opts.kestoVk) · I2 (C): valmentajan IDP-kausitavoite-kortti -->
 <script src="lib/tm_pelialy_yksilo.js?v=4"></script>   <!-- P1: pelihavainto peliäly → yksilöteema (Kartta A) · v3: Vaihe B multi-rater konsensus (tmAdarKonsensus/RistiinarvioAvoin/TalenttiSignaali) -->
 <script src="lib/tm_havaintohistoria.js?v=1"></script>   <!-- jaettu havainto-/viestihistoria (VP + Master) -->
 <script src="lib/tm_valmentajaviesti.js?v=3"></script>   <!-- YKSI kirjoituspiste valmentajan viestille -->
@@ -110,6 +110,8 @@ window.TM_KAAVIO_HOST = {
 <script src="lib/tm_kehityspolku.js?v=2"></script>   <!-- I3a: looginen silta -resolver (idp_fokus → konsepti/fundamentti → harjoite) -->
 <script src="lib/tm_jaksokooste.js?v=2"></script>   <!-- Vaihe 6: jakson sulku (meso-sykli) — valmentaja sulkee omat pelaajansa (§4/§37) -->
 <script src="lib/tm_valmennuslinja.js?v=1"></script>   <!-- seuran valmennuslinja: joukkueen teema (hyväksytyt + henkilökunnalle luonnos) -->
+<script src="lib/tm_tukitavoitteet.js?v=1"></script>   <!-- J1/J2: joukkuejakson osa-alueet + tukitavoitteet (lukee tm_idp, tm_jakso_malli, tm_fyysteemat) -->
+<script src="lib/tm_joukkuejakso.js?v=1"></script>   <!-- J2: joukkuejakso (Kausi → Joukkueen jakso): valinnat, lomake, kortti -->
 <script src="lib/tm_aloita_jakso.js?v=1"></script>   <!-- jaettu "Aloita jakso" -modaali (Master + VP) -->
 <script src="lib/tm_vastuuhenkilo.js?v=1"></script>   <!-- vastuuhenkilö per pelaaja (vastuuhenkilo {uid, rooli, asetettu_pvm}); henkilökunnan rivi + asetus -->
 <script src="lib/tm_kehityssilmukka.js?v=2"></script>
@@ -1792,6 +1794,8 @@ textarea.jsp-rv-inp { resize: vertical; min-height: 44px; }
       </div>
 
       <!-- Kehityspulssi (korvaa kalenterimetronomin): % parantanut + % taso ≥3 -->
+      <!-- J2: Joukkueen jakso (lippu seurat/{id}.liput.kentta, D25; muille seuroille tyhjä) -->
+      <div id="seasonJoukkuejakso"></div>
       <div id="seasonPulse" style="margin-bottom:24px"></div>
       <!-- Demo/legacy edistymispalkki (säilyy demo-moodissa) -->
       <div class="season-bar-wrap" id="seasonBarWrap" style="margin-bottom:24px;display:none">
@@ -7253,6 +7257,72 @@ window._mAloitaJaksoTallenna = async function (pid) {
     if (typeof toast === 'function') toast(masterT('Jakso aloitettu') + ' ✓', 'ok');
   } catch (e) { console.warn('[aloitaJakso]', e && e.message); if (typeof toast === 'function') toast(masterT('Tallennus epäonnistui — tarkista oikeutesi tai yritä uudelleen'), 'error'); }
 };
+/* ═══ J2 — JOUKKUEJAKSO (Master → Kausi; docs/CODE_BRIEF_J2_JOUKKUEJAKSO.md; design 12 D17·D21, 13 §3). Kaista: Tero.
+   Näkyy VAIN kun seurat/{id}.liput.kentta === true (D25). Data: joukkueet/{jid}.jaksofokus (+ jaksofokus_historia) tmAsetaJaksofokus-polulla — Rules v3.37 sallii vain nämä kaksi kenttää.
+   jid = _joukkueTunniste() ('KPV U13' → kpv_u13). Joukkuedokumenttia ei luoda täällä (create = SA/johto): puuttuva dokumentti → ohje, ei kirjoitusyritystä. */
+window._mJjLiput = window._mJjLiput || {};   // seuraId → liput (luetaan kerran)
+window._mJjDoc = null;                       // { jid, data|null }
+async function _mJjLataaLiput() {
+  if (!_seuraId || _demo || typeof _db === 'undefined' || !_db) return {};
+  if (window._mJjLiput[_seuraId]) return window._mJjLiput[_seuraId];
+  let l = {};
+  try { const sd = await _db.collection('seurat').doc(_seuraId).get(); l = (sd.exists && sd.data().liput) || {}; } catch (e) { console.warn('[J2] liput:', e && e.message); }
+  window._mJjLiput[_seuraId] = l; return l;
+}
+function _mJjSaaMuokata() { return !!_superAdmin || ['vp', 'urheilutoimenjohtaja', 'talenttivalmentaja', 'valmentaja'].indexOf(_rooli) >= 0; }
+function _mJjCtx(jid, d) {
+  const L = window.TM_VALMENNUSLINJA, nyt = tmPaivaIso(new Date());
+  return { joukkue: (d && d.nimi) || _joukkue, jid: jid, teemat: window._mTeemat || (L ? L.tmTeemaKerros(null, null) : null), ohjelmat: window._ohjKirjasto || [], tanaan: nyt, ika: (window.TM_JOUKKUEJAKSO ? window.TM_JOUKKUEJAKSO.tmJoukkueenIka(d || { nimi: _joukkue }) : null) };
+}
+async function _mJjRender() {
+  const el = document.getElementById('seasonJoukkuejakso'), J = window.TM_JOUKKUEJAKSO;
+  if (!el) return;
+  if (!J || _demo || !_seuraId) { el.innerHTML = ''; return; }
+  const liput = await _mJjLataaLiput();
+  if (liput.kentta !== true) { el.innerHTML = ''; return; }
+  const jid = _joukkueTunniste();
+  if (!jid) { el.innerHTML = '<div style="font-size:12px;color:var(--ink3);margin-bottom:24px">' + masterT('Valitse joukkue nähdäksesi joukkueen jakson.') + '</div>'; return; }
+  if (window._mTeemat === undefined && typeof _mLataaTeemat === 'function') _mLataaTeemat();
+  let data = null;
+  try { const sn = await _db.collection('seurat').doc(_seuraId).collection('joukkueet').doc(jid).get(); data = sn.exists ? Object.assign({ id: jid }, sn.data()) : null; }
+  catch (e) { console.warn('[J2] joukkue:', e && e.message); el.innerHTML = ''; return; }
+  window._mJjDoc = { jid: jid, data: data };
+  if (!data) {   // valmentaja ei voi luoda joukkuedokumenttia (Rules v3.37) → ei kirjoitusyritystä
+    el.innerHTML = '<div class="tm-joukkuejakso" data-jakso="0" style="background:var(--card);border:.5px solid var(--border);border-radius:12px;padding:14px 16px;margin-bottom:24px"><div style="font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink3)">' + masterT('Joukkueen jakso') + '</div><div style="font-size:13px;color:var(--ink3);margin-top:6px">'
+      + masterT(_mJjVoiLuoda() ? 'Joukkuedokumenttia ei ole — luo joukkue ensin.' : 'Pyydä VP:tä luomaan joukkue') + '</div></div>';
+    return;
+  }
+  const ctx = _mJjCtx(jid, data);
+  el.innerHTML = J.tmJoukkuejaksoKorttiHTML(J.tmJoukkuejaksoKortti(data, ctx), { esc: _mEsc, t: masterT, avaaFn: '_mJjAvaa', voiMuokata: _mJjSaaMuokata(), nimi: data.nimi || _joukkue });
+}
+function _mJjVoiLuoda() { return !!_superAdmin || ['vp', 'urheilutoimenjohtaja'].indexOf(_rooli) >= 0; }
+window._mJjAvaa = async function () {
+  const J = window.TM_JOUKKUEJAKSO, d = window._mJjDoc; if (!J || !d || !d.data || !_mJjSaaMuokata()) return;
+  if (typeof _ohjLataaKirjasto === 'function') { try { await _ohjLataaKirjasto(); } catch (e) { /* valikko toimii ilman ohjelmia (TM_FYYSTEEMAT + Oma) */ } }
+  if (window._mTeemat === undefined && typeof _mLataaTeemat === 'function') { try { await _mLataaTeemat(); } catch (e) { /* ei linjaa → vain Oma */ } }
+  const ctx = _mJjCtx(d.jid, d.data); window._mJjLomake = { x: J.tmJoukkuejaksoTiedot(d.data, ctx), ctx: ctx };
+  document.getElementById('_mJjModal')?.remove(); const w = document.createElement('div');
+  w.innerHTML = J.tmJoukkuejaksoModalHTML(window._mJjLomake.x, { esc: _mEsc, t: masterT, modalId: '_mJjModal', overlayAttrs: 'class="detail-modal" style="display:flex;z-index:9000"', tallennaFn: '_mJjTallenna', suljeFn: '_mJjSulje' });
+  document.body.appendChild(w.firstChild);
+};
+window._mJjSulje = function () { document.getElementById('_mJjModal')?.remove(); };
+window._mJjTallenna = async function () {
+  const J = window.TM_JOUKKUEJAKSO, d = window._mJjDoc, lk = window._mJjLomake; if (!J || !d || !d.data || !lk) return;
+  const arvo = function (id) { const el = document.getElementById(id); return el ? el.value : ''; };
+  let jf;
+  try { jf = J.tmJoukkuejaksoRakenna(J.tmJoukkuejaksoSyote(arvo), lk.x, { rooli: _superAdmin ? 'vp' : _rooli, tanaan: tmPaivaIso(new Date()) }); }
+  catch (e) { console.warn('[J2] validointi:', e && e.message); if (typeof toast === 'function') toast(masterT('Joukkuejaksoa ei voi tallentaa') + ': ' + String(e && e.message || '').replace(/^tm_(joukkuejakso|tukitavoitteet|jakso_malli):\s*/, ''), 'error'); return; }
+  if (!_mVerkkoEnnenSulkua()) return;   // offline: lomake jää auki
+  const k = J.tmJoukkuejaksoKirjoitus(d.data, jf, { arrayUnion: function () { return firebase.firestore.FieldValue.arrayUnion.apply(null, arguments); }, nytISO: new Date().toISOString() });
+  try {
+    await _mTuoreToken(firebase.auth().currentUser);
+    await _db.collection('seurat').doc(_seuraId).collection('joukkueet').doc(d.jid).update(k.update);
+    d.data.jaksofokus = k.paikallinen.jaksofokus;   // paikallinen tila vasta onnistumisen jälkeen
+    if (k.paikallinen.historiaLisays.length) d.data.jaksofokus_historia = (Array.isArray(d.data.jaksofokus_historia) ? d.data.jaksofokus_historia : []).concat(k.paikallinen.historiaLisays);
+    window._mJjSulje(); _mJjRender();
+    if (typeof toast === 'function') toast(masterT('Joukkuejakso tallennettu') + ' ✓', 'ok');
+  } catch (e) { console.warn('[J2] kirjoitus:', e && e.message); if (typeof toast === 'function') toast(masterT('Tallennus epäonnistui — tarkista oikeutesi tai yritä uudelleen'), 'error'); }
+};
 /* Vastuuhenkilö (additiivinen kenttä vastuuhenkilo {uid, rooli, asetettu_pvm}). Rivi IDP-kortin yläosassa; asettaa joukkueen valmentaja / VP / UTJ / talenttivalmentaja (editable = oikeus pelaajaan;
    Rules v3.38 pakottaa: fysiikkavalmentaja ym. eivät aseta). Henkilöstö ladataan kerran (kayttajat) ja kortti piirretään uudelleen. EI "omat vastuupelaajat" -näkymää (R6.6). */
 async function _mLataaHenkilosto() {
@@ -8840,6 +8910,7 @@ window._avaaKausiPelaajat = function(dim) {
 };
 
 function renderSeason() {
+  if (typeof _mJjRender === 'function') _mJjRender();   // J2: joukkueen jakso -kortti (vain liput.kentta)
   // Kirjautuneena: KEHITYSKOKPIT Firestoresta (korvaa kalenterimetronomin)
   if (!_demo && _seuraId) {
     const P = _pelaajatData || [];

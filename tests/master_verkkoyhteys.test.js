@@ -173,7 +173,7 @@ describe('Master_v16 · verkkoyhteys: rajaukset', () => {
   it('kaikki tallennukset kulkevat _mTuoreToken-apurin kautta; ei enablePersistencea', () => {
     expect(M.match(/\.getIdToken\(true\)/g)).toHaveLength(1);   // vain apurin sisällä (kommenteissa ilman pistettä)
     expect(runko('async function _mTuoreToken(cu)')).toContain('cu.getIdToken(true)');
-    expect((M.match(/await _mTuoreToken\(/g) || []).length).toBe(25);   // 25 tallennuskohtaa (+ vastuuhenkilö 5.10., + valinta-viestin luetuksi-merkintä D-2, + ohjelman liitos tukiosaan B 2/3, + jakson aloitus D-3)
+    expect((M.match(/await _mTuoreToken\(/g) || []).length).toBe(26);   // 26 tallennuskohtaa (+ vastuuhenkilö 5.10., + valinta-viestin luetuksi-merkintä D-2, + ohjelman liitos tukiosaan B 2/3, + jakson aloitus D-3, + joukkuejakso J2)
     expect(M).not.toMatch(/enablePersistence\(|enableIndexedDbPersistence|enableMultiTabIndexedDbPersistence/);
   });
 });

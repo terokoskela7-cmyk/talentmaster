@@ -4028,6 +4028,23 @@ describe('v3.37 · joukkueen jakso (joukkueet/{id}): valmentaja vain jaksokentä
     await assertFails(setDoc(jk(db, 'fcl_uusi'), { jaksofokus: JF }));
     expect((await lue(JOUKKUE_A1)).nimi).toBe('FCL U12'); expect((await lue(JOUKKUE_A2)).nimi).toBe('FCL U14');
   });
+  it('J2: Masterin joukkuejakso-payload (tmJoukkuejaksoKirjoitus: jaksofokus.osa_alueet + katselmusikkuna + historia) menee läpi oman joukkueen valmentajalta, VP:ltä ja talenttivalmentajalta — EI Rules-muutosta', async () => {
+    const JJ = createRequire(import.meta.url)('../../lib/tm_joukkuejakso.js');
+    const jf = (nimi) => ({ konsepti_avain: 'teema_45_1', konsepti_nimi: nimi, domeeni: 'teknis_taktinen', laji: 'joukkue', lahde: 'joukkuejakso', alku: '2026-10-13', kesto_vk: 6, katselmus_alku: '2026-11-24', katselmus_loppu: '2026-12-08', asetti: { rooli: 'valmentaja', pvm: '2026-10-13' },
+      osa_alueet: { tekninen_taktinen: { teema_avain: 'teema_45_1', nimi, lahde: 'seura' }, fyysinen: { avain: 'fy_ketteryys', nimi: 'Ketteryys & suunnanmuutos', lahde: 'tm' }, henkinen: { kuvaus: 'Seuraava suoritus virheen jälkeen' }, sosiaalinen: null } });
+    // ensimmäinen jakso (ei historiaa) JA vaihto toiseen jaksoon (historiarivi arrayUnionina) — täsmälleen adapterin kirjoittama muoto
+    const eka = JJ.tmJoukkuejaksoKirjoitus({ id: JOUKKUE_A1, nimi: 'FCL U12' }, jf('Syöttö'), { arrayUnion: (...r) => FS_MOD.arrayUnion(...r), nytISO: '2026-10-13T08:00:00.000Z' });
+    expect(Object.keys(eka.update)).toEqual(['jaksofokus']);
+    const db = valmentajaContext(VALM_A_UID, SEURA_A).firestore();
+    await assertSucceeds(updateDoc(jk(db, JOUKKUE_A1), eka.update));
+    const toka = JJ.tmJoukkuejaksoKirjoitus({ id: JOUKKUE_A1, jaksofokus: eka.paikallinen.jaksofokus }, Object.assign(jf('Kuljetus'), { konsepti_avain: 'teema_46_1' }), { arrayUnion: (...r) => FS_MOD.arrayUnion(...r), nytISO: '2026-11-24T08:00:00.000Z' });
+    expect(Object.keys(toka.update).sort()).toEqual(['jaksofokus', 'jaksofokus_historia']);
+    await assertSucceeds(updateDoc(jk(db, JOUKKUE_A1), toka.update));
+    const d = await lue(JOUKKUE_A1); expect(d.jaksofokus.osa_alueet.fyysinen.avain).toBe('fy_ketteryys'); expect(d.jaksofokus.katselmus_alku).toBe('2026-11-24'); expect(d.jaksofokus_historia.length).toBe(1); expect(d.nimi).toBe('FCL U12');
+    for (const ctx of [vpContext(SEURA_A), talenttivalmentajaContext('talval-fcl-001', SEURA_A)]) await assertSucceeds(updateDoc(jk(ctx.firestore(), JOUKKUE_A2), eka.update));
+    await assertFails(updateDoc(jk(db, JOUKKUE_A2), eka.update));                                   // valmentaja EI muun joukkueen jaksoa
+    await assertFails(updateDoc(jk(db, 'fcl_ei_ole'), eka.update));                                 // puuttuva dokumentti: update ei luo — adapteri näyttää ohjeen eikä yritä
+  });
   it('KOKO dokumentin saavat päivittää vain johto (VP, urheilutoimenjohtaja, seurasihteeri) ja SA', async () => {
     for (const ctx of [vpContext(SEURA_A), sihteeriContext(SEURA_A), saContext(), testEnv.authenticatedContext('utj-1', { rooli: 'urheilutoimenjohtaja', seuraId: SEURA_A })]) await assertSucceeds(updateDoc(jk(ctx.firestore(), JOUKKUE_A1), { nimi: 'FCL U12 (uusi)' }));
     for (const ctx of [valmentajaContext(VALM_A_UID, SEURA_A), talenttivalmentajaContext('talval-fcl-001', SEURA_A)]) await assertFails(updateDoc(jk(ctx.firestore(), JOUKKUE_A1), { nimi: 'X' }));
