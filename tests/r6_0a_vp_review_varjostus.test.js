@@ -44,8 +44,8 @@ describe('vartija: ei kahta samannimistä globaalia VP_v25:ssä', () => {
     const r = skannaaTuplat(VP);
     expect(r.varjostus, 'varjostus').toEqual([]); expect(r.declTuplat, 'deklaraatiotuplat').toEqual([]); expect(r.winTuplat, 'window-tuplat').toEqual([]);
   });
-  it('modaali window._vpKirjaaReview (1 arg) ja kirjoittaja _vpKirjoitaReview (3 arg) ovat eri nimiä; onclickit osoittavat modaaliin', () => {
-    expect(VP).toMatch(/window\._vpKirjaaReview = function \(pid\) \{/); expect(VP).toMatch(/async function _vpKirjoitaReview\(pid, pvm, review, pelaaja\) \{/);
+  it('modaali window._vpKirjaaReview (1 arg) ja kirjoittaja _vpKirjoitaReview (5 arg) ovat eri nimiä; onclickit osoittavat modaaliin', () => {
+    expect(VP).toMatch(/window\._vpKirjaaReview = function \(pid\) \{/); expect(VP).toMatch(/async function _vpKirjoitaReview\(pid, pvm, review, pelaaja, lisa\) \{/);   // R6.3-E: + lisa (pelaajadokin lisäkentät samaan batchiin)
     expect(VP).not.toMatch(/async function _vpKirjaaReview\(/);
     expect((VP.match(/onclick="_vpKirjaaReview\(/g) || []).length).toBeGreaterThanOrEqual(1);
     expect(VP).not.toMatch(/await _vpKirjaaReview\(/);   // kirjoittajaa ei kutsuta modaalin nimellä
@@ -53,7 +53,7 @@ describe('vartija: ei kahta samannimistä globaalia VP_v25:ssä', () => {
   it('REGRESSIO: selaimen globaali-semantiikka (window = global): deklaraatio + myöhempi modaali-sijoitus → kirjoittaja säilyy', () => {
     const ctx = {}; ctx.window = ctx; vm.createContext(ctx);
     vm.runInContext(pura('window._vpKirjaaReview = function (pid)').replace(/\{[\s\S]*\}$/, '{ return "modaali"; }') + ';\n' + pura('async function _vpKirjoitaReview(') + '\n', ctx);
-    expect(ctx._vpKirjoitaReview.length).toBe(4); expect(ctx._vpKirjaaReview.length).toBe(1); expect(ctx._vpKirjoitaReview).not.toBe(ctx._vpKirjaaReview);
+    expect(ctx._vpKirjoitaReview.length).toBe(5); expect(ctx._vpKirjaaReview.length).toBe(1); expect(ctx._vpKirjoitaReview).not.toBe(ctx._vpKirjaaReview);
   });
 });
 
