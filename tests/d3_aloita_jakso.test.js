@@ -57,7 +57,7 @@ function ymp({ pelaaja, kentat = {}, demo = false, kaada = false, rooli = 'valme
     firebase: { auth: () => ({ currentUser: {} }), firestore: { FieldValue: { arrayUnion: (...a) => ({ __arrayUnion: a }) } } }, _renderPinfoFirestore: () => { log.renderit++; }, _mIdpReRender: () => { log.renderit++; }, _tmHenkiloNimi: () => 'Topias K.', _mLataaHenkilosto() {},
     _mJaksoVaihto: (pp, jf) => K.tmAsetaJaksofokus(pp, jf, { nytISO: NYT }), document, Object, Array, String, Number, Promise, JSON };
   c.window = c; c.window.TM_JAKSO_MALLI = JM; c.window.TM_VASTUUHENKILO = VH; c.window.TM_ALOITA_JAKSO = AJ; c.window._mHenkilosto = [{ id: 'u-valm', nimi: 'Veera Valmentaja', rooli: 'valmentaja' }, { id: 'u-vp', nimi: 'Vilma VP', rooli: 'vp' }]; vm.createContext(c);
-  vm.runInContext([pura('function _mAloitaJaksoRivi('), pura('function _mAjPelaajaPp('), pura('function _mPelaajaNimiAj('), pura('window._mAloitaJaksoAvaa = async function'), pura('window._mAloitaJaksoSulje = function'), pura('window._mAloitaJaksoTallenna = async function')].join(';\n') + ';', c);
+  vm.runInContext([pura('function _mAloitaJaksoRivi('), pura('function _mAjPelaajaPp('), pura('function _mPelaajaNimiAj('), pura('window._mAloitaJaksoAvaa = async function'), pura('window._mAloitaJaksoSulje = function'), pura('window._mAloitaJaksoTallenna = async function'), pura('async function _mAjKirjoitaJakso(')].join(';\n') + ';', c);
   return { c, p, log };
 }
 const KENTAT = (lisa) => Object.assign({ _ajTaito: 'y_h2', _ajYv: 'Näkee pelin hyvin', _ajAlue: 'kestävyys', _ajPer: 'Jaksaminen tukee pelin lukemista', _ajKesto: '6', _ajVh: '' }, lisa || {});
@@ -99,6 +99,6 @@ describe('Master: jakson aloitus (D-3)', () => {
   });
   it('lähde: nappirivi IDP-kortissa teeman ja vastuuhenkilön välissä; tallennus käyttää tmAloitaJakso + _mJaksoVaihto (ei omaa päättelyä); ei kirjoitusta ohjelmat/harjoitepankki-kokoelmiin', () => {
     const k = pura('function _mIdpKorttiHTML('); expect(k.indexOf('_mAloitaJaksoRivi(p, editable)')).toBeGreaterThan(k.indexOf('_mTeemaRivi(p)')); expect(k.indexOf('_mAloitaJaksoRivi(p, editable)')).toBeLessThan(k.indexOf('_mVastuuhenkiloRivi(p, editable)'));
-    const t = pura('window._mAloitaJaksoTallenna = async function'); expect(t).toContain('JM.tmAloitaJakso('); expect(t).toContain('_mJaksoVaihto('); expect(t).not.toMatch(/collection\('(ohjelmat|harjoitepankki)'\)/);
+    const t = pura('window._mAloitaJaksoTallenna = async function'); expect(t).toContain('JM.tmAloitaJakso('); expect(t).toContain('_mAjKirjoitaJakso('); expect(pura('async function _mAjKirjoitaJakso(')).toContain('_mJaksoVaihto('); expect(t).not.toMatch(/collection\('(ohjelmat|harjoitepankki)'\)/);
   });
 });
