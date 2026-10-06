@@ -544,7 +544,8 @@ input::placeholder,textarea::placeholder{color:#8C8B86;opacity:1}
 <script src="lib/tm_verkko.js?v=1"></script>   <!-- verkkokatko: 1 uudelleenyritys + Yhteyskatko-ilmoitus + Sentry warning -->
 <script src="lib/tm_lang.js?v=32"></script>   <!-- i18n V0 putki · V1-A/A2 · V4-A3: +pelaaja.nain_teet/kirjaa_tehdyksi/pallo_joka_paiva/rae_q4 (kotinäytön chrome sv) -->
 <script src="lib/tm_phv_tila.js?v=1"></script>   <!-- PR C: PHV-tilan YKSI lukusääntö (Mirwald, vain mittauslähteestä) -->
-<script src="lib/tm_kentta.js?v=1"></script>   <!-- K0: Kenttä-komponentti (ei vielä käytössä näkymissä) -->
+<script src="lib/tm_kentta.js?v=1"></script>
+<script src="lib/tm_kotiharjoitteet.js?v=1"></script>   <!-- B 3/3: jakson kotiharjoitteet (jaksofokus.tukiosa.harjoitteet snapshot) + seuran nimi lähdemerkintänä -->   <!-- K0: Kenttä-komponentti (ei vielä käytössä näkymissä) -->
 <script src="lib/tm_eerikkila_normit.js?v=47"></script>
 <script src="docs/testit_indeksit.js?v=13"></script>
 <script src="lib/tm_havaintohistoria.js?v=1"></script>   <!-- vain tmHhRivit: jarjestys + tekijanimi (ei pisteita, 7.22) -->
@@ -3319,6 +3320,11 @@ function _minaGrp(cfg) {
     + '</div>';
 }
 
+// B 3/3 — jakson kotiharjoitteet: jaksofokus.tukiosa.harjoitteet[] (valmentajan liittämä hyväksytty seuran ohjelma, snapshot). Tyhjä → osio piiloon (_minaGrp). Lähdemerkintä = seuran nimi snapshotista.
+function rMinaKotiharjoitteet() {
+  var L = window.TM_KOTIHARJOITTEET; if (!L || !_pelaaja) return '';
+  return L.tmKotiharjoitteetHTML(L.tmKotiharjoitteet(_pelaaja.jaksofokus), { esc: _thEsc });
+}
 function rMina() {
   // Render-pattern: draw() injektoi tämän stringin #phBody:hyn.
   // Kortit keskiöön: hero + kokoelma-nauha kärjessä, muu MINÄ 5 kokoontaittuvassa teemassa (§ CODE_OHJE_MINA_KORTIT_KESKIOON).
@@ -3338,6 +3344,7 @@ function rMina() {
     + _minaGrp({ id: 'g_matka', ic: '🎯', ey: 'Sinun matka', ti: 'Kausitavoite &amp; jaksofokus',
         sub: fokusNimi ? ('Fokus: ' + esc(fokusNimi)) : 'Tavoite &amp; jaksofokus', def: true, action: matkaAction,
         body: rMinaTavoite() + rMinaSitoumus() })
+    + _minaGrp({ id: 'g_koti', ic: '🏠', ey: 'Kotiharjoitteet', ti: 'Tämän jakson kotiharjoitteet', sub: 'Tee kotona', body: rMinaKotiharjoitteet() })
     + _minaGrp({ id: 'g_taidot', ic: '⚡', ey: 'Taidot &amp; keho', ti: 'Tekniikka · fyysinen · keho',
         sub: 'Tekniikka · vauhti · MAS · kehitysvaihe',
         body: rMinaTekniikkaprofiili() + rMinaFyysinenTavoite() + rMinaMAS() + rMinaKehitysvaihe() + rMinaKonseptiFokus() })
