@@ -229,7 +229,7 @@ describe('K0 ei muuta näkymiä (D10/D11 vartijat)', () => {
   it('SW: lib + fontti allowlistissa molemmissa apeissa, cachet nostettu (pelaaja v74, vanhempi v50)', () => {
     const sp = lue('sw_pelaaja.js'), sv = lue('sw_vanhempi.js');
     [sp, sv].forEach((s) => { expect(s).toContain("'/lib/tm_kentta.js'"); expect(s).toContain("'/assets/fonts/archivo-latin-wdth-normal.woff2'"); });
-    expect(sp).toMatch(/const CACHE = 'tm-pelaaja-v74'/); expect(sv).toMatch(/const CACHE = 'tm-vanhempi-v50'/);
+    expect(sp).toMatch(/const CACHE = 'tm-pelaaja-v(7[4-9]|[89]\d)'/); expect(sv).toMatch(/const CACHE = 'tm-vanhempi-v50'/);   // pelaaja vähintään v74 (K0); B 3/3 nosti v75
   });
   it('kirjasto ei lataa mitään verkosta eikä Firebasea; ei Google Fonts', () => {
     const koodi = LIB.replace(/\/\*[\s\S]*?\*\//g, '').split('\n').map((l) => l.replace(/\/\/.*$/, '')).join('\n');   // ilman kommentteja

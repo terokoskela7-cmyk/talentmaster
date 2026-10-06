@@ -10,7 +10,7 @@
    - Omat JS-moduulit + manifest + ikonit + versioidut fontit/SDK → cache-first.
    - KAIKKI muu (toisten appien sivut, raw.githubusercontent, jne.) → suoraan verkkoon, EI cachea.
    Scopea ei voi kaventaa (SW juuressa) → allowlist hoitaa rajaamisen. CLAUDE.md §27.4. */
-const CACHE = 'tm-pelaaja-v74';   // K0 (D11): tm_kentta.js + Archivo-fontti allowlistiin — v73 =   // P0.6b-korjaus: varapolun kokonaisaika kanonisella laskeKokonaistulos:lla — v72 = V2 P0.6b: mitali per kilpailu (tki_historia, ikä testihetkeltä, mikään ei katoa) — v71 = V2 P0.4 PR1: tm_kalenteri_ilmoitus.js + tm_lang v32 (ilm_tanaan/huomenna) — v70 = P0.3 (#774), v69 = P0.5 (#773), v68 = P0.7 (#772)
+const CACHE = 'tm-pelaaja-v75';   // B 3/3: tm_kotiharjoitteet.js allowlistiin — v74 =   // K0 (D11): tm_kentta.js + Archivo-fontti allowlistiin — v73 =   // P0.6b-korjaus: varapolun kokonaisaika kanonisella laskeKokonaistulos:lla — v72 = V2 P0.6b: mitali per kilpailu (tki_historia, ikä testihetkeltä, mikään ei katoa) — v71 = V2 P0.4 PR1: tm_kalenteri_ilmoitus.js + tm_lang v32 (ilm_tanaan/huomenna) — v70 = P0.3 (#774), v69 = P0.5 (#773), v68 = P0.7 (#772)
 const SHELL = './TalentMaster_Pelaaja_v7.html';
 // VAIN oma shell — JS-moduulit ovat ?v=-versioituja (bare-polku ei matchaisi), allowlist cachettaa ne
 // pyydettäessä. (Vanha PRECACHE viittasi /talentmaster/tm_eerikkila_normit.js → 404, jota Pelaaja ei lataa
@@ -62,6 +62,7 @@ function onAllowlist(url) {
   // → suora verkko, EI cachea (cross-origin telemetria ei kuulu PWA-cacheen). Tietoinen valinta.
   if (url.indexOf('/lib/tm-microcycles.js') !== -1) return true;
   if (url.indexOf('/lib/tm_eerikkila_normit.js') !== -1) return true;
+  if (url.indexOf('/lib/tm_kotiharjoitteet.js') !== -1) return true;   // B 3/3: kotiharjoitteet offline-cacheen
   if (url.indexOf('/lib/tm_idp.js') !== -1) return true;   // 3c-a pelaajan aikajana
   if (url.indexOf('/lib/tm_lang.js') !== -1) return true;   // i18n V0 — käännöstaulukko offline-cacheen
   if (url.indexOf('/lib/tm_ennatykset.js') !== -1) return true;   // PR D2: ennätysrivit alustoittain
