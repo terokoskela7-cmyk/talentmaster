@@ -60,7 +60,7 @@ function ymp({ jaksofokus, ohjelma = OHJ(), demo = false, kaada = false } = {}) 
   const dok = { update: async (d) => { if (kaada) throw new Error('permission-denied'); log.upd.push(d); } };
   const c = { _pelaajatData: [p], _ttPelaaja: () => p, window: {}, _ohjKirjasto: [ohjelma], masterT: (x) => x, toast: (t, k) => log.toastit.push([t, k]), console: { warn() {} }, _demo: demo, _seuraId: 'kpv', _mVerkkoEnnenSulkua: () => true, _mTuoreToken: async () => {},
     firebase: { auth: () => ({ currentUser: {} }) }, _db: { collection: () => ({ doc: () => ({ collection: () => ({ doc: () => dok }) }) }) }, _renderPinfoFirestore: () => { log.renderit++; }, document: { getElementById: () => null }, Promise, Object, Array, JSON };
-  c.window = c; c.window._mSeuraNimi = 'KPV'; c.window.TM_JAKSO_MALLI = JM; c.window.TM_KEHITYSSILMUKKA = K; c.window._ohjKirjasto = [ohjelma]; vm.createContext(c);
+  c.window = c; c.window._mSeuraNimi = 'KPV'; c.window.TM_JAKSO_MALLI = JM; c.window.TM_KEHITYSSILMUKKA = K; c.window.TM_TUKITAVOITTEET = require('../lib/tm_tukitavoitteet.js'); c.window._ohjKirjasto = [ohjelma]; vm.createContext(c);
   vm.runInContext(pura('window._ohjLiitaTukiosaan = async function') + ';', c); return { c, p, log };
 }
 const JAKSO = (tukiosa) => ({ konsepti_avain: 'y_h2', konsepti_nimi: 'Syöttö', alkoi: '2026-10-05T10:00:00.000Z', kesto_vk: 4, domeeni: 'teknis_taktinen', tukiosa });

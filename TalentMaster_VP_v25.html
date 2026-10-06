@@ -111,7 +111,7 @@ window.TM_KAAVIO_HOST = {
 <script src="lib/tm_treeniteema.js?v=1"></script>   <!-- Vaihe 4d: teemakattavuus PURE-ydin (jaksofokus vs suunnitellut teemaharjoitukset) -->
 <script src="lib/tm_jaksokooste.js?v=2"></script>   <!-- Vaihe 6: jakson sulku (meso-sykli) PURE-ydin — prosessi+kalibraatio+historia (geneerinen §8) -->
 <script src="lib/tm_aloita_jakso.js?v=2"></script>
-<script src="lib/tm_tukitavoitteet.js?v=2"></script>   <!-- J1/V1: tukitavoitteet (ehdotusmoottori, kotiharjoitevalikoima) -->
+<script src="lib/tm_tukitavoitteet.js?v=3"></script>   <!-- J1/V1: tukitavoitteet (ehdotusmoottori, kotiharjoitevalikoima) -->
 <script src="lib/tm_koti_oletus.js?v=1"></script>   <!-- V1: TM:n oletuskotiharjoitteet (D16: seura ensin, TM varalla); generoitu harjoitelogiikka_v4:stä -->   <!-- jaettu "Aloita jakso" -modaali (Master + VP) -->
 <script src="lib/tm_jaksokortti.js?v=1"></script>   <!-- "Jakso nyt" -kortti: taito · ydinvahvuus · tukiosa · kesto/päättyy · vastuuhenkilö · teema · kotiharjoitteet -->
 <script src="lib/tm_polun_tila.js?v=1"></script>   <!-- Polun tila -signaali + kolme kysymystä (Tänään) -->
@@ -8541,8 +8541,9 @@ window._vpOhjKirjastoJaksolle = function (pid) { if (typeof window._vpOhjKirjast
 window._vpOhjLiitaTukiosaan = async function (pid, ohjelmaId) {
   const p = _vpTtPelaaja(pid), JM = window.TM_JAKSO_MALLI, K = window.TM_KEHITYSSILMUKKA, lib = (window._vpOhjKirjasto || []).find(function (o) { return o.id === ohjelmaId; });
   if (!p || !JM || !K || !lib) { if (typeof toast === 'function') toast(vpT('Ohjelmaa ei löytynyt'), 'error'); return; }
-  let harjoitteet, plan; const virhe = vpT('Liittäminen ei onnistu: jaksolla pitää olla tukiosa ja ohjelmassa kotiin sopivia liikkeitä.');
-  try { harjoitteet = JM.tmLiitaTukiosaan(p.jaksofokus && p.jaksofokus.tukiosa, JM.tmOhjelmaTukiosaan(lib, { seuraNimi: window._vpSeuraNimi || null })); plan = K.tmPaivitaJaksofokus(p, { 'tukiosa.harjoitteet': harjoitteet }); }
+  let plan; const virhe = vpT('Liittäminen ei onnistu: jaksolla pitää olla tukiosa ja ohjelmassa kotiin sopivia liikkeitä.');
+  const kohdeEl = document.getElementById('_ohjTtKohde');   // J4 A: tukitavoitteet → valitun tavoitteen harjoitteet + yhteensopiva tukiosa yhdessä updatessa
+  try { plan = window.TM_TUKITAVOITTEET.tmLiitaOhjelmaJaksoon(p, lib, { seuraNimi: window._vpSeuraNimi || null, indeksi: kohdeEl ? Number(kohdeEl.value) : 0 }); }
   catch (e) { console.warn('[vpOhjTukiosa]', e && e.message); if (typeof toast === 'function') toast(virhe, 'error'); return; }
   await _vpJfKirjoita(pid, plan.polut, vpT('Kotiharjoitteet liitetty jaksoon'), function () { p.jaksofokus = plan.jaksofokus; if (typeof window._vpOhjSulje === 'function') { window._vpOhjSulje(); window._vpOhjSulje = null; } _vpJaksoReRender(p); });
 };

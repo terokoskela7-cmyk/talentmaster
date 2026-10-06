@@ -110,7 +110,7 @@ window.TM_KAAVIO_HOST = {
 <script src="lib/tm_kehityspolku.js?v=2"></script>   <!-- I3a: looginen silta -resolver (idp_fokus → konsepti/fundamentti → harjoite) -->
 <script src="lib/tm_jaksokooste.js?v=2"></script>   <!-- Vaihe 6: jakson sulku (meso-sykli) — valmentaja sulkee omat pelaajansa (§4/§37) -->
 <script src="lib/tm_valmennuslinja.js?v=1"></script>   <!-- seuran valmennuslinja: joukkueen teema (hyväksytyt + henkilökunnalle luonnos) -->
-<script src="lib/tm_tukitavoitteet.js?v=2"></script>   <!-- J1/J2: joukkuejakson osa-alueet + tukitavoitteet (lukee tm_idp, tm_jakso_malli, tm_fyysteemat) -->
+<script src="lib/tm_tukitavoitteet.js?v=3"></script>   <!-- J1/J2: joukkuejakson osa-alueet + tukitavoitteet (lukee tm_idp, tm_jakso_malli, tm_fyysteemat) -->
 <script src="lib/tm_joukkuejakso.js?v=1"></script>   <!-- J2: joukkuejakso (Kausi → Joukkueen jakso): valinnat, lomake, kortti -->
 <script src="lib/tm_koti_oletus.js?v=1"></script>   <!-- V1: TM:n oletuskotiharjoitteet (D16: seura ensin, TM varalla); generoitu harjoitelogiikka_v4:stä -->
 <script src="lib/tm_aloita_jakso.js?v=2"></script>   <!-- jaettu "Aloita jakso" -modaali (Master + VP) -->
@@ -6644,6 +6644,8 @@ function _ohjValitseRender(pid, teemaAvain, naytaArkisto) {
   h += '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px"><div style="font-family:\'Cormorant Garamond\',serif;font-size:21px;color:var(--ink)">' + masterT('📚 Ohjelmakirjasto') + '</div>'
     + '<button onclick="document.getElementById(\'_ohjValitseModal\').remove()" style="background:none;border:none;color:var(--ink3);font-size:22px;cursor:pointer;padding:0 6px">×</button></div>';
   h += '<div style="font-size:11px;color:var(--ink3);margin-bottom:12px">' + masterT('Tallennetut fyysiset ohjelmat · uudelleenkäytä/versioi · liitä jaksoon') + '</div>';
+  { const _pl = pid ? ((typeof _ttPelaaja === 'function') ? _ttPelaaja(pid) : (_pelaajatData || []).find(function (x) { return x.id === pid; })) : null;   // J4 A: kaksi tukitavoitetta → kysy kumpaan liitetään
+    if (_pl && window.TM_TUKITAVOITTEET) h += window.TM_TUKITAVOITTEET.tmLiitoKohdeValintaHTML(_pl.jaksofokus, { esc: esc, t: masterT }); }
   h += '<div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">';
   if (_ohjSaaKirjoittaa() && pid) h += '<button onclick="_ohjEditori(\'\',\'' + esc(pid) + '\',\'' + esc(teemaAvain || '') + '\')" style="font-size:12px;font-weight:600;border-radius:8px;padding:8px 12px;cursor:pointer;border:.5px solid rgba(40,176,144,.4);background:rgba(40,176,144,.14);color:var(--teal)">＋ Uusi ohjelma</button>';
   else if (_ohjSaaKirjoittaa()) h += '<button onclick="_ohjEditori(\'\',\'\',\'\')" style="font-size:12px;font-weight:600;border-radius:8px;padding:8px 12px;cursor:pointer;border:.5px solid rgba(40,176,144,.4);background:rgba(40,176,144,.14);color:var(--teal)">＋ Uusi ohjelma</button>';
@@ -6705,11 +6707,11 @@ window._ohjLiitaTukiosaan = async function (pid, ohjelmaId) {
   var p = (typeof _ttPelaaja === 'function') ? _ttPelaaja(pid) : (_pelaajatData || []).find(function (x) { return x.id === pid; });
   var JM = window.TM_JAKSO_MALLI, K = window.TM_KEHITYSSILMUKKA, lib = (window._ohjKirjasto || []).find(function (o) { return o.id === ohjelmaId; });
   if (!p || !JM || !K || !lib) { if (typeof toast === 'function') toast(masterT('Ohjelmaa ei löytynyt'), 'error'); return; }
-  var harjoitteet;
-  try { harjoitteet = JM.tmLiitaTukiosaan(p.jaksofokus && p.jaksofokus.tukiosa, JM.tmOhjelmaTukiosaan(lib, { seuraNimi: window._mSeuraNimi || null })); }
-  catch (e) { console.warn('[ohjTukiosa]', e && e.message); if (typeof toast === 'function') toast(masterT('Liittäminen ei onnistu: jaksolla pitää olla tukiosa ja ohjelmassa kotiin sopivia liikkeitä.'), 'error'); return; }
+  /* J4 A: jaksolla tukitavoitteet → liitos kirjoittaa valitun tavoitteen harjoitteet JA yhteensopivan tukiosan YHDESSÄ updatessa (lib tmLiitaOhjelmaJaksoon); vanha jakso ennallaan. */
+  var kohdeEl = document.getElementById('_ohjTtKohde'), TT = window.TM_TUKITAVOITTEET;
+  if (!TT) { if (typeof toast === 'function') toast(masterT('Ohjelmaa ei löytynyt'), 'error'); return; }
   if (!_mVerkkoEnnenSulkua()) return;
-  var plan; try { plan = K.tmPaivitaJaksofokus(p, { 'tukiosa.harjoitteet': harjoitteet }); } catch (e) { console.warn('[ohjTukiosa]', e && e.message); if (typeof toast === 'function') toast(masterT('Liittäminen ei onnistu: jaksolla pitää olla tukiosa ja ohjelmassa kotiin sopivia liikkeitä.'), 'error'); return; }
+  var plan; try { plan = TT.tmLiitaOhjelmaJaksoon(p, lib, { seuraNimi: window._mSeuraNimi || null, indeksi: kohdeEl ? Number(kohdeEl.value) : 0 }); } catch (e) { console.warn('[ohjTukiosa]', e && e.message); if (typeof toast === 'function') toast(masterT('Liittäminen ei onnistu: jaksolla pitää olla tukiosa ja ohjelmassa kotiin sopivia liikkeitä.'), 'error'); return; }
   if (_demo || !_seuraId || typeof _db === 'undefined' || !_db) { p.jaksofokus = plan.jaksofokus; if (typeof _renderPinfoFirestore === 'function') _renderPinfoFirestore(p); return; }
   try { await _mTuoreToken(firebase.auth().currentUser);
     await _db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(pid).update(plan.polut);
