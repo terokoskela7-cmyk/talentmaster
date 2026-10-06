@@ -123,7 +123,7 @@ describe('lähdekontrakti — tallentavat kohdat eivät käytä UTC-päivää', 
     // review: pari yhdessä set-kutsussa atomisen batch-apurin sisällä (§26), jota MDT-review + bulk kutsuvat
     // R6.2a: pari rakentuu lib/tm_kehityssilmukka.js tmKirjaaKatselmus:ssa (kummallekin polulle sama) ja kirjoitetaan YHDESSÄ set-kutsussa batchissa
     expect(S('lib/tm_kehityssilmukka.js')).toContain("pk.review_viimeisin_pvm = pvm; pk.review_viimeisin_tyyppi = tyyppi;");
-    expect(S('TalentMaster_VP_v25.html')).toContain("b.set(pRef, plan.pikakentat, { merge: true });");
+    expect(S('TalentMaster_VP_v25.html')).toContain("b.set(pRef, pk, { merge: true });");   // pk = plan.pikakentat + R6.3-E lisäkentät (sama batch)
     expect(S('TalentMaster_VP_v25.html').split('await _vpKirjoitaReview(').length - 1).toBe(3);   // MDT + bulk + cockpit (R6.2a)
   });
   it('kirjaukset/{pvm}-lukijat vertaavat samaan paikalliseen päivään (Pelaaja _paivaIso; VP-viikkonäkymä paikallinen iso; PHV-raja _paivaIso)', () => {
