@@ -4,7 +4,7 @@
  * tuo_valmennuslinja.js — SJK:n (tai muun seuran) valmennuslinjan tuonti Excelistä Firestoreen. DRY-RUN OLETUKSENA; --apply vain Teron hyväksynnällä.
  *
  *   node scripts/tuo_valmennuslinja.js --seura sjk --tiedosto SJK_valmennuslinja_tarkistettavaksi.xlsx [--master SJK_fysiikkalinja_tuontipohja_v2.xlsx]
- *        [--pvm 2026-10-17] [--tarkistaja "Nimi"] [--lahde "Nevanlinna 2014"] [--ei-lue] [--apply]
+ *        [--pvm 2026-10-17] [--tarkistaja "Nimi"] [--lahde "Nevanlinna 2014"] [--joukkueet "SJK P12,SJK P13"] [--seuran-nimi SJK] [--ei-lue] [--apply]
  *
  * KAKSI AJOA (kaikki tuodut dokumentit saavat tila + tarkistettu_pvm + tarkistaja):
  *   1. ajo = TM:n esitäytetty Excel (ei yhtään kuittausta) → KAIKKI tila:'luonnos' (pelaajalle ei näy mitään).
@@ -29,7 +29,8 @@ const ALIAS = {
   kotiin_sopiva: 'kotiin_sopiva', video_url: 'video_url', kuva_url: 'kuva_url', ketju: 'ketju', teema_avain: 'teema_avain', tyyppi: 'tyyppi', jarjestys: 'jarjestys', liike: 'liike', taso: 'taso',
   kuittaus: 'kuittaus', kommentti: 'kommentti', joukkue: 'joukkue', jakso: 'jakso', viikot: 'viikot', teema: 'teema', konsepti: 'konsepti', alkaa_pvm: 'alkaa', alkaa: 'alkaa', paattyy_pvm: 'paattyy', paattyy: 'paattyy',
   nimi: 'nimi', kuvaus: 'kuvaus', valineet: 'valineet', pelaajia: 'pelaajia', kuva_tai_video: 'kuva_tai_video', sisalto: 'sisalto', painopisteet: 'painopisteet', totuteltava_opeteltava: 'totuteltava',
-  totuteltava: 'totuteltava', suositellut_ohjelmat: 'suositellut_ohjelmat', dimensio: 'dimensio', kehityskohde: 'kehityskohde', tarvikkeet: 'tarvikkeet',
+  totuteltava: 'totuteltava', pelaamisen_periaate: 'pelaamisen_periaate', pelivaihe: 'pelivaihe', valmennussana: 'valmennussana', kysymys_pelaajalle: 'kysymys_pelaajalle', kaytto: 'kaytto', viikko: 'viikko',
+  taito_avainasiat: 'taito_avainasiat', taktiikka_avainasiat: 'taktiikka_avainasiat', fyysinen_painopiste: 'fyysinen_painopiste', harjoitteet: 'harjoitteet', alkurutiini: 'alkurutiini', testit: 'testit', suositellut_ohjelmat: 'suositellut_ohjelmat', dimensio: 'dimensio', kehityskohde: 'kehityskohde', tarvikkeet: 'tarvikkeet',
 };
 const hash = (s) => { let h = 5381; for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) >>> 0; return h.toString(36).slice(0, 5); };
 // Vakaa ID-osa: ei-satunnainen; pitkä nimi katkaistaan 40 merkkiin + hash koko nimestä (ei törmäyksiä katkaisussa)
@@ -64,12 +65,15 @@ function lueTaulu(rows) {
   return out;
 }
 
-/** kotiin_sopiva: VAIN täsmälleen "kyllä" → true (ei valvontaa/välineitä). Ehdolliset ("kyllä (keppi)", "osin", "ei …") → false + huomio. */
+/** kotiin_sopiva (päätös 6.10.): "kyllä" ja "kyllä (…)" → true; sulkujen teksti → kotiin_huomio ("keppi", "tarvitsee parin") — näytetään pelaajalle liikkeen yhteydessä.
+ *  "osin", "ei", "ei (…)" → false (sulkuteksti huomioksi henkilökunnalle). Tyhjä → false. `ehdollinen` = raportoitava poikkeama (sulkuteksti tai "osin"). */
 function kotiinSopiva(v) {
-  const s = norm(v).toLowerCase();
-  if (s === 'kyllä' || s === 'kylla') return { arvo: true, huomio: null, ehdollinen: false };
+  const raaka = norm(v), s = raaka.toLowerCase();
   if (!s) return { arvo: false, huomio: null, ehdollinen: false };
-  return { arvo: false, huomio: norm(v), ehdollinen: /^(kyllä|kylla|osin)/.test(s) };
+  const m = /^(kyllä|kylla|osin|ei)(?![a-zåäö])\s*(?:\(([^)]*)\))?\s*(.*)$/.exec(s), huomioTeksti = (() => { const p = /\(([^)]*)\)/.exec(raaka); return p && p[1].trim() ? p[1].trim() : null; })();
+  if (!m) return { arvo: false, huomio: raaka, ehdollinen: false };   // tuntematon muoto → varovaisesti false + näkyviin raporttiin
+  const arvo = m[1] === 'kyllä' || m[1] === 'kylla';
+  return { arvo, huomio: huomioTeksti, ehdollinen: (arvo && !!huomioTeksti) || m[1] === 'osin' };
 }
 
 function ikarajat(a) {
@@ -95,7 +99,7 @@ function muunna(opts) {
   const pohja = opts.pohja.sheets, master = opts.master ? opts.master.sheets : null, nyk = opts.nykyinen || {};
   const pvm = opts.pvm || null, tarkistaja = opts.tarkistaja || null;
   const rap = { ajo: null, huomiot: [], virheet: [], kuittaamattomat: [], ehdollinenKotiin: [], odottaaKuvaa: [], ketjutta: [], ohitetut: {}, tilastot: {}, tulkinnat: [
-    'ikaraja "alle 12v" → ika_max 11 · "yli 12v" → ika_min 12 (ikä vuosina)', 'kotiin_sopiva: vain täsmälleen "kyllä" = true; ehdolliset ("kyllä (keppi)", "osin", "ei …") = false + kotiin_huomio',
+    'ikaraja "alle 12v" → ika_max 11 · "yli 12v" → ika_min 12 (ikä vuosina)', 'kotiin_sopiva: "kyllä" ja "kyllä (…)" = true (sulkuteksti → kotiin_huomio, näkyy pelaajalle); "osin", "ei", "ei (…)" = false',
     'kehityskohde = null KAIKILLE harjoitepankkiriveille TARKOITUKSELLA + kaytto:\'joukkue\' (valmentajan ratoja/rutiineja; moottori ohittaa — eivät koskaan päivän harjoite)', 'dimensio D1 = Nevanlinna-lähteiset ikavaiheet-rivit (lahde_viite sisältää Nevanlinna), muut tyhjä'] };
   const nimetyt = Object.keys(pohja).filter((n) => EI_TUODA.indexOf(n) < 0);
   const taulut = {}; nimetyt.forEach((n) => { taulut[n] = lueTaulu(pohja[n]); });
@@ -147,24 +151,33 @@ function muunna(opts) {
     kirjoita('valmennuslinja/ikavaiheet', { rivit: lista });
   }
 
-  // ── Teemat → teemat (hyväksytyt) + teemat_luonnos (staff-only) ──
-  if (taulut.Teemat) {
-    const vanhat = {}; ['valmennuslinja/teemat', 'valmennuslinja/teemat_luonnos'].forEach((p) => ((nyk[p] || {}).jaksot || []).forEach((j) => { vanhat[j.id] = j; }));
+  // ── Joukkuekohtaiset aikajaksot: Teemat → teemat (hyväksytyt) + teemat_luonnos · Joukkueharjoittelu → joukkueharjoittelu (hyväksytyt) + joukkueharjoittelu_luonnos. Kaikki vain henkilökunnalle
+  //    paitsi `teemat` (pelaajan luettava, Rules v3.40). Joukkue validoidaan SJK:n joukkuelistaa vasten (opts.joukkueet): tuntematon nimi = varoitus + luonnos; ESIMERKKI-alkuiset rivit ohitetaan aina. ──
+  const joukkueLista = Array.isArray(opts.joukkueet) && opts.joukkueet.length ? opts.joukkueet.map(norm) : null;
+  const jaksoLohko = (sn, tunnus, polkuHyv, polkuLuonnos, avain, muodosta) => {
+    if (!taulut[sn]) return;
+    const vanhat = {}; [polkuHyv, polkuLuonnos].forEach((p) => ((nyk[p] || {})[avain] || []).forEach((j) => { vanhat[j.id] = j; }));
     const uudet = Object.assign({}, vanhat);
-    taulut.Teemat.forEach((r) => {
-      const a = r.a, avain = (a.joukkue || '') + ' / ' + (a.jakso || a.teema || ''), id = 'teema_' + diaId(a) + '_' + (r.sisaltoa ? nro('Teemat|' + diaId(a)) : 0), t = tilaRivi('Teemat', r, avain);
+    taulut[sn].forEach((r) => {
+      const a = r.a;
+      if (/^esimerkki/i.test(norm(a.joukkue))) { rap.ohitetut[sn + ' (ESIMERKKI)'] = (rap.ohitetut[sn + ' (ESIMERKKI)'] || 0) + 1; return; }
+      const id = tunnus + '_' + diaId(a) + '_' + (r.sisaltoa ? nro(sn + '|' + diaId(a)) : 0), t = tilaRivi(sn, r, (a.joukkue || '') + ' / ' + (a.jakso || a.teema || ''));
       if (t.ohita) return; if (t.poista) { delete uudet[id]; return; }
       const placeholder = !norm(a.joukkue) || /\besim\.?\s*$/i.test(a.joukkue) || /^uusi$/i.test(norm(a.joukkue));
-      if (placeholder) { rap.huomiot.push('Teemat rivi ' + r.rivi + ': joukkue "' + (a.joukkue || '') + '" ei ole oikea joukkuenimi (esimerkkiteksti/tyhjä) — rivi pysyy luonnoksena kunnes SJK kirjoittaa joukkueet'); t.tila = 'luonnos'; }
-      const j = { id, joukkue: a.joukkue || null, jakso: a.jakso || null, viikot: a.viikot || null, alkaa: a.alkaa || null, paattyy: a.paattyy || null, teema: a.teema || null, konsepti: a.konsepti || null, lahde_viite: viite(a.lahde_viite) };
+      if (placeholder) { rap.huomiot.push(sn + ' rivi ' + r.rivi + ': joukkue "' + (a.joukkue || '') + '" ei ole oikea joukkuenimi (esimerkkiteksti/tyhjä) — rivi pysyy luonnoksena kunnes joukkueet on kirjoitettu'); t.tila = 'luonnos'; }
+      else if (joukkueLista && joukkueLista.indexOf(norm(a.joukkue)) < 0) { rap.huomiot.push(sn + ' rivi ' + r.rivi + ': joukkue "' + a.joukkue + '" ei ole seuran joukkuelistalla (' + joukkueLista.join(', ') + ') — rivi pysyy luonnoksena'); t.tila = 'luonnos'; }
+      const j = Object.assign({ id }, muodosta(a));
       const v = vanhat[id], sama = v && sisaltoAvain(Object.assign({}, v, { tila: 0 })) === sisaltoAvain(Object.assign({}, j, { versio: v.versio, tila: 0, tarkistettu_pvm: v.tarkistettu_pvm, tarkistaja: v.tarkistaja }));
       leima(j, t.tila); j.versio = !v ? 1 : (sama && v.tila === t.tila ? v.versio : (v.versio || 0) + 1); if (sama && v.tila === t.tila) { j.tarkistettu_pvm = v.tarkistettu_pvm; j.tarkistaja = v.tarkistaja; }
       uudet[id] = j;
     });
     const kaikki = Object.keys(uudet).sort().map((k) => uudet[k]);
-    kirjoita('valmennuslinja/teemat', { jaksot: kaikki.filter((j) => j.tila === 'hyvaksytty') });
-    kirjoita('valmennuslinja/teemat_luonnos', { jaksot: kaikki.filter((j) => j.tila !== 'hyvaksytty') });
-  }
+    const o1 = {}, o2 = {}; o1[avain] = kaikki.filter((j) => j.tila === 'hyvaksytty'); o2[avain] = kaikki.filter((j) => j.tila !== 'hyvaksytty');
+    kirjoita(polkuHyv, o1); kirjoita(polkuLuonnos, o2);
+  };
+  jaksoLohko('Teemat', 'teema', 'valmennuslinja/teemat', 'valmennuslinja/teemat_luonnos', 'jaksot', (a) => ({ joukkue: a.joukkue || null, jakso: a.jakso || null, viikot: a.viikot || null, alkaa: a.alkaa || null, paattyy: a.paattyy || null, teema: a.teema || null, konsepti: a.konsepti || null, lahde_viite: viite(a.lahde_viite) }));
+  jaksoLohko('Joukkueharjoittelu', 'jh', 'valmennuslinja/joukkueharjoittelu', 'valmennuslinja/joukkueharjoittelu_luonnos', 'rivit', (a) => ({ joukkue: a.joukkue || null, jakso: a.jakso || null, viikko: a.viikko || null, teema: a.teema || null,
+    taito_avainasiat: rivit(a.taito_avainasiat), taktiikka_avainasiat: rivit(a.taktiikka_avainasiat), fyysinen_painopiste: a.fyysinen_painopiste || null, harjoitteet: rivit(a.harjoitteet), alkurutiini: a.alkurutiini || null, testit: rivit(a.testit), lahde_viite: viite(a.lahde_viite) }));
 
   // ── Ohjelmat + Keskivartalo → ohjelmat/{id} (yksi dokumentti per ohjelma/sarja; liikkeet[]) ──
   for (const sn of ['Ohjelmat', 'Keskivartalo']) {
@@ -207,6 +220,16 @@ function muunna(opts) {
       kirjoita(polku, leima(data, t.tila));
     });
   }
+  // ── Identiteettiharjoitteet → harjoitepankki/{id} (tyyppi T, konsepti = pelivaihe, lahde 'seura'); kaytto sarakkeesta (joukkue|koti, oletus joukkue); kehityskohde null → 'koti'-rivi ei korvaa TM:n oletusta ennen kartoitusta ──
+  if (taulut.Identiteettiharjoitteet) taulut.Identiteettiharjoitteet.forEach((r) => {
+    const a = r.a, id = 'identiteetti_' + diaId(a) + '_' + (r.sisaltoa ? nro('Identiteettiharjoitteet|' + diaId(a)) : 0), polku = 'harjoitepankki/' + id;
+    const t = tilaRivi('Identiteettiharjoitteet', r, a.nimi || '?', true); if (t.ohita) return; if (t.poista) { poista(polku); return; }
+    const kaytto = /^koti$/i.test(norm(a.kaytto)) ? 'koti' : 'joukkue'; if (norm(a.kaytto) && !/^(koti|joukkue)$/i.test(norm(a.kaytto))) rap.huomiot.push('Identiteettiharjoitteet rivi ' + r.rivi + ': kaytto "' + a.kaytto + '" ei ole koti/joukkue → joukkue');
+    const ik = ikarajat(a);
+    kirjoita(polku, leima(Object.assign({ nimi: a.nimi, tyyppi: 'T', kehityskohde: null, ketju: null, konsepti: a.pelivaihe || null, pelaamisen_periaate: a.pelaamisen_periaate || null, pelivaihe: a.pelivaihe || null, ohje: a.kuvaus || null,
+      valmennussana: a.valmennussana || null, kysymys_pelaajalle: a.kysymys_pelaajalle || null, kaytto, kesto_min: luku(a.kesto_min), pelaajia: luku(a.pelaajia), video_url: OnUrl(a.video_url) ? norm(a.video_url) : null,
+      kuva_url: (OnUrl(a.kuva_url) || /\.(jpe?g|png|gif)$/i.test(norm(a.kuva_url))) ? norm(a.kuva_url) : null, kotiin_sopiva: kaytto === 'koti', kotiin_huomio: null, lahde: 'seura', lahde_viite: (opts.seuranNimi || 'Seura') + ' pelaamisen periaatteet', laatija_rooli: 'tuonti' }, ik), t.tila));
+  });
   // tilastot
   docs.forEach((d) => { const k = d.polku.split('/')[0] + ':' + d.op; rap.tilastot[k] = (rap.tilastot[k] || 0) + 1; });
   const tilaLkm = {}; docs.forEach((d) => { if (d.data && d.data.tila) tilaLkm[d.data.tila] = (tilaLkm[d.data.tila] || 0) + 1; }); rap.tilaLkm = tilaLkm;
@@ -238,12 +261,13 @@ async function main(args) {
   if (!o.seura || !o.tiedosto) { console.error('Käyttö: node scripts/tuo_valmennuslinja.js --seura <seuraId> --tiedosto <xlsx> [--master <v2.xlsx>] [--pvm YYYY-MM-DD] [--tarkistaja "Nimi"] [--ei-lue] [--apply]'); return 2; }
   const pohja = lueXlsx(fs.readFileSync(o.tiedosto)), master = o.master ? lueXlsx(fs.readFileSync(o.master)) : null;
   const paikallinenPvm = () => { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };   // paikallinen päivä (§7.26)
-  const opts = { pohja, master, lahde: o.lahde || null, pvm: o.pvm || paikallinenPvm(), tarkistaja: o.tarkistaja || null, nykyinen: {} };
+  const opts = { pohja, master, lahde: o.lahde || null, joukkueet: o.joukkueet ? o.joukkueet.split(',').map((x) => x.trim()).filter(Boolean) : null, seuranNimi: o['seuran-nimi'] || String(o.seura).toUpperCase(), pvm: o.pvm || paikallinenPvm(), tarkistaja: o.tarkistaja || null, nykyinen: {} };
   let db = null;
   if (!o['ei-lue']) {
     const admin = require('firebase-admin'); admin.initializeApp({ credential: admin.credential.applicationDefault() }); db = admin.firestore();   // gcloud ADC (ei SA-avainta)
     const lue = async (p) => { const s = await db.doc('seurat/' + o.seura + '/' + p).get(); if (s.exists) opts.nykyinen[p] = s.data(); };
     await Promise.all(['valmennuslinja/ikavaiheet', 'valmennuslinja/teemat', 'valmennuslinja/teemat_luonnos'].map(lue));
+    if (!opts.joukkueet) { const jk = await db.collection('seurat/' + o.seura + '/joukkueet').get(); const nimet = []; jk.forEach((d) => { if (d.data().nimi) nimet.push(d.data().nimi); }); opts.joukkueet = nimet.length ? nimet : null; }   // joukkuelista seuran omasta kokoelmasta
     for (const c of ['ohjelmat', 'harjoitepankki']) { const s = await db.collection('seurat/' + o.seura + '/' + c).where('laatija_rooli', '==', 'tuonti').get(); s.forEach((d) => { opts.nykyinen[c + '/' + d.id] = d.data(); }); }
   }
   const r = muunna(opts);
