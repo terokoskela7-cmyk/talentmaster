@@ -31,7 +31,7 @@ const KOHTEET = [
 // päätöspaikka-signaalit joiden lukumäärä lukitaan (tiedosto → { regex → lkm })
 const SIGNAALIT = [
   [SRC.VP, /function _vpSulkuSeuraava\(/g, 1], [SRC.MA, /function _msSeuraava\(/g, 1], [SRC.VP, /window\._pdcPaatos = function/g, 1],
-  [SRC.VP, /\btoim\('/g, 10], [SRC.VP, /const nextIdx\b/g, 1],   // toim(' × 10 = _pdcPaatos-kääreen tekstihaarat (yksi per askel)
+  [SRC.VP, /\btoim\('/g, 11], [SRC.VP, /const nextIdx\b/g, 1],   // toim(' × 11 = _pdcPaatos-kääreen tekstihaarat (yksi per askel; +valinta_odottaa D-1)
   [SRC.VP, /\.tmSiltaEhdota\(/g, 1], [SRC.MA, /\.tmSiltaEhdota\(/g, 1],   // sulku-kääreet käyttävät libiä; jäljellä vain Masterin UI-vihje (B) / VP:n ehdotus-render
   [SRC.VP, /\.tmFyysEhdota\(|_vpFyysEhdotus\(/g, 6], [SRC.MA, /\.tmFyysEhdota\(|_msFyysEhdotus\(/g, 4],
   [SRC.VP, /\.tmJfUmpeutunut\(/g, 5], [SRC.MA, /\.tmJfUmpeutunut\(/g, 1],

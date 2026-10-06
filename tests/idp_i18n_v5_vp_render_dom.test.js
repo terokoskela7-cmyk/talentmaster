@@ -730,6 +730,10 @@ describe('VP_v25 resolvi-portti — jokaisella reititetyllä avaimella on sv-riv
      testi punertaa ja rivi on poistettava listalta, ja (b) mikä tahansa MUU puuttuva avain punertaa. */
   const SV_ODOTTAA_SANKTIOINTIA = [
     /* PR G (TK-viitelähde): loppukilpailutaso näkyviin henkilökunnalle alueellisen huipputason rinnalle. sv Gemini-erässä. */
+    // D-1 (5.10.2026) — sv Gemini-erässä.
+    'valitsi vahvuutensa,',
+    'vahvista jakso.',
+    'Vastuuhenkilö',
     'loppukilpailutaso ≤',
     /* PR G / 4.10.2026: Eerikkilä-badge "valtak." → "H-H-normi" (ei sekoitu TK:n Loppukilpailutasoon). sv Gemini-erässä. */
     '/3 H-H-normi',
