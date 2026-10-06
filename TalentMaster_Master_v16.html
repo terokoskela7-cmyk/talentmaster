@@ -109,6 +109,7 @@ window.TM_KAAVIO_HOST = {
 <script src="lib/tm_jaksofokus.js?v=5"></script>   <!-- Vaihe 4c/6: tmJfUmpeutunut (jakson sulku -laukaisin) -->
 <script src="lib/tm_kehityspolku.js?v=2"></script>   <!-- I3a: looginen silta -resolver (idp_fokus → konsepti/fundamentti → harjoite) -->
 <script src="lib/tm_jaksokooste.js?v=2"></script>   <!-- Vaihe 6: jakson sulku (meso-sykli) — valmentaja sulkee omat pelaajansa (§4/§37) -->
+<script src="lib/tm_valmennuslinja.js?v=1"></script>   <!-- seuran valmennuslinja: joukkueen teema (hyväksytyt + henkilökunnalle luonnos) -->
 <script src="lib/tm_vastuuhenkilo.js?v=1"></script>   <!-- vastuuhenkilö per pelaaja (vastuuhenkilo {uid, rooli, asetettu_pvm}); henkilökunnan rivi + asetus -->
 <script src="lib/tm_kehityssilmukka.js?v=2"></script>   <!-- R6.1b: jaksofokuksen yhteinen kirjoitusydin (tmAsetaJaksofokus / tmSuljeJakso) -->
 <script src="lib/tm_seuraava_askel.js?v=1"></script>   <!-- R6.2b: seuraava toimenpide yhdessä paikassa (tmSeuraavaAskel / tmSeuraavaJakso / tmTeeTastaOsa) -->
@@ -7173,6 +7174,20 @@ window._mIdpVtAktivoi = async function (pid, i) {
   }
 };
 // Kortti (portattu _vpKausitavoiteHTML). editable=false → read-only (ei nappeja/textareoita; source-chip + kaari näkyvät).
+/* Joukkueen teema (seurat/{id}/valmennuslinja/teemat = hyväksytyt; teemat_luonnos = luonnos, vain henkilökunta) → tmJoukkueenTeema. Ladataan kerran; ilman linjaa rivi puuttuu (null-turvallinen, D16). */
+async function _mLataaTeemat() {
+  if (window._mTeemat !== undefined || window._mTeemaLataa || !_seuraId || _demo || !window.TM_VALMENNUSLINJA) return;
+  window._mTeemaLataa = true;
+  const lue = async function (id) { try { const d = await _db.collection('seurat').doc(_seuraId).collection('valmennuslinja').doc(id).get(); return d.exists ? d.data() : null; } catch (e) { console.warn('[v16] teemat:', id, e && e.message); return null; } };
+  const r = await Promise.all([lue('teemat'), lue('teemat_luonnos')]);
+  window._mTeemat = window.TM_VALMENNUSLINJA.tmTeemaKerros(r[0], r[1]); window._mTeemaLataa = false;
+  if (typeof _mIdpReRender === 'function') _mIdpReRender();
+}
+function _mTeemaRivi(p) {
+  const L = window.TM_VALMENNUSLINJA; if (!L || !p) return '';
+  if (window._mTeemat === undefined) _mLataaTeemat();
+  return L.tmTeemaRiviHTML(L.tmJoukkueenTeemaNaytto(p.joukkue || (Array.isArray(p.joukkueet) ? p.joukkueet[0] : ''), tmPaivaIso(new Date()), window._mTeemat, { henkilokunta: true }), { t: masterT });
+}
 /* Vastuuhenkilö (additiivinen kenttä vastuuhenkilo {uid, rooli, asetettu_pvm}). Rivi IDP-kortin yläosassa; asettaa joukkueen valmentaja / VP / UTJ / talenttivalmentaja (editable = oikeus pelaajaan;
    Rules v3.38 pakottaa: fysiikkavalmentaja ym. eivät aseta). Henkilöstö ladataan kerran (kayttajat) ja kortti piirretään uudelleen. EI "omat vastuupelaajat" -näkymää (R6.6). */
 async function _mLataaHenkilosto() {
@@ -7216,6 +7231,7 @@ function _mIdpKorttiHTML(p, editable) {
   // Brändijako: IDP-kausitavoite = TalentMaster Analytics -kehityskerros (Palloliiton kortin päällä). Hillitty tunniste.
   let h = '<div class="jsp-kt"><div class="jsp-kt-hd" style="display:flex;justify-content:space-between;align-items:baseline;gap:8px"><span class="jsp-kt-t">' + masterT('Kauden tavoite') + ' <span style="text-transform:none;letter-spacing:0;color:var(--ink3);font-weight:400">' + masterT('· IDP-ydin') + '</span></span>'
     + '<span style="font-size:9px;letter-spacing:.04em;color:var(--teal);white-space:nowrap" title="TalentMaster Analytics — älykerros Palloliiton arviointikortin päällä">' + masterT('◆ TalentMaster Analytics') + '</span></div>';
+  h += _mTeemaRivi(p);
   h += _mVastuuhenkiloRivi(p, editable);   // vastuuhenkilö (Tero 5.10.2026): kertoo kenen tehtävä asia on; ei rajaa oikeuksia
   if (!editable) h += '<div class="jsp-kt-ro">' + masterT('🔒 Vain luku — toisen joukkueen pelaaja. Kehityssuunnitelman omistaa pelaajan oma valmentaja; sinä näet sen.') + '</div>';
   if (!t && !p.idp_tila) {
