@@ -110,6 +110,7 @@ window.TM_KAAVIO_HOST = {
 <script src="lib/tm_kypsyys.js?v=2"></script>   <!-- IDP R1: Kypsyys/PHV -komponentti (tmKypsyys) kytketty näkyviin per-pelaaja-kortin vasempaan paneeliin (korvaa kypsyysproosan) -->
 <script src="lib/tm_treeniteema.js?v=1"></script>   <!-- Vaihe 4d: teemakattavuus PURE-ydin (jaksofokus vs suunnitellut teemaharjoitukset) -->
 <script src="lib/tm_jaksokooste.js?v=2"></script>   <!-- Vaihe 6: jakson sulku (meso-sykli) PURE-ydin — prosessi+kalibraatio+historia (geneerinen §8) -->
+<script src="lib/tm_valmennuslinja.js?v=1"></script>   <!-- seuran valmennuslinja: joukkueen teema (hyväksytyt + henkilökunnalle luonnos) -->
 <script src="lib/tm_vastuuhenkilo.js?v=1"></script>   <!-- vastuuhenkilö per pelaaja (vastuuhenkilo {uid, rooli, asetettu_pvm}); henkilökunnan rivi + asetus -->
 <script src="lib/tm_jakso_malli.js?v=1"></script>   <!-- R6.3-E: katselmuksen "Vahvista merkinnät" (tmMerkinnatTila / tmVahvistaMerkinnat) + kypsyysvihjeet -->
 <script src="lib/tm_kehityssilmukka.js?v=2"></script>   <!-- R6.2a: katselmus yhteen paikkaan (tmKirjaaKatselmus) + jaksofokuksen kirjoitusydin -->
@@ -8446,6 +8447,20 @@ function _vpIdpNarratiiviHTML(p) {
   h += '<div style="margin-top:8px;padding-top:14px;border-top:.5px solid var(--border)"><button onclick="event.stopPropagation();_jspVaihda(3)" style="font-family:var(--font-sans);font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;padding:10px 16px;border-radius:8px;background:rgba(40,176,144,.1);color:var(--teal);border:.5px solid rgba(40,176,144,.4);cursor:pointer">' + vpT('→ Avaa Kehitys-työpöytä · muokkaa suunnitelmaa') + '</button></div>';
   return h;
 }
+/* Joukkueen teema (seurat/{id}/valmennuslinja/teemat = hyväksytyt; teemat_luonnos = luonnos, vain henkilökunta) → tmJoukkueenTeema. Ladataan kerran per seura; ilman linjaa rivi puuttuu (null-turvallinen, D16). */
+async function _vpLataaTeemat() {
+  if (window._vpTeemat !== undefined || window._vpTeemaLataa || _isDemoMode || !_seuraId || !window.TM_VALMENNUSLINJA) return;
+  window._vpTeemaLataa = true;
+  const lue = async function (id) { try { const d = await db.collection('seurat').doc(_seuraId).collection('valmennuslinja').doc(id).get(); return d.exists ? d.data() : null; } catch (e) { console.warn('[vpTeemat]', id, e && e.message); return null; } };
+  const r = await Promise.all([lue('teemat'), lue('teemat_luonnos')]);
+  window._vpTeemat = window.TM_VALMENNUSLINJA.tmTeemaKerros(r[0], r[1]); window._vpTeemaLataa = false;
+  if (typeof _vpKausitavoiteReRender === 'function') _vpKausitavoiteReRender(false);
+}
+function _vpTeemaRivi(p) {
+  const L = window.TM_VALMENNUSLINJA; if (!L || !p) return '';
+  if (window._vpTeemat === undefined) _vpLataaTeemat();
+  return L.tmTeemaRiviHTML(L.tmJoukkueenTeemaNaytto(p.joukkue || (Array.isArray(p.joukkueet) ? p.joukkueet[0] : ''), tmPaivaIso(new Date()), window._vpTeemat, { henkilokunta: true }), { t: vpT });
+}
 /* Vastuuhenkilö per pelaaja (additiivinen kenttä vastuuhenkilo {uid, rooli, asetettu_pvm}). Rivi henkilökunnalle IDP-kortin yläosassa; asettaa VP/UTJ/talenttivalmentaja/SA
    (Rules v3.38; joukkueen valmentaja asettaa Masterissa). EI "omat vastuupelaajat" -näkymää (R6.6). Ei pelaajan/huoltajan näkymiin. */
 function _vpVastuuhenkiloRivi(p) {
@@ -8483,6 +8498,7 @@ function _vpKausitavoiteHTML(p) {
   /* B4: rivin otsikko kertoo jo "Kauden tavoite", joten kortin oma otsikko ("KAUSITAVOITE · IDP-ydin")
      on poistettu. ⓘ-napit jaavat: ne ovat sisaltoa, eivat otsikkoa. */
   let h = ((typeof window._tmIBtn === 'function') ? ('<div class="jsp-kt-hd">' + window._tmIBtn('idp_silta') + window._tmIBtn('idp_roolit') + '</div>') : '');
+  h += _vpTeemaRivi(p);
   h += _vpVastuuhenkiloRivi(p);   // vastuuhenkilö (Tero 5.10.2026): kertoo kenen tehtävä asia on; ei rajaa oikeuksia
   if (p._luonnosTyyppi === 'vaihto') {
     h += '<div style="font-family:var(--font-mono),\'DM Mono\',monospace;font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink3);'

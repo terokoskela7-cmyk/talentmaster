@@ -46,16 +46,16 @@ describe('1. ajo — TM:n esitäytetty Excel → kaikki luonnos', () => {
   it('ID:t johdettu välilehti + lahde_dia + nimi (deterministinen): sama syöte kahdesti → samat polut; ID:ssä ei satunnaisosaa', () => { expect(poluilla(ajo(POHJA))).toEqual(poluilla(r)); expect(poluilla(r).every((p) => /^[a-z0-9_/]+$/.test(p))).toBe(true); });
   it('harjoitepankki-dokumentti: tyyppi T, lahde seura, kehityskohde null (ei vahingossa korvaa TM:n oletusta), ketju v2-masterista, kotiin_sopiva-säännöt, ketteryys: kuva puuttuu → video_url null', () => {
     const d = tilaan(r), a = d['harjoitepankki/rutiinit_116_1'], v = d['harjoitepankki/rutiinit_113_1'], k = d['harjoitepankki/ketteryys_132_1'];
-    expect(a).toMatchObject({ nimi: 'Alkurutiini 1', tyyppi: 'T', kehityskohde: null, ketju: 'SFL', kotiin_sopiva: false, kotiin_huomio: 'ei (joukkueharjoitus)', lahde_viite: 'Nevanlinna 2014, dia 116', lahde: 'seura' });
-    expect(v).toMatchObject({ kotiin_sopiva: false, kotiin_huomio: 'kyllä (tarvitsee kuvat)', ketju: null });   // ehdollinen kyllä ei ole kotiin sopiva; ei ketjua masterissa
+    expect(a).toMatchObject({ nimi: 'Alkurutiini 1', tyyppi: 'T', kehityskohde: null, ketju: 'SFL', kotiin_sopiva: false, kotiin_huomio: 'joukkueharjoitus', lahde_viite: 'Nevanlinna 2014, dia 116', lahde: 'seura' });
+    expect(v).toMatchObject({ kotiin_sopiva: true, kotiin_huomio: 'tarvitsee kuvat', ketju: null });   // "kyllä (…)" = true + sulkuteksti huomioksi (6.10.); ei ketjua masterissa
     expect(k).toMatchObject({ ohje: 'Pujotteluradat tötsien välissä', tarvikkeet: 'tötsät', pelaajia: 1, video_url: null, kuva_url: null, kotiin_sopiva: false });
     expect(r.raportti.ehdollinenKotiin.some((x) => x.includes('Venyttelyt'))).toBe(true);
   });
   it('ohjelmat: liikkeet[] + yksi vaihe (kirjaston rakenne), ikarajat (alle 12v → max 11; yli 12v → min 12), kotiin_sopiva vain täsmälleen "kyllä", ketju liikekohtaisesti, URL vain oikeasta URL:sta', () => {
     const d = tilaan(r), o = d['ohjelmat/ohjelmat_97_1'], k = d['ohjelmat/ohjelmat_98_1'];
     expect(o).toMatchObject({ nimi: 'Lihaskestävyys 1 (alle 12v)', tyyppi: 'muu', ika_min: null, ika_max: 11, teema_avain: null, lahde_viite: 'Nevanlinna 2014, dia 97', arkistoitu: false, laatija_rooli: 'tuonti' }); expect(k).toMatchObject({ ika_min: 12, ika_max: null });
-    expect(o.liikkeet.map((l) => [l.jarjestys, l.liike, l.ketju, l.kotiin_sopiva, l.kotiin_huomio, l.kesto_min])).toEqual([[1, 'Narulla hyppely', 'SFL', true, null, 5], [2, 'Pareittain GHR', 'SBL', false, 'kyllä (tarvitsee parin)', 1.5]]);
-    expect(k.liikkeet[0]).toMatchObject({ video_url: 'https://example.org/v1', kotiin_sopiva: false, ketju: 'DFL' }); expect(o.liikkeet[0].video_url).toBeNull();
+    expect(o.liikkeet.map((l) => [l.jarjestys, l.liike, l.ketju, l.kotiin_sopiva, l.kotiin_huomio, l.kesto_min])).toEqual([[1, 'Narulla hyppely', 'SFL', true, null, 5], [2, 'Pareittain GHR', 'SBL', true, 'tarvitsee parin', 1.5]]);
+    expect(k.liikkeet[0]).toMatchObject({ video_url: 'https://example.org/v1', kotiin_sopiva: true, kotiin_huomio: 'keppi', ketju: 'DFL' }); expect(o.liikkeet[0].video_url).toBeNull();
     expect(o.vaiheet).toHaveLength(1); expect(o.vaiheet[0].harjoitteet).toEqual(['Narulla hyppely', 'Pareittain GHR']);
     const { tmOhjelmaValidoi } = require('../lib/tm_ohjelma.js'); Object.entries(d).filter(([p]) => p.startsWith('ohjelmat/')).forEach(([p, x]) => expect(tmOhjelmaValidoi(x).ok, p).toBe(true));   // kirjaston validaattori hyväksyy
     expect(d['ohjelmat/keskivartalo_92_1'].liikkeet[0]).toMatchObject({ taso: 'Taso 1', toistot: 'x10-20', ketju: 'DFL', kotiin_sopiva: true });
@@ -148,6 +148,69 @@ describe('Teemat: placeholder-joukkue, hierarkkiset painopisteet, ketju-raportti
   });
 });
 const nyk0 = () => tilaan(ajo(POHJA));
+
+describe('kotiin_sopiva-muunnos (päätös 6.10.) — jokainen muoto', () => {
+  it.each([
+    ['kyllä', true, null], ['Kyllä', true, null], ['kyllä (keppi)', true, 'keppi'], ['Kyllä (tarvitsee parin)', true, 'tarvitsee parin'], ['kyllä (rulla)', true, 'rulla'], ['kyllä (tarvitsee kuvat)', true, 'tarvitsee kuvat'],
+    ['osin', false, null], ['osin (tötsät tai pallot)', false, 'tötsät tai pallot'], ['ei', false, null], ['Ei', false, null], ['ei (pari)', false, 'pari'], ['ei (joukkueharjoitus)', false, 'joukkueharjoitus'], ['', false, null],
+    ['eipä', false, 'eipä'], ['tuntematon', false, 'tuntematon'],
+  ])('%j → kotiin_sopiva %s, huomio %j', (syote, arvo, huomio) => { expect(T.kotiinSopiva(syote)).toMatchObject({ arvo, huomio }); });
+  it('"kyllä (…)" ja "osin" raportoidaan ehdollisina; puhdas "kyllä"/"ei" ei; snapshot kantaa huomion pelaajalle (kotiin_huomio) ja GDPR-vartija tarkistaa sen', () => {
+    expect(T.kotiinSopiva('kyllä (keppi)').ehdollinen).toBe(true); expect(T.kotiinSopiva('osin').ehdollinen).toBe(true); expect(T.kotiinSopiva('kyllä').ehdollinen).toBe(false); expect(T.kotiinSopiva('ei (pari)').ehdollinen).toBe(false);
+    const d = tilaan(ajo(POHJA)), l = d['ohjelmat/ohjelmat_98_1'].liikkeet[0]; expect(l).toMatchObject({ kotiin_sopiva: true, kotiin_huomio: 'keppi' });
+  });
+});
+
+describe('uudet välilehdet (6.10.): Identiteettiharjoitteet, Joukkueharjoittelu, joukkuelista, ESIMERKKI', () => {
+  const lisaaLehdet = () => {
+    const w = lue('ajo1_pohja.xlsx');
+    w.sheets.Identiteettiharjoitteet = [['nimi', 'pelaamisen_periaate', 'pelivaihe', 'ika_min', 'ika_max', 'pelaajia', 'kesto_min', 'kuvaus', 'valmennussana', 'kysymys_pelaajalle', 'kaytto', 'video_url', 'kuva_url', 'kuittaus', 'kommentti'],
+      ['Rondo 4v2', 'Pallon haltuunotto', 'Hyökkäys', 8, 10, 6, 15, 'Pelaa nopeasti', 'Avaa!', 'Missä on tilaa?', 'koti', '', '', '', ''], ['Joukkuepeli', 'Pressaus', 'Puolustus', 10, 12, 10, 20, 'Pressaa yhdessä', 'Yhdessä!', 'Kuka painaa?', 'joukkue', '', 'https://example.org/k.png', '', ''],
+      ['Oletuskäyttö', 'X', 'Siirtymä', '', '', '', '', 'kuvaus', '', '', '', '', '', '', ''], ['', '', '', '', '', '', '', '', '', '', '', '', '', '', '']];
+    w.sheets.Teemat[1][0] = 'SJK P14'; w.sheets.Teemat[2][0] = 'SJK P99'; w.sheets.Teemat[0].push('konsepti'); w.sheets.Teemat[1][9] = 'y_h2';
+    w.sheets.Joukkueharjoittelu = [['joukkue', 'jakso', 'viikko', 'teema', 'taito_avainasiat', 'taktiikka_avainasiat', 'fyysinen_painopiste', 'harjoitteet', 'alkurutiini', 'testit', 'lahde_dia', 'kuittaus', 'kommentti'],
+      ['SJK P14', 'Jakso 1', '45', 'Syöttö', '1. Tarkkuus\n2. Vauhti', '1. Tukipelaaminen', 'Nopeus', 'Rondo\nHaastepeli', 'Alkurutiini 1', 'Syöttötesti', '45', '', ''], ['ESIMERKKI SJK P13', 'Jakso 1', '46', 'Esimerkki', 'x', 'y', 'z', 'a', 'b', 'c', '45', '', ''],
+      ['SJK P77', 'Jakso 2', '47', 'Tuntematon', 'x', 'y', 'z', 'a', 'b', 'c', '46', '', '']];
+    return w;
+  };
+  const JOUKKUEET = ['SJK P12', 'SJK P13', 'SJK P14', 'SJK P15', 'SJK P16', 'SJK T14', 'SJK T15', 'SJK T16'];
+  it('Identiteettiharjoitteet → harjoitepankki: tyyppi T, konsepti = pelivaihe, lahde seura, lahde_viite "<seura> pelaamisen periaatteet", kaytto sarakkeesta (koti|joukkue; tyhjä → joukkue), kehityskohde null, luonnos', () => {
+    const d = tilaan(ajo(lisaaLehdet(), {}, { seuranNimi: 'SJK' })), k = (n) => d['harjoitepankki/identiteetti_x_' + n];
+    expect(k(1)).toMatchObject({ nimi: 'Rondo 4v2', tyyppi: 'T', konsepti: 'Hyökkäys', pelivaihe: 'Hyökkäys', pelaamisen_periaate: 'Pallon haltuunotto', ohje: 'Pelaa nopeasti', valmennussana: 'Avaa!', kysymys_pelaajalle: 'Missä on tilaa?', kaytto: 'koti', kehityskohde: null, lahde: 'seura', lahde_viite: 'SJK pelaamisen periaatteet', tila: 'luonnos', ika_min: 8, ika_max: 10, pelaajia: 6, kesto_min: 15, kotiin_sopiva: true });
+    expect(k(2)).toMatchObject({ kaytto: 'joukkue', kotiin_sopiva: false, kuva_url: 'https://example.org/k.png' }); expect(k(3).kaytto).toBe('joukkue'); expect(d['harjoitepankki/identiteetti_x_4']).toBeUndefined();   // tyhjä rivi ohitetaan
+    expect(tilaan(ajo(lisaaLehdet(), {}, { seuranNimi: 'KPV' }))['harjoitepankki/identiteetti_x_1'].lahde_viite).toBe('KPV pelaamisen periaatteet');
+  });
+  it('kaytto "koti" + kehityskohde null: moottori ei vielä käytä (ei korvaa TM:n oletusta) — hyväksyttynäkin', () => {
+    const lib = require('../harjoitelogiikka_v4.js'), d = tilaan(ajo(lisaaLehdet(), {}, { seuranNimi: 'SJK' })), rivi = Object.assign({}, d['harjoitepankki/identiteetti_x_1'], { tila: 'hyvaksytty' });
+    const ennen = lib.valitsePaivanHarjoite({ ika: 9, tki_kehityskohde: 'syotto', luotu: '2026-03-01' }, lib.PANKKI, '2026-10-12');
+    expect(lib.valitsePaivanHarjoite({ seuraId: 'sjk', ika: 9, tki_kehityskohde: 'syotto', luotu: '2026-03-01' }, lib.PANKKI, '2026-10-12', { seuraId: 'sjk', harjoitteet: [rivi] })).toEqual(Object.assign({}, ennen));
+  });
+  it('joukkueen validointi seuran listaa vasten (Teemat + Joukkueharjoittelu): tuntematon nimi → varoitus + pysyy luonnoksena myös OK:lla; oikea nimi + OK → hyväksytty', () => {
+    const w = lisaaLehdet(); for (const sn of ['Teemat', 'Joukkueharjoittelu']) w.sheets[sn].forEach((r, i) => { if (i > 0 && r[0] && !/^ESIM/.test(r[0]) && r[0] !== 'UUSI') r[sn === 'Teemat' ? 7 : 11] = 'OK'; });
+    const r = ajo(w, {}, { joukkueet: JOUKKUEET }), d = tilaan(r), hyv = d['valmennuslinja/teemat'].jaksot, luonn = d['valmennuslinja/teemat_luonnos'].jaksot;
+    expect(hyv.map((j) => j.joukkue)).toEqual(['SJK P14']); expect(hyv[0].konsepti).toBe('y_h2'); expect(luonn.map((j) => j.joukkue)).toContain('SJK P99');
+    expect(r.raportti.huomiot.join('|')).toMatch(/joukkue "SJK P99" ei ole seuran joukkuelistalla/); expect(r.raportti.huomiot.join('|')).toMatch(/joukkue "SJK P77" ei ole seuran joukkuelistalla/);
+    expect(luonn.find((j) => j.joukkue === 'SJK P99').tila).toBe('luonnos');
+    const ilmanListaa = tilaan(ajo(w)); expect(ilmanListaa['valmennuslinja/teemat'].jaksot.map((j) => j.joukkue).sort()).toEqual(['SJK P14', 'SJK P99']);   // ei listaa → ei validointia
+  });
+  it('Joukkueharjoittelu → valmennuslinja/joukkueharjoittelu (hyväksytyt) + joukkueharjoittelu_luonnos (luonnokset); rivit[]-kentät, ESIMERKKI-alkuiset joukkueet ohitetaan AINA (ei tuoda, ei varoitusta)', () => {
+    const w = lisaaLehdet(), r = ajo(w, {}, { joukkueet: JOUKKUEET }), d = tilaan(r), lk = d['valmennuslinja/joukkueharjoittelu_luonnos'].rivit, hyv = d['valmennuslinja/joukkueharjoittelu'].rivit;
+    expect(hyv).toEqual([]); expect(lk.map((x) => x.joukkue)).toEqual(['SJK P14', 'SJK P77']);   // ESIMERKKI SJK P13 ei mukana
+    expect(lk[0]).toMatchObject({ jakso: 'Jakso 1', viikko: '45', teema: 'Syöttö', taito_avainasiat: ['Tarkkuus', 'Vauhti'], taktiikka_avainasiat: ['Tukipelaaminen'], fyysinen_painopiste: 'Nopeus', harjoitteet: ['Rondo', 'Haastepeli'], alkurutiini: 'Alkurutiini 1', testit: ['Syöttötesti'], lahde_viite: 'Nevanlinna 2014, dia 45', tila: 'luonnos' });
+    expect(r.raportti.ohitetut['Joukkueharjoittelu (ESIMERKKI)']).toBe(1); expect(JSON.stringify(d)).not.toContain('ESIMERKKI');
+    const ok = lue('ajo1_pohja.xlsx'); ok.sheets.Joukkueharjoittelu = w.sheets.Joukkueharjoittelu.map((x, i) => (i === 1 ? x.slice(0, 11).concat(['OK', '']) : x)); const d2 = tilaan(ajo(ok, {}, { joukkueet: JOUKKUEET }));
+    expect(d2['valmennuslinja/joukkueharjoittelu'].rivit.map((x) => x.joukkue)).toEqual(['SJK P14']); expect(d2['valmennuslinja/joukkueharjoittelu'].rivit[0]).toMatchObject({ tila: 'hyvaksytty', tarkistaja: 'Sini SJK' });
+  });
+  it('ID-vakaus uusilla välilehdillä: joukkueen/nimen korjaus päivittää saman rivin; idempotentti', () => {
+    const w = lisaaLehdet(), nyk = tilaan(ajo(w, {}, { joukkueet: JOUKKUEET })); w.sheets.Joukkueharjoittelu[1][0] = 'SJK P15'; w.sheets.Identiteettiharjoitteet[1][0] = 'Rondo 4v2 (korjattu)';
+    const r2 = ajo(w, nyk, { joukkueet: JOUKKUEET }); expect(r2.docs.filter((x) => x.op === 'luo' || x.op === 'poista')).toEqual([]); const j = sovella(nyk, r2); expect(j['harjoitepankki/identiteetti_x_1'].nimi).toBe('Rondo 4v2 (korjattu)');
+    expect(j['valmennuslinja/joukkueharjoittelu_luonnos'].rivit.map((x) => x.joukkue)).toEqual(['SJK P15', 'SJK P77']); expect(ajo(w, j, { joukkueet: JOUKKUEET }).docs.every((x) => x.op === 'ei_muutosta')).toBe(true);
+  });
+  it('Rules-yhteensopivuus: joukkueharjoittelu(_luonnos) on valmennuslinja-lohko, jota pelaaja ei lue (v3.40 sallii pelaajalle vain "teemat"); CLI tukee --joukkueet ja --seuran-nimi', () => {
+    const rules = readFileSync(join(juuri, 'tm_admin/firestore.rules'), 'utf8'); expect(rules).toMatch(/lohko == 'teemat' && onPelaajanSeura\(seuraId\)/);
+    const src = readFileSync(join(juuri, 'scripts/tuo_valmennuslinja.js'), 'utf8'); expect(src).toContain("o.joukkueet.split(',')"); expect(src).toContain("o['seuran-nimi']");
+  });
+});
 
 describe('2. ajo — SJK:n kuitattu Excel', () => {
   const ensin = ajo(POHJA), nyk = tilaan(ensin), r = ajo(KUITATTU, nyk);
