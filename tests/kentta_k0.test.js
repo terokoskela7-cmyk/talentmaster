@@ -5,7 +5,9 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync, existsSync, statSync } from 'fs';
 import { createRequire } from 'module';
-import { execFileSync } from 'child_process';
+import { spawn } from 'child_process';
+import { tmpdir } from 'os';
+import { mkdtempSync } from 'fs';
 import { fileURLToPath, pathToFileURL } from 'url';
 import { dirname, join } from 'path';
 
@@ -144,13 +146,29 @@ describe('8 · demosivu renderöi kaikki 09:n data-pitch-variantit ilman JS-virh
     expect(DEMO).not.toMatch(/fonts\.googleapis|fonts\.gstatic/);   // fontit omalta palvelimelta
   });
   const CHROME = ['/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', '/usr/bin/google-chrome', '/usr/bin/chromium'].find((p) => existsSync(p));
-  // Testi käynnistää oikean Chromen (~2 s yksin), mutta on hidas koko suiten rinnakkaisajossa → pysyvä 30 s aikaraja (vitestin oletus 5 s antoi toistuvan väärän punaisen).
-  (CHROME ? it : it.skip)('headless-Chrome: 15 varianttia renderöityy, 0 virhettä (window.onerror + try/catch)', () => {
-    const out = execFileSync(CHROME, ['--headless=new', '--disable-gpu', '--virtual-time-budget=3000', '--dump-dom', pathToFileURL(join(juuri, DEMO_REL)).href], { encoding: 'utf8', timeout: 60000, stdio: ['ignore', 'pipe', 'ignore'] });
+  /* Oikea Chrome-selain on EI-deterministinen: CI-ajossa se ylitti vitestin 30 s aikarajan toistuvasti (#824, mainin ajot), vaikka paikallisesti ~2 s. Siksi:
+     (1) testi on ERILLÄÄN vaadittavasta unit-tests-portista — `npm test` (unit-tests) ajaa sen vain kun TM_CHROME_TESTS ≠ '0'; CI:n unit-tests asettaa TM_CHROME_TESTS=0 ja
+         oma `chrome-tests`-job (EI vaadittava tarkistus) ajaa sen TM_CHROME_TESTS=1:llä. Flaky-testi vaadittavassa portissa opettaa ohittamaan punaisen.
+     (2) vahvistettu ajo: asynkroninen spawn (synkroninen exec esti event loopin → vitestin aikaraja ei toiminut luotettavasti; Chrome myös jää roikkumaan exitissä → odotetaan </html> ja SIGKILL), oma tmp-profiili, --no-sandbox/--disable-dev-shm-usage (CI-kontti),
+         ulkoverkko estetty (--host-resolver-rules → ei verkkoviiveitä; demosivu ei tarvitse ulkoisia resursseja), oma Chrome-aikaraja 45 s alle testin 60 s. */
+  const CHROME_KAYTOSSA = process.env.TM_CHROME_TESTS !== '0';
+  ((CHROME && CHROME_KAYTOSSA) ? it : it.skip)('headless-Chrome: 15 varianttia renderöityy, 0 virhettä (window.onerror + try/catch)', async () => {
+    const profiili = mkdtempSync(join(tmpdir(), 'tm-chrome-'));
+    /* Chrome tulostaa DOM:in ja jää usein roikkumaan sulkeutumisessa (tuore profiili / CI: >30 s ennen exitiä). Siksi EI odoteta prosessin loppua: kerätään stdout kunnes </html> näkyy, sitten SIGKILL. */
+    const out = await new Promise((resolve, reject) => {
+      const lapsi = spawn(CHROME, ['--headless=new', '--disable-gpu', '--no-sandbox', '--disable-dev-shm-usage', '--no-first-run', '--disable-extensions', '--user-data-dir=' + profiili,
+        '--host-resolver-rules=MAP * ~NOTFOUND , EXCLUDE localhost', '--virtual-time-budget=3000', '--dump-dom', pathToFileURL(join(juuri, DEMO_REL)).href], { stdio: ['ignore', 'pipe', 'ignore'] });
+      let data = '', valmis = false;
+      const lopeta = (fn) => { if (valmis) return; valmis = true; clearTimeout(ajastin); try { lapsi.kill('SIGKILL'); } catch (e) { /* jo päättynyt */ } fn(); };
+      const ajastin = setTimeout(() => lopeta(() => reject(new Error('Chrome ei tuottanut DOM:ia 45 s:ssa (' + data.length + ' merkkiä)'))), 45000);
+      lapsi.stdout.setEncoding('utf8'); lapsi.stdout.on('data', (d) => { data += d; if (/<\/html>\s*$/i.test(data)) lopeta(() => resolve(data)); });
+      lapsi.on('error', (e) => lopeta(() => reject(e)));
+      lapsi.on('close', () => lopeta(() => (data ? resolve(data) : reject(new Error('Chrome päättyi ilman tulostetta')))));
+    });
     const body = /<body[^>]*>/.exec(out)[0];
     expect(body).toContain('data-kt-errors="0"'); expect(body).toContain('data-kt-rendered="15"'); expect(body).toContain('data-kt-variants="15"');
     expect((out.match(/data-pitch="/g) || []).length).toBe(15); expect((out.match(/<svg class="kt-svg"/g) || []).length).toBe(15);
-  }, 30000);
+  }, 60000);
 });
 
 describe('K0 ei muuta näkymiä (D10/D11 vartijat)', () => {
@@ -216,5 +234,14 @@ describe('K0 ei muuta näkymiä (D10/D11 vartijat)', () => {
   it('kirjasto ei lataa mitään verkosta eikä Firebasea; ei Google Fonts', () => {
     const koodi = LIB.replace(/\/\*[\s\S]*?\*\//g, '').split('\n').map((l) => l.replace(/\/\/.*$/, '')).join('\n');   // ilman kommentteja
     expect(koodi).not.toMatch(/firebase|fetch\(|XMLHttpRequest|googleapis|gstatic|https?:\/\//i);
+  });
+});
+
+describe('Chrome-testi ei ole vaadittavassa unit-tests-portissa (CI-vakaus)', () => {
+  const WF = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', '.github/workflows/test.yml'), 'utf8');
+  it('unit-tests-job asettaa TM_CHROME_TESTS=0 (selaintesti ohitetaan) ja oma chrome-tests-job ajaa sen arvolla 1; testi ei käytä synkronista exec-kutsua (esti event loopin) eikä odota Chromen exitiä', () => {
+    const unit = WF.slice(WF.indexOf('  unit-tests:'), WF.indexOf('  functions-tests:')), chrome = WF.slice(WF.indexOf('  chrome-tests:'), WF.indexOf('  # #60'));
+    expect(unit).toMatch(/- run: npm test\s+env:\s+TM_CHROME_TESTS: '0'/); expect(chrome).toMatch(/TM_CHROME_TESTS: '1'/); expect(chrome).toContain('npx vitest run tests/kentta_k0.test.js'); expect(chrome).toContain('timeout-minutes');
+    const t = readFileSync(join(dirname(fileURLToPath(import.meta.url)), 'kentta_k0.test.js'), 'utf8'); expect(t).not.toContain('exec' + 'FileSync'); expect(t).toContain("lapsi.kill('SIG" + "KILL')"); expect(t).toContain("process.env.TM_CHROME_TESTS !== '0'");
   });
 });
