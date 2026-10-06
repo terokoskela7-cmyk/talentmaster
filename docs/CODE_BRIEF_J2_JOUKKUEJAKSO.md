@@ -45,4 +45,4 @@ jaksofokus.alku, kesto_vk, katselmus_alku, katselmus_loppu  (YYYY-MM-DD, tmPaiva
 - Mobiili 390 px: lomake ei vuoda vaakasuunnassa.
 
 ## Ei tässä
-Pelaajan "Aloita jakso" -modaalin muutos (J3 / V1), joukkuekenttä-taktiikkataulu (V2), VP_v25, pelaaja-app, seuran oma arviointikehys (D26 avoin).
+Pelaajan "Aloita jakso" -modaalin muutos (J3 / V1), joukkuekenttä-taktiikkataulu (V2), VP_v25, pelaaja-app, seuran oma arviointikehys (D31 avoin).
