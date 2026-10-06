@@ -102,7 +102,7 @@ describe('R1.4 — 2-sarakerakenne (kartta .cols)', () => {
   });
 
   it('data-loss-vartija: kaikki apurikutsut tallella (vain sijoittelu muuttui)', () => {
-    ['_vpPelaajanAaniHTML(p)', '_vpXFactorAse(p)', '_vpAloitusJaksofokusHTML(p)', '_vpAloitusPeiliHTML(p)',
+    ['_vpPelaajanAaniHTML(p)', '_vpXFactorYdinvahvuus(p)', '_vpAloitusJaksofokusHTML(p)', '_vpAloitusPeiliHTML(p)',
      '_vpAloitusTavoiteHTML(p)', '_vpStatTiivisteHTML(p)', '_vpAloitusKaariHTML(p, ika)',
      '_vpSitoumusHTML(p, pid)', '_vpAloitusSyvyysKortitHTML(p)'].forEach((c) => expect(N).toContain(c));
   });

@@ -289,7 +289,7 @@ describe('(3) Seuraava askel cockpitissa', () => {
     ['ehdotus_odottaa', '_vpKehAvaaKausitavoite', 'Tarkista ehdotus'],
     ['idp_jumissa', '_vpKehAvaaVaihto', 'Vaihda tavoite…'],
     ['sitoumus', '_vpVahvistaSitoumus', 'Vahvista'],
-    ['ei_jaksofokusta', '_vpKehAvaaJaksofokus', '＋ Aseta jaksofokus'],
+    ['ei_jaksofokusta', '_vpKehAvaaJaksofokus', '＋ Aloita jakso'],
   ];
 
   it.each(TOIMET)('%s → oikea teksti, painike ja kohdefunktio', (avain, fn, nappiTeksti) => {

@@ -87,7 +87,7 @@ describe('_cmKehityskorttiHTML — kontribuuttorit (tila + suunta + sparkline, r
 describe('_cmKehityskorttiHTML — jaksofokus + kehittävä-ei-rankaiseva', () => {
   it('jaksofokus = suurin kalibraatioero-kriteeri (_HL_KRIT_B), kehystettynä keskustelunavaukseksi', () => {
     const h = F(ARV(), null, 'j');
-    expect(h).toContain('Jaksofokus:');
+    expect(h).toContain('Jakso:');
     expect(h).toContain('Organisointi');   // b1 = suurin kuilu
     expect(h).toContain('keskustelunavaus');
   });

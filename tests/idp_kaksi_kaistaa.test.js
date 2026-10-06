@@ -295,7 +295,7 @@ describe('(5) Fyysinen jaksofokus: pelissä näkyvällä kaistalla ei kärkeä',
 
   it('tarjoaa tien teknis-taktiseen valintaan', () => {
     expect(h).toContain("_vpJfTila('p1','vaihto')");
-    expect(h).toContain('＋ Aseta jaksofokus');
+    expect(h).toContain('＋ Aloita jakso');
   });
 
   it('tuet näkyvät silti', () => {
