@@ -4345,6 +4345,35 @@ describe('v3.39 · viestit.nakyvyys', () => {
   });
 });
 
+/* ══ T1 · harjoitepankin uudet kentät (D29) eivät riko v3.40–42-sääntöjä: tuontiskriptin normalisoitu dokumentti kirjoitetaan VP:llä/SA:lla; pelaaja lukee yhä vain hyväksytty + koti ══ */
+describe('T1 · harjoitepankki: uudet kentät (pelikonteksti, alue_m, tasot, vuosikello, kuva_url …) + v3.40–42', () => {
+  const HP = createRequire(import.meta.url)('../../lib/tm_harjoitepankki.js');
+  const KPV = (lisa) => HP.tmHarjoiteNormalisoi(Object.assign({ id: 'kpvh_t1', nimi: 'Keksitty harjoite', pankki: '5v5 Vuosi 1', teema: 'Kuljettaminen', tyyppi: 'Tekniikka', ika: ['alle 8', '8–9'], jaksot: [{ vuosi: '1', jaksot: [1, 4, 9] }], pelaajat: '6 pelaajaa', kesto: '20 min', kentta: '10 x 20',
+    tavoite: 't', kulku: 'k', valmennuspisteet: 'v', vaikeuta: 'vk', tasot: [{ taso: 'Taso 1', ohje: 'o', mittari: '3 × 5' }], tags: ['a'], huom: 'h', lahde: 'Keksitty lähde' }, lisa || {}), 'kpv', { tarkistaja: 'Testaaja', pvm: '2026-10-07' }).data;
+  const hp = (db, id) => doc(db, 'seurat', SEURA_A, 'harjoitepankki', id);
+  beforeEach(async () => { await seedAdminDoc(); await seedSeuraAndPelaaja(); });
+  it('VP ja SA kirjoittavat normalisoidun dokumentin (hyväksytty ja luonnos+kolmas_osapuoli, kuva_url Storage-polku); valmentaja ei; päivitys lisää uudet kentät vanhaan riviin; arkistointi (arkistoitu: true) onnistuu', async () => {
+    const vp = vpContext(SEURA_A).firestore(), d = KPV({ kuvat: ['x.jpg'] }); d.kuva_url = 'seurat/fcl/harjoitepankki/kpvh_t1.jpg';
+    await assertSucceeds(setDoc(hp(vp, 'kpvh_t1'), d)); await assertSucceeds(setDoc(hp(vp, 'kpvh_t2'), KPV({ id: 'kpvh_t2', huom: 'SoccerTutor-kortti (2020)' })));
+    await assertSucceeds(setDoc(hp(saContext().firestore(), 'kpvh_t3'), KPV({ id: 'kpvh_t3' })));
+    await assertFails(setDoc(hp(valmentajaContext(VALM_A_UID, SEURA_A).firestore(), 'kpvh_t4'), KPV({ id: 'kpvh_t4' })));
+    await testEnv.withSecurityRulesDisabled(async (c) => { await setDoc(hp(c.firestore(), 'vanha'), { nimi: 'Vanha', tyyppi: 'T', lahde: 'seura', tila: 'hyvaksytty', kaytto: 'koti', versio: 1 }); });
+    await assertSucceeds(setDoc(hp(vp, 'vanha'), { pelikonteksti: 'Kuljettaminen', alue_m: { pituus: 20, leveys: 10 }, alue_tyyppi: 'mitta', tasot: [], vuosikello: [{ vuosi: 1, jaksot: [1] }], kuva_url: null, versio: 2 }, { merge: true }));
+    await assertSucceeds(setDoc(hp(vp, 'vanha'), { arkistoitu: true }, { merge: true }));
+    const luettu = (await getDoc(hp(saContext().firestore(), 'kpvh_t2'))).data(); expect(luettu.tila).toBe('luonnos'); expect(luettu.kolmas_osapuoli).toBe(true);
+  });
+  it('säännön invariantit pysyvät uusilla kentillä: lahde pitää olla seura, tyyppi T, tila luonnos|hyvaksytty, nimi merkkijono', async () => {
+    const vp = vpContext(SEURA_A).firestore();
+    await assertFails(setDoc(hp(vp, 'x1'), Object.assign({}, KPV(), { lahde: 'tm' }))); await assertFails(setDoc(hp(vp, 'x2'), Object.assign({}, KPV(), { tyyppi: 'D' }))); await assertFails(setDoc(hp(vp, 'x3'), Object.assign({}, KPV(), { tila: 'arkistoitu' }))); await assertFails(setDoc(hp(vp, 'x4'), Object.assign({}, KPV(), { nimi: '' })));
+  });
+  it('PELAAJA lukee vain hyväksytyn + koti-käyttöisen: joukkue-rivi (T1:n oletus), luonnos ja tilaton hylätään vaikka uusia kenttiä on; seuran henkilökunta lukee kaikki', async () => {
+    await testEnv.withSecurityRulesDisabled(async (c) => { const db = c.firestore(); await setDoc(hp(db, 'p_joukkue'), KPV()); await setDoc(hp(db, 'p_koti'), Object.assign({}, KPV(), { kaytto: 'koti' })); await setDoc(hp(db, 'p_luonnos'), Object.assign({}, KPV(), { kaytto: 'koti', tila: 'luonnos' })); });
+    const pel = pelaajaContext(SEURA_A, PELAAJA_UID).firestore();
+    await assertSucceeds(getDoc(hp(pel, 'p_koti'))); await assertFails(getDoc(hp(pel, 'p_joukkue'))); await assertFails(getDoc(hp(pel, 'p_luonnos')));
+    for (const c of [vpContext(SEURA_A), valmentajaContext(VALM_A_UID, SEURA_A)]) { await assertSucceeds(getDoc(hp(c.firestore(), 'p_joukkue'))); await assertSucceeds(getDoc(hp(c.firestore(), 'p_luonnos'))); }
+  });
+});
+
 /* ══ Rules v3.40 · Seuran linja (B PR1, Tero 6.10.2026): valmennuslinja/{ikavaiheet,teemat}, harjoitepankki, arviointikehys, ohjelmat — ERISTYS seurojen välillä ══
    Parametrisoitu (seuraA, seuraB) molempiin suuntiin: SJK ↔ Sibbo (sibbovargarna). Seuran sisältö on vain seuran omaa; toinen seura ei lue eikä kirjoita. */
 describe.each([['sjk', 'sibbovargarna'], ['sibbovargarna', 'sjk']])('v3.40 · seuran linja: %s ↔ %s', (A, B) => {
