@@ -4,7 +4,7 @@
  * tuo_valmennuslinja.js — SJK:n (tai muun seuran) valmennuslinjan tuonti Excelistä Firestoreen. DRY-RUN OLETUKSENA; --apply vain Teron hyväksynnällä.
  *
  *   node scripts/tuo_valmennuslinja.js --seura sjk --tiedosto SJK_valmennuslinja_tarkistettavaksi.xlsx [--master SJK_fysiikkalinja_tuontipohja_v2.xlsx]
- *        [--pvm 2026-10-17] [--tarkistaja "Nimi"] [--ei-lue] [--apply]
+ *        [--pvm 2026-10-17] [--tarkistaja "Nimi"] [--lahde "Nevanlinna 2014"] [--ei-lue] [--apply]
  *
  * KAKSI AJOA (kaikki tuodut dokumentit saavat tila + tarkistettu_pvm + tarkistaja):
  *   1. ajo = TM:n esitäytetty Excel (ei yhtään kuittausta) → KAIKKI tila:'luonnos' (pelaajalle ei näy mitään).
@@ -37,7 +37,9 @@ const slug = (s) => { const t = String(s == null ? '' : s).toLowerCase().replace
 const norm = (v) => String(v == null ? '' : v).trim();
 const normOtsikko = (h) => norm(h).toLowerCase().replace(/\s+/g, '_').replace(/[()]/g, '');
 const luku = (v) => { const s = norm(v).replace(',', '.'); if (!s) return null; const n = Number(s); return Number.isFinite(n) ? n : null; };
-const viite = (v) => { const s = norm(v); if (!s) return null; return /^\d+([–-]\d+)?(,\s*\d+)*$/.test(s) ? 'dia ' + s : s; };
+// lahde_viite: pelkkä dia-numero → "<lähde>, dia N" (SJK:n Excelin dia-numerot ovat Nevanlinnan 2014 -aineiston diat; --lahde ylikirjoittaa); valmis teksti säilyy.
+let LAHDE_NIMI = 'Nevanlinna 2014';
+const viite = (v) => { const s = norm(v); if (!s) return null; return /^\d+([–-]\d+)?(,\s*\d+)*$/.test(s) ? LAHDE_NIMI + ', dia ' + s : s; };
 const rivit = (v) => norm(v).split(/\n+/).map((x) => x.replace(/^\s*\d+[.)]\s*/, '').trim()).filter(Boolean);
 const OnUrl = (s) => /^https?:\/\//i.test(norm(s));
 
@@ -82,11 +84,12 @@ const sisaltoAvain = (d) => { const c = Object.assign({}, d); ['versio', 'tarkis
  * docs: [{ polku (seura-suhteellinen), op:'luo'|'paivita'|'ei_muutosta'|'poista', data, versio }] · puhdas funktio (ei I/O).
  */
 function muunna(opts) {
+  LAHDE_NIMI = opts.lahde || 'Nevanlinna 2014';
   const pohja = opts.pohja.sheets, master = opts.master ? opts.master.sheets : null, nyk = opts.nykyinen || {};
   const pvm = opts.pvm || null, tarkistaja = opts.tarkistaja || null;
   const rap = { ajo: null, huomiot: [], virheet: [], kuittaamattomat: [], ehdollinenKotiin: [], odottaaKuvaa: [], ketjutta: [], ohitetut: {}, tilastot: {}, tulkinnat: [
     'ikaraja "alle 12v" → ika_max 11 · "yli 12v" → ika_min 12 (ikä vuosina)', 'kotiin_sopiva: vain täsmälleen "kyllä" = true; ehdolliset ("kyllä (keppi)", "osin", "ei …") = false + kotiin_huomio',
-    'kehityskohde jätetään null (moottorin ohitus kohteen tasolla — TM asettaa kohteen erikseen, ettei seuran rivi vahingossa korvaa TM:n oletusta)'] };
+    'kehityskohde = null KAIKILLE harjoitepankkiriveille TARKOITUKSELLA + kaytto:\'joukkue\' (valmentajan ratoja/rutiineja; moottori ohittaa — eivät koskaan päivän harjoite)', 'dimensio D1 = Nevanlinna-lähteiset ikavaiheet-rivit (lahde_viite sisältää Nevanlinna), muut tyhjä'] };
   const nimetyt = Object.keys(pohja).filter((n) => EI_TUODA.indexOf(n) < 0);
   const taulut = {}; nimetyt.forEach((n) => { taulut[n] = lueTaulu(pohja[n]); });
   const kuitattuja = Object.values(taulut).some((t) => t.some((r) => norm(r.a.kuittaus) !== ''));
@@ -124,7 +127,7 @@ function muunna(opts) {
     taulut.Ikaluokat.forEach((r) => {
       const a = r.a, avain = a.ikaluokka || '(nimetön)', t = tilaRivi('Ikaluokat', r, avain), id = slug(a.ikaluokka) + '_' + slug(a.lahde_viite || 'x');
       if (t.ohita) return; if (t.poista) { delete uudet[id]; return; }
-      const rv = Object.assign({ id, ikaluokka: a.ikaluokka, dimensio: a.dimensio || null, sisalto: rivit(a.painopisteet), totuteltava: rivit(a.totuteltava), suositellut_ohjelmat: rivit(a.suositellut_ohjelmat), lahde_viite: viite(a.lahde_viite) }, ikarajat(a));
+      const rv = Object.assign({ id, ikaluokka: a.ikaluokka, dimensio: a.dimensio || (/Nevanlinna/i.test(viite(a.lahde_viite) || '') ? 'D1' : null), sisalto: rivit(a.painopisteet), totuteltava: rivit(a.totuteltava), suositellut_ohjelmat: rivit(a.suositellut_ohjelmat), lahde_viite: viite(a.lahde_viite) }, ikarajat(a));
       const v = vanhat[id]; const muuttui = !v || sisaltoAvain(Object.assign({}, v, { tila: 0 })) !== sisaltoAvain(Object.assign({}, rv, { versio: v.versio, tila: 0, tarkistettu_pvm: v.tarkistettu_pvm, tarkistaja: v.tarkistaja }));
       leima(rv, t.tila); rv.versio = !v ? 1 : (muuttui || v.tila !== t.tila ? (v.versio || 0) + 1 : v.versio); if (v && !muuttui && v.tila === t.tila) { rv.tarkistettu_pvm = v.tarkistettu_pvm; rv.tarkistaja = v.tarkistaja; }
       uudet[id] = rv;
@@ -185,7 +188,7 @@ function muunna(opts) {
       if (ketteryys && !kuvaOk && (norm(a.kuittaus) || rap.ajo === 2)) rap.odottaaKuvaa.push(a.nimi);
       const kd = kotiinSopiva(a.kotiin_sopiva); if (kd.ehdollinen) rap.ehdollinenKotiin.push(sn + ': ' + a.nimi + ' → "' + kd.huomio + '"');
       const ik = ikarajat(a);
-      const data = Object.assign({ nimi: a.nimi, tyyppi: 'T', kehityskohde: null, ketju: ketju(sn, a), konsepti: null, ohje: ketteryys ? (a.kuvaus || null) : (a.pelaajan_ohje || a.sisalto || null),
+      const data = Object.assign({ nimi: a.nimi, tyyppi: 'T', kehityskohde: null, ketju: ketju(sn, a), konsepti: null, kaytto: 'joukkue', ohje: ketteryys ? (a.kuvaus || null) : (a.pelaajan_ohje || a.sisalto || null),
         sisalto: ketteryys ? null : (a.sisalto || null), kesto_min: luku(a.kesto_min), video_url: ketteryys ? (OnUrl(kuva) ? kuva : null) : (OnUrl(a.video_url) ? norm(a.video_url) : null), kuva_tai_video: ketteryys && kuvaOk && !OnUrl(kuva) ? kuva : null,
         tarvikkeet: a.valineet || a.tarvikkeet || null, pelaajia: luku(a.pelaajia), kotiin_sopiva: kd.arvo, kotiin_huomio: kd.huomio, lahde: 'seura', lahde_viite: viite(a.lahde_viite), laatija_rooli: 'tuonti' }, ik);
       kirjoita(polku, leima(data, t.tila));
@@ -219,7 +222,7 @@ async function main(args) {
   if (!o.seura || !o.tiedosto) { console.error('Käyttö: node scripts/tuo_valmennuslinja.js --seura <seuraId> --tiedosto <xlsx> [--master <v2.xlsx>] [--pvm YYYY-MM-DD] [--tarkistaja "Nimi"] [--ei-lue] [--apply]'); return 2; }
   const pohja = lueXlsx(fs.readFileSync(o.tiedosto)), master = o.master ? lueXlsx(fs.readFileSync(o.master)) : null;
   const paikallinenPvm = () => { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };   // paikallinen päivä (§7.26)
-  const opts = { pohja, master, pvm: o.pvm || paikallinenPvm(), tarkistaja: o.tarkistaja || null, nykyinen: {} };
+  const opts = { pohja, master, lahde: o.lahde || null, pvm: o.pvm || paikallinenPvm(), tarkistaja: o.tarkistaja || null, nykyinen: {} };
   let db = null;
   if (!o['ei-lue']) {
     const admin = require('firebase-admin'); admin.initializeApp({ credential: admin.credential.applicationDefault() }); db = admin.firestore();   // gcloud ADC (ei SA-avainta)
