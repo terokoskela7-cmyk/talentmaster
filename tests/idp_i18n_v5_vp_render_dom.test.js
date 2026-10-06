@@ -884,6 +884,9 @@ describe('VP_v25 resolvi-portti — jokaisella reititetyllä avaimella on sv-riv
     'valitse seuraava.',
     'Jaksolla ei ole uutta havaintoa',
     'pv — kirjaa havainto.',
+    // Vastuuhenkilö (5.10.2026) — sv Gemini-erässä.
+    'Vastuuhenkilön asetus epäonnistui',
+    'Vastuuhenkilö tallennettu',
     // R6.3-E — katselmuksen "Vahvista merkinnät" (09 §6). sv Gemini-erässä.
     'Vahvista merkinnät',
     'Ydinvahvuus',

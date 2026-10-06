@@ -110,6 +110,7 @@ window.TM_KAAVIO_HOST = {
 <script src="lib/tm_kypsyys.js?v=2"></script>   <!-- IDP R1: Kypsyys/PHV -komponentti (tmKypsyys) kytketty näkyviin per-pelaaja-kortin vasempaan paneeliin (korvaa kypsyysproosan) -->
 <script src="lib/tm_treeniteema.js?v=1"></script>   <!-- Vaihe 4d: teemakattavuus PURE-ydin (jaksofokus vs suunnitellut teemaharjoitukset) -->
 <script src="lib/tm_jaksokooste.js?v=2"></script>   <!-- Vaihe 6: jakson sulku (meso-sykli) PURE-ydin — prosessi+kalibraatio+historia (geneerinen §8) -->
+<script src="lib/tm_vastuuhenkilo.js?v=1"></script>   <!-- vastuuhenkilö per pelaaja (vastuuhenkilo {uid, rooli, asetettu_pvm}); henkilökunnan rivi + asetus -->
 <script src="lib/tm_jakso_malli.js?v=1"></script>   <!-- R6.3-E: katselmuksen "Vahvista merkinnät" (tmMerkinnatTila / tmVahvistaMerkinnat) + kypsyysvihjeet -->
 <script src="lib/tm_kehityssilmukka.js?v=2"></script>   <!-- R6.2a: katselmus yhteen paikkaan (tmKirjaaKatselmus) + jaksofokuksen kirjoitusydin -->
 <script src="lib/tm_seuraava_askel.js?v=1"></script>   <!-- R6.2b: seuraava toimenpide yhdessä paikassa (tmSeuraavaAskel / tmSeuraavaJakso / tmTeeTastaOsa) -->
@@ -8445,6 +8446,30 @@ function _vpIdpNarratiiviHTML(p) {
   h += '<div style="margin-top:8px;padding-top:14px;border-top:.5px solid var(--border)"><button onclick="event.stopPropagation();_jspVaihda(3)" style="font-family:var(--font-sans);font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;padding:10px 16px;border-radius:8px;background:rgba(40,176,144,.1);color:var(--teal);border:.5px solid rgba(40,176,144,.4);cursor:pointer">' + vpT('→ Avaa Kehitys-työpöytä · muokkaa suunnitelmaa') + '</button></div>';
   return h;
 }
+/* Vastuuhenkilö per pelaaja (additiivinen kenttä vastuuhenkilo {uid, rooli, asetettu_pvm}). Rivi henkilökunnalle IDP-kortin yläosassa; asettaa VP/UTJ/talenttivalmentaja/SA
+   (Rules v3.38; joukkueen valmentaja asettaa Masterissa). EI "omat vastuupelaajat" -näkymää (R6.6). Ei pelaajan/huoltajan näkymiin. */
+function _vpVastuuhenkiloRivi(p) {
+  const L = window.TM_VASTUUHENKILO; if (!L || !p) return '';
+  const r = window._vpRooli || '';
+  const voi = !!window._vpSA || r === 'vp' || r === 'urheilutoimenjohtaja' || r === 'talenttivalmentaja';
+  return L.tmVastuuhenkiloHTML(p, _valmentajat, { t: vpT, voiAsettaa: voi, onchange: '_vpAsetaVastuuhenkilo' });
+}
+window._vpAsetaVastuuhenkilo = async function (pid, arvo) {
+  const L = window.TM_VASTUUHENKILO, p = _vpIdpPelaaja(pid); if (!L || !p) return;
+  let plan;
+  try {
+    const o = String(arvo || '').split('|');
+    plan = L.tmVastuuhenkiloAsetus(p, arvo ? { uid: o[0], rooli: o[1] } : null, tmPaivaIso(new Date()));   // paikallinen päivä (§7.26)
+  } catch (e) { console.warn('[vpVastuuhenkilo]', e && e.message); if (typeof toast === 'function') toast(vpT('Vastuuhenkilön asetus epäonnistui'), 'error'); return; }
+  const paivita = function () { if (plan.paikallinen.vastuuhenkilo === L.POISTA) delete p.vastuuhenkilo; else p.vastuuhenkilo = plan.paikallinen.vastuuhenkilo; _vpKausitavoiteReRender(false); };
+  if (_isDemoMode || !_seuraId) { paivita(); return; }
+  try {
+    const cu = firebase.auth().currentUser; if (cu) await cu.getIdToken(true);
+    await db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(pid).update({ vastuuhenkilo: plan.kirjoitus.vastuuhenkilo === L.POISTA ? firebase.firestore.FieldValue.delete() : plan.kirjoitus.vastuuhenkilo });
+    paivita();   // paikallinen tila vasta onnistumisen jälkeen
+    if (typeof toast === 'function') toast(vpT('Vastuuhenkilö tallennettu') + ' ✓', 'ok');
+  } catch (e) { console.warn('[vpVastuuhenkilo]', e && e.message); if (typeof toast === 'function') toast(vpT('Vastuuhenkilön asetus epäonnistui'), 'error'); _vpKausitavoiteReRender(false); }
+};
 function _vpKausitavoiteHTML(p) {
   if (!p) return '';
   window._vpArvPelaaja = p;
@@ -8458,6 +8483,7 @@ function _vpKausitavoiteHTML(p) {
   /* B4: rivin otsikko kertoo jo "Kauden tavoite", joten kortin oma otsikko ("KAUSITAVOITE · IDP-ydin")
      on poistettu. ⓘ-napit jaavat: ne ovat sisaltoa, eivat otsikkoa. */
   let h = ((typeof window._tmIBtn === 'function') ? ('<div class="jsp-kt-hd">' + window._tmIBtn('idp_silta') + window._tmIBtn('idp_roolit') + '</div>') : '');
+  h += _vpVastuuhenkiloRivi(p);   // vastuuhenkilö (Tero 5.10.2026): kertoo kenen tehtävä asia on; ei rajaa oikeuksia
   if (p._luonnosTyyppi === 'vaihto') {
     h += '<div style="font-family:var(--font-mono),\'DM Mono\',monospace;font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink3);'
       + 'border:.5px dashed var(--border);border-radius:7px;padding:6px 10px;margin:2px 0 10px;background:var(--ov-1)">' + vpT('Luonnos · ei vielä käytössä') + '</div>';

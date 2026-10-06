@@ -1,9 +1,16 @@
 rules_version = '2';
 // ══════════════════════════════════════════════════════════════════════════
-// TalentMaster™ — firestore.rules v3.37
+// TalentMaster™ — firestore.rules v3.38
 //
 // Lähde:  tm_admin/firestore.rules
 // Deploy: PR → N4-CI deployaa automaattisesti (Console-käsityö poistui).
+//
+// Muutokset v3.37 → v3.38 (vastuuhenkilö per pelaaja, 5.10.2026 — additiivinen, §11, ei migraatiota):
+//   · seurat/{sid}/pelaajat/{pid}.vastuuhenkilo = {uid, rooli, asetettu_pvm}: kertoo vain KENEN TEHTÄVÄ pelaajan asia on; EI rajaa oikeuksia (VP ja talenttivalmentaja toimivat kaikkien pelaajien kohdalla).
+//     Kentän (asetus/vaihto/poisto) saavat muuttaa VAIN: SA, VP, urheilutoimenjohtaja, talenttivalmentaja (oma seura) ja joukkueen valmentaja (rooli 'valmentaja', pelaajan joukkue
+//     = valmentajan joukkue; onOmanJoukkueenValmentaja). EI fysiikkavalmentaja/fysioterapeutti/seurasihteeri/pelaaja/huoltaja. Muoto: map, keys().hasOnly/hasAll [uid, rooli, asetettu_pvm],
+//     uid merkkijono = seuran kayttajat-dokumentti TAI seuran vp_uid (ei toisen seuran käyttäjää), rooli ∈ valmentaja|apuvalmentaja|talenttivalmentaja|vp, asetettu_pvm YYYY-MM-DD (10 merkkiä).
+//     Poisto (kenttä pois) sallittu samoille. Uusi funktio vastuuhenkiloMuutosKelpaa liitetty pelaajat.update-sääntöön (AND) — muut kentät ja roolit ennallaan.
 //
 // Muutokset v3.36 → v3.37 (R6.3-B: jakson pelaajan valinta, joukkueen jakso, kuittaus; 5.10.2026 — kaikki additiivisia, ei migraatiota):
 //   · seurat/{sid}/pelaajat/{pid}: update += PIN-pelaaja (onPelaajaItse) VAIN `ydinvahvuus_valinta` (map {vaihtoehto ≤ 60 merkkiä, valittu_pvm?}, keys().hasOnly) — D8: pelaaja valitsee, EI voi kirjoittaa
@@ -554,6 +561,28 @@ service cloud.firestore {
     function pinEiAsetetaClientista() {
       return !request.resource.data.keys().hasAny(['pin', 'pin_asetettu']);
     }
+    /* v3.38 — vastuuhenkilö: vain jos update koskee kenttää. Asettajat: SA | VP/UTJ/talenttivalmentaja omassa seurassa | joukkueen valmentaja (onOmanJoukkueenValmentaja, rooli 'valmentaja').
+       Muoto: map {uid, rooli, asetettu_pvm}; uid = seuran käyttäjä (kayttajat-dokumentti tai seura.vp_uid). Poisto (kenttä pois) sallittu asettajille. */
+    function vastuuhenkiloAsettaja(seuraId, pelaajaId) {
+      return onSuperAdmin()
+          || (onOmaSeura(seuraId) && request.auth.token.rooli in ['vp', 'urheilutoimenjohtaja', 'talenttivalmentaja'])
+          || (onOmaSeura(seuraId) && request.auth.token.rooli == 'valmentaja' && onOmanJoukkueenValmentaja(seuraId, pelaajaId));
+    }
+    function vastuuhenkiloMuotoKelpaa(seuraId, v) {
+      return v is map
+          && v.keys().hasOnly(['uid', 'rooli', 'asetettu_pvm'])
+          && v.keys().hasAll(['uid', 'rooli', 'asetettu_pvm'])
+          && v.uid is string && v.uid.size() > 0 && v.uid.size() <= 128
+          && v.rooli in ['valmentaja', 'apuvalmentaja', 'talenttivalmentaja', 'vp']
+          && v.asetettu_pvm is string && v.asetettu_pvm.size() == 10
+          && (exists(/databases/$(database)/documents/seurat/$(seuraId)/kayttajat/$(v.uid))
+              || get(/databases/$(database)/documents/seurat/$(seuraId)).data.get('vp_uid', '') == v.uid);
+    }
+    function vastuuhenkiloMuutosKelpaa(seuraId, pelaajaId) {
+      return !request.resource.data.diff(resource.data).affectedKeys().hasAny(['vastuuhenkilo'])
+          || (vastuuhenkiloAsettaja(seuraId, pelaajaId)
+              && (!('vastuuhenkilo' in request.resource.data) || vastuuhenkiloMuotoKelpaa(seuraId, request.resource.data.vastuuhenkilo)));
+    }
     function pinEiMuutuClientista() {
       return !request.resource.data.diff(resource.data).affectedKeys().hasAny(['pin', 'pin_asetettu']);
     }
@@ -1032,7 +1061,8 @@ service cloud.firestore {
                       // vain scout_potentiaali*-pikakentät (ei koske 5D/IDP:tä). ⏳ ODOTTAA CONSOLE-DEPLOYTA (§12).
                       || (onOmaSeura(seuraId) && onJohtoRooli()
                           && request.resource.data.diff(resource.data).affectedKeys()
-                             .hasOnly(['scout_potentiaali', 'scout_potentiaali_taso', 'scout_potentiaali_huomiot', 'scout_potentiaali_pvm', 'scout_potentiaali_arvioija'])));
+                             .hasOnly(['scout_potentiaali', 'scout_potentiaali_taso', 'scout_potentiaali_huomiot', 'scout_potentiaali_pvm', 'scout_potentiaali_arvioija'])))
+                      && vastuuhenkiloMuutosKelpaa(seuraId, pelaajaId);   // v3.38: vastuuhenkilo-kentän asettajat + muoto
         // GDPR (#96): pelaajan pääDocin poisto VAIN SA (client). Aiempi johto-client-delete poisti vain
         // pääDocin → JÄTTI orvoiksi alikokoelmat + ristiviitteet + Storage-media + Auth (GDPR-rikkomus,
         // spec §0.1/§0.5). Johto poistaa nyt RTBF-CF:n (poistaPelaajaGDPR) kautta, joka tekee TÄYDEN
