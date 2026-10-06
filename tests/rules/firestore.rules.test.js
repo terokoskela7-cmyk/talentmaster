@@ -4303,7 +4303,7 @@ describe.each([['sjk', 'sibbovargarna'], ['sibbovargarna', 'sjk']])('v3.40 · se
   };
   const DATA = {
     ikavaiheet: { rivit: [{ ika_min: 8, ika_max: 9, dimensio: 'D1', sisalto: ['x'], lahde_viite: 'dia 3' }] }, teemat: { jaksot: [{ joukkue: 'P12', alkaa: '2026-11-01', paattyy: '2026-11-30', teema: 'Pallonhallinta', konsepti: 'y_h2' }] },
-    harjoitepankki: { nimi: 'Rondo 4v2', tyyppi: 'T', ika_min: 8, ika_max: 10, kehityskohde: 'pallonhallinta', ohje: 'x', kesto_min: 15, lahde: 'seura', versio: 1 },
+    harjoitepankki: { nimi: 'Rondo 4v2', tyyppi: 'T', ika_min: 8, ika_max: 10, kehityskohde: 'pallonhallinta', ohje: 'x', kesto_min: 15, lahde: 'seura', tila: 'hyvaksytty', versio: 1 },
     arviointikehys: { profiilit: [{ avain: 'k1', nimi: 'Keskuspuolustaja', dimensio: 'tekninen', pelipaikka: 'KP', lahde_viite: 'dia 9' }] }, ohjelmat: { nimi: 'Voima 1', tyyppi: 'perusvoima', teema_avain: 'fy_voima', ika_min: 12, ika_max: 14, versio: 1, arkistoitu: false },
   };
   const ref = (c, k, s) => doc(c.firestore(), ...POLUT[k](s));
@@ -4339,6 +4339,18 @@ describe.each([['sjk', 'sibbovargarna'], ['sibbovargarna', 'sjk']])('v3.40 · se
     for (const k of KAIKKI) await assertFails(getDoc(ref(HUOLT(), k, A)));
   });
   it('SA lukee ja kirjoittaa kaikkialla', async () => { for (const k of KAIKKI) { await assertSucceeds(getDoc(ref(saContext(), k, A))); await assertSucceeds(setDoc(ref(saContext(), k, B), Object.assign({}, DATA[k], { versio: 5 }))); } });
+  it('v3.41 TILA: pelaaja lukee harjoitepankista VAIN hyväksytyn; luonnos/tilaton → hylätään (henkilökunta lukee kaikki); tila pakollinen kirjoituksessa ja vain luonnos|hyvaksytty; toisen seuran pelaaja ei kumpaakaan', async () => {
+    await testEnv.withSecurityRulesDisabled(async (c) => { const db = c.firestore();
+      await setDoc(doc(db, 'seurat', A, 'harjoitepankki', 'luonnos1'), Object.assign({}, DATA.harjoitepankki, { tila: 'luonnos' }));
+      await setDoc(doc(db, 'seurat', A, 'harjoitepankki', 'tilaton'), (({ tila, ...muu }) => muu)(DATA.harjoitepankki)); });
+    const r = (c, id) => doc(c.firestore(), 'seurat', A, 'harjoitepankki', id);
+    await assertSucceeds(getDoc(r(PEL(A), 'h1'))); await assertFails(getDoc(r(PEL(A), 'luonnos1'))); await assertFails(getDoc(r(PEL(A), 'tilaton')));
+    for (const c of [VP(A), UTJ(A), VALM(A), TALVAL(A), saContext()]) { await assertSucceeds(getDoc(r(c, 'luonnos1'))); await assertSucceeds(getDoc(r(c, 'tilaton'))); }
+    for (const id of ['h1', 'luonnos1']) await assertFails(getDoc(r(PEL(B), id)));
+    for (const tila of ['luonnos', 'hyvaksytty']) await assertSucceeds(setDoc(r(VP(A), 'uusi_' + tila), Object.assign({}, DATA.harjoitepankki, { tila })));
+    for (const huono of ['odottaa', '', 5, undefined]) { const d = Object.assign({}, DATA.harjoitepankki, { tila: huono }); if (huono === undefined) delete d.tila; await assertFails(setDoc(r(VP(A), 'huono'), d)); }
+    await assertFails(updateDoc(r(VP(A), 'h1'), { tila: 'valmis' }));
+  });
   it('harjoitepankki muoto: lahde pakko "seura" (ei "tm"), tyyppi "T", nimi merkkijono → muuten hylätään; ohjelmat-kirjoitus ennallaan (valmentaja kirjoittaa, kuten ennen v3.40:tä)', async () => {
     const h = (lisa) => Object.assign({}, DATA.harjoitepankki, lisa);
     await assertSucceeds(setDoc(doc(VP(A).firestore(), 'seurat', A, 'harjoitepankki', 'uusi1'), h()));

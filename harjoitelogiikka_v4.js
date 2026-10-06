@@ -3145,6 +3145,7 @@ function _seuranHarjoitteet(seuraPankki, pelaaja, ehto) {
   var ika = _pelaajanIkaVuosina(pelaaja);
   return lista.filter(function (h) {
     if (!h || h.lahde !== 'seura' || h.tyyppi !== 'T' || typeof h.nimi !== 'string' || !h.nimi) return false;
+    if (h.tila !== 'hyvaksytty') return false;   // v3.41: LUONNOS ei koskaan päädy pelaajalle (moottori käyttää VAIN hyväksyttyjä)
     if (ehto.kehityskohde != null && h.kehityskohde !== ehto.kehityskohde) return false;
     if (ehto.ketju != null && String(h.ketju || '').toUpperCase() !== String(ehto.ketju).toUpperCase()) return false;
     if (ika != null) { if (h.ika_min != null && ika < Number(h.ika_min)) return false; if (h.ika_max != null && ika > Number(h.ika_max)) return false; }

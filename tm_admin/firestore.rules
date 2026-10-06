@@ -1,10 +1,14 @@
 rules_version = '2';
 // ══════════════════════════════════════════════════════════════════════════
-// TalentMaster™ — firestore.rules v3.40
+// TalentMaster™ — firestore.rules v3.41
 //
 // Lähde:  tm_admin/firestore.rules
 // Deploy: PR → N4-CI deployaa automaattisesti (Console-käsityö poistui).
 //
+// Muutokset v3.40 → v3.41 (harjoitepankki.tila, 6.10.2026 — additiivinen, §11; ei vanhoja harjoitepankki-dokkeja):
+//   · seurat/{id}/harjoitepankki/{id}.tila: 'luonnos' | 'hyvaksytty' (pakollinen luonnissa/päivityksessä). PELAAJA lukee VAIN tila=='hyvaksytty' (kyselyssä oltava where('tila','==','hyvaksytty'), Rules ei suodata);
+//     henkilökunta lukee kaikki. Luonnos-rivi ei koskaan päädy pelaajalle. `valmennuslinja/teemat` = vain hyväksytyt rivit; luonnokset tuodaan staff-only-lohkoon `valmennuslinja/teemat_luonnos`
+//     (pelaaja lukee vain lohkon 'teemat' — v3.40:n ehto riittää, ei Rules-muutosta).
 // Muutokset v3.39 → v3.40 (Seuran linja -paketti, B PR1, 6.10.2026 — additiivinen, §11; uudet polut, ei migraatiota):
 //   · seurat/{id}/valmennuslinja/{lohko}: `ikavaiheet` (rivit {ika_min, ika_max, dimensio D1–D5, sisalto[], lahde_viite} — vain henkilökunta, EI pelaajalle/huoltajalle)
 //     ja `teemat` (jaksot[{joukkue, alkaa, paattyy, teema, konsepti}] — henkilökunta + oman seuran pelaajat). Kirjoitus SA | VP/UTJ (onKonseptiMuokkaaja).
@@ -909,10 +913,13 @@ service cloud.firestore {
         allow create, update, delete: if onSuperAdmin() || onKonseptiMuokkaaja(seuraId);
       }
       match /harjoitepankki/{harjoiteId} {
-        allow read:   if onSuperAdmin() || (onKirjautunut() && onOmaSeura(seuraId)) || onPelaajanSeura(seuraId);
+        // v3.41: pelaaja vain hyväksytyt (luonnos = SJK:n kuittaamaton / TM:n esitäyttö → ei pelaajalle)
+        allow read:   if onSuperAdmin() || (onKirjautunut() && onOmaSeura(seuraId))
+                      || (onPelaajanSeura(seuraId) && resource.data.get('tila', '') == 'hyvaksytty');
         allow create, update: if (onSuperAdmin() || onKonseptiMuokkaaja(seuraId))
                       && request.resource.data.get('lahde', '') == 'seura'
                       && request.resource.data.get('tyyppi', '') == 'T'
+                      && request.resource.data.get('tila', '') in ['luonnos', 'hyvaksytty']
                       && request.resource.data.get('nimi', null) is string && request.resource.data.nimi.size() > 0;
         allow delete: if onSuperAdmin() || onKonseptiMuokkaaja(seuraId);
       }

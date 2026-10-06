@@ -9,7 +9,7 @@ const require = createRequire(import.meta.url);
 const lib = require('../harjoitelogiikka_v4.js');
 const PVM = (n) => new Date(Date.UTC(2026, 5, 15 + n)).toISOString().slice(0, 10);
 const PELAAJA = (seuraId, lisa) => Object.assign({ seuraId, ika: 13, tki_kehityskohde: 'syotto', luotu: '2026-03-01' }, lisa || {});
-const H = (seura, lisa) => Object.assign({ nimi: seura + ' syöttörondo', tyyppi: 'T', lahde: 'seura', kehityskohde: 'syotto', ika_min: 10, ika_max: 15, ohje: seura + ' ohje', kesto_min: 15, versio: 1 }, lisa || {});
+const H = (seura, lisa) => Object.assign({ nimi: seura + ' syöttörondo', tyyppi: 'T', lahde: 'seura', tila: 'hyvaksytty', kehityskohde: 'syotto', ika_min: 10, ika_max: 15, ohje: seura + ' ohje', kesto_min: 15, versio: 1 }, lisa || {});
 const PANKKI_OF = (seura, harjoitteet) => ({ seuraId: seura, harjoitteet });
 const TM_NIMET = (kohdePelaaja) => new Set(Array.from({ length: 60 }, (_, i) => lib.valitsePaivanHarjoite(kohdePelaaja, lib.PANKKI, PVM(i)).nimi));
 
@@ -39,6 +39,19 @@ describe('T-ohitus: seuran pankki ensin, TM varalla (kehityskohteen taso)', () =
       const h = H('SJK', huono); Object.keys(h).forEach((k) => h[k] === undefined && delete h[k]);
       expect(lib.valitsePaivanHarjoite(PELAAJA('sjk'), lib.PANKKI, PVM(10), PANKKI_OF('sjk', [h]))).toEqual(ennen);
     }
+  });
+  it('v3.41 TILA: vain "hyvaksytty" päätyy pelaajalle — luonnos, tyhjä ja puuttuva tila ignoroidaan (→ TM-oletus); hyväksytty voittaa luonnoksen samassa listassa; myös ketjutaso', () => {
+    const ennen = lib.valitsePaivanHarjoite(PELAAJA('sjk'), lib.PANKKI, PVM(10));
+    for (const tila of ['luonnos', '', undefined, 'Hyvaksytty', 'odottaa']) {
+      const h = H('SJK', { tila }); if (tila === undefined) delete h.tila;
+      expect(lib.valitsePaivanHarjoite(PELAAJA('sjk'), lib.PANKKI, PVM(10), PANKKI_OF('sjk', [h]))).toEqual(ennen);
+      expect(lib.valitseSeuranKetjunHarjoite(PELAAJA('sjk'), PANKKI_OF('sjk', [Object.assign(h, { ketju: 'DFL' })]), 'DFL', PVM(10))).toBeNull();
+    }
+    const sp = PANKKI_OF('sjk', [H('SJK', { nimi: 'LUONNOS', tila: 'luonnos' }), H('SJK', { nimi: 'HYVÄKSYTTY' })]);
+    for (let n = 0; n < 30; n++) expect(lib.valitsePaivanHarjoite(PELAAJA('sjk'), lib.PANKKI, PVM(n), sp).nimi).toBe('HYVÄKSYTTY');
+    const jm = require('../lib/tm_jakso_malli.js');   // jakso-snapshot: luonnosta ei voi liittää tukiosaan
+    expect(() => jm.tmTukiosa({ alue: 'kestävyys', perustelu: 'x', harjoitteet: [{ id: 'a', nimi: 'A', lahde: 'seura', tila: 'luonnos' }] })).toThrow(/luonnos/);
+    expect(jm.tmTukiosa({ alue: 'kestävyys', perustelu: 'x', harjoitteet: [{ id: 'a', nimi: 'A', lahde: 'seura', tila: 'hyvaksytty' }, { id: 'b', nimi: 'B', lahde: 'tm' }] }).harjoitteet.map((x) => x.id)).toEqual(['a', 'b']);
   });
   it('ikärajat: ika_min/ika_max rajaavat (13-vuotias: 10–15 ✓, 14–16 ✗, ≤12 ✗); rajat puuttuvat = avoin; paljas taulukko kelpaa myös', () => {
     expect(lib.valitsePaivanHarjoite(PELAAJA('sjk'), lib.PANKKI, PVM(10), [H('SJK', { ika_min: undefined, ika_max: undefined })]).lahde).toBe('seura');
