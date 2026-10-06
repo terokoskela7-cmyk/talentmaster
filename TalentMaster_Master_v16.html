@@ -7208,6 +7208,69 @@ function _mTeemaRivi(p) {
   if (window._mTeemat === undefined) _mLataaTeemat();
   return L.tmTeemaRiviHTML(L.tmJoukkueenTeemaNaytto(p.joukkue || (Array.isArray(p.joukkueet) ? p.joukkueet[0] : ''), tmPaivaIso(new Date()), window._mTeemat, { henkilokunta: true }), { t: masterT });
 }
+/* D-3 — JAKSON ALOITUS (valmentaja/VP; 6.10.2026): ydinvahvuus (pelaajan valinta vahvistettuna tai oma), tukiosa {alue, perustelu}, kesto ikävaiheen mukaan (D7), vastuuhenkilö.
+   Avaa myös #823:n "Liitä jakson kotiharjoitteiksi" (tukiosa syntyy tässä). EI: katselmukset, jakson sulku, joukkuejakso, automaattinen ehdotus. YKSI update (jaksofokus + historia + ydinvahvuus + vastuuhenkilö). */
+function _mAloitaJaksoRivi(p, editable) {
+  if (!p || !editable) return '';
+  const odottaa = !!(p.jaksofokus && p.jaksofokus.tila === 'valittavana' && p.ydinvahvuus_valinta);
+  return '<div class="tm-aloita-jakso" style="margin:6px 0"><button type="button" data-aloita-jakso onclick="event.stopPropagation();_mAloitaJaksoAvaa(\'' + _mEsc(p.id) + '\')" style="font-size:12px;font-weight:600;border-radius:8px;padding:7px 12px;cursor:pointer;border:.5px solid var(--teal);background:transparent;color:var(--teal)">'
+    + masterT(odottaa ? 'Vahvista jakso' : 'Aloita jakso') + '</button></div>';
+}
+function _mAjPelaajaPp(p) { const _pc = p.tt_positio_aktiivinen || _ttNormPositio(p.positio || p.pelipaikka); return { ika: (_devIkaSp ? _devIkaSp(p).ika : null), joukkue: p.joukkue, positio: _pc, tt_positio_aktiivinen: _pc, syntymaVuosi: p.syntymaVuosi }; }
+window._mAloitaJaksoAvaa = function (pid) {
+  const p = _mIdpP(pid), JM = window.TM_JAKSO_MALLI; if (!p || !JM) return;
+  const pp = _mAjPelaajaPp(p), items = _mTtItems(pp) || [], kesto = JM.tmJaksonKesto(pp.ika);
+  const ehd = (typeof _mTtEhdotus === 'function') ? _mTtEhdotus(p, pp) : null;
+  const oletusAvain = (p.jaksofokus && p.jaksofokus.konsepti_avain) || (ehd && ehd.tyyppi === 'teknis_taktinen' ? ehd.konsepti_avain : null) || (items[0] && items[0].avain) || '';
+  const valinta = p.ydinvahvuus_valinta && p.ydinvahvuus_valinta.vaihtoehto ? String(p.ydinvahvuus_valinta.vaihtoehto) : '';
+  const yv = (p.ydinvahvuus && p.ydinvahvuus.kuvaus) || valinta || '';
+  const tuki = (p.jaksofokus && p.jaksofokus.tukiosa) || {};
+  const VH = window.TM_VASTUUHENKILO, henk = window._mHenkilosto || [], vhNyt = p.vastuuhenkilo ? p.vastuuhenkilo.uid + '|' + p.vastuuhenkilo.rooli : '';
+  if (!window._mHenkilosto && typeof _mLataaHenkilosto === 'function') _mLataaHenkilosto();
+  const kentta = 'width:100%;font-size:13px;margin:4px 0 10px;padding:7px 9px;border-radius:8px;border:.5px solid var(--line);background:var(--card);color:var(--ink)';
+  const lab = function (t) { return '<label style="font-size:11px;color:var(--ink3);letter-spacing:.04em">' + _mEsc(masterT(t)) + '</label>'; };
+  let h = '<div id="_mAloitaJaksoModal" class="detail-modal" role="dialog" aria-modal="true" style="display:flex;z-index:9000" onclick="if(event.target===this)_mAloitaJaksoSulje()">'
+    + '<div style="background:var(--card);color:var(--ink);border:.5px solid var(--line);border-radius:14px;max-width:520px;width:100%;max-height:92vh;overflow:auto;padding:18px 20px">'
+    + '<div style="font-size:16px;font-weight:600;margin-bottom:4px">' + _mEsc(masterT(p.jaksofokus && p.jaksofokus.tila === 'valittavana' ? 'Vahvista jakso' : 'Aloita jakso')) + ' · ' + _mEsc(_mPelaajaNimiAj(p)) + '</div>'
+    + (valinta ? '<div style="font-size:12px;color:var(--ink3);margin-bottom:8px">' + _mEsc(masterT('Pelaaja valitsi ydinvahvuutensa')) + ': <b>' + _mEsc(valinta) + '</b></div>' : '')
+    + lab('Taito') + '<select id="_mAjTaito" style="' + kentta + '">' + items.map(function (it) { return '<option value="' + _mEsc(it.avain) + '"' + (it.avain === oletusAvain ? ' selected' : '') + '>' + _mEsc(it.nimi || it.avain) + '</option>'; }).join('') + '</select>'
+    + lab('Ydinvahvuus') + '<textarea id="_mAjYv" rows="2" maxlength="300" style="' + kentta + '">' + _mEsc(yv) + '</textarea>'
+    + lab('Tukiosan alue') + '<input id="_mAjAlue" maxlength="60" value="' + _mEsc(tuki.alue || '') + '" style="' + kentta + '">'
+    + lab('Tukiosan perustelu (miksi tämä tukee ydinvahvuutta)') + '<textarea id="_mAjPer" rows="3" maxlength="400" style="' + kentta + '">' + _mEsc(tuki.perustelu || '') + '</textarea>'
+    + lab('Jakson kesto (viikkoa, ikävaiheen mukaan)') + '<select id="_mAjKesto" style="' + kentta + '">' + kesto.vaihtoehdot.map(function (v) { return '<option value="' + v + '"' + (v === ((p.jaksofokus && p.jaksofokus.kesto_vk) || kesto.oletus) || v === kesto.oletus && !(p.jaksofokus && kesto.vaihtoehdot.indexOf(p.jaksofokus.kesto_vk) >= 0) ? ' selected' : '') + '>' + v + '</option>'; }).join('') + '</select>'
+    + (VH ? lab('Vastuuhenkilö') + '<select id="_mAjVh" style="' + kentta + '"><option value="">' + _mEsc(masterT('— ei muutosta —')) + '</option>' + VH.tmVastuuhenkiloVaihtoehdot(henk).map(function (v) { return '<option value="' + _mEsc(v.arvo) + '"' + (v.arvo === vhNyt ? ' selected' : '') + '>' + _mEsc((v.nimi || masterT('tuntematon')) + ' · ' + masterT(v.rooli)) + '</option>'; }).join('') + '</select>' : '')
+    + '<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:6px"><button type="button" onclick="_mAloitaJaksoSulje()" style="font-size:12px;border-radius:8px;padding:8px 14px;cursor:pointer;border:.5px solid var(--line);background:transparent;color:var(--ink2)">' + _mEsc(masterT('Peruuta')) + '</button>'
+    + '<button type="button" data-aj-tallenna onclick="_mAloitaJaksoTallenna(\'' + _mEsc(pid) + '\')" style="font-size:12px;font-weight:600;border-radius:8px;padding:8px 14px;cursor:pointer;border:.5px solid var(--teal);background:var(--teal);color:var(--bg)">' + _mEsc(masterT('Aloita jakso')) + '</button></div></div></div>';
+  document.getElementById('_mAloitaJaksoModal')?.remove(); const w = document.createElement('div'); w.innerHTML = h; document.body.appendChild(w.firstChild);
+};
+function _mPelaajaNimiAj(p) { return (typeof _tmHenkiloNimi === 'function' ? _tmHenkiloNimi(p) : '') || p.name || p.nimi || ''; }
+window._mAloitaJaksoSulje = function () { document.getElementById('_mAloitaJaksoModal')?.remove(); };
+window._mAloitaJaksoTallenna = async function (pid) {
+  const p = _mIdpP(pid), JM = window.TM_JAKSO_MALLI, VH = window.TM_VASTUUHENKILO; if (!p || !JM) return;
+  const arvo = function (id) { const el = document.getElementById(id); return el ? el.value : ''; };
+  const pp = _mAjPelaajaPp(p), item = (_mTtItems(pp) || []).find(function (it) { return it.avain === arvo('_mAjTaito'); });
+  let tulos;
+  try {
+    tulos = JM.tmAloitaJakso(p, { konsepti_avain: arvo('_mAjTaito'), konsepti_nimi: item ? item.nimi : null, konsepti_koodi: item ? item.koodi : null, ydinvahvuus_kuvaus: arvo('_mAjYv'), tukiosa_alue: arvo('_mAjAlue'), tukiosa_perustelu: arvo('_mAjPer'), kesto_vk: arvo('_mAjKesto') },
+      { tanaan: tmPaivaIso(new Date()), rooli: _superAdmin ? 'vp' : _rooli, ika: pp.ika, nytISO: new Date().toISOString() });
+  } catch (e) { console.warn('[aloitaJakso]', e && e.message); if (typeof toast === 'function') toast(masterT('Jaksoa ei voi aloittaa') + ': ' + String(e && e.message || '').replace(/^tm_jakso_malli:\s*/, ''), 'error'); return; }
+  let vh = null; const vhArvo = arvo('_mAjVh');
+  if (vhArvo && VH) { try { const o = vhArvo.split('|'); vh = VH.tmVastuuhenkiloAsetus(p, { uid: o[0], rooli: o[1] }, tmPaivaIso(new Date())).kirjoitus.vastuuhenkilo; } catch (e) { console.warn('[aloitaJakso]', e && e.message); if (typeof toast === 'function') toast(masterT('Vastuuhenkilön asetus epäonnistui'), 'error'); return; } }
+  if (!_mVerkkoEnnenSulkua()) return;   // offline: lomake jää auki
+  const v = _mJaksoVaihto(p, tulos.jaksofokus); delete v.jaksofokus.tila;   // "valittavana" päättyy kun valmentaja vahvistaa/aloittaa jakson
+  const paivita = function () { p.jaksofokus = v.jaksofokus; p.ydinvahvuus = tulos.ydinvahvuus; if (vh) p.vastuuhenkilo = vh; if (v.historiaLisays && v.historiaLisays.length) p.jaksofokus_historia = (Array.isArray(p.jaksofokus_historia) ? p.jaksofokus_historia : []).concat(v.historiaLisays);
+    window._mAloitaJaksoSulje(); if (typeof _renderPinfoFirestore === 'function') _renderPinfoFirestore(p); if (typeof _mIdpReRender === 'function') _mIdpReRender(); };
+  if (_demo || !_seuraId || typeof _db === 'undefined' || !_db) { paivita(); if (typeof toast === 'function') toast(masterT('Jakso aloitettu (demo — ei kirjoitettu)'), 'ok'); return; }
+  try {
+    await _mTuoreToken(firebase.auth().currentUser);
+    const upd = { jaksofokus: v.jaksofokus, ydinvahvuus: tulos.ydinvahvuus };
+    if (vh) upd.vastuuhenkilo = vh;
+    if (v.historiaLisays && v.historiaLisays.length) upd.jaksofokus_historia = firebase.firestore.FieldValue.arrayUnion.apply(null, v.historiaLisays);
+    await _db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(pid).update(upd);
+    paivita();   // paikallinen tila vasta onnistumisen jälkeen
+    if (typeof toast === 'function') toast(masterT('Jakso aloitettu') + ' ✓', 'ok');
+  } catch (e) { console.warn('[aloitaJakso]', e && e.message); if (typeof toast === 'function') toast(masterT('Tallennus epäonnistui — tarkista oikeutesi tai yritä uudelleen'), 'error'); }
+};
 /* Vastuuhenkilö (additiivinen kenttä vastuuhenkilo {uid, rooli, asetettu_pvm}). Rivi IDP-kortin yläosassa; asettaa joukkueen valmentaja / VP / UTJ / talenttivalmentaja (editable = oikeus pelaajaan;
    Rules v3.38 pakottaa: fysiikkavalmentaja ym. eivät aseta). Henkilöstö ladataan kerran (kayttajat) ja kortti piirretään uudelleen. EI "omat vastuupelaajat" -näkymää (R6.6). */
 async function _mLataaHenkilosto() {
@@ -7252,6 +7315,7 @@ function _mIdpKorttiHTML(p, editable) {
   let h = '<div class="jsp-kt"><div class="jsp-kt-hd" style="display:flex;justify-content:space-between;align-items:baseline;gap:8px"><span class="jsp-kt-t">' + masterT('Kauden tavoite') + ' <span style="text-transform:none;letter-spacing:0;color:var(--ink3);font-weight:400">' + masterT('· IDP-ydin') + '</span></span>'
     + '<span style="font-size:9px;letter-spacing:.04em;color:var(--teal);white-space:nowrap" title="TalentMaster Analytics — älykerros Palloliiton arviointikortin päällä">' + masterT('◆ TalentMaster Analytics') + '</span></div>';
   h += _mTeemaRivi(p);
+  h += _mAloitaJaksoRivi(p, editable);
   h += _mVastuuhenkiloRivi(p, editable);   // vastuuhenkilö (Tero 5.10.2026): kertoo kenen tehtävä asia on; ei rajaa oikeuksia
   if (!editable) h += '<div class="jsp-kt-ro">' + masterT('🔒 Vain luku — toisen joukkueen pelaaja. Kehityssuunnitelman omistaa pelaajan oma valmentaja; sinä näet sen.') + '</div>';
   if (!t && !p.idp_tila) {

@@ -4380,3 +4380,30 @@ describe.each([['sjk', 'sibbovargarna'], ['sibbovargarna', 'sjk']])('v3.40 · se
     await assertSucceeds(setDoc(doc(VALM(A).firestore(), 'seurat', A, 'ohjelmat', 'o2'), DATA.ohjelmat));   // ohjelmakirjasto: valmentaja kirjoittaa edelleen
   });
 });
+
+/* ══ D-3 · jakson aloitus Masterissa (VP / joukkueen valmentaja) — YKSI update {jaksofokus (tukiosa), jaksofokus_historia, ydinvahvuus, vastuuhenkilo} KPV U13 -testipelaajalle (Rules ennallaan) ══ */
+describe('D-3 · jakson aloituksen yhdistelmäkirjoitus (KPV U13)', () => {
+  const KPV = 'kpv', TOPIAS = 'm93GBdOaGCUuenMiCL0I';
+  const ctx = (uid, rooli) => testEnv.authenticatedContext(uid, { rooli, seuraId: KPV });
+  const pel = (c) => doc(c.firestore(), 'seurat', KPV, 'pelaajat', TOPIAS);
+  beforeEach(async () => {
+    await seedAdminDoc();
+    await testEnv.withSecurityRulesDisabled(async (c) => { const db = c.firestore();
+      await setDoc(doc(db, 'seurat', KPV), { nimi: 'KPV', aktiivinen: true, vp_uid: 'vp-kpv-001' });
+      await setDoc(doc(db, 'seurat', KPV, 'pelaajat', TOPIAS), { etunimi: 'Topias', syntymaVuosi: 2013, joukkue: 'KPV U13', joukkueet: ['kpv_u13'], huoltajaEmail: 'huoltaja@test.fi', ydinvahvuus_valinta: { vaihtoehto: 'saattaen vaihtaminen' }, jaksofokus: { konsepti_avain: 'y_h2', alkoi: '2026-10-05T10:00:00.000Z', tila: 'valittavana' } });
+      for (const [uid, rooli, jk] of [['valm-kpv-u13', 'valmentaja', ['kpv_u13']], ['valm-kpv-u15', 'valmentaja', ['kpv_u15']], ['fysiikka-kpv-001', 'fysiikkavalmentaja', ['kpv_u13']]]) await setDoc(doc(db, 'seurat', KPV, 'kayttajat', uid), { rooli, seuraId: KPV, joukkueet: jk, aktiivinen: true }); });
+  });
+  const PAKETTI = (vh) => Object.assign({ jaksofokus: { konsepti_avain: 'y_h2', konsepti_nimi: 'Saattaen vaihtaminen', alkoi: '2026-10-05T10:00:00.000Z', kesto_vk: 6, lahde: 'valmentaja', tukiosa: { alue: 'kestävyys', perustelu: 'Jaksaminen tukee pelin lukemista', harjoitteet: [] } },
+    ydinvahvuus: { kuvaus: 'Näkee pelin hyvin', havaittu_pvm: '2026-10-07', rooli: 'valmentaja' }, jaksofokus_historia: FS_MOD.arrayUnion({ konsepti_avain: 'y_h9', sulkutapa: 'korvattu' }) }, vh ? { vastuuhenkilo: vh } : {});
+  const VH = { uid: 'valm-kpv-u13', rooli: 'valmentaja', asetettu_pvm: '2026-10-07' };
+  it.each([['VP', () => ctx('vp-kpv-001', 'vp')], ['KPV U13 -valmentaja', () => ctx('valm-kpv-u13', 'valmentaja')]])('%s kirjoittaa koko paketin (myös vastuuhenkilön) yhdellä updatella', async (nimi, c) => { await assertSucceeds(updateDoc(pel(c()), PAKETTI(VH))); });
+  // Jokainen kieltäytyvä toimija omalla tuoreella tilalla (peräkkäiset onnistuneet kirjoitukset tekisivät "samat arvot" → ei muutosta → läpi). Vastuuhenkilön asettajat rajaavat: U15-valmentaja ja fysiikkavalmentaja eivät aseta.
+  it.each([['toisen joukkueen (U15) valmentaja', () => ctx('valm-kpv-u15', 'valmentaja')], ['fysiikkavalmentaja', () => ctx('fysiikka-kpv-001', 'fysiikkavalmentaja')], ['pelaaja itse', () => pelaajaContext(KPV, TOPIAS)], ['huoltaja', () => huoltajaContext()]])('%s EI saa kirjoittaa pakettia vastuuhenkilön kanssa', async (nimi, c) => { await assertFails(updateDoc(pel(c()), PAKETTI(VH))); });
+  it('toisen joukkueen (U15) valmentaja EI saa kirjoittaa jaksoa+ydinvahvuutta Topiakselle edes ilman vastuuhenkilöä (tuore tila) — joukkuerajaus on Rules-tasolla; VP ja oman joukkueen valmentaja saavat', async () => { await assertFails(updateDoc(pel(ctx('valm-kpv-u15', 'valmentaja')), PAKETTI())); await assertSucceeds(updateDoc(pel(ctx('valm-kpv-u13', 'valmentaja')), PAKETTI())); });
+  it('paketti ilman vastuuhenkilöä onnistuu; virheellinen vastuuhenkilö (vieras uid) kaataa KOKO päivityksen (atomisuus — jakso ei jää puoliksi kirjoitetuksi)', async () => {
+    await assertSucceeds(updateDoc(pel(ctx('valm-kpv-u13', 'valmentaja')), PAKETTI()));
+    await assertFails(updateDoc(pel(ctx('valm-kpv-u13', 'valmentaja')), PAKETTI({ uid: 'tuntematon', rooli: 'valmentaja', asetettu_pvm: '2026-10-07' })));
+    let d; await testEnv.withSecurityRulesDisabled(async (c) => { d = (await getDoc(doc(c.firestore(), 'seurat', KPV, 'pelaajat', TOPIAS))).data(); });
+    expect(d.vastuuhenkilo).toBeUndefined(); expect(d.jaksofokus.tukiosa.alue).toBe('kestävyys');   // ensimmäinen (validi) kirjoitus on voimassa, epäkelpo ei muuttanut mitään
+  });
+});
