@@ -153,19 +153,24 @@ describe('tmTukitavoiteMaksimi (D18)', () => {
 });
 
 describe('tmTukitavoiteEhdotukset — kypsyysvahti (§28, CLAUDE.md §14)', () => {
-  it('Topias (PHV LAH, heikko 30 m): EI nopeusehdotusta testistä; kiihdytys sallittu', () => {
+  it('Topias (PHV LAH, heikko 30 m ja kiihdytys): testistä johdettu D1-ehdotus ei ole speed/acceleration/power/endurance — korvataan liikehallinnalla (Tero 7.10.2026)', () => {
     const l = TT.tmTukitavoiteEhdotukset(TOPIAS('LAH'), K());
     const t = testiEhd(l);
-    expect(t).toHaveLength(1); expect(t[0]).toMatchObject({ alue: 'fyysinen', kuvaus: 'Kiihdytys', asia: 'acceleration', lyhyt: 'testistä' });
-    expect(l.some((e) => e.asia === 'speed' || /nopeus/i.test(e.kuvaus))).toBe(false);
-    expect(l.some((e) => e.kypsyyssuojattu)).toBe(false);   // LAH: pudotetaan, ei korvata (rivi 0 = PH/tuntematon)
+    expect(t.map((e) => e.asia)).toEqual(['liikehallinta']);
+    expect(t[0]).toMatchObject({ alue: 'fyysinen', kuvaus: 'Liikehallinta ja kehonhallinta', kypsyyssuojattu: true, lyhyt: 'testistä, kasvu huomioiden' }); expect(t[0].miksi).toMatch(/kasvupyrähdys lähestyy/);
+    expect(l.some((e) => ['speed', 'acceleration', 'power', 'endurance'].indexOf(e.asia) >= 0 || /nopeus|kiihdytys|voima|kestävyys/i.test(e.kuvaus))).toBe(false);
+    expect(l.filter((e) => e.kypsyyssuojattu)).toHaveLength(1); expect(l[0].asia).toBe('liikehallinta');   // rivi 0: ensimmäisenä
   });
-  it('PRE: sama kuin LAH', () => {
-    const l = TT.tmTukitavoiteEhdotukset(TOPIAS('PRE'), K()); expect(testiEhd(l).map((e) => e.asia)).toEqual(['acceleration']);
+  it('PRE: sama kuin LAH (korvaus liikehallinnalla, perustelu "ennen kasvupyrähdystä")', () => {
+    const l = TT.tmTukitavoiteEhdotukset(TOPIAS('PRE'), K()); expect(testiEhd(l).map((e) => e.asia)).toEqual(['liikehallinta']); expect(l[0].miksi).toMatch(/ennen kasvupyrähdystä/);
   });
-  it('PHV "tuntematon" (ei mittausta) käsitellään kuten PRE/LAH: ei nopeusehdotusta, kiihdytys sallittu', () => {
+  it('PHV "tuntematon" (ei mittausta) käsitellään kuten PRE/LAH: korvaus liikehallinnalla, ei nopeutta eikä kiihdytystä', () => {
     const l = TT.tmTukitavoiteEhdotukset(TOPIAS(null), K());
-    expect(testiEhd(l).map((e) => e.asia)).toEqual(['liikehallinta', 'acceleration']); expect(l.some((e) => e.asia === 'speed')).toBe(false);   // + rivi 0: korvaus liikehallinnalla
+    expect(testiEhd(l).map((e) => e.asia)).toEqual(['liikehallinta']); expect(l.some((e) => e.asia === 'speed' || e.asia === 'acceleration')).toBe(false);
+  });
+  it('POST/AN: kiihdytys ja nopeus sallittuja; mobility (ketteryys) ei ole kypsyysrajattu missään tilassa', () => {
+    expect(TT.tmTukitavoiteEhdotukset(TOPIAS('POST', { hh_viimeisin: { lin10m: 1.95 } }), K())[0]).toMatchObject({ asia: 'acceleration', kuvaus: 'Kiihdytys' });
+    ['LAH', null, 'PH'].forEach((phv) => expect(testiEhd(TT.tmTukitavoiteEhdotukset(TOPIAS(phv, { hh_viimeisin: { kasirata: 99 } }), K())).map((e) => e.asia), String(phv)).toEqual(['mobility']));
   });
   it('POST/AN: nopeus sallittu (heikoin ensin → 30 m)', () => {
     ['POST', 'AN'].forEach((k) => { const l = TT.tmTukitavoiteEhdotukset(TOPIAS(k), K()); expect(testiEhd(l)[0]).toMatchObject({ alue: 'fyysinen', asia: 'speed', kuvaus: 'Nopeus' }); expect(l.some((e) => e.kypsyyssuojattu)).toBe(false); });
@@ -183,7 +188,7 @@ describe('tmTukitavoiteEhdotukset — kypsyysvahti (§28, CLAUDE.md §14)', () =
   it('kypsyysvahti on YKSI sääntö: tm_idp.idpKypsyysEstetty (muutos siellä muuttaa tätä); tm_idp-testit pysyvät vihreinä', () => {
     const src = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', 'lib', 'tm_tukitavoitteet.js'), 'utf8');
     expect(src).toContain('idpKypsyysEstetty'); expect(src).not.toMatch(/\{\s*speed:\s*1/); expect(src).not.toMatch(/'speed'\s*,\s*'endurance'/);   // ei omaa avainlistaa
-    expect(IDP.idpKypsyysEstetty('speed', 'LAH')).toBe(true); expect(IDP.idpKypsyysEstetty('acceleration', 'LAH')).toBe(false);
+    ['speed', 'acceleration', 'endurance', 'power'].forEach((a) => expect(IDP.idpKypsyysEstetty(a, 'LAH'), a).toBe(true)); expect(IDP.idpKypsyysEstetty('mobility', 'LAH')).toBe(false);
   });
   it('tm_idp.idpKeraaKandidaatit käyttäytyy ennallaan (D1: yksi heikoin kandidaatti) ja idpD1Osakandidaatit on heikoin ensin', () => {
     const opts = { laskeD1Osaindeksit: EEK.laskeD1Osaindeksit, ika: 13, sp: 'P', tmTaksonomiaByAvain: TAKS.tmTaksonomiaByAvain };
@@ -265,12 +270,12 @@ describe('tmTukitavoiteEhdotukset — lähteet ja järjestys (D19)', () => {
     expect(TT.tmTukitavoiteEhdotukset(p({ ball_protection: 4 }, '2026-09-25'), K())).toEqual([]);   // ei heikko
     expect(TT.tmTukitavoiteEhdotukset(p({ ball_protection: 1 }, null), K())).toEqual([]);
   });
-  it('arviointi: D3 → henkinen, D5 → sosiaalinen, D1 → fyysinen (5D-sanasto); gated D1 (speed) PRE:llä pudotetaan', () => {
+  it('arviointi: D3 → henkinen, D5 → sosiaalinen, D1 → fyysinen (5D-sanasto); gated D1 (speed) PRE:llä korvataan liikehallinnalla', () => {
     const p = (hav) => TOPIAS('POST', { hh_viimeisin: {}, arviointi_havaittu: hav, arviointi_pvm: '2026-09-25' });
     expect(TT.tmTukitavoiteEhdotukset(p({ confidence: 1 }), K())[0]).toMatchObject({ alue: 'henkinen', kuvaus: 'Itseluottamus' });
     expect(TT.tmTukitavoiteEhdotukset(p({ team_role: 1 }), K())[0]).toMatchObject({ alue: 'sosiaalinen', kuvaus: 'Joukkuerooli' });
     expect(TT.tmTukitavoiteEhdotukset(p({ balance: 1 }), K())[0]).toMatchObject({ alue: 'fyysinen', kuvaus: 'Tasapaino' });
-    expect(TT.tmTukitavoiteEhdotukset(Object.assign(p({ speed: 1 }), PHV('PRE')), K())).toEqual([]);
+    expect(TT.tmTukitavoiteEhdotukset(Object.assign(p({ speed: 1 }), PHV('PRE')), K())[0]).toMatchObject({ kypsyyssuojattu: true, kuvaus: 'Liikehallinta ja kehonhallinta', lahde: { tyyppi: 'arviointi' } });
     expect(TT.tmTukitavoiteEhdotukset(Object.assign(p({ speed: 1 }), PHV('PH')), K())[0]).toMatchObject({ kypsyyssuojattu: true, lahde: { tyyppi: 'arviointi' } });
   });
   it('arviointi: laskeva attribuutti (historia) ehdotetaan, kun alin ei ole heikko ja arvo ≤ 3', () => {

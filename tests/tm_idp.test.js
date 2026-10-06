@@ -32,11 +32,12 @@ describe('§28 kypsyysvahti (idpKypsyysEstetty)', () => {
       expect(idpKypsyysEstetty(a, 'LAH')).toBe(true);
     });
   });
-  it('pre-PHV: acceleration/mobility/tekniikka EI estetty (harjoiteltavissa / kultaikkuna)', () => {
-    ['acceleration', 'mobility', 'short_passing', 'vision'].forEach(a => expect(idpKypsyysEstetty(a, 'PRE')).toBe(false));
+  it('pre-PHV: mobility/tekniikka EI estetty (harjoiteltavissa / kultaikkuna); acceleration ESTETTY (Tero 7.10.2026, J1 #837)', () => {
+    ['mobility', 'short_passing', 'vision'].forEach(a => expect(idpKypsyysEstetty(a, 'PRE')).toBe(false));
+    ['speed', 'acceleration', 'endurance', 'power'].forEach(a => { expect(idpKypsyysEstetty(a, 'PRE')).toBe(true); expect(idpKypsyysEstetty(a, 'LAH')).toBe(true); });
   });
   it('post-PHV (PH/POST/AN): mikään ei estetty', () => {
-    ['speed', 'endurance', 'power'].forEach(a => { expect(idpKypsyysEstetty(a, 'PH')).toBe(false); expect(idpKypsyysEstetty(a, 'AN')).toBe(false); });
+    ['speed', 'acceleration', 'endurance', 'power'].forEach(a => { expect(idpKypsyysEstetty(a, 'PH')).toBe(false); expect(idpKypsyysEstetty(a, 'AN')).toBe(false); });
   });
 });
 
