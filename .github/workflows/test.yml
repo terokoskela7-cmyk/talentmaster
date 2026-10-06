@@ -20,7 +20,10 @@ jobs:
           node-version: 20
           cache: npm
       - run: npm ci
+      # Chrome-selaintesti (kentta_k0) ajetaan omassa jobissaan (chrome-tests) — se ei kuulu vaadittavaan unit-tests-porttiin (flaky CI:ssä).
       - run: npm test
+        env:
+          TM_CHROME_TESTS: '0'
 
   # Functions-testit (functions/test, node --test). Ennen 1.10.2026 ne ajettiin VAIN deploy-functions.yml:n
   # porttina mainissa → #698 rikkoi ne (SA_UID poistettiin) eikä PR:n CI huomannut, deploy pysähtyi.
@@ -38,6 +41,23 @@ jobs:
       - name: Funktiotestit
         working-directory: functions
         run: npm test
+
+  # Oikean Chrome-selaimen testit (headless). EI vaadittava tarkistus (branch protection ei listaa tätä): selaintesti on ympäristöriippuvainen eikä saa pitää
+  # vaadittavaa unit-tests-porttia punaisena (#824). Näkyy PR:ssä omana tarkistuksenaan; punainen = tutkittava, mutta ei estä mergeä.
+  chrome-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: Chrome-testit (kentta_k0)
+        env:
+          TM_CHROME_TESTS: '1'
+        run: npx vitest run tests/kentta_k0.test.js
 
   # #60 — ESLint no-undef -portti (defektiluokan vartija, esim. 'sp is not defined' -luokka).
   # VAIHE 2: ESTÄVÄ — 5 residuaalilöydöstä triagattu+korjattu (0 jäljellä) → uudet undefined-viittaukset kaatavat buildin.
