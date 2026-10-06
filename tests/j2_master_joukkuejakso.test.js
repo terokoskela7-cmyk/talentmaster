@@ -69,6 +69,12 @@ describe.each([['valmentaja', 'valmentaja'], ['vp', 'vp']])('KPV U13 · %s', (_n
     await new Promise((r) => setTimeout(r, 5));   // kortin uudelleenpiirto on asynkroninen (lukee joukkuedokin)
     expect(kortti(e)).toContain('Syöttötaito ja -peli'); expect(kortti(e)).toContain('Räjähtävä voima'); expect(kortti(e)).toContain('Viikko 1/6'); expect(kortti(e)).toContain('Muokkaa joukkuejaksoa');   // kortti piirtyy uudelleen onnistumisen jälkeen
   });
+  it('J4 B: viikkotavoitteet-rivit kulkevat tallennukseen (jaksofokus.viikot) ja kortti näyttää kuluvan viikon tavoitteen; KIELLETYT → ei kirjoitusta', async () => {
+    const e = ymp({ rooli }); await e.sb._mJjRender(); await e.sb.window._mJjAvaa(); expect(e.log.modalHtml).toContain('id="_jjVk_1"');
+    syota(e, Object.assign({}, LOMAKE, { _jjVk_1: 'Syöttö kahdella kosketuksella', _jjVk_2: 'Pelaa kolmiot' })); await e.sb.window._mJjTallenna(); await new Promise((r) => setTimeout(r, 5));
+    expect(e.log.upd[0].data.jaksofokus.viikot).toEqual([{ vk: 1, tavoite: 'Syöttö kahdella kosketuksella', lahde: 'valmentaja' }, { vk: 2, tavoite: 'Pelaa kolmiot', lahde: 'valmentaja' }]); expect(kortti(e)).toContain('Viikon tavoite'); expect(kortti(e)).toContain('Syöttö kahdella kosketuksella');
+    const huono = ymp({ rooli }); await huono.sb._mJjRender(); await huono.sb.window._mJjAvaa(); syota(huono, Object.assign({}, LOMAKE, { _jjVk_1: 'Tämä on heikkous' })); await huono.sb.window._mJjTallenna(); expect(huono.log.upd).toEqual([]); expect(huono.log.toastit.some(([t, k]) => k === 'error' && /viikon 1 tavoite sisältää kielletyn sanan/.test(t))).toBe(true);
+  });
   it('vaihto toiseen teemaan: update sisältää historian (arrayUnion) — Rules sallii vain nämä kaksi kenttää', async () => {
     const e = ymp({ rooli }); await e.sb._mJjRender(); await e.sb.window._mJjAvaa(); syota(e, LOMAKE); await e.sb.window._mJjTallenna();
     await e.sb.window._mJjAvaa(); syota(e, Object.assign({}, LOMAKE, { _jjTekn: '__oma', _jjTeknOma: 'Oma teema', _jjFyys: 'fy:fy_ketteryys' })); await e.sb.window._mJjTallenna();
@@ -111,7 +117,7 @@ describe('roolit ja joukkueen valinta', () => {
 
 describe('lähdetason rakenne', () => {
   it('kortti vain lipulla; skriptit ladataan; tm_idp ?v nostettu; ei Rules- eikä muuta kirjoitusta kuin joukkueet/{jid}.update', () => {
-    expect(MA).toContain('<script src="lib/tm_tukitavoitteet.js?v=3"></script>'); expect(MA).toContain('<script src="lib/tm_joukkuejakso.js?v=1"></script>'); expect(MA).toContain('<script src="lib/tm_idp.js?v=12"></script>'); expect(MA).toContain('id="seasonJoukkuejakso"');
+    expect(MA).toContain('<script src="lib/tm_tukitavoitteet.js?v=3"></script>'); expect(MA).toContain('<script src="lib/tm_joukkuejakso.js?v=2"></script>'); expect(MA).toContain('<script src="lib/tm_idp.js?v=12"></script>'); expect(MA).toContain('id="seasonJoukkuejakso"');
     const adapteri = MA.slice(MA.indexOf('/* ═══ J2 — JOUKKUEJAKSO'), MA.indexOf('/* Vastuuhenkilö (additiivinen kenttä'));
     expect(adapteri).toContain("liput.kentta !== true"); expect((adapteri.match(/\.update\(|\.set\(|\.add\(|\.delete\(/g) || [])).toEqual(['.update(']); expect(adapteri).toContain("collection('joukkueet').doc(d.jid).update(k.update)");
     expect(adapteri).not.toMatch(/#[0-9a-fA-F]{3,6}\b/); expect(adapteri).not.toMatch(/\b(SBL|SFL|DIAG|DFL)\b/);
