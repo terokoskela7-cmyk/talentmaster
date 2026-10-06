@@ -222,7 +222,7 @@ ul.q{padding-left:20px;display:grid;gap:5px;color:var(--ink2);font-size:14.5px}
   <div style="grid-column:span 2"><div class="band b-n">Prässi D3 + O1–O2</div></div>
   <div style="grid-column:span 10"></div>
  </div></div>
- <p class="meta">Tyhjä joukkuerivi = jaksoa ei vielä aloitettu. Katkoviiva = vuosikellon ehdotus, jota ei ole otettu jaksoksi. Värit: amber = valmistava kausi, teal = kilpailukausi, harmaa = siirtymä.</p>
+ <p class="meta">Tyhjä joukkuerivi = jaksoa ei vielä aloitettu. Katkoviiva = vuosikellon ehdotus, jota ei ole otettu jaksoksi. Värit: amber = valmistava kausi, teal = kilpailukausi, harmaa = siirtymä. Tauot (joulu, hiihtoloma, kesä) ohitetaan jaksojen päivämäärissä.</p>
 </section>
 
 <section>
@@ -234,7 +234,7 @@ ul.q{padding-left:20px;display:grid;gap:5px;color:var(--ink2);font-size:14.5px}
   <tr><td><b>Valmistava</b></td><td>ikävaiheen pohja, keskiviikko viikon huippu</td><td>korkein (vain 11v11, D26)</td><td>harjoitusotteluita</td><td>fyysinen alue pakollinen ja painava; tekniikka</td></tr>
   <tr><td><b>Kilpailukausi</b></td><td>ottelupohja (peli ±n)</td><td>ylläpitävä</td><td>sarja</td><td>taktiset teemat, pelin rakenne</td></tr>
  </table></div>
- <p class="meta">Nuoremmilla (5v5, 8v8) vaihe muuttaa painotusta ja harjoitusmäärää, ei kuormaprofiilia (D26). PHV-tila ohittaa vaiheen yksilötasolla (§28, kypsyysvahti).</p>
+ <p class="meta">Nuoremmilla (5v5, 8v8) vaihe muuttaa painotusta ja harjoitusmäärää, ei kuormaprofiilia (D26). PHV-tila ohittaa vaiheen yksilötasolla: PH-kuormarajoitin §25, pre-PHV-neutraalius (heikko 30 m/MAS/CMJ ei kehityskohde) §28.</p>
 </section>
 
 <section>
@@ -266,7 +266,7 @@ ul.q{padding-left:20px;display:grid;gap:5px;color:var(--ink2);font-size:14.5px}
   <div class="g"><span class="t">lista · joukkue</span><b>U13 osajoukkue A</b><span class="s">valmentaja poimii; esim. kaksi kenttää rinnakkain</span><span><span class="tag w">pelaajalle vain aika ja paikka</span></span></div>
  </div>
  <ul class="q">
-  <li><b>Kalenterissa:</b> tapahtuman "Kenelle" = joukkue · ryhmä · poimitut pelaajat. Kokoonpano lasketaan tapahtumaa avattaessa, kuten talenttiryhmällä nyt (ei jäädytetä).</li>
+  <li><b>Kalenterissa:</b> tapahtuman "Kenelle" = joukkue · ryhmä · poimitut pelaajat. Kokoonpano lasketaan elävänä tapahtumaan asti ja <b>jäädytetään tapahtumaan</b> (<code>pelaajat_id</code>-snapshot), kun läsnäolo kirjataan tai päivä menee ohi. Muuten pelipaikan tai talenttistatuksen muutos muuttaisi menneiden harjoitusten läsnäolon (K2) ja teemakattavuuden jälkikäteen. Sama periaate kuin #823-snapshot.</li>
   <li><b>Harjoituksen sisällä (14):</b> yksittäinen osa voi kohdistua ryhmälle. Maalivahdeille oma alue kentällä ja oma harjoite, kenttäpelaajille toinen (D29).</li>
   <li><b>IDP-blokki:</b> viikkonäkymän "Puuttuu: 3 pelaajan ydinvahvuus, ei harjoitusta" saa napin "Luo IDP-blokki näille 3:lle" → tapahtuma ryhmälle jakson teemalla. Lasketaan pelaajan jakson "Treenataanko?"-kysymykseen ja teemakattavuuteen (<code>tm_jaksokooste</code>).</li>
   <li><b>Nimirajaus (§7.22):</b> pelaaja ja huoltaja eivät näe ryhmän nimeä, jos se vertaa pelaajia (talentti, osajoukkue). Neutraalit nimet (maalivahtiharjoitus) saavat näkyä.</li>
@@ -277,13 +277,16 @@ ul.q{padding-left:20px;display:grid;gap:5px;color:var(--ink2);font-size:14.5px}
  <div class="eb">Data · additiivinen, §11</div>
  <h2>Mitä tallennetaan</h2>
  <div class="g2">
-  <div class="card"><b>Kausisuunnitelma (seuran linja)</b><pre class="cd">seurat/{sid}/valmennuslinja/kausisuunnitelma   // yksi dokumentti
+  <div class="card"><b>Kausisuunnitelma (seuran linja)</b><pre class="cd">seurat/{sid}/valmennuslinja/kausisuunnitelma_2026-27   // yksi dokumentti per kausi (historia säilyy)
   { kausi: '2026-27', lahde: 'tm'|'seura', tila, versio,
+    tauot: [{ nimi, alku, loppu }],          // joulu, hiihtoloma, kesä: jakso ei etene
     vaiheet: [{ avain, nimi, tyyppi: 'siirtyma'|'valmistava'|'kilpailu',
                 alku, loppu,
                 viikkopohjat: { leikkija, rakentaja, showcase }, // pohja-avaimet (14)
-                kuormataso: 'matala'|'ylläpitävä'|'korkea' }] }</pre>
-   <p class="meta">Nykyinen <code>valmennuslinja/{lohko}</code>-sääntö kattaa (henkilökunta lukee, VP/UTJ kirjoittaa); ei pelaajalle. Tuonti samalla Excelillä kuin valmennuslinja: välilehdet <i>Kausi</i> ja <i>Viikkopohjat</i>.</p></div>
+                kuormataso: 'matala'|'ylläpitävä'|'korkea' }] }
+// jaksopäivägeneraattori: vuosikellon jaksot (esim. KPV 15 × 3 vk) lasketaan
+// vaiheiden yli niin, että tauot ohitetaan (sama kuin Linjapankin generaattori)</pre>
+   <p class="meta">Lohkon nimi <code>kausisuunnitelma_{kausi}</code>; nykyinen <code>valmennuslinja/{lohko}</code>-sääntö kattaa (henkilökunta lukee, VP/UTJ kirjoittaa); ei pelaajalle. Tuonti samalla Excelillä kuin valmennuslinja: välilehdet <i>Kausi</i> ja <i>Viikkopohjat</i>.</p></div>
   <div class="card"><b>Viikkotavoitteet ja ryhmät</b><pre class="cd">joukkueet/{jid}.jaksofokus.viikot: [{ vk, tavoite, lahde: 'vuosikello'|'valmentaja' }]
 
 seurat/{sid}/ryhmat/{rid}
@@ -337,7 +340,7 @@ kalenteri/{kid} += ryhma_id, idp: { konsepti_avain|tukitavoite_alue }</pre>
  <p class="eff"><b>Ei muutu:</b> kalenterin nykyinen rakenne (§35), jakson kesto ikävaiheittain (D7), kypsyysvahti, seuran sisällön eristys. <b>SJK 1.11.</b> ei tarvitse tätä.</p>
 </section>
 
-<div class="foot">TalentMaster™ · 15 kausisuunnitelma ja periodisaatio · luonnos 6.10.2026 · D33–D36 · jatkaa 12, 13 ja 14 · D30 (työnjako) tulee 14:ään</div>
+<div class="foot">TalentMaster™ · 15 kausisuunnitelma ja periodisaatio · luonnos 6.10.2026 · D33–D36 · jatkaa 12, 13 ja 14 · korjattu 6.10.: §25/§28, ryhmän snapshot, tauot, dokumentti per kausi · päätösindeksi D17–D36: 07</div>
 </div>
 <script>function tTheme(){var r=document.documentElement,c=r.getAttribute('data-theme');var d=c?c==='dark':!matchMedia('(prefers-color-scheme: light)').matches;r.setAttribute('data-theme',d?'light':'dark')}</script>
 </body>
