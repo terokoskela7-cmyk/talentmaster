@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>TalentMaster™ — Valmentaja v16</title>
 <script>/* Versio-tarkistus (cache): pakottaa reloadin kun uusi versio deployattu. APP_VERSION leimataan scripts/bump_version.js:llä. */
-(function(){var APP_VERSION='1791228872122';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
+(function(){var APP_VERSION='1791268696523';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
 <!-- TalentMaster_Master_v16.html — V10-typografia + V12-rakenne + Firestore-pohjainen valmentajanäkymä -->
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 
@@ -2524,7 +2524,10 @@ async function _lataaValmentaja(uid) {
       // MONEN JOUKKUEEN VALMENTAJA saa valitsimen. Sibbo: iso ryhmä pilkotaan pienempiin
       // joukkueisiin → valmentajalla voi olla useampi, eikä yksi yhteen möykkyyn ladattu
       // rosteri enää vastaa siihen "ketkä ovat MINUN joukkueessani".
-      _rakennaValmentajaJoukkueValitsin();
+      /* VP-periaate (5.10.2026): VP/UTJ/talenttivalmentaja näkevät koko seuran (joukkuerajaus ei koske heitä) → joukkuevalitsin "Kaikki joukkueet" -oletuksella
+         (sama valitsin kuin SA:lla); muut valmentajat saavat oman joukkueensa valitsimen. */
+      if (_mSeuranLaajuusRooli()) await _rakennaSAJoukkueValitsin(_seuraId, { oletusKaikki: true, avain: 'tm-vp-joukkue' });
+      else _rakennaValmentajaJoukkueValitsin();
       _alusta(d.etunimi || nimi.trim() || 'Valmentaja');
     } else if (claims.seuraId) {
       // Claims OK mutta kayttajat-dokumentti puuttuu — käynnistä silti oikeilla tiedoilla
@@ -2533,6 +2536,7 @@ async function _lataaValmentaja(uid) {
       const seuraNimi = sSnap?.exists ? (sSnap.data().nimi || _seuraId) : _seuraId;
       const sbSeuraEl = document.getElementById('sbSeura');
       if (sbSeuraEl) sbSeuraEl.textContent = seuraNimi + (_joukkue ? ' · ' + _joukkue : '');
+      if (_mSeuranLaajuusRooli()) { _joukkue = ''; await _rakennaSAJoukkueValitsin(_seuraId, { oletusKaikki: true, avain: 'tm-vp-joukkue' }); }   // VP ilman kayttajat-dokumenttia: koko seura
       _alusta(claims.rooli === 'vp' ? 'VP' : 'Valmentaja');
     } else {
       // Ei claims eikä kayttajat-dokumenttia — oikea demo-tila
@@ -2709,6 +2713,16 @@ function _mKaavioJoukkueet() {
   // policy (kaavioJoukkueOsuu) vertaavat review.joukkueId:hen. Nimi tunnetaan vain nykyiselle
   // joukkueelle (_joukkue) → muille näytetään ID. Väärä nimi olisi pahempi kuin raaka tunniste.
   var d = window._valmentajaData || {};
+  /* VP-periaate: VP/UTJ/talenttivalmentaja/SA → koko seuran joukkueet (ladatuista pelaajista; nimi tunnetaan, koska pelaajalla on joukkue-nimi). Rules (kaaviot) + kaaviopolitiikka sallivat. */
+  if (_superAdmin || _mSeuranLaajuusRooli()) {
+    var nahty = {}, lista = [];
+    (_pelaajatData || []).forEach(function (p) {
+      var nimi = String(p.joukkue || p.joukkueNimi || '').trim(), id = nimi ? _mKaavioJoukkueId(nimi) : null;
+      if (id && !nahty[id]) { nahty[id] = 1; lista.push({ id: id, nimi: nimi }); }
+      (Array.isArray(p.joukkueet) ? p.joukkueet : []).forEach(function (j) { if (j && !nahty[j]) { nahty[j] = 1; lista.push({ id: j, nimi: j }); } });
+    });
+    if (lista.length) return lista.sort(function (a, b) { return a.nimi.localeCompare(b.nimi); });
+  }
   var ids = Array.isArray(d.joukkueet) ? d.joukkueet.slice() : [];
   var omaId = _joukkue ? _mKaavioJoukkueId(_joukkue) : null;
   if (omaId && ids.indexOf(omaId) < 0) ids.push(omaId);           // lähde 2: nykyinen joukkue
@@ -3676,6 +3690,11 @@ function normalisioiJoukkue(joukkue) {
    "kaikki joukkueet" ole vaihtoehto — se lataisi koko seuran rosterin, mikä on juuri se möykky
    josta jako on tarkoitus päästä eroon. Näkyy vasta kun joukkueita on ≥2: yhden joukkueen
    valmentajalle valitsin olisi pelkkä ylimääräinen kontrolli. */
+/* VP-periaate: roolit joille joukkuerajaus EI päde (Rules: onOmanJoukkueenValmentaja ohittaa johdon ja talenttivalmentajan). Rooli CLAIMISTA ensin (Rules lukee claimista), muuten dokista. */
+function _mSeuranLaajuusRooli() {
+  const r = window._tmClaimRooli || _rooli;
+  return r === 'vp' || r === 'urheilutoimenjohtaja' || r === 'talenttivalmentaja';
+}
 function _valmentajanJoukkueNimet() {
   const d = window._valmentajaData || {};
   // Normalisoitu muoto on DE-DUPLIKOINNIN avain ('sjk_p14' ja 'SJK P14' = sama joukkue), mutta
@@ -3732,7 +3751,9 @@ function _rakennaValmentajaJoukkueValitsin() {
   if (sbNav) sbNav.insertBefore(sel, sbNav.firstChild);
 }
 
-async function _rakennaSAJoukkueValitsin(seuraId) {
+async function _rakennaSAJoukkueValitsin(seuraId, opts) {   // opts (VP-periaate): { oletusKaikki:true → oletus "Kaikki joukkueet" (ei ensimmäistä joukkuetta), avain: localStorage-avain }
+  opts = opts || {};
+  const tallennusAvain = opts.avain || 'tm-sa-joukkue';
   // Poista vanha valitsin
   document.getElementById('sa-joukkue-valitsin')?.remove();
 
@@ -3752,10 +3773,10 @@ async function _rakennaSAJoukkueValitsin(seuraId) {
     if (joukkueet.length === 0) return;
 
     // Palauta tallennettu joukkue tai ensimmäinen
-    const tallennettu = localStorage.getItem('tm-sa-joukkue');
+    const tallennettu = localStorage.getItem(tallennusAvain);
     _joukkue = (tallennettu && joukkueet.includes(tallennettu))
       ? tallennettu
-      : joukkueet[0];
+      : (opts.oletusKaikki ? null : joukkueet[0]);
 
     // Rakenna valitsin
     const jSel = document.createElement('select');
@@ -3781,8 +3802,8 @@ async function _rakennaSAJoukkueValitsin(seuraId) {
 
     jSel.onchange = async function() {
       _joukkue = this.value || null;
-      if (_joukkue) localStorage.setItem('tm-sa-joukkue', _joukkue);
-      else localStorage.removeItem('tm-sa-joukkue');
+      if (_joukkue) localStorage.setItem(tallennusAvain, _joukkue);
+      else localStorage.removeItem(tallennusAvain);
 
       // Päivitä sbSeura näyttämään joukkue
       const seuraNimi = document.getElementById('sbSeura').textContent.split(' · ')[0];

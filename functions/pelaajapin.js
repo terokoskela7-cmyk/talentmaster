@@ -81,7 +81,7 @@ async function pinOikeus(db, tarkistaOikeus, context, seuraId) {
   if (!context || !context.auth) return null;
   const tk = context.auth.token || {};
   if (tk.firebase && tk.firebase.sign_in_provider === 'anonymous') return null;
-  if ((await tarkistaOikeus(context.auth.uid, seuraId)).sallittu) return { koko: true };
+  if ((await tarkistaOikeus(context.auth.uid, seuraId, context.auth.token)).sallittu) return { koko: true };   // token: VP myös claimeista (korjaus-PR 2)
   if (tk.seuraId !== seuraId || VALMENTAJAROOLIT.indexOf(tk.rooli) < 0) return null;
   const k = await db.collection('seurat').doc(seuraId).collection('kayttajat').doc(context.auth.uid).get();
   const kd = k.exists ? (k.data() || {}) : null;
