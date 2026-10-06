@@ -173,7 +173,7 @@ describe('E — identiteetti (Vaihe 0 / PR 3): verifioitu pelaajatokenista', () 
     expect(cfRunko.indexOf('kuittausPaatos(context.auth, seuraId, pelaajaId)')).toBeGreaterThan(0);
     expect(cfRunko.indexOf('kuittausPaatos(')).toBeLessThan(cfRunko.indexOf('await ref.get()'));
     expect(cfRunko.match(/context\.auth\.uid/g)).toEqual(['context.auth.uid']);
-    expect(cfRunko).toMatch(/tarkistaOikeus\(context\.auth\.uid, seuraId\)/);
+    expect(cfRunko).toMatch(/tarkistaOikeus\(context\.auth\.uid, seuraId, context\.auth\.token\)/);
   });
   it('client ei lupaa enempää kuin pehmeän signaalin', () => {
     const lohko = PEL.slice(PEL.indexOf('ERÄ D2 ·'), PEL.indexOf('window._p7KuittaaKaavio'));
