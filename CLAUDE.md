@@ -10,7 +10,11 @@
 ## 0. ÄLÄ KOSKAAN — ehdottomat säännöt (voittavat kaiken muun)
 
 **Työnkulku**
-- **Claude/Code ei pushaa mainiin eikä mergeä.** Jokainen muutos omalle haaralle `origin/main`in päältä → PR. Tero mergeää.
+- **Claude/Code ei pushaa mainiin eikä mergeä itse.** Jokainen muutos omalle haaralle `origin/main`in päältä → PR. Merge kulkee kahta kaistaa (Tero 6.10.2026; **voimassa vasta kun repossa on auto-merge päällä ja main-haaran vaaditut testit** — tarkista: `gh api repos/terokoskela7-cmyk/talentmaster -q .allow_auto_merge` palauttaa `true`; muuten kaikki PR:t ovat Teron kaistaa):
+  - **Automaattinen kaista:** Code saa laittaa auto-mergen päälle PR:lle, joka muuttaa VAIN dokumentteja (`docs/`, `*.md`), VAIN testejä (`tests/`) tai `lib/`-logiikkaa ilman näkyviä muutoksia. GitHub mergeää, kun vaaditut testit ovat vihreinä. PR-kuvaukseen: "kaista: auto". Ennen auto-mergen päälle laittamista ajetaan KOKO testisarja (myös `functions/`) ja tulos raportoidaan PR:ssä.
+  - **Teron kaista:** Tero mergeää kaikki PR:t, jotka koskevat `tm_admin/firestore.rules`ia, `functions/`-kansiota, mitä tahansa `*.html`-sovellusta, `sw_*.js`:ää, `scripts/`-kansion datakirjoituksia tai seuran käyttöönottoa (SJK, Sibbo). PR-kuvaukseen: "kaista: Tero".
+  - **Jos PR koskee molempia kaistoja, se kuuluu Teron kaistaan.** Epäselvässä tapauksessa Teron kaista.
+  - Code ei koskaan mergeä käsin eikä pushaa mainiin.
 - **Git-historiaa ei kirjoiteta uudelleen:** ei force-pushia, ei rebasea jaetulle haaralle, ei `commit --amend`ia pushattuun.
 - **Ruotsinkieliset tekstit vain Geminin kautta.** Claude/Code ei kirjoita sv-käännöksiä eikä sv-luonnoksia; uudet sv-avaimet jätetään tyhjiksi / odotuslistalle.
 - **ÄLÄ aja `npm run version:bump` feature-haaroissa** — `bump-version.yml` hoitaa sen mainissa (§33 taidossa `tm-infra`).
