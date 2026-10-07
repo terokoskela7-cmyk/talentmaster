@@ -21,6 +21,7 @@
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-storage-compat.js"></script>
 <script src="lib/tm_pvm.js?v=3"></script>   <!-- tmPaivaIso: paikallinen päivä ("tänään" ≠ UTC-päivä klo 0–3) -->
 <script src="lib/tm_appcheck.js?v=1"></script>
+<script src="lib/tm_istunto.js?v=1"></script>   <!-- istuntoturva: väärä rooli → viesti + "Kirjaudu ulos", ei automaattista signOut():ia -->
 <script src="lib/tm_pelihavainto_valinta.js?v=1"></script>   <!-- §7: YKSI sisäänkäynti pelihavaintoon (jaettu, ei kopioita) -->
 <script src="lib/tm_aktiivisuus.js?v=1"></script>   <!-- Toimihenkilon kirjautumisaikaleima — jaettu kirjoituspiste, ks. lib-header -->
 <script src="lib/tm_arviointi_historia.js?v=1"></script>   <!-- kausiavain: tmKausiNyt (CPD-raportin "Kausi:") — sama lähde kuin VP/Admin -->
@@ -2521,8 +2522,9 @@ async function _lataaValmentaja(uid) {
     const seuraIdToUse = claims.seuraId;
     if (!seuraIdToUse) {
       console.error('[Master] seuraId puuttuu claimsista:', claims);
+      /* ISTUNTOTURVA: EI automaattista signOut():ia — istunto on yhteinen kaikille henkilökunnan sovelluksille/välilehdille. Viesti + "Kirjaudu ulos" -nappi; jatkotoiminnot estetty (return ennen datan latausta). */
       naytaVirhe(masterT('Istunto vanhentunut tai käyttöoikeudet puuttuvat. Kirjaudu uudelleen sisään.'));
-      await _auth.signOut();
+      { const _le = document.getElementById('lErr'); if (_le) _le.innerHTML = TM_ISTUNTO.tmVaaraRooliHTML(masterT('Istunto vanhentunut tai käyttöoikeudet puuttuvat. Kirjaudu uudelleen sisään.'), { ulosFn: 'logout()', nappi: masterT('Kirjaudu ulos') }); }
       return;
     }
     const snap = await _db.collection('seurat').doc(seuraIdToUse)

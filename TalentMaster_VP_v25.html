@@ -21,6 +21,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-functions-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-storage-compat.js"></script>   <!-- Vaihe A: ääripalautteen audio-upload (tmAani.lataa). VP:N OMA SDK-versio, EI Masterin 9.22.1 (§38 sekaversio). -->
 <script src="lib/tm_appcheck.js?v=1"></script>
+<script src="lib/tm_istunto.js?v=1"></script>   <!-- istuntoturva: väärä rooli → viesti + "Kirjaudu ulos", ei automaattista signOut():ia -->
 <script src="lib/tm_verkko.js?v=1"></script>   <!-- verkkokatko: 1 uudelleenyritys + Yhteyskatko-ilmoitus + Sentry warning -->
 <script src="lib/tm_aktiivisuus.js?v=1"></script>   <!-- Toimihenkilon kirjautumisaikaleima — jaettu kirjoituspiste, ks. lib-header -->
 <script src="lib/tm_joukkue.js?v=4"></script>   <!-- henkilöstön joukkueet näyttöön (tmHenkiloJoukkueTeksti) -->
@@ -3315,8 +3316,8 @@ auth.onAuthStateChanged(async user => {
   } catch (e) {
     // Refresh-token mitätöity (esim. roolinvaihto → revokeRefreshTokens) → kirjaudu uudelleen
     console.warn('[auth] token-refresh epäonnistui (mahd. revoked):', e.message);
-    alert(vpT('Oikeutesi ovat muuttuneet. Kirjaudu uudelleen.'));
-    await auth.signOut(); window.location.reload(); return;
+    /* ISTUNTOTURVA: EI automaattista signOut():ia + reloadia (katkaisisi istunnon kaikissa välilehdissä). Viesti + "Kirjaudu ulos" -nappi, jatkotoiminnot estetty. */
+    naytaLogin(); document.getElementById('lErr').innerHTML = TM_ISTUNTO.tmVaaraRooliHTML(vpT('Oikeutesi ovat muuttuneet. Kirjaudu uudelleen.'), { ulosFn: 'kirjauduUlos()', nappi: vpT('Kirjaudu ulos') }); return;
   }
 
   // OSA 3 — defensiivinen rooli-sync (KORJATTU 2: aja VAIN KERRAN per uid/sivulataus).
@@ -3347,8 +3348,8 @@ auth.onAuthStateChanged(async user => {
           sessionStorage.removeItem(_syncKey);                         // synkronoitui uuteen rooliin → jatka
         } else if (sessionStorage.getItem(_syncKey) !== _fsRooli) {
           sessionStorage.setItem(_syncKey, _fsRooli);                  // ensimmäinen kerta → ulos KERRAN
-          alert(vpT('Oikeutesi ovat muuttuneet. Kirjaudu uudelleen.'));
-          await auth.signOut(); window.location.reload(); return;
+          /* ISTUNTOTURVA: ei automaattista signOut():ia — viesti + nappi (käyttäjä päättää); merkintä säilyy → ei looppia */
+          naytaLogin(); document.getElementById('lErr').innerHTML = TM_ISTUNTO.tmVaaraRooliHTML(vpT('Oikeutesi ovat muuttuneet. Kirjaudu uudelleen.'), { ulosFn: 'kirjauduUlos()', nappi: vpT('Kirjaudu ulos') }); return;
         } else {
           // Uloskirjauksen jälkeenkin sama mismatch → claims ei synkronoidu. EI looppia: jatketaan.
           // Korjaus: vaihda rooli vaihdaKayttajanRooli-CF:n kautta (pelkkä Firestore-muutos ei päivitä claimseja).

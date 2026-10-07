@@ -19,6 +19,7 @@
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-functions-compat.js"></script>
 <script src="lib/tm_appcheck.js?v=1"></script>
+<script src="lib/tm_istunto.js?v=1"></script>   <!-- istuntoturva: väärä rooli → viesti + "Kirjaudu ulos", ei automaattista signOut():ia -->
 <script src="lib/tm_phv_tila.js?v=1"></script>   <!-- PR C: PHV-tilan YKSI lukusääntö -->
 <script src="lib/tm_eerikkila_normit.js?v=47"></script>
 <script src="lib/tm_joukkue.js?v=4"></script>   <!-- §18-jäsenyys: kanoninen nimi + team-id yhdestä paikasta -->
@@ -641,13 +642,13 @@ async function lataaProfiili(kayttaja) {
         virheEl.style.background = 'rgba(40,176,144,.08)';
         virheEl.style.border = '1px solid rgba(40,176,144,.25)';
         virheEl.style.color = 'var(--ink)';
+        virheEl.insertAdjacentHTML('beforeend', '<div style="text-align:center;margin-top:10px">' + TM_ISTUNTO.tmVaaraRooliHTML('', { ulosFn: 'kirjauduUlos()' }) + '</div>');   // nappi; EI automaattista signOut():ia (katkaisisi istunnon kaikissa välilehdissä)
       }
-      await auth.signOut();
       return;
     } else {
-      naytaVirhe('kirjautumisVirhe',
-        `Ei oikeuksia (rooli: "${rooli || 'ei asetettu'}").`);
-      await auth.signOut();
+      /* ISTUNTOTURVA: väärä rooli → viesti + "Kirjaudu ulos" -nappi, ei automaattista signOut():ia (istunto on yhteinen kaikille henkilökunnan sovelluksille/välilehdille). */
+      const _ve = document.getElementById('kirjautumisVirhe');
+      if (_ve) { _ve.innerHTML = TM_ISTUNTO.tmVaaraRooliHTML(`Ei oikeuksia (rooli: "${rooli || 'ei asetettu'}"). Jos toisessa välilehdessä on toinen tunnus, istunto on vaihtunut myös täällä.`, { ulosFn: 'kirjauduUlos()' }); _ve.classList.add('nakyvilla'); }
       return;
     }
 
