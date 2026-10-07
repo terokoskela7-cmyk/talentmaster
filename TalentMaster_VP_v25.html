@@ -22,6 +22,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-storage-compat.js"></script>   <!-- Vaihe A: ääripalautteen audio-upload (tmAani.lataa). VP:N OMA SDK-versio, EI Masterin 9.22.1 (§38 sekaversio). -->
 <script src="lib/tm_appcheck.js?v=1"></script>
 <script src="lib/tm_istunto.js?v=1"></script>   <!-- istuntoturva: väärä rooli → viesti + "Kirjaudu ulos", ei automaattista signOut():ia -->
+<script src="lib/tm_ryhmat.js?v=1"></script>   <!-- R1: ryhmät (D33) -->
 <script src="lib/tm_verkko.js?v=1"></script>   <!-- verkkokatko: 1 uudelleenyritys + Yhteyskatko-ilmoitus + Sentry warning -->
 <script src="lib/tm_aktiivisuus.js?v=1"></script>   <!-- Toimihenkilon kirjautumisaikaleima — jaettu kirjoituspiste, ks. lib-header -->
 <script src="lib/tm_joukkue.js?v=4"></script>   <!-- henkilöstön joukkueet näyttöön (tmHenkiloJoukkueTeksti) -->
@@ -2745,6 +2746,10 @@ input::placeholder, textarea::placeholder { color: var(--ink3); opacity: 1; }
       </svg>
       <span data-i18n="Kalenteri">Kalenteri</span>
     </div>
+    <div class="sb-item" data-ws="ryhmat" onclick="setWs('ryhmat')" id="sb-ryhmat">
+      <svg class="sb-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="6" cy="7" r="2.5"/><circle cx="14" cy="7" r="2.5"/><circle cx="10" cy="14" r="2.5"/></svg>
+      <span data-i18n="Ryhmät">Ryhmät</span>
+    </div>
     <div class="sb-item" data-ws="raportointi" onclick="setWs('raportointi')">
       <svg class="sb-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5">
         <path d="M4 4h12v12H4z" rx="2"/>
@@ -3013,6 +3018,13 @@ input::placeholder, textarea::placeholder { color: var(--ink3); opacity: 1; }
     <!-- ── KALENTERI ── -->
     <!-- Lukumitan opt-out: kuukausi-/viikkoruudukko tarvitsee vaakatilan —
          980px:ssä päivät puristuisivat luettavuuden alle. -->
+    <!-- ── RYHMÄT (R1, D33) ── -->
+    <div class="ws-view" id="ws-ryhmat">
+      <div class="page-title" data-i18n="Ryhmät">Ryhmät</div>
+      <div class="page-sub" data-i18n="Maalivahdit, talenttiryhmä ja muut ryhmät joukkueiden yli">Maalivahdit, talenttiryhmä ja muut ryhmät joukkueiden yli</div>
+      <div id="ryhmatSisalto"></div>
+    </div>
+
     <div class="ws-view ws-view--leveä" id="ws-kalenteri">
       <div class="page-title" data-i18n="Kalenteri">Kalenteri</div>
       <div class="page-sub" id="vpCalSub" data-i18n="Testitapahtumat · kaikki joukkueet · protokollat">Testitapahtumat · kaikki joukkueet · protokollat</div>
@@ -21211,12 +21223,84 @@ function _onbSulje(){ try { localStorage.setItem(_onbAvain(), 'done'); } catch(e
 window.naytaOnboarding = naytaOnboarding;
 window._onbToiminto = _onbToiminto; window._onbSeuraava = _onbSeuraava; window._onbSulje = _onbSulje;
 
+/* ═══ R1 — Seuran ryhmät (docs/CODE_BRIEF_R1_RYHMAT.md; D33; Kaista: Tero). EI Kenttä-lippua. Logiikka + HTML lib/tm_ryhmat.js; tässä tila, DOM ja Firestore (seurat/{sid}/ryhmat). Rules v3.47. ═══ */
+window._ryLista = null;   // null = ei ladattu · [] = tyhjä · [{id, …}]
+window._ryTila = null;    // lomake: { id|null, nimi, tyyppi, kuvaus, pelaajat_id[], valmentajat[], haku, joukkue, luotu?, luoja_uid?, aktiivinen }
+function _ryCtx() { return { uid: _uid, rooli: window._vpRooli, sa: !!window._vpSA, johto: !!window._vpSA || ['vp', 'urheilutoimenjohtaja', 'seurasihteeri'].indexOf(window._vpRooli) >= 0 }; }
+function _ryPelaajat() { return (_pelaajat || []).map(function (p) { return { id: p.id, nimi: _tmHenkiloNimi(p), joukkue: p.joukkue || '', joukkueet: p.joukkueet || [], talenttiOhjelma: p.talenttiOhjelma === true }; }); }
+function _ryValmentajaNimet(r) { const ids = r.valmentajat || [], k = (_valmentajatKaikki || []).concat(_valmentajat || []); return ids.map(function (u) { const v = k.filter(function (x) { return x.id === u; })[0]; return v ? v.nimi : ''; }).filter(Boolean).join(', '); }
+async function _ryLataa() {
+  if (_isDemoMode || !_seuraId) { window._ryLista = []; _ryRender(); return; }
+  try {
+    const snap = await db.collection('seurat').doc(_seuraId).collection('ryhmat').get();
+    window._ryLista = snap.docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); }).sort(function (a, b) { return String(a.nimi).localeCompare(String(b.nimi)); });
+  } catch (e) { console.warn('[ryhmät] luku:', e && e.message); window._ryLista = []; if (typeof toast === 'function') toast(((typeof TM_VIRHEKOODI !== 'undefined' && TM_VIRHEKOODI.tmVirheTeksti) || String)(vpT('Tallennus epäonnistui'), e), 'error'); }
+  _ryRender();
+}
+function _ryOpts() {
+  const R = window.TM_RYHMAT, ctx = _ryCtx();
+  return { esc: _jsvEsc, t: vpT, jasenMaara: function (r) { return R.tmRyhmaJasenet(r, _ryPelaajat()).length; }, valmentajaNimet: _ryValmentajaNimet, saaMuokata: function (r) { return R.tmRyhmaSaaMuokata(r, ctx); }, voiLuoda: R.tmRyhmaSaaLuoda(ctx),
+    uusiFn: '_ryUusi', muokkaaFn: '_ryMuokkaa', arkistoiFn: '_ryArkistoi', palautaFn: '_ryPalauta' };
+}
+function _ryRender() {
+  const el = document.getElementById('ryhmatSisalto'), R = window.TM_RYHMAT; if (!el || !R) return;
+  if (window._ryLista === null) { el.innerHTML = '<div style="font-size:13px;color:var(--ink3)">' + _jsvEsc(vpT(R.FI.ry_lataa)) + '</div>'; return; }
+  if (window._ryTila) {
+    const joukkueet = Array.from(new Set(_ryPelaajat().map(function (p) { return p.joukkue; }).filter(Boolean))).sort();
+    const valm = (_valmentajat || []).map(function (v) { return { id: v.id, nimi: v.nimi, rooli: v.rooli }; });
+    el.innerHTML = R.tmRyhmaLomakeHTML(window._ryTila, { esc: _jsvEsc, t: vpT, pelaajat: _ryPelaajat(), joukkueet: joukkueet, valmentajat: valm, nimiFn: '_ryNimi', kuvausFn: '_ryKuvaus', tyyppiFn: '_ryTyyppi', hakuFn: '_ryHaku', joukkueFn: '_ryJoukkue', valitseFn: '_ryValitse',
+      lisaaNakyvatFn: '_ryLisaaNakyvat', tyhjennaFn: '_ryTyhjenna', valmentajaFn: '_ryValmentaja', tallennaFn: '_ryTallenna', peruutaFn: '_ryPeruuta' });
+    return;
+  }
+  el.innerHTML = R.tmRyhmaListaHTML(window._ryLista, _ryOpts());
+}
+window._ryUusi = function () { window._ryTila = { id: null, nimi: '', tyyppi: 'lista', kuvaus: '', pelaajat_id: [], valmentajat: [], haku: '', joukkue: '', aktiivinen: true }; _ryRender(); };
+window._ryMuokkaa = function (id) {
+  const r = (window._ryLista || []).filter(function (x) { return x.id === id; })[0]; if (!r) return;
+  if (!window.TM_RYHMAT.tmRyhmaSaaMuokata(r, _ryCtx())) { if (typeof toast === 'function') toast(vpT(window.TM_RYHMAT.FI.ry_ei_oikeutta), 'error'); return; }
+  window._ryTila = { id: r.id, nimi: r.nimi, tyyppi: r.tyyppi, kuvaus: r.kuvaus || '', pelaajat_id: (r.pelaajat_id || []).slice(), valmentajat: (r.valmentajat || []).slice(), haku: '', joukkue: '', aktiivinen: r.aktiivinen !== false }; _ryRender();
+};
+window._ryNimi = function (v) { if (window._ryTila) window._ryTila.nimi = String(v || ''); };
+window._ryKuvaus = function (v) { if (window._ryTila) window._ryTila.kuvaus = String(v || ''); };
+window._ryTyyppi = function (t) { if (window._ryTila) { window._ryTila.tyyppi = t === 'saanto' ? 'saanto' : 'lista'; _ryRender(); } };
+window._ryHaku = function (v) { const S = window._ryTila; if (!S) return; S.haku = String(v || ''); _ryRender(); const i = document.querySelector('#ryhmatSisalto [data-ry-haku]'); if (i) { i.focus(); i.setSelectionRange(i.value.length, i.value.length); } };
+window._ryJoukkue = function (v) { if (window._ryTila) { window._ryTila.joukkue = String(v || ''); _ryRender(); } };
+window._ryValitse = function (id) { const S = window._ryTila; if (!S) return; const i = S.pelaajat_id.indexOf(id); if (i >= 0) S.pelaajat_id.splice(i, 1); else S.pelaajat_id.push(id); _ryRender(); };
+window._ryLisaaNakyvat = function () {
+  const S = window._ryTila; if (!S) return; const norm = function (s) { return String(s == null ? '' : s).toLowerCase().replace(/[\s_]+/g, ''); }, haku = norm(S.haku);
+  _ryPelaajat().filter(function (p) { return (!S.joukkue || norm(p.joukkue) === norm(S.joukkue)) && (!haku || norm(p.nimi).indexOf(haku) >= 0); }).forEach(function (p) { if (S.pelaajat_id.indexOf(p.id) < 0 && S.pelaajat_id.length < window.TM_RYHMAT.MAX_PELAAJAT) S.pelaajat_id.push(p.id); }); _ryRender();
+};
+window._ryTyhjenna = function () { if (window._ryTila) { window._ryTila.pelaajat_id = []; _ryRender(); } };
+window._ryValmentaja = function (uid) { const S = window._ryTila; if (!S) return; const i = S.valmentajat.indexOf(uid); if (i >= 0) S.valmentajat.splice(i, 1); else S.valmentajat.push(uid); };
+window._ryPeruuta = function () { window._ryTila = null; _ryRender(); };
+async function _ryKirjoita(id, data, viesti, onnistui) {   // yksi kirjoitus; virhe → toast + koodi (D53), lomake jää auki
+  if (_isDemoMode || !_seuraId) { if (typeof toast === 'function') toast(viesti + vpT(' (demo — ei kirjoitettu)'), 'ok'); if (onnistui) onnistui(); return true; }
+  try {
+    const cu = firebase.auth().currentUser; if (cu) await cu.getIdToken(true);
+    const col = db.collection('seurat').doc(_seuraId).collection('ryhmat'), ts = firebase.firestore.FieldValue.serverTimestamp();
+    if (id) await col.doc(id).update(Object.assign({}, data, { muokattu: ts }));
+    else await col.add(Object.assign({}, data, { luoja_uid: _uid, luotu: ts, muokattu: ts }));
+    if (onnistui) onnistui(); if (typeof toast === 'function') toast(viesti, 'ok'); await _ryLataa(); return true;
+  } catch (e) { console.warn('[ryhmät] kirjoitus:', e); if (typeof toast === 'function') toast(((typeof TM_VIRHEKOODI !== 'undefined' && TM_VIRHEKOODI.tmVirheTeksti) || String)(vpT('Tallennus epäonnistui'), e), 'error'); return false; }
+}
+window._ryTallenna = async function () {
+  const S = window._ryTila, R = window.TM_RYHMAT; if (!S || S.tallentaa) return;
+  const ctx = _ryCtx(), x = R.tmRyhmaSyote(Object.assign({}, S, { _muokkaus: !!S.id }), { uid: _uid, johto: ctx.johto });
+  if (!x.ok) { if (typeof toast === 'function') toast(vpT(R.tmRyhmaVirhe(x.syy, { t: vpT })), 'error'); return; }   // validointi ENNEN kirjoitusta
+  S.tallentaa = true;
+  const ok = await _ryKirjoita(S.id, x.data, vpT(R.FI.ry_tallennettu), function () { window._ryTila = null; });
+  if (!ok && window._ryTila) window._ryTila.tallentaa = false;
+};
+window._ryArkistoi = async function (id) { if (!confirm(vpT(window.TM_RYHMAT.FI.ry_vahvista_arkisto))) return; await _ryKirjoita(id, { aktiivinen: false }, vpT(window.TM_RYHMAT.FI.ry_arkistoitu_toast)); };
+window._ryPalauta = async function (id) { await _ryKirjoita(id, { aktiivinen: true }, vpT(window.TM_RYHMAT.FI.ry_palautettu_toast)); };
+
 function setWs(ws) {
   _currentWs = ws;
   try { if (ws === 'koti' || ws === 'raportointi' || ws === 'valmentajat' || ws === 'pelaajat') localStorage.setItem('tm_vp_visited_' + ws, '1'); } catch (e) {}   // Aloita tästä -checklist (visited)
   if (ws === 'koti') renderKotiVP();
   if (ws === 'reviewit' && typeof renderReviewit === 'function') renderReviewit();
   if (ws === 'jaksofokus' && typeof renderJaksofokus === 'function') renderJaksofokus();
+  if (ws === 'ryhmat') { window._ryTila = null; _ryRender(); _ryLataa(); }   // R1: ryhmälista (luku vain avattaessa)
   if (ws === 'testit' && typeof renderVpTestit === 'function') renderVpTestit();
   document.querySelectorAll('.tabbar-item[data-ws]').forEach(t => t.classList.toggle('active', t.dataset.ws === ws));
   document.getElementById('sidebar')?.classList.remove('auki');

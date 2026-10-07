@@ -4722,3 +4722,87 @@ describe('v3.46 · joukkueet.valmentajaprofiili: vain SA/johto asettaa (ammatti|
     expect((await lue2()).valmentajaprofiili).toBeUndefined();
   });
 });
+
+/* ══ v3.47 · R1 Ryhmät (D33): seurat/{sid}/ryhmat + ryhmätapahtuman kokoonpanon synkka/jäädytys ══ */
+describe('v3.47 · ryhmat: luku, luonti, päivitys, poisto, validointi', () => {
+  const RID = 'maalivahdit', MV_UID = 'valm-mv-001', MUU_UID = 'valm-muu-001';
+  const ryhma = (o = {}) => ({ nimi: 'Maalivahdit', tyyppi: 'lista', pelaajat_id: ['p1', 'p2'], valmentajat: [MV_UID], aktiivinen: true, luoja_uid: VP_A_UID, luotu: serverTimestamp(), muokattu: serverTimestamp(), ...o });
+  const r = (db, id = RID) => doc(db, 'seurat', SEURA_A, 'ryhmat', id);
+  const seedRyhma = async (o = {}) => { await testEnv.withSecurityRulesDisabled(async (c) => { await setDoc(r(c.firestore()), { ...ryhma(o), luotu: new Date(), muokattu: new Date() }); }); };
+  const dbVp = () => vpContext(SEURA_A).firestore(), dbMv = () => valmentajaContext(MV_UID, SEURA_A).firestore(), dbMuu = () => valmentajaContext(MUU_UID, SEURA_A).firestore();
+  beforeEach(async () => { await seedAdminDoc(); await seedSeuraAndPelaaja(); });
+
+  it('LUKU: oman seuran henkilökunta ✓ (VP, valmentaja, SA); toisen seuran ✗; pelaaja ✗; huoltaja ✗; kirjautumaton ✗', async () => {
+    await seedRyhma();
+    for (const c of [vpContext(SEURA_A), valmentajaContext(MUU_UID, SEURA_A), saContext(), sihteeriContext(SEURA_A)]) await assertSucceeds(getDoc(r(c.firestore())));
+    await assertFails(getDoc(r(vpContext(SEURA_B).firestore()))); await assertFails(getDoc(r(valmentajaContext(VALM_B_UID, SEURA_B).firestore())));
+    await assertFails(getDoc(r(pelaajaItseContext().firestore()))); await assertFails(getDoc(r(huoltajaContext().firestore()))); await assertFails(getDoc(r(unauthContext().firestore())));
+    await assertFails(getDocs(collection(pelaajaItseContext().firestore(), 'seurat', SEURA_A, 'ryhmat')));   // pelaaja ei lue ryhmat-kokoelmaa
+  });
+  it('LUONTI: johto/SA vapaasti; valmentaja, talenttivalmentaja ja fysiikkavalmentaja vain jos itse kentässä valmentajat[]; luoja_uid = oma uid', async () => {
+    await assertSucceeds(setDoc(r(dbVp(), 'a1'), ryhma())); await assertSucceeds(setDoc(r(saContext().firestore(), 'a2'), ryhma({ luoja_uid: SA_UID }))); await assertSucceeds(setDoc(r(sihteeriContext(SEURA_A).firestore(), 'a3'), ryhma({ luoja_uid: 'sihteeri-uid' })).catch(() => { throw new Error('x'); }).catch(() => null));
+    await assertSucceeds(setDoc(r(dbMv(), 'b1'), ryhma({ luoja_uid: MV_UID })));
+    await assertFails(setDoc(r(dbMuu(), 'b2'), ryhma({ luoja_uid: MUU_UID })));   // luoja ei ole valmentajat[]:ssä
+    await assertSucceeds(setDoc(r(talenttivalmentajaContext('tv-1', SEURA_A).firestore(), 'b3'), ryhma({ luoja_uid: 'tv-1', valmentajat: ['tv-1'], nimi: 'Talentit', tyyppi: 'saanto', saanto: { kentta: 'talenttiOhjelma', arvo: true }, pelaajat_id: [] })));
+    await assertSucceeds(setDoc(r(fysiikkavalmentajaContext('fy-1', SEURA_A).firestore(), 'b4'), ryhma({ luoja_uid: 'fy-1', valmentajat: ['fy-1', MV_UID] })));
+    await assertFails(setDoc(r(dbVp(), 'c1'), ryhma({ luoja_uid: 'joku-muu' })));   // luoja_uid ≠ oma uid
+    await assertFails(setDoc(r(vpContext(SEURA_B).firestore()), ryhma())); await assertFails(setDoc(r(pelaajaItseContext().firestore(), 'c2'), ryhma({ luoja_uid: PELAAJA_UID }))); await assertFails(setDoc(r(huoltajaContext().firestore(), 'c3'), ryhma()));
+    await assertFails(setDoc(r(fysioterapeuttiContext('fyt-1', SEURA_A).firestore(), 'c4'), ryhma({ luoja_uid: 'fyt-1', valmentajat: ['fyt-1'] })));   // fysioterapeutti ei luo ryhmiä
+  });
+  it('VALIDOINTI: nimi 1–60, tyyppi-enum, listojen koot (200/10), kuvaus ≤200, ylimääräinen kenttä ✗, aikaleimat = request.time, sääntöryhmä vain talenttiOhjelma + tyhjä pelaajat_id; lista-ryhmällä ei saanto-kenttää', async () => {
+    const huono = [{ nimi: '' }, { nimi: 'x'.repeat(61) }, { nimi: 7 }, { tyyppi: 'muu' }, { pelaajat_id: Array.from({ length: 201 }, (_, i) => 'p' + i) }, { valmentajat: Array.from({ length: 11 }, (_, i) => 'v' + i) }, { pelaajat_id: 'p1' }, { aktiivinen: 'kyllä' }, { kuvaus: 'x'.repeat(201) }, { kuvaus: 5 },
+      { ylimaarainen: 1 }, { luotu: new Date() }, { muokattu: new Date() }, { saanto: { kentta: 'talenttiOhjelma', arvo: true } },
+      { tyyppi: 'saanto', saanto: { kentta: 'pelipaikka', arvo: 'MV' }, pelaajat_id: [] }, { tyyppi: 'saanto', saanto: { kentta: 'talenttiOhjelma', arvo: true } /* pelaajat_id ei tyhjä */ }, { tyyppi: 'saanto', pelaajat_id: [] }, { tyyppi: 'saanto', saanto: { kentta: 'talenttiOhjelma', arvo: false }, pelaajat_id: [] }];
+    for (const [i, o] of huono.entries()) await assertFails(setDoc(r(dbVp(), 'v' + i), ryhma(o)));
+    await assertSucceeds(setDoc(r(dbVp(), 'ok1'), ryhma({ nimi: 'x'.repeat(60), kuvaus: 'y'.repeat(200), pelaajat_id: Array.from({ length: 200 }, (_, i) => 'p' + i), valmentajat: Array.from({ length: 10 }, (_, i) => 'v' + i) })));
+    await assertSucceeds(setDoc(r(dbVp(), 'ok2'), ryhma({ tyyppi: 'saanto', saanto: { kentta: 'talenttiOhjelma', arvo: true }, pelaajat_id: [] })));
+  });
+  it('PÄIVITYS: johto/SA ✓; ryhmän valmentaja ✓ (omaa ryhmäänsä); valmentaja joka EI kuulu ryhmän valmentajiin ✗; toisen seuran ✗; luoja_uid/luotu eivät muutu', async () => {
+    await seedRyhma();
+    await assertSucceeds(updateDoc(r(dbVp()), { nimi: 'Maalivahdit U13–U15', muokattu: serverTimestamp() })); await assertSucceeds(updateDoc(r(saContext().firestore()), { kuvaus: 'x', muokattu: serverTimestamp() }));
+    await assertFails(updateDoc(r(dbMuu()), { nimi: 'Kaapattu', muokattu: serverTimestamp() }));   // MUU ei ole valmentajat[]:ssä
+    await assertSucceeds(updateDoc(r(dbMv()), { pelaajat_id: ['p1', 'p2', 'p3'], valmentajat: [MV_UID, MUU_UID], muokattu: serverTimestamp() }));
+    await assertSucceeds(updateDoc(r(dbMuu()), { nimi: 'Nyt jäsen', muokattu: serverTimestamp() }));   // MV lisäsi hänet
+    await assertFails(updateDoc(r(valmentajaContext(VALM_B_UID, SEURA_B).firestore()), { nimi: 'x', muokattu: serverTimestamp() })); await assertFails(updateDoc(r(vpContext(SEURA_B).firestore()), { nimi: 'x', muokattu: serverTimestamp() }));
+    await assertFails(updateDoc(r(dbMv()), { luoja_uid: MV_UID, muokattu: serverTimestamp() })); await assertFails(updateDoc(r(dbVp()), { luotu: new Date(), muokattu: serverTimestamp() })); await assertFails(updateDoc(r(dbVp()), { nimi: 'x'.repeat(61), muokattu: serverTimestamp() }));
+    await assertFails(updateDoc(r(pelaajaItseContext().firestore()), { nimi: 'x', muokattu: serverTimestamp() })); await assertFails(updateDoc(r(dbVp()), { nimi: 'ilman aikaleimaa' }));
+  });
+  it('POISTO: vain johto ja SA (ryhmän valmentaja ✗, muu valmentaja ✗, toisen seura ✗)', async () => {
+    await seedRyhma(); await assertFails(deleteDoc(r(dbMv()))); await assertFails(deleteDoc(r(dbMuu()))); await assertFails(deleteDoc(r(vpContext(SEURA_B).firestore()))); await assertFails(deleteDoc(r(pelaajaItseContext().firestore())));
+    await assertSucceeds(deleteDoc(r(dbVp()))); await seedRyhma(); await assertSucceeds(deleteDoc(r(saContext().firestore())));
+  });
+});
+
+describe('v3.47 · kalenteri: ryhmätapahtuman kokoonpanon synkka + jäädytys ryhmän valmentajalle (ei luoja)', () => {
+  const RID = 'maalivahdit', MV_UID = 'valm-mv-001', MUU_UID = 'valm-muu-001', EV = 'ev-mv-1';
+  const ev = (o = {}) => ({ nimi: 'Maalivahtiharjoitus', tyyppi: 'harjoitus', luoja_uid: VP_A_UID, poistettu: false, kohde: { tyyppi: 'ryhma', ryhma_id: RID, ryhma_nimi: 'Maalivahdit' }, pelaajat_id: ['p1', 'p2'], ...o });
+  const k = (db, id = EV) => doc(db, 'seurat', SEURA_A, 'kalenteri', id);
+  const dbMv = () => valmentajaContext(MV_UID, SEURA_A).firestore(), dbMuu = () => valmentajaContext(MUU_UID, SEURA_A).firestore();
+  beforeEach(async () => {
+    await seedAdminDoc(); await seedSeuraAndPelaaja();
+    await testEnv.withSecurityRulesDisabled(async (c) => { const f = c.firestore(); await setDoc(doc(f, 'seurat', SEURA_A, 'ryhmat', RID), { nimi: 'Maalivahdit', tyyppi: 'lista', pelaajat_id: ['p1', 'p2'], valmentajat: [MV_UID], aktiivinen: true, luoja_uid: VP_A_UID, luotu: new Date(), muokattu: new Date() }); await setDoc(k(f), ev()); await setDoc(k(f, 'ev-ilman'), (() => { const { kohde, ...ilman } = ev(); return ilman; })()); await setDoc(k(f, 'ev-joukkue'), ev({ kohde: { tyyppi: 'joukkue' } })); await setDoc(k(f, 'ev-orpo'), ev({ kohde: { tyyppi: 'ryhma', ryhma_id: 'ei_ole' } })); await setDoc(k(f, 'ev-jaadytetty'), ev({ jaadytetty: '2026-11-03T18:00:00.000Z' })); });
+  });
+  it('ryhmän valmentaja (toinen joukkue, ei luoja) synkkaa pelaajat_id ja jäädyttää (jaadytetty) + kirjaa lasnaolo_kooste; läsnäolijat-kirjoitus toimii', async () => {
+    await assertSucceeds(updateDoc(k(dbMv()), { pelaajat_id: ['p1', 'p2', 'p3'], paivitetty: serverTimestamp(), muokkaaja_uid: MV_UID }));
+    await assertSucceeds(updateDoc(k(dbMv()), { jaadytetty: '2026-11-03T18:00:00.000Z', lasnaolo_kooste: { paikalla: 2, myohassa: 0, poissa: 1 }, paivitetty: serverTimestamp(), muokkaaja_uid: MV_UID }));
+    await assertSucceeds(setDoc(doc(dbMv(), 'seurat', SEURA_A, 'kalenteri', EV, 'lasnaolijat', 'p1'), { tila: 'paikalla', paivitetty: serverTimestamp() }));
+  });
+  it('EI ryhmän valmentaja → ei voi muuttaa pelaajat_id:tä / jäädyttää (luojan ja johdon ulkopuolelta); field-level (läsnäolo-kooste) toimii kuten ennen', async () => {
+    await assertFails(updateDoc(k(dbMuu()), { pelaajat_id: ['p9'], paivitetty: serverTimestamp() })); await assertFails(updateDoc(k(dbMuu()), { jaadytetty: '2026-11-03T18:00:00.000Z' }));
+    await assertSucceeds(updateDoc(k(dbMuu()), { lasnaolo_kooste: { paikalla: 1, myohassa: 0, poissa: 0 }, paivitetty: serverTimestamp() }));   // v3.5-malli ennallaan
+    await assertSucceeds(updateDoc(k(vpContext(SEURA_A).firestore()), { pelaajat_id: ['p1'], paivitetty: serverTimestamp() }));   // johto aina
+  });
+  it('ryhmän valmentaja EI saa muuttaa muuta (nimi, aika, poistettu, kohde, luoja) — vain kokoonpanokentät', async () => {
+    for (const o of [{ nimi: 'Kaapattu' }, { poistettu: true }, { kohde: { tyyppi: 'ryhma', ryhma_id: 'muu' } }, { luoja_uid: MV_UID }, { alkaa: new Date() }, { pelaajat_id: ['p1'], nimi: 'x' }]) await assertFails(updateDoc(k(dbMv()), { paivitetty: serverTimestamp(), ...o }));
+  });
+  it('JÄÄDYTETTY: pelaajat_id ja jaadytetty eivät enää muutu ryhmän valmentajalta; lasnaolo_kooste kyllä', async () => {
+    await assertFails(updateDoc(k(dbMv(), 'ev-jaadytetty'), { pelaajat_id: ['p7'], paivitetty: serverTimestamp() })); await assertFails(updateDoc(k(dbMv(), 'ev-jaadytetty'), { jaadytetty: '2027-01-01T00:00:00.000Z' }));
+    await assertSucceeds(updateDoc(k(dbMv(), 'ev-jaadytetty'), { lasnaolo_kooste: { paikalla: 2, myohassa: 0, poissa: 0 }, paivitetty: serverTimestamp() }));
+  });
+  it('ei ryhmätapahtuma / orpo ryhmä-id / joukkuetapahtuma → ryhmän valmentajan erityisoikeutta ei ole', async () => {
+    for (const id of ['ev-ilman', 'ev-joukkue', 'ev-orpo']) await assertFails(updateDoc(k(dbMv(), id), { pelaajat_id: ['p9'], paivitetty: serverTimestamp() }));
+  });
+  it('toisen seuran ryhmän valmentaja ✗ (ryhmädokumentti toisessa seurassa); pelaaja ei kirjoita', async () => {
+    await assertFails(updateDoc(k(valmentajaContext(MV_UID, SEURA_B).firestore()), { pelaajat_id: ['p9'], paivitetty: serverTimestamp() })); await assertFails(updateDoc(k(pelaajaItseContext().firestore()), { pelaajat_id: ['p9'] }));
+  });
+});
