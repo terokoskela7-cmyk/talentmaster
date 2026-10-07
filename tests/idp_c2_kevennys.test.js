@@ -86,7 +86,7 @@ describe('(1) oletustila on suppea — laajennettu sisältö ei ole ensirenderis
   it('Mittaus: §28-linssi ja "Mitä testit kertovat" renderöityvät VAIN perustelulohkoon', () => {
     // tab-1:n kokoonpanossa linssi/synth esiintyvät vain _mitPerustelu-vakiossa
     const iPerustelu = VP.indexOf('const _mitPerustelu =');
-    const iTab1 = VP.indexOf("hR += '<div id=\"_jspTab1\"");
+    const iTab1 = VP.indexOf('const _mittausHTML =');   // V4b-1: Mittaus-sisältö erotettu vakioksi (vanha modaali + Näyttö)
     expect(iPerustelu).toBeGreaterThan(-1);
     expect(iPerustelu).toBeLessThan(iTab1);
     const tab1 = VP.slice(iTab1, VP.indexOf("hR += '<div id=\"_jspTab2\"", iTab1));
@@ -170,7 +170,7 @@ describe('(2) tila, tiivistys ja luvut pysyvät näkyvissä (ne eivät saa piilo
   });
 
   it('Mittaus: mittaruudut renderöityvät tab-1:een (eivät saa kadota disclosuren sisään)', () => {
-    const tab1 = lohko("hR += '<div id=\"_jspTab1\"", "hR += '<div id=\"_jspTab2\"");
+    const tab1 = lohko('const _mittausHTML =', "hR += '<div id=\"_jspTab2\"");
     expect(tab1).toContain('mit-cols');
     expect(tab1).toContain("_mSub(vpT('Fyysinen · mitattu')) + f1");
     expect(tab1).toContain("_mSub(vpT('Tekninen · mitattu')) + f2");

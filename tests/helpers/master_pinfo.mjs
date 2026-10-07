@@ -16,7 +16,7 @@ export function libitLadattu(src) {
   return ctx;
 }
 
-const APU = ['function _tkiMerkkiM(', 'function _tkLajiNimi(', 'function _pvmFiM(', 'function _devIkaSp(', 'function _deltaBadge(', 'function _mEsc(', 'function _mSelBtn(', 'function _ttKorttiHTML(', 'function _mPinfoOsat(', 'function _renderPinfoFirestore('];
+const APU = ['function _tkiMerkkiM(', 'function _tkLajiNimi(', 'function _pvmFiM(', 'function _devIkaSp(', 'function _deltaBadge(', 'function _mEsc(', 'function _mSelBtn(', 'function _ttKorttiHTML(', 'function _mPinfoOsat(', 'function _mStatsHTML(', 'function _renderPinfoFirestore('];
 /** Ajaa sivun OIKEAN _renderPinfoFirestore-funktion (+ apurit) oikeilla libeillä; palauttaa #pinfoCard.innerHTML-merkkijonon. extra: ylikirjoitettavat globaalit. */
 export function renderPinfo(p, extra) {
   const ctx = libitLadattu(MASTER);

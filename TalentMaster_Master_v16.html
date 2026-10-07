@@ -6533,11 +6533,37 @@ function _ktTanaanHTML(p, tila) {
   let osat = []; try { if (TK && p.jaksofokus && p.jaksofokus.tila !== 'valittavana') osat = TK.tmTanaanOsat(p.jaksofokus, { kaanon: (typeof tmKonseptiKaanon === 'function') ? tmKonseptiKaanon : null }); } catch (e) { osat = []; }
   return K.tmKtTanaanHTML({ pid: p.id, kenttaHTML: kentta, rivitila: tila.rivitila, osat: osat, askel: null }, _ktOpts());   // askel + signaali: V4b (D48)
 }
+function _ktOsio(otsikko) { return '<div class="kt-otsikko-pieni" style="grid-column:1/-1;margin-top:14px">' + _mEsc(masterT(otsikko)) + '</div>'; }
+/* V4b-1 (mockup 18 §7, 13 §6): vanhan kortin sisältö Näyttöön — SAMAT lohkot kuin vanhassa kortissa (_mPinfoOsat), ei kopioita.
+   Perustiedot · Kasvu ja kypsyys (PHV) · Mittaukset (FLEI/H-H/TKI/TSI, kehityskortti normiIka-tasoin, kehityskaari) · Pelihavainnot (ADAR + ristiinarvio) · Psyykkinen (D3) · "Mitä pelaajan tulee osata". Luvut vain henkilökunnalle. Ladataan vasta avattaessa. */
+/* Kasvu ja kypsyys (13 §6): biologinen ikä / PHV-ikä / kasvutahti pikakentistä (§26) — vain henkilökunnalle, mittauspäivä aina luvun vieressä (ei vanhaa tulosta nykytasoksi). */
+function _ktKasvuHTML(p) {
+  const bio = p.biologinenIka_viimeisin || {}, rivit = [];
+  if (bio.maturity_offset != null) rivit.push(masterT('maturity offset') + ' ' + String(bio.maturity_offset).replace('.', ','));
+  if (bio.phv_ika != null) rivit.push(masterT('PHV-ikä (arvio)') + ' ' + String(bio.phv_ika).replace('.', ',') + ' v');
+  const cmv = (p.kasvutahti_cm_v != null) ? p.kasvutahti_cm_v : bio.kasvutahti_cm_v;
+  if (cmv != null) rivit.push(masterT('kasvu') + ' ' + String(cmv).replace('.', ',') + ' cm/v');
+  if (!rivit.length) return '';
+  return '<div style="grid-column:1/-1;font-size:12px;color:var(--ink2)">' + _mEsc(rivit.join(' · ')) + (bio.pvm ? ' <span style="color:var(--ink3)">· ' + _mEsc(masterT('mitattu ')) + _mEsc(_pvmFiM(bio.pvm)) + '</span>' : '') + '</div>';
+}
 function _ktNayttoHTML(p) {
-  const e = _mEsc, pid = e(p.id);
-  return (typeof _msMesoKaariHTML === 'function' ? _msMesoKaariHTML(p) : '')
-    + (typeof _mMitaOsattavaHTML === 'function' ? '<div class="mkt-scope" style="margin-top:14px">' + _mMitaOsattavaHTML(p) + '</div>' : '')
-    + '<div style="margin-top:16px"><button type="button" class="kt-nappi" data-kt-vanha onclick="_ktVanhaNakyma(\'' + pid + '\')">' + e(masterT('Avaa pelaajan elämäkerta')) + '</button></div>';   // testit, havainnot, tutka: vanha näkymä kunnes siirto (poisto-PR)
+  const e = _mEsc, o = _mPinfoOsat(p), pid = e(p.id), nakyy = (typeof _prVoiNahda === 'function' && _prVoiNahda(p));
+  const perus = '<div style="grid-column:1/-1"><div class="pinfo-sub">' + e(o.ika + ' · ' + (p.pelipaikka || '—') + ' · ' + (p.joukkue || _joukkue || '—')) + (o.testPvm ? ' · <span style="color:var(--ink3)">' + e(masterT('testattu ')) + e(o.testPvm) + '</span>' : '') + '</div></div>' + o.lisaHtml;
+  const raportti = nakyy ? '<div style="grid-column:1/-1;margin:0 0 10px"><button type="button" onclick="_avaaPelaajaraportti(\'' + pid + '\')" style="background:var(--surface);border:.5px solid var(--teal);color:var(--teal);border-radius:7px;padding:8px 14px;font-size:12px;font-weight:600;cursor:pointer">' + e(masterT('📋 Pelaajaraportti + tavoitteet')) + '</button></div>' : '';
+  return '<div class="pinfo-card" data-kt-nayttö>' + _ktOsio('Perustiedot') + perus + raportti
+    + ((o._identHtml || _ktKasvuHTML(p)) ? _ktOsio('Kasvu ja kypsyys') + o._identHtml + _ktKasvuHTML(p) + '<div style="grid-column:1/-1;margin:6px 0"><button type="button" class="kt-nappi" data-kt-mittaa onclick="_msFyysSuunnitteleMittaus(\'' + pid + '\')">' + e(masterT('📏 Suunnittele mittaus → Testaus')) + '</button></div>' : '')
+    + _ktOsio('Mittaukset') + _mStatsHTML(o.stats) + o._kehHtml + o._sekHtml + o._kehityskaariHtml
+    + ((o._adarHtml || o._ristiinHtml) ? _ktOsio('Pelihavainnot') + o._adarHtml + o._ristiinHtml : '')
+    + _ktOsio('Psyykkinen (D3)') + o._d3Html
+    + (nakyy ? _ktOsio('Mitä pelaajan tulee osata') + '<div id="_mMitaCard" class="mkt-scope" style="grid-column:1/-1"></div>' : '')
+    + '<div style="grid-column:1/-1;margin-top:16px"><button type="button" class="kt-nappi" data-kt-vanha onclick="_ktVanhaNakyma(\'' + pid + '\')">' + e(masterT('Avaa pelaajan elämäkerta')) + '</button></div>'   // elämäkerran aikajana/narratiivi: vanha näkymä kunnes poisto-PR
+    + '</div>';
+}
+/* Polku (13 §2–§5): IDP-kortti (kausi → jakso → katselmus) + jaksohistoria (kehityskaari) + Resepti/teknis-taktinen toimintakortti ("mitä tehdä") vanhalta kortilta. */
+function _ktPolkuHTML(p) {
+  const o = _mPinfoOsat(p);
+  return '<div id="_mIdpCard" class="mkt-scope"></div>' + (typeof _msMesoKaariHTML === 'function' ? _msMesoKaariHTML(p) : '')
+    + ((o._reseptiHtml || o._ttHtml) ? '<div class="pinfo-card" style="margin-top:14px;padding:16px 20px">' + o._reseptiHtml + o._ttHtml + '</div>' : '');
 }
 function _ktKehys(p) {
   const K = window.TM_KEHITYSTYOPOYTA, AJ = window.TM_ALOITA_JAKSO, S = _ktS;
@@ -6545,7 +6571,7 @@ function _ktKehys(p) {
   const isp = (typeof _devIkaSp === 'function') ? _devIkaSp(p) : { ika: null };
   return K.tmKtKehysHTML({ pid: p.id, nimi: _tmHenkiloNimi(p), joukkue: p.joukkue || '', ikavaihe: K.tmKtIkavaihe(isp.ika), phv: (p.phv_tila && p.phv_tila !== 'tuntematon') ? String(p.phv_tila) : '', tila: tila,
     edellinen: j.edellinen, seuraava: j.seuraava, jarj: { n: j.n, yht: j.yht }, valilehti: S.valilehti, silmin: S.silmin, tanaanHTML: _ktTanaanHTML(p, tila),
-    polkuHTML: '<div id="_mIdpCard" class="mkt-scope"></div>', nayttoHTML: _ktNayttoHTML(p), ladattu: S.ladattu }, _ktOpts());
+    polkuHTML: S.ladattu.polku ? _ktPolkuHTML(p) : '', nayttoHTML: S.ladattu.naytto ? _ktNayttoHTML(p) : '', ladattu: S.ladattu }, _ktOpts());   // rakennetaan vasta kun välilehti on avattu (D52)
 }
 function _ktAsetaHTML(html) {
   if (!document.getElementById('ktTyylit')) { const st = document.createElement('style'); st.id = 'ktTyylit'; st.textContent = window.TM_KEHITYSTYOPOYTA.tmKtCss(); document.head.appendChild(st); }
@@ -6559,6 +6585,7 @@ function _ktNayta() {
   if (!p) { _ktAsetaHTML(K.tmKtEiLoydyHTML(_ktOpts())); return; }
   if (!H.tmPelaajaOikeus(p, _ktOikeusCtx()).ok) { _ktAsetaHTML(K.tmKtEiOikeuttaHTML(_ktOpts())); return; }   // näkymä tarkistaa oikeuden itse (D46 #3); Rules tekee saman
   _ktAsetaHTML(_ktKehys(p));
+  if (S.ladattu.naytto) { const mc = document.getElementById('_mMitaCard'); if (mc && typeof _mMitaOsattavaHTML === 'function') mc.innerHTML = _mMitaOsattavaHTML(p); }   // Näyttö: "mitä pelaajan tulee osata"
   if (S.ladattu.polku) { window._mIdpPelaaja = p; if (typeof _mIdpReRender === 'function') _mIdpReRender(); if (typeof _mIdpLataa === 'function') _mIdpLataa(p); }   // Polku: IDP-kortti (kausi → jakso → katselmus) olemassa olevalla koodilla
 }
 function _ktPaivita() { if (window._ktLippu && _ktS.pid && document.getElementById('ktNakyma')) _ktNayta(); }   // jakson tallennus → otsikkorivi + tila päivittyvät (_renderPinfoFirestore / _mIdpReRender kutsuvat)
@@ -8018,10 +8045,17 @@ function _mMitaOsattavaHTML(p) {
   h += '</div></details>';
   return h;
 }
-function _renderPinfoFirestore(p) {
-  if (window._ktLippu && typeof _ktPaivita === 'function') _ktPaivita();   // V4a: auki oleva työpöytä päivittyy tallennuksen jälkeen
-  const el = document.getElementById('pinfoCard');
-  if (!el) return;
+/* V4b-1: KPI-solut (FLEI/H-H/TKI/TSI) yhdessä paikassa — vanha kortti ja uusi Näyttö. */
+function _mStatsHTML(stats) {
+  return stats.map(s=>`
+      <div${s.title ? ` title="${s.title}"` : ''}${s.detalji ? ` class="pstat-klik" onclick="_avaaDetail('${s.detalji}')"` : ''}>
+        <div class="pstat-lbl">${s.lbl}${s.detalji ? ' <span style="color:var(--teal)">→</span>' : ''}</div>
+        <div class="pstat-val serif" style="color:${s.color}">${s.val}</div>
+        <div class="pstat-delta mono" style="font-size:11px;color:var(--ink3)">${s.delta}</div>
+      </div>`).join('');
+}
+/* V4b-1: pelaajakortin sisältölohkot YHDESSÄ paikassa. Vanha kortti (_renderPinfoFirestore) ja uusi Näyttö (_mNayttoHTML) käyttävät samoja lohkoja → sisältö ei kopioidu eikä vanha kortti muutu (tests/v4b1_nayttö.test.js: snapshot ennen/jälkeen erottamisen). */
+function _mPinfoOsat(p) {
   const nimi = ((p.etunimi||'') + ' ' + (p.sukunimi||'')).trim();
   const flei = p.flei_viimeisin || 0;
   const fleiColor = flei >= 65 ? 'var(--teal)' : flei >= 50 ? 'var(--amber)' : flei > 0 ? 'var(--red)' : 'var(--ink3)';
@@ -8309,6 +8343,13 @@ function _renderPinfoFirestore(p) {
   // Vaihe 4a — teknis-taktinen toimintakortti (konsepti→cue→harjoite, lib tm_teknistaktiset.js). Best-effort.
   let _ttHtml = '';
   try { if (typeof _ttKorttiHTML === 'function') _ttHtml = _ttKorttiHTML(p); } catch (e) { console.warn('[tt4a]', e && e.message); }
+  return { nimi, ika, testPvm, stats, lisaHtml, _kehHtml, _sekHtml, _identHtml, _adarHtml, _ristiinHtml, _kehityskaariHtml, _reseptiHtml, _d3Html, _ttHtml };
+}
+function _renderPinfoFirestore(p) {
+  if (window._ktLippu && typeof _ktPaivita === 'function') _ktPaivita();   // V4a: auki oleva työpöytä päivittyy tallennuksen jälkeen
+  const el = document.getElementById('pinfoCard');
+  if (!el) return;
+  const { nimi, ika, testPvm, stats, lisaHtml, _kehHtml, _sekHtml, _identHtml, _adarHtml, _ristiinHtml, _kehityskaariHtml, _reseptiHtml, _d3Html, _ttHtml } = _mPinfoOsat(p);
   el.innerHTML = `
     <div style="grid-column:1/-1">
       <div class="pinfo-name serif">${nimi}</div>
@@ -8322,12 +8363,7 @@ function _renderPinfoFirestore(p) {
     ${(typeof _prVoiNahda==='function' && _prVoiNahda(p)) ? '<div style="grid-column:1/-1;margin:0 0 10px"><button onclick="_avaaPelaajaraportti(\'' + p.id + '\')" style="background:var(--surface);border:.5px solid var(--teal);color:var(--teal);border-radius:7px;padding:8px 14px;font-size:12px;font-weight:600;cursor:pointer">' + masterT('📋 Pelaajaraportti + tavoitteet') + '</button></div>' : ''}
     ${(typeof _prVoiNahda==='function' && _prVoiNahda(p)) ? '<div id="_mIdpCard" class="mkt-scope" style="grid-column:1/-1"></div>' : ''}
     ${(typeof _prVoiNahda==='function' && _prVoiNahda(p)) ? '<div id="_mMitaCard" class="mkt-scope" style="grid-column:1/-1"></div>' : ''}
-    ${stats.map(s=>`
-      <div${s.title ? ` title="${s.title}"` : ''}${s.detalji ? ` class="pstat-klik" onclick="_avaaDetail('${s.detalji}')"` : ''}>
-        <div class="pstat-lbl">${s.lbl}${s.detalji ? ' <span style="color:var(--teal)">→</span>' : ''}</div>
-        <div class="pstat-val serif" style="color:${s.color}">${s.val}</div>
-        <div class="pstat-delta mono" style="font-size:11px;color:var(--ink3)">${s.delta}</div>
-      </div>`).join('')}
+    ${_mStatsHTML(stats)}
     ${_kehHtml}
     ${_adarHtml}
     ${_ristiinHtml}
