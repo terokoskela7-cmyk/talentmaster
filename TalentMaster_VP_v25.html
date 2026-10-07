@@ -112,7 +112,8 @@ window.TM_KAAVIO_HOST = {
 <script src="lib/tm_jaksokooste.js?v=2"></script>   <!-- Vaihe 6: jakson sulku (meso-sykli) PURE-ydin — prosessi+kalibraatio+historia (geneerinen §8) -->
 <script src="lib/tm_liput.js?v=1"></script>   <!-- K1 osa 2: liput (liput/julkiset + vanha fallback K7:ään) -->
 <script src="lib/tm_joukkuejakso.js?v=3"></script>   <!-- K1/A: joukkuejakson snapshot (tmAloitaJaksoTuki) -->
-<script src="lib/tm_aloita_jakso.js?v=5"></script>
+<script src="lib/tm_aloita_jakso.js?v=6"></script>
+<script src="lib/tm_virhekoodi.js?v=1"></script>   <!-- tallennusvirheen syy (koodi) toastiin -->
 <script src="lib/tm_tukitavoitteet.js?v=3"></script>   <!-- J1/V1: tukitavoitteet (ehdotusmoottori, kotiharjoitevalikoima) -->
 <script src="lib/tm_koti_oletus.js?v=1"></script>   <!-- V1: TM:n oletuskotiharjoitteet (D16: seura ensin, TM varalla); generoitu harjoitelogiikka_v4:stä -->   <!-- jaettu "Aloita jakso" -modaali (Master + VP) -->
 <script src="lib/tm_jaksokortti.js?v=1"></script>   <!-- "Jakso nyt" -kortti: taito · ydinvahvuus · tukiosa · kesto/päättyy · vastuuhenkilö · teema · kotiharjoitteet -->
@@ -1378,7 +1379,7 @@ body {
   border-radius: 10px; padding: 12px 18px;
   font-size: 14px; color: var(--ink);
   transform: translateY(80px); opacity: 0;
-  transition: all .3s; z-index: 999;
+  transition: all .3s; z-index: 10000;   /* toast kaikkien modaalien (320–9600) yläpuolelle */
   max-width: 300px;
 }
 #toast.show { transform: translateY(0); opacity: 1; }
@@ -8532,6 +8533,7 @@ function _vpTanaanHTML(p) {
 function _vpJaksoReRender(p) {
   p = p || window._vpArvPelaaja; if (!p) return;
   const ta = document.getElementById('_vpTanaanSlot'); if (ta) ta.outerHTML = _vpTanaanYlaHTML(p);
+  { const jn = document.getElementById('vpJaksoNapit_' + p.id); if (jn && window.TM_ALOITA_JAKSO && jn.innerHTML) jn.innerHTML = window.TM_ALOITA_JAKSO.tmJaksoNapitHTML(p, { esc: _jsvEsc, t: vpT, avaaFn: '_vpAloitaJaksoAvaa', suljeFn: '_vpSuljeJakso' }); }   // nappi seuraa jakson tilaa (tila ei jää vanhaksi modaalin auki ollessa)
   const po = document.getElementById('_vpJaksokorttiPolku'); if (po) po.innerHTML = _vpJaksoKorttiHTML(p, false);
   if (typeof _vpKehAskelReRender === 'function') _vpKehAskelReRender(p);
 }
@@ -9601,6 +9603,18 @@ function _vpJaksoVaihto(p, jf) {
     lisakentat: Object.assign({ lahde_seuraava: jf.domeeni || 'teknis_taktinen' }, _vpJfSnapshotit(p)) });
 }
 // Yhteinen update()-kirjoitus (demo/token/toast/uudelleenpiirto kuten _vpTtKirjoita). paivita() ajetaan VASTA onnistumisen jälkeen.
+/* Pelaajakortin otsikkoalueen jaksonapit (Kenttä-lipun takana): YKSI nappi tmJaksoNappi(p):n mukaan + "Sulje jakso" kun jakso käynnissä. Samat funktiot kuin ennen (_vpAloitaJaksoAvaa, _vpSuljeJakso). Vanhat sijainnit jäävät. */
+function _vpJaksoNapitHTML(p) {
+  if (!p || !p.id || _isDemoMode || !window.TM_ALOITA_JAKSO || typeof window.TM_ALOITA_JAKSO.tmJaksoNapitHTML !== 'function') return '';
+  setTimeout(async function () {
+    const el = document.getElementById('vpJaksoNapit_' + p.id); if (!el) return;
+    try {
+      const liput = await _vpLataaLiput(); if (liput.kentta !== true) return;
+      const e2 = document.getElementById('vpJaksoNapit_' + p.id); if (e2) e2.innerHTML = window.TM_ALOITA_JAKSO.tmJaksoNapitHTML(p, { esc: _jsvEsc, t: vpT, avaaFn: '_vpAloitaJaksoAvaa', suljeFn: '_vpSuljeJakso' });
+    } catch (e) { console.warn('[jaksonapit]', e && e.message); }
+  }, 0);
+  return '<div id="vpJaksoNapit_' + _jsvEsc(p.id) + '" style="margin-top:8px"></div>';
+}
 async function _vpJfKirjoita(pid, upd, viesti, paivita) {
   if (_isDemoMode || !_seuraId) { if (typeof toast === 'function') toast(viesti + vpT(' (demo — ei kirjoitettu)'), 'ok'); if (paivita) paivita(); return; }
   try {
@@ -9609,7 +9623,7 @@ async function _vpJfKirjoita(pid, upd, viesti, paivita) {
     if (paivita) paivita();
     if (typeof toast === 'function') toast(viesti + ' ✓', 'ok');
     if (typeof _vpKehAskelReRender === 'function') _vpKehAskelReRender();
-  } catch (e) { console.warn('[vpJf]', e && e.message); if (typeof toast === 'function') toast(vpT('Tallennus epäonnistui'), 'error'); }
+  } catch (e) { console.warn('[vpJf]', e && e.message); if (typeof toast === 'function') toast(((typeof TM_VIRHEKOODI !== 'undefined' && TM_VIRHEKOODI.tmVirheTeksti) || String)(vpT('Tallennus epäonnistui'), e), 'error'); }
 }
 // Jaksofokuksen vaihto/sulku: suunnitelma { jaksofokus, historiaLisays[] } → update({jaksofokus, jaksofokus_historia: arrayUnion(...rivit)}).
 async function _vpKirjoitaJaksofokus(p, v, viesti, extra) {
@@ -9640,7 +9654,7 @@ async function _vpTtKirjoita(pid, data, viesti) {
        jakso on asetettu, joten Seuraava askel on paivitettava myos taalla (ei kulje kausitavoitteen
        re-renderin lapi). Vain onnistuneen kirjoituksen jalkeen. */
     if (typeof _vpKehAskelReRender === 'function') _vpKehAskelReRender();
-  } catch (e) { console.warn('[vpTt]', e && e.message); if (typeof toast === 'function') toast(vpT('Tallennus epäonnistui'), 'error'); }
+  } catch (e) { console.warn('[vpTt]', e && e.message); if (typeof toast === 'function') toast(((typeof TM_VIRHEKOODI !== 'undefined' && TM_VIRHEKOODI.tmVirheTeksti) || String)(vpT('Tallennus epäonnistui'), e), 'error'); }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -15583,6 +15597,7 @@ window._avaaPerPelaajaPikakatsaus = function(idx, joukkueNimi) {
   // Otsikko + sulje-X sticky → pysyvät näkyvissä skrollatessa (sisältö voi olla pidempi kuin 90vh, #77).
   h += '<div style="display:flex;justify-content:space-between;align-items:flex-start;padding:18px 24px 10px;position:sticky;top:0;background:var(--bg2);z-index:3">';
   h += '<div><button onclick="document.getElementById(\'_jspModal\').remove()" style="background:none;border:none;color:var(--teal);font-size:12px;cursor:pointer;padding:0;font-family:\'DM Sans\',sans-serif">← ' + _jsvEsc(joukkueNimi) + '</button>';
+  h += _vpJaksoNapitHTML(p);   // jaksonapit otsikkoalueella (lipun takana)
   h += '</div>';
   h += '<button onclick="document.getElementById(\'_jspModal\').remove()" style="background:none;border:none;color:var(--ink3);font-size:22px;cursor:pointer;padding:0 6px">×</button>';
   h += '</div>';
