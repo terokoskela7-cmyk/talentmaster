@@ -1,5 +1,38 @@
 # TalentMaster™ — Kehityssuunnitelma (Roadmap)
-## Päivitetty 2026-06-15
+## Päivitetty 2026-10-08
+
+---
+
+## 🚦 TILANNE 2026-10-08 — Kenttä, kehitystyöpöytä V4, ryhmät
+
+**Vaihe:** pilotti käytössä KPV:llä (Kenttä-lippu päällä) · Sibbo, SJK ym. nykyisillä näkymillä.
+Suunta: järjestelmä skaalautuu yksittäisestä pelaajasta (Kenttä, jakso) valmentajaan (kehitystyöpöytä V4) ja seuraan (Seuran pulssi, 17).
+
+### ✅ Valmis (lokakuun 1. viikko)
+- **Pelaajan Kenttä K1–K4** (Pelaaja_v7, lipun takana): Tämän tueksi, reitin valinta (K3), viikkokatsaus + "Hyvä jakso" (K4), ennätysmerkki. Rules v3.43–v3.45.
+- **Kehitystyöpöytä V4** (Master + VP, lipun takana): V4a koko ruudun näkymä + hash-reititin + jakson tilakone (#870) · V4b-1 Näyttö (testit, havainnot, tutka, mittaukset; vanha kortti snapshot-identtinen, #872/#873) · V4b-2 kevyt katselmus, Tänään-signaali (D48), valmentajaprofiili ammatti/oto, Hylkää valinta, Rules v3.46 (#875) · korjauskierros (kenttä-CSS, signaali, 3 kysymystä, pillerit) #879.
+- **Turvallisuus/laatu:** virhetoast modaalien päällä + virhekoodi, modaali auki virheessä (#868) · väärä rooli ei enää kirjaa ulos automaattisesti, tuonti pysähtyy oikeusvirheeseen (#874) · sukupuoli tuontiin + backfill (#878).
+- **Sanasto D54:** käyttäjälle ei "ase" — henkilökunta "ydinvahvuus", pelaaja/huoltaja "vahvuus" (#875, #876, #877).
+- **KPV-data:** harjoitepankki (89 harjoitetta) · rosteri 125 pelaajaa (P9–P15, T9–T15, 14 joukkuetta) · tekniikkakilpailut 2023–2025 (190 tulosta, 124/125 mitalia täsmää, 51 pelaajalla kehitysdelta).
+- **Design-päätökset lukittu:** D40–D45 (Seuran pulssi, 17) · D46–D54 (V4 + sanasto, 18) · D37 C, D38, D39 osittain.
+
+### 🔧 Käynnissä
+- #879 V4-korjaukset → käsitesti (pillerit, signaali, mobiili).
+- Sukupuolen täydennysnappi Excel-tuontiin (KPV 126 pelaajaa ilman sukupuolta).
+- Testipelaajasääntö päivitettävä: KPV U13 → **KPV P13** sisältää nyt myös oikeita pelaajia; kirjoitukset vain nimetyille testipelaajille.
+
+### 📅 Seuraavaksi
+| Milloin | Mitä |
+|---|---|
+| lokakuu | **R1 Ryhmät (D33)** — Sibbo: maalivahdit + MV-valmentaja, talenttiryhmä, läsnäolo, näkyy pelaajalle/huoltajalle; Rules v3.47; sv-käännökset Geminille ajoissa. `docs/CODE_BRIEF_R1_RYHMAT.md` |
+| lokakuu | **Sibbo: VEO-linkki** — laajuus päätettävä (kalenteritapahtuman linkki vs. R6.4 klippiviesti, 04) |
+| lokakuu | **Seuran pulssi S1** (17): viikkokooste-CF + data + `seura_id`, Rules v3.48 — aloitettava ajoissa, jotta 4 vk trendi kertyy |
+| 9.10. | KPV:n aloittava joukkue → käyttöönotto: kutsut, huoltajien sähköpostit, ensimmäiset jaksot |
+| ennen 10.11. | K3-käsitesti (pelaaja valitsee seuraavan reitin) — KPV:n ensimmäinen jakso päättyy ~17.11. |
+| 1.11. | Ryhmät Sibbolla käytössä · V4 Näyttö valmis |
+| 1.12. | Vanha pelaajakortti pois koodista (D49) · Seuran pulssi S2 VP_v25:n etusivulle |
+| joulukuu | S3 tavoitetasot · **K5 Leikkijä + huoltaja** (KPV:llä nyt 9–12-vuotiaita) |
+| myöhemmin | S4 teema/kuorma/kypsyys (14:n jälkeen) · Pallo-Iirojen tuonti · ryhmät R2 (sääntöryhmät, IDP-ryhmät) |
 
 ---
 
