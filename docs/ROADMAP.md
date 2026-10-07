@@ -20,13 +20,17 @@ Suunta: järjestelmä skaalautuu yksittäisestä pelaajasta (Kenttä, jakso) val
 - #879 V4-korjaukset → käsitesti (pillerit, signaali, mobiili).
 - Sukupuolen täydennysnappi Excel-tuontiin (KPV 126 pelaajaa ilman sukupuolta).
 - Testipelaajasääntö päivitettävä: KPV U13 → **KPV P13** sisältää nyt myös oikeita pelaajia; kirjoitukset vain nimetyille testipelaajille.
+- **Tietosuoja (B4, ei estä 1.11.):** pelaaja- ja huoltajasovellus lukevat seuran koko kalenterin ja suodattavat sovelluksessa → rajaus palvelinpuolelle (joukkue/`pelaajat_id`). Muistiinpanot ja muiden läsnäolot korjataan jo #882:ssa.
+- **Rules-versiot:** v3.47 ryhmät (#881) · v3.48 kalenterin tietosuoja (#882) · v3.49 Seuran pulssi S1 · v3.50 mediaviesti (arvio; numero lukitaan mergejärjestyksessä).
 
 ### 📅 Seuraavaksi
 | Milloin | Mitä |
 |---|---|
-| lokakuu | **R1 Ryhmät (D33)** — Sibbo: maalivahdit + MV-valmentaja, talenttiryhmä, läsnäolo, näkyy pelaajalle/huoltajalle; Rules v3.47; sv-käännökset Geminille ajoissa. `docs/CODE_BRIEF_R1_RYHMAT.md` |
-| lokakuu | **Sibbo: VEO-linkki** — laajuus päätettävä (kalenteritapahtuman linkki vs. R6.4 klippiviesti, 04) |
-| lokakuu | **Seuran pulssi S1** (17): viikkokooste-CF + data + `seura_id`, Rules v3.48 — aloitettava ajoissa, jotta 4 vk trendi kertyy |
+| lokakuu | **R1 Ryhmät (D33)** — Sibbo: maalivahdit + MV-valmentaja, talenttiryhmä, läsnäolo, näkyy pelaajalle/huoltajalle; Rules v3.47 (#881 PR 1; PR 2 kalenteri + "vain henkilökunta" -tapahtumat); sv-käännökset Geminille ajoissa. `docs/CODE_BRIEF_R1_RYHMAT.md` |
+| heti | **P0 tietosuoja (#882, Rules v3.48):** valmentajan kalenterimuistiinpanot pois pelaajan luettavista tapahtumista + läsnäolot vain omat → migraatio seuroittain (Sibbo ensin) → Rules-kiristys-PR |
+| 1.11. | **R6.4 Mediaviesti M1** (19, D55–D64): VEO/YouTube/kuva/linkki + kysymys pelaajalle, vastaus ja perheen kuittaus; Inbox; kaikki seurat, Sibbo ensin. `docs/CODE_BRIEF_R6_4_MEDIAVIESTI.md`. M2 marraskuussa (Polku, merkin piste, VP-tilannekuva) |
+| ennen 1.11. | **Sibbo Kenttä-lipulle (D55):** edellyttää K1–K4 + V4 sv-tekstit Geminiltä ja opastuksen |
+| loka–marraskuu | **Seuran pulssi S1** (17): viikkokooste-CF + data + `seura_id`, Rules v3.49 — aloitettava ajoissa, jotta 4 vk trendi kertyy |
 | 9.10. | KPV:n aloittava joukkue → käyttöönotto: kutsut, huoltajien sähköpostit, ensimmäiset jaksot |
 | ennen 10.11. | K3-käsitesti (pelaaja valitsee seuraavan reitin) — KPV:n ensimmäinen jakso päättyy ~17.11. |
 | 1.11. | Ryhmät Sibbolla käytössä · V4 Näyttö valmis |
