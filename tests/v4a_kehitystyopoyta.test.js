@@ -1,6 +1,6 @@
 /**
  * V4a — Kehitystyöpöytä V4: näkymä, hash-reititin, tilakone, typografia (docs/CODE_BRIEF_V4_KEHITYSTYOPOYTA.md §2 V4a, §4 testit 1, 2, 9, 10, 12, 14, 16, 17).
- * lib/tm_hash_reititin.js · tm_aloita_jakso.tmJaksoTila · tmValintaVoimassa · lib/tm_kehitystyopoyta.js · Master/VP-adapterit (vm: SIVUN oikea koodi). Chrome-testit (typografia laskettuna tyylinä, 390 px) kuten kentta_k0: ohitetaan jos Chromea ei ole / TM_CHROME_TESTS=0.
+ * lib/tm_hash_reititin.js · tm_aloita_jakso.tmJaksoTila · lib/tm_kehitystyopoyta.js · Master/VP-adapterit (vm: SIVUN oikea koodi). Chrome-testit (typografia laskettuna tyylinä, 390 px) kuten kentta_k0: ohitetaan jos Chromea ei ole / TM_CHROME_TESTS=0.
  * Fixturet keksittyjä; KPV U13 -testipelaajat vain käsin (CLAUDE.md §0).
  */
 import { describe, it, expect } from 'vitest';
@@ -79,27 +79,20 @@ describe('Tilakone (tm_aloita_jakso.tmJaksoTila) — kuusi tilaa johdetaan, ei t
     expect(tila(P({ jaksofokus: JF() }))).toMatchObject({ tila: 'vahvistettu', ensisijainen: { avain: 'havainto' }, rivitila: { teksti: 'Jakso käynnissä · vk 1 · sitoumus odottaa' } });
     expect(tila(P({ jaksofokus: JF(), idp_sitoumus_pvm: '2026-11-10T10:00:00.000Z' })).tila).toBe('kaynnissa'); expect(tila(P({ jaksofokus: JF(), idp_sitoumus_pvm: '2026-09-01T10:00:00.000Z' })).tila).toBe('vahvistettu');   // vanhan jakson sitoumus ei riitä
   });
-  it('paattynyt: alkoi + kesto_vk × 7 pv < nyt → "Sulje jakso", valikko Jatka jaksoa 2 vk · Syvennä (V4b: ei vielä käytettävissä); amber', () => {
+  it('paattynyt: alkoi + kesto_vk × 7 pv < nyt → "Sulje jakso", valikko Jatka jaksoa 2 vk · Syvennä (V4b-2: käytettävissä); amber', () => {
     const p = tila(P({ jaksofokus: JF({ alkoi: '2026-09-01T08:00:00.000Z', kesto_vk: 4 }) })); expect(p).toMatchObject({ tila: 'paattynyt', ensisijainen: { avain: 'sulje' }, rivitila: { savy: 'amber' } });
-    expect(p.valikko.map((m) => [m.avain, m.kaytettavissa])).toEqual([['jatka', true], ['syvenna', false]]); expect(tila(P({ jaksofokus: JF({ alkoi: '2026-11-01T08:00:00.000Z', kesto_vk: 2 }) })).tila).toBe('kaynnissa');   // 14 pv, ei vielä yli
+    expect(p.valikko.map((m) => [m.avain, m.kaytettavissa])).toEqual([['jatka', true], ['syvenna', true]]); expect(tila(P({ jaksofokus: JF({ alkoi: '2026-11-01T08:00:00.000Z', kesto_vk: 2 }) })).tila).toBe('kaynnissa');   // 14 pv, ei vielä yli
   });
   it('valittavana (K3): odottaa pelaajaa, ei nappia; valikko "Peru valinta ja aloita jakso itse"; valinta tehty → "Vahvista jakso" + A/B-rivitila; oma ehdotus tunnistetaan', () => {
     const v = tila(P({ jaksofokus: TARJOUS() })); expect(v).toMatchObject({ tila: 'valittavana', ensisijainen: null, rivitila: { teksti: 'Valinta odottaa' } }); expect(v.valikko[0]).toMatchObject({ avain: 'aloita', kaytettavissa: true });
-    const t = tila(P({ jaksofokus: TARJOUS(), ...VALINTA('seura_kierto') })); expect(t).toMatchObject({ tila: 'valinta_tehty', ensisijainen: { avain: 'vahvista', teksti: 'Vahvista jakso' }, rivitila: { teksti: 'Pelaaja valitsi B' } }); expect(t.valikko[0]).toMatchObject({ avain: 'hylkaa', kaytettavissa: false });
+    const t = tila(P({ jaksofokus: TARJOUS(), ...VALINTA('seura_kierto') })); expect(t).toMatchObject({ tila: 'valinta_tehty', ensisijainen: { avain: 'vahvista', teksti: 'Vahvista jakso' }, rivitila: { teksti: 'Pelaaja valitsi B' } }); expect(t.valikko[0]).toMatchObject({ avain: 'hylkaa', kaytettavissa: true });
     expect(tila(P({ jaksofokus: TARJOUS(), ...VALINTA('Oma juttu') })).rivitila.teksti).toBe('Pelaaja ehdotti omaa');
   });
-  it('HYLKÄÄ VALINTA (testi 16, D47 b): pelaajan valinta jää paikalleen; uudempi tarjottu_pvm → "odottaa pelaajaa"; pelaaja valitsee uudelleen → valinta tehty; vanha data ilman tarjottu_pvm:ää = voimassa', () => {
-    const vanha = P({ jaksofokus: TARJOUS({ tarjottu_pvm: '2026-11-13' }), ...VALINTA('y_h1', '2026-11-12') }); expect(vanha.ydinvahvuus_valinta.vaihtoehto).toBe('y_h1');
-    expect(tila(vanha).tila).toBe('valittavana'); expect(RV.tmValintaTila(vanha).tila).toBe('valittavana'); expect(RV.tmHenkRivitila(vanha).tila).toBe('odottaa');   // sama sääntö pelaajan K3-puolella ("Valintasi on valmentajalla" ei näy)
-    const uusi = P({ jaksofokus: TARJOUS({ tarjottu_pvm: '2026-11-13' }), ...VALINTA('y_h1', '2026-11-14') }); expect(tila(uusi).tila).toBe('valinta_tehty'); expect(RV.tmValintaTila(uusi).tila).toBe('valittu');
-    expect(tila(P({ jaksofokus: TARJOUS({ tarjottu_pvm: '2026-11-12' }), ...VALINTA('y_h1', '2026-11-12') })).tila).toBe('valinta_tehty');   // sama päivä = voimassa (>=)
-    expect(tila(P({ jaksofokus: TARJOUS(), ...VALINTA('y_h1', '2020-01-01') })).tila).toBe('valinta_tehty');   // ei tarjottu_pvm:ää → nykykäytös
-    expect(tila(P({ jaksofokus: TARJOUS({ tarjottu_pvm: '2026-11-13' }), ydinvahvuus_valinta: { vaihtoehto: 'y_h1' } })).tila).toBe('valittavana');   // valittu_pvm puuttuu + tarjottu_pvm → ei voimassa
-  });
-  it('tmValintaVoimassa: tm_jakso_malli-peilaus = tm_reitin_valinta (kaikissa tapauksissa identtinen)', () => {
-    const tapaukset = [P(), P({ jaksofokus: TARJOUS() }), P({ jaksofokus: TARJOUS(), ...VALINTA('a') }), P({ jaksofokus: TARJOUS({ tarjottu_pvm: '2026-11-13' }), ...VALINTA('a', '2026-11-12') }), P({ jaksofokus: TARJOUS({ tarjottu_pvm: '2026-11-13' }), ...VALINTA('a', '2026-11-13') }),
-      P({ jaksofokus: TARJOUS({ tarjottu_pvm: 'x' }), ...VALINTA('a', '2020-01-01') }), P({ ydinvahvuus_valinta: { vaihtoehto: '  ' } }), null, {}];
-    tapaukset.forEach((p, i) => expect(JM.tmValintaVoimassa(p), 'tapaus ' + i).toBe(RV.tmValintaVoimassa(p)));
+  it('VALINTA TEHTY ilman päivämääräpäättelyä (V4b-2: tmValintaVoimassa poistettu): ydinvahvuus_valinta riittää; "Hylkää valinta" poistaa sen → odottaa pelaajaa', () => {
+    expect(RV.tmValintaVoimassa).toBeUndefined(); expect(JM.tmValintaVoimassa).toBeUndefined();
+    const tehty = P({ jaksofokus: TARJOUS(), ...VALINTA('y_h1', '2020-01-01') }); expect(tila(tehty).tila).toBe('valinta_tehty'); expect(RV.tmValintaTila(tehty).tila).toBe('valittu');
+    const poistettu = P({ jaksofokus: TARJOUS() }); expect(tila(poistettu).tila).toBe('valittavana'); expect(RV.tmValintaTila(poistettu).tila).toBe('valittavana'); expect(RV.tmHenkRivitila(poistettu).tila).toBe('odottaa');
+    expect(tila(P({ jaksofokus: TARJOUS(), ydinvahvuus_valinta: { vaihtoehto: '  ' } })).tila).toBe('valittavana');   // tyhjä valinta ei ole valinta
   });
   it('YHTENÄISYYS (testi 2): tmJaksoNappi / tmJaksoNapitTila (#868) ja J4-rivi sanovat saman kuin tilakone; legacy-valinta (D-1) ennallaan', () => {
     const tapaukset = [[P(), 'aloita'], [P({ jaksofokus: JF() }), 'muokkaa'], [P({ jaksofokus: JF({ alkoi: '2026-09-01T08:00:00.000Z', kesto_vk: 4 }) }), 'muokkaa'], [P({ jaksofokus: TARJOUS() }), 'aloita'], [P({ jaksofokus: TARJOUS(), ...VALINTA('y_h1') }), 'vahvista']];
@@ -189,8 +182,8 @@ function ymp(sov, { pelaajat, rooli = 'vp', sa = false, joukkue = '', lippu = tr
     _mIdpReRender: () => { log.polku++; }, _mIdpLataa: () => { log.polku++; }, _msMesoKaariHTML: () => '<i>meso</i>', _mMitaOsattavaHTML: () => { log.nayttoMonta++; return '<i>mita</i>'; }, _mPinfoOsat: () => ({ ika: '13v', testPvm: null, lisaHtml: '', stats: [], _kehHtml: '', _sekHtml: '', _identHtml: '', _adarHtml: '', _ristiinHtml: '', _kehityskaariHtml: '', _reseptiHtml: '', _d3Html: '' }), _mStatsHTML: () => '', _prVoiNahda: () => true,
     _vpKorttiRakenna: () => { log.nayttoMonta++; return { hL: '', mittausHTML: '', arviointiHTML: '<i>arv</i>', kasvuHTML: '', ika: 13 }; }, _vpKorttiValmista() {}, _vpKorttiHydratoi() {}, renderDev: (pid) => log.renderDev.push(pid), setWs() {},
     _vpPelaajanAaniHTML: () => { log.polku++; return ''; }, _vpKehSeuraavaAskelHTML: () => '', _vpKehSuunnitelmaHTML: () => '', _vpViikkoHTML: () => '', _vpArviointiHTML: () => '<i>arv</i>', _vpMesoKaariHTML: () => '', _vpLataaTavoite() {}, _vpLataaArviointiKehys() {},
-    TM_HASH_REITITIN: H, TM_KEHITYSTYOPOYTA: KT, TM_ALOITA_JAKSO: AJ, TM_TANAAN_KENTTA: require('../lib/tm_tanaan_kentta.js'), tmKentta: require('../lib/tm_kentta.js').tmKentta, _vpRooli: rooli, _vpSA: sa };
-  sb.window = Object.assign(win, { _mAloitaJaksoAvaa: (pid) => log.toimi.push(['aloitaM', pid]), _msSuljeJakso: (pid) => log.toimi.push(['suljeM', pid]), _vpAloitaJaksoAvaa: (pid) => log.toimi.push(['aloitaV', pid]), _vpSuljeJakso: (pid) => log.toimi.push(['suljeV', pid]), TM_HASH_REITITIN: H, TM_KEHITYSTYOPOYTA: KT, TM_ALOITA_JAKSO: AJ, TM_TANAAN_KENTTA: sb.TM_TANAAN_KENTTA, tmKentta: sb.tmKentta, _vpRooli: rooli, _vpSA: sa, _jsvPelaajat: pelaajat });
+    TM_HASH_REITITIN: H, TM_KEHITYSTYOPOYTA: KT, TM_ALOITA_JAKSO: AJ, TM_TANAAN_KENTTA: require('../lib/tm_tanaan_kentta.js'), tmKentta: require('../lib/tm_kentta.js').tmKentta, _vpRooli: rooli, _vpSA: sa, _ktSignaaliHTML: () => '' };   // V4b-2: signaali testataan omassa tiedostossa
+  sb.window = Object.assign(win, { _mAloitaJaksoAvaa: (pid) => log.toimi.push(['aloitaM', pid]), _msSuljeJakso: (pid) => log.toimi.push(['suljeM', pid]), _kvkAvaa: (pid, k3) => log.toimi.push([master ? 'kvkM' : 'kvkV', pid, k3]), _vpAloitaJaksoAvaa: (pid) => log.toimi.push(['aloitaV', pid]), _vpSuljeJakso: (pid) => log.toimi.push(['suljeV', pid]), TM_HASH_REITITIN: H, TM_KEHITYSTYOPOYTA: KT, TM_ALOITA_JAKSO: AJ, TM_TANAAN_KENTTA: sb.TM_TANAAN_KENTTA, tmKentta: sb.tmKentta, _vpRooli: rooli, _vpSA: sa, _jsvPelaajat: pelaajat });
   vm.createContext(sb);
   const koodi = master ? pala(src, '/* ═══ V4a — Kehitystyöpöytä V4', 'window._msSuljeJakso = async function') : pala(src, '/* ═══ V4a — Kehitystyöpöytä V4', 'window._vpSulkuTila = null;');
   vm.runInContext(koodi + '\nthis._ktS=_ktS;this._ktKaynnista=_ktKaynnista;this._ktNayta=_ktNayta;this._ktPaivita=_ktPaivita;', sb);
@@ -226,7 +219,7 @@ for (const sov of ['Master', 'VP']) {
       const e = ymp(sov, { pelaajat: PEL(), hash: '#pelaaja/a/tanaan' }); await e.sb._ktKaynnista(); await lopeta();
       e.sb.window._ktSeuraava('a'); expect(e.h.v).toBe('#pelaaja/b/tanaan'); e.sb.window._ktEdellinen('b'); expect(e.h.v).toBe('#pelaaja/a/tanaan'); e.sb.window._ktEdellinen('a'); expect(e.h.v).toBe('#pelaaja/a/tanaan');   // ensimmäisellä ei edellistä
       e.sb.window._ktToimi('c', 'vahvista'); e.sb.window._ktToimi('c', 'sulje'); e.sb.window._ktToimi('c', 'anna_valita');
-      expect(e.log.toimi).toEqual(sov === 'Master' ? [['aloitaM', 'c'], ['suljeM', 'c'], ['suljeM', 'c']] : [['aloitaV', 'c'], ['suljeV', 'c'], ['suljeV', 'c']]);
+      expect(e.log.toimi).toEqual(sov === 'Master' ? [['aloitaM', 'c'], ['kvkM', 'c', false], ['kvkM', 'c', true]] : [['aloitaV', 'c'], ['kvkV', 'c', false], ['kvkV', 'c', true]]);   // V4b-2: Sulje jakso / Anna pelaajan valita → kevyt katselmus
     });
     it('otsikkorivi seuraa tilakonetta (6 tilaa samalla funktiolla kuin J4): ei_jaksoa / kaynnissa / valittavana → data-kt-tila', async () => {
       for (const [pid, tilaNimi] of [['a', 'ei_jaksoa'], ['b', 'vahvistettu'], ['c', 'valittavana']]) { const e = ymp(sov, { pelaajat: PEL(), hash: '#pelaaja/' + pid + '/tanaan' }); await e.sb._ktKaynnista(); await lopeta(); expect(e.M.dom.nakyma, pid).toContain('data-kt-tila="' + tilaNimi + '"'); }

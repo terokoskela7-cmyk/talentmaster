@@ -211,7 +211,7 @@ describe('lähdevartijat', () => {
       const r = pura(t); expect(r, t).toMatch(/_mJaksoVaihto\(p, /); expect(r, t).toMatch(/await _mKirjoitaJaksofokus\(p, _v, /); expect(r, t).not.toMatch(/set\(\{ jaksofokus: (jf|jaksofokus) \}/);
     });
     expect(MASTER).not.toMatch(/set\(\{ jaksofokus: (jf|jaksofokus) \}, \{ merge: true \}\)/);
-    expect((MASTER.match(/await _mKirjoitaJaksofokus\(/g) || []).length).toBe(5);   // 4 asetuspolkua + sulku (R6.1b)
+    expect((MASTER.match(/await _mKirjoitaJaksofokus\(/g) || []).length).toBe(6);   // 4 asetuspolkua + sulku (R6.1b) + V4b-2 Hylkää valinta (jaksofokus + valinta pois, ei historiariviä)
   });
   it('yhteinen kirjoittaja: update() (ei set-merge) + arrayUnion + ISO-aikaleimat (ei serverTimestamp taulukossa)', () => {
     const w = pura('async function _mKirjoitaJaksofokus(');
