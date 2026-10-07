@@ -4724,7 +4724,7 @@ describe('v3.46 · joukkueet.valmentajaprofiili: vain SA/johto asettaa (ammatti|
 });
 
 /* ══ v3.47 · R1 Ryhmät (D33): seurat/{sid}/ryhmat + ryhmätapahtuman kokoonpanon synkka/jäädytys ══ */
-describe('v3.47 · ryhmat: luku, luonti, päivitys, poisto, validointi', () => {
+describe('v3.49 · ryhmat: luku, luonti, päivitys, poisto, validointi', () => {
   const RID = 'maalivahdit', MV_UID = 'valm-mv-001', MUU_UID = 'valm-muu-001';
   const ryhma = (o = {}) => ({ nimi: 'Maalivahdit', tyyppi: 'lista', pelaajat_id: ['p1', 'p2'], valmentajat: [MV_UID], aktiivinen: true, luoja_uid: VP_A_UID, luotu: serverTimestamp(), muokattu: serverTimestamp(), ...o });
   const r = (db, id = RID) => doc(db, 'seurat', SEURA_A, 'ryhmat', id);
@@ -4773,7 +4773,7 @@ describe('v3.47 · ryhmat: luku, luonti, päivitys, poisto, validointi', () => {
   });
 });
 
-describe('v3.47 · kalenteri: ryhmätapahtuman kokoonpanon synkka + jäädytys ryhmän valmentajalle (ei luoja)', () => {
+describe('v3.49 · kalenteri: ryhmätapahtuman kokoonpanon synkka + jäädytys ryhmän valmentajalle (ei luoja)', () => {
   const RID = 'maalivahdit', MV_UID = 'valm-mv-001', MUU_UID = 'valm-muu-001', EV = 'ev-mv-1';
   const ev = (o = {}) => ({ nimi: 'Maalivahtiharjoitus', tyyppi: 'harjoitus', luoja_uid: VP_A_UID, poistettu: false, kohde: { tyyppi: 'ryhma', ryhma_id: RID, ryhma_nimi: 'Maalivahdit' }, pelaajat_id: ['p1', 'p2'], ...o });
   const k = (db, id = EV) => doc(db, 'seurat', SEURA_A, 'kalenteri', id);
@@ -4804,5 +4804,58 @@ describe('v3.47 · kalenteri: ryhmätapahtuman kokoonpanon synkka + jäädytys r
   });
   it('toisen seuran ryhmän valmentaja ✗ (ryhmädokumentti toisessa seurassa); pelaaja ei kirjoita', async () => {
     await assertFails(updateDoc(k(valmentajaContext(MV_UID, SEURA_B).firestore()), { pelaajat_id: ['p9'], paivitetty: serverTimestamp() })); await assertFails(updateDoc(k(pelaajaItseContext().firestore()), { pelaajat_id: ['p9'] }));
+  });
+});
+
+/* ══ v3.48 · P0 TIETOSUOJA: kalenterin muistiinpanot staff-only-alikokoelmaan + läsnäolijat vain omaan dokkiin ══ */
+describe('v3.48 · kalenteri/{id}/henkilokunta/muistiinpanot + lasnaolijat: pelaaja ei lue muistiinpanoja eikä muiden läsnäoloja; oma kalenteri toimii', () => {
+  const EV = 'ev-tietosuoja', MUU_UID = PELAAJA_A2_UID;
+  const kal = (db) => doc(db, 'seurat', SEURA_A, 'kalenteri', EV);
+  const muist = (db, id = 'muistiinpanot') => doc(db, 'seurat', SEURA_A, 'kalenteri', EV, 'henkilokunta', id);
+  const las = (db, pid) => doc(db, 'seurat', SEURA_A, 'kalenteri', EV, 'lasnaolijat', pid);
+  const dbPel = () => pelaajaItseContext().firestore(), dbVp = () => vpContext(SEURA_A).firestore(), dbVal = () => valmentajaContext(VALM_A_UID, SEURA_A).firestore();
+  beforeEach(async () => {
+    await seedAdminDoc(); await seedSeuraAndPelaaja();
+    await testEnv.withSecurityRulesDisabled(async (c) => { const f = c.firestore();
+      await setDoc(kal(f), { nimi: 'Harjoitus', tyyppi: 'harjoitus', joukkue: JOUKKUE_A1, joukkueet: [JOUKKUE_A1], poistettu: false, luoja_uid: VP_A_UID, pelaajaviesti: 'Tuo juomapullo', muistiinpanot: null });
+      await setDoc(muist(f), { teksti: 'SISÄINEN: pelaaja X väsynyt', muokkaaja_uid: VP_A_UID, paivitetty: new Date() });
+      await setDoc(las(f, PELAAJA_UID), { tila: 'paikalla', paivitetty: new Date() }); await setDoc(las(f, MUU_UID), { tila: 'poissa', paivitetty: new Date() }); });
+  });
+
+  it('PELAAJA ei lue muistiinpanoja (get, list) eikä kirjoita niitä; huoltaja ei myöskään', async () => {
+    await assertFails(getDoc(muist(dbPel()))); await assertFails(getDocs(collection(dbPel(), 'seurat', SEURA_A, 'kalenteri', EV, 'henkilokunta')));
+    await assertFails(setDoc(muist(dbPel()), { teksti: 'x', paivitetty: serverTimestamp() })); await assertFails(deleteDoc(muist(dbPel())));
+    await assertFails(getDoc(muist(huoltajaContext().firestore()))); await assertFails(getDoc(muist(unauthContext().firestore()))); await assertFails(getDoc(muist(pelaajaContext(SEURA_B, PELAAJA_B_UID).firestore())));
+  });
+  it('PELAAJA lukee vain OMAN lasnaolijat-dokin; muiden pelaajien läsnäolo ✗ (get + list)', async () => {
+    await assertSucceeds(getDoc(las(dbPel(), PELAAJA_UID))); await assertFails(getDoc(las(dbPel(), MUU_UID))); await assertFails(getDocs(collection(dbPel(), 'seurat', SEURA_A, 'kalenteri', EV, 'lasnaolijat')));
+    await assertFails(getDoc(las(pelaajaContext(SEURA_B, PELAAJA_B_UID).firestore(), PELAAJA_UID)));   // toisen seuran pelaaja
+  });
+  it('HUOLTAJA lukee vain OMAN lapsensa läsnäolon (sähköposti täsmää huoltajaEmail), ei muiden', async () => {
+    await assertSucceeds(getDoc(las(huoltajaContext().firestore(), PELAAJA_UID))); await assertFails(getDoc(las(huoltajaContext().firestore(), MUU_UID)));
+  });
+  it('SAATAVUUS-RSVP ei rikkoudu: pelaaja kirjoittaa oman saatavuutensa ja lukee sen takaisin; ei toisen', async () => {
+    await assertSucceeds(setDoc(las(dbPel(), PELAAJA_UID), { saatavuus: 'tulossa', paivitetty: serverTimestamp(), rooli: 'pelaaja' }, { merge: true })); await assertSucceeds(getDoc(las(dbPel(), PELAAJA_UID)));
+    await assertFails(setDoc(las(dbPel(), MUU_UID), { saatavuus: 'estynyt', paivitetty: serverTimestamp() }, { merge: true }));
+  });
+  it('OMA KALENTERI toimii ennallaan: pelaaja lukee tapahtumadokin ja koko kalenteri-kokoelman (joukkuesuodatus appissa); tapahtumassa ei muistiinpanoja', async () => {
+    const s = await assertSucceeds(getDoc(kal(dbPel()))); expect(s.data().pelaajaviesti).toBe('Tuo juomapullo'); expect(s.data().muistiinpanot).toBeNull();
+    const l = await assertSucceeds(getDocs(collection(dbPel(), 'seurat', SEURA_A, 'kalenteri'))); expect(l.size).toBe(1);
+  });
+  it('HENKILÖKUNTA: oman seuran VP, valmentaja, sihteeri ja SA lukevat; VP/valmentaja/SA kirjoittavat (vain dokumentti muistiinpanot); toisen seuran ✗', async () => {
+    for (const c of [vpContext(SEURA_A), valmentajaContext(VALM_A_UID, SEURA_A), sihteeriContext(SEURA_A), saContext(), fysioterapeuttiContext('fyt-1', SEURA_A)]) { const s = await assertSucceeds(getDoc(muist(c.firestore()))); expect(s.data().teksti).toContain('SISÄINEN'); }
+    await assertSucceeds(setDoc(muist(dbVp()), { teksti: 'Uusi', muokkaaja_uid: VP_A_UID, paivitetty: serverTimestamp() })); await assertSucceeds(setDoc(muist(dbVal()), { teksti: 'Valmentajan', muokkaaja_uid: VALM_A_UID, paivitetty: serverTimestamp() }));
+    await assertSucceeds(setDoc(muist(saContext().firestore()), { teksti: 'SA', paivitetty: serverTimestamp() })); await assertSucceeds(setDoc(muist(sihteeriContext(SEURA_A).firestore()), { teksti: 'Sihteeri', paivitetty: serverTimestamp() })); await assertSucceeds(deleteDoc(muist(dbVal())));
+    await assertFails(getDoc(muist(vpContext(SEURA_B).firestore()))); await assertFails(getDoc(muist(valmentajaContext(VALM_B_UID, SEURA_B).firestore()))); await assertFails(setDoc(muist(valmentajaContext(VALM_B_UID, SEURA_B).firestore()), { teksti: 'x', paivitetty: serverTimestamp() }));
+    await assertFails(setDoc(muist(fysioterapeuttiContext('fyt-1', SEURA_A).firestore()), { teksti: 'x', paivitetty: serverTimestamp() }));   // lukee, ei kirjoita (ei valmennusrooli)
+  });
+  it('VALIDOINTI: vain doc-id "muistiinpanot"; teksti ≤ 500; hasOnly/hasAll; paivitetty = request.time', async () => {
+    await assertFails(setDoc(muist(dbVp(), 'muu'), { teksti: 'x', paivitetty: serverTimestamp() })); await assertFails(setDoc(muist(dbVp()), { teksti: 'x'.repeat(501), paivitetty: serverTimestamp() })); await assertSucceeds(setDoc(muist(dbVp()), { teksti: 'x'.repeat(500), paivitetty: serverTimestamp() }));
+    await assertFails(setDoc(muist(dbVp()), { teksti: 'x', paivitetty: serverTimestamp(), ylimaarainen: 1 })); await assertFails(setDoc(muist(dbVp()), { paivitetty: serverTimestamp() })); await assertFails(setDoc(muist(dbVp()), { teksti: 5, paivitetty: serverTimestamp() })); await assertFails(setDoc(muist(dbVp()), { teksti: 'x', paivitetty: new Date() }));
+  });
+  it('henkilökunnan läsnäolo ennallaan (kirjaus + luku kaikille); tapahtuman field-level-muokkaus (poista vanha muistiinpanokenttä) toimii valmentajalle', async () => {
+    await assertSucceeds(setDoc(las(dbVal(), MUU_UID), { tila: 'paikalla', paivitetty: serverTimestamp() })); await assertSucceeds(getDocs(collection(dbVal(), 'seurat', SEURA_A, 'kalenteri', EV, 'lasnaolijat'))); await assertSucceeds(getDocs(collection(dbVp(), 'seurat', SEURA_A, 'kalenteri', EV, 'lasnaolijat')));
+    await testEnv.withSecurityRulesDisabled(async (c) => { await updateDoc(kal(c.firestore()), { muistiinpanot: 'vanha vuotava teksti' }); });
+    await assertSucceeds(updateDoc(kal(dbVal()), { muistiinpanot: deleteField(), paivitetty: serverTimestamp(), muokkaaja_uid: VALM_A_UID }));   // migraatio/tallennus poistaa kentän
   });
 });

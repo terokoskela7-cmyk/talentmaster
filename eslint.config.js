@@ -19,6 +19,7 @@ const APP_GLOBALS = {
   // SDK / kirjastot
   firebase: 'readonly', XLSX: 'readonly', Sentry: 'readonly',
   TM_VIRHEKOODI: 'readonly',
+  TM_KAL_MUISTIINPANO: 'readonly',   // lib/tm_kal_muistiinpano.js (tietosuoja P0)
   TM_SUKUPUOLI: 'readonly',   // lib/tm_sukupuoli.js (§7.12)
   TM_ISTUNTO: 'readonly',   // lib/tm_istunto.js (istuntoturva)   // lib/tm_virhekoodi.js (tallennusvirheen koodi toastiin)
   // lib/tm_eerikkila_normit.js

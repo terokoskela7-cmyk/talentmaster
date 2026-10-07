@@ -1,6 +1,6 @@
 /**
  * R1 Ryhmät (D33): lib/tm_ryhmat.js (puhtaat funktiot) + VP_v25 adapteri (sivun oikea koodi vm:ssä) + lähdetarkistukset.
- * Rules-testit: tests/rules/firestore.rules.test.js (v3.47).
+ * Rules-testit: tests/rules/firestore.rules.test.js (v3.49).
  */
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'fs';
@@ -37,7 +37,7 @@ describe('tmRyhmaSyote: validointi ENNEN kirjoitusta (sama muoto kuin Rules ryhm
   });
 });
 
-describe('oikeudet (peilaa Rules v3.47)', () => {
+describe('oikeudet (peilaa Rules v3.49)', () => {
   it('luonti: SA, johto, valmentaja, talenttivalmentaja, fysiikkavalmentaja; ei fysioterapeutti/pelaaja', () => {
     for (const rooli of ['vp', 'urheilutoimenjohtaja', 'seurasihteeri', 'valmentaja', 'talenttivalmentaja', 'fysiikkavalmentaja']) expect(R.tmRyhmaSaaLuoda({ rooli }), rooli).toBe(true); expect(R.tmRyhmaSaaLuoda({ sa: true })).toBe(true);
     for (const rooli of ['fysioterapeutti', 'pelaaja', 'testivastaava', undefined]) expect(R.tmRyhmaSaaLuoda({ rooli }), String(rooli)).toBe(false);
@@ -162,8 +162,8 @@ describe('Lähdetarkistukset', () => {
     const blokki = VP.slice(VP.indexOf('/* ═══ R1 — Seuran ryhmät'), VP.indexOf('function setWs(ws) {')); expect(blokki).not.toMatch(/_ktLippu|liput\.kentta|_vpLataaLiput/);
     expect(VP).toContain('data-ws="ryhmat" onclick="setWs(\'ryhmat\')"'); expect(VP).toContain('id="ws-ryhmat"'); expect(VP).toContain("if (ws === 'ryhmat') { window._ryTila = null; _ryRender(); _ryLataa(); }"); expect(VP).toContain('<script src="lib/tm_ryhmat.js?v=1"></script>');
   });
-  it('Rules v3.47: ryhmat-säännöt + kalenterin ryhmätapahtumapoikkeus + versio', () => {
-    const r = lue('tm_admin/firestore.rules'); expect(r).toContain('firestore.rules v3.47'); expect(r).toContain('match /ryhmat/{ryhmaId}'); expect(r).toContain('function ryhmaKelpaa()'); expect(r).toContain('ryhmanValmentajaTapahtumassa(seuraId)'); expect(r).toContain('Seuran pulssi (S1) siirtyy v3.48:aan');
+  it('Rules v3.49: ryhmat-säännöt + kalenterin ryhmätapahtumapoikkeus + versio', () => {
+    const r = lue('tm_admin/firestore.rules'); expect(r).toContain('firestore.rules v3.49'); expect(r).toContain('match /ryhmat/{ryhmaId}'); expect(r).toContain('function ryhmaKelpaa()'); expect(r).toContain('ryhmanValmentajaTapahtumassa(seuraId)'); expect(r).toContain('Seuran pulssi (S1) siirtyy v3.50:een');
   });
   it('Geminin käännöslista: kaikki ry_*-avaimet + ruudun otsikot listassa (sv jää määrittelemättä)', () => {
     const d = lue('docs/R1_RYHMAT_SV_KAANNOKSET.md'); for (const k of Object.keys(R.FI)) expect(d, k).toContain('`' + k + '`'); expect(d).toContain('Ryhmät'); expect(d).toContain('Maalivahdit, talenttiryhmä ja muut ryhmät joukkueiden yli');
