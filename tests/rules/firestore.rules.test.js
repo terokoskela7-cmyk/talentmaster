@@ -4308,8 +4308,8 @@ describe('v3.39 · viestit.nakyvyys', () => {
     await seedAdminDoc();
     await testEnv.withSecurityRulesDisabled(async (c) => { const db = c.firestore();
       await setDoc(doc(db, 'seurat', KPV), { nimi: 'KPV', aktiivinen: true, vp_uid: 'vp-kpv-001' });
-      await setDoc(doc(db, 'seurat', KPV, 'pelaajat', TOPIAS), { etunimi: 'Topias', syntymaVuosi: 2013, joukkue: 'KPV U13', joukkueet: ['kpv_u13'], huoltajaEmail: 'huoltaja@test.fi' });
-      await setDoc(doc(db, 'seurat', KPV, 'pelaajat', MUU), { etunimi: 'Muu', syntymaVuosi: 2013, joukkue: 'KPV U13', joukkueet: ['kpv_u13'], huoltajaEmail: 'toinen@test.fi' });
+      await setDoc(doc(db, 'seurat', KPV, 'pelaajat', TOPIAS), { etunimi: 'Topias', syntymaVuosi: 2013, joukkue: 'KPV U13', joukkueet: ['kpv_u13'], huoltajaEmail: 'huoltaja@test.fi', suostumusTila: 'annettu' });   // v3.51: huoltajan viestiluku vaatii suostumuksen
+      await setDoc(doc(db, 'seurat', KPV, 'pelaajat', MUU), { etunimi: 'Muu', syntymaVuosi: 2013, joukkue: 'KPV U13', joukkueet: ['kpv_u13'], huoltajaEmail: 'toinen@test.fi', suostumusTila: 'annettu' });
       const v = (id, nakyvyys, vast) => setDoc(doc(db, 'seurat', KPV, 'viestit', id), Object.assign({ tyyppi: 'valinta', pelaajaId: TOPIAS, jakso: 'y_h2', osa: null, luettu: false, lahettajaUid: 'jarjestelma', teksti: 'x', aika: new Date() }, vast ? { vastaanottajaUid: vast } : {}, nakyvyys ? { nakyvyys } : {}));
       await v('v_henk', 'henkilokunta', 'vp-kpv-001'); await v('v_henk_utj', 'henkilokunta', 'utj-kpv-001'); await v('v_vanha', null, 'vp-kpv-001');
       await v('v_pel', 'pelaaja', 'valm-kpv-u13'); await v('v_huolt', 'huoltaja', 'valm-kpv-u13'); });
@@ -4923,5 +4923,29 @@ describe('v3.50 · viestit: klippi / klippi_vastaus / klippi_kuittaus', () => {
     const s = await assertSucceeds(q(dbVp())); expect(s.size).toBe(2); await assertSucceeds(q(dbVal())); await assertFails(q(vpContext(SEURA_B).firestore()));
     await assertSucceeds(setDoc(v(dbVp(), 'vanha'), { teksti: 'Moi', lahettajaUid: VP_A_UID, vastaanottajaUid: VALM_A_UID, nakyvyys: 'henkilokunta', luettu: false, aika: serverTimestamp() }));
     await assertSucceeds(setDoc(v(dbPel(), 'vanha-pelaaja'), { pelaajaId: PELAAJA_UID, teksti: 'Hei valmentaja', nakyvyys: 'pelaaja', lahettajaUid: 'pel_' + SEURA_A + '_' + PELAAJA_UID, luettu: false, aika: serverTimestamp() }));
+  });
+  /* ── R6.4 PR 2: pelaajan/huoltajan ketju (luku + vastauksen lukukuittaus) ── */
+  it('PR2 · VASTAUKSEN pelaajaId = klipin pelaajaId (vastaus_viestille → get().pelaajaId): oma pelaajaId + toisen pelaajan klippi ✗; oma klippi + toisen pelaajaId ✗ (pelaajan oma token ei riitä)', async () => {
+    await assertFails(setDoc(v(dbPel(), 'pa1'), vastaus({ vastaus_viestille: 'klippi-muu' })));                       // oma pelaajaId, toisen klippi
+    await assertFails(setDoc(v(dbPel(), 'pa2'), vastaus({ vastaus_viestille: KID, pelaajaId: PELAAJA_A2_UID })));      // oma klippi, toisen pelaajaId (onPelaajaItse ✗ + klipin pelaajaId ≠)
+    await assertSucceeds(setDoc(v(dbPel(), 'pa3'), vastaus({ vastaus_viestille: KID })));
+  });
+  it('PR2 · PELAAJA lukee oman vastauksensa (kysely pelaajaId + nakyvyys pelaaja palauttaa klipin + vastauksen); toisen pelaajan vastausta ei', async () => {
+    await assertSucceeds(setDoc(v(dbPel(), 'pv1'), vastaus()));
+    await testEnv.withSecurityRulesDisabled(async (c) => { await setDoc(v(c.firestore(), 'muu-vastaus'), { ...vastaus({ pelaajaId: PELAAJA_A2_UID, vastaus_viestille: 'klippi-muu', lahettajaUid: 'x' }), aika: new Date() }); });
+    const q = await assertSucceeds(getDocs(query(collection(dbPel(), 'seurat', SEURA_A, 'viestit'), where('pelaajaId', '==', PELAAJA_UID), where('nakyvyys', '==', 'pelaaja')))); const idt = q.docs.map((d) => d.id);
+    expect(idt).toContain(KID); expect(idt).toContain('pv1'); expect(idt).not.toContain('muu-vastaus'); await assertFails(getDoc(v(dbPel(), 'muu-vastaus')));
+  });
+  it('PR2 · HUOLTAJA lukee lapsensa ketjun kahdella yhtäsuuruuskyselyllä (nakyvyys pelaaja + huoltaja); ilman suostumusta ✗ (koko kysely)', async () => {
+    const q = (n) => getDocs(query(collection(dbHuolt(), 'seurat', SEURA_A, 'viestit'), where('pelaajaId', '==', PELAAJA_UID), where('nakyvyys', '==', n)));
+    const a = await assertSucceeds(q('pelaaja')), b = await assertSucceeds(q('huoltaja')); expect(a.docs.map((d) => d.id)).toContain(KID); expect(b.docs.map((d) => d.id)).toContain('klippi-huolt');
+    for (const tila of ['odottaa', 'pilotti']) { await seed(tila); await assertFails(q('pelaaja')); await assertFails(q('huoltaja')); await assertFails(getDoc(v(dbHuolt(), KID))); }   // v3.51: ei suostumusta → kysely JA getDoc ✗ (v3.50:ssä kysely vuoti klipit)
+    await seed('annettu'); await assertSucceeds(q('pelaaja'));
+  });
+  it('PR2 · LUKUKUITTAUS: vastaanottaja (valmentaja) merkitsee pelaajan vastauksen luetuksi (vain `luettu`); muu kenttä ✗; pelaaja/huoltaja/toinen valmentaja ✗; pelaaja näkee luettu:true', async () => {
+    await assertSucceeds(setDoc(v(dbPel(), 'lk1'), vastaus()));
+    await assertSucceeds(updateDoc(v(dbVal(), 'lk1'), { luettu: true })); await assertFails(updateDoc(v(dbVal(), 'lk1'), { luettu: true, teksti: 'muokattu' })); await assertFails(updateDoc(v(dbVal(), 'lk1'), { luettu: 'kyllä' }));
+    await assertFails(updateDoc(v(dbPel(), 'lk1'), { luettu: true })); await assertFails(updateDoc(v(dbHuolt(), 'lk1'), { luettu: true })); await assertFails(updateDoc(v(valmentajaContext('toinen-valm', SEURA_A).firestore(), 'lk1'), { luettu: true }));
+    expect((await assertSucceeds(getDoc(v(dbPel(), 'lk1')))).data().luettu).toBe(true);
   });
 });
