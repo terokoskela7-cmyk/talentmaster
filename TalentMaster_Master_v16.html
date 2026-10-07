@@ -114,6 +114,7 @@ window.TM_KAAVIO_HOST = {
 <script src="lib/tm_joukkuejakso.js?v=2"></script>   <!-- J2: joukkuejakso (Kausi → Joukkueen jakso): valinnat, lomake, kortti -->
 <script src="lib/tm_koti_oletus.js?v=1"></script>
 <script src="lib/tm_joukkoaloitus.js?v=1"></script>   <!-- J4 C: joukkoaloitus (Kausi → Pelaajien jaksot) -->   <!-- V1: TM:n oletuskotiharjoitteet (D16: seura ensin, TM varalla); generoitu harjoitelogiikka_v4:stä -->
+<script src="lib/tm_liput.js?v=1"></script>   <!-- K1 osa 2: liput (liput/julkiset + vanha fallback K7:ään) -->
 <script src="lib/tm_aloita_jakso.js?v=3"></script>   <!-- jaettu "Aloita jakso" -modaali (Master + VP) -->
 <script src="lib/tm_vastuuhenkilo.js?v=1"></script>   <!-- vastuuhenkilö per pelaaja (vastuuhenkilo {uid, rooli, asetettu_pvm}); henkilökunnan rivi + asetus -->
 <script src="lib/tm_kehityssilmukka.js?v=2"></script>
@@ -7358,7 +7359,8 @@ async function _mJjLataaLiput() {
   if (!_seuraId || _demo || typeof _db === 'undefined' || !_db) return {};
   if (window._mJjLiput[_seuraId]) return window._mJjLiput[_seuraId];
   let l = {};
-  try { const sd = await _db.collection('seurat').doc(_seuraId).get(); l = (sd.exists && sd.data().liput) || {}; } catch (e) { console.warn('[J2] liput:', e && e.message); }
+  try { const ref = _db.collection('seurat').doc(_seuraId), L = window.TM_LIPUT; const [sd, jd] = await Promise.all([ref.get(), ref.collection('liput').doc('julkiset').get().catch(function () { return null; })]); const seura = sd.exists ? sd.data() : null; l = L ? L.tmLiput(jd && jd.exists ? jd.data() : null, seura) : ((seura && seura.liput) || {}); }   // K1 osa 2: liput/julkiset voittaa, vanha seurat.liput.kentta fallback (K7:ään)
+  catch (e) { console.warn('[J2] liput:', e && e.message); }
   window._mJjLiput[_seuraId] = l; return l;
 }
 function _mJjSaaMuokata() { return !!_superAdmin || ['vp', 'urheilutoimenjohtaja', 'talenttivalmentaja', 'valmentaja'].indexOf(_rooli) >= 0; }

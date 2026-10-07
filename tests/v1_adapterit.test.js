@@ -75,7 +75,7 @@ function rakenna(sovellus, { pelaaja, kentat = {}, rooli = 'valmentaja', sa = fa
     c._vpJaksoVaihto = (pp, jf) => L.KS.tmAsetaJaksofokus(pp, jf, { nytISO: NYT.toISOString(), tulos: 'vaihdettu' });
     c._vpJfKirjoita = async (pid, upd, viesti, paivita) => { try { await db.collection('seurat').doc('kpv').collection('pelaajat').doc(pid).update(upd); paivita && paivita(); c.toast(viesti, 'ok'); } catch (e) { c.toast('virhe', 'error'); } };
   }
-  c.window = c; Object.assign(c.window, { TM_JAKSO_MALLI: L.JM, TM_VASTUUHENKILO: L.VH, TM_ALOITA_JAKSO: L.AJ, TM_TUKITAVOITTEET: L.TT, TM_KOTI_OLETUS: L.KOTI, _mHenkilosto: [], _vpSA: sa, _vpRooli: rooli }); vm.createContext(c);
+  c.window = c; Object.assign(c.window, { TM_LIPUT: require('../lib/tm_liput.js'), TM_JAKSO_MALLI: L.JM, TM_VASTUUHENKILO: L.VH, TM_ALOITA_JAKSO: L.AJ, TM_TUKITAVOITTEET: L.TT, TM_KOTI_OLETUS: L.KOTI, _mHenkilosto: [], _vpSA: sa, _vpRooli: rooli }); vm.createContext(c);
   const nimet = master
     ? ['function _mAloitaJaksoRivi(', 'function _mAjPelaajaPp(', 'function _mPelaajaNimiAj(', 'async function _mJjLataaLiput(', 'async function _mAjHaeYhteinen(', 'async function _mAjHaeHavainnot(', 'async function _mAjHaeTuki(', 'window._mAloitaJaksoAvaa = async function', 'window._mAloitaJaksoSulje = function', 'window._mAloitaJaksoTallenna = async function', 'async function _mAjKirjoitaJakso(']
     : ['async function _vpLataaLiput(', 'async function _vpAjHaeTuki(', 'window._vpAloitaJaksoAvaa = async function', 'window._vpAloitaJaksoSulje = function', 'window._vpAloitaJaksoTallenna = async function'];
@@ -89,12 +89,17 @@ describe.each([['master', 'Master_v16'], ['vp', 'VP_v25']])('%s · jakson aloitu
     it('ILMAN LIPPUA: vanha lomake täsmälleen ennallaan (snapshot), ei konteksti-hakuja (vain seura-dokumentin lippu), tallennus vanhalla polulla (tukiosa alue + perustelu)', async () => {
       const S = OLETUS(); S.docs['seurat/kpv'] = { nimi: 'KPV' };   // liput puuttuu (KPV tänään)
       const e = rakenna(sov, { rooli, S, kentat: KENTAT({ _ajAlue: 'kestävyys', _ajPer: 'Jaksaminen tukee pelin lukemista', _ajKesto: '6' }) }); await e.avaa();
-      expect(e.log.luvut).toEqual(['seurat/kpv']); expect(e.log.modalHtml).not.toContain('data-aj-tuki'); expect(e.log.modalHtml).not.toContain('_ajAlku'); expect(e.log.modalHtml).toContain('id="_ajAlue"'); expect(e.log.modalHtml).toContain('id="_ajPer"');
+      expect(e.log.luvut).toEqual(['seurat/kpv', 'seurat/kpv/liput/julkiset']); expect(e.log.modalHtml).not.toContain('data-aj-tuki'); expect(e.log.modalHtml).not.toContain('_ajAlku'); expect(e.log.modalHtml).toContain('id="_ajAlue"'); expect(e.log.modalHtml).toContain('id="_ajPer"');
       const x = e.c.window[sov === 'master' ? '_mAjX' : '_vpAjX']; expect(x.tuki).toBeUndefined();
       await e.tallenna(); await lopeta(); expect(e.log.upd).toHaveLength(1); const jf = e.log.upd[0].data.jaksofokus; expect(jf.tukiosa).toMatchObject({ alue: 'kestävyys', perustelu: 'Jaksaminen tukee pelin lukemista' }); expect(jf.tukitavoitteet).toBeUndefined(); expect(jf.joukkuejakso_viite).toBeUndefined();
     });
+    it('K1 osa 2: liput/julkiset on yksi totuus — {kentta:true} avaa V1-lomakkeen ilman vanhaa lippua, {kentta:false} sulkee vaikka vanha true; ei boolean → vanha fallback', async () => {
+      const kokeile = async (seura, julkiset) => { const S = OLETUS(); S.docs['seurat/kpv'] = seura; if (julkiset !== undefined) S.docs['seurat/kpv/liput/julkiset'] = julkiset; const e = rakenna(sov, { rooli, S }); await e.avaa(); return e.log.modalHtml; };
+      expect(await kokeile({ nimi: 'KPV' }, { kentta: true })).toContain('data-aj-tuki'); expect(await kokeile({ nimi: 'KPV', liput: { kentta: true } }, { kentta: false })).not.toContain('data-aj-tuki');
+      expect(await kokeile({ nimi: 'KPV', liput: { kentta: true } }, { kentta: 'true' })).toContain('data-aj-tuki'); expect(await kokeile({ nimi: 'KPV', liput: { kentta: true } }, undefined)).toContain('data-aj-tuki'); expect(await kokeile({ nimi: 'KPV' }, {})).not.toContain('data-aj-tuki');
+    });
     it('LIPPU false / puuttuu / ei tosi → vanha lomake (liput.kentta pitää olla täsmälleen true)', async () => {
-      for (const liput of [{ kentta: false }, { kentta: 'true' }, {}, null]) { const S = OLETUS(); S.docs['seurat/kpv'] = { nimi: 'KPV', liput }; const e = rakenna(sov, { rooli, S }); await e.avaa(); expect(e.log.modalHtml, JSON.stringify(liput)).not.toContain('data-aj-tuki'); expect(e.log.luvut).toEqual(['seurat/kpv']); }
+      for (const liput of [{ kentta: false }, { kentta: 'true' }, {}, null]) { const S = OLETUS(); S.docs['seurat/kpv'] = { nimi: 'KPV', liput }; const e = rakenna(sov, { rooli, S }); await e.avaa(); expect(e.log.modalHtml, JSON.stringify(liput)).not.toContain('data-aj-tuki'); expect(e.log.luvut).toEqual(['seurat/kpv', 'seurat/kpv/liput/julkiset']); }
     });
     it('LIPULLA: haut rinnakkain (joukkuejakso, havainnot, arviointikehys-konfiguraatio, prosessiprofiili, harjoitepankki, ohjelmat); Topias LAH: EI nopeusehdotusta testistä → liikehallinta; oletuspäivät joukkuejaksosta', async () => {
       const e = rakenna(sov, { rooli }); await e.avaa();

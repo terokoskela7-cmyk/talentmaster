@@ -1,10 +1,15 @@
 rules_version = '2';
 // ══════════════════════════════════════════════════════════════════════════
-// TalentMaster™ — firestore.rules v3.42
+// TalentMaster™ — firestore.rules v3.43
 //
 // Lähde:  tm_admin/firestore.rules
 // Deploy: PR → N4-CI deployaa automaattisesti (Console-käsityö poistui).
 //
+// Muutokset v3.42 → v3.43 (seurat/{id}/liput/julkiset — K1 osa 2, 7.10.2026 — additiivinen, §11; uusi polku, ei migraatiota):
+//   · seurat/{id}/liput/julkiset = { kentta: bool, … } — seuran PELAAJALLE LUETTAVAT käyttöönottoliput (Kenttä-UI). Syy: seurat/{id} on luettavissa vain onOmaSeura:lle, eikä pelaajan token (pelaajaSeuraId) läpäise sitä.
+//     Dokumentissa EI saa olla mitään pelaajalta piilotettavaa (vain boolean-liput). Yksi totuus: Pelaaja_v7, Master, VP ja V1/J4-polut lukevat tämän; vanha seurat/{id}.liput.kentta on fallback K7:ään asti.
+//   · Luku: SA | oman seuran henkilökunta | oman seuran pelaaja (onPelaajanSeura) — kokonaisuus funktiossa onLiputLuku(): K5 lisää huoltajan luvun TÄHÄN yhteen paikkaan (ei muita sääntöjä muutettavaksi).
+//   · Kirjoitus: SA | oman seuran johto (onJohtoRooli). Pelaaja/huoltaja/valmentaja eivät kirjoita. (Ryhmät D33 siirtyvät v3.44:ään.)
 // Muutokset v3.41 → v3.42 (harjoitepankki.kaytto, 6.10.2026 — kovennus, ei data-muutosta):
 //   · PELAAJA lukee harjoitepankista vain tila=='hyvaksytty' && kaytto=='koti' (arvot: koti | joukkue → ekvivalentti "kaytto != 'joukkue'", mutta FAIL-CLOSED: kaytto-kentätön rivi ei kelpaa).
 //     Joukkueharjoite (valmentajan rata/rutiini, kaytto 'joukkue') ei ole koskaan pelaajan luettavissa, vaikka se olisi hyväksytty. Henkilökunta lukee kaikki.
@@ -450,6 +455,13 @@ service cloud.firestore {
     }
     function onPelaajanSeura(seuraId) {
       return onPelaaja() && request.auth.token.pelaajaSeuraId == seuraId;
+    }
+
+    // v3.43 — kuka lukee seuran julkiset liput (seurat/{id}/liput/*): SA, oman seuran henkilökunta, oman seuran pelaaja. K5: lisää huoltaja tähän (esim. || onSeuranHuoltaja(seuraId)).
+    function onLiputLuku(seuraId) {
+      return onSuperAdmin()
+          || (onKirjautunut() && onOmaSeura(seuraId))
+          || onPelaajanSeura(seuraId);
     }
 
     /* v3.26 — SOLO-LAPSEN OMA IDENTITEETTI (Vaihe 0 / PR 2b). Token `soloLapsiKirjaudu`-funktiolta
@@ -916,6 +928,12 @@ service cloud.firestore {
         allow read:   if onSuperAdmin() || (onKirjautunut() && onOmaSeura(seuraId))
                       || (lohko == 'teemat' && onPelaajanSeura(seuraId));
         allow create, update, delete: if onSuperAdmin() || onKonseptiMuokkaaja(seuraId);
+      }
+      // v3.43 — seuran julkiset liput (luku pelaajalle; kirjoitus johto/SA). Vain boolean-liput, ei piilotettavaa sisältöä.
+      match /liput/{lippuId} {
+        allow read:   if onLiputLuku(seuraId);
+        allow create, update: if onSuperAdmin() || (onKirjautunut() && onOmaSeura(seuraId) && onJohtoRooli());
+        allow delete: if onSuperAdmin();
       }
       match /harjoitepankki/{harjoiteId} {
         // v3.41: pelaaja vain hyväksytyt (luonnos = SJK:n kuittaamaton / TM:n esitäyttö → ei pelaajalle)

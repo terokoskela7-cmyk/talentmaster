@@ -61,7 +61,7 @@ function rakenna({ rooli = 'valmentaja', sa = false, S = OLETUS(), pelaajat = RO
     firebase: { auth: () => ({ currentUser: {} }), firestore: { FieldValue: { arrayUnion: (...a) => ({ __arrayUnion: a }) } } }, _renderPinfoFirestore: () => { log.renderit++; }, _mIdpReRender: () => {}, _mLataaHenkilosto() {}, _tmHenkiloNimi: (p) => p.nimi,
     _devIkaSp: (p) => ({ ika: p._ika || 13, sp: 'P' }), _ttNormPositio: () => null, _mTtItems: () => ITEMS, _mTtEhdotus: () => ({ tyyppi: 'teknis_taktinen', konsepti_avain: 'y_h2' }), _ohjLataaKirjasto: async () => OHJ, _mLataaTeemat: async () => {},
     _mJaksoVaihto: (pp, jf) => L.KS.tmAsetaJaksofokus(pp, jf, { nytISO: NYT.toISOString() }) };
-  c.window = c; Object.assign(c.window, { TM_JAKSO_MALLI: L.JM, TM_VASTUUHENKILO: L.VH, TM_ALOITA_JAKSO: L.AJ, TM_TUKITAVOITTEET: L.TT, TM_KOTI_OLETUS: L.KOTI, TM_JOUKKUEJAKSO: L.JJ, TM_JOUKKOALOITUS: L.JA, TM_VALMENNUSLINJA: L.VL, _mTeemat: L.VL.tmTeemaKerros({ jaksot: [] }, null), _ohjKirjasto: OHJ, _mSeuraNimi: 'KPV', _mHenkilosto: [], _mJjLiput: {} });
+  c.window = c; Object.assign(c.window, { TM_LIPUT: require('../lib/tm_liput.js'), TM_JAKSO_MALLI: L.JM, TM_VASTUUHENKILO: L.VH, TM_ALOITA_JAKSO: L.AJ, TM_TUKITAVOITTEET: L.TT, TM_KOTI_OLETUS: L.KOTI, TM_JOUKKUEJAKSO: L.JJ, TM_JOUKKOALOITUS: L.JA, TM_VALMENNUSLINJA: L.VL, _mTeemat: L.VL.tmTeemaKerros({ jaksot: [] }, null), _ohjKirjasto: OHJ, _mSeuraNimi: 'KPV', _mHenkilosto: [], _mJjLiput: {} });
   vm.createContext(c);
   const nimet = ['function _joukkueTunniste(', 'async function _mJjLataaLiput(', 'function _mJjSaaMuokata(', 'function _mJjCtx(', 'async function _mJjRender(', 'function _mJjVoiLuoda(', 'async function _mAjHaeYhteinen(', 'async function _mAjHaeHavainnot(', 'async function _mAjHaeTuki(', 'function _mAjPelaajaPp(', 'function _mPelaajaNimiAj(',
     'window._mAloitaJaksoAvaa = async function', 'window._mAloitaJaksoSulje = function', 'async function _mAjKirjoitaJakso(', 'function _mJaPiirra(', 'async function _mJaLaske(', 'async function _mJaYksi(', 'window._mJaHyvaksy = async function', 'window._mJaAvaa = function', 'window._mJaKaikki = async function'];
@@ -73,7 +73,7 @@ function rakenna({ rooli = 'valmentaja', sa = false, S = OLETUS(), pelaajat = RO
 
 describe.each([['valmentaja'], ['vp']])('KPV U13 · %s', (rooli) => {
   it('LIPPU: ilman liput.kentta === true ei korttia eikä pelaajalistaa eikä pelaajien lukuja; lipulla osio syntyy joukkuejakson alle', async () => {
-    const S = OLETUS(); S.docs['seurat/kpv'] = { nimi: 'KPV' }; const e = rakenna({ rooli, S }); await e.c._mJjRender(); await lopeta(20); expect(e.kortti()).toBe(''); expect(e.osio()).toBe(''); expect(e.log.luvut).toEqual(['seurat/kpv']);
+    const S = OLETUS(); S.docs['seurat/kpv'] = { nimi: 'KPV' }; const e = rakenna({ rooli, S }); await e.c._mJjRender(); await lopeta(20); expect(e.kortti()).toBe(''); expect(e.osio()).toBe(''); expect(e.log.luvut).toEqual(['seurat/kpv', 'seurat/kpv/liput/julkiset']);
     const on = rakenna({ rooli }); await on.rendaa(); expect(on.kortti()).toContain('Joukkueen jakso'); expect(on.osio()).toContain('Pelaajien jaksot');
   });
   it('LISTA: joukkueen pelaajat (joukkue-nimi TAI joukkueet[]), toisen joukkueen ei; tilat: käynnissä / ei ydinvahvuutta / hyväksyttävissä / Leikkijä; nimen mukaan järjestettynä', async () => {
