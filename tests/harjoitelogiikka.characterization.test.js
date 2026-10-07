@@ -186,3 +186,37 @@ describe('generoimTehtavat — PHV (PR C)', () => {
     expect(d.ohje).not.toMatch(/⚠️/);
   });
 });
+
+// ── K1: "jakso ensin, sitten testit" (opts.jaksoEnsin) — vanha polku lukittu, uusi vain lipun takana ──
+describe('valitsePaivanHarjoite — K1 opts.jaksoEnsin', () => {
+  const H = (lisa) => Object.assign({ nimi: 'Seuran porttikuljetus', tyyppi: 'T', lahde: 'seura', tila: 'hyvaksytty', kaytto: 'koti', konsepti: 'y_h2', ohje: 'Kuljeta pallo porttien läpi.', kesto_min: 12, ika_min: 10, ika_max: 16 }, lisa || {});
+  const P = (lisa) => Object.assign({ syntymaVuosi: 2013, seuraId: 'kpv', luotu: '2026-03-01', tki_kehityskohde: 'syotto', jaksofokus: { konsepti_avain: 'y_h2', konsepti_nimi: 'Kuljettaminen' } }, lisa || {});
+  const BANK = (rivit) => ({ seuraId: 'kpv', harjoitteet: rivit });
+  it('ILMAN opts / opts.jaksoEnsin !== true → täsmälleen sama tulos kuin ennen (jakso ei vaikuta); kenttärakenne ennallaan', () => {
+    const vanha = lib.valitsePaivanHarjoite(P(), lib.PANKKI, PVM, BANK([H()]));
+    expect(vanha.nimi).not.toBe('Seuran porttikuljetus');   // seuran rivin kehityskohde ei täsmää testikohteeseen → TM-polku
+    for (const opts of [undefined, null, {}, { jaksoEnsin: false }, { jaksoEnsin: 'true' }, { jaksoEnsin: 1 }]) expect(lib.valitsePaivanHarjoite(P(), lib.PANKKI, PVM, BANK([H()]), opts)).toEqual(vanha);
+    expect(Object.keys(vanha).sort()).toEqual(VPH_KENTAT);
+    for (const [nimi, p] of Object.entries(FIKSTURIT)) expect(lib.valitsePaivanHarjoite(p, lib.PANKKI, PVM, undefined, { jaksoEnsin: true }), nimi).toEqual(lib.valitsePaivanHarjoite(p, lib.PANKKI, PVM));   // ei jaksoa → testipolku
+  });
+  it('jaksoEnsin: pelaajan jakson konsepti_avain täsmää seuran hyväksyttyyn pankkiriviin → päivän treeni siitä (lahde seura, jaksosta: true), kehityskohde silti testistä', () => {
+    const r = lib.valitsePaivanHarjoite(P(), lib.PANKKI, PVM, BANK([H()]), { jaksoEnsin: true });
+    expect(r).toMatchObject({ nimi: 'Seuran porttikuljetus', lahde: 'seura', jaksosta: true, kesto: '12 min', tyyppi: 'T', kehityskohde: 'syotto' });
+    expect(lib.valitsePaivanHarjoite(P(), lib.PANKKI, PVM, [H()], { jaksoEnsin: true }).nimi).toBe('Seuran porttikuljetus');   // pelkkä taulukkokin kelpaa
+  });
+  it('ei osumaa → testipolku täsmälleen ennallaan: toinen konsepti, ei konsepti-kenttää, ei jaksoa, tyhjä pankki', () => {
+    const vanha = lib.valitsePaivanHarjoite(P(), lib.PANKKI, PVM);
+    for (const pankki of [BANK([H({ konsepti: 'y_h9' })]), BANK([H({ konsepti: undefined })]), BANK([]), undefined, null]) expect(lib.valitsePaivanHarjoite(P(), lib.PANKKI, PVM, pankki, { jaksoEnsin: true })).toEqual(vanha);
+    expect(lib.valitsePaivanHarjoite(P({ jaksofokus: null }), lib.PANKKI, PVM, BANK([H()]), { jaksoEnsin: true })).toEqual(lib.valitsePaivanHarjoite(P({ jaksofokus: null }), lib.PANKKI, PVM));
+  });
+  it('puolustavat rajat: joukkue-käyttöinen, luonnos, ei-seura-lähde, eri seura ja väärä ikä eivät koskaan pelaajalle', () => {
+    const vanha = lib.valitsePaivanHarjoite(P(), lib.PANKKI, PVM);
+    for (const rivi of [H({ kaytto: 'joukkue' }), H({ tila: 'luonnos' }), H({ lahde: 'tm' }), H({ ika_min: 14 }), H({ ika_max: 11 }), H({ nimi: '' })]) expect(lib.valitsePaivanHarjoite(P(), lib.PANKKI, PVM, BANK([rivi]), { jaksoEnsin: true }), JSON.stringify(rivi)).toEqual(vanha);
+    expect(lib.valitsePaivanHarjoite(P(), lib.PANKKI, PVM, { seuraId: 'sjk', harjoitteet: [H()] }, { jaksoEnsin: true })).toEqual(vanha);
+  });
+  it('useampi konseptiin sopiva rivi: deterministinen päiväindeksi (sama päivä → sama; vaihtuu päivittäin)', () => {
+    const rivit = [H({ nimi: 'A' }), H({ nimi: 'B' }), H({ nimi: 'C' })];
+    const a = lib.valitsePaivanHarjoite(P(), lib.PANKKI, '2026-06-15', BANK(rivit), { jaksoEnsin: true }).nimi, b = lib.valitsePaivanHarjoite(P(), lib.PANKKI, '2026-06-15', BANK(rivit), { jaksoEnsin: true }).nimi;
+    expect(a).toBe(b); const nimet = new Set(['2026-06-15', '2026-06-16', '2026-06-17'].map((d) => lib.valitsePaivanHarjoite(P(), lib.PANKKI, d, BANK(rivit), { jaksoEnsin: true }).nimi)); expect(nimet.size).toBe(3);
+  });
+});

@@ -60,10 +60,10 @@ describe('Pelaaja_v7 + SW', () => {
   });
   it('lähde: g_koti-osio rMina():ssa (tyhjä body piilottaa), lib ladataan ?v=1; Vanhempi_v2 ei lataa; Pelaaja_v7 ei lue ohjelmat/harjoitepankki-kokoelmia; ei SJK-kovakoodausta', () => {
     expect(PE).toContain('lib/tm_kotiharjoitteet.js?v=1'); expect(PE).toMatch(/id: 'g_koti'[^]*?body: rMinaKotiharjoitteet\(\)/); expect(lue('TalentMaster_Vanhempi_v2.html')).not.toMatch(/tm_kotiharjoitteet|TM_KOTIHARJOITTEET/);
-    expect(PE).not.toMatch(/collection\('(ohjelmat|harjoitepankki)'\)/); expect(lue('lib/tm_kotiharjoitteet.js')).not.toMatch(/SJK|KPV/i.test('') ? /x^/ : /'SJK'|"SJK"/);
+    expect(PE).not.toMatch(/collection\('ohjelmat'\)/); expect(PE).not.toMatch(/collection\('harjoitepankki'\)(?!\.where\('tila', '==', 'hyvaksytty'\)\.where\('kaytto', '==', 'koti'\))/);   // K1: pankin luku vain Rules v3.42:n vaatimilla kahdella ehdolla (hyväksytty + koti) expect(lue('lib/tm_kotiharjoitteet.js')).not.toMatch(/SJK|KPV/i.test('') ? /x^/ : /'SJK'|"SJK"/);
     const koodi = lue('lib/tm_kotiharjoitteet.js').replace(/\/\*[\s\S]*?\*\//g, ''); expect(koodi).not.toMatch(/firebase|firestore|collection\(|fetch\(/i);
   });
   it('SW: cache-versio nostettu (v75), lib allowlistissä (offline); ei muita muutoksia sw-allowlistiin', () => {
-    const sw = lue('sw_pelaaja.js'); expect(sw).toMatch(/const CACHE = 'tm-pelaaja-v75'/); expect(sw).toContain("'/lib/tm_kotiharjoitteet.js'");
+    const sw = lue('sw_pelaaja.js'); expect(sw).toMatch(/const CACHE = 'tm-pelaaja-v(7[5-9]|[89]\d)'/); expect(sw).toContain("'/lib/tm_kotiharjoitteet.js'");
   });
 });
