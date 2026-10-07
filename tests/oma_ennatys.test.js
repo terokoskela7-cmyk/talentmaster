@@ -146,11 +146,11 @@ const P7 = lue('TalentMaster_Pelaaja_v7.html');
 function pelaajaCtx(pelaaja, ls) {
   const body = []; const el = () => ({ classList: { add() {}, remove() {} }, remove() {}, set innerHTML(v) { this._h = v; }, get innerHTML() { return this._h; } });
   const document = { getElementById: (id) => body.find((e) => e.id === id) || null, createElement: el, body: { appendChild: (e) => body.push(e) } };
-  const ctx = { _pelaaja: pelaaja, _isDemoUser: false, window: {}, document, localStorage: ls, requestAnimationFrame: (f) => f(),
-    setTimeout: () => 0, JSON, Object, String, Number, Math, t: LANG.t };
+  const ctx = { _pelaaja: JSON.parse(JSON.stringify(pelaaja)), _isDemoUser: false, window: {}, document, localStorage: ls, requestAnimationFrame: (f) => f(),
+    setTimeout: () => 0, JSON, Object, String, Number, Math, Promise, Array, console: { warn() {} }, _ENN_NAHTY_MAX: 190, t: LANG.t };
   vm.createContext(ctx);
   vm.runInContext([pura(P7, 'function _thEsc('), pura(P7, 'function _kkEnnatysTiedot('), pura(P7, 'function _ennRivit('), pura(P7, 'function _ennUudetNakematta('),
-    pura(P7, 'function _ennLuku('), pura(P7, 'function _ennArvoTxt('), pura(P7, 'function _naytaUusiEnnatys('), pura(P7, 'function _kkEnnatyksetHTML(')].join('\n')
+    pura(P7, 'function _ennLuku('), pura(P7, 'function _ennArvoTxt('), pura(P7, 'function _ennNahtyYhdista('), pura(P7, 'function _ennNahtyPolku('), pura(P7, 'function _ennNahtyDokiin('), pura(P7, 'function _naytaUusiEnnatys('), pura(P7, 'function _kkEnnatyksetHTML(')].join('\n')
     + '\nthis.nayta = _naytaUusiEnnatys; this.puhdas = _ennUudetNakematta; this.kortti = _kkEnnatyksetHTML;', ctx);
   ctx.body = body; return ctx;
 }
