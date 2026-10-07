@@ -62,6 +62,16 @@ describe('2 · kerrokset', () => {
   });
 });
 
+describe('2b · ilmanAluetta (K1-korjaus: ei oletusaluetta, ei tekstiä)', () => {
+  it('ilmanAluetta:true → pelkkä kenttä: ei ase-/ase puuttuu -laatikkoa, ei tekstiä, data.alue null; ilman lippua oletus (katkoviiva + "ase puuttuu") ENNALLAAN', () => {
+    const ilman = K.tmKentta({ koko: 'puoli', ilmanAluetta: true, ase: null }, {}); expect(ilman.data.alue).toBeNull(); expect(ilman.html).toBe('<div class="kt-layer"></div>'); expect(ilman.html + ilman.svg).not.toMatch(/kt-ase|ase puuttuu|oma alue/);
+    const w = K.tmKentta({ koko: 'puoli', ilmanAluetta: true }, { wrap: true }); expect(w).toContain('<div class="kt">'); expect(w).not.toMatch(/kt-ase|ase puuttuu/);
+    const vanha = K.tmKentta({ koko: 'puoli', ase: null }, {}); expect(vanha.html).toContain('kt-ase-puuttuu'); expect(vanha.html).toContain('ase puuttuu'); expect(vanha.data.alue).toMatchObject({ puuttuu: true });
+    for (const v of [false, 'true', 1, undefined]) expect(K.tmKentta({ koko: 'puoli', ilmanAluetta: v, ase: null }, {}).html, String(v)).toContain('kt-ase-puuttuu');   // vain täsmälleen true
+    const ase = K.tmKentta({ koko: 'puoli', ilmanAluetta: true, ase: { alue: { x: 30, y: 48, w: 40, h: 30 }, nimi: 'X' } }, {}); expect(ase.html).toBe('<div class="kt-layer"></div>');   // alue ei piirry vaikka annettaisiin (K1 ei anna)
+  });
+});
+
 describe('3 · viikkomerkit', () => {
   it('{n:6, tehty:1} → 1 tehty, 1 nyt, 4 tyhjää', () => {
     const r = K.tmKentta({ ase: ASE, reitti: { loppu: 'maali' }, viikot: { n: 6, tehty: 1 } });
@@ -177,7 +187,7 @@ describe('K0 ei muuta näkymiä (D10/D11 vartijat)', () => {
     [PE, VH].forEach((h) => {
       expect(h).toMatch(/--chalk:rgba\(242,239,230,\.55\); --chalk2:rgba\(242,239,230,\.28\)/);
       expect(h).toMatch(/:root\[data-theme="light"\] \{ --chalk:rgba\(28,28,26,\.45\); --chalk2:rgba\(28,28,26,\.2\); --amber-dim:rgba\(224,160,64,\.2\); \}/);
-      expect(h).toContain('<script src="lib/tm_kentta.js?v=1"></script>');
+      expect(h).toContain('<script src="lib/tm_kentta.js?v=2"></script>');
     });
     expect(PE).toMatch(/--amber-dim: rgba\(224,160,64,\.16\)/); expect(VH).toMatch(/--amber-dim:rgba\(224,160,64,\.16\)/);
   });

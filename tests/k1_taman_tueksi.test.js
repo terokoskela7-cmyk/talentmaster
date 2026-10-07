@@ -17,10 +17,18 @@ describe('tmTukiPerustelu', () => {
     expect(K.tmTukiPerustelu('Tukee ydinvahvuutta: kehonhallinta.')).toBe('Tukee vahvuuttasi: kehonhallinta.'); expect(K.tmTukiPerustelu('Pitää ydinvahvuuden käytössä')).toBe('Pitää vahvuuden käytössä');
   });
   it('valmentajan oma teksti sellaisenaan jos läpäisee tarkistuksen', () => { expect(K.tmTukiPerustelu('Jotta pysyt mukana pelissä myös virheen jälkeen')).toBe('Jotta pysyt mukana pelissä myös virheen jälkeen'); expect(K.tmTukiPerustelu('  Rauhallinen aloitus  ')).toBe('Rauhallinen aloitus'); });
-  it('POIS (null): numerot, KIELLETYT (heikkous/rajoite/kriittinen), lähdeviitteet, tulokset/tasot, ketjunimet, tekniset avaimet, tyhjä/ei-teksti', () => {
-    for (const s of ['Kehonhallinta 3 x 5', 'Nopeus 4.8 s', 'Tukee 2 asiaa', 'Tämä on heikkous', 'Rajoite pelissä', 'Kriittinen kohta', 'Nousi testistä', 'Näkyi havainnosta', 'Tuli arviosta', 'Mittaustulos hyvä', 'Taso 2', 'Vertailu muihin', 'SBL-ketju', 'DIAG-pelaaja', 'fy_rajahtavyys', 'FLEI', 'OVR', '', '   ', null, undefined, 5, {}]) expect(K.tmTukiPerustelu(s), String(s)).toBeNull();
-    expect(K.tmTukiPerustelu('Tukee ydinvahvuutta (Nopea 1v1): kehonhallinta.')).toBeNull();   // numero vahvuuden nimessä → koko perustelu pois (varmuus > täydellisyys)
+  it('SALLITTU (K1-korjaus): järjestysnumero/numero taidon nimessä — "1. kosketus", "2. pallo", "1v1", "3 pelaajaa"; taidon sanat "havainnointi", "arvioi", "testaa" eivät ole lähdeviitteitä', () => {
+    for (const s of ['1. kosketukseen kuluu hyvä pallon suojaus ja havainnointi', 'Harjoittelet 1v1-tilanteita', '2. pallo kuuluu aina vapaalle', 'Pelaa 3 pelaajaa vastaan', 'Arvioi tilanne ennen kosketusta', 'Testaa eri suuntia', 'Havainnoi kaverin paikka', 'Pelaa 2. kosketuksella']) expect(K.tmTukiPerustelu(s), s).toBe(s);
+    expect(K.tmTukiPerustelu('Tukee ydinvahvuutta (1v1-kuljetus): 1. kosketus.')).toBe('Tukee vahvuuttasi (1v1-kuljetus): 1. kosketus.');   // numero vahvuuden nimessä ei enää hylkää
+    expect(K.tmTamanTueksiRivit(JF([TT({ perustelu: '1. kosketukseen kuluu hyvä pallon suojaus ja havainnointi' })]))[0].perustelu).toBe('1. kosketukseen kuluu hyvä pallon suojaus ja havainnointi');
   });
+  it('ESTETTY (mittaus-/arvosanamuodot): desimaaliluku, luku + yksikkö (s, m, cm, mm, km, km/h, %, kpl, min, kg), X/Y, "taso N", pisteet, sarja X x Y', () => {
+    for (const s of ['Nopeus 4.8 s', 'Aika 4,8', 'Matka 10 m', 'Matka 10m', 'Hyppy 35 cm', 'Vauhti 24 km/h', 'Onnistui 80 %', 'Onnistui 80%', 'Teit 12 kpl', 'Kesto 5 min', 'Paino 70 kg', 'Teit 5 s', 'Tulos 4/5', 'Tulos 4 / 5', 'Taso 2', 'taso2', 'Sait 3 pistettä', 'Pisteet nousivat', '3 x 5', '3×5', 'Tavoite 3 x 5']) expect(K.tmTukiPerustelu(s), s).toBeNull();
+    for (const s of ['Pelaa 10 sekuntia', 'Tee 3 syöttöä']) expect(K.tmTukiPerustelu(s), s).toBe(s);   // luku + sana joka alkaa yksikön kirjaimella EI ole yksikkö ("s" ≠ "sekuntia"/"syöttöä")
+  });
+  it('POIS (null): numerot, KIELLETYT (heikkous/rajoite/kriittinen), lähdeviitteet, tulokset/tasot, ketjunimet, tekniset avaimet, tyhjä/ei-teksti', () => {
+    for (const s of ['Kehonhallinta 3 x 5', 'Nopeus 4.8 s', 'Tämä on heikkous', 'Rajoite pelissä', 'Kriittinen kohta', 'Nousi testistä', 'Näkyi havainnosta', 'Tuli arviosta', 'Mittaustulos hyvä', 'Taso 2', 'Vertailu muihin', 'SBL-ketju', 'DIAG-pelaaja', 'fy_rajahtavyys', 'FLEI', 'OVR', '', '   ', null, undefined, 5, {}]) expect(K.tmTukiPerustelu(s), String(s)).toBeNull();
+      });
   it('ei yli-pudota tavallisia sanoja (tulossa, kestävyys, testaamaton ei)', () => { expect(K.tmTukiPerustelu('Pelaat tulossa olevassa pelissä rohkeammin')).toContain('tulossa'); expect(K.tmTukiPerustelu('Kestävyys auttaa jaksamaan')).toBe('Kestävyys auttaa jaksamaan'); });
 });
 
