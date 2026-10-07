@@ -15,6 +15,7 @@
 <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
 <script src="lib/tm_appcheck.js?v=1"></script>
+<script src="lib/tm_istunto.js?v=1"></script>   <!-- istuntoturva: tuonti pysähtyy istuntovirheeseen -->
 <!-- SheetJS -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <!-- pdf.js — Palloliiton PDF-tuonti (ei npm, Node.js ei käytettävissä) -->
@@ -3077,9 +3078,11 @@ async function tallennaFirestoreen() {
   // Aja batchina, jaa 400:n eriin
   let onnistuneet = 0;
   let epaonnistuneet = 0;
+  let seis = null;   // istuntovirhe → tuonti pysähtyy ensimmäiseen (ei satoja permission-denied-erää)
   const eraMaara = Math.ceil(paketit.length / BATCH_KOKO);
 
   for (let eIdx = 0; eIdx < eraMaara; eIdx++) {
+    { const _s = TM_ISTUNTO.tmTuontiSeis(firebase.auth(), null); if (_s) { seis = _s; break; } }   // currentUser null (istunto vaihtui/päättyi) → pysähdy ennen erää
     const era = paketit.slice(eIdx * BATCH_KOKO, (eIdx + 1) * BATCH_KOKO);
     const batch = db.batch();
 
@@ -3320,6 +3323,7 @@ async function tallennaFirestoreen() {
     } catch (e) {
       console.error('[batch.commit erä ' + (eIdx+1) + ']', e);
       epaonnistuneet += era.length;
+      { const _s = TM_ISTUNTO.tmTuontiSeis(firebase.auth(), e); if (_s) { seis = _s; break; } }   // permission-denied / unauthenticated → pysähdy ensimmäiseen
     }
     progressFill.style.width = Math.round(((eIdx + 1) / eraMaara) * 100) + '%';
   }
@@ -3327,6 +3331,13 @@ async function tallennaFirestoreen() {
   progressFill.style.width = '100%';
   progressText.textContent = onnistuneet + ' / ' + paketit.length + ' tallennettu';
 
+  if (seis) {   // montako ehdittiin tuoda + syy; "Yritä uudelleen" ohittaa jo tuodut (merge)
+    toast(TM_ISTUNTO.tmTuontiYhteenveto(onnistuneet, paketit.length, seis), 'err');
+    progressText.textContent = onnistuneet + ' / ' + paketit.length + ' tallennettu — pysäytetty (' + seis.syy + ')';
+    nappi.disabled = false;
+    nappi.innerHTML = '💾 Yritä uudelleen';
+    return;
+  }
   if (epaonnistuneet === 0) {
     const moodTeksti = moodi === 'tapahtuma' ? 'tapahtumapohjaisesti' : 'historiapohjaisesti';
     toast('✅ ' + onnistuneet + ' pelaajaa tallennettu ' + moodTeksti, 'ok');
@@ -3875,9 +3886,10 @@ async function tallennaPdfFirestoreen() {
   const ptxt = document.getElementById('pdf-progress-text');
   nappi.disabled = true; prog.style.display = 'block';
 
-  let ok = 0, fail = 0;
+  let ok = 0, fail = 0, seis = null;   // seis: istuntovirhe → pysähdy
   const eraMaara = Math.ceil(tallennettavat.length / BATCH_KOKO);
   for (let e = 0; e < eraMaara; e++) {
+    { const _s = TM_ISTUNTO.tmTuontiSeis(firebase.auth(), null); if (_s) { seis = _s; break; } }   // currentUser null → pysähdy
     const era = tallennettavat.slice(e * BATCH_KOKO, (e + 1) * BATCH_KOKO);
     const batch = db.batch();
     era.forEach(r => {
@@ -3951,9 +3963,10 @@ async function tallennaPdfFirestoreen() {
     });
     ptxt.textContent = (e + 1) + ' / ' + eraMaara + ' erä';
     try { await batch.commit(); ok += era.length; }
-    catch(err) { console.error('[PDF batch ' + (e + 1) + ']', err); fail += era.length; }
+    catch(err) { console.error('[PDF batch ' + (e + 1) + ']', err); fail += era.length; { const _s = TM_ISTUNTO.tmTuontiSeis(firebase.auth(), err); if (_s) { seis = _s; break; } } }
     fill.style.width = Math.round(((e + 1) / eraMaara) * 100) + '%';
   }
+  if (seis) { toast(TM_ISTUNTO.tmTuontiYhteenveto(ok, tallennettavat.length, seis), 'err'); ptxt.textContent = ok + ' / ' + tallennettavat.length + ' tallennettu — pysäytetty (' + seis.syy + ')'; nappi.disabled = false; return; }
   fill.style.width = '100%';
   ptxt.textContent = ok + ' / ' + tallennettavat.length + ' tallennettu';
   if (fail === 0) { toast('✅ ' + ok + ' pelaajaa tallennettu PDF:stä', 'ok'); nappi.innerHTML = '✅ Tallennettu'; }

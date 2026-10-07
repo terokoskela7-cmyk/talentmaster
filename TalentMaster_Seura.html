@@ -18,6 +18,7 @@
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-storage-compat.js"></script>
 <script src="lib/tm_pvm.js?v=3"></script>   <!-- tmPaivaIso: paikallinen päivä ("tänään" ≠ UTC-päivä klo 0–3) -->
 <script src="lib/tm_appcheck.js?v=1"></script>
+<script src="lib/tm_istunto.js?v=1"></script>   <!-- istuntoturva: väärä rooli → viesti + "Kirjaudu ulos", ei automaattista signOut():ia; tuonnit pysähtyvät istuntovirheeseen -->
 <script src="lib/tm_verkko.js?v=1"></script>   <!-- verkkokatko: 1 uudelleenyritys + Yhteyskatko-ilmoitus + Sentry warning -->
 <script src="lib/tm_aktiivisuus.js?v=1"></script>   <!-- Toimihenkilon kirjautumisaikaleima — jaettu kirjoituspiste, ks. lib-header -->
 <!-- Excel-tuonti: SheetJS -->
@@ -1336,10 +1337,10 @@ async function lataaProfiili(kayttaja) {
 
     if (!SALLITUT_ROOLIT.includes(rooli)) {
       nayta('kirjautuminen');
-      naytaVirhe('kirjautumisVirhe',
-        'Tämä näkymä on seuran hallinnolle. ' +
-        'Valmentajat kirjautuvat valmentajan näkymään.');
-      await auth.signOut();
+      /* ISTUNTOTURVA: EI automaattista signOut():ia — se katkaisisi istunnon kaikissa välilehdissä (kaikki henkilökunnan sovellukset jakavat yhden istunnon) ja kesken jäävät kirjoitukset kaatuisivat. Viesti + nappi; käyttäjä päättää. */
+      naytaVaaraRooli('kirjautumisVirhe',
+        'Tämä näkymä on seuran hallinnolle (tässä selaimessa on kirjautunut rooli: ' + (rooli || 'ei roolia') + '). ' +
+        'Jos toisessa välilehdessä on toinen tunnus, istunto on vaihtunut myös täällä. Valmentajat kirjautuvat valmentajan näkymään.');
       return;
     }
 
@@ -1389,9 +1390,7 @@ async function lataaProfiili(kayttaja) {
 
       if (!seuraId) {
         nayta('kirjautuminen');
-        naytaVirhe('kirjautumisVirhe',
-          'Seuraa ei löydy. Ota yhteyttä TalentMaster-ylläpitoon.');
-        await auth.signOut();
+        naytaVaaraRooli('kirjautumisVirhe', 'Seuraa ei löydy. Ota yhteyttä TalentMaster-ylläpitoon.');   // ei automaattista signOut():ia (ks. yllä)
         return;
       }
       await asetaAktiivinenSeura(seuraId);
@@ -6662,6 +6661,9 @@ async function ajaExcelTuonti(lahetaKutsut = false) {
     document.getElementById('excelVirhe').textContent = 'Seura ei ole valittuna.';
     return;
   }
+  /* ISTUNTOTURVA: ei tuontia ilman kirjautunutta käyttäjää ja hyväksyttyä roolia (väärän roolin tila → jatkotoiminnot estetty). */
+  { const _s0 = !tila.rooli ? { syy: 'ei_kirjautunut' } : TM_ISTUNTO.tmTuontiSeis(auth, null);
+    if (_s0) { document.getElementById('excelVirhe').textContent = TM_ISTUNTO.tmTuontiYhteenveto(0, _excelData.length, _s0); return; } }
 
   const tuoN   = document.getElementById('excelTuoNappi');
   const tuoLN  = document.getElementById('excelTuoJaLahetaNappi');
@@ -6681,8 +6683,10 @@ async function ajaExcelTuonti(lahetaKutsut = false) {
   const nyt = firebase.firestore.FieldValue.serverTimestamp();
 
   let tuotu = 0, virheet = 0, ohitettu = 0, kutsut = 0, hylatty = 0, eiVuotta = 0;
+  let seis = null;   // istuntovirhe → tuonti pysähtyy (ei satoja permission-denied-rivejä)
 
   for (let i = 0; i < _excelData.length; i++) {
+    { const _s = TM_ISTUNTO.tmTuontiSeis(auth, null); if (_s) { seis = _s; break; } }   // currentUser null (istunto vaihtui/päättyi) → pysähdy ennen riviä
     const p = _excelData[i];
     if (p._hylatty) { hylatty++; continue; }   // paikkamerkkiosoite — ei tuoda, ei kutsuta
     if (p._eiVuotta) { eiVuotta++; continue; }   // syntymävuosi puuttuu / virheellinen — ei tuoda
@@ -6812,6 +6816,7 @@ async function ajaExcelTuonti(lahetaKutsut = false) {
       virheet++;
       console.warn('Rivi ' + (i + 2) + ' virhe:', err.message);
       if (virhe) virhe.textContent = `Rivi ${i+2} epäonnistui: ${err.message}`;
+      { const _s = TM_ISTUNTO.tmTuontiSeis(auth, err); if (_s) { seis = _s; break; } }   // permission-denied / unauthenticated → pysähdy ensimmäiseen
     }
 
     // Pieni viive ettei Firestore ylikuormitu
@@ -6819,8 +6824,8 @@ async function ajaExcelTuonti(lahetaKutsut = false) {
   }
 
   // Päivitetään progress-teksti lopuksi
-  if (bar)    bar.style.width = '100%';
-  if (teksti) teksti.textContent = 'Valmis!';
+  if (bar)    bar.style.width = seis ? bar.style.width : '100%';
+  if (teksti) teksti.textContent = seis ? 'Pysäytetty' : 'Valmis!';
 
   // Näytetään tulokset selkeästi
   const mailVirheitaOli = virheet > 0;
@@ -6850,7 +6855,8 @@ async function ajaExcelTuonti(lahetaKutsut = false) {
       onni.appendChild(ohje);
     }
   }
-  if (virhe && virheet === 0) virhe.textContent = ''; // tyhjennä virheviesti jos kaikki ok
+  if (seis && virhe) virhe.textContent = TM_ISTUNTO.tmTuontiYhteenveto(tuotu, _excelData.length, seis);   // montako ehdittiin tuoda + syy
+  else if (virhe && virheet === 0) virhe.textContent = ''; // tyhjennä virheviesti jos kaikki ok
 
   naytaToast(
     tuotu === 0
@@ -6858,7 +6864,7 @@ async function ajaExcelTuonti(lahetaKutsut = false) {
       : lahetaKutsut
         ? `${tuotu} pelaajaa tuotu · ${kutsut} kutsua lähetetty`
         : `${tuotu} pelaajaa tuotu`,
-    (virheet === 0 && tuotu > 0) ? 'ok' : 'varoitus'
+    (virheet === 0 && tuotu > 0 && !seis) ? 'ok' : 'varoitus'
   );
 
   // Päivitetään pelaajalistaus
@@ -6920,6 +6926,13 @@ function naytaVirhe(elId, teksti) {
   const el = document.getElementById(elId);
   if (!el) return;
   el.textContent = teksti;
+  el.classList.add('nakyvilla');
+}
+/* Väärä rooli / istunto vaihtunut: viesti + "Kirjaudu ulos" -nappi (lib/tm_istunto.js). EI automaattista signOut():ia. */
+function naytaVaaraRooli(elId, teksti) {
+  const el = document.getElementById(elId);
+  if (!el) return;
+  el.innerHTML = TM_ISTUNTO.tmVaaraRooliHTML(teksti, { ulosFn: 'kirjauduUlos()' });
   el.classList.add('nakyvilla');
 }
 

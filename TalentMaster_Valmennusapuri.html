@@ -12,6 +12,7 @@
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-functions-compat.js"></script>
 <script src="lib/tm_appcheck.js?v=1"></script>
+<script src="lib/tm_istunto.js?v=1"></script>   <!-- istuntoturva: väärä rooli → viesti + "Kirjaudu ulos", ei automaattista signOut():ia -->
 <style>
 * { box-sizing: border-box; }
 html, body { margin: 0; height: 100%; }
@@ -632,7 +633,8 @@ input, textarea { font-family: var(--font-body); font-size: 16px; color: var(--i
       $('vaKysymys').value = viimeinen ? viimeinen.content : '';
       kasvataKentta();
       naytaVirhe(virheViesti(e));
-      if (e && e.code && e.code.indexOf('unauthenticated') >= 0) auth.signOut();
+      /* ISTUNTOTURVA: ei automaattista signOut():ia (katkaisisi istunnon muissa välilehdissä) — viesti + "Kirjaudu ulos" -nappi. */
+      if (e && e.code && e.code.indexOf('unauthenticated') >= 0) naytaIstuntoVirhe();
     }).then(function () {
       odottaa = false;
       $('vaLaheta').disabled = false;
@@ -641,6 +643,12 @@ input, textarea { font-family: var(--font-body); font-size: 16px; color: var(--i
     });
   }
 
+  function naytaIstuntoVirhe() {
+    var loki = $('vaLoki'), el = document.createElement('div');
+    el.className = 'va-virhe'; el.setAttribute('role', 'alert');
+    el.innerHTML = TM_ISTUNTO.tmVaaraRooliHTML('Istunto vanheni tai vaihtui toisessa välilehdessä.', { ulosFn: "document.getElementById('vaUlos').click()" });
+    loki.appendChild(el); loki.scrollTop = loki.scrollHeight;
+  }
   function naytaVirhe(teksti) {
     var loki = $('vaLoki');
     var el = document.createElement('div');

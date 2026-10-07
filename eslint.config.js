@@ -18,7 +18,8 @@ const { keraaGlobaalit } = require('./scripts/lint_globaalit.js');
 const APP_GLOBALS = {
   // SDK / kirjastot
   firebase: 'readonly', XLSX: 'readonly', Sentry: 'readonly',
-  TM_VIRHEKOODI: 'readonly',   // lib/tm_virhekoodi.js (tallennusvirheen koodi toastiin)
+  TM_VIRHEKOODI: 'readonly',
+  TM_ISTUNTO: 'readonly',   // lib/tm_istunto.js (istuntoturva)   // lib/tm_virhekoodi.js (tallennusvirheen koodi toastiin)
   // lib/tm_eerikkila_normit.js
   EERIKKILA_NORMIT: 'readonly', eerikkilaTaso: 'readonly', eerikkilaNormiarvo: 'readonly', eerikkilaProfiilit: 'readonly',
   HH_TESTI_MAP: 'readonly', normSukupuoliMN: 'readonly', onNeutraaliPrePHV: 'readonly', teknHeikoimmat20: 'readonly',
