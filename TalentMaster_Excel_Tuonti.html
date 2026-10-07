@@ -16,6 +16,7 @@
 <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
 <script src="lib/tm_appcheck.js?v=1"></script>
 <script src="lib/tm_istunto.js?v=1"></script>   <!-- istuntoturva: tuonti pysähtyy istuntovirheeseen -->
+<script src="lib/tm_kal_muistiinpano.js?v=1"></script>   <!-- tietosuoja: muistiinpanojen siirto -->
 <script src="lib/tm_sukupuoli.js?v=1"></script>   <!-- sukupuoli M/N (§7.12) -->
 <!-- SheetJS -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -1638,6 +1639,16 @@ async function lataaKayttajatiedot(u) {
               + 'padding:4px 10px;cursor:pointer;margin-right:8px;';
             rbtn2.onclick = _adminRecalcIkaluokasta;
             topbar.insertBefore(rbtn2, logout);
+          }
+          // Admin: "Siirrä kalenterin muistiinpanot" (TIETOSUOJA P0, vain Super Admin): kuiva-ajo (vain MÄÄRÄ) → vahvistus → siirto henkilokunta-alikokoelmaan
+          if (!document.getElementById('sa-kal-muist')) {
+            const mbtn = document.createElement('button');
+            mbtn.id = 'sa-kal-muist';
+            mbtn.textContent = '🔒 Siirrä kalenterin muistiinpanot';
+            mbtn.title = 'Tietosuoja: siirtää tapahtumien muistiinpanot henkilökunnan alikokoelmaan (pelaaja ei lue). Kuiva-ajo näyttää vain määrän, ei sisältöä.';
+            mbtn.style.cssText = 'background:rgba(240,78,78,.15);border:1px solid #F04E4E;border-radius:6px;color:#F5A0A0;font-family:DM Sans,sans-serif;font-size:12px;padding:4px 10px;cursor:pointer;margin-right:8px;';
+            mbtn.onclick = _adminSiirraKalMuistiinpanot;
+            topbar.insertBefore(mbtn, logout);
           }
           // Admin: "Täydennä sukupuoli testituloksista" (vain Super Admin) — kuiva-ajo → vahvistus → kirjoitus; ydin lib/tm_sukupuoli.js (sama kuin scripts/backfill_sukupuoli.js)
           if (!document.getElementById('sa-sukupuoli')) {
@@ -5009,6 +5020,36 @@ async function _adminRecalcIkaluokasta() {
     console.error('[recalcIka]', e); toast('Recalc epäonnistui: ' + e.message, 'err');
   } finally {
     if (btn) { btn.disabled = false; btn.textContent = '↻ Recalc (ikaluokasta)'; }
+  }
+}
+
+// ════════════════════════════════════════
+// ADMIN — Siirrä kalenterin muistiinpanot henkilökunnan alikokoelmaan (TIETOSUOJA P0, vain Super Admin). Kuiva-ajo näyttää VAIN määrän (ei sisältöä). Kirjoitus: per tapahtuma set seurat/{sid}/kalenteri/{id}/henkilokunta/muistiinpanot
+// (ei ylikirjoiteta jos jo on) + update {muistiinpanot: delete} samassa batchissa; pysähtyy ensimmäiseen oikeus-/istuntovirheeseen (TM_ISTUNTO). Idempotentti: ajettu → 0 siirrettävää.
+async function _adminSiirraKalMuistiinpanot() {
+  if (!superAdmin) { toast('Vain Super Admin', 'err'); return; }
+  if (!seuraId) { toast('Valitse seura ensin', 'err'); return; }
+  const M = TM_KAL_MUISTIINPANO, btn = document.getElementById('sa-kal-muist'), nimiTeksti = seuraNimi || seuraId;
+  if (btn) { btn.disabled = true; btn.textContent = '🔒 Kuiva-ajo…'; }
+  try {
+    const kalCol = db.collection('seurat').doc(seuraId).collection('kalenteri');
+    const snap = await kalCol.get();
+    const m = M.tmMuistiinpanoMigraatio(snap.docs.map(function (d) { return { id: d.id, muistiinpanot: d.data().muistiinpanot }; }));
+    const teksti = 'Seura: ' + nimiTeksti + '\nTapahtumia yhteensä: ' + snap.size + '\nTapahtumia, joissa muistiinpano tapahtumadokumentissa (siirrettävät): ' + m.maara + '\n\n(Sisältöä ei näytetä.)\nEi vielä kirjoitettu.';
+    const kirjoita = await _sukupuoliRaporttiModal('Kalenterin muistiinpanot — KUIVA-AJO', teksti, m.maara ? 'Siirrä ' + m.maara + ' muistiinpanoa' : null);
+    if (!kirjoita) return;
+    if (btn) btn.textContent = '🔒 Siirretään…';
+    const tulos = await M.tmMuistiinpanoSiirra(m.siirrettavat, {
+      SUB_OLEMASSA: async function (id) { const s = await kalCol.doc(id).collection('henkilokunta').doc('muistiinpanot').get(); return s.exists; },
+      ERA: async function (era) { const b = db.batch(); era.forEach(function (p) { const ref = kalCol.doc(p.id); if (p.kirjoitaSub) b.set(ref.collection('henkilokunta').doc('muistiinpanot'), { teksti: p.teksti, muokkaaja_uid: kayttaja.uid, paivitetty: firebase.firestore.FieldValue.serverTimestamp() }); b.update(ref, { muistiinpanot: firebase.firestore.FieldValue.delete() }); }); await b.commit(); },
+      SEIS: function (e) { return TM_ISTUNTO.tmTuontiSeis(firebase.auth(), e); }
+    });
+    await _sukupuoliRaporttiModal('Kalenterin muistiinpanot — RAPORTTI', 'Seura: ' + nimiTeksti + '\nSIIRRETTY: ' + tulos.siirretty + ' (josta alikokoelma oli jo olemassa, vain vanha kenttä poistettu: ' + tulos.ohitettuSub + ')\nSiirrettäviä oli: ' + m.maara + (tulos.seis ? '\n⚠ PYSÄHDYS: ' + tulos.seis.syy + ' — kirjaudu uudelleen ja aja uudelleen (jo siirretyt ohitetaan).' : '\n✓ Valmis — aja kuiva-ajo uudelleen: siirrettäviä pitäisi olla 0.'), null);
+    toast(tulos.seis ? 'Pysäytetty: ' + tulos.seis.syy + ' (siirretty ' + tulos.siirretty + ')' : 'Muistiinpanot siirretty: ' + tulos.siirretty, tulos.seis ? 'err' : 'ok');
+  } catch (e) {
+    console.error('[kal-muistiinpano-siirto]', e); toast('Siirto epäonnistui: ' + (e && e.code ? e.code + ' — ' : '') + (e && e.message || e), 'err');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '🔒 Siirrä kalenterin muistiinpanot'; }
   }
 }
 

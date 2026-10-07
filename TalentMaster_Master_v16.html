@@ -22,6 +22,7 @@
 <script src="lib/tm_pvm.js?v=3"></script>   <!-- tmPaivaIso: paikallinen päivä ("tänään" ≠ UTC-päivä klo 0–3) -->
 <script src="lib/tm_appcheck.js?v=1"></script>
 <script src="lib/tm_istunto.js?v=1"></script>   <!-- istuntoturva: väärä rooli → viesti + "Kirjaudu ulos", ei automaattista signOut():ia -->
+<script src="lib/tm_kal_muistiinpano.js?v=1"></script>   <!-- tietosuoja: muistiinpano staff-only-alikokoelmaan -->
 <script src="lib/tm_pelihavainto_valinta.js?v=1"></script>   <!-- §7: YKSI sisäänkäynti pelihavaintoon (jaettu, ei kopioita) -->
 <script src="lib/tm_aktiivisuus.js?v=1"></script>   <!-- Toimihenkilon kirjautumisaikaleima — jaettu kirjoituspiste, ks. lib-header -->
 <script src="lib/tm_arviointi_historia.js?v=1"></script>   <!-- kausiavain: tmKausiNyt (CPD-raportin "Kausi:") — sama lähde kuin VP/Admin -->
@@ -10061,11 +10062,11 @@ function calEventClick(tapahtumaId) {
   box.appendChild(grid);
 
   // Muistiinpanot
-  if (t.muistiinpanot) {
+  { // TIETOSUOJA: muistiinpano henkilokunta-alikokoelmasta (vanha kenttä varalla), täytetään renderin jälkeen
     var note = document.createElement('div');
-    note.style.cssText = 'margin-top:6px;padding:8px 10px;background:var(--surface);border-radius:6px;font-size:12px;color:var(--ink2)';
-    note.textContent = t.muistiinpanot;
+    note.style.cssText = 'margin-top:6px;padding:8px 10px;background:var(--surface);border-radius:6px;font-size:12px;color:var(--ink2);display:none';
     box.appendChild(note);
+    _calMuistiinpanoHae(t).then(function (s) { if (s) { note.textContent = s; note.style.display = ''; } }, function (e) { console.warn('[kal muistiinpano]', e && e.message); });
   }
 
   // ── Vaihe 4d — treeniteema (luku): harjoitussuunnitelma = teema + cue + harjoite libistä (§7b/§34) ──
@@ -10415,7 +10416,9 @@ function _calMuokkaaTapahtuma(t) {
     ['suunniteltu', 'vahvistettu', 'valmis', 'peruttu'].forEach(function(v) { var o = document.createElement('option'); o.value = v; o.textContent = masterT(v); if ((t.tila || 'suunniteltu') === v) o.selected = true; tilaI.appendChild(o); });
     box.appendChild(lbl(masterT('Tila'))); box.appendChild(tilaI);
   }
-  var muistI = document.createElement('textarea'); muistI.rows = 3; muistI.value = t.muistiinpanot || ''; muistI.style.cssText = inpCss + ';resize:vertical';
+  var muistI = document.createElement('textarea'); muistI.rows = 3; muistI.value = ''; muistI.style.cssText = inpCss + ';resize:vertical';
+  var muistLadattu = false; muistI.disabled = true;   // TIETOSUOJA: teksti henkilokunta-alikokoelmasta (vanha kenttä varalla); ei tallenneta ennen kuin luku onnistui → ei tyhjennä vahingossa
+  _calMuistiinpanoHae(t).then(function (s) { muistI.value = s; muistI.disabled = false; muistLadattu = true; }, function () { muistI.placeholder = masterT('Muistiinpanon lukeminen epäonnistui — muistiinpanoa ei muuteta'); });
   box.appendChild(lbl(masterT('Muistiinpanot'))); box.appendChild(muistI);
 
   var btnRivi = document.createElement('div'); btnRivi.style.cssText = 'display:flex;gap:8px;margin-top:6px';
@@ -10428,7 +10431,7 @@ function _calMuokkaaTapahtuma(t) {
       try {
         var cu = _auth.currentUser; await _mTuoreToken(cu);
         var muid = _calMerkUid();
-        var yhteiset = { muistiinpanot: muistI.value.trim().slice(0, 500) || null, paivitetty: firebase.firestore.FieldValue.serverTimestamp(), muokkaaja_uid: muid };
+        var yhteiset = { paivitetty: firebase.firestore.FieldValue.serverTimestamp(), muokkaaja_uid: muid };
         if (full) { yhteiset.nimi = nimiI.value.trim() || t.nimi || null; yhteiset.paikka = paikkaI.value.trim() || null; yhteiset.tila = tilaI.value; }
         var docit = await _calSkooppiDocit(t, scope);
         var batch = _db.batch();
@@ -10440,6 +10443,7 @@ function _calMuokkaaTapahtuma(t) {
             if (paattyyI.value) upd.paattyy = firebase.firestore.Timestamp.fromDate(new Date(d._pvmISO + 'T' + paattyyI.value + ':00'));
           }
           if (scope === 'vain' && t.toistuvuus_sarja_id) upd.sarja_poikkeus = true;
+          if (muistLadattu) { upd.muistiinpanot = firebase.firestore.FieldValue.delete(); _calMuistiinpanoBatch(batch, col.doc(d.id), muistI.value, muid); }   // vanha kenttä pois + alikokoelma
           batch.set(col.doc(d.id), upd, { merge: true });
         });
         await batch.commit();
@@ -10454,6 +10458,16 @@ function _calMuokkaaTapahtuma(t) {
   modal.appendChild(box);
   modal.addEventListener('click', function(e) { if (e.target === modal) modal.remove(); });
   document.body.appendChild(modal);
+}
+/* ── TIETOSUOJA P0 (8.10.2026): kalenterin muistiinpano → seurat/{sid}/kalenteri/{id}/henkilokunta/muistiinpanot (Rules v3.48: vain henkilökunta). Tapahtumadokumentista kenttä poistetaan (FieldValue.delete) tallennettaessa. ── */
+function _calMuistiinpanoBatch(batch, kalRef, raw, uid) {
+  const M = window.TM_KAL_MUISTIINPANO, x = M.tmMuistiinpanoSuunnitelma(raw, uid), sub = kalRef.collection('henkilokunta').doc('muistiinpanot');
+  if (x.tyhja) batch.delete(sub); else batch.set(sub, Object.assign({}, x.sub, { paivitetty: firebase.firestore.FieldValue.serverTimestamp() }));
+}
+async function _calMuistiinpanoHae(t) {
+  const M = window.TM_KAL_MUISTIINPANO; if (!t || !t.id || _demo || !_seuraId) return M ? M.tmMuistiinpanoTeksti(t && t.muistiinpanot) : '';
+  const sn = await _db.collection('seurat').doc(_seuraId).collection('kalenteri').doc(t.id).collection('henkilokunta').doc('muistiinpanot').get();   // virhe heitetään (kutsuja ei tallenna blind)
+  return M.tmMuistiinpanoLuku(t, sn.exists ? sn.data() : null);
 }
 function calSlotClick(day, hour) {
   // Laske klikattu päivämäärä

@@ -22,6 +22,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-storage-compat.js"></script>   <!-- Vaihe A: ääripalautteen audio-upload (tmAani.lataa). VP:N OMA SDK-versio, EI Masterin 9.22.1 (§38 sekaversio). -->
 <script src="lib/tm_appcheck.js?v=1"></script>
 <script src="lib/tm_istunto.js?v=1"></script>   <!-- istuntoturva: väärä rooli → viesti + "Kirjaudu ulos", ei automaattista signOut():ia -->
+<script src="lib/tm_kal_muistiinpano.js?v=1"></script>   <!-- tietosuoja: muistiinpano staff-only-alikokoelmaan -->
 <script src="lib/tm_verkko.js?v=1"></script>   <!-- verkkokatko: 1 uudelleenyritys + Yhteyskatko-ilmoitus + Sentry warning -->
 <script src="lib/tm_aktiivisuus.js?v=1"></script>   <!-- Toimihenkilon kirjautumisaikaleima — jaettu kirjoituspiste, ks. lib-header -->
 <script src="lib/tm_joukkue.js?v=4"></script>   <!-- henkilöstön joukkueet näyttöön (tmHenkiloJoukkueTeksti) -->
@@ -17598,7 +17599,7 @@ function avaaUusiTapahtuma(oletusPvm, prefill) {
       poistettu: false,
       poistettu_uid: null,
       poistettu_pvm: null,
-      muistiinpanot: muistInp.value.trim().slice(0, 500) || null,
+      muistiinpanot: null,   // TIETOSUOJA: muistiinpano vain henkilokunta-alikokoelmaan (alla), ei tapahtumadokumenttiin (pelaaja lukee kalenterin)
       pelaajaviesti: pviestiInp.value.trim().slice(0, 200) || null,   // P7-c fix2 (B)
       lahde: 'manuaalinen',
       lahde_id: null,
@@ -17627,7 +17628,7 @@ function avaaUusiTapahtuma(oletusPvm, prefill) {
 
     try {
       if (_toistCadence === 'kerran' || typeof TM_KALENTERI === 'undefined') {
-        await db.collection('seurat').doc(_seuraId).collection('kalenteri').add(doc);
+        { const _ref = db.collection('seurat').doc(_seuraId).collection('kalenteri').doc(), _b = db.batch(); _b.set(_ref, doc); _vpKalMuistiinpanoBatch(_b, _ref, muistInp.value, uid); await _b.commit(); }   // tapahtuma + muistiinpano yhdessä batchissa
         toast('✓ ' + vpT((KALENTERI_TYYPIT[tyyppi] || {}).nimi || '') + ' ' + vpT('lisätty'), 'ok');
       } else {
         var _paattyyVal = toistPaattyyInp.value || _vpKaudenLoppuISO();
@@ -17643,7 +17644,7 @@ function avaaUusiTapahtuma(oletusPvm, prefill) {
             toistuvuus: { tyyppi: _toistCadence, paiva: _paivaNum, paattyy: _paattyyVal },
             toistuvuus_sarja_id: _sarjaId
           });
-          _batch.set(_col.doc(), d2);
+          const _r2 = _col.doc(); _batch.set(_r2, d2); _vpKalMuistiinpanoBatch(_batch, _r2, muistInp.value, uid);
         });
         await _batch.commit();
         toast('✓ ' + _rr.pvmt.length + ' ' + vpT('tapahtumaa lisätty') + (_rr.katkaistu ? ' ' + vpT('(katkaistu 60:een)') : ''), 'ok');
@@ -17663,6 +17664,23 @@ function avaaUusiTapahtuma(oletusPvm, prefill) {
   document.body.appendChild(modal);
 }
 
+/* ── TIETOSUOJA P0 (8.10.2026): kalenterin muistiinpano → seurat/{sid}/kalenteri/{id}/henkilokunta/muistiinpanot (Rules v3.48: vain henkilökunta). Tapahtumadokumentista kenttä poistetaan (FieldValue.delete) kun tallennetaan. ── */
+function _vpKalMuistiinpanoBatch(batch, kalRef, raw, uid) {
+  const M = window.TM_KAL_MUISTIINPANO, x = M.tmMuistiinpanoSuunnitelma(raw, uid), sub = kalRef.collection('henkilokunta').doc('muistiinpanot');
+  if (x.tyhja) batch.delete(sub); else batch.set(sub, Object.assign({}, x.sub, { paivitetty: firebase.firestore.FieldValue.serverTimestamp() }));
+}
+async function _vpKalMuistiinpanoHae(t) {
+  const M = window.TM_KAL_MUISTIINPANO; if (!t || !t.id || _isDemoMode || !_seuraId) return M ? M.tmMuistiinpanoTeksti(t && t.muistiinpanot) : '';
+  const sn = await db.collection('seurat').doc(_seuraId).collection('kalenteri').doc(t.id).collection('henkilokunta').doc('muistiinpanot').get();   // virhe heitetään (kutsuja ei tallenna blind)
+  return M.tmMuistiinpanoLuku(t, sn.exists ? sn.data() : null);
+}
+async function _vpKalMuistiinpanoNayta(t) {
+  try {
+    const el = document.querySelector('[data-kal-muist="' + String(t.id || '').replace(/"/g, '') + '"]'); if (!el) return;
+    const s = await _vpKalMuistiinpanoHae(t); if (!s) return;
+    el.innerHTML = '<div style="margin-top:6px;padding:8px 10px;background:var(--deep);border-radius:6px;font-size:12px;color:var(--ink2);">' + _jsvEsc(s) + '</div>';
+  } catch (e) { console.warn('[kal muistiinpano]', e && e.message); }
+}
 // ── Kalenteri-tapahtuman katselu/poisto ──
 /* ════════════════════════════════════════════════════════════
    LÄSNÄOLO + MUOKKAUS (K2 — VP-pariteetti, peilaa Master_v16 calEventClick).
@@ -17982,7 +18000,9 @@ function _vpMuokkaaTapahtuma(t) {
   var tilaI = document.createElement('select'); tilaI.style.cssText = inpCss;
   ['suunniteltu', 'vahvistettu', 'valmis', 'peruttu'].forEach(function(v) { var o = document.createElement('option'); o.value = v; o.textContent = v; if ((t.tila || 'suunniteltu') === v) o.selected = true; tilaI.appendChild(o); });
   box.appendChild(lbl('Tila')); box.appendChild(tilaI);
-  var muistI = document.createElement('textarea'); muistI.rows = 3; muistI.value = t.muistiinpanot || ''; muistI.style.cssText = inpCss + 'resize:vertical;';
+  var muistI = document.createElement('textarea'); muistI.rows = 3; muistI.value = ''; muistI.style.cssText = inpCss + 'resize:vertical;';
+  var muistLadattu = false; muistI.disabled = true;   // TIETOSUOJA: teksti haetaan henkilokunta-alikokoelmasta (vanha kenttä varalla); ei tallenneta ennen kuin luku on onnistunut → ei tyhjennä vahingossa
+  _vpKalMuistiinpanoHae(t).then(function (s) { muistI.value = s; muistI.disabled = false; muistLadattu = true; }, function () { muistI.placeholder = vpT('Virhe:') + ' ' + vpT('Muistiinpanot'); /* luku epäonnistui → kenttä pysyy lukittuna, muistiinpanoa ei muuteta */ });
   box.appendChild(lbl(vpT('Muistiinpanot'))); box.appendChild(muistI);
   // P7-c fix2 (B) — erillinen kuluttajalle näkyvä viesti (muistiinpanot pysyy sisäisenä).
   var pviestiI = document.createElement('textarea'); pviestiI.rows = 2; pviestiI.maxLength = 200; pviestiI.value = t.pelaajaviesti || ''; pviestiI.style.cssText = inpCss + 'resize:vertical;';
@@ -18002,7 +18022,6 @@ function _vpMuokkaaTapahtuma(t) {
           nimi: nimiI.value.trim() || t.nimi || null,
           paikka: paikkaI.value.trim() || null,
           tila: tilaI.value,
-          muistiinpanot: muistI.value.trim().slice(0, 500) || null,
           pelaajaviesti: pviestiI.value.trim().slice(0, 200) || null,   // P7-c fix2 (B); tyhjennetty → null
           paivitetty: firebase.firestore.FieldValue.serverTimestamp(),
           muokkaaja_uid: muid
@@ -18021,6 +18040,7 @@ function _vpMuokkaaTapahtuma(t) {
         var col = db.collection('seurat').doc(_seuraId).collection('kalenteri');
         docit.forEach(function(d) {
           var upd = Object.assign({}, yhteiset);
+          if (muistLadattu) { upd.muistiinpanot = firebase.firestore.FieldValue.delete(); _vpKalMuistiinpanoBatch(batch, col.doc(d.id), muistI.value, muid); }   // vanha kenttä pois + alikokoelma
           var dDate = (d.alkaa && d.alkaa.toDate) ? d.alkaa.toDate() : null;
           var dISO = dDate ? (dDate.getFullYear() + '-' + pad(dDate.getMonth() + 1) + '-' + pad(dDate.getDate())) : pvmISO;
           // Bugi 2 — päivämuutos: yksittäinen tapahtuma / "vain tämä" -skooppi → valittu pvm; sarjaskooppi → per-esiintymä-pvm (dISO).
@@ -18109,9 +18129,8 @@ function avaaKalenteriTapahtuma(tapahtumaId) {
     '<span style="color:var(--ink3);">' + vpT('Tila') + '</span><span>' + (t.tila || '—') + '</span>' +
     (t.toistuvuus ? '<span style="color:var(--ink3);">' + vpT('Toistuu') + '</span><span>↻ ' + (typeof TM_KALENTERI !== 'undefined' ? (TM_KALENTERI.tmCadenceNimi(t.toistuvuus.tyyppi) || t.toistuvuus.tyyppi) : t.toistuvuus.tyyppi) + '</span>' : '') +
     '</div>';
-  if (t.muistiinpanot) {
-    html += '<div style="margin-top:6px;padding:8px 10px;background:var(--deep);border-radius:6px;font-size:12px;color:var(--ink2);">' + t.muistiinpanot + '</div>';
-  }
+  html += '<div data-kal-muist="' + _jsvEsc(t.id || '') + '"></div>';   // TIETOSUOJA: täytetään henkilokunta-alikokoelmasta (vanha kenttä varalla) heti renderin jälkeen
+  setTimeout(function () { _vpKalMuistiinpanoNayta(t); }, 0);
   // Vaihe 4d §2.3 — harjoitussuunnitelma: teemasiru + konsepti→cue→harjoite libistä (§7b/§34).
   var _tt = t.treeniteema;
   if (_tt && _tt.nimi) {

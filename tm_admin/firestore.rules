@@ -1,9 +1,15 @@
 rules_version = '2';
 // ══════════════════════════════════════════════════════════════════════════
-// TalentMaster™ — firestore.rules v3.46
+// TalentMaster™ — firestore.rules v3.48
 //
 // Lähde:  tm_admin/firestore.rules
 // Deploy: PR → N4-CI deployaa automaattisesti (Console-käsityö poistui).
+//
+// Muutokset v3.47 → v3.48 (P0 TIETOSUOJA 8.10.2026 — kalenterin muistiinpanot + läsnäolijat; additiivinen alikokoelma + lukukiristys): ⚠ v3.47 = R1 Ryhmät (PR #881); tämä haara tehty main:in (v3.46) päälle → mergen jälkeen versiot ketjuvat. Seuran pulssi (S1) → v3.49.
+//   · AUKKO: kalenteri/{id}.read salli onPelaajanSeura-lukijalle koko kokoelman → pelaajan/huoltajan client pystyi lukemaan valmentajien `muistiinpanot`-kentän ja kaikkien läsnäolot (lasnaolijat).
+//   · seurat/{sid}/kalenteri/{id}/henkilokunta/muistiinpanot = { teksti ≤ 500, muokkaaja_uid, paivitetty }: luku VAIN oman seuran henkilökunta (SA | onKirjautunut && onOmaSeura — pelaajalla pelaajaSeuraId, ei seuraId); kirjoitus SA | johto | valmentajaroolit; vain dokumentti 'muistiinpanot'.
+//     Henkilökunnan clientit lukevat ja kirjoittavat tänne (vanha `muistiinpanot`-kenttä poistetaan tallennettaessa); migraatio = SA-työkalu (Excel_Tuonti). Tapahtumadokumentin `muistiinpanot`-kenttää EI vielä estetä Rulesissa (vanhat clientit/data) — kiristys migraation jälkeen.
+//   · kalenteri/{id}/lasnaolijat/{osallistujaId}.read: pelaaja/huoltaja lukee VAIN oman dokumenttinsa (onPelaajaItse | onLapsenHuoltaja); aiemmin kaikkien (onPelaajanSeura). Saatavuus-RSVP (oman dokin read-back + kirjoitus) ennallaan. Henkilökunta ennallaan.
 //
 // Muutokset v3.45 → v3.46 (V4b-2: kevyt katselmus + valmentajaprofiili, 7.10.2026 — additiivinen, §11; ei migraatiota):
 //   · reviewit/{pvm}.kevyt: kevyt katselmus (3 kysymystä SANOINA) { nakyi: ei_viela|ohjatusti|itsenaisesti, treeni: harvoin|joskus|usein, mukana: vahan|jonkin_verran|hyvin } — hasOnly + hasAll + enum (kenttä `nakyi` = "Näkyikö ydinvahvuus pelissä?"; briiffin alkuperäinen kenttänimi korvattu neutraalilla; SANATESTI kieltää sanan kenttänimistä). EI pelaajadokumenttiin (pelaaja lukee oman dokumenttinsa; reviewit ei ole pelaajan luettavissa).
@@ -1751,13 +1757,27 @@ service cloud.firestore {
         // Ei hard-deletea — soft-delete (poistettu:true) update-kautta
         allow delete: if onSuperAdmin();
 
+        // ── v3.48 (P0 tietosuoja): henkilökunnan alikokoelma — valmentajan muistiinpano EI tapahtumadokumentissa (pelaaja lukee kalenterin) ──
+        match /henkilokunta/{dokId} {
+          allow read:   if onSuperAdmin() || (onKirjautunut() && onOmaSeura(seuraId));   // pelaaja: pelaajaSeuraId ≠ seuraId → ei; huoltaja: ei claimia → ei
+          allow create, update: if dokId == 'muistiinpanot'
+                        && (onSuperAdmin() || (onOmaSeura(seuraId) && (onJohtoRooli() || onValmentajaRooli())))
+                        && request.resource.data.keys().hasOnly(['teksti', 'muokkaaja_uid', 'paivitetty'])
+                        && request.resource.data.keys().hasAll(['teksti', 'paivitetty'])
+                        && request.resource.data.teksti is string && request.resource.data.teksti.size() <= 500
+                        && request.resource.data.paivitetty == request.time;
+          allow delete: if onSuperAdmin() || (onOmaSeura(seuraId) && (onJohtoRooli() || onValmentajaRooli()));
+        }
+
         // ── Läsnäolijat (alikokoelma) — KALENTERI_ARKKITEHTUURI.md §7 ──
         // Valmentaja/johto merkitsee läsnäolon per pelaaja (osallistujaId = pelaajaId).
         // Pelaaja vahvistaa OMAN läsnäolonsa (uid == osallistujaId).
         match /lasnaolijat/{osallistujaId} {
+          // v3.48 (P0 tietosuoja): pelaaja/huoltaja lukee VAIN OMAN läsnäolo-/saatavuusdokumentin (ei muiden pelaajien läsnäoloja). Henkilökunta ennallaan.
           allow read:   if onSuperAdmin()
                         || (onKirjautunut() && onOmaSeura(seuraId))
-                        || onPelaajanSeura(seuraId);   // P7-c.1: PIN-pelaaja/vanhempi näkee läsnäolon (oma poissaolo-write vasta c.3)
+                        || onPelaajaItse(seuraId, osallistujaId)
+                        || onLapsenHuoltaja(seuraId, osallistujaId);
           // P7-c.3 + RSVP-erotus: PIN-pelaaja/vanhempi (anon) ilmoittaa oman SAATAVUUTENSA (RSVP: tulossa/estynyt).
           // Anon-token ei kanna pelaajaId:tä (uid ≠ osallistujaId) → ei uid-skooppausta; laaja anon-luottamusmalli
           // rajattuna affectedKeysilla VAIN saatavuus (+ paivitetty/rooli). ⚠️ Turvaparannus: anon EI voi kirjoittaa
