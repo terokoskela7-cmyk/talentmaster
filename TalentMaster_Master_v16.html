@@ -6610,12 +6610,11 @@ window._msAsetaFyysFokus = async function (pid, teemaAvain) {
   var jf = { konsepti_avain: teemaAvain, konsepti_nimi: teema ? teema.nimi : teemaAvain, konsepti_koodi: null, domeeni: 'fyysinen', lahde: 'silta_d1', alkoi: new Date().toISOString(), kesto_vk: 4, ohjelma: ohjelma };
   if (!_mVerkkoEnnenSulkua()) return;   // offline: lomake jää auki, tietoja ei muuteta
   var _v = _mJaksoVaihto(p, jf);   // R6.0b
-  p.jaksofokus = _v.jaksofokus;
-  document.getElementById('_msFyysModal')?.remove();
-  if (typeof _renderPinfoFirestore === 'function') _renderPinfoFirestore(p);
-  if (_demo || !_seuraId || typeof _db === 'undefined' || !_db) { if (typeof toast === 'function') toast('Fysiikkajakso asetettu (demo)', 'ok'); return; }
+  var _valmis = function () { p.jaksofokus = _v.jaksofokus; document.getElementById('_msFyysModal')?.remove(); if (typeof _renderPinfoFirestore === 'function') _renderPinfoFirestore(p); };   // D53: modaali sulkeutuu vasta onnistuessa
+  if (_demo || !_seuraId || typeof _db === 'undefined' || !_db) { _valmis(); if (typeof toast === 'function') toast('Fysiikkajakso asetettu (demo)', 'ok'); return; }
   try { var cu = firebase.auth().currentUser; await _mTuoreToken(cu);
     await _mKirjoitaJaksofokus(p, _v, pid);
+    _valmis();
     if (typeof toast === 'function') toast(masterT('Fysiikkajakso asetettu ✓') + (ohjelma ? ' + ohjelma' : ''), 'ok');
   } catch (e) { console.warn('[msAsetaFyysFokus]', e && e.message); if (typeof toast === 'function') toast(((typeof TM_VIRHEKOODI !== 'undefined' && TM_VIRHEKOODI.tmVirheTeksti) || String)(masterT('Tallennus epäonnistui'), e), 'error'); }
 };
@@ -7022,10 +7021,13 @@ window._msTallenna = async function (uusiAvain) {
   }, { nytISO: new Date().toISOString(), periytaLinkki: true, lisakentat: _lause.teksti ? { lause: _lause.teksti } : undefined });   // R6.1c: tavoite_alue periytyy vain jos uudella jaksolla ei ole omaa arvoa (lib; valitavoite_idx/poikkeama ei koskaan) · K4: lause samalle historiariville
   if (!_mVerkkoEnnenSulkua()) return;   // offline: sulkulomake jää auki, historiaa ei muuteta
   if (_tarjous) v.jaksofokus = _tarjous.jaksofokus;   // K3: {tila:'valittavana', vaihtoehdot} — ei alkoi/kestoa (asetetaan vahvistuksessa)
-  p.jaksofokus = v.jaksofokus;
-  document.getElementById('_msSulkuModal')?.remove(); window._msSulkuTila = null;
-  if (typeof _renderPinfoFirestore === 'function') _renderPinfoFirestore(p);
+  var _valmis = function () {   // D53: lokaali tila + modaalin sulku VASTA onnistumisen jälkeen (virheessä modaali jää auki, syötetty data säilyy)
+    p.jaksofokus = v.jaksofokus;
+    document.getElementById('_msSulkuModal')?.remove(); window._msSulkuTila = null;
+    if (typeof _renderPinfoFirestore === 'function') _renderPinfoFirestore(p);
+  };
   if (_demo || !_seuraId || typeof _db === 'undefined' || !_db) {
+    _valmis();
     p.jaksofokus_historia = (Array.isArray(p.jaksofokus_historia) ? p.jaksofokus_historia : []).concat(v.historiaLisays);   // demo: vain lokaali
     if (_tarjous) delete p.ydinvahvuus_valinta;
     if (typeof toast === 'function') toast('Jakso suljettu (demo — ei kirjoitettu)', 'ok'); return;
@@ -7035,8 +7037,9 @@ window._msTallenna = async function (uusiAvain) {
     // YKSI update(): jaksofokus (uusi tai null) + jaksofokus_historia arrayUnion(sulkurivi) — vain LISÄÄ rivin (ei koko paikallisen taulukon kirjoitusta)
     await _mKirjoitaJaksofokus(p, v, p.id, _tarjous ? { ydinvahvuus_valinta: firebase.firestore.FieldValue.delete() } : null);
     if (_tarjous) delete p.ydinvahvuus_valinta;   // lokaali vasta onnistumisen jälkeen
+    _valmis();
     if (typeof toast === 'function') toast(_tarjous ? window.TM_REITIN_VALINTA.tmTeksti('k3_tarjottu', { t: masterT }) : (uusiAvain ? masterT('Jakso suljettu · uusi fokus asetettu ✓') : masterT('Jakso suljettu ✓')), 'ok');
-  } catch (e) { console.warn('[msTallenna]', e && e.message); if (typeof toast === 'function') toast(((typeof TM_VIRHEKOODI !== 'undefined' && TM_VIRHEKOODI.tmVirheTeksti) || String)(masterT('Tallennus epäonnistui'), e), 'error'); }
+  } catch (e) { console.warn('[msTallenna]', e); if (typeof toast === 'function') toast(((typeof TM_VIRHEKOODI !== 'undefined' && TM_VIRHEKOODI.tmVirheTeksti) || String)(masterT('Tallennus epäonnistui'), e), 'error'); }   // D53: virhe näkyy aina (toast + koodi + konsoli); modaali auki
 };
 // Meso-kehityskaari (jaksofokus_historia §26). Valmentaja-näkymä (§7.22 ei koske).
 function _msMesoKaariHTML(p) {

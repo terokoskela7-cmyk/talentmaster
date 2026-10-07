@@ -5862,14 +5862,15 @@ window._vpAsetaFyysFokus = async function (pid, teemaAvain) {
   const jf = { konsepti_avain: teemaAvain, konsepti_nimi: teema ? teema.nimi : teemaAvain, konsepti_koodi: null, domeeni: 'fyysinen', lahde: 'silta_d1', alkoi: new Date().toISOString(), kesto_vk: 4, ohjelma: ohjelma };   // R6.1c: sama jakso → lib säilyttää vanhan alkoi:n
   if (typeof _vpJfMergeLisakentat === 'function') _vpJfMergeLisakentat(jf, p.id);   // JF-2: linkitetyt + Opittu kun
   const _v = _vpJaksoVaihto(p, jf);   // R6.1c: tmAsetaJaksofokus (arkistointi avainsäännöllä)
-  p.jaksofokus = _v.jaksofokus;
-  document.getElementById('_vpFyysModal')?.remove();
-  // 1a Part B: fyysinen fokus asetetaan konsolidoidusta paneelista → sulje myös _jfModal + nollaa ohjaus-ref.
-  _jfSulje();
-  if (typeof _vpArvReRender === 'function' && document.getElementById('_jspTab5')) _vpArvReRender();
-  if (typeof _vpAloitusReRender === 'function') _vpAloitusReRender();
-  if (typeof renderJaksofokus === 'function' && _currentWs === 'jaksofokus') renderJaksofokus();
-  await _vpKirjoitaJaksofokus(p, _v, 'Fysiikkajakso asetettu' + (ohjelma ? ' + ohjelma' : ''));
+  await _vpKirjoitaJaksofokus(p, _v, 'Fysiikkajakso asetettu' + (ohjelma ? ' + ohjelma' : ''), null, function () {   // D53: modaali sulkeutuu vasta onnistuessa
+    p.jaksofokus = _v.jaksofokus;
+    document.getElementById('_vpFyysModal')?.remove();
+    // 1a Part B: fyysinen fokus asetetaan konsolidoidusta paneelista → sulje myös _jfModal + nollaa ohjaus-ref.
+    _jfSulje();
+    if (typeof _vpArvReRender === 'function' && document.getElementById('_jspTab5')) _vpArvReRender();
+    if (typeof _vpAloitusReRender === 'function') _vpAloitusReRender();
+    if (typeof renderJaksofokus === 'function' && _currentWs === 'jaksofokus') renderJaksofokus();
+  });
 };
 // Sulkukortin "Suunnittele mittaus" → Testaus_v9 (mittaus, EI harjoitus — 4d §2.0-jako). Ei sekoiteta.
 window._vpFyysSuunnitteleMittaus = function (pid) {
@@ -5981,14 +5982,15 @@ window._vpOhjKaytaOhjelma = async function (pid, teemaAvain, ohjelmaId) {
     : { konsepti_avain: tAvain, konsepti_nimi: teema ? teema.nimi : tAvain, konsepti_koodi: null, domeeni: 'fyysinen', lahde: 'silta_d1', alkoi: new Date().toISOString(), kesto_vk: 4, ohjelma: ohjelma };
   if (typeof _vpJfMergeLisakentat === 'function') _vpJfMergeLisakentat(jf, p.id);   // JF-2: linkitetyt + Opittu kun
   const _v = _vpJaksoVaihto(p, jf);   // R6.1c: tmAsetaJaksofokus (olemassa oleva fyysinen jakso säilyy: sama jakso → alkoi säilyy, ei arkistoa)
-  p.jaksofokus = _v.jaksofokus;
-  /* Shellin oma sulkija: pelkkä .remove() jättäisi Esc-kuuntelijan vuotamaan. */
-  if (typeof window._vpOhjSulje === 'function') { window._vpOhjSulje(); window._vpOhjSulje = null; }
-  else document.getElementById('_vpOhjModal')?.remove();
-  document.getElementById('_vpFyysModal')?.remove();
-  _jfSulje();   // 1a Part B: sulje myös konsolidoitu paneeli
-  if (typeof _vpAloitusReRender === 'function') _vpAloitusReRender();
-  await _vpKirjoitaJaksofokus(p, _v, vpT('Fysiikkajakso + kirjasto-ohjelma asetettu'));
+  await _vpKirjoitaJaksofokus(p, _v, vpT('Fysiikkajakso + kirjasto-ohjelma asetettu'), null, function () {   // D53: modaali sulkeutuu vasta onnistuessa
+    p.jaksofokus = _v.jaksofokus;
+    /* Shellin oma sulkija: pelkkä .remove() jättäisi Esc-kuuntelijan vuotamaan. */
+    if (typeof window._vpOhjSulje === 'function') { window._vpOhjSulje(); window._vpOhjSulje = null; }
+    else document.getElementById('_vpOhjModal')?.remove();
+    document.getElementById('_vpFyysModal')?.remove();
+    _jfSulje();   // 1a Part B: sulje myös konsolidoitu paneeli
+    if (typeof _vpAloitusReRender === 'function') _vpAloitusReRender();
+  });
 };
 
 // §26 pikakentät (arviointi_havaittu), §5 tokenit, §7.22 aikuisnäkymä (VP-facing → 1–5 + värit sallittu). Taksonomia lib = standardi.
@@ -9542,14 +9544,15 @@ window._vpTtVieTreeniin = async function (pid, avain) {
   window._vpTtLahde = 'vp';
   if (typeof _vpJfMergeLisakentat === 'function') _vpJfMergeLisakentat(jaksofokus, p.id);   // JF-2: linkitetyt + Opittu kun
   const _v = _vpJaksoVaihto(p, jaksofokus);   // R6.1c: tmAsetaJaksofokus
-  p.jaksofokus = _v.jaksofokus;
-  p._jfTila = null;   // onnistunut tallennus palauttaa tilannenakymaan
-  if (typeof _vpAloitusReRender === 'function') _vpAloitusReRender();
-  // Vaihe 4c: jos ohjaus tapahtui jaksofokus-oversight-modaalista → sulje + päivitä taulukko.
-  if (_jfSulje() && typeof renderJaksofokus === 'function') renderJaksofokus();
-  // Vaihe 5: jos ohjaus tapahtui arviointi-välisivulta → re-renderöi arviointi (silta katoaa kun fokus asetettu).
-  if (typeof _vpArvReRender === 'function' && document.getElementById('_jspTab5')) _vpArvReRender();
-  await _vpKirjoitaJaksofokus(p, _v, 'Jaksofokus tallennettu');
+  await _vpKirjoitaJaksofokus(p, _v, 'Jaksofokus tallennettu', null, function () {   // D53: modaali sulkeutuu vasta onnistuessa
+    p.jaksofokus = _v.jaksofokus;
+    p._jfTila = null;   // onnistunut tallennus palauttaa tilannenakymaan
+    if (typeof _vpAloitusReRender === 'function') _vpAloitusReRender();
+    // Vaihe 4c: jos ohjaus tapahtui jaksofokus-oversight-modaalista → sulje + päivitä taulukko.
+    if (_jfSulje() && typeof renderJaksofokus === 'function') renderJaksofokus();
+    // Vaihe 5: jos ohjaus tapahtui arviointi-välisivulta → re-renderöi arviointi (silta katoaa kun fokus asetettu).
+    if (typeof _vpArvReRender === 'function' && document.getElementById('_jspTab5')) _vpArvReRender();
+  });
 };
 // IDP-kortti 1a (domeeni-fix) — arkistoi aktiivinen jaksofokus jaksofokus_historiaan JOS uusi fokus on
 // ERI domeenia (tmJfVaihtaaDomeenin) → ei hiljaista ylikirjoitusta ("Emil-törmäys": fyysinen ja teknis
@@ -9616,21 +9619,24 @@ function _vpJaksoNapitHTML(p) {
   return '<div id="vpJaksoNapit_' + _jsvEsc(p.id) + '" style="margin-top:8px"></div>';
 }
 async function _vpJfKirjoita(pid, upd, viesti, paivita) {
-  if (_isDemoMode || !_seuraId) { if (typeof toast === 'function') toast(viesti + vpT(' (demo — ei kirjoitettu)'), 'ok'); if (paivita) paivita(); return; }
+  if (_isDemoMode || !_seuraId) { if (typeof toast === 'function') toast(viesti + vpT(' (demo — ei kirjoitettu)'), 'ok'); if (paivita) paivita(); return true; }
   try {
     const cu = firebase.auth().currentUser; if (cu) await cu.getIdToken(true);
     await db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(pid).update(upd);
     if (paivita) paivita();
     if (typeof toast === 'function') toast(viesti + ' ✓', 'ok');
     if (typeof _vpKehAskelReRender === 'function') _vpKehAskelReRender();
-  } catch (e) { console.warn('[vpJf]', e && e.message); if (typeof toast === 'function') toast(((typeof TM_VIRHEKOODI !== 'undefined' && TM_VIRHEKOODI.tmVirheTeksti) || String)(vpT('Tallennus epäonnistui'), e), 'error'); }
+    return true;
+  } catch (e) { console.warn('[vpJf]', e); if (typeof toast === 'function') toast(((typeof TM_VIRHEKOODI !== 'undefined' && TM_VIRHEKOODI.tmVirheTeksti) || String)(vpT('Tallennus epäonnistui'), e), 'error'); return false; }   // D53: virhe näkyy aina (toast + koodi + konsoli); false → kutsuja jättää modaalin auki
 }
 // Jaksofokuksen vaihto/sulku: suunnitelma { jaksofokus, historiaLisays[] } → update({jaksofokus, jaksofokus_historia: arrayUnion(...rivit)}).
-async function _vpKirjoitaJaksofokus(p, v, viesti, extra) {
+/* onnistui: lokaali tila + modaalien sulku — ajetaan VASTA onnistuneen kirjoituksen jälkeen (D53: virheessä modaali jää auki, syötetty data säilyy). Palauttaa true/false. */
+async function _vpKirjoitaJaksofokus(p, v, viesti, extra, onnistui) {
   const rivit = Array.isArray(v.historiaLisays) ? v.historiaLisays : [];
   const upd = Object.assign({ jaksofokus: v.jaksofokus }, extra || {});   // extra: K3 — vanha ydinvahvuus_valinta pois samassa updatessa
   if (rivit.length) upd.jaksofokus_historia = firebase.firestore.FieldValue.arrayUnion.apply(null, rivit);
-  await _vpJfKirjoita(p.id, upd, viesti, function () {
+  return await _vpJfKirjoita(p.id, upd, viesti, function () {
+    if (typeof onnistui === 'function') onnistui();
     if (rivit.length) p.jaksofokus_historia = (Array.isArray(p.jaksofokus_historia) ? p.jaksofokus_historia : []).concat(rivit);
     if (extra && 'ydinvahvuus_valinta' in extra) delete p.ydinvahvuus_valinta;   // K3: lokaali vasta onnistumisen jälkeen
     // historia näkyviin vasta kun se on tallennettu (meso-kaari + Aloitus lukevat jaksofokus_historiaa)
@@ -9951,11 +9957,12 @@ window._vpJfAsetaKehitysFokus = async function (pid, domeeni, avain) {
   window._vpTtLahde = 'vp';
   if (typeof _vpJfMergeLisakentat === 'function') _vpJfMergeLisakentat(jaksofokus, p.id);   // JF-2: linkitetyt + Opittu kun
   const _v = _vpJaksoVaihto(p, jaksofokus);   // R6.1c: tmAsetaJaksofokus
-  p.jaksofokus = _v.jaksofokus;
-  p._jfTila = null;   // onnistunut tallennus palauttaa tilannenakymaan
-  if (typeof _vpAloitusReRender === 'function') _vpAloitusReRender();
-  if (_jfSulje() && typeof renderJaksofokus === 'function') renderJaksofokus();
-  await _vpKirjoitaJaksofokus(p, _v, vpT('Jakso tallennettu'));
+  await _vpKirjoitaJaksofokus(p, _v, vpT('Jakso tallennettu'), null, function () {   // D53: modaali sulkeutuu vasta onnistuessa
+    p.jaksofokus = _v.jaksofokus;
+    p._jfTila = null;   // onnistunut tallennus palauttaa tilannenakymaan
+    if (typeof _vpAloitusReRender === 'function') _vpAloitusReRender();
+    if (_jfSulje() && typeof renderJaksofokus === 'function') renderJaksofokus();
+  });
 };
 
 // Toggle-käsittelijä — vaihda aktiivinen domeeni + re-renderöi toggle + runko (dropdown-valinta elää).
@@ -11220,13 +11227,14 @@ window._vpSulkuTallenna = async function (uusiAvain) {
     tulos: S.tulos, uusi: uusiJf
   }, { nytISO: new Date().toISOString(), periytaLinkki: true, lisakentat: _lause.teksti ? { lause: _lause.teksti } : undefined });   // K4: lause samalle historiariville
   if (_tarjous) _v.jaksofokus = _tarjous.jaksofokus;   // K3: {tila:'valittavana', vaihtoehdot} — ei alkoi/kestoa (asetetaan vahvistuksessa)
-  p.jaksofokus = _v.jaksofokus;
-  document.getElementById('_vpSulkuModal')?.remove();
-  window._vpSulkuTila = null;
-  if (typeof renderJaksofokus === 'function' && _currentWs === 'jaksofokus') renderJaksofokus();
-  if (typeof _vpAloitusReRender === 'function') _vpAloitusReRender();
   await _vpKirjoitaJaksofokus(p, _v, _tarjous ? window.TM_REITIN_VALINTA.tmTeksti('k3_tarjottu_vp', { t: vpT }) : (uusiAvain ? 'Jakso suljettu · uusi fokus asetettu' : 'Jakso suljettu'),
-    _tarjous ? { ydinvahvuus_valinta: firebase.firestore.FieldValue.delete() } : null);   // YKSI update: jaksofokus + arrayUnion(sulkurivi) (+ K3: vanha valinta pois)
+    _tarjous ? { ydinvahvuus_valinta: firebase.firestore.FieldValue.delete() } : null, function () {   // YKSI update: jaksofokus + arrayUnion(sulkurivi) (+ K3: vanha valinta pois)
+      p.jaksofokus = _v.jaksofokus;   // D53: lokaali tila + modaalin sulku vasta onnistuessa — virheessä sulkulomake jää auki, syötetty data säilyy
+      document.getElementById('_vpSulkuModal')?.remove();
+      window._vpSulkuTila = null;
+      if (typeof renderJaksofokus === 'function' && _currentWs === 'jaksofokus') renderJaksofokus();
+      if (typeof _vpAloitusReRender === 'function') _vpAloitusReRender();
+    });
 };
 
 // Meso-kehityskaari (jaksotason timeline) — lukee jaksofokus_historia[] (§26). VP/valmentaja-näkymä (§7.22 ei koske).
