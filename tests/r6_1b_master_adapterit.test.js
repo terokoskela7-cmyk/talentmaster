@@ -29,18 +29,18 @@ const ALKOI = '2026-09-01T08:00:00.000Z';
 function ymp({ kaada = false, demo = false, offline = false, pelaaja = {}, vt, ehdotus = null } = {}) {
   const p = Object.assign({ id: PID, joukkue: 'KPV U13', etunimi: 'Topias' }, pelaaja);
   p._mIdpTavoite = vt || { valitavoitteet: [{ nimi: 'Vaihtotavoite', konsepti_avain: 'y_vt', kesto_vk: 5 }], aikaraami: { kesto_vk: 6 }, fokus: { alue: 'syotto' } };
-  const kirj = [], log = { toastit: [], setit: 0 };
-  const doc = (path) => ({ update: async (d) => { if (kaada) throw new Error('permission-denied'); kirj.push({ path, data: d }); }, set: async () => { log.setit++; } });
+  const kirj = [], log = { toastit: [], setit: 0, suljetut: [], warn: [] };
+  const doc = (path) => ({ update: async (d) => { if (kaada) throw Object.assign(new Error('Missing or insufficient permissions.'), { code: 'permission-denied' }); kirj.push({ path, data: d }); }, set: async () => { log.setit++; } });
   const _db = { collection: (c) => ({ doc: (a) => ({ collection: (c2) => ({ doc: (b) => doc(c + '/' + a + '/' + c2 + '/' + b) }) }) }) };
   const sb = {
-    window: { TM_JAKSOKOOSTE: J, TM_KEHITYSSILMUKKA: KS, _ohjKirjasto: [{ id: 'o1', tyyppi: 'plyo', nimi: 'Plyo', versio: 1 }],
+    window: { TM_JAKSOKOOSTE: J, TM_KEHITYSSILMUKKA: KS, TM_VIIKKOKATSAUS: require('../lib/tm_viikkokatsaus.js'), _ohjKirjasto: [{ id: 'o1', tyyppi: 'plyo', nimi: 'Plyo', versio: 1 }],
       TM_FYYSTEEMAT_LIB: { tmFyysTeema: (a) => (a ? { avain: a, nimi: 'Teema ' + a, testit: ['lin30m'] } : null), tmOhjelmaTemplaatti: (t) => ({ nimi: 'Pohja ' + t, kuvaus: 'k' }) } },
     _ttPelaaja: () => p, _pelaajatData: [p], _mIdpP: () => p, _mIdpReRender() {}, _mIdpTallennaDok() {}, _renderPinfoFirestore() {},
     _mTtItems: () => [{ avain: 'y_h2', nimi: 'SYÖTTÄMINEN', koodi: 'H2' }, { avain: 'y_h3', nimi: 'PELINLUKU', koodi: 'H3' }], _devIkaSp: () => ({ ika: 12 }), _ttNormPositio: () => 'KK', _mTtEhdotus: () => ehdotus,
-    _msSiltaKonsepti: (a) => ({ nimi: 'Silta ' + a, koodi: 'S1' }), document: { getElementById: () => null }, _uid: 'valm-uid', _rooli: 'valmentaja', tmPhvKoodi: () => 'PRE',
+    _msSiltaKonsepti: (a) => ({ nimi: 'Silta ' + a, koodi: 'S1' }), document: { getElementById: (id) => (/Modal$/.test(id) ? { remove() { log.suljetut.push(id); } } : null) }, _uid: 'valm-uid', _rooli: 'valmentaja', tmPhvKoodi: () => 'PRE',
     firebase: { auth: () => ({ currentUser: { uid: 'valm-uid' } }), firestore: { FieldValue: { arrayUnion: (...a) => ({ __arrayUnion: a }) } } },
     _mTuoreToken: async () => {}, _mVerkkoEnnenSulkua: () => !offline, _demo: demo, _seuraId: 'kpv', _db,
-    toast: (t, k) => log.toastit.push([t, k]), masterT: (x) => x, console: { warn() {} }, Date, Object, Array, Promise, Math, confirm: () => true,
+    toast: (t, k) => log.toastit.push([t, k]), masterT: (x) => x, console: { warn: (...a) => log.warn.push(a) }, TM_VIRHEKOODI: require('../lib/tm_virhekoodi.js'), Date, Object, Array, Promise, Math, confirm: () => true,
   };
   vm.createContext(sb);
   vm.runInContext([pura('function _mJaksoVaihto('), pura('async function _mKirjoitaJaksofokus('), pura('window._ttVieTreeniin = async function'), pura('window._msAsetaFyysFokus = async function'),
@@ -163,8 +163,12 @@ describe('M5 _msTallenna (sulku) — tmSuljeJakso + yksi update', () => {
     expect(d.jaksofokus_historia.__arrayUnion[0]).toMatchObject({ domeeni: 'fyysinen', lahde_seuraava: 'silta_d1', ohjelma: { ohjelma_id: 'o1', tyyppi: 'plyo' }, sulkutapa: 'suljettu' });
   });
   it('kirjoitus epäonnistuu: virheilmoitus, lokaali historia ei päivity; offline: ei mitään (lomake jää auki); demo: ei kirjoitusta, lokaali rivi', async () => {
-    const f = ymp({ kaada: true, pelaaja: { jaksofokus: JF } }); await aja(f, null);
+    const f = ymp({ kaada: true, pelaaja: { jaksofokus: JF } }); f.sb.window._msSulkuTila = SULKU(f.p, { lause: 'Hyvä jakso, jatka näin', k4: true }); await f.sb.window._msTallenna(null);
     expect(f.kirj).toEqual([]); expect(f.p.jaksofokus_historia).toBeUndefined(); expect(f.log.toastit.some(([, k]) => k === 'error')).toBe(true);
+    // virhe näkyy aina (toast + koodi + konsoli); sulkulomake jää auki, syötetty lause tallessa, p.jaksofokus ennallaan
+    expect(f.log.toastit).toEqual([['Tallennus epäonnistui (permission-denied)', 'error']]); expect(f.log.warn.some((a) => a[0] === '[msTallenna]')).toBe(true);
+    expect(f.log.suljetut).toEqual([]); expect(f.sb.window._msSulkuTila).not.toBeNull(); expect(f.sb.window._msSulkuTila.lause).toBe('Hyvä jakso, jatka näin'); expect(f.p.jaksofokus).toEqual(JF);
+    const ok = ymp({ pelaaja: { jaksofokus: JF } }); await aja(ok, null); expect(ok.log.suljetut).toEqual(['_msSulkuModal']); expect(ok.sb.window._msSulkuTila).toBeNull(); expect(ok.p.jaksofokus).toBeNull();   // onnistuessa modaali sulkeutuu
     const o = ymp({ offline: true, pelaaja: { jaksofokus: JF } }); await aja(o, 'y_h3');
     expect(o.kirj).toEqual([]); expect(o.p.jaksofokus).toEqual(JF); expect(o.p.jaksofokus_historia).toBeUndefined(); expect(o.sb.window._msSulkuTila).not.toBeNull();
     const d = ymp({ demo: true, pelaaja: { jaksofokus: JF } }); await aja(d, null);

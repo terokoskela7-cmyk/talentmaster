@@ -9616,21 +9616,24 @@ function _vpJaksoNapitHTML(p) {
   return '<div id="vpJaksoNapit_' + _jsvEsc(p.id) + '" style="margin-top:8px"></div>';
 }
 async function _vpJfKirjoita(pid, upd, viesti, paivita) {
-  if (_isDemoMode || !_seuraId) { if (typeof toast === 'function') toast(viesti + vpT(' (demo — ei kirjoitettu)'), 'ok'); if (paivita) paivita(); return; }
+  if (_isDemoMode || !_seuraId) { if (typeof toast === 'function') toast(viesti + vpT(' (demo — ei kirjoitettu)'), 'ok'); if (paivita) paivita(); return true; }
   try {
     const cu = firebase.auth().currentUser; if (cu) await cu.getIdToken(true);
     await db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(pid).update(upd);
     if (paivita) paivita();
     if (typeof toast === 'function') toast(viesti + ' ✓', 'ok');
     if (typeof _vpKehAskelReRender === 'function') _vpKehAskelReRender();
-  } catch (e) { console.warn('[vpJf]', e && e.message); if (typeof toast === 'function') toast(((typeof TM_VIRHEKOODI !== 'undefined' && TM_VIRHEKOODI.tmVirheTeksti) || String)(vpT('Tallennus epäonnistui'), e), 'error'); }
+    return true;
+  } catch (e) { console.warn('[vpJf]', e); if (typeof toast === 'function') toast(((typeof TM_VIRHEKOODI !== 'undefined' && TM_VIRHEKOODI.tmVirheTeksti) || String)(vpT('Tallennus epäonnistui'), e), 'error'); return false; }   // D53: virhe näkyy aina (toast + koodi + konsoli); false → kutsuja jättää modaalin auki
 }
 // Jaksofokuksen vaihto/sulku: suunnitelma { jaksofokus, historiaLisays[] } → update({jaksofokus, jaksofokus_historia: arrayUnion(...rivit)}).
-async function _vpKirjoitaJaksofokus(p, v, viesti, extra) {
+/* onnistui: lokaali tila + modaalien sulku — ajetaan VASTA onnistuneen kirjoituksen jälkeen (D53: virheessä modaali jää auki, syötetty data säilyy). Palauttaa true/false. */
+async function _vpKirjoitaJaksofokus(p, v, viesti, extra, onnistui) {
   const rivit = Array.isArray(v.historiaLisays) ? v.historiaLisays : [];
   const upd = Object.assign({ jaksofokus: v.jaksofokus }, extra || {});   // extra: K3 — vanha ydinvahvuus_valinta pois samassa updatessa
   if (rivit.length) upd.jaksofokus_historia = firebase.firestore.FieldValue.arrayUnion.apply(null, rivit);
-  await _vpJfKirjoita(p.id, upd, viesti, function () {
+  return await _vpJfKirjoita(p.id, upd, viesti, function () {
+    if (typeof onnistui === 'function') onnistui();
     if (rivit.length) p.jaksofokus_historia = (Array.isArray(p.jaksofokus_historia) ? p.jaksofokus_historia : []).concat(rivit);
     if (extra && 'ydinvahvuus_valinta' in extra) delete p.ydinvahvuus_valinta;   // K3: lokaali vasta onnistumisen jälkeen
     // historia näkyviin vasta kun se on tallennettu (meso-kaari + Aloitus lukevat jaksofokus_historiaa)
@@ -11220,13 +11223,14 @@ window._vpSulkuTallenna = async function (uusiAvain) {
     tulos: S.tulos, uusi: uusiJf
   }, { nytISO: new Date().toISOString(), periytaLinkki: true, lisakentat: _lause.teksti ? { lause: _lause.teksti } : undefined });   // K4: lause samalle historiariville
   if (_tarjous) _v.jaksofokus = _tarjous.jaksofokus;   // K3: {tila:'valittavana', vaihtoehdot} — ei alkoi/kestoa (asetetaan vahvistuksessa)
-  p.jaksofokus = _v.jaksofokus;
-  document.getElementById('_vpSulkuModal')?.remove();
-  window._vpSulkuTila = null;
-  if (typeof renderJaksofokus === 'function' && _currentWs === 'jaksofokus') renderJaksofokus();
-  if (typeof _vpAloitusReRender === 'function') _vpAloitusReRender();
   await _vpKirjoitaJaksofokus(p, _v, _tarjous ? window.TM_REITIN_VALINTA.tmTeksti('k3_tarjottu_vp', { t: vpT }) : (uusiAvain ? 'Jakso suljettu · uusi fokus asetettu' : 'Jakso suljettu'),
-    _tarjous ? { ydinvahvuus_valinta: firebase.firestore.FieldValue.delete() } : null);   // YKSI update: jaksofokus + arrayUnion(sulkurivi) (+ K3: vanha valinta pois)
+    _tarjous ? { ydinvahvuus_valinta: firebase.firestore.FieldValue.delete() } : null, function () {   // YKSI update: jaksofokus + arrayUnion(sulkurivi) (+ K3: vanha valinta pois)
+      p.jaksofokus = _v.jaksofokus;   // D53: lokaali tila + modaalin sulku vasta onnistuessa — virheessä sulkulomake jää auki, syötetty data säilyy
+      document.getElementById('_vpSulkuModal')?.remove();
+      window._vpSulkuTila = null;
+      if (typeof renderJaksofokus === 'function' && _currentWs === 'jaksofokus') renderJaksofokus();
+      if (typeof _vpAloitusReRender === 'function') _vpAloitusReRender();
+    });
 };
 
 // Meso-kehityskaari (jaksotason timeline) — lukee jaksofokus_historia[] (§26). VP/valmentaja-näkymä (§7.22 ei koske).

@@ -115,8 +115,8 @@ window.TM_KAAVIO_HOST = {
 <script src="lib/tm_koti_oletus.js?v=1"></script>
 <script src="lib/tm_joukkoaloitus.js?v=2"></script>   <!-- J4 C: joukkoaloitus (Kausi → Pelaajien jaksot) -->   <!-- V1: TM:n oletuskotiharjoitteet (D16: seura ensin, TM varalla); generoitu harjoitelogiikka_v4:stä -->
 <script src="lib/tm_liput.js?v=1"></script>   <!-- K1 osa 2: liput (liput/julkiset + vanha fallback K7:ään) -->
-<script src="lib/tm_aloita_jakso.js?v=6"></script>
-<script src="lib/tm_virhekoodi.js?v=1"></script>   <!-- tallennusvirheen syy (koodi) toastiin -->   <!-- jaettu "Aloita jakso" -modaali (Master + VP) -->
+<script src="lib/tm_aloita_jakso.js?v=6"></script>   <!-- jaettu "Aloita jakso" -modaali (Master + VP) -->
+<script src="lib/tm_virhekoodi.js?v=1"></script>   <!-- tallennusvirheen syy (koodi) toastiin -->
 <script src="lib/tm_vastuuhenkilo.js?v=1"></script>   <!-- vastuuhenkilö per pelaaja (vastuuhenkilo {uid, rooli, asetettu_pvm}); henkilökunnan rivi + asetus -->
 <script src="lib/tm_kehityssilmukka.js?v=2"></script>
 <script src="lib/tm_kielletyt.js?v=1"></script>   <!-- K4: sanavartija jakson päätöksen lauseelle -->
@@ -7022,10 +7022,13 @@ window._msTallenna = async function (uusiAvain) {
   }, { nytISO: new Date().toISOString(), periytaLinkki: true, lisakentat: _lause.teksti ? { lause: _lause.teksti } : undefined });   // R6.1c: tavoite_alue periytyy vain jos uudella jaksolla ei ole omaa arvoa (lib; valitavoite_idx/poikkeama ei koskaan) · K4: lause samalle historiariville
   if (!_mVerkkoEnnenSulkua()) return;   // offline: sulkulomake jää auki, historiaa ei muuteta
   if (_tarjous) v.jaksofokus = _tarjous.jaksofokus;   // K3: {tila:'valittavana', vaihtoehdot} — ei alkoi/kestoa (asetetaan vahvistuksessa)
-  p.jaksofokus = v.jaksofokus;
-  document.getElementById('_msSulkuModal')?.remove(); window._msSulkuTila = null;
-  if (typeof _renderPinfoFirestore === 'function') _renderPinfoFirestore(p);
+  var _valmis = function () {   // D53: lokaali tila + modaalin sulku VASTA onnistumisen jälkeen (virheessä modaali jää auki, syötetty data säilyy)
+    p.jaksofokus = v.jaksofokus;
+    document.getElementById('_msSulkuModal')?.remove(); window._msSulkuTila = null;
+    if (typeof _renderPinfoFirestore === 'function') _renderPinfoFirestore(p);
+  };
   if (_demo || !_seuraId || typeof _db === 'undefined' || !_db) {
+    _valmis();
     p.jaksofokus_historia = (Array.isArray(p.jaksofokus_historia) ? p.jaksofokus_historia : []).concat(v.historiaLisays);   // demo: vain lokaali
     if (_tarjous) delete p.ydinvahvuus_valinta;
     if (typeof toast === 'function') toast('Jakso suljettu (demo — ei kirjoitettu)', 'ok'); return;
@@ -7035,8 +7038,9 @@ window._msTallenna = async function (uusiAvain) {
     // YKSI update(): jaksofokus (uusi tai null) + jaksofokus_historia arrayUnion(sulkurivi) — vain LISÄÄ rivin (ei koko paikallisen taulukon kirjoitusta)
     await _mKirjoitaJaksofokus(p, v, p.id, _tarjous ? { ydinvahvuus_valinta: firebase.firestore.FieldValue.delete() } : null);
     if (_tarjous) delete p.ydinvahvuus_valinta;   // lokaali vasta onnistumisen jälkeen
+    _valmis();
     if (typeof toast === 'function') toast(_tarjous ? window.TM_REITIN_VALINTA.tmTeksti('k3_tarjottu', { t: masterT }) : (uusiAvain ? masterT('Jakso suljettu · uusi fokus asetettu ✓') : masterT('Jakso suljettu ✓')), 'ok');
-  } catch (e) { console.warn('[msTallenna]', e && e.message); if (typeof toast === 'function') toast(((typeof TM_VIRHEKOODI !== 'undefined' && TM_VIRHEKOODI.tmVirheTeksti) || String)(masterT('Tallennus epäonnistui'), e), 'error'); }
+  } catch (e) { console.warn('[msTallenna]', e); if (typeof toast === 'function') toast(((typeof TM_VIRHEKOODI !== 'undefined' && TM_VIRHEKOODI.tmVirheTeksti) || String)(masterT('Tallennus epäonnistui'), e), 'error'); }   // D53: virhe näkyy aina (toast + koodi + konsoli); modaali auki
 };
 // Meso-kehityskaari (jaksofokus_historia §26). Valmentaja-näkymä (§7.22 ei koske).
 function _msMesoKaariHTML(p) {
