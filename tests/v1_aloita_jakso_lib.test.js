@@ -83,7 +83,7 @@ describe('hyväksyntä, muokkaus, kirjoitus (YKSI update)', () => {
     const r = AJ.tmAloitaJaksoV2(p, Object.assign({}, syote, { konsepti_nimi: 'Saattaen vaihtaminen' }), x, OP()), jf = r.jaksofokus;
     expect(jf.tukitavoitteet).toHaveLength(1); expect(jf.tukitavoitteet[0]).toMatchObject({ alue: 'fyysinen', kuvaus: 'Liikehallinta ja kehonhallinta', perustelu: 'Jotta kuljetuksesi vie maalille asti, kehosi pysyy hallinnassa', lahde: { tyyppi: 'testi' } });
     expect(jf.tukiosa).toMatchObject({ alue: 'Liikehallinta ja kehonhallinta', perustelu: 'Jotta kuljetuksesi vie maalille asti, kehosi pysyy hallinnassa' }); expect(JM.tmTukiosa(jf.tukiosa)).toEqual(jf.tukiosa);
-    expect(jf.joukkuejakso_viite).toEqual({ jid: 'kpv_u13', alku: '2026-11-10' }); expect(JM.tmTarkistaJaksoData(jf)).toEqual([]); expect(jf.asetti).toMatchObject({ rooli: 'valmentaja', pvm: TANAAN });
+    expect(jf.joukkuejakso_viite).toMatchObject({ jid: 'kpv_u13', alku: '2026-11-10', nimi: expect.any(String), kesto_vk: expect.any(Number) }); expect(JM.tmTarkistaJaksoData(jf)).toEqual([]); expect(jf.asetti).toMatchObject({ rooli: 'valmentaja', pvm: TANAAN });
     const upd = AJ.tmAloitaJaksoKirjoitus({ jaksofokus: jf, historiaLisays: [] }, r, null, { arrayUnion: () => null }); expect(Object.keys(upd)).toEqual(['jaksofokus', 'ydinvahvuus']); expect(upd.jaksofokus.tukitavoitteet).toHaveLength(1);   // ei toista kirjoitusta
   });
   it('kotiharjoitteet valitun tukitavoitteen alta: snapshot (#823) → tukitavoitteet[0].harjoitteet JA tukiosa.harjoitteet; kenttä lahde seura|tm; valitsematon ei mukaan', () => {
