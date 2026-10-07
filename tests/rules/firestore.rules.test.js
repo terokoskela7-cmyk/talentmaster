@@ -4381,6 +4381,34 @@ describe('v3.39 · viestit.nakyvyys', () => {
   });
 });
 
+/* ══ v3.43 · seurat/{sid}/liput/julkiset (K1 osa 2): pelaajalle luettavat liput — luku oma seura (henkilökunta + pelaaja), kirjoitus SA + johto ══ */
+describe('v3.43 · liput/julkiset', () => {
+  const liput = (db, sid) => doc(db, 'seurat', sid || SEURA_A, 'liput', 'julkiset');
+  beforeEach(async () => {
+    await seedAdminDoc(); await seedSeuraAndPelaaja();
+    await testEnv.withSecurityRulesDisabled(async (c) => { await setDoc(liput(c.firestore(), SEURA_A), { kentta: true }); await setDoc(liput(c.firestore(), SEURA_B), { kentta: false }); });
+  });
+  it('LUKU: oman seuran pelaaja ✓ ja henkilökunta (valmentaja, VP, sihteeri, fysiikka, talenttivalmentaja) ✓, SA ✓ — palauttaa {kentta}', async () => {
+    const pel = await assertSucceeds(getDoc(liput(pelaajaContext(SEURA_A, PELAAJA_UID).firestore()))); expect(pel.data()).toEqual({ kentta: true });
+    for (const c of [valmentajaContext(VALM_A_UID, SEURA_A), vpContext(SEURA_A), sihteeriContext(SEURA_A), fysiikkavalmentajaContext('fys-a', SEURA_A), talenttivalmentajaContext('talval-a', SEURA_A), saContext()]) await assertSucceeds(getDoc(liput(c.firestore())));
+  });
+  it('ERISTYS: toisen seuran pelaaja ja henkilökunta (myös VP) eivät lue; kirjautumaton ja anonyymi eivät; huoltaja ei vielä (K5 lisää onLiputLuku:on)', async () => {
+    await assertFails(getDoc(liput(pelaajaContext(SEURA_B, 'p-b').firestore()))); await assertFails(getDoc(liput(vpContext(SEURA_B).firestore())));
+    await assertFails(getDoc(liput(valmentajaContext(VALM_B_UID, SEURA_B).firestore()))); await assertFails(getDoc(liput(unauthContext().firestore())));
+    await assertFails(getDoc(liput(huoltajaContext().firestore()))); await assertFails(getDoc(liput(randomContext().firestore())));
+    await assertFails(getDoc(liput(pelaajaContext(SEURA_A, PELAAJA_UID).firestore(), SEURA_B)));   // oma pelaaja ei lue TOISEN seuran lippuja
+  });
+  it('KIRJOITUS: SA ✓ ja oman seuran johto (VP, UTJ-rooli, sihteeri) ✓; pelaaja ✗, valmentaja ✗, talenttivalmentaja ✗, fysiikkavalmentaja ✗, huoltaja ✗, toisen seuran VP ✗; poisto vain SA', async () => {
+    await assertSucceeds(setDoc(liput(saContext().firestore()), { kentta: true })); await assertSucceeds(setDoc(liput(vpContext(SEURA_A).firestore()), { kentta: false })); await assertSucceeds(setDoc(liput(sihteeriContext(SEURA_A).firestore()), { kentta: true }));
+    await assertSucceeds(updateDoc(liput(vpContext(SEURA_A).firestore()), { kentta: false }));
+    for (const c of [pelaajaContext(SEURA_A, PELAAJA_UID), valmentajaContext(VALM_A_UID, SEURA_A), talenttivalmentajaContext('talval-a', SEURA_A), fysiikkavalmentajaContext('fys-a', SEURA_A), huoltajaContext(), vpContext(SEURA_B), unauthContext()]) await assertFails(setDoc(liput(c.firestore()), { kentta: true }));
+    await assertFails(updateDoc(liput(pelaajaContext(SEURA_A, PELAAJA_UID).firestore()), { kentta: true })); await assertFails(deleteDoc(liput(vpContext(SEURA_A).firestore()))); await assertSucceeds(deleteDoc(liput(saContext().firestore())));
+  });
+  it('seurat/{id}-dokumentti ei avaudu pelaajalle tämän myötä (vanha sääntö ennallaan) — siksi erillinen liput-dokumentti', async () => {
+    await assertFails(getDoc(doc(pelaajaContext(SEURA_A, PELAAJA_UID).firestore(), 'seurat', SEURA_A)));
+  });
+});
+
 /* ══ T1 · harjoitepankin uudet kentät (D29) eivät riko v3.40–42-sääntöjä: tuontiskriptin normalisoitu dokumentti kirjoitetaan VP:llä/SA:lla; pelaaja lukee yhä vain hyväksytty + koti ══ */
 describe('T1 · harjoitepankki: uudet kentät (pelikonteksti, alue_m, tasot, vuosikello, kuva_url …) + v3.40–42', () => {
   const HP = createRequire(import.meta.url)('../../lib/tm_harjoitepankki.js');

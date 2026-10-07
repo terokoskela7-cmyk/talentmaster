@@ -110,6 +110,7 @@ window.TM_KAAVIO_HOST = {
 <script src="lib/tm_kypsyys.js?v=2"></script>   <!-- IDP R1: Kypsyys/PHV -komponentti (tmKypsyys) kytketty näkyviin per-pelaaja-kortin vasempaan paneeliin (korvaa kypsyysproosan) -->
 <script src="lib/tm_treeniteema.js?v=1"></script>   <!-- Vaihe 4d: teemakattavuus PURE-ydin (jaksofokus vs suunnitellut teemaharjoitukset) -->
 <script src="lib/tm_jaksokooste.js?v=2"></script>   <!-- Vaihe 6: jakson sulku (meso-sykli) PURE-ydin — prosessi+kalibraatio+historia (geneerinen §8) -->
+<script src="lib/tm_liput.js?v=1"></script>   <!-- K1 osa 2: liput (liput/julkiset + vanha fallback K7:ään) -->
 <script src="lib/tm_joukkuejakso.js?v=3"></script>   <!-- K1/A: joukkuejakson snapshot (tmAloitaJaksoTuki) -->
 <script src="lib/tm_aloita_jakso.js?v=4"></script>
 <script src="lib/tm_tukitavoitteet.js?v=3"></script>   <!-- J1/V1: tukitavoitteet (ehdotusmoottori, kotiharjoitevalikoima) -->
@@ -8556,7 +8557,13 @@ async function _vpLataaLiput() {
   if (!_seuraId || _isDemoMode) return {};
   if (window._vpLiput[_seuraId]) return window._vpLiput[_seuraId];
   let l = {};
-  try { const sd = await db.collection('seurat').doc(_seuraId).get(); l = (sd.exists && sd.data().liput) || {}; } catch (e) { console.warn('[V1] liput:', e && e.message); }
+  try {
+    const ref = db.collection('seurat').doc(_seuraId), L = window.TM_LIPUT;
+    // liput/julkiset-luvun virhe (myös synkroninen) tai puuttuva dokumentti → null → fallback vanhaan seurat.liput.kentta; lipun luku EI saa jumittaa eikä kaataa UI:ta
+    const lueJulkiset = async function () { let ajastin = null; try { const jd = await Promise.race([ref.collection('liput').doc('julkiset').get(), new Promise(function (r) { ajastin = setTimeout(function () { r(null); }, 4000); })]); return jd && jd.exists ? jd.data() : null; } catch (e) { return null; } finally { if (ajastin) clearTimeout(ajastin); } };   // 4 s yläraja: roikkuva luku → fallback
+    const [sd, jul] = await Promise.all([ref.get(), lueJulkiset()]); const seura = sd.exists ? sd.data() : null; l = L ? L.tmLiput(jul, seura) : ((seura && seura.liput) || {});
+  }   // K1 osa 2: liput/julkiset voittaa, vanha seurat.liput.kentta fallback (K7:ään)
+  catch (e) { console.warn('[V1] liput:', e && e.message); }
   window._vpLiput[_seuraId] = l; return l;
 }
 async function _vpAjHaeTuki(p) {

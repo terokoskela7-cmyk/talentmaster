@@ -114,6 +114,7 @@ window.TM_KAAVIO_HOST = {
 <script src="lib/tm_joukkuejakso.js?v=3"></script>   <!-- J2: joukkuejakso (Kausi → Joukkueen jakso): valinnat, lomake, kortti -->
 <script src="lib/tm_koti_oletus.js?v=1"></script>
 <script src="lib/tm_joukkoaloitus.js?v=1"></script>   <!-- J4 C: joukkoaloitus (Kausi → Pelaajien jaksot) -->   <!-- V1: TM:n oletuskotiharjoitteet (D16: seura ensin, TM varalla); generoitu harjoitelogiikka_v4:stä -->
+<script src="lib/tm_liput.js?v=1"></script>   <!-- K1 osa 2: liput (liput/julkiset + vanha fallback K7:ään) -->
 <script src="lib/tm_aloita_jakso.js?v=4"></script>   <!-- jaettu "Aloita jakso" -modaali (Master + VP) -->
 <script src="lib/tm_vastuuhenkilo.js?v=1"></script>   <!-- vastuuhenkilö per pelaaja (vastuuhenkilo {uid, rooli, asetettu_pvm}); henkilökunnan rivi + asetus -->
 <script src="lib/tm_kehityssilmukka.js?v=2"></script>
@@ -7358,7 +7359,13 @@ async function _mJjLataaLiput() {
   if (!_seuraId || _demo || typeof _db === 'undefined' || !_db) return {};
   if (window._mJjLiput[_seuraId]) return window._mJjLiput[_seuraId];
   let l = {};
-  try { const sd = await _db.collection('seurat').doc(_seuraId).get(); l = (sd.exists && sd.data().liput) || {}; } catch (e) { console.warn('[J2] liput:', e && e.message); }
+  try {
+    const ref = _db.collection('seurat').doc(_seuraId), L = window.TM_LIPUT;
+    // liput/julkiset-luvun virhe (myös synkroninen) tai puuttuva dokumentti → null → fallback vanhaan seurat.liput.kentta; lipun luku EI saa jumittaa eikä kaataa UI:ta
+    const lueJulkiset = async function () { let ajastin = null; try { const jd = await Promise.race([ref.collection('liput').doc('julkiset').get(), new Promise(function (r) { ajastin = setTimeout(function () { r(null); }, 4000); })]); return jd && jd.exists ? jd.data() : null; } catch (e) { return null; } finally { if (ajastin) clearTimeout(ajastin); } };   // 4 s yläraja: roikkuva luku → fallback
+    const [sd, jul] = await Promise.all([ref.get(), lueJulkiset()]); const seura = sd.exists ? sd.data() : null; l = L ? L.tmLiput(jul, seura) : ((seura && seura.liput) || {});
+  }   // K1 osa 2: liput/julkiset voittaa, vanha seurat.liput.kentta fallback (K7:ään)
+  catch (e) { console.warn('[J2] liput:', e && e.message); }
   window._mJjLiput[_seuraId] = l; return l;
 }
 function _mJjSaaMuokata() { return !!_superAdmin || ['vp', 'urheilutoimenjohtaja', 'talenttivalmentaja', 'valmentaja'].indexOf(_rooli) >= 0; }
@@ -7389,7 +7396,7 @@ async function _mJjRender() {
     + J.tmJoukkuejaksoKorttiHTML(kortti, { esc: _mEsc, t: masterT, avaaFn: '_mJjAvaa', voiMuokata: _mJjSaaMuokata(), nimi: data.nimi || _joukkue });
   // J4 C: "Pelaajien jaksot" vain kun joukkuejakso on käynnissä/tulossa ja käyttäjä saa kirjoittaa
   const ja = document.getElementById('seasonPelaajienJaksot');
-  if (ja) { if (kortti.onJakso && !kortti.umpeutunut && _mJjSaaMuokata() && window.TM_JOUKKOALOITUS) _mJaLaske(); else ja.innerHTML = ''; }
+  if (ja) { if (kortti.onJakso && !kortti.umpeutunut && _mJjSaaMuokata() && window.TM_JOUKKOALOITUS) await _mJaLaske(); else ja.innerHTML = ''; }   // await: _mJjRender() valmistuu vasta kun lista on piirretty (testit odottavat tätä, ei ajastinta)
 }
 function _mJjVoiLuoda() { return !!_superAdmin || ['vp', 'urheilutoimenjohtaja'].indexOf(_rooli) >= 0; }
 window._mJjAvaa = async function () {
@@ -7418,7 +7425,7 @@ window._mJjTallenna = async function () {
     if (k.paikallinen.historiaLisays.length) d.data.jaksofokus_historia = (Array.isArray(d.data.jaksofokus_historia) ? d.data.jaksofokus_historia : []).concat(k.paikallinen.historiaLisays);
     window._mJjSynkkaVirhe = null;
     const synkka = await _mJjSynkkaPelaajiin(vanha, d.jid, d.data);   // joukkue on jo tallennettu; synkan virhe EI kumoa sitä vaan näytetään valmentajalle (alla)
-    window._mJjSulje(); _mJjRender();
+    window._mJjSulje(); try { await _mJjRender(); } catch (e) { console.warn('[J2] piirto:', e && e.message); }   // odota piirto (ei sleep-oletuksia); piirron virhe ei muuta tallennuksen tulosta
     if (synkka.virheita > 0) { if (typeof toast === 'function') toast(masterT('Joukkuejakso tallennettu') + ' — ' + masterT('{n} pelaajan viikkotavoite ei päivittynyt, yritä uudelleen').replace('{n}', String(synkka.virheita)), 'error'); return; }
     if (typeof toast === 'function') toast(masterT('Joukkuejakso tallennettu') + ' ✓', 'ok');
   } catch (e) { console.warn('[J2] kirjoitus:', e && e.message); if (typeof toast === 'function') toast(masterT('Tallennus epäonnistui — tarkista oikeutesi tai yritä uudelleen'), 'error'); }
