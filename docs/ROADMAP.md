@@ -38,6 +38,16 @@ Suunta: järjestelmä skaalautuu yksittäisestä pelaajasta (Kenttä, jakso) val
 | joulukuu | S3 tavoitetasot · **K5 Leikkijä + huoltaja** (KPV:llä nyt 9–12-vuotiaita) |
 | myöhemmin | S4 teema/kuorma/kypsyys (14:n jälkeen) · Pallo-Iirojen tuonti · ryhmät R2 (sääntöryhmät, IDP-ryhmät) |
 
+### 🧱 Rakennelinja — kuorten pilkkominen (Tero 8.10.2026)
+Skaalautuvuushaaste: VP_v25 kasvoi 14 525 → **23 201** riviä (heinä → loka), Master_v16 11 476, Seura ja Pelaaja_v7 ~7 000. Ominaisuustyö rakentaa jo uudet osat jaettuina `lib/`-moduuleina (106 kpl; V4, Kenttä, ryhmät ym.) ja Master + VP käyttävät samaa kehitystyöpöytää (D38/D46) — mutta kuoria ei vielä pilkota.
+| Vaihe | Milloin | Mitä |
+|---|---|---|
+| **R0 Kasvukatto** | heti | Testi: kuoret eivät kasva yli nykyisen + 2 %; uusi logiikka `lib/`-moduuleihin, kuoreen vain kytkentä; katto räikkänä alas kun kuori pienenee. `docs/CODE_BRIEF_RAKENNE_R0_KASVUKATTO.md` |
+| poisto | 1.12. | Vanha pelaajakortti pois Masterista ja VP:stä (D49) — ensimmäinen iso pienennys |
+| **R1 VP_v25:n jako** | joulukuu | Etusivu = Seuran pulssi (17); porautuminen = sama kehitystyöpöytä kuin Masterissa; kalenteri, ryhmät, raportit, työkalut omiksi kevyiksi sivuiksi. Ensin selvitys (osiot, rivit, Master-kopiot). |
+| **R2 Master + Seura** | tammikuu | Sama jako: Master = valmentajan Tänään + kehitystyöpöytä; Seura-hallinta (rosteri, käyttäjät, ryhmät) yhteen paikkaan VP:n kanssa. |
+| **R3 Backend** | kevät | `functions/index.js` aiheittain (sähköposti / AI / GDPR / ajastukset); Rules-tiedoston jaon selvitys. |
+
 ---
 
 ## 🚦 LIVE-TILA 2026-06-15 (Firestoresta luettu — aiemmat tilatekstit olivat jäljessä)
