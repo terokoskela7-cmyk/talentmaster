@@ -72,7 +72,7 @@ Masterin pelaajanäkymä korvataan koko ruudun kehitystyöpöydällä (13: Tän�
 | `seurat/{sid}/pelaajat/{pid}.jaksofokus` | ennallaan: vain `tila:'valittavana'` + `vaihtoehdot[]` (K3); muut tilat johdetaan (§2 #5) | v3.37 riittää |
 | `…pelaajat/{pid}.jaksofokus_historia[]` | rivi: `lause` (≤140, K4) + uusi `lause_lahde` | ennallaan (henkilökunnan allowlist kattaa kentän). Rules ei validoi taulukon rivien sisältöä → validointi clientissä/lib:ssä |
 | `…pelaajat/{pid}/reviewit/{pvm}.kevyt` | uusi kenttä `{ase,treeni,mukana}` sanoina; set-merge (sama päivä kuin täysi katselmus → sama dokumentti, eri kenttä) | luku vain henkilökunta (v3.37 ennallaan). v3.46+: `kevyt`-arvojen enum-validointi |
-| `…pelaajat/{pid}.jaksofokus.tarjottu_pvm` / `.hylatty` | uudet: `tarjottu_pvm` (YYYY-MM-DD) aina kun `vaihtoehdot[]` kirjoitetaan; `hylatty:{pvm, perustelu}` kun valinta hylätään | ennallaan (henkilökunnan allowlist kattaa `jaksofokus`-kentän) |
+| `…pelaajat/{pid}.jaksofokus.hylatty` | uusi: `hylatty:{pvm, perustelu, valinta}` kun valinta hylätään; samassa updatessa `ydinvahvuus_valinta` poistetaan (kuten K3-tarjous) | ennallaan (oman joukkueen valmentaja ja johto päivittävät pelaajadokumenttia ilman kenttärajausta) |
 | `…pelaajat/{pid}/viikkokatsaukset/{su-pvm}` | luetaan Tänään-avauksessa (kuluva viikko) | v3.44 (K4) |
 | `seurat/{sid}/joukkueet/{jid}.valmentajaprofiili` | uusi, `'ammatti'|'oto'`, vain johto/SA kirjoittaa | v3.37: johdon update on jo sallittu; tarkista ettei valmentajan jaksokenttä-allowlist päästä sitä läpi, lisää enum-validointi (versio v3.46+) |
 | `seurat/{sid}/liput/julkiset.kentta` | ennallaan (v3.43), fallback `seurat/{sid}.liput.kentta` K7:ään asti | — |
@@ -80,7 +80,7 @@ Masterin pelaajanäkymä korvataan koko ruudun kehitystyöpöydällä (13: Tän�
 **Selvitykset ennen koodausta (raportoi ensin):**
 **Ratkaistut selvitykset (7.10.2026) — tarkista koodista ja raportoi poikkeamat ennen koodausta:**
 - **(a) Vastausten paikka = `reviewit/{pvm}.kevyt`** (ks. §2 #9 ja taulukko). Perusteet: `reviewit` on vain henkilökunnan luettavissa (Rules: `onSuperAdmin() || onOmaSeura`), pelaajadokumentti ei ole; täysi katselmus ("Syvennä", 09 §6) kirjoittaa jo sinne; seuran kooste (17) on Cloud Function ja lukee `reviewit`in. Tarkista, että `reviewit`-dokumentin ID ja `tmKirjaaKatselmus`-muoto sallivat `kevyt`-kentän set-mergellä rikkomatta täyttä katselmusta.
-- **(b) "Hylkää valinta" ei koske pelaajan kenttään.** Pelaajan `ydinvahvuus_valinta` jää paikalleen (Rules v3.37 rajaa sen pelaajalle). Henkilökunta kirjoittaa `jaksofokus.hylatty:{pvm, perustelu}` + uudet `vaihtoehdot[]` + uusi `tarjottu_pvm`. **Valinta on voimassa vain, jos `ydinvahvuus_valinta.valittu_pvm >= jaksofokus.tarjottu_pvm`** — muuten tila on "valittavana, odottaa pelaajaa". Sääntö yhteen lib-funktioon (`tm_jakso_malli`, esim. `tmValintaVoimassa(p)`), jota käyttävät sekä `tmJaksoNappi` että pelaajan K3-puoli (Pelaaja_v7 "Valintasi on valmentajalla" -kortti). Vanha data ilman `tarjottu_pvm`:ää = valinta voimassa (nykykäytös). Perustelu: KIELLETYT + K4:n lukutarkistus, ≤140; pelaajalle näkyy lauseena, ei koskaan sanaa "hylätty" (§7.22). Rules-muutosta ei tarvita.
+- **(b) "Hylkää valinta" = sama kirjoitus kuin K3-tarjous** (korjattu 7.10. #868-tarkastuksen jälkeen). Oman joukkueen valmentaja ja johto saavat päivittää pelaajadokumenttia ilman kenttärajausta, ja K3-tarjous poistaa jo `ydinvahvuus_valinta`n samassa updatessa (`_mKirjoitaJaksofokus(..., { ydinvahvuus_valinta: FieldValue.delete() })`). Hylkäys tekee saman: yksi update = `jaksofokus:{tila:'valittavana', vaihtoehdot[], hylatty:{pvm, perustelu, valinta}}` + `ydinvahvuus_valinta` poistetaan. Pelaajan valinta säilyy kopiona `hylatty.valinta`-kentässä. Ei aikaleimasääntöä eikä uutta lib-funktiota. Perustelu: KIELLETYT + K4:n lukutarkistus, ≤140; pelaajalle näkyy lauseena, ei koskaan sanaa "hylätty" (§7.22). Rules-muutosta ei tarvita.
 - **(c) Reititys:** Master_v16:ssa ei ole hash-reititintä (`location.hash`/`hashchange` ei esiinny). V4 tekee ensimmäisen: `#pelaaja/{pid}/tanaan|polku|naytto`; Back palaa listaan (`hashchange`), suora URL avautuu oikeustarkistuksen jälkeen. Reititin `lib/`-tiedostoon, jotta VP_v25 käyttää samaa hashia samalla komponentilla (D38). Lippu pois → hashia ei käsitellä.
 
 **Rules v3.46+ (yksi versio, sovita ryhmien v3.46 kanssa):** `joukkueet/{jid}.valmentajaprofiili` enum `'ammatti'|'oto'`, vain johto/SA (valmentajan jaksokenttä-allowlist ei päästä sitä läpi) · `reviewit.kevyt` enum-validointi. Changelog + Rules-testit.
@@ -95,7 +95,7 @@ Masterin pelaajanäkymä korvataan koko ruudun kehitystyöpöydällä (13: Tän�
 
 1. Lista → rivi → koko ruudun näkymä, URL vaihtuu, ‹ › kulkee listan järjestyksessä, Back palaa listaan.
 2. Jokainen kuudesta tilasta: otsikkorivin nappi, valikko ja J4-rivitila yhtenevät (sama funktio).
-3. Kevyt katselmus: 3 vastausta + lause + K3 → **yksi** batch; `jaksofokus_historia` saa rivin (lause), `reviewit/{pvm}.kevyt` saa vastaukset, `jaksofokus.tila='valittavana'` + `tarjottu_pvm`; pelaajan dokumentissa EI ole vastauksia; pelaajasovellus näyttää "Hyvä jakso" + lauseen + valinnan.
+3. Kevyt katselmus: 3 vastausta + lause + K3 → **yksi** batch; `jaksofokus_historia` saa rivin (lause), `reviewit/{pvm}.kevyt` saa vastaukset, `jaksofokus.tila='valittavana'`; pelaajan dokumentissa EI ole vastauksia; pelaajasovellus näyttää "Hyvä jakso" + lauseen + valinnan.
 4. Kevyt katselmus ilman K3:a → `jaksofokus` tyhjenee/`tila:'paattynyt'`, nappi "Aloita jakso".
 5. KIELLETYT-sana lauseessa → ei tallennu, selkeä viesti; 121 merkkiä → ei tallennu.
 6. Signaalijärjestys: `kuorma_tarkista` voittaa valinnan; valinta tehty voittaa suljettavan; suljettava voittaa viikkokatsauksen.
@@ -108,7 +108,7 @@ Masterin pelaajanäkymä korvataan koko ruudun kehitystyöpöydällä (13: Tän�
 13. Lauseen raja: 140 merkkiä hyväksytään, 141 hylätään (sama funktio kuin K4).
 14. Nykyinen data: käynnissä oleva jakso ilman `tila`-kenttää näkyy tilana "käynnissä"; K3:n pelaajapuoli toimii ennallaan.
 15. Testidata palautetaan. Kirjoitukset vain KPV U13 -testipelaajille.
-16. Hylkää valinta: pelaajan `ydinvahvuus_valinta` ennallaan; `tarjottu_pvm` uudempi → tila "odottaa pelaajaa" sekä Masterissa että pelaajan Tänään-kortissa; pelaaja valitsee uudelleen → "valinta tehty". Vanha data ilman `tarjottu_pvm`:ää toimii kuten ennen.
+16. Hylkää valinta: yksi update; `ydinvahvuus_valinta` poistuu, `jaksofokus.hylatty.valinta` sisältää pelaajan valinnan; tila "odottaa pelaajaa" sekä Masterissa että pelaajan Tänään-kortissa; pelaaja valitsee uudelleen → "valinta tehty"; pelaajalle ei näy sanaa "hylätty".
 17. Typografia: otsikkorivissä ja napeissa ei Archivoa (tarkistus laskettuna tyylinä).
 18. Rules-emulaattori: pelaaja ei lue `reviewit`iä; valmentaja ei kirjoita `valmentajaprofiili`a; `kevyt` väärällä arvolla hylätään.
 19. Koko sarja (myös `functions/`) viimeisen main-mergen jälkeen.
@@ -139,7 +139,7 @@ Masterin pelaajanäkymä korvataan koko ruudun kehitystyöpöydällä (13: Tän�
 ## Järjestys
 
 1. **D53 pikakorjaus** — oma PR (Teron kaista), heti.
-2. **V4a** — näkymä, hash-reititin, tilakone (`tmValintaVoimassa` mukaan), typografia. Oma PR.
+2. **V4a** — näkymä, hash-reititin, tilakone, typografia. Oma PR.
 3. **V4b** — kevyt katselmus, signaali, profiili, Rules v3.46+. Oma PR.
 4. **Poisto** — vanha modaali ja fallbackit 1.12.2026. Oma PR.
 
