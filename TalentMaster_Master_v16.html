@@ -111,10 +111,10 @@ window.TM_KAAVIO_HOST = {
 <script src="lib/tm_jaksokooste.js?v=2"></script>   <!-- Vaihe 6: jakson sulku (meso-sykli) — valmentaja sulkee omat pelaajansa (§4/§37) -->
 <script src="lib/tm_valmennuslinja.js?v=1"></script>   <!-- seuran valmennuslinja: joukkueen teema (hyväksytyt + henkilökunnalle luonnos) -->
 <script src="lib/tm_tukitavoitteet.js?v=3"></script>   <!-- J1/J2: joukkuejakson osa-alueet + tukitavoitteet (lukee tm_idp, tm_jakso_malli, tm_fyysteemat) -->
-<script src="lib/tm_joukkuejakso.js?v=2"></script>   <!-- J2: joukkuejakso (Kausi → Joukkueen jakso): valinnat, lomake, kortti -->
+<script src="lib/tm_joukkuejakso.js?v=3"></script>   <!-- J2: joukkuejakso (Kausi → Joukkueen jakso): valinnat, lomake, kortti -->
 <script src="lib/tm_koti_oletus.js?v=1"></script>
 <script src="lib/tm_joukkoaloitus.js?v=1"></script>   <!-- J4 C: joukkoaloitus (Kausi → Pelaajien jaksot) -->   <!-- V1: TM:n oletuskotiharjoitteet (D16: seura ensin, TM varalla); generoitu harjoitelogiikka_v4:stä -->
-<script src="lib/tm_aloita_jakso.js?v=3"></script>   <!-- jaettu "Aloita jakso" -modaali (Master + VP) -->
+<script src="lib/tm_aloita_jakso.js?v=4"></script>   <!-- jaettu "Aloita jakso" -modaali (Master + VP) -->
 <script src="lib/tm_vastuuhenkilo.js?v=1"></script>   <!-- vastuuhenkilö per pelaaja (vastuuhenkilo {uid, rooli, asetettu_pvm}); henkilökunnan rivi + asetus -->
 <script src="lib/tm_kehityssilmukka.js?v=2"></script>
 <script src="lib/tm_jakso_malli.js?v=2"></script>   <!-- B 2/3: ohjelma → jakson tukiosa (tmOhjelmaTukiosaan / tmLiitaTukiosaan) -->   <!-- R6.1b: jaksofokuksen yhteinen kirjoitusydin (tmAsetaJaksofokus / tmSuljeJakso) -->
@@ -7385,7 +7385,8 @@ async function _mJjRender() {
     return;
   }
   const ctx = _mJjCtx(jid, data), kortti = J.tmJoukkuejaksoKortti(data, ctx);
-  el.innerHTML = J.tmJoukkuejaksoKorttiHTML(kortti, { esc: _mEsc, t: masterT, avaaFn: '_mJjAvaa', voiMuokata: _mJjSaaMuokata(), nimi: data.nimi || _joukkue });
+  el.innerHTML = J.tmJoukkuejaksoSynkkaIlmoitusHTML(window._mJjSynkkaVirhe && window._mJjSynkkaVirhe.jid === jid ? window._mJjSynkkaVirhe.n : 0, { esc: _mEsc, t: masterT, uudelleenFn: '_mJjSynkkaUudelleen' })
+    + J.tmJoukkuejaksoKorttiHTML(kortti, { esc: _mEsc, t: masterT, avaaFn: '_mJjAvaa', voiMuokata: _mJjSaaMuokata(), nimi: data.nimi || _joukkue });
   // J4 C: "Pelaajien jaksot" vain kun joukkuejakso on käynnissä/tulossa ja käyttäjä saa kirjoittaa
   const ja = document.getElementById('seasonPelaajienJaksot');
   if (ja) { if (kortti.onJakso && !kortti.umpeutunut && _mJjSaaMuokata() && window.TM_JOUKKOALOITUS) _mJaLaske(); else ja.innerHTML = ''; }
@@ -7409,14 +7410,40 @@ window._mJjTallenna = async function () {
   catch (e) { console.warn('[J2] validointi:', e && e.message); if (typeof toast === 'function') toast(masterT('Joukkuejaksoa ei voi tallentaa') + ': ' + String(e && e.message || '').replace(/^tm_(joukkuejakso|tukitavoitteet|jakso_malli):\s*/, ''), 'error'); return; }
   if (!_mVerkkoEnnenSulkua()) return;   // offline: lomake jää auki
   const k = J.tmJoukkuejaksoKirjoitus(d.data, jf, { arrayUnion: function () { return firebase.firestore.FieldValue.arrayUnion.apply(null, arguments); }, nytISO: new Date().toISOString() });
+  const edellinen = d.data.jaksofokus || {}, vanha = { alku: edellinen.alku || null, kesto_vk: edellinen.kesto_vk || null, sama: k.sama };   // K1/A: pelaajat haetaan TALLENNUSTA EDELTÄVÄLLÄ jid + alku -parilla
   try {
     await _mTuoreToken(firebase.auth().currentUser);
     await _db.collection('seurat').doc(_seuraId).collection('joukkueet').doc(d.jid).update(k.update);
     d.data.jaksofokus = k.paikallinen.jaksofokus;   // paikallinen tila vasta onnistumisen jälkeen
     if (k.paikallinen.historiaLisays.length) d.data.jaksofokus_historia = (Array.isArray(d.data.jaksofokus_historia) ? d.data.jaksofokus_historia : []).concat(k.paikallinen.historiaLisays);
+    window._mJjSynkkaVirhe = null;
+    const synkka = await _mJjSynkkaPelaajiin(vanha, d.jid, d.data);   // joukkue on jo tallennettu; synkan virhe EI kumoa sitä vaan näytetään valmentajalle (alla)
     window._mJjSulje(); _mJjRender();
+    if (synkka.virheita > 0) { if (typeof toast === 'function') toast(masterT('Joukkuejakso tallennettu') + ' — ' + masterT('{n} pelaajan viikkotavoite ei päivittynyt, yritä uudelleen').replace('{n}', String(synkka.virheita)), 'error'); return; }
     if (typeof toast === 'function') toast(masterT('Joukkuejakso tallennettu') + ' ✓', 'ok');
   } catch (e) { console.warn('[J2] kirjoitus:', e && e.message); if (typeof toast === 'function') toast(masterT('Tallennus epäonnistui — tarkista oikeutesi tai yritä uudelleen'), 'error'); }
+};
+/* K1 / A (docs/CODE_BRIEF_K1_TAMAN_TUEKSI.md §3): joukkuejakson snapshot pelaajien jaksoihin (jaksofokus.joukkuejakso_viite). Pelaajat haetaan TUOREENA Firestoresta (jid-haku; alku suodatetaan libissä EDELTÄVÄLLÄ parilla),
+   kirjoitus pelaajakohtaisesti rinnakkain (tmRinnakkain; yksi epäonnistunut ei kaada muita) valmentajan oikeuksin (Rules v3.42 ennallaan: onOmanJoukkueenValmentaja/johto). Virheet jäävät näkyviin kortin yläpuolelle + Yritä uudelleen. */
+async function _mJjSynkkaPelaajiin(vanha, jid, jDoc) {
+  const J = window.TM_JOUKKUEJAKSO, JA = window.TM_JOUKKOALOITUS; if (!J || !JA || _demo || !_seuraId || typeof _db === 'undefined' || !_db) return { virheita: 0, paivitetty: 0 };
+  let virheita = 0, paivitetty = 0, hakuVirhe = false, pelaajat = [];
+  try { const sn = await _db.collection('seurat').doc(_seuraId).collection('pelaajat').where('jaksofokus.joukkuejakso_viite.jid', '==', jid).get(); pelaajat = sn.docs.map(function (x) { return Object.assign({ id: x.id }, x.data()); }); }
+  catch (e) { console.warn('[K1] synkan pelaajahaku:', e && e.message); hakuVirhe = true; }
+  if (hakuVirhe) { window._mJjSynkkaVirhe = { vanha: vanha, jid: jid, jDoc: jDoc, n: 1, haku: true }; return { virheita: 1, paivitetty: 0 }; }
+  const plan = J.tmJoukkuejaksoSynkka(vanha, jDoc, jid, pelaajat);
+  if (!plan.paivitykset.length) return { virheita: 0, paivitetty: 0 };
+  const tulos = await JA.tmRinnakkain(plan.paivitykset, 4, function (u) { return _db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(u.id).update(u.update); });
+  tulos.forEach(function (r) { if (r && r.virhe) { virheita++; console.warn('[K1] synka:', r.virhe && r.virhe.message); } else paivitetty++; });
+  window._mJjSynkkaVirhe = virheita ? { vanha: vanha, jid: jid, jDoc: jDoc, n: virheita } : null;
+  return { virheita: virheita, paivitetty: paivitetty };
+}
+window._mJjSynkkaUudelleen = async function () {
+  const v = window._mJjSynkkaVirhe; if (!v || window._mJjSynkkaAjossa) return; window._mJjSynkkaAjossa = true;
+  try { if (!_mVerkkoEnnenSulkua()) return; await _mTuoreToken(firebase.auth().currentUser); window._mJjSynkkaVirhe = null; const r = await _mJjSynkkaPelaajiin(v.vanha, v.jid, v.jDoc);
+    if (typeof toast === 'function') toast(r.virheita ? masterT('{n} pelaajan viikkotavoite ei päivittynyt, yritä uudelleen').replace('{n}', String(r.virheita)) : masterT('Viikkotavoitteet päivitetty') + ' ✓', r.virheita ? 'error' : 'ok');
+  } catch (e) { window._mJjSynkkaVirhe = v; console.warn('[K1] synka uudelleen:', e && e.message); if (typeof toast === 'function') toast(masterT('Tallennus epäonnistui — tarkista oikeutesi tai yritä uudelleen'), 'error'); }
+  finally { window._mJjSynkkaAjossa = false; _mJjRender(); }
 };
 /* Vastuuhenkilö (additiivinen kenttä vastuuhenkilo {uid, rooli, asetettu_pvm}). Rivi IDP-kortin yläosassa; asettaa joukkueen valmentaja / VP / UTJ / talenttivalmentaja (editable = oikeus pelaajaan;
    Rules v3.38 pakottaa: fysiikkavalmentaja ym. eivät aseta). Henkilöstö ladataan kerran (kayttajat) ja kortti piirretään uudelleen. EI "omat vastuupelaajat" -näkymää (R6.6). */
