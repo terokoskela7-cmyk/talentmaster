@@ -121,6 +121,8 @@ describe('VP · jaettu alasivu-shell', () => {
          muutama kenttä tai yksi valinta. 840px-shellissä ne kelluisivat
          tyhjässä laatikossa, mikä on sama antipatterni kuin raportti 540px:ssä,
          vain toisinpäin. Luokiteltu SISÄLLÖN perusteella (otsikko suluissa). */
+      '_mvKetju',          // R6.4 mediaviesti: klipin ketju (kolme askelta + yksi kuittauskenttä) / joukkueklipin jäsenlista — lomakeluokka, sama peruste kuin _kvkModal
+      '_mvModal',          // R6.4 lähetyssheet (kuusi kenttää)
       '_vpBrandiModal',    // 3 pikakysymystä + vapaa teksti (brändipalaute)
       'vpSkooppiModal',    // "Vain tämä / Tämä ja seuraavat" (toistuvan tapahtuman skooppi)
       '_vpVaihtoModal',    // "Vahvista vaihto" — yksi valinta jaksolle (jatka loppuun / päätä nyt), sama luokka kuin vpSkooppiModal

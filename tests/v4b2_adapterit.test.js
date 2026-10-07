@@ -40,8 +40,8 @@ function ymp(sov, { pelaaja = {}, kaada = false, tanaan = PVM, profiili = null, 
     _ktOpts: () => ({}), _jaksofokusFlag: true, _msSuljeJakso: async () => {}, _vpSuljeJakso: async () => {}, _vpArvPelaaja: null };
   sb.window.tmKonseptiKaanon = undefined;
   vm.createContext(sb);
-  const koodi = master ? [pala(src, '/* ═══ V4b-2 — kevyt katselmus', 'function _msDots('), funktio(src, 'async function _mKirjoitaJaksofokus(')].join('\n')
-    : [pala(src, '/* ═══ V4b-2 — kevyt katselmus', 'function _vpSulkuJaksovali(')].join('\n');
+  const koodi = master ? [pala(src, '/* ═══ V4b-2 — kevyt katselmus', '/* ═══ R6.4 Mediaviesti'), funktio(src, 'async function _mKirjoitaJaksofokus(')].join('\n')
+    : [pala(src, '/* ═══ V4b-2 — kevyt katselmus', '/* ═══ R6.4 Mediaviesti')].join('\n');
   vm.runInContext(koodi + '\nthis._kvkTila=()=>window._kvkTila;this._kvkHk=()=>window._kvkHk;this._ktSignaaliHTML=_ktSignaaliHTML;this._kvkProfiili=_kvkProfiili;', sb);
   return { sb, p, log, kirj, win, els };
 }
@@ -149,11 +149,11 @@ describe('Lähdetarkistukset: reititys, ei päällekkäisiä globaaleja, lib-skr
     for (const [src, sulku] of [[MASTER, '_msSuljeJakso'], [VP, '_vpSuljeJakso']]) { const f = funktio(src, 'window._ktToimi = function'); expect(f).toContain("avain === 'sulje') return window._kvkAvaa(pid, false)"); expect(f).toContain("avain === 'anna_valita') return window._kvkAvaa(pid, true)"); expect(f).toContain("avain === 'hylkaa') return window._kvkHylkaaAvaa(pid)"); expect(f).toContain("avain === 'syvenna') return window." + sulku + '(pid)'); }
   });
   it('uudet globaalit eivät törmää (VP:n konseptikirjasto käyttää _kk*-nimiä): _kvk*-etuliite; ei kahta samannimistä', () => {
-    for (const [nimi, src] of [['Master', MASTER], ['VP', VP]]) { const lohko = pala(src, '/* ═══ V4b-2 — kevyt katselmus', nimi === 'Master' ? 'function _msDots(' : 'function _vpSulkuJaksovali('); const nimet = [...lohko.matchAll(/(?:window\.|function |const |async function )(_kvk\w+|_ktSignaaliHTML|_ktVk\w*)/g)].map((m) => m[1]); expect(nimet.length).toBeGreaterThan(15); expect(lohko).not.toMatch(/\b_kk[A-Z]/);
+    for (const [nimi, src] of [['Master', MASTER], ['VP', VP]]) { const lohko = pala(src, '/* ═══ V4b-2 — kevyt katselmus', nimi === 'Master' ? '/* ═══ R6.4 Mediaviesti' : '/* ═══ R6.4 Mediaviesti'); const nimet = [...lohko.matchAll(/(?:window\.|function |const |async function )(_kvk\w+|_ktSignaaliHTML|_ktVk\w*)/g)].map((m) => m[1]); expect(nimet.length).toBeGreaterThan(15); expect(lohko).not.toMatch(/\b_kk[A-Z]/);
       const kaikki = [...src.matchAll(/window\.(_kvk\w+)\s*=\s*(?:async )?function/g)].map((m) => m[1]); expect(new Set(kaikki).size, nimi).toBe(kaikki.length); }
   });
   it('kirjoitus: kevyt = batch.update + batch.set(reviewit, merge); ei review_viimeisin_* eikä tyyppi-kenttää V4b-2-lohkoissa; pelaajalle ei kirjoiteta vastauksia', () => {
-    for (const [nimi, src] of [['Master', MASTER], ['VP', VP]]) { const lohko = pala(src, '/* ═══ V4b-2 — kevyt katselmus', nimi === 'Master' ? 'function _msDots(' : 'function _vpSulkuJaksovali('); const koodi = lohko.replace(/\/\*[\s\S]*?\*\/|\/\/[^\n]*/g, ''); expect(koodi, nimi).toMatch(/batch\.set\(ref\.collection\('reviewit'\)\.doc\(plan\.reviewitPvm\), plan\.reviewitData, \{ merge: true \}\)/); expect(koodi, nimi).not.toMatch(/review_viimeisin|tyyppi\s*:/); }
+    for (const [nimi, src] of [['Master', MASTER], ['VP', VP]]) { const lohko = pala(src, '/* ═══ V4b-2 — kevyt katselmus', nimi === 'Master' ? '/* ═══ R6.4 Mediaviesti' : '/* ═══ R6.4 Mediaviesti'); const koodi = lohko.replace(/\/\*[\s\S]*?\*\/|\/\/[^\n]*/g, ''); expect(koodi, nimi).toMatch(/batch\.set\(ref\.collection\('reviewit'\)\.doc\(plan\.reviewitPvm\), plan\.reviewitData, \{ merge: true \}\)/); expect(koodi, nimi).not.toMatch(/review_viimeisin|tyyppi\s*:/); }
   });
   it('skriptit ladataan (v1) ennen käyttöä sekä Masterissa että VP:ssä; eslint ei tarvitse uusia globaaleja', () => {
     for (const src of [MASTER, VP]) { for (const l of ['tm_tanaan_signaali.js?v=2', 'tm_kevyt_katselmus.js?v=2']) expect(src).toContain('<script src="lib/' + l + '"></script>'); expect(src.indexOf('lib/tm_kevyt_katselmus.js')).toBeGreaterThan(src.indexOf('lib/tm_reitin_valinta.js')); expect(src.indexOf('lib/tm_kevyt_katselmus.js')).toBeGreaterThan(src.indexOf('lib/tm_viikkokatsaus.js')); }

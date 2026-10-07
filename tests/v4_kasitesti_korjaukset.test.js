@@ -23,7 +23,7 @@ function ymp(sov) {
     document: { getElementById: (id) => dom.tyylit[id] || null, createElement: () => ({ set textContent(v) { this._t = v; }, get textContent() { return this._t; }, set innerHTML(v) { this.firstChild = { html: v }; } }), head: { appendChild: (n) => { dom.tyylit[n.id] = n; dom.lisatty.push(n.id); } }, body: { appendChild: (n) => { dom.nakyma = n.html; }, style: {} } },
     window: { TM_KEHITYSTYOPOYTA: L.KT, TM_TANAAN_SIGNAALI: L.TS, TM_POLUN_TILA: L.PT, TM_SEURAAVA_ASKEL: L.SA, TM_ALOITA_JAKSO: L.AJ, TM_VIIKKOKATSAUS: L.K4, TM_TANAAN_KENTTA: L.TK, TM_KEVYT_KATSELMUS: L.KK, tmKentta: L.K.tmKentta, tmKenttaCss: L.K.tmKenttaCss, _vpRooli: 'vp', _vpSA: false } };
   vm.createContext(sb);
-  const lohko = pala(src, '/* ═══ V4b-2 — kevyt katselmus', master ? 'function _msDots(' : 'function _vpSulkuJaksovali(');
+  const lohko = pala(src, '/* ═══ V4b-2 — kevyt katselmus', master ? '/* ═══ R6.4 Mediaviesti' : '/* ═══ R6.4 Mediaviesti');
   vm.runInContext(lohko + '\n' + funktio(src, 'function _ktTanaanHTML(p, tila)') + '\n' + funktio(src, 'function _ktAsetaHTML(html)') + '\nthis.__t=_ktTanaanHTML;this.__a=_ktAsetaHTML;', sb);
   return { sb, dom, tanaan: (p) => sb.__t(p, L.AJ.tmJaksoTila(p, { nyt: new Date() })) };
 }
