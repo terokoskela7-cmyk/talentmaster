@@ -10,7 +10,7 @@
    - Omat JS-moduulit + manifest + ikonit + versioidut fontit/SDK → cache-first.
    - KAIKKI muu (toisten appien sivut, raw.githubusercontent, jne.) → suoraan verkkoon, EI cachea.
    Scopea ei voi kaventaa (SW juuressa) → allowlist hoitaa rajaamisen. CLAUDE.md §27.4. */
-const CACHE = 'tm-pelaaja-v76';   // K1: tm_liput/kielletyt/tukitavoitteet/joukkuejakso/taman_tueksi/tanaan_kentta allowlistiin — v75 = // B 3/3: tm_kotiharjoitteet.js allowlistiin — v74 =   // K0 (D11): tm_kentta.js + Archivo-fontti allowlistiin — v73 =   // P0.6b-korjaus: varapolun kokonaisaika kanonisella laskeKokonaistulos:lla — v72 = V2 P0.6b: mitali per kilpailu (tki_historia, ikä testihetkeltä, mikään ei katoa) — v71 = V2 P0.4 PR1: tm_kalenteri_ilmoitus.js + tm_lang v32 (ilm_tanaan/huomenna) — v70 = P0.3 (#774), v69 = P0.5 (#773), v68 = P0.7 (#772)
+const CACHE = 'tm-pelaaja-v77';   // K4: tm_viikkokatsaus.js allowlistiin — v76 = // K1: tm_liput/kielletyt/tukitavoitteet/joukkuejakso/taman_tueksi/tanaan_kentta allowlistiin — v75 = // B 3/3: tm_kotiharjoitteet.js allowlistiin — v74 =   // K0 (D11): tm_kentta.js + Archivo-fontti allowlistiin — v73 =   // P0.6b-korjaus: varapolun kokonaisaika kanonisella laskeKokonaistulos:lla — v72 = V2 P0.6b: mitali per kilpailu (tki_historia, ikä testihetkeltä, mikään ei katoa) — v71 = V2 P0.4 PR1: tm_kalenteri_ilmoitus.js + tm_lang v32 (ilm_tanaan/huomenna) — v70 = P0.3 (#774), v69 = P0.5 (#773), v68 = P0.7 (#772)
 const SHELL = './TalentMaster_Pelaaja_v7.html';
 // VAIN oma shell — JS-moduulit ovat ?v=-versioituja (bare-polku ei matchaisi), allowlist cachettaa ne
 // pyydettäessä. (Vanha PRECACHE viittasi /talentmaster/tm_eerikkila_normit.js → 404, jota Pelaaja ei lataa
@@ -70,7 +70,7 @@ function onAllowlist(url) {
   if (url.indexOf('/lib/tm_alusta.js') !== -1) return true;   // PR F: §22-alustasanasto (ennätyskortin alustanimi)
   if (url.indexOf('/lib/tm_phv_tila.js') !== -1) return true;   // PR C: PHV-tilan yksi lukusääntö (Kehitysvaihe-kortti, stage)
   if (url.indexOf('/lib/tm_kentta.js') !== -1) return true;   // K0: Kenttä-komponentti
-  if (/\/lib\/tm_(liput|kielletyt|tukitavoitteet|joukkuejakso|taman_tueksi|tanaan_kentta)\.js/.test(url)) return true;   // K1: Kenttä-näkymän libit (versioituja)
+  if (/\/lib\/tm_(liput|kielletyt|tukitavoitteet|joukkuejakso|taman_tueksi|tanaan_kentta|viikkokatsaus)\.js/.test(url)) return true;   // K1: Kenttä-näkymän libit (versioituja)
   if (url.indexOf('/assets/fonts/archivo-latin-wdth-normal.woff2') !== -1) return true;   // D11: Archivo omalta palvelimelta (ei Google Fonts)
   // Kaavio erä D1: konseptin piirros pelaajan kortilla. Inline-SVG, ei ulkoisia origineja →
   // toimii offline kun libit ovat cachessa (itse spec tulee Firestoresta ja vaatii verkon).

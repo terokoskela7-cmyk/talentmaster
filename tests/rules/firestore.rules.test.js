@@ -4555,3 +4555,50 @@ describe('D-3 · jakson aloituksen yhdistelmäkirjoitus (KPV U13)', () => {
     expect(d.vastuuhenkilo).toBeUndefined(); expect(d.jaksofokus.tukiosa.alue).toBe('kestävyys');   // ensimmäinen (validi) kirjoitus on voimassa, epäkelpo ei muuttanut mitään
   });
 });
+
+/* ══ v3.44 · seurat/{sid}/pelaajat/{pid}/viikkokatsaukset/{pvm} (K4): luku SA + oman seuran henkilökunta + pelaaja itse; create vain pelaaja itse; ei update/delete ══ */
+describe('v3.44 · viikkokatsaukset', () => {
+  const vk = (db, pid, sid, pvm) => doc(db, 'seurat', sid || SEURA_A, 'pelaajat', pid || PELAAJA_UID, 'viikkokatsaukset', pvm || '2026-10-04');
+  const hyva = (yli) => Object.assign({ vk: 2, jakso_alkoi: '2026-09-28', vastaukset: [{ osa: 'A', teksti: 'Laukaus vauhdista', arvo: 'usein' }, { osa: 'B', teksti: 'Heikompi jalka', arvo: 'ei_viela' }], lause: 'Hienoa menoa', luotu: serverTimestamp() }, yli || {});
+  const omaDb = () => pelaajaContext(SEURA_A, PELAAJA_UID).firestore();
+  beforeEach(async () => { await seedAdminDoc(); await seedSeuraAndPelaaja(); });
+  it('CREATE: pelaaja kirjoittaa OMAN katsauksensa ✓ (lause valinnainen); toisen pelaajan ✗ (sama seura), toisen seuran pelaaja ✗', async () => {
+    await assertSucceeds(setDoc(vk(omaDb()), hyva()));
+    const ilman = hyva(); delete ilman.lause; await assertSucceeds(setDoc(vk(omaDb(), PELAAJA_UID, SEURA_A, '2026-10-11'), ilman));
+    await assertFails(setDoc(vk(omaDb(), PELAAJA_A2_UID), hyva()));
+    await assertFails(setDoc(vk(pelaajaContext(SEURA_B, 'p-b').firestore(), PELAAJA_UID), hyva()));
+  });
+  it('CREATE: henkilökunta (valmentaja, VP, SA, toisen seuran) ja huoltaja ja kirjautumaton EIVÄT kirjoita', async () => {
+    for (const c of [valmentajaContext(VALM_A_UID, SEURA_A), vpContext(SEURA_A), saContext(), valmentajaContext(VALM_B_UID, SEURA_B), vpContext(SEURA_B), huoltajaContext(), unauthContext()]) await assertFails(setDoc(vk(c.firestore()), hyva()));
+  });
+  it('KIELLETYT: ylimääräinen kenttä (tyyppi/tehty/lahde/paivitetty) ✗, vastauksessa ylimääräinen kenttä ✗, väärä arvo ✗, 4 vastausta ✗, tyhjä vastaukset ✗, lause 141 ✗ (140 ✓), luotu ≠ request.time ✗, puuttuva kenttä ✗, väärä päivä-id ✗', async () => {
+    for (const k of ['tyyppi', 'tehty', 'lahde', 'paivitetty', 'pvm']) await assertFails(setDoc(vk(omaDb()), hyva({ [k]: k === 'tehty' ? true : 'x' })));
+    await assertFails(setDoc(vk(omaDb()), hyva({ vastaukset: [{ osa: 'A', teksti: 't', arvo: 'usein', pisteet: 5 }] })));
+    await assertFails(setDoc(vk(omaDb()), hyva({ vastaukset: [{ osa: 'A', teksti: 't', arvo: 'erinomainen' }] })));
+    await assertFails(setDoc(vk(omaDb()), hyva({ vastaukset: [{ osa: 'A', teksti: 't', arvo: 4 }] })));
+    const v = (o) => ({ osa: o, teksti: 't', arvo: 'joskus' });
+    await assertFails(setDoc(vk(omaDb()), hyva({ vastaukset: [v('A'), v('B'), v('C'), v('D')] })));
+    await assertFails(setDoc(vk(omaDb()), hyva({ vastaukset: [] })));
+    await assertFails(setDoc(vk(omaDb()), hyva({ lause: 'x'.repeat(141) })));
+    await assertSucceeds(setDoc(vk(omaDb()), hyva({ lause: 'x'.repeat(140) })));
+    await assertFails(setDoc(vk(omaDb(), PELAAJA_UID, SEURA_A, '2026-10-11'), hyva({ luotu: new Date('2026-10-04') })));
+    for (const k of ['vk', 'jakso_alkoi', 'vastaukset', 'luotu']) { const x = hyva(); delete x[k]; await assertFails(setDoc(vk(omaDb(), PELAAJA_UID, SEURA_A, '2026-10-18'), x)); }
+    await assertFails(setDoc(vk(omaDb(), PELAAJA_UID, SEURA_A, 'huomenna'), hyva()));
+    await assertFails(setDoc(vk(omaDb(), PELAAJA_UID, SEURA_A, '2026-10-25'), hyva({ vk: '2' })));
+  });
+  it('UPDATE / DELETE: ei koskaan (pelaaja itse, SA, johto) — kaksoispainallus (toinen set samalle päivälle) hylätään', async () => {
+    await assertSucceeds(setDoc(vk(omaDb()), hyva()));
+    await assertFails(setDoc(vk(omaDb()), hyva({ lause: 'Korjaus' })));
+    await assertFails(updateDoc(vk(omaDb()), { lause: 'Korjaus' }));
+    await assertFails(deleteDoc(vk(omaDb())));
+    await assertFails(updateDoc(vk(saContext().firestore()), { lause: 'x' })); await assertFails(deleteDoc(vk(vpContext(SEURA_A).firestore())));
+  });
+  it('LUKU: pelaaja itse ✓, oman seuran henkilökunta ✓ (valmentaja, VP), SA ✓; toinen pelaaja ✗, toisen seuran henkilökunta ✗, huoltaja ✗, kirjautumaton ✗; kysely where jakso_alkoi == … onnistuu henkilökunnalle', async () => {
+    await testEnv.withSecurityRulesDisabled(async (c) => { await setDoc(vk(c.firestore()), { vk: 2, jakso_alkoi: '2026-09-28', vastaukset: [{ osa: 'A', teksti: 't', arvo: 'usein' }], luotu: new Date('2026-10-04') }); });
+    for (const c of [pelaajaContext(SEURA_A, PELAAJA_UID), valmentajaContext(VALM_A_UID, SEURA_A), vpContext(SEURA_A), saContext()]) await assertSucceeds(getDoc(vk(c.firestore())));
+    for (const c of [pelaajaContext(SEURA_A, PELAAJA_A2_UID), pelaajaContext(SEURA_B, PELAAJA_UID), valmentajaContext(VALM_B_UID, SEURA_B), vpContext(SEURA_B), huoltajaContext(), unauthContext()]) await assertFails(getDoc(vk(c.firestore())));
+    const q = (c) => getDocs(query(collection(c.firestore(), 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'viikkokatsaukset'), where('jakso_alkoi', '==', '2026-09-28')));
+    const r = await assertSucceeds(q(vpContext(SEURA_A))); expect(r.size).toBe(1);
+    await assertFails(q(valmentajaContext(VALM_B_UID, SEURA_B)));
+  });
+});
