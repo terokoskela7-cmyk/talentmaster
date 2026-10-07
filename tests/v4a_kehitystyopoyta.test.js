@@ -182,7 +182,7 @@ function ymp(sov, { pelaajat, rooli = 'vp', sa = false, joukkue = '', lippu = tr
     _mIdpReRender: () => { log.polku++; }, _mIdpLataa: () => { log.polku++; }, _msMesoKaariHTML: () => '<i>meso</i>', _mMitaOsattavaHTML: () => { log.nayttoMonta++; return '<i>mita</i>'; }, _mPinfoOsat: () => ({ ika: '13v', testPvm: null, lisaHtml: '', stats: [], _kehHtml: '', _sekHtml: '', _identHtml: '', _adarHtml: '', _ristiinHtml: '', _kehityskaariHtml: '', _reseptiHtml: '', _d3Html: '' }), _mStatsHTML: () => '', _prVoiNahda: () => true,
     _vpKorttiRakenna: () => { log.nayttoMonta++; return { hL: '', mittausHTML: '', arviointiHTML: '<i>arv</i>', kasvuHTML: '', ika: 13 }; }, _vpKorttiValmista() {}, _vpKorttiHydratoi() {}, renderDev: (pid) => log.renderDev.push(pid), setWs() {},
     _vpPelaajanAaniHTML: () => { log.polku++; return ''; }, _vpKehSeuraavaAskelHTML: () => '', _vpKehSuunnitelmaHTML: () => '', _vpViikkoHTML: () => '', _vpArviointiHTML: () => '<i>arv</i>', _vpMesoKaariHTML: () => '', _vpLataaTavoite() {}, _vpLataaArviointiKehys() {},
-    TM_HASH_REITITIN: H, TM_KEHITYSTYOPOYTA: KT, TM_ALOITA_JAKSO: AJ, TM_TANAAN_KENTTA: require('../lib/tm_tanaan_kentta.js'), tmKentta: require('../lib/tm_kentta.js').tmKentta, _vpRooli: rooli, _vpSA: sa, _ktSignaaliHTML: () => '' };   // V4b-2: signaali testataan omassa tiedostossa
+    TM_HASH_REITITIN: H, TM_KEHITYSTYOPOYTA: KT, TM_ALOITA_JAKSO: AJ, TM_TANAAN_KENTTA: require('../lib/tm_tanaan_kentta.js'), tmKentta: require('../lib/tm_kentta.js').tmKentta, _vpRooli: rooli, _vpSA: sa, _ktSignaaliHTML: () => '', _ktKysymyksetHTML: () => '', _ktAskel: () => null };   // V4b-2: signaali testataan omassa tiedostossa
   sb.window = Object.assign(win, { _mAloitaJaksoAvaa: (pid) => log.toimi.push(['aloitaM', pid]), _msSuljeJakso: (pid) => log.toimi.push(['suljeM', pid]), _kvkAvaa: (pid, k3) => log.toimi.push([master ? 'kvkM' : 'kvkV', pid, k3]), _vpAloitaJaksoAvaa: (pid) => log.toimi.push(['aloitaV', pid]), _vpSuljeJakso: (pid) => log.toimi.push(['suljeV', pid]), TM_HASH_REITITIN: H, TM_KEHITYSTYOPOYTA: KT, TM_ALOITA_JAKSO: AJ, TM_TANAAN_KENTTA: sb.TM_TANAAN_KENTTA, tmKentta: sb.tmKentta, _vpRooli: rooli, _vpSA: sa, _jsvPelaajat: pelaajat });
   vm.createContext(sb);
   const koodi = master ? pala(src, '/* ═══ V4a — Kehitystyöpöytä V4', 'window._msSuljeJakso = async function') : pala(src, '/* ═══ V4a — Kehitystyöpöytä V4', 'window._vpSulkuTila = null;');
@@ -229,7 +229,7 @@ for (const sov of ['Master', 'VP']) {
 
 describe('Kytkennät (lähdetarkistukset) — lippu pois → ennallaan', () => {
   it('Master: pickPlayer ja _mJaAvaa ohjaavat uuteen näkymään VAIN lipulla; muuten renderDev / V1-modaali kuten ennen; J4-lista saa tilakoneen vain lipulla', () => {
-    const pp = pala(MASTER, 'function pickPlayer(pid) {', '\n}\n'); expect(pp).toMatch(/if \(window\._ktLippu && typeof window\._ktAvaa === 'function' && window\._ktAvaa\(pid, 'tanaan'\)\) return;[^\n]*\n\s*renderDev\(pid\);/);
+    const pp = pala(MASTER, 'function pickPlayer(pid) {', '\n}\n'); expect(pp).toMatch(/if \(window\._ktLippu && typeof window\._ktAvaa === 'function' && window\._ktAvaa\(pid, 'tanaan'\)\) return;[\s\S]*\n\s*renderDev\(pid\);\s*$/);
     expect(pala(MASTER, 'window._mJaAvaa = function (pid) {', '\n};')).toMatch(/window\._ktLippu && .*_ktAvaa\(pid, 'polku'\)\) return;[\s\S]*return window\._mAloitaJaksoAvaa\(pid\);/);
     expect(MASTER).toContain("tilakone: window._ktLippu === true"); expect(MASTER).toMatch(/_paivitaKaikkiNakymat\(\);\s*\n\s*if \(typeof _ktKaynnista === 'function'\) _ktKaynnista\(\);/);
   });
