@@ -56,11 +56,11 @@ describe('tmTanaanOsat — jaksofokus.osat → konsepti_avain → kpi → piiloo
 });
 
 describe('tmTanaanKenttaHTML / tmPaivanTreeniHTML / tmKuittausHTML', () => {
-  const kentta = (spec) => TKent.tmKentta(spec, { wrap: true, t: K.tmKenttaT({}) });
+  const kentta = (spec) => TKent.tmKentta(spec, { wrap: true });
   const x = (p, tanaan) => Object.assign(K.tmTanaanTila(p, { tanaan: tanaan || TANAAN }), { osat: [{ k: 'a', teksti: 'Laukaus vauhdista' }, { k: 'b', teksti: 'Heikompi jalka' }] });
   it('jakso: "Viikko N" + jakson nimi · kesto · vahvuus; kenttä (koko puoli, EI asetta eikä reittiä); osat a–b sanoin', () => {
     const h = K.tmTanaanKenttaHTML(x(TOPIAS()), { kentta });
-    expect(h).toContain('data-k1-tila="jakso"'); expect(h).toContain('Viikko 1'); expect(h).toContain('Kuljettaminen · 6 viikkoa · vahvuutesi: Tempokuljetus'); expect(h).toContain('class="kt"'); expect(h).toContain('viewBox="0 0 100 84"'); expect(h).not.toMatch(/class="kt-(ase|reitti|vk|vk-tehty|vk-nyt)"/); expect(h).toContain('oma alue'); expect(h).not.toContain('ase puuttuu');
+    expect(h).toContain('data-k1-tila="jakso"'); expect(h).toContain('Viikko 1'); expect(h).toContain('Kuljettaminen · 6 viikkoa · vahvuutesi: Tempokuljetus'); expect(h).toContain('class="kt"'); expect(h).toContain('viewBox="0 0 100 84"'); expect(h).not.toMatch(/class="kt-(ase|reitti|vk|vk-tehty|vk-nyt)"/); expect(h).not.toMatch(/kt-ase|oma alue|ase puuttuu/); expect(h).toContain('<div class="kt-layer"></div>');   // pelkkä kenttä: ei aluelaatikkoa, ei tekstiä
     expect(h).toContain('Laukaus vauhdista'); expect(h).toContain('Heikompi jalka'); expect(h).not.toContain('k1-tyhja');
   });
   it('vahvuus: "Oma kenttä" + valmentaja valmistelee + vahvuuden nimi; tyhja: "Vielä tyhjä, ja se on ok" + "Siihen asti: pelaa."; sunnuntai: K4-koukku, sisältö tyhjä', () => {
@@ -153,6 +153,7 @@ describe('Pelaaja_v7 · rA1Kentta — Topias neljässä tilassa + §7.22-portti'
     expect(kortti(ymp({ p: TOPIAS({ jaksofokus: JAKSO({ tukitavoitteet: [] }) }) }))).not.toContain('Tämän tueksi');
     const vanha = kortti(ymp({ p: TOPIAS({ jaksofokus: JAKSO({ tukitavoitteet: undefined, tukiosa: { alue: 'Kehonhallinta', perustelu: 'Jotta pysyt mukana', harjoitteet: [H1] } }) }) })); expect(vanha).toContain('Tämän tueksi'); expect(vanha).toContain('Jotta pysyt mukana'); expect(vanha).toContain('Seinäsyöttö');
     const num = kortti(ymp({ p: TOPIAS({ jaksofokus: JAKSO({ tukitavoitteet: [Object.assign({}, TT1, { perustelu: 'Tavoite 3 x 5' })] }) }) })); expect(num).toContain('Kehonhallinta'); expect(num).not.toContain('Tavoite 3 x 5');
+    const jarj = kortti(ymp({ p: TOPIAS({ jaksofokus: JAKSO({ tukitavoitteet: [Object.assign({}, TT1, { perustelu: '1. kosketukseen kuluu hyvä pallon suojaus ja havainnointi' })] }) }) })); expect(jarj).toContain('1. kosketukseen kuluu hyvä pallon suojaus ja havainnointi');   // järjestysnumero taidon nimessä sallittu (K1-korjaus)
   });
   it('JOUKKUEEN JAKSO -rivi vain pelaajalle jonka jakso on aloitettu joukkuejaksosta: ei viitettä / vanha {jid, alku} -viite / umpeutunut → rivi piiloon', () => {
     for (const viite of [undefined, null, { jid: 'kpv_u13', alku: '2026-11-09' }]) expect(kortti(ymp({ p: TOPIAS({ jaksofokus: JAKSO({ joukkuejakso_viite: viite }) }) })), JSON.stringify(viite)).not.toContain('Joukkueen jakso');
@@ -162,7 +163,7 @@ describe('Pelaaja_v7 · rA1Kentta — Topias neljässä tilassa + §7.22-portti'
     const tilat = [ymp(), ymp({ p: TOPIAS({ jaksofokus: null }) }), ymp({ p: TOPIAS({ jaksofokus: null, ydinvahvuus: null }) }), (() => { const e = ymp(); e.sb._paivaIso = () => '2026-11-15'; return e; })()];
     for (const e of tilat) { const h = kortti(e).replace(/<style>[\s\S]*?<\/style>/, '');
       expect(h).not.toMatch(/\d\s*\/\s*5\b/); expect(h).not.toMatch(/\bOVR\b|\bFLEI\b/); expect(h).not.toMatch(/testistä|havainnosta|arviosta|lin30m/i); expect(h).not.toMatch(/fy_|\b(SBL|SFL|LL|DIAG|DFL)\b/); expect(h).not.toMatch(/ydinvahvuu/i); expect(h).not.toMatch(/heikkou|rajoite|kriittin/i);
-      expect(h).not.toMatch(/#[0-9a-fA-F]{3,8}\b/); expect(h).not.toMatch(/class="kt-(ase|reitti|vk|vk-tehty|vk-nyt)"/); expect(h).not.toContain('ase puuttuu'); }
+      expect(h).not.toMatch(/#[0-9a-fA-F]{3,8}\b/); expect(h).not.toMatch(/kt-ase|kt-reitti|kt-vk/); expect(h).not.toMatch(/ase puuttuu|oma alue/); }
   });
   it('PÄIVÄN TREENI: jakso ensin — seuran hyväksytty koti-rivi jonka konsepti = jakson konsepti_avain → treeni siitä + "jaksosta"; ilman riviä testipolku (TM-pankki); seuran pankki ladataan vain kerran ja vain kahdella yhtäsuuruusehdolla', async () => {
     const rivi = { nimi: 'Seuran porttikuljetus', tyyppi: 'T', lahde: 'seura', tila: 'hyvaksytty', kaytto: 'koti', konsepti: 'y_h2', ohje: 'Kuljeta pallo porttien läpi.', kesto_min: 12, ika_min: 10, ika_max: 16 };
