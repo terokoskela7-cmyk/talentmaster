@@ -16,6 +16,7 @@
 <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
 <script src="lib/tm_appcheck.js?v=1"></script>
 <script src="lib/tm_istunto.js?v=1"></script>   <!-- istuntoturva: tuonti pysähtyy istuntovirheeseen -->
+<script src="lib/tm_sukupuoli.js?v=1"></script>   <!-- sukupuoli M/N (§7.12) -->
 <!-- SheetJS -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <!-- pdf.js — Palloliiton PDF-tuonti (ei npm, Node.js ei käytettävissä) -->
@@ -1638,6 +1639,18 @@ async function lataaKayttajatiedot(u) {
             rbtn2.onclick = _adminRecalcIkaluokasta;
             topbar.insertBefore(rbtn2, logout);
           }
+          // Admin: "Täydennä sukupuoli testituloksista" (vain Super Admin) — kuiva-ajo → vahvistus → kirjoitus; ydin lib/tm_sukupuoli.js (sama kuin scripts/backfill_sukupuoli.js)
+          if (!document.getElementById('sa-sukupuoli')) {
+            const sbtn = document.createElement('button');
+            sbtn.id = 'sa-sukupuoli';
+            sbtn.textContent = '⚥ Täydennä sukupuoli testituloksista';
+            sbtn.title = 'Pelaajille joilta sukupuoli puuttuu: kirjoita sukupuoli testituloksista (vain kun kaikki tulokset ovat yhtä mieltä). Kuiva-ajo ensin, sitten vahvistus.';
+            sbtn.style.cssText = 'background:rgba(224,160,64,.15);border:1px solid #E0A040;'
+              + 'border-radius:6px;color:#F0C878;font-family:DM Sans,sans-serif;font-size:12px;'
+              + 'padding:4px 10px;cursor:pointer;margin-right:8px;';
+            sbtn.onclick = _adminTaydennaSukupuoli;
+            topbar.insertBefore(sbtn, logout);
+          }
         }
       }
     } catch(e) {}
@@ -3187,6 +3200,7 @@ async function tallennaFirestoreen() {
           }
         }
         if (syntymaVuosi)     profiiliUpdate.syntymaVuosi = syntymaVuosi;   // Excel-SyntymaVuosi → profiili (tarkka ikä)
+        { const _spR = TM_SUKUPUOLI.tmSukupuoliMN(p.sukupuoli); if (_spR && !TM_SUKUPUOLI.tmSukupuoliMN(p._firestoreData && p._firestoreData.sukupuoli)) profiiliUpdate.sukupuoli = _spR; }   // sukupuoli puuttuu pelaajadokista → testitulosrivin sukupuoli samaan batchiin (ei ylikirjoita olemassa olevaa)
         // MAS-johdannaiset profiiliin → VP/Pelaaja syvä analyysi (km/h, m/s, alkuperäinen aika)
         if (testit.mas_kmh != null)      profiiliUpdate.mas_kmh = testit.mas_kmh;
         if (testit.mas_ms != null)       profiiliUpdate.mas_ms = testit.mas_ms;
@@ -4995,6 +5009,56 @@ async function _adminRecalcIkaluokasta() {
     console.error('[recalcIka]', e); toast('Recalc epäonnistui: ' + e.message, 'err');
   } finally {
     if (btn) { btn.disabled = false; btn.textContent = '↻ Recalc (ikaluokasta)'; }
+  }
+}
+
+// ════════════════════════════════════════
+// ADMIN — Täydennä sukupuoli testituloksista (vain Super Admin). 1) kuiva-ajo: montako kirjoitettaisiin + ristiriidat + pelaajat ilman tuloksia (nimillä)
+// 2) "Kirjoita" → vain sukupuoli-kenttä, vain puuttuville, vain yksimielisille; pysähtyy ensimmäiseen oikeus-/istuntovirheeseen (TM_ISTUNTO) 3) raportti.
+function _sukupuoliRaporttiModal(otsikko, teksti, kirjoitaNappi) {
+  return new Promise(function (resolve) {
+    const vanha = document.getElementById('sa-sukupuoli-modal'); if (vanha) vanha.remove();
+    const o = document.createElement('div'); o.id = 'sa-sukupuoli-modal';
+    o.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px;';
+    const k = document.createElement('div'); k.style.cssText = 'background:#14171F;color:#E8EEF8;border:1px solid rgba(255,255,255,.15);border-radius:12px;padding:20px;width:640px;max-width:100%;max-height:90vh;overflow:auto;font-family:DM Sans,sans-serif;';
+    const h = document.createElement('div'); h.textContent = otsikko; h.style.cssText = 'font-size:16px;font-weight:600;margin-bottom:10px;';
+    const pre = document.createElement('pre'); pre.textContent = teksti; pre.style.cssText = 'white-space:pre-wrap;font-size:12.5px;line-height:1.5;margin:0 0 14px;font-family:inherit;';
+    const rivi = document.createElement('div'); rivi.style.cssText = 'display:flex;gap:8px;justify-content:flex-end;';
+    const sulje = document.createElement('button'); sulje.textContent = kirjoitaNappi ? 'Peruuta' : 'Sulje'; sulje.style.cssText = 'padding:8px 14px;border-radius:8px;border:1px solid rgba(255,255,255,.2);background:transparent;color:#E8EEF8;cursor:pointer;';
+    sulje.onclick = function () { o.remove(); resolve(false); }; rivi.appendChild(sulje);
+    if (kirjoitaNappi) { const kb = document.createElement('button'); kb.id = 'sa-sukupuoli-kirjoita'; kb.textContent = kirjoitaNappi; kb.style.cssText = 'padding:8px 14px;border-radius:8px;border:1px solid #E0A040;background:#E0A040;color:#14171F;font-weight:600;cursor:pointer;'; kb.onclick = function () { o.remove(); resolve(true); }; rivi.appendChild(kb); }
+    k.appendChild(h); k.appendChild(pre); k.appendChild(rivi); o.appendChild(k); document.body.appendChild(o);
+  });
+}
+async function _adminTaydennaSukupuoli() {
+  if (!superAdmin) { toast('Vain Super Admin', 'err'); return; }
+  if (!seuraId) { toast('Valitse seura ensin', 'err'); return; }
+  const SK = TM_SUKUPUOLI, btn = document.getElementById('sa-sukupuoli'), nimiTeksti = seuraNimi || seuraId;
+  if (btn) { btn.disabled = true; btn.textContent = '⚥ Kuiva-ajo…'; }
+  try {
+    const pelCol = db.collection('seurat').doc(seuraId).collection('pelaajat');
+    const pelSnap = await pelCol.get();
+    const syote = await Promise.all(pelSnap.docs.map(async function (pd) {
+      const d = pd.data(), jo = (d.sukupuoli === 'M' || d.sukupuoli === 'N');
+      const nimi = [d.etunimi, d.sukunimi].filter(Boolean).join(' ') || pd.id;
+      const tulokset = jo ? [] : (await pelCol.doc(pd.id).collection('testitulokset').get()).docs.map(function (t) { return t.data().sukupuoli; });   // virhe → heitetään (ei hiljaista "ei tuloksia")
+      return { id: pd.id, nimi: nimi, sukupuoli: d.sukupuoli, tulokset: tulokset };
+    }));
+    const suunnitelma = SK.tmSukupuoliSuunnitelma(syote);
+    const kirjoita = await _sukupuoliRaporttiModal('Täydennä sukupuoli — KUIVA-AJO · ' + nimiTeksti, SK.tmSukupuoliRaportti(suunnitelma) + '\n\nEi vielä kirjoitettu.', suunnitelma.kirjoita.length ? 'Kirjoita ' + suunnitelma.kirjoita.length + ' pelaajalle' : null);
+    if (!kirjoita) { if (suunnitelma.kirjoita.length) toast('Peruttu — vain kuiva-ajo (ei kirjoitettu)', 'ok'); return; }
+    if (btn) btn.textContent = '⚥ Kirjoitetaan…';
+    const tulos = await SK.tmSukupuoliKirjoita(suunnitelma.kirjoita, {
+      ASETETTU: async function (id) { const s = await pelCol.doc(id).get(); const v = s.exists ? s.data().sukupuoli : null; return v === 'M' || v === 'N'; },   // ei ylikirjoiteta jos asetettu välillä
+      ERA: async function (era) { const b = db.batch(); era.forEach(function (p) { b.update(pelCol.doc(p.id), { sukupuoli: p.sukupuoli }); }); await b.commit(); },   // vain sukupuoli-kenttä
+      SEIS: function (e) { return TM_ISTUNTO.tmTuontiSeis(firebase.auth(), e); }
+    });
+    await _sukupuoliRaporttiModal('Täydennä sukupuoli — RAPORTTI · ' + nimiTeksti, SK.tmSukupuoliRaportti(suunnitelma, tulos), null);
+    toast(tulos.seis ? 'Pysäytetty: ' + tulos.seis.syy + ' (kirjoitettu ' + tulos.kirjoitettu + ')' : 'Sukupuoli täydennetty: ' + tulos.kirjoitettu + ' pelaajalle', tulos.seis ? 'err' : 'ok');
+  } catch (e) {
+    console.error('[sukupuoli-backfill]', e); toast('Sukupuolen täydennys epäonnistui: ' + (e && e.code ? e.code + ' — ' : '') + (e && e.message || e), 'err');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '⚥ Täydennä sukupuoli testituloksista'; }
   }
 }
 

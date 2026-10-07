@@ -19,6 +19,7 @@
 <script src="lib/tm_pvm.js?v=3"></script>   <!-- tmPaivaIso: paikallinen päivä ("tänään" ≠ UTC-päivä klo 0–3) -->
 <script src="lib/tm_appcheck.js?v=1"></script>
 <script src="lib/tm_istunto.js?v=1"></script>   <!-- istuntoturva: väärä rooli → viesti + "Kirjaudu ulos", ei automaattista signOut():ia; tuonnit pysähtyvät istuntovirheeseen -->
+<script src="lib/tm_sukupuoli.js?v=1"></script>   <!-- sukupuoli M/N (§7.12) -->
 <script src="lib/tm_verkko.js?v=1"></script>   <!-- verkkokatko: 1 uudelleenyritys + Yhteyskatko-ilmoitus + Sentry warning -->
 <script src="lib/tm_aktiivisuus.js?v=1"></script>   <!-- Toimihenkilon kirjautumisaikaleima — jaettu kirjoituspiste, ks. lib-header -->
 <!-- Excel-tuonti: SheetJS -->
@@ -6542,6 +6543,7 @@ function kasitteleExcelTuonti(event) {
       const iTalentti = etsiSarake('Talenttiohjelma', 'talenttiohjelma', 'talentti');
       const iTaso     = etsiSarake('TalenttiTaso', 'talentitaso', 'taso');
       const iVuosi    = etsiSarake('Syntymävuosi', 'syntymavuosi');   // pakollinen (1.10.2026)
+      const iSukup    = etsiSarake('Sukupuoli', 'sukupuoli');   // valinnainen: P/T tai M/N → "M"/"N" (§7.12); puuttuva/tunnistamaton → ei kenttää (ei oletusta)
 
       // Muutetaan datarivit objekteiksi
       rivit = kaikki.slice(otsikkoRiviIdx + 1)
@@ -6562,6 +6564,7 @@ function kasitteleExcelTuonti(event) {
             talentti:      iTalentti >= 0 ? String(r[iTalentti] || '').trim().toLowerCase() : '',
             talenttiTaso:  iTaso     >= 0 ? String(r[iTaso]    || '').trim().toLowerCase() : '',
             syntymaVuosi:  _tmSyntymaVuosi(iVuosi >= 0 ? r[iVuosi] : ''),
+            sukupuoli:     iSukup >= 0 ? TM_SUKUPUOLI.tmSukupuoliMN(r[iSukup]) : null,
             _rivi: otsikkoRiviIdx + idx + 2,
           };
         })
@@ -6732,6 +6735,7 @@ async function ajaExcelTuonti(lahetaKutsut = false) {
         etunimi:       p.etunimi || '',
         sukunimi:      p.sukunimi || '',
         syntymaVuosi:  p.syntymaVuosi,   // numerona (§7.11); tuonti ei aja riviä ilman sitä
+        ...(p.sukupuoli ? { sukupuoli: p.sukupuoli } : {}),   // "M"/"N" (§7.12); puuttuva → ei kenttää (ei oletusta)
         joukkue:       p.joukkue || '',
         joukkueet:     p._joukkueId ? [p._joukkueId] : [],   // #92b: VAIN kanoninen id (§18) — ei nimi-jäänteitä; orpo → [] (joukkue-string riittää dual-kyselyyn)
         seuraId:       tila.seuraId,
