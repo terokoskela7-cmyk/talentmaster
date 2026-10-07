@@ -1,5 +1,7 @@
 # CODE BRIEF · K4 — Viikkokatsaus ja jakson päätös (Pelaaja_v7 + henkilökunnan näkymä)
 
+> **Päätös 7.10.2026 (selvitysten jälkeen):** viikkokatsaus tallennetaan omaan kokoelmaan `seurat/{sid}/pelaajat/{pid}/viikkokatsaukset/{sunnuntain pvm}` (Rules v3.44), EI `kirjaukset/{pvm}`:iin — kirjauksia lukee ainakin 7 lukijaa (Vanhempi_v2, Palloliiton viikkoseuranta, VP:n hiljaiset ym.). Valmentajan lause = `jaksofokus_historia`-rivin kenttä `lause` sulkulomakkeen samassa updatessa. Alla oleva kohta A:n "Data" on tältä osin korvattu.
+
 **Kaista: Tero** (Pelaaja_v7, Master_v16, VP_v25 ja `lib/`). PR-kuvauksen ensimmäinen rivi on "Kaista: Tero".
 
 **Design:**

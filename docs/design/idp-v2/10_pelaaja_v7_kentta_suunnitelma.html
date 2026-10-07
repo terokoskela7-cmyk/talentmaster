@@ -148,7 +148,7 @@ td.k{color:var(--teal);font-weight:600}td.d{color:var(--red)}td.m{color:var(--am
     <li><code>pelaajat.jaksofokus</code> saa: <code>kortilta</code>, <code>tila:'valittavana'|'kaynnissa'</code>, <code>vaihtoehdot[2] {k, nimi, miksi, loppu, osat[]}</code>, <code>reitti {alku, loppu}</code>, <code>osat[] {k, nimi}</code>, <code>tukiosa {alue, perustelu, harjoitteet[]}</code></li>
     <li><code>pelaajat.ydinvahvuus_valinta {vaihtoehto, valittu_pvm}</code> (v3.37: <code>vaihtoehto</code> merkkijono ≤ 60 merkkiä, vain nämä kaksi avainta; tiukennetaan kun K3 lukitaan; Firestoren kenttänimet neutraaleja, näkyvä sana tulee käännöksistä) — ainoa uusi kenttä, jonka pelaaja kirjoittaa</li>
     <li><code>pelaajat.lempipaikka {x,y}</code> — U8–12, lapsi tai huoltaja</li>
-    <li><code>kirjaukset/{pvm}.viikkokatsaus {osat:{a,b,c}, pvm}</code> ja <code>jakso_kuittaus</code> (U8–12)</li>
+    <li><code>pelaajat/{pid}/viikkokatsaukset/{sunnuntain pvm}</code> (oma kokoelma, Rules v3.44 · päätös 7.10.2026: ei kirjauksiin, koska kirjauksia lukee ainakin 7 lukijaa) ja <code>jakso_kuittaus</code> (U8–12)</li>
    </ul>
    <p>Rules: pelaajan päivitys <code>affectedKeys().hasOnly([...nykyiset, 'ydinvahvuus_valinta', 'lempipaikka'])</code>. Jakson aktivointi valinnasta tehdään valmentajan sovelluksessa tai funktiolla; pelaaja ei kirjoita <code>jaksofokus</code>-kenttää. Emulaattoritesti <code>tests/rules</code>.</p></div>
   <div class="box"><h3>Käyttöönotto lipulla</h3><p><code>seurat/{id}.liput.kentta: true</code>. Ilman lippua v7 renderöi kuten nyt. Lipulla Tänään ja Minä käyttävät Kenttä-lohkoja. Näin KPV U13 (testipelaajat) saa ilmeen ensin, muut seurat kun Tero päättää, ja paluu on yksi boolean. Lippu poistetaan, kun kaikki seurat ovat siirtyneet.</p></div>
@@ -177,7 +177,7 @@ td.k{color:var(--teal);font-weight:600}td.d{color:var(--red)}td.m{color:var(--am
    <div class="done">Valmis kun: valinta tallentuu, valmentaja saa ilmoituksen (nykyinen kanava), jakso ei ala ennen aktivointia, ja ruutu ei näy kun tila ei ole valittavana.</div></div></div>
 
   <div class="phase"><span class="n">K4</span><div class="b"><div class="h"><h3>Viikkokatsaus ja katselmuksen lause</h3><span class="tag w">lipun takana</span><span class="tag b">1 PR</span></div>
-   <ul><li>Sunnuntaina jakson aikana Tänään-sivun kärkeen "Miten osat näkyivät?" (3 kysymystä, pill3) → <code>kirjaukset/{pvm}.viikkokatsaus</code>. Korvaa viikon check-inin (V2).</li><li>Jakson päätyttyä (<code>jaksofokus_historia[-1].lause</code>) Tänään näyttää "Hyvä jakso" ja valmentajan lauseen, josta siirrytään valintaan (K3).</li><li>Fiilis-kysymys treenipäivinä treenin jälkeen kuittauksena, ei omana korttina.</li></ul>
+   <ul><li>Sunnuntaina jakson aikana Tänään-sivun kärkeen "Miten osat näkyivät?" (3 kysymystä, pill3) → <code>pelaajat/{pid}/viikkokatsaukset/{pvm}</code> (oma kokoelma, ks. yllä). v7:ssä ei ollut korvattavaa viikkokyselyä.</li><li>Jakson päätyttyä (<code>jaksofokus_historia[-1].lause</code>) Tänään näyttää "Hyvä jakso" ja valmentajan lauseen, josta siirrytään valintaan (K3).</li><li>Fiilis-kysymys treenipäivinä treenin jälkeen kuittauksena, ei omana korttina.</li></ul>
    <div class="done">Valmis kun: viikkokatsaus näkyy vain sunnuntaina ja vain kerran; katselmuksen lause näkyy heti tallennuksen jälkeen ja jää Minä → jaksolistaan.</div></div></div>
 
   <div class="phase"><span class="n">K5</span><div class="b"><div class="h"><h3>Leikkijä U8–12 ja huoltaja</h3><span class="tag w">lipun takana</span><span class="tag b">1 PR (Pelaaja + Vanhempi)</span></div>
