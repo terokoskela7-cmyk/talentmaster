@@ -118,6 +118,9 @@ window.TM_KAAVIO_HOST = {
 <script src="lib/tm_aloita_jakso.js?v=4"></script>   <!-- jaettu "Aloita jakso" -modaali (Master + VP) -->
 <script src="lib/tm_vastuuhenkilo.js?v=1"></script>   <!-- vastuuhenkilö per pelaaja (vastuuhenkilo {uid, rooli, asetettu_pvm}); henkilökunnan rivi + asetus -->
 <script src="lib/tm_kehityssilmukka.js?v=2"></script>
+<script src="lib/tm_kielletyt.js?v=1"></script>   <!-- K4: sanavartija jakson päätöksen lauseelle -->
+<script src="lib/tm_taman_tueksi.js?v=2"></script>   <!-- K4: tmTukiPerustelu = K1:n mittaus-/lukutarkistus lauseelle (lazy-riippuvuudet vain K1-näkymille) -->
+<script src="lib/tm_viikkokatsaus.js?v=1"></script>   <!-- K4: pelaajan viikkokatsaukset (henkilökunnan osio) + lause -->
 <script src="lib/tm_jakso_malli.js?v=2"></script>   <!-- B 2/3: ohjelma → jakson tukiosa (tmOhjelmaTukiosaan / tmLiitaTukiosaan) -->   <!-- R6.1b: jaksofokuksen yhteinen kirjoitusydin (tmAsetaJaksofokus / tmSuljeJakso) -->
 <script src="lib/tm_seuraava_askel.js?v=1"></script>   <!-- R6.2b: seuraava toimenpide yhdessä paikassa (tmSeuraavaAskel / tmSeuraavaJakso / tmTeeTastaOsa) -->
 <script src="lib/tm_fyysteemat.js?v=4"></script>   <!-- Vaihe 7: fyysinen teemaluettelo + D1-fokuslähde + evidenssi (fysiikkavalmentaja) -->
@@ -6289,6 +6292,7 @@ function _ttKorttiHTML(p) {
   h += '</div>';
   // Vaihe 6 — meso-kehityskaari (suljetut jaksot, jaksofokus_historia §26). Headerin ulkopuolella.
   if (typeof _msMesoKaariHTML === 'function') h += _msMesoKaariHTML(p);
+  h += _msVkHkHTML(p);   // K4: Pelaajan viikkokatsaukset (vain lipulla; täytetään asynkronisesti)
   // 1 KONSEPTI
   h += '<div style="background:var(--card);border:.5px solid var(--border);border-radius:12px;padding:14px 15px;margin-top:10px">'
     + '<div style="font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--teal);font-weight:600;margin-bottom:5px">' + masterT('1 · Konsepti — mitä kehitetään') + '</div>'
@@ -6436,14 +6440,53 @@ function _msSessiot(jf, alkoi, loppu) {
   }).map(function (t) { return { id: t.id, treeniteema: t.treeniteema, pelaajat_id: t.pelaajat_id || [], pvm: t.pvm || '' }; });
 }
 
+/* ═══ K4 — viikkokatsaukset + lause pelaajalle (docs/CODE_BRIEF_K4_VIIKKOKATSAUS.md; Kaista: Tero). Vain kun liput.kentta === true. Luku: seurat/{sid}/pelaajat/{pid}/viikkokatsaukset where jakso_alkoi == jakson alku (YKSI kysely).
+   Lause kirjoitetaan sulkulomakkeen samaan update():en jaksofokus_historia-riville (tmSuljeJakso opts.lisakentat) — ei erillistä kirjoitusta. ═══ */
+async function _msVkHae(p) {
+  const K4 = window.TM_VIIKKOKATSAUS;
+  if (!K4 || !p || !p.jaksofokus || _demo || !_seuraId || typeof _db === 'undefined' || !_db) return null;
+  const alkoi = K4.tmVkJaksoAlkoi(p.jaksofokus); if (!alkoi) return null;
+  const liput = await _mJjLataaLiput(); if (liput.kentta !== true) return null;
+  const snap = await _db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(p.id).collection('viikkokatsaukset').where('jakso_alkoi', '==', alkoi).get();
+  return snap.docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); });
+}
+async function _msVkSulkuLataa(pid) {
+  const S = window._msSulkuTila; if (!S || S.pid !== pid) return;
+  try {
+    const liput = await _mJjLataaLiput(); if (liput.kentta !== true) return;
+    let docs = []; try { docs = (await _msVkHae(S.p)) || []; } catch (e) { console.warn('[K4] viikkokatsaukset:', e && e.message); }   // luku epäonnistuu → lause silti mahdollinen
+    if (window._msSulkuTila && window._msSulkuTila.pid === pid) { window._msSulkuTila.k4 = true; window._msSulkuTila.vkDocs = docs; _msRender(); }
+  } catch (e) { console.warn('[K4] liput:', e && e.message); }
+}
+function _msVkHkHTML(p) {
+  if (!p || !p.jaksofokus || _demo || !window.TM_VIIKKOKATSAUS) return '';
+  setTimeout(async function () {
+    const el = document.getElementById('k4VkHk_' + p.id); if (!el) return;
+    try { const docs = await _msVkHae(p); const e2 = document.getElementById('k4VkHk_' + p.id); if (docs && e2) e2.innerHTML = window.TM_VIIKKOKATSAUS.tmVkHenkilokuntaHTML(docs, { esc: _prEsc, t: masterT }); }
+    catch (e) { console.warn('[K4] viikkokatsaukset:', e && e.message); }
+  }, 0);
+  return '<div id="k4VkHk_' + _prEsc(p.id) + '"></div>';
+}
+window._msSetLause = function (v) { if (window._msSulkuTila) window._msSulkuTila.lause = String(v || ''); };
+function _msVkSulkuHTML(S) {
+  const K4 = window.TM_VIIKKOKATSAUS; if (!S.k4 || !K4) return '';
+  const t = function (k) { const v = masterT(k); return (v && v !== k) ? v : K4.FI[k]; };
+  return '<div style="background:var(--surface,#1C1C1A);border:.5px solid var(--border);border-radius:10px;padding:13px;margin-bottom:10px">'
+    + K4.tmVkHenkilokuntaHTML(S.vkDocs || [], { esc: _prEsc, t: masterT })
+    + '<div style="font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink3);margin:12px 0 4px">' + _prEsc(t('k4_lause_valm')) + '</div>'
+    + '<textarea id="_msLause" rows="2" maxlength="' + K4.MAX_LAUSE + '" oninput="_msSetLause(this.value)" style="width:100%;box-sizing:border-box;background:var(--card);color:var(--ink);border:.5px solid var(--border);border-radius:8px;padding:8px;font-family:inherit;font-size:13px;resize:none">' + _prEsc(S.lause || '') + '</textarea>'
+    + '<div style="font-size:10.5px;color:var(--ink3);margin-top:3px">' + _prEsc(t('k4_lause_valm_ohje')) + '</div></div>';
+}
+
 window._msSuljeJakso = async function (pid) {
   var p = (typeof _ttPelaaja === 'function') ? _ttPelaaja(pid) : (_pelaajatData || []).find(function (x) { return x.id === pid; });
   if (!p || !p.jaksofokus) { if (typeof toast === 'function') toast(masterT('Ei suljettavaa jaksoa'), 'error'); return; }
   var jf = p.jaksofokus;
   var vali = _msJaksovali(jf);
   var sessiot = _msSessiot(jf, vali.alkoi, vali.loppu);
-  window._msSulkuTila = { pid: pid, p: p, jf: jf, alkoi: vali.alkoi, loppu: vali.loppu, harjoituksia: sessiot.length, lasnaolo: { paikalla: 0, yhteensa: sessiot.length, tiedossa: 0 }, arvioItse: null, arvioAikuis: null, tulos: null, lataa: true };
+  window._msSulkuTila = { pid: pid, p: p, jf: jf, alkoi: vali.alkoi, loppu: vali.loppu, harjoituksia: sessiot.length, lasnaolo: { paikalla: 0, yhteensa: sessiot.length, tiedossa: 0 }, arvioItse: null, arvioAikuis: null, tulos: null, lataa: true, k4: false, lause: '', vkDocs: null };
   _msRender();
+  _msVkSulkuLataa(pid);   // K4: lauseen kenttä + viikkokatsausten tiivistelmä (vain lipulla; ei estä sulkua)
   var lasnaolo = {};
   if (!_demo && _seuraId && _db) {
     await Promise.all(sessiot.map(async function (s) {
@@ -6894,6 +6937,7 @@ function _msRender() {
   TUL.forEach(function (t) { var sel = S.tulos === t[0]; h += '<button onclick="_msSetTulos(\'' + t[0] + '\')" style="flex:1;min-width:120px;font-size:11.5px;border-radius:8px;padding:8px 6px;cursor:pointer;border:.5px solid ' + (sel ? 'rgba(61,163,93,.5)' : 'var(--border)') + ';background:' + (sel ? 'rgba(61,163,93,.12)' : 'var(--ov-1,rgba(255,255,255,.04))') + ';color:' + (sel ? '#3DA35D' : 'var(--ink2)') + ';font-weight:' + (sel ? '600' : '400') + '">' + t[1] + '</button>'; });
   h += '</div>';
   h += '<div style="font-size:10.5px;color:var(--ink3);font-style:italic;margin-bottom:12px">' + (_fyys ? masterT('Tulos-kehys: parani / ennallaan — jatka / vaihda. §28: kypsyysvaihe huomioitu — pre-PHV ”ennallaan” on odotettua, ei ”epäonnistui”.') : masterT('§28: tekniikka kehittyy hitaasti — 4 vk harvoin näyttää mitattavaa muutosta. ”Ennallaan” ei ole epäonnistuminen.')) + '</div>';
+  h += _msVkSulkuHTML(S);   // K4: viikkokatsaukset + lause pelaajalle (vain lipulla)
   var seur = S.tulos ? _msSeuraava(p, jf.konsepti_avain, S.tulos) : null;
   if (S.tulos) {
     h += '<div style="background:linear-gradient(150deg,rgba(40,176,144,.1),var(--surface,#1C1C1A));border:.5px solid rgba(40,176,144,.3);border-radius:10px;padding:13px">';
@@ -6919,6 +6963,8 @@ window._msSetAikuis = function (v) { if (window._msSulkuTila) { window._msSulkuT
 window._msSetTulos = function (t) { if (window._msSulkuTila) { window._msSulkuTila.tulos = t; _msRender(); } };
 window._msTallenna = async function (uusiAvain) {
   var S = window._msSulkuTila; if (!S) return;
+  var _lause = S.k4 ? window.TM_VIIKKOKATSAUS.tmVkLauseValmentaja(S.lause) : { ok: true, teksti: null };   // K4: lause vartijan läpi ENNEN sulkua; hylätty → lomake jää auki
+  if (!_lause.ok) { if (typeof toast === 'function') toast(window.TM_VIIKKOKATSAUS.tmVkLauseVirhe(_lause.syy, { t: masterT }), 'error'); return; }
   var p = S.p, jf = S.jf;
   var kal = window.TM_JAKSOKOOSTE ? window.TM_JAKSOKOOSTE.tmKalibraatio(S.arvioItse, S.arvioAikuis) : null;
   var _fyysT = (jf.domeeni === 'fyysinen');
@@ -6934,7 +6980,7 @@ window._msTallenna = async function (uusiAvain) {
     delta_mitattu: S.deltaMitattu || null,   // Vaihe 7: kytkee mitatun deltan (V6-aukko)
     ohjelma: jf.ohjelma || null,             // §2c: ohjelma → annos–vaste-rivi
     tulos: S.tulos, uusi: uusiJf
-  }, { nytISO: new Date().toISOString(), periytaLinkki: true });   // R6.1c: tavoite_alue periytyy vain jos uudella jaksolla ei ole omaa arvoa (lib; valitavoite_idx/poikkeama ei koskaan)
+  }, { nytISO: new Date().toISOString(), periytaLinkki: true, lisakentat: _lause.teksti ? { lause: _lause.teksti } : undefined });   // R6.1c: tavoite_alue periytyy vain jos uudella jaksolla ei ole omaa arvoa (lib; valitavoite_idx/poikkeama ei koskaan) · K4: lause samalle historiariville
   if (!_mVerkkoEnnenSulkua()) return;   // offline: sulkulomake jää auki, historiaa ei muuteta
   p.jaksofokus = v.jaksofokus;
   document.getElementById('_msSulkuModal')?.remove(); window._msSulkuTila = null;

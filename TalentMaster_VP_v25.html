@@ -121,6 +121,9 @@ window.TM_KAAVIO_HOST = {
 <script src="lib/tm_valmennuslinja.js?v=1"></script>   <!-- seuran valmennuslinja: joukkueen teema (hyväksytyt + henkilökunnalle luonnos) -->
 <script src="lib/tm_vastuuhenkilo.js?v=1"></script>   <!-- vastuuhenkilö per pelaaja (vastuuhenkilo {uid, rooli, asetettu_pvm}); henkilökunnan rivi + asetus -->
 <script src="lib/tm_jakso_malli.js?v=2"></script>   <!-- R6.3-E: katselmuksen "Vahvista merkinnät" (tmMerkinnatTila / tmVahvistaMerkinnat) + kypsyysvihjeet -->
+<script src="lib/tm_kielletyt.js?v=1"></script>   <!-- K4: sanavartija jakson päätöksen lauseelle -->
+<script src="lib/tm_taman_tueksi.js?v=2"></script>   <!-- K4: tmTukiPerustelu = K1:n mittaus-/lukutarkistus lauseelle (lazy-riippuvuudet vain K1-näkymille) -->
+<script src="lib/tm_viikkokatsaus.js?v=1"></script>   <!-- K4: pelaajan viikkokatsaukset (henkilökunnan osio) + lause -->
 <script src="lib/tm_kehityssilmukka.js?v=2"></script>   <!-- R6.2a: katselmus yhteen paikkaan (tmKirjaaKatselmus) + jaksofokuksen kirjoitusydin -->
 <script src="lib/tm_seuraava_askel.js?v=1"></script>   <!-- R6.2b: seuraava toimenpide yhdessä paikassa (tmSeuraavaAskel / tmSeuraavaJakso / tmTeeTastaOsa) -->
 <script src="lib/tm_fyysteemat.js?v=4"></script>   <!-- Vaihe 7: fyysinen teemaluettelo + D1-fokuslähde + evidenssi (delta §29 + PHV-portti §28) -->
@@ -10847,6 +10850,43 @@ window._jfRyhmaharjoite = function (avain) {
 // Prosessi (4d treeniteema + K2 läsnäolo) → kevyt arvio → silta ehdottaa seuraavan. §0 prosessirehellinen,
 // §28 (ei "epäonnistui"), §29 (delta vain mittauksesta), §37 (VP → arvio_vp). Geneerinen §8: domeeni-tagi.
 // ══════════════════════════════════════════════════════════════════════════
+/* ═══ K4 — viikkokatsaukset + lause pelaajalle (docs/CODE_BRIEF_K4_VIIKKOKATSAUS.md; Kaista: Tero). Vain kun liput.kentta === true (sama komponentti kuin Masterissa: lib/tm_viikkokatsaus.js).
+   Luku: seurat/{sid}/pelaajat/{pid}/viikkokatsaukset where jakso_alkoi == jakson alku (YKSI kysely). Lause samalle jaksofokus_historia-riville sulkulomakkeen update():ssa (tmSuljeJakso opts.lisakentat). ═══ */
+async function _vpVkHae(p) {
+  const K4 = window.TM_VIIKKOKATSAUS;
+  if (!K4 || !p || !p.jaksofokus || _isDemoMode || !_seuraId || typeof db === 'undefined') return null;
+  const alkoi = K4.tmVkJaksoAlkoi(p.jaksofokus); if (!alkoi) return null;
+  const liput = await _vpLataaLiput(); if (liput.kentta !== true) return null;
+  const snap = await db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(p.id).collection('viikkokatsaukset').where('jakso_alkoi', '==', alkoi).get();
+  return snap.docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); });
+}
+async function _vpVkSulkuLataa(pid) {
+  const S = window._vpSulkuTila; if (!S || S.pid !== pid) return;
+  try {
+    const liput = await _vpLataaLiput(); if (liput.kentta !== true) return;
+    let docs = []; try { docs = (await _vpVkHae(S.p)) || []; } catch (e) { console.warn('[K4] viikkokatsaukset:', e && e.message); }   // luku epäonnistuu → lause silti mahdollinen
+    if (window._vpSulkuTila && window._vpSulkuTila.pid === pid) { window._vpSulkuTila.k4 = true; window._vpSulkuTila.vkDocs = docs; _vpSulkuRender(); }
+  } catch (e) { console.warn('[K4] liput:', e && e.message); }
+}
+function _vpVkHkHTML(p) {
+  if (!p || !p.jaksofokus || _isDemoMode || !window.TM_VIIKKOKATSAUS) return '';
+  setTimeout(async function () {
+    const el = document.getElementById('k4VkHk_' + p.id); if (!el) return;
+    try { const docs = await _vpVkHae(p); const e2 = document.getElementById('k4VkHk_' + p.id); if (docs && e2) e2.innerHTML = window.TM_VIIKKOKATSAUS.tmVkHenkilokuntaHTML(docs, { esc: _jsvEsc, t: vpT }); }
+    catch (e) { console.warn('[K4] viikkokatsaukset:', e && e.message); }
+  }, 0);
+  return '<div id="k4VkHk_' + _jsvEsc(p.id) + '"></div>';
+}
+window._vpSulkuSetLause = function (v) { if (window._vpSulkuTila) window._vpSulkuTila.lause = String(v || ''); };
+function _vpVkSulkuHTML(S) {
+  const K4 = window.TM_VIIKKOKATSAUS; if (!S.k4 || !K4) return '';
+  const t = function (k) { const v = vpT(k); return (v && v !== k) ? v : K4.FI[k]; };
+  return '<div style="background:var(--deep,#1C1C1A);border:.5px solid var(--border);border-radius:10px;padding:13px;margin-bottom:10px">'
+    + K4.tmVkHenkilokuntaHTML(S.vkDocs || [], { esc: _jsvEsc, t: vpT })
+    + '<div style="font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink3);margin:12px 0 4px">' + _jsvEsc(t('k4_lause_valm')) + '</div>'
+    + '<textarea id="_vpSulkuLause" rows="2" maxlength="' + K4.MAX_LAUSE + '" oninput="_vpSulkuSetLause(this.value)" style="width:100%;box-sizing:border-box;background:var(--card);color:var(--ink);border:.5px solid var(--border);border-radius:8px;padding:8px;font-family:inherit;font-size:13px;resize:none">' + _jsvEsc(S.lause || '') + '</textarea>'
+    + '<div style="font-size:10.5px;color:var(--ink3);margin-top:3px">' + _jsvEsc(t('k4_lause_valm_ohje')) + '</div></div>';
+}
 window._vpSulkuTila = null;   // { pid, p, jf, alkoi, loppu, harjoituksia, lasnaolo, arvioItse, arvioAikuis, tulos, lataa }
 
 function _vpSulkuJaksovali(jf) {
@@ -10894,8 +10934,9 @@ window._vpSuljeJakso = async function (pid) {
   const vali = _vpSulkuJaksovali(jf);
   const sessiot = _vpSulkuSessiot(jf, vali.alkoi, vali.loppu);
   window._vpArvPelaaja = p;
-  window._vpSulkuTila = { pid: pid, p: p, jf: jf, alkoi: vali.alkoi, loppu: vali.loppu, harjoituksia: sessiot.length, lasnaolo: { paikalla: 0, yhteensa: sessiot.length, tiedossa: 0 }, arvioItse: null, arvioAikuis: null, tulos: null, lataa: true };
+  window._vpSulkuTila = { pid: pid, p: p, jf: jf, alkoi: vali.alkoi, loppu: vali.loppu, harjoituksia: sessiot.length, lasnaolo: { paikalla: 0, yhteensa: sessiot.length, tiedossa: 0 }, arvioItse: null, arvioAikuis: null, tulos: null, lataa: true, k4: false, lause: '', vkDocs: null };
   _vpSulkuRender();
+  _vpVkSulkuLataa(pid);   // K4: lauseen kenttä + viikkokatsausten tiivistelmä (vain lipulla; ei estä sulkua)
   // Per-pelaaja läsnäolo (K2 lasnaolijat-alikokoelma) — on-demand (EI render-polku §26). Graceful.
   const lasnaolo = {};
   if (!_isDemoMode && _seuraId) {
@@ -11070,6 +11111,7 @@ function _vpSulkuRender() {
   TULOKSET.forEach(function (t) { const sel = S.tulos === t[0]; h += '<button onclick="_vpSulkuSetTulos(\'' + t[0] + '\')" style="flex:1;min-width:120px;font-size:11.5px;border-radius:8px;padding:8px 6px;cursor:pointer;border:.5px solid ' + (sel ? 'rgba(61,163,93,.5)' : 'var(--border)') + ';background:' + (sel ? 'rgba(61,163,93,.12)' : 'var(--ov-1)') + ';color:' + (sel ? '#3DA35D' : 'var(--ink2)') + ';font-weight:' + (sel ? '600' : '400') + '">' + t[1] + '</button>'; });
   h += '</div>';
   h += '<div style="font-size:10.5px;color:var(--ink3);font-style:italic;margin-bottom:12px">' + (_fyys ? vpT('Tulos-kehys: parani / ennallaan — jatka / vaihda. §28: kypsyysvaihe huomioitu — pre-PHV ”ennallaan” on odotettua, ei ”epäonnistui”.') : vpT('§28: tekniikka kehittyy hitaasti — 4 vk harvoin näyttää mitattavaa muutosta. ”Ennallaan” ei ole epäonnistuminen.')) + '</div>';
+  h += _vpVkSulkuHTML(S);   // K4: viikkokatsaukset + lause pelaajalle (vain lipulla)
   // Seuraava fokus (silta)
   const seur = S.tulos ? _vpSulkuSeuraava(p, jf.konsepti_avain, S.tulos) : null;
   if (S.tulos) {
@@ -11102,6 +11144,8 @@ window._vpSulkuSetTulos = function (t) { if (window._vpSulkuTila) { window._vpSu
 // Tallenna: append jaksofokus_historia[] (geneerinen entry, VP → arvio_vp) + korvaa/nollaa jaksofokus.
 window._vpSulkuTallenna = async function (uusiAvain) {
   const S = window._vpSulkuTila; if (!S) return;
+  const _lause = S.k4 ? window.TM_VIIKKOKATSAUS.tmVkLauseValmentaja(S.lause) : { ok: true, teksti: null };   // K4: lause vartijan läpi ENNEN sulkua; hylätty → lomake jää auki
+  if (!_lause.ok) { if (typeof toast === 'function') toast(window.TM_VIIKKOKATSAUS.tmVkLauseVirhe(_lause.syy, { t: vpT }), 'error'); return; }
   const p = S.p, jf = S.jf;
   const _fyys = (jf.domeeni === 'fyysinen');
   const kal = window.TM_JAKSOKOOSTE ? window.TM_JAKSOKOOSTE.tmKalibraatio(S.arvioItse, S.arvioAikuis) : null;
@@ -11124,7 +11168,7 @@ window._vpSulkuTallenna = async function (uusiAvain) {
     delta_mitattu: S.deltaMitattu || null,   // Vaihe 7: kytkee mitatun deltan (V6-aukko korjautuu)
     ohjelma: jf.ohjelma || null,             // §2c: kopioi ohjelma-objekti → annos–vaste-rivi (AI-analyysi)
     tulos: S.tulos, uusi: uusiJf
-  }, { nytISO: new Date().toISOString(), periytaLinkki: true });
+  }, { nytISO: new Date().toISOString(), periytaLinkki: true, lisakentat: _lause.teksti ? { lause: _lause.teksti } : undefined });   // K4: lause samalle historiariville
   p.jaksofokus = _v.jaksofokus;
   document.getElementById('_vpSulkuModal')?.remove();
   window._vpSulkuTila = null;
@@ -11232,6 +11276,7 @@ function _vpAloitusHTML(p) {
   h += '<div class="vpal-ladder">⬆ ' + vpT('jakso laddaa kausifokukseen · kausi laddaa isoon tavoitteeseen') + '</div>';
   // Vaihe 6 — meso-kehityskaari (suljetut jaksot, jaksofokus_historia §26).
   if (typeof _vpMesoKaariHTML === 'function') h += _vpMesoKaariHTML(p);
+  h += _vpVkHkHTML(p);   // K4: Pelaajan viikkokatsaukset (vain lipulla; täytetään asynkronisesti)
   // Vaihe 4a — VP asettaa jaksofokuksen TALENTTIPELAAJILLE (§4: VP hallinnoi talentteja). Muille = valmentaja (Master).
   // 1a Part B: talentin jaksofokus asetetaan KONSOLIDOIDUSTA paneelista (domeeni-toggle) — ei enää erillistä
   // inline-editoria (_vpTtSlot poistettu, yksi pinta). Nappi avaa saman _jfOhjaa-paneelin kuin oversight/silta.

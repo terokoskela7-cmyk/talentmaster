@@ -101,7 +101,7 @@ function ymp({ p = TOPIAS(), julkiset = { kentta: true }, julkisetPuuttuu = fals
   sb.window = sb;
   if (libit) Object.assign(sb, { TM_LIPUT: require('../lib/tm_liput.js'), TM_TANAAN_KENTTA: K, TM_TAMAN_TUEKSI: require('../lib/tm_taman_tueksi.js'), tmKentta: TKent.tmKentta, tmKenttaCss: TKent.tmKenttaCss, TM_JOUKKUEJAKSO: JJ, TM_TUKITAVOITTEET: require('../lib/tm_tukitavoitteet.js'), TM_KIELLETYT: require('../lib/tm_kielletyt.js'), TM_KOTIHARJOITTEET: require('../lib/tm_kotiharjoitteet.js') });
   vm.createContext(sb);
-  vm.runInContext(['async function _p7LataaLiput(', 'function _p7KenttaKaytossa(', 'async function _p7LataaSeuranPankki(', 'function _p7K1T(', 'function _p7K1NaytaKuittaus(', 'function _p7K1KehuHTML(', 'function rA1Kentta('].map(pura).join(';\n') + ';\nthis._p7LataaLiput=_p7LataaLiput;this._p7KenttaKaytossa=_p7KenttaKaytossa;this._p7LataaSeuranPankki=_p7LataaSeuranPankki;this._p7K1NaytaKuittaus=_p7K1NaytaKuittaus;this.rA1Kentta=rA1Kentta;', sb);
+  vm.runInContext(['async function _p7LataaLiput(', 'function _p7KenttaKaytossa(', 'async function _p7LataaSeuranPankki(', 'function _p7K1T(', 'function _p7K1NaytaKuittaus(', 'function _p7K1KehuHTML(', 'function _p7VkHTML(', 'function rA1Kentta('].map(pura).join(';\n') + ';\nthis._p7LataaLiput=_p7LataaLiput;this._p7KenttaKaytossa=_p7KenttaKaytossa;this._p7LataaSeuranPankki=_p7LataaSeuranPankki;this._p7K1NaytaKuittaus=_p7K1NaytaKuittaus;this.rA1Kentta=rA1Kentta;', sb);
   sb.document = { getElementById: (id) => (id === 'k1Kuittaus' ? { style: { set display(v) { log.kuittaus = v; } } } : null) };
   return { sb, log };
 }
@@ -126,7 +126,7 @@ describe('Pelaaja_v7 · lippu liput/julkiset', () => {
     expect(SRC).toContain("html=(typeof _p7KenttaKaytossa==='function' && _p7KenttaKaytossa()) ? rA1Kentta() : rA1();");
     const ra1 = pura('function rA1()'); expect(createHash('sha256').update(ra1).digest('hex')).toBe('6089e5d1631d3fb68339d42fd8b995925c066fa9a0ec433505094dfef8516382'); expect(ra1).not.toMatch(/K1|rA1Kentta|k1-/);
     for (const s of ['tm_liput.js?v=1', 'tm_kielletyt.js?v=1', 'tm_tukitavoitteet.js?v=3', 'tm_joukkuejakso.js?v=3', 'tm_taman_tueksi.js?v=2', 'tm_tanaan_kentta.js?v=2']) expect(SRC, s).toContain('<script src="lib/' + s + '"></script>');
-    const sw = readFileSync(join(juuri, 'sw_pelaaja.js'), 'utf8'); expect(sw).toMatch(/const CACHE = 'tm-pelaaja-v(7[6-9]|[89]\d)'/); expect(sw).toContain('tm_(liput|kielletyt|tukitavoitteet|joukkuejakso|taman_tueksi|tanaan_kentta)');
+    const sw = readFileSync(join(juuri, 'sw_pelaaja.js'), 'utf8'); expect(sw).toMatch(/const CACHE = 'tm-pelaaja-v(7[6-9]|[89]\d)'/); expect(sw).toContain('tm_(liput|kielletyt|tukitavoitteet|joukkuejakso|taman_tueksi|tanaan_kentta');   // K4 lisäsi |viikkokatsaus
     expect(SRC).toContain("if (btnId === 'dKirjausBtn' && typeof _p7K1NaytaKuittaus === 'function') _p7K1NaytaKuittaus();");
   });
 });

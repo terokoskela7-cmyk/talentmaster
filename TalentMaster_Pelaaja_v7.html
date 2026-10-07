@@ -551,6 +551,7 @@ input::placeholder,textarea::placeholder{color:#8C8B86;opacity:1}
 <script src="lib/tm_joukkuejakso.js?v=3"></script>   <!-- K1: tmJoukkuejaksoViikko (pelaajan snapshotista) -->
 <script src="lib/tm_taman_tueksi.js?v=2"></script>   <!-- K1: Tämän tueksi + Joukkueen jakso -->
 <script src="lib/tm_tanaan_kentta.js?v=2"></script>   <!-- K1: rA1Kentta-lohkot (tila, osat, päivän treeni, kuittaus) -->
+<script src="lib/tm_viikkokatsaus.js?v=1"></script>   <!-- K4: viikkokatsaus + jakson päätöskortti (Kenttä-lipun takana) -->
 <script src="lib/tm_kotiharjoitteet.js?v=1"></script>   <!-- B 3/3: jakson kotiharjoitteet (jaksofokus.tukiosa.harjoitteet snapshot) + seuran nimi lähdemerkintänä -->   <!-- K0: Kenttä-komponentti (ei vielä käytössä näkymissä) -->
 <script src="lib/tm_eerikkila_normit.js?v=47"></script>
 <script src="docs/testit_indeksit.js?v=13"></script>
@@ -1259,6 +1260,63 @@ function _p7K1KehuHTML() {
     + '<div style="font-size:24px;flex-shrink:0">' + _thEsc(_viimeisinKehu.emoji || '❤️') + '</div><div style="flex:1"><div style="font-size:11px;font-weight:600;letter-spacing:.1em;color:var(--ink3);margin-bottom:3px">' + _thEsc(String(_viimeisinKehu.lahettaja || '').toUpperCase()) + '</div>'
     + '<div style="font-size:13px;color:var(--text);line-height:1.4">' + _thEsc(_viimeisinKehu.teksti) + '</div></div><button onclick="_kuittaaKehu()" style="background:transparent;border:none;color:var(--ink3);font-size:20px;cursor:pointer;padding:4px">×</button></div>';
 }
+/* ═══ K4 — sunnuntain viikkokatsaus + jakson päätöskortti (docs/CODE_BRIEF_K4_VIIKKOKATSAUS.md; design 09, 10 K4, 12 D21). Vain Kenttä-lipun takana (rA1Kentta); rA1() ennallaan.
+   Tallennus: seurat/{sid}/pelaajat/{pid}/viikkokatsaukset/{sunnuntain pvm} (Rules v3.44; ei kirjaukset/{pvm}). OMA writer — ei _tmKirjaa. Yksi vastaus per sunnuntai: ei korjausta, ei päivitystä (Rules: create vain).
+   Maanantaina ei muistuteta (§7.22). Päätöskortissa ei nappia (K3 vie valintaan). */
+window._p7Vk = { pvm: null, tila: null, valinnat: {}, lause: '', tallentaa: false, kysymykset: [] };   // tila: 'lataa' | 'auki' | 'kiitos' | 'vastattu' | 'virhe'
+async function _p7VkLataa(tanaan) {
+  const V = window._p7Vk;
+  if (V.pvm === tanaan && V.tila) return;   // luetaan kerran per päivä
+  if (_isDemoUser || !_pelaaja || !_pelaaja.id || !window._db) return;
+  const sid = window._seuraId || _pelaaja.seuraId; if (!sid) return;
+  window._p7Vk = { pvm: tanaan, tila: 'lataa', valinnat: {}, lause: '', tallentaa: false, kysymykset: [] };
+  try {
+    const d = await window._db.collection('seurat').doc(sid).collection('pelaajat').doc(_pelaaja.id).collection('viikkokatsaukset').doc(tanaan).get();
+    window._p7Vk.tila = d && d.exists ? 'vastattu' : 'auki';
+  } catch (e) { console.warn('[K4] viikkokatsaus luku:', e && e.message); window._p7Vk.tila = 'virhe'; }   // virhe → korttia ei näytetä (ei kaksoisvastausta)
+  if (window._p7Vk.tila === 'auki' && _tab === 'tanaan' && typeof draw === 'function') draw();
+}
+function _p7VkHTML(x, jf, tanaan, o) {
+  const K4 = window.TM_VIIKKOKATSAUS; if (!K4 || !_pelaaja) return '';
+  if (_stage === '1_leikkija') return '';   // Leikkijä tulee K5:ssä
+  if (x.tila !== 'jakso' && x.tila !== 'sunnuntai') return K4.tmVkPaatosHTML(K4.tmVkPaatos(_pelaaja, { tanaan }), o);   // jakso päättynyt: "Hyvä jakso" + valmentajan lause
+  if (x.tila !== 'sunnuntai') return '';   // ma–la: ei korttia, ei muistutusta
+  _p7VkLataa(tanaan);
+  const V = window._p7Vk; if (V.pvm !== tanaan) return '';
+  if (V.tila === 'kiitos') return K4.tmVkKiitosHTML(o);
+  if (V.tila !== 'auki') return '';       // lataa / virhe / jo vastattu aiemmin → kortti ei näy
+  V.kysymykset = K4.tmVkKysymykset(jf, { kaanon: (typeof tmKonseptiKaanon === 'function') ? tmKonseptiKaanon : null });
+  return K4.tmVkKorttiHTML(V.kysymykset, V, o);
+}
+function _p7VkPiirra() {
+  const K4 = window.TM_VIIKKOKATSAUS, el = document.getElementById('p7VkKortti'), V = window._p7Vk; if (!K4 || !el) return;
+  const o = { esc: _thEsc, t: _p7K1T };
+  const h = V.tila === 'kiitos' ? K4.tmVkKiitosHTML(o) : K4.tmVkKorttiHTML(V.kysymykset, V, o);
+  const w = document.createElement('div'); w.innerHTML = h; if (w.firstChild) el.replaceWith(w.firstChild);
+}
+function _p7VkValitse(osa, arvo) { const V = window._p7Vk; if (V.tila !== 'auki' || V.tallentaa) return; if (V.valinnat[osa] === arvo) delete V.valinnat[osa]; else V.valinnat[osa] = arvo; _p7VkPiirra(); }
+function _p7VkLause(v) { window._p7Vk.lause = String(v || ''); }
+async function _p7VkTallenna() {
+  const V = window._p7Vk, K4 = window.TM_VIIKKOKATSAUS; if (!K4 || V.tila !== 'auki' || V.tallentaa || !_pelaaja) return;
+  const l = K4.tmVkLausePelaaja(V.lause);
+  if (!l.ok) { _naytaKirjausVirhe(_p7K1T('k4_pelaaja_lause_virhe')); return; }
+  const olio = K4.tmVkTallennusolio(_pelaaja, V.valinnat, V.lause, { tanaan: V.pvm, kaanon: (typeof tmKonseptiKaanon === 'function') ? tmKonseptiKaanon : null }); if (!olio) return;
+  V.tallentaa = true; _p7VkPiirra();
+  const sid = window._seuraId || _pelaaja.seuraId, pid = _pelaaja.id;
+  try {
+    if (!_p7Verkossa()) throw _p7EiYhteyttaVirhe();
+    try { const u = window._auth && window._auth.currentUser; if (u) await u.getIdToken(true); } catch (_) { /* ei estä kirjausta */ }
+    const ref = window._db.collection('seurat').doc(sid).collection('pelaajat').doc(pid).collection('viikkokatsaukset').doc(olio.id);
+    await _p7Aikaraja(ref.set(Object.assign({}, olio.data, { luotu: firebase.firestore.FieldValue.serverTimestamp() })));   // create; Rules: luotu == request.time
+    V.tila = 'kiitos';
+  } catch (e) {
+    console.warn('[K4] viikkokatsaus:', e && (e.code || e.message));
+    let jo = false;   // toinen laite ehti ensin → dokumentti on olemassa → ei virhettä, kortti pois
+    try { const d = await window._db.collection('seurat').doc(sid).collection('pelaajat').doc(pid).collection('viikkokatsaukset').doc(olio.id).get(); jo = !!(d && d.exists); } catch (_) {}
+    if (jo) V.tila = 'vastattu'; else _naytaKirjausVirhe(_p7KirjausVirheTeksti(e));   // älä niele: toimintaohje-toast
+  }
+  V.tallentaa = false; _p7VkPiirra();
+}
 function rA1Kentta() {
   const K = window.TM_TANAAN_KENTTA, TU = window.TM_TAMAN_TUEKSI;
   if (!K || !TU || !_pelaaja) return rA1();   // libit puuttuvat (esim. välimuisti) → vanha näkymä, ei tyhjää ruutua
@@ -1280,6 +1338,7 @@ function rA1Kentta() {
 <div class="scroll" style="background:var(--bg)">
   ${hdr((_pelaaja?.etunimi||'Pelaaja')+' · '+(_pelaaja?.pelaajaProfiili||''))}
   <style>${(typeof window.tmKenttaCss === 'function') ? window.tmKenttaCss() : ''}</style>
+  ${_p7VkHTML(x, jf, tanaan, o)}
   ${K.tmTanaanKenttaHTML(x, Object.assign({ kentta: kentta }, o))}
   ${jakso ? TU.tmTamanTueksiHTML(TU.tmTamanTueksiRivit(jf), o) : ''}
   ${jakso ? TU.tmJoukkueenJaksoRiviHTML(jf && jf.joukkuejakso_viite, tanaan, o) : ''}
