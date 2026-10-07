@@ -4602,3 +4602,41 @@ describe('v3.44 · viikkokatsaukset', () => {
     await assertFails(q(valmentajaContext(VALM_B_UID, SEURA_B)));
   });
 });
+
+/* ══ v3.45 · pelaajadokumentin ennatys_nahty (ennätysjuhlan nähty-merkki): PIN-pelaaja kirjoittaa VAIN tämän kentän (map, ≤ 200 avainta) ══ */
+describe('v3.45 · ennatys_nahty: pelaaja päivittää vain nähty-merkin; ei muita kenttiä', () => {
+  beforeEach(async () => { await seedAdminDoc(); await seedSeuraAndPelaaja(); });
+  const pel = (db, pid = PELAAJA_UID) => doc(db, 'seurat', SEURA_A, 'pelaajat', pid);
+  const lue = async (...polku) => { let d; await testEnv.withSecurityRulesDisabled(async (c) => { d = (await getDoc(doc(c.firestore(), ...polku))).data(); }); return d; };
+  const NAHTY = { 'lin30m@keinonurmi_3g': '2026-10-03', cmj: '2026-09-01' };
+
+  it('PIN-pelaaja kirjoittaa OMAAN dokkiinsa VAIN ennatys_nahty (map): koko map, yksittäinen avain FieldPath:illa (avain voi sisältää @), set+merge → onnistuu; muu data säilyy', async () => {
+    const db = pelaajaItseContext().firestore();
+    await assertSucceeds(updateDoc(pel(db), { ennatys_nahty: NAHTY }));
+    await assertSucceeds(updateDoc(pel(db), new FS_MOD.FieldPath('ennatys_nahty', 'lin30m@tekonurmi'), '2026-10-05'));
+    await assertSucceeds(setDoc(pel(db), { ennatys_nahty: { cmj: '2026-10-06' } }, { merge: true }));
+    const d = await lue('seurat', SEURA_A, 'pelaajat', PELAAJA_UID);
+    expect(d.ennatys_nahty).toEqual({ 'lin30m@keinonurmi_3g': '2026-10-03', cmj: '2026-10-06', 'lin30m@tekonurmi': '2026-10-05' }); expect(d.etunimi).toBe('Testi');
+  });
+  it('pelaaja EI kirjoita muita kenttiä nähty-merkin kanssa: ennatykset (väärennetty ennätys), jaksofokus, xp, tukitarve ✗; pelkkä ennatykset ✗', async () => {
+    const db = pelaajaItseContext().firestore();
+    await assertFails(updateDoc(pel(db), { ennatys_nahty: NAHTY, ennatykset: { lin30m: { paras: 1.0, pvm: '2026-10-05' } } }));
+    await assertFails(updateDoc(pel(db), { ennatykset: { lin30m: { paras: 1.0, pvm: '2026-10-05' } } }));
+    await assertFails(updateDoc(pel(db), { ennatys_nahty: NAHTY, jaksofokus: { konsepti_avain: 'y_h1' } }));
+    await assertFails(updateDoc(pel(db), { ennatys_nahty: NAHTY, xp: 99 }));
+    await assertFails(updateDoc(pel(db), { ennatys_nahty: NAHTY, tukitarve: { alue: 'voima' } }));
+    expect((await lue('seurat', SEURA_A, 'pelaajat', PELAAJA_UID)).ennatys_nahty).toBeUndefined();
+  });
+  it('ennatys_nahty pitää olla map: merkkijono / lista / null / luku hylätään; 200 avainta ✓, 201 ✗', async () => {
+    const db = pelaajaItseContext().firestore();
+    for (const v of ['2026-10-03', ['cmj'], null, 5, true]) await assertFails(updateDoc(pel(db), { ennatys_nahty: v }));
+    const map = (n) => Object.fromEntries(Array.from({ length: n }, (_, i) => ['k' + i, '2026-10-03']));
+    await assertSucceeds(updateDoc(pel(db), { ennatys_nahty: map(200) })); await assertFails(updateDoc(pel(db), { ennatys_nahty: map(201) }));
+  });
+  it('toisen pelaajan istunto, huoltaja, vieras ja kirjautumaton eivät kirjoita; toisen seuran valmentaja ei (valmentajan oma kirjoitus on eri polku)', async () => {
+    await assertFails(updateDoc(pel(pelaajaContext(SEURA_A, PELAAJA_A2_UID).firestore()), { ennatys_nahty: NAHTY }));
+    for (const ctx of [huoltajaContext(), randomContext(), unauthContext()]) await assertFails(updateDoc(pel(ctx.firestore()), { ennatys_nahty: NAHTY }));
+    await assertFails(updateDoc(pel(valmentajaContext(VALM_B_UID, SEURA_B).firestore()), { ennatys_nahty: NAHTY }));
+    expect((await lue('seurat', SEURA_A, 'pelaajat', PELAAJA_UID)).ennatys_nahty).toBeUndefined();
+  });
+});

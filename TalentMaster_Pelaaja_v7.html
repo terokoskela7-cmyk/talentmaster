@@ -3190,16 +3190,51 @@ function _ennLuku(k, paras) {   // aikatestit 2 des. (4.0 · 4.35), muut 1 des.
   return (_kkEnnatysTiedot(k)[1] === 's') ? v.toFixed(2).replace(/0$/, '') : String(Math.round(v * 10) / 10);
 }
 function _ennArvoTxt(k, paras) { var y = _kkEnnatysTiedot(k)[1]; return _ennLuku(k, paras) + (y ? (' ' + y) : ''); }
+// Nähty-merkki pelaajadokumenttiin (Rules v3.45: pelaaja saa päivittää VAIN ennatys_nahty-kentän): { avain: 'YYYY-MM-DD' }. localStorage jää välimuistiksi → uusi laite/selain/yksityinen tila/tyhjentyvä PWA-muisti
+// ei juhli samaa ennätystä uudelleen. Vanhat localStorage-merkit viedään dokumenttiin samalla (siirtymä). Kirjoitus on best effort (ei-kriittinen tausta): epäonnistuessa seuraava avaus yrittää uudelleen.
+var _ENN_NAHTY_MAX = 190;   // Rules: kenttä ≤ 200 avainta
+function _ennNahtyYhdista(a, b) {   // PURE: avain → myöhempi pvm (kaksi lähdettä)
+  var r = {};
+  [a, b].forEach(function (m) {
+    if (!m || typeof m !== 'object') return;
+    Object.keys(m).forEach(function (k) { var v = typeof m[k] === 'string' ? m[k].slice(0, 10) : ''; if (v && (!r[k] || v > r[k])) r[k] = v; });
+  });
+  return r;
+}
+function _ennNahtyPolku(p) {   // → { sid, pid } | null kun dokumenttiin ei voi kirjoittaa (ei tietokantaa / ei tunnisteita / ei FieldPath'ia)
+  var ids = window._p7Pelaaja || {}, sid = ids.seuraId || (p && p.seuraId) || window._seuraId, pid = (p && p.id) || ids.pelaajaId;
+  if (!window._db || !sid || !pid || typeof firebase === 'undefined' || !firebase.firestore || !firebase.firestore.FieldPath) return null;
+  return { sid: sid, pid: pid };
+}
+function _ennNahtyDokiin(p, polut) {   // polut: { avain: pvm } — vain muuttuneet; FieldPath → avain voi sisältää merkkejä ('lin30m@keinonurmi_3g')
+  var yht = _ennNahtyPolku(p), avaimet = Object.keys(polut || {}); if (!yht || !avaimet.length) return false;
+  var args = []; avaimet.forEach(function (k) { args.push(new firebase.firestore.FieldPath('ennatys_nahty', k), polut[k]); });
+  var ref = window._db.collection('seurat').doc(yht.sid).collection('pelaajat').doc(yht.pid);
+  (async function () {
+    try { var u = window._auth && window._auth.currentUser; if (u) await u.getIdToken(true); } catch (_) { /* ei estä kirjausta */ }
+    await ref.update.apply(ref, args);
+  })().catch(function (e) { console.warn('[ennätys] nähty-merkki dokumenttiin:', e && (e.code || e.message)); });
+  return true;
+}
 function _naytaUusiEnnatys() {
   var p = _pelaaja; if (!p || _isDemoUser || (!p.ennatykset && !p.ennatykset_alustat)) return;
   if (document.getElementById('tervetuloOv') || document.getElementById('ennatysOv')) return;   // ei päällekkäin → seuraavalla avauksella
   var pid = p.id || window._tmPlayerId || ''; if (!pid) return;
-  var avain = 'tm_ennatys_nahty_' + pid, nahty;
-  try { nahty = JSON.parse(localStorage.getItem(avain) || '{}') || {}; } catch (e) { return; }   // estetty → ei näytetä (ei toistuisi joka kerta)
+  var avain = 'tm_ennatys_nahty_' + pid, paikallinen = {}, lsOk = true;
+  try { paikallinen = JSON.parse(localStorage.getItem(avain) || '{}') || {}; } catch (e) { lsOk = false; }   // estetty → vain dokumentti kantaa merkin; ilman sitäkään ei näytetä (ei toistuisi joka kerta)
+  var docNahty = (p.ennatys_nahty && typeof p.ennatys_nahty === 'object') ? p.ennatys_nahty : {};
+  var nahty = _ennNahtyYhdista(paikallinen, docNahty);   // dokumentti + välimuisti: myöhempi pvm voittaa
   var _rv = _ennRivit(p), _rk = {}; _rv.forEach(function (x) { _rk[x.avain] = x; });
   var r = _ennUudetNakematta(_rv, nahty);
-  if (!Object.keys(r.merkitse).length) return;
-  try { localStorage.setItem(avain, JSON.stringify(Object.assign({}, nahty, r.merkitse))); } catch (e) { return; }
+  var uusi = _ennNahtyYhdista(nahty, r.merkitse), dokiin = {};   // dokumentista puuttuvat / vanhemmat → siirtymä + uudet merkit
+  Object.keys(uusi).forEach(function (k) { var d = typeof docNahty[k] === 'string' ? docNahty[k].slice(0, 10) : ''; if (!d || d < uusi[k]) dokiin[k] = uusi[k]; });
+  var voiKirjata = !!_ennNahtyPolku(p) && Object.keys(uusi).length <= _ENN_NAHTY_MAX;
+  if (!Object.keys(r.merkitse).length) { if (voiKirjata && Object.keys(dokiin).length) { _ennNahtyDokiin(p, dokiin); p.ennatys_nahty = uusi; } return; }   // ei uutta juhlittavaa; vanhat merkit vain dokumenttiin
+  var lsKirjattu = false;
+  if (lsOk) { try { localStorage.setItem(avain, JSON.stringify(uusi)); lsKirjattu = true; } catch (e) { /* estetty */ } }
+  if (!lsKirjattu && !voiKirjata) return;   // merkkiä ei saa mihinkään → ei näytetä (muuten toistuisi joka avauksella)
+  if (voiKirjata) { _ennNahtyDokiin(p, dokiin); }
+  p.ennatys_nahty = uusi;   // muistissa heti → toinen kutsu samassa istunnossa ei juhli uudelleen
   if (!r.juhli.length) return;
   var rivit = r.juhli.map(function (k) {
     var e = _rk[k];   // alusta näkyy, kun se ei ole pääalusta → "30 m kiri (Sisähalli — puulattia)" — ei vertailua alustojen välillä
