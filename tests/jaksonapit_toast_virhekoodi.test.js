@@ -72,7 +72,7 @@ describe('3 · tmVirheKoodi — virheen syy toastiin', () => {
       const i = MASTER.indexOf(k === 'ilmoita(' ? "ilmoita((" : k); expect(i, k).toBeGreaterThan(-1); expect(MASTER.slice(i, i + 500), k).toContain('TM_VIRHEKOODI.tmVirheTeksti');
     }
     for (const k of ["console.warn('[vpJf]'", "console.warn('[vpTt]'"]) { const i = VP.indexOf(k); expect(i, k).toBeGreaterThan(-1); expect(VP.slice(i, i + 400), k).toContain('TM_VIRHEKOODI.tmVirheTeksti'); }
-    for (const src of [MASTER, VP]) { expect(src).toMatch(/<script src="lib\/tm_virhekoodi\.js\?v=1"><\/script>/); expect(src).toMatch(/<script src="lib\/tm_aloita_jakso\.js\?v=8"><\/script>/); }
+    for (const src of [MASTER, VP]) { expect(src).toMatch(/<script src="lib\/tm_virhekoodi\.js\?v=1"><\/script>/); expect(src).toMatch(/<script src="lib\/tm_aloita_jakso\.js\?v=9"><\/script>/); }
   });
 });
 

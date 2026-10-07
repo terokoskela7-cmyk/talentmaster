@@ -24,6 +24,7 @@
 <script src="lib/tm_istunto.js?v=1"></script>   <!-- istuntoturva: väärä rooli → viesti + "Kirjaudu ulos", ei automaattista signOut():ia -->
 <script src="lib/tm_ryhmat.js?v=1"></script>   <!-- R1: ryhmät (D33) -->
 <script src="lib/tm_kal_muistiinpano.js?v=1"></script>   <!-- tietosuoja: muistiinpano staff-only-alikokoelmaan -->
+<script src="lib/tm_mediaviesti.js?v=1"></script>   <!-- R6.4 mediaviesti -->
 <script src="lib/tm_verkko.js?v=1"></script>   <!-- verkkokatko: 1 uudelleenyritys + Yhteyskatko-ilmoitus + Sentry warning -->
 <script src="lib/tm_aktiivisuus.js?v=1"></script>   <!-- Toimihenkilon kirjautumisaikaleima — jaettu kirjoituspiste, ks. lib-header -->
 <script src="lib/tm_joukkue.js?v=4"></script>   <!-- henkilöstön joukkueet näyttöön (tmHenkiloJoukkueTeksti) -->
@@ -115,7 +116,7 @@ window.TM_KAAVIO_HOST = {
 <script src="lib/tm_jaksokooste.js?v=2"></script>   <!-- Vaihe 6: jakson sulku (meso-sykli) PURE-ydin — prosessi+kalibraatio+historia (geneerinen §8) -->
 <script src="lib/tm_liput.js?v=1"></script>   <!-- K1 osa 2: liput (liput/julkiset + vanha fallback K7:ään) -->
 <script src="lib/tm_joukkuejakso.js?v=3"></script>   <!-- K1/A: joukkuejakson snapshot (tmAloitaJaksoTuki) -->
-<script src="lib/tm_aloita_jakso.js?v=8"></script>
+<script src="lib/tm_aloita_jakso.js?v=9"></script>
 <script src="lib/tm_virhekoodi.js?v=1"></script>   <!-- tallennusvirheen syy (koodi) toastiin -->
 <script src="lib/tm_tukitavoitteet.js?v=3"></script>   <!-- J1/V1: tukitavoitteet (ehdotusmoottori, kotiharjoitevalikoima) -->
 <script src="lib/tm_koti_oletus.js?v=1"></script>   <!-- V1: TM:n oletuskotiharjoitteet (D16: seura ensin, TM varalla); generoitu harjoitelogiikka_v4:stä -->   <!-- jaettu "Aloita jakso" -modaali (Master + VP) -->
@@ -10982,7 +10983,7 @@ function _ktPolkuHTML(p) {   // Polku = olemassa oleva kausi → jakso → viikk
   if (typeof _vpKehSeuraavaAskelHTML === 'function') h += '<div id="_jspKehAskel">' + _vpKehSeuraavaAskelHTML(p) + '</div>';
   if (typeof _vpKehSuunnitelmaHTML === 'function') h += '<div id="_jspKehSuunnitelma" style="margin-top:6px">' + _vpKehSuunnitelmaHTML(p) + '</div>';
   if (typeof _vpViikkoHTML === 'function') h += '<div id="_vpPolkuViikko" style="margin-top:18px;border-top:.5px solid var(--border);padding-top:12px">' + _vpViikkoHTML(p) + '</div>';
-  return '<div id="_jspTab3">' + h + '</div>';
+  return '<div id="_jspTab3"><div id="mvKlipit"></div>' + h + '</div>';
 }
 function _ktOsio(otsikko) { return '<div class="kt-otsikko-pieni" style="margin:18px 0 6px">' + _jsvEsc(vpT(otsikko)) + '</div>'; }
 /* V4b-1 (mockup 18 §7, 13 §6): vanhan kortin sisältö Näyttöön — SAMA koodi kuin vanhassa modaalissa (_vpKorttiRakenna vainOsat-tilassa), ei kopioita.
@@ -11016,6 +11017,7 @@ function _ktNayta() {
   if (!p) { _ktAsetaHTML(K.tmKtEiLoydyHTML(_ktOpts())); return; }
   if (!H.tmPelaajaOikeus(p, _ktOikeusCtx()).ok) { _ktAsetaHTML(K.tmKtEiOikeuttaHTML(_ktOpts())); return; }   // näkymä tarkistaa oikeuden itse (D46 #3); Rules tekee saman
   _ktAsetaHTML(_ktKehys(p));
+  if (S.ladattu.polku && typeof _mvLataaKlipit === 'function') _mvLataaKlipit(p);   // R6.4: pelaajan klippiketjut (lazy, vain Polku)
   if (S.ladattu.naytto && typeof _vpKorttiHydratoi === 'function') _vpKorttiHydratoi(document.getElementById('ktNakyma'), p, _ktS.nayttoIka, { viikko: false });   // kypsyys-komponentti + testitulosten sparklinet + mittauslista (yksi luku, vasta Näyttöä avattaessa)
 }
 function _ktPaivita() { if (window._ktLippu && _ktS.pid && document.getElementById('ktNakyma')) _ktNayta(); }   // jakson tallennus → otsikkorivi + tila päivittyvät
@@ -11054,6 +11056,7 @@ window._ktSilmin = function () { _ktS.silmin = !_ktS.silmin; _ktNayta(); };
 // Otsikkorivin napit → olemassa olevat toiminnot (ei uutta logiikkaa)
 window._ktToimi = function (pid, avain) {
   if (avain === 'aloita' || avain === 'vahvista' || avain === 'muokkaa') return window._vpAloitaJaksoAvaa(pid);
+  if (avain === 'klippi') return window._mvAvaa(pid);   // R6.4: Lisää klippi (V4 ⋯)
   if (avain === 'sulje') return window._kvkAvaa(pid, false);   // V4b-2: kevyt katselmus (3 kysymystä + lause + valinnainen K3-tarjous = yksi tallennus)
   if (avain === 'anna_valita') return window._kvkAvaa(pid, true);   // sama ruutu, tarjousosio auki
   if (avain === 'hylkaa') return window._kvkHylkaaAvaa(pid);
@@ -11183,6 +11186,125 @@ window._kvkHkTallenna = async function () {
   if (!ok && window._kvkHk) window._kvkHk.tallentaa = false;
 };
 
+/* ═══ R6.4 Mediaviesti M1 (docs/CODE_BRIEF_R6_4_MEDIAVIESTI.md; D55–D64; Kaista: Tero). Inboxin ominaisuus — EI Kenttä-lipun takana (V4:n ⋯ "Lisää klippi" on lipulla, Inboxin ＋ aina). Logiikka + HTML lib/tm_mediaviesti.js; tässä vain tila, DOM ja Firestore. Rules v3.50. ═══ */
+window._mvTila = null;      // lähetyssheet
+window._mvKetju = null;     // { avain, lause, tallentaa }
+window._mvDokit = [];       // Inbox: omat (vastaanottajaUid == uid) klippi-/vastaus-/kuittausdokumentit
+window._mvPolku = {};       // pid → [dokit] (Polku-kortti; kysely pelaajaId + nakyvyys in [pelaaja,huoltaja])
+function _mvPelaajaMap() { const m = {}; _mvC().pelaajat().forEach(function (p) { m[p.id] = { nimi: _mvC().nimi(p), suostumusTila: p.suostumusTila || null }; }); return m; }
+function _mvRivit(dokit) { return window.TM_MEDIAVIESTI.tmMvRivit(dokit, { pelaajat: _mvPelaajaMap() }); }
+function _mvT(k) { const v = _mvC().t(k); return (v && v !== k) ? v : window.TM_MEDIAVIESTI.FI[k]; }   // käännös tai fi-oletus (ei raakaa avainta käyttäjälle)
+function _mvOpts() { const C = _mvC(); return { esc: C.esc, t: C.t, avaaFn: '_mvAvaaKetju' }; }
+function _mvEtsiRivi(avain) {
+  const M = window.TM_MEDIAVIESTI; let r = _mvRivit(window._mvDokit || []).filter(function (x) { return x.avain === avain; })[0];
+  if (r) return { rivi: r, dokit: window._mvDokit };
+  const k = Object.keys(window._mvPolku || {}); for (let i = 0; i < k.length; i++) { r = _mvRivit(window._mvPolku[k[i]]).filter(function (x) { return x.avain === avain; })[0]; if (r) return { rivi: r, dokit: window._mvPolku[k[i]] }; }
+  return null;
+}
+function _mvKentat(S) {   // vastaanottajat tilasta
+  const C = _mvC(), pl = C.pelaajat();
+  if (S.kohde === 'yksi') return pl.filter(function (p) { return p.id === S.pid; });
+  if (S.kohde === 'valitut') return pl.filter(function (p) { return S.valitut.indexOf(p.id) >= 0; });
+  return pl.filter(function (p) { return !S.joukkueNimi || p.joukkue === S.joukkueNimi; });
+}
+function _mvPaivitaTila(S) {   // rekisteri + suostumuslippu valituista vastaanottajista
+  const C = _mvC(), vs = _mvKentat(S), ikat = vs.map(function (p) { return C.ika(p); }).filter(function (x) { return x != null; });
+  const vanha = S.rekisteri, M = window.TM_MEDIAVIESTI; S.rekisteri = M.tmMvRekisteri(ikat.length ? Math.min.apply(null, ikat) : null);
+  if (S.kysymysAvain && vanha && vanha !== S.rekisteri) { const i = M.tmMvPohjat(S.klippityyppi, vanha).map(function (x) { return x.avain; }).indexOf(S.kysymysAvain); S.kysymysAvain = i >= 0 ? M.tmMvPohjat(S.klippityyppi, S.rekisteri)[i].avain : null; }   // vastaanottajien vaihto muuttaa rekisterin → valittu pohja säilyy (sama järjestysnumero)
+  S.suostumusPuuttuu = vs.some(function (p) { return p.suostumusTila !== 'annettu'; });
+}
+function _mvRender() {
+  const S = window._mvTila, M = window.TM_MEDIAVIESTI; if (!S || !M) return; const C = _mvC();
+  _mvPaikka(M.tmMvSheetHTML(S, { esc: C.esc, t: C.t, kohdeFn: '_mvKohde', valitseFn: '_mvValitse', urlFn: '_mvUrl', tyyppiFn: '_mvTyyppi', osaFn: '_mvOsa', pohjaFn: '_mvPohja', kysymysFn: '_mvKysymys', saateFn: '_mvSaate', lahetaFn: '_mvLaheta', suljeFn: '_mvSulje', modalId: '_mvModal' }), '_mvModal');
+}
+function _mvPaikka(html, id) { const v = document.getElementById(id); if (v) v.remove(); const w = document.createElement('div'); w.innerHTML = html; document.body.appendChild(w.firstChild); }
+window._mvAvaa = function (pid) {   // pid: pelaaja (V4 ⋯ / Polku) tai null (Inboxin ＋ klippi → valitse vastaanottajat)
+  const M = window.TM_MEDIAVIESTI, C = _mvC(); if (!M) return;
+  const p = pid ? C.pelaajat().filter(function (x) { return x.id === pid; })[0] : null; if (pid && !p) return;
+  let osat = []; try { if (p && window.TM_TANAAN_KENTTA && p.jaksofokus && p.jaksofokus.tila !== 'valittavana') osat = window.TM_TANAAN_KENTTA.tmTanaanOsat(p.jaksofokus, { kaanon: (typeof tmKonseptiKaanon === 'function') ? tmKonseptiKaanon : null }); } catch (e) { osat = []; }
+  const joukkueNimi = p ? (p.joukkue || '') : C.joukkue();
+  const S = { kohde: p ? 'yksi' : 'valitut', pid: pid || null, pelaajanNimi: p ? C.nimi(p) : '', joukkueNimi: joukkueNimi, valitut: [], url: '', klippityyppi: 'onnistui', osa: '', osat: osat, kysymysAvain: null, kysymysOma: '', saate: '', rekisteri: 'rakentaja', suostumusPuuttuu: false, tallentaa: false,
+    pelaajatLista: C.pelaajat().filter(function (x) { return !joukkueNimi || x.joukkue === joukkueNimi; }).map(function (x) { return { id: x.id, nimi: C.nimi(x) }; }), tarjolla: { yksi: !!p } };
+  window._mvTila = S; _mvPaivitaTila(S); _mvRender();
+};
+window._mvSulje = function () { const m = document.getElementById('_mvModal'); if (m) m.remove(); window._mvTila = null; };
+window._mvKohde = function (k) { const S = window._mvTila; if (!S) return; S.kohde = k; if (k === 'joukkue') S.osa = ''; _mvPaivitaTila(S); _mvRender(); };
+window._mvValitse = function (id) { const S = window._mvTila; if (!S) return; const i = S.valitut.indexOf(id); if (i >= 0) S.valitut.splice(i, 1); else S.valitut.push(id); _mvPaivitaTila(S); _mvRender(); };
+window._mvUrl = function (v) { const S = window._mvTila; if (!S) return; S.url = String(v || ''); const el = document.querySelector('#_mvModal [data-mv-tunnistus]'); if (el) { const x = window.TM_MEDIAVIESTI.tmMvTunnistus(S.url, { t: _mvC().t }); el.textContent = x.teksti; el.style.color = x.ok ? 'var(--ink3)' : 'var(--amber)'; } };
+window._mvTyyppi = function (t) { const S = window._mvTila; if (!S) return; S.klippityyppi = t; S.kysymysAvain = null; _mvRender(); };
+window._mvOsa = function (k) { const S = window._mvTila; if (!S) return; S.osa = k || ''; _mvRender(); };
+window._mvPohja = function (i) { const S = window._mvTila, M = window.TM_MEDIAVIESTI; if (!S) return; const p = M.tmMvPohjat(S.klippityyppi, S.rekisteri)[i]; if (!p) return; S.kysymysAvain = p.avain; S.kysymysOma = ''; _mvRender(); };
+window._mvKysymys = function (v) { const S = window._mvTila; if (!S) return; S.kysymysOma = String(v || ''); if (S.kysymysOma.trim()) S.kysymysAvain = null; };
+window._mvSaate = function (v) { const S = window._mvTila; if (S) S.saate = String(v || ''); };
+function _mvKysymysTeksti(S) {
+  const M = window.TM_MEDIAVIESTI, C = _mvC();
+  if (S.kohde === 'joukkue') return { teksti: _mvT('mv_joukkue_kysymys'), avain: 'mv_joukkue_kysymys' };
+  if (S.kysymysOma && S.kysymysOma.trim()) return { teksti: S.kysymysOma.trim(), avain: null };
+  const p = M.tmMvPohjat(S.klippityyppi, S.rekisteri).filter(function (x) { return x.avain === S.kysymysAvain; })[0]; return p ? { teksti: _mvT(p.avain), avain: p.avain } : { teksti: '', avain: null };
+}
+window._mvLaheta = async function () {
+  const S = window._mvTila, M = window.TM_MEDIAVIESTI, C = _mvC(); if (!S || S.tallentaa) return;
+  const vs = _mvKentat(S), k = _mvKysymysTeksti(S);
+  const x = M.tmMvKlippiDokumentit({ url: S.url, klippityyppi: S.klippityyppi, kysymys: k.teksti, kysymys_avain: k.avain, saate: S.saate, osa: S.osa, joukkueklippi: S.kohde === 'joukkue',
+    vastaanottajat: vs.map(function (p) { return { pelaajaId: p.id, pelaajaNimi: C.nimi(p), ika: C.ika(p), vastaanottajaUid: (p.vastuuhenkilo && p.vastuuhenkilo.uid) || C.uid() }; }) }, { nyt: new Date(), lahettajaUid: C.uid(), lahettajaNimi: C.lahettajaNimi(), rooli: C.rooli() });
+  if (!x.ok) { C.mvToast(M.tmMvVirhe(x.syy, { t: C.t }), 'error'); return; }   // validointi ENNEN kirjoitusta; sheet jää auki
+  if (!C.verkko()) return;
+  const valmis = function () { window._mvSulje(); C.mvToast(_mvT(x.dokit.length > 1 ? 'mv_lahetetty_n' : 'mv_lahetetty').replace('{n}', x.dokit.length), 'ok'); };
+  if (C.demo()) { x.dokit.forEach(function (d, i) { window._mvDokit.push(Object.assign({ id: 'demo_' + i, aika: new Date() }, d)); }); valmis(); if (typeof renderInbox === 'function') renderInbox(); return; }
+  S.tallentaa = true;
+  try {
+    await C.token(); const col = C.db().collection('seurat').doc(C.seuraId()).collection('viestit'), ts = firebase.firestore.FieldValue.serverTimestamp(), alk = firebase.firestore.Timestamp.fromDate(x.dokit[0].nakyva_alkaen);
+    for (let i = 0; i < x.dokit.length; i += 400) { const b = C.db().batch(); x.dokit.slice(i, i + 400).forEach(function (d) { b.set(col.doc(), Object.assign({}, d, { aika: ts, nakyva_alkaen: alk })); }); await b.commit(); }   // monistus per pelaaja writeBatchilla, sama klippi_id
+    valmis(); if (typeof _mvPaivitaNaytot === 'function') _mvPaivitaNaytot();
+  } catch (e) { S.tallentaa = false; console.warn('[mv lahetys]', e); C.mvToast(C.virhe(e), 'error'); }   // D53: virhe näkyy (toast + koodi); sheet auki, syötetty säilyy
+};
+/* Ketju / ryhmälista */
+window._mvAvaaKetju = function (avain) {
+  const e = _mvEtsiRivi(avain); if (!e) return; const M = window.TM_MEDIAVIESTI, C = _mvC();
+  if (e.rivi.yhteinen) {   // koottu rivi → jäsenet yksittäisinä riveinä
+    const jas = e.dokit.filter(function (d) { return d.tyyppi === 'klippi' && d.klippi_id === e.rivi.klippi_id; }).map(function (d) { return Object.assign({}, d, { klippi_id: d.id }); }), vas = e.dokit.filter(function (d) { return d.tyyppi !== 'klippi'; });
+    const rivit = _mvRivit(jas.concat(vas)); window._mvPolku['_ryhma_' + avain] = jas.concat(vas);
+    _mvPaikka('<div id="_mvKetju" role="dialog" aria-modal="true" style="position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:9200;display:flex;align-items:center;justify-content:center;padding:16px" onclick="if(event.target===this)_mvKetjuSulje()"><div style="background:var(--card);color:var(--ink);border:.5px solid var(--border);border-radius:14px;padding:20px;width:520px;max-width:100%;max-height:92vh;overflow-y:auto" onclick="event.stopPropagation()"><div style="font-family:\'Cormorant Garamond\',serif;font-size:20px;margin-bottom:8px">' + C.esc(_mvT('mv_rivi_joukkue')) + ' · ' + C.esc(e.rivi.domain || '') + '</div>'
+      + rivit.map(function (r) { return M.tmMvRiviHTML(r, { esc: C.esc, t: C.t, avaaFn: '_mvAvaaKetju' }); }).join('') + '</div></div>', '_mvKetju'); return;
+  }
+  window._mvKetju = { avain: avain, lause: '', tallentaa: false }; _mvKetjuRender();
+};
+function _mvKetjuRender() {
+  const K = window._mvKetju; if (!K) return; const e = _mvEtsiRivi(K.avain); if (!e) return; const M = window.TM_MEDIAVIESTI, C = _mvC();
+  _mvPaikka(M.tmMvKetjuHTML({ rivi: e.rivi, lause: K.lause, tallentaa: K.tallentaa }, { esc: C.esc, t: C.t, lauseFn: '_mvKuittausLause', kuittaaFn: '_mvKuittaa', suljeFn: '_mvKetjuSulje', modalId: '_mvKetju', saaKuitata: true }), '_mvKetju');
+}
+window._mvKetjuSulje = function () { const m = document.getElementById('_mvKetju'); if (m) m.remove(); window._mvKetju = null; };
+window._mvKuittausLause = function (v) { if (window._mvKetju) window._mvKetju.lause = String(v || ''); };
+window._mvKuittaa = async function () {
+  const K = window._mvKetju, M = window.TM_MEDIAVIESTI, C = _mvC(); if (!K || K.tallentaa) return; const e = _mvEtsiRivi(K.avain); if (!e || !e.rivi.klippiDocId) return;
+  const x = M.tmMvKuittaus({ lause: K.lause }); if (!x.ok) { C.mvToast(M.tmMvVirhe(x.syy, { t: C.t }), 'error'); return; }
+  if (!C.verkko()) return;
+  const paivita = function () { const d = (e.dokit || []).filter(function (y) { return y.id === e.rivi.klippiDocId; })[0]; if (d) Object.assign(d, x.paivitys); };
+  if (C.demo()) { paivita(); window._mvKetjuSulje(); if (typeof renderInbox === 'function') renderInbox(); return; }
+  K.tallentaa = true;
+  try { await C.token(); await C.db().collection('seurat').doc(C.seuraId()).collection('viestit').doc(e.rivi.klippiDocId).update(x.paivitys); paivita(); window._mvKetjuSulje(); C.mvToast(_mvT('mv_kuitattu'), 'ok'); if (typeof _mvPaivitaNaytot === 'function') _mvPaivitaNaytot(); }
+  catch (er) { K.tallentaa = false; console.warn('[mv kuittaus]', er); C.mvToast(C.virhe(er), 'error'); }   // D53
+};
+/* Polku-kortti: pelaajan klippiketjut (YKSI kysely, vain Polku avattaessa). Kysely sisältää nakyvyys-ehdon → Rules (valmentaja/johto) todistettavasti sallii. */
+async function _mvLataaKlipit(p) {
+  const el = document.getElementById('mvKlipit'), M = window.TM_MEDIAVIESTI, C = _mvC(); if (!el || !M || !p) return;
+  const nayta = function () { const rivit = _mvRivit(window._mvPolku[p.id] || []); el.innerHTML = M.tmMvKlipitKorttiHTML(rivit, { esc: C.esc, t: C.t, avaaFn: '_mvAvaaKetju', lisaaFn: '_mvAvaa', pid: p.id }); };
+  if (C.demo() || !C.seuraId()) { window._mvPolku[p.id] = window._mvPolku[p.id] || []; nayta(); return; }
+  nayta();   // heti kehys + Lisää klippi
+  try {
+    const snap = await C.db().collection('seurat').doc(C.seuraId()).collection('viestit').where('pelaajaId', '==', p.id).where('nakyvyys', 'in', ['pelaaja', 'huoltaja']).get();
+    window._mvPolku[p.id] = snap.docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); }).filter(function (d) { return d.tyyppi === 'klippi' || d.tyyppi === 'klippi_vastaus' || d.tyyppi === 'klippi_kuittaus'; }); nayta();
+  } catch (e) { console.warn('[mv polku]', e && e.message); }
+}
+
+function _mvC() {
+  return { esc: _jsvEsc, t: vpT, db: function () { return db; }, seuraId: function () { return _seuraId; }, uid: function () { return _uid; }, rooli: function () { return window._vpRooli || 'vp'; },
+    lahettajaNimi: function () { try { return (firebase.auth().currentUser && firebase.auth().currentUser.displayName) || ''; } catch (e) { return ''; } }, demo: function () { return !!_isDemoMode; }, pelaajat: function () { return _pelaajat || []; },
+    nimi: function (p) { return _tmHenkiloNimi(p); }, ika: function (p) { return (typeof _dimIkaSp === 'function') ? _dimIkaSp(p.joukkue || '', p).ika : null; }, joukkue: function () { return ''; },
+    verkko: function () { return true; }, token: async function () { const cu = firebase.auth().currentUser; if (cu) await cu.getIdToken(true); }, mvToast: function (t, k) { if (typeof toast === 'function') toast(t, k); },
+    virhe: function (e) { return ((typeof TM_VIRHEKOODI !== 'undefined' && TM_VIRHEKOODI.tmVirheTeksti) || String)(vpT('Tallennus epäonnistui'), e); } };
+}
+function _mvPaivitaNaytot() { if (typeof _ktS !== 'undefined' && _ktS.pid && document.getElementById('mvKlipit')) { const p = (_pelaajat || []).filter(function (x) { return x.id === _ktS.pid; })[0]; if (p) _mvLataaKlipit(p); } }
 function _vpSulkuJaksovali(jf) {
   const alkoi = jf && jf.alkoi ? String(jf.alkoi).slice(0, 10) : null;
   const vk = (jf && jf.kesto_vk) || 4;

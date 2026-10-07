@@ -4859,3 +4859,69 @@ describe('v3.48 · kalenteri/{id}/henkilokunta/muistiinpanot + lasnaolijat: pela
     await assertSucceeds(updateDoc(kal(dbVal()), { muistiinpanot: deleteField(), paivitetty: serverTimestamp(), muokkaaja_uid: VALM_A_UID }));   // migraatio/tallennus poistaa kentän
   });
 });
+
+/* ══ v3.50 · R6.4 Mediaviesti M1: klippi-, vastaus- ja kuittausviestit (D55–D64) ══ */
+describe('v3.50 · viestit: klippi / klippi_vastaus / klippi_kuittaus', () => {
+  const KID = 'klippi-1', ISO = new Date('2026-11-04T07:00:00Z');
+  const v = (db, id) => doc(db, 'seurat', SEURA_A, 'viestit', id);
+  const klippi = (o = {}) => ({ tyyppi: 'klippi', url: 'https://app.veo.co/matches/x/clip/y?t=12', domain: 'app.veo.co', mediatyyppi: 'video', kohta_s: 12, klippityyppi: 'onnistui', kysymys: 'Mitä näit ennen kuin päätit?', saate: 'Pidit pallon lähellä.',
+    osa: 'b', klippi_id: 'kl-1', pelaajaId: PELAAJA_UID, nakyvyys: 'pelaaja', vastaanottajaUid: VALM_A_UID, lahettajaUid: VP_A_UID, tila: 'lahetetty', nakyva_alkaen: ISO, luettu: false, aika: serverTimestamp(), ...o });
+  const vastaus = (o = {}) => ({ tyyppi: 'klippi_vastaus', pelaajaId: PELAAJA_UID, vastaus_viestille: KID, vastaanottajaUid: VALM_A_UID, lahettajaUid: 'pel_' + SEURA_A + '_' + PELAAJA_UID, valinta: 'Näin puolustajan', teksti: 'Se tuli vasemmalta.', nakyvyys: 'pelaaja', luettu: false, aika: serverTimestamp(), ...o });
+  const dbVp = () => vpContext(SEURA_A).firestore(), dbVal = () => valmentajaContext(VALM_A_UID, SEURA_A).firestore(), dbPel = () => pelaajaItseContext().firestore(), dbHuolt = () => huoltajaContext().firestore();
+  const seed = async (suostumus = 'annettu') => testEnv.withSecurityRulesDisabled(async (c) => { const f = c.firestore();
+    await setDoc(doc(f, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID), { etunimi: 'Testi', sukunimi: 'Pelaaja', syntymaVuosi: 2014, joukkue: 'FCL U12', joukkueet: [JOUKKUE_A1], huoltajaEmail: 'Huoltaja@Test.fi', pin: '1234', sukupuoli: 'M', suostumusTila: suostumus });
+    await setDoc(v(f, KID), { ...klippi(), aika: new Date() }); await setDoc(v(f, 'klippi-huolt'), { ...klippi({ nakyvyys: 'huoltaja' }), aika: new Date() });
+    await setDoc(v(f, 'klippi-muu'), { ...klippi({ pelaajaId: PELAAJA_A2_UID }), aika: new Date() }); });
+  beforeEach(async () => { await seedAdminDoc(); await seedSeuraAndPelaaja(); await seed(); });
+
+  it('LÄHETYS: VP ja valmentaja luovat klipin (VEO/YouTube/kuva/linkki); kohta_s, osa, tukitavoite valinnaisia', async () => {
+    await assertSucceeds(setDoc(v(dbVp(), 'n1'), klippi())); await assertSucceeds(setDoc(v(dbVal(), 'n2'), klippi({ lahettajaUid: VALM_A_UID })));
+    const { kohta_s, osa, saate, ...minimi } = klippi({ url: 'https://example.org/kuva.jpg', domain: 'example.org', mediatyyppi: 'kuva' }); await assertSucceeds(setDoc(v(dbVp(), 'n3'), minimi));
+    await assertSucceeds(setDoc(v(dbVp(), 'n4'), klippi({ tukitavoite_id: 'tt1', osa: 'c', mediatyyppi: 'linkki' })));
+  });
+  it('VALIDOINTI: http:// ✗ · url >500 ✗ · kysymys tyhjä/161 ✗ · saate 121 ✗ · klippityyppi/mediatyyppi/nakyvyys/osa väärä ✗ · puuttuva/väärän tyyppinen nakyva_alkaen ✗ · tila ≠ lahetetty ✗', async () => {
+    const huono = [{ url: 'http://app.veo.co/x' }, { url: 'https://' + 'a'.repeat(500) }, { url: 'ftp://x' }, { url: 'javascript:alert(1)' }, { kysymys: '' }, { kysymys: 'k'.repeat(161) }, { saate: 's'.repeat(121) }, { klippityyppi: 'muu' }, { mediatyyppi: 'audio' }, { nakyvyys: 'henkilokunta' }, { osa: 'd' }, { nakyva_alkaen: '2026-11-04T07:00' }, { tila: 'vastattu' }, { klippi_id: '' }, { domain: '' }, { kohta_s: 12.5 }, { pelaajaId: 5 }];
+    for (const [i, o] of huono.entries()) await assertFails(setDoc(v(dbVp(), 'h' + i), klippi(o)));
+    const { nakyva_alkaen, ...ilman } = klippi(); await assertFails(setDoc(v(dbVp(), 'h-ilman'), ilman));
+    await assertSucceeds(setDoc(v(dbVp(), 'ok500'), klippi({ url: 'https://example.org/' + 'a'.repeat(480) })));
+  });
+  it('HENKILÖKUNTA ei luo klippi_vastausta/-kuittausta (pelaajan/huoltajan tyypit); toisen seuran ✗; pelaaja ei luo klippiä (url)', async () => {
+    await assertFails(setDoc(v(dbVp(), 'f1'), vastaus({ lahettajaUid: VP_A_UID }))); await assertFails(setDoc(v(dbVal(), 'f2'), vastaus({ tyyppi: 'klippi_kuittaus', lahettajaUid: VALM_A_UID })));
+    await assertFails(setDoc(v(vpContext(SEURA_B).firestore(), 'f3'), klippi({ lahettajaUid: VP_A_UID }))); await assertFails(setDoc(v(dbPel(), 'f4'), klippi({ lahettajaUid: 'pel_' + SEURA_A + '_' + PELAAJA_UID })));
+  });
+  it('PELAAJA vastaa omaan klippiinsä: ✓ ilman url:ia; url/domain/muu kenttä ✗; toisen pelaajan klippiin ✗; väärä vastaanottaja ✗; teksti >200 ✗; nakyvyys ≠ pelaaja ✗; klippi_kuittaus ✗ (vain huoltaja)', async () => {
+    await assertSucceeds(setDoc(v(dbPel(), 'r1'), vastaus())); await assertSucceeds(setDoc(v(dbPel(), 'r1b'), vastaus({ teksti: undefined, valinta: 'Arvasin' }).constructor === Object ? (({ teksti, ...x }) => x)(vastaus()) : {}));
+    for (const [i, o] of [{ url: 'https://x.fi' }, { domain: 'x.fi' }, { vastaus_viestille: 'klippi-muu' }, { vastaanottajaUid: 'joku-muu' }, { teksti: 't'.repeat(201) }, { valinta: 'v'.repeat(61) }, { nakyvyys: 'huoltaja' }, { tyyppi: 'klippi_kuittaus', kuittaus: true }, { vastaus_viestille: 'ei-ole' }, { pelaajaId: PELAAJA_A2_UID }, { jaettu: true }].entries()) await assertFails(setDoc(v(dbPel(), 'x' + i), vastaus(o)));
+  });
+  it('HUOLTAJA (U8–12): kuittaa/vastaa omalle lapselleen ✓ (klippi_kuittaus + klippi_vastaus), ei url:ia; toisen lapsen klippiin ✗', async () => {
+    const h = (o = {}) => vastaus({ lahettajaUid: HUOLTAJA_UID, ...o });
+    await assertSucceeds(setDoc(v(dbHuolt(), 'h1'), h({ tyyppi: 'klippi_kuittaus', kuittaus: true, vastaus_viestille: 'klippi-huolt', teksti: undefined }.constructor === Object ? { tyyppi: 'klippi_kuittaus', kuittaus: true, vastaus_viestille: 'klippi-huolt' } : {}))); await assertSucceeds(setDoc(v(dbHuolt(), 'h2'), h({ vastaus_viestille: 'klippi-huolt' })));
+    await assertFails(setDoc(v(dbHuolt(), 'h3'), h({ vastaus_viestille: 'klippi-muu', pelaajaId: PELAAJA_A2_UID }))); await assertFails(setDoc(v(dbHuolt(), 'h4'), h({ url: 'https://x.fi', vastaus_viestille: 'klippi-huolt' }))); await assertFails(setDoc(v(dbHuolt(), 'h5'), h({ pelaajaId: PELAAJA_A2_UID })));
+    await assertFails(setDoc(v(huoltajaContext().firestore(), 'h6'), h({ lahettajaUid: 'muu-uid', vastaus_viestille: 'klippi-huolt' })));
+  });
+  it('LUKU: pelaaja lukee OMAN klippinsä (nakyvyys pelaaja), ei toisen pelaajan eikä huoltaja-näkyvyyttä; kysely pelaajaId+nakyvyys toimii', async () => {
+    await assertSucceeds(getDoc(v(dbPel(), KID))); await assertFails(getDoc(v(dbPel(), 'klippi-muu'))); await assertFails(getDoc(v(dbPel(), 'klippi-huolt')));
+    const q = await assertSucceeds(getDocs(query(collection(dbPel(), 'seurat', SEURA_A, 'viestit'), where('pelaajaId', '==', PELAAJA_UID), where('nakyvyys', '==', 'pelaaja')))); expect(q.docs.map((d) => d.id)).toContain(KID);
+    await assertFails(getDoc(v(pelaajaContext(SEURA_B, PELAAJA_B_UID).firestore(), KID)));
+  });
+  it('SUOSTUMUS (D58): huoltaja lukee lapsen klipin VAIN kun suostumusTila == annettu; ilman → ✗; annettu → ✓ ilman uutta kirjoitusta; pelaajan oma luku ennallaan', async () => {
+    await assertSucceeds(getDoc(v(dbHuolt(), 'klippi-huolt'))); await assertSucceeds(getDoc(v(dbHuolt(), KID)));
+    for (const tila of ['odottaa', 'pilotti', 'kielletty']) { await seed(tila); await assertFails(getDoc(v(dbHuolt(), 'klippi-huolt'))); await assertFails(getDoc(v(dbHuolt(), KID))); }
+    await seed('annettu'); await assertSucceeds(getDoc(v(dbHuolt(), 'klippi-huolt'))); await assertFails(getDoc(v(dbHuolt(), 'klippi-muu')));   // toisen lapsen klippi ✗ (eri huoltajaEmail)
+  });
+  it('KUITTAUS: lähettäjä, vastaanottaja (vastuuhenkilö) ja johto päivittävät VAIN kuittaus_lause + tila; muu kenttä ✗; lause 121 ✗; väärä tila ✗; muu valmentaja/pelaaja ✗; luettu ennallaan', async () => {
+    const lause = { kuittaus_lause: 'Hyvä havainto – sama katse ennen jokaista kosketusta.', tila: 'suljettu' };
+    await assertSucceeds(updateDoc(v(dbVp(), KID), lause)); await assertSucceeds(updateDoc(v(dbVal(), KID), { tila: 'suljettu', kuittaus_lause: 'Kiitos!' }));   // VALM_A = vastaanottaja
+    await assertSucceeds(updateDoc(v(sihteeriContext(SEURA_A).firestore(), KID), { tila: 'vastattu' })); await assertSucceeds(updateDoc(v(valmentajaContext(VALM_A_UID, SEURA_A).firestore(), KID), { luettu: true }));
+    for (const o of [{ ...lause, url: 'https://x.fi' }, { ...lause, saate: 'muutettu' }, { ...lause, nakyvyys: 'henkilokunta' }, { kuittaus_lause: 'x'.repeat(121), tila: 'suljettu' }, { tila: 'lahetetty' }, { tila: 'tuntematon' }, { kuittaus_lause: 5, tila: 'suljettu' }]) await assertFails(updateDoc(v(dbVp(), KID), o));
+    await testEnv.withSecurityRulesDisabled(async (c) => { await updateDoc(v(c.firestore(), KID), { vastaanottajaUid: 'vastuu-uid', lahettajaUid: VP_A_UID }); });
+    await assertFails(updateDoc(v(valmentajaContext('toinen-valm', SEURA_A).firestore(), KID), lause)); await assertFails(updateDoc(v(dbPel(), KID), lause)); await assertFails(updateDoc(v(huoltajaContext().firestore(), KID), lause)); await assertFails(updateDoc(v(vpContext(SEURA_B).firestore(), KID), lause));
+    await assertSucceeds(updateDoc(v(valmentajaContext('vastuu-uid', SEURA_A).firestore(), KID), lause));   // vastuuhenkilö (ei lähettäjä) voi kuitata
+  });
+  it('VP näkee ketjun (kysely pelaajaId + nakyvyys in [pelaaja,huoltaja]); toisen seuran VP ei; vanhat viestit (ei tyyppiä) toimivat ennallaan', async () => {
+    const q = (db) => getDocs(query(collection(db, 'seurat', SEURA_A, 'viestit'), where('pelaajaId', '==', PELAAJA_UID), where('nakyvyys', 'in', ['pelaaja', 'huoltaja'])));
+    const s = await assertSucceeds(q(dbVp())); expect(s.size).toBe(2); await assertSucceeds(q(dbVal())); await assertFails(q(vpContext(SEURA_B).firestore()));
+    await assertSucceeds(setDoc(v(dbVp(), 'vanha'), { teksti: 'Moi', lahettajaUid: VP_A_UID, vastaanottajaUid: VALM_A_UID, nakyvyys: 'henkilokunta', luettu: false, aika: serverTimestamp() }));
+    await assertSucceeds(setDoc(v(dbPel(), 'vanha-pelaaja'), { pelaajaId: PELAAJA_UID, teksti: 'Hei valmentaja', nakyvyys: 'pelaaja', lahettajaUid: 'pel_' + SEURA_A + '_' + PELAAJA_UID, luettu: false, aika: serverTimestamp() }));
+  });
+});

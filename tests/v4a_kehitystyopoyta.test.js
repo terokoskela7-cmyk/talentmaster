@@ -73,7 +73,7 @@ describe('Tilakone (tm_aloita_jakso.tmJaksoTila) — kuusi tilaa johdetaan, ei t
   it('kaynnissa: jaksofokus ILMAN tila-kenttää (nykydata, testi 14) → "Merkitse viikkohavainto", valikko Sulje/Muokkaa/Klippi; rivitila vk n/N', () => {
     const k = tila(P({ jaksofokus: JF({ alkoi: '2026-11-02T08:00:00.000Z' }), idp_sitoumus_pvm: '2026-11-03T10:00:00.000Z' }));
     expect(k).toMatchObject({ tila: 'kaynnissa', ensisijainen: { avain: 'havainto', teksti: 'Merkitse viikkohavainto' }, rivitila: { teksti: 'Jakso käynnissä · vk 2/6', vk: { n: 2, yht: 6 } } });
-    expect(k.valikko.map((m) => m.avain)).toEqual(['sulje', 'muokkaa', 'klippi', 'anna_valita']); expect(k.valikko.find((m) => m.avain === 'klippi').kaytettavissa).toBe(false);
+    expect(k.valikko.map((m) => m.avain)).toEqual(['sulje', 'muokkaa', 'klippi', 'anna_valita']); expect(k.valikko.find((m) => m.avain === 'klippi').kaytettavissa).toBe(true);
   });
   it('vahvistettu: sama kuin käynnissä, mutta 1. viikolla sitoumus (idp_sitoumus_pvm) puuttuu → rivitila kertoo; sitoumuksen jälkeen kaynnissa', () => {
     expect(tila(P({ jaksofokus: JF() }))).toMatchObject({ tila: 'vahvistettu', ensisijainen: { avain: 'havainto' }, rivitila: { teksti: 'Jakso käynnissä · vk 1 · sitoumus odottaa' } });
@@ -120,7 +120,8 @@ describe('Kehys (lib/tm_kehitystyopoyta.js)', () => {
     expect([11, 12, 13, 15, 16, 18, null].map(KT.tmKtIkavaihe)).toEqual(['Leikkijä', 'Leikkijä', 'Rakentaja', 'Rakentaja', 'Showcase', 'Showcase', '']);
   });
   it('valikko: käyttämättömät toiminnot (V4b) näkyvät mutta ovat pois käytöstä; ei valikkoa jos ei toimintoja; ensisijaisen napin puuttuessa (valittavana) ei nappia', () => {
-    const h = KT.tmKtKehysHTML(x(), o); expect(h).toMatch(/data-kt-valikko="klippi"[^>]*disabled/); expect(h).toMatch(/data-kt-valikko="sulje"[^>]*onclick/);
+    const h = KT.tmKtKehysHTML(x(), o); expect(h).toMatch(/data-kt-valikko="klippi"[^>]*onclick/); expect(h).not.toMatch(/data-kt-valikko="klippi"[^>]*disabled/);   // R6.4: Lisää klippi aktiivinen
+    const tm = x(); tm.tila = JSON.parse(JSON.stringify(tm.tila)); tm.tila.valikko.push({ avain: 'tuleva', teksti: 'Tuleva', kaytettavissa: false }); expect(KT.tmKtKehysHTML(tm, o)).toMatch(/data-kt-valikko="tuleva"[^>]*disabled/); expect(h).toMatch(/data-kt-valikko="sulje"[^>]*onclick/);
     const v = KT.tmKtKehysHTML(x({ tila: tila(P({ jaksofokus: TARJOUS() })) }), o); expect(v).not.toContain('data-kt-ensisijainen'); expect(v).toContain('Valinta odottaa');
     expect(KT.tmKtKehysHTML(x({ tila: { tila: 'x', ensisijainen: null, valikko: [], rivitila: { teksti: '' } } }), o)).not.toContain('kt-valikko');
   });
