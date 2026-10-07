@@ -1,10 +1,14 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, beforeAll, afterAll } from 'vitest';
 import { readFileSync } from 'fs';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 import { renderPinfo, PINFO_PELAAJAT } from './helpers/master_pinfo.mjs';
 import { renderVpKortti, VP_PELAAJAT } from './helpers/vp_kortti.mjs';
 const juuri = join(dirname(fileURLToPath(import.meta.url)), '..');
+/* AIKA JÄÄDYTETTY (CI vs paikallinen): snapshotit sisältävät suhteellisia aikoja ('N pv sitten', vk, ikä). Host-kello kiinteäksi + TZ Europe/Helsinki (helperit asettavat TZ:n ja antavat sivun koodille saman kiinteän kellon vm-kontekstissa).
+   Baselinet on luotu VANHASTA koodista (ennen funktioiden erottamista, 63733c09) samalla kellolla ja TZ:llä → "merkki merkiltä sama" -todiste pätee. */
+beforeAll(() => { vi.useFakeTimers(); vi.setSystemTime(new Date('2026-10-07T12:00:00+03:00')); });
+afterAll(() => { vi.useRealTimers(); });
 const BASE = JSON.parse(readFileSync(join(juuri, 'tests/fixtures/v4b1_pinfo_baseline.json'), 'utf8'));
 describe('V4b-1: lippu pois → vanha pelaajakortti täsmälleen ennallaan funktioiden erottamisen jälkeen (snapshot)', () => {
   for (const k of Object.keys(PINFO_PELAAJAT)) it('pelaaja "' + k + '": #pinfoCard.innerHTML === baseline (ennen erottamista)', () => { expect(renderPinfo(JSON.parse(JSON.stringify(PINFO_PELAAJAT[k])))).toBe(BASE[k]); });
@@ -19,7 +23,7 @@ import { lataaSivu } from './helpers/sivu_ajuri.mjs';
 const jarj = (h, ...osat) => osat.map((o) => h.indexOf(o)).every((v, i, a) => v >= 0 && (i === 0 || v > a[i - 1]));
 function masterSivu(extra) {
   return lataaSivu('TalentMaster_Master_v16.html', Object.assign({ masterT: (x) => x, _testitapahtumat: [{ tila: 'suljettu' }], _superAdmin: false, _uid: 'u1', _joukkue: 'KPV U13', _rooli: 'valmentaja', _seuraId: 'kpv', _demo: false,
-    _prVoiNahda: () => true, _D3_DIMS: [{ key: 'inner_drive', nimi: 'Sisäinen draivi' }], tmPaivaIso: () => '2026-10-08', _mJaksoNapitHTML: () => '', _ktPaivita() {}, _msMesoKaariHTML: () => '<i data-meso></i>',
+    _prVoiNahda: () => true, _D3_DIMS: [{ key: 'inner_drive', nimi: 'Sisäinen draivi' }], tmPaivaIso: () => '2026-10-07', _mJaksoNapitHTML: () => '', _ktPaivita() {}, _msMesoKaariHTML: () => '<i data-meso></i>',
     _db: { collection: () => { throw new Error('luku!'); } } }, extra || {}));
 }
 describe('V4b-1 Master: Näyttö sisältää vanhan kortin lohkot (samat funktiot, ei kopioita) mockup 18 §7:n mukaan', () => {

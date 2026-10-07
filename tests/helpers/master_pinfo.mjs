@@ -3,11 +3,12 @@ import { readFileSync, existsSync } from 'fs';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 import vm from 'vm';
-const juuri = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
+process.env.TZ = 'Europe/Helsinki';   // snapshotit eivät saa riippua koneen aikavyöhykkeestä (sivun koodi käyttää paikallista päivää: new Date(y, m, d))
+const juuri = process.env.TM_SIVU_JUURI || join(dirname(fileURLToPath(import.meta.url)), '..', '..');   // TM_SIVU_JUURI: baseline luodaan vanhasta koodista (git worktree origin/main)
 export const MASTER = readFileSync(join(juuri, 'TalentMaster_Master_v16.html'), 'utf8');
 export function pura(src, tunniste) { const i = src.indexOf(tunniste); if (i < 0) throw new Error('ei löydy: ' + tunniste); let d = 0; for (let k = src.indexOf('{', i); k < src.length; k++) { if (src[k] === '{') d++; else if (src[k] === '}' && !--d) return src.slice(i, k + 1); } throw new Error('ei sulkeva'); }
 export function libitLadattu(src) {
-  const KIINTEA = new Date('2026-10-08T10:00:00Z').getTime(); class KDate extends Date { constructor(...a) { if (a.length) super(...a); else super(KIINTEA); } static now() { return KIINTEA; } }   // deterministinen kello (ikä, vk)
+  const KIINTEA = new Date('2026-10-07T12:00:00+03:00').getTime(); class KDate extends Date { constructor(...a) { if (a.length) super(...a); else super(KIINTEA); } static now() { return KIINTEA; } }   // deterministinen kello (ikä, vk)
   const ctx = { console: { warn() {}, log() {}, error() {} }, setTimeout: () => 0, clearTimeout() {}, Date: KDate, Math, JSON, Object, Array, String, Number, Promise, RegExp, Error, isFinite, isNaN, parseFloat, parseInt, Map, Set, Symbol };
   ctx.window = ctx; ctx.self = ctx; ctx.globalThis = ctx; ctx.document = { getElementById: () => null, createElement: () => ({}) }; ctx.localStorage = { getItem: () => null, setItem() {} }; ctx.navigator = { onLine: true };
   vm.createContext(ctx);
@@ -20,10 +21,10 @@ const APU = ['function _tkiMerkkiM(', 'function _tkLajiNimi(', 'function _pvmFiM
 /** Ajaa sivun OIKEAN _renderPinfoFirestore-funktion (+ apurit) oikeilla libeillä; palauttaa #pinfoCard.innerHTML-merkkijonon. extra: ylikirjoitettavat globaalit. */
 export function renderPinfo(p, extra) {
   const ctx = libitLadattu(MASTER);
-  Object.assign(ctx, { masterT: (x) => x, _testitapahtumat: [{ tila: 'suljettu' }, { tila: 'auki' }], _superAdmin: false, _uid: 'u1', _joukkue: 'KPV U13', _rooli: 'valmentaja', _ktLippu: false, tmPaivaIso: () => '2026-10-08', _mJaksoNapitHTML: () => '<!--JN-->', _ktPaivita() {}, _prVoiNahda: () => true,
+  Object.assign(ctx, { masterT: (x) => x, _testitapahtumat: [{ tila: 'suljettu' }, { tila: 'auki' }], _superAdmin: false, _uid: 'u1', _joukkue: 'KPV U13', _rooli: 'valmentaja', _ktLippu: false, tmPaivaIso: () => '2026-10-07', _mJaksoNapitHTML: () => '<!--JN-->', _ktPaivita() {}, _prVoiNahda: () => true,
     _D3_DIMS: [{ key: 'inner_drive', nimi: 'Sisäinen draivi' }, { key: 'focus', nimi: 'Keskittyminen' }], _avaaD3Arvio() {} }, extra || {});
   let out = null; ctx.document = { getElementById: (id) => (id === 'pinfoCard' ? { set innerHTML(v) { out = v; } } : (id === '_mMitaCard' ? null : null)), createElement: () => ({}) };
-  vm.runInContext(APU.map((x) => pura(MASTER, x)).join('\n') + '\nthis._r=_renderPinfoFirestore;', ctx); ctx._r(p); return out;
+  vm.runInContext(APU.filter((x) => MASTER.includes(x)).map((x) => pura(MASTER, x)).join('\n') + '\nthis._r=_renderPinfoFirestore;', ctx); ctx._r(p); return out;
 }
 export const PINFO_PELAAJAT = {
   tyhja: { id: 'p0', etunimi: 'Tyhjä', sukunimi: 'Pelaaja', syntymaVuosi: 2013, joukkue: 'KPV U13' },
