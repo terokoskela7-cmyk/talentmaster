@@ -545,6 +545,12 @@ input::placeholder,textarea::placeholder{color:#8C8B86;opacity:1}
 <script src="lib/tm_lang.js?v=32"></script>   <!-- i18n V0 putki · V1-A/A2 · V4-A3: +pelaaja.nain_teet/kirjaa_tehdyksi/pallo_joka_paiva/rae_q4 (kotinäytön chrome sv) -->
 <script src="lib/tm_phv_tila.js?v=1"></script>   <!-- PR C: PHV-tilan YKSI lukusääntö (Mirwald, vain mittauslähteestä) -->
 <script src="lib/tm_kentta.js?v=1"></script>
+<script src="lib/tm_liput.js?v=1"></script>   <!-- K1: liput/julkiset (pelaajalle luettava) -->
+<script src="lib/tm_kielletyt.js?v=1"></script>   <!-- K1: sanavartija pelaajan tukitavoite-/osatekstille (pieni; ei henkilökunnan päätöslibiä) -->
+<script src="lib/tm_tukitavoitteet.js?v=3"></script>   <!-- K1: tmTukitavoitteet (vanha tukiosa-fallback) -->
+<script src="lib/tm_joukkuejakso.js?v=3"></script>   <!-- K1: tmJoukkuejaksoViikko (pelaajan snapshotista) -->
+<script src="lib/tm_taman_tueksi.js?v=1"></script>   <!-- K1: Tämän tueksi + Joukkueen jakso -->
+<script src="lib/tm_tanaan_kentta.js?v=1"></script>   <!-- K1: rA1Kentta-lohkot (tila, osat, päivän treeni, kuittaus) -->
 <script src="lib/tm_kotiharjoitteet.js?v=1"></script>   <!-- B 3/3: jakson kotiharjoitteet (jaksofokus.tukiosa.harjoitteet snapshot) + seuran nimi lähdemerkintänä -->   <!-- K0: Kenttä-komponentti (ei vielä käytössä näkymissä) -->
 <script src="lib/tm_eerikkila_normit.js?v=47"></script>
 <script src="docs/testit_indeksit.js?v=13"></script>
@@ -737,7 +743,7 @@ function draw(){
   else {
     if      (_tab==='mina')   html=rMina();
     else if (_tab==='meista') html=rMeista();
-    else                      html=rA1();  // 'tanaan' default
+    else                      html=(typeof _p7KenttaKaytossa==='function' && _p7KenttaKaytossa()) ? rA1Kentta() : rA1();  // 'tanaan' default; K1: Kenttä-näkymä vain lipulla liput/julkiset.kentta (muuten rA1() täsmälleen ennallaan)
   }
   const card='';  // rCard() poistettu — FIFA-kortti renderöityy #fcOv overlayhyn (naytaFcOverlay)
   const tabs=hideTabs?'':rTabs();
@@ -1209,6 +1215,88 @@ function rA1(){
 }
 
 /* rA2/rA3-devstubit (A2 Signal / A3 Grid) poistettu §7.22: design-vertailunäkymiä, ei pelaajan polulla, sisälsivät XP-kieltä ("+40 XP") + kortti-OVR-teasereita. */
+
+/* ═══ K1 osa 2b — KENTTÄ-näkymä (docs/CODE_BRIEF_K1_TAMAN_TUEKSI.md; design 09 näkymä 1, 10 K1) ═══
+   Lippu: seurat/{sid}/liput/julkiset.kentta === true (Rules v3.43; pelaaja ei lue seurat/{sid}-dokumenttia). Luku rinnakkain ensimmäisen piirron kanssa: lippu puuttuu/virhe → vanha rA1() (ei jumita, ei kaada).
+   Lippu pois → rA1() ja kaikki sen lohkot TÄSMÄLLEEN ennallaan (snapshot-testi). Uusi näkymä: Viikko N + kenttä (ei asetta eikä reittiä — alue tulee K3:ssa) + osat sanoin + Tämän tueksi + Joukkueen jakso + päivän treeni
+   (jakso ensin, sitten testit) + ehdolliset lohkot (ilmoitukset, aikataulu, kehu, fiilis/kuormitus kuittauksena). Ei hex-värejä, vain tokenit. */
+window._p7Liput = undefined;
+async function _p7LataaLiput() {
+  if (_ladattu.k1liput) return;
+  if (_isDemoUser || !_pelaaja || !_pelaaja.id || !window._db) return;
+  const sid = window._seuraId || _pelaaja.seuraId; if (!sid) return;
+  _ladattu.k1liput = true;
+  let kentta = false;
+  try {
+    const jd = await window._db.collection('seurat').doc(sid).collection('liput').doc('julkiset').get();
+    kentta = !!(window.TM_LIPUT && window.TM_LIPUT.tmKenttaLippu(jd && jd.exists ? jd.data() : null, null));   // pelaajalla vain uusi dokumentti (vanha seurat.liput.kentta ei ole luettavissa)
+  } catch (e) { console.warn('[K1] liput:', e && e.message); }   // virhe/puuttuva → false → vanha näkymä
+  window._p7Liput = kentta;
+  if (kentta && _tab === 'tanaan' && ['lataa', 'pin', 'train', 'haptic', 'offline', 'parent', 'vapaa', 'haaste'].indexOf(_sc) < 0 && typeof draw === 'function') draw();
+}
+function _p7KenttaKaytossa() {
+  if (_isDemoUser) return false;
+  if (!_ladattu.k1liput) { _p7LataaLiput(); return false; }
+  return window._p7Liput === true;
+}
+// Seuran pankki päivän treenille: vain hyväksytty + kaytto 'koti' (Rules v3.42: kaksi yhtäsuuruusehtoa pakollisia pelaajan kyselyssä). Ladataan kerran, vain lipun ollessa päällä.
+async function _p7LataaSeuranPankki() {
+  if (_ladattu.k1pankki) return;
+  if (_isDemoUser || !_pelaaja || !window._db) return;
+  const sid = window._seuraId || _pelaaja.seuraId; if (!sid) return;
+  _ladattu.k1pankki = true;
+  try {
+    const sn = await window._db.collection('seurat').doc(sid).collection('harjoitepankki').where('tila', '==', 'hyvaksytty').where('kaytto', '==', 'koti').get();
+    window._p7SeuraPankki = { seuraId: sid, harjoitteet: sn.docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); }) };
+    if (window._p7SeuraPankki.harjoitteet.length && _tab === 'tanaan' && typeof draw === 'function') draw();
+  } catch (e) { console.warn('[K1] seuran pankki:', e && e.message); window._p7SeuraPankki = null; }
+}
+function _p7K1T(k) { const v = T(k); return (v === 'pelaaja.' + k) ? k : v; }   // puuttuva tm_lang-avain → avain → libin fi-oletus
+function _p7K1NaytaKuittaus() { const el = document.getElementById('k1Kuittaus'); if (el) el.style.display = 'block'; }
+function _p7K1KehuHTML() {
+  if (!_viimeisinKehu) return '';
+  return '<div class="k1-kehu" style="margin:12px 20px;padding:14px 16px;background:var(--card);border:.5px solid var(--amber);border-radius:12px;display:flex;align-items:center;gap:12px">'
+    + '<div style="font-size:24px;flex-shrink:0">' + _thEsc(_viimeisinKehu.emoji || '❤️') + '</div><div style="flex:1"><div style="font-size:11px;font-weight:600;letter-spacing:.1em;color:var(--ink3);margin-bottom:3px">' + _thEsc(String(_viimeisinKehu.lahettaja || '').toUpperCase()) + '</div>'
+    + '<div style="font-size:13px;color:var(--text);line-height:1.4">' + _thEsc(_viimeisinKehu.teksti) + '</div></div><button onclick="_kuittaaKehu()" style="background:transparent;border:none;color:var(--ink3);font-size:20px;cursor:pointer;padding:4px">×</button></div>';
+}
+function rA1Kentta() {
+  const K = window.TM_TANAAN_KENTTA, TU = window.TM_TAMAN_TUEKSI;
+  if (!K || !TU || !_pelaaja) return rA1();   // libit puuttuvat (esim. välimuisti) → vanha näkymä, ei tyhjää ruutua
+  _p7LataaSeuranPankki();
+  const tanaan = _paivaIso(), o = { esc: _thEsc, t: _p7K1T };
+  const x = K.tmTanaanTila(_pelaaja, { tanaan }), jakso = x.tila === 'jakso' || x.tila === 'sunnuntai', jf = _pelaaja.jaksofokus;
+  x.osat = jakso ? K.tmTanaanOsat(jf, { kaanon: (typeof tmKonseptiKaanon === 'function') ? tmKonseptiKaanon : null }) : [];
+  let treeni = '';
+  try {
+    if (typeof valitsePaivanHarjoite === 'function' && window.PANKKI) {
+      const h = valitsePaivanHarjoite(_pelaaja, window.PANKKI, tanaan, window._p7SeuraPankki || null, { jaksoEnsin: true });   // jakso ensin (konsepti_avain), sitten testit
+      treeni = K.tmPaivanTreeniHTML(h, Object.assign({ kirjausFn: '_kirjaaHarjoite' }, o));
+    }
+  } catch (e) { console.warn('[K1 päivän treeni]', e && e.message); }
+  const kentta = function (spec) { return (typeof window.tmKentta === 'function') ? window.tmKentta(spec, { wrap: true, t: K.tmKenttaT(o) }) : ''; };
+  const rae = (() => { const q = _pelaaja && (_pelaaja.rae_kvartaali || (typeof raeKvartaali === 'function' ? raeKvartaali(_pelaaja.syntymaaika) : null)); return q === 'Q4'
+    ? '<div class="k1-rae" style="margin:12px 20px;padding:12px 16px;background:var(--card);border:.5px solid var(--border);border-radius:12px"><div style="font-size:10px;font-weight:600;letter-spacing:.18em;text-transform:uppercase;color:var(--teal-d);margin-bottom:4px">' + _thEsc(T('rae_q4_otsikko')) + '</div><div style="font-size:13px;color:var(--text);line-height:1.5">' + _thEsc(T('rae_q4_teksti')) + '</div></div>' : ''; })();
+  return `
+<div class="scroll" style="background:var(--bg)">
+  ${hdr((_pelaaja?.etunimi||'Pelaaja')+' · '+(_pelaaja?.pelaajaProfiili||''))}
+  <style>${(typeof window.tmKenttaCss === 'function') ? window.tmKenttaCss() : ''}</style>
+  ${K.tmTanaanKenttaHTML(x, Object.assign({ kentta: kentta }, o))}
+  ${jakso ? TU.tmTamanTueksiHTML(TU.tmTamanTueksiRivit(jf), o) : ''}
+  ${jakso ? TU.tmJoukkueenJaksoRiviHTML(jf && jf.joukkuejakso_viite, tanaan, o) : ''}
+  ${treeni}
+  ${K.tmKuittausHTML(Object.assign({ leikkija: _stage === '1_leikkija' }, o))}
+  ${rae}
+  ${(typeof _p7NotifHTML === 'function') ? _p7NotifHTML() : ''}
+  ${(typeof _p7AikatauluHTML === 'function') ? _p7AikatauluHTML() : ''}
+  ${_p7K1KehuHTML()}
+  <div class="k1-pallo" style="margin:12px 20px;padding:14px 16px;background:var(--card);border:.5px dashed var(--border);border-radius:12px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+    <span style="font-size:20px">⚽</span><div style="flex:1 1 120px;font-family:var(--font-k);font-size:14px;font-weight:600;color:var(--text)">${_thEsc(T('pallo_joka_paiva'))}</div>
+    <button id="tKirjausBtn" type="button" onclick="_kirjaaHarjoite('T')" class="btn-p" style="width:auto;flex:0 0 auto;padding:8px 14px;margin:0">✓ ${_thEsc(T('kirjaa_tehdyksi'))}</button>
+  </div>
+  <div class="k1-kortti" data-card style="margin:12px 20px;padding:12px 16px;background:var(--card);border:.5px solid var(--border);border-radius:12px;cursor:pointer;display:flex;align-items:center;justify-content:space-between"><span style="font-family:var(--font-k);font-size:14px;font-weight:600;color:var(--text)">Oma kehityskorttisi</span><span style="color:var(--ink3)">→</span></div>
+  <a onclick="_avaaTakautuvaModal()" style="display:block;text-align:center;padding:18px;color:var(--ink3);font-size:12px;letter-spacing:.06em;text-decoration:none;cursor:pointer">${T('takautuva_linkki')}</a>
+</div>`;
+}
 
 /* JOUKKUE-tab */
 function rJoukkue(){
@@ -4991,6 +5079,7 @@ function _merkitseNappiTehdyksi(btnId) {
   btn.textContent = '✓ Tehty jo';
   btn.style.opacity = '0.55';
   btn.style.cursor = 'default';
+  if (btnId === 'dKirjausBtn' && typeof _p7K1NaytaKuittaus === 'function') _p7K1NaytaKuittaus();   // K1: fiilis + kuormitus kuittauksena vasta kun päivän treeni on kirjattu
 }
 
 // KOTI-latauksessa: merkitse tänään jo kirjatut napit "✓ Tehty jo" -tilaan (yksi doc-luku).

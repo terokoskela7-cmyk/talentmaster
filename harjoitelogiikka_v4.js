@@ -3149,6 +3149,7 @@ function _seuranHarjoitteet(seuraPankki, pelaaja, ehto) {
     if (h.kaytto === 'joukkue') return false;   // joukkueharjoite (valmentajan rata/rutiini, kotiin_sopiva 'ei…') EI ole koskaan pelaajan päivän harjoite eikä korvaa TM:n oletusta   // v3.41: LUONNOS ei koskaan päädy pelaajalle (moottori käyttää VAIN hyväksyttyjä)
     if (ehto.kehityskohde != null && h.kehityskohde !== ehto.kehityskohde) return false;
     if (ehto.ketju != null && String(h.ketju || '').toUpperCase() !== String(ehto.ketju).toUpperCase()) return false;
+    if (ehto.konsepti != null && String(h.konsepti || '') !== String(ehto.konsepti)) return false;   // K1: jakson konsepti_avain
     if (ika != null) { if (h.ika_min != null && ika < Number(h.ika_min)) return false; if (h.ika_max != null && ika > Number(h.ika_max)) return false; }
     return true;
   });
@@ -3181,7 +3182,7 @@ function valitseSeuranKetjunHarjoite(pelaaja, seuraPankki, ketju, pvm) {
 // ── 1B: Päivittäinen harjoitevalinta (teema pysyy, harjoite vaihtuu) ───
 // Palauttaa valitun harjoitteen normalisoituna, TAI null jos kohteelle ei harjoitteita
 // (kutsuja tekee tällöin EX-fallbackin ikävaiheella).
-function valitsePaivanHarjoite(pelaaja, pankki, pvm, seuraPankki) {
+function valitsePaivanHarjoite(pelaaja, pankki, pvm, seuraPankki, opts) {
   // KORJAUS: käytä mesosykli-PANKKIa (T-haara). Jos kutsuja antoi eri rakenteen — esim.
   // Pelaaja_v7:n ketju-pohjainen window.PANKKI ({SBL,SFL,...} ilman .T:tä) — fallback
   // moduulin omaan PANKKI:in, muuten mesosykli-loop ei löydä mitään ("Ei harjoitteita").
@@ -3189,6 +3190,19 @@ function valitsePaivanHarjoite(pelaaja, pankki, pvm, seuraPankki) {
   var kk = laskeTekninenKehityskohde(pelaaja);
   var kohde = kk.kohde;
   var iv = _laskeIkavaihe(pelaaja);
+
+  // K1 (lippu liput/julkiset.kentta; kutsuja antaa opts.jaksoEnsin): JAKSO ENSIN, sitten testit. Jos pelaajan jaksofokuksen konsepti_avain täsmää seuran hyväksytyn (ei joukkue-käyttöisen) pankkiharjoitteen `konsepti`-kenttään,
+  // päivän treeni tulee siitä (jaksosta: true). Ei osumaa → alla oleva testipolku täsmälleen ennallaan. Ilman opts.jaksoEnsin === true tämä lohko ei tee mitään (characterization-testit lukitsevat vanhan polun).
+  if (opts && opts.jaksoEnsin === true) {
+    var jkAvain = pelaaja && pelaaja.jaksofokus && pelaaja.jaksofokus.konsepti_avain;
+    if (jkAvain) {
+      var jakso = _seuranHarjoitteet(seuraPankki, pelaaja, { konsepti: jkAvain });
+      if (jakso.length) {
+        var pij = _paivaIndeksi(pelaaja, pvm, iv, jakso.length);
+        return Object.assign(_seuranHarjoiteTulos(jakso[pij.indeksi], kohde, pij), { jaksosta: true });
+      }
+    }
+  }
 
   // B PR2 — seuran oma pankki ohittaa TM:n oletuksen tälle KEHITYSKOHTEELLE (seura ensin, TM varalla). Ilman seuran harjoitteita → oletuspolku ennallaan.
   var omat = _seuranHarjoitteet(seuraPankki, pelaaja, { kehityskohde: kohde });

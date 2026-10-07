@@ -182,11 +182,14 @@ describe('K0 ei muuta näkymiä (D10/D11 vartijat)', () => {
     expect(PE).toMatch(/--amber-dim: rgba\(224,160,64,\.16\)/); expect(VH).toMatch(/--amber-dim:rgba\(224,160,64,\.16\)/);
   });
   it('EI NÄKYVÄÄ MUUTOSTA: yksikään elementti ei vielä käytä uusia tokeneita eikä Archivoa (--chalk, --chalk2, --amber-dim, --font-k, Archivo) ja kirjastoa ei kutsuta', () => {
-    [PE, VH].forEach((h) => {
+    // K1 osa 2b (lippu liput/julkiset.kentta): Pelaaja_v7:n UUSI Kenttä-näkymä (rA1Kentta-lohko) saa käyttää tokeneita ja kirjastoa — kaikkialla muualla sivulla vartija pätee ennallaan.
+    const k1 = (h) => { const i = h.indexOf('/* ═══ K1 osa 2b'), j = h.indexOf('/* JOUKKUE-tab */'); return i < 0 ? h : h.slice(0, i) + h.slice(j); };
+    [k1(PE), VH].forEach((h) => {
       expect((h.match(/var\(--(chalk2?|amber-dim|font-k)\b/g) || []).length).toBe(0);
       expect(h.replace(/@font-face[^}]*}/, '')).not.toMatch(/font-family:\s*'?Archivo/);
       expect(h).not.toMatch(/tmKentta\(|TM_KENTTA\./);
     });
+    expect(VH).not.toMatch(/K1 osa 2b/);   // Vanhempi_v2 ei saa K1:tä (K5)
     // vanha --amber-dim-token (Pelaaja) oli käyttämätön → arvon vaihto ei muuta mitään
     expect((PE.match(/var\(--amber-dim/g) || []).length).toBe(0);
   });
