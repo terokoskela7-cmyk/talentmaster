@@ -112,7 +112,7 @@ describe.each([['valmentaja'], ['vp']])('KPV U13 · %s', (rooli) => {
     const e = rakenna({ rooli }); await e.rendaa(); await e.w._mJaHyvaksy(TOPIAS_ID); await lopeta(10);
     expect(e.log.upd).toHaveLength(1); expect(e.log.upd[0].polku).toBe('seurat/kpv/pelaajat/' + TOPIAS_ID); expect(Object.keys(e.log.upd[0].data).sort()).toEqual(['jaksofokus', 'ydinvahvuus']);
     const jf = e.log.upd[0].data.jaksofokus; expect(jf.tukitavoitteet).toHaveLength(1); expect(jf.tukitavoitteet[0]).toMatchObject({ alue: 'fyysinen', kuvaus: 'Liikehallinta ja kehonhallinta', lahde: { tyyppi: 'testi' } }); expect(jf.tukiosa.alue).toBe('Liikehallinta ja kehonhallinta');
-    expect(jf.joukkuejakso_viite).toEqual({ jid: 'kpv_u13', alku: TANAAN }); expect(jf.kesto_vk).toBe(7); expect(jf.lahde).toBe('valmentaja'); expect(L.JM.tmTarkistaJaksoData(jf)).toEqual([]); expect(e.log.upd[0].data.ydinvahvuus.kuvaus).toBe('Tempokuljetus');
+    expect(jf.joukkuejakso_viite).toMatchObject({ jid: 'kpv_u13', alku: TANAAN, nimi: expect.any(String), kesto_vk: expect.any(Number) }); expect(jf.kesto_vk).toBe(7); expect(jf.lahde).toBe('valmentaja'); expect(L.JM.tmTarkistaJaksoData(jf)).toEqual([]); expect(e.log.upd[0].data.ydinvahvuus.kuvaus).toBe('Tempokuljetus');
     expect(e.pelaajat[0].jaksofokus.tukitavoitteet).toHaveLength(1); expect(e.rivi(TOPIAS_ID)[0]).toContain('jakso käynnissä'); expect(e.osio()).toContain('Hyväksy kaikki (4)'); expect(e.log.toastit.some(([t, k]) => /Jakso aloitettu/.test(t) && k === 'ok')).toBe(true);
     await e.w._mJaHyvaksy(TOPIAS_ID); expect(e.log.upd).toHaveLength(1);   // uudelleen ei kirjoita
   });

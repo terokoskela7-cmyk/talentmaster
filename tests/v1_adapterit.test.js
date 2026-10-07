@@ -123,7 +123,7 @@ describe.each([['master', 'Master_v16'], ['vp', 'VP_v25']])('%s · jakson aloitu
       expect(jf.tukitavoitteet).toHaveLength(1); expect(jf.tukitavoitteet[0]).toMatchObject({ alue: 'fyysinen', kuvaus: 'Liikehallinta ja kehonhallinta', perustelu: 'Jotta kuljetuksesi vie maalille asti, kehosi pysyy hallinnassa', lahde: { tyyppi: 'testi' } });
       expect(jf.tukitavoitteet[0].harjoitteet).toHaveLength(1); expect(jf.tukitavoitteet[0].harjoitteet[0]).toMatchObject({ nimi: 'Kontrollipunnerrus', lahde: 'seura', ohjelma_id: 'liike1' });
       expect(jf.tukiosa).toMatchObject({ alue: 'Liikehallinta ja kehonhallinta', perustelu: 'Jotta kuljetuksesi vie maalille asti, kehosi pysyy hallinnassa' }); expect(jf.tukiosa.harjoitteet).toEqual(jf.tukitavoitteet[0].harjoitteet); expect(L.JM.tmTukiosa(jf.tukiosa)).toEqual(jf.tukiosa);
-      expect(jf.joukkuejakso_viite).toEqual({ jid: 'kpv_u13', alku: TANAAN }); expect(jf.kesto_vk).toBe(7); expect(jf.lahde).toBe('valmentaja'); expect(L.JM.tmTarkistaJaksoData(jf)).toEqual([]); expect(e.log.upd[0].data.ydinvahvuus.kuvaus).toBe('Tempokuljetus');
+      expect(jf.joukkuejakso_viite).toMatchObject({ jid: 'kpv_u13', alku: TANAAN, nimi: expect.any(String), kesto_vk: expect.any(Number) }); expect(jf.kesto_vk).toBe(7); expect(jf.lahde).toBe('valmentaja'); expect(L.JM.tmTarkistaJaksoData(jf)).toEqual([]); expect(e.log.upd[0].data.ydinvahvuus.kuvaus).toBe('Tempokuljetus');
       expect(e.p.jaksofokus.tukitavoitteet).toHaveLength(1); expect(e.log.modal).toBeFalsy(); expect(e.log.toastit.some(([, k]) => k === 'ok')).toBe(true);
     });
     it('"Kirjoita oma" + KIELLETYT: oma tukitavoite menee läpi myönteisenä; kielletty sana → ei kirjoitusta, virhe-toast, lomake jää auki', async () => {
@@ -167,7 +167,7 @@ describe.each([['master', 'Master_v16'], ['vp', 'VP_v25']])('%s · jakson aloitu
 describe('sovellusten lähdetaso', () => {
   it('molemmat lataavat uudet libit ja nostetut ?v-versiot; lippu luetaan seura-dokumentista; arviointikehys vain tmKehys():llä (ei arviointikehys/seura)', () => {
     for (const [nimi, SRC] of [['Master', MA], ['VP', VP]]) {
-      expect(SRC, nimi).toContain('<script src="lib/tm_aloita_jakso.js?v=3"></script>'); expect(SRC, nimi).toContain('<script src="lib/tm_koti_oletus.js?v=1"></script>'); expect(SRC, nimi).toContain('<script src="lib/tm_tukitavoitteet.js?v=3"></script>'); expect(SRC, nimi).toContain('<script src="lib/tm_jakso_malli.js?v=2"></script>'); expect(SRC, nimi).toContain('<script src="lib/tm_idp.js?v=12"></script>');
+      expect(SRC, nimi).toContain('<script src="lib/tm_aloita_jakso.js?v=4"></script>'); expect(SRC, nimi).toContain('<script src="lib/tm_koti_oletus.js?v=1"></script>'); expect(SRC, nimi).toContain('<script src="lib/tm_tukitavoitteet.js?v=3"></script>'); expect(SRC, nimi).toContain('<script src="lib/tm_jakso_malli.js?v=2"></script>'); expect(SRC, nimi).toContain('<script src="lib/tm_idp.js?v=12"></script>');
       expect(SRC, nimi).toContain('tmKehys(avain || \'palloliitto\')'); expect(SRC, nimi).toContain('Promise.all(['); expect(SRC, nimi).toMatch(/liput\.kentta === true/);
       expect(SRC, nimi).not.toMatch(/collection\('arviointikehys'\)/);
     }

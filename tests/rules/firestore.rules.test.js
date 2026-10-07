@@ -4047,6 +4047,26 @@ describe('V1 · jakson aloituksen luvut ja kirjoitus (valmentaja = oman joukkuee
     await assertSucceeds(updateDoc(pel(vpContext(SEURA_A).firestore(), PELAAJA_UID), upd));
     await assertFails(updateDoc(pel(valmentajaContext(VALM_A_UID, SEURA_A).firestore(), PELAAJA_A2_UID), upd));
   });
+  it('K1/A · J2-propagointi: dot-path-päivitys jaksofokus.joukkuejakso_viite (snapshot) — oman joukkueen valmentaja ✓, talenttivalmentaja ✓, VP ✓; toisen seuran VP ✗, pelaaja itse ✗ (myös dot-pathilla); muun joukkueen valmentaja ✓ (nykyinen kenttätason haara, dokumentoitu); pelaajan token ei lue joukkuedokumenttia (siksi snapshot)', async () => {
+    const JJ = createRequire(import.meta.url)('../../lib/tm_joukkuejakso.js');
+    const snap = JJ.tmJoukkuejaksoSnapshot({ jaksofokus: { osa_alueet: { tekninen_taktinen: { nimi: 'Syöttö' } }, alku: '2026-11-10', kesto_vk: 6, viikot: [{ vk: 1, tavoite: 'Kaksi kosketusta' }] } }, JOUKKUE_A1);
+    const plan = JJ.tmJoukkuejaksoSynkka({ alku: '2026-11-10', kesto_vk: 6, sama: true }, { jaksofokus: { osa_alueet: { tekninen_taktinen: { nimi: 'Syöttö' } }, alku: '2026-11-10', kesto_vk: 6, viikot: [{ vk: 1, tavoite: 'Kaksi kosketusta' }] } }, JOUKKUE_A1, [{ id: PELAAJA_UID, jaksofokus: { joukkuejakso_viite: { jid: JOUKKUE_A1, alku: '2026-11-10' } } }]);
+    expect(plan.paivitykset).toHaveLength(1); const upd = plan.paivitykset[0].update; expect(upd['jaksofokus.joukkuejakso_viite']).toEqual(snap);
+    const pel = (db, id) => doc(db, 'seurat', SEURA_A, 'pelaajat', id);
+    await assertSucceeds(updateDoc(pel(valmentajaContext(VALM_A_UID, SEURA_A).firestore(), PELAAJA_UID), upd));
+    await assertSucceeds(updateDoc(pel(talenttivalmentajaContext('talval-a', SEURA_A).firestore(), PELAAJA_UID), upd));
+    await assertSucceeds(updateDoc(pel(vpContext(SEURA_A).firestore(), PELAAJA_UID), upd));
+    // HUOM nollaus ennen jokaista: identtinen toistokirjoitus on no-op (affectedKeys tyhjä → hasOnly kelpaa kenelle tahansa) eikä kerro mitään säännöistä
+    const nollaa = (id) => testEnv.withSecurityRulesDisabled(async (x) => { await updateDoc(pel(x.firestore(), id), { jaksofokus: FS_MOD.deleteField() }); });
+    await nollaa(PELAAJA_UID); await assertFails(updateDoc(pel(vpContext(SEURA_B).firestore(), PELAAJA_UID), upd));   // toisen seuran VP
+    await nollaa(PELAAJA_UID); await assertFails(updateDoc(pel(pelaajaContext(SEURA_A, PELAAJA_UID).firestore(), PELAAJA_UID), upd));   // pelaaja itse EI voi kirjoittaa jaksofokus-kenttää (myös dot-pathilla)
+    await nollaa(PELAAJA_UID); await assertFails(updateDoc(pel(pelaajaContext(SEURA_A, PELAAJA_A2_UID).firestore(), PELAAJA_UID), upd));   // toinen pelaaja
+    // dokumentoitu nykytila (ei muutu tässä PR:ssä): v3.x field-level -haara sallii seuran valmentaja-/johtoroolille KENTÄN jaksofokus kirjoituksen myös muun joukkueen pelaajaan ("talenttirajaus = UI-taso")
+    await nollaa(PELAAJA_A2_UID); await assertSucceeds(updateDoc(pel(valmentajaContext(VALM_A_UID, SEURA_A).firestore(), PELAAJA_A2_UID), upd));
+    // pelaaja lukee OMAN dokumenttinsa (snapshot tulee sieltä), mutta ei joukkuedokumenttia
+    await assertSucceeds(getDoc(pel(pelaajaContext(SEURA_A, PELAAJA_UID).firestore(), PELAAJA_UID)));
+    await assertFails(getDoc(doc(pelaajaContext(SEURA_A, PELAAJA_UID).firestore(), 'seurat', SEURA_A, 'joukkueet', JOUKKUE_A1)));
+  });
 });
 
 describe('v3.37 · joukkueen jakso (joukkueet/{id}): valmentaja vain jaksokentät, johto luo', () => {
