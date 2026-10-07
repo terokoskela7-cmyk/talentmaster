@@ -59,4 +59,4 @@ function lueXlsx(buffer) {
   }
   return { sheets };
 }
-module.exports = { lueXlsx };
+module.exports = { lueXlsx, lueZip };

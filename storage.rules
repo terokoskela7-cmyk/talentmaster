@@ -96,6 +96,20 @@ service firebase.storage {
       allow delete: if onSuperAdmin();
     }
 
+    // ── Harjoitepankin KAAVIOKUVAT (T1, Tero 6.10.2026) — seuran oma aineisto (KPV, Pallo-Iirot …) ───────────────
+    // read: SA TAI oman seuran HENKILÖKUNTA (token.seuraId == sid JA rooli henkilökunnan roolilistassa); pelaajalle/huoltajalle EI lukua tässä vaiheessa
+    //       (kaavio vasta harjoituksen jälkeen jos valmentaja jakaa — D29; pelaajan token ei kanna seuraId:tä, mutta rooli rajataan silti eksplisiittisesti).
+    // write/delete: VAIN SA (tuontiskripti Admin SDK:lla ohittaa säännöt; sovelluksella ei kirjoitusta). Seurojen välinen eristys: toisen seuran henkilökunta ei lue.
+    // Kuvia ei commitoida (julkinen repo): polku seurat/{sid}/harjoitepankki/{id}.jpg, Firestore-dokumentin kuva_url = tämä polku.
+    match /seurat/{sid}/harjoitepankki/{file} {
+      allow read:   if request.auth != null
+                    && (onSuperAdmin()
+                        || (request.auth.token.seuraId == sid
+                            && request.auth.token.rooli in ['valmentaja', 'talenttivalmentaja', 'fysiikkavalmentaja', 'fysioterapeutti', 'vp', 'urheilutoimenjohtaja', 'seurasihteeri', 'testivastaava']));
+      allow write:  if onSuperAdmin();
+      allow delete: if onSuperAdmin();
+    }
+
     // Oletus: estä kaikki muu (ei vaikuta yllä sallittuihin, dokumentoi default-deny -periaatteen).
     match /{allPaths=**} {
       allow read, write: if false;
