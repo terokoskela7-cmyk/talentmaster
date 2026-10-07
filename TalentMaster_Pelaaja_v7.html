@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <title>TalentMaster™ — Pelaaja v7</title>
 <script>/* Versio-tarkistus (cache): pakottaa reloadin kun uusi versio deployattu. APP_VERSION leimataan scripts/bump_version.js:llä. */
-(function(){var APP_VERSION='1791383578216';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
+(function(){var APP_VERSION='1791389354594';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
 <!-- B2 Sentry-virheseuranta (onboarding-kriittinen). PII-skrubi tm_sentry.js:ssä. Guard: offline → no-op.
      ⚠️ ENNEN PUSHIA: liitä EU-DSN tm_sentry.js:ään + verifioi integrity-hash bundle.min.js@10.58.0 (väärä SRI estää Sentryn hiljaa). -->
 <script>window.TM_SENTRY={app:'pelaaja'};</script>
@@ -551,7 +551,8 @@ input::placeholder,textarea::placeholder{color:#8C8B86;opacity:1}
 <script src="lib/tm_joukkuejakso.js?v=3"></script>   <!-- K1: tmJoukkuejaksoViikko (pelaajan snapshotista) -->
 <script src="lib/tm_taman_tueksi.js?v=2"></script>   <!-- K1: Tämän tueksi + Joukkueen jakso -->
 <script src="lib/tm_tanaan_kentta.js?v=2"></script>   <!-- K1: rA1Kentta-lohkot (tila, osat, päivän treeni, kuittaus) -->
-<script src="lib/tm_viikkokatsaus.js?v=1"></script>   <!-- K4: viikkokatsaus + jakson päätöskortti (Kenttä-lipun takana) -->
+<script src="lib/tm_viikkokatsaus.js?v=2"></script>   <!-- K4: viikkokatsaus + jakson päätöskortti (Kenttä-lipun takana) -->
+<script src="lib/tm_reitin_valinta.js?v=1"></script>   <!-- K3: pelaaja valitsee seuraavan reitin + sitoumus Tänään-sivulla (Kenttä-lipun takana) -->
 <script src="lib/tm_kotiharjoitteet.js?v=1"></script>   <!-- B 3/3: jakson kotiharjoitteet (jaksofokus.tukiosa.harjoitteet snapshot) + seuran nimi lähdemerkintänä -->   <!-- K0: Kenttä-komponentti (ei vielä käytössä näkymissä) -->
 <script src="lib/tm_eerikkila_normit.js?v=47"></script>
 <script src="docs/testit_indeksit.js?v=13"></script>
@@ -741,6 +742,7 @@ function draw(){
   else if(_sc==='parent')html=rParent();
   else if(_sc==='vapaa') html=rVapaa();
   else if(_sc==='haaste')html=rHaaste();
+  else if(_sc==='valinta')html=rValinta();   // K3: valintaruutu (vain Kenttä-lipulla; rA1Kentta avaa)
   else {
     if      (_tab==='mina')   html=rMina();
     else if (_tab==='meista') html=rMeista();
@@ -1233,7 +1235,7 @@ async function _p7LataaLiput() {
     kentta = !!(window.TM_LIPUT && window.TM_LIPUT.tmKenttaLippu(jd && jd.exists ? jd.data() : null, null));   // pelaajalla vain uusi dokumentti (vanha seurat.liput.kentta ei ole luettavissa)
   } catch (e) { console.warn('[K1] liput:', e && e.message); }   // virhe/puuttuva → false → vanha näkymä
   window._p7Liput = kentta;
-  if (kentta && _tab === 'tanaan' && ['lataa', 'pin', 'train', 'haptic', 'offline', 'parent', 'vapaa', 'haaste'].indexOf(_sc) < 0 && typeof draw === 'function') draw();
+  if (kentta && _tab === 'tanaan' && ['lataa', 'pin', 'train', 'haptic', 'offline', 'parent', 'vapaa', 'haaste', 'valinta'].indexOf(_sc) < 0 && typeof draw === 'function') draw();
 }
 function _p7KenttaKaytossa() {
   if (_isDemoUser) return false;
@@ -1260,6 +1262,58 @@ function _p7K1KehuHTML() {
     + '<div style="font-size:24px;flex-shrink:0">' + _thEsc(_viimeisinKehu.emoji || '❤️') + '</div><div style="flex:1"><div style="font-size:11px;font-weight:600;letter-spacing:.1em;color:var(--ink3);margin-bottom:3px">' + _thEsc(String(_viimeisinKehu.lahettaja || '').toUpperCase()) + '</div>'
     + '<div style="font-size:13px;color:var(--text);line-height:1.4">' + _thEsc(_viimeisinKehu.teksti) + '</div></div><button onclick="_kuittaaKehu()" style="background:transparent;border:none;color:var(--ink3);font-size:20px;cursor:pointer;padding:4px">×</button></div>';
 }
+/* ═══ K3 — pelaaja valitsee seuraavan reitin (D8) ja sitoutuu (P6) (docs/CODE_BRIEF_K3_REITIN_VALINTA.md; design 09, 10 K3; Kaista: Tero). Vain Kenttä-lipun takana (rA1Kentta); rA1() ennallaan.
+   Pelaaja kirjoittaa VAIN ydinvahvuus_valinta {vaihtoehto: konsepti_avain | oma teksti ≤ 60, valittu_pvm} (Rules v3.37) — ei jaksofokus-kenttää; jakso alkaa vasta valmentajan vahvistuksesta (D14).
+   Ei määräaikaa, ei menetyksen pelkoa (§7.22). Leikkijä (U8–12) ei valintaruutua (K5). Sitoumus: sama rMinaSitoumus() myös Tänäänissä jakson 1. viikolla kunnes pelaaja on sitoutunut. ═══ */
+window._p7K3 = { valittu: null, omaAuki: false, oma: '', tallentaa: false };
+function _p7K3Lisa(o) {   // "Hyvä jakso" -kortin lisä: nappi "Valitse seuraava reitti" | "Valintasi on valmentajalla"
+  const RV = window.TM_REITIN_VALINTA; if (!RV || !_pelaaja || _stage === '1_leikkija') return '';
+  return RV.tmValintaLisaHTML(RV.tmValintaTila(_pelaaja), Object.assign({}, o, { valitseFn: '_p7K3Avaa()' }));
+}
+function _p7K3Avaa() { window._p7K3 = { valittu: null, omaAuki: false, oma: '', tallentaa: false }; go('valinta'); }
+function _p7K3Takaisin() { tab('tanaan'); }
+function _p7K3Valitse(avain) { const S = window._p7K3; if (S.tallentaa) return; S.valittu = avain; S.omaAuki = false; draw(); }
+function _p7K3Oma() { const S = window._p7K3; if (S.tallentaa) return; S.valittu = '__oma'; S.omaAuki = true; draw(); const e = document.getElementById('p7K3Oma'); if (e) e.focus(); }
+function _p7K3OmaTeksti(v) {
+  const S = window._p7K3; S.oma = String(v || '');
+  const b = document.getElementById('p7K3Tallenna'); if (b) b.disabled = !!S.tallentaa || !(S.valittu === '__oma' && S.oma.trim());   // ei koko ruudun piirtoa kirjoittaessa (fokus säilyy)
+}
+function rValinta() {
+  const RV = window.TM_REITIN_VALINTA, o = { esc: _thEsc, t: _p7K1T };
+  if (!RV || !_pelaaja || _stage === '1_leikkija') return rA1();
+  const tila = RV.tmValintaTila(_pelaaja);
+  const kentta = (typeof window.tmKentta === 'function') ? window.tmKentta({ koko: 'puoli', ilmanAluetta: true, ase: null, reitti: null, viikot: null, osat: [], historia: [], lempipaikka: null, vaihtoehdot: null }, { wrap: true, t: _p7K1T }) : '';
+  return `
+<div class="scroll" style="background:var(--bg)">
+  ${hdr((_pelaaja?.etunimi||'Pelaaja')+' · '+(_pelaaja?.pelaajaProfiili||''))}
+  <style>${(typeof window.tmKenttaCss === 'function') ? window.tmKenttaCss() : ''}</style>
+  ${RV.tmValintaRuutuHTML(tila.tila === 'valittavana' ? tila.vaihtoehdot : [], window._p7K3, Object.assign({ kentta: kentta, valitseFn: '_p7K3Valitse', omaFn: '_p7K3Oma', omaTekstiFn: '_p7K3OmaTeksti', tallennaFn: '_p7K3Tallenna', takaisinFn: '_p7K3Takaisin' }, o))}
+</div>`;
+}
+async function _p7K3Tallenna() {
+  const S = window._p7K3, RV = window.TM_REITIN_VALINTA; if (!RV || S.tallentaa || !_pelaaja || !S.valittu) return;
+  const olio = RV.tmValintaOlio(S.valittu === '__oma' ? S.oma : S.valittu, _pelaaja.jaksofokus, { tanaan: _paivaIso() });
+  if (!olio.ok) { _naytaKirjausVirhe(RV.tmValintaVirhe(olio.syy, { t: _p7K1T })); return; }
+  const sid = window._seuraId || _pelaaja.seuraId, pid = _pelaaja.id;
+  if (_isDemoUser || !window._db || !sid || !pid) { _pelaaja.ydinvahvuus_valinta = olio.data; _p7K3Takaisin(); return; }   // demo: vain lokaali
+  S.tallentaa = true; draw();
+  try {
+    if (!_p7Verkossa()) throw _p7EiYhteyttaVirhe();
+    try { const u = window._auth && window._auth.currentUser; if (u) await u.getIdToken(true); } catch (_) { /* ei estä kirjausta */ }
+    await _p7Aikaraja(window._db.collection('seurat').doc(sid).collection('pelaajat').doc(pid).update({ ydinvahvuus_valinta: olio.data }));   // Rules v3.37: vain tämä kenttä
+    _pelaaja.ydinvahvuus_valinta = olio.data;   // lokaali vasta onnistumisen jälkeen
+    S.tallentaa = false; _p7K3Takaisin();
+  } catch (e) {
+    console.warn('[K3] valinta:', e && (e.code || e.message));
+    S.tallentaa = false; _naytaKirjausVirhe(_p7KirjausVirheTeksti(e)); draw();   // älä niele: toimintaohje-toast, valinta jää ruutuun
+  }
+}
+function _p7K3SitoumusHTML(tanaan) {   // P6: sitoumus myös Tänäänissä jakson 1. viikolla, kunnes sitouduttu
+  const RV = window.TM_REITIN_VALINTA; if (!RV || !_pelaaja || _stage === '1_leikkija') return '';
+  if (!window._p7IdpLuettu) { if (typeof _p7LataaTavoite === 'function') _p7LataaTavoite(); return ''; }   // luetaan kerran; draw() kun valmis
+  if (!RV.tmSitoumusTanaan(_pelaaja, { tanaan: tanaan, sitoumus: window._p7Sitoumus || null, ladattu: true })) return '';
+  return '<div data-k3-sitoumus>' + rMinaSitoumus() + '</div>';
+}
 /* ═══ K4 — sunnuntain viikkokatsaus + jakson päätöskortti (docs/CODE_BRIEF_K4_VIIKKOKATSAUS.md; design 09, 10 K4, 12 D21). Vain Kenttä-lipun takana (rA1Kentta); rA1() ennallaan.
    Tallennus: seurat/{sid}/pelaajat/{pid}/viikkokatsaukset/{sunnuntain pvm} (Rules v3.44; ei kirjaukset/{pvm}). OMA writer — ei _tmKirjaa. Yksi vastaus per sunnuntai: ei korjausta, ei päivitystä (Rules: create vain).
    Maanantaina ei muistuteta (§7.22). Päätöskortissa ei nappia (K3 vie valintaan). */
@@ -1279,7 +1333,7 @@ async function _p7VkLataa(tanaan) {
 function _p7VkHTML(x, jf, tanaan, o) {
   const K4 = window.TM_VIIKKOKATSAUS; if (!K4 || !_pelaaja) return '';
   if (_stage === '1_leikkija') return '';   // Leikkijä tulee K5:ssä
-  if (x.tila !== 'jakso' && x.tila !== 'sunnuntai') return K4.tmVkPaatosHTML(K4.tmVkPaatos(_pelaaja, { tanaan }), o);   // jakso päättynyt: "Hyvä jakso" + valmentajan lause
+  if (x.tila !== 'jakso' && x.tila !== 'sunnuntai') return K4.tmVkPaatosHTML(K4.tmVkPaatos(_pelaaja, { tanaan }), Object.assign({}, o, { lisaHTML: _p7K3Lisa(o) }));   // jakso päättynyt: "Hyvä jakso" + valmentajan lause (+ K3: "Valitse seuraava reitti")
   if (x.tila !== 'sunnuntai') return '';   // ma–la: ei korttia, ei muistutusta
   _p7VkLataa(tanaan);
   const V = window._p7Vk; if (V.pvm !== tanaan) return '';
@@ -1339,6 +1393,7 @@ function rA1Kentta() {
   ${hdr((_pelaaja?.etunimi||'Pelaaja')+' · '+(_pelaaja?.pelaajaProfiili||''))}
   <style>${(typeof window.tmKenttaCss === 'function') ? window.tmKenttaCss() : ''}</style>
   ${_p7VkHTML(x, jf, tanaan, o)}
+  ${_p7K3SitoumusHTML(tanaan)}
   ${K.tmTanaanKenttaHTML(x, Object.assign({ kentta: kentta }, o))}
   ${jakso ? TU.tmTamanTueksiHTML(TU.tmTamanTueksiRivit(jf), o) : ''}
   ${jakso ? TU.tmJoukkueenJaksoRiviHTML(jf && jf.joukkuejakso_viite, tanaan, o) : ''}
@@ -2507,7 +2562,8 @@ async function _p7LataaTavoite() {
     // v2 §4 — pelaajan itsearvio + sitoumus (kaksivaiheinen: pelaaja sitoutuu, valmentaja vahvistaa).
     if (data.pelaaja_sitoumus) window._p7Sitoumus = data.pelaaja_sitoumus;
   } catch (e) { /* best-effort — tyhjä tila jos ei saada */ }
-  if (_tab === 'mina' && _sc === 'main') draw();
+  window._p7IdpLuettu = true;   // K3: sitoumus luettu → Tänään-kortti voi päättää näkyykö (ei välähdystä sitoutuneelle)
+  if ((_tab === 'mina' || (_tab === 'tanaan' && window._p7Liput === true)) && _sc === 'main') draw();
 }
 
 // ── P7-c.1 — SEURAN AIKATAULU (read-only): tulevat kalenteritapahtumat pelaajan joukkueesta. ──

@@ -4638,5 +4638,41 @@ describe('v3.45 · ennatys_nahty: pelaaja päivittää vain nähty-merkin; ei mu
     for (const ctx of [huoltajaContext(), randomContext(), unauthContext()]) await assertFails(updateDoc(pel(ctx.firestore()), { ennatys_nahty: NAHTY }));
     await assertFails(updateDoc(pel(valmentajaContext(VALM_B_UID, SEURA_B).firestore()), { ennatys_nahty: NAHTY }));
     expect((await lue('seurat', SEURA_A, 'pelaajat', PELAAJA_UID)).ennatys_nahty).toBeUndefined();
+
+/* ══ K3 — pelaaja valitsee seuraavan reitin (docs/CODE_BRIEF_K3_REITIN_VALINTA.md): EI Rules-muutosta — v3.37 riittää. Tarjous = valmentajan kirjoitus jaksofokus-kenttään; valinta = pelaajan ydinvahvuus_valinta. ══ */
+describe('K3 · tarjous (valmentaja) ja valinta (pelaaja) — Rules v3.37 riittää sellaisenaan', () => {
+  beforeEach(async () => { await seedAdminDoc(); await seedSeuraAndPelaaja(); });
+  const pel = (db, pid = PELAAJA_UID) => doc(db, 'seurat', SEURA_A, 'pelaajat', pid);
+  const lue = async (...polku) => { let d; await testEnv.withSecurityRulesDisabled(async (c) => { d = (await getDoc(doc(c.firestore(), ...polku))).data(); }); return d; };
+  const TARJOUS = { tila: 'valittavana', vaihtoehdot: [{ konsepti_avain: 'y_h1', nimi: 'Haltuunotto', perustelu: 'Pidät pallon lähellä.', vahvistettu: true }, { konsepti_avain: 'seura_kierto_2', nimi: 'Kierto', perustelu: 'Käännyt nopeasti.', vahvistettu: true }] };
+  const SULKU = { konsepti_avain: 'y_h2', konsepti_nimi: 'Kuljettaminen', alkoi: '2026-10-01T10:00:00.000Z', paattyi: '2026-11-01T10:00:00.000Z', sulkutapa: 'suljettu' };
+
+  it('oman joukkueen valmentaja kirjoittaa tarjouksen SAMASSA updatessa kuin sulun (jaksofokus + historia) ja poistaa vanhan ydinvahvuus_valinnan; muu data säilyy', async () => {
+    await testEnv.withSecurityRulesDisabled(async (c) => { await updateDoc(pel(c.firestore()), { ydinvahvuus_valinta: { vaihtoehto: 'vanha', valittu_pvm: '2026-09-01' }, jaksofokus: { konsepti_avain: 'y_h2' } }); });
+    const db = valmentajaContext(VALM_A_UID, SEURA_A).firestore();
+    await assertSucceeds(updateDoc(pel(db), { jaksofokus: TARJOUS, jaksofokus_historia: [SULKU], ydinvahvuus_valinta: deleteField() }));
+    const d = await lue('seurat', SEURA_A, 'pelaajat', PELAAJA_UID);
+    expect(d.jaksofokus).toEqual(TARJOUS); expect(d.ydinvahvuus_valinta).toBeUndefined(); expect(d.etunimi).toBe('Testi');
+  });
+  it('toisen seuran henkilökunta ja huoltaja eivät kirjoita tarjousta (jaksofokus-kenttä on seuran sisäinen: oman seuran muun joukkueen valmentaja sallitaan nykyisen kenttätason haaran mukaan, kuten V1/K1)', async () => {
+    await assertFails(updateDoc(pel(valmentajaContext(VALM_B_UID, SEURA_B).firestore()), { jaksofokus: TARJOUS }));
+    await assertFails(updateDoc(pel(huoltajaContext().firestore()), { jaksofokus: TARJOUS }));
+    expect((await lue('seurat', SEURA_A, 'pelaajat', PELAAJA_UID)).jaksofokus).toBeUndefined();
+  });
+  it('tarjouksen jälkeen: pelaaja kirjoittaa vain ydinvahvuus_valinta (konsepti_avain tai oma teksti ≤ 60) ✓; jaksofokus-kenttää ei (✗) — jakso ei ala ennen valmentajan vahvistusta', async () => {
+    await testEnv.withSecurityRulesDisabled(async (c) => { await updateDoc(pel(c.firestore()), { jaksofokus: TARJOUS }); });
+    const db = pelaajaItseContext().firestore();
+    await assertSucceeds(updateDoc(pel(db), { ydinvahvuus_valinta: { vaihtoehto: 'y_h1', valittu_pvm: '2026-11-17' } }));
+    await assertSucceeds(updateDoc(pel(db), { ydinvahvuus_valinta: { vaihtoehto: 'Haluan harjoitella vasenta jalkaa', valittu_pvm: '2026-11-17' } }));   // oma ehdotus
+    await assertFails(updateDoc(pel(db), { jaksofokus: { konsepti_avain: 'y_h1', konsepti_nimi: 'Haltuunotto', alkoi: '2026-11-17T10:00:00.000Z' } }));
+    await assertFails(updateDoc(pel(db), { 'jaksofokus.tila': deleteField() }));
+    await assertFails(updateDoc(pel(db), { ydinvahvuus_valinta: { vaihtoehto: 'y_h1', valittu_pvm: '2026-11-17' }, 'jaksofokus.vaihtoehdot': [] }));
+    expect((await lue('seurat', SEURA_A, 'pelaajat', PELAAJA_UID)).jaksofokus).toEqual(TARJOUS);
+  });
+  it('valmentaja vahvistaa: jaksofokus korvautuu aktiivisella jaksolla (tila poistuu) — pelaajan valinta ei estä', async () => {
+    await testEnv.withSecurityRulesDisabled(async (c) => { await updateDoc(pel(c.firestore()), { jaksofokus: TARJOUS, ydinvahvuus_valinta: { vaihtoehto: 'y_h1', valittu_pvm: '2026-11-17' } }); });
+    const db = valmentajaContext(VALM_A_UID, SEURA_A).firestore();
+    await assertSucceeds(updateDoc(pel(db), { jaksofokus: { konsepti_avain: 'y_h1', konsepti_nimi: 'Haltuunotto', alkoi: '2026-11-18T10:00:00.000Z', kesto_vk: 4 } }));
+    expect((await lue('seurat', SEURA_A, 'pelaajat', PELAAJA_UID)).jaksofokus.tila).toBeUndefined();
   });
 });

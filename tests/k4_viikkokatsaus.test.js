@@ -166,7 +166,7 @@ function ymp({ p = P(), tanaan = SU, demo = false, stage = '2_rakentaja', olemas
   sb.window = sb; sb.document = { getElementById: (id) => (id === 'p7VkKortti' ? { replaceWith: (n) => log.korvattu.push(n.html) } : null), createElement: () => ({ set innerHTML(v) { this.firstChild = { html: v }; } }) };
   vm.createContext(sb);
   const alustus = /^window\._p7Vk = \{[^\n]*\};/m.exec(SRC); expect(alustus, 'window._p7Vk alustus').toBeTruthy();
-  vm.runInContext([alustus[0], 'function _p7K1T(k) { const v = T(k); return (v === \'pelaaja.\' + k) ? k : v; }'].concat(['async function _p7VkLataa(', 'function _p7VkHTML(', 'function _p7VkPiirra(', 'function _p7VkValitse(', 'function _p7VkLause(', 'async function _p7VkTallenna('].map(pura)).join(';\n')
+  vm.runInContext([alustus[0], 'function _p7K1T(k) { const v = T(k); return (v === \'pelaaja.\' + k) ? k : v; }'].concat(['function _p7K3Lisa(', 'async function _p7VkLataa(', 'function _p7VkHTML(', 'function _p7VkPiirra(', 'function _p7VkValitse(', 'function _p7VkLause(', 'async function _p7VkTallenna('].map(pura)).join(';\n')
     + ';\nthis._p7VkLataa=_p7VkLataa;this._p7VkHTML=_p7VkHTML;this._p7VkPiirra=_p7VkPiirra;this._p7VkValitse=_p7VkValitse;this._p7VkLause=_p7VkLause;this._p7VkTallenna=_p7VkTallenna;', sb);
   return { sb, log };
 }
@@ -218,9 +218,9 @@ describe('Pelaaja_v7 — sunnuntain viikkokatsaus', () => {
     expect(nayta(ymp({ p: P({ jaksofokus: null, jaksofokus_historia: [{ konsepti_nimi: 'Kuljettaminen' }] }), tanaan: KE }))).toContain('Hyvä jakso, Kuljettaminen tehty');
     expect(nayta(ymp({ p: P({ jaksofokus: null, jaksofokus_historia: hist }), tanaan: KE, stage: '1_leikkija' }))).toBe('');
   });
-  it('lähdetaso: kortti rA1Kentta-näkymän kärjessä (ennen Kenttä-osiota), skripti ladataan ?v=1, SW-allowlist + cache; K4-lohkossa ei kirjaukset-polkua eikä _tmKirjaa-kutsua; rA1() ei sisällä K4:ää', () => {
+  it('lähdetaso: kortti rA1Kentta-näkymän kärjessä (ennen Kenttä-osiota), skripti ladataan ?v=2 (K3-bumppi), SW-allowlist + cache; K4-lohkossa ei kirjaukset-polkua eikä _tmKirjaa-kutsua; rA1() ei sisällä K4:ää', () => {
     const i = SRC.indexOf('${_p7VkHTML(x, jf, tanaan, o)}'), j = SRC.indexOf('${K.tmTanaanKenttaHTML('); expect(i).toBeGreaterThan(-1); expect(i).toBeLessThan(j);
-    expect(SRC).toContain('<script src="lib/tm_viikkokatsaus.js?v=1"></script>');
+    expect(SRC).toContain('<script src="lib/tm_viikkokatsaus.js?v=2"></script>');
     const sw = lue('sw_pelaaja.js'); expect(sw).toContain('viikkokatsaus)\\.js'); expect(sw).toMatch(/const CACHE = 'tm-pelaaja-v(7[7-9]|[89]\d)'/);
     const blokki = SRC.slice(SRC.indexOf('═══ K4 — sunnuntain viikkokatsaus'), SRC.indexOf('function rA1Kentta() {')); expect(blokki.length).toBeGreaterThan(500);
     expect(blokki).not.toMatch(/collection\('kirjaukset'\)|_tmKirjaa\(|_tallennaKirjaus\(|merge: *true/); expect(blokki).toContain("collection('viikkokatsaukset')");
@@ -246,7 +246,7 @@ describe('Jakson päätös — lause historiariville (Master + VP)', () => {
       expect(fn).toMatch(/S\.k4 \? window\.TM_VIIKKOKATSAUS\.tmVkLauseValmentaja\(S\.lause\)/); expect(fn.indexOf('tmVkLauseValmentaja')).toBeLessThan(fn.indexOf('tmSuljeJakso'));
       expect(fn).toMatch(/lisakentat: _lause\.teksti \? \{ lause: _lause\.teksti \} : undefined/); expect(fn).toMatch(/if \(!_lause\.ok\) \{ if \(typeof toast === 'function'\) toast\([^\n]*return; \}/);
       expect(src).toContain('maxlength="\' + K4.MAX_LAUSE + \'"'); expect(src).toContain(setLause); expect(src).toContain(modalId); expect(src).toContain('liput.kentta !== true) return;');
-      for (const s of ['tm_kielletyt.js?v=1', 'tm_taman_tueksi.js?v=2', 'tm_viikkokatsaus.js?v=1']) expect(src, s).toContain('<script src="lib/' + s + '"></script>');
+      for (const s of ['tm_kielletyt.js?v=1', 'tm_taman_tueksi.js?v=2', 'tm_viikkokatsaus.js?v=2']) expect(src, s).toContain('<script src="lib/' + s + '"></script>');
       expect(src).not.toMatch(/viikkokatsaukset'\)\.(doc\([^)]*\)\.)?(set|add|update)\(/);   // henkilökunta ei kirjoita viikkokatsauksia (Rules v3.44)
     });
     it(f + ': henkilökunnan osio hakee jakson katsaukset YHDELLÄ kyselyllä where jakso_alkoi == jakson alku, vain lipulla', () => {

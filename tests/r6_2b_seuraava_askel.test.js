@@ -240,7 +240,7 @@ describe('kääreet: VP / Master ajavat SAMAN libin; vanha päättely pois', () 
     expect(pura(VP, 'function _vpSulkuSeuraava(')).not.toMatch(/\.filter\(function \(e\)|tmSiltaEhdota\(/); expect(pura(MA, 'function _msSeuraava(')).not.toMatch(/\.filter\(function \(e\)|\.tmSiltaEhdota\(p\./);
     expect(VP).not.toMatch(/item\.kpi\.length >= 2\) \? 1 : 0/); expect(VP).toContain('window.TM_SEURAAVA_ASKEL.tmTeeTastaOsa(item)');
     expect(pura(VP, 'window._pdcPaatos = function')).not.toMatch(/laskeReviewKadenssi\(|idpJumissa\(|_rvcSitoumusOdottaa\(|\.status === 'myohassa'/);
-    expect(VP).toContain('lib/tm_seuraava_askel.js?v=1'); expect(MA).toContain('lib/tm_seuraava_askel.js?v=1');
+    expect(VP).toContain('lib/tm_seuraava_askel.js?v=2'); expect(MA).toContain('lib/tm_seuraava_askel.js?v=2');
   });
   it('_pdcPaatos-kääre: vanhat avaimet + muoto säilyvät, lisäksi askel/peruste/rajoite; uusille portaille oma teksti', () => {
     const c = { window: { TM_SEURAAVA_ASKEL: { tmSeuraavaAskel: (p, o) => L.tmSeuraavaAskel(p, Object.assign({}, o, { deps: DEPS })) } }, vpT: (x) => x, tmPvmFi: (x) => x, _vpSiltaKonsepti: () => null };
