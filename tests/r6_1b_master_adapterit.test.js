@@ -33,7 +33,7 @@ function ymp({ kaada = false, demo = false, offline = false, pelaaja = {}, vt, e
   const doc = (path) => ({ update: async (d) => { if (kaada) throw Object.assign(new Error('Missing or insufficient permissions.'), { code: 'permission-denied' }); kirj.push({ path, data: d }); }, set: async () => { log.setit++; } });
   const _db = { collection: (c) => ({ doc: (a) => ({ collection: (c2) => ({ doc: (b) => doc(c + '/' + a + '/' + c2 + '/' + b) }) }) }) };
   const sb = {
-    window: { TM_JAKSOKOOSTE: J, TM_KEHITYSSILMUKKA: KS, _ohjKirjasto: [{ id: 'o1', tyyppi: 'plyo', nimi: 'Plyo', versio: 1 }],
+    window: { TM_JAKSOKOOSTE: J, TM_KEHITYSSILMUKKA: KS, TM_VIIKKOKATSAUS: require('../lib/tm_viikkokatsaus.js'), _ohjKirjasto: [{ id: 'o1', tyyppi: 'plyo', nimi: 'Plyo', versio: 1 }],
       TM_FYYSTEEMAT_LIB: { tmFyysTeema: (a) => (a ? { avain: a, nimi: 'Teema ' + a, testit: ['lin30m'] } : null), tmOhjelmaTemplaatti: (t) => ({ nimi: 'Pohja ' + t, kuvaus: 'k' }) } },
     _ttPelaaja: () => p, _pelaajatData: [p], _mIdpP: () => p, _mIdpReRender() {}, _mIdpTallennaDok() {}, _renderPinfoFirestore() {},
     _mTtItems: () => [{ avain: 'y_h2', nimi: 'SYÖTTÄMINEN', koodi: 'H2' }, { avain: 'y_h3', nimi: 'PELINLUKU', koodi: 'H3' }], _devIkaSp: () => ({ ika: 12 }), _ttNormPositio: () => 'KK', _mTtEhdotus: () => ehdotus,
@@ -169,12 +169,12 @@ describe('M5 _msTallenna (sulku) — tmSuljeJakso + yksi update', () => {
     const ok = ymp({ pelaaja: { jaksofokus: { konsepti_avain: 'y_vanha', konsepti_nimi: 'Vanha', alkoi: ALKOI } } }); await ok.sb.window._msAsetaFyysFokus(PID, 'fy_nopeus'); expect(ok.log.suljetut).toEqual(['_msFyysModal']); expect(ok.p.jaksofokus.konsepti_avain).toBe('fy_nopeus');
   });
   it('kirjoitus epäonnistuu: virheilmoitus, lokaali historia ei päivity; offline: ei mitään (lomake jää auki); demo: ei kirjoitusta, lokaali rivi', async () => {
-    const f = ymp({ kaada: true, pelaaja: { jaksofokus: JF } }); await aja(f, null);
+    const f = ymp({ kaada: true, pelaaja: { jaksofokus: JF } }); f.sb.window._msSulkuTila = SULKU(f.p, { lause: 'Hyvä jakso, jatka näin', k4: true }); await f.sb.window._msTallenna(null);
     expect(f.kirj).toEqual([]); expect(f.p.jaksofokus_historia).toBeUndefined(); expect(f.log.toastit.some(([, k]) => k === 'error')).toBe(true);
-    // D53: virhe näkyy aina (toast + koodi + konsoli); sulkulomake jää auki (ei suljeta, tila ja syötetty data säilyvät), jaksofokus ei muutu
+    // virhe näkyy aina (toast + koodi + konsoli); sulkulomake jää auki, syötetty lause tallessa, p.jaksofokus ennallaan
     expect(f.log.toastit).toEqual([['Tallennus epäonnistui (permission-denied)', 'error']]); expect(f.log.warn.some((a) => a[0] === '[msTallenna]')).toBe(true);
-    expect(f.log.suljetut).toEqual([]); expect(f.sb.window._msSulkuTila).not.toBeNull(); expect(f.p.jaksofokus).toEqual(JF);
-    const ok = ymp({ pelaaja: { jaksofokus: JF } }); await aja(ok, null); expect(ok.log.suljetut).toEqual(['_msSulkuModal']); expect(ok.sb.window._msSulkuTila).toBeNull();   // onnistuessa modaali sulkeutuu
+    expect(f.log.suljetut).toEqual([]); expect(f.sb.window._msSulkuTila).not.toBeNull(); expect(f.sb.window._msSulkuTila.lause).toBe('Hyvä jakso, jatka näin'); expect(f.p.jaksofokus).toEqual(JF);
+    const ok = ymp({ pelaaja: { jaksofokus: JF } }); await aja(ok, null); expect(ok.log.suljetut).toEqual(['_msSulkuModal']); expect(ok.sb.window._msSulkuTila).toBeNull(); expect(ok.p.jaksofokus).toBeNull();   // onnistuessa modaali sulkeutuu
     const o = ymp({ offline: true, pelaaja: { jaksofokus: JF } }); await aja(o, 'y_h3');
     expect(o.kirj).toEqual([]); expect(o.p.jaksofokus).toEqual(JF); expect(o.p.jaksofokus_historia).toBeUndefined(); expect(o.sb.window._msSulkuTila).not.toBeNull();
     const d = ymp({ demo: true, pelaaja: { jaksofokus: JF } }); await aja(d, null);
