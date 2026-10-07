@@ -27,7 +27,7 @@ describe('D48 — järjestys (taulukko): jokainen rivi yksinään', () => {
     ['8 ei tietoa', P(), {}, 'ei_tietoa', 'aloita']
   ];
   it.each(rivit)('%s → ensisijainen + nappi', (_n, p, ctx, avain, nappi) => { const x = S(p, ctx); expect(x.ensisijainen.avain).toBe(avain); expect((x.ensisijainen.nappi || {}).avain || null).toBe(nappi); });
-  it('JARJESTYS-vakio = D48:n kahdeksan riviä oikeassa järjestyksessä', () => { expect(TS.JARJESTYS).toEqual(['kuorma', 'valinta_tehty', 'suljettava', 'valinta_odottaa', 'vk_ei_vastattu', 'havainto', 'yllapito', 'ei_tietoa']); });
+  it('JARJESTYS-vakio = D48:n kahdeksan riviä oikeassa järjestyksessä', () => { expect(TS.JARJESTYS).toEqual(['kuorma', 'valinta_tehty', 'suljettava', 'valinta_odottaa', 'sitoumus_odottaa', 'vk_ei_vastattu', 'askel_muu', 'havainto', 'yllapito', 'ei_tietoa']); });
 });
 
 describe('D48 — kaksi riviä täyttyy: pienempi numero voittaa; toinen = pieni rivi', () => {
