@@ -112,7 +112,7 @@ window.TM_KAAVIO_HOST = {
 <script src="lib/tm_jaksokooste.js?v=2"></script>   <!-- Vaihe 6: jakson sulku (meso-sykli) PURE-ydin — prosessi+kalibraatio+historia (geneerinen §8) -->
 <script src="lib/tm_liput.js?v=1"></script>   <!-- K1 osa 2: liput (liput/julkiset + vanha fallback K7:ään) -->
 <script src="lib/tm_joukkuejakso.js?v=3"></script>   <!-- K1/A: joukkuejakson snapshot (tmAloitaJaksoTuki) -->
-<script src="lib/tm_aloita_jakso.js?v=4"></script>
+<script src="lib/tm_aloita_jakso.js?v=5"></script>
 <script src="lib/tm_tukitavoitteet.js?v=3"></script>   <!-- J1/V1: tukitavoitteet (ehdotusmoottori, kotiharjoitevalikoima) -->
 <script src="lib/tm_koti_oletus.js?v=1"></script>   <!-- V1: TM:n oletuskotiharjoitteet (D16: seura ensin, TM varalla); generoitu harjoitelogiikka_v4:stä -->   <!-- jaettu "Aloita jakso" -modaali (Master + VP) -->
 <script src="lib/tm_jaksokortti.js?v=1"></script>   <!-- "Jakso nyt" -kortti: taito · ydinvahvuus · tukiosa · kesto/päättyy · vastuuhenkilö · teema · kotiharjoitteet -->
@@ -123,9 +123,10 @@ window.TM_KAAVIO_HOST = {
 <script src="lib/tm_jakso_malli.js?v=2"></script>   <!-- R6.3-E: katselmuksen "Vahvista merkinnät" (tmMerkinnatTila / tmVahvistaMerkinnat) + kypsyysvihjeet -->
 <script src="lib/tm_kielletyt.js?v=1"></script>   <!-- K4: sanavartija jakson päätöksen lauseelle -->
 <script src="lib/tm_taman_tueksi.js?v=2"></script>   <!-- K4: tmTukiPerustelu = K1:n mittaus-/lukutarkistus lauseelle (lazy-riippuvuudet vain K1-näkymille) -->
-<script src="lib/tm_viikkokatsaus.js?v=1"></script>   <!-- K4: pelaajan viikkokatsaukset (henkilökunnan osio) + lause -->
+<script src="lib/tm_viikkokatsaus.js?v=2"></script>   <!-- K4: pelaajan viikkokatsaukset (henkilökunnan osio) + lause -->
+<script src="lib/tm_reitin_valinta.js?v=1"></script>   <!-- K3: pelaaja valitsee seuraavan reitin — tarjousosio sulkulomakkeessa (Kenttä-lipun takana) -->
 <script src="lib/tm_kehityssilmukka.js?v=2"></script>   <!-- R6.2a: katselmus yhteen paikkaan (tmKirjaaKatselmus) + jaksofokuksen kirjoitusydin -->
-<script src="lib/tm_seuraava_askel.js?v=1"></script>   <!-- R6.2b: seuraava toimenpide yhdessä paikassa (tmSeuraavaAskel / tmSeuraavaJakso / tmTeeTastaOsa) -->
+<script src="lib/tm_seuraava_askel.js?v=2"></script>   <!-- R6.2b: seuraava toimenpide yhdessä paikassa (tmSeuraavaAskel / tmSeuraavaJakso / tmTeeTastaOsa) -->
 <script src="lib/tm_fyysteemat.js?v=4"></script>   <!-- Vaihe 7: fyysinen teemaluettelo + D1-fokuslähde + evidenssi (delta §29 + PHV-portti §28) -->
 <script src="lib/tm_ohjelma.js?v=1"></script>   <!-- Vaihe 7.2a: fysiikkaohjelmakirjasto (oversight: lue kirjasto + N-laskuri) -->
 <script src="lib/tm_ohjelma_analytiikka.js?v=2"></script>
@@ -9611,12 +9612,13 @@ async function _vpJfKirjoita(pid, upd, viesti, paivita) {
   } catch (e) { console.warn('[vpJf]', e && e.message); if (typeof toast === 'function') toast(vpT('Tallennus epäonnistui'), 'error'); }
 }
 // Jaksofokuksen vaihto/sulku: suunnitelma { jaksofokus, historiaLisays[] } → update({jaksofokus, jaksofokus_historia: arrayUnion(...rivit)}).
-async function _vpKirjoitaJaksofokus(p, v, viesti) {
+async function _vpKirjoitaJaksofokus(p, v, viesti, extra) {
   const rivit = Array.isArray(v.historiaLisays) ? v.historiaLisays : [];
-  const upd = { jaksofokus: v.jaksofokus };
+  const upd = Object.assign({ jaksofokus: v.jaksofokus }, extra || {});   // extra: K3 — vanha ydinvahvuus_valinta pois samassa updatessa
   if (rivit.length) upd.jaksofokus_historia = firebase.firestore.FieldValue.arrayUnion.apply(null, rivit);
   await _vpJfKirjoita(p.id, upd, viesti, function () {
     if (rivit.length) p.jaksofokus_historia = (Array.isArray(p.jaksofokus_historia) ? p.jaksofokus_historia : []).concat(rivit);
+    if (extra && 'ydinvahvuus_valinta' in extra) delete p.ydinvahvuus_valinta;   // K3: lokaali vasta onnistumisen jälkeen
     // historia näkyviin vasta kun se on tallennettu (meso-kaari + Aloitus lukevat jaksofokus_historiaa)
     if (typeof _vpAloitusReRender === 'function') _vpAloitusReRender();
     if (typeof renderJaksofokus === 'function' && typeof _currentWs !== 'undefined' && _currentWs === 'jaksofokus') renderJaksofokus();
@@ -10865,7 +10867,7 @@ async function _vpVkSulkuLataa(pid) {
   try {
     const liput = await _vpLataaLiput(); if (liput.kentta !== true) return;
     let docs = []; try { docs = (await _vpVkHae(S.p)) || []; } catch (e) { console.warn('[K4] viikkokatsaukset:', e && e.message); }   // luku epäonnistuu → lause silti mahdollinen
-    if (window._vpSulkuTila && window._vpSulkuTila.pid === pid) { window._vpSulkuTila.k4 = true; window._vpSulkuTila.vkDocs = docs; _vpSulkuRender(); }
+    if (window._vpSulkuTila && window._vpSulkuTila.pid === pid) { window._vpSulkuTila.k4 = true; window._vpSulkuTila.vkDocs = docs; window._vpSulkuTila.k3 = { paalla: false, kortit: _vpK3Ehdotukset(S.p) }; _vpSulkuRender(); }
   } catch (e) { console.warn('[K4] liput:', e && e.message); }
 }
 function _vpVkHkHTML(p) {
@@ -10886,6 +10888,31 @@ function _vpVkSulkuHTML(S) {
     + '<div style="font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink3);margin:12px 0 4px">' + _jsvEsc(t('k4_lause_valm')) + '</div>'
     + '<textarea id="_vpSulkuLause" rows="2" maxlength="' + K4.MAX_LAUSE + '" oninput="_vpSulkuSetLause(this.value)" style="width:100%;box-sizing:border-box;background:var(--card);color:var(--ink);border:.5px solid var(--border);border-radius:8px;padding:8px;font-family:inherit;font-size:13px;resize:none">' + _jsvEsc(S.lause || '') + '</textarea>'
     + '<div style="font-size:10.5px;color:var(--ink3);margin-top:3px">' + _jsvEsc(t('k4_lause_valm_ohje')) + '</div></div>';
+}
+/* ═══ K3 — pelaaja valitsee seuraavan reitin (docs/CODE_BRIEF_K3_REITIN_VALINTA.md; Kaista: Tero). Sama osio kuin Masterissa (lib/tm_reitin_valinta.js). Vain kun liput.kentta === true.
+   Tarjous kirjoitetaan sulun samaan updateen: jaksofokus = {tila:'valittavana', vaihtoehdot:[…]} + vanha ydinvahvuus_valinta pois. Nimi kanonisesta (fi) kirjoituspolusta (§32), ei sv-kerroksesta. ═══ */
+function _vpK3Ehdotukset(p) {
+  const SA = window.TM_SEURAAVA_ASKEL, RV = window.TM_REITIN_VALINTA; if (!SA || !RV || !p) return [];
+  try {
+    const kortit = RV.tmTarjousKortit(SA.tmJaksoEhdotukset(p, p.jaksofokus && p.jaksofokus.konsepti_avain, {
+      siltaKonsepti: function (a) { return _vpSiltaKonsepti(a); },
+      siltaEhdota: window.TM_ARVIOINTI_SILTA ? window.TM_ARVIOINTI_SILTA.tmSiltaEhdota : null,
+      sallitut: function () {
+        const isp = (typeof _dimIkaSp === 'function') ? _dimIkaSp(p.joukkue || '', p) : { ika: null };
+        const posCode = (typeof _vpTtNormPositio === 'function') ? (p.tt_positio_aktiivinen || _vpTtNormPositio(p.positio || p.pelipaikka)) : null;
+        return _ttItems({ ika: isp.ika, joukkue: p.joukkue, positio: posCode, tt_positio_aktiivinen: posCode, syntymaVuosi: p.syntymaVuosi });
+      }
+    }));
+    kortit.forEach(function (k) { k.nimi = _vpJfKanonNimi(k.avain, 'teknis_taktinen') || k.nimi; });
+    return kortit;
+  } catch (e) { console.warn('[K3] ehdotukset:', e && e.message); return []; }
+}
+window._vpK3Paalle = function (b) { const S = window._vpSulkuTila; if (!S || !S.k3) return; S.k3.paalla = !!b; _vpSulkuRender(); };
+window._vpK3Valitse = function (i) { const S = window._vpSulkuTila, k = S && S.k3 && S.k3.kortit[i]; if (!k) return; k.valittu = !k.valittu; _vpSulkuRender(); };
+window._vpK3Lause = function (i, v) { const S = window._vpSulkuTila, k = S && S.k3 && S.k3.kortit[i]; if (k) k.lause = String(v || ''); };
+function _vpK3OsioHTML(S) {
+  const RV = window.TM_REITIN_VALINTA; if (!S.k4 || !S.k3 || !RV) return '';
+  return RV.tmTarjousOsioHTML(S.k3, { esc: _jsvEsc, t: vpT, paalleFn: '_vpK3Paalle', valitseFn: '_vpK3Valitse', lauseFn: '_vpK3Lause', pinta: 'var(--deep,#1C1C1A)' });
 }
 window._vpSulkuTila = null;   // { pid, p, jf, alkoi, loppu, harjoituksia, lasnaolo, arvioItse, arvioAikuis, tulos, lataa }
 
@@ -10934,7 +10961,7 @@ window._vpSuljeJakso = async function (pid) {
   const vali = _vpSulkuJaksovali(jf);
   const sessiot = _vpSulkuSessiot(jf, vali.alkoi, vali.loppu);
   window._vpArvPelaaja = p;
-  window._vpSulkuTila = { pid: pid, p: p, jf: jf, alkoi: vali.alkoi, loppu: vali.loppu, harjoituksia: sessiot.length, lasnaolo: { paikalla: 0, yhteensa: sessiot.length, tiedossa: 0 }, arvioItse: null, arvioAikuis: null, tulos: null, lataa: true, k4: false, lause: '', vkDocs: null };
+  window._vpSulkuTila = { pid: pid, p: p, jf: jf, alkoi: vali.alkoi, loppu: vali.loppu, harjoituksia: sessiot.length, lasnaolo: { paikalla: 0, yhteensa: sessiot.length, tiedossa: 0 }, arvioItse: null, arvioAikuis: null, tulos: null, lataa: true, k4: false, lause: '', vkDocs: null, k3: null };
   _vpSulkuRender();
   _vpVkSulkuLataa(pid);   // K4: lauseen kenttä + viikkokatsausten tiivistelmä (vain lipulla; ei estä sulkua)
   // Per-pelaaja läsnäolo (K2 lasnaolijat-alikokoelma) — on-demand (EI render-polku §26). Graceful.
@@ -11112,11 +11139,14 @@ function _vpSulkuRender() {
   h += '</div>';
   h += '<div style="font-size:10.5px;color:var(--ink3);font-style:italic;margin-bottom:12px">' + (_fyys ? vpT('Tulos-kehys: parani / ennallaan — jatka / vaihda. §28: kypsyysvaihe huomioitu — pre-PHV ”ennallaan” on odotettua, ei ”epäonnistui”.') : vpT('§28: tekniikka kehittyy hitaasti — 4 vk harvoin näyttää mitattavaa muutosta. ”Ennallaan” ei ole epäonnistuminen.')) + '</div>';
   h += _vpVkSulkuHTML(S);   // K4: viikkokatsaukset + lause pelaajalle (vain lipulla)
+  h += _vpK3OsioHTML(S);    // K3: "Anna pelaajan valita seuraava reitti" (vain lipulla)
   // Seuraava fokus (silta)
   const seur = S.tulos ? _vpSulkuSeuraava(p, jf.konsepti_avain, S.tulos) : null;
   if (S.tulos) {
     h += '<div style="background:linear-gradient(150deg,rgba(40,176,144,.1),var(--deep,#1C1C1A));border:.5px solid rgba(40,176,144,.3);border-radius:10px;padding:13px">';
-    if (seur) {
+    if (S.k3 && S.k3.paalla) {   // K3: tarjous korvaa "Aseta seuraava jakso" — jakso alkaa vasta kun valmentaja/VP vahvistaa pelaajan valinnan
+      h += '<button class="jsp-kt-btn primary" style="width:100%" onclick="_vpSulkuTallenna(\'\')">' + esc(window.TM_REITIN_VALINTA.tmTeksti('k3_sulje_tarjoa', { t: vpT })) + '</button>';
+    } else if (seur) {
       const cue = (!seur.fyysinen) ? _ttKys(seur.konsepti_avain) : [];
       h += '<div style="font-size:11px;color:var(--amber);margin-bottom:4px">↻ ' + vpT('Seuraava fokus') + ' (' + (seur.jatka ? vpT('jatka samaa') : vpT('silta: seuraavaksi heikoin')) + ')</div>';
       h += '<div style="font-family:\'Cormorant Garamond\',serif;font-size:18px;color:var(--ink)">' + esc(seur.konsepti_nimi) + '</div>';
@@ -11146,6 +11176,12 @@ window._vpSulkuTallenna = async function (uusiAvain) {
   const S = window._vpSulkuTila; if (!S) return;
   const _lause = S.k4 ? window.TM_VIIKKOKATSAUS.tmVkLauseValmentaja(S.lause) : { ok: true, teksti: null };   // K4: lause vartijan läpi ENNEN sulkua; hylätty → lomake jää auki
   if (!_lause.ok) { if (typeof toast === 'function') toast(window.TM_VIIKKOKATSAUS.tmVkLauseVirhe(_lause.syy, { t: vpT }), 'error'); return; }
+  let _tarjous = null;   // K3: tarjous ENNEN sulkua (hylätty → lomake jää auki); tarjous korvaa uuden jakson asetuksen
+  if (S.k3 && S.k3.paalla) {
+    _tarjous = window.TM_REITIN_VALINTA.tmTarjousOlio(S.k3.kortit);
+    if (!_tarjous.ok) { if (typeof toast === 'function') toast(window.TM_REITIN_VALINTA.tmTarjousVirhe(_tarjous.syy, { t: vpT }), 'error'); return; }
+    uusiAvain = '';
+  }
   const p = S.p, jf = S.jf;
   const _fyys = (jf.domeeni === 'fyysinen');
   const kal = window.TM_JAKSOKOOSTE ? window.TM_JAKSOKOOSTE.tmKalibraatio(S.arvioItse, S.arvioAikuis) : null;
@@ -11169,12 +11205,14 @@ window._vpSulkuTallenna = async function (uusiAvain) {
     ohjelma: jf.ohjelma || null,             // §2c: kopioi ohjelma-objekti → annos–vaste-rivi (AI-analyysi)
     tulos: S.tulos, uusi: uusiJf
   }, { nytISO: new Date().toISOString(), periytaLinkki: true, lisakentat: _lause.teksti ? { lause: _lause.teksti } : undefined });   // K4: lause samalle historiariville
+  if (_tarjous) _v.jaksofokus = _tarjous.jaksofokus;   // K3: {tila:'valittavana', vaihtoehdot} — ei alkoi/kestoa (asetetaan vahvistuksessa)
   p.jaksofokus = _v.jaksofokus;
   document.getElementById('_vpSulkuModal')?.remove();
   window._vpSulkuTila = null;
   if (typeof renderJaksofokus === 'function' && _currentWs === 'jaksofokus') renderJaksofokus();
   if (typeof _vpAloitusReRender === 'function') _vpAloitusReRender();
-  await _vpKirjoitaJaksofokus(p, _v, uusiAvain ? 'Jakso suljettu · uusi fokus asetettu' : 'Jakso suljettu');   // YKSI update: jaksofokus + arrayUnion(sulkurivi)
+  await _vpKirjoitaJaksofokus(p, _v, _tarjous ? window.TM_REITIN_VALINTA.tmTeksti('k3_tarjottu_vp', { t: vpT }) : (uusiAvain ? 'Jakso suljettu · uusi fokus asetettu' : 'Jakso suljettu'),
+    _tarjous ? { ydinvahvuus_valinta: firebase.firestore.FieldValue.delete() } : null);   // YKSI update: jaksofokus + arrayUnion(sulkurivi) (+ K3: vanha valinta pois)
 };
 
 // Meso-kehityskaari (jaksotason timeline) — lukee jaksofokus_historia[] (§26). VP/valmentaja-näkymä (§7.22 ei koske).
@@ -18664,7 +18702,7 @@ window._pdcPaatos = function (p, nyt) {
   switch (a.avain) {
     case 'kuorma_tarkista': ulos = toim('kuorma_tarkista', vpT('Jakson kuorma ei sovi kasvuvaiheeseen —'), vpT('tarkista ohjelma ennen jatkoa.')); break;
     case 'review_myohassa': ulos = toim('review_myohassa', vpT('Kehityskeskustelu on'), ps.ylimaaraPv + ' ' + vpT('pv myöhässä — pidä se nyt.')); break;
-    case 'valinta_odottaa': ulos = toim('valinta_odottaa', (ps.pelaaja_nimi ? ps.pelaaja_nimi + ' ' : '') + vpT('valitsi ydinvahvuutensa,'), vpT('vahvista jakso.') + (ps.vastuuhenkilo_nimi ? ' ' + vpT('Vastuuhenkilö') + ': ' + ps.vastuuhenkilo_nimi : '')); break;   // D-1
+    case 'valinta_odottaa': ulos = toim('valinta_odottaa', (ps.pelaaja_nimi ? ps.pelaaja_nimi + ' ' : '') + (ps.reitti ? vpT('valitsi seuraavan reitin,') : vpT('valitsi ydinvahvuutensa,')), vpT('vahvista jakso.') + (ps.vastuuhenkilo_nimi ? ' ' + vpT('Vastuuhenkilö') + ': ' + ps.vastuuhenkilo_nimi : '')); break;   // D-1
     case 'ehdotus_odottaa': ulos = toim('ehdotus_odottaa', vpT('Valmentaja ehdotti uutta kauden tavoitetta —'), vpT('tarkista ja ota käyttöön.'), a.nappi); break;
     case 'sitoumus': ulos = toim('sitoumus', vpT('Pelaaja sitoutui —'), vpT('vahvista sitoumus tälle jaksolle.')); break;
     case 'jakso_umpeutunut': ulos = toim('jakso_umpeutunut', vpT('Jakso on päättynyt —'), vpT('sulje se ja valitse seuraava.')); break;

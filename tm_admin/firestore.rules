@@ -1,16 +1,22 @@
 rules_version = '2';
 // ══════════════════════════════════════════════════════════════════════════
-// TalentMaster™ — firestore.rules v3.44
+// TalentMaster™ — firestore.rules v3.45
 //
 // Lähde:  tm_admin/firestore.rules
 // Deploy: PR → N4-CI deployaa automaattisesti (Console-käsityö poistui).
+//
+// Muutokset v3.44 → v3.45 (pelaajadokumentin `ennatys_nahty` — ennätysjuhlan nähty-merkki, 7.10.2026 — additiivinen, §11; ei migraatiota):
+//   · Ongelma: "Uusi oma ennätys" -ilmoitus (Pelaaja_v7 _naytaUusiEnnatys) toistui, koska nähty-merkki oli vain localStorage:ssa (uusi laite, selain, yksityinen tila, tyhjentyvä PWA-muisti).
+//   · Korjaus: PIN-pelaaja (onPelaajaItse) saa päivittää omaan dokumenttiinsa VAIN kentän `ennatys_nahty` (map { avain: 'YYYY-MM-DD' }; affectedKeys().hasOnly + is map + ≤ 200 avainta). localStorage jää välimuistiksi.
+//     Avaimen/arvon muotoa ei voi tarkistaa säännöissä (ei silmukkaa) → sama anon-luottamusmalli kuin xp/streak; kenttä ei vaikuta mihinkään muuhun kuin juhlan toistoon.
+//   · Ryhmät (D33) siirtyvät v3.46:een (v3.45 = tämä).
 //
 // Muutokset v3.43 → v3.44 (seurat/{sid}/pelaajat/{pid}/viikkokatsaukset/{sunnuntain pvm} — K4, 7.10.2026 — additiivinen, §11; uusi alikokoelma, ei migraatiota):
 //   · Pelaajan sunnuntain viikkokatsaus: { vk, jakso_alkoi, vastaukset:[{osa, teksti, arvo:'usein'|'joskus'|'ei_viela'}], lause?, luotu }. Oma alikokoelma, EI kirjaukset/{pvm}: kirjauksia lukee ainakin seitsemän lukijaa (Vanhempi_v2, Palloliiton viikkoseuranta, VP:n hiljaiset ym.).
 //   · Luku: SA | oman seuran henkilökunta | pelaaja itse. Huoltaja ei lue (K5 lisää tarvittaessa).
 //   · Create: vain pelaaja itse; hasOnly/hasAll-kentät, arvo-enum, 1–3 vastausta, lause ≤ 140, luotu == request.time. Henkilökunta ja huoltaja eivät kirjoita.
 //   · Update ja delete: EI KOSKAAN (yksinkertaisin: yksi vastaus per sunnuntai, ei korjausikkunaa; UI ei näytä korttia vastauksen jälkeen). Päivä on dokumentin id (YYYY-MM-DD), joten kaksoispainallus = toinen create = update = hylätty.
-//   · (Ryhmät D33 siirtyvät v3.45:een.)
+//   · (Ryhmät D33 siirtyvät v3.46:een — v3.45 on ennätysjuhlan nähty-merkki.)
 // Muutokset v3.42 → v3.43 (seurat/{id}/liput/julkiset — K1 osa 2, 7.10.2026 — additiivinen, §11; uusi polku, ei migraatiota):
 //   · seurat/{id}/liput/julkiset = { kentta: bool, … } — seuran PELAAJALLE LUETTAVAT käyttöönottoliput (Kenttä-UI). Syy: seurat/{id} on luettavissa vain onOmaSeura:lle, eikä pelaajan token (pelaajaSeuraId) läpäise sitä.
 //     Dokumentissa EI saa olla mitään pelaajalta piilotettavaa (vain boolean-liput). Yksi totuus: Pelaaja_v7, Master, VP ja V1/J4-polut lukevat tämän; vanha seurat/{id}.liput.kentta on fallback K7:ään asti.
@@ -1129,6 +1135,11 @@ service cloud.firestore {
                       // P7-c.4a — PIN-pelaaja/vanhempi: oma notif-asetus (opt-out / hiljaiset tunnit). Sama anon-luottamusmalli.
                       || (onPelaajaItse(seuraId, pelaajaId) && request.resource.data.diff(resource.data).affectedKeys()
                           .hasOnly(['notif_asetukset']))
+                      // v3.45 — PIN-pelaaja: ennätysjuhlan nähty-merkki ({ avain: 'YYYY-MM-DD' }). VAIN tämä kenttä; map, enintään 200 avainta. localStorage = välimuisti.
+                      || (onPelaajaItse(seuraId, pelaajaId) && request.resource.data.diff(resource.data).affectedKeys()
+                          .hasOnly(['ennatys_nahty'])
+                          && request.resource.data.ennatys_nahty is map
+                          && request.resource.data.ennatys_nahty.size() <= 200)
                       // R6.3-B (v3.37) — PIN-pelaaja: oma valinta (D8, `ydinvahvuus_valinta`; kenttänimi neutraali, sana käännöksistä). VAIN tämä kenttä → pelaaja ei voi kirjoittaa
                       // jaksofokus-kenttää. Muoto rajattu heti: map {vaihtoehto (merkkijono ≤ 60), valittu_pvm (valinnainen, YYYY-MM-DD)}; tiukennetaan kun K3 lukitaan.
                       || (onPelaajaItse(seuraId, pelaajaId) && request.resource.data.diff(resource.data).affectedKeys()

@@ -57,7 +57,7 @@ function ymp({ pelaaja, kentat = {}, demo = false, kaada = false, rooli = 'valme
     firebase: { auth: () => ({ currentUser: {} }), firestore: { FieldValue: { arrayUnion: (...a) => ({ __arrayUnion: a }) } } }, _renderPinfoFirestore: () => { log.renderit++; }, _mIdpReRender: () => { log.renderit++; }, _tmHenkiloNimi: () => 'Topias K.', _mLataaHenkilosto() {},
     _mJaksoVaihto: (pp, jf) => K.tmAsetaJaksofokus(pp, jf, { nytISO: NYT }), document, Object, Array, String, Number, Promise, JSON };
   c.window = c; c.window.TM_JAKSO_MALLI = JM; c.window.TM_VASTUUHENKILO = VH; c.window.TM_ALOITA_JAKSO = AJ; c.window._mHenkilosto = [{ id: 'u-valm', nimi: 'Veera Valmentaja', rooli: 'valmentaja' }, { id: 'u-vp', nimi: 'Vilma VP', rooli: 'vp' }]; vm.createContext(c);
-  vm.runInContext([pura('function _mAloitaJaksoRivi('), pura('function _mAjPelaajaPp('), pura('function _mPelaajaNimiAj('), pura('window._mAloitaJaksoAvaa = async function'), pura('window._mAloitaJaksoSulje = function'), pura('window._mAloitaJaksoTallenna = async function'), pura('async function _mAjKirjoitaJakso(')].join(';\n') + ';', c);
+  vm.runInContext([pura('function _mAloitaJaksoRivi('), pura('function _msK3RiviHTML('), pura('function _mAjPelaajaPp('), pura('function _mPelaajaNimiAj('), pura('window._mAloitaJaksoAvaa = async function'), pura('window._mAloitaJaksoSulje = function'), pura('window._mAloitaJaksoTallenna = async function'), pura('async function _mAjKirjoitaJakso(')].join(';\n') + ';', c);
   return { c, p, log };
 }
 const KENTAT = (lisa) => Object.assign({ _ajTaito: 'y_h2', _ajYv: 'Näkee pelin hyvin', _ajAlue: 'kestävyys', _ajPer: 'Jaksaminen tukee pelin lukemista', _ajKesto: '6', _ajVh: '' }, lisa || {});

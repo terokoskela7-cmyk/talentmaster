@@ -776,6 +776,8 @@ describe('VP_v25 resolvi-portti — jokaisella reititetyllä avaimella on sv-riv
     /* PR G (TK-viitelähde): loppukilpailutaso näkyviin henkilökunnalle alueellisen huipputason rinnalle. sv Gemini-erässä. */
     // D-1 (5.10.2026) — sv Gemini-erässä.
     'valitsi ydinvahvuutensa,',
+    // K3 (7.10.2026) — sv Gemini-erässä.
+    'valitsi seuraavan reitin,',
     'vahvista jakso.',
     'Vastuuhenkilö',
     'loppukilpailutaso ≤',
