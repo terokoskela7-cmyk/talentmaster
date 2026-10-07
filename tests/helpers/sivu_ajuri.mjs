@@ -6,12 +6,13 @@ import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 import { createRequire } from 'module';
 import vm from 'vm';
+process.env.TZ = 'Europe/Helsinki';   // ks. master_pinfo.mjs
 const require = createRequire(import.meta.url);
 const espree = require('espree');
-const juuri = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
+const juuri = process.env.TM_SIVU_JUURI || join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 export function lataaSivu(htmlTiedosto, extra) {
   const src = readFileSync(join(juuri, htmlTiedosto), 'utf8');
-  const KIINTEA = new Date('2026-10-08T10:00:00Z').getTime(); class KDate extends Date { constructor(...a) { if (a.length) super(...a); else super(KIINTEA); } static now() { return KIINTEA; } }
+  const KIINTEA = new Date('2026-10-07T12:00:00+03:00').getTime(); class KDate extends Date { constructor(...a) { if (a.length) super(...a); else super(KIINTEA); } static now() { return KIINTEA; } }
   const ctx = { console: { warn() {}, log() {}, error() {} }, setTimeout: () => 0, clearTimeout() {}, setInterval: () => 0, clearInterval() {}, Date: KDate, Math, JSON, Object, Array, String, Number, Promise, RegExp, Error, isFinite, isNaN, parseFloat, parseInt, Map, Set, Symbol, encodeURIComponent, decodeURIComponent, Boolean, TypeError };
   ctx.window = ctx; ctx.self = ctx; ctx.globalThis = ctx;
   ctx.document = { getElementById: () => null, createElement: () => ({ style: {}, classList: { add() {}, remove() {} } }), querySelector: () => null, querySelectorAll: () => [], addEventListener() {}, body: { appendChild() {}, style: {} }, head: { appendChild() {} }, documentElement: { dataset: {} } };
