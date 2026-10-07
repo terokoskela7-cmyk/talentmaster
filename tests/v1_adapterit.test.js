@@ -96,6 +96,7 @@ describe.each([['master', 'Master_v16'], ['vp', 'VP_v25']])('%s · jakson aloitu
     it('K1 osa 2: liput/julkiset on yksi totuus — {kentta:true} avaa V1-lomakkeen ilman vanhaa lippua, {kentta:false} sulkee vaikka vanha true; ei boolean → vanha fallback', async () => {
       const kokeile = async (seura, julkiset) => { const S = OLETUS(); S.docs['seurat/kpv'] = seura; if (julkiset !== undefined) S.docs['seurat/kpv/liput/julkiset'] = julkiset; const e = rakenna(sov, { rooli, S }); await e.avaa(); return e.log.modalHtml; };
       expect(await kokeile({ nimi: 'KPV' }, { kentta: true })).toContain('data-aj-tuki'); expect(await kokeile({ nimi: 'KPV', liput: { kentta: true } }, { kentta: false })).not.toContain('data-aj-tuki');
+      { const S = OLETUS(); S.docs['seurat/kpv'] = { nimi: 'KPV', liput: { kentta: true } }; S.virhe = (S.virhe || []).concat(['seurat/kpv/liput/julkiset']); const e = rakenna(sov, { rooli, S }); await e.avaa(); expect(e.log.modalHtml).toContain('data-aj-tuki'); }   // julkiset-luku heittää → vanha lippu, modaali aukeaa
       expect(await kokeile({ nimi: 'KPV', liput: { kentta: true } }, { kentta: 'true' })).toContain('data-aj-tuki'); expect(await kokeile({ nimi: 'KPV', liput: { kentta: true } }, undefined)).toContain('data-aj-tuki'); expect(await kokeile({ nimi: 'KPV' }, {})).not.toContain('data-aj-tuki');
     });
     it('LIPPU false / puuttuu / ei tosi → vanha lomake (liput.kentta pitää olla täsmälleen true)', async () => {

@@ -8556,7 +8556,12 @@ async function _vpLataaLiput() {
   if (!_seuraId || _isDemoMode) return {};
   if (window._vpLiput[_seuraId]) return window._vpLiput[_seuraId];
   let l = {};
-  try { const ref = db.collection('seurat').doc(_seuraId), L = window.TM_LIPUT; const [sd, jd] = await Promise.all([ref.get(), ref.collection('liput').doc('julkiset').get().catch(function () { return null; })]); const seura = sd.exists ? sd.data() : null; l = L ? L.tmLiput(jd && jd.exists ? jd.data() : null, seura) : ((seura && seura.liput) || {}); }   // K1 osa 2: liput/julkiset voittaa, vanha seurat.liput.kentta fallback (K7:ään)
+  try {
+    const ref = db.collection('seurat').doc(_seuraId), L = window.TM_LIPUT;
+    // liput/julkiset-luvun virhe (myös synkroninen) tai puuttuva dokumentti → null → fallback vanhaan seurat.liput.kentta; lipun luku EI saa jumittaa eikä kaataa UI:ta
+    const lueJulkiset = async function () { let ajastin = null; try { const jd = await Promise.race([ref.collection('liput').doc('julkiset').get(), new Promise(function (r) { ajastin = setTimeout(function () { r(null); }, 4000); })]); return jd && jd.exists ? jd.data() : null; } catch (e) { return null; } finally { if (ajastin) clearTimeout(ajastin); } };   // 4 s yläraja: roikkuva luku → fallback
+    const [sd, jul] = await Promise.all([ref.get(), lueJulkiset()]); const seura = sd.exists ? sd.data() : null; l = L ? L.tmLiput(jul, seura) : ((seura && seura.liput) || {});
+  }   // K1 osa 2: liput/julkiset voittaa, vanha seurat.liput.kentta fallback (K7:ään)
   catch (e) { console.warn('[V1] liput:', e && e.message); }
   window._vpLiput[_seuraId] = l; return l;
 }

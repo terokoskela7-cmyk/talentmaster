@@ -16,7 +16,7 @@ const TANAAN = (() => { const d = new Date(); return d.getFullYear() + '-' + Str
 const OHJ = [{ id: 'ohjelmat_105_1', nimi: 'Räjähtävä voima', tila: 'hyvaksytty', teema_avain: 'fy_rajahtavyys', lahde: 'seura' }];
 const TEEMAT = L.VL.tmTeemaKerros({ jaksot: [{ id: 'teema_45_1', joukkue: 'KPV U13', alkaa: '2020-01-01', paattyy: '2099-12-31', teema: 'Syöttötaito ja -peli', tila: 'hyvaksytty' }] }, null);
 
-function ymp({ rooli = 'valmentaja', joukkue = 'KPV U13', liput = { kentta: true }, doc: doc0 = { nimi: 'KPV U13', ikaryhma: 'U13' }, kaada = false, verkko = true, sa = false, julkiset = undefined } = {}) {
+function ymp({ rooli = 'valmentaja', joukkue = 'KPV U13', liput = { kentta: true }, doc: doc0 = { nimi: 'KPV U13', ikaryhma: 'U13' }, kaada = false, verkko = true, sa = false, julkiset = undefined, julkisetVirhe = false } = {}) {
   const doc = doc0 ? JSON.parse(JSON.stringify(doc0)) : null;
   const log = { luvut: [], upd: [], toastit: [], token: 0, el: {}, modal: null, uudetKentat: null };
   const el = (id) => (log.el[id] = log.el[id] || { id, innerHTML: '', value: '', style: {}, remove() { delete log.el[id]; if (id === '_mJjModal') log.modal = null; } });
@@ -24,7 +24,7 @@ function ymp({ rooli = 'valmentaja', joukkue = 'KPV U13', liput = { kentta: true
     update: async (u) => { if (kaada) throw new Error('permission-denied'); log.upd.push({ polku: 'seurat/kpv/joukkueet/' + id, data: u });
       Object.keys(u).forEach((k) => { doc[k] = (u[k] && u[k].__arrayUnion) ? (doc[k] || []).concat(JSON.parse(JSON.stringify(u[k].__arrayUnion))) : JSON.parse(JSON.stringify(u[k])); }); } });   // Firestore-käytös: palvelin säilyttää päivityksen
   const db = { collection: (c) => ({ doc: (sid) => ({ get: async () => { log.luvut.push(c + '/' + sid); return { exists: true, data: () => ({ nimi: 'KPV', liput: liput }) }; },
-    collection: (c2) => (c2 === 'liput' ? { doc: (id) => ({ get: async () => { log.luvut.push('liput/' + id); return { exists: julkiset !== undefined, data: () => julkiset }; } }) } : { doc: (id) => jDoc(id) }) }) }) };
+    collection: (c2) => (c2 === 'liput' ? { doc: (id) => ({ get: async () => { log.luvut.push('liput/' + id); if (julkisetVirhe) throw new Error('permission-denied'); return { exists: julkiset !== undefined, data: () => julkiset }; } }) } : { doc: (id) => jDoc(id) }) }) }) };
   const sb = {
     _db: db, _seuraId: 'kpv', _demo: false, _rooli: rooli, _superAdmin: sa, _joukkue: joukkue, masterT: (x) => x, console: { warn() {} }, Date, Object, Array, Promise, Math, JSON, String, Number,
     _mEsc: (s) => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'),
@@ -59,6 +59,8 @@ describe('K1 osa 2 · lippu liput/julkiset (yksi totuus) + vanha seurat.liput.ke
     const avaa = ymp({ liput: {}, julkiset: { kentta: true } }); await avaa.sb._mJjRender(); expect(kortti(avaa)).toContain('Aloita joukkuejakso');
     const kiinni = ymp({ liput: { kentta: true }, julkiset: { kentta: false } }); await kiinni.sb._mJjRender(); expect(kortti(kiinni)).toBe('');
     for (const julkiset of [undefined, {}, { kentta: 'true' }, { muu: true }]) { const e = ymp({ liput: { kentta: true }, julkiset }); await e.sb._mJjRender(); expect(kortti(e), JSON.stringify(julkiset)).toContain('Aloita joukkuejakso'); }
+    // virhe luettaessa liput/julkiset (esim. Rules ei vielä deployattu) → fallback vanhaan lippuun, UI ei jumita
+    const virhe = ymp({ liput: { kentta: true }, julkisetVirhe: true }); await virhe.sb._mJjRender(); expect(kortti(virhe)).toContain('Aloita joukkuejakso'); const virheIlman = ymp({ liput: {}, julkisetVirhe: true }); await virheIlman.sb._mJjRender(); expect(kortti(virheIlman)).toBe('');
     for (const julkiset of [undefined, {}, { kentta: 1 }]) { const e = ymp({ liput: {}, julkiset }); await e.sb._mJjRender(); expect(kortti(e), JSON.stringify(julkiset)).toBe(''); }
   });
 });

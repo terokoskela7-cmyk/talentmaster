@@ -7359,7 +7359,12 @@ async function _mJjLataaLiput() {
   if (!_seuraId || _demo || typeof _db === 'undefined' || !_db) return {};
   if (window._mJjLiput[_seuraId]) return window._mJjLiput[_seuraId];
   let l = {};
-  try { const ref = _db.collection('seurat').doc(_seuraId), L = window.TM_LIPUT; const [sd, jd] = await Promise.all([ref.get(), ref.collection('liput').doc('julkiset').get().catch(function () { return null; })]); const seura = sd.exists ? sd.data() : null; l = L ? L.tmLiput(jd && jd.exists ? jd.data() : null, seura) : ((seura && seura.liput) || {}); }   // K1 osa 2: liput/julkiset voittaa, vanha seurat.liput.kentta fallback (K7:ään)
+  try {
+    const ref = _db.collection('seurat').doc(_seuraId), L = window.TM_LIPUT;
+    // liput/julkiset-luvun virhe (myös synkroninen) tai puuttuva dokumentti → null → fallback vanhaan seurat.liput.kentta; lipun luku EI saa jumittaa eikä kaataa UI:ta
+    const lueJulkiset = async function () { let ajastin = null; try { const jd = await Promise.race([ref.collection('liput').doc('julkiset').get(), new Promise(function (r) { ajastin = setTimeout(function () { r(null); }, 4000); })]); return jd && jd.exists ? jd.data() : null; } catch (e) { return null; } finally { if (ajastin) clearTimeout(ajastin); } };   // 4 s yläraja: roikkuva luku → fallback
+    const [sd, jul] = await Promise.all([ref.get(), lueJulkiset()]); const seura = sd.exists ? sd.data() : null; l = L ? L.tmLiput(jul, seura) : ((seura && seura.liput) || {});
+  }   // K1 osa 2: liput/julkiset voittaa, vanha seurat.liput.kentta fallback (K7:ään)
   catch (e) { console.warn('[J2] liput:', e && e.message); }
   window._mJjLiput[_seuraId] = l; return l;
 }
@@ -7390,7 +7395,7 @@ async function _mJjRender() {
   el.innerHTML = J.tmJoukkuejaksoKorttiHTML(kortti, { esc: _mEsc, t: masterT, avaaFn: '_mJjAvaa', voiMuokata: _mJjSaaMuokata(), nimi: data.nimi || _joukkue });
   // J4 C: "Pelaajien jaksot" vain kun joukkuejakso on käynnissä/tulossa ja käyttäjä saa kirjoittaa
   const ja = document.getElementById('seasonPelaajienJaksot');
-  if (ja) { if (kortti.onJakso && !kortti.umpeutunut && _mJjSaaMuokata() && window.TM_JOUKKOALOITUS) _mJaLaske(); else ja.innerHTML = ''; }
+  if (ja) { if (kortti.onJakso && !kortti.umpeutunut && _mJjSaaMuokata() && window.TM_JOUKKOALOITUS) await _mJaLaske(); else ja.innerHTML = ''; }   // await: _mJjRender() valmistuu vasta kun lista on piirretty (testit odottavat tätä, ei ajastinta)
 }
 function _mJjVoiLuoda() { return !!_superAdmin || ['vp', 'urheilutoimenjohtaja'].indexOf(_rooli) >= 0; }
 window._mJjAvaa = async function () {
@@ -7416,7 +7421,7 @@ window._mJjTallenna = async function () {
     await _db.collection('seurat').doc(_seuraId).collection('joukkueet').doc(d.jid).update(k.update);
     d.data.jaksofokus = k.paikallinen.jaksofokus;   // paikallinen tila vasta onnistumisen jälkeen
     if (k.paikallinen.historiaLisays.length) d.data.jaksofokus_historia = (Array.isArray(d.data.jaksofokus_historia) ? d.data.jaksofokus_historia : []).concat(k.paikallinen.historiaLisays);
-    window._mJjSulje(); _mJjRender();
+    window._mJjSulje(); try { await _mJjRender(); } catch (e) { console.warn('[J2] piirto:', e && e.message); }   // odota piirto (ei sleep-oletuksia); piirron virhe ei muuta tallennuksen tulosta
     if (typeof toast === 'function') toast(masterT('Joukkuejakso tallennettu') + ' ✓', 'ok');
   } catch (e) { console.warn('[J2] kirjoitus:', e && e.message); if (typeof toast === 'function') toast(masterT('Tallennus epäonnistui — tarkista oikeutesi tai yritä uudelleen'), 'error'); }
 };
