@@ -21,13 +21,13 @@ function ymp({ rooli = 'valmentaja', joukkue = 'KPV U13', liput = { kentta: true
   const pdb = JSON.parse(JSON.stringify(pelaajat)), log = { pelaajaUpd: [], luvut: [], upd: [], toastit: [], token: 0, el: {}, modal: null, uudetKentat: null };
   const el = (id) => (log.el[id] = log.el[id] || { id, innerHTML: '', value: '', style: {}, remove() { delete log.el[id]; if (id === '_mJjModal') log.modal = null; } });
   const jDoc = (id) => ({ get: async () => { log.luvut.push('joukkueet/' + id); return { exists: !!doc, data: () => JSON.parse(JSON.stringify(doc)) }; },
-    update: async (u) => { if (kaada) throw new Error('permission-denied'); log.upd.push({ polku: 'seurat/kpv/joukkueet/' + id, data: u });
+    update: async (u) => { if (kaada) throw Object.assign(new Error('Missing or insufficient permissions.'), { code: 'permission-denied' }); log.upd.push({ polku: 'seurat/kpv/joukkueet/' + id, data: u });
       Object.keys(u).forEach((k) => { doc[k] = (u[k] && u[k].__arrayUnion) ? (doc[k] || []).concat(JSON.parse(JSON.stringify(u[k].__arrayUnion))) : JSON.parse(JSON.stringify(u[k])); }); } });   // Firestore-käytös: palvelin säilyttää päivityksen
   const db = { collection: (c) => ({ doc: (sid) => ({ get: async () => { log.luvut.push(c + '/' + sid); return { exists: true, data: () => ({ nimi: 'KPV', liput: liput }) }; },
     collection: (c2) => (c2 === 'pelaajat' ? { where: (kentta, op, arvo) => ({ get: async () => { log.luvut.push('pelaajat?' + kentta + op + arvo); if (haeKaada || log.haeKaada) throw new Error('unavailable'); const rivit = pdb.filter((p) => p.jaksofokus && p.jaksofokus.joukkuejakso_viite && p.jaksofokus.joukkuejakso_viite.jid === arvo); return { docs: rivit.map((p) => ({ id: p.id, data: () => JSON.parse(JSON.stringify(p)) })) }; } }),
       doc: (pid) => ({ update: async (u) => { if ((pelaajaKaada.indexOf(pid) >= 0 || (log.kaadaIdt || []).indexOf(pid) >= 0) && !log.pelaajaSalli) throw new Error('permission-denied'); log.pelaajaUpd.push({ id: pid, data: u }); const p = pdb.find((x) => x.id === pid); const v = u['jaksofokus.joukkuejakso_viite']; if (p && v) p.jaksofokus.joukkuejakso_viite = JSON.parse(JSON.stringify(v)); } }) } : c2 === 'liput' ? { doc: (id) => ({ get: async () => { log.luvut.push('liput/' + id); if (julkisetVirhe) throw new Error('permission-denied'); return { exists: julkiset !== undefined, data: () => julkiset }; } }) } : { doc: (id) => jDoc(id) }) }) }) };
   const sb = {
-    _db: db, _seuraId: 'kpv', _demo: false, _rooli: rooli, _superAdmin: sa, _joukkue: joukkue, masterT: (x) => x, console: { warn() {} }, Date, Object, Array, Promise, Math, JSON, String, Number,
+    _db: db, _seuraId: 'kpv', _demo: false, _rooli: rooli, _superAdmin: sa, _joukkue: joukkue, masterT: (x) => x, console: { warn: (...a) => (log.warn = log.warn || []).push(a) }, TM_VIRHEKOODI: require('../lib/tm_virhekoodi.js'), Date, Object, Array, Promise, Math, JSON, String, Number,
     _mEsc: (s) => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'),
     tmPaivaIso: (d) => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'),
     toast: (t, k) => log.toastit.push([t, k]), _mVerkkoEnnenSulkua: () => verkko, _mTuoreToken: async () => { log.token++; }, _ohjLataaKirjasto: async () => OHJ, _mLataaTeemat: async () => {},
@@ -99,7 +99,8 @@ describe.each([['valmentaja', 'valmentaja'], ['vp', 'vp']])('KPV U13 · %s', (_n
   });
   it('kirjoitus epäonnistuu → ohje-toast (ei hiljaista), paikallinen tila EI muutu, lomake jää auki', async () => {
     const e = ymp({ rooli, kaada: true }); await e.sb._mJjRender(); await e.sb.window._mJjAvaa(); syota(e, LOMAKE); await e.sb.window._mJjTallenna();
-    expect(e.log.toastit.some(([t, k]) => /Tallennus epäonnistui — tarkista oikeutesi/.test(t) && k === 'error')).toBe(true); expect(e.log.modal).toBe(true); expect(kortti(e)).toContain('Joukkueella ei ole jaksoa');
+    expect(e.log.toastit.some(([t, k]) => /Tallennus epäonnistui — tarkista oikeutesi.*\(permission-denied\)$/.test(t) && k === 'error')).toBe(true); expect(e.log.modal).toBe(true);   // D53: koodi toastissa, virhe konsoliin, modaali auki
+    expect(e.log.warn.some((a) => a[0] === '[J2] kirjoitus:')).toBe(true); expect(kortti(e)).toContain('Joukkueella ei ole jaksoa');
   });
   it('joukkuedokumenttia ei ole → ohje, EI kirjoitusyritystä eikä modaalia', async () => {
     const e = ymp({ rooli, doc: null }); await e.sb._mJjRender();

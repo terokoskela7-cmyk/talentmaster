@@ -115,7 +115,8 @@ window.TM_KAAVIO_HOST = {
 <script src="lib/tm_koti_oletus.js?v=1"></script>
 <script src="lib/tm_joukkoaloitus.js?v=2"></script>   <!-- J4 C: joukkoaloitus (Kausi → Pelaajien jaksot) -->   <!-- V1: TM:n oletuskotiharjoitteet (D16: seura ensin, TM varalla); generoitu harjoitelogiikka_v4:stä -->
 <script src="lib/tm_liput.js?v=1"></script>   <!-- K1 osa 2: liput (liput/julkiset + vanha fallback K7:ään) -->
-<script src="lib/tm_aloita_jakso.js?v=5"></script>   <!-- jaettu "Aloita jakso" -modaali (Master + VP) -->
+<script src="lib/tm_aloita_jakso.js?v=6"></script>   <!-- jaettu "Aloita jakso" -modaali (Master + VP) -->
+<script src="lib/tm_virhekoodi.js?v=1"></script>   <!-- tallennusvirheen syy (koodi) toastiin -->
 <script src="lib/tm_vastuuhenkilo.js?v=1"></script>   <!-- vastuuhenkilö per pelaaja (vastuuhenkilo {uid, rooli, asetettu_pvm}); henkilökunnan rivi + asetus -->
 <script src="lib/tm_kehityssilmukka.js?v=2"></script>
 <script src="lib/tm_kielletyt.js?v=1"></script>   <!-- K4: sanavartija jakson päätöksen lauseelle -->
@@ -1162,7 +1163,7 @@ body.nav-drawer-open .nav-burger .nb3 { transform: translateY(-7px) rotate(-45de
 ══════════════════════════════════════════════════════════════ */
 #toast-wrap {
   position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
-  z-index: 500; display: flex; flex-direction: column; gap: 8px; align-items: center;
+  z-index: 10000; display: flex; flex-direction: column; gap: 8px; align-items: center;   /* toast kaikkien modaalien (detail-modal 300, _mAloitaJaksoModal/_mJjModal 9000, sulku 9200 …) yläpuolelle */
 }
 .toast-item {
   display: flex; align-items: center; gap: 12px;
@@ -6408,7 +6409,7 @@ window._ttVieTreeniin = async function (pid, avain) {
     const cu = firebase.auth().currentUser; await _mTuoreToken(cu);
     await _mKirjoitaJaksofokus(p, _v, pid);
     if (typeof toast === 'function') toast(masterT('Jaksofokus viety treeniin ✓ (näkyy VP-aloitusnäkymässä)'), 'ok');
-  } catch (e) { console.warn('[ttVieTreeniin]', e && e.message); if (typeof toast === 'function') toast('Tallennus epäonnistui', 'error'); }
+  } catch (e) { console.warn('[ttVieTreeniin]', e && e.message); if (typeof toast === 'function') toast(((typeof TM_VIRHEKOODI !== 'undefined' && TM_VIRHEKOODI.tmVirheTeksti) || String)(masterT('Tallennus epäonnistui'), e), 'error'); }
 };
 
 // ══════════════════════════════════════════════════════════════════════════
@@ -6609,14 +6610,13 @@ window._msAsetaFyysFokus = async function (pid, teemaAvain) {
   var jf = { konsepti_avain: teemaAvain, konsepti_nimi: teema ? teema.nimi : teemaAvain, konsepti_koodi: null, domeeni: 'fyysinen', lahde: 'silta_d1', alkoi: new Date().toISOString(), kesto_vk: 4, ohjelma: ohjelma };
   if (!_mVerkkoEnnenSulkua()) return;   // offline: lomake jää auki, tietoja ei muuteta
   var _v = _mJaksoVaihto(p, jf);   // R6.0b
-  p.jaksofokus = _v.jaksofokus;
-  document.getElementById('_msFyysModal')?.remove();
-  if (typeof _renderPinfoFirestore === 'function') _renderPinfoFirestore(p);
-  if (_demo || !_seuraId || typeof _db === 'undefined' || !_db) { if (typeof toast === 'function') toast('Fysiikkajakso asetettu (demo)', 'ok'); return; }
+  var _valmis = function () { p.jaksofokus = _v.jaksofokus; document.getElementById('_msFyysModal')?.remove(); if (typeof _renderPinfoFirestore === 'function') _renderPinfoFirestore(p); };   // D53: modaali sulkeutuu vasta onnistuessa
+  if (_demo || !_seuraId || typeof _db === 'undefined' || !_db) { _valmis(); if (typeof toast === 'function') toast('Fysiikkajakso asetettu (demo)', 'ok'); return; }
   try { var cu = firebase.auth().currentUser; await _mTuoreToken(cu);
     await _mKirjoitaJaksofokus(p, _v, pid);
+    _valmis();
     if (typeof toast === 'function') toast(masterT('Fysiikkajakso asetettu ✓') + (ohjelma ? ' + ohjelma' : ''), 'ok');
-  } catch (e) { console.warn('[msAsetaFyysFokus]', e && e.message); if (typeof toast === 'function') toast('Tallennus epäonnistui', 'error'); }
+  } catch (e) { console.warn('[msAsetaFyysFokus]', e && e.message); if (typeof toast === 'function') toast(((typeof TM_VIRHEKOODI !== 'undefined' && TM_VIRHEKOODI.tmVirheTeksti) || String)(masterT('Tallennus epäonnistui'), e), 'error'); }
 };
 window._msFyysSuunnitteleMittaus = function (pid) {
   var p = (typeof _ttPelaaja === 'function') ? _ttPelaaja(pid) : (_pelaajatData || []).find(function (x) { return x.id === pid; });
@@ -7021,10 +7021,13 @@ window._msTallenna = async function (uusiAvain) {
   }, { nytISO: new Date().toISOString(), periytaLinkki: true, lisakentat: _lause.teksti ? { lause: _lause.teksti } : undefined });   // R6.1c: tavoite_alue periytyy vain jos uudella jaksolla ei ole omaa arvoa (lib; valitavoite_idx/poikkeama ei koskaan) · K4: lause samalle historiariville
   if (!_mVerkkoEnnenSulkua()) return;   // offline: sulkulomake jää auki, historiaa ei muuteta
   if (_tarjous) v.jaksofokus = _tarjous.jaksofokus;   // K3: {tila:'valittavana', vaihtoehdot} — ei alkoi/kestoa (asetetaan vahvistuksessa)
-  p.jaksofokus = v.jaksofokus;
-  document.getElementById('_msSulkuModal')?.remove(); window._msSulkuTila = null;
-  if (typeof _renderPinfoFirestore === 'function') _renderPinfoFirestore(p);
+  var _valmis = function () {   // D53: lokaali tila + modaalin sulku VASTA onnistumisen jälkeen (virheessä modaali jää auki, syötetty data säilyy)
+    p.jaksofokus = v.jaksofokus;
+    document.getElementById('_msSulkuModal')?.remove(); window._msSulkuTila = null;
+    if (typeof _renderPinfoFirestore === 'function') _renderPinfoFirestore(p);
+  };
   if (_demo || !_seuraId || typeof _db === 'undefined' || !_db) {
+    _valmis();
     p.jaksofokus_historia = (Array.isArray(p.jaksofokus_historia) ? p.jaksofokus_historia : []).concat(v.historiaLisays);   // demo: vain lokaali
     if (_tarjous) delete p.ydinvahvuus_valinta;
     if (typeof toast === 'function') toast('Jakso suljettu (demo — ei kirjoitettu)', 'ok'); return;
@@ -7034,8 +7037,9 @@ window._msTallenna = async function (uusiAvain) {
     // YKSI update(): jaksofokus (uusi tai null) + jaksofokus_historia arrayUnion(sulkurivi) — vain LISÄÄ rivin (ei koko paikallisen taulukon kirjoitusta)
     await _mKirjoitaJaksofokus(p, v, p.id, _tarjous ? { ydinvahvuus_valinta: firebase.firestore.FieldValue.delete() } : null);
     if (_tarjous) delete p.ydinvahvuus_valinta;   // lokaali vasta onnistumisen jälkeen
+    _valmis();
     if (typeof toast === 'function') toast(_tarjous ? window.TM_REITIN_VALINTA.tmTeksti('k3_tarjottu', { t: masterT }) : (uusiAvain ? masterT('Jakso suljettu · uusi fokus asetettu ✓') : masterT('Jakso suljettu ✓')), 'ok');
-  } catch (e) { console.warn('[msTallenna]', e && e.message); if (typeof toast === 'function') toast('Tallennus epäonnistui', 'error'); }
+  } catch (e) { console.warn('[msTallenna]', e); if (typeof toast === 'function') toast(((typeof TM_VIRHEKOODI !== 'undefined' && TM_VIRHEKOODI.tmVirheTeksti) || String)(masterT('Tallennus epäonnistui'), e), 'error'); }   // D53: virhe näkyy aina (toast + koodi + konsoli); modaali auki
 };
 // Meso-kehityskaari (jaksofokus_historia §26). Valmentaja-näkymä (§7.22 ei koske).
 function _msMesoKaariHTML(p) {
@@ -7308,6 +7312,19 @@ function _mTeemaRivi(p) {
 }
 /* D-3 — JAKSON ALOITUS (valmentaja/VP; 6.10.2026): ydinvahvuus (pelaajan valinta vahvistettuna tai oma), tukiosa {alue, perustelu}, kesto ikävaiheen mukaan (D7), vastuuhenkilö.
    Avaa myös #823:n "Liitä jakson kotiharjoitteiksi" (tukiosa syntyy tässä). EI: katselmukset, jakson sulku, joukkuejakso, automaattinen ehdotus. YKSI update (jaksofokus + historia + ydinvahvuus + vastuuhenkilö). */
+/* Pelaajakortin otsikkoalueen jaksonapit (Kenttä-lipun takana): YKSI nappi tmJaksoNappi(p):n mukaan + "Sulje jakso" kun jakso käynnissä. Samat funktiot kuin vanhassa rivissä (_mAloitaJaksoAvaa, _msSuljeJakso). Vanha rivi (_mAloitaJaksoRivi) jää. */
+function _mJaksoNapitHTML(p) {
+  if (!p || !p.id || _demo || !window.TM_ALOITA_JAKSO || typeof window.TM_ALOITA_JAKSO.tmJaksoNapitHTML !== 'function') return '';
+  setTimeout(async function () {
+    const el = document.getElementById('mJaksoNapit_' + p.id); if (!el) return;
+    try {
+      if (typeof _mIdpVoiMuokata === 'function' && !_mIdpVoiMuokata(p)) return;
+      const liput = await _mJjLataaLiput(); if (liput.kentta !== true) return;
+      const e2 = document.getElementById('mJaksoNapit_' + p.id); if (e2) e2.innerHTML = window.TM_ALOITA_JAKSO.tmJaksoNapitHTML(p, { esc: _mEsc, t: masterT, avaaFn: '_mAloitaJaksoAvaa', suljeFn: '_msSuljeJakso' });
+    } catch (e) { console.warn('[jaksonapit]', e && e.message); }
+  }, 0);
+  return '<div id="mJaksoNapit_' + _mEsc(p.id) + '" style="margin-top:8px"></div>';
+}
 function _mAloitaJaksoRivi(p, editable) {
   if (!p || !editable || !window.TM_ALOITA_JAKSO) return '';
   return '<div class="tm-aloita-jakso" style="margin:6px 0"><button type="button" data-aloita-jakso onclick="event.stopPropagation();_mAloitaJaksoAvaa(\'' + _mEsc(p.id) + '\')" style="font-size:12px;font-weight:600;border-radius:8px;padding:7px 12px;cursor:pointer;border:.5px solid var(--teal);background:transparent;color:var(--teal)">'
@@ -7385,7 +7402,7 @@ async function _mAjKirjoitaJakso(p, tulos, vh, opts) {
     await _db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(p.id).update(AJ.tmAloitaJaksoKirjoitus(v, tulos, vh, { arrayUnion: function () { return firebase.firestore.FieldValue.arrayUnion.apply(null, arguments); } }));
     paivita();   // paikallinen tila vasta onnistumisen jälkeen
     ilmoita(masterT('Jakso aloitettu') + ' ✓', 'ok'); return { ok: true };
-  } catch (e) { console.warn('[aloitaJakso]', e && e.message); ilmoita(masterT('Tallennus epäonnistui — tarkista oikeutesi tai yritä uudelleen'), 'error'); return { ok: false, syy: (e && e.code === 'permission-denied') ? 'ei oikeutta' : 'tallennus epäonnistui' }; }
+  } catch (e) { console.warn('[aloitaJakso]', e && e.message); ilmoita(((typeof TM_VIRHEKOODI !== 'undefined' && TM_VIRHEKOODI.tmVirheTeksti) || String)(masterT('Tallennus epäonnistui — tarkista oikeutesi tai yritä uudelleen'), e), 'error'); return { ok: false, syy: (e && e.code === 'permission-denied') ? 'ei oikeutta' : 'tallennus epäonnistui' }; }
 }
 /* ═══ J4 C — JOUKKOALOITUS (D32): Kausi → Joukkueen jakso → "Pelaajien jaksot". Ehdotuksia EI tallenneta: lasketaan lennossa V1:n funktioilla (lib/tm_joukkoaloitus.js → tmAloitaJaksoTuki).
    Hyväksy = V1-modaalin oletustallennus (YKSI update/pelaaja, _mAjKirjoitaJakso). Hyväksy kaikki: peräkkäin (EI batchia — yksi hylätty kirjoitus ei kaada muita), edistyminen + epäonnistuneet lopuksi. Lippu: kortti (J2) näkyy vain liput.kentta === true. */
@@ -7515,7 +7532,7 @@ window._mJjTallenna = async function () {
     window._mJjSulje(); try { await _mJjRender(); } catch (e) { console.warn('[J2] piirto:', e && e.message); }   // odota piirto (ei sleep-oletuksia); piirron virhe ei muuta tallennuksen tulosta
     if (synkka.virheita > 0) { if (typeof toast === 'function') toast(masterT('Joukkuejakso tallennettu') + ' — ' + masterT('{n} pelaajan viikkotavoite ei päivittynyt, yritä uudelleen').replace('{n}', String(synkka.virheita)), 'error'); return; }
     if (typeof toast === 'function') toast(masterT('Joukkuejakso tallennettu') + ' ✓', 'ok');
-  } catch (e) { console.warn('[J2] kirjoitus:', e && e.message); if (typeof toast === 'function') toast(masterT('Tallennus epäonnistui — tarkista oikeutesi tai yritä uudelleen'), 'error'); }
+  } catch (e) { console.warn('[J2] kirjoitus:', e && e.message); if (typeof toast === 'function') toast(((typeof TM_VIRHEKOODI !== 'undefined' && TM_VIRHEKOODI.tmVirheTeksti) || String)(masterT('Tallennus epäonnistui — tarkista oikeutesi tai yritä uudelleen'), e), 'error'); }
 };
 /* K1 / A (docs/CODE_BRIEF_K1_TAMAN_TUEKSI.md §3): joukkuejakson snapshot pelaajien jaksoihin (jaksofokus.joukkuejakso_viite). Pelaajat haetaan TUOREENA Firestoresta (jid-haku; alku suodatetaan libissä EDELTÄVÄLLÄ parilla),
    kirjoitus pelaajakohtaisesti rinnakkain (tmRinnakkain; yksi epäonnistunut ei kaada muita) valmentajan oikeuksin (Rules v3.42 ennallaan: onOmanJoukkueenValmentaja/johto). Virheet jäävät näkyviin kortin yläpuolelle + Yritä uudelleen. */
@@ -7536,7 +7553,7 @@ window._mJjSynkkaUudelleen = async function () {
   const v = window._mJjSynkkaVirhe; if (!v || window._mJjSynkkaAjossa) return; window._mJjSynkkaAjossa = true;
   try { if (!_mVerkkoEnnenSulkua()) return; await _mTuoreToken(firebase.auth().currentUser); window._mJjSynkkaVirhe = null; const r = await _mJjSynkkaPelaajiin(v.vanha, v.jid, v.jDoc);
     if (typeof toast === 'function') toast(r.virheita ? masterT('{n} pelaajan viikkotavoite ei päivittynyt, yritä uudelleen').replace('{n}', String(r.virheita)) : masterT('Viikkotavoitteet päivitetty') + ' ✓', r.virheita ? 'error' : 'ok');
-  } catch (e) { window._mJjSynkkaVirhe = v; console.warn('[K1] synka uudelleen:', e && e.message); if (typeof toast === 'function') toast(masterT('Tallennus epäonnistui — tarkista oikeutesi tai yritä uudelleen'), 'error'); }
+  } catch (e) { window._mJjSynkkaVirhe = v; console.warn('[K1] synka uudelleen:', e && e.message); if (typeof toast === 'function') toast(((typeof TM_VIRHEKOODI !== 'undefined' && TM_VIRHEKOODI.tmVirheTeksti) || String)(masterT('Tallennus epäonnistui — tarkista oikeutesi tai yritä uudelleen'), e), 'error'); }
   finally { window._mJjSynkkaAjossa = false; _mJjRender(); }
 };
 /* Vastuuhenkilö (additiivinen kenttä vastuuhenkilo {uid, rooli, asetettu_pvm}). Rivi IDP-kortin yläosassa; asettaa joukkueen valmentaja / VP / UTJ / talenttivalmentaja (editable = oikeus pelaajaan;
@@ -8200,6 +8217,7 @@ function _renderPinfoFirestore(p) {
     <div style="grid-column:1/-1">
       <div class="pinfo-name serif">${nimi}</div>
       <div class="pinfo-sub">${ika} · ${p.pelipaikka||'—'} · ${p.joukkue||_joukkue||'—'}${testPvm ? ' · <span style="color:var(--ink3)">' + masterT('testattu ') + testPvm+'</span>' : ''}</div>
+      ${_mJaksoNapitHTML(p)}
     </div>
     ${_identHtml}
     ${lisaHtml}
@@ -8453,6 +8471,7 @@ function _renderPinfo(p) {
     el.innerHTML = '<div style="grid-column:1/-1">'
       + '<div class="pinfo-name serif">' + _mEsc(p.name || '') + '</div>'
       + '<div class="pinfo-sub">' + _mEsc(p.pos || '') + ' · ' + _mEsc(p.num || '') + '</div>'
+      + _mJaksoNapitHTML(p)
       + (suuntaSana
         ? '<div class="pstat-delta" style="margin-top:8px;color:var(--ink2)">'
           + masterT('Suunta') + ' · ' + suuntaSana + '</div>'

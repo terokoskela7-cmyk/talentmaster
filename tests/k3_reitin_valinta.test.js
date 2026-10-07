@@ -274,7 +274,7 @@ describe('Kytkennät (lähdetarkistukset): lippu pois → ennallaan; kirjoituspo
     });
   }
   it('VP: tarjouksen nimi kanonisesta (fi) kirjoituspolusta (§32); Master: tarjouksen osio + pelaajalistan rivitila (_mAloitaJaksoRivi)', () => {
-    expect(VP).toMatch(/k\.nimi = _vpJfKanonNimi\(k\.avain, 'teknis_taktinen'\)/); expect(MASTER).toMatch(/_msK3RiviHTML\(p\)/); expect(MASTER).toMatch(/async function _mKirjoitaJaksofokus\(p, v, pid, extra\)/); expect(VP).toMatch(/async function _vpKirjoitaJaksofokus\(p, v, viesti, extra\)/);
+    expect(VP).toMatch(/k\.nimi = _vpJfKanonNimi\(k\.avain, 'teknis_taktinen'\)/); expect(MASTER).toMatch(/_msK3RiviHTML\(p\)/); expect(MASTER).toMatch(/async function _mKirjoitaJaksofokus\(p, v, pid, extra\)/); expect(VP).toMatch(/async function _vpKirjoitaJaksofokus\(p, v, viesti, extra, onnistui\)/);
   });
   it('tmVkPaatosHTML: lisaHTML päätöskortin sisään; ilman päätöskorttia oma kortti; ilman lisää ennallaan', () => {
     const x = { tila: 'lause', nimi: 'Kuljettaminen', lause: 'Hyvä jakso' };

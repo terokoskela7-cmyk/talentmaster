@@ -34,7 +34,7 @@ function fakeDb(S, log) {
       if (S.cols[path]) { const rivit = S.cols[path].filter((d) => !ehto || d[ehto.split('=')[0]] === ehto.split('=')[1]); return { size: rivit.length, docs: rivit.map((d, i) => ({ id: d.id || ('d' + i), data: () => clone(d) })) }; }
       return { exists: false, data: () => undefined, size: 0, docs: [] };
     },
-    update: async (u) => { if (S.kaada) throw new Error('permission-denied'); log.upd.push({ polku: path, data: u }); },
+    update: async (u) => { if (S.kaada) throw Object.assign(new Error('Missing or insufficient permissions.'), { code: 'permission-denied' }); log.upd.push({ polku: path, data: u }); },
     collection: (c) => node(path ? path + '/' + c : c), doc: (d) => node(path ? path + '/' + d : d), where: (f, op, v) => node(path, f + '=' + v),
   });
   return node('');
@@ -56,13 +56,13 @@ const kehys = (k) => ({ avain: k, nimi: k, asteikko: L.TAKS.TM_ARVIOINTI_ASTEIKK
 
 function rakenna(sovellus, { pelaaja, kentat = {}, rooli = 'valmentaja', sa = false, S = OLETUS(), verkko = true, ika = 13 } = {}) {
   const master = sovellus === 'master', SRC = master ? MA : VP;
-  const log = { upd: [], luvut: [], toastit: [], modal: null, modalHtml: null, renderit: 0, el: kentat };
+  const log = { upd: [], luvut: [], toastit: [], warn: [], modal: null, modalHtml: null, renderit: 0, el: kentat };
   const p = TOPIAS(pelaaja);
   const db = fakeDb(S, log);
   const elementti = (id) => (id in kentat ? { value: kentat[id], type: /^_ajTt[VH]_/.test(id) ? 'checkbox' : 'text', checked: kentat[id] === '1' } : null);
   const modalId = master ? '_mAloitaJaksoModal' : '_vpAloitaJaksoModal';
   const document = { getElementById: (id) => (id === modalId ? (log.modal ? { remove() { log.modal = null; } } : null) : elementti(id)), createElement: () => ({ set innerHTML(h) { this._h = h; log.modalHtml = h; }, get firstChild() { return { _h: this._h }; } }), body: { appendChild: (x) => { log.modal = x._h; } } };
-  const yht = { Object, Array, String, Number, Promise, JSON, Math, Date, console: { warn() {} }, document, toast: (t, k) => log.toastit.push([t, k]), tmPaivaIso: pvmIso, tmKehys: kehys,
+  const yht = { Object, Array, String, Number, Promise, JSON, Math, Date, console: { warn: (...a) => log.warn.push(a) }, TM_VIRHEKOODI: require('../lib/tm_virhekoodi.js'), document, toast: (t, k) => log.toastit.push([t, k]), tmPaivaIso: pvmIso, tmKehys: kehys,
     firebase: { auth: () => ({ currentUser: {} }), firestore: { FieldValue: { arrayUnion: (...a) => ({ __arrayUnion: a }) } } }, _tmHenkiloNimi: () => 'Topias K.' };
   let c;
   if (master) {
@@ -134,6 +134,9 @@ describe.each([['master', 'Master_v16'], ['vp', 'VP_v25']])('%s · jakson aloitu
     it('KIRJOITUS EPÄONNISTUU → paikallinen tila EI muutu (ei valheellista onnistumista)', async () => {
       const S = OLETUS(); S.kaada = true; const e = rakenna(sov, { rooli, S, kentat: KENTAT({ _ajTtV_0: '1', _ajTtP_0: 'Kehonhallinta pitää liikkeen sujuvana' }) }); await e.avaa(); await e.tallenna(); await lopeta();
       expect(e.log.upd).toEqual([]); expect(e.p.jaksofokus).toBeUndefined(); expect(e.log.toastit.some(([, k]) => k === 'error')).toBe(true);
+      // D53: modaali jää auki virheen jälkeen (syötetty data ei katoa); Master näyttää koodin toastissa ja kirjaa virheen konsoliin (VP:n kirjoittaja _vpJfKirjoita testataan r6_1c:ssä)
+      expect(e.log.modal).toBeTruthy();
+      if (sov === 'Master') { expect(e.log.toastit.at(-1)[0]).toContain('(permission-denied)'); expect(e.log.warn.some((a) => a[0] === '[aloitaJakso]')).toBe(true); }
     });
     it('YKSI LÄHDE EPÄONNISTUU (tai kaikki) → modaali aukeaa silti, lähde jää pois; lippu luettu mutta konteksti tyhjä → "Kirjoita oma" toimii', async () => {
       const polut = ['seurat/kpv/joukkueet/kpv_u13', 'seurat/kpv/pelaajat/' + PID + '/havainnot', 'seurat/kpv/konfiguraatio/arviointi', 'seurat/kpv/konfiguraatio/prosessiprofiili', 'seurat/kpv/harjoitepankki'];
@@ -167,7 +170,7 @@ describe.each([['master', 'Master_v16'], ['vp', 'VP_v25']])('%s · jakson aloitu
 describe('sovellusten lähdetaso', () => {
   it('molemmat lataavat uudet libit ja nostetut ?v-versiot; lippu luetaan seura-dokumentista; arviointikehys vain tmKehys():llä (ei arviointikehys/seura)', () => {
     for (const [nimi, SRC] of [['Master', MA], ['VP', VP]]) {
-      expect(SRC, nimi).toContain('<script src="lib/tm_aloita_jakso.js?v=5"></script>'); expect(SRC, nimi).toContain('<script src="lib/tm_koti_oletus.js?v=1"></script>'); expect(SRC, nimi).toContain('<script src="lib/tm_tukitavoitteet.js?v=3"></script>'); expect(SRC, nimi).toContain('<script src="lib/tm_jakso_malli.js?v=2"></script>'); expect(SRC, nimi).toContain('<script src="lib/tm_idp.js?v=12"></script>');
+      expect(SRC, nimi).toContain('<script src="lib/tm_aloita_jakso.js?v=6"></script>'); expect(SRC, nimi).toContain('<script src="lib/tm_koti_oletus.js?v=1"></script>'); expect(SRC, nimi).toContain('<script src="lib/tm_tukitavoitteet.js?v=3"></script>'); expect(SRC, nimi).toContain('<script src="lib/tm_jakso_malli.js?v=2"></script>'); expect(SRC, nimi).toContain('<script src="lib/tm_idp.js?v=12"></script>');
       expect(SRC, nimi).toContain('tmKehys(avain || \'palloliitto\')'); expect(SRC, nimi).toContain('Promise.all(['); expect(SRC, nimi).toMatch(/liput\.kentta === true/);
       expect(SRC, nimi).not.toMatch(/collection\('arviointikehys'\)/);
     }
