@@ -724,7 +724,8 @@ describe('(18) Arvioi-tilan DOM ei sisällä seuran arvoja missään osiossa', (
 /* ══ (19) TILA EI SIIRRY PELAAJALTA TOISELLE ══════════════════════════════ */
 describe('(19) arviointitila nollautuu pelaajakortin avauksessa', () => {
   it('avaus nollaa tilan, varmuuden, kontekstin ja oman kerran', () => {
-    const f = pura('window._avaaPerPelaajaPikakatsaus = function(idx, joukkueNimi) {');
+    const f = pura('function _vpKorttiValmista(');   // V4b-1: nollaus erotettiin omaksi funktioksi (vanha modaali + Näyttö); wrapper kutsuu sitä
+    expect(pura('window._avaaPerPelaajaPikakatsaus = function(idx, joukkueNimi) {')).toContain('_vpKorttiValmista(p);');
     expect(f).toContain("window._vpArvTila = 'katso';");
     expect(f).toContain('window._vpArvVarmuus = null;');
     expect(f).toContain('window._vpArvKonteksti = null;');
@@ -733,7 +734,7 @@ describe('(19) arviointitila nollautuu pelaajakortin avauksessa', () => {
 
   it('pelaaja A Arvioi + vahva → pelaaja B avautuu Katso-tilassa ja iän mukaisella oletuksella', () => {
     const win = { _vpArvTila: 'arvioi', _vpArvVarmuus: 'vahva', _vpArvKonteksti: { tyyppi: 'ottelu', pelipaikka: 'KP' }, _vpArvOmaKerta: { pid: 'A' } };
-    const runko = pura('window._avaaPerPelaajaPikakatsaus = function(idx, joukkueNimi) {');
+    const runko = pura('function _vpKorttiValmista(') + '\n' + pura('window._avaaPerPelaajaPikakatsaus = function(idx, joukkueNimi) {');
     win._jsvPelaajat = [{ id: 'B', joukkue: 'SJK P13' }];
     const store = {
       window: win, document: { getElementById: () => null },

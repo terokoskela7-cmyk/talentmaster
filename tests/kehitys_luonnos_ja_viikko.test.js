@@ -497,7 +497,8 @@ describe('(8) Rivit lukevat voimassa olevaa tavoitetta', () => {
   });
 
   it('cockpitin avaus nollaa tallentamattoman luonnoksen', () => {
-    const src = pura('window._avaaPerPelaajaPikakatsaus = function(idx, joukkueNimi)');
+    const src = pura('function _vpKorttiValmista(');   // V4b-1: nollaus erotettu (vanha modaali + Näyttö käyttävät samaa)
+    expect(pura('window._avaaPerPelaajaPikakatsaus = function(idx, joukkueNimi)')).toContain('_vpKorttiValmista(p);');
     expect(src).toContain('_vpTyhjennaLuonnos(p)');
     expect(src).toContain('!p._luonnosTallennettu');
   });

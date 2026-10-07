@@ -10968,9 +10968,16 @@ function _ktPolkuHTML(p) {   // Polku = olemassa oleva kausi → jakso → viikk
   if (typeof _vpViikkoHTML === 'function') h += '<div id="_vpPolkuViikko" style="margin-top:18px;border-top:.5px solid var(--border);padding-top:12px">' + _vpViikkoHTML(p) + '</div>';
   return '<div id="_jspTab3">' + h + '</div>';
 }
-function _ktNayttoHTML(p) {   // Näyttö = Arviointi (slot-id _jspTab5, _vpArvReRender-koukut) + aiemmat jaksot; testit/mittaus siirtyvät myöhemmin
-  window._vpArvPelaaja = p; if (typeof _vpLataaArviointiKehys === 'function') _vpLataaArviointiKehys();
-  return '<div id="_jspTab5">' + ((typeof _vpArviointiHTML === 'function') ? _vpArviointiHTML(p) : '') + '</div>' + ((typeof _vpMesoKaariHTML === 'function') ? _vpMesoKaariHTML(p) : '');
+function _ktOsio(otsikko) { return '<div class="kt-otsikko-pieni" style="margin:18px 0 6px">' + _jsvEsc(vpT(otsikko)) + '</div>'; }
+/* V4b-1 (mockup 18 §7, 13 §6): vanhan kortin sisältö Näyttöön — SAMA koodi kuin vanhassa modaalissa (_vpKorttiRakenna vainOsat-tilassa), ei kopioita.
+   Perustiedot + 5D-profiili (hL) · Kasvu ja kypsyys (PHV, bioikä, kasvutahti, testipäivät) · Mittaukset (Fyysinen/Tekninen mitattu, kehon valmius, mittauslista) · Pelihavainnot ja arviointi (_jspTab5). Luvut vain henkilökunnalle. Ladataan vasta avattaessa. */
+function _ktNayttoHTML(p) {
+  _vpKorttiValmista(p); window._vpArvPelaaja = p;
+  const o = _vpKorttiRakenna(p, p.joukkue || '', 0, 1, true); _ktS.nayttoIka = o.ika;
+  return '<div class="kt-nayttö" data-kt-nayttö>' + _ktOsio('Perustiedot ja 5D-profiili') + '<div class="kt-kortti">' + o.hL + '</div>'
+    + _ktOsio('Kasvu ja kypsyys') + '<div class="kt-kortti">' + o.kasvuHTML + '</div>'
+    + _ktOsio('Mittaukset') + '<div id="_jspTab1">' + o.mittausHTML + '</div>'
+    + _ktOsio('Pelihavainnot ja arviointi') + '<div id="_jspTab5">' + o.arviointiHTML + '</div></div>';
 }
 function _ktKehys(p) {
   const K = window.TM_KEHITYSTYOPOYTA, AJ = window.TM_ALOITA_JAKSO, S = _ktS;
@@ -10992,6 +10999,7 @@ function _ktNayta() {
   if (!p) { _ktAsetaHTML(K.tmKtEiLoydyHTML(_ktOpts())); return; }
   if (!H.tmPelaajaOikeus(p, _ktOikeusCtx()).ok) { _ktAsetaHTML(K.tmKtEiOikeuttaHTML(_ktOpts())); return; }   // näkymä tarkistaa oikeuden itse (D46 #3); Rules tekee saman
   _ktAsetaHTML(_ktKehys(p));
+  if (S.ladattu.naytto && typeof _vpKorttiHydratoi === 'function') _vpKorttiHydratoi(document.getElementById('ktNakyma'), p, _ktS.nayttoIka, { viikko: false });   // kypsyys-komponentti + testitulosten sparklinet + mittauslista (yksi luku, vasta Näyttöä avattaessa)
 }
 function _ktPaivita() { if (window._ktLippu && _ktS.pid && document.getElementById('ktNakyma')) _ktNayta(); }   // jakson tallennus → otsikkorivi + tila päivittyvät
 function _ktReitti(r) {
@@ -15231,14 +15239,8 @@ function _vpKehonValmiusHTML(p) {
   h += (typeof renderFleiKortti === 'function') ? renderFleiKortti(p) : '';
   return h;
 }
-window._avaaPerPelaajaPikakatsaus = function(idx, joukkueNimi) {
-  if (window._ktLippu && typeof window._ktAvaaIdx === 'function' && window._ktAvaaIdx(idx)) return;   // V4a: lipulla koko ruudun näkymä (URL #pelaaja/{pid}/tanaan); vanha pelaajamodaali vain lipun ollessa pois
-  const lista = window._jsvPelaajat || [];
-  const nP = lista.length;
-  if (!nP) return;
-  idx = ((idx % nP) + nP) % nP;                 // kierrä listan ympäri
-  const p = lista[idx];
-  if (!p) return;
+/* V4b-1: kortin avauksen tilanollaus (vanha modaali + uusi Näyttö): luonnos, jaksonäkymän tila, arviointitila nollautuvat pelaajaa vaihdettaessa. */
+function _vpKorttiValmista(p) {
   /* Vaihe 1.1 — cockpitin avaus nollaa TALLENTAMATTOMAN luonnoksen: suljetun cockpitin luonnos ei saa jäädä
      elämään muistiin. Firestoresta ladattu ehdotus (_luonnosTallennettu) säilyy — se on tallennettua dataa. */
   if (p._idpLuonnos && !p._luonnosTallennettu && typeof _vpTyhjennaLuonnos === 'function') _vpTyhjennaLuonnos(p);
@@ -15252,8 +15254,22 @@ window._avaaPerPelaajaPikakatsaus = function(idx, joukkueNimi) {
   window._vpArvOmaKerta = null;
   window._vpArvKerrat = null;   // H1b: arvioijat ladataan uudelleen seuraavalle pelaajalle
   p._kehRenderTunnus = undefined;
+}
+window._avaaPerPelaajaPikakatsaus = function(idx, joukkueNimi) {
+  if (window._ktLippu && typeof window._ktAvaaIdx === 'function' && window._ktAvaaIdx(idx)) return;   // V4a: lipulla koko ruudun näkymä (URL #pelaaja/{pid}/tanaan); vanha pelaajamodaali vain lipun ollessa pois
+  const lista = window._jsvPelaajat || [];
+  const nP = lista.length;
+  if (!nP) return;
+  idx = ((idx % nP) + nP) % nP;                 // kierrä listan ympäri
+  const p = lista[idx];
+  if (!p) return;
+  _vpKorttiValmista(p);
   const vanha = document.getElementById('_jspModal'); if (vanha) vanha.remove();
-
+  _vpKorttiRakenna(p, joukkueNimi, idx, nP, false);
+};
+/* V4b-1: pelaajakortin sisältö YHDESSÄ paikassa. Vanha modaali (vainOsat=false) ja uusi Näyttö (vainOsat=true → palauttaa lohkot, ei DOM-kirjoitusta) käyttävät samaa koodia →
+   sisältö ei kopioidu eikä vanha kortti muutu (tests/v4b1_naytto.test.js: snapshot ennen/jälkeen erottamisen). */
+function _vpKorttiRakenna(p, joukkueNimi, idx, nP, vainOsat) {
   const jesc = String(joukkueNimi).replace(/['"\\]/g, '');
   const isp = _dimIkaSp(joukkueNimi, p);
   const ika = isp.ika, sp = isp.sp;
@@ -15857,15 +15873,16 @@ window._avaaPerPelaajaPikakatsaus = function(idx, joukkueNimi) {
      disclosuresta. Mitaan ei poistettu — toisto siirtyi yhteen paikkaan yhden klikkauksen taakse. */
   const _mitPerustelu = (typeof _vpMittausLinssiHTML === 'function' ? _vpMittausLinssiHTML(p, ika, true) : '')
     + (typeof _vpMittausSynthHTML === 'function' ? _vpMittausSynthHTML(p, ika, d1, d2, tsi) : '');
-  hR += '<div id="_jspTab1" style="display:none">'
-    + (typeof _vpMittausTuoreusHTML === 'function' ? _vpMittausTuoreusHTML(p, ika) : '')
+  const _mittausHTML = (typeof _vpMittausTuoreusHTML === 'function' ? _vpMittausTuoreusHTML(p, ika) : '')
     + (typeof _vpMittausKypsyysHTML === 'function' ? _vpMittausKypsyysHTML(p) : '')
     + (typeof _vpMittausTiivistysHTML === 'function' ? _vpMittausTiivistysHTML(p, ika, d1, d2, tsi) : '')
     + '<div class="mit-cols"><div>' + _mSub(vpT('Fyysinen · mitattu')) + f1 + '</div><div>' + _mSub(vpT('Tekninen · mitattu')) + f2 + '</div></div>'
     + (_mitPerustelu.trim() ? _vpDiscHTML('_c2MitPerustelu', vpT('Näytä koko kypsyysperustelu'), vpT('Näytä vähemmän'), _mitPerustelu) : '')
     + _mErot + _mSub(vpT('Kehon valmius')) + (typeof _vpKehonValmiusHTML === 'function' ? _vpKehonValmiusHTML(p) : '')
     + (typeof _vpMittausNextStepHTML === 'function' ? _vpMittausNextStepHTML(p) : '')
-    + '<div id="_jspMittausLista" style="margin-top:6px"></div></div>';   // E2.1 — muokattava mittauslista (async-hydratoitu; renderöi yhteenvedon alle)
+    + '<div id="_jspMittausLista" style="margin-top:6px"></div>';   // E2.1 — muokattava mittauslista (async-hydratoitu; renderöi yhteenvedon alle)
+  hR += '<div id="_jspTab1" style="display:none">' + _mittausHTML + '</div>';
+  if (vainOsat) return { hL: hL, mittausHTML: _mittausHTML, arviointiHTML: f5 || '', kasvuHTML: f4, ika: ika, sp: sp };   // V4b-1: Näyttö kokoaa nämä (ei DOM-kirjoitusta)
   // R3.B-korjaus: f3 "Peliäly · havainto" (engl. ADAR-duplikaatti) POISTETTU — ADAR elää nyt _vpArviointiHTML:n
   // suomalaisessa D4-koostumuslohkossa (yksi datapiste, yksi paikka, yksi kieli). Arvokkaat osat (ristiinarvio + CTA) taitettu sinne.
   hR += '<div id="_jspTab2" style="display:none"><div id="_jspTab5">' + (f5 || '') + '</div></div>';
@@ -15887,6 +15904,10 @@ window._avaaPerPelaajaPikakatsaus = function(idx, joukkueNimi) {
   const modal = wrap.firstChild;
   modal.addEventListener('click', function(e) { if (e.target === modal) modal.remove(); });
   document.body.appendChild(modal);
+  _vpKorttiHydratoi(modal, p, ika, { viikko: true });
+};
+/* V4b-1: kortin asynkroninen hydratointi (kypsyys-komponentti + testitulosten sparklinet + mittauslista; viikko vain Polussa). Vanha modaali ja uusi Näyttö kutsuvat samaa. root = DOM-juuri jossa kortin slotit ovat. */
+function _vpKorttiHydratoi(modal, p, ika, opts) {
   // R1 — Kypsyys/PHV -komponentti (jaettu tmKypsyys) vasempaan paneeliin. Data pikakentistä (§26,
   // _vpAloitusKypsyysData — sama pura-funktio, ei enää kuolleen _vpAloitusReRenderin varassa). PHV-data →
   // täysi kortti (aikajana + kasvutahti ≥2 mittausta + kasvuviiva ≥3 + §28-tulkinta); ei PHV-dataa (SJK/Sibbo)
@@ -15917,9 +15938,11 @@ window._avaaPerPelaajaPikakatsaus = function(idx, joukkueNimi) {
         }).catch(function () { /* jätä säiliöt tyhjiksi */ });
     } catch (e) { /* offline / db puuttuu → ei sparklineja */ }
   }
-  // P6a — Viikko-välilehden async hydraatio (tallennetut kirjaukset + läsnäolo). Grid on jo renderöity (skeleton).
+  if (opts && opts.viikko) {
+    // P6a — Viikko-välilehden async hydraatio (tallennetut kirjaukset + läsnäolo). Grid on jo renderöity (skeleton).
   if (typeof _vpViikkoLataa === 'function' && p && p.jaksofokus) { try { _vpViikkoLataa(p); } catch (e) { /* graceful */ } }
-};
+  }
+}
 
 /* ── §D3 VP-KALIBRAATIOARVIO (D3_KALIBRAATIO_SPEC malli A) ──────────────────────
    VP arvioi valikoiden (talenttiohjelma/kalibraationäyte) → pisteet[dim].vp + d3_vp_pvm.
