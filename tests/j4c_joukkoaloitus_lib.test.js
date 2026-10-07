@@ -46,7 +46,7 @@ describe('tmJoukkoRivi', () => {
     expect(r).toMatchObject({ pid: 'm93GBdOaGCUuenMiCL0I', nimi: 'Topias K.', tila: 'valmis', ydinvahvuus: 'Tempokuljetus', maksimi: 1, hyvaksyttavissa: true });
     expect(r.ehdotus).toMatchObject({ alue: 'fyysinen', kuvaus: 'Liikehallinta ja kehonhallinta' }); expect(r.ehdotus.lyhyt).toBe('testistä, kasvu huomioiden'); expect(r.ehdotus.miksi).toMatch(/Kypsyysvahti/); expect(r.ehdotus.perustelu).toMatch(/^Tukee ydinvahvuutta \(Tempokuljetus\)/);
     expect(JSON.stringify(r.ehdotus)).not.toMatch(/speed|acceleration|power|endurance/); expect(/^(nopeus|kiihdytys|voima|kestävyys)/i.test(r.ehdotus.kuvaus)).toBe(false);
-    expect(r.x.tuki.alku).toBe('2026-11-10'); expect(r.x.tuki.viite).toEqual({ jid: 'kpv_u13', alku: '2026-11-10' });
+    expect(r.x.tuki.alku).toBe('2026-11-10'); expect(r.x.tuki.viite).toMatchObject({ jid: 'kpv_u13', alku: '2026-11-10' });
   });
   it('POST-pelaaja: nopeus tarjotaan sellaisenaan (vartija vain PRE/LAH/PH/tuntematon)', () => {
     expect(JA.tmJoukkoRivi(P('x', PHV('POST')), C()).ehdotus).toMatchObject({ alue: 'fyysinen', kuvaus: 'Nopeus' });
@@ -76,7 +76,7 @@ describe('tmJoukkoHyvaksy = V1-modaalin oletustallennus (identtinen kirjoitusoli
     const v1 = AJ.tmAloitaJaksoV2(p, Object.assign({}, AJ.tmAloitaJaksoSyoteV2((id) => (id in arvot ? arvot[id] : ''), x), { konsepti_nimi: 'Saattaen vaihtaminen', konsepti_koodi: 'Y-H2' }), x, op);
     expect(hy).toEqual(v1);
     expect(hy.jaksofokus.tukitavoitteet).toHaveLength(1); expect(hy.jaksofokus.tukitavoitteet[0]).toMatchObject({ alue: 'fyysinen', kuvaus: 'Liikehallinta ja kehonhallinta', harjoitteet: [] }); expect(hy.jaksofokus.tukiosa.alue).toBe('Liikehallinta ja kehonhallinta');
-    expect(hy.jaksofokus.joukkuejakso_viite).toEqual({ jid: 'kpv_u13', alku: '2026-11-10' }); expect(hy.jaksofokus.kesto_vk).toBe(x.kesto.valittu); expect(hy.jaksofokus.asetti).toEqual({ rooli: 'valmentaja', pvm: TANAAN }); expect(JM.tmTarkistaJaksoData(hy.jaksofokus)).toEqual([]);
+    expect(hy.jaksofokus.joukkuejakso_viite).toMatchObject({ jid: 'kpv_u13', alku: '2026-11-10', nimi: expect.any(String), kesto_vk: expect.any(Number) }); expect(hy.jaksofokus.kesto_vk).toBe(x.kesto.valittu); expect(hy.jaksofokus.asetti).toEqual({ rooli: 'valmentaja', pvm: TANAAN }); expect(JM.tmTarkistaJaksoData(hy.jaksofokus)).toEqual([]);
     const upd = AJ.tmAloitaJaksoKirjoitus({ jaksofokus: hy.jaksofokus, historiaLisays: [] }, hy, null, { arrayUnion: () => null }); expect(Object.keys(upd)).toEqual(['jaksofokus', 'ydinvahvuus']);   // YKSI update
   });
   it('pelaajan valinta ydinvahvuutena (ei omaa): käytetään; ilman ydinvahvuutta heittää (ei kirjoiteta); rivi ilman lomaketta heittää', () => {
