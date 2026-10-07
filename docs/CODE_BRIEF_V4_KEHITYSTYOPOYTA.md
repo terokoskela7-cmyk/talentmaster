@@ -40,15 +40,15 @@ Masterin pelaajanäkymä korvataan koko ruudun kehitystyöpöydällä (13: Tän�
 | 3 | Näkymä tarkistaa oikeuden itse (oma joukkue / talenttivalmentaja / VP ja johto oma seura / SA) → "Ei oikeutta" -tila. Rules tekee saman. (CLAUDE.md:n "suojatut alaikäiset vain luku" on Clauden/Coden testaussääntö, ei tuotteen ominaisuus.) | D46 |
 | 4 | `tm_aloita_jakso.tmJaksoNappi` laajennetaan palauttamaan `{tila, ensisijainen, valikko[], rivitila}` → otsikkorivi, valikko ja J4-listan rivitila yhdestä funktiosta. | D47 |
 | 5 | Tilat: `ei_jaksoa` → `kaynnissa` → `paattynyt` (suljettava) → `valittavana` (K3) → `valinta_tehty` → `vahvistettu`. Siirtymät ja napit: ks. mockup §2. **Tilat JOHDETAAN, niitä ei tallenneta:** käynnissä = jaksofokus ilman `tila`-kenttää · päättynyt = päivämääristä (`tm_jakso_malli`) · `valittavana` = ainoa tallennettu tila (K3) · valinta tehty = `valittavana` + `ydinvahvuus_valinta` · vahvistettu = V1:n vahvistus (ei `tila`-kenttää) + `idp_sitoumus_pvm` puuttuu. Dataan ei tule uusia `tila`-arvoja (K3:n pelaajapuoli `tmPelaajanVaihtoehdot` ja V1 nojaavat nykymalliin). | D47 |
-| 6 | "Anna pelaajan valita" vain, kun ase on olemassa (ase pakollinen). | D47 |
+| 6 | "Anna pelaajan valita" vain, kun ydinvahvuus on olemassa (ydinvahvuus pakollinen). | D47 |
 | 7 | Typografia: sivu Cormorant + DM Sans, kenttäkomponentti Archivo (D37 C). **Archivo vain Kenttä-komponentin sisällä** (pelikenttä, osat, merkit) — EI otsikkorivissä eikä napeissa; ne ovat DM Sans. | D51 |
 
 ### V4b — Kevyt katselmus, signaali, profiili
 
 | # | Tehtävä | Päätös |
 |---|---|---|
-| 8 | Kevyt katselmus -sheet: 3 kysymystä (Näkyikö ase? Treenattiinko? Oliko mukana?) + lause pelaajalle (≤ 140 merkkiä, sama validointi kuin K4: `tm_viikkokatsaus.tmVkLauseValmentaja` — KIELLETYT + ei lukuja) + valinnainen K3 "Anna pelaajan valita" (vaihtoehtokohtainen lause ≤ 120, K3) → **yksi tallennus**. | D47 |
-| 9 | Tallennus: `jaksofokus_historia[]`-rivi saa `lause` (K4:n paikka, ennallaan) + `lause_lahde:'valmentaja'|'vp'`; tarvittaessa `jaksofokus={tila:'valittavana', vaihtoehdot[]}` (K3-muoto). Kolmen kysymyksen vastaukset `reviewit/{pvm}`-dokumenttiin kenttään `kevyt:{ase,treeni,mukana}` (arvot SANOINA: ase `ei_viela|ohjatusti|itsenaisesti`, treeni `harvoin|joskus|usein`, mukana `vahan|jonkin_verran|hyvin`; ei numeroita) — **samassa batchissa** historiarivin ja `jaksofokus`-päivityksen kanssa. EI pelaajadokumenttiin: pelaaja lukee oman dokumenttinsa (`onPelaajaItse`), joten henkilökunnan arvio ei saa olla siellä (§39). Lause on pelaajalle, joten se pysyy historiarivillä. | D47 |
+| 8 | Kevyt katselmus -sheet: 3 kysymystä (Näkyikö ydinvahvuus pelissä? Treenattiinko? Oliko mukana?) + lause pelaajalle (≤ 140 merkkiä, sama validointi kuin K4: `tm_viikkokatsaus.tmVkLauseValmentaja` — KIELLETYT + ei lukuja) + valinnainen K3 "Anna pelaajan valita" (vaihtoehtokohtainen lause ≤ 120, K3) → **yksi tallennus**. | D47 |
+| 9 | Tallennus: `jaksofokus_historia[]`-rivi saa `lause` (K4:n paikka, ennallaan) + `lause_lahde:'valmentaja'|'vp'`; tarvittaessa `jaksofokus={tila:'valittavana', vaihtoehdot[]}` (K3-muoto). Kolmen kysymyksen vastaukset `reviewit/{pvm}`-dokumenttiin kenttään `kevyt:{nakyi,treeni,mukana}` (arvot SANOINA: nakyi `ei_viela|ohjatusti|itsenaisesti`, treeni `harvoin|joskus|usein`, mukana `vahan|jonkin_verran|hyvin`; ei numeroita) — **samassa batchissa** historiarivin ja `jaksofokus`-päivityksen kanssa. EI pelaajadokumenttiin: pelaaja lukee oman dokumenttinsa (`onPelaajaItse`), joten henkilökunnan arvio ei saa olla siellä (§39). Lause on pelaajalle, joten se pysyy historiarivillä. | D47 |
 | 10 | "Syvennä" → täysi katselmus (09 §6) esitäytettynä kolmella vastauksella. | D47 |
 | 11 | Sunnuntain pyyntö valmentajalle samaan aikaan kuin pelaajan viikkokatsaus (K4) = **Tänään-signaali ja J4-rivitila, ei ilmoitusta/notifikaatiota** (ei uusia Rules-oikeuksia, kuten K3). Oto-profiilissa "kun ehdit", ei aikaikkunaa. | D47/D50 |
 | 12 | Tänään-signaali: yksi signaali + pieni toinen rivi, järjestys: 1 kuorma_tarkista (§25) · 2 valinta tehty (Vahvista) · 3 suljettava · 4 valinta odottaa pelaajaa · 5 viikkokatsaus ei vastattu · 6 havainto · 7 ylläpito · 8 ei tietoa. | D48 |
@@ -71,7 +71,7 @@ Masterin pelaajanäkymä korvataan koko ruudun kehitystyöpöydällä (13: Tän�
 |---|---|---|
 | `seurat/{sid}/pelaajat/{pid}.jaksofokus` | ennallaan: vain `tila:'valittavana'` + `vaihtoehdot[]` (K3); muut tilat johdetaan (§2 #5) | v3.37 riittää |
 | `…pelaajat/{pid}.jaksofokus_historia[]` | rivi: `lause` (≤140, K4) + uusi `lause_lahde` | ennallaan (henkilökunnan allowlist kattaa kentän). Rules ei validoi taulukon rivien sisältöä → validointi clientissä/lib:ssä |
-| `…pelaajat/{pid}/reviewit/{pvm}.kevyt` | uusi kenttä `{ase,treeni,mukana}` sanoina; set-merge (sama päivä kuin täysi katselmus → sama dokumentti, eri kenttä) | luku vain henkilökunta (v3.37 ennallaan). v3.46+: `kevyt`-arvojen enum-validointi |
+| `…pelaajat/{pid}/reviewit/{pvm}.kevyt` | uusi kenttä `{nakyi,treeni,mukana}` sanoina; set-merge (sama päivä kuin täysi katselmus → sama dokumentti, eri kenttä) | luku vain henkilökunta (v3.37 ennallaan). v3.46+: `kevyt`-arvojen enum-validointi |
 | `…pelaajat/{pid}.jaksofokus.hylatty` | uusi: `hylatty:{pvm, perustelu, valinta}` kun valinta hylätään; samassa updatessa `ydinvahvuus_valinta` poistetaan (kuten K3-tarjous) | ennallaan (oman joukkueen valmentaja ja johto päivittävät pelaajadokumenttia ilman kenttärajausta) |
 | `…pelaajat/{pid}/viikkokatsaukset/{su-pvm}` | luetaan Tänään-avauksessa (kuluva viikko) | v3.44 (K4) |
 | `seurat/{sid}/joukkueet/{jid}.valmentajaprofiili` | uusi, `'ammatti'|'oto'`, vain johto/SA kirjoittaa | v3.37: johdon update on jo sallittu; tarkista ettei valmentajan jaksokenttä-allowlist päästä sitä läpi, lisää enum-validointi (versio v3.46+) |
@@ -120,7 +120,7 @@ Masterin pelaajanäkymä korvataan koko ruudun kehitystyöpöydällä (13: Tän�
 | # | Päätös | Tila |
 |---|---|---|
 | D46 | Koko ruudun näkymä (A): URL, ‹ ›, otsikkorivi ei vieri; sama komponentti VP:lle | lukittu 7.10. (Tero) |
-| D47 | Jakson tilakone yhdestä funktiosta; kevyt katselmus 3 kysymystä + lause + K3 yhdellä tallennuksella; ase pakollinen ennen "anna pelaajan valita"; sunnuntain pyyntö | lukittu 7.10. |
+| D47 | Jakson tilakone yhdestä funktiosta; kevyt katselmus 3 kysymystä + lause + K3 yhdellä tallennuksella; ydinvahvuus pakollinen ennen "anna pelaajan valita"; sunnuntain pyyntö | lukittu 7.10. |
 | D48 | Signaalijärjestys kuorma › valinta tehty › suljettava › odottaa pelaajaa › viikkokatsaus › havainto › ylläpito › ei tietoa; yksi signaali; pelaajan odotus ohittaa myöhässä olevan katselmuksen | lukittu 7.10. |
 | D49 | Poistolista, poisto 1.12.2026 kaikilta seuroilta (SJK myöhemmin suoraan uuteen näkymään) — sulkee D39:n | lukittu 7.10. |
 | D50 | Kaksi valmentajaprofiilia `ammatti|oto` joukkuetasolla, VP asettaa; VP aina ylin; profiili muuttaa vain sävyä ja oletuksia | lukittu 7.10. |
@@ -154,6 +154,6 @@ Masterin pelaajanäkymä korvataan koko ruudun kehitystyöpöydällä (13: Tän�
 ## Lisäksi (Kieli, versiot)
 
 - Uudet tekstit `masterT`-avaimiksi (fi); ruotsinkieliset jätetään määrittelemättä ja listataan PR:ään Geminin listalle.
-- Sanasto: henkilökunnalle "ydinvahvuus" / "ase" (13), pelaajalle "vahvuus" ja "reitti".
+- **Sanasto (Tero 7.10.):** henkilökunnalle "ydinvahvuus", pelaajalle ja huoltajalle "vahvuus" ja "reitti". **Ei sanaa "ase" käyttäjälle näkyvissä teksteissä** (mockuppien 09/13 työnimi). Kenttänimi `kevyt.nakyi` (vartijatesti kieltää "ase"-sanan kenttänimissä).
 - Uudet ja muuttuneet lib-tiedostot saavat `?v`-bumpin: `node scripts/lib_versiot.js --kirjoita` (portti `tests/lib_versiot.test.js`).
 - Lippu pois → snapshot-testi: näkymät ennallaan.
