@@ -1,7 +1,7 @@
 # CODE_BRIEF_V4_KEHITYSTYOPOYTA — Kehitystyöpöytä V4 (Kenttä)
 
-**Kaista: Tero** (Master_v16, VP_v25, `lib/`; Rules jos kohdan §3 selvitys sitä vaatii). PR-kuvauksen ensimmäinen rivi on "Kaista: Tero".
-**Tila:** tarkastettu 7.10.2026 (projektinvetäjä), valmis Codelle
+**Kaista: Tero** (Master_v16, VP_v25, `lib/`, Rules v3.46+ kohdan §3 mukaan). PR-kuvauksen ensimmäinen rivi on "Kaista: Tero".
+**Tila:** valmis Codelle · D46–D53 lukittu 7.10.2026 (Tero) · selvitykset (a)–(c) ratkaistu
 **Design:** noudata 18:aa ja 13:a; raportoi PR:ssä, mitä kohtaa kustakin noudatat. Mockup 18 lataa fontit Google Fontsista (vain design-dokumentti) — toteutus `@fontsource`-paketeista (D11).
 **Mockup:** `18_kehitystyopoyta_v4.html` (artefakti 18) · edeltäjä 13 (`13_kehitystyopoyta_kentta.html`)
 **Päätökset:** D46–D53 (tämä briiffi), nojaa D23–D25 (13), D38 (16), D30 (15), K3/K4-briiffeihin
@@ -41,14 +41,14 @@ Masterin pelaajanäkymä korvataan koko ruudun kehitystyöpöydällä (13: Tän�
 | 4 | `tm_aloita_jakso.tmJaksoNappi` laajennetaan palauttamaan `{tila, ensisijainen, valikko[], rivitila}` → otsikkorivi, valikko ja J4-listan rivitila yhdestä funktiosta. | D47 |
 | 5 | Tilat: `ei_jaksoa` → `kaynnissa` → `paattynyt` (suljettava) → `valittavana` (K3) → `valinta_tehty` → `vahvistettu`. Siirtymät ja napit: ks. mockup §2. **Tilat JOHDETAAN, niitä ei tallenneta:** käynnissä = jaksofokus ilman `tila`-kenttää · päättynyt = päivämääristä (`tm_jakso_malli`) · `valittavana` = ainoa tallennettu tila (K3) · valinta tehty = `valittavana` + `ydinvahvuus_valinta` · vahvistettu = V1:n vahvistus (ei `tila`-kenttää) + `idp_sitoumus_pvm` puuttuu. Dataan ei tule uusia `tila`-arvoja (K3:n pelaajapuoli `tmPelaajanVaihtoehdot` ja V1 nojaavat nykymalliin). | D47 |
 | 6 | "Anna pelaajan valita" vain, kun ase on olemassa (ase pakollinen). | D47 |
-| 7 | Typografia: sivu Cormorant + DM Sans, kenttäkomponentti Archivo (D37 C). | D51 |
+| 7 | Typografia: sivu Cormorant + DM Sans, kenttäkomponentti Archivo (D37 C). **Archivo vain Kenttä-komponentin sisällä** (pelikenttä, osat, merkit) — EI otsikkorivissä eikä napeissa; ne ovat DM Sans. | D51 |
 
 ### V4b — Kevyt katselmus, signaali, profiili
 
 | # | Tehtävä | Päätös |
 |---|---|---|
 | 8 | Kevyt katselmus -sheet: 3 kysymystä (Näkyikö ase? Treenattiinko? Oliko mukana?) + lause pelaajalle (≤ 140 merkkiä, sama validointi kuin K4: `tm_viikkokatsaus.tmVkLauseValmentaja` — KIELLETYT + ei lukuja) + valinnainen K3 "Anna pelaajan valita" (vaihtoehtokohtainen lause ≤ 120, K3) → **yksi tallennus**. | D47 |
-| 9 | Tallennus: `jaksofokus_historia[]`-rivi saa `lause` (K4:n paikka, ennallaan) + `lause_lahde:'valmentaja'|'vp'`; tarvittaessa `jaksofokus={tila:'valittavana', vaihtoehdot[]}` (K3-muoto). Kolmen kysymyksen vastaukset (`katselmus:{ase,treeni,mukana}`, arvot SANOINA kuten K4: esim. `ei_viela|ohjatusti|itsenaisesti`, ei numeroita) — paikka selvitetään ennen koodausta, ks. §3 selvitys (a). | D47 |
+| 9 | Tallennus: `jaksofokus_historia[]`-rivi saa `lause` (K4:n paikka, ennallaan) + `lause_lahde:'valmentaja'|'vp'`; tarvittaessa `jaksofokus={tila:'valittavana', vaihtoehdot[]}` (K3-muoto). Kolmen kysymyksen vastaukset `reviewit/{pvm}`-dokumenttiin kenttään `kevyt:{ase,treeni,mukana}` (arvot SANOINA: ase `ei_viela|ohjatusti|itsenaisesti`, treeni `harvoin|joskus|usein`, mukana `vahan|jonkin_verran|hyvin`; ei numeroita) — **samassa batchissa** historiarivin ja `jaksofokus`-päivityksen kanssa. EI pelaajadokumenttiin: pelaaja lukee oman dokumenttinsa (`onPelaajaItse`), joten henkilökunnan arvio ei saa olla siellä (§39). Lause on pelaajalle, joten se pysyy historiarivillä. | D47 |
 | 10 | "Syvennä" → täysi katselmus (09 §6) esitäytettynä kolmella vastauksella. | D47 |
 | 11 | Sunnuntain pyyntö valmentajalle samaan aikaan kuin pelaajan viikkokatsaus (K4) = **Tänään-signaali ja J4-rivitila, ei ilmoitusta/notifikaatiota** (ei uusia Rules-oikeuksia, kuten K3). Oto-profiilissa "kun ehdit", ei aikaikkunaa. | D47/D50 |
 | 12 | Tänään-signaali: yksi signaali + pieni toinen rivi, järjestys: 1 kuorma_tarkista (§25) · 2 valinta tehty (Vahvista) · 3 suljettava · 4 valinta odottaa pelaajaa · 5 viikkokatsaus ei vastattu · 6 havainto · 7 ylläpito · 8 ei tietoa. | D48 |
@@ -71,15 +71,19 @@ Masterin pelaajanäkymä korvataan koko ruudun kehitystyöpöydällä (13: Tän�
 |---|---|---|
 | `seurat/{sid}/pelaajat/{pid}.jaksofokus` | ennallaan: vain `tila:'valittavana'` + `vaihtoehdot[]` (K3); muut tilat johdetaan (§2 #5) | v3.37 riittää |
 | `…pelaajat/{pid}.jaksofokus_historia[]` | rivi: `lause` (≤140, K4) + uusi `lause_lahde` | ennallaan (henkilökunnan allowlist kattaa kentän). Rules ei validoi taulukon rivien sisältöä → validointi clientissä/lib:ssä |
-| kolmen kysymyksen vastaukset | selvitys (a): `jaksofokus_historia`-rivi vai olemassa oleva `reviewit/{pvm}` (`tmKirjaaKatselmus`), jossa Rules voi validoida kentät | päätä selvityksen mukaan |
+| `…pelaajat/{pid}/reviewit/{pvm}.kevyt` | uusi kenttä `{ase,treeni,mukana}` sanoina; set-merge (sama päivä kuin täysi katselmus → sama dokumentti, eri kenttä) | luku vain henkilökunta (v3.37 ennallaan). v3.46+: `kevyt`-arvojen enum-validointi |
+| `…pelaajat/{pid}.jaksofokus.tarjottu_pvm` / `.hylatty` | uudet: `tarjottu_pvm` (YYYY-MM-DD) aina kun `vaihtoehdot[]` kirjoitetaan; `hylatty:{pvm, perustelu}` kun valinta hylätään | ennallaan (henkilökunnan allowlist kattaa `jaksofokus`-kentän) |
 | `…pelaajat/{pid}/viikkokatsaukset/{su-pvm}` | luetaan Tänään-avauksessa (kuluva viikko) | v3.44 (K4) |
 | `seurat/{sid}/joukkueet/{jid}.valmentajaprofiili` | uusi, `'ammatti'|'oto'`, vain johto/SA kirjoittaa | v3.37: johdon update on jo sallittu; tarkista ettei valmentajan jaksokenttä-allowlist päästä sitä läpi, lisää enum-validointi (versio v3.46+) |
 | `seurat/{sid}/liput/julkiset.kentta` | ennallaan (v3.43), fallback `seurat/{sid}.liput.kentta` K7:ään asti | — |
 
 **Selvitykset ennen koodausta (raportoi ensin):**
-- **(a)** Kolmen kysymyksen vastausten paikka: `jaksofokus_historia`-rivi vai `reviewit/{pvm}`? Suositus `reviewit`, jos se on henkilökunnan luettavissa ja Rules-validoitavissa; täysi katselmus (09 §6, "Syvennä") kirjoittaa jo sinne.
-- **(b)** "Hylkää valinta" (mockup 18 §2) poistaa pelaajan `ydinvahvuus_valinta`-kentän. Henkilökunnan kirjoitus on rajattu `hasOnly([...jaksofokus, jaksofokus_historia])` → todennäköisesti estetty. Jos näin, Rules-muutos (v3.46+: henkilökunta saa poistaa `ydinvahvuus_valinta`:n, ei kirjoittaa sitä) tai jätä hylkäys pois V4a:sta.
-- **(c)** Master_v16:n nykyinen reititys: onko hash-reititystä, ja miten `#pelaaja/{pid}/tanaan` sovitetaan siihen ja Back-nappiin.
+**Ratkaistut selvitykset (7.10.2026) — tarkista koodista ja raportoi poikkeamat ennen koodausta:**
+- **(a) Vastausten paikka = `reviewit/{pvm}.kevyt`** (ks. §2 #9 ja taulukko). Perusteet: `reviewit` on vain henkilökunnan luettavissa (Rules: `onSuperAdmin() || onOmaSeura`), pelaajadokumentti ei ole; täysi katselmus ("Syvennä", 09 §6) kirjoittaa jo sinne; seuran kooste (17) on Cloud Function ja lukee `reviewit`in. Tarkista, että `reviewit`-dokumentin ID ja `tmKirjaaKatselmus`-muoto sallivat `kevyt`-kentän set-mergellä rikkomatta täyttä katselmusta.
+- **(b) "Hylkää valinta" ei koske pelaajan kenttään.** Pelaajan `ydinvahvuus_valinta` jää paikalleen (Rules v3.37 rajaa sen pelaajalle). Henkilökunta kirjoittaa `jaksofokus.hylatty:{pvm, perustelu}` + uudet `vaihtoehdot[]` + uusi `tarjottu_pvm`. **Valinta on voimassa vain, jos `ydinvahvuus_valinta.valittu_pvm >= jaksofokus.tarjottu_pvm`** — muuten tila on "valittavana, odottaa pelaajaa". Sääntö yhteen lib-funktioon (`tm_jakso_malli`, esim. `tmValintaVoimassa(p)`), jota käyttävät sekä `tmJaksoNappi` että pelaajan K3-puoli (Pelaaja_v7 "Valintasi on valmentajalla" -kortti). Vanha data ilman `tarjottu_pvm`:ää = valinta voimassa (nykykäytös). Perustelu: KIELLETYT + K4:n lukutarkistus, ≤140; pelaajalle näkyy lauseena, ei koskaan sanaa "hylätty" (§7.22). Rules-muutosta ei tarvita.
+- **(c) Reititys:** Master_v16:ssa ei ole hash-reititintä (`location.hash`/`hashchange` ei esiinny). V4 tekee ensimmäisen: `#pelaaja/{pid}/tanaan|polku|naytto`; Back palaa listaan (`hashchange`), suora URL avautuu oikeustarkistuksen jälkeen. Reititin `lib/`-tiedostoon, jotta VP_v25 käyttää samaa hashia samalla komponentilla (D38). Lippu pois → hashia ei käsitellä.
+
+**Rules v3.46+ (yksi versio, sovita ryhmien v3.46 kanssa):** `joukkueet/{jid}.valmentajaprofiili` enum `'ammatti'|'oto'`, vain johto/SA (valmentajan jaksokenttä-allowlist ei päästä sitä läpi) · `reviewit.kevyt` enum-validointi. Changelog + Rules-testit.
 
 **Latausjako (D52):** Tänään avaa 3 dokumenttia (pelaaja · liput · kuluvan viikon viikkokatsaus; joukkueen profiili listan välimuistista). Polku ja Näyttö lataavat vasta avattaessa (historia, testit, havainnot, bioikä).
 
@@ -91,7 +95,7 @@ Masterin pelaajanäkymä korvataan koko ruudun kehitystyöpöydällä (13: Tän�
 
 1. Lista → rivi → koko ruudun näkymä, URL vaihtuu, ‹ › kulkee listan järjestyksessä, Back palaa listaan.
 2. Jokainen kuudesta tilasta: otsikkorivin nappi, valikko ja J4-rivitila yhtenevät (sama funktio).
-3. Kevyt katselmus: 3 vastausta + lause + K3 → **yksi** kirjoitus; `jaksofokus_historia` saa rivin, `jaksofokus.tila='valittavana'`; pelaajasovellus näyttää "Hyvä jakso" + lauseen + valinnan.
+3. Kevyt katselmus: 3 vastausta + lause + K3 → **yksi** batch; `jaksofokus_historia` saa rivin (lause), `reviewit/{pvm}.kevyt` saa vastaukset, `jaksofokus.tila='valittavana'` + `tarjottu_pvm`; pelaajan dokumentissa EI ole vastauksia; pelaajasovellus näyttää "Hyvä jakso" + lauseen + valinnan.
 4. Kevyt katselmus ilman K3:a → `jaksofokus` tyhjenee/`tila:'paattynyt'`, nappi "Aloita jakso".
 5. KIELLETYT-sana lauseessa → ei tallennu, selkeä viesti; 121 merkkiä → ei tallennu.
 6. Signaalijärjestys: `kuorma_tarkista` voittaa valinnan; valinta tehty voittaa suljettavan; suljettava voittaa viikkokatsauksen.
@@ -100,11 +104,14 @@ Masterin pelaajanäkymä korvataan koko ruudun kehitystyöpöydällä (13: Tän�
 9. Toisen joukkueen valmentaja → "Ei oikeutta"; Rules-emulaattori: valmentaja ei kirjoita `valmentajaprofiili`a.
 10. Lippu pois → vanha modaali toimii; lippu päälle → modaalia ei avata mistään.
 11. Tallennusvirhe (simuloitu) → toast näkyy (D53).
-12. 390 px: otsikkorivi + signaali + nappi mahtuvat ensimmäiseen ruutuun ilman vieritystä; ei vaakavieritystä.
+12. 390 px: otsikkorivi + signaali + nappi mahtuvat ensimmäiseen ruutuun ilman vieritystä; ei vaakavieritystä. **Tänään-avaus tekee täsmälleen 3 Firestore-lukua** (pelaaja · liput · kuluvan viikon viikkokatsaus) — testissä luku numerona (laskuri/mock), Polku ja Näyttö 0 lukua ennen avaamista.
 13. Lauseen raja: 140 merkkiä hyväksytään, 141 hylätään (sama funktio kuin K4).
 14. Nykyinen data: käynnissä oleva jakso ilman `tila`-kenttää näkyy tilana "käynnissä"; K3:n pelaajapuoli toimii ennallaan.
 15. Testidata palautetaan. Kirjoitukset vain KPV U13 -testipelaajille.
-16. Koko sarja (myös `functions/`) viimeisen main-mergen jälkeen.
+16. Hylkää valinta: pelaajan `ydinvahvuus_valinta` ennallaan; `tarjottu_pvm` uudempi → tila "odottaa pelaajaa" sekä Masterissa että pelaajan Tänään-kortissa; pelaaja valitsee uudelleen → "valinta tehty". Vanha data ilman `tarjottu_pvm`:ää toimii kuten ennen.
+17. Typografia: otsikkorivissä ja napeissa ei Archivoa (tarkistus laskettuna tyylinä).
+18. Rules-emulaattori: pelaaja ei lue `reviewit`iä; valmentaja ei kirjoita `valmentajaprofiili`a; `kevyt` väärällä arvolla hylätään.
+19. Koko sarja (myös `functions/`) viimeisen main-mergen jälkeen.
 
 ---
 
@@ -117,18 +124,24 @@ Masterin pelaajanäkymä korvataan koko ruudun kehitystyöpöydällä (13: Tän�
 | D48 | Signaalijärjestys kuorma › valinta tehty › suljettava › odottaa pelaajaa › viikkokatsaus › havainto › ylläpito › ei tietoa; yksi signaali; pelaajan odotus ohittaa myöhässä olevan katselmuksen | lukittu 7.10. |
 | D49 | Poistolista, poisto 1.12.2026 kaikilta seuroilta (SJK myöhemmin suoraan uuteen näkymään) — sulkee D39:n | lukittu 7.10. |
 | D50 | Kaksi valmentajaprofiilia `ammatti|oto` joukkuetasolla, VP asettaa; VP aina ylin; profiili muuttaa vain sävyä ja oletuksia | lukittu 7.10. |
-| D51 | Typografia = D37 C (sivu Cormorant + DM Sans, kenttä Archivo) | ehdotus — sulkee D37:n |
-| D52 | Rivitila riittää J4-listassa (ei kenttää listaan); Viikko-välilehti 14:n kanssa; mobiilin ensilataus 3 dokumenttia | ehdotus |
-| D53 | Virhetoast pikakorjauksena heti (z-index modaalien yläpuolelle + virhekoodi) | ehdotus |
+| D51 | Typografia = D37 C (sivu Cormorant + DM Sans, kenttä Archivo); Archivo vain Kenttä-komponentin sisällä, ei otsikkoriviin eikä nappeihin. Sulkee 16:n D37:n | lukittu 7.10. |
+| D52 | Rivitila riittää J4-listassa (ei kenttää listaan); Viikko-välilehti 14:n kanssa; mobiilin ensilataus 3 dokumenttia (testissä numerona) | lukittu 7.10. |
+| D53 | Virhetoast pikakorjauksena heti omana PR:nä (z-index modaalien yläpuolelle + virhekoodi) | lukittu 7.10. |
 
 ---
 
-## §6 Avoimet kysymykset toiseen sessioon
+## §6 Pienet linjaukset (lukittu 7.10.)
 
-1. D51: suositus D37 C (sivu Cormorant + DM Sans, kenttä Archivo) — Tero lukitsee.
-2. Katselmuksen kolme kysymystä: asteikot `ei vielä / ohjatusti / itsenäisesti`, `harvoin / joskus / usein`, `vähän / jonkin verran / hyvin` — tallennetaan sanoina (ei 0–2). Linjaus 17:n teemakattavuuteen myöhemmin.
-3. Oto-profiilin aloitusehdotukset lauseeseen: generoidaanko osista deterministisesti (ei AI-kutsua) — ehdotus: kyllä, kolme mallilausetta osien nimistä.
-4. Pitäisikö `valmentajaprofiili` näkyä valmentajalle itselleen vai vain VP:lle? Ehdotus: näkyy, muutettavissa vain VP:n toimesta.
+1. Katselmuksen asteikot sanoina (ks. §2 #9), ei 0–2. Linjaus 17:n teemakattavuuteen myöhemmin.
+2. Oto-profiilin mallilauseet generoidaan osien nimistä deterministisesti (ei AI-kutsua; EU-sääntö ja §7.22 pysyvät yksinkertaisina), kolme ehdotusta, valmentaja muokkaa.
+3. `valmentajaprofiili` näkyy valmentajalle, muutettavissa vain VP:n/johdon toimesta.
+
+## Järjestys
+
+1. **D53 pikakorjaus** — oma PR (Teron kaista), heti.
+2. **V4a** — näkymä, hash-reititin, tilakone (`tmValintaVoimassa` mukaan), typografia. Oma PR.
+3. **V4b** — kevyt katselmus, signaali, profiili, Rules v3.46+. Oma PR.
+4. **Poisto** — vanha modaali ja fallbackit 1.12.2026. Oma PR.
 
 ## Lisäksi (Kieli, versiot)
 
