@@ -1,11 +1,19 @@
 rules_version = '2';
 // ══════════════════════════════════════════════════════════════════════════
-// TalentMaster™ — firestore.rules v3.48
+// TalentMaster™ — firestore.rules v3.49
 //
 // Lähde:  tm_admin/firestore.rules
 // Deploy: PR → N4-CI deployaa automaattisesti (Console-käsityö poistui).
 //
-// Muutokset v3.47 → v3.48 (P0 TIETOSUOJA 8.10.2026 — kalenterin muistiinpanot + läsnäolijat; additiivinen alikokoelma + lukukiristys): ⚠ v3.47 = R1 Ryhmät (PR #881); tämä haara tehty main:in (v3.46) päälle → mergen jälkeen versiot ketjuvat. Seuran pulssi (S1) → v3.49.
+// Muutokset v3.48 → v3.49 (R1 Ryhmät, D33 — 8.10.2026 — additiivinen, §11; uusi kokoelma + yksi kalenterikenttäsääntö, ei migraatiota):
+//   · seurat/{sid}/ryhmat/{rid}: nimi (≤60) · tyyppi 'lista'|'saanto' · saanto {kentta:'talenttiOhjelma', arvo:true} (vain tyyppi 'saanto', pelaajat_id tyhjä) · pelaajat_id[] (≤200) · valmentajat[] (uid, ≤10) · kuvaus? (≤200) · aktiivinen · luotu/luoja_uid/muokattu.
+//     Luku: oman seuran käyttäjä (onKirjautunut && onOmaSeura) — pelaaja ja huoltaja EIVÄT lue (heillä ei seuraId-claimia). Luonti: SA | johto | valmentaja/talenttivalmentaja/fysiikkavalmentaja; luoja kentässä valmentajat[] ellei johto/SA.
+//     Päivitys: SA | johto | ryhmän valmentaja (uid in resource.valmentajat). Poisto: SA | johto (mieluummin aktiivinen:false). Ei uutta roolia "maalivahtivalmentaja": valmentaja-rooli + merkintä valmentajat[]:ään.
+//   · seurat/{sid}/kalenteri/{id}: ryhmätapahtuman (kohde.tyyppi == 'ryhma') kokoonpanon synkka + jäädytys: ryhmän valmentaja (uid in get(ryhmat/{kohde.ryhma_id}).valmentajat) saa päivittää VAIN pelaajat_id/jaadytetty/paivitetty/muokkaaja_uid/lasnaolo_kooste, vaikka ei ole tapahtuman luoja.
+//     Jäädytetyn (jaadytetty asetettu) tapahtuman pelaajat_id:tä ei voi enää muuttaa (jaadytetty ei muutu). Läsnäolon kirjaus (lasnaolijat) toimi jo kaikille valmentajaroolille — ennallaan.
+//   · Seuran pulssi (S1) siirtyy v3.50:een (v3.49 = tämä; v3.48 = P0 tietosuoja #882).
+//
+// Muutokset v3.46 → v3.48 (P0 TIETOSUOJA 8.10.2026 — kalenterin muistiinpanot + läsnäolijat; additiivinen alikokoelma + lukukiristys): ⚠ v3.47 = R1 Ryhmät (PR #881); tämä haara tehty main:in (v3.46) päälle → mergen jälkeen versiot ketjuvat. Seuran pulssi (S1) → v3.49.
 //   · AUKKO: kalenteri/{id}.read salli onPelaajanSeura-lukijalle koko kokoelman → pelaajan/huoltajan client pystyi lukemaan valmentajien `muistiinpanot`-kentän ja kaikkien läsnäolot (lasnaolijat).
 //   · seurat/{sid}/kalenteri/{id}/henkilokunta/muistiinpanot = { teksti ≤ 500, muokkaaja_uid, paivitetty }: luku VAIN oman seuran henkilökunta (SA | onKirjautunut && onOmaSeura — pelaajalla pelaajaSeuraId, ei seuraId); kirjoitus SA | johto | valmentajaroolit; vain dokumentti 'muistiinpanot'.
 //     Henkilökunnan clientit lukevat ja kirjoittavat tänne (vanha `muistiinpanot`-kenttä poistetaan tallennettaessa); migraatio = SA-työkalu (Excel_Tuonti). Tapahtumadokumentin `muistiinpanot`-kenttää EI vielä estetä Rulesissa (vanhat clientit/data) — kiristys migraation jälkeen.
@@ -749,6 +757,35 @@ service cloud.firestore {
     }
     function profiiliKelpaa() {
       return !('valmentajaprofiili' in request.resource.data) || request.resource.data.valmentajaprofiili in ['ammatti', 'oto'];
+    }
+    /* v3.47 (R1) — ryhmät. Rakenne ja koot; listan alkioiden tyyppiä (uid/pelaajaId-merkkijono) ei voi tarkistaa ilman silmukkaa → client + testit. */
+    function ryhmaKelpaa() {
+      let d = request.resource.data;
+      return d.keys().hasOnly(['nimi', 'tyyppi', 'saanto', 'pelaajat_id', 'valmentajat', 'kuvaus', 'aktiivinen', 'luotu', 'luoja_uid', 'muokattu'])
+          && d.keys().hasAll(['nimi', 'tyyppi', 'pelaajat_id', 'valmentajat', 'aktiivinen', 'luotu', 'luoja_uid', 'muokattu'])
+          && d.nimi is string && d.nimi.size() >= 1 && d.nimi.size() <= 60
+          && d.tyyppi in ['lista', 'saanto']
+          && d.pelaajat_id is list && d.pelaajat_id.size() <= 200
+          && d.valmentajat is list && d.valmentajat.size() <= 10
+          && d.aktiivinen is bool
+          && d.luoja_uid is string
+          && d.luotu is timestamp && d.muokattu is timestamp && d.muokattu == request.time
+          && (!('kuvaus' in d) || (d.kuvaus is string && d.kuvaus.size() <= 200))
+          && (d.tyyppi == 'saanto'
+              ? ('saanto' in d && d.saanto is map && d.saanto.keys().hasOnly(['kentta', 'arvo']) && d.saanto.keys().hasAll(['kentta', 'arvo'])
+                 && d.saanto.kentta == 'talenttiOhjelma' && d.saanto.arvo == true && d.pelaajat_id.size() == 0)
+              : !('saanto' in d));
+    }
+    function ryhmaDoc(seuraId, ryhmaId) {
+      return get(/databases/$(database)/documents/seurat/$(seuraId)/ryhmat/$(ryhmaId)).data;
+    }
+    /* v3.47: onko kirjautunut käyttäjä NYKYISEN (resource) ryhmätapahtuman ryhmän valmentaja. */
+    function ryhmanValmentajaTapahtumassa(seuraId) {
+      return resource.data.get('kohde', {}).get('tyyppi', '') == 'ryhma'
+          && resource.data.kohde.get('ryhma_id', '') is string
+          && resource.data.kohde.ryhma_id.size() > 0
+          && exists(/databases/$(database)/documents/seurat/$(seuraId)/ryhmat/$(resource.data.kohde.ryhma_id))
+          && request.auth.uid in ryhmaDoc(seuraId, resource.data.kohde.ryhma_id).valmentajat;
     }
     /* v3.44 — viikkokatsaus (K4): yksi vastaus {osa, teksti, arvo}. Taulukkoindeksit käsin (säännöissä ei silmukkaa). */
     function vkVastausKelpaa(v) {
@@ -1586,6 +1623,19 @@ service cloud.firestore {
         allow delete: if onSuperAdmin() || (onOmaSeura(seuraId) && onJohtoRooli());
       }
 
+      // ── RYHMÄT (v3.47, R1 / D33) ────────────────────────────────────────
+      match /ryhmat/{ryhmaId} {
+        allow read:   if onSuperAdmin() || (onKirjautunut() && onOmaSeura(seuraId));   // pelaaja/huoltaja: ei seuraId-claimia → ei lue
+        allow create: if (onSuperAdmin() || (onOmaSeura(seuraId) && (onJohtoRooli() || request.auth.token.rooli in ['valmentaja', 'talenttivalmentaja', 'fysiikkavalmentaja'])))
+                      && ryhmaKelpaa() && request.resource.data.luoja_uid == request.auth.uid && request.resource.data.luotu == request.time
+                      && (onSuperAdmin() || onJohtoRooli() || request.auth.uid in request.resource.data.valmentajat);
+        allow update: if (onSuperAdmin() || (onOmaSeura(seuraId) && onJohtoRooli())
+                          || (onOmanSeuranValmentaja(seuraId) && request.auth.uid in resource.data.valmentajat))
+                      && ryhmaKelpaa()
+                      && request.resource.data.luoja_uid == resource.data.luoja_uid && request.resource.data.luotu == resource.data.luotu;
+        allow delete: if onSuperAdmin() || (onOmaSeura(seuraId) && onJohtoRooli());
+      }
+
       // ── JOUKKUEET ──────────────────────────────────────────────────────
       match /joukkueet/{joukkueId} {
         allow read:  if onKirjautunut() && (onSuperAdmin() || onOmaSeura(seuraId));
@@ -1752,7 +1802,14 @@ service cloud.firestore {
                       || (onOmanSeuranValmentaja(seuraId)
                           && request.resource.data.diff(resource.data).affectedKeys()
                              .hasOnly(['muistiinpanot', 'paivitetty', 'muokkaaja_uid',
-                                       'lasnaolo_kooste', 'valmentaja_rpe', 'valmentaja_rpe_pvm']));
+                                       'lasnaolo_kooste', 'valmentaja_rpe', 'valmentaja_rpe_pvm']))
+                      // v3.47 (R1): RYHMÄTAPAHTUMA — ryhmän valmentaja (myös toisen joukkueen) synkkaa kokoonpanon ja jäädyttää sen (pelaajat_id + jaadytetty),
+                      // vaikka ei ole tapahtuman luoja. Jäädytetyn pelaajat_id ei muutu; jaadytetty asetetaan kerran.
+                      || (onOmanSeuranValmentaja(seuraId) && ryhmanValmentajaTapahtumassa(seuraId)
+                          && request.resource.data.diff(resource.data).affectedKeys()
+                             .hasOnly(['pelaajat_id', 'jaadytetty', 'paivitetty', 'muokkaaja_uid', 'lasnaolo_kooste'])
+                          && (resource.data.get('jaadytetty', null) == null
+                              || !request.resource.data.diff(resource.data).affectedKeys().hasAny(['pelaajat_id', 'jaadytetty'])));
 
         // Ei hard-deletea — soft-delete (poistettu:true) update-kautta
         allow delete: if onSuperAdmin();
