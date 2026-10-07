@@ -1,6 +1,6 @@
 # R1 Ryhmät — käännöslista Geminille (sv)
 
-**Sibbo on ruotsinkielinen seura (käyttö 1.11.2026).** Alla R1:n uudet fi-tekstit. Sv-arvot jätetty määrittelemättä (koodi putoaa fi-tekstiin); lisää käännökset `tm_vp_i18n.js`:ään (VP_v25: avain = fi-teksti) ja tarvittaessa `tm_lang`/`masterT`-kartoihin (Master_v16, PR 2).
+**Sibbo on ruotsinkielinen seura (käyttö 1.11.2026).** Alla R1:n uudet fi-tekstit (PR 1: ryhmähallinta `ry_*`; PR 2: kalenterin "Kenelle" `kn_*`). Sv-arvot jätetty määrittelemättä (koodi putoaa fi-tekstiin); lisää käännökset `tm_vp_i18n.js`:ään (VP_v25: avain = fi-teksti) ja tarvittaessa `masterT`-karttaan (Master_v16).
 Sanasto: **ryhmä** = grupp · **maalivahti** = målvakt · **talenttiohjelma** = talangprogram · **ydinvahvuus** (henkilökunta) / **vahvuus** (pelaaja) — ei "ase" (D54).
 
 ## VP_v25 · ruudun otsikot (data-i18n)
@@ -47,9 +47,26 @@ Sanasto: **ryhmä** = grupp · **maalivahti** = målvakt · **talenttiohjelma** 
 | `ry_virhe_tyyppi` | Tuntematon ryhmätyyppi. | _(sv — Gemini)_ |
 | `ry_tallennettu` | Ryhmä tallennettu ✓ | _(sv — Gemini)_ |
 | `ry_ei_oikeutta` | Voit muokata vain ryhmiä, joissa olet valmentajana. | _(sv — Gemini)_ |
+| `kn_kenelle` | Kenelle | _(sv — Gemini)_ |
+| `kn_joukkue` | Joukkue | _(sv — Gemini)_ |
+| `kn_joukkueet` | Useampi joukkue | _(sv — Gemini)_ |
+| `kn_ryhma` | Ryhmä | _(sv — Gemini)_ |
+| `kn_pelaajat` | Poimitut pelaajat | _(sv — Gemini)_ |
+| `kn_henkilokunta` | Vain valmennus / henkilökunta | _(sv — Gemini)_ |
+| `kn_henkilokunta_ohje` | Ei näy pelaajalle eikä huoltajalle. | _(sv — Gemini)_ |
+| `kn_valitse_ryhma` | — valitse ryhmä — | _(sv — Gemini)_ |
+| `kn_ei_ryhmia` | Ei ryhmiä — luo ryhmä VP:n Ryhmät-osiossa. | _(sv — Gemini)_ |
+| `kn_jasenia` | jäsentä | _(sv — Gemini)_ |
+| `kn_valitse_joukkueet` | Valitse joukkueet | _(sv — Gemini)_ |
+| `kn_valitse_pelaajat` | Valitse pelaajat (Ctrl/⌘ = useampi) | _(sv — Gemini)_ |
+| `kn_virhe_ryhma` | Valitse ryhmä. | _(sv — Gemini)_ |
+| `kn_virhe_joukkueet` | Valitse vähintään yksi joukkue. | _(sv — Gemini)_ |
+| `kn_virhe_pelaajat` | Valitse vähintään yksi pelaaja. | _(sv — Gemini)_ |
+| `kn_omat_ryhmat` | Omat ryhmät | _(sv — Gemini)_ |
+| `kn_jasen_joukkue` | joukkue | _(sv — Gemini)_ |
 | `ry_vahvista_arkisto` | Arkistoidaanko ryhmä? Ryhmän tapahtumat säilyvät. | _(sv — Gemini)_ |
 | `ry_arkistoitu_toast` | Ryhmä arkistoitu ✓ | _(sv — Gemini)_ |
 | `ry_palautettu_toast` | Ryhmä palautettu ✓ | _(sv — Gemini)_ |
 | `ry_lataa` | Ladataan ryhmiä… | _(sv — Gemini)_ |
 
-_PR 2 (kalenteri „Kenelle“ + läsnäolo + Master) lisää omat avaimensa tähän tiedostoon._
+_Huom: kalenterin "Kenelle"-lohkon tekstit tulevat libistä (`opts.t`, fi-oletus); VP:n/Masterin käännöskartoissa avain = fi-teksti._

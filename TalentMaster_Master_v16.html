@@ -23,6 +23,7 @@
 <script src="lib/tm_appcheck.js?v=1"></script>
 <script src="lib/tm_istunto.js?v=1"></script>   <!-- istuntoturva: väärä rooli → viesti + "Kirjaudu ulos", ei automaattista signOut():ia -->
 <script src="lib/tm_kal_muistiinpano.js?v=1"></script>   <!-- tietosuoja: muistiinpano staff-only-alikokoelmaan -->
+<script src="lib/tm_ryhmat.js?v=2"></script>   <!-- R1: ryhmät (kalenteri Kenelle, kokoonpano, näkyvyys) -->
 <script src="lib/tm_mediaviesti.js?v=1"></script>   <!-- R6.4 mediaviesti -->
 <script src="lib/tm_pelihavainto_valinta.js?v=1"></script>   <!-- §7: YKSI sisäänkäynti pelihavaintoon (jaettu, ei kopioita) -->
 <script src="lib/tm_aktiivisuus.js?v=1"></script>   <!-- Toimihenkilon kirjautumisaikaleima — jaettu kirjoituspiste, ks. lib-header -->
@@ -1858,6 +1859,7 @@ textarea.jsp-rv-inp { resize: vertical; min-height: 44px; }
         <div>
           <h2 class="cal-title serif" data-i18n="Viikon rytmi">Viikon rytmi</h2>
           <div class="cal-sub muted" data-i18n="Joukkueen harjoitukset · ottelut · omatoimiset">Joukkueen harjoitukset · ottelut · omatoimiset</div>
+        <div id="calOmatRyhmat" style="margin-top:4px"></div>
         </div>
         <div style="display:flex; align-items:center; gap:14px">
           <div class="cal-modebar" id="calModeBar">
@@ -2422,7 +2424,7 @@ async function loginDemo() {
 async function logout() {
   // Sulje onSnapshot-kuuntelijat ensin
   if (_vpViestitUnsub) { _vpViestitUnsub(); _vpViestitUnsub = null; }
-  if (typeof _mvUnsub !== 'undefined' && _mvUnsub) { _mvUnsub(); _mvUnsub = null; } window._mvDokit = []; window._mvPolku = {};
+  if (typeof _mvUnsub !== 'undefined' && _mvUnsub) { _mvUnsub(); _mvUnsub = null; } window._mvDokit = []; window._mvPolku = {}; window._mRyLista = null;
   // Nollaa tila
   _uid = null;
   _seuraId = null;
@@ -3712,9 +3714,12 @@ async function _lataaKalenteriTapahtumat() {
     });
   } catch(e2) { console.warn('[kalenteri-uusi]', e2.message); }
   // Suodata joukkueella (vain kalenteri-kokoelma)
+  const _omatR = (await _mRyHaeLista()).map(function (r) { return r.id; });   // R1 PR 2: ryhmätapahtuma vain ryhmän valmentajalle/johdolle/luojalle
   _kalenteriTapahtumat = uudet.filter(function(t) {
-    return !_joukkue || (!t.joukkue && !t.joukkue_nimi) || t.joukkue === _joukkue || t.joukkue_nimi === _joukkue;
+    if (window.TM_RYHMAT && !window.TM_RYHMAT.tmNakyyKalenterissa(t, { uid: _uid, johto: _mRyJohto(), ryhmaIdt: _omatR, omatPelaajat: (_pelaajatData || []).map(function (p) { return p.id; }) })) return false;
+    return !_joukkue || (!t.joukkue && !t.joukkue_nimi) || t.joukkue === _joukkue || t.joukkue_nimi === _joukkue || (t.kohde && t.kohde.tyyppi === 'ryhma');   // ryhmätapahtumalla ei joukkuetta → ei joukkuesuodatusta
   }).sort(function(a,b) { return (a.pvm||'').localeCompare(b.pvm||''); });
+  _mRyOmatNayta();
   renderCal();
 }
 
@@ -10297,7 +10302,11 @@ async function _calHaeOsallistujat(t) {
   if (!_seuraId) return [];
   var col = _db.collection('seurat').doc(_seuraId).collection('pelaajat');
   var map = {};
-  var lisaa = function(d) { map[d.id] = { id: d.id, nimi: _tmHenkiloNimi(d.data()) }; };
+  var lisaa = function(d) { map[d.id] = { id: d.id, nimi: _tmHenkiloNimi(d.data()), joukkue: d.data().joukkue || '' }; };
+  if (t.kohde && t.kohde.tyyppi === 'ryhma') {   // R1 PR 2: ryhmätapahtuma → kokoonpano (jäädytetty = snapshot, muuten elävä); tyhjä ryhmä → ei talenttifallbackia
+    var _k = await _mRyKokoonpano(t); if (!_k.ids.length) return [];
+    t = Object.assign({}, t, { pelaajat_id: _k.ids });
+  }
   try {
     if (Array.isArray(t.pelaajat_id) && t.pelaajat_id.length) {
       var ids = t.pelaajat_id.slice(0, 300);
@@ -10391,7 +10400,7 @@ async function _calRenderLasnaolo(t, container) {
   rows.innerHTML = roster.map(function(pl) {
     return '<div style="padding:5px 0;border-bottom:0.5px solid var(--border)">'
       + '<div style="display:flex;align-items:center;gap:5px">'
-      + '<div style="flex:1;font-size:13px;color:var(--ink);min-width:0">' + rsvpChip(state[pl.id].saatavuus) + _mEsc(pl.nimi) + '</div>'
+      + '<div style="flex:1;font-size:13px;color:var(--ink);min-width:0">' + rsvpChip(state[pl.id].saatavuus) + _mEsc(pl.nimi) + (pl.joukkue && t.kohde && (t.kohde.tyyppi === 'ryhma' || t.kohde.tyyppi === 'pelaajat') ? ' <span style="color:var(--ink3);font-size:11px">' + _mEsc(pl.joukkue) + '</span>' : '') + '</div>'
       + rivBtn(pl.id, 'paikalla', masterT('Paikalla')) + rivBtn(pl.id, 'myohassa', masterT('Myöhässä')) + rivBtn(pl.id, 'poissa', masterT('Poissa'))
       + '</div>'
       + '<input class="la-syy" data-pid="' + pl.id + '" placeholder="' + masterT('syy (vapaaehtoinen)…') + '" value="' + _mEsc(state[pl.id].syy || '') + '" style="display:none;width:100%;margin-top:4px;padding:5px 8px;border:0.5px solid var(--border);border-radius:5px;background:var(--surface);color:var(--ink);font-size:12px;box-sizing:border-box">'
@@ -10440,8 +10449,11 @@ async function _calTallennaLasnaolo(t, roster, state, btn) {
         merkitty: firebase.firestore.FieldValue.serverTimestamp()
       }, { merge: true });
     });
-    batch.set(base, { lasnaolo_kooste: kooste, paivitetty: firebase.firestore.FieldValue.serverTimestamp(), muokkaaja_uid: muid }, { merge: true });
+    var _tapPaiv = { lasnaolo_kooste: kooste, paivitetty: firebase.firestore.FieldValue.serverTimestamp(), muokkaaja_uid: muid }, _jaad = null;
+    if (t.kohde && t.kohde.tyyppi === 'ryhma' && !t.jaadytetty && window.TM_RYHMAT.tmVoiJaadyttaa(t, (window._mRyLista || []).filter(function (x) { return x.id === t.kohde.ryhma_id; })[0], { uid: muid, johto: _mRyJohto() })) { _jaad = window.TM_RYHMAT.tmJaadytysKentat(roster.map(function (p) { return p.id; })); Object.assign(_tapPaiv, _jaad); }   // R1 PR 2: läsnäolo → kokoonpano jäädytetään (Rules v3.49: luoja | johto | ryhmän valmentaja)
+    batch.set(base, _tapPaiv, { merge: true });
     await batch.commit();
+    if (_jaad) { t.pelaajat_id = _jaad.pelaajat_id; t.jaadytetty = _jaad.jaadytetty; }
     /* Kerran per SESSIO, ei per pelaajarivi: 15 pelaajan joukkue tuottaisi
        muuten 15 "aktiivisuustapahtumaa" yhdestä merkinnästä ja joukkueen koko
        vääristäisi luvun. */
@@ -10607,6 +10619,33 @@ async function _calMuistiinpanoHae(t) {
   const sn = await _db.collection('seurat').doc(_seuraId).collection('kalenteri').doc(t.id).collection('henkilokunta').doc('muistiinpanot').get();   // virhe heitetään (kutsuja ei tallenna blind)
   return M.tmMuistiinpanoLuku(t, sn.exists ? sn.data() : null);
 }
+/* ── R1 PR 2 — ryhmät kalenterissa (Master). Logiikka lib/tm_ryhmat.js; tässä luku + kytkentä. Valmentaja näkee OMAT ryhmänsä (valmentajat[] sisältää uid:n) ja niiden tapahtumat; johto/SA kaikki. ── */
+window._mRyLista = null;   // null = ei ladattu
+function _mRyJohto() { return !!_superAdmin || _calJohtoRooli(); }
+async function _mRyHaeLista() {
+  if (window._mRyLista !== null && window._mRyLista !== undefined) return window._mRyLista;
+  if (_demo || !_seuraId || !_uid) { window._mRyLista = []; return []; }
+  try {
+    const col = _db.collection('seurat').doc(_seuraId).collection('ryhmat'), snap = await (_mRyJohto() ? col.get() : col.where('valmentajat', 'array-contains', _uid).get());
+    window._mRyLista = snap.docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); }).filter(function (r) { return r.aktiivinen !== false; }).sort(function (a, b) { return String(a.nimi).localeCompare(String(b.nimi)); });
+  } catch (e) { console.warn('[ryhmät] luku:', e && e.message); window._mRyLista = []; }
+  return window._mRyLista;
+}
+async function _mRyJasenIdt(r) {   // lista: pelaajat_id; sääntö (talenttiohjelma): yksi kysely
+  if (!r) return [];
+  if (r.tyyppi !== 'saanto') return (r.pelaajat_id || []).slice();
+  try { const sn = await _db.collection('seurat').doc(_seuraId).collection('pelaajat').where('talenttiOhjelma', '==', true).get(); return sn.docs.map(function (d) { return d.id; }); } catch (e) { console.warn('[ryhmät] talentit:', e && e.message); return []; }
+}
+async function _mRyKokoonpano(t) {   // läsnäolon kokoonpano: jäädytetty/ohi = tapahtuman snapshot, muuten elävä ryhmästä
+  const R = window.TM_RYHMAT, r = (await _mRyHaeLista()).filter(function (x) { return x.id === (t.kohde && t.kohde.ryhma_id); })[0] || null;
+  const ids = (!t.jaadytetty && r) ? await _mRyJasenIdt(r) : [];
+  return R.tmKokoonpano(t, { nyt: new Date(), pelaajat: ids.map(function (id) { return { id: id, talenttiOhjelma: true }; }), ryhmat: r ? [Object.assign({}, r, { tyyppi: 'lista', pelaajat_id: ids })] : [] });
+}
+function _mRyOmatNayta() {
+  const el = document.getElementById('calOmatRyhmat'), R = window.TM_RYHMAT; if (!el || !R) return;
+  const l = window._mRyLista || []; if (!l.length) { el.innerHTML = ''; return; }
+  el.innerHTML = '<span style="font-size:11px;color:var(--ink3)">' + _mEsc(masterT('Omat ryhmät')) + ':</span> ' + l.map(function (r) { return '<span data-omat-ryhma="' + _mEsc(r.id) + '" style="font-size:11.5px;border:.5px solid var(--border);border-radius:999px;padding:2px 8px;margin-left:4px;color:var(--ink2)">' + _mEsc(r.nimi) + '</span>'; }).join('');
+}
 function calSlotClick(day, hour) {
   // Laske klikattu päivämäärä
   const today = new Date();
@@ -10681,6 +10720,7 @@ function _avaaUusiTapahtuma(pvm, klo) {
       // Näkyvyystoggle klikkaushetkellä (elementit ovat closuressa; korvaa build-aikaisen getElementById-toggle-bugin).
       if (mentWrap) mentWrap.style.display = valittuTyyppi === 'mentorointitapaaminen' ? 'block' : 'none';
       if (typeof logWrap !== 'undefined' && logWrap) logWrap.style.display = valittuTyyppi === 'ottelu' ? 'block' : 'none';   // P7-c.2
+      if (typeof _mKnTyyppiMuuttui === 'function') _mKnTyyppiMuuttui();   // R1 PR 2
     };
     tyyppirivi.appendChild(btn);
   });
@@ -10778,6 +10818,16 @@ function _avaaUusiTapahtuma(pvm, klo) {
   });
   box.appendChild(aikaRivi);
 
+  // R1 PR 2 — "Kenelle": oma joukkue · ryhmä · poimitut · Vain valmennus / henkilökunta (palaveri-tyypeille oletus)
+  var knWrap = document.createElement('div'), _knKosk = false;
+  var _mKnRender = function () {
+    var R = window.TM_RYHMAT; if (!R) return; var tapa = knWrap._tapa || (R.tmOletusNakyvyys(valittuTyyppi) === 'henkilokunta' ? 'henkilokunta' : 'joukkue'), jn = {}; if (_joukkue) jn[_joukkue] = _joukkue;
+    knWrap.innerHTML = R.tmKenelleHTML({ esc: _mEsc, t: masterT, tapa: tapa, sallitut: ['joukkue', 'ryhma', 'pelaajat', 'henkilokunta'], joukkueTapaNimi: _joukkue || masterT('Koko seura'), ryhmat: window._mRyLista || [], pelaajat: (_pelaajatData || []).map(function (p) { return { id: p.id, nimi: _tmHenkiloNimi(p), joukkue: p.joukkue || '' }; }), jasenMaara: function (r) { return (r.tyyppi === 'saanto' ? 0 : (r.pelaajat_id || []).length); } });
+    var sel = knWrap.querySelector('[data-kn-tapa]'); sel.onchange = function () { _knKosk = true; knWrap._tapa = sel.value; R.tmKenelleNayta(knWrap); }; R.tmKenelleNayta(knWrap);
+  };
+  var _mKnTyyppiMuuttui = function () { if (!_knKosk) { knWrap._tapa = null; _mKnRender(); } };
+  _mKnRender(); box.appendChild(knWrap); if (window._mRyLista === null) _mRyHaeLista().then(_mKnRender);
+
   // ── Toistuvuus (K3 §13) ──
   var _calCadence = 'kerran';
   var toistL = document.createElement('label'); toistL.style.cssText = 'font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.06em;color:var(--ink3)'; toistL.textContent = masterT('Toistuvuus');
@@ -10874,6 +10924,11 @@ function _avaaUusiTapahtuma(pvm, klo) {
           mentoroitava_uid: mentUid,
           mentoroitava_nimi: mentNimi
         };
+        // R1 PR 2: Kenelle → kohdekentät (joukkue/joukkueet/pelaajat_id/kohde/nakyvyys); ryhmätapahtumassa pelaajat_id = ryhmän jäsenet nyt (elävä kunnes jäädytetään läsnäolossa)
+        { var _kv = window.TM_RYHMAT.tmKenelleLue(knWrap), _jn = {}; if (_joukkue) _jn[_joukkue] = _joukkue; var _rr0 = (window._mRyLista || []).filter(function (x) { return x.id === _kv.ryhma_id; })[0];
+          var _kd = window.TM_RYHMAT.tmKenelleDoc(Object.assign(_kv, { joukkue: _joukkue || '', joukkueNimet: _jn }), { ryhmat: window._mRyLista || [], ryhmaIdt: _rr0 ? await _mRyJasenIdt(_rr0) : [], oletusPelaajat: doc.pelaajat_id });
+          if (!_kd.ok) { toast(masterT(window.TM_RYHMAT.tmKenelleVirhe(_kd.syy, { t: masterT })), 'err'); tallBtn.disabled = false; tallBtn.textContent = masterT('Tallenna'); return; }
+          Object.assign(doc, _kd.osa); }
         // P7-c.2: logistiikka (additiivinen; vain ei-tyhjät kentät). Sama kalenteri-dokki → ei Rules-muutosta.
         var _mlog = {};
         if (mSaap.value) _mlog.saapumisaika = mSaap.value;

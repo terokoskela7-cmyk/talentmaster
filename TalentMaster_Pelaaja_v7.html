@@ -2590,6 +2590,8 @@ function _p7EvKuuluu(ev) {
   // tapahtuman joukkue = slug ("kpv_u13") → suora vertailu ei osu; normalisointi (lowercase + poista väli/alaviiva)
   // → "kpvu13" molemmilla. Kanoninen avain on joukkueet[]-slug kummallakin puolella.
   if (!_pelaaja) return false;
+  /* R1 PR 2: "Vain valmennus / henkilökunta" (nakyvyys:'henkilokunta') ei näy pelaajalle/huoltajalle; vanhat palaveritapahtumat ilman kenttää tyypistä (kalenteri ei tyhjene). Peilaa lib/tm_ryhmat.js tmNakyyPelaajalle (testi vertaa). */
+  if (ev.nakyvyys === 'henkilokunta' || (ev.nakyvyys !== 'kaikki' && ['jaksopalaveri', 'valmentajapalaveri', 'tiimipalaveri', 'kokous', 'kalibraatiopaja', 'mentorointitapaaminen'].indexOf(ev.tyyppi) >= 0)) return false;
   var norm = function (s) { return String(s == null ? '' : s).toLowerCase().replace(/[\s_]+/g, ''); };
   var pKeys = {};
   [_pelaaja.joukkue, _pelaaja.joukkueId].concat(_pelaaja.joukkueet || [])

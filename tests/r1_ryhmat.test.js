@@ -160,7 +160,7 @@ describe('VP_v25 · Ryhmät-osio (vm)', () => {
 describe('Lähdetarkistukset', () => {
   it('Ryhmät ei ole Kenttä-lipun takana; nav + näkymä + lataus vain avattaessa; lib ladataan', () => {
     const blokki = VP.slice(VP.indexOf('/* ═══ R1 — Seuran ryhmät'), VP.indexOf('function setWs(ws) {')); expect(blokki).not.toMatch(/_ktLippu|liput\.kentta|_vpLataaLiput/);
-    expect(VP).toContain('data-ws="ryhmat" onclick="setWs(\'ryhmat\')"'); expect(VP).toContain('id="ws-ryhmat"'); expect(VP).toContain("if (ws === 'ryhmat') { window._ryTila = null; _ryRender(); _ryLataa(); }"); expect(VP).toContain('<script src="lib/tm_ryhmat.js?v=1"></script>');
+    expect(VP).toContain('data-ws="ryhmat" onclick="setWs(\'ryhmat\')"'); expect(VP).toContain('id="ws-ryhmat"'); expect(VP).toContain("if (ws === 'ryhmat') { window._ryTila = null; _ryRender(); _ryLataa(); }"); expect(VP).toContain('<script src="lib/tm_ryhmat.js?v=2"></script>');
   });
   it('Rules v3.49: ryhmat-säännöt + kalenterin ryhmätapahtumapoikkeus + versio', () => {
     const r = lue('tm_admin/firestore.rules'); expect(r).toMatch(/firestore.rules v3.(49|50)/); expect(r).toContain('match /ryhmat/{ryhmaId}'); expect(r).toContain('function ryhmaKelpaa()'); expect(r).toContain('ryhmanValmentajaTapahtumassa(seuraId)'); expect(r).toContain('Seuran pulssi (S1) siirtyy v3.50:een');
