@@ -125,7 +125,7 @@ describe('Pelaaja_v7 · lippu liput/julkiset', () => {
   it('lähdetaso: dispatcher valitsee rA1Kentta vain lipulla; rA1() on TÄSMÄLLEEN ennallaan (snapshot-hash) eikä sisällä K1-koodia; skriptit ja SW-allowlist', () => {
     expect(SRC).toContain("html=(typeof _p7KenttaKaytossa==='function' && _p7KenttaKaytossa()) ? rA1Kentta() : rA1();");
     const ra1 = pura('function rA1()'); expect(createHash('sha256').update(ra1).digest('hex')).toBe('6089e5d1631d3fb68339d42fd8b995925c066fa9a0ec433505094dfef8516382'); expect(ra1).not.toMatch(/K1|rA1Kentta|k1-/);
-    for (const s of ['tm_liput.js?v=1', 'tm_kielletyt.js?v=1', 'tm_tukitavoitteet.js?v=3', 'tm_joukkuejakso.js?v=3', 'tm_taman_tueksi.js?v=1', 'tm_tanaan_kentta.js?v=1']) expect(SRC, s).toContain('<script src="lib/' + s + '"></script>');
+    for (const s of ['tm_liput.js?v=1', 'tm_kielletyt.js?v=1', 'tm_tukitavoitteet.js?v=3', 'tm_joukkuejakso.js?v=3', 'tm_taman_tueksi.js?v=2', 'tm_tanaan_kentta.js?v=2']) expect(SRC, s).toContain('<script src="lib/' + s + '"></script>');
     const sw = readFileSync(join(juuri, 'sw_pelaaja.js'), 'utf8'); expect(sw).toMatch(/const CACHE = 'tm-pelaaja-v(7[6-9]|[89]\d)'/); expect(sw).toContain('tm_(liput|kielletyt|tukitavoitteet|joukkuejakso|taman_tueksi|tanaan_kentta)');
     expect(SRC).toContain("if (btnId === 'dKirjausBtn' && typeof _p7K1NaytaKuittaus === 'function') _p7K1NaytaKuittaus();");
   });
