@@ -138,10 +138,18 @@ Masterin pelaajanäkymä korvataan koko ruudun kehitystyöpöydällä (13: Tän�
 
 ## Järjestys
 
-1. **D53 pikakorjaus** — oma PR (Teron kaista), heti.
-2. **V4a** — näkymä, hash-reititin, tilakone, typografia. Oma PR.
-3. **V4b** — kevyt katselmus, signaali, profiili, Rules v3.46+. Oma PR.
+1. **D53 pikakorjaus** — #868 ✅ mergetty 7.10.
+2. **V4a** — #870 (näkymä, hash-reititin, tilakone, typografia).
+3. **V4b** — kevyt katselmus, signaali, profiili, Rules v3.46+, **Näytön täydennys**. Oma PR (tai kaksi: V4b-katselmus ja V4b-Näyttö). **Tavoite 1.11.2026.**
 4. **Poisto** — vanha modaali ja fallbackit 1.12.2026. Oma PR.
+
+## V4b-täsmennykset (7.10.2026, #870-tarkastuksen jälkeen)
+
+- **Näyttö valmiiksi 1.11.2026 mennessä.** V4a:n Näyttö on osittainen: testit (H-H, TKI, FLEI, Eerikkilä), pelihavainnot/ADAR, 5D-tutka ja mittaukset (kasvu/PHV) ovat vielä vanhassa näkymässä. Ne siirretään Näyttöön mockup 18 §7:n taulukon mukaan, jotta vanhan kortin poisto 1.12. ei vie mitään pois. Kuukausi väliä = KPV:n palaute ennen poistoa.
+- **`tmValintaVoimassa` pois** (`tm_reitin_valinta.js`, `tm_jakso_malli.js` ja kutsukohdat). Se tehtiin #867:n version mukaan; #869:n jälkeen `tarjottu_pvm`:ää ei kirjoiteta koskaan, joten funktio palauttaa aina "voimassa". Poisto samassa PR:ssä kuin "Hylkää valinta" (§3 selvitys b).
+- **Kevyt katselmus EI nollaa `review_myohassa`-rytmiä** (ehdotus, Tero lukitsee). `laskeReviewKadenssi` lukee pikakentät `review_viimeisin_pvm`/`_tyyppi` = MDT-raportin tarkistusrytmi, ei jakson sulun rytmi. Kevyt katselmus sulkee jakson (→ "suljettava"- ja `jakso_umpeutunut`-signaalit poistuvat), mutta MDT-rytmiä päivittää vain täysi katselmus ("Syvennä", 09 §6). Muuten kolmen kysymyksen kuittaus näyttäisi MDT-raportissa tarkistetulta.
+- **Tyyppiä ei ylikirjoiteta** (ehdotus, Tero lukitsee). Kevyt katselmus kirjoittaa `reviewit/{pvm}`-dokumenttiin vain `kevyt` + `kevyt_tallennettu` (set-merge) eikä koske `tyyppi`-kenttään eikä pelaajan `review_viimeisin_*`-pikakenttiin. Saman päivän täysi katselmus ja kevyt katselmus elävät samassa dokumentissa rinnakkain.
+- **Tänään-luvut:** V4a:ssa 0 lukua (välimuisti) — parempi kuin D52:n 3. V4b lisää kuluvan viikon viikkokatsauksen → enintään 1 luku avauksessa; testi numerona.
 
 ## Lisäksi (Kieli, versiot)
 
