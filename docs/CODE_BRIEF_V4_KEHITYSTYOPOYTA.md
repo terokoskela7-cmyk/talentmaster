@@ -151,6 +151,15 @@ Masterin pelaajanäkymä korvataan koko ruudun kehitystyöpöydällä (13: Tän�
 - **Tyyppiä ei ylikirjoiteta** (ehdotus, Tero lukitsee). Kevyt katselmus kirjoittaa `reviewit/{pvm}`-dokumenttiin vain `kevyt` + `kevyt_tallennettu` (set-merge) eikä koske `tyyppi`-kenttään eikä pelaajan `review_viimeisin_*`-pikakenttiin. Saman päivän täysi katselmus ja kevyt katselmus elävät samassa dokumentissa rinnakkain.
 - **Tänään-luvut:** V4a:ssa 0 lukua (välimuisti) — parempi kuin D52:n 3. V4b lisää kuluvan viikon viikkokatsauksen → enintään 1 luku avauksessa; testi numerona.
 
+## V4b-2 — toteutus (7.10.2026; Rules v3.46)
+
+- **Kenttänimi `kevyt.nakyi` (ei `kevyt.ase`).** Briiffin kohta 9 nimesi kolmen kysymyksen kentät `{ase,treeni,mukana}`, mutta Rules-testin SANATESTI kieltää sanan "ase" Firestore-kenttänimistä (neutraalit kenttänimet; näkyvä sana tulee käännöksistä). Tallennus: `reviewit/{pvm}.kevyt = { nakyi, treeni, mukana }` (arvot sanoina, ennallaan) + `kevyt_tallennettu` (ISO). Ruudulla kysymys on edelleen "Näkyikö ase pelissä?".
+- **Rules v3.46 (additiivinen):** `kevytKelpaa` (hasOnly/hasAll + enum) reviewit-dokumentissa; `joukkueet/{jid}.valmentajaprofiili: 'ammatti'|'oto'` vain SA/johto asettaa (valmentajan joukkue-update on rajattu jaksokenttiin). Ryhmät (D33) → v3.47.
+- **Kevyt katselmus = yksi batch:** pelaajadokki (`jaksofokus` + `jaksofokus_historia` arrayUnion [+ `ydinvahvuus_valinta` delete]) + `reviewit/{pvm}` set-merge (`kevyt`, `kevyt_tallennettu`). Ei `tyyppi`-kenttää, ei `review_viimeisin_*`. `lause_lahde:'vp'|'valmentaja'` roolin mukaan.
+- **Hylkää valinta:** `jaksofokus = {tila:'valittavana', vaihtoehdot, hylatty:{pvm, perustelu, valinta}}` + `ydinvahvuus_valinta` delete, yksi `update()`. Perustelu pakollinen, ≤140, KIELLETYT + ei lukuja + ei sanaa hylätty/hylkää (pelaaja ei näe sanaa). Pelaaja näkee "Valmentajalta" + perustelu valintaruudussa ja "Valitse seuraava reitti" -kortissa kunnes valitsee uudelleen. `tmValintaVoimassa` poistettu.
+- **Tänään-signaali (D48):** `lib/tm_tanaan_signaali.js`; taulukkotesti `tests/v4b2_tanaan_signaali.test.js`. Luvut avauksessa: 0 (arkisin) / 1 (sunnuntaisin: kuluvan viikon viikkokatsaus, välimuistissa); profiili luetaan kerran/joukkue taustalla (VP: 0, joukkuelista jo ladattu).
+- **Ei toteutettu tässä PR:ssä:** oto-profiilin ensikerran opastettu kulku (2 min), "VP:n lause" -merkintä Polku-historiakortissa, Tänään-signaalin ei-D48-askeleet (ehdotus_odottaa, sitoumus, idp_jumissa, valitavoite_valmis, review_eraantymassa ovat J4-listan asioita, eivät Tänään-signaaleja).
+
 ## Lisäksi (Kieli, versiot)
 
 - Uudet tekstit `masterT`-avaimiksi (fi); ruotsinkieliset jätetään määrittelemättä ja listataan PR:ään Geminin listalle.

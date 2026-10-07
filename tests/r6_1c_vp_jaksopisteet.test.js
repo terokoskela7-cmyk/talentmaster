@@ -48,7 +48,7 @@ function ymp({ kaada = false, demo = false, pelaaja = {}, mergeLisa = null } = {
   vm.createContext(sb);
   vm.runInContext([pura('function _vpJfSnapshotit('), pura('function _vpJaksoVaihto('), pura('async function _vpJfKirjoita('), pura('async function _vpKirjoitaJaksofokus('), pura('function _vpJfPolut('),
     pura('window._vpAsetaFyysFokus = async function'), pura('window._vpOhjKaytaOhjelma = async function'), pura('window._vpValitavoiteAktivoi = function'), pura('window._vpTtVieTreeniin = async function'),
-    pura('window._vpJfAsetaKehitysFokus = async function'), pura('window._vpJfTavoitteetTallenna = async function'), pura('window._vpJfOsaArvioSet = function'), pura('window._vpSulkuTallenna = async function')].join(';\n') + ';', sb);
+    pura('window._vpJfAsetaKehitysFokus = async function'), pura('window._vpJfTavoitteetTallenna = async function'), pura('window._vpJfOsaArvioSet = function'), pura('window._vpSulkuTallenna = async function'), pura('function _kvkLahde(')].join(';\n') + ';', sb);
   return { sb, p, kirj, log };
 }
 const lopeta = () => new Promise((r) => setTimeout(r, 0));

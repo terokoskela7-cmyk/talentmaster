@@ -37,14 +37,14 @@ function ymp({ kaada = false, demo = false, offline = false, pelaaja = {}, vt, e
       TM_FYYSTEEMAT_LIB: { tmFyysTeema: (a) => (a ? { avain: a, nimi: 'Teema ' + a, testit: ['lin30m'] } : null), tmOhjelmaTemplaatti: (t) => ({ nimi: 'Pohja ' + t, kuvaus: 'k' }) } },
     _ttPelaaja: () => p, _pelaajatData: [p], _mIdpP: () => p, _mIdpReRender() {}, _mIdpTallennaDok() {}, _renderPinfoFirestore() {},
     _mTtItems: () => [{ avain: 'y_h2', nimi: 'SYÖTTÄMINEN', koodi: 'H2' }, { avain: 'y_h3', nimi: 'PELINLUKU', koodi: 'H3' }], _devIkaSp: () => ({ ika: 12 }), _ttNormPositio: () => 'KK', _mTtEhdotus: () => ehdotus,
-    _msSiltaKonsepti: (a) => ({ nimi: 'Silta ' + a, koodi: 'S1' }), document: { getElementById: (id) => (/Modal$/.test(id) ? { remove() { log.suljetut.push(id); } } : null) }, _uid: 'valm-uid', _rooli: 'valmentaja', tmPhvKoodi: () => 'PRE',
+    _msSiltaKonsepti: (a) => ({ nimi: 'Silta ' + a, koodi: 'S1' }), document: { getElementById: (id) => (/Modal$/.test(id) ? { remove() { log.suljetut.push(id); } } : null) }, _uid: 'valm-uid', _rooli: 'valmentaja', _superAdmin: false, tmPhvKoodi: () => 'PRE',
     firebase: { auth: () => ({ currentUser: { uid: 'valm-uid' } }), firestore: { FieldValue: { arrayUnion: (...a) => ({ __arrayUnion: a }) } } },
     _mTuoreToken: async () => {}, _mVerkkoEnnenSulkua: () => !offline, _demo: demo, _seuraId: 'kpv', _db,
     toast: (t, k) => log.toastit.push([t, k]), masterT: (x) => x, console: { warn: (...a) => log.warn.push(a) }, TM_VIRHEKOODI: require('../lib/tm_virhekoodi.js'), Date, Object, Array, Promise, Math, confirm: () => true,
   };
   vm.createContext(sb);
   vm.runInContext([pura('function _mJaksoVaihto('), pura('async function _mKirjoitaJaksofokus('), pura('window._ttVieTreeniin = async function'), pura('window._msAsetaFyysFokus = async function'),
-    pura('window._ohjKaytaOhjelma = async function'), pura('window._mIdpVtAktivoi = async function'), pura('window._msTallenna = async function')].join(';\n') + ';', sb);
+    pura('window._ohjKaytaOhjelma = async function'), pura('window._mIdpVtAktivoi = async function'), pura('window._msTallenna = async function'), pura('function _kvkLahde(')].join(';\n') + ';', sb);
   return { sb, p, kirj, log };
 }
 const SULKU = (p, o = {}) => ({ p, jf: p.jaksofokus, alkoi: ALKOI, loppu: '2026-10-04T10:00:00.000Z', harjoituksia: 5, lasnaolo: { paikalla: 4, yhteensa: 5, tiedossa: 5 }, arvioItse: 4, arvioAikuis: 3, tulos: 'parani', deltaMitattu: null, ...o });
@@ -56,8 +56,8 @@ describe('adapterit kutsuvat libiä — ei rinnakkaista päättelyä', () => {
     expect(sulku).toMatch(/TM_KEHITYSSILMUKKA\.tmSuljeJakso\(/); expect(sulku).not.toMatch(/tmHistoriaEntry|tmJaksonVaihto|jaksofokus_historia: hist/);
     ['_ttVieTreeniin', '_msAsetaFyysFokus', '_ohjKaytaOhjelma', '_mIdpVtAktivoi'].forEach((n) => expect(pura('window.' + n + ' = async function'), n).not.toMatch(/tmHistoriaEntry|tmJaksonVaihto|tmSamaJakso/));
   });
-  it('kaikki 5 kirjoittavat _mKirjoitaJaksofokus:lla (update + arrayUnion); Master lataa tm_kehityssilmukka.js', () => {
-    expect((MASTER.match(/await _mKirjoitaJaksofokus\(/g) || []).length).toBe(5);
+  it('kaikki 6 kirjoittavat _mKirjoitaJaksofokus:lla (update + arrayUnion; 6. = V4b-2 Hylkää valinta); Master lataa tm_kehityssilmukka.js', () => {
+    expect((MASTER.match(/await _mKirjoitaJaksofokus\(/g) || []).length).toBe(6);
     expect(pura('async function _mKirjoitaJaksofokus(')).toMatch(/\.update\(upd\)/); expect(MASTER).toContain('lib/tm_kehityssilmukka.js?v=2');
     expect(MASTER.indexOf('tm_jaksokooste.js')).toBeLessThan(MASTER.indexOf('tm_kehityssilmukka.js'));
   });

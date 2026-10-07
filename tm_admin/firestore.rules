@@ -1,15 +1,21 @@
 rules_version = '2';
 // ══════════════════════════════════════════════════════════════════════════
-// TalentMaster™ — firestore.rules v3.45
+// TalentMaster™ — firestore.rules v3.46
 //
 // Lähde:  tm_admin/firestore.rules
 // Deploy: PR → N4-CI deployaa automaattisesti (Console-käsityö poistui).
+//
+// Muutokset v3.45 → v3.46 (V4b-2: kevyt katselmus + valmentajaprofiili, 7.10.2026 — additiivinen, §11; ei migraatiota):
+//   · reviewit/{pvm}.kevyt: kevyt katselmus (3 kysymystä SANOINA) { nakyi: ei_viela|ohjatusti|itsenaisesti, treeni: harvoin|joskus|usein, mukana: vahan|jonkin_verran|hyvin } — hasOnly + hasAll + enum (kenttä `nakyi` = "Näkyikö ydinvahvuus pelissä?"; briiffin alkuperäinen kenttänimi korvattu neutraalilla; SANATESTI kieltää sanan kenttänimistä). EI pelaajadokumenttiin (pelaaja lukee oman dokumenttinsa; reviewit ei ole pelaajan luettavissa).
+//     `kevyt_tallennettu` (ISO-merkkijono) valinnainen. Kevyt katselmus kirjoittaa reviewit-dokumenttiin VAIN nämä kentät (set-merge): ei `tyyppi`-kenttää eikä review_viimeisin_* -pikakenttiä (MDT-rytmi päivittyy vain täydestä katselmuksesta).
+//   · joukkueet/{jid}.valmentajaprofiili: 'ammatti' | 'oto' (oletus 'oto' koodissa; puuttuva sallittu). Kirjoittaa vain SA/johto (valmentajan joukkuedokumentti-update on jo rajattu jaksokenttiin → profiilia ei voi muuttaa itse). Enum-validointi.
+//   · Ryhmät (D33) siirtyvät v3.47:ään (v3.46 = tämä).
 //
 // Muutokset v3.44 → v3.45 (pelaajadokumentin `ennatys_nahty` — ennätysjuhlan nähty-merkki, 7.10.2026 — additiivinen, §11; ei migraatiota):
 //   · Ongelma: "Uusi oma ennätys" -ilmoitus (Pelaaja_v7 _naytaUusiEnnatys) toistui, koska nähty-merkki oli vain localStorage:ssa (uusi laite, selain, yksityinen tila, tyhjentyvä PWA-muisti).
 //   · Korjaus: PIN-pelaaja (onPelaajaItse) saa päivittää omaan dokumenttiinsa VAIN kentän `ennatys_nahty` (map { avain: 'YYYY-MM-DD' }; affectedKeys().hasOnly + is map + ≤ 200 avainta). localStorage jää välimuistiksi.
 //     Avaimen/arvon muotoa ei voi tarkistaa säännöissä (ei silmukkaa) → sama anon-luottamusmalli kuin xp/streak; kenttä ei vaikuta mihinkään muuhun kuin juhlan toistoon.
-//   · Ryhmät (D33) siirtyvät v3.46:een (v3.45 = tämä).
+//   · Ryhmät (D33) siirtyivät v3.46:een → v3.47 (v3.46 = V4b-2, ks. yllä).
 //
 // Muutokset v3.43 → v3.44 (seurat/{sid}/pelaajat/{pid}/viikkokatsaukset/{sunnuntain pvm} — K4, 7.10.2026 — additiivinen, §11; uusi alikokoelma, ei migraatiota):
 //   · Pelaajan sunnuntain viikkokatsaus: { vk, jakso_alkoi, vastaukset:[{osa, teksti, arvo:'usein'|'joskus'|'ei_viela'}], lause?, luotu }. Oma alikokoelma, EI kirjaukset/{pvm}: kirjauksia lukee ainakin seitsemän lukijaa (Vanhempi_v2, Palloliiton viikkoseuranta, VP:n hiljaiset ym.).
@@ -721,6 +727,23 @@ service cloud.firestore {
       return 'luotu' in request.resource.data
           && request.resource.data.luotu is timestamp;
     }
+    /* v3.46 — kevyt katselmus (V4b-2): 3 kysymystä sanoina; ei numeroita. */
+    function kevytKelpaa(k) {
+      return k is map
+          && k.keys().hasOnly(['nakyi', 'treeni', 'mukana'])
+          && k.keys().hasAll(['nakyi', 'treeni', 'mukana'])
+          && k.nakyi in ['ei_viela', 'ohjatusti', 'itsenaisesti']
+          && k.treeni in ['harvoin', 'joskus', 'usein']
+          && k.mukana in ['vahan', 'jonkin_verran', 'hyvin'];
+    }
+    function reviewKevytKelpaa() {
+      let d = request.resource.data;
+      return (!('kevyt' in d) || kevytKelpaa(d.kevyt))
+          && (!('kevyt_tallennettu' in d) || (d.kevyt_tallennettu is string && d.kevyt_tallennettu.size() <= 40));
+    }
+    function profiiliKelpaa() {
+      return !('valmentajaprofiili' in request.resource.data) || request.resource.data.valmentajaprofiili in ['ammatti', 'oto'];
+    }
     /* v3.44 — viikkokatsaus (K4): yksi vastaus {osa, teksti, arvo}. Taulukkoindeksit käsin (säännöissä ei silmukkaa). */
     function vkVastausKelpaa(v) {
       return v is map
@@ -1259,7 +1282,7 @@ service cloud.firestore {
         // Pikakentät (review_viimeisin_pvm/-tyyppi) kirjoitetaan pelaaja-dokumenttiin → pelaajat-update-säännön piirissä.
         match /reviewit/{reviewId} {
           allow read:           if onSuperAdmin() || onOmaSeura(seuraId);
-          allow create, update: if onSuperAdmin() || (onOmaSeura(seuraId) && onJohtoRooli()) || onOmanSeuranValmentaja(seuraId);
+          allow create, update: if (onSuperAdmin() || (onOmaSeura(seuraId) && onJohtoRooli()) || onOmanSeuranValmentaja(seuraId)) && reviewKevytKelpaa();   // v3.46: kevyt-enum
           allow delete:         if onSuperAdmin();
         }
 
@@ -1561,8 +1584,9 @@ service cloud.firestore {
       match /joukkueet/{joukkueId} {
         allow read:  if onKirjautunut() && (onSuperAdmin() || onOmaSeura(seuraId));
         // v3.37: write jaettu. create/delete = SA | johto (valmentaja EI luo joukkuedokumenttia); update = SA | johto | valmentaja VAIN jaksokentät (joukkueen jakso).
-        allow create, delete: if onSuperAdmin() || (onOmaSeura(seuraId) && onJohtoRooli());
-        allow update: if onSuperAdmin() || (onOmaSeura(seuraId) && onJohtoRooli())
+        allow create: if (onSuperAdmin() || (onOmaSeura(seuraId) && onJohtoRooli())) && profiiliKelpaa();   // v3.46: valmentajaprofiili-enum
+        allow delete: if onSuperAdmin() || (onOmaSeura(seuraId) && onJohtoRooli());
+        allow update: if ((onSuperAdmin() || (onOmaSeura(seuraId) && onJohtoRooli())) && profiiliKelpaa())
                       || (onOmanSeuranValmentaja(seuraId)
                           && (request.auth.token.rooli == 'talenttivalmentaja'
                               || valmentajanJoukkueet(seuraId).hasAny([joukkueId]))

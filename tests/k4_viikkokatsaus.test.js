@@ -244,7 +244,7 @@ describe('Jakson päätös — lause historiariville (Master + VP)', () => {
     it(f + ': sulkulomakkeessa lause (≤140, vartija ENNEN sulkua, vain lipulla), lisakentat samaan tmSuljeJakso-kutsuun, ei erillistä kirjoitusta; skriptit ladataan', () => {
       const src = lue(f), i = src.indexOf(tallenna), fn = src.slice(i, i + 6000);
       expect(fn).toMatch(/S\.k4 \? window\.TM_VIIKKOKATSAUS\.tmVkLauseValmentaja\(S\.lause\)/); expect(fn.indexOf('tmVkLauseValmentaja')).toBeLessThan(fn.indexOf('tmSuljeJakso'));
-      expect(fn).toMatch(/lisakentat: _lause\.teksti \? \{ lause: _lause\.teksti \} : undefined/); expect(fn).toMatch(/if \(!_lause\.ok\) \{ if \(typeof toast === 'function'\) toast\([^\n]*return; \}/);
+      expect(fn).toMatch(/lisakentat: _lause\.teksti \? \{ lause: _lause\.teksti, lause_lahde: _kvkLahde\(\) \} : undefined/); expect(fn).toMatch(/if \(!_lause\.ok\) \{ if \(typeof toast === 'function'\) toast\([^\n]*return; \}/);
       expect(src).toContain('maxlength="\' + K4.MAX_LAUSE + \'"'); expect(src).toContain(setLause); expect(src).toContain(modalId); expect(src).toContain('liput.kentta !== true) return;');
       for (const s of ['tm_kielletyt.js?v=1', 'tm_taman_tueksi.js?v=2', 'tm_viikkokatsaus.js?v=2']) expect(src, s).toContain('<script src="lib/' + s + '"></script>');
       expect(src).not.toMatch(/viikkokatsaukset'\)\.(doc\([^)]*\)\.)?(set|add|update)\(/);   // henkilökunta ei kirjoita viikkokatsauksia (Rules v3.44)
