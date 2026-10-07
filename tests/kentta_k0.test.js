@@ -39,7 +39,7 @@ describe('2 · kerrokset', () => {
     const r = K.tmKentta({ koko: 'puoli', ase: null });
     expect(lkm(r.html, 'kt-ase')).toBe(0); expect(lkm(r.html, 'kt-ase-puuttuu')).toBe(1);
     expect(r.data.alue).toMatchObject({ x: 30, y: 48, w: 40, h: 30, puuttuu: true });
-    expect(r.html).toContain('ase puuttuu');
+    expect(r.html).toContain('vahvuus valitaan pian');   // D54: ei "ase" käyttäjälle
   });
   it('ase tila:"puuttuu" tai virheellinen alue → puuttuu-tila; ase alueella → .kt-ase', () => {
     expect(lkm(K.tmKentta({ ase: Object.assign({ tila: 'puuttuu' }, ASE) }).html, 'kt-ase-puuttuu')).toBe(1);
@@ -66,7 +66,7 @@ describe('2b · ilmanAluetta (K1-korjaus: ei oletusaluetta, ei tekstiä)', () =>
   it('ilmanAluetta:true → pelkkä kenttä: ei ase-/ase puuttuu -laatikkoa, ei tekstiä, data.alue null; ilman lippua oletus (katkoviiva + "ase puuttuu") ENNALLAAN', () => {
     const ilman = K.tmKentta({ koko: 'puoli', ilmanAluetta: true, ase: null }, {}); expect(ilman.data.alue).toBeNull(); expect(ilman.html).toBe('<div class="kt-layer"></div>'); expect(ilman.html + ilman.svg).not.toMatch(/kt-ase|ase puuttuu|oma alue/);
     const w = K.tmKentta({ koko: 'puoli', ilmanAluetta: true }, { wrap: true }); expect(w).toContain('<div class="kt">'); expect(w).not.toMatch(/kt-ase|ase puuttuu/);
-    const vanha = K.tmKentta({ koko: 'puoli', ase: null }, {}); expect(vanha.html).toContain('kt-ase-puuttuu'); expect(vanha.html).toContain('ase puuttuu'); expect(vanha.data.alue).toMatchObject({ puuttuu: true });
+    const vanha = K.tmKentta({ koko: 'puoli', ase: null }, {}); expect(vanha.html).toContain('kt-ase-puuttuu'); expect(vanha.html).toContain('vahvuus valitaan pian'); expect(vanha.html).not.toMatch(/[> ]ase[ <]/i); expect(K.tmKentta({ koko: 'puoli', ase: null }, { rooli: 'henkilokunta' }).html).toContain('ydinvahvuus puuttuu'); expect(vanha.data.alue).toMatchObject({ puuttuu: true });
     for (const v of [false, 'true', 1, undefined]) expect(K.tmKentta({ koko: 'puoli', ilmanAluetta: v, ase: null }, {}).html, String(v)).toContain('kt-ase-puuttuu');   // vain täsmälleen true
     const ase = K.tmKentta({ koko: 'puoli', ilmanAluetta: true, ase: { alue: { x: 30, y: 48, w: 40, h: 30 }, nimi: 'X' } }, {}); expect(ase.html).toBe('<div class="kt-layer"></div>');   // alue ei piirry vaikka annettaisiin (K1 ei anna)
   });
@@ -117,9 +117,9 @@ describe('6 · i18n', () => {
     const kutsut = [];
     const t = (k) => { kutsut.push(k); return '«' + k + '»'; };
     const r = K.tmKentta({ ase: { alue: ASE.alue, nimi: 'Tempokuljetus' }, osat: [{ k: 'a', x: 1, y: 1, tila: 'ohjatusti' }, { k: 'b', x: 2, y: 2, tila: 'nyt' }, { k: 'c', x: 3, y: 3, tila: 'ei_viela' }, { k: 'd', x: 4, y: 4, tila: 'itsenaisesti' }], lempipaikka: { x: 30, y: 58 }, vaihtoehdot: [{ k: 'A', loppu: 'maali' }, { k: 'B', loppu: 'kaveri' }] }, { t });
-    ['sinun aseesi', 'ohjatusti', 'nyt', 'ei vielä', 'itsenäisesti', 'tässä tykkään pelata', 'maali', 'kaveri', 'Kenttä'].forEach((k) => { expect(kutsut, k).toContain(k); expect(kok(r), k).toContain('«' + k + '»'); });
-    expect(kok(K.tmKentta({ ase: null }, { t }))).toContain('«ase puuttuu»');
-    expect(K.tmKentta({ ase: ASE }).html).toContain('sinun aseesi');   // ilman t:tä avain sellaisenaan
+    ['sinun vahvuutesi', 'ohjatusti', 'nyt', 'ei vielä', 'itsenäisesti', 'tässä tykkään pelata', 'maali', 'kaveri', 'Kenttä'].forEach((k) => { expect(kutsut, k).toContain(k); expect(kok(r), k).toContain('«' + k + '»'); });
+    expect(kok(K.tmKentta({ ase: null }, { t }))).toContain('«vahvuus valitaan pian»'); expect(kok(K.tmKentta({ ase: null }, { t, rooli: 'henkilokunta' }))).toContain('«ydinvahvuus puuttuu»'); expect(kok(K.tmKentta({ ase: ASE }, { t, rooli: 'henkilokunta' }))).toContain('«ydinvahvuus»');
+    expect(K.tmKentta({ ase: ASE }).html).toContain('sinun vahvuutesi');   // ilman t:tä avain sellaisenaan
   });
   it('datakentät (ase.nimi, osan nimi) EIVÄT kulje t:n läpi (käyttäjän/valmentajan teksti) ja HTML-escapataan; ariaLabel-ohitus', () => {
     const t = (k) => '«' + k + '»';
@@ -187,7 +187,7 @@ describe('K0 ei muuta näkymiä (D10/D11 vartijat)', () => {
     [PE, VH].forEach((h) => {
       expect(h).toMatch(/--chalk:rgba\(242,239,230,\.55\); --chalk2:rgba\(242,239,230,\.28\)/);
       expect(h).toMatch(/:root\[data-theme="light"\] \{ --chalk:rgba\(28,28,26,\.45\); --chalk2:rgba\(28,28,26,\.2\); --amber-dim:rgba\(224,160,64,\.2\); \}/);
-      expect(h).toContain('<script src="lib/tm_kentta.js?v=2"></script>');
+      expect(h).toContain('<script src="lib/tm_kentta.js?v=3"></script>');
     });
     expect(PE).toMatch(/--amber-dim: rgba\(224,160,64,\.16\)/); expect(VH).toMatch(/--amber-dim:rgba\(224,160,64,\.16\)/);
   });
@@ -242,7 +242,7 @@ describe('K0 ei muuta näkymiä (D10/D11 vartijat)', () => {
   it('SW: lib + fontti allowlistissa molemmissa apeissa, cachet nostettu (pelaaja v74, vanhempi v50)', () => {
     const sp = lue('sw_pelaaja.js'), sv = lue('sw_vanhempi.js');
     [sp, sv].forEach((s) => { expect(s).toContain("'/lib/tm_kentta.js'"); expect(s).toContain("'/assets/fonts/archivo-latin-wdth-normal.woff2'"); });
-    expect(sp).toMatch(/const CACHE = 'tm-pelaaja-v(7[4-9]|[89]\d)'/); expect(sv).toMatch(/const CACHE = 'tm-vanhempi-v50'/);   // pelaaja vähintään v74 (K0); B 3/3 nosti v75
+    expect(sp).toMatch(/const CACHE = 'tm-pelaaja-v(7[4-9]|[89]\d)'/); expect(sv).toMatch(/const CACHE = 'tm-vanhempi-v5[1-9]'/);   // pelaaja vähintään v74 (K0); B 3/3 nosti v75
   });
   it('kirjasto ei lataa mitään verkosta eikä Firebasea; ei Google Fonts', () => {
     const koodi = LIB.replace(/\/\*[\s\S]*?\*\//g, '').split('\n').map((l) => l.replace(/\/\/.*$/, '')).join('\n');   // ilman kommentteja
