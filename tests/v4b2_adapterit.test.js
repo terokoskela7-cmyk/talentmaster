@@ -52,7 +52,7 @@ for (const sov of ['Master', 'VP']) {
   const hk = sov === 'Master' ? 'ms' : 'vp';
   describe(sov + ' · V4b-2 kevyt katselmus (vm)', () => {
     it('avaus: ruutu piirtyy (3 kysymystä, lause, K3-osio), profiili oletuksena oto; väärä jakso → toast ei ruutua', async () => {
-      const e = ymp(sov); e.win._kvkAvaa('p1', false); await lopeta(); expect(e.log.lisatyt).toContain('_kvkModal'); const h = e.els._kvkModal.html; expect(h).toContain('Näkyikö ase pelissä?'); expect(h).toContain('data-k3-osio'); expect(e.sb._kvkTila().profiili).toBe('oto'); expect(e.sb._kvkTila().k3.paalla).toBe(false);
+      const e = ymp(sov); e.win._kvkAvaa('p1', false); await lopeta(); expect(e.log.lisatyt).toContain('_kvkModal'); const h = e.els._kvkModal.html; expect(h).toContain('Näkyikö ydinvahvuus pelissä?'); expect(h).toContain('data-k3-osio'); expect(e.sb._kvkTila().profiili).toBe('oto'); expect(e.sb._kvkTila().k3.paalla).toBe(false);
       e.win._kvkAvaa('p1', true); expect(e.sb._kvkTila().k3.paalla).toBe(true);   // "Anna pelaajan valita" → sama ruutu, tarjous auki
       const ei = ymp(sov, { pelaaja: { jaksofokus: null } }); ei.win._kvkAvaa('p1', false); await lopeta(); expect(ei.log.lisatyt).not.toContain('_kvkModal'); expect(ei.log.toast.some(([, k]) => k === 'error')).toBe(true);
     });
@@ -156,7 +156,7 @@ describe('Lähdetarkistukset: reititys, ei päällekkäisiä globaaleja, lib-skr
     for (const [nimi, src] of [['Master', MASTER], ['VP', VP]]) { const lohko = pala(src, '/* ═══ V4b-2 — kevyt katselmus', nimi === 'Master' ? 'function _msDots(' : 'function _vpSulkuJaksovali('); const koodi = lohko.replace(/\/\*[\s\S]*?\*\/|\/\/[^\n]*/g, ''); expect(koodi, nimi).toMatch(/batch\.set\(ref\.collection\('reviewit'\)\.doc\(plan\.reviewitPvm\), plan\.reviewitData, \{ merge: true \}\)/); expect(koodi, nimi).not.toMatch(/review_viimeisin|tyyppi\s*:/); }
   });
   it('skriptit ladataan (v1) ennen käyttöä sekä Masterissa että VP:ssä; eslint ei tarvitse uusia globaaleja', () => {
-    for (const src of [MASTER, VP]) { for (const l of ['tm_tanaan_signaali.js?v=1', 'tm_kevyt_katselmus.js?v=1']) expect(src).toContain('<script src="lib/' + l + '"></script>'); expect(src.indexOf('lib/tm_kevyt_katselmus.js')).toBeGreaterThan(src.indexOf('lib/tm_reitin_valinta.js')); expect(src.indexOf('lib/tm_kevyt_katselmus.js')).toBeGreaterThan(src.indexOf('lib/tm_viikkokatsaus.js')); }
+    for (const src of [MASTER, VP]) { for (const l of ['tm_tanaan_signaali.js?v=1', 'tm_kevyt_katselmus.js?v=2']) expect(src).toContain('<script src="lib/' + l + '"></script>'); expect(src.indexOf('lib/tm_kevyt_katselmus.js')).toBeGreaterThan(src.indexOf('lib/tm_reitin_valinta.js')); expect(src.indexOf('lib/tm_kevyt_katselmus.js')).toBeGreaterThan(src.indexOf('lib/tm_viikkokatsaus.js')); }
     expect(readFileSync(new URL('../TalentMaster_Pelaaja_v7.html', import.meta.url), 'utf8')).not.toContain('tm_kevyt_katselmus');   // pelaajasovellus ei lataa henkilökunnan libiä
   });
 });

@@ -72,7 +72,7 @@ describe('kevyt katselmus: ruutu (HTML)', () => {
   it('3 kysymystä × 3 sanavaihtoehtoa, lause-kenttä (140), K3-osio, "Sulje jakso ja lähetä" + "Syvennä"; profiili-teksti: pakollinen / toivottu; ei hex-värejä', () => {
     const osat = [{ k: 'a', teksti: 'Laukaus vauhdista' }];
     const oto = K.tmKkSheetHTML(K.tmKkAlku(P(), { profiili: 'oto', kortit: KORTIT(), osat, nimi: 'Topias K.' }), OPTS), am = K.tmKkSheetHTML(K.tmKkAlku(P(), { profiili: 'ammatti', kortit: KORTIT(), osat }), OPTS);
-    expect((oto.match(/data-kvk-arvo=/g) || []).length).toBe(9); for (const t of ['Näkyikö ase pelissä?', 'Treenattiinko sitä?', 'Oliko pelaaja mukana?', 'Ei vielä', 'Ohjatusti', 'Itsenäisesti', 'Harvoin', 'Joskus', 'Usein', 'Vähän', 'Jonkin verran', 'Hyvin', 'Sulje jakso ja lähetä', 'Syvennä (täysi katselmus)', 'Anna pelaajan valita seuraava reitti']) expect(oto, t).toContain(t);
+    expect((oto.match(/data-kvk-arvo=/g) || []).length).toBe(9); for (const t of ['Näkyikö ydinvahvuus pelissä?', 'Treenattiinko sitä?', 'Oliko pelaaja mukana?', 'Ei vielä', 'Ohjatusti', 'Itsenäisesti', 'Harvoin', 'Joskus', 'Usein', 'Vähän', 'Jonkin verran', 'Hyvin', 'Sulje jakso ja lähetä', 'Syvennä (täysi katselmus)', 'Anna pelaajan valita seuraava reitti']) expect(oto, t).toContain(t);
     expect(oto).toContain('maxlength="140"'); expect(oto).toContain('toivottu'); expect(oto).toContain('data-kvk-ehdotukset'); expect(am).toContain('pakollinen'); expect(am).not.toContain('data-kvk-ehdotukset'); expect(oto).not.toMatch(/#[0-9a-fA-F]{6}\b/);
     expect(oto).toContain('onclick="_v(\'nakyi\',\'ohjatusti\')"'); expect(oto).not.toMatch(/[<>]script/);
     const vp = K.tmKkSheetHTML(Object.assign(K.tmKkAlku(P(), { profiili: 'oto', lahde: 'vp' }), {}), OPTS); expect(vp).toContain('VP:n lause');
@@ -146,5 +146,14 @@ describe('Pelaaja: "Valmentajalta: {perustelu}" — vain kunnes pelaaja valitsee
   it('tmValintaVoimassa on poistettu kaikkialta (RV, jakso_malli, tilakone ei viittaa)', () => {
     expect(RV.tmValintaVoimassa).toBeUndefined(); expect(require('../lib/tm_jakso_malli.js').tmValintaVoimassa).toBeUndefined();
     const { readFileSync } = require('fs'); for (const f of ['lib/tm_aloita_jakso.js', 'lib/tm_reitin_valinta.js', 'lib/tm_jakso_malli.js', 'TalentMaster_Master_v16.html', 'TalentMaster_VP_v25.html', 'TalentMaster_Pelaaja_v7.html']) expect(readFileSync(f, 'utf8').replace(/\/\*[\s\S]*?\*\/|\/\/[^\n]*/g, ''), f).not.toMatch(/tmValintaVoimassa|_valintaVoimassa/);
+  });
+});
+
+describe('Sanasto: henkilökunnalle "ydinvahvuus", ei "ase" käyttäjälle (Teron päätös 7.10.)', () => {
+  it('V4-libien fi-tekstit ja valikot eivät sisällä sanaa "ase"', () => {
+    const KT = require('../lib/tm_kehitystyopoyta.js'), TS = require('../lib/tm_tanaan_signaali.js'), RV2 = require('../lib/tm_reitin_valinta.js');
+    for (const [n, m] of [['kevyt', K.FI], ['signaali', TS.FI], ['kt', KT.FI], ['rv', RV2.FI]]) for (const [k, v] of Object.entries(m)) expect(String(v), n + '.' + k).not.toMatch(/(^|[^a-zäö])ase([^a-zäö]|$)/i);
+    const t = AJ.tmJaksoTila(P({ jaksofokus: null }), { nyt: Date.now() }); expect(JSON.stringify(t)).not.toMatch(/\base\b/i);
+    expect(K.FI.kk_q_nakyi).toBe('Näkyikö ydinvahvuus pelissä?');
   });
 });
