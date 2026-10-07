@@ -1,0 +1,299 @@
+<!doctype html>
+<html lang="fi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Kenttä koko järjestelmässä</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,400&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* V2-tokenit: ink3 ja amber-teksti nostettu AA-tasolle (≥ 4.5:1) molemmissa teemoissa */
+:root{--teal:#1A7A5E;--teal-d:#28B090;--amber:#E0A040;--red:#D06A5A;--blue:#5A8DD0;
+ --font-serif:'Cormorant Garamond',Georgia,serif;--font-sans:'DM Sans',system-ui,sans-serif;--font-mono:'DM Mono',ui-monospace,monospace;
+ --bg:#111110;--surface:#1A1A18;--surface2:#232320;--ink:#F2EFE6;--ink2:#D2CFC5;--ink3:#9A978E;--border:rgba(242,239,230,.14);--border2:rgba(242,239,230,.08);
+ --acc:#28B090;--acc-dim:rgba(40,176,144,.12);--acc-brd:rgba(40,176,144,.36);--warn:#E0A040;--warn-dim:rgba(224,160,64,.12);--warn-brd:rgba(224,160,64,.36);--info:#7FA6DE;
+ --old3:#8B887F;color-scheme:dark}
+@media (prefers-color-scheme:light){:root:not([data-theme="dark"]){--bg:#F2EFE6;--surface:#FBFAF6;--surface2:#EDEAE0;--ink:#1C1C1A;--ink2:#3E3C37;--ink3:#66635A;--border:rgba(28,28,26,.16);--border2:rgba(28,28,26,.09);--acc:#1A7A5E;--acc-dim:rgba(26,122,94,.10);--acc-brd:rgba(26,122,94,.34);--warn:#9A6512;--warn-dim:rgba(224,160,64,.16);--warn-brd:rgba(154,101,18,.40);--info:#3D6AA8;--old3:#7A776E;color-scheme:light}}
+:root[data-theme="light"]{--bg:#F2EFE6;--surface:#FBFAF6;--surface2:#EDEAE0;--ink:#1C1C1A;--ink2:#3E3C37;--ink3:#66635A;--border:rgba(28,28,26,.16);--border2:rgba(28,28,26,.09);--acc:#1A7A5E;--acc-dim:rgba(26,122,94,.10);--acc-brd:rgba(26,122,94,.34);--warn:#9A6512;--warn-dim:rgba(224,160,64,.16);--warn-brd:rgba(154,101,18,.40);--info:#3D6AA8;--old3:#7A776E;color-scheme:light}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--ink);font-family:var(--font-sans);font-weight:400;font-size:15px;line-height:1.55;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1160px;margin:0 auto;padding:32px 16px 90px;display:grid;gap:52px}
+.wrap>*{min-width:0}
+section{display:grid;gap:18px;min-width:0}
+.eb{font-size:11px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--acc)}
+.eb.m{color:var(--ink3)}
+h1{font-family:var(--font-serif);font-weight:400;font-size:clamp(34px,5.5vw,52px);line-height:1.05}
+h2{font-family:var(--font-serif);font-weight:400;font-size:clamp(26px,3.6vw,34px);line-height:1.15}
+h3{font-family:var(--font-serif);font-weight:500;font-size:22px;line-height:1.2}
+p{color:var(--ink2)} b{font-weight:600;color:var(--ink)}
+.meta{font-size:12.5px;color:var(--ink3)}
+.num{font-family:var(--font-serif);font-weight:500;line-height:1}
+code{font-family:var(--font-mono);font-size:12px}
+.top{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between}
+.brand{font-family:var(--font-serif);font-size:23px;font-weight:500}.brand em{font-style:normal;color:var(--acc)}
+.chip{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:500;padding:4px 10px;border:1px solid var(--border);border-radius:999px;color:var(--ink2);white-space:nowrap}
+.chip.ok{color:var(--acc);border-color:var(--acc-brd);background:var(--acc-dim)}
+.chip.w{color:var(--warn);border-color:var(--warn-brd);background:var(--warn-dim)}
+.tg button{font-family:var(--font-sans);font-size:13px;padding:7px 13px;border:1px solid var(--border);background:transparent;color:var(--ink2);border-radius:4px;cursor:pointer}
+.g4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.g2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:18px 20px;display:grid;gap:8px;align-content:start;min-width:0}
+.card .num{font-size:40px}
+.bad .num{color:var(--warn)}
+.tw{overflow-x:auto;border:1px solid var(--border);border-radius:10px}
+table{width:100%;border-collapse:collapse;font-size:14px;min-width:640px}
+th{font-size:11px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--ink3);text-align:left;padding:11px 14px;border-bottom:1px solid var(--border)}
+td{padding:11px 14px;border-bottom:1px solid var(--border2);color:var(--ink2);vertical-align:top}
+tr:last-child td{border-bottom:0}
+.rules{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.rule{display:grid;grid-template-columns:34px minmax(0,1fr);gap:12px;padding:14px 16px;border:1px solid var(--border);border-radius:10px;background:var(--surface)}
+.rule .k{width:30px;height:30px;border-radius:50%;background:var(--acc-dim);color:var(--acc);display:grid;place-items:center;font-weight:600;font-size:14px}
+.rule p{font-size:14px}
+/* before/after */
+.ba{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+.old{background:#1E1E1C;border:.5px solid rgba(242,239,230,.12);padding:14px;font-family:var(--font-sans);font-weight:300;color:#F2EFE6}
+:root[data-theme="light"] .old{background:#FBFAF6;color:#1C1C1A;border-color:rgba(28,28,26,.14)}
+@media (prefers-color-scheme:light){:root:not([data-theme="dark"]) .old{background:#FBFAF6;color:#1C1C1A;border-color:rgba(28,28,26,.14)}}
+.old .e{font-size:9px;letter-spacing:.18em;text-transform:uppercase;color:var(--old3);font-weight:600}
+.old .t{font-family:var(--font-serif);font-weight:300;font-size:20px}
+.old .s{font-size:10.5px;color:var(--old3);font-family:var(--font-mono)}
+.old .r{display:flex;justify-content:space-between;gap:8px;font-size:11.5px;padding:5px 0;border-top:.5px solid rgba(128,128,128,.15)}
+.old .r span:last-child{font-family:var(--font-mono);font-size:9.5px;color:var(--old3)}
+.lab{font-size:12px;font-weight:600;color:var(--ink3);margin-bottom:6px;display:block}
+/* cockpit V2 */
+.app{border:1px solid var(--border);border-radius:14px;background:var(--bg);overflow:hidden}
+.app .hdr{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:16px;align-items:center;padding:18px 22px;border-bottom:1px solid var(--border);background:var(--surface)}
+.avt{width:52px;height:52px;border-radius:50%;background:var(--acc-dim);color:var(--acc);display:grid;place-items:center;font-family:var(--font-serif);font-size:24px;font-weight:500}
+.app .nm{font-family:var(--font-serif);font-size:28px;font-weight:500;line-height:1.1}
+.tabs{display:flex;gap:6px;padding:0 22px;border-bottom:1px solid var(--border);background:var(--surface);flex-wrap:wrap}
+.tabs span{padding:12px 14px;font-size:14px;font-weight:500;color:var(--ink3);border-bottom:2px solid transparent}
+.tabs span.on{color:var(--ink);border-color:var(--acc)}
+.body{padding:22px;display:grid;gap:16px}
+.sig{display:grid;grid-template-columns:minmax(0,1.1fr) repeat(3,minmax(0,1fr));gap:12px}
+.sig .main{background:var(--acc-dim);border:1px solid var(--acc-brd);border-radius:10px;padding:16px 18px;display:grid;gap:4px}
+.sig .main .num{font-size:34px;color:var(--acc)}
+.ctr{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px 16px;display:grid;gap:6px;align-content:start}
+.ctr .q{font-size:13.5px;font-weight:500;color:var(--ink2)}
+.ctr .num{font-size:30px}
+.bar{height:6px;border-radius:3px;background:var(--surface2);overflow:hidden}.bar i{display:block;height:100%;background:var(--acc);border-radius:3px}
+.bar.w i{background:var(--warn)}
+.cols{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);gap:16px;align-items:start}
+.focus{background:var(--surface);border:1px solid var(--border);border-left:3px solid var(--acc);border-radius:10px;padding:18px 20px;display:grid;gap:12px}
+.focus .tt{font-family:var(--font-serif);font-size:30px;font-weight:500;line-height:1.1}
+.link{font-size:13.5px;color:var(--acc);font-weight:500}
+.part{display:grid;grid-template-columns:28px minmax(0,1fr) auto;gap:12px;align-items:center;padding:11px 0;border-top:1px solid var(--border2)}
+.part .k{width:26px;height:26px;border-radius:50%;background:var(--surface2);display:grid;place-items:center;font-size:13px;font-weight:600;color:var(--ink2)}
+.part .k.done{background:var(--acc);color:var(--bg)}
+.part .tx{font-size:15px;color:var(--ink)}
+.part .st{font-size:13px;color:var(--ink3);text-align:right;white-space:nowrap}
+.part .st b{color:var(--acc);font-weight:600}
+.lvl{display:inline-flex;gap:4px;vertical-align:middle;margin-right:6px}.lvl i{width:10px;height:10px;border-radius:50%;background:var(--surface2);border:1px solid var(--border)}.lvl i.f{background:var(--acc);border-color:var(--acc)}
+.week{background:var(--warn-dim);border:1px solid var(--warn-brd);border-radius:8px;padding:10px 12px;font-size:14px;color:var(--ink)}
+.week b{color:var(--warn)}
+.side{display:grid;gap:12px}
+.mini{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px 16px;display:grid;gap:6px}
+.mini .tt{font-family:var(--font-serif);font-size:21px;font-weight:500}
+.btn{font-size:14px;font-weight:600;padding:10px 16px;border-radius:6px;background:var(--acc);color:var(--bg);justify-self:start;display:inline-block}
+.btn.gh{background:transparent;color:var(--ink2);border:1px solid var(--border)}
+/* phone */
+.phonewrap{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:24px;align-items:start}
+.phone{border:1px solid var(--border);border-radius:30px;background:var(--bg);padding:18px 16px 22px;display:grid;gap:14px;max-width:360px;width:100%;justify-self:center}
+.phone .sb{display:flex;justify-content:space-between;font-size:12px;color:var(--ink3)}
+.pc{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:16px;display:grid;gap:8px}
+.pc.hero{border-color:var(--acc-brd);background:var(--acc-dim)}
+.pc .tt{font-family:var(--font-serif);font-size:26px;font-weight:500;line-height:1.1}
+.pstep{display:grid;grid-template-columns:24px minmax(0,1fr);gap:10px;font-size:15px;padding:6px 0;align-items:center}
+.pstep .d{width:20px;height:20px;border-radius:50%;border:2px solid var(--border);display:grid;place-items:center;font-size:12px}
+.pstep .d.f{background:var(--acc);border-color:var(--acc);color:var(--bg)}
+.pstep .d.n{border-color:var(--acc)}
+.pstep .s{font-size:13px;color:var(--ink3)}
+.pbtn{font-size:15px;font-weight:600;padding:13px;border-radius:10px;background:var(--acc);color:var(--bg);text-align:center}
+.why{border:1px dashed var(--acc-brd);border-radius:10px;padding:14px 16px;font-size:14px;color:var(--ink2)}
+.why b{color:var(--acc)}
+.foot{border-top:1px solid var(--border);padding-top:18px;text-align:center;font-size:12.5px;color:var(--ink3);line-height:1.8}
+@media (max-width:900px){.g4,.sig{grid-template-columns:repeat(2,minmax(0,1fr))}.g2,.rules,.ba,.cols,.phonewrap{grid-template-columns:minmax(0,1fr)}.app .hdr{grid-template-columns:auto minmax(0,1fr)}.app .hdr>:last-child{grid-column:1/-1}}
+@media (max-width:480px){.sig{grid-template-columns:minmax(0,1fr)}.g4{grid-template-columns:minmax(0,1fr)}}
+.dec{display:grid;gap:14px;background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:20px 22px}
+.dec .hd{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:baseline}
+.dec .id{font-family:var(--font-serif);font-size:30px;font-weight:500;color:var(--acc);margin-right:10px}
+.dec .q{font-family:var(--font-serif);font-size:24px;font-weight:500}
+.ab{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr));gap:12px}
+.opt{border:1px solid var(--border);border-radius:10px;padding:14px;display:grid;gap:8px;align-content:start;background:var(--bg)}
+.opt.rec{border-color:var(--acc-brd);background:var(--acc-dim)}
+.opt .t{font-size:13px;font-weight:600;color:var(--ink3)}
+.opt.rec .t{color:var(--acc)}
+.mock{border:1px solid var(--border);border-radius:8px;padding:10px 12px;background:var(--surface);font-size:13.5px;display:grid;gap:6px}
+.tabsm{display:flex;gap:4px;flex-wrap:wrap}.tabsm span{font-size:12px;padding:4px 8px;border-radius:6px;background:var(--surface2);color:var(--ink2)}.tabsm span.on{background:var(--acc);color:var(--bg)}
+.eff{font-size:14px;color:var(--ink2)}
+.eff b{color:var(--ink)}
+.recline{font-size:14px;border-left:3px solid var(--acc);padding-left:10px}
+@media (max-width:760px){.ab{grid-template-columns:minmax(0,1fr)}}
+</style>
+<style>
+.chain{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px}
+.ck{border:1px solid var(--border);border-radius:10px;background:var(--surface);padding:12px;display:grid;gap:4px;align-content:start;position:relative}
+.ck .n{font-size:11px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--acc)}
+.ck b{font-family:var(--font-serif);font-size:20px;font-weight:500}
+.ck p{font-size:13px}
+.ck .w{font-size:12px;color:var(--ink3)}
+.gantt{border:1px solid var(--border);border-radius:12px;background:var(--surface);overflow-x:auto}
+.gt{display:grid;grid-template-columns:110px repeat(12,minmax(54px,1fr));min-width:780px}
+.gt>div{padding:7px 8px;border-bottom:1px solid var(--border2);font-size:12.5px;color:var(--ink2)}
+.gt .h{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ink3)}
+.gt .lbl{font-weight:600;color:var(--ink)}
+.band{border-radius:6px;padding:5px 8px;font-size:12px;font-weight:500;margin:0 1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.b-s{background:var(--surface2);color:var(--ink3)}
+.b-v{background:var(--warn-dim);color:var(--warn);border:1px solid var(--warn-brd)}
+.b-k{background:var(--acc-dim);color:var(--acc);border:1px solid var(--acc-brd)}
+.b-j{background:var(--bg);border:1px dashed var(--border);color:var(--ink2)}
+.b-n{background:var(--acc-dim);color:var(--ink);border:1px solid var(--acc-brd)}
+.grp{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.g{border:1px solid var(--border);border-radius:10px;background:var(--surface);padding:12px 14px;display:grid;gap:4px}
+.g .t{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ink3)}
+.g b{font-size:15px}
+.g .s{font-size:12.5px;color:var(--ink3)}
+.tag{display:inline-block;font-size:11px;font-weight:600;padding:2px 8px;border-radius:999px;background:var(--surface2);color:var(--ink2);margin-right:4px}
+.tag.a{background:var(--acc-dim);color:var(--acc)}
+.tag.w{background:var(--warn-dim);color:var(--warn)}
+pre.cd{font-family:var(--font-mono);font-size:12px;white-space:pre-wrap;overflow-wrap:anywhere;color:var(--ink2)}
+ol.st{padding-left:20px;display:grid;gap:6px;color:var(--ink2);font-size:14.5px}
+ul.q{padding-left:20px;display:grid;gap:5px;color:var(--ink2);font-size:14.5px}
+@media (max-width:900px){.chain{grid-template-columns:repeat(2,minmax(0,1fr))}.grp{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:480px){.chain,.grp{grid-template-columns:minmax(0,1fr)}}
+</style>
+<style>
+.roles{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.role{border:1px solid var(--border);border-radius:12px;background:var(--surface);padding:14px 16px;display:grid;gap:8px;align-content:start}
+.role .n{font-family:var(--font-serif);font-size:24px;font-weight:500}
+.role .who{font-size:12.5px;color:var(--ink3)}
+.role ul{padding-left:18px;font-size:14px;color:var(--ink2);display:grid;gap:3px}
+.pitch{border:1px solid var(--border);border-radius:8px;background:var(--surface2);overflow:hidden}
+.pitch svg{display:block;width:100%;height:auto;overflow:hidden}
+code{overflow-wrap:anywhere}
+.opt p{overflow-wrap:anywhere}
+.apps{display:grid;gap:12px}
+.app2{border:1px solid var(--border);border-radius:12px;background:var(--surface);display:grid;grid-template-columns:200px minmax(0,1fr) minmax(0,1fr);gap:0;overflow:hidden}
+.app2>div{padding:14px 16px;border-right:1px solid var(--border2)}
+.app2>div:last-child{border-right:0}
+.app2 .nm{font-family:var(--font-serif);font-size:22px;font-weight:500;line-height:1.1}
+.app2 .st{font-size:12px;color:var(--ink3);margin-top:4px}
+.app2 .k{font-size:11px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--ink3);margin-bottom:4px}
+.app2 ul{padding-left:18px;font-size:14px;color:var(--ink2);display:grid;gap:3px}
+.app2 .del{color:var(--warn)}
+.typ{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.typ .t{border:1px solid var(--border);border-radius:12px;background:var(--surface);padding:16px 18px;display:grid;gap:8px}
+.typ .t .ex1{font-family:'Archivo','Arial Narrow',system-ui,sans-serif;font-weight:800;font-size:30px;line-height:1;letter-spacing:-.01em}
+.typ .t .ex2{font-family:var(--font-serif);font-weight:400;font-size:32px;line-height:1.05}
+.flow2{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:6px}
+.step{border:1px solid var(--border);border-radius:10px;background:var(--surface);padding:10px;display:grid;gap:3px;align-content:start}
+.step.done{border-color:var(--acc-brd);background:var(--acc-dim)}
+.step.now{border-color:var(--warn-brd);background:var(--warn-dim)}
+.step b{font-family:var(--font-serif);font-size:18px;font-weight:500}
+.step p{font-size:12.5px}
+.step .w{font-size:11px;color:var(--ink3)}
+@media (max-width:900px){.roles{grid-template-columns:minmax(0,1fr)}.app2{grid-template-columns:minmax(0,1fr)}.app2>div{border-right:0;border-bottom:1px solid var(--border2)}.typ{grid-template-columns:minmax(0,1fr)}.flow2{grid-template-columns:repeat(4,minmax(0,1fr))}}
+@media (max-width:480px){.flow2{grid-template-columns:repeat(2,minmax(0,1fr))}}
+</style>
+</head>
+<body>
+<div class="wrap" style="gap:40px">
+<div class="top"><div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><span class="brand">TalentMaster<em>™</em> · Kenttä koko järjestelmässä</span><span class="chip w">luonnos läpikäyntiin · 7.10.2026 · tuotu repoon (tila päivitetty)</span></div><div class="tg"><button onclick="tTheme()">vaihda teema</button></div></div>
+
+<section>
+ <div class="eb">16 · yksi kuva, kolme lukutapaa</div>
+ <h1>Kenttä koko järjestelmässä</h1>
+ <p style="max-width:840px;font-size:16px">Kenttä ei ole yksi ominaisuus vaan <b>yksi kuva, joka kulkee kaikkien roolien läpi</b>. Pelaajan kenttä (ase alueena, jakso reittinä, viikot merkkeinä) on sama pelaajalle, huoltajalle, valmentajalle ja VP:lle; vain lukutapa vaihtuu. Joukkueen viikko (14) ja kausi (15) ovat saman kuvan laajennuksia ylöspäin. Tämä dokumentti kokoaa 09, 12, 13, 14 ja 15 yhdeksi järjestelmäkuvaksi: mitä kukin sovellus näyttää, mikä poistuu, miten ilme rajataan ja missä järjestyksessä rakennetaan. Päätökset D37–D39 lopussa.</p>
+ <p class="meta">Sparraukseen toisessa sessiossa. Ei uutta tietomallia: kaikki perustuu jo päätettyihin rakenteisiin (`idp_kausi.ase`, `jaksofokus.reitti/osat/tukitavoitteet`, kalenteri + viikkopohja, `lib/tm_kentta.js`).</p>
+</section>
+
+<section>
+ <div class="eb">Periaate</div>
+ <h2>Sama kenttä, kolme lukutapaa</h2>
+ <div class="roles">
+  <div class="role"><span class="eb">Sanat</span><span class="n">Pelaaja ja huoltaja</span><span class="who">U8–U19 ikävaiheen äänellä · Vanhempi_v2 sama kuin pelaaja</span>
+   <div class="pitch"><svg viewBox="0 0 100 84" aria-hidden="true"><rect width="100" height="84" fill="var(--surface2)"/><g fill="none" stroke="var(--border)" stroke-width=".8"><rect x="2" y="2" width="96" height="80"/><rect x="25" y="2" width="50" height="16"/><rect x="38" y="2" width="24" height="6"/><path d="M2 60 H98"/><circle cx="50" cy="60" r="9"/></g><rect x="6" y="40" width="40" height="38" fill="var(--acc-dim)" stroke="var(--acc)" stroke-dasharray="2 2"/><text x="9" y="74" font-size="5" fill="var(--acc)" font-weight="700">Tempokuljetus</text><path d="M26 60 L32 44 L40 30 L46 18 L50 8" fill="none" stroke="var(--acc)" stroke-width="1.2" stroke-dasharray="2 2"/><circle cx="32" cy="44" r="2.4" fill="var(--acc)"/><circle cx="40" cy="30" r="2.4" fill="var(--warn)"/><circle cx="46" cy="18" r="2.2" fill="none" stroke="var(--acc)"/><text x="50" y="31" font-size="4.5" fill="var(--ink2)">heikompi jalka · nyt</text></svg></div>
+   <ul><li>Ase, reitti, viikot ja osat sanoina</li><li>Ei lukuja, ei tasoja, ei vertailua (§7.22), ei lähdettä (12 sääntö 4)</li><li>Viikko: teema, ajat, oma fokus, kuittaus; fiiliskysely yhdellä napautuksella</li><li>Huoltaja: lisäksi kotiharjoite ja iCal (K6)</li></ul></div>
+  <div class="role"><span class="eb">Luvut</span><span class="n">Valmentaja</span><span class="who">myös talenttivalmentaja · Master_v16</span>
+   <div class="pitch"><svg viewBox="0 0 100 84" aria-hidden="true"><rect width="100" height="84" fill="var(--surface2)"/><g fill="none" stroke="var(--border)" stroke-width=".8"><rect x="2" y="2" width="96" height="80"/><rect x="25" y="2" width="50" height="16"/><rect x="38" y="2" width="24" height="6"/><path d="M2 60 H98"/><circle cx="50" cy="60" r="9"/></g><rect x="6" y="40" width="40" height="38" fill="var(--acc-dim)" stroke="var(--acc)" stroke-dasharray="2 2"/><text x="9" y="74" font-size="5" fill="var(--acc)" font-weight="700">Tempokuljetus</text><text x="9" y="79" font-size="4" fill="var(--ink3)">ase · 12.9. · X-Factor 30 m 5</text><path d="M26 60 L32 44 L40 30 L46 18 L50 8" fill="none" stroke="var(--acc)" stroke-width="1.2" stroke-dasharray="2 2"/><circle cx="32" cy="44" r="2.4" fill="var(--acc)"/><circle cx="40" cy="30" r="2.4" fill="var(--warn)"/><circle cx="46" cy="18" r="2.2" fill="none" stroke="var(--acc)"/><g font-size="4.5" fill="var(--ink2)"><text x="50" y="46">a · 2 → 3 · 🎬 2</text><text x="54" y="31" fill="var(--warn)">b · 1 · viikon osa</text><text x="56" y="19">c · 1 → 2</text></g><rect x="58" y="66" width="38" height="12" fill="var(--warn-dim)" stroke="var(--warn-brd)" rx="2"/><text x="60" y="71" font-size="3.4" fill="var(--warn)">tukitavoite · havainto</text><text x="60" y="76" font-size="3.4" fill="var(--warn)">PHV LAH · kypsyysvahti</text></svg></div>
+   <ul><li>Sama kenttä + osien tasot 1–3, liike, klipit</li><li>Tukitavoite lähteineen (testi / havainto / arviointi / joukkuejakso)</li><li>Kypsyysvahti ja kuorma (sRPE vs tavoite) näkyvissä</li><li>Piirrä alue → harjoite seuran pankista (2b)</li></ul></div>
+  <div class="role"><span class="eb">Kokonaiskuva</span><span class="n">VP ja UTJ</span><span class="who">VP_v25 · raportit ja IDP-kortti</span>
+   <div class="pitch"><svg viewBox="0 0 140 84" aria-hidden="true"><rect width="140" height="84" fill="var(--surface2)"/><g fill="none" stroke="var(--border)" stroke-width=".8"><rect x="2" y="4" width="136" height="76"/><path d="M70 4 V80"/><circle cx="70" cy="42" r="9"/><rect x="2" y="24" width="18" height="36"/><rect x="120" y="24" width="18" height="36"/></g><g font-size="4.2" fill="var(--ink2)"><g><rect x="22" y="10" width="22" height="9" rx="1.5" fill="var(--surface)" stroke="var(--acc-brd)"/><text x="24" y="16">Topias K. · vk 2/6</text></g><g><rect x="22" y="36" width="22" height="9" rx="1.5" fill="var(--surface)" stroke="var(--acc-brd)"/><text x="24" y="42">P7 · vk 4/6</text></g><g><rect x="22" y="62" width="22" height="9" rx="1.5" fill="var(--surface)" stroke="var(--warn-brd)"/><text x="24" y="68" fill="var(--warn)">P11 · valittavana</text></g><g><rect x="50" y="22" width="22" height="9" rx="1.5" fill="var(--surface)" stroke="var(--acc-brd)"/><text x="52" y="28">P4 · vk 1/6</text></g><g><rect x="50" y="50" width="22" height="9" rx="1.5" fill="var(--surface)" stroke="var(--warn-brd)"/><text x="52" y="56" fill="var(--warn)">P5 · katselmus</text></g><g><rect x="80" y="12" width="22" height="9" rx="1.5" fill="var(--surface)" stroke="var(--acc-brd)"/><text x="82" y="18">P6 · vk 3/6</text></g><g><rect x="80" y="40" width="22" height="9" rx="1.5" fill="var(--surface)" stroke="var(--acc-brd)"/><text x="82" y="46">P9 · vk 2/6</text></g><g><rect x="80" y="64" width="22" height="9" rx="1.5" fill="var(--surface)" stroke="var(--border)"/><text x="82" y="70" fill="var(--ink3)">P10 · ei asetta</text></g><g><rect x="108" y="30" width="22" height="9" rx="1.5" fill="var(--surface)" stroke="var(--acc-brd)"/><text x="110" y="36">P12 · vk 5/6</text></g></g></svg></div>
+   <ul><li>Monta kenttää rinnakkain: joukkueen 14 pelaajaa (09 §1b), 10 joukkueen viikko (D30), kausi (15)</li><li>Sama pelaajan kehitystyöpöytä kuin valmentajalla (D4: yksi Polku)</li><li>Raportit, IDP-kortti ja PDC Cormorant-tyylillä, kenttäkuvat sisällä samat</li><li>Kalenteri on VP:n operatiivinen selkäranka (KALENTERI_ARKKITEHTUURI)</li></ul></div>
+ </div>
+ <div class="rules">
+  <div class="rule"><span class="k">1</span><p><b>Yksi piirtäjä.</b> <code>lib/tm_kentta.js</code> (K0) piirtää kaikki kentät. Rooli annetaan kutsussa parametrina (D38), ei näkymän vastuulla, jotta pelaajan "ei lukuja" -sääntö ei murru komponentin uudelleenkäytössä.</p></div>
+  <div class="rule"><span class="k">2</span><p><b>Yksi lähde jokaiselle luvulle.</b> sRPE, läsnäolo, testit ja havainnot kirjataan kerran ja näkyvät kaikissa lukutavoissa eri tarkkuudella. Viikkonäkymä ei kysy mitään uutta (14 D27).</p></div>
+  <div class="rule"><span class="k">3</span><p><b>Seuran linja on oletus kaikkialla</b> (D16). Teema, viikkopohja, harjoitteet ja fysiikkaohjelma tulevat seuralta; TM:n sisältö on varalla. Seuran sisältö ei näy muille seuroille.</p></div>
+  <div class="rule"><span class="k">4</span><p><b>Ylempi kerros esitäyttää, ei lukitse</b> (15 sääntö 3). Kausi → viikkopohja → harjoitus → pelaajan jakso: jokainen kerros antaa oletuksen, jonka alempi voi muuttaa, ja poikkeama näkyy ylöspäin.</p></div>
+ </div>
+</section>
+
+<section>
+ <div class="eb">Sovelluksittain</div>
+ <h2>Mitä kukin sovellus näyttää, mikä poistuu</h2>
+ <div class="apps">
+  <div class="app2"><div><div class="nm">Pelaaja_v7</div><div class="st">navigaatio nyt: Tänään · Minä · Meistä (K1 tuotannossa lipun takana)</div></div><div><div class="k">Uutta</div><ul><li>Kenttä-välilehti (09): ase, reitti, viikot, osat sanoina</li><li>Jakson valinta kahdesta reitistä (D8, D14)</li><li>Viikko (14 §6): teema, ajat, oma fokus, kuittaus</li><li>Fiiliskysely yhdellä napautuksella; pelaaja näkee vain oman vastauksensa</li><li>"Tämän tueksi" -kortti (12): tukitavoite perusteluna ja harjoitteina</li></ul></div><div><div class="k">Poistuu tai sulautuu</div><ul><li class="del">Lukupohjaiset tasonäkymät ja vertailut (§7.22)</li><li class="del">Erilliset viestintä-, kuorma- ja kyselynäkymät sulautuvat Viikkoon ja Meistä-osioon (09 §1b)</li><li>Siirtymä D13-lipulla seurakohtaisesti; lipulla loppupäivä (D39)</li></ul></div></div>
+  <div class="app2"><div><div class="nm">Vanhempi_v2</div><div class="st">sama kuin pelaaja + ajat</div></div><div><div class="k">Uutta</div><ul><li>Pelaajan kenttä sellaisenaan, sanoin</li><li>Viikon ohjelma, kotiharjoite joukkuejaksosta, kyyditys</li><li>iCal-tilaus (K6), tapahtuman otsikossa teema</li><li>U12: kuittaa pelaajan valinnan (12 ikävaiheet)</li></ul></div><div><div class="k">Ei koskaan</div><ul><li class="del">RPE, kuormavertailu, MD-tunnisteet, vertailevat ryhmänimet (15 D33)</li><li class="del">Lähde ("testi osoitti…")</li></ul></div></div>
+  <div class="app2"><div><div class="nm">Master_v16</div><div class="st">valmentaja · pelaaja: Tänään · Polku · Näyttö · joukkue: Viikko · Jakso · Kausi</div></div><div><div class="k">Uutta</div><ul><li>Kehitystyöpöytä (13): kenttä vasemmalla kaikissa välilehdissä, tmSeuraavaAskel-porras Tänään-näkymässä</li><li>Joukkuejakso (12 J2): neljä aluetta, kaksi teknis-taktista teemaa (D28), viikkotavoitteet (D36)</li><li>Joukkueen viikko (14): peli ±n, alue ja pelimuoto kentällä, tavoite- ja toteutunut kuorma</li><li>Piirrä alue → harjoite seuran pankista tai oma (D29)</li><li>Teemakattavuus ja kuormavertailu viikon alareunassa (4d + 14 §3)</li></ul></div><div><div class="k">Poistuu tai sulautuu</div><ul><li class="del">Pelaajan viisi välilehteä (Aloitus · Mittaus · Arviointi · Kehitys · Viikko) → kolme (13 D1)</li><li class="del">Treeniteema-CTA:t Testaus_v9:ään (4d §2.0 korjaus) → kalenterin harjoitus</li><li>Testaus_v9 pysyy mittaustyökaluna; tulokset näkyvät Näytössä</li></ul></div></div>
+  <div class="app2"><div><div class="nm">VP_v25</div><div class="st">VP ja UTJ · oversight, seuran linja, kausi</div></div><div><div class="k">Uutta</div><ul><li>Sama kehitystyöpöytä pelaajalle (D4), joukkuekenttä 14 pelaajalla (09 §1b)</li><li>Seuran viikko: joukkueet riveinä, "Täytä viikko" pohjasta ja jaksosta (D30)</li><li>Kausinäkymä (15): vaiheet, vuosikello, jaksot nauhoina; ryhmät (D33)</li><li>Seuran linjan tuonti Excelistä: linja, teemat, viikkopohjat, kausi, harjoitepankki (D16, 15 P1)</li><li>Poikkeamat ylöspäin: valmentaja poikkesi pohjasta, kuorma yli tavoitteen, teema ilman harjoitusta</li></ul></div><div><div class="k">Ennallaan</div><ul><li>Raportit, IDP-kortti ja PDC: Cormorant, kenttäkuvat sisällä (09 §9)</li><li>Viestintä (VP näkee kaiken oman seuransa datan; R6.3-kartoitus)</li><li>Rules: valmennuslinja-lohkot henkilökunnalle; ryhmät uusi kokoelma (v3.46; v3.43 = liput, v3.44 = viikkokatsaukset, v3.45 = ennätysmerkki)</li></ul></div></div>
+  <div class="app2"><div><div class="nm">Fysio / HPP</div><div class="st">kliininen kerros</div></div><div><div class="k">Näkee</div><ul><li>Kuormavertailu (14 §3) ja kypsyysvahdin merkinnät</li><li>PHV-tila ja kasvunopeus (Näyttö)</li></ul></div><div><div class="k">Rajat</div><ul><li class="del">Ei kenttää eikä IDP-jaksoa kuntoutukselle (12 D22)</li><li>Terveystieto vain terveys/-polussa; kortilla vain tilalippu</li><li>Voi kirjoittaa tukitavoitteen fyysisen alueen, kun kyse on paluusta harjoitteluun</li></ul></div></div>
+  <div class="app2"><div><div class="nm">Seuran portaali ja tuonti</div><div class="st">KPV-demo, tuo_valmennuslinja.js</div></div><div><div class="k">Rooli</div><ul><li>Portaali-demo = esikatselu siitä, mitä TM näyttää seuran linjasta (linja, pelaaminen, rakenne, viikkopohja, harjoitepankki)</li><li>Tuonti-Excel: välilehdet Teemat, Viikkopohjat, Kausi, Ryhmät, Rutiinit_ja_harjoitteet; kaksi ajoa (luonnos → kuitattu)</li><li>Harjoitepankin kortit kantavat alueen koon ja pelaajamäärän → 2b-haku toimii heti</li></ul></div><div><div class="k">Rajat</div><ul><li class="del">Ei muiden seurojen eikä Ekkono-pohjaista sisältöä (D16)</li><li>Kuvat Storageen ja `kuva_url`; tuonti ei lue upotettuja kuvia</li></ul></div></div>
+  <div class="app2"><div><div class="nm">Linjapankki</div><div class="st">Teron yksityinen lähdeputki</div></div><div><div class="k">Rooli</div><ul><li>Seurojen linjat ja harjoitepankit rakenteisessa muodossa (KPV 89, Pallo-Iirot 43, SJK, FCN, SPL)</li><li>Tuottaa seurakohtaiset tuonti-Excelit (JSON/CSV → Excel)</li><li>Vertailu ja arviointi vain omaan käyttöön</li></ul></div><div><div class="k">Rajat</div><ul><li class="del">Ei TalentMasteriin sellaisenaan: EPS- ja Ekkono-aineisto pysyy Linjapankissa</li></ul></div></div>
+ </div>
+</section>
+
+<section>
+ <div class="eb">Ilme · D37</div>
+ <h2>Kaksi typografista rekisteriä, selvä raja</h2>
+ <p style="max-width:840px">Kenttä toi Archivon pelaaja-appiin (D11). VP:n raportit ja IDP-kortti ovat Cormorantia (design system). Ilman rajaa järjestelmä alkaa näyttää kahdelta tuotteelta. Raja kulkee käytön mukaan, ei roolin mukaan: <b>arjen käyttöliittymä on Archivo, dokumentti on Cormorant.</b> Tokenit (värit, viivat, välit) ovat samat molemmissa (D10).</p>
+ <div class="typ">
+  <div class="t"><span class="eb">Arjen käyttöliittymä</span><div class="ex1">Viikko 2 · Tempokuljetus</div><p>Archivo (wdth 70–80, 800) otsikoissa, DM Sans leipä, DM Mono meta. Pelaaja_v7, Vanhempi_v2, Master_v16:n kehitystyöpöytä ja joukkueen viikko, VP:n seuran viikko ja kausinäkymä. Tumma oletus, vaalea tuettu.</p></div>
+  <div class="t"><span class="eb">Dokumentti</span><div class="ex2">Pelaajan kehityskortti, syksy 2026</div><p>Cormorant Garamond 300–400 otsikoissa, ei lihavointia. VP:n raportit, IDP-kortti, PDC, seurakatsaus, tulosteet ja PDF:t. Kenttäkuvat niiden sisällä samalla <code>tmKentta</code>-piirtäjällä, roolilla "kokonaiskuva".</p></div>
+ </div>
+ <p class="meta">Design-dokumentit (01–15) ovat Cormorant-rekisterissä, koska ne ovat dokumentteja. Mockupit 09, 13 ja 14 ovat Archivo-rekisterissä, koska ne ovat käyttöliittymää. Tämä on jo käytäntö; D37 vain kirjaa sen.</p>
+</section>
+
+<section>
+ <div class="eb">Järjestys</div>
+ <h2>Jokainen vaihe lisää yhden lukutavan samaan kuvaan</h2>
+ <div class="flow2">
+  <div class="step done"><span class="w">tehty</span><b>K0</b><p>tm_kentta.js, yksi piirtäjä</p></div>
+  <div class="step done"><span class="w">tehty</span><b>J1–J4</b><p>tukitavoitteet, joukkuejakso, joukkoaloitus, viikkotavoitteet</p></div>
+  <div class="step done"><span class="w">tehty</span><b>V1 · T1</b><p>jakson aloitus; KPV:n harjoitepankki 88 + kuvat</p></div>
+  <div class="step done"><span class="w">tehty</span><b>K1 · K4</b><p>Tänään kentällä, Tämän tueksi; viikkokatsaus, jakson päätös</p></div>
+  <div class="step now"><span class="w">käynnissä</span><b>K3</b><p>reitin valinta ja sitoumus (takaraja 10.11.)</p></div>
+  <div class="step"><span class="w">seuraava</span><b>K5 · K2</b><p>Leikkijä ja huoltaja; Minä-kenttä</p></div>
+  <div class="step"><b>14 · 15 · 17</b><p>joukkueen viikko, kausi ja ryhmät, seuran kooste</p></div>
+  <div class="step"><b>K7</b><p>lippu ja vanhat näkymät pois (D39)</p></div>
+ </div>
+ <p class="meta">J4–J5 (pelaajan ja huoltajan "Tämän tueksi", VP:n Polku) kulkevat V-vaiheiden rinnalla. SJK 1.11. ei tarvitse mitään tästä: go-live nykyisellä D-3:lla. KPV on ensimmäinen seura, jolla linja, viikkopohjat ja harjoitepankki tuodaan kokonaisina (harjoitepankki tuotu 7.10.: 88 hyväksyttyä + 1 luonnos, 81 kuvaa Storagessa).</p>
+</section>
+
+<section>
+ <div class="eb">Riskit</div>
+ <h2>Mitä pitää vahtia</h2>
+ <div class="rules">
+  <div class="rule"><span class="k">1</span><p><b>Vanhat näkymät jäävät elämään rinnalle.</b> D13-lippu on siirtymäväline, ei pysyvä tila. Jokaisessa V-vaiheessa päätetään, mikä vanha välilehti poistuu, ja lipulle annetaan loppupäivä (D39).</p></div>
+  <div class="rule"><span class="k">2</span><p><b>Pelaajan "ei lukuja" murtuu komponentin uudelleenkäytössä.</b> Sama <code>tmKentta</code> palvelee kaikkia; rooli parametrina ja testi, joka lukitsee pelaajan tulosteen ilman tasolukuja (D38). Kielletyt sanat jo vartioidaan (KIELLETYT).</p></div>
+  <div class="rule"><span class="k">3</span><p><b>Seurojen tuonti on pullonkaula.</b> Ilman valmista tuonti-Exceliä D16 jää teoriaksi. KPV ensin: linja, viikkopohja 8v8 (3 harj.), vuosikellot, harjoitepankki. Kuvat Storageen.</p></div>
+  <div class="rule"><span class="k">4</span><p><b>Suunnittelu karkaa rakentamisesta.</b> Dokumentteja on 16, rakennusvaiheita J1–J5, V1–V4, P1–P4. Järjestys pidetään; uusi dokumentti ei nouse jonon ohi ilman päätöstä. Numerointi yhdessä paikassa (07).</p></div>
+ </div>
+</section>
+
+<section>
+ <div class="eb">Päätökset</div>
+ <h2>Lukitaan läpikäynnissä</h2>
+ <div class="dec"><div class="hd"><div><span class="id">D37</span><span class="q">Typografian raja</span></div><span class="chip">ilme · kaikki sovellukset</span></div>
+  <div class="ab"><div class="opt rec"><span class="t">A · suositus</span><p>Arjen käyttöliittymä Archivo + DM Sans (pelaaja, huoltaja, valmentajan ja VP:n operatiiviset näkymät); dokumentit Cormorant (raportit, IDP-kortti, PDC, tulosteet). Tokenit samat. Raja käytön, ei roolin mukaan.</p></div><div class="opt"><span class="t">B</span><p>Archivo vain pelaaja-apissa, kaikki henkilökunnan näkymät Cormorantia. Selkeä roolijako, mutta valmentajan viikkonäkymä ja pelaajan viikko näyttävät eri tuotteilta, vaikka data on sama.</p></div><div class="opt"><span class="t">C</span><p>Kenttä-komponentti kantaa oman typografiansa (<code>.kt</code>-elementin sisällä Archivo + Kenttä-tokenit), ja sivu sen ympärillä noudattaa sovelluksensa rekisteriä: pelaaja-app Archivo, henkilökunnan näkymät ja dokumentit Cormorant + DM Sans. Kenttä näyttää samalta kaikkialla, mutta sovellukset eivät vaihda ilmettään.</p></div></div><p class="meta">Tero valitsee läpikäynnissä (lisätty C 7.10.2026).</p></div>
+ <div class="dec"><div class="hd"><div><span class="id">D38</span><span class="q">Rooli tmKentta-kutsun parametrina</span></div><span class="chip">lib · §7.22</span></div>
+  <div class="ab"><div class="opt rec"><span class="t">A · suositus</span><p><code>tmKentta(spec, {rooli:'pelaaja'|'henkilokunta'|'kokonaiskuva'})</code>. Pelaaja-roolilla piirtäjä ei tulosta tasolukuja, lähteitä eikä vertailua, vaikka spec sisältäisi ne. Yksikkötesti lukitsee. Näkymä ei voi vahingossa vuotaa.</p></div><div class="opt"><span class="t">B</span><p>Näkymä suodattaa datan ennen kutsua. Vähemmän parametreja libissä, mutta jokainen uusi näkymä on uusi vuotoriski.</p></div></div></div>
+ <div class="dec"><div class="hd"><div><span class="id">D39</span><span class="q">Vanhojen näkymien poistopäivä</span></div><span class="chip">siirtymä · D13</span></div>
+  <div class="ab"><div class="opt rec"><span class="t">A · suositus</span><p>Jokainen V-vaihe nimeää poistuvan vanhan näkymän. D13-lippu <code>seurat/{sid}/liput/julkiset.kentta</code> (Rules v3.43) saa seurakohtaisen loppupäivän; sen jälkeen vanha näkymä poistuu koodista. Ehdotus: viimeistään V4:n jälkeen kaikilta.</p></div><div class="opt"><span class="t">B</span><p>Molemmat jäävät valittaviksi toistaiseksi. Turvallisempi tuntuma, mutta kaksi koodipolkua ylläpidettävänä ja kaksi tapaa lukea sama data.</p></div></div></div>
+</section>
+
+<div class="foot">TalentMaster™ · 16 Kenttä koko järjestelmässä · luonnos 7.10.2026 · kokoaa 09, 12, 13, 14 ja 15 · päätökset D37–D39 jatkavat 07:n numerointia</div>
+</div>
+<script>function tTheme(){var r=document.documentElement,c=r.getAttribute('data-theme');var d=c?c==='dark':!matchMedia('(prefers-color-scheme: light)').matches;r.setAttribute('data-theme',d?'light':'dark')}</script>
+</body>
+</html>
