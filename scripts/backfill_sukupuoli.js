@@ -7,11 +7,12 @@
  *
  * AJO (dry-run oletus, EI kirjoita):   node scripts/backfill_sukupuoli.js [--seura=kpv]
  *      APPLY (kirjoittaa):             node scripts/backfill_sukupuoli.js --seura=kpv --apply
+ * (Sama ydin on selaimessa: Excel_Tuonti → SA → "Täydennä sukupuoli testituloksista"; logiikka lib/tm_sukupuoli.js.)
  * Tunnistus: gcloud ADC (`gcloud auth application-default login`), ei SA-avainta. ⚠ Aja dry-run ensin ja kuittauta luvut.
  */
 'use strict';
 const admin = require('firebase-admin');
-const { tmSukupuoliTuloksista } = require('../lib/tm_sukupuoli.js');
+const { tmSukupuoliSuunnitelma, tmSukupuoliRaportti } = require('../lib/tm_sukupuoli.js');
 
 const argv = process.argv.slice(2);
 const arg = (n) => { const o = argv.find((a) => a.indexOf('--' + n + '=') === 0); return o ? o.split('=').slice(1).join('=') : null; };
@@ -22,20 +23,13 @@ async function main() {
   const db = admin.firestore();
   console.log((APPLY ? '⚠ APPLY — kirjoittaa' : 'DRY-RUN — ei kirjoituksia') + ' · seura: ' + SEURA + '\n');
   const pelaajat = (await db.collection('seurat').doc(SEURA).collection('pelaajat').get()).docs;
-  const ilman = pelaajat.filter((d) => { const s = d.get('sukupuoli'); return s !== 'M' && s !== 'N'; });
-  const kirjoita = [], ristiriidat = [], eiTuloksia = [];
-  for (const d of ilman) {
-    const tul = await d.ref.collection('testitulokset').get();
-    const x = tmSukupuoliTuloksista(tul.docs.map((t) => t.get('sukupuoli')));
-    const nimi = [d.get('etunimi'), d.get('sukunimi')].filter(Boolean).join(' ') + ' (' + d.id + ')';
-    if (x.syy === 'ok') kirjoita.push({ ref: d.ref, nimi, sukupuoli: x.sukupuoli, n: x.M + x.N });
-    else if (x.syy === 'ristiriita') ristiriidat.push(nimi + ' — M:' + x.M + ' N:' + x.N);
-    else eiTuloksia.push(nimi);
+  const syote = [];
+  for (const d of pelaajat) {
+    const s = d.get('sukupuoli'), nimi = [d.get('etunimi'), d.get('sukunimi')].filter(Boolean).join(' ') + ' (' + d.id + ')';
+    syote.push({ id: d.id, nimi, sukupuoli: s, tulokset: (s === 'M' || s === 'N') ? [] : (await d.ref.collection('testitulokset').get()).docs.map((t) => t.get('sukupuoli')) });
   }
-  console.log('Pelaajia yhteensä: ' + pelaajat.length + ' · ilman sukupuolta: ' + ilman.length);
-  console.log('→ päivitettäisiin: ' + kirjoita.length + ' (M ' + kirjoita.filter((k) => k.sukupuoli === 'M').length + ', N ' + kirjoita.filter((k) => k.sukupuoli === 'N').length + ')');
-  console.log('→ ristiriita (EI kirjoiteta, käsin): ' + ristiriidat.length); ristiriidat.forEach((r) => console.log('   · ' + r));
-  console.log('→ ei testituloksia / ei tunnistettavaa (EI kirjoiteta): ' + eiTuloksia.length); eiTuloksia.forEach((r) => console.log('   · ' + r));
+  const suunnitelma = tmSukupuoliSuunnitelma(syote), kirjoita = suunnitelma.kirjoita.map((k) => Object.assign(k, { ref: db.collection('seurat').doc(SEURA).collection('pelaajat').doc(k.id) }));   // sama ydin kuin Excel_Tuonnin SA-napissa
+  console.log(tmSukupuoliRaportti(suunnitelma));
   if (!APPLY) { console.log('\nDRY-RUN valmis. Kirjoita: --apply'); return; }
   let ok = 0, ohitettu = 0;
   for (let i = 0; i < kirjoita.length; i += 400) {
