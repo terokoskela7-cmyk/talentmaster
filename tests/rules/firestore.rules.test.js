@@ -4016,6 +4016,22 @@ describe('V1 · jakson aloituksen luvut ja kirjoitus (valmentaja = oman joukkuee
       const hav = await assertSucceeds(getDocs(query(collection(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID, 'havainnot'), where('tyyppi', '==', 'adar_pikakortti')))); expect(hav.size).toBe(1);
     }
   });
+  it('J4 C: joukkoaloituksen Hyväksy-payload (tmJoukkoHyvaksy → tmAloitaJaksoKirjoitus) kulkee oman joukkueen valmentajalla ja VP:llä, ei muun joukkueen valmentajalla; Hyväksy kaikki = peräkkäiset update-kutsut, yksi hylätty ei estä muita', async () => {
+    const JAL = createRequire(import.meta.url)('../../lib/tm_joukkoaloitus.js');
+    const p = { id: PELAAJA_UID, joukkue: 'FCL U12', syntymaVuosi: 2012, ydinvahvuus: { kuvaus: 'Tempokuljetus', havaittu_pvm: '2026-10-01', rooli: 'vp' }, hh_viimeisin: { lin30m: 5.8 }, hh_pvm: '2026-10-30', biologinenIka_viimeisin: { phv_tila_koodi: 'LAH' } };
+    const rivi = JAL.tmJoukkoRivi(p, { tanaan: '2026-11-10', ika: 13, sp: 'P', nimi: 'Testi Pelaaja', items: [{ avain: 'y_h2', nimi: 'Syöttö' }], ehdotusAvain: 'y_h2', nyt: new Date('2026-11-10T09:00:00'),
+      haetut: { joukkue: { jid: JOUKKUE_A1, data: { jaksofokus: { alku: '2026-11-10', kesto_vk: 6, osa_alueet: { tekninen_taktinen: { teema_avain: 't', nimi: 'S', lahde: 'seura' }, fyysinen: { avain: 'fy_ketteryys', nimi: 'K', lahde: 'tm' } } } } }, havainnot: [], kehys: null, profiili: null, seuranPankki: [], seuranOhjelmat: [] } });
+    expect(rivi.hyvaksyttavissa).toBe(true);
+    const hy = JAL.tmJoukkoHyvaksy(p, rivi, { tanaan: '2026-11-10', rooli: 'valmentaja', ika: 13, nytISO: '2026-11-10T09:00:00.000Z' });
+    const upd = AJ.tmAloitaJaksoKirjoitus({ jaksofokus: hy.jaksofokus, historiaLisays: [] }, hy, null, { arrayUnion: (...a) => FS_MOD.arrayUnion(...a) }); expect(Object.keys(upd).sort()).toEqual(['jaksofokus', 'ydinvahvuus']); expect(upd.jaksofokus.joukkuejakso_viite.jid).toBe(JOUKKUE_A1);
+    const pel = (db, id) => doc(db, 'seurat', SEURA_A, 'pelaajat', id);
+    await assertSucceeds(updateDoc(pel(valmentajaContext(VALM_A_UID, SEURA_A).firestore(), PELAAJA_UID), upd));
+    await assertSucceeds(updateDoc(pel(vpContext(SEURA_A).firestore(), PELAAJA_UID), upd));
+    await assertFails(updateDoc(pel(valmentajaContext(VALM_A_UID, SEURA_A).firestore(), PELAAJA_A2_UID), upd));
+    // peräkkäin: muun joukkueen pelaaja hylätään, sen jälkeinen oman joukkueen kirjoitus onnistuu (ei batchia → ei kaadu yhteen)
+    const vdb = valmentajaContext(VALM_A_UID, SEURA_A).firestore();
+    await assertFails(updateDoc(pel(vdb, PELAAJA_A2_UID), upd)); await assertSucceeds(updateDoc(pel(vdb, PELAAJA_UID), upd));
+  });
   it('toisen seuran valmentaja ei lue näitä (eristys)', async () => {
     const db = valmentajaContext(VALM_B_UID, SEURA_B).firestore();
     await assertFails(getDoc(doc(db, 'seurat', SEURA_A, 'joukkueet', JOUKKUE_A1))); await assertFails(getDocs(collection(db, 'seurat', SEURA_A, 'harjoitepankki')));

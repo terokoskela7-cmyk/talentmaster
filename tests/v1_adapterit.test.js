@@ -77,7 +77,7 @@ function rakenna(sovellus, { pelaaja, kentat = {}, rooli = 'valmentaja', sa = fa
   }
   c.window = c; Object.assign(c.window, { TM_JAKSO_MALLI: L.JM, TM_VASTUUHENKILO: L.VH, TM_ALOITA_JAKSO: L.AJ, TM_TUKITAVOITTEET: L.TT, TM_KOTI_OLETUS: L.KOTI, _mHenkilosto: [], _vpSA: sa, _vpRooli: rooli }); vm.createContext(c);
   const nimet = master
-    ? ['function _mAloitaJaksoRivi(', 'function _mAjPelaajaPp(', 'function _mPelaajaNimiAj(', 'async function _mJjLataaLiput(', 'async function _mAjHaeTuki(', 'window._mAloitaJaksoAvaa = async function', 'window._mAloitaJaksoSulje = function', 'window._mAloitaJaksoTallenna = async function']
+    ? ['function _mAloitaJaksoRivi(', 'function _mAjPelaajaPp(', 'function _mPelaajaNimiAj(', 'async function _mJjLataaLiput(', 'async function _mAjHaeYhteinen(', 'async function _mAjHaeHavainnot(', 'async function _mAjHaeTuki(', 'window._mAloitaJaksoAvaa = async function', 'window._mAloitaJaksoSulje = function', 'window._mAloitaJaksoTallenna = async function', 'async function _mAjKirjoitaJakso(']
     : ['async function _vpLataaLiput(', 'async function _vpAjHaeTuki(', 'window._vpAloitaJaksoAvaa = async function', 'window._vpAloitaJaksoSulje = function', 'window._vpAloitaJaksoTallenna = async function'];
   vm.runInContext('window._mJjLiput = {}; window._vpLiput = {};\n' + nimet.map((n) => pura(SRC, n)).join(';\n') + ';', c);
   const w = c.window;
@@ -161,7 +161,7 @@ describe.each([['master', 'Master_v16'], ['vp', 'VP_v25']])('%s · jakson aloitu
 describe('sovellusten lähdetaso', () => {
   it('molemmat lataavat uudet libit ja nostetut ?v-versiot; lippu luetaan seura-dokumentista; arviointikehys vain tmKehys():llä (ei arviointikehys/seura)', () => {
     for (const [nimi, SRC] of [['Master', MA], ['VP', VP]]) {
-      expect(SRC, nimi).toContain('<script src="lib/tm_aloita_jakso.js?v=2"></script>'); expect(SRC, nimi).toContain('<script src="lib/tm_koti_oletus.js?v=1"></script>'); expect(SRC, nimi).toContain('<script src="lib/tm_tukitavoitteet.js?v=2"></script>'); expect(SRC, nimi).toContain('<script src="lib/tm_jakso_malli.js?v=2"></script>'); expect(SRC, nimi).toContain('<script src="lib/tm_idp.js?v=12"></script>');
+      expect(SRC, nimi).toContain('<script src="lib/tm_aloita_jakso.js?v=3"></script>'); expect(SRC, nimi).toContain('<script src="lib/tm_koti_oletus.js?v=1"></script>'); expect(SRC, nimi).toContain('<script src="lib/tm_tukitavoitteet.js?v=3"></script>'); expect(SRC, nimi).toContain('<script src="lib/tm_jakso_malli.js?v=2"></script>'); expect(SRC, nimi).toContain('<script src="lib/tm_idp.js?v=12"></script>');
       expect(SRC, nimi).toContain('tmKehys(avain || \'palloliitto\')'); expect(SRC, nimi).toContain('Promise.all(['); expect(SRC, nimi).toMatch(/liput\.kentta === true/);
       expect(SRC, nimi).not.toMatch(/collection\('arviointikehys'\)/);
     }
