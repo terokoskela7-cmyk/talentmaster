@@ -144,16 +144,18 @@ describe('Pelaaja_v7 — kalenterin suodatus + ilmoituslista', () => {
   const P7 = lue('TalentMaster_Pelaaja_v7.html');
   function sovellus(nytLok, { kal = [], notif = [] } = {}) {
     const FD = kello(nytLok);
-    const docs = kal.map((e, i) => ({ id: 'ev' + i, data: () => e(FD) }));
-    const snapshot = { exists: false, forEach(cb) { docs.forEach(cb); } };
-    const chain = { collection: () => chain, doc: () => chain, get: async () => snapshot };
+    /* B4: rajaus on palvelimella (haePelaajanKalenteri) — harness palauttaa jo rajatun, ISO-ajoiksi serialisoidun vastauksen; poistettu pudotetaan kuten palvelin */
+    const iso = (v) => (v && typeof v.toDate === 'function') ? v.toDate().toISOString() : v;
+    const tapahtumat = kal.map((e, i) => Object.assign({ id: 'ev' + i }, e(FD))).filter((e) => !e.poistettu).map((e) => Object.assign({}, e, { alkaa: iso(e.alkaa), paattyy: iso(e.paattyy) }));
+    const kutsut = []; const fbApp = { functions: () => ({ httpsCallable: (n) => async (d) => { kutsut.push([n, d]); return { data: { tapahtumat, laskettu: 'x' } }; } }) };
+    const chain = {};
     const sb = { Date: FD, String, Array, Object, Number, isNaN, Promise, Math, RegExp, console: { warn() {} },
-      window: { _db: chain, _auth: { currentUser: {} }, _p7Notif: notif.map((f) => f(FD)), _p7Kalenteri: null }, _isDemoUser: false, _pelaaja: { id: 'P', seuraId: 'S' },
-      _ladattu: {}, _tab: 'mina', _sc: 'main', draw() {}, t: LANG.t, _thEsc: (x) => String(x), _p7EvKuuluu: () => true };
+      window: { _db: chain, _fbApp: fbApp, localStorage: { getItem: () => null, setItem() {} }, _auth: { currentUser: {} }, _p7Notif: notif.map((f) => f(FD)), _p7Kalenteri: null }, _isDemoUser: false, _pelaaja: { id: 'P', seuraId: 'S' },
+      _ladattu: {}, _tab: 'mina', _sc: 'main', draw() {}, t: LANG.t, _thEsc: (x) => String(x) };
     Object.assign(sb, PEL_APU); vm.createContext(sb); vm.runInContext(LIB, sb);
     vm.runInContext([pura(P7, 'function _p7EvPvm('), pura(P7, 'async function _p7LataaKalenteri('), pura(P7, 'function _p7NotifHTML(')].join('\n')
       + '\nthis.lataa = _p7LataaKalenteri; this.html = _p7NotifHTML; var _P7_NOTIF_IKO = {muistutus:"🔔"};', sb);
-    return { sb, FD };
+    return { sb, FD, kutsut };
   }
   it('kalenteri: koko päivän (pvm), kesken oleva ja tuleva näkyvät; tänään päättynyt ei; aamulla 00:30 koko päivän tapahtuma näkyy', async () => {
     const { sb } = sovellus([2026, 9, 5, 0, 30], { kal: [
@@ -164,7 +166,7 @@ describe('Pelaaja_v7 — kalenterin suodatus + ilmoituslista', () => {
       () => ({ nimi: 'Poistettu', pvm: '2026-10-05', poistettu: true }),
     ] });
     await sb.lataa();
-    expect(sb.window._p7Kalenteri.map((e) => e.nimi)).toEqual(['Koko päivän leiri', 'Kesken', 'Tuleva']);
+    expect(sb.window._p7Kalenteri.map((e) => e.nimi)).toEqual(['Koko päivän leiri', 'Kesken', 'Tuleva']);   // selain tekee lopullisen päättymissuodatuksen (Mennyt pois); Poistettu pudotettu palvelimella
   });
   it('kalenteri: koko päivän tapahtuma katoaa vasta seuraavana päivänä', async () => {
     const a = sovellus([2026, 9, 5, 23, 50], { kal: [() => ({ nimi: 'Leiri', pvm: '2026-10-05' })] }); await a.sb.lataa();
@@ -186,7 +188,7 @@ describe('Pelaaja_v7 — kalenterin suodatus + ilmoituslista', () => {
     expect(h).toContain('Peruttu: Nopeustestit'); expect(h).not.toContain('Muutos: Harjoitus'); expect(h).toMatch(/Ilmoitukset[^<]*<span[^>]*>1</);
   });
   it('lähde: lib ladataan + SW cachettaa sen (offline)', () => {
-    expect(P7).toContain('lib/tm_kalenteri_ilmoitus.js?v=2');
+    expect(P7).toContain('lib/tm_kalenteri_ilmoitus.js?v=3');
     expect(lue('sw_pelaaja.js')).toContain("/lib/tm_kalenteri_ilmoitus.js");
   });
 });
@@ -194,8 +196,8 @@ describe('Pelaaja_v7 — kalenterin suodatus + ilmoituslista', () => {
 describe('Vanhempi_v2 — sama suodatus + ilmoituslista', () => {
   const V2 = lue('TalentMaster_Vanhempi_v2.html');
   it('lähde: lib ladataan, kalenterisuodatin käyttää tmEvPaattynyt:tä (ei `d < now`), SW cachettaa libin', () => {
-    expect(V2).toContain('lib/tm_kalenteri_ilmoitus.js?v=2');
-    expect(pura(V2, 'async function _vanhLataaKalenteri(')).toMatch(/TM_KALENTERI_ILM \? window\.TM_KALENTERI_ILM\.tmEvPaattynyt\(ev, now\) : d < now/);
+    expect(V2).toContain('lib/tm_kalenteri_ilmoitus.js?v=3');
+    expect(pura(V2, 'async function _vanhLataaKalenteri(')).toMatch(/haePelaajanKalenteri[\s\S]*K\.tmKalenteriKoosta\(data, new Date\(\)\)/);   // B4: päättymissuodatus (tmEvPaattynyt) libissä tmKalenteriKoosta
     expect(lue('sw_vanhempi.js')).toContain("/lib/tm_kalenteri_ilmoitus.js");
   });
   it('ilmoituslista: muistutus tapahtumapäivänä "Tänään: …", päättyneen muutos piilossa, peruttu näkyy', () => {

@@ -24,10 +24,11 @@ describe('näkyvyys: Vain valmennus / henkilökunta', () => {
     expect(R.tmTapahtumaKuuluuPelaajalle({ tyyppi: 'harjoitus', joukkue: 'kpv_u13', nakyvyys: 'henkilokunta' }, p)).toBe(false); expect(R.tmTapahtumaKuuluuPelaajalle({ tyyppi: 'jaksopalaveri', joukkue: 'kpv_u13' }, p)).toBe(false); expect(R.tmTapahtumaKuuluuPelaajalle({ tyyppi: 'kokous', pelaajat_id: ['a'] }, p)).toBe(false);
     expect(R.tmTapahtumaKuuluuPelaajalle({ tyyppi: 'harjoitus', nakyvyys: 'kaikki', pelaajat_id: ['a'], kohde: { tyyppi: 'ryhma' } }, p)).toBe(true);
   });
-  it('SAMA sääntö Pelaaja_v7 ja Vanhempi_v2 -sovelluksissa kuin libissä (vm: _p7EvKuuluu / _vanhEvKuuluu)', () => {
-    const p = { id: 'a', joukkue: 'KPV U13', joukkueet: ['kpv_u13'] };
-    const tapaukset = [{ tyyppi: 'harjoitus', joukkue: 'kpv_u13' }, { tyyppi: 'harjoitus', joukkue: 'kpv_u13', nakyvyys: 'henkilokunta' }, { tyyppi: 'jaksopalaveri', joukkue: 'kpv_u13' }, { tyyppi: 'jaksopalaveri', joukkue: 'kpv_u13', nakyvyys: 'kaikki' }, { tyyppi: 'kokous', pelaajat_id: ['a'] }, { tyyppi: 'ottelu', pelaajat_id: ['a'], kohde: { tyyppi: 'ryhma' } }, { tyyppi: 'mentorointitapaaminen', joukkueet: ['kpv_u13'] }, { tyyppi: 'harjoitus', joukkue: 'muu_joukkue' }, { tyyppi: 'kalibraatiopaja', pelaajat_id: ['a'] }];
-    for (const [koodi, nimi] of [[PE, '_p7EvKuuluu'], [VA, '_vanhEvKuuluu']]) for (const ev of tapaukset) { const sb = { _pelaaja: p, _lapsi: p, window: { _lapsi: p }, String, Array }; vm.createContext(sb); vm.runInContext(funktio(koodi, 'function ' + nimi + '(') + '\nthis.__r=' + nimi + '(' + JSON.stringify(ev) + ');', sb); expect(!!sb.__r, nimi + ' ' + JSON.stringify(ev)).toBe(R.tmTapahtumaKuuluuPelaajalle(ev, p)); }
+  it('B4: Pelaaja_v7 ja Vanhempi_v2 EIVÄT suodata selaimessa (_p7EvKuuluu / _vanhEvKuuluu poistettu) — rajaus palvelimella; palvelimen lib antaa näkyvyydestä saman vastauksen kuin tmNakyyPelaajalle', () => {
+    expect(PE).not.toContain('function _p7EvKuuluu('); expect(VA).not.toContain('function _vanhEvKuuluu(');
+    const S = require('../lib/tm_kalenteri_pelaajalle.js'); const docs = [{ id: 'kpv_u13', nimi: 'KPV U13' }]; const p = { id: 'a', joukkue: 'KPV U13', joukkueet: ['kpv_u13'] };
+    const tapaukset = [{ tyyppi: 'harjoitus', joukkue: 'kpv_u13' }, { tyyppi: 'harjoitus', joukkue: 'kpv_u13', nakyvyys: 'henkilokunta' }, { tyyppi: 'jaksopalaveri', joukkue: 'kpv_u13' }, { tyyppi: 'jaksopalaveri', joukkue: 'kpv_u13', nakyvyys: 'kaikki' }, { tyyppi: 'kokous', pelaajat_id: ['a'] }, { tyyppi: 'ottelu', pelaajat_id: ['a'] }];
+    for (const ev of tapaukset) expect(S.tmKuuluuPelaajalle(ev, p, docs), JSON.stringify(ev)).toBe(R.tmTapahtumaKuuluuPelaajalle(ev, p));
   });
 });
 

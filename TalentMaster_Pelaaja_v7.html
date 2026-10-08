@@ -578,7 +578,7 @@ input::placeholder,textarea::placeholder{color:#8C8B86;opacity:1}
 <script src="lib/tm_pelialy_yksilo.js?v=4"></script>   <!-- Peliäly-lohko: ADAR §4-ikäportitus (Malli A, tmAdarBand/Yht/BonusOsat, PR #266) -->
 <script src="lib/tm_alusta.js?v=2"></script>   <!-- PR D2: + pääalusta (Mondo) -->
 <script src="lib/tm_ennatykset.js?v=6"></script>   <!-- PR D2: ennätysrivit alustoittain (tmEnnatysRivit, jaettu Vanhemman kanssa) -->   <!-- PR F: yksi §22-alustasanasto (TM_ALUSTA) -->
-<script src="lib/tm_kalenteri_ilmoitus.js?v=2"></script>   <!-- V2 P0.4: tapahtuman päättyminen + ilmoituksen päivä (jaettu Pelaaja + Vanhempi) -->
+<script src="lib/tm_kalenteri_ilmoitus.js?v=3"></script>   <!-- V2 P0.4: tapahtuman päättyminen + ilmoituksen päivä (jaettu Pelaaja + Vanhempi) -->
 <script src="lib/tm_kehityskaari.js?v=7"></script>   <!-- Trendi Vaihe 2: kehityskaari (§7.22 kannustava) · v4 = K4 (FLEI "Kehon valmius" + §22 alusta-vartija pelaaja-renderissä) -->
 </head>
 <body>
@@ -2645,22 +2645,6 @@ function _p7EvPvm(ev) {
       : (ev.pvm ? new Date(String(ev.pvm).slice(0, 10) + 'T00:00:00') : null);
   return (d && !isNaN(d.getTime())) ? d : null;
 }
-function _p7EvKuuluu(ev) {
-  // P7-c.1-fix: normalisoitu joukkueavainjoukko (ml. joukkueet[]-slug). Pelaajan joukkue = näyttönimi ("KPV U13"),
-  // tapahtuman joukkue = slug ("kpv_u13") → suora vertailu ei osu; normalisointi (lowercase + poista väli/alaviiva)
-  // → "kpvu13" molemmilla. Kanoninen avain on joukkueet[]-slug kummallakin puolella.
-  if (!_pelaaja) return false;
-  /* R1 PR 2: "Vain valmennus / henkilökunta" (nakyvyys:'henkilokunta') ei näy pelaajalle/huoltajalle; vanhat palaveritapahtumat ilman kenttää tyypistä (kalenteri ei tyhjene). Peilaa lib/tm_ryhmat.js tmNakyyPelaajalle (testi vertaa). */
-  if (ev.nakyvyys === 'henkilokunta' || (ev.nakyvyys !== 'kaikki' && ['jaksopalaveri', 'valmentajapalaveri', 'tiimipalaveri', 'kokous', 'kalibraatiopaja', 'mentorointitapaaminen'].indexOf(ev.tyyppi) >= 0)) return false;
-  var norm = function (s) { return String(s == null ? '' : s).toLowerCase().replace(/[\s_]+/g, ''); };
-  var pKeys = {};
-  [_pelaaja.joukkue, _pelaaja.joukkueId].concat(_pelaaja.joukkueet || [])
-    .filter(Boolean).forEach(function (x) { pKeys[norm(x)] = 1; });
-  var eKeys = [ev.joukkue].concat(ev.joukkueet || []).filter(Boolean).map(norm);
-  if (eKeys.some(function (k) { return pKeys[k]; })) return true;
-  if (Array.isArray(ev.pelaajat_id) && ev.pelaajat_id.indexOf(_pelaaja.id) >= 0) return true;
-  return false;
-}
 function _p7DemoKalenteri() {
   var mk = function (n, tyyppi, plusDays, hh, paikka) { var d = new Date(); d.setDate(d.getDate() + plusDays); d.setHours(hh, 0, 0, 0); return { id: 'demo' + plusDays, nimi: n, tyyppi: tyyppi, _d: d, paikka: paikka }; };
   var ottelu = mk('Ottelu vs FC Naapuri', 'ottelu', 3, 12, 'Kotikenttä');
@@ -2742,29 +2726,18 @@ async function _p7LataaKalenteri() {
   var authReady = !!(window._auth && window._auth.currentUser);
   if (!_pelaaja || !_pelaaja.seuraId || !window._db || !authReady) return;   // ei valmis → EI latchia, EI [] (yritetään uudelleen)
   _ladattu.kalenteri = true;   // vasta kun oikea .get() tehdään
+  var K = window.TM_KALENTERI_ILM;
   try {
-    var snap = await window._db.collection('seurat').doc(_pelaaja.seuraId).collection('kalenteri').get();
-    var now = new Date(); var evs = [];
-    snap.forEach(function (doc) {
-      var ev = Object.assign({ id: doc.id }, doc.data());
-      if (ev.poistettu) return; if (!_p7EvKuuluu(ev)) return;
-      var d = _p7EvPvm(ev); if (!d) return;
-      // V2 P0.4: näkyy päättymiseensä asti (paattyy; kellonajaton → paikallisen päivän loppu). Ennen `d < now` pudotti koko päivän
-      // tapahtuman päivän alussa ja kesken olevan alkuhetkellä. Lib puuttuu → vanha käytös.
-      if (window.TM_KALENTERI_ILM ? window.TM_KALENTERI_ILM.tmEvPaattynyt(ev, now) : d < now) return;
-      ev._d = d; evs.push(ev);
-    });
-    evs.sort(function (a, b) { return a._d - b._d; });
-    // P7-c.3 — read-back oma saatavuus näytettäville tapahtumille (best-effort, rinnakkain).
-    try {
-      await Promise.all(evs.slice(0, 5).map(function (ev) {
-        return window._db.collection('seurat').doc(_pelaaja.seuraId).collection('kalenteri').doc(ev.id)
-          .collection('lasnaolijat').doc(_pelaaja.id).get()
-          .then(function (s) { if (s.exists) { ev._omaSaatavuus = (s.data() || {}).saatavuus || null; } }).catch(function () { });
-      }));
-    } catch (e) { /* ei kriittinen */ }
-    window._p7Kalenteri = evs;
-  } catch (e) { console.warn('[p7 kalenteri]', e && e.message); window._p7Kalenteri = []; }
+    /* B4: rajaus palvelimella (jäsenyys §7.18, näkyvyys, sallitut kentät, ikkuna −7…+30 pv; oma saatavuus mukana). Selain tekee vain lopullisen päättymissuodatuksen. */
+    var vast = await window._fbApp.functions('europe-west1').httpsCallable('haePelaajanKalenteri')({ seuraId: _pelaaja.seuraId, pelaajaId: _pelaaja.id });
+    var data = (vast && vast.data) || { tapahtumat: [] };
+    K.tmKalenteriTalleta(window.localStorage, _pelaaja.seuraId, _pelaaja.id, data);
+    window._p7Kalenteri = K.tmKalenteriKoosta(data, new Date());
+  } catch (e) {
+    console.warn('[p7 kalenteri]', e && (e.code || ''), e && e.message);
+    var muisti = K && K.tmKalenteriMuistista(window.localStorage, _pelaaja.seuraId, _pelaaja.id);   // virhe/offline → viimeksi saatu lista, muuten tyhjä tila
+    window._p7Kalenteri = muisti ? K.tmKalenteriKoosta(muisti, new Date()) : [];
+  }
   _rerender();
 }
 // P7-c.2 — logistiikka-chipit (vain olemassa olevat kentät). vanhempi=true → myös 🚗 kimppakyyti.
@@ -2802,9 +2775,9 @@ async function _p7MerkitseLasna(evId, saatavuus) {
     if (!_p7Verkossa()) throw _p7EiYhteyttaVirhe();
     var cu = window._auth ? window._auth.currentUser : null;
     if (cu) await _p7Aikaraja(cu.getIdToken(true));
-    var tapahtuma = window._db.collection('seurat').doc(_pelaaja.seuraId).collection('kalenteri').doc(evId);
-    await _p7Aikaraja(tapahtuma.get());   // yhteystesti palvelinluvulla ennen kirjoitusta
-    await _p7Aikaraja(tapahtuma.collection('lasnaolijat').doc(_pelaaja.id)
+    var kal = window._db.collection('seurat').doc(_pelaaja.seuraId).collection('kalenteri').doc(evId);
+    await _p7Aikaraja(kal.collection('lasnaolijat').doc(_pelaaja.id).get());   // yhteystesti palvelinluvulla OMAAN lasnaolijat-dokumenttiin (B4: kalenteridokumentin suora luku loppuu) ennen kirjoitusta
+    await _p7Aikaraja(kal.collection('lasnaolijat').doc(_pelaaja.id)
       .set({ saatavuus: saatavuus, rooli: 'pelaaja', paivitetty: new Date().toISOString() }, { merge: true }));   // vain saatavuus (Rules RSVP-erotus)
   } catch (e) {
     console.warn('[p7 lasna]', e && (e.code || ''), e && e.message);

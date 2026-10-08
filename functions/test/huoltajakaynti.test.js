@@ -14,7 +14,7 @@ function luoDb(pelaajat) {
     update: async (d) => { paivitykset.push({ sid, pid, d }); Object.assign(pelaajat[sid + '/' + pid], d); },
   }) }) }) }) };
 }
-const kutsu = (db, data, email) => H.luoKasittelija({ db, HttpsError, nyt: () => NYT })(data, email === undefined ? { auth: { token: { email: 'Aiti@Esimerkki.fi' } } } : (email ? { auth: { token: { email } } } : { auth: { token: {} } }));
+const kutsu = (db, data, email) => H.luoKasittelija({ db, HttpsError, nyt: () => NYT })(data, email === undefined ? { auth: { token: { email: 'Aiti@Esimerkki.fi', email_verified: true } } } : (email ? { auth: { token: { email, email_verified: true } } } : { auth: { token: {} } }));
 const P = () => ({ 'kpv/m93': { etunimi: 'Aleksi', huoltajaEmail: 'aiti@esimerkki.fi' } });
 
 test('oikea huoltaja (email täsmää, kirjainkoko ei merkitse): kirjataan Helsingin päivä; vain tämä kenttä', async () => {
@@ -33,6 +33,13 @@ test('väärä huoltaja → permission-denied, ei kirjoitusta; puuttuva huoltaja
   const db2 = luoDb({ 'kpv/m93': { etunimi: 'A' } });
   await assert.rejects(kutsu(db2, { seuraId: 'kpv', pelaajaId: 'm93' }), (e) => e.code === 'permission-denied');
   assert.deepStrictEqual(db.paivitykset.concat(db2.paivitykset), []);
+});
+test('B4: vahvistamaton sähköposti (email_verified != true) → ei huoltajakäyntiä, ei virhettä, ei kirjoitusta', async () => {
+  const db = luoDb(P());
+  for (const tok of [{ email: 'aiti@esimerkki.fi' }, { email: 'aiti@esimerkki.fi', email_verified: false }]) {
+    assert.deepStrictEqual(await H.luoKasittelija({ db, HttpsError, nyt: () => NYT })({ seuraId: 'kpv', pelaajaId: 'm93' }, { auth: { token: tok } }), { kirjattu: false, syy: 'ei_vahvistettu' });
+  }
+  assert.deepStrictEqual(db.paivitykset, []);
 });
 test('ei sähköpostia (anonyymi / linkki / kirjautumaton) → ei virhettä, ei kirjoitusta; virheellinen id → invalid-argument; pelaajaa ei löydy → ei kirjoitusta', async () => {
   const db = luoDb(P());
