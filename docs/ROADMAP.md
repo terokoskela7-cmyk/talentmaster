@@ -3,55 +3,95 @@
 
 ---
 
-## 🚦 TILANNE 2026-10-08 — Kenttä, kehitystyöpöytä V4, ryhmät
+## 🧭 KOKONAISKUVA 2026-10-08 — kohti skaalautuvuutta
 
-**Vaihe:** pilotti käytössä KPV:llä (Kenttä-lippu päällä) · Sibbo, SJK ym. nykyisillä näkymillä.
-Suunta: järjestelmä skaalautuu yksittäisestä pelaajasta (Kenttä, jakso) valmentajaan (kehitystyöpöytä V4) ja seuraan (Seuran pulssi, 17).
+**Vaihe:** pilotti käytössä. KPV käyttää Kenttä-lippua. Sibbo ja muut seurat käyttävät nykyisiä näkymiä. Sibbo saa ryhmät, klipit ja ruotsin 1.11.
+**Tavoite seuraavalle kolmelle kuukaudelle:** TalentMasterin pitää toimia ilman, että Tero tai Code on jokaisen seuran, kielen ja näkymän välissä. Skaalautuvuutta katsotaan viidestä suunnasta. Kullakin on oma linjansa, ja ne etenevät rinnakkain.
 
-### ✅ Valmis (lokakuun 1. viikko)
-- **Pelaajan Kenttä K1–K4** (Pelaaja_v7, lipun takana): Tämän tueksi, reitin valinta (K3), viikkokatsaus + "Hyvä jakso" (K4), ennätysmerkki. Rules v3.43–v3.45.
-- **Kehitystyöpöytä V4** (Master + VP, lipun takana): V4a koko ruudun näkymä + hash-reititin + jakson tilakone (#870) · V4b-1 Näyttö (testit, havainnot, tutka, mittaukset; vanha kortti snapshot-identtinen, #872/#873) · V4b-2 kevyt katselmus, Tänään-signaali (D48), valmentajaprofiili ammatti/oto, Hylkää valinta, Rules v3.46 (#875) · korjauskierros (kenttä-CSS, signaali, 3 kysymystä, pillerit) #879.
-- **Turvallisuus/laatu:** virhetoast modaalien päällä + virhekoodi, modaali auki virheessä (#868) · väärä rooli ei enää kirjaa ulos automaattisesti, tuonti pysähtyy oikeusvirheeseen (#874) · sukupuoli tuontiin + backfill (#878).
-- **Sanasto D54:** käyttäjälle ei "ase" — henkilökunta "ydinvahvuus", pelaaja/huoltaja "vahvuus" (#875, #876, #877).
-- **KPV-data:** harjoitepankki (89 harjoitetta) · rosteri 125 pelaajaa (P9–P15, T9–T15, 14 joukkuetta) · tekniikkakilpailut 2023–2025 (190 tulosta, 124/125 mitalia täsmää, 51 pelaajalla kehitysdelta).
-- **Design-päätökset lukittu:** D40–D45 (Seuran pulssi, 17) · D46–D54 (V4 + sanasto, 18) · D37 C, D38, D39 osittain.
+| Suunta | Pullonkaula nyt | Ratkaisu | Linja |
+|---|---|---|---|
+| **1. Lisää seuroja** | Teron käsityö seuran käyttöönotossa | Seuran pääkäyttäjä hoitaa tunnukset ja pelaajat (Sibbossa Joakim). Seuran oma data seuran kielellä (D16). Seuran pulssi kertoo johdolle, kulkeeko silmukka. | Seuratason linja (S1–S4) |
+| **2. Lisää kieliä** | Kovakoodattu suomi, jota mikään portti ei näe | Kaikki tekstit reitityksen ja karttojen kautta, yksi Gemini-erä kerrallaan, portti uudelle suomelle | Kielilinja |
+| **3. Lisää koodia** | VP_v25 23 364 riviä, Master 11 675 | Kasvukatto (R0). Uusi logiikka `lib/`-moduuleihin (109 kpl). Kuorten jako R1–R3. | Rakennelinja |
+| **4. Lisää dataa** | Selain hakee seuran koko kalenterin ja laskee koosteet itse | Palvelin laskee ja rajaa: viikkokooste (S1), pelaajan kalenteri palvelimelta (B4) | Tietosuoja ja data |
+| **5. Lisää muutoksia** | Mergejono ja Teron käsitestit | Kaksi kaistaa (auto/Tero), CI-portit, deploy-ihmisportti vain funktioille ja Rulesille | Laatu |
 
-### 🔧 Käynnissä
-- #879 V4-korjaukset → käsitesti (pillerit, signaali, mobiili).
-- Sukupuolen täydennysnappi Excel-tuontiin (KPV 126 pelaajaa ilman sukupuolta).
-- Testipelaajasääntö päivitettävä: KPV U13 → **KPV P13** sisältää nyt myös oikeita pelaajia; kirjoitukset vain nimetyille testipelaajille.
-- **Tietosuoja (B4, ei estä 1.11.):** pelaaja- ja huoltajasovellus lukevat seuran koko kalenterin ja suodattavat sovelluksessa → rajaus palvelinpuolelle (joukkue/`pelaajat_id`). Muistiinpanot ja muiden läsnäolot korjataan jo #882:ssa.
-- **Rules-versiot (live):** v3.47 ryhmät · v3.48 kalenterin tietosuoja · v3.50 mediaviesti · v3.51 huoltajan viestiluku vaatii suostumuksen · v3.52 muistiinpanot pois tapahtumadokumentista. **Seuraava: v3.53 = Seuran pulssi S1** (v3.49-varaus jäi käyttämättä).
+### ✅ Valmis (loka 1.–8.)
+- **Pelaajan Kenttä K1–K4** ja **kehitystyöpöytä V4** (V4a, Näyttö, kevyt katselmus, signaali, valmentajaprofiili, korjauskierros #879). Rules v3.43–v3.46.
+- **Ryhmät R1** (#881, #887): ryhmät, kalenterin Kenelle, "vain henkilökunta" -tapahtumat, jäädytys, Masterin omat ryhmät. Rules v3.47.
+- **Mediaviesti M1** (#884, #888): klippi, kysymys, vastaus ja perheen kuittaus. Rules v3.50 ja v3.51 (huoltajan viestiluku vaatii suostumuksen myös kyselyssä).
+- **P0 kalenteritietosuoja:** muistiinpanot henkilökunnan alikokoelmaan ja läsnäolot vain omat (#882, v3.48). Migraatio ajettu kaikille seuroille (KPV 5, demo 1, muut 0). Kiristys v3.52 (#890).
+- **sv-erä 1:** 696 riviä Geminiltä. Jaettu kirjastokartta `lib/tm_lib_i18n.js` (päätös A, #891/#892).
+- **Rakenne R0:** kuorten kasvukatto, testi ja räikkä (#886).
+- **Kielivahti Vaihe 0:** kartoitus, termistö (85 termiä, 0 ristiriitaa) ja puutelistat (#889).
+- **Laatu:** virhetoastit, väärä rooli ei kirjaa ulos, tuonti pysähtyy oikeusvirheeseen (#868, #874). Sukupuoli tuontiin ja täydennysnappi (#878).
+- **Sanasto D54:** "ase" ei näy käyttäjälle. Henkilökunta näkee "ydinvahvuus", pelaaja ja huoltaja "vahvuus".
+- **KPV-data:** harjoitepankki 89, rosteri 125 pelaajaa (14 joukkuetta), tekniikkakilpailut 2023–2025 (190 tulosta).
+- **Testipelaajasääntö:** kirjoitukset vain nimetyille KPV-testipelaajille (#896).
 
-### 📅 Seuraavaksi
-| Milloin | Mitä |
-|---|---|
-| lokakuu | **R1 Ryhmät (D33)** — Sibbo: maalivahdit + MV-valmentaja, talenttiryhmä, läsnäolo, näkyy pelaajalle/huoltajalle; Rules v3.47 (#881 PR 1; PR 2 kalenteri + "vain henkilökunta" -tapahtumat); sv-käännökset Geminille ajoissa. `docs/CODE_BRIEF_R1_RYHMAT.md` |
-| ✅ 8.10. | **P0 tietosuoja valmis:** muistiinpanot henkilökunnan alikokoelmaan + läsnäolot vain omat (#882, v3.48) · migraatio ajettu kaikille seuroille (KPV 5, demo 1, muut 0) · kiristys v3.52 (#890) |
-| ✅ 8.10. | **sv-käännöserä:** 696 riviä Geminiltä (tm_lang, kirjastot, kysymyspohjat, VP, Master) + jaettu kirjastokartta `lib/tm_lib_i18n.js` (päätös A, #891/#892). Jäljellä pieni erä: `ts_otsikko`, Klubb/Klubben → Förening, Kehityskaari (kausifokus), VP×Master 110 eroavaa riviä |
-| 1.11. | **R6.4 Mediaviesti M1** (19, D55–D64): VEO/YouTube/kuva/linkki + kysymys pelaajalle, vastaus ja perheen kuittaus; Inbox; kaikki seurat, Sibbo ensin. `docs/CODE_BRIEF_R6_4_MEDIAVIESTI.md`. M2 marraskuussa (Polku, merkin piste, VP-tilannekuva) |
-| ennen 1.11. | **Sibbo Kenttä-lipulle (D55):** sv-tekstit kirjastoissa ✅ (#892) → jäljellä Teron sv-käsitesti, reitittämättömän kovakoodatun suomen tarkistus Kenttä-poluilla ja opastus |
-| heti → su 11.10. | **Seuran pulssi S1** (17): viikkokooste-CF (su 21.00) + `kooste`/`kooste_joukkue` + Rules v3.53 — ensimmäinen ajo su 11.10., jotta 4 vk trendi on valmis S2:lle 1.12. `docs/CODE_BRIEF_S1_SEURAN_PULSSI.md` |
-| 9.10. | KPV:n aloittava joukkue → käyttöönotto: kutsut, huoltajien sähköpostit, ensimmäiset jaksot |
-| ennen 10.11. | K3-käsitesti (pelaaja valitsee seuraavan reitin) — KPV:n ensimmäinen jakso päättyy ~17.11. |
-| 1.11. | Ryhmät Sibbolla käytössä · V4 Näyttö valmis |
-| 1.12. | Vanha pelaajakortti pois koodista (D49) · Seuran pulssi S2 VP_v25:n etusivulle |
-| joulukuu | S3 tavoitetasot · **K5 Leikkijä + huoltaja** (KPV:llä nyt 9–12-vuotiaita) |
-| myöhemmin | S4 teema/kuorma/kypsyys (14:n jälkeen) · Pallo-Iirojen tuonti · ryhmät R2 (sääntöryhmät, IDP-ryhmät) |
+### 🛤 Linjat
 
-### 🧱 Rakennelinja — kuorten pilkkominen (Tero 8.10.2026)
-Skaalautuvuushaaste: VP_v25 kasvoi 14 525 → **23 201** riviä (heinä → loka), Master_v16 11 476, Seura ja Pelaaja_v7 ~7 000. Ominaisuustyö rakentaa jo uudet osat jaettuina `lib/`-moduuleina (106 kpl; V4, Kenttä, ryhmät ym.) ja Master + VP käyttävät samaa kehitystyöpöytää (D38/D46) — mutta kuoria ei vielä pilkota.
+**A. Seuratason linja: Seuran pulssi (17, D40–D45)**
 | Vaihe | Milloin | Mitä |
 |---|---|---|
-| **R0 Kasvukatto** | heti | Testi: kuoret eivät kasva yli nykyisen + 2 %; uusi logiikka `lib/`-moduuleihin, kuoreen vain kytkentä; katto räikkänä alas kun kuori pienenee. `docs/CODE_BRIEF_RAKENNE_R0_KASVUKATTO.md` |
-| mittari | — | `node scripts/kuoret_kasvukatto.js` tulostaa taulukon (kuori · rivit · katto · vapaa · muutos edelliseen); `--kirjoita` laskee kattoa alas kun kuori pienenee (ei koskaan nosta). Katot: `tests/fixtures/kuoret_kasvukatto.json` |
-| poisto | 1.12. | Vanha pelaajakortti pois Masterista ja VP:stä (D49) — ensimmäinen iso pienennys |
-| **R1 VP_v25:n jako** | joulukuu | Etusivu = Seuran pulssi (17); porautuminen = sama kehitystyöpöytä kuin Masterissa; kalenteri, ryhmät, raportit, työkalut omiksi kevyiksi sivuiksi. Ensin selvitys (osiot, rivit, Master-kopiot). |
-| **R2 Master + Seura** | tammikuu | Sama jako: Master = valmentajan Tänään + kehitystyöpöytä; Seura-hallinta (rosteri, käyttäjät, ryhmät) yhteen paikkaan VP:n kanssa. |
-| **R3 Backend** | kevät | `functions/index.js` aiheittain (sähköposti / AI / GDPR / ajastukset); Rules-tiedoston jaon selvitys. |
+| **S1** | käynnissä, ensimmäinen ajo su 11.10. | Viikkokooste-CF (su 21.00, ma 06.00 uudelleenajo). `kooste` ja `kooste_joukkue`, vain lukumääriä. Rules v3.53. Takaisinlaskenta 3 viikkoa (`arvio: true`). Jaettu `lib/`-logiikka funktioihin (sama `tmJaksoTila` kuin työpöydällä). `docs/CODE_BRIEF_S1_SEURAN_PULSSI.md` |
+| S2 | 1.12. | Pulssi VP_v25:n etusivulle (lipun takana). PM tekee mockupin oikeilla KPV-luvuilla marraskuun puolivälissä. Etusivun korttien inventaario ja poistolista. |
+| S3 | joulukuu | Seuran omat tavoitetasot (`kooste_tavoitteet`) ikävaiheittain. Pieni joukkue -sääntö. |
+| S4 | 14:n jälkeen | Teema, kuorma, kypsyys ja aikajana. |
+
+**B. Kielilinja: kaikki käyttäjän näkemä teksti seuran kielellä**
+| Vaihe | Milloin | Mitä |
+|---|---|---|
+| sv-läpiajo PR 1 | käynnissä (#897) | Playwright avaa 64 näkymää sv-tilassa. 358 suomenkielistä tekstiä, joista 301 käyttöliittymää: 168 pelkkää reititysvirhettä (sv on jo kartassa), noin 133 tarvitsee uuden sv:n. CI-raportti uudelle suomelle. |
+| PR 2 perheet | → 15.10. | Pelaaja ja Vanhempi, ADAR-nimet, kalenteri-ilmoitukset rakenteisina (sovellus kokoaa tekstin lukijan kielellä), Excel-pohjiin sv-ohjerivi. |
+| PR 3 Master | → 18.10. | `tmJaksoTila`, curriculum-sidecar Masteriin, tekniikkakisat, oma arviointi. |
+| PR 4 muut | → 20.10. | VP, Seura, ADAR Pikakortti, Pelihavainto_Kentta. |
+| **Gemini-erä 2** | **20.10.** | PR 2–4:n uudet avaimet ja #892:n jäännökset (`ts_otsikko`, Förening, Kehityskaari, VP×Master 110 riviä). PM tarkistaa → vienti → Teron sv-käsitesti. |
+| Portti päälle | 1.11. jälkeen | Läpiajo kaataa buildin uudesta kovakoodatusta suomesta. PR 1b fixtuurimoodi (emulaattori ja siemendata) kattaa kirjautumista vaativat näkymät. |
+| en | myöhemmin | Sama putki, yksi rivi lisää `locales`-listaan. |
+
+**C. Rakennelinja: kuorten pilkkominen**
+| Vaihe | Milloin | Mitä |
+|---|---|---|
+| **R0 kasvukatto** | ✅ voimassa | Kuoret eivät kasva yli katon. Uusi logiikka `lib/`-moduuleihin. `node scripts/kuoret_kasvukatto.js` · `--kirjoita` laskee kattoa. ⚠ **Vapaata vähän:** Pelaaja_v7 100, Vanhempi_v2 41, Master 225 riviä. Kielilinjan reititys siirtää renderöintiä `lib/`-moduuleihin, ei nosta kattoa. |
+| functions + lib | S1:n yhteydessä | Yksi tapa viedä `lib/`-logiikka funktioihin (S1 selvitys a). Pohja R3:lle. |
+| poisto | 1.12. | Vanha pelaajakortti pois Masterista ja VP:stä (D49). Ensimmäinen iso pienennys. Valmistelu ensin: ei mitään tarvittavaa katoa. |
+| **R1 VP_v25:n jako** | joulukuu | Etusivu on Seuran pulssi. Porautuminen vie samaan kehitystyöpöytään kuin Masterissa. Kalenteri, ryhmät, raportit ja työkalut omille kevyille sivuilleen. Ensin selvitys (osiot, rivit, Master-kopiot). |
+| R2 Master + Seura | tammikuu | Master = valmentajan Tänään ja kehitystyöpöytä. Seuran hallinta (rosteri, käyttäjät, ryhmät) yhteen paikkaan VP:n kanssa. |
+| R3 backend | kevät | `functions/index.js` (2 482 riviä, 37 funktiota) aiheittain: sähköposti, AI, GDPR, ajastukset. Rules-tiedoston (2 148 riviä) jaon selvitys. |
+
+**D. Tietosuoja ja data**
+| Vaihe | Milloin | Mitä |
+|---|---|---|
+| P0 kalenteri | ✅ | Muistiinpanot ja läsnäolot (v3.48 + v3.52) |
+| **B4 pelaajan kalenteri palvelimelta** | 20.10. jälkeen | Pelaaja- ja huoltajasovellus lukevat nyt seuran koko kalenterin ja suodattavat sen itse. Siirto palvelimelle tai `pelaajat_id`-kyselyyn, sen jälkeen Rules-kiristys. Seuraava tietosuojakorjaus. |
+| Viikkokooste | S1 | Selaimen raskaat koostekyselyt korvautuvat palvelimen viikkodokumentilla. |
+| SendGrid EU-datasijainti | avoin päätös | Teron hyväksyntä ja alihankkijalista |
+| Sentry funktioihin | avoin | Ei lisätä S1:n sivussa, oma päätöksensä |
+
+**E. Laatu ja työnkulku**
+- Auto-kaista (docs, testit, lib ilman näkyviä muutoksia) ja Teron kaista (Rules, functions, HTML, SW, data). Deploy-ihmisportti funktioille.
+- Rules-versiot (live): v3.47 ryhmät · v3.48 kalenteri · v3.50 mediaviesti · v3.51 suostumus kyselyssä · v3.52 muistiinpanot pois tapahtumasta. **Seuraava v3.53 = S1** (sisältää v3.52-jälkisiivouksen).
+- Tuotantodatan ajot (tuonnit, migraatiot, täydennykset ja takaisinlaskennat) ajaa Tero, ei Code eikä PM.
+
+### 📅 Kalenteri
+| Milloin | Mitä | Kuka |
+|---|---|---|
+| pe 9.10. | KPV:n aloittava joukkue → kutsut, huoltajien sähköpostit, ensimmäiset jaksot | Tero + PM |
+| viim. su 11.10. | S1-deployn hyväksyntä · ensimmäinen kooste | Tero |
+| heti | KPV:n sukupuolitäydennys (Excel_Tuonti ⚥) · pelaajan 35206283 syntymävuosi · Hildan kaksoisdokumentti `hoAPPexZFVdEoF5SWFjG` pois | Tero |
+| 15.–20.10. | sv-läpiajo PR 2–4 · Gemini-erä 2 | Code → Tero/Gemini → PM |
+| ~20.10. | **Päätös: Kenttä-lippu Sibbolle 1.11.?** (onko Kenttä-polku kokonaan ruotsiksi) | Tero |
+| 20.–31.10. | Gemini-erän 2 vienti · Teron sv-käsitesti · B4 pelaajan kalenteri | Code, Tero |
+| **1.11.** | **Sibbo:** ryhmät (maalivahdit, talenttiryhmä), klipit, ruotsi | — |
+| ennen 10.11. | K3-käsitesti KPV:llä (ensimmäiset jaksot päättyvät ~17.11.) | Tero |
+| ~15.11. | S2-mockup oikeilla KPV-luvuilla + VP:n etusivun korttien inventaario | PM |
+| **1.12.** | Vanha pelaajakortti pois (D49) · Seuran pulssi S2 | Code |
+| joulukuu | R1 VP_v25:n jako · S3 tavoitetasot · K5 Leikkijä + huoltaja | Code |
+| tammikuu | R2 Master + Seura · portti uudelle suomelle päälle | Code |
+| kevät | R3 backend · S4 · ryhmät R2 (sääntöryhmät, IDP-ryhmät) · Pallo-Iirojen tuonti | — |
 
 ---
-
 ## 🚦 LIVE-TILA 2026-06-15 (Firestoresta luettu — aiemmat tilatekstit olivat jäljessä)
 
 **Vaihe: pilotin käyttöönotto.** Rakennus + analyysimallit (TKI/H-H/FLEI/PHV) lukittu ja testattu;
