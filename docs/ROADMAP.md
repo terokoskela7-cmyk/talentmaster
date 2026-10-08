@@ -43,6 +43,7 @@ Skaalautuvuushaaste: VP_v25 kasvoi 14 525 → **23 201** riviä (heinä → loka
 | Vaihe | Milloin | Mitä |
 |---|---|---|
 | **R0 Kasvukatto** | heti | Testi: kuoret eivät kasva yli nykyisen + 2 %; uusi logiikka `lib/`-moduuleihin, kuoreen vain kytkentä; katto räikkänä alas kun kuori pienenee. `docs/CODE_BRIEF_RAKENNE_R0_KASVUKATTO.md` |
+| mittari | — | `node scripts/kuoret_kasvukatto.js` tulostaa taulukon (kuori · rivit · katto · vapaa · muutos edelliseen); `--kirjoita` laskee kattoa alas kun kuori pienenee (ei koskaan nosta). Katot: `tests/fixtures/kuoret_kasvukatto.json` |
 | poisto | 1.12. | Vanha pelaajakortti pois Masterista ja VP:stä (D49) — ensimmäinen iso pienennys |
 | **R1 VP_v25:n jako** | joulukuu | Etusivu = Seuran pulssi (17); porautuminen = sama kehitystyöpöytä kuin Masterissa; kalenteri, ryhmät, raportit, työkalut omiksi kevyiksi sivuiksi. Ensin selvitys (osiot, rivit, Master-kopiot). |
 | **R2 Master + Seura** | tammikuu | Sama jako: Master = valmentajan Tänään + kehitystyöpöytä; Seura-hallinta (rosteri, käyttäjät, ryhmät) yhteen paikkaan VP:n kanssa. |
