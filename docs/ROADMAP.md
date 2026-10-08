@@ -43,10 +43,10 @@
 | Vaihe | Milloin | Mitä |
 |---|---|---|
 | sv-läpiajo PR 1 | käynnissä (#897) | Playwright avaa 64 näkymää sv-tilassa. 358 suomenkielistä tekstiä, joista 301 käyttöliittymää: 168 pelkkää reititysvirhettä (sv on jo kartassa), noin 133 tarvitsee uuden sv:n. CI-raportti uudelle suomelle. |
-| PR 2 perheet | → 15.10. | Pelaaja ja Vanhempi, ADAR-nimet, kalenteri-ilmoitukset rakenteisina (sovellus kokoaa tekstin lukijan kielellä), Excel-pohjiin sv-ohjerivi. |
-| PR 3 Master | → 18.10. | `tmJaksoTila`, curriculum-sidecar Masteriin, tekniikkakisat, oma arviointi. |
-| PR 4 muut | → 20.10. | VP, Seura, ADAR Pikakortti, Pelihavainto_Kentta. |
-| **Gemini-erä 2** | **20.10.** | PR 2–4:n uudet avaimet ja #892:n jäännökset (`ts_otsikko`, Förening, Kehityskaari, VP×Master 110 riviä). PM tarkistaa → vienti → Teron sv-käsitesti. |
+| PR 2 perheet | ✅ #902 | Pelaaja ja Vanhempi, ADAR-nimet, kalenteri-ilmoitukset rakenteisina (sovellus kokoaa tekstin lukijan kielellä), Excel-pohjiin sv-ohjerivi. |
+| PR 3 Master | ✅ #905 | `tmJaksoTila`, curriculum-sidecar Masteriin, tekniikkakisat, oma arviointi. |
+| PR 4 muut | ✅ #913 | VP, Seura, ADAR Pikakortti, Pelihavainto_Kentta. |
+| **Gemini-erä 2** | ✅ 8.10. (#914, 1330/1331) | PR 2–4:n uudet avaimet ja #892:n jäännökset (`ts_otsikko`, Förening, Kehityskaari, VP×Master 110 riviä). PM tarkistaa → vienti → Teron sv-käsitesti. |
 | Portti päälle | 1.11. jälkeen | Läpiajo kaataa buildin uudesta kovakoodatusta suomesta. PR 1b fixtuurimoodi (emulaattori ja siemendata) kattaa kirjautumista vaativat näkymät. |
 | en | myöhemmin | Sama putki, yksi rivi lisää `locales`-listaan. |
 
@@ -64,7 +64,7 @@
 | Vaihe | Milloin | Mitä |
 |---|---|---|
 | P0 kalenteri | ✅ | Muistiinpanot ja läsnäolot (v3.48 + v3.52) |
-| **B4 pelaajan kalenteri palvelimelta** | 20.10. jälkeen | Pelaaja- ja huoltajasovellus lukevat nyt seuran koko kalenterin ja suodattavat sen itse. Siirto palvelimelle tai `pelaajat_id`-kyselyyn, sen jälkeen Rules-kiristys. Seuraava tietosuojakorjaus. |
+| **B4 pelaajan kalenteri palvelimelta** | PR viim. 27.10. | Pelaaja- ja huoltajasovellus lukevat nyt seuran koko kalenterin ja suodattavat sen itse. Ehdotus: callable `haePelaajanKalenteri` (rajaus + kenttien sallittulista palvelimella), sen jälkeen Rules v3.55 sulkee pelaajan suoran luvun. Briiffi `docs/CODE_BRIEF_B4_PELAAJAN_KALENTERI.md`. |
 | Viikkokooste | S1 | Selaimen raskaat koostekyselyt korvautuvat palvelimen viikkodokumentilla. |
 | SendGrid EU-datasijainti | avoin päätös | Teron hyväksyntä ja alihankkijalista |
 | Sentry funktioihin | avoin | Ei lisätä S1:n sivussa, oma päätöksensä |
