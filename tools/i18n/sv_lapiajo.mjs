@@ -18,6 +18,9 @@ import { onkoSuomea } from './sv_lapiajo_fi.mjs';
 
 const JUURI = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const arg = (n) => process.argv.includes(n);
+const argArvo = (n) => { const a = process.argv.find((x) => x.startsWith(n + '=')); return a ? a.slice(n.length + 1) : null; };
+const KIELI = argArvo('--kieli') || 'sv';   // fi = regressiovertailu (reititys ei saa muuttaa suomenkielistä renderöintiä)
+const DUMP = argArvo('--dump');           // kirjoita KAIKKI näkyvät tekstit näkymittäin (ei vain suomea) → fi-mode before/after -diff
 const ulosArg = process.argv.find((a) => a.startsWith('--ulos='));
 const ULOS = ulosArg ? ulosArg.slice(7) : join(JUURI, 'docs/i18n/sv_lapiajo_tulos.json'), BASELINE = join(JUURI, 'tools/i18n/sv_lapiajo_baseline.json');
 const SALLITUT = JSON.parse(readFileSync(join(JUURI, 'tools/i18n/sv_lapiajo_sallitut.json'), 'utf8'));
@@ -44,17 +47,18 @@ const PAANAVI = /^(?:setWs|go|setAge|setLoc|masterVaihdaKieli|vpVaihdaKieli|_van
 
 /* ── Selaimessa ajettava keruu ── */
 function keruu() {
+  const DEV_CHROME = '#sBar, .scene-bar, .locale-bar, #devChrome, #tmDemoPanel, [data-dev-chrome]';   // demo-tilan kehittäjätyökalut (scene-bar, kielivalitsin, demo-paneeli) — eivät käyttäjälle
   const ulos = [];
   const nakyva = (el) => { try { return el.checkVisibility ? el.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true }) : !!(el.offsetWidth || el.offsetHeight || el.getClientRects().length); } catch (e) { return false; } };
   const polku = (el) => { const o = []; for (let e = el, i = 0; e && e.nodeType === 1 && i < 5; e = e.parentElement, i++) o.push(e.tagName.toLowerCase() + (e.id ? '#' + e.id : '') + (typeof e.className === 'string' && e.className.trim() ? '.' + e.className.trim().split(/\s+/)[0] : '')); return o.reverse().join(' > '); };
   const w = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
   for (let n = w.nextNode(); n; n = w.nextNode()) {
     const t = n.nodeValue.replace(/\s+/g, ' ').trim(); if (!t) continue;
-    const el = n.parentElement; if (!el || /^(SCRIPT|STYLE|NOSCRIPT|TEMPLATE)$/.test(el.tagName) || !nakyva(el)) continue;
+    const el = n.parentElement; if (!el || /^(SCRIPT|STYLE|NOSCRIPT|TEMPLATE)$/.test(el.tagName) || !nakyva(el) || el.closest(DEV_CHROME)) continue;
     ulos.push({ t, tyyppi: 'teksti', polku: polku(el) });
   }
   for (const el of document.querySelectorAll('body *')) {
-    if (!nakyva(el)) continue;
+    if (!nakyva(el) || el.closest(DEV_CHROME)) continue;
     for (const [attr, tyyppi] of [['placeholder', 'placeholder'], ['title', 'title'], ['aria-label', 'aria'], ['alt', 'alt']]) { const v = el.getAttribute && el.getAttribute(attr); if (v && v.trim()) ulos.push({ t: v.replace(/\s+/g, ' ').trim(), tyyppi, polku: polku(el) }); }
     if (el.tagName === 'INPUT' && /^(button|submit)$/.test(el.type) && el.value) ulos.push({ t: el.value, tyyppi: 'value', polku: polku(el) });
   }
@@ -98,7 +102,7 @@ async function main() {
     if (valitut.length && !valitut.includes(sov)) continue;
     for (const as of cfg.askeleet) {
       const nimi = sov + '/' + as.nimi; const ctx = await selain.newContext({ viewport: { width: 1280, height: 900 } }); const p = await ctx.newPage();
-      await p.addInitScript(() => { try { localStorage.setItem('tm_kieli', 'sv'); } catch (e) { /* ei LS */ } });
+      await p.addInitScript((k) => { try { localStorage.setItem('tm_kieli', k); } catch (e) { /* ei LS */ } }, KIELI);
       p.on('pageerror', () => { /* demo-datan ulkoiset kutsut; ei raportoida */ });
       try {
         await p.goto(pathToFileURL(join(JUURI, cfg.tiedosto)).href + cfg.kysely, { waitUntil: 'load', timeout: 20000 });
@@ -122,6 +126,7 @@ async function main() {
           rivit.push({ teksti: t, tyyppi: k.tyyppi, polku: k.polku, varmuus: kartassa ? 'kartta' : 'heuristiikka', svRivi, luokka: lahde.length ? 'ui' : 'data?', lahde });
         }
         nakymat[nimi] = { tekstejaYht: nahty.size, fi: rivit };
+        if (DUMP) nakymat[nimi].kaikki = [...new Set(kaikki.map((k) => k.tyyppi + '|' + norm(k.t)))].sort();
       } catch (e) { virheet.push(nimi + ': ' + e.message.slice(0, 100)); nakymat[nimi] = { tekstejaYht: 0, fi: [], virhe: e.message.slice(0, 100) }; }
       await ctx.close();
     }
@@ -134,6 +139,7 @@ const { nakymat, virheet } = await main();
 const yhteenveto = {}; let kaikkiFi = 0, ui = 0; const uniikit = new Map();
 for (const [n, v] of Object.entries(nakymat)) { const u = v.fi.filter((r) => r.luokka === 'ui').length; yhteenveto[n] = { tekstejaYht: v.tekstejaYht, fi: v.fi.length, ui: u, data: v.fi.length - u, kartassa: v.fi.filter((r) => r.varmuus === 'kartta').length }; kaikkiFi += v.fi.length; ui += u; for (const r of v.fi) { const sov = n.split('/')[0]; if (!uniikit.has(sov + '|' + avain(r.teksti))) uniikit.set(sov + '|' + avain(r.teksti), r); } }
 const perSovellus = {}; for (const [k, r] of uniikit) { const sov = k.split('|')[0]; const o = (perSovellus[sov] = perSovellus[sov] || { uniikkeja: 0, ui: 0, data: 0, kartassa: 0, reititysPuuttuu: 0, svPuuttuu: 0 }); o.uniikkeja++; if (r.luokka === 'ui') o.ui++; else o.data++; if (r.varmuus === 'kartta') { o.kartassa++; if (r.svRivi) o.reititysPuuttuu = (o.reititysPuuttuu || 0) + 1; else o.svPuuttuu = (o.svPuuttuu || 0) + 1; } }
+if (DUMP) { writeFileSync(DUMP, JSON.stringify(Object.fromEntries(Object.entries(nakymat).map(([n, v]) => [n, v.kaikki || []])), null, 1) + '\n'); console.log('dump → ' + DUMP); process.exit(0); }
 const tulos = { luotu: new Date().toISOString().slice(0, 10), kieli: 'sv', huom: 'Mittaus sovellusten omalla demo-datalla; heuristiikka on alaraja (puuttuva osuma ≠ ei suomea). luokka data? = ei löydy lähdekoodista literaalina.', uniikkejaYht: uniikit.size, perSovellus, yhteensaEsiintymia: kaikkiFi, yhteenveto, virheet, nakymat };
 if (!arg('--tarkista') || arg('--kirjoita') || ulosArg) writeFileSync(ULOS, JSON.stringify(tulos, null, 1) + '\n');
 console.log(`sv-läpiajo: ${Object.keys(nakymat).length} näkymää · uniikkeja suomenkielisiä tekstejä ${uniikit.size} (esiintymiä ${kaikkiFi}) · virheitä ${virheet.length}`);
