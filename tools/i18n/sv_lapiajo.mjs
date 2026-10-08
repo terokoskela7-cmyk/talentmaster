@@ -18,6 +18,9 @@ import { onkoSuomea } from './sv_lapiajo_fi.mjs';
 
 const JUURI = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const arg = (n) => process.argv.includes(n);
+const argArvo = (n) => { const a = process.argv.find((x) => x.startsWith(n + '=')); return a ? a.slice(n.length + 1) : null; };
+const KIELI = argArvo('--kieli') || 'sv';   // fi = regressiovertailu (reititys ei saa muuttaa suomenkielistä renderöintiä)
+const DUMP = argArvo('--dump');           // kirjoita KAIKKI näkyvät tekstit näkymittäin (ei vain suomea) → fi-mode before/after -diff
 const ulosArg = process.argv.find((a) => a.startsWith('--ulos='));
 const ULOS = ulosArg ? ulosArg.slice(7) : join(JUURI, 'docs/i18n/sv_lapiajo_tulos.json'), BASELINE = join(JUURI, 'tools/i18n/sv_lapiajo_baseline.json');
 const SALLITUT = JSON.parse(readFileSync(join(JUURI, 'tools/i18n/sv_lapiajo_sallitut.json'), 'utf8'));
@@ -27,7 +30,7 @@ const avain = (s) => norm(s).toLowerCase();
 /* ── Näkymät: sovellus · sisäänkäynti (demo) · askeleet. Jokainen askel ajetaan TUOREESSA sivussa (puhdas tila, modaalit eivät kasaudu). ── */
 const NAV = (fn, arvot) => arvot.map((a) => ({ nimi: a, js: `${fn}('${a}')` }));
 export const SOVELLUKSET = {
-  pelaaja: { tiedosto: 'TalentMaster_Pelaaja_v7.html', kysely: '?demo=1', entry: "demoKirjaudu('aleksi')", askeleet: [{ nimi: 'tanaan', js: "tab('tanaan')" }, { nimi: 'mina', js: "tab('mina')", avaa: '.mgrp' }, { nimi: 'meista', js: "tab('meista')" }, ...NAV('go', ['pin', 'train', 'card', 'haptic', 'offline', 'parent', 'vapaa', 'haaste', 'valinta'])] },
+  pelaaja: { tiedosto: 'TalentMaster_Pelaaja_v7.html', kysely: '?demo=1', entry: "demoKirjaudu('aleksi')", sisaan: "typeof _suljeTervetulo === 'function' && _suljeTervetulo()", askeleet: [{ nimi: 'tanaan', js: "tab('tanaan')" }, { nimi: 'mina', js: "tab('mina')", avaa: '.mgrp' }, { nimi: 'meista', js: "tab('meista')" }, ...NAV('go', ['pin', 'train', 'card', 'haptic', 'offline', 'parent', 'vapaa', 'haaste', 'valinta'])] },
   vanhempi: { tiedosto: 'TalentMaster_Vanhempi_v2.html', kysely: '?demo=1', entry: '0', askeleet: [{ nimi: 'kirjautuminen', js: '0' }, ...['u12', 'u15', 'u19'].flatMap((a) => ['koti', 'viikko', 'kirjaa', 'valmentaja', 'kortti', 'asetukset'].map((n) => ({ nimi: `${a}/${n}`, js: `setAge('${a}'); go('${n}')` })))] },
   master: { tiedosto: 'TalentMaster_Master_v16.html', kysely: '?demo=1', entry: 'loginDemo()', lokalisoi: "typeof masterLokalisoi === 'function' && masterLokalisoi()", askeleet: [...NAV('setWs', ['koti', 'dev', 'havainnot', 'inbox', 'today', 'pulse', 'season', 'cal', 'testit', 'kuorma']), ...['avaaKaaviopankki()', 'avaaHarjoitusarviointi()', 'avaaValmentajaKehitys()', "openDrill('adar')"].map((j) => ({ nimi: j, js: j }))] },
   vp: { tiedosto: 'TalentMaster_VP_v25.html', kysely: '?demo=1', entry: 'demoMode()', lokalisoi: "typeof vpLokalisoi === 'function' && vpLokalisoi()", askeleet: [...NAV('setWs', ['koti', 'tilanne', 'valmentajat', 'pelaajat', 'testit', 'kalenteri', 'ryhmat', 'raportointi', 'reviewit', 'jaksofokus', 'asetukset']), ...['vpAvaaHarjoitusarviointi()', 'avaaAdarKenttatyokalu()', 'avaaBioBanding()', 'avaaKaaviopankki()', "_vpOhjKirjastoModal('','')"].map((j) => ({ nimi: j, js: j }))] },
@@ -44,17 +47,18 @@ const PAANAVI = /^(?:setWs|go|setAge|setLoc|masterVaihdaKieli|vpVaihdaKieli|_van
 
 /* ── Selaimessa ajettava keruu ── */
 function keruu() {
+  const DEV_CHROME = '#sBar, .scene-bar, .locale-bar, #devChrome, #tmDemoPanel, [data-dev-chrome]';   // demo-tilan kehittäjätyökalut (scene-bar, kielivalitsin, demo-paneeli) — eivät käyttäjälle
   const ulos = [];
   const nakyva = (el) => { try { return el.checkVisibility ? el.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true }) : !!(el.offsetWidth || el.offsetHeight || el.getClientRects().length); } catch (e) { return false; } };
   const polku = (el) => { const o = []; for (let e = el, i = 0; e && e.nodeType === 1 && i < 5; e = e.parentElement, i++) o.push(e.tagName.toLowerCase() + (e.id ? '#' + e.id : '') + (typeof e.className === 'string' && e.className.trim() ? '.' + e.className.trim().split(/\s+/)[0] : '')); return o.reverse().join(' > '); };
   const w = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
   for (let n = w.nextNode(); n; n = w.nextNode()) {
     const t = n.nodeValue.replace(/\s+/g, ' ').trim(); if (!t) continue;
-    const el = n.parentElement; if (!el || /^(SCRIPT|STYLE|NOSCRIPT|TEMPLATE)$/.test(el.tagName) || !nakyva(el)) continue;
+    const el = n.parentElement; if (!el || /^(SCRIPT|STYLE|NOSCRIPT|TEMPLATE)$/.test(el.tagName) || !nakyva(el) || el.closest(DEV_CHROME)) continue;
     ulos.push({ t, tyyppi: 'teksti', polku: polku(el) });
   }
   for (const el of document.querySelectorAll('body *')) {
-    if (!nakyva(el)) continue;
+    if (!nakyva(el) || el.closest(DEV_CHROME)) continue;
     for (const [attr, tyyppi] of [['placeholder', 'placeholder'], ['title', 'title'], ['aria-label', 'aria'], ['alt', 'alt']]) { const v = el.getAttribute && el.getAttribute(attr); if (v && v.trim()) ulos.push({ t: v.replace(/\s+/g, ' ').trim(), tyyppi, polku: polku(el) }); }
     if (el.tagName === 'INPUT' && /^(button|submit)$/.test(el.type) && el.value) ulos.push({ t: el.value, tyyppi: 'value', polku: polku(el) });
   }
@@ -88,6 +92,31 @@ function etsiLahde(idx0, teksti, ensin) {
 }
 const sallittu = (t) => { const a = avain(t); return SALLITUT.tekstit.includes(a) || SALLITUT.alkavat.some((p) => a.startsWith(p.toLowerCase())) || !/[a-zåäö]{3}/i.test(t); };
 
+
+async function suoritaAskel(selain, cfg, as, nimi, virheet) {
+  const ctx = await selain.newContext({ viewport: { width: 1280, height: 900 } }); const p = await ctx.newPage();
+  await p.addInitScript((k) => { try { localStorage.setItem('tm_kieli', k); } catch (e) { /* ei LS */ } }, KIELI);
+  p.on('pageerror', () => { /* demo-datan ulkoiset kutsut; ei raportoida */ });
+  // Deterministinen mittaus: kiinteä kello + siemennetty Math.random (päivän harjoitevalinta, synttäribonus yms. ovat satunnais-/päiväriippuvaisia) → fi before/after -diff vertailukelpoinen
+  await p.addInitScript(() => { let a = 0x2f6e2b1; Math.random = function () { a = (a + 0x6D2B79F5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; });
+  try { await p.clock.setFixedTime(new Date('2026-10-14T10:00:00+03:00')); } catch (e) { /* vanha playwright */ }
+  try {
+    await p.goto(pathToFileURL(join(JUURI, cfg.tiedosto)).href + cfg.kysely, { waitUntil: 'load', timeout: 20000 });
+    await p.waitForTimeout(1200);
+    if (cfg.entry !== '0') { await p.evaluate(cfg.entry).catch((e) => virheet.push(nimi + ' entry: ' + e.message.slice(0, 80))); await p.waitForTimeout(1500); }
+    if (cfg.sisaan) await p.evaluate(cfg.sisaan).catch(() => { /* ei */ });   // sulje tervetulo-ikkuna (ensikäynti → deterministinen mittaus)
+    if (cfg.lokalisoi) await p.evaluate(cfg.lokalisoi).catch(() => { /* ei funktiota */ });   // demo-sisäänkäynti ei aja kirjautumispolun lokalisointia → ajetaan kuten oikea sovellus
+    if (as.js !== '0') { await p.evaluate(as.js).catch((e) => virheet.push(nimi + ' askel: ' + e.message.slice(0, 80))); await p.waitForTimeout(900); }
+    if (cfg.lokalisoi) await p.evaluate(cfg.lokalisoi).catch(() => { /* ei funktiota */ });
+    // avattavat ryhmät: <details> auki + näkymän sisäiset välilehti-/avaustoiminnot (ei kirjoittavia)
+    await p.evaluate((sel) => { document.querySelectorAll('details').forEach((d) => { d.open = true; }); if (sel) document.querySelectorAll(sel).forEach((g) => g.classList.add('open')); }, as.avaa || null);
+    const sisaiset = await p.evaluate(({ vaar, nav, paa }) => { const v = new RegExp(vaar, 'i'), n = new RegExp(nav), pn = new RegExp(paa); return [...new Set([...document.querySelectorAll('[onclick]')].filter((e) => e.checkVisibility && e.checkVisibility() && (e.innerText || '').trim().length <= 32).map((e) => e.getAttribute('onclick')).filter((o) => o && n.test(o) && !v.test(o) && !pn.test(o)))].slice(0, 14); }, { vaar: VAARALLISET.source, nav: ALAN_NAVIT.source, paa: PAANAVI.source });
+    const kaikki = await p.evaluate(keruu);
+    for (const js of sisaiset) { try { await p.evaluate(js); await p.waitForTimeout(250); const lisaa = await p.evaluate(keruu); kaikki.push(...lisaa); } catch (e) { /* ohita */ } }
+    return kaikki;
+  } finally { await ctx.close(); }
+}
+
 async function main() {
   const exe = process.env.TM_CHROME_PATH || undefined;
   const selain = await chromium.launch({ headless: true, executablePath: exe });
@@ -97,21 +126,16 @@ async function main() {
   for (const [sov, cfg] of Object.entries(SOVELLUKSET)) {
     if (valitut.length && !valitut.includes(sov)) continue;
     for (const as of cfg.askeleet) {
-      const nimi = sov + '/' + as.nimi; const ctx = await selain.newContext({ viewport: { width: 1280, height: 900 } }); const p = await ctx.newPage();
-      await p.addInitScript(() => { try { localStorage.setItem('tm_kieli', 'sv'); } catch (e) { /* ei LS */ } });
-      p.on('pageerror', () => { /* demo-datan ulkoiset kutsut; ei raportoida */ });
+      const nimi = sov + '/' + as.nimi;
       try {
-        await p.goto(pathToFileURL(join(JUURI, cfg.tiedosto)).href + cfg.kysely, { waitUntil: 'load', timeout: 20000 });
-        await p.waitForTimeout(1200);
-        if (cfg.entry !== '0') { await p.evaluate(cfg.entry).catch((e) => virheet.push(nimi + ' entry: ' + e.message.slice(0, 80))); await p.waitForTimeout(1500); }
-        if (cfg.lokalisoi) await p.evaluate(cfg.lokalisoi).catch(() => { /* ei funktiota */ });   // demo-sisäänkäynti ei aja kirjautumispolun lokalisointia → ajetaan kuten oikea sovellus
-        if (as.js !== '0') { await p.evaluate(as.js).catch((e) => virheet.push(nimi + ' askel: ' + e.message.slice(0, 80))); await p.waitForTimeout(900); }
-        if (cfg.lokalisoi) await p.evaluate(cfg.lokalisoi).catch(() => { /* ei funktiota */ });
-        // avattavat ryhmät: <details> auki + näkymän sisäiset välilehti-/avaustoiminnot (ei kirjoittavia)
-        await p.evaluate((sel) => { document.querySelectorAll('details').forEach((d) => { d.open = true; }); if (sel) document.querySelectorAll(sel).forEach((g) => g.classList.add('open')); }, as.avaa || null);
-        const sisaiset = await p.evaluate(({ vaar, nav, paa }) => { const v = new RegExp(vaar, 'i'), n = new RegExp(nav), pn = new RegExp(paa); return [...new Set([...document.querySelectorAll('[onclick]')].filter((e) => e.checkVisibility && e.checkVisibility() && (e.innerText || '').trim().length <= 32).map((e) => e.getAttribute('onclick')).filter((o) => o && n.test(o) && !v.test(o) && !pn.test(o)))].slice(0, 14); }, { vaar: VAARALLISET.source, nav: ALAN_NAVIT.source, paa: PAANAVI.source });
-        const kaikki = await p.evaluate(keruu);
-        for (const js of sisaiset) { try { await p.evaluate(js); await p.waitForTimeout(250); const lisaa = await p.evaluate(keruu); kaikki.push(...lisaa); } catch (e) { /* ohita */ } }
+        // demo-sivu voi joskus renderöityä vajaaksi (async-init-kisa) → toista kunnes kaksi peräkkäistä yritystä antaa saman määrän (max 6), ota laajin → deterministinen mittaus
+        let kaikki = [], edellinen = -1;
+        for (let yritys = 0; yritys < 6; yritys++) {
+          const k = await suoritaAskel(selain, cfg, as, nimi, virheet);
+          if (k.length > kaikki.length) kaikki = k;
+          if (k.length === edellinen && k.length >= 15) break;
+          edellinen = k.length;
+        }
         const nahty = new Set(); const rivit = [];
         for (const k of kaikki) {
           const t = norm(k.t); const id = k.tyyppi + '|' + t; if (nahty.has(id)) continue; nahty.add(id);
@@ -122,8 +146,8 @@ async function main() {
           rivit.push({ teksti: t, tyyppi: k.tyyppi, polku: k.polku, varmuus: kartassa ? 'kartta' : 'heuristiikka', svRivi, luokka: lahde.length ? 'ui' : 'data?', lahde });
         }
         nakymat[nimi] = { tekstejaYht: nahty.size, fi: rivit };
+        if (DUMP) nakymat[nimi].kaikki = [...new Set(kaikki.map((k) => k.tyyppi + '|' + norm(k.t)))].sort();
       } catch (e) { virheet.push(nimi + ': ' + e.message.slice(0, 100)); nakymat[nimi] = { tekstejaYht: 0, fi: [], virhe: e.message.slice(0, 100) }; }
-      await ctx.close();
     }
   }
   await selain.close();
@@ -134,6 +158,7 @@ const { nakymat, virheet } = await main();
 const yhteenveto = {}; let kaikkiFi = 0, ui = 0; const uniikit = new Map();
 for (const [n, v] of Object.entries(nakymat)) { const u = v.fi.filter((r) => r.luokka === 'ui').length; yhteenveto[n] = { tekstejaYht: v.tekstejaYht, fi: v.fi.length, ui: u, data: v.fi.length - u, kartassa: v.fi.filter((r) => r.varmuus === 'kartta').length }; kaikkiFi += v.fi.length; ui += u; for (const r of v.fi) { const sov = n.split('/')[0]; if (!uniikit.has(sov + '|' + avain(r.teksti))) uniikit.set(sov + '|' + avain(r.teksti), r); } }
 const perSovellus = {}; for (const [k, r] of uniikit) { const sov = k.split('|')[0]; const o = (perSovellus[sov] = perSovellus[sov] || { uniikkeja: 0, ui: 0, data: 0, kartassa: 0, reititysPuuttuu: 0, svPuuttuu: 0 }); o.uniikkeja++; if (r.luokka === 'ui') o.ui++; else o.data++; if (r.varmuus === 'kartta') { o.kartassa++; if (r.svRivi) o.reititysPuuttuu = (o.reititysPuuttuu || 0) + 1; else o.svPuuttuu = (o.svPuuttuu || 0) + 1; } }
+if (DUMP) { writeFileSync(DUMP, JSON.stringify(Object.fromEntries(Object.entries(nakymat).map(([n, v]) => [n, v.kaikki || []])), null, 1) + '\n'); console.log('dump → ' + DUMP); process.exit(0); }
 const tulos = { luotu: new Date().toISOString().slice(0, 10), kieli: 'sv', huom: 'Mittaus sovellusten omalla demo-datalla; heuristiikka on alaraja (puuttuva osuma ≠ ei suomea). luokka data? = ei löydy lähdekoodista literaalina.', uniikkejaYht: uniikit.size, perSovellus, yhteensaEsiintymia: kaikkiFi, yhteenveto, virheet, nakymat };
 if (!arg('--tarkista') || arg('--kirjoita') || ulosArg) writeFileSync(ULOS, JSON.stringify(tulos, null, 1) + '\n');
 console.log(`sv-läpiajo: ${Object.keys(nakymat).length} näkymää · uniikkeja suomenkielisiä tekstejä ${uniikit.size} (esiintymiä ${kaikkiFi}) · virheitä ${virheet.length}`);

@@ -55,7 +55,7 @@ describe('Pelaaja_v7 — konsolidointi (yksi käännöslähde, ei rinnakkaistaul
   });
   it('_TMAP-avainmäppäys + T() delegoi t():hen', () => {
     expect(PEL).toContain('var _TMAP = {');
-    expect(PEL).toContain("const T = k => (typeof t === 'function' ? t(_TMAP[k] || ('pelaaja.' + k)) : k);");
+    expect(PEL).toContain("const T = (k, m) => (typeof t === 'function' ? t(k.indexOf('.') >= 0 ? k : (_TMAP[k] || ('pelaaja.' + k)), m) : k);");
     expect(PEL).toContain("mina:'nav.mina'");
     expect(PEL).toContain("done:'yleiset.valmis'");
   });
@@ -93,6 +93,6 @@ describe('Pelaaja_v7 — kielivalitsin FI/SV/EN (ei DE) + ydinpinta + cache-bust
     expect(Number(c[1])).toBeGreaterThanOrEqual(13);
   });
   it('§7.1: konsolidointi ei tuo nested template literaleja (T-delegaatio on yksi rivi)', () => {
-    expect(PEL).toContain("const T = k => (typeof t === 'function'");
+    expect(PEL).toContain("const T = (k, m) => (typeof t === 'function'");
   });
 });

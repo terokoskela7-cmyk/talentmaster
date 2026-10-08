@@ -7,9 +7,10 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
+import { laajennaT } from './helpers/pelaaja_t.mjs';
 
 const __dir = dirname(fileURLToPath(import.meta.url));
-const PEL = readFileSync(join(__dir, '..', 'TalentMaster_Pelaaja_v7.html'), 'utf8');
+const PEL = laajennaT(readFileSync(join(__dir, '..', 'TalentMaster_Pelaaja_v7.html'), 'utf8'));
 
 describe('S7.22 - stray tasoluku/XP-renderoinnit poistettu pelaajapinnalta', () => {
   it('rPin-KPI (Taso hhTaso + XP) poistettu (ei consteja eika renderia)', () => {

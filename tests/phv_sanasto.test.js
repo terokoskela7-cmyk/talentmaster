@@ -15,6 +15,7 @@ import { createRequire } from 'module';
 import { fileURLToPath } from 'url';
 import { dirname, join, relative } from 'path';
 import vm from 'vm';
+import { PEL_APU } from './helpers/pelaaja_t.mjs';
 
 const require = createRequire(import.meta.url);
 const juuri = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -38,7 +39,7 @@ const mitattu = (koodi, extra) => Object.assign({ syntymaVuosi: VUOSI - 13, phv_
 // ─── 1–2) Pelaaja_v7 ─────────────────────────────────────────────────────────────────────────────
 const P7 = lue('TalentMaster_Pelaaja_v7.html');
 function pelaajaCtx(pelaaja) {
-  const ctx = { _pelaaja: pelaaja, tmPhvTila: PHV.tmPhvTila, tmPhvKoodi: PHV.tmPhvKoodi, tmPhvIlmoitettuPH: PHV.tmPhvIlmoitettuPH,
+  const ctx = { ...PEL_APU, _pelaaja: pelaaja, tmPhvTila: PHV.tmPhvTila, tmPhvKoodi: PHV.tmPhvKoodi, tmPhvIlmoitettuPH: PHV.tmPhvIlmoitettuPH,
     t: (k) => k, _streak: 0, draw: () => {}, _tmKirjaa: () => {}, Date, Object, String, Math };
   vm.createContext(ctx);
   vm.runInContext([pura(P7, 'function rMinaKehitysvaihe('), pura(P7, 'function _laskeStage('),

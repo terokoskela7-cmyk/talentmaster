@@ -39,7 +39,7 @@ function tmap() {
 /** Kaikki T('x')-kutsut lähteestä. */
 function tAvaimet() {
   const out = new Set();
-  const re = /\bT\('((?:[^'\\]|\\.)*)'\)/g;
+  const re = /\b_?p?T\('((?:[^'\\]|\\.)*)'(?:\)|,)/g;   // T('x') ja T('x', { muuttujat }) sekä alias _pT
   let m;
   while ((m = re.exec(HTML))) out.add(m[1].replace(/\\'/g, "'"));
   return [...out];
@@ -57,7 +57,7 @@ function tPolut() {
 const M = tmap();
 const T_AVAIMET = tAvaimet();
 const T_POLUT = tPolut();
-const polku = (k) => M[k] || ('pelaaja.' + k);
+const polku = (k) => (k.indexOf('.') >= 0 ? k : (M[k] || ('pelaaja.' + k)));   // 'ryhmä.avain' kulkee sellaisenaan (T-reititin)
 
 describe('Pelaaja_v7 — jokainen T()-avain resolvoituu tekstiksi', () => {
   it('EI VACUOUS: avaimia löytyy runsaasti', () => {
@@ -70,7 +70,7 @@ describe('Pelaaja_v7 — jokainen T()-avain resolvoituu tekstiksi', () => {
     const rikki = T_AVAIMET.filter((k) => {
       const p = polku(k);
       const v = sb.t(p);
-      return typeof v !== 'string' || v === p || v === k || v === '';
+      return typeof v !== 'string' || v === p || v === '';   // v === p = polku palautui sellaisenaan (ei resolvoidu); v === k EI ole virhe (esim. 'klo' → 'klo')
     }).map((k) => k + ' → ' + polku(k));
     expect(rikki, 'avain ei resolvoidu fi-arvoksi').toEqual([]);
   });

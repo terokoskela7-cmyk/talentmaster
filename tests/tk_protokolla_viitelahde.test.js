@@ -15,6 +15,7 @@ import { createRequire } from 'module';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import vm from 'vm';
+import { PEL_APU } from './helpers/pelaaja_t.mjs';
 
 const require = createRequire(import.meta.url);
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -242,7 +243,7 @@ describe('a) tm_kehityskaari: H-H- ja TK-sarjat eri riveinä, jaksosidos lukee T
 
 describe('a) Pelaaja_v7 Tekniikkaprofiili: H-H-sekunnit merkitty H-H-testiksi, ei TK-tavoitetta', () => {
   const P7 = lue('TalentMaster_Pelaaja_v7.html');
-  const ctx = vm.createContext({ window: { TM_TESTIT: T }, Math, Number, String, Date, parseFloat, isNaN, Array, Object });
+  const ctx = vm.createContext({ ...PEL_APU, window: { TM_TESTIT: T }, Math, Number, String, Date, parseFloat, isNaN, Array, Object });
   vm.runInContext(['let _pelaaja = null;', 'let _tekniikkaData = null;', "const _TEK_LAJIT = ['ponnauttelu', 'syotto', 'pujottelu', 'kuljetus_laukaus'];",
     pura(P7, 'function _tekniikkaPikakentista('), pura(P7, 'function _minaTekLajiNimi('), pura(P7, 'function _minaValitavoite('),
     pura(P7, 'function _tekKorttiData('), pura(P7, 'function _minaTavoiteRivit('), pura(P7, 'function rMinaTekniikkaprofiili('),
@@ -351,7 +352,7 @@ function tIlmanAluetta(sp, ika) {
 describe('b) lapsen + huoltajan tavoite AINA alueellisesta', () => {
   const P7 = lue('TalentMaster_Pelaaja_v7.html');
   const tek = (TT) => {
-    const ctx = vm.createContext({ window: { TM_TESTIT: TT }, Math, Number, String, Date });
+    const ctx = vm.createContext({ ...PEL_APU, window: { TM_TESTIT: TT }, Math, Number, String, Date });
     vm.runInContext([pura(P7, 'function _minaTekLajiNimi('), pura(P7, 'function _minaValitavoite('), pura(P7, 'function _tekKorttiData(')].join('\n') + '\nthis.f = _tekKorttiData;', ctx);
     return ctx.f;
   };
@@ -368,7 +369,7 @@ describe('b) lapsen + huoltajan tavoite AINA alueellisesta', () => {
   const vanh = (TT, pujS) => {
     const lapsi = { syntymaVuosi: VUOSI - 10, sukupuoli: 'M', tki_viimeisin: 60, tki_kehityskohde: 'pujottelu', tki_vahvuus: 'syotto',
       tk_lajit_viimeisin: { syotto_s: 36, pujottelu_s: pujS } };
-    const ctx = vm.createContext({ window: { _lapsi: lapsi, TM_TESTIT: TT }, t: LANG.t, IKA: {}, _age: 'u11', Math, Number, String, Object, isNaN });
+    const ctx = vm.createContext({ ...PEL_APU, window: { _lapsi: lapsi, TM_TESTIT: TT }, t: LANG.t, IKA: {}, _age: 'u11', Math, Number, String, Object, isNaN });
     const a = V2.indexOf('const _VANH_LAJINIMI'), b = V2.indexOf('const TUKIVINKIT');
     vm.runInContext([V2.slice(a, V2.indexOf(';', a) + 1), V2.slice(b, V2.indexOf('};', b) + 2), pura(V2, 'function _genetiivi('),
       pura(V2, 'function _vanhValitavoite('), pura(V2, 'function rVanhempiTekniikka(')].join('\n') + '\nthis.f = rVanhempiTekniikka;', ctx);

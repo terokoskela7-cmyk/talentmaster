@@ -11,6 +11,7 @@ import { createRequire } from 'module';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import vm from 'vm';
+import { PEL_APU } from './helpers/pelaaja_t.mjs';
 
 const require = createRequire(import.meta.url);
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -67,7 +68,7 @@ describe('1) tkLajiViiteLapsi — hyvä = lievempi alue/finaali', () => {
     for (const f of ['TalentMaster_VP_v25.html', 'TalentMaster_Master_v16.html']) expect(lue(f), f).not.toContain('tkLajiViiteLapsi');
     // ajo: P12 kuljetus-laukaus 16 s → lapsen tavoite 14.5 (ei alueen 11.7-pohjainen)
     const pura = (s, t) => { const i = s.indexOf(t); let d = 0; for (let k = s.indexOf('{', i); k < s.length; k++) { if (s[k] === '{') d++; else if (s[k] === '}') { d--; if (!d) return s.slice(i, k + 1); } } };
-    const ctx = vm.createContext({ window: { TM_TESTIT: T }, Math, Number, String, Date });
+    const ctx = vm.createContext({ ...PEL_APU, window: { TM_TESTIT: T }, Math, Number, String, Date });
     vm.runInContext([pura(P7, 'function _minaTekLajiNimi('), pura(P7, 'function _minaValitavoite('), pura(P7, 'function _tekKorttiData(')].join('\n') + '\nthis.f = _tekKorttiData;', ctx);
     expect(ctx.f({ syntymaVuosi: VUOSI - 12, sukupuoli: 'M', tki_kehityskohde: 'kuljetus_laukaus', tk_lajit_viimeisin: { kuljetus_laukaus_s: 16 } }).kehitys.tavoite).toBe(14.5);
   });

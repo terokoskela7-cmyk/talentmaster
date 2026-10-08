@@ -9,6 +9,9 @@
  *  · muistutus: create() — ajastettu ajo toistuu turvallisesti (toinen ajo ei tee mitään) EIKÄ nollaa jo luettua muistutusta
  *    (set-merge asettaisi luettu:false uudelleen). Poikkeaa muista tyypeistä tarkoituksella.
  * tapahtuma_alkaa (Timestamp, ADDITIIVINEN, §11): client renderöi päivän suhteellisena ("Tänään"/"Huomenna"); teksti säilyy ennallaan.
+ * ilmoitus (objekti, ADDITIIVINEN, sv-läpiajo PR 2 / vaihtoehto A): { tyyppi: 'huomenna'|'peruttu'|'muutos', nimi, aika, paikka } — RAKENTEINEN sisältö, josta Pelaaja ja Vanhempi
+ *   kokoavat tekstin omalla kielellään (lib/tm_kalenteri_ilmoitus.js tmIlmoitusRivi + t()). `teksti` kirjoitetaan edelleen (suomi) varakäyttöön: vanhat välimuistissa olevat
+ *   clientit ja vanhat dokumentit näyttävät sen sellaisenaan. Rakenne sisältää vain nimen/ajan/paikan (GDPR, kuten teksti).
  * Vartija vertaa tapahtuman PÄÄTTYMISEEN (helsinki_paiva.tapahtumaPaattyy), ei alkuun. GDPR: teksti = nimi/aika/paikka.
  */
 const { kelloHelsinki, onKellonaika, tapahtumaPaattyy } = require('./helsinki_paiva');
@@ -26,6 +29,7 @@ function muistutusPaatos(ev) {
   return {
     tyyppi: 'muistutus',
     teksti: 'Huomenna: ' + (ev.nimi || 'tapahtuma') + (klo ? ' klo ' + klo : '') + (ev.paikka ? ' · ' + ev.paikka : ''),
+    ilmoitus: { tyyppi: 'huomenna', nimi: ev.nimi || '', aika: klo, paikka: ev.paikka || '' },
     alkaa: ev.alkaa || null,
   };
 }
@@ -41,11 +45,12 @@ function muutosPaatos(before, after, nyt) {
   const aikaMuuttui = !after.poistettu && bMs !== aMs;
   const paikkaMuuttui = !after.poistettu && (before.paikka || '') !== (after.paikka || '');
   if (!peruttu && !aikaMuuttui && !paikkaMuuttui) return null;   // vain muistiinpanot/kooste ym. → ei notifia
-  if (peruttu) return { tyyppi: 'peruttu', teksti: 'Peruttu: ' + (after.nimi || 'tapahtuma'), alkaa: after.alkaa || null };
+  if (peruttu) return { tyyppi: 'peruttu', teksti: 'Peruttu: ' + (after.nimi || 'tapahtuma'), ilmoitus: { tyyppi: 'peruttu', nimi: after.nimi || '', aika: '', paikka: '' }, alkaa: after.alkaa || null };
   const klo = _klo(after);
   return {
     tyyppi: 'muutos',
     teksti: 'Muutos: ' + (after.nimi || 'tapahtuma') + (aikaMuuttui && klo ? ' → klo ' + klo : '') + (paikkaMuuttui && after.paikka ? ' · ' + after.paikka : ''),
+    ilmoitus: { tyyppi: 'muutos', nimi: after.nimi || '', aika: (aikaMuuttui && klo) ? klo : '', paikka: (paikkaMuuttui && after.paikka) ? after.paikka : '' },
     alkaa: after.alkaa || null,
   };
 }
@@ -61,6 +66,10 @@ async function kirjoitaNotif(col, paatos, evId, fv) {
     tyyppi: paatos.tyyppi, teksti: String(paatos.teksti || '').slice(0, 200), linkki: 'kalenteri:' + evId,
     dedupe: id, tapahtuma_alkaa: paatos.alkaa || null, luotu: fv.serverTimestamp(), luettu: false,
   };
+  if (paatos.ilmoitus) {   // rakenteinen sisältö (vaihtoehto A) — merkkijonot rajattu, vain nimi/aika/paikka
+    const o = paatos.ilmoitus, rajaa = (s, n) => String(s == null ? '' : s).slice(0, n);
+    data.ilmoitus = { tyyppi: rajaa(o.tyyppi, 12), nimi: rajaa(o.nimi, 120), aika: rajaa(o.aika, 8), paikka: rajaa(o.paikka, 120) };
+  }
   if (paatos.tyyppi === 'muistutus') {
     try { await ref.create(data); return true; }
     catch (e) { if (e && (e.code === 6 || e.code === 'already-exists' || /ALREADY_EXISTS|already exists/i.test(String(e.message)))) return false; throw e; }

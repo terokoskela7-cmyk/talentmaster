@@ -66,7 +66,7 @@ const APP_GLOBALS = {
   // lib/tm_alusta.js (PR F — yksi §22-alustasanasto)
   TM_ALUSTA: 'readonly', tmAlustaKoodi: 'readonly', tmAlustaNimi: 'readonly',
   // lib/tm_pelialy_yksilo.js (ADAR §4-ikäportitus, Malli A)
-  TM_PELIALY_YKSILO: 'readonly', tmAdarBand: 'readonly', tmAdarYht: 'readonly', tmAdarBonusOsat: 'readonly',
+  TM_PELIALY_YKSILO: 'readonly', tmAdarBand: 'readonly', tmAdarNimet: 'readonly', tmAdarYht: 'readonly', tmAdarBonusOsat: 'readonly',
   tmAdarKonsensus: 'readonly', tmAdarRistiinarvioAvoin: 'readonly', tmAdarTalenttiSignaali: 'readonly', tmAdarKuukausiAvain: 'readonly',
   // Portaat (2026-09): lib vie nämä `root.X`-muodossa, jota globaalikeräin ei näe → nimetty lista.
   TM_ADAR_PORTAAT: 'readonly', TM_ADAR_NIMET: 'readonly', tmAdarIkaPorras: 'readonly',

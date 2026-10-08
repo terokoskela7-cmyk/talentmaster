@@ -15,6 +15,7 @@ import { createRequire } from 'module';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import vm from 'vm';
+import { PEL_APU } from './helpers/pelaaja_t.mjs';
 
 const require = createRequire(import.meta.url);
 const juuri = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -148,7 +149,7 @@ function pelaajaCtx(pelaaja, ls) {
   const document = { getElementById: (id) => body.find((e) => e.id === id) || null, createElement: el, body: { appendChild: (e) => body.push(e) } };
   const ctx = { _pelaaja: JSON.parse(JSON.stringify(pelaaja)), _isDemoUser: false, window: {}, document, localStorage: ls, requestAnimationFrame: (f) => f(),
     setTimeout: () => 0, JSON, Object, String, Number, Math, Promise, Array, console: { warn() {} }, _ENN_NAHTY_MAX: 190, t: LANG.t };
-  vm.createContext(ctx);
+  Object.assign(ctx, PEL_APU); vm.createContext(ctx);
   vm.runInContext([pura(P7, 'function _thEsc('), pura(P7, 'function _kkEnnatysTiedot('), pura(P7, 'function _ennRivit('), pura(P7, 'function _ennUudetNakematta('),
     pura(P7, 'function _ennLuku('), pura(P7, 'function _ennArvoTxt('), pura(P7, 'function _ennNahtyYhdista('), pura(P7, 'function _ennNahtyPolku('), pura(P7, 'function _ennNahtyDokiin('), pura(P7, 'function _naytaUusiEnnatys('), pura(P7, 'function _kkEnnatyksetHTML(')].join('\n')
     + '\nthis.nayta = _naytaUusiEnnatys; this.puhdas = _ennUudetNakematta; this.kortti = _kkEnnatyksetHTML;', ctx);
@@ -202,7 +203,7 @@ describe('Pelaaja_v7 · uusi oma ennätys → juhlaviesti KERRAN', () => {
 const V2 = lue('TalentMaster_Vanhempi_v2.html');
 function vanhempiKortti(lapsi) {
   const ctx = { window: { _lapsi: lapsi }, t: LANG.t, tmPaivaIso: () => '2026-10-04', Date, Number, String, Math, Object, isNaN };
-  vm.createContext(ctx);
+  Object.assign(ctx, PEL_APU); vm.createContext(ctx);
   const alku = V2.indexOf('const _VANH_ENN = {');
   vm.runInContext(V2.slice(alku, V2.indexOf('};', alku) + 2) + '\n' + pura(V2, 'function _vEsc(') + '\n' + pura(V2, 'function _vanhEnnArvo(') + '\n'
     + pura(V2, 'function _vanhEnnPvm(') + '\n' + pura(V2, 'function rVanhempiEnnatykset(') + '\nthis.f = rVanhempiEnnatykset;', ctx);

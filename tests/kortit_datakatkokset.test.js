@@ -14,6 +14,7 @@ import { createRequire } from 'module';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import vm from 'vm';
+import { PEL_APU } from './helpers/pelaaja_t.mjs';
 
 const require = createRequire(import.meta.url);
 const juuri = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -150,7 +151,7 @@ const P7 = lue('TalentMaster_Pelaaja_v7.html');
 function lataaTekniikka(pelaaja, db) {
   const ctx = { _pelaaja: pelaaja, window: { _db: db, TM_TESTIT: CANON }, draw: () => { ctx.piirretty = true; }, console: { warn: (...x) => { ctx.varoitus = x.join(' '); } },
     Date, Object, Array, String, Math, parseFloat, parseInt, isNaN, _minaTavoiteRivit: () => '' };
-  vm.createContext(ctx);
+  Object.assign(ctx, PEL_APU); vm.createContext(ctx);
   const src = 'var _tekniikkaData = null;\n' + P7.slice(P7.indexOf('const _TEK_LAJIT ='), P7.indexOf('\n', P7.indexOf('const _TEK_LAJIT ='))) + '\n'
     + pura(P7, 'function _tekniikkaPikakentista(') + '\n' + pura(P7, 'async function _lataaTekniikka(') + '\n' + pura(P7, 'function rMinaTekniikkaprofiili(')
     + '\nthis.lataa = _lataaTekniikka; this.data = function () { return _tekniikkaData; }; this.render = rMinaTekniikkaprofiili;';
