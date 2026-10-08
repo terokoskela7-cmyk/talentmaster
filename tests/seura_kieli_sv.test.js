@@ -38,13 +38,13 @@ describe('Gemini-ruotsinnokset (sellaisenaan)', () => {
   const L = global.window.TM_LANG;
   delete global.window;
   const get = (o, k) => k.split('.').reduce((a, b) => (a ? a[b] : undefined), o);
-  it('39 avainta viety muuttamattomina; kirj_jakoteksti EI (odotuslistalla)', () => {
+  it('39 avainta viety muuttamattomina; kirj_jakoteksti sv Gemini-erästä 8.10.2026 (ilman {gen}), ei odotuslistalla', () => {
     const viedyt = Object.keys(SV).filter((k) => k !== 'vanhempi.kirj_jakoteksti');
     expect(viedyt.length).toBe(39);
     for (const k of viedyt) expect(get(L.sv, k), k).toBe(SV[k]);
-    expect(get(L.sv, 'vanhempi.kirj_jakoteksti')).toBeUndefined();
+    expect(get(L.sv, 'vanhempi.kirj_jakoteksti')).toBeTruthy(); expect(get(L.sv, 'vanhempi.kirj_jakoteksti')).not.toContain('{gen}');
     const odot = require_('./tm_lang_sv_odotuslista.cjs');
-    expect(odot).toContain('vanhempi.kirj_jakoteksti');
+    expect(odot).not.toContain('vanhempi.kirj_jakoteksti');
     for (const k of viedyt) expect(odot).not.toContain(k);
   });
   it('muuttujat ({nimi}, {n}, …) ovat samat kuin suomessa', () => {

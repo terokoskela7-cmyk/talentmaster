@@ -118,11 +118,11 @@ describe('suostumuslomake: ei pelaajan luontia selaimesta; "Pyydä seuralta uusi
     expect(LOMAKE).toContain('if (_seuraId && !_pelaajaId) _naytaUusiKutsuIlmoitus();');
     expect(LOMAKE).toContain('if (_fbDb && _seuraId && !dokumenttiId) { var _uk = _uusiKutsuViesti(); toast(_uk, true); _naytaRistiriitaIlmoitus(_uk); return; }');
   });
-  it('tekstit fi + en, sv odotuslistalla', () => {
+  it('tekstit fi + en + sv (Gemini-erä 8.10.2026)', () => {
     global.window = {}; require_(join(ROOT, 'lib', 'tm_lang.js')); const L = global.window.TM_LANG; delete global.window;
     expect(L.fi.suostumus.pyyda_uusi_kutsu).toMatch(/^Pyydä seuralta uusi kutsu\./);
     expect(L.en.suostumus.pyyda_uusi_kutsu).toMatch(/^Ask the club for a new invitation\./);
-    expect(L.sv.suostumus.pyyda_uusi_kutsu).toBeUndefined();
-    expect(require_('./tm_lang_sv_odotuslista.cjs')).toContain('suostumus.pyyda_uusi_kutsu');
+    expect(L.sv.suostumus.pyyda_uusi_kutsu).toBeTruthy();
+    expect(require_('./tm_lang_sv_odotuslista.cjs')).not.toContain('suostumus.pyyda_uusi_kutsu');
   });
 });

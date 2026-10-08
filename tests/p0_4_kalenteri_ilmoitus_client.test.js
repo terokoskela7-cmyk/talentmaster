@@ -211,10 +211,10 @@ describe('Vanhempi_v2 — sama suodatus + ilmoituslista', () => {
   });
 });
 
-describe('tm_lang: uudet avaimet fi + en, sv odotuslistalla', () => {
+describe('tm_lang: uudet avaimet fi + en + sv (Gemini-erä 8.10.2026)', () => {
   const avaimet = [['pelaaja', 'ilm_tanaan'], ['pelaaja', 'ilm_huomenna'], ['vanhempi', 'ilm_tanaan'], ['vanhempi', 'ilm_huomenna']];
-  it('fi + en olemassa, sv puuttuu (Gemini)', () => {
-    avaimet.forEach(([ns, k]) => { expect(LANG.TM_LANG.fi[ns][k], ns + k).toBeTruthy(); expect(LANG.TM_LANG.en[ns][k], ns + k).toBeTruthy(); expect((LANG.TM_LANG.sv[ns] || {})[k], ns + k).toBeUndefined(); });
+  it('fi + en + sv olemassa', () => {
+    avaimet.forEach(([ns, k]) => { expect(LANG.TM_LANG.fi[ns][k], ns + k).toBeTruthy(); expect(LANG.TM_LANG.en[ns][k], ns + k).toBeTruthy(); expect((LANG.TM_LANG.sv[ns] || {})[k], ns + k).toBeTruthy(); });
   });
-  it('odotuslistalla', () => { const l = require('./tm_lang_sv_odotuslista.cjs'); avaimet.forEach(([ns, k]) => expect(l).toContain(ns + '.' + k)); });
+  it('ei odotuslistalla', () => { const l = require('./tm_lang_sv_odotuslista.cjs'); avaimet.forEach(([ns, k]) => expect(l).not.toContain(ns + '.' + k)); });
 });

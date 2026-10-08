@@ -90,6 +90,8 @@ Libit (`lib/tm_*.js`) ovat puhtaita ja kielineutraaleja: ne sisältävät `var F
 
 Lisäksi PR #888 tuo uuden libin `tm_klippi_perhe.js` (+34 avainta, Pelaaja + Vanhempi) ja #887 laajentaa `tm_ryhmat.js`:ää — samalla puutteella.
 
+> **PÄÄTÖS A RATKAISTU 8.10.2026 → vaihtoehto 2 (jaettu `lib/tm_lib_i18n.js`), toteutettu sv-käännöserän viennissä (`docs/CODE_BRIEF_I18N_SV_ERA_2026-10-08.md`, `scripts/i18n_vie_sv_era.cjs`).** Adapterit (`vpT`, `masterT`, Pelaaja `_p7K1T`, Vanhempi `_vKpT`) katsovat karttaa ensin (`tmLibT`); portti `tests/i18n_sv_era_lib.test.js`. Alla alkuperäinen perustelu.
+
 **Avoin päätös A (Teron/PM:n ennen Vaihe A:ta):** missä libien sv-rivit asuvat?
 1. *Avainrivit karttoihin* — `'mv_otsikko': 'Lägg till klipp'` suoraan `tm_vp_i18n.js` / `tm_master_i18n.js` / `tm_lang.js` (`pelaaja.<avain>`, `vanhempi.<avain>`). Nolla koodimuutosta libeihin; sama rivi monistuu 3–4 karttaan.
 2. *Yksi jaettu libikartta* (`tm_lib_i18n.js`, `TM_LIB_I18N.sv`, avain = lib-avain) + adapterit hakevat siitä. Yksi paikka; vaatii adapterimuutoksen.

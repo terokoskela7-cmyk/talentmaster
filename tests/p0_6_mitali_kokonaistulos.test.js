@@ -104,13 +104,13 @@ describe('lajimerkit → lajin oma paras (§31)', () => {
   });
 });
 
-describe('tm_lang: uudet avaimet fi + en, sv odotuslistalla', () => {
+describe('tm_lang: uudet avaimet fi + en + sv (Gemini-erä 8.10.2026)', () => {
   const avaimet = ['tk_mitali', 'tk_mitali_ilman_pvm', 'tk_merkki_kulta', 'tk_merkki_hopea', 'tk_merkki_pronssi', 'laji_oma_paras', 'laji_viimeisin'];
-  it('fi + en olemassa, sv puuttuu (Gemini)', () => {
-    avaimet.forEach((k) => { expect(LANG.TM_LANG.fi.pelaaja[k], k).toBeTruthy(); expect(LANG.TM_LANG.en.pelaaja[k], k).toBeTruthy(); expect((LANG.TM_LANG.sv.pelaaja || {})[k], k).toBeUndefined(); });
+  it('fi + en + sv olemassa', () => {
+    avaimet.forEach((k) => { expect(LANG.TM_LANG.fi.pelaaja[k], k).toBeTruthy(); expect(LANG.TM_LANG.en.pelaaja[k], k).toBeTruthy(); expect((LANG.TM_LANG.sv.pelaaja || {})[k], k).toBeTruthy(); });
   });
-  it('odotuslistalla', () => {
+  it('ei odotuslistalla', () => {
     const lista = require('./tm_lang_sv_odotuslista.cjs');
-    avaimet.forEach((k) => expect(lista).toContain('pelaaja.' + k));
+    avaimet.forEach((k) => expect(lista).not.toContain('pelaaja.' + k));
   });
 });
