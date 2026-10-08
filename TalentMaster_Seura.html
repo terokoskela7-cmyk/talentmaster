@@ -27,6 +27,8 @@
 <!-- #92 joukkue-normalisointi (kanonisointi tuonnissa) -->
 <script src="lib/tm_esc.js?v=1"></script>   <!-- P1: jaettu HTML-escape -->
 <script src="lib/tm_lang.js?v=35"></script>   <!-- i18n V0 — fi/sv/en käännöstaulukko + t() + kieli-init (putkitus) -->
+<script src="lib/tm_i18n_common.js?v=11"></script>
+<script src="lib/tm_henkilosto_i18n.js?v=1"></script>   <!-- sv-läpiajo PR 4: tmHT — teksti-avainreititin (Seurahallinta pysyy suomeksi 1.10. päätöksellä; sv-kartta tyhjä) -->
 <script src="lib/tm_joukkue.js?v=5"></script>
 <script src="lib/tm_paikkamerkki.js?v=1"></script>
 <!-- Kehitystilanne v0 (2.10.2026): mittarikirjasto + kehikot + näkymä; normit/IDP/taksonomia laskentaan -->
@@ -1340,8 +1342,8 @@ async function lataaProfiili(kayttaja) {
       nayta('kirjautuminen');
       /* ISTUNTOTURVA: EI automaattista signOut():ia — se katkaisisi istunnon kaikissa välilehdissä (kaikki henkilökunnan sovellukset jakavat yhden istunnon) ja kesken jäävät kirjoitukset kaatuisivat. Viesti + nappi; käyttäjä päättää. */
       naytaVaaraRooli('kirjautumisVirhe',
-        'Tämä näkymä on seuran hallinnolle (tässä selaimessa on kirjautunut rooli: ' + (rooli || 'ei roolia') + '). ' +
-        'Jos toisessa välilehdessä on toinen tunnus, istunto on vaihtunut myös täällä. Valmentajat kirjautuvat valmentajan näkymään.');
+        (tmHT('Tämä näkymä on seuran hallinnolle (tässä selaimessa on kirjautunut rooli:') + ' ') + (rooli || 'ei roolia') + '). ' +
+        tmHT('Jos toisessa välilehdessä on toinen tunnus, istunto on vaihtunut myös täällä. Valmentajat kirjautuvat valmentajan näkymään.'));
       return;
     }
 
@@ -1391,7 +1393,7 @@ async function lataaProfiili(kayttaja) {
 
       if (!seuraId) {
         nayta('kirjautuminen');
-        naytaVaaraRooli('kirjautumisVirhe', 'Seuraa ei löydy. Ota yhteyttä TalentMaster-ylläpitoon.');   // ei automaattista signOut():ia (ks. yllä)
+        naytaVaaraRooli('kirjautumisVirhe', tmHT('Seuraa ei löydy. Ota yhteyttä TalentMaster-ylläpitoon.'));   // ei automaattista signOut():ia (ks. yllä)
         return;
       }
       await asetaAktiivinenSeura(seuraId);
@@ -1581,7 +1583,7 @@ function renderYhteenveto() {
 
     <div class="kpiRivi">
       <div class="kpiKortti sininen">
-        <div class="kpiLabel">Joukkueita</div>
+        <div class="kpiLabel">${tmHT('Joukkueita')}</div>
         <div class="kpiArvo" id="kpiJoukkueet">${tila.joukkueet.length}</div>
         <div class="kpiAla">aktiivista</div>
       </div>
@@ -1642,11 +1644,11 @@ function renderYhteenveto() {
       ${tila.joukkueet.length === 0
         ? `<div class="tyhjaAlue" style="min-height:20vh;">
             <div class="tyhjaIkoni">⚽</div>
-            <div class="tyhjaOtsikko">Ei joukkueita</div>
-            <div class="tyhjaTeksti">Lisää ensimmäinen joukkue yllä olevalla napilla.</div>
+            <div class="tyhjaOtsikko">${tmHT('Ei joukkueita')}</div>
+            <div class="tyhjaTeksti">${tmHT('Lisää ensimmäinen joukkue yllä olevalla napilla.')}</div>
           </div>`
         : `<table>
-            <thead><tr><th>Joukkue</th><th>Ikäluokka</th><th>Vuosi</th><th>Toiminnot</th></tr></thead>
+            <thead><tr><th>${tmHT('Joukkue')}</th><th>${tmHT('Ikäluokka')}</th><th>${tmHT('Vuosi')}</th><th>${tmHT('Toiminnot')}</th></tr></thead>
             <tbody>
               ${tila.joukkueet.map(j => `
                 <tr>
@@ -1661,10 +1663,10 @@ function renderYhteenveto() {
                         data-jikaryhma="${(j.ikaryhma||'').replace(/"/g,'&quot;')}"
                         data-jvuosi="${j.vuosi||''}"
                         onclick="avaaJoukkueMuokkaus(this.dataset.jid,this.dataset.jnimi,this.dataset.jikaryhma,this.dataset.jvuosi)">
-                        ✏️ Muokkaa
+                        ${tmHT('✏️ Muokkaa')}
                       </button>
                       <button class="toimNappi sininen" onclick="avaaRekisteriModalJoukkueella('${j.id}','${j.nimi || j.id}')">
-                        ✉️ Kutsu pelaaja
+                        ${tmHT('✉️ Kutsu pelaaja')}
                       </button>
                     </div>
                   </td>
@@ -1817,13 +1819,13 @@ function pelaajaRivi(p) {
   const [tilaLuokka, tilaIkoni, tilaTeksti] = onAnnettu
     ? ['ok',     '✓',  'Rekisteröity']
     : onPilotti ? ['pilotti', '🔬', 'Pilotti']
-    : onOdottaa ? ['odottaa', '⏳', 'Kutsu lähetetty']
-    : ['harmaa', '—',  'Ei kutsua'];
+    : onOdottaa ? ['odottaa', '⏳', tmHT('Kutsu lähetetty')]
+    : ['harmaa', '—',  tmHT('Ei kutsua')];
   const palloIdArvo = p.palloID || p.palloid || p.palloId || '';
   const palloIdSolu = palloIdArvo
     ? '<td style="font-family:monospace;font-size:11px;color:var(--ink2);">' + palloIdArvo + '</td>'
     : onAnnettu
-      ? '<td><span style="color:var(--amber);font-size:11px;font-weight:600;">⚠️ Puuttuu</span></td>'
+      ? '<td><span style="color:var(--amber);font-size:11px;font-weight:600;">' + tmHT('⚠️ Puuttuu') + '</span></td>'
       : '<td style="color:var(--ink3);font-size:11px;">—</td>';
   const joukkueetStr = Array.isArray(p.joukkueet) && p.joukkueet.length
     ? p.joukkueet.map(id => { const j = (tila.joukkueet||[]).find(j => j.id === id); return j?.nimi || id; }).join(' + ')
@@ -1841,7 +1843,7 @@ function pelaajaRivi(p) {
     + '<td>' + (p.kaytettavyys
         ? '<span class="badge ' + (p.kaytettavyys === 'aktiivinen' ? 'ok' : 'odottaa') + '">' + p.kaytettavyys + '</span>'
         : '—') + '</td>'
-    + '<td><button class="toimNappi" onclick="naytaPelaajaTiedot(\'' + p.id + '\')">Tiedot</button></td>'
+    + '<td><button class="toimNappi" onclick="naytaPelaajaTiedot(\'' + p.id + '\')">' + tmHT('Tiedot') + '</button></td>'
     + '</tr>';
 }
 
@@ -1958,7 +1960,7 @@ async function _pelSiirraValitut(tapa) {
   var sel = document.getElementById('pelSiirtoKohde');
   var kohdeId = sel && sel.value;
   if (!idt.length) return;
-  if (!kohdeId) { naytaToast('Valitse kohdejoukkue.', 'virhe'); return; }
+  if (!kohdeId) { naytaToast(tmHT('Valitse kohdejoukkue.'), 'virhe'); return; }
   var j = (tila.joukkueet || []).find(function (x) { return x.id === kohdeId; });
   var kohdeNimi = (j && j.nimi) || kohdeId;
   var sana = (tapa === 'siirto') ? 'Siirretäänkö' : 'Lisätäänkö';
@@ -2061,11 +2063,11 @@ async function renderPelaajat(alue) {
         </button>
         <button class="lisaaNappi" onclick="avaaTuoJaLahetaModal()"
           style="background:rgba(42,93,176,.15);border:1px solid rgba(42,93,176,.3);">
-          📨 ${_tk('seura.tuo_pelaajat_excelista', 'Tuo pelaajat Excelistä')}
+          📨 ${_tk('seura.tuo_pelaajat_excelista', tmHT('Tuo pelaajat Excelistä'))}
         </button>
         <button class="lisaaNappi" id="btn-lataa-pohja" onclick="lataaRekisteriPohja()"
           style="background:none;border:1px solid var(--border);font-size:11px;color:var(--ink3);">
-          ⬇ ${_tk('seura.lataa_excel_pohja', 'Lataa Excel-pohja')}
+          ⬇ ${_tk('seura.lataa_excel_pohja', tmHT('Lataa Excel-pohja'))}
         </button>
         <!-- PR 4: tunnusten jako. Kohde = valitut pelaajat, muuten aktiivinen joukkuesuodatin (tai koko seura). -->
         <span style="flex-basis:100%;height:0"></span>
@@ -2104,10 +2106,9 @@ async function renderPelaajat(alue) {
       alueEl.innerHTML = `
         <div class="tyhjaAlue">
           <div class="tyhjaIkoni">👥</div>
-          <div class="tyhjaOtsikko">Ei vielä pelaajia</div>
+          <div class="tyhjaOtsikko">${tmHT('Ei vielä pelaajia')}</div>
           <div class="tyhjaTeksti">
-            Lähetä rekisteröintikutsu vanhemmalle yllä olevalla napilla.
-            Pelaaja ilmestyy tähän listaan kun vanhempi on täyttänyt suostumuslomakkeen.
+            ${tmHT('Lähetä rekisteröintikutsu vanhemmalle yllä olevalla napilla. Pelaaja ilmestyy tähän listaan kun vanhempi on täyttänyt suostumuslomakkeen.')}
           </div>
         </div>`;
       return;
@@ -2141,10 +2142,10 @@ async function renderPelaajat(alue) {
     const suodatinRivi = document.getElementById('joukkueSuodatinRivi');
     if (suodatinRivi && joukkueetLista.length > 1) {
       suodatinRivi.innerHTML =
-        '<span style="font-size:11px;color:var(--ink3);padding:6px 0;align-self:center;">Joukkue:</span>' +
+        '<span style="font-size:11px;color:var(--ink3);padding:6px 0;align-self:center;">' + tmHT('Joukkue:') + '</span>' +
         '<button data-joukk-btn="" onclick="suodataJoukkue(\'\')" ' +
           'style="padding:4px 12px;border-radius:20px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;' +
-          'background:rgba(40,176,144,.2);border:1px solid rgba(40,176,144,.4);color:var(--teal);">Kaikki</button>' +
+          'background:rgba(40,176,144,.2);border:1px solid rgba(40,176,144,.4);color:var(--teal);">' + tmHT('Kaikki') + '</button>' +
         joukkueetLista.map(j =>
           '<button data-joukk-btn="' + j.id + '" onclick="suodataJoukkue(\'' + j.id + '\')" ' +
             'style="padding:4px 12px;border-radius:20px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;' +
@@ -2179,7 +2180,7 @@ async function renderPelaajat(alue) {
         </div>
         <div style="display:flex;align-items:center;gap:7px;font-size:12px;">
           <span style="width:8px;height:8px;border-radius:50%;background:var(--amber);display:inline-block;"></span>
-          <span style="color:var(--ink3);">Kutsu lähetetty:</span>
+          <span style="color:var(--ink3);">${tmHT('Kutsu lähetetty:')}</span>
           <strong style="color:var(--ink1);">${odottaa}</strong>
         </div>
         ${pilotti > 0 ? `
@@ -2191,7 +2192,7 @@ async function renderPelaajat(alue) {
         ${eiLahetetty > 0 ? `
         <div style="display:flex;align-items:center;gap:7px;font-size:12px;">
           <span style="width:8px;height:8px;border-radius:50%;background:var(--border);display:inline-block;"></span>
-          <span style="color:var(--ink3);">Ei kutsua:</span>
+          <span style="color:var(--ink3);">${tmHT('Ei kutsua:')}</span>
           <strong style="color:var(--ink1);">${eiLahetetty}</strong>
         </div>` : ''}
         ${ilmanPalloId > 0 ? `
@@ -2206,7 +2207,7 @@ async function renderPelaajat(alue) {
       <table>
         <thead><tr>
           <th style="width:28px"><input type="checkbox" id="pelValitseKaikki" onchange="_pelValitseKaikki(this.checked)" title="Valitse kaikki näkyvät"></th>
-          <th>Nimi</th><th>Joukkue</th><th>Synt.</th><th>PalloID</th><th>Tila</th><th>Käytettävyys</th><th>Toiminnot</th>
+          <th>${tmHT('Nimi')}</th><th>${tmHT('Joukkue')}</th><th>Synt.</th><th>PalloID</th><th>${tmHT('Tila')}</th><th>Käytettävyys</th><th>${tmHT('Toiminnot')}</th>
         </tr></thead>
         <tbody>
           ${pelaajat.map(p => {
@@ -2225,8 +2226,8 @@ async function renderPelaajat(alue) {
               : onPilotti
               ? ['pilotti', '🔬', 'Pilotti']
               : onOdottaa
-              ? ['odottaa', '⏳', 'Kutsu lähetetty']
-              : ['harmaa',  '—',  'Ei kutsua'];
+              ? ['odottaa', '⏳', tmHT('Kutsu lähetetty')]
+              : ['harmaa',  '—',  tmHT('Ei kutsua')];
 
             const joukkueetNakymassa = Array.isArray(p.joukkueet) && p.joukkueet.length > 0
               ? p.joukkueet.map(id => {
@@ -2248,7 +2249,7 @@ async function renderPelaajat(alue) {
               ? `<td style="font-family:monospace;font-size:11px;color:var(--ink2);">${palloIdArvo}</td>`
               : onRekisteroity
               ? `<td title="Vanhempi voi lisätä PalloID:n suostumuslomakkeessa tai sihteeri Tiedot-näkymässä">
-                   <span style="color:var(--amber);font-size:11px;font-weight:600;">⚠️ Puuttuu</span>
+                   <span style="color:var(--amber);font-size:11px;font-weight:600;">${tmHT('⚠️ Puuttuu')}</span>
                  </td>`
               : `<td style="color:var(--ink3);font-size:11px;">—</td>`;
 
@@ -2262,11 +2263,11 @@ async function renderPelaajat(alue) {
                 <td><span class="badge ${tilaLuokka}">${tilaIkoni} ${tilaTeksti}</span></td>
                 <td>${_renderKaytettavyys(p)}</td>
                 <td>
-                  <button class="toimNappi" onclick="naytaPelaajaTiedot('${p.id}')">Tiedot</button>
+                  <button class="toimNappi" onclick="naytaPelaajaTiedot('${p.id}')">${tmHT('Tiedot')}</button>
                   ${p.huoltajaEmail
                     ? `<button class="toimNappi" style="background:rgba(0,212,170,.12);color:#00D4AA;margin-left:4px"
                         onclick="lahetaPelaajaLinkki('${p.id}','${tila.seuraId}','${p.etunimi||''}','${p.sukunimi||''}','${p.huoltajaEmail||''}','${p.joukkue||''}')">
-                        📨 Linkki
+                        ${tmHT('📨 Linkki')}
                       </button>`
                     : ''
                   }
@@ -2313,7 +2314,7 @@ function _renderKaytettavyys(p) {
   const loukkaInfo = k !== 'aktiivinen' && p.loukkaantuminen_alue
     ? ` · ${p.loukkaantuminen_alue}` : '';
   const paluuInfo = p.paluu_arvio
-    ? `<div style="font-size:9px;color:#888;margin-top:1px">Paluu: ${p.paluu_arvio}</div>` : '';
+    ? `<div style="font-size:9px;color:#888;margin-top:1px">${tmHT('Paluu:')} ${p.paluu_arvio}</div>` : '';
 
   return `<div onclick="avaaKaytettavyysModal('${p.id}')" style="cursor:pointer;display:inline-flex;flex-direction:column">
     <span style="font-size:10px;font-weight:600;padding:2px 8px;border-radius:8px;
@@ -2343,7 +2344,7 @@ async function avaaKaytettavyysModal(pelaajaId) {
       </div>
       <div style="font-size:11px;color:var(--ink3);margin-bottom:20px">${p.joukkue||'—'}</div>
 
-      <div style="font-size:10px;color:var(--ink3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Tila</div>
+      <div style="font-size:10px;color:var(--ink3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">${tmHT('Tila')}</div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px">
         ${[
           {id:'aktiivinen',    ikoni:'✓', teksti:'Aktiivinen',    bg:'rgba(29,158,117,.15)',  c:'#1D9E75'},
@@ -2360,7 +2361,7 @@ async function avaaKaytettavyysModal(pelaajaId) {
       </div>
 
       <div id="km_loukka_kentat" style="${k==='aktiivinen'||k==='tauko'?'display:none':''}">
-        <div style="font-size:10px;color:var(--ink3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Loukkaantuminen</div>
+        <div style="font-size:10px;color:var(--ink3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">${tmHT('Loukkaantuminen')}</div>
         <select id="km_tyyppi" style="width:100%;background:#131920;border:1px solid rgba(255,255,255,.1);
           border-radius:8px;color:#E8EEF8;font-size:14px;padding:10px 12px;margin-bottom:10px">
           <option value="">— Tyyppi —</option>
@@ -2379,7 +2380,7 @@ async function avaaKaytettavyysModal(pelaajaId) {
               border-radius:8px;color:#E8EEF8;font-size:13px;padding:9px 10px">
           </div>
           <div>
-            <div style="font-size:10px;color:var(--ink3);margin-bottom:4px">Arvioitu paluu</div>
+            <div style="font-size:10px;color:var(--ink3);margin-bottom:4px">${tmHT('Arvioitu paluu')}</div>
             <input type="date" id="km_paluu" value="${p.paluu_arvio||''}"
               style="width:100%;background:#131920;border:1px solid rgba(255,255,255,.1);
               border-radius:8px;color:#E8EEF8;font-size:13px;padding:9px 10px">
@@ -2390,10 +2391,10 @@ async function avaaKaytettavyysModal(pelaajaId) {
       <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:8px">
         <button onclick="document.getElementById('kaytettavyysModaali').remove()"
           style="background:none;border:1px solid rgba(255,255,255,.12);border-radius:8px;
-          color:#8A9BB5;padding:9px 18px;font-size:13px;cursor:pointer">Peruuta</button>
+          color:#8A9BB5;padding:9px 18px;font-size:13px;cursor:pointer">${tmHT('Peruuta')}</button>
         <button onclick="tallennakKaytettavyys('${pelaajaId}')"
           style="background:var(--blue);border:none;border-radius:8px;color:#fff;
-          padding:9px 20px;font-size:13px;font-weight:600;cursor:pointer">Tallenna</button>
+          padding:9px 20px;font-size:13px;font-weight:600;cursor:pointer">${tmHT('Tallenna')}</button>
       </div>
     </div>
   `;
@@ -2456,7 +2457,7 @@ async function tallennakKaytettavyys(pelaajaId) {
     if (alueEl) renderPelaajat(document.querySelector('.nakyma.active') || document.body);
     console.log('[Käytettävyys] Tallennettu:', tila_val);
   } catch(e) {
-    alert('Tallennus epäonnistui: ' + e.message);
+    alert((tmHT('Tallennus epäonnistui:') + ' ') + e.message);
   }
 }
 
@@ -2503,7 +2504,7 @@ async function renderTalentit(alue) {
           <td style="font-size:11px;color:var(--ink3);">${alku}</td>
           <td>
             <button class="toimNappi sininen" style="font-size:11px;"
-              onclick="avaaMuokkaaPelaajaModal('${p.id}')">✏️ Muokkaa</button>
+              onclick="avaaMuokkaaPelaajaModal('${p.id}')">${tmHT('✏️ Muokkaa')}</button>
           </td>
         </tr>`;
     }
@@ -2518,7 +2519,7 @@ async function renderTalentit(alue) {
           </div>
           <table>
             <thead><tr>
-              <th>Pelaaja</th><th>Synt.</th><th>Joukkueet</th><th>Taso</th><th>Alkanut</th><th></th>
+              <th>${tmHT('Pelaaja')}</th><th>Synt.</th><th>${tmHT('Joukkueet')}</th><th>${tmHT('Taso')}</th><th>${tmHT('Alkanut')}</th><th></th>
             </tr></thead>
             <tbody>${lista.map(pelaajaRivi).join('')}</tbody>
           </table>
@@ -2527,38 +2528,38 @@ async function renderTalentit(alue) {
 
     alue.innerHTML = `
       <div class="sivuOtsikko">
-        <div class="sivuEyebrow">Hallinta</div>
-        <div class="sivuH1">Talenttiohjelma</div>
+        <div class="sivuEyebrow">${tmHT('Hallinta')}</div>
+        <div class="sivuH1">${tmHT('Talenttiohjelma')}</div>
       </div>
 
       <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-bottom:20px;">
         <div class="kpiKortti">
           <div class="kpiArvo" style="color:var(--teal);">${talentit.length}</div>
-          <div class="kpiLabel">Talenttiohjelma yhteensä</div>
+          <div class="kpiLabel">${tmHT('Talenttiohjelma yhteensä')}</div>
         </div>
         <div class="kpiKortti">
           <div class="kpiArvo" style="color:var(--blue);">${laajennettu.length}</div>
-          <div class="kpiLabel">Laajennettu ohjelma</div>
+          <div class="kpiLabel">${tmHT('Laajennettu ohjelma')}</div>
         </div>
       </div>
 
       ${talentit.length === 0 ? `
         <div class="taulukkoKortti" style="text-align:center;padding:60px;">
           <div style="font-size:32px;margin-bottom:12px;">⭐</div>
-          <div style="font-size:15px;font-weight:600;margin-bottom:6px;">Ei talenttiohjelmassa olevia pelaajia</div>
+          <div style="font-size:15px;font-weight:600;margin-bottom:6px;">${tmHT('Ei talenttiohjelmassa olevia pelaajia')}</div>
           <div style="font-size:12px;color:var(--ink3);">
-            Aktivoi talenttiohjelma pelaajalle Pelaajat-välilehdellä → ✏️ Muokkaa.
+            ${tmHT('Aktivoi talenttiohjelma pelaajalle Pelaajat-välilehdellä → ✏️ Muokkaa.')}
           </div>
         </div>
       ` : `
         <div class="taulukkoKortti">
-          ${ryhmaTaulukko('🔵 Laajennettu ohjelma', 'var(--blue)', laajennettu)}
-          ${ryhmaTaulukko('🟡 Perusohjelma', 'var(--amber)', perus)}
+          ${ryhmaTaulukko(tmHT('🔵 Laajennettu ohjelma'), 'var(--blue)', laajennettu)}
+          ${ryhmaTaulukko(tmHT('🟡 Perusohjelma'), 'var(--amber)', perus)}
         </div>
       `}`;
 
   } catch(e) {
-    alue.innerHTML = `<div style="color:var(--red);padding:20px;">Virhe: ${e.message}</div>`;
+    alue.innerHTML = `<div style="color:var(--red);padding:20px;">${tmHT('Virhe:')} ${e.message}</div>`;
   }
 }
 
@@ -2648,12 +2649,12 @@ function _ktPiirra() {
   const ro = { saaKirjoittaa, kausikuvaSallittu, auki: v.auki, avoin: v.avoin || null, info: !!v.info, k1bRef: v.k1bRef || 'kal', kaikki: !!v.kaikki };
   let h = TM_KEHITYSTILANNE.renderEnsinakyma(malli, ro);
   if (v.kaikki) h += '<div class="ke-kaikki">' + TM_KEHITYSTILANNE.renderNakyma(malli, ro) + '</div>';
-  if (K.data._puuttuu.length) h = '<div class="kt-meta" style="margin-bottom:10px">Osa tiedoista ei näy tälle roolille tai puuttuu: ' + TM_KEHITYSTILANNE.esc(K.data._puuttuu.join(', ')) + '.</div>' + h;
+  if (K.data._puuttuu.length) h = '<div class="kt-meta" style="margin-bottom:10px">' + tmHT('Osa tiedoista ei näy tälle roolille tai puuttuu:') + ' ' + TM_KEHITYSTILANNE.esc(K.data._puuttuu.join(', ')) + '.</div>' + h;
   alue.innerHTML = h;
 }
 async function renderKehitystilanne(alue) {
-  if (!tila.seuraId) { alue.innerHTML = '<div class="kortti"><div style="padding:20px;color:var(--ink2)">Valitse seura yläpalkista.</div></div>'; return; }
-  alue.innerHTML = '<div class="kortti"><div style="padding:20px;color:var(--ink3);font-size:13px">Lasketaan kehitystilannetta seuran omasta datasta…</div></div>';
+  if (!tila.seuraId) { alue.innerHTML = '<div class="kortti"><div style="padding:20px;color:var(--ink2)">' + tmHT('Valitse seura yläpalkista.') + '</div></div>'; return; }
+  alue.innerHTML = '<div class="kortti"><div style="padding:20px;color:var(--ink3);font-size:13px">' + tmHT('Lasketaan kehitystilannetta seuran omasta datasta…') + '</div></div>';
   const vuosi = new Date().getFullYear(), sid = tila.seuraId;
   try {
     const data = await _ktLataa(sid, vuosi);
@@ -2662,7 +2663,7 @@ async function renderKehitystilanne(alue) {
     _ktPiirra();
   } catch (e) {
     console.error('[Kehitystilanne]', e);
-    alue.innerHTML = '<div class="kortti"><div style="padding:20px;color:var(--ink2)">Kehitystilanteen lataus epäonnistui: ' + TM_KEHITYSTILANNE.esc(e.message) + '</div></div>';
+    alue.innerHTML = '<div class="kortti"><div style="padding:20px;color:var(--ink2)">' + tmHT('Kehitystilanteen lataus epäonnistui:') + ' ' + TM_KEHITYSTILANNE.esc(e.message) + '</div></div>';
   }
 }
 function _ktVaihda(avain, arvo) { if (!window._kt) return; const v = _ktValinnat(); v[avain] = arvo; window._kt.valinnat = v; _ktPiirra(); }
@@ -2682,7 +2683,7 @@ function _ktModaali(html) {
   let m = document.getElementById('ktModal');
   if (!m) { m = document.createElement('div'); m.id = 'ktModal'; m.className = 'modalTausta'; m.innerHTML = '<div class="modalKortti" id="ktModalSisalto"></div>';
     m.addEventListener('click', (e) => { if (e.target === m) m.classList.remove('auki'); }); document.body.appendChild(m); }
-  document.getElementById('ktModalSisalto').innerHTML = '<button class="modalSuljeNappi" onclick="document.getElementById(\'ktModal\').classList.remove(\'auki\')">Sulje</button>' + html;
+  document.getElementById('ktModalSisalto').innerHTML = '<button class="modal' + tmHT('Sulje') + 'Nappi" onclick="document.getElementById(\'ktModal\').classList.remove(\'auki\')">Sulje</button>' + html;
   m.classList.add('auki');
 }
 function ktAvaaTavoitteet() {
@@ -2694,8 +2695,8 @@ function ktAvaaTavoitteet() {
     return '<label>' + TM_KEHITYSTILANNE.esc(M[k].nimi) + ' (' + TM_KEHITYSTILANNE.esc(M[k].yksikko) + ')' + (pl != null ? ' · Palloliitto ' + pl : '') + '</label><input type="number" step="any" data-kt-tavoite="' + k + '" value="' + oma + '">';
   }).join('');
   const krit = ['a1', 'a2', 'a3', 'a4', 'a5', 'a6', 'a7'].map((k) => '<label class="kt-check"><input type="checkbox" data-kt-krit="' + k + '"' + (kriteerit.indexOf(k) >= 0 ? ' checked' : '') + '> ' + k + '</label>').join('');
-  _ktModaali('<div class="modalOtsikko">Seuran tavoitteet ' + K.vuosi + '</div><div class="modalKuvaus">Tyhjä kenttä = Palloliiton taso. Tila lasketaan seuran tavoitetta vasten.</div><div class="kt-lomake">' + rivit
-    + '<label>Harjoittelun laadun näytettävät kriteerit (malli Palloliitto)</label>' + krit + '</div><div style="margin-top:16px"><button class="toimNappi" onclick="ktTallennaTavoitteet()">Tallenna</button></div>'
+  _ktModaali('<div class="modalOtsikko">' + tmHT('Seuran tavoitteet') + ' ' + K.vuosi + '</div><div class="modalKuvaus">' + tmHT('Tyhjä kenttä = Palloliiton taso. Tila lasketaan seuran tavoitetta vasten.') + '</div><div class="kt-lomake">' + rivit
+    + '<label>' + tmHT('Harjoittelun laadun näytettävät kriteerit (malli Palloliitto)') + '</label>' + krit + '</div><div style="margin-top:16px"><button class="toimNappi" onclick="kt' + tmHT('Tallenna') + 'Tavoitteet()">Tallenna</button></div>'
     + _ktOmatListaHTML());
 }
 /* ── Seuran omat vapaat tavoitteet (v0.1) ── seurat/{sid}/omat_tavoitteet/{id} + /kirjaukset/{autoId} (vain luonti, Rules v3.35) */
@@ -2703,26 +2704,26 @@ const KT_OMA_TYYPIT = { maara: 'Määrä (jokainen kirjaus +1)', summa: 'Summa (
 const KT_TEKIJAT = { pelaajat: 'Pelaajat kehittyvät', valmennus: 'Valmennuksen laatu', seura: 'Seura ja rakenteet' };
 function _ktOmatListaHTML() {
   const K = window._kt, e = TM_KEHITYSTILANNE.esc, omat = (K.data.omatTavoitteet || []).filter((t) => !t.arkistoitu);
-  return '<div class="modalOtsikko" style="margin-top:22px">Seuran omat tavoitteet</div>'
-    + '<div class="modalKuvaus">Vapaat tavoitteet omilla kirjauksilla, esim. edustukseen nousut. Ei pelaajakohtaisia sopimussummia eikä terveystietoa.</div>'
+  return '<div class="modalOtsikko" style="margin-top:22px">' + tmHT('Seuran omat tavoitteet') + '</div>'
+    + '<div class="modalKuvaus">' + tmHT('Vapaat tavoitteet omilla kirjauksilla, esim. edustukseen nousut. Ei pelaajakohtaisia sopimussummia eikä terveystietoa.') + '</div>'
     + (omat.length ? omat.map((t) => '<div class="kt-check" style="justify-content:space-between;border-bottom:1px solid var(--border);padding:8px 0"><span>' + e(t.nimi) + ' <span class="kt-meta">'
       + e(KT_OMA_TYYPIT[t.tyyppi] || t.tyyppi) + ' · ' + e(KT_TEKIJAT[t.tekija] || '') + ' · aikaraja ' + e(TM_MITTARIT.pvmFi(t.aikaraja)) + '</span></span>'
-      + '<span><button class="kt-linkki" onclick="ktAvaaKirjaus(\'' + e(t.id) + '\')">Kirjaa ›</button> <button class="kt-linkki" onclick="ktArkistoiOma(\'' + e(t.id) + '\')">Arkistoi</button></span></div>').join('')
-      : '<div class="kt-meta">Ei omia tavoitteita.</div>')
-    + '<div style="margin-top:12px"><button class="toimNappi" onclick="ktAvaaOmaTavoite()">+ Lisää oma tavoite</button></div>';
+      + '<span><button class="kt-linkki" onclick="ktAvaaKirjaus(\'' + e(t.id) + '\')">' + tmHT('Kirjaa ›') + '</button> <button class="kt-linkki" onclick="ktArkistoiOma(\'' + e(t.id) + '\')">Arkistoi</button></span></div>').join('')
+      : '<div class="kt-meta">' + tmHT('Ei omia tavoitteita.') + '</div>')
+    + '<div style="margin-top:12px"><button class="toimNappi" onclick="ktAvaaOmaTavoite()">' + tmHT('+ Lisää oma tavoite') + '</button></div>';
 }
 function ktAvaaOmaTavoite() {
   const K = window._kt; if (!K) return;
   const opt = (o) => Object.keys(o).map((k) => '<option value="' + k + '">' + TM_KEHITYSTILANNE.esc(o[k]) + '</option>').join('');
-  _ktModaali('<div class="modalOtsikko">Lisää oma tavoite</div><div class="modalKuvaus">Tila ja ennuste lasketaan kuten muissa tavoitteissa. Palloliitto-vertailua ei ole. Ei pelaajakohtaisia sopimussummia eikä terveystietoa.</div><div class="kt-lomake">'
-    + '<label>Nimi</label><input id="kto_nimi" maxlength="120" placeholder="esim. Omat kasvatit edustukseen">'
-    + '<label>Tyyppi</label><select id="kto_tyyppi" onchange="_ktOmaTyyppiVaihtui()">' + opt(KT_OMA_TYYPIT) + '</select>'
-    + '<div id="kto_arvoRivi"><label>Tavoitearvo</label><input id="kto_tavoite" type="number" step="any"><label>Yksikkö</label><input id="kto_yksikko" maxlength="20" placeholder="esim. pelaajaa, €, %"></div>'
+  _ktModaali('<div class="modalOtsikko">' + tmHT('Lisää oma tavoite') + '</div><div class="modalKuvaus">' + tmHT('Tila ja ennuste lasketaan kuten muissa tavoitteissa. Palloliitto-vertailua ei ole. Ei pelaajakohtaisia sopimussummia eikä terveystietoa.') + '</div><div class="kt-lomake">'
+    + '<label>' + tmHT('Nimi') + '</label><input id="kto_nimi" maxlength="120" placeholder="esim. Omat kasvatit edustukseen">'
+    + '<label>' + tmHT('Tyyppi') + '</label><select id="kto_tyyppi" onchange="_ktOmaTyyppiVaihtui()">' + opt(KT_OMA_TYYPIT) + '</select>'
+    + '<div id="kto_arvoRivi"><label>' + tmHT('Tavoitearvo') + '</label><input id="kto_tavoite" type="number" step="any"><label>Yksikkö</label><input id="kto_yksikko" maxlength="20" placeholder="esim. pelaajaa, €, %"></div>'
     + '<div id="kto_suuntaRivi" style="display:none"><label>Suunta</label><select id="kto_suunta"><option value="suurempi">Suurempi on parempi</option><option value="pienempi">Pienempi on parempi</option></select></div>'
-    + '<label>Alkaa</label><input id="kto_alkaa" type="date" value="' + tmPaivaIso(new Date()) + '">'
+    + '<label>' + tmHT('Alkaa') + '</label><input id="kto_alkaa" type="date" value="' + tmPaivaIso(new Date()) + '">'
     + '<label>Aikaraja</label><input id="kto_aikaraja" type="date" value="' + K.vuosi + '-12-31">'
-    + '<label>Tekijäryhmä</label><select id="kto_tekija">' + opt(KT_TEKIJAT) + '</select>'
-    + '</div><div style="margin-top:16px"><button class="toimNappi" onclick="ktTallennaOmaTavoite()">Tallenna tavoite</button></div>');
+    + '<label>' + tmHT('Tekijäryhmä') + '</label><select id="kto_tekija">' + opt(KT_TEKIJAT) + '</select>'
+    + '</div><div style="margin-top:16px"><button class="toimNappi" onclick="ktTallennaOmaTavoite()">' + tmHT('Tallenna tavoite') + '</button></div>');
 }
 function _ktOmaTyyppiVaihtui() {
   const t = document.getElementById('kto_tyyppi').value;
@@ -2742,8 +2743,8 @@ async function ktTallennaOmaTavoite() {
     Object.assign(doc, { luotu: firebase.firestore.FieldValue.serverTimestamp(), luoja_uid: tila.kayttaja.uid, arkistoitu: false });
     const ref = await db.collection('seurat').doc(K.sid).collection('omat_tavoitteet').add(doc);
     K.data.omatTavoitteet = (K.data.omatTavoitteet || []).concat([Object.assign({ id: ref.id }, doc, { kirjaukset: [] })]);
-    document.getElementById('ktModal').classList.remove('auki'); naytaToast('Oma tavoite tallennettu', 'ok'); _ktPiirra();
-  } catch (e) { naytaToast('Tallennus epäonnistui: ' + e.message, 'virhe'); }
+    document.getElementById('ktModal').classList.remove('auki'); naytaToast(tmHT('Oma tavoite tallennettu'), 'ok'); _ktPiirra();
+  } catch (e) { naytaToast((tmHT('Tallennus epäonnistui:') + ' ') + e.message, 'virhe'); }
 }
 async function ktArkistoiOma(tid) {
   const K = window._kt; if (!K) return;
@@ -2751,8 +2752,8 @@ async function ktArkistoiOma(tid) {
     if (tila.kayttaja) await tila.kayttaja.getIdToken(true);
     await db.collection('seurat').doc(K.sid).collection('omat_tavoitteet').doc(tid).update({ arkistoitu: true, paivitetty: firebase.firestore.FieldValue.serverTimestamp(), paivittaja_uid: tila.kayttaja.uid });
     const t = (K.data.omatTavoitteet || []).find((x) => x.id === tid); if (t) t.arkistoitu = true;
-    document.getElementById('ktModal').classList.remove('auki'); naytaToast('Tavoite arkistoitu (kirjaukset säilyvät)', 'ok'); _ktPiirra();
-  } catch (e) { naytaToast('Arkistointi epäonnistui: ' + e.message, 'virhe'); }
+    document.getElementById('ktModal').classList.remove('auki'); naytaToast(tmHT('Tavoite arkistoitu (kirjaukset säilyvät)'), 'ok'); _ktPiirra();
+  } catch (e) { naytaToast((tmHT('Arkistointi epäonnistui:') + ' ') + e.message, 'virhe'); }
 }
 function ktAvaaKirjaus(tid) {
   const K = window._kt; if (!K) return;
@@ -2764,17 +2765,17 @@ function ktAvaaKirjaus(tid) {
     + e(TM_MITTARIT.pvmFi(k.pvm)) + ' · ' + (k.mitatoi ? '<span class="kt-meta">kumoaa aiemman kirjauksen</span>' : '<b' + (kumotut[k.id] ? ' style="text-decoration:line-through"' : '') + '>' + e(nayta(k) || '+1') + '</b>')
     + (k.pelaajaId ? ' · ' + e(nimiP(k.pelaajaId)) : '') + (k.huomio ? ' · <span class="kt-meta">' + e(k.huomio) + '</span>' : '')
     + (!k.mitatoi && !kumotut[k.id] ? ' <button class="kt-linkki" onclick="ktKumoaKirjaus(\'' + e(tid) + '\',\'' + e(k.id) + '\')">Kumoa</button>' : '') + '</div>').join('');
-  const arvoKentta = t.tyyppi === 'maara' ? '<div class="kt-meta">Kirjaus lisää yhden (+1).</div>'
+  const arvoKentta = t.tyyppi === 'maara' ? '<div class="kt-meta">' + tmHT('Kirjaus lisää yhden (+1).') + '</div>'
     : t.tyyppi === 'kylla_ei' ? '<label>Arvo</label><select id="ktk_arvo"><option value="true">Kyllä</option><option value="false">Ei</option></select>'
     : '<label>Arvo' + (t.yksikko ? ' (' + e(t.yksikko) + ')' : '') + '</label><input id="ktk_arvo" type="number" step="any">';
   const pelaajat = K.data.pelaajat.slice().sort((a, b) => String(a.sukunimi || '').localeCompare(String(b.sukunimi || ''), 'fi'));
-  const pelaajaKentta = t.tyyppi === 'summa' ? '<div class="kt-meta">Summa-tavoitteeseen ei liitetä pelaajaa (ei pelaajakohtaisia summia).</div>'
-    : '<label>Pelaaja (valinnainen)</label><select id="ktk_pelaaja"><option value="">–</option>' + pelaajat.map((p) => '<option value="' + e(p.id) + '">' + e((p.sukunimi || '') + ' ' + (p.etunimi || '') + (p.joukkue ? ' · ' + p.joukkue : '')) + '</option>').join('') + '</select>';
-  _ktModaali('<div class="modalOtsikko">Kirjaa: ' + e(t.nimi) + '</div><div class="modalKuvaus">Kirjaukset säilyvät. Virheen voi kumota, jolloin kumoaminen jää historiaan. Ei terveystietoa eikä sopimussummia huomioon.</div><div class="kt-lomake">'
-    + '<label>Päivämäärä</label><input id="ktk_pvm" type="date" value="' + tmPaivaIso(new Date()) + '">' + arvoKentta + pelaajaKentta
-    + '<label>Huomio (valinnainen)</label><input id="ktk_huomio" maxlength="280"><div class="kt-meta">Älä kirjoita pelaajan nimeä huomioon, käytä pelaajalinkkiä.</div>'
-    + '</div><div style="margin-top:16px"><button class="toimNappi" onclick="ktTallennaKirjaus(\'' + e(tid) + '\')">Tallenna kirjaus</button></div>'
-    + '<div class="modalOtsikko" style="margin-top:22px">Historia</div>' + (historia || '<div class="kt-meta">Ei vielä kirjauksia.</div>'));
+  const pelaajaKentta = t.tyyppi === 'summa' ? '<div class="kt-meta">' + tmHT('Summa-tavoitteeseen ei liitetä pelaajaa (ei pelaajakohtaisia summia).') + '</div>'
+    : '<label>' + tmHT('Pelaaja (valinnainen)') + '</label><select id="ktk_pelaaja"><option value="">–</option>' + pelaajat.map((p) => '<option value="' + e(p.id) + '">' + e((p.sukunimi || '') + ' ' + (p.etunimi || '') + (p.joukkue ? ' · ' + p.joukkue : '')) + '</option>').join('') + '</select>';
+  _ktModaali('<div class="modalOtsikko">' + tmHT('Kirjaa:') + ' ' + e(t.nimi) + '</div><div class="modalKuvaus">' + tmHT('Kirjaukset säilyvät. Virheen voi kumota, jolloin kumoaminen jää historiaan. Ei terveystietoa eikä sopimussummia huomioon.') + '</div><div class="kt-lomake">'
+    + '<label>' + tmHT('Päivämäärä') + '</label><input id="ktk_pvm" type="date" value="' + tmPaivaIso(new Date()) + '">' + arvoKentta + pelaajaKentta
+    + '<label>' + tmHT('Huomio (valinnainen)') + '</label><input id="ktk_huomio" maxlength="280"><div class="kt-meta">' + tmHT('Älä kirjoita pelaajan nimeä huomioon, käytä pelaajalinkkiä.') + '</div>'
+    + '</div><div style="margin-top:16px"><button class="toimNappi" onclick="ktTallennaKirjaus(\'' + e(tid) + '\')">' + tmHT('Tallenna kirjaus') + '</button></div>'
+    + '<div class="modalOtsikko" style="margin-top:22px">Historia</div>' + (historia || '<div class="kt-meta">' + tmHT('Ei vielä kirjauksia.') + '</div>'));
 }
 async function _ktLisaaKirjaus(tid, kirjaus) {
   const K = window._kt;
@@ -2788,18 +2789,18 @@ async function ktTallennaKirjaus(tid) {
   const el = (id) => document.getElementById(id), pvm = el('ktk_pvm').value;
   let arvo = 1;
   if (t.tyyppi === 'kylla_ei') arvo = el('ktk_arvo').value === 'true';
-  else if (t.tyyppi !== 'maara') { const v = el('ktk_arvo').value; if (v === '' || !isFinite(Number(v))) { naytaToast('Anna arvo numerona', 'virhe'); return; } arvo = Number(v); }
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(pvm)) { naytaToast('Anna päivämäärä', 'virhe'); return; }
+  else if (t.tyyppi !== 'maara') { const v = el('ktk_arvo').value; if (v === '' || !isFinite(Number(v))) { naytaToast(tmHT('Anna arvo numerona'), 'virhe'); return; } arvo = Number(v); }
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(pvm)) { naytaToast(tmHT('Anna päivämäärä'), 'virhe'); return; }
   try {
     await _ktLisaaKirjaus(tid, { pvm, arvo, pelaajaId: t.tyyppi === 'summa' ? null : (el('ktk_pelaaja').value || null), huomio: el('ktk_huomio').value.trim().slice(0, 280), mitatoi: null });
-    naytaToast('Kirjaus tallennettu', 'ok'); _ktPiirra(); ktAvaaKirjaus(tid);
-  } catch (e) { naytaToast('Tallennus epäonnistui: ' + e.message, 'virhe'); }
+    naytaToast(tmHT('Kirjaus tallennettu'), 'ok'); _ktPiirra(); ktAvaaKirjaus(tid);
+  } catch (e) { naytaToast((tmHT('Tallennus epäonnistui:') + ' ') + e.message, 'virhe'); }
 }
 async function ktKumoaKirjaus(tid, kid) {
   try {
-    await _ktLisaaKirjaus(tid, { pvm: tmPaivaIso(new Date()), arvo: null, pelaajaId: null, huomio: 'Kumottu kirjaus', mitatoi: kid });
-    naytaToast('Kirjaus kumottu (näkyy historiassa)', 'ok'); _ktPiirra(); ktAvaaKirjaus(tid);
-  } catch (e) { naytaToast('Kumoaminen epäonnistui: ' + e.message, 'virhe'); }
+    await _ktLisaaKirjaus(tid, { pvm: tmPaivaIso(new Date()), arvo: null, pelaajaId: null, huomio: tmHT('Kumottu kirjaus'), mitatoi: kid });
+    naytaToast(tmHT('Kirjaus kumottu (näkyy historiassa)'), 'ok'); _ktPiirra(); ktAvaaKirjaus(tid);
+  } catch (e) { naytaToast((tmHT('Kumoaminen epäonnistui:') + ' ') + e.message, 'virhe'); }
 }
 async function ktTallennaTavoitteet() {
   const K = window._kt; if (!K) return;
@@ -2811,23 +2812,23 @@ async function ktTallennaTavoitteet() {
     const doc = { vuosi: K.vuosi, tavoitteet, c3_kriteerit: c3.length ? c3 : ['a1', 'a2'], paivitetty: firebase.firestore.FieldValue.serverTimestamp(), paivittaja_uid: tila.kayttaja ? tila.kayttaja.uid : null };
     // mergeFields: korvaa vain lomakkeen kentät kokonaan (poistettu tavoite poistuu), muut dokumentin kentät säilyvät
     await db.collection('seurat').doc(K.sid).collection('kehitysasetukset').doc(String(K.vuosi)).set(doc, { mergeFields: Object.keys(doc) });
-    K.data.asetukset = Object.assign({}, K.data.asetukset || {}, doc); document.getElementById('ktModal').classList.remove('auki'); naytaToast('Tavoitteet tallennettu', 'ok'); _ktPiirra();
-  } catch (e) { naytaToast('Tallennus epäonnistui: ' + e.message, 'virhe'); }
+    K.data.asetukset = Object.assign({}, K.data.asetukset || {}, doc); document.getElementById('ktModal').classList.remove('auki'); naytaToast(tmHT('Tavoitteet tallennettu'), 'ok'); _ktPiirra();
+  } catch (e) { naytaToast((tmHT('Tallennus epäonnistui:') + ' ') + e.message, 'virhe'); }
 }
 function ktAvaaSeuratuki() {
   const K = window._kt; if (!K) return;
   const st = K.data.seuratuki || {}, e = TM_KEHITYSTILANNE.esc;
   const tap = (st.tapahtumat || []).map((t) => [t.pvm, t.ikavaihe, t.aihe].join(' ; ')).join('\n');
-  _ktModaali('<div class="modalOtsikko">Kori 3 -tiedot ' + K.vuosi + '</div><div class="modalKuvaus">Kirjataan käsin. Tyhjä = puuttuu (ei nolla).</div><div class="kt-lomake">'
+  _ktModaali('<div class="modalOtsikko">' + tmHT('Kori 3 -tiedot') + ' ' + K.vuosi + '</div><div class="modalKuvaus">' + tmHT('Kirjataan käsin. Tyhjä = puuttuu (ei nolla).') + '</div><div class="kt-lomake">'
     + '<label>Lisenssikoulutussuoritukset: FVS</label><input type="number" id="kt_fvs" value="' + e(st.lisenssit && st.lisenssit.fvs != null ? st.lisenssit.fvs : '') + '">'
     + '<label>Lisenssikoulutussuoritukset: muut</label><input type="number" id="kt_muut" value="' + e(st.lisenssit && st.lisenssit.muut != null ? st.lisenssit.muut : '') + '">'
-    + '<label>Ydintaitojen koulutustapahtumat (yksi riville: pvm VVVV-KK-PP ; lapsuus|nuoruus ; aihe)</label><textarea id="kt_tap" rows="4">' + e(tap) + '</textarea>'
+    + '<label>' + tmHT('Ydintaitojen koulutustapahtumat (yksi riville: pvm VVVV-KK-PP ; lapsuus|nuoruus ; aihe)') + '</label><textarea id="kt_tap" rows="4">' + e(tap) + '</textarea>'
     + '<label>Valmennusosaamisen kehittäjä (HTV)</label><input type="number" step="0.1" id="kt_htv" value="' + e(st.roolit && st.roolit.valmennusosaamisen_kehittaja_htv != null ? st.roolit.valmennusosaamisen_kehittaja_htv : '') + '">'
     + '<label>Omavastuu (€)</label><input type="number" id="kt_eur" value="' + e(st.roolit && st.roolit.omavastuu_eur != null ? st.roolit.omavastuu_eur : '') + '">'
     + '<label class="kt-check"><input type="checkbox" id="kt_roolit"' + (st.roolit && st.roolit.tayttyy ? ' checked' : '') + '> Roolit ja omavastuu täyttävät vaatimuksen</label>'
-    + '<label>Yhteistyöseurat (pilkuilla eroteltuna; tyhjä = ei kirjattu)</label><input type="text" id="kt_yht" value="' + e(Array.isArray(st.yhteistyoseurat) ? st.yhteistyoseurat.join(', ') : '') + '">'
-    + '<label class="kt-check"><input type="checkbox" id="kt_t3"' + (st.t3 && st.t3.osallistuu ? ' checked' : '') + '> Seura osallistuu T3-ohjelmaan</label>'
-    + '</div><div style="margin-top:16px"><button class="toimNappi" onclick="ktTallennaSeuratuki()">Tallenna</button></div>');
+    + '<label>' + tmHT('Yhteistyöseurat (pilkuilla eroteltuna; tyhjä = ei kirjattu)') + '</label><input type="text" id="kt_yht" value="' + e(Array.isArray(st.yhteistyoseurat) ? st.yhteistyoseurat.join(', ') : '') + '">'
+    + '<label class="kt-check"><input type="checkbox" id="kt_t3"' + (st.t3 && st.t3.osallistuu ? ' checked' : '') + '> ' + tmHT('Seura osallistuu T3-ohjelmaan') + '</label>'
+    + '</div><div style="margin-top:16px"><button class="toimNappi" onclick="kt' + tmHT('Tallenna') + 'Seuratuki()">Tallenna</button></div>');
 }
 async function ktTallennaSeuratuki() {
   const K = window._kt; if (!K) return;
@@ -2843,12 +2844,12 @@ async function ktTallennaSeuratuki() {
   try {
     if (tila.kayttaja) await tila.kayttaja.getIdToken(true);
     await db.collection('seurat').doc(K.sid).collection('seuratuki').doc(String(K.vuosi)).set(doc);
-    K.data.seuratuki = Object.assign({}, doc, { paivitetty: new Date().toISOString() }); document.getElementById('ktModal').classList.remove('auki'); naytaToast('Kori 3 -tiedot tallennettu', 'ok'); _ktPiirra();
-  } catch (e) { naytaToast('Tallennus epäonnistui: ' + e.message, 'virhe'); }
+    K.data.seuratuki = Object.assign({}, doc, { paivitetty: new Date().toISOString() }); document.getElementById('ktModal').classList.remove('auki'); naytaToast(tmHT('Kori 3 -tiedot tallennettu'), 'ok'); _ktPiirra();
+  } catch (e) { naytaToast((tmHT('Tallennus epäonnistui:') + ' ') + e.message, 'virhe'); }
 }
 async function ktTallennaKausikuva() {
   const K = window._kt; if (!K) return;
-  if (!confirm('Tallennetaanko kauden ' + K.vuosi + ' kausikuva? Kuvaa ei voi muuttaa tallennuksen jälkeen.')) return;
+  if (!confirm((tmHT('Tallennetaanko kauden') + ' ') + K.vuosi + ' kausikuva? Kuvaa ei voi muuttaa tallennuksen jälkeen.')) return;
   const pelaajat = K.data.pelaajat.filter((p) => p.tila !== 'arkistoitu').map((p) => ({ id: p.id, joukkue: p.joukkue || null,
     ikaluokka: p.syntymaVuosi ? (p.sukupuoli === 'N' ? 'T' : 'P') + (K.vuosi - p.syntymaVuosi) : null, sukupuoli: p.sukupuoli || null,
     syntymavuosi: p.syntymaVuosi || null, talenttiOhjelma: p.talenttiOhjelma === true, tila: p.tila || null }));
@@ -2856,12 +2857,12 @@ async function ktTallennaKausikuva() {
     if (tila.kayttaja) await tila.kayttaja.getIdToken(true);
     await db.collection('seurat').doc(K.sid).collection('kausikuvat').doc(String(K.vuosi)).set({ kausi: String(K.vuosi), luotu: firebase.firestore.FieldValue.serverTimestamp(),
       luoja: tila.kayttaja ? tila.kayttaja.uid : null, pelaajat });
-    K.data.kausikuvat.push({ kausi: String(K.vuosi), luotu: new Date().toISOString(), pelaajat }); naytaToast('Kausikuva tallennettu', 'ok'); _ktPiirra();
-  } catch (e) { naytaToast('Tallennus epäonnistui: ' + e.message, 'virhe'); }
+    K.data.kausikuvat.push({ kausi: String(K.vuosi), luotu: new Date().toISOString(), pelaajat }); naytaToast(tmHT('Kausikuva tallennettu'), 'ok'); _ktPiirra();
+  } catch (e) { naytaToast((tmHT('Tallennus epäonnistui:') + ' ') + e.message, 'virhe'); }
 }
 function ktVieRaportti(tyyppi) {
   const w = window.open('', '_blank');   // HETI (ponnahdusesto), sitten sisältö
-  if (!w) { naytaToast('Selain esti raporttiikkunan. Salli ponnahdusikkunat tälle sivulle ja paina uudelleen.', 'virhe'); return; }
+  if (!w) { naytaToast(tmHT('Selain esti raporttiikkunan. Salli ponnahdusikkunat tälle sivulle ja paina uudelleen.'), 'virhe'); return; }
   const K = window._kt; if (!K || !K.malli) { w.close(); return; }
   w.document.open(); w.document.write(TM_KEHITYSTILANNE.raporttiHTML(K.malli, tyyppi)); w.document.close();
 }
@@ -2869,22 +2870,22 @@ function ktVieRaportti(tyyppi) {
 function renderJoukkueet() {
   return `
     <div class="sivuOtsikko">
-      <div class="sivuEyebrow">Joukkueet</div>
-      <div class="sivuH1">Joukkuehallinta</div>
+      <div class="sivuEyebrow">${tmHT('Joukkueet')}</div>
+      <div class="sivuH1">${tmHT('Joukkuehallinta')}</div>
     </div>
     <div class="kortti">
       <div class="korttiHeader">
-        <span class="korttiOtsikko">Seuran joukkueet</span>
-        <button class="lisaaNappi" onclick="avaaJoukkueModal()">+ Lisää joukkue</button>
+        <span class="korttiOtsikko">${tmHT('Seuran joukkueet')}</span>
+        <button class="lisaaNappi" onclick="avaaJoukkueModal()">${tmHT('+ Lisää joukkue')}</button>
       </div>
       ${tila.joukkueet.length === 0
         ? `<div class="tyhjaAlue"><div class="tyhjaIkoni">⚽</div>
-            <div class="tyhjaOtsikko">Ei joukkueita</div>
-            <div class="tyhjaTeksti">Lisää seuran joukkueet ennen pelaajien rekisteröintiä.</div>
+            <div class="tyhjaOtsikko">${tmHT('Ei joukkueita')}</div>
+            <div class="tyhjaTeksti">${tmHT('Lisää seuran joukkueet ennen pelaajien rekisteröintiä.')}</div>
           </div>`
         : `<table>
             <thead><tr>
-              <th>Joukkue</th><th>Ikäluokka</th><th>Vuosi</th><th>ID</th><th>Toiminnot</th>
+              <th>${tmHT('Joukkue')}</th><th>${tmHT('Ikäluokka')}</th><th>${tmHT('Vuosi')}</th><th>ID</th><th>${tmHT('Toiminnot')}</th>
             </tr></thead>
             <tbody>
               ${tila.joukkueet.map(j => `
@@ -2897,11 +2898,11 @@ function renderJoukkueet() {
                     <div style="display:flex;gap:6px;">
                       <button class="toimNappi sininen"
                         onclick="avaaRekisteriModalJoukkueella('${j.id}','${(j.nimi||j.id).replace(/'/g,"\\'")}')">
-                        ✉️ Kutsu
+                        ${tmHT('✉️ Kutsu')}
                       </button>
                       <button class="toimNappi vaara"
                         onclick="poistaJoukkue('${j.id}','${(j.nimi||j.id).replace(/'/g,"\\'")}')">
-                        Poista
+                        ${tmHT('Poista')}
                       </button>
                     </div>
                   </td>
@@ -2917,17 +2918,17 @@ function renderJoukkueet() {
 async function renderHenkilosto(alue) {
   alue.innerHTML = `
     <div class="sivuOtsikko">
-      <div class="sivuEyebrow">Henkilöstö</div>
+      <div class="sivuEyebrow">${tmHT('Henkilöstö')}</div>
       <div class="sivuH1">Käyttäjähallinta</div>
     </div>
     <div class="kortti">
       <div class="korttiHeader">
-        <span class="korttiOtsikko">Seuran henkilöstö</span>
-        <button class="lisaaNappi" onclick="avaaKayttajaModal()">+ Kutsu uusi käyttäjä</button>
+        <span class="korttiOtsikko">${tmHT('Seuran henkilöstö')}</span>
+        <button class="lisaaNappi" onclick="avaaKayttajaModal()">${tmHT('+ Kutsu uusi käyttäjä')}</button>
       </div>
       <div id="henkilostoListaAlue" style="padding:20px;color:var(--ink3);font-size:13px;">
         <div style="display:flex;align-items:center;gap:10px;">
-          <div class="spinner"></div> Ladataan...
+          <div class="spinner"></div> ${tmHT('Ladataan...')}
         </div>
       </div>
     </div>`;
@@ -2946,14 +2947,14 @@ async function renderHenkilosto(alue) {
       alueEl.innerHTML = `
         <div class="tyhjaAlue">
           <div class="tyhjaIkoni">🧑‍🏫</div>
-          <div class="tyhjaOtsikko">Ei henkilöstöä</div>
-          <div class="tyhjaTeksti">Kutsu valmentajia, testivastaavia tai muuta henkilöstöä.</div>
+          <div class="tyhjaOtsikko">${tmHT('Ei henkilöstöä')}</div>
+          <div class="tyhjaTeksti">${tmHT('Kutsu valmentajia, testivastaavia tai muuta henkilöstöä.')}</div>
         </div>`;
       return;
     }
 
     const rooliNimet = {
-      vp:'Valmennuspäällikkö', seurasihteeri:'Seurasihteeri', urheilutoimenjohtaja:'UTJ',
+      vp:tmHT('Valmennuspäällikkö'), seurasihteeri:'Seurasihteeri', urheilutoimenjohtaja:'UTJ',
       valmentaja:'Valmentaja', talenttivalmentaja:'Talent.val.',
       fysiikkavalmentaja:'Fysiikkaval.', testivastaava:'Testivastaava',
       fysioterapeutti:'Fysioterapeutti',
@@ -2974,7 +2975,7 @@ async function renderHenkilosto(alue) {
     alueEl.innerHTML = `
       <table>
         <thead><tr>
-          <th>Nimi / Sähköposti</th><th>Rooli</th><th>Joukkue</th><th>Claims</th><th>Toiminnot</th>
+          <th>${tmHT('Nimi / Sähköposti')}</th><th>Rooli</th><th>${tmHT('Joukkue')}</th><th>Claims</th><th>${tmHT('Toiminnot')}</th>
         </tr></thead>
         <tbody>
           ${henkilot.map((h, hi) => `
@@ -2983,7 +2984,7 @@ async function renderHenkilosto(alue) {
               <td>
                 <div>${henkiloNimi(h)}</div>
                 <div style="font-size:11px;color:var(--ink3);">${h.email || HENKILO_EI_EMAILIA}</div>
-                ${h.puhelin ? ('<div style="font-size:11px;color:var(--ink3);">📞 ' + (h.suuntakoodi||'+358') + ' ' + h.puhelin + '</div>') : '<div style="font-size:11px;color:var(--amber);">📞 ei puhelinta</div>'}
+                ${h.puhelin ? ('<div style="font-size:11px;color:var(--ink3);">📞 ' + (h.suuntakoodi||'+358') + ' ' + h.puhelin + '</div>') : '<div style="font-size:11px;color:var(--amber);">' + tmHT('📞 ei puhelinta') + '</div>'}
               </td>
               <td><span class="badge ${rooliLuokat[h.rooli]||'muu'}">${rooliNimet[h.rooli]||h.rooli||'—'}</span></td>
               <td style="font-size:12px;color:var(--ink3);">${_escHtml(tmHenkiloJoukkueTeksti(h, '—'))}</td>
@@ -3002,7 +3003,7 @@ async function renderHenkilosto(alue) {
                     data-rooli="${(h.rooli||'').replace(/"/g,'&quot;')}"
                     data-joukkueet="${JSON.stringify(h.joukkueet||[h.joukkue].filter(Boolean)).replace(/"/g,'&quot;')}"
                     onclick="avaaHenkiloMuokkausNapista(this)">
-                    Muokkaa
+                    ${tmHT('Muokkaa')}
                   </button>
                   <button class="toimNappi"
                     data-uid="${h.id}"
@@ -3011,10 +3012,10 @@ async function renderHenkilosto(alue) {
                     data-suuntakoodi="${(h.suuntakoodi||'+358').replace(/"/g,'&quot;')}"
                     data-puhelin="${(h.puhelin||'').replace(/"/g,'&quot;')}"
                     onclick="lahetaSalasanaResetNapista(this)">
-                    Salasana
+                    ${tmHT('Salasana')}
                   </button>
                   ${h.aktiivinen === false
-                    ? `<button class="toimNappi" data-uid="${h.id}" data-email="${(h.email||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;')}" onclick="aktivoiKayttajaNapista(this)">Aktivoi</button>`
+                    ? `<button class="toimNappi" data-uid="${h.id}" data-email="${(h.email||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;')}" onclick="aktivoiKayttajaNapista(this)">${tmHT('Aktivoi')}</button>`
                     : `<button class="toimNappi vaara" data-uid="${h.id}" data-email="${(h.email||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;')}" onclick="deaktivoiKayttajaNapista(this)">Deaktivoi</button>`}
                 </div>
               </td>
@@ -3026,7 +3027,7 @@ async function renderHenkilosto(alue) {
     const alueEl2 = document.getElementById('henkilostoListaAlue');
     if (alueEl2) alueEl2.innerHTML = `
       <div style="padding:20px;color:var(--red);font-size:13px;">
-        Henkilöstön lataus epäonnistui: ${e.message || 'Tarkista yhteys ja kirjautuminen.'}
+        ${tmHT('Henkilöstön lataus epäonnistui:')} ${e.message || tmHT('Tarkista yhteys ja kirjautuminen.')}
       </div>`;
   }
 }
@@ -3067,11 +3068,11 @@ function _brandiKontrasti(h1, h2) {
 async function renderBrandi(alue) {
   alue.innerHTML =
     '<div class="sivuOtsikko">' +
-      '<div class="sivuEyebrow">Asetukset</div>' +
+      '<div class="sivuEyebrow">' + tmHT('Asetukset') + '</div>' +
       '<div class="sivuH1">Brändi</div>' +
     '</div>' +
     '<div class="kortti"><div style="padding:20px;color:var(--ink3);font-size:13px;">' +
-      '<div style="display:flex;align-items:center;gap:10px;"><div class="spinner"></div> Ladataan...</div>' +
+      '<div style="display:flex;align-items:center;gap:10px;"><div class="spinner"></div> ' + tmHT('Ladataan...') + '</div>' +
     '</div></div>';
 
   var b = {};
@@ -3089,29 +3090,29 @@ async function renderBrandi(alue) {
 
   var html = '';
   html += '<div class="sivuOtsikko">';
-  html += '<div class="sivuEyebrow">Asetukset</div>';
+  html += '<div class="sivuEyebrow">' + tmHT('Asetukset') + '</div>';
   html += '<div class="sivuH1">Brändi</div>';
   html += '</div>';
 
   // LOGO-kortti
   html += '<div class="kortti">';
-  html += '<div class="korttiHeader"><span class="korttiOtsikko">Seuran logo</span></div>';
+  html += '<div class="korttiHeader"><span class="korttiOtsikko">' + tmHT('Seuran logo') + '</span></div>';
   html += '<div style="padding:20px;">';
   html += '<div id="brandiLogoPreview" style="margin-bottom:14px;">';
   if (_brandiLogoUrl) {
     html += '<img src="' + _brandiLogoUrl + '" alt="Seuran logo" style="max-height:80px;max-width:260px;border-radius:8px;background:var(--bg);padding:8px;border:1px solid var(--border);">';
   } else {
-    html += '<div style="color:var(--ink3);font-size:13px;">Ei logoa ladattuna.</div>';
+    html += '<div style="color:var(--ink3);font-size:13px;">' + tmHT('Ei logoa ladattuna.') + '</div>';
   }
   html += '</div>';
   html += '<div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;">';
   html += '<input type="file" id="brandiLogo" accept="image/*" style="color:var(--ink2);font-size:13px;">';
-  html += '<button class="nappi teal" style="width:auto;margin-top:0;padding:9px 16px;" onclick="_brandiLataaLogo()">Lataa logo</button>';
+  html += '<button class="nappi teal" style="width:auto;margin-top:0;padding:9px 16px;" onclick="_brandiLataaLogo()">' + tmHT('Lataa logo') + '</button>';
   if (_brandiLogoUrl) {
-    html += '<button class="nappi" style="width:auto;margin-top:0;padding:9px 16px;background:var(--bg);border:1px solid var(--bord2);color:var(--ink2);" onclick="_brandiPoistaLogo()">Poista logo</button>';
+    html += '<button class="nappi" style="width:auto;margin-top:0;padding:9px 16px;background:var(--bg);border:1px solid var(--bord2);color:var(--ink2);" onclick="_brandiPoistaLogo()">' + tmHT('Poista logo') + '</button>';
   }
   html += '</div>';
-  html += '<div style="color:var(--ink3);font-size:11px;margin-top:8px;">Max 5 MB. JPG, PNG, SVG tai WebP.</div>';
+  html += '<div style="color:var(--ink3);font-size:11px;margin-top:8px;">' + tmHT('Max 5 MB. JPG, PNG, SVG tai WebP.') + '</div>';
   html += '</div></div>';
 
   // VÄRI-kortti
@@ -3139,13 +3140,13 @@ async function renderBrandi(alue) {
 
   // Live esikatselu
   html += '<div style="margin-top:8px;">';
-  html += '<div class="kenttaLabel" style="margin-bottom:8px;">Live-esikatselu</div>';
-  html += '<button id="brandiEsikatselu" style="border:none;border-radius:8px;padding:11px 18px;font-size:14px;font-weight:600;cursor:default;background:' + accent + ';color:' + ink + ';">Tallenna arviointi</button>';
+  html += '<div class="kenttaLabel" style="margin-bottom:8px;">' + tmHT('Live-esikatselu') + '</div>';
+  html += '<button id="brandiEsikatselu" style="border:none;border-radius:8px;padding:11px 18px;font-size:14px;font-weight:600;cursor:default;background:' + accent + ';color:' + ink + ';">' + tmHT('Tallenna arviointi') + '</button>';
   html += '<div id="brandiKontrasti" style="font-size:12px;color:var(--ink3);margin-top:8px;"></div>';
   html += '</div>';
 
   html += '<div style="margin-top:20px;">';
-  html += '<button class="nappi teal" style="width:auto;margin-top:0;padding:10px 22px;" onclick="_brandiTallenna()">Tallenna</button>';
+  html += '<button class="nappi teal" style="width:auto;margin-top:0;padding:10px 22px;" onclick="_brandi' + tmHT('Tallenna') + '()">Tallenna</button>';
   html += '</div>';
 
   html += '</div></div>';
@@ -3193,7 +3194,7 @@ window._brandiPaivitaEsikatselu = function () {
     var tausta = _brandiKontrasti(accent, '#161614');
     var ok = teksti >= 4.5 && tausta >= 3.0;
     info.innerHTML =
-      'Kontrasti teksti/aksentti: <strong style="color:' + (teksti >= 4.5 ? 'var(--teal)' : 'var(--amber)') + ';">' + teksti.toFixed(2) + ':1</strong> · ' +
+      '' + tmHT('Kontrasti teksti/aksentti:') + ' <strong style="color:' + (teksti >= 4.5 ? 'var(--teal)' : 'var(--amber)') + ';">' + teksti.toFixed(2) + ':1</strong> · ' +
       'aksentti/tausta: <strong style="color:' + (tausta >= 3.0 ? 'var(--teal)' : 'var(--amber)') + ';">' + tausta.toFixed(2) + ':1</strong>' +
       (ok ? '' : ' — alle saavutettavuusvaatimuksen (4.5:1 / 3.0:1)');
   }
@@ -3202,12 +3203,12 @@ window._brandiPaivitaEsikatselu = function () {
 window._brandiLataaLogo = async function () {
   var inp = document.getElementById('brandiLogo');
   var file = inp && inp.files && inp.files[0];
-  if (!file) { naytaToast('Valitse ensin kuvatiedosto.', 'varoitus'); return; }
+  if (!file) { naytaToast(tmHT('Valitse ensin kuvatiedosto.'), 'varoitus'); return; }
   if (!(file.type && file.type.indexOf('image/') === 0)) {
-    naytaToast('Tiedoston on oltava kuva.', 'varoitus'); return;
+    naytaToast(tmHT('Tiedoston on oltava kuva.'), 'varoitus'); return;
   }
   if (!(file.size < 5 * 1024 * 1024)) {
-    naytaToast('Kuva on liian suuri (max 5 MB).', 'varoitus'); return;
+    naytaToast(tmHT('Kuva on liian suuri (max 5 MB).'), 'varoitus'); return;
   }
   var ext = '';
   var dot = file.name.lastIndexOf('.');
@@ -3225,16 +3226,16 @@ window._brandiLataaLogo = async function () {
     if (prev) {
       prev.innerHTML = '<img src="' + url + '" alt="Seuran logo" style="max-height:80px;max-width:260px;border-radius:8px;background:var(--bg);padding:8px;border:1px solid var(--border);">';
     }
-    naytaToast('Logo ladattu', 'ok');
+    naytaToast(tmHT('Logo ladattu'), 'ok');
   } catch (e) {
-    naytaToast('Logon lataus epäonnistui: ' + (e && e.message ? e.message : e), 'virhe');
+    naytaToast((tmHT('Logon lataus epäonnistui:') + ' ') + (e && e.message ? e.message : e), 'virhe');
   }
 };
 
 window._brandiPoistaLogo = function () {
   _brandiLogoUrl = null;
   var prev = document.getElementById('brandiLogoPreview');
-  if (prev) prev.innerHTML = '<div style="color:var(--ink3);font-size:13px;">Ei logoa ladattuna.</div>';
+  if (prev) prev.innerHTML = '<div style="color:var(--ink3);font-size:13px;">' + tmHT('Ei logoa ladattuna.') + '</div>';
   naytaToast('Logo poistettu — muista tallentaa.', 'varoitus');
 };
 
@@ -3248,7 +3249,7 @@ window._brandiTallenna = async function () {
   // Kontrastivalidointi (pakollinen) — saavutettavuus
   if (_brandiKontrasti(accent_hex, accent_paalle) < 4.5 ||
       _brandiKontrasti(accent_hex, '#161614') < 3.0) {
-    naytaToast('Väri ei täytä saavutettavuusvaatimusta (kontrasti < 4.5:1) — käytetään oletusväriä.', 'varoitus');
+    naytaToast(tmHT('Väri ei täytä saavutettavuusvaatimusta (kontrasti < 4.5:1) — käytetään oletusväriä.'), 'varoitus');
     accent_hex = '#28B090';
     accent_paalle = '#FFFFFF';
   }
@@ -3262,10 +3263,10 @@ window._brandiTallenna = async function () {
         accent_paalle_teksti_hex: accent_paalle,
         paivitetty: firebase.firestore.FieldValue.serverTimestamp()
       }, { merge: true });
-    naytaToast('Brändi tallennettu', 'ok');
+    naytaToast(tmHT('Brändi tallennettu'), 'ok');
     renderBrandi(document.getElementById('nakymaAlue'));
   } catch (e) {
-    naytaToast('Tallennus epäonnistui: ' + (e && e.message ? e.message : e), 'virhe');
+    naytaToast((tmHT('Tallennus epäonnistui:') + ' ') + (e && e.message ? e.message : e), 'virhe');
   }
 };
 
@@ -3277,18 +3278,18 @@ function renderSopimukset() {
   const tasot = [
     {
       id: 'perustaso', nimi: 'Perustaso', vari: '--blue',
-      kuvaus: 'Perusrekisteri, joukkuehallinta ja rekisteröintikutsut huoltajille.',
+      kuvaus: tmHT('Perusrekisteri, joukkuehallinta ja rekisteröintikutsut huoltajille.'),
       ominaisuudet: ['Pelaajahallinta', 'Joukkuehallinta', 'Rekisteröintikutsut', 'GDPR-suostumuslomake'],
     },
     {
       id: 'kehitystaso', nimi: 'Kehitystaso', vari: '--teal',
-      kuvaus: 'Kaikki Perustason ominaisuudet + harjoitettavuuskartoitus ja IDP-kortit.',
-      ominaisuudet: ['Kehon valmius -harjoitettavuuskartoitus', 'IDP-kehityskortti v3', 'Valmentajan kenttähavainnot', 'PHV-seuranta'],
+      kuvaus: tmHT('Kaikki Perustason ominaisuudet + harjoitettavuuskartoitus ja IDP-kortit.'),
+      ominaisuudet: [tmHT('Kehon valmius -harjoitettavuuskartoitus'), 'IDP-kehityskortti v3', tmHT('Valmentajan kenttähavainnot'), 'PHV-seuranta'],
     },
     {
       id: 'huipputaso', nimi: 'Huipputaso', vari: '--amber',
-      kuvaus: 'Kaikki ominaisuudet — talenttitunnistus, biologinen ikä ja täysi 5D-viitekehys.',
-      ominaisuudet: ['Talenttitunnistus (HPP ELITE)', 'Biologinen ikä (Mirwald 2002)', 'Pelaajaprofiili (Railgun/Maestro/Shadowstep/Titan)', 'Täysi 5D-arviointikehys'],
+      kuvaus: tmHT('Kaikki ominaisuudet — talenttitunnistus, biologinen ikä ja täysi 5D-viitekehys.'),
+      ominaisuudet: ['Talenttitunnistus (HPP ELITE)', tmHT('Biologinen ikä (Mirwald 2002)'), 'Pelaajaprofiili (Railgun/Maestro/Shadowstep/Titan)', tmHT('Täysi 5D-arviointikehys')],
     },
   ];
   const tasoHTML = tasot.map(t => `
@@ -3301,7 +3302,7 @@ function renderSopimukset() {
           <span style="font-size:13px;font-weight:700;color:var(--ink);">${t.nimi}</span>
           <span id="taso-${t.id}-badge" style="display:none;font-size:10px;font-weight:700;
             padding:2px 8px;border-radius:4px;background:rgba(40,176,144,.15);color:var(--teal);
-            text-transform:uppercase;letter-spacing:.5px;">Aktiivinen</span>
+            text-transform:uppercase;letter-spacing:.5px;">${tmHT('Aktiivinen')}</span>
         </div>
         <div style="font-size:12px;color:var(--ink3);margin-bottom:8px;">${t.kuvaus}</div>
         <div style="display:flex;flex-wrap:wrap;gap:6px;">
@@ -3312,8 +3313,8 @@ function renderSopimukset() {
     </div>`).join('');
   return `
     <div class="sivuOtsikko">
-      <div class="sivuEyebrow">Sopimukset ja tasot</div>
-      <div class="sivuH1">Seuran taso ja Palloliiton kori</div>
+      <div class="sivuEyebrow">${tmHT('Sopimukset ja tasot')}</div>
+      <div class="sivuH1">${tmHT('Seuran taso ja Palloliiton kori')}</div>
     </div>
     <div class="kortti" style="margin-bottom:20px;">
       <div class="korttiHeader">
@@ -3321,7 +3322,7 @@ function renderSopimukset() {
           <span class="korttiOtsikko">TalentMaster-taso</span>
           <div style="font-size:11px;color:var(--ink3);margin-top:2px;">Määrittää mitä ominaisuuksia seuralla on käytettävissä</div>
         </div>
-        <span id="tm-taso-badge" style="font-size:12px;color:var(--ink3);">Ladataan...</span>
+        <span id="tm-taso-badge" style="font-size:12px;color:var(--ink3);">${tmHT('Ladataan...')}</span>
       </div>
       ${tasoHTML}
     </div>
@@ -3329,9 +3330,9 @@ function renderSopimukset() {
       <div class="korttiHeader">
         <div>
           <span class="korttiOtsikko">Palloliiton kori</span>
-          <div style="font-size:11px;color:var(--ink3);margin-top:2px;">Seuran ja Palloliiton välinen kehityssopimustaso — hallinnoidaan Palloliiton kanssa</div>
+          <div style="font-size:11px;color:var(--ink3);margin-top:2px;">${tmHT('Seuran ja Palloliiton välinen kehityssopimustaso — hallinnoidaan Palloliiton kanssa')}</div>
         </div>
-        <span id="kori-badge" style="font-size:12px;color:var(--ink3);">Ladataan...</span>
+        <span id="kori-badge" style="font-size:12px;color:var(--ink3);">${tmHT('Ladataan...')}</span>
       </div>
       <div style="padding:20px;">
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;">
@@ -3350,11 +3351,11 @@ function renderSopimukset() {
     </div>
     <div class="kortti">
       <div class="korttiHeader">
-        <span class="korttiOtsikko">📋 Pelaajien suostumustilanne</span>
-        <span id="sopimukset-lkm" style="font-size:12px;color:var(--ink3);">Ladataan...</span>
+        <span class="korttiOtsikko">${tmHT('📋 Pelaajien suostumustilanne')}</span>
+        <span id="sopimukset-lkm" style="font-size:12px;color:var(--ink3);">${tmHT('Ladataan...')}</span>
       </div>
       <div id="sopimukset-lista" style="padding:20px;color:var(--ink3);font-size:13px;">
-        <div style="display:flex;align-items:center;gap:10px;"><div class="spinner"></div> Ladataan...</div>
+        <div style="display:flex;align-items:center;gap:10px;"><div class="spinner"></div> ${tmHT('Ladataan...')}</div>
       </div>
     </div>
   `;
@@ -3387,15 +3388,15 @@ async function lataaKoriJaTasoTiedot() {
     const palloKori = seuraData.palloliittoKori || seuraData.kori || null;
     const koriNimet = {'1':'Kori 1','2':'Kori 2','3':'Kori 3'};
     const koriKuvaukset = {
-      '1': 'Seura on Palloliiton Korissa 1 (perusvaihe). TalentMaster Perustaso tukee tämän tason vaatimusten täyttämistä.',
-      '2': 'Seura on Palloliiton Korissa 2 (kehitysvaihe). TalentMaster Kehitystaso tukee Korin 2 vaatimuksia IDP-korteilla ja harjoitettavuuskartoituksella.',
-      '3': 'Seura on Palloliiton Korissa 3 (huippuvaihe). TalentMaster Huipputaso on suunniteltu Korin 3 vaatimuksia varten — talenttitunnistus, biologinen ikä ja täysi 5D-arviointi.',
+      '1': tmHT('Seura on Palloliiton Korissa 1 (perusvaihe). TalentMaster Perustaso tukee tämän tason vaatimusten täyttämistä.'),
+      '2': tmHT('Seura on Palloliiton Korissa 2 (kehitysvaihe). TalentMaster Kehitystaso tukee Korin 2 vaatimuksia IDP-korteilla ja harjoitettavuuskartoituksella.'),
+      '3': tmHT('Seura on Palloliiton Korissa 3 (huippuvaihe). TalentMaster Huipputaso on suunniteltu Korin 3 vaatimuksia varten — talenttitunnistus, biologinen ikä ja täysi 5D-arviointi.'),
     };
     const koriBadge = document.getElementById('kori-badge');
     if (koriBadge) koriBadge.innerHTML = palloKori
       ? `<span style="font-size:11px;font-weight:700;padding:3px 10px;border-radius:4px;
           background:rgba(42,93,176,.12);color:var(--blue);">${koriNimet[palloKori]||'Kori '+palloKori}</span>`
-      : `<span style="font-size:11px;color:var(--ink3);">Ei asetettu</span>`;
+      : `<span style="font-size:11px;color:var(--ink3);">${tmHT('Ei asetettu')}</span>`;
     if (palloKori) {
       const kortti = document.getElementById('kori-'+palloKori+'-kortti');
       if (kortti) { kortti.style.background='rgba(42,93,176,.08)'; kortti.style.borderColor='rgba(42,93,176,.4)'; }
@@ -3419,8 +3420,8 @@ async function lataaKoriJaTasoTiedot() {
     if (pelaajat.length === 0) {
       lista.innerHTML = `<div class="tyhjaAlue" style="min-height:20vh;">
         <div class="tyhjaIkoni">📋</div>
-        <div class="tyhjaOtsikko">Ei pelaajia</div>
-        <div class="tyhjaTeksti">Lähetä rekisteröintikutsuja jotta suostumusdata kertyy.</div>
+        <div class="tyhjaOtsikko">${tmHT('Ei pelaajia')}</div>
+        <div class="tyhjaTeksti">${tmHT('Lähetä rekisteröintikutsuja jotta suostumusdata kertyy.')}</div>
       </div>`;
       return;
     }
@@ -3428,31 +3429,31 @@ async function lataaKoriJaTasoTiedot() {
       <div style="display:flex;gap:24px;margin-bottom:20px;flex-wrap:wrap;">
         <div style="text-align:center;">
           <div style="font-family:'Cormorant Garamond',serif;font-size:36px;font-weight:300;color:var(--teal);">${annettu.length}</div>
-          <div style="font-size:11px;color:var(--ink3);margin-top:2px;">Suostumus annettu</div>
+          <div style="font-size:11px;color:var(--ink3);margin-top:2px;">${tmHT('Suostumus annettu')}</div>
         </div>
         ${pilotti.length > 0 ? `
         <div style="text-align:center;">
           <div style="font-family:'Cormorant Garamond',serif;font-size:36px;font-weight:300;color:var(--blue);">${pilotti.length}</div>
-          <div style="font-size:11px;color:var(--ink3);margin-top:2px;">Pilotti (ei kutsua)</div>
+          <div style="font-size:11px;color:var(--ink3);margin-top:2px;">${tmHT('Pilotti (ei kutsua)')}</div>
         </div>` : ''}
         <div style="text-align:center;">
           <div style="font-family:'Cormorant Garamond',serif;font-size:36px;font-weight:300;color:var(--amber);">${odottaa.length}</div>
-          <div style="font-size:11px;color:var(--ink3);margin-top:2px;">Odottaa suostumusta</div>
+          <div style="font-size:11px;color:var(--ink3);margin-top:2px;">${tmHT('Odottaa suostumusta')}</div>
         </div>
         <div style="text-align:center;">
           <div style="font-family:'Cormorant Garamond',serif;font-size:32px;font-weight:700;color:var(--ink3);">${pelaajat.length}</div>
-          <div style="font-size:11px;color:var(--ink3);margin-top:2px;">Yhteensä</div>
+          <div style="font-size:11px;color:var(--ink3);margin-top:2px;">${tmHT('Yhteensä')}</div>
         </div>
       </div>
       <table>
-        <thead><tr><th>Pelaaja</th><th>Joukkue</th><th>Huoltajan sähköposti</th><th>Suostumustila</th></tr></thead>
+        <thead><tr><th>${tmHT('Pelaaja')}</th><th>${tmHT('Joukkue')}</th><th>${tmHT('Huoltajan sähköposti')}</th><th>Suostumustila</th></tr></thead>
         <tbody>
           ${pelaajat.sort((a,b)=>(a.sukunimi||'').localeCompare(b.sukunimi||'')).map(p => {
             const nimi = (p.etunimi||'')+' '+(p.sukunimi||'');
             const onAnnettu  = p.suostumusTila==='annettu'||!!p.suostumus?.annettu;
             const onPilotti  = !onAnnettu && p.suostumusTila==='pilotti';
             const badgeLuokka = onAnnettu ? 'ok' : onPilotti ? 'pilotti' : 'odottaa';
-            const badgeTeksti = onAnnettu ? '✓ Annettu' : onPilotti ? '🔬 Pilotti' : '⏳ Odottaa';
+            const badgeTeksti = onAnnettu ? tmHT('✓ Annettu') : onPilotti ? '🔬 Pilotti' : tmHT('⏳ Odottaa');
             return `<tr>
               <td>${nimi.trim() || HENKILO_NIMETON}</td>
               <td style="color:var(--ink3);">${p.joukkue||'—'}</td>
@@ -3511,7 +3512,7 @@ function avaaRekisteriModalPelaajalle(pelaajaId, etunimi, sukunimi, joukkue, hEm
     tila._rekPelaajaId = pelaajaId;
     // Päivitä otsikko
     var kuvaus = document.querySelector('#rekisteriModal .modalKuvaus');
-    if (kuvaus) kuvaus.innerHTML = 'Lähetä rekisteröintikutsu pelaajalle <strong>' + etunimi + ' ' + sukunimi + '</strong>.';
+    if (kuvaus) kuvaus.innerHTML = '' + tmHT('Lähetä rekisteröintikutsu pelaajalle') + ' <strong>' + etunimi + ' ' + sukunimi + '</strong>.';
   }, 50);
 }
 
@@ -3524,7 +3525,7 @@ function avaaRekisteriModalJoukkueella(joukkueId, joukkueNimi) {
     // Lisähyöty: kerrotaan käyttäjälle mille joukkueelle kutsu menee
     const kuvaus = document.querySelector('#rekisteriModal .modalKuvaus');
     if (kuvaus && joukkueNimi) {
-      kuvaus.innerHTML = `Luo kutsulink​ki vanhemmalle joukkueelle <strong style="color:var(--teal)">${joukkueNimi}</strong>.
+      kuvaus.innerHTML = `${tmHT('Luo kutsulink​ki vanhemmalle joukkueelle')} <strong style="color:var(--teal)">${joukkueNimi}</strong>.
         Vanhempi täyttää pelaajan tiedot ja antaa GDPR-suostumuksen.
         Pelaaja tallentuu automaattisesti järjestelmään.`;
     }
@@ -3540,12 +3541,12 @@ function luoRekisteriLinkki() {
   const sporttiId = document.getElementById('rek_sporttiId')?.value?.trim() || '';
 
   if (!hEmail) {
-    naytaModalVirhe('rekisteriVirhe', 'Huoltajan sähköposti on pakollinen.');
+    naytaModalVirhe('rekisteriVirhe', tmHT('Huoltajan sähköposti on pakollinen.'));
     return;
   }
   if (tmOnPaikkamerkkiOsoite(hEmail)) { naytaModalVirhe('rekisteriVirhe', PAIKKAMERKKI_SYY + '.'); return; }
   if (!joukkue) {
-    naytaModalVirhe('rekisteriVirhe', 'Valitse joukkue.');
+    naytaModalVirhe('rekisteriVirhe', tmHT('Valitse joukkue.'));
     return;
   }
 
@@ -3608,7 +3609,7 @@ function luoRekisteriLinkki() {
     waBtn.disabled = false;
     waBtn.textContent = nayttoNro
       ? `💬 Lähetä WhatsApp (${nayttoNro})`
-      : '💬 Jaa WhatsAppissa';
+      : tmHT('💬 Jaa WhatsAppissa');
   }
 
   naytaToast('Kutsulink​ki luotu!', 'ok');
@@ -3633,7 +3634,7 @@ async function lahetaRekisteriSahkoposti() {
   const _joukkue   = _joukkueEl?.options?.[_joukkueEl?.selectedIndex]?.text || _joukkueEl?.value || '';
 
   if (!hEmail || !hEmail.includes('@')) {
-    naytaToast('Täytä huoltajan sähköpostiosoite ensin.', 'virhe');
+    naytaToast(tmHT('Täytä huoltajan sähköpostiosoite ensin.'), 'virhe');
     return;
   }
   if (tmOnPaikkamerkkiOsoite(hEmail)) { naytaToast(PAIKKAMERKKI_SYY + '.', 'virhe'); return; }
@@ -3646,7 +3647,7 @@ async function lahetaRekisteriSahkoposti() {
   if (_uusP && _suostumusAnnettu(_uusP)) {
     const _pvm = _suostumusPvm(_uusP);
     const _pvmTeksti = _pvm ? _pvm.getDate() + '.' + (_pvm.getMonth() + 1) + '.' + _pvm.getFullYear() : '';
-    if (!confirm(_tk('seura.uusinta_vahvistus', 'Suostumus on jo annettu {pvm}. Lähetetäänkö huoltajalle suostumuksen uusimispyyntö?',
+    if (!confirm(_tk('seura.uusinta_vahvistus', tmHT('Suostumus on jo annettu {pvm}. Lähetetäänkö huoltajalle suostumuksen uusimispyyntö?'),
       { pvm: _pvmTeksti }).replace(/ \./, '.'))) return;
     _uusintaParam = _pvm ? _pvm.getFullYear() + '-' + String(_pvm.getMonth() + 1).padStart(2, '0') + '-' + String(_pvm.getDate()).padStart(2, '0') : 'annettu';
   }
@@ -3694,11 +3695,11 @@ async function lahetaRekisteriSahkoposti() {
       if (!pelaajaId) {
         const dup = _rekDuplikaatti(etunimi, sukunimi, null);
         if (dup) {
-          const luoSilti = confirm('Tämä pelaaja näyttää olevan jo rekisterissä: ' + ((dup.etunimi || '') + ' ' + (dup.sukunimi || '')).trim()
+          const luoSilti = confirm((tmHT('Tämä pelaaja näyttää olevan jo rekisterissä:') + ' ') + ((dup.etunimi || '') + ' ' + (dup.sukunimi || '')).trim()
             + (dup.syntymaVuosi ? ' (s. ' + dup.syntymaVuosi + ')' : '') + (dup.joukkue ? ', ' + dup.joukkue : '') + '.\n\n'
             + 'OK = Luo silti uusi pelaaja\nPeruuta = Avaa olemassa oleva');
           if (!luoSilti) {
-            nappi.disabled = false; nappi.textContent = 'Lähetä sähköpostilla';
+            nappi.disabled = false; nappi.textContent = tmHT('Lähetä sähköpostilla');
             document.getElementById('rekisteriModal').classList.remove('auki');
             naytaPelaajaTiedot(dup.id);
             return;
@@ -3741,8 +3742,8 @@ async function lahetaRekisteriSahkoposti() {
 
         /* Suostumus ennen PIN:iä (1.10.2026): uusi pelaaja on tilassa 'odottaa' → PIN:iä EI luoda nyt.
            Palvelin luo sen automaattisesti, kun huoltaja antaa suostumuksen (vahvistaSuostumus). */
-        naytaToast('✅ Pelaaja luotu. PIN luodaan automaattisesti, kun huoltaja antaa suostumuksen'
-          + (syotettyPin ? ' (syötettyä PIN:iä ei käytetty).' : '.'), 'ok');
+        naytaToast(tmHT('✅ Pelaaja luotu. PIN luodaan automaattisesti, kun huoltaja antaa suostumuksen')
+          + (syotettyPin ? (' ' + tmHT('(syötettyä PIN:iä ei käytetty).')) : '.'), 'ok');
         console.log(`[TM] Pelaaja ${etunimi} ${sukunimi} luotu, PalloID: ${palloIdArvo}`);
       } else {
         // Päivitetään olemassa oleva dokumentti — §33: EI saa alentaa jo annettua suostumusta (suostumusTila ei tässä).
@@ -3811,15 +3812,15 @@ async function lahetaRekisteriSahkoposti() {
         sukunimi: sukunimi,
         joukkue:  joukkue,
       });
-      nappi.textContent = '✓ Lähetetty';
+      nappi.textContent = tmHT('✓ Lähetetty');
       nappi.style.background = 'var(--teal)';
       nappi.style.color = '#000';
       nappi.style.opacity = '1';
-      naytaToast('✅ Rekisteröintikutsu lähetetty osoitteeseen ' + tila._rekHEmail, 'ok');
+      naytaToast((tmHT('✅ Rekisteröintikutsu lähetetty osoitteeseen') + ' ') + tila._rekHEmail, 'ok');
     } catch(fnErr) {
       console.warn('[Kutsu] Sähköposti epäonnistui:', fnErr.message);
-      naytaToast('⚠️ Tallennettu mutta sähköposti ei lähtenyt: ' + fnErr.message, 'virhe');
-      nappi.textContent = 'Tallennettu ✓';
+      naytaToast((tmHT('⚠️ Tallennettu mutta sähköposti ei lähtenyt:') + ' ') + fnErr.message, 'virhe');
+      nappi.textContent = tmHT('Tallennettu ✓');
       naytaToast(`Kutsu tallennettu: ${tila._rekHEmail}`, 'ok');
     }
 
@@ -3833,8 +3834,8 @@ async function lahetaRekisteriSahkoposti() {
 
   } catch (virhe) {
     nappi.disabled    = false;
-    nappi.textContent = 'Lähetä sähköpostilla';
-    naytaToast('Tallennus epäonnistui: ' + virhe.message, 'virhe');
+    nappi.textContent = tmHT('Lähetä sähköpostilla');
+    naytaToast((tmHT('Tallennus epäonnistui:') + ' ') + virhe.message, 'virhe');
     console.error('[Kutsu] Virhe:', virhe);
   }
 }
@@ -3842,8 +3843,8 @@ async function lahetaRekisteriSahkoposti() {
 function kopioriLinkki() {
   if (!tila._rekLinkki) return;
   navigator.clipboard.writeText(tila._rekLinkki)
-    .then(() => naytaToast('Linkki kopioitu leikepöydälle!', 'ok'))
-    .catch(() => naytaToast('Kopioi linkki manuaalisesti', 'virhe'));
+    .then(() => naytaToast(tmHT('Linkki kopioitu leikepöydälle!'), 'ok'))
+    .catch(() => naytaToast(tmHT('Kopioi linkki manuaalisesti'), 'virhe'));
 }
 
 function avaaLinkki() {
@@ -3863,7 +3864,7 @@ function avaaJoukkueModal() {
   ['jouk_nimi','jouk_ika','jouk_id','jouk_vuosi']
     .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
   document.getElementById('joukkueVirhe').classList.remove('nakyvilla');
-  document.getElementById('joukkueModalOtsikko').textContent = 'Lisää joukkue';
+  document.getElementById('joukkueModalOtsikko').textContent = tmHT('Lisää joukkue');
   // Päivitä placeholder kirjautuneen seuran mukaan
   // Käytä tila.seuraNimi:ä dynaamiseen placeholderiin
   const _seuraNimi = tila.seuraNimi || tila.seuraId || 'Seura';
@@ -3875,7 +3876,7 @@ function avaaJoukkueModal() {
   if (idEl)   idEl.placeholder   = 'esim. ' + lyhenne + '_t18';
   // Päivitä ohjeteksti
   const ohjeEl = idEl?.nextElementSibling;
-  if (ohjeEl) ohjeEl.textContent = 'Pieni kirjain, ei välejä (esim. ' + lyhenne + '_t18)';
+  if (ohjeEl) ohjeEl.textContent = (tmHT('Pieni kirjain, ei välejä (esim.') + ' ') + lyhenne + '_t18)';
   document.getElementById('joukkueModal').classList.add('auki');
 }
 
@@ -3908,7 +3909,7 @@ async function tallennaJoukkue() {
   const vuosi = document.getElementById('jouk_vuosi').value.trim();
 
   if (!nimi || !ika || !id) {
-    naytaModalVirhe('joukkueVirhe', 'Nimi, ikäluokka ja ID ovat pakollisia.');
+    naytaModalVirhe('joukkueVirhe', tmHT('Nimi, ikäluokka ja ID ovat pakollisia.'));
     return;
   }
 
@@ -3928,15 +3929,15 @@ async function tallennaJoukkue() {
       });
 
     nappi.disabled    = false;
-    nappi.textContent = 'Tallenna joukkue';
+    nappi.textContent = tmHT('Tallenna joukkue');
     suljeModal('joukkueModal');
     naytaToast(`Joukkue ${nimi} lisätty!`, 'ok');
     // onSnapshot päivittää tila.joukkueet automaattisesti
 
   } catch (virhe) {
     nappi.disabled    = false;
-    nappi.textContent = 'Tallenna joukkue';
-    naytaModalVirhe('joukkueVirhe', 'Tallennus epäonnistui: ' + virhe.message);
+    nappi.textContent = tmHT('Tallenna joukkue');
+    naytaModalVirhe('joukkueVirhe', (tmHT('Tallennus epäonnistui:') + ' ') + virhe.message);
   }
 }
 
@@ -3955,18 +3956,18 @@ function avaaJoukkueMuokkaus(joukkueId, joukkueNimi, ikaryhma, vuosi) {
   modal.innerHTML = `
     <div class="modalSisalto" style="max-width:440px;">
       <div class="modalOtsikko">
-        <span>✏️ Muokkaa joukkuetta</span>
+        <span>${tmHT('✏️ Muokkaa joukkuetta')}</span>
         <button class="modalSuljeNappi" onclick="document.getElementById('joukkueMuokkausModal').classList.remove('auki')">✕</button>
       </div>
 
       <div style="padding:20px;">
         <div style="background:rgba(224,160,64,.08);border:1px solid rgba(224,160,64,.2);
           border-radius:8px;padding:12px 14px;margin-bottom:18px;font-size:12px;color:var(--amber);line-height:1.5;">
-          ⚠️ Nimen muutos päivittää kaikki tähän joukkueeseen kuuluvat pelaajat automaattisesti.
+          ${tmHT('⚠️ Nimen muutos päivittää kaikki tähän joukkueeseen kuuluvat pelaajat automaattisesti.')}
         </div>
 
         <div class="kenttaRyhma" style="margin-bottom:12px;">
-          <label class="kenttaLabel">Joukkueen nimi</label>
+          <label class="kenttaLabel">${tmHT('Joukkueen nimi')}</label>
           <input id="jm_nimi" class="kenttaInput" value="${joukkueNimi}"
             placeholder="esim. SJK P16 Liiga"
             style="font-size:15px;font-weight:600;">
@@ -3974,11 +3975,11 @@ function avaaJoukkueMuokkaus(joukkueId, joukkueNimi, ikaryhma, vuosi) {
 
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:18px;">
           <div class="kenttaRyhma">
-            <label class="kenttaLabel">Ikäryhmä</label>
+            <label class="kenttaLabel">${tmHT('Ikäryhmä')}</label>
             <input id="jm_ikaryhma" class="kenttaInput" value="${ikaryhma}" placeholder="esim. P16">
           </div>
           <div class="kenttaRyhma">
-            <label class="kenttaLabel">Vuosi</label>
+            <label class="kenttaLabel">${tmHT('Vuosi')}</label>
             <input id="jm_vuosi" class="kenttaInput" value="${vuosi}" placeholder="esim. 2025">
           </div>
         </div>
@@ -3988,11 +3989,11 @@ function avaaJoukkueMuokkaus(joukkueId, joukkueNimi, ikaryhma, vuosi) {
         <div style="display:flex;gap:10px;justify-content:flex-end;">
           <button class="toimNappi"
             onclick="document.getElementById('joukkueMuokkausModal').classList.remove('auki')">
-            Peruuta
+            ${tmHT('Peruuta')}
           </button>
           <button class="toimNappi sininen" style="font-weight:700;"
             onclick="tallennaJoukkueMuutos('${joukkueId}','${joukkueNimi}')">
-            💾 Tallenna ja päivitä pelaajat
+            ${tmHT('💾 Tallenna ja päivitä pelaajat')}
           </button>
         </div>
       </div>
@@ -4008,7 +4009,7 @@ async function tallennaJoukkueMuutos(joukkueId, vanhanimi) {
   const uusiVuosi   = document.getElementById('jm_vuosi')?.value.trim();
   const statusEl    = document.getElementById('jm_status');
 
-  if (!uusiNimi) { if (statusEl) statusEl.textContent = 'Nimi ei voi olla tyhjä.'; return; }
+  if (!uusiNimi) { if (statusEl) statusEl.textContent = tmHT('Nimi ei voi olla tyhjä.'); return; }
   if (uusiNimi === vanhanimi && uusiIka && uusiVuosi) {
     // Vain ikaryhma/vuosi muuttui — ei tarvita batch-päivitystä
   }
@@ -4049,10 +4050,10 @@ async function tallennaJoukkueMuutos(joukkueId, vanhanimi) {
       await batch.commit();
       if (statusEl) statusEl.textContent = '✓ Valmis — ' + n + ' pelaajaa päivitetty';
     } else {
-      if (statusEl) statusEl.textContent = '✓ Valmis — ei pelaajia päivitettäväksi';
+      if (statusEl) statusEl.textContent = tmHT('✓ Valmis — ei pelaajia päivitettäväksi');
     }
   } else {
-    if (statusEl) statusEl.textContent = '✓ Joukkueen tiedot tallennettu';
+    if (statusEl) statusEl.textContent = tmHT('✓ Joukkueen tiedot tallennettu');
   }
 
   naytaToast(uusiNimi + ' — tallennettu ✓', 'ok');
@@ -4072,7 +4073,7 @@ async function poistaJoukkue(id, nimi) {
       .collection('joukkueet').doc(id).delete();
     naytaToast(`Joukkue ${nimi} poistettu.`, 'ok');
   } catch (e) {
-    naytaToast('Poisto epäonnistui: ' + e.message, 'virhe');
+    naytaToast((tmHT('Poisto epäonnistui:') + ' ') + e.message, 'virhe');
   }
 }
 
@@ -4120,12 +4121,12 @@ function avaaKayttajaModal() {
 async function lataaKutsuJoukkueet() {
   const lista = document.getElementById('kutsuJoukkueetLista');
   if (!lista) return;
-  lista.innerHTML = '<div style="font-size:12px;color:var(--ink3);">Ladataan...</div>';
+  lista.innerHTML = '<div style="font-size:12px;color:var(--ink3);">' + tmHT('Ladataan...') + '</div>';
   try {
     const snap = await db.collection('seurat').doc(tila.seuraId)
       .collection('joukkueet').orderBy('nimi').get();
     if (snap.empty) {
-      lista.innerHTML = '<div style="font-size:12px;color:var(--ink3);">Ei joukkueita — lisää ensin joukkueet.</div>';
+      lista.innerHTML = '<div style="font-size:12px;color:var(--ink3);">' + tmHT('Ei joukkueita — lisää ensin joukkueet.') + '</div>';
       return;
     }
     lista.innerHTML = snap.docs.map(d => {
@@ -4143,7 +4144,7 @@ async function lataaKutsuJoukkueet() {
         </label>`;
     }).join('');
   } catch(e) {
-    lista.innerHTML = `<div style="font-size:12px;color:var(--red);">Virhe: ${e.message}</div>`;
+    lista.innerHTML = `<div style="font-size:12px;color:var(--red);">${tmHT('Virhe:')} ${e.message}</div>`;
   }
 }
 
@@ -4167,10 +4168,10 @@ async function tallennaKutsu() {
   const naytaVirhe = (t) => { if (virheEl) virheEl.textContent = t; };
   naytaVirhe('');
 
-  if (!etunimi) return naytaVirhe('Kirjoita etunimi.');
-  if (!sukunimi) return naytaVirhe('Kirjoita sukunimi.');
-  if (!email || !email.includes('@')) return naytaVirhe('Kirjoita kelvollinen sähköpostiosoite.');
-  if (!rooli) return naytaVirhe('Valitse rooli.');
+  if (!etunimi) return naytaVirhe(tmHT('Kirjoita etunimi.'));
+  if (!sukunimi) return naytaVirhe(tmHT('Kirjoita sukunimi.'));
+  if (!email || !email.includes('@')) return naytaVirhe(tmHT('Kirjoita kelvollinen sähköpostiosoite.'));
+  if (!rooli) return naytaVirhe(tmHT('Valitse rooli.'));
 
   // Kerää valitut joukkueet
   const joukkueetCheckboxes = document.querySelectorAll('#kutsuJoukkueetLista input[type=checkbox]:checked');
@@ -4180,7 +4181,7 @@ async function tallennaKutsu() {
   }));
 
   // UI — lataus
-  if (nappi) { nappi.disabled = true; nappi.textContent = 'Lähetetään...'; }
+  if (nappi) { nappi.disabled = true; nappi.textContent = tmHT('Lähetetään...'); }
 
   try {
     // ── Kutsutaan luoKayttaja Cloud Functionia ──────────────────
@@ -4201,7 +4202,7 @@ async function tallennaKutsu() {
     });
 
     const uid = tulos.data?.uid;
-    if (!uid) throw new Error('Cloud Function ei palauttanut UID:ta');
+    if (!uid) throw new Error(tmHT('Cloud Function ei palauttanut UID:ta'));
 
     // ── Onnistui — näytetään tuloskortti linkin jakamiseen ────────
     // Linkki tulee luoKayttaja-funktiosta AINA (myös jos sähköposti epäonnistui),
@@ -4224,7 +4225,7 @@ async function tallennaKutsu() {
     document.getElementById('kutsuTulosNimi').textContent   = etunimi + ' ' + sukunimi;
     document.getElementById('kutsuTulosRooli').textContent  = rooli;
     document.getElementById('kutsuTulosEmail').textContent  = email;
-    document.getElementById('kutsuTulosLinkki').textContent = linkki || '(linkkiä ei saatu — yritä uudelleen)';
+    document.getElementById('kutsuTulosLinkki').textContent = linkki || tmHT('(linkkiä ei saatu — yritä uudelleen)');
 
     // WhatsApp-nappi on AINA käytettävissä (kuten Rekisteröintikutsussa):
     // puhelin annettu → suora chat; ei puhelinta → yleinen jako (wa.me/?text=)
@@ -4234,10 +4235,10 @@ async function tallennaKutsu() {
     // Sähköpostin tila
     const statusEl = document.getElementById('kutsuEmailStatus');
     if (data.emailSent) {
-      statusEl.textContent = '📧 Sähköposti lähetetty onnistuneesti osoitteeseen ' + email;
+      statusEl.textContent = (tmHT('📧 Sähköposti lähetetty onnistuneesti osoitteeseen') + ' ') + email;
       statusEl.style.color = 'var(--teal)';
     } else {
-      statusEl.textContent = '⚠️ Sähköposti ei lähtenyt — jaa linkki manuaalisesti yllä olevilla napeilla.';
+      statusEl.textContent = tmHT('⚠️ Sähköposti ei lähtenyt — jaa linkki manuaalisesti yllä olevilla napeilla.');
       statusEl.style.color = 'var(--amber)';
     }
 
@@ -4257,17 +4258,17 @@ async function tallennaKutsu() {
   } catch(e) {
     console.error('Kutsu epäonnistui:', e);
     const virheViesti = (e.details?.syy === 'sa_tunnus' || e.message === 'sa_tunnus')
-      ? 'Tämä on TalentMasterin ylläpitäjän tunnus — sitä ei lisätä seuran henkilöstöön.'
+      ? tmHT('Tämä on TalentMasterin ylläpitäjän tunnus — sitä ei lisätä seuran henkilöstöön.')
       : (e.details?.syy === 'toisen_seuran_kayttaja' || e.details?.syy === 'paikkamerkki_osoite')
       ? e.details.viesti
       : e.code === 'already-exists' || e.message?.includes('already exists')
-      ? 'Sähköpostiosoite on jo käytössä.'
+      ? tmHT('Sähköpostiosoite on jo käytössä.')
       : (e.code === 'permission-denied' || e.message?.includes('permission'))
-      ? 'Ei oikeuksia — tarkista että olet kirjautunut VP:nä tai sihteerinä.'
+      ? tmHT('Ei oikeuksia — tarkista että olet kirjautunut VP:nä tai sihteerinä.')
       : `Virhe: ${e.message}`;
     naytaVirhe(virheViesti);
     // Toast — varmistaa että virhe näkyy vaikka #kutsuVirhe olisi näkymän ulkopuolella (ei hiljaista failia, #71).
-    naytaToast('Kutsu epäonnistui: ' + virheViesti, 'virhe');
+    naytaToast((tmHT('Kutsu epäonnistui:') + ' ') + virheViesti, 'virhe');
     if (nappi) { nappi.disabled = false; nappi.textContent = 'Luo käyttäjätunnus'; }
   }
 }
@@ -4303,8 +4304,8 @@ window._kutsuJaaWhatsapp = function() {
 window._kutsuKopioi = function() {
   if (!window._kutsuLinkki) return;
   navigator.clipboard.writeText(window._kutsuLinkki)
-    .then(() => naytaToast('📋 Linkki kopioitu!', 'ok'))
-    .catch(() => naytaToast('Kopiointi epäonnistui — kopioi linkki manuaalisesti.', 'virhe'));
+    .then(() => naytaToast(tmHT('📋 Linkki kopioitu!'), 'ok'))
+    .catch(() => naytaToast(tmHT('Kopiointi epäonnistui — kopioi linkki manuaalisesti.'), 'virhe'));
 };
 
 window._kutsuUusi = function() {
@@ -4318,19 +4319,19 @@ async function lahetaSalasana(email) {
     await auth.sendPasswordResetEmail(email);
     naytaToast(`Salasanalinkki lähetetty: ${email}`, 'ok');
   } catch (e) {
-    naytaToast('Lähetys epäonnistui.', 'virhe');
+    naytaToast(tmHT('Lähetys epäonnistui.'), 'virhe');
   }
 }
 
 // ── Henkilöstön salasana-reset: generoi linkki (CF lahetaResetLinkki, SA/johto) + 3-nappi-jako ──
 window._lahetaSalasanaReset = async function(uid, email, etunimi, suuntakoodi, puhelin) {
-  if (!email) { naytaToast('Sähköposti puuttuu', 'virhe'); return; }
-  naytaToast('🔑 Generoidaan linkkiä...', 'info');
+  if (!email) { naytaToast(tmHT('Sähköposti puuttuu'), 'virhe'); return; }
+  naytaToast(tmHT('🔑 Generoidaan linkkiä...'), 'info');
   try {
     const fn = firebase.app().functions('europe-west1').httpsCallable('lahetaResetLinkki');
     const tulos = await fn({ email: email, seuraId: tila.seuraId });
     const linkki = (tulos.data && (tulos.data.passwordResetLink || tulos.data.resetLinkki)) || null;
-    if (!linkki) throw new Error('Linkki puuttuu');
+    if (!linkki) throw new Error(tmHT('Linkki puuttuu'));
     window._resetLinkki = linkki;
     window._resetEmail = email;
     window._resetEtunimi = etunimi || '';
@@ -4357,7 +4358,7 @@ window._lahetaSalasanaReset = async function(uid, email, etunimi, suuntakoodi, p
     })();
     document.getElementById('reset-jako-modal').classList.add('auki');
   } catch (e) {
-    naytaToast('Reset epäonnistui: ' + e.message, 'virhe');
+    naytaToast((tmHT('Reset epäonnistui:') + ' ') + e.message, 'virhe');
   }
 };
 window._resetJaaSahkoposti = function() {
@@ -4379,8 +4380,8 @@ window._resetJaaWhatsapp = function() {
 window._resetKopioi = function() {
   if (!window._resetLinkki) return;
   navigator.clipboard.writeText(window._resetLinkki)
-    .then(function(){ naytaToast('📋 Linkki kopioitu!', 'ok'); })
-    .catch(function(){ naytaToast('Kopiointi epäonnistui — kopioi linkki manuaalisesti.', 'virhe'); });
+    .then(function(){ naytaToast(tmHT('📋 Linkki kopioitu!'), 'ok'); })
+    .catch(function(){ naytaToast(tmHT('Kopiointi epäonnistui — kopioi linkki manuaalisesti.'), 'virhe'); });
 };
 
 // Salasana-reset henkilöstörivin napista (data-attrs) → välitä puhelin suoraa WhatsApp-jakoa varten
@@ -4415,7 +4416,7 @@ function _renderJoukkueValinta(containerId, nykyisetIds) {
   if (!lista) return;
   const valitut = Array.isArray(nykyisetIds) ? nykyisetIds : [];
   const joukkueet = tila.joukkueet || [];
-  if (!joukkueet.length) { lista.innerHTML = '<div style="font-size:12px;color:var(--ink3);">Ei joukkueita — luo joukkueita ensin.</div>'; return; }
+  if (!joukkueet.length) { lista.innerHTML = '<div style="font-size:12px;color:var(--ink3);">' + tmHT('Ei joukkueita — luo joukkueita ensin.') + '</div>'; return; }
   lista.innerHTML = joukkueet.map(j => `
     <label style="display:flex;align-items:center;gap:10px;cursor:pointer;padding:6px 4px;border-radius:6px;transition:background .15s;"
       onmouseover="this.style.background='rgba(42,93,176,.06)'" onmouseout="this.style.background='transparent'">
@@ -4447,26 +4448,26 @@ function avaaHenkiloMuokkaus(uid, etunimi, sukunimi, email, suuntakoodi, puhelin
   const esc = function(s){ return String(s || '').replace(/"/g, '&quot;'); };
   modal.innerHTML =
     '<div class="modalSisalto" style="max-width:440px;">' +
-      '<div class="modalOtsikko"><span>✏️ Muokkaa henkilön tietoja</span>' +
+      '<div class="modalOtsikko"><span>' + tmHT('✏️ Muokkaa henkilön tietoja') + '</span>' +
         '<button class="modalSuljeNappi" onclick="document.getElementById(\'henkiloMuokkausModal\').classList.remove(\'auki\')">✕</button></div>' +
       '<div style="padding:20px;">' +
         '<input type="hidden" id="hm_uid" value="' + esc(uid) + '">' +
         '<div class="kenttaRyhma" style="margin-bottom:12px;">' +
-          '<label class="kenttaLabel">Sähköposti (ei muokattavissa)</label>' +
+          '<label class="kenttaLabel">' + tmHT('Sähköposti (ei muokattavissa)') + '</label>' +
           '<input class="kenttaInput" value="' + esc(email) + '" disabled style="opacity:.6;">' +
         '</div>' +
         '<div class="kenttaRyhma" style="margin-bottom:12px;">' +
           '<label class="kenttaLabel">Rooli</label>' +
           '<input type="hidden" id="hm_rooli_orig" value="' + esc(rooli) + '">' +
           '<select class="kenttaInput" id="muokkaus-rooli">' +
-            (function(){ var sallitut=['vp','valmentaja','talenttivalmentaja','urheilutoimenjohtaja','seurasihteeri','testivastaava']; var nimet={vp:'Valmennuspäällikkö (VP)',valmentaja:'Valmentaja',talenttivalmentaja:'Talenttivalmentaja',urheilutoimenjohtaja:'Urheilutoimenjohtaja',seurasihteeri:'Seurasihteeri',testivastaava:'Testivastaava',seura_admin:'Seuran admin'}; var lista=sallitut.slice(); if(rooli && lista.indexOf(rooli)<0) lista.unshift(rooli); /* nykyinen rooli (esim. seura_admin) mukaan → ei vahinkomuutosta */ return lista.map(function(r){ return '<option value="'+r+'"'+(r===rooli?' selected':'')+'>'+(nimet[r]||r)+'</option>'; }).join(''); })() +
+            (function(){ var sallitut=['vp','valmentaja','talenttivalmentaja','urheilutoimenjohtaja','seurasihteeri','testivastaava']; var nimet={vp:tmHT('Valmennuspäällikkö (VP)'),valmentaja:'Valmentaja',talenttivalmentaja:'Talenttivalmentaja',urheilutoimenjohtaja:'Urheilutoimenjohtaja',seurasihteeri:'Seurasihteeri',testivastaava:'Testivastaava',seura_admin:tmHT('Seuran admin')}; var lista=sallitut.slice(); if(rooli && lista.indexOf(rooli)<0) lista.unshift(rooli); /* nykyinen rooli (esim. seura_admin) mukaan → ei vahinkomuutosta */ return lista.map(function(r){ return '<option value="'+r+'"'+(r===rooli?' selected':'')+'>'+(nimet[r]||r)+'</option>'; }).join(''); })() +
           '</select>' +
           '<span style="font-size:11px;color:var(--ink3);">Roolinvaihto päivittää oikeudet (custom claims) ja vaatii käyttäjältä uudelleenkirjautumisen.</span>' +
         '</div>' +
         '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">' +
-          '<div class="kenttaRyhma"><label class="kenttaLabel">Etunimi</label>' +
+          '<div class="kenttaRyhma"><label class="kenttaLabel">' + tmHT('Etunimi') + '</label>' +
             '<input id="hm_etunimi" class="kenttaInput" value="' + esc(etunimi) + '"></div>' +
-          '<div class="kenttaRyhma"><label class="kenttaLabel">Sukunimi</label>' +
+          '<div class="kenttaRyhma"><label class="kenttaLabel">' + tmHT('Sukunimi') + '</label>' +
             '<input id="hm_sukunimi" class="kenttaInput" value="' + esc(sukunimi) + '"></div>' +
         '</div>' +
         '<div class="kenttaRyhma" style="margin-bottom:8px;">' +
@@ -4480,14 +4481,14 @@ function avaaHenkiloMuokkaus(uid, etunimi, sukunimi, email, suuntakoodi, puhelin
           '<span style="font-size:11px;color:var(--ink3);">Mahdollistaa WhatsApp-jaon suoraan numeroon (kutsu + salasanalinkki).</span>' +
         '</div>' +
         '<div class="kenttaRyhma" style="margin-bottom:8px;">' +
-          '<label class="kenttaLabel">Joukkueet joita valmentaa</label>' +
+          '<label class="kenttaLabel">' + tmHT('Joukkueet joita valmentaa') + '</label>' +
           '<div id="hm_joukkueet_lista" style="display:flex;flex-direction:column;gap:8px;background:var(--bg3);border:1px solid var(--bord2);border-radius:8px;padding:12px;max-height:200px;overflow-y:auto;"></div>' +
-          '<span style="font-size:11px;color:var(--ink3);">Rastita kaikki joukkueet joita henkilö vetää. Tallentuu heti — ei vaadi uudelleenkirjautumista.</span>' +
+          '<span style="font-size:11px;color:var(--ink3);">' + tmHT('Rastita kaikki joukkueet joita henkilö vetää. Tallentuu heti — ei vaadi uudelleenkirjautumista.') + '</span>' +
         '</div>' +
         '<div id="hm_status" style="font-size:12px;color:var(--ink3);margin:8px 0;min-height:16px;"></div>' +
         '<div style="display:flex;gap:10px;justify-content:flex-end;">' +
-          '<button class="toimNappi" onclick="document.getElementById(\'henkiloMuokkausModal\').classList.remove(\'auki\')">Peruuta</button>' +
-          '<button class="toimNappi sininen" style="font-weight:700;" onclick="tallennaHenkiloMuutos()">💾 Tallenna</button>' +
+          '<button class="toimNappi" onclick="document.getElementById(\'henkiloMuokkausModal\').classList.remove(\'auki\')">' + tmHT('Peruuta') + '</button>' +
+          '<button class="toimNappi sininen" style="font-weight:700;" onclick="tallennaHenkiloMuutos()">' + tmHT('💾 Tallenna') + '</button>' +
         '</div>' +
       '</div>' +
     '</div>';
@@ -4523,20 +4524,20 @@ async function tallennaHenkiloMuutos() {
       const tulos = await fn({ uid: uid, seuraId: tila.seuraId, uusiRooli: uusiRooli });
       naytaToast((tulos.data && tulos.data.huomio) || ('Rooli vaihdettu: ' + uusiRooli), 'ok');
     } else {
-      naytaToast('Henkilön tiedot tallennettu', 'ok');
+      naytaToast(tmHT('Henkilön tiedot tallennettu'), 'ok');
     }
     document.getElementById('henkiloMuokkausModal').classList.remove('auki');
     renderHenkilosto(document.getElementById('nakymaAlue'));
   } catch (e) {
     if (status) status.textContent = 'Virhe: ' + e.message;
-    naytaToast('Tallennus epäonnistui: ' + e.message, 'virhe');
+    naytaToast((tmHT('Tallennus epäonnistui:') + ' ') + e.message, 'virhe');
   }
 }
 
 // ── Lähetä pelaajasivu-linkki huoltajalle uudelleen ──────────────────────────
 async function lahetaPelaajaLinkki(pelaajaId, seuraId, etunimi, sukunimi, hEmail, joukkue) {
-  if (!hEmail) { naytaToast('Pelaajalla ei ole huoltajasähköpostia', 'virhe'); return; }
-  naytaToast('📨 Lähetetään linkkiä...', 'info');
+  if (!hEmail) { naytaToast(tmHT('Pelaajalla ei ole huoltajasähköpostia'), 'virhe'); return; }
+  naytaToast(tmHT('📨 Lähetetään linkkiä...'), 'info');
   try {
     const fn = firebase.app().functions('europe-west1');
     const lahetaFn = fn.httpsCallable('lahetaPelaajaSivuLinkki');
@@ -4567,7 +4568,7 @@ async function deaktivoiKayttaja(uid, email) {
     naytaToast(`${email || 'Käyttäjä'} deaktivoitu.`, 'ok');
     await renderHenkilosto(document.getElementById('nakymaAlue'));
   } catch (e) {
-    naytaToast('Deaktivointi epäonnistui: ' + e.message, 'virhe');
+    naytaToast((tmHT('Deaktivointi epäonnistui:') + ' ') + e.message, 'virhe');
   }
 }
 async function aktivoiKayttaja(uid, email) {
@@ -4577,7 +4578,7 @@ async function aktivoiKayttaja(uid, email) {
     naytaToast(`${email || 'Käyttäjä'} aktivoitu.`, 'ok');
     await renderHenkilosto(document.getElementById('nakymaAlue'));
   } catch (e) {
-    naytaToast('Aktivointi epäonnistui: ' + e.message, 'virhe');
+    naytaToast((tmHT('Aktivointi epäonnistui:') + ' ') + e.message, 'virhe');
   }
 }
 
@@ -4602,7 +4603,7 @@ async function naytaPelaajaTiedot(pelaajaId) {
     console.warn('[Profiili] Haku epäonnistui:', e.message);
   }
 
-  if (!p) { naytaToast('Pelaajan tietoja ei löydy.', 'virhe'); return; }
+  if (!p) { naytaToast(tmHT('Pelaajan tietoja ei löydy.'), 'virhe'); return; }
 
   const nimi = p.nimi || `${p.etunimi||''} ${p.sukunimi||''}`.trim();
   /* P1 (1.10.2026): käyttäjäperäiset arvot esc():n kautta (osa tulee julkiselta suostumuslomakkeelta), eikä
@@ -4617,11 +4618,11 @@ async function naytaPelaajaTiedot(pelaajaId) {
   // Suostumukset eriteltynä — selkokieliset nimet lomakkeen järjestyksessä (1.10.2026).
   // 'ei_kaytossa' = lomakkeen piilotettu c7, poistunut suostumus (aina false) → ei näytetä.
   const SUOSTUMUS_NIMET = {
-    rekisteri:      'Tietojen tallentaminen rekisteriin',
-    tietosuoja:     'Tietosuojaseloste luettu',
-    testaaminen:    'Testaaminen ja kehitysseuranta',
-    biologinen_ika: 'Biologisen iän arviointi',
-    valmentajajako: 'Tietojen jakaminen valmentajille',
+    rekisteri:      tmHT('Tietojen tallentaminen rekisteriin'),
+    tietosuoja:     tmHT('Tietosuojaseloste luettu'),
+    testaaminen:    tmHT('Testaaminen ja kehitysseuranta'),
+    biologinen_ika: tmHT('Biologisen iän arviointi'),
+    valmentajajako: tmHT('Tietojen jakaminen valmentajille'),
     anon_data:      'Anonyymi tilastokäyttö',
   };
   const suostumukset = p.suostumus?.hyvaksytyt || {};
@@ -4634,9 +4635,9 @@ async function naytaPelaajaTiedot(pelaajaId) {
     `<div style="display:flex;justify-content:space-between;padding:5px 0;
       border-bottom:1px solid rgba(255,255,255,.05);font-size:12px;">
       <span style="color:var(--ink3);">${esc(k)}</span>
-      <span style="${v ? 'color:var(--teal)' : 'color:var(--amber)'}">${v ? '✓ Hyväksytty' : '✗ Ei hyväksytty'}</span>
+      <span style="${v ? 'color:var(--teal)' : 'color:var(--amber)'}">${v ? '✓ Hyväksytty' : tmHT('✗ Ei hyväksytty')}</span>
     </div>`
-  ).join('') || '<div style="color:var(--ink3);font-size:12px;">Ei suostumustietoja</div>';
+  ).join('') || '<div style="color:var(--ink3);font-size:12px;">' + tmHT('Ei suostumustietoja') + '</div>';
 
   // Kutsuhistoria
   const kutsuRivit = kutsut.length > 0
@@ -4644,7 +4645,7 @@ async function naytaPelaajaTiedot(pelaajaId) {
         const pvm = k.luotu?.seconds
           ? new Date(k.luotu.seconds*1000).toLocaleDateString('fi-FI') : '—';
         const tila_k = k.tila === 'hyvaksytty' ? '✓ Hyväksytty'
-          : k.tila === 'odottaa' ? '⏳ Odottaa'
+          : k.tila === 'odottaa' ? tmHT('⏳ Odottaa')
           : k.tila || '—';
         const vari = k.tila === 'hyvaksytty' ? 'var(--teal)'
           : k.tila === 'odottaa' ? 'var(--amber)' : 'var(--ink3)';
@@ -4657,7 +4658,7 @@ async function naytaPelaajaTiedot(pelaajaId) {
           <span style="color:${vari};">${tila_k}</span>
         </div>`;
       }).join('')
-    : '<div style="color:var(--ink3);font-size:12px;">Ei kutsuhistoriaa</div>';
+    : '<div style="color:var(--ink3);font-size:12px;">' + tmHT('Ei kutsuhistoriaa') + '</div>';
 
   // Huoltajan tiedot — kutsuflow (vahvistaSuostumus-CF) tallentaa LITTEÄN huoltajaEmail:in,
   // uusi-rekisteröinti huoltaja-OBJEKTIN. Lue molemmat: objekti ensisijaisesti, muuten litteä email
@@ -4692,7 +4693,7 @@ async function naytaPelaajaTiedot(pelaajaId) {
 
   modal.innerHTML = `
     <div class="modalSisalto" style="max-width:560px;max-height:85vh;overflow-y:auto;">
-      <button class="modalSuljeNappi" onclick="document.getElementById('${modalId}').classList.remove('auki')">✕ Sulje</button>
+      <button class="modalSuljeNappi" onclick="document.getElementById('${modalId}').classList.remove('auki')">${tmHT('✕ Sulje')}</button>
 
       <!-- Otsikko -->
       <div style="display:flex;align-items:center;gap:14px;margin-bottom:20px;">
@@ -4705,7 +4706,7 @@ async function naytaPelaajaTiedot(pelaajaId) {
           <div style="font-size:13px;color:var(--ink3);">${esc(p.joukkue || '—')} · ${esc(syntVuosi)}</div>
         </div>
         <span class="badge ${onAnnettu ? 'ok' : 'odottaa'}" style="margin-left:auto;">
-          ${onAnnettu ? '✓ Rekisteröity' : '⏳ Kutsu lähetetty'}
+          ${onAnnettu ? '✓ Rekisteröity' : tmHT('⏳ Kutsu lähetetty')}
         </span>
       </div>
 
@@ -4717,7 +4718,7 @@ async function naytaPelaajaTiedot(pelaajaId) {
           ${[
             ['Etunimi', p.etunimi || '—'],
             ['Sukunimi', p.sukunimi || '—'],
-            ['Syntymävuosi', syntVuosi],
+            [tmHT('Syntymävuosi'), syntVuosi],
             ['Sukupuoli', p.sukupuoli || '—'],
             ['Joukkue', p.joukkue || '—'],
             ['PalloID', p.palloID || p.palloId || '—'],
@@ -4729,7 +4730,7 @@ async function naytaPelaajaTiedot(pelaajaId) {
         </div>
       </div>
 
-      <!-- Huoltaja -->
+      <!-- ${tmHT('Huoltaja')} -->
       <div style="margin-bottom:16px;">
         <div style="font-size:11px;font-weight:700;letter-spacing:.08em;
           color:var(--ink3);text-transform:uppercase;margin-bottom:8px;">Huoltaja</div>
@@ -4764,20 +4765,20 @@ async function naytaPelaajaTiedot(pelaajaId) {
         border:1px solid rgba(0,212,170,.18);border-radius:10px;">
         <div style="font-size:11px;font-weight:700;letter-spacing:.08em;
           color:#00D4AA;text-transform:uppercase;margin-bottom:10px;">
-          🔑 Pelaajasivu-kirjautuminen
+          ${tmHT('🔑 Pelaajasivu-kirjautuminen')}
         </div>
         <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
           <div>
-            <div style="font-size:10px;color:var(--ink3);margin-bottom:3px;">PIN-koodi</div>
+            <div style="font-size:10px;color:var(--ink3);margin-bottom:3px;">${tmHT('PIN-koodi')}</div>
             <div id="pin-nakytys-${pelaajaId}" style="font-family:monospace;font-size:22px;font-weight:900;
               color:#00D4AA;letter-spacing:4px;background:rgba(0,0,0,.25);
               padding:6px 14px;border-radius:8px;display:inline-block;min-width:80px;text-align:center;">
               ${esc(_suostumusAnnettu(p) ? (p.pin || '—') : '—')}
             </div>
-            ${(!_suostumusAnnettu(p) && p.pin) ? '<div style="font-size:10px;color:var(--amber);margin-top:4px;max-width:180px;">Suostumus puuttuu – PIN ei ole käytössä.</div>' : ''}
+            ${(!_suostumusAnnettu(p) && p.pin) ? '<div style="font-size:10px;color:var(--amber);margin-top:4px;max-width:180px;">' + tmHT('Suostumus puuttuu – PIN ei ole käytössä.') + '</div>' : ''}
           </div>
           <div style="flex:1;min-width:180px;">
-            <div style="font-size:10px;color:var(--ink3);margin-bottom:3px;">Huoltajan sähköposti</div>
+            <div style="font-size:10px;color:var(--ink3);margin-bottom:3px;">${tmHT('Huoltajan sähköposti')}</div>
             <div style="font-size:12px;color:var(--ink2);">${esc(p.huoltajaEmail || '—')}</div>
           </div>
         </div>
@@ -4787,7 +4788,7 @@ async function naytaPelaajaTiedot(pelaajaId) {
           <button class="lisaaNappi" style="background:rgba(0,212,170,.2);border:1px solid rgba(0,212,170,.4);
             color:#00D4AA;font-size:12px;padding:6px 14px;"
             onclick="uusiPelaajaPIN('${pelaajaId}')">
-            🔑 Uusi PIN
+            ${tmHT('🔑 Uusi PIN')}
           </button>
           <input id="pin-syote-${pelaajaId}" type="text" maxlength="6" pattern="[0-9]{6}"
             inputmode="numeric" placeholder="oma PIN (valinnainen)"
@@ -4801,10 +4802,10 @@ async function naytaPelaajaTiedot(pelaajaId) {
           background:rgba(0,212,170,.15);border:1px solid rgba(0,212,170,.3);
           color:#00D4AA;font-weight:700;"
           onclick="lahetaPelaajaLinkki(_pkd.pelaajaId, _pkd.seuraId, _pkd.etunimi, _pkd.sukunimi, _pkd.huoltajaEmail, _pkd.joukkue)">
-          📨 Lähetä pelaajasivu-linkki huoltajalle uudelleen
+          ${tmHT('📨 Lähetä pelaajasivu-linkki huoltajalle uudelleen')}
         </button>` : `
         <div style="margin-top:8px;font-size:11px;color:var(--amber);">
-          ⚠️ Huoltajasähköposti puuttuu — linkkiä ei voi lähettää
+          ${tmHT('⚠️ Huoltajasähköposti puuttuu — linkkiä ei voi lähettää')}
         </div>`}
       </div>
 
@@ -4815,16 +4816,16 @@ async function naytaPelaajaTiedot(pelaajaId) {
             document.getElementById('${modalId}').classList.remove('auki');
             window.open('TalentMaster_VP_v25.html?seura=${encodeURIComponent(tila.seuraId)}&pelaaja=${encodeURIComponent(pelaajaId)}&nakyma=kehitys', '_blank');
           ">
-          📋 Avaa kehityskortti (IDP)
+          ${tmHT('📋 Avaa kehityskortti (IDP)')}
         </button>
         <button class="lisaaNappi" style="background:rgba(40,176,144,.12);border:1px solid rgba(40,176,144,.3);flex:1;"
           onclick="document.getElementById('${modalId}').classList.remove('auki'); avaaRekisteriModalPelaajalle(_pkd.pelaajaId, _pkd.etunimi, _pkd.sukunimi, _pkd.joukkue, _pkd.huoltajaEmail, _pkd.palloID);">
-          ✉️ Lähetä rekisteröintikutsu
+          ${tmHT('✉️ Lähetä rekisteröintikutsu')}
         </button>
         ${!onAnnettu ? `
         <button class="lisaaNappi" style="background:rgba(42,93,176,.15);flex:1;"
           onclick="document.getElementById('${modalId}').classList.remove('auki'); avaaRekisteriModalPelaajalle(_pkd.pelaajaId, _pkd.etunimi, _pkd.sukunimi, _pkd.joukkue, _pkd.huoltajaEmail, _pkd.palloID);">
-          ✉️ Lähetä rekisteröintikutsu
+          ${tmHT('✉️ Lähetä rekisteröintikutsu')}
         </button>` : ''}
       </div>
 
@@ -4835,12 +4836,12 @@ async function naytaPelaajaTiedot(pelaajaId) {
           <button class="lisaaNappi"
             style="background:rgba(42,93,176,.1);border:1px solid rgba(42,93,176,.3);flex:1;font-size:12px;"
             onclick="avaaMuokkaaPelaajaModal('${pelaajaId}')">
-            ✏️ Muokkaa tietoja
+            ${tmHT('✏️ Muokkaa tietoja')}
           </button>
           <button class="lisaaNappi"
             style="background:rgba(224,160,64,.1);border:1px solid rgba(224,160,64,.3);flex:1;font-size:12px;"
             onclick="avaaVaihdaJoukkuePelaajaModal(_pkd.pelaajaId, _pkd.joukkue)">
-            🔄 Vaihda joukkue
+            ${tmHT('🔄 Vaihda joukkue')}
           </button>
         </div>
       </div>` : ''}
@@ -4852,7 +4853,7 @@ async function naytaPelaajaTiedot(pelaajaId) {
           background:rgba(220,50,50,.1);border:1px solid rgba(220,50,50,.3);
           color:rgba(255,120,120,.9);font-size:12px;"
           onclick="vahvistaPelaajanPoisto(_pkd.pelaajaId, _pkd.nimi)">
-          🗑️ Poista pelaaja pysyvästi
+          ${tmHT('🗑️ Poista pelaaja pysyvästi')}
         </button>
       </div>` : ''}
     </div>`;
@@ -4871,7 +4872,7 @@ async function avaaMuokkaaPelaajaModal(pelaajaId) {
   try {
     const snap = await db.collection('seurat').doc(tila.seuraId).collection('pelaajat').doc(pelaajaId).get();
     if (snap.exists) p = { id: snap.id, ...snap.data() };
-  } catch(e) { naytaToast('Tietojen haku epäonnistui.', 'virhe'); return; }
+  } catch(e) { naytaToast(tmHT('Tietojen haku epäonnistui.'), 'virhe'); return; }
   if (!p) return;
 
   // Syntymäaika → date-kentäksi (YYYY-MM-DD)
@@ -4902,7 +4903,7 @@ async function avaaMuokkaaPelaajaModal(pelaajaId) {
           <span style="font-size:11px;color:var(--ink3);margin-left:auto;">${j.ikaryhma||''} ${j.vuosi||''}</span>
         </label>`;
       }).join('')
-    : '<div style="font-size:12px;color:var(--ink3);padding:8px;">Ei joukkueita — lisää Joukkueet-välilehdellä ensin.</div>';
+    : '<div style="font-size:12px;color:var(--ink3);padding:8px;">' + tmHT('Ei joukkueita — lisää Joukkueet-välilehdellä ensin.') + '</div>';
 
   // Talenttistatus — nykytila
   const onTalentti = !!p.talenttiOhjelma;
@@ -4915,23 +4916,23 @@ async function avaaMuokkaaPelaajaModal(pelaajaId) {
 
   modal.innerHTML = `
     <div class="modalSisalto" style="max-width:520px;">
-      <button class="modalSuljeNappi" onclick="document.getElementById('muokkaaPelaajaModal').classList.remove('auki')">✕ Sulje</button>
-      <div class="modalOtsikko">✏️ Muokkaa pelaajatietoja</div>
+      <button class="modalSuljeNappi" onclick="document.getElementById('muokkaaPelaajaModal').classList.remove('auki')">${tmHT('✕ Sulje')}</button>
+      <div class="modalOtsikko">${tmHT('✏️ Muokkaa pelaajatietoja')}</div>
 
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
         <div class="kenttaRyhma">
-          <label class="kenttaLabel">Etunimi</label>
+          <label class="kenttaLabel">${tmHT('Etunimi')}</label>
           <input id="mp_etunimi" class="kenttaInput" value="${p.etunimi||''}">
         </div>
         <div class="kenttaRyhma">
-          <label class="kenttaLabel">Sukunimi</label>
+          <label class="kenttaLabel">${tmHT('Sukunimi')}</label>
           <input id="mp_sukunimi" class="kenttaInput" value="${p.sukunimi||''}">
         </div>
       </div>
 
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
         <div class="kenttaRyhma">
-          <label class="kenttaLabel">Syntymäpäivä</label>
+          <label class="kenttaLabel">${tmHT('Syntymäpäivä')}</label>
           <input id="mp_syntymaaika" class="kenttaInput" type="date" value="${syntymaPvm}">
         </div>
         <div class="kenttaRyhma">
@@ -4945,7 +4946,7 @@ async function avaaMuokkaaPelaajaModal(pelaajaId) {
       </div>
 
       <div style="margin-bottom:12px;">
-        <label class="kenttaLabel">Joukkueet (voi valita useamman)</label>
+        <label class="kenttaLabel">${tmHT('Joukkueet (voi valita useamman)')}</label>
         <div style="background:var(--bg3);border:1px solid var(--bord2);border-radius:8px;
           padding:6px;max-height:180px;overflow-y:auto;display:flex;flex-direction:column;gap:2px;">
           ${joukkueCheckboxit}
@@ -4954,11 +4955,11 @@ async function avaaMuokkaaPelaajaModal(pelaajaId) {
 
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
         <div class="kenttaRyhma">
-          <label class="kenttaLabel">Pelipaikka</label>
+          <label class="kenttaLabel">${tmHT('Pelipaikka')}</label>
           <select id="mp_pelipaikka" class="kenttaInput">
             ${(function(){
               // Arvo=lyhenne (yhtenäistää datan); labelit täsmäävät Pelaaja-näkymän POS-mappiin.
-              var PP=[['MV','Maalivahti'],['KP','Keskuspuolustaja'],['LP','Laitapuolustaja'],['KK','Keskikenttä'],['HM','Hyökkäävä keskik.'],['LH','Laitahyökkääjä'],['KH','Keskushyökkääjä']];
+              var PP=[['MV','Maalivahti'],['KP','Keskuspuolustaja'],['LP','Laitapuolustaja'],['KK',tmHT('Keskikenttä')],['HM',tmHT('Hyökkäävä keskik.')],['LH',tmHT('Laitahyökkääjä')],['KH',tmHT('Keskushyökkääjä')]];
               var nyk=String(p.pelipaikka||p.positio||'').trim();
               // Esivalinta: nykyinen arvo voi olla lyhenne ("LH") TAI kokonimi ("Laitahyökkääjä")
               var match=PP.find(function(x){return x[0].toLowerCase()===nyk.toLowerCase()||x[1].toLowerCase()===nyk.toLowerCase();});
@@ -4972,7 +4973,7 @@ async function avaaMuokkaaPelaajaModal(pelaajaId) {
           </select>
         </div>
         <div class="kenttaRyhma">
-          <label class="kenttaLabel">Huoltajan sähköposti</label>
+          <label class="kenttaLabel">${tmHT('Huoltajan sähköposti')}</label>
           <input id="mp_hEmail" class="kenttaInput" type="email" value="${p.huoltajaEmail||p.huoltaja?.email||''}">
         </div>
       </div>
@@ -4980,7 +4981,7 @@ async function avaaMuokkaaPelaajaModal(pelaajaId) {
       <!-- Perustiedot (2d): vahvempi jalka + toissijainen pelipaikka (Palloliiton Player Development Card §2) -->
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
         <div class="kenttaRyhma">
-          <label class="kenttaLabel">Vahvempi jalka</label>
+          <label class="kenttaLabel">${tmHT('Vahvempi jalka')}</label>
           <select id="mp_vahvempiJalka" class="kenttaInput">
             ${(function(){
               var VJ=[['','—'],['oikea','Oikea'],['vasen','Vasen'],['molemmat','Molemmat']];
@@ -4990,11 +4991,11 @@ async function avaaMuokkaaPelaajaModal(pelaajaId) {
           </select>
         </div>
         <div class="kenttaRyhma">
-          <label class="kenttaLabel">Toissijainen pelipaikka</label>
+          <label class="kenttaLabel">${tmHT('Toissijainen pelipaikka')}</label>
           <select id="mp_positio2" class="kenttaInput">
             ${(function(){
               // Sama optiolista kuin ensisijainen pelipaikka (yhtenäinen data).
-              var PP=[['MV','Maalivahti'],['KP','Keskuspuolustaja'],['LP','Laitapuolustaja'],['KK','Keskikenttä'],['HM','Hyökkäävä keskik.'],['LH','Laitahyökkääjä'],['KH','Keskushyökkääjä']];
+              var PP=[['MV','Maalivahti'],['KP','Keskuspuolustaja'],['LP','Laitapuolustaja'],['KK',tmHT('Keskikenttä')],['HM',tmHT('Hyökkäävä keskik.')],['LH',tmHT('Laitahyökkääjä')],['KH',tmHT('Keskushyökkääjä')]];
               var nyk=String(p.positio_2||'').trim();
               var match=PP.find(function(x){return x[0].toLowerCase()===nyk.toLowerCase()||x[1].toLowerCase()===nyk.toLowerCase();});
               var sel=match?match[0]:nyk;
@@ -5019,21 +5020,21 @@ async function avaaMuokkaaPelaajaModal(pelaajaId) {
         border-radius:10px;margin-bottom:14px;">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
           <div>
-            <div style="font-size:12px;font-weight:700;color:var(--teal);letter-spacing:.06em;text-transform:uppercase;">⭐ Talenttiohjelma</div>
-            <div style="font-size:11px;color:var(--ink3);margin-top:2px;">Pelaaja saa IDP:n ja talenttivalmentajan seurannan</div>
+            <div style="font-size:12px;font-weight:700;color:var(--teal);letter-spacing:.06em;text-transform:uppercase;">${tmHT('⭐ Talenttiohjelma')}</div>
+            <div style="font-size:11px;color:var(--ink3);margin-top:2px;">${tmHT('Pelaaja saa IDP:n ja talenttivalmentajan seurannan')}</div>
           </div>
           <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
             <input type="checkbox" id="mp_talentti" ${onTalentti ? 'checked' : ''}
               style="width:16px;height:16px;accent-color:var(--teal);cursor:pointer;"
               onchange="document.getElementById('mp_talenttiTasoRivi').style.display=this.checked?'block':'none'">
-            <span style="font-size:13px;color:var(--ink);">${onTalentti ? 'Aktiivinen' : 'Ei aktiivinen'}</span>
+            <span style="font-size:13px;color:var(--ink);">${onTalentti ? 'Aktiivinen' : tmHT('Ei aktiivinen')}</span>
           </label>
         </div>
         <div id="mp_talenttiTasoRivi" style="display:${onTalentti ? 'block' : 'none'};">
-          <label class="kenttaLabel" style="margin-bottom:4px;">Taso</label>
+          <label class="kenttaLabel" style="margin-bottom:4px;">${tmHT('Taso')}</label>
           <select id="mp_talenttiTaso" class="kenttaInput" style="font-size:13px;">
-            <option value="perus" ${talenttiTaso==='perus'?'selected':''}>Perus — IDP-seuranta</option>
-            <option value="laajennettu" ${talenttiTaso==='laajennettu'?'selected':''}>Laajennettu — intensiivisempi ohjelma</option>
+            <option value="perus" ${talenttiTaso==='perus'?'selected':''}>${tmHT('Perus — IDP-seuranta')}</option>
+            <option value="laajennettu" ${talenttiTaso==='laajennettu'?'selected':''}>${tmHT('Laajennettu — intensiivisempi ohjelma')}</option>
           </select>
         </div>
       </div>
@@ -5052,7 +5053,7 @@ async function avaaMuokkaaPelaajaModal(pelaajaId) {
                 value="${p[k] != null ? p[k] : ''}">
             </div>`).join('')}
         </div>
-        <div style="font-size:10px;color:var(--ink3);margin-top:6px;">1.0 = rajoitteita · 2.0 = normi · 3.0 = erinomainen. flei_viimeisin lasketaan automaattisesti.</div>
+        <div style="font-size:10px;color:var(--ink3);margin-top:6px;">${tmHT('1.0 = rajoitteita · 2.0 = normi · 3.0 = erinomainen. flei_viimeisin lasketaan automaattisesti.')}</div>
       </div>` : ''}
 
       <div id="mp_virhe" class="virheViesti" style="display:none;margin-bottom:12px;"></div>
@@ -5060,11 +5061,11 @@ async function avaaMuokkaaPelaajaModal(pelaajaId) {
       <div style="display:flex;gap:10px;">
         <button class="lisaaNappi" style="flex:1;"
           onclick="tallennaMusokkausPelaaja('${pelaajaId}')">
-          💾 Tallenna muutokset
+          ${tmHT('💾 Tallenna muutokset')}
         </button>
         <button class="lisaaNappi" style="background:none;border:1px solid var(--border);color:var(--ink3);"
           onclick="document.getElementById('muokkaaPelaajaModal').classList.remove('auki')">
-          Peruuta
+          ${tmHT('Peruuta')}
         </button>
       </div>
     </div>`;
@@ -5099,7 +5100,7 @@ async function tallennaMusokkausPelaaja(pelaajaId) {
 
   if (!etunimi && !sukunimi) {
     const v = document.getElementById('mp_virhe');
-    if (v) { v.textContent = 'Nimi on pakollinen.'; v.style.display='block'; }
+    if (v) { v.textContent = tmHT('Nimi on pakollinen.'); v.style.display='block'; }
     return;
   }
   if (hEmail && tmOnPaikkamerkkiOsoite(hEmail)) {
@@ -5175,12 +5176,12 @@ async function tallennaMusokkausPelaaja(pelaajaId) {
     document.getElementById('muokkaaPelaajaModal').classList.remove('auki');
     const infot = [etunimi + ' ' + sukunimi];
     if (valitutNimet.length) infot.push(valitutNimet.join(' + '));
-    if (onTalentti) infot.push('⭐ Talenttiohjelma ' + talenttiTaso);
+    if (onTalentti) infot.push((tmHT('⭐ Talenttiohjelma') + ' ') + talenttiTaso);
     naytaToast(infot.join(' · ') + ' — tallennettu ✓', 'ok');
     setTimeout(() => renderPelaajat(document.getElementById('nakymaAlue')), 600);
   } catch(e) {
     const v = document.getElementById('mp_virhe');
-    if (v) { v.textContent = 'Tallennus epäonnistui: ' + e.message; v.style.display='block'; }
+    if (v) { v.textContent = (tmHT('Tallennus epäonnistui:') + ' ') + e.message; v.style.display='block'; }
   }
 }
 
@@ -5193,7 +5194,7 @@ async function avaaVaihdaJoukkuePelaajaModal(pelaajaId, nykyinenJoukkue) {
 
   const joukkueet = tila.joukkueet || [];
   if (joukkueet.length === 0) {
-    naytaToast('Ei joukkueita. Luo joukkueet ensin.', 'virhe'); return;
+    naytaToast(tmHT('Ei joukkueita. Luo joukkueet ensin.'), 'virhe'); return;
   }
 
   // Haetaan pelaajan nykyiset joukkueet — kenttä voi olla merkkijono (vanha)
@@ -5231,13 +5232,12 @@ async function avaaVaihdaJoukkuePelaajaModal(pelaajaId, nykyinenJoukkue) {
 
   modal.innerHTML = `
     <div class="modalKortti" style="max-width:420px;">
-      <button class="modalSuljeNappi" onclick="document.getElementById('vaihdaJoukkuePelaajaModal').classList.remove('auki')">✕ Sulje</button>
-      <div class="modalOtsikko">🔄 Vaihda joukkue</div>
+      <button class="modalSuljeNappi" onclick="document.getElementById('vaihdaJoukkuePelaajaModal').classList.remove('auki')">${tmHT('✕ Sulje')}</button>
+      <div class="modalOtsikko">${tmHT('🔄 Vaihda joukkue')}</div>
       <div class="modalKuvaus">
         Nykyinen: <strong>${nykyinenJoukkue || '—'}</strong><br>
         <span style="font-size:11px;color:var(--ink3);">
-          Pelaaja voi kuulua useampaan joukkueeseen — rastita kaikki joihin hän osallistuu.
-          Joukkuesiirto tallentuu pelaajadokumenttiin ja näkyy valmentajan näkymässä.
+          ${tmHT('Pelaaja voi kuulua useampaan joukkueeseen — rastita kaikki joihin hän osallistuu. Joukkuesiirto tallentuu pelaajadokumenttiin ja näkyy valmentajan näkymässä.')}
         </span>
       </div>
       <div style="display:flex;flex-direction:column;gap:4px;
@@ -5250,11 +5250,11 @@ async function avaaVaihdaJoukkuePelaajaModal(pelaajaId, nykyinenJoukkue) {
         <button class="lisaaNappi" style="flex:1;background:rgba(224,160,64,.15);
           border:1px solid rgba(224,160,64,.4);color:var(--amber);"
           onclick="tallennaPelaajanJoukkue('${pelaajaId}')">
-          🔄 Tallenna joukkueet
+          ${tmHT('🔄 Tallenna joukkueet')}
         </button>
         <button class="lisaaNappi" style="background:none;border:1px solid var(--border);color:var(--ink3);"
           onclick="document.getElementById('vaihdaJoukkuePelaajaModal').classList.remove('auki')">
-          Peruuta
+          ${tmHT('Peruuta')}
         </button>
       </div>
     </div>`;
@@ -5274,7 +5274,7 @@ async function tallennaPelaajanJoukkue(pelaajaId) {
 
   const virheEl = document.getElementById('vj_virhe');
   if (valitutIds.length === 0) {
-    if (virheEl) { virheEl.textContent = 'Valitse vähintään yksi joukkue.'; virheEl.style.display = 'block'; }
+    if (virheEl) { virheEl.textContent = tmHT('Valitse vähintään yksi joukkue.'); virheEl.style.display = 'block'; }
     return;
   }
 
@@ -5320,24 +5320,22 @@ function vahvistaPelaajanPoisto(pelaajaId, pelaajanNimi) {
   modal.innerHTML = `
     <div class="modalSisalto" style="max-width:400px;text-align:center;">
       <div style="font-size:40px;margin-bottom:12px;">⚠️</div>
-      <div class="modalOtsikko" style="color:rgba(255,120,120,.9);">Poistetaanko pelaaja?</div>
+      <div class="modalOtsikko" style="color:rgba(255,120,120,.9);">${tmHT('Poistetaanko pelaaja?')}</div>
       <div style="font-size:15px;font-weight:600;color:var(--ink1);margin:8px 0;">${pelaajanNimi}</div>
       <div class="modalKuvaus" style="color:var(--ink3);margin-bottom:20px;">
-        Tämä poistaa pelaajan <strong>kaikki tiedot pysyvästi</strong> (GDPR / oikeus tulla unohdetuksi):
-        perustiedot, havainnot, kirjaukset, testitulokset, läsnäolot, kuvat ja kirjautumistili.
-        Näet ensin tarkan esikatselun. Toimintoa ei voi peruuttaa.
+        ${tmHT('Tämä poistaa pelaajan')} <strong>kaikki tiedot pysyvästi</strong> ${tmHT('(GDPR / oikeus tulla unohdetuksi): perustiedot, havainnot, kirjaukset, testitulokset, läsnäolot, kuvat ja kirjautumistili. Näet ensin tarkan esikatselun. Toimintoa ei voi peruuttaa.')}
       </div>
 
       <div style="display:flex;gap:10px;justify-content:center;">
         <button class="lisaaNappi"
           style="background:rgba(220,50,50,.15);border:1px solid rgba(220,50,50,.4);color:rgba(255,120,120,.9);min-width:140px;"
           onclick="suoritaPelaajanPoisto('${pelaajaId}', '${pelaajanNimi.replace(/'/g,String.fromCharCode(39))}')">
-          🗑️ Kyllä, poista
+          ${tmHT('🗑️ Kyllä, poista')}
         </button>
         <button class="lisaaNappi"
           style="background:var(--primary-dim);min-width:100px;"
           onclick="document.getElementById('poistoPelaajaModal').classList.remove('auki')">
-          Peruuta
+          ${tmHT('Peruuta')}
         </button>
       </div>
     </div>`;
@@ -5352,7 +5350,7 @@ async function suoritaPelaajanPoisto(pelaajaId, pelaajanNimi) {
   const nappi = document.querySelector('#poistoPelaajaModal .lisaaNappi');
   const poistaFn = firebase.app().functions('europe-west1').httpsCallable('poistaPelaajaGDPR');
   try {
-    if (nappi) { nappi.disabled = true; nappi.textContent = '⏳ Lasketaan…'; }
+    if (nappi) { nappi.disabled = true; nappi.textContent = tmHT('⏳ Lasketaan…'); }
     // VAIHE 1 — esikatselu (dryRun): mitä ja kuinka paljon poistettaisiin.
     const esi = await poistaFn({ seuraId: tila.seuraId, pelaajaId: pelaajaId, dryRun: true });
     const r = (esi && esi.data) || {};
@@ -5366,7 +5364,7 @@ async function suoritaPelaajanPoisto(pelaajaId, pelaajanNimi) {
     const rivi = (lbl, n) => (n ? '<div>' + lbl + ': <strong>' + n + '</strong></div>' : '');
     const yhteenveto =
       rivi('Perustiedot', c.pelaaja) + rivi('Havainnot', c.havainnot) + rivi('Kirjaukset', c.kirjaukset) +
-      rivi('Testitulokset', c.testitulokset) + rivi('Biologinen ikä', c.biologinen_ika) +
+      rivi('Testitulokset', c.testitulokset) + rivi(tmHT('Biologinen ikä'), c.biologinen_ika) +
       rivi('Pelidata', c.pelidata) + rivi('Kehut', c.kehut) + rivi('Läsnäolot', c.lasnaolo) +
       rivi('Testitapahtumat', c.testitapahtuma_tulokset) + rivi('PalloID-viitteet', c.palloID_viitteet) +
       rivi('Solo-profiili', c.solo) + rivi('Kuvatiedostot', c.media_tiedostoja) + rivi('Kirjautumistili', c.auth);
@@ -5378,11 +5376,11 @@ async function suoritaPelaajanPoisto(pelaajaId, pelaajanNimi) {
       '<div class="modalOtsikko" style="color:rgba(255,120,120,.9);">Poistetaan pysyvästi</div>' +
       '<div style="font-size:15px;font-weight:600;color:var(--ink1);margin:8px 0;">' + pelaajanNimi + '</div>' +
       '<div style="text-align:left;font-size:13px;color:var(--ink2);background:rgba(220,50,50,.08);border:1px solid rgba(220,50,50,.25);border-radius:10px;padding:12px 16px;margin:12px 0;line-height:1.7;">' +
-      (yhteenveto || '<div>Ei dataa</div>') + '</div>' +
-      '<div class="modalKuvaus" style="color:var(--ink3);margin-bottom:18px;">GDPR — oikeus tulla unohdetuksi. <strong>Tätä ei voi peruuttaa.</strong></div>' +
+      (yhteenveto || '<div>' + tmHT('Ei dataa') + '</div>') + '</div>' +
+      '<div class="modalKuvaus" style="color:var(--ink3);margin-bottom:18px;">GDPR — oikeus tulla unohdetuksi. <strong>' + tmHT('Tätä ei voi peruuttaa.') + '</strong></div>' +
       '<div style="display:flex;gap:10px;justify-content:center;">' +
-      '<button class="lisaaNappi" id="rtbfVahvista" style="background:rgba(220,50,50,.15);border:1px solid rgba(220,50,50,.4);color:rgba(255,120,120,.9);min-width:170px;">🗑️ Poista lopullisesti</button>' +
-      '<button class="lisaaNappi" style="background:var(--primary-dim);min-width:100px;" onclick="document.getElementById(\'poistoPelaajaModal\').classList.remove(\'auki\')">Peruuta</button>' +
+      '<button class="lisaaNappi" id="rtbfVahvista" style="background:rgba(220,50,50,.15);border:1px solid rgba(220,50,50,.4);color:rgba(255,120,120,.9);min-width:170px;">' + tmHT('🗑️ Poista lopullisesti') + '</button>' +
+      '<button class="lisaaNappi" style="background:var(--primary-dim);min-width:100px;" onclick="document.getElementById(\'poistoPelaajaModal\').classList.remove(\'auki\')">' + tmHT('Peruuta') + '</button>' +
       '</div></div>';
     document.getElementById('rtbfVahvista').onclick = async function() {
       const vb = this;
@@ -5393,14 +5391,14 @@ async function suoritaPelaajanPoisto(pelaajaId, pelaajanNimi) {
         naytaToast(`${pelaajanNimi} poistettu pysyvästi ✓`, 'ok');
         setTimeout(() => renderPelaajat(document.getElementById('nakymaAlue')), 600);
       } catch(e) {
-        vb.disabled = false; vb.textContent = '🗑️ Poista lopullisesti';
-        naytaToast('Poisto epäonnistui: ' + (e.message || e), 'virhe');
+        vb.disabled = false; vb.textContent = tmHT('🗑️ Poista lopullisesti');
+        naytaToast((tmHT('Poisto epäonnistui:') + ' ') + (e.message || e), 'virhe');
         console.error('[RTBF poisto]', e);
       }
     };
   } catch(e) {
-    if (nappi) { nappi.disabled = false; nappi.textContent = '🗑️ Kyllä, poista'; }
-    naytaToast('Esikatselu epäonnistui: ' + (e.message || e), 'virhe');
+    if (nappi) { nappi.disabled = false; nappi.textContent = tmHT('🗑️ Kyllä, poista'); }
+    naytaToast((tmHT('Esikatselu epäonnistui:') + ' ') + (e.message || e), 'virhe');
     console.error('[RTBF esikatselu]', e);
   }
 }
@@ -5445,19 +5443,19 @@ function avaaMassakutsuModal() {
     div.className = 'modalTausta auki';
     div.id = 'massakutsuModal';
     div.innerHTML = '<div class="modalKortti" style="max-width:640px;">'
-      + '<button class="modalSuljeNappi" onclick="document.getElementById(\'massakutsuModal\').classList.remove(\'auki\')">✕ Sulje</button>'
-      + '<div class="modalOtsikko" style="clear:both;">📨 Massakutsu huoltajille</div>'
+      + '<button class="modalSuljeNappi" onclick="document.getElementById(\'massakutsuModal\').classList.remove(\'auki\')">' + tmHT('✕ Sulje') + '</button>'
+      + '<div class="modalOtsikko" style="clear:both;">' + tmHT('📨 Massakutsu huoltajille') + '</div>'
       + '<div class="modalKuvaus">'
-      +   'Valitse joukkue tai koko seura. Järjestelmä lähettää jokaiselle huoltajalle '
+      +   (tmHT('Valitse joukkue tai koko seura. Järjestelmä lähettää jokaiselle huoltajalle') + ' ')
       +   'henkilökohtaisen rekisteröintilinkin sähköpostilla.'
       + '</div>'
       // Joukkuevalinta
       + '<div style="margin-bottom:16px;">'
-      +   '<label style="font-size:11px;font-weight:600;letter-spacing:1.2px;text-transform:uppercase;color:var(--ink3);display:block;margin-bottom:6px;">Valitse kohderyhmä</label>'
+      +   '<label style="font-size:11px;font-weight:600;letter-spacing:1.2px;text-transform:uppercase;color:var(--ink3);display:block;margin-bottom:6px;">' + tmHT('Valitse kohderyhmä') + '</label>'
       +   '<select id="massakutsuJoukkueValinta" onchange="suodataMassakutsuJoukkue()"'
       +     ' style="width:100%;padding:10px 13px;border-radius:8px;border:1px solid var(--border);'
       +     'background:var(--bg3);color:var(--ink1);font-size:14px;">'
-      +     '<option value="">Ladataan...</option>'
+      +     '<option value="">' + tmHT('Ladataan...') + '</option>'
       +   '</select>'
       +   '<div id="massakutsuSuodatettuLkm" style="margin-top:6px;font-size:12px;color:var(--ink3);"></div>'
       + '</div>'
@@ -5470,10 +5468,10 @@ function avaaMassakutsuModal() {
       +   '<div style="max-height:220px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;">'
       +     '<table style="width:100%">'
       +       '<thead><tr style="background:var(--bg3);">'
-      +         '<th style="padding:8px;font-size:11px;text-align:left;">Nimi</th>'
-      +         '<th style="padding:8px;font-size:11px;text-align:left;">Joukkue</th>'
-      +         '<th style="padding:8px;font-size:11px;text-align:left;">HuoltajaEmail</th>'
-      +         '<th style="padding:8px;font-size:11px;text-align:left;">Tila</th>'
+      +         '<th style="padding:8px;font-size:11px;text-align:left;">' + tmHT('Nimi') + '</th>'
+      +         '<th style="padding:8px;font-size:11px;text-align:left;">' + tmHT('Joukkue') + '</th>'
+      +         '<th style="padding:8px;font-size:11px;text-align:left;">' + tmHT('HuoltajaEmail') + '</th>'
+      +         '<th style="padding:8px;font-size:11px;text-align:left;">' + tmHT('Tila') + '</th>'
       +         '<th style="padding:8px;font-size:11px;text-align:left;">Status</th>'
       +       '</tr></thead>'
       +       '<tbody id="massakutsuTbody"></tbody>'
@@ -5491,7 +5489,7 @@ function avaaMassakutsuModal() {
       + '<button id="massakutsuLahetaNappi" onclick="lahetaMassakutsu()"'
       +   ' style="width:100%;padding:13px;background:var(--teal);border:none;border-radius:10px;'
       +   'color:#000;font-size:15px;font-weight:700;cursor:pointer;" disabled>'
-      +   '📨 Lähetä kutsut sähköpostilla'
+      +   tmHT('📨 Lähetä kutsut sähköpostilla')
       + '</button>'
       + '<div id="massakutsuVirhe" style="color:var(--red);font-size:13px;margin-top:8px;text-align:center;"></div>'
       + '</div>';
@@ -5512,12 +5510,12 @@ async function _lataaMassakutsuPelaajat() {
   var infoBoksi = document.getElementById('massakutsuInfoBoksi');
   var esiEl = document.getElementById('massakutsuEsikatselu');
   var lkmEl = document.getElementById('massakutsuSuodatettuLkm');
-  if (jkSelect) jkSelect.innerHTML = '<option value="">Ladataan...</option>';
+  if (jkSelect) jkSelect.innerHTML = '<option value="">' + tmHT('Ladataan...') + '</option>';
   if (esiEl) esiEl.style.display = 'none';
   if (lkmEl) lkmEl.textContent = '';
 
   if (!tila.seuraId) {
-    if (jkSelect) jkSelect.innerHTML = '<option value="">Ei seuraa valittuna</option>';
+    if (jkSelect) jkSelect.innerHTML = '<option value="">' + tmHT('Ei seuraa valittuna') + '</option>';
     return;
   }
 
@@ -5557,7 +5555,7 @@ async function _lataaMassakutsuPelaajat() {
     // Joukkueet dropdowniin (kaikista lähetettävistä)
     var joukkueetMap = {};
     _massakutsuDataKaikki.forEach(function(p) {
-      var j = p.joukkue || '(ei joukkuetta)';
+      var j = p.joukkue || tmHT('(ei joukkuetta)');
       if (!joukkueetMap[j]) joukkueetMap[j] = 0;
       joukkueetMap[j]++;
     });
@@ -5587,7 +5585,7 @@ async function _lataaMassakutsuPelaajat() {
     // Infolaatikko
     if (infoBoksi) {
       var osat = [];
-      osat.push('Yhteensä ' + pelaajat.length + ' pelaajaa seurassa.');
+      osat.push((tmHT('Yhteensä') + ' ') + pelaajat.length + ' pelaajaa seurassa.');
       if (joAnnettu > 0) osat.push('✅ ' + joAnnettu + ' suostumus jo annettu (ei lähetetä).');
       if (joKutsutut.length > 0) osat.push('📨 ' + joKutsutut.length + ' kutsu jo lähetetty (valitse "Jo kutsutut" lähettääksesi uudelleen).');
       if (eiEmailia > 0) osat.push('⚠️ ' + eiEmailia + ' ilman huoltajan sähköpostia.');
@@ -5600,7 +5598,7 @@ async function _lataaMassakutsuPelaajat() {
 
   } catch(err) {
     console.error('[Massakutsu] Firestore-virhe:', err);
-    if (jkSelect) jkSelect.innerHTML = '<option value="">Virhe: ' + err.message + '</option>';
+    if (jkSelect) jkSelect.innerHTML = '<option value="">' + tmHT('Virhe:') + ' ' + err.message + '</option>';
   }
 }
 
@@ -5619,7 +5617,7 @@ function suodataMassakutsuJoukkue() {
   var lkmEl = document.getElementById('massakutsuSuodatettuLkm');
   if (lkmEl) {
     if (joukkue === '__jo_kutsutut__') {
-      lkmEl.innerHTML = '<span style="color:var(--amber);">⚠️ Uudelleenlähetys — nämä pelaajat ovat jo saaneet kutsun</span>';
+      lkmEl.innerHTML = '<span style="color:var(--amber);">' + tmHT('⚠️ Uudelleenlähetys — nämä pelaajat ovat jo saaneet kutsun') + '</span>';
     } else if (joukkue) {
       lkmEl.textContent = _massakutsuData.length + '/' + _massakutsuDataKaikki.length + ' valittu';
     } else {
@@ -5644,7 +5642,7 @@ function _renderMassakutsuEsikatselu() {
       + '<td style="padding:7px 8px;font-size:12px;color:var(--ink3);">' + _escHtml(r.joukkue || '—') + '</td>'
       + '<td style="padding:7px 8px;font-size:12px;color:var(--teal);">' + _escHtml(r.huoltajaEmail) + '</td>'
       + '<td style="padding:7px 8px;font-size:11px;color:' + tilaVari + ';">' + _escHtml(tilaTeksti) + '</td>'
-      + '<td style="padding:7px 8px;font-size:11px;color:var(--ink3);">⏳ Odottaa</td>'
+      + '<td style="padding:7px 8px;font-size:11px;color:var(--ink3);">' + tmHT('⏳ Odottaa') + '</td>'
       + '</tr>';
   }).join('');
   if (lkm) lkm.textContent = _massakutsuData.length + ' pelaajaa lähetysjonossa';
@@ -5656,17 +5654,17 @@ function _renderMassakutsuEsikatselu() {
 async function lahetaMassakutsu() {
   if (!_massakutsuData.length) return;
   if (!tila.seuraId) {
-    document.getElementById('massakutsuVirhe').textContent = 'Seura ei ole valittuna.';
+    document.getElementById('massakutsuVirhe').textContent = tmHT('Seura ei ole valittuna.');
     return;
   }
 
   // #1 Vahvistus ennen lähetystä — estää vahinkoklikkauksella massalähetyksen
   var uudet = _massakutsuData.filter(function(p) { return p.suostumusTila !== 'odottaa'; }).length;
   var uudelleen = _massakutsuData.length - uudet;
-  var vahvistusViesti = 'Lähetetään ' + _massakutsuData.length + ' kutsua sähköpostilla.';
+  var vahvistusViesti = (tmHT('Lähetetään') + ' ') + _massakutsuData.length + ' kutsua sähköpostilla.';
   if (uudelleen > 0) {
     vahvistusViesti += '\n\n⚠️ ' + uudelleen + ' pelaajalle on jo lähetetty kutsu aiemmin (tila: odottaa). '
-      + 'He saavat kutsun UUDELLEEN.';
+      + tmHT('He saavat kutsun UUDELLEEN.');
   }
   // Onboarding-integriteetti (warn-not-block, §A): sama huoltajaEmail usealla valitulla? (sisarukset vai ristiin?)
   var _emRyhmat = {};
@@ -5688,7 +5686,7 @@ async function lahetaMassakutsu() {
   const status   = document.getElementById('massakutsuStatus');
   const tbody    = document.getElementById('massakutsuTbody');
 
-  if (nappi)    { nappi.disabled = true; nappi.textContent = 'Lähetetään...'; }
+  if (nappi)    { nappi.disabled = true; nappi.textContent = tmHT('Lähetetään...'); }
   if (progress) progress.style.display = '';
 
   const baseUrl = _rekBaseUrl();
@@ -5768,8 +5766,8 @@ async function lahetaMassakutsu() {
       // Päivitetään taulukon rivi (Status = 5. sarake, indeksi 4)
       if (tbody && tbody.rows[i]) {
         tbody.rows[i].cells[4].innerHTML = mailOk
-          ? '<span style="color:var(--teal);">✅ Lähetetty</span>'
-          : '<span style="color:#E0A040;">⚠️ Linkki luotu, sähköposti ei lähtenyt</span>';
+          ? '<span style="color:var(--teal);">' + tmHT('✅ Lähetetty') + '</span>'
+          : '<span style="color:#E0A040;">' + tmHT('⚠️ Linkki luotu, sähköposti ei lähtenyt') + '</span>';
       }
       onnistui++;
 
@@ -5792,8 +5790,8 @@ async function lahetaMassakutsu() {
   if (ohitettuSuostumus > 0) viestiOsat.push(ohitettuSuostumus + ' oli jo antanut suostumuksen — status säilytetty');
   var yhteenveto = viestiOsat.join(' · ') || 'Valmis';
 
-  if (status) status.textContent = 'Valmis! ' + yhteenveto;
-  if (nappi)  { nappi.textContent = '✅ Valmis'; }
+  if (status) status.textContent = (tmHT('Valmis!') + ' ') + yhteenveto;
+  if (nappi)  { nappi.textContent = tmHT('✅ Valmis'); }
 
   naytaToast(
     'Massakutsu: ' + sahkopostiOk + '/' + _massakutsuData.length + ' lähetetty',
@@ -5859,10 +5857,10 @@ async function aloitaLataaminenOhjeesta() {
 }
 
 async function lataaRekisteriPohja() {
-  if (!tila.seuraId) { naytaToast('Valitse ensin seura', 'virhe'); return; }
+  if (!tila.seuraId) { naytaToast(tmHT('Valitse ensin seura'), 'virhe'); return; }
 
   const nappi = document.querySelector('[onclick="lataaRekisteriPohja()"]');
-  if (nappi) { nappi.disabled = true; nappi.textContent = '⏳ Haetaan joukkueet...'; }
+  if (nappi) { nappi.disabled = true; nappi.textContent = tmHT('⏳ Haetaan joukkueet...'); }
 
   try {
     // Hae seuran joukkueet Firestoresta
@@ -5881,8 +5879,8 @@ async function lataaRekisteriPohja() {
     const kaikkiJoukkueet = [...new Set([...joukkueetKokoelma, ...pelJoukkueet])].sort();
 
     if (kaikkiJoukkueet.length === 0) {
-      naytaToast('Lisää joukkueet ensin Joukkueet-välilehdellä', 'virhe');
-      if (nappi) { nappi.disabled = false; nappi.textContent = '⬇ ' + _tk('seura.lataa_excel_pohja', 'Lataa Excel-pohja'); }
+      naytaToast(tmHT('Lisää joukkueet ensin Joukkueet-välilehdellä'), 'virhe');
+      if (nappi) { nappi.disabled = false; nappi.textContent = '⬇ ' + _tk('seura.lataa_excel_pohja', tmHT('Lataa Excel-pohja')); }
       return;
     }
 
@@ -5900,21 +5898,21 @@ async function lataaRekisteriPohja() {
 
     // ── PELAAJAT-välilehti ──────────────────────────────────────
     // Syntymävuosi * pakollinen (1.10.2026): 4 numeroa; tuonti ei tuo riviä ilman sitä.
-    const pelaajaOtsikot = ['Etunimi *', 'Sukunimi *', 'Syntymävuosi *', 'Joukkue * (katso Asetukset-välilehti)', 'Huoltajan sähköposti *', 'PalloID (vapaaehtoinen)', 'Talenttiohjelma', 'TalenttiTaso'];
+    const pelaajaOtsikot = ['Etunimi *', 'Sukunimi *', tmHT('Syntymävuosi *'), tmHT('Joukkue * (katso Asetukset-välilehti)'), tmHT('Huoltajan sähköposti *'), 'PalloID (vapaaehtoinen)', 'Talenttiohjelma', 'TalenttiTaso'];
     // Otsikko "OHJE SIHTEEREILLE" on otsikkorivillä (pelData[0]) → ei toistoa ohjeen ensimmäisenä rivinä.
     const ohje = [
-      '1.  Täytä jokainen pelaaja omalle rivilleen.',
-      '2.  Joukkue: kopioi nimi Asetukset-välilehdeltä (seuran joukkueet valmiina).',
+      tmHT('1.  Täytä jokainen pelaaja omalle rivilleen.'),
+      tmHT('2.  Joukkue: kopioi nimi Asetukset-välilehdeltä (seuran joukkueet valmiina).'),
       '3.  Syntymävuosi: neljä numeroa, esim. 2014. Pakollinen.',
-      '4.  PalloID (vapaaehtoinen) — löytyy pelipassista tai Palloliiton rekisteristä.',
-      '5.  Talenttiohjelma: kirjoita "kyllä" jos pelaaja on talenttiryhmässä.',
-      '6.  TalenttiTaso: "perus" tai "laajennettu".',
-      '7.  Huoltajan s-posti: vanhempi saa tätä kautta suostumuspyynnön.',
-      '8.  Tallenna → lataa takaisin TalentMasteriin.',
+      tmHT('4.  PalloID (vapaaehtoinen) — löytyy pelipassista tai Palloliiton rekisteristä.'),
+      tmHT('5.  Talenttiohjelma: kirjoita "kyllä" jos pelaaja on talenttiryhmässä.'),
+      tmHT('6.  TalenttiTaso: "perus" tai "laajennettu".'),
+      tmHT('7.  Huoltajan s-posti: vanhempi saa tätä kautta suostumuspyynnön.'),
+      tmHT('8.  Tallenna → lataa takaisin TalentMasteriin.'),
     ];
 
     // Rakenna data-array
-    const pelData = [pelaajaOtsikot.concat(['', '📋  OHJE SIHTEEREILLE'])];
+    const pelData = [pelaajaOtsikot.concat(['', tmHT('📋  OHJE SIHTEEREILLE')])];
     for (let i = 0; i < 100; i++) {
       const rivi = new Array(pelaajaOtsikot.length).fill('');
       if (ohje[i]) rivi.push('', ohje[i]);
@@ -5940,11 +5938,11 @@ async function lataaRekisteriPohja() {
 
     // ── ASETUKSET-välilehti — joukkueet kirjoitettu valmiiksi ───
     const asData = [
-      ['⚠ OHJE: Kopioi joukkuenimi alta Pelaajat-välilehden Joukkue-sarakkeeseen', '', ''],
-      ['Muokkaa joukkueita: Seurahallinta → Joukkueet-välilehti → lataa uusi pohja.'],
+      [tmHT('⚠ OHJE: Kopioi joukkuenimi alta Pelaajat-välilehden Joukkue-sarakkeeseen'), '', ''],
+      [tmHT('Muokkaa joukkueita: Seurahallinta → Joukkueet-välilehti → lataa uusi pohja.')],
       [],
-      ['✓ SEURAN JOUKKUEET (kopioi tarkasti):'],
-      ...kaikkiJoukkueet.map((j, i) => [j, '', i === 0 ? '← kopioi tämä Joukkue-sarakkeeseen' : '']),
+      [tmHT('✓ SEURAN JOUKKUEET (kopioi tarkasti):')],
+      ...kaikkiJoukkueet.map((j, i) => [j, '', i === 0 ? tmHT('← kopioi tämä Joukkue-sarakkeeseen') : '']),
     ];
     const wsAs = XLSX.utils.aoa_to_sheet(asData);
     wsAs['!cols'] = [{wch: 35}, {wch: 4}, {wch: 40}];
@@ -5970,13 +5968,13 @@ async function lataaRekisteriPohja() {
     const pvm = new Date().toISOString().slice(0,10);
     XLSX.writeFile(wb, `TalentMaster_${seuraNimi}_${pvm}.xlsx`);
 
-    naytaToast('✅ ' + _tk('seura.excel_pohja_ladattu', 'Excel-pohja ladattu – {n} joukkuetta Asetukset-välilehdellä', { n: kaikkiJoukkueet.length }), 'ok');
+    naytaToast('✅ ' + _tk('seura.excel_pohja_ladattu', tmHT('Excel-pohja ladattu – {n} joukkuetta Asetukset-välilehdellä'), { n: kaikkiJoukkueet.length }), 'ok');
 
   } catch(e) {
-    naytaToast('Lataus epäonnistui: ' + e.message, 'virhe');
+    naytaToast((tmHT('Lataus epäonnistui:') + ' ') + e.message, 'virhe');
     console.error('[lataaRekisteriPohja]', e);
   } finally {
-    if (nappi) { nappi.disabled = false; nappi.textContent = '⬇ ' + _tk('seura.lataa_excel_pohja', 'Lataa Excel-pohja'); }
+    if (nappi) { nappi.disabled = false; nappi.textContent = '⬇ ' + _tk('seura.lataa_excel_pohja', tmHT('Lataa Excel-pohja')); }
   }
 }
 
@@ -6045,8 +6043,8 @@ async function luoPuuttuvatPinit() {
     if (k.valitut) {
       const eiSuostumusta = k.lista.filter((p) => !p.pin && !_suostumusAnnettu(p)).length;
       const ilman = k.lista.filter((p) => !p.pin && _suostumusAnnettu(p));
-      if (!ilman.length) { naytaToast(eiSuostumusta ? 'PIN luodaan vasta suostumuksen jälkeen: ' + eiSuostumusta + ' valitulta puuttuu huoltajan suostumus.' : 'Kaikilla valituilla on jo PIN.', 'info'); return; }
-      if (!confirm('Luodaanko PIN-koodi ' + ilman.length + ' valitulle pelaajalle, joilta se puuttuu?'
+      if (!ilman.length) { naytaToast(eiSuostumusta ? (tmHT('PIN luodaan vasta suostumuksen jälkeen:') + ' ') + eiSuostumusta + ' valitulta puuttuu huoltajan suostumus.' : tmHT('Kaikilla valituilla on jo PIN.'), 'info'); return; }
+      if (!confirm((tmHT('Luodaanko PIN-koodi') + ' ') + ilman.length + ' valitulle pelaajalle, joilta se puuttuu?'
         + (eiSuostumusta ? '\n' + eiSuostumusta + ' ohitetaan: huoltajan suostumus puuttuu.' : ''))) return;
       let ok = 0, virhe = 0;
       for (const p of ilman) {
@@ -6059,16 +6057,16 @@ async function luoPuuttuvatPinit() {
         + (eiSuostumusta ? ' · ' + eiSuostumusta + ' ohitettu (ei suostumusta)' : ''), virhe ? 'varoitus' : 'ok');
     } else {
       const arg = Object.assign({ seuraId: tila.seuraId, vainPuuttuvat: true }, k.joukkue ? { joukkue: k.joukkue } : {});
-      _tunnusTila('Lasketaan…');
+      _tunnusTila(tmHT('Lasketaan…'));
       const esi = await _pinFn('luoPinitSeuralle')(Object.assign({ kuivaAjo: true }, arg));
       _tunnusTila('');
       const n = esi.data.luotaisiin || 0;
       const eiSuost = esi.data.ohitettuSuostumus || 0;
       const suostTeksti = eiSuost ? eiSuost + ' pelaajalta puuttuu huoltajan suostumus – PIN luodaan suostumuksen jälkeen.' : '';
       if (!n) { naytaToast(eiSuost ? 'Ei luotavia PIN-koodeja (' + k.kuvaus + '). ' + suostTeksti : 'Kaikilla pelaajilla (' + k.kuvaus + ') on jo PIN.', 'info'); return; }
-      if (!confirm('Luodaanko uusi 6-numeroinen PIN ' + n + ' pelaajalle (' + k.kuvaus + ')?\nPelaajat, joilla on jo PIN, eivät muutu.'
+      if (!confirm((tmHT('Luodaanko uusi 6-numeroinen PIN') + ' ') + n + ' pelaajalle (' + k.kuvaus + ')?\nPelaajat, joilla on jo PIN, eivät muutu.'
         + (eiSuost ? '\n' + suostTeksti : ''))) return;
-      _tunnusTila('Luodaan PIN-koodeja…');
+      _tunnusTila(tmHT('Luodaan PIN-koodeja…'));
       const r = await _pinFn('luoPinitSeuralle')(arg);
       _tunnusTila('');
       naytaToast('✅ PIN luotu ' + r.data.luotu + ' pelaajalle (' + k.kuvaus + ')'
@@ -6078,7 +6076,7 @@ async function luoPuuttuvatPinit() {
     setTimeout(() => renderPelaajat(document.getElementById('nakymaAlue')), 600);
   } catch (e) {
     _tunnusTila('');
-    naytaToast('PIN-koodien luonti epäonnistui: ' + _pinVirheTeksti(e), 'virhe');
+    naytaToast((tmHT('PIN-koodien luonti epäonnistui:') + ' ') + _pinVirheTeksti(e), 'virhe');
   }
 }
 
@@ -6090,7 +6088,7 @@ function _lataaQrKirjasto() {
   return new Promise((ok, virhe) => {
     const sc = document.createElement('script');
     sc.src = 'https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js';
-    sc.onload = () => ok(); sc.onerror = () => virhe(new Error('QR-kirjaston lataus epäonnistui'));
+    sc.onload = () => ok(); sc.onerror = () => virhe(new Error(tmHT('QR-kirjaston lataus epäonnistui')));
     document.head.appendChild(sc);
   });
 }
@@ -6118,11 +6116,11 @@ function _pinKortitHtml(kortit) {
     + '<div class="r"><img src="' + k.qr + '" alt="QR"><div class="t">'
     + (k.palloId ? '<div class="l">PalloID</div><div class="v">' + esc(k.palloId) + '</div>' : '')
     + '<div class="l">PIN</div><div class="v pin">' + esc(k.pin) + '</div></div></div>'
-    + '<div class="o">' + esc(tp('seura.kortti_skannaa_pin', 'Skannaa ja syötä PIN')) + '</div></div>';
+    + '<div class="o">' + esc(tp('seura.kortti_skannaa_pin', tmHT('Skannaa ja syötä PIN'))) + '</div></div>';
   const suostumuskortti = (k) => '<div class="k ks"><div class="n">' + esc(k.etunimi) + '</div><div class="j">' + esc(k.joukkue) + '</div>'
     + '<div class="r"><img src="' + k.qr + '" alt="QR"><div class="t sk">'
-    + esc(tp('seura.suostumuskortti_teksti', 'Näytä tämä vanhemmallesi. Kun huoltaja antaa luvan (2 min), hän saa tunnuksesi sähköpostiin.'))
-    + '</div></div><div class="o">' + esc(tp('seura.suostumuskortti_ala', 'Huoltajan lupa · TalentMaster')) + '</div></div>';
+    + esc(tp('seura.suostumuskortti_teksti', tmHT('Näytä tämä vanhemmallesi. Kun huoltaja antaa luvan (2 min), hän saa tunnuksesi sähköpostiin.')))
+    + '</div></div><div class="o">' + esc(tp('seura.suostumuskortti_ala', tmHT('Huoltajan lupa · TalentMaster'))) + '</div></div>';
   const kortti = (k) => (k.tyyppi === 'suostumus' ? suostumuskortti(k) : pelaajakortti(k));
   let sivut = '';
   for (let i = 0; i < kortit.length; i += 8) sivut += '<div class="s">' + kortit.slice(i, i + 8).map(kortti).join('') + '</div>';
@@ -6174,24 +6172,24 @@ const KORTTI_ERA = 10;   // luoSuostumusKortit-kutsut 10 pelaajan erissä → ed
    1.10.2026: ikkuna ENSIN (ponnahdusesto), vahvistus ikkunassa, edistyminen ja virhe ikkunaan. */
 async function tulostaKortit() {
   const w = window.open('', '_blank');   // HETI napinpainalluksessa — ennen mitään awaitia tai dialogia
-  if (!w) { naytaToast(_tk('seura.kortit_ponnahdus_estetty', 'Selain esti tulostusikkunan. Salli ponnahdusikkunat tälle sivulle ja paina uudelleen.'), 'virhe'); return; }
-  _korttiIkkuna(w, _tk('seura.kortit_valmistellaan', 'Valmistellaan kortteja…'));
+  if (!w) { naytaToast(_tk('seura.kortit_ponnahdus_estetty', tmHT('Selain esti tulostusikkunan. Salli ponnahdusikkunat tälle sivulle ja paina uudelleen.')), 'virhe'); return; }
+  _korttiIkkuna(w, _tk('seura.kortit_valmistellaan', tmHT('Valmistellaan kortteja…')));
   const k = _tunnusKohde();
   const jarj = (a, b) => ((a.sukunimi || '') + (a.etunimi || '')).localeCompare((b.sukunimi || '') + (b.etunimi || ''), 'fi');
   const pelaajat = k.lista.filter((p) => _suostumusAnnettu(p) && p.pin).sort(jarj);
   const ilmanPinia = k.lista.filter((p) => _suostumusAnnettu(p) && !p.pin).length;
   const suostumus = k.lista.filter((p) => !_suostumusAnnettu(p) && p.huoltajaEmail).sort(jarj);
   const eiEmailia = k.lista.filter((p) => !_suostumusAnnettu(p) && !p.huoltajaEmail).length;
-  const yhteenveto = _tk('seura.kortit_yhteenveto', '{x} pelaajakorttia, {y} suostumuskorttia, {z} ilman huoltajan sähköpostia.',
+  const yhteenveto = _tk('seura.kortit_yhteenveto', tmHT('{x} pelaajakorttia, {y} suostumuskorttia, {z} ilman huoltajan sähköpostia.'),
     { x: pelaajat.length, y: suostumus.length, z: eiEmailia });
-  const lisat = (eiEmailia ? '\n' + _tk('seura.kortit_ei_emailia', '{n} pelaajalta puuttuu huoltajan sähköposti – lisää se pelaajakortille.', { n: eiEmailia }) : '')
+  const lisat = (eiEmailia ? '\n' + _tk('seura.kortit_ei_emailia', tmHT('{n} pelaajalta puuttuu huoltajan sähköposti – lisää se pelaajakortille.'), { n: eiEmailia }) : '')
     + (ilmanPinia ? '\n' + ilmanPinia + ' pelaajalla on suostumus mutta ei PIN:iä – luo ensin PIN-koodit.' : '');
   if (!pelaajat.length && !suostumus.length) {
-    _korttiIkkuna(w, _tk('seura.kortit_ei_tulostettavaa', 'Ei tulostettavia kortteja'), k.kuvaus + '\n' + yhteenveto + lisat);
+    _korttiIkkuna(w, _tk('seura.kortit_ei_tulostettavaa', tmHT('Ei tulostettavia kortteja')), k.kuvaus + '\n' + yhteenveto + lisat);
     naytaToast('Ei tulostettavia kortteja (' + k.kuvaus + '). ' + yhteenveto + lisat.replace(/\n/g, ' '), 'varoitus');
     return;
   }
-  const jatketaan = await _korttiVahvistus(w, _tk('seura.kortit_tulosta', 'Tulosta kortit') + ' (' + k.kuvaus + ')', yhteenveto + lisat);
+  const jatketaan = await _korttiVahvistus(w, _tk('seura.kortit_tulosta', tmHT('Tulosta kortit')) + ' (' + k.kuvaus + ')', yhteenveto + lisat);
   if (!jatketaan) { try { w.close(); } catch (_) {} return; }
   try {
     const kutsut = {};
@@ -6201,7 +6199,7 @@ async function tulostaKortit() {
       const r = await _pinFn('luoSuostumusKortit')({ seuraId: tila.seuraId, pelaajaIds: era.map((p) => p.id) });
       (r.data.kortit || []).forEach((x) => { if (x.tyyppi === 'suostumuskortti' && x.kutsuId) kutsut[x.pelaajaId] = x.kutsuId; });
     }
-    _korttiIkkuna(w, _tk('seura.kortit_qr', 'Luodaan QR-koodeja…'));
+    _korttiIkkuna(w, _tk('seura.kortit_qr', tmHT('Luodaan QR-koodeja…')));
     await _lataaQrKirjasto();
     const kortit = pelaajat.map((p) => ({ tyyppi: 'pelaaja', nimi: ((p.etunimi || '') + ' ' + (p.sukunimi || '')).trim(),
       joukkue: p.joukkueNimi || p.joukkue || '', palloId: _pinPalloId(p), pin: p.pin, qr: _qrDataUrl(_pelaajaLinkki(p)) }))
@@ -6213,8 +6211,8 @@ async function tulostaKortit() {
     setTimeout(() => renderPelaajat(document.getElementById('nakymaAlue')), 600);   // tila → "Kutsu lähetetty"
   } catch (e) {
     const syy = _pinVirheTeksti(e);
-    _korttiIkkuna(w, _tk('seura.kortit_virhe', 'Korttien teko epäonnistui'), syy);   // virhe ikkunaan, ei hiljaista sulkemista
-    naytaToast('Korttien teko epäonnistui: ' + syy, 'virhe');
+    _korttiIkkuna(w, _tk('seura.kortit_virhe', tmHT('Korttien teko epäonnistui')), syy);   // virhe ikkunaan, ei hiljaista sulkemista
+    naytaToast((tmHT('Korttien teko epäonnistui:') + ' ') + syy, 'virhe');
   }
 }
 
@@ -6230,14 +6228,14 @@ async function lahetaTunnuksetHuoltajille() {
   const suostOhje = eiSuostumusta + ' ilman suostumusta – lähetä heille suostumuskutsu (Kutsut).';
   if (!kohteet.length) { naytaToast('Ei lähetettävää (' + k.kuvaus + '): ' + eiEmailia + ' ilman huoltajan sähköpostia, ' + eiPinia + ' ilman PIN:iä'
     + (eiSuostumusta ? ', ' + suostOhje : '.'), 'varoitus'); return; }
-  if (!confirm('Lähetetäänkö tunnukset (PalloID, PIN ja linkki) ' + kohteet.length + ' huoltajalle (' + k.kuvaus + ')?'
+  if (!confirm((tmHT('Lähetetäänkö tunnukset (PalloID, PIN ja linkki)') + ' ') + kohteet.length + ' huoltajalle (' + k.kuvaus + ')?'
     + (eiEmailia ? '\n' + eiEmailia + ' ohitetaan: ei huoltajan sähköpostia.' : '')
     + (eiPinia ? '\n' + eiPinia + ' ohitetaan: ei PIN:iä (luo ensin PIN-koodit).' : '')
     + (eiSuostumusta ? '\n' + eiSuostumusta + ' ohitetaan: huoltajan suostumus puuttuu – lähetä heille suostumuskutsu.' : ''))) return;
   const fn = firebase.app().functions('europe-west1').httpsCallable('lahetaPelaajaSivuLinkki');
   let ok = 0, virhe = 0;
   for (const p of kohteet) {
-    _tunnusTila('Lähetetään ' + (ok + virhe + 1) + '/' + kohteet.length + '…');
+    _tunnusTila((tmHT('Lähetetään') + ' ') + (ok + virhe + 1) + '/' + kohteet.length + '…');
     try {
       await fn({ hEmail: p.huoltajaEmail, pelaajaId: p.id, seuraId: tila.seuraId, etunimi: p.etunimi || '', sukunimi: p.sukunimi || '',
         seura: tila.seuraNimi || tila.seuraId, joukkue: p.joukkue || '' });
@@ -6245,7 +6243,7 @@ async function lahetaTunnuksetHuoltajille() {
     } catch (e) { virhe++; console.warn('[tunnukset]', p.id, e && e.message); }
   }
   _tunnusTila('');
-  naytaToast('✅ Tunnukset lähetetty ' + ok + ' huoltajalle' + (virhe ? ' · ' + virhe + ' epäonnistui' : '')
+  naytaToast((tmHT('✅ Tunnukset lähetetty') + ' ') + ok + ' huoltajalle' + (virhe ? ' · ' + virhe + ' epäonnistui' : '')
     + (eiEmailia ? ' · ' + eiEmailia + ' ilman sähköpostia' : '') + (eiPinia ? ' · ' + eiPinia + ' ilman PIN:iä' : '')
     + (eiSuostumusta ? ' · ' + suostOhje : ''), virhe ? 'varoitus' : 'ok');
 }
@@ -6254,7 +6252,7 @@ async function uusiPelaajaPIN(pelaajaId) {
   const syote = document.getElementById('pin-syote-' + pelaajaId);
   const oma = (syote?.value || '').trim();
   if (oma && !/^[0-9]{6}$/.test(oma)) {
-    naytaToast('Oman PIN:n on oltava 6 numeroa — tai jätä kenttä tyhjäksi, niin palvelin luo PIN:n.', 'virhe');
+    naytaToast(tmHT('Oman PIN:n on oltava 6 numeroa — tai jätä kenttä tyhjäksi, niin palvelin luo PIN:n.'), 'virhe');
     if (syote) { syote.style.borderColor = 'rgba(217,96,96,.6)'; syote.focus(); }
     return;
   }
@@ -6264,9 +6262,9 @@ async function uusiPelaajaPIN(pelaajaId) {
     const r = await _pinFn('asetaPelaajanPin')(Object.assign({ seuraId: tila.seuraId, pelaajaId: pelaajaId }, oma ? { pin: oma } : {}));
     _paivitaPinPaikallisesti(pelaajaId, r.data.pin);
     if (syote) { syote.value = ''; syote.style.borderColor = 'rgba(0,212,170,.3)'; }
-    naytaToast('✅ Uusi PIN ' + r.data.pin + ' — vanha PIN ei enää toimi.', 'ok');
+    naytaToast((tmHT('✅ Uusi PIN') + ' ') + r.data.pin + ' — vanha PIN ei enää toimi.', 'ok');
   } catch (e) {
-    naytaToast('PIN:n asetus epäonnistui: ' + _pinVirheTeksti(e), 'virhe');
+    naytaToast((tmHT('PIN:n asetus epäonnistui:') + ' ') + _pinVirheTeksti(e), 'virhe');
   }
 }
 
@@ -6277,12 +6275,12 @@ async function uusiPelaajaPIN(pelaajaId) {
 window._unohditSalasana = function () {
   var _el = document.getElementById('emailInput');
   var _email = ((_el && _el.value) || '').trim();
-  if (!_email) { if (typeof naytaToast === 'function') naytaToast('Syötä ensin sähköpostiosoite kenttään', 'virhe'); return; }
+  if (!_email) { if (typeof naytaToast === 'function') naytaToast(tmHT('Syötä ensin sähköpostiosoite kenttään'), 'virhe'); return; }
   try {
     firebase.auth().sendPasswordResetEmail(_email)
-      .then(function () { if (typeof naytaToast === 'function') naytaToast('Salasanalinkki lähetetty: ' + _email + ' — avaa se heti.', 'ok'); })
-      .catch(function (e) { if (typeof naytaToast === 'function') naytaToast('Lähetys epäonnistui: ' + ((e && (e.message || e.code)) || e), 'virhe'); });
-  } catch (e) { if (typeof naytaToast === 'function') naytaToast('Lähetys epäonnistui', 'virhe'); }
+      .then(function () { if (typeof naytaToast === 'function') naytaToast((tmHT('Salasanalinkki lähetetty:') + ' ') + _email + ' — avaa se heti.', 'ok'); })
+      .catch(function (e) { if (typeof naytaToast === 'function') naytaToast((tmHT('Lähetys epäonnistui:') + ' ') + ((e && (e.message || e.code)) || e), 'virhe'); });
+  } catch (e) { if (typeof naytaToast === 'function') naytaToast(tmHT('Lähetys epäonnistui'), 'virhe'); }
 };
 
 async function kirjauduSisaan() {
@@ -6291,7 +6289,7 @@ async function kirjauduSisaan() {
   const nappi    = document.getElementById('kirjauduNappi');
 
   if (!email || !salasana) {
-    naytaVirhe('kirjautumisVirhe', 'Syötä sähköposti ja salasana.'); return;
+    naytaVirhe('kirjautumisVirhe', tmHT('Syötä sähköposti ja salasana.')); return;
   }
   nappi.disabled    = true;
   nappi.textContent = 'Kirjaudutaan...';
@@ -6301,12 +6299,12 @@ async function kirjauduSisaan() {
     await tmYritaUudelleenVerkkokatkossa(() => auth.signInWithEmailAndPassword(email, salasana));   // verkkokatko → 1 uusi yritys
   } catch (e) {
     nappi.disabled    = false;
-    nappi.textContent = 'Kirjaudu sisään';
+    nappi.textContent = tmHT('Kirjaudu sisään');
     if (tmOnVerkkokatko(e)) { tmRaportoiVerkkokatko('seuraKirjautuminen'); naytaVirhe('kirjautumisVirhe', tmVerkkoViesti('fi')); return; }
     const koodit = {
-      'auth/user-not-found':     'Sähköpostia ei löydy.',
-      'auth/wrong-password':     'Väärä salasana.',
-      'auth/invalid-credential': 'Väärä sähköposti tai salasana.',
+      'auth/user-not-found':     tmHT('Sähköpostia ei löydy.'),
+      'auth/wrong-password':     tmHT('Väärä salasana.'),
+      'auth/invalid-credential': tmHT('Väärä sähköposti tai salasana.'),
       'auth/too-many-requests':  'Liian monta yritystä. Odota hetki.',
     };
     naytaVirhe('kirjautumisVirhe', koodit[e.code] || e.message);
@@ -6355,7 +6353,7 @@ function avaaTuoJaLahetaModal() {
       btn.id        = 'aloitaTuontiNappi';
       btn.className = 'nappi';
       btn.style.cssText = 'margin-top:10px;background:var(--teal);color:#000;';
-      btn.textContent   = '📥 ' + _tk('seura.excel_tuo_nappi', 'Minulla on täytetty Excel → Tuo järjestelmään');
+      btn.textContent   = '📥 ' + _tk('seura.excel_tuo_nappi', tmHT('Minulla on täytetty Excel → Tuo järjestelmään'));
       btn.onclick = function() {
         suljeModal('rekisteriOhjeModal');
         avaaExcelTuontiModal();
@@ -6381,7 +6379,7 @@ function _avaaTuoJaLahetaModal_vanha() {
     // Muutetaan ohjemodaalin jatkonappi viemään tuontiin eikä pelkkään lataukseen
     const jatkoNappi = document.getElementById('aloitaLataaminenNappi');
     if (jatkoNappi) {
-      jatkoNappi.textContent = '⬇ Lataa pohja ensin';
+      jatkoNappi.textContent = tmHT('⬇ Lataa pohja ensin');
     }
     // Lisätään "Minulla on jo täytetty Excel" -nappi jos ei vielä ole
     let tuontiNappi = document.getElementById('aloitaTuontiNappi');
@@ -6390,7 +6388,7 @@ function _avaaTuoJaLahetaModal_vanha() {
       tuontiNappi.id = 'aloitaTuontiNappi';
       tuontiNappi.className = 'nappi';
       tuontiNappi.style.cssText = 'margin-top:10px;background:var(--teal);';
-      tuontiNappi.textContent = '📥 Minulla on täytetty Excel → Tuo ja lähetä kutsut';
+      tuontiNappi.textContent = tmHT('📥 Minulla on täytetty Excel → Tuo ja lähetä kutsut');
       tuontiNappi.onclick = function() {
         suljeModal('rekisteriOhjeModal');
         // Avaa TMImport tai massakutsu-modal
@@ -6476,7 +6474,7 @@ function kasitteleExcelTuonti(event) {
       const data = new Uint8Array(e.target.result);
 
       // Kaikki tuonti SheetJS:llä — tukee sekä .xlsx että .csv
-      if (typeof XLSX === 'undefined') throw new Error('Excel-lukija ei ole ladattu — päivitä sivu ja yritä uudelleen.');
+      if (typeof XLSX === 'undefined') throw new Error(tmHT('Excel-lukija ei ole ladattu — päivitä sivu ja yritä uudelleen.'));
       const wb = XLSX.read(data, { type: 'array' });
       // Käytetään ensimmäistä välilehteä (Pelaajat)
       const ws = wb.Sheets[wb.SheetNames[0]];
@@ -6493,7 +6491,7 @@ function kasitteleExcelTuonti(event) {
           break;
         }
       }
-      if (otsikkoRiviIdx === -1) throw new Error('Otsikkorivejä ei löydy. Varmista että tiedosto on TalentMaster-pohja ja Pelaajat-välilehti on auki.');
+      if (otsikkoRiviIdx === -1) throw new Error(tmHT('Otsikkorivejä ei löydy. Varmista että tiedosto on TalentMaster-pohja ja Pelaajat-välilehti on auki.'));
 
       // Normalisoidaan otsikot: poistetaan *, välilyönnit, emojit
       const normOtsikot = kaikki[otsikkoRiviIdx].map(v =>
@@ -6521,11 +6519,11 @@ function kasitteleExcelTuonti(event) {
       const iEtu    = etsiSarake('Etunimi', 'etunimi');
       const iSuku   = etsiSarake('Sukunimi', 'sukunimi');
       const iJouk   = etsiSarake('Joukkue', 'joukkue');
-      const iEmail  = etsiSarake('Huoltajansähköposti', 'HuoltajaEmail', 'email', 'sähköposti');
+      const iEmail  = etsiSarake(tmHT('Huoltajansähköposti'), 'HuoltajaEmail', 'email', 'sähköposti');
       const iPalloId = etsiSarake('PalloID', 'palloid', 'palloID', 'palloId');
       const iTalentti = etsiSarake('Talenttiohjelma', 'talenttiohjelma', 'talentti');
       const iTaso     = etsiSarake('TalenttiTaso', 'talentitaso', 'taso');
-      const iVuosi    = etsiSarake('Syntymävuosi', 'syntymavuosi');   // pakollinen (1.10.2026)
+      const iVuosi    = etsiSarake(tmHT('Syntymävuosi'), 'syntymavuosi');   // pakollinen (1.10.2026)
       const iSukup    = etsiSarake('Sukupuoli', 'sukupuoli');   // valinnainen: P/T tai M/N → "M"/"N" (§7.12); puuttuva/tunnistamaton → ei kenttää (ei oletusta)
 
       // Muutetaan datarivit objekteiksi
@@ -6560,7 +6558,7 @@ function kasitteleExcelTuonti(event) {
       _excelData = rivit.filter(r => r.etunimi || r.sukunimi);
 
       if (_excelData.length === 0) {
-        throw new Error('Tiedostosta ei löytynyt pelaajia. Tarkista että sarakeotsikoiden nimet täsmäävät pohjaan.');
+        throw new Error(tmHT('Tiedostosta ei löytynyt pelaajia. Tarkista että sarakeotsikoiden nimet täsmäävät pohjaan.'));
       }
 
       // Näytetään esikatselu
@@ -6576,12 +6574,12 @@ function kasitteleExcelTuonti(event) {
         const joukkueOk = p.joukkue;
         const onTalentti = p.talentti === 'kyllä' || p.talentti === 'kylla' || p.talentti === 'yes' || p.talentti === 'k';
         const status    = p._hylatty ? '⛔ ' + p._hylatty
-          : !nimiOk ? '⚠️ Nimi puuttuu'
-          : p._eiVuotta ? '⚠️ Syntymävuosi puuttuu – riviä ei tuoda'
-          : !joukkueOk ? '⚠️ Joukkue?'
-          : p._joukkueOrpo ? '⚠️ Joukkue ei listassa'   // #92 warn-not-block: ei osu seuran joukkuet-doceihin
+          : !nimiOk ? tmHT('⚠️ Nimi puuttuu')
+          : p._eiVuotta ? tmHT('⚠️ Syntymävuosi puuttuu – riviä ei tuoda')
+          : !joukkueOk ? tmHT('⚠️ Joukkue?')
+          : p._joukkueOrpo ? tmHT('⚠️ Joukkue ei listassa')   // #92 warn-not-block: ei osu seuran joukkuet-doceihin
           : !emailOk   ? '⚠️ Email?'
-          : '✓ Valmis';
+          : tmHT('✓ Valmis');
         const statusVari = p._hylatty ? 'var(--red)' : status.startsWith('⚠') ? 'var(--amber)' : 'var(--teal)';
         return `<tr style="border-bottom:1px solid var(--border);">
           <td style="padding:7px 10px;font-size:12px;font-weight:600;">${p.etunimi} ${p.sukunimi}</td>
@@ -6612,13 +6610,12 @@ function kasitteleExcelTuonti(event) {
       if (virheEl) virheEl.style.color = 'var(--amber)';
 
       if (duplikaatit.length > 0) {
-        if (virheEl) virheEl.textContent = '⚠️ Sama PalloID usealla pelaajalla: ' +
+        if (virheEl) virheEl.textContent = (tmHT('⚠️ Sama PalloID usealla pelaajalla:') + ' ') +
           duplikaatit.map(([id]) => id).join(', ') + ' — tarkista Excel ennen tuontia.';
         if (tuoN)  tuoN.disabled  = true;
         if (tuoLN) tuoLN.disabled = true;
       } else if (tuntemattomat.length > 0) {
-        if (virheEl) virheEl.textContent = '⚠️ Tuntemattomia joukkueita: "' + tuntemattomat.join('", "') +
-          '" — näitä ei ole järjestelmässä. Lataa uusi Excel-pohja tai tarkista nimet.';
+        if (virheEl) virheEl.textContent = tmHT('⚠️ Tuntemattomia joukkueita: "{nimet}" — näitä ei ole järjestelmässä. Lataa uusi Excel-pohja tai tarkista nimet.').replace('{nimet}', tuntemattomat.join('", "'));
         if (tuoN)  { tuoN.disabled = false; tuoN.style.opacity = '1'; }
         if (tuoLN) { tuoLN.disabled = false; tuoLN.style.opacity = '1'; }
         // Varoitetaan mutta ei estetä — voi olla tarkoituksellista
@@ -6628,12 +6625,12 @@ function kasitteleExcelTuonti(event) {
         if (tuoLN) { tuoLN.disabled = false; tuoLN.style.opacity = '1'; }
       }
       // Vanha pohja ilman Syntymävuosi-saraketta → kaikki rivit jäisivät tuomatta: kerro syy suoraan.
-      if (iVuosi < 0 && virheEl) virheEl.textContent = '⚠️ Pohjasta puuttuu Syntymävuosi-sarake – lataa uusi Excel-pohja.';
+      if (iVuosi < 0 && virheEl) virheEl.textContent = tmHT('⚠️ Pohjasta puuttuu Syntymävuosi-sarake – lataa uusi Excel-pohja.');
 
       if (nappiTeksti) nappiTeksti.textContent = '📁 ' + file.name + ' (' + _excelData.length + ' pelaajaa)';
 
     } catch(err) {
-      if (nappiTeksti) nappiTeksti.textContent = '📁 Valitse Excel- tai CSV-tiedosto';
+      if (nappiTeksti) nappiTeksti.textContent = tmHT('📁 Valitse Excel- tai CSV-tiedosto');
       const virheEl = document.getElementById('excelVirhe');
       if (virheEl) virheEl.textContent = 'Virhe: ' + err.message;
     }
@@ -6644,7 +6641,7 @@ function kasitteleExcelTuonti(event) {
 async function ajaExcelTuonti(lahetaKutsut = false) {
   if (!_excelData.length) { return; }
   if (!tila.seuraId) {
-    document.getElementById('excelVirhe').textContent = 'Seura ei ole valittuna.';
+    document.getElementById('excelVirhe').textContent = tmHT('Seura ei ole valittuna.');
     return;
   }
   /* ISTUNTOTURVA: ei tuontia ilman kirjautunutta käyttäjää ja hyväksyttyä roolia (väärän roolin tila → jatkotoiminnot estetty). */
@@ -6796,7 +6793,7 @@ async function ajaExcelTuonti(lahetaKutsut = false) {
         kutsut++;
         // Päivitetään progress-teksti kertomaan sähköpostin tila
         if (teksti) teksti.textContent =
-          `${i+1}/${_excelData.length} — ${p.etunimi} ${p.sukunimi} ${mailOk ? '✉️ lähetetty' : '⚠️ sähköposti epäonnistui'}`;
+          `${i+1}/${_excelData.length} — ${p.etunimi} ${p.sukunimi} ${mailOk ? tmHT('✉️ lähetetty') : tmHT('⚠️ sähköposti epäonnistui')}`;
       }
 
     } catch(err) {
@@ -6812,7 +6809,7 @@ async function ajaExcelTuonti(lahetaKutsut = false) {
 
   // Päivitetään progress-teksti lopuksi
   if (bar)    bar.style.width = seis ? bar.style.width : '100%';
-  if (teksti) teksti.textContent = seis ? 'Pysäytetty' : 'Valmis!';
+  if (teksti) teksti.textContent = seis ? 'Pysäytetty' : tmHT('Valmis!');
 
   // Näytetään tulokset selkeästi
   const mailVirheitaOli = virheet > 0;
@@ -6838,7 +6835,7 @@ async function ajaExcelTuonti(lahetaKutsut = false) {
     if (tuotu > 0) {
       const ohje = document.createElement('div');
       ohje.style.cssText = 'margin-top:8px;font-size:12px;color:var(--ink2);';
-      ohje.textContent = 'PIN-koodit luodaan automaattisesti, kun huoltaja antaa suostumuksen.';
+      ohje.textContent = tmHT('PIN-koodit luodaan automaattisesti, kun huoltaja antaa suostumuksen.');
       onni.appendChild(ohje);
     }
   }
@@ -6847,7 +6844,7 @@ async function ajaExcelTuonti(lahetaKutsut = false) {
 
   naytaToast(
     tuotu === 0
-      ? 'Mitään ei tuotu' + (hylatty ? ` – ${hylatty} hylätty (esimerkkiosoite)` : '')
+      ? tmHT('Mitään ei tuotu') + (hylatty ? ` – ${hylatty} hylätty (esimerkkiosoite)` : '')
       : lahetaKutsut
         ? `${tuotu} pelaajaa tuotu · ${kutsut} kutsua lähetetty`
         : `${tuotu} pelaajaa tuotu`,
@@ -6905,7 +6902,7 @@ function nayta(nakyma) {
     nakyma === 'sovellus'      ? 'block' : 'none';
   if (nakyma === 'kirjautuminen') {
     const n = document.getElementById('kirjauduNappi');
-    if (n) { n.disabled = false; n.textContent = 'Kirjaudu sisään'; }
+    if (n) { n.disabled = false; n.textContent = tmHT('Kirjaudu sisään'); }
   }
 }
 
