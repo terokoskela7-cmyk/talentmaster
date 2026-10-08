@@ -32,5 +32,5 @@ describe.skipIf(!AJA)('läpiajo fixtuurisivulla (selain)', () => {
     expect(tekstit).toContain('Tallenna muutokset'); expect(tekstit).toContain('Hae pelaajaa'); expect(tekstit).toContain('Avaa valmentajan asetukset');
     expect(rivit.find((x) => x.teksti === 'Hae pelaajaa').tyyppi).toBe('placeholder'); expect(rivit.find((x) => x.teksti === 'Avaa valmentajan asetukset').tyyppi).toBe('title');
     for (const ei of ['Välkommen tillbaka', 'Spara ändringar', 'Aleksi Mäkinen', 'TalentMaster™', 'Tämä teksti on piilotettu']) expect(tekstit, ei).not.toContain(ei);
-  });
+  }, 60000);   // oma aikaraja: Chromiumin käynnistys + sivun lataus ylittää vitestin oletus 5 s CI:ssä
 });
