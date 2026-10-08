@@ -213,3 +213,15 @@ test('S1.1: lähdekysely epäonnistuu → ei kirjoiteta (virhe nousee, ei puolik
   await assert.rejects(S.laskeSeura(deps(db), 'kpv', { rajat: H.viikonRajat(NYT), nytMs: NYT }), /mock-virhe/);
   assert.deepStrictEqual(db.kirjoitukset, []);
 });
+
+test('S1.1: takaisinlaskenta (arvio:true) toimii käyttöasteelle — aktiivisuus vain arviohetkeen asti; yhteenveto sisältää uudet luvut', async () => {
+  const d = seuraData('kpv'); const P = 'seurat/kpv/pelaajat/a';
+  d[P + '/kirjaukset/2026-09-30'] = { tehty: true };   // viikon W40 (28.9.–4.10.) sisällä, W38:n (14.–20.9.) arviohetken jälkeen
+  const db = luoDb(d);
+  const kas = S.paivitaKasittelija(deps(db, { tarkistaOikeus: async () => ({ sallittu: true, rooli: 'superadmin' }) }));
+  const r = await kas({ seuraId: 'kpv', takaisin: 3 }, { auth: { uid: 'u_sa', token: {} } });
+  const w = Object.fromEntries(r.viikot.map((x) => [x.vk, x]));
+  assert.strictEqual(w['2026-W38'].aktiivinen_30, 0);      // kirjaus 30.9. on W38-arvion (su 20.9.) jälkeen
+  assert.strictEqual(w['2026-W40'].aktiivinen_30, 1); assert.strictEqual(w['2026-W40'].aktiivinen_7, 1);
+  for (const k of ['suostumus', 'kirjautunut_30', 'huoltaja_30']) assert.strictEqual(typeof w['2026-W40'][k], 'number', k);
+});

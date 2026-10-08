@@ -733,6 +733,9 @@ describe('VP_v25 resolvi-portti — jokaisella reititetyllä avaimella on sv-riv
     // D2-bugi (joukkuekortti, 8.10.2026) — sv Gemini-erä 2:ssa:
     'TKI-pohjainen',
     'TKI ka',
+    // S1.1 Käyttöaste (VP Koti, 10.10.2026) — sv docs/i18n/sv_kaannoserae_s11.json:ssa (Gemini):
+    'Sovelluksen käyttö',
+    'Pelaajien ja perheiden oma käyttö, lukumääriä joukkueittain. Päivittyy viikoittain.',
   ];
 
   it('0 vpT-avainta ilman sv-riviä (paitsi nimetyt sanktiointia odottavat)', () => {
