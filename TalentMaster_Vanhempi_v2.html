@@ -1734,6 +1734,19 @@ window._vaihdaLapsiKlik = function (seuraId, pelaajaId) {
   } catch (e) { /* ei estä vaihtoa */ }
   _vaihdaLapsi(seuraId, pelaajaId);
 };
+/* S1.1 Käyttöaste — huoltajan käynti palvelimelle (kirjaaHuoltajaKaynti): kerran päivässä per lapsi, vain sähköpostilla kirjautunut huoltaja (anonyymi/linkkikäyntiä ei lasketa).
+   Best-effort: virhe ei näy käyttäjälle eikä estä mitään. Päivämäärä, ei sisältöä; palvelin tarkistaa huoltajaEmail:n ja kirjoittaa kentän (Rules: client ei voi). */
+function _kirjaaHuoltajaKaynti(seuraId, pelaajaId) {
+  try {
+    const u = _auth && _auth.currentUser;
+    if (!u || !u.email || !seuraId || seuraId === 'demo' || !pelaajaId || !window._fbApp) return;
+    const paiva = tmPaivaIso(), avain = 'tm_hk_kaynti_' + seuraId + '_' + pelaajaId;
+    try { if (localStorage.getItem(avain) === paiva) return; } catch (e) { /* ei LS → kutsu, palvelin rajaa kerran päivässä */ }
+    window._fbApp.functions('europe-west1').httpsCallable('kirjaaHuoltajaKaynti')({ seuraId: seuraId, pelaajaId: pelaajaId })
+      .then(function () { try { localStorage.setItem(avain, paiva); } catch (e) { /* ok */ } })
+      .catch(function () { /* best-effort */ });
+  } catch (e) { /* ei kaada lapsen avausta */ }
+}
 async function _vaihdaLapsi(seuraId, pelaajaId) {
   if (!_db || !seuraId || !pelaajaId) return;
   const pyynto = ++_lapsiPyynto;
@@ -1753,6 +1766,7 @@ async function _vaihdaLapsi(seuraId, pelaajaId) {
   if (!ajantasalla()) return;
   if (!pd.exists) { _toast(t('vanhempi.toast_lapsi_haku_virhe')); return; }
   _lapsiValintaTallenna(seuraId, pelaajaId);
+  _kirjaaHuoltajaKaynti(seuraId, pelaajaId);
   // id + seuraId polusta (dokumentissa ei välttämättä ole niitä) → kalenteri, ilmoitukset ja RSVP osuvat oikeaan lapseen.
   _kasitteleLapsi(Object.assign({}, pd.data(), { id: pelaajaId, seuraId: seuraId }));
   await _lataaLapsenData(seuraId, pelaajaId, ajantasalla);

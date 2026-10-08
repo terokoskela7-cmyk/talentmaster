@@ -1,9 +1,14 @@
 rules_version = '2';
 // ══════════════════════════════════════════════════════════════════════════
-// TalentMaster™ — firestore.rules v3.53
+// TalentMaster™ — firestore.rules v3.54
 //
 // Lähde:  tm_admin/firestore.rules
 // Deploy: PR → N4-CI deployaa automaattisesti (Console-käsityö poistui).
+//
+// Muutokset v3.53 → v3.54 (S1.1 Käyttöaste — 10.10.2026 — additiivinen, §11; ei migraatiota; kentät syntyvät vasta palvelimen kirjoituksesta):
+//   · seurat/{sid}/pelaajat/{pid}: `viimeisinKirjautuminen` (pelaajaKirjaudu kirjoittaa) ja `huoltajaViimeisinKaynti` (kirjaaHuoltajaKaynti kirjoittaa) VAIN palvelimella (Admin SDK).
+//     Client ei saa asettaa (create) eikä muuttaa tai poistaa (update: !affectedKeys().hasAny) — myös henkilökunta ja SA. Sama malli kuin pin/suostumus (v3.30/v3.33).
+//   · Koosteet (kooste, kooste_joukkue) ennallaan: luku johto/SA (+ oman joukkueen valmentaja joukkuekoosteeseen); pelaaja ja huoltaja eivät lue (§7.22). Versio 2 -kentät ovat uusia lukumääriä samoissa dokumenteissa.
 //
 // Muutokset v3.52 → v3.53 (Seuran pulssi S1 — 9.10.2026 — additiivinen, §11; ei migraatiota; client ei kirjoita):
 //   · seurat/{sid}/kooste/{vvvv-Www}: luku SA | oman seuran johto (VP/UTJ/seurasihteeri). Kirjoitus `false` (vain palvelin, Admin SDK: laskeSeuranKooste / paivitaSeuranKooste).
@@ -739,6 +744,14 @@ service cloud.firestore {
           .hasAny(['suostumusTila', 'suostumus', 'suostumusAnnettu', 'suostumukset', 'huoltajaEmail']);
     }
 
+    // v3.54 (S1.1): käyttöaste-aikaleimat vain palvelimella (pelaajaKirjaudu / kirjaaHuoltajaKaynti, Admin SDK). Luonnissa ei saa olla kenttiä; päivityksessä ei saa koskea (poisto mukaan lukien).
+    function kayttoasteEiAsetetaClientista() {
+      return !request.resource.data.keys().hasAny(['viimeisinKirjautuminen', 'huoltajaViimeisinKaynti']);
+    }
+    function kayttoasteEiMuutuClientista() {
+      return !request.resource.data.diff(resource.data).affectedKeys().hasAny(['viimeisinKirjautuminen', 'huoltajaViimeisinKaynti']);
+    }
+
     function onOmanJoukkueenValmentaja(seuraId, pelaajaId) {
       return onOmanSeuranValmentaja(seuraId)
           && ( onJohtoRooli()
@@ -1242,8 +1255,8 @@ service cloud.firestore {
         // v3.30 (PR 4): PIN asetetaan VAIN palvelimella (asetaPelaajanPin / luoPinitSeuralle / vahvistaSuostumus),
         // jotta hajautus (_pelaajaPin) ja selväkielinen kopio pysyvät samana. Koskee myös SA:n selainkirjoituksia.
         allow create: if (onSuperAdmin() || onOmanSeuranValmentaja(seuraId)) && pinEiAsetetaClientista()
-                      && suostumusEiAsetetaClientista();
-        allow update: if pinEiMuutuClientista() && suostumusEiMuutuClientista() && (
+                      && suostumusEiAsetetaClientista() && kayttoasteEiAsetetaClientista();
+        allow update: if pinEiMuutuClientista() && suostumusEiMuutuClientista() && kayttoasteEiMuutuClientista() && (
                          onSuperAdmin() || onOmanJoukkueenValmentaja(seuraId, pelaajaId)   // permissio-joukkulukko: ADAR-pikakentät ym. vain oman joukkueen pelaajaan (johto ohittaa)
                       || onTestivastaava(seuraId)   // testituonnin profiili-pikakentät (hh_taso/hh_viimeisin/mas_kmh)
                       || (onOmaSeura(seuraId) && request.auth.uid == pelaajaId)

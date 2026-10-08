@@ -136,10 +136,10 @@ describe('tietosuojavartija: koosteessa ei nimiä, ID:itä eikä vapaatekstiä',
     expect(K.tmKoosteRikkomukset({ joukkueet: { a: { teksti: 't' } } }).length).toBe(1);
     expect(K.tmKoosteRikkomukset({ joukkueet: { a: { x: ['pid'] } } }).length).toBe(1);
   });
-  it('rakenne: vk, versio 1, arvio vain kun pyydetty; kooste_joukkue: id {jid}_{vk}, mittarit ilman nimiä', () => {
-    expect(doc.vk).toBe('2026-W41'); expect(doc.versio).toBe(1); expect('arvio' in doc).toBe(false);
+  it('rakenne: vk, versio 2, arvio vain kun pyydetty; kooste_joukkue: id {jid}_{vk}, mittarit ilman nimiä', () => {
+    expect(doc.vk).toBe('2026-W41'); expect(doc.versio).toBe(2); expect('arvio' in doc).toBe(false);
     expect(laske([J13], P, {}, { arvio: true }).doc.arvio).toBe(true);
-    const jd = K.tmKoosteJoukkueDokumentit(doc)[0]; expect(jd.id).toBe('u13_2026-W41'); expect(jd.data).toMatchObject({ vk: '2026-W41', jid: 'u13', versio: 1 }); expect(jd.data.mittarit.n_pelaajat).toBe(1);
+    const jd = K.tmKoosteJoukkueDokumentit(doc)[0]; expect(jd.id).toBe('u13_2026-W41'); expect(jd.data).toMatchObject({ vk: '2026-W41', jid: 'u13', versio: 2 }); expect(jd.data.mittarit.n_pelaajat).toBe(1);
   });
   it('kenttiä ei tule teemakattavuudelle / kuormalle / kypsyydelle (S4) eikä nollia niille', () => { const k = Object.keys(doc.joukkueet.u13).join(','); for (const ei of ['teema', 'kuorma', 'kypsyys']) expect(k).not.toContain(ei); });
 });
@@ -168,5 +168,60 @@ describe('tm_ikavaihe: pariteetti sovelluksen normiIka:an', () => {
     expect([12, 13, 15, 16, 25].map(IV.tmIkavaihe)).toEqual(['leikkija', 'rakentaja', 'rakentaja', 'showcase', 'showcase']); expect([null, '', 0, NaN, 'x'].map(IV.tmIkavaihe)).toEqual([null, null, null, null, null]);
     const KT = require('../lib/tm_kehitystyopoyta.js'); const MV = require('../lib/tm_mediaviesti.js');
     for (const ika of [8, 12, 13, 15, 16, 19]) { expect(IV.tmIkavaihe(ika) === 'leikkija').toBe(KT.tmKtIkavaihe(ika) === 'Leikkijä'); expect(IV.tmIkavaihe(ika)).toBe(MV.tmMvRekisteri(ika) === 'leikkija' ? 'leikkija' : (ika <= 15 ? 'rakentaja' : 'showcase')); }
+  });
+});
+
+
+describe('S1.1 Käyttöaste (versio 2) — suostumus · kirjautuminen · oma kirjoitus 7/30 pv', () => {
+  // arviointihetki su 11.10.2026 21:00 Helsinki → tänään 2026-10-11; 7 pv ikkuna alkaa 2026-10-05, 30 pv ikkuna 2026-09-12
+  const P = [
+    pel('a', { suostumus: true, viimeisinKirjautuminen: '2026-10-10', huoltajaViimeisinKaynti: '2026-10-01', oma: ['2026-10-09'] }),          // aktiivinen 7+30, kirjautunut, huoltaja
+    pel('b', { suostumus: true, viimeisinKirjautuminen: '2026-09-12', oma: ['2026-09-20'] }),                                                // 30 pv (ikkunan raja 12.9. mukaan), aktiivinen vain 30
+    pel('c', { suostumus: true, viimeisinKirjautuminen: '2026-09-11', oma: ['2026-09-11'] }),                                                // 1 pv ikkunan ulkopuolella
+    pel('d', { suostumus: false, oma: ['2026-10-12'] }),                                                                                       // tulevaisuus (arvion jälkeen) ei lasketa
+    pel('e', { suostumus: true, oma: ['2026-10-05'] }),                                                                                       // 7 pv ikkunan ensimmäinen päivä
+    pel('f', { oma: [iso(Date.UTC(2026, 9, 11, 20, 59))] }),                                                                                  // ISO-aikaleima → Helsingin päivä 11.10. (sis. 7 pv)
+    pel('g'),                                                                                                                                 // ei mitään
+  ];
+  const u = laske([J13], P).doc.joukkueet.u13;
+  it('n_suostumus: vain p.suostumus === true', () => { expect(u.n_suostumus).toBe(4); });
+  it('n_kirjautunut_30: ikkunan rajat (30 pv sis. alkupäivä, ei arviohetken jälkeistä)', () => { expect(u.n_kirjautunut_30).toBe(2); });
+  it('n_huoltaja_30: huoltajaViimeisinKaynti ikkunassa', () => { expect(u.n_huoltaja_30).toBe(1); });
+  it('n_aktiivinen_7 / n_aktiivinen_30: oma kirjoitus; tulevaisuus ja ikkunan ulkopuoli ei; ISO-aikaleima Helsingin päivänä', () => { expect(u.n_aktiivinen_7).toBe(3); expect(u.n_aktiivinen_30).toBe(4); expect(u.n_aktiivinen_7).toBeLessThanOrEqual(u.n_aktiivinen_30); });
+  it('kirjautuminen EI ole oma kirjoitus (c: kirjautunut mutta ei aktiivinen; vain kirjautunut ei nosta aktiivista)', () => {
+    const v = laske([J13], [pel('x', { viimeisinKirjautuminen: '2026-10-10' })]).doc.joukkueet.u13; expect([v.n_kirjautunut_30, v.n_aktiivinen_7, v.n_aktiivinen_30]).toEqual([1, 0, 0]);
+  });
+  it('tyhjä seura / joukkue ilman pelaajia: nollat; v1-tyylinen pelaaja (ei uusia kenttiä) ei kaada', () => {
+    const t = laske([J13], []).doc.joukkueet.u13; expect([t.n_suostumus, t.n_kirjautunut_30, t.n_huoltaja_30, t.n_aktiivinen_7, t.n_aktiivinen_30]).toEqual([0, 0, 0, 0, 0]);
+    const v = laske([J13], [pel('y')]).doc.joukkueet.u13; expect(v.n_pelaajat).toBe(1); expect(v.n_aktiivinen_30).toBe(0);
+  });
+  it('pelaaja kahdessa joukkueessa (§7.18) lasketaan kumpaankin', () => {
+    const J = { id: 'u15', nimi: 'KPV U15' };
+    const { doc } = laske([J13, J], [pel('z', { joukkueet: ['u13', 'u15'], suostumus: true, oma: ['2026-10-10'] })]);
+    expect(doc.joukkueet.u13.n_aktiivinen_7).toBe(1); expect(doc.joukkueet.u15.n_aktiivinen_7).toBe(1); expect(doc.joukkueet.u15.n_suostumus).toBe(1);
+  });
+  it('tietosuoja: syötteen oma-päivämäärät, kirjautumispäivät ja suostumus eivät vuoda koosteeseen (vain lukumäärät); vartija hiljaa', () => {
+    const { doc } = laske([J13], P); const s = JSON.stringify(doc);
+    for (const k of ['2026-10-09', '2026-09-20', 'viimeisinKirjautuminen', 'huoltajaViimeisinKaynti', '"oma"', '"a"', '"b"']) expect(s.includes(k), k).toBe(false);
+    expect(K.tmKoosteRikkomukset(doc)).toEqual([]);
+    Object.keys(doc.joukkueet.u13).filter((k) => /^n_/.test(k)).forEach((k) => expect(typeof doc.joukkueet.u13[k], k).toBe('number'));
+  });
+});
+
+describe('tmKoosteTrendi — neljän viikon trendi (seura / joukkue)', () => {
+  const dok = (vk, a, b) => ({ vk, joukkueet: { u13: { n_pelaajat: 10, n_aktiivinen_30: a }, u15: { n_pelaajat: 20, n_aktiivinen_30: b } } });
+  it('summaa joukkueet; edellinen viikko + suunta', () => {
+    const t = K.tmKoosteTrendi([dok('2026-W38', 1, 1), dok('2026-W39', 2, 2), dok('2026-W40', 3, 6)], 'n_aktiivinen_30');
+    expect(t.nyt).toEqual({ vk: '2026-W40', osoittaja: 9, nimittaja: 30, pros: 30 }); expect(t.edellinen.osoittaja).toBe(4); expect(t.suunta).toBe('ylos');
+  });
+  it('yksittäinen joukkue (jid); alas / sama', () => {
+    expect(K.tmKoosteTrendi([dok('a', 5, 0), dok('b', 3, 0)], 'n_aktiivinen_30', 'u13').suunta).toBe('alas');
+    expect(K.tmKoosteTrendi([dok('a', 5, 0), dok('b', 5, 9)], 'n_aktiivinen_30', 'u13').suunta).toBe('sama');
+  });
+  it('tyhjä / yksi viikko / v1-dokumentit (kenttä puuttuu) → ei edellistä, suunta null', () => {
+    expect(K.tmKoosteTrendi([], 'n_aktiivinen_30')).toEqual({ nyt: null, edellinen: null, suunta: null });
+    expect(K.tmKoosteTrendi([dok('a', 1, 1)], 'n_aktiivinen_30').suunta).toBeNull();
+    const v1 = { vk: 'x', joukkueet: { u13: { n_pelaajat: 10 } } };
+    expect(K.tmKoosteTrendi([v1, dok('y', 1, 1)], 'n_aktiivinen_30').edellinen).toBeNull();
   });
 });

@@ -10,7 +10,8 @@ const K = require('../functions/pelaajakirjautuminen.js');
 
 class HttpsError extends Error { constructor(code, msg) { super(msg); this.code = code; } }
 
-function tynka(pelaajat, pinHashit) {
+function tynka(pelaajat, pinHashit, tynkaOpts) {
+  const paivitykset = [];   // S1.1: seurat/{sid}/pelaajat/{pid}.update(...)
   // Suostumus ennen kirjautumista (1.10.2026): fixturet ovat suostumuksen antaneita, ellei data kerro muuta.
   pelaajat = pelaajat.map((p) => Object.assign({}, p, { data: Object.assign({ suostumusTila: 'annettu' }, p.data) }));
   const kokoelmat = { _kirjautumisyritykset: new Map(), _pelaajaPin: new Map(pinHashit || []) };
@@ -55,6 +56,10 @@ function tynka(pelaajat, pinHashit) {
       ? { collection: () => ({ doc: (pid) => ({ get: async () => {
           const p = pelaajat.find((x) => x.seuraId === id && x.pelaajaId === pid && (x.juuri || 'seurat') === 'seurat');
           return { exists: !!p, data: () => (p ? p.data : undefined) };
+        }, update: async (d) => {
+          if (tynkaOpts && tynkaOpts.updateHeittaa) throw new Error('mock update-virhe');
+          paivitykset.push({ seuraId: id, pelaajaId: pid, d: Object.assign({}, d) });
+          const p = pelaajat.find((x) => x.seuraId === id && x.pelaajaId === pid); if (p) Object.assign(p.data, d);
         } }) }) }
       : docRef(kok, id)) }),
     collectionGroup: () => ({
@@ -75,7 +80,7 @@ function tynka(pelaajat, pinHashit) {
   const audit = []; let nyt = 1_000_000;
   const FieldValue = { increment: (n) => ({ __inc: n }) };
   const f = K.luoKasittelija({ db, auth, HttpsError, FieldValue, audit: async (t, x) => audit.push([t, x]), nyt: () => nyt });
-  return { f, tokenit, audit, kokoelmat, siirra: (ms) => { nyt += ms; }, cg: () => cgKyselyt };
+  return { f, tokenit, audit, kokoelmat, paivitykset, siirra: (ms) => { nyt += ms; }, cg: () => cgKyselyt };
 }
 const TOPIAS = { seuraId: 'kpv', pelaajaId: 'm93', data: { tunniste: '12345678', pin: '9278' } };
 const ctx = { rawRequest: { ip: '1.2.3.4' } };
@@ -350,3 +355,40 @@ describe('pelaajaKirjaudu · linkkireitti (seuraId + pelaajaId + PIN)', () => {
   });
 });
 
+
+
+describe('S1.1 · pelaajaKirjaudu kirjoittaa viimeisinKirjautuminen palvelimella', () => {
+  const PV = (ms) => K.helsinginPaiva(ms);
+  const uusi = (data, opts) => tynka([{ seuraId: 'kpv', pelaajaId: 'm93', data: Object.assign({ tunniste: '12345678', pin: '9278' }, data || {}) }], undefined, opts);
+  it('onnistunut kirjautuminen kirjoittaa Helsingin päivän (YYYY-MM-DD) pelaajadokumenttiin — vain tämä kenttä', async () => {
+    const t = uusi(); const v = await t.f({ liittoTunnus: '12345678', pin: '9278' }, ctx);
+    expect(v.token).toBe('TOKEN');
+    expect(t.paivitykset).toEqual([{ seuraId: 'kpv', pelaajaId: 'm93', d: { viimeisinKirjautuminen: PV(1_000_000) } }]);
+    expect(t.paivitykset[0].d.viimeisinKirjautuminen).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+  });
+  it('linkkireitti ({seuraId, pelaajaId, pin}) kirjoittaa myös', async () => {
+    const t = uusi(); await t.f({ seuraId: 'kpv', pelaajaId: 'm93', pin: '9278' }, ctx);
+    expect(t.paivitykset.length).toBe(1);
+  });
+  it('vain kerran päivässä: sama päivä → ei toista kirjoitusta; seuraava päivä → kirjoitetaan', async () => {
+    const t = uusi({ viimeisinKirjautuminen: PV(1_000_000) });
+    await t.f({ liittoTunnus: '12345678', pin: '9278' }, ctx); expect(t.paivitykset).toEqual([]);                        // jo tänään
+    const t2 = uusi({ viimeisinKirjautuminen: '2026-01-01' });
+    await t2.f({ liittoTunnus: '12345678', pin: '9278' }, ctx); expect(t2.paivitykset.length).toBe(1);                  // vanha päivä
+  });
+  it('EI kirjoitusta ilman onnistunutta kirjautumista: väärä PIN, lukittu, puuttuva suostumus', async () => {
+    const t = uusi(); await virhe(t.f({ liittoTunnus: '12345678', pin: '0000' }, ctx)); expect(t.paivitykset).toEqual([]);
+    const e = uusi({ suostumusTila: 'odottaa' }); const err = await virhe(e.f({ liittoTunnus: '12345678', pin: '9278' }, ctx)); expect(err && err.code).toBe('failed-precondition'); expect(e.paivitykset).toEqual([]);
+    const l = uusi(); for (let i = 0; i < 5; i++) await virhe(l.f({ liittoTunnus: '12345678', pin: '1111' }, ctx));
+    await virhe(l.f({ liittoTunnus: '12345678', pin: '9278' }, ctx)); expect(l.paivitykset).toEqual([]);
+  });
+  it('kirjoitusvirhe ei kaada kirjautumista (best-effort)', async () => {
+    const t = uusi(undefined, { updateHeittaa: true }); const v = await t.f({ liittoTunnus: '12345678', pin: '9278' }, ctx);
+    expect(v.token).toBe('TOKEN'); expect(t.paivitykset).toEqual([]);
+  });
+  it('kirjaaKirjautuminen: Solo-lapsi (ei pelaaja-claimia) ohitetaan; päivä on Helsingin (UTC-yö → seuraava päivä)', async () => {
+    let kutsuja = 0; const db = { collection: () => ({ doc: () => ({ collection: () => ({ doc: () => ({ update: async () => { kutsuja++; } }) }) }) }) };
+    expect(await K.kirjaaKirjautuminen(db, { claims: K.soloClaims('x') }, Date.now())).toBe(false); expect(kutsuja).toBe(0);
+    expect(K.helsinginPaiva(Date.UTC(2026, 9, 11, 22, 30))).toBe('2026-10-12');   // 22:30Z = 01:30 Helsinki (EEST)
+  });
+});

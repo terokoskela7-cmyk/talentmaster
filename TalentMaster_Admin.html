@@ -25,7 +25,8 @@
 <script src="lib/tm_joukkue.js?v=4"></script>   <!-- §18-jäsenyys: kanoninen nimi + team-id yhdestä paikasta -->
 <script src="lib/tm_arviointi_historia.js?v=1"></script>   <!-- kausiavain: tmKausiNyt/tmTavoitteetKaudelle — SAMA lähde kuin VP:llä (sama tavoitteet-dokumentti) -->
 <script src="lib/tm_audit_nimet.js?v=10"></script>   <!-- audit-toimintojen selkokieliset nimet (Audit-loki) -->
-<script src="lib/tm_esc.js?v=1"></script>   <!-- P1: jaettu HTML-escape (tallennettu XSS) -->
+<script src="lib/tm_esc.js?v=1"></script>
+<script src="lib/tm_seuran_kooste.js?v=2"></script><script src="lib/tm_joukkuejakso.js?v=4"></script><script src="lib/tm_kayttoaste.js?v=1"></script>   <!-- S1.1: Käyttöaste (Pilotin tila): koko osio libissä -->   <!-- P1: jaettu HTML-escape (tallennettu XSS) -->
 <script src="tm_auth.js"></script>
 
 <style>
@@ -1563,6 +1564,7 @@ async function renderPilotinTila(alue) {
         + '<div style="font-family:\'Cormorant Garamond\',serif;font-size:34px;font-weight:300;line-height:1;color:' + clr + '">' + v + '</div></div>';
     });
     html += '</div>';
+    html += window.TM_KAYTTOASTE.tmKayttoasteKehysHTML();   // S1.1 Käyttöaste (viikkokooste v2; lib/tm_kayttoaste.js)
     html += '<div style="font-size:11px;color:var(--ink3);margin-bottom:10px">' + rivit.length + ' pilottiseuraa · go-live-kriteeri konversio &gt;70 % · 🟠 = blokkeri</div>';
 
     rivit.forEach(r => {
@@ -1590,11 +1592,15 @@ async function renderPilotinTila(alue) {
     html += '<div style="margin-top:8px;font-size:11px;color:var(--ink3)">Read-only · laskettu pikakentistä (§26), ei uusia Firestore-kyselyjä. Suppilo-palkki: ▪tuotu · ▪kutsuttu (amber) · ▪suostumus (teal).</div>';
     const el = document.getElementById('pilottiSisalto');
     if (el) el.innerHTML = html;
+    window.kayttoasteLataa();
   } catch (e) {
     const el = document.getElementById('pilottiSisalto');
     if (el) el.innerHTML = '<div style="color:var(--red);padding:20px">Pilotin tilan lataus epäonnistui: ' + (e && e.message) + '</div>';
   }
 }
+
+const _ka = () => window.TM_KAYTTOASTE.tmKayttoasteAdmin({ db, document, FieldPath: firebase.firestore.FieldPath, kutsu: (d) => firebase.app().functions('europe-west1').httpsCallable('paivitaSeuranKooste')(d), seurat: () => tila.seurat, esc: _auditEsc });
+window.kayttoasteLataa = () => _ka().lataa(); window.kayttoastePaivitaKaikki = () => _ka().paivitaKaikki();   // S1.1: lataus + "📊 Päivitä kaikki" (SA)
 
 // Nudge — kutsumuistutus odottaville (lahetaMuistutukset-CF). Kuivaajo→confirm→lähetys.
 function _ohSyyt(oh) {

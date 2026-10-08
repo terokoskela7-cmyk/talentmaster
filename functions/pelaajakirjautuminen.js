@@ -223,9 +223,26 @@ function luoKirjautuja(deps, malli) {
       throw new HttpsError('failed-precondition', VIRHE_SUOSTUMUS, { syy: SUOSTUMUS_PUUTTUU });
     }
     const token = await auth.createCustomToken(o.uid, o.claims);
+    await kirjaaKirjautuminen(db, o, nyt);   // S1.1: vain onnistuneella kirjautumisella (suostumus + PIN ok), kerran päivässä
     await audit(malli.auditEtuliite, Object.assign({ severity: 'info' }, o.auditTiedot || {}));
     return Object.assign({ token: token }, o.palaute);
   };
+}
+
+/* S1.1 Käyttöaste — pelaajan kirjautumisaikaleima palvelimella: `viimeisinKirjautuminen` (sama nimi kuin henkilökunnalla, camelCase; tests/kirjautumisaikaleima.test.js) =
+   Helsingin päivä 'YYYY-MM-DD' (päivätarkkuus riittää; 30 pv -mittari). Kirjoitus VAIN jos päivä vaihtui (ei joka kirjautumisella) ja VAIN seuran pelaajalle (ei Solo-lapselle).
+   Best-effort: virhe ei koskaan kaada kirjautumista (kirjautuminen on jo onnistunut; mittari voi puuttua yhdeltä päivältä). Client ei saa kirjoittaa kenttää (Rules v3.54). GDPR: päivämäärä, ei sisältöä. */
+const _paivaFmt = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Helsinki', year: 'numeric', month: '2-digit', day: '2-digit' });
+function helsinginPaiva(ms) { return _paivaFmt.format(new Date(ms)); }
+async function kirjaaKirjautuminen(db, o, nytMs) {
+  try {
+    const c = o && o.claims;
+    if (!c || c.rooli !== 'pelaaja' || !c.pelaajaSeuraId || !c.pelaajaId) return false;
+    const tanaan = helsinginPaiva(nytMs), vanha = o.viimeisinKirjautuminen;
+    if (typeof vanha === 'string' && vanha.slice(0, 10) === tanaan) return false;
+    await db.collection('seurat').doc(c.pelaajaSeuraId).collection('pelaajat').doc(c.pelaajaId).update({ viimeisinKirjautuminen: tanaan });
+    return true;
+  } catch (e) { return false; }
 }
 
 /* Pelaajadokumentin PalloID (kolme historiallista kenttänimeä, §7.13). */
@@ -271,6 +288,7 @@ function luoLinkkiKirjautuja(deps) {
         claims: pelaajaClaims(seuraId, pelaajaId),
         auditTiedot: { seuraId: seuraId, pelaajaId: pelaajaId, reitti: 'linkki' },
         suostumusOk: suostumusAnnettu(data),
+        viimeisinKirjautuminen: data.viimeisinKirjautuminen,
         palaute: { seuraId: seuraId, pelaajaId: pelaajaId, palloId: pelaajanPalloId(data) },
       }];
     },
@@ -312,6 +330,7 @@ function luoPalloIdKirjautuja(deps) {
             claims: pelaajaClaims(seura.id, d.id),
             auditTiedot: { seuraId: seura.id, pelaajaId: d.id },
             suostumusOk: suostumusAnnettu(data),
+            viimeisinKirjautuminen: data.viimeisinKirjautuminen,
             palaute: { seuraId: seura.id, pelaajaId: d.id, palloId: pelaajanPalloId(data) },
           });
         });
@@ -366,6 +385,6 @@ module.exports = {
   onLukittu, kirjaaVirhe, ipYlittyy, kirjaaIpVirhe, varaaYritys,
   hajautaPin, tarkistaPin, pelaajaUid, pelaajaClaims, luoKasittelija, normalisoiDocId, pelaajanPalloId,
   pelaajaLukitusAvain, linkkiLukitusAvain, palloIdLukitusAvain,
-  luoKirjautuja, luoSoloKasittelija, normalisoiSoloKoodi, soloUid, soloClaims,
+  luoKirjautuja, kirjaaKirjautuminen, helsinginPaiva, luoSoloKasittelija, normalisoiSoloKoodi, soloUid, soloClaims,
   LUKITUS_YRITYKSET, LUKITUS_MS, IP_KATTO, VIRHE_TUNNISTUS, VIRHE_LUKITTU, VIRHE_SUOSTUMUS,
 };

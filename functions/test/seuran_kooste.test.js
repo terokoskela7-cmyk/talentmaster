@@ -62,7 +62,7 @@ test('laskeSeura: kirjoittaa vain kooste + kooste_joukkue; lasketut luvut; ei ni
   assert.deepStrictEqual(db.kirjoitukset.sort(), ['seurat/kpv/kooste/2026-W41', 'seurat/kpv/kooste_joukkue/u13_2026-W41']);
   const k = db.STORE.get('seurat/kpv/kooste/2026-W41'), j = k.joukkueet.u13;
   assert.strictEqual(j.n_pelaajat, 2); assert.strictEqual(j.n_jaksolla, 2); assert.strictEqual(j.n_vastausperusta, 2); assert.strictEqual(j.n_vastanneet, 1); assert.strictEqual(j.jakso, true);
-  assert.strictEqual(k.laskettu, SERVER_TS); assert.strictEqual(k.versio, 1); assert.strictEqual(k.vk, '2026-W41'); assert.ok(!('arvio' in k));
+  assert.strictEqual(k.laskettu, SERVER_TS); assert.strictEqual(k.versio, 2); assert.strictEqual(k.vk, '2026-W41'); assert.ok(!('arvio' in k));
   const s = JSON.stringify([...db.STORE.entries()].filter(([p]) => /kooste/.test(p)));
   for (const kielletty of ['Aleksi', 'Mäkinen', 'Eeli', 'Virtanen', 'Korhonen', '"a"', '"b"', 'pelaajaId']) assert.ok(!s.includes(kielletty), 'koosteessa ei saa olla: ' + kielletty);
   assert.strictEqual(r.joukkueita, 1);
@@ -171,4 +171,57 @@ test('takaisinlaskenta kuiva:false kirjoittaa arvio:true -dokumentit; EI korvaa 
   assert.ok(!db.STORE.has('seurat/kpv/kooste/2026-W41'), 'takaisinlaskenta ei kosketa kuluvaa viikkoa');
   // kuiva:true näyttää ohituksen jo kuivana
   const k = await kas({ seuraId: 'kpv', takaisin: 3, kuiva: true }, { auth: { uid: 'u_sa', token: {} } }); assert.ok(k.viikot.some((w) => w.ohitettu));
+});
+
+// ── S1.1 Käyttöaste: palvelin kerää pelaajan/huoltajan OMAT kirjoitukset ja kirjautumisaikaleimat (vain päivämääriä, ei sisältöä) ──
+test('S1.1: laskeSeura laskee suostumuksen, kirjautumisen, huoltajakäynnin ja aktiivisuuden 7/30 pv kaikista lähteistä; ei vuotoja', async () => {
+  const d = seuraData('kpv');
+  const P = (id) => 'seurat/kpv/pelaajat/' + id;
+  Object.assign(d[P('a')], { suostumusTila: 'annettu', viimeisinKirjautuminen: '2026-10-10', huoltajaViimeisinKaynti: '2026-10-09' });
+  Object.assign(d[P('b')], { suostumus: { annettu: true } });                                   // vanha muoto (suostumusAnnettu hyväksyy)
+  d[P('a') + '/kirjaukset/2026-10-08'] = { tehty: true };                                         // (1) a: kirjaus 7 pv sisällä
+  d[P('a') + '/kirjaukset/2026-08-01'] = { tehty: true };                                         // ikkunan ulkopuolella
+  d[P('b') + '/viikkokatsaukset/2026-09-20'] = { vk: 1 };                                         // (2) b: viikkokatsaus 30 pv sisällä, ei 7
+  d['seurat/kpv/kalenteri/e1'] = { pvm: '2026-10-14', nimi: 'Harjoitus' };                        // (3) tuleva tapahtuma, RSVP tehty ikkunassa
+  d['seurat/kpv/kalenteri/e1/lasnaolijat/b'] = { saatavuus: 'tulossa', rooli: 'vanhempi', paivitetty: '2026-10-06T10:00:00.000Z' };
+  d['seurat/kpv/kalenteri/e1/lasnaolijat/a'] = { tila: 'paikalla', rooli: 'valmentaja', paivitetty: '2026-10-10T10:00:00.000Z' };   // valmentajan kirjaus EI ole pelaajan oma
+  d['seurat/kpv/kalenteri/e0'] = { pvm: '2026-06-01' };                                           // vanha tapahtuma ohitetaan
+  d['seurat/kpv/viestit/v1'] = { tyyppi: 'klippi_vastaus', pelaajaId: 'a', aika: { toDate: () => new Date('2026-10-07T12:00:00Z') } };   // (4)
+  d['seurat/kpv/viestit/v2'] = { tyyppi: 'klippi', pelaajaId: 'b', aika: '2026-10-09T00:00:00Z' };                                       // valmentajan klippi ei ole oma
+  const db = luoDb(d);
+  await S.laskeSeura(deps(db), 'kpv', { rajat: H.viikonRajat(NYT), nytMs: NYT });
+  const j = db.STORE.get('seurat/kpv/kooste/2026-W41').joukkueet.u13;
+  assert.strictEqual(j.n_pelaajat, 2);                       // c on poistettu
+  assert.strictEqual(j.n_suostumus, 2);
+  assert.strictEqual(j.n_kirjautunut_30, 1); assert.strictEqual(j.n_huoltaja_30, 1);
+  assert.strictEqual(j.n_aktiivinen_7, 2);                   // a (kirjaus 8.10. + klippivastaus 7.10.), b (RSVP 6.10.)
+  assert.strictEqual(j.n_aktiivinen_30, 2);
+  const s = JSON.stringify([...db.STORE.entries()].filter(([p]) => /kooste/.test(p)));
+  for (const kielletty of ['2026-10-08', '2026-09-20', 'tulossa', 'Harjoitus', 'klippi', 'viimeisin', 'Aleksi']) assert.ok(!s.includes(kielletty), 'vuoto: ' + kielletty);
+});
+
+test('S1.1: ikkuna päättyy arviointihetkeen — takaisinlaskennassa myöhemmät päivät eivät lasketa; valmentajan/lähettäjän kirjoitus ei ole pelaajan', async () => {
+  const d = seuraData('kpv');
+  d['seurat/kpv/pelaajat/a/kirjaukset/2026-10-20'] = { tehty: true };       // arvion (11.10.) jälkeen
+  const db = luoDb(d);
+  await S.laskeSeura(deps(db), 'kpv', { rajat: H.viikonRajat(NYT), nytMs: NYT });
+  assert.strictEqual(db.STORE.get('seurat/kpv/kooste/2026-W41').joukkueet.u13.n_aktiivinen_30, 0);
+});
+
+test('S1.1: lähdekysely epäonnistuu → ei kirjoiteta (virhe nousee, ei puolikasta koostetta)', async () => {
+  const db = luoDb(seuraData('kpv'), { heitaPolulle: '/kirjaukset' });
+  await assert.rejects(S.laskeSeura(deps(db), 'kpv', { rajat: H.viikonRajat(NYT), nytMs: NYT }), /mock-virhe/);
+  assert.deepStrictEqual(db.kirjoitukset, []);
+});
+
+test('S1.1: takaisinlaskenta (arvio:true) toimii käyttöasteelle — aktiivisuus vain arviohetkeen asti; yhteenveto sisältää uudet luvut', async () => {
+  const d = seuraData('kpv'); const P = 'seurat/kpv/pelaajat/a';
+  d[P + '/kirjaukset/2026-09-30'] = { tehty: true };   // viikon W40 (28.9.–4.10.) sisällä, W38:n (14.–20.9.) arviohetken jälkeen
+  const db = luoDb(d);
+  const kas = S.paivitaKasittelija(deps(db, { tarkistaOikeus: async () => ({ sallittu: true, rooli: 'superadmin' }) }));
+  const r = await kas({ seuraId: 'kpv', takaisin: 3 }, { auth: { uid: 'u_sa', token: {} } });
+  const w = Object.fromEntries(r.viikot.map((x) => [x.vk, x]));
+  assert.strictEqual(w['2026-W38'].aktiivinen_30, 0);      // kirjaus 30.9. on W38-arvion (su 20.9.) jälkeen
+  assert.strictEqual(w['2026-W40'].aktiivinen_30, 1); assert.strictEqual(w['2026-W40'].aktiivinen_7, 1);
+  for (const k of ['suostumus', 'kirjautunut_30', 'huoltaja_30']) assert.strictEqual(typeof w['2026-W40'][k], 'number', k);
 });

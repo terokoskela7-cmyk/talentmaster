@@ -117,6 +117,8 @@ window.TM_KAAVIO_HOST = {
 <script src="lib/tm_jaksokooste.js?v=2"></script>   <!-- Vaihe 6: jakson sulku (meso-sykli) PURE-ydin — prosessi+kalibraatio+historia (geneerinen §8) -->
 <script src="lib/tm_liput.js?v=1"></script>   <!-- K1 osa 2: liput (liput/julkiset + vanha fallback K7:ään) -->
 <script src="lib/tm_joukkuejakso.js?v=4"></script>   <!-- K1/A: joukkuejakson snapshot (tmAloitaJaksoTuki) -->
+<script src="lib/tm_seuran_kooste.js?v=2"></script>   <!-- S1.1: tmKoosteTrendi (viikkokooste v2) -->
+<script src="lib/tm_kayttoaste.js?v=1"></script>   <!-- S1.1: "Sovelluksen käyttö" -kortti (Koti) — renderöinti libissä, ei kuoressa -->
 <script src="lib/tm_aloita_jakso.js?v=10"></script>
 <script src="lib/tm_virhekoodi.js?v=1"></script>   <!-- tallennusvirheen syy (koodi) toastiin -->
 <script src="lib/tm_tukitavoitteet.js?v=3"></script>   <!-- J1/V1: tukitavoitteet (ehdotusmoottori, kotiharjoitevalikoima) -->
@@ -21251,9 +21253,26 @@ function renderKotiVP() {
   }
   h += '<div style="margin-top:14px">' + strippi + '</div>';   // status (tuotu→suostumus) toimintojen ALLE
   { var _bq = _vpRaeRakenneHTML(P); if (_bq) h += '<div style="margin-top:20px">' + _bq + '</div>'; }   // §RAE VAIHE B — BQ-rakenne Kotiin
+  h += '<div id="vpKayttoasteKortti" style="margin-top:24px"></div>';   // S1.1: Sovelluksen käyttö (lipusta riippumatta; siirtyy S2:ssa Seuran pulssin riviksi)
   el.innerHTML = h;
+  vpKayttoasteLataa();
   if (typeof renderVpAloitaKortti === 'function') renderVpAloitaKortti();   // Aloita tästä -kortti (Vaihe 3)
 }
+
+/* S1.1 Käyttöaste — "Sovelluksen käyttö" Kotiin: oman seuran luvut + trendi joukkueittain (kooste/{vvvv-Www} v2; Rules: johto ja SA lukevat, muu rooli → kortti piiloon).
+   Vain lukumäärät, henkilökunnan pinta (§7.22: pelaaja ja huoltaja eivät näe). Renderöinti lib/tm_kayttoaste.js. Puuttuva/vanha kooste → ohjeteksti. */
+async function vpKayttoasteLataa() {
+  const el = document.getElementById('vpKayttoasteKortti'); if (!el || !_seuraId || typeof _db === 'undefined' || !_db) return;
+  try {
+    const snap = await _db.collection('seurat').doc(_seuraId).collection('kooste').orderBy(firebase.firestore.FieldPath.documentId(), 'desc').limit(4).get();
+    if (!document.getElementById('vpKayttoasteKortti')) return;
+    const koosteet = snap.docs.map(function (d) { return d.data(); }).reverse();
+    el.innerHTML = '<div class="vpkoti-otsikko" style="font-size:20px">' + vpT('Sovelluksen käyttö') + '</div>'
+      + '<div style="font-size:12px;color:var(--ink3);margin:-6px 0 10px">' + vpT('Pelaajien ja perheiden oma käyttö, lukumääriä joukkueittain. Päivittyy viikoittain.') + '</div>'
+      + window.TM_KAYTTOASTE.tmKayttoasteHTML(koosteet, { t: vpT, nimi: vpT('Koko seura') });
+  } catch (e) { el.innerHTML = ''; }   // ei oikeutta (valmentaja) / ei koostetta → ei korttia, ei virhettä
+}
+window.vpKayttoasteLataa = vpKayttoasteLataa;
 
 // "Muistuta odottavia" → lahetaMuistutukset-CF (kuivaAjo→confirm alaikäisvaroitus→lähetys→toast). Replikoi Adminin muistutaSeuraa-flow.
 function _ohSyytVP(oh){ const m={}; (oh||[]).forEach(o=>{m[o.syy]=(m[o.syy]||0)+1;});
