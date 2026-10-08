@@ -21264,9 +21264,8 @@ function renderKotiVP() {
 async function vpKayttoasteLataa() {
   const el = document.getElementById('vpKayttoasteKortti'); if (!el || !_seuraId || typeof _db === 'undefined' || !_db) return;
   try {
-    const snap = await _db.collection('seurat').doc(_seuraId).collection('kooste').orderBy(firebase.firestore.FieldPath.documentId(), 'desc').limit(4).get();
+    const koosteet = await window.TM_KAYTTOASTE.tmKayttoasteLueKoosteet(_db, firebase.firestore.FieldPath, _seuraId);   // jaettu lukufunktio (ei laskevaa __name__-järjestystä → ei indeksiä)
     if (!document.getElementById('vpKayttoasteKortti')) return;
-    const koosteet = snap.docs.map(function (d) { return d.data(); }).reverse();
     el.innerHTML = '<div class="vpkoti-otsikko" style="font-size:20px">' + vpT('Sovelluksen käyttö') + '</div>'
       + '<div style="font-size:12px;color:var(--ink3);margin:-6px 0 10px">' + vpT('Pelaajien ja perheiden oma käyttö, lukumääriä joukkueittain. Päivittyy viikoittain.') + '</div>'
       + window.TM_KAYTTOASTE.tmKayttoasteHTML(koosteet, { t: vpT, nimi: vpT('Koko seura') });
