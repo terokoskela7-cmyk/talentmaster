@@ -62,7 +62,7 @@ test('laskeSeura: kirjoittaa vain kooste + kooste_joukkue; lasketut luvut; ei ni
   assert.deepStrictEqual(db.kirjoitukset.sort(), ['seurat/kpv/kooste/2026-W41', 'seurat/kpv/kooste_joukkue/u13_2026-W41']);
   const k = db.STORE.get('seurat/kpv/kooste/2026-W41'), j = k.joukkueet.u13;
   assert.strictEqual(j.n_pelaajat, 2); assert.strictEqual(j.n_jaksolla, 2); assert.strictEqual(j.n_vastausperusta, 2); assert.strictEqual(j.n_vastanneet, 1); assert.strictEqual(j.jakso, true);
-  assert.strictEqual(k.laskettu, SERVER_TS); assert.strictEqual(k.versio, 2); assert.strictEqual(k.vk, '2026-W41'); assert.ok(!('arvio' in k));
+  assert.strictEqual(k.laskettu, SERVER_TS); assert.strictEqual(k.versio, 3); assert.strictEqual(k.vk, '2026-W41'); assert.ok(!('arvio' in k));
   const s = JSON.stringify([...db.STORE.entries()].filter(([p]) => /kooste/.test(p)));
   for (const kielletty of ['Aleksi', 'Mäkinen', 'Eeli', 'Virtanen', 'Korhonen', '"a"', '"b"', 'pelaajaId']) assert.ok(!s.includes(kielletty), 'koosteessa ei saa olla: ' + kielletty);
   assert.strictEqual(r.joukkueita, 1);

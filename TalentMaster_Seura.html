@@ -27,7 +27,7 @@
 <!-- #92 joukkue-normalisointi (kanonisointi tuonnissa) -->
 <script src="lib/tm_esc.js?v=1"></script>   <!-- P1: jaettu HTML-escape -->
 <script src="lib/tm_lang.js?v=35"></script>   <!-- i18n V0 — fi/sv/en käännöstaulukko + t() + kieli-init (putkitus) -->
-<script src="lib/tm_joukkue.js?v=4"></script>
+<script src="lib/tm_joukkue.js?v=5"></script>
 <script src="lib/tm_paikkamerkki.js?v=1"></script>
 <!-- Kehitystilanne v0 (2.10.2026): mittarikirjasto + kehikot + näkymä; normit/IDP/taksonomia laskentaan -->
 <script src="lib/tm_phv_tila.js?v=1"></script>   <!-- PR C: PHV-tilan YKSI lukusääntö (eerikkila_normit käyttää) -->
@@ -1886,10 +1886,7 @@ function suodataPelaajat(tila_suodin, hakuTeksti) {
 
   // Joukkuesuodatin
   if (window._aktiiviJoukkue) {
-    lista = lista.filter(p => Array.isArray(p.joukkueet) && p.joukkueet.length
-      ? p.joukkueet.includes(window._aktiiviJoukkue)
-      : p.joukkue === window._aktiiviJoukkue
-    );
+    lista = lista.filter(p => tmPelaajanJoukkueet(p, tila.joukkueet).includes(window._aktiiviJoukkue));   // §7.18: jäsenyys joukkueet[]:stä (yksi jaettu funktio)
   }
 
   // Tilasuodatin
@@ -1967,27 +1964,16 @@ async function _pelSiirraValitut(tapa) {
   var sana = (tapa === 'siirto') ? 'Siirretäänkö' : 'Lisätäänkö';
   if (!confirm(sana + ' ' + idt.length + ' pelaajaa joukkueeseen "' + kohdeNimi + '"?')) return;
 
-  var nimiById = {};
-  (tila.joukkueet || []).forEach(function (j) { nimiById[j.id] = j.nimi || j.id; });   // j = JOUKKUE, id on luettava slug
   var onnistui = 0, epaonnistui = 0;
   for (var i = 0; i < idt.length; i++) {
     var pid = idt[i];
     var p = (window._pelaajatKaikki || []).find(function (x) { return x.id === pid; }) || {};
-    var vanhat = Array.isArray(p.joukkueet) ? p.joukkueet : [];
-    var uudet = (tapa === 'siirto')
-      ? [kohdeId]
-      : (vanhat.indexOf(kohdeId) >= 0 ? vanhat.slice() : vanhat.concat([kohdeId]));
-    var nimet = uudet.map(function (id) { return nimiById[id] || id; });
+    // §7.18: yksi jaettu rakentaja — siirto korvaa tunnisteet (vanhat pois), lisäys lisää; kaikki neljä kenttää aina yhdessä
+    var kirj = tmJasenyysPaivitys(p, tapa, kohdeId, tila.joukkueet);
     try {
-      await db.collection('seurat').doc(tila.seuraId).collection('pelaajat').doc(pid).update({
-        joukkueet: uudet,
-        joukkueetNimet: nimet,
-        joukkue: nimet[0] || '',        // LEGACY — valmentajan näkymä kyselee tällä (§18)
-        joukkueNimi: nimet[0] || '',    // LEGACY
-        muokattu: firebase.firestore.FieldValue.serverTimestamp()
-      });
+      await db.collection('seurat').doc(tila.seuraId).collection('pelaajat').doc(pid).update(Object.assign({}, kirj, { muokattu: firebase.firestore.FieldValue.serverTimestamp() }));
       // Paikallinen data synkkaan, jottei lista näytä vanhaa ennen seuraavaa latausta.
-      p.joukkueet = uudet; p.joukkueetNimet = nimet; p.joukkue = nimet[0] || ''; p.joukkueNimi = nimet[0] || '';
+      Object.assign(p, kirj);
       onnistui++;
     } catch (e) { epaonnistui++; }
   }
@@ -4043,28 +4029,25 @@ async function tallennaJoukkueMuutos(joukkueId, vanhanimi) {
       muokattu: firebase.firestore.FieldValue.serverTimestamp()
     });
 
-  // 2. Batch-päivitys pelaajille — vain jos nimi muuttui
+  // 2. Batch-päivitys pelaajille — vain jos nimi muuttui. §7.18: JÄSENYYS = joukkueet[] (tunniste); `joukkue` on näyttönimi.
+  //    Jäsenet haetaan tunnisteella (array-contains joukkueId) JA legacy-pelaajat nimellä; tunnisteita EI kosketa (nimi ei ole tunniste → vanhaa "nimi → uusi nimi joukkueet[]:ssä" -korvausta ei enää tehdä).
   if (uusiNimi !== vanhanimi) {
-    const pelSnap = await db.collection('seurat').doc(tila.seuraId)
-      .collection('pelaajat')
-      .where('joukkue', '==', vanhanimi)
-      .get();
-
-    if (!pelSnap.empty) {
-      // Firestore batch max 500, joukkueet ovat yleensä < 30
-      const batch = db.batch();
-      pelSnap.docs.forEach(d => {
-        const data = d.data();
-        // Päivitä joukkue-kenttä
-        const paivitys = { joukkue: uusiNimi };
-        // Päivitä myös joukkueet[]-taulukko jos pelaajalla on se
-        if (Array.isArray(data.joukkueet)) {
-          paivitys.joukkueet = data.joukkueet.map(j => j === vanhanimi ? uusiNimi : j);
-        }
-        batch.update(d.ref, paivitys);
-      });
+    const col = db.collection('seurat').doc(tila.seuraId).collection('pelaajat');
+    const [sId, sNimi] = await Promise.all([col.where('joukkueet', 'array-contains', joukkueId).get(), col.where('joukkue', '==', vanhanimi).get()]);
+    const kaikki = new Map(); sId.docs.forEach(d => kaikki.set(d.id, d)); sNimi.docs.forEach(d => kaikki.set(d.id, d));
+    const vanhaAvain = tmNormJoukkueAvain(vanhanimi), batch = db.batch(); let n = 0;
+    kaikki.forEach(d => {
+      const data = d.data(), ids = Array.isArray(data.joukkueet) ? data.joukkueet : [], jasen = ids.indexOf(joukkueId) >= 0, legacy = !ids.length;
+      if (!jasen && !legacy) return;   // nimi täsmää, mutta pelaaja on tunnisteen mukaan muualla → ei kosketa (korjaus: Tarkista joukkuejäsenyydet, Excel_Tuonti)
+      const paivitys = {};
+      if (tmNormJoukkueAvain(data.joukkue) === vanhaAvain) { paivitys.joukkue = uusiNimi; paivitys.joukkueNimi = uusiNimi; }
+      if (Array.isArray(data.joukkueetNimet)) paivitys.joukkueetNimet = data.joukkueetNimet.map(j => tmNormJoukkueAvain(j) === vanhaAvain ? uusiNimi : j);
+      if (legacy) paivitys.joukkueet = [joukkueId];   // legacy-pelaaja ilman tunnistetta: nimi täsmäsi → tunniste kirjoitetaan
+      if (Object.keys(paivitys).length) { batch.update(d.ref, paivitys); n++; }
+    });
+    if (n) {
       await batch.commit();
-      if (statusEl) statusEl.textContent = '✓ Valmis — ' + pelSnap.size + ' pelaajaa päivitetty';
+      if (statusEl) statusEl.textContent = '✓ Valmis — ' + n + ' pelaajaa päivitetty';
     } else {
       if (statusEl) statusEl.textContent = '✓ Valmis — ei pelaajia päivitettäväksi';
     }

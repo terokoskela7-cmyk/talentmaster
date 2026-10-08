@@ -26,7 +26,8 @@
 <!-- Eerikkilä-normit + universaali testirekisteri (eerikkilaTaso, EERIKKILA_NORMIT) — SM-tasot/recalcSMtasot -->
 <script src="lib/tm_phv_tila.js?v=1"></script>   <!-- PR C: PHV-tuontimuunnos + lukusääntö (kanoninen Mirwald) -->
 <script src="lib/tm_eerikkila_normit.js?v=49"></script>
-<script src="lib/tm_joukkue.js?v=4"></script>
+<script src="lib/tm_joukkue.js?v=5"></script>
+<script src="lib/tm_joukkuejasenyys_tarkistus.js?v=1"></script>   <!-- §7.18: "Tarkista joukkuejäsenyydet" (SA) — logiikka libissä -->
 <script src="lib/tm_pvm.js?v=3"></script>
 <script src="lib/tm_alusta.js?v=2"></script>   <!-- PR F: yksi §22-alustasanasto (TM_ALUSTA) -->
 <script src="lib/tm_ennatykset.js?v=6"></script>   <!-- Omat ennätykset (PB): paivitaEnnatykset (jaettu, TM_ENNATYKSET) -->
@@ -1681,6 +1682,12 @@ async function lataaKayttajatiedot(u) {
             tbtn.style.cssText = 'background:rgba(40,176,144,.10);border:1px dashed #28B090;border-radius:6px;color:#7FE9CE;font-family:DM Sans,sans-serif;font-size:12px;padding:4px 10px;cursor:pointer;margin-right:8px;';
             tbtn.onclick = _adminTakaisinlaskeKooste;
             topbar.insertBefore(tbtn, logout);
+          }
+          if (!document.getElementById('sa-jasenyys')) {   // §7.18: joukkuejäsenyyden tarkistus + korjaus (kuiva-ajo → vahvistus; epäselvät erikseen)
+            const jbtn = document.createElement('button'); jbtn.id = 'sa-jasenyys'; jbtn.textContent = '👥 Tarkista joukkuejäsenyydet';
+            jbtn.title = 'Kuiva-ajo seuroittain: joukkue-nimi vs. joukkueet[]-tunnisteet (vain lukumääriä, ei nimiä). Korjaus = nimen mukainen joukkue.';
+            jbtn.style.cssText = 'background:rgba(224,160,64,.15);border:1px solid #E0A040;border-radius:6px;color:#F0C878;font-family:DM Sans,sans-serif;font-size:12px;padding:4px 10px;cursor:pointer;margin-right:8px;';
+            jbtn.onclick = _adminTarkistaJasenyydet; topbar.insertBefore(jbtn, logout);
           }
         }
       }
@@ -5146,6 +5153,19 @@ async function _adminPaivitaKooste() {
   } finally {
     if (btn) { btn.disabled = false; btn.textContent = '📊 Päivitä seuran kooste'; }
   }
+}
+async function _adminTarkistaJasenyydet() {
+  if (!superAdmin) { toast('Vain Super Admin', 'err'); return; }
+  const btn = document.getElementById('sa-jasenyys'), JT = window.TM_JASENYYS_TARKISTUS, deps = { db: db };
+  if (btn) { btn.disabled = true; btn.textContent = '👥 Kuiva-ajo…'; }
+  try {
+    const t = await JT.tmJasenyysTarkista(deps), yks = t.reduce(function (s, x) { return s + (x.raportti ? x.raportti.yksiselitteisia : 0); }, 0);
+    const kirjoita = await _sukupuoliRaporttiModal('Tarkista joukkuejäsenyydet — KUIVA-AJO', JT.tmJasenyysTeksti(t), yks ? 'Korjaa yksiselitteiset (' + yks + ')' : null);
+    if (kirjoita) { let k = 0, v = 0; for (const x of t) { if (x.raportti && x.raportti.yksiselitteisia) { const r = await JT.tmJasenyysKorjaa(deps, x.id); k += r.kirjoitettu; v += r.virhe; } } toast('Joukkuejäsenyydet: ' + k + ' korjattu' + (v ? ' · ' + v + ' virhettä' : ''), v ? 'err' : 'ok'); }
+    const epa = t.filter(function (x) { return x.raportti && x.raportti.epaselvat.length; });   // epäselvät: oletus vain nimen joukkue, kirjoitetaan VASTA erillisellä vahvistuksella
+    if (epa.length && await _sukupuoliRaporttiModal('Epäselvät tapaukset — vahvista (Joakim)', JT.tmJasenyysTeksti(epa), 'Korjaa epäselvät (vain nimen joukkue)')) { let k = 0; for (const x of epa) k += (await JT.tmJasenyysKorjaa(deps, x.id, { epaselvat: true })).kirjoitettu; toast('Epäselvät: ' + k + ' korjattu', 'ok'); }
+  } catch (e) { console.error('[jasenyys]', e); toast('Tarkistus epäonnistui: ' + (e && e.message || e), 'err'); }
+  finally { if (btn) { btn.disabled = false; btn.textContent = '👥 Tarkista joukkuejäsenyydet'; } }
 }
 async function _adminTakaisinlaskeKooste() {
   if (!superAdmin) { toast('Vain Super Admin', 'err'); return; }

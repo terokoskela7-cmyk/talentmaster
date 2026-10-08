@@ -163,6 +163,13 @@ per tiedosto** (kaksi lohkoa kumoaa toisen — Seura.html:n bugi oli juuri täm�
 16. **`testitapahtumat`** EI `tapahtumat` — väärä nimi estää datan löytymisen
 17. **IIFE-scope:** HTML `onclick=` kutsuu vain `window._`-globaaleja → sisäiset funktiot `window.fn = function fn()`
 18. **`joukkueet[]` + `joukkue`** — pelaajalla molemmat. **Kyselyt aina kaksoiskyselynä Promise.all-rinnakkain:** `where('joukkue','==',nimi)` + `where('joukkueet','array-contains',id)`, yhdistä `Map`illa doc-ID:n perusteella. EI datamigraatiota — molemmat rakenteet säilyvät rinnakkain pysyvästi. Yhden kentän kysely jättäisi puolet pelaajista pois
+    **JÄSENYYS-INVARIANTTI (Tero 8.10.2026, korvaa yllä "nimi TAI tunniste" -tulkinnan mittareissa):**
+    · **`joukkueet[]` on jäsenyyden totuus.** `joukkue` on vain näyttönimi, ja sen tunnisteen on oltava `joukkueet[]`:ssä. Kyselyssä nimi-haku on vain *ehdokkaiden haku* (legacy) — jäsenyys ratkaistaan aina `tmPelaajanJoukkueet(p, joukkueDocs)`:lla (`lib/tm_joukkue.js`), ei `p.joukkue`-vertailulla.
+    · Pelaaja voi kuulua useaan joukkueeseen: hänet lasketaan **jokaiseen** joukkueeseen, mutta **seuran kokonaisluvut lasketaan uniikeista pelaajista** (kooste: `yhteensa`).
+    · **Ryhmät eivät ole joukkueita** eivätkä vaikuta joukkueiden mittareihin. **Ikäluokka** (normit, RAE, ikätaso) tulee **syntymävuodesta**, ei joukkueesta.
+    · Yksi jaettu funktio `tmPelaajanJoukkueet`: VP:n joukkuekortit/pulssi/poikkeamat, Master ja kooste käyttävät sitä. **Vartija** `tests/joukkuejasenyys_yksi_saanto.test.js`: uusi ryhmittely `p.joukkue`-kentän mukaan joukkuemittarissa kaatuu.
+    · **Kirjoituspolut:** "Siirrä joukkueeseen" korvaa tunnisteet (vanha pois) ja päivittää kaikki neljä kenttää (`joukkueet`, `joukkueetNimet`, `joukkue`, `joukkueNimi`); "Lisää joukkueeseen" lisää tunnisteen — molemmat `tmJasenyysPaivitys`:n kautta. Joukkueen nimenmuutos päivittää näyttönimet, ei koskaan kirjoita nimeä tunnisteen paikalle.
+    · **Korjaus:** Excel_Tuonti → "👥 Tarkista joukkuejäsenyydet" (SA): kuiva-ajo seuroittain (lukumäärät, ei nimiä) → yksiselitteiset → epäselvät erikseen. Esim. Sibbo: 2014 Blå on erillinen joukkue; Blå-pelaajat kuuluvat vain Blå:hon (`joukkueet[] = [sibbovargarna_2014_bl]`).
 19. **Excel-sarakeotsikoissa EI sulkeita** — "PalloID (vapaaehtoinen)" rikkoo tuonnin (`etsiSarake` `startsWith`)
 20. **`lataaSeurat` = `onSnapshot`**, ei `.get()` (reaaliaikainen)
 21. **Joukkueet-kokoelma:** Seura.html luo `.doc(id)`-metodilla (siisti ID), Admin ei enää luo joukkueita — näytä molemmat lähteet rinnakkain

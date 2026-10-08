@@ -17,6 +17,8 @@ import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import vm from 'vm';
+import { createRequire } from 'module';
+const require = createRequire(import.meta.url);
 
 const __dir = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(__dir, '..');
@@ -29,18 +31,18 @@ const pala = (src, nimi, loppu) => {
   return src.slice(i, src.indexOf(loppu || '\n}', i) + 2);
 };
 
-describe('A — legacy-synkka: siirto kirjoittaa MOLEMMAT rakenteet', () => {
+describe('A — legacy-synkka: siirto kirjoittaa MOLEMMAT rakenteet (§7.18: yksi jaettu rakentaja tmJasenyysPaivitys)', () => {
   const fn = pala(S, '_pelSiirraValitut', '\n}\n');
-  it('kirjoittaa joukkueet[] JA legacy joukkue-nimen', () => {
-    expect(fn).toMatch(/joukkueet: uudet/);
-    expect(fn).toMatch(/joukkue: nimet\[0\]/);
-    expect(fn).toMatch(/joukkueNimi: nimet\[0\]/);
-    expect(fn).toMatch(/joukkueetNimet: nimet/);
+  it('kirjoittaa joukkueet[] JA näyttönimen yhdestä rakentajasta (kaikki neljä kenttää: joukkueet, joukkueetNimet, joukkue, joukkueNimi)', () => {
+    expect(fn).toMatch(/var kirj = tmJasenyysPaivitys\(p, tapa, kohdeId, tila\.joukkueet\)/);
+    expect(fn).toMatch(/Object\.assign\(\{\}, kirj,/);
+    const J = require('../lib/tm_joukkue.js'); const k = J.tmJasenyysPaivitys({ joukkueet: ['u13_a'] }, 'siirto', 'u13_musta', [{ id: 'u13_a', nimi: 'A' }, { id: 'u13_musta', nimi: 'Musta' }]);
+    expect(Object.keys(k).sort()).toEqual(['joukkue', 'joukkueNimi', 'joukkueet', 'joukkueetNimet']);
   });
   it('MIKSI: valmentajan näkymä kyselee legacy-nimikentällä → ilman synkkaa pelaaja katoaisi', () => {
     // Premissi tarkistettu Masterista, ei oletettu.
     expect(M).toMatch(/where\('joukkue',\s*'==',\s*_joukkue\)/);
-    expect(fn).toMatch(/LEGACY/);
+    expect(fn).toMatch(/kaikki neljä kenttää aina yhdessä/);
   });
   it('aikaleima kuten muissa kirjoituksissa', () => {
     expect(fn).toMatch(/muokattu:\s*firebase\.firestore\.FieldValue\.serverTimestamp\(\)/);
@@ -52,17 +54,9 @@ describe('A — legacy-synkka: siirto kirjoittaa MOLEMMAT rakenteet', () => {
 });
 
 describe('B — siirto korvaa, lisäys yhdistää', () => {
-  /* Sama laskenta kuin tuotannossa, luettuna lähteestä: testi ei saa keksiä rinnakkaista
-     totuutta siitä mitä "siirto" ja "lisäys" tarkoittavat. */
-  const laske = (tapa, vanhat, kohdeId) => {
-    const sb = { tapa, vanhat, kohdeId, out: null };
-    vm.createContext(sb);
-    const rivi = pala(S, '_pelSiirraValitut', '\n}\n')
-      .split('\n').filter((l) => l.includes('var uudet =') || l.includes('? [kohdeId]') || l.includes(': (vanhat.indexOf'))
-      .join('\n').replace(/^\s*var uudet =/, 'out =');
-    vm.runInContext('var out; ' + rivi + '; this.out = out;', sb);
-    return sb.out;
-  };
+  /* Laskenta luettuna YHDESTÄ jaetusta rakentajasta (lib/tm_joukkue.js tmJasenyysPaivitys) — testi ei keksi rinnakkaista totuutta. */
+  const Jlib = require('../lib/tm_joukkue.js'), DOCS = ['u13_a', 'u13_b', 'u13_musta'].map((id) => ({ id, nimi: id }));
+  const laske = (tapa, vanhat, kohdeId) => Jlib.tmJasenyysPaivitys({ joukkueet: vanhat }, tapa, kohdeId, DOCS).joukkueet;
   it('siirto KORVAA vanhat', () => {
     expect(laske('siirto', ['u13_a', 'u13_b'], 'u13_musta')).toEqual(['u13_musta']);
   });

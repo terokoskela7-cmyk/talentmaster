@@ -26,11 +26,13 @@
 ════════════════════════════════════════════════════════════════════════ */
 (function (root) {
   'use strict';
-  var DAY = 86400000, KATSELMUS_PV = 14, VERSIO = 2;
+  var DAY = 86400000, KATSELMUS_PV = 14, VERSIO = 3;
   function _req(g, f) { try { return (typeof module !== 'undefined' && module.exports && typeof require === 'function') ? require(f) : (root && root[g]); } catch (e) { return root && root[g]; } }
   function _AJ() { return _req('TM_ALOITA_JAKSO', './tm_aloita_jakso.js'); }
   function _JJ() { return _req('TM_JOUKKUEJAKSO', './tm_joukkuejakso.js'); }
   function _IV() { return _req('TM_IKAVAIHE', './tm_ikavaihe.js'); }
+  /* tmPelaajanJoukkueet (lib/tm_joukkue.js): YKSI jäsenyyssääntö — joukkueet[] on totuus, `joukkue` vain näyttönimi (§7.18). Selaimessa globaali, Nodessa require. */
+  function _PJ() { try { if (typeof module !== 'undefined' && module.exports && typeof require === 'function') return require('./tm_joukkue.js').tmPelaajanJoukkueet; } catch (e) { /* ei */ } return root && root.tmPelaajanJoukkueet; }
   function _ms(v) { var t = v ? new Date(v).getTime() : NaN; return t; }
   var _fmt = null;
   function pvmHelsinki(ms) {   // 'YYYY-MM-DD' Helsingin ajassa
@@ -46,10 +48,6 @@
   }
   function _ikkunassa(pvm, alku, loppu) { return pvm != null && pvm >= alku && pvm <= loppu; }   // merkkijonovertailu: ISO-päivä on leksikaalisesti järjestetty
   function _kesto(jf) { return Number(jf && jf.kesto_vk) > 0 ? Number(jf.kesto_vk) : 4; }   // sama oletus kuin tmJaksoTila
-  function _sisaltaa(p, j) {   // §7.18: joukkue (nimi) TAI joukkueet[] (ID, varalta nimi)
-    if (p.joukkue != null && j.nimi != null && String(p.joukkue).trim().toLowerCase() === String(j.nimi).trim().toLowerCase()) return true;
-    return Array.isArray(p.joukkueet) && p.joukkueet.some(function (x) { return x === j.id || (j.nimi != null && String(x).trim().toLowerCase() === String(j.nimi).trim().toLowerCase()); });
-  }
   function _tyhja(j, ikavaihe, voimassa) {
     var o = { nimi: j.nimi != null ? String(j.nimi) : '', ikavaihe: ikavaihe, jakso: !!voimassa.voimassa, n_pelaajat: 0, n_jaksolla: 0, n_valinta_odottaa: 0, n_katselmus: 0, n_vastanneet: 0, n_vastausperusta: 0, n_katselmus_ajallaan: 0, n_katselmus_perusta: 0, n_suostumus: 0, n_kirjautunut_30: 0, n_huoltaja_30: 0, n_aktiivinen_7: 0, n_aktiivinen_30: 0 };
     if (voimassa.voimassa && voimassa.nimi) o.jakso_nimi = voimassa.nimi;
@@ -67,10 +65,19 @@
       tulos[j.id] = _tyhja(j, IV.tmIkavaihe(JJ.tmJoukkueenIka(j)), JJ.tmJoukkuejaksoVoimassa(j, tanaan)); jidt.push(j.id);
     });
     var d7 = pvmHelsinki(arvioMs - 6 * DAY), d30 = pvmHelsinki(arvioMs - 29 * DAY);   // ikkunat päättyvät arviointihetken päivään (tulevaisuuden päivät eivät lasketa)
+    var yht = { n_pelaajat: 0, n_ilman_joukkuetta: 0, n_suostumus: 0, n_kirjautunut_30: 0, n_huoltaja_30: 0, n_aktiivinen_7: 0, n_aktiivinen_30: 0 };
     var ehdokkaat = [], katselmukset = [], kats = [], vastausMukana = [];   // kats[i] = { jids:[…], ajallaan:true|false|null(=haku ratkaisee), i }
     pelaajat.forEach(function (p) {
       if (!p || !p.id) return;
-      var mukana = joukkueet.filter(function (j) { return j && j.id && _sisaltaa(p, j); }); if (!mukana.length) return;
+      var PJ = _PJ(); if (!PJ) throw new Error('tm_seuran_kooste: tm_joukkue.js (tmPelaajanJoukkueet) puuttuu');
+      var jasenIds = PJ(p, joukkueet), mukana = joukkueet.filter(function (j) { return j && j.id && jasenIds.indexOf(j.id) >= 0; });
+      // Seuran yhteensä-luvut UNIIKEISTA pelaajista (ei joukkueiden summaa: monijoukkueinen pelaaja lasketaan kerran). Pelaaja ilman joukkuetta on mukana yhteensä-luvuissa.
+      var oma = (Array.isArray(p.oma) ? p.oma : []).map(_pvm).filter(function (x) { return x != null; });
+      var akt7 = oma.some(function (x) { return _ikkunassa(x, d7, tanaan); }), akt30 = oma.some(function (x) { return _ikkunassa(x, d30, tanaan); });
+      var kirj30 = _ikkunassa(_pvm(p.viimeisinKirjautuminen), d30, tanaan), huolt30 = _ikkunassa(_pvm(p.huoltajaViimeisinKaynti), d30, tanaan);
+      yht.n_pelaajat++; if (!mukana.length) yht.n_ilman_joukkuetta++;
+      if (p.suostumus === true) yht.n_suostumus++; if (kirj30) yht.n_kirjautunut_30++; if (huolt30) yht.n_huoltaja_30++; if (akt7) yht.n_aktiivinen_7++; if (akt30) yht.n_aktiivinen_30++;
+      if (!mukana.length) return;
       var jf = p.jaksofokus, tila = AJ.tmJaksoTila(p, { nyt: arvioMs }).tila;
       var ika = IV.tmPelaajaIka(p.syntymaVuosi, a.vuosi, p.joukkue || (mukana[0] && mukana[0].nimi)), leikkija = IV.tmIkavaihe(ika) === 'leikkija';
       var vastausperusta = (tila === 'kaynnissa' || tila === 'vahvistettu') && !leikkija;
@@ -94,9 +101,6 @@
         if (!r.ajallaan) { item.i = katselmukset.length; katselmukset.push({ i: item.i, pid: p.id, alkuPvm: pvmHelsinki(r.loppu), loppuPvm: pvmHelsinki(r.ikkuna) }); }   // täysi katselmus ilman sulkemista (reviewit/{pvm}) voi pelastaa
         kats.push(item); kPerusta.push(item);
       });
-      var oma = (Array.isArray(p.oma) ? p.oma : []).map(_pvm).filter(function (x) { return x != null; });
-      var akt7 = oma.some(function (x) { return _ikkunassa(x, d7, tanaan); }), akt30 = oma.some(function (x) { return _ikkunassa(x, d30, tanaan); });
-      var kirj30 = _ikkunassa(_pvm(p.viimeisinKirjautuminen), d30, tanaan), huolt30 = _ikkunassa(_pvm(p.huoltajaViimeisinKaynti), d30, tanaan);
       mukana.forEach(function (j) {
         var o = tulos[j.id]; o.n_pelaajat++;
         if (p.suostumus === true) o.n_suostumus++;
@@ -112,7 +116,7 @@
         o.n_katselmus_ajallaan += kPerusta.filter(function (k) { return k.ajallaan; }).length;
       });
     });
-    return { tulos: tulos, ehdokkaat: ehdokkaat, katselmukset: katselmukset, _kats: kats, _vastausMukana: vastausMukana, jidt: jidt };
+    return { tulos: tulos, yhteensa: yht, ehdokkaat: ehdokkaat, katselmukset: katselmukset, _kats: kats, _vastausMukana: vastausMukana, jidt: jidt };
   }
 
   function tmKoosteTulos(analyysi, ulkoiset, meta) {
@@ -122,16 +126,17 @@
     analyysi.jidt.forEach(function (jid) { joukkueet[jid] = Object.assign({}, analyysi.tulos[jid]); });
     analyysi._vastausMukana.forEach(function (x) { if (vast[x.id]) x.jids.forEach(function (jid) { joukkueet[jid].n_vastanneet++; }); });
     analyysi._kats.forEach(function (k) { if (k.i != null && loyt[k.i]) k.jids.forEach(function (jid) { joukkueet[jid].n_katselmus_ajallaan++; }); });
-    var doc = { vk: meta.vk, versio: VERSIO, joukkueet: joukkueet };
+    var doc = { vk: meta.vk, versio: VERSIO, yhteensa: Object.assign({}, analyysi.yhteensa), joukkueet: joukkueet };
     if (meta.arvio) doc.arvio = true;
     return doc;
   }
 
-  /* Neljän viikon trendi (Admin/VP): koosteet vanhin→uusin, mitta = kenttä (esim. 'n_aktiivinen_30'), jaettuna n_pelaajat:lla JOUKKUEIDEN YLI SUMMATTUNA (tai vain joukkue jid, jos annettu). Palauttaa
+  /* Neljän viikon trendi (Admin/VP): koosteet vanhin→uusin, mitta = kenttä (esim. 'n_aktiivinen_30'), jaettuna n_pelaajat:lla JOUKKUEIDEN YLI SUMMATTUNA (tai vain joukkue jid, jos annettu). Seurataso: versio 3 -dokumentin `yhteensa` (uniikit pelaajat); v2-dokumentti → joukkueiden summa (monijoukkueiset tuplalaskettu). Palauttaa
      { nyt: {osoittaja, nimittaja, pros}, edellinen: {…}|null, suunta: 'ylos'|'alas'|'sama'|null }. Tyhjä/yksi viikko → edellinen null. v1-dokumentit (kenttä puuttuu) → ohitetaan. */
   function tmKoosteTrendi(koosteet, kentta, jid) {
     var rivit = (Array.isArray(koosteet) ? koosteet : []).map(function (d) {
       var o = 0, n = 0, on = false;
+      if (jid == null && d && d.yhteensa && typeof d.yhteensa[kentta] === 'number') { o = d.yhteensa[kentta]; n = d.yhteensa.n_pelaajat || 0; on = true; return on ? { vk: d.vk, osoittaja: o, nimittaja: n, pros: n > 0 ? Math.round(o * 100 / n) : null } : null; }   // v3: uniikit pelaajat (ei joukkueiden summaa)
       Object.keys((d && d.joukkueet) || {}).forEach(function (id) { if (jid != null && id !== jid) return; var j = d.joukkueet[id]; if (j && typeof j[kentta] === 'number') { on = true; o += j[kentta]; n += j.n_pelaajat || 0; } });
       return on ? { vk: d.vk, osoittaja: o, nimittaja: n, pros: n > 0 ? Math.round(o * 100 / n) : null } : null;
     }).filter(Boolean);
