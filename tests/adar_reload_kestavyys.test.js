@@ -147,7 +147,7 @@ function teeSandbox(opt) {
   };
   sandbox.window = sandbox;
   sandbox.self = sandbox;
-  vm.createContext(sandbox);
+  sandbox.tmHT = sandbox.tmHT || function (s) { return s; }; vm.createContext(sandbox);
 
   /* Vakiot + funktiot lähteestä — ei uudelleenkirjoitettuja kopioita. */
   vm.runInContext(

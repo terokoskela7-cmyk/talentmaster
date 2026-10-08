@@ -82,7 +82,7 @@ function aja(opt) {
     navigator: { onLine: o.online === false ? false : true },
     localStorage: { getItem: () => null, setItem() {}, removeItem() {} },
     /* Lib on OIKEA — vartija ei saa mitata omaa kopiotaan. */
-    TM_ADAR_NIMET: LIB.TM_ADAR_NIMET, TM_ADAR_PORTAAT: LIB.TM_ADAR_PORTAAT,
+    TM_ADAR_TEKSTIT: vaadi('../lib/tm_adar_tekstit.js'), TM_ADAR_NIMET: LIB.TM_ADAR_NIMET, TM_ADAR_PORTAAT: LIB.TM_ADAR_PORTAAT,
     tmAdarBand: LIB.tmAdarBand, tmAdarIkaPorras: LIB.tmAdarIkaPorras,
     tmAdarPorrasEhdotus: LIB.tmAdarPorrasEhdotus, tmAdarPikakentat: LIB.tmAdarPikakentat,
     _adarNakyvatPelaajat: (haku) => Object.keys(o.pelaajat || {})
@@ -95,6 +95,7 @@ function aja(opt) {
     window: { _pelaajaMap: o.pelaajat || {}, _tmSeuraId: 'sjk' },
   };
   store.window.window = store.window;
+  store.tmHT = store.tmHT || function (s) { return s; };
   const ymp = new Proxy(store, {
     has: (t, k) => (k in t) || !(k in globalThis),
     get: (t, k) => (k === Symbol.unscopables ? undefined : (k in t ? t[k] : undefined)),
@@ -216,8 +217,10 @@ describe('(2) porras ohjaa ulottuvuudet, ikä on vain ehdotus', () => {
   });
 
   it('ehdotuskortin verbi ja partitiivi ovat vakioita, ei johdettuja', () => {
-    expect(SIVU).toContain("const PH_VERBI = { a: 'havainnoi', d: 'ratkaisee', ac: 'toteuttaa'");
-    expect(SIVU).toContain("const PH_PARTITIIVI = { d: 'päätöstä', ac: 'toteutusta', r: 'palautumista' };");
+    /* sv-läpiajo PR 4: vakiot siirtyivät libiin (lib/tm_adar_tekstit.js FI) — sisältö ennallaan, kielireititys avainten kautta */
+    const T = vaadi('../lib/tm_adar_tekstit.js').FI;
+    expect([T.adar_verbi_a, T.adar_verbi_d, T.adar_verbi_ac]).toEqual(['havainnoi', 'ratkaisee', 'toteuttaa']);
+    expect([T.adar_partitiivi_d, T.adar_partitiivi_ac, T.adar_partitiivi_r]).toEqual(['päätöstä', 'toteutusta', 'palautumista']);
   });
 });
 
@@ -441,7 +444,7 @@ describe('(7) vanha rakenne on poissa', () => {
     /* Tallennusnapin teksti oli aiemmin "Tallenna havainto → Firestoreen". */
     const napit = [...SIVU.matchAll(/>([^<>{]*Firestore[^<>{]*)</g)].map((m) => m[1]);
     expect(napit, 'Firestore näkyy käyttöliittymässä').toEqual([]);
-    expect(SIVU).toContain('>Tallenna havainto<');
+    expect(SIVU).toContain("tmHT('Tallenna havainto')");
   });
 });
 

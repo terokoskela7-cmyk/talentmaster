@@ -47,7 +47,7 @@ function ymp({ pelaajat, vastaus = 'jatka', estetty = false, palvelin }) {
     firebase: { app: () => ({ functions: () => ({ httpsCallable: (nimi) => async (d) => { loki.kutsut.push([nimi, d.pelaajaIds.length]); return palvelin(d); } }) }) },
   };
   ctx.open = ctx.window.open;
-  vm.createContext(ctx);
+  ctx.tmHT = ctx.tmHT || function (s) { return s; }; vm.createContext(ctx);
   vm.runInContext(SEURA.match(/const PIN_SUOSTUMUS_PUUTTUU = '[^']*';/)[0].replace('const', 'var') + '\n'
     + 'var KORTTI_ERA = ' + SEURA.match(/const KORTTI_ERA = (\d+);/)[1] + ';\n'
     + ['function _tkKieli(avain, kieli, fi, muuttujat) {', 'function _tk(avain, fi, muuttujat) {', 'function _suostumusAnnettu(p) {', 'function _pinFn(nimi) {',

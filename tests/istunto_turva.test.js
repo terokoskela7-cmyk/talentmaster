@@ -41,7 +41,7 @@ describe('Lähdetarkistukset: väärä rooli ei kutsu automaattisesti signOut():
   const lohko = (src, alku, pituus = 900) => { const i = src.indexOf(alku); expect(i, alku).toBeGreaterThan(-1); return src.slice(i, i + pituus); };
   it('Seura: väärä rooli ja "seuraa ei löydy" → naytaVaaraRooli (viesti + nappi), ei signOut():ia', () => {
     const a = lohko(SIVUT.Seura, 'if (!SALLITUT_ROOLIT.includes(rooli)) {', 900); expect(a.slice(0, a.indexOf('return;') + 7)).toContain('naytaVaaraRooli('); expect(a.slice(0, a.indexOf('return;') + 7)).not.toMatch(/\.signOut\(\)/);
-    const b = lohko(SIVUT.Seura, "naytaVaaraRooli('kirjautumisVirhe', 'Seuraa ei löydy.", 300); expect(b.slice(0, b.indexOf('return;') + 7)).not.toMatch(/\.signOut\(\)/);
+    const b = lohko(SIVUT.Seura, "naytaVaaraRooli('kirjautumisVirhe', tmHT('Seuraa ei löydy.", 300); expect(b.slice(0, b.indexOf('return;') + 7)).not.toMatch(/\.signOut\(\)/);
   });
   it('Admin: kumpikin väärän roolin haara → viesti + nappi, ei signOut():ia', () => {
     const a = lohko(SIVUT.Admin, "insertAdjacentHTML('beforeend'", 400); expect(a.slice(0, a.indexOf('return;') + 7)).not.toMatch(/\.signOut\(\)/);

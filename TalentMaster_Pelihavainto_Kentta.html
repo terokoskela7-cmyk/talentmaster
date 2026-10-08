@@ -23,6 +23,7 @@
 <script src="lib/tm_appcheck.js?v=1"></script>
 <script src="lib/tm_lang.js?v=35"></script>
 <script src="lib/tm_i18n_common.js?v=11"></script>
+<script src="lib/tm_henkilosto_i18n.js?v=1"></script>          <!-- sv-läpiajo PR 4: tmHT/tmHTL — yhteinen henkilöstökartta (sv Gemini-erästä; Code ei kirjoita ruotsia) -->
 <script src="lib/tm_xt.js?v=1"></script>                     <!-- xT-ruudukko: tm_pelihavainto käyttää, EI kopiota -->
 <script src="lib/tm_pelihavainto.js?v=5"></script>           <!-- KANONINEN laskenta (§5.6). NOSTA ?v KUN LIB MUUTTUU: vanha lib + uusi sivu = pystyasennon napautus tallentuisi vaakakaavalla vaaraan kohtaan ILMAN virheilmoitusta (§27.4 CDN-cache). -->
 <script src="lib/tm_teknistaktiset.js?v=1"></script>         <!-- pelipaikkalista (TM_TT_PELIPAIKAT) asetuksissa. Konseptivalinta EI ole tässä työkalussa: se tehdään pikakortissa. -->
@@ -432,9 +433,9 @@ const _db = firebase.firestore();
   'use strict';
   var PH = window.TM_PELIHAVAINTO || {};
 
-  /* i18n: kaikki näyttöteksti kulkee phT:n läpi. sv tulee Gemini-erästä (yhteinen kartta),
-     tässä ei kirjoiteta ruotsia. */
-  function phT(fi) { return (typeof tmI18nResolve === 'function') ? tmI18nResolve(fi, null) : fi; }
+  /* i18n: kaikki näyttöteksti kulkee phT:n läpi → tmHT (lukittu glossaari → TM_HENKILOSTO_I18N → fi). sv tulee Gemini-erästä (docs/i18n/sv_kaannoserae_2.json, osio henkilosto_kartta),
+     tässä ei kirjoiteta ruotsia. Apurit vipu/lab/vihje/virhe/naytaPortti ja taulukot (TXT_… ja RASTI_NIMI) reititetään kulutuskohdassa phT:llä. */
+  function phT(fi) { return (typeof tmHT === 'function') ? tmHT(fi) : fi; }
   function esc(s) {
     return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) {
       return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c];
@@ -1897,6 +1898,8 @@ const _db = firebase.firestore();
       var ssnap = await _db.collection('seurat').doc(S.seuraId).get();
       S.seura = ssnap.exists ? ssnap.data() : null;
     } catch (e) { S.seura = null; }
+    /* Kieli seuran kielestä (tmKieliInitSeura; käyttäjän oma valinta voittaa) ja staattisen markupin lokalisointi — sv-läpiajo PR 4. */
+    try { if (typeof tmKieliInitSeura === 'function') { tmKieliInitSeura((S.seura && S.seura.kieli) || null); if (typeof tmHTL === 'function') tmHTL(document); } } catch (e) { /* kieli jää suomeksi */ }
   }
 
   /* LUKU-TILA: Masterin "Ottelutarkkailut" avaa tallennetun tarkkailun samaan läpikäyntiin.
@@ -1995,7 +1998,7 @@ const _db = firebase.firestore();
     piirra();
     q('portti').style.display = 'none';
     q('sovellus').style.display = '';
-    if (typeof tmLokalisoiCommon === 'function') tmLokalisoiCommon(document, null);
+    if (typeof tmHTL === 'function') tmHTL(document);
 
     if (S.lukutila) {
       ['btnKumoa', 'btnHetki', 'btnTallenna'].forEach(function (id) {

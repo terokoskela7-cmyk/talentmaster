@@ -113,7 +113,7 @@ describe('autosave-langoitus + status osa-etenemä', () => {
     const s = HTML.slice(HTML.indexOf('window._vpJfOsaArvioSet'), HTML.indexOf('window._vpJfOsaArvioSet') + 2400);
     expect(s).toContain('p.jaksofokus.osa_arviot[konseptiAvain] = Object.assign({}, p.jaksofokus.osa_arviot[konseptiAvain], c);');
     // R6.1c: dot-polku (tmPaivitaJaksofokus → jaksofokus.osa_arviot.<konsepti>), ei syvämergeä
-    expect(s).toContain("tmPaivitaJaksofokus(p, _osa).polut), 'Osa-arvio tallennettu');"); expect(s).toContain("'osa_arviot.' + konseptiAvain");
+    expect(s).toContain("tmPaivitaJaksofokus(p, _osa).polut), vpT('Osa-arvio tallennettu'));"); expect(s).toContain("'osa_arviot.' + konseptiAvain");
     expect(s).toContain('_vpAloitusReRender');   // Aloitus-näyttö päivittyy
   });
   it('rivin alarivi näyttää osa-etenemän ("X/Y osaa hallussa pelissä") olemassa olevasta datasta', () => {

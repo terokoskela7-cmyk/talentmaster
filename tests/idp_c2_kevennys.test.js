@@ -37,6 +37,7 @@ function esc(s) {
 /** Suorittaa annetut VP-funktiot oikeasti; puuttuvat globaalit palauttavat tyhjän. */
 function aja(sigit, palautus, lisa) {
   const store = Object.assign({ _jsvEsc: esc, vpT: (s) => s }, lisa || {});
+  store.tmHT = store.tmHT || function (s) { return s; };
   const ymp = new Proxy(store, {
     has: (t, k) => (k in t) || !(k in globalThis),
     get: (t, k) => (k === Symbol.unscopables ? undefined : (k in t ? t[k] : () => '')),
@@ -291,7 +292,7 @@ describe('(6) kuormapalkki ja päiväruudukko lukevat saman päivän samasta lä
 
   it('kuormallinen päivä saa ruudukossa aina merkinnän (ei tyhjää "napauta"-solua)', () => {
     // nauhan otsikkohaara: kesto/rpe olemassa → "Harjoitus" (tai tallennettu fokus_nimi)
-    expect(nauha).toContain("else if (row.kesto_min != null || row.rpe != null) { title = esc(row.fokus_nimi || 'Harjoitus'); }");
+    expect(nauha).toContain("else if (row.kesto_min != null || row.rpe != null) { title = esc(row.fokus_nimi || vpT('Harjoitus')); }");
   });
 
   it('erillistä viikko-fixtuuria ei ole: rivit tulevat yhdestä statesta', () => {

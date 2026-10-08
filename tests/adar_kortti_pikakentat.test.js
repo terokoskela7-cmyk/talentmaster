@@ -58,7 +58,7 @@ describe('ADAR · _phTallenna ilmoittaa isännälle VASTA kuittauksen jälkeen',
     const kirjoitus = odota.then(() => { if (havaintoHylkaa) throw Object.assign(new Error('x'), { code: 'permission-denied' }); return pikakentat; });
     const dok = { id: 'h1', collection: () => ({ doc: () => dok }) };
     const ctx = vm.createContext({
-      console: { error() {}, warn() {} }, Date, Promise, Object, Array, String, JSON, setTimeout,
+      tmHT: (x) => x, console: { error() {}, warn() {} }, Date, Promise, Object, Array, String, JSON, setTimeout,
       navigator: { onLine: !offline },
       _PH_DB: {}, _PH_AUTH: { currentUser: { uid: 'u1', displayName: 'V' } },
       window: { _tmSeuraId: 'kpv', _tmRooli: 'valmentaja', _pelaajaMap: { p1: {} }, firebase: { firestore: { FieldValue: { serverTimestamp: () => 1 } } },
