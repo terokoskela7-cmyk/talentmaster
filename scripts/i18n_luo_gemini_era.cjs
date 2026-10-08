@@ -32,7 +32,7 @@ osiot.tm_lang = {
 const ulos = {
   _tiedosto: 'TalentMaster — sv-käännöserä 2 Geminille',
   _pvm: (nyk && nyk._pvm) || new Date().toISOString().slice(0, 10),
-  _tila: 'KESKEN — täydentyy sv-läpiajon PR-vaiheittain: PR 2 (perheet: Pelaaja_v7 + Vanhempi_v2 + ilmoitusrivit + ADAR-nimikanoni) on mukana; PR 3 (Master, curriculum, tekniikkakisat, oma arviointi) ja PR 4 (VP, Seura, ADAR Pikakortti, Pelihavainto) lisäävät osioita. #892:n jäännökset (ts_otsikko, Klubb→Förening, "Kehityskaari (kausifokus)", VP×Master 110 yhtenäistettävää riviä) lisätään PR 3–4:ssä. Takaraja Gemini-erälle 20.10.2026.',
+  _tila: 'KESKEN — täydentyy sv-läpiajon PR-vaiheittain: PR 2 (perheet: Pelaaja_v7 + Vanhempi_v2 + ilmoitusrivit + ADAR-nimikanoni) ja PR 3 (Master: osio master_kartta) ovat mukana; PR 4 (VP, Seura, ADAR Pikakortti, Pelihavainto) lisäävät osioita. #892:n jäännökset (ts_otsikko, Klubb→Förening, "Kehityskaari (kausifokus)", VP×Master 110 yhtenäistettävää riviä) lisätään PR 3–4:ssä. Takaraja Gemini-erälle 20.10.2026.',
   _pohja: (nyk && nyk._pohja) || 'origin/main + feat/i18n-sv-perheet-pr2',
   _rivit_yhteensa: Object.values(osiot).reduce((s, o) => s + Object.keys(o.rivit || {}).length, 0),
   ohje_geminille: E1.ohje_geminille,
@@ -67,6 +67,13 @@ if (nyk && nyk.osiot && nyk.osiot.lib_adar_nimet) ulos.lib_adar_nimet = nyk.osio
   const vanhatK = (nyk && nyk.osiot && nyk.osiot['lib.tm_kentta'] && nyk.osiot['lib.tm_kentta'].rivit) || {}, r = {};
   [...avaimet].forEach((fi) => { r[fi] = { fi, sv: (vanhatK[fi] && typeof vanhatK[fi].sv === 'string') ? vanhatK[fi].sv : '' }; });
   ulos.osiot['lib.tm_kentta'] = { _konteksti: 'PELAAJA + henkilökunta — Kenttä-komponentin tagit ja aria-label (pelikenttä = jalkapallokenttä, sv "plan"). Avain = suomenkielinen teksti sellaisenaan; lyhyet pienellä kirjoitetut tilasanat ("nyt", "ei vielä") ovat tag-tekstejä.', rivit: r };
+}
+// master_kartta (sv-läpiajo PR 3): Masterin masterT-avaimet ilman sv-riviä (avain = fi-teksti sellaisenaan → TM_MASTER_I18N.sv; vienti: scripts/i18n_vie_sv_era.cjs master_kartta).
+{
+  const { masterAvaimet } = require('../tools/i18n/master_avaimet.cjs');
+  const vanhatM = (nyk && nyk.osiot && nyk.osiot.master_kartta && nyk.osiot.master_kartta.rivit) || {}, r = {};
+  masterAvaimet(ROOT).puuttuu.forEach((fi) => { r[fi] = { fi, sv: (vanhatM[fi] && typeof vanhatM[fi].sv === 'string') ? vanhatM[fi].sv : '' }; });
+  ulos.osiot.master_kartta = { _konteksti: 'HENKILÖKUNTA (Master = valmentajan työpöytä): käyttöliittymän tekstit, toastit, demosisältö (Tänään/Kalenteri/Kausi/Testit), jakson tilakoneen napit ja tilat. Avain = suomenkielinen teksti sellaisenaan (myös alku-/loppuvälilyönnit: osa on lauseen paloja, esim. " pelaajaa vahvistettu", "Seuraava fokus (" — käännä pala niin, että koodin liittämä jatko ("0)" , nimi, luku) toimii). {nimi}/{n}/{kirjain}/{yht} säilyvät täsmälleen. Asiallinen valmennuskieli; termistö kuten muissa osioissa.', rivit: r };
 }
 // lib_adar_nimet osioksi (samaan muotoon kuin muut osiot): osiot-objektiin
 ulos.osiot.lib_adar_nimet = ulos.lib_adar_nimet; delete ulos.lib_adar_nimet;
