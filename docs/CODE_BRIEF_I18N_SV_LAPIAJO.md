@@ -46,6 +46,23 @@ Löydöksiä ei korjata yksitellen. Rakenna ajonaikainen läpiajo, joka näkee s
    - VP×Master: 110 eri tavoin käännettyä riviä yhtenäistettäväksi (Gemini valitsee yhden muodon)
 5. **Portti:** läpiajo CI:hin raporttina. Ensimmäisessä vaiheessa se ei kaada buildia, vaan baseline-tiedostosta vain **uudet** suomenkieliset tekstit kaatavat (KARTOITUS §9 kohta 3b). Sen jälkeen uusi kovakoodattu suomi ei pääse enää huomaamatta mainiin.
 
+## Otteluhavainnointi ja ADAR (lisäys 8.10., Tero) — eivät ole käännetty lainkaan
+
+PM tarkisti koodista 8.10.:
+
+| Kohde | Tila | Tehtävä |
+|---|---|---|
+| `TalentMaster_ADAR_Pikakortti.html` | **ei sv-reittiä lainkaan.** Kaikki tekstit ovat jo yhdessä rakenteessa `PH_TEKSTIT` (kysymys, tasokuvaukset 1–3, vinkit, valinnat; kommentti "i18n = vaihe 3; sv EI tässä"). Sovellus ei lataa `tm_lang`ia. | Siirrä `PH_TEKSTIT` FI-kartaksi (avain = polku, esim. `adar_A_q`, `adar_A_d1`) → `tm_lib_i18n.js`-reitti. Lataa `tm_lang.js` + `tm_lib_i18n.js`. Kieli seuran kielestä (`tmKieliInitSeura`). Bundler-template (§7.10): tarkista, ettei rakennemuutos riko bundleria. |
+| `lib/tm_pelialy_yksilo.js` `TM_ADAR_NIMET` | nimikanoni vain fi (valmentaja / pelaaja: Havainnointi, Päätös/Päätöksenteko, Toteutus, Palautuminen) | Reititä kirjastokartan kautta. **Nimet näkyvät myös pelaajalle ja huoltajalle** (pelaajan rekisteri), joten ne ovat perheiden näkymää ja kuuluvat prioriteettiin 1. |
+| `lib/tm_adar_rubriikki.js`, `lib/tm_pelihavainto.js`, `lib/tm_havainto_kaavio.js` | ei sv-reittiä | FI-kartta + `opts.t` kuten muissa kirjastoissa |
+| `lib/tm_pelihavainto_valinta.js`, `lib/tm_havaintohistoria.js` | fi-avaimet valmiina ("sv Gemini-erän kautta") | vain kartan rivit erään |
+| `TalentMaster_Pelihavainto_Kentta.html` (kohdennettu pelihavainto) | vain portti ja otsikot `data-i18n`:llä (18); havainnoinnin sisältö kovakoodattua | reititys |
+| Master: Ottelutarkkailut | otsikko käännetty, sisältö mitattava | läpiajoon |
+
+- **Valmentajan kirjoittama narratiivi on dataa**, ei käännetä.
+- ADAR-terminologia termistöön ennen Gemini-erää: `Havainnointi · Päätös / Päätöksenteko · Toteutus · Palautuminen`, sekä "pelihavainto", "otteluhavainnointi" ja "ottelutarkkailu". Nykyinen sv-kartta käyttää muotoa *Matchobservationer* ja *Spelobservation*. Gemini päättää yhden linjan, ja termistö lukitaan.
+- Läpiajon näkymälistaan: ADAR Pikakortti (kaikki 4 ulottuvuutta, tasot 1–3 auki), Pelihavainto_Kentta, Masterin Ottelutarkkailut, pelaajan ja huoltajan havaintonäkymä.
+
 ## Excel-pohjat
 
 Testien Excel-pohja ja pelaajarekisteripohja ladataan seuralle. Sarakeotsikot ovat tuonnin avaimia (§7.19, `etsiSarake startsWith`), joten **älä käännä niitä suoraan**. Selvitä vaihtoehdot ja raportoi:
