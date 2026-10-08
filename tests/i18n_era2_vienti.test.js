@@ -21,12 +21,14 @@ const polku = (o, p) => p.split('.').reduce((a, k) => (a == null ? undefined : a
 const rivit = (osio) => Object.entries(ERA.osiot[osio].rivit);
 
 describe('Gemini-erä 2 — vienti', () => {
-  it('erässä ei tyhjiä sv-rivejä (1331/1331)', () => {
-    const kaikki = Object.values(ERA.osiot).flatMap((o) => Object.values(o.rivit));
-    expect(kaikki.length).toBe(1331);
-    expect(kaikki.filter((r) => !r.sv)).toEqual([]);
+  it('erä: 1331 Geminin käsittelemää riviä kaikilla sv; ainoat tyhjät ovat tm_lang-odotuslistan uudet avaimet (tests/tm_lang_sv_odotuslista.cjs) — niille ei vaadita karttaa', () => {
+    const ODOTTAA = require('./tm_lang_sv_odotuslista.cjs');
+    const kaikki = Object.entries(ERA.osiot).flatMap(([o, os]) => Object.entries(os.rivit).map(([a, r]) => [o, a, r]));
+    const tyhjat = kaikki.filter(([, , r]) => !r.sv).map(([o, a]) => o + '::' + a).sort();
+    expect(tyhjat).toEqual(ODOTTAA.map((p) => 'tm_lang::' + p).sort());
+    expect(kaikki.length - tyhjat.length).toBe(1331);
   });
-  it('tm_lang', () => { for (const [p, r] of rivit('tm_lang')) if (!palautettu('tm_lang', p)) expect(polku(L, p), p).toBe(r.sv); });
+  it('tm_lang', () => { for (const [p, r] of rivit('tm_lang')) if (r.sv && !palautettu('tm_lang', p)) expect(polku(L, p), p).toBe(r.sv); });
   it('lib-osiot → TM_LIB_I18N.sv', () => {
     for (const o of ['lib_adar_nimet', 'lib.rubriikit', 'lib.tm_kentta', 'lib.tm_adar_tekstit', 'lib.tm_pelihavainto_valinta', 'lib.tm_havaintohistoria', 'lib.tm_tanaan_signaali'])
       for (const [a, r] of rivit(o)) if (!palautettu(o, a)) expect(LIB[a], o + ' ' + a).toBe(r.sv);
