@@ -16,6 +16,7 @@
  *   cd functions && node ../scripts/solo_lupapyynto_playercode.js --apply    # kirjoitus
  */
 'use strict';
+if (require.main !== module) throw new Error('scripts/solo_lupapyynto_playercode.js käsittelee tuotantodataa — aja suoraan: node scripts/solo_lupapyynto_playercode.js (ei require/import)');   // vahinkoajon esto (S1)
 const admin = require('firebase-admin');
 admin.initializeApp({ projectId: 'talentmaster-pilot' });
 const db = admin.firestore();

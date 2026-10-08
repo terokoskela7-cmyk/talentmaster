@@ -22,6 +22,7 @@
  *
  * Vaatii GOOGLE_APPLICATION_CREDENTIALS-ympäristömuuttujan (Admin SDK).
  */
+if (require.main !== module) throw new Error('scripts/migroi_havainto_nakyvyys.js käsittelee tuotantodataa — aja suoraan: node scripts/migroi_havainto_nakyvyys.js (ei require/import)');   // vahinkoajon esto (S1)
 
 const admin = require('firebase-admin');
 

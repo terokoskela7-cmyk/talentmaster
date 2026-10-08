@@ -8,6 +8,7 @@
  * Ei kirjoita mitään. Tulostaa vain seuraId:t, domainit ja lukumäärät — EI nimiä, sähköposteja eikä uid:itä.
  * AJO (gcloud ADC, Teron tili):  node scripts/paikkamerkki_osoitteet_laskenta.js
  */
+if (require.main !== module) throw new Error('scripts/paikkamerkki_osoitteet_laskenta.js käsittelee tuotantodataa — aja suoraan: node scripts/paikkamerkki_osoitteet_laskenta.js (ei require/import)');   // vahinkoajon esto (S1)
 const path = require('path');
 const admin = require('firebase-admin');
 const { PAIKKAMERKKI_DOMAINIT, sahkopostinDomain, onPaikkamerkkiOsoite } = require(path.join(__dirname, '..', 'functions', 'paikkamerkki.js'));

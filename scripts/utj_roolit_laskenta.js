@@ -7,6 +7,7 @@
  * Ei kirjoita mitään. Tulostaa vain seuraId:t ja lukumäärät (ei sähköposteja, nimiä eikä uid:itä).
  * AJO (gcloud ADC, Teron tili):  node scripts/utj_roolit_laskenta.js
  */
+if (require.main !== module) throw new Error('scripts/utj_roolit_laskenta.js käsittelee tuotantodataa — aja suoraan: node scripts/utj_roolit_laskenta.js (ei require/import)');   // vahinkoajon esto (S1)
 const admin = require('firebase-admin');
 admin.initializeApp({ projectId: 'talentmaster-pilot' });
 const ROOLIT = ['urheilutoimenjohtaja', 'utj'];

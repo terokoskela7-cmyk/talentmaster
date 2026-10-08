@@ -9,6 +9,7 @@
  * AUTENTIKOINTI: Application Default Credentials (gcloud auth application-default login).
  */
 'use strict';
+if (require.main !== module) throw new Error('scripts/laske_pelaajat_ilman_palloid.js käsittelee tuotantodataa — aja suoraan: node scripts/laske_pelaajat_ilman_palloid.js (ei require/import)');   // vahinkoajon esto (S1)
 const admin = require('firebase-admin');
 admin.initializeApp({ projectId: 'talentmaster-pilot' });
 const db = admin.firestore();

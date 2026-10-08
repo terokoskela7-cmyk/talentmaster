@@ -16,6 +16,7 @@
  * samoista libeistä kuin selaimessa (lib/tm_eerikkila_normit.js + docs/testit_indeksit.js, vm-sandbox).
  */
 'use strict';
+if (require.main !== module) throw new Error('scripts/diag_pelaaja_kortit.js käsittelee tuotantodataa — aja suoraan: node scripts/diag_pelaaja_kortit.js (ei require/import)');   // vahinkoajon esto (S1)
 const path = require('path');
 const fs = require('fs');
 const vm = require('vm');

@@ -58,12 +58,12 @@ async function laskeSeura(deps, sid, opts) {
   const rikkomukset = K.tmKoosteRikkomukset(doc);
   if (rikkomukset.length) throw new Error('kooste sisältää kiellettyjä kenttiä: ' + rikkomukset.join(', '));
   const joukkueDokt = K.tmKoosteJoukkueDokumentit(doc);
-  if (opts.kuiva) return { sid, vk: rajat.tunniste, kuiva: true, joukkueita: joukkueDokt.length, pelaajia: pelaajat.length, doc };   // ei kirjoiteta (takaisinlaskennan kuiva-ajo)
 
   if (opts.eiYlikirjoitaTodellista) {   // takaisinlaskenta: älä korvaa palvelimen oikeaa (ei-arvio) koostetta arviolla
     const vanha = await seuraRef.collection('kooste').doc(rajat.tunniste).get();
     if (vanha && vanha.exists && !(vanha.data() || {}).arvio) return { sid, vk: rajat.tunniste, ohitettu: 'todellinen_olemassa', joukkueita: joukkueDokt.length };
   }
+  if (opts.kuiva) return { sid, vk: rajat.tunniste, kuiva: true, joukkueita: joukkueDokt.length, pelaajia: pelaajat.length, doc };   // ei kirjoiteta (takaisinlaskennan kuiva-ajo)
   const laskettu = FieldValue.serverTimestamp();
   const kirjoitukset = [{ ref: seuraRef.collection('kooste').doc(rajat.tunniste), data: Object.assign({}, doc, { laskettu }) }]
     .concat(joukkueDokt.map((j) => ({ ref: seuraRef.collection('kooste_joukkue').doc(j.id), data: Object.assign({}, j.data, { laskettu }) })));
@@ -99,7 +99,32 @@ function ajastettuKasittelija(deps, tila) {
   };
 }
 
-/** Callable paivitaSeuranKooste({ seuraId }) — johto/SA oma seura. tarkistaOikeus (ei pelkkä context.auth). */
+
+/** Yhteenveto lukumääristä (ei nimiä/ID:itä) — takaisinlaskennan kuiva-ajon näyttöön. */
+function yhteenveto(doc) {
+  const y = { joukkueita: 0, joukkuejaksoja: 0, pelaajat: 0, jaksolla: 0, valinta_odottaa: 0, katselmus: 0, vastanneet: 0, vastausperusta: 0, katselmus_ajallaan: 0, katselmus_perusta: 0 };
+  Object.keys((doc && doc.joukkueet) || {}).forEach((jid) => { const j = doc.joukkueet[jid]; y.joukkueita++; if (j.jakso) y.joukkuejaksoja++; y.pelaajat += j.n_pelaajat; y.jaksolla += j.n_jaksolla; y.valinta_odottaa += j.n_valinta_odottaa; y.katselmus += j.n_katselmus; y.vastanneet += j.n_vastanneet; y.vastausperusta += j.n_vastausperusta; y.katselmus_ajallaan += j.n_katselmus_ajallaan; y.katselmus_perusta += j.n_katselmus_perusta; });
+  return y;
+}
+
+/** Takaisinlaskenta (vain SA): edelliset N (1–8) ISO-viikkoa NYKYTILASTA, arvio:true, EI korvaa oikeaa koostetta. Oletus on KUIVA-AJO (kuiva ≠ false → ei kirjoiteta). Palauttaa vain lukumääriä. */
+async function takaisinlaskenta(deps, E, oikeus, seuraId, data, nytMs, kuluva) {
+  if (oikeus.rooli !== 'superadmin') throw new E('permission-denied', 'Takaisinlaskenta vain Super Adminille.');
+  const n = Number(data.takaisin);
+  if (!Number.isInteger(n) || n < 1 || n > 8) throw new E('invalid-argument', 'takaisin: kokonaisluku 1–8.');
+  const kuiva = data.kuiva !== false;
+  const viikot = []; for (let i = n; i >= 1; i--) viikot.push(H.viikonRajat(kuluva.alkuMs - i * 7 * 86400000 + 12 * 3600000));   // vanhin ensin
+  const ulos = [];
+  try {
+    for (const rajat of viikot) {
+      const r = await laskeSeura(deps, seuraId, { rajat, nytMs, arvio: true, eiYlikirjoitaTodellista: true, kuiva });
+      ulos.push(Object.assign({ vk: rajat.tunniste }, r.ohitettu ? { ohitettu: r.ohitettu } : yhteenveto(r.doc)));
+    }
+  } catch (e) { (deps.loki || console).error('[paivitaSeuranKooste takaisin] ' + seuraId + ': ' + (e && e.stack || e)); throw new E('internal', 'Takaisinlaskenta epäonnistui.'); }
+  return { takaisin: n, kuiva, viikot: ulos };
+}
+
+/** Callable paivitaSeuranKooste({ seuraId[, takaisin: 1–8, kuiva] }) — johto/SA oma seura. tarkistaOikeus (ei pelkkä context.auth). */
 function paivitaKasittelija(deps) {
   const E = deps.HttpsError;
   return async (data, context) => {
@@ -111,6 +136,7 @@ function paivitaKasittelija(deps) {
     const seura = await deps.db.collection('seurat').doc(seuraId).get();
     if (!seura.exists) throw new E('not-found', 'Seuraa ei löydy.');
     const nytMs = (deps.nyt ? deps.nyt() : Date.now()), rajat = H.viikonRajat(nytMs);
+    if (data.takaisin != null) return takaisinlaskenta(deps, E, oikeus, seuraId, data, nytMs, rajat);   // Excel_Tuonti (SA): takaisinlaskenta napista, ei gcloud-skriptiä
     const vanha = await deps.db.collection('seurat').doc(seuraId).collection('kooste').doc(rajat.tunniste).get();
     const lask = vanha && vanha.exists ? vanha.data().laskettu : null, laskMs = lask && typeof lask.toMillis === 'function' ? lask.toMillis() : null;
     if (laskMs != null && nytMs - laskMs < 30000 && !(vanha.data() || {}).arvio) return { vk: rajat.tunniste, tuore: true };   // kaksoisklikkaus / spämmi: 30 s jäähy

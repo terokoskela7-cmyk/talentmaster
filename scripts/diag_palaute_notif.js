@@ -10,6 +10,7 @@
  *    onko arvioinnin valmentajaUid == vastaanottaja, oliko antaja sama (ohitussääntö), syntyikö notif (aid-linkki).
  * Tulostaa EI nimiä/sähköposteja/tekstejä — vain uid-etuliitteet (4 merkkiä), aid:t, aikaleimat, boolet.
  */
+if (require.main !== module) throw new Error('scripts/diag_palaute_notif.js käsittelee tuotantodataa — aja suoraan: node scripts/diag_palaute_notif.js (ei require/import)');   // vahinkoajon esto (S1)
 const path = require('path');
 const admin = require(path.join(__dirname, '..', 'functions', 'node_modules', 'firebase-admin'));
 const argv = process.argv.slice(2);

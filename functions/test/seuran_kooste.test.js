@@ -146,3 +146,29 @@ test('index.js: kolme funktiota rekisteröity — su 21:00 ja ma 06:00 Europe/He
   assert.match(src, /exports\.paivitaSeuranKooste = functions[\s\S]*?enforceAppCheck: true[\s\S]*?\.https\.onCall\(seuranKooste\.paivitaKasittelija/);
   assert.match(src, /region\('europe-west1'\)[\s\S]{0,200}pubsub\.schedule\('0 21 \* \* 0'\)/);
 });
+
+test('takaisinlaskenta (Excel_Tuonti, vain SA): oletus KUIVA — ei kirjoita; palauttaa vain lukumääriä 3 viikolta (vanhin ensin)', async () => {
+  const db = luoDb(seuraData('kpv', { vastaus: true }));
+  const kas = S.paivitaKasittelija(deps(db, { tarkistaOikeus: async (uid) => (uid === 'u_sa' ? { sallittu: true, rooli: 'superadmin' } : { sallittu: true, rooli: 'vp' }) }));
+  const r = await kas({ seuraId: 'kpv', takaisin: 3 }, { auth: { uid: 'u_sa', token: {} } });   // kuiva puuttuu → true
+  assert.strictEqual(r.kuiva, true); assert.strictEqual(r.takaisin, 3); assert.deepStrictEqual(r.viikot.map((w) => w.vk), ['2026-W38', '2026-W39', '2026-W40']);
+  assert.strictEqual(db.kirjoitukset.length, 0, 'kuiva-ajo ei kirjoita');
+  const w = r.viikot[2]; assert.strictEqual(w.joukkueita, 1); assert.strictEqual(typeof w.pelaajat, 'number');
+  const s = JSON.stringify(r); for (const kielletty of ['Aleksi', 'Mäkinen', 'Eeli', '"a"', '"b"', 'pelaajaId']) assert.ok(!s.includes(kielletty), 'vastauksessa vain lukumääriä: ' + kielletty);
+});
+
+test('takaisinlaskenta kuiva:false kirjoittaa arvio:true -dokumentit; EI korvaa oikeaa koostetta; muu kuin SA evätty; virheellinen takaisin hylätään', async () => {
+  const data = seuraData('kpv'); data['seurat/kpv/kooste/2026-W39'] = { vk: '2026-W39', versio: 1, joukkueet: {}, oikea: true };   // oikea (ei-arvio) kooste olemassa
+  const db = luoDb(data);
+  const kas = S.paivitaKasittelija(deps(db, { tarkistaOikeus: async (uid) => (uid === 'u_sa' ? { sallittu: true, rooli: 'superadmin' } : { sallittu: true, rooli: 'vp' }) }));
+  await assert.rejects(() => kas({ seuraId: 'kpv', takaisin: 3 }, { auth: { uid: 'u_vp', token: {} } }), (e) => e.code === 'permission-denied');   // johtokaan ei
+  for (const huono of [0, 9, 2.5, 'x', -1]) await assert.rejects(() => kas({ seuraId: 'kpv', takaisin: huono }, { auth: { uid: 'u_sa', token: {} } }), (e) => e.code === 'invalid-argument', String(huono));
+  assert.strictEqual(db.kirjoitukset.length, 0);
+  const r = await kas({ seuraId: 'kpv', takaisin: 3, kuiva: false }, { auth: { uid: 'u_sa', token: {} } });
+  assert.strictEqual(r.kuiva, false); assert.strictEqual(r.viikot.find((w) => w.vk === '2026-W39').ohitettu, 'todellinen_olemassa');
+  assert.strictEqual(db.STORE.get('seurat/kpv/kooste/2026-W38').arvio, true); assert.strictEqual(db.STORE.get('seurat/kpv/kooste/2026-W40').arvio, true); assert.strictEqual(db.STORE.get('seurat/kpv/kooste_joukkue/u13_2026-W40').arvio, true);
+  assert.strictEqual(db.STORE.get('seurat/kpv/kooste/2026-W39').oikea, true, 'oikea kooste koskematon'); assert.ok(!('arvio' in db.STORE.get('seurat/kpv/kooste/2026-W39')));
+  assert.ok(!db.STORE.has('seurat/kpv/kooste/2026-W41'), 'takaisinlaskenta ei kosketa kuluvaa viikkoa');
+  // kuiva:true näyttää ohituksen jo kuivana
+  const k = await kas({ seuraId: 'kpv', takaisin: 3, kuiva: true }, { auth: { uid: 'u_sa', token: {} } }); assert.ok(k.viikot.some((w) => w.ohitettu));
+});

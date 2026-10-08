@@ -10,6 +10,7 @@
  * 4) Seuran pelaajat joilta puuttuu joukkueet[] (lukumäärä per joukkue-merkkijono) — datavirhe-arvio.
  * Tulostaa EI sähköposteja, tekstejä eikä pisteitä.
  */
+if (require.main !== module) throw new Error('scripts/diag_adar_kortti.js käsittelee tuotantodataa — aja suoraan: node scripts/diag_adar_kortti.js (ei require/import)');   // vahinkoajon esto (S1)
 const path = require('path');
 const admin = require(path.join(__dirname, '..', 'functions', 'node_modules', 'firebase-admin'));
 const argv = process.argv.slice(2);

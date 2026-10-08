@@ -19,6 +19,7 @@
  *
  * Vaatii GOOGLE_APPLICATION_CREDENTIALS-ympäristömuuttujan (Admin SDK).
  */
+if (require.main !== module) throw new Error('scripts/diag_havainto_oikeus.js käsittelee tuotantodataa — aja suoraan: node scripts/diag_havainto_oikeus.js (ei require/import)');   // vahinkoajon esto (S1)
 
 const admin = require('firebase-admin');
 

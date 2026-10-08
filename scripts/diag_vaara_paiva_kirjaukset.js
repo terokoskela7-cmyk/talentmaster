@@ -5,6 +5,7 @@
  * Ajo (ADC): node scripts/diag_vaara_paiva_kirjaukset.js [--seura=kpv]
  * Tulostaa vain lukumäärät (lähteittäin), ei nimiä/id:itä. Ei kirjoita mitään.
  */
+if (require.main !== module) throw new Error('scripts/diag_vaara_paiva_kirjaukset.js käsittelee tuotantodataa — aja suoraan: node scripts/diag_vaara_paiva_kirjaukset.js (ei require/import)');   // vahinkoajon esto (S1)
 const path = require('path');
 const admin = require(path.join(__dirname, '..', 'functions', 'node_modules', 'firebase-admin'));
 const arg = (n) => { const o = process.argv.slice(2).find((a) => a.indexOf('--' + n + '=') === 0); return o ? o.split('=').slice(1).join('=') : null; };

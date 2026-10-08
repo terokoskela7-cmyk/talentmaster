@@ -6,6 +6,7 @@
  * Ajo (ADC): node scripts/diag_syntymaaika_timestamp.js [--seura=kpv]    (ilman --seura: kaikki seurat)
  * Tulostaa vain lukumäärät (ei nimiä, ei id:itä).
  */
+if (require.main !== module) throw new Error('scripts/diag_syntymaaika_timestamp.js käsittelee tuotantodataa — aja suoraan: node scripts/diag_syntymaaika_timestamp.js (ei require/import)');   // vahinkoajon esto (S1)
 const path = require('path');
 const admin = require(path.join(__dirname, '..', 'functions', 'node_modules', 'firebase-admin'));
 const arg = (n) => { const o = process.argv.slice(2).find((a) => a.indexOf('--' + n + '=') === 0); return o ? o.split('=').slice(1).join('=') : null; };

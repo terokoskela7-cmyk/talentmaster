@@ -7,6 +7,7 @@
  * Sama laskenta kuin ajastetussa funktiossa (functions/seuran_kooste.js + jaetut lib-kopiot). Kirjoittaa VAIN seurat/{sid}/kooste/{vk} ja kooste_joukkue/{jid}_{vk};
  * EI korvaa palvelimen oikeaa (ei-arvio) koostetta (eiYlikirjoitaTodellista). Ei nimiä eikä pelaaja-ID:itä koosteessa; tuloste = vain lukumäärät.
  *
+ * VARA: sama toiminto on napissa Excel_Tuonti → SA → "📊 Takaisinlaske kooste (3 vk)" (callable paivitaSeuranKooste {takaisin:3}); tämä skripti jää varalle.
  * AJO (gcloud ADC, Teron tili; ei SA-avainta):
  *   node scripts/kooste_takaisinlasku.js                        → KUIVA-AJO kaikille aktiivisille seuroille (ei kirjoita; tulostaa lukumäärät)
  *   node scripts/kooste_takaisinlasku.js --kirjoita             → kirjoittaa
@@ -47,4 +48,6 @@ async function main() {
   }
   console.log(virheita ? `Valmis, ${virheita} virhettä.` : (kirjoita ? 'Valmis.' : 'Kuiva-ajo valmis — lisää --kirjoita kirjoittaaksesi.'));
 }
-main().catch((e) => { console.error(e); process.exit(1); });
+// Vahinkoajon esto: ajo vain suoraan (`node scripts/kooste_takaisinlasku.js`), ei require/import-kutsulla (tests/scripts_ei_ajeta_requirella.test.js).
+if (require.main === module) { main().catch((e) => { console.error(e); process.exit(1); }); }
+module.exports = { main };

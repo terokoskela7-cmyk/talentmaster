@@ -14,6 +14,7 @@
 <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-check-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-functions-compat.js"></script>   <!-- S1: Seuran pulssi -napit (callable paivitaSeuranKooste) -->
 <script src="lib/tm_appcheck.js?v=1"></script>
 <script src="lib/tm_istunto.js?v=1"></script>   <!-- istuntoturva: tuonti pysähtyy istuntovirheeseen -->
 <script src="lib/tm_kal_muistiinpano.js?v=1"></script>   <!-- tietosuoja: muistiinpanojen siirto -->
@@ -1661,6 +1662,25 @@ async function lataaKayttajatiedot(u) {
               + 'padding:4px 10px;cursor:pointer;margin-right:8px;';
             sbtn.onclick = _adminTaydennaSukupuoli;
             topbar.insertBefore(sbtn, logout);
+          }
+          // Admin: Seuran pulssi S1 (vain Super Admin) — kaksi nappia: päivitä valitun seuran viikkokooste / takaisinlaske 3 vk (kuiva-ajo → vahvistus → arvio:true). Callable paivitaSeuranKooste; ei gcloud-skriptiä.
+          if (!document.getElementById('sa-kooste-paivita')) {
+            const kbtn = document.createElement('button');
+            kbtn.id = 'sa-kooste-paivita';
+            kbtn.textContent = '📊 Päivitä seuran kooste';
+            kbtn.title = 'Seuran pulssi: laske valitun seuran kuluvan viikon kooste nyt (vain lukumääriä joukkueittain).';
+            kbtn.style.cssText = 'background:rgba(40,176,144,.18);border:1px solid #28B090;border-radius:6px;color:#7FE9CE;font-family:DM Sans,sans-serif;font-size:12px;padding:4px 10px;cursor:pointer;margin-right:8px;';
+            kbtn.onclick = _adminPaivitaKooste;
+            topbar.insertBefore(kbtn, logout);
+          }
+          if (!document.getElementById('sa-kooste-takaisin')) {
+            const tbtn = document.createElement('button');
+            tbtn.id = 'sa-kooste-takaisin';
+            tbtn.textContent = '📊 Takaisinlaske kooste (3 vk)';
+            tbtn.title = 'Laskee edelliset 3 viikkoa nykytilasta ja merkitsee ne arvio: true. Kuiva-ajo ensin (vain lukumäärät), sitten vahvistus. Ei korvaa oikeaa koostetta.';
+            tbtn.style.cssText = 'background:rgba(40,176,144,.10);border:1px dashed #28B090;border-radius:6px;color:#7FE9CE;font-family:DM Sans,sans-serif;font-size:12px;padding:4px 10px;cursor:pointer;margin-right:8px;';
+            tbtn.onclick = _adminTakaisinlaskeKooste;
+            topbar.insertBefore(tbtn, logout);
           }
         }
       }
@@ -5100,6 +5120,50 @@ async function _adminTaydennaSukupuoli() {
     console.error('[sukupuoli-backfill]', e); toast('Sukupuolen täydennys epäonnistui: ' + (e && e.code ? e.code + ' — ' : '') + (e && e.message || e), 'err');
   } finally {
     if (btn) { btn.disabled = false; btn.textContent = '⚥ Täydennä sukupuoli testituloksista'; }
+  }
+}
+
+// ADMIN — Seuran pulssi S1 (vain Super Admin). Callable paivitaSeuranKooste (europe-west1; App Check). Vastauksessa VAIN lukumääriä — ei nimiä eikä pelaaja-ID:itä.
+function _koosteCallable() { return firebase.app().functions('europe-west1').httpsCallable('paivitaSeuranKooste'); }
+function _koosteRaportti(v, kuiva) {
+  const r = ['Viikot (vanhin ensin) — vain lukumääriä, arvio: true:', ''];
+  (v.viikot || []).forEach(function (w) {
+    r.push(w.ohitettu ? w.vk + ': ohitetaan (oikea kooste on jo olemassa — ei ylikirjoiteta)'
+      : w.vk + ': joukkueita ' + w.joukkueita + ' (joukkuejakso ' + w.joukkuejaksoja + ') · pelaajat ' + w.pelaajat + ' · jaksolla ' + w.jaksolla + ' (valinta odottaa ' + w.valinta_odottaa + ', katselmus ' + w.katselmus + ') · viikkokatsaus ' + w.vastanneet + '/' + w.vastausperusta + ' · katselmus ajallaan ' + w.katselmus_ajallaan + '/' + w.katselmus_perusta);
+  });
+  return r.join('\n') + (kuiva ? '\n\nEi vielä kirjoitettu.' : '');
+}
+async function _adminPaivitaKooste() {
+  if (!superAdmin) { toast('Vain Super Admin', 'err'); return; }
+  if (!seuraId) { toast('Valitse seura ensin', 'err'); return; }
+  const btn = document.getElementById('sa-kooste-paivita'), nimiTeksti = seuraNimi || seuraId;
+  if (btn) { btn.disabled = true; btn.textContent = '📊 Lasketaan…'; }
+  try {
+    const r = (await _koosteCallable()({ seuraId: seuraId })).data || {};
+    toast(r.tuore ? 'Kooste on jo tuore (laskettu alle 30 s sitten) · ' + r.vk : 'Kooste päivitetty · ' + nimiTeksti + ' · ' + r.vk + ' · ' + (r.joukkueita != null ? r.joukkueita + ' joukkuetta' : ''), 'ok');
+  } catch (e) {
+    console.error('[kooste-paivita]', e); toast('Koosteen päivitys epäonnistui: ' + (e && e.code ? e.code + ' — ' : '') + (e && e.message || e), 'err');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '📊 Päivitä seuran kooste'; }
+  }
+}
+async function _adminTakaisinlaskeKooste() {
+  if (!superAdmin) { toast('Vain Super Admin', 'err'); return; }
+  if (!seuraId) { toast('Valitse seura ensin', 'err'); return; }
+  const btn = document.getElementById('sa-kooste-takaisin'), nimiTeksti = seuraNimi || seuraId;
+  if (btn) { btn.disabled = true; btn.textContent = '📊 Kuiva-ajo…'; }
+  try {
+    const kuiva = (await _koosteCallable()({ seuraId: seuraId, takaisin: 3, kuiva: true })).data || {};   // kuiva-ajo: palvelin ei kirjoita
+    const kirjoita = await _sukupuoliRaporttiModal('Takaisinlaske kooste (3 vk) — KUIVA-AJO · ' + nimiTeksti, _koosteRaportti(kuiva, true), (kuiva.viikot || []).some(function (w) { return !w.ohitettu; }) ? 'Kirjoita (arvio: true)' : null);
+    if (!kirjoita) { toast('Peruttu — vain kuiva-ajo (ei kirjoitettu)', 'ok'); return; }
+    if (btn) btn.textContent = '📊 Kirjoitetaan…';
+    const ulos = (await _koosteCallable()({ seuraId: seuraId, takaisin: 3, kuiva: false })).data || {};
+    await _sukupuoliRaporttiModal('Takaisinlaske kooste (3 vk) — RAPORTTI · ' + nimiTeksti, _koosteRaportti(ulos, false), null);
+    toast('Kooste takaisinlaskettu (arvio: true) · ' + nimiTeksti, 'ok');
+  } catch (e) {
+    console.error('[kooste-takaisin]', e); toast('Takaisinlaskenta epäonnistui: ' + (e && e.code ? e.code + ' — ' : '') + (e && e.message || e), 'err');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '📊 Takaisinlaske kooste (3 vk)'; }
   }
 }
 

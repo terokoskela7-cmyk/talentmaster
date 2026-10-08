@@ -11,6 +11,7 @@
  * Tunnistus: gcloud ADC (`gcloud auth application-default login`), ei SA-avainta. ⚠ Aja dry-run ensin ja kuittauta luvut.
  */
 'use strict';
+if (require.main !== module) throw new Error('scripts/backfill_sukupuoli.js käsittelee tuotantodataa — aja suoraan: node scripts/backfill_sukupuoli.js (ei require/import)');   // vahinkoajon esto (S1)
 const admin = require('firebase-admin');
 const { tmSukupuoliSuunnitelma, tmSukupuoliRaportti } = require('../lib/tm_sukupuoli.js');
 
