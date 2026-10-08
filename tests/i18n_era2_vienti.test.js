@@ -57,7 +57,7 @@ describe('Gemini-erä 2 — vienti', () => {
   });
   it('paikkamerkit säilyvät fi → sv jokaisella viedyllä rivillä', () => {
     const j = (s) => ((s.match(/\{[A-Za-z0-9_]+\}/g)) || []).sort().join('|');
-    const rikki = Object.entries(ERA.osiot).flatMap(([o, os]) => Object.entries(os.rivit).filter(([a, r]) => !palautettu(o, a) && j(r.fi) !== j(r.sv)).map(([a]) => o + ' ' + a));
+    const rikki = Object.entries(ERA.osiot).flatMap(([o, os]) => Object.entries(os.rivit).filter(([a, r]) => r.sv && !palautettu(o, a) && j(r.fi) !== j(r.sv)).map(([a]) => o + ' ' + a));
     expect(rikki).toEqual([]);
   });
 });

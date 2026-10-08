@@ -28,7 +28,7 @@ function valitseKohteet(users, huoltajaSeurat, ohita) {
     if (claims.rooli || claims.seuraId || claims.pelaajaId) continue;   // henkilökunta / pelaajatoken-tili
     if (ohita && ohita(e)) continue;
     const kirjautunut = !!(u.metadata && u.metadata.lastSignInTime);
-    ulos.push({ uid: u.uid, email: e, tyyppi: kirjautunut ? 'vahvistus' : 'salasana', seurat: [...huoltajaSeurat.get(e)] });
+    ulos.push({ uid: u.uid, email: e, tyyppi: kirjautunut ? 'vahvistus' : 'salasana', seurat: [...huoltajaSeurat.get(e)], pelaaja: (huoltajaSeurat.eka && huoltajaSeurat.eka.get(e)) || null });   // pelaaja = ensimmäinen lapsi (kutsun luontiin)
   }
   return ulos;
 }
@@ -40,11 +40,11 @@ function yhteenveto(kohteet) {
 
 async function huoltajaSeurat(db) {
   const snap = await db.collectionGroup('pelaajat').get();
-  const m = new Map();
+  const m = new Map(); m.eka = new Map();   // eka: email → { seuraId, pelaajaId } (ensimmäinen lapsi; Huoltajakutsu luodaan siitä)
   snap.forEach((d) => {
     const sr = d.ref.parent && d.ref.parent.parent; if (!sr || !sr.parent || sr.parent.id !== 'seurat') return;
     const e = (d.data() || {}).huoltajaEmail; if (typeof e !== 'string' || !e.trim()) return;
-    const k = e.toLowerCase().trim(); if (!m.has(k)) m.set(k, new Set()); m.get(k).add(sr.id);
+    const k = e.toLowerCase().trim(); if (!m.has(k)) m.set(k, new Set()); m.get(k).add(sr.id); if (!m.eka.has(k)) m.eka.set(k, { seuraId: sr.id, pelaajaId: d.id });
   });
   return m;
 }
@@ -53,8 +53,14 @@ async function kaikkiKayttajat(auth) {
   do { const r = await auth.listUsers(1000, sivu); r.users.forEach((u) => ulos.push(u)); sivu = r.pageToken; } while (sivu);
   return ulos;
 }
-async function luoLinkki(auth, tyyppi, email, url) {
-  return tyyppi === 'salasana' ? auth.generatePasswordResetLink(email, { url, handleCodeInApp: false }) : auth.generateEmailVerificationLink(email, { url, handleCodeInApp: false });
+/* Linkki: 'salasana' → Huoltajakutsu (7 pv, kertakäyttöinen; deps.kutsuLinkki(seuraId, pelaajaId) → URL) kun lapsi tiedossa; kutsun luonnin virhe / ei lasta → suora 1 h:n salasanalinkki.
+   'vahvistus' → Firebasen vahvistuslinkki (3 pv). Palauttaa { linkki, kutsu }. */
+async function luoLinkki(deps, tyyppi, email, url, pelaaja) {
+  const auth = deps.auth;
+  if (tyyppi === 'salasana' && pelaaja && deps.kutsuLinkki) {
+    try { return { linkki: await deps.kutsuLinkki(pelaaja.seuraId, pelaaja.pelaajaId), kutsu: true }; } catch (e) { console.warn('[huoltajan vahvistus] kutsun luonti epäonnistui → suora salasanalinkki (1 h)'); }
+  }
+  return { linkki: await (tyyppi === 'salasana' ? auth.generatePasswordResetLink(email, { url, handleCodeInApp: false }) : auth.generateEmailVerificationLink(email, { url, handleCodeInApp: false })), kutsu: false };
 }
 const OTSIKKO = { salasana: 'Aseta TalentMaster-salasanasi', vahvistus: 'Vahvista sähköpostiosoitteesi TalentMasterissa' };
 
@@ -70,13 +76,15 @@ function luoItselle(deps) {
     if (user.emailVerified === true) return { tila: 'jo_vahvistettu' };   // tokenin email_verified voi olla vanha — Auth on totuus
     const sn = await db.collectionGroup('pelaajat').where('huoltajaEmail', '==', email).limit(1).get();
     if (!sn || sn.empty) throw new HttpsError('permission-denied', 'Ei huoltajan oikeutta.');
+    const ref0 = sn.docs && sn.docs[0] && sn.docs[0].ref, sr0 = ref0 && ref0.parent && ref0.parent.parent;
+    const pelaaja = (sr0 && sr0.parent && sr0.parent.id === 'seurat') ? { seuraId: sr0.id, pelaajaId: sn.docs[0].id } : null;
     const cd = db.collection('huoltajavahvistus').doc(uid), nyt = nytF();
     const cds = await cd.get();
     const viimeksi = cds && cds.exists ? Number((cds.data() || {}).viimeisin) || 0 : 0;
     if (nyt - viimeksi < COOLDOWN_MS) return { tila: 'odota', sekuntia: Math.ceil((COOLDOWN_MS - (nyt - viimeksi)) / 1000) };
     const tyyppi = (user.metadata && user.metadata.lastSignInTime) ? 'vahvistus' : 'salasana';
-    const linkki = await luoLinkki(auth, tyyppi, email, vanhempiUrl);
-    await lahetaSahkoposti({ to: email, subject: OTSIKKO[tyyppi], fromName: 'TalentMaster', html: pohja({ tyyppi, linkki, vanhempiLinkki: vanhempiUrl }) });
+    const { linkki, kutsu } = await luoLinkki(deps, tyyppi, email, vanhempiUrl, pelaaja);
+    await lahetaSahkoposti({ to: email, subject: OTSIKKO[tyyppi], fromName: 'TalentMaster', html: pohja({ tyyppi, linkki, vanhempiLinkki: vanhempiUrl, kutsu }) });
     await cd.set({ viimeisin: nyt });
     return { tila: 'lahetetty' };
   };
@@ -96,8 +104,8 @@ function luoMassa(deps) {
     let lahetetty = 0, epaonnistui = 0;
     for (const k of kohteet) {
       try {
-        const linkki = await luoLinkki(auth, k.tyyppi, k.email, vanhempiUrl);
-        await lahetaSahkoposti({ to: k.email, subject: OTSIKKO[k.tyyppi], fromName: 'TalentMaster', html: pohja({ tyyppi: k.tyyppi, linkki, vanhempiLinkki: vanhempiUrl }) });
+        const { linkki, kutsu } = await luoLinkki(deps, k.tyyppi, k.email, vanhempiUrl, k.pelaaja);
+        await lahetaSahkoposti({ to: k.email, subject: OTSIKKO[k.tyyppi], fromName: 'TalentMaster', html: pohja({ tyyppi: k.tyyppi, linkki, vanhempiLinkki: vanhempiUrl, kutsu }) });
         lahetetty++;
       } catch (e) { epaonnistui++; console.warn('[huoltajan vahvistus] lähetys epäonnistui:', e && e.code ? e.code : 'virhe'); }   // ei osoitetta lokiin
     }

@@ -18,11 +18,12 @@ test('valitseKohteet: vain vahvistamattomat huoltajatilit; ei henkilökuntaa/pel
 });
 
 function massaDb(users) {
-  const sn = [...SEURAT.entries()].flatMap(([e, ss]) => [...ss].map((s) => ({ data: () => ({ huoltajaEmail: e }), ref: { parent: { parent: { id: s, parent: { id: 'seurat' } } } } })));
+  const sn = [...SEURAT.entries()].flatMap(([e, ss]) => [...ss].map((s) => ({ id: 'p_' + s + '_' + e.split('@')[0], data: () => ({ huoltajaEmail: e }), ref: { parent: { parent: { id: s, parent: { id: 'seurat' } } } } })));
   return { db: { collectionGroup: () => ({ get: async () => ({ forEach: (f) => sn.forEach(f) }) }) }, auth: { listUsers: async () => ({ users, pageToken: undefined }),
     generatePasswordResetLink: async (e) => 'https://reset/' + e, generateEmailVerificationLink: async (e) => 'https://verify/' + e } };
 }
-const massaKutsu = (o, data, uid) => V.luoMassa(Object.assign({ HttpsError, vanhempiUrl: 'https://v', pohja: pohjaVahvistusLinkki, onSuperAdminUid: async (u) => u === 'sa', onPaikkamerkki: () => false }, o))(data, uid === null ? {} : { auth: { uid: uid || 'sa', token: {} } });
+const kutsuLoki = [];
+const massaKutsu = (o, data, uid) => V.luoMassa(Object.assign({ HttpsError, kutsuLinkki: async (s, p) => { kutsuLoki.push([s, p]); return 'https://tm/TalentMaster_Huoltajakutsu.html#k=KUTSU' + kutsuLoki.length; }, vanhempiUrl: 'https://v', pohja: pohjaVahvistusLinkki, onSuperAdminUid: async (u) => u === 'sa', onPaikkamerkki: () => false }, o))(data, uid === null ? {} : { auth: { uid: uid || 'sa', token: {} } });
 
 test('massa: KUIVA-AJO on oletus ({} / kuiva:true) — ei lähetä, vastaus VAIN lukumääriä (ei osoitteita/uid:itä)', async () => {
   const lahetetyt = []; const m = massaDb([U('a@x.fi'), U('b@x.fi')]);
@@ -32,27 +33,35 @@ test('massa: KUIVA-AJO on oletus ({} / kuiva:true) — ei lähetä, vastaus VAIN
   }
   assert.deepStrictEqual(lahetetyt, []);
 });
+test('KUTSU: massalähetys — "salasana"-tyyppi lähettää Huoltajakutsun (7 pv, ensimmäisen lapsen seura+pelaaja), "vahvistus"-tyyppi Firebasen vahvistuslinkin; kutsun virhe → suora salasanalinkki (1 h)', async () => {
+  kutsuLoki.length = 0; const l = []; const m = massaDb([U('a@x.fi'), U('b@x.fi', { metadata: { lastSignInTime: 'x' } })]);
+  await massaKutsu({ db: m.db, auth: m.auth, lahetaSahkoposti: async (x) => l.push(x) }, { kuiva: false });
+  assert.deepStrictEqual(kutsuLoki, [['kpv', 'p_kpv_a']]); assert.match(l[0].html, /Huoltajakutsu\.html#k=KUTSU1/); assert.match(l[0].html, /7 p/); assert.ok(!l[0].html.includes('reset/'));
+  assert.match(l[1].html, /https:\/\/verify\/b@x\.fi/); assert.match(l[1].html, /1 tunnin/);
+  const l2 = []; const r = await massaKutsu({ db: m.db, auth: m.auth, kutsuLinkki: async () => { throw new Error('x'); }, lahetaSahkoposti: async (x) => l2.push(x) }, { kuiva: false });
+  assert.strictEqual(r.lahetetty, 2); assert.match(l2[0].html, /https:\/\/reset\/a@x\.fi/); assert.match(l2[0].html, /1 tunnin/);
+});
 test('massa: lähetys vain kuiva:false + super-admin; linkkityyppi per tili; yksi virhe ei kaada muita; audit vain lukumäärät', async () => {
   const l = []; const m = massaDb([U('a@x.fi'), U('b@x.fi', { metadata: { lastSignInTime: 'x' } }), U('c@x.fi')]); const auditit = [];
   const r = await massaKutsu({ db: m.db, auth: m.auth, lahetaSahkoposti: async (x) => { if (x.to === 'c@x.fi') throw new Error('sendgrid'); l.push(x); }, audit: async (a) => auditit.push(a) }, { kuiva: false });
   assert.deepStrictEqual({ k: r.kohteita, l: r.lahetetty, e: r.epaonnistui }, { k: 3, l: 2, e: 1 });
-  assert.match(l[0].html, /https:\/\/reset\/a@x\.fi/); assert.match(l[1].html, /https:\/\/verify\/b@x\.fi/); assert.match(l[0].subject, /salasana/i); assert.match(l[1].subject, /Vahvista/);
+  assert.match(l[0].html, /Huoltajakutsu\.html#k=KUTSU/); assert.match(l[1].html, /https:\/\/verify\/b@x\.fi/); assert.match(l[0].subject, /salasana/i); assert.match(l[1].subject, /Vahvista/);
   assert.ok(!JSON.stringify(auditit).match(/@/)); assert.ok(!JSON.stringify(r).match(/@/));
   await assert.rejects(massaKutsu({ db: m.db, auth: m.auth, lahetaSahkoposti: async () => {} }, { kuiva: false }, 'joku'), (e) => e.code === 'permission-denied');
   await assert.rejects(massaKutsu({ db: m.db, auth: m.auth, lahetaSahkoposti: async () => {} }, { kuiva: false }, null), (e) => e.code === 'unauthenticated');
 });
 
 function itseDb(o) { const cd = o.cooldown || {};
-  return { db: { collectionGroup: () => ({ where: () => ({ limit: () => ({ get: async () => ({ empty: !o.huoltaja }) }) }) }), collection: () => ({ doc: (uid) => ({ get: async () => ({ exists: uid in cd, data: () => cd[uid] }), set: async (d) => { cd[uid] = d; } }) }) }, cd };
+  return { db: { collectionGroup: () => ({ where: () => ({ limit: () => ({ get: async () => ({ empty: !o.huoltaja, docs: [{ id: 'p1', ref: { parent: { parent: { id: 'kpv', parent: { id: 'seurat' } } } } }] }) }) }) }), collection: () => ({ doc: (uid) => ({ get: async () => ({ exists: uid in cd, data: () => cd[uid] }), set: async (d) => { cd[uid] = d; } }) }) }, cd };
 }
-const itse = (o, ctx, nyt) => { const l = []; return V.luoItselle({ db: o.db, auth: o.auth, HttpsError, lahetaSahkoposti: async (x) => l.push(x), pohja: pohjaVahvistusLinkki, vanhempiUrl: 'https://v', nyt: () => nyt || 1e12 })({}, ctx).then((r) => ({ r, l })); };
+const itse = (o, ctx, nyt) => { const l = []; return V.luoItselle({ db: o.db, auth: o.auth, HttpsError, kutsuLinkki: async (s, p) => 'https://tm/Huoltajakutsu.html#k=' + s + '_' + p, lahetaSahkoposti: async (x) => l.push(x), pohja: pohjaVahvistusLinkki, vanhempiUrl: 'https://v', nyt: () => nyt || 1e12 })({}, ctx).then((r) => ({ r, l })); };
 const ctxK = (x) => ({ auth: { uid: 'g1', token: Object.assign({ email: 'Aiti@X.fi' }, x || {}) } });
 const authK = (u) => ({ getUser: async () => u, generatePasswordResetLink: async (e) => 'https://reset/' + e, generateEmailVerificationLink: async (e) => 'https://verify/' + e });
 
 test('itsepalvelu: huoltaja (osoite on pelaajan huoltajaEmail) saa linkin TOKENIN osoitteeseen; ei kirjautunut → salasanalinkki, kirjautunut → vahvistuslinkki; cooldown 5 min', async () => {
   const d = itseDb({ huoltaja: true });
   let { r, l } = await itse({ db: d.db, auth: authK({ emailVerified: false, metadata: {} }) }, ctxK());
-  assert.strictEqual(r.tila, 'lahetetty'); assert.strictEqual(l[0].to, 'aiti@x.fi'); assert.match(l[0].html, /reset\/aiti@x\.fi/);
+  assert.strictEqual(r.tila, 'lahetetty'); assert.strictEqual(l[0].to, 'aiti@x.fi'); assert.match(l[0].html, /Huoltajakutsu\.html#k=kpv_p1/); assert.match(l[0].html, /7 p/);   // ei koskaan kirjautunut → 7 pv:n kutsu
   ({ r, l } = await itse({ db: d.db, auth: authK({ emailVerified: false, metadata: {} }) }, ctxK(), 1e12 + 1000)); assert.strictEqual(r.tila, 'odota'); assert.strictEqual(l.length, 0);
   ({ r, l } = await itse({ db: d.db, auth: authK({ emailVerified: false, metadata: { lastSignInTime: 'x' } }) }, ctxK(), 1e12 + V.COOLDOWN_MS + 1)); assert.strictEqual(r.tila, 'lahetetty'); assert.match(l[0].html, /verify\//);
 });

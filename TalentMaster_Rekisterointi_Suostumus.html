@@ -10,7 +10,7 @@
 <script>window.TM_SENTRY={app:'rekisterointi'};</script>
 <script src="https://browser.sentry-cdn.com/10.58.0/bundle.min.js" integrity="sha384-rtfUMq82bneIHVOpL/60roC5pIJ9kDO15w13yGEBKZSJp3aIbrOAhimB61EwPClB" crossorigin="anonymous"></script>
 <script src="tm_sentry.js?v=3"></script>
-<script src="lib/tm_lang.js?v=37"></script>   <!-- i18n V0 — KORJATTU: oli /talentmaster/tm_lang.js (root, 404 tuotannossa) → lib/tm_lang.js (resolvoituu) -->
+<script src="lib/tm_lang.js?v=38"></script>   <!-- i18n V0 — KORJATTU: oli /talentmaster/tm_lang.js (root, 404 tuotannossa) → lib/tm_lang.js (resolvoituu) -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-check-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
@@ -688,6 +688,7 @@ function toStep3() {
         .then(function(res) {
           // PR 3b: CF ei palauta linkkiä eikä PIN:iä — vain tiedon, lähtikö sähköposti.
           window._suostumusEmailLahetetty = !!(res && res.data && res.data.emailLahetetty === true);
+          window._suostumusLinkkiPv = (res && res.data && res.data.linkkiPv) || 0;   // 7 = kutsulinkki, 0 = varalinkki (1 h)
           window._suostumusKutsuflow = true;
         });
 
@@ -739,7 +740,7 @@ function toStep3() {
         if (window._suostumusEmailLahetetty === true) {
           _siEl.innerHTML = '<div class="info-t" style="color:var(--teal)">&#9989; Tunnukset l&auml;hetetty s&auml;hk&ouml;postiisi</div>'
             + '<p style="color:#7ecfc0;line-height:1.8;">L&auml;hetimme salasanalinkin ja pelaajan PIN-koodin' + (_em ? (' osoitteeseen ' + _emEl) : ' s&auml;hk&ouml;postiisi') + '. Avaa viesti ja aseta salasanasi.<br>'
-            + '<strong>Linkki on voimassa 1 tunnin.</strong> Jos se ehtii vanheta, avaa <a href="TalentMaster_Vanhempi_v2.html" style="color:var(--teal)">vanhemman sivu</a> ja valitse &rdquo;Unohdin salasanan&rdquo; &mdash; saat uuden linkin.<br>'
+            + (window._suostumusLinkkiPv === 7 ? '<strong>Linkki on voimassa 7 p&auml;iv&auml;&auml;</strong> &mdash; voit avata sen vaikka vasta illalla.<br>' : '<strong>Linkki on voimassa 1 tunnin.</strong> Jos se ehtii vanheta, avaa <a href="TalentMaster_Vanhempi_v2.html" style="color:var(--teal)">vanhemman sivu</a> ja valitse &rdquo;Unohdin salasanan&rdquo; &mdash; saat uuden linkin.<br>')
             + 'Salasanan asetettuasi p&auml;&auml;set vanhemman n&auml;kym&auml;&auml;n &mdash; kirjaudu samalla s&auml;hk&ouml;postiosoitteella ja uudella salasanalla.</p>';
         } else if (window._suostumusKutsuflow === true) {
           _siEl.innerHTML = '<div class="info-t" style="color:var(--amber)">&#9888; S&auml;hk&ouml;posti ei l&auml;htenyt</div>'

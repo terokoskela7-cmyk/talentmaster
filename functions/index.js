@@ -270,10 +270,19 @@ async function haeOrLuoHuoltajaAuth(hEmail, etunimi, sukunimi) {
   console.log('[haeOrLuoHuoltajaAuth] Uusi käyttäjä luotu:', hEmail, uusiKayttaja.uid);
   return uusiKayttaja;
 }
+/* Huoltajakutsu (functions/huoltajakutsu.js): sähköpostiin OMA 7 pv:n kutsulinkki (kutsu → tuore 1 h:n salasanalinkki avattaessa). Kutsun luonnin virhe → varalinkki suoraan (1 h, kuten ennen). */
+const huoltajakutsu = require('./huoltajakutsu');
+async function seuranKieli(seuraId) { try { const d = await db.collection('seurat').doc(seuraId).get(); return d.exists ? (d.get('kieli') || null) : null; } catch (e) { return null; } }
+const _kutsuDeps = () => ({ db, auth, HttpsError: functions.https.HttpsError, haeOrLuoHuoltajaAuth, lahetaSahkoposti, pohja: pohjaHuoltajakutsu, base: TM_BASE_URL,
+  jatkoUrl: `${TM_BASE_URL}/TalentMaster_Vanhempi_v2.html`, seuranKieli });
+async function huoltajaSalasanaLinkki(seuraId, pelaajaId, hEmail, jatkoUrl) {
+  try { return { linkki: huoltajakutsu.kutsuUrl(TM_BASE_URL, await huoltajakutsu.luoKutsu(_kutsuDeps(), { seuraId, pelaajaId })), kutsu: true }; }
+  catch (e) { console.warn('[huoltajakutsu] luonti epäonnistui → varalinkki (1 h):', e && e.message); return { linkki: await auth.generatePasswordResetLink(hEmail, { url: jatkoUrl, handleCodeInApp: false }), kutsu: false }; }
+}
 // ─────────────────────────────────────────────────────────────────────────────
 // SÄHKÖPOSTIPOHJAT
 // ─────────────────────────────────────────────────────────────────────────────
-const { pohjaHeader, pohjaFooter, pohjaRekisteriKutsu, pohjaMuistutus, pohjaPelaajaSivu, pohjaSalasanaAsetus, pohjaSuostumusLinkki, pohjaVahvistusLinkki, pohjaSoloLupa } = require('./sahkoposti_pohjat');
+const { pohjaHeader, pohjaFooter, pohjaRekisteriKutsu, pohjaMuistutus, pohjaPelaajaSivu, pohjaSalasanaAsetus, pohjaSuostumusLinkki, pohjaVahvistusLinkki, pohjaHuoltajakutsu, pohjaSoloLupa } = require('./sahkoposti_pohjat');
 const { otsikkoPuhdas, rakennaKutsuLinkki } = require('./sahkoposti_turva');
 const { muodostaPalauteNotif } = require('./palaute_notif');
 const { huomisenRajat } = require('./helsinki_paiva');
@@ -1041,15 +1050,13 @@ exports.lahetaPelaajaSivuLinkki = functions
     const vanhempiLinkki = `${baseUrl}/TalentMaster_Vanhempi_v2.html` +
       `?pelaajaId=${pelaajaId}&seuraId=${seuraId}` +
       `&etunimi=${encodeURIComponent(etunimi||'')}&sukunimi=${encodeURIComponent(sukunimi||'')}`;
-    let salasanaLinkki = null;
+    let salasanaLinkki = null, salasanaKutsu = false;
     try {
       // MUUTOS: varmistetaan että Auth-tili on olemassa ennen reset-linkin generointia.
       // haeOrLuoHuoltajaAuth() palauttaa olemassaolevan tai luo uuden käyttäjän.
       await haeOrLuoHuoltajaAuth(hEmail, etunimi, sukunimi);
-      salasanaLinkki = await auth.generatePasswordResetLink(hEmail, {
-        url: vanhempiLinkki,
-        handleCodeInApp: false,
-      });
+      const sl = await huoltajaSalasanaLinkki(seuraId, pelaajaId, hEmail, vanhempiLinkki);   // 7 pv:n kutsu (varalla suora 1 h:n linkki)
+      salasanaLinkki = sl.linkki; salasanaKutsu = sl.kutsu;
     } catch (e) {
       console.warn('[lahetaPelaajaSivuLinkki] Salasanalinkki epäonnistui:', e.message);
     }
@@ -1060,7 +1067,7 @@ exports.lahetaPelaajaSivuLinkki = functions
         fromName: seuraNimi,
         html: pohjaPelaajaSivu({
           seuraNimi, pelaajaNimi, joukkueNimi,
-          salasanaLinkki, vanhempiLinkki, pelaajaLinkki, hEmail, palloId: palloIdNyt, pin: pinNyt,
+          salasanaLinkki, salasanaKutsu, vanhempiLinkki, pelaajaLinkki, hEmail, palloId: palloIdNyt, pin: pinNyt,
         }),
       });
       await db.collection('seurat').doc(seuraId)
@@ -1328,10 +1335,7 @@ exports.vahvistaSuostumus = functions
       const baseUrl = TM_BASE_URL;
       const continueUrl = `${baseUrl}/TalentMaster_Vanhempi_v2.html` +
         `?pelaajaId=${encodeURIComponent(pelaajaId)}&seuraId=${encodeURIComponent(seuraId)}`;
-      const passwordResetLink = await auth.generatePasswordResetLink(hEmailNorm, {
-        url: continueUrl,
-        handleCodeInApp: false,
-      });
+      const { linkki: passwordResetLink, kutsu: kutsuLinkki } = await huoltajaSalasanaLinkki(seuraId, pelaajaId, hEmailNorm, continueUrl);   // 7 pv:n kutsu (varalla suora 1 h:n linkki)
       // 6. Lähetä salasanalinkki sähköpostiin (best-effort §13). EI kaadeta suostumusta jos lähetys
       //    epäonnistuu — suostumus on jo tallennettu yllä; seura lähettää linkin uudelleen (Seura.html).
       let emailLahetetty = false, emailVirhe = null;
@@ -1341,7 +1345,7 @@ exports.vahvistaSuostumus = functions
           to: hEmailNorm,
           subject: 'Aseta TalentMaster-salasanasi',
           fromName: 'TalentMaster',
-          html: pohjaSuostumusLinkki({ lapsiNimi, resetLinkki: passwordResetLink, pin, vanhempiLinkki: `${baseUrl}/TalentMaster_Vanhempi_v2.html` }),
+          html: pohjaSuostumusLinkki({ lapsiNimi, resetLinkki: passwordResetLink, pin, kutsu: kutsuLinkki, vanhempiLinkki: `${baseUrl}/TalentMaster_Vanhempi_v2.html` }),
         });
         emailLahetetty = true;
         db.collection('audit').add({
@@ -1362,7 +1366,7 @@ exports.vahvistaSuostumus = functions
          kirjautumista, ja seuraId + pelaajaId + huoltajaEmail olivat anonyymisti luettavissa v3.28:aan
          asti → vastauksesta sai huoltajan tilin ja lapsen PIN:in. Nyt ne menevät VAIN tallennettuun
          huoltajaEmailiin (tarkistettu yllä). Epäonnistunut lähetys → seura lähettää uudelleen. */
-      return { ok: true, emailLahetetty, emailVirhe };
+      return { ok: true, emailLahetetty, emailVirhe, linkkiPv: kutsuLinkki ? 7 : 0 };   // linkkiPv: 7 = oma kutsulinkki, 0 = varalinkki (1 h)
     } catch (e) {
       console.warn('[vahvistaSuostumus] Reset-linkki epäonnistui:', e.message);
       return { ok: true, emailLahetetty: false, linkkiVirhe: e.message };
@@ -2482,9 +2486,20 @@ exports.haePelaajanKalenteri = functions
   .runWith({ enforceAppCheck: true })
   .https.onCall(pelaajanKalenteri.luoKasittelija({ db, HttpsError: functions.https.HttpsError, Timestamp: admin.firestore.Timestamp }));
 
+/* Huoltajakutsu: kirjautumaton sivu (TalentMaster_Huoltajakutsu.html) avaa kutsun → tuore salasanalinkki; vanhentunut/käytetty kutsu → uusi linkki huoltajaEmailiin. App Check pakollinen. */
+exports.avaaHuoltajakutsu = functions
+  .region('europe-west1')
+  .runWith({ enforceAppCheck: true })
+  .https.onCall((data) => huoltajakutsu.luoAvaa(_kutsuDeps())(data));
+exports.pyydaUusiHuoltajakutsu = functions
+  .region('europe-west1')
+  .runWith({ enforceAppCheck: true, secrets: ['SENDGRID_API_KEY'] })
+  .https.onCall((data) => huoltajakutsu.luoPyydaUusi(_kutsuDeps())(data));
+
 /* Huoltajan sähköpostin vahvistus (functions/huoltajan_vahvistus.js): kirjautunut huoltaja pyytää itselleen uuden linkin (Vanhempi_v2) + super-adminin massalähetys (kuiva-ajo oletus; Excel_Tuonti → SA). */
 const huoltajanVahvistus = require('./huoltajan_vahvistus');
-const _vahvDeps = () => ({ db, auth, HttpsError: functions.https.HttpsError, lahetaSahkoposti, pohja: pohjaVahvistusLinkki, vanhempiUrl: `${TM_BASE_URL}/TalentMaster_Vanhempi_v2.html` });
+const _vahvDeps = () => ({ db, auth, HttpsError: functions.https.HttpsError, lahetaSahkoposti, pohja: pohjaVahvistusLinkki, vanhempiUrl: `${TM_BASE_URL}/TalentMaster_Vanhempi_v2.html`,
+  kutsuLinkki: async (seuraId, pelaajaId) => huoltajakutsu.kutsuUrl(TM_BASE_URL, await huoltajakutsu.luoKutsu(_kutsuDeps(), { seuraId, pelaajaId })) });   // 'salasana'-linkit = Huoltajakutsu (7 pv)
 exports.lahetaVahvistuslinkkiItselle = functions
   .region('europe-west1')
   .runWith({ enforceAppCheck: true, secrets: ['SENDGRID_API_KEY'] })
