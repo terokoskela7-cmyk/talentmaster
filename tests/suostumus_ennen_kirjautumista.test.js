@@ -10,6 +10,7 @@ import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import vm from 'vm';
 import { fakeDb } from './_fakeFirestore.mjs';
+import { PEL_APU } from './helpers/pelaaja_t.mjs';
 
 const require_ = createRequire(import.meta.url);
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -132,7 +133,7 @@ describe('Seura / Pelaaja / Vanhempi', () => {
   });
   it('Pelaaja_v7 näyttää suostumusviestin; Vanhempi ei näytä PIN:iä ilman suostumusta', () => {
     const PEL = lue('TalentMaster_Pelaaja_v7.html');
-    expect(PEL).toContain("if (koodi === 'failed-precondition' && e && e.details && e.details.syy === 'suostumus_puuttuu') { _pinVirhe(_PK_VIRHE_SUOSTUMUS); return; }");
+    expect(PEL).toContain("if (koodi === 'failed-precondition' && e && e.details && e.details.syy === 'suostumus_puuttuu') { _pinVirhe(T('huoltajasi_ei_ole_viela_antanut')); return; }");
     expect(lue('TalentMaster_Vanhempi_v2.html')).toContain("const pin = (_suostumusOk && L.pin != null");
   });
   it('lahetaPelaajaSivuLinkki: ilman suostumusta PIN ei mene sähköpostiin', () => {

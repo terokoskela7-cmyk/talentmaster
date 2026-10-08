@@ -2,7 +2,7 @@
    Käyttö: import { PEL_APU } from './helpers/pelaaja_t.mjs';  Object.assign(sandbox, PEL_APU);   (fi-teksti tm_lang.js:stä; puuttuva avain → avain itse, kuten t()) */
 import { createRequire } from 'module';
 const L = createRequire(import.meta.url)('../../lib/tm_lang.js');
-export function T(k, muuttujat) { L.tmAsetaKieli('fi', false); return L.t(/^[a-z_]+\./.test(k) ? k : 'pelaaja.' + k, muuttujat); }
+export function T(k, muuttujat) { L.tmAsetaKieli('fi', false); return L.t(k.indexOf('.') >= 0 ? k : 'pelaaja.' + k, muuttujat); }
 export function _pt(k, muuttujat) { L.tmAsetaKieli('fi', false); return L.t(k, muuttujat); }
 /* Kaikki sivun reitittimet kerralla: ...PEL_APU hiekkalaatikon globaaleihin (T, varjostuksenkestävä alias _pT, t-alias _pt) */
 export const PEL_APU = { T, _pT: T, _pt };

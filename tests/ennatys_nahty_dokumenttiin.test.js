@@ -9,6 +9,7 @@ import { createRequire } from 'module';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import vm from 'vm';
+import { PEL_APU } from './helpers/pelaaja_t.mjs';
 const require = createRequire(import.meta.url);
 const juuri = join(dirname(fileURLToPath(import.meta.url)), '..');
 const lue = (f) => readFileSync(join(juuri, f), 'utf8');
@@ -29,7 +30,7 @@ function laite({ doc, ls = muistiLS(), db = true, demo = false, kirjoitusVirhe =
   if (db) win._db = { collection: (c) => node(c) };
   const ctx = { _pelaaja: JSON.parse(JSON.stringify(doc)), _isDemoUser: demo, window: win, document, localStorage: lsEstetty ? estetty : ls, requestAnimationFrame: (f) => f(), setTimeout: () => 0,
     JSON, Object, String, Number, Math, Promise, Array, console: { warn: (...a) => log.warn.push(a.join(' ')) }, _ENN_NAHTY_MAX: 190, t: LANG.t, firebase: { firestore: { FieldPath } } };
-  vm.createContext(ctx);
+  Object.assign(ctx, PEL_APU); vm.createContext(ctx);
   vm.runInContext(['function _thEsc(', 'function _kkEnnatysTiedot(', 'function _ennRivit(', 'function _ennUudetNakematta(', 'function _ennLuku(', 'function _ennArvoTxt(', 'function _ennNahtyYhdista(', 'function _ennNahtyPolku(', 'function _ennNahtyDokiin(', 'function _naytaUusiEnnatys('].map((x) => pura(P7, x)).join('\n')
     + '\nthis.nayta = _naytaUusiEnnatys; this.yhdista = _ennNahtyYhdista;', ctx);
   return { ctx, body, log, ls };

@@ -40,6 +40,7 @@ function avainTekstille(teksti) {
 }
 const FRAGMENTTI = /^[a-zåäö]|^[—–·.,;:)!?\-]|[(\-—·,]$/;   // lauseenosa/jatke (yhdistyy muuttujaan/nimeen) → ei automaattisesti; hyväksytyt: tools/i18n/sv_reititys_fragmentit_ok.json
 const FRAGMENTIT_OK = (() => { try { return new Set(JSON.parse(readFileSync(new URL('../tools/i18n/sv_reititys_fragmentit_ok.json', import.meta.url), 'utf8')).tekstit); } catch (e) { return new Set(); } })();
+const KASIN = (() => { try { return new Set(JSON.parse(readFileSync(new URL('../tools/i18n/sv_reititys_kasin.json', import.meta.url), 'utf8')).tekstit); } catch (e) { return new Set(); } })();   // lauseenosat jotka käsitellään käsin placeholder-lauseina
 const ohitaRenderoija = (r) => SALLITUT.renderoijat.some((x) => r === x || r.startsWith(x + ' '));
 const ohitaTeksti = (t) => SALLITUT.tekstit.some((x) => t === x || (x.endsWith('*') && t.startsWith(x.slice(0, -1))));
 
@@ -48,6 +49,7 @@ for (const f of loydot) {
   const syy = (m) => ohitetut.push({ rivi: f.rivi, renderoija: f.renderoija, teksti: f.teksti.slice(0, 90), syy: m });
   if (ohitaRenderoija(f.renderoija)) { continue; }
   if (ohitaTeksti(f.teksti)) { continue; }
+  if (KASIN.has((f.alkup || '').trim())) { syy('käsin (placeholder-lause)'); continue; }
   if (f.ylataso) { syy('ylätaso (latausaikainen; käsin laiskaksi)'); continue; }
   { const ydin0 = (f.alkup || '').trim(); if (FRAGMENTTI.test(ydin0) && !FRAGMENTIT_OK.has(ydin0)) { syy('fragmentti? (käsin: placeholder-lause)'); continue; } }
   if (f.tyyppi !== 'merkkijono' && f.tyyppi !== 'html-teksti') { syy('attribuutti (käsin)'); continue; }

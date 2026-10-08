@@ -13,6 +13,7 @@ import { createRequire } from 'module';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import vm from 'vm';
+import { PEL_APU } from './helpers/pelaaja_t.mjs';
 
 const require = createRequire(import.meta.url);
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -32,6 +33,7 @@ const teksti = (h) => String(h).replace(/<[^>]*>/g, ' ').replace(/&amp;/g, '&').
 
 /* Proxy-sandbox (kuten tests/pelaaja_722_kortti_tilastot.test.js): tuntematon apuri → stub, AIDOT funktiot ajetaan lähteestä. */
 function sandbox(base) {
+  base = { ...PEL_APU, ...base };   // T/_pT/_pt (fi) — Pelaajan reititin hiekkalaatikkoon
   const stub = new Proxy(function () {}, { apply() { return ''; }, get(t, k) { if (k === Symbol.toPrimitive) return () => ''; if (k === 'length') return 0; return stub; }, has() { return true; } });
   const sb = new Proxy(base, {
     has() { return true; },

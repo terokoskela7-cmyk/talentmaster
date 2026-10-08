@@ -419,7 +419,7 @@ describe('(9) §7.22 — portaan nousu ei näy lapselle laskuna', () => {
   });
 
   it('tasomerkki kertoo portaan, ei osien määrää', () => {
-    expect(lohko).toContain("'Porras '");
+    expect(lohko).toMatch(/tasoMerkki = _?p?T\('porras_n'/);   // 'Porras ' + n → T('porras_n', { n }) (sv-reititys)
     expect(lohko, 'osien määrä nousi ylimääräisestä kirjauksesta').not.toContain('_kaikkiN >= 4');
   });
 

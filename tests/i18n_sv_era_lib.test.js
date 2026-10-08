@@ -124,7 +124,7 @@ describe('Pelaaja _p7K1T ja Vanhempi _vKpT sv-tilassa', () => {
     const sb = { console: { log() {}, warn() {}, error() {} } }; sb.window = sb; vm.createContext(sb);
     ['lib/tm_lang.js', 'lib/tm_lib_i18n.js'].forEach((f) => vm.runInContext(lue(f), sb));
     vm.runInContext("tmAsetaKieli('" + kieli + "', false);", sb);
-    vm.runInContext("const _TMAP = {}; const T = k => (typeof t === 'function' ? t(_TMAP[k] || ('pelaaja.' + k)) : k);\n" + funktio(PE, 'function _p7K1T(') + "\n" + funktio(VA, 'function _vKpT('), sb);
+    vm.runInContext("const _TMAP = {}; const T = (k, m) => (typeof t === 'function' ? t(k.indexOf('.') >= 0 ? k : (_TMAP[k] || ('pelaaja.' + k)), m) : k);\n" + funktio(PE, 'function _p7K1T(') + "\n" + funktio(VA, 'function _vKpT('), sb);
     return sb;
   }
   it('sv: kirjastoavain → sv-teksti (Pelaaja + Vanhempi); tuntematon avain → avain (kirjasto putoaa fi-oletukseen)', () => {

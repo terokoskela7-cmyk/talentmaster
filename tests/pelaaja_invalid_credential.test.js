@@ -51,6 +51,6 @@ describe('Pelaaja_v7 · sähköpostikirjautumisen virheviestit', () => {
     expect((await kirjaudu('auth/network-request-failed')).viesti).toBe('Kirjautuminen epäonnistui.');
   });
   it('EI VACUOUS: lähteessä on molemmat koodit samassa ehdossa', () => {
-    expect(SRC).toContain("(e.code === 'auth/wrong-password' || e.code === 'auth/invalid-credential') ? 'Väärä salasana.'");
+    expect(SRC).toMatch(/\(e\.code === 'auth\/wrong-password' \|\| e\.code === 'auth\/invalid-credential'\) \? T\('[\w.]*vaara_salasana'\)/);   // reititetty (sv); fi-teksti tm_lang:sta
   });
 });

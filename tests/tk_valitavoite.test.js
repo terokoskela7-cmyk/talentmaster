@@ -12,6 +12,7 @@ import { createRequire } from 'module';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import vm from 'vm';
+import { PEL_APU } from './helpers/pelaaja_t.mjs';
 
 const require = createRequire(import.meta.url);
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -57,7 +58,7 @@ describe('Vanhempi_v2 · tekniikka: väärä/arvattu tavoite ei näy huoltajalle
   const aja = (pujS) => {
     const lapsi = { syntymaVuosi: VUOSI - 13, sukupuoli: 'M', tki_viimeisin: 60, tki_kehityskohde: 'pujottelu', tki_vahvuus: 'syotto',
       tk_lajit_viimeisin: { syotto_s: 35, pujottelu_s: pujS } };
-    const ctx = vm.createContext({ window: { _lapsi: lapsi, TM_TESTIT: T }, t: LANG.t, IKA: {}, _age: 'u15', Math, Number, String, Object, isNaN });
+    const ctx = vm.createContext({ ...PEL_APU, window: { _lapsi: lapsi, TM_TESTIT: T }, t: LANG.t, IKA: {}, _age: 'u15', Math, Number, String, Object, isNaN });
     const a = V2.indexOf('const _VANH_LAJINIMI'), b = V2.indexOf('const TUKIVINKIT');
     vm.runInContext([V2.slice(a, V2.indexOf(';', a) + 1), V2.slice(b, V2.indexOf('};', b) + 2), pura(V2, 'function _genetiivi('),
       pura(V2, 'function _vanhValitavoite('), pura(V2, 'function rVanhempiTekniikka(')].join('\n') + '\nthis.f = rVanhempiTekniikka;', ctx);
@@ -79,7 +80,7 @@ describe('Vanhempi_v2 · tekniikka: väärä/arvattu tavoite ei näy huoltajalle
 describe('Pelaaja_v7 · sama jaettu tavoite (ei kopiota)', () => {
   const P7 = lue('TalentMaster_Pelaaja_v7.html');
   it('_tekKorttiData: 12.4 → ei tavoitetta (nyt+tavoite null → rivi piiloon); 27.5 → 25', () => {
-    const ctx = vm.createContext({ window: { TM_TESTIT: T }, Math, Number, String, Date });
+    const ctx = vm.createContext({ ...PEL_APU, window: { TM_TESTIT: T }, Math, Number, String, Date });
     vm.runInContext([pura(P7, 'function _minaTekLajiNimi('), pura(P7, 'function _minaValitavoite('), pura(P7, 'function _tekKorttiData(')].join('\n')
       + '\nthis.f = _tekKorttiData;', ctx);
     const p = (s) => ({ syntymaVuosi: VUOSI - 13, sukupuoli: 'M', tki_kehityskohde: 'pujottelu', tk_lajit_viimeisin: { pujottelu_s: s } });
