@@ -273,7 +273,7 @@ async function haeOrLuoHuoltajaAuth(hEmail, etunimi, sukunimi) {
 // ─────────────────────────────────────────────────────────────────────────────
 // SÄHKÖPOSTIPOHJAT
 // ─────────────────────────────────────────────────────────────────────────────
-const { pohjaHeader, pohjaFooter, pohjaRekisteriKutsu, pohjaMuistutus, pohjaPelaajaSivu, pohjaSalasanaAsetus, pohjaSuostumusLinkki, pohjaSoloLupa } = require('./sahkoposti_pohjat');
+const { pohjaHeader, pohjaFooter, pohjaRekisteriKutsu, pohjaMuistutus, pohjaPelaajaSivu, pohjaSalasanaAsetus, pohjaSuostumusLinkki, pohjaVahvistusLinkki, pohjaSoloLupa } = require('./sahkoposti_pohjat');
 const { otsikkoPuhdas, rakennaKutsuLinkki } = require('./sahkoposti_turva');
 const { muodostaPalauteNotif } = require('./palaute_notif');
 const { huomisenRajat } = require('./helsinki_paiva');
@@ -1341,7 +1341,7 @@ exports.vahvistaSuostumus = functions
           to: hEmailNorm,
           subject: 'Aseta TalentMaster-salasanasi',
           fromName: 'TalentMaster',
-          html: pohjaSuostumusLinkki({ lapsiNimi, resetLinkki: passwordResetLink, pin }),
+          html: pohjaSuostumusLinkki({ lapsiNimi, resetLinkki: passwordResetLink, pin, vanhempiLinkki: `${baseUrl}/TalentMaster_Vanhempi_v2.html` }),
         });
         emailLahetetty = true;
         db.collection('audit').add({
@@ -2481,6 +2481,19 @@ exports.haePelaajanKalenteri = functions
   .region('europe-west1')
   .runWith({ enforceAppCheck: true })
   .https.onCall(pelaajanKalenteri.luoKasittelija({ db, HttpsError: functions.https.HttpsError, Timestamp: admin.firestore.Timestamp }));
+
+/* Huoltajan sähköpostin vahvistus (functions/huoltajan_vahvistus.js): kirjautunut huoltaja pyytää itselleen uuden linkin (Vanhempi_v2) + super-adminin massalähetys (kuiva-ajo oletus; Excel_Tuonti → SA). */
+const huoltajanVahvistus = require('./huoltajan_vahvistus');
+const _vahvDeps = () => ({ db, auth, HttpsError: functions.https.HttpsError, lahetaSahkoposti, pohja: pohjaVahvistusLinkki, vanhempiUrl: `${TM_BASE_URL}/TalentMaster_Vanhempi_v2.html` });
+exports.lahetaVahvistuslinkkiItselle = functions
+  .region('europe-west1')
+  .runWith({ enforceAppCheck: true, secrets: ['SENDGRID_API_KEY'] })
+  .https.onCall((data, context) => huoltajanVahvistus.luoItselle(_vahvDeps())(data, context));
+exports.lahetaHuoltajienVahvistuslinkit = functions
+  .region('europe-west1')
+  .runWith({ enforceAppCheck: true, secrets: ['SENDGRID_API_KEY'], timeoutSeconds: 300 })
+  .https.onCall((data, context) => huoltajanVahvistus.luoMassa(Object.assign(_vahvDeps(), { onSuperAdminUid, onPaikkamerkki: onPaikkamerkkiOsoite,
+    audit: (r) => db.collection('audit').add({ toiminto: r.toiminto, severity: r.severity, kohteita: r.kohteita, lahetetty: r.lahetetty, epaonnistui: r.epaonnistui, salasanalinkki: r.salasanalinkki, vahvistuslinkki: r.vahvistuslinkki, aikaleima: admin.firestore.FieldValue.serverTimestamp() }).catch(() => {}) }))(data, context));
 
 /* Rules v3.33 (2.10.2026) — huoltajaEmail vain palvelimella (functions/huoltajaemail.js). */
 exports.asetaHuoltajaEmail = functions

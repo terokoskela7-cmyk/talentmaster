@@ -1689,6 +1689,11 @@ async function lataaKayttajatiedot(u) {
             jbtn.style.cssText = 'background:rgba(224,160,64,.15);border:1px solid #E0A040;border-radius:6px;color:#F0C878;font-family:DM Sans,sans-serif;font-size:12px;padding:4px 10px;cursor:pointer;margin-right:8px;';
             jbtn.onclick = _adminTarkistaJasenyydet; topbar.insertBefore(jbtn, logout);
           }
+          if (!document.getElementById('sa-huoltajavahvistus')) {   // B4-jatko: vahvistamattomien huoltajatilien linkit (kuiva-ajo → vahvistus; vain lukumääriä)
+            const hbtn = document.createElement('button'); hbtn.id = 'sa-huoltajavahvistus'; hbtn.textContent = '✉️ Huoltajien vahvistuslinkit';
+            hbtn.title = 'Kuiva-ajo: montako vahvistamatonta huoltajatiliä (vain lukumääriä). Lähetys vasta erillisellä vahvistuksella.';
+            hbtn.style.cssText = 'background:rgba(224,160,64,.15);border:1px solid #E0A040;border-radius:6px;color:#F0C878;font-family:DM Sans,sans-serif;font-size:12px;padding:4px 10px;cursor:pointer;margin-right:8px;'; hbtn.onclick = _adminHuoltajienVahvistus; topbar.insertBefore(hbtn, logout);
+          }
         }
       }
     } catch(e) {}
@@ -5166,6 +5171,23 @@ async function _adminTarkistaJasenyydet() {
     if (epa.length && await _sukupuoliRaporttiModal('Epäselvät tapaukset — vahvista (Joakim)', JT.tmJasenyysTeksti(epa), 'Korjaa epäselvät (vain nimen joukkue)')) { let k = 0; for (const x of epa) k += (await JT.tmJasenyysKorjaa(deps, x.id, { epaselvat: true })).kirjoitettu; toast('Epäselvät: ' + k + ' korjattu', 'ok'); }
   } catch (e) { console.error('[jasenyys]', e); toast('Tarkistus epäonnistui: ' + (e && e.message || e), 'err'); }
   finally { if (btn) { btn.disabled = false; btn.textContent = '👥 Tarkista joukkuejäsenyydet'; } }
+}
+/* B4-jatko — vahvistamattomat huoltajatilit: callable lahetaHuoltajienVahvistuslinkit (vain SA; kuiva-ajo oletus). Vastauksessa VAIN lukumääriä. */
+async function _adminHuoltajienVahvistus() {
+  if (!superAdmin) { toast('Vain Super Admin', 'err'); return; }
+  const btn = document.getElementById('sa-huoltajavahvistus'), fn = firebase.app().functions('europe-west1').httpsCallable('lahetaHuoltajienVahvistuslinkit');
+  if (btn) { btn.disabled = true; btn.textContent = '✉️ Kuiva-ajo…'; }
+  try {
+    const k = (await fn({ kuiva: true })).data || {};
+    const rivit = Object.keys(k.seuroittain || {}).sort().map(function (id) { return '  ' + id + ': ' + k.seuroittain[id]; });
+    const teksti = 'Vahvistamattomia huoltajatilejä: ' + (k.yhteensa || 0) + '\n  · salasanalinkki (ei koskaan kirjautunut; asettaminen vahvistaa osoitteen): ' + (k.salasanalinkki || 0) + '\n  · vahvistuslinkki (on kirjautunut): ' + (k.vahvistuslinkki || 0) + '\n\nSeuroittain:\n' + (rivit.join('\n') || '  —');
+    const laheta = await _sukupuoliRaporttiModal('Huoltajien vahvistuslinkit — KUIVA-AJO', teksti, k.yhteensa ? 'Lähetä ' + k.yhteensa + ' sähköpostia' : null);
+    if (laheta) {
+      const r = (await fn({ kuiva: false })).data || {};
+      toast('Vahvistuslinkit: lähetetty ' + (r.lahetetty || 0) + ' / ' + (r.kohteita || 0) + (r.epaonnistui ? ' · epäonnistui ' + r.epaonnistui : ''), r.epaonnistui ? 'err' : 'ok');
+    }
+  } catch (e) { console.error('[huoltajavahvistus]', e); toast('Huoltajien vahvistuslinkit epäonnistui: ' + (e && e.code ? e.code + ' — ' : '') + (e && e.message || e), 'err'); }
+  finally { if (btn) { btn.disabled = false; btn.textContent = '✉️ Huoltajien vahvistuslinkit'; } }
 }
 async function _adminTakaisinlaskeKooste() {
   if (!superAdmin) { toast('Vain Super Admin', 'err'); return; }

@@ -141,7 +141,7 @@ body.demo-mode #devChrome{display:block}
 <script src="lib/tm_klippi_perhe.js?v=1"></script>   <!-- R6.4 PR 2: Katsokaa yhdessä / keskustelu -->
 <script src="lib/tm_appcheck.js?v=2"></script>
 <script src="lib/tm_verkko.js?v=1"></script>   <!-- verkkokatko: 1 uudelleenyritys + Yhteyskatko-ilmoitus + Sentry warning -->
-<script src="lib/tm_lang.js?v=36"></script>   <!-- i18n V0 putki · V1-B/B2: +vanhempi./nav.-avaimet + kielivalitsin + syväsisältö (nimen taivutus poistettu) -->
+<script src="lib/tm_lang.js?v=37"></script>   <!-- i18n V0 putki · V1-B/B2: +vanhempi./nav.-avaimet + kielivalitsin + syväsisältö (nimen taivutus poistettu) -->
 <script src="lib/tm_lib_i18n.js?v=2"></script>   <!-- sv-kartta kirjastojen FI-avaimille (päätös A, vaihtoehto 2; generoitu Gemini-erästä) — ennen lib-tiedostoja -->
 <script src="docs/testit_indeksit.js?v=13"></script>
 <script src="lib/tm_alusta.js?v=2"></script>   <!-- PR D2: alustakoodi/-nimi ennätysriveille -->
@@ -580,7 +580,15 @@ async function _vanhLataaKalenteri() {
   // Ei valmis → älä latchaa, älä näytä demoa: pidä 'ladataan'-tila (null) ja yritä uudelleen kun _lapsi/auth valmistuu.
   if (!_db || !L || !L.seuraId || !authReady) return;
   window._vanhKalLadattu = true;   // vasta kun oikea yritys tehdään
+  window._vanhKalTila = null;
   var K = window.TM_KALENTERI_ILM;
+  /* Sähköposti vahvistamatta → kalenteri vaatii vahvistetun osoitteen (palvelin + Rules v3.55). Ei hiljaista tyhjää listaa: näytetään ohje + "lähetä linkki uudelleen". */
+  var _cu = _auth && _auth.currentUser;
+  if (_cu && _cu.emailVerified === false) {
+    try { await _cu.reload(); } catch (e) { /* offline → käytä tunnettua tilaa */ }
+    if (_cu.emailVerified === false) { if (window._lapsi !== L) return; window._vanhKalTila = 'vahvistamatta'; window._vanhKalenteri = []; if (typeof draw === 'function') draw(); return; }
+    try { await _cu.getIdToken(true); } catch (e) { /* ei estä */ }   // token päivittyy email_verified:ksi
+  }
   try {
     /* B4: rajaus palvelimella (huoltaja: vahvistettu sähköposti + suostumus; jäsenyys §7.18, näkyvyys, sallitut kentät; lapsen oma saatavuus mukana). Selain tekee vain päättymissuodatuksen. */
     var vast = await window._fbApp.functions('europe-west1').httpsCallable('haePelaajanKalenteri')({ seuraId: L.seuraId, pelaajaId: L.id });
@@ -593,6 +601,7 @@ async function _vanhLataaKalenteri() {
     console.warn('[vanh kalenteri]', e && (e.code || ''), e && e.message);
     var muisti = K && K.tmKalenteriMuistista(window.localStorage, L.seuraId, L.id);   // virhe/offline → viimeksi saatu lista, muuten tyhjä tila (EI demo)
     window._vanhKalenteri = muisti ? K.tmKalenteriKoosta(muisti, new Date()) : [];
+    if (!muisti) window._vanhKalTila = 'virhe';   // ei hiljaista tyhjää: "Kalenteria ei saatu ladattua" + yritä uudelleen
   }
   if (typeof draw === 'function') draw();
 }
@@ -649,10 +658,29 @@ function _vanhTapahtumaKortti(ev) {
     + _vanhSaatavuusHTML(ev)
     + '</div></div>';
 }
+/* Huoltajan sähköpostin vahvistus (B4-jatko): ohje + uuden linkin pyyntö (callable lahetaVahvistuslinkkiItselle); päivitys vahvistuksen jälkeen. */
+async function _vanhLahetaVahvistus() {
+  try {
+    var r = await window._fbApp.functions('europe-west1').httpsCallable('lahetaVahvistuslinkkiItselle')();
+    var tila = r && r.data && r.data.tila;
+    if (tila === 'jo_vahvistettu') { _vanhKalYritaUudelleen(); return; }
+    _toast(t(tila === 'odota' ? 'vanhempi.vahvistus_odota' : 'vanhempi.vahvistus_lahetetty'));
+  } catch (e) { console.warn('[vanh vahvistus]', e && (e.code || ''), e && e.message); _toast(t('vanhempi.vahvistus_ei_onnistunut')); }
+}
+async function _vanhPaivitaVahvistus() {
+  var cu = _auth && _auth.currentUser;
+  if (cu) { try { await cu.reload(); } catch (e) { /* offline */ } }
+  if (cu && cu.emailVerified !== false) _vanhKalYritaUudelleen(); else _toast(t('vanhempi.vahvistus_ei_viela'));
+}
+function _vanhKalYritaUudelleen() { window._vanhKalenteri = null; window._vanhKalLadattu = false; window._vanhKalTila = null; if (typeof draw === 'function') draw(); }
+window._vanhLahetaVahvistus = _vanhLahetaVahvistus; window._vanhPaivitaVahvistus = _vanhPaivitaVahvistus; window._vanhKalYritaUudelleen = _vanhKalYritaUudelleen;
+function _vanhKalNappi(fn, teksti, ensisijainen) { return '<button onclick="' + fn + '()" style="padding:9px 14px;border-radius:8px;border:.5px solid var(--teal-d);background:' + (ensisijainen ? 'var(--teal)' : 'transparent') + ';color:' + (ensisijainen ? 'var(--on-accent,#fff)' : 'var(--teal-d)') + ';font-size:12.5px;cursor:pointer;margin:6px 8px 0 0">' + teksti + '</button>'; }
 function _vanhTapahtumatHTML() {
   if (window._vanhKalenteri === null && !window._vanhKalLadattu) _vanhLataaKalenteri();
   var evs = window._vanhKalenteri; var max = (_age === 'u19') ? 3 : 5; var inner;
-  if (evs === null) inner = '<div style="font-size:12px;color:var(--ink3);padding:2px 0">' + t('yleiset.latautuu') + '</div>';
+  if (window._vanhKalTila === 'vahvistamatta') inner = '<div style="padding:12px 14px;background:var(--surface);border:.5px solid var(--border);border-radius:10px"><div style="font-size:14px;color:var(--text);line-height:1.4">' + t('vanhempi.vahvista_sahkoposti') + '</div><div style="font-size:12px;color:var(--ink3);line-height:1.5;margin-top:4px">' + t('vanhempi.vahvista_sahkoposti_ohje') + '</div>' + _vanhKalNappi('_vanhLahetaVahvistus', t('vanhempi.laheta_vahvistus_uudelleen'), true) + _vanhKalNappi('_vanhPaivitaVahvistus', t('vanhempi.olen_vahvistanut'), false) + '</div>';
+  else if (window._vanhKalTila === 'virhe') inner = '<div style="font-size:12px;color:var(--ink3);line-height:1.5;padding:2px 0">' + t('vanhempi.kalenteri_ei_latautunut') + '</div>' + _vanhKalNappi('_vanhKalYritaUudelleen', t('vanhempi.yrita_uudelleen'), false);
+  else if (evs === null) inner = '<div style="font-size:12px;color:var(--ink3);padding:2px 0">' + t('yleiset.latautuu') + '</div>';
   else if (!evs.length) inner = '<div style="font-size:12px;color:var(--ink3);line-height:1.5;padding:2px 0">' + t('vanhempi.ei_tapahtumia') + '</div>';
   else inner = evs.slice(0, max).map(_vanhTapahtumaKortti).join('');
   return '<div style="margin:16px 0 4px"><div class="ey" style="margin-bottom:10px">📅 ' + t('vanhempi.tulevat_tapahtumat') + '</div>' + inner + '</div>';
@@ -1692,7 +1720,7 @@ function _lapsiTilaNollaa() {
   _viikkoKirjaukset = [];
   _valmentajaViestit = [];
   _kehuLahetetty = false;
-  window._vanhKalenteri = null; window._vanhKalLadattu = false;
+  window._vanhKalenteri = null; window._vanhKalLadattu = false; window._vanhKalTila = null;
   window._vanhNotif = null; window._vanhNotifLadattu = false;
   // Kesken jäänyt Kirjaa-lomake kuului edelliselle lapselle → tyhjäksi
   _pTyypit = new Set(); _pFiilis = null; _pTeksti = ''; _pMinuutit = null;
