@@ -15,13 +15,17 @@ const LIB = require('../lib/tm_lib_i18n.js');
 const SV = LIB.TM_LIB_I18N.sv;
 const LIBIT = ['tm_kehitystyopoyta', 'tm_kevyt_katselmus', 'tm_klippi_perhe', 'tm_mediaviesti', 'tm_reitin_valinta', 'tm_ryhmat', 'tm_taman_tueksi', 'tm_tanaan_kentta', 'tm_tanaan_signaali', 'tm_viikkokatsaus'];
 // Libin FI-avaimet, joille sv puuttuu (palautetaan Geminille; fi-fallback). Portti on elävä: sv saapui → poista rivi.
-const LIB_SV_ODOTTAA = ['ts_otsikko'];   // FI.ts_otsikko 'Seuraava askel' lisätään tm_tanaan_signaali.js:ssä kirjoitushetkellä; ei Geminin erässä
+const LIB_SV_ODOTTAA = [];   // ts_otsikko saapui Gemini-erässä 2 (lib.tm_tanaan_signaali) ja vietiin scripts/i18n_vie_sv_era2.cjs:llä
+// PR 5: erän 2 lib-osiot (ADAR-nimet, rubriikit, Kenttä, ADAR-tekstit, pelihavainto-valinta, havaintohistoria, ts_otsikko) — avain = lib-avain tai fi-teksti
+const ERA2 = JSON.parse(lue('docs/i18n/sv_kaannoserae_2.json'));
+const ERA2_LIB_OSIOT = ['lib_adar_nimet', 'lib.rubriikit', 'lib.tm_kentta', 'lib.tm_adar_tekstit', 'lib.tm_pelihavainto_valinta', 'lib.tm_havaintohistoria', 'lib.tm_tanaan_signaali'];
 
 const muuttujat = (s) => (String(s).match(/\{[a-zA-Z_0-9]+\}/g) || []).sort();
 
 describe('kirjastokartta: kattavuus ja muuttujat', () => {
   const kaikkiFi = {};
   for (const l of LIBIT) for (const [k, v] of Object.entries(require('../lib/' + l + '.js').FI)) kaikkiFi[k] = v;
+  for (const o of ERA2_LIB_OSIOT) for (const [k, r] of Object.entries(ERA2.osiot[o].rivit)) kaikkiFi[k] = r.fi;
 
   it('jokaiselle kirjaston FI-avaimelle on sv-rivi (paitsi nimetyt Geminiltä odottavat)', () => {
     const puuttuu = Object.keys(kaikkiFi).filter((k) => typeof SV[k] !== 'string' && !/^mv_pohja_/.test(k));

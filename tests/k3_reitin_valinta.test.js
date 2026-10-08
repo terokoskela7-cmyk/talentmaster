@@ -257,7 +257,7 @@ describe('Kytkennät (lähdetarkistukset): lippu pois → ennallaan; kirjoituspo
   it('Pelaaja_v7: K3 vain rA1Kentta-polussa — rA1() (lippu pois) ei sisällä K3:a; script-tagi + SW-allowlist + cache-bumppi', () => {
     const rA1 = SRC.slice(SRC.indexOf('function rA1() {'), SRC.indexOf('function rA1() {') + 20000); expect(rA1).not.toMatch(/_p7K3|TM_REITIN_VALINTA/);
     const kentta = SRC.slice(SRC.indexOf('function rA1Kentta() {'), SRC.indexOf('function rA1Kentta() {') + 6000); expect(kentta).toContain('_p7K3SitoumusHTML(tanaan)'); expect(kentta).toContain('_p7VkHTML(x, jf, tanaan, o)');
-    expect(SRC).toMatch(/<script src="lib\/tm_reitin_valinta\.js\?v=\d+"><\/script>/); expect(lue('sw_pelaaja.js')).toContain("/lib/tm_reitin_valinta.js"); expect(lue('sw_pelaaja.js')).toMatch(/const CACHE = 'tm-pelaaja-v(80|81|82|83|84)/);
+    expect(SRC).toMatch(/<script src="lib\/tm_reitin_valinta\.js\?v=\d+"><\/script>/); expect(lue('sw_pelaaja.js')).toContain("/lib/tm_reitin_valinta.js"); expect(lue('sw_pelaaja.js')).toMatch(/const CACHE = 'tm-pelaaja-v(8[0-9]|9\d)/);
   });
   it('Pelaaja_v7: K3-lohko kirjoittaa VAIN ydinvahvuus_valinta (ei jaksofokus-/historia-kirjoitusta, ei set/merge)', () => {
     const blokki = SRC.slice(SRC.indexOf('═══ K3 — pelaaja valitsee seuraavan reitin'), SRC.indexOf('═══ K4 — sunnuntain viikkokatsaus')); expect(blokki.length).toBeGreaterThan(1500);

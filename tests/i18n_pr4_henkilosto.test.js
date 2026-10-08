@@ -19,8 +19,9 @@ describe('tmHT — henkilöstösivujen teksti-avainreititin', () => {
     expect(H.tmHT('Ei vielä pelaajia')).toBe('Ei vielä pelaajia');
     expect(H.tmHT('tätä ei ole missään kartassa')).toBe('tätä ei ole missään kartassa');
   });
-  it('sv-kartta on tyhjä kunnes Gemini-erä viedään (Code ei kirjoita ruotsia)', () => {
-    expect(Object.keys(H.TM_HENKILOSTO_I18N.sv).length).toBe(0);
+  it('sv-kartta on viety Gemini-erästä 2 (scripts/i18n_vie_sv_era2.cjs) ja vastaa erää (tests/i18n_era2_vienti.test.js)', () => {
+    expect(Object.keys(H.TM_HENKILOSTO_I18N.sv).length).toBe(Object.keys(ERA.osiot.henkilosto_kartta.rivit).length);
+    expect(H.tmHT('Ei vielä pelaajia')).toBe('Ei vielä pelaajia');   // ilman kieltä (fi) teksti ennallaan
   });
   it('kolme henkilöstösivua lataa tmHT:n ennen ensimmäistä käyttöä', () => {
     for (const f of ['TalentMaster_Seura.html', 'TalentMaster_ADAR_Pikakortti.html', 'TalentMaster_Pelihavainto_Kentta.html']) {
