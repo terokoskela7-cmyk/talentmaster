@@ -205,7 +205,7 @@ describe('Master: Inbox-integraatio + V4-valikko + Polku-kortti', () => {
     expect(MASTER).toContain('onclick="_mvAvaa(null)" id="mvKlippiNappi"'); const blokki = pala(MASTER, '/* ═══ R6.4 Mediaviesti M1', 'function _msDots('); expect(blokki).not.toMatch(/_ktLippu|liput\.kentta/); expect(blokki).not.toMatch(/_mJjLataaLiput/);
     for (const src of [MASTER, VP]) expect(src).toContain("if (avain === 'klippi') return window._mvAvaa(pid);"); expect(require('../lib/tm_aloita_jakso.js').tmJaksoTila({ jaksofokus: { konsepti_avain: 'x', konsepti_nimi: 'X', alkoi: new Date().toISOString(), kesto_vk: 4 } }, {}).valikko.find((m) => m.avain === 'klippi').kaytettavissa).toBe(true);
   });
-  it('Polku-kortti: #mvKlipit-paikka + lazy-lataus vain Polku avattaessa (Master + VP)', () => { for (const src of [MASTER, VP]) { expect(src).toContain('<div id="mvKlipit"></div>'); expect(src).toContain("if (S.ladattu.polku && typeof _mvLataaKlipit === 'function') _mvLataaKlipit(p);"); expect(src).toContain('<script src="lib/tm_mediaviesti.js?v=2"></script>'); } });
+  it('Polku-kortti: #mvKlipit-paikka + lazy-lataus vain Polku avattaessa (Master + VP)', () => { for (const src of [MASTER, VP]) { expect(src).toContain('<div id="mvKlipit"></div>'); expect(src).toContain("if (S.ladattu.polku && typeof _mvLataaKlipit === 'function') _mvLataaKlipit(p);"); expect(src).toContain('<script src="lib/tm_mediaviesti.js?v=3"></script>'); } });
 });
 
 describe('Geminin sv-lista + sanasto', () => {

@@ -238,8 +238,8 @@ describe('§7.22-vahti: vain itsevertailu', () => {
       expect(KIELLETTY.some((re) => re.test(huono)), huono).toBe(true);
     }
   });
-  it('sv: ei Clauden kirjoittamaa ruotsia — uudet avaimet odotuslistalla', () => {
+  it('sv: ei Clauden kirjoittamaa ruotsia — sv viety Gemini-erästä 8.10.2026, ei odotuslistalla', () => {
     const SV = require('./tm_lang_sv_odotuslista.cjs');
-    for (const k of ['pelaaja.ennatys_uusi', 'vanhempi.enn_otsikko', 'vanhempi.enn_t_lin30m']) expect(SV).toContain(k);
+    for (const k of ['pelaaja.ennatys_uusi', 'vanhempi.enn_otsikko', 'vanhempi.enn_t_lin30m']) expect(SV).not.toContain(k);
   });
 });

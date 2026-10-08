@@ -10,7 +10,7 @@
    - Omat JS-moduulit + manifest + ikonit + versioidut fontit/SDK → cache-first.
    - KAIKKI muu (toisten appien sivut, raw.githubusercontent, jne.) → suoraan verkkoon, EI cachea.
    Scopea ei voi kaventaa (SW juuressa) → allowlist hoitaa rajaamisen. CLAUDE.md §27.4. */
-const CACHE = 'tm-pelaaja-v81';   // R6.4 PR 2: tm_mediaviesti.js + tm_klippi_perhe.js allowlistiin — edellinen v80 = D54: tm_kentta.js v3 (ei 'ase' käyttäjälle) — v79 =   // V4b-2: tm_reitin_valinta.js v3 (Valmentajalta-rivi, tmValintaVoimassa pois) — v78 = // K3: tm_reitin_valinta.js allowlistiin — v77 = // K4: tm_viikkokatsaus.js allowlistiin — v76 = // K1: tm_liput/kielletyt/tukitavoitteet/joukkuejakso/taman_tueksi/tanaan_kentta allowlistiin — v75 = // B 3/3: tm_kotiharjoitteet.js allowlistiin — v74 =   // K0 (D11): tm_kentta.js + Archivo-fontti allowlistiin — v73 =   // P0.6b-korjaus: varapolun kokonaisaika kanonisella laskeKokonaistulos:lla — v72 = V2 P0.6b: mitali per kilpailu (tki_historia, ikä testihetkeltä, mikään ei katoa) — v71 = V2 P0.4 PR1: tm_kalenteri_ilmoitus.js + tm_lang v32 (ilm_tanaan/huomenna) — v70 = P0.3 (#774), v69 = P0.5 (#773), v68 = P0.7 (#772)
+const CACHE = 'tm-pelaaja-v82';   // sv-käännöserä: lib/tm_lib_i18n.js allowlistiin + tm_lang.js v33 (§27.4) — edellinen tm-pelaaja-v81 = R6.4 PR 2: tm_mediaviesti.js + tm_klippi_perhe.js allowlistiin — edellinen v80 = D54: tm_kentta.js v3 (ei 'ase' käyttäjälle) — v79 =   // V4b-2: tm_reitin_valinta.js v3 (Valmentajalta-rivi, tmValintaVoimassa pois) — v78 = // K3: tm_reitin_valinta.js allowlistiin — v77 = // K4: tm_viikkokatsaus.js allowlistiin — v76 = // K1: tm_liput/kielletyt/tukitavoitteet/joukkuejakso/taman_tueksi/tanaan_kentta allowlistiin — v75 = // B 3/3: tm_kotiharjoitteet.js allowlistiin — v74 =   // K0 (D11): tm_kentta.js + Archivo-fontti allowlistiin — v73 =   // P0.6b-korjaus: varapolun kokonaisaika kanonisella laskeKokonaistulos:lla — v72 = V2 P0.6b: mitali per kilpailu (tki_historia, ikä testihetkeltä, mikään ei katoa) — v71 = V2 P0.4 PR1: tm_kalenteri_ilmoitus.js + tm_lang v32 (ilm_tanaan/huomenna) — v70 = P0.3 (#774), v69 = P0.5 (#773), v68 = P0.7 (#772)
 const SHELL = './TalentMaster_Pelaaja_v7.html';
 // VAIN oma shell — JS-moduulit ovat ?v=-versioituja (bare-polku ei matchaisi), allowlist cachettaa ne
 // pyydettäessä. (Vanha PRECACHE viittasi /talentmaster/tm_eerikkila_normit.js → 404, jota Pelaaja ei lataa
@@ -70,6 +70,7 @@ function onAllowlist(url) {
   if (url.indexOf('/lib/tm_alusta.js') !== -1) return true;   // PR F: §22-alustasanasto (ennätyskortin alustanimi)
   if (url.indexOf('/lib/tm_phv_tila.js') !== -1) return true;   // PR C: PHV-tilan yksi lukusääntö (Kehitysvaihe-kortti, stage)
   if (url.indexOf('/lib/tm_mediaviesti.js') !== -1) return true;   // R6.4 PR 2: klippiketjun linkki + tyyppinimet
+  if (url.indexOf('/lib/tm_lib_i18n.js') !== -1) return true;   // sv-käännöserä: kirjastojen sv-kartta (päätös A)
   if (url.indexOf('/lib/tm_klippi_perhe.js') !== -1) return true;   // R6.4 PR 2: Valmentajalta klippi / Katsokaa yhdessä
   if (url.indexOf('/lib/tm_kentta.js') !== -1) return true;   // K0: Kenttä-komponentti
   if (/\/lib\/tm_(liput|kielletyt|tukitavoitteet|joukkuejakso|taman_tueksi|tanaan_kentta|viikkokatsaus)\.js/.test(url)) return true;   // K1: Kenttä-näkymän libit (versioituja)

@@ -43,13 +43,13 @@ describe('suostumussivu · uusinnan selite (ajettu)', () => {
     expect(LOMAKE).toContain('else if (_pelaajaId && _urlParams.suostumusAnnettu) _naytaUusintaSelite(_urlParams.suostumusAnnettu);');
     expect(pura('function _rekKaanna() {')).toContain("_uusintaSelite(_urlParams.suostumusAnnettu)");
   });
-  it('tekstit fi + en, sv odotuslistalla', () => {
+  it('tekstit fi + en + sv (Gemini-erä 8.10.2026)', () => {
     expect(L.fi.seura.uusinta_vahvistus).toBe('Suostumus on jo annettu {pvm}. Lähetetäänkö huoltajalle suostumuksen uusimispyyntö?');
     expect(L.fi.suostumus.uusinta_selite).toBe('Suostumus annettu {pvm} — tällä lomakkeella uusit sen.');
     expect(L.en.seura.uusinta_vahvistus).toContain('{pvm}'); expect(L.en.suostumus.uusinta_selite).toContain('{pvm}');
-    expect(L.sv.seura.uusinta_vahvistus).toBeUndefined(); expect(L.sv.suostumus.uusinta_selite).toBeUndefined();
+    expect(L.sv.seura.uusinta_vahvistus).toBeTruthy(); expect(L.sv.suostumus.uusinta_selite).toBeTruthy();
     const lista = require_('./tm_lang_sv_odotuslista.cjs');
-    expect(lista).toContain('seura.uusinta_vahvistus'); expect(lista).toContain('suostumus.uusinta_selite');
+    expect(lista).not.toContain('seura.uusinta_vahvistus'); expect(lista).not.toContain('suostumus.uusinta_selite');
   });
 
 });

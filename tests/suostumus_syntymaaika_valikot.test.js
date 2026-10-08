@@ -118,13 +118,13 @@ describe('valikot (ajettu)', () => {
 });
 
 describe('tekstit', () => {
-  it('fi + en, sv odotuslistalla', () => {
+  it('fi + en + sv (Gemini-erä 8.10.2026)', () => {
     global.window = {}; require_(join(ROOT, 'lib', 'tm_lang.js')); const L = global.window.TM_LANG; delete global.window;
     expect(L.fi.suostumus.syn_tarkista).toBe('Tarkista syntymäaika');
     expect(L.en.suostumus.syn_tarkista).toBe('Check the date of birth');
     for (const k of ['syn_paiva', 'syn_kuukausi', 'syn_vuosi', 'syn_tarkista']) {
-      expect(L.fi.suostumus[k]).toBeTruthy(); expect(L.en.suostumus[k]).toBeTruthy(); expect(L.sv.suostumus[k]).toBeUndefined();
-      expect(require_('./tm_lang_sv_odotuslista.cjs')).toContain('suostumus.' + k);
+      expect(L.fi.suostumus[k]).toBeTruthy(); expect(L.en.suostumus[k]).toBeTruthy(); expect(L.sv.suostumus[k]).toBeTruthy();
+      expect(require_('./tm_lang_sv_odotuslista.cjs')).not.toContain('suostumus.' + k);
     }
   });
 });

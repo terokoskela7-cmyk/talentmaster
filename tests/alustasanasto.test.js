@@ -128,7 +128,7 @@ describe('Vertailu koodeina: sama alusta eri työkaluista on vertailukelpoinen (
     const eri = KK.tmKaariRenderPelaaja({ hh_historia: [{ pvm: '2026-09-01', lin30m: 4.3, alusta: 'mondo_yleisurheilualusta' }, { pvm: '2026-10-04', lin30m: 4.0, alusta: 'Tekonurmi' }] }, { esc });
     expect(eri, 'eri alusta → segmentoitu (§22)').not.toContain('30 m nopeutui');
   });
-  it('Pelaaja näyttää alustan nimenä (t("alusta.<koodi>")), ei raakakoodia; fi + en olemassa, sv odotuslistalla', () => {
+  it('Pelaaja näyttää alustan nimenä (t("alusta.<koodi>")), ei raakakoodia; fi + en olemassa, sv viety (Gemini-erä 8.10.2026)', () => {
     const P = lue('TalentMaster_Pelaaja_v7.html');
     // AJETAAN oikea koodi (live-probe löysi: kortin paikallinen `t` varjosti t():n → TypeError alustan kanssa)
     const pura = (tun) => { const i = P.indexOf(tun); let syv = 0; for (let k = P.indexOf('{', i); k < P.length; k++) { if (P[k] === '{') syv++; else if (P[k] === '}') { syv--; if (!syv) return P.slice(i, k + 1); } } };
@@ -143,8 +143,8 @@ describe('Vertailu koodeina: sama alusta eri työkaluista on vertailukelpoinen (
     const L = require('../lib/tm_lang.js').TM_LANG;
     for (const a of A.ALUSTAT.concat(Object.keys(A.YLEISKOODIT).map((k) => ({ koodi: k })))) {
       expect(L.fi.alusta[a.koodi], a.koodi).toBeTruthy(); expect(L.en.alusta[a.koodi], a.koodi).toBeTruthy();
-      expect(L.sv.alusta && L.sv.alusta[a.koodi], 'sv vain Gemini').toBeUndefined();
+      expect(L.sv.alusta && L.sv.alusta[a.koodi], 'sv Gemini-erästä').toBeTruthy();
     }
-    expect(require('./tm_lang_sv_odotuslista.cjs')).toContain('alusta.mondo_yleisurheilualusta');
+    expect(require('./tm_lang_sv_odotuslista.cjs')).not.toContain('alusta.mondo_yleisurheilualusta');
   });
 });

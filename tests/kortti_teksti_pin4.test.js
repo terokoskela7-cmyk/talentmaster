@@ -22,11 +22,11 @@ describe('tekstit', () => {
     expect(L.en.seura.suostumuskortti_teksti).toContain('by email');
     expect(lue('TalentMaster_Seura.html')).toContain("'Näytä tämä vanhemmallesi. Kun huoltaja antaa luvan (2 min), hän saa tunnuksesi sähköpostiin.'");
   });
-  it('PIN-vihje fi + en, sv odotuslistalla', () => {
+  it('PIN-vihje fi + en + sv (Gemini-erä 8.10.2026)', () => {
     expect(L.fi.pelaaja.pin4_vihje).toBe('Vanha 4-numeroinen PIN? Paina OK');
     expect(L.en.pelaaja.pin4_vihje).toBe('Old 4-digit PIN? Press OK');
-    expect(L.sv.pelaaja.pin4_vihje).toBeUndefined();
-    expect(require_('./tm_lang_sv_odotuslista.cjs')).toContain('pelaaja.pin4_vihje');
+    expect(L.sv.pelaaja.pin4_vihje).toBeTruthy();
+    expect(require_('./tm_lang_sv_odotuslista.cjs')).not.toContain('pelaaja.pin4_vihje');
   });
 });
 

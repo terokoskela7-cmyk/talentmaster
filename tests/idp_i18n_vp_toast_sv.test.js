@@ -118,24 +118,7 @@ describe('ilmoituskanavat · kattavuus', () => {
    Uusi toast-teksti, jonka sv on Gemini-erässä. Omaa ruotsia EI kirjoiteta. Portti pysyy tiukkana:
    jos käännös ilmestyy, alempi testi punertaa ja rivi on poistettava listalta. */
 const SV_ODOTTAA_SANKTIOINTIA = [
-  // VP yksi polku (D4, 6.10.2026) — sv Teron/Gemini-erässä.
-  'Jaksoa ei voi aloittaa',
-  'Jakso tallennettu',
-  'Valitse ensin porras',
-  // PR "viesti-pelaajalle" (B): VP:n uusi viestitoiminto — sv Gemini-erässä.
-  'Viesti lähetetty pelaajalle ja perheelle',
-  'Viestin lähetys ei onnistunut',
-  // Vaihe 0 / T2: syykohtainen lähetysvirhe — sv Gemini-erässä.
-  'Ei oikeutta lähettää tälle pelaajalle',
-  'Ei yhteyttä, yritä uudelleen',
-  // PR "viesti-pelaajalle" (B6): peruminen.
-  'Merkintä peruttu',
-  'Peruminen ei onnistunut',
-  // Vastuuhenkilö (5.10.2026) — sv Gemini-erässä.
-  'Vastuuhenkilön asetus epäonnistui',
-  'Vastuuhenkilö tallennettu',
-  // R6.3-E: katselmuksen merkintöjen vahvistus — sv Gemini-erässä.
-  'Merkintöjen vahvistus epäonnistui',
+  // Tyhjä 8.10.2026: Gemini-erä sv_kaannoserae_2026-10-08.json vietiin (scripts/i18n_vie_sv_era.cjs). Uusi sanktiointia odottava avain → lisää tähän.
 ];
 
 describe('ilmoituskanavat · resolvi (kääre ei yksin riitä)', () => {

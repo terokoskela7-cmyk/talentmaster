@@ -137,11 +137,12 @@ body.demo-mode #devChrome{display:block}
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-functions-compat.js"></script>
 <script src="lib/tm_pvm.js?v=3"></script>   <!-- tmPaivaIso: paikallinen päivä tallennuksiin (ei UTC) -->
 <script src="lib/tm_kentta.js?v=3"></script>   <!-- K0: Kenttä-komponentti (ei vielä käytössä näkymissä) -->
-<script src="lib/tm_mediaviesti.js?v=2"></script>   <!-- R6.4: linkin tunnistus + tyyppinimet -->
+<script src="lib/tm_mediaviesti.js?v=3"></script>   <!-- R6.4: linkin tunnistus + tyyppinimet -->
 <script src="lib/tm_klippi_perhe.js?v=1"></script>   <!-- R6.4 PR 2: Katsokaa yhdessä / keskustelu -->
 <script src="lib/tm_appcheck.js?v=2"></script>
 <script src="lib/tm_verkko.js?v=1"></script>   <!-- verkkokatko: 1 uudelleenyritys + Yhteyskatko-ilmoitus + Sentry warning -->
-<script src="lib/tm_lang.js?v=32"></script>   <!-- i18n V0 putki · V1-B/B2: +vanhempi./nav.-avaimet + kielivalitsin + syväsisältö (nimen taivutus poistettu) -->
+<script src="lib/tm_lang.js?v=33"></script>   <!-- i18n V0 putki · V1-B/B2: +vanhempi./nav.-avaimet + kielivalitsin + syväsisältö (nimen taivutus poistettu) -->
+<script src="lib/tm_lib_i18n.js?v=1"></script>   <!-- sv-kartta kirjastojen FI-avaimille (päätös A, vaihtoehto 2; generoitu Gemini-erästä) — ennen lib-tiedostoja -->
 <script src="docs/testit_indeksit.js?v=13"></script>
 <script src="lib/tm_alusta.js?v=2"></script>   <!-- PR D2: alustakoodi/-nimi ennätysriveille -->
 <script src="lib/tm_ennatykset.js?v=6"></script>   <!-- PR D2: ennätysrivit alustoittain (tmEnnatysRivit, jaettu Pelaajan kanssa) -->
@@ -1899,7 +1900,7 @@ async function _lahetaKehu(emoji, teksti) {
    Huoltaja lukee lapsen klipit (nakyvyys 'pelaaja' | 'huoltaja'; Rules v3.50: vaatii lapsen suostumuksen 'annettu'). U8–12: lapsi valitsee 3 vaihtoehdosta, huoltaja kuittaa "Katsoimme yhdessä" ja lähettää valmentajalle. Ei lukuja (§7.22). ═══ */
 window._vKp = window._vKp || { ladattu: 0, lapsi: null, ketjut: null, valittu: null, valinta: '', kuittaa: false, tallentaa: false };
 function _vKpO() { const L = window._lapsi || {}; return { esc: _vEsc, t: _vKpT, tila: 'huoltaja', nimi: L.etunimi || '', valitseFn: '_vKpValitse', kuittaaFn: '_vKpKuittaa', lahetaFn: '_vKpLaheta', avaaFn: '_vKpAvaa' }; }
-function _vKpT(k) { const v = t(k); return (v === k) ? k : v; }   // puuttuva tm_lang-avain → avain → libin fi-oletus
+function _vKpT(k) { const lib = (typeof window.tmLibT === 'function') ? window.tmLibT(k) : undefined; if (lib !== undefined) return lib; /* jaettu libikartta (lib/tm_lib_i18n.js, sv) ensin */ const v = t(k); return (v === k) ? k : v; }   // puuttuva tm_lang-avain → avain → libin fi-oletus
 function _vEsc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
 async function _vKpLataa(pakota) {
   const P = window._vKp, L = window._lapsi, nyt = Date.now(); if (!window.TM_KLIPPI_PERHE || !_db || !L || !L.seuraId || !L.id || !(_auth && _auth.currentUser)) return;
