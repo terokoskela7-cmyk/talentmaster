@@ -95,15 +95,15 @@ describe('Admin — Pilotin tila: Käyttöaste (osio libissä, kuoressa vain lii
   const luo = (extra) => {
     const els = { kayttoasteAlue: { innerHTML: '', insertAdjacentHTML(_p, h) { this.innerHTML += h; } }, kayttoastePaivitaBtn: { disabled: false, textContent: '' } };
     const kyselyt = [];
-    const db = { collection: () => ({ doc: (sid) => ({ collection: (k) => ({ orderBy: (f, d) => ({ limit: (n) => ({ get: async () => { kyselyt.push({ sid, k, f, d, n }); if (sid === 'rikki') throw new Error('ei oikeutta'); return { docs: koost.slice().reverse().map((x) => ({ data: () => x })) }; } }) }) }) }) }) };
+    const db = { collection: () => ({ doc: (sid) => ({ collection: (k) => ({ where: (f, op, v) => ({ get: async () => { kyselyt.push({ sid, k, f, op, v }); if (sid === 'rikki') throw new Error('ei oikeutta'); return { docs: koost.map((x) => ({ id: x.vk, data: () => x })).reverse() }; } }) }) }) }) };
     const kutsut = [];
     const A2 = KA.tmKayttoasteAdmin(Object.assign({ db, document: { getElementById: (id) => els[id] }, FieldPath: { documentId: () => 'id' }, kutsu: async (d) => { kutsut.push(d.seuraId); return { data: d.seuraId === 'tuore' ? { tuore: true } : {} }; },
       seurat: () => [{ id: 'kpv', nimi: 'KPV' }, { id: 'rikki', nimi: 'Rikki' }, { id: 'demo', nimi: 'Demo', demo: true }, { id: 'vanha', nimi: 'Vanha', tila: 'arkistoitu' }, { id: 'pois', nimi: 'Pois', aktiivinen: false }], esc: (x) => String(x) }, extra || {}));
     return { A2, els, kyselyt, kutsut };
   };
-  it('lataa: 4 viimeisintä koostetta (kooste, id desc, limit 4); demo/arkistoitu/ei-aktiivinen pois; yhden seuran virhe ei kaada muita', async () => {
+  it('lataa: jaettu lukufunktio (kooste, id >= tunniste, ei laskevaa järjestystä); demo/arkistoitu/ei-aktiivinen pois; yhden seuran virhe ei kaada muita', async () => {
     const { A2, els, kyselyt } = luo(); await A2.lataa();
-    expect(kyselyt.map((x) => x.sid)).toEqual(['kpv', 'rikki']); expect(kyselyt[0]).toMatchObject({ k: 'kooste', f: 'id', d: 'desc', n: 4 });
+    expect(kyselyt.map((x) => x.sid)).toEqual(['kpv', 'rikki']); expect(kyselyt[0]).toMatchObject({ k: 'kooste', f: 'id', op: '>=' }); expect(kyselyt[0].v).toMatch(/^\d{4}-W\d{2}$/);
     expect(els.kayttoasteAlue.innerHTML).toContain('data-kayttoaste-seura="kpv"'); expect(els.kayttoasteAlue.innerHTML).toContain('Luku epäonnistui');
     for (const e of ['Demo', 'Vanha', 'Pois']) expect(els.kayttoasteAlue.innerHTML).not.toContain(e);
   });
@@ -129,7 +129,7 @@ describe('VP_v25 — Koti: Sovelluksen käyttö', () => {
     const f = poimiFunktio(V, 'vpKayttoasteLataa');
     const koost = [dok('2026-W40', { u13: J('KPV U13', 12, 2) }), dok('2026-W41', { u13: J('KPV U13', 12, 5) })];
     const mk = (heita) => { const els = { vpKayttoasteKortti: { innerHTML: 'vanha' } };
-      const sb = { document: { getElementById: (id) => els[id] }, _seuraId: 'kpv', _db: { collection: () => ({ doc: (sid) => { sb.luettu = sid; return { collection: () => ({ orderBy: () => ({ limit: () => ({ get: async () => { if (heita) throw new Error('permission-denied'); return { docs: koost.slice().reverse().map((d) => ({ data: () => d })) }; } }) }) }) }; } }) }, firebase: { firestore: { FieldPath: { documentId: () => 'id' } } }, vpT: (x) => x, window: { TM_KAYTTOASTE: KA } };
+      const sb = { document: { getElementById: (id) => els[id] }, _seuraId: 'kpv', _db: { collection: () => ({ doc: (sid) => { sb.luettu = sid; return { collection: () => ({ where: () => ({ get: async () => { if (heita) throw new Error('permission-denied'); return { docs: koost.map((d) => ({ id: d.vk, data: () => d })).reverse() }; } }) }) }; } }) }, firebase: { firestore: { FieldPath: { documentId: () => 'id' } } }, vpT: (x) => x, window: { TM_KAYTTOASTE: KA } };
       vm.createContext(sb); vm.runInContext(f + '\nthis.__f = vpKayttoasteLataa;', sb); return { sb, els }; };
     const a = mk(false); await a.sb.__f(); expect(a.sb.luettu).toBe('kpv'); expect(a.els.vpKayttoasteKortti.innerHTML).toContain('Sovelluksen käyttö'); expect(a.els.vpKayttoasteKortti.innerHTML).toContain('data-kayttoaste="taulu"');
     const b = mk(true); await b.sb.__f(); expect(b.els.vpKayttoasteKortti.innerHTML).toBe('');
@@ -147,4 +147,27 @@ describe('Gemini-erä S1.1 (docs/i18n/sv_kaannoserae_s11.json) — elävä', () 
     expect(avaimet.filter((k) => !ERA[k])).toEqual([]);
     Object.entries(ERA).forEach(([k, r]) => { expect(r.fi).toBe(k); expect(typeof r.sv).toBe('string'); });
   });
+});
+
+
+describe('tmKayttoasteLueKoosteet — jaettu lukufunktio, ei indeksiä (S1.1-bugikorjaus)', () => {
+  const SIJ = (ids) => ({ collection: () => ({ doc: () => ({ collection: () => ({ where: (f, op, v) => ({ get: async () => ({ docs: ids.filter((id) => (op === '>=' ? id >= v : true)).map((id) => ({ id, data: () => ({ vk: id }) })) }) }) }) }) }) });
+  const FP = { documentId: () => 'id' };
+  it('tmIsoViikko: vuodenvaihde W52/W53 → W01 ja sama tunniste kuin palvelimen kooste-dokumentilla (viikonRajat.tunniste)', () => {
+    const H = require('../functions/helsinki_paiva.js');
+    expect([Date.UTC(2025, 11, 28, 12), Date.UTC(2025, 11, 29, 12), Date.UTC(2026, 0, 4, 12), Date.UTC(2026, 11, 28, 12), Date.UTC(2027, 0, 3, 12), Date.UTC(2027, 0, 4, 12)].map(KA.tmIsoViikko)).toEqual(['2025-W52', '2026-W01', '2026-W01', '2026-W53', '2026-W53', '2027-W01']);
+    for (let ms = Date.UTC(2024, 11, 1); ms < Date.UTC(2029, 0, 10); ms += 7 * 3600000) expect(KA.tmIsoViikko(ms), new Date(ms).toISOString()).toBe(H.viikonRajat(ms).tunniste);
+  });
+  it('rajaus 5 viikkoa taaksepäin; 4 viimeistä nousevassa (vanhin→uusin) järjestyksessä, vuodenvaihteen yli', async () => {
+    const nyt = Date.UTC(2027, 0, 12, 10);   // 2027-W02; raja 5 vk sitten = 2026-W50 (W02→W01→W53→W52→W51→W50)
+    const kaikki = ['2026-W45', '2026-W48', '2026-W49', '2026-W50', '2026-W51', '2026-W52', '2026-W53', '2027-W01', '2027-W02'];
+    const r = await KA.tmKayttoasteLueKoosteet(SIJ(kaikki.slice().reverse()), FP, 'kpv', nyt);
+    expect(r.map((x) => x.vk)).toEqual(['2026-W52', '2026-W53', '2027-W01', '2027-W02']);
+    expect(KA.tmIsoViikko(nyt - 5 * 7 * 86400000)).toBe('2026-W50');
+  });
+  it('alle 4 koostetta tai ei yhtään → palautetaan mitä on / tyhjä', async () => {
+    expect((await KA.tmKayttoasteLueKoosteet(SIJ(['2026-W42']), FP, 'kpv', Date.UTC(2026, 9, 12, 10))).length).toBe(1);
+    expect(await KA.tmKayttoasteLueKoosteet(SIJ([]), FP, 'kpv', Date.UTC(2026, 9, 12, 10))).toEqual([]);
+  });
+  it('kysely ei käytä orderBy:tä lainkaan (stubissa ei ole orderBy → kutsu heittäisi)', async () => { await expect(KA.tmKayttoasteLueKoosteet(SIJ(['2026-W42']), FP, 'kpv', Date.UTC(2026, 9, 12, 10))).resolves.toBeTruthy(); });
 });
