@@ -6,6 +6,7 @@
  * AJO: cd functions && node ../scripts/laske_solo_pelaajat.js   (ADC)
  */
 'use strict';
+if (require.main !== module) throw new Error('scripts/laske_solo_pelaajat.js käsittelee tuotantodataa — aja suoraan: node scripts/laske_solo_pelaajat.js (ei require/import)');   // vahinkoajon esto (S1)
 const admin = require('firebase-admin');
 admin.initializeApp({ projectId: 'talentmaster-pilot' });
 const db = admin.firestore();

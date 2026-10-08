@@ -8,6 +8,7 @@
  * Ajo: cd functions && node ../scripts/lupapyynto_tulos_siirto.js [--apply]   (gcloud ADC)
  */
 'use strict';
+if (require.main !== module) throw new Error('scripts/lupapyynto_tulos_siirto.js käsittelee tuotantodataa — aja suoraan: node scripts/lupapyynto_tulos_siirto.js (ei require/import)');   // vahinkoajon esto (S1)
 const admin = require('firebase-admin');
 const crypto = require('crypto');
 admin.initializeApp({ projectId: 'talentmaster-pilot' });

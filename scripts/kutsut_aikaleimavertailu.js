@@ -13,7 +13,7 @@
  * AJO (gcloud ADC):  node scripts/kutsut_aikaleimavertailu.js [seuraId=sjk]
  */
 const admin = require('firebase-admin');
-if (!admin.apps.length) admin.initializeApp({ projectId: 'talentmaster-pilot' });
+const _alusta = () => { if (!admin.apps.length) admin.initializeApp({ projectId: 'talentmaster-pilot' }); };   // vasta ajettaessa (require ei avaa tuotantoyhteyttä)
 
 const RAJA_S = 120;
 const id4 = (id) => String(id || '').slice(0, 4) || '—';
@@ -32,6 +32,7 @@ function tulkinta({ hyvaksyttyMs, suostumusAnnettuMs, pelaajaLuotuMs, pelaajaOle
 }
 
 async function main() {
+  _alusta();
   const seuraId = process.argv[2] || 'sjk';
   const db = admin.firestore();
   const seura = db.collection('seurat').doc(seuraId);

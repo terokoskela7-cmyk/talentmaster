@@ -13,6 +13,7 @@
  * VAIN .get() — ei set/update/delete/batch/add. Tulosteessa EI nimiä, sähköposteja eikä vapaatekstejä: vain dokumentti-ID:t,
  * päivämäärät, koodit ja lähdekentät (protokolla/lahde/tapahtumaId).
  */
+if (require.main !== module) throw new Error('scripts/diag_phv_alkupera.js käsittelee tuotantodataa — aja suoraan: node scripts/diag_phv_alkupera.js (ei require/import)');   // vahinkoajon esto (S1)
 const path = require('path');
 const admin = require(path.join(__dirname, '..', 'functions', 'node_modules', 'firebase-admin'));
 const argv = process.argv.slice(2);

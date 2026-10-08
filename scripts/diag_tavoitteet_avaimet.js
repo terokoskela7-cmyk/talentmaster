@@ -13,6 +13,7 @@
  * Ajo:  node scripts/diag_tavoitteet_avaimet.js [--seura=sjk]
  * Vaatii GOOGLE_APPLICATION_CREDENTIALS-ympäristömuuttujan (Admin SDK).
  */
+if (require.main !== module) throw new Error('scripts/diag_tavoitteet_avaimet.js käsittelee tuotantodataa — aja suoraan: node scripts/diag_tavoitteet_avaimet.js (ei require/import)');   // vahinkoajon esto (S1)
 
 const admin = require('firebase-admin');
 const AH = require('../lib/tm_arviointi_historia.js');

@@ -11,6 +11,7 @@
  * Ajo: cd functions && node ../scripts/sisarustarkistus.js   (gcloud ADC)
  */
 'use strict';
+if (require.main !== module) throw new Error('scripts/sisarustarkistus.js käsittelee tuotantodataa — aja suoraan: node scripts/sisarustarkistus.js (ei require/import)');   // vahinkoajon esto (S1)
 const admin = require('firebase-admin');
 admin.initializeApp({ projectId: 'talentmaster-pilot' });
 const db = admin.firestore();

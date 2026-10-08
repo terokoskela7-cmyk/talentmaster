@@ -19,7 +19,7 @@
  * AJO (gcloud ADC, Teron tili):  node scripts/kutsut_suostumukset_tarkistus.js
  */
 const admin = require('firebase-admin');
-if (!admin.apps.length) admin.initializeApp({ projectId: 'talentmaster-pilot' });
+const _alusta = () => { if (!admin.apps.length) admin.initializeApp({ projectId: 'talentmaster-pilot' }); };   // vasta ajettaessa (require ei avaa tuotantoyhteyttä)
 
 const id4 = (id) => String(id || '').slice(0, 4);
 const pvm = (t) => (t && t.toDate ? t.toDate().toISOString().slice(0, 10) : '—');
@@ -35,6 +35,7 @@ function paivitettyLuonninJalkeen(d) {
 function kenttaAvain(data) { return Object.keys(data || {}).sort().join(','); }
 
 async function main() {
+  _alusta();
   const db = admin.firestore();
 
   // ── (A) kutsut ────────────────────────────────────────────────────────────

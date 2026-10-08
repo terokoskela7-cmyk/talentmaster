@@ -89,4 +89,52 @@ function tapahtumaPaattyy(ev) {
   return pidempi || a;
 }
 
-module.exports = { kelloHelsinki, huomisenRajat, helsinginKeskiyo, siirtyma, AIKAVYOHYKE, paivanLoppuHelsinki, onKellonaika, tapahtumaPaattyy };
+
+// Helsingin kellonaika (v, kk 1–12, pv, h, min) → UTC-hetki (ms). Kaksi kierrosta kuten helsinginKeskiyo (DST-raja: su 25.10.2026 klo 04 kello siirtyy taaksepäin → "keskiyö + 21 h" olisi väärin).
+function helsinginHetki(vuosi, kk, pv, h, min) {
+  const utc = Date.UTC(vuosi, kk - 1, pv, h || 0, min || 0);
+  let t = utc - siirtyma(utc);
+  t = utc - siirtyma(t);
+  return t;
+}
+
+const PAIVA_MS = 86400000;
+const _p2 = (n) => String(n).padStart(2, '0');
+const _iso = (d) => d.getUTCFullYear() + '-' + _p2(d.getUTCMonth() + 1) + '-' + _p2(d.getUTCDate());
+
+/**
+ * ISO-viikko Helsingin ajassa (ma–su) hetkelle ms. Tunniste 'vvvv-Www' (ISO-viikkovuosi).
+ * Palauttaa { vuosi, vk, tunniste, maanantaiIso, sunnuntaiIso, alkuMs (ma 00:00 Helsinki), loppuMs (seuraava ma 00:00), su21Ms (su klo 21:00 Helsinki) }.
+ */
+function viikonRajat(ms) {
+  const o = _osat(ms);
+  const pv = new Date(Date.UTC(o.year, o.month - 1, o.day));
+  const dow = (pv.getUTCDay() + 6) % 7;   // ma = 0
+  const ma = new Date(pv.getTime() - dow * PAIVA_MS), su = new Date(ma.getTime() + 6 * PAIVA_MS), seurMa = new Date(ma.getTime() + 7 * PAIVA_MS);
+  const to = new Date(ma.getTime() + 3 * PAIVA_MS);   // viikon torstai määrää ISO-vuoden
+  const isoVuosi = to.getUTCFullYear();
+  const tammi4 = new Date(Date.UTC(isoVuosi, 0, 4)), tammi4dow = (tammi4.getUTCDay() + 6) % 7;
+  const vk1To = new Date(tammi4.getTime() - tammi4dow * PAIVA_MS + 3 * PAIVA_MS);
+  const vk = Math.round((to.getTime() - vk1To.getTime()) / (7 * PAIVA_MS)) + 1;
+  return {
+    vuosi: isoVuosi, vk, tunniste: isoVuosi + '-W' + _p2(vk), maanantaiIso: _iso(ma), sunnuntaiIso: _iso(su),
+    alkuMs: helsinginKeskiyo(ma.getUTCFullYear(), ma.getUTCMonth() + 1, ma.getUTCDate()),
+    loppuMs: helsinginKeskiyo(seurMa.getUTCFullYear(), seurMa.getUTCMonth() + 1, seurMa.getUTCDate()),
+    su21Ms: helsinginHetki(su.getUTCFullYear(), su.getUTCMonth() + 1, su.getUTCDate(), 21, 0),
+  };
+}
+
+/** Helsingin kalenterivuosi hetkelle ms (ikälaskenta). */
+function helsinginVuosi(ms) { return _osat(ms).year; }
+
+/** Viikkotunniste 'vvvv-Www' → viikonRajat (null jos virheellinen). */
+function viikkoTunnisteesta(tunniste) {
+  const m = /^(\d{4})-W(\d{2})$/.exec(String(tunniste || '')); if (!m) return null;
+  const tammi4 = new Date(Date.UTC(+m[1], 0, 4)), dow = (tammi4.getUTCDay() + 6) % 7;
+  const ma1 = tammi4.getTime() - dow * PAIVA_MS;
+  const torstai = ma1 + ((+m[2] - 1) * 7 + 3) * PAIVA_MS;
+  const r = viikonRajat(helsinginHetki(new Date(torstai).getUTCFullYear(), new Date(torstai).getUTCMonth() + 1, new Date(torstai).getUTCDate(), 12, 0));
+  return r.tunniste === tunniste ? r : null;
+}
+
+module.exports = { helsinginVuosi, helsinginHetki, viikonRajat, viikkoTunnisteesta, kelloHelsinki, huomisenRajat, helsinginKeskiyo, siirtyma, AIKAVYOHYKE, paivanLoppuHelsinki, onKellonaika, tapahtumaPaattyy };
