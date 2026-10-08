@@ -1,0 +1,648 @@
+<!doctype html>
+<html lang="fi">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Seurahallinta · 21</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&family=Cormorant+Garamond:wght@300;400;500&display=swap">
+<style>
+/* TalentMaster-väritys (carbon / bone / teal) Kenttä-ideaan. Tumma = operatiivinen oletus. */
+:root{--bg:#1C1C1A;--sur:#242421;--sur2:#2C2C28;--ink:#F2EFE6;--ink2:#CFCBC0;--ink3:#8F8C83;--line:rgba(242,239,230,.14);--chalk:rgba(242,239,230,.55);--chalk2:rgba(242,239,230,.28);
+ --teal:#28B090;--teal-dim:rgba(40,176,144,.16);--teal-brd:rgba(40,176,144,.45);--amber:#E0A040;--amber-dim:rgba(224,160,64,.16);--red:#D06A5A;--red-dim:rgba(208,106,90,.14);--blue:#7FA6DE;color-scheme:dark}
+@media (prefers-color-scheme:light){:root:not([data-theme="dark"]){--bg:#F2EFE6;--sur:#FBFAF6;--sur2:#EAE6DA;--ink:#1C1C1A;--ink2:#3E3C37;--ink3:#6B695F;--line:rgba(28,28,26,.16);--chalk:rgba(28,28,26,.45);--chalk2:rgba(28,28,26,.2);--teal:#1A7A5E;--teal-dim:rgba(26,122,94,.12);--teal-brd:rgba(26,122,94,.4);--amber:#9A6512;--amber-dim:rgba(224,160,64,.2);--red:#A8473A;--red-dim:rgba(168,71,58,.12);--blue:#3D6AA8;color-scheme:light}}
+:root[data-theme="light"]{--bg:#F2EFE6;--sur:#FBFAF6;--sur2:#EAE6DA;--ink:#1C1C1A;--ink2:#3E3C37;--ink3:#6B695F;--line:rgba(28,28,26,.16);--chalk:rgba(28,28,26,.45);--chalk2:rgba(28,28,26,.2);--teal:#1A7A5E;--teal-dim:rgba(26,122,94,.12);--teal-brd:rgba(26,122,94,.4);--amber:#9A6512;--amber-dim:rgba(224,160,64,.2);--red:#A8473A;--red-dim:rgba(168,71,58,.12);--blue:#3D6AA8;color-scheme:light}
+:root[data-theme="dark"]{color-scheme:dark}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--ink);font-family:'DM Sans',system-ui,sans-serif;font-size:15px;line-height:1.55;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1180px;margin:0 auto;padding:28px 16px 90px;display:grid;gap:60px}
+.wrap>*,section>*{min-width:0}
+section{display:grid;gap:18px;scroll-margin-top:12px}
+.disp{font-family:Archivo,system-ui,sans-serif;font-variation-settings:"wdth" 72;font-weight:800;line-height:.95;letter-spacing:-.01em}
+h1{font-family:Archivo;font-variation-settings:"wdth" 72;font-weight:800;font-size:clamp(44px,7vw,84px);line-height:.92;letter-spacing:-.01em;max-width:14ch}
+h2{font-family:Archivo;font-variation-settings:"wdth" 75;font-weight:800;font-size:clamp(28px,4vw,40px);line-height:1;letter-spacing:-.01em}
+h3{font-family:Archivo;font-variation-settings:"wdth" 80;font-weight:700;font-size:20px;line-height:1.1}
+p{color:var(--ink2);max-width:72ch}
+b{font-weight:600;color:var(--ink)}
+.meta{font-size:12.5px;color:var(--ink3)}
+.mono{font-family:'DM Mono',monospace;font-size:12px;color:var(--ink3)}
+code{font-family:'DM Mono',monospace;font-size:12px;color:var(--ink2)}
+.top{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between}
+.tbtn{font:inherit;font-size:13px;padding:7px 12px;border:1px solid var(--line);border-radius:4px;background:transparent;color:var(--ink2);cursor:pointer}
+.tbtn:focus-visible,.nav a:focus-visible{outline:2px solid var(--teal);outline-offset:2px}
+.nav{display:flex;flex-wrap:wrap;gap:8px}
+.nav a{font-size:13px;color:var(--ink2);text-decoration:none;border:1px solid var(--line);border-radius:4px;padding:6px 12px}
+.nav a b{color:var(--teal);font-family:'DM Mono';margin-right:6px}
+.legend{display:flex;flex-wrap:wrap;gap:8px}
+.state{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;padding:3px 9px;border-radius:3px;border:1px solid var(--line);color:var(--ink2)}
+.state.ok{color:var(--teal);border-color:var(--teal-brd);background:var(--teal-dim)}
+.state.low{color:var(--blue);border-color:var(--line)}
+.state.wait{color:var(--amber);background:var(--amber-dim);border-color:transparent}
+.state.err{color:var(--red);background:var(--red-dim);border-color:transparent}
+.decided{display:grid;gap:8px;font-size:14.5px;color:var(--ink2);max-width:80ch}
+.decided li{margin-left:18px}
+.states{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,330px),1fr));gap:24px;align-items:start}
+.states.wide{grid-template-columns:repeat(auto-fit,minmax(min(100%,520px),1fr))}
+.frame{display:grid;gap:10px;align-content:start}
+.frame>.lab{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.frame>.note{font-size:13.5px;color:var(--ink3);max-width:40ch}
+/* puhelin */
+.ph{border:1px solid var(--line);border-radius:28px;background:var(--bg);padding:16px 14px 18px;display:grid;gap:12px;max-width:370px;width:100%;justify-self:center}
+.sb{display:flex;justify-content:space-between;font-size:12px;color:var(--ink3);padding:0 4px}
+.big{font-family:Archivo;font-variation-settings:"wdth" 70;font-weight:800;font-size:52px;line-height:.9;letter-spacing:-.02em}
+.big small{display:block;font-family:'DM Sans';font-weight:500;font-size:13px;letter-spacing:0;color:var(--ink3);margin-top:6px}
+.big.md{font-size:38px}
+/* kenttä */
+.pitch{position:relative;border:1.5px solid var(--chalk);border-radius:4px;overflow:hidden;background:var(--sur)}
+.pitch svg{display:block;width:100%;height:auto}
+.pitch .zone{position:absolute;background:var(--teal-dim);border:1.5px dashed var(--teal);border-radius:3px;display:grid;align-content:end;padding:7px 8px;gap:1px}
+.pitch .zone b{font-family:Archivo;font-variation-settings:"wdth" 75;font-weight:800;font-size:19px;line-height:1;color:var(--teal)}
+.pitch .zone span{font-size:11px;color:var(--ink3)}
+.pitch .zone.dim{border-color:var(--chalk2);background:transparent}
+.pitch .zone.dim b{color:var(--ink3);font-size:14px}
+.pitch .tag{position:absolute;font-family:'DM Mono';font-size:10.5px;color:var(--ink3);background:var(--bg);padding:2px 6px;border-radius:3px;border:1px solid var(--line);white-space:nowrap}
+.pitch .tag.now{color:var(--amber);border-color:var(--amber);font-weight:500}
+/* listat */
+.osat{display:grid;border-top:1.5px solid var(--chalk)}
+.osat div{display:grid;grid-template-columns:auto 1fr auto;gap:10px;padding:9px 2px;border-bottom:1px solid var(--line);font-size:15px;font-weight:500;align-items:center}
+.osat div span{font-size:12px;color:var(--ink3);font-weight:400}
+.osat div .k{font-family:'DM Mono';font-size:12px;color:var(--ink3);width:14px}
+.osat div.now{color:var(--amber)}
+.osat div.now span,.osat div.now .k{color:var(--amber)}
+.osat div.done .k{color:var(--teal)}
+.tuki{border-left:3px solid var(--teal);padding:4px 0 4px 12px;font-size:14.5px;color:var(--ink2)}
+.tuki b{font-weight:600}
+.btn{background:var(--ink);color:var(--bg);font-family:Archivo;font-variation-settings:"wdth" 80;font-weight:800;font-size:17px;text-align:center;padding:13px;border-radius:4px}
+.btn.teal{background:var(--teal);color:#0E1E19}
+.btn.gh{background:transparent;color:var(--ink);border:1.5px solid var(--ink)}
+.btn.dis{opacity:.4}
+.navb{display:grid;grid-template-columns:repeat(3,1fr);text-align:center;font-size:12px;font-weight:600;border-top:1px solid var(--line);padding-top:12px;color:var(--ink3)}
+.navb .on{color:var(--ink)}
+.score{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.score div{border:1px solid var(--line);padding:12px;border-radius:4px;display:grid;gap:4px}
+.score b{font-family:Archivo;font-variation-settings:"wdth" 70;font-weight:800;font-size:38px;line-height:.9}
+.score span{font-size:12px;color:var(--ink3)}
+.pill3{display:flex;gap:6px;flex-wrap:wrap}
+.pill3 span{border:1px solid var(--line);border-radius:3px;padding:6px 12px;font-size:13.5px;font-weight:500;color:var(--ink2)}
+.pill3 span.on{border-color:var(--teal);background:var(--teal-dim);color:var(--teal)}
+.pcard{background:var(--sur);border:1px solid var(--line);border-radius:4px;padding:12px;display:grid;gap:8px}
+.pcard .eb{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--teal)}
+.row1{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+.lnk{font-size:13.5px;font-weight:600;color:var(--teal)}
+.quiet{border:1px dashed var(--line);border-radius:4px;padding:12px;font-size:14.5px;color:var(--ink2)}
+.choice{display:grid;grid-template-columns:auto 1fr;gap:10px;border:1px solid var(--line);border-radius:4px;padding:10px 12px;font-size:14.5px;align-items:start}
+.choice.on{border-color:var(--teal);background:var(--teal-dim)}
+.choice .k{font-family:Archivo;font-variation-settings:"wdth" 70;font-weight:800;font-size:22px;line-height:1;color:var(--teal);padding-top:2px}
+.choice.b .k{color:var(--blue)}
+.choice p{font-size:13.5px;color:var(--ink3)}
+.wk{display:flex;gap:6px}.wk span{flex:1;height:30px;border-radius:3px;border:1px solid var(--line);display:grid;place-items:center;font-size:12px;color:var(--ink3)}
+.wk span.on{background:var(--teal-dim);border-color:var(--teal);color:var(--teal);font-weight:600}
+/* työpöytä */
+.sheet{border:1px solid var(--line);border-radius:6px;background:var(--sur);padding:18px;display:grid;gap:14px}
+.sh-h{display:flex;flex-wrap:wrap;gap:10px;justify-content:space-between;align-items:baseline;border-bottom:1px solid var(--line);padding-bottom:12px}
+.who{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.who .n{font-family:Archivo;font-variation-settings:"wdth" 78;font-weight:800;font-size:24px}
+.chip{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:500;padding:3px 9px;border:1px solid var(--line);border-radius:3px;color:var(--ink2);white-space:nowrap}
+.chip.ok{color:var(--teal);border-color:var(--teal-brd);background:var(--teal-dim)}
+.two>.pitch{align-self:start}
+.two{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,230px),1fr));gap:12px}
+.fld{display:grid;gap:5px}
+.fld label{font-size:13px;font-weight:600;color:var(--ink2)}
+.inp{border:1px solid var(--line);border-radius:4px;padding:10px 12px;font-size:14.5px;color:var(--ink);background:var(--bg)}
+.inp.bad{border-color:var(--red);background:var(--red-dim)}
+.hint{font-size:13px;color:var(--ink3)}
+.hint.err{color:var(--red)}
+.cmp{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:12px;padding:9px 0;border-top:1px solid var(--line);font-size:14px;align-items:center}
+.cmp .a{color:var(--ink3);font-size:13px}.cmp .b{font-weight:600;color:var(--teal);font-size:13px}
+.dec3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.dec3 span{border:1px solid var(--line);border-radius:4px;padding:10px;text-align:center;font-weight:600;font-size:14px}
+.dec3 span.on{border-color:var(--teal);background:var(--teal-dim);color:var(--teal)}
+.btnrow{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.sbtn{font-size:14px;font-weight:600;padding:9px 16px;border-radius:4px;background:var(--teal);color:#0E1E19;display:inline-block}
+.sbtn.gh{background:transparent;color:var(--ink2);border:1px solid var(--line)}
+.sbtn.dis{opacity:.4}
+.notice{border-left:3px solid var(--amber);background:var(--amber-dim);padding:10px 12px;font-size:14px;color:var(--ink2)}
+.notice.info{border-left-color:var(--blue);background:transparent;border:1px solid var(--line);border-left-width:3px}
+/* joukkuekenttä */
+.team{position:relative;border:1.5px solid var(--chalk);border-radius:4px;background:var(--bg);overflow:hidden}
+.team svg{display:block;width:100%;height:auto}
+.team .pz{position:absolute;border:1.5px dashed var(--teal);background:var(--teal-dim);border-radius:3px;padding:5px 7px;font-size:12px;font-weight:600;line-height:1.15;display:grid;gap:1px}
+.team .pz small{font-size:10.5px;font-weight:400;color:var(--ink3);font-family:'DM Mono'}
+.team .pz.wait{border-color:var(--amber);background:var(--amber-dim)}
+.team .pz.none{border-color:var(--chalk2);background:transparent;color:var(--ink3)}
+.tw{overflow-x:auto;border:1px solid var(--line);border-radius:6px}
+table{width:100%;border-collapse:collapse;font-size:13.5px;min-width:640px}
+th,td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-size:12px;font-weight:600;color:var(--ink3);background:var(--sur2)}
+td code{white-space:nowrap}
+.tok{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,220px),1fr));gap:12px}
+.tok div{border:1px solid var(--line);border-radius:4px;padding:12px;display:grid;gap:4px;font-size:13.5px}
+.tok .sw{height:28px;border-radius:3px;border:1px solid var(--line)}
+@media (prefers-reduced-motion:no-preference){.tbtn{transition:border-color .15s}}
+</style>
+</head>
+
+<style>
+/* 13: työpöydän lisäluokat */
+.desk{border:1px solid var(--line);border-radius:6px;background:var(--sur);display:grid;gap:0;overflow:hidden;container-type:inline-size}
+.desk .cmp{grid-template-columns:minmax(0,1fr) auto auto}.desk .cmp span:first-child{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.desk .dh{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--line)}
+.desk .dtabs{display:flex;gap:4px;padding:8px 12px 0;border-bottom:1px solid var(--line);background:var(--bg)}
+.desk .dtabs span{padding:8px 14px;font-size:13.5px;font-weight:600;color:var(--ink3);border-bottom:2px solid transparent}
+.desk .dtabs span.on{color:var(--ink);border-bottom-color:var(--teal)}
+.desk .db{padding:16px;display:grid;gap:14px}
+.desk .two2{display:grid;grid-template-columns:minmax(0,300px) minmax(0,1fr);gap:16px;align-items:start}
+@media(max-width:760px){.desk .two2{grid-template-columns:minmax(0,1fr)}}
+@container (max-width: 760px){.desk .two2{grid-template-columns:minmax(0,1fr)}.desk .two2>div:first-child{max-width:340px}}
+.sig{display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:center;border:1px solid var(--line);border-radius:4px;padding:10px 12px}
+.sig .dot{width:12px;height:12px;border-radius:50%;background:var(--teal)}
+.sig.w .dot{background:var(--amber)}.sig.n .dot{background:var(--ink3)}
+.sig b{font-family:Archivo;font-variation-settings:"wdth" 78;font-weight:800;font-size:18px}
+.q3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.q3 div{border:1px solid var(--line);border-radius:4px;padding:10px;display:grid;gap:2px}
+.q3 .k{font-size:12px;color:var(--ink3)}.q3 .v{font-family:Archivo;font-variation-settings:"wdth" 72;font-weight:800;font-size:26px;line-height:1}
+.q3 .s{font-size:12px;color:var(--ink3)}
+.q3 .v.w{color:var(--amber)}
+@media(max-width:520px){.q3{grid-template-columns:minmax(0,1fr)}}
+.step{border:1px solid var(--teal);background:var(--teal-dim);border-radius:4px;padding:12px 14px;display:grid;gap:6px}
+.step .h{font-family:Archivo;font-variation-settings:"wdth" 78;font-weight:800;font-size:18px}
+.step .per{font-size:13.5px;color:var(--ink2)}
+.step.w{border-color:var(--amber);background:var(--amber-dim)}
+.step.q{border-style:dashed;border-color:var(--line);background:transparent}
+.tog{display:inline-flex;border:1px solid var(--line);border-radius:4px;overflow:hidden;font-size:12.5px}
+.tog span{padding:5px 10px;color:var(--ink3)}.tog span.on{background:var(--ink);color:var(--bg);font-weight:600}
+.kortti{border:1px solid var(--line);border-radius:4px;display:grid}
+.kortti .kr{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:12px;padding:10px 12px;border-top:1px solid var(--line);align-items:center}
+.kortti .kr:first-child{border-top:0}
+.kortti .kr.on{background:var(--teal-dim)}
+.kortti .ar{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ink3)}
+.kortti .nm{font-family:Archivo;font-variation-settings:"wdth" 80;font-weight:700;font-size:16px}
+.kortti .sm{font-size:13px;color:var(--ink3)}
+.tl{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:6px}
+.tl div{border:1px solid var(--line);border-radius:4px;padding:8px;font-size:12.5px;display:grid;gap:2px;min-height:64px}
+.tl div.done{border-color:var(--teal)}.tl div.now{border-color:var(--amber);background:var(--amber-dim)}
+.tl .m{font-family:'DM Mono';font-size:11px;color:var(--ink3)}
+@media(max-width:700px){.tl{grid-template-columns:repeat(3,minmax(0,1fr))}}
+.osat.staff div{grid-template-columns:auto 1fr auto auto auto}
+.lvl{font-family:'DM Mono';font-size:12px;color:var(--ink2)}
+.lvl b{color:var(--teal)}
+.obs{display:flex;gap:6px;flex-wrap:wrap}
+.obs span{border:1px solid var(--line);border-radius:3px;padding:5px 10px;font-size:13px}
+.obs span.on{border-color:var(--teal);background:var(--teal-dim);color:var(--teal);font-weight:600}
+.radar{display:grid;grid-template-columns:auto 1fr;gap:12px;align-items:center}
+.tst{display:grid;grid-template-columns:1fr auto auto auto;gap:8px 12px;font-size:13.5px;padding:7px 0;border-top:1px solid var(--line);align-items:center}
+.tst .m{font-family:'DM Mono';font-size:12px;color:var(--ink3)}
+.tst .t{font-family:Archivo;font-variation-settings:"wdth" 72;font-weight:800;font-size:18px}
+.lock{opacity:.55}
+.map th,.map td{font-size:13px}
+</style>
+
+
+<style>
+/* 20: Seurahallinta – johtaminen. Sivutypografia Cormorant + DM Sans (D37 C); ei Kenttä-komponenttia. */
+.serif{font-family:'Cormorant Garamond',Georgia,serif;font-weight:400}
+.prof-sw{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.prof-sw span{border:1px solid var(--line);border-radius:4px;padding:7px 14px;font-size:13.5px;font-weight:600;color:var(--ink3);cursor:pointer}
+.prof-sw span.on{border-color:var(--teal);background:var(--teal-dim);color:var(--teal)}
+.prof-sw .lab{font-size:12px;color:var(--ink3);border:0;padding:0;font-weight:500;cursor:default}
+.hid{display:none!important}
+/* hallituksen sivu */
+.board{border:1px solid var(--line);border-radius:6px;background:var(--sur);overflow:hidden;container-type:inline-size}
+.board .bh{display:flex;flex-wrap:wrap;justify-content:space-between;gap:10px;align-items:baseline;padding:14px 18px;border-bottom:1px solid var(--line);background:var(--bg)}
+.board .bh .t{font-family:'Cormorant Garamond',Georgia,serif;font-weight:500;font-size:26px}
+.board .bh .m{font-size:12.5px;color:var(--ink3)}
+.board .bb{padding:14px 18px;display:grid;gap:10px}
+.q7{display:grid;grid-template-columns:28px 16px minmax(0,1fr) auto;gap:10px 12px;align-items:start;padding:10px 0;border-top:1px solid var(--line)}
+.q7:first-child{border-top:0}
+.q7 .n{font-family:'Cormorant Garamond',Georgia,serif;font-size:24px;line-height:1;color:var(--ink3)}
+.q7 .d{width:12px;height:12px;border-radius:50%;background:var(--teal);margin-top:5px}
+.q7 .d.w{background:var(--amber)}.q7 .d.r{background:var(--red)}.q7 .d.n{background:var(--ink3)}
+.q7 .tx{display:grid;gap:3px;min-width:0}
+.q7 .tx .k{font-size:11px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--ink3)}
+.q7 .tx .s{font-family:'Cormorant Garamond',Georgia,serif;font-size:21px;line-height:1.2}
+.q7 .tx .a{font-size:13.5px;color:var(--ink2)}
+.q7 .tx .a b{color:var(--teal)}
+.q7 .ag{font-size:12px;color:var(--ink3);white-space:nowrap;text-align:right;display:grid;gap:2px}
+.q7 .ag .lnk{font-size:12px}
+@container (max-width:560px){.q7{grid-template-columns:28px 16px minmax(0,1fr)}.q7 .ag{grid-column:3;text-align:left}}
+.kpi{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.kpi div{border:1px solid var(--line);border-radius:6px;padding:12px 14px;display:grid;gap:2px;background:var(--sur)}
+.kpi .k{font-size:12px;color:var(--ink3)}
+.kpi .v{font-family:'Cormorant Garamond',Georgia,serif;font-weight:400;font-size:38px;line-height:1}
+.kpi .v small{font-size:15px;color:var(--ink3)}
+.kpi .s{font-size:12.5px;color:var(--ink3)}
+.kpi .v.w{color:var(--amber)}
+@media(max-width:700px){.kpi{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.goal{display:grid;grid-template-columns:16px minmax(0,1fr) auto;gap:10px;align-items:center;border:1px solid var(--line);border-radius:4px;padding:9px 12px;font-size:14px}
+.goal .d{width:10px;height:10px;border-radius:50%;background:var(--teal)}.goal .d.w{background:var(--amber)}.goal .d.r{background:var(--red)}.goal .d.n{background:var(--ink3)}
+.goal .m{font-size:12px;color:var(--ink3)}
+.goal .v{font-family:'Cormorant Garamond',Georgia,serif;font-size:22px;white-space:nowrap}
+.goal .v small{font-size:12px;color:var(--ink3);font-family:'DM Sans'}
+.bar{height:6px;background:var(--line);border-radius:3px;overflow:hidden}
+.bar i{display:block;height:100%;background:var(--teal)}
+.bar i.w{background:var(--amber)}
+.trend{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px;align-items:end;height:90px;margin-top:14px}
+.trend div{background:var(--teal);opacity:.75;border-radius:2px 2px 0 0;position:relative}
+.trend div span{position:absolute;top:-16px;left:0;right:0;text-align:center;font-family:'DM Mono';font-size:10px;color:var(--ink3)}
+.trend div.me{background:var(--amber);opacity:1}
+.trend-l{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px;font-family:'DM Mono';font-size:10px;color:var(--ink3);text-align:center}
+.ref{font-size:12.5px;color:var(--ink3);display:flex;gap:12px;flex-wrap:wrap}
+.ref b{color:var(--ink2);font-weight:600}
+/* ikäkäyrä (D93) */
+.agec{margin:18px 6px 6px;display:grid;gap:14px}
+.agec svg{width:100%;height:190px;display:block;overflow:visible}
+.agec .lg{display:flex;gap:14px;font-size:12px;color:var(--ink3);margin-top:6px;flex-wrap:wrap}
+.agec .lg i{display:inline-block;width:14px;height:3px;vertical-align:middle;margin-right:5px;border-radius:2px}
+/* portaat (D94) */
+.stairs{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:8px;align-items:end}
+.stairs .st2{display:grid;gap:4px;align-content:end;border-bottom:2px solid var(--line);padding-bottom:6px}
+.stairs .dots{display:grid;grid-template-columns:repeat(4,10px);gap:3px;justify-content:center}
+.stairs .dots i{width:10px;height:10px;border-radius:50%;display:block;background:var(--ink3);opacity:.5}
+.stairs .dots i.u{background:var(--teal);opacity:1}.stairs .dots i.l{background:var(--amber);opacity:1}.stairs .dots i.o{background:var(--blue);opacity:.9}.stairs .dots i.t{background:var(--ink3);opacity:.45}
+.stairs .nm{font-family:'DM Mono';font-size:11px;text-align:center;color:var(--ink2)}
+.stairs .cnt{font-size:10.5px;text-align:center;color:var(--ink3)}
+.stairs .st2:nth-child(2){padding-bottom:12px}.stairs .st2:nth-child(3){padding-bottom:18px}.stairs .st2:nth-child(4){padding-bottom:24px}.stairs .st2:nth-child(5){padding-bottom:30px}.stairs .st2:nth-child(6){padding-bottom:36px}.stairs .st2:nth-child(7){padding-bottom:42px}
+.lgd{display:flex;gap:12px;flex-wrap:wrap;font-size:12.5px;color:var(--ink2);margin-top:8px}
+.lgd span::before{content:"";display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:5px;vertical-align:middle;background:var(--ink3)}
+.lgd .u::before{background:var(--teal)}.lgd .l::before{background:var(--amber)}.lgd .o::before{background:var(--blue)}.lgd .t::before{background:var(--ink3);opacity:.45}
+.comp{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
+.comp div{border:1px solid var(--line);border-radius:4px;padding:8px;text-align:center;font-size:12px;color:var(--ink3)}
+.comp b{display:block;font-family:'Cormorant Garamond',Georgia,serif;font-size:24px;font-weight:400;color:var(--ink)}
+.comp b small{font-size:12px;color:var(--ink3);font-family:'DM Sans'}
+.comp div.w{border-color:var(--amber)}
+@media(max-width:600px){.comp{grid-template-columns:repeat(2,minmax(0,1fr))}.stairs{grid-template-columns:repeat(4,minmax(0,1fr))}.stairs .st2{padding-bottom:6px!important}}
+.tier{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+@media(max-width:760px){.tier{grid-template-columns:minmax(0,1fr)}}
+.tier .t{border:1px solid var(--line);border-radius:6px;padding:12px 14px;display:grid;gap:4px;background:var(--sur)}
+.tier .t .h{font-family:'Cormorant Garamond',Georgia,serif;font-size:21px;font-weight:500}
+.tier .t .m{font-size:12.5px;color:var(--ink3)}
+.tier .t ul{margin:0;padding-left:16px;font-size:13.5px;display:grid;gap:2px;color:var(--ink2)}
+.vp2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px;align-items:start}
+@media(max-width:760px){.vp2{grid-template-columns:minmax(0,1fr)}}
+.coh{display:grid;grid-template-columns:auto minmax(0,1fr) auto auto;gap:6px 12px;font-size:13.5px;align-items:center;align-content:start}
+.pcard{align-content:start}
+.coh b{font-family:'DM Mono';font-size:12px;font-weight:500;color:var(--ink3)}
+.coh .p{font-family:'DM Mono';font-size:12px;color:var(--ink2)}
+.coh .st{font-size:11px;font-weight:600;padding:2px 7px;border-radius:3px;border:1px solid var(--line);color:var(--ink2)}
+.coh .st.ok{color:var(--teal);border-color:var(--teal-brd);background:var(--teal-dim)}.coh .st.w{color:var(--amber);background:var(--amber-dim);border-color:transparent}
+.rae{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;font-size:12px;text-align:center}
+.rae div{border:1px solid var(--line);border-radius:4px;padding:6px}
+.rae b{display:block;font-family:'Cormorant Garamond',Georgia,serif;font-size:22px;font-weight:400}
+.rae div.w{border-color:var(--amber)}
+.rule{display:grid;grid-template-columns:auto minmax(0,1fr);gap:8px 12px;font-size:14px;align-items:start}
+.rule b{font-family:'DM Mono';font-size:12px;color:var(--teal);padding-top:3px}
+.phases{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr));gap:10px}
+.phase{border:1px solid var(--line);border-radius:6px;background:var(--sur);padding:14px;display:grid;gap:6px}
+.phase .h{font-family:'Cormorant Garamond',Georgia,serif;font-weight:500;font-size:22px}
+.phase ul{padding-left:18px;font-size:14px;color:var(--ink2);display:grid;gap:3px}
+.map th,.map td{font-size:13px}
+.side{display:grid;gap:12px;align-content:start}
+.two{grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr))}
+</style>
+
+<div class="wrap">
+
+<header style="display:grid;gap:18px">
+ <div class="top"><span class="mono">TalentMaster™ · IDP V2 · 21 · seurahallinta: johtaminen · luonnos 4 · 8.10.2026 · numerointi: 21 ja D80–D94 (20 ja D65–D67 ovat Seuran pulssi S2)</span><button class="tbtn" id="theme" type="button">Vaihda teema</button></div>
+ <h1 class="serif" style="font-weight:400">Seurahallinta: seitsemän kysymystä, yksi sivu</h1>
+ <p>Seurahallinta jakautuu kahteen: <b>Johtaminen</b> (tämä dokumentti: hallituksen sivu kuukausirytmissä ja VP:n sivu viikkorytmissä) ja <b>Hallinto</b> (nykyiset välilehdet: pelaajat, joukkueet, henkilöstö, sopimukset, suostumukset, tuonti). Kehitystilanne v0 (Lohkot 1–4, ensinäkymä rengas · lause · seuraavaksi, <code>raporttiHTML</code>) ja Seuran pulssi S1 (17, D40–D45) eivät katoa: hallituksen sivu on v0:n ensinäkymä laajennettuna seitsemään riviin, kuukausiraportti on v0:n <code>raporttiHTML</code>, ja strategiset tavoitteet ovat v0:n <code>omat_tavoitteet</code> laajennettuna – ei uutta kokoelmaa. Seuraprofiili valitsee painotuksen ja oletustavoitteet; data ja mittarit ovat kaikille samat. Luvut keksittyjä paitsi pallonetin liigatason luvut (20.9.2026). Esimerkkiseura keksitty ("Seura"), ei KPV:n lukuja.</p>
+ <div class="quiet"><b>Periaate (07):</b> seura voi johtaa vain prosessia – tulos tulee 2–8 vuoden viiveellä. Siksi sivu näyttää prosessin tässä kuussa, kohortit tällä kaudella ja strategian kolmen vuoden kaarella, samalla liikennevalolla (D45). Hallitus ei arvioi yksittäistä alaikäistä: hallituksen sivulla ei ole nimiä (§7.22 pätee myös ylöspäin). Jokaisen kysymyksen alla on yksi poikkeama ja yksi toimenpide, ei taulukkoa.</div>
+ <div class="prof-sw" id="profsw"><span class="lab">Seuraprofiili (D82):</span><span data-p="kasvattaja">Kasvattajaseura</span><span data-p="kehittaja" class="on">Kehittäjäseura</span><span data-p="huippu">Huippuseura</span><span class="lab">· vaihtaa oletustavoitteet ja näkyvät lohkot, ei dataa</span></div>
+ <div class="legend"><span class="state ok">Tavoitteessa</span><span class="state wait">Seurattava</span><span class="state err">Päätös tarvitaan</span><span class="state low">Ei vielä dataa</span></div>
+ <nav class="nav" aria-label="Näkymät"><a href="#h1"><b>1</b>Hallituksen sivu</a><a href="#h2"><b>2</b>Polun pää</a><a href="#h3"><b>3</b>VP:n sivu</a><a href="#h9"><b>3b</b>Ääni, päätösloki, virta</a><a href="#h4"><b>4</b>Kolme profiilia</a><a href="#h5"><b>5</b>Aikatasot ja liikennevalo</a><a href="#h6"><b>6</b>Markkina-arvo</a><a href="#h7"><b>7</b>Data ja Rules</a><a href="#h8"><b>8</b>Vaiheet ja päätökset</a></nav>
+</header>
+
+<!-- ============ 1 HALLITUS ============ -->
+<section id="h1">
+ <h2 class="serif">1 · Hallituksen sivu: seitsemän kysymystä kuukaudessa (D80, D81, D85)</h2>
+ <p>Yksi sivu, luettavissa 60 sekunnissa ennen kokousta. Jokainen rivi on kysymys, johon vastataan yhdellä lauseella ja yhdellä liikennevalolla; alla yksi poikkeama ja yksi toimenpide. Ei nimiä, ei pelaajalistaa. Porautuminen vie VP:n sivulle, ei hallitukselle.</p>
+ <div class="board">
+  <div class="bh"><span class="t">Seura · lokakuu 2026</span><span class="m">Profiili: <span data-only="kasvattaja">kasvattajaseura</span><span data-only="kehittaja">kehittäjäseura</span><span data-only="huippu">huippuseura</span> · 312 pelaajaa · 18 joukkuetta · päivitetty su 4.10.</span></div>
+  <div class="bb">
+   <div class="q7"><span class="n">1</span><span class="d w"></span><div class="tx"><span class="k">Toteutuuko strategiamme?</span><span class="s">Kolmesta tavoitteesta yksi on jäljessä: valmennuslinja on käytössä 12/18 joukkueessa.</span><span class="a">Toimenpide: <b>kuusi joukkuetta ilman jaksoja – VP käy läpi oto-valmentajien kanssa marraskuussa.</b></span><span class="meta">Kattavuus: 3/3 tavoitetta datasta · Kori 3 -kehikko 2027–28: 4/6 kriteeriä raiteilla</span></div><div class="ag"><span>3 v kaari</span><span class="lnk">tavoitteet ↓</span></div></div>
+   <div class="q7"><span class="n">2</span><span class="d"></span><div class="tx"><span class="k">Tehdäänkö sitä, mitä linja sanoo?</span><span class="s">Jaksot käynnissä 71 %:lla pelaajista, katselmukset ajallaan 82 %.</span><span class="a">Poikkeama: P11 ei jaksoja kolmeen viikkoon. <b>Ohjaus, ei rangaistus (D50).</b></span></div><div class="ag"><span>tämä kuukausi · S1</span><span class="lnk">pulssi →</span></div></div>
+   <div class="q7"><span class="n">3</span><span class="d"></span><div class="tx"><span class="k">Kehittyvätkö pelaajamme omaa lähtötasoaan vastaan?</span><span class="s">Kuudesta kohortista viisi etenee; U13 PHV-korjattuna tasaisesti, ei huolta.</span><span class="a">Vertailu vain omaan lähtötasoon (§28). <b>Ei toimenpidettä.</b></span><span class="meta">Kattavuus: testit 9/2026, N = 230/312 · U17 ilman syksyn testejä (Lohko 4)</span></div><div class="ag"><span>tämä kausi</span><span class="lnk">kohortit →</span></div></div>
+   <div class="q7"><span class="n">4</span><span class="d r"></span><div class="tx"><span class="k">Pysyvätkö pelaajat?</span><span class="s">U14-ikäluokasta lähti kesällä 9 pelaajaa (18 %), joista 7 syntynyt loka–joulukuussa.</span><span class="a">Päätös tarvitaan: <b>RAE-tasapaino tasojoukkueissa – bio-banding-kokeilu U13–U14 keväällä?</b></span><span class="meta">Pelaajan ääni (kauden loppu, 71 % vastasi): "haluan jatkaa" 88 % · "valmentaja tuntee minut" 74 % – U14 61 % (D89)</span></div><div class="ag"><span>tämä kausi</span><span class="lnk">retention →</span></div></div>
+   <div class="q7"><span class="n">5</span><span class="d w"></span><div class="tx"><span class="k">Onko valmennus laadukasta ja riittävää?</span><span class="s">31 valmentajaa, 24 oto; neljällä joukkueella yksi valmentaja.</span><span class="a">Toimenpide: <b>UEFA C -koulutukseen kaksi oto-valmentajaa, seura maksaa.</b></span></div><div class="ag"><span>tämä kausi</span><span class="lnk">valmennus →</span></div></div>
+   <div class="q7"><span class="n">6</span><span class="d"></span><div class="tx"><span class="k">Onko seura turvallinen ja sääntöjen mukainen?</span><span class="s">Suostumukset 97 %, vastuuhenkilö jokaisella pelaajalla, audit kunnossa.</span><span class="a">Poikkeama: 9 pelaajaa ilman suostumusta – <b>viestit ja klipit eivät lähde heille ennen kuin lupa on.</b></span></div><div class="ag"><span>jatkuva</span><span class="lnk">riskit →</span></div></div>
+   <div class="q7" data-only="kehittaja huippu"><span class="n">7</span><span class="d"></span><div class="tx"><span class="k">Pääseekö polku perille?</span><span class="s">Kolme kasvattia Veikkausliigassa, yhteensä 2 410 minuuttia; liigan nuorten osuus 20,3 %.</span><span class="a">Poikkeama: <b>yksi kasvatti ilman minuutteja syyskuussa – keskustelu seuran kanssa lainasta.</b></span></div><div class="ag"><span>3–8 v · pallonetti</span><span class="lnk">polun pää ↓</span></div></div>
+   <div class="q7" data-only="kasvattaja"><span class="n">7</span><span class="d"></span><div class="tx"><span class="k">Pääseekö polku perille – ja tuleeko sisään?</span><span class="s">Sisään 38 (perhefutis 24, uudet 14) · ulos 31, joista 5 yhteistyöseuraan ja 3 aluejoukkueeseen; perheistä 84 % mukana.</span><span class="a"><b>Ei toimenpidettä.</b> Virta on plussalla; yhteistyöseuraan siirtyneet ovat kasvattajaseuran "polun pää" (D91).</span></div><div class="ag"><span>tämä kausi</span><span class="lnk">virta ↓</span></div></div>
+  </div>
+ </div>
+
+ <h3 class="serif" style="font-size:24px;margin-top:22px">Strategiset tavoitteet (kysymys 1, D83)</h3>
+ <p>Seura asettaa 3–5 tavoitetta itse; profiili antaa oletukset, jotka VP tai hallitus muokkaa. Tavoite on v0:n <code>omat_tavoitteet/{tid}</code> kahdella uudella kentällä: <code>vastuu_uid</code> ja <code>lahde:'data'</code> + <code>mittari_avain</code>, jolloin kirjaus syntyy koosteesta eikä käsin. Palloliiton Kori 3 -kehikko (v0 Lohko 1) näkyy saman listan alla ulkoisena mittatikkuna – samoin kuin CIES huippuseuralle.</p>
+ <div style="display:grid;gap:8px">
+  <div class="goal" data-only="kasvattaja"><span class="d w"></span><div><div>Drop-out U13–U15 alle 15 % / kausi</div><div class="bar"><i class="w" style="width:60%"></i></div><span class="m">lähde: pelaajarekisteri · vastuu: VP</span></div><span class="v">18 %<small> / 15 %</small></span></div>
+  <div class="goal" data-only="kasvattaja"><span class="d"></span><div><div>Jokaisella joukkueella vähintään kaksi valmentajaa</div><div class="bar"><i style="width:78%"></i></div><span class="m">lähde: henkilöstö · vastuu: toiminnanjohtaja</span></div><span class="v">14<small> / 18</small></span></div>
+  <div class="goal" data-only="kasvattaja"><span class="d"></span><div><div>Perheiden kuittaukset yli 80 % kuukaudessa</div><div class="bar"><i style="width:84%"></i></div><span class="m">lähde: viikkokatsaukset · vastuu: VP</span></div><span class="v">84 %</span></div>
+  <div class="goal" data-only="kehittaja"><span class="d w"></span><div><div>Valmennuslinja käytössä kaikissa joukkueissa (jaksot + katselmukset)</div><div class="bar"><i class="w" style="width:67%"></i></div><span class="m">lähde: S1 kooste · vastuu: VP</span></div><span class="v">12<small> / 18</small></span></div>
+  <div class="goal" data-only="kehittaja"><span class="d"></span><div><div>U17-joukkueen koostumus: ≥ 70 % omasta akatemiasta tai yhteistyöseuroista (D92)</div><div class="bar"><i style="width:82%"></i></div><span class="m">lähde: joukkueen rosteri + kasvattilista · vastuu: VP · tavoite jakaumana, ei lukuna</span></div><span class="v">82<small> %</small></span></div>
+  <div class="goal" data-only="kehittaja"><span class="d"></span><div><div>Kolme omaa kasvattia edustusjoukkueessa 2028</div><div class="bar"><i style="width:66%"></i></div><span class="m">lähde: kasvattilista · vastuu: urheilujohtaja</span></div><span class="v">2<small> / 3</small></span></div>
+  <div class="goal" data-only="kehittaja"><span class="d r"></span><div><div>Drop-out U13–U15 alle 12 %, RAE-tasapaino Q4 ≥ 18 %</div><div class="bar"><i class="w" style="width:40%"></i></div><span class="m">lähde: pelaajarekisteri · vastuu: VP</span></div><span class="v">18 %<small> · Q4 11 %</small></span></div>
+  <div class="goal" data-only="kehittaja"><span class="d n"></span><div><div>Aluejoukkue- ja maajoukkuekutsut vähintään 6 / kausi</div><div class="bar"><i style="width:0%"></i></div><span class="m">lähde: käsin · vastuu: VP · ei vielä kirjattu</span></div><span class="v">–</span></div>
+  <div class="goal" data-only="huippu"><span class="d w"></span><div><div>Edustuksen ihannekoostumus: 75 % kasvatteja (oma + yhteistyöakatemiat), 60 % alle 22 v (D92)</div><div class="comp" style="margin-top:6px"><div class="w">oma akatemia<b>10<small> / 12–14</small></b></div><div>yhteistyöakatemiat<b>6<small> / 6–8</small></b></div><div>pohjoismaiset<b>3<small> / 2–4</small></b></div><div class="w">muut<b>6<small> / 2–4</small></b></div></div><span class="m">lähde: edustuksen rosteri + kasvattilista · vastuu: urheilujohtaja · malli FCN "ideal squad composition"</span></div><span class="v">66<small> % / 75 %</small></span></div>
+  <div class="goal" data-only="huippu"><span class="d"></span><div><div>Omien kasvattien osuus edustuksen minuuteista ≥ 25 %</div><div class="bar"><i style="width:88%"></i></div><span class="m">lähde: pallonetti-kooste · vastuu: urheilujohtaja</span></div><span class="v">22 %<small> / 25 %</small></span></div>
+  <div class="goal" data-only="huippu"><span class="d w"></span><div><div>Pelaajamyynnin tuotto 3 v keskiarvo ≥ tavoite</div><div class="bar"><i class="w" style="width:55%"></i></div><span class="m">lähde: käsin (sopimukset) · vastuu: toimitusjohtaja</span></div><span class="v">55 %</span></div>
+  <div class="goal" data-only="huippu"><span class="d"></span><div><div>U17–U19: dokumentoitu polku jokaisella (jaksot, katselmukset, klipit)</div><div class="bar"><i style="width:92%"></i></div><span class="m">lähde: S1 kooste · vastuu: akatemiapäällikkö</span></div><span class="v">92 %</span></div>
+  <div class="goal" data-only="huippu"><span class="d w"></span><div><div>Drop-out U13–U15 alle 12 %, RAE Q4 ≥ 18 %</div><div class="bar"><i class="w" style="width:50%"></i></div><span class="m">sama kuin kehittäjäseuralla – akatemia on 90 % kasvattajaseura</span></div><span class="v">15 %</span></div>
+ </div>
+</section>
+
+<!-- ============ 2 POLUN PÄÄ ============ -->
+<section id="h2" data-only="kehittaja huippu">
+ <h2 class="serif">2 · Polun pää: omat kasvatit aikuisissa (D86)</h2>
+ <p>TalentMaster mittaa prosessia ja kehitystä U6–U17; tämä lohko mittaa tulosta: saako kasvatti aikuisten minuutteja. Luvut tulevat pallonetin kausikoosteesta (Veikkausliigan viralliset tilastot, julkinen data), kasvattajaseura seuran omasta kasvattilistasta. Liigan ja Tanskan luvut ovat ulkoinen mittatikku – seura ei aseta niitä itse.</p>
+ <div class="kpi">
+  <div><span class="k">Kasvatteja Veikkausliigassa</span><span class="v">3</span><span class="s">+ Ykkösliiga 4 · kausi 2026</span></div>
+  <div><span class="k">Minuutteja yhteensä</span><span class="v">2 410</span><span class="s">mediaani 640 / pelaaja</span></div>
+  <div><span class="k">Osuus edustuksen minuuteista</span><span class="v">22<small> %</small></span><span class="s">tavoite 25 % (huippu)</span></div>
+  <div><span class="k">Liigan nuorten osuus 17–21 v</span><span class="v">20,3<small> %</small></span><span class="s">alle 21 v 13,0 % · Tanska 11,7 % (CIES 2025)</span></div>
+ </div>
+ <div class="two" style="margin-top:12px">
+  <div class="pcard" style="align-content:start"><span class="eb">Minuutit iän mukaan 16–20 v · seura vs. liigan mediaaniseura (D93)</span>
+   <div class="agec"><svg viewBox="0 -4 400 176" preserveAspectRatio="none" aria-label="Kumulatiiviset minuutit iän mukaan">
+    <g stroke="var(--line)" stroke-width="1" stroke-dasharray="2 3"><line x1="0" y1="10" x2="400" y2="10"/><line x1="0" y1="45" x2="400" y2="45"/><line x1="0" y1="80" x2="400" y2="80"/><line x1="0" y1="115" x2="400" y2="115"/><line x1="0" y1="150" x2="400" y2="150"/></g>
+    <g font-family="DM Mono" font-size="9" fill="var(--ink3)"><text x="2" y="8">12 000</text><text x="2" y="43">9 000</text><text x="2" y="78">6 000</text><text x="2" y="113">3 000</text></g>
+    <polyline fill="none" stroke="var(--ink3)" stroke-width="2" stroke-dasharray="4 3" points="20,150 115,148 210,140 305,118 390,88"/>
+    <polyline fill="none" stroke="var(--teal)" stroke-width="2.5" points="20,146 115,132 210,96 305,60 390,22"/>
+    <g fill="var(--teal)"><circle cx="20" cy="146" r="3"/><circle cx="115" cy="132" r="3"/><circle cx="210" cy="96" r="3"/><circle cx="305" cy="60" r="3"/><circle cx="390" cy="22" r="3"/></g>
+    <g font-family="DM Mono" font-size="10" fill="var(--ink3)" text-anchor="middle"><text x="20" y="165">16</text><text x="115" y="165">17</text><text x="210" y="165">18</text><text x="305" y="165">19</text><text x="390" y="165">20</text></g>
+   </svg><div class="lg"><span><i style="background:var(--teal)"></i>seuran kasvatit (kumulatiivinen, kaikki sarjat)</span><span><i style="background:var(--ink3)"></i>Veikkausliiga-seurojen mediaani (pallonetti)</span></div></div>
+   <p class="meta" style="margin:10px 0 0">Kumulatiiviset minuutit iässä 16–20 kertovat, <em>milloin</em> polku avautuu – riippumatta siitä, montako kasvattia sattuu olemaan. Vertailuviiva tulee pallonetin kaikkien seurojen datasta: julkinen aikuisten tilasto, ei suostumusta tarvita. Malli: FCN "Using young players" (FCN 18-vuotiaana 13 000 min, FCK 0).</p>
+  </div>
+  <div class="side">
+   <div class="pcard"><span class="eb">Kauden poikkeama</span><div style="font-size:14px">Yksi kasvatti ilman minuutteja syyskuussa (edustus pelasi 5 ottelua). Toimenpide: urheilujohtaja keskustelee lainasta Ykkösliigaan. <span class="meta">Sama idea kuin pallonetin "kauden poikkeama" ja 17:n D45 poikkeamarivi.</span></div></div>
+   <div class="pcard"><span class="eb">Kasvattilista – kuka on "oma"</span><div style="font-size:14px">Veikkausliigan tilastossa ei ole kasvattajaseuraa. Kolme lähdettä: 1) seura syöttää listan itse (<code>seurat/{sid}/kasvatit</code>, nyt), 2) Palloliiton edustusoikeushistoria (jos saatavilla), 3) TalentMasterin oma historia – pelaaja oli seuran rekisterissä U12–U17 (syntyy itsestään 3–5 vuodessa). Määritelmä (D86, FCN:n homegrown-määritelmän mukaan): <b>kasvatti = seuran tai sen yhteistyöseuran rekisterissä vähintään kaksi kautta ennen 18 ikävuotta.</b> Sama pelaaja voi olla kahden seuran kasvatti – kasvattajaseura, josta hän siirtyi 15-vuotiaana, saa polun pään myös.</div></div>
+   <div class="pcard"><span class="eb">Rajat</span><div style="font-size:14px">pallonetti pysyy julkisena ja erillisenä; TalentMaster lukee kausikoosteen (JSON), ei toisinpäin. Nimet näkyvät vain VP:n sivulla (aikuisten julkinen tilasto); hallituksen sivulla luvut. 17-vuotiaat samalla säännöllä kuin pallonetissa.</div></div>
+  </div>
+ </div>
+</section>
+
+<!-- ============ 3 VP ============ -->
+<section id="h3">
+ <h2 class="serif">3 · VP:n sivu: samat kysymykset, viikkorytmi, porautuminen</h2>
+ <p>VP näkee saman seitsemän kysymyksen rakenteen, mutta jokainen rivi avautuu: joukkueet riveinä (D42), kohortit, retention ikäluokittain, valmentajat. Tästä porautuminen vie V4-kehitystyöpöytään (18) ja Seuran pulssiin (17). Kehitystilanne v0:n mittarikirjasto ja kehikot ovat kohdan 3 laskenta.</p>
+ <div class="vp2">
+  <div class="pcard"><span class="eb">3 · Kohortit – PHV-korjattu kehitys omaa lähtötasoa vastaan</span>
+   <div class="coh">
+    <b>U11</b><span>42 pelaajaa · 2 joukkuetta</span><span class="p">+0,4 / kausi</span><span class="st ok">etenee</span>
+    <b>U12</b><span>39 · 2</span><span class="p">+0,5</span><span class="st ok">etenee</span>
+    <b>U13</b><span>44 · 2 · PHV LAH 60 %</span><span class="p">+0,3 (korj.)</span><span class="st ok">etenee</span>
+    <b>U14</b><span>41 · 2 · PHV PH 45 %</span><span class="p">+0,1 (korj.)</span><span class="st w">kuorma</span>
+    <b>U15</b><span>36 · 2</span><span class="p">+0,4</span><span class="st ok">etenee</span>
+    <b>U17</b><span>28 · 1</span><span class="p">+0,2</span><span class="st ok">etenee</span>
+   </div>
+   <p class="meta" style="margin:8px 0 0">Kohortti = ikäluokka vuodesta toiseen, ei yksilö. Muutos = kohortin mediaani omaa lähtötasoaan vastaan, §28: pre-PHV-kohortin fyysiset testit eivät laske kehitystä. U14 "kuorma" = §25 kuormarajoitin usealla pelaajalla kasvupyrähdyksessä – ei heikkous.</p>
+  </div>
+  <div class="pcard"><span class="eb">3 · Portaat – ikäluokan seuraava askel (D94, vain henkilökunta)</span>
+   <div class="stairs">
+    <div class="st2"><div class="dots"><i class="u"></i><i class="l"></i><i class="l"></i><i class="o"></i><i class="o"></i><i class="o"></i><i class="o"></i><i class="o"></i><i class="o"></i><i class="o"></i><i class="t"></i><i class="t"></i></div><span class="nm">U11</span><span class="cnt">1 · 2 · 7 · 2</span></div>
+    <div class="st2"><div class="dots"><i class="u"></i><i class="u"></i><i class="l"></i><i class="l"></i><i class="l"></i><i class="o"></i><i class="o"></i><i class="o"></i><i class="o"></i><i class="o"></i><i class="t"></i><i class="t"></i></div><span class="nm">U12</span><span class="cnt">2 · 3 · 5 · 2</span></div>
+    <div class="st2"><div class="dots"><i class="u"></i><i class="u"></i><i class="l"></i><i class="l"></i><i class="l"></i><i class="l"></i><i class="l"></i><i class="o"></i><i class="o"></i><i class="o"></i><i class="o"></i><i class="t"></i></div><span class="nm">U13</span><span class="cnt">2 · 5 · 4 · 1</span></div>
+    <div class="st2"><div class="dots"><i class="u"></i><i class="l"></i><i class="l"></i><i class="o"></i><i class="o"></i><i class="o"></i><i class="o"></i><i class="o"></i><i class="t"></i><i class="t"></i><i class="t"></i><i class="t"></i></div><span class="nm">U14</span><span class="cnt">1 · 2 · 5 · 4</span></div>
+    <div class="st2"><div class="dots"><i class="u"></i><i class="u"></i><i class="l"></i><i class="l"></i><i class="o"></i><i class="o"></i><i class="o"></i><i class="o"></i><i class="o"></i><i class="o"></i><i class="t"></i><i class="t"></i></div><span class="nm">U15</span><span class="cnt">2 · 2 · 6 · 2</span></div>
+    <div class="st2"><div class="dots"><i class="u"></i><i class="u"></i><i class="u"></i><i class="l"></i><i class="o"></i><i class="o"></i><i class="o"></i><i class="o"></i><i class="o"></i><i class="t"></i><i class="t"></i><i class="t"></i></div><span class="nm">U17</span><span class="cnt">3 · 1 · 5 · 3</span></div>
+    <div class="st2"><div class="dots"><i class="u"></i><i class="u"></i><i class="l"></i><i class="o"></i><i class="o"></i><i class="o"></i><i class="o"></i><i class="o"></i><i class="o"></i><i class="o"></i><i class="t"></i><i class="t"></i></div><span class="nm">U19</span><span class="cnt">2 · 1 · 7 · 2</span></div>
+   </div>
+   <div class="lgd"><span class="u">Ylös – valmis seuraavalle tasolle</span><span class="l">Lisähaaste – vuotta vanhempien harjoitukset</span><span class="o">Oikea taso – oikeat haasteet</span><span class="t">Toinen polku – parempi paikka yhteistyöseurassa tai harrasteryhmässä</span></div>
+   <p class="meta" style="margin:8px 0 0">Kirjataan kausikatselmuksessa kenttään <code>seuraava_askel</code> (henkilökunta). Pisteet näytetään suhteessa (12 pistettä = ikäluokka), luvut todelliset. Vastaa: montako nousee, montako paikkaa vapautuu, missä ikäluokassa haaste on liian pieni (paljon amberia = "ruoki haasteilla"). Portaat ovat ennuste, siirtymävirta (3b) on toteuma. Hallitus näkee vain määrät. Malli: FCN "composition of training squads" – neljäs luokka sanoitettu toimenpiteenä, ei leimana; ei koskaan pelaajalle (§7.22).</p>
+  </div>
+  <div class="side">
+   <div class="pcard"><span class="eb">4 · Retention ja RAE · U14 (lähteneet kesällä 2026)</span>
+    <div class="rae"><div>Q1<b>1</b>tammi–maalis</div><div>Q2<b>1</b>huhti–kesä</div><div>Q3<b>0</b>heinä–syys</div><div class="w">Q4<b>7</b>loka–joulu</div></div>
+    <p class="meta" style="margin:8px 0 0">9 lähtenyttä 50:stä (18 %). Seitsemän Q4-syntynyttä kertoo RAE-vinoumasta tasojoukkueissa, ei pelaajista. Kysymys hallitukselle: bio-banding tai tasoryhmien joustavuus (KPV:n linjan tapaan: "ei lukita vuodeksi").</p>
+   </div>
+   <div class="pcard"><span class="eb">5 · Valmennus – ohjauksen kohteet, ei paremmuuslista</span>
+    <div style="font-size:14px;display:grid;gap:4px"><span>31 valmentajaa · 7 ammatti · 24 oto (D50)</span><span>Koulutus: UEFA B 4 · UEFA C 9 · ikävaihekoulutus 12 · ei koulutusta 6</span><span>Yhden valmentajan joukkueet: P11, T12, P15, T15</span><span>Katselmukset tehty: ammatti 94 % · oto 71 % · <b style="color:var(--amber)">kolme joukkuetta 0 %</b> → VP:n käynti, ei viesti</span></div>
+   </div>
+  </div>
+ </div>
+ <div class="two" style="margin-top:12px">
+  <div class="pcard"><span class="eb">2 · Prosessi (S1 Seuran pulssi, 17)</span><div style="font-size:14px">Jaksot käynnissä 71 % · katselmukset ajallaan 82 % · teemakattavuus 5/6 · viikkokatsaukset vastattu 68 % · klipit 64/30 pv, vastattu 78 %. Joukkueet riveinä, poikkeamat ylimpänä. Tämä on olemassa oleva S1 – Seurahallinta näyttää sen koosteena, VP_v25 porautuu.</div></div>
+  <div class="pcard"><span class="eb">6 · Riskit – yksi rivi, ei dashboard</span><div style="font-size:14px">Suostumus puuttuu 9 · vastuuhenkilö puuttuu 0 · audit-poikkeamat 0 · retention-sääntö: 2 pelaajan tiedot poistettavissa (poistuneet > 2 v) · SendGrid EU-sijainti avoin (§39). Rivi on vihreä, kun kaikki nollassa; muuten amber ja yksi toimenpide.</div></div>
+  <div class="pcard"><span class="eb">Porautuminen</span><div style="font-size:14px">Rivi → joukkue (17) → pelaaja (18 V4, sama komponentti, rooli henkilökunta D38/D46). Hallituksen sivulta ei porauduta pelaajaan koskaan; VP:n sivulta aina.</div></div>
+ </div>
+</section>
+
+
+<!-- ============ 3b ÄÄNI, PÄÄTÖSLOKI, VIRTA ============ -->
+<section id="h9">
+ <h2 class="serif">3b · Pelaajan ääni, päätösloki ja siirtymävirta (D89–D91)</h2>
+ <p>Kolme asiaa, jotka seitsemästä kysymyksestä puuttuivat: kenen näkökulmasta mitataan, suljetaanko hallituksen silmukka, ja onko pysyvyys virta vai poistuma. Kaikki kolme kuuluvat sekä hallituksen että VP:n sivulle – hallitukselle ilman nimiä.</p>
+ <div class="tier">
+  <div class="t"><span class="h">Pelaajan ja perheen ääni (D89)</span><span class="m">kauden lopussa, kaksi kysymystä kummallekin · ei nimiä koosteessa</span>
+   <div class="kpi" style="grid-template-columns:repeat(2,minmax(0,1fr));margin:6px 0"><div><span class="k">"Haluan jatkaa"</span><span class="v">88<small> %</small></span><span class="s">U14 72 % · tytöt 91 %</span></div><div><span class="k">"Valmentaja tuntee minut"</span><span class="v w">74<small> %</small></span><span class="s">U14 61 % · oto-joukkueet 68 %</span></div></div>
+   <ul><li>Pelaaja: "Haluatko jatkaa ensi kaudella?" · "Tuntuuko, että valmentaja tuntee sinut pelaajana?"</li><li>Perhe: "Tiedättekö, mitä lapsenne harjoittelee nyt?" · "Suosittelisitteko seuraa?"</li><li>Kysytään viikkokatsauksen (K4) kanavassa kauden viimeisellä viikolla; vastaukset vain koosteena (N ≥ 5), §7.22</li><li>Tämä on kysymyksen 4 <em>syy</em>: retention-luku ilman ääntä on sokea</li></ul></div>
+  <div class="t"><span class="h">Hallituksen päätösloki (D90)</span><span class="m">punainen rivi → päätös → tarkistuspäivä → toteutuiko</span>
+   <div class="coh" style="margin:6px 0"><b>9/2026</b><span>Bio-banding-kokeilu U13–U14 keväällä 2027</span><span class="p">tark. 3/2027</span><span class="st w">avoin</span><b>5/2026</b><span>Kaksi oto-valmentajaa UEFA C:hen, seura maksaa</span><span class="p">tark. 10/2026</span><span class="st ok">toteutui</span><b>3/2026</b><span>P11 toinen valmentaja</span><span class="p">tark. 8/2026</span><span class="st w">ei vielä</span></div>
+   <ul><li><code>seurat/{sid}/paatokset/{id}</code>: kysymys (1–7), päätös, pvm, tarkistus_pvm, tila, tulos-lause</li><li>Seuraavassa kokouksessa sivu näyttää ensin "edelliset päätökset" – ennen uusia liikennevaloja</li><li>Sama silmukka kuin pelaajan jaksossa: ihmisen kirjaus sulkee, ei mittari (P-periaate)</li></ul></div>
+  <div class="t"><span class="h">Siirtymävirta (D91)</span><span class="m">sisään ja ulos, ikäluokittain, profiilin mukainen "polun pää"</span>
+   <div class="coh" style="margin:6px 0"><b>sisään</b><span>perhefutis 24 · uudet 14 · toisesta seurasta 6</span><span class="p">+44</span><span class="st ok">virta</span><b>ulos</b><span>lopetti 23 · toiseen seuraan 8 · yhteistyöseuraan 5 · aluejoukkue 3</span><span class="p">−31 (+8)</span><span class="st ok">+13</span></div>
+   <ul><li>Kasvattajaseura: polun pää = siirtymät yhteistyöseuraan, aluejoukkueeseen ja omaan 11v11:een</li><li>Kehittäjä- ja huippuseura: lisäksi edustus ja pallonetti (osio 2)</li><li>Lähtösyy kirjataan kolmella vaihtoehdolla (lopetti · toinen seura · yhteistyöseura/polku) – retention-kooste saa syyn</li><li>Tytöt ja pojat aina erikseen (taustalla: D-ehdotus 07:ään)</li></ul></div>
+ </div>
+</section>
+
+<!-- ============ 4 PROFIILIT ============ -->
+<section id="h4">
+ <h2 class="serif">4 · Kolme seuraprofiilia, yksi tuote (D82)</h2>
+ <p>Profiili on seuratason asetus (<code>seurat/{sid}.profiili</code>, oletus <code>kasvattaja</code>, VP/UTJ asettaa). Se muuttaa oletustavoitteet, kysymyksen 7 ja sen, näkyvätkö Polun pää- ja markkina-arvolohkot. Huippuseurakin on U6–U12-ikäluokissa kasvattajaseura: samat prosessimittarit, sama §7.22.</p>
+ <div class="tier">
+  <div class="t"><span class="h">Kasvattajaseura</span><span class="m">valtaosa seuroista · oto-valmentajat · kausi</span><ul><li>Ydin: pysyvyys, harrastajamäärä, laatu kaikille</li><li>Tärkein mittari: drop-out ja RAE-tasapaino</li><li>Kysymys 7: onko perhe mukana</li><li>Ei näytetä: Polun pää, markkina-arvo</li></ul></div>
+  <div class="t"><span class="h">Kehittäjäseura / akatemia</span><span class="m">KPV, Sibbo, alueelliset akatemiat · 2–4 v</span><ul><li>Ydin: pelaajapolku edustukseen, kehittymisen todentaminen</li><li>Tärkein mittari: kohortit PHV-korjattuna, siirtymät 11v11 → edustus</li><li>Kysymys 7: pääseekö polku perille (pallonetti)</li><li>Lisäksi: tasojoukkueet, alue-/maajoukkuesignaalit, Talenttiohjelma</li></ul></div>
+  <div class="t"><span class="h">Huippuseura</span><span class="m">liiga-akatemiat, myyvät seurat · 4–8 v</span><ul><li>Ydin: pelaajan arvon kasvattaminen ja realisointi</li><li>Tärkein mittari: kasvattien osuus edustuksen minuuteista, tuotettu siirtoarvo</li><li>Kysymys 7: pääseekö polku perille + salkku</li><li>Lisäksi: scouting, sopimukset ja optiot, markkina-arvo (osio 6), vientikortti</li></ul></div>
+ </div>
+</section>
+
+<!-- ============ 5 AIKATASOT ============ -->
+<section id="h5">
+ <h2 class="serif">5 · Kolme aikatasoa ja liikennevalo (D84)</h2>
+ <div class="tw"><table class="map">
+  <tr><th>Taso</th><th>Rytmi</th><th>Mitä</th><th>Lähde</th><th>Liikennevalo</th></tr>
+  <tr><td>Tämä kuukausi</td><td>viikko / kuukausi</td><td>prosessi: jaksot, katselmukset, teemat, klipit, viikkokatsaukset, perheet</td><td>S1 kooste (D43 CF, kaksi dokumenttia)</td><td>seuran tavoitetasot (D45): vihreä ≥ taso, amber 2 vk alle, punainen 4 vk alle tai 0 %</td></tr>
+  <tr><td>Tämä kausi</td><td>kuukausi / kausi</td><td>kohortit PHV-korjattuna, retention ja RAE, valmennuksen riittävyys, riskit</td><td>Kehitystilanne v0 (mittarit, kehikot, normit) + pelaajarekisteri + henkilöstö</td><td>kohortti: mediaanin suunta; retention: seuran raja; riskit: nolla = vihreä</td></tr>
+  <tr><td>Strategiakausi</td><td>neljännes / 3 v</td><td>seuran omat tavoitteet (3–5), Polun pää</td><td><code>strategia/{tavoite}</code> + pallonetti-kooste + käsin kirjatut</td><td>tavoitetaso ja aikaraami per tavoite; "ei vielä dataa" harmaa, ei punainen</td></tr>
+ </table></div>
+ <p class="meta" style="margin-top:8px">Yksi sääntö kaikille: punainen tarkoittaa "päätös tarvitaan", ei "huono". Hallituksen sivulla punainen rivi saa aina kysymyksen muodossa olevan toimenpiteen ("bio-banding-kokeilu keväällä?"), koska hallitus päättää, VP toteuttaa.</p>
+</section>
+
+<!-- ============ 6 MARKKINA-ARVO ============ -->
+<section id="h6" data-only="huippu">
+ <h2 class="serif">6 · Markkina-arvo huippuprofiilissa: viisi sääntöä (D87)</h2>
+ <div class="rule">
+  <b>1 · Ikäraja</b><span>Arvoa tai siirtologiikkaa ei lasketa eikä näytetä ennen Showcase-vaihetta (U16). Sitä ennen "arvo" on kehityspolun todiste, ei euro.</span>
+  <b>2 · Kenelle</b><span>Vain johto (VP, UTJ, urheilujohtaja, toimitusjohtaja). Ei valmentajalle, ei koskaan pelaajalle tai perheelle. §7.22 ja D54: pelaaja näkee vahvuutensa ja reittinsä, ei hintaa.</span>
+  <b>3 · Mistä arvo muodostuu</b><span>Ei ulkoisesta arviosta vaan todennetusta polusta: jaksot ja katselmukset, X-Factor, PHV-korjattu kehitys, pelihavainnot, klipit, minuutit (pallonetti). Pelaajan arvo = dokumentoitu kehityskyky, ei nykyhetken suoritus. Tämä on se, mitä ostava seura ei saa mistään muualta.</span>
+  <b>4 · Vientikortti</b><span>Yksi sivu englanniksi (profiili, polku, X-Factor, klipit) – 16+, pelaajan ja huoltajan suostumuksella, oma käsittelyperuste (§39). Ei automaattista lähetystä mihinkään.</span>
+  <b>5 · Hallituksen sivu</b><span>Salkku ikäluokittain ilman nimiä: "U17–U19: 14 pelaajaa dokumentoidulla polulla, 3 vientikorttia valmiina". Ei euroja hallituksen sivulla v1:ssä – eurot sopimuksista käsin kirjattuna strategiseen tavoitteeseen.</span>
+ </div>
+ <div class="kpi" style="margin-top:12px">
+  <div><span class="k">Salkku U16–U19</span><span class="v">38</span><span class="s">pelaajaa · 3 ikäluokkaa</span></div>
+  <div><span class="k">Dokumentoitu polku</span><span class="v">92<small> %</small></span><span class="s">jaksot + katselmukset + klipit</span></div>
+  <div><span class="k">Vientikortti valmis</span><span class="v">3</span><span class="s">suostumus ✓ · 16+</span></div>
+  <div><span class="k">Edustuksen minuuteista</span><span class="v w">22<small> %</small></span><span class="s">tavoite 25 %</span></div>
+ </div>
+ <p class="meta" style="margin-top:8px">Lippu <code>liput/julkiset.arvo</code> vain huippuprofiilissa; ilman lippua osio ei renderöidy eikä dataa lasketa. Rules: luku vain <code>onJohtoRooli</code>.</p>
+</section>
+
+<!-- ============ 7 DATA ============ -->
+<section id="h7">
+ <h2 class="serif">7 · Data ja Rules</h2>
+ <p>Ei uutta laskentaa prosessille (S1 D43) eikä kohorteille (Kehitystilanne v0) – Seurahallinta lukee olemassa olevia koosteita. Uutta on profiili, strategiset tavoitteet, kasvattilista ja pallonetti-kooste.</p>
+ <div class="tw"><table class="map">
+  <tr><th>Polku</th><th>Sisältö</th><th>Kirjoittaa</th><th>Lukee</th><th>Rules</th></tr>
+  <tr><td><code>seurat/{sid}.profiili</code></td><td><code>'kasvattaja'|'kehittaja'|'huippu'</code>, oletus kasvattaja</td><td>VP / UTJ</td><td>oma seura</td><td>uusi versio: enum, johto kirjoittaa</td></tr>
+  <tr><td><code>seurat/{sid}/omat_tavoitteet/{tid}</code> (v0, laajennus)</td><td>nykyiset kentät + <code>vastuu_uid</code>, <code>lahde:'data'|'kasin'</code>, <code>mittari_avain</code>; kirjaukset ennallaan (vain luonti, mitätöinti)</td><td>VP / UTJ (v3.35)</td><td>johto + hallitus</td><td>v3.35 + kaksi kenttää; data-lähteen kirjaukset kirjoittaa CF</td></tr>
+  <tr><td><code>seurat/{sid}/paatokset/{id}</code></td><td><code>kysymys 1–7, paatos, pvm, tarkistus_pvm, tila:'avoin'|'toteutui'|'ei', tulos</code></td><td>hallitus-rooli / VP</td><td>johto + hallitus</td><td>uusi: luonti ja <code>tila/tulos</code>-päivitys, ei poistoa</td></tr>
+  <tr><td><code>seurat/{sid}/koosteet/aani/{kausi}</code></td><td>pelaajien ja perheiden vastaukset koosteena ikäluokittain ja sukupuolittain, N ≥ 5, ei nimiä</td><td>CF (K4-kanavan vastauksista)</td><td>johto + hallitus</td><td>kirjoitus vain palvelin; yksittäinen vastaus <code>viikkokatsaukset</code>-alikokoelmassa (v3.44)</td></tr>
+  <tr><td><code>seurat/{sid}/kasvatit/{id}</code></td><td><code>nimi, synt_vuosi, kaudet_seurassa[], nykyinen_seura, sarja, pallonetti_id | null</code></td><td>VP / urheilujohtaja</td><td>johto</td><td>uusi: johto; aikuisten julkinen tieto, ei alaikäisiä ilman seurassaoloa</td></tr>
+  <tr><td><code>seurat/{sid}/koosteet/polun_paa</code></td><td>kausittain: pelaajia, minuutit, osuus, poikkeama; <b>ikäkäyrä</b> 16–20 kumulatiivisena + liigan mediaaniseura (pallonetti, kaikki seurat); liigaviite (17–21 %, alle 21 %, CIES)</td><td>CF kausittain pallonetti-JSON:sta + kasvattilista</td><td>johto</td><td>luku johto; kirjoitus vain palvelin</td></tr>
+  <tr><td><code>seurat/{sid}/koosteet/hallitus/{kk}</code></td><td>7 riviä: tila, lause, toimenpide, lähde – ilman nimiä</td><td>CF kuukausittain (laajentaa D43:n koostetta)</td><td>johto + hallitus-rooli</td><td>uusi rooli <code>hallitus</code>: lukee vain <code>koosteet/hallitus</code> ja <code>strategia</code>, ei pelaajia</td></tr>
+  <tr><td><code>seurat/{sid}/koosteet/kohortit/{kausi}</code></td><td>ikäluokittain N, mediaanimuutos (PHV-korjattu), PHV-jakauma, kuorma-lippujen määrä</td><td>CF (Kehitystilanne v0 -malli)</td><td>johto</td><td>kirjoitus vain palvelin</td></tr>
+  <tr><td><code>seurat/{sid}/koosteet/retention/{kausi}</code></td><td>virta: sisään (perhefutis, uudet, toisesta seurasta) ja ulos syyn mukaan (lopetti, toinen seura, yhteistyöseura/polku), Q1–Q4, sukupuoli; pelaajadokumenttiin <code>lahto_syy</code></td><td>CF kauden vaihtuessa</td><td>johto</td><td>kirjoitus vain palvelin; ei nimiä koosteessa</td></tr>
+  <tr><td><code>pelaajat/{pid}.seuraava_askel</code></td><td><code>'ylos'|'lisahaaste'|'oikea_taso'|'toinen_polku'</code> + pvm, kirjaaja; kausikatselmuksessa</td><td>VP / joukkueen valmentaja</td><td>henkilökunta – ei pelaaja, ei huoltaja</td><td>uusi: kielletty kenttä pelaajalle näkyvissä dokumenteissa (§39 field-level), kooste <code>koosteet/portaat</code> ilman nimiä</td></tr>
+  <tr><td><code>omat_tavoitteet.tyyppi:'koostumus'</code></td><td>tavoite jakaumana (ikä tai alkuperä), toteuma rosterista + kasvattilistasta</td><td>VP / UTJ</td><td>johto + hallitus</td><td>v0 OMA_TYYPIT + yksi tyyppi</td></tr>
+  <tr><td><code>liput/julkiset.arvo</code></td><td>bool, vain huippuprofiilissa</td><td>SA / johto</td><td>oma seura</td><td>v3.43 sellaisenaan</td></tr>
+ </table></div>
+ <div class="two" style="margin-top:10px">
+  <div class="pcard"><span class="eb">Hallitus-rooli</span><div style="font-size:14px">Uusi rooli <code>hallitus</code> (claim), joka lukee vain koosteet ja strategian – ei pelaajia, ei havaintoja, ei viestejä. Hallituksen jäsen ei tarvitse eikä saa nähdä yksittäistä alaikäistä. Tämä on helpoin tapa toteuttaa "ei nimiä" myös Rules-tasolla, ei vain UI:ssa.</div></div>
+  <div class="pcard"><span class="eb">pallonetti-kooste</span><div style="font-size:14px">pallonetti vie kausittain JSON:n (pelaaja, joukkue, ikä, minuutit, osuus). TalentMasterin CF yhdistää sen kasvattilistaan nimen + syntymävuoden perusteella ja kirjoittaa <code>polun_paa</code>-koosteen. Ei linkkiä toisinpäin, ei TalentMaster-mainintaa pallonetissa.</div></div>
+ </div>
+</section>
+
+<!-- ============ 8 VAIHEET ============ -->
+<section id="h8">
+ <h2 class="serif">8 · Vaiheet ja päätökset D80–D88</h2>
+ <div class="phases">
+  <div class="phase"><span class="h">H1 · hallituksen sivu</span><ul><li>Johtaminen / Hallinto -jako Seura.html:ssä</li><li><code>profiili</code> + <code>strategia</code> + hallitus-rooli (Rules)</li><li>Hallituksen 7 riviä koosteesta (CF laajentaa D43) + kattavuusrivi (v0 Lohko 4)</li><li>Päätösloki <code>paatokset</code> (D90)</li><li>Kysymykset 2 ja 6 valmiista datasta; 3–5 Kehitystilanne v0:sta ja rekisteristä</li><li>Tulostettava kuukausiraportti (Kehitystilanne v0:n <code>raporttiHTML</code>)</li></ul></div>
+  <div class="phase"><span class="h">H2 · VP:n sivu ja Polun pää</span><ul><li>Kohortit, retention/RAE, valmennus riveinä; porautuminen 17 → 18</li><li>Kasvattilista + pallonetti-kooste + Polun pää (kehittäjä/huippu)</li><li>Pelaajan ja perheen ääni K4-kanavassa + kooste (D89)</li><li>Siirtymävirta ja <code>lahto_syy</code> (D91)</li><li>Portaat: <code>seuraava_askel</code> kausikatselmukseen + kooste (D94)</li><li>Ikäkäyrä pallonetin koko liigan datasta (D93) · koostumustavoite (D92)</li></ul></div>
+  <div class="phase"><span class="h">H3 · huippuprofiili</span><ul><li>Salkku, vientikortti (16+, suostumus), lippu <code>arvo</code></li><li>Scouting- ja sopimuslohkot (oma briiffi)</li><li>Kasvatti automaattisesti TM-historiasta (3–5 v)</li></ul></div>
+ </div>
+ <div class="tw" style="margin-top:14px"><table class="map">
+  <tr><th>Nro</th><th>Päätös</th><th>Tila</th></tr>
+  <tr><td><b>D80</b></td><td>Seurahallinta = Johtaminen (hallituksen sivu + VP:n sivu) + Hallinto (nykyiset välilehdet); Kehitystilanne ja S1 ovat Johtamisen kohdat 3 ja 2</td><td>ehdotus</td></tr>
+  <tr><td><b>D81</b></td><td>Seitsemän kysymystä: strategia · prosessi · kehitys (kohortit) · pysyvyys · valmennus · turvallisuus · profiilin 7. (perhe / polun pää); jokaisella yksi lause, yksi poikkeama, yksi toimenpide</td><td>ehdotus</td></tr>
+  <tr><td><b>D82</b></td><td>Kolme seuraprofiilia <code>kasvattaja | kehittaja | huippu</code> seuratasolla; sama data, profiili muuttaa oletukset ja näkyvät lohkot</td><td>ehdotus</td></tr>
+  <tr><td><b>D83</b></td><td>Strategiset tavoitteet = v0:n <code>omat_tavoitteet</code> + <code>vastuu_uid</code>, <code>lahde</code>, <code>mittari_avain</code>; oletukset profiilista; Kori 3 -kehikko ulkoisena mittatikkuna – ei uutta kokoelmaa</td><td>ehdotus (korjattu 8.10.)</td></tr>
+  <tr><td><b>D84</b></td><td>Kolme aikatasoa (kuukausi · kausi · strategiakausi) samalla liikennevalolla (D45); punainen = päätös tarvitaan</td><td>ehdotus</td></tr>
+  <tr><td><b>D85</b></td><td>Hallituksen sivulla ei nimiä; uusi rooli <code>hallitus</code> lukee vain koosteet ja strategian (Rules)</td><td>ehdotus</td></tr>
+  <tr><td><b>D86</b></td><td>Polun pää: kasvattilista + pallonetti-kausikooste → <code>koosteet/polun_paa</code>; <b>kasvatti = seuran tai yhteistyöseuran rekisterissä ≥ 2 kautta ennen 18 v</b> (FCN homegrown); liiga- ja CIES-luvut ulkoisena mittatikkuna; pallonetti pysyy erillisenä</td><td>ehdotus (määritelmä 8.10.)</td></tr>
+  <tr><td><b>D87</b></td><td>Markkina-arvo vain huippuprofiilissa: 16+, vain johto, polusta johdettu, vientikortti suostumuksella, hallitukselle salkku ilman nimiä ja euroja</td><td>ehdotus</td></tr>
+  <tr><td><b>D88</b></td><td>Vaiheet H1 (hallituksen sivu = v0:n ensinäkymä laajennettuna) → H2 (VP + Polun pää) → H3 (huippu); oletusprofiili mockupissa kehittäjä</td><td>ehdotus</td></tr>
+  <tr><td><b>D89</b></td><td>Pelaajan ja perheen ääni: kaksi kysymystä kummallekin kauden lopussa K4-kanavassa; vain kooste N ≥ 5; kysymyksen 4 syy</td><td>ehdotus (Tero: mukaan)</td></tr>
+  <tr><td><b>D90</b></td><td>Hallituksen päätösloki: punainen rivi → päätös → tarkistuspäivä → tulos; edelliset päätökset näytetään ennen uusia liikennevaloja</td><td>ehdotus (Tero: mukaan)</td></tr>
+  <tr><td><b>D91</b></td><td>Siirtymävirta sisään ja ulos syineen; kasvattajaseuran polun pää = yhteistyöseura, aluejoukkue, oma 11v11; retention virtana</td><td>ehdotus (Tero: mukaan)</td></tr>
+  <tr><td><b>D92</b></td><td>Koostumustavoite: strateginen tavoite jakaumana (ikä, alkuperä), toteuma rosterista; huippuseuralle edustus, kehittäjälle 11v11-joukkueet (FCN ideal squad composition)</td><td>ehdotus (Tero: mukaan)</td></tr>
+  <tr><td><b>D93</b></td><td>Polun pään ikäkäyrä: kumulatiiviset minuutit 16–20 v, vertailu Veikkausliiga-seurojen mediaaniin pallonetin julkisesta datasta</td><td>ehdotus (Tero: mukaan)</td></tr>
+  <tr><td><b>D94</b></td><td>Portaat: ikäluokan askeljakauma kausikatselmuksesta (<code>seuraava_askel</code>: ylös · lisähaaste · oikea taso · toinen polku), vain henkilökunta, hallitukselle määrät; neljäs luokka toimenpiteenä, ei leimana</td><td>ehdotus (Tero: mukaan)</td></tr>
+ </table></div>
+ <div class="pcard" style="margin-top:14px"><span class="eb">Taustalla, 07:ään avoimiksi (Tero 8.10.: "pidetään mukana")</span><div style="font-size:14px">Kenttä- ja valmentajatunnit per pelaaja (kalenterista) · oto-valmentajan kuorma (tunnit, joukkueet) · sukupuolijako kaikissa mittareissa oletuksena · anonyymi vertailu samankokoisiin TM-seuroihin (suostumus, N ≥ 5 seuraa) · hallituksen vuosikello (milloin mikäkin luku on luettavissa) · maalivahdit omana rivinä kohortissa.</div></div>
+ <p class="meta" style="margin-top:12px">TalentMaster™ · Seurahallinta · 21 · luonnos 4 · 8.10.2026 · jatkaa 17 Seuran koostetta ja Kehitystilanne v0:aa · luvut keksittyjä paitsi pallonetin liigatason luvut</p>
+</section>
+
+</div>
+<script>
+(function(){var r=document.documentElement;function setP(p){r.setAttribute('data-prof',p);document.querySelectorAll('[data-only]').forEach(function(e){e.classList.toggle('hid',e.dataset.only.split(' ').indexOf(p)<0)});document.querySelectorAll('#profsw span[data-p]').forEach(function(x){x.classList.toggle('on',x.dataset.p===p)})}
+setP('kehittaja');document.querySelectorAll('#profsw span[data-p]').forEach(function(s){s.addEventListener('click',function(){setP(s.dataset.p)})})})();
+</script>
+<script>
+(function(){
+var b=document.getElementById('theme'),r=document.documentElement;
+b.addEventListener('click',function(){var d=r.getAttribute('data-theme')||(matchMedia('(prefers-color-scheme: light)').matches?'light':'dark');r.setAttribute('data-theme',d==='dark'?'light':'dark')});
+
+/* Kenttä: viewBox 100 x 140, hyökkäys ylös. Koordinaatit 0–100 leveys. */
+var NS='http://www.w3.org/2000/svg';
+function el(n,a){var e=document.createElementNS(NS,n);for(var k in a)e.setAttribute(k,a[k]);return e}
+function lines(s){
+ var g=el('g',{fill:'none',stroke:'var(--chalk)','stroke-width':'.8'});
+ g.appendChild(el('line',{x1:0,y1:70,x2:100,y2:70}));
+ g.appendChild(el('circle',{cx:50,cy:70,r:13}));
+ g.appendChild(el('rect',{x:20,y:0,width:60,height:23}));g.appendChild(el('rect',{x:35,y:0,width:30,height:8}));
+ g.appendChild(el('rect',{x:20,y:117,width:60,height:23}));g.appendChild(el('rect',{x:35,y:132,width:30,height:8}));
+ g.appendChild(el('path',{d:'M39 23a13 13 0 0 0 22 0'}));g.appendChild(el('path',{d:'M39 117a13 13 0 0 1 22 0'}));
+ g.appendChild(el('rect',{x:43,y:-1,width:14,height:1.2,fill:'var(--chalk)',stroke:'none'}));
+ s.appendChild(g);
+}
+/* reitti: lista pisteitä, viikot merkkeinä */
+function route(s,pts,o){
+ o=o||{};var col=o.col||'var(--teal)';
+ var d=pts.map(function(p,i){return (i?'L':'M')+p[0]+' '+p[1]}).join(' ');
+ if(o.ghost){s.appendChild(el('path',{d:d,stroke:'var(--chalk2)','stroke-width':'1.6','stroke-dasharray':'2 2.5',fill:'none'}));return}
+ s.appendChild(el('path',{d:d,stroke:col,'stroke-width':'1.2','stroke-dasharray':'2 2.2',fill:'none',opacity:o.faint?.5:1}));
+ if(o.weeks){
+  var n=o.weeks,done=o.done||0;
+  for(var i=0;i<n;i++){
+   var t=(i+1)/n, p=lerpPath(pts,t);
+   var st=i<done?'done':(i===done&&!o.finished?'now':'todo');
+   var c=el('circle',{cx:p[0],cy:p[1],r:st==='now'?3.2:2.4,fill:st==='done'?col:(st==='now'?'var(--amber)':'var(--bg)'),stroke:st==='todo'?col:(st==='now'?'var(--amber)':col),'stroke-width':'1'});
+   if(o.finished&&i<n)c.setAttribute('fill',col);
+   s.appendChild(c);
+  }
+ }
+ if(o.end==='goal'){s.appendChild(el('circle',{cx:pts[pts.length-1][0],cy:pts[pts.length-1][1],r:1.6,fill:col}))}
+}
+function lerpPath(pts,t){
+ var L=[],tot=0;for(var i=1;i<pts.length;i++){var d=Math.hypot(pts[i][0]-pts[i-1][0],pts[i][1]-pts[i-1][1]);L.push(d);tot+=d}
+ var x=t*tot;for(var i=0;i<L.length;i++){if(x<=L[i]||i===L.length-1){var u=L[i]?x/L[i]:0;u=Math.min(1,u);return [pts[i][0]+(pts[i+1][0]-pts[i][0])*u,pts[i][1]+(pts[i+1][1]-pts[i][1])*u]}x-=L[i]}
+}
+function zone(host,x,y,w,h,name,sub,cls){var F=(+host.dataset.h||140)/100;
+ var z=document.createElement('div');z.className='zone'+(cls?' '+cls:'');
+ z.style.left=x+'%';z.style.top=(y/F)+'%';z.style.width=w+'%';z.style.height=(h/F)+'%';
+ z.innerHTML='<b>'+name+'</b>'+(sub?'<span>'+sub+'</span>':'');host.appendChild(z)
+}
+function tag(host,x,y,txt,now){var F=(+host.dataset.h||140)/100;var t=document.createElement('div');t.className='tag'+(now?' now':'');t.style.left=x+'%';t.style.top=(y/F)+'%';t.textContent=txt;host.appendChild(t)}
+function ball(s,x,y){s.appendChild(el('circle',{cx:x,cy:y,r:3,fill:'var(--ink)',stroke:'var(--bg)','stroke-width':'.8'}))}
+
+var ASE=[4,38,40,44]; /* vasen laita, x y w h (0–100 / 0–140) */
+var R_GOAL=[[24,60],[30,44],[38,30],[44,18],[48,8]];
+var R_PASS=[[24,60],[34,46],[46,36],[62,30],[74,24]];
+var R_OLD=[[18,80],[26,62],[36,48],[44,36]];
+
+
+var V={
+ idea:function(s,h){lines(s);route(s,R_OLD,{ghost:true});route(s,R_GOAL,{weeks:6,done:2,end:'goal'});zone(h,ASE[0],ASE[1],ASE[2],ASE[3],'Tempokuljetus','ase');tag(h,50,44,'vk 2 · nyt',true);tag(h,52,64,'edellinen jakso')},
+ today:function(s,h){lines(s);route(s,R_OLD,{ghost:true});route(s,R_GOAL,{weeks:6,done:1,end:'goal'});zone(h,ASE[0],ASE[1],ASE[2],ASE[3],'Tempokuljetus','sinun aseesi');tag(h,52,40,'b · heikompi jalka',true);tag(h,56,20,'c · katse maaliin');tag(h,42,58,'a · laukaus vauhdista')},
+ done:function(s,h){lines(s);route(s,R_OLD,{ghost:true});route(s,R_GOAL,{weeks:6,done:6,finished:true,end:'goal'});zone(h,ASE[0],ASE[1],ASE[2],ASE[3],'Tempokuljetus','sinun aseesi');tag(h,52,16,'6/6 viikkoa')},
+ nojakso:function(s,h){lines(s);route(s,R_OLD,{ghost:true});zone(h,ASE[0],ASE[1],ASE[2],ASE[3],'Tempokuljetus','sinun aseesi');tag(h,56,56,'edellinen jakso')},
+ empty:function(s,h){lines(s);zone(h,30,48,40,30,'Oma alue','ei vielä merkitty','dim')},
+ choose:function(s,h){lines(s);route(s,R_GOAL,{weeks:6,done:0});route(s,R_PASS,{col:'var(--blue)',faint:true});zone(h,ASE[0],ASE[1],ASE[2],ASE[3],'Tempokuljetus','ase');tag(h,42,4,'A · maali');tag(h,70,22,'B · kaveri')},
+ chosen:function(s,h){lines(s);route(s,R_GOAL,{weeks:6,done:0,end:'goal'});zone(h,ASE[0],ASE[1],ASE[2],ASE[3],'Tempokuljetus','ase');tag(h,46,4,'A · laukaus vasemmalla')},
+ history:function(s,h){lines(s);route(s,[[14,98],[18,82],[22,66]],{ghost:true});route(s,R_OLD,{ghost:true});route(s,R_GOAL,{ghost:true});route(s,[[24,60],[30,46],[38,32],[42,20],[44,10]],{weeks:6,done:0,end:'goal'});zone(h,ASE[0],ASE[1],ASE[2],ASE[3],'Tempokuljetus','ase · havaittu syksyllä');tag(h,50,70,'3 jaksoa tehty');tag(h,48,8,'nyt: 4. jakso',true)},
+ cb:function(s,h){lines(s);route(s,[[50,112],[52,92],[58,72],[66,54]],{weeks:6,done:3,col:'var(--teal)'});zone(h,28,96,44,30,'Avaa peli linjan ohi','ase · keskuspuolustaja');tag(h,60,48,'linjan ohi')},
+ kid:function(s,h){lines(s);ball(s,30,58);tag(h,34,46,'tässä tykkään pelata');},
+ kiddone:function(s,h){lines(s);ball(s,30,58);s.appendChild(el('circle',{cx:30,cy:58,r:7,fill:'none',stroke:'var(--teal)','stroke-width':'1','stroke-dasharray':'2 2'}));tag(h,36,46,'tehty ✓')},
+ coach:function(s,h){lines(s);route(s,R_OLD,{ghost:true});route(s,R_GOAL,{weeks:6,done:0});route(s,R_PASS,{col:'var(--blue)',faint:true});zone(h,ASE[0],ASE[1],ASE[2],ASE[3],'Tempokuljetus','ase · siirrä raahaamalla');tag(h,42,4,'A');tag(h,70,22,'B')},
+ coachempty:function(s,h){lines(s);zone(h,30,48,40,30,'Vedä alue tähän','ase puuttuu','dim')},
+ rev0:function(s,h){lines(s);route(s,R_GOAL,{weeks:6,done:0});zone(h,ASE[0],ASE[1],ASE[2],ASE[3],'Tempokuljetus','');tag(h,42,58,'a · ohjatusti');tag(h,52,40,'b · ei näy');tag(h,56,20,'c · ohjatusti')},
+ rev1:function(s,h){lines(s);route(s,R_GOAL,{weeks:6,done:6,finished:true,end:'goal'});zone(h,ASE[0],ASE[1],ASE[2],ASE[3],'Tempokuljetus','');tag(h,42,58,'a · itsenäisesti');tag(h,52,40,'b · ohjatusti',true);tag(h,56,20,'c · itsenäisesti')}
+};
+var FULL={history:1,cb:1,kid:1,kiddone:1};
+var R_PHYS=[[24,60],[34,50],[44,40],[50,30]];
+var R_CB=[[50,112],[52,92],[58,72],[66,54]];
+V.s_today=function(s,h){lines(s);route(s,R_OLD,{ghost:true});route(s,R_GOAL,{weeks:6,done:1,end:'goal'});zone(h,ASE[0],ASE[1],ASE[2],ASE[3],'Tempokuljetus','ase · 12.9.');tag(h,47,62,'a · 3 itsenäisesti');tag(h,54,42,'b · 1 viikon osa',true);tag(h,56,22,'c · 2 ohjatusti')};
+V.s_choose=function(s,h){lines(s);route(s,R_OLD,{ghost:true});route(s,R_GOAL,{weeks:6,done:0,end:'goal'});route(s,R_PASS,{col:'var(--blue)',faint:true});zone(h,ASE[0],ASE[1],ASE[2],ASE[3],'Tempokuljetus','ase');tag(h,40,4,'A · valittu 3.11.',true);tag(h,70,22,'B · ei valittu')};
+V.s_done=function(s,h){lines(s);route(s,R_CB,{weeks:6,done:6,finished:true});zone(h,28,96,44,30,'Avaa peli linjan ohi','ase · keskuspuolustaja');tag(h,60,48,'6/6 · katselmus puuttuu',true)};
+V.s_empty=function(s,h){lines(s);zone(h,30,48,40,30,'Ase puuttuu','ehdotus: pallonhallinta paineessa','dim');tag(h,34,80,'2 pelihavaintoa')};
+V.s_phys=function(s,h){lines(s);route(s,R_OLD,{ghost:true});route(s,R_PHYS,{weeks:6,done:0,col:'var(--ink3)',faint:true});zone(h,ASE[0],ASE[1],ASE[2],ASE[3],'Tempokuljetus','ase');tag(h,52,28,'fyysinen · nopeus · ei piirry pelaajalle',true)};
+V.s_card=function(s,h){lines(s);route(s,[[24,60],[34,44],[46,30],[52,18],[50,8]],{ghost:true});zone(h,ASE[0],ASE[1],ASE[2],ASE[3],'Tempokuljetus','ase · kausi 2026');tag(h,46,4,'kauden tavoite: Syötön piilotus');tag(h,56,60,'ei jaksoa näkyvissä')};
+FULL.s_done=1;
+
+document.querySelectorAll('[data-pitch]').forEach(function(h){
+ var H=FULL[h.dataset.pitch]?140:84;h.dataset.h=H;
+ var s=el('svg',{viewBox:'0 0 100 '+H,role:'img','aria-label':'Kenttä'});h.appendChild(s);(V[h.dataset.pitch]||V.empty)(s,h);
+});
+
+/* joukkuekenttä: vaaka 140 x 100, vain testipelaajat / keksityt nimet */
+document.querySelectorAll('[data-team]').forEach(function(h){
+ if(h.dataset.team==='2'){var s2=el('svg',{viewBox:'0 0 140 70',role:'img','aria-label':'Kaavio'});h.appendChild(s2);var g2=el('g',{fill:'none',stroke:'var(--chalk)','stroke-width':'.8'});g2.appendChild(el('line',{x1:70,y1:0,x2:70,y2:70}));g2.appendChild(el('circle',{cx:70,cy:35,r:9}));g2.appendChild(el('rect',{x:0,y:17,width:16,height:36}));g2.appendChild(el('rect',{x:124,y:17,width:16,height:36}));s2.appendChild(g2);[[30,20],[30,50],[55,35],[80,15],[80,55],[105,35]].forEach(function(q){s2.appendChild(el('circle',{cx:q[0],cy:q[1],r:3,fill:'var(--teal)'}))});s2.appendChild(el('path',{d:'M80 15 L112 8',stroke:'var(--amber)','stroke-width':'1.4','stroke-dasharray':'2 2'}));s2.appendChild(el('circle',{cx:112,cy:8,r:2.2,fill:'var(--amber)'}));return}
+ var s=el('svg',{viewBox:'0 0 140 100',role:'img','aria-label':'Joukkueen kenttä'});h.appendChild(s);
+ var g=el('g',{fill:'none',stroke:'var(--chalk)','stroke-width':'.8'});
+ g.appendChild(el('line',{x1:70,y1:0,x2:70,y2:100}));g.appendChild(el('circle',{cx:70,cy:50,r:12}));
+ g.appendChild(el('rect',{x:0,y:22,width:22,height:56}));g.appendChild(el('rect',{x:118,y:22,width:22,height:56}));
+ s.appendChild(g);
+ var P=[['Topias K.','laituri · vk 2/6',62,6,'',],['Pelaaja 7','vk 4/6',40,30],['Pelaaja 11','valittavana',62,70,'wait'],['Pelaaja 4','vk 1/6',22,42],['Pelaaja 9','vk 2/6',84,42],['Pelaaja 5','katselmus',40,66,'wait'],['Pelaaja 10','ei asetta',98,20,'none'],['Pelaaja 2','vk 2/6',18,8],['Pelaaja 6','vk 3/6',84,8],['Pelaaja 8','valittavana',100,58,'wait'],['Pelaaja 3','vk 2/6',6,66],['Pelaaja E.','ei asetta',114,78,'none'],['Pelaaja 12','vk 5/6',120,42],['Pelaaja 1','vk 2/6',4,36]];
+ P.forEach(function(p){var z=document.createElement('div');z.className='pz'+(p[4]?' '+p[4]:'');z.style.left=(p[2]/1.4)+'%';z.style.top=p[3]+'%';z.style.width='14%';z.innerHTML=p[0]+'<small>'+p[1]+'</small>';h.appendChild(z)});
+});
+})();
+</script>
+</body>
+</html>
