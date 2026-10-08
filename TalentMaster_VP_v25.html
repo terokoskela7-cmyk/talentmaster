@@ -24,7 +24,7 @@
 <script src="lib/tm_istunto.js?v=1"></script>   <!-- istuntoturva: väärä rooli → viesti + "Kirjaudu ulos", ei automaattista signOut():ia -->
 <script src="lib/tm_ryhmat.js?v=2"></script>   <!-- R1: ryhmät (D33) -->
 <script src="lib/tm_kal_muistiinpano.js?v=1"></script>   <!-- tietosuoja: muistiinpano staff-only-alikokoelmaan -->
-<script src="lib/tm_mediaviesti.js?v=1"></script>   <!-- R6.4 mediaviesti -->
+<script src="lib/tm_mediaviesti.js?v=2"></script>   <!-- R6.4 mediaviesti -->
 <script src="lib/tm_verkko.js?v=1"></script>   <!-- verkkokatko: 1 uudelleenyritys + Yhteyskatko-ilmoitus + Sentry warning -->
 <script src="lib/tm_aktiivisuus.js?v=1"></script>   <!-- Toimihenkilon kirjautumisaikaleima — jaettu kirjoituspiste, ks. lib-header -->
 <script src="lib/tm_joukkue.js?v=4"></script>   <!-- henkilöstön joukkueet näyttöön (tmHenkiloJoukkueTeksti) -->
@@ -11258,6 +11258,11 @@ window._mvLaheta = async function () {
     valmis(); if (typeof _mvPaivitaNaytot === 'function') _mvPaivitaNaytot();
   } catch (e) { S.tallentaa = false; console.warn('[mv lahetys]', e); C.mvToast(C.virhe(e), 'error'); }   // D53: virhe näkyy (toast + koodi); sheet auki, syötetty säilyy
 };
+function _mvMerkitseLuetuksi(e) {   /* R6.4 PR 2: "Vastasit · valmentaja lukenut" pelaajalle — vain vastaanottaja (Rules), taustakuittaus: virhe vain konsoliin, ketjun avaus ei estä */
+  const M = window.TM_MEDIAVIESTI, C = _mvC(); if (C.demo() || !e.rivi.klippiDocId) return;
+  const ids = M.tmMvLukemattomat(e.dokit, e.rivi.klippiDocId, C.uid()); if (!ids.length) return; const col = C.db().collection('seurat').doc(C.seuraId()).collection('viestit');
+  C.token().then(function () { const b = C.db().batch(); ids.forEach(function (id) { b.update(col.doc(id), { luettu: true }); }); return b.commit(); }).then(function () { (e.dokit || []).forEach(function (d) { if (ids.indexOf(d.id) >= 0) d.luettu = true; }); }).catch(function (er) { console.warn('[mv luettu]', er && (er.code || er.message)); });
+}
 /* Ketju / ryhmälista */
 window._mvAvaaKetju = function (avain) {
   const e = _mvEtsiRivi(avain); if (!e) return; const M = window.TM_MEDIAVIESTI, C = _mvC();
@@ -11267,7 +11272,7 @@ window._mvAvaaKetju = function (avain) {
     _mvPaikka('<div id="_mvKetju" role="dialog" aria-modal="true" style="position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:9200;display:flex;align-items:center;justify-content:center;padding:16px" onclick="if(event.target===this)_mvKetjuSulje()"><div style="background:var(--card);color:var(--ink);border:.5px solid var(--border);border-radius:14px;padding:20px;width:520px;max-width:100%;max-height:92vh;overflow-y:auto" onclick="event.stopPropagation()"><div style="font-family:\'Cormorant Garamond\',serif;font-size:20px;margin-bottom:8px">' + C.esc(_mvT('mv_rivi_joukkue')) + ' · ' + C.esc(e.rivi.domain || '') + '</div>'
       + rivit.map(function (r) { return M.tmMvRiviHTML(r, { esc: C.esc, t: C.t, avaaFn: '_mvAvaaKetju' }); }).join('') + '</div></div>', '_mvKetju'); return;
   }
-  window._mvKetju = { avain: avain, lause: '', tallentaa: false }; _mvKetjuRender();
+  _mvMerkitseLuetuksi(e); window._mvKetju = { avain: avain, lause: '', tallentaa: false }; _mvKetjuRender();
 };
 function _mvKetjuRender() {
   const K = window._mvKetju; if (!K) return; const e = _mvEtsiRivi(K.avain); if (!e) return; const M = window.TM_MEDIAVIESTI, C = _mvC();
