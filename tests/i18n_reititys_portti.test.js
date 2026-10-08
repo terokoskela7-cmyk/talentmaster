@@ -9,7 +9,7 @@ import { dirname, join } from 'path';
 import { skannaaHtml, varjostetutKutsut, lataaSallitut, onSallittu } from '../tools/i18n/sv_staattinen.mjs';
 
 const juuri = join(dirname(fileURLToPath(import.meta.url)), '..');
-const SIVUT = ['TalentMaster_Pelaaja_v7.html', 'TalentMaster_Vanhempi_v2.html', 'TalentMaster_Master_v16.html', 'TalentMaster_ADAR_Pikakortti.html'];   // PR 3: + Master (masterT-reititin) · PR 4: + ADAR (tmHT / lib-kartta)
+const SIVUT = ['TalentMaster_Pelaaja_v7.html', 'TalentMaster_Vanhempi_v2.html', 'TalentMaster_Master_v16.html', 'TalentMaster_ADAR_Pikakortti.html', 'TalentMaster_Pelihavainto_Kentta.html'];   // PR 3: + Master (masterT-reititin) · PR 4: + ADAR (tmHT / lib-kartta)
 const S = lataaSallitut();
 
 describe.each(SIVUT)('%s — staattinen reititysportti', (sivu) => {
