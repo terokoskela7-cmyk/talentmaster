@@ -36,7 +36,7 @@ function esc(s) {
 
 /** Suorittaa annetut VP-funktiot oikeasti; puuttuvat globaalit palauttavat tyhjän. */
 function aja(sigit, palautus, lisa) {
-  const store = Object.assign({ _jsvEsc: esc, vpT: (s) => s }, lisa || {});
+  const store = Object.assign({ _jsvEsc: esc, vpT: (s) => s, tmPhvKoodi: (p) => (p && p.phv_tila) || null }, lisa || {});   // A6: p.phv_tila on latauksessa normalisoitu (tmPhvKoodi) → stub peilaa
   store.tmHT = store.tmHT || function (s) { return s; };
   const ymp = new Proxy(store, {
     has: (t, k) => (k in t) || !(k in globalThis),

@@ -16,5 +16,5 @@ export const VP_PELAAJAT = {
     tki_viimeisin: 58, tki_edellinen: 51, tki_merkki: 'hopea', tki_pvm: '2026-09-21', tsi_viimeisin: 0.7, flei_viimeisin: 71, sbl: 2.2, sfl: 2.4, ll: 2.1, diag: 2.3, dfl: 2.0, phv_tila: 'LAH',
     biologinenIka_viimeisin: { maturity_offset: -1.2, phv_ika: 13.8, pvm: '2026-10-04', kasvutahti_cm_v: 6.1 }, testipaivat: { fyysinen_hh: '2026-09-20', tki: '2026-09-21' }, signaali: 'xfactor',
     adar_viimeisin: { a: 2.4, d: 2.1, ac: 1.6, r: 2.8, yht: 2.2 }, adar_havaintoja: 4, d3_taso: 3.4 },
-  phvPH: { id: 'v3', etunimi: 'Ph', sukunimi: 'Pelaaja', syntymaVuosi: 2012, joukkue: 'KPV U13', sukupuoli: 'N', phv_tila: 'PH', hh_taso: 2, tki_viimeisin: 35 },
+  phvPH: { id: 'v3', etunimi: 'Ph', sukunimi: 'Pelaaja', syntymaVuosi: 2012, joukkue: 'KPV U13', sukupuoli: 'N', phv_tila: 'PH', biologinenIka_viimeisin: { phv_tila_koodi: 'PH' }, hh_taso: 2, tki_viimeisin: 35 },
 };

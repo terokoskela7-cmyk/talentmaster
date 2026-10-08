@@ -23,6 +23,7 @@ function extract(sig) {
 let M;
 beforeAll(() => {
   M = new Function(
+    'var tmPhvKoodi = function (p) { return (p && p.phv_tila) || null; };\n' +
     'var _jsvEsc = function(s){return String(s==null?"":s);};\n' +
     // Erä 4: mittausfunktiot kutsuvat nyt vpT:tä → passthrough-stub, muuten ReferenceError.
     'var vpT = function(x){return x;};\n' +
