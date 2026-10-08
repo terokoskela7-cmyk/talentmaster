@@ -101,7 +101,7 @@ async function suoritaAskel(selain, cfg, as, nimi, virheet) {
   await p.addInitScript(() => { let a = 0x2f6e2b1; Math.random = function () { a = (a + 0x6D2B79F5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; });
   try { await p.clock.setFixedTime(new Date('2026-10-14T10:00:00+03:00')); } catch (e) { /* vanha playwright */ }
   try {
-    await p.goto(pathToFileURL(join(JUURI, cfg.tiedosto)).href + cfg.kysely, { waitUntil: 'load', timeout: 20000 });
+    await p.goto(pathToFileURL(join(JUURI, cfg.tiedosto)).href + cfg.kysely, { waitUntil: 'load', timeout: 45000 });
     await p.waitForTimeout(1200);
     if (cfg.entry !== '0') { await p.evaluate(cfg.entry).catch((e) => virheet.push(nimi + ' entry: ' + e.message.slice(0, 80))); await p.waitForTimeout(1500); }
     if (cfg.sisaan) await p.evaluate(cfg.sisaan).catch(() => { /* ei */ });   // sulje tervetulo-ikkuna (ensikäynti → deterministinen mittaus)
@@ -121,17 +121,20 @@ async function main() {
   const exe = process.env.TM_CHROME_PATH || undefined;
   const selain = await chromium.launch({ headless: true, executablePath: exe });
   const fiKorpus = lataaKorpus(), idx = lahdeindeksi();
-  const nakymat = {}; const virheet = [];
   const valitut = process.argv.filter((a) => a.startsWith('--sovellus=')).map((a) => a.slice(11));
-  for (const [sov, cfg] of Object.entries(SOVELLUKSET)) {
-    if (valitut.length && !valitut.includes(sov)) continue;
-    for (const as of cfg.askeleet) {
-      const nimi = sov + '/' + as.nimi;
+  // Askeleet ovat toisistaan riippumattomia (jokainen tuoreessa kontekstissa) → ajetaan RINNAKKAIN (SV_RINNAKKAIN, oletus 6; CI-runnerissa 2 ydintä).
+  // Tulokset kootaan alkuperäiseen järjestykseen (taulukkoindeksi) → tuloste ja JSON identtiset sarja-ajon kanssa. Syy: sarja-ajo ylitti CI:n 10 min (≥2 toistoa × ~3,6 s × ~64 askelta).
+  const tyot = []; for (const [sov, cfg] of Object.entries(SOVELLUKSET)) { if (valitut.length && !valitut.includes(sov)) continue; for (const as of cfg.askeleet) tyot.push({ sov, cfg, as, nimi: sov + '/' + as.nimi }); }
+  const virheLista = tyot.map(() => []), tulokset = new Array(tyot.length); let seuraava = 0, valmiita = 0; const alku = Date.now();
+  const rinnakkain = Math.max(1, Math.min(tyot.length, parseInt(process.env.SV_RINNAKKAIN || '6', 10) || 4));
+  async function tyontekija() {
+    while (seuraava < tyot.length) {
+      const i = seuraava++; const { cfg, as, nimi } = tyot[i]; const virheet = virheLista[i]; const t0 = Date.now();
       try {
         // demo-sivu voi joskus renderöityä vajaaksi (async-init-kisa) → toista kunnes kaksi peräkkäistä yritystä antaa saman määrän (max 6), ota laajin → deterministinen mittaus
         let kaikki = [], edellinen = -1;
         for (let yritys = 0; yritys < 6; yritys++) {
-          const k = await suoritaAskel(selain, cfg, as, nimi, virheet);
+          let k; try { k = await suoritaAskel(selain, cfg, as, nimi, virheet); } catch (e) { if (yritys === 5) throw e; edellinen = -1; continue; }   // kuormassa yksittäinen goto-aikakatkaisu → uusi yritys, ei koko askeleen menetystä
           if (k.length > kaikki.length) kaikki = k;
           if (k.length === edellinen && k.length >= 15) break;
           edellinen = k.length;
@@ -145,11 +148,14 @@ async function main() {
           const lahde = etsiLahde(idx, t, cfg.tiedosto);
           rivit.push({ teksti: t, tyyppi: k.tyyppi, polku: k.polku, varmuus: kartassa ? 'kartta' : 'heuristiikka', svRivi, luokka: lahde.length ? 'ui' : 'data?', lahde });
         }
-        nakymat[nimi] = { tekstejaYht: nahty.size, fi: rivit };
-        if (DUMP) nakymat[nimi].kaikki = [...new Set(kaikki.map((k) => k.tyyppi + '|' + norm(k.t)))].sort();
-      } catch (e) { virheet.push(nimi + ': ' + e.message.slice(0, 100)); nakymat[nimi] = { tekstejaYht: 0, fi: [], virhe: e.message.slice(0, 100) }; }
+        tulokset[i] = { tekstejaYht: nahty.size, fi: rivit };
+        if (DUMP) tulokset[i].kaikki = [...new Set(kaikki.map((k) => k.tyyppi + '|' + norm(k.t)))].sort();
+      } catch (e) { virheet.push(nimi + ': ' + e.message.slice(0, 100)); tulokset[i] = { tekstejaYht: 0, fi: [], virhe: e.message.slice(0, 100) }; }
+      process.stderr.write(`[${++valmiita}/${tyot.length}] ${nimi} ${((Date.now() - t0) / 1000).toFixed(1)}s (yht ${((Date.now() - alku) / 1000).toFixed(0)}s)\n`);   // stderr → CI-lokissa näkyy eteneminen (stdout on tee:ssä)
     }
   }
+  await Promise.all(Array.from({ length: rinnakkain }, tyontekija));
+  const nakymat = {}; tyot.forEach((t, i) => { nakymat[t.nimi] = tulokset[i]; }); const virheet = virheLista.flat();
   await selain.close();
   return { nakymat, virheet };
 }
