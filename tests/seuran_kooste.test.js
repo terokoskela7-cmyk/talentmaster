@@ -1,0 +1,172 @@
+/**
+ * Seuran pulssi S1 (docs/CODE_BRIEF_S1_SEURAN_PULSSI.md; design 17, D40–D45) — lib/tm_seuran_kooste.js fixtuureilla + tm_ikavaihe + tmJoukkuejaksoVoimassa.
+ * Viikko W41/2026: ma 5.10. – su 11.10. (Helsinki, kesäaika); tila arvioidaan su 11.10. klo 21:00 = 18:00Z. Fixtuurien nimet keksittyjä; koosteessa EI nimiä/ID:itä.
+ */
+import { describe, it, expect } from 'vitest';
+import { createRequire } from 'module';
+import vm from 'vm';
+import { readFileSync } from 'fs';
+const require = createRequire(import.meta.url);
+const K = require('../lib/tm_seuran_kooste.js');
+const IV = require('../lib/tm_ikavaihe.js');
+const AJ = require('../lib/tm_aloita_jakso.js');
+const JJ = require('../lib/tm_joukkuejakso.js');
+const DAY = 86400000;
+const ALKU = Date.UTC(2026, 9, 4, 21, 0), LOPPU = Date.UTC(2026, 9, 11, 21, 0), ARVIO = Date.UTC(2026, 9, 11, 18, 0);   // ma 00:00 / seur. ma 00:00 / su 21:00 Helsinki
+const AIKA = { alkuMs: ALKU, loppuMs: LOPPU, arvioMs: ARVIO, nytMs: ARVIO, vuosi: 2026 };
+const iso = (ms) => new Date(ms).toISOString();
+const jakso = (alkoiMs, o) => Object.assign({ konsepti_avain: 'k1', konsepti_nimi: 'Kärki', alkoi: iso(alkoiMs), kesto_vk: 4 }, o || {});
+const J13 = { id: 'u13', nimi: 'KPV U13', jaksofokus: { osa_alueet: { tekninen_taktinen: { nimi: 'Pelaaminen' } }, alku: '2026-10-01', kesto_vk: 4 } };
+const J11 = { id: 'p11', nimi: 'KPV P11' };
+const pel = (id, o) => Object.assign({ id, joukkue: 'KPV U13', joukkueet: [], syntymaVuosi: 2013 }, o || {});
+const laske = (joukkueet, pelaajat, ulk, meta) => { const a = K.tmKoosteAnalysoi({ joukkueet, pelaajat, aika: AIKA }); return { a, doc: K.tmKoosteTulos(a, ulk || {}, Object.assign({ vk: '2026-W41' }, meta || {})) }; };
+
+describe('tilat → luvut (sama tmJaksoTila kuin työpöydällä)', () => {
+  const P = [
+    pel('a', { jaksofokus: jakso(ARVIO - 10 * DAY) }),                                        // käynnissä
+    pel('b', { jaksofokus: jakso(ARVIO - 2 * DAY) }),                                         // vahvistettu (vk 1, ei sitoumusta)
+    pel('c', { jaksofokus: { tila: 'valittavana' } }),                                        // valinta odottaa
+    pel('d', { jaksofokus: { tila: 'valittavana' }, ydinvahvuus_valinta: { vaihtoehto: 'x' } }),   // valinta tehty
+    pel('e', { jaksofokus: jakso(ARVIO - 40 * DAY) }),                                        // päättynyt (suljettava) — ikkuna ei vielä umpeutunut
+    pel('f'),                                                                                 // ei jaksoa
+  ];
+  const { doc, a } = laske([J13], P);
+  const u = doc.joukkueet.u13;
+  it('n_pelaajat · n_jaksolla (kaikki paitsi ei_jaksoa) · alatilat osajoukkoja', () => {
+    expect(u.n_pelaajat).toBe(6); expect(u.n_jaksolla).toBe(5); expect(u.n_valinta_odottaa).toBe(2); expect(u.n_katselmus).toBe(1);
+    expect(u.n_valinta_odottaa + u.n_katselmus).toBeLessThanOrEqual(u.n_jaksolla);
+  });
+  it('vastausperusta = vain käynnissä + vahvistettu (a, b); ehdokkaat haettavaksi = samat', () => { expect(u.n_vastausperusta).toBe(2); expect(a.ehdokkaat.sort()).toEqual(['a', 'b']); });
+  it('tila tulee TÄSMÄLLEEN tmJaksoTilasta (ei omaa kopiota säännöstä)', () => {
+    const tilat = P.map((p) => AJ.tmJaksoTila(p, { nyt: ARVIO }).tila);
+    expect(tilat).toEqual(['kaynnissa', 'vahvistettu', 'valittavana', 'valinta_tehty', 'paattynyt', 'ei_jaksoa']);
+  });
+  it('joukkue: jakso voimassa + teeman nimi; ikävaihe joukkueen nimestä', () => { expect(u.jakso).toBe(true); expect(u.jakso_nimi).toBe('Pelaaminen'); expect(u.ikavaihe).toBe('rakentaja'); expect(u.nimi).toBe('KPV U13'); });
+});
+
+describe('joukkue ilman jaksoa · tyhjä seura', () => {
+  it('joukkue ilman joukkuejaksoa: jakso false, ei jakso_nimi-kenttää; nollat', () => {
+    const { doc } = laske([J11], [pel('x', { joukkue: 'KPV P11', syntymaVuosi: 2015 })]); const u = doc.joukkueet.p11;
+    expect(u.jakso).toBe(false); expect('jakso_nimi' in u).toBe(false); expect(u.n_pelaajat).toBe(1); expect(u.n_jaksolla).toBe(0); expect(u.ikavaihe).toBe('leikkija');
+  });
+  it('umpeutunut tai tulevaisuuden joukkuejakso → jakso false', () => {
+    const umpeutunut = { id: 'j', nimi: 'KPV U15', jaksofokus: { osa_alueet: { tekninen_taktinen: { nimi: 'Vanha' } }, alku: '2026-08-01', kesto_vk: 4 } };
+    const tuleva = { id: 'k', nimi: 'KPV U16', jaksofokus: { osa_alueet: { tekninen_taktinen: { nimi: 'Tuleva' } }, alku: '2026-10-20', kesto_vk: 4 } };
+    const { doc } = laske([umpeutunut, tuleva], []); expect(doc.joukkueet.j.jakso).toBe(false); expect(doc.joukkueet.k.jakso).toBe(false);
+  });
+  it('tyhjä seura: ei joukkueita → tyhjä joukkueet-kartta; joukkueita ilman pelaajia → nollat', () => {
+    expect(laske([], []).doc.joukkueet).toEqual({});
+    const u = laske([J13], []).doc.joukkueet.u13; expect([u.n_pelaajat, u.n_jaksolla, u.n_vastausperusta, u.n_katselmus_perusta]).toEqual([0, 0, 0, 0]);
+  });
+});
+
+describe('Leikkijä (ei vastausasteeseen, mutta pelaajiin jaksolla)', () => {
+  const L = pel('l', { joukkue: 'KPV P11', syntymaVuosi: 2015, jaksofokus: jakso(ARVIO - 10 * DAY) }), R = pel('r', { joukkue: 'KPV P11', syntymaVuosi: 2012, jaksofokus: jakso(ARVIO - 10 * DAY) });
+  it('12-vuotias (Leikkijä) lasketaan jaksolle mutta ei vastausperustaan; 14-vuotias (Rakentaja) molempiin', () => {
+    const { doc, a } = laske([J11], [L, R]); const u = doc.joukkueet.p11;
+    expect(u.n_jaksolla).toBe(2); expect(u.n_vastausperusta).toBe(1); expect(a.ehdokkaat).toEqual(['r']);
+  });
+  it('ikä puuttuu → joukkueen nimestä (P11 → Leikkijä); tuntematon → EI Leikkijä', () => {
+    const ilmanVuotta = pel('v', { joukkue: 'KPV P11', syntymaVuosi: null, jaksofokus: jakso(ARVIO - 10 * DAY) });
+    expect(laske([J11], [ilmanVuotta]).doc.joukkueet.p11.n_vastausperusta).toBe(0);
+    const tuntematon = pel('t', { joukkue: 'Edustus', syntymaVuosi: null, jaksofokus: jakso(ARVIO - 10 * DAY) });
+    expect(laske([{ id: 'e', nimi: 'Edustus' }], [tuntematon]).doc.joukkueet.e.n_vastausperusta).toBe(1);
+  });
+  it('viikkokatsaus: n_vastanneet vain ehdokkaista (ulkopuolinen vastaaja ei vaikuta)', () => {
+    const { doc } = laske([J11], [L, R], { vastanneet: ['l', 'r', 'joku-muu'] }); expect(doc.joukkueet.p11.n_vastanneet).toBe(1);   // vain perustan pelaaja r; Leikkijä l ja tuntematon vastaaja eivät lisää
+  });
+});
+
+describe('viikkokatsaus (vastanneet / perusta)', () => {
+  it('vastaajat lasketaan vain perustasta; vastaamattomat jäävät nimittäjään', () => {
+    const P = [pel('a', { jaksofokus: jakso(ARVIO - 10 * DAY) }), pel('b', { jaksofokus: jakso(ARVIO - 10 * DAY) }), pel('c', { jaksofokus: jakso(ARVIO - 10 * DAY) }), pel('d', { jaksofokus: { tila: 'valittavana' } })];
+    const { doc } = laske([J13], P, { vastanneet: ['a', 'c', 'd'] }); const u = doc.joukkueet.u13;
+    expect(u.n_vastausperusta).toBe(3); expect(u.n_vastanneet).toBe(2);   // d ei kuulu perustaan (valinta odottaa)
+  });
+});
+
+describe('katselmukset ajallaan (ikkuna = päättyminen + 14 pv, sulkeutuu tällä viikolla)', () => {
+  const loppu = ARVIO - 16 * DAY, ikkuna = loppu + 14 * DAY;   // ikkuna sulkeutui pe 9.10.
+  const rivi = (suljettuMs, o) => Object.assign({ sulkutapa: 'suljettu', paattyi: iso(loppu), suljettu: iso(suljettuMs), alkoi: iso(loppu - 28 * DAY) }, o || {});
+  it('suljettu ikkunassa → ajallaan; suljettu myöhässä → perustassa mutta ei ajallaan (reviewit-haku pyydetään)', () => {
+    const { doc, a } = laske([J13], [pel('a', { jaksofokus_historia: [rivi(loppu + 3 * DAY)] }), pel('b', { jaksofokus_historia: [rivi(ikkuna + 2 * DAY)] })]);
+    const u = doc.joukkueet.u13; expect(u.n_katselmus_perusta).toBe(2); expect(u.n_katselmus_ajallaan).toBe(1);
+    expect(a.katselmukset.map((k) => k.pid)).toEqual(['b']); expect(a.katselmukset[0].alkuPvm).toBe('2026-09-25'); expect(a.katselmukset[0].loppuPvm).toBe('2026-10-09');
+  });
+  it('myöhässä suljettu, mutta täysi katselmus (reviewit/{pvm}) ikkunassa → ajallaan', () => {
+    const P = [pel('b', { jaksofokus_historia: [rivi(ikkuna + 2 * DAY)] })];
+    const { a, doc } = laske([J13], P, { katselmusLoytyi: [] }); expect(doc.joukkueet.u13.n_katselmus_ajallaan).toBe(0);
+    expect(K.tmKoosteTulos(a, { katselmusLoytyi: [a.katselmukset[0].i] }, { vk: '2026-W41' }).joukkueet.u13.n_katselmus_ajallaan).toBe(1);
+  });
+  it('päättynyt eikä suljettu, ikkuna umpeutui tällä viikolla → perustassa, ei ajallaan; ikkuna vielä auki → ei perustaan', () => {
+    const umpeutui = pel('u', { jaksofokus: jakso(loppu - 28 * DAY) });   // päättyi loppu, ikkuna pe 9.10.
+    const auki = pel('o', { jaksofokus: jakso(ARVIO - 40 * DAY) });       // päättyi 12 pv sitten → ikkuna sulkeutuu vasta ensi viikolla
+    const { doc } = laske([J13], [umpeutui, auki]); const u = doc.joukkueet.u13;
+    expect(u.n_katselmus).toBe(2); expect(u.n_katselmus_perusta).toBe(1); expect(u.n_katselmus_ajallaan).toBe(0);
+  });
+  it('jokainen jakso lasketaan KERRAN: ikkuna toisella viikolla → ei tämän viikon perustaan; korvattu / sulkutavaton ei ole katselmus', () => {
+    const toinenViikko = pel('t', { jaksofokus_historia: [rivi(loppu + DAY, { paattyi: iso(loppu - 7 * DAY) })] });
+    const korvattu = pel('k', { jaksofokus_historia: [rivi(loppu + DAY, { sulkutapa: 'korvattu' })] });
+    const vanha = pel('v', { jaksofokus_historia: [rivi(loppu + DAY, { sulkutapa: undefined })] });
+    expect(laske([J13], [toinenViikko, korvattu, vanha]).doc.joukkueet.u13.n_katselmus_perusta).toBe(0);
+  });
+});
+
+describe('pelaaja kahdessa joukkueessa (joukkue + joukkueet[], §7.18)', () => {
+  it('lasketaan KUMPAAN joukkueeseen (nimi- tai id-täsmäys)', () => {
+    const p = pel('x', { joukkue: 'KPV U13', joukkueet: ['u13', 'p11'], jaksofokus: jakso(ARVIO - 10 * DAY) });
+    const { doc } = laske([J13, J11], [p]);
+    for (const jid of ['u13', 'p11']) { expect(doc.joukkueet[jid].n_pelaajat).toBe(1); expect(doc.joukkueet[jid].n_jaksolla).toBe(1); expect(doc.joukkueet[jid].n_vastausperusta).toBe(1); }
+  });
+  it('vain joukkueet[] (ID) tai vain joukkue (nimi) riittää; kuulumaton pelaaja ei lisäänny mihinkään', () => {
+    const { doc } = laske([J13, J11], [pel('a', { joukkue: null, joukkueet: ['p11'] }), pel('b', { joukkue: 'KPV U13', joukkueet: [] }), pel('c', { joukkue: 'Muu', joukkueet: [] })]);
+    expect(doc.joukkueet.p11.n_pelaajat).toBe(1); expect(doc.joukkueet.u13.n_pelaajat).toBe(1);
+  });
+});
+
+describe('tietosuojavartija: koosteessa ei nimiä, ID:itä eikä vapaatekstiä', () => {
+  const P = [pel('pid-salainen-1', { etunimi: 'Aleksi', sukunimi: 'Mäkinen', jaksofokus: jakso(ARVIO - 10 * DAY), idp_sitoumus_pvm: iso(ARVIO - 9 * DAY) })];
+  const { doc } = laske([J13], P, { vastanneet: ['pid-salainen-1'] });
+  it('tmKoosteRikkomukset tyhjä oikealla koosteella; joukkueen nimi ja teema sallittu', () => { expect(K.tmKoosteRikkomukset(doc)).toEqual([]); expect(K.tmKoosteJoukkueDokumentit(doc).every((d) => K.tmKoosteRikkomukset(d.data).length === 0)).toBe(true); });
+  it('serialisoitu kooste ei sisällä pelaajan ID:tä eikä nimeä', () => { const s = JSON.stringify(doc) + JSON.stringify(K.tmKoosteJoukkueDokumentit(doc)); for (const kielletty of ['pid-salainen-1', 'Aleksi', 'Mäkinen', 'etunimi', 'sukunimi', 'pelaajaId', 'teksti']) expect(s).not.toContain(kielletty); });
+  it('vartija nappaa kielletyt kentät (itsetesti)', () => {
+    expect(K.tmKoosteRikkomukset({ joukkueet: { a: { nimi: 'X', etunimi: 'Y' } } })).toContain('joukkueet.a.etunimi');
+    expect(K.tmKoosteRikkomukset({ joukkueet: { a: { pelaajaId: 'p' } } }).length).toBe(1);
+    expect(K.tmKoosteRikkomukset({ nimi: 'x' })).toEqual(['nimi']);
+    expect(K.tmKoosteRikkomukset({ joukkueet: { a: { teksti: 't' } } }).length).toBe(1);
+    expect(K.tmKoosteRikkomukset({ joukkueet: { a: { x: ['pid'] } } }).length).toBe(1);
+  });
+  it('rakenne: vk, versio 1, arvio vain kun pyydetty; kooste_joukkue: id {jid}_{vk}, mittarit ilman nimiä', () => {
+    expect(doc.vk).toBe('2026-W41'); expect(doc.versio).toBe(1); expect('arvio' in doc).toBe(false);
+    expect(laske([J13], P, {}, { arvio: true }).doc.arvio).toBe(true);
+    const jd = K.tmKoosteJoukkueDokumentit(doc)[0]; expect(jd.id).toBe('u13_2026-W41'); expect(jd.data).toMatchObject({ vk: '2026-W41', jid: 'u13', versio: 1 }); expect(jd.data.mittarit.n_pelaajat).toBe(1);
+  });
+  it('kenttiä ei tule teemakattavuudelle / kuormalle / kypsyydelle (S4) eikä nollia niille', () => { const k = Object.keys(doc.joukkueet.u13).join(','); for (const ei of ['teema', 'kuorma', 'kypsyys']) expect(k).not.toContain(ei); });
+});
+
+describe('tmJoukkuejaksoVoimassa = tmJoukkuejaksoKortti (ei eri totuutta)', () => {
+  const jd = (alku, kesto, nimi) => ({ jaksofokus: { osa_alueet: { tekninen_taktinen: { nimi: nimi || 'T' } }, alku, kesto_vk: kesto } });
+  it('pariteetti päivämäärillä: tulevaisuus / käynnissä / viimeinen päivä / päättymispäivä / umpeutunut', () => {
+    for (const [d, tanaan] of [[jd('2026-10-01', 4), '2026-10-11'], [jd('2026-10-20', 4), '2026-10-11'], [jd('2026-10-11', 4), '2026-10-11'], [jd('2026-09-13', 4), '2026-10-10'], [jd('2026-09-13', 4), '2026-10-11'], [jd('2026-08-01', 4), '2026-10-11']]) {
+      const k = JJ.tmJoukkuejaksoKortti(d, { tanaan }); const v = JJ.tmJoukkuejaksoVoimassa(d, tanaan);
+      expect(v.voimassa, JSON.stringify([d.jaksofokus.alku, tanaan])).toBe(!!k.onJakso && !k.umpeutunut && !k.alkaaVasta);
+    }
+  });
+  it('ei jaksoa / ei tekninen_taktinen → false; päivämäärät puuttuvat → voimassa (ei tiedetä umpeutumista)', () => { expect(JJ.tmJoukkuejaksoVoimassa({}, '2026-10-11').voimassa).toBe(false); expect(JJ.tmJoukkuejaksoVoimassa({ jaksofokus: { osa_alueet: {} } }, '2026-10-11').voimassa).toBe(false); expect(JJ.tmJoukkuejaksoVoimassa(jd(null, null), '2026-10-11').voimassa).toBe(true); });
+});
+
+describe('tm_ikavaihe: pariteetti sovelluksen normiIka:an', () => {
+  const sb = { console: { log() {}, warn() {}, error() {} } }; sb.window = sb; vm.createContext(sb);
+  vm.runInContext(readFileSync(new URL('../lib/tm_eerikkila_normit.js', import.meta.url), 'utf8') + '\n;this.__n = normiIka;', sb);
+  const normi = sb.__n;
+  it('syntymävuosi + vuosi / joukkueen nimi: sama tulos kuin normiIka (kun pvm = vuosi)', () => {
+    for (const sv of [2005, 2010, 2012, 2013, 2014, 2016, 2021, 1990, null]) for (const jk of ['KPV U13', 'KPV P11', 'T15', 'Edustus', '', null]) {
+      expect(IV.tmPelaajaIka(sv, 2026, jk), JSON.stringify([sv, jk])).toBe(normi(sv, '2026-10-11', jk));
+    }
+  });
+  it('ikävaihe-raja: ≤12 Leikkijä · 13–15 Rakentaja · 16+ Showcase · tuntematon null (= sama kuin tmKtIkavaihe / tmMvRekisteri)', () => {
+    expect([12, 13, 15, 16, 25].map(IV.tmIkavaihe)).toEqual(['leikkija', 'rakentaja', 'rakentaja', 'showcase', 'showcase']); expect([null, '', 0, NaN, 'x'].map(IV.tmIkavaihe)).toEqual([null, null, null, null, null]);
+    const KT = require('../lib/tm_kehitystyopoyta.js'); const MV = require('../lib/tm_mediaviesti.js');
+    for (const ika of [8, 12, 13, 15, 16, 19]) { expect(IV.tmIkavaihe(ika) === 'leikkija').toBe(KT.tmKtIkavaihe(ika) === 'Leikkijä'); expect(IV.tmIkavaihe(ika)).toBe(MV.tmMvRekisteri(ika) === 'leikkija' ? 'leikkija' : (ika <= 15 ? 'rakentaja' : 'showcase')); }
+  });
+});

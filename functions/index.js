@@ -2480,3 +2480,27 @@ exports.luoPinitSeuralle = functions
   .region('europe-west1')
   .runWith({ enforceAppCheck: true, timeoutSeconds: 300 })
   .https.onCall(pelaajapin.luoLuoPinitSeuralle(pinDeps));
+
+/* ═══ Seuran pulssi S1 (docs/CODE_BRIEF_S1_SEURAN_PULSSI.md; kaista Tero) ═══
+   Viikkokooste palvelimella: vain lukumääriä joukkueittain (kooste/{vvvv-Www} + kooste_joukkue/{jid}_{vvvv-Www}), ei nimiä eikä pelaaja-ID:itä. Laskenta: tm_seuran_kooste.js
+   (jaettu lib/-kopio, tmJaksoTila = sama funktio kuin työpöydällä). Kirjoittaa VAIN kooste-dokumentit (Admin SDK; Rules: client ei kirjoita).
+   · laskeSeuranKooste    su 21:00 Europe/Helsinki — kuluva viikko        · laskeSeuranKoosteMa  ma 06:00 — edellinen viikko uudelleen (sunnuntain klo 21–24 vastaukset mukaan; sama set → idempotentti)
+   · paivitaSeuranKooste  callable (johto/SA oma seura, App Check) — kuluvan viikon "Päivitä nyt".  Takaisinlaskenta (3 vk, arvio:true): scripts/kooste_takaisinlasku.js (Tero ajaa). */
+const seuranKooste = require('./seuran_kooste');
+const _koosteDeps = { db, FieldValue: admin.firestore.FieldValue, FieldPath: admin.firestore.FieldPath, HttpsError: functions.https.HttpsError, tarkistaOikeus };
+exports.laskeSeuranKooste = functions
+  .region('europe-west1')
+  .runWith({ timeoutSeconds: 540, memory: '512MB' })
+  .pubsub.schedule('0 21 * * 0')
+  .timeZone('Europe/Helsinki')
+  .onRun(seuranKooste.ajastettuKasittelija(_koosteDeps, 'sunnuntai'));
+exports.laskeSeuranKoosteMa = functions
+  .region('europe-west1')
+  .runWith({ timeoutSeconds: 540, memory: '512MB' })
+  .pubsub.schedule('0 6 * * 1')
+  .timeZone('Europe/Helsinki')
+  .onRun(seuranKooste.ajastettuKasittelija(_koosteDeps, 'maanantai'));
+exports.paivitaSeuranKooste = functions
+  .region('europe-west1')
+  .runWith({ enforceAppCheck: true, timeoutSeconds: 120, memory: '512MB' })
+  .https.onCall(seuranKooste.paivitaKasittelija(_koosteDeps));

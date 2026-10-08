@@ -4853,10 +4853,11 @@ describe('v3.48 · kalenteri/{id}/henkilokunta/muistiinpanot + lasnaolijat: pela
     await assertFails(setDoc(muist(dbVp(), 'muu'), { teksti: 'x', paivitetty: serverTimestamp() })); await assertFails(setDoc(muist(dbVp()), { teksti: 'x'.repeat(501), paivitetty: serverTimestamp() })); await assertSucceeds(setDoc(muist(dbVp()), { teksti: 'x'.repeat(500), paivitetty: serverTimestamp() }));
     await assertFails(setDoc(muist(dbVp()), { teksti: 'x', paivitetty: serverTimestamp(), ylimaarainen: 1 })); await assertFails(setDoc(muist(dbVp()), { paivitetty: serverTimestamp() })); await assertFails(setDoc(muist(dbVp()), { teksti: 5, paivitetty: serverTimestamp() })); await assertFails(setDoc(muist(dbVp()), { teksti: 'x', paivitetty: new Date() }));
   });
-  it('henkilökunnan läsnäolo ennallaan (kirjaus + luku kaikille); tapahtuman field-level-muokkaus (poista vanha muistiinpanokenttä) toimii valmentajalle', async () => {
+  it('henkilökunnan läsnäolo ennallaan (kirjaus + luku kaikille); tapahtuman vanhan muistiinpanokentän poisto toimii johdolle (valmentajalle vain omaan tapahtumaan, v3.53)', async () => {
     await assertSucceeds(setDoc(las(dbVal(), MUU_UID), { tila: 'paikalla', paivitetty: serverTimestamp() })); await assertSucceeds(getDocs(collection(dbVal(), 'seurat', SEURA_A, 'kalenteri', EV, 'lasnaolijat'))); await assertSucceeds(getDocs(collection(dbVp(), 'seurat', SEURA_A, 'kalenteri', EV, 'lasnaolijat')));
     await testEnv.withSecurityRulesDisabled(async (c) => { await updateDoc(kal(c.firestore()), { muistiinpanot: 'vanha vuotava teksti' }); });
-    await assertSucceeds(updateDoc(kal(dbVal()), { muistiinpanot: deleteField(), paivitetty: serverTimestamp(), muokkaaja_uid: VALM_A_UID }));   // migraatio/tallennus poistaa kentän
+    await assertFails(updateDoc(kal(dbVal()), { muistiinpanot: deleteField(), paivitetty: serverTimestamp(), muokkaaja_uid: VALM_A_UID }));   // v3.53-jälkisiivous: muun kuin oman tapahtuman legacy-kentän poisto ei kulje valmentajan field-level-haaran kautta
+    await assertSucceeds(updateDoc(kal(dbVp()), { muistiinpanot: deleteField(), paivitetty: serverTimestamp(), muokkaaja_uid: VP_A_UID }));   // migraatio/tallennus (johto) poistaa kentän
   });
 });
 
@@ -4887,11 +4888,11 @@ describe('v3.52 · kalenteri/{id}: muistiinpanot-kenttä estetty tapahtumadokume
     await assertFails(updateDoc(kal(dbVp()), { muistiinpanot: 'x' })); await assertFails(updateDoc(kal(dbVp()), { muistiinpanot: null }));
     await assertSucceeds(updateDoc(kal(dbVal()), { pelaajaviesti: 'Uusi viesti', paivitetty: serverTimestamp(), muokkaaja_uid: VALM_A_UID }));   // muu päivitys toimii
   });
-  it('KENTÄN POISTAVA update sallitaan (valmentaja oma + muiden, VP); legacy-dokumentin muu päivitys ilman poistoa estyy', async () => {
+  it('KENTÄN POISTAVA update sallitaan (valmentaja OMAAN tapahtumaan, VP; muiden tapahtumaan ei enää v3.53:ssa); legacy-dokumentin muu päivitys ilman poistoa estyy', async () => {
     await testEnv.withSecurityRulesDisabled(async (c) => { const f = c.firestore(); await setDoc(kal(f, 'l1'), perus({ muistiinpanot: 'vanha' })); await setDoc(kal(f, 'l2'), perus({ luoja_uid: VP_A_UID, muistiinpanot: 'vanha' })); await setDoc(kal(f, 'l3'), perus({ muistiinpanot: 'vanha' })); });
     await assertFails(updateDoc(kal(dbVal(), 'l1'), { pelaajaviesti: 'x' }));                                                                              // kenttä jää dokumenttiin → ✗
     await assertSucceeds(updateDoc(kal(dbVal(), 'l1'), { muistiinpanot: deleteField(), paivitetty: serverTimestamp(), muokkaaja_uid: VALM_A_UID }));      // oma
-    await assertSucceeds(updateDoc(kal(dbVal(), 'l2'), { muistiinpanot: deleteField(), paivitetty: serverTimestamp(), muokkaaja_uid: VALM_A_UID }));      // muiden (field-level hasOnly sisältää kentän)
+    await assertFails(updateDoc(kal(dbVal(), 'l2'), { muistiinpanot: deleteField(), paivitetty: serverTimestamp(), muokkaaja_uid: VALM_A_UID }));         // muiden: v3.53-jälkisiivous — 'muistiinpanot' pois field-level-hasOnly-listasta (migraatio = SA/johto/luoja)
     await assertSucceeds(updateDoc(kal(dbVp(), 'l3'), { muistiinpanot: deleteField() }));                                                                  // VP
   });
   it('HENKILÖKUNTA kirjoittaa ja lukee henkilokunta/muistiinpanot-alikokoelmaa; PELAAJA ja HUOLTAJA eivät lue', async () => {
@@ -4902,6 +4903,72 @@ describe('v3.52 · kalenteri/{id}: muistiinpanot-kenttä estetty tapahtumadokume
   it('PELAAJA lukee edelleen oman tapahtumansa ja kalenteri-kokoelman — ilman muistiinpanoja', async () => {
     const s = await assertSucceeds(getDoc(kal(dbPel()))); expect(s.data().pelaajaviesti).toBe('Tuo juomapullo'); expect('muistiinpanot' in s.data()).toBe(false);
     const l = await assertSucceeds(getDocs(collection(dbPel(), 'seurat', SEURA_A, 'kalenteri'))); expect(l.size).toBe(1);
+  });
+});
+
+/* ══ v3.53 · Seuran pulssi S1: kooste + kooste_joukkue (vain palvelin kirjoittaa) + v3.52-jälkisiivous ══ */
+describe('v3.53 · kooste/{vk} + kooste_joukkue/{id}: johto lukee; valmentaja vain oman joukkueen; pelaaja/huoltaja ei; client ei kirjoita', () => {
+  const VK = '2026-W41', JID2 = JOUKKUE_A2;
+  const kooste = (db, sid = SEURA_A) => doc(db, 'seurat', sid, 'kooste', VK);
+  const kj = (db, jid = JOUKKUE_A1, sid = SEURA_A) => doc(db, 'seurat', sid, 'kooste_joukkue', jid + '_' + VK);
+  const lukuja = { vk: VK, versio: 1, laskettu: new Date(), joukkueet: { [JOUKKUE_A1]: { nimi: 'FCL U12', jakso: true, n_pelaajat: 14 } } };
+  const ctxRooli = (uid, rooli, sid = SEURA_A) => testEnv.authenticatedContext(uid, { rooli, seuraId: sid });
+  const dbVal = () => valmentajaContext(VALM_A_UID, SEURA_A).firestore(), dbVal2 = () => valmentajaContext('valm-fcl-002', SEURA_A).firestore();
+  beforeEach(async () => {
+    await seedAdminDoc(); await seedSeuraAndPelaaja();
+    await testEnv.withSecurityRulesDisabled(async (c) => { const f = c.firestore();
+      await setDoc(doc(f, 'seurat', SEURA_A, 'kayttajat', 'valm-fcl-002'), { email: 'valm2@fcl.fi', rooli: 'valmentaja', seuraId: SEURA_A, joukkueet: [JID2], aktiivinen: true });
+      await setDoc(kooste(f), lukuja); await setDoc(kooste(f, SEURA_B), lukuja);
+      await setDoc(kj(f), { vk: VK, jid: JOUKKUE_A1, versio: 1, laskettu: new Date(), mittarit: { nimi: 'FCL U12', n_pelaajat: 14 } });
+      await setDoc(kj(f, JID2), { vk: VK, jid: JID2, versio: 1, laskettu: new Date(), mittarit: { nimi: 'FCL U14', n_pelaajat: 12 } });
+      await setDoc(kj(f, 'kpv_u13', SEURA_B), { vk: VK, jid: 'kpv_u13', versio: 1, mittarit: {} });
+      await setDoc(doc(f, 'seurat', SEURA_A, 'konfiguraatio', 'kooste_tavoitteet'), { tavoitteet: { vastausaste: 70 } }); });
+  });
+
+  it('kooste: johto (VP, UTJ, seurasihteeri) ja SA lukevat; toisen seuran johto ✗', async () => {
+    for (const c of [vpContext(SEURA_A), ctxRooli('utj-1', 'urheilutoimenjohtaja'), sihteeriContext(SEURA_A), saContext()]) { const s = await assertSucceeds(getDoc(kooste(c.firestore()))); expect(s.data().vk).toBe(VK); }
+    await assertFails(getDoc(kooste(vpContext(SEURA_B).firestore()))); await assertFails(getDoc(kooste(unauthContext().firestore())));
+  });
+  it('kooste: valmentaja, talenttivalmentaja, fysiikkavalmentaja, fysioterapeutti, pelaaja ja huoltaja EIVÄT lue seuran koostetta', async () => {
+    for (const c of [valmentajaContext(VALM_A_UID, SEURA_A), talenttivalmentajaContext('talval-fcl-001', SEURA_A), fysiikkavalmentajaContext('fyys-1', SEURA_A), fysioterapeuttiContext('fyt-1', SEURA_A), pelaajaItseContext(), huoltajaContext(), pelaajaContext(SEURA_B, PELAAJA_B_UID)]) await assertFails(getDoc(kooste(c.firestore())));
+    await assertFails(getDocs(collection(pelaajaItseContext().firestore(), 'seurat', SEURA_A, 'kooste')));
+  });
+  it('kooste_joukkue: valmentaja lukee OMAN joukkueensa dokumentin, ei toisen joukkueen eikä seuran koostetta', async () => {
+    const s = await assertSucceeds(getDoc(kj(dbVal()))); expect(s.data().jid).toBe(JOUKKUE_A1);
+    await assertFails(getDoc(kj(dbVal(), JID2))); await assertFails(getDoc(kooste(dbVal())));
+    await assertSucceeds(getDoc(kj(dbVal2(), JID2))); await assertFails(getDoc(kj(dbVal2())));
+    // kysely joukkueen rajauksella (S2:n lukutapa) onnistuu omalle, ei toiselle
+    await assertSucceeds(getDocs(query(collection(dbVal(), 'seurat', SEURA_A, 'kooste_joukkue'), where('jid', '==', JOUKKUE_A1))));
+    await assertFails(getDocs(query(collection(dbVal(), 'seurat', SEURA_A, 'kooste_joukkue'), where('jid', '==', JID2))));
+    await assertFails(getDocs(collection(dbVal(), 'seurat', SEURA_A, 'kooste_joukkue')));   // rajaamaton lista ✗
+  });
+  it('kooste_joukkue: johto ja talenttivalmentaja lukevat kaikki seuran joukkueet; muut roolit, toisen seuran käyttäjät, pelaaja ja huoltaja eivät', async () => {
+    for (const c of [vpContext(SEURA_A), sihteeriContext(SEURA_A), talenttivalmentajaContext('talval-fcl-001', SEURA_A), saContext()]) { await assertSucceeds(getDoc(kj(c.firestore()))); await assertSucceeds(getDoc(kj(c.firestore(), JID2))); }
+    for (const c of [fysiikkavalmentajaContext('fyys-1', SEURA_A), fysioterapeuttiContext('fyt-1', SEURA_A), pelaajaItseContext(), huoltajaContext(), valmentajaContext(VALM_B_UID, SEURA_B), vpContext(SEURA_B), unauthContext()]) await assertFails(getDoc(kj(c.firestore())));
+    await assertSucceeds(getDoc(kj(valmentajaContext(VALM_B_UID, SEURA_B).firestore(), 'kpv_u13', SEURA_B)));   // toisen seuran valmentaja lukee OMAN seuransa oman joukkueen dokumentin
+  });
+  it('CLIENT EI KIRJOITA: kukaan (SA, VP, UTJ, valmentaja, pelaaja) ei luo, päivitä eikä poista kooste- tai kooste_joukkue-dokumentteja', async () => {
+    const ctxs = [saContext(), vpContext(SEURA_A), ctxRooli('utj-1', 'urheilutoimenjohtaja'), valmentajaContext(VALM_A_UID, SEURA_A), pelaajaItseContext()];
+    for (const c of ctxs) {
+      const db = c.firestore();
+      await assertFails(setDoc(doc(db, 'seurat', SEURA_A, 'kooste', '2026-W42'), lukuja)); await assertFails(updateDoc(kooste(db), { versio: 2 })); await assertFails(deleteDoc(kooste(db)));
+      await assertFails(setDoc(doc(db, 'seurat', SEURA_A, 'kooste_joukkue', JOUKKUE_A1 + '_2026-W42'), { vk: '2026-W42', jid: JOUKKUE_A1, mittarit: {} })); await assertFails(updateDoc(kj(db), { versio: 2 })); await assertFails(deleteDoc(kj(db)));
+    }
+  });
+  it('konfiguraatio/kooste_tavoitteet (S3 valmiiksi, yleinen konfiguraatio-sääntö): oman seuran henkilökunta lukee, johto/SA kirjoittaa; valmentaja ei kirjoita; pelaaja/huoltaja ei lue', async () => {
+    const t = (db) => doc(db, 'seurat', SEURA_A, 'konfiguraatio', 'kooste_tavoitteet');
+    for (const c of [vpContext(SEURA_A), valmentajaContext(VALM_A_UID, SEURA_A), sihteeriContext(SEURA_A), saContext()]) await assertSucceeds(getDoc(t(c.firestore())));
+    await assertSucceeds(setDoc(t(vpContext(SEURA_A).firestore()), { tavoitteet: { vastausaste: 75 } })); await assertSucceeds(setDoc(t(saContext().firestore()), { tavoitteet: { vastausaste: 80 } }));
+    await assertFails(setDoc(t(dbVal()), { tavoitteet: { vastausaste: 1 } }));
+    for (const c of [pelaajaItseContext(), huoltajaContext(), vpContext(SEURA_B)]) await assertFails(getDoc(t(c.firestore())));
+  });
+  it('v3.52-jälkisiivous: valmentajan field-level-päivitys muiden tapahtumaan ENNALLAAN (läsnäolo-kooste, RPE, paivitetty); muistiinpanot-kenttä ei kulje field-level-haaran kautta', async () => {
+    const kalDoc = (db) => doc(db, 'seurat', SEURA_A, 'kalenteri', 'ev-v353');
+    await testEnv.withSecurityRulesDisabled(async (c) => { await setDoc(kalDoc(c.firestore()), { nimi: 'Harjoitus', tyyppi: 'harjoitus', joukkue: JOUKKUE_A1, joukkueet: [JOUKKUE_A1], poistettu: false, luoja_uid: VP_A_UID }); });
+    await assertSucceeds(updateDoc(kalDoc(dbVal()), { lasnaolo_kooste: { paikalla: 8 }, paivitetty: serverTimestamp(), muokkaaja_uid: VALM_A_UID }));
+    await assertSucceeds(updateDoc(kalDoc(dbVal()), { valmentaja_rpe: 6, valmentaja_rpe_pvm: '2026-10-11', paivitetty: serverTimestamp(), muokkaaja_uid: VALM_A_UID }));
+    await assertFails(updateDoc(kalDoc(dbVal()), { nimi: 'Uusi nimi' }));                                          // ei nimeä muille (ennallaan)
+    await assertFails(updateDoc(kalDoc(dbVal()), { muistiinpanot: 'x', paivitetty: serverTimestamp(), muokkaaja_uid: VALM_A_UID }));   // v3.52 + siivous
   });
 });
 

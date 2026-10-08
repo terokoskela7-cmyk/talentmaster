@@ -1,9 +1,17 @@
 rules_version = '2';
 // ══════════════════════════════════════════════════════════════════════════
-// TalentMaster™ — firestore.rules v3.52
+// TalentMaster™ — firestore.rules v3.53
 //
 // Lähde:  tm_admin/firestore.rules
 // Deploy: PR → N4-CI deployaa automaattisesti (Console-käsityö poistui).
+//
+// Muutokset v3.52 → v3.53 (Seuran pulssi S1 — 9.10.2026 — additiivinen, §11; ei migraatiota; client ei kirjoita):
+//   · seurat/{sid}/kooste/{vvvv-Www}: luku SA | oman seuran johto (VP/UTJ/seurasihteeri). Kirjoitus `false` (vain palvelin, Admin SDK: laskeSeuranKooste / paivitaSeuranKooste).
+//   · seurat/{sid}/kooste_joukkue/{jid}_{vvvv-Www}: luku kuten yllä + talenttivalmentaja (koko seura) + OMAN joukkueen valmentaja (dokumentin `jid` ∈ kayttajat/{uid}.joukkueet, valmentajanJoukkueet).
+//     Kirjoitus `false`. Pelaaja ja huoltaja eivät lue kumpaakaan (§7.22; heillä ei seuraId-claimia → onOmaSeura epätosi).
+//   · seurat/{sid}/konfiguraatio/kooste_tavoitteet (S3): EI uutta blokkia — yleinen konfiguraatio/{konfId} kattaa jo (luku oman seuran henkilökunta, kirjoitus johto/SA). Testattu.
+//   · v3.52:n jälkisiivous: kalenterin valmentajan field-level-haara (muiden tapahtumat) — 'muistiinpanot' pois hasOnly-listasta. Seuraus: muun kuin oman tapahtuman legacy-`muistiinpanot`-kentän
+//     poisto onnistuu enää johdolta, tapahtuman luojalta ja SA:lta (migraatio = Excel_Tuonti/SA); valmentajan field-level-päivitys muuten ennallaan (paivitetty, muokkaaja_uid, lasnaolo_kooste, valmentaja_rpe, valmentaja_rpe_pvm).
 //
 // Muutokset v3.51 → v3.52 (#882 vaihe 3 — 9.10.2026 — KOVENNUS, ei migraatiota; ⚠ v3.49 on varattu Seuran pulssille S1 tässä numeroinnissa):
 //   · seurat/{sid}/kalenteri/{id}: create ja update EIVÄT salli kenttää `muistiinpanot` tapahtumadokumentissa (!('muistiinpanot' in request.resource.data)) —
@@ -1824,6 +1832,20 @@ service cloud.firestore {
         allow delete:         if onSuperAdmin();
       }
 
+      // ── SEURAN PULSSI S1 (v3.53) — viikkokooste: vain lukumääriä joukkueittain, kirjoittaa vain palvelin ──
+      match /kooste/{vk} {
+        allow read:  if onSuperAdmin() || (onKirjautunut() && onOmaSeura(seuraId) && onJohtoRooli());
+        allow write: if false;
+      }
+      match /kooste_joukkue/{koosteId} {
+        allow read:  if onSuperAdmin()
+                     || (onKirjautunut() && onOmaSeura(seuraId)
+                         && (onJohtoRooli()
+                             || request.auth.token.rooli == 'talenttivalmentaja'
+                             || (request.auth.token.rooli == 'valmentaja' && resource.data.get('jid', '') in valmentajanJoukkueet(seuraId))));
+        allow write: if false;
+      }
+
       // ── KALENTERI (v3.5) — seuran pääkalenteri (KALENTERI_ARKKITEHTUURI.md §3/§7) ──
       // Korvaa legacy tapahtumat + vp_kalenteri + joukkueet/{jid}/kalenteri yhdellä
       // kokoelmalla. Kaikki tapahtumatyypit: testi, ottelu, harjoitus, palaveri,
@@ -1851,7 +1873,7 @@ service cloud.firestore {
         //  · SA / johto → kaikki
         //  · valmentaja OMAAN tapahtumaan (luoja_uid == uid) → kaikki
         //  · valmentaja MUIDEN tapahtumaan → vain field-level
-        //    (muistiinpanot + läsnäolo-kooste + aikaleima; EI soft-deletea/nimeä/aikaa muille).
+        //    (läsnäolo-kooste + RPE + aikaleima; muistiinpanot vain henkilokunta-alikokoelmassa, v3.52/v3.53; EI soft-deletea/nimeä/aikaa muille).
         allow update: if !('muistiinpanot' in request.resource.data)   // v3.52: kenttä pois tapahtumadokumentista (poistava update sallittu)
                       && (onSuperAdmin()
                       || (onOmaSeura(seuraId) && onJohtoRooli())
@@ -1859,7 +1881,7 @@ service cloud.firestore {
                           && resource.data.luoja_uid == request.auth.uid)
                       || (onOmanSeuranValmentaja(seuraId)
                           && request.resource.data.diff(resource.data).affectedKeys()
-                             .hasOnly(['muistiinpanot', 'paivitetty', 'muokkaaja_uid',
+                             .hasOnly(['paivitetty', 'muokkaaja_uid',
                                        'lasnaolo_kooste', 'valmentaja_rpe', 'valmentaja_rpe_pvm']))
                       // v3.47 (R1): RYHMÄTAPAHTUMA — ryhmän valmentaja (myös toisen joukkueen) synkkaa kokoonpanon ja jäädyttää sen (pelaajat_id + jaadytetty),
                       // vaikka ei ole tapahtuman luoja. Jäädytetyn pelaajat_id ei muutu; jaadytetty asetetaan kerran.
