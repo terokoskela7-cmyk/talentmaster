@@ -21,16 +21,17 @@ Suunta: järjestelmä skaalautuu yksittäisestä pelaajasta (Kenttä, jakso) val
 - Sukupuolen täydennysnappi Excel-tuontiin (KPV 126 pelaajaa ilman sukupuolta).
 - Testipelaajasääntö päivitettävä: KPV U13 → **KPV P13** sisältää nyt myös oikeita pelaajia; kirjoitukset vain nimetyille testipelaajille.
 - **Tietosuoja (B4, ei estä 1.11.):** pelaaja- ja huoltajasovellus lukevat seuran koko kalenterin ja suodattavat sovelluksessa → rajaus palvelinpuolelle (joukkue/`pelaajat_id`). Muistiinpanot ja muiden läsnäolot korjataan jo #882:ssa.
-- **Rules-versiot:** v3.47 ryhmät (#881) · v3.48 kalenterin tietosuoja (#882) · v3.49 Seuran pulssi S1 · v3.50 mediaviesti (arvio; numero lukitaan mergejärjestyksessä).
+- **Rules-versiot (live):** v3.47 ryhmät · v3.48 kalenterin tietosuoja · v3.50 mediaviesti · v3.51 huoltajan viestiluku vaatii suostumuksen · v3.52 muistiinpanot pois tapahtumadokumentista. **Seuraava: v3.53 = Seuran pulssi S1** (v3.49-varaus jäi käyttämättä).
 
 ### 📅 Seuraavaksi
 | Milloin | Mitä |
 |---|---|
 | lokakuu | **R1 Ryhmät (D33)** — Sibbo: maalivahdit + MV-valmentaja, talenttiryhmä, läsnäolo, näkyy pelaajalle/huoltajalle; Rules v3.47 (#881 PR 1; PR 2 kalenteri + "vain henkilökunta" -tapahtumat); sv-käännökset Geminille ajoissa. `docs/CODE_BRIEF_R1_RYHMAT.md` |
-| heti | **P0 tietosuoja (#882, Rules v3.48):** valmentajan kalenterimuistiinpanot pois pelaajan luettavista tapahtumista + läsnäolot vain omat → migraatio seuroittain (Sibbo ensin) → Rules-kiristys-PR |
+| ✅ 8.10. | **P0 tietosuoja valmis:** muistiinpanot henkilökunnan alikokoelmaan + läsnäolot vain omat (#882, v3.48) · migraatio ajettu kaikille seuroille (KPV 5, demo 1, muut 0) · kiristys v3.52 (#890) |
+| ✅ 8.10. | **sv-käännöserä:** 696 riviä Geminiltä (tm_lang, kirjastot, kysymyspohjat, VP, Master) + jaettu kirjastokartta `lib/tm_lib_i18n.js` (päätös A, #891/#892). Jäljellä pieni erä: `ts_otsikko`, Klubb/Klubben → Förening, Kehityskaari (kausifokus), VP×Master 110 eroavaa riviä |
 | 1.11. | **R6.4 Mediaviesti M1** (19, D55–D64): VEO/YouTube/kuva/linkki + kysymys pelaajalle, vastaus ja perheen kuittaus; Inbox; kaikki seurat, Sibbo ensin. `docs/CODE_BRIEF_R6_4_MEDIAVIESTI.md`. M2 marraskuussa (Polku, merkin piste, VP-tilannekuva) |
-| ennen 1.11. | **Sibbo Kenttä-lipulle (D55):** edellyttää K1–K4 + V4 sv-tekstit Geminiltä ja opastuksen |
-| loka–marraskuu | **Seuran pulssi S1** (17): viikkokooste-CF + data + `seura_id`, Rules v3.49 — aloitettava ajoissa, jotta 4 vk trendi kertyy |
+| ennen 1.11. | **Sibbo Kenttä-lipulle (D55):** sv-tekstit kirjastoissa ✅ (#892) → jäljellä Teron sv-käsitesti, reitittämättömän kovakoodatun suomen tarkistus Kenttä-poluilla ja opastus |
+| heti → su 11.10. | **Seuran pulssi S1** (17): viikkokooste-CF (su 21.00) + `kooste`/`kooste_joukkue` + Rules v3.53 — ensimmäinen ajo su 11.10., jotta 4 vk trendi on valmis S2:lle 1.12. `docs/CODE_BRIEF_S1_SEURAN_PULSSI.md` |
 | 9.10. | KPV:n aloittava joukkue → käyttöönotto: kutsut, huoltajien sähköpostit, ensimmäiset jaksot |
 | ennen 10.11. | K3-käsitesti (pelaaja valitsee seuraavan reitin) — KPV:n ensimmäinen jakso päättyy ~17.11. |
 | 1.11. | Ryhmät Sibbolla käytössä · V4 Näyttö valmis |
