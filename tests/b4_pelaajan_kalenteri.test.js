@@ -24,6 +24,12 @@ describe('lib/tm_kalenteri_pelaajalle.js — sallittulista ja rajaus', () => {
     expect(S.tmKuuluuPelaajalle({ tyyppi: 'harjoitus', joukkueet: ['sibbo_bl'] }, bl, docs)).toBe(true);
     expect(S.tmTunnisteDocIdksi('Sibbo BL', docs)).toBe('sibbo_bl'); expect(S.tmTunnisteDocIdksi('2014 Blå', docs)).toBe('sibbo_bl'); expect(S.tmTunnisteDocIdksi('tuntematon', docs)).toBeNull();
   });
+  it('seuralla ei joukkue-doceja (legacy): normalisoitu tunnistevertailu joukkueet[]:iin (ilmoitusjoukko ei tyhjene)', () => {
+    const p = { id: 'x', joukkue: 'KPV U13', joukkueet: ['kpv_u13'] };
+    expect(S.tmKuuluuPelaajalle({ tyyppi: 'harjoitus', joukkue: 'KPV_U13' }, p, [])).toBe(true);
+    expect(S.tmKuuluuPelaajalle({ tyyppi: 'harjoitus', joukkue: 'kpv_u15' }, p, [])).toBe(false);
+    expect(S.tmKuuluuPelaajalle({ tyyppi: 'harjoitus', joukkue: 'kpv_u13', nakyvyys: 'henkilokunta' }, p, [])).toBe(false);
+  });
   it('functions/-kopio on tavu tavulta sama (sync) ja manifestissa', () => {
     const M = JSON.parse(lue('functions/jaettu_lib.json')); expect(M.tiedostot).toEqual(expect.arrayContaining(['tm_kalenteri_pelaajalle.js', 'tm_ryhmat.js', 'tm_joukkue.js']));
     expect(lue('functions/tm_kalenteri_pelaajalle.js')).toBe(lue('lib/tm_kalenteri_pelaajalle.js'));
