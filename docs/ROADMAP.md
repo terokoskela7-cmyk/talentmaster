@@ -35,7 +35,7 @@
 | Vaihe | Milloin | Mitä |
 |---|---|---|
 | **S1** | käynnissä, ensimmäinen ajo su 11.10. | Viikkokooste-CF (su 21.00, ma 06.00 uudelleenajo). `kooste` ja `kooste_joukkue`, vain lukumääriä. Rules v3.53. Takaisinlaskenta 3 viikkoa (`arvio: true`). Jaettu `lib/`-logiikka funktioihin (sama `tmJaksoTila` kuin työpöydällä). `docs/CODE_BRIEF_S1_SEURAN_PULSSI.md` |
-| S2 | aloitus ~25.10. → 1.12. | Pulssi VP_v25:n etusivulle (Kenttä-lipun seurat). Mockup demodatalla + inventaario valmis 8.10. (`20_seuran_pulssi_s2.html`, D65–D67 ehdotus). Briiffi `docs/CODE_BRIEF_S2_SEURAN_PULSSI.md`. |
+| S2 | aloitus ~25.10. → 1.12. | Pulssi VP_v25:n etusivulle (Kenttä-lipun seurat). Mockup demodatalla + inventaario valmis 8.10. (`20_seuran_pulssi_s2.html`). Sparri 8.10.: D65–D75 lukittu, D67 (lipun laajennus) tarkastellaan viikoittain; mukaan kooste v4 (toiminnot, perheen kuittaukset, kilpa/harraste). Seurahallinta `21` (D80–D94 ehdotus). Briiffi `docs/CODE_BRIEF_S2_SEURAN_PULSSI.md`. |
 | S3 | joulukuu | Seuran omat tavoitetasot (`kooste_tavoitteet`) ikävaiheittain. Pieni joukkue -sääntö. |
 | S4 | 14:n jälkeen | Teema, kuorma, kypsyys ja aikajana. |
 
