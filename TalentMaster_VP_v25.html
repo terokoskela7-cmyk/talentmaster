@@ -36,9 +36,9 @@
 
 
 <script src="lib/tm_phv_tila.js?v=1"></script>   <!-- PR C: PHV-tilan YKSI lukusääntö (Mirwald, vain mittauslähteestä) -->
-<script src="lib/tm_eerikkila_normit.js?v=47"></script>   <!-- v43: D2-kortti d2_taso-ensin (renderKehityskorttiHTML, PR #264 · §30/#262) -->
+<script src="lib/tm_eerikkila_normit.js?v=48"></script>   <!-- v43: D2-kortti d2_taso-ensin (renderKehityskorttiHTML, PR #264 · §30/#262) -->
 <script src="lib/tm_historia.js?v=1"></script>
-<script src="lib/tm_mittarit.js?v=5"></script>   <!-- Kehitystilanne v0: mittarikirjasto; myös HIDDEN_GEM_FLEI + laskeD2Taso + laskeHiddenGem (siirretty VP:stä) -->
+<script src="lib/tm_mittarit.js?v=6"></script>   <!-- Kehitystilanne v0: mittarikirjasto; myös HIDDEN_GEM_FLEI + laskeD2Taso + laskeHiddenGem (siirretty VP:stä) -->
 <script src="lib/tm_pelihavainto_valinta.js?v=1"></script>   <!-- §7: YKSI sisäänkäynti pelihavaintoon (jaettu, ei kopioita) -->
 <script src="lib/tm_arviointi_historia.js?v=1"></script>   <!-- H1: arviointikerrat (append-only) + tmKausi + kooste; PURE, ks. lib-header -->          <!-- P2.1: hh_historia/tki_historia Pikakirjauksessa (tmHhSnapshot/tmTkiSnapshot/tmHistoriaLisaa) -->
 <script src="lib/tm_tki_core.js?v=2"></script>         <!-- P2.1: TKI-ytimen extrakti (IIFE → TM_TESTIT); antaa VP:lle TKI-pariteetin (VP ei voi ladata testit_indeksit.js:ää — const-törmäys). ENNEN tm_pikakentat.js:ää. -->
@@ -13760,7 +13760,7 @@ function avaaJoukkueSyvanakyma(joukkueNimi) {
       }
       const adarY = (p.adar_viimeisin && p.adar_viimeisin.yht != null) ? p.adar_viimeisin.yht : null;
       const m = _tkiMerkkiVP(tki, p.tki_merkki);
-      // Tekninen-solu = sama 1–5-TASO kuin hero (laskeD2Taso: TKI÷20 > d2_taso). TSI/TKI raaka = diagnostinen
+      // Tekninen-solu = sama 1–5-TASO kuin hero (laskeD2Taso: d2_taso > TKI÷20 varalla). TSI/TKI raaka = diagnostinen
       // alarivi (ei pääarvo). ¹ = SM-pohjainen taso. → taulukko, hero ja KPI näyttävät saman mittarin.
       const d2val = laskeD2Taso(p);
       const d2src = _d2Lahde(p);
@@ -13803,8 +13803,7 @@ function avaaJoukkueSyvanakyma(joukkueNimi) {
   }
 
   // ── Hero: kohortin dimensiokeskiarvot D1/D2/D4 (1–5) — KP = valittu kohortti (#76) ──
-  const _teamD2Lahde = KP.some(function(p){ return p.tki_viimeisin != null; }) ? 'tki'
-                     : KP.some(function(p){ return p.d2_taso != null; }) ? 'sm' : null;
+  const _teamD2Lahde = (function(){ const t = tmJoukkueD2(KP, { minN: 1 }); return t ? t.lahde : null; })();   // yleisin lähde (sm/tk/hh/tki) samasta jaetusta funktiosta kuin taso
   const teamHero = _dimHero(
     _dimKa(KP.map(p => p.hh_taso)),
     _dimKa(KP.map(p => laskeD2Taso(p))),
@@ -21965,7 +21964,8 @@ function renderKehitysKortti(pelaajat, vertailuPelaajat) {
       const tkiP = pool.filter(function(p){ return p.tki_viimeisin != null; });
       if (tkiP.length >= 3) {
         const tkiKa = tkiP.reduce(function(s,p){ return s + p.tki_viimeisin; }, 0) / tkiP.length;
-        return { ikoni:'ti-ball-football', nimi:'Tekninen', arvo:String(Math.round(tkiKa)), sub:'/100 · TKI', t5:_dimNorm5Tki(tkiKa), pct:Math.max(0,Math.min(100,Math.round(tkiKa))), next:null };
+        const _d2T = tmJoukkueD2(pool);   // väri joukkueen D2-TASOSTA (sama lähde kuin joukkuekortti), ei TKI/20:stä; näytetty luku pysyy TKI (/100)
+        return { ikoni:'ti-ball-football', nimi:'Tekninen', arvo:String(Math.round(tkiKa)), sub:'/100 · TKI', t5:(_d2T ? _d2T.arvo : null), pct:Math.max(0,Math.min(100,Math.round(tkiKa))), next:null };
       }
       const tsiP = pool.filter(function(p){ return p.tsi_viimeisin != null; });
       if (tsiP.length >= 3) {
@@ -22286,25 +22286,7 @@ function laskeJoukkueSuunta(joukkuePelaajat) {
   return { symboli: null, delta: null, tila: 'ensimmainen_mittaus', vari: 'var(--ink3)', n: 0, parantunut: 0, lahde: null };
 }
 
-// Joukkueen D2-taso (1–5) + lähde. Sama prioriteetti kuin laskeD2Taso, mutta joukkuetasolla ≥3-kynnyksellä
-// per lähde → { arvo, lahde:'tki'|'sm' } tai null (ei näytetä riviä). 'sm' → ¹-merkintä kortissa.
-function laskeJoukkueD2(joukkuePelaajat) {
-  const tkiPel = joukkuePelaajat.filter(function(p){ return p.tki_viimeisin != null; });
-  if (tkiPel.length >= 3) {
-    const ka = tkiPel.reduce(function(s,p){ return s + (p.tki_viimeisin / 20); }, 0) / tkiPel.length;
-    return { arvo: Math.round(ka * 10) / 10, lahde: 'tki' };
-  }
-  const d2Pel = joukkuePelaajat.filter(function(p){ return p.d2_taso != null; });
-  if (d2Pel.length >= 3) {
-    const ka = d2Pel.reduce(function(s,p){ return s + p.d2_taso; }, 0) / d2Pel.length;
-    // §30 joustava: johda lähde-label d2_lahteesta (sm/tk/hh) — yleisin voittaa; 'sm' oletus (vanha data ilman lähdettä).
-    const lkm = {};
-    d2Pel.forEach(function(p){ const l = p.d2_lahde || 'sm'; lkm[l] = (lkm[l]||0) + 1; });
-    const lahde = Object.keys(lkm).sort(function(a,b){ return lkm[b] - lkm[a]; })[0] || 'sm';
-    return { arvo: Math.round(ka * 10) / 10, lahde: lahde };
-  }
-  return null;
-}
+// Joukkueen D2-taso: YKSI lähde tmJoukkueD2 (lib/tm_mittarit.js) = pelaajien laskeD2Taso-keskiarvo (d2_taso ensin, TKI/20 varalla). Ei omaa laskentaa täällä (D2-bugi 8.10.2026).
 
 // Joukkuekortit 2×2-grid — D1 (H-H) + D2 (TKI/SM) rinnakkain; klikkaus → syvänäkymä.
 // POIKKEUSKEHYS roll-up (docs/POIKKEUSKEHYS_SPEC §5A) — per joukkue laskeJoukkuePoikkeamat, litistä + lajittele globaalisti.
@@ -22446,11 +22428,14 @@ function renderTeamPulse() {
       h += '<div class="jk-mikro">' + vpT('pre-PHV — biologisesti odotettua, ei kehityskohde') + '</div>';
     }
     // D2 Tekninen (TKI > SM) — rivi vain jos dataa ≥3 pelaajalla
-    const d2 = laskeJoukkueD2(pelaajat);
+    const d2 = tmJoukkueD2(pelaajat);
     if (d2 != null) {
-      // §30 joustava: D2-lähde voi olla tki/sm/hh/tk. ¹ = ei-TKI-pohjainen (sm/hh/tk).
-      const _d2Lbl = { tki:'TKI', sm:'SM-testi', hh:'H-H', tk:'TK' }[d2.lahde] || 'TKI';
+      // §30 joustava: D2-lähde voi olla tki/sm/hh/tk. ¹ = ei-TKI-pohjainen (sm/hh/tk). Palkki ja luku ovat TASO (1–5), ei TKI-yksikkö → lähde-teksti kertoo vain mistä taso johdettiin.
+      const _d2Lbl = { tki:vpT('TKI-pohjainen'), sm:vpT('SM-testi'), hh:'H-H', tk:'TK' }[d2.lahde] || vpT('TKI-pohjainen');
       h += _tpDimRivi('D2', d2.arvo + (d2.lahde !== 'tki' ? '¹' : ''), Math.min(100, Math.round(d2.arvo/5*100)), _d2Lbl);
+      // TKI on eri mittari kuin D2-taso → oma lukunsa: "TKI ka 54 · tavoite 60" (tavoite = tkiTavoiteJakauma-oletus 60, sama kuin syvänäkymässä)
+      const _tkiA = pelaajat.filter(function(p){ return p.tki_viimeisin != null; }).map(function(p){ return p.tki_viimeisin; });
+      if (_tkiA.length >= 3 && typeof tkiTavoiteJakauma === 'function') h += '<div class="jk-mikro">' + vpT('TKI ka') + ' ' + tkiTavoiteJakauma(_tkiA, 60).ka + ' · ' + vpT('tavoite') + ' 60</div>';
     } else {
       h += '<div class="jk-dim-rivi jk-dim-puuttuu"><span class="jk-dim-label">D2</span><span class="jk-dim-ctx" style="min-width:auto">— ' + vpT('Tekninen mittaus puuttuu') + '</span></div>';
     }
@@ -22915,7 +22900,7 @@ function _kehityskohde(p, heikoimmatSet) {
 }
 // Yhtenäinen Tekninen-solu (sama kuin pikakatsaus): TKI > SM-pohjainen TSI/d2_taso, aina 1–5-taso. ¹ = SM-lähde.
 function _tekninenSoluVP(p) {
-  const taso = laskeD2Taso(p);   // tki/20 > d2_taso > null
+  const taso = laskeD2Taso(p);   // d2_taso > tki/20 (varalla) > null
   if (taso == null) return '<span style="color:var(--ink3)">—</span>';
   const lahde = _d2Lahde(p);
   let extra = '';
