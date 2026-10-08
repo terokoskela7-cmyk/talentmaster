@@ -44,6 +44,8 @@ const APP_GLOBALS = {
   // lib/tm_pvm.js
   tmPaivaIso: 'readonly', tmSolustaPvm: 'readonly',
   // muut jaetut libit / globaalit
+  // lib/tm_tt_sv_valinta.js (curriculumin kielivalinta näyttöön, sv-läpiajo PR 3)
+  tmTtSv: 'readonly', TM_TT_SV_VALINTA: 'readonly',
   TM: 'readonly', TM_AI: 'readonly', TM_SELITTEET: 'readonly', tmSentryContext: 'readonly',
   tmKalenteriOccurrences: 'readonly', tmToistuvuusPaiva: 'readonly', tmSarjaId: 'readonly', tmCadenceNimi: 'readonly',
   // lib/tm_aani.js (puhdas nauhoitin) + lib/tm_reflektio.js (jaettu äänireflektio: Master + VP)

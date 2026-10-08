@@ -22,7 +22,7 @@ const fiVainSanasto = (() => {
 })();
 function sanastoSuomea(teksti) { const w = sanat(teksti).filter((x) => x.length >= 4); return w.length > 0 && w.length <= 3 && w.some((x) => fiVainSanasto.has(x)) && !/[<>{}=;]/.test(teksti); }
 
-export const ROUTERIT = new Set(['T', 't', 'vpT', 'masterT', '_p7K1T', '_vKpT', 'tmLibT', 'tx', '_tr', 'tmT', '_L', '_hT', '_p7TtSv', '_pT', '_pt']);   // + HARJOITE_I18N-getterit (_L/_hT) ja Pelaajan TT-sv (_p7TtSv)
+export const ROUTERIT = new Set(['T', 't', 'vpT', 'masterT', '_p7K1T', '_vKpT', 'tmLibT', 'tx', '_tr', 'tmT', '_L', '_hT', '_p7TtSv', '_pT', '_pt', '_mT']);   // + HARJOITE_I18N-getterit (_L/_hT) ja Pelaajan TT-sv (_p7TtSv)
 const EI_UI_KUTSUT = new Set(['getElementById', 'querySelector', 'querySelectorAll', 'getAttribute', 'hasAttribute', 'removeAttribute', 'addEventListener', 'removeEventListener', 'log', 'warn', 'error', 'info', 'debug',
   'collection', 'doc', 'where', 'orderBy', 'getItem', 'setItem', 'removeItem', 'matches', 'closest', 'createElement', 'require', 'import', 'httpsCallable', 'functions', 'getComputedStyle', 'dispatchEvent', 'postMessage',
   'toLocaleDateString', 'toLocaleTimeString', 'toLocaleString', 'Intl', 'DateTimeFormat', 'RegExp', 'test', 'exec', 'match', 'padStart', 'padEnd', 'startsWith', 'endsWith', 'indexOf', 'includes', 'split', 'localeCompare']);

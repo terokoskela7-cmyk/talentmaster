@@ -1,4 +1,4 @@
-/* sv-läpiajo PR 2 (perheet) — STAATTINEN PORTTI: Pelaaja_v7 ja Vanhempi_v2 eivät saa sisältää reitittämätöntä kovakoodattua suomenkielistä käyttäjätekstiä,
+/* sv-läpiajo PR 2 (perheet) + PR 3 (Master) — STAATTINEN PORTTI: Pelaaja_v7, Vanhempi_v2 ja Master_v16 eivät saa sisältää reitittämätöntä kovakoodattua suomenkielistä käyttäjätekstiä,
  * eivätkä reititinkutsut (T/t) saa osua paikalliseen T/t-muuttujaan (varjostus → TypeError/TDZ, jonka yksikkötestit helposti missaavat).
  * Skanneri: tools/i18n/sv_staattinen.mjs (acorn; sovelluksen inline-skriptit). Poikkeukset: tools/i18n/sv_staattinen_sallitut.json (perusteltu; demo/kuollut koodi/diagnostiikka).
  * Uusi suomi-merkkijono → reititä T()/t():n kautta (uusi avain tm_lang.js:ään fi+en, sv odotuslistalle → Gemini) TAI lisää sallittuihin perustelulla. */
@@ -9,7 +9,7 @@ import { dirname, join } from 'path';
 import { skannaaHtml, varjostetutKutsut, lataaSallitut, onSallittu } from '../tools/i18n/sv_staattinen.mjs';
 
 const juuri = join(dirname(fileURLToPath(import.meta.url)), '..');
-const SIVUT = ['TalentMaster_Pelaaja_v7.html', 'TalentMaster_Vanhempi_v2.html'];
+const SIVUT = ['TalentMaster_Pelaaja_v7.html', 'TalentMaster_Vanhempi_v2.html', 'TalentMaster_Master_v16.html'];   // PR 3: + Master (masterT-reititin)
 const S = lataaSallitut();
 
 describe.each(SIVUT)('%s — staattinen reititysportti', (sivu) => {
