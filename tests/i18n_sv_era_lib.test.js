@@ -143,10 +143,11 @@ describe('Pelaaja _p7K1T ja Vanhempi _vKpT sv-tilassa', () => {
 
 describe('vienti: kartat sisältävät Gemini-erän rivit sellaisinaan', () => {
   const sb = sandbox('sv');
-  it('tm_lang: 58 riviä, sv = JSON; odotuslista tyhjä', () => {
+  it('tm_lang: 58 riviä, sv = JSON; ei odotuslistalla', () => {
     const L = require('../lib/tm_lang.js').TM_LANG; const rivit = ERA.osiot.tm_lang.rivit; expect(Object.keys(rivit).length).toBe(58);
     for (const [p, r] of Object.entries(rivit)) expect(p.split('.').reduce((o, k) => (o == null ? undefined : o[k]), L.sv), p).toBe(r.sv);
-    expect(require('./tm_lang_sv_odotuslista.cjs')).toEqual([]);
+    // erän 58 riviä ovat valmiita: yksikään niistä ei saa olla odotuslistalla (lista sisältää vain myöhempien PR:ien uudet fi+en-avaimet)
+    expect(require('./tm_lang_sv_odotuslista.cjs').filter((a) => a in rivit)).toEqual([]);
   });
   it('VP-kartta: 193 + 4 riviä (sv = JSON; tai jo common-kartassa); Master: 67 + 3', () => {
     const cm = vm.runInContext('TM_I18N_COMMON.sv', sb), vp = vm.runInContext('TM_VP_I18N.sv', sb), ma = vm.runInContext('TM_MASTER_I18N.sv', sb);

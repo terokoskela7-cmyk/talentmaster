@@ -8,6 +8,7 @@ import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import vm from 'vm';
+import { PEL_APU } from './helpers/pelaaja_t.mjs';
 
 const juuri = join(dirname(fileURLToPath(import.meta.url)), '..');
 const SRC = readFileSync(join(juuri, 'TalentMaster_Pelaaja_v7.html'), 'utf8');
@@ -27,7 +28,7 @@ async function kirjaudu(koodi) {
   const el = { err: { textContent: '', style: {} }, btn: { textContent: '' } };
   const kentat = { pinEmail: { value: 'huoltaja@tm-testi.fi' }, pinPassword: { value: 'x' }, emailLoginErr: el.err };
   const ctx = {
-    document: { getElementById: (id) => kentat[id] || null, querySelector: () => el.btn },
+    ...PEL_APU, document: { getElementById: (id) => kentat[id] || null, querySelector: () => el.btn },
     window: { _auth: { signInWithEmailAndPassword: () => Promise.reject(Object.assign(new Error('x'), { code: koodi })) } },
   };
   vm.createContext(ctx);

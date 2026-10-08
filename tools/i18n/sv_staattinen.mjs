@@ -8,7 +8,7 @@ import { readFileSync } from 'fs';
 import * as acorn from 'acorn';
 import { onkoSuomea } from './sv_lapiajo_fi.mjs';
 
-export const ROUTERIT = new Set(['T', 't', 'vpT', 'masterT', '_p7K1T', '_vKpT', 'tmLibT', 'tx', '_tr', 'tmT']);
+export const ROUTERIT = new Set(['T', 't', 'vpT', 'masterT', '_p7K1T', '_vKpT', 'tmLibT', 'tx', '_tr', 'tmT', '_L', '_hT', '_p7TtSv', '_pT', '_pt']);   // + HARJOITE_I18N-getterit (_L/_hT) ja Pelaajan TT-sv (_p7TtSv)
 const EI_UI_KUTSUT = new Set(['getElementById', 'querySelector', 'querySelectorAll', 'getAttribute', 'hasAttribute', 'removeAttribute', 'addEventListener', 'removeEventListener', 'log', 'warn', 'error', 'info', 'debug',
   'collection', 'doc', 'where', 'orderBy', 'getItem', 'setItem', 'removeItem', 'matches', 'closest', 'createElement', 'require', 'import', 'httpsCallable', 'functions', 'getComputedStyle', 'dispatchEvent', 'postMessage',
   'toLocaleDateString', 'toLocaleTimeString', 'toLocaleString', 'Intl', 'DateTimeFormat', 'RegExp', 'test', 'exec', 'match', 'padStart', 'padEnd', 'startsWith', 'endsWith', 'indexOf', 'includes', 'split', 'localeCompare']);
@@ -23,7 +23,9 @@ export function skannaaHtml(src, tiedosto) {
     let ast;
     try { ast = acorn.parse(koodi, { ecmaVersion: 'latest', sourceType: 'script', locations: true, allowReturnOutsideFunction: true, allowAwaitOutsideFunction: true }); }
     catch (e) { virheet.push({ rivi: alkuRivi + (e.loc ? e.loc.line : 0), virhe: e.message }); continue; }
+    const ennen = loydot.length; const skriptiAlku = m.index + m[0].indexOf('>') + 1;
     kavele(ast, [], koodi, alkuRivi, loydot);
+    for (let i = ennen; i < loydot.length; i++) { loydot[i]._skriptiAlku = skriptiAlku; loydot[i].absAlku = skriptiAlku + loydot[i].alku; loydot[i].absLoppu = skriptiAlku + loydot[i].loppu; }
   }
   return { loydot, virheet };
 }
@@ -38,6 +40,11 @@ function funktionNimi(polku) {
       if (p && p.type === 'AssignmentExpression' && p.left) return p.left.name || (p.left.property && p.left.property.name) || null;
       if (p && p.type === 'Property' && p.key) return p.key.name || p.key.value;
     }
+  }
+  for (let i = polku.length - 1; i >= 0; i--) {
+    const n = polku[i];
+    if (n.type === 'VariableDeclarator' && n.id && n.id.name) return '(ylätaso) ' + n.id.name;
+    if (n.type === 'AssignmentExpression' && n.left) { const l = n.left; return '(ylätaso) ' + (l.type === 'MemberExpression' ? (l.property && (l.property.name || l.property.value)) : l.name); }
   }
   return '(ylätaso)';
 }
@@ -75,22 +82,24 @@ function tekstit(s) {
   const ulos = [];
   const puhdas = (x) => x.replace(/\$\{[^}]*\}/g, ' ').replace(/&(?:nbsp|amp|quot|lt|gt|middot|bull|#\d+);/g, ' ').replace(/\s+/g, ' ').trim();
   if (/<[a-zA-Z\/!]/.test(s)) {
-    for (const mm of s.matchAll(/(?:^|>)([^<>]+)(?=<|$)/g)) { const t = puhdas(mm[1]); if (t) ulos.push({ teksti: t, tyyppi: 'html-teksti' }); }
-    for (const mm of s.matchAll(/\b(title|placeholder|aria-label|alt)\s*=\s*(?:"([^"]*)"|'([^']*)')/g)) { const t = puhdas(mm[2] != null ? mm[2] : mm[3]); if (t) ulos.push({ teksti: t, tyyppi: mm[1] }); }
-  } else { const t = puhdas(s); if (t) ulos.push({ teksti: t, tyyppi: 'merkkijono' }); }
+    for (const mm of s.matchAll(/(?:^|>)([^<>]+)(?=<|$)/g)) { const t = puhdas(mm[1]); if (t) ulos.push({ teksti: t, tyyppi: 'html-teksti', alkup: mm[1] }); }
+    for (const mm of s.matchAll(/\b(title|placeholder|aria-label|alt)\s*=\s*(?:"([^"]*)"|'([^']*)')/g)) { const a = mm[2] != null ? mm[2] : mm[3]; const t = puhdas(a); if (t) ulos.push({ teksti: t, tyyppi: mm[1], alkup: a }); }
+  } else { const t = puhdas(s); if (t) ulos.push({ teksti: t, tyyppi: 'merkkijono', alkup: s }); }
   return ulos;
 }
 
 function arvioi(s, n, polku, off, ulos) {
   if (!s || s.length < 3 || s.length > 900) return;
   const kont = reititetty(polku, n); if (kont) return;
-  for (const { teksti, tyyppi } of tekstit(s)) {
+  for (const { teksti, tyyppi, alkup } of tekstit(s)) {
     if (teksti.length < 3 || !/[A-Za-zÅÄÖåäö]{3}/.test(teksti)) continue;
     if (tyyppi === 'merkkijono' && !/\s/.test(teksti) && !/^[A-ZÅÄÖ]/.test(teksti) && !/[åäö]/i.test(teksti)) continue;   // tunniste/avain (kaynnissa, jaksofokus)
     if (tyyppi === 'merkkijono' && TEKNINEN.test(teksti) && !/[åäö]/i.test(teksti) && !/\s[A-Za-zåäö]{3,}/.test(teksti)) continue;
     if (/^(?:https?:|\/|\.\/|[a-z]+:\/\/)/.test(teksti) || /\.(?:js|css|png|svg|json|html)\b/.test(teksti)) continue;
     const f = onkoSuomea(teksti); if (!f.fi) continue;
-    ulos.push({ rivi: off + n.loc.start.line, renderoija: funktionNimi(polku), tyyppi, teksti });
+    const ylataso = !polku.some((x) => /Function/.test(x.type));
+    const varjostaaT = polku.some((x) => /Function/.test(x.type) && (((x.params || []).some((q) => q.type === 'Identifier' && /^[Tt]$/.test(q.name))) || (x.body && x.body.type === 'BlockStatement' && x.body.body.some((st) => st.type === 'VariableDeclaration' && st.declarations.some((d) => d.id.type === 'Identifier' && /^[Tt]$/.test(d.id.name))))));   // paikallinen T (esim. const T = window.TM_TESTIT) varjostaa globaalin reitittimen
+    ulos.push({ rivi: off + n.loc.start.line, renderoija: funktionNimi(polku), tyyppi, teksti, alkup, solmu: n.type, alku: n.start, loppu: n.end, ylataso, varjostaaT, vanhempi: polku.length ? polku[polku.length - 1].type : null, jasenObj: !!(polku.length && polku[polku.length - 1].type === 'MemberExpression' && polku[polku.length - 1].object === n), _skriptiAlku: null });
   }
 }
 

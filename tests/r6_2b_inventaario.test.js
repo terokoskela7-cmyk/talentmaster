@@ -25,7 +25,7 @@ const KOHTEET = [
   ['rvcSit',   'B', SRC.VP, /function _rvcSitoumusOdottaa\(/,          'bulk-signaali (syöte säännölle 3)'],
   ['msUmp',    'B', SRC.MA, /_msJfLib\.tmJfUmpeutunut\(jf\)/,          'Master "Sulje jakso" -nappi umpeutuneelle (UI; sääntö 4 lukee samaa libiä)'],
   ['msSilta',  'B', SRC.MA, /TM_ARVIOINTI_SILTA\.tmSiltaEhdota\(p\.arviointi_havaittu, \{\s*\n\s*sallitutKonseptit: items/, 'Master lähde-vihje kun jaksofokus puuttuu (UI-vihje)'],
-  ['pelMina',  'B', SRC.PE, /Seuraava askel:<\/b>/,                    'Pelaaja tki_kehityskohde / sekuntitavoite -muotoilu'],
+  ['pelMina',  'B', SRC.PE, /T\('seuraava_askel'\) \+ '<\/b>/,                    'Pelaaja tki_kehityskohde / sekuntitavoite -muotoilu'],
   ['vanhTek',  'B', SRC.VH, /\/\/ 3\. Seuraava askel — yksi kehityskohde/, 'Vanhempi tekniikka-tavoiterivit'],
 ];
 // päätöspaikka-signaalit joiden lukumäärä lukitaan (tiedosto → { regex → lkm })

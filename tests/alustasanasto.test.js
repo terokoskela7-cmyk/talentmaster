@@ -12,6 +12,7 @@ import { createRequire } from 'module';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import vm from 'vm';
+import { PEL_APU } from './helpers/pelaaja_t.mjs';
 
 const require = createRequire(import.meta.url);
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -133,7 +134,7 @@ describe('Vertailu koodeina: sama alusta eri työkaluista on vertailukelpoinen (
     // AJETAAN oikea koodi (live-probe löysi: kortin paikallinen `t` varjosti t():n → TypeError alustan kanssa)
     const pura = (tun) => { const i = P.indexOf(tun); let syv = 0; for (let k = P.indexOf('{', i); k < P.length; k++) { if (P[k] === '{') syv++; else if (P[k] === '}') { syv--; if (!syv) return P.slice(i, k + 1); } } };
     const LANGM = require('../lib/tm_lang.js');
-    const ctx = vm.createContext({ t: LANGM.t, tmAlustaKoodi: A.tmAlustaKoodi, tmAlustaNimi: A.tmAlustaNimi, Math, Number, String, Object, Array, isNaN, window: {} });
+    const ctx = vm.createContext({ ...PEL_APU, t: LANGM.t, tmAlustaKoodi: A.tmAlustaKoodi, tmAlustaNimi: A.tmAlustaNimi, Math, Number, String, Object, Array, isNaN, window: {} });
     vm.runInContext([pura('function _thEsc('), pura('function _kkEnnatysTiedot('), pura('function _ennLuku('), pura('function _kkAlustaNimi('), pura('function _ennRivit('),
       pura('function _kkEnnatyksetHTML(')].join('\n') + '\nthis.f = _kkEnnatyksetHTML;', ctx);
     const kortti = ctx.f({ ennatykset: { lin30m: { paras: 3.12, alusta: 'mondo_yleisurheilualusta' }, cmj: { paras: 30, alusta: 'Halli / parketti' } } }, '2_rakentaja');

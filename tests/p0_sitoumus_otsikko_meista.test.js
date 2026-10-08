@@ -9,6 +9,7 @@ import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import vm from 'vm';
+import { PEL_APU } from './helpers/pelaaja_t.mjs';
 
 const HTML = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', 'TalentMaster_Pelaaja_v7.html'), 'utf8');
 function pura(tunniste) {
@@ -21,7 +22,7 @@ const esc = (x) => String(x == null ? '' : x).replace(/[&<>"]/g, (c) => ({ '&': 
 
 function sitoumus({ fokus, sit = {}, vanhentunut = false, alkoi = null } = {}) {
   const sb = {
-    _pelaaja: { jaksofokus: fokus ? { konsepti_nimi: fokus } : null }, _p7Tavoite: null,
+    ...PEL_APU, _pelaaja: { jaksofokus: fokus ? { konsepti_nimi: fokus } : null }, _p7Tavoite: null,
     window: { _p7Sitoumus: sit }, localStorage: { getItem: () => null },
     _p7SitoumusRekisteri: () => ({ q1: 'K1', q2: 'K2', q3: 'K3' }), _p7Vanhentunut: () => vanhentunut,
     _p7SitoumusPvmFi: (x) => (x ? '1.10.2026' : ''), _p7JaksoAlkoi: () => alkoi, _thEsc: esc,

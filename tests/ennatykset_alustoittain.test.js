@@ -11,6 +11,7 @@ import { createRequire } from 'module';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import vm from 'vm';
+import { PEL_APU } from './helpers/pelaaja_t.mjs';
 
 const require = createRequire(import.meta.url);
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -103,7 +104,7 @@ describe('Näyttö: Pelaaja + Vanhempi (oikea koodi, oikea lib)', () => {
   const pura = (src, tun) => { const i = src.indexOf(tun); expect(i, tun).toBeGreaterThan(-1); let syv = 0; for (let k = src.indexOf('{', i); k < src.length; k++) { if (src[k] === '{') syv++; else if (src[k] === '}') { syv--; if (!syv) return src.slice(i, k + 1); } } };
   const p = { id: 'X', ennatykset: { lin30m: { paras: 3.4, pvm: '2026-10-10', alusta: MONDO } },
     ennatykset_alustat: { lin30m: { [MONDO]: { paras: 3.4, pvm: '2026-10-10', alusta: MONDO }, [HALLI]: { paras: 3.05, pvm: '2026-10-20', alusta: HALLI, edellinen: 3.12 } } } };
-  const ctx = vm.createContext({ window: { TM_ENNATYKSET: E }, t: LANG.t, tmAlustaKoodi: A.tmAlustaKoodi, tmAlustaNimi: A.tmAlustaNimi, Math, Number, String, Object, Array, isNaN });
+  const ctx = vm.createContext({ ...PEL_APU, window: { TM_ENNATYKSET: E }, t: LANG.t, tmAlustaKoodi: A.tmAlustaKoodi, tmAlustaNimi: A.tmAlustaNimi, Math, Number, String, Object, Array, isNaN });
   vm.runInContext(['function _thEsc(', 'function _kkEnnatysTiedot(', 'function _ennLuku(', 'function _kkAlustaNimi(', 'function _ennRivit(',
     'function _ennUudetNakematta(', 'function _kkEnnatyksetHTML('].map((f) => pura(P7, f)).join('\n')
     + '\nthis.kortti = _kkEnnatyksetHTML; this.rivit = _ennRivit; this.uudet = _ennUudetNakematta;', ctx);

@@ -12,13 +12,14 @@ import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { createRequire } from 'module';
+import { PEL_APU, laajennaT } from './helpers/pelaaja_t.mjs';
 
 const juuri = join(dirname(fileURLToPath(import.meta.url)), '..');
 const vaadi = createRequire(import.meta.url);
 const V = vaadi('../lib/tm_valmentajaviesti.js');
 const VP = readFileSync(join(juuri, 'TalentMaster_VP_v25.html'), 'utf8');
 const MASTER = readFileSync(join(juuri, 'TalentMaster_Master_v16.html'), 'utf8');
-const PELAAJA = readFileSync(join(juuri, 'TalentMaster_Pelaaja_v7.html'), 'utf8');
+const PELAAJA = laajennaT(readFileSync(join(juuri, 'TalentMaster_Pelaaja_v7.html'), 'utf8'));
 const VANHEMPI = readFileSync(join(juuri, 'TalentMaster_Vanhempi_v2.html'), 'utf8');
 const RULES = readFileSync(join(juuri, 'tm_admin', 'firestore.rules'), 'utf8');
 
@@ -207,7 +208,7 @@ describe('(4) Pelaaja: luettu ei katoa', () => {
         ],
         _p7Pelaaja: { seuraId: 's', pelaajaId: 'p' },
       },
-      String, Object, Array,
+      String, Object, Array, ...PEL_APU,
     };
     store.window.window = store.window;
     const ymp = new Proxy(store, {

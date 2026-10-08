@@ -30,7 +30,7 @@ const avain = (s) => norm(s).toLowerCase();
 /* ── Näkymät: sovellus · sisäänkäynti (demo) · askeleet. Jokainen askel ajetaan TUOREESSA sivussa (puhdas tila, modaalit eivät kasaudu). ── */
 const NAV = (fn, arvot) => arvot.map((a) => ({ nimi: a, js: `${fn}('${a}')` }));
 export const SOVELLUKSET = {
-  pelaaja: { tiedosto: 'TalentMaster_Pelaaja_v7.html', kysely: '?demo=1', entry: "demoKirjaudu('aleksi')", askeleet: [{ nimi: 'tanaan', js: "tab('tanaan')" }, { nimi: 'mina', js: "tab('mina')", avaa: '.mgrp' }, { nimi: 'meista', js: "tab('meista')" }, ...NAV('go', ['pin', 'train', 'card', 'haptic', 'offline', 'parent', 'vapaa', 'haaste', 'valinta'])] },
+  pelaaja: { tiedosto: 'TalentMaster_Pelaaja_v7.html', kysely: '?demo=1', entry: "demoKirjaudu('aleksi')", sisaan: "typeof _suljeTervetulo === 'function' && _suljeTervetulo()", askeleet: [{ nimi: 'tanaan', js: "tab('tanaan')" }, { nimi: 'mina', js: "tab('mina')", avaa: '.mgrp' }, { nimi: 'meista', js: "tab('meista')" }, ...NAV('go', ['pin', 'train', 'card', 'haptic', 'offline', 'parent', 'vapaa', 'haaste', 'valinta'])] },
   vanhempi: { tiedosto: 'TalentMaster_Vanhempi_v2.html', kysely: '?demo=1', entry: '0', askeleet: [{ nimi: 'kirjautuminen', js: '0' }, ...['u12', 'u15', 'u19'].flatMap((a) => ['koti', 'viikko', 'kirjaa', 'valmentaja', 'kortti', 'asetukset'].map((n) => ({ nimi: `${a}/${n}`, js: `setAge('${a}'); go('${n}')` })))] },
   master: { tiedosto: 'TalentMaster_Master_v16.html', kysely: '?demo=1', entry: 'loginDemo()', lokalisoi: "typeof masterLokalisoi === 'function' && masterLokalisoi()", askeleet: [...NAV('setWs', ['koti', 'dev', 'havainnot', 'inbox', 'today', 'pulse', 'season', 'cal', 'testit', 'kuorma']), ...['avaaKaaviopankki()', 'avaaHarjoitusarviointi()', 'avaaValmentajaKehitys()', "openDrill('adar')"].map((j) => ({ nimi: j, js: j }))] },
   vp: { tiedosto: 'TalentMaster_VP_v25.html', kysely: '?demo=1', entry: 'demoMode()', lokalisoi: "typeof vpLokalisoi === 'function' && vpLokalisoi()", askeleet: [...NAV('setWs', ['koti', 'tilanne', 'valmentajat', 'pelaajat', 'testit', 'kalenteri', 'ryhmat', 'raportointi', 'reviewit', 'jaksofokus', 'asetukset']), ...['vpAvaaHarjoitusarviointi()', 'avaaAdarKenttatyokalu()', 'avaaBioBanding()', 'avaaKaaviopankki()', "_vpOhjKirjastoModal('','')"].map((j) => ({ nimi: j, js: j }))] },
@@ -92,6 +92,31 @@ function etsiLahde(idx0, teksti, ensin) {
 }
 const sallittu = (t) => { const a = avain(t); return SALLITUT.tekstit.includes(a) || SALLITUT.alkavat.some((p) => a.startsWith(p.toLowerCase())) || !/[a-zåäö]{3}/i.test(t); };
 
+
+async function suoritaAskel(selain, cfg, as, nimi, virheet) {
+  const ctx = await selain.newContext({ viewport: { width: 1280, height: 900 } }); const p = await ctx.newPage();
+  await p.addInitScript((k) => { try { localStorage.setItem('tm_kieli', k); } catch (e) { /* ei LS */ } }, KIELI);
+  p.on('pageerror', () => { /* demo-datan ulkoiset kutsut; ei raportoida */ });
+  // Deterministinen mittaus: kiinteä kello + siemennetty Math.random (päivän harjoitevalinta, synttäribonus yms. ovat satunnais-/päiväriippuvaisia) → fi before/after -diff vertailukelpoinen
+  await p.addInitScript(() => { let a = 0x2f6e2b1; Math.random = function () { a = (a + 0x6D2B79F5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; });
+  try { await p.clock.setFixedTime(new Date('2026-10-14T10:00:00+03:00')); } catch (e) { /* vanha playwright */ }
+  try {
+    await p.goto(pathToFileURL(join(JUURI, cfg.tiedosto)).href + cfg.kysely, { waitUntil: 'load', timeout: 20000 });
+    await p.waitForTimeout(1200);
+    if (cfg.entry !== '0') { await p.evaluate(cfg.entry).catch((e) => virheet.push(nimi + ' entry: ' + e.message.slice(0, 80))); await p.waitForTimeout(1500); }
+    if (cfg.sisaan) await p.evaluate(cfg.sisaan).catch(() => { /* ei */ });   // sulje tervetulo-ikkuna (ensikäynti → deterministinen mittaus)
+    if (cfg.lokalisoi) await p.evaluate(cfg.lokalisoi).catch(() => { /* ei funktiota */ });   // demo-sisäänkäynti ei aja kirjautumispolun lokalisointia → ajetaan kuten oikea sovellus
+    if (as.js !== '0') { await p.evaluate(as.js).catch((e) => virheet.push(nimi + ' askel: ' + e.message.slice(0, 80))); await p.waitForTimeout(900); }
+    if (cfg.lokalisoi) await p.evaluate(cfg.lokalisoi).catch(() => { /* ei funktiota */ });
+    // avattavat ryhmät: <details> auki + näkymän sisäiset välilehti-/avaustoiminnot (ei kirjoittavia)
+    await p.evaluate((sel) => { document.querySelectorAll('details').forEach((d) => { d.open = true; }); if (sel) document.querySelectorAll(sel).forEach((g) => g.classList.add('open')); }, as.avaa || null);
+    const sisaiset = await p.evaluate(({ vaar, nav, paa }) => { const v = new RegExp(vaar, 'i'), n = new RegExp(nav), pn = new RegExp(paa); return [...new Set([...document.querySelectorAll('[onclick]')].filter((e) => e.checkVisibility && e.checkVisibility() && (e.innerText || '').trim().length <= 32).map((e) => e.getAttribute('onclick')).filter((o) => o && n.test(o) && !v.test(o) && !pn.test(o)))].slice(0, 14); }, { vaar: VAARALLISET.source, nav: ALAN_NAVIT.source, paa: PAANAVI.source });
+    const kaikki = await p.evaluate(keruu);
+    for (const js of sisaiset) { try { await p.evaluate(js); await p.waitForTimeout(250); const lisaa = await p.evaluate(keruu); kaikki.push(...lisaa); } catch (e) { /* ohita */ } }
+    return kaikki;
+  } finally { await ctx.close(); }
+}
+
 async function main() {
   const exe = process.env.TM_CHROME_PATH || undefined;
   const selain = await chromium.launch({ headless: true, executablePath: exe });
@@ -101,21 +126,16 @@ async function main() {
   for (const [sov, cfg] of Object.entries(SOVELLUKSET)) {
     if (valitut.length && !valitut.includes(sov)) continue;
     for (const as of cfg.askeleet) {
-      const nimi = sov + '/' + as.nimi; const ctx = await selain.newContext({ viewport: { width: 1280, height: 900 } }); const p = await ctx.newPage();
-      await p.addInitScript((k) => { try { localStorage.setItem('tm_kieli', k); } catch (e) { /* ei LS */ } }, KIELI);
-      p.on('pageerror', () => { /* demo-datan ulkoiset kutsut; ei raportoida */ });
+      const nimi = sov + '/' + as.nimi;
       try {
-        await p.goto(pathToFileURL(join(JUURI, cfg.tiedosto)).href + cfg.kysely, { waitUntil: 'load', timeout: 20000 });
-        await p.waitForTimeout(1200);
-        if (cfg.entry !== '0') { await p.evaluate(cfg.entry).catch((e) => virheet.push(nimi + ' entry: ' + e.message.slice(0, 80))); await p.waitForTimeout(1500); }
-        if (cfg.lokalisoi) await p.evaluate(cfg.lokalisoi).catch(() => { /* ei funktiota */ });   // demo-sisäänkäynti ei aja kirjautumispolun lokalisointia → ajetaan kuten oikea sovellus
-        if (as.js !== '0') { await p.evaluate(as.js).catch((e) => virheet.push(nimi + ' askel: ' + e.message.slice(0, 80))); await p.waitForTimeout(900); }
-        if (cfg.lokalisoi) await p.evaluate(cfg.lokalisoi).catch(() => { /* ei funktiota */ });
-        // avattavat ryhmät: <details> auki + näkymän sisäiset välilehti-/avaustoiminnot (ei kirjoittavia)
-        await p.evaluate((sel) => { document.querySelectorAll('details').forEach((d) => { d.open = true; }); if (sel) document.querySelectorAll(sel).forEach((g) => g.classList.add('open')); }, as.avaa || null);
-        const sisaiset = await p.evaluate(({ vaar, nav, paa }) => { const v = new RegExp(vaar, 'i'), n = new RegExp(nav), pn = new RegExp(paa); return [...new Set([...document.querySelectorAll('[onclick]')].filter((e) => e.checkVisibility && e.checkVisibility() && (e.innerText || '').trim().length <= 32).map((e) => e.getAttribute('onclick')).filter((o) => o && n.test(o) && !v.test(o) && !pn.test(o)))].slice(0, 14); }, { vaar: VAARALLISET.source, nav: ALAN_NAVIT.source, paa: PAANAVI.source });
-        const kaikki = await p.evaluate(keruu);
-        for (const js of sisaiset) { try { await p.evaluate(js); await p.waitForTimeout(250); const lisaa = await p.evaluate(keruu); kaikki.push(...lisaa); } catch (e) { /* ohita */ } }
+        // demo-sivu voi joskus renderöityä vajaaksi (async-init-kisa) → toista kunnes kaksi peräkkäistä yritystä antaa saman määrän (max 6), ota laajin → deterministinen mittaus
+        let kaikki = [], edellinen = -1;
+        for (let yritys = 0; yritys < 6; yritys++) {
+          const k = await suoritaAskel(selain, cfg, as, nimi, virheet);
+          if (k.length > kaikki.length) kaikki = k;
+          if (k.length === edellinen && k.length >= 15) break;
+          edellinen = k.length;
+        }
         const nahty = new Set(); const rivit = [];
         for (const k of kaikki) {
           const t = norm(k.t); const id = k.tyyppi + '|' + t; if (nahty.has(id)) continue; nahty.add(id);
@@ -128,7 +148,6 @@ async function main() {
         nakymat[nimi] = { tekstejaYht: nahty.size, fi: rivit };
         if (DUMP) nakymat[nimi].kaikki = [...new Set(kaikki.map((k) => k.tyyppi + '|' + norm(k.t)))].sort();
       } catch (e) { virheet.push(nimi + ': ' + e.message.slice(0, 100)); nakymat[nimi] = { tekstejaYht: 0, fi: [], virhe: e.message.slice(0, 100) }; }
-      await ctx.close();
     }
   }
   await selain.close();

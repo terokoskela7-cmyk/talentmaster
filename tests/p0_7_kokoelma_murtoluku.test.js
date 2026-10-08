@@ -7,6 +7,7 @@ import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import vm from 'vm';
+import { PEL_APU } from './helpers/pelaaja_t.mjs';
 
 const HTML = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', 'TalentMaster_Pelaaja_v7.html'), 'utf8');
 function pura(tunniste) {
@@ -18,7 +19,7 @@ function pura(tunniste) {
 const VUOSI = new Date().getFullYear();
 function kokoelma(ika, extra = {}) {
   const sb = Object.assign({
-    _pelaaja: { syntymaVuosi: VUOSI - ika },
+    ...PEL_APU, _pelaaja: { syntymaVuosi: VUOSI - ika },
     tmPhvTila: () => '', tmPhvIlmoitettuPH: () => false,
     KORTTI_KATALOGI: { legendat: [{ ansainta: () => true }], harvinaiset: [], saavutukset: [{ ansainta: () => true }, { ansainta: () => false }], merkit: [{ laji: 'pujottelu' }] },
     _kkLajiTulos: () => null,
@@ -48,7 +49,7 @@ describe('P0.7 kokoelman murtoluku', () => {
     expect(sb.f()).toMatch(murtoluku);
   });
   it('stage-funktio puuttuu → oletus Rakentaja (turvallisin: ei murtolukua)', () => {
-    const sb = { _pelaaja: { syntymaVuosi: VUOSI - 10 }, KORTTI_KATALOGI: { legendat: [{ ansainta: () => true }], harvinaiset: [], saavutukset: [], merkit: [] },
+    const sb = { ...PEL_APU, _pelaaja: { syntymaVuosi: VUOSI - 10 }, KORTTI_KATALOGI: { legendat: [{ ansainta: () => true }], harvinaiset: [], saavutukset: [], merkit: [] },
       _kkLajiTulos: () => null, _kkStripKortit: () => ({ earned: [{ nimi: 'A' }], locked: [] }), _kkStripKorttiHTML: () => '[A]', Array, Object };
     vm.createContext(sb); vm.runInContext(pura('function rMinaKokoelma(') + '\nthis.f = rMinaKokoelma;', sb);
     expect(sb.f()).not.toMatch(murtoluku);

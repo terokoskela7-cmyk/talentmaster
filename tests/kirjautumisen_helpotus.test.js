@@ -11,6 +11,7 @@ import { createRequire } from 'module';
 import vm from 'vm';
 import { lisaaVerkko } from './_verkkoCtx.mjs';
 import { lisaaP7Offline } from './_p7OfflineCtx.mjs';
+import { PEL_APU } from './helpers/pelaaja_t.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const require_ = createRequire(import.meta.url);
@@ -32,7 +33,7 @@ function pura(S, tunniste) {
 function ajaPelaaja({ url, kentta = '', vastaus }) {
   const loki = { kutsu: null, ls: {}, db: 0, virhe: [], lataa: null, draw: 0 };
   const ctx = {
-    console: { warn() {}, error() {} },
+    ...PEL_APU, console: { warn() {}, error() {} },
     _URL: url, _pin: '9278', _pinIlmoitus: '', _kirjautuminenKesken: false, _pinPalloIdTila: false,
     _TUNNUS_LS: 'tm_pelaaja_tunnus', _PK_VIRHE_TUNNISTUS: 'Tunnus tai PIN on väärin.',
     draw: () => { loki.draw++; }, _pinVirhe: (t) => loki.virhe.push(t),

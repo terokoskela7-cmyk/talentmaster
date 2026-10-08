@@ -11,6 +11,7 @@ import { createRequire } from 'module';
 import vm from 'vm';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
+import { PEL_APU } from './helpers/pelaaja_t.mjs';
 
 const require = createRequire(import.meta.url);
 const juuri = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -29,7 +30,7 @@ function pura(tunniste) {
 }
 const VUOSI = new Date().getFullYear();
 function rakenna(p) {
-  const ctx = { _pelaaja: p, hhSeuraavaTaso: N.hhSeuraavaTaso, HH_TESTI_MAP: N.HH_TESTI_MAP, Date, Math, Object, Array, String, Number, isNaN };
+  const ctx = { ...PEL_APU, _pelaaja: p, hhSeuraavaTaso: N.hhSeuraavaTaso, HH_TESTI_MAP: N.HH_TESTI_MAP, Date, Math, Object, Array, String, Number, isNaN };
   vm.createContext(ctx);
   vm.runInContext("const _MINA_HHNIMI = { lin30m:'Nopeus', lin10m:'Kiihdytys', cmj:'Ponnistusvoima', mas:'Kestävyys', kasirata:'Ketteryys', sm_pallo:'Vauhti pallon kanssa' };"
     + SRC.slice(SRC.indexOf('function _minaHhArvo('), SRC.indexOf('\n', SRC.indexOf('function _minaHhArvo(')))

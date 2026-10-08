@@ -11,6 +11,7 @@ import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { createRequire } from 'module';
+import { PEL_APU, laajennaT } from './helpers/pelaaja_t.mjs';
 
 const juuri = join(dirname(fileURLToPath(import.meta.url)), '..');
 const vaadi = createRequire(import.meta.url);
@@ -273,7 +274,7 @@ describe('(7) nimikanoni', () => {
   });
 
   it('Pelaaja_v7 kuvaa R:n palautumisena', () => {
-    const src = readFileSync(join(juuri, 'TalentMaster_Pelaaja_v7.html'), 'utf8');
+    const src = laajennaT(readFileSync(join(juuri, 'TalentMaster_Pelaaja_v7.html'), 'utf8'));
     expect(src).toContain('Palaat peliin nopeasti virheen jälkeen');
   });
 
@@ -359,7 +360,7 @@ describe('(8) kehityskaari käyttää libin bandia, ei omaa kopiota', () => {
 });
 
 describe('(9) §7.22 — portaan nousu ei näy lapselle laskuna', () => {
-  const src = readFileSync(join(juuri, 'TalentMaster_Pelaaja_v7.html'), 'utf8');
+  const src = laajennaT(readFileSync(join(juuri, 'TalentMaster_Pelaaja_v7.html'), 'utf8'));
   /* Sulkeita laskien: `indexOf('\n}')` osui ensimmäiseen sisäkkäiseen sulkuun, jolloin lohko
      katkesi kesken ja vartijat lukivat vain funktion alkua. */
   const lohko = (() => {
@@ -438,7 +439,7 @@ describe('(9) §7.22 — portaan nousu ei näy lapselle laskuna', () => {
    ikasuositus valui "uudeksi taidoksi" jokaiselle 13+ -pelaajalle, jolla ei ole porrasta
    tallennettuna. Tama ryhma ajaa rAdar():n oikeasti ja vertaa tulosta. */
 describe('(11) rAdar ajettuna — ilman porrasta mikään ei muutu', () => {
-  const src = readFileSync(join(juuri, 'TalentMaster_Pelaaja_v7.html'), 'utf8');
+  const src = laajennaT(readFileSync(join(juuri, 'TalentMaster_Pelaaja_v7.html'), 'utf8'));
 
   function ajaRAdar(pelaaja) {
     const i = src.indexOf('function rAdar() {');
@@ -451,7 +452,7 @@ describe('(11) rAdar ajettuna — ilman porrasta mikään ei muutu', () => {
       _pelaaja: pelaaja, console, Math, Number, String, Object, Array, Date, isNaN,
       tmAdarBand: L.tmAdarBand, tmAdarYht: L.tmAdarYht, tmAdarBonusOsat: L.tmAdarBonusOsat,
       tmAdarIkaPorras: L.tmAdarIkaPorras,
-      TM_ADAR_PORTAAT: L.TM_ADAR_PORTAAT, TM_ADAR_NIMET: L.TM_ADAR_NIMET,
+      TM_ADAR_PORTAAT: L.TM_ADAR_PORTAAT, TM_ADAR_NIMET: L.TM_ADAR_NIMET, ...PEL_APU,
     };
     const ymp = new Proxy(store, {
       has: (t2, k) => (k in t2) || !(k in globalThis),

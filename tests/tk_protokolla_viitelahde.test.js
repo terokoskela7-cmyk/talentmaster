@@ -15,6 +15,7 @@ import { createRequire } from 'module';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import vm from 'vm';
+import { PEL_APU } from './helpers/pelaaja_t.mjs';
 
 const require = createRequire(import.meta.url);
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -242,7 +243,7 @@ describe('a) tm_kehityskaari: H-H- ja TK-sarjat eri riveinä, jaksosidos lukee T
 
 describe('a) Pelaaja_v7 Tekniikkaprofiili: H-H-sekunnit merkitty H-H-testiksi, ei TK-tavoitetta', () => {
   const P7 = lue('TalentMaster_Pelaaja_v7.html');
-  const ctx = vm.createContext({ window: { TM_TESTIT: T }, Math, Number, String, Date, parseFloat, isNaN, Array, Object });
+  const ctx = vm.createContext({ ...PEL_APU, window: { TM_TESTIT: T }, Math, Number, String, Date, parseFloat, isNaN, Array, Object });
   vm.runInContext(['let _pelaaja = null;', 'let _tekniikkaData = null;', "const _TEK_LAJIT = ['ponnauttelu', 'syotto', 'pujottelu', 'kuljetus_laukaus'];",
     pura(P7, 'function _tekniikkaPikakentista('), pura(P7, 'function _minaTekLajiNimi('), pura(P7, 'function _minaValitavoite('),
     pura(P7, 'function _tekKorttiData('), pura(P7, 'function _minaTavoiteRivit('), pura(P7, 'function rMinaTekniikkaprofiili('),
