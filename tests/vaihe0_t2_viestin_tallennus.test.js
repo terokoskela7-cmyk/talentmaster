@@ -156,7 +156,7 @@ describe('(T2-3) Master inboxReact: reaktio merkitään vasta tallennuksen jälk
 
 describe('(T2-4) vartijat: ei "lähetetty"-toastia ennen awaitia', () => {
   const tapaukset = [
-    ['Master sendReply', MASTER, 'async function sendReply(){', "toast('Viesti lähetetty"],
+    ['Master sendReply', MASTER, 'async function sendReply(){', "toast(masterT('Viesti lähetetty"],
     ['Master _avaaViestiPelaajalle', MASTER, 'window._avaaViestiPelaajalle = function (pelaajaId) {', "toast(masterT('Viesti lähetetty')"],
     ['VP _tallennaPMP', VP, 'async function _tallennaPMP(pelaajaId, pelaajaNimi) {', "toast(vpT('Viesti lähetetty"],
   ];

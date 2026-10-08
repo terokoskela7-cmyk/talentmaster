@@ -4,6 +4,8 @@ import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import vm from 'vm';
+import { createRequire } from 'module';
+const { tmPvmFmt } = createRequire(import.meta.url)('../lib/tm_lang.js');   // Vanhempi _vanhVkopv käyttää jaettua tmPvmFmt:ää (sv-läpiajo PR 3)
 
 const juuri = join(dirname(fileURLToPath(import.meta.url)), '..');
 function lataa(sivu, taulu, fn) {
@@ -11,12 +13,12 @@ function lataa(sivu, taulu, fn) {
   const a = src.indexOf('const ' + taulu + ' = ['); const lause = src.slice(a, src.indexOf('\n', a));
   const f = src.indexOf('function ' + fn + '('); let d = 0, runko = '';
   for (let k = src.indexOf('{', f); k < src.length; k++) { if (src[k] === '{') d++; else if (src[k] === '}') { d--; if (!d) { runko = src.slice(f, k + 1); break; } } }
-  return (kieli) => { const sb = { tmNykyinenKieli: () => kieli, Date, String }; vm.createContext(sb); vm.runInContext(lause + '\n' + runko, sb); return (n) => vm.runInContext(fn + '(' + n + ')', sb); };
+  return (kieli) => { const sb = { tmNykyinenKieli: () => kieli, tmPvmFmt, Date, String }; vm.createContext(sb); vm.runInContext(lause + '\n' + runko, sb); return (n) => vm.runInContext(fn + '(' + n + ')', sb); };
 }
 describe.each([['TalentMaster_Pelaaja_v7.html', '_P7_VKOPV', '_p7Vkopv'], ['TalentMaster_Vanhempi_v2.html', '_VANH_VKOPV', '_vanhVkopv']])('%s %s', (sivu, taulu, fn) => {
   const aja = lataa(sivu, taulu, fn);
   it('fi: Su Ma Ti Ke To Pe La (kuten ennen)', () => { const v = aja('fi'); expect([0, 1, 2, 3, 4, 5, 6].map(v)).toEqual(['Su', 'Ma', 'Ti', 'Ke', 'To', 'Pe', 'La']); });
-  it('sv: ei suomalaisia lyhenteitä (Intl sv-SE, isolla alkukirjaimella)', () => {
+  it('sv: ei suomalaisia lyhenteitä (Intl sv, isolla alkukirjaimella)', () => {
     const v = aja('sv'); const arr = [0, 1, 2, 3, 4, 5, 6].map(v);
     expect(arr.length).toBe(7); expect(new Set(arr).size).toBe(7);
     arr.forEach((s) => expect(s).toMatch(/^[A-ZÅÄÖ][a-zåäö]+$/));

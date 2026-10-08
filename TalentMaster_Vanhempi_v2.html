@@ -141,7 +141,7 @@ body.demo-mode #devChrome{display:block}
 <script src="lib/tm_klippi_perhe.js?v=1"></script>   <!-- R6.4 PR 2: Katsokaa yhdessä / keskustelu -->
 <script src="lib/tm_appcheck.js?v=2"></script>
 <script src="lib/tm_verkko.js?v=1"></script>   <!-- verkkokatko: 1 uudelleenyritys + Yhteyskatko-ilmoitus + Sentry warning -->
-<script src="lib/tm_lang.js?v=34"></script>   <!-- i18n V0 putki · V1-B/B2: +vanhempi./nav.-avaimet + kielivalitsin + syväsisältö (nimen taivutus poistettu) -->
+<script src="lib/tm_lang.js?v=35"></script>   <!-- i18n V0 putki · V1-B/B2: +vanhempi./nav.-avaimet + kielivalitsin + syväsisältö (nimen taivutus poistettu) -->
 <script src="lib/tm_lib_i18n.js?v=1"></script>   <!-- sv-kartta kirjastojen FI-avaimille (päätös A, vaihtoehto 2; generoitu Gemini-erästä) — ennen lib-tiedostoja -->
 <script src="docs/testit_indeksit.js?v=13"></script>
 <script src="lib/tm_alusta.js?v=2"></script>   <!-- PR D2: alustakoodi/-nimi ennätysriveille -->
@@ -498,7 +498,7 @@ window._vanhKalenteri = null; window._vanhKalLadattu = false;
 const _VANH_TT = { harjoitus: { i: '⚽', c: 'var(--ink2)' }, treeni: { i: '⚽', c: 'var(--ink2)' }, ottelu: { i: '🏟️', c: '#4E86D6' }, peli: { i: '🏟️', c: '#4E86D6' }, testitapahtuma: { i: '🧪', c: 'var(--teal)' }, testi: { i: '🧪', c: 'var(--teal)' }, kasvumittaus: { i: '📏', c: 'var(--teal)' }, palaveri: { i: '📋', c: '#E0A040' }, palaverit: { i: '📋', c: '#E0A040' }, muu: { i: '○', c: 'var(--ink3)' } };
 const _VANH_VKOPV = ['Su', 'Ma', 'Ti', 'Ke', 'To', 'Pe', 'La'];   // fi
 /* Viikonpäivän lyhenne kielen mukaan (fi: taulukko sellaisenaan; sv/en: Intl). n = Date.getDay() (0 = su). */
-function _vanhVkopv(n) { var k = (typeof tmNykyinenKieli === 'function') ? tmNykyinenKieli() : 'fi'; if (k === 'fi') return _VANH_VKOPV[n]; var s = new Date(2024, 0, 7 + n).toLocaleDateString(k === 'sv' ? 'sv-SE' : 'en-GB', { weekday: 'short' }).replace('.', ''); return s.charAt(0).toUpperCase() + s.slice(1); }
+function _vanhVkopv(n) { var k = (typeof tmNykyinenKieli === 'function') ? tmNykyinenKieli() : 'fi'; if (k === 'fi') return _VANH_VKOPV[n]; var s = tmPvmFmt(new Date(2024, 0, 7 + n), { weekday: 'short' }, k).replace('.', ''); return s.charAt(0).toUpperCase() + s.slice(1); }
 function _vanhEvPvm(ev) { var d = (ev.alkaa && ev.alkaa.toDate) ? ev.alkaa.toDate() : (ev.alkaa && typeof ev.alkaa === 'string') ? new Date(ev.alkaa) : (ev.pvm ? new Date(String(ev.pvm).slice(0, 10) + 'T00:00:00') : null); return (d && !isNaN(d.getTime())) ? d : null; }
 function _vanhEvKuuluu(ev) {
   // P7-c.1-fix: normalisoitu joukkueavainjoukko (ml. joukkueet[]-slug) — näyttönimi vs slug ei osu suoralla vertailulla.
@@ -826,7 +826,7 @@ function _viikkoRivitHtml(){
   const tyyppiLabel = { T:'vanhempi.tyyppi_T', D:'vanhempi.tyyppi_D', S:'vanhempi.tyyppi_S', P:'vanhempi.tyyppi_P', vapaa:'vanhempi.tyyppi_vapaa', pihapeli:'vanhempi.tyyppi_pihapeli', pallo:'vanhempi.tyyppi_pallo', jalkapallo:'vanhempi.tyyppi_jalkapallo', muu_urheilu:'vanhempi.tyyppi_muu_urheilu', lepo:'vanhempi.tyyppi_lepo' };
   return _viikkoKirjaukset.map(function(k){
     const aika = (k.luotu && k.luotu.toDate) ? k.luotu.toDate() : (k.luotu ? new Date(k.luotu) : null);
-    const aikaStr = aika ? aika.toLocaleDateString('fi-FI', {weekday:'short', day:'numeric', month:'numeric'}) : _esc(k.id || '');
+    const aikaStr = aika ? tmPvmFmt(aika, {weekday:'short', day:'numeric', month:'numeric'}) : _esc(k.id || '');
     const otsikko = t(tyyppiLabel[k.tyyppi] || 'vanhempi.tyyppi_harjoitus');
     const osat = [];
     if (k.kesto_min) osat.push(k.kesto_min + ' min');
@@ -848,7 +848,7 @@ function _vViestiPvm(v){
   /* Normalisoitu rivi (tmHhRivit) kantaa valmiin pvm-merkkijonon; raakadokumentissa on `luotu`. */
   if (v && typeof v.pvm === 'string' && v.pvm) return v.pvm;
   const a = (v.luotu && v.luotu.toDate) ? v.luotu.toDate() : (v.luotu ? new Date(v.luotu) : null);
-  return a ? a.toLocaleDateString('fi-FI', {day:'numeric', month:'numeric'}) : '';
+  return a ? tmPvmFmt(a, {day:'numeric', month:'numeric'}) : '';
 }
 
 /* "UUSI" perheelle on PAIKALLINEN merkintä: viimeksi nähty aikaleima laitteessa.
