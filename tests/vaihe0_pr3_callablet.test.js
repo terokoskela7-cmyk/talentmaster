@@ -196,7 +196,7 @@ describe('muut callablet: henkilökuntatarkistus lähteessä', () => {
 /* PR 3b · vahvistaSuostumus: toimii ilman kirjautumista (suostumuslomake), joten vastaus EI saa
    sisältää salasanalinkkiä eikä PIN:iä — ne menevät vain tallennettuun huoltajaEmailiin. */
 describe('vahvistaSuostumus (ajettu) — tunnukset vain sähköpostiin', () => {
-  function aja({ tallennettu = 'huoltaja@tm-testi.fi', pin = '4821', sposti = 'ok' } = {}) {
+  function aja({ tallennettu = 'huoltaja@tm-testi.fi', pin = '4821', sposti = 'ok', kutsuTila = false } = {}) {
     const loki = { sposti: [], reset: 0 };
     const DATA = { huoltajaEmail: tallennettu, pin, etunimi: 'Aa', sukunimi: 'Bb', suostumusTila: 'odottaa' };
     const snap = { exists: true, empty: true, docs: [], get: (k) => DATA[k], data: () => DATA };
@@ -215,6 +215,7 @@ describe('vahvistaSuostumus (ajettu) — tunnukset vain sähköpostiin', () => {
       admin: { firestore: { FieldValue: { serverTimestamp: () => 'TS', arrayUnion: () => 'AU', delete: () => 'DEL' }, Timestamp: { fromDate: () => 'T', now: () => 'T' } } },
       auth: { generatePasswordResetLink: async () => { loki.reset++; return 'https://reset/SALAINEN'; } },
       haeOrLuoHuoltajaAuth: async () => ({}),
+      huoltajaSalasanaLinkki: async () => { loki.reset++; return { linkki: 'https://reset/SALAINEN', kutsu: kutsuTila }; },   // Huoltajakutsu: oma 7 pv:n kutsu (kutsu:true) tai varalinkki 1 h (false)
       lahetaSahkoposti: async (m) => { if (sposti !== 'ok') throw new Error('sendgrid'); loki.sposti.push(m); },
       pohjaSuostumusLinkki: (o) => JSON.stringify(o),
       TM_BASE_URL: 'https://tm', Date, Math, JSON, Number, isNaN, parseInt, parseFloat,
@@ -224,10 +225,15 @@ describe('vahvistaSuostumus (ajettu) — tunnukset vain sähköpostiin', () => {
       suostumukset: [], suostumusMap: {}, antajaRooli: 'huoltaja', aikaleima: '2026-10-01' };
     return { loki, ajo: fn(data, {}) };
   }
+  it('Huoltajakutsu: oma kutsulinkki → sähköpostissa kutsulinkki, vastauksessa linkkiPv 7 (ei linkkiä)', async () => {
+    const t = aja({ kutsuTila: true }); const r = await t.ajo;
+    expect(r).toEqual({ ok: true, emailLahetetty: true, emailVirhe: null, linkkiPv: 7 }); expect(JSON.stringify(r)).not.toMatch(/SALAINEN/);
+    expect(t.loki.sposti[0].html).toContain('"kutsu":true');
+  });
   it('onnistuminen: vastauksessa EI linkkiä eikä PIN:iä; sähköpostissa on molemmat', async () => {
     const t = aja();
     const r = await t.ajo;
-    expect(r).toEqual({ ok: true, emailLahetetty: true, emailVirhe: null });
+    expect(r).toEqual({ ok: true, emailLahetetty: true, emailVirhe: null, linkkiPv: 0 });   // varalinkki → linkkiPv 0
     expect(JSON.stringify(r)).not.toMatch(/SALAINEN|4821/);
     expect(t.loki.sposti).toHaveLength(1);
     expect(t.loki.sposti[0].to).toBe('huoltaja@tm-testi.fi');

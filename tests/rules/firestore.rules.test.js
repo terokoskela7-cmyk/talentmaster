@@ -5183,3 +5183,20 @@ describe('v3.54 · käyttöaste-aikaleimat pelaajadokumentissa vain palvelimella
     await assertSucceeds(getDoc(k(vpContext(SEURA_A))));
   });
 });
+
+// ═══ Huoltajakutsu: huoltajakutsut + huoltajakutsu_rajat ovat VAIN Admin SDK:lle (ei Rules-match → oletus kielletty; ei client-pääsyä kenellekään, SA mukaan lukien) ═══
+describe('Huoltajakutsu · huoltajakutsut / huoltajakutsu_rajat: ei client-pääsyä', () => {
+  beforeEach(async () => {
+    await testEnv.withSecurityRulesDisabled(async (ctx) => { const db = ctx.firestore(); await setDoc(doc(db, 'huoltajakutsut', 'abc'), { seuraId: SEURA_A, pelaajaId: PELAAJA_UID, vanhenee: 1 }); await setDoc(doc(db, 'huoltajakutsu_rajat', 'abc'), { pyynnot: [1] }); });
+  });
+  it('kukaan client ei lue eikä kirjoita (SA, VP, valmentaja, pelaaja, huoltaja, anonyymi)', async () => {
+    const kaikki = [saContext(), vpContext(SEURA_A), valmentajaContext(VALM_A_UID, SEURA_A), pelaajaItseContext(), huoltajaContext(), unauthContext()];
+    for (const c of kaikki) {
+      const db = c.firestore();
+      for (const kol of ['huoltajakutsut', 'huoltajakutsu_rajat']) {
+        await assertFails(getDoc(doc(db, kol, 'abc'))); await assertFails(getDocs(collection(db, kol)));
+        await assertFails(setDoc(doc(db, kol, 'uusi'), { seuraId: SEURA_A })); await assertFails(updateDoc(doc(db, kol, 'abc'), { avauksia: 0 })); await assertFails(deleteDoc(doc(db, kol, 'abc')));
+      }
+    }
+  });
+});

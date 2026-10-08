@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<meta name="referrer" content="no-referrer">
+<title>TalentMaster™ — Kutsu</title>
+<!-- Huoltajakutsu (functions/huoltajakutsu.js): sähköpostin 7 pv:n kutsulinkki #k=<token> (fragmentti → ei palvelinlokeihin eikä referreriin). Sivu avaa kutsun callablella (avaaHuoltajakutsu) → tuore 1 h:n salasanalinkki → ohjaus.
+     Vanhentunut/raja → "Lähetä uusi linkki" (pyydaUusiHuoltajakutsu; lähetys aina pelaajan huoltajaEmailiin). App Check pakollinen (§38). Ei kirjautumista, ei Firestorea. -->
+<style>
+:root { --bg:#111110; --surface:#1E1E1C; --border:rgba(242,239,230,.12); --text:#F2EFE6; --ink2:#A8A79F; --teal:#1A7A5E; --teal-d:#28B090; --on-accent:#fff; }
+* { box-sizing:border-box; }
+body { margin:0; min-height:100vh; display:flex; align-items:center; justify-content:center; background:var(--bg); color:var(--text); font-family:'DM Sans',system-ui,sans-serif; padding:16px; }
+.kortti { width:100%; max-width:420px; background:var(--surface); border:.5px solid var(--border); border-radius:14px; padding:24px 20px; text-align:center; }
+h1 { font-family:'Cormorant Garamond',Georgia,serif; font-weight:400; font-size:24px; margin:0 0 10px; }
+p { color:var(--ink2); font-size:14px; line-height:1.55; margin:0 0 16px; }
+button, a.nappi { display:inline-block; padding:12px 22px; border-radius:10px; border:0; background:var(--teal); color:var(--on-accent); font-size:15px; font-weight:600; cursor:pointer; text-decoration:none; font-family:inherit; }
+button[disabled] { opacity:.5; cursor:default; }
+</style>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-check-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-functions-compat.js"></script>
+<script src="lib/tm_appcheck.js?v=2"></script>
+<script src="lib/tm_lang.js?v=37"></script>
+</head>
+<body>
+<div class="kortti" id="sisalto"><p id="teksti"></p></div>
+<script>
+(function () {
+  'use strict';
+  var CFG = { apiKey: 'AIzaSyAp471lOIntzP33p9bIW3y4KbeEyBt5kIo', authDomain: 'talentmaster-pilot.firebaseapp.com', projectId: 'talentmaster-pilot', storageBucket: 'talentmaster-pilot.firebasestorage.app', messagingSenderId: '872561784446', appId: '1:872561784446:web:05c4c7996dfd46ddd14a2f' };
+  var app = firebase.apps.find(function (a) { return a.name === 'tm-huoltajakutsu'; }) || firebase.initializeApp(CFG, 'tm-huoltajakutsu');
+  tmAppCheckAktivoi(app);   // heti initin jälkeen, ennen ensimmäistä backend-kutsua
+  var fn = function (nimi) { return app.functions('europe-west1').httpsCallable(nimi); };
+  var el = document.getElementById('sisalto');
+  var TOKEN = (/[#&]k=([A-Za-z0-9_-]{40,64})/.exec(location.hash) || [])[1] || '';
+  var VANHEMPI = 'TalentMaster_Vanhempi_v2.html';
+  function T(k, v) { return t('huoltajakutsu.' + k, v || {}); }
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+  function nayta(otsikko, ohje, nappi) {
+    el.innerHTML = (otsikko ? '<h1>' + esc(otsikko) + '</h1>' : '') + '<p id="teksti">' + esc(ohje) + '</p>' + (nappi || '');
+  }
+  function kirjautumaan() { return '<a class="nappi" href="' + VANHEMPI + '">' + esc(T('kirjaudu')) + '</a>'; }
+  function uusiNappi() { return '<button id="uusi">' + esc(T('laheta_uusi')) + '</button>'; }
+  function liita() { var b = document.getElementById('uusi'); if (b) b.onclick = uusi; }
+  async function uusi() {
+    var b = document.getElementById('uusi'); if (b) b.disabled = true;
+    try {
+      var r = (await fn('pyydaUusiHuoltajakutsu')({ token: TOKEN })).data || {};
+      if (r.tila === 'lahetetty') nayta('', T('lahetetty', { osoite: r.osoite || '' }));
+      else if (r.tila === 'odota') nayta(T('vanhentunut_otsikko'), T('odota'), uusiNappi());
+      else if (r.tila === 'raja') nayta(T('vanhentunut_otsikko'), T('raja'));
+      else if (r.tila === 'kaytetty') nayta(T('kaytetty_otsikko'), T('kaytetty_ohje'), kirjautumaan());
+      else nayta(T('ei_loydy_otsikko'), T('ei_loydy_ohje'), kirjautumaan());
+    } catch (e) { nayta(T('vanhentunut_otsikko'), T('virhe'), uusiNappi()); }
+    liita();
+  }
+  async function avaa() {
+    if (!TOKEN) { nayta(T('ei_loydy_otsikko'), T('ei_loydy_ohje'), kirjautumaan()); return; }
+    document.getElementById('teksti').textContent = T('avataan');
+    try {
+      var r = (await fn('avaaHuoltajakutsu')({ token: TOKEN })).data || {};
+      if (r.kieli && typeof tmKieliInitSeura === 'function') tmKieliInitSeura(r.kieli);
+      if (r.tila === 'ok' && typeof r.linkki === 'string' && /^https:\/\//.test(r.linkki)) { document.getElementById('teksti').textContent = T('ohjataan'); location.replace(r.linkki); return; }
+      if (r.tila === 'kaytetty') nayta(T('kaytetty_otsikko'), T('kaytetty_ohje'), kirjautumaan());
+      else if (r.tila === 'vanhentunut' || r.tila === 'raja') nayta(T('vanhentunut_otsikko'), r.tila === 'raja' ? T('raja') : T('vanhentunut_ohje'), r.tila === 'raja' ? '' : uusiNappi());
+      else nayta(T('ei_loydy_otsikko'), T('ei_loydy_ohje'), kirjautumaan());
+    } catch (e) { nayta('', T('virhe')); }
+    liita();
+  }
+  avaa();
+})();
+</script>
+</body>
+</html>

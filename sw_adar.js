@@ -16,7 +16,7 @@
 /* v2 (tietosuoja, vaihe 1): kuvatoiminto poistettu. Versio ON nostettava — muuten vanha,
    kuvallinen HTML palvelisi yhä välimuistista ja kuvia voisi yhä lähettää. activate siivoaa
    kaikki muut cachet kuin nykyisen. */
-const CACHE = 'tm-adar-v14';   // sv-läpiajo PR 5: Gemini-erä 2 viety (tm_lang v36, tm_lib_i18n v2, tm_henkilosto_i18n v2, tm_i18n_common v12) (§27.4) — edellinen tm-adar-v13 = sv-läpiajo PR 4: tm_lang + tm_i18n_common + tm_lib_i18n + tm_henkilosto_i18n + tm_adar_tekstit allowlistiin, ADAR reititetty (§27.4) — edellinen tm-adar-v12 = sv-läpiajo PR 3: tm_lang v35 (§27.4) — edellinen tm-adar-v11 = tm_pelialy_yksilo v5 (tmAdarNimet, sv-läpiajo PR 2) + tm_lang v34 — edellinen tm-adar-v10 = havainto + havainto_viimeisin_pvm samassa batchissa — v9 = havainto_viimeisin_pvm (havaintorytmi) — v8 = isäntäviesti vasta kuittauksen jälkeen + pikakenttien tulos mukana
+const CACHE = 'tm-adar-v15';   // huoltajakutsu: tm_lang +1 (huoltajakutsu.*) (§27.4) — edellinen tm-adar-v14 = sv-läpiajo PR 5: Gemini-erä 2 viety (tm_lang v36, tm_lib_i18n v2, tm_henkilosto_i18n v2, tm_i18n_common v12) (§27.4) — edellinen tm-adar-v13 = sv-läpiajo PR 4: tm_lang + tm_i18n_common + tm_lib_i18n + tm_henkilosto_i18n + tm_adar_tekstit allowlistiin, ADAR reititetty (§27.4) — edellinen tm-adar-v12 = sv-läpiajo PR 3: tm_lang v35 (§27.4) — edellinen tm-adar-v11 = tm_pelialy_yksilo v5 (tmAdarNimet, sv-läpiajo PR 2) + tm_lang v34 — edellinen tm-adar-v10 = havainto + havainto_viimeisin_pvm samassa batchissa — v9 = havainto_viimeisin_pvm (havaintorytmi) — v8 = isäntäviesti vasta kuittauksen jälkeen + pikakenttien tulos mukana
 
 const OMA_HTML = '/TalentMaster_ADAR_Pikakortti.html';
 
