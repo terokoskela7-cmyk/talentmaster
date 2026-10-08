@@ -182,17 +182,22 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 <script src="lib/tm_appcheck.js?v=1"></script>
 <script src="lib/tm_aktiivisuus.js?v=1"></script>   <!-- Toimihenkilon kirjautumisaikaleima — jaettu kirjoituspiste, ks. lib-header -->
 <script src="lib/tm_pelialy_yksilo.js?v=2"></script>   <!-- Portaat + konsensus + pikakentät (PR 2A) -->
+<script src="lib/tm_lang.js?v=35"></script>   <!-- sv-läpiajo PR 4: kieli seuran kielestä (tmKieliInitSeura) -->
+<script src="lib/tm_i18n_common.js?v=11"></script>
+<script src="lib/tm_lib_i18n.js?v=1"></script>   <!-- jaettu kirjastokartta (tmLibT): ADAR-tekstit + nimikanoni -->
+<script src="lib/tm_henkilosto_i18n.js?v=1"></script>   <!-- tmHT: henkilöstösovellusten reititin -->
+<script src="lib/tm_adar_tekstit.js?v=1"></script>   <!-- ulottuvuustekstit FI-kartassa (ent. PH_TEKSTIT) -->
 </head>
 <body>
 
 <!-- Kirjautumisbanneri. Näkyviin vasta kun auth-tila on ASETTUNUT (_adarNaytaBanneri). -->
 <div id="tm-login-banner">
   <div class="lb-t">TalentMaster™</div>
-  <div class="lb-s">Kirjaudu sisään tallentaaksesi havaintoja.<br>Lomaketta voi täyttää ilman kirjautumista.</div>
+  <div class="lb-s"><span data-i18n="Kirjaudu sisään tallentaaksesi havaintoja.">Kirjaudu sisään tallentaaksesi havaintoja.</span><br><span data-i18n="Lomaketta voi täyttää ilman kirjautumista.">Lomaketta voi täyttää ilman kirjautumista.</span></div>
   <div class="lb-f">
-    <input id="tm-login-email" type="email" placeholder="Sähköposti" autocomplete="username">
-    <input id="tm-login-pass" type="password" placeholder="Salasana" autocomplete="current-password">
-    <button class="save" onclick="_tmKirjaudu()">Kirjaudu sisään</button>
+    <input id="tm-login-email" type="email" placeholder="Sähköposti" data-i18n-ph="Sähköposti" autocomplete="username">
+    <input id="tm-login-pass" type="password" placeholder="Salasana" data-i18n-ph="Salasana" autocomplete="current-password">
+    <button class="save" onclick="_tmKirjaudu()" data-i18n="Kirjaudu sisään">Kirjaudu sisään</button>
   </div>
   <div id="tm-login-err"></div>
 </div>
@@ -202,7 +207,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
   <div class="topbar" id="tm-topbar">
     <div class="tb-logo">TalentMaster™</div>
     <div class="tb-tools">
-      <button class="ikoni" id="theme-toggle-btn" onclick="_vaihdaTeema()" title="Vaihda teema">☀</button>
+      <button class="ikoni" id="theme-toggle-btn" onclick="_vaihdaTeema()" title="Vaihda teema" data-i18n-title="Vaihda teema">☀</button>
     </div>
   </div>
   <!-- Koko sovellus renderöidään tähän (_phRender). -->
@@ -347,9 +352,9 @@ function _adarTekijaNimi(user) {
 /** Miksi kirjoitus estyi? Palauttaa käyttäjälle näytettävän syyn. */
 function _adarEstonSyy() {
   if (!_adarNakeeKaikki() && !(window._omatJoukkueet || []).length) {
-    return 'Käyttäjätunnuksesi joukkuetieto puuttuu — ota yhteys seuran pääkäyttäjään';
+    return tmHT('Käyttäjätunnuksesi joukkuetieto puuttuu — ota yhteys seuran pääkäyttäjään');
   }
-  return 'Voit havainnoida vain oman joukkueesi pelaajia';
+  return tmHT('Voit havainnoida vain oman joukkueesi pelaajia');
 }
 window._adarEstonSyy = _adarEstonSyy;
 
@@ -381,7 +386,7 @@ function _adarNakyvatPelaajat(haku) {
 /* Ohjeteksti kun rajattu rooli on ilman omaa joukkuetta — ei hiljaista tyhjää. */
 function _adarPoiminOhje() {
   if (!_adarNakeeKaikki() && !(window._omatJoukkueet || []).length) {
-    return 'Sinulla ei ole omaa joukkuetta merkittynä — ota yhteys valmennuspäällikköön.';
+    return tmHT('Sinulla ei ole omaa joukkuetta merkittynä — ota yhteys valmennuspäällikköön.');
   }
   return '';
 }
@@ -418,7 +423,7 @@ async function _tmKirjaudu() {
   try {
     await _PH_AUTH.signInWithEmailAndPassword((em && em.value) || '', (pw && pw.value) || '');
   } catch (e) {
-    if (err) err.textContent = 'Kirjautuminen ei onnistunut — tarkista tunnus ja salasana.';
+    if (err) err.textContent = tmHT('Kirjautuminen ei onnistunut — tarkista tunnus ja salasana.');
   }
 }
 window._tmKirjaudu = _tmKirjaudu;
@@ -450,18 +455,32 @@ async function _naytaSuperAdminSeuraValitsin() {
   }
   const opts = seurat.map(s => '<option value="' + s.id + '">' + _phEsc(s.nimi) + '</option>').join('');
   modal.innerHTML =
-    '<div class="kortti"><h2>Valitse seura</h2><p>Super admin — valitse seura</p>'
-    + '<select id="tm-seura-valinta"><option value="">— Valitse seura —</option>' + opts + '</select>'
-    + '<button class="save" onclick="_vahvistaSeuraValinta()">Jatka →</button></div>';
+    '<div class="kortti"><h2>' + tmHT('Valitse seura') + '</h2><p>' + tmHT('Super admin — valitse seura') + '</p>'
+    + '<select id="tm-seura-valinta"><option value="">' + tmHT('— Valitse seura —') + '</option>' + opts + '</select>'
+    + '<button class="save" onclick="_vahvistaSeuraValinta()">' + tmHT('Jatka →') + '</button></div>';
   modal.style.display = 'flex';
 }
 window._naytaSuperAdminSeuraValitsin = _naytaSuperAdminSeuraValitsin;
+
+/* Kieli seuran kielestä (sv-läpiajo PR 4): tmKieliInitSeura(seura.kieli) — käyttäjän oma valinta (tm_kieli) voittaa — ja staattisen markupin lokalisointi. Best-effort: virhe → fi. */
+async function _adarKieliAlusta(seuraId) {
+  try {
+    if (typeof tmKieliInitSeura === 'function') {
+      const sd = (seuraId && seuraId !== 'demo') ? await _PH_DB.collection('seurat').doc(seuraId).get() : null;
+      tmKieliInitSeura(sd && sd.exists ? (sd.data().kieli || null) : null);
+    }
+    if (typeof tmHTL === 'function') tmHTL(document);
+  } catch (e) { /* kieli jää suomeksi */ }
+}
+window._adarKieliAlusta = _adarKieliAlusta;
+if (typeof tmHTL === 'function') tmHTL(document);   // tallennettu kieli (tm_kieli) heti: kirjautumisbanneri ennen seuran lukua
 
 async function _vahvistaSeuraValinta() {
   const sel = document.getElementById('tm-seura-valinta');
   const seuraId = sel ? sel.value : '';
   if (!seuraId) return;
   window._tmSeuraId = seuraId;
+  await _adarKieliAlusta(seuraId);
   const modal = document.getElementById('tm-seura-modal');
   if (modal) modal.style.display = 'none';
   await _adarLataaPelaajat(seuraId);
@@ -532,6 +551,7 @@ _PH_AUTH.onAuthStateChanged(async function (user) {
 
     /* Omat joukkueet ENNEN poimimen täyttöä — muuten rajattu rooli näkisi
        hetken koko seuran (ja voisi ehtiä valita pelaajan jota ei saa kirjata). */
+    await _adarKieliAlusta(window._tmSeuraId);   // kieli ennen ensimmäistä renderiä
     await _adarLataaOmatJoukkueet(window._tmSeuraId, user.uid);
     await _adarLataaPelaajat(window._tmSeuraId);
 
@@ -579,56 +599,14 @@ function _paivitaTeemaIcon(teema) {
    ADAR_KENTTA_MAP:ia, jota ei viedä ulos. Vartija lukee molemmat lähteestä. */
 const PH_KENTTA = { a: 'A', d: 'D', ac: 'Act', r: 'R' };
 
-/* KAIKKI näytettävät tekstit yhdessä rakenteessa (i18n = vaihe 3; sv EI tässä).
-   Nimet tulevat libin `TM_ADAR_NIMET.valmentaja`:sta — yksi nimikanoni, ei kopiota. */
-const PH_TEKSTIT = {
-  A: {
-    q: 'Katsooko ylös ennen kuin saa pallon, ja mitä hän näkee?',
-    d: { 1: 'Katsoo palloa koko ajan, ei nosta päätä.',
-         2: 'Katsoo ylös osassa tilanteista, ei vielä johdonmukaisesti.',
-         3: 'Skannaa systemaattisesti ja lukee tilanteen ennakoivasti.' },
-    tip: { 1: 'Kysy: "Mihin sinä katsot ennen kuin saat pallon?"',
-           2: 'Pienpeliin bonuspiste, jos katsoo ylös ennen vastaanottoa.',
-           3: 'Haasta: 3v3 pienessä tilassa, vähemmän aikaa.' },
-    valinnat: [['Katsoo ylös', 0], ['Lukee pelaajat', 0], ['Reagoi ennakoivasti', 0], ['Pallokeskeinen', 1]]
-  },
-  D: {
-    q: 'Kuinka nopeasti ja oikein hän ratkaisee?',
-    d: { 1: 'Epäröi yli 2 s tai valitsee toistuvasti väärin.',
-         2: 'Ratkaisee 1–2 sekunnissa, oikein yli puolet tilanteista.',
-         3: 'Ratkaisee alle sekunnissa ja johdonmukaisesti oikein.' },
-    tip: { 1: 'Hidas päätös voi olla kokemusta, ei kykyä. Anna yksi selkeä vaihtoehto kerrallaan.',
-           2: 'Rajoita aikaa: kaksi kosketusta pienpelissä.',
-           3: 'Lisää vaihtoehtoja: kolmas suunta, vastustajan paine.' },
-    valinnat: [['Nopea (< 1 s)', 0], ['Oikea valinta', 0], ['Epäröi (> 2 s)', 1], ['Toistuva väärä valinta', 1]]
-  },
-  Act: {
-    q: 'Toteutuuko suunniteltu liike paineessa?',
-    d: { 1: 'Tekninen laatu romahtaa paineessa selvästi.',
-         2: 'Laatu vaihtelee paineessa, ei vielä luotettava.',
-         3: 'Laatu säilyy kovimmassakin paineessa.' },
-    tip: { 1: 'Jos testeissä tekniikka on hyvä, se ei vielä siirry peliin: lisää painetta asteittain.',
-           2: 'Toistoja puolipaineessa ennen täyttä painetta.',
-           3: 'Kovempi vastustaja tai pienempi tila.' },
-    valinnat: [['Laatu säilyy paineessa', 0], ['Hyvä ensikosketus', 0], ['Laatu laskee paineessa', 1], ['Kiirehtii', 1]]
-  },
-  R: {
-    q: 'Palautuuko virheestä vai jähmettyykö?',
-    d: { 1: 'Jähmettyy yli 15 s virheen jälkeen.',
-         2: 'Palautuu 10–15 sekunnissa, joskus jähmettyy isoista virheistä.',
-         3: 'Palautuu alle 10 sekunnissa; virhe ei vaikuta seuraavaan.' },
-    tip: { 1: 'Älä kommentoi virhettä heti. Tuo takaisin peliin kysymällä.',
-           2: 'Sovi yhteinen palautumisele, esim. taputus ja seuraava tehtävä.',
-           3: 'Anna rooli, jossa virheitä väistämättä tulee.' },
-    valinnat: [['Palautuu nopeasti', 0], ['Tukee joukkuetoveria', 0], ['Jähmettyy', 1], ['Luovuttaa tilanteen', 1]]
-  }
-};
-const PH_PISTE_LABEL = { 1: 'Kehitettävää', 2: 'Kehittyvä', 3: 'Hallitsee' };
-const PH_KONTEKSTIT = [['harjoitus', 'Harjoitus'], ['pienpeli', 'Pienpeli'], ['ottelu', 'Ottelu']];
-/* Ehdotuskortin verbit ja partitiivit ovat vakioita, eivät johdettuja (B2). */
-const PH_VERBI = { a: 'havainnoi', d: 'ratkaisee', ac: 'toteuttaa', r: 'palautuu virheistä' };
-const PH_PARTITIIVI = { d: 'päätöstä', ac: 'toteutusta', r: 'palautumista' };
-const PH_IKAVAIHE = [[12, 'Leikkijä'], [15, 'Rakentaja'], [999, 'Showcase']];
+/* KAIKKI näytettävät ulottuvuustekstit ovat lib/tm_adar_tekstit.js:n FI-kartassa (avain = polku, esim. adar_A_q, adar_A_d1) — sv-läpiajo PR 4. sv tulee jaetusta kirjastokartasta
+   (tm_lib_i18n.js, tmLibT; Gemini); puuttuva → suomi. Teksti haetaan RENDERÖINTIHETKELLÄ (kieli selviää vasta seuran luvun jälkeen → ei latausaikaisia vakioita).
+   Nimet (Havainnointi · Päätös · Toteutus · Palautuminen) tulevat libin nimikanonista tmAdarNimet('valmentaja', tmLibT) — yksi nimikanoni, ei kopiota. */
+function _phTr() { return (typeof tmLibT === 'function') ? tmLibT : null; }
+function _phT(avain) { return TM_ADAR_TEKSTIT.tmAdarT(avain, _phTr()); }
+function _phTekstit(k) { return TM_ADAR_TEKSTIT.tmAdarKortti(k, _phTr()); }
+function _phNimet() { return (typeof tmAdarNimet === 'function') ? tmAdarNimet('valmentaja', _phTr()) : (typeof TM_ADAR_NIMET !== 'undefined' ? TM_ADAR_NIMET.valmentaja : {}); }
+const PH_KONTEKSTI_AVAIMET = ['harjoitus', 'pienpeli', 'ottelu'];   // tallennettavat arvot (EI käännetä); näyttöteksti adar_konteksti_<avain>
 const PH_KUMOA_MS = 10 * 60 * 1000;   // Kumoa näkyy 10 min
 
 /* ── TILA ────────────────────────────────────────────────────────────────────
@@ -660,9 +638,8 @@ function _phIka(pid) {
 }
 
 function _phIkavaihe(ika) {
-  if (ika == null) return 'Pelihavainto';
-  for (var i = 0; i < PH_IKAVAIHE.length; i++) if (ika <= PH_IKAVAIHE[i][0]) return PH_IKAVAIHE[i][1];
-  return 'Showcase';
+  if (ika == null) return tmHT('Pelihavainto');
+  return TM_ADAR_TEKSTIT.tmAdarIkavaihe(ika, _phTr());
 }
 
 /** Portaan ulottuvuudet havainnon pisteet-avaimina (lib on ainoa lähde). */
@@ -703,14 +680,14 @@ function _phJarjesta(idt) {
 
 /** Meta-teksti listassa: "ei havaintoja" / "eilen" / "N pv sitten" / "✓ tänään". */
 function _phViimeksi(pid) {
-  if (_phOnTanaan(pid)) return { teksti: '✓ tänään', tanaan: true };
+  if (_phOnTanaan(pid)) return { teksti: tmHT('✓ tänään'), tanaan: true };
   var p = _phPelaaja(pid);
-  if (!p || !p.adar_pvm) return { teksti: 'ei havaintoja', tanaan: false };
+  if (!p || !p.adar_pvm) return { teksti: tmHT('ei havaintoja'), tanaan: false };
   var t = new Date(p.adar_pvm).getTime();
-  if (isNaN(t)) return { teksti: 'ei havaintoja', tanaan: false };
+  if (isNaN(t)) return { teksti: tmHT('ei havaintoja'), tanaan: false };
   var pv = Math.floor((Date.now() - t) / 86400000);
   if (pv <= 1) return { teksti: 'eilen', tanaan: false };
-  return { teksti: pv + ' pv sitten', tanaan: false };
+  return { teksti: tmHT('{n} pv sitten').replace('{n}', pv), tanaan: false };
 }
 
 /* ── PELAAJAN AVAUS ──────────────────────────────────────────────────────────
@@ -765,7 +742,7 @@ function _phJuuri() { return document.getElementById('ph-app'); }
 
 function _phVerkkoMerkki() {
   return (typeof navigator !== 'undefined' && navigator.onLine === false)
-    ? ' · <span class="offl-merkki">● ei verkkoa</span>' : '';
+    ? ' · <span class="offl-merkki">' + tmHT('● ei verkkoa') + '</span>' : '';
 }
 
 function _phRender() {
@@ -785,21 +762,21 @@ function _phRenderValitse() {
   var map = window._pelaajaMap || {};
   var ohje = _adarPoiminOhje();
 
-  var h = '<div class="ph-bar"><div class="ph-title"><div class="eyebrow">Pelihavainto</div>'
-    + '<div class="ph-name">Valitse pelaaja</div>'
-    + '<div class="ph-meta">Oma joukkue · ' + idt.length + ' pelaajaa' + _phVerkkoMerkki() + '</div></div></div>';
+  var h = '<div class="ph-bar"><div class="ph-title"><div class="eyebrow">' + tmHT('Pelihavainto') + '</div>'
+    + '<div class="ph-name">' + tmHT('Valitse pelaaja') + '</div>'
+    + '<div class="ph-meta">' + tmHT('Oma joukkue · {n} pelaajaa').replace('{n}', idt.length) + _phVerkkoMerkki() + '</div></div></div>';
   h += '<div class="ph-body">';
   if (typeof _phHuomautusHtml === 'function') h += _phHuomautusHtml();
-  h += '<input class="search" id="ph-haku" placeholder="Hae nimellä" value="' + _phEsc(S.haku) + '" aria-label="Hae pelaajaa">';
+  h += '<input class="search" id="ph-haku" placeholder="' + _phEsc(tmHT('Hae nimellä')) + '" value="' + _phEsc(S.haku) + '" aria-label="' + _phEsc(tmHT('Hae pelaajaa')) + '">';
   if (ohje) h += '<p class="ohje varo">' + _phEsc(ohje) + '</p>';
-  h += '<div><div class="lbl"><span>Pisimpään havainnoimatta ensin</span></div><div class="plist">'
+  h += '<div><div class="lbl"><span>' + tmHT('Pisimpään havainnoimatta ensin') + '</span></div><div class="plist">'
     + idt.map(function (id) {
       var v = _phViimeksi(id);
       return '<button class="pl" data-pl="' + _phEsc(id) + '"><span class="n">' + _phEsc((map[id] || {}).nimi)
         + '</span><span class="m' + (v.tanaan ? ' done' : '') + '">' + _phEsc(v.teksti) + '</span></button>';
     }).join('') + '</div></div>';
-  if (!idt.length && !ohje) h += '<p class="ohje">' + (S.haku ? 'Ei osumia haulla.' : 'Ei pelaajia.') + '</p>';
-  h += '<p class="ohje">Näet vain oman joukkueesi pelaajat.</p></div>';
+  if (!idt.length && !ohje) h += '<p class="ohje">' + (S.haku ? tmHT('Ei osumia haulla.') : tmHT('Ei pelaajia.')) + '</p>';
+  h += '<p class="ohje">' + tmHT('Näet vain oman joukkueesi pelaajat.') + '</p></div>';
   juuri.innerHTML = h;
 
   var hk = document.getElementById('ph-haku');
@@ -817,7 +794,7 @@ function _phRenderValitse() {
 
 /** Tikkaat: neljä askelta, nykyinen korostettuna. */
 function _phTikkaat(porras) {
-  var nimet = (typeof TM_ADAR_NIMET !== 'undefined') ? TM_ADAR_NIMET.valmentaja : {};
+  var nimet = _phNimet();
   var jarj = ['a', 'd', 'ac', 'r'];
   var h = '<div class="ladder" aria-label="Porras ' + porras + ' / 4">';
   for (var i = 1; i <= 4; i++) {
@@ -829,23 +806,23 @@ function _phTikkaat(porras) {
 
 /** Yksi ulottuvuusrivi. `uusi` = tällä havainnolla portaalle nostettu ulottuvuus. */
 function _phDimHTML(k, uusi) {
-  var S = window._phTila, T = PH_TEKSTIT[k], v = S.pisteet[k];
-  var nimet = (typeof TM_ADAR_NIMET !== 'undefined') ? TM_ADAR_NIMET.valmentaja : {};
+  var S = window._phTila, T = _phTekstit(k), v = S.pisteet[k];
+  var nimet = _phNimet();
   var avain = Object.keys(PH_KENTTA).filter(function (a) { return PH_KENTTA[a] === k; })[0];
   var lyhyt = { A: 'A', D: 'D', Act: 'Ac', R: 'R' }[k];
   var h = '<div class="dim"><div class="dim-h"><span class="dim-n">' + _phEsc(nimet[avain] || k) + '</span>'
-    + '<span class="dim-k">' + lyhyt + '</span>' + (uusi ? '<span class="uusi">uusi porras</span>' : '') + '</div>';
+    + '<span class="dim-k">' + lyhyt + '</span>' + (uusi ? '<span class="uusi">' + tmHT('uusi porras') + '</span>' : '') + '</div>';
   h += '<div class="dim-q">' + _phEsc(T.q) + '</div>';
   h += '<div class="scores" role="group" aria-label="' + _phEsc(nimet[avain] || k) + '">';
   [1, 2, 3].forEach(function (n) {
     h += '<button class="sc s' + n + '" data-sc="' + k + '" data-v="' + n + '" aria-pressed="' + (v === n) + '">'
-      + '<b>' + n + '</b><span>' + PH_PISTE_LABEL[n] + '</span></button>';
+      + '<b>' + n + '</b><span>' + _phEsc(_phT('adar_piste_' + n)) + '</span></button>';
   });
   h += '</div>';
-  if (v) h += '<div class="desc">' + _phEsc(T.d[v]) + '<span class="tip"><b>Seuraava askel:</b> ' + _phEsc(T.tip[v]) + '</span></div>';
+  if (v) h += '<div class="desc">' + _phEsc(T.d[v]) + '<span class="tip"><b>' + tmHT('Seuraava askel:') + '</b> ' + _phEsc(T.tip[v]) + '</span></div>';
   var sel = S.havaitut[k] || [];
   h += '<button class="more" data-more="' + k + '" aria-expanded="' + (!!S.auki[k]) + '">'
-    + (S.auki[k] ? 'Piilota ▴' : 'Mitä näit? ▾')
+    + (S.auki[k] ? tmHT('Piilota ▴') : tmHT('Mitä näit? ▾'))
     + ((sel.length && !S.auki[k]) ? (' · ' + sel.length + ' valittu') : '') + '</button>';
   if (S.auki[k]) {
     h += '<div class="chips">' + T.valinnat.map(function (c) {
@@ -866,40 +843,38 @@ function _phRenderHavainto() {
   var ikaEhd = _phIkaPorras(ika);
   var vm = _phViimeksi(S.pelaajaId);
 
-  var h = '<div class="ph-bar"><button class="ph-back" id="ph-back" aria-label="Takaisin pelaajalistaan">←</button>'
-    + '<div class="ph-title"><div class="eyebrow">Pelihavainto · ' + _phEsc(_phIkavaihe(ika)) + '</div>'
+  var h = '<div class="ph-bar"><button class="ph-back" id="ph-back" aria-label="' + _phEsc(tmHT('Takaisin pelaajalistaan')) + '">←</button>'
+    + '<div class="ph-title"><div class="eyebrow">' + tmHT('Pelihavainto') + ' · ' + _phEsc(_phIkavaihe(ika)) + '</div>'
     + '<div class="ph-name">' + _phEsc(p.nimi) + '</div>'
-    + '<div class="ph-meta">' + (ika == null ? 'ikä ei tiedossa' : (ika + ' v')) + ' · ' + _phEsc(vm.teksti)
-    + _phVerkkoMerkki() + '</div><button type="button" class="ph-linkki" id="ph-vaihda">Vaihda pelaaja</button></div></div>';
+    + '<div class="ph-meta">' + (ika == null ? tmHT('ikä ei tiedossa') : tmHT('{n} v').replace('{n}', ika)) + ' · ' + _phEsc(vm.teksti)
+    + _phVerkkoMerkki() + '</div><button type="button" class="ph-linkki" id="ph-vaihda">' + tmHT('Vaihda pelaaja') + '</button></div></div>';
   h += '<div class="ph-body">';
   if (typeof _phHuomautusHtml === 'function') h += _phHuomautusHtml();
   if (S.virhe != null && S.virhe !== false) {
-    h += '<div class="banner" role="alert"><b>Havaintoa ei tallennettu – yritä uudelleen.</b>' + (S.virhe ? ' ' + _phEsc(S.virhe) : '') + ' Sisältö on tallessa lomakkeessa.</div>';
+    h += '<div class="banner" role="alert"><b>' + tmHT('Havaintoa ei tallennettu – yritä uudelleen.') + '</b>' + (S.virhe ? ' ' + _phEsc(S.virhe) : '') + ' ' + tmHT('Sisältö on tallessa lomakkeessa.') + '</div>';
   }
 
   if (S.peruttu) {
-    h += '<div class="banner"><b>Edellinen havainto peruttu.</b> Se jää historiaan, mutta ei laske '
-      + 'peliälyyn eikä näy pelaajalle. Korjaa ja tallenna uudelleen.</div>';
+    h += '<div class="banner"><b>' + tmHT('Edellinen havainto peruttu.') + '</b> ' + tmHT('Se jää historiaan, mutta ei laske peliälyyn eikä näy pelaajalle. Korjaa ja tallenna uudelleen.') + '</div>';
   }
 
-  h += '<div><div class="lbl"><span>Missä</span></div><div class="seg" role="group" aria-label="Konteksti">'
-    + PH_KONTEKSTIT.map(function (o) {
-      return '<button data-kx="' + o[0] + '" aria-pressed="' + (S.konteksti === o[0]) + '">' + o[1] + '</button>';
+  h += '<div><div class="lbl"><span>' + tmHT('Missä') + '</span></div><div class="seg" role="group" aria-label="Konteksti">'
+    + PH_KONTEKSTI_AVAIMET.map(function (o) {
+      return '<button data-kx="' + o + '" aria-pressed="' + (S.konteksti === o) + '">' + _phEsc(_phT('adar_konteksti_' + o)) + '</button>';
     }).join('') + '</div></div>';
 
-  h += '<div><div class="lbl"><span>Porras ' + S.porras + ' / 4</span>'
-    + '<button class="link" id="ph-porras">Muuta porrasta</button></div>' + _phTikkaat(S.porras);
+  h += '<div><div class="lbl"><span>' + tmHT('Porras') + ' ' + S.porras + ' / 4</span>'
+    + '<button class="link" id="ph-porras">' + tmHT('Muuta porrasta') + '</button></div>' + _phTikkaat(S.porras);
 
   /* Ehdotus tulee pikakentästä (§26). Näytetään vain pelaajan omalla portaalla. */
   var ehd = _phEhdotus();
   if (ehd) {
     var uusinAvain = (typeof tmAdarBand === 'function') ? tmAdarBand(null, S.porras)[S.porras - 1] : 'a';
-    h += '<div class="suggest"><div><b>' + _phEsc((p.nimi || '').split(' ')[0]) + ' ' + PH_VERBI[uusinAvain]
-      + ' jo hyvin.</b> Viimeiset 3: ' + ehd.hist.join(' · ') + '. Arvioidaanko myös '
-      + PH_PARTITIIVI[ehd.seuraava] + '?</div><div class="sg-b">'
+    h += '<div class="suggest"><div><b>' + _phEsc(tmHT('{nimi} {verbi} jo hyvin.').replace('{nimi}', (p.nimi || '').split(' ')[0]).replace('{verbi}', _phT('adar_verbi_' + uusinAvain))) + '</b> '
+      + _phEsc(tmHT('Viimeiset 3: {hist}. Arvioidaanko myös {partitiivi}?').replace('{hist}', ehd.hist.join(' · ')).replace('{partitiivi}', _phT('adar_partitiivi_' + ehd.seuraava))) + '</div><div class="sg-b">'
       + '<button class="btn" id="ph-nosta" aria-pressed="true">+ '
-      + _phEsc((typeof TM_ADAR_NIMET !== 'undefined' ? TM_ADAR_NIMET.valmentaja : {})[ehd.seuraava] || '')
-      + '</button><button class="btn" id="ph-eivielä">Ei vielä</button></div></div>';
+      + _phEsc(_phNimet()[ehd.seuraava] || '')
+      + '</button><button class="btn" id="ph-eivielä">' + tmHT('Ei vielä') + '</button></div></div>';
   }
   h += '</div>';
 
@@ -909,41 +884,41 @@ function _phRenderHavainto() {
 
   var on = S.nakyvyys;
   h += '<div class="note"><div class="lbl"><span id="ph-narr-label">'
-    + (on ? 'Viesti pelaajalle' : 'Muistiinpano · vain valmentajille')
-    + '</span><span class="vapaa">valinnainen</span></div>';
+    + (on ? tmHT('Viesti pelaajalle') : tmHT('Muistiinpano · vain valmentajille'))
+    + '</span><span class="vapaa">' + tmHT('valinnainen') + '</span></div>';
   h += '<textarea id="ph-teksti" placeholder="'
-    + (on ? 'Kirjoita pelaajalle: mitä hän teki hyvin ja mihin seuraavaksi.'
-          : 'Mitä näit? Vain valmentajat ja VP näkevät tämän.')
+    + (on ? tmHT('Kirjoita pelaajalle: mitä hän teki hyvin ja mihin seuraavaksi.')
+          : tmHT('Mitä näit? Vain valmentajat ja VP näkevät tämän.'))
     + '">' + _phEsc(S.teksti) + '</textarea>';
   h += '<div class="vis"><button class="sw" id="ph-sw" role="switch" aria-checked="' + on
-    + '" aria-label="Näytä pelaajalle"></button><div>'
-    + '<div class="vis-t"><b>Näytä pelaajalle</b> · ' + (on ? 'päällä' : 'pois') + '</div>'
+    + '" aria-label="' + _phEsc(tmHT('Näytä pelaajalle')) + '"></button><div>'
+    + '<div class="vis-t"><b>' + tmHT('Näytä pelaajalle') + '</b> · ' + (on ? tmHT('päällä') : tmHT('pois')) + '</div>'
     + '<div class="vis-h">' + (on
-      ? 'Pelaaja näkee tekstin sovelluksessaan. Pisteitä hän ei näe.'
-      : 'Oletus alle 13-vuotiaille. Pelaaja ei näe tätä havaintoa lainkaan.') + '</div></div></div></div>';
+      ? tmHT('Pelaaja näkee tekstin sovelluksessaan. Pisteitä hän ei näe.')
+      : tmHT('Oletus alle 13-vuotiaille. Pelaaja ei näe tätä havaintoa lainkaan.')) + '</div></div></div></div>';
   h += '</div>';
 
   var annetut = dims.filter(function (k) { return S.pisteet[k]; });
   var sum = annetut.length
     ? (annetut.map(function (k) { return ({ A: 'A', D: 'D', Act: 'Ac', R: 'R' })[k] + ' ' + S.pisteet[k]; }).join(' · ')
-       + ' · ' + (on ? 'pelaaja näkee' : 'vain valmentajille'))
-    : 'Valitse vähintään yksi piste';
+       + ' · ' + (on ? tmHT('pelaaja näkee') : tmHT('vain valmentajille')))
+    : tmHT('Valitse vähintään yksi piste');
   h += '<div class="foot"><div class="sum">' + _phEsc(sum) + '</div>'
-    + '<button class="save" id="ph-save"' + (annetut.length ? '' : ' disabled') + '>Tallenna havainto</button></div>';
+    + '<button class="save" id="ph-save"' + (annetut.length ? '' : ' disabled') + '>' + tmHT('Tallenna havainto') + '</button></div>';
 
   if (S.sheet) {
-    h += '<div class="sheet" role="dialog" aria-label="Muuta porrasta">'
-      + '<div class="lbl"><span>Arvioidaan askel kerrallaan</span><button class="link" id="ph-sulje">Sulje</button></div>'
+    h += '<div class="sheet" role="dialog" aria-label="' + _phEsc(tmHT('Muuta porrasta')) + '">'
+      + '<div class="lbl"><span>' + tmHT('Arvioidaan askel kerrallaan') + '</span><button class="link" id="ph-sulje">' + tmHT('Sulje') + '</button></div>'
       + [1, 2, 3, 4].map(function (i) {
         var merk = [];
         if (i === ikaEhd) merk.push('ikäsuositus');
         if (i === S.porrasTallennettu) merk.push('nykyinen');
-        var nimet = (typeof TM_ADAR_NIMET !== 'undefined') ? TM_ADAR_NIMET.valmentaja : {};
+        var nimet = _phNimet();
         var lista = ((typeof tmAdarBand === 'function') ? tmAdarBand(null, i) : []).map(function (a) { return nimet[a]; }).join(' + ');
         return '<button class="opt" data-porras="' + i + '" aria-pressed="' + (S.porras === i) + '">Porras ' + i
           + ' · ' + _phEsc(lista) + (merk.length ? ('<small>' + merk.join(' · ') + '</small>') : '') + '</button>';
       }).join('')
-      + '<p class="ohje" style="margin-top:10px">Ikä on ohje, ei raja. Porras tallentuu pelaajalle, ja seuraava havainto alkaa siitä.</p></div>';
+      + '<p class="ohje" style="margin-top:10px">' + tmHT('Ikä on ohje, ei raja. Porras tallentuu pelaajalle, ja seuraava havainto alkaa siitä.') + '</p></div>';
   }
 
   juuri.innerHTML = h;
@@ -1024,15 +999,15 @@ function _phRenderOk() {
   var map = window._pelaajaMap || {};
   var idt = _phJarjesta(_adarNakyvatPelaajat(''));
   var seuraava = idt.filter(function (id) { return !S.tehdyt[id]; })[0] || null;
-  var nimet = (typeof TM_ADAR_NIMET !== 'undefined') ? TM_ADAR_NIMET.valmentaja : {};
+  var nimet = _phNimet();
   var on = (S.viimeisin && S.viimeisin.nakyvyys === 'pelaaja');
   var odottaa = S.odottaa;
 
-  var h = '<div class="ph-bar"><div class="ph-title"><div class="eyebrow">Pelihavainto</div>'
+  var h = '<div class="ph-bar"><div class="ph-title"><div class="eyebrow">' + tmHT('Pelihavainto') + '</div>'
     + '<div class="ph-name">' + (odottaa ? 'Tallessa laitteella' : 'Tallennettu') + '</div>'
     + '<div class="ph-meta">' + _phEsc(p.nimi) + _phVerkkoMerkki() + '</div></div></div>';
   h += '<div class="ph-body"><div class="ok">';
-  h += '<span class="vis-b' + (on ? '' : ' pr') + '">' + (on ? 'Pelaaja näkee viestin' : 'Vain valmentajille') + '</span>';
+  h += '<span class="vis-b' + (on ? '' : ' pr') + '">' + (on ? tmHT('Pelaaja näkee viestin') : tmHT('Vain valmentajille')) + '</span>';
   var osat = (S.viimeisin && S.viimeisin.pisteet) || {};
   h += '<div class="big">' + _phEsc((p.nimi || '').split(' ')[0]) + ' · '
     + Object.keys(osat).map(function (k) {
@@ -1040,20 +1015,20 @@ function _phRenderOk() {
       return (nimet[avain] || k).toLowerCase() + ' ' + osat[k];
     }).join(', ') + '</div>';
   if (odottaa) {
-    h += '<p class="ohje varo">Ei verkkoa. Havainto lähtee automaattisesti, kun yhteys palaa. '
-      + 'Voit jatkaa havainnointia normaalisti.</p>';
+    h += '<p class="ohje varo">' + tmHT('Ei verkkoa. Havainto lähtee automaattisesti, kun yhteys palaa.') + ' '
+      + '' + tmHT('Voit jatkaa havainnointia normaalisti.') + '</p>';
   } else {
-    h += '<p class="ok-teksti">Havainto päivitti pelaajakortin peliälyn. '
-      + (on ? 'Pelaaja saa viestin sovellukseensa.' : 'Pelaajalle ei näy mitään.') + '</p>';
+    h += '<p class="ok-teksti">' + tmHT('Havainto päivitti pelaajakortin peliälyn.') + ' '
+      + (on ? tmHT('Pelaaja saa viestin sovellukseensa.') : tmHT('Pelaajalle ei näy mitään.')) + '</p>';
   }
   if (S.viimeisin && S.viimeisin.porrasNostettu) {
-    h += '<p class="ok-porras">Porras ' + S.viimeisin.porras + ' tallentui pelaajalle. Seuraava havainto alkaa siitä.</p>';
+    h += '<p class="ok-porras">' + _phEsc(tmHT('Porras {n} tallentui pelaajalle. Seuraava havainto alkaa siitä.').replace('{n}', S.viimeisin.porras)) + '</p>';
   }
   if (_phKumoaNakyy()) {
-    h += '<div class="undo">Väärä pelaaja tai piste? <button id="ph-undo">Kumoa</button> <span>· 10 min ajan</span></div>';
+    h += '<div class="undo">' + tmHT('Väärä pelaaja tai piste?') + ' <button id="ph-undo">' + tmHT('Kumoa') + '</button> <span>' + tmHT('· 10 min ajan') + '</span></div>';
   }
   h += '</div>';
-  h += '<div><div class="lbl"><span>Samasta harjoituksesta · pisimpään havainnoimatta ensin</span></div><div class="plist">'
+  h += '<div><div class="lbl"><span>' + tmHT('Samasta harjoituksesta · pisimpään havainnoimatta ensin') + '</span></div><div class="plist">'
     + idt.map(function (id) {
       var v = _phViimeksi(id);
       return '<button class="pl" data-pl="' + _phEsc(id) + '"><span class="n">' + _phEsc((map[id] || {}).nimi)
@@ -1061,9 +1036,9 @@ function _phRenderOk() {
     }).join('') + '</div></div></div>';
   h += '<div class="foot"><div class="sum">'
     + (seuraava ? ('Seuraavana: ' + _phEsc((map[seuraava] || {}).nimi) + ' · ' + _phEsc(_phViimeksi(seuraava).teksti))
-                : 'Kaikki havainnoitu tänään')
+                : tmHT('Kaikki havainnoitu tänään'))
     + '</div><button class="save" id="ph-next"' + (seuraava ? '' : ' disabled') + '>'
-    + (seuraava ? 'Seuraava pelaaja →' : 'Valmis') + '</button></div>';
+    + (seuraava ? tmHT('Seuraava pelaaja →') : 'Valmis') + '</button></div>';
 
   juuri.innerHTML = h;
   var u = document.getElementById('ph-undo');
@@ -1191,8 +1166,8 @@ async function _phTallenna() {
 
   var db = _PH_DB, auth = _PH_AUTH;
   var seuraId = window._tmSeuraId || '', pelaajaId = S.pelaajaId;
-  if (!db || !auth || !auth.currentUser) { _showToast('⚠ Kirjaudu ensin sisään'); return; }
-  if (!seuraId || !pelaajaId) { _showToast('⚠ Valitse pelaaja ensin'); return; }
+  if (!db || !auth || !auth.currentUser) { _showToast(tmHT('⚠ Kirjaudu ensin sisään')); return; }
+  if (!seuraId || !pelaajaId) { _showToast(tmHT('⚠ Valitse pelaaja ensin')); return; }
 
   /* Tuore token vain verkossa: offline-tilassa getIdToken(true) heittää eikä
      kirjoitusta tarvitse estää — se jonottuu joka tapauksessa. */
@@ -1263,7 +1238,7 @@ async function _phTallenna() {
     var N = window._phTila;
     if (N.pelaajaId === pelaajaId && N.naytto === 'ok') _luonnosAvaa(pelaajaId, true);
     else _phRender();
-    _showToast('⚠ Havaintoa ei tallennettu – yritä uudelleen');
+    _showToast(tmHT('⚠ Havaintoa ei tallennettu – yritä uudelleen'));
   });
 
   S.viimeisin = {
@@ -1311,7 +1286,7 @@ async function _phKumoa() {
       peruttu_uid: uid
     });
   } catch (e) {
-    _showToast('⚠ Kumoaminen ei onnistunut');
+    _showToast(tmHT('⚠ Kumoaminen ei onnistunut'));
     return;
   }
   v.kumottu = true;
@@ -1478,7 +1453,7 @@ function _luonnosAvaa(pid, hiljainen) {
   S.virhe = (e.laheteys === 'epaonnistui') ? (e.virhe || '') : null;
   S.sheet = false; S.peruttu = false;
   if (e.laheteys === 'epaonnistui' || e.laheteys === 'lahetetty') { m[pid].laheteys = 'luonnos'; delete m[pid].virhe; _luonnosKirjoitaKaikki(m); }
-  if (!hiljainen) _showToast('Palautettiin keskeneräinen havainto');
+  if (!hiljainen) _showToast(tmHT('Palautettiin keskeneräinen havainto'));
   _phRender();
   return true;
 }
@@ -1503,15 +1478,15 @@ function _phHuomautusHtml() {
   if (!lista.length) return '';
   var map = window._pelaajaMap || {};
   return lista.map(function (x) {
-    var nimi = (map[x.pid] || {}).nimi || 'pelaaja';
+    var nimi = (map[x.pid] || {}).nimi || tmHT('pelaaja');
     var teksti = x.laheteys === 'epaonnistui'
-      ? 'Havaintoa ei tallennettu pelaajalle ' + nimi + ' – yritä uudelleen.'
-      : 'Tallentamaton havainto pelaajalle ' + nimi + '.';
+      ? tmHT('Havaintoa ei tallennettu pelaajalle {nimi} – yritä uudelleen.').replace('{nimi}', nimi)
+      : tmHT('Tallentamaton havainto pelaajalle {nimi}.').replace('{nimi}', nimi);
     var id = _phEsc(x.pid);
     return '<div class="banner" role="status" data-luonnos="' + id + '"><b>' + _phEsc(teksti) + '</b>'
       + (x.virhe ? ' <span>' + _phEsc(x.virhe) + '</span>' : '')
-      + ' <button type="button" class="ph-linkki" onclick="_luonnosAvaa(\'' + id + '\')">Avaa</button>'
-      + ' · <button type="button" class="ph-linkki" onclick="_luonnosHylkaa(\'' + id + '\')">Hylkää</button></div>';
+      + ' <button type="button" class="ph-linkki" onclick="_luonnosAvaa(\'' + id + '\')">' + tmHT('Avaa') + '</button>'
+      + ' · <button type="button" class="ph-linkki" onclick="_luonnosHylkaa(\'' + id + '\')">' + tmHT('Hylkää') + '</button></div>';
   }).join('');
 }
 
@@ -1613,10 +1588,10 @@ async function _synkronoiOfflineJono() {
     }
   }
   if (synkattu) {
-    _showToast(ohitettu ? ('✓ ' + synkattu + ' synkronoitu · ' + ohitettu + ' ei kelvannut')
+    _showToast(ohitettu ? tmHT('✓ {n} synkronoitu · {m} ei kelvannut').replace('{n}', synkattu).replace('{m}', ohitettu)
                         : '✓ Offline-merkinnät synkronoitu');
   } else if (ohitettu) {
-    _showToast('⚠ ' + ohitettu + ' offline-merkintää ei kelvannut — ota yhteys pääkäyttäjään');
+    _showToast(tmHT('⚠ {n} offline-merkintää ei kelvannut — ota yhteys pääkäyttäjään').replace('{n}', ohitettu));
   }
 }
 

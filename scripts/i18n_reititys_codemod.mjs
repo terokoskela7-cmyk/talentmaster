@@ -12,6 +12,7 @@ const require = createRequire(import.meta.url);
 const arg = (n) => { const a = process.argv.find((x) => x.startsWith(n + '=')); return a ? a.slice(n.length + 1) : null; };
 const tiedosto = process.argv[2]; const KIRJOITA = process.argv.includes('--kirjoita');
 const RYHMA = arg('--ryhma') || 'pelaaja', ROUTER = arg('--router') || 'T';
+const TEKSTIAVAIN = process.argv.includes('--tekstiavain');   // sv-läpiajo PR 4: avain = fi-teksti sellaisenaan (tmHT/vpT/masterT); ei tm_lang-kirjoitusta, avaimet → --avaimet=tiedosto (Gemini-erä, osio)
 const SALLITUT = JSON.parse(readFileSync(new URL('../tools/i18n/sv_staattinen_sallitut.json', import.meta.url), 'utf8'));
 const src = readFileSync(tiedosto, 'utf8');
 const { loydot, virheet } = skannaaHtml(src, tiedosto);
@@ -29,6 +30,7 @@ function slug(t) {
 }
 const uudet = new Map();   // teksti → avain
 function kutsu(teksti, varjo) {   // → JS-lauseke T('k') | t('ryhmä.k'); varjo = paikallinen T varjostaa reitittimen → globaali alias _pT
+  if (TEKSTIAVAIN) return ROUTER + '(' + "'" + String(teksti).replace(/\\/g, '\\\\').replace(/'/g, "\\'") + "'" + ')';
   const k = avainTekstille(teksti), o = olemassa[teksti];
   return (o && !o.oma) ? (varjo ? '_pt' : 't') + "('" + o.polku + "')" : (varjo ? '_pT' : ROUTER) + "('" + k + "')";
 }
@@ -84,14 +86,16 @@ for (const f of loydot) {
 const jasenet = muokkaukset.filter((m) => m.jasenObj || (m.sisaLiteraali && m.sisaLiteraali.jasenObj));
 if (jasenet.length) console.error('HUOM jäsen-objekti-literaaleja:', jasenet.map((m) => m.rivi));
 
-const polkuOf = (m) => { const o = olemassa[m.teksti]; return o ? o.polku : RYHMA + '.' + m.avain; };   // yksilöllinen (yleiset.valmis ≠ pelaaja.valmis)
+const polkuOf = TEKSTIAVAIN ? ((m) => m.teksti) : (m) => { const o = olemassa[m.teksti]; return o ? o.polku : RYHMA + '.' + m.avain; };   // yksilöllinen (yleiset.valmis ≠ pelaaja.valmis)
 const ehdotukset = [...new Map(muokkaukset.map((m) => [polkuOf(m), { avain: m.avain, polku: polkuOf(m), fi: m.teksti, uusi: !olemassa[m.teksti], rivit: [] }])).values()];
 muokkaukset.forEach((m) => { ehdotukset.find((e) => e.polku === polkuOf(m)).rivit.push(m.rivi); });
 console.error(`muokkauksia ${muokkaukset.length} · avaimia ${ehdotukset.length} (uusia ${ehdotukset.filter((e) => e.uusi).length}) · ohitettu käsin ${ohitetut.length}`);
 if (arg('--ehdotukset')) writeFileSync(arg('--ehdotukset'), JSON.stringify({ ehdotukset, ohitetut }, null, 1) + '\n');
+if (TEKSTIAVAIN && arg('--avaimet')) writeFileSync(arg('--avaimet'), JSON.stringify([...new Set(muokkaukset.map((m) => m.teksti))].sort(), null, 1) + '\n');
 if (!KIRJOITA) { console.log(JSON.stringify({ ehdotukset: ehdotukset.filter((e) => e.uusi).map((e) => [e.avain, e.fi]), ohitetut: ohitetut.length }, null, 0).slice(0, 4000)); process.exit(0); }
 
 // ── kirjoita ──
+if (TEKSTIAVAIN) { let u = src; muokkaukset.sort((x, y) => y.a - x.a).forEach((m) => { u = u.slice(0, m.a) + m.uusi + u.slice(m.b); }); writeFileSync(tiedosto, u); console.error('kirjoitettu (tekstiavain): ' + muokkaukset.length + ' muokkausta, ' + new Set(muokkaukset.map((m) => m.teksti)).size + ' avainta'); process.exit(0); }
 const enPolku = arg('--en'); const EN = enPolku ? JSON.parse(readFileSync(enPolku, 'utf8')) : {};
 const puuttuuEn = ehdotukset.filter((e) => e.uusi && !EN[e.avain]);
 if (puuttuuEn.length) { console.error('PUUTTUU en-käännös avaimille:', puuttuuEn.map((e) => e.avain + '=' + e.fi).join('\n')); process.exit(1); }

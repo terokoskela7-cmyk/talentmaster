@@ -44,6 +44,8 @@ const APP_GLOBALS = {
   // lib/tm_pvm.js
   tmPaivaIso: 'readonly', tmSolustaPvm: 'readonly',
   // muut jaetut libit / globaalit
+  // lib/tm_henkilosto_i18n.js (Seura, ADAR, Pelihavainto: tmHT-reititin) + lib/tm_adar_tekstit.js (ADAR-ulottuvuustekstit) — sv-läpiajo PR 4
+  tmHT: 'readonly', tmHTL: 'readonly', TM_HENKILOSTO_I18N: 'readonly', TM_ADAR_TEKSTIT: 'readonly', tmLibT: 'readonly',
   // lib/tm_tt_sv_valinta.js (curriculumin kielivalinta näyttöön, sv-läpiajo PR 3)
   tmTtSv: 'readonly', TM_TT_SV_VALINTA: 'readonly',
   TM: 'readonly', TM_AI: 'readonly', TM_SELITTEET: 'readonly', tmSentryContext: 'readonly',

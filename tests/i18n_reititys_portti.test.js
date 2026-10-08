@@ -9,7 +9,7 @@ import { dirname, join } from 'path';
 import { skannaaHtml, varjostetutKutsut, lataaSallitut, onSallittu } from '../tools/i18n/sv_staattinen.mjs';
 
 const juuri = join(dirname(fileURLToPath(import.meta.url)), '..');
-const SIVUT = ['TalentMaster_Pelaaja_v7.html', 'TalentMaster_Vanhempi_v2.html', 'TalentMaster_Master_v16.html'];   // PR 3: + Master (masterT-reititin)
+const SIVUT = ['TalentMaster_Pelaaja_v7.html', 'TalentMaster_Vanhempi_v2.html', 'TalentMaster_Master_v16.html', 'TalentMaster_ADAR_Pikakortti.html'];   // PR 3: + Master (masterT-reititin) · PR 4: + ADAR (tmHT / lib-kartta)
 const S = lataaSallitut();
 
 describe.each(SIVUT)('%s — staattinen reititysportti', (sivu) => {
@@ -23,7 +23,8 @@ describe.each(SIVUT)('%s — staattinen reititysportti', (sivu) => {
   it('reititinkutsu ei osu paikalliseen T/t-muuttujaan (käytä aliaksia _pT/_pt)', () => {
     expect(varjostetutKutsut(src)).toEqual([]);
   });
-  it('EI VACUOUS: skanneri löytää allowlistattuja (demo/kuollut koodi) tekstejä → portti todella lukee lähdettä', () => {
+  it('EI VACUOUS: skanneri löytää allowlistattuja (demo/kuollut koodi) tekstejä → portti todella lukee lähdettä (täysin reititetyllä sivulla: reitinkutsuja on kymmeniä)', () => {
+    if (loydot.length === 0) { expect((src.match(/\b(?:tmHT|masterT|vpT|_pT|_pt|T|t)\('/g) || []).length).toBeGreaterThan(40); return; }
     expect(loydot.length).toBeGreaterThan(2);
     expect(loydot.some((f) => onSallittu(f, S))).toBe(true);
   });
