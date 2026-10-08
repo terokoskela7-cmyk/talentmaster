@@ -14,7 +14,18 @@ const L = createRequire(import.meta.url)('../../lib/tm_lang.js'); L.tmAsetaKieli
 const P = '\u0001';
 const TMAP = (src) => { try { const i = src.indexOf('var _TMAP = {'); if (i < 0) return {}; const j = src.indexOf('};', i); return new Function(src.slice(i, j + 2) + '\nreturn _TMAP;')(); } catch (e) { return {}; } };
 
+/* sv-läpiajo PR 4: TEKSTIAVAIN-reitittimet (avain = fi-teksti sellaisenaan): tmHT/phT/vpT/masterT/_mT('teksti') = teksti; tmHT('… {n} …').replace('{n}', x) = teksti jossa {n} → paikanvaraaja. */
+const TEKSTIAVAIN_ROUTERIT = new Set(['tmHT', 'phT', 'vpT', 'masterT', '_mT']);
+function tekstiavainTeksti(solmu) {
+  const paik = [];
+  let x = solmu;
+  while (x && x.type === 'CallExpression' && x.callee.type === 'MemberExpression' && !x.callee.computed && x.callee.property.name === 'replace' && x.arguments[0] && x.arguments[0].type === 'Literal' && typeof x.arguments[0].value === 'string') { paik.push(x.arguments[0].value); x = x.callee.object; }
+  if (!x || x.type !== 'CallExpression' || x.callee.type !== 'Identifier' || !TEKSTIAVAIN_ROUTERIT.has(x.callee.name)) return null;
+  const a0 = x.arguments[0]; if (!a0 || a0.type !== 'Literal' || typeof a0.value !== 'string') return null;
+  let t = a0.value; paik.forEach((k) => { t = t.split(k).join(P); }); return t;
+}
 function reititinTeksti(solmu, tmap, ryhma) {   // → fi-teksti tai null
+  { const ta = tekstiavainTeksti(solmu); if (ta != null) return ta; }
   if (solmu.type !== 'CallExpression' || solmu.callee.type !== 'Identifier' || !ROUTERIT.has(solmu.callee.name)) return null;
   const a0 = solmu.arguments[0]; if (!a0 || a0.type !== 'Literal' || typeof a0.value !== 'string') return null;
   const nimi = solmu.callee.name, avain = a0.value;
