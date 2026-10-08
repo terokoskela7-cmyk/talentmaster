@@ -733,12 +733,7 @@ describe('VP_v25 resolvi-portti — jokaisella reititetyllä avaimella on sv-riv
   const ERA2_VP = JSON.parse(readFileSync(join(__dir, '..', 'docs/i18n/sv_kaannoserae_2.json'), 'utf8')).osiot.vp_kartta.rivit;
   const SV_ODOTTAA_SANKTIOINTIA = Object.keys(ERA2_VP).filter((k) => !ERA2_VP[k].sv).concat([
     // Tyhjä 8.10.2026: Gemini-erä sv_kaannoserae_2026-10-08.json vietiin (scripts/i18n_vie_sv_era.cjs). Uusi sanktiointia odottava avain → lisää tähän.
-    // D2-bugi (joukkuekortti, 8.10.2026) — sv Gemini-erä 2:ssa:
-    'TKI-pohjainen',
-    'TKI ka',
-    // S1.1 Käyttöaste (VP Koti, 10.10.2026) — sv docs/i18n/sv_kaannoserae_s11.json:ssa (Gemini):
-    'Sovelluksen käyttö',
-    'Pelaajien ja perheiden oma käyttö, lukumääriä joukkueittain. Päivittyy viikoittain.',
+    // PR 5: D2-bugin ja S1.1:n rivit (TKI-pohjainen, TKI ka, Sovelluksen käyttö …) saapuivat Gemini-erässä 2 ja vietiin; lista on nyt tyhjä.
   ]);
 
   it('0 vpT-avainta ilman sv-riviä (paitsi nimetyt sanktiointia odottavat)', () => {

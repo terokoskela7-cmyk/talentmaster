@@ -24,7 +24,7 @@ describe('lib/tm_vp_i18n.js — string-avainkartta + vpT', () => {
     global.tmNykyinenKieli = () => 'sv';
     ['Pelaajat:Spelare', 'Kalenteri:Kalender', 'Tilanne:Läge', 'Valmentajat:Tränare',
       'Raportointi:Rapportering', 'Asetukset:Inställningar', 'Kirjaudu ulos:Logga ut',
-      'Koti:Hem', 'Joukkueet:Lag', 'Raportit:Rapporter', 'Testit:Tester', 'Lisää:Mer',
+      'Koti:Hem', 'Joukkueet:Lag', 'Raportit:Rapporter', 'Testit:Tester', 'Lisää:Lägg till',
       'Kirjaa ja tuo testituloksia:Registrera och importera testresultat'].forEach((p) => {
       const [fi, sv] = p.split(':');
       expect(M.vpT(fi)).toBe(sv);
