@@ -1143,9 +1143,82 @@ describe('Kalenteri (v3.5 — omistajuus + läsnäolo)', () => {
   });
 
   // ── P7-c.1: anon-luku (PIN-pelaaja/vanhempi näkee seuran aikataulun) ──
-  it('Pelaaja lukee kalenterin (P7-c.1)', async () => {
+  // ── v3.55 (B4): pelaaja ja huoltaja EIVÄT lue kalenteria suoraan — vain callable haePelaajanKalenteri ──
+  it('v3.55: pelaaja EI lue kalenteridokumenttia (get) eikä kokoelmaa (list)', async () => {
     const db = pelaajaItseContext().firestore();
-    await assertSucceeds(getDoc(doc(db, 'seurat', SEURA_A, 'kalenteri', 'kal1')));
+    await assertFails(getDoc(doc(db, 'seurat', SEURA_A, 'kalenteri', 'kal1')));
+    await assertFails(getDocs(collection(db, 'seurat', SEURA_A, 'kalenteri')));
+    await assertFails(getDocs(query(collection(db, 'seurat', SEURA_A, 'kalenteri'), where('joukkue', '==', 'FCL U12'))));
+  });
+  it('v3.55: huoltaja (vahvistettu email) EI lue kalenteria; toisen seuran pelaaja ei myöskään', async () => {
+    const h = testEnv.authenticatedContext(HUOLTAJA_UID, { email: 'huoltaja@test.fi', email_verified: true }).firestore();
+    await assertFails(getDoc(doc(h, 'seurat', SEURA_A, 'kalenteri', 'kal1'))); await assertFails(getDocs(collection(h, 'seurat', SEURA_A, 'kalenteri')));
+    await assertFails(getDoc(doc(pelaajaContext(SEURA_B, PELAAJA_B_UID).firestore(), 'seurat', SEURA_A, 'kalenteri', 'kal1')));
+  });
+  it('v3.55: henkilökunta (valmentaja, VP) ja SA lukevat kalenterin ennallaan; toisen seuran henkilökunta ei', async () => {
+    await assertSucceeds(getDoc(doc(valmentajaContext(VALM_A_UID, SEURA_A).firestore(), 'seurat', SEURA_A, 'kalenteri', 'kal1')));
+    await assertSucceeds(getDocs(collection(valmentajaContext(VALM_A_UID, SEURA_A).firestore(), 'seurat', SEURA_A, 'kalenteri')));
+    await assertFails(getDoc(doc(valmentajaContext(VALM_B_UID, SEURA_B).firestore(), 'seurat', SEURA_A, 'kalenteri', 'kal1')));
+  });
+  it('v3.55: pelaaja kirjoittaa OMAN saatavuutensa ennallaan, ei toisen; lukee vain oman lasnaolijat-dokumentin', async () => {
+    const db = pelaajaItseContext().firestore();
+    const oma = doc(db, 'seurat', SEURA_A, 'kalenteri', 'kal1', 'lasnaolijat', PELAAJA_UID);
+    await assertSucceeds(setDoc(oma, { saatavuus: 'tulossa', rooli: 'pelaaja', paivitetty: new Date().toISOString() }, { merge: true }));
+    await assertSucceeds(getDoc(oma));
+    await assertFails(setDoc(doc(db, 'seurat', SEURA_A, 'kalenteri', 'kal1', 'lasnaolijat', PELAAJA_A2_UID), { saatavuus: 'tulossa', rooli: 'pelaaja', paivitetty: 'x' }, { merge: true }));
+    await assertFails(getDoc(doc(db, 'seurat', SEURA_A, 'kalenteri', 'kal1', 'lasnaolijat', PELAAJA_A2_UID)));
+  });
+
+  // ── v3.55 (B4): huoltajan saatavuusvastaus ──
+  describe('huoltajan RSVP (lasnaolijat)', () => {
+    const HUOLT = (x) => testEnv.authenticatedContext(HUOLTAJA_UID, Object.assign({ email: 'huoltaja@test.fi', email_verified: true }, x || {})).firestore();
+    const LAPSI = (db) => doc(db, 'seurat', SEURA_A, 'kalenteri', 'kal1', 'lasnaolijat', PELAAJA_UID);
+    const RSVP = (x) => Object.assign({ saatavuus: 'tulossa', rooli: 'huoltaja', paivitetty: new Date().toISOString() }, x || {});
+    const suostumus = async (tila) => testEnv.withSecurityRulesDisabled(async (c) => { await setDoc(doc(c.firestore(), 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID), { suostumusTila: tila }, { merge: true }); });
+    beforeEach(async () => { await suostumus('annettu'); });
+    it('vahvistettu huoltaja + suostumus annettu: create ✓, päivitys (merge) ✓ ja lukee lapsen dokumentin', async () => {
+      const db = HUOLT();
+      await assertSucceeds(setDoc(LAPSI(db), RSVP(), { merge: true }));
+      await assertSucceeds(setDoc(LAPSI(db), RSVP({ saatavuus: 'estynyt' }), { merge: true }));
+      await assertSucceeds(getDoc(LAPSI(db)));
+    });
+    it('päivitys ei koske henkilökunnan `tila`-kenttää (se säilyy), mutta huoltaja ei voi muuttaa sitä', async () => {
+      await testEnv.withSecurityRulesDisabled(async (c) => { await setDoc(LAPSI(c.firestore()), { tila: 'paikalla', saatavuus: 'estynyt', rooli: 'huoltaja' }); });
+      const db = HUOLT();
+      await assertSucceeds(setDoc(LAPSI(db), RSVP(), { merge: true }));   // diff = vain saatavuus/paivitetty
+      await assertFails(setDoc(LAPSI(db), RSVP({ tila: 'poissa' }), { merge: true }));
+    });
+    it('rooli pakotetaan: "pelaaja" / "vanhempi" / puuttuva rooli → hylkäys', async () => {
+      const db = HUOLT();
+      await assertFails(setDoc(LAPSI(db), RSVP({ rooli: 'pelaaja' }), { merge: true }));
+      await assertFails(setDoc(LAPSI(db), RSVP({ rooli: 'vanhempi' }), { merge: true }));
+      const { rooli, ...ilman } = RSVP(); await assertFails(setDoc(LAPSI(db), ilman, { merge: true }));
+    });
+    it('suostumus: ei annettu / odottaa / pilotti / puuttuu → hylkäys', async () => {
+      for (const t of ['odottaa', 'pilotti']) { await suostumus(t); await assertFails(setDoc(LAPSI(HUOLT()), RSVP(), { merge: true })); }
+      await testEnv.withSecurityRulesDisabled(async (c) => { await setDoc(doc(c.firestore(), 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID), { suostumusTila: deleteField() }, { merge: true }); });
+      await assertFails(setDoc(LAPSI(HUOLT()), RSVP(), { merge: true }));
+    });
+    it('vahvistamaton sähköposti (email_verified false / puuttuu) → hylkäys', async () => {
+      await assertFails(setDoc(LAPSI(HUOLT({ email_verified: false })), RSVP(), { merge: true }));
+      await assertFails(setDoc(LAPSI(testEnv.authenticatedContext(HUOLTAJA_UID, { email: 'huoltaja@test.fi' }).firestore()), RSVP(), { merge: true }));
+    });
+    it('väärä huoltaja (toinen sähköposti, toisen lapsen huoltaja) → hylkäys; ei toisen lapsen dokumenttiin', async () => {
+      await assertFails(setDoc(LAPSI(HUOLT({ email: 'muu@test.fi' })), RSVP(), { merge: true }));
+      await assertFails(setDoc(doc(HUOLT(), 'seurat', SEURA_A, 'kalenteri', 'kal1', 'lasnaolijat', PELAAJA_A2_UID), RSVP(), { merge: true }));   // PELAAJA_A2:n huoltaja on muu@test.fi
+    });
+    it('kenttärajaus ja arvot: ylimääräinen kenttä (create), tuntematon saatavuus, tyhjä → hylkäys', async () => {
+      const db = HUOLT();
+      await assertFails(setDoc(LAPSI(db), RSVP({ tila: 'paikalla' })));   // create ylimääräisellä kentällä
+      await assertFails(setDoc(LAPSI(db), RSVP({ saatavuus: 'ehkä' }), { merge: true }));
+      await assertFails(setDoc(LAPSI(db), RSVP({ saatavuus: '' }), { merge: true }));
+    });
+    it('huoltaja ei voi poistaa eikä lukea kalenteria; anonyymi ei kirjoita', async () => {
+      const db = HUOLT();
+      await assertSucceeds(setDoc(LAPSI(db), RSVP(), { merge: true }));
+      await assertFails(deleteDoc(LAPSI(db)));
+      await assertFails(setDoc(LAPSI(unauthContext().firestore()), RSVP(), { merge: true }));
+    });
   });
 
   it('Pelaaja lukee kalenterin läsnäolijat (P7-c.1)', async () => {
@@ -2975,7 +3048,6 @@ describe('v3.28 · anonyymi evätty (positiivinen kontrolli pelaajatokenilla)', 
     ['kehun luku', (db) => getDoc(doc(db, ...P('kehut', 'kehu1')))],
     ['kirjauksen luonti', (db) => setDoc(doc(db, ...P('kirjaukset', '2026-10-01')), { fiilinki: 4, lahde: 'pelaaja', luotu: new Date() })],
     ['notifikaation luku', (db) => getDoc(doc(db, ...P('notifikaatiot', 'n-anon')))],
-    ['kalenterin luku', (db) => getDoc(doc(db, 'seurat', SEURA_A, 'kalenteri', 'kal-anon'))],
     ['viestit (valmentaja_viesti, Vanhempi/Pelaaja-kysely)', (db) => getDocs(query(collection(db, ...P('havainnot')),
       where('tyyppi', '==', 'valmentaja_viesti'), where('nakyvyys', '==', 'pelaaja'), limit(20)))],
     ['kausitavoitteen luku (idp_kausi)', (db) => getDoc(doc(db, ...P('idp_kausi', '2026')))],
@@ -2991,6 +3063,10 @@ describe('v3.28 · anonyymi evätty (positiivinen kontrolli pelaajatokenilla)', 
       await assertFails(op(anonContext().firestore()));
     });
   }
+  it('kalenterin luku: v3.55 (B4) pelaajatoken EI lue (callable haePelaajanKalenteri), anonyymi ei', async () => {
+    await assertFails(getDoc(doc(pelaajaItseContext().firestore(), 'seurat', SEURA_A, 'kalenteri', 'kal-anon')));
+    await assertFails(getDoc(doc(anonContext().firestore(), 'seurat', SEURA_A, 'kalenteri', 'kal-anon')));
+  });
   it('IDP (idp/{id}): huoltaja lukee (kontrolli), anonyymi ei lue eikä kirjoita', async () => {
     await assertSucceeds(getDoc(doc(huoltajaContext().firestore(), ...P('idp', 'idp-anon'))));
     await assertFails(getDoc(doc(anonContext().firestore(), ...P('idp', 'idp-anon'))));
@@ -3111,7 +3187,8 @@ describe('v3.25 · pelaajatoken (onPelaajaItse)', () => {
     await assertFails(setDoc(doc(pel(), 'seurat', SEURA_A, 'pelaajat', PELAAJA_A2_UID, 'kirjaukset', '2026-09-29'), k));
   });
   it('kalenteri: oman seuran luku, ei muun seuran', async () => {
-    await assertSucceeds(getDoc(doc(pel(), 'seurat', SEURA_A, 'kalenteri', 'k1')));
+    /* v3.55 (B4): pelaaja ei lue kalenteria suoraan (callable haePelaajanKalenteri) — kumpikaan seura */
+    await assertFails(getDoc(doc(pel(), 'seurat', SEURA_A, 'kalenteri', 'k1')));
     await assertFails(getDoc(doc(pel(), 'seurat', SEURA_B, 'kalenteri', 'k2')));
   });
   it('läsnäolo: RSVP vain OMAAN riviin (saatavuus-kentät), ei toisen puolesta', async () => {
@@ -3192,8 +3269,8 @@ describe('Pelaaja_v7 · oikeat kyselyt pelaajatokenilla', () => {
   it('testitulokset: koko kokoelma (tekniikkaprofiili)', async () => {
     await assertSucceeds(getDocs(P(pel(), 'testitulokset')));
   });
-  it('kalenteri: koko seuran kokoelma + oma läsnäolorivi', async () => {
-    await assertSucceeds(getDocs(collection(pel(), 'seurat', SEURA_A, 'kalenteri')));
+  it('kalenteri: koko seuran kokoelma EI enää (v3.55, B4: callable) + oma läsnäolorivi ennallaan', async () => {
+    await assertFails(getDocs(collection(pel(), 'seurat', SEURA_A, 'kalenteri')));
     await assertSucceeds(getDoc(doc(pel(), 'seurat', SEURA_A, 'kalenteri', 'k1', 'lasnaolijat', PELAAJA_UID)));
   });
   it('kaaviot: seuran hyväksytyt (where review.status) + kanoniset', async () => {
@@ -4838,9 +4915,8 @@ describe('v3.48 · kalenteri/{id}/henkilokunta/muistiinpanot + lasnaolijat: pela
     await assertSucceeds(setDoc(las(dbPel(), PELAAJA_UID), { saatavuus: 'tulossa', paivitetty: serverTimestamp(), rooli: 'pelaaja' }, { merge: true })); await assertSucceeds(getDoc(las(dbPel(), PELAAJA_UID)));
     await assertFails(setDoc(las(dbPel(), MUU_UID), { saatavuus: 'estynyt', paivitetty: serverTimestamp() }, { merge: true }));
   });
-  it('OMA KALENTERI toimii ennallaan: pelaaja lukee tapahtumadokin ja koko kalenteri-kokoelman (joukkuesuodatus appissa); tapahtumassa ei muistiinpanoja', async () => {
-    const s = await assertSucceeds(getDoc(kal(dbPel()))); expect(s.data().pelaajaviesti).toBe('Tuo juomapullo'); expect(s.data().muistiinpanot).toBeNull();
-    const l = await assertSucceeds(getDocs(collection(dbPel(), 'seurat', SEURA_A, 'kalenteri'))); expect(l.size).toBe(1);
+  it('v3.55 (B4): pelaaja EI lue tapahtumadokia eikä kalenteri-kokoelmaa suoraan (callable haePelaajanKalenteri); oma lasnaolijat-dokumentti ennallaan', async () => {
+    await assertFails(getDoc(kal(dbPel()))); await assertFails(getDocs(collection(dbPel(), 'seurat', SEURA_A, 'kalenteri')));
   });
   it('HENKILÖKUNTA: oman seuran VP, valmentaja, sihteeri ja SA lukevat; VP/valmentaja/SA kirjoittavat (vain dokumentti muistiinpanot); toisen seuran ✗', async () => {
     for (const c of [vpContext(SEURA_A), valmentajaContext(VALM_A_UID, SEURA_A), sihteeriContext(SEURA_A), saContext(), fysioterapeuttiContext('fyt-1', SEURA_A)]) { const s = await assertSucceeds(getDoc(muist(c.firestore()))); expect(s.data().teksti).toContain('SISÄINEN'); }
@@ -4900,9 +4976,8 @@ describe('v3.52 · kalenteri/{id}: muistiinpanot-kenttä estetty tapahtumadokume
     for (const db of [dbVal(), dbVp()]) { const s = await assertSucceeds(getDoc(muist(db))); expect(s.exists()).toBe(true); }
     for (const db of [dbPel(), dbHuolt()]) { await assertFails(getDoc(muist(db))); await assertFails(getDocs(collection(db, 'seurat', SEURA_A, 'kalenteri', EV, 'henkilokunta'))); await assertFails(setDoc(muist(db), { teksti: 'x', paivitetty: serverTimestamp() })); }
   });
-  it('PELAAJA lukee edelleen oman tapahtumansa ja kalenteri-kokoelman — ilman muistiinpanoja', async () => {
-    const s = await assertSucceeds(getDoc(kal(dbPel()))); expect(s.data().pelaajaviesti).toBe('Tuo juomapullo'); expect('muistiinpanot' in s.data()).toBe(false);
-    const l = await assertSucceeds(getDocs(collection(dbPel(), 'seurat', SEURA_A, 'kalenteri'))); expect(l.size).toBe(1);
+  it('v3.55 (B4): PELAAJA ei lue tapahtumaa eikä kokoelmaa suoraan (muistiinpanot eivät olleet siellä koskaan v3.52:n jälkeen; callable rajaa kentät)', async () => {
+    await assertFails(getDoc(kal(dbPel()))); await assertFails(getDocs(collection(dbPel(), 'seurat', SEURA_A, 'kalenteri')));
   });
 });
 
