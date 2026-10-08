@@ -22,7 +22,7 @@
 
 **Testaus ja data**
 - **Toiminta varmistetaan seurakäyttäjällä, ei SA:lla.** SA näkee kaiken, joten SA-testi ei todista oikeuksia.
-- **Suojatut alaikäiset: vain luku.** Kirjoitukset ja kirjautumistestit VAIN **KPV U13 -joukkueen testipelaajille** (Tero vahvisti 4.10.2026: joukkueen KAIKKI pelaajat ovat testipelaajia, mm. Topias ja Toppari Testi; §10). Kaikki muut pelaajat vain luku.
+- **Suojatut alaikäiset: vain luku.** Kirjoitukset ja kirjautumistestit VAIN **nimetyille KPV-testipelaajille** (§10): Topias O´Koskela, Toppari Testi, Testi Pelaaja, Testi Test, Tero Testaaja. Testijoukkue on `kpv_u13`, mutta rosterituonnin (8.10.2026) jälkeen siinä voi olla myös oikeita pelaajia → **tarkista nimi ennen jokaista kirjoitusta**, älä luota pelkkään joukkueeseen. Kaikki muut pelaajat vain luku.
 - **Pikakenttäpari päivitetään atomisesti** (`hh_viimeisin`+`hh_pvm`, `tki_viimeisin`+`tki_pvm` jne. samasta testituloksesta) — §26 taidossa `tm-mittarit-ja-testit`.
 
 **Turva ja tietosuoja**
@@ -96,7 +96,7 @@ pelaaja               → pelaajaKirjaudu (PalloID/linkki + PIN, custom token)
 vanhempi
 ```
 
-**VP-periaate (Tero 5.10.2026):** VP hallitsee koko seuran järjestelmää. **VP näkee kaiken omassa seurassaan, voi tehdä kaiken minkä valmentaja voi, ja hoitaa lisäksi hallinnon.** Kun briiffissä tai dokumentissa lukee "valmentaja tekee X", se tarkoittaa jatkossa **"valmentaja tai VP tekee X"** (Rules, callablet ja UI; joukkuekohtainen rajaus ei koske VP:tä). **Poikkeukset vain yhteiset turva- ja tietosuojainvariantit, jotka koskevat myös SA:ta:** PIN ja suostumus vain palvelimella · terveystieto (`terveys/`) oman suostumuksensa takana · audit-loki vain palvelimen kautta · ei pääsyä toisen seuran dataan. Jokainen uusi toiminto testataan sekä valmentajan että VP:n (KPV:n VP-tunnus, KPV U13 -testipelaajat) roolilla.
+**VP-periaate (Tero 5.10.2026):** VP hallitsee koko seuran järjestelmää. **VP näkee kaiken omassa seurassaan, voi tehdä kaiken minkä valmentaja voi, ja hoitaa lisäksi hallinnon.** Kun briiffissä tai dokumentissa lukee "valmentaja tekee X", se tarkoittaa jatkossa **"valmentaja tai VP tekee X"** (Rules, callablet ja UI; joukkuekohtainen rajaus ei koske VP:tä). **Poikkeukset vain yhteiset turva- ja tietosuojainvariantit, jotka koskevat myös SA:ta:** PIN ja suostumus vain palvelimella · terveystieto (`terveys/`) oman suostumuksensa takana · audit-loki vain palvelimen kautta · ei pääsyä toisen seuran dataan. Jokainen uusi toiminto testataan sekä valmentajan että VP:n (KPV:n VP-tunnus, nimetyt KPV-testipelaajat §10) roolilla.
 
 **VP-periaatteen päätökset (Tero 5.10.2026, auditoinnin jälkeen):**
 - **Yksityinen, VP ei näe:** valmentajan keskeneräiset (tallentamattomat/luonnos) kaaviot, valmentajan reflektiot (`reflektiot`) ja perheen kehut (`kehut`). **Tallennettu tai jaettu kaavio näkyy VP:lle.**
@@ -245,9 +245,9 @@ per tiedosto** (kaksi lohkoa kumoaa toisen — Seura.html:n bugi oli juuri täm�
 
 ---
 
-## 10. TESTIPELAAJAT: KPV U13 (Topias Koskela, Toppari Testi, …)
+## 10. TESTIPELAAJAT: KPV-testijoukkue `kpv_u13` (nimetyt testipelaajat)
 
-> **Sääntö (4.10.2026):** KPV U13 -joukkueen kaikki pelaajat ovat testipelaajia → kirjoitukset ja kirjautumistestit sallittu vain heille. Muiden joukkueiden/seurojen pelaajat: vain luku. Alla Topiaksen tiedot esimerkkinä.
+> **Sääntö (päivitetty 8.10.2026):** kirjoitukset ja kirjautumistestit sallittu VAIN nimetyille testipelaajille: **Topias O´Koskela** (doc `m93GBdOaGCUuenMiCL0I`), **Toppari Testi**, **Testi Pelaaja**, **Testi Test**, **Tero Testaaja**. Testijoukkue on `kpv_u13` (Tero 8.10.: pidetään testijoukkueena). KPV:n rosterituonnin (8.10.) jälkeen joukkueessa voi olla myös oikeita P13-pelaajia — **tunnista testipelaaja nimestä, ei joukkueesta.** Muut pelaajat (myös `kpv_u13`:n oikeat pelaajat) ja muut seurat: vain luku. Alla Topiaksen tiedot esimerkkinä.
 
 
 ```
