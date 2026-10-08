@@ -119,6 +119,7 @@ window.TM_KAAVIO_HOST = {
 <script src="lib/tm_joukkuejakso.js?v=4"></script>   <!-- K1/A: joukkuejakson snapshot (tmAloitaJaksoTuki) -->
 <script src="lib/tm_seuran_kooste.js?v=2"></script>   <!-- S1.1: tmKoosteTrendi (viikkokooste v2) -->
 <script src="lib/tm_kayttoaste.js?v=1"></script>   <!-- S1.1: "Sovelluksen käyttö" -kortti (Koti) — renderöinti libissä, ei kuoressa -->
+<script src="lib/tm_sitoumus.js?v=1"></script>   <!-- Kehitystyöpöytä 22 · A1: sitoumus, yksi sääntö -->
 <script src="lib/tm_aloita_jakso.js?v=10"></script>
 <script src="lib/tm_virhekoodi.js?v=1"></script>   <!-- tallennusvirheen syy (koodi) toastiin -->
 <script src="lib/tm_tukitavoitteet.js?v=3"></script>   <!-- J1/V1: tukitavoitteet (ehdotusmoottori, kotiharjoitevalikoima) -->
@@ -7420,6 +7421,7 @@ async function _vpVahvistajaRooli() {
    -laatikon painike) → avointa rivia ei vaihdeta, vain laatikko ja rivien sisalto paivittyvat. */
 window._vpVahvistaSitoumus = async function (pid) {
   const p = _vpIdpPelaaja(pid); if (!p || !p._idpSitoumus) return;
+  if (_vpJaksoVanhentunut(p, p._idpSitoumus.jakso_alkoi)) { if (typeof toast === 'function') toast(vpT('Sitoumus on edelliseltä jaksolta'), 'error'); return; }   // A1: ei vahvisteta edellisen jakson sitoumusta uudelle jaksolle
   // E1 — omistava valmentaja (VP oversightina) vahvistaa; kirjaa vahvistajan rooli + uid (audit). Sama top-level-avain
   // (pelaaja_sitoumus) → ei Rules-muutosta. Best-effort omistajuus (ei blokkia datan varaan, brief §Omistajuusmalli).
   const _vahvRooli = await _vpVahvistajaRooli();   // #207-korjaus: resolveri (claim → _valmentajat[uid] → 'vp'), ei _rooli-globaali
@@ -8527,7 +8529,7 @@ function _vpJaksoKorttiHTML(p, lukuTila) {
 function _vpPolunTilaHTML(p) {
   const PT = window.TM_POLUN_TILA; if (!PT || !p) return '';
   const pa = (typeof window._pdcPaatos === 'function') ? window._pdcPaatos(p, Date.now()) : null;
-  const T = PT.tmPolunTila(p, { askel: pa ? { avain: pa.avain, tila: pa.tila } : null, sitoumusOdottaa: (typeof _rvcSitoumusOdottaa === 'function') ? !!_rvcSitoumusOdottaa(p) : undefined });
+  const T = PT.tmPolunTila(p, { askel: pa ? { avain: pa.avain, tila: pa.tila } : null });   // A1/D97: sitoumus päätellään lib/tm_sitoumus.js:stä
   const tilaTeksti = { etenee: 'Etenee', huomio: 'Huomio', katselmus: vpT('Katselmuksen aika'), ei_tietoa: vpT('Ei vielä tietoa') }[T.tila];
   const piste = T.tila === 'etenee' ? 'var(--teal)' : (T.tila === 'ei_tietoa' ? 'var(--ink3)' : 'var(--amber)');
   const vastaus = function (q) {
@@ -11067,6 +11069,7 @@ window._ktToimi = function (pid, avain) {
   if (avain === 'anna_valita') return window._kvkAvaa(pid, true);   // sama ruutu, tarjousosio auki
   if (avain === 'hylkaa') return window._kvkHylkaaAvaa(pid);
   if (avain === 'syvenna') return window._vpSuljeJakso(pid);   // täysi sulkulomake
+  if (avain === 'vahvista_sitoumus') return window._vpVahvistaSitoumus(pid);   // A1: sitoumuksen vahvistus signaalista
   if (avain === 'havainto' || avain === 'jatka' || avain === 'avaa_polku' || avain === 'kuorma') return window._ktValilehti(pid, 'polku');   // viikkohavainto / jatkaminen / kuorman tarkistus Polussa
   console.warn('[V4a] tuntematon toiminto:', avain);
 };
@@ -11079,8 +11082,7 @@ window._vpSulkuTila = null;   // { pid, p, jf, alkoi, loppu, harjoituksia, lasna
 function _ktAskel(p) { try { return window.TM_SEURAAVA_ASKEL ? window.TM_SEURAAVA_ASKEL.tmSeuraavaAskel(p, { nyt: Date.now() }) : null; } catch (e) { return null; } }
 function _ktKysymyksetHTML(p, tila, askel) {
   const PT = window.TM_POLUN_TILA, K = window.TM_KEHITYSTYOPOYTA; if (!PT || !K || !p || !K.tmKtKysymyksetNakyy(tila)) return '';
-  const jf = p.jaksofokus || {}, sitO = !!(p.idp_sitoumus_pvm && (p.idp_sitoumus_vahv_jakso || null) !== (jf.alkoi || null));
-  const T = PT.tmPolunTila(p, { askel: askel ? { avain: askel.avain, tila: askel.tila } : null, sitoumusOdottaa: sitO, blokit: null });
+  const T = PT.tmPolunTila(p, { askel: askel ? { avain: askel.avain, tila: askel.tila } : null, blokit: null });   // A1/D97: sitoumus päätellään lib/tm_sitoumus.js:stä (yksi sääntö)
   return K.tmKtKysymyksetHTML(T, { esc: _jsvEsc, t: vpT, odottaaSitoumusta: K.tmKtSitoumusOdottaa(tila), pvmFn: function (iso) { return (typeof tmPvmFi === 'function') ? tmPvmFi(iso) : iso; } });
 }
 window._kvkProfiilit = window._kvkProfiilit || {};   // joukkue-tunniste → 'ammatti'|'oto'
@@ -11526,8 +11528,8 @@ function _vpSulkuRender() {
     h += '</div>';
   }
   // S2 ④ — sitoumuksen vahvistus (olemassa oleva _vpVahvistaSitoumus), jos pelaaja sitoutui muttei vahvistettu tälle jaksolle.
-  var _curJakso = (jf && jf.alkoi) || null;
-  if (_sit && _sit.sitoumus_pvm && (_sit.vahvistettu_jakso_alkoi || null) !== _curJakso) {
+  var _sx = window.tmSitoumus(p);   // A1/D97: yksi sääntö — vanha sitoumus + uusi jakso ei näytä vahvistusnappia
+  if (_sx.sitoutunut && !_sx.vahvistettu) {
     h += '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;background:rgba(40,176,144,.06);border:.5px solid rgba(40,176,144,.28);border-radius:10px;padding:10px 13px;margin-bottom:10px">'
       + '<span style="font-size:12px;color:var(--ink2)">◔ ' + vpT('Pelaaja sitoutui — odottaa vahvistusta tälle jaksolle') + '</span>'
       + '<button class="jsp-kt-btn primary" onclick="_vpVahvistaSitoumus(\'' + esc(p.id) + '\')">✓ ' + vpT('Vahvista sitoumus') + '</button></div>';
@@ -19694,11 +19696,7 @@ window._vpNelikulma = _vpNelikulma;
 var _RVC_DOM = { fyysinen: { emoji: '🏃', nimi: 'fyysinen' }, teknis_taktinen: { emoji: '⚽', nimi: 'teknis-taktinen' }, psyykkinen: { emoji: '🎯', nimi: 'psyykkinen' }, sosiaalinen: { emoji: '🤝', nimi: 'sosiaalinen' } };
 function _rvcIka(p) { var i = (typeof normiIka === 'function') ? normiIka(p.syntymaVuosi, null, p.joukkue) : (p.syntymaVuosi ? (new Date().getFullYear() - p.syntymaVuosi) : null); return (i != null && i >= 5 && i <= 25) ? i : null; }
 function _rvcIkavaihe(ika) { return ika == null ? '' : (ika <= 12 ? vpT('Leikkijä') : ika <= 15 ? vpT('Rakentaja') : vpT('Showcase')); }
-function _rvcSitoumusOdottaa(p) {   // bulk-signaali (ei alikokoelmakyselyä): pelaaja sitoutui, vahvistusta ei nykyjaksolle
-  if (!p || !p.idp_sitoumus_pvm) return false;
-  var cur = (p.jaksofokus && p.jaksofokus.alkoi) || null;
-  return (p.idp_sitoumus_vahv_jakso || null) !== cur;
-}
+function _rvcSitoumusOdottaa(p) { var s = window.tmSitoumus(p); return s.sitoutunut && !s.vahvistettu; }   // bulk-signaali (ei alikokoelmakyselyä): A1/D97 yksi sääntö (lib/tm_sitoumus.js)
 // Käyttäjän roolitila: onOversight = SA/VP/johto (kaikki joukkueet); onValmentaja = vain omat joukkueet (rosterirajaus).
 function _vpCockpitRoolitila() {
   if (window._vpSA) return { onOversight: true, onValmentaja: false };
@@ -20934,7 +20932,7 @@ function renderJoukkuealy() {
   if (heikoin && kohteet[heikoin] >= 2) rivit += act('amber', esc((typeof _vpTkLaji === 'function' ? _vpTkLaji(heikoin) : heikoin)) + ' = ' + vpT('yleisin kehityskohde') + ' (' + kohteet[heikoin] + ' ' + vpT('pelaajalla)'), vpT('joukkuetason teema → yhteinen treeniteema tehokkaampi'), vpT('Luo treeniteema →'), 'setWs(\'jaksofokus\')');
   var jumit = P.filter(function (p) { return p.idp_dvi && p.idp_dvi.suunta === 'down'; }).length;
   if (jumit) rivit += act('amber', jumit + ' ' + vpT('pelaajaa jumissa — DVI ei etene'), vpT('vaativat kehityskeskustelun (Review-cockpit)'), vpT('Katso →'), 'setWs(\'reviewit\')');
-  var odottaa = P.filter(function (p) { return p.idp_sitoumus_pvm && (p.idp_sitoumus_vahv_jakso || null) !== ((p.jaksofokus && p.jaksofokus.alkoi) || null); }).length;
+  var odottaa = P.filter(_rvcSitoumusOdottaa).length;
   if (odottaa) rivit += act('teal', odottaa + ' ' + vpT('pelaajaa odottaa sitoumuksen vahvistusta'), vpT('pelaaja sitoutui → valmentaja/VP vahvistaa'), vpT('Vahvista →'), 'setWs(\'reviewit\')');
   h += '<div class="ja-sek"><div class="ja-h">' + vpT('Kehitysmomentum &amp; tuki seuralle') + '</div><div class="ja-sub">' + vpT('Ei pelkkä raportti — jokainen rivi on toimenpide-ehdotus, tärkein ensin. Napit avaavat olemassa olevan toiminnon.') + '</div>' + (rivit || '<div class="ja-empty">' + vpT('Ei avoimia toimenpiteitä — momentum kunnossa tällä kohortilla.') + '</div>') + '</div>';
 

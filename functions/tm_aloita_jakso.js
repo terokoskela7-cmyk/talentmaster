@@ -39,6 +39,7 @@
      "Anna pelaajan valita" vain kun ase on olemassa (ase = p.ydinvahvuus.kuvaus; kenttänimessä "ase" kielletty). 'hylkaa' ja 'syvenna' ovat käytettävissä (V4b-2).
      tmJaksoNappi / tmJaksoNapitTila (#868) ennallaan (lippu pois → vanhat näkymät ennallaan). */
   var DAY_MS = 86400000;
+  function _SIT() { return _req('TM_SITOUMUS', './tm_sitoumus.js'); }
   function _RV() { return _req('TM_REITIN_VALINTA', './tm_reitin_valinta.js'); }
   function _ms(iso) { var t = iso ? new Date(iso).getTime() : NaN; return t; }
   function _valintaTehty(p) { var v = p && p.ydinvahvuus_valinta; return !!(v && typeof v.vaihtoehto === 'string' && v.vaihtoehto.trim()); }   // V4b-2: "Hylkää valinta" poistaa ydinvahvuus_valinta:n → ei erillistä "voimassa"-päättelyä
@@ -63,7 +64,7 @@
       valikko: [{ avain: 'jatka', teksti: 'Jatka jaksoa 2 vk', kaytettavissa: true }, { avain: 'syvenna', teksti: 'Syvennä (täysi katselmus)', kaytettavissa: true }],
       rivitila: { teksti: 'Jakso päättynyt — suljettava', savy: 'amber' } };
     var vk = isNaN(alku) ? null : { n: Math.min(Math.max(1, Math.floor((nyt - alku) / (7 * DAY_MS)) + 1), yht), yht: yht };
-    var sit = _ms(p && p.idp_sitoumus_pvm), sitoutunut = !isNaN(sit) && !isNaN(alku) && sit >= alku - DAY_MS;   // sitoumus annettu tämän jakson aikana (± 1 pv aikavyöhyke)
+    var SIT = _SIT(), sitoutunut = SIT ? SIT.tmSitoumus(p).sitoutunut : false;   // A1/D97: YKSI sääntö (lib/tm_sitoumus.js) — sitoumus annettu tämän jakson aikana
     var menu = [{ avain: 'sulje', teksti: 'Sulje jakso', kaytettavissa: true }, { avain: 'muokkaa', teksti: 'Muokkaa jaksoa', kaytettavissa: true }, { avain: 'klippi', teksti: 'Lisää klippi', kaytettavissa: true }, valita];
     var base = { ensisijainen: { avain: 'havainto', teksti: 'Merkitse viikkohavainto' }, valikko: menu };
     if (vk && vk.n === 1 && !sitoutunut) return Object.assign({ tila: 'vahvistettu' }, base, { rivitila: { teksti: 'Jakso käynnissä · vk 1 · sitoumus odottaa', savy: 'ok', vk: vk } });
