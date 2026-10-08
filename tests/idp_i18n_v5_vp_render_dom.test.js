@@ -443,7 +443,7 @@ describe('VP_v25 render-kielineutraali-gate (step G · AST)', () => {
       .map((m) => m[2].replace(/\\'/g, "'"));
     expect(kentat.length).toBeGreaterThan(80);                 // ei-vacuous: kartta löytyi oikeasti
     const sb = { console: { log() {}, warn() {}, error() {} } };
-    sb.window = sb; vm.createContext(sb);
+    sb.window = sb; sb.tmHT = sb.tmHT || function (s) { return s; }; vm.createContext(sb);
     ['lib/tm_lang.js', 'lib/tm_i18n_common.js', 'lib/tm_vp_i18n.js']
       .forEach((f) => vm.runInContext(readFileSync(join(__dir, '..', f), 'utf8'), sb));
     const map = (sb.TM_VP_I18N && sb.TM_VP_I18N.sv) || {}, common = (sb.TM_I18N_COMMON && sb.TM_I18N_COMMON.sv) || {};
@@ -717,7 +717,7 @@ describe('VP_v25 resolvi-portti — jokaisella reititetyllä avaimella on sv-riv
   const kartat = () => {
     const sb = { console: { log() {}, warn() {}, error() {} } };
     sb.window = sb;
-    vm.createContext(sb);
+    sb.tmHT = sb.tmHT || function (s) { return s; }; vm.createContext(sb);
     ['lib/tm_lang.js', 'lib/tm_i18n_common.js', 'lib/tm_vp_i18n.js']
       .forEach((f) => vm.runInContext(readFileSync(join(__dir, '..', f), 'utf8'), sb));
     return sb;
@@ -728,7 +728,10 @@ describe('VP_v25 resolvi-portti — jokaisella reititetyllä avaimella on sv-riv
      C2:n uudet tekstit, joiden sv on Gemini-erässä GEMINI_ERA_C2_KEVENNYS.json ('sv' vielä tyhjä).
      Omaa ruotsia EI kirjoiteta. Portti pysyy tiukkana: (a) jos jollekin ilmestyy käännös, alempi
      testi punertaa ja rivi on poistettava listalta, ja (b) mikä tahansa MUU puuttuva avain punertaa. */
-  const SV_ODOTTAA_SANKTIOINTIA = [
+  /* sv-läpiajo PR 4: odotuslista = Gemini-erän 2 vp_kartta-osion rivit joiden sv on vielä tyhjä (docs/i18n/sv_kaannoserae_2.json; koottu scripts/i18n_luo_gemini_era.cjs).
+     Kun Gemini täyttää rivin ja vienti kirjoittaa sen TM_VP_I18N:ään, rivi poistuu listalta itsestään. */
+  const ERA2_VP = JSON.parse(readFileSync(join(__dir, '..', 'docs/i18n/sv_kaannoserae_2.json'), 'utf8')).osiot.vp_kartta.rivit;
+  const SV_ODOTTAA_SANKTIOINTIA = Object.keys(ERA2_VP).filter((k) => !ERA2_VP[k].sv).concat([
     // Tyhjä 8.10.2026: Gemini-erä sv_kaannoserae_2026-10-08.json vietiin (scripts/i18n_vie_sv_era.cjs). Uusi sanktiointia odottava avain → lisää tähän.
     // D2-bugi (joukkuekortti, 8.10.2026) — sv Gemini-erä 2:ssa:
     'TKI-pohjainen',
@@ -736,7 +739,7 @@ describe('VP_v25 resolvi-portti — jokaisella reititetyllä avaimella on sv-riv
     // S1.1 Käyttöaste (VP Koti, 10.10.2026) — sv docs/i18n/sv_kaannoserae_s11.json:ssa (Gemini):
     'Sovelluksen käyttö',
     'Pelaajien ja perheiden oma käyttö, lukumääriä joukkueittain. Päivittyy viikoittain.',
-  ];
+  ]);
 
   it('0 vpT-avainta ilman sv-riviä (paitsi nimetyt sanktiointia odottavat)', () => {
     const sb = kartat();
@@ -751,7 +754,8 @@ describe('VP_v25 resolvi-portti — jokaisella reititetyllä avaimella on sv-riv
     const cm = (sb.TM_I18N_COMMON && sb.TM_I18N_COMMON.sv) || {};
     const vp = (sb.TM_VP_I18N && sb.TM_VP_I18N.sv) || {};
     const avaimet = kerääAvaimet();
-    expect(SV_ODOTTAA_SANKTIOINTIA.filter((k) => !avaimet.has(k)),
+    const lahdeVP = readFileSync(join(__dir, '..', 'TalentMaster_VP_v25.html'), 'utf8');   // kulutuskohdassa reititetyt taulukkoarvot ('Laita' → vpT(r.ryhma)) ovat lähteessä literaaleina
+    expect(SV_ODOTTAA_SANKTIOINTIA.filter((k) => !avaimet.has(k) && lahdeVP.indexOf("'" + k + "'") < 0),
       'odotuslistalla on avain jota ei enää käytetä → poista rivi').toEqual([]);
     expect(SV_ODOTTAA_SANKTIOINTIA.filter((k) => typeof cm[k] === 'string' || typeof vp[k] === 'string'),
       'sv saapui → poista rivi odotuslistalta (tai sv on keksitty)').toEqual([]);

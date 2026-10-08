@@ -16,7 +16,7 @@ beforeAll(() => {
   const s = lines.findIndex((l) => l.includes('function _jaKohortti(pelaajat, token) {'));
   const e = lines.findIndex((l) => l.includes('window._jaKohortti = _jaKohortti;'));
   if (s < 0 || e < 0) throw new Error('Joukkueäly-lohkoa ei löytynyt');
-  J = new Function('var window = {};\n' + lines.slice(s, e).join('\n') +
+  J = new Function('var window = {}; var vpT = function (x) { return x; };\n' + lines.slice(s, e).join('\n') +
     '\n return { _jaKohortti, _jaKohorttiTokenit, _jaTalenttiportaat, _jaValmiusJakauma, _ja5DKa, _jaPotentiaaliJakauma, _jaRaeJakauma, _jaPhvJakauma, _jaPelipaikkaSyvyys };')();
 });
 

@@ -24,7 +24,7 @@ function sivu({ seuraKieli, aktiivinenKieli }) {
   const ctx = { console: { log() {}, warn() {} }, localStorage: { getItem: (k) => (ls.has(k) ? ls.get(k) : null), setItem: (k, v) => ls.set(k, v), removeItem: (k) => ls.delete(k) },
     document: { documentElement: {} }, navigator: { language: 'fi' }, String, Object, Array, RegExp };
   ctx.window = ctx;
-  vm.createContext(ctx);
+  ctx.tmHT = ctx.tmHT || function (s) { return s; }; vm.createContext(ctx);
   vm.runInContext(lue('lib/tm_lang.js'), ctx);
   if (aktiivinenKieli && typeof ctx.tmAsetaKieli === 'function') ctx.tmAsetaKieli(aktiivinenKieli, true);
   ctx.tila = { seuraId: 'sibbovargarna', seuraKieli };

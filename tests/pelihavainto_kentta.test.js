@@ -58,6 +58,7 @@ function aja(tunnisteet, palauta, lisa) {
     window: {}, localStorage: null,
   }, lisa || {});
   store.window.window = store.window;
+  store.tmHT = store.tmHT || function (s) { return s; };
   const ymp = new Proxy(store, {
     has: (t, k) => (k in t) || !(k in globalThis),
     get: (t, k) => (k === Symbol.unscopables ? undefined : (k in t ? t[k] : undefined)),
@@ -657,7 +658,7 @@ describe('(10) konventiot', () => {
 
   it('näyttötekstit kulkevat phT:n kautta', () => {
     expect(SIVU).toContain('function phT(fi)');
-    expect(SIVU).toContain('tmI18nResolve(fi, null)');
+    expect(SIVU).toContain("tmHT(fi)");   // PR 4: phT → yhteinen tmHT-kartta (tmI18nResolve sen sisällä)
   });
 
   it('SA:lle seuravalitsin on pakollinen (§3: automaattihaku antaisi satunnaisen seuran)', () => {
@@ -719,7 +720,8 @@ describe('(12) yksi sisäänkäynti — kaikki reitit jaetun funktion kautta (§
       document: { getElementById: () => null },
     }, lisa || {});
     store.window.window = store.window;
-    const ymp = new Proxy(store, {
+    store.tmHT = store.tmHT || function (s) { return s; };
+  const ymp = new Proxy(store, {
       has: (t2, k) => (k in t2) || !(k in globalThis),
       get: (t2, k) => (k === Symbol.unscopables ? undefined : (k in t2 ? t2[k] : undefined)),
       set: (t2, k, v) => { t2[k] = v; return true; },
@@ -886,7 +888,8 @@ describe('(13) Masterin ottelutarkkailut', () => {
         }),
       },
     };
-    const ymp = new Proxy(store, {
+    store.tmHT = store.tmHT || function (s) { return s; };
+  const ymp = new Proxy(store, {
       has: (t2, k) => (k in t2) || !(k in globalThis),
       get: (t2, k) => (k === Symbol.unscopables ? undefined : (k in t2 ? t2[k] : undefined)),
       set: (t2, k, v) => { t2[k] = v; return true; },

@@ -155,7 +155,7 @@ describe('Seura · tunnustyökalut ilman suostumusta (ajettu)', () => {
       confirm: (t) => { loki.confirm.push(t); return true; }, renderPelaajat: () => Promise.resolve(), setTimeout: () => {},
       firebase: { app: () => ({ functions: () => ({ httpsCallable: (nimi) => async (d) => { loki.kutsut.push([nimi, d]); return { data: { pin: '700123', ok: true } }; } }) }) },
     };
-    vm.createContext(ctx);
+    ctx.tmHT = ctx.tmHT || function (s) { return s; }; vm.createContext(ctx);
     vm.runInContext(SEURA.match(/const PIN_SUOSTUMUS_PUUTTUU = '[^']*';/)[0].replace('const', 'var') + '\n'
       + ['function _suostumusAnnettu(p) {', 'function _pinFn(nimi) {', 'function _pinVirheTeksti(e) {', 'function _paivitaPinPaikallisesti(pelaajaId, pin) {',
         'function _tunnusKohde() {', 'function _tunnusTila(t) {', 'async function luoPuuttuvatPinit() {', 'async function lahetaTunnuksetHuoltajille() {'].map(pura).join('\n')

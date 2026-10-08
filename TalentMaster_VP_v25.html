@@ -13775,9 +13775,9 @@ function avaaJoukkueSyvanakyma(joukkueNimi) {
         const dv = hhTasoVari(d2val);
         // §30 joustava: D2-lähde tki/sm/hh/tk. ¹ = ei-TKI. Alarivi = diagnostinen lähde.
         const alarivi = (d2src === 'tki') ? ('TKI ' + tki + (m ? ' ' + m.emoji : ''))
-                      : (d2src === 'sm') ? (tsi != null ? 'TSI ' + tsi.toFixed(2) + 's' : 'SM-pohjainen')
+                      : (d2src === 'sm') ? (tsi != null ? 'TSI ' + tsi.toFixed(2) + 's' : vpT('SM-pohjainen'))
                       : (d2src === 'hh') ? vpT('H-H syöttö/pujottelu')
-                      : (d2src === 'tk') ? 'TK-lajit'
+                      : (d2src === 'tk') ? vpT('TK-lajit')
                       : '';
         teknSolu = '<span style="color:' + dv + ';font-family:var(--font-m)">' + d2val + (d2src !== 'tki' ? '<sup>¹</sup>' : '') + '</span>'
           + (alarivi ? '<div style="font-size:9px;color:var(--ink3);font-family:var(--font-m);margin-top:1px">' + alarivi + '</div>' : '');
@@ -20809,7 +20809,7 @@ function _jaPhvJakauma(pelaajat) {
 }
 var _JA_POSRYHMA = { MV: 'Maalivahti', KP: 'Puolustus', LP: 'Puolustus', KK: 'Keskikenttä', HM: 'Keskikenttä', LH: 'Laita', KH: 'Kärki' };
 function _jaPelipaikkaSyvyys(pelaajat, posFn) {
-  var jarj = ['Maalivahti', 'Puolustus', vpT('Keskikenttä'), 'Laita', 'Kärki'], ryhmat = {}, tuntematon = 0;
+  var jarj = ['Maalivahti', 'Puolustus', 'Keskikenttä', 'Laita', 'Kärki'], ryhmat = {}, tuntematon = 0;
   jarj.forEach(function (r) { ryhmat[r] = 0; });
   (pelaajat || []).forEach(function (p) { var c = String((posFn ? posFn(p) : (p.positio || p.pelipaikka)) || '').trim().toUpperCase(); var ryhma = _JA_POSRYHMA[c]; if (ryhma) ryhmat[ryhma]++; else tuntematon++; });
   var status = function (ryhma, n) { if (ryhma === 'Maalivahti') return n === 0 ? 'aukko' : n === 1 ? 'ohut' : 'ok'; return n === 0 ? 'aukko' : n <= 2 ? 'ohut' : n >= 5 ? 'vahva' : 'ok'; };
@@ -20900,7 +20900,7 @@ function renderJoukkuealy() {
 
   // C · PELIPAIKKA-SYVYYS
   var stCol = { aukko: ['var(--red)', 'rgba(201,64,64,.14)', 'aukko'], ohut: ['var(--amber)', 'rgba(224,160,64,.14)', 'ohut'], ok: ['var(--teal)', 'rgba(40,176,144,.12)', 'syvyys ok'], vahva: ['var(--teal)', 'rgba(40,176,144,.12)', 'vahva'] };
-  var depthRows = syvyys.ryhmat.map(function (r) { var s = stCol[r.status]; return '<div class="ja-dpos"><span class="pn">' + r.ryhma + '</span><span class="cnt">' + r.n + '</span><span class="ja-st" style="color:' + s[0] + ';background:' + s[1] + '">' + vpT(s[2]) + '</span></div>'; }).join('');
+  var depthRows = syvyys.ryhmat.map(function (r) { var s = stCol[r.status]; return '<div class="ja-dpos"><span class="pn">' + vpT(r.ryhma) + '</span><span class="cnt">' + r.n + '</span><span class="ja-st" style="color:' + s[0] + ';background:' + s[1] + '">' + vpT(s[2]) + '</span></div>'; }).join('');
   var posN = syvyys.ryhmat.reduce(function (a, r) { return a + r.n; }, 0);
   h += '<div class="ja-sek"><div class="ja-h">' + vpT('Pelipaikka-syvyys') + '</div><div class="ja-sub">' + vpT('Missä on syvyyttä ja missä aukko — depth chart pelipaikoittain') + (_jaIka ? ' (' + esc(_jaIka) + ')' : '') + vpT('. Aukko = toimenpide.') + '</div>'
     + (posN ? depthRows + (syvyys.tuntematon ? '<div class="ja-dpos"><span class="pn" style="color:var(--ink3)">' + vpT('Pelipaikka kirjaamatta') + '</span><span class="cnt">' + syvyys.tuntematon + '</span><span class="ja-st" style="color:var(--ink3)">—</span></div>' : '') : '<div class="ja-empty">' + vpT('Pelipaikkoja ei ole kirjattu pelaajille — lisää pelipaikka Seurahallinnassa, niin depth chart täyttyy. (') + syvyys.tuntematon + ' ' + vpT('ilman pelipaikkaa)') + '</div>') + '</div>';
@@ -22693,8 +22693,8 @@ function dedupToimenpiteet(lista) {
     if (x.joukkueet.length > 1) {
       const lyh = x.joukkueet.map(function(j){ return lyhennaNimi(j || ''); }).join(', ');
       if (x.signaali === 'tkk_puuttuu') {
-        x.teksti = (vpT('Kaikki joukkueet — tekniikkamittaukset puuttuvat') + ' ') + x.joukkueet.length + ':lta joukkueelta. Suunnittele tekniikkakilpailu.';
-        x.joukkue = vpT('Kaikki joukkueet');
+        x.teksti = 'Kaikki joukkueet — tekniikkamittaukset puuttuvat ' + x.joukkueet.length + ':lta joukkueelta. Suunnittele tekniikkakilpailu.';
+        x.joukkue = 'Kaikki joukkueet';
       } else if (x.signaali === 'hh_taso_alhainen') {
         x.teksti = lyh + ' — pelaajia alle Eerikkilä-tason. Aloita yksilöllinen ohjelma.'; x.joukkue = lyh;
       } else if (x.signaali === 'suunta_lasku') {
@@ -22704,8 +22704,8 @@ function dedupToimenpiteet(lista) {
       } else if (x.signaali === 'tki_lahella_merkkia') {
         x.teksti = lyh + ' — pelaajia lähellä pronssia. Kohdenna omatoimiharjoittelu, merkki saavutettavissa.'; x.joukkue = lyh;
       } else if (x.signaali === 'flei_kartoitus_puuttuu') {
-        x.teksti = (vpT('Kaikki joukkueet — harjoitettavuuskartoitus (kehon valmius) tekemättä') + ' ') + x.joukkueet.length + ':lta joukkueelta. Varaa kartoituspäivä.';
-        x.joukkue = vpT('Kaikki joukkueet');
+        x.teksti = 'Kaikki joukkueet — harjoitettavuuskartoitus (kehon valmius) tekemättä ' + x.joukkueet.length + ':lta joukkueelta. Varaa kartoituspäivä.';
+        x.joukkue = 'Kaikki joukkueet';
       } else { x.joukkue = lyh; }
     }
     return x;

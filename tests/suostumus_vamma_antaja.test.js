@@ -65,7 +65,7 @@ function lomake(arvot, ika) {
     document: { getElementById: () => null, createElement: () => ({ style: {}, setAttribute() {} }) },
     window: {}, setTimeout: (f) => f(),
   };
-  vm.createContext(ctx);
+  ctx.tmHT = ctx.tmHT || function (s) { return s; }; vm.createContext(ctx);
   vm.runInContext('var _lahetysKaynnissa = false, _lahetettyOnnistuneesti = false;\n'
     + pura(LOMAKE, 'function val(id) {') + '\n' + pura(LOMAKE, 'function _ikaVuosina(d) {') + '\n' + pura(LOMAKE, 'function _naytaHuoltajakortti(age) {') + '\n'
     + 'var SYN_ALKUVUOSI = 1990;\n' + ['function _synTt(k, fi) {', 'function _synVirheTeksti() {', 'function _synTila() {', 'function _synKorosta(paalla, teksti) {'].map((x) => pura(LOMAKE, x)).join('\n') + '\n'
@@ -130,7 +130,7 @@ async function seuraKortti(pelaaja, kutsut) {
     window: { tmEsc: require_(join(ROOT, 'lib', 'tm_esc.js')).tmEsc },
     document: { getElementById: () => modal, createElement: () => modal, body: { appendChild() {} } },
   };
-  vm.createContext(ctx);
+  ctx.tmHT = ctx.tmHT || function (s) { return s; }; vm.createContext(ctx);
   vm.runInContext(pura(S, 'function _suostumusAnnettu(p) {') + '\n' + pura(S, 'async function naytaPelaajaTiedot(pelaajaId) {') + '\nthis.nayta = naytaPelaajaTiedot;', ctx);
   await ctx.nayta('p1').catch(() => {});
   return modal.innerHTML;

@@ -77,7 +77,7 @@ async function seuraKortti(pelaaja, kutsut) {
     db: f.db, tila: { seuraId: 'kpv', rooli: 'superadmin' }, console: { warn() {} }, naytaToast() {}, Date, Object, JSON, String, Array, Promise,
     encodeURIComponent, window: { tmEsc }, document: { getElementById: () => modal, createElement: () => modal, body: { appendChild() {} } },
   };
-  vm.createContext(ctx);
+  ctx.tmHT = ctx.tmHT || function (s) { return s; }; vm.createContext(ctx);
   vm.runInContext(pura(S, 'function _suostumusAnnettu(p) {') + '\n' + pura(S, 'async function naytaPelaajaTiedot(pelaajaId) {') + '\nthis.nayta = naytaPelaajaTiedot;', ctx);
   await ctx.nayta('p1');
   return { h: modal.innerHTML, pkd: ctx.window._pkd };
@@ -114,7 +114,7 @@ function vahvista() {
     auth: { generatePasswordResetLink: async () => 'r' }, haeOrLuoHuoltajaAuth: async () => ({}), lahetaSahkoposti: async () => {}, pohjaSuostumusLinkki: () => '',
     TM_BASE_URL: 'https://tm', suostumusTarkistus: require_(join(ROOT, 'functions', 'suostumus_tarkistus.js')), suostumusAnnettu: require_(join(ROOT, 'functions', 'suostumus.js')).suostumusAnnettu, pelaajapin: require_(join(ROOT, 'functions', 'pelaajapin.js')),
   };
-  vm.createContext(ctx);
+  ctx.tmHT = ctx.tmHT || function (s) { return s; }; vm.createContext(ctx);
   vm.runInContext(CF.slice(i, CF.indexOf('\n  });', i) + 6), ctx);
   return { f, fn: ctx.exports.vahvistaSuostumus };
 }

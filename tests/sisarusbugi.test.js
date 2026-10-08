@@ -59,7 +59,7 @@ function seura(SEURA_LAHDE, lisat) {
     naytaPelaajaTiedot: (id) => loki.avattu.push(id),
     confirm: (t) => { loki.confirm.push(t); return ctx._confirmVastaus !== false; },
   };
-  vm.createContext(ctx);
+  ctx.tmHT = ctx.tmHT || function (s) { return s; }; vm.createContext(ctx);
   const osat = ['function _rekBaseUrl() {', 'function avaaRekisteriModal() {', 'function avaaRekisteriModalPelaajalle(',
     'function luoRekisteriLinkki() {', 'async function lahetaRekisteriSahkoposti() {'];
   if (S.indexOf('function _rekDuplikaatti(') >= 0) osat.push('function _rekDuplikaatti(');
@@ -218,7 +218,7 @@ function vahvista(pelaaja) {
     haeOrLuoHuoltajaAuth: async () => ({}), lahetaSahkoposti: async () => {}, pohjaSuostumusLinkki: () => '',
     TM_BASE_URL: 'https://tm', suostumusTarkistus: T, suostumusAnnettu: require_(join(ROOT, 'functions', 'suostumus.js')).suostumusAnnettu, pelaajapin: require_(join(ROOT, 'functions', 'pelaajapin.js')),
   };
-  vm.createContext(ctx);
+  ctx.tmHT = ctx.tmHT || function (s) { return s; }; vm.createContext(ctx);
   vm.runInContext(runko, ctx);
   const audit = () => [...f.D.entries()].filter(([k]) => k.startsWith('audit/')).map(([, v]) => v);
   return { f, fn: ctx.exports.vahvistaSuostumus, audit };

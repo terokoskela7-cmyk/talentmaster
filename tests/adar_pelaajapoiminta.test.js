@@ -54,7 +54,7 @@ function teeSandbox(opt) {
     _adarHaku: '',
   };
   sandbox.window = sandbox;
-  vm.createContext(sandbox);
+  sandbox.tmHT = sandbox.tmHT || function (s) { return s; }; vm.createContext(sandbox);
   vm.runInContext(
     'const ADAR_JOUKKUERAJAUS_OHITTAVAT = ' + JSON.stringify(ohittavatClientista()) + ';', sandbox);
   ['function _adarNakeeKaikki(', 'function _adarSaaHavainnoida(', 'function _adarNakyvatPelaajat(']
@@ -182,6 +182,7 @@ describe('ADAR · pelaajapoiminta roolin mukaan', () => {
       ADAR_JOUKKUERAJAUS_OHITTAVAT: ['super_admin', 'superadmin', 'vp', 'urheilutoimenjohtaja', 'talenttivalmentaja'],
     };
     store.window.window = store.window;
+    store.tmHT = store.tmHT || function (x) { return x; };
     const ymp = new Proxy(store, {
       has: (t2, k) => (k in t2) || !(k in globalThis),
       get: (t2, k) => (k === Symbol.unscopables ? undefined : (k in t2 ? t2[k] : undefined)),
@@ -326,6 +327,7 @@ describe('ADAR · offline-jonon synkronointi', () => {
       },
     };
     store.window.window = store.window;
+    store.tmHT = store.tmHT || function (x) { return x; };
     const ymp = new Proxy(store, {
       has: (t2, k) => (k in t2) || !(k in globalThis),
       get: (t2, k) => (k === Symbol.unscopables ? undefined : (k in t2 ? t2[k] : undefined)),

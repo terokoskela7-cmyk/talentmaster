@@ -105,7 +105,7 @@ function seuraYmp(pelaajat, palvelin) {
     firebase: { app: () => ({ functions: () => ({ httpsCallable: (nimi) => async (d) => { loki.kutsut.push([nimi, d]); return palvelin(nimi, d); } }) }) },
   };
   ctx.open = ctx.window.open;
-  vm.createContext(ctx);
+  ctx.tmHT = ctx.tmHT || function (s) { return s; }; vm.createContext(ctx);
   vm.runInContext(SEURA.match(/const PIN_SUOSTUMUS_PUUTTUU = '[^']*';/)[0].replace('const', 'var') + '\n'
     + ['function _tkKieli(avain, kieli, fi, muuttujat) {', 'function _tk(avain, fi, muuttujat) {', 'function _suostumusAnnettu(p) {', 'function _pinFn(nimi) {', 'function _pinVirheTeksti(e) {',
       'function _tunnusKohde() {', 'function _tunnusTila(t) {', 'function _pelaajaLinkki(p) {', 'function _pinPalloId(p) {',
@@ -160,7 +160,7 @@ function vahvista(alku) {
     TM_BASE_URL: 'https://tm', suostumusTarkistus: require_('../functions/suostumus_tarkistus.js'), suostumusAnnettu: require_('../functions/suostumus.js').suostumusAnnettu,
     pelaajapin: require_('../functions/pelaajapin.js'),
   };
-  vm.createContext(ctx);
+  ctx.tmHT = ctx.tmHT || function (s) { return s; }; vm.createContext(ctx);
   vm.runInContext(CF.slice(i, CF.indexOf('\n  });', i) + 6), ctx);
   const audit = () => [...f.D.entries()].filter(([k]) => k.startsWith('audit/')).map(([, v]) => v);
   return { f, fn: ctx.exports.vahvistaSuostumus, audit };

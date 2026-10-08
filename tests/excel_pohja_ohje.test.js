@@ -16,7 +16,7 @@ const pura = (t) => { const a = SEURA.indexOf(t); if (a < 0) throw new Error(t);
 
 function apurit() {
   const ctx = { String, Number, Date, Object, RegExp };
-  vm.createContext(ctx);
+  ctx.tmHT = ctx.tmHT || function (s) { return s; }; vm.createContext(ctx);
   vm.runInContext(pura('function _tmSyntymaVuosi(v) {') + '\n' + pura('function _tkKieli(avain, kieli, fi, muuttujat) {') + '\n' + pura('function _tk(avain, fi, muuttujat) {'), ctx);
   return ctx;
 }
@@ -39,7 +39,7 @@ describe('lataaRekisteriPohja (ajettu SheetJS-tyngällä)', () => {
         ? { orderBy: () => ({ get: async () => joukkueet }), get: async () => joukkueet }
         : { get: async () => ({ docs: [] }) }) }) }) },
     };
-    vm.createContext(ctx);
+    ctx.tmHT = ctx.tmHT || function (s) { return s; }; vm.createContext(ctx);
     vm.runInContext(pura('function _tkKieli(avain, kieli, fi, muuttujat) {') + '\n' + pura('function _tk(avain, fi, muuttujat) {') + '\n' + pura('async function lataaRekisteriPohja() {'), ctx);
     await ctx.lataaRekisteriPohja();
     return { lehdet, toastit, nappi };
@@ -73,7 +73,7 @@ describe('tuonti: syntymävuosi pakollinen', () => {
     expect(SEURA).toContain("const iVuosi    = etsiSarake('Syntymävuosi', 'syntymavuosi');");
     expect(SEURA).toContain("syntymaVuosi:  _tmSyntymaVuosi(iVuosi >= 0 ? r[iVuosi] : ''),");
     expect(SEURA).toContain(".map(r => Object.assign(r, { _eiVuotta: r.syntymaVuosi == null }))");
-    expect(SEURA).toContain(": p._eiVuotta ? '⚠️ Syntymävuosi puuttuu – riviä ei tuoda'");
+    expect(SEURA).toContain(": p._eiVuotta ? tmHT('⚠️ Syntymävuosi puuttuu – riviä ei tuoda')");
     expect(SEURA).toContain('if (p._eiVuotta) { eiVuotta++; continue; }');
     expect(SEURA).toContain('`${eiVuotta} ei tuotu (syntymävuosi puuttuu tai virheellinen)`');
     expect(SEURA).toContain("syntymaVuosi:  p.syntymaVuosi,   // numerona (§7.11)");

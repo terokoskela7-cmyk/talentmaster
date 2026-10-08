@@ -2063,11 +2063,11 @@ async function renderPelaajat(alue) {
         </button>
         <button class="lisaaNappi" onclick="avaaTuoJaLahetaModal()"
           style="background:rgba(42,93,176,.15);border:1px solid rgba(42,93,176,.3);">
-          📨 ${_tk('seura.tuo_pelaajat_excelista', tmHT('Tuo pelaajat Excelistä'))}
+          📨 ${_tk('seura.tuo_pelaajat_excelista', 'Tuo pelaajat Excelistä')}
         </button>
         <button class="lisaaNappi" id="btn-lataa-pohja" onclick="lataaRekisteriPohja()"
           style="background:none;border:1px solid var(--border);font-size:11px;color:var(--ink3);">
-          ⬇ ${_tk('seura.lataa_excel_pohja', tmHT('Lataa Excel-pohja'))}
+          ⬇ ${_tk('seura.lataa_excel_pohja', 'Lataa Excel-pohja')}
         </button>
         <!-- PR 4: tunnusten jako. Kohde = valitut pelaajat, muuten aktiivinen joukkuesuodatin (tai koko seura). -->
         <span style="flex-basis:100%;height:0"></span>
@@ -2798,7 +2798,7 @@ async function ktTallennaKirjaus(tid) {
 }
 async function ktKumoaKirjaus(tid, kid) {
   try {
-    await _ktLisaaKirjaus(tid, { pvm: tmPaivaIso(new Date()), arvo: null, pelaajaId: null, huomio: tmHT('Kumottu kirjaus'), mitatoi: kid });
+    await _ktLisaaKirjaus(tid, { pvm: tmPaivaIso(new Date()), arvo: null, pelaajaId: null, huomio: 'Kumottu kirjaus', mitatoi: kid });
     naytaToast(tmHT('Kirjaus kumottu (näkyy historiassa)'), 'ok'); _ktPiirra(); ktAvaaKirjaus(tid);
   } catch (e) { naytaToast((tmHT('Kumoaminen epäonnistui:') + ' ') + e.message, 'virhe'); }
 }
@@ -3647,7 +3647,7 @@ async function lahetaRekisteriSahkoposti() {
   if (_uusP && _suostumusAnnettu(_uusP)) {
     const _pvm = _suostumusPvm(_uusP);
     const _pvmTeksti = _pvm ? _pvm.getDate() + '.' + (_pvm.getMonth() + 1) + '.' + _pvm.getFullYear() : '';
-    if (!confirm(_tk('seura.uusinta_vahvistus', tmHT('Suostumus on jo annettu {pvm}. Lähetetäänkö huoltajalle suostumuksen uusimispyyntö?'),
+    if (!confirm(_tk('seura.uusinta_vahvistus', 'Suostumus on jo annettu {pvm}. Lähetetäänkö huoltajalle suostumuksen uusimispyyntö?',
       { pvm: _pvmTeksti }).replace(/ \./, '.'))) return;
     _uusintaParam = _pvm ? _pvm.getFullYear() + '-' + String(_pvm.getMonth() + 1).padStart(2, '0') + '-' + String(_pvm.getDate()).padStart(2, '0') : 'annettu';
   }
@@ -5880,7 +5880,7 @@ async function lataaRekisteriPohja() {
 
     if (kaikkiJoukkueet.length === 0) {
       naytaToast(tmHT('Lisää joukkueet ensin Joukkueet-välilehdellä'), 'virhe');
-      if (nappi) { nappi.disabled = false; nappi.textContent = '⬇ ' + _tk('seura.lataa_excel_pohja', tmHT('Lataa Excel-pohja')); }
+      if (nappi) { nappi.disabled = false; nappi.textContent = '⬇ ' + _tk('seura.lataa_excel_pohja', 'Lataa Excel-pohja'); }
       return;
     }
 
@@ -5968,13 +5968,13 @@ async function lataaRekisteriPohja() {
     const pvm = new Date().toISOString().slice(0,10);
     XLSX.writeFile(wb, `TalentMaster_${seuraNimi}_${pvm}.xlsx`);
 
-    naytaToast('✅ ' + _tk('seura.excel_pohja_ladattu', tmHT('Excel-pohja ladattu – {n} joukkuetta Asetukset-välilehdellä'), { n: kaikkiJoukkueet.length }), 'ok');
+    naytaToast('✅ ' + _tk('seura.excel_pohja_ladattu', 'Excel-pohja ladattu – {n} joukkuetta Asetukset-välilehdellä', { n: kaikkiJoukkueet.length }), 'ok');
 
   } catch(e) {
     naytaToast((tmHT('Lataus epäonnistui:') + ' ') + e.message, 'virhe');
     console.error('[lataaRekisteriPohja]', e);
   } finally {
-    if (nappi) { nappi.disabled = false; nappi.textContent = '⬇ ' + _tk('seura.lataa_excel_pohja', tmHT('Lataa Excel-pohja')); }
+    if (nappi) { nappi.disabled = false; nappi.textContent = '⬇ ' + _tk('seura.lataa_excel_pohja', 'Lataa Excel-pohja'); }
   }
 }
 
@@ -6172,24 +6172,24 @@ const KORTTI_ERA = 10;   // luoSuostumusKortit-kutsut 10 pelaajan erissä → ed
    1.10.2026: ikkuna ENSIN (ponnahdusesto), vahvistus ikkunassa, edistyminen ja virhe ikkunaan. */
 async function tulostaKortit() {
   const w = window.open('', '_blank');   // HETI napinpainalluksessa — ennen mitään awaitia tai dialogia
-  if (!w) { naytaToast(_tk('seura.kortit_ponnahdus_estetty', tmHT('Selain esti tulostusikkunan. Salli ponnahdusikkunat tälle sivulle ja paina uudelleen.')), 'virhe'); return; }
-  _korttiIkkuna(w, _tk('seura.kortit_valmistellaan', tmHT('Valmistellaan kortteja…')));
+  if (!w) { naytaToast(_tk('seura.kortit_ponnahdus_estetty', 'Selain esti tulostusikkunan. Salli ponnahdusikkunat tälle sivulle ja paina uudelleen.'), 'virhe'); return; }
+  _korttiIkkuna(w, _tk('seura.kortit_valmistellaan', 'Valmistellaan kortteja…'));
   const k = _tunnusKohde();
   const jarj = (a, b) => ((a.sukunimi || '') + (a.etunimi || '')).localeCompare((b.sukunimi || '') + (b.etunimi || ''), 'fi');
   const pelaajat = k.lista.filter((p) => _suostumusAnnettu(p) && p.pin).sort(jarj);
   const ilmanPinia = k.lista.filter((p) => _suostumusAnnettu(p) && !p.pin).length;
   const suostumus = k.lista.filter((p) => !_suostumusAnnettu(p) && p.huoltajaEmail).sort(jarj);
   const eiEmailia = k.lista.filter((p) => !_suostumusAnnettu(p) && !p.huoltajaEmail).length;
-  const yhteenveto = _tk('seura.kortit_yhteenveto', tmHT('{x} pelaajakorttia, {y} suostumuskorttia, {z} ilman huoltajan sähköpostia.'),
+  const yhteenveto = _tk('seura.kortit_yhteenveto', '{x} pelaajakorttia, {y} suostumuskorttia, {z} ilman huoltajan sähköpostia.',
     { x: pelaajat.length, y: suostumus.length, z: eiEmailia });
-  const lisat = (eiEmailia ? '\n' + _tk('seura.kortit_ei_emailia', tmHT('{n} pelaajalta puuttuu huoltajan sähköposti – lisää se pelaajakortille.'), { n: eiEmailia }) : '')
+  const lisat = (eiEmailia ? '\n' + _tk('seura.kortit_ei_emailia', '{n} pelaajalta puuttuu huoltajan sähköposti – lisää se pelaajakortille.', { n: eiEmailia }) : '')
     + (ilmanPinia ? '\n' + ilmanPinia + ' pelaajalla on suostumus mutta ei PIN:iä – luo ensin PIN-koodit.' : '');
   if (!pelaajat.length && !suostumus.length) {
-    _korttiIkkuna(w, _tk('seura.kortit_ei_tulostettavaa', tmHT('Ei tulostettavia kortteja')), k.kuvaus + '\n' + yhteenveto + lisat);
+    _korttiIkkuna(w, _tk('seura.kortit_ei_tulostettavaa', 'Ei tulostettavia kortteja'), k.kuvaus + '\n' + yhteenveto + lisat);
     naytaToast('Ei tulostettavia kortteja (' + k.kuvaus + '). ' + yhteenveto + lisat.replace(/\n/g, ' '), 'varoitus');
     return;
   }
-  const jatketaan = await _korttiVahvistus(w, _tk('seura.kortit_tulosta', tmHT('Tulosta kortit')) + ' (' + k.kuvaus + ')', yhteenveto + lisat);
+  const jatketaan = await _korttiVahvistus(w, _tk('seura.kortit_tulosta', 'Tulosta kortit') + ' (' + k.kuvaus + ')', yhteenveto + lisat);
   if (!jatketaan) { try { w.close(); } catch (_) {} return; }
   try {
     const kutsut = {};
@@ -6199,7 +6199,7 @@ async function tulostaKortit() {
       const r = await _pinFn('luoSuostumusKortit')({ seuraId: tila.seuraId, pelaajaIds: era.map((p) => p.id) });
       (r.data.kortit || []).forEach((x) => { if (x.tyyppi === 'suostumuskortti' && x.kutsuId) kutsut[x.pelaajaId] = x.kutsuId; });
     }
-    _korttiIkkuna(w, _tk('seura.kortit_qr', tmHT('Luodaan QR-koodeja…')));
+    _korttiIkkuna(w, _tk('seura.kortit_qr', 'Luodaan QR-koodeja…'));
     await _lataaQrKirjasto();
     const kortit = pelaajat.map((p) => ({ tyyppi: 'pelaaja', nimi: ((p.etunimi || '') + ' ' + (p.sukunimi || '')).trim(),
       joukkue: p.joukkueNimi || p.joukkue || '', palloId: _pinPalloId(p), pin: p.pin, qr: _qrDataUrl(_pelaajaLinkki(p)) }))
@@ -6211,7 +6211,7 @@ async function tulostaKortit() {
     setTimeout(() => renderPelaajat(document.getElementById('nakymaAlue')), 600);   // tila → "Kutsu lähetetty"
   } catch (e) {
     const syy = _pinVirheTeksti(e);
-    _korttiIkkuna(w, _tk('seura.kortit_virhe', tmHT('Korttien teko epäonnistui')), syy);   // virhe ikkunaan, ei hiljaista sulkemista
+    _korttiIkkuna(w, _tk('seura.kortit_virhe', 'Korttien teko epäonnistui'), syy);   // virhe ikkunaan, ei hiljaista sulkemista
     naytaToast((tmHT('Korttien teko epäonnistui:') + ' ') + syy, 'virhe');
   }
 }
@@ -6353,7 +6353,7 @@ function avaaTuoJaLahetaModal() {
       btn.id        = 'aloitaTuontiNappi';
       btn.className = 'nappi';
       btn.style.cssText = 'margin-top:10px;background:var(--teal);color:#000;';
-      btn.textContent   = '📥 ' + _tk('seura.excel_tuo_nappi', tmHT('Minulla on täytetty Excel → Tuo järjestelmään'));
+      btn.textContent   = '📥 ' + _tk('seura.excel_tuo_nappi', 'Minulla on täytetty Excel → Tuo järjestelmään');
       btn.onclick = function() {
         suljeModal('rekisteriOhjeModal');
         avaaExcelTuontiModal();
@@ -6519,11 +6519,11 @@ function kasitteleExcelTuonti(event) {
       const iEtu    = etsiSarake('Etunimi', 'etunimi');
       const iSuku   = etsiSarake('Sukunimi', 'sukunimi');
       const iJouk   = etsiSarake('Joukkue', 'joukkue');
-      const iEmail  = etsiSarake(tmHT('Huoltajansähköposti'), 'HuoltajaEmail', 'email', 'sähköposti');
+      const iEmail  = etsiSarake('Huoltajansähköposti', 'HuoltajaEmail', 'email', 'sähköposti');
       const iPalloId = etsiSarake('PalloID', 'palloid', 'palloID', 'palloId');
       const iTalentti = etsiSarake('Talenttiohjelma', 'talenttiohjelma', 'talentti');
       const iTaso     = etsiSarake('TalenttiTaso', 'talentitaso', 'taso');
-      const iVuosi    = etsiSarake(tmHT('Syntymävuosi'), 'syntymavuosi');   // pakollinen (1.10.2026)
+      const iVuosi    = etsiSarake('Syntymävuosi', 'syntymavuosi');   // pakollinen (1.10.2026)
       const iSukup    = etsiSarake('Sukupuoli', 'sukupuoli');   // valinnainen: P/T tai M/N → "M"/"N" (§7.12); puuttuva/tunnistamaton → ei kenttää (ei oletusta)
 
       // Muutetaan datarivit objekteiksi
