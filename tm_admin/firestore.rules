@@ -1,9 +1,15 @@
 rules_version = '2';
 // ══════════════════════════════════════════════════════════════════════════
-// TalentMaster™ — firestore.rules v3.51
+// TalentMaster™ — firestore.rules v3.52
 //
 // Lähde:  tm_admin/firestore.rules
 // Deploy: PR → N4-CI deployaa automaattisesti (Console-käsityö poistui).
+//
+// Muutokset v3.51 → v3.52 (#882 vaihe 3 — 9.10.2026 — KOVENNUS, ei migraatiota; ⚠ v3.49 on varattu Seuran pulssille S1 tässä numeroinnissa):
+//   · seurat/{sid}/kalenteri/{id}: create ja update EIVÄT salli kenttää `muistiinpanot` tapahtumadokumentissa (!('muistiinpanot' in request.resource.data)) —
+//     kaikille rooleille (SA mukaan lukien). Muistiinpanot VAIN alikokoelmassa kalenteri/{id}/henkilokunta/muistiinpanot (v3.48-blokki ennallaan).
+//   · Kentän POISTAVA update sallitaan edelleen (request.resource.data ei sisällä kenttää) — vanhan datan siivous / Excel_Tuonti-migraatio.
+//     Seuraus: legacy-dokumentin, jossa kenttä vielä on, muu päivitys vaatii kentän poiston samassa kirjoituksessa.
 //
 // Muutokset v3.50 → v3.51 (R6.4 PR 2 — 9.10.2026 — KOVENNUS, ei migraatiota):
 //   · viestit-luku, huoltajan haara: suostumusTila == 'annettu' vaaditaan KAIKILTA huoltajan luvuilta (ei vain tyyppi 'klippi'). Aiempi `tyyppi != 'klippi' || suostumus` ei suojannut KYSELYÄ: emulaattori arvioi
@@ -1834,17 +1840,20 @@ service cloud.firestore {
                       || onPelaajanSeura(seuraId);
 
         // Luonti: VP/johto (vapaa) TAI valmentajarooli joka asettaa luoja_uid == oma uid.
-        allow create: if onSuperAdmin()
+        // v3.52: `muistiinpanot`-kenttä ei saa olla tapahtumadokumentissa (pelaaja lukee kalenterin) — vain henkilokunta/muistiinpanot-alikokoelmassa.
+        allow create: if !('muistiinpanot' in request.resource.data)
+                      && (onSuperAdmin()
                       || (onOmaSeura(seuraId) && onJohtoRooli())
                       || (onOmanSeuranValmentaja(seuraId)
-                          && request.resource.data.luoja_uid == request.auth.uid);
+                          && request.resource.data.luoja_uid == request.auth.uid));
 
         // Päivitys:
         //  · SA / johto → kaikki
         //  · valmentaja OMAAN tapahtumaan (luoja_uid == uid) → kaikki
         //  · valmentaja MUIDEN tapahtumaan → vain field-level
         //    (muistiinpanot + läsnäolo-kooste + aikaleima; EI soft-deletea/nimeä/aikaa muille).
-        allow update: if onSuperAdmin()
+        allow update: if !('muistiinpanot' in request.resource.data)   // v3.52: kenttä pois tapahtumadokumentista (poistava update sallittu)
+                      && (onSuperAdmin()
                       || (onOmaSeura(seuraId) && onJohtoRooli())
                       || (onOmanSeuranValmentaja(seuraId)
                           && resource.data.luoja_uid == request.auth.uid)
@@ -1858,7 +1867,7 @@ service cloud.firestore {
                           && request.resource.data.diff(resource.data).affectedKeys()
                              .hasOnly(['pelaajat_id', 'jaadytetty', 'paivitetty', 'muokkaaja_uid', 'lasnaolo_kooste'])
                           && (resource.data.get('jaadytetty', null) == null
-                              || !request.resource.data.diff(resource.data).affectedKeys().hasAny(['pelaajat_id', 'jaadytetty'])));
+                              || !request.resource.data.diff(resource.data).affectedKeys().hasAny(['pelaajat_id', 'jaadytetty']))));
 
         // Ei hard-deletea — soft-delete (poistettu:true) update-kautta
         allow delete: if onSuperAdmin();

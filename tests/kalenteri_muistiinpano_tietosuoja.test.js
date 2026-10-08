@@ -51,8 +51,8 @@ describe('VP + Master: kirjoitus alikokoelmaan, vanha kenttä poistetaan; luku a
       await expect(ymp({ virhe: true }).sb.__h({ id: 'e1' })).rejects.toThrow('perm'); const d = ymp({ demo: true }); expect(await d.sb.__h({ id: 'e1', muistiinpanot: 'x' })).toBe('x'); expect(d.log.gets).toEqual([]);
     });
   }
-  it('VP luonti: tapahtumadokumentin muistiinpanot = null; tapahtuma + alikokoelma samassa batchissa (yksittäinen ja sarja)', () => {
-    expect(VP).toContain("muistiinpanot: null,   // TIETOSUOJA"); expect(VP).not.toMatch(/muistiinpanot: muistInp\.value/);
+  it('VP luonti: tapahtumadokumentissa EI muistiinpanot-kenttää (edes null, Rules v3.52); tapahtuma + alikokoelma samassa batchissa (yksittäinen ja sarja)', () => {
+    expect(VP).not.toMatch(/\bmuistiinpanot\s*:\s*null/); expect(VP).not.toMatch(/muistiinpanot: muistInp\.value/);
     expect(VP).toContain("_b.set(_ref, doc); _vpKalMuistiinpanoBatch(_b, _ref, muistInp.value, uid); await _b.commit();"); expect(VP).toContain("const _r2 = _col.doc(); _batch.set(_r2, d2); _vpKalMuistiinpanoBatch(_batch, _r2, muistInp.value, uid);");
   });
   it('muokkaus (VP + Master): kenttä tapahtumadokumentissa poistetaan (FieldValue.delete) + alikokoelma; ei kirjoiteta ennen kuin luku onnistui (muistLadattu) — ei tyhjennä sokkona; yhteiset-kentissä ei muistiinpanoja', () => {
@@ -85,5 +85,5 @@ describe('Excel_Tuonti SA-työkalu "Siirrä kalenterin muistiinpanot" (sivun oik
 });
 
 describe('Rules v3.48 lähdetarkistus', () => {
-  it('versio, alikokoelma ja läsnäolijat-luku', () => { const r = lue('tm_admin/firestore.rules'); expect(r).toMatch(/firestore.rules v3.(48|49|50|51)/); expect(r).toContain('match /henkilokunta/{dokId}'); expect(r).toContain("dokId == 'muistiinpanot'"); expect(r).toMatch(/onPelaajaItse\(seuraId, osallistujaId\)\s*\n\s*\|\| onLapsenHuoltaja\(seuraId, osallistujaId\);/); expect(r).not.toMatch(/allow read:[^;]*onPelaajanSeura\(seuraId\);\s*\/\/ P7-c\.1: PIN-pelaaja\/vanhempi näkee läsnäolon/); });
+  it('versio, alikokoelma ja läsnäolijat-luku', () => { const r = lue('tm_admin/firestore.rules'); expect(r).toMatch(/firestore.rules v3.(48|49|50|51|52)/); expect(r).toContain('match /henkilokunta/{dokId}'); expect(r).toContain("dokId == 'muistiinpanot'"); expect(r).toMatch(/onPelaajaItse\(seuraId, osallistujaId\)\s*\n\s*\|\| onLapsenHuoltaja\(seuraId, osallistujaId\);/); expect(r).not.toMatch(/allow read:[^;]*onPelaajanSeura\(seuraId\);\s*\/\/ P7-c\.1: PIN-pelaaja\/vanhempi näkee läsnäolon/); });
 });

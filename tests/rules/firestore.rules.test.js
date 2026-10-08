@@ -1132,11 +1132,11 @@ describe('Kalenteri (v3.5 — omistajuus + läsnäolo)', () => {
       const db = ctx.firestore();
       await setDoc(doc(db, 'seurat', SEURA_A, 'kalenteri', 'kal1'), {
         tyyppi: 'testi', nimi: 'Syyskoe', pvm: '2026-09-15',
-        joukkue: 'FCL U12', muistiinpanot: '', tila: 'suunniteltu', poistettu: false,
+        joukkue: 'FCL U12', tila: 'suunniteltu', poistettu: false,
       });
       await setDoc(doc(db, 'seurat', SEURA_A, 'kalenteri', 'kal_own'), {
         tyyppi: 'harjoitus', nimi: 'Oma treeni', pvm: '2026-09-16',
-        joukkue: 'FCL U12', muistiinpanot: '', tila: 'suunniteltu', poistettu: false,
+        joukkue: 'FCL U12', tila: 'suunniteltu', poistettu: false,
         luoja_uid: VALM_A_UID,
       });
     });
@@ -1154,9 +1154,9 @@ describe('Kalenteri (v3.5 — omistajuus + läsnäolo)', () => {
   });
 
   // ── Field-level MUIDEN tapahtumaan ──
-  it('Valmentaja päivittää muistiinpanot muiden tapahtumaan (field-level, sallittu)', async () => {
+  it('Valmentaja EI voi kirjoittaa muistiinpanot-kenttää muiden tapahtumaan (v3.52; muistiinpanot vain henkilokunta-alikokoelmaan)', async () => {
     const db = valmentajaContext(VALM_A_UID, SEURA_A).firestore();
-    await assertSucceeds(updateDoc(
+    await assertFails(updateDoc(
       doc(db, 'seurat', SEURA_A, 'kalenteri', 'kal1'),
       { muistiinpanot: 'Hyvin meni', paivitetty: new Date().toISOString(), muokkaaja_uid: VALM_A_UID }
     ));
@@ -4857,6 +4857,51 @@ describe('v3.48 · kalenteri/{id}/henkilokunta/muistiinpanot + lasnaolijat: pela
     await assertSucceeds(setDoc(las(dbVal(), MUU_UID), { tila: 'paikalla', paivitetty: serverTimestamp() })); await assertSucceeds(getDocs(collection(dbVal(), 'seurat', SEURA_A, 'kalenteri', EV, 'lasnaolijat'))); await assertSucceeds(getDocs(collection(dbVp(), 'seurat', SEURA_A, 'kalenteri', EV, 'lasnaolijat')));
     await testEnv.withSecurityRulesDisabled(async (c) => { await updateDoc(kal(c.firestore()), { muistiinpanot: 'vanha vuotava teksti' }); });
     await assertSucceeds(updateDoc(kal(dbVal()), { muistiinpanot: deleteField(), paivitetty: serverTimestamp(), muokkaaja_uid: VALM_A_UID }));   // migraatio/tallennus poistaa kentän
+  });
+});
+
+/* ══ v3.52 · #882 vaihe 3: `muistiinpanot`-kenttä pois tapahtumadokumentista (create + update); poistava update sallittu ══ */
+describe('v3.52 · kalenteri/{id}: muistiinpanot-kenttä estetty tapahtumadokumentissa; alikokoelma toimii', () => {
+  const EV = 'ev-v352', UUSI = 'ev-v352-uusi';
+  const kal = (db, id = EV) => doc(db, 'seurat', SEURA_A, 'kalenteri', id);
+  const muist = (db) => doc(db, 'seurat', SEURA_A, 'kalenteri', EV, 'henkilokunta', 'muistiinpanot');
+  const dbPel = () => pelaajaItseContext().firestore(), dbHuolt = () => huoltajaContext().firestore(), dbVp = () => vpContext(SEURA_A).firestore(), dbVal = () => valmentajaContext(VALM_A_UID, SEURA_A).firestore();
+  const perus = (o = {}) => ({ nimi: 'Harjoitus', tyyppi: 'harjoitus', joukkue: JOUKKUE_A1, joukkueet: [JOUKKUE_A1], poistettu: false, luoja_uid: VALM_A_UID, pelaajaviesti: 'Tuo juomapullo', ...o });
+  beforeEach(async () => {
+    await seedAdminDoc(); await seedSeuraAndPelaaja();
+    await testEnv.withSecurityRulesDisabled(async (c) => { const f = c.firestore();
+      await setDoc(kal(f), perus());
+      await setDoc(muist(f), { teksti: 'SISÄINEN: pelaaja X väsynyt', muokkaaja_uid: VP_A_UID, paivitetty: new Date() }); });
+  });
+
+  it('LUONTI: valmentaja ja VP eivät voi luoda tapahtumaa, jossa muistiinpanot-kenttä (myös null / tyhjä merkkijono); ilman kenttää onnistuu', async () => {
+    for (const [db, uid] of [[dbVal(), VALM_A_UID], [dbVp(), VP_A_UID]]) {
+      for (const arvo of ['Sisäinen teksti', null, '']) await assertFails(setDoc(kal(db, UUSI), perus({ luoja_uid: uid, muistiinpanot: arvo })));
+      await assertSucceeds(setDoc(kal(db, UUSI + uid), perus({ luoja_uid: uid })));
+    }
+  });
+  it('PÄIVITYS: valmentaja (oma ja muiden tapahtuma) ja VP eivät voi lisätä/asettaa muistiinpanot-kenttää', async () => {
+    await testEnv.withSecurityRulesDisabled(async (c) => { await setDoc(kal(c.firestore(), 'muiden'), perus({ luoja_uid: VP_A_UID })); });
+    await assertFails(updateDoc(kal(dbVal()), { muistiinpanot: 'x', paivitetty: serverTimestamp(), muokkaaja_uid: VALM_A_UID }));            // oma
+    await assertFails(updateDoc(kal(dbVal(), 'muiden'), { muistiinpanot: 'x', paivitetty: serverTimestamp(), muokkaaja_uid: VALM_A_UID })); // muiden (field-level-haara)
+    await assertFails(updateDoc(kal(dbVp()), { muistiinpanot: 'x' })); await assertFails(updateDoc(kal(dbVp()), { muistiinpanot: null }));
+    await assertSucceeds(updateDoc(kal(dbVal()), { pelaajaviesti: 'Uusi viesti', paivitetty: serverTimestamp(), muokkaaja_uid: VALM_A_UID }));   // muu päivitys toimii
+  });
+  it('KENTÄN POISTAVA update sallitaan (valmentaja oma + muiden, VP); legacy-dokumentin muu päivitys ilman poistoa estyy', async () => {
+    await testEnv.withSecurityRulesDisabled(async (c) => { const f = c.firestore(); await setDoc(kal(f, 'l1'), perus({ muistiinpanot: 'vanha' })); await setDoc(kal(f, 'l2'), perus({ luoja_uid: VP_A_UID, muistiinpanot: 'vanha' })); await setDoc(kal(f, 'l3'), perus({ muistiinpanot: 'vanha' })); });
+    await assertFails(updateDoc(kal(dbVal(), 'l1'), { pelaajaviesti: 'x' }));                                                                              // kenttä jää dokumenttiin → ✗
+    await assertSucceeds(updateDoc(kal(dbVal(), 'l1'), { muistiinpanot: deleteField(), paivitetty: serverTimestamp(), muokkaaja_uid: VALM_A_UID }));      // oma
+    await assertSucceeds(updateDoc(kal(dbVal(), 'l2'), { muistiinpanot: deleteField(), paivitetty: serverTimestamp(), muokkaaja_uid: VALM_A_UID }));      // muiden (field-level hasOnly sisältää kentän)
+    await assertSucceeds(updateDoc(kal(dbVp(), 'l3'), { muistiinpanot: deleteField() }));                                                                  // VP
+  });
+  it('HENKILÖKUNTA kirjoittaa ja lukee henkilokunta/muistiinpanot-alikokoelmaa; PELAAJA ja HUOLTAJA eivät lue', async () => {
+    await assertSucceeds(setDoc(muist(dbVal()), { teksti: 'Valmentajan', muokkaaja_uid: VALM_A_UID, paivitetty: serverTimestamp() })); await assertSucceeds(setDoc(muist(dbVp()), { teksti: 'VP', muokkaaja_uid: VP_A_UID, paivitetty: serverTimestamp() }));
+    for (const db of [dbVal(), dbVp()]) { const s = await assertSucceeds(getDoc(muist(db))); expect(s.exists()).toBe(true); }
+    for (const db of [dbPel(), dbHuolt()]) { await assertFails(getDoc(muist(db))); await assertFails(getDocs(collection(db, 'seurat', SEURA_A, 'kalenteri', EV, 'henkilokunta'))); await assertFails(setDoc(muist(db), { teksti: 'x', paivitetty: serverTimestamp() })); }
+  });
+  it('PELAAJA lukee edelleen oman tapahtumansa ja kalenteri-kokoelman — ilman muistiinpanoja', async () => {
+    const s = await assertSucceeds(getDoc(kal(dbPel()))); expect(s.data().pelaajaviesti).toBe('Tuo juomapullo'); expect('muistiinpanot' in s.data()).toBe(false);
+    const l = await assertSucceeds(getDocs(collection(dbPel(), 'seurat', SEURA_A, 'kalenteri'))); expect(l.size).toBe(1);
   });
 });
 
