@@ -141,12 +141,12 @@ body.demo-mode #devChrome{display:block}
 <script src="lib/tm_klippi_perhe.js?v=1"></script>   <!-- R6.4 PR 2: Katsokaa yhdessä / keskustelu -->
 <script src="lib/tm_appcheck.js?v=2"></script>
 <script src="lib/tm_verkko.js?v=1"></script>   <!-- verkkokatko: 1 uudelleenyritys + Yhteyskatko-ilmoitus + Sentry warning -->
-<script src="lib/tm_lang.js?v=33"></script>   <!-- i18n V0 putki · V1-B/B2: +vanhempi./nav.-avaimet + kielivalitsin + syväsisältö (nimen taivutus poistettu) -->
+<script src="lib/tm_lang.js?v=34"></script>   <!-- i18n V0 putki · V1-B/B2: +vanhempi./nav.-avaimet + kielivalitsin + syväsisältö (nimen taivutus poistettu) -->
 <script src="lib/tm_lib_i18n.js?v=1"></script>   <!-- sv-kartta kirjastojen FI-avaimille (päätös A, vaihtoehto 2; generoitu Gemini-erästä) — ennen lib-tiedostoja -->
 <script src="docs/testit_indeksit.js?v=13"></script>
 <script src="lib/tm_alusta.js?v=2"></script>   <!-- PR D2: alustakoodi/-nimi ennätysriveille -->
 <script src="lib/tm_ennatykset.js?v=6"></script>   <!-- PR D2: ennätysrivit alustoittain (tmEnnatysRivit, jaettu Pelaajan kanssa) -->
-<script src="lib/tm_kalenteri_ilmoitus.js?v=1"></script>   <!-- V2 P0.4: tapahtuman päättyminen + ilmoituksen päivä (jaettu Pelaaja + Vanhempi) -->
+<script src="lib/tm_kalenteri_ilmoitus.js?v=2"></script>   <!-- V2 P0.4: tapahtuman päättyminen + ilmoituksen päivä (jaettu Pelaaja + Vanhempi) -->
 <script src="tm-bus.js?v=3"></script>
 <script src="tm-demo.js?v=3"></script>
 </head>
@@ -383,7 +383,7 @@ function rLogin() {
 
   <!-- Apuviesti -->
   <div style="text-align:center;margin-top:20px;font-size:11px;color:var(--ink3);line-height:1.6">
-    Tunnukset saat seuran toimistosta.<br>
+    ${t('vanhempi.tunnukset_saat_seuran_toimistosta')}<br>
     ${t('vanhempi.login_ohje')}
   </div>
 
@@ -394,7 +394,7 @@ function rLogin() {
            color:rgba(26,122,94,.7);font-size:11px;letter-spacing:.1em;
            cursor:pointer;text-decoration:underline;text-underline-offset:3px"
   >
-    Unohtuiko salasana?
+    ${t('vanhempi.unohtuiko_salasana')}
   </button>
 
 </div>`;
@@ -496,7 +496,9 @@ function _renderLiveFeed(){
 // Ikäadaptoitu (U19 harvempi). Ei numeroita/leimoja. Lukee seurat/{sid}/kalenteri (anon-read c.1); suodatus apissa.
 window._vanhKalenteri = null; window._vanhKalLadattu = false;
 const _VANH_TT = { harjoitus: { i: '⚽', c: 'var(--ink2)' }, treeni: { i: '⚽', c: 'var(--ink2)' }, ottelu: { i: '🏟️', c: '#4E86D6' }, peli: { i: '🏟️', c: '#4E86D6' }, testitapahtuma: { i: '🧪', c: 'var(--teal)' }, testi: { i: '🧪', c: 'var(--teal)' }, kasvumittaus: { i: '📏', c: 'var(--teal)' }, palaveri: { i: '📋', c: '#E0A040' }, palaverit: { i: '📋', c: '#E0A040' }, muu: { i: '○', c: 'var(--ink3)' } };
-const _VANH_VKOPV = ['Su', 'Ma', 'Ti', 'Ke', 'To', 'Pe', 'La'];
+const _VANH_VKOPV = ['Su', 'Ma', 'Ti', 'Ke', 'To', 'Pe', 'La'];   // fi
+/* Viikonpäivän lyhenne kielen mukaan (fi: taulukko sellaisenaan; sv/en: Intl). n = Date.getDay() (0 = su). */
+function _vanhVkopv(n) { var k = (typeof tmNykyinenKieli === 'function') ? tmNykyinenKieli() : 'fi'; if (k === 'fi') return _VANH_VKOPV[n]; var s = new Date(2024, 0, 7 + n).toLocaleDateString(k === 'sv' ? 'sv-SE' : 'en-GB', { weekday: 'short' }).replace('.', ''); return s.charAt(0).toUpperCase() + s.slice(1); }
 function _vanhEvPvm(ev) { var d = (ev.alkaa && ev.alkaa.toDate) ? ev.alkaa.toDate() : (ev.alkaa && typeof ev.alkaa === 'string') ? new Date(ev.alkaa) : (ev.pvm ? new Date(String(ev.pvm).slice(0, 10) + 'T00:00:00') : null); return (d && !isNaN(d.getTime())) ? d : null; }
 function _vanhEvKuuluu(ev) {
   // P7-c.1-fix: normalisoitu joukkueavainjoukko (ml. joukkueet[]-slug) — näyttönimi vs slug ei osu suoralla vertailulla.
@@ -518,8 +520,8 @@ window._vanhNotif = null; window._vanhNotifLadattu = false;
 var _VANH_NOTIF_IKO = { muistutus: '🔔', muutos: '🔄', peruttu: '❌' };
 function _vanhDemoNotif() {
   return [
-    { id: 'dn1', tyyppi: 'peruttu', teksti: 'Peruttu: Nopeustestit', linkki: 'kalenteri:d6', luettu: false },
-    { id: 'dn2', tyyppi: 'muistutus', teksti: 'Huomenna: Joukkueharjoitus klo 18:00 · Keskuskenttä', linkki: 'kalenteri:d1', luettu: false }
+    { id: 'dn1', tyyppi: 'peruttu', teksti: 'Peruttu: Nopeustestit', ilmoitus: { tyyppi: 'peruttu', nimi: 'Nopeustestit', aika: '', paikka: '' }, linkki: 'kalenteri:d6', luettu: false },
+    { id: 'dn2', tyyppi: 'muistutus', teksti: 'Huomenna: Joukkueharjoitus klo 18:00 · Keskuskenttä', ilmoitus: { tyyppi: 'huomenna', nimi: 'Joukkueharjoitus', aika: '18:00', paikka: 'Keskuskenttä' }, linkki: 'kalenteri:d1', luettu: false }
   ];
 }
 async function _vanhLataaNotif() {
@@ -542,7 +544,7 @@ async function _vanhLataaNotif() {
 function _vanhNotifHTML() {
   if (window._vanhNotif === null && !window._vanhNotifLadattu) _vanhLataaNotif();
   var K = window.TM_KALENTERI_ILM, nyt = new Date();
-  var arr = (window._vanhNotif || []).map(function (n) { return { n: n, r: K ? K.tmIlmoitusRivi(n, window._vanhKalenteri, nyt) : { nakyvissa: true, runko: String(n.teksti || ''), paiva: null } }; })
+  var arr = (window._vanhNotif || []).map(function (n) { return { n: n, r: K ? K.tmIlmoitusRivi(n, window._vanhKalenteri, nyt, t) : { nakyvissa: true, runko: String(n.teksti || ''), paiva: null } }; })
     .filter(function (x) { return x.r.nakyvissa; });   // V2 P0.4: päättyneen tapahtuman muistutus/muutos piiloon
   if (!arr.length) return '';
   var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); };
@@ -608,13 +610,13 @@ async function _vanhLataaKalenteri() {
 function _vanhLogistiikkaChipit(lg) {
   if (!lg) return '';
   var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); };
-  var peliasuLbl = { kotipaita: 'Kotipaita', vieraspaita: 'Vieraspaita' };
+  var peliasuLbl = { kotipaita: t('pelaaja.kotipaita'), vieraspaita: t('pelaaja.vieraspaita') };
   var chip = function (txt) { return '<span style="display:inline-flex;align-items:center;font-size:10.5px;color:var(--ink2);background:var(--surface);border:.5px solid var(--border);border-radius:999px;padding:3px 9px">' + txt + '</span>'; };
   var out = [];
-  if (lg.saapumisaika) out.push(chip('🕐 Saavu ' + esc(lg.saapumisaika)));
+  if (lg.saapumisaika) out.push(chip('🕐 ' + t('pelaaja.saavu') + ' ' + esc(lg.saapumisaika)));
   if (lg.peliasu) out.push(chip('👕 ' + esc(peliasuLbl[lg.peliasu] || lg.peliasu)));
-  if (lg.kartta_url && /^https?:\/\//i.test(lg.kartta_url)) out.push('<a href="' + esc(lg.kartta_url) + '" target="_blank" rel="noopener" style="text-decoration:none">' + chip('📍 Kartta') + '</a>');
-  if (lg.kimppakyyti) out.push(chip('🚗 Kimppakyyti'));
+  if (lg.kartta_url && /^https?:\/\//i.test(lg.kartta_url)) out.push('<a href="' + esc(lg.kartta_url) + '" target="_blank" rel="noopener" style="text-decoration:none">' + chip('📍 ' + t('pelaaja.kartta')) + '</a>');
+  if (lg.kimppakyyti) out.push(chip('🚗 ' + t('pelaaja.kimppakyyti')));
   return out.length ? '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px">' + out.join('') + '</div>' : '';
 }
 // P7-c.3 + RSVP-erotus — etukäteinen SAATAVUUS lapsen puolesta: "Pääseekö [lapsi]?" → ✓ Tulossa / ✕ Estynyt.
@@ -646,7 +648,7 @@ async function _vanhMerkitseLasna(evId, saatavuus) {
 }
 function _vanhTapahtumaKortti(ev) {
   var tt = _VANH_TT[ev.tyyppi] || _VANH_TT.muu; var d = ev._d || _vanhEvPvm(ev);
-  var aika = d ? (_VANH_VKOPV[d.getDay()] + ' ' + d.getDate() + '.' + (d.getMonth() + 1) + '. klo ' + String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0')) : '';
+  var aika = d ? (_vanhVkopv(d.getDay()) + ' ' + d.getDate() + '.' + (d.getMonth() + 1) + '. ' + t('pelaaja.klo') + ' ' + String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0')) : '';
   var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); };
   return '<div style="display:flex;align-items:flex-start;gap:12px;padding:12px 14px;background:var(--surface);border:.5px solid var(--border);border-left:2px solid ' + tt.c + ';border-radius:10px;margin-bottom:8px">'
     + '<div style="font-size:18px;flex-shrink:0;width:22px;text-align:center;line-height:1.4">' + tt.i + '</div>'
@@ -828,9 +830,9 @@ function _viikkoRivitHtml(){
     const otsikko = t(tyyppiLabel[k.tyyppi] || 'vanhempi.tyyppi_harjoitus');
     const osat = [];
     if (k.kesto_min) osat.push(k.kesto_min + ' min');
-    if (k.fiilis)    osat.push('fiilis ' + k.fiilis + '/5');
+    if (k.fiilis)    osat.push(t('vanhempi.fiilis_n_5', { n: k.fiilis }));
     if (k.teksti)    osat.push(k.teksti);
-    const lahde = k.lahde === 'vanhempi' ? ' · vanhempi' : (k.lahde === 'valmentaja' ? ' · valmentaja' : '');
+    const lahde = k.lahde === 'vanhempi' ? ' · ' + t('vanhempi.vanhempi') : (k.lahde === 'valmentaja' ? ' · ' + t('vanhempi.valmentaja') : '');
     return `<div class="card" style="padding:12px 14px">
       <div style="font-family:var(--font-m);font-size:11px;color:var(--ink3);margin-bottom:2px">${aikaStr}${lahde}</div>
       <div style="font-size:13px;font-weight:500;color:var(--text);margin-bottom:2px">${_esc(otsikko)}</div>
@@ -1324,7 +1326,7 @@ function rKortti(){
     <div style="font-size:10px;color:var(--ink3);margin-top:4px;letter-spacing:.06em">${d.ryhma}${L.pelinumero!=null?' · #'+L.pelinumero:''}</div>
     <div class="divider" style="background:rgba(184,134,11,.2);margin:16px 0"></div>
     <div>
-      <div class="ey" style="color:rgba(184,134,11,.6);font-size:8px;margin-bottom:2px">Streak</div>
+      <div class="ey" style="color:rgba(184,134,11,.6);font-size:8px;margin-bottom:2px">${t('kortti.streak')}</div>
       <div style="font-family:var(--font-d);font-size:18px;color:var(--text);font-weight:400;line-height:1">${L.streak!=null?L.streak:0}</div>
       <div style="font-size:9px;color:var(--ink3);margin-top:1px">pv</div>
     </div>
@@ -1597,7 +1599,7 @@ function _naytaVanhTervetulo(){
   ov.id = 'vanhTervetuloOv'; ov.className = 'vth-ov';
   ov.onclick = function (e){ if (e.target === ov) window._suljeVanhTervetulo(); };
   // V1-B2 i18n: johdanto ilman nimen taivutusta ("lapsesi" / "ditt barns" / "your child's") → ei {gen}-substituutiota.
-  ov.innerHTML = '<div class="vth-panel" role="dialog" aria-label="Tervetuloa">'
+  ov.innerHTML = '<div class="vth-panel" role="dialog" aria-label="' + t('vanhempi.hero_tervetuloa') + '">'
     + '<div class="vth-otsikko">' + t('vanhempi.tervetulo_hei') + '</div>'
     + '<div class="vth-johdanto">' + t('vanhempi.tervetulo_johdanto') + '</div>'
     + '<div class="vth-kultainen">⭐ <b>' + t('vanhempi.kultainen_otsikko') + '</b> ' + t('vanhempi.kultainen_teksti') + '</div>'
@@ -1953,25 +1955,25 @@ function _tarinaOtsikko(k) {
 
   // Kontekstikohtainen otsikko
   const kontekstiOtsikot = {
-    pihapeli: `${nimi} pelasi pihalla ${aikaStr}`,
-    kaveri:   `${nimi} harjoitteli kaverin kanssa ${aikaStr}`,
-    aamu:     `${nimi} teki aamuharjoitteen ${aikaStr}`,
-    valitunti:`${nimi} treenasi välitunnilla ${aikaStr}`,
-    ilta:     `${nimi} teki iltatreenin ${aikaStr}`,
-    oma:      `${nimi} harjoitteli itsekseen ${aikaStr}`,
+    pihapeli: t('vanhempi.nimi_pelasi_pihalla_aika', { nimi: nimi, aika: aikaStr }),
+    kaveri:   t('vanhempi.nimi_harjoitteli_kaverin_kanssa_ai', { nimi: nimi, aika: aikaStr }),
+    aamu:     t('vanhempi.nimi_teki_aamuharjoitteen_aika', { nimi: nimi, aika: aikaStr }),
+    valitunti:t('vanhempi.nimi_treenasi_valitunnilla_aika', { nimi: nimi, aika: aikaStr }),
+    ilta:     t('vanhempi.nimi_teki_iltatreenin_aika', { nimi: nimi, aika: aikaStr }),
+    oma:      t('vanhempi.nimi_harjoitteli_itsekseen_aika', { nimi: nimi, aika: aikaStr }),
   };
   if (k.konteksti && kontekstiOtsikot[k.konteksti]) return kontekstiOtsikot[k.konteksti];
 
   const tyypit = {
-    T: `${nimi} treenasi ${aikaStr}`,
-    D: `${nimi} teki kehonhuollon ${aikaStr}`,
-    S: `${nimi} teki lihaskuntoharjoitteen ${aikaStr}`,
-    P: `${nimi} pelasi ${aikaStr}`,
-    jalkapallo: `${nimi} treenasi jalkapalloa ${aikaStr}`,
-    muu_urheilu: `${nimi} urheili ${aikaStr}`,
-    lepo: `${nimi} piti lepopäivän ${aikaStr}`,
+    T: t('vanhempi.nimi_treenasi_aika', { nimi: nimi, aika: aikaStr }),
+    D: t('vanhempi.nimi_teki_kehonhuollon_aika', { nimi: nimi, aika: aikaStr }),
+    S: t('vanhempi.nimi_teki_lihaskuntoharjoitteen_ai', { nimi: nimi, aika: aikaStr }),
+    P: t('vanhempi.nimi_pelasi_aika', { nimi: nimi, aika: aikaStr }),
+    jalkapallo: t('vanhempi.nimi_treenasi_jalkapalloa_aika', { nimi: nimi, aika: aikaStr }),
+    muu_urheilu: t('vanhempi.nimi_urheili_aika', { nimi: nimi, aika: aikaStr }),
+    lepo: t('vanhempi.nimi_piti_lepopaivan_aika', { nimi: nimi, aika: aikaStr }),
   };
-  return tyypit[k.tyyppi] || `${nimi} treenasi ${aikaStr}`;
+  return tyypit[k.tyyppi] || t('vanhempi.nimi_treenasi_aika', { nimi: nimi, aika: aikaStr });
 }
 
 function _tarinaKuvaus(k) {

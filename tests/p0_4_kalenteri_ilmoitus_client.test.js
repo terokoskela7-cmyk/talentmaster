@@ -186,7 +186,7 @@ describe('Pelaaja_v7 — kalenterin suodatus + ilmoituslista', () => {
     expect(h).toContain('Peruttu: Nopeustestit'); expect(h).not.toContain('Muutos: Harjoitus'); expect(h).toMatch(/Ilmoitukset[^<]*<span[^>]*>1</);
   });
   it('lähde: lib ladataan + SW cachettaa sen (offline)', () => {
-    expect(P7).toContain('lib/tm_kalenteri_ilmoitus.js?v=1');
+    expect(P7).toContain('lib/tm_kalenteri_ilmoitus.js?v=2');
     expect(lue('sw_pelaaja.js')).toContain("/lib/tm_kalenteri_ilmoitus.js");
   });
 });
@@ -194,7 +194,7 @@ describe('Pelaaja_v7 — kalenterin suodatus + ilmoituslista', () => {
 describe('Vanhempi_v2 — sama suodatus + ilmoituslista', () => {
   const V2 = lue('TalentMaster_Vanhempi_v2.html');
   it('lähde: lib ladataan, kalenterisuodatin käyttää tmEvPaattynyt:tä (ei `d < now`), SW cachettaa libin', () => {
-    expect(V2).toContain('lib/tm_kalenteri_ilmoitus.js?v=1');
+    expect(V2).toContain('lib/tm_kalenteri_ilmoitus.js?v=2');
     expect(pura(V2, 'async function _vanhLataaKalenteri(')).toMatch(/TM_KALENTERI_ILM \? window\.TM_KALENTERI_ILM\.tmEvPaattynyt\(ev, now\) : d < now/);
     expect(lue('sw_vanhempi.js')).toContain("/lib/tm_kalenteri_ilmoitus.js");
   });
@@ -218,4 +218,49 @@ describe('tm_lang: uudet avaimet fi + en + sv (Gemini-erä 8.10.2026)', () => {
     avaimet.forEach(([ns, k]) => { expect(LANG.TM_LANG.fi[ns][k], ns + k).toBeTruthy(); expect(LANG.TM_LANG.en[ns][k], ns + k).toBeTruthy(); expect((LANG.TM_LANG.sv[ns] || {})[k], ns + k).toBeTruthy(); });
   });
   it('ei odotuslistalla', () => { const l = require('./tm_lang_sv_odotuslista.cjs'); avaimet.forEach(([ns, k]) => expect(l).not.toContain(ns + '.' + k)); });
+});
+
+/* ── sv-läpiajo PR 2 / vaihtoehto A: rakenteinen ilmoitus → teksti kootaan clientissä t():llä; vanhat dokumentit (vain `teksti`) ennallaan ── */
+describe('tmIlmoitusRivi + rakenteinen `ilmoitus` (vaihtoehto A)', () => {
+  const NYT = [2026, 9, 5, 12, 0];
+  const rivi = (n, kieli = 'fi', tapahtumat = []) => { const L = lib(NYT); LANG.tmAsetaKieli(kieli, false); try { return L.K.tmIlmoitusRivi(n, tapahtumat, L.nyt, LANG.t); } finally { LANG.tmAsetaKieli('fi', false); } };
+  const muist = (lisa) => Object.assign({ tyyppi: 'muistutus', teksti: 'Huomenna: Harjoitus klo 18:00 · Kenttä', tapahtuma_alkaa: { toDate: () => new Date(2026, 9, 6, 18, 0) }, ilmoitus: { tyyppi: 'huomenna', nimi: 'Harjoitus', aika: '18:00', paikka: 'Kenttä' } }, lisa || {});
+
+  it('fi: koottu runko = CF:n entinen teksti (ilman "Huomenna: " -etuliitettä) — tavutarkasti', () => {
+    const r = rivi(muist(), 'fi');
+    expect(r.runko).toBe('Harjoitus klo 18:00 · Kenttä');
+    expect(r.paiva && r.paiva.tyyppi).toBe('huomenna');
+    expect(r.runko).toBe(String(muist().teksti).replace(/^Huomenna:\s*/, ''));
+  });
+  it('en: koottu englanniksi (klo → at); sv: sv-käännöksen puuttuessa en-fallback (ei suomea, ei avainta)', () => {
+    expect(rivi(muist(), 'en').runko).toBe('Harjoitus at 18:00 · Kenttä');
+    const sv = rivi(muist(), 'sv').runko;
+    expect(sv).not.toMatch(/\bklo\b/); expect(sv).not.toMatch(/yleiset\.ilm/);
+  });
+  it('peruttu + muutos: fi-parity teksti-kenttään; muutoksessa → aika ja paikka vain jos annettu', () => {
+    expect(rivi({ tyyppi: 'peruttu', teksti: 'Peruttu: Peli', ilmoitus: { tyyppi: 'peruttu', nimi: 'Peli', aika: '', paikka: '' } }).runko).toBe('Peruttu: Peli');
+    expect(rivi({ tyyppi: 'muutos', teksti: 'Muutos: Peli → klo 19:00 · B', ilmoitus: { tyyppi: 'muutos', nimi: 'Peli', aika: '19:00', paikka: 'B' } }).runko).toBe('Muutos: Peli → klo 19:00 · B');
+    expect(rivi({ tyyppi: 'muutos', teksti: 'Muutos: Peli · B', ilmoitus: { tyyppi: 'muutos', nimi: 'Peli', aika: '', paikka: 'B' } }).runko).toBe('Muutos: Peli · B');
+    expect(rivi({ tyyppi: 'muutos', teksti: 'Muutos: Peli → klo 19:00', ilmoitus: { tyyppi: 'muutos', nimi: 'Peli', aika: '19:00', paikka: '' } }, 'en').runko).toBe('Change: Peli → at 19:00');
+    expect(rivi({ tyyppi: 'peruttu', teksti: 'Peruttu: Peli', ilmoitus: { tyyppi: 'peruttu', nimi: 'Peli', aika: '', paikka: '' } }, 'en').runko).toBe('Cancelled: Peli');
+  });
+  it('nimi puuttuu → käännetty oletus ("tapahtuma"), ei kovakoodattua suomea', () => {
+    expect(rivi({ tyyppi: 'peruttu', teksti: 'Peruttu: tapahtuma', ilmoitus: { tyyppi: 'peruttu', nimi: '', aika: '', paikka: '' } }, 'fi').runko).toBe('Peruttu: tapahtuma');
+    expect(rivi({ tyyppi: 'peruttu', teksti: 'Peruttu: tapahtuma', ilmoitus: { tyyppi: 'peruttu', nimi: '', aika: '', paikka: '' } }, 'en').runko).toBe('Cancelled: event');
+  });
+  it('VANHA dokumentti (vain `teksti`, ei ilmoitus-kenttää) näytetään MUUTTUMATTOMANA — myös kun t on annettu', () => {
+    const vanha = { tyyppi: 'muistutus', teksti: 'Huomenna: Peli klo 18:00', tapahtuma_alkaa: { toDate: () => new Date(2026, 9, 6, 18, 0) } };
+    expect(rivi(vanha, 'fi').runko).toBe('Peli klo 18:00');
+    expect(rivi(vanha, 'en').runko).toBe('Peli klo 18:00');   // vanha teksti ei käänny (ei rakennetta) — tarkoituksella
+    expect(rivi({ tyyppi: 'muutos', teksti: 'Muutos: Peli → klo 19:00' }, 'en').runko).toBe('Muutos: Peli → klo 19:00');
+  });
+  it('ilman t-parametria (vanha kutsutapa) rakenne ohitetaan → teksti sellaisenaan', () => {
+    const L = lib(NYT);
+    expect(L.K.tmIlmoitusRivi(muist(), [], L.nyt).runko).toBe('Harjoitus klo 18:00 · Kenttä');
+  });
+  it('muistutus ilman johdettavaa päivää: paiva = huomenna (CF:n "Huomenna:" säilyy suhteellisena tekstinä)', () => {
+    const m = { tyyppi: 'muistutus', teksti: 'Huomenna: A', ilmoitus: { tyyppi: 'huomenna', nimi: 'A', aika: '', paikka: '' } };
+    expect(rivi(m).paiva).toEqual({ tyyppi: 'huomenna', pvmTxt: '' });
+    expect(rivi(m).runko).toBe('A');
+  });
 });

@@ -59,6 +59,13 @@ export function julistaaNimet(fn) {
 
 /* Varjostusvartija: reititinkutsu T('…')/t('…') jonka ympäröivä funktio (tai sen sisäkkäinen funktio) julistaa oman T/t-tunnisteen → kutsu osuisi paikalliseen muuttujaan
    (TypeError / ReferenceError TDZ). Palauttaa [{ rivi, nimi, funktio }]. Korjaus: käytä aliaksia _pT / _pt (määritelty reitittimen vieressä). */
+/* Allowlist (tools/i18n/sv_staattinen_sallitut.json): renderöijä tai teksti (loppu-* = etuliite) jota ei lasketa reitittämättömäksi käyttäjätekstiksi. */
+export function lataaSallitut() { return JSON.parse(readFileSync(new URL('./sv_staattinen_sallitut.json', import.meta.url), 'utf8')); }
+export function onSallittu(f, S) {
+  const r = f.renderoija || '';
+  if (S.renderoijat.some((x) => r === x || r.startsWith(x + ' '))) return true;
+  return S.tekstit.some((x) => f.teksti === x || (x.endsWith('*') && f.teksti.startsWith(x.slice(0, -1))));
+}
 export function varjostetutKutsut(src) {
   const ulos = [];
   const re = /<script(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/script>/gi; let m;
@@ -155,7 +162,8 @@ function arvioi(s, n, polku, off, ulos) {
 if (process.argv[1] && process.argv[1].endsWith('sv_staattinen.mjs')) {
   const tiedosto = process.argv[2];
   if (process.argv.includes('--varjostus')) { const v = varjostetutKutsut(readFileSync(tiedosto, 'utf8')); v.forEach((x) => console.log(x.rivi + '\t' + x.nimi + '\t' + x.funktio)); console.error(v.length + ' varjostettua reititinkutsua'); process.exit(v.length ? 1 : 0); } if (!tiedosto) { console.error('käyttö: node tools/i18n/sv_staattinen.mjs <tiedosto.html> [--json] [--ryhmat]'); process.exit(2); }
-  const { loydot, virheet } = skannaaHtml(readFileSync(tiedosto, 'utf8'), tiedosto);
+  let { loydot, virheet } = skannaaHtml(readFileSync(tiedosto, 'utf8'), tiedosto);
+  if (process.argv.includes('--sallitut')) { const S = lataaSallitut(); loydot = loydot.filter((f) => !onSallittu(f, S)); }
   if (process.argv.includes('--json')) console.log(JSON.stringify({ tiedosto, virheet, loydot }, null, 1));
   else if (process.argv.includes('--ryhmat')) {
     const g = {}; loydot.forEach((x) => { (g[x.renderoija] = g[x.renderoija] || []).push(x); });

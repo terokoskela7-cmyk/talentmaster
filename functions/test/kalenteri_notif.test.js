@@ -118,3 +118,39 @@ test('päivitys ei välitä aikaleimasta: set-payload on additiivinen — vanhat
   const d = c.store.get('muutos_e1');
   ['tyyppi', 'teksti', 'linkki', 'luotu', 'luettu'].forEach((k) => assert.ok(k in d, k));
 });
+
+/* ── sv-läpiajo PR 2 / vaihtoehto A: rakenteinen `ilmoitus` (tyyppi/nimi/aika/paikka) — clientit kokoavat tekstin omalla kielellään; `teksti` säilyy varakäyttöön ── */
+test('muistutus: rakenteinen ilmoitus {huomenna, nimi, aika, paikka}; teksti ennallaan', () => {
+  const p = muistutusPaatos({ nimi: 'Harjoitus', alkaa: ALKU1, paikka: 'Kenttä' });
+  assert.deepStrictEqual(p.ilmoitus, { tyyppi: 'huomenna', nimi: 'Harjoitus', aika: '18:00', paikka: 'Kenttä' });
+  assert.strictEqual(p.teksti, 'Huomenna: Harjoitus klo 18:00 · Kenttä');
+});
+
+test('muistutus ilman nimeä/aikaa/paikkaa: tyhjät merkkijonot (client käyttää käännettyä oletusta), ei sanaa "tapahtuma" rakenteessa', () => {
+  const p = muistutusPaatos({ alkaa: ts('2026-10-04T21:00:00Z') });   // 00:00 → kellonajaton
+  assert.deepStrictEqual(p.ilmoitus, { tyyppi: 'huomenna', nimi: '', aika: '', paikka: '' });
+  assert.strictEqual(p.teksti, 'Huomenna: tapahtuma');
+});
+
+test('peruttu + muutos: rakenne vain muuttuneista kentistä (muutos: aika ja/tai paikka)', () => {
+  const nyt = new Date('2026-10-05T08:00:00Z');
+  const peruttu = muutosPaatos({ nimi: 'Peli', alkaa: ALKU1 }, { nimi: 'Peli', alkaa: ALKU1, poistettu: true }, nyt);
+  assert.deepStrictEqual(peruttu.ilmoitus, { tyyppi: 'peruttu', nimi: 'Peli', aika: '', paikka: '' });
+  const aikaMuuttui = muutosPaatos({ nimi: 'Peli', alkaa: ALKU1, paikka: 'A' }, { nimi: 'Peli', alkaa: ALKU2, paikka: 'A' }, nyt);
+  assert.deepStrictEqual(aikaMuuttui.ilmoitus, { tyyppi: 'muutos', nimi: 'Peli', aika: '19:00', paikka: '' });
+  assert.strictEqual(aikaMuuttui.teksti, 'Muutos: Peli → klo 19:00');
+  const paikkaMuuttui = muutosPaatos({ nimi: 'Peli', alkaa: ALKU1, paikka: 'A' }, { nimi: 'Peli', alkaa: ALKU1, paikka: 'B' }, nyt);
+  assert.deepStrictEqual(paikkaMuuttui.ilmoitus, { tyyppi: 'muutos', nimi: 'Peli', aika: '', paikka: 'B' });
+  assert.strictEqual(paikkaMuuttui.teksti, 'Muutos: Peli · B');
+});
+
+test('kirjoitaNotif: dokumentti kantaa ilmoitus-objektin (rajattu) JA teksti-kentän; ilman rakennetta ei ilmoitus-kenttää (vanha muoto)', async () => {
+  const c = fakeCol();
+  await kirjoitaNotif(c, muistutusPaatos({ nimi: 'Peli', alkaa: ALKU1, paikka: 'X'.repeat(300) }), 'e1', c.fv);
+  const d = c.store.get('muistutus_e1');
+  assert.strictEqual(d.ilmoitus.tyyppi, 'huomenna'); assert.strictEqual(d.ilmoitus.nimi, 'Peli'); assert.strictEqual(d.ilmoitus.aika, '18:00');
+  assert.strictEqual(d.ilmoitus.paikka.length, 120);
+  assert.match(d.teksti, /^Huomenna: Peli klo 18:00/);
+  await kirjoitaNotif(c, { tyyppi: 'peruttu', teksti: 'Peruttu: Vanha', alkaa: null }, 'e2', c.fv);   // ilman rakennetta (vanha kutsu)
+  assert.strictEqual('ilmoitus' in c.store.get('peruttu_e2'), false);
+});
