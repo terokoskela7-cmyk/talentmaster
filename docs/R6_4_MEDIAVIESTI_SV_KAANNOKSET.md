@@ -109,4 +109,50 @@ Henkilökunnan tekstit (`mv_*`) kulkevat `masterT`/`vpT`-avaimina (fi-teksti = a
 | `mv_pohja_tulos_showcase_2` | Mikä oli vaihtoehtosi tässä? | _(sv — Gemini)_ |
 | `mv_pohja_tulos_showcase_3` | Mitä ottaisit tästä mukaan seuraavaan peliin? | _(sv — Gemini)_ |
 
-_PR 2 (Pelaaja_v7 + Vanhempi_v2) lisää pelaajan/huoltajan avaimensa tähän tiedostoon._
+## PR 2 · pelaaja ja perhe (`lib/tm_klippi_perhe.js`, Pelaaja_v7 + Vanhempi_v2)
+
+Pelaajan ja huoltajan näkymän tekstit. Tyyppinimet (Onnistuminen · Katsotaan yhdessä · Tilanne) ja linkkitekstit käyttävät jo yllä olevia `mv_*`-avaimia (`mv_pelaajanimi_*`, `mv_ulos`, `mv_uuteen`).
+**Huom. vastausvaihtoehdot** (`kp_valinta_leikkija_*` U8–12, `kp_valinta_rakentaja_*` U13–14): suomenkieliset lauseet on otettu designista 19 §3; sv-käännöksen on oltava samanmuotoinen lyhyt ensimmäisen persoonan lause (lapsen oma ääni). Valittu teksti tallentuu viestiin sillä kielellä, jolla sovellusta käytetään.
+Pelaajalle ei lukuja eikä vertailua (§7.22).
+
+| avain | fi | sv |
+|---|---|---|
+| `kp_otsikko` | Valmentajalta klippi | _(sv — Gemini)_ |
+| `kp_perhe_otsikko` | Katsokaa yhdessä | _(sv — Gemini)_ |
+| `kp_perhe_ohje` | Valmentaja lähetti {nimi} klipin | _(sv — Gemini)_ |
+| `kp_luku_otsikko` | Valmentajalta klippi · keskustelu | _(sv — Gemini)_ |
+| `kp_valmentaja` | Valmentaja | _(sv — Gemini)_ |
+| `kp_lapsi_valitsee` | {nimi} valitsee itse: | _(sv — Gemini)_ |
+| `kp_valitse` | Valitse vastaus | _(sv — Gemini)_ |
+| `kp_omin_sanoin` | Sanoisitko omin sanoin? | _(sv — Gemini)_ |
+| `kp_lause_ohje` | Kirjoita yksi lause | _(sv — Gemini)_ |
+| `kp_lause_kentta` | Sinun vastauksesi | _(sv — Gemini)_ |
+| `kp_laheta` | Lähetä | _(sv — Gemini)_ |
+| `kp_laheta_valmentajalle` | Lähetä valmentajalle | _(sv — Gemini)_ |
+| `kp_katsoimme` | Katsoimme yhdessä | _(sv — Gemini)_ |
+| `kp_katsoimme_ohje` | huoltaja kuittaa | _(sv — Gemini)_ |
+| `kp_lahetetaan` | Lähetetään… | _(sv — Gemini)_ |
+| `kp_huoltaja_nakee` | Huoltaja näkee tämän keskustelun. | _(sv — Gemini)_ |
+| `kp_vastasit` | Vastasit | _(sv — Gemini)_ |
+| `kp_vastattu` | Vastaus lähetetty | _(sv — Gemini)_ |
+| `kp_valmentaja_lukenut` | valmentaja lukenut | _(sv — Gemini)_ |
+| `kp_perhe_kuittasi` | Kuittasit: katsoimme yhdessä | _(sv — Gemini)_ |
+| `kp_kuittaus` | Kuittaus | _(sv — Gemini)_ |
+| `kp_ei_vastausta_lukutila` | Ei vastausta vielä. | _(sv — Gemini)_ |
+| `kp_lukutila_ohje` | Näet lapsesi ja valmentajan keskustelun. | _(sv — Gemini)_ |
+| `kp_lapsi_vastasi` | Lapsi vastasi | _(sv — Gemini)_ |
+| `kp_avaa` | Avaa | _(sv — Gemini)_ |
+| `kp_suljettu` | Suljettu | _(sv — Gemini)_ |
+| `kp_muut` | Muut klipit | _(sv — Gemini)_ |
+| `kp_virhe_tyhja` | Valitse vastaus tai kirjoita lause. | _(sv — Gemini)_ |
+| `kp_virhe_pitka` | Vastaus on liian pitkä (enintään 200 merkkiä). | _(sv — Gemini)_ |
+| `kp_virhe_valinta` | Valitse jokin vaihtoehdoista. | _(sv — Gemini)_ |
+| `kp_virhe_ketju` | Klippiä ei löytynyt. | _(sv — Gemini)_ |
+| `kp_virhe_lahetys` | Vastaus ei lähtenyt | _(sv — Gemini)_ |
+| `kp_valinta_leikkija_1` | Katsoin ylös | _(sv — Gemini)_ |
+| `kp_valinta_leikkija_2` | Juoksin tilaan | _(sv — Gemini)_ |
+| `kp_valinta_leikkija_3` | En tiedä | _(sv — Gemini)_ |
+| `kp_valinta_rakentaja_1` | Näin puolustajan | _(sv — Gemini)_ |
+| `kp_valinta_rakentaja_2` | Arvasin | _(sv — Gemini)_ |
+| `kp_valinta_rakentaja_3` | En muista | _(sv — Gemini)_ |
+

@@ -10,7 +10,7 @@
    - Omat staattiset assetit (manifest, ikonit) + versioidut fontit/SDK → cache-first.
    - KAIKKI muu (toisten appien sivut, raw.githubusercontent, jne.) → suoraan verkkoon, EI cachea.
    Scopea ei voi kaventaa (SW juuressa) → allowlist hoitaa rajaamisen. CLAUDE.md §27.4. */
-const CACHE = 'tm-vanhempi-v51';   // D54: tm_kentta.js v3 (ei 'ase' käyttäjälle) — v50 =   // K0 (D11): tm_kentta.js + Archivo-fontti allowlistiin — v49 =   // V2 P0.4 PR1: tm_kalenteri_ilmoitus.js + tm_lang v32 (ilm_tanaan/huomenna) — edellinen v48 = tm_lang v31 (V2 P0.6 -avaimet) — v47 = tm_ennatykset v6 (TK-siemen molemmat avainmuodot) — v46 = Design V2 T1: tekstikontrasti (teal-teksti → --teal-d, oma HTML) — v45 = TK min n 8→5
+const CACHE = 'tm-vanhempi-v52';   // R6.4 PR 2: tm_mediaviesti.js + tm_klippi_perhe.js allowlistiin — edellinen v51 = D54: tm_kentta.js v3 (ei 'ase' käyttäjälle) — v50 =   // K0 (D11): tm_kentta.js + Archivo-fontti allowlistiin — v49 =   // V2 P0.4 PR1: tm_kalenteri_ilmoitus.js + tm_lang v32 (ilm_tanaan/huomenna) — edellinen v48 = tm_lang v31 (V2 P0.6 -avaimet) — v47 = tm_ennatykset v6 (TK-siemen molemmat avainmuodot) — v46 = Design V2 T1: tekstikontrasti (teal-teksti → --teal-d, oma HTML) — v45 = TK min n 8→5
 const SHELL = './TalentMaster_Vanhempi_v2.html';
 const PRECACHE = [SHELL];
 
@@ -60,6 +60,8 @@ function onAllowlist(url) {
   if (url.indexOf('/lib/tm_appcheck.js') !== -1) return true;   // V2 App Check — site key + aktivointi
   if (url.indexOf('/lib/tm_verkko.js') !== -1) return true;   // verkkokatkon käsittely kirjautumisessa
   if (url.indexOf('/lib/tm_pvm.js') !== -1) return true;   // tmPaivaIso: kirjaukset/{pvm} paikallisena (offline-avaus ei saa kaatua ReferenceErroriin)
+  if (url.indexOf('/lib/tm_mediaviesti.js') !== -1) return true;   // R6.4 PR 2: klippiketjun linkki + tyyppinimet
+  if (url.indexOf('/lib/tm_klippi_perhe.js') !== -1) return true;   // R6.4 PR 2: Valmentajalta klippi / Katsokaa yhdessä
   if (url.indexOf('/lib/tm_kentta.js') !== -1) return true;   // K0: Kenttä-komponentti
   if (url.indexOf('/assets/fonts/archivo-latin-wdth-normal.woff2') !== -1) return true;   // D11: Archivo omalta palvelimelta (ei Google Fonts)
   // HUOM: reCAPTCHA Enterprise (www.google.com/recaptcha/, gstatic.com/recaptcha/) EI ole

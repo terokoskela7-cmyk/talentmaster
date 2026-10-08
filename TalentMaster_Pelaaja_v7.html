@@ -551,6 +551,8 @@ input::placeholder,textarea::placeholder{color:#8C8B86;opacity:1}
 <script src="lib/tm_joukkuejakso.js?v=3"></script>   <!-- K1: tmJoukkuejaksoViikko (pelaajan snapshotista) -->
 <script src="lib/tm_taman_tueksi.js?v=2"></script>   <!-- K1: Tämän tueksi + Joukkueen jakso -->
 <script src="lib/tm_tanaan_kentta.js?v=2"></script>   <!-- K1: rA1Kentta-lohkot (tila, osat, päivän treeni, kuittaus) -->
+<script src="lib/tm_mediaviesti.js?v=2"></script>   <!-- R6.4: linkin tunnistus + tyyppinimet (pelaajan klippi-ketju) -->
+<script src="lib/tm_klippi_perhe.js?v=1"></script>   <!-- R6.4 PR 2: Valmentajalta klippi (Tänään) -->
 <script src="lib/tm_viikkokatsaus.js?v=2"></script>   <!-- K4: viikkokatsaus + jakson päätöskortti (Kenttä-lipun takana) -->
 <script src="lib/tm_reitin_valinta.js?v=3"></script>   <!-- K3: pelaaja valitsee seuraavan reitin + sitoumus Tänään-sivulla (Kenttä-lipun takana) -->
 <script src="lib/tm_kotiharjoitteet.js?v=1"></script>   <!-- B 3/3: jakson kotiharjoitteet (jaksofokus.tukiosa.harjoitteet snapshot) + seuran nimi lähdemerkintänä -->   <!-- K0: Kenttä-komponentti (ei vielä käytössä näkymissä) -->
@@ -1371,6 +1373,56 @@ async function _p7VkTallenna() {
   }
   V.tallentaa = false; _p7VkPiirra();
 }
+/* ═══ R6.4 Mediaviesti PR 2 — "Valmentajalta klippi" (Tänään; docs/CODE_BRIEF_R6_4_MEDIAVIESTI.md #11, #13; D57, D59, D62). Logiikka + HTML lib/tm_klippi_perhe.js; tässä luku + kirjoitus.
+   U13–14: 3 vaihtoehtoa + "omin sanoin" · U15+: yksi lause · U≤12: huoltaja vastaa Vanhempi_v2:ssa (ei korttia täällä). Ei lukuja, ei muiden vastauksia (§7.22); kysely = vain OMAT viestit (pelaajaId + nakyvyys 'pelaaja'). ═══ */
+window._p7Kp = window._p7Kp || { ladattu: 0, ketjut: null, valittu: null, valinta: '', teksti: '', tallentaa: false };
+function _p7KpIka() { return (_pelaaja && _pelaaja.syntymaVuosi) ? (new Date().getFullYear() - _pelaaja.syntymaVuosi) : null; }
+function _p7KpTaso() { const L = window.TM_KLIPPI_PERHE; if (!L || !_pelaaja) return null; const t = L.kpTaso(_p7KpIka()); return t === 'perhe' ? null : t; }
+function _p7KpO() { const ika = _p7KpIka(); return { esc: _thEsc, t: _p7K1T, tila: _p7KpTaso(), nimi: _pelaaja && _pelaaja.etunimi, huoltajaNakee: ika == null || ika <= 17, valitseFn: '_p7KpValitse', tekstiFn: '_p7KpTeksti', lahetaFn: '_p7KpLaheta', avaaFn: '_p7KpAvaa' }; }
+async function _p7KpLataa(pakota) {
+  const P = window._p7Kp, nyt = Date.now(); if (_isDemoUser || !_pelaaja || !_pelaaja.id || !window._db || !_p7KpTaso()) return;
+  if (!pakota && P.ketjut && nyt - P.ladattu < 180000) return; P.ladattu = nyt;   // tuore alle 3 min → ei uutta lukua
+  const sid = window._seuraId || _pelaaja.seuraId; if (!sid) return;
+  try {
+    const snap = await window._db.collection('seurat').doc(sid).collection('viestit').where('pelaajaId', '==', _pelaaja.id).where('nakyvyys', '==', 'pelaaja').get();   // Rules v3.39: pelaaja lukee vain nakyvyys 'pelaaja' + oma pelaajaId
+    P.ketjut = window.TM_KLIPPI_PERHE.kpKetjut(snap.docs.map(d => Object.assign({ id: d.id }, d.data())), { nyt: new Date(), pelaajaId: _pelaaja.id });
+  } catch (e) { console.warn('[R6.4] klippien luku:', e && (e.code || e.message)); if (!P.ketjut) P.ketjut = []; }   // virhe → korttia ei näytetä (ei rikkinäistä ruutua)
+  _p7KpPiirra();
+}
+function _p7KpHTML() {
+  const L = window.TM_KLIPPI_PERHE, P = window._p7Kp; if (!L || !_p7KpTaso()) return '';
+  _p7KpLataa(false);
+  return '<div id="p7KpKortti">' + _p7KpSisalto() + '</div>';
+}
+function _p7KpSisalto() {
+  const L = window.TM_KLIPPI_PERHE, P = window._p7Kp; if (!L || !P.ketjut) return '';
+  const nak = L.kpNakyvat(P.ketjut, { nyt: new Date() }); if (!nak.length) return '';
+  return L.kpKorttiHTML(nak, P.valittu, P, _p7KpO());
+}
+function _p7KpPiirra() { const el = document.getElementById('p7KpKortti'); if (el) el.innerHTML = _p7KpSisalto(); }
+function _p7KpValitse(avain) { const P = window._p7Kp; if (P.tallentaa) return; P.valinta = P.valinta === avain ? '' : avain; _p7KpPiirra(); }
+function _p7KpTeksti(v) { const P = window._p7Kp; P.teksti = String(v || ''); const b = document.querySelector('#p7KpKortti [data-kp-laheta]'); if (b && !P.tallentaa) b.disabled = !(P.valinta || P.teksti.trim()); }
+function _p7KpAvaa(id) { const P = window._p7Kp; if (P.tallentaa) return; P.valittu = id; P.valinta = ''; P.teksti = ''; _p7KpPiirra(); }
+async function _p7KpLaheta() {
+  const P = window._p7Kp, L = window.TM_KLIPPI_PERHE; if (!L || P.tallentaa || !_pelaaja || !P.ketjut) return;
+  const nak = L.kpNakyvat(P.ketjut, { nyt: new Date() }), k = nak.filter(x => x.id === P.valittu)[0] || nak[0]; if (!k || k.vastaus) return;
+  const u = window._auth && window._auth.currentUser, x = L.kpVastausDokumentit(k, { valinta: P.valinta, teksti: P.teksti }, { pelaajaId: _pelaaja.id, uid: u && u.uid, rooli: 'pelaaja', nimi: _pelaaja.etunimi || '', taso: _p7KpTaso(), t: _p7K1T });
+  if (!x.ok) { _naytaKirjausVirhe(_p7K1T(x.syy === 'tyhja' ? 'kp_virhe_tyhja' : x.syy === 'pitka' ? 'kp_virhe_pitka' : 'kp_virhe_valinta')); return; }   // validointi ENNEN kirjoitusta
+  P.tallentaa = true; _p7KpPiirra();
+  const sid = window._seuraId || _pelaaja.seuraId;
+  try {
+    if (!_p7Verkossa()) throw _p7EiYhteyttaVirhe();
+    try { if (u) await u.getIdToken(true); } catch (_) { /* ei estä kirjausta */ }
+    const col = window._db.collection('seurat').doc(sid).collection('viestit'), ts = firebase.firestore.FieldValue.serverTimestamp(), b = window._db.batch();
+    x.dokit.forEach(d => b.set(col.doc(), Object.assign({}, d, { aika: ts })));
+    await _p7Aikaraja(b.commit());
+    k.vastaus = { valinta: x.dokit[0].valinta || '', teksti: x.dokit[0].teksti || '', aika: Date.now(), luettu: false }; P.valinta = ''; P.teksti = '';   // paikallinen tila heti; seuraava luku korjaa
+  } catch (e) {
+    console.warn('[R6.4] klippivastaus:', e && (e.code || e.message));
+    _naytaKirjausVirhe(_p7KirjausVirheTeksti(e));   // älä niele: toimintaohje-toast; kenttien sisältö säilyy
+  }
+  P.tallentaa = false; _p7KpPiirra();
+}
 function rA1Kentta() {
   const K = window.TM_TANAAN_KENTTA, TU = window.TM_TAMAN_TUEKSI;
   if (!K || !TU || !_pelaaja) return rA1();   // libit puuttuvat (esim. välimuisti) → vanha näkymä, ei tyhjää ruutua
@@ -1394,6 +1446,7 @@ function rA1Kentta() {
   <style>${(typeof window.tmKenttaCss === 'function') ? window.tmKenttaCss() : ''}</style>
   ${_p7VkHTML(x, jf, tanaan, o)}
   ${_p7K3SitoumusHTML(tanaan)}
+  ${_p7KpHTML()}
   ${K.tmTanaanKenttaHTML(x, Object.assign({ kentta: kentta }, o))}
   ${jakso ? TU.tmTamanTueksiHTML(TU.tmTamanTueksiRivit(jf), o) : ''}
   ${jakso ? TU.tmJoukkueenJaksoRiviHTML(jf && jf.joukkuejakso_viite, tanaan, o) : ''}

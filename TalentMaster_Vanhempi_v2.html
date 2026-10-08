@@ -137,6 +137,8 @@ body.demo-mode #devChrome{display:block}
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-functions-compat.js"></script>
 <script src="lib/tm_pvm.js?v=3"></script>   <!-- tmPaivaIso: paikallinen päivä tallennuksiin (ei UTC) -->
 <script src="lib/tm_kentta.js?v=3"></script>   <!-- K0: Kenttä-komponentti (ei vielä käytössä näkymissä) -->
+<script src="lib/tm_mediaviesti.js?v=2"></script>   <!-- R6.4: linkin tunnistus + tyyppinimet -->
+<script src="lib/tm_klippi_perhe.js?v=1"></script>   <!-- R6.4 PR 2: Katsokaa yhdessä / keskustelu -->
 <script src="lib/tm_appcheck.js?v=2"></script>
 <script src="lib/tm_verkko.js?v=1"></script>   <!-- verkkokatko: 1 uudelleenyritys + Yhteyskatko-ilmoitus + Sentry warning -->
 <script src="lib/tm_lang.js?v=32"></script>   <!-- i18n V0 putki · V1-B/B2: +vanhempi./nav.-avaimet + kielivalitsin + syväsisältö (nimen taivutus poistettu) -->
@@ -676,6 +678,8 @@ function rKoti(){
   </div>
 
   ${_renderLiveFeed()}
+
+  ${_vKpHTML()}
 
   <!-- Hero (tarina, ei dataa) -->
   <div class="card-teal" style="padding:18px 18px 20px;margin:14px 0">
@@ -1887,6 +1891,53 @@ async function _lahetaKehu(emoji, teksti) {
     console.warn('[lahetaKehu]', e.message);
     _toast(t('vanhempi.toast_kehu_virhe'));
   }
+}
+
+/* ═══ R6.4 Mediaviesti PR 2 — "Katsokaa yhdessä" (U8–12) + keskustelu lukutilassa (U13+) (docs/CODE_BRIEF_R6_4_MEDIAVIESTI.md #12; D57, D59). Logiikka + HTML lib/tm_klippi_perhe.js; tässä luku + kirjoitus.
+   Huoltaja lukee lapsen klipit (nakyvyys 'pelaaja' | 'huoltaja'; Rules v3.50: vaatii lapsen suostumuksen 'annettu'). U8–12: lapsi valitsee 3 vaihtoehdosta, huoltaja kuittaa "Katsoimme yhdessä" ja lähettää valmentajalle. Ei lukuja (§7.22). ═══ */
+window._vKp = window._vKp || { ladattu: 0, lapsi: null, ketjut: null, valittu: null, valinta: '', kuittaa: false, tallentaa: false };
+function _vKpO() { const L = window._lapsi || {}; return { esc: _vEsc, t: _vKpT, tila: 'huoltaja', nimi: L.etunimi || '', valitseFn: '_vKpValitse', kuittaaFn: '_vKpKuittaa', lahetaFn: '_vKpLaheta', avaaFn: '_vKpAvaa' }; }
+function _vKpT(k) { const v = t(k); return (v === k) ? k : v; }   // puuttuva tm_lang-avain → avain → libin fi-oletus
+function _vEsc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+async function _vKpLataa(pakota) {
+  const P = window._vKp, L = window._lapsi, nyt = Date.now(); if (!window.TM_KLIPPI_PERHE || !_db || !L || !L.seuraId || !L.id || !(_auth && _auth.currentUser)) return;
+  if (P.lapsi !== L.id) { P.lapsi = L.id; P.ketjut = null; P.valittu = null; P.valinta = ''; P.kuittaa = false; }   // lapsi vaihtui → tyhjennä
+  if (!pakota && P.ketjut && nyt - P.ladattu < 180000) return; P.ladattu = nyt;
+  try {
+    const col = _db.collection('seurat').doc(L.seuraId).collection('viestit'), kysy = n => col.where('pelaajaId', '==', L.id).where('nakyvyys', '==', n).get();   // kaksi yhtäsuuruuskyselyä (Rules todistaa kummankin), yhdistetään id:llä
+    const [a, b] = await Promise.all([kysy('pelaaja'), kysy('huoltaja')]), kartta = new Map();
+    a.docs.concat(b.docs).forEach(d => kartta.set(d.id, Object.assign({ id: d.id }, d.data())));
+    P.ketjut = window.TM_KLIPPI_PERHE.kpKetjut(Array.from(kartta.values()), { nyt: new Date(), pelaajaId: L.id });
+  } catch (e) { console.warn('[R6.4] klippien luku:', e && (e.code || e.message)); if (!P.ketjut) P.ketjut = []; }   // esim. suostumus ei vielä annettu (Rules) → korttia ei näytetä
+  _vKpPiirra();
+}
+function _vKpHTML() { if (!window.TM_KLIPPI_PERHE || !window._lapsi) return ''; _vKpLataa(false); return '<div id="vKpKortti">' + _vKpSisalto() + '</div>'; }
+function _vKpSisalto() {
+  const L = window.TM_KLIPPI_PERHE, P = window._vKp; if (!L || !P.ketjut) return '';
+  const nak = L.kpNakyvat(P.ketjut, { nyt: new Date() }); if (!nak.length) return '';
+  return L.kpKorttiHTML(nak, P.valittu, P, _vKpO()).replace('margin:12px 20px', 'margin:12px 0');
+}
+function _vKpPiirra() { const el = document.getElementById('vKpKortti'); if (el) el.innerHTML = _vKpSisalto(); }
+function _vKpValitse(avain) { const P = window._vKp; if (P.tallentaa) return; P.valinta = P.valinta === avain ? '' : avain; _vKpPiirra(); }
+function _vKpKuittaa(on) { window._vKp.kuittaa = !!on; }
+function _vKpAvaa(id) { const P = window._vKp; if (P.tallentaa) return; P.valittu = id; P.valinta = ''; P.kuittaa = false; _vKpPiirra(); }
+async function _vKpLaheta() {
+  const P = window._vKp, L = window._lapsi, K = window.TM_KLIPPI_PERHE; if (!K || P.tallentaa || !L || !P.ketjut) return;
+  const nak = K.kpNakyvat(P.ketjut, { nyt: new Date() }), k = nak.filter(x => x.id === P.valittu)[0] || nak[0]; if (!k || k.vastaus || k.nakyvyys !== 'huoltaja') return;   // vain U8–12-klippeihin vastataan perheen kautta
+  const u = _auth.currentUser, x = K.kpVastausDokumentit(k, { valinta: P.valinta, kuittaa: P.kuittaa }, { pelaajaId: L.id, uid: u && u.uid, rooli: 'huoltaja', nimi: '', taso: 'perhe', t: _vKpT });
+  if (!x.ok) { _toast(K.kpVirhe(x.syy, { t: _vKpT })); return; }   // validointi ENNEN kirjoitusta
+  P.tallentaa = true; _vKpPiirra();
+  try {
+    try { await u.getIdToken(true); } catch (_) { /* ei estä kirjausta */ }
+    const col = _db.collection('seurat').doc(L.seuraId).collection('viestit'), ts = firebase.firestore.FieldValue.serverTimestamp(), b = _db.batch();
+    x.dokit.forEach(d => b.set(col.doc(), Object.assign({}, d, { aika: ts })));
+    await b.commit();
+    k.vastaus = { valinta: x.dokit[0].valinta || '', teksti: '', aika: Date.now(), luettu: false }; k.perheKuittasi = x.dokit.length > 1; P.valinta = ''; P.kuittaa = false;
+  } catch (e) {
+    console.warn('[R6.4] klippivastaus:', e && (e.code || e.message));
+    _toast(K.kpVirhe('lahetys', { t: _vKpT }) + (e && e.code ? ' (' + e.code + ')' : ''));   // älä niele: näkyvä virhe; valinta säilyy
+  }
+  P.tallentaa = false; _vKpPiirra();
 }
 
 /* ── Tarina-generaattori — muuntaa kirjauksen kertomukseksi ── */

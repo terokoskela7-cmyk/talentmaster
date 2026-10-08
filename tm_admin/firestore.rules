@@ -1,9 +1,14 @@
 rules_version = '2';
 // ══════════════════════════════════════════════════════════════════════════
-// TalentMaster™ — firestore.rules v3.50
+// TalentMaster™ — firestore.rules v3.51
 //
 // Lähde:  tm_admin/firestore.rules
 // Deploy: PR → N4-CI deployaa automaattisesti (Console-käsityö poistui).
+//
+// Muutokset v3.50 → v3.51 (R6.4 PR 2 — 9.10.2026 — KOVENNUS, ei migraatiota):
+//   · viestit-luku, huoltajan haara: suostumusTila == 'annettu' vaaditaan KAIKILTA huoltajan luvuilta (ei vain tyyppi 'klippi'). Aiempi `tyyppi != 'klippi' || suostumus` ei suojannut KYSELYÄ: emulaattori arvioi
+//     rajaamattoman `resource.data.get('tyyppi','')` oletusarvona '' → `list`-kysely pelaajaId+nakyvyys palautti klipit ilman suostumusta (getDoc kyllä esti). Huoltajan sovellus ei lue viestit-kokoelmaa muuhun (Vanhempi_v2 lukee vasta R6.4 PR 2:ssa).
+//   · Pelaajan klippivastauksen pelaajaId == klipin pelaajaId oli jo v3.50:ssä (klippiVastausKelpaa) — nyt nimetty testi.
 //
 // Muutokset v3.49 → v3.50 (R6.4 Mediaviesti M1, D55–D64 — 8.10.2026 — additiivinen, §11; ei migraatiota; uusi tyyppi samassa viestit-kokoelmassa):
 //   · viestit tyyppi 'klippi' (henkilökunta luo): url https:// ≤500, domain, mediatyyppi video|kuva|linkki, klippityyppi onnistui|prosessi|tulos, kysymys 1–160, saate ≤120, nakyvyys pelaaja|huoltaja, pelaajaId, vastaanottajaUid, klippi_id, nakyva_alkaen (timestamp), tila 'lahetetty', kohta_s/osa/tukitavoite_id/kysymys_avain valinnaisia.
@@ -1993,8 +1998,7 @@ service cloud.firestore {
                           && onPelaajaItse(seuraId, resource.data.get('pelaajaId', '')))
                       || (resource.data.get('nakyvyys', '') in ['pelaaja', 'huoltaja'] && resource.data.get('pelaajaId', '') is string
                           && onLapsenHuoltaja(seuraId, resource.data.get('pelaajaId', ''))
-                          && (resource.data.get('tyyppi', '') != 'klippi'   // v3.50 (D58): huoltajan luku klippiin vaatii pelaajan suostumuksen
-                              || pelaajaData(seuraId, resource.data.get('pelaajaId', '')).get('suostumusTila', '') == 'annettu'));
+                          && pelaajaData(seuraId, resource.data.get('pelaajaId', '')).get('suostumusTila', '') == 'annettu');   // v3.51 (D58): huoltajan luku vaatii pelaajan suostumuksen — KAIKKI viestit (kyselyssä tyyppiä ei voi rajata → ehto ei saa riippua siitä)
         allow create: if ((onSuperAdmin()
                       || (onOmaSeura(seuraId)
                           && onKirjautunut()
