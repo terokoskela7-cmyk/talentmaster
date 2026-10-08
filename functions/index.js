@@ -2471,6 +2471,14 @@ exports.luoSuostumusKortit = functions
   .region('europe-west1')
   .runWith({ enforceAppCheck: true, timeoutSeconds: 120 })
   .https.onCall(suostumuskortit.luoKasittelija(pinDeps));
+/* S1.1 Käyttöaste — huoltajan käynnin aikaleima (functions/huoltajakaynti.js): Vanhempi_v2 kutsuu kerran päivässä, kun huoltaja on kirjautunut sähköpostilla ja lapsi valittu.
+   Kirjoittaa pelaajadokumenttiin `huoltajaViimeisinKaynti` ('YYYY-MM-DD'); client ei voi (Rules v3.54). */
+const huoltajakaynti = require('./huoltajakaynti');
+exports.kirjaaHuoltajaKaynti = functions
+  .region('europe-west1')
+  .runWith({ enforceAppCheck: true })
+  .https.onCall(huoltajakaynti.luoKasittelija({ db, HttpsError: functions.https.HttpsError }));
+
 /* Rules v3.33 (2.10.2026) — huoltajaEmail vain palvelimella (functions/huoltajaemail.js). */
 exports.asetaHuoltajaEmail = functions
   .region('europe-west1')
@@ -2502,5 +2510,5 @@ exports.laskeSeuranKoosteMa = functions
   .onRun(seuranKooste.ajastettuKasittelija(_koosteDeps, 'maanantai'));
 exports.paivitaSeuranKooste = functions
   .region('europe-west1')
-  .runWith({ enforceAppCheck: true, timeoutSeconds: 120, memory: '512MB' })
+  .runWith({ enforceAppCheck: true, timeoutSeconds: 300, memory: '512MB' })   // S1.1: + käyttöasteen lähdekyselyt (2/pelaaja + kalenteri)
   .https.onCall(seuranKooste.paivitaKasittelija(_koosteDeps));

@@ -5061,3 +5061,50 @@ describe('v3.50 · viestit: klippi / klippi_vastaus / klippi_kuittaus', () => {
     expect((await assertSucceeds(getDoc(v(dbPel(), 'lk1')))).data().luettu).toBe(true);
   });
 });
+
+// ═══════════════════════════════════════════════════════════════════════════
+// v3.54 — S1.1 Käyttöaste: viimeisinKirjautuminen / huoltajaViimeisinKaynti vain palvelimella
+// ═══════════════════════════════════════════════════════════════════════════
+describe('v3.54 · käyttöaste-aikaleimat pelaajadokumentissa vain palvelimella', () => {
+  beforeEach(async () => { await seedAdminDoc(); await seedSeuraAndPelaaja(); });
+  const pel = (ctx, id = PELAAJA_UID) => doc(ctx.firestore(), 'seurat', SEURA_A, 'pelaajat', id);
+  const KENTAT = [{ viimeisinKirjautuminen: '2026-10-12' }, { huoltajaViimeisinKaynti: '2026-10-12' }];
+
+  it('kukaan client ei aseta kenttiä: VP, SA, joukkueen valmentaja, pelaaja itse, huoltaja', async () => {
+    for (const ctx of [vpContext(SEURA_A), saContext(), valmentajaContext(VALM_A_UID, SEURA_A), pelaajaItseContext(), huoltajaContext()]) {
+      for (const k of KENTAT) {
+        await assertFails(updateDoc(pel(ctx), k));
+        await assertFails(setDoc(pel(ctx), k, { merge: true }));
+      }
+    }
+  });
+  it('olemassa olevaa arvoa ei voi muuttaa eikä poistaa (myöskään täydellä set-korvauksella)', async () => {
+    await testEnv.withSecurityRulesDisabled(async (ctx) => { await updateDoc(pel(ctx), { viimeisinKirjautuminen: '2026-10-10', huoltajaViimeisinKaynti: '2026-10-09' }); });
+    const vp = vpContext(SEURA_A);
+    await assertFails(updateDoc(pel(vp), { viimeisinKirjautuminen: '2026-10-12' }));
+    await assertFails(updateDoc(pel(vp), { huoltajaViimeisinKaynti: deleteField() }));
+    await assertFails(updateDoc(pel(saContext()), { viimeisinKirjautuminen: deleteField() }));
+    await assertFails(setDoc(pel(vp), { etunimi: 'Korvattu', joukkueet: [JOUKKUE_A1] }));   // korvaus pudottaisi kentät
+  });
+  it('muut kentät päivittyvät edelleen, myös kun aikaleimat ovat dokumentissa muuttumattomina', async () => {
+    await testEnv.withSecurityRulesDisabled(async (ctx) => { await updateDoc(pel(ctx), { viimeisinKirjautuminen: '2026-10-10' }); });
+    await assertSucceeds(updateDoc(pel(vpContext(SEURA_A)), { etunimi: 'Uusi' }));
+    await assertSucceeds(setDoc(pel(vpContext(SEURA_A)), { etunimi: 'Uusi2' }, { merge: true }));
+    await assertSucceeds(updateDoc(pel(pelaajaItseContext()), { xp: 5, streak: 2, streak_paivitetty: '2026-10-12' }));   // pelaajan oma pelillistys ennallaan
+  });
+  it('luonti: kentät kiellettyjä (VP ja SA); ilman kenttiä sallittu', async () => {
+    const uusi = (ctx, id) => doc(ctx.firestore(), 'seurat', SEURA_A, 'pelaajat', id);
+    const pohja = { etunimi: 'U', sukunimi: 'P', joukkueet: [JOUKKUE_A1] };
+    await assertSucceeds(setDoc(uusi(vpContext(SEURA_A), 'k1'), pohja));
+    await assertFails(setDoc(uusi(vpContext(SEURA_A), 'k2'), { ...pohja, viimeisinKirjautuminen: '2026-10-12' }));
+    await assertFails(setDoc(uusi(saContext(), 'k3'), { ...pohja, huoltajaViimeisinKaynti: '2026-10-12' }));
+  });
+  it('koosteet: pelaaja ja huoltaja eivät lue käyttöastelukuja (kooste, kooste_joukkue); johto lukee', async () => {
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), 'seurat', SEURA_A, 'kooste', '2026-W42'), { vk: '2026-W42', versio: 2, joukkueet: { [JOUKKUE_A1]: { n_aktiivinen_30: 3 } } });
+    });
+    const k = (ctx) => doc(ctx.firestore(), 'seurat', SEURA_A, 'kooste', '2026-W42');
+    await assertFails(getDoc(k(pelaajaItseContext()))); await assertFails(getDoc(k(huoltajaContext())));
+    await assertSucceeds(getDoc(k(vpContext(SEURA_A))));
+  });
+});
