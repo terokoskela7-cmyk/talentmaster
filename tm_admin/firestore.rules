@@ -1,9 +1,16 @@
 rules_version = '2';
 // ══════════════════════════════════════════════════════════════════════════
-// TalentMaster™ — firestore.rules v3.54
+// TalentMaster™ — firestore.rules v3.55
 //
 // Lähde:  tm_admin/firestore.rules
 // Deploy: PR → N4-CI deployaa automaattisesti (Console-käsityö poistui).
+//
+// Muutokset v3.54 → v3.55 (B4 pelaajan ja huoltajan kalenteri palvelimelta — KOVENNUS + huoltajan RSVP-korjaus; ei migraatiota):
+//   · seurat/{sid}/kalenteri/{id}.read: `onPelaajanSeura` POISTETTU. Pelaaja ja huoltaja saavat kalenterin vain callablesta `haePelaajanKalenteri` (rajattu: oma joukkue §7.18/ryhmä/pelaajat_id, nakyvyys, sallitut kentät, ikkuna).
+//     Henkilökunta ja SA ennallaan. Deployjärjestys: funktio → selain (Pelaaja_v7 v86 / Vanhempi_v2 v57) → TÄMÄ viimeisenä.
+//   · lasnaolijat/{pid}: HUOLTAJAN saatavuusvastaus (RSVP) — aiemmin hylätty (huoltajalla ei seuraId-claimia eikä pelaajatokenia, joten create/update epäonnistui hiljaa). Nyt create/update kun
+//     onLapsenHuoltaja && email_verified == true && pelaajan suostumusTila == 'annettu' && rooli == 'huoltaja' (pakotettu) && vain kentät saatavuus/paivitetty/rooli && saatavuus in [tulossa, estynyt].
+//     Pelaajan oma polku, luku (pelaaja/huoltaja vain oma dokumentti) ja henkilökunta ENNALLAAN.
 //
 // Muutokset v3.53 → v3.54 (S1.1 Käyttöaste — 10.10.2026 — additiivinen, §11; ei migraatiota; kentät syntyvät vasta palvelimen kirjoituksesta):
 //   · seurat/{sid}/pelaajat/{pid}: `viimeisinKirjautuminen` (pelaajaKirjaudu kirjoittaa) ja `huoltajaViimeisinKaynti` (kirjaaHuoltajaKaynti kirjoittaa) VAIN palvelimella (Admin SDK).
@@ -782,6 +789,16 @@ service cloud.firestore {
           && pelaajaData(seuraId, pelaajaId).huoltajaEmail is string
           && request.auth.token.email.lower()
              == pelaajaData(seuraId, pelaajaId).huoltajaEmail.lower();
+    }
+
+    // v3.55 (B4) — huoltajan saatavuusvastaus (lasnaolijat): vahvistettu sähköposti + suostumus annettu (samalla linjalla kuin v3.51:n viestiluku); rooli pakotetaan 'huoltaja' (ei kirjoita pelaajana);
+    // vain RSVP-arvot; kenttärajaus kutsujassa: create → keys().hasOnly, update → diff().affectedKeys().hasOnly (päivitys ei kosketa henkilökunnan `tila`-kenttää).
+    function huoltajaRsvp(seuraId, pelaajaId) {
+      return onLapsenHuoltaja(seuraId, pelaajaId)
+          && request.auth.token.get('email_verified', false) == true
+          && pelaajaData(seuraId, pelaajaId).get('suostumusTila', '') == 'annettu'
+          && request.resource.data.get('rooli', '') == 'huoltaja'
+          && request.resource.data.get('saatavuus', '') in ['tulossa', 'estynyt'];
     }
 
     // v3.3 (PÄÄTÖS 2) — huoltaja saa KIRJATA U12-lapselle (alle 13v) kun lahde=='vanhempi'.
@@ -1868,11 +1885,10 @@ service cloud.firestore {
       // muokkaus OMIIN (luoja_uid == auth.uid), MUIDEN tapahtumiin vain field-level
       // (muistiinpanot + läsnäolo-kooste + audit). Soft-delete: poistettu=true, EI hard-deletea.
       match /kalenteri/{tapahtumaId} {
-        // P7-c.1: pelaaja näkee oman seuransa aikataulun (onPelaajanSeura, v3.25; anonyymi pois v3.28).
-        // Joukkue-/roster-suodatus tehdään APPISSA (query), ei Rulesissa. Write ENNALLAAN.
+        // P7-c.1 (v3.25–v3.54): pelaaja luki seuran aikataulun suoraan ja suodatti appissa → v3.55 siirsi rajauksen palvelimelle (ks. alla). Write ENNALLAAN.
+        // v3.55 (B4): pelaaja/huoltaja EIVÄT lue kalenteria suoraan (ei get eikä list) — vain callable haePelaajanKalenteri (palvelin rajaa tapahtumat ja kentät).
         allow read:   if onSuperAdmin()
-                      || (onKirjautunut() && onOmaSeura(seuraId))
-                      || onPelaajanSeura(seuraId);
+                      || (onKirjautunut() && onOmaSeura(seuraId));
 
         // Luonti: VP/johto (vapaa) TAI valmentajarooli joka asettaa luoja_uid == oma uid.
         // v3.52: `muistiinpanot`-kenttä ei saa olla tapahtumadokumentissa (pelaaja lukee kalenterin) — vain henkilokunta/muistiinpanot-alikokoelmassa.
@@ -1937,12 +1953,14 @@ service cloud.firestore {
                         || (onOmaSeura(seuraId) && onJohtoRooli())
                         || onOmanSeuranValmentaja(seuraId)
                         || (onOmaSeura(seuraId) && request.auth.uid == osallistujaId)
-                        || (onPelaajaItse(seuraId, osallistujaId) && request.resource.data.keys().hasOnly(['saatavuus', 'paivitetty', 'rooli']));
+                        || (onPelaajaItse(seuraId, osallistujaId) && request.resource.data.keys().hasOnly(['saatavuus', 'paivitetty', 'rooli']))
+                        || (huoltajaRsvp(seuraId, osallistujaId) && request.resource.data.keys().hasOnly(['saatavuus', 'paivitetty', 'rooli']));
           allow update: if onSuperAdmin()
                         || (onOmaSeura(seuraId) && onJohtoRooli())
                         || onOmanSeuranValmentaja(seuraId)
                         || (onOmaSeura(seuraId) && request.auth.uid == osallistujaId)
-                        || (onPelaajaItse(seuraId, osallistujaId) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['saatavuus', 'paivitetty', 'rooli']));
+                        || (onPelaajaItse(seuraId, osallistujaId) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['saatavuus', 'paivitetty', 'rooli']))
+                        || (huoltajaRsvp(seuraId, osallistujaId) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['saatavuus', 'paivitetty', 'rooli']));
           allow delete: if onSuperAdmin() || (onOmaSeura(seuraId) && onJohtoRooli());
         }
       }
