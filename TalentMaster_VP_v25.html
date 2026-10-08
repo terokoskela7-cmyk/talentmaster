@@ -36,9 +36,9 @@
 
 
 <script src="lib/tm_phv_tila.js?v=1"></script>   <!-- PR C: PHV-tilan YKSI lukusääntö (Mirwald, vain mittauslähteestä) -->
-<script src="lib/tm_eerikkila_normit.js?v=48"></script>   <!-- v43: D2-kortti d2_taso-ensin (renderKehityskorttiHTML, PR #264 · §30/#262) -->
+<script src="lib/tm_eerikkila_normit.js?v=49"></script>   <!-- v43: D2-kortti d2_taso-ensin (renderKehityskorttiHTML, PR #264 · §30/#262) -->
 <script src="lib/tm_historia.js?v=1"></script>
-<script src="lib/tm_mittarit.js?v=6"></script>   <!-- Kehitystilanne v0: mittarikirjasto; myös HIDDEN_GEM_FLEI + laskeD2Taso + laskeHiddenGem (siirretty VP:stä) -->
+<script src="lib/tm_mittarit.js?v=7"></script>   <!-- Kehitystilanne v0: mittarikirjasto; myös HIDDEN_GEM_FLEI + laskeD2Taso + laskeHiddenGem (siirretty VP:stä) -->
 <script src="lib/tm_pelihavainto_valinta.js?v=1"></script>   <!-- §7: YKSI sisäänkäynti pelihavaintoon (jaettu, ei kopioita) -->
 <script src="lib/tm_arviointi_historia.js?v=1"></script>   <!-- H1: arviointikerrat (append-only) + tmKausi + kooste; PURE, ks. lib-header -->          <!-- P2.1: hh_historia/tki_historia Pikakirjauksessa (tmHhSnapshot/tmTkiSnapshot/tmHistoriaLisaa) -->
 <script src="lib/tm_tki_core.js?v=2"></script>         <!-- P2.1: TKI-ytimen extrakti (IIFE → TM_TESTIT); antaa VP:lle TKI-pariteetin (VP ei voi ladata testit_indeksit.js:ää — const-törmäys). ENNEN tm_pikakentat.js:ää. -->
@@ -13348,7 +13348,7 @@ const _JSV_TYYLIT = '<style>'
 
 // ── Välilehti 4: TAVOITETASO (#67) — data-adaptiivinen, ladatusta _pelaajat-listasta (§26, ei alikokoelmakyselyjä). §28-neutraali. ──
 // Ominaisuudet: Nopeus (lin30m→eerikkilaTaso), Suunnanmuutos (laskeD1Osaindeksit.suunnanmuutos = sm_juoksu, DIAG),
-// Tekniikka (laskeD2Joustava; lähde 'tki' → TKI-asteikko ≥60, muu → taso 3 / 1–5). Kattavuus ≥1 → näytä, muuten himmennetty.
+// Tekniikka (laskeD2Joustava: lajikohtainen d2_taso ensin → H-H → TKI viimeisenä; lähde 'tki' = TKI-varalle → TKI-asteikko ≥60, muu → taso 3 / 1–5). Kattavuus ≥1 → näytä, muuten himmennetty.
 function _jsvSuuntaArrow(cur, prev) {
   if (cur == null || prev == null) return '';
   const d = cur - prev;
@@ -21780,7 +21780,7 @@ function laskeD5Taso(p) {
   d5.forEach(function (it) { var v = hav[it.avain]; if (v != null && !isNaN(Number(v))) { summa += Number(v); n++; } });
   return n ? Math.round((summa / n) * 10) / 10 : null;           // ei D5-attribuutteja arvioitu → null (ei 0)
 }
-function _d2Lahde(p) { return (p.tki_viimeisin != null) ? 'tki' : (p.d2_taso != null) ? (p.d2_lahde || 'sm') : null; }   // §30 joustava: sm/hh/tk
+function _d2Lahde(p) { const r = (typeof laskeD2Tulos === 'function') ? laskeD2Tulos(p) : null; return r ? (r.lahde === 'sm_pallo' ? 'sm' : r.lahde) : null; }   // sama resolveri kuin laskeD2Taso (lajikohtainen ensin, TKI viimeisenä): lähde-label täsmää näytettyyn lukuun
 function _d2LahdeLbl(l) { return { tki:'TKI', sm:'SM-pohjainen', hh:'H-H (syöttö/pujottelu)', tk:'TK-lajit' }[l] || ''; }
 
 // ── Hidden Gem -luokitin (CLAUDE.md §28). Biologinen perusta: korkea D2 + matala D1 = aito gem VAIN pre-PHV.
@@ -22431,7 +22431,7 @@ function renderTeamPulse() {
     const d2 = tmJoukkueD2(pelaajat);
     if (d2 != null) {
       // §30 joustava: D2-lähde voi olla tki/sm/hh/tk. ¹ = ei-TKI-pohjainen (sm/hh/tk). Palkki ja luku ovat TASO (1–5), ei TKI-yksikkö → lähde-teksti kertoo vain mistä taso johdettiin.
-      const _d2Lbl = { tki:vpT('TKI-pohjainen'), sm:vpT('SM-testi'), hh:'H-H', tk:'TK' }[d2.lahde] || vpT('TKI-pohjainen');
+      const _d2Lbl = { tki:vpT('TKI-pohjainen'), sm:vpT('SM-testi'), sm_pallo:vpT('SM-testi'), hh:'H-H', tk:'TK' }[d2.lahde] || vpT('SM-testi');
       h += _tpDimRivi('D2', d2.arvo + (d2.lahde !== 'tki' ? '¹' : ''), Math.min(100, Math.round(d2.arvo/5*100)), _d2Lbl);
       // TKI on eri mittari kuin D2-taso → oma lukunsa: "TKI ka 54 · tavoite 60" (tavoite = tkiTavoiteJakauma-oletus 60, sama kuin syvänäkymässä)
       const _tkiA = pelaajat.filter(function(p){ return p.tki_viimeisin != null; }).map(function(p){ return p.tki_viimeisin; });

@@ -873,21 +873,23 @@ describe('laskeVPTuloskortti + laskeTavoiteToteuma (VP_TULOSKORTTI_SPEC)', () =>
   });
 });
 
-describe('laskeD2Joustava (prioriteetti TKI → H-H → d2_taso)', () => {
-  it('TKI ensisijainen: tki/20', () => {
-    const r = laskeD2Joustava({ tki_viimeisin: 80 }, 10, 'M');
-    expect(r.taso).toBe(4);
-    expect(r.lahde).toBe('tki');
+describe('laskeD2Joustava (prioriteetti d2_taso → H-H → TKI/20 viimeisenä; lajikohtainen ensin 8.10.2026)', () => {
+  it('lajikohtainen d2_taso ENSIN (d2_lahde säilyy), vaikka TKI ja H-H olisivat', () => {
+    const r = laskeD2Joustava({ d2_taso: 2.5, d2_lahde: 'sm', tki_viimeisin: 80, hh_viimeisin: { syotto: 38.0, pujottelu: 26.0 } }, 10, 'M');
+    expect(r.taso).toBe(2.5); expect(r.lahde).toBe('sm');
+    expect(laskeD2Joustava({ d2_taso: 4, tki_viimeisin: 80 }, 10, 'M')).toMatchObject({ taso: 4, lahde: 'sm' });   // d2_lahde puuttuu → sm
   });
-  it('ei TKI → H-H syöttö/pujottelu', () => {
+  it('ei d2_taso → H-H syöttö/pujottelu (ennen TKI:tä)', () => {
     const r = laskeD2Joustava({ hh_viimeisin: { syotto: 38.0, pujottelu: 26.0 } }, 10, 'M');
     expect(r.lahde).toBe('hh');
     expect(r.taso).toBe(5);
+    expect(laskeD2Joustava({ tki_viimeisin: 40, hh_viimeisin: { syotto: 38.0, pujottelu: 26.0 } }, 10, 'M')).toMatchObject({ lahde: 'hh', taso: 5 });
   });
-  it('ei TKI/H-H → olemassa oleva d2_taso (SM/TK)', () => {
-    const r = laskeD2Joustava({ d2_taso: 2.5, d2_lahde: 'sm' }, 10, 'M');
-    expect(r.taso).toBe(2.5);
-    expect(r.lahde).toBe('sm');
+  it('ei d2_taso eikä H-H → TKI/20 VIIMEISENÄ varana', () => {
+    const r = laskeD2Joustava({ tki_viimeisin: 80 }, 10, 'M');
+    expect(r.taso).toBe(4);
+    expect(r.lahde).toBe('tki');
+    expect(laskeD2Joustava({ tki_viimeisin: 80, hh_viimeisin: { syotto: 38.0, pujottelu: 26.0 } }, null, null)).toMatchObject({ lahde: 'tki', taso: 4 });   // H-H vaatii iän+sukupuolen
   });
   it('tyhjä → null', () => {
     expect(laskeD2Joustava({}, 10, 'M')).toBeNull();

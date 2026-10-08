@@ -33,7 +33,7 @@
 <script src="lib/tm_i18n_common.js?v=10"></script>   <!-- i18n Vaihe 0 — JAETTU henkilöstö-i18n + lukittu glossaari (ENNEN sivukarttaa) -->
 <script src="lib/tm_master_i18n.js?v=28"></script>   <!-- i18n Vaihe 5 Raita B — Master sv (sivukartta); masterT/masterLokalisoi delegoivat commoniin -->
 <script src="lib/tm_phv_tila.js?v=1"></script>   <!-- PR C: PHV-tilan YKSI lukusääntö (Mirwald, vain mittauslähteestä) -->
-<script src="lib/tm_eerikkila_normit.js?v=48"></script>   <!-- v43: D2-kortti d2_taso-ensin (renderKehityskorttiHTML, PR #264 · §30/#262) -->
+<script src="lib/tm_eerikkila_normit.js?v=49"></script>   <!-- v43: D2-kortti d2_taso-ensin (renderKehityskorttiHTML, PR #264 · §30/#262) -->
 <script src="lib/tm_harjoitusarviointi.js?v=5"></script>
 <script src="lib/tm_kalenteri.js?v=1"></script>
 <script src="lib/tm_teknistaktiset.js?v=5"></script>   <!-- Vaihe 4a: teknis-taktinen curriculum (konsepti→cue→harjoite) · v5 = I3a pelipaikkaportti U14+ + harjoite-tägit/jalka -->
@@ -9148,7 +9148,7 @@ function _renderNarrative(p) {
    KAUSI
 ════════════════════════════════════════════════════════════ */
 // Kausi-tasojakauma/Taso≥3-kortin klikkaus → pelaajalista (lukee jo ladattua _pelaajatData:a, EI uusia kyselyjä).
-// dim: 'd1' (p.d1_taso + 30m/CMJ/MAS) · 'd2' (laskeD2Joustava: TKI/H-H/TSI/TK) · 'taso' (lvl, TKI-tietoinen, paras dim).
+// dim: 'd1' (p.d1_taso + 30m/CMJ/MAS) · 'd2' (laskeD2Joustava: lajikohtainen d2_taso → H-H → TKI viimeisenä varana) · 'taso' (lvl, TKI-tietoinen, paras dim).
 // Harjoitusarviointi (HARJOITUSARVIOINTI_SPEC) — valmentajan itsearvio, oma sessio
 window.avaaHarjoitusarviointi = async function () {
   try { localStorage.setItem('tm_valmentaja_itsearvio_' + (typeof _vcaUid === 'function' ? _vcaUid() : 'anon'), '1'); } catch (e) {}   // Aloita tästä -checklist (itsearvio avattu)
@@ -9595,7 +9595,7 @@ function renderSeason() {
     const nimi = p => _tmHenkiloNimi(p);
     const lvl = p => {
       const _is = _devIkaSp(p);
-      const d2j = (typeof laskeD2Joustava === 'function') ? laskeD2Joustava(p, _is.ika, _is.sp) : null;   // §26 D2-from-TKI (Sibbo TKI-only)
+      const d2j = (typeof laskeD2Joustava === 'function') ? laskeD2Joustava(p, _is.ika, _is.sp) : null;   // §26 D2: lajikohtainen ensin; TKI-johto vain varana (Sibbo TKI-only)
       const a = [p.d1_taso, p.hh_taso, p.d2_taso, d2j ? d2j.taso : null].filter(v => v != null);
       return a.length ? Math.max(...a) : null;
     };
@@ -9641,7 +9641,7 @@ function renderSeason() {
     if (histEl) {
       const hist = key => { const h = [0,0,0,0,0]; P.forEach(p => { const v = p[key]; if (v != null) { const b = Math.max(1, Math.min(5, Math.floor(v))); h[b-1]++; } }); return h; };   // floor-binnaus: 2,5 → pylväs 2 (johdonmukainen Taso≥3/modaalin raakatason kanssa)
       const histBars = (h, vari) => { const mx = Math.max(1, ...h); return '<div style="display:flex;align-items:flex-end;gap:4px;height:48px">' + h.map((c,i) => '<div style="flex:1;text-align:center"><div style="height:' + (c/mx*34).toFixed(0) + 'px;background:' + vari + ';opacity:' + (0.4 + 0.5*(i/4)).toFixed(2) + ';border-radius:2px 2px 0 0;min-height:' + (c?2:0) + 'px"></div><div style="font-size:9px;color:var(--ink3);margin-top:2px">' + (i+1) + '</div><div style="font-size:9px;color:var(--ink2)">' + (c||'') + '</div></div>').join('') + '</div>'; };
-      // §26 TKI-tietoinen D2: funktiopohjainen histogrammi + D2-arvonpoimija (laskeD2Joustava: TKI→D2, sama kanoninen johto kuin VP-syvänäkymä).
+      // §26 TKI-tietoinen D2: funktiopohjainen histogrammi + D2-arvonpoimija (laskeD2Joustava: lajikohtainen ensin, TKI→D2 viimeisenä varana; sama kanoninen johto kuin VP-syvänäkymä).
       const histF = getVal => { const h=[0,0,0,0,0]; P.forEach(p=>{ const v=getVal(p); if(v!=null){ const b=Math.max(1,Math.min(5,Math.floor(v))); h[b-1]++; } }); return h; };   // floor-binnaus (sama kuin hist)
       const d2Val = p => { const _is=_devIkaSp(p); const r=(typeof laskeD2Joustava==='function')?laskeD2Joustava(p,_is.ika,_is.sp):null; return r?r.taso:(p.d2_taso!=null?p.d2_taso:null); };
       // §29: D1 EI johdeta raakadatasta (jää tyhjäksi ilman H-H) → selkeä tyhjätila. D2-johto TKI:stä on sallittu.
