@@ -83,11 +83,12 @@
 | 15.–20.10. | sv-läpiajo PR 2–4 · Gemini-erä 2 | Code → Tero/Gemini → PM |
 | ~20.10. | **Päätös: Kenttä-lippu Sibbolle 1.11.?** (onko Kenttä-polku kokonaan ruotsiksi) | Tero |
 | 20.–31.10. | Gemini-erän 2 vienti · Teron sv-käsitesti · B4 pelaajan kalenteri | Code, Tero |
+| ennen 1.11. | **Kehitystyöpöytä 22, korjauskierros A** (A1–A6 oikeellisuus, A7–A13 käytettävyys) ennen S2:ta · `docs/CODE_BRIEF_22_KEHITYSTYOPOYTA.md` | Code |
 | **1.11.** | **Sibbo:** ryhmät (maalivahdit, talenttiryhmä), klipit, ruotsi | — |
 | ennen 10.11. | K3-käsitesti KPV:llä (ensimmäiset jaksot päättyvät ~17.11.) | Tero |
 | ~15.11. | S2: PM tarkistaa pulssin oikeilla neljän viikon luvuilla | PM |
 | **1.12.** | Vanha pelaajakortti pois (D49) · Seuran pulssi S2 | Code |
-| joulukuu | R1 VP_v25:n jako · S3 tavoitetasot · K5 Leikkijä + huoltaja | Code |
+| joulukuu | R1 VP_v25:n jako (+ kehitystyöpöytä 22 B, oma sivu D106) · S3 tavoitetasot · K5 Leikkijä + huoltaja | Code |
 | tammikuu | R2 Master + Seura · portti uudelle suomelle päälle | Code |
 | kevät | R3 backend · S4 · ryhmät R2 (sääntöryhmät, IDP-ryhmät) · Pallo-Iirojen tuonti | — |
 
