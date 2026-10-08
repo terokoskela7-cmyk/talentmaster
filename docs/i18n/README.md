@@ -101,3 +101,7 @@ Oma erä sv-tiedoston valmistuttua + natiivitarkistuksen jälkeen: VP lukee sv:n
 taksonomia (V8c) ja silta-libit (V8e) — **lib pysyy kielineutraalina, kielivalinta tehdään renderissä**,
 puuttuva käännös → fi-fallback. Sidecar-muodossa resolvi on yksi lookup: `TM_TT_SV['<avain>.<kenttä>']`.
 Samalla erällä laajennetaan render-gate kattamaan esikatselupinnat.
+
+## sv-läpiajo (reitittämätön kovakoodattu suomi)
+
+`tools/i18n/sv_lapiajo.mjs` avaa sovellukset sv-tilassa demo-datalla ja listaa näkyvän suomen (`docs/i18n/sv_lapiajo_tulos.json`). Raportti: `SV_LAPIAJO_RAPORTTI_2026-10-08.md`. Baseline `tools/i18n/sv_lapiajo_baseline.json` (`--paivita-baseline`); CI-job `sv-lapiajo` raportoi uudet suomenkieliset tekstit baselinen ulkopuolelta (ei kaada vielä; `--kaada` myöhemmin). Sallitut (nimet, lyhenteet): `tools/i18n/sv_lapiajo_sallitut.json`. Tunnistin: `tools/i18n/sv_lapiajo_fi.mjs` (testit `tests/sv_lapiajo.test.js`).

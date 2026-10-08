@@ -57,7 +57,32 @@ jobs:
       - name: Chrome-testit (kentta_k0)
         env:
           TM_CHROME_TESTS: '1'
-        run: npx vitest run tests/kentta_k0.test.js
+        run: TM_CHROME_PATH="$(which google-chrome)" npx vitest run tests/kentta_k0.test.js tests/sv_lapiajo.test.js
+
+  # sv-läpiajo (docs/CODE_BRIEF_I18N_SV_LAPIAJO.md): mittaa, paljonko suomea käyttäjä näkee sv-tilassa. VAIHE 1: vain raportti — EI kaada buildia (continue-on-error);
+  # baselinen (tools/i18n/sv_lapiajo_baseline.json) ulkopuolinen UUSI suomenkielinen teksti listataan lokiin. Kun baseline on siivottu → lisää --kaada (KARTOITUS §9 kohta 3b).
+  sv-lapiajo:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: sv-läpiajo (raportti)
+        run: |
+          export TM_CHROME_PATH="$(which google-chrome)"
+          node tools/i18n/sv_lapiajo.mjs --tarkista --ulos=sv_lapiajo_ci.json | tee sv_lapiajo_ci.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: sv-lapiajo
+          path: |
+            sv_lapiajo_ci.json
+            sv_lapiajo_ci.log
 
   # #60 — ESLint no-undef -portti (defektiluokan vartija, esim. 'sp is not defined' -luokka).
   # VAIHE 2: ESTÄVÄ — 5 residuaalilöydöstä triagattu+korjattu (0 jäljellä) → uudet undefined-viittaukset kaatavat buildin.
