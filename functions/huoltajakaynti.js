@@ -7,6 +7,7 @@
  * Linkkikäynti ilman sähköpostia (anonyymi) ei kirjaudu → ei lasketa huoltajakäynniksi (raportoitu S1.1:ssä; kattaa sähköpostikirjautumisen).
  */
 const { normalisoiDocId, helsinginPaiva } = require('./pelaajakirjautuminen');
+const { huoltajaSyy } = require('./huoltaja_tunnistus');
 
 function luoKasittelija(deps) {
   const { db, HttpsError } = deps;
@@ -15,12 +16,13 @@ function luoKasittelija(deps) {
     if (!context || !context.auth || !context.auth.token || !context.auth.token.email) return { kirjattu: false, syy: 'ei_sahkopostia' };   // anonyymi/linkki: ei virhettä (best-effort)
     const seuraId = normalisoiDocId(data && data.seuraId), pelaajaId = normalisoiDocId(data && data.pelaajaId);
     if (!seuraId || !pelaajaId) throw new HttpsError('invalid-argument', 'seuraId ja pelaajaId pakollisia.');
-    const email = String(context.auth.token.email).toLowerCase().trim();
     const ref = db.collection('seurat').doc(seuraId).collection('pelaajat').doc(pelaajaId);
     const snap = await ref.get();
     if (!snap || !snap.exists) return { kirjattu: false, syy: 'ei_loydy' };
     const x = snap.data() || {};
-    if (typeof x.huoltajaEmail !== 'string' || x.huoltajaEmail.toLowerCase().trim() !== email) throw new HttpsError('permission-denied', 'Ei huoltajan oikeutta tähän pelaajaan.');   // §Rules onLapsenHuoltaja: sama ehto
+    const syy = huoltajaSyy(context.auth.token, x);   // B4: yksi tunnistustapa (email_verified + huoltajaEmail), sama kuin haePelaajanKalenteri
+    if (syy === 'ei_vahvistettu') return { kirjattu: false, syy: 'ei_vahvistettu' };   // vahvistamaton sähköposti ei ole huoltajakäynti (best-effort, ei virhettä)
+    if (syy) throw new HttpsError('permission-denied', 'Ei huoltajan oikeutta tähän pelaajaan.');
     const tanaan = helsinginPaiva(nytF());
     if (typeof x.huoltajaViimeisinKaynti === 'string' && x.huoltajaViimeisinKaynti.slice(0, 10) === tanaan) return { kirjattu: false, syy: 'jo_tanaan' };
     await ref.update({ huoltajaViimeisinKaynti: tanaan });

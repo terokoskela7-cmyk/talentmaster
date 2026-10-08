@@ -277,6 +277,7 @@ const { pohjaHeader, pohjaFooter, pohjaRekisteriKutsu, pohjaMuistutus, pohjaPela
 const { otsikkoPuhdas, rakennaKutsuLinkki } = require('./sahkoposti_turva');
 const { muodostaPalauteNotif } = require('./palaute_notif');
 const { huomisenRajat } = require('./helsinki_paiva');
+const kalenteriPelaajalle = require('./tm_kalenteri_pelaajalle');   // B4: ilmoitusjoukko = sama sääntö kuin pelaajan kalenteri
 const { muistutusPaatos, muutosPaatos, kirjoitaNotif } = require('./kalenteri_notif');   // V2 P0.4: kiinteät dokumenttitunnisteet + tapahtuma_alkaa
 // ─────────────────────────────────────────────────────────────────────────────
 // lahetaRekisteriKutsu
@@ -2180,19 +2181,14 @@ exports.viePelaajanDataGDPR = functions
 // joukkue on slug ("kpv_u13"), pelaajan joukkue näyttönimi ("KPV U13") mutta joukkueet[] slug → normalisoi molemmat.
 // GDPR: notifin teksti = tapahtuman nimi/aika/paikka; EI terveys-/poissaolosyytä.
 // ═══════════════════════════════════════════════════════════════════════════
-function _c4Norm(s) { return String(s == null ? '' : s).toLowerCase().replace(/[\s_]+/g, ''); }
 
 async function _c4Roster(sid, ev) {
-  const eKeys = new Set([ev.joukkue].concat(ev.joukkueet || []).filter(Boolean).map(_c4Norm));
-  const pids = new Set(ev.pelaajat_id || []);
-  const snap = await db.collection('seurat').doc(sid).collection('pelaajat').get();
+  /* B4: SAMA sääntö kuin haePelaajanKalenteri (lib/tm_kalenteri_pelaajalle.js: jäsenyys §7.18 + nakyvyys). poistettu:false → peruutusilmoitus (poistettu:true) lähtee yhä; henkilokunta-tapahtumasta ei ilmoiteta. */
+  const seura = db.collection('seurat').doc(sid), evKopio = Object.assign({}, ev, { poistettu: false });
+  const [pSnap, jSnap] = await Promise.all([seura.collection('pelaajat').get(), seura.collection('joukkueet').get()]);
+  const docs = []; jSnap.forEach(function (d) { docs.push({ id: d.id, nimi: (d.data() || {}).nimi }); });
   const roster = [];
-  snap.forEach(function (doc) {
-    const p = doc.data() || {};
-    if (pids.has(doc.id)) { roster.push(Object.assign({ id: doc.id }, p)); return; }
-    const pKeys = [p.joukkue, p.joukkueId].concat(p.joukkueet || []).filter(Boolean).map(_c4Norm);
-    if (pKeys.some(function (k) { return eKeys.has(k); })) roster.push(Object.assign({ id: doc.id }, p));
-  });
+  pSnap.forEach(function (doc) { const p = Object.assign({ id: doc.id }, doc.data() || {}); if (kalenteriPelaajalle.tmKuuluuPelaajalle(evKopio, p, docs)) roster.push(p); });
   return roster;
 }
 
@@ -2478,6 +2474,13 @@ exports.kirjaaHuoltajaKaynti = functions
   .region('europe-west1')
   .runWith({ enforceAppCheck: true })
   .https.onCall(huoltajakaynti.luoKasittelija({ db, HttpsError: functions.https.HttpsError }));
+
+/* B4 — pelaajan ja huoltajan kalenteri palvelimelta (functions/pelaajan_kalenteri.js): rajaus jaetulla libillä (jäsenyys §7.18), sallitut kentät, ikkuna −7…+30 pv. */
+const pelaajanKalenteri = require('./pelaajan_kalenteri');
+exports.haePelaajanKalenteri = functions
+  .region('europe-west1')
+  .runWith({ enforceAppCheck: true })
+  .https.onCall(pelaajanKalenteri.luoKasittelija({ db, HttpsError: functions.https.HttpsError, Timestamp: admin.firestore.Timestamp }));
 
 /* Rules v3.33 (2.10.2026) — huoltajaEmail vain palvelimella (functions/huoltajaemail.js). */
 exports.asetaHuoltajaEmail = functions

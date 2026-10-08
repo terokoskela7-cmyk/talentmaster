@@ -87,13 +87,12 @@ describe('pelaajan oma kalenteri: ryhmätapahtuma näkyy (peilaa Pelaaja_v7/Vanh
     const e = { joukkue: null, joukkueet: [], pelaajat_id: ['a', 'b'], kohde: { tyyppi: 'ryhma' } };
     expect(R.tmTapahtumaKuuluuPelaajalle(e, PEL[0])).toBe(true); expect(R.tmTapahtumaKuuluuPelaajalle(e, PEL[2])).toBe(false); expect(R.tmTapahtumaKuuluuPelaajalle({ joukkue: 'sibbo_p13', joukkueet: ['sibbo_p13'] }, PEL[2])).toBe(true); expect(R.tmTapahtumaKuuluuPelaajalle(null, PEL[0])).toBe(false);
   });
-  it('SAMA sääntö kuin sovelluksissa (vm: Pelaaja_v7 _p7EvKuuluu ja Vanhempi_v2 _vanhEvKuuluu antavat saman vastauksen kuin lib)', () => {
-    const tapaukset = [[{ pelaajat_id: ['a'] }, PEL[0]], [{ pelaajat_id: ['a'] }, PEL[2]], [{ joukkue: 'sibbo_p13', joukkueet: ['sibbo_p13'] }, PEL[2]], [{ joukkue: 'sibbo_p15' }, PEL[2]], [{ joukkue: 'Sibbo-Vargarna P13' }, PEL[0]]];
-    const funk = (src, nimi) => { const i = src.indexOf('function ' + nimi + '('); let d = 0; for (let j = src.indexOf('{', i); j < src.length; j++) { if (src[j] === '{') d++; else if (src[j] === '}') { d--; if (d === 0) return src.slice(i, j + 1); } } };
+  it('B4: sovelluksissa ei selainsuodatinta; palvelimen lib (tmKuuluuPelaajalle) antaa pelaajat_id- ja joukkuetapauksissa saman vastauksen kuin tmTapahtumaKuuluuPelaajalle', () => {
     const pel = lue('TalentMaster_Pelaaja_v7.html'), van = lue('TalentMaster_Vanhempi_v2.html');
-    for (const [koodi, nimi, muuttuja] of [[pel, '_p7EvKuuluu', '_pelaaja'], [van, '_vanhEvKuuluu', null]]) {
-      for (const [ev, p] of tapaukset) { const sb = { _pelaaja: p, window: { _lapsi: p }, _lapsi: p, String, Array }; vm.createContext(sb); vm.runInContext(funk(koodi, nimi) + '\nthis.__r=' + nimi + '(' + JSON.stringify(ev) + ');', sb); expect(!!sb.__r, nimi + ' ' + JSON.stringify(ev) + ' ' + p.id).toBe(R.tmTapahtumaKuuluuPelaajalle(ev, p)); }
-    }
+    expect(pel).not.toContain('function _p7EvKuuluu('); expect(van).not.toContain('function _vanhEvKuuluu(');
+    const S = require('../lib/tm_kalenteri_pelaajalle.js'); const docs = [{ id: 'sibbo_p13', nimi: 'Sibbo-Vargarna P13' }, { id: 'sibbo_p15', nimi: 'Sibbo-Vargarna P15' }];
+    const tapaukset = [[{ pelaajat_id: ['a'] }, PEL[0]], [{ pelaajat_id: ['a'] }, PEL[2]], [{ joukkue: 'sibbo_p13', joukkueet: ['sibbo_p13'] }, PEL[2]], [{ joukkue: 'sibbo_p15' }, PEL[2]]];
+    for (const [ev, p] of tapaukset) expect(S.tmKuuluuPelaajalle(ev, p, docs), JSON.stringify(ev) + ' ' + p.id).toBe(R.tmTapahtumaKuuluuPelaajalle(ev, p));
   });
 });
 

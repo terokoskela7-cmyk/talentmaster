@@ -93,8 +93,9 @@ describe('_p7MerkitseLasna (RSVP)', () => {
   function rsvp({ onLine = true, get = 'ok', set = 'ok' } = {}) {
     const loki = { set: 0, toastit: [], piirrot: [] };
     const ev = { id: 'e1', _omaSaatavuus: 'estynyt' };
-    const tapahtuma = { get: () => (get === 'jumi' ? ikuinen() : Promise.resolve({ exists: true })),
-      collection: () => ({ doc: () => ({ set: () => { loki.set++; return set === 'jumi' ? ikuinen() : Promise.resolve(); } }) }) };
+    /* B4: yhteystesti tehdään OMAAN lasnaolijat-dokumenttiin (kalenteridokumentin suora luku loppuu Rules v3.55:ssä) */
+    const oma = { get: () => (get === 'jumi' ? ikuinen() : Promise.resolve({ exists: false })), set: () => { loki.set++; return set === 'jumi' ? ikuinen() : Promise.resolve(); } };
+    const tapahtuma = { collection: () => ({ doc: () => oma }) };
     const ctx = {
       console: { warn() {} }, navigator: { onLine }, setTimeout, clearTimeout, Promise, Object,
       window: { _p7Kalenteri: [ev], _db: { collection: () => ({ doc: () => ({ collection: () => ({ doc: () => tapahtuma }) }) }) }, _auth: { currentUser: null } },

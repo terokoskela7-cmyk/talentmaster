@@ -146,7 +146,7 @@ body.demo-mode #devChrome{display:block}
 <script src="docs/testit_indeksit.js?v=13"></script>
 <script src="lib/tm_alusta.js?v=2"></script>   <!-- PR D2: alustakoodi/-nimi ennätysriveille -->
 <script src="lib/tm_ennatykset.js?v=6"></script>   <!-- PR D2: ennätysrivit alustoittain (tmEnnatysRivit, jaettu Pelaajan kanssa) -->
-<script src="lib/tm_kalenteri_ilmoitus.js?v=2"></script>   <!-- V2 P0.4: tapahtuman päättyminen + ilmoituksen päivä (jaettu Pelaaja + Vanhempi) -->
+<script src="lib/tm_kalenteri_ilmoitus.js?v=3"></script>   <!-- V2 P0.4: tapahtuman päättyminen + ilmoituksen päivä (jaettu Pelaaja + Vanhempi) -->
 <script src="tm-bus.js?v=3"></script>
 <script src="tm-demo.js?v=3"></script>
 </head>
@@ -500,20 +500,6 @@ const _VANH_VKOPV = ['Su', 'Ma', 'Ti', 'Ke', 'To', 'Pe', 'La'];   // fi
 /* Viikonpäivän lyhenne kielen mukaan (fi: taulukko sellaisenaan; sv/en: Intl). n = Date.getDay() (0 = su). */
 function _vanhVkopv(n) { var k = (typeof tmNykyinenKieli === 'function') ? tmNykyinenKieli() : 'fi'; if (k === 'fi') return _VANH_VKOPV[n]; var s = tmPvmFmt(new Date(2024, 0, 7 + n), { weekday: 'short' }, k).replace('.', ''); return s.charAt(0).toUpperCase() + s.slice(1); }
 function _vanhEvPvm(ev) { var d = (ev.alkaa && ev.alkaa.toDate) ? ev.alkaa.toDate() : (ev.alkaa && typeof ev.alkaa === 'string') ? new Date(ev.alkaa) : (ev.pvm ? new Date(String(ev.pvm).slice(0, 10) + 'T00:00:00') : null); return (d && !isNaN(d.getTime())) ? d : null; }
-function _vanhEvKuuluu(ev) {
-  // P7-c.1-fix: normalisoitu joukkueavainjoukko (ml. joukkueet[]-slug) — näyttönimi vs slug ei osu suoralla vertailulla.
-  var L = window._lapsi || {};
-  /* R1 PR 2: "Vain valmennus / henkilökunta" (nakyvyys:'henkilokunta') ei näy pelaajalle/huoltajalle; vanhat palaveritapahtumat ilman kenttää tyypistä. Peilaa lib/tm_ryhmat.js tmNakyyPelaajalle (testi vertaa). */
-  if (ev.nakyvyys === 'henkilokunta' || (ev.nakyvyys !== 'kaikki' && ['jaksopalaveri', 'valmentajapalaveri', 'tiimipalaveri', 'kokous', 'kalibraatiopaja', 'mentorointitapaaminen'].indexOf(ev.tyyppi) >= 0)) return false;
-  var norm = function (s) { return String(s == null ? '' : s).toLowerCase().replace(/[\s_]+/g, ''); };
-  var pKeys = {};
-  [L.joukkue, L.joukkueId].concat(L.joukkueet || [])
-    .filter(Boolean).forEach(function (x) { pKeys[norm(x)] = 1; });
-  var eKeys = [ev.joukkue].concat(ev.joukkueet || []).filter(Boolean).map(norm);
-  if (eKeys.some(function (k) { return pKeys[k]; })) return true;
-  if (Array.isArray(ev.pelaajat_id) && L.id && ev.pelaajat_id.indexOf(L.id) >= 0) return true;
-  return false;
-}
 function _vanhDemoKalenteri() { var mk = function (n, t, pd, hh, pk) { var d = new Date(); d.setDate(d.getDate() + pd); d.setHours(hh, 0, 0, 0); return { id: 'd' + pd, nimi: n, tyyppi: t, _d: d, paikka: pk }; }; var ottelu = mk('Ottelu vs FC Naapuri', 'ottelu', 3, 12, 'Kotikenttä'); ottelu.logistiikka = { saapumisaika: '11:15', peliasu: 'kotipaita', kartta_url: 'https://maps.google.com/?q=Kotikentt%C3%A4', kimppakyyti: true }; ottelu.pelaajaviesti = 'Muistakaa juomapullo ja säärisuojat!'; return [mk('Joukkueharjoitus', 'harjoitus', 1, 18, 'Keskuskenttä'), ottelu, mk('Nopeustestit', 'testitapahtuma', 6, 17, 'Halli')]; }
 // ── P7-c.4a — kuluttaja-notif-keskus (CF kirjoittaa pelaajat/{lapsiId}/notifikaatiot; vanhempi lukee + merkitsee luetuksi). ──
 window._vanhNotif = null; window._vanhNotifLadattu = false;
@@ -594,16 +580,20 @@ async function _vanhLataaKalenteri() {
   // Ei valmis → älä latchaa, älä näytä demoa: pidä 'ladataan'-tila (null) ja yritä uudelleen kun _lapsi/auth valmistuu.
   if (!_db || !L || !L.seuraId || !authReady) return;
   window._vanhKalLadattu = true;   // vasta kun oikea yritys tehdään
+  var K = window.TM_KALENTERI_ILM;
   try {
-    var snap = await _db.collection('seurat').doc(L.seuraId).collection('kalenteri').get();
-    var now = new Date(), evs = [];
-    snap.forEach(function (doc) { var ev = Object.assign({ id: doc.id }, doc.data()); if (ev.poistettu) return; if (!_vanhEvKuuluu(ev)) return; var d = _vanhEvPvm(ev); if (!d) return; if (window.TM_KALENTERI_ILM ? window.TM_KALENTERI_ILM.tmEvPaattynyt(ev, now) : d < now) return;   /* V2 P0.4: näkyy päättymiseensä asti (kellonajaton → päivän loppu) */ ev._d = d; evs.push(ev); });
-    evs.sort(function (a, b) { return a._d - b._d; });
-    // P7-c.3 — read-back lapsen oma saatavuus näytettäville tapahtumille (best-effort, rinnakkain).
-    if (L.id) { try { await Promise.all(evs.slice(0, 5).map(function (ev) { return _db.collection('seurat').doc(L.seuraId).collection('kalenteri').doc(ev.id).collection('lasnaolijat').doc(L.id).get().then(function (s) { if (s.exists) ev._omaSaatavuus = (s.data() || {}).saatavuus || null; }).catch(function () { }); })); } catch (e) { /* ei kriittinen */ } }
+    /* B4: rajaus palvelimella (huoltaja: vahvistettu sähköposti + suostumus; jäsenyys §7.18, näkyvyys, sallitut kentät; lapsen oma saatavuus mukana). Selain tekee vain päättymissuodatuksen. */
+    var vast = await window._fbApp.functions('europe-west1').httpsCallable('haePelaajanKalenteri')({ seuraId: L.seuraId, pelaajaId: L.id });
     if (window._lapsi !== L) return;   // lapsi vaihtui kesken haun → älä piirrä edellisen lapsen tapahtumia
-    window._vanhKalenteri = evs;
-  } catch (e) { if (window._lapsi !== L) return; console.warn('[vanh kalenteri]', e && e.message); window._vanhKalenteri = []; }   // virhe → tyhjä, EI demo
+    var data = (vast && vast.data) || { tapahtumat: [] };
+    K.tmKalenteriTalleta(window.localStorage, L.seuraId, L.id, data);
+    window._vanhKalenteri = K.tmKalenteriKoosta(data, new Date());
+  } catch (e) {
+    if (window._lapsi !== L) return;
+    console.warn('[vanh kalenteri]', e && (e.code || ''), e && e.message);
+    var muisti = K && K.tmKalenteriMuistista(window.localStorage, L.seuraId, L.id);   // virhe/offline → viimeksi saatu lista, muuten tyhjä tila (EI demo)
+    window._vanhKalenteri = muisti ? K.tmKalenteriKoosta(muisti, new Date()) : [];
+  }
   if (typeof draw === 'function') draw();
 }
 // P7-c.2 — logistiikka-chipit (vain olemassa olevat kentät). Vanhemmalle myös 🚗 kimppakyyti.
@@ -643,7 +633,7 @@ async function _vanhMerkitseLasna(evId, saatavuus) {
     if (cu) await cu.getIdToken(true);
     await _db.collection('seurat').doc(L.seuraId).collection('kalenteri').doc(evId)
       .collection('lasnaolijat').doc(L.id)
-      .set({ saatavuus: saatavuus, rooli: 'vanhempi', paivitetty: new Date().toISOString() }, { merge: true });   // vain saatavuus (Rules RSVP-erotus)
+      .set({ saatavuus: saatavuus, rooli: 'huoltaja', paivitetty: new Date().toISOString() }, { merge: true });   // vain saatavuus (Rules RSVP-erotus)
   } catch (e) { console.warn('[vanh lasna]', e && e.message); }
 }
 function _vanhTapahtumaKortti(ev) {
