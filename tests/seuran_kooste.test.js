@@ -136,10 +136,10 @@ describe('tietosuojavartija: koosteessa ei nimiä, ID:itä eikä vapaatekstiä',
     expect(K.tmKoosteRikkomukset({ joukkueet: { a: { teksti: 't' } } }).length).toBe(1);
     expect(K.tmKoosteRikkomukset({ joukkueet: { a: { x: ['pid'] } } }).length).toBe(1);
   });
-  it('rakenne: vk, versio 2, arvio vain kun pyydetty; kooste_joukkue: id {jid}_{vk}, mittarit ilman nimiä', () => {
-    expect(doc.vk).toBe('2026-W41'); expect(doc.versio).toBe(2); expect('arvio' in doc).toBe(false);
+  it('rakenne: vk, versio 3, arvio vain kun pyydetty; kooste_joukkue: id {jid}_{vk}, mittarit ilman nimiä', () => {
+    expect(doc.vk).toBe('2026-W41'); expect(doc.versio).toBe(3); expect('arvio' in doc).toBe(false);
     expect(laske([J13], P, {}, { arvio: true }).doc.arvio).toBe(true);
-    const jd = K.tmKoosteJoukkueDokumentit(doc)[0]; expect(jd.id).toBe('u13_2026-W41'); expect(jd.data).toMatchObject({ vk: '2026-W41', jid: 'u13', versio: 2 }); expect(jd.data.mittarit.n_pelaajat).toBe(1);
+    const jd = K.tmKoosteJoukkueDokumentit(doc)[0]; expect(jd.id).toBe('u13_2026-W41'); expect(jd.data).toMatchObject({ vk: '2026-W41', jid: 'u13', versio: 3 }); expect(jd.data.mittarit.n_pelaajat).toBe(1);
   });
   it('kenttiä ei tule teemakattavuudelle / kuormalle / kypsyydelle (S4) eikä nollia niille', () => { const k = Object.keys(doc.joukkueet.u13).join(','); for (const ei of ['teema', 'kuorma', 'kypsyys']) expect(k).not.toContain(ei); });
 });
@@ -223,5 +223,38 @@ describe('tmKoosteTrendi — neljän viikon trendi (seura / joukkue)', () => {
     expect(K.tmKoosteTrendi([dok('a', 1, 1)], 'n_aktiivinen_30').suunta).toBeNull();
     const v1 = { vk: 'x', joukkueet: { u13: { n_pelaajat: 10 } } };
     expect(K.tmKoosteTrendi([v1, dok('y', 1, 1)], 'n_aktiivinen_30').edellinen).toBeNull();
+  });
+});
+
+
+describe('Joukkuejäsenyys (§7.18): joukkueet[] on totuus; yhteensä uniikeista pelaajista', () => {
+  const JB = { id: 'sibbo_p12', nimi: 'Sibbo P12', ikaryhma: 'P12' }, JBL = { id: 'sibbo_bla', nimi: 'Sibbo 2014 Blå', ikaryhma: 'P12', vuosi: 2014 }, JP11 = { id: 'sibbo_p11', nimi: 'Sibbo P11', ikaryhma: 'P11' };
+  it('Sibbo-tapaus: nimi = Blå mutta joukkueet[] = [p12] → lasketaan VAIN P12:een (tunniste voittaa nimen); korjattu data [bla] → vain Blå:hon; ei tuplalaskentaa', () => {
+    const stale = laske([JB, JBL], [pel('a', { joukkue: 'Sibbo 2014 Blå', joukkueet: ['sibbo_p12'] })]).doc;
+    expect(stale.joukkueet.sibbo_p12.n_pelaajat).toBe(1); expect(stale.joukkueet.sibbo_bla.n_pelaajat).toBe(0); expect(stale.yhteensa.n_pelaajat).toBe(1);
+    const ok = laske([JB, JBL], [pel('a', { joukkue: 'Sibbo 2014 Blå', joukkueet: ['sibbo_bla'] })]).doc;
+    expect(ok.joukkueet.sibbo_p12.n_pelaajat).toBe(0); expect(ok.joukkueet.sibbo_bla.n_pelaajat).toBe(1); expect(ok.yhteensa.n_pelaajat).toBe(1);
+  });
+  it('yhteensa = uniikit pelaajat: monijoukkueinen kerran, joukkueeton mukana (n_ilman_joukkuetta), joukkuesumma voi olla suurempi', () => {
+    const P = [pel('a', { joukkue: 'Sibbo P12', joukkueet: ['sibbo_p12', 'sibbo_bla'], suostumus: true, oma: ['2026-10-10'] }), pel('b', { joukkue: 'Sibbo P12', joukkueet: ['sibbo_p12'], suostumus: true }), pel('c', { joukkue: 'Tuntematon', joukkueet: [], suostumus: true, oma: ['2026-10-09'] })];
+    const d = laske([JB, JBL, JP11], P).doc, sum = Object.values(d.joukkueet).reduce((s, j) => s + j.n_pelaajat, 0);
+    expect(sum).toBe(3); expect(d.yhteensa.n_pelaajat).toBe(3);   // 2 (P12) + 1 (Blå)  — a on kahdessa, c ei yhdessäkään → summa 3, uniikit 3
+    expect(d.yhteensa).toMatchObject({ n_pelaajat: 3, n_ilman_joukkuetta: 1, n_suostumus: 3, n_aktiivinen_7: 2, n_aktiivinen_30: 2 });
+    const kaksi = laske([JB, JBL], [pel('a', { joukkueet: ['sibbo_p12', 'sibbo_bla'] }), pel('b', { joukkueet: ['sibbo_p12', 'sibbo_bla'] })]).doc;
+    expect(kaksi.yhteensa.n_pelaajat).toBe(2); expect(kaksi.joukkueet.sibbo_p12.n_pelaajat + kaksi.joukkueet.sibbo_bla.n_pelaajat).toBe(4);
+  });
+  it('legacy-pelaaja ilman joukkueet[]-listaa: nimi kanonisoidaan docia vasten; tuntematon nimi → ei joukkuetta; tuntematon tunniste ohitetaan', () => {
+    expect(laske([JB], [pel('a', { joukkue: ' sibbo p12 ', joukkueet: [] })]).doc.joukkueet.sibbo_p12.n_pelaajat).toBe(1);
+    expect(laske([JB], [pel('a', { joukkue: 'Muu', joukkueet: [] })]).doc.joukkueet.sibbo_p12.n_pelaajat).toBe(0);
+    expect(laske([JB], [pel('a', { joukkue: 'Sibbo P12', joukkueet: ['kuollut_id'] })]).doc.joukkueet.sibbo_p12.n_pelaajat).toBe(0);
+  });
+  it('tmKayttoasteLaske seuran rivi käyttää yhteensa-lukuja (uniikit); trendi samoin; v2-dokumentti (ei yhteensa) → joukkuesumma', () => {
+    const KA = require('../lib/tm_kayttoaste.js');
+    const mk = (vk, y, jt) => ({ vk, versio: 3, yhteensa: y, joukkueet: jt });
+    const jt = { a: { n_pelaajat: 6, n_suostumus: 6, n_kirjautunut_30: 0, n_aktiivinen_7: 0, n_aktiivinen_30: 2, n_huoltaja_30: 0 }, b: { n_pelaajat: 6, n_suostumus: 6, n_kirjautunut_30: 0, n_aktiivinen_7: 0, n_aktiivinen_30: 2, n_huoltaja_30: 0 } };
+    const y = { n_pelaajat: 10, n_ilman_joukkuetta: 0, n_suostumus: 10, n_kirjautunut_30: 0, n_huoltaja_30: 0, n_aktiivinen_7: 0, n_aktiivinen_30: 3 };
+    const l = KA.tmKayttoasteLaske([mk('2026-W41', { ...y, n_aktiivinen_30: 1 }, jt), mk('2026-W42', y, jt)]);
+    expect(l.pelaajia).toBe(10); const c = l.solut.find((x) => x.k === 'n_aktiivinen_30'); expect(c).toMatchObject({ osoittaja: 3, nimittaja: 10, teksti: '30 %', edellinen: 1, suunta: 'ylos' });
+    const v2 = KA.tmKayttoasteLaske([{ vk: 'x', versio: 2, joukkueet: jt }]); expect(v2.pelaajia).toBe(12);
   });
 });

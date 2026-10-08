@@ -118,6 +118,7 @@ window.TM_KAAVIO_HOST = {
 <script src="lib/tm_jaksokooste.js?v=2"></script>   <!-- Vaihe 6: jakson sulku (meso-sykli) — valmentaja sulkee omat pelaajansa (§4/§37) -->
 <script src="lib/tm_valmennuslinja.js?v=1"></script>   <!-- seuran valmennuslinja: joukkueen teema (hyväksytyt + henkilökunnalle luonnos) -->
 <script src="lib/tm_tukitavoitteet.js?v=3"></script>   <!-- J1/J2: joukkuejakson osa-alueet + tukitavoitteet (lukee tm_idp, tm_jakso_malli, tm_fyysteemat) -->
+<script src="lib/tm_joukkue.js?v=5"></script>   <!-- §7.18: tmPelaajanJoukkueet — YKSI jäsenyyssääntö (joukkueet[] on totuus) -->
 <script src="lib/tm_joukkuejakso.js?v=4"></script>   <!-- J2: joukkuejakso (Kausi → Joukkueen jakso): valinnat, lomake, kortti -->
 <script src="lib/tm_koti_oletus.js?v=1"></script>
 <script src="lib/tm_joukkoaloitus.js?v=4"></script>   <!-- J4 C: joukkoaloitus (Kausi → Pelaajien jaksot) -->   <!-- V1: TM:n oletuskotiharjoitteet (D16: seura ensin, TM varalla); generoitu harjoitelogiikka_v4:stä -->
@@ -2653,6 +2654,18 @@ window.addEventListener('online', function () {
   if (!_demo && _seuraId) { _lataaPelaajat(); _lataaTestitapahtumat(); }
 });
 
+/* §7.18 JOUKKUEJÄSENYYS: joukkueet[] on totuus, `joukkue` vain näyttönimi; yksi jaettu funktio tmPelaajanJoukkueet (lib/tm_joukkue.js). Joukkue-docit ladataan kerran per seura.
+   Valmentajan lataus hakee ehdokkaat sekä nimellä että tunnisteella (legacy-pelaajat) ja SUODATTAA jäsenyyden mukaan → sama pelaaja ei näy kahdessa joukkueessa (Sibbo: 271 vs 246). */
+let _mJoukkueDocs = [], _mJoukkueDocsSeura = null;
+async function _mLataaJoukkueDocs() {
+  if (_mJoukkueDocsSeura === _seuraId && _mJoukkueDocs.length) return _mJoukkueDocs;
+  try { const sn = await _db.collection('seurat').doc(_seuraId).collection('joukkueet').get(); _mJoukkueDocs = sn.docs.map(d => Object.assign({ id: d.id }, d.data())); _mJoukkueDocsSeura = _seuraId; }
+  catch (e) { console.warn('[joukkueet]', e && e.message); _mJoukkueDocs = []; }
+  return _mJoukkueDocs;
+}
+function _mPJ(p) { return tmPelaajanJoukkueet(p, _mJoukkueDocs.length ? _mJoukkueDocs : null); }   // joukkueiden tunnisteet
+function _mOnJoukkueessa(p, nimi) { return (_mJoukkueDocs.length ? _mPJ(p).map(_mJNimi) : [p.joukkue]).indexOf(nimi) >= 0; }   // jäsenyys tunnisteesta; ilman docia legacy-nimi
+function _mJNimi(id) { const d = _mJoukkueDocs.find(x => x.id === id); return d ? (d.nimi || id) : id; }
 async function _lataaPelaajat() {
   if (!_seuraId) return;
   if (_mOnOffline()) { _mVerkkoIlmoitus(true); return; }   // ei tyhjää listaa "ei pelaajia" -tilana
@@ -2660,10 +2673,12 @@ async function _lataaPelaajat() {
   try {
     const col = _db.collection('seurat').doc(_seuraId).collection('pelaajat');
     let docs;
+    await _mLataaJoukkueDocs();
+    const _kanonJ = (_joukkue && _mJoukkueDocs.length) ? tmKanonisoiJoukkue(_joukkue, _mJoukkueDocs) : null;   // oman joukkueen oikea tunniste docista (ei slug-arvausta)
     if (_joukkue) {
       // §18: kaksoiskysely — joukkue (näyttönimi "SJK P14") + joukkueet[] (id "sjk_p14").
       // Pelaajalla voi olla vain toinen (esim. kutsuflow'n Kerkko: joukkue="sjk_p14").
-      const jId = _joukkue.toLowerCase().replace(/\s+/g, '_');
+      const jId = _kanonJ ? _kanonJ.id : _joukkue.toLowerCase().replace(/\s+/g, '_');
       const [s1, s2] = await Promise.all([
         col.where('joukkue', '==', _joukkue).get(),
         col.where('joukkueet', 'array-contains', jId).get().catch(() => ({ docs: [] }))
@@ -2690,6 +2705,7 @@ async function _lataaPelaajat() {
     } else {
       docs = (await col.get()).docs;
     }
+    if (_kanonJ) docs = docs.filter(d => _mPJ(d.data()).indexOf(_kanonJ.id) >= 0);   // jäsenyys joukkueet[]:stä (ei nimestä): Blå-nimellä mutta P12-tunnisteella ei ole molemmissa
     if (!docs.length && _mOnOffline()) { _mVerkkoIlmoitus(true); return; }   // yhteys katkesi kesken: välimuistin tyhjä ≠ ei pelaajia
     // PR C: PHV-tila normalisoidaan TÄSSÄ (yksi rajapinta, kuten VP lataaPelaajat): kanoninen Mirwald-koodi vain
     // mittauslähteestä (biologinenIka_viimeisin), muuten null = tuntematon. Ilmoitettu PH → lippu henkilökunnalle.
@@ -2759,6 +2775,7 @@ function _mKaavioJoukkueet() {
   if (_superAdmin || _mSeuranLaajuusRooli()) {
     var nahty = {}, lista = [];
     (_pelaajatData || []).forEach(function (p) {
+      if (_mJoukkueDocs.length) { _mPJ(p).forEach(function (id) { if (!nahty[id]) { nahty[id] = 1; lista.push({ id: id, nimi: _mJNimi(id) }); } }); return; }   // §7.18: jäsenyys tunnisteesta
       var nimi = String(p.joukkue || p.joukkueNimi || '').trim(), id = nimi ? _mKaavioJoukkueId(nimi) : null;
       if (id && !nahty[id]) { nahty[id] = 1; lista.push({ id: id, nimi: nimi }); }
       (Array.isArray(p.joukkueet) ? p.joukkueet : []).forEach(function (j) { if (j && !nahty[j]) { nahty[j] = 1; lista.push({ id: j, nimi: j }); } });
@@ -2766,20 +2783,21 @@ function _mKaavioJoukkueet() {
     if (lista.length) return lista.sort(function (a, b) { return a.nimi.localeCompare(b.nimi); });
   }
   var ids = Array.isArray(d.joukkueet) ? d.joukkueet.slice() : [];
-  var omaId = _joukkue ? _mKaavioJoukkueId(_joukkue) : null;
+  var omaK = (_joukkue && _mJoukkueDocs.length) ? tmKanonisoiJoukkue(_joukkue, _mJoukkueDocs) : null, omaId = omaK ? omaK.id : (_joukkue ? _mKaavioJoukkueId(_joukkue) : null);
   if (omaId && ids.indexOf(omaId) < 0) ids.push(omaId);           // lähde 2: nykyinen joukkue
   return ids.map(function (id) { return { id: id, nimi: (id === omaId && _joukkue) ? _joukkue : id }; });
 }
 function _mKaavioPelaajat(joukkueId) {
   return (_pelaajatData || []).filter(function (p) {
     if (!joukkueId) return true;
+    if (_mJoukkueDocs.length) return _mPJ(p).indexOf(joukkueId) >= 0;   // §7.18: jäsenyys joukkueet[]:stä (nimeä ei käytetä)
     if ((p.joukkueet || []).indexOf(joukkueId) >= 0) return true;
-    return _mKaavioJoukkueId(p.joukkue) === joukkueId;             // §18: nimi TAI id
+    return _mKaavioJoukkueId(p.joukkue) === joukkueId;             // legacy ilman joukkue-docia
   }).map(function (p) {
     return {
       id: p.id,
       nimi: _tmHenkiloNimi(p),
-      joukkueId: (p.joukkueet || [])[0] || _mKaavioJoukkueId(p.joukkue) || null
+      joukkueId: (_mJoukkueDocs.length ? _mPJ(p)[0] : (p.joukkueet || [])[0]) || _mKaavioJoukkueId(p.joukkue) || null
     };
   });
 }
@@ -6858,7 +6876,7 @@ function _mvKentat(S) {   // vastaanottajat tilasta
   const C = _mvC(), pl = C.pelaajat();
   if (S.kohde === 'yksi') return pl.filter(function (p) { return p.id === S.pid; });
   if (S.kohde === 'valitut') return pl.filter(function (p) { return S.valitut.indexOf(p.id) >= 0; });
-  return pl.filter(function (p) { return !S.joukkueNimi || p.joukkue === S.joukkueNimi; });
+  return pl.filter(function (p) { return !S.joukkueNimi || _mOnJoukkueessa(p, S.joukkueNimi); });
 }
 function _mvPaivitaTila(S) {   // rekisteri + suostumuslippu valituista vastaanottajista
   const C = _mvC(), vs = _mvKentat(S), ikat = vs.map(function (p) { return C.ika(p); }).filter(function (x) { return x != null; });
@@ -6877,7 +6895,7 @@ window._mvAvaa = function (pid) {   // pid: pelaaja (V4 ⋯ / Polku) tai null (I
   let osat = []; try { if (p && window.TM_TANAAN_KENTTA && p.jaksofokus && p.jaksofokus.tila !== 'valittavana') osat = window.TM_TANAAN_KENTTA.tmTanaanOsat(p.jaksofokus, { kaanon: (typeof tmKonseptiKaanon === 'function') ? tmKonseptiKaanon : null }); } catch (e) { osat = []; }
   const joukkueNimi = p ? (p.joukkue || '') : C.joukkue();
   const S = { kohde: p ? 'yksi' : 'valitut', pid: pid || null, pelaajanNimi: p ? C.nimi(p) : '', joukkueNimi: joukkueNimi, valitut: [], url: '', klippityyppi: 'onnistui', osa: '', osat: osat, kysymysAvain: null, kysymysOma: '', saate: '', rekisteri: 'rakentaja', suostumusPuuttuu: false, tallentaa: false,
-    pelaajatLista: C.pelaajat().filter(function (x) { return !joukkueNimi || x.joukkue === joukkueNimi; }).map(function (x) { return { id: x.id, nimi: C.nimi(x) }; }), tarjolla: { yksi: !!p } };
+    pelaajatLista: C.pelaajat().filter(function (x) { return !joukkueNimi || _mOnJoukkueessa(x, joukkueNimi); }).map(function (x) { return { id: x.id, nimi: C.nimi(x) }; }), tarjolla: { yksi: !!p } };
   window._mvTila = S; _mvPaivitaTila(S); _mvRender();
 };
 window._mvSulje = function () { const m = document.getElementById('_mvModal'); if (m) m.remove(); window._mvTila = null; };
@@ -7521,7 +7539,7 @@ function _msMesoKaariHTML(p) {
 function _mIdpVoiMuokata(p) {
   if (!p) return false;
   if (_superAdmin || _rooli === 'talenttivalmentaja' || _rooli === 'vp' || _rooli === 'urheilutoimenjohtaja') return true;
-  return !_joukkue || (p.joukkue || '') === _joukkue;   // oma joukkue → muokattava
+  return !_joukkue || _mOnJoukkueessa(p, _joukkue);   // oma joukkue → muokattava
 }
 function _mIdpLoyda(pid) { return ((_pelaajatData || []).find(function (x) { return x.id === pid; })) || null; }
 function _mIdpP(pid) { return (window._mIdpPelaaja && window._mIdpPelaaja.id === pid) ? window._mIdpPelaaja : _mIdpLoyda(pid); }
@@ -7862,7 +7880,7 @@ async function _mJaLaske() {
   const JA = window.TM_JOUKKOALOITUS, AJ = window.TM_ALOITA_JAKSO, d = window._mJjDoc, el = document.getElementById('seasonPelaajienJaksot'); if (!JA || !AJ || !d || !d.data || !el) return;
   const J = window._mJa, token = ++J.token; J.tila = { edistyy: null, virheet: [] };
   el.innerHTML = '<div style="font-size:12px;color:var(--ink3);margin-bottom:24px">' + masterT('Haetaan pelaajien jaksoehdotuksia…') + '</div>';
-  const tanaan = tmPaivaIso(new Date()), pelaajat = JA.tmJoukkueenPelaajat(_pelaajatData || [], d.jid, d.data.nimi || _joukkue);
+  const tanaan = tmPaivaIso(new Date()), pelaajat = JA.tmJoukkueenPelaajat(_pelaajatData || [], d.jid, d.data.nimi || _joukkue, _mJoukkueDocs);
   const yht = await _mAjHaeYhteinen(d.jid, { jid: d.jid, data: d.data });   // pelaajasta riippumattomat lähteet KERRAN
   const tulokset = await JA.tmRinnakkain(pelaajat, 5, async function (p) {   // pelaajakohtainen haku (havainnot) rajattuna 5 kerrallaan
     const pp = _mAjPelaajaPp(p), ehd = (typeof _mTtEhdotus === 'function') ? _mTtEhdotus(p, pp) : null;
@@ -8719,7 +8737,7 @@ function _prEsc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/<
 window._prVoiNahda = function (p) {
   if (!p) return false;
   if (_superAdmin || _rooli === 'talenttivalmentaja' || _rooli === 'vp' || _rooli === 'urheilutoimenjohtaja') return true;
-  return !_joukkue || (p.joukkue || '') === _joukkue;
+  return !_joukkue || _mOnJoukkueessa(p, _joukkue);
 };
 function _prChip(txt, vari, title){ return '<span title="' + _prEsc(title || '') + '" style="font-size:10px;padding:2px 9px;border-radius:20px;border:.5px solid ' + vari + ';color:' + vari + '">' + _prEsc(txt) + '</span>'; }
 function _prRivi(lbl, val){ return '<div style="display:flex;justify-content:space-between;gap:10px;font-size:12px;padding:2px 0"><span style="color:var(--ink2)">' + _prEsc(lbl) + '</span><span style="color:var(--ink);font-family:var(--font-m,monospace)">' + _prEsc(val) + '</span></div>'; }
@@ -9179,7 +9197,7 @@ window.avaaHarjoitusarviointi = async function () {
   let config = null;
   try { const s = await _db.collection('seurat').doc(_seuraId).collection('konfiguraatio').doc('harjoitusarviointi').get(); if (s.exists) config = s.data(); } catch (e) {}
   let brandi = null; try { const sb = await _db.collection('seurat').doc(_seuraId).collection('konfiguraatio').doc('brandi').get(); if (sb.exists) brandi = sb.data(); } catch(e){}
-  const jset = {}; (_pelaajatData || []).forEach(p => { if (p.joukkue && p.joukkue !== '—') jset[p.joukkue] = 1; });
+  const jset = {}; (_pelaajatData || []).forEach(p => { if (_mJoukkueDocs.length) _mPJ(p).forEach(id => { jset[_mJNimi(id)] = 1; }); else if (p.joukkue && p.joukkue !== '—') jset[p.joukkue] = 1; });
   if (_joukkue) jset[_joukkue] = 1;
   const joukkueet = Object.keys(jset).sort();
   // ROOLIMALLI (SPEC §1): valmentaja → VAIN Malli B (itsearvio). Ei mallinvalitsinta, ei Malli A:ta, arviointitapa kiinteä.
