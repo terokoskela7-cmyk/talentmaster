@@ -1,0 +1,860 @@
+<!doctype html>
+<html lang="fi">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Kehitystyöpöytä · 22 · käytettävyys</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,400&display=swap">
+<style>
+/* 22: VP/valmentajan kehitystyöpöytä uusiksi. Sivu Cormorant + DM Sans (VP, D37 C), Kenttä-komponentti Archivo (D11/D51). Tumma = operatiivinen oletus. */
+:root{--bg:#1C1C1A;--sur:#242421;--sur2:#2C2C28;--ink:#F2EFE6;--ink2:#CFCBC0;--ink3:#8F8C83;--line:rgba(242,239,230,.14);--chalk:rgba(242,239,230,.55);--chalk2:rgba(242,239,230,.28);
+ --teal:#28B090;--teal-dim:rgba(40,176,144,.16);--teal-brd:rgba(40,176,144,.45);--amber:#E0A040;--amber-dim:rgba(224,160,64,.16);--red:#D06A5A;--red-dim:rgba(208,106,90,.14);--blue:#7FA6DE;--on-accent:#111110;color-scheme:dark}
+@media (prefers-color-scheme:light){:root:not([data-theme="dark"]){--bg:#F2EFE6;--sur:#FBFAF6;--sur2:#EAE6DA;--ink:#1C1C1A;--ink2:#3E3C37;--ink3:#6B695F;--line:rgba(28,28,26,.16);--chalk:rgba(28,28,26,.45);--chalk2:rgba(28,28,26,.2);--teal:#1A7A5E;--teal-dim:rgba(26,122,94,.12);--teal-brd:rgba(26,122,94,.4);--amber:#9A6512;--amber-dim:rgba(224,160,64,.2);--red:#A8473A;--red-dim:rgba(168,71,58,.12);--blue:#3D6AA8;--on-accent:#F2EFE6;color-scheme:light}}
+:root[data-theme="light"]{--bg:#F2EFE6;--sur:#FBFAF6;--sur2:#EAE6DA;--ink:#1C1C1A;--ink2:#3E3C37;--ink3:#6B695F;--line:rgba(28,28,26,.16);--chalk:rgba(28,28,26,.45);--chalk2:rgba(28,28,26,.2);--teal:#1A7A5E;--teal-dim:rgba(26,122,94,.12);--teal-brd:rgba(26,122,94,.4);--amber:#9A6512;--amber-dim:rgba(224,160,64,.2);--red:#A8473A;--red-dim:rgba(168,71,58,.12);--blue:#3D6AA8;--on-accent:#F2EFE6;color-scheme:light}
+:root[data-theme="dark"]{color-scheme:dark}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--ink);font-family:'DM Sans',system-ui,sans-serif;font-size:15px;line-height:1.55;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1240px;margin:0 auto;padding:28px 16px 90px;display:grid;gap:56px}
+.wrap>*,section>*{min-width:0}
+section{display:grid;gap:16px;scroll-margin-top:12px}
+.serif{font-family:'Cormorant Garamond',Georgia,serif;font-weight:400}
+h1{font-family:'Cormorant Garamond',Georgia,serif;font-weight:300;font-size:clamp(38px,5.5vw,64px);line-height:1.02;letter-spacing:-.005em;max-width:20ch}
+h2{font-family:'Cormorant Garamond',Georgia,serif;font-weight:400;font-size:clamp(28px,3.6vw,38px);line-height:1.05}
+h3{font-family:'Cormorant Garamond',Georgia,serif;font-weight:500;font-size:22px;line-height:1.1}
+p{color:var(--ink2);max-width:76ch}
+b{font-weight:600;color:var(--ink)}
+.meta{font-size:12.5px;color:var(--ink3)}
+.mono{font-family:'DM Mono',monospace;font-size:12px;color:var(--ink3)}
+.eb{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--teal)}
+.top{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between}
+.tbtn{font:inherit;font-size:13px;padding:7px 12px;border:1px solid var(--line);border-radius:4px;background:transparent;color:var(--ink2);cursor:pointer;min-height:36px}
+.tbtn.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.tbtn:focus-visible,.nav a:focus-visible{outline:2px solid var(--teal);outline-offset:2px}
+.nav{display:flex;flex-wrap:wrap;gap:8px}
+.nav a{font-size:13px;color:var(--ink2);text-decoration:none;border:1px solid var(--line);border-radius:4px;padding:6px 12px}
+.nav a b{color:var(--teal);font-family:'DM Mono';margin-right:6px}
+.ctl{display:flex;flex-wrap:wrap;gap:14px;align-items:center;border:1px solid var(--line);border-radius:6px;padding:10px 14px;background:var(--sur)}
+.ctl .g{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.ctl .g span.l{font-size:12px;color:var(--ink3);margin-right:4px}
+table{border-collapse:collapse;width:100%;font-size:13.5px}
+th,td{text-align:left;vertical-align:top;padding:8px 10px;border-top:1px solid var(--line)}
+th{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink3);border-top:0}
+.tw{overflow-x:auto;border:1px solid var(--line);border-radius:6px}
+.note{border-left:2px solid var(--teal);padding:8px 14px;color:var(--ink2);font-size:14px}
+.note.w{border-color:var(--amber)}
+.g3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.g2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+@media(max-width:800px){.g3,.g2{grid-template-columns:minmax(0,1fr)}}
+.card{border:1px solid var(--line);border-radius:6px;background:var(--sur);padding:14px 16px;display:grid;gap:6px}
+.card .h{font-family:'Cormorant Garamond',Georgia,serif;font-size:22px;font-weight:500}
+.kbd{display:inline-block;border:1px solid var(--line);border-radius:3px;padding:0 6px;font-family:'DM Mono';font-size:11px;color:var(--ink2)}
+
+/* ── Työpöytä (desk) ── */
+.desk{border:1px solid var(--line);border-radius:8px;background:var(--sur);overflow:hidden;container-type:inline-size;container-name:desk}
+.desk .dh{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;padding:10px 16px;border-bottom:1px solid var(--line);background:var(--bg)}
+.desk .dh .nm{font-family:'Cormorant Garamond',Georgia,serif;font-size:24px;line-height:1;font-weight:500}
+.desk .dh .sub{font-size:12.5px;color:var(--ink3)}
+.desk .dh .sp{flex:1}
+.chip{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;padding:3px 9px;border-radius:3px;border:1px solid var(--line);color:var(--ink2);white-space:nowrap}
+.chip.ok{color:var(--teal);border-color:var(--teal-brd);background:var(--teal-dim)}
+.chip.w{color:var(--amber);background:var(--amber-dim);border-color:transparent}
+.chip.n{color:var(--ink3)}
+.chip.err{color:var(--red);background:var(--red-dim);border-color:transparent}
+.btn{font:inherit;font-size:13.5px;font-weight:600;padding:8px 14px;border-radius:4px;border:1px solid var(--teal);background:var(--teal);color:var(--on-accent);cursor:pointer;min-height:36px;white-space:nowrap}
+.btn.q{background:transparent;color:var(--teal)}
+.btn.g{background:transparent;color:var(--ink2);border-color:var(--line)}
+.btn.sm{font-size:12.5px;padding:5px 10px;min-height:30px}
+.ico{width:34px;height:34px;display:inline-grid;place-items:center;border:1px solid var(--line);border-radius:4px;color:var(--ink2);font-size:16px}
+.desk .dtabs{display:flex;gap:2px;padding:6px 12px 0;border-bottom:1px solid var(--line);background:var(--bg)}
+.desk .dtabs span{padding:8px 14px;font-size:13.5px;font-weight:600;color:var(--ink3);border-bottom:2px solid transparent;cursor:pointer}
+.desk .dtabs span.on{color:var(--ink);border-bottom-color:var(--teal)}
+.desk .db{padding:16px;display:grid;gap:14px}
+.desk .two{display:grid;grid-template-columns:minmax(0,340px) minmax(0,1fr);gap:18px;align-items:start}
+@container desk (max-width: 720px){.radar .hide-m{display:none}.desk .two{grid-template-columns:minmax(0,1fr)}.desk .two>.kt-col{order:2}.desk .g2{grid-template-columns:minmax(0,1fr)}.hist div{grid-template-columns:minmax(0,1fr)}.hist .q{grid-column:1}.desk .db{padding:12px}.desk .dh .nm{font-size:20px}.hide-m{display:none!important}}
+
+/* Kortti-anatomia: otsikko · tulkintalause · luvut+ikä · yksi linkki */
+.ev{border:1px solid var(--line);border-radius:6px;background:var(--bg);display:grid;gap:8px;padding:12px 14px}
+.ev .t{display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap}
+.ev .t .h{font-family:'Cormorant Garamond',Georgia,serif;font-size:21px;font-weight:500;line-height:1.05}
+.ev .t .age{font-family:'DM Mono';font-size:11.5px;color:var(--ink3);white-space:nowrap}
+.ev .t .age.old{color:var(--amber)}
+.ev .lause{font-size:14.5px;color:var(--ink);line-height:1.45}
+.ev .nums{display:flex;flex-wrap:wrap;gap:6px 18px}
+.ev .nums div{display:grid;gap:0}
+.ev .nums .k{font-size:11.5px;color:var(--ink3)}
+.ev .nums .v{font-family:'Cormorant Garamond',Georgia,serif;font-size:26px;line-height:1;font-weight:500}
+.ev .nums .v small{font-family:'DM Mono';font-size:11px;color:var(--ink3);margin-left:4px}
+.ev .nums .v.na{color:var(--ink3);font-size:18px;font-family:'DM Sans'}
+.ev .act{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;border-top:1px solid var(--line);padding-top:8px;margin-top:2px}
+.ev .act a{color:var(--teal);font-size:13.5px;font-weight:600;text-decoration:none}
+.ev .act .m{font-size:12px;color:var(--ink3)}
+.ev.focus{border-color:var(--teal);box-shadow:inset 0 0 0 1px var(--teal-brd)}
+.q3.two{grid-template-columns:repeat(2,minmax(0,1fr))}
+.opts span.q{border-style:dashed;color:var(--ink3);font-size:12.5px}
+details.ev.acc{padding:0}details.ev.acc summary{list-style:none;cursor:pointer;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 10px;padding:12px 14px;align-items:baseline}details.ev.acc summary::-webkit-details-marker{display:none}details.ev.acc summary .sum{grid-column:1/-1;font-family:'Cormorant Garamond',Georgia,serif;font-size:22px;color:var(--ink2);line-height:1}details.ev.acc[open] summary .sum{display:none}details.ev.acc .lause,details.ev.acc .nums{padding:0 14px}details.ev.acc .act{margin:0 14px 12px}
+.ev.sig{border-color:var(--teal);background:var(--teal-dim)}
+.ev.sig.w{border-color:var(--amber);background:var(--amber-dim)}
+.ev.sig.n{border-style:dashed;background:transparent}
+.ev.sig .h2{font-family:'Cormorant Garamond',Georgia,serif;font-size:24px;font-weight:500;line-height:1.05}
+.ev.sig .why{font-size:13.5px;color:var(--ink2)}
+.ev.sig .second{font-size:12.5px;color:var(--ink3);border-top:1px dashed var(--line);padding-top:6px}
+.spark{display:inline-block;vertical-align:middle;margin-left:8px}
+.q3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+@container desk (max-width: 720px){.q3{grid-template-columns:minmax(0,1fr)}}
+.q3 div{border:1px solid var(--line);border-radius:4px;padding:10px 12px;display:grid;gap:3px;background:var(--bg)}
+.q3 .k{font-size:12.5px;color:var(--ink3)}
+.q3 .v{font-family:'Cormorant Garamond',Georgia,serif;font-size:24px;line-height:1.05;font-weight:500}
+.q3 .v.w{color:var(--amber)}.q3 .v.na{color:var(--ink3);font-size:18px}
+.q3 .s{font-size:12px;color:var(--ink3)}
+.osat{display:grid;gap:4px}
+.osat div{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:10px;align-items:center;padding:7px 10px;border:1px solid var(--line);border-radius:4px;font-size:13.5px;background:var(--bg)}
+.osat .k{font-family:'DM Mono';font-size:12px;color:var(--teal);font-weight:500}
+.osat .st{font-size:12px;color:var(--ink3)}
+.osat div.on{border-color:var(--amber)}.osat div.on .st{color:var(--amber);font-weight:600}
+.osat div.ok .st{color:var(--teal);font-weight:600}
+.jana{display:grid;gap:0}
+.jana .jr{display:grid;grid-template-columns:28px minmax(0,1fr);gap:12px;position:relative}
+.jana .jr::before{content:'';position:absolute;left:13px;top:28px;bottom:-6px;width:1.5px;background:var(--line)}
+.jana .jr:last-child::before{display:none}
+.jana .dot{width:28px;height:28px;border-radius:50%;border:1.5px solid var(--line);display:grid;place-items:center;font-family:'DM Mono';font-size:11px;color:var(--ink3);background:var(--sur)}
+.jana .jr.now .dot{border-color:var(--amber);color:var(--amber);background:var(--amber-dim)}
+.jana .jr.done .dot{border-color:var(--teal);color:var(--teal)}
+.jana .jb{display:grid;gap:8px;padding-bottom:18px}
+.jana .jb .eb{margin-bottom:-4px}
+.jana .rl{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}.jana .rl a{color:var(--teal);font-size:13.5px;font-weight:600;text-decoration:none}.jana .rl .m{font-size:12px;color:var(--ink3)}
+.vk{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px}
+.vk div{border:1px solid var(--line);border-radius:4px;padding:6px 6px;font-size:12px;display:grid;gap:2px;min-height:58px;background:var(--bg)}
+.vk .d{font-family:'DM Mono';font-size:11px;color:var(--ink3)}
+.vk div.j{border-color:var(--teal-brd)}.vk div.o{border-color:var(--chalk2);border-style:dashed}.vk div.m{border-color:var(--amber)}
+.vk div.today{outline:2px solid var(--teal);outline-offset:-2px}
+@container desk (max-width: 720px){.vk{grid-template-columns:repeat(4,minmax(0,1fr))}}
+.hist{display:grid;gap:6px}
+.hist div{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:12px;align-items:baseline;padding:8px 10px;border:1px solid var(--line);border-radius:4px;font-size:13.5px;background:var(--bg)}
+.hist .m{font-family:'DM Mono';font-size:11.5px;color:var(--ink3)}
+.hist .q{font-style:italic;color:var(--ink2)}
+.clip{display:grid;grid-template-columns:40px minmax(0,1fr) auto;gap:10px;align-items:center;border:1px solid var(--line);border-radius:4px;padding:8px 10px;background:var(--bg);font-size:13.5px}
+.clip .v{width:40px;height:40px;border-radius:4px;background:var(--sur2);display:grid;place-items:center;color:var(--teal)}
+.clip small{display:block;color:var(--ink3);font-size:12px}
+.sheet{border:1px solid var(--teal-brd);border-radius:8px;background:var(--sur);display:grid;gap:12px;padding:16px;max-width:520px;box-shadow:0 18px 40px -24px rgba(0,0,0,.6)}
+.sheet .sh{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+.sheet .sh .h{font-family:'Cormorant Garamond',Georgia,serif;font-size:24px;font-weight:500}
+.opts{display:flex;gap:6px;flex-wrap:wrap}
+.opts span{border:1px solid var(--line);border-radius:3px;padding:7px 12px;font-size:13.5px;min-height:36px;display:inline-flex;align-items:center}
+.opts span.on{border-color:var(--teal);background:var(--teal-dim);color:var(--teal);font-weight:600}
+.ta{border:1px solid var(--line);border-radius:4px;padding:10px 12px;font-size:14px;color:var(--ink2);min-height:64px;background:var(--bg)}
+.phones{display:flex;gap:18px;flex-wrap:wrap;align-items:flex-start}
+.phone{width:390px;max-width:100%;border:1px solid var(--line);border-radius:28px;padding:12px;background:var(--sur2)}
+.phone .desk{border-radius:20px}
+.phone .mono.cap{margin:8px 4px 0;display:block}
+.radar{display:grid;grid-template-columns:auto minmax(0,1fr);gap:14px;align-items:center}.radar .hide-m{display:contents}
+@container desk (max-width: 520px){.radar{grid-template-columns:minmax(0,1fr)}}
+details.all{border:1px dashed var(--line);border-radius:6px;padding:10px 14px}
+details.all summary{cursor:pointer;color:var(--teal);font-weight:600;font-size:14px}
+details.all .in{padding-top:10px;display:grid;gap:8px}
+.dec{display:grid;gap:8px}
+.dec div{display:grid;grid-template-columns:56px minmax(0,1fr);gap:12px;padding:8px 0;border-top:1px solid var(--line);font-size:14px}
+.dec .n{font-family:'DM Mono';color:var(--teal);font-size:12.5px;padding-top:3px}
+.dec b{display:block}
+.hl{background:var(--amber-dim);padding:0 4px;border-radius:2px}
+.pelaaja-silmin .st-num,.pelaaja-silmin .age,.pelaaja-silmin .nums{display:none!important}
+@media print{@page{size:A4 landscape;margin:10mm}.top,.nav,.tbtn,.ctl{display:none!important}.wrap{gap:28px;padding:0}section{break-inside:avoid}}
+</style>
+<style>.zp-wrap{display:grid;grid-template-columns:minmax(0,1fr) 390px;gap:18px;align-items:start}
+@media(max-width:1100px){.zp-wrap{grid-template-columns:minmax(0,1fr)}}
+.kt.zp{position:relative}
+.zgrid{position:absolute;inset:0}
+.zc{position:absolute;background:transparent;border:1px dashed var(--chalk2);margin:0;padding:4px;cursor:pointer;display:flex;flex-direction:column;align-items:flex-start;justify-content:flex-end;gap:2px;min-width:44px;min-height:44px;font:inherit;color:var(--ink)}
+.zc:hover{background:var(--teal-dim)}
+.zc:focus-visible{outline:2px solid var(--teal);outline-offset:-2px}
+.zc.on{background:var(--teal-dim);border:2px solid var(--teal)}
+.zc.nyk{border-color:var(--amber)}
+.zc .hv{font-size:9px;color:var(--teal);letter-spacing:1px;line-height:1}
+.zc .hv small{font-family:'DM Mono';font-size:10px;color:var(--ink2);margin-left:3px;letter-spacing:0}
+.zc .ny{font-family:'DM Mono';font-size:9.5px;color:var(--amber);line-height:1.1}
+.sug{display:grid;gap:8px}
+.sg{border:1px solid var(--line);border-radius:4px;padding:10px 12px;display:grid;gap:5px;background:var(--sur)}
+.sg.on{border-color:var(--teal);background:var(--teal-dim)}
+.sgt{display:flex;flex-wrap:wrap;gap:6px 8px;align-items:center}
+.sgt b{font-family:'Cormorant Garamond',Georgia,serif;font-size:20px;font-weight:500}
+.pv{display:grid;grid-template-columns:minmax(0,220px) minmax(0,1fr);gap:16px}
+@container desk (max-width: 720px){.pv{grid-template-columns:minmax(0,1fr)}.pv .pvk{max-width:240px}}
+</style>
+<style id="ktcss"></style>
+</head>
+<body>
+<div class="wrap">
+
+<div class="top">
+ <span class="mono">TalentMaster™ · 22 · Kehitystyöpöytä: käytettävyys · VP ja valmentaja · luonnos 2 · 9.10.2026 · D97–D106 ehdotus</span>
+ <button class="tbtn" id="theme" type="button">Vaihda teema</button>
+</div>
+
+<section id="s0">
+ <p class="eb">Periaate</p>
+ <h1>Yksi kysymys, yksi toiminto, yksi kortti.</h1>
+ <p>Kolme välilehteä ovat nyt kolme eri sukupolvea (V4-kehys, vanha modaali, vanha kortti). Uudistus tekee niistä yhden mallin: jokainen välilehti vastaa yhteen kysymykseen, siinä on yksi ensisijainen toiminto, ja jokainen lohko noudattaa samaa anatomiaa: <b>otsikko · yksi tulkintalause · luku ja datan ikä · yksi linkki</b>. Toiminnot avautuvat paikallaan (sheet), nappi ei koskaan vaihda välilehteä (D100).</p>
+ <div class="g3">
+  <div class="card"><span class="eb">Tänään</span><div class="h">Mitä teen tämän pelaajan kanssa nyt?</div><p>Yksi seuraava askel ja sen nappi. Kenttä datasta (D98), kolme kysymystä lähteineen ja päivineen (D103). Arkisin 0 lukua, sunnuntaisin 1.</p></div>
+  <div class="card"><span class="eb">Polku</span><div class="h">Missä pelaaja on ja mihin menossa?</div><p>Yksi jana: kausi → jakso nyt → tämä viikko → historia. Konseptin nimi on otsikkona kerran. Viikon suunnittelu kuuluu joukkueen viikkoon (D101).</p></div>
+  <div class="card"><span class="eb">Näyttö</span><div class="h">Mitä todisteita on?</div><p>Profiili + viisi todistekorttia (D102). Jokaisessa yksi lause, luvut datan ikineen, trendi ja yksi toiminto. Raakadata "Näytä kaikki mittaukset" -näkymän takana. Oletuksena ≤ 30 lukua (nyt 150–200).</p></div>
+ </div>
+ <div class="nav">
+  <a href="#s1"><b>1</b>Tänään</a><a href="#s2"><b>2</b>Polku</a><a href="#s2b"><b>2b</b>Kentän valinta</a><a href="#s3"><b>3</b>Näyttö</a><a href="#s3b"><b>3b</b>Säännöt</a><a href="#s4"><b>4</b>Mobiili 390</a><a href="#s5"><b>5</b>Sheetit</a><a href="#s6"><b>6</b>Benchmark</a><a href="#s6b"><b>6b</b>Gemini</a><a href="#s7"><b>7</b>Päätökset ja järjestys</a>
+ </div>
+ <div class="ctl" id="ctl">
+  <div class="g"><span class="l">Tila</span><button class="tbtn on" data-st="normaali" type="button">Normaali</button><button class="tbtn" data-st="vahan" type="button">Vähän dataa</button><button class="tbtn" data-st="eijaksoa" type="button">Jakso ei alkanut</button><button class="tbtn" data-st="katselmus" type="button">Katselmusvaihe</button></div>
+  <div class="g"><span class="l">Rooli</span><button class="tbtn on" data-ro="vp" type="button">VP</button><button class="tbtn" data-ro="valmentaja" type="button">Valmentaja (oto)</button></div>
+  <div class="g"><span class="l">Päivä</span><button class="tbtn on" data-pv="arki" type="button">Arki</button><button class="tbtn" data-pv="su" type="button">Sunnuntai</button></div>
+  <div class="g"><span class="l">Katsoja</span><button class="tbtn" id="silmin" type="button">Pelaajan silmin</button></div>
+ </div>
+ <p class="meta">Esimerkkipelaaja: Topias O´Koskela (KPV P13, testipelaaja). Muut nimet keksittyjä, luvut demodataa. Kenttä piirtyy repon oikealla komponentilla <code>lib/tm_kentta.js</code>, jotta D98:n data-adapteri on todistettavasti riittävä.</p>
+</section>
+
+<section id="s1">
+ <p class="eb">1 · Tänään</p>
+ <h2>Mitä teen tämän pelaajan kanssa nyt?</h2>
+ <p>Otsikkorivi (D46) ennallaan, mutta <b>tilasiru on ainoa tilateksti</b>: Polun tila -kortti poistuu (D99). Seuraava askel -kortin nappi tekee toiminnon paikallaan. Kenttä piirtyy datasta: ydinvahvuus alueena, jakso reittinä, viikot merkkeinä, osat pisteinä tiloineen. Kun aluetta ei ole, Kenttää ei näytetä tyhjänä vaan sen tilalla on jaksokortti ja "Aseta ydinvahvuus kentälle".</p>
+ <div id="d1"></div>
+ <div class="g2">
+  <div class="note">Kaksi kysymystä kertovat aina <b>lähteen ja päivän</b>; "Ei vielä tietoa" korvataan muodolla "kuka · milloin" (D103). Sitoumus näkyy rivinä signaalin alla ja nousee kortiksi vain, kun vaatii toimenpiteen. Viikkohavainto merkitään suoraan signaalikortin napeista (D100).</div>
+  <div class="note w">Sitoumus näkyy yhdestä säännöstä (D97): <i>sitoutunut</i> = sitoumus annettu tämän jakson aikana, <i>vahvistettu</i> = sitoutunut ja valmentaja vahvisti. Vanha sitoumus ei koskaan vahvistu uudelle jaksolle.</div>
+ </div>
+</section>
+
+<section id="s2">
+ <p class="eb">2 · Polku</p>
+ <h2>Missä pelaaja on ja mihin menossa?</h2>
+ <p>Yksi jana ylhäältä alas. Kausi näyttää tavoitteen pelaajan omin sanoin ja lähtötason vain, jos se on mitattu (D104). Jakso nyt on ainoa paikka, jossa konseptin nimi on otsikkona; klipit ja viikkohavainto ovat jakson sisällä. Tämä viikko on pelaajan viikko <b>lukuna</b>: harjoitukset tulevat joukkueen viikosta (14), omatoimi kirjauksista. Viikon suunnittelu (7 päivää, Täytä viikko, kuorma, läsnäolo) siirtyy joukkueen viikkoon (D101). Pelaajan ääni -placeholder poistuu, kunnes sille on kirjoituspolku (D105).</p>
+ <div id="d2"></div>
+</section>
+
+<section id="s2b">
+ <p class="eb">2b · Kenttä valintapintana (D107)</p>
+ <h2>Napauta aluetta, valitse jakson tavoite.</h2>
+ <p>Polussa valmentaja tai VP napauttaa kentän aluetta. Järjestelmä ehdottaa jakson tavoitteita sille alueelle: <b>ensin seuran oma linja</b>, sitten muut vaihtoehdot (konseptikaanon), suodatettuina pelaajan ydinvahvuudella, kausitavoitteella, pelihavainnoilla ja PHV-tilalla. Valmentaja valitsee yhden, ja "Aloita jakso" esitäyttyy. Ilman valintaa mitään ei tallennu.</p>
+ <p><b>Vyöhykejako pelimuodon mukaan:</b> 5v5 = 2 × 3 (6 aluetta), 8v8 = 3 × 3 (9), 11v11 = 3 × 5 (15, sama kuin pelihavainnon <code>phVyohyke</code>). Pelimuoto on <b>joukkueen asetus</b> ja voi olla kaksi yhtä aikaa: esimerkiksi 13-vuotiaat pelaavat sekä 8v8 että 11v11, jolloin kentän yläpuolella on vaihtokytkin. Karkeat jaot ovat hienojaon yhdistelmiä (laita 0–25 %, keski 25–75 %), joten pelihavainnot luokitellaan mihin tahansa jakoon raakakoordinaateista, ja pelaajan alue säilyy, kun joukkue siirtyy isompaan pelimuotoon.</p>
+ <div class="ctl" id="ctl2b">
+  <div class="g"><span class="l">Pelimuoto</span><button class="tbtn" data-muoto="5v5" type="button">5v5</button><button class="tbtn" data-muoto="8v8" type="button">8v8</button><button class="tbtn on" data-muoto="11v11" type="button">11v11</button></div>
+  <div class="g"><span class="l">Seuran linja</span><button class="tbtn on" data-linja="1" type="button">Linja tuotu</button></div>
+  <div class="g"><span class="l">PHV</span><button class="tbtn on" data-phv="PRE" type="button">PRE</button><button class="tbtn" data-phv="PH" type="button">PH</button><button class="tbtn" data-phv="POST" type="button">POST</button></div>
+  <div class="g"><button class="tbtn on" data-hav="1" type="button">Pelihavainnot</button><button class="tbtn" id="reset2b" type="button">Aloita alusta</button></div>
+ </div>
+ <div class="zp-wrap">
+  <div class="desk" id="zpDesk"></div>
+  <div class="phone" id="zpPhone"></div>
+ </div>
+ <div class="g3">
+  <div class="note">Ehdotuksen <b>miksi</b>-rivi kertoo aina lähteen: ydinvahvuus, kausitavoite, pelihavainnot (määrä ja päivä) tai seuran linja (teema ja viikot).</div>
+  <div class="note">Seuran linja ensin. Jos linjassa ei ole tavoitetta alueelle tai seura ei ole tuonut linjaa, näytetään muut vaihtoehdot suoraan. Aina voi myös <b>lisätä oman tavoitteen</b>; VP voi tallentaa sen seuran linjaan, jolloin linja kasvaa käytöstä.</div>
+  <div class="note w">PRE, LAH, tuntematon: ei fyysisiä ehdotuksia (§28). PH: fyysiset vain kuormarajoitettuina (§25). 5v5 (Leikkijä): ehdotukset leikkinimin, ei osien tasoja.</div>
+ </div>
+</section>
+
+<section id="s3">
+ <p class="eb">3 · Näyttö</p>
+ <h2>Mitä todisteita on?</h2>
+ <p>Profiili kerran, sitten viisi todistekorttia 13 §6:n järjestyksessä: Kasvu ja kypsyys · Fyysinen · Tekninen · Peli · Kehon valmius. Jokaisessa yksi lause, joka tulkitsee luvun pelaajan iän ja PHV-tilan mukaan (§25, §28), luvut päivämäärineen (§14), trendi ja yksi toiminto. PHV luetaan kerran <code>tmPhvTila</code>-funktiosta ja näkyy kerran. Raakadata, Eerikkilä-taulukot, syväanalyysit ja mittauslista avautuvat "Näytä kaikki mittaukset" -näkymästä samalla sivulla.</p>
+ <div id="d3"></div>
+ <div class="note">Oletusnäkymässä on tässä tilassa <b id="numcount">—</b> lukua. Nykyisessä Näytössä niitä on noin 150–200 (32 lohkoa + 6 avattavaa), ja PHV toistuu kymmenessä paikassa.</div>
+</section>
+
+<section id="s3b">
+ <p class="eb">3b · Tulkintasäännöt</p>
+ <h2>Lause syntyy datasta, ei kovakoodattuna.</h2>
+ <p>Jokaisen todistekortin lause tuotetaan yhdellä säännöllä (syöte → lause) <code>lib/</code>-moduulissa, sama VP:lle ja Masterille. PHV luetaan kerran <code>tmPhvTila</code>-funktiosta, taso lasketaan testihetken iästä (§14), datan ikä päättää toiminnon. Täysi taulukko: <code>22_TULKINTASAANNOT.md</code>. Tässä kolme esimerkkiä samasta pelaajasta eri PHV-tilassa.</p>
+ <div class="tw"><table>
+  <tr><th>Kortti</th><th>PRE / LAH / tuntematon</th><th>PH (kasvupyrähdys)</th><th>POST / AN</th></tr>
+  <tr><td><b>Kasvu ja kypsyys</b></td><td>"Kasvupyrähdys ei ole alkanut (arvio PHV 14,1 v). Heikoin 30 m, CMJ tai MAS ei ole nyt kehityskohde (§28)."</td><td>"Kasvupyrähdys käynnissä, kasvutahti 8,1 cm/v. Kuormaa rajoitetaan (§25): ei hyppy- eikä maksimisarjoja." + Huomio-chip (≥ 7,2 cm/v)</td><td>"Kasvupyrähdys ohi. Fyysiset tulokset ovat vertailukelpoisia ikänormiin; heikoin osa-alue käy kehityskohteeksi."</td></tr>
+  <tr><td><b>Fyysinen · mitattu</b></td><td>"Taso 3 ikäisekseen testihetkellä (13 v). Vahvin: 30 m (t3), heikoin: MAS (t2). PRE: heikoin ei ole kehityskohde, seurataan." Ei fysiikkajakso-ehdotusta.</td><td>"… Kasvupyrähdyksessä tulokset vaihtelevat; ei johtopäätöksiä yhdestä mittauksesta."</td><td>"… Heikoin osa-alue käy fyysisen jakson kohteeksi." → toiminto "Ehdota fysiikkajakso" (vain ilman jaksofokusta)</td></tr>
+  <tr><td><b>Tekninen · mitattu</b></td><td colspan="3">Ei PHV-porttia (tekniikkaa ei kypsyyskorjata). "TKI 54 (taso 4 ikäisekseen) ja nousussa (±3). Vahvin: pujottelu, heikoin: syöttö. Tukee kauden tavoitetta." PH lisää: "tekniikka voi notkahtaa tilapäisesti (§25)."</td></tr>
+  <tr><td><b>Peli · havaittu</b></td><td colspan="3">"Peliäly 4,0/5 (28.9.). Hallussa: päätös, reagointi; kehittyvä: havainnointi, toteutus." + "Arvioijia 2/3, puuttuu: fysiikkavalmentaja." + D3-ero ≥ 1,5 → "keskustelunaihe". Havainto > 8 vk → amber.</td></tr>
+  <tr><td><b>Kehon valmius</b></td><td colspan="3">"62/100. Heikoin ketju LL (55 %): liikkuvuusharjoite kuuluu tukiosaan." &lt; 40 → "Klinikkalippu: ohjaus fysioterapeutille."</td></tr>
+  <tr><td><b>Datan ikä</b></td><td colspan="3">≤ 3 kk normaali · 3–6 kk amber + "mittaus yli 3 kk vanha" · &gt; 6 kk amber + kortin ainoa toiminto on "Päivitä mittaus". Trendi vain, kun pisteitä ≥ 2 samasta lähteestä (<code>testitulokset</code>).</td></tr>
+ </table></div>
+ <div class="note">Kolme kysymystä (D103) noudattavat samaa mallia: arvo + lähde + päivä. "Treenattiinko?" lasketaan jakson viikkokatsauksista (≤ 6 dokumenttia). "Onko mukana?" tulee D97:n yhdestä säännöstä.</div>
+</section>
+
+<section id="s4">
+ <p class="eb">4 · Mobiili 390</p>
+ <h2>Kentän laidalla: otsikko, signaali, nappi.</h2>
+ <p>Sama renderöinti kapeassa säiliössä. Ensimmäisellä ruudulla on otsikkorivi, signaali ja nappi (18 §6). Kenttä ja kysymykset tulevat vierittämällä. Polku ja Näyttö ladataan vasta avattaessa (D52).</p>
+ <div class="phones" id="d4"></div>
+</section>
+
+<section id="s5">
+ <p class="eb">5 · Sheetit</p>
+ <h2>Nappi tekee toiminnon paikallaan.</h2>
+ <p>Kaksi yleisintä toimintoa avautuvat alasheettinä nykyisen välilehden päälle. Sama komponentti VP:lle ja valmentajalle (D4). Tallennuksen jälkeen Tänään ja Polku päivittyvät, välilehti ei vaihdu.</p>
+ <div class="g2" id="d5"></div>
+</section>
+
+<section id="s6">
+ <p class="eb">6 · Benchmark</p>
+ <h2>Miten muut ovat ratkaisseet saman.</h2>
+ <div class="tw"><table>
+  <tr><th>Tuote</th><th>Käytettävyysratkaisu</th><th>Visuaalisuus</th><th>Mitä otamme · mitä emme</th></tr>
+  <tr><td><b>StatsBomb IQ</b></td><td>Pelaaja esitetään yhdellä tutkalla, mutta tutkan rinnalla on aina <b>infopaneeli luvuista ja persentiileistä</b> sekä jakaumakuva (violin) populaatiota vasten. Vertailu overlay-kerroksena samassa näkymässä, ei uudessa sivussa.</td><td>Yksi kuva, tiukka typografia, vähän värejä. Persentiiliasteikko pelipaikan populaatiota vasten.</td><td>Otamme: luku ei koskaan ilman tulkintaa ja populaatiota (meillä: oma lähtötaso + ikä testihetkellä). Emme: persentiilit pelaajalle (§7.22) emmekä pelaajien keskinäistä vertailua.</td></tr>
+  <tr><td><b>Hudl</b> (youth)</td><td>Video ensin: profiili rakentuu klipeistä ja highlighteista, jotka <b>pelaaja itse</b> tekee ja jakaa (player-driven development). Valmentaja ohjaa tulkintaa, ei näytä raakadataa. Rullaus hitaasti: yksi tehtävä viikossa.</td><td>Tumma, videopainotteinen, suuret esikatselukuvat.</td><td>Otamme: klippi kuuluu jakson kontekstiin ja pelaaja on toimija (viikkokatsaus, omatoimi). Emme: julkista profiilia tai rekrytointinäkyvyyttä alaikäisille.</td></tr>
+  <tr><td><b>Wyscout</b></td><td>Pelaajasivu on tilastotaulukko + heatmap; vahvuus on hakutoiminto ja listavertailu. Käyttäjät moittivat, että profiilisivu on heikompi kuin lista ja että ulkoasu häviää Sofascorelle.</td><td>Tiheä, taulukkomainen. Paljon lukuja, vähän tulkintaa.</td><td>Otamme: varoittava esimerkki — juuri se, mitä Näyttö nyt on. Emme: tiheää taulukkoa oletusnäkymäksi.</td></tr>
+  <tr><td><b>360Player</b></td><td>Yksi pelaajaprofiili, johon kaikki kertyy automaattisesti, ja <b>yksi aikajana</b>: havainnot, tavoitteet ja katselmusyhteenvedot peräkkäin. Tavoitteilla teema, otsikko, edistymispalkki. Johto näkee, kenet on katselmoitu ja missä on aukkoja.</td><td>Selkeä, kortti- ja aikajanapohjainen.</td><td>Otamme: Polun yksi jana ja johdon "kuka on katselmoitu" (Pulssi). Emme: edistymispalkkia pelaajalle (§7.22).</td></tr>
+  <tr><td><b>Premier League PMA / EPPP</b></td><td>Jokainen akatemiapelaaja kirjataan yhteen järjestelmään; testit verrataan biologiseen, kronologiseen ja pelipaikkastandardiin; kasvu mitataan säännöllisesti. Ongelmaksi todettu: "rich in data but largely untapped" (Ged Roddy).</td><td>Hallinnollinen, lomakemainen.</td><td>Otamme: PHV-korjattu vertailu ja katselmusrytmi. Emme: tietovarastoa ilman toimintaohjetta — juuri se riski, jota 22 torjuu.</td></tr>
+  <tr><td><b>XPS Network</b></td><td>Valmentajan päivittäinen työkalu: harjoitusten suunnittelu, mikrosyklit, arvioinnit ja eri osastojen data samassa. Pelaajan oma näkymä on sivuroolissa.</td><td>Toiminnallinen, työkalumainen.</td><td>Otamme: viikon suunnittelu on joukkueen, ei pelaajan näkymä (D101). Emme: valmentaja-ensin-mallia, jossa pelaaja on kohde.</td></tr>
+  <tr><td><b>Kitman Labs iP</b></td><td>Lääketieteen, suorituskyvyn ja valmennuksen data yhdessä, ja seuratasolla operatiivinen tilannekuva. Hankki PMA:n datan 2020.</td><td>Yrityssovellus, dashboard-painotteinen.</td><td>Otamme: yksi pelaaja, monta osastoa (fysio, fysiikka, valmennus) samaan korttiin. Emme: dashboard-sanastoa tai "performance"-kehystä.</td></tr>
+ </table></div>
+ <div class="g2">
+  <div class="note">Yhteinen oppi: parhaat ratkaisut <b>erottavat tulkinnan ja raakadatan kahdeksi kerrokseksi</b> (StatsBombin tutka + infopaneeli; 360Playerin aikajana + profiilin tilastot). Kukaan ei näytä kaikkea kerralla. Meidän erottava tekijä on, että tulkintakerros on pedagoginen (vahvuus, oma lähtötaso, PHV) eikä rekrytoiva.</div>
+  <div class="note w">Tutkasta: StatsBomb itse siirtyi "ei vain tutka" -malliin (persentiilitutka + jakaumat + infopaneeli), koska pelkkä tutka hävittää tietoa. Meillä 5D-tutka pysyy Profiili-kortissa henkilökunnalle, mutta jokaisen akselin luku ja päivä ovat vieressä, eikä tutka ole koskaan yksin.</div>
+ </div>
+</section>
+
+<section id="s6b">
+ <p class="eb">6b · Geminin sparri 9.10.</p>
+ <h2>Mitä otettiin, mitä ei.</h2>
+ <div class="tw"><table>
+  <tr><th>Geminin huomio</th><th>Päätös</th><th>Perustelu</th></tr>
+  <tr><td>Sheet hidastaa oto-valmentajaa (tiistai, räntä, 18 pelaajaa)</td><td><b>Otettu.</b> Viikkohavainto = kolme inline-nappia signaalikortissa, yksi napautus tallentaa; lause ja klippi vain halutessa. Sheet jää katselmukselle (3 kysymystä).</td><td>D100 täsmentyy: "paikallaan" tarkoittaa inline, kun valinta on yksi.</td></tr>
+  <tr><td>"Ei vielä tietoa" turhauttaa ilman oikotietä</td><td><b>Otettu.</b> Kysymys 1 merkitään samasta napista. Kysymys 2 on pelaajan (sunnuntai), siihen ei oikotietä.</td><td>D103.</td></tr>
+  <tr><td>Historia tekstirivinä raskas</td><td><b>Osin.</b> Historiarivillä trendi (↗ 2/3 osaa itsenäisesti · → vaihdettu). Graafinen historia on jo Kentällä haaleina reitteinä (D44).</td><td>Ei toista aikajanaa.</td></tr>
+  <tr><td>Massasyöttö joukkuelistasta (XPS)</td><td><b>Otettu taustalle, ei tähän.</b> Kuuluu joukkueen viikkoon (14) ja Pulssin tiiminäkymään: "merkitse viikkohavainto usealle".</td><td>Pelaajatyöpöytä on yhden pelaajan näkymä. Kirjataan 07:n taustalistaan.</td></tr>
+  <tr><td>Videolooppi autoplay Tänään-kortilla (Veo/Hudl)</td><td><b>Ei.</b> Klippi on linkki, ei upotus (R6.4, D55): alaikäisten videoita ei toisteta automaattisesti eikä ladata TalentMasterin kautta.</td><td>Thumbnail + linkki säilyy "Valmentajalta uusin" -kortissa.</td></tr>
+  <tr><td>Liikennevalo etusivulla (Kitman)</td><td><b>On jo.</b> Seuran pulssi (20) ja Tänään-signaali hoitavat tämän. Oto-joukkue ei saa punaista katselmuksesta (D72).</td><td>Ei lisätä toista liikennevaloa.</td></tr>
+  <tr><td>Näyttö: haitari, vain ajankohtainen kortti auki (eri mieltä D102:sta)</td><td><b>Otettu mobiiliin, osin työpöydälle.</b> Mobiilissa haitari: jaksoon liittyvä kortti auki, muut yhden rivin yhteenvetoina. Työpöydällä viisi korttia näkyy, jaksoon liittyvä on korostettu ("liittyy jaksoon").</td><td>D102 täsmentyy. Työpöydällä ammattivalmentaja haluaa kokonaiskuvan yhdellä silmäyksellä.</td></tr>
+  <tr><td>7,2 cm/v on jyrkkä kynnys</td><td><b>Osin.</b> Kynnys pysyy (metodologia §25: loukkaantumisriski ≥ 7,2 cm/v), mutta 6,5–7,1 cm/v antaa lauseen "kasvu kiihtyy, seuraa" ilman chippiä.</td><td>Valmentaja päättää kuorman; sääntö vain nostaa esiin.</td></tr>
+  <tr><td>Yli 6 kk vanha data: "Päivitä mittaus" ainoana linkkinä liian jäykkä</td><td><b>Otettu.</b> Tulkinta ja luvut näkyvät aina; Päivitä mittaus on ensisijainen linkki, toinen linkki säilyy.</td><td>Vanhakin suunta on oto-valmentajalle arvokas.</td></tr>
+  <tr><td>Vähän dataa: neljä "Ei testejä" peräkkäin</td><td><b>Otettu.</b> Jos ≥ 3 korttia on tyhjiä, ne yhdistetään yhdeksi "Mittauskierros puuttuu" -kortiksi, jossa yksi toiminto.</td><td>Näkyy tilassa "Vähän dataa".</td></tr>
+  <tr><td>Mobiilista pois 5D-tutka ja pitkät kausitekstit</td><td><b>Otettu.</b> Tutka ja pelaajan lainaus piilotetaan alle 720 px:n säiliössä; lause ja luvut jäävät.</td><td>18 §6.</td></tr>
+  <tr><td>Sitoumus pois Tänään-näkymästä (eri mieltä D97:n painoarvosta)</td><td><b>Osin.</b> Sitoumus ei ole enää kolmas kysymyskortti. Se näkyy rivinä signaalin alla ja nousee kortiksi vain, kun vaatii toimenpiteen ("sitoutui · vahvista"). D97 (yksi sääntö) pysyy, koska ristiriita pitää korjata joka tapauksessa.</td><td>Sitoumus on pedagoginen (pelaaja ottaa vastuun), ei byrokratiaa, mutta sen ei tarvitse viedä tilaa joka päivä.</td></tr>
+ </table></div>
+</section>
+
+<section id="s7">
+ <p class="eb">7 · Päätökset ja toteutusjärjestys</p>
+ <h2>D97–D106 ja mitä tehdään milloin.</h2>
+ <div class="dec">
+  <div><span class="n">D97</span><span><b>Sitoumus: yksi sääntö, yksi lib, molemmat appit.</b> Sitoutunut = sitoumus annettu tämän jakson aikana; vahvistettu = sitoutunut ja valmentaja vahvisti. Vahvistus estetään, jos sitoumus ei kuulu nykyiseen jaksoon. Masteriin sama vahvistuspolku.</span></div>
+  <div><span class="n">D98</span><span><b>Kenttä piirtyy datasta. Lukittu 9.10.</b> Pelaajadokumenttiin <code>ydinvahvuus.alue {x,y,w,h}</code> (valmentaja asettaa Polussa "Siirrä kentällä") ja <code>jaksofokus.reitti</code>; osien tila <code>osa_arviot</code>-kentästä. Ilman aluetta: jaksokortti + CTA, ei tyhjää kenttää. VP, Master ja pelaaja-app käyttävät samaa komponenttia ja samaa dataa ("yhtenäistetään").</span></div>
+  <div><span class="n">D99</span><span><b>Polun tila -kortti poistuu;</b> tilasiru on ainoa tilateksti. Seuraava askel ei toistu Polussa.</span></div>
+  <div><span class="n">D100</span><span><b>Toiminnot tehdään paikallaan.</b> Yhden valinnan toiminto (viikkohavainto) on inline-nappi; useamman kysymyksen toiminto (kevyt katselmus, aloita jakso) on sheet. Nappi ei vaihda välilehteä.</span></div>
+  <div><span class="n">D101</span><span><b>Viikon suunnittelu siirtyy joukkueen viikkoon (14).</b> Pelaajan Polku näyttää tämän pelaajan viikon lukuna ja linkin "Avaa joukkueen viikko".</span></div>
+  <div><span class="n">D102</span><span><b>Näyttö = Profiili + 5 todistekorttia + "Näytä kaikki mittaukset".</b> Jokaisessa luvussa päivä; PHV luetaan kerran; lause lasketaan pelaajasta (22_TULKINTASAANNOT). Työpöydällä kaikki viisi, jaksoon liittyvä korostettu; mobiilissa haitari, jossa jaksoon liittyvä on auki. ≥ 3 tyhjää korttia → yksi "Mittauskierros puuttuu". Oletuksena ≤ 30 lukua.</span></div>
+  <div><span class="n">D103</span><span><b>Kaksi kysymystä aina lähteen ja päivän kanssa</b> (Näkyykö ydinvahvuus · Treenattiinko); sitoumus rivinä, kortiksi vain kun vaatii toimenpiteen. "Ei vielä tietoa" → "kuka · milloin". "Treenattiinko?" lasketaan jakson viikkokatsauksista (≤ 6 dokumenttia).</span></div>
+  <div><span class="n">D104</span><span><b>Kausitavoitteen lukua ei näytetä, jos lähtötaso ei ole mitattu.</b> "2/5"-oletus korvataan: "tavoite taso 2 · lähtötaso katselmuksessa".</span></div>
+  <div><span class="n">D105</span><span><b>Pelaajan ääni -lohko ja viikkorefleksio pois Polusta,</b> kunnes niille on kirjoituspolku. Kausitavoitteen "omin sanoin" riittää.</span></div>
+  <div><span class="n">D107</span><span><b>Kenttä on valintapinta Polussa.</b> Napautettu alue → ehdotetut jakson tavoitteet → valinta esitäyttää Aloita jakso -sheetin ja tallentaa alueen. <b>Vyöhykejako pelimuodon mukaan</b> (Tero 9.10.): 5v5 = 2 × 3, 8v8 = 3 × 3, 11v11 = 3 × 5 (= <code>phVyohyke</code>); pelimuoto on joukkueen asetus <code>pelimuodot[]</code>, joka voi sisältää kaksi (13 v: 8v8 ja 11v11), ensimmäinen on oletus ja kentässä on vaihtokytkin; karkeat jaot ovat hienojaon yhdistelmiä, alue tallennetaan hienojaon koordinaatteina. <b>Seuran linja ensin</b>; jos linjaa ei ole tai alueelle ei ole linjan tavoitetta, muut vaihtoehdot (kaanon) näytetään suoraan. <b>Tai oma tavoite</b> (Tero 9.10.): nimi, osat a/b/c, domeeni; VP tai UTJ voi tallentaa sen samalla seuran linjaan tälle alueelle, jolloin se ehdotetaan jatkossa muillekin. Suodattimet: ydinvahvuus, kausitavoite, pelihavainnot, PHV (§25/§28). 5v5 (Leikkijä): leikkinimet, ei osien tasoja eikä K3:a. Tänään-välilehdellä Kenttä on vain luku.</span></div>
+  <div><span class="n">D106</span><span><b>VP ja Master renderöivät kaikki kolme välilehteä samasta lib-moduulista;</b> kuoret pienenevät. R1:ssä kehitystyöpöytä voi olla oma kevyt sivunsa.</span></div>
+ </div>
+ <div class="g2">
+  <div class="card"><div class="h">Korjauskierros ennen 1.11. (Code)</div><p>Analyysin (a)-lista 1–12: sitoumussääntö (D97) · rikkinäiset <code>_jspVaihda</code>-napit · viikon lataus · mittauslistan roolibugi · D3-roolitarkistus · <code>p.phv_tila</code> → <code>tmPhvTila</code> · päivämäärä jokaiselle mittausryhmälle · "Pelaajan silmin" piilottaa luvut · kuollut koodi pois · kehittäjäkieli pois. Lisäksi kevyinä: D99, D103 (nykyisestä datasta), D104, D105. Ei uusia kenttiä.</p></div>
+  <div class="card"><div class="h">R1 joulukuu (VP_v25:n jako)</div><p>D98 alue ja reitti (+ Rules, "Siirrä kentällä") · D100 sheetit · D101 viikko joukkueelle · D102 todistekortit · D106 yksi lib ja oma sivu. Koko sivu samasta datasta kuin pelaaja-app, jotta "sama kuva kaikille rooleille" on totta.</p></div>
+ </div>
+ <p class="meta">Lähteet benchmarkille: StatsBomb "What is a radar?" ja "Release… not radars" (blogarchive.statsbomb.com), Hudl "Player-driven development" (hudl.com/blog), Hudl Athlete's Guide, 360Player Player development (360player.com), Premier League EPPP "Youth: Elite Performance" (premierleague.com), Training Ground Guru "Using data to analyse graduation rates", Sideline Sports / XPS Sparta Prague -case, The Mastermind Site Wyscout-arvio.</p>
+</section>
+
+</div>
+<script>
+/* ════════════════════════════════════════════════════════════════════════
+   tm_kentta.js — K0: Kenttä-komponentti (PURE, ei Firebasea, ei DOM:ia, toimii offline). Inline-SVG + HTML-kerros merkkijonoina, kuten lib/tm_piirros.js.
+   Mockup: docs/design/idp-v2/09_pelaaja_kentta.html (osio 0 · Idea + kaikki data-pitch-variantit), suunnitelma 10 (osiot 4–5), brief docs/CODE_BRIEF_KENTTA_K0.md.
+   Yksi komponentti, neljä katsojaa (pelaaja, huoltaja, valmentaja, katselmus): kerrokset kuten spec:ssä — ase (alue) · reitti · viikkomerkit · osat · historia · lempipaikka · vaihtoehdot.
+
+   tmKentta(spec, opts) → { svg, html, data } (opts.wrap === true → yksi merkkijono: <div class="kt"> svg + html </div>)
+     spec = { koko:'puoli'|'koko', ase:{alue:{x,y,w,h}, nimi, sub, tila:'ok'|'puuttuu'}|null,
+              reitti:{loppu:'maali'|'kaveri'|'kausitavoite', col:'teal'|'blue', faint}|null, viikot:{n, tehty, valmis}|null,
+              osat:[{k,nimi,x,y,tila:'itsenaisesti'|'ohjatusti'|'ei_viela'|'nyt'}], historia:[{loppu}], lempipaikka:{x,y}|null,
+              vaihtoehdot:[{k:'A',loppu},{k:'B',loppu}]|null, ilmanAluetta:true|undefined }   (ilmanAluetta: ei ase-/oma alue -laatikkoa eikä tekstiä; data.alue = null — pelkkä kenttä)
+     opts = { t:fn(avain)→teksti, wrap, luokka, ariaLabel }
+     Koordinaatit: leveys 0–100, pituus 0–140, hyökkäys ylös. koko:'puoli' leikkaa vain näkymän (viewBox 0 0 100 84), ei muuta koordinaatteja.
+     Reitti: EI vapaata piirtoa — alku = ase.alue keskipiste, loppu = kiinteä piste (maali 48,8 · kaveri 74,24 · kausitavoite 50,30), kolme välipistettä (lievä kaari).
+     Viikkomerkit tasavälein reitillä: i < tehty → täysi (.kt-vk-tehty) · i === tehty && !valmis → "nyt" (.kt-vk-nyt) · muuten tyhjä (.kt-vk) · valmis → kaikki täynnä.
+     data = { viewBox, alue, reitti:[[x,y]…]|null, viikot:[{x,y,tila}]|null } — testattava geometria.
+   VÄRIT: vain CSS-luokissa jotka osoittavat tokeneihin (--chalk --chalk2 --teal --teal-dim --amber --amber-dim --blue --ink --bg); lib ei sisällä hex-/rgb-värejä
+   (brändiportti). tmKenttaCss() palauttaa luokat tyylilohkoksi. Tekstit (sinun vahvuutesi, nyt, vahvuus valitaan pian…) opts.t:n läpi; ilman t:tä avain sellaisenaan. D54: käyttäjälle ei koskaan "ase" — opts.rooli:'henkilokunta' → "ydinvahvuus"/"ydinvahvuus puuttuu"; muuten (oletus, pelaaja/huoltaja) "sinun vahvuutesi"/"vahvuus valitaan pian".
+   §7.22: viikkomerkit ovat KESTOA, eivät suoritusta; osan tila on sana; ei lukuarvoja, ei vertailua.
+   Dual-export: module.exports || window.TM_KENTTA (+ window.tmKentta, window.tmKenttaCss).
+════════════════════════════════════════════════════════════════════════ */
+(function (root) {
+  'use strict';
+
+  var LOPPU = { maali: [48, 8], kaveri: [74, 24], kausitavoite: [50, 30] };
+  var OLETUS_ALUE = { x: 30, y: 48, w: 40, h: 30 };
+  var OSA_TILA = { itsenaisesti: 'itsenäisesti', ohjatusti: 'ohjatusti', ei_viela: 'ei vielä', nyt: 'nyt' };
+
+  function _n(v) { return Math.round(v * 100) / 100; }
+  function _esc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+  function _luku(v, ala, yla, oletus) { v = Number(v); return isFinite(v) ? Math.min(yla, Math.max(ala, v)) : oletus; }
+  function _kaanna(opts) { return (opts && typeof opts.t === 'function') ? opts.t : function (k) { return k; }; }
+
+  function _alue(ase) {
+    var a = ase && ase.alue;
+    if (!a || !isFinite(Number(a.x)) || !isFinite(Number(a.y)) || !isFinite(Number(a.w)) || !isFinite(Number(a.h))) return null;
+    return { x: _luku(a.x, 0, 100, 0), y: _luku(a.y, 0, 140, 0), w: _luku(a.w, 1, 100, 1), h: _luku(a.h, 1, 140, 1) };
+  }
+
+  // Reitti: alkupiste → loppupiste kolmella välipisteellä (lievä sivuttaiskaari; deterministinen). Palauttaa 5 pistettä.
+  function tmKenttaReitti(alku, loppu) {
+    var pisteet = [[_n(alku[0]), _n(alku[1])]];
+    var dx = loppu[0] - alku[0], dy = loppu[1] - alku[1], pit = Math.sqrt(dx * dx + dy * dy) || 1;
+    var nx = -dy / pit, ny = dx / pit;   // normaali
+    [0.25, 0.5, 0.75].forEach(function (t) {
+      var kaari = Math.sin(Math.PI * t) * 3;
+      pisteet.push([_n(alku[0] + dx * t + nx * kaari), _n(alku[1] + dy * t + ny * kaari)]);
+    });
+    pisteet.push([loppu[0], loppu[1]]);
+    return pisteet;
+  }
+  function _polku(p) { return p.map(function (q, i) { return (i ? 'L' : 'M') + q[0] + ' ' + q[1]; }).join(' '); }
+  // Piste murtoviivalla suhteessa t (0–1), pituuden mukaan.
+  function _pisteReitilla(p, t) {
+    var L = [], kok = 0, i;
+    for (i = 1; i < p.length; i++) { var d = Math.sqrt(Math.pow(p[i][0] - p[i - 1][0], 2) + Math.pow(p[i][1] - p[i - 1][1], 2)); L.push(d); kok += d; }
+    var x = t * kok;
+    for (i = 0; i < L.length; i++) {
+      if (x <= L[i] || i === L.length - 1) { var u = L[i] ? Math.min(1, x / L[i]) : 0; return [_n(p[i][0] + (p[i + 1][0] - p[i][0]) * u), _n(p[i][1] + (p[i + 1][1] - p[i][1]) * u)]; }
+      x -= L[i];
+    }
+    return [p[0][0], p[0][1]];
+  }
+
+  function _viivat() {
+    return '<g class="kt-line">'
+      + '<line x1="0" y1="70" x2="100" y2="70"/><circle cx="50" cy="70" r="13"/>'
+      + '<rect x="20" y="0" width="60" height="23"/><rect x="35" y="0" width="30" height="8"/>'
+      + '<rect x="20" y="117" width="60" height="23"/><rect x="35" y="132" width="30" height="8"/>'
+      + '<path d="M39 23a13 13 0 0 0 22 0"/><path d="M39 117a13 13 0 0 1 22 0"/>'
+      + '</g>';
+  }
+
+  function tmKentta(spec, opts) {
+    spec = spec || {}; opts = opts || {};
+    var t = _kaanna(opts);
+    var H = spec.koko === 'koko' ? 140 : 84;
+    var viewBox = '0 0 100 ' + H;
+    var svg = [], html = [];
+    var data = { viewBox: viewBox, alue: null, reitti: null, viikot: null };
+
+    var ase = spec.ase || null;
+    var alue = _alue(ase);
+    var ilmanAluetta = spec.ilmanAluetta === true;   // K1-korjaus: ei aluetta, ei oletusaluetta eikä tekstiä — pelkkä kenttä (alue tulee K3:ssa; ei arvata)
+    var asePuuttuu = !ase || ase.tila === 'puuttuu' || !alue;
+    var kaytAlue = alue || OLETUS_ALUE;
+    data.alue = ilmanAluetta ? null : { x: kaytAlue.x, y: kaytAlue.y, w: kaytAlue.w, h: kaytAlue.h, puuttuu: asePuuttuu };
+    var alku = [kaytAlue.x + kaytAlue.w / 2, kaytAlue.y + kaytAlue.h / 2];
+
+    svg.push(_viivat());
+
+    // Historia: haaleat jäljet (kiinteät, edellisten jaksojen suunta); ei oikeaa reittidataa → siirretty alkupiste per merkintä.
+    (Array.isArray(spec.historia) ? spec.historia : []).forEach(function (h, i) {
+      var loppu = LOPPU[h && h.loppu] || LOPPU.maali;
+      var a = [Math.max(2, alku[0] - 6 * (i + 1)), Math.min(H - 2, alku[1] + 10 * (i + 1))];
+      svg.push('<path class="kt-historia" d="' + _polku(tmKenttaReitti(a, loppu)) + '"/>');
+    });
+
+    // Reitit: yksittäinen reitti TAI vaihtoehdot (A teal, B sininen, haalea).
+    var reitit = [];
+    if (Array.isArray(spec.vaihtoehdot) && spec.vaihtoehdot.length) {
+      spec.vaihtoehdot.forEach(function (v, i) { reitit.push({ loppu: v && v.loppu, b: i > 0, faint: i > 0, k: v && v.k, vaiht: true }); });
+    } else if (spec.reitti) {
+      reitit.push({ loppu: spec.reitti.loppu, b: spec.reitti.col === 'blue', faint: !!spec.reitti.faint });
+    }
+    var paaReitti = null;
+    reitit.forEach(function (r, i) {
+      var loppu = LOPPU[r.loppu] || LOPPU.maali;
+      var p = tmKenttaReitti(alku, loppu);
+      if (i === 0) paaReitti = p;
+      svg.push('<path class="kt-reitti' + (r.b ? ' kt-reitti-b' : '') + (r.faint ? ' kt-faint' : '') + '" d="' + _polku(p) + '"/>');
+      if (i === 0) data.reitti = p;
+      if (r.vaiht) {
+        html.push('<div class="kt-osa" style="left:' + _n(loppu[0] - 6) + '%;top:' + _n(Math.max(0, loppu[1] - 7) / H * 100) + '%">' + _esc(r.k) + ' · ' + _esc(t(r.loppu === 'kaveri' ? 'kaveri' : r.loppu === 'kausitavoite' ? 'kausitavoite' : 'maali')) + '</div>');
+      }
+    });
+    if (paaReitti) {
+      var loppuP = paaReitti[paaReitti.length - 1];
+      if (!reitit[0].b) svg.push('<circle class="kt-maali" cx="' + loppuP[0] + '" cy="' + loppuP[1] + '" r="1.6"/>');
+    }
+
+    // Viikkomerkit: vain jos on reitti ja viikot
+    var vk = spec.viikot;
+    if (paaReitti && vk && Number(vk.n) > 0) {
+      var n = Math.min(24, Math.floor(Number(vk.n))), tehty = _luku(vk.tehty, 0, n, 0), valmis = !!vk.valmis;
+      data.viikot = [];
+      for (var i = 0; i < n; i++) {
+        var q = _pisteReitilla(paaReitti, (i + 1) / n);
+        var tila = (valmis || i < tehty) ? 'tehty' : (i === tehty ? 'nyt' : 'tyhja');
+        data.viikot.push({ x: q[0], y: q[1], tila: tila });
+        var cls = tila === 'tehty' ? 'kt-vk-tehty' : tila === 'nyt' ? 'kt-vk-nyt' : 'kt-vk';
+        svg.push('<circle class="' + cls + '" cx="' + q[0] + '" cy="' + q[1] + '" r="' + (tila === 'nyt' ? 3.2 : 2.4) + '"/>');
+      }
+    }
+
+    // Lempipaikka (U8–12): pallo
+    if (spec.lempipaikka && isFinite(Number(spec.lempipaikka.x)) && isFinite(Number(spec.lempipaikka.y))) {
+      var lx = _luku(spec.lempipaikka.x, 0, 100, 50), ly = _luku(spec.lempipaikka.y, 0, 140, 50);
+      svg.push('<circle class="kt-pallo" cx="' + lx + '" cy="' + ly + '" r="3"/>');
+      html.push('<div class="kt-osa" style="left:' + _n(Math.min(70, lx + 4)) + '%;top:' + _n(Math.max(0, ly - 12) / H * 100) + '%">' + _esc(t('tässä tykkään pelata')) + '</div>');
+    }
+
+    // Ase: alue HTML-kerroksena (nimi + sub). Puuttuu → katkoviiva, ei täyttöä.
+    var top = _n(kaytAlue.y / H * 100), hh = _n(kaytAlue.h / H * 100);
+    var geom = 'left:' + _n(kaytAlue.x) + '%;top:' + top + '%;width:' + _n(kaytAlue.w) + '%;height:' + hh + '%';
+    if (ilmanAluetta) {
+      // ei aluelaatikkoa lainkaan
+    } else if (asePuuttuu) {
+      html.push('<div class="kt-ase-puuttuu" style="' + geom + '"><b>' + _esc(t(opts.rooli === 'henkilokunta' ? 'ydinvahvuus puuttuu' : 'vahvuus valitaan pian')) + '</b></div>');
+    } else {
+      html.push('<div class="kt-ase" style="' + geom + '"><b>' + _esc(ase.nimi) + '</b><span>' + _esc(ase.sub != null ? ase.sub : t(opts.rooli === 'henkilokunta' ? 'ydinvahvuus' : 'sinun vahvuutesi')) + '</span></div>');
+    }
+
+    // Osat: tagit (nimi + tilasana)
+    (Array.isArray(spec.osat) ? spec.osat : []).forEach(function (o) {
+      if (!o) return;
+      var sana = OSA_TILA[o.tila] ? t(OSA_TILA[o.tila]) : '';
+      var ox = _luku(o.x, 0, 100, 50), oy = _luku(o.y, 0, 140, 50);
+      html.push('<div class="kt-osa' + (o.tila === 'nyt' ? ' kt-osa-nyt' : '') + '" style="left:' + _n(ox) + '%;top:' + _n(oy / H * 100) + '%">'
+        + _esc(o.k) + (o.nimi ? ' · ' + _esc(o.nimi) : '') + (sana ? ' · ' + _esc(sana) : '') + '</div>');
+    });
+
+    var label = opts.ariaLabel != null ? opts.ariaLabel : t('Kenttä');
+    var svgStr = '<svg class="kt-svg" viewBox="' + viewBox + '" role="img" aria-label="' + _esc(label) + '">' + svg.join('') + '</svg>';
+    var htmlStr = '<div class="kt-layer">' + html.join('') + '</div>';
+    if (opts.wrap === true) return '<div class="kt' + (opts.luokka ? ' ' + _esc(opts.luokka) : '') + '">' + svgStr + htmlStr + '</div>';
+    return { svg: svgStr, html: htmlStr, data: data };
+  }
+
+  // Tyylit: vain tokenit (ei hex/rgb). Kenttä-kehys: .kt (position:relative) sisältää SVG:n ja .kt-layer-kerroksen.
+  function tmKenttaCss() {
+    return [
+      '.kt{position:relative;border:1.5px solid var(--chalk);border-radius:4px;overflow:hidden;background:var(--bg)}',
+      '.kt-svg{display:block;width:100%;height:auto}',
+      '.kt-layer{position:absolute;inset:0;pointer-events:none}',
+      '.kt-line{fill:none;stroke:var(--chalk);stroke-width:.8}',
+      '.kt-line2,.kt-historia{fill:none;stroke:var(--chalk2);stroke-width:1.6;stroke-dasharray:2 2.5}',
+      '.kt-reitti{fill:none;stroke:var(--teal);stroke-width:1.2;stroke-dasharray:2 2.2}',
+      '.kt-reitti-b{stroke:var(--blue)}',
+      '.kt-faint{opacity:.5}',
+      '.kt-vk{fill:var(--bg);stroke:var(--teal);stroke-width:1}',
+      '.kt-vk-tehty{fill:var(--teal);stroke:var(--teal);stroke-width:1}',
+      '.kt-vk-nyt{fill:var(--amber);stroke:var(--amber);stroke-width:1}',
+      '.kt-maali{fill:var(--teal)}',
+      '.kt-pallo{fill:var(--ink);stroke:var(--bg);stroke-width:.8}',
+      '.kt-ase{position:absolute;display:grid;align-content:end;gap:1px;padding:7px 8px;box-sizing:border-box;background:var(--teal-dim);border:1.5px dashed var(--teal);border-radius:3px}',
+      '.kt-ase b{color:var(--teal);font-weight:800;line-height:1}',
+      '.kt-ase span{font-size:11px;color:var(--ink)}',
+      '.kt-ase-puuttuu{position:absolute;display:grid;align-content:end;padding:7px 8px;box-sizing:border-box;background:transparent;border:1.5px dashed var(--chalk2);border-radius:3px}',
+      '.kt-ase-puuttuu b{font-size:11px;font-weight:500;color:var(--ink)}',
+      '.kt-osa{position:absolute;font-size:11px;line-height:1.2;color:var(--ink);background:var(--bg);border:1px solid var(--chalk2);border-radius:3px;padding:2px 6px;white-space:nowrap}',
+      '.kt-osa-nyt{background:var(--amber-dim);border-color:var(--amber);color:var(--amber)}'
+    ].join('\n');
+  }
+
+  var API = { tmKentta: tmKentta, tmKenttaCss: tmKenttaCss, tmKenttaReitti: tmKenttaReitti, LOPPU: LOPPU, OLETUS_ALUE: OLETUS_ALUE };
+  if (typeof module !== 'undefined' && module.exports) module.exports = API;
+  if (root && typeof window !== 'undefined') { root.TM_KENTTA = API; root.tmKentta = tmKentta; root.tmKenttaCss = tmKenttaCss; }
+})(typeof window !== 'undefined' ? window : this);
+</script>
+<script>
+(function(){
+var r=document.documentElement;
+document.getElementById('theme').addEventListener('click',function(){var d=r.getAttribute('data-theme')||(matchMedia('(prefers-color-scheme: light)').matches?'light':'dark');r.setAttribute('data-theme',d==='dark'?'light':'dark')});
+document.getElementById('ktcss').textContent=window.tmKenttaCss()+'\n.kt .kt-ase b,.kt .kt-osa{font-family:Archivo,system-ui,sans-serif;font-variation-settings:"wdth" 76}\n.kt .kt-ase b{font-size:15px}';
+
+var S={st:'normaali',ro:'vp',pv:'arki',silmin:false};
+function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
+
+/* ── Demodata: Topias O´Koskela, KPV P13 (testipelaaja). Muut keksittyjä. ── */
+function data(){
+ var st=S.st;
+ var P={nimi:'Topias O´Koskela',joukkue:'KPV P13',ika:'13 v · Rakentaja',phv:'PRE',phvPvm:'12.8.2026'};
+ if(st==='eijaksoa')return Object.assign(P,{jakso:null,ase:{nimi:'Ensimmäinen kosketus',alue:{x:34,y:40,w:36,h:26}},sitoumus:null,osat:[],vk:null,tila:{teksti:'Ei jaksoa',savy:'n'},katselmus:null});
+ if(st==='vahan')return Object.assign(P,{phv:null,phvPvm:null,jakso:null,ase:null,sitoumus:null,osat:[],vk:null,tila:{teksti:'Ei jaksoa',savy:'n'},katselmus:null,vahan:true});
+ var J={nimi:'Ensimmäinen kosketus paineessa',alkoi:'29.9.2026',paattyy:'9.11.2026',kesto:6,dom:'teknis-taktinen',tuki:'Kehon hallinta (fyysinen)',vastuu:'Mika V. (valmentaja)',teema:'Pallonhallinta paineen alla (joukkueen teema vk 40–45)'};
+ var base=Object.assign(P,{jakso:J,ase:{nimi:'Ensimmäinen kosketus',alue:{x:30,y:44,w:40,h:28}},
+  osat:[{k:'a',nimi:'Katse ylös ennen vastaanottoa',tila:'itsenaisesti',x:40,y:32},{k:'b',nimi:'Vastaanotto poispäin paineesta',tila:'nyt',x:62,y:52},{k:'c',nimi:'Ensimmäinen syöttö eteenpäin',tila:'ei_viela',x:34,y:66}],
+  sitoumus:{annettu:'3.10.2026',vahvistettu:'4.10.2026'},katselmus:null});
+ if(st==='katselmus')return Object.assign(base,{vk:{n:6,tehty:6,valmis:true},tila:{teksti:'Jakso päättynyt 9.11. · suljettava',savy:'w'},katselmus:{myohassa:S.ro==='vp'?3:null},viikkokatsaukset:5,
+   osat:[{k:'a',nimi:'Katse ylös ennen vastaanottoa',tila:'itsenaisesti',x:40,y:32},{k:'b',nimi:'Vastaanotto poispäin paineesta',tila:'itsenaisesti',x:62,y:52},{k:'c',nimi:'Ensimmäinen syöttö eteenpäin',tila:'ohjatusti',x:34,y:66}]});
+ return Object.assign(base,{vk:{n:3,tehty:2,valmis:false},tila:{teksti:'Jakso käynnissä · vk 3/6',savy:'ok'},viikkokatsaukset:2});
+}
+
+/* ── Signaali (D48-järjestys) ── */
+function signaali(d){
+ if(S.st==='vahan')return {cls:'n',h:'Aloita ensimmäinen jakso',why:'Pelaajalla ei ole vielä ydinvahvuutta eikä jaksoa. Kasvua ei ole mitattu, joten fyysinen jakso odottaa.',btn:'Aloita jakso',second:'Mittaa kasvu → Näyttö'};
+ if(S.st==='eijaksoa')return {cls:'n',h:'Aloita jakso ydinvahvuudesta',why:'Ydinvahvuus "Ensimmäinen kosketus" on merkitty kentälle 24.9. Jaksoa ei ole aloitettu.',btn:'Aloita jakso',second:'tai Anna pelaajan valita (K3)'};
+ if(S.st==='katselmus')return {cls:'w',h:'Sulje jakso · 3 kysymystä',why:S.ro==='vp'?'Jakso päättyi 9.11. Katselmus odottaa 3 päivää. Kolme kysymystä ja yksi lause pelaajalle, noin 2 minuuttia.':'Jakso päättyi 9.11. Kun ehdit: kolme kysymystä ja yksi lause pelaajalle.',btn:'Sulje jakso',second:'Jatka 2 vk · Syvennä (täysi katselmus)'};
+ if(S.pv==='su')return {cls:'ok',h:'Viikkokatsaus tulee tänään',why:'Topias vastaa sunnuntaina. Edellinen viikko: "treenasin joskus". Sinulta ei tarvita mitään.',btn:null,second:'2 / 2 viikkokatsausta vastattu tällä jaksolla'};
+ return {cls:'ok',h:'Merkitse viikkohavainto',why:'Viikko 3/6, osa b "Vastaanotto poispäin paineesta" on viikon osa. Noin 10 sekuntia: näkyikö osa harjoituksissa?',btn:'Merkitse havainto',second:'Sitoumus annettu 3.10., vahvistit 4.10.'};
+}
+
+/* ── Otsikkorivi ── */
+function header(d,tab){
+ var sig=signaali(d);
+ var chip='<span class="chip '+d.tila.savy+'">'+esc(d.tila.teksti)+'</span>';
+ var phv=d.phv?'<span class="chip n st-num">PHV '+d.phv+' · '+d.phvPvm+'</span>':'<span class="chip n">PHV mittaamatta</span>';
+ var btn=sig.btn?'<button class="btn" type="button">'+esc(sig.btn)+'</button>':'';
+ var h='<div class="dh"><span class="ico" aria-label="Edellinen pelaaja">‹</span><span class="ico" aria-label="Seuraava pelaaja">›</span>'
+  +'<div><div class="nm">'+esc(d.nimi)+'</div><div class="sub">'+esc(d.joukkue)+' · '+esc(d.ika)+'</div></div>'+phv+chip+'<span class="sp"></span>'+btn+'<span class="ico" aria-label="Lisää toimintoja">⋯</span><span class="chip n hide-m">'+(S.silmin?'Henkilökunnan silmin':'Pelaajan silmin')+'</span></div>';
+ var tabs=['tanaan','polku','naytto'],names={tanaan:'Tänään',polku:'Polku',naytto:'Näyttö'};
+ h+='<div class="dtabs">'+tabs.map(function(t){return '<span class="'+(t===tab?'on':'')+'">'+names[t]+'</span>'}).join('')+'</div>';
+ return h;
+}
+
+/* ── Kenttä datasta ── */
+function kentta(d){
+ if(!d.ase){return '<div class="ev"><div class="t"><span class="h">Ydinvahvuus puuttuu</span></div><div class="lause">Kenttä piirtyy, kun ydinvahvuus on merkitty kentälle. Ehdotukset datasta: '+(d.vahan?'ei vielä testejä tai havaintoja':'—')+'.</div><div class="act"><a href="#s5">Aseta ydinvahvuus kentälle → Polku</a><span class="m">valmentaja tai VP · kerran</span></div></div>';}
+ var spec={koko:'puoli',ase:{alue:d.ase.alue,nimi:d.ase.nimi,sub:'ydinvahvuus'},reitti:d.jakso?{loppu:'maali'}:null,viikot:d.vk,osat:d.jakso?d.osat.map(function(o){return {k:o.k,x:o.x,y:o.y,tila:o.tila}}):[],historia:d.jakso?[{loppu:'kaveri'}]:[],lempipaikka:null};
+ return window.tmKentta(spec,{wrap:true,rooli:'henkilokunta',ariaLabel:'Kenttä: ydinvahvuus alueena, jakso reittinä, viikot merkkeinä'})
+  +'<div class="meta" style="margin-top:6px">'+(d.jakso?'Alue = ydinvahvuus · katkoviiva = jakso · merkit = viikot ('+d.vk.tehty+'/'+d.vk.n+(d.vk.valmis?' valmis':'')+') · haalea = edellinen jakso':'Alue = ydinvahvuus (merkitty 24.9.) · reitti piirtyy, kun jakso alkaa')+'</div>';
+}
+
+/* ── Tänään ── */
+function tanaan(d){
+ var sig=signaali(d);
+ var h='<div class="db"><div class="two"><div class="kt-col">'+kentta(d)+'</div><div style="display:grid;gap:12px">';
+ var inl=(sig.btn==='Merkitse havainto')?'<div class="opts"><span>Ei vielä</span><span class="on">Ohjatusti</span><span>Itsenäisesti</span><span class="q">+ lause · + VEO-linkki</span></div><div class="meta">Yksi napautus tallentaa. Lause ja klippi vain, jos haluat (D100).</div>':(sig.btn?'<div><button class="btn" type="button">'+esc(sig.btn)+'</button></div>':'');
+ h+='<div class="ev sig '+sig.cls+'"><span class="eb">Seuraava askel</span><div class="h2">'+esc(sig.h)+'</div><div class="why">'+esc(sig.why)+'</div>'+inl+'<div class="second">'+esc(sig.second)+'</div></div>';
+ if(d.jakso){
+  var k1=S.st==='katselmus'?{v:'Itsenäisesti',s:'arvioit katselmuksessa 9.11.'}:{v:'Ohjatusti',s:'viikkohavaintosi 5.10.'};
+  var k2=d.viikkokatsaukset>=1?{v:(S.pv==='su'&&S.st!=='katselmus'?'Tulee tänään':d.viikkokatsaukset+' / '+(d.vk?d.vk.n:6)+' viikkoa'),s:'pelaajan viikkokatsaus su '+(S.st==='katselmus'?'8.11.':'5.10.')+(S.pv==='su'&&S.st!=='katselmus'?' · odottaa':'')}:{v:null,s:'pelaaja vastaa sunnuntaina'};
+  var k3=d.sitoumus?{v:'Mukana',s:'sitoutui '+d.sitoumus.annettu+' · vahvistit '+d.sitoumus.vahvistettu}:{v:null,s:'pelaaja sitoutuu sovelluksessa · vahvistat Polussa'};
+  var sitK=(d.sitoumus&&!d.sitoumus.vahvistettu)?'<div><span class="k">Onko mukana?</span><span class="v">Sitoutui</span><span class="s">'+d.sitoumus.annettu+' · <a href="#" style="color:var(--teal)">vahvista</a></span></div>':'';
+  h+='<div class="q3'+(sitK?'':' two')+'">'
+   +'<div><span class="k">Näkyykö ydinvahvuus pelissä?</span><span class="v">'+k1.v+'</span><span class="s">'+k1.s+'</span></div>'
+   +'<div><span class="k">Treenattiinko?</span><span class="v '+(k2.v?(S.pv==='su'?'w':''):'na')+' st-num">'+(k2.v||'Ei vielä')+'</span><span class="s">'+k2.s+'</span></div>'
+   +sitK+'</div>';
+  var st={itsenaisesti:'itsenäisesti',ohjatusti:'ohjatusti',ei_viela:'ei vielä',nyt:'viikon osa'};
+  h+='<div><span class="eb">Osat · '+esc(d.jakso.nimi)+'</span><div class="osat" style="margin-top:6px">'+d.osat.map(function(o){return '<div class="'+(o.tila==='nyt'?'on':o.tila==='itsenaisesti'?'ok':'')+'"><span class="k">'+o.k+'</span><span>'+esc(o.nimi)+'</span><span class="st">'+st[o.tila]+'</span></div>'}).join('')+'</div></div>';
+  h+='<div class="ev"><div class="t"><span class="h">Valmentajalta uusin</span><span class="age">klippi · 6.10.</span></div><div class="lause">”Katse ylös ennen kuin pallo lähtee” · VEO-linkki · Topias katsoi 6.10., perhe kuittasi 7.10.</div><div class="act"><a href="#s2">Avaa Polku · jakso</a><span class="m">1 klippi tällä jaksolla</span></div></div>';
+ } else {
+  h+='<div class="ev"><div class="t"><span class="h">Kolme kysymystä</span></div><div class="lause">Näytetään, kun jakso on käynnissä. Tyhjät ruudut eivät ole virhe.</div></div>';
+  if(d.vahan)h+='<div class="ev"><div class="t"><span class="h">Mitä tästä pelaajasta tiedetään</span><span class="age">—</span></div><div class="lause">Ei testejä, havaintoja eikä kasvumittausta. Ensimmäinen askel on ydinvahvuus (havainto tai pelaajan oma valinta), toinen kasvumittaus.</div><div class="act"><a href="#s3">Mittaa kasvu → Näyttö</a><span class="m">fysiikkavalmentaja · kerran kaudessa</span></div></div>';
+ }
+ h+='</div></div></div>';
+ return h;
+}
+
+/* ── Polku ── */
+function polku(d){
+ var h='<div class="db"><div class="jana">';
+ // Kausi
+ h+='<div class="jr done"><div class="dot">K</div><div class="jb"><span class="eb">Kausi 2026–27</span><div class="ev"><div class="t"><span class="h">Pelaaja, joka pitää pallon paineessa</span><span class="age">asetettu 20.8.2026 · Mika V.</span></div><div class="lause"><span class="hide-m">Pelaajan omin sanoin: ”Haluan, että pallo pysyy mulla, vaikka tulee prässi.” </span>Tavoite: ensimmäinen kosketus taso 3 havainnoissa. '+(S.st==='vahan'||S.st==='eijaksoa'?'Lähtötaso mitataan ensimmäisessä katselmuksessa.':'Lähtötaso: ohjatusti (katselmus 28.9.).')+'</div><div class="act"><a href="#">Muokkaa kautta</a><span class="m">VP · kerran kaudessa · vastuu Mika V.</span></div></div></div></div>';
+ // Jakso nyt
+ if(d.jakso){
+  var st={itsenaisesti:'itsenäisesti',ohjatusti:'ohjatusti',ei_viela:'ei vielä',nyt:'viikon osa'};
+  h+='<div class="jr now"><div class="dot">'+(d.vk?d.vk.tehty+'/'+d.vk.n:'')+'</div><div class="jb"><span class="eb">Jakso nyt · '+d.jakso.alkoi+' – '+d.jakso.paattyy+'</span><div class="ev"><div class="t"><span class="h">'+esc(d.jakso.nimi)+'</span><span class="age">'+(S.st==='katselmus'?'päättynyt · suljettava':'viikko '+d.vk.n+'/'+d.jakso.kesto)+'</span></div>'
+   +'<div class="lause">'+esc(d.jakso.dom)+' · tukiosa: '+esc(d.jakso.tuki)+' · '+esc(d.jakso.teema)+'. Vastuu: '+esc(d.jakso.vastuu)+'.</div>'
+   +'<div class="osat">'+d.osat.map(function(o){return '<div class="'+(o.tila==='nyt'?'on':o.tila==='itsenaisesti'?'ok':'')+'"><span class="k">'+o.k+'</span><span>'+esc(o.nimi)+'</span><span class="st">'+st[o.tila]+'</span></div>'}).join('')+'</div>'
+   +'<div class="clip"><span class="v">▶</span><span>”Katse ylös ennen kuin pallo lähtee”<small>VEO-linkki · 6.10. · katsottu, perhe kuittasi</small></span><span class="chip ok">kuitattu</span></div>'
+   +'<div class="act"><a href="#s5">'+(S.st==='katselmus'?'Sulje jakso · 3 kysymystä':'Merkitse viikkohavainto')+'</a><span class="m">⋯ Lisää klippi · Muokkaa jaksoa · Siirrä ydinvahvuutta kentällä'+(S.st!=='katselmus'?' · Sulje jakso':'')+'</span></div></div></div></div>';
+ } else {
+  h+='<div class="jr now"><div class="dot">·</div><div class="jb"><span class="eb">Jakso</span><div class="ev sig n"><div class="h2">Ei jaksoa käynnissä</div><div class="why">'+(d.ase?'Ydinvahvuus on merkitty. Aloita jakso kortilta, tai anna pelaajan valita kahdesta reitistä (K3).':'Aseta ensin ydinvahvuus kentälle. Ehdotukset tulevat havainnoista ja testeistä, kun niitä on.')+'</div><div><button class="btn" type="button">'+(d.ase?'Aloita jakso':'Aseta ydinvahvuus kentälle')+'</button></div></div></div></div>';
+ }
+ // Tämä viikko (luku)
+ var days=['Ma','Ti','Ke','To','Pe','La','Su'];
+ var vk=d.jakso?[{c:'j',t:'Joukkue 90′',s:'teema: paine'},{c:'',t:''},{c:'j',t:'Joukkue 90′',s:'osa b'},{c:'o',t:'Omatoimi',s:'perheen kanssa ✓'},{c:'j',t:'Joukkue 75′'},{c:'m',t:'Ottelu',s:'vs. GBK'},{c:'',t:'Viikkokatsaus',s:'pelaaja vastaa'}]:[{c:'j',t:'Joukkue 90′'},{c:''},{c:'j',t:'Joukkue 90′'},{c:''},{c:'j',t:'Joukkue 75′'},{c:'m',t:'Ottelu'},{c:''}];
+ h+='<div class="jr"><div class="dot">vk</div><div class="jb"><span class="eb">Tämä viikko · 6.–12.10. · luku</span><div class="vk">'+vk.map(function(x,i){return '<div class="'+x.c+(i===3?' today':'')+'"><span class="d">'+days[i]+'</span>'+(x.t?'<span>'+x.t+'</span>':'')+(x.s?'<span class="meta">'+x.s+'</span>':'')+'</div>'}).join('')+'</div><div class="rl"><a href="#">Avaa joukkueen viikko → 14</a><span class="m">harjoitukset joukkueen viikosta · omatoimi kirjauksista · viikkokatsaus sunnuntaina</span></div></div></div>';
+ // Historia
+ h+='<div class="jr"><div class="dot">H</div><div class="jb"><span class="eb">Historia</span>'+(d.vahan?'<div class="meta">Historia täyttyy, kun jaksoja päätetään.</div>':'<div class="hist"><div><span class="m">18.8.–28.9.</span><span>Tempokuljetus · 6 vk · <b style="color:var(--teal)">↗ 2/3 osaa itsenäisesti</b></span><span class="q">”Hyvä jakso, kuljetus näkyy pelissä.” – Mika V.</span></div><div><span class="m">kevät 2026</span><span>Syöttö liikkeestä · 4 vk · <b style="color:var(--amber)">→ vaihdettu</b> fyysiseen (kasvupyrähdys)</span><span class="q">VP:n lause</span></div></div>')+'</div></div>';
+ h+='</div></div>';
+ return h;
+}
+
+/* ── Näyttö: Profiili + 5 todistekorttia ── */
+function spark(vals,col){var w=64,hh=18,mx=Math.max.apply(null,vals),mn=Math.min.apply(null,vals);var pts=vals.map(function(v,i){return (i*(w/(vals.length-1))).toFixed(1)+','+(hh-((v-mn)/((mx-mn)||1))*(hh-3)-1.5).toFixed(1)}).join(' ');return '<svg class="spark" width="'+w+'" height="'+hh+'" viewBox="0 0 '+w+' '+hh+'" aria-hidden="true"><polyline points="'+pts+'" fill="none" stroke="'+(col||'var(--teal)')+'" stroke-width="1.5"/><circle cx="'+w+'" cy="'+(hh-((vals[vals.length-1]-mn)/((mx-mn)||1))*(hh-3)-1.5).toFixed(1)+'" r="2" fill="'+(col||'var(--teal)')+'"/></svg>'}
+function ev(o){
+ var foc=o.focus?' focus':'';
+ if(o.acc&&!o.focus){return '<details class="ev acc"><summary><span class="h">'+o.h+'</span><span class="age'+(o.old?' old':'')+'">'+o.age+'</span><span class="sum">'+(o.sum||'')+'</span></summary><div class="lause">'+o.lause+'</div>'+(o.nums?'<div class="nums">'+o.nums.map(function(n){return '<div><span class="k">'+n.k+'</span><span class="v'+(n.na?' na':'')+'">'+n.v+(n.u?'<small>'+n.u+'</small>':'')+'</span></div>'}).join('')+'</div>':'')+'<div class="act"><a href="#">'+o.a+'</a><span class="m">'+o.m+'</span></div></details>';}
+ var nums=o.nums?'<div class="nums">'+o.nums.map(function(n){return '<div><span class="k">'+n.k+'</span><span class="v'+(n.na?' na':'')+'">'+n.v+(n.u?'<small>'+n.u+'</small>':'')+(n.sp?spark(n.sp):'')+'</span></div>'}).join('')+'</div>':'';
+ return '<div class="ev'+foc+'">'+(o.focus?'<span class="eb">liittyy jaksoon</span>':'')+'<div class="t"><span class="h">'+o.h+'</span><span class="age'+(o.old?' old':'')+'">'+o.age+'</span></div><div class="lause">'+o.lause+'</div>'+nums+'<div class="act"><a href="#">'+o.a+'</a><span class="m">'+o.m+'</span></div></div>';
+}
+function naytto(d,acc){
+ var vahan=!!d.vahan;
+ var h='<div class="db">';
+ // Profiili
+ h+='<div class="ev"><div class="t"><span class="h">Profiili · 5D</span><span class="age">'+(vahan?'ei mittauksia':'tuorein mittaus 5.6.2026')+'</span></div><div class="radar"><span class="hide-m">'+radar(vahan)+'</span><div class="lause">'+(vahan?'Viisi ulottuvuutta täyttyvät testeistä (D1, D2), havainnoista (D4, D5) ja itsearviosta (D3). Ensimmäinen testitapahtuma antaa D1:n ja D2:n.':'Vahvin: peliäly (D4) havainnoista. Fyysinen (D1) ikäisekseen tasolla 3 (H-H 5.6.) ja PRE-PHV, joten se ei ole kehityskohde (§28). Tekninen (D2) nousussa: TKI 48 → 54.')+'</div></div><div class="act"><a href="#">Mitä ulottuvuudet tarkoittavat</a><span class="m">RAE Q1 · vas. jalka · keskikenttä · katkoviiva = ikäluokan taso 3</span></div></div>';
+ if(vahan){h+='<div class="ev"><div class="t"><span class="h">Mittauskierros puuttuu</span><span class="age">—</span></div><div class="lause">Ei kasvumittausta, H-H-testejä, tekniikkatestejä, pelihavaintoja eikä kehon valmiutta. Ensimmäinen testitapahtuma antaa D1:n ja D2:n (noin 20 min/pelaaja), kasvumittaus 5 min, pelihavainto seuraavasta ottelusta.</div><div class="act"><a href="#">Suunnittele testitapahtuma → Testaus</a><span class="m">testivastaava · koko joukkue kerralla</span></div></div></div>';return h;}
+ h+='<div class="g2">';
+ h+=ev(vahan?{h:'Kasvu ja kypsyys',age:'mittaamatta',lause:'Kasvua ei ole mitattu. Ilman PHV-tilaa fyysiset tulokset tulkitaan varovaisimmin, eikä fyysistä jaksoa ehdoteta.',a:'Mittaa kasvu → Testaus',m:'pituus, istumapituus, paino · 5 min'}
+  :{h:'Kasvu ja kypsyys',acc:acc,sum:'PRE',age:'mitattu 12.8.2026 · 2 kk',lause:'PRE-PHV: kasvupyrähdys ei ole alkanut (arvio PHV 14,1 v). Kasvutahti 5,8 cm/v on normaali, ei kuormarajoitetta (§25). Heikko 30 m tai MAS ei ole nyt kehityskohde (§28).',nums:[{k:'PHV-tila',v:'PRE'},{k:'Bio-ikä',v:'12,4',u:'v'},{k:'Kasvutahti',v:'5,8',u:'cm/v',sp:[4.9,5.2,5.8]}],a:'Päivitä mittaus',m:'seuraava 3 kk · fysiikkavalmentaja'});
+ h+=ev(vahan?{h:'Fyysinen · mitattu',age:'ei testejä',lause:'Ei H-H-testejä. Ensimmäinen testitapahtuma: 30 m, CMJ, MAS.',a:'Avaa Testaus',m:'testivastaava · 2× kaudessa'}
+  :{h:'Fyysinen · mitattu',acc:acc,sum:'taso 3',age:'H-H 5.6.2026 · 4 kk',old:true,lause:'Taso 3 ikäisekseen testihetkellä (13 v). Nopeus ja kimmoisuus tasolla 3, kestävyys 2. PRE-PHV: ei kehityskohde, seurataan.',nums:[{k:'30 m',v:'5,12',u:'s · t3',sp:[5.3,5.2,5.12]},{k:'CMJ',v:'24',u:'cm · t3',sp:[21,23,24]},{k:'MAS',v:'14,0',u:'km/h · t2',sp:[13.5,13.8,14.0]}],a:'Päivitä mittaus · Testaus',m:'mittaus yli 3 kk vanha · osaindeksit alla'});
+ h+=ev(vahan?{h:'Tekninen · mitattu',age:'ei testejä',lause:'Ei TKI-testejä. Ensimmäinen tekniikkakilpailu antaa lähtötason.',a:'Avaa Testaus',m:'testivastaava'}
+  :{h:'Tekninen · mitattu',focus:!!d.jakso,sum:'TKI 54 ↗',age:'TKI 5.6.2026 · 4 kk',old:true,lause:'TKI 54 (taso 4 ikäisekseen) ja nousussa. Pujottelu vahvin, syöttö heikoin: tukee kauden tavoitetta.',nums:[{k:'TKI',v:'54',u:'t4',sp:[41,48,54]},{k:'Pujottelu',v:'3/3',u:'H-H'},{k:'Syöttö',v:'2/3',u:'H-H'}],a:'Lajikohtaiset ajat ja Eerikkilä-normit',m:'avautuu alla'});
+ h+=ev(vahan?{h:'Peli · havaittu',age:'ei havaintoja',lause:'Ei pelihavaintoja. Ensimmäinen ADAR-havainto antaa peliälyn ja tilannekuvan.',a:'Lisää pelihavainto',m:'valmentaja · ottelun jälkeen'}
+  :{h:'Peli · havaittu',acc:acc,sum:'4/5',age:'ADAR 28.9.2026 · 2 vk',lause:'Peliäly 4/5: päätökset ja reagointi hallussa, ajoitus kehittyvä. Arvioijia tällä kaudella 2/3 (fysiikkavalmentajan arvio puuttuu). D3-itsearvio ja valmentajan arvio 1 pykälän päässä.',nums:[{k:'Peliäly',v:'4',u:'/5',sp:[3,3,4]},{k:'Havaintoja',v:'6',u:'kausi'},{k:'Arvioijat',v:'2',u:'/3'}],a:'Lisää pelihavainto',m:'kenttätyökalu · ADAR'});
+ h+=ev(vahan?{h:'Kehon valmius',age:'ei mittausta',lause:'Liikehallintaketjuja ei ole mitattu. Lomake vie 10 min.',a:'Avaa lomake',m:'fysioterapeutti tai fysiikkavalmentaja'}
+  :{h:'Kehon valmius',acc:acc,sum:'62',age:'22.8.2026 · 7 vk',lause:'62/100. Heikoin ketju LL (sivuketju) 55 %: liikkuvuusharjoite kuuluu tukiosaan. Ei klinikkalippua (yli 40).',nums:[{k:'Valmius',v:'62',u:'/100',sp:[58,60,62]},{k:'Heikoin',v:'LL',u:'55 %'}],a:'Päivitä profiili',m:'tukiosa: kehon hallinta'});
+ h+='</div>';
+ h+='<details class="all"><summary>Näytä kaikki mittaukset (raakadata, Eerikkilä-normit, syväanalyysit, mittauslista, mitätöidyt)</summary><div class="in"><div class="meta">Tänne siirtyvät nykyisen Näytön lohkot 10–21 ja 26–32 sellaisinaan, ryhmiteltyinä päivämäärän mukaan. Jokaisella rivillä pvm ja lähde. Muokkaus: VP, UTJ ja oman joukkueen valmentaja (korjaa roolibugi).</div><div class="tst-demo mono">5.6.2026 · H-H-patteristo · 30 m 5,12 · 10 m 1,98 · 5 m 1,12 · CMJ 24 · SJ 22 · MAS 14,0 · suunnanmuutos 8,9 · kasirata 17,4<br>5.6.2026 · Tekniikkakilpailu · pujottelu 14,2 · syöttö 11,8 · ponnauttelu 46 · laukaus 9/12 · kuljetus 13,1 · yht. 61,3 s<br>22.8.2026 · FLEI · SBL 2,3 · SFL 2,1 · LL 2,1 · DIAG 2,4 · DFL 2,2<br>12.8.2026 · Kasvu · 157 cm · istumapituus 81 · 44 kg<br>▾ Mitätöidyt (1)</div></div></details>';
+ h+='</div>';
+ return h;
+}
+function radar(empty){
+ var vals=empty?[0,0,0,0,0]:[3,4,3,4,3],names=['D1','D2','D3','D4','D5'],c=70,R=46;
+ function pt(i,v){var a=-Math.PI/2+i*2*Math.PI/5;return [(c+Math.cos(a)*R*v/5).toFixed(1),(c+Math.sin(a)*R*v/5).toFixed(1)]}
+ var g='';[1,2,3,4,5].forEach(function(l){g+='<polygon points="'+names.map(function(_,i){return pt(i,l).join(',')}).join(' ')+'" fill="none" stroke="var(--line)" stroke-width="'+(l===3?1.2:.6)+'"'+(l===3?' stroke-dasharray="2 2"':'')+'/>'});
+ var poly=empty?'':'<polygon points="'+vals.map(function(v,i){return pt(i,v).join(',')}).join(' ')+'" fill="var(--teal-dim)" stroke="var(--teal)" stroke-width="1.5"/>';
+ var lab=names.map(function(n,i){var p=pt(i,6.2);return '<text x="'+p[0]+'" y="'+p[1]+'" font-size="8" fill="var(--ink3)" text-anchor="middle" dominant-baseline="middle">'+n+(empty?'':' '+vals[i])+'</text>'}).join('');
+ return '<svg width="140" height="140" viewBox="0 0 140 140" role="img" aria-label="5D-profiili"><g>'+g+poly+lab+'</g></svg>';
+}
+
+/* ── Sheetit ── */
+function sheets(){
+ var a='<div class="sheet"><div class="sh"><span class="h">Merkitse viikkohavainto</span><span class="meta">vk 3/6 · ≈10 s</span></div><div class="meta">Osa b · Vastaanotto poispäin paineesta</div><div class="opts"><span>Ei vielä</span><span class="on">Ohjatusti</span><span>Itsenäisesti</span></div><div class="meta">Lause pelaajalle (valinnainen, ≤ 140 merkkiä, ei kiellettyjä sanoja)</div><div class="ta">Hyvä, kun katse oli ylhäällä ennen vastaanottoa. Ensi viikolla kokeillaan samaa prässissä.</div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" type="button">Tallenna</button><button class="btn g" type="button">+ Liitä VEO-linkki</button><span class="sp"></span><button class="btn g" type="button">Peru</button></div><div class="meta">Tallentuu jaksoon · Tänään ja Polku päivittyvät · välilehti ei vaihdu (D100)</div></div>';
+ var b='<div class="sheet"><div class="sh"><span class="h">Sulje jakso · 3 kysymystä</span><span class="meta">kevyt katselmus · ≈2 min</span></div><div class="meta">Näkyikö ydinvahvuus pelissä?</div><div class="opts"><span>Ei vielä</span><span>Ohjatusti</span><span class="on">Itsenäisesti</span></div><div class="meta">Treenattiinko?</div><div class="opts"><span>Harvoin</span><span class="on">Joskus</span><span>Usein</span></div><div class="meta">Oliko mukana?</div><div class="opts"><span>Vähän</span><span>Jonkin verran</span><span class="on">Hyvin</span></div><div class="meta">Yksi lause pelaajalle (pakollinen ammattiprofiilissa, toivottu oto)</div><div class="ta">Hyvä jakso, Topias. Ensimmäinen kosketus näkyi jo pelissä. Seuraavaksi sama vauhdissa.</div><div class="opts"><span class="on">Jatka samaa</span><span>Syvennä</span><span>Vaihda kortilta</span><span>Anna pelaajan valita</span></div><div style="display:flex;gap:8px"><button class="btn" type="button">Sulje jakso ja lähetä</button><button class="btn g" type="button">Peru</button></div><div class="meta">Yksi tallennus: historiarivi + reviewit/{pvm}.kevyt · pelaaja näkee ”Hyvä jakso” + lauseen (§7.22)</div></div>';
+ return a+b;
+}
+
+/* ── Render ── */
+function desk(tab,d,acc){return '<div class="desk'+(S.silmin?' pelaaja-silmin':'')+'">'+header(d,tab)+(tab==='tanaan'?tanaan(d):tab==='polku'?polku(d):naytto(d,acc))+'</div>'}
+function render(){
+ var d=data();
+ document.getElementById('d1').innerHTML=desk('tanaan',d);
+ document.getElementById('d2').innerHTML=desk('polku',d);
+ document.getElementById('d3').innerHTML=desk('naytto',d);
+ document.getElementById('d4').innerHTML=['tanaan','polku','naytto'].map(function(t){return '<div class="phone">'+desk(t,d,true)+'<span class="mono cap">390 px · '+t+'</span></div>'}).join('');
+ document.getElementById('d5').innerHTML=sheets();
+ var n=document.querySelectorAll('#d3 .nums .v:not(.na)').length+document.querySelectorAll('#d3 .radar text').length;
+ document.getElementById('numcount').textContent=n;
+ document.querySelectorAll('#ctl [data-st]').forEach(function(b){b.classList.toggle('on',b.dataset.st===S.st)});
+ document.querySelectorAll('#ctl [data-ro]').forEach(function(b){b.classList.toggle('on',b.dataset.ro===S.ro)});
+ document.querySelectorAll('#ctl [data-pv]').forEach(function(b){b.classList.toggle('on',b.dataset.pv===S.pv)});
+ document.getElementById('silmin').classList.toggle('on',S.silmin);
+}
+document.getElementById('ctl').addEventListener('click',function(e){var b=e.target.closest('button');if(!b)return;if(b.dataset.st)S.st=b.dataset.st;if(b.dataset.ro)S.ro=b.dataset.ro;if(b.dataset.pv)S.pv=b.dataset.pv;if(b.id==='silmin')S.silmin=!S.silmin;render()});
+render();
+})();
+</script>
+</body></html>
+<script>
+(function(){
+/* 2b · Kenttä valintapintana (D107). tm_kentta-koordinaatit: leveys 0–100, pituus 0–140, hyökkäys ylös.
+   Ruudukot pelimuodon mukaan; karkeat = hienojaon (phVyohyke, kaistarajat 25/40/60/75) yhdistelmiä. */
+var GRID={
+ '11v11':{rows:[['hyokkays',0,46.67,'hyökkäyskolmannes'],['keski',46.67,93.33,'keskialue'],['puolustus',93.33,140,'oma kolmannes']],
+          cols:[['vasen_laita',0,25,'vasen laita','laita'],['vasen_puolikaista',25,40,'vasen puoliväli','puoli'],['keskusta',40,60,'keskusta','kesk'],['oikea_puolikaista',60,75,'oikea puoliväli','puoli'],['oikea_laita',75,100,'oikea laita','laita']]},
+ '8v8':{rows:[['hyokkays',0,46.67,'hyökkäyskolmannes'],['keski',46.67,93.33,'keskialue'],['puolustus',93.33,140,'oma kolmannes']],
+        cols:[['vasen',0,25,'vasen laita','laita'],['keskusta',25,75,'keskusta','kesk'],['oikea',75,100,'oikea laita','laita']]},
+ '5v5':{rows:[['hyokkays',0,70,'hyökkäyspää'],['puolustus',70,140,'oma pää']],
+        cols:[['vasen',0,25,'vasen','laita'],['keskusta',25,75,'keskellä','kesk'],['oikea',75,100,'oikea','laita']]}
+};
+/* Pelihavainnot raakakoordinaateina (len 0 = oma maali … 100 = vastustajan maali, wid 0–100), demodata */
+var PTS=[[75,50],[80,46],[72,33],[70,30],[68,35],[50,50],[52,45],[48,55],[55,52],[45,68],[10,50]];
+var YDIN=[55,50];
+var Z={muoto:'11v11',linja:true,phv:'PRE',hav:true,zone:null,valittu:null,muut:false,oma:false};
+var OMA={n:'Pallon suojaaminen selkä vastustajaan',d:'teknis-taktinen',l:'oma',osat:['Vartalo pallon ja vastustajan väliin','Käsi tuntemaan','Pallo kauempaan jalkaan'],loppu:'maali'};
+function g(){return GRID[Z.muoto]}
+function zoneOf(len,wid){var y=140-len*1.4,G=g(),r=G.rows.filter(function(r){return y>=r[1]&&y<r[2]})[0]||G.rows[G.rows.length-1],c=G.cols.filter(function(c){return wid>=c[1]&&wid<c[2]})[0]||G.cols[G.cols.length-1];return r[0]+'|'+c[0]}
+function hav(){var o={};PTS.forEach(function(p){var k=zoneOf(p[0],p[1]);o[k]=(o[k]||0)+1});return o}
+function nyk(){return zoneOf(YDIN[0],YDIN[1])}
+function rc(k){var p=k.split('|'),G=g();return {r:G.rows.filter(function(x){return x[0]===p[0]})[0],c:G.cols.filter(function(x){return x[0]===p[1]})[0]}}
+function nimi(k){var o=rc(k);return o.r[3]+', '+o.c[3]}
+function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
+
+var K={
+ 'hyokkays|kesk':[{n:'Ensimmäinen kosketus paineessa',d:'teknis-taktinen',l:'linja',t:'P13 teema vk 40–45',osat:['Katse ylös ennen vastaanottoa','Vastaanotto poispäin paineesta','Ensimmäinen syöttö eteenpäin'],loppu:'maali'},{n:'Laukaus rangaistusalueen rajalta',d:'teknis-taktinen',l:'kaanon',osat:['Kehon asento ennen laukausta','Laukaus ensimmäisestä kosketuksesta','Laukaus heikommalla jalalla'],loppu:'maali'},{n:'Syvyysjuoksu toppareiden väliin',d:'teknis-taktinen',l:'kaanon',osat:['Ajoitus','Juoksun kulma','Vastaanotto juoksusta'],loppu:'maali'},{n:'Räjähtävä lähtö pallon menetyksen jälkeen',d:'fyysinen',l:'kaanon',f:1,osat:['Reaktio','Ensimmäiset 5 m','Suunnanmuutos'],loppu:'maali'}],
+ 'hyokkays|puoli':[{n:'Vastaanotto puolikaistaan ja kääntyminen',d:'teknis-taktinen',l:'linja',t:'P13 teema vk 46–51',osat:['Avautuva vartalo','Vastaanotto kauemmalla jalalla','Kääntyminen kohti maalia'],loppu:'maali'},{n:'Läpisyöttö toppareiden väliin',d:'teknis-taktinen',l:'kaanon',osat:['Katse ennen vastaanottoa','Syötön ajoitus','Painotettu syöttö'],loppu:'maali'},{n:'Toistuvat sprintit',d:'fyysinen',l:'kaanon',f:1,osat:['Sprintti','Palautuminen','Uusi sprintti'],loppu:'maali'}],
+ 'hyokkays|laita':[{n:'1v1 laitapuolustajaa vastaan',d:'teknis-taktinen',l:'kaanon',osat:['Hyökkäyskulma','Harhautus','Ohitus ja jatko'],loppu:'maali'},{n:'Keskitys juoksusta',d:'teknis-taktinen',l:'kaanon',osat:['Katse boksiin','Keskityksen tyyppi','Ajoitus'],loppu:'maali'},{n:'Huippunopeus laidalla',d:'fyysinen',l:'kaanon',f:1,osat:['Kiihdytys','Huippunopeus','Pallo mukana'],loppu:'maali'}],
+ 'keski|kesk':[{n:'Pelin rytmitys keskeltä',d:'teknis-taktinen',l:'linja',t:'P13 teema vk 40–45',osat:['Lyhyt–pitkä-valinta','Syötön tempo','Pelin kääntäminen'],loppu:'kaveri'},{n:'Kääntyminen paineessa',d:'teknis-taktinen',l:'kaanon',osat:['Olkapään yli katse','Vastaanotto avoimella vartalolla','Kääntyminen ensimmäisellä'],loppu:'kaveri'},{n:'Liikkuvuus ja kehon hallinta',d:'fyysinen',l:'kaanon',f:1,osat:['Lantion liikkuvuus','Tasapaino','Keskivartalo'],loppu:'kaveri'}],
+ 'keski|puoli':[{n:'Ensimmäinen syöttö eteenpäin',d:'teknis-taktinen',l:'linja',t:'P13 teema vk 46–51',osat:['Katse ylös','Linjojen ohitus','Syötön paino'],loppu:'kaveri'},{n:'Pallon kuljetus tilaan',d:'teknis-taktinen',l:'kaanon',osat:['Tilan tunnistus','Kuljetus vauhdissa','Syöttö kuljetuksesta'],loppu:'kaveri'},{n:'Kestävyys: väliintulot',d:'fyysinen',l:'kaanon',f:1,osat:['Juoksu tilaan','Väliintulo','Palautuminen'],loppu:'kaveri'}],
+ 'keski|laita':[{n:'Laitavaihto',d:'teknis-taktinen',l:'kaanon',osat:['Pelin lukeminen','Pitkä syöttö','Vastaanotto laidalla'],loppu:'kaveri'},{n:'Tuki laitapelaajalle',d:'teknis-taktinen',l:'kaanon',osat:['Etäisyys','Kulma','Kolmas pelaaja'],loppu:'kaveri'},{n:'Toistuvat juoksut laidalla',d:'fyysinen',l:'kaanon',f:1,osat:['Ylös','Alas','Uudelleen'],loppu:'kaveri'}],
+ 'puolustus|kesk':[{n:'Avauspeli maalivahdilta',d:'teknis-taktinen',l:'linja',t:'P13 teema vk 34–39',osat:['Avautuminen','Vastaanotto paineessa','Avaus linjojen läpi'],loppu:'kaveri'},{n:'Ennakointi ja katkot',d:'teknis-taktinen',l:'kaanon',osat:['Katse pallon ja vastustajan välillä','Askel ennen syöttöä','Katko ja jatko'],loppu:'kaveri'},{n:'Ponnistus ilmapalloihin',d:'fyysinen',l:'kaanon',f:1,osat:['Ajoitus','Ponnistus','Laskeutuminen'],loppu:'kaveri'}],
+ 'puolustus|puoli':[{n:'Avaus prässin alla',d:'teknis-taktinen',l:'kaanon',osat:['Kehon asento','Ensimmäinen kosketus pois paineesta','Avaus'],loppu:'kaveri'},{n:'1v1 puolustaminen',d:'teknis-taktinen',l:'kaanon',osat:['Etäisyys','Ohjaus laitaan','Ajoitus'],loppu:'kaveri'}],
+ 'puolustus|laita':[{n:'1v1 puolustaminen laidalla',d:'teknis-taktinen',l:'kaanon',osat:['Ohjaus','Kehon asento','Riisto'],loppu:'kaveri'},{n:'Paluujuoksu laidalla',d:'fyysinen',l:'kaanon',f:1,osat:['Reaktio','Sprintti','Asemaan'],loppu:'kaveri'}]
+};
+var LEIKKI={
+ 'hyokkays|kesk':[{n:'Kuljeta ja laukaise',d:'leikki',l:'linja',t:'P9 leikkiteema syksy',osat:['Pallo lähellä','Katse maaliin','Laukaus'],loppu:'maali'},{n:'Harhauta ja mene ohi',d:'leikki',l:'kaanon',osat:['Hidas–nopea','Harhautus','Ohi'],loppu:'maali'}],
+ 'hyokkays|laita':[{n:'Juokse pallon kanssa reunaa pitkin',d:'leikki',l:'kaanon',osat:['Pallo jalassa','Vauhti','Syöttö keskelle'],loppu:'maali'},{n:'Harhauta ja mene ohi',d:'leikki',l:'kaanon',osat:['Hidas–nopea','Harhautus','Ohi'],loppu:'maali'}],
+ 'puolustus|kesk':[{n:'Voita pallo takaisin',d:'leikki',l:'linja',t:'P9 leikkiteema syksy',osat:['Juokse palloon','Jalka väliin','Pallo omalle'],loppu:'kaveri'},{n:'Syötä kaverille',d:'leikki',l:'kaanon',osat:['Katso kaveria','Sisäsyrjä','Syöttö'],loppu:'kaveri'}],
+ 'puolustus|laita':[{n:'Voita pallo takaisin',d:'leikki',l:'kaanon',osat:['Juokse palloon','Jalka väliin','Pallo omalle'],loppu:'kaveri'},{n:'Syötä kaverille',d:'leikki',l:'kaanon',osat:['Katso kaveria','Sisäsyrjä','Syöttö'],loppu:'kaveri'}]
+};
+function ehdotukset(k){
+ if(Z.valittu===OMA.n)return [OMA];
+ var o=rc(k),key=o.r[0]+'|'+o.c[4];
+ var L=(Z.muoto==='5v5'?LEIKKI:K)[key]||[];
+ return L.filter(function(x){return !(x.f&&(Z.phv==='PRE'))}).map(function(x,i){return Object.assign({i:i},x)});
+}
+function miksi(e,k){
+ var r=[],H=hav();
+ if(k===nyk())r.push('nykyisen ydinvahvuuden alue');
+ if(/kosketus|vastaanotto|pallo/i.test(e.n))r.push('kausitavoite: pallo pysyy paineessa');
+ if(H[k]&&Z.hav)r.push(H[k]+' pelihavaintoa tällä alueella (viim. 28.9.)');
+ if(e.l==='linja')r.push('seuran linja: '+e.t);
+ if(!r.length)r.push('konseptikaanon: '+e.d);
+ return r.join(' · ');
+}
+
+function pitch(){
+ var base=window.tmKentta({koko:'koko',ilmanAluetta:true,ase:null,reitti:null,viikot:null,osat:[],historia:[]},{ariaLabel:'Kenttä vyöhykkeineen, '+Z.muoto});
+ var G=g(),H=hav(),N=nyk(),cells='';
+ G.rows.forEach(function(r){G.cols.forEach(function(c){
+  var k=r[0]+'|'+c[0],on=Z.zone===k,ny=k===N,hv=Z.hav&&H[k];
+  cells+='<button type="button" class="zc'+(on?' on':'')+(ny?' nyk':'')+'" data-z="'+k+'" aria-pressed="'+on+'" aria-label="'+esc(nimi(k))+(hv?', '+hv+' pelihavaintoa':'')+'" style="left:'+c[1]+'%;width:'+(c[2]-c[1])+'%;top:'+(r[1]/140*100).toFixed(2)+'%;height:'+((r[2]-r[1])/140*100).toFixed(2)+'%">'
+   +(hv?'<span class="hv">'+'●'.repeat(Math.min(hv,4))+'<small>'+hv+'</small></span>':'')+(ny?'<span class="ny">ydinvahvuus nyt</span>':'')+'</button>';
+ })});
+ return '<div class="kt zp">'+base.svg+'<div class="zgrid">'+cells+'</div></div>';
+}
+function kortti(x,k){
+ var on=Z.valittu===x.n;
+ return '<div class="sg'+(on?' on':'')+'"><div class="sgt"><b>'+esc(x.n)+'</b><span class="chip '+(x.l==='linja'?'ok':'n')+'">'+(x.l==='linja'?'Seuran linja':'Kaanon')+'</span>'+(x.f?'<span class="chip w">fyysinen'+(Z.phv==='PH'?' · kuorma rajattu §25':'')+'</span>':'')+'</div><div class="meta">'+esc(x.d)+' · miksi: '+esc(miksi(x,k))+'</div><div class="meta">'+(Z.muoto==='5v5'?'Mitä harjoitellaan: ':'Osat: ')+x.osat.map(function(o,j){return (Z.muoto==='5v5'?'':'abc'[j]+' ')+esc(o)}).join(' · ')+'</div><div><button class="btn '+(on?'':'q')+' sm" type="button" data-pick="'+esc(x.n)+'">'+(on?'Valittu':'Valitse')+'</button></div></div>';
+}
+function lista(){
+ if(Z.valittu===OMA.n&&Z.zone){}
+ if(!Z.zone)return '<div class="ev sig n"><div class="h2">Napauta kentän aluetta</div><div class="why">Ehdotukset tulevat sille alueelle, jota napautat. Pisteet ovat pelihavaintoja otteluista; "ydinvahvuus nyt" on nykyinen alue.</div></div>';
+ var e=ehdotukset(Z.zone),H=hav();
+ var lin=Z.linja?e.filter(function(x){return x.l==='linja'}):[];
+ var muut=e.filter(function(x){return !(Z.linja&&x.l==='linja')}).slice(0,3);
+ var h='<div class="ev"><div class="t"><span class="h">Jakson tavoitteet: '+esc(nimi(Z.zone))+'</span><span class="age">'+Z.muoto+' · '+(Z.hav&&H[Z.zone]?H[Z.zone]+' havaintoa':'ei havaintoja')+'</span></div><div class="lause">Järjestelmä ehdottaa, sinä valitset. Mitään ei tallennu ennen valintaa.</div><div class="sug">';
+ if(lin.length){
+  h+='<span class="eb">Seuran linja</span>'+lin.map(function(x){return kortti(x,Z.zone)}).join('');
+  if(Z.muut)h+='<span class="eb" style="color:var(--ink3)">Muut vaihtoehdot · konseptikaanon</span>'+muut.map(function(x){return kortti(x,Z.zone)}).join('');
+  else h+='<button class="btn g sm" type="button" data-muut="1" style="justify-self:start">Muut vaihtoehdot ('+muut.length+')</button>';
+ } else {
+  h+='<div class="meta" style="padding:2px">'+(Z.linja?'Seuran linjassa ei ole tavoitetta tälle alueelle.':'Seura ei ole tuonut valmennuslinjaa.')+' Vaihtoehdot konseptikaanonista:</div>'+muut.map(function(x){return kortti(x,Z.zone)}).join('');
+ }
+ if(Z.phv==='PRE'&&Z.muoto!=='5v5')h+='<div class="meta" style="padding:6px 2px">PRE: fyysinen jakso odottaa kasvupyrähdyksen jälkeen (§28), joten fyysisiä ehdotuksia ei näytetä.</div>';
+ if(Z.oma){h+='<div class="sg on" style="border-style:dashed"><span class="eb">Oma tavoite</span><div class="meta">Nimi</div><div class="ta" style="min-height:0">'+esc(OMA.n)+'</div><div class="meta">Osat a/b/c (valinnainen)</div><div class="osat">'+OMA.osat.map(function(o,j){return '<div><span class="k">'+'abc'[j]+'</span><span>'+esc(o)+'</span><span class="st"></span></div>'}).join('')+'</div><div class="opts"><span class="on">teknis-taktinen</span><span>fyysinen</span><span>psyykkinen</span><span>sosiaalinen</span></div><label class="meta" style="display:flex;gap:8px;align-items:center"><input type="checkbox" '+(S2.vp?'':'disabled')+'> Tallenna myös seuran linjaan tälle alueelle '+(S2.vp?'(VP)':'(vain VP / UTJ)')+'</label><div><button class="btn sm" type="button" data-omakayta="1">Käytä tätä</button></div><div class="meta">Sama KIELLETYT-tarkistus kuin muissa pelaajalle näkyvissä teksteissä.</div></div>';}
+ h+='</div><div class="act"><button class="btn g sm" type="button" data-oma="1">'+(Z.oma?'Sulje oma tavoite':'+ Lisää oma tavoite')+'</button><span class="m">'+(Z.muoto==='5v5'?'Leikkijällä valmentaja valitsee':'tai Anna pelaajan valita kahdesta (K3)')+'</span></div></div>';
+ return h;
+}
+function esitaytto(){
+ if(!Z.zone||!Z.valittu)return '';
+ var x=ehdotukset(Z.zone).filter(function(e){return e.n===Z.valittu})[0];if(!x)return '';
+ var o=rc(Z.zone),alue={x:o.c[1]+1,y:o.r[1]+3,w:o.c[2]-o.c[1]-2,h:o.r[2]-o.r[1]-6};
+ var kt=window.tmKentta({koko:'koko',ase:{alue:alue,nimi:x.n.split(' ')[0],sub:'jakson alue'},reitti:{loppu:x.loppu},viikot:{n:6,tehty:0,valmis:false},osat:[],historia:[]},{wrap:true,rooli:'henkilokunta'});
+ var leikki=Z.muoto==='5v5';
+ return '<div class="sheet" style="max-width:none"><div class="sh"><span class="h">Aloita jakso · esitäytetty</span><span class="meta">tarkista ja lähetä</span></div><div class="pv"><div class="pvk">'+kt+'</div><div style="display:grid;gap:8px;align-content:start">'
+  +'<div><span class="meta">Tavoite · '+(x.l==='linja'?'seuran linja':x.l==='oma'?'oma tavoite':'kaanon')+'</span><div class="serif" style="font-size:22px;line-height:1.1">'+esc(x.n)+'</div></div>'
+  +'<div><span class="meta">Alue · '+Z.muoto+'</span><div>'+esc(nimi(Z.zone))+' → '+(x.loppu==='maali'?'kohti maalia':'kohti kaveria')+'</div></div>'
+  +'<div><span class="meta">'+(leikki?'Mitä harjoitellaan':'Osat')+'</span><div class="osat" style="margin-top:4px">'+x.osat.map(function(o,j){return '<div><span class="k">'+(leikki?'·':'abc'[j])+'</span><span>'+esc(o)+'</span><span class="st">'+(leikki?'':'ei vielä')+'</span></div>'}).join('')+'</div></div>'
+  +'<div class="opts"><span>4 vk</span><span class="on">6 vk</span><span>8 vk</span></div>'
+  +'<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" type="button">Aloita jakso</button>'+(leikki?'':'<button class="btn g" type="button">Anna pelaajan valita (K3)</button>')+'</div>'
+  +'<div class="meta">Tallentaa: <code>ydinvahvuus.alue</code> hienojaon koordinaatteina (säilyy pelimuodon vaihtuessa) · <code>jaksofokus</code> + <code>reitti.loppu</code>'+(leikki?' · Leikkijällä ei osien tasoja eikä K3:a':'')+'.</div>'
+  +'</div></div></div>';
+}
+function render(){
+ var body='<div class="dh"><div><div class="nm">'+(Z.muoto==='5v5'?'Eeli Esimerkki':'Topias O´Koskela')+'</div><div class="sub">'+(Z.muoto==='5v5'?'KPV P9 · 9 v · Leikkijä':Z.muoto==='8v8'?'KPV P13 · 13 v · Rakentaja':'KPV P13 · 13 v · Rakentaja')+'</div></div><span class="chip n">PHV '+(Z.muoto==='5v5'?'—':Z.phv)+'</span><span class="chip n">Ei jaksoa</span><span class="sp"></span></div><div class="dtabs"><span>Tänään</span><span class="on">Polku</span><span>Näyttö</span></div>'
+  +'<div class="db"><div class="two"><div class="zp-col">'+(Z.muoto!=='5v5'?'<div class="opts" style="margin-bottom:8px;align-items:center"><span class="meta" style="border:0;padding:0 4px 0 0">P13 pelaa</span><button type="button" class="tbtn'+(Z.muoto==='11v11'?' on':'')+'" data-muoto="11v11">11v11</button><button type="button" class="tbtn'+(Z.muoto==='8v8'?' on':'')+'" data-muoto="8v8">8v8</button><span class="meta" style="border:0">joukkueen pelimuodot</span></div>':'')+pitch()+'<div class="meta" style="margin-top:6px">'+Z.muoto+': '+g().rows.length+' × '+g().cols.length+' aluetta · ● = pelihavainto ottelusta</div></div><div style="display:grid;gap:12px">'+lista()+'</div></div>'+esitaytto()+'</div>';
+ document.getElementById('zpDesk').innerHTML=body;
+ document.getElementById('zpPhone').innerHTML='<div class="desk">'+body+'</div><span class="mono cap">390 px · Polku · kentän valinta · '+Z.muoto+'</span>';
+ document.querySelectorAll('#ctl2b [data-muoto]').forEach(function(b){b.classList.toggle('on',b.dataset.muoto===Z.muoto)});
+ document.querySelectorAll('#ctl2b [data-phv]').forEach(function(b){b.classList.toggle('on',b.dataset.phv===Z.phv)});
+ var lb=document.querySelector('#ctl2b [data-linja]');lb.classList.toggle('on',Z.linja);lb.textContent=Z.linja?'Linja tuotu':'Ei linjaa';
+ document.querySelector('#ctl2b [data-hav]').classList.toggle('on',Z.hav);
+}
+var S2={vp:true};
+var OLET={'11v11':'hyokkays|keskusta','8v8':'hyokkays|keskusta','5v5':'hyokkays|keskusta'};
+document.getElementById('s2b').addEventListener('click',function(e){
+ var b=e.target.closest('button');if(!b)return;
+ if(b.dataset.z){Z.zone=(Z.zone===b.dataset.z?null:b.dataset.z);Z.valittu=null;Z.muut=false;render();return}
+ if(b.dataset.pick){Z.valittu=b.dataset.pick;render();return}
+ if(b.dataset.muut){Z.muut=true;render();return}
+ if(b.dataset.oma){Z.oma=!Z.oma;render();return}
+ if(b.dataset.omakayta){Z.valittu=OMA.n;render();return}
+ if(b.dataset.muoto){Z.muoto=b.dataset.muoto;Z.zone=OLET[Z.muoto];Z.valittu=null;Z.muut=false;render();return}
+ if(b.dataset.linja){Z.linja=!Z.linja;Z.valittu=null;Z.muut=false;render();return}
+ if(b.dataset.phv){Z.phv=b.dataset.phv;Z.valittu=null;render();return}
+ if(b.dataset.hav){Z.hav=!Z.hav;render();return}
+ if(b.id==='reset2b'){Z.zone=null;Z.valittu=null;Z.muut=false;render();return}
+});
+Z.zone='hyokkays|keskusta';Z.valittu='Ensimmäinen kosketus paineessa';render();
+})();
+</script>
