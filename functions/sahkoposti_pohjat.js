@@ -153,7 +153,7 @@ function pohjaSalasanaAsetus({ etunimi, rooli, resetLinkki }) {
     </div>`;
 }
 // Suostumus-flow: huoltajan salasanalinkki perhepintaan (§16/§7.22 — ei tasoja/lukuja/vertailua).
-function pohjaSuostumusLinkki({ lapsiNimi, resetLinkki, pin, kutsu }) {
+function pohjaSuostumusLinkki({ lapsiNimi, resetLinkki, pin, kutsu, vanhempiLinkki }) {
   return `
     <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px;">
       <h2 style="color:#28B090;">Tervetuloa TalentMasteriin!</h2>
@@ -175,8 +175,30 @@ function pohjaSuostumusLinkki({ lapsiNimi, resetLinkki, pin, kutsu }) {
         <div style="font-size:30px;letter-spacing:6px;font-weight:bold;color:#28B090;">${esc(pin)}</div>
         <div style="font-size:13px;color:#333;">Anna t&auml;m&auml; pelaajalle &mdash; h&auml;n kirjautuu omaan n&auml;kym&auml;&auml;ns&auml; PalloID:ll&auml; ja PIN-koodilla.</div>
       </div>` : ''}
-      <p style="color:#555;font-size:13px;line-height:1.5;">${kutsu ? '<strong>Linkki on voimassa 7 p&auml;iv&auml;&auml;</strong> &mdash; voit avata sen vaikka vasta illalla. Jos se on vanhentunut, sivu tarjoaa uuden linkin.' : '<strong>Linkki on voimassa 1 tunnin.</strong> Jos se ehtii vanheta, valitse vanhemman sivun kirjautumisessa &rdquo;Unohdin salasanan&rdquo;.'}</p>
+      <p style="color:#555;font-size:13px;line-height:1.5;">${kutsu ? '<strong>Linkki on voimassa 7 p&auml;iv&auml;&auml;</strong> &mdash; voit avata sen vaikka vasta illalla. Jos se on vanhentunut, sivu tarjoaa uuden linkin.' : '<strong>Linkki on voimassa 1 tunnin.</strong>' + (vanhempiLinkki ? ` Jos se ehtii vanheta, avaa <a href="${esc(vanhempiLinkki)}">vanhemman sivu</a> ja valitse &rdquo;Unohdin salasanan&rdquo; &mdash; saat uuden linkin.` : ' Jos se ehtii vanheta, valitse vanhemman sivun kirjautumisessa &rdquo;Unohdin salasanan&rdquo;.')}</p>
       <p style="color:#999;font-size:12px;">Jos painike ei toimi, kopioi t&auml;m&auml; osoite selaimeen:<br>${esc(resetLinkki)}</p>
+    </div>`;
+}
+// B4-jatko (huoltajan sähköpostin vahvistus): tyyppi 'salasana' = uusi salasanan asetuslinkki (asettaminen vahvistaa osoitteen samalla), 'vahvistus' = pelkkä osoitteen vahvistuslinkki.
+// Kaikki arvot esc():n kautta (§39). vanhempiLinkki = Vanhempi-sivu ("Unohdin salasanani" -polku, jos linkki ehtii vanheta).
+function pohjaVahvistusLinkki({ tyyppi, linkki, vanhempiLinkki, kutsu }) {
+  const salasana = tyyppi === 'salasana';
+  return `
+    <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px;">
+      <h2 style="color:#28B090;">${salasana ? 'Aseta TalentMaster-salasanasi' : 'Vahvista sähköpostiosoitteesi'}</h2>
+      <p>Hei,</p>
+      <p style="line-height:1.6;">${salasana
+    ? 'Lapsesi on mukana TalentMasterissa, mutta salasanaasi ei ole vielä asetettu (aiempi linkki on voinut vanhentua). Painikkeesta asetat salasanan &mdash; samalla osoitteesi vahvistuu, ja n&auml;et lapsen kalenterin ja aikataulut.'
+    : 'Vahvista sähköpostiosoitteesi painikkeesta, niin näet lapsen kalenterin ja voit vastata osallistumisesta.'}</p>
+      <div style="text-align:center;margin:24px 0;">
+        <a href="${esc(linkki)}"
+          style="background:#28B090;color:#000;padding:12px 28px;
+          border-radius:8px;text-decoration:none;font-weight:bold;">
+          ${salasana ? 'Aseta salasana &rarr;' : 'Vahvista osoite &rarr;'}
+        </a>
+      </div>
+      <p style="color:#999;font-size:12px;line-height:1.5;">${kutsu ? 'Linkki on voimassa 7 p&auml;iv&auml;&auml; &mdash; voit avata sen vaikka vasta illalla.' : 'Linkki on voimassa 1 tunnin.'}${!kutsu && vanhempiLinkki ? ` Jos se ehtii vanheta, avaa <a href="${esc(vanhempiLinkki)}">vanhemman sivu</a> ja valitse &rdquo;Unohdin salasanan&rdquo;.` : ''}</p>
+      <p style="color:#999;font-size:12px;">Jos painike ei toimi, kopioi t&auml;m&auml; osoite selaimeen:<br>${esc(linkki)}</p>
     </div>`;
 }
 // Huoltajakutsu (#919:n jatko): uusi 7 pv:n kutsulinkki huoltajalle ("Lähetä uusi linkki" / uudelleenlähetys). KAIKKI arvot esc():n kautta (§39).
@@ -208,4 +230,4 @@ function pohjaSoloLupa({ child_etunimi, linkki }) {
     + '</div>';
 }
 
-module.exports = { pohjaHeader, pohjaFooter, pohjaRekisteriKutsu, pohjaMuistutus, pohjaPelaajaSivu, pohjaSalasanaAsetus, pohjaSuostumusLinkki, pohjaHuoltajakutsu, pohjaSoloLupa };
+module.exports = { pohjaHeader, pohjaFooter, pohjaRekisteriKutsu, pohjaMuistutus, pohjaPelaajaSivu, pohjaSalasanaAsetus, pohjaSuostumusLinkki, pohjaVahvistusLinkki, pohjaHuoltajakutsu, pohjaSoloLupa };
