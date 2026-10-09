@@ -138,9 +138,9 @@ window.TM_KAAVIO_HOST = {
 <script src="lib/tm_kentta.js?v=3"></script>   <!-- K0/V4a: Kenttä-komponentti (Archivo vain .kt:n sisällä) -->
 <script src="lib/tm_tanaan_kentta.js?v=3"></script>   <!-- V4a: tmTanaanOsat (Tänään-osat sanoin) -->
 <script src="lib/tm_hash_reititin.js?v=1"></script>   <!-- V4a: #pelaaja/{pid}/… -reititin (vain lipulla) -->
-<script src="lib/tm_kehitystyopoyta.js?v=10"></script>   <!-- V4a: Kehitystyöpöytä V4 -kehys (otsikkorivi, välilehdet, Tänään) -->
+<script src="lib/tm_kehitystyopoyta.js?v=12"></script>   <!-- V4a: Kehitystyöpöytä V4 -kehys (otsikkorivi, välilehdet, Tänään) -->
 <script src="lib/tm_jakso_malli.js?v=4"></script>   <!-- B 2/3: ohjelma → jakson tukiosa (tmOhjelmaTukiosaan / tmLiitaTukiosaan) -->   <!-- R6.1b: jaksofokuksen yhteinen kirjoitusydin (tmAsetaJaksofokus / tmSuljeJakso) -->
-<script src="lib/tm_seuraava_askel.js?v=2"></script>   <!-- R6.2b: seuraava toimenpide yhdessä paikassa (tmSeuraavaAskel / tmSeuraavaJakso / tmTeeTastaOsa) -->
+<script src="lib/tm_seuraava_askel.js?v=3"></script>   <!-- R6.2b: seuraava toimenpide yhdessä paikassa (tmSeuraavaAskel / tmSeuraavaJakso / tmTeeTastaOsa) -->
 <script src="lib/tm_fyysteemat.js?v=4"></script>   <!-- Vaihe 7: fyysinen teemaluettelo + D1-fokuslähde + evidenssi (fysiikkavalmentaja) -->
 <script src="lib/tm_ohjelma.js?v=1"></script>   <!-- Vaihe 7.2a: fysiikkaohjelmakirjasto (validoi/versioi/templaatista, deterministinen) -->
 <script src="lib/tm_ohjelma_analytiikka.js?v=2"></script>   <!-- Vaihe 7.2b: per-ohjelma-analytiikka (tmOhjelmaKooste — mikä ohjelma toimii kenelle) -->
@@ -6594,16 +6594,16 @@ function _ktPelaajat() { return Array.isArray(_pelaajatData) ? _pelaajatData : [
 function _ktOpts() { return { esc: _mEsc, t: masterT, edellinenFn: '_ktEdellinen', seuraavaFn: '_ktSeuraava', valilehtiFn: '_ktValilehti', toimiFn: '_ktToimi', silminFn: '_ktSilmin', suljeFn: '_ktSulje' }; }
 function _ktOikeusCtx() { return { rooli: _rooli, sa: !!_superAdmin, seuraId: _seuraId, omaJoukkueet: _joukkue ? [_joukkue] : null }; }   // sama sääntö kuin _prVoiNahda (!_joukkue → ei rajausta)
 function _ktTanaanHTML(p, tila) {   // mockup 22 osio 1: koko Tänään libissä (tmKtTanaanKoko); viikkohavaintopaneeli sama kuin VP:ssä (A13 jatko 3)
-  const K = window.TM_KEHITYSTYOPOYTA;
+  const K = window.TM_KEHITYSTYOPOYTA; if (!window._mHenkilosto && typeof _mLataaHenkilosto === 'function') _mLataaHenkilosto();   // merkitsijöiden nimet (D108)
   const kentta = (typeof window.tmKentta === 'function') ? window.tmKentta({ koko: 'puoli', ilmanAluetta: true, ase: null, reitti: null, viikot: null, osat: [], historia: [], lempipaikka: null, vaihtoehdot: null }, { wrap: true, rooli: 'henkilokunta', t: masterT }) : '';
   return K.tmKtTanaanKoko(p, tila, { esc: _mEsc, t: masterT, hk: K.tmKtHk, pvmFn: function (iso) { return (typeof tmPvmFi === 'function') ? tmPvmFi(iso) : iso; }, toimiFn: '_ktToimi', osaFn: '_ktHavaintoAvaa', tallennaFn: '_ktHavaintoTallenna', veoFn: '_ktHavaintoVeo', peruFn: '_ktHavaintoSulje',
-    paneeli: true, rooli: _superAdmin ? 'super_admin' : _rooli, voiKirjoittaa: _ktVoiKirjoittaa(p), kentta: kentta, kaanon: (typeof tmKonseptiKaanon === 'function') ? _mTtKaanonNayta : null, tanaan: tmPaivaIso(new Date()),
+    paneeli: true, rooli: _superAdmin ? 'super_admin' : _rooli, uid: _uid, nimet: function (u) { const h = (window._mHenkilosto || []).find(function (x) { return x.id === u; }); return h ? h.nimi : ''; }, voiKirjoittaa: _ktVoiKirjoittaa(p), kentta: kentta, kaanon: (typeof tmKonseptiKaanon === 'function') ? _mTtKaanonNayta : null, tanaan: tmPaivaIso(new Date()),
     sigCtx: _ktSigCtx(p, tila), vk: _ktVkKooste(p, tila), havainto: { auki: _ktS.havaintoAuki === p.id, osa: _ktS.havaintoOsa } });
 }
 /* Viikkohavainto (A13 jatko 3): sama paneeli, käsittelijät ja kirjoitusydin kuin VP:ssä (lib). Kirjoitusoikeus = näkymän oikeus (oma joukkue / talenttivalmentaja / johto oma seura / SA — sama sääntö kuin Rules). */
 function _ktVoiKirjoittaa(p) { return window.TM_HASH_REITITIN.tmPelaajaOikeus(p, _ktOikeusCtx()).ok; }
 const _ktHk = window.TM_KEHITYSTYOPOYTA.tmKtHavaintoKasittelijat({ S: _ktS, pelaaja: function (pid) { return _ktPelaajat().find(function (x) { return x.id === pid; }); }, voi: _ktVoiKirjoittaa, toast: function (m, t) { toast(m, t); }, eiOikeutta: function () { return masterT('Ei oikeutta merkitä tämän pelaajan havaintoa.'); }, nayta: function () { _ktNayta(); }, veo: function (pid) { return window._mvAvaa(pid); },
-  kirjoita: function (p, a, k, n) { return window.TM_KEHITYSTYOPOYTA.tmKtTallennaOsaArvio({ db: _db, sid: _seuraId, auth: function () { return firebase.auth().currentUser; }, KS: window.TM_KEHITYSSILMUKKA, demo: _demo, toast: function (m, t) { toast(m, t); }, t: masterT, viesti: masterT('Osa-arvio tallennettu'), demoLisa: masterT(' (demo — ei kirjoitettu)'), virheTeksti: function (t, e) { return ((typeof TM_VIRHEKOODI !== 'undefined' && TM_VIRHEKOODI.tmVirheTeksti) || String)(t, e); }, paivita: _ktPaivita }, p, a, k, n); } });
+  kirjoita: function (p, a, k, n) { return window.TM_KEHITYSTYOPOYTA.tmKtTallennaOsaArvio({ db: _db, sid: _seuraId, auth: function () { return firebase.auth().currentUser; }, uid: _uid, rooli: _superAdmin ? 'super_admin' : _rooli, nayta: _ktPaivita, KS: window.TM_KEHITYSSILMUKKA, demo: _demo, toast: function (m, t) { toast(m, t); }, t: masterT, viesti: masterT('Osa-arvio tallennettu'), demoLisa: masterT(' (demo — ei kirjoitettu)'), virheTeksti: function (t, e) { return ((typeof TM_VIRHEKOODI !== 'undefined' && TM_VIRHEKOODI.tmVirheTeksti) || String)(t, e); }, paivita: _ktPaivita }, p, a, k, n); } });
 window._ktHavaintoAvaa = _ktHk.avaa; window._ktHavaintoSulje = _ktHk.sulje; window._ktHavaintoVeo = _ktHk.veo; window._ktHavaintoTallenna = _ktHk.tallenna;
 function _ktOsio(otsikko) { return '<div class="kt-otsikko-pieni" style="grid-column:1/-1;margin-top:14px">' + _mEsc(masterT(otsikko)) + '</div>'; }
 /* V4b-1 (mockup 18 §7, 13 §6): vanhan kortin sisältö Näyttöön — SAMAT lohkot kuin vanhassa kortissa (_mPinfoOsat), ei kopioita.
@@ -8080,7 +8080,7 @@ async function _mLataaHenkilosto() {
     window._mHenkilosto = snap.docs.map(function (d) { const x = d.data() || {}; return { id: d.id, nimi: _tmHenkiloNimi(x), rooli: x.rooli || '', aktiivinen: x.aktiivinen !== false }; });
   } catch (e) { console.warn('[v16] henkilöstö:', e && e.message); window._mHenkilosto = []; }
   window._mHenkilostoLataa = false;
-  if (typeof _mIdpReRender === 'function') _mIdpReRender();
+  if (typeof _mIdpReRender === 'function') _mIdpReRender(); if (typeof _ktPaivita === 'function') _ktPaivita();
 }
 function _mVastuuhenkiloRivi(p, editable) {
   const L = window.TM_VASTUUHENKILO; if (!L || !p) return '';

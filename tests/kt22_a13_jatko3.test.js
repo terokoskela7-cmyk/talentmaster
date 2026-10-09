@@ -83,11 +83,11 @@ describe('2 · yksi kirjoitusydin', () => {
   });
   function db(log, kaada) { return { collection: (a) => ({ doc: (b) => ({ collection: (c) => ({ doc: (d) => ({ update: async (data) => { log.push(['update', [a, b, c, d].join('/'), data]); if (kaada) throw Object.assign(new Error('permission-denied'), { code: 'permission-denied' }); } }) }) }) }) }; }
   const deps = (log, o) => Object.assign({ db: db(log, o && o.kaada), sid: 'kpv', auth: () => ({ getIdToken: async (f) => { log.push(['token', f]); } }), KS, demo: false, toast: (m, t) => log.push(['toast', m, t]), t: (k) => k, viesti: 'Osa-arvio tallennettu', demoLisa: ' (demo)', paivita: () => log.push(['paivita']) }, o || {});
-  it('paikallinen päivitys heti; getIdToken(true) ENNEN update-kutsua; vain dot-polku jaksofokus.osa_arviot.<konsepti> (muu jaksofokus koskematta)', async () => {
-    const log = [], p = pel(); const ok = await KT.tmKtTallennaOsaArvio(deps(log), p, 'kons', 'k3', 2);
+  it('paikallinen päivitys heti; getIdToken(true) ENNEN update-kutsua; vain dot-polut jaksofokus.osa_havainnot.<konsepti>.<koodi>.<oma uid> + osa_arviot.<konsepti> (muu jaksofokus koskematta)', async () => {
+    const log = [], p = pel(); const ok = await KT.tmKtTallennaOsaArvio(deps(log, { uid: 'u1', rooli: 'valmentaja', nyt: () => new Date(2026, 9, 9, 12) }), p, 'kons', 'k3', 2);
     expect(ok).toBe(true); expect(p.jaksofokus.osa_arviot.kons).toEqual({ k1: 3, k2: 2, k3: 2 });
     expect(log.map((x) => x[0])).toEqual(['token', 'update', 'toast', 'paivita']); expect(log[0][1]).toBe(true);
-    expect(log[1]).toEqual(['update', 'seurat/kpv/pelaajat/' + PID, { 'jaksofokus.osa_arviot.kons': { k1: 3, k2: 2, k3: 2 } }]); expect(log[2][1]).toBe('Osa-arvio tallennettu ✓');
+    expect(log[1][1]).toBe('seurat/kpv/pelaajat/' + PID); expect(log[1][2]).toEqual({ 'jaksofokus.osa_havainnot.kons.k3.u1': { arvo: 2, pvm: '2026-10-09', rooli: 'valmentaja' }, 'jaksofokus.osa_arviot.kons': { k1: 3, k2: 2, k3: 2 } }); expect(log[2][1]).toBe('Osa-arvio tallennettu ✓');
   });
   it('demo: ei kirjoitusta, lokaali päivitys + toast; virhe: toast + false (paikallinen jää, kuten ennen); ei jaksoa / koodia → false ilman kirjoitusta', async () => {
     const l1 = [], p1 = pel(); expect(await KT.tmKtTallennaOsaArvio(deps(l1, { demo: true }), p1, 'kons', 'k3', 1)).toBe(true); expect(l1.some((x) => x[0] === 'update')).toBe(false); expect(p1.jaksofokus.osa_arviot.kons.k3).toBe(1);
