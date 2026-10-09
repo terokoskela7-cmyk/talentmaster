@@ -133,12 +133,12 @@ window.TM_KAAVIO_HOST = {
 <script src="lib/tm_viikkokatsaus.js?v=2"></script>   <!-- K4: pelaajan viikkokatsaukset (henkilökunnan osio) + lause -->
 <script src="lib/tm_reitin_valinta.js?v=3"></script>   <!-- K3: pelaaja valitsee seuraavan reitin — tarjousosio sulkulomakkeessa + rivitila (Kenttä-lipun takana) -->
 <script src="lib/tm_polun_tila.js?v=1"></script>   <!-- Polun tila + kolme kysymystä (13 §1) -->
-<script src="lib/tm_tanaan_signaali.js?v=2"></script>   <!-- V4b-2: Tänään-signaali (D48) -->
+<script src="lib/tm_tanaan_signaali.js?v=3"></script>   <!-- V4b-2: Tänään-signaali (D48) -->
 <script src="lib/tm_kevyt_katselmus.js?v=2"></script>   <!-- V4b-2: kevyt katselmus + Hylkää valinta + valmentajaprofiili -->
 <script src="lib/tm_kentta.js?v=3"></script>   <!-- K0/V4a: Kenttä-komponentti (Archivo vain .kt:n sisällä) -->
 <script src="lib/tm_tanaan_kentta.js?v=2"></script>   <!-- V4a: tmTanaanOsat (Tänään-osat sanoin) -->
 <script src="lib/tm_hash_reititin.js?v=1"></script>   <!-- V4a: #pelaaja/{pid}/… -reititin (vain lipulla) -->
-<script src="lib/tm_kehitystyopoyta.js?v=4"></script>   <!-- V4a: Kehitystyöpöytä V4 -kehys (otsikkorivi, välilehdet, Tänään) -->
+<script src="lib/tm_kehitystyopoyta.js?v=5"></script>   <!-- V4a: Kehitystyöpöytä V4 -kehys (otsikkorivi, välilehdet, Tänään) -->
 <script src="lib/tm_jakso_malli.js?v=4"></script>   <!-- B 2/3: ohjelma → jakson tukiosa (tmOhjelmaTukiosaan / tmLiitaTukiosaan) -->   <!-- R6.1b: jaksofokuksen yhteinen kirjoitusydin (tmAsetaJaksofokus / tmSuljeJakso) -->
 <script src="lib/tm_seuraava_askel.js?v=2"></script>   <!-- R6.2b: seuraava toimenpide yhdessä paikassa (tmSeuraavaAskel / tmSeuraavaJakso / tmTeeTastaOsa) -->
 <script src="lib/tm_fyysteemat.js?v=4"></script>   <!-- Vaihe 7: fyysinen teemaluettelo + D1-fokuslähde + evidenssi (fysiikkavalmentaja) -->
@@ -6644,14 +6644,20 @@ function _ktAsetaHTML(html) {
   const vanha = document.getElementById('ktNakyma'), w = document.createElement('div'); w.innerHTML = html;
   if (vanha) vanha.replaceWith(w.firstChild); else { document.body.appendChild(w.firstChild); _ktS.overflow = document.body.style.overflow; document.body.style.overflow = 'hidden'; }
 }
+function _ktHkAsenna() {   // A8: Pelaajan silmin → Polun luvut .kt-hk:ksi (myös asynkroninen sisältö); Tänäänin luvut merkitsee lib
+  if (_ktS.hkKatkaise) { _ktS.hkKatkaise(); _ktS.hkKatkaise = null; }
+  if (!_ktS.silmin || !window.TM_KEHITYSTYOPOYTA) return;
+  const polku = document.querySelector('#ktNakyma [data-kt-sivu="polku"]');
+  if (polku) _ktS.hkKatkaise = window.TM_KEHITYSTYOPOYTA.tmKtHkLuvut(polku);
+}
 function _ktNayta() {
   const S = _ktS, K = window.TM_KEHITYSTYOPOYTA, H = window.TM_HASH_REITITIN; if (!S.pid) return;
   if (!_ktPelaajat().length) { _ktAsetaHTML(K.tmKtLataaHTML(_ktOpts())); return; }   // data tulee (_lataaPelaajat → _ktKaynnista) → piirretään uudelleen
   const p = _ktPelaajat().find(function (x) { return x.id === S.pid; });
   if (!p) { _ktAsetaHTML(K.tmKtEiLoydyHTML(_ktOpts())); return; }
   if (!H.tmPelaajaOikeus(p, _ktOikeusCtx()).ok) { _ktAsetaHTML(K.tmKtEiOikeuttaHTML(_ktOpts())); return; }   // näkymä tarkistaa oikeuden itse (D46 #3); Rules tekee saman
-  _ktAsetaHTML(_ktKehys(p));
-  if (S.ladattu.naytto) { const mc = document.getElementById('_mMitaCard'); if (mc && typeof _mMitaOsattavaHTML === 'function') mc.innerHTML = _mMitaOsattavaHTML(p); }   // Näyttö: "mitä pelaajan tulee osata"
+  _ktAsetaHTML(_ktKehys(p)); _ktHkAsenna();
+  if (S.ladattu.naytto && !S.silmin) { const mc = document.getElementById('_mMitaCard'); if (mc && typeof _mMitaOsattavaHTML === 'function') mc.innerHTML = _mMitaOsattavaHTML(p); }   // Näyttö: "mitä pelaajan tulee osata"
   if (S.ladattu.polku && typeof _mvLataaKlipit === 'function') _mvLataaKlipit(p);   // R6.4: pelaajan klippiketjut (lazy, vain Polku)
   if (S.ladattu.polku) { window._mIdpPelaaja = p; if (typeof _mIdpReRender === 'function') _mIdpReRender(); if (typeof _mIdpLataa === 'function') _mIdpLataa(p); }   // Polku: IDP-kortti (kausi → jakso → katselmus) olemassa olevalla koodilla
 }
@@ -6684,7 +6690,11 @@ window._ktSulje = function () { if (_ktS.reititin) _ktS.reititin.sulje(); };
 window._ktValilehti = function (pid, vl) { if (_ktS.reititin) _ktS.reititin.avaa(pid, vl, true); };
 window._ktEdellinen = function (pid) { const j = window.TM_KEHITYSTYOPOYTA.tmKtJarjestys(_ktPelaajat().map(function (x) { return x.id; }), pid); if (j.edellinen && _ktS.reititin) _ktS.reititin.avaa(j.edellinen, _ktS.valilehti, true); };
 window._ktSeuraava = function (pid) { const j = window.TM_KEHITYSTYOPOYTA.tmKtJarjestys(_ktPelaajat().map(function (x) { return x.id; }), pid); if (j.seuraava && _ktS.reititin) _ktS.reititin.avaa(j.seuraava, _ktS.valilehti, true); };
-window._ktSilmin = function () { _ktS.silmin = !_ktS.silmin; _ktNayta(); };
+window._ktSilmin = function () {
+  _ktS.silmin = !_ktS.silmin;
+  if (_ktS.silmin && _ktS.valilehti === 'naytto' && _ktS.pid) { _ktS.valilehti = 'tanaan'; if (_ktS.reititin) _ktS.reititin.avaa(_ktS.pid, 'tanaan', true); }   // A8: Näyttö ei ole käytössä silmin-tilassa
+  _ktNayta();
+};
 window._ktVanhaNakyma = function (pid) { if (_ktS.reititin) _ktS.reititin.sulje(); _ktTyhja(); if (typeof setWs === 'function') setWs('dev'); _ktVanhaAvaa(pid); };
 function _ktVanhaAvaa(pid) { try { renderDev(pid); } catch (e) { console.warn('[V4a] vanha näkymä:', e && e.message); } }
 // Otsikkorivin napit → olemassa olevat toiminnot (ei uutta logiikkaa; sama funktio kuin J4-rivillä ja vanhalla napilla)
@@ -6773,7 +6783,7 @@ function _ktSignaaliHTML(p, tila) {
     const c = _ktVk[p.id]; if (c && c.pvm === tanaan) vkEi = c.vastattu === false; else _ktVkLataa(p, tanaan);
   }
   _kvkProfiiliLataa(p);
-  return TS.tmTanaanSignaaliHTML(TS.tmTanaanSignaali(p, { nyt: new Date(), profiili: _kvkProfiili(p), askel: askel, tila: tila, vkEiVastattu: vkEi, nimi: p.etunimi || '' }, { t: masterT }), { esc: _mEsc, t: masterT, toimiFn: '_ktToimi', pid: p.id });
+  return TS.tmTanaanSignaaliHTML(TS.tmTanaanSignaali(p, { nyt: new Date(), profiili: _kvkProfiili(p), askel: askel, tila: tila, vkEiVastattu: vkEi, nimi: p.etunimi || '' }, { t: masterT }), { esc: _mEsc, t: masterT, toimiFn: '_ktToimi', pid: p.id, hk: window.TM_KEHITYSTYOPOYTA && window.TM_KEHITYSTYOPOYTA.tmKtHk });
 }
 async function _ktVkLataa(p, pvm) {
   if (_demo || !_seuraId || typeof _db === 'undefined' || !_db || (_ktVk[p.id] && _ktVk[p.id].lataa)) return;
