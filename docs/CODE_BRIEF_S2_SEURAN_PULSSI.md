@@ -22,7 +22,7 @@ Sparri laajensi S2:n koko VP:n etusivun uudistukseksi (mockupit 23–26, D109–
 3. **Ei S2:ssa (R1, tammikuu):** navigaatio v3 (D135) ja Joukkueet ja ryhmät (D136) käyttäjätestin jälkeen · Asia-kokoelma, kuittausdialogi, VP:n Viestit ja Viestit-osio Kodissa (D127–D130, D133) · kalenterin kerrokset, tauot ja iCal (D131).
 
 **Ennen kuin Code aloittaa:**
-- **D119 vs D65 (Tero päättää).** Lukittu D65 ja tuotannossa oleva kooste v4 (`TOIMINTO_LAHTEET` = viikkokatsaus, ydinvahvuus_valinta, klippivastaus/-kuittaus, U12 `jakso_kuittaus`) laskevat katsauksen käytöksi eivätkä laske kirjauksia. D119 tekee päinvastoin. Briiffi sanoo "D65 ennallaan", mutta D119 muuttaa sen. Jos D119 hyväksytään, se on D65:n muutos ja vaatii `functions/`-PR:n (Teron kaista) ennen näkymää. Muuten näkymä käyttää `n_toiminto_7`:ää sellaisenaan.
+- **D119 lukittu 9.10. (Tero), muuttaa D65:n Käyttö-määritelmän.** Ensin kooste v5 (`docs/CODE_BRIEF_KOOSTE_V5_D119.md`): uusi `n_harjoite_7`, vanha `n_toiminto_7` säilyy vertailua varten. S2:n Käyttö-sarake lukee `n_harjoite_7`:ää, ellei PM:n datatarkistus deployn jälkeen totea, että kirjauksia ei juuri ole (silloin `n_toiminto_7` 1.12. asti).
 
 **Asia-datamallin (26 §5) korjattavat ennen R1:tä:**
 - `seurat/{seura}/kalenteri/tauot/{id}` ei ole kelvollinen dokumenttipolku (kokoelma/doc/kokoelma puuttuu) → esim. `seurat/{seura}/tauot/{id}`.
