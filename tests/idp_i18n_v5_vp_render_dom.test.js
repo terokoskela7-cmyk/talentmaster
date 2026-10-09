@@ -501,12 +501,12 @@ describe('VP_v25 render-kielineutraali-gate (step G · AST)', () => {
     expect(alku).not.toBe(src);
     expect(scanLeaks(alku, RANGES, RLO - 1, LIB, SISALTO_POIKKEUKSET).map((l) => l.p))
       .toContain('joukkueiden pulssi ja kriittiset signaalit reaaliaikaisesti.');
-    // r3284 (tyhjän tilan aloitusopas) EI ollut minkään lukkoa edeltävän alueen sisällä → todistaa
-    // että lukko laajensi kattavuutta aidosti, ei vain niputtanut vanhoja alueita uudelleen.
-    const ennenKattamaton = src.replace("vpT('Aloita näistä kolmesta')", "'Aloita näistä kolmesta'");
+    // Tilanteen aloitusmuistutus (renderDeadlinePalkki, yksi aloitusopas P0 9.10.2026) — sama todiste kuin ennen vanhalle
+    // "Aloita näistä kolmesta" -listalle (r3284): alue EI ollut minkään lukkoa edeltävän alueen sisällä, joten lukko laajensi kattavuutta aidosti.
+    const ennenKattamaton = src.replace("vpT('Aloita tästä') + ' · ' + op.tehty", "'Aloita tästä' + ' · ' + op.tehty");
     expect(ennenKattamaton).not.toBe(src);
     expect(scanLeaks(ennenKattamaton, RANGES, RLO - 1, LIB, SISALTO_POIKKEUKSET).map((l) => l.p))
-      .toContain('Aloita näistä kolmesta');
+      .toContain('Aloita tästä');
     const loppu = src.replace("vpT('Lataa tuore versio uudelleen →')", "'Lataa tuore versio uudelleen →'");
     expect(loppu).not.toBe(src);
     expect(scanLeaks(loppu, RANGES, RLO - 1, LIB, SISALTO_POIKKEUKSET).map((l) => l.p))
