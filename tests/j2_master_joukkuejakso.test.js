@@ -130,7 +130,7 @@ describe('roolit ja joukkueen valinta', () => {
 
 describe('lähdetason rakenne', () => {
   it('kortti vain lipulla; skriptit ladataan; tm_idp ?v nostettu; ei Rules- eikä muuta kirjoitusta kuin joukkueet/{jid}.update', () => {
-    expect(MA).toContain('<script src="lib/tm_tukitavoitteet.js?v=3"></script>'); expect(MA).toContain('<script src="lib/tm_joukkuejakso.js?v=4"></script>'); expect(MA).toContain('<script src="lib/tm_idp.js?v=12"></script>'); expect(MA).toContain('id="seasonJoukkuejakso"');
+    expect(MA).toContain('<script src="lib/tm_tukitavoitteet.js?v=3"></script>'); expect(MA).toContain('<script src="lib/tm_joukkuejakso.js?v=4"></script>'); expect(MA).toContain('<script src="lib/tm_idp.js?v=13"></script>'); expect(MA).toContain('id="seasonJoukkuejakso"');
     const adapteri = MA.slice(MA.indexOf('/* ═══ J2 — JOUKKUEJAKSO'), MA.indexOf('/* K1 / A (docs/CODE_BRIEF_K1_TAMAN_TUEKSI.md §3)'));
     expect(adapteri).toContain("liput.kentta !== true"); expect((adapteri.match(/\.update\(|\.set\(|\.add\(|\.delete\(/g) || [])).toEqual(['.update(']); expect(adapteri).toContain("collection('joukkueet').doc(d.jid).update(k.update)");
     expect(adapteri).not.toMatch(/#[0-9a-fA-F]{3,6}\b/); expect(adapteri).not.toMatch(/\b(SBL|SFL|DIAG|DFL)\b/);

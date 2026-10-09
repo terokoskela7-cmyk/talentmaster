@@ -108,7 +108,7 @@ describe('lähdekontrakti — tallentavat kohdat eivät käytä UTC-päivää', 
     ['TalentMaster_Seura.html', "{ pvm: tmPaivaIso(new Date()), arvo: null, pelaajaId: null, huomio: 'Kumottu kirjaus'", 1, 'omat_tavoitteet/kirjaukset kumoamis-pvm'],
     ['TalentMaster_TalentID_v1.html', "var tanaan=tmPaivaIso(new Date());", 1, 'snapshotin päiväavain (localStorage)'],
     ['TalentMaster_Testaus_v9.html', "|| tmPaivaIso(new Date());", 2, 'lomakkeen oletuspäivä (#722) + ennätykset: oletus tänään'],
-    ['lib/tm_idp.js', "_tmPaivaIso(new Date(nyt.getTime() + kestoVk * 7 * 86400000))", 1, 'aikaraami.arvio_pvm'],
+    ['lib/tm_idp.js', "_tmPaivaIso(new Date(nyt.getFullYear(), nyt.getMonth(), nyt.getDate() + kestoVk * 7))", 1, 'aikaraami.arvio_pvm'],
     ['lib/tm_idp.js', "pvm: arvio.pvm || _tmPaivaIso(nyt),", 1, 'arviot[].pvm-fallback'],
   ])('%s: %s', (tiedosto, osa, n) => { expect(S(tiedosto).split(osa).length - 1, 'kohta puuttuu/kaksinkertaistui').toBe(n); });
   it('Testaus_v9: käyttäjän syöttämä testipvm (3191) ennallaan, vain oletus "tänään" paikalliseksi; fallbackit kaksi kohtaa', () => {

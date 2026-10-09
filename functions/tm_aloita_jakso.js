@@ -42,6 +42,15 @@
   function _SIT() { return _req('TM_SITOUMUS', './tm_sitoumus.js'); }
   function _RV() { return _req('TM_REITIN_VALINTA', './tm_reitin_valinta.js'); }
   function _ms(iso) { var t = iso ? new Date(iso).getTime() : NaN; return t; }
+  /* Päiväero PÄIVINÄ ilman kellonaikaa (CLAUDE.md §7.11, §7.26): paikallinen kalenteripäivä → Date.UTC(y, m-1, d) / 86400000. 'YYYY-MM-DD' luetaan sellaisenaan (ei UTC-keskiyönä), ms/Date/aikaleima → ajoympäristön paikallinen päivä.
+     Ennen jaksot laskettiin ms-erotuksella (nyt − alkoi − 28 pv) → sama data antoi UTC:ssä 14 pv ja Helsingissä 15 pv. Yksi apuri: signaali (tm_tanaan_signaali.js) käyttää tätä. NaN jos ei parsittavissa. */
+  function tmPaivaNum(v) {
+    if (v == null || v === '') return NaN;
+    var m = typeof v === 'string' ? /^(\d{4})-(\d{2})-(\d{2})$/.exec(v) : null;
+    if (m) return Date.UTC(+m[1], +m[2] - 1, +m[3]) / DAY_MS;
+    var d = v instanceof Date ? v : new Date(v); if (isNaN(d.getTime())) return NaN;
+    return Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) / DAY_MS;
+  }
   function _valintaTehty(p) { var v = p && p.ydinvahvuus_valinta; return !!(v && typeof v.vaihtoehto === 'string' && v.vaihtoehto.trim()); }   // V4b-2: "Hylkää valinta" poistaa ydinvahvuus_valinta:n → ei erillistä "voimassa"-päättelyä
   function _asetettu(p) { return !!(p && p.ydinvahvuus && typeof p.ydinvahvuus.kuvaus === 'string' && p.ydinvahvuus.kuvaus.trim()); }
   function tmJaksoTila(p, ctx) {
@@ -59,11 +68,11 @@
       return { tila: 'valittavana', ensisijainen: null, valikko: [{ avain: 'aloita', teksti: 'Peru valinta ja aloita jakso itse', kaytettavissa: true }], rivitila: { teksti: 'Valinta odottaa', savy: 'neutraali' } };
     }
     if (!onKonsepti) return { tila: 'ei_jaksoa', ensisijainen: { avain: 'aloita', teksti: 'Aloita jakso' }, valikko: [valita], rivitila: { teksti: 'Ei jaksoa', savy: 'neutraali' } };
-    var alku = _ms(jf.alkoi), yht = Number(jf.kesto_vk) > 0 ? Number(jf.kesto_vk) : 4, loppu = isNaN(alku) ? NaN : alku + yht * 7 * DAY_MS;
-    if (!isNaN(loppu) && loppu < nyt) return { tila: 'paattynyt', ensisijainen: { avain: 'sulje', teksti: 'Sulje jakso' },
+    var alku = tmPaivaNum(jf.alkoi), yht = Number(jf.kesto_vk) > 0 ? Number(jf.kesto_vk) : 4, nytPv = tmPaivaNum(nyt), loppu = isNaN(alku) ? NaN : alku + yht * 7;   // päivinä: jakso päättyy kun alkupäivästä on kulunut kesto × 7 pv (sama sääntö kuin tmTanaanTila)
+    if (!isNaN(loppu) && nytPv >= loppu) return { tila: 'paattynyt', ensisijainen: { avain: 'sulje', teksti: 'Sulje jakso' },
       valikko: [{ avain: 'jatka', teksti: 'Jatka jaksoa 2 vk', kaytettavissa: true }, { avain: 'syvenna', teksti: 'Syvennä (täysi katselmus)', kaytettavissa: true }],
       rivitila: { teksti: 'Jakso päättynyt — suljettava', savy: 'amber' } };
-    var vk = isNaN(alku) ? null : { n: Math.min(Math.max(1, Math.floor((nyt - alku) / (7 * DAY_MS)) + 1), yht), yht: yht };
+    var vk = isNaN(alku) ? null : { n: Math.min(Math.max(1, Math.floor((nytPv - alku) / 7) + 1), yht), yht: yht };
     var SIT = _SIT(), sitoutunut = SIT ? SIT.tmSitoumus(p).sitoutunut : false;   // A1/D97: YKSI sääntö (lib/tm_sitoumus.js) — sitoumus annettu tämän jakson aikana
     var menu = [{ avain: 'sulje', teksti: 'Sulje jakso', kaytettavissa: true }, { avain: 'muokkaa', teksti: 'Muokkaa jaksoa', kaytettavissa: true }, { avain: 'klippi', teksti: 'Lisää klippi', kaytettavissa: true }, valita];
     var base = { ensisijainen: { avain: 'havainto', teksti: 'Merkitse havainto' }, valikko: menu };
@@ -310,7 +319,7 @@
     return t(x.teksti);
   }
 
-  var API = { IDS: IDS, tmJaksoTeksti: tmJaksoTeksti, tmJaksoNappi: tmJaksoNappi, tmJaksoNapitTila: tmJaksoNapitTila, tmJaksoTila: tmJaksoTila, tmJaksoNapitHTML: tmJaksoNapitHTML, tmAloitaJaksoTiedot: tmAloitaJaksoTiedot, tmAloitaJaksoModalHTML: tmAloitaJaksoModalHTML, tmAloitaJaksoSyote: tmAloitaJaksoSyote, tmAloitaJaksoKirjoitus: tmAloitaJaksoKirjoitus,
+  var API = { IDS: IDS, tmPaivaNum: tmPaivaNum, tmJaksoTeksti: tmJaksoTeksti, tmJaksoNappi: tmJaksoNappi, tmJaksoNapitTila: tmJaksoNapitTila, tmJaksoTila: tmJaksoTila, tmJaksoNapitHTML: tmJaksoNapitHTML, tmAloitaJaksoTiedot: tmAloitaJaksoTiedot, tmAloitaJaksoModalHTML: tmAloitaJaksoModalHTML, tmAloitaJaksoSyote: tmAloitaJaksoSyote, tmAloitaJaksoKirjoitus: tmAloitaJaksoKirjoitus,
     tmAloitaJaksoTuki: tmAloitaJaksoTuki, tmAjJoukkueId: tmAjJoukkueId, KONF: { arviointikehys: 'arviointi', prosessiprofiili: 'prosessiprofiili' },   // konfiguraatio/{doc} -tunnisteet (adapterit; ei näyttötekstejä)
      tmAloitaJaksoSyoteV2: tmAloitaJaksoSyoteV2, tmAloitaJaksoOletusSyote: tmAloitaJaksoOletusSyote, tmAloitaJaksoV2: tmAloitaJaksoV2, tmAjTukiValitse: tmAjTukiValitse, tmAjOmaAlue: tmAjOmaAlue, TT_ALUEET: TT_ALUEET };
   if (typeof module !== 'undefined' && module.exports) module.exports = API; else root.TM_ALOITA_JAKSO = API;
