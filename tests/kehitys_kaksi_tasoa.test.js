@@ -583,6 +583,30 @@ describe('(5) Rivien tilat ja alarivit', () => {
     expect(rivi, 'Nyt-luku poimi väärän arvion').not.toContain('Nyt 3/5');
   });
 
+  it('A10/D104: lähtötaso mittaamatta (lahto.arvo null, arviot tyhjä) → "tavoite taso N · lähtötaso katselmuksessa", EI "tavoite N/5"', () => {
+    const p = pelaaja();
+    p._idpTavoite.lahto = { arvo: null };
+    p._idpTavoite.arviot = [];
+    p._idpTavoite.tavoitearvo = 2;
+    const rivi = rakenna({ p: p })._vpKtAlariviHTML(p._idpTavoite, true);
+    expect(rivi).toContain('tavoite taso 2 · lähtötaso katselmuksessa');
+    expect(rivi, 'oletus-/5 näkyy mitattuna').not.toContain('2/5');
+    expect(rivi).not.toContain('Nyt');
+  });
+
+  it('A10: kun lähtötaso on mitattu tai arvioita on, vanha muoto ennallaan (Nyt X/5 → tavoite Y/5)', () => {
+    const p = pelaaja();
+    p._idpTavoite.lahto = { arvo: 2 }; p._idpTavoite.arviot = []; p._idpTavoite.tavoitearvo = 3;
+    expect(rakenna({ p: p })._vpKtAlariviHTML(p._idpTavoite, true)).toContain('Nyt 2/5 → tavoite 3/5');
+    p._idpTavoite.lahto = { arvo: null }; p._idpTavoite.arviot = [{ arvo: 3 }];
+    expect(rakenna({ p: p })._vpKtAlariviHTML(p._idpTavoite, true)).toContain('Nyt 3/5 → tavoite 3/5');
+  });
+
+  it('A10: tm_idp.js:n oletus (taso+1) ei muutu — vain näyttö', () => {
+    const idp = require('../lib/tm_idp.js');
+    expect(idp.idpTavoitearvo({ tyyppi: 'havaittu', taso: null }, {})).toMatchObject({ arvo: 2, lahto: null });
+  });
+
   it('K3 (arvion tapaus): lähtö 3 · arviot [4] · tavoite 5 → "Nyt 4/5 → tavoite 5/5"', () => {
     const p = pelaaja();
     p._idpTavoite.lahto = { arvo: 3 };
