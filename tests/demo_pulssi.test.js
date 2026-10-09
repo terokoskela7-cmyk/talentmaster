@@ -256,3 +256,16 @@ describe('toistettavuus', () => {
     R.docs.filter((x) => /\/kirjaukset\/\d/.test(x.polku)).forEach((x) => { const pvm = x.polku.split('/').pop(); expect(pvm >= '2026-10-29' && pvm <= '2026-11-04', pvm).toBe(true); });
   });
 });
+
+describe('demodatan vaihtelu (S2 PR 2): joukkueilla omat teemat, kestot ja jaksoviikot', () => {
+  const D2 = require('../tm_admin/demo_pulssi.js');
+  const jaksot = D2.rakenna({ nytMs: Date.UTC(2026, 9, 10, 9, 0) }).docs.filter((d) => /^joukkueet\/[^/]+$/.test(d.polku.replace('seurat/demo-fc/', '')) && d.data.jaksofokus && !d.data.jaksofokus.__poista).map((d) => d.data.jaksofokus);
+  it('vähintään 5 eri teemaa, 3 eri kestoa ja 4 eri aloituspäivää (ei yhtä kaikille yhteistä jaksoa)', () => {
+    expect(new Set(jaksot.map((j) => j.osa_alueet.tekninen_taktinen.nimi)).size).toBeGreaterThanOrEqual(5);
+    expect(new Set(jaksot.map((j) => j.kesto_vk)).size).toBeGreaterThanOrEqual(3);
+    expect(new Set(jaksot.map((j) => j.alku)).size).toBeGreaterThanOrEqual(4);
+  });
+  it('jokainen jakso on yhä voimassa nyt (alku + kesto yli tämän päivän)', () => {
+    jaksot.forEach((j) => expect(Date.parse(j.alku + 'T00:00:00Z') + j.kesto_vk * 7 * 86400000).toBeGreaterThan(Date.UTC(2026, 9, 10)));
+  });
+});

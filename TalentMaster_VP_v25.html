@@ -21401,16 +21401,17 @@ function _vpKatselmusPv() {   // päivää jäljellä joukkueen avoimeen katselm
 }
 async function _vpPulssiLataa() {   // kooste-luku: sama jaettu lukufunktio kuin Käyttöaste (ei laskevaa documentId-järjestystä); ensimmäinen kooste = käyttöönoton alku (D69), nouseva haku
   const FP = firebase.firestore.FieldPath, ref = db.collection('seurat').doc(_seuraId).collection('kooste');
-  const r = await Promise.all([window.TM_KAYTTOASTE.tmKayttoasteLueKoosteet(db, FP, _seuraId), ref.where(FP.documentId(), '>=', '2000-W01').limit(1).get()]);
-  return { koosteet: r[0], ensin: r[1].docs[0] ? r[1].docs[0].id : null };
+  const r = await Promise.all([window.TM_KAYTTOASTE.tmKayttoasteLueKoosteet(db, FP, _seuraId), ref.where(FP.documentId(), '>=', '2000-W01').limit(1).get(),
+    db.collection('seurat').doc(_seuraId).collection('toimenpiteet').where('tyyppi', '==', 'pulssi').limit(300).get()]);   // PR 2: kuittaukset (yhtäsuuruussuodatin, ei indeksiä)
+  return { koosteet: r[0], ensin: r[1].docs[0] ? r[1].docs[0].id : null, kuittaukset: r[2].docs.map(function (d) { return d.data(); }) };
 }
 function _renderKotiPulssi(el) {
   const T = window.TM_SEURAN_PULSSI, S = window._vpPulssi = window._vpPulssi || {};
   const piirra = function () {
     const nyt = Date.now(), ks = S.koosteet, viim = ks[ks.length - 1] || {}, kal = (_kalenteriTapahtumat || []).map(function (e) { return { nimi: e.nimi, alkaa: e.alkaa }; });
-    const m = T.tmPulssiRivit(ks, { nytMs: nyt, ensimmainenVk: S.ensin, katselmusPv: _vpKatselmusPv(), jaksoVk: _vpJaksoVk() }), ko = { t: vpT, esc: _jsvEsc };
+    const m = T.tmPulssiRivit(ks, { nytMs: nyt, ensimmainenVk: S.ensin, katselmusPv: _vpKatselmusPv(), jaksoVk: _vpJaksoVk(), kuittaukset: S.kuittaukset || [] }), ko = { t: vpT, esc: _jsvEsc };
     const o = Object.assign({ suostumus: window.TM_KOTI_LUVUT.suostumus(_pelaajat || []), suostumusKooste: viim.yhteensa ? viim.yhteensa.n_suostumus : null, seuraavaKatselmus: _vpSeuraavaKatselmus(),
-      fn: { joukkue: 'avaaJoukkueSyvanakyma', aloitaJakso: 'avaaJoukkueSyvanakyma', sulje: 'avaaJoukkueSyvanakyma', perheet: 'avaaJoukkueSyvanakyma', valmentaja: '_vpPulssiValmentajat', paivita: '_vpPulssiPaivita', tilanne: '_vpPulssiTilanne', muistuta: 'vpMuistutaOdottavia' } }, ko);
+      fn: { kuittaa: '_vpPulssiKuittaa', joukkue: 'avaaJoukkueSyvanakyma', aloitaJakso: 'avaaJoukkueSyvanakyma', sulje: 'avaaJoukkueSyvanakyma', perheet: 'avaaJoukkueSyvanakyma', valmentaja: '_vpPulssiValmentajat', paivita: '_vpPulssiPaivita', tilanne: '_vpPulssiTilanne', muistuta: 'vpMuistutaOdottavia' } }, ko);
     S.malli = m;
     el.innerHTML = '<div id="vpAloitaKortti"></div><div class="vpk-wrap"><div class="vpk-grid"><div class="vpk-main">' + T.tmPulssiHTML(m, o) + '</div><aside class="vpk-side">' + T.tmPulssiTulossaHTML(kal, nyt, Object.assign({ tanaan: true }, ko)) + T.tmPulssiTulossaHTML(kal, nyt, ko) + '</aside></div></div>';
     if (typeof renderVpAloitaKortti === 'function') renderVpAloitaKortti();
@@ -21418,9 +21419,21 @@ function _renderKotiPulssi(el) {
   };
   if (S.sid === _seuraId && S.koosteet && Date.now() - S.ladattu < 60000) { piirra(); return; }
   el.innerHTML = '<div id="vpAloitaKortti"></div><div class="tmp"><div class="ev sig n"><div class="why">' + _jsvEsc(vpT('Ladataan pulssia…')) + '</div></div></div>';
-  _vpPulssiLataa().then(function (r) { S.sid = _seuraId; S.koosteet = r.koosteet; S.ensin = r.ensin; S.ladattu = Date.now(); piirra(); })
+  _vpPulssiLataa().then(function (r) { S.sid = _seuraId; S.koosteet = r.koosteet; S.ensin = r.ensin; S.kuittaukset = r.kuittaukset; S.ladattu = Date.now(); piirra(); })
     .catch(function (e) { console.warn('[pulssi]', e && e.message); (window._vpPulssiVirhe = window._vpPulssiVirhe || {})[_seuraId] = true; renderKotiVP(); });   // ei lukuoikeutta (esim. valmentaja) → Koti ennallaan
 }
+window._vpPulssiKuittaa = async function (avain, tila) {   // PR 2 (D124): Kuittaa / Ensi viikolla → seurat/{s}/toimenpiteet/pulssi_{signaali}_{joukkue}; laskuri päivittyy heti
+  const T = window.TM_SEURAN_PULSSI, S = window._vpPulssi, s = S && S.malli && S.malli.signaalitKaikki ? S.malli.signaalitKaikki.filter(function (x) { return x.avain === avain; })[0] : null;
+  if (!s) return;
+  const data = T.tmPulssiKuittausDoc(s, tila, S.malli.vk);
+  try {
+    const u = firebase.auth().currentUser; if (u) await u.getIdToken(true);   // §7.2
+    await db.collection('seurat').doc(_seuraId).collection('toimenpiteet').doc(T.tmPulssiKuittausId(s)).set(Object.assign({}, data, { kuitattu_pvm: firebase.firestore.FieldValue.serverTimestamp(), kuitattu_uid: u ? u.uid : null, luotu: firebase.firestore.FieldValue.serverTimestamp() }));
+    S.kuittaukset = (S.kuittaukset || []).filter(function (k) { return !(k.signaali === data.signaali && k.joukkue === data.joukkue); }).concat([Object.assign({}, data, { kuitattu_pvm: Date.now() })]);
+    renderKotiVP();
+    toast(vpT(tila === 'siirretty' ? 'Siirretty ensi viikolle' : 'Kuitattu'), 'ok');
+  } catch (e) { console.warn('[pulssi kuittaus]', e && e.message); toast(vpT('Kuittaus ei tallentunut — tarkista yhteys ja yritä uudelleen.') + ((e && e.code === 'permission-denied') ? ' ' + vpT('(ei oikeutta)') : ''), 'virhe'); }   // ei hiljaista epäonnistumista
+};
 window._vpPulssiTilanne = function () { setWs('tilanne'); };
 window._vpPulssiValmentajat = function () { setWs('valmentajat'); };
 window._vpPulssiPaivita = async function () {   // paivitaSeuranKooste (johto/SA; palvelin rajoittaa 30 s)

@@ -28,23 +28,23 @@ const POISTA = { __poista: true };  // → FieldValue.delete() kirjoittavassa aj
 const V5 = (x) => [x, x, x, x, x];
 const TIIMIT = [
   { id: 'p10_demo', nimi: 'P10 Demo', ika: 'P10', sp: 'M', tyyppi: 'kilpa', profiili: 'oto', n: 8, uusi: true,
-    j: V5(8), e: V5(0), v: V5(0), h: [3, 4, 3, 2, 3], f: [5, 4, 5, 3, 4], a: [2, 2, 1, 2, 2], l: V5(0), jakso: V5(true), teema: 'Pelaaminen' },
+    j: [7, 7, 8, 8, 8], e: V5(0), v: V5(0), h: [3, 4, 3, 2, 3], f: [5, 4, 5, 3, 4], a: [2, 2, 1, 2, 2], l: V5(0), jakso: V5(true), teema: 'Pelaaminen', kesto: 8, alku: 28 },
   { id: 'p11_demo', nimi: 'P11 Demo', ika: 'P11', sp: 'M', tyyppi: 'harraste', profiili: 'oto', n: 8, uusi: true,
-    j: [7, 7, 8, 8, 7], e: V5(0), v: V5(0), h: [2, 2, 3, 2, 2], f: [3, 3, 2, 3, 2], a: [1, 1, 0, 1, 1], l: V5(0), jakso: V5(true), teema: 'Pelaaminen' },
+    j: [7, 7, 8, 8, 7], e: V5(0), v: V5(0), h: [2, 2, 3, 2, 2], f: [3, 3, 2, 3, 2], a: [1, 1, 0, 1, 1], l: V5(0), jakso: V5(true), teema: 'Ensikosketus', kesto: 6, alku: 14 },
   { id: 'p12_demo', nimi: 'P12 Demo', ika: 'P12', sp: 'M', tyyppi: 'kilpa', profiili: 'ammatti', n: 10, uusi: true,
-    j: V5(10), e: V5(0), v: V5(0), h: [4, 4, 5, 4, 3], f: [6, 6, 5, 6, 5], a: [3, 2, 3, 3, 2], l: V5(0), jakso: V5(true), teema: 'Pelaaminen' },
+    j: [9, 9, 10, 10, 10], e: V5(0), v: V5(0), h: [4, 4, 5, 4, 3], f: [6, 6, 5, 6, 5], a: [3, 2, 3, 3, 2], l: V5(0), jakso: V5(true), teema: 'Haltuunotto', kesto: 6, alku: 14 },
   { id: 'p13_demo', nimi: 'P13 Demo', ika: 'P13', sp: 'M', tyyppi: 'kilpa', profiili: 'ammatti', n: 12, uusi: true,
-    j: [7, 7, 12, 12, 12], e: [5, 5, 0, 0, 0], v: [6, 5, 9, 8, 9], h: [7, 7, 8, 6, 7], f: V5(0), a: [0, 0, 3, 3, 2], l: V5(0), jakso: V5(true), teema: 'Pelaaminen' },
+    j: [7, 7, 12, 12, 12], e: [5, 5, 0, 0, 0], v: [6, 5, 9, 8, 9], h: [7, 7, 8, 6, 7], f: V5(0), a: [0, 0, 3, 3, 2], l: V5(0), jakso: V5(true), teema: 'Ensimmäinen kosketus', kesto: 6, alku: 35 },
   { id: 'p14_demo', nimi: 'P14 Demo', ika: 'P14', sp: 'M', tyyppi: 'kilpa', profiili: 'ammatti', n: 18, uusi: false,
-    j: V5(18), e: V5(0), v: [7, 9, 12, 15, 15], h: [11, 12, 11, 12, 10], f: V5(0), a: [4, 4, 3, 4, 4], l: V5(0), jakso: V5(true), teema: 'Pelaaminen' },
+    j: V5(18), e: V5(0), v: [7, 9, 12, 15, 15], h: [11, 12, 11, 12, 10], f: V5(0), a: [4, 4, 3, 4, 4], l: V5(0), jakso: V5(true), teema: 'Kuljettaminen', kesto: 4, alku: 14 },
   { id: 'p15_demo', nimi: 'P15 Demo', ika: 'P15', sp: 'M', tyyppi: 'kilpa', profiili: 'oto', n: 10, uusi: true,
-    j: [0, 0, 0, 10, 10], e: V5(0), v: [0, 0, 0, 7, 7], h: [6, 6, 5, 6, 6], f: V5(0), a: [0, 0, 0, 2, 2], l: V5(0), jakso: [false, false, false, true, true], teema: 'Pelaaminen' },
+    j: [0, 0, 0, 10, 10], e: V5(0), v: [0, 0, 0, 7, 7], h: [6, 6, 5, 6, 6], f: V5(0), a: [0, 0, 0, 2, 2], l: V5(0), jakso: [false, false, false, true, true], teema: 'Pelaaminen', kesto: 8, alku: 28 },
   { id: 'p16_demo', nimi: 'P16 Demo', ika: 'P16', sp: 'M', tyyppi: 'harraste', profiili: 'oto', n: 10, uusi: true,
-    j: V5(10), e: V5(0), v: [5, 5, 6, 5, 5], h: [3, 3, 4, 3, 4], f: V5(0), a: [2, 2, 1, 2, 2], l: V5(0), jakso: V5(true), teema: 'Pelaaminen' },
+    j: [9, 9, 10, 10, 10], e: V5(0), v: [5, 5, 6, 5, 5], h: [3, 3, 4, 3, 4], f: V5(0), a: [2, 2, 1, 2, 2], l: V5(0), jakso: V5(true), teema: 'Syöttö', kesto: 8, alku: 21 },
   { id: 't12_demo', nimi: 'T12 Demo', ika: 'T12', sp: 'N', tyyppi: 'kilpa', profiili: 'oto', n: 4, uusi: false,
-    j: [3, 3, 4, 4, 3], e: V5(0), v: V5(0), h: [1, 1, 2, 1, 1], f: [2, 2, 2, 1, 2], a: [1, 0, 1, 0, 1], l: V5(0), jakso: V5(true), teema: 'Pelaaminen' },
+    j: [3, 3, 4, 4, 3], e: V5(0), v: V5(0), h: [1, 1, 2, 1, 1], f: [2, 2, 2, 1, 2], a: [1, 0, 1, 0, 1], l: V5(0), jakso: V5(true), teema: 'Peliasento', kesto: 4, alku: 14 },
   { id: 't14_demo', nimi: 'T14 Demo', ika: 'T14', sp: 'N', tyyppi: 'kilpa', profiili: 'ammatti', n: 16, uusi: false,
-    j: V5(16), e: V5(0), v: [12, 11, 12, 12, 11], h: [9, 8, 9, 10, 8], f: V5(0), a: [2, 3, 3, 4, 3], l: [4, 3, 2, 1, 2], jakso: V5(true), teema: 'Pelaaminen' },
+    j: [14, 15, 16, 16, 16], e: V5(0), v: [12, 11, 12, 12, 11], h: [9, 8, 9, 10, 8], f: V5(0), a: [2, 3, 3, 4, 3], l: [4, 3, 2, 1, 2], jakso: V5(true), teema: 'Murtautuminen', kesto: 8, alku: 35 },
 ];
 /* Yksi pelaaja kahdessa joukkueessa (§7.18): P14:n pelaaja pelaa myös P16:ssa. Hänen aktiivisuutensa määräytyy kotijoukkueen (P14) säännöistä. */
 const KAKSI_JOUKKUETTA = { pelaaja: 'demo_p14_05', koti: 'p14_demo', lisaksi: 'p16_demo' };
@@ -114,7 +114,7 @@ function katselmusRivit(s, wk) {
   return [{ sulkutapa: 'suljettu', konsepti_avain: 'nopeus', paattyi: new Date(paattyi).toISOString(), suljettu: new Date(suljettu).toISOString() }];
 }
 function joukkueJakso(t, wk) {
-  return t.jakso[wk.w] ? { osa_alueet: { tekninen_taktinen: { nimi: t.teema } }, alku: lisaaPv(wk.maanantai0, -28), kesto_vk: 8 } : null;
+  return t.jakso[wk.w] ? { osa_alueet: { tekninen_taktinen: { nimi: t.teema } }, alku: lisaaPv(wk.maanantai0, -t.alku), kesto_vk: t.kesto } : null;
 }
 
 /* Pelaajan syöte kooste-laskentaan (sama muoto kuin functions/seuran_kooste.js laskeSeura + keraaOma tuottaa). */
