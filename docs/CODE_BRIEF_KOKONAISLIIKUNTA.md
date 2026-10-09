@@ -45,6 +45,7 @@ Erillistä muistutusta ei tehdä. Aktiivisuus näkyy päivittäin VP:n ja valmen
 2. **Muistutus:** ei erillistä muistutusta (PR C pois).
 3. **Aikataulu:** seuranta alkaa **tammikuussa 2027**. PR A voidaan tehdä jo nyt (korjaa kirjausten tallennusaukot, jotka koskevat nykydataa); PR B joulukuussa.
 4. **Rasitus:** käytetään olemassa olevia rasitusemojeja (`fiilinki` / kuormaemoji), ei uutta 1–10-asteikkoa. Sessioon `rasitus`-kenttä samasta emojiasteikosta.
+5. **Kirjauksen tarkkuus = AVOIN** (Tero varmistaa Palloliitolta). Kysymykset: (a) päivän kokonaisminuutit vai jokainen liikuntakerta erikseen; (b) luokat: ohjattu jalkapallo · omatoiminen jalkapallo · muu ohjattu urheilu · koululiikunta · arki- ja hyötyliikunta · lepo; (c) kesto minuutteina vai luokkina (15/30/45/60/90+); (d) tarvitaanko kuormittavuus (kevyt / reipas / rasittava) emojien lisäksi; (e) mikä tekee päivästä "merkityn". **PR A ei odota tätä:** sessiomalli tallentaa jokaisen kerran erikseen, joten sekä kerta- että päivätason raportti johdetaan samasta datasta. Luokkalista (`tyyppi`) pidetään yhdessä `lib/`-vakiossa, jotta sen voi täsmentää ilman datamigraatiota.
 
 ## Testit
 - Kirjoitusydin: useita sessioita samalle päivälle säilyy; pelaajan ja huoltajan kirjaukset rinnakkain; luku epäonnistuu → ei kirjoitusta.
