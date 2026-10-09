@@ -5,6 +5,14 @@
 **Aloitus:** joukkuejäsenyys-PR:n jälkeen (sama VP_v25; `tmPelaajanJoukkueet` + koosteen `yhteensa` ovat edellytys). Tavoite noin 25.10. aloitus, valmis viimeistään 20.11., jolloin 1.12. asti jää korjausaikaa.
 **Data:** S1/S1.1-kooste on valmis tuotannossa. S2 tarvitsee **kooste v4** (alla): uudet lukumäärät ja joukkueen asetukset. Ei uutta funktiota; Rules-muutos vain, jos `joukkueet.tyyppi` ei jo ole johdon kirjoitettavissa. Kehitys ja testit **fixtuureilla / demodatalla** (Teron linjaus 8.10.: ei odoteta oikeaa dataa).
 
+## Tilanne 9.10.2026 (PM) — näkymä-PR alkaa nyt
+
+- **Valmiina:** kooste v4 + Rules v3.56 `joukkueet.tyyppi` (#933) · S1.1 huoltajan RSVP käyttöasteeseen (#944). Näkymä-PR ei koske `functions/`-kansioon eikä Rulesiin.
+- **`n_perhe_kuittaus_7` lähteet (lukittu 9.10.):** klippikuittaus + U12-huoltajan `jakso_kuittaus`. Viikkokatsauksessa ei ole perhe-lippua → ei lähde. Leikkijä-rivin alaotsikko "perhe mukana" lukee tätä.
+- **Visuaalinen kieli = mockup 22 (CLAUDE.md §5, Tero 9.10.):** pulssin kortit, "Tarvitsee huomiota" -signaalit ja mobiilin poikkeamakortit tehdään 22:n komponenteilla (`.ev.sig`, `.q3`, `.osat`-rivilista, `.eb`). Taulukon solut ja liikennevalot mockupin 20 mukaan.
+- **Joukkueen tyyppi -asetus (VP):** samaan paikkaan kuin valmentajaprofiili (D50). Rules sallii jo johdolle (v3.56).
+- **Aikataulu:** aloitus nyt, valmis viimeistään 20.11. PM tarkistaa luvut oikealla datalla ~15.11.
+
 ## Mitä S2 tekee
 
 VP_v25:n **Koti** = "Pulssi · viikko", kun seuralla on Kenttä-lippu (D67). Ilman lippua Koti ja Sovelluksen käyttö -kortti ennallaan. Tilanne-välilehti nimeksi "Tilanne · kausi" (D66).
