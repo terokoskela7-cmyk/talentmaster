@@ -36,8 +36,10 @@ const DRY = !KIRJOITA || ARGS.includes('--dry-run');
 /* --vain=omat_tavoitteet: kirjoittaa VAIN seurat/demo-fc/omat_tavoitteet/** (v0.1-lisäys olemassa olevaan Demo FC:hen).
    Ei koske Authiin eikä muihin dokumentteihin; vaatii olemassa olevan vp.demo-käyttäjän, EI salasanaa. */
 const VAIN = (ARGS.find((a) => a.startsWith('--vain=')) || '').split('=')[1] || null;
-if (VAIN && VAIN !== 'omat_tavoitteet') { console.error('KESKEYTETTY: --vain tukee vain arvoa omat_tavoitteet'); process.exit(2); }
-const VAIN_ETULIITE = VAIN ? 'seurat/demo-fc/omat_tavoitteet/' : null;
+/* --vain=pulssi (S2-demodata, docs/CODE_BRIEF_S2_DEMODATA.md): Seuran pulssi -silmukkadata + neljän edellisen viikon kooste; kirjoittaa VAIN seurat/demo-fc/**; päivämäärät
+   suhteessa ajohetkeen (toistettava ennen jokaista demoa); oletus kuiva-ajo. Valitsimet: --kayttoonotto (kuluva viikko = käyttöönoton 3. viikko, ei värejä), --nyt=ISO (testiajo). Logiikka tm_admin/demo_pulssi.js. */
+if (VAIN && VAIN !== 'omat_tavoitteet' && VAIN !== 'pulssi') { console.error('KESKEYTETTY: --vain tukee vain arvoja omat_tavoitteet ja pulssi'); process.exit(2); }
+const VAIN_ETULIITE = VAIN === 'omat_tavoitteet' ? 'seurat/demo-fc/omat_tavoitteet/' : null;
 const kohdeArg = (ARGS.find((a) => a.startsWith('--seura=')) || '').split('=')[1];
 if (kohdeArg && kohdeArg !== SEURA_ID) { console.error('KESKEYTETTY: kohde "' + kohdeArg + '" ei ole ' + SEURA_ID + '. Skripti kirjoittaa vain Demo FC:hen.'); process.exit(2); }
 
@@ -538,7 +540,65 @@ function yhteenveto() {
 }
 const korvaaTs = (o) => JSON.parse(JSON.stringify(o, (k, v) => (v && v.__ts ? 'Timestamp(' + v.__ts + ')' : v && v.__serverTimestamp ? 'serverTimestamp()' : v)));
 
+/* ── --vain=pulssi ── */
+async function mainPulssi() {
+  const D = require('./demo_pulssi.js');
+  const nytArg = (ARGS.find((a) => a.startsWith('--nyt=')) || '').split('=')[1];
+  const nytMs = nytArg ? Date.parse(nytArg) : Date.now();
+  if (isNaN(nytMs)) throw new Error('--nyt ei ole kelvollinen ISO-aika');
+  const kayttoonotto = ARGS.includes('--kayttoonotto');
+  const R = D.rakenna({ nytMs, kayttoonotto });
+  D.tarkistaPolut(R.docs);   // TURVA: jokainen kirjoitus demo-fc:n alla ja demo: true — ennen mitään kirjoitusta
+  console.log('════ setup_demo_kehitys.js --vain=pulssi · ' + (DRY ? 'DRY-RUN (ei kirjoita mitään)' : 'KIRJOITTAVA AJO') + ' ════');
+  console.log('Kohde: ' + SEURA_POLKU + ' · ajohetki ' + new Date(nytMs).toISOString() + ' · kuluva viikko ' + R.kuluva.r.tunniste + (kayttoonotto ? ' · KÄYTTÖÖNOTTOTILA (2 edellistä viikkoa)' : ''));
+  const kokoelmat = {}; R.docs.forEach((x) => { const o = x.polku.split('/'); const k = o.filter((_, i) => i >= 2 && i % 2 === 0).join('/'); kokoelmat[k] = (kokoelmat[k] || 0) + 1; });
+  console.log('\n── Dokumentit kokoelmittain (kaikki demo: true) ──');
+  Object.keys(kokoelmat).sort().forEach((k) => console.log('  ' + String(kokoelmat[k]).padStart(5) + '  ' + k));
+  console.log('  ' + String(R.docs.length).padStart(5) + '  YHTEENSÄ' + (R.poistaVanhemmatKuin ? ' · lisäksi poistetaan demo-koostedokumentit joiden vk < ' + R.poistaVanhemmatKuin : ''));
+  console.log('\n── Kuluvan viikon silmukka (malli; palvelin laskee oikean koosteen) ──');
+  console.log('  joukkue    ikävaihe   n   jaksolla  katselmus  vastanneet  kats.ajallaan  harjoite 7  perhe 7');
+  const nyk = D.koosteViikolta(nytMs, 0).doc;
+  Object.keys(nyk.joukkueet).forEach((jid) => { const m = nyk.joukkueet[jid];
+    console.log('  ' + m.nimi.padEnd(10) + ' ' + String(m.ikavaihe).padEnd(9) + String(m.n_pelaajat).padStart(3) + String(m.n_jaksolla).padStart(9) + String(m.n_katselmus).padStart(10)
+      + (m.n_vastanneet + '/' + m.n_vastausperusta).padStart(12) + (m.n_katselmus_ajallaan + '/' + m.n_katselmus_perusta).padStart(14) + String(m.n_harjoite_7).padStart(11) + String(m.n_perhe_kuittaus_7).padStart(9)); });
+  console.log('  seura (uniikit pelaajat): n=' + nyk.yhteensa.n_pelaajat + ' suostumus=' + nyk.yhteensa.n_suostumus + ' harjoite_7=' + nyk.yhteensa.n_harjoite_7);
+  console.log('\n── Edelliset viikot koostedokumentteina (trendi) ──');
+  R.historia.forEach((h) => console.log('  ' + h.vk + (h.kirjoitetaan ? '' : ' (ei kirjoiteta: käyttöönottotila)') + ' · pelaajia ' + h.doc.yhteensa.n_pelaajat + ' · harjoite_7 ' + h.doc.yhteensa.n_harjoite_7
+    + ' · P14 vastanneet ' + h.doc.joukkueet.p14_demo.n_vastanneet + '/' + h.doc.joukkueet.p14_demo.n_vastausperusta));
+  if (DRY) { console.log('\nDRY-RUN valmis. Mitään ei kirjoitettu. Kirjoitus: node tm_admin/setup_demo_kehitys.js --vain=pulssi --kirjoita [--kayttoonotto]'
+    + '\nSen jälkeen: Excel_Tuonti → Demo FC → "📊 Päivitä seuran kooste"; kirjaudu VP_v25:een vp.demo-tunnuksella.'); return; }
+
+  const admin = require('firebase-admin');
+  if (!admin.apps.length) admin.initializeApp({ projectId: 'talentmaster-pilot' });
+  const db = admin.firestore(), Ts = admin.firestore.Timestamp, FV = admin.firestore.FieldValue;
+  const muunna = (v) => (v && v.__ts ? Ts.fromDate(new Date(v.__ts)) : v && v.__serverTimestamp ? FV.serverTimestamp() : v && v.__poista ? FV.delete()
+    : Array.isArray(v) ? v.map(muunna) : (v && typeof v === 'object') ? Object.fromEntries(Object.entries(v).map(([k, x]) => [k, muunna(x)])) : v);
+  const seuraSnap = await db.doc(SEURA_POLKU).get();
+  if (!seuraSnap.exists || (seuraSnap.data() || {}).demo !== true) throw new Error(SEURA_POLKU + ' puuttuu tai ei ole demo: true — aja ensin koko demoseurasetup');
+  for (let i = 0; i < R.docs.length; i += 400) {
+    const b = db.batch();
+    R.docs.slice(i, i + 400).forEach((x) => {
+      if (!x.polku.startsWith(SEURA_POLKU + '/')) throw new Error('TURVA');
+      b.set(db.doc(x.polku), muunna(x.data), x.merge ? { mergeFields: Object.keys(x.data) } : {});
+    });
+    await b.commit();
+    console.log('  kirjoitettu ' + Math.min(i + 400, R.docs.length) + ' / ' + R.docs.length);
+  }
+  if (R.poistaVanhemmatKuin) {   // käyttöönottotila: vanhemmat DEMO-koostedokumentit pois, jotta ensimmäinen kooste on 2 viikkoa sitten
+    let poistettu = 0;
+    for (const [kok, kentta] of [['kooste', null], ['kooste_joukkue', 'vk']]) {
+      const snap = await db.collection(SEURA_POLKU + '/' + kok).get();
+      const b = db.batch();
+      snap.docs.forEach((d) => { const x = d.data() || {}, vk = kentta ? x[kentta] : d.id; if (x.demo === true && vk && vk < R.poistaVanhemmatKuin) { b.delete(d.ref); poistettu++; } });
+      await b.commit();
+    }
+    console.log('  poistettu vanhoja demo-koostedokumentteja: ' + poistettu);
+  }
+  console.log('VALMIS: ' + R.docs.length + ' dokumenttia polkuun ' + SEURA_POLKU + '/** (Auth ennallaan). Seuraavaksi Excel_Tuonti → Demo FC → "📊 Päivitä seuran kooste".');
+}
+
 async function main() {
+  if (VAIN === 'pulssi') return mainPulssi();
   console.log('════ setup_demo_kehitys.js · ' + (DRY ? 'DRY-RUN (ei kirjoita mitään)' : 'KIRJOITTAVA AJO') + ' ════');
   console.log('Kohde: ' + SEURA_POLKU + ' (muihin polkuihin kirjoitus estetty)');
   yhteenveto();
