@@ -26,6 +26,12 @@ out.tila_vainPaiva = tila('2026-09-16', 4, '2026-10-14T12:00:00Z');
 out.tila_vk = [tila('2026-10-08T23:30:00', 6, '2026-10-14T12:00:00Z'), tila('2026-10-07T00:30:00', 6, '2026-10-14T12:00:00Z')];   // kellonajalla ei saa olla väliä
 const base = { baseOpts: 1 };
 out.arvio_pvm = (() => { try { const p = { arviointi_havaittu: { vision: 2 } }; const k = IDP.idpKohdeKandidaatti(p, 'vision', {}); return IDP.idpRakennaTavoite(p, k, { nyt: new Date('2026-03-01T12:00:00Z'), kestoVk: 6 }).aikaraami.arvio_pvm; } catch (e) { return 'ei-ajettavissa:' + e.message; } })();
+out.havainto_pvm = (() => {   // D108: merkinnän pvm = paikallinen päivä (nyt keskipäivä UTC → sama päivä kaikissa vyöhykkeissä)
+  const KT = require('./lib/tm_kehitystyopoyta.js'), KS = require('./lib/tm_kehityssilmukka.js'); const kirj = []; const p = { id: 'x', jaksofokus: { konsepti_avain: 'k', alkoi: '2026-10-05T08:00:00' } };
+  const db = { collection: () => ({ doc: () => ({ collection: () => ({ doc: () => ({ update: async (u) => { kirj.push(u); } }) }) }) }) };
+  KT.tmKtTallennaOsaArvio({ db, sid: 's', auth: () => ({ uid: 'u1', getIdToken: async () => 't' }), KS, demo: true, rooli: 'valmentaja', nyt: () => new Date('2026-10-14T12:00:00Z'), toast() {}, t: (k) => k }, p, 'k', 'a', 2);
+  return p.jaksofokus.osa_havainnot.k.a.u1.pvm;
+})();
 console.log(JSON.stringify(out));
 `;
 const aja = (tz) => { const r = spawnSync('node', ['-e', KOODI], { cwd: juuri, encoding: 'utf8', env: Object.assign({}, process.env, { TZ: tz }) }); expect(r.status, tz + ': ' + r.stderr).toBe(0); return JSON.parse(r.stdout); };
@@ -41,6 +47,6 @@ describe('päiväerot päivinä ilman kellonaikaa — sama tulos kolmella aikavy
     expect(t.signaaliValmentaja.teksti).toContain('kun ehdit'); expect(t.signaaliValmentaja.teksti).not.toMatch(/\d+ pv|myöhässä/);
     expect(t.tila_viimeinenPaiva).toMatchObject({ tila: 'kaynnissa', vk: { n: 4, yht: 4 } }); expect(t.tila_paattymispaiva.tila).toBe('paattynyt'); expect(t.tila_vainPaiva.tila).toBe('paattynyt');
     expect(t.tila_vk[0].vk.n).toBe(1); expect(t.tila_vk[1].vk.n).toBe(2);   // 8.10. (6 pv) → vk 1; 7.10. (7 pv) → vk 2, kellonajasta riippumatta
-    expect(t.arvio_pvm).toBe('2026-04-12');
+    expect(t.arvio_pvm).toBe('2026-04-12'); expect(t.havainto_pvm).toBe('2026-10-14');   // D108: osa_havainnot.pvm paikallisena päivänä
   });
 });

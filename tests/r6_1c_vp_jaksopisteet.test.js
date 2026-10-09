@@ -140,14 +140,15 @@ describe('V7 _vpJfOsaArvioSet — dot-polku jaksofokus.osa_arviot.<konsepti>', (
   it('päivittää VAIN konseptin osa-arviot dot-polulla (ei koko jaksofokus-karttaa, ei syvämergeä); lokaali + Aloitus-näyttö päivittyvät', async () => {
     const e = ymp({ pelaaja: { jaksofokus: JSON.parse(JSON.stringify(JF)) } });
     e.sb.window._vpJfOsaArvioSet(PID, 'y_h2', 'b', 3); await lopeta();
-    expect(e.kirj.length).toBe(1); expect(e.kirj[0].path).toBe(POLKU); expect(e.kirj[0].data).toEqual({ 'jaksofokus.osa_arviot.y_h2': { a: 2, b: 3 } });
+    expect(e.kirj.length).toBe(1); expect(e.kirj[0].path).toBe(POLKU); expect(Object.keys(e.kirj[0].data).sort()).toEqual(['jaksofokus.osa_arviot.y_h2', 'jaksofokus.osa_havainnot.y_h2.b.vp-uid']); expect(e.kirj[0].data['jaksofokus.osa_arviot.y_h2']).toEqual({ a: 2, b: 3 });   // D108: + oma rivi osa_havainnot (uid = kirjautunut)
+    expect(e.kirj[0].data['jaksofokus.osa_havainnot.y_h2.b.vp-uid']).toMatchObject({ arvo: 3, rooli: 'tuntematon' }); expect(e.kirj[0].data['jaksofokus.osa_havainnot.y_h2.b.vp-uid'].pvm).toMatch(/^\d{4}-\d{2}-\d{2}$/);
     expect(e.p.jaksofokus.osa_arviot.y_h2).toEqual({ a: 2, b: 3 }); expect(e.log.renderit).toBeGreaterThan(0);
   });
   it('uusi konsepti: oma alipolku; avain jossa piste → koko osa_arviot-kartta (dot-polku ei hajoa)', async () => {
     const a = ymp({ pelaaja: { jaksofokus: JSON.parse(JSON.stringify(JF)) } }); a.sb.window._vpJfOsaArvioSet(PID, 'y_h3', 'a', 1); await lopeta();
-    expect(Object.keys(a.kirj[0].data)).toEqual(['jaksofokus.osa_arviot.y_h3']);
+    expect(Object.keys(a.kirj[0].data).sort()).toEqual(['jaksofokus.osa_arviot.y_h3', 'jaksofokus.osa_havainnot.y_h3.a.vp-uid']);
     const b = ymp({ pelaaja: { jaksofokus: JSON.parse(JSON.stringify(JF)) } }); b.sb.window._vpJfOsaArvioSet(PID, 'y.h3', 'a', 1); await lopeta();
-    expect(Object.keys(b.kirj[0].data)).toEqual(['jaksofokus.osa_arviot']); expect(b.kirj[0].data['jaksofokus.osa_arviot']).toMatchObject({ 'y.h3': { a: 1 } });
+    expect(Object.keys(b.kirj[0].data).sort()).toEqual(['jaksofokus.osa_arviot', 'jaksofokus.osa_havainnot']); expect(b.kirj[0].data['jaksofokus.osa_arviot']).toMatchObject({ 'y.h3': { a: 1 } });
   });
   it('ei jaksofokusta → ei kirjoitusta (arvio jää editointitilaan)', async () => {
     const e = ymp({ pelaaja: { jaksofokus: null } }); e.sb.window._vpJfOsaArvioSet(PID, 'y_h2', 'a', 2); await lopeta(); expect(e.kirj).toEqual([]);
@@ -197,7 +198,7 @@ describe('lähdevartijat: rinnakkainen logiikka pois', () => {
     expect(VP).not.toMatch(/function _vpJfArkistoiVaihdossa|function _vpJfAlkoiJatka|_jfArk\b|_vpJfAlkoiJatka\(/);
     expect((VP.match(/const _v = _vpJaksoVaihto\(p, /g) || []).length).toBe(5);   // V1–V5
     expect(pura('window._vpSulkuTallenna = async function')).toMatch(/TM_KEHITYSSILMUKKA\.tmSuljeJakso\(/);
-    expect(pura('window._vpJfTavoitteetTallenna = async function')).toMatch(/tmPaivitaJaksofokus/); expect(pura('window._vpJfOsaArvioSet = function')).toMatch(/tmPaivitaJaksofokus/);
+    expect(pura('window._vpJfTavoitteetTallenna = async function')).toMatch(/tmPaivitaJaksofokus/); expect(pura('window._vpJfOsaArvioSet = function')).toMatch(/tmKtTallennaOsaArvio/);
     ['_vpAsetaFyysFokus', '_vpOhjKaytaOhjelma', '_vpValitavoiteAktivoi', '_vpTtVieTreeniin', '_vpJfAsetaKehitysFokus', '_vpJfTavoitteetTallenna', '_vpJfOsaArvioSet', '_vpSulkuTallenna'].forEach((n) =>
       expect(pura('window.' + n + ' = ' + (n === '_vpValitavoiteAktivoi' || n === '_vpJfOsaArvioSet' ? '' : 'async ') + 'function'), n).not.toMatch(/tmHistoriaEntry|tmJaksonVaihto|tmSamaJakso|_vpTtKirjoita\(|set\(\{ jaksofokus|jaksofokus_historia: hist/));
   });

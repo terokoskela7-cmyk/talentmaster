@@ -780,6 +780,26 @@ describe('A13 jatko 3 — viikkohavainto: dot-polku jaksofokus.osa_arviot.<konse
   });
 });
 
+describe('A13 jatko 4 (D108) — jaksofokus.osa_havainnot.<konsepti>.<koodi>.<uid>: Rules ei rajaa jaksofokuksen sisäkkäisiä avaimia (versio ennallaan v3.56)', () => {
+  beforeEach(async () => {
+    await seedAdminDoc(); await seedSeuraAndPelaaja();
+    await testEnv.withSecurityRulesDisabled(async (c) => { await updateDoc(doc(c.firestore(), 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID), { jaksofokus: { konsepti_avain: 'y_h2', konsepti_nimi: 'Syöttäminen', alkoi: '2026-10-05', kesto_vk: 6 } }); });
+  });
+  const ref = (db) => doc(db, 'seurat', SEURA_A, 'pelaajat', PELAAJA_UID);
+  const rivi = (uid) => ({ ['jaksofokus.osa_havainnot.y_h2.a.' + uid]: { arvo: 2, pvm: '2026-10-09', rooli: 'valmentaja' }, 'jaksofokus.osa_arviot.y_h2': { a: 2 } });
+  it('henkilökunta kirjoittaa OMAN uid:nsä alle: oman joukkueen valmentaja ✓, VP ✓; pelaaja ✗, toisen seuran valmentaja ✗', async () => {
+    await assertSucceeds(updateDoc(ref(valmentajaContext(VALM_A_UID, SEURA_A).firestore()), rivi(VALM_A_UID)));
+    await assertSucceeds(updateDoc(ref(vpContext(SEURA_A).firestore()), { 'jaksofokus.osa_havainnot.y_h2.a.vp-uid': { arvo: 3, pvm: '2026-10-09', rooli: 'vp' } }));
+    await assertFails(updateDoc(ref(pelaajaItseContext().firestore()), rivi(PELAAJA_UID)));
+    await assertFails(updateDoc(ref(valmentajaContext(VALM_B_UID, SEURA_B).firestore()), rivi(VALM_B_UID)));
+    await testEnv.withSecurityRulesDisabled(async (c) => { const jf = (await getDoc(ref(c.firestore()))).data().jaksofokus; expect(Object.keys(jf.osa_havainnot.y_h2.a).sort()).toEqual(['vp-uid', VALM_A_UID].sort()); });
+  });
+  it('HAVAINTO: toisen uid:n rivin kirjoitusta ei voi estää Rulesissa kohtuudella (dot-polun sisäkkäiset avaimet ovat tuntemattomia: konsepti × koodi × uid; Rules ei silmukoi) → rajaus on kirjoitusytimessä (tmKtTallennaOsaArvio kirjoittaa vain auth.uid:n alle, testattu libissä); ei Rules-muutosta', async () => {
+    const valm = valmentajaContext(VALM_A_UID, SEURA_A).firestore();
+    await assertSucceeds(updateDoc(ref(valm), { 'jaksofokus.osa_havainnot.y_h2.a.jonkun-toisen-uid': { arvo: 1, pvm: '2026-10-09', rooli: 'vp' } }));   // dokumentoi nykytila
+  });
+});
+
 describe('Vaihe 4a — jaksofokus / tt_positio_aktiivinen (§4 roolimalli)', () => {
   beforeEach(async () => {
     await seedAdminDoc();

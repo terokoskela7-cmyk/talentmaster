@@ -139,9 +139,9 @@ window.TM_KAAVIO_HOST = {
 <script src="lib/tm_kentta.js?v=3"></script>   <!-- K0/V4a: Kenttä-komponentti (Archivo vain .kt:n sisällä) -->
 <script src="lib/tm_tanaan_kentta.js?v=3"></script>   <!-- V4a: tmTanaanOsat (Tänään-osat sanoin) -->
 <script src="lib/tm_hash_reititin.js?v=1"></script>   <!-- V4a: #pelaaja/{pid}/… -reititin (vain lipulla) -->
-<script src="lib/tm_kehitystyopoyta.js?v=10"></script>   <!-- V4a: Kehitystyöpöytä V4 -kehys -->
+<script src="lib/tm_kehitystyopoyta.js?v=11"></script>   <!-- V4a: Kehitystyöpöytä V4 -kehys -->
 <script src="lib/tm_kehityssilmukka.js?v=2"></script>   <!-- R6.2a: katselmus yhteen paikkaan (tmKirjaaKatselmus) + jaksofokuksen kirjoitusydin -->
-<script src="lib/tm_seuraava_askel.js?v=2"></script>   <!-- R6.2b: seuraava toimenpide yhdessä paikassa (tmSeuraavaAskel / tmSeuraavaJakso / tmTeeTastaOsa) -->
+<script src="lib/tm_seuraava_askel.js?v=3"></script>   <!-- R6.2b: seuraava toimenpide yhdessä paikassa (tmSeuraavaAskel / tmSeuraavaJakso / tmTeeTastaOsa) -->
 <script src="lib/tm_fyysteemat.js?v=4"></script>   <!-- Vaihe 7: fyysinen teemaluettelo + D1-fokuslähde + evidenssi (delta §29 + PHV-portti §28) -->
 <script src="lib/tm_ohjelma.js?v=1"></script>   <!-- Vaihe 7.2a: fysiikkaohjelmakirjasto (oversight: lue kirjasto + N-laskuri) -->
 <script src="lib/tm_ohjelma_analytiikka.js?v=2"></script>
@@ -10784,19 +10784,16 @@ window._vpJfOsaArvioSet = function (pid, konseptiAvain, koodi, n) {
   c[koodi] = n;
   const p = (typeof _vpTtPelaaja === 'function') ? _vpTtPelaaja(pid) : null;
   if (!p) return;
-  // In-memory jaksofokus (näyttö heti Aloituksessa) + autosave — deep-merge kirjoittaa VAIN osa_arviot-alikentän,
-  // ei kosketa konsepti/kesto/linkit-kenttiin. Jos jaksofokusta ei vielä ole → arvio jää editointitilaan, sulautuu _vpJfMergessä.
-  if (p.jaksofokus) {
-    p.jaksofokus.osa_arviot = p.jaksofokus.osa_arviot || {};
-    p.jaksofokus.osa_arviot[konseptiAvain] = Object.assign({}, p.jaksofokus.osa_arviot[konseptiAvain], c);
-    /* R6.1c: dot-polku jaksofokus.osa_arviot.<konsepti> (tmPaivitaJaksofokus; koko konseptin osa-arviot, ei syvämergeä). Avain jossa on piste → koko osa_arviot-kartta. */
-    window.TM_KEHITYSTYOPOYTA.tmKtTallennaOsaArvio({ db: db, sid: _seuraId, auth: function () { return firebase.auth().currentUser; }, KS: window.TM_KEHITYSSILMUKKA, demo: _isDemoMode, toast: function (m, t) { toast(m, t); }, t: vpT, viesti: vpT('Osa-arvio tallennettu'), demoLisa: vpT(' (demo — ei kirjoitettu)'),
-      virheTeksti: function (t, e) { return ((typeof TM_VIRHEKOODI !== 'undefined' && TM_VIRHEKOODI.tmVirheTeksti) || String)(t, e); }, paivita: function () { if (typeof _vpKehAskelReRender === 'function') _vpKehAskelReRender(); } }, p, konseptiAvain, koodi, n);   // YKSI kirjoitusydin (libissä, jaettu Masterin kanssa)
-  }
-  const slot = document.getElementById('_jfOhjausSlot');
-  if (slot && typeof _vpJfBodyHTML === 'function') slot.innerHTML = _vpJfBodyHTML(p);
-  if (typeof _vpAloitusReRender === 'function') _vpAloitusReRender();
-  if (typeof _ktPaivita === 'function') _ktPaivita();   // A13: V4 (Tänään + Polku) päivittyy, välilehti ei vaihdu
+  const post = function () {   // näytöt päivittyvät (Polku/Aloitus/Tänään); välilehti ei vaihdu
+    const slot = document.getElementById('_jfOhjausSlot'); if (slot && typeof _vpJfBodyHTML === 'function') slot.innerHTML = _vpJfBodyHTML(p);
+    if (typeof _vpAloitusReRender === 'function') _vpAloitusReRender();
+    if (typeof _ktPaivita === 'function') _ktPaivita();
+  };
+  // Kirjoitus YHDESSÄ libin ytimessä (jaettu Masterin kanssa): oma merkintärivi + voimassa oleva arvo (VP ei korvaa valmentajan arvoa, D108). Ei jaksofokusta → arvio jää editointitilaan.
+  if (p.jaksofokus) window.TM_KEHITYSTYOPOYTA.tmKtTallennaOsaArvio({ db: db, sid: _seuraId, auth: function () { return firebase.auth().currentUser; }, uid: _uid, rooli: window._vpSA ? 'super_admin' : window._vpRooli, KS: window.TM_KEHITYSSILMUKKA, demo: _isDemoMode, toast: function (m, t) { toast(m, t); }, t: vpT, viesti: vpT('Osa-arvio tallennettu'), demoLisa: vpT(' (demo — ei kirjoitettu)'),
+    virheTeksti: function (t, e) { return ((typeof TM_VIRHEKOODI !== 'undefined' && TM_VIRHEKOODI.tmVirheTeksti) || String)(t, e); }, nayta: post, paivita: function () { if (typeof _vpKehAskelReRender === 'function') _vpKehAskelReRender(); } }, p, konseptiAvain, koodi, n)
+    .then(function () { const v = p.jaksofokus && p.jaksofokus.osa_arviot && p.jaksofokus.osa_arviot[konseptiAvain]; if (v) m[konseptiAvain] = Object.assign({}, v); });   // editointitila = voimassa oleva arvo (jakson tallennus ei saa palauttaa VP:n arvoa valmentajan päälle)
+  post();
 };
 // P4b — mittaus-moodin vaihto (🔗 arviointi ⇄ 📐 numeerinen) → re-renderöi tavoitepinta.
 window._vpJfMittausTyyppi = function (pid, key, tyyppi) {
@@ -10975,7 +10972,7 @@ function _ktTanaanHTML(p, tila) {   // mockup 22 osio 1: koko Tänään kootaan 
   const K = window.TM_KEHITYSTYOPOYTA;
   const kentta = (typeof window.tmKentta === 'function') ? window.tmKentta({ koko: 'puoli', ilmanAluetta: true, ase: null, reitti: null, viikot: null, osat: [], historia: [], lempipaikka: null, vaihtoehdot: null }, { wrap: true, rooli: 'henkilokunta', t: vpT }) : '';
   return K.tmKtTanaanKoko(p, tila, { esc: _jsvEsc, t: vpT, hk: K.tmKtHk, pvmFn: function (iso) { return (typeof tmPvmFi === 'function') ? tmPvmFi(iso) : iso; }, toimiFn: '_ktToimi', osaFn: '_ktHavaintoAvaa', tallennaFn: '_ktHavaintoTallenna', veoFn: '_ktHavaintoVeo', peruFn: '_ktHavaintoSulje',
-    paneeli: true, rooli: window._vpSA ? 'super_admin' : window._vpRooli, voiKirjoittaa: typeof _vpVoiMuokata !== 'function' || _vpVoiMuokata(p), kentta: kentta, kaanon: (typeof tmKonseptiKaanon === 'function') ? tmKonseptiKaanon : null, tanaan: tmPaivaIso(new Date()),
+    paneeli: true, rooli: window._vpSA ? 'super_admin' : window._vpRooli, uid: _uid, nimet: function (u) { const v = (_valmentajat || []).find(function (x) { return x.id === u; }); return v ? v.nimi : ''; }, voiKirjoittaa: typeof _vpVoiMuokata !== 'function' || _vpVoiMuokata(p), kentta: kentta, kaanon: (typeof tmKonseptiKaanon === 'function') ? tmKonseptiKaanon : null, tanaan: tmPaivaIso(new Date()),
     sigCtx: _ktSigCtx(p, tila), vk: _ktVkKooste(p, tila), havainto: { auki: _ktS.havaintoAuki === p.id, osa: _ktS.havaintoOsa } });
 }
 function _ktPolkuHTML(p) {   // Polku = olemassa oleva kausi → jakso → viikko -koodi, samat slot-id:t (_jspKehAskel, _jspKehSuunnitelma …) joten re-render-koukut toimivat

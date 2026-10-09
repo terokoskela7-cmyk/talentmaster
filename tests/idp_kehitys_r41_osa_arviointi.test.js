@@ -113,9 +113,9 @@ describe('MERGE + autosave — jaksofokus.osa_arviot (§37 avain konsepti_avaime
 describe('autosave-langoitus + status osa-etenemä', () => {
   it('_vpJfOsaArvioSet: state + in-memory jaksofokus + deep-merge-kirjoitus (VAIN osa_arviot-alikenttä)', () => {
     const s = HTML.slice(HTML.indexOf('window._vpJfOsaArvioSet'), HTML.indexOf('window._vpJfOsaArvioSet') + 2400);
-    expect(s).toContain('p.jaksofokus.osa_arviot[konseptiAvain] = Object.assign({}, p.jaksofokus.osa_arviot[konseptiAvain], c);');
+    expect(s).toContain('c[koodi] = n;');   // D108: jaksofokuksen paikallinen/etäpäivitys tehdään libin kirjoitusytimessä (osa_havainnot + voimassa oleva osa_arviot), ei kuoressa
     // R6.1c: dot-polku (tmPaivitaJaksofokus → jaksofokus.osa_arviot.<konsepti>), ei syvämergeä
-    expect(s).toContain("tmKtTallennaOsaArvio({"); expect(s).toContain("vpT('Osa-arvio tallennettu')"); expect(s).toContain('p, konseptiAvain, koodi, n);');   // kirjoitus libin yhteisessä ytimessä (dot-polku osa_arviot.<konsepti> + getIdToken(true) siellä)
+    expect(s).toContain("tmKtTallennaOsaArvio({"); expect(s).toContain("vpT('Osa-arvio tallennettu')"); expect(s).toContain('}, p, konseptiAvain, koodi, n)');   // kirjoitus libin yhteisessä ytimessä (dot-polku osa_arviot.<konsepti> + getIdToken(true) siellä)
     const lib = readFileSync(join(__dir, '..', 'lib', 'tm_kehitystyopoyta.js'), 'utf8'); expect(lib).toContain("'osa_arviot.' + konsepti"); expect(lib).toContain('getIdToken(true)'); expect(lib).toContain('tmPaivitaJaksofokus(p, osa).polut');
     expect(s).toContain('_vpAloitusReRender');   // Aloitus-näyttö päivittyy
   });
