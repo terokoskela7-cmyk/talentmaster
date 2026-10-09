@@ -23,7 +23,7 @@ function _norm(v) {   // Firestore Timestamp → ISO; rakenne säilyy (tmJaksoTi
 }
 function _erat(lista, n) { const e = []; for (let i = 0; i < lista.length; i += n) e.push(lista.slice(i, i + n)); return e; }
 const DAY = 86400000, IKKUNA_PV = 30;
-const RSVP_ROOLIT = ['pelaaja', 'vanhempi'];   // kalenterin lasnaolijat-saatavuus: kirjoittaja (Rules RSVP-erotus: pelaaja/huoltaja kirjoittaa VAIN saatavuus + paivitetty + rooli)
+const RSVP_ROOLIT = ['pelaaja', 'huoltaja', 'vanhempi'];   // kalenterin lasnaolijat-saatavuus: kirjoittaja (Rules RSVP-erotus: pelaaja/huoltaja kirjoittaa VAIN saatavuus + paivitetty + rooli). Rules v3.55 pakottaa huoltajan rooliksi 'huoltaja'; 'vanhempi' = ennen v3.55:tä kirjoitetut dokumentit. Tuntematon rooli ei laske. RSVP on käyttöastetta (oma), EI n_toiminto_7 / n_perhe_kuittaus_7 (D71).
 const _pvmIso = (v) => { if (v == null || v === '') return null; if (/^\d{4}-\d{2}-\d{2}$/.test(String(v))) return String(v); const t = new Date(_norm(v)).getTime(); return isNaN(t) ? null : K.pvmHelsinki(t); };
 function _poissa(d) { return d.poistettu === true || d.arkistoitu === true || d.aktiivinen === false; }   // varovainen: kaikki yleiset "ei mukana" -liput
 
@@ -203,4 +203,4 @@ function paivitaKasittelija(deps) {
   };
 }
 
-module.exports = { TOIMINTO_LAHTEET, laskeSeura, laskeKaikki, ajastettuKasittelija, paivitaKasittelija, arvioHetki, JOHTO_ROOLIT };
+module.exports = { RSVP_ROOLIT, TOIMINTO_LAHTEET, laskeSeura, laskeKaikki, ajastettuKasittelija, paivitaKasittelija, arvioHetki, JOHTO_ROOLIT };
