@@ -225,3 +225,43 @@ describe('jaetut mockup 22 -komponentit (Design: ei kolmatta korttiversiota)', (
     const teksti = strip(h).toLowerCase(); expect(teksti).not.toMatch(/heikko|\base\b|\bpelaajanimi/);
   });
 });
+
+describe('kuittaus (PR 2, D124): ehto, piilotus, dokumentti', () => {
+  const NYT_MS = NYT, tuore = NYT_MS - 3 * DAY, vanha = NYT_MS - 30 * DAY;
+  const sig = (tyyppi, jid, o) => Object.assign({ tyyppi, jid, avain: tyyppi + '|' + jid, ehto: P.tmPulssiEhto({ tyyppi, auki: (o || {}).auki }) }, o || {});
+  it('dokumentin kentät (brief): tyyppi pulssi, signaali, joukkue, tila, palaa_vk, ehto', () => {
+    expect(P.tmPulssiKuittausDoc(sig('ei_jaksoa', 'a'), 'kuitattu', '2026-W42')).toEqual({ tyyppi: 'pulssi', signaali: 'ei_jaksoa', joukkue: 'a', tila: 'kuitattu', palaa_vk: null, ehto: 'ei_jaksoa', kuitattu_vk: '2026-W42' });
+    expect(P.tmPulssiKuittausDoc(sig('ei_jaksoa', 'a'), 'siirretty', '2026-W42')).toMatchObject({ tila: 'siirretty', palaa_vk: '2026-W43' });
+    expect(P.tmPulssiKuittausDoc(sig('ei_jaksoa', 'a'), 'jotain', '2026-W42').tila).toBe('kuitattu');
+    expect(P.tmPulssiKuittausId(sig('ei_jaksoa', 'p15_demo'))).toBe('pulssi_ei_jaksoa_p15_demo');
+  });
+  it('siirretty palaa täsmälleen palaa_vk:lla (ei aiemmin, ei myöhemmin piilossa)', () => {
+    const k = [{ tyyppi: 'pulssi', signaali: 'ei_jaksoa', joukkue: 'a', tila: 'siirretty', palaa_vk: '2026-W43' }], s = [sig('ei_jaksoa', 'a')];
+    expect(P.tmPulssiPiilossa(k, s, '2026-W42', NYT_MS)).toEqual({ 'ei_jaksoa|a': true });
+    expect(P.tmPulssiPiilossa(k, s, '2026-W43', NYT_MS)).toEqual({});
+    expect(P.tmPulssiPiilossa(k, s, '2026-W44', NYT_MS)).toEqual({});
+    expect(P.tmPulssiPiilossa([{ tyyppi: 'pulssi', signaali: 'ei_jaksoa', joukkue: 'a', tila: 'siirretty', palaa_vk: '2027-W01' }], s, '2026-W53', NYT_MS)).toEqual({ 'ei_jaksoa|a': true });
+  });
+  it('kuitattu: tuore (≤ 14 pv) piilottaa aina; vanhempi vain saman ehdon → ehdon muuttuessa signaali palaa (ehdotusEste-periaate)', () => {
+    const kui = (pvm, ehto) => [{ tyyppi: 'pulssi', signaali: 'katselmusikkuna', joukkue: 'a', tila: 'kuitattu', ehto, kuitattu_pvm: pvm }], s = (auki) => [sig('katselmusikkuna', 'a', { auki })];
+    expect(P.tmPulssiPiilossa(kui(tuore, 'auki:3'), s(5), '2026-W42', NYT_MS)).toEqual({ 'katselmusikkuna|a': true });   // tuore, ehto muuttui → silti piilossa
+    expect(P.tmPulssiPiilossa(kui(vanha, 'auki:3'), s(3), '2026-W42', NYT_MS)).toEqual({ 'katselmusikkuna|a': true });    // vanha, sama ehto
+    expect(P.tmPulssiPiilossa(kui(vanha, 'auki:3'), s(5), '2026-W42', NYT_MS)).toEqual({});                               // vanha, ehto muuttui → palaa
+    expect(P.tmPulssiPiilossa(kui({ seconds: tuore / 1000 }, 'x'), s(1), '2026-W42', NYT_MS)).toEqual({ 'katselmusikkuna|a': true });   // Firestore Timestamp
+  });
+  it('toisen joukkueen / toisen tyypin kuittaus ei piilota; tuntematon tyyppi ja roskadata ei kaada', () => {
+    const k = [{ tyyppi: 'pulssi', signaali: 'ei_jaksoa', joukkue: 'b', tila: 'kuitattu', ehto: 'ei_jaksoa', kuitattu_pvm: tuore }, { tyyppi: 'ehdotus' }, null, { tyyppi: 'pulssi', signaali: 'ei_jaksoa', joukkue: 'a', tila: '?' }];
+    expect(P.tmPulssiPiilossa(k, [sig('ei_jaksoa', 'a')], '2026-W42', NYT_MS)).toEqual({}); expect(P.tmPulssiPiilossa(undefined, [], '2026-W42', NYT_MS)).toEqual({});
+  });
+  it('malli: kuitattu signaali ei näy eikä lasketa; seuraava signaali nousee tilalle (max 3)', () => {
+    const ks = sarja((i) => ({ a: J('P11 Demo', { jakso: false, n_jaksolla: 0, n_vastanneet: 0, n_vastausperusta: 0 }), b: J('P12 Demo', { profiili: 'ammatti', n_katselmus: 3 }), d: J('P14 Demo', { n_vastanneet: [16, 14, 12, 10][i] }), e: J('P15 Demo', { n_harjoite_7: 2 }) }));
+    const ennen = P.tmPulssiRivit(ks, OPTS), jalkeen = P.tmPulssiRivit(ks, Object.assign({ kuittaukset: [{ tyyppi: 'pulssi', signaali: 'ei_jaksoa', joukkue: 'a', tila: 'kuitattu', ehto: 'ei_jaksoa', kuitattu_pvm: NYT - DAY }] }, OPTS));
+    expect(ennen.signaalejaYht).toBe(4); expect(jalkeen.signaalejaYht).toBe(3); expect(jalkeen.signaalejaLisaa).toBe(0); expect(jalkeen.signaalit.map((x) => x.tyyppi)).toEqual(['katselmusikkuna', 'katsaus_laskee', 'kaytto_matala']);
+  });
+  it('HTML: napit vain kun fn.kuittaa annettu; onclick välittää avaimen ja tilan', () => {
+    const m = P.tmPulssiRivit(sarja(() => ({ a: J('P11 Demo', { jakso: false, n_jaksolla: 0, n_vastanneet: 0, n_vastausperusta: 0 }) })), OPTS);
+    expect(P.tmPulssiHTML(m, { t: (x) => x })).not.toContain('data-kuittaus');
+    const h = P.tmPulssiHTML(m, { t: (x) => x, fn: { kuittaa: 'kuittaaFn' } });
+    expect(h).toContain("onclick=\"kuittaaFn('ei_jaksoa|a','kuitattu')\">Kuittaa</button>"); expect(h).toContain("onclick=\"kuittaaFn('ei_jaksoa|a','siirretty')\">Ensi viikolla</button>");
+  });
+});

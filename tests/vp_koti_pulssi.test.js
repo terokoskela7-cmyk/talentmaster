@@ -97,3 +97,42 @@ describe('kytkentä lähteessä', () => {
     expect(VP.split('\n').length).toBeLessThanOrEqual(katot['TalentMaster_VP_v25.html'].katto);
   });
 });
+
+describe('PR 2 · Kuittaa / Ensi viikolla (D124)', () => {
+  const KS2 = KS;   // P15 ei jaksoa 4 vk (ei_jaksoa|a) + P14 katsaus laskenut (katsaus_laskee|b)
+  const alusta = async (extra) => { const y = luoYmparisto(VP, Object.assign({ liput: { kentta: true }, koosteet: KS2, ensimmainenVk: '2026-W20' }, extra || {})); y.els['sb-tilanne-badge'] = { textContent: '', style: {} }; await y.renderoi(); return y; };
+  it('jokaisella signaalikortilla yksi täytetty nappi + katkoviivarivillä Kuittaa ja Ensi viikolla', async () => {
+    const y = await alusta(); const kortit = y.html.split(/<div class="kt-sig(?: w| n)?" data-signaali=/).slice(1).map((k) => k.split('<div class="sigmore"')[0]);   // yksi pala per signaalikortti (kt-sig-h/-why eivät aloita korttia)
+    expect(kortit.length).toBe(2);
+    kortit.forEach((k) => { expect((k.match(/class="kt-btn"/g) || []).length).toBe(1); expect(k).toContain('data-kuittaus="kuitattu"'); expect(k).toContain('data-kuittaus="siirretty"'); expect(k).toMatch(/class="kt-sig-second">.*>Kuittaa<\/button><button[^>]*>Ensi viikolla<\/button><\/div>/); });
+  });
+  it('Kuittaa kirjoittaa oikeat kentät oikeaan polkuun (getIdToken(true) ensin), signaali piiloon, laskuri päivittyy heti', async () => {
+    const y = await alusta(); expect(y.ctx._vpPulssi.malli.signaalejaYht).toBe(2);
+    await y.ctx._vpPulssiKuittaa('ei_jaksoa|a', 'kuitattu');
+    expect(y.o.tokenit).toEqual([true]);
+    expect(y.o.kirjoitukset).toHaveLength(1);
+    const k = y.o.kirjoitukset[0]; expect(k.polku).toBe('seurat/demo-fc/toimenpiteet/pulssi_ei_jaksoa_a');
+    expect(k.data).toMatchObject({ tyyppi: 'pulssi', signaali: 'ei_jaksoa', joukkue: 'a', tila: 'kuitattu', palaa_vk: null, ehto: 'ei_jaksoa', kuitattu_vk: '2026-W42', kuitattu_pvm: '__palvelinaika', kuitattu_uid: 'vp-uid', luotu: '__palvelinaika' });
+    expect(y.html).not.toContain('data-signaali="ei_jaksoa|a"'); expect(y.html).toContain('data-signaali="katsaus_laskee|b"');
+    expect(y.ctx._vpPulssi.malli.signaalejaYht).toBe(1); expect(y.els['sb-tilanne-badge'].textContent).toBe(1);   // sama laskuri kolmessa paikassa
+    expect(y.o.toastit.pop()).toEqual(['Kuitattu', 'ok']);
+  });
+  it('Ensi viikolla: tila siirretty + palaa_vk = seuraava viikko (vuodenvaihde: W53 → W01)', async () => {
+    const y = await alusta(); await y.ctx._vpPulssiKuittaa('katsaus_laskee|b', 'siirretty');
+    expect(y.o.kirjoitukset[0].data).toMatchObject({ tila: 'siirretty', palaa_vk: '2026-W43', signaali: 'katsaus_laskee', joukkue: 'b', kuitattu_vk: '2026-W42' });
+    expect(y.html).not.toContain('data-signaali="katsaus_laskee|b"'); expect(y.ctx._vpPulssi.malli.signaalejaYht).toBe(1);
+    expect(require('../lib/tm_seuran_pulssi.js').viikkoLisaa('2026-W53', 1)).toBe('2027-W01');
+  });
+  it('kirjoitus epäonnistuu → toast toimintaohjeella (ei hiljaista epäonnistumista), signaali EI katoa', async () => {
+    const y = await alusta({ kirjoitusVirhe: true }); await y.ctx._vpPulssiKuittaa('ei_jaksoa|a', 'kuitattu');
+    expect(y.o.toastit.pop()).toEqual(['Kuittaus ei tallentunut — tarkista yhteys ja yritä uudelleen. (ei oikeutta)', 'virhe']);
+    expect(y.html).toContain('data-signaali="ei_jaksoa|a"'); expect(y.ctx._vpPulssi.malli.signaalejaYht).toBe(2);
+  });
+  it('olemassa olevat kuittaukset luetaan latauksessa: siirretty piilossa kunnes palaa_vk, kuitattu piilossa', async () => {
+    const y = await alusta({ kuittaukset: [{ tyyppi: 'pulssi', signaali: 'ei_jaksoa', joukkue: 'a', tila: 'siirretty', palaa_vk: '2026-W43' }, { tyyppi: 'pulssi', signaali: 'katsaus_laskee', joukkue: 'b', tila: 'kuitattu', ehto: 'katsaus_laskee', kuitattu_pvm: Date.now() - 20 * 86400000 }] });
+    expect(y.html).not.toContain('data-signaali='); expect(y.ctx._vpPulssi.malli.signaalejaYht).toBe(0); expect(y.html).toContain('Ei toimenpiteitä tällä viikolla');
+  });
+  it('lähteessä: kirjoitus vain olemassa olevaan toimenpiteet-kokoelmaan, ei functions/Rules-muutosta', () => {
+    expect(VP).toContain("collection('toimenpiteet').doc(T.tmPulssiKuittausId(s)).set("); expect(VP).not.toMatch(/collection\('asiat'\)/);
+  });
+});

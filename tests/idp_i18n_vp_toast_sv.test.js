@@ -122,6 +122,8 @@ const SV_ODOTTAA_SANKTIOINTIA = [
   // Tyhjä (sv-erä 3 vietiin): 'Sitoumus on edelliseltä jaksolta' ja 'VP-kalibraatio kuuluu VP:lle' saapuivat vp_kartta-osiossa.
   // Erä 5 (docs/i18n/sv_kaannoserae_5.json, S2 PR 1): sv tyhjä kunnes Gemini palauttaa.
   'Päivitetään koostetta…',
+  // Erä 6 (docs/i18n/sv_kaannoserae_6.json, S2 PR 2): kuittauksen toastit.
+  'Siirretty ensi viikolle', 'Kuitattu', 'Kuittaus ei tallentunut — tarkista yhteys ja yritä uudelleen.',
 ];
 
 describe('ilmoituskanavat · resolvi (kääre ei yksin riitä)', () => {
