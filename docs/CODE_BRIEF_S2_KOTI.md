@@ -7,6 +7,28 @@
 **Demodata:** `docs/CODE_BRIEF_S2_DEMODATA.md` — Demo FC:n synteettinen silmukkadata, jolla Koti näkyy kaikissa tiloissa (pilottiseuroissa luvut ovat vielä nollaa).
 **Aikataulu:** aloitus nyt. Kaksi PR:ää (alla), molemmat valmiit viimeistään 20.11. PM tarkistaa oikealla datalla ~15.11.
 
+## Design — tarkka toteutus (Tero 10.10.: "uusi design tarkasti")
+
+**Lue ennen ensimmäistäkään näkymämuutosta:** `23_seuran_pulssi_v2.html`, `25_vp_koti_tilanne.html` ja `22_kehitystyopoyta_kayttettavyys.html` (komponenttien anatomia). Mockup on SSOT ulkoasulle; tämä briiffi päättää vain sisällön ja rajat.
+
+1. **Samat komponentit, ei uusia versioita.** Mockup 22:n komponentit on jo toteutettu `lib/tm_kehitystyopoyta.js`:ssä (`.kt-sig`, `.kt-q3`, `.kt-osa`, `.kt-chip`, `.kt-btn` …). Käytä niitä: siirrä tarvittava CSS jaettuun paikkaan (esim. `lib/tm_kortti_css.js` tai yhteinen tyylilohko) niin, että kehitystyöpöytä ja Koti käyttävät samaa määrittelyä. Ei kolmatta kopiota samasta kortista.
+2. **Anatomia mockupin mukaan:**
+   - Signaalikortti `.ev.sig`: yläotsikko DM Mono 11 px, `letter-spacing: .16em`, isot kirjaimet, teal · otsikko Cormorant · perustelu DM Sans · yksi täytetty nappi · katkoviiva-alarivi (Kuittaa · Ensi viikolla). Reunus teal, tausta teal-dim, `border-radius: 6px`, `padding: 12px 14px`, `gap: 8px`.
+   - Rauhallinen viikko `.ev.sig.n`: neutraali reunus, ei täytettyä nappia.
+   - Taulukko: `font-size: 13.5px`; otsikkosolut 11 px, isot kirjaimet, `letter-spacing: .08em`, `--ink3`; solut `padding: 8px 10px`, yläreuna `--line`. Luvut tasattuina (`font-variant-numeric: tabular-nums`).
+   - Muotomerkit: ● teal · ▲ amber · ■ red · ○ `--ink3`. Merkki + luku samalla rivillä, merkki ei koskaan yksin.
+   - Minitrendi: 4 palkkia mockupin mitoilla, himmennetty `arvio`-viikko.
+   - Datan ikä otsikossa DM Monolla (`.age`), vanha kooste amber-nauhana.
+3. **Tokenit:** mockupin muuttujat kartoitetaan VP_v25:n olemassa oleviin (§5): `--bg`/`--bg2`/`--bg3`, `--ink`/`--ink2`/`--ink3`, `--line`, `--teal`/`--teal-brd`, `--amber`, `--red`, `--on-accent`. Teal-dim ja amber-dim samalla tavalla kuin `.kt-sig` ne jo ratkaisee. **Ei kovakoodattuja värejä eikä uusia tokeneita.** Jos jokin puuttuu → kysy.
+4. **Fontit:** Cormorant Garamond otsikot ja korttien luvut (24 px kuten `.q3`), DM Sans leipäteksti, DM Mono yläotsikot ja datan ikä. Ei Archivoa VP:llä (D51).
+5. **Molemmat teemat ja kaksi leveyttä:** tumma ja vaalea, 1280 px ja 390 px. Vaalea teema VP:n olemassa olevilla vaalean teeman tokeneilla.
+6. **Tekstit sanatarkasti mockupista** (fi). "alle tavoitteen", ei koskaan "heikko"; "ydinvahvuus", ei "ase" (D54). Ei pelaajanimiä Kodissa.
+7. **Kuvavertailu PR:ään (pakollinen):** kuvakaappaukset Demo FC:n datalla (`CODE_BRIEF_S2_DEMODATA.md`) polkuun `docs/design/idp-v2/kuvat/`:
+   - `25_toteutus_koti_{dark,light}_{1280,390}.png`
+   - `23_toteutus_tilat_{normaali,kayttoonotto,rauhallinen,vanha}_dark_1280.png`
+   - `25_toteutus_koti_mockup_vertailu_1280.png` (mockup ja toteutus rinnakkain, kuten `22_toteutus_tanaan_mockup_vertailu_1280.png`)
+8. **PR-kuvaukseen taulukko:** mockupin kohta (esim. "23 §1 Pulssi · viikko", "25 §1 Koti") → toteutus (tiedosto, funktio) → poikkeamat ja syy. Poikkeama ilman PM:n hyväksyntää = korjataan ennen mergeä.
+
 ## PR 1 — pulssitaulukko ja Kodin rakenne
 
 ### Kodin järjestys (D122, mockup 25)
