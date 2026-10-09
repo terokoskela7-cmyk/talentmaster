@@ -13,6 +13,28 @@
 - **Joukkueen tyyppi -asetus (VP):** samaan paikkaan kuin valmentajaprofiili (D50). Rules sallii jo johdolle (v3.56).
 - **Aikataulu:** aloitus nyt, valmis viimeistään 20.11. PM tarkistaa luvut oikealla datalla ~15.11.
 
+## Tarkistus 9.10.2026 illalla (PM) — sparrin tulos 23–26
+
+Sparri laajensi S2:n koko VP:n etusivun uudistukseksi (mockupit 23–26, D109–D136, kaikki **ehdotuksia**). Kaikkea ei tehdä 1.12. mennessä. Jako:
+
+1. **P0-luvut ensin, oma PR (audit 24 §6):** yksi toimenpidelaskuri · harjoitettavuuskartoitus yhdellä laskennalla (nyt 14 vs 3 joukkuetta) · suostumus eriteltynä (kutsuttu / odottaa / ilman) · yksi aloitusopas · kattavuusportti (D125) RAE:lle, Koko seura -luvuille ja tulkintalauseelle · D1 = 1,0 P15:llä tarkistetaan (asteikon alaraja vai mitattu?) + §28-portti poikkeamiin ja Hidden Gem -ehdokkaisiin · ehdotusten rajaus (D134) · murupolku "TILANNE" Kodissa. Nämä pätevät myös uudessa rakenteessa.
+2. **S2 = Koti mockupien 23 + 25 mukaan, valmis 20.11.:** pulssitaulukko (D109–D118, D120–D125), oikea palsta (Tänään, Tulossa), "04 Joukkueiden pulssi" → "Mittaustilanne". Signaalien Kuittaa / Ensi viikolla käyttää nykyistä kuittausta, **ei Asia-kokoelmaa**. Kenttä joukkuerivillä (D126) vain Kenttä-lipun mukana (D67).
+3. **Ei S2:ssa (R1, tammikuu):** navigaatio v3 (D135) ja Joukkueet ja ryhmät (D136) käyttäjätestin jälkeen · Asia-kokoelma, kuittausdialogi, VP:n Viestit ja Viestit-osio Kodissa (D127–D130, D133) · kalenterin kerrokset, tauot ja iCal (D131).
+
+**Ennen kuin Code aloittaa:**
+- **D119 vs D65 (Tero päättää).** Lukittu D65 ja tuotannossa oleva kooste v4 (`TOIMINTO_LAHTEET` = viikkokatsaus, ydinvahvuus_valinta, klippivastaus/-kuittaus, U12 `jakso_kuittaus`) laskevat katsauksen käytöksi eivätkä laske kirjauksia. D119 tekee päinvastoin. Briiffi sanoo "D65 ennallaan", mutta D119 muuttaa sen. Jos D119 hyväksytään, se on D65:n muutos ja vaatii `functions/`-PR:n (Teron kaista) ennen näkymää. Muuten näkymä käyttää `n_toiminto_7`:ää sellaisenaan.
+
+**Asia-datamallin (26 §5) korjattavat ennen R1:tä:**
+- `seurat/{seura}/kalenteri/tauot/{id}` ei ole kelvollinen dokumenttipolku (kokoelma/doc/kokoelma puuttuu) → esim. `seurat/{seura}/tauot/{id}`.
+- Viestit: Rules v3.39 `viestit` (näkyvyys `henkilokunta`/`pelaaja`/`huoltaja`) on jo olemassa. Ei toista viestijärjestelmää alikokoelmaan; `asia_id` olemassa olevaan viestiin.
+- Eskalaatio (7 pv, tauot pois) ja "sulkeutuu itsestään" vaativat ajastetun palvelinlogiikan (koosteen yhteyteen), Rules-blokit ja -testit uusille kokoelmille.
+- Tauko "pidentää ikkunoita" (D131) koskee jakson, katselmuksen ja koosteen päivälaskentaa → oma suunnitelma, ei sivutuote.
+- iCal: briiffi sanoo *tuonti*, D131 *tilaus* (K6-tekniikka = vienti). Tuonti tarkoittaa palvelimen hakua ulkoisesta osoitteesta → oma päätös.
+- Vapaa teksti (otsikko, perustelu, ketju): GDPR art. 9 -muistutus kentässä + ei terveystietoa signaalien generoituihin teksteihin.
+- WhatsApp Kenttä.ai:n kautta = uusi alihankkija ja alaikäisten data EU:n ulkopuolelle mahdollisesti → ei tähän roadmapiin ilman erillistä päätöstä (§39).
+
+**Muuta:** mockupit lataavat Google Fontsin, mikä on sallittua vain mockupissa (sovelluksessa fontit omalta palvelimelta, §5). Mockupeissa ei ole pelaajanimiä.
+
 ## Mitä S2 tekee
 
 VP_v25:n **Koti** = "Pulssi · viikko", kun seuralla on Kenttä-lippu (D67). Ilman lippua Koti ja Sovelluksen käyttö -kortti ennallaan. Tilanne-välilehti nimeksi "Tilanne · kausi" (D66).
