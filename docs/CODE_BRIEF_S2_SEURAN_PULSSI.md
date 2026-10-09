@@ -37,6 +37,8 @@ Sparri laajensi S2:n koko VP:n etusivun uudistukseksi (mockupit 23–26, D109–
 
 ## Mitä S2 tekee
 
+> **Korvattu 9.10.2026:** toteutus `docs/CODE_BRIEF_S2_KOTI.md`:n (mockupit 23 + 25) mukaan. Tämä osio ja inventaario kuvaavat mockupin 20 versiota ja jäävät historiaksi.
+
 VP_v25:n **Koti** = "Pulssi · viikko", kun seuralla on Kenttä-lippu (D67). Ilman lippua Koti ja Sovelluksen käyttö -kortti ennallaan. Tilanne-välilehti nimeksi "Tilanne · kausi" (D66).
 
 1. **Pulssitaulukko** (mockup 20 · Näkymä):
