@@ -735,7 +735,9 @@ describe('VP_v25 resolvi-portti — jokaisella reititetyllä avaimella on sv-riv
   const ERA3_VP = JSON.parse(readFileSync(join(__dir, '..', 'docs/i18n/sv_kaannoserae_3.json'), 'utf8')).osiot.vp_kartta.rivit;
   // erä 4 (PR #949, VP Koti + Tilanne P0-luvut): uudet avaimet, sv tyhjä kunnes Gemini palauttaa
   const ERA4_VP = JSON.parse(readFileSync(join(__dir, '..', 'docs/i18n/sv_kaannoserae_4.json'), 'utf8')).osiot.vp_kartta.rivit;
-  const SV_ODOTTAA_SANKTIOINTIA = Object.keys(ERA2_VP).filter((k) => !ERA2_VP[k].sv && !(ERA3_VP[k] && ERA3_VP[k].sv)).concat(Object.keys(ERA4_VP).filter((k) => !ERA4_VP[k].sv)).concat([
+  // erä 5 (S2 PR 1, VP:n Koti = Seuran pulssi): uudet avaimet, sv tyhjä kunnes Gemini palauttaa
+  const ERA5_VP = JSON.parse(readFileSync(join(__dir, '..', 'docs/i18n/sv_kaannoserae_5.json'), 'utf8')).osiot.vp_kartta.rivit;
+  const SV_ODOTTAA_SANKTIOINTIA = Object.keys(ERA2_VP).filter((k) => !ERA2_VP[k].sv && !(ERA3_VP[k] && ERA3_VP[k].sv)).concat(Object.keys(ERA4_VP).filter((k) => !ERA4_VP[k].sv)).concat(Object.keys(ERA5_VP).filter((k) => !ERA5_VP[k].sv)).concat([
     // Tyhjä 8.10.2026: Gemini-erä sv_kaannoserae_2026-10-08.json vietiin (scripts/i18n_vie_sv_era.cjs). Uusi sanktiointia odottava avain → lisää tähän.
     // PR 5: D2-bugin ja S1.1:n rivit (TKI-pohjainen, TKI ka, Sovelluksen käyttö …) saapuivat Gemini-erässä 2 ja vietiin; lista on nyt tyhjä.
   ]);
@@ -754,7 +756,7 @@ describe('VP_v25 resolvi-portti — jokaisella reititetyllä avaimella on sv-riv
     const vp = (sb.TM_VP_I18N && sb.TM_VP_I18N.sv) || {};
     const avaimet = kerääAvaimet();
     const lahdeVP = readFileSync(join(__dir, '..', 'TalentMaster_VP_v25.html'), 'utf8');   // kulutuskohdassa reititetyt taulukkoarvot ('Laita' → vpT(r.ryhma)) ovat lähteessä literaaleina
-    expect(SV_ODOTTAA_SANKTIOINTIA.filter((k) => !avaimet.has(k) && lahdeVP.indexOf("'" + k + "'") < 0),
+    expect(SV_ODOTTAA_SANKTIOINTIA.filter((k) => !avaimet.has(k) && lahdeVP.indexOf("'" + k + "'") < 0 && lahdeVP.indexOf('="' + k + '"') < 0),
       'odotuslistalla on avain jota ei enää käytetä → poista rivi').toEqual([]);
     expect(SV_ODOTTAA_SANKTIOINTIA.filter((k) => typeof cm[k] === 'string' || typeof vp[k] === 'string'),
       'sv saapui → poista rivi odotuslistalta (tai sv on keksitty)').toEqual([]);

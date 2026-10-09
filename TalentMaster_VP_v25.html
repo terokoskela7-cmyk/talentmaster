@@ -119,6 +119,7 @@ window.TM_KAAVIO_HOST = {
 <script src="lib/tm_joukkuejakso.js?v=4"></script>   <!-- K1/A: joukkuejakson snapshot (tmAloitaJaksoTuki) -->
 <script src="lib/tm_seuran_kooste.js?v=2"></script>   <!-- S1.1: tmKoosteTrendi (viikkokooste v2) -->
 <script src="lib/tm_koti_luvut.js?v=1"></script>   <!-- P0-luvut (audit 24 §6): YKSI laskuri/kartoitus/suostumus/kattavuusportti/§28-portti — Koti + Tilanne kutsuvat tätä -->
+<script src="lib/tm_seuran_pulssi.js?v=1"></script>   <!-- S2: Koti = Seuran pulssi (docs/CODE_BRIEF_S2_KOTI.md) — rivimalli + HTML libissä, kuoreen vain kytkentä -->
 <script src="lib/tm_kayttoaste.js?v=1"></script>   <!-- S1.1: "Sovelluksen käyttö" -kortti (Koti) — renderöinti libissä, ei kuoressa -->
 <script src="lib/tm_sitoumus.js?v=1"></script>   <!-- Kehitystyöpöytä 22 · A1: sitoumus, yksi sääntö -->
 <script src="lib/tm_aloita_jakso.js?v=12"></script>
@@ -2901,7 +2902,7 @@ input::placeholder, textarea::placeholder { color: var(--ink3); opacity: 1; }
       <section class="tm-section" id="section-joukkueet">
         <div class="section-header">
           <span class="section-num">04</span>
-          <h2 class="section-title" data-i18n-html="Joukkueiden pulssi">Joukkueiden <em>pulssi</em></h2>
+          <h2 class="section-title" data-i18n-html="Mittaustilanne">Mittaus<em>tilanne</em></h2>
           <span class="section-hint" data-i18n="Klikkaa joukkuetta avataksesi tiiminäkymän">Klikkaa joukkuetta avataksesi tiiminäkymän</span>
         </div>
         <div id="joukkuekortit" class="jk-kortit"></div>
@@ -3531,7 +3532,7 @@ function getViikko() {
 // ─── DATA LOADING ────────────────────────────────────────
 async function lataaKaikki() {
   await lataaKonseptikerros();   // TIER 1 ENNEN renderiä: konseptit resolvoidaan kerroksen kanssa (muuten ensirender näyttäisi kaanonin)
-  await Promise.all([lataaPelaajat(), lataaValmentajat(), lataaTapahtumat(), lataaIdpJono(), lataaJoukkueNimet(), lataaKalenteriTapahtumat(), lataaSeurantaKuittaukset()]);
+  await Promise.all([lataaPelaajat(), lataaValmentajat(), lataaTapahtumat(), lataaIdpJono(), lataaJoukkueNimet(), lataaKalenteriTapahtumat(), lataaSeurantaKuittaukset(), _vpLataaLiput().catch(function () { return {}; })]);   // S2: Kenttä-lippu (D67) tiedossa ennen Kodin ja Tilanteen ensirenderiä
   renderTilanne();
   renderTeamPulse();
   renderValmentajat();
@@ -4222,6 +4223,14 @@ function _tilanneRenderKerrokset() {
     var el = document.getElementById(id);
     if (el && el.parentNode !== sisalto) sisalto.appendChild(el);
   });
+  const lp = window._vpLiput && window._vpLiput[_seuraId];
+  if (lp && lp.kentta === true) _vpTilanneSiirrot(sisalto);
+}
+/* S2: Kodin pulssi korvasi RAE:n ja Sovelluksen käytön → Tilanteeseen (mockup 25 §4: "Syntymäkvartaalit", kattavuus mukana, D125). Vain Kenttä-lipun seurat. */
+function _vpTilanneSiirrot(sisalto) {
+  let rae = document.getElementById('tilanneRae'); if (!rae) { rae = document.createElement('div'); rae.id = 'tilanneRae'; rae.style.marginTop = '24px'; sisalto.appendChild(rae); }
+  rae.innerHTML = '<div class="vpkoti-otsikko" style="font-size:20px">' + vpT('Syntymäkvartaalit') + '</div>' + _vpRaeRakenneHTML(_pelaajat || [], true);
+  if (!document.getElementById('vpKayttoasteKortti')) { const k = document.createElement('div'); k.id = 'vpKayttoasteKortti'; k.style.marginTop = '24px'; sisalto.appendChild(k); vpKayttoasteLataa(); }
 }
 
 function renderTilanne() {
@@ -21270,9 +21279,13 @@ function _vpSignaaliKortit() {
    (_vpSignaaliKortit().kortit, kaikki — Kotiin näytetään niistä enintään 3, loput "+N muuta"). Koti, Tilanteen otsikko, "02"-lohkon meta,
    hero-indikaattori ja sivupalkin merkki lukevat TÄMÄN; ei omia laskureita. */
 function _vpPaivitaToimenpideLaskuri(kortit) {
-  const n = window.TM_KOTI_LUVUT.toimenpideMaara(kortit || _vpSignaaliKortit().kortit);
+  /* Kenttä-lipun seurassa laskuri = Kodin "Tarvitsee huomiota" -signaalien määrä (pulssi, S2); muuten vanha signaalikorttien määrä. Päivittää kaikki näyttöpaikat. */
+  const pm = window._vpPulssi && window._vpPulssi.sid === _seuraId && window._vpPulssi.malli, lp = window._vpLiput && window._vpLiput[_seuraId];
+  const n = (pm && lp && lp.kentta === true) ? pm.signaalejaYht : window.TM_KOTI_LUVUT.toimenpideMaara(kortit || _vpSignaaliKortit().kortit);
   const b = document.getElementById('sb-tilanne-badge');
   if (b) { b.textContent = n; b.style.display = n > 0 ? '' : 'none'; }
+  const teksti = n > 0 ? (n + ' ' + vpT('vaatii toimenpidettä')) : vpT('Ei kriittisiä');
+  ['greeting-status', 'signaalit-meta'].forEach(function (id) { const e = document.getElementById(id); if (e && e.textContent !== 'TILANNE · LIVE' && /vaatii|kriitt|Ei /i.test(e.textContent)) e.textContent = teksti; });
   return n;
 }
 window._vpPaivitaToimenpideLaskuri = _vpPaivitaToimenpideLaskuri;
@@ -21280,6 +21293,8 @@ window._vpPaivitaToimenpideLaskuri = _vpPaivitaToimenpideLaskuri;
 function renderKotiVP() {
   const el = document.getElementById('vpKotiView');
   if (!el) return;
+  const lp = window._vpLiput && window._vpLiput[_seuraId];
+  if (lp && lp.kentta === true && window.TM_SEURAN_PULSSI && !(window._vpPulssiVirhe && window._vpPulssiVirhe[_seuraId])) { _renderKotiPulssi(el); return; }   // S2 (D67): Koti = Seuran pulssi vain Kenttä-lipun seuroille; muuten alla oleva Koti ennallaan
   const P = _pelaajat || [];
   const _sig = _vpSignaaliKortit();
   const LU = window.TM_KOTI_LUVUT;
@@ -21356,6 +21371,47 @@ async function vpMuistutaOdottavia(){
 }
 window.vpMuistutaOdottavia = vpMuistutaOdottavia;
 window.renderKotiVP = renderKotiVP;
+
+/* ═══ S2: Koti = Seuran pulssi (docs/CODE_BRIEF_S2_KOTI.md; lib/tm_seuran_pulssi.js) — kuoressa vain kytkentä ═══ */
+if (window.TM_SEURAN_PULSSI) { const _ps = document.createElement('style'); _ps.textContent = window.TM_SEURAN_PULSSI.CSS + '.vpk-wrap{container-type:inline-size;container-name:vpk}.vpk-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:20px;align-items:start}.vpk-side{display:grid;gap:14px}@container vpk (min-width:1180px){.vpk-grid{grid-template-columns:minmax(0,1fr) 300px}}'; document.head.appendChild(_ps); }
+function _vpKatselmusPv() {   // päivää jäljellä joukkueen avoimeen katselmusikkunaan (jakso päättynyt + 14 pv); koostessa ei ole tätä, pelaajat on jo ladattu
+  const AJ = window.TM_ALOITA_JAKSO, nyt = Date.now(), ut = {}; if (!AJ) return ut;
+  (_pelaajat || []).forEach(function (p) {
+    const jf = p.jaksofokus; if (!jf || AJ.tmJaksoTila(p, { nyt: nyt }).tila !== 'paattynyt') return;
+    const a = jf.alkoi && jf.alkoi.toDate ? jf.alkoi.toDate().getTime() : Date.parse(jf.alkoi), kesto = Number(jf.kesto_vk) > 0 ? Number(jf.kesto_vk) : 4;
+    if (isNaN(a)) return; const pv = Math.ceil((a + (kesto * 7 + 14) * 86400000 - nyt) / 86400000);
+    (Array.isArray(p.joukkueet) ? p.joukkueet : []).forEach(function (j) { ut[j] = ut[j] == null ? pv : Math.min(ut[j], pv); });
+  });
+  return ut;
+}
+async function _vpPulssiLataa() {   // kooste-luku: sama jaettu lukufunktio kuin Käyttöaste (ei laskevaa documentId-järjestystä); ensimmäinen kooste = käyttöönoton alku (D69), nouseva haku
+  const FP = firebase.firestore.FieldPath, ref = db.collection('seurat').doc(_seuraId).collection('kooste');
+  const r = await Promise.all([window.TM_KAYTTOASTE.tmKayttoasteLueKoosteet(db, FP, _seuraId), ref.where(FP.documentId(), '>=', '2000-W01').limit(1).get()]);
+  return { koosteet: r[0], ensin: r[1].docs[0] ? r[1].docs[0].id : null };
+}
+function _renderKotiPulssi(el) {
+  const T = window.TM_SEURAN_PULSSI, S = window._vpPulssi = window._vpPulssi || {};
+  const piirra = function () {
+    const nyt = Date.now(), ks = S.koosteet, viim = ks[ks.length - 1] || {}, kal = (_kalenteriTapahtumat || []).map(function (e) { return { nimi: e.nimi, alkaa: e.alkaa }; }), sj = T.tmPulssiSeuraavaTapahtuma(kal, nyt);
+    const m = T.tmPulssiRivit(ks, { nytMs: nyt, ensimmainenVk: S.ensin, katselmusPv: _vpKatselmusPv() }), ko = { t: vpT, esc: _jsvEsc };
+    const o = Object.assign({ suostumus: window.TM_KOTI_LUVUT.suostumus(_pelaajat || []), suostumusKooste: viim.yhteensa ? viim.yhteensa.n_suostumus : null, seuraava: sj ? vpT('Seuraava tapahtuma:') + ' ' + sj.nimi : null,
+      fn: { joukkue: 'avaaJoukkueSyvanakyma', aloitaJakso: 'avaaJoukkueSyvanakyma', sulje: 'avaaJoukkueSyvanakyma', perheet: 'avaaJoukkueSyvanakyma', valmentaja: '_vpPulssiValmentajat', paivita: '_vpPulssiPaivita', tilanne: '_vpPulssiTilanne', muistuta: 'vpMuistutaOdottavia' } }, ko);
+    S.malli = m;
+    el.innerHTML = '<div id="vpAloitaKortti"></div><div class="vpk-wrap"><div class="vpk-grid"><div class="vpk-main">' + T.tmPulssiHTML(m, o) + '</div><aside class="vpk-side">' + T.tmPulssiTulossaHTML(kal, nyt, Object.assign({ tanaan: true }, ko)) + T.tmPulssiTulossaHTML(kal, nyt, ko) + '</aside></div></div>';
+    if (typeof renderVpAloitaKortti === 'function') renderVpAloitaKortti();
+    _vpPaivitaToimenpideLaskuri();
+  };
+  if (S.sid === _seuraId && S.koosteet && Date.now() - S.ladattu < 60000) { piirra(); return; }
+  el.innerHTML = '<div id="vpAloitaKortti"></div><div class="tmp"><div class="ev sig n"><div class="why">' + _jsvEsc(vpT('Ladataan pulssia…')) + '</div></div></div>';
+  _vpPulssiLataa().then(function (r) { S.sid = _seuraId; S.koosteet = r.koosteet; S.ensin = r.ensin; S.ladattu = Date.now(); piirra(); })
+    .catch(function (e) { console.warn('[pulssi]', e && e.message); (window._vpPulssiVirhe = window._vpPulssiVirhe || {})[_seuraId] = true; renderKotiVP(); });   // ei lukuoikeutta (esim. valmentaja) → Koti ennallaan
+}
+window._vpPulssiTilanne = function () { setWs('tilanne'); };
+window._vpPulssiValmentajat = function () { setWs('valmentajat'); };
+window._vpPulssiPaivita = async function () {   // paivitaSeuranKooste (johto/SA; palvelin rajoittaa 30 s)
+  try { toast(vpT('Päivitetään koostetta…'), 'ok'); await firebase.app().functions('europe-west1').httpsCallable('paivitaSeuranKooste')({ seuraId: _seuraId }); if (window._vpPulssi) window._vpPulssi.ladattu = 0; renderKotiVP(); }
+  catch (e) { toast(vpT('Päivitys epäonnistui:') + ' ' + ((e && e.message) || vpT('tuntematon')), 'virhe'); }
+};
 
 /* ════════════════════════════════════════════════════════════
    "Aloita tästä" -kortti (in-app-aloitusopas, Vaihe 3/VP) — pysyvä Koti-kortti.
