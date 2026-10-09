@@ -39,7 +39,7 @@ for (const sov of ['Master', 'VP']) {
     it('2 · Tänään: signaali + nappi ENNEN kenttää (D52 mobiili: grid-areas sig → kentta → muut), kolme kysymystä lukuina kun jakso on aktiivinen', () => {
       const e = ymp(sov), p = { id: 'p1', etunimi: 'Topias', joukkue: 'KPV P13', jaksofokus: JF({ osa_arviot: { y_h1: { a: 3, b: 1, c: 2 } } }), idp_sitoumus_pvm: new Date().toISOString() }, h = e.tanaan(p);
       expect(h).toContain('data-kt-signaali='); expect(h.indexOf('kt-t-sig')).toBeLessThan(h.indexOf('kt-t-kentta')); expect(h.indexOf('data-kt-signaali')).toBeLessThan(h.indexOf('class="kt"'));
-      expect(h).toContain('data-kt-kysymykset'); for (const t of ['Näkyykö ydinvahvuus pelissä?', 'Treenataanko?', 'Onko mukana?']) expect(h).toContain(t); expect(h).toContain('1/3 osaa itsenäisesti'); expect(h).toMatch(/Sitoumus vahvistettu|Sitoumus tehty/);
+      expect(h).toContain('data-kt-kysymykset'); for (const t of ['Näkyykö ydinvahvuus pelissä?', 'Treenataanko?', 'Onko mukana?']) expect(h).toContain(t); expect(h).toContain('<span class="kt-hk">1/3</span> osaa itsenäisesti'); expect(h).toMatch(/Sitoumus vahvistettu|Sitoumus tehty/);
       const css = L.KT.tmKtCss(); expect(css).toContain('grid-template-areas:"sig" "kentta" "muut"'); expect(css).toContain('grid-template-areas:"kentta sig" "kentta muut"');
     });
     it('2b · kysymykset EIVÄT näy kun jakso ei ole aktiivinen (ei jaksoa / valittavana); "Ei vielä tietoa" kun dataa ei ole', () => {
