@@ -11137,7 +11137,7 @@ async function _ktVkKLataa(p, alkoi) {
   const vanha = _ktVkK[p.id]; _ktVkK[p.id] = { alkoi: alkoi, docs: vanha && vanha.alkoi === alkoi ? vanha.docs : null, lataa: true, t: Date.now() };
   try { const sn = await db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(p.id).collection('viikkokatsaukset').where('jakso_alkoi', '==', alkoi).limit(6).get(); _ktVkK[p.id] = { alkoi: alkoi, docs: sn.docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); }), lataa: false, t: Date.now() }; }
   catch (e) { _ktVkK[p.id] = { alkoi: alkoi, docs: null, lataa: false, t: Date.now() }; console.warn('[A11] viikkokatsaukset:', e && e.message); }   // lukuvirhe → ennallaan (ei väitetä "ei vastattu")
-  _ktPaivita();
+  if (typeof _ktPaivita === 'function') _ktPaivita();
 }
 async function _ktVkLataa(p, pvm) {
   if (_isDemoMode || !_seuraId || (_ktVk[p.id] && _ktVk[p.id].lataa)) return;
