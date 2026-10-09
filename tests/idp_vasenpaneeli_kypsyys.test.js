@@ -77,7 +77,7 @@ describe('B — vasemman paneelin kytkentä (rakenteellinen vartija)', () => {
 
   it('hydratoi tmKypsyys-komponentilla live-polulla (muoto täysi), EI kuollutta _vpAloitusReRenderiä', () => {
     expect(HTML).toContain("modal.querySelector('#_jspKypsyys')");
-    expect(HTML).toContain("tmKypsyys(_kySlot, _kd, { muoto: 'täysi' })");
+    expect(HTML).toContain("tmKypsyys(_kySlot, _kd, { muoto: 'täysi', onCta:");
     // hydrataatio elää appendChildin jälkeen, ei _vpAloitusReRenderin (kuollut _jspAloitus-polku) kautta
     expect(HTML).toContain('_vpAloitusKypsyysData(p)');
   });
@@ -89,7 +89,7 @@ describe('B — vasemman paneelin kytkentä (rakenteellinen vartija)', () => {
   });
 
   it('tm_kypsyys.js ?v bumpattu (kutsutaan nyt oikeasti näkyviin)', () => {
-    expect(HTML).toContain('lib/tm_kypsyys.js?v=2');
+    expect(HTML).toContain('lib/tm_kypsyys.js?v=3');
   });
 
   it('--surface2-alias määritelty molemmissa teemoissa (komponentin neutraalit segmentit vaalealla)', () => {

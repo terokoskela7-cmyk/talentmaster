@@ -112,7 +112,7 @@ window.TM_KAAVIO_HOST = {
 <script src="lib/tm_vp_seuranta.js?v=1"></script>   <!-- Vaihe C: VP-seuranta koonti/kuittaus/IDP-feed (nojaa VAI+-indeksiin, ei uutta mittaria) -->
 <script src="lib/tm_kehityskaari.js?v=7"></script>
 <script src="lib/tm_infografiikka.js?v=1"></script>   <!-- Trendi Vaihe 2 + IDP VAIHE 1: yksilön kehityskaari (data + tmKehityskaari-renderöijä) -->
-<script src="lib/tm_kypsyys.js?v=2"></script>   <!-- IDP R1: Kypsyys/PHV -komponentti (tmKypsyys) kytketty näkyviin per-pelaaja-kortin vasempaan paneeliin (korvaa kypsyysproosan) -->
+<script src="lib/tm_kypsyys.js?v=3"></script>   <!-- IDP R1: Kypsyys/PHV -komponentti (tmKypsyys) kytketty näkyviin per-pelaaja-kortin vasempaan paneeliin (korvaa kypsyysproosan) -->
 <script src="lib/tm_treeniteema.js?v=1"></script>   <!-- Vaihe 4d: teemakattavuus PURE-ydin (jaksofokus vs suunnitellut teemaharjoitukset) -->
 <script src="lib/tm_jaksokooste.js?v=2"></script>   <!-- Vaihe 6: jakson sulku (meso-sykli) PURE-ydin — prosessi+kalibraatio+historia (geneerinen §8) -->
 <script src="lib/tm_liput.js?v=1"></script>   <!-- K1 osa 2: liput (liput/julkiset + vanha fallback K7:ään) -->
@@ -15376,11 +15376,17 @@ function _vpMittausTuoreusHTML(p, ika) {
   rel.push(on2 ? vpT('trendi käytettävissä (≥2 mittausta)') : '<span class="w">' + vpT('1 testikerta — trendi vaatii 2.') + '</span>');
   rel.push(vpT('vertailukelpoinen vain samalla alustalla (§22)'));
   if (d != null && d > 180) rel.push('<span class="w">' + vpT('📍 yli 6 kk — suositellaan päivitystä.') + '</span>');
+  // A7 (§14) — datan ikä per ryhmä: jokaisen mittausryhmän oma pvm, ei vain tuoreimman.
+  const _bio = p.biologinenIka_viimeisin || {};
+  const ryhmat = [['H-H', p.hh_pvm], ['TKI', p.tki_pvm], ['FLEI', p.flei_pvm], ['ADAR', p.adar_pvm], [vpT('Kypsyys'), _bio.pvm]]
+    .filter(function (r) { return r[1] && _fi(r[1]); })
+    .map(function (r) { return esc(r[0]) + ' <b>' + esc(_fi(r[1])) + '</b>'; });
   return '<div class="mit-fresh"><div class="fr1"><span class="fl">' + vpT('Viimeisin') + '</span>'
     + '<span class="fv"><b>' + esc(_fi(pvm)) + '</b> · ' + esc(patteristo) + '</span>'
     + (d != null ? '<span class="fdays">' + d + ' ' + vpT('pv sitten') + '</span>' : '')
     + '<a class="upd" href="TalentMaster_Testaus_v9.html" onclick="event.stopPropagation()" style="text-decoration:none">' + vpT('📍 Päivitä mittaus') + '</a></div>'
-    + '<div class="mit-reliab">' + rel.join(' · ') + '</div></div>';
+    + '<div class="mit-reliab">' + rel.join(' · ') + '</div>'
+    + (ryhmat.length > 1 ? '<div class="mit-reliab mit-ryhmapvm">' + ryhmat.join(' · ') + '</div>' : '') + '</div>';
 }
 /* C2 — JAETTU LUOKITTELU. Nakyva tiivistys ja piilotettu perustelu lukevat SAMAT paatelmat samasta
    paikasta, jottei sama saanto ehdi ajautua eri suuntiin kahdessa renderoijassa. Vain jo laskettuja
@@ -15969,8 +15975,9 @@ function _vpKorttiRakenna(p, joukkueNimi, idx, nP, vainOsat) {
   if (p.tk_kokonaistulos_viimeisin != null && p.tk_kokonaistulos_edellinen != null) {
     const absD = Math.round((p.tk_kokonaistulos_edellinen - p.tk_kokonaistulos_viimeisin) * 10) / 10;
     const suunta = absD > 0 ? vpT('parani') + ' ' + absD + ' s' : absD < 0 ? vpT('hidastui') + ' ' + Math.abs(absD) + ' s' : vpT('ennallaan');
-    const edPvm = p.tk_kokonaistulos_edellinen_pvm ? _jsvEsc(p.tk_kokonaistulos_edellinen_pvm) : '';
-    const nyPvm = p.tk_lajit_pvm ? _jsvEsc(p.tk_lajit_pvm) : '';
+    const _tkFi = function (d) { return d ? _jsvEsc((typeof tmPvmFi === 'function' ? tmPvmFi(d) : '') || d) : ''; };   // A7: pp.kk.vvvv
+    const edPvm = _tkFi(p.tk_kokonaistulos_edellinen_pvm);
+    const nyPvm = _tkFi(p.tk_lajit_pvm);
     f4 += '<div class="jsv-an-rivi" style="margin-top:8px">' + vpT('Tekniikan kokonaisaika:') + ' ' + p.tk_kokonaistulos_edellinen + ' s → ' + p.tk_kokonaistulos_viimeisin + ' s (' + suunta + ')'
       + (edPvm && nyPvm ? ' · ' + edPvm + ' → ' + nyPvm : '') + '</div>';
   } else if (p.tk_kokonaistulos_viimeisin != null) {
@@ -16197,7 +16204,7 @@ function _vpKorttiHydratoi(modal, p, ika, opts) {
     if (_kySlot) {
       const _kd = (typeof _vpAloitusKypsyysData === 'function') ? _vpAloitusKypsyysData(p) : null;
       if (_kd && (_kd.phv_tila_koodi || _kd.maturity_offset != null) && typeof tmKypsyys === 'function') {
-        tmKypsyys(_kySlot, _kd, { muoto: 'täysi' });
+        tmKypsyys(_kySlot, _kd, { muoto: 'täysi', onCta: function () { window.location.href = 'TalentMaster_Testaus_v9.html'; } });   // A7: tyhjätilan CTA toimii (kasvumittaus)
       } else {
         _kySlot.innerHTML = (typeof _ikavaiheBanneri === 'function') ? _ikavaiheBanneri(ika) : '';
       }
