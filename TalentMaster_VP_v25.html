@@ -3945,7 +3945,7 @@ async function lataaPelaajat() {
         adar_tilanne_jakauma: data.adar_tilanne_jakauma ?? null,   // P1: pelihavainto tilanne-jakauma (oversight)
         adar_pvm: data.adar_pvm ?? null,
         // PR C: PHV-tila normalisoidaan TÄSSÄ (yksi rajapinta): kanoninen Mirwald-koodi vain mittauslähteestä
-        // (biologinenIka_viimeisin), muuten null = tuntematon. Kaikki VP:n p.phv_tila-lukijat saavat saman säännön.
+        // (biologinenIka_viimeisin), muuten null = tuntematon. Kaikki VP:n PHV-lukijat (tmPhvKoodi) saavat saman säännön.
         // Lomakkeelta ilmoitettu PH (ei mittausta) → oma lippu henkilökunnan PH-näkymiin ("ilmoitettu, ei mitattu").
         phv_tila: tmPhvKoodi(data),
         phv_ilmoitettu_ph: tmPhvIlmoitettuPH(data),
@@ -4879,7 +4879,7 @@ async function renderSignals(seuraId) {
   let phvHiljaaPelaajat = [];
   try {
     // PR C: kanoninen PH (normalisoitu lataaPelaajat:ssa) + lomakkeelta ilmoitettu PH (henkilökunta, kuormasuoja ei heikkene).
-    const phvPelaajat = _pelaajat.filter(p => p.phv_tila === 'PH' || p.phv_ilmoitettu_ph);
+    const phvPelaajat = _pelaajat.filter(p => tmPhvKoodi(p) === 'PH' || p.phv_ilmoitettu_ph);
     phvCount = phvPelaajat.length;
 
     const [snapDoc, kirjaukset] = await Promise.all([
@@ -5504,7 +5504,7 @@ function avaaBioBanding() {
   // tm_bioika.js kehitysvaiheKaista) → toimii jo SJK:n olemassa olevalla PHV-datalla.
   const _kaista = function (p) {
     if (p.kehitysvaihe_kaista) return p.kehitysvaihe_kaista;
-    const k = p.phv_tila;
+    const k = tmPhvKoodi(p);
     if (k === 'PRE') return 'pre';
     if (k === 'LAH' || k === 'PH' || k === 'POST') return 'circa';
     if (k === 'AN') return 'post';
@@ -5547,7 +5547,7 @@ function avaaBioBanding() {
         h += '<div style="display:flex;align-items:center;gap:8px;padding:6px 10px 6px 13px;font-size:12px;border-bottom:.5px solid rgba(242,239,230,.06)">';
         h += '<div style="color:var(--ink);min-width:150px">' + nimi + '</div>';
         h += '<div style="color:var(--ink3);min-width:88px;font-size:11px">' + (p.joukkue || '—') + '</div>';
-        h += '<div style="color:var(--ink2);min-width:92px;font-size:11px">' + vpT(phvNimi[p.phv_tila] || '—') + '</div>';
+        h += '<div style="color:var(--ink2);min-width:92px;font-size:11px">' + vpT(phvNimi[tmPhvKoodi(p)] || '—') + '</div>';
         if (poikkeus) h += '<span style="font-size:10px;color:#28B090;background:rgba(40,176,144,.14);padding:2px 7px;border-radius:3px" title="' + vpT('PHV-ikä ≥ Palloliiton kynnys (−0,75v)') + '">' + vpT('✅ Poikkeuslupa') + '</span>';
         if (vyoh) {
           const vv = vyoh === 'nopea' ? '#C94040' : (vyoh === 'hidas' ? '#5B8FE0' : '#8A8A8A');
@@ -5805,7 +5805,7 @@ function _vpSiltaPreviewHTML(avain) {
 function _vpSiltaPaneeliHTML(p) {
   const ehd = _vpSiltaEhdotukset(p); if (!ehd.length) return '';
   const esc = _jsvEsc; const top = ehd[0];
-  const preP = (p.phv_tila === 'PRE' || p.phv_tila === 'LAH');
+  const preP = (tmPhvKoodi(p) === 'PRE' || tmPhvKoodi(p) === 'LAH');
   let h = '<div style="background:linear-gradient(150deg,rgba(40,176,144,.1),var(--bg2));border:.5px solid rgba(40,176,144,.3);border-radius:12px;padding:15px;margin-bottom:14px">';
   h += '<div style="font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--teal);font-weight:600;margin-bottom:6px">' + vpT('🎯 Ehdota jaksoa') + '</div>';
   h += '<div style="font-size:11px;color:var(--amber);margin-bottom:6px">▸ ' + esc(top.syy) + _vpSiltaMitattuLbl(p, top.palloliitto_avain) + '</div>';
@@ -5835,7 +5835,7 @@ function _vpFyysEhdotus(p, ohitaGuard) {
   const spMN = (isp.sp === 'T') ? 'N' : 'M';
   let osaindeksit = null;
   if (typeof laskeD1Osaindeksit === 'function' && p.hh_viimeisin && isp.ika != null) osaindeksit = laskeD1Osaindeksit(p.hh_viimeisin, isp.ika, spMN);
-  const neutraali = (typeof onNeutraaliPrePHV === 'function') ? onNeutraaliPrePHV(p) : (p.phv_tila === 'PRE' || p.phv_tila === 'LAH');
+  const neutraali = (typeof onNeutraaliPrePHV === 'function') ? onNeutraaliPrePHV(p) : (tmPhvKoodi(p) === 'PRE' || tmPhvKoodi(p) === 'LAH');
   // i18n V8e: teemanimi (nimi_sv) + osaindeksin lähdenimi (tmMittaLahdeNimi, V8d) + peruste-labelit VP:stä.
   const e = LIB.tmFyysEhdota(p, {
     osaindeksit: osaindeksit,
@@ -7587,7 +7587,7 @@ function _vpPhvTila(koodi) {
 
 /** Valmentajan/adminin badge. selite=false → pelkka badge (ahtaaseen soluun). */
 // PR C: badge-koodi pelaajalle — mitattu tila, tai 'PH_ILMOITETTU' jos PH on vain ilmoitettu (ei mittausta).
-function _vpPhvNayttoKoodi(p) { return p ? (p.phv_tila || (p.phv_ilmoitettu_ph ? 'PH_ILMOITETTU' : (p.phv_ei_mitattu ? 'EI_MITATTU' : null))) : null; }
+function _vpPhvNayttoKoodi(p) { return p ? (tmPhvKoodi(p) || (p.phv_ilmoitettu_ph ? 'PH_ILMOITETTU' : (p.phv_ei_mitattu ? 'EI_MITATTU' : null))) : null; }
 function _vpPhvBadgeHTML(koodi, selite) {
   const s = _vpPhvTila(koodi);
   if (!s) return '<span style="color:var(--ink3)">—</span>';
@@ -11008,7 +11008,7 @@ function _ktKehys(p) {
   const K = window.TM_KEHITYSTYOPOYTA, AJ = window.TM_ALOITA_JAKSO, S = _ktS;
   const j = K.tmKtJarjestys(_ktLista().map(function (x) { return x.id; }), p.id), tila = AJ.tmJaksoTila(p, { nyt: new Date() });
   const isp = (typeof _dimIkaSp === 'function') ? _dimIkaSp(p.joukkue || '', p) : { ika: null };
-  return K.tmKtKehysHTML({ pid: p.id, nimi: ((p.etunimi || '') + ' ' + (p.sukunimi || '')).trim(), joukkue: p.joukkue || '', ikavaihe: K.tmKtIkavaihe(isp.ika), phv: (p.phv_tila && p.phv_tila !== 'tuntematon') ? String(p.phv_tila) : '', tila: tila,
+  return K.tmKtKehysHTML({ pid: p.id, nimi: ((p.etunimi || '') + ' ' + (p.sukunimi || '')).trim(), joukkue: p.joukkue || '', ikavaihe: K.tmKtIkavaihe(isp.ika), phv: (tmPhvKoodi(p) && tmPhvKoodi(p) !== 'tuntematon') ? String(tmPhvKoodi(p)) : '', tila: tila,
     edellinen: j.edellinen, seuraava: j.seuraava, jarj: { n: j.n, yht: j.yht }, valilehti: S.valilehti, silmin: S.silmin, tanaanHTML: _ktTanaanHTML(p, tila),
     polkuHTML: S.ladattu.polku ? _ktPolkuHTML(p) : '', nayttoHTML: S.ladattu.naytto ? _ktNayttoHTML(p) : '', ladattu: S.ladattu }, _ktOpts());   // Polku/Näyttö rakennetaan vasta kun ladattu (D52)
 }
@@ -13019,7 +13019,7 @@ function _jsvFyysinenHTML(pelaajat, joukkueNimi, n) {
     if (p.hh_kehityskohde) klust[p.hh_kehityskohde] = (klust[p.hh_kehityskohde] || 0) + 1;
     else if (p.hh_kehityskohde === null && (p.hh_taso != null || p.d1_taso != null)) odottaa++;  // epavarma + ei sm_pallo
   });
-  const phvKatt = pelaajat.filter(function(p){ return p.phv_tila; }).length / Math.max(1, n);
+  const phvKatt = pelaajat.filter(function(p){ return tmPhvKoodi(p); }).length / Math.max(1, n);
   const klustAvaimet = Object.keys(klust).sort(function(a,b){ return klust[b] - klust[a]; }).slice(0, 3);
   if (klustAvaimet.length || odottaa) {
     h += '<div class="jsv-an-otsikko">' + vpT('Kehityskohteet') + '</div>';
@@ -13132,7 +13132,7 @@ function _jsvYhteenvetoHTML(pelaajat, joukkueNimi, n) {
   // 3) Datapolku-CTA-rivi — kattavuusvajeet (< 100%) → toimenpide (kattavuusVajeet §75). Näytä vain vajeet.
   const kAdar = pelaajat.filter(function (p) { return (p.adar_havaintoja || 0) >= 1; }).length;
   const kSuost = pelaajat.filter(function (p) { return p.suostumusTila === 'annettu'; }).length;
-  const kPhv = pelaajat.filter(function (p) { return p.phv_tila; }).length;
+  const kPhv = pelaajat.filter(function (p) { return tmPhvKoodi(p); }).length;
   const vajeet = (typeof kattavuusVajeet === 'function') ? kattavuusVajeet({ pelihavainto: kAdar, suostumus: kSuost, phv: kPhv }, n) : [];
   if (vajeet.length) {
     const META = {
@@ -13636,7 +13636,7 @@ function _jsvTavoiteHTML(pelaajat, joukkueNimi, n) {
 
   // 2) Potentiaali: pre-PHV (§28) + tekninen etumatka fyysiseen (d2−d1 ≥ 1) → fysiikka tulee, tekniikka jo edellä.
   const potentiaali = pelaajat.filter(function (p) {
-    const neutr = (typeof onNeutraaliPrePHV === 'function') ? onNeutraaliPrePHV(p) : (p.phv_tila === 'PRE' || p.phv_tila === 'LAH');
+    const neutr = (typeof onNeutraaliPrePHV === 'function') ? onNeutraaliPrePHV(p) : (tmPhvKoodi(p) === 'PRE' || tmPhvKoodi(p) === 'LAH');
     return neutr && p.d2_taso != null && p.d1_taso != null && (p.d2_taso - p.d1_taso) >= 1;
   });
   h += '<div class="jsv-an-otsikko">' + vpT('Potentiaali') + '</div>';
@@ -13658,7 +13658,7 @@ function _jsvTavoiteHTML(pelaajat, joukkueNimi, n) {
   const raeStr = raeN ? Object.keys(raeJak).sort().map(function (q) { return q + ': ' + raeJak[q]; }).join(' · ') : vpT('täyttyy rekisteröinnistä (0/') + n + ')';
   // Kattavuus per ominaisuus
   const kFlei = pelaajat.filter(function (p) { return p.flei_viimeisin != null; }).length;
-  const kPhv = pelaajat.filter(function (p) { return p.phv_tila; }).length;
+  const kPhv = pelaajat.filter(function (p) { return tmPhvKoodi(p); }).length;
   const kAdar = pelaajat.filter(function (p) { return (p.adar_havaintoja || 0) >= 1; }).length;
   const vm = String(viimPvm).match(/^(\d{4})-(\d{2})-(\d{2})/);
   const viimFi = vm ? (parseInt(vm[3], 10) + '.' + parseInt(vm[2], 10) + '.' + vm[1]) : '—';
@@ -13794,7 +13794,7 @@ function avaaJoukkueSyvanakyma(joukkueNimi) {
       if (p.flei_viimeisin != null && p.flei_viimeisin < 40) _ch.push('<span class="dpk-chip dpk-red">🏥 ' + vpT('Valmius') + ' ' + p.flei_viimeisin + '</span>');
       if (hh != null) _ch.push('<span class="dpk-chip" style="border-color:' + hhTasoVari(hh) + ';color:' + hhTasoVari(hh) + '">H-H ' + hh + '</span>');
       if (d2val != null) _ch.push('<span class="dpk-chip" style="border-color:' + hhTasoVari(d2val) + ';color:' + hhTasoVari(d2val) + '">D2 ' + d2val + (d2src === 'tki' ? ' TKI' : d2src ? ' ' + ({sm:'SM',hh:'H-H',tk:'TK'}[d2src]||'') : '') + '</span>');
-      if (p.phv_tila) _ch.push('<span class="dpk-chip"' + (p.phv_tila === 'PH' ? ' style="border-color:var(--amber);color:var(--amber)"' : '') + '>' + (p.phv_tila === 'PH' ? '⚠ ' : '') + 'PHV ' + p.phv_tila + '</span>');
+      if (tmPhvKoodi(p)) _ch.push('<span class="dpk-chip"' + (tmPhvKoodi(p) === 'PH' ? ' style="border-color:var(--amber);color:var(--amber)"' : '') + '>' + (tmPhvKoodi(p) === 'PH' ? '⚠ ' : '') + 'PHV ' + tmPhvKoodi(p) + '</span>');
       if ((p.adar_havaintoja||0) >= 3 && adarY != null) _ch.push('<span class="dpk-chip">' + vpT('Pelihavainto') + ' ' + adarY + '/3</span>');
       var _kortti = (_ch.length ? _ch.join('') : '<span style="color:var(--ink3);font-size:11px">' + vpT('Ei mittauksia vielä') + '</span>') + '<span class="dpk-arrow">→</span>';
       t1 += '<tr class="dimpop-prow" style="border-top:.5px solid var(--border);cursor:pointer" onclick="_avaaPerPelaajaPikakatsaus(' + idx + ',\'' + jescNimi + '\')">'
@@ -14342,7 +14342,7 @@ function _vpViikkoKuormaHTML(p, st) {
   const acwrCol = acwr == null ? 'var(--ink3)' : (acwr > 1.5 || acwr < 0.8) ? 'var(--amber)' : 'var(--teal)';
   const kuormaEnnallaanMsg = vpT('Kuorma pidetty ennallaan');   // inline-onclick-toast: reititetään tässä, ei attribuuttimerkkijonossa
   const kt = (p.kasvutahti_vyohyke) || (p.biologinenIka_viimeisin && p.biologinenIka_viimeisin.kasvutahti_vyohyke) || null;
-  const phv = p.phv_tila || null;
+  const phv = tmPhvKoodi(p) || null;
   const acwrSana = acwr == null ? vpT('kertyy ~4 vk') : (acwr >= 0.8 && acwr <= 1.3) ? vpT('linjassa') : (acwr > 1.3) ? vpT('koholla') : vpT('matala');
   let h = '<div class="jsp-wk-blk">'
     + '<div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap;margin-bottom:3px">'
@@ -14716,7 +14716,7 @@ window._tmInfo = function(avain) {
 // näytetään VAIN Showcase-iässä (16+) JA kun PHV ei ole kesken (PRE/LAH/PH → piiloon). Nuoremmille/kesken =
 // "kehityskaista" (ei vertailuviivaa). Normi vain akseleille joilla on pelaajadataa (tyhjät D3/D5 → null).
 function _vpRadarNormiJaVaihe(p, ika, radarDims) {
-  const phv = p.phv_tila || null;
+  const phv = tmPhvKoodi(p) || null;
   const kesken = (phv === 'PRE' || phv === 'LAH' || phv === 'PH');   // ennen/kesken kasvupyrähdystä
   const showcase = (ika != null && ika >= 16);
   const naytaNormi = showcase && !kesken;   // PHV-korjaus: kesken-PHV Showcase-pelaaja (late developer) → normi piiloon
@@ -15398,7 +15398,7 @@ function _vpMittausTuoreusHTML(p, ika) {
    pikakenttia (§26), ei uutta mittaria. Kynnykset = _vpMittausSynthHTML:n kynnykset (§14/§28). */
 function _vpMittausProfiili(p, d1, d2, tsi) {
   const merkki = (p && p.tki_merkki) || null;
-  const phv = (p && p.phv_tila) || null;
+  const phv = (p && tmPhvKoodi(p)) || null;
   return {
     merkki: merkki,
     phv: phv,
@@ -15415,7 +15415,7 @@ function _vpMittausProfiili(p, d1, d2, tsi) {
 /* C2 (nakyva 1/3) — KYPSYYSRIVI: badge + yksi seuraus. Sama PHV-kehys sanotaan tasta eteenpain
    KERRAN nakyvassa kerroksessa; pitka perustelu on disclosuren takana. Amber vain PH (C1 §4). */
 function _vpMittausKypsyysHTML(p) {
-  const s = (typeof _vpPhvTila === 'function') ? _vpPhvTila(p && p.phv_tila) : null;
+  const s = (typeof _vpPhvTila === 'function') ? _vpPhvTila(p && tmPhvKoodi(p)) : null;
   let seuraus;
   if (!s) seuraus = vpT('kypsyys mittaamatta — kasvumittaus tarkentaa tulkinnan.');
   else if (s.avain === 'jalki') seuraus = vpT('fyysinen nousu on nyt aitoa työtä, ei tule itsestään.');
@@ -15455,7 +15455,7 @@ function _vpMittausTiivistysHTML(p, ika, d1, d2, tsi) {
 
 // (2) §28 KYPSYYSLINSSI — PHV-tulkinta ohjaa fyysisen lukemista (tulkinta ennen lukuja). Pikakenttä phv_tila.
 function _vpMittausLinssiHTML(p, ika, sisalla) {
-  const phv = p.phv_tila || null;
+  const phv = tmPhvKoodi(p) || null;
   let txt;
   if (phv === 'AN' || phv === 'POST') txt = 'PHV: <b>' + (phv === 'AN' ? vpT('jälki-PHV') : vpT('post-PHV')) + '.</b> ' + vpT('Fyysinen nousuvara on jo tullut → matala nopeus/aerobinen on') + ' <b>' + vpT('aito kehityskohde') + '</b> ' + vpT('— ei biologisesti neutraali. Fyysinen ikkuna on auki nyt.');
   else if (phv === 'PRE' || phv === 'LAH') txt = 'PHV: <b>' + (phv === 'PRE' ? vpT('ennen kasvupyrähdystä') : vpT('lähestyy kasvupyrähdystä')) + '.</b> ' + vpT('Matala 30 m / MAS / CMJ on biologisesti') + ' <b>' + vpT('odotettua, ei kehityskohde') + '</b> ' + vpT('. Taito ja koordinaatio ovat nyt herkkiä ikkunoita.');
@@ -15485,7 +15485,7 @@ function _vpMittausSynthHTML(p, ika, d1, d2, tsi) {
   const merkki = p.tki_merkki || null;
   const teknVahva = (d2 != null && d2 >= 3.5) || merkki === 'kulta' || merkki === 'hopea';
   const fyysHeikko = (d1 != null && d1 < 3);
-  const phv = p.phv_tila || null, jalkiPhv = (phv === 'AN' || phv === 'POST'), prePhv = (phv === 'PRE' || phv === 'LAH');
+  const phv = tmPhvKoodi(p) || null, jalkiPhv = (phv === 'AN' || phv === 'POST'), prePhv = (phv === 'PRE' || phv === 'LAH');
   const tsiVahva = (tsi != null && tsi < 0.8);   // §14: hyvä pelaaja häviää ~0.3–0.6 s pallolla; <0.8 = aidosti automatisoitunut (0.8–1.5 = vain kohtalainen → ei "automatisoitunut"-kehystä)
   const r1 = function (v) { return Math.round(v * 10) / 10; };
   // 1) Tekninen
@@ -15578,9 +15578,9 @@ function _vpKorttiRakenna(p, joukkueNimi, idx, nP, vainOsat) {
   const hv = p.hh_viimeisin || {};
   // §28-KYPSYYSNEUTRAALI (A + korjaus): gated-fyysinen (30m/CMJ/MAS) heikkona (taso<3) → KOLME tilaa (kypsyysTila).
   // _preP = onNeutraaliPrePHV:n ikä/PHV-pohjainen pre-päättely; kypsyysTila erottaa kasvu/epavarma/normaali.
-  const _preP = (typeof onNeutraaliPrePHV === 'function') ? onNeutraaliPrePHV(p) : (p.phv_tila === 'PRE' || p.phv_tila === 'LAH');
+  const _preP = (typeof onNeutraaliPrePHV === 'function') ? onNeutraaliPrePHV(p) : (tmPhvKoodi(p) === 'PRE' || tmPhvKoodi(p) === 'LAH');
   const _kt = function(taso, gated) {
-    return (typeof kypsyysTila === 'function') ? kypsyysTila(p.phv_tila, taso, gated, _preP)
+    return (typeof kypsyysTila === 'function') ? kypsyysTila(tmPhvKoodi(p), taso, gated, _preP)
       : ((gated && _preP && taso != null && taso < 3) ? 'kasvu' : 'normaali');
   };
   // Yksi Fyysinen-testirivi (kortti): label + tasoympyrä-badge + 100%-palkki + arvo. taso 1–5 → palkki taso/5.
@@ -15624,7 +15624,7 @@ function _vpKorttiRakenna(p, joukkueNimi, idx, nP, vainOsat) {
                  1:vpT('Aerobinen kapasiteetti laaja-alaisessa kehitystarpeessa — suuri nousupotentiaali harjoittelulla.') };
     const k1 = (mtaso != null) ? (K1[mtaso] || '') : vpT('Taso ei laskettavissa (ikä/sukupuoli puuttuu).');
     // KERROS 3 — PHV-tulkinta
-    const phv = p.phv_tila || '';
+    const phv = tmPhvKoodi(p) || '';
     const kasvu = (phv === 'PRE' || phv === 'LAH' || phv === 'PH');
     const k3 = kasvu
       ? vpT('Aerobinen kapasiteetti kehittyy voimakkaasti kasvupyrähdyksen aikana. Nykyinen taso on normaali tässä kehitysvaiheessa.')
@@ -15673,7 +15673,7 @@ function _vpKorttiRakenna(p, joukkueNimi, idx, nP, vainOsat) {
   // → tyhjä kunnes P1b tuo per-testi-historian (säiliö syttyy automaattisesti). trend = 2-piste-nuoli tai ''.
   let f1 = '';
   // §28 (Selkeys 1): kasvumittaus-ohjaus kun PHV puuttuu — taso + kehityskohteet näkyvät silti, tämä ohjaa mittaukseen.
-  if (p.phv_tila == null || p.phv_tila === '') {
+  if (tmPhvKoodi(p) == null || tmPhvKoodi(p) === '') {
     f1 += '<div style="margin-bottom:12px;font-size:11px;line-height:1.5;color:var(--amber);background:rgba(224,160,64,.08);border:.5px solid rgba(224,160,64,.28);border-radius:9px;padding:9px 11px">'
       + '⚠️ <b>' + vpT('Kasvumittaus puuttuu') + '</b> — ' + vpT('fyysiset arviot perustuvat ikäoletukseen. Tee kasvumittaus (Testaus, ~3 min/pelaaja) → kehityskohteet tarkentuvat ja PHV-korjaus huomioi kypsyyden.') + ' '
       + '<a href="TalentMaster_Testaus_v9.html" style="color:var(--teal);text-decoration:none;font-weight:600;white-space:nowrap">→ ' + vpT('Tee kasvumittaus') + '</a></div>';
@@ -15738,7 +15738,7 @@ function _vpKorttiRakenna(p, joukkueNimi, idx, nP, vainOsat) {
 
   // ── (A) PER-TESTI-RADAR (Fyysinen) — 10m/30m/CMJ/MAS/kasirata, tavoiteviiva taso 3, §28 epavarma himmennetty ──
   const _mkFysAks = function(key, taso, gated) {
-    const ep = (gated && typeof kypsyysTila === 'function' && kypsyysTila(p.phv_tila, taso, true, _preP) === 'epavarma');
+    const ep = (gated && typeof kypsyysTila === 'function' && kypsyysTila(tmPhvKoodi(p), taso, true, _preP) === 'epavarma');
     return { key: key, label: '', arvo: taso, epavarma: ep };
   };
   const _fysAks = [
@@ -15771,7 +15771,7 @@ function _vpKorttiRakenna(p, joukkueNimi, idx, nP, vainOsat) {
     const normi = eerikkilaNormiarvo(t.ek, ika, spMN);
     if (normi == null) return;
     const taso = t.ek === 'kasirata' ? tasoEk('kasirata', t.arvo) : (t.ek === 'nopeus_10m' ? tasoEk('nopeus_10m', t.arvo) : tasoOf(t.ek === 'hyppy_cj' ? 'cmj' : t.ek === 'nopeus_30m' ? '30m' : t.ek, t.arvo));
-    const epav = (t.gated && typeof kypsyysTila === 'function' && kypsyysTila(p.phv_tila, taso, true, _preP) === 'epavarma');
+    const epav = (t.gated && typeof kypsyysTila === 'function' && kypsyysTila(tmPhvKoodi(p), taso, true, _preP) === 'epavarma');
     const edella = t.pien ? (t.arvo < normi) : (t.arvo > normi);
     // §28 (Selkeys 1): näytä tulkinta AINA (ei "kypsyysdataa puuttuu" -piilotusta). "olet edellä" ennallaan;
     // pre-PHV-kehityskohde pehmeänä amber-sävyllä "tarkentuu kasvumittauksella" (ei kova punainen leima).
@@ -15944,7 +15944,7 @@ function _vpKorttiRakenna(p, joukkueNimi, idx, nP, vainOsat) {
 
   // ── TAB 4: KEHITYS ──
   const dRiv = function(lbl, val) { return '<tr style="border-top:.5px solid var(--border)"><td style="padding:7px 8px;color:var(--ink2)">' + lbl + '</td><td style="padding:7px 8px;color:var(--ink)">' + val + '</td></tr>'; };
-  const phvTxt = p.phv_tila ? ('<span style="color:' + _phvVari(p.phv_tila) + '">' + _jsvEsc(p.phv_tila) + ' · ' + (_PHV_LABEL[p.phv_tila] ? vpT(_PHV_LABEL[p.phv_tila]) : '') + '</span>') : vpT('Ei mittausta');
+  const phvTxt = tmPhvKoodi(p) ? ('<span style="color:' + _phvVari(tmPhvKoodi(p)) + '">' + _jsvEsc(tmPhvKoodi(p)) + ' · ' + (_PHV_LABEL[tmPhvKoodi(p)] ? vpT(_PHV_LABEL[tmPhvKoodi(p)]) : '') + '</span>') : vpT('Ei mittausta');
   // Bio-banding V1 (§25/§28): kehitysvaihe-kaista + kasvutahti pikakentistä (KR/%PAH = V2, lukossa). Graceful.
   const _bbBio = p.biologinenIka_viimeisin || {};
   const _bbKaista = p.kehitysvaihe_kaista || _bbBio.kehitysvaihe_kaista || null;
@@ -15999,7 +15999,7 @@ function _vpKorttiRakenna(p, joukkueNimi, idx, nP, vainOsat) {
     const _ksTasoFn = (fn) => (pt) => { try { const ika = (typeof normiIka === 'function') ? normiIka(p.syntymaVuosi, pt.pvm, p.joukkue) : _ksIsp.ika; return fn(pt, ika, _ksSp); } catch (e) { return null; } };
     const _ksVv = (typeof tkVaadittuVuosivauhti === 'function' && _ksIsp.ika != null)   // §4.2 TKI-divergenssin "~X s/v"
       ? tkVaadittuVuosivauhti(_ksIsp.ika, (_ksSp === 'N' ? 'T' : 'P'), 'hopea') : null;
-    const _ksCtx = { esc: _jsvEsc, ika: _ksIsp.ika, phvTila: p.phv_tila || null, pvmFn: (typeof tmPvmFi === 'function' ? tmPvmFi : null), tkiVuosivauhti: _ksVv,   // K5a: ika → ADAR §28-ikäportti
+    const _ksCtx = { esc: _jsvEsc, ika: _ksIsp.ika, phvTila: tmPhvKoodi(p) || null, pvmFn: (typeof tmPvmFi === 'function' ? tmPvmFi : null), tkiVuosivauhti: _ksVv,   // K5a: ika → ADAR §28-ikäportti
       tasoFns: { d1_taso: (typeof laskeD1Joustava === 'function') ? _ksTasoFn(laskeD1Joustava) : null,
                  d2_taso: (typeof laskeD2Joustava === 'function') ? _ksTasoFn(laskeD2Joustava) : null } };
     f4 += '<div style="margin-top:12px;padding-top:10px;border-top:.5px solid var(--border)">'
@@ -19257,7 +19257,7 @@ function _renderMDTProfiili() {
   // Chip-rivi (identiteetti)
   var hgBadge = (typeof _hgBadge === 'function') ? _hgBadge(p) : null;
   var talBadge = (p.signaali === 'xfactor') ? '<span class="tag" style="background:var(--teal);color:#fff">✦ X-Factor</span>' : (hgBadge || '');
-  var phvChip = p.phv_tila ? '<span class="pdc-chip">PHV ' + _jsvEsc(p.phv_tila) + '</span>' : '';
+  var phvChip = tmPhvKoodi(p) ? '<span class="pdc-chip">PHV ' + _jsvEsc(tmPhvKoodi(p)) + '</span>' : '';
   var raeChipH = (typeof _vpRaeChip === 'function') ? _vpRaeChip(p, 'iso') : '';
 
   var h = '<style>'
@@ -19298,7 +19298,7 @@ function _renderMDTProfiili() {
   h += '<div class="pdc-hero"><div style="display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap">'
     + '<div><div class="pdc-eyebrow">Player Development Card' + (ikavaihe ? (' · ' + ikavaihe) : '') + '</div>'
     + '<div class="pdc-name">' + _jsvEsc(nimi) + '</div>'
-    + '<div class="pdc-sub">' + _jsvEsc((typeof _vpPosNimi === 'function' && (p.positio || p.pelipaikka) ? _vpPosNimi(p.positio || p.pelipaikka) + ' · ' : '')) + _jsvEsc(p.joukkue || '—') + ' · ' + (ika != null ? ika + ' ' + vpT('v') : '—') + (p.phv_tila ? ' · PHV ' + _jsvEsc(p.phv_tila) : '') + (p.flei_viimeisin != null ? ' · ' + vpT('Valmius') + ' ' + p.flei_viimeisin : '') + (viimTesti ? ' ' + vpT('· testattu') + ' ' + _jsvEsc(viimTesti) + (_viimTestiVanha ? ' 📍' : '') : '') + '</div></div>'
+    + '<div class="pdc-sub">' + _jsvEsc((typeof _vpPosNimi === 'function' && (p.positio || p.pelipaikka) ? _vpPosNimi(p.positio || p.pelipaikka) + ' · ' : '')) + _jsvEsc(p.joukkue || '—') + ' · ' + (ika != null ? ika + ' ' + vpT('v') : '—') + (tmPhvKoodi(p) ? ' · PHV ' + _jsvEsc(tmPhvKoodi(p)) : '') + (p.flei_viimeisin != null ? ' · ' + vpT('Valmius') + ' ' + p.flei_viimeisin : '') + (viimTesti ? ' ' + vpT('· testattu') + ' ' + _jsvEsc(viimTesti) + (_viimTestiVanha ? ' 📍' : '') : '') + '</div></div>'
     + '<div style="display:flex;flex-direction:column;gap:8px;align-items:flex-end">'
     + '<div class="pdc-lens mdt-no-print"><button class="k' + (scout ? '' : ' on') + '" onclick="_mdtVaihdaLinssi(\'kehitys\')">' + vpT('🎯 Kehitys') + '</button><button class="s' + (scout ? ' on' : '') + '" onclick="_mdtVaihdaLinssi(\'scouting\')">💎 Scouting</button></div>'
     + '<div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">' + phvChip + raeChipH + (talBadge || '') + '</div></div></div>';
@@ -19326,7 +19326,7 @@ function _renderMDTProfiili() {
   var perus = '<div class="pdc-mini-h">' + vpT('Perustiedot') + '</div>'
     + idrow(vpT('Joukkue'), _jsvEsc(p.joukkue || '—'))
     + idrow(vpT('Ikä / vaihe'), (ika != null ? ika + ' ' + vpT('v') : '—') + (ikavaihe ? ' · ' + ikavaihe : ''))
-    + idrow('PHV', p.phv_tila ? (_jsvEsc(p.phv_tila) + ' · ' + vpT('normivertailu')) : '—')
+    + idrow('PHV', tmPhvKoodi(p) ? (_jsvEsc(tmPhvKoodi(p)) + ' · ' + vpT('normivertailu')) : '—')
     + idrow(vpT('Kehon valmius'), p.flei_viimeisin != null ? (p.flei_viimeisin + ' / 100') : '—')
     + idrow(vpT('Viim. testi'), viimTesti ? (_jsvEsc(viimTesti) + (_viimTestiVanha ? ' <span style="color:var(--amber)" title="' + vpT('Yli 6 kk') + '">📍</span>' : '')) : vpT('ei testattu'));
   var radarDims = [{ key: 'D1', label: vpT('Fyys'), arvo: d1 }, { key: 'D2', label: vpT('Tekn'), arvo: d2 }, { key: 'D3', label: vpT('Psyy'), arvo: d3 }, { key: 'D4', label: vpT('Peliäly'), arvo: d4 }, { key: 'D5', label: vpT('Sos'), arvo: d5 }];
@@ -20814,7 +20814,7 @@ function _jaRaeJakauma(pelaajat, qFn) {   // syntymäkvartaali Q1–Q4; summautu
 var _JA_PHV = { PRE: 'ennen', LAH: 'ennen', PH: 'aikana', POST: 'jalkeen', AN: 'jalkeen' };   // §25 koodit → ennen/aikana/jälkeen
 function _jaPhvJakauma(pelaajat) {
   var r = { ennen: 0, aikana: 0, jalkeen: 0, n: 0 };
-  (pelaajat || []).forEach(function (p) { var v = _JA_PHV[String(p.phv_tila || '').toUpperCase()]; if (v) { r[v]++; r.n++; } });
+  (pelaajat || []).forEach(function (p) { var v = _JA_PHV[String(tmPhvKoodi(p) || '').toUpperCase()]; if (v) { r[v]++; r.n++; } });
   return r;
 }
 var _JA_POSRYHMA = { MV: 'Maalivahti', KP: 'Puolustus', LP: 'Puolustus', KK: 'Keskikenttä', HM: 'Keskikenttä', LH: 'Laita', KH: 'Kärki' };
@@ -20978,7 +20978,7 @@ function _rapKattavuus(P) {
     P.some(function (p) { return _valmiusLahde(p) != null; }),
     P.some(function (p) { return p.tki_viimeisin != null || p.hh_taso != null || p.d1_taso != null; }),
     P.some(function (p) { return p.adar_havaintoja > 0 || p.d3_viimeisin; }),
-    P.some(function (p) { return p.phv_tila; }),
+    P.some(function (p) { return tmPhvKoodi(p); }),
     P.some(function (p) { return p.suostumusTila === 'annettu'; })
   ];
   return virrat.filter(Boolean).length / virrat.length;
@@ -22217,7 +22217,7 @@ function _talentitGemLohko() {
     if (p.talenttiOhjelma === true) return false;
     const hg = laskeHiddenGem(p);
     if (!hg.dHG) return false;
-    if (p.phv_tila === 'POST' || p.phv_tila === 'AN') return false;   // §28 #1: post-PHV ei gem (nousuvara ei tule autom.)
+    if (tmPhvKoodi(p) === 'POST' || tmPhvKoodi(p) === 'AN') return false;   // §28 #1: post-PHV ei gem (nousuvara ei tule autom.)
     return true;
   });
   if (!ehdokkaat.length) return '';
@@ -22445,9 +22445,9 @@ function renderTeamPulse() {
     const suunta = laskeJoukkueSuunta(pelaajat);
 
     // §28: onko joukkue kehitysvaiheeltaan pre-PHV → matala D1 = biologisesti odotettua (ei kehityskohde).
-    const _tilalliset = pelaajat.filter(function(p){ return p.phv_tila; });
+    const _tilalliset = pelaajat.filter(function(p){ return tmPhvKoodi(p); });
     const _prePHV = _tilalliset.length
-      ? (pelaajat.filter(function(p){ return (typeof onNeutraaliPrePHV === 'function') ? onNeutraaliPrePHV(p) : (p.phv_tila === 'PRE' || p.phv_tila === 'LAH'); }).length / _tilalliset.length) >= 0.5
+      ? (pelaajat.filter(function(p){ return (typeof onNeutraaliPrePHV === 'function') ? onNeutraaliPrePHV(p) : (tmPhvKoodi(p) === 'PRE' || tmPhvKoodi(p) === 'LAH'); }).length / _tilalliset.length) >= 0.5
       : false;
 
     let h = '<div class="jk" onclick="avaaJoukkueSyvanakyma(\'' + safeNimi + '\')">';
@@ -22922,7 +22922,7 @@ function _kehityskohde(p, heikoimmatSet) {
   if (p.flei_viimeisin != null && p.flei_viimeisin < 40) return true;   // klinikka §14
   if (p.erityistuki === true) return true;                              // manuaalinen lippu
   const neutraali = (typeof onNeutraaliPrePHV === 'function') ? onNeutraaliPrePHV(p)
-                    : (p.phv_tila === 'PRE' || p.phv_tila === 'LAH');
+                    : (tmPhvKoodi(p) === 'PRE' || tmPhvKoodi(p) === 'LAH');
   const avain = p.id || p._id || (p.etunimi + ' ' + p.sukunimi);
   const teknHeikoin = heikoimmatSet && heikoimmatSet.has(avain);
   if (neutraali) return teknHeikoin;                                    // pre-PHV: vain joukkueen heikoin ~20%
@@ -22955,8 +22955,8 @@ function _hhSoluVP(p) {
     // ei "—". Yhtenäinen _tmRadar5D-kuvion kanssa: kypsyysvarmentamaton (kasvu/epavarma) → ink3-harmaa + pieni 🌱
     // (§28: kypsyys huomioitu, ei rankaise); muuten hhTasoVari. "—" jää vain aidosti mittaamattomille (d1_taso == null).
     if (p.d1_taso != null) {
-      const _preP = (typeof onNeutraaliPrePHV === 'function') ? onNeutraaliPrePHV(p) : (p.phv_tila === 'PRE' || p.phv_tila === 'LAH');
-      const _kt = (typeof kypsyysTila === 'function') ? kypsyysTila(p.phv_tila, p.d1_taso, true, _preP) : 'normaali';
+      const _preP = (typeof onNeutraaliPrePHV === 'function') ? onNeutraaliPrePHV(p) : (tmPhvKoodi(p) === 'PRE' || tmPhvKoodi(p) === 'LAH');
+      const _kt = (typeof kypsyysTila === 'function') ? kypsyysTila(tmPhvKoodi(p), p.d1_taso, true, _preP) : 'normaali';
       const _neut = (_kt === 'kasvu' || _kt === 'epavarma');
       const _vari = _neut ? 'var(--ink3)' : hhTasoVari(p.d1_taso);
       const _leaf = _neut ? '<span style="font-size:11px" title="' + vpT('Kypsyys huomioitu (§28) — taso näkyy, ei rankaise') + '"> 🌱</span>' : '';
@@ -23119,7 +23119,7 @@ function renderPelaajatFiltered() {
   if (_activeFilter === 'erityistuki') {
     filtered = _pelaajat.filter(p => _kehityskohde(p, heikoimmatSet));
   } else if (_activeFilter === 'phv') {
-    filtered = _pelaajat.filter(p => p.phv_tila === 'PH' || p.phv_ilmoitettu_ph);   // PR C: + ilmoitettu, ei mitattu
+    filtered = _pelaajat.filter(p => tmPhvKoodi(p) === 'PH' || p.phv_ilmoitettu_ph);   // PR C: + ilmoitettu, ei mitattu
   } else if (_activeFilter === 'idppuuttuu') {
     const idpIds = new Set(_idpJono.map(i => i.pelaajaId));
     filtered = _pelaajat.filter(p => !idpIds.has(p.id) && !p.idpAktiivinen);
@@ -23306,7 +23306,7 @@ function renderDI() {
     const deltaIcon = Number(delta) > 0 ? '↑' : Number(delta) < 0 ? '↓' : '→';
     const xf = pelaajat.filter(p=>p.signaali==='xfactor').length;
     const hg = pelaajat.filter(p=>{ const h = laskeHiddenGem(p); return h.dHG || h.fleiHG; }).length;   // laskettu HG (§28), ei p.signaali
-    const phv = pelaajat.filter(p=>p.phv_tila==='PH' || p.phv_ilmoitettu_ph).length;   // PR C: + ilmoitettu PH
+    const phv = pelaajat.filter(p=>tmPhvKoodi(p)==='PH' || p.phv_ilmoitettu_ph).length;   // PR C: + ilmoitettu PH
 
     return `
     <div class="di-card">

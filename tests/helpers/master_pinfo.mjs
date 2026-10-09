@@ -30,7 +30,7 @@ export const PINFO_PELAAJAT = {
   tyhja: { id: 'p0', etunimi: 'Tyhjä', sukunimi: 'Pelaaja', syntymaVuosi: 2013, joukkue: 'KPV U13' },
   minimi: { id: 'p1', etunimi: 'Topias', sukunimi: 'K', syntymaVuosi: 2013, joukkue: 'KPV U13', flei_viimeisin: 62, hh_taso: 3 },
   rikas: { id: 'p2', etunimi: 'Rikas', sukunimi: 'Data', syntymaVuosi: 2012, joukkue: 'KPV U13', pelipaikka: 'KK', hh_taso: 4, hh_taso_edellinen: 3, hh_pvm: '2026-09-20', tki_viimeisin: 58, tki_edellinen: 51, tki_merkki: 'hopea', tki_pvm: '2026-09-21', tki_vahvuus: 'syotto', tki_kehityskohde: 'pujottelu',
-    flei_viimeisin: 71, phv_tila: 'PH', talenttiTaso: 'laajennettu', tekninen_varhaiskehitys: { merkki: 'kulta', ika: 10 }, streak: 5, sbl: 2.2, sfl: 2.4, ll: 2.1, diag: 2.3, dfl: 2.0,
+    flei_viimeisin: 71, phv_tila: 'PH', biologinenIka_viimeisin: { phv_tila_koodi: 'PH' }, talenttiTaso: 'laajennettu', tekninen_varhaiskehitys: { merkki: 'kulta', ika: 10 }, streak: 5, sbl: 2.2, sfl: 2.4, ll: 2.1, diag: 2.3, dfl: 2.0,
     adar_viimeisin: { a: 2.4, d: 2.1, ac: 1.6, r: 2.8, yht: 2.2 }, adar_havaintoja: 4, havainto_porras: 2,
     adar_arvioijat: [{ nimi: 'Veera V', rooli: 'valmentaja', pisteet: { a: 2, d: 2, ac: 1, r: 3 } }, { nimi: 'Ville P', rooli: 'vp', pisteet: { a: 3, d: 2, ac: 2, r: 3 } }], adar_arvioijia: 2, adar_yhtenevyys_taso: 'korkea',
     hh_historia: [{ pvm: '2025-09-20', hh_taso: 2 }, { pvm: '2026-09-20', hh_taso: 4 }], tki_historia: [{ pvm: '2025-09-20', tki: 44 }, { pvm: '2026-09-21', tki: 58 }],
