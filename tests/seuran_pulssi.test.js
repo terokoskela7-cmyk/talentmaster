@@ -79,10 +79,10 @@ describe('rivimalli', () => {
     const mm = P.tmPulssiRivit(k2, OPTS); expect(mm.seura.n).toBe(30); expect(mm.seura.joukkuePelaajaSumma).toBe(31);
     expect(P.tmPulssiHTML(mm, { t: (x) => x })).toContain('30 pelaajaa (uniikit)');
   });
-  it('kattavuusportti (D125): seuratason prosentti vain kun ≥ 2/3 sopivista joukkueista on luku, muuten "mitattu x/y joukkuetta"', () => {
+  it('kattavuusportti (D125): seuratason prosentti vain kun ≥ 2/3 sopivista joukkueista on luku, muuten "x/y" + "joukkuetta mitattu"', () => {
     const k2 = sarja(() => ({ a: J('P13 Demo'), b: J('P14 Demo', { n_vastausperusta: 0, n_vastanneet: 0 }), c: J('P15 Demo', { n_vastausperusta: 0, n_vastanneet: 0 }) }));
     const mm = P.tmPulssiRivit(k2, OPTS); expect(mm.seura.katsaus.pros).toBeNull(); expect(mm.seura.katsaus.kattavuus).toEqual({ kat: 1, sov: 3 });
-    expect(P.tmPulssiHTML(mm, { t: (x) => x })).toContain('mitattu 1/3 joukkuetta');
+    expect(P.tmPulssiHTML(mm, { t: (x) => x })).toMatch(/<i>○<\/i>1\/3<\/span><span class="cs">joukkuetta mitattu<\/span>/);   // luku + alarivi, ei rivittyvää lausetta
     const ok = P.tmPulssiRivit(sarja(() => ({ a: J('P13 Demo'), b: J('P14 Demo'), c: J('P15 Demo', { n_vastausperusta: 0, n_vastanneet: 0 }) })), OPTS); expect(ok.seura.katsaus.pros).toBe(80);
   });
 });
@@ -263,5 +263,18 @@ describe('kuittaus (PR 2, D124): ehto, piilotus, dokumentti', () => {
     expect(P.tmPulssiHTML(m, { t: (x) => x })).not.toContain('data-kuittaus');
     const h = P.tmPulssiHTML(m, { t: (x) => x, fn: { kuittaa: 'kuittaaFn' } });
     expect(h).toContain("onclick=\"kuittaaFn('ei_jaksoa|a','kuitattu')\">Kuittaa</button>"); expect(h).toContain("onclick=\"kuittaaFn('ei_jaksoa|a','siirretty')\">Ensi viikolla</button>");
+  });
+});
+
+describe('korjaukset: katselmussolun toisto', () => {
+  const ks = sarja(() => ({ a: J('P13 Demo', { n_katselmus: 0, n_katselmus_perusta: 0, jakso_paattynyt: true }) }));
+  it('ikkuna auki -solussa teksti vain kerran: "ikkuna auki N pv" (tai "ikkuna auki" ilman päiviä)', () => {
+    const m = P.tmPulssiRivit(ks, OPTS); m.rivit[0].katselmus = { ei: 'ikkuna_auki' };
+    [6, null].forEach((pv) => {
+      m.rivit[0].katselmusPv = pv;
+      const solu = /<td>(?:(?!<\/td>).)*ikkuna auki(?:(?!<\/td>).)*<\/td>/.exec(P.tmPulssiHTML(m, { t: (x) => x }))[0];
+      expect((solu.match(/ikkuna auki/g) || []).length, solu).toBe(1);
+      expect(solu).toContain(pv == null ? '>ikkuna auki<' : 'ikkuna auki 6 pv');
+    });
   });
 });
