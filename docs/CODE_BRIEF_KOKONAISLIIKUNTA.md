@@ -30,8 +30,8 @@
 - **VP_v25:** raporttinäkymä mockup 22:n komponenteilla (`lib/tm_kt_komponentit.js`): ruudukko päivä × pelaaja (● merkitty · – lepo · ○ ei merkintää), viikkosummat, täyttöaste. Pelaajanimet näkyvät vain johdolle ja joukkueen valmentajalle.
 - **Vienti Palloliitolle:** anonyymi CSV (ei nimiä, ei ID:itä: juokseva numero, ikäluokka, sukupuoli, päivittäiset minuutit tyypeittäin, merkintätila). **Vain kun Tero on vahvistanut rekisterinpitäjän ja luovutusperusteen** (avoin päätös alla).
 
-### PR C — päivittäinen muistutus
-- **Kanava = avoin päätös** (alla). Toteutus vasta päätöksen jälkeen. Muistutus vain seurantajaksolla oleville, kerran päivässä klo 19–20 (D62: toimitus 7–21), ei muistutusta jos päivä on jo merkitty.
+### ~~PR C — päivittäinen muistutus~~ (pois, Tero 10.10.)
+Erillistä muistutusta ei tehdä. Aktiivisuus näkyy päivittäin VP:n ja valmentajan näkymissä (Seuran pulssi, Kehitystyöpöytä), ja valmentaja ohjaa joukkuetta. PR B:n raporttiin lisätään joukkueen täyttöaste kuluvalta viikolta, jotta tämä toimii.
 
 ## Rajat ja periaatteet
 - **§7.22 pelaajalle ja huoltajalle:** omat minuutit myönteisesti ("Tällä viikolla 6 liikuntapäivää"), ei vertailua muihin, ei "puuttui"-, "rikkoutui"- tai menetyskieltä. **"Ei merkintää" näkyy vain henkilökunnan raportissa.**
@@ -40,11 +40,11 @@
 - Tekstit `t()`/`vpT`:n kautta, uudet sv-avaimet Gemini-erään tyhjinä.
 - Testaus nimetyillä KPV-testipelaajilla (§0, §10), ei SA:lla.
 
-## Avoimet päätökset (Tero) — ennen PR B:n vientiä ja PR C:tä
-1. **Rekisterinpitäjä ja luovutus:** onko kokonaisliikuntadata seuran (TalentMaster käsittelijä) ja saako Palloliitto vain anonyymin koosteen? Tarvitaanko suostumustekstiin lisäys ja käsittelysopimus?
-2. **Muistutuskanava:** sähköposti (nopea, nykyinen SendGrid, seuranta pois) vai push (PWA; iOS vaatii kotinäytölle asennuksen)?
-3. **Aikataulu ja osallistujat:** alkupäivä, seurat ja 50 pelaajan valinta.
-4. **RPE:** riittääkö tyyppi + kesto, vai kysytäänkö rasitus (1–10)?
+## Päätökset (Tero 10.10.2026)
+1. **Rekisteri:** KPV siirtää TalentMasterin kokonaisliikuntadatan Palloliiton rekisteriin; erillistä suostumusta ei kerätä. **Toteutusehdot (PM):** siirto perustuu seuran ja Palloliiton väliseen sopimukseen, johon TalentMaster liitetään käsittelijänä; seuran tietosuojaselosteeseen ja huoltajien tiedotteeseen maininta siirrosta; vienti vain seurantajakson pelaajista ja vain tarvittavat kentät (päivä, tyyppi, minuutit, rasitusemoji, merkintätila, ikäluokka, sukupuoli, PalloID jos rekisteri sitä vaatii); ei terveystietoa. Vientitoiminto vain SA:lle ja seuran johdolle, jokainen vienti audit-lokiin. **Ennen vientiä Tero vahvistaa kirjallisen sopimuksen ja vientikentät.**
+2. **Muistutus:** ei erillistä muistutusta (PR C pois).
+3. **Aikataulu:** seuranta alkaa **tammikuussa 2027**. PR A voidaan tehdä jo nyt (korjaa kirjausten tallennusaukot, jotka koskevat nykydataa); PR B joulukuussa.
+4. **Rasitus:** käytetään olemassa olevia rasitusemojeja (`fiilinki` / kuormaemoji), ei uutta 1–10-asteikkoa. Sessioon `rasitus`-kenttä samasta emojiasteikosta.
 
 ## Testit
 - Kirjoitusydin: useita sessioita samalle päivälle säilyy; pelaajan ja huoltajan kirjaukset rinnakkain; luku epäonnistuu → ei kirjoitusta.
