@@ -13,6 +13,8 @@
 > (fysiikkavalmentaja tallentaa/uudelleenkäyttää/versioi ohjelmat) ja **Bio-banding-työkalu** (Pre/Circa/Post-PHV
 > -ryhmittely, kasvutahti-loukkaantumissignaali). Ks. OSA 1.6, OSA 2.3–2.4 ja OSA 3 (fysiikkavalmentaja).
 >
+> **Päivitys 2026-10-09:** uusi **OSA 2.8 — Kehitystyöpöytä (V4)**: Tänään · Polku · Näyttö, otsikkorivin napit, viikkohavainto paikallaan ja "Pelaajan silmin".
+>
 > **TILA-huomio (lue ennen jakelua):** tämä pelikirja kuvaa pilotin live-toiminnot. Ominaisuuksien nav-nimet on
 > verifioitu live-UI:ta vasten 2026-07-09 (VP + Master + Ohjelmakirjasto + Jaksofokus + Bio-banding). Yksittäiset
 > mikrotason painiketekstit voivat silti muuttua — tarkista uusin UI ennen laajaa jakelua.
@@ -290,9 +292,59 @@ Jos seurassasi **ei ole erillistä fysiikkavalmentajaa**, hoidat myös fyysisen 
 
 - **Joka harjoitus:** havainnoi (Pelihavainto), tarvittaessa viesti pelaajalle. Reflektoi lyhyesti jälkeenpäin.
 - **Testipäivänä:** Testaustyökalu kentällä, merkitse valmiiksi → data synkkaa. Muista kasvumittaus (PHV).
-- **Jakson alussa:** aseta pelaajille jaksofokukset (talentit ensin). **Jakson lopussa: sulje jaksot** → delta kirjautuu.
+- **Jakson alussa:** aseta pelaajille jaksofokukset (talentit ensin; Kehitystyöpöytä 2.8: *Aloita jakso*). **Jakson lopussa: sulje jaksot** → delta kirjautuu.
 - **Viikoittain:** lue Viestit + Kuorma & fiilis, tee oma itsearvio jos kävit ohjatun harjoituksen.
 - **VP:n käynnin yhteydessä:** tee itsearvio samasta harjoituksesta → kalibraatiokeskustelu.
+
+---
+
+## 2.8 Kehitystyöpöytä (V4) — yksi ruutu pelaajan kehitykselle: Tänään · Polku · Näyttö
+
+> **Kenelle:** valmentaja ja VP (VP tekee kaiken minkä valmentaja; oman joukkueen rajaus koskee valmentajaa — toisen joukkueen pelaajan näet vain, jos sinulla on siihen oikeus, muuten ruutu kertoo "Ei oikeutta").
+> **Tila:** käytössä seuroissa, joille kehitystyöpöytä on otettu käyttöön (seurakohtainen lippu). Muualla näet vielä vanhan pelaajakortin; se poistuu 1.12.2026. Painikkeiden tekstit voivat tarkentua — tarkista uusin UI.
+
+**Avaa:** napauta pelaajaa pelaajalistasta tai Kehitys-välilehden pelaajapilleristä. Ruutu täyttää näytön; **×** palaa listaan, **‹ ›** siirtää edelliseen / seuraavaan pelaajaan (säilyttää välilehden). Osoite on jaettavissa: `#pelaaja/{pelaaja}/tanaan|polku|naytto`.
+
+### Otsikkorivi (näkyy aina)
+Pelaajan nimi · joukkue · ikävaihe · PHV-tila · **jakson tila** (Ei jaksoa · Jakso käynnissä · vk n/N · Jakso päättynyt — suljettava …) · **yksi ensisijainen nappi** · **⋯ -valikko** · **Pelaajan silmin**.
+
+| Jakson tila | Ensisijainen nappi | ⋯ -valikossa |
+|---|---|---|
+| Ei jaksoa | **Aloita jakso** | Anna pelaajan valita seuraava reitti |
+| Valinta odottaa pelaajaa | (ei nappia) | Peru valinta ja aloita jakso itse |
+| Valinta tehty | **Vahvista jakso** | Hylkää valinta |
+| Jakso käynnissä | **Merkitse viikkohavainto** | Sulje jakso · Muokkaa jaksoa · Lisää klippi |
+| Jakso päättynyt | **Sulje jakso** | Jatka jaksoa 2 vk · Syvennä (täysi katselmus) |
+
+### Tänään — mitä tehdä nyt
+1. **Signaali (yksi, ylhäällä):** järjestelmä nostaa *yhden* tärkeimmän asian ("Jakso valmis suljettavaksi", "Merkitse viikkohavainto", "Pelaaja on sitoutunut — vahvista sitoumus" …) ja tarvittaessa pienen toisen rivin. Ammattivalmentajan joukkueessa signaali kertoo myös ajan ("odottaa · n pv"); OTO-joukkueessa vain "kun ehdit". Jos asioita ei ole, signaali on hiljainen ("Etene Polussa").
+2. **Onko mukana?** — rivi signaalin alla. Se muuttuu **kortiksi** ("Sitoutui {pvm} · vahvista" + nappi) vain silloin, kun pelaaja on sitoutunut mutta sinä et ole vielä vahvistanut sitoumusta. Sitoumus kuuluu aina nykyiseen jaksoon: edellisen jakson sitoumus ei riitä.
+3. **Kenttä** — pelaajan ydinvahvuus ja jakson osat kuvana.
+4. **Kaksi kysymystä** (näkyvät kun jakso on käynnissä, vahvistettu tai päättynyt), kummallakin alarivi kertoo *mistä tieto tulee*:
+   - **Näkyykö ydinvahvuus pelissä?** — osien tila viikkohavainnoistasi ("1/3 osaa itsenäisesti · viikkohavaintosi"). Jos havaintoa ei ole: "ei vielä havaintoa · merkitse viikkohavainto".
+   - **Treenataanko?** — pelaajan sunnuntain viikkokatsaukset: "3/4 viikkoa · pelaajan viikkokatsaus su {pvm}". Sunnuntaina ennen vastausta: "Tulee tänään"; jos vastauksia ei vielä ole: "pelaaja vastaa sunnuntaina".
+5. **Osat** — jakson osat sanoin.
+
+> Tänään ei toista samaa tietoa kahdesti: erillistä "Polun tila" -korttia ei ole — otsikkorivin tilasiru riittää.
+
+**Merkitse viikkohavainto — suoraan paikalla (VP-näkymä):** napauta signaalin tai kysymysrivin *Merkitse viikkohavainto*. Alle aukeaa paneeli: valitse osa (A/B/C) ja napauta **ei vielä · ohjatusti · itsenäisesti** — napautus tallentaa. Tänään ja Polku päivittyvät, välilehti ei vaihdu. *+ Liitä VEO-linkki* avaa Lisää klippi -ruudun. Paneeli aukeaa vain, jos saat muokata kyseistä pelaajaa. (Masterissa nappi vie toistaiseksi Polkuun, jossa osa-arvio tehdään kuten ennen.)
+
+### Polku — jakso ja viikko
+Kausitavoite → jakso → viikko samassa paikassa: jakson tiedot ja muokkaus, osat ja niiden arvio, viikon suunnitelma ja kirjaukset (läsnäolo, kuorma, tavoitejakauma), klipit. Polku latautuu vasta kun avaat sen. Sulje jakso -toiminto kirjaa vasteen (ks. 2.3) — kevyt katselmus: kolme kysymystä + lause + valinnainen tarjous seuraavasta reitistä, yksi tallennus.
+
+### Näyttö — mittaukset ja tausta (vain henkilökunnalle)
+Perustiedot ja 5D-profiili · Kasvu ja kypsyys (PHV, bio-ikä, kasvutahti, testipäivät) · Mittaukset (Fyysinen, Tekninen, kehon valmius, mittauslista) · Pelihavainnot ja arviointi.
+- **Datan ikä näkyy aina:** jokaisella mittausryhmällä (H-H, TKI, FLEI, ADAR, kypsyys) on oma päivämääränsä muodossa pp.kk.vvvv. Taso kertoo, millä tasolla pelaaja oli *testihetkellä* ikäisekseen — ei tämän päivän tasoa. Yli 6 kk vanha mittaus kehottaa päivittämään.
+- Valmentaja muokkaa ja poistaa vain *oman joukkueensa* pelaajien mittauksia; VP kaikkien. Päivityksen jälkeen pysyt samalla välilehdellä.
+- Kausitavoitteen rivi: jos lähtötasoa ei ole vielä mitattu, näet "tavoite taso 2 · lähtötaso katselmuksessa" — ei lukua, joka näyttäisi mitatulta.
+
+### Pelaajan silmin
+Nappi esikatselee, mitä *pelaaja ja huoltaja saisivat nähdä*: luvut piiloutuvat Tänään- ja Polku-välilehdiltä (jäljelle jäävät sanat: "osaa itsenäisesti", "Sitoumus vahvistettu") ja **Näyttö on pois käytöstä** ("Näyttö näkyy vain henkilökunnalle"). Pelaajalle ja huoltajalle ei koskaan näytetä tasolukuja, vertailua tai TKI-laskua. Kytke pois päältä samalla napilla.
+
+### Muista
+- **PHV vaikuttaa kuormaan ja tulkintaan:** kasvupyrähdyksessä (PH) kuormaa rajoitetaan, ja ennen pyrähdystä heikko 30 m / MAS / hyppy ei ole kehityskohde. Tuntematon PHV-tila = varovaisin tulkinta, kunnes kasvu on mitattu.
+- **Viikkokatsaus on pelaajan oma vastaus** (sunnuntaisin, ei Leikkijä-ikävaiheelle). Sinä näet sen tiivistelmänä; et kirjoita sen puolesta.
+- **Kirjoitukset aina oikealle pelaajalle:** pilotissa kokeilut vain nimetyillä testipelaajilla, muut pelaajat vain luku.
 
 ---
 
