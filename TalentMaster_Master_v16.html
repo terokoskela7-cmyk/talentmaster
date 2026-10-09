@@ -138,7 +138,7 @@ window.TM_KAAVIO_HOST = {
 <script src="lib/tm_kentta.js?v=3"></script>   <!-- K0/V4a: Kenttä-komponentti (Archivo vain .kt:n sisällä) -->
 <script src="lib/tm_tanaan_kentta.js?v=2"></script>   <!-- V4a: tmTanaanOsat (Tänään-osat sanoin) -->
 <script src="lib/tm_hash_reititin.js?v=1"></script>   <!-- V4a: #pelaaja/{pid}/… -reititin (vain lipulla) -->
-<script src="lib/tm_kehitystyopoyta.js?v=5"></script>   <!-- V4a: Kehitystyöpöytä V4 -kehys (otsikkorivi, välilehdet, Tänään) -->
+<script src="lib/tm_kehitystyopoyta.js?v=6"></script>   <!-- V4a: Kehitystyöpöytä V4 -kehys (otsikkorivi, välilehdet, Tänään) -->
 <script src="lib/tm_jakso_malli.js?v=4"></script>   <!-- B 2/3: ohjelma → jakson tukiosa (tmOhjelmaTukiosaan / tmLiitaTukiosaan) -->   <!-- R6.1b: jaksofokuksen yhteinen kirjoitusydin (tmAsetaJaksofokus / tmSuljeJakso) -->
 <script src="lib/tm_seuraava_askel.js?v=2"></script>   <!-- R6.2b: seuraava toimenpide yhdessä paikassa (tmSeuraavaAskel / tmSeuraavaJakso / tmTeeTastaOsa) -->
 <script src="lib/tm_fyysteemat.js?v=4"></script>   <!-- Vaihe 7: fyysinen teemaluettelo + D1-fokuslähde + evidenssi (fysiikkavalmentaja) -->
@@ -6755,7 +6755,7 @@ function _ktAskel(p) { try { return window.TM_SEURAAVA_ASKEL ? window.TM_SEURAAV
 function _ktKysymyksetHTML(p, tila, askel) {
   const PT = window.TM_POLUN_TILA, K = window.TM_KEHITYSTYOPOYTA; if (!PT || !K || !p || !K.tmKtKysymyksetNakyy(tila)) return '';
   const T = PT.tmPolunTila(p, { askel: askel ? { avain: askel.avain, tila: askel.tila } : null, blokit: null });   // A1/D97: sitoumus päätellään lib/tm_sitoumus.js:stä (yksi sääntö)
-  return K.tmKtKysymyksetHTML(T, { esc: _mEsc, t: masterT, odottaaSitoumusta: K.tmKtSitoumusOdottaa(tila), pvmFn: function (iso) { return (typeof tmPvmFi === 'function') ? tmPvmFi(iso) : iso; } });
+  return K.tmKtKysymyksetHTML(T, { esc: _mEsc, t: masterT, odottaaSitoumusta: K.tmKtSitoumusOdottaa(tila), vk: _ktVkKooste(p, tila), toimiFn: '_ktToimi', pid: p.id, pvmFn: function (iso) { return (typeof tmPvmFi === 'function') ? tmPvmFi(iso) : iso; } });
 }
 window._kvkProfiilit = {};          // joukkue-tunniste → 'ammatti'|'oto' (välimuisti; oletus oto, myös kun joukkuedokumenttia ei ole §7.21)
 window._kvkProfiiliLadataan = {};
@@ -6783,7 +6783,30 @@ function _ktSignaaliHTML(p, tila) {
     const c = _ktVk[p.id]; if (c && c.pvm === tanaan) vkEi = c.vastattu === false; else _ktVkLataa(p, tanaan);
   }
   _kvkProfiiliLataa(p);
-  return TS.tmTanaanSignaaliHTML(TS.tmTanaanSignaali(p, { nyt: new Date(), profiili: _kvkProfiili(p), askel: askel, tila: tila, vkEiVastattu: vkEi, nimi: p.etunimi || '' }, { t: masterT }), { esc: _mEsc, t: masterT, toimiFn: '_ktToimi', pid: p.id, hk: window.TM_KEHITYSTYOPOYTA && window.TM_KEHITYSTYOPOYTA.tmKtHk });
+  const sig = TS.tmTanaanSignaali(p, { nyt: new Date(), profiili: _kvkProfiili(p), askel: askel, tila: tila, vkEiVastattu: vkEi, nimi: p.etunimi || '' }, { t: masterT });
+  return TS.tmTanaanSignaaliHTML(sig, { esc: _mEsc, t: masterT, toimiFn: '_ktToimi', pid: p.id, hk: window.TM_KEHITYSTYOPOYTA && window.TM_KEHITYSTYOPOYTA.tmKtHk }) + _ktSitoumusHTML(p, tila, askel, sig);
+}
+/* A11 (D103): Onko mukana? = rivi signaalikortin alla; kortiksi vain tilassa sitoutunut-ei-vahvistettu, ellei signaali jo tarjoa Vahvista sitoumus -nappia. */
+function _ktSitoumusHTML(p, tila, askel, sig) {
+  const PT = window.TM_POLUN_TILA, K = window.TM_KEHITYSTYOPOYTA, SX = window.TM_SITOUMUS; if (!PT || !K || !p || !K.tmKtKysymyksetNakyy(tila)) return '';
+  const T = PT.tmPolunTila(p, { askel: askel ? { avain: askel.avain, tila: askel.tila } : null, blokit: null }), e = sig && sig.ensisijainen;
+  return K.tmKtSitoumusHTML(T, { esc: _mEsc, t: masterT, odottaaSitoumusta: K.tmKtSitoumusOdottaa(tila), sit: SX ? SX.tmSitoumus(p) : null, signaaliVahvista: !!(e && e.nappi && e.nappi.avain === 'vahvista_sitoumus'), toimiFn: '_ktToimi', pid: p.id, pvmFn: function (iso) { return (typeof tmPvmFi === 'function') ? tmPvmFi(iso) : iso; } });
+}
+/* A11: jakson viikkokatsaukset (≤ 6 dokumenttia) VAIN kun jakso on käynnissä; luetaan kerran / pelaaja+jakso (välimuisti 5 min), sitten _ktPaivita. Rules: oman seuran henkilökunta lukee (VP + valmentaja). Päivä = tmPaivaIso() (paikallinen), ei UTC. */
+const _ktVkK = {};
+function _ktVkKooste(p, tila) {
+  const K4 = window.TM_VIIKKOKATSAUS; if (!K4 || !p || !p.jaksofokus || !tila || (tila.tila !== 'kaynnissa' && tila.tila !== 'vahvistettu')) return null;
+  const alkoi = K4.tmVkJaksoAlkoi(p.jaksofokus); if (!alkoi) return null;
+  const c = _ktVkK[p.id];
+  if (!c || c.alkoi !== alkoi || (!c.lataa && Date.now() - c.t > 300000)) { _ktVkKLataa(p, alkoi); }
+  return c && c.alkoi === alkoi && c.docs ? window.TM_KEHITYSTYOPOYTA.tmKtVkKooste(p, c.docs, tmPaivaIso(new Date()), 6) : null;
+}
+async function _ktVkKLataa(p, alkoi) {
+  if (_demo || !_seuraId || typeof _db === 'undefined' || !_db) return;
+  const vanha = _ktVkK[p.id]; _ktVkK[p.id] = { alkoi: alkoi, docs: vanha && vanha.alkoi === alkoi ? vanha.docs : null, lataa: true, t: Date.now() };
+  try { const sn = await _db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(p.id).collection('viikkokatsaukset').where('jakso_alkoi', '==', alkoi).limit(6).get(); _ktVkK[p.id] = { alkoi: alkoi, docs: sn.docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); }), lataa: false, t: Date.now() }; }
+  catch (e) { _ktVkK[p.id] = { alkoi: alkoi, docs: null, lataa: false, t: Date.now() }; console.warn('[A11] viikkokatsaukset:', e && e.message); }   // lukuvirhe → ennallaan (ei väitetä "ei vastattu")
+  if (typeof _ktPaivita === 'function') _ktPaivita();
 }
 async function _ktVkLataa(p, pvm) {
   if (_demo || !_seuraId || typeof _db === 'undefined' || !_db || (_ktVk[p.id] && _ktVk[p.id].lataa)) return;

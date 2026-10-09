@@ -250,7 +250,8 @@ describe('Jakson päätös — lause historiariville (Master + VP)', () => {
       expect(src).not.toMatch(/viikkokatsaukset'\)\.(doc\([^)]*\)\.)?(set|add|update)\(/);   // henkilökunta ei kirjoita viikkokatsauksia (Rules v3.44)
     });
     it(f + ': henkilökunnan osio hakee jakson katsaukset YHDELLÄ kyselyllä where jakso_alkoi == jakson alku, vain lipulla', () => {
-      const src = lue(f); expect((src.match(/where\('jakso_alkoi', '==', alkoi\)/g) || []).length).toBe(1); expect(src).toContain("collection('viikkokatsaukset')"); expect(src).toContain('tmVkHenkilokuntaHTML');
+      const src = lue(f); expect((src.match(/where\('jakso_alkoi', '==', alkoi\)\.get\(\)/g) || []).length).toBe(1);   // sulkulomake/henkilökunnan osio: yksi kysely; A11: Tänään-kooste erikseen, rajattu .limit(6)
+      expect((src.match(/where\('jakso_alkoi', '==', alkoi\)\.limit\(6\)\.get\(\)/g) || []).length).toBe(1); expect(src).toContain("collection('viikkokatsaukset')"); expect(src).toContain('tmVkHenkilokuntaHTML');
     });
   }
 });
