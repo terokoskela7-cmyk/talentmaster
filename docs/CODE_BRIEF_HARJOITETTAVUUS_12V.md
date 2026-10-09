@@ -9,7 +9,7 @@
 - FLEI-laskenta ja pikakentät (`flei_viimeisin`, §26 pari-invariantti) ovat olemassa.
 
 ## Tehtävä
-1. **Tarkista protokolla** työversiota vasten: testit, suoritusohjeet ja arviointikriteerit 10–12-vuotiaille. Raportoi erot (puuttuvat, ylimääräiset, eri pisteytys). Ei muutoksia ilman PM:n hyväksyntää.
+1. **Protokolla on jo oikea** (Tero 10.10.: TalentMasterin U12-harjoitettavuusprotokolla = Palloliiton työversio). Ei vertailua eikä protokollamuutoksia.
 2. **Kohdennus 12-vuotiaille:** Testaus_v9 ehdottaa U12-harjoitettavuutta vain pelaajille, joiden ikä testipäivänä (`normiIka`) on 12; muille protokolla ei ole oletusvalinta. Ikä syntymävuodesta, ei joukkueesta (§7.18).
 3. **Ohjausvaikutus valmentajalle:** kartoituksen jälkeen joukkueen yhteenveto (mockup 22:n komponentit): mitkä liiketaidot ovat joukkueessa vahvoja ja mitkä harjoiteltavia, ja 2–3 suositeltua harjoitetta seuran harjoitepankista (`harjoitepankki`, hyväksytyt) tai kaanonista. Kieli: "harjoiteltava", ei "heikko".
 4. **Pelaajalle ja huoltajalle (§7.22):** ei pisteitä, tasoja eikä vertailua. Korkeintaan "Seuraavaksi harjoitellaan: …" sanoin.
