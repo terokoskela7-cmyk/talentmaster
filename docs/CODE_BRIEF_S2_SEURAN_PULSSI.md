@@ -23,6 +23,7 @@ Sparri laajensi S2:n koko VP:n etusivun uudistukseksi (mockupit 23–26, D109–
 
 **Ennen kuin Code aloittaa:**
 - **D119 lukittu 9.10. (Tero), muuttaa D65:n Käyttö-määritelmän.** Ensin kooste v5 (`docs/CODE_BRIEF_KOOSTE_V5_D119.md`): uusi `n_harjoite_7`, vanha `n_toiminto_7` säilyy vertailua varten. S2:n Käyttö-sarake lukee `n_harjoite_7`:ää, ellei PM:n datatarkistus deployn jälkeen totea, että kirjauksia ei juuri ole (silloin `n_toiminto_7` 1.12. asti).
+- **Datatarkistus 9.10.2026 (kooste v5, W41, vain lukumäärät):** KPV 160 pelaajaa · harjoite_7 1 · harjoite_30 1 · toiminto_7 0 · aktiivinen_7 1 — Sibbo 246 · 0 · 0 · 0 · 1 — SJK 61 · 0 · 0 · 0 · 0. Molemmat mittarit ovat nollassa, joten varalukuun ei ole syytä: **S2:n Käyttö-sarake lukee `n_harjoite_7`:ää (D119).** Sarake on pilotin alussa käyttöönottotilassa ilman värejä (D69). Pullonkaula on käyttöönotto (suostumus ja kirjautuminen), ei mittari.
 
 **Asia-datamallin (26 §5) korjattavat ennen R1:tä:**
 - `seurat/{seura}/kalenteri/tauot/{id}` ei ole kelvollinen dokumenttipolku (kokoelma/doc/kokoelma puuttuu) → esim. `seurat/{seura}/tauot/{id}`.
