@@ -119,7 +119,7 @@ describe('VP_v25 Vaihe 0 -täydennys: koko aina-näkyvä chrome reititetty (kiel
     expect(block).toContain('data-i18n="Kirjaudu Google-tilillä"');   // reititetty vaikka sv-sanktio kesken
     expect(block).toContain('data-i18n="Hae pelaajaa, joukkuetta..."');
     expect(block).toContain('data-i18n-title="Ilmoitusasetukset"');
-    expect(block).toContain('<span class="bc-active" data-i18n="Tilanne">');
+    expect(block).toContain('<span class="bc-active" id="tbSivu" data-i18n="Koti">');   // murupolku seuraa työtilaa (alku = Koti)
   });
 
   it('uudet Kim-poimitut sv-arvot (sanktioitu full-HTML-avaimista)', () => {

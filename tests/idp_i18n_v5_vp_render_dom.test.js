@@ -501,12 +501,12 @@ describe('VP_v25 render-kielineutraali-gate (step G · AST)', () => {
     expect(alku).not.toBe(src);
     expect(scanLeaks(alku, RANGES, RLO - 1, LIB, SISALTO_POIKKEUKSET).map((l) => l.p))
       .toContain('joukkueiden pulssi ja kriittiset signaalit reaaliaikaisesti.');
-    // r3284 (tyhjän tilan aloitusopas) EI ollut minkään lukkoa edeltävän alueen sisällä → todistaa
-    // että lukko laajensi kattavuutta aidosti, ei vain niputtanut vanhoja alueita uudelleen.
-    const ennenKattamaton = src.replace("vpT('Aloita näistä kolmesta')", "'Aloita näistä kolmesta'");
+    // Tilanteen aloitusmuistutus (renderDeadlinePalkki, yksi aloitusopas P0 9.10.2026) — sama todiste kuin ennen vanhalle
+    // "Aloita näistä kolmesta" -listalle (r3284): alue EI ollut minkään lukkoa edeltävän alueen sisällä, joten lukko laajensi kattavuutta aidosti.
+    const ennenKattamaton = src.replace("vpT('Aloita tästä') + ' · ' + op.tehty", "'Aloita tästä' + ' · ' + op.tehty");
     expect(ennenKattamaton).not.toBe(src);
     expect(scanLeaks(ennenKattamaton, RANGES, RLO - 1, LIB, SISALTO_POIKKEUKSET).map((l) => l.p))
-      .toContain('Aloita näistä kolmesta');
+      .toContain('Aloita tästä');
     const loppu = src.replace("vpT('Lataa tuore versio uudelleen →')", "'Lataa tuore versio uudelleen →'");
     expect(loppu).not.toBe(src);
     expect(scanLeaks(loppu, RANGES, RLO - 1, LIB, SISALTO_POIKKEUKSET).map((l) => l.p))
@@ -733,7 +733,9 @@ describe('VP_v25 resolvi-portti — jokaisella reititetyllä avaimella on sv-riv
   const ERA2_VP = JSON.parse(readFileSync(join(__dir, '..', 'docs/i18n/sv_kaannoserae_2.json'), 'utf8')).osiot.vp_kartta.rivit;
   // erän 2 tyhjät rivit täyttyivät erässä 3 (vp_kartta; vienti scripts/i18n_vie_sv_era3.cjs) → pois listalta
   const ERA3_VP = JSON.parse(readFileSync(join(__dir, '..', 'docs/i18n/sv_kaannoserae_3.json'), 'utf8')).osiot.vp_kartta.rivit;
-  const SV_ODOTTAA_SANKTIOINTIA = Object.keys(ERA2_VP).filter((k) => !ERA2_VP[k].sv && !(ERA3_VP[k] && ERA3_VP[k].sv)).concat([
+  // erä 4 (PR #949, VP Koti + Tilanne P0-luvut): uudet avaimet, sv tyhjä kunnes Gemini palauttaa
+  const ERA4_VP = JSON.parse(readFileSync(join(__dir, '..', 'docs/i18n/sv_kaannoserae_4.json'), 'utf8')).osiot.vp_kartta.rivit;
+  const SV_ODOTTAA_SANKTIOINTIA = Object.keys(ERA2_VP).filter((k) => !ERA2_VP[k].sv && !(ERA3_VP[k] && ERA3_VP[k].sv)).concat(Object.keys(ERA4_VP).filter((k) => !ERA4_VP[k].sv)).concat([
     // Tyhjä 8.10.2026: Gemini-erä sv_kaannoserae_2026-10-08.json vietiin (scripts/i18n_vie_sv_era.cjs). Uusi sanktiointia odottava avain → lisää tähän.
     // PR 5: D2-bugin ja S1.1:n rivit (TKI-pohjainen, TKI ka, Sovelluksen käyttö …) saapuivat Gemini-erässä 2 ja vietiin; lista on nyt tyhjä.
   ]);
