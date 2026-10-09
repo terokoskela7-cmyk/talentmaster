@@ -36,11 +36,11 @@ describe('(2) foc-header + (8) empty-state', () => {
     expect(T).toContain("vpT('Opittu kun') + ': '");   // V8i: reititetty (kaksoispiste vpT:n ulkopuolella)
     expect(T).toContain("↳ ' + vpT('Polku · jakso') + ' (");   // V8i: reititetty
   });
-  it('empty-state kun ei jaksofokusta → CTA _jspVaihda(3)', () => {
+  it('empty-state kun ei jaksofokusta → CTA _vpKtSiirry(3) (A2: V4-välilehti V4:ssä, vanha modaali _jspVaihda)', () => {
     const T = extract('function _vpViikkoHTML(p) {');
     expect(T).toContain("vpT('Ei viikkosuunnitelmaa vielä')");   // V8i: reititetty
     expect(T).toContain("📍 ' + vpT('Aloita jakso (Polku) →')");   // V8i: reititetty
-    expect(T).toContain('_jspVaihda(3)');
+    expect(T).toContain('_vpKtSiirry(3)');
   });
 });
 
@@ -121,7 +121,7 @@ describe('(7) katselmus-rivi + (8) lähteet ⓘ-tapin taakse', () => {
     const R = extract('function _vpViikkoKatselmusHTML(p, st) {');
     expect(R).toContain('Seuraava katselmus ~');
     expect(R).toContain('Avaa katselmus →');
-    expect(R).toContain('_jspVaihda(3)');
+    expect(R).toContain('_vpKtSiirry(3)');
   });
   it('lähdekortit + mokknote default piilossa (⓵-toggle)', () => {
     const S = extract('function _vpViikkoLahteetHTML() {');

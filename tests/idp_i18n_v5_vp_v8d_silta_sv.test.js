@@ -35,7 +35,7 @@ function lohko(alkuMerkki, loppuMerkki) {
 }
 
 const PELAAJA = {
-  id: 'probe1', joukkue: 'SJK P12', syntymaVuosi: 2014, phv_tila: 'PRE', hh_pvm: '2026-04-12',
+  id: 'probe1', joukkue: 'SJK P12', syntymaVuosi: 2014, phv_tila: 'PRE', biologinenIka_viimeisin: { phv_tila_koodi: 'PRE' }, hh_pvm: '2026-04-12',
   hh_viimeisin: { lin10m: 2.05, lin30m: 4.9, cmj: 26, mas: 15.5, kasirata: 9.1 },
   tk_lajit_viimeisin: { pujottelu_s: 22.5, syotto_s: 30.1, ponnauttelu_s: 40.2, kuljetus_laukaus_s: 25 },
   arviointi_havaittu: { ball_control: 2, finishing: 2, short_passing: 3, link_up: 4, ball_protection: 3 }
@@ -45,7 +45,7 @@ function sandbox(kieli) {
   const sb = { console };
   sb.window = sb;
   vm.createContext(sb);
-  ['lib/tm_lang.js', 'lib/tm_i18n_common.js', 'lib/tm_vp_i18n.js', 'lib/tm_arviointi_taksonomia.js',
+  ['lib/tm_phv_tila.js', 'lib/tm_lang.js', 'lib/tm_i18n_common.js', 'lib/tm_vp_i18n.js', 'lib/tm_arviointi_taksonomia.js',
     'lib/tm_arviointi_silta.js', 'lib/tm_teknistaktiset.js', 'lib/tm_teknistaktiset_sv.js', 'lib/tm_fyysteemat.js',
     'lib/tm_kehityspolku.js', 'lib/tm_pelialy_yksilo.js'].forEach((f) => vm.runInContext(lue(f), sb));
   vm.runInContext('tmAsetaKieli(' + JSON.stringify(kieli) + ', false);', sb);

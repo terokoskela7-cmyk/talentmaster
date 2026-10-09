@@ -119,6 +119,8 @@ describe('ilmoituskanavat · kattavuus', () => {
    jos käännös ilmestyy, alempi testi punertaa ja rivi on poistettava listalta. */
 const SV_ODOTTAA_SANKTIOINTIA = [
   // Tyhjä 8.10.2026: Gemini-erä sv_kaannoserae_2026-10-08.json vietiin (scripts/i18n_vie_sv_era.cjs). Uusi sanktiointia odottava avain → lisää tähän.
+  'Sitoumus on edelliseltä jaksolta',   // Kehitystyöpöytä 22 · A1 — sv Gemini-erässä (vp_kartta)
+  'VP-kalibraatio kuuluu VP:lle',   // Kehitystyöpöytä 22 · A5 — sv Gemini-erässä (vp_kartta)
 ];
 
 describe('ilmoituskanavat · resolvi (kääre ei yksin riitä)', () => {

@@ -26,7 +26,7 @@ beforeAll(() => {
   if (e < 0) throw new Error('_vpRadarNormiJaVaihe-lopetusta ei löytynyt');
   // i18n V5 · V8k-4b: normi-notet ovat nyt vpT-reititettyjä → harness tarvitsee fi-identiteettistubin
   // (assertiot lukitsevat SUOMENKIELISEN sisällön, ei käännöstä).
-  RN = new Function('var window = {}; var vpT = function (x) { return x; };\n' + lines.slice(s, e + 1).join('\n') + '\n return { _vpRadarNormiJaVaihe: _vpRadarNormiJaVaihe };')();
+  RN = new Function('var window = {}; var vpT = function (x) { return x; }; var tmPhvKoodi = function (p) { return (p && p.phv_tila) || null; };\n' + lines.slice(s, e + 1).join('\n') + '\n return { _vpRadarNormiJaVaihe: _vpRadarNormiJaVaihe };')();
 });
 
 const DIMS = [

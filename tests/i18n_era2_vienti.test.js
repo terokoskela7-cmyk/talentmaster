@@ -21,20 +21,21 @@ const polku = (o, p) => p.split('.').reduce((a, k) => (a == null ? undefined : a
 const rivit = (osio) => Object.entries(ERA.osiot[osio].rivit);
 
 describe('Gemini-erä 2 — vienti', () => {
-  it('erä: 1331 Geminin käsittelemää riviä kaikilla sv; ainoat tyhjät ovat tm_lang-odotuslistan uudet avaimet (tests/tm_lang_sv_odotuslista.cjs) — niille ei vaadita karttaa', () => {
-    const ODOTTAA = require('./tm_lang_sv_odotuslista.cjs');
+  it('erä: 1331 Geminin käsittelemää riviä kaikilla sv; muut rivit ovat UUSIA, sv vielä tyhjä (odotuslistat: tm_lang-odotuslista, master/vp/lib-uudet) — niille ei vaadita karttaa', () => {
     const kaikki = Object.entries(ERA.osiot).flatMap(([o, os]) => Object.entries(os.rivit).map(([a, r]) => [o, a, r]));
-    const tyhjat = kaikki.filter(([, , r]) => !r.sv).map(([o, a]) => o + '::' + a).sort();
-    expect(tyhjat).toEqual(ODOTTAA.map((p) => 'tm_lang::' + p).sort());
+    const tyhjat = kaikki.filter(([, , r]) => !r.sv);
     expect(kaikki.length - tyhjat.length).toBe(1331);
+    const ODOTTAA = require('./tm_lang_sv_odotuslista.cjs').map((p) => 'tm_lang::' + p);
+    const tmLangTyhjat = tyhjat.filter(([o]) => o === 'tm_lang').map(([o, a]) => o + '::' + a).sort();
+    expect(tmLangTyhjat).toEqual(ODOTTAA.slice().sort());
   });
   it('tm_lang', () => { for (const [p, r] of rivit('tm_lang')) if (r.sv && !palautettu('tm_lang', p)) expect(polku(L, p), p).toBe(r.sv); });
   it('lib-osiot → TM_LIB_I18N.sv', () => {
     for (const o of ['lib_adar_nimet', 'lib.rubriikit', 'lib.tm_kentta', 'lib.tm_adar_tekstit', 'lib.tm_pelihavainto_valinta', 'lib.tm_havaintohistoria', 'lib.tm_tanaan_signaali'])
-      for (const [a, r] of rivit(o)) if (!palautettu(o, a)) expect(LIB[a], o + ' ' + a).toBe(r.sv);
+      for (const [a, r] of rivit(o)) if (r.sv && !palautettu(o, a)) expect(LIB[a], o + ' ' + a).toBe(r.sv);
   });
   it('vp_kartta / master_kartta / henkilosto_kartta', () => {
-    for (const [o, M] of [['vp_kartta', VP], ['master_kartta', MA], ['henkilosto_kartta', HE]]) for (const [a, r] of rivit(o)) if (!palautettu(o, a)) expect(M[a], o + ' ' + a).toBe(r.sv);
+    for (const [o, M] of [['vp_kartta', VP], ['master_kartta', MA], ['henkilosto_kartta', HE]]) for (const [a, r] of rivit(o)) if (r.sv && !palautettu(o, a)) expect(M[a], o + ' ' + a).toBe(r.sv);
   });
   it('jäännökset: Förening-rivit, kausifokus, VP×Master yhtenäistetty', () => {
     const kartta = { vp: VP, master: MA, common: CO };
