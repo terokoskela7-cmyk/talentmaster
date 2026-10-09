@@ -33,7 +33,7 @@ describe('vartija: tapahtumadokumentin muistiinpanot-kenttää ei kirjoiteta', (
   });
   it('Rules v3.52: create ja update kieltävät kentän; poistava update mahdollinen (kielto request.resource.data-puolella)', () => {
     const r = lue('tm_admin/firestore.rules');
-    expect(r).toMatch(/firestore.rules v3.5[2345]/); expect(r).toContain('Muutokset v3.51 → v3.52');
+    expect(r).toMatch(/firestore.rules v3.5[23456]/); expect(r).toContain('Muutokset v3.51 → v3.52');
     expect(r).toMatch(/allow create: if !\('muistiinpanot' in request\.resource\.data\)/);
     expect(r).toMatch(/allow update: if !\('muistiinpanot' in request\.resource\.data\)/);
     expect(r).toContain('match /henkilokunta/{dokId}');

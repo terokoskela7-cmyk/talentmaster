@@ -240,7 +240,7 @@ describe('Lukukuittaus: valmentaja avaa ketjun → pelaajan vastaus merkitään 
 });
 describe('Rules v3.51 + versiot', () => {
   it('Rules v3.51: huoltajan viestiluku vaatii suostumuksen KAIKILTA viesteiltä; changelog kertoo kyselyvuodon', () => {
-    const r = lue('tm_admin/firestore.rules'); expect(r).toMatch(/firestore\.rules v3\.5[12345]/); expect(r).toContain('Muutokset v3.50 → v3.51'); expect(r).not.toMatch(/resource\.data\.get\('tyyppi', ''\) != 'klippi'\s*\/\/ v3\.50 \(D58\)/);
+    const r = lue('tm_admin/firestore.rules'); expect(r).toMatch(/firestore\.rules v3\.5[123456]/); expect(r).toContain('Muutokset v3.50 → v3.51'); expect(r).not.toMatch(/resource\.data\.get\('tyyppi', ''\) != 'klippi'\s*\/\/ v3\.50 \(D58\)/);
     expect(r).toContain("pelaajaData(seuraId, resource.data.get('pelaajaId', '')).get('suostumusTila', '') == 'annettu');   // v3.51");
   });
   it('lib-versiot: tm_mediaviesti v2 kaikissa neljässä sovelluksessa (Master, VP, Pelaaja, Vanhempi); tm_klippi_perhe v1 Pelaajassa + Vanhemmassa', () => {

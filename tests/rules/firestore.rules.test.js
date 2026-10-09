@@ -4781,6 +4781,28 @@ describe('v3.46 · reviewit.kevyt: valmentaja kirjoittaa sanoina (enum); pelaaja
     await assertFails(setDoc(rev(valmentajaContext(VALM_B_UID, SEURA_B).firestore()), { kevyt: KEVYT }, { merge: true })); await assertFails(getDoc(rev(huoltajaContext().firestore())));
   });
 });
+describe('v3.56 · joukkueet.tyyppi (S2, D70): vain SA/johto asettaa (kilpa|harraste); valmentaja ei; puuttuva sallittu', () => {
+  beforeEach(async () => { await seedAdminDoc(); await seedSeuraAndPelaaja(); await testEnv.withSecurityRulesDisabled(async (c) => { await setDoc(doc(c.firestore(), 'seurat', SEURA_A, 'joukkueet', JOUKKUE_A1), { nimi: 'FCL U12' }); }); });
+  const jd = (db) => doc(db, 'seurat', SEURA_A, 'joukkueet', JOUKKUE_A1);
+  const lueT = async () => { let d; await testEnv.withSecurityRulesDisabled(async (c) => { d = (await getDoc(jd(c.firestore()))).data(); }); return d; };
+  it('VP, sihteeri ja SA kirjoittavat tyypin ("kilpa"/"harraste") ✓ (update ja create); väärä arvo ✗; tyyppi + profiili yhdessä ✓', async () => {
+    await assertSucceeds(updateDoc(jd(vpContext(SEURA_A).firestore()), { tyyppi: 'harraste' })); await assertSucceeds(updateDoc(jd(sihteeriContext(SEURA_A).firestore()), { tyyppi: 'kilpa' })); await assertSucceeds(updateDoc(jd(saContext().firestore()), { tyyppi: 'harraste' }));
+    for (const v of ['muu', 'Kilpa', '', 1, null, ['kilpa']]) await assertFails(updateDoc(jd(vpContext(SEURA_A).firestore()), { tyyppi: v }));
+    await assertSucceeds(updateDoc(jd(vpContext(SEURA_A).firestore()), { tyyppi: 'kilpa', valmentajaprofiili: 'oto' }));
+    await assertFails(updateDoc(jd(vpContext(SEURA_A).firestore()), { tyyppi: 'harraste', valmentajaprofiili: 'x' }));
+    await assertSucceeds(setDoc(doc(vpContext(SEURA_A).firestore(), 'seurat', SEURA_A, 'joukkueet', 'uusi_u13'), { nimi: 'Uusi', tyyppi: 'harraste' })); await assertSucceeds(setDoc(doc(vpContext(SEURA_A).firestore(), 'seurat', SEURA_A, 'joukkueet', 'ilman_tyyppia'), { nimi: 'Ilman' }));
+    await assertFails(setDoc(doc(vpContext(SEURA_A).firestore(), 'seurat', SEURA_A, 'joukkueet', 'uusi_u14'), { nimi: 'Uusi', tyyppi: 'x' }));
+    expect((await lueT()).tyyppi).toBe('kilpa');
+  });
+  it('VALMENTAJA, talenttivalmentaja, toisen seuran VP ja pelaaja eivät kirjoita tyyppiä; jaksokentät kirjoittuvat edelleen (J2 ennallaan)', async () => {
+    const valm = valmentajaContext(VALM_A_UID, SEURA_A).firestore();
+    await assertFails(updateDoc(jd(valm), { tyyppi: 'harraste' })); await assertFails(updateDoc(jd(valm), { jaksofokus: { alku: '2026-11-10' }, tyyppi: 'harraste' }));
+    await assertFails(updateDoc(jd(talenttivalmentajaContext('talval-001', SEURA_A).firestore()), { tyyppi: 'harraste' })); await assertFails(updateDoc(jd(vpContext(SEURA_B).firestore()), { tyyppi: 'harraste' })); await assertFails(updateDoc(jd(pelaajaItseContext().firestore()), { tyyppi: 'harraste' }));
+    await assertSucceeds(updateDoc(jd(valm), { jaksofokus: { alku: '2026-11-10', kesto_vk: 6 } }));
+    expect((await lueT()).tyyppi).toBeUndefined();
+  });
+});
+
 describe('v3.46 · joukkueet.valmentajaprofiili: vain SA/johto asettaa (ammatti|oto); valmentaja ei', () => {
   beforeEach(async () => { await seedAdminDoc(); await seedSeuraAndPelaaja(); await testEnv.withSecurityRulesDisabled(async (c) => { await setDoc(doc(c.firestore(), 'seurat', SEURA_A, 'joukkueet', JOUKKUE_A1), { nimi: 'FCL U12' }); }); });
   const jd = (db) => doc(db, 'seurat', SEURA_A, 'joukkueet', JOUKKUE_A1);

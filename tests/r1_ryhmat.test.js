@@ -162,7 +162,7 @@ describe('Lähdetarkistukset', () => {
     expect(VP).toContain('data-ws="ryhmat" onclick="setWs(\'ryhmat\')"'); expect(VP).toContain('id="ws-ryhmat"'); expect(VP).toContain("if (ws === 'ryhmat') { window._ryTila = null; _ryRender(); _ryLataa(); }"); expect(VP).toContain('<script src="lib/tm_ryhmat.js?v=2"></script>');
   });
   it('Rules v3.49: ryhmat-säännöt + kalenterin ryhmätapahtumapoikkeus + versio', () => {
-    const r = lue('tm_admin/firestore.rules'); expect(r).toMatch(/firestore.rules v3.(49|50|51|52|53|54|55)/); expect(r).toContain('match /ryhmat/{ryhmaId}'); expect(r).toContain('function ryhmaKelpaa()'); expect(r).toContain('ryhmanValmentajaTapahtumassa(seuraId)'); expect(r).toContain('Seuran pulssi (S1) siirtyy v3.50:een');
+    const r = lue('tm_admin/firestore.rules'); expect(r).toMatch(/firestore.rules v3.(49|50|51|52|53|54|55|56)/); expect(r).toContain('match /ryhmat/{ryhmaId}'); expect(r).toContain('function ryhmaKelpaa()'); expect(r).toContain('ryhmanValmentajaTapahtumassa(seuraId)'); expect(r).toContain('Seuran pulssi (S1) siirtyy v3.50:een');
   });
   it('Geminin käännöslista: kaikki ry_*-avaimet + ruudun otsikot listassa (sv jää määrittelemättä)', () => {
     const d = lue('docs/R1_RYHMAT_SV_KAANNOKSET.md'); for (const k of Object.keys(R.FI)) expect(d, k).toContain('`' + k + '`'); expect(d).toContain('Ryhmät'); expect(d).toContain('Maalivahdit, talenttiryhmä ja muut ryhmät joukkueiden yli');

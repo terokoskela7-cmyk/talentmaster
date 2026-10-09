@@ -43,6 +43,11 @@ async function keraaOma(deps, seuraRef, pelaajat, arvioMs) {
       const snap = await pRef.collection(nimi).where(FieldPath.documentId(), '>=', alkuPvm).where(FieldPath.documentId(), '<=', arvioPvm).limit(IKKUNA_PV + 1).get();
       const idt = (snap && snap.docs ? snap.docs : []).map((d) => d.id).filter((id) => /^\d{4}-\d{2}-\d{2}$/.test(id) && ikk(id)).sort();
       if (idt.length) p.oma.push(idt[idt.length - 1]);
+      if (nimi === 'viikkokatsaukset' && idt.length) p.toiminto.push(idt[idt.length - 1]);   // v4: viikkokatsaus vastattu
+      if (nimi === 'kirjaukset') {   // v4: vain huoltajan jakso_kuittaus (ei itse kirjaus)
+        const kuitt = (snap && snap.docs ? snap.docs : []).filter((d) => { const k = (d.data() || {}).jakso_kuittaus; return k && typeof k === 'object' && ikk(d.id); }).map((d) => d.id).sort();
+        if (kuitt.length) { p.toiminto.push(kuitt[kuitt.length - 1]); p.perhe.push(kuitt[kuitt.length - 1]); }
+      }
     }
   });
   const kohde = new Map(pelaajat.map((p) => [p.id, p]));
@@ -57,9 +62,18 @@ async function keraaOma(deps, seuraRef, pelaajat, arvioMs) {
   // (4) klippivastaukset ja -kuittaukset (R6.4): yksi yhtäsuuruuskysely/tyyppi (ei yhdistelmäindeksiä), suodatus koodissa
   for (const tyyppi of ['klippi_vastaus', 'klippi_kuittaus']) {
     const vs = await seuraRef.collection('viestit').where('tyyppi', '==', tyyppi).limit(2000).get();
-    (vs && vs.docs ? vs.docs : []).forEach((d) => { const x = d.data() || {}; if (x.tyyppi === tyyppi) lisaa(x.pelaajaId, _pvmIso(x.aika || x.luotu)); });
+    (vs && vs.docs ? vs.docs : []).forEach((d) => {
+      const x = d.data() || {}; if (x.tyyppi !== tyyppi) return;
+      const pvm = _pvmIso(x.aika || x.luotu); lisaa(x.pelaajaId, pvm);
+      const p = kohde.get(x.pelaajaId); if (p && ikk(pvm)) { p.toiminto.push(pvm); if (tyyppi === 'klippi_kuittaus') p.perhe.push(pvm); }   // v4: klippivastaus/-kuittaus; kuittaus = perhe
+    });
   }
 }
+
+/** S2 / kooste v4 — SILMUKAN TOIMINNOT (D65), erillinen lista p.toiminto (+ p.perhe = perheen kuittaukset, D71). Lähteet (päivämäärät, ei sisältöä; ikkuna [arvio−29 pv, arvio], uusin riittää koska ikkuna 7 pv ratkeaa uusimmasta ≤ arvio):
+ *  viikkokatsaukset/{pvm} (kerätään keraaOma-silmukassa) · pelaajadokumentin ydinvahvuus_valinta.valittu_pvm · viestit klippi_vastaus + klippi_kuittaus (R6.4; kuittaus on huoltajan → myös p.perhe) ·
+ *  kirjaukset/{pvm}.jakso_kuittaus (U12-huoltajan kuittaus; vain doc jolla kenttä on map → p.toiminto + p.perhe; itse kirjaus EI ole toiminto). EI läsnäoloa/RSVPtä, EI kirjautumista. */
+const TOIMINTO_LAHTEET = ['viikkokatsaukset', 'ydinvahvuus_valinta', 'klippi_vastaus', 'klippi_kuittaus', 'kirjaukset.jakso_kuittaus'];
 
 /** Arviointihetki: ei myöhemmin kuin su klo 21 Helsingin aikaa (voimassa oleva jakso = käynnissä sunnuntaina klo 21), ei tulevaisuudessa. */
 function arvioHetki(nytMs, rajat) { return Math.min(nytMs, rajat.su21Ms); }
@@ -68,7 +82,7 @@ async function laskeSeura(deps, sid, opts) {
   const { db, FieldValue, FieldPath } = deps; const rajat = opts.rajat, nytMs = opts.nytMs, arvioMs = arvioHetki(nytMs, rajat);
   const seuraRef = db.collection('seurat').doc(sid);
   const [jSnap, pSnap] = await Promise.all([seuraRef.collection('joukkueet').get(), seuraRef.collection('pelaajat').get()]);
-  const joukkueet = jSnap.docs.map((d) => { const x = d.data() || {}; return { id: d.id, nimi: x.nimi || '', ikaryhma: x.ikaryhma || null, jaksofokus: _norm(x.jaksofokus) || null }; });
+  const joukkueet = jSnap.docs.map((d) => { const x = d.data() || {}; return { id: d.id, nimi: x.nimi || '', ikaryhma: x.ikaryhma || null, jaksofokus: _norm(x.jaksofokus) || null, tyyppi: x.tyyppi || null, valmentajaprofiili: x.valmentajaprofiili || null }; });   // v4: joukkueen asetukset (D70, D50)
   const pelaajat = [];
   pSnap.docs.forEach((d) => {
     const x = d.data() || {}; if (_poissa(x)) return;
@@ -76,7 +90,9 @@ async function laskeSeura(deps, sid, opts) {
       jaksofokus: _norm(x.jaksofokus) || null, jaksofokus_historia: _norm(x.jaksofokus_historia) || [], ydinvahvuus: _norm(x.ydinvahvuus) || null, ydinvahvuus_valinta: _norm(x.ydinvahvuus_valinta) || null, idp_sitoumus_pvm: _norm(x.idp_sitoumus_pvm) || null,
       // S1.1 Käyttöaste (versio 2): vain päivämääriä ja totuusarvo — ei sisältöä
       suostumus: suostumusAnnettu(x), viimeisinKirjautuminen: _pvmIso(x.viimeisinKirjautuminen), huoltajaViimeisinKaynti: _pvmIso(x.huoltajaViimeisinKaynti),
-      oma: [x.idp_sitoumus_pvm, x.d3_pvm, x.streak_paivitetty, x.ydinvahvuus_valinta && x.ydinvahvuus_valinta.valittu_pvm].map(_pvmIso).filter(Boolean) });
+      oma: [x.idp_sitoumus_pvm, x.d3_pvm, x.streak_paivitetty, x.ydinvahvuus_valinta && x.ydinvahvuus_valinta.valittu_pvm].map(_pvmIso).filter(Boolean),
+      // v4 (S2): silmukan toiminnot ja perheen kuittaukset — täydentyvät keraaOma:ssa
+      toiminto: [x.ydinvahvuus_valinta && x.ydinvahvuus_valinta.valittu_pvm].map(_pvmIso).filter(Boolean), perhe: [] });
   });
   await keraaOma(deps, seuraRef, pelaajat, arvioMs);
   const analyysi = K.tmKoosteAnalysoi({ joukkueet, pelaajat, aika: { alkuMs: rajat.alkuMs, loppuMs: rajat.loppuMs, arvioMs, nytMs, vuosi: H.helsinginVuosi(arvioMs) } });
@@ -144,8 +160,8 @@ function ajastettuKasittelija(deps, tila) {
 
 /** Yhteenveto lukumääristä (ei nimiä/ID:itä) — takaisinlaskennan kuiva-ajon näyttöön. */
 function yhteenveto(doc) {
-  const y = { joukkueita: 0, joukkuejaksoja: 0, pelaajat: 0, jaksolla: 0, valinta_odottaa: 0, katselmus: 0, vastanneet: 0, vastausperusta: 0, katselmus_ajallaan: 0, katselmus_perusta: 0, suostumus: 0, kirjautunut_30: 0, huoltaja_30: 0, aktiivinen_7: 0, aktiivinen_30: 0 };
-  Object.keys((doc && doc.joukkueet) || {}).forEach((jid) => { const j = doc.joukkueet[jid]; y.joukkueita++; if (j.jakso) y.joukkuejaksoja++; y.pelaajat += j.n_pelaajat; y.jaksolla += j.n_jaksolla; y.valinta_odottaa += j.n_valinta_odottaa; y.katselmus += j.n_katselmus; y.vastanneet += j.n_vastanneet; y.vastausperusta += j.n_vastausperusta; y.katselmus_ajallaan += j.n_katselmus_ajallaan; y.katselmus_perusta += j.n_katselmus_perusta; y.suostumus += j.n_suostumus || 0; y.kirjautunut_30 += j.n_kirjautunut_30 || 0; y.huoltaja_30 += j.n_huoltaja_30 || 0; y.aktiivinen_7 += j.n_aktiivinen_7 || 0; y.aktiivinen_30 += j.n_aktiivinen_30 || 0; });
+  const y = { joukkueita: 0, joukkuejaksoja: 0, pelaajat: 0, jaksolla: 0, valinta_odottaa: 0, katselmus: 0, vastanneet: 0, vastausperusta: 0, katselmus_ajallaan: 0, katselmus_perusta: 0, suostumus: 0, kirjautunut_30: 0, huoltaja_30: 0, aktiivinen_7: 0, aktiivinen_30: 0, toiminto_7: 0, perhe_kuittaus_7: 0 };
+  Object.keys((doc && doc.joukkueet) || {}).forEach((jid) => { const j = doc.joukkueet[jid]; y.joukkueita++; if (j.jakso) y.joukkuejaksoja++; y.pelaajat += j.n_pelaajat; y.jaksolla += j.n_jaksolla; y.valinta_odottaa += j.n_valinta_odottaa; y.katselmus += j.n_katselmus; y.vastanneet += j.n_vastanneet; y.vastausperusta += j.n_vastausperusta; y.katselmus_ajallaan += j.n_katselmus_ajallaan; y.katselmus_perusta += j.n_katselmus_perusta; y.suostumus += j.n_suostumus || 0; y.kirjautunut_30 += j.n_kirjautunut_30 || 0; y.huoltaja_30 += j.n_huoltaja_30 || 0; y.aktiivinen_7 += j.n_aktiivinen_7 || 0; y.aktiivinen_30 += j.n_aktiivinen_30 || 0; y.toiminto_7 += j.n_toiminto_7 || 0; y.perhe_kuittaus_7 += j.n_perhe_kuittaus_7 || 0; });
   return y;
 }
 
@@ -187,4 +203,4 @@ function paivitaKasittelija(deps) {
   };
 }
 
-module.exports = { laskeSeura, laskeKaikki, ajastettuKasittelija, paivitaKasittelija, arvioHetki, JOHTO_ROOLIT };
+module.exports = { TOIMINTO_LAHTEET, laskeSeura, laskeKaikki, ajastettuKasittelija, paivitaKasittelija, arvioHetki, JOHTO_ROOLIT };

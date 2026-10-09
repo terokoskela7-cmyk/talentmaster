@@ -85,5 +85,5 @@ describe('Excel_Tuonti SA-työkalu "Siirrä kalenterin muistiinpanot" (sivun oik
 });
 
 describe('Rules v3.48 lähdetarkistus', () => {
-  it('versio, alikokoelma ja läsnäolijat-luku', () => { const r = lue('tm_admin/firestore.rules'); expect(r).toMatch(/firestore.rules v3.(48|49|50|51|52|53|54|55)/); expect(r).toContain('match /henkilokunta/{dokId}'); expect(r).toContain("dokId == 'muistiinpanot'"); expect(r).toMatch(/onPelaajaItse\(seuraId, osallistujaId\)\s*\n\s*\|\| onLapsenHuoltaja\(seuraId, osallistujaId\);/); expect(r).not.toMatch(/allow read:[^;]*onPelaajanSeura\(seuraId\);\s*\/\/ P7-c\.1: PIN-pelaaja\/vanhempi näkee läsnäolon/); });
+  it('versio, alikokoelma ja läsnäolijat-luku', () => { const r = lue('tm_admin/firestore.rules'); expect(r).toMatch(/firestore.rules v3.(48|49|50|51|52|53|54|55|56)/); expect(r).toContain('match /henkilokunta/{dokId}'); expect(r).toContain("dokId == 'muistiinpanot'"); expect(r).toMatch(/onPelaajaItse\(seuraId, osallistujaId\)\s*\n\s*\|\| onLapsenHuoltaja\(seuraId, osallistujaId\);/); expect(r).not.toMatch(/allow read:[^;]*onPelaajanSeura\(seuraId\);\s*\/\/ P7-c\.1: PIN-pelaaja\/vanhempi näkee läsnäolon/); });
 });
