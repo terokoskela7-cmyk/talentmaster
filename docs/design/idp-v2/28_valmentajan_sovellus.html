@@ -1,0 +1,697 @@
+<!doctype html>
+<html lang="fi">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Valmentajan sovellus · 28</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,400&display=swap">
+<style>
+
+/* 22: VP/valmentajan kehitystyöpöytä uusiksi. Sivu Cormorant + DM Sans (VP, D37 C), Kenttä-komponentti Archivo (D11/D51). Tumma = operatiivinen oletus. */
+:root{--bg:#1C1C1A;--sur:#242421;--sur2:#2C2C28;--ink:#F2EFE6;--ink2:#CFCBC0;--ink3:#8F8C83;--line:rgba(242,239,230,.14);--chalk:rgba(242,239,230,.55);--chalk2:rgba(242,239,230,.28);
+ --teal:#28B090;--teal-dim:rgba(40,176,144,.16);--teal-brd:rgba(40,176,144,.45);--amber:#E0A040;--amber-dim:rgba(224,160,64,.16);--red:#D06A5A;--red-dim:rgba(208,106,90,.14);--blue:#7FA6DE;--on-accent:#111110;color-scheme:dark}
+@media (prefers-color-scheme:light){:root:not([data-theme="dark"]){--bg:#F2EFE6;--sur:#FBFAF6;--sur2:#EAE6DA;--ink:#1C1C1A;--ink2:#3E3C37;--ink3:#6B695F;--line:rgba(28,28,26,.16);--chalk:rgba(28,28,26,.45);--chalk2:rgba(28,28,26,.2);--teal:#1A7A5E;--teal-dim:rgba(26,122,94,.12);--teal-brd:rgba(26,122,94,.4);--amber:#9A6512;--amber-dim:rgba(224,160,64,.2);--red:#A8473A;--red-dim:rgba(168,71,58,.12);--blue:#3D6AA8;--on-accent:#F2EFE6;color-scheme:light}}
+:root[data-theme="light"]{--bg:#F2EFE6;--sur:#FBFAF6;--sur2:#EAE6DA;--ink:#1C1C1A;--ink2:#3E3C37;--ink3:#6B695F;--line:rgba(28,28,26,.16);--chalk:rgba(28,28,26,.45);--chalk2:rgba(28,28,26,.2);--teal:#1A7A5E;--teal-dim:rgba(26,122,94,.12);--teal-brd:rgba(26,122,94,.4);--amber:#9A6512;--amber-dim:rgba(224,160,64,.2);--red:#A8473A;--red-dim:rgba(168,71,58,.12);--blue:#3D6AA8;--on-accent:#F2EFE6;color-scheme:light}
+:root[data-theme="dark"]{color-scheme:dark}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--ink);font-family:'DM Sans',system-ui,sans-serif;font-size:15px;line-height:1.55;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1240px;margin:0 auto;padding:28px 16px 90px;display:grid;gap:56px}
+.wrap>*,section>*{min-width:0}
+section{display:grid;gap:16px;scroll-margin-top:12px}
+.serif{font-family:'Cormorant Garamond',Georgia,serif;font-weight:400}
+h1{font-family:'Cormorant Garamond',Georgia,serif;font-weight:300;font-size:clamp(38px,5.5vw,64px);line-height:1.02;letter-spacing:-.005em;max-width:20ch}
+h2{font-family:'Cormorant Garamond',Georgia,serif;font-weight:400;font-size:clamp(28px,3.6vw,38px);line-height:1.05}
+h3{font-family:'Cormorant Garamond',Georgia,serif;font-weight:500;font-size:22px;line-height:1.1}
+p{color:var(--ink2);max-width:76ch}
+b{font-weight:600;color:var(--ink)}
+.meta{font-size:12.5px;color:var(--ink3)}
+.mono{font-family:'DM Mono',monospace;font-size:12px;color:var(--ink3)}
+.eb{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--teal)}
+.top{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between}
+.tbtn{font:inherit;font-size:13px;padding:7px 12px;border:1px solid var(--line);border-radius:4px;background:transparent;color:var(--ink2);cursor:pointer;min-height:36px}
+.tbtn.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.tbtn:focus-visible,.nav a:focus-visible{outline:2px solid var(--teal);outline-offset:2px}
+.nav{display:flex;flex-wrap:wrap;gap:8px}
+.nav a{font-size:13px;color:var(--ink2);text-decoration:none;border:1px solid var(--line);border-radius:4px;padding:6px 12px}
+.nav a b{color:var(--teal);font-family:'DM Mono';margin-right:6px}
+.ctl{display:flex;flex-wrap:wrap;gap:14px;align-items:center;border:1px solid var(--line);border-radius:6px;padding:10px 14px;background:var(--sur)}
+.ctl .g{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.ctl .g span.l{font-size:12px;color:var(--ink3);margin-right:4px}
+table{border-collapse:collapse;width:100%;font-size:13.5px}
+th,td{text-align:left;vertical-align:top;padding:8px 10px;border-top:1px solid var(--line)}
+th{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink3);border-top:0}
+.tw{overflow-x:auto;border:1px solid var(--line);border-radius:6px}
+.note{border-left:2px solid var(--teal);padding:8px 14px;color:var(--ink2);font-size:14px}
+.note.w{border-color:var(--amber)}
+.g3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.g2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+@media(max-width:800px){.g3,.g2{grid-template-columns:minmax(0,1fr)}}
+.card{border:1px solid var(--line);border-radius:6px;background:var(--sur);padding:14px 16px;display:grid;gap:6px}
+.card .h{font-family:'Cormorant Garamond',Georgia,serif;font-size:22px;font-weight:500}
+.kbd{display:inline-block;border:1px solid var(--line);border-radius:3px;padding:0 6px;font-family:'DM Mono';font-size:11px;color:var(--ink2)}
+
+/* ── Työpöytä (desk) ── */
+.desk{border:1px solid var(--line);border-radius:8px;background:var(--sur);overflow:hidden;container-type:inline-size;container-name:desk}
+.desk .dh{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;padding:10px 16px;border-bottom:1px solid var(--line);background:var(--bg)}
+.desk .dh .nm{font-family:'Cormorant Garamond',Georgia,serif;font-size:24px;line-height:1;font-weight:500}
+.desk .dh .sub{font-size:12.5px;color:var(--ink3)}
+.desk .dh .sp{flex:1}
+.chip{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;padding:3px 9px;border-radius:3px;border:1px solid var(--line);color:var(--ink2);white-space:nowrap}
+.chip.ok{color:var(--teal);border-color:var(--teal-brd);background:var(--teal-dim)}
+.chip.w{color:var(--amber);background:var(--amber-dim);border-color:transparent}
+.chip.n{color:var(--ink3)}
+.chip.err{color:var(--red);background:var(--red-dim);border-color:transparent}
+.btn{font:inherit;font-size:13.5px;font-weight:600;padding:8px 14px;border-radius:4px;border:1px solid var(--teal);background:var(--teal);color:var(--on-accent);cursor:pointer;min-height:36px;white-space:nowrap}
+.btn.q{background:transparent;color:var(--teal)}
+.btn.g{background:transparent;color:var(--ink2);border-color:var(--line)}
+.btn.sm{font-size:12.5px;padding:5px 10px;min-height:30px}
+.ico{width:34px;height:34px;display:inline-grid;place-items:center;border:1px solid var(--line);border-radius:4px;color:var(--ink2);font-size:16px}
+.desk .dtabs{display:flex;gap:2px;padding:6px 12px 0;border-bottom:1px solid var(--line);background:var(--bg)}
+.desk .dtabs span{padding:8px 14px;font-size:13.5px;font-weight:600;color:var(--ink3);border-bottom:2px solid transparent;cursor:pointer}
+.desk .dtabs span.on{color:var(--ink);border-bottom-color:var(--teal)}
+.desk .db{padding:16px;display:grid;gap:14px}
+.desk .two{display:grid;grid-template-columns:minmax(0,340px) minmax(0,1fr);gap:18px;align-items:start}
+@container desk (max-width: 720px){.radar .hide-m{display:none}.desk .two{grid-template-columns:minmax(0,1fr)}.desk .two>.kt-col{order:2}.desk .g2{grid-template-columns:minmax(0,1fr)}.hist div{grid-template-columns:minmax(0,1fr)}.hist .q{grid-column:1}.desk .db{padding:12px}.desk .dh .nm{font-size:20px}.hide-m{display:none!important}}
+
+/* Kortti-anatomia: otsikko · tulkintalause · luvut+ikä · yksi linkki */
+.ev{border:1px solid var(--line);border-radius:6px;background:var(--bg);display:grid;gap:8px;padding:12px 14px}
+.ev .t{display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap}
+.ev .t .h{font-family:'Cormorant Garamond',Georgia,serif;font-size:21px;font-weight:500;line-height:1.05}
+.ev .t .age{font-family:'DM Mono';font-size:11.5px;color:var(--ink3);white-space:nowrap}
+.ev .t .age.old{color:var(--amber)}
+.ev .lause{font-size:14.5px;color:var(--ink);line-height:1.45}
+.ev .nums{display:flex;flex-wrap:wrap;gap:6px 18px}
+.ev .nums div{display:grid;gap:0}
+.ev .nums .k{font-size:11.5px;color:var(--ink3)}
+.ev .nums .v{font-family:'Cormorant Garamond',Georgia,serif;font-size:26px;line-height:1;font-weight:500}
+.ev .nums .v small{font-family:'DM Mono';font-size:11px;color:var(--ink3);margin-left:4px}
+.ev .nums .v.na{color:var(--ink3);font-size:18px;font-family:'DM Sans'}
+.ev .act{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;border-top:1px solid var(--line);padding-top:8px;margin-top:2px}
+.ev .act a{color:var(--teal);font-size:13.5px;font-weight:600;text-decoration:none}
+.ev .act .m{font-size:12px;color:var(--ink3)}
+.ev.focus{border-color:var(--teal);box-shadow:inset 0 0 0 1px var(--teal-brd)}
+.q3.two{grid-template-columns:repeat(2,minmax(0,1fr))}
+.opts span.q{border-style:dashed;color:var(--ink3);font-size:12.5px}
+details.ev.acc{padding:0}details.ev.acc summary{list-style:none;cursor:pointer;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 10px;padding:12px 14px;align-items:baseline}details.ev.acc summary::-webkit-details-marker{display:none}details.ev.acc summary .sum{grid-column:1/-1;font-family:'Cormorant Garamond',Georgia,serif;font-size:22px;color:var(--ink2);line-height:1}details.ev.acc[open] summary .sum{display:none}details.ev.acc .lause,details.ev.acc .nums{padding:0 14px}details.ev.acc .act{margin:0 14px 12px}
+.ev.sig{border-color:var(--teal);background:var(--teal-dim)}
+.ev.sig.w{border-color:var(--amber);background:var(--amber-dim)}
+.ev.sig.n{border-style:dashed;background:transparent}
+.ev.sig .h2{font-family:'Cormorant Garamond',Georgia,serif;font-size:24px;font-weight:500;line-height:1.05}
+.ev.sig .why{font-size:13.5px;color:var(--ink2)}
+.ev.sig .second{font-size:12.5px;color:var(--ink3);border-top:1px dashed var(--line);padding-top:6px}
+.spark{display:inline-block;vertical-align:middle;margin-left:8px}
+.q3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+@container desk (max-width: 720px){.q3{grid-template-columns:minmax(0,1fr)}}
+.q3 div{border:1px solid var(--line);border-radius:4px;padding:10px 12px;display:grid;gap:3px;background:var(--bg)}
+.q3 .k{font-size:12.5px;color:var(--ink3)}
+.q3 .v{font-family:'Cormorant Garamond',Georgia,serif;font-size:24px;line-height:1.05;font-weight:500}
+.q3 .v.w{color:var(--amber)}.q3 .v.na{color:var(--ink3);font-size:18px}
+.q3 .s{font-size:12px;color:var(--ink3)}
+.osat{display:grid;gap:4px}
+.osat div{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:10px;align-items:center;padding:7px 10px;border:1px solid var(--line);border-radius:4px;font-size:13.5px;background:var(--bg)}
+.osat .k{font-family:'DM Mono';font-size:12px;color:var(--teal);font-weight:500}
+.osat .st{font-size:12px;color:var(--ink3)}
+.osat div.on{border-color:var(--amber)}.osat div.on .st{color:var(--amber);font-weight:600}
+.osat div.ok .st{color:var(--teal);font-weight:600}
+.jana{display:grid;gap:0}
+.jana .jr{display:grid;grid-template-columns:28px minmax(0,1fr);gap:12px;position:relative}
+.jana .jr::before{content:'';position:absolute;left:13px;top:28px;bottom:-6px;width:1.5px;background:var(--line)}
+.jana .jr:last-child::before{display:none}
+.jana .dot{width:28px;height:28px;border-radius:50%;border:1.5px solid var(--line);display:grid;place-items:center;font-family:'DM Mono';font-size:11px;color:var(--ink3);background:var(--sur)}
+.jana .jr.now .dot{border-color:var(--amber);color:var(--amber);background:var(--amber-dim)}
+.jana .jr.done .dot{border-color:var(--teal);color:var(--teal)}
+.jana .jb{display:grid;gap:8px;padding-bottom:18px}
+.jana .jb .eb{margin-bottom:-4px}
+.jana .rl{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}.jana .rl a{color:var(--teal);font-size:13.5px;font-weight:600;text-decoration:none}.jana .rl .m{font-size:12px;color:var(--ink3)}
+.vk{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px}
+.vk div{border:1px solid var(--line);border-radius:4px;padding:6px 6px;font-size:12px;display:grid;gap:2px;min-height:58px;background:var(--bg)}
+.vk .d{font-family:'DM Mono';font-size:11px;color:var(--ink3)}
+.vk div.j{border-color:var(--teal-brd)}.vk div.o{border-color:var(--chalk2);border-style:dashed}.vk div.m{border-color:var(--amber)}
+.vk div.today{outline:2px solid var(--teal);outline-offset:-2px}
+@container desk (max-width: 720px){.vk{grid-template-columns:repeat(4,minmax(0,1fr))}}
+.hist{display:grid;gap:6px}
+.hist div{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:12px;align-items:baseline;padding:8px 10px;border:1px solid var(--line);border-radius:4px;font-size:13.5px;background:var(--bg)}
+.hist .m{font-family:'DM Mono';font-size:11.5px;color:var(--ink3)}
+.hist .q{font-style:italic;color:var(--ink2)}
+.clip{display:grid;grid-template-columns:40px minmax(0,1fr) auto;gap:10px;align-items:center;border:1px solid var(--line);border-radius:4px;padding:8px 10px;background:var(--bg);font-size:13.5px}
+.clip .v{width:40px;height:40px;border-radius:4px;background:var(--sur2);display:grid;place-items:center;color:var(--teal)}
+.clip small{display:block;color:var(--ink3);font-size:12px}
+.sheet{border:1px solid var(--teal-brd);border-radius:8px;background:var(--sur);display:grid;gap:12px;padding:16px;max-width:520px;box-shadow:0 18px 40px -24px rgba(0,0,0,.6)}
+.sheet .sh{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+.sheet .sh .h{font-family:'Cormorant Garamond',Georgia,serif;font-size:24px;font-weight:500}
+.opts{display:flex;gap:6px;flex-wrap:wrap}
+.opts span{border:1px solid var(--line);border-radius:3px;padding:7px 12px;font-size:13.5px;min-height:36px;display:inline-flex;align-items:center}
+.opts span.on{border-color:var(--teal);background:var(--teal-dim);color:var(--teal);font-weight:600}
+.ta{border:1px solid var(--line);border-radius:4px;padding:10px 12px;font-size:14px;color:var(--ink2);min-height:64px;background:var(--bg)}
+.phones{display:flex;gap:18px;flex-wrap:wrap;align-items:flex-start}
+.phone{width:390px;max-width:100%;border:1px solid var(--line);border-radius:28px;padding:12px;background:var(--sur2)}
+.phone .desk{border-radius:20px}
+.phone .mono.cap{margin:8px 4px 0;display:block}
+.radar{display:grid;grid-template-columns:auto minmax(0,1fr);gap:14px;align-items:center}.radar .hide-m{display:contents}
+@container desk (max-width: 520px){.radar{grid-template-columns:minmax(0,1fr)}}
+details.all{border:1px dashed var(--line);border-radius:6px;padding:10px 14px}
+details.all summary{cursor:pointer;color:var(--teal);font-weight:600;font-size:14px}
+details.all .in{padding-top:10px;display:grid;gap:8px}
+.dec{display:grid;gap:8px}
+.dec div{display:grid;grid-template-columns:56px minmax(0,1fr);gap:12px;padding:8px 0;border-top:1px solid var(--line);font-size:14px}
+.dec .n{font-family:'DM Mono';color:var(--teal);font-size:12.5px;padding-top:3px}
+.dec b{display:block}
+.hl{background:var(--amber-dim);padding:0 4px;border-radius:2px}
+.pelaaja-silmin .st-num,.pelaaja-silmin .age,.pelaaja-silmin .nums{display:none!important}
+@media print{@page{size:A4 landscape;margin:10mm}.top,.nav,.tbtn,.ctl{display:none!important}.wrap{gap:28px;padding:0}section{break-inside:avoid}}
+
+/* ── 23: Seuran pulssi v2 · lisäosat 22:n päälle. Ei uusia tokeneita. ── */
+.lead{display:grid;gap:4px}
+.lead .eb{margin-bottom:2px}
+.lead .big{font-family:'Cormorant Garamond',Georgia,serif;font-size:34px;line-height:1.05;font-weight:400;color:var(--ink)}
+.lead .big small{font-family:'DM Sans';font-size:14px;color:var(--ink3);margin-left:8px}
+.sigs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.sigs.one{grid-template-columns:minmax(0,1fr)}
+@container desk (max-width: 900px){.sigs{grid-template-columns:minmax(0,1fr)}}
+.ev.sig .btn{justify-self:start}
+.ev.sig .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.sigmore{font-size:13px;color:var(--ink3)}
+.sigmore a{color:var(--teal);font-weight:600;text-decoration:none}
+.eb.row2{display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap}
+.legend{display:flex;gap:6px;flex-wrap:wrap}
+.pt-wrap{border:1px solid var(--line);border-radius:6px;overflow:hidden}
+table.pt{font-size:13.5px}
+table.pt th{padding:9px 12px;background:var(--bg);white-space:nowrap}
+table.pt th small{display:block;text-transform:none;letter-spacing:0;font-size:11.5px;color:var(--ink3);font-weight:400}
+table.pt td{padding:9px 12px;vertical-align:middle}
+table.pt tr.seura td{background:var(--sur2);border-top:1px solid var(--line)}
+table.pt td.nm .h{font-family:'Cormorant Garamond',Georgia,serif;font-size:21px;line-height:1.05;font-weight:500;color:var(--ink);text-decoration:none}
+table.pt td.nm a.h:hover{color:var(--teal)}
+table.pt td.nm .m{display:block;font-size:12px;color:var(--ink3);margin-top:1px}
+.pv{display:inline-flex;align-items:baseline;gap:6px;font-family:'Cormorant Garamond',Georgia,serif;font-size:22px;line-height:1;font-weight:500;color:var(--ink)}
+.pv i{font-style:normal;font-family:'DM Mono';font-size:12px;width:14px;text-align:center}
+.pv.ok i{color:var(--teal)}.pv.w{color:var(--amber)}.pv.w i{color:var(--amber)}.pv.err{color:var(--red)}.pv.err i{color:var(--red)}
+.pv.n{color:var(--ink)}.pv.n i{color:var(--ink3)}
+.pv small{font-family:'DM Mono';font-size:11px;color:var(--ink3);font-weight:400}
+.cs{display:block;font-size:12px;color:var(--ink3);margin-top:3px}
+.cs.w{color:var(--amber);font-weight:600}
+.cs.err{color:var(--red);font-weight:600}
+.dash{color:var(--ink3);font-size:14px}
+.trend{display:inline-block;vertical-align:middle;margin-left:8px}
+.trend rect{fill:var(--chalk2)}.trend rect:last-child{fill:var(--chalk)}
+.trend.dn rect:last-child{fill:var(--amber)}
+.cards{display:none;gap:10px}
+@container desk (max-width: 720px){.pt-wrap{display:none}.cards{display:grid}.lead .big{font-size:30px}}
+.cardhead{display:grid;gap:2px;padding:4px 2px 2px}
+.cardhead .big{font-family:'Cormorant Garamond',Georgia,serif;font-size:34px;line-height:1.05}
+.cardhead .sub{font-size:13px;color:var(--ink2)}
+.ev .nums .v.w{color:var(--amber)}.ev .nums .v.err{color:var(--red)}
+.ev .nums .v small.t{font-family:'DM Mono'}
+.mini{font-size:12.5px;color:var(--ink3)}
+.verd{font-size:12px;font-weight:600;white-space:nowrap}
+.sect-note{font-size:13px;color:var(--ink3)}
+.fig2{display:grid;grid-template-columns:minmax(0,1fr) 420px;gap:18px;align-items:start}
+@media(max-width:1100px){.fig2{grid-template-columns:minmax(0,1fr)}}
+.phone .cap{font-family:'DM Mono';font-size:11px;color:var(--ink3);display:block;margin:8px 4px 0}
+.koti{display:grid;gap:8px}
+
+.desk .db>*{min-width:0}
+.legend{text-transform:none;letter-spacing:0}
+.legend .chip{white-space:normal;text-transform:none;letter-spacing:0;font-family:'DM Sans'}
+@container desk (max-width: 720px){.lead .big small{display:block;margin:4px 0 0}.legend{display:none}.eb.row2{display:block}}
+
+/* Kolme näkymää (D121) */
+.tk{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.tk .ev{gap:2px}.tk .k{font-size:11.5px;color:var(--ink3)}.tk .v{font-family:'Cormorant Garamond',Georgia,serif;font-size:30px;line-height:1;font-weight:500}.tk .s{font-size:12px;color:var(--ink3)}
+@container desk (max-width: 720px){.tk{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.vl{display:grid;border:1px solid var(--line);border-radius:6px;margin-top:6px;overflow:hidden}
+.vr{display:grid;grid-template-columns:18px minmax(0,1fr) auto;gap:10px;align-items:center;padding:9px 12px;border-top:1px solid var(--line);font-size:13.5px}
+.vr:first-child{border-top:0}
+.vr .vt b{font-weight:600;margin-right:4px}.vr .vm{display:block;font-size:12px;color:var(--ink3);margin-top:1px}
+.vr .dot{font-family:'DM Mono';font-size:12px;text-align:center}.dot.ok{color:var(--teal)}.dot.w{color:var(--amber)}.dot.err{color:var(--red)}.dot.n{color:var(--ink3)}
+.pl .vr{grid-template-columns:18px minmax(0,1fr) 90px 120px}
+.pl .vr.hd{font-size:11px;text-transform:uppercase;letter-spacing:.12em;color:var(--ink3);background:var(--sur2);padding:7px 12px}
+.pl a.h,.pt a.h{color:var(--ink);text-decoration:none}.pl a.h:hover{color:var(--teal)}
+.mono{font-family:'DM Mono';font-size:12px;color:var(--ink2)}.mono.old{color:var(--amber)}
+table.mt td{font-size:13px}
+@container desk (max-width: 720px){.vr{grid-template-columns:18px minmax(0,1fr)}.vr .btn{grid-column:2;justify-self:start}.pl .vr{grid-template-columns:18px minmax(0,1fr) 70px 80px}table.mt{font-size:12px}table.mt th,table.mt td{padding:7px 6px}}
+/* 25 · lisäosat */
+.onb{display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center;border:1px solid var(--amber);background:var(--amber-dim);border-radius:6px;padding:8px 12px}
+.onb .eb{color:var(--amber)}.onb .t{font-size:13.5px;flex:1;min-width:200px}
+.second.tri{display:flex;gap:14px}.second.tri a{color:var(--ink3);text-decoration:none;font-weight:600}.second.tri a:hover{color:var(--teal)}
+.jk{display:grid;grid-template-columns:54px minmax(0,1fr);gap:10px;align-items:center}
+.jk b{font-weight:600;font-size:13.5px}
+.kmini{width:54px;border-width:1px}
+.kmini .kt-layer{display:none}
+.kmini.tyhja,.kmini .kt-ase{}
+div.kmini.tyhja{height:46px;border:1px dashed var(--chalk2);border-radius:4px;display:grid;place-items:center;font-size:9.5px;color:var(--ink3);text-align:center;line-height:1.1}
+.kmini svg .kt-vk,.kmini svg .kt-vk-tehty,.kmini svg .kt-vk-nyt{r:3.4}
+.mrow{grid-template-columns:54px minmax(0,1fr) auto;align-items:center;gap:12px}
+.mrow .dot{font-family:'DM Mono';font-size:14px}
+.tag{font-family:'DM Mono';font-size:11px;color:var(--ink3);border:1px solid var(--line);border-radius:3px;padding:0 5px;margin:0 4px}
+.g2l{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+@container desk (max-width: 720px){.g2l{grid-template-columns:minmax(0,1fr)}.mrow{grid-template-columns:54px minmax(0,1fr) auto}}
+.tk .v.w{color:var(--amber)}
+/* aikajana */
+.aj-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:6px;margin-top:6px;background:var(--bg)}
+.aj{position:relative;display:grid;grid-template-columns:112px repeat(var(--n),minmax(40px,1fr));min-width:660px;font-size:12px}
+.aj-h{font-family:'DM Mono';font-size:11px;color:var(--ink3);text-align:center;padding:6px 0;border-bottom:1px solid var(--line)}
+.aj-h.nyt{color:var(--amber);font-weight:600}
+.aj-nm{padding:0 10px;display:flex;align-items:center;height:34px;border-top:1px solid var(--line);white-space:nowrap}
+.aj-nm a.h{color:var(--ink);text-decoration:none;font-weight:600;font-size:12.5px}
+.aj-row{position:relative;height:34px;border-top:1px solid var(--line)}
+.aj-b{position:absolute;top:7px;height:20px;border-radius:3px;overflow:hidden;display:flex;align-items:center;padding:0 6px;box-sizing:border-box}
+.aj-b span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:11.5px}
+.aj-b.on{background:var(--teal-dim);border:1px solid var(--teal-brd)}
+.aj-b.seur{border:1px solid var(--chalk2)}
+.aj-b.luonnos{border:1px dashed var(--amber);color:var(--amber)}
+.aj-k{position:absolute;top:9px;transform:translateX(-50%);font-style:normal;color:var(--teal);font-size:12px}
+.aj-mark{position:absolute;top:0;bottom:0;left:calc(112px + (100% - 112px) * (var(--c) + .5) / 14);border-left:1.5px solid var(--amber);pointer-events:none}
+.aj-mark span{display:none}
+.aj-mark.tp{border-left:1.5px dashed var(--ink3)}
+.aj-test{position:absolute;top:28px;bottom:0;left:calc(112px + (100% - 112px) * var(--s) / 14);width:calc((100% - 112px) * var(--w) / 14);background:var(--chalk2);opacity:.25;pointer-events:none}
+.aj-test span{display:none}
+
+.nb{font-family:'DM Mono';font-size:10.5px;background:var(--amber);color:var(--on-accent);border-radius:8px;padding:0 6px;margin-left:4px;display:inline-block}.desk .dtabs{overflow-x:auto}.desk .dtabs span{white-space:nowrap}@container desk (max-width: 420px){.desk .dtabs span{padding:8px 9px}}
+
+/* Navigaatio v3 (D135) */
+.desk:has(.shell){overflow:hidden}
+.shell{display:grid;grid-template-columns:196px minmax(0,1fr);min-height:600px}
+.snav{border-right:1px solid var(--line);background:var(--bg);display:flex;flex-direction:column;gap:2px;padding:12px 8px}
+.sb-brand{font-family:'Cormorant Garamond',Georgia,serif;font-size:20px;padding:4px 10px 10px}.sb-brand span{font-size:11px;vertical-align:super}
+.sb-who{display:grid;gap:2px;padding:6px 10px 12px;border-bottom:1px solid var(--line);margin-bottom:8px}.sb-who b{font-family:'Cormorant Garamond',Georgia,serif;font-size:18px;font-weight:500}
+.sb-i{display:flex;align-items:center;gap:10px;padding:7px 10px;border-radius:4px;color:var(--ink2);text-decoration:none;font-size:13.5px}
+.sb-i i{font-style:normal;width:16px;text-align:center;color:var(--ink3)}
+.sb-i.on{background:var(--teal-dim);color:var(--ink);font-weight:600;box-shadow:inset 2px 0 0 var(--teal)}.sb-i.on i{color:var(--teal)}
+.sb-i .nb{margin-left:auto}
+.sb-i.sm{font-size:12.5px;padding:5px 10px 5px 36px;color:var(--ink3)}
+.sb-sep{height:1px;background:var(--line);margin:8px 6px}
+.sb-tyo summary{list-style:none;cursor:pointer;padding:7px 10px;font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink3);display:flex;justify-content:space-between}.sb-tyo summary::-webkit-details-marker{display:none}
+.sb-tyo{margin-top:8px;border-top:1px solid var(--line);padding-top:6px}
+.sb-foot{margin-top:auto;border-top:1px solid var(--line);padding-top:6px}
+.smain{min-width:0;display:flex;flex-direction:column}
+.tbar{display:none}
+.kgrid{display:grid;grid-template-columns:minmax(0,1fr) 280px;align-items:start}
+.kgrid>.db{border-right:1px solid var(--line)}
+.rail{display:grid;gap:14px;padding:16px 14px;align-content:start}
+.rail .vr{padding:7px 10px;font-size:12.5px}.rail .vr .btn{min-height:26px;padding:3px 8px;font-size:12px}
+.tauko{border:1px dashed var(--chalk2);border-radius:6px;padding:8px 10px;display:grid;gap:3px;background:repeating-linear-gradient(135deg,transparent 0 8px,var(--sur2) 8px 9px)}
+.quick{display:flex;gap:8px;flex-wrap:wrap}
+.jlist{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:6px}
+.jrow{grid-template-columns:54px minmax(0,1fr);display:grid;align-items:center;gap:10px;text-decoration:none;color:var(--ink)}
+.jrow b{font-family:'Cormorant Garamond',Georgia,serif;font-size:20px;font-weight:500}.jrow .vm{display:block;font-size:12px;color:var(--ink3)}
+@container desk (max-width: 1000px){.kgrid{grid-template-columns:minmax(0,1fr)}.kgrid>.db{border-right:0}.rail{border-top:1px solid var(--line)}.jlist{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@container desk (max-width: 720px){.shell{grid-template-columns:minmax(0,1fr)}.snav{display:none}.jlist{grid-template-columns:minmax(0,1fr)}
+ .tbar{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));position:sticky;bottom:0;border-top:1px solid var(--line);background:var(--bg);margin-top:auto}
+ .tbar a{display:grid;justify-items:center;gap:2px;padding:8px 0 10px;font-size:10.5px;color:var(--ink3);text-decoration:none}.tbar a i{font-style:normal;font-size:16px}.tbar a.on{color:var(--teal);font-weight:600}}
+
+.kgrid .sigs{grid-template-columns:minmax(0,1fr)!important}.kgrid .ev.sig{grid-template-columns:minmax(0,1fr) auto;column-gap:16px}.kgrid .ev.sig>.eb,.kgrid .ev.sig>.h2,.kgrid .ev.sig>.why,.kgrid .ev.sig>.second{grid-column:1}.kgrid .ev.sig>.row{grid-column:2;grid-row:1 / span 3;align-self:center}.kgrid .ev.sig .h2{font-size:22px}
+@container desk (max-width: 720px){.kgrid .ev.sig{grid-template-columns:minmax(0,1fr)}.kgrid .ev.sig>.row{grid-column:1;grid-row:auto}}
+/* 28 · valmentaja */
+.valitsin{display:inline-flex;align-items:baseline;gap:6px;background:none;border:1px solid var(--line);border-radius:4px;padding:4px 10px;color:var(--ink);cursor:pointer;font:inherit}
+.valitsin .nm{font-family:'Cormorant Garamond',Georgia,serif;font-size:22px;line-height:1}.valitsin .ar{color:var(--ink3);font-size:12px}
+.vmenu{display:grid;gap:4px;padding:10px 16px;border-bottom:1px solid var(--line);background:var(--sur)}
+.vmenu a{display:grid;padding:7px 10px;border-radius:4px;color:var(--ink);text-decoration:none;border:1px solid var(--line)}.vmenu a.on{border-color:var(--teal);background:var(--teal-dim)}
+.vmenu .vm{font-size:12px;color:var(--ink3)}
+.onb .row{display:flex;gap:6px;flex-wrap:wrap}
+.hk{grid-template-columns:200px minmax(0,1fr);gap:16px;align-items:center;border-color:var(--teal-brd)}
+.hk .row{display:flex;gap:8px;flex-wrap:wrap}.hk .second{font-size:12.5px;color:var(--ink3);border-top:1px dashed var(--line);padding-top:6px}.hk .second a{color:var(--teal);font-weight:600;text-decoration:none}
+.hk-t{display:grid;gap:6px}
+.kiso{width:100%}.kiso .kt-ase b{font-size:12px}.kiso .kt-ase span{font-size:10px}
+.acts{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+.jgrid{display:grid;grid-template-columns:240px minmax(0,1fr);gap:16px;align-items:center}
+.jk-iso{padding:8px}.jk-tx{display:grid;gap:6px}.jk-tx .big{font-family:'Cormorant Garamond',Georgia,serif;font-size:32px;line-height:1}.jk-tx .row{display:flex;gap:8px;flex-wrap:wrap}
+.pl .vr{grid-template-columns:18px minmax(0,1fr) 84px 76px 92px}
+.mono.dim{color:var(--ink3)}
+.lk{text-decoration:none;color:var(--ink);gap:4px}.lk b{font-family:'Cormorant Garamond',Georgia,serif;font-size:20px;font-weight:500}
+@container desk (max-width: 720px){.hk{grid-template-columns:minmax(0,1fr)}.hk-k{max-width:220px}.jgrid{grid-template-columns:minmax(0,1fr)}.jk-iso{max-width:240px}
+ .pl .vr{grid-template-columns:18px minmax(0,1fr) 60px 52px 62px;font-size:12.5px}.pl .vr.hd{font-size:9.5px;letter-spacing:.06em}
+ .acts{grid-column:2;justify-content:flex-start}.vr:has(.acts){grid-template-columns:18px minmax(0,1fr)}}
+@media(min-width:1101px){.fig2{grid-template-columns:420px minmax(0,1fr)}}
+
+.top p{overflow-wrap:anywhere}.top>div{flex:1 1 280px;min-width:0}.top .eb{white-space:normal}
+
+.h2s{font-family:'Cormorant Garamond',Georgia,serif;font-size:24px;font-weight:500;line-height:1.1}.eb.row2{gap:12px}
+.vl a.h{color:var(--ink);text-decoration:none}.vl a.h:hover{color:var(--teal)}.eb.row2{flex-wrap:wrap;column-gap:14px}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header class="top" style="align-items:flex-start">
+ <div style="display:grid;gap:10px;grid-template-columns:minmax(0,1fr)">
+  <span class="eb">TalentMaster™ · 28 · Valmentajan sovellus uusiksi · Master_v16</span>
+  <h1>Harjoitus ensin, data perässä.</h1>
+  <p>Vastaus auditiin 27. Valmentajan sovellus rakentuu tämän päivän harjoituksen ja valmentajan omien toimintojen (läsnäolo, havainto, harjoitusarvio, jakso) ympärille, koska ne toimivat jo nyt. Pelaajien data tulee näkyviin, kun pelaajat ovat sovelluksessa. Sama navigaatio ja visuaalinen kieli kuin VP:llä (25, 26). Luonnos 10.10.2026 · demodata FC Demo · valmentaja ja pelaajat keksittyjä.</p>
+ </div>
+ <button class="tbtn" id="theme" type="button">Vaihda teema</button>
+</header>
+
+<nav class="nav"><a href="#s1"><b>1</b>Näkymä</a><a href="#s2"><b>2</b>Periaatteet</a><a href="#s3"><b>3</b>Päätökset</a></nav>
+
+<section id="s1">
+ <span class="eb">1 · Näkymä · puhelin ensisijainen</span>
+ <h2>Tänään, Joukkue, Viestit, Kalenteri, Lisää</h2>
+ <div class="ctl" id="ctl">
+  <div class="g"><span class="l">Tila</span><button class="tbtn on" data-tila="kaytossa" type="button">Pelaajat käytössä</button><button class="tbtn" data-tila="kayttoonotto" type="button">Käyttöönotto (3/22)</button></div>
+  <span class="meta">Avaa joukkuevalitsin otsikosta: P12 harraste tai Talenttiryhmä. Joukkue-näkymässä välilehdet Viikko ja Kausi.</span>
+ </div>
+ <div class="fig2"><div class="phone"><div class="desk" id="d2"></div><span class="cap">390 px · valmentaja</span></div><div class="sect-note" style="align-self:center">Valmentaja avaa sovelluksen useimmiten puhelimella harjoitusten ympärillä. Ensimmäinen ruutu vastaa: mitä tänään on, mitä teen ennen ja jälkeen, ja mikä odottaa minua. Työpöytänäkymä alla.</div></div>
+ <div class="desk" id="d1"></div>
+</section>
+
+<section id="s2">
+ <span class="eb">2 · Periaatteet · auditin 27 pohjalta</span>
+ <h2>Viisi periaatetta</h2>
+ <div class="g3">
+  <div class="card"><span class="eb">1 · Harjoitus on ankkuri</span><span class="h">Seuraava harjoitus ylimpänä</span><span class="mini">Aika, paikka, jakson teema kentällä, läsnäolo-nappi. Harjoituksen jälkeen havainto ja harjoitusarvio yhdellä napautuksella. Nykyinen Koti ja Tänään eivät näytä harjoitusta lainkaan.</span></div>
+  <div class="card"><span class="eb">2 · Omat toiminnot ensin</span><span class="h">Toimii ilman pelaajia</span><span class="mini">Läsnäolo ja havainnot ovat valmentajan omaa dataa, joten ne näkyvät aina. Viikkokatsaus, kotitehtävät ja fiilis näkyvät vasta, kun pelaajia on sovelluksessa riittävästi.</span></div>
+  <div class="card"><span class="eb">3 · Tyhjä on käyttöönottoa</span><span class="h">Ei punaisia ruutuja</span><span class="mini">Kun pelaajat eivät ole mukana, Tänään näyttää nauhan, jossa on toiminto (Jaa PIN-koodit, Muistuta perheitä). Nyt Pulssi näyttää 16 × 7 punaista ruutua.</span></div>
+  <div class="card"><span class="eb">4 · Yksi navigaatio</span><span class="h">Viisi kohtaa, sama kuin VP:llä</span><span class="mini">Tänään · Joukkue · Viestit · Kalenteri · Lisää. Välilehtirivi 01–07 ja 14 kohdan sivupalkki poistuvat. Nimet yhtenäiset VP:n kanssa (Arvioi harjoitus).</span></div>
+  <div class="card"><span class="eb">5 · Ryhmä kuin joukkue</span><span class="h">Valitsimessa joukkueet ja ryhmät</span><span class="mini">Maalivahti- tai talenttivalmentaja valitsee ryhmän samasta valitsimesta. Ryhmällä on tapahtumat, läsnäolo ja jäsenet, mutta ei omaa jaksoa.</span></div>
+  <div class="card"><span class="eb">6 · Luku, otos, ikä</span><span class="h">Sama kattavuusportti kuin VP:llä</span><span class="mini">"Mitattu 2/22", "vanhin mittaus 2023". Vanha mittaus ei näy punaisena tasona (D141). Yksi ISO-viikkonumero kaikkialla (D140).</span></div>
+ </div>
+</section>
+
+<section id="s3">
+ <span class="eb">3 · Päätökset D137–D142, ehdotus</span>
+ <h2>Lukittavaksi</h2>
+ <div class="dec">
+  <div><span class="n">D137</span><span><b>Valmentajan navigaatio.</b> Tänään · Joukkue · Viestit · Kalenteri · Lisää. Sama sivupalkkina työpöydällä ja alapalkkina mobiilissa. Välilehtirivi 01–07 poistuu. Koti ja Tänään yhdistyvät Tänään-näkymäksi.</span></div>
+  <div><span class="n">D138</span><span><b>Joukkuevalitsin.</b> Otsikossa omat joukkueet ja omat ryhmät (D136). Valinta ohjaa kaikkia näkymiä, myös profiilitietoja. Jos valmentajalla on vain ryhmä, se on oletus.</span></div>
+  <div><span class="n">D139</span><span><b>Pelaajadatan portti.</b> Viikkokatsaus, kotitehtävät, fiilis ja kuorma näkyvät joukkueelle vasta, kun vähintään 50 % pelaajista on kirjautunut sovellukseen. Sitä ennen Tänään näyttää käyttöönottonauhan toiminnoilla. Läsnäolo ja havainnot näkyvät aina.</span></div>
+  <div><span class="n">D140</span><span><b>Yksi viikkonumero.</b> ISO 8601 -funktio jaettuun libiin. Master, VP, Pelaaja ja Vanhempi käyttävät sitä. Nykyiset kaavat antavat 42 ja 40, oikea on 41.</span></div>
+  <div><span class="n">D141</span><span><b>Mittauksen ikä.</b> Jokaisessa mittauksessa näkyy päivämäärä. Yli 12 kuukautta vanha mittaus ei näy tasona eikä värillä, vaan "mitattu 2023 · päivitä".</span></div>
+  <div><span class="n">D142</span><span><b>Harjoitus Tänään-näkymän ankkurina.</b> Seuraava harjoitus (tai ryhmän tapahtuma) on ensimmäinen kortti: aika, paikka, jakson teema kentällä (tm_kentta), Läsnäolo. Jälkeen-toiminnot: Kirjaa havainto, Arvioi harjoitus.</span></div>
+ </div>
+ <div class="note">Liittyy: 22 (pelaajakortti = kehitystyöpöytä), 25 (navigaatio v3, ryhmät D136), 26 (asiat, kuittaus, viestit, kalenteri), 27 (audit). Seuraavaksi Tero hyväksyy D137–D142, ja Code korjaa ensin auditin 27 P0-kohdat.</div>
+</section>
+</div>
+
+<script>
+/* ════════════════════════════════════════════════════════════════════════
+   tm_kentta.js — K0: Kenttä-komponentti (PURE, ei Firebasea, ei DOM:ia, toimii offline). Inline-SVG + HTML-kerros merkkijonoina, kuten lib/tm_piirros.js.
+   Mockup: docs/design/idp-v2/09_pelaaja_kentta.html (osio 0 · Idea + kaikki data-pitch-variantit), suunnitelma 10 (osiot 4–5), brief docs/CODE_BRIEF_KENTTA_K0.md.
+   Yksi komponentti, neljä katsojaa (pelaaja, huoltaja, valmentaja, katselmus): kerrokset kuten spec:ssä — ase (alue) · reitti · viikkomerkit · osat · historia · lempipaikka · vaihtoehdot.
+
+   tmKentta(spec, opts) → { svg, html, data } (opts.wrap === true → yksi merkkijono: <div class="kt"> svg + html </div>)
+     spec = { koko:'puoli'|'koko', ase:{alue:{x,y,w,h}, nimi, sub, tila:'ok'|'puuttuu'}|null,
+              reitti:{loppu:'maali'|'kaveri'|'kausitavoite', col:'teal'|'blue', faint}|null, viikot:{n, tehty, valmis}|null,
+              osat:[{k,nimi,x,y,tila:'itsenaisesti'|'ohjatusti'|'ei_viela'|'nyt'}], historia:[{loppu}], lempipaikka:{x,y}|null,
+              vaihtoehdot:[{k:'A',loppu},{k:'B',loppu}]|null, ilmanAluetta:true|undefined }   (ilmanAluetta: ei ase-/oma alue -laatikkoa eikä tekstiä; data.alue = null — pelkkä kenttä)
+     opts = { t:fn(avain)→teksti, wrap, luokka, ariaLabel }
+     Koordinaatit: leveys 0–100, pituus 0–140, hyökkäys ylös. koko:'puoli' leikkaa vain näkymän (viewBox 0 0 100 84), ei muuta koordinaatteja.
+     Reitti: EI vapaata piirtoa — alku = ase.alue keskipiste, loppu = kiinteä piste (maali 48,8 · kaveri 74,24 · kausitavoite 50,30), kolme välipistettä (lievä kaari).
+     Viikkomerkit tasavälein reitillä: i < tehty → täysi (.kt-vk-tehty) · i === tehty && !valmis → "nyt" (.kt-vk-nyt) · muuten tyhjä (.kt-vk) · valmis → kaikki täynnä.
+     data = { viewBox, alue, reitti:[[x,y]…]|null, viikot:[{x,y,tila}]|null } — testattava geometria.
+   VÄRIT: vain CSS-luokissa jotka osoittavat tokeneihin (--chalk --chalk2 --teal --teal-dim --amber --amber-dim --blue --ink --bg); lib ei sisällä hex-/rgb-värejä
+   (brändiportti). tmKenttaCss() palauttaa luokat tyylilohkoksi. Tekstit (sinun vahvuutesi, nyt, vahvuus valitaan pian…) opts.t:n läpi; ilman t:tä avain sellaisenaan. D54: käyttäjälle ei koskaan "ase" — opts.rooli:'henkilokunta' → "ydinvahvuus"/"ydinvahvuus puuttuu"; muuten (oletus, pelaaja/huoltaja) "sinun vahvuutesi"/"vahvuus valitaan pian".
+   §7.22: viikkomerkit ovat KESTOA, eivät suoritusta; osan tila on sana; ei lukuarvoja, ei vertailua.
+   Dual-export: module.exports || window.TM_KENTTA (+ window.tmKentta, window.tmKenttaCss).
+════════════════════════════════════════════════════════════════════════ */
+(function (root) {
+  'use strict';
+
+  var LOPPU = { maali: [48, 8], kaveri: [74, 24], kausitavoite: [50, 30] };
+  var OLETUS_ALUE = { x: 30, y: 48, w: 40, h: 30 };
+  var OSA_TILA = { itsenaisesti: 'itsenäisesti', ohjatusti: 'ohjatusti', ei_viela: 'ei vielä', nyt: 'nyt' };
+
+  function _n(v) { return Math.round(v * 100) / 100; }
+  function _esc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+  function _luku(v, ala, yla, oletus) { v = Number(v); return isFinite(v) ? Math.min(yla, Math.max(ala, v)) : oletus; }
+  function _kaanna(opts) { return (opts && typeof opts.t === 'function') ? opts.t : function (k) { return k; }; }
+
+  function _alue(ase) {
+    var a = ase && ase.alue;
+    if (!a || !isFinite(Number(a.x)) || !isFinite(Number(a.y)) || !isFinite(Number(a.w)) || !isFinite(Number(a.h))) return null;
+    return { x: _luku(a.x, 0, 100, 0), y: _luku(a.y, 0, 140, 0), w: _luku(a.w, 1, 100, 1), h: _luku(a.h, 1, 140, 1) };
+  }
+
+  // Reitti: alkupiste → loppupiste kolmella välipisteellä (lievä sivuttaiskaari; deterministinen). Palauttaa 5 pistettä.
+  function tmKenttaReitti(alku, loppu) {
+    var pisteet = [[_n(alku[0]), _n(alku[1])]];
+    var dx = loppu[0] - alku[0], dy = loppu[1] - alku[1], pit = Math.sqrt(dx * dx + dy * dy) || 1;
+    var nx = -dy / pit, ny = dx / pit;   // normaali
+    [0.25, 0.5, 0.75].forEach(function (t) {
+      var kaari = Math.sin(Math.PI * t) * 3;
+      pisteet.push([_n(alku[0] + dx * t + nx * kaari), _n(alku[1] + dy * t + ny * kaari)]);
+    });
+    pisteet.push([loppu[0], loppu[1]]);
+    return pisteet;
+  }
+  function _polku(p) { return p.map(function (q, i) { return (i ? 'L' : 'M') + q[0] + ' ' + q[1]; }).join(' '); }
+  // Piste murtoviivalla suhteessa t (0–1), pituuden mukaan.
+  function _pisteReitilla(p, t) {
+    var L = [], kok = 0, i;
+    for (i = 1; i < p.length; i++) { var d = Math.sqrt(Math.pow(p[i][0] - p[i - 1][0], 2) + Math.pow(p[i][1] - p[i - 1][1], 2)); L.push(d); kok += d; }
+    var x = t * kok;
+    for (i = 0; i < L.length; i++) {
+      if (x <= L[i] || i === L.length - 1) { var u = L[i] ? Math.min(1, x / L[i]) : 0; return [_n(p[i][0] + (p[i + 1][0] - p[i][0]) * u), _n(p[i][1] + (p[i + 1][1] - p[i][1]) * u)]; }
+      x -= L[i];
+    }
+    return [p[0][0], p[0][1]];
+  }
+
+  function _viivat() {
+    return '<g class="kt-line">'
+      + '<line x1="0" y1="70" x2="100" y2="70"/><circle cx="50" cy="70" r="13"/>'
+      + '<rect x="20" y="0" width="60" height="23"/><rect x="35" y="0" width="30" height="8"/>'
+      + '<rect x="20" y="117" width="60" height="23"/><rect x="35" y="132" width="30" height="8"/>'
+      + '<path d="M39 23a13 13 0 0 0 22 0"/><path d="M39 117a13 13 0 0 1 22 0"/>'
+      + '</g>';
+  }
+
+  function tmKentta(spec, opts) {
+    spec = spec || {}; opts = opts || {};
+    var t = _kaanna(opts);
+    var H = spec.koko === 'koko' ? 140 : 84;
+    var viewBox = '0 0 100 ' + H;
+    var svg = [], html = [];
+    var data = { viewBox: viewBox, alue: null, reitti: null, viikot: null };
+
+    var ase = spec.ase || null;
+    var alue = _alue(ase);
+    var ilmanAluetta = spec.ilmanAluetta === true;   // K1-korjaus: ei aluetta, ei oletusaluetta eikä tekstiä — pelkkä kenttä (alue tulee K3:ssa; ei arvata)
+    var asePuuttuu = !ase || ase.tila === 'puuttuu' || !alue;
+    var kaytAlue = alue || OLETUS_ALUE;
+    data.alue = ilmanAluetta ? null : { x: kaytAlue.x, y: kaytAlue.y, w: kaytAlue.w, h: kaytAlue.h, puuttuu: asePuuttuu };
+    var alku = [kaytAlue.x + kaytAlue.w / 2, kaytAlue.y + kaytAlue.h / 2];
+
+    svg.push(_viivat());
+
+    // Historia: haaleat jäljet (kiinteät, edellisten jaksojen suunta); ei oikeaa reittidataa → siirretty alkupiste per merkintä.
+    (Array.isArray(spec.historia) ? spec.historia : []).forEach(function (h, i) {
+      var loppu = LOPPU[h && h.loppu] || LOPPU.maali;
+      var a = [Math.max(2, alku[0] - 6 * (i + 1)), Math.min(H - 2, alku[1] + 10 * (i + 1))];
+      svg.push('<path class="kt-historia" d="' + _polku(tmKenttaReitti(a, loppu)) + '"/>');
+    });
+
+    // Reitit: yksittäinen reitti TAI vaihtoehdot (A teal, B sininen, haalea).
+    var reitit = [];
+    if (Array.isArray(spec.vaihtoehdot) && spec.vaihtoehdot.length) {
+      spec.vaihtoehdot.forEach(function (v, i) { reitit.push({ loppu: v && v.loppu, b: i > 0, faint: i > 0, k: v && v.k, vaiht: true }); });
+    } else if (spec.reitti) {
+      reitit.push({ loppu: spec.reitti.loppu, b: spec.reitti.col === 'blue', faint: !!spec.reitti.faint });
+    }
+    var paaReitti = null;
+    reitit.forEach(function (r, i) {
+      var loppu = LOPPU[r.loppu] || LOPPU.maali;
+      var p = tmKenttaReitti(alku, loppu);
+      if (i === 0) paaReitti = p;
+      svg.push('<path class="kt-reitti' + (r.b ? ' kt-reitti-b' : '') + (r.faint ? ' kt-faint' : '') + '" d="' + _polku(p) + '"/>');
+      if (i === 0) data.reitti = p;
+      if (r.vaiht) {
+        html.push('<div class="kt-osa" style="left:' + _n(loppu[0] - 6) + '%;top:' + _n(Math.max(0, loppu[1] - 7) / H * 100) + '%">' + _esc(r.k) + ' · ' + _esc(t(r.loppu === 'kaveri' ? 'kaveri' : r.loppu === 'kausitavoite' ? 'kausitavoite' : 'maali')) + '</div>');
+      }
+    });
+    if (paaReitti) {
+      var loppuP = paaReitti[paaReitti.length - 1];
+      if (!reitit[0].b) svg.push('<circle class="kt-maali" cx="' + loppuP[0] + '" cy="' + loppuP[1] + '" r="1.6"/>');
+    }
+
+    // Viikkomerkit: vain jos on reitti ja viikot
+    var vk = spec.viikot;
+    if (paaReitti && vk && Number(vk.n) > 0) {
+      var n = Math.min(24, Math.floor(Number(vk.n))), tehty = _luku(vk.tehty, 0, n, 0), valmis = !!vk.valmis;
+      data.viikot = [];
+      for (var i = 0; i < n; i++) {
+        var q = _pisteReitilla(paaReitti, (i + 1) / n);
+        var tila = (valmis || i < tehty) ? 'tehty' : (i === tehty ? 'nyt' : 'tyhja');
+        data.viikot.push({ x: q[0], y: q[1], tila: tila });
+        var cls = tila === 'tehty' ? 'kt-vk-tehty' : tila === 'nyt' ? 'kt-vk-nyt' : 'kt-vk';
+        svg.push('<circle class="' + cls + '" cx="' + q[0] + '" cy="' + q[1] + '" r="' + (tila === 'nyt' ? 3.2 : 2.4) + '"/>');
+      }
+    }
+
+    // Lempipaikka (U8–12): pallo
+    if (spec.lempipaikka && isFinite(Number(spec.lempipaikka.x)) && isFinite(Number(spec.lempipaikka.y))) {
+      var lx = _luku(spec.lempipaikka.x, 0, 100, 50), ly = _luku(spec.lempipaikka.y, 0, 140, 50);
+      svg.push('<circle class="kt-pallo" cx="' + lx + '" cy="' + ly + '" r="3"/>');
+      html.push('<div class="kt-osa" style="left:' + _n(Math.min(70, lx + 4)) + '%;top:' + _n(Math.max(0, ly - 12) / H * 100) + '%">' + _esc(t('tässä tykkään pelata')) + '</div>');
+    }
+
+    // Ase: alue HTML-kerroksena (nimi + sub). Puuttuu → katkoviiva, ei täyttöä.
+    var top = _n(kaytAlue.y / H * 100), hh = _n(kaytAlue.h / H * 100);
+    var geom = 'left:' + _n(kaytAlue.x) + '%;top:' + top + '%;width:' + _n(kaytAlue.w) + '%;height:' + hh + '%';
+    if (ilmanAluetta) {
+      // ei aluelaatikkoa lainkaan
+    } else if (asePuuttuu) {
+      html.push('<div class="kt-ase-puuttuu" style="' + geom + '"><b>' + _esc(t(opts.rooli === 'henkilokunta' ? 'ydinvahvuus puuttuu' : 'vahvuus valitaan pian')) + '</b></div>');
+    } else {
+      html.push('<div class="kt-ase" style="' + geom + '"><b>' + _esc(ase.nimi) + '</b><span>' + _esc(ase.sub != null ? ase.sub : t(opts.rooli === 'henkilokunta' ? 'ydinvahvuus' : 'sinun vahvuutesi')) + '</span></div>');
+    }
+
+    // Osat: tagit (nimi + tilasana)
+    (Array.isArray(spec.osat) ? spec.osat : []).forEach(function (o) {
+      if (!o) return;
+      var sana = OSA_TILA[o.tila] ? t(OSA_TILA[o.tila]) : '';
+      var ox = _luku(o.x, 0, 100, 50), oy = _luku(o.y, 0, 140, 50);
+      html.push('<div class="kt-osa' + (o.tila === 'nyt' ? ' kt-osa-nyt' : '') + '" style="left:' + _n(ox) + '%;top:' + _n(oy / H * 100) + '%">'
+        + _esc(o.k) + (o.nimi ? ' · ' + _esc(o.nimi) : '') + (sana ? ' · ' + _esc(sana) : '') + '</div>');
+    });
+
+    var label = opts.ariaLabel != null ? opts.ariaLabel : t('Kenttä');
+    var svgStr = '<svg class="kt-svg" viewBox="' + viewBox + '" role="img" aria-label="' + _esc(label) + '">' + svg.join('') + '</svg>';
+    var htmlStr = '<div class="kt-layer">' + html.join('') + '</div>';
+    if (opts.wrap === true) return '<div class="kt' + (opts.luokka ? ' ' + _esc(opts.luokka) : '') + '">' + svgStr + htmlStr + '</div>';
+    return { svg: svgStr, html: htmlStr, data: data };
+  }
+
+  // Tyylit: vain tokenit (ei hex/rgb). Kenttä-kehys: .kt (position:relative) sisältää SVG:n ja .kt-layer-kerroksen.
+  function tmKenttaCss() {
+    return [
+      '.kt{position:relative;border:1.5px solid var(--chalk);border-radius:4px;overflow:hidden;background:var(--bg)}',
+      '.kt-svg{display:block;width:100%;height:auto}',
+      '.kt-layer{position:absolute;inset:0;pointer-events:none}',
+      '.kt-line{fill:none;stroke:var(--chalk);stroke-width:.8}',
+      '.kt-line2,.kt-historia{fill:none;stroke:var(--chalk2);stroke-width:1.6;stroke-dasharray:2 2.5}',
+      '.kt-reitti{fill:none;stroke:var(--teal);stroke-width:1.2;stroke-dasharray:2 2.2}',
+      '.kt-reitti-b{stroke:var(--blue)}',
+      '.kt-faint{opacity:.5}',
+      '.kt-vk{fill:var(--bg);stroke:var(--teal);stroke-width:1}',
+      '.kt-vk-tehty{fill:var(--teal);stroke:var(--teal);stroke-width:1}',
+      '.kt-vk-nyt{fill:var(--amber);stroke:var(--amber);stroke-width:1}',
+      '.kt-maali{fill:var(--teal)}',
+      '.kt-pallo{fill:var(--ink);stroke:var(--bg);stroke-width:.8}',
+      '.kt-ase{position:absolute;display:grid;align-content:end;gap:1px;padding:7px 8px;box-sizing:border-box;background:var(--teal-dim);border:1.5px dashed var(--teal);border-radius:3px}',
+      '.kt-ase b{color:var(--teal);font-weight:800;line-height:1}',
+      '.kt-ase span{font-size:11px;color:var(--ink)}',
+      '.kt-ase-puuttuu{position:absolute;display:grid;align-content:end;padding:7px 8px;box-sizing:border-box;background:transparent;border:1.5px dashed var(--chalk2);border-radius:3px}',
+      '.kt-ase-puuttuu b{font-size:11px;font-weight:500;color:var(--ink)}',
+      '.kt-osa{position:absolute;font-size:11px;line-height:1.2;color:var(--ink);background:var(--bg);border:1px solid var(--chalk2);border-radius:3px;padding:2px 6px;white-space:nowrap}',
+      '.kt-osa-nyt{background:var(--amber-dim);border-color:var(--amber);color:var(--amber)}'
+    ].join('\n');
+  }
+
+  var API = { tmKentta: tmKentta, tmKenttaCss: tmKenttaCss, tmKenttaReitti: tmKenttaReitti, LOPPU: LOPPU, OLETUS_ALUE: OLETUS_ALUE };
+  if (typeof module !== 'undefined' && module.exports) module.exports = API;
+  if (root && typeof window !== 'undefined') { root.TM_KENTTA = API; root.tmKentta = tmKentta; root.tmKenttaCss = tmKenttaCss; }
+})(typeof window !== 'undefined' ? window : this);
+
+(function(){var s=document.createElement('style');s.textContent=window.tmKenttaCss();document.head.appendChild(s)})();
+/* 28 · Valmentajan sovellus uusiksi · demodata FC Demo, pe 9.10.2026 (vk 41), valmentaja Mikko L. (keksitty). */
+var G={ok:'●',w:'▲',err:'■',n:'○'};
+var S={tila:'kaytossa',v:'tanaan',jt:'viikko',kohde:'p12h',auki:false};
+var KOHTEET={p12h:{nm:'P12 harraste',tyyppi:'joukkue',n:22,ik:'Rakentaja'},talentti:{nm:'Talenttiryhmä',tyyppi:'ryhma',n:12}};
+var PL=[
+ ['Aaro K.',1,'2 pv',4,1],['Eetu M.',1,'9 pv',3,1],['Joel L.',0,'21 pv',0,1],['Leo S.',1,'5 pv',2,1],['Niilo V.',1,'—',1,1],['Onni R.',1,'2 pv',5,1],['Veeti H.',0,'14 pv',0,0],['Akseli P.',1,'9 pv',2,1]
+];
+var RYJ=[['Elias T.','P13'],['Ville K.','P13'],['Mikael J.','P14'],['Oskari N.','P14'],['Lauri S.','P16']];
+function kenttaIso(){
+ return window.tmKentta({koko:'puoli',ase:{alue:{x:60,y:20,w:30,h:30},nimi:'',sub:'',tila:'ok'},reitti:{loppu:'maali',col:'teal'},viikot:{n:6,tehty:4}},{wrap:true,luokka:'kiso',rooli:'henkilokunta',ariaLabel:'Joukkuejakso Murtautuminen kentällä, viikko 5/6'});
+}
+function head(){
+ var k=KOHTEET[S.kohde];
+ var h='<div class="dh"><button class="valitsin" type="button" data-auki="1"><span class="nm">'+k.nm+'</span><span class="ar">▾</span></button><span class="sub">'+(k.tyyppi==='ryhma'?'ryhmä · '+k.n+' jäsentä':k.ik+' · '+k.n+' pel.')+'</span><span class="sp"></span><span class="chip n mono">pe 9.10. · vk 41</span></div>';
+ if(S.auki)h+='<div class="vmenu"><span class="eb">Omat joukkueet</span><a href="#" data-kohde="p12h" class="'+(S.kohde==='p12h'?'on':'')+'">P12 harraste<span class="vm">22 pel. · jakso vk 5/6</span></a><span class="eb">Omat ryhmät</span><a href="#" data-kohde="talentti" class="'+(S.kohde==='talentti'?'on':'')+'">Talenttiryhmä<span class="vm">12 jäsentä · 3 joukkuetta</span></a></div>';
+ return h;
+}
+function nav(){
+ var I=[['tanaan','Tänään','⌂'],['joukkue','Joukkue','◎'],['viestit','Viestit','✉',1],['kalenteri','Kalenteri','▦'],['lisaa','Lisää','⋯']];
+ var h='<nav class="snav"><div class="sb-brand">TalentMaster<span>™</span></div><div class="sb-who"><span class="eb">Valmentaja</span><b>Mikko L.</b></div>';
+ I.forEach(function(n){h+='<a href="#" data-v="'+n[0]+'" class="sb-i'+(S.v===n[0]?' on':'')+'"><i>'+n[2]+'</i>'+n[1]+(n[3]?'<b class="nb">'+n[3]+'</b>':'')+'</a>'});
+ return h+'<div class="sb-foot"><a href="#" class="sb-i sm">Asetukset</a></div></nav>';
+}
+function tabbar(){return '<div class="tbar">'+[['tanaan','Tänään','⌂'],['joukkue','Joukkue','◎'],['viestit','Viestit','✉'],['kalenteri','Kalenteri','▦'],['lisaa','Lisää','⋯']].map(function(n){return '<a href="#" data-v="'+n[0]+'" class="'+(S.v===n[0]?'on':'')+'"><i>'+n[2]+'</i>'+n[1]+'</a>'}).join('')+'</div>'}
+function onb(){return S.tila==='kayttoonotto'}
+
+/* ── TÄNÄÄN ── */
+function tanaan(){
+ var ry=S.kohde==='talentti';
+ var h=head()+'<div class="db">';
+ if(onb()&&!ry)h+='<div class="onb"><span class="eb">Pelaajat mukaan · tärkein tehtävä nyt</span><span class="t">Sovelluksessa <b>3/22</b> pelaajaa · perheiden suostumus <b>9/22</b></span><span class="row"><button class="btn sm" type="button">Jaa PIN-koodit</button><button class="btn g sm" type="button">Muistuta perheitä</button></span></div>';
+ h+='<div class="lead"><span class="eb">Pe 9.10. · syysloma alkaa ma</span><div class="big">'+(ry?'Ei ryhmän tapahtumaa tänään.':'Harjoitus tänään 17.30.')+' <small>'+(ry?'Seuraava ti 21.10.':(onb()?'2 asiaa avoinna.':'3 asiaa avoinna.'))+'</small></div></div>';
+ if(!ry){
+  h+='<div class="ev hk"><div class="hk-k">'+kenttaIso()+'</div><div class="hk-t"><span class="eb">Tänään · 17.30–19.00 · Kenttä 2</span><div class="h2s">Murtautuminen · vk 5/6</div><div class="why">Teema jaksosta: murtautuminen laitakaistalta. Harjoite pankista: 4v4+2 läpiajoon. Katselmukset alkavat jakson lopussa.</div>'
+   +'<div class="row"><button class="btn" type="button">Läsnäolo</button><button class="btn g" type="button">Avaa harjoitus</button></div><div class="second">Harjoituksen jälkeen: <a href="#">Kirjaa havainto</a> · <a href="#">Arvioi harjoitus</a></div></div></div>';
+ }else{
+  h+='<div class="ev hk"><div class="hk-t"><span class="eb">Seuraava · ti 21.10. 17.00 · Halli</span><div class="h2s">Talenttiharjoitus</div><div class="why">12 jäsentä kolmesta joukkueesta. Ryhmällä ei ole omaa jaksoa: jokaisen jäsenen jakso on hänen joukkueessaan.</div><div class="row"><button class="btn" type="button">Avaa tapahtuma</button></div></div></div>';
+ }
+ h+='<div class="quick"><button class="btn g sm" type="button">+ Havainto</button><button class="btn g sm" type="button">+ Arvioi harjoitus</button><button class="btn g sm" type="button">+ Muistiinpano</button></div>';
+ var as=onb()?[
+  ['Käyttöönotto','13 perheen suostumus puuttuu','Kutsu lähti ma 5.10. · 9/22 vastannut','Muistuta','w'],
+  ['VP · to 9.10.','Sopisiko testipäivä vk 45?','"ti 3.11. tai to 5.11.?"','Vastaa','n']
+ ]:[
+  ['Signaali · ma 6.10.','Viikkokatsaus laskenut kolme viikkoa','62 → 56 → 48 → 41 %. Vastaamatta Joel, Niilo, Veeti.','Muistuta pelaajia','w'],
+  ['VP · to 9.10.','Sopisiko testipäivä vk 45?','"ti 3.11. tai to 5.11.?"','Vastaa','n'],
+  ['Jakso · vk 5/6','Katselmukset alkavat jakson lopussa','22 katselmusta, ikkuna sulkeutuu su 1.11.','Suunnittele','n']
+ ];
+ if(ry)as=[['VP · ke 7.10.','Talenttiryhmän kevään runko','"Luonnostellaanko yhdessä jaksopalaverissa?"','Vastaa','n']];
+ h+='<div><div class="eb row2"><span>Asiat · '+as.length+' avoinna</span><a class="mini" href="#">Palaa myöhemmin 1 →</a></div><div class="vl">'+as.map(function(a){return '<div class="vr"><span class="dot '+a[4]+'">'+G[a[4]]+'</span><span class="vt"><span class="mono">'+a[0]+'</span> <b>'+a[1]+'</b><span class="vm">'+a[2]+'</span></span><span class="acts"><button class="btn sm" type="button">'+a[3]+'</button><button class="btn g sm" type="button">Kuittaa…</button></span></div>'}).join('')+'</div><div class="sect-note">Kuittaus kysyy, miten jatketaan (mockup 26, D129).</div></div>';
+ h+='<div class="sect-note">Tänään yhdistää nykyisen Kodin ja Tänään-näkymän. Harjoitus on ankkuri, pelaajadata tulee vasta kun pelaajat ovat sovelluksessa (D139).</div>';
+ return h+'</div>';
+}
+
+/* ── JOUKKUE ── */
+function joukkue(){
+ var ry=S.kohde==='talentti';
+ var h=head()+'<div class="dtabs"><span data-jt="viikko" class="'+(S.jt==='viikko'?'on':'')+'">Viikko</span><span data-jt="kausi" class="'+(S.jt==='kausi'?'on':'')+'">Kausi</span></div><div class="db">';
+ if(ry){
+  h+='<div class="lead"><span class="eb">Ryhmä · lista</span><div class="big">Talenttiryhmä <small>12 jäsentä · P13, P14, P16 · valmentajat Mikko L., Anna K.</small></div></div>';
+  h+='<div class="ev"><div class="nums"><div><span class="k">Läsnäolo 4 vk</span><span class="v">88 %</span></div><div><span class="k">Tapahtumia kaudella</span><span class="v">7</span></div><div><span class="k">Seuraava</span><span class="v" style="font-size:20px">ti 21.10.</span></div></div></div>';
+  h+='<div><span class="eb">Jäsenet · oma joukkue ja jakso</span><div class="vl">'+RYJ.map(function(p){return '<div class="vr"><span class="dot n">◎</span><span class="vt"><a class="h" href="#">'+p[0]+'</a><span class="vm">'+p[1]+' · jakso omassa joukkueessa</span></span><span></span></div>'}).join('')+'<div class="vr"><span></span><span class="vt mini">+ 7 muuta</span><span></span></div></div></div>';
+  h+='<div class="note">Ryhmä avautuu samaan näkymään kuin joukkue (D136). Ryhmällä ei ole jaksoa, joten Viikko näyttää tapahtumat, läsnäolon ja jäsenet. Kausi näyttää jäsenten mittaukset.</div>';
+  return h+'</div>';
+ }
+ if(S.jt==='viikko'){
+  h+='<div class="jgrid"><div class="ev jk-iso">'+kenttaIso()+'</div><div class="jk-tx"><span class="eb">Joukkuejakso · vk 5/6</span><div class="big">Murtautuminen</div><div class="why">Teknis-taktinen · laitakaista · katselmukset jakson lopussa (ikkuna su 1.11. asti, syysloma pidentää).</div><div class="row"><button class="btn g sm" type="button">Avaa jakso</button><button class="btn g sm" type="button">Suunnittele katselmukset</button></div></div></div>';
+  h+='<div class="ev"><div class="nums">'
+   +'<div><span class="k">Läsnäolo 4 vk</span><span class="v">86 %</span></div>'
+   +'<div><span class="k">Havainnoitu tällä jaksolla</span><span class="v">15/22</span></div>'
+   +(onb()?'<div><span class="k">Viikkokatsaus</span><span class="v na">kun ≥ 11/22 sovelluksessa</span></div>':'<div><span class="k">Viikkokatsaus</span><span class="v w">41 %<small class="t">tav. 50</small></span></div><div><span class="k">Kotitehtävät 7 pv</span><span class="v w">27 %<small class="t">tav. 30</small></span></div>')
+   +'</div></div>';
+  h+='<div><span class="eb">Pelaajat · '+(onb()?'valmentajan kirjaukset':'tämä viikko')+'</span><div class="vl pl"><div class="vr hd"><span></span><span class="vt">Pelaaja</span><span>Läsnä viim.</span><span>Havainto</span><span>'+(onb()?'Sovellus':'Merkinnät 7 pv')+'</span></div>'
+   +PL.map(function(p){var app=onb()?(p[4]&&p[0]==='Aaro K.'||p[0]==='Onni R.'||p[0]==='Leo S.'?'<span class="mono">mukana</span>':'<span class="mono dim">ei vielä</span>'):'<span class="mono">'+p[3]+'</span>';
+    return '<div class="vr"><span class="dot '+(p[1]?'ok':'w')+'">'+(p[1]?G.ok:G.w)+'</span><span class="vt"><a class="h" href="#">'+p[0]+'</a></span><span class="mono">'+(p[1]?'✓ to':'poissa')+'</span><span class="mono">'+p[2]+'</span>'+app+'</div>'}).join('')
+   +'<div class="vr"><span></span><span class="vt mini">+ 14 muuta · nimi avaa pelaajakortin (kehitystyöpöytä 22)</span><span></span><span></span><span></span></div></div></div>';
+  if(onb())h+='<div class="note">Viikkokatsaus, kotitehtävät ja fiilis näkyvät, kun vähintään puolet pelaajista on sovelluksessa (D139). Läsnäolo ja havainnot ovat valmentajan omia, joten ne näkyvät aina.</div>';
+ }else{
+  h+='<div class="lead"><span class="eb">Kausi · mittaukset</span><div class="big">Mitattu 2/22 tällä kaudella. <small>Seuraava testijakso vk 45. Tasoja ei näytetä alle kattavuusrajan (D125).</small></div></div>';
+  h+='<div class="ev"><div class="nums"><div><span class="k">Testattu kaudella</span><span class="v w">2/22</span></div><div><span class="k">Vanhin mittaus</span><span class="v" style="font-size:20px">2023</span></div><div><span class="k">PHV-vaihe tiedossa</span><span class="v">6/22</span></div><div><span class="k">Syntymäaika tiedossa</span><span class="v">22/22</span></div></div></div>';
+  h+='<div class="ev sig n"><span class="eb">Testijakso vk 45</span><div class="h2">Sovi testipäivä</div><div class="why">VP ehdottaa ti 3.11. tai to 5.11. Mittausten jälkeen Kausi näyttää tasot, muutoksen ja PHV-korjauksen (§28).</div><div class="row"><button class="btn" type="button">Vastaa VP:lle</button></div></div>';
+  h+='<div><span class="eb">Pelaajat · kausi</span><div class="vl pl"><div class="vr hd"><span></span><span class="vt">Pelaaja</span><span>Mitattu</span><span>PHV</span><span>Taso</span></div>'+PL.slice(0,5).map(function(p,i){var m=i<2?'5/2026':'10/2023';return '<div class="vr"><span class="dot n">○</span><span class="vt"><a class="h" href="#">'+p[0]+'</a></span><span class="mono'+(i<2?'':' old')+'">'+m+'</span><span class="mono">'+(i%2?'PH':'—')+'</span><span class="mono">'+(i<2?'kehityskaista':'päivitä')+'</span></div>'}).join('')+'</div></div>';
+ }
+ return h+'</div>';
+}
+function lisaa(){
+ var T=[['Testit','Testitapahtumat, tulokset, Excel-pohjat'],['Pelihavainto','Peliälytyökalu ja havaintohistoria'],['Arvioi harjoitus','Oma harjoitusarvio (ennen: Itsearvio)'],['Taktiikkataulu','Kuvat ja katselmus'],['Valmentajana kehittyminen','Mentorointi ja oma kehitys'],['Aloitusopas','Näkyy Tänään-näkymässä, kunnes valmis']];
+ return head()+'<div class="db"><div class="lead"><span class="eb">Lisää</span><div class="big">Työkalut <small>Harvemmin käytetyt. Havainto ja harjoitusarvio myös pikatoimintoina.</small></div></div><div class="g2l">'+T.map(function(t){return '<a href="#" class="ev lk"><b>'+t[0]+'</b><span class="mini">'+t[1]+'</span></a>'}).join('')+'</div></div>';
+}
+function muu(v){var t={viestit:['Viestit','Asia-ketjut ja pelaajien merkinnät','Sama malli kuin mockupissa 26: ketju kiinnittyy asiaan, kuittaus kysyy jatkon.'],kalenteri:['Kalenteri','Oma joukkue ja omat ryhmät','Mockupin 26 kalenteri valmentajan roolilla: harjoitukset, silmukka, asiat ja syysloma.']}[v];
+ return head()+'<div class="db"><div class="ev sig n"><span class="eb">'+t[0]+'</span><div class="h2">'+t[1]+'</div><div class="why">'+t[2]+'</div></div></div>'}
+function render(){
+ var inner=S.v==='tanaan'?tanaan():S.v==='joukkue'?joukkue():S.v==='lisaa'?lisaa():muu(S.v);
+ var h='<div class="shell">'+nav()+'<div class="smain">'+inner+tabbar()+'</div></div>';
+ ['d1','d2'].forEach(function(id){document.getElementById(id).innerHTML=h});
+ [].forEach.call(document.querySelectorAll('#ctl [data-tila]'),function(b){b.classList.toggle('on',b.getAttribute('data-tila')===S.tila)});
+}
+document.addEventListener('click',function(e){
+ var x=e.target.closest('[data-v],[data-jt],[data-kohde],[data-auki],[data-tila]');if(!x)return;e.preventDefault();
+ if(x.dataset.v){S.v=x.dataset.v;S.auki=false}
+ else if(x.dataset.jt)S.jt=x.dataset.jt;
+ else if(x.dataset.kohde){S.kohde=x.dataset.kohde;S.auki=false}
+ else if(x.dataset.auki)S.auki=!S.auki;
+ else if(x.dataset.tila)S.tila=x.dataset.tila;
+ render();
+});
+var r=document.documentElement;
+document.getElementById('theme').addEventListener('click',function(){var d=r.getAttribute('data-theme')||(matchMedia('(prefers-color-scheme: light)').matches?'light':'dark');r.setAttribute('data-theme',d==='dark'?'light':'dark')});
+render();
+
+</script>
+</body>
+</html>

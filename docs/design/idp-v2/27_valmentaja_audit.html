@@ -1,0 +1,351 @@
+<!doctype html>
+<html lang="fi">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Valmentaja-audit · 27</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,400&display=swap">
+<style>
+
+/* 22: VP/valmentajan kehitystyöpöytä uusiksi. Sivu Cormorant + DM Sans (VP, D37 C), Kenttä-komponentti Archivo (D11/D51). Tumma = operatiivinen oletus. */
+:root{--bg:#1C1C1A;--sur:#242421;--sur2:#2C2C28;--ink:#F2EFE6;--ink2:#CFCBC0;--ink3:#8F8C83;--line:rgba(242,239,230,.14);--chalk:rgba(242,239,230,.55);--chalk2:rgba(242,239,230,.28);
+ --teal:#28B090;--teal-dim:rgba(40,176,144,.16);--teal-brd:rgba(40,176,144,.45);--amber:#E0A040;--amber-dim:rgba(224,160,64,.16);--red:#D06A5A;--red-dim:rgba(208,106,90,.14);--blue:#7FA6DE;--on-accent:#111110;color-scheme:dark}
+@media (prefers-color-scheme:light){:root:not([data-theme="dark"]){--bg:#F2EFE6;--sur:#FBFAF6;--sur2:#EAE6DA;--ink:#1C1C1A;--ink2:#3E3C37;--ink3:#6B695F;--line:rgba(28,28,26,.16);--chalk:rgba(28,28,26,.45);--chalk2:rgba(28,28,26,.2);--teal:#1A7A5E;--teal-dim:rgba(26,122,94,.12);--teal-brd:rgba(26,122,94,.4);--amber:#9A6512;--amber-dim:rgba(224,160,64,.2);--red:#A8473A;--red-dim:rgba(168,71,58,.12);--blue:#3D6AA8;--on-accent:#F2EFE6;color-scheme:light}}
+:root[data-theme="light"]{--bg:#F2EFE6;--sur:#FBFAF6;--sur2:#EAE6DA;--ink:#1C1C1A;--ink2:#3E3C37;--ink3:#6B695F;--line:rgba(28,28,26,.16);--chalk:rgba(28,28,26,.45);--chalk2:rgba(28,28,26,.2);--teal:#1A7A5E;--teal-dim:rgba(26,122,94,.12);--teal-brd:rgba(26,122,94,.4);--amber:#9A6512;--amber-dim:rgba(224,160,64,.2);--red:#A8473A;--red-dim:rgba(168,71,58,.12);--blue:#3D6AA8;--on-accent:#F2EFE6;color-scheme:light}
+:root[data-theme="dark"]{color-scheme:dark}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--ink);font-family:'DM Sans',system-ui,sans-serif;font-size:15px;line-height:1.55;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1240px;margin:0 auto;padding:28px 16px 90px;display:grid;gap:56px}
+.wrap>*,section>*{min-width:0}
+section{display:grid;gap:16px;scroll-margin-top:12px}
+.serif{font-family:'Cormorant Garamond',Georgia,serif;font-weight:400}
+h1{font-family:'Cormorant Garamond',Georgia,serif;font-weight:300;font-size:clamp(38px,5.5vw,64px);line-height:1.02;letter-spacing:-.005em;max-width:20ch}
+h2{font-family:'Cormorant Garamond',Georgia,serif;font-weight:400;font-size:clamp(28px,3.6vw,38px);line-height:1.05}
+h3{font-family:'Cormorant Garamond',Georgia,serif;font-weight:500;font-size:22px;line-height:1.1}
+p{color:var(--ink2);max-width:76ch}
+b{font-weight:600;color:var(--ink)}
+.meta{font-size:12.5px;color:var(--ink3)}
+.mono{font-family:'DM Mono',monospace;font-size:12px;color:var(--ink3)}
+.eb{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--teal)}
+.top{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between}
+.tbtn{font:inherit;font-size:13px;padding:7px 12px;border:1px solid var(--line);border-radius:4px;background:transparent;color:var(--ink2);cursor:pointer;min-height:36px}
+.tbtn.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.tbtn:focus-visible,.nav a:focus-visible{outline:2px solid var(--teal);outline-offset:2px}
+.nav{display:flex;flex-wrap:wrap;gap:8px}
+.nav a{font-size:13px;color:var(--ink2);text-decoration:none;border:1px solid var(--line);border-radius:4px;padding:6px 12px}
+.nav a b{color:var(--teal);font-family:'DM Mono';margin-right:6px}
+.ctl{display:flex;flex-wrap:wrap;gap:14px;align-items:center;border:1px solid var(--line);border-radius:6px;padding:10px 14px;background:var(--sur)}
+.ctl .g{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.ctl .g span.l{font-size:12px;color:var(--ink3);margin-right:4px}
+table{border-collapse:collapse;width:100%;font-size:13.5px}
+th,td{text-align:left;vertical-align:top;padding:8px 10px;border-top:1px solid var(--line)}
+th{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink3);border-top:0}
+.tw{overflow-x:auto;border:1px solid var(--line);border-radius:6px}
+.note{border-left:2px solid var(--teal);padding:8px 14px;color:var(--ink2);font-size:14px}
+.note.w{border-color:var(--amber)}
+.g3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.g2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+@media(max-width:800px){.g3,.g2{grid-template-columns:minmax(0,1fr)}}
+.card{border:1px solid var(--line);border-radius:6px;background:var(--sur);padding:14px 16px;display:grid;gap:6px}
+.card .h{font-family:'Cormorant Garamond',Georgia,serif;font-size:22px;font-weight:500}
+.kbd{display:inline-block;border:1px solid var(--line);border-radius:3px;padding:0 6px;font-family:'DM Mono';font-size:11px;color:var(--ink2)}
+
+/* ── Työpöytä (desk) ── */
+.desk{border:1px solid var(--line);border-radius:8px;background:var(--sur);overflow:hidden;container-type:inline-size;container-name:desk}
+.desk .dh{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;padding:10px 16px;border-bottom:1px solid var(--line);background:var(--bg)}
+.desk .dh .nm{font-family:'Cormorant Garamond',Georgia,serif;font-size:24px;line-height:1;font-weight:500}
+.desk .dh .sub{font-size:12.5px;color:var(--ink3)}
+.desk .dh .sp{flex:1}
+.chip{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;padding:3px 9px;border-radius:3px;border:1px solid var(--line);color:var(--ink2);white-space:nowrap}
+.chip.ok{color:var(--teal);border-color:var(--teal-brd);background:var(--teal-dim)}
+.chip.w{color:var(--amber);background:var(--amber-dim);border-color:transparent}
+.chip.n{color:var(--ink3)}
+.chip.err{color:var(--red);background:var(--red-dim);border-color:transparent}
+.btn{font:inherit;font-size:13.5px;font-weight:600;padding:8px 14px;border-radius:4px;border:1px solid var(--teal);background:var(--teal);color:var(--on-accent);cursor:pointer;min-height:36px;white-space:nowrap}
+.btn.q{background:transparent;color:var(--teal)}
+.btn.g{background:transparent;color:var(--ink2);border-color:var(--line)}
+.btn.sm{font-size:12.5px;padding:5px 10px;min-height:30px}
+.ico{width:34px;height:34px;display:inline-grid;place-items:center;border:1px solid var(--line);border-radius:4px;color:var(--ink2);font-size:16px}
+.desk .dtabs{display:flex;gap:2px;padding:6px 12px 0;border-bottom:1px solid var(--line);background:var(--bg)}
+.desk .dtabs span{padding:8px 14px;font-size:13.5px;font-weight:600;color:var(--ink3);border-bottom:2px solid transparent;cursor:pointer}
+.desk .dtabs span.on{color:var(--ink);border-bottom-color:var(--teal)}
+.desk .db{padding:16px;display:grid;gap:14px}
+.desk .two{display:grid;grid-template-columns:minmax(0,340px) minmax(0,1fr);gap:18px;align-items:start}
+@container desk (max-width: 720px){.radar .hide-m{display:none}.desk .two{grid-template-columns:minmax(0,1fr)}.desk .two>.kt-col{order:2}.desk .g2{grid-template-columns:minmax(0,1fr)}.hist div{grid-template-columns:minmax(0,1fr)}.hist .q{grid-column:1}.desk .db{padding:12px}.desk .dh .nm{font-size:20px}.hide-m{display:none!important}}
+
+/* Kortti-anatomia: otsikko · tulkintalause · luvut+ikä · yksi linkki */
+.ev{border:1px solid var(--line);border-radius:6px;background:var(--bg);display:grid;gap:8px;padding:12px 14px}
+.ev .t{display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap}
+.ev .t .h{font-family:'Cormorant Garamond',Georgia,serif;font-size:21px;font-weight:500;line-height:1.05}
+.ev .t .age{font-family:'DM Mono';font-size:11.5px;color:var(--ink3);white-space:nowrap}
+.ev .t .age.old{color:var(--amber)}
+.ev .lause{font-size:14.5px;color:var(--ink);line-height:1.45}
+.ev .nums{display:flex;flex-wrap:wrap;gap:6px 18px}
+.ev .nums div{display:grid;gap:0}
+.ev .nums .k{font-size:11.5px;color:var(--ink3)}
+.ev .nums .v{font-family:'Cormorant Garamond',Georgia,serif;font-size:26px;line-height:1;font-weight:500}
+.ev .nums .v small{font-family:'DM Mono';font-size:11px;color:var(--ink3);margin-left:4px}
+.ev .nums .v.na{color:var(--ink3);font-size:18px;font-family:'DM Sans'}
+.ev .act{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;border-top:1px solid var(--line);padding-top:8px;margin-top:2px}
+.ev .act a{color:var(--teal);font-size:13.5px;font-weight:600;text-decoration:none}
+.ev .act .m{font-size:12px;color:var(--ink3)}
+.ev.focus{border-color:var(--teal);box-shadow:inset 0 0 0 1px var(--teal-brd)}
+.q3.two{grid-template-columns:repeat(2,minmax(0,1fr))}
+.opts span.q{border-style:dashed;color:var(--ink3);font-size:12.5px}
+details.ev.acc{padding:0}details.ev.acc summary{list-style:none;cursor:pointer;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 10px;padding:12px 14px;align-items:baseline}details.ev.acc summary::-webkit-details-marker{display:none}details.ev.acc summary .sum{grid-column:1/-1;font-family:'Cormorant Garamond',Georgia,serif;font-size:22px;color:var(--ink2);line-height:1}details.ev.acc[open] summary .sum{display:none}details.ev.acc .lause,details.ev.acc .nums{padding:0 14px}details.ev.acc .act{margin:0 14px 12px}
+.ev.sig{border-color:var(--teal);background:var(--teal-dim)}
+.ev.sig.w{border-color:var(--amber);background:var(--amber-dim)}
+.ev.sig.n{border-style:dashed;background:transparent}
+.ev.sig .h2{font-family:'Cormorant Garamond',Georgia,serif;font-size:24px;font-weight:500;line-height:1.05}
+.ev.sig .why{font-size:13.5px;color:var(--ink2)}
+.ev.sig .second{font-size:12.5px;color:var(--ink3);border-top:1px dashed var(--line);padding-top:6px}
+.spark{display:inline-block;vertical-align:middle;margin-left:8px}
+.q3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+@container desk (max-width: 720px){.q3{grid-template-columns:minmax(0,1fr)}}
+.q3 div{border:1px solid var(--line);border-radius:4px;padding:10px 12px;display:grid;gap:3px;background:var(--bg)}
+.q3 .k{font-size:12.5px;color:var(--ink3)}
+.q3 .v{font-family:'Cormorant Garamond',Georgia,serif;font-size:24px;line-height:1.05;font-weight:500}
+.q3 .v.w{color:var(--amber)}.q3 .v.na{color:var(--ink3);font-size:18px}
+.q3 .s{font-size:12px;color:var(--ink3)}
+.osat{display:grid;gap:4px}
+.osat div{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:10px;align-items:center;padding:7px 10px;border:1px solid var(--line);border-radius:4px;font-size:13.5px;background:var(--bg)}
+.osat .k{font-family:'DM Mono';font-size:12px;color:var(--teal);font-weight:500}
+.osat .st{font-size:12px;color:var(--ink3)}
+.osat div.on{border-color:var(--amber)}.osat div.on .st{color:var(--amber);font-weight:600}
+.osat div.ok .st{color:var(--teal);font-weight:600}
+.jana{display:grid;gap:0}
+.jana .jr{display:grid;grid-template-columns:28px minmax(0,1fr);gap:12px;position:relative}
+.jana .jr::before{content:'';position:absolute;left:13px;top:28px;bottom:-6px;width:1.5px;background:var(--line)}
+.jana .jr:last-child::before{display:none}
+.jana .dot{width:28px;height:28px;border-radius:50%;border:1.5px solid var(--line);display:grid;place-items:center;font-family:'DM Mono';font-size:11px;color:var(--ink3);background:var(--sur)}
+.jana .jr.now .dot{border-color:var(--amber);color:var(--amber);background:var(--amber-dim)}
+.jana .jr.done .dot{border-color:var(--teal);color:var(--teal)}
+.jana .jb{display:grid;gap:8px;padding-bottom:18px}
+.jana .jb .eb{margin-bottom:-4px}
+.jana .rl{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}.jana .rl a{color:var(--teal);font-size:13.5px;font-weight:600;text-decoration:none}.jana .rl .m{font-size:12px;color:var(--ink3)}
+.vk{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px}
+.vk div{border:1px solid var(--line);border-radius:4px;padding:6px 6px;font-size:12px;display:grid;gap:2px;min-height:58px;background:var(--bg)}
+.vk .d{font-family:'DM Mono';font-size:11px;color:var(--ink3)}
+.vk div.j{border-color:var(--teal-brd)}.vk div.o{border-color:var(--chalk2);border-style:dashed}.vk div.m{border-color:var(--amber)}
+.vk div.today{outline:2px solid var(--teal);outline-offset:-2px}
+@container desk (max-width: 720px){.vk{grid-template-columns:repeat(4,minmax(0,1fr))}}
+.hist{display:grid;gap:6px}
+.hist div{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:12px;align-items:baseline;padding:8px 10px;border:1px solid var(--line);border-radius:4px;font-size:13.5px;background:var(--bg)}
+.hist .m{font-family:'DM Mono';font-size:11.5px;color:var(--ink3)}
+.hist .q{font-style:italic;color:var(--ink2)}
+.clip{display:grid;grid-template-columns:40px minmax(0,1fr) auto;gap:10px;align-items:center;border:1px solid var(--line);border-radius:4px;padding:8px 10px;background:var(--bg);font-size:13.5px}
+.clip .v{width:40px;height:40px;border-radius:4px;background:var(--sur2);display:grid;place-items:center;color:var(--teal)}
+.clip small{display:block;color:var(--ink3);font-size:12px}
+.sheet{border:1px solid var(--teal-brd);border-radius:8px;background:var(--sur);display:grid;gap:12px;padding:16px;max-width:520px;box-shadow:0 18px 40px -24px rgba(0,0,0,.6)}
+.sheet .sh{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+.sheet .sh .h{font-family:'Cormorant Garamond',Georgia,serif;font-size:24px;font-weight:500}
+.opts{display:flex;gap:6px;flex-wrap:wrap}
+.opts span{border:1px solid var(--line);border-radius:3px;padding:7px 12px;font-size:13.5px;min-height:36px;display:inline-flex;align-items:center}
+.opts span.on{border-color:var(--teal);background:var(--teal-dim);color:var(--teal);font-weight:600}
+.ta{border:1px solid var(--line);border-radius:4px;padding:10px 12px;font-size:14px;color:var(--ink2);min-height:64px;background:var(--bg)}
+.phones{display:flex;gap:18px;flex-wrap:wrap;align-items:flex-start}
+.phone{width:390px;max-width:100%;border:1px solid var(--line);border-radius:28px;padding:12px;background:var(--sur2)}
+.phone .desk{border-radius:20px}
+.phone .mono.cap{margin:8px 4px 0;display:block}
+.radar{display:grid;grid-template-columns:auto minmax(0,1fr);gap:14px;align-items:center}.radar .hide-m{display:contents}
+@container desk (max-width: 520px){.radar{grid-template-columns:minmax(0,1fr)}}
+details.all{border:1px dashed var(--line);border-radius:6px;padding:10px 14px}
+details.all summary{cursor:pointer;color:var(--teal);font-weight:600;font-size:14px}
+details.all .in{padding-top:10px;display:grid;gap:8px}
+.dec{display:grid;gap:8px}
+.dec div{display:grid;grid-template-columns:56px minmax(0,1fr);gap:12px;padding:8px 0;border-top:1px solid var(--line);font-size:14px}
+.dec .n{font-family:'DM Mono';color:var(--teal);font-size:12.5px;padding-top:3px}
+.dec b{display:block}
+.hl{background:var(--amber-dim);padding:0 4px;border-radius:2px}
+.pelaaja-silmin .st-num,.pelaaja-silmin .age,.pelaaja-silmin .nums{display:none!important}
+@media print{@page{size:A4 landscape;margin:10mm}.top,.nav,.tbtn,.ctl{display:none!important}.wrap{gap:28px;padding:0}section{break-inside:avoid}}
+
+/* ── 23: Seuran pulssi v2 · lisäosat 22:n päälle. Ei uusia tokeneita. ── */
+.lead{display:grid;gap:4px}
+.lead .eb{margin-bottom:2px}
+.lead .big{font-family:'Cormorant Garamond',Georgia,serif;font-size:34px;line-height:1.05;font-weight:400;color:var(--ink)}
+.lead .big small{font-family:'DM Sans';font-size:14px;color:var(--ink3);margin-left:8px}
+.sigs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.sigs.one{grid-template-columns:minmax(0,1fr)}
+@container desk (max-width: 900px){.sigs{grid-template-columns:minmax(0,1fr)}}
+.ev.sig .btn{justify-self:start}
+.ev.sig .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.sigmore{font-size:13px;color:var(--ink3)}
+.sigmore a{color:var(--teal);font-weight:600;text-decoration:none}
+.eb.row2{display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap}
+.legend{display:flex;gap:6px;flex-wrap:wrap}
+.pt-wrap{border:1px solid var(--line);border-radius:6px;overflow:hidden}
+table.pt{font-size:13.5px}
+table.pt th{padding:9px 12px;background:var(--bg);white-space:nowrap}
+table.pt th small{display:block;text-transform:none;letter-spacing:0;font-size:11.5px;color:var(--ink3);font-weight:400}
+table.pt td{padding:9px 12px;vertical-align:middle}
+table.pt tr.seura td{background:var(--sur2);border-top:1px solid var(--line)}
+table.pt td.nm .h{font-family:'Cormorant Garamond',Georgia,serif;font-size:21px;line-height:1.05;font-weight:500;color:var(--ink);text-decoration:none}
+table.pt td.nm a.h:hover{color:var(--teal)}
+table.pt td.nm .m{display:block;font-size:12px;color:var(--ink3);margin-top:1px}
+.pv{display:inline-flex;align-items:baseline;gap:6px;font-family:'Cormorant Garamond',Georgia,serif;font-size:22px;line-height:1;font-weight:500;color:var(--ink)}
+.pv i{font-style:normal;font-family:'DM Mono';font-size:12px;width:14px;text-align:center}
+.pv.ok i{color:var(--teal)}.pv.w{color:var(--amber)}.pv.w i{color:var(--amber)}.pv.err{color:var(--red)}.pv.err i{color:var(--red)}
+.pv.n{color:var(--ink)}.pv.n i{color:var(--ink3)}
+.pv small{font-family:'DM Mono';font-size:11px;color:var(--ink3);font-weight:400}
+.cs{display:block;font-size:12px;color:var(--ink3);margin-top:3px}
+.cs.w{color:var(--amber);font-weight:600}
+.cs.err{color:var(--red);font-weight:600}
+.dash{color:var(--ink3);font-size:14px}
+.trend{display:inline-block;vertical-align:middle;margin-left:8px}
+.trend rect{fill:var(--chalk2)}.trend rect:last-child{fill:var(--chalk)}
+.trend.dn rect:last-child{fill:var(--amber)}
+.cards{display:none;gap:10px}
+@container desk (max-width: 720px){.pt-wrap{display:none}.cards{display:grid}.lead .big{font-size:30px}}
+.cardhead{display:grid;gap:2px;padding:4px 2px 2px}
+.cardhead .big{font-family:'Cormorant Garamond',Georgia,serif;font-size:34px;line-height:1.05}
+.cardhead .sub{font-size:13px;color:var(--ink2)}
+.ev .nums .v.w{color:var(--amber)}.ev .nums .v.err{color:var(--red)}
+.ev .nums .v small.t{font-family:'DM Mono'}
+.mini{font-size:12.5px;color:var(--ink3)}
+.verd{font-size:12px;font-weight:600;white-space:nowrap}
+.sect-note{font-size:13px;color:var(--ink3)}
+.fig2{display:grid;grid-template-columns:minmax(0,1fr) 420px;gap:18px;align-items:start}
+@media(max-width:1100px){.fig2{grid-template-columns:minmax(0,1fr)}}
+.phone .cap{font-family:'DM Mono';font-size:11px;color:var(--ink3);display:block;margin:8px 4px 0}
+.koti{display:grid;gap:8px}
+
+.desk .db>*{min-width:0}
+.legend{text-transform:none;letter-spacing:0}
+.legend .chip{white-space:normal;text-transform:none;letter-spacing:0;font-family:'DM Sans'}
+@container desk (max-width: 720px){.lead .big small{display:block;margin:4px 0 0}.legend{display:none}.eb.row2{display:block}}
+
+/* Kolme näkymää (D121) */
+.tk{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.tk .ev{gap:2px}.tk .k{font-size:11.5px;color:var(--ink3)}.tk .v{font-family:'Cormorant Garamond',Georgia,serif;font-size:30px;line-height:1;font-weight:500}.tk .s{font-size:12px;color:var(--ink3)}
+@container desk (max-width: 720px){.tk{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.vl{display:grid;border:1px solid var(--line);border-radius:6px;margin-top:6px;overflow:hidden}
+.vr{display:grid;grid-template-columns:18px minmax(0,1fr) auto;gap:10px;align-items:center;padding:9px 12px;border-top:1px solid var(--line);font-size:13.5px}
+.vr:first-child{border-top:0}
+.vr .vt b{font-weight:600;margin-right:4px}.vr .vm{display:block;font-size:12px;color:var(--ink3);margin-top:1px}
+.vr .dot{font-family:'DM Mono';font-size:12px;text-align:center}.dot.ok{color:var(--teal)}.dot.w{color:var(--amber)}.dot.err{color:var(--red)}.dot.n{color:var(--ink3)}
+.pl .vr{grid-template-columns:18px minmax(0,1fr) 90px 120px}
+.pl .vr.hd{font-size:11px;text-transform:uppercase;letter-spacing:.12em;color:var(--ink3);background:var(--sur2);padding:7px 12px}
+.pl a.h,.pt a.h{color:var(--ink);text-decoration:none}.pl a.h:hover{color:var(--teal)}
+.mono{font-family:'DM Mono';font-size:12px;color:var(--ink2)}.mono.old{color:var(--amber)}
+table.mt td{font-size:13px}
+@container desk (max-width: 720px){.vr{grid-template-columns:18px minmax(0,1fr)}.vr .btn{grid-column:2;justify-self:start}.pl .vr{grid-template-columns:18px minmax(0,1fr) 70px 80px}table.mt{font-size:12px}table.mt th,table.mt td{padding:7px 6px}}
+
+.mini{line-height:1.5}
+code{font-family:"DM Mono";font-size:12px;word-break:break-all}.top>div{flex:1 1 280px;min-width:0;grid-template-columns:minmax(0,1fr)}.top p{overflow-wrap:anywhere}.top .eb{white-space:normal;overflow-wrap:anywhere}h1{overflow-wrap:anywhere}
+
+</style>
+</head>
+<body>
+<div class="wrap">
+<header class="top" style="align-items:flex-start">
+ <div style="display:grid;gap:10px">
+  <span class="eb">TalentMaster™ · 27 · Audit · Master_v16 valmentaja</span>
+  <h1>Sovellus odottaa pelaajien dataa, jota ei vielä tule.</h1>
+  <p>Audit tehty live-sivulta talentmasterid.com/TalentMaster_Master_v16.html la 10.10.2026, seura KPV, joukkue P13, super admin -näkymä. Käyttödata Sibbo-Vargarnasta, SJK:sta ja KPV:stä (viikkokooste 2026-W41 ja henkilökunnan tunnukset, vain lukumääriä). Sama arviointitapa kuin VP-auditissa 24: <b>onko luku oikein</b>, <b>vastaako näkymä yhteen kysymykseen</b>, <b>onko asia oikeassa paikassa ja rytmissä</b>, <b>noudattaako ulkoasu 22:n kieltä</b>. Tavoitetila on mockupissa 28.</p>
+ </div>
+ <button class="tbtn" id="theme" type="button">Vaihda teema</button>
+</header>
+
+<nav class="nav"><a href="#a1"><b>1</b>Yhteenveto</a><a href="#a2"><b>2</b>Käyttödata</a><a href="#a3"><b>3</b>Ristiriitaiset luvut</a><a href="#a4"><b>4</b>Näkymät</a><a href="#a5"><b>5</b>Siirtokartta</a><a href="#a6"><b>6</b>Codelle</a></nav>
+
+<section id="a1">
+ <span class="eb">1 · Yhteenveto</span>
+ <h2>Tärkeimmät löydökset</h2>
+ <div class="g3">
+  <div class="card"><span class="eb" style="color:var(--red)">P0 · Data</span><span class="h">Pelaajat eivät ole sovelluksessa</span><span class="mini">Kolmessa seurassa on 467 pelaajaa. Viimeisen 30 päivän aikana aktiivisia on ollut 4, ja heistä yksi on testipelaaja. Sibbossa ja SJK:ssa yksikään pelaaja ei ole kirjautunut 30 päivään. Pulssi, Viestit, Kuorma & fiilis ja Tänään-otsikko rakentuvat tämän datan varaan, joten ne ovat tyhjiä tai punaisia.</span></div>
+  <div class="card"><span class="eb" style="color:var(--red)">P0 · Luvut</span><span class="h">Kolme eri viikkonumeroa</span><span class="mini">Yläotsikko sanoo "Viikko 42", Kalenteri "Viikko 40", oikea ISO-viikko on 41. Kaksi eri laskukaavaa koodissa, kumpikaan ei ole ISO 8601. Lisäksi avoimia testejä on Tänään-näkymässä 1 ja Testit-sivulla "ei avoimia".</span></div>
+  <div class="card"><span class="eb" style="color:var(--red)">P0 · Vanha data</span><span class="h">Kolmen vuoden takainen mittaus näkyy nykytasona</span><span class="mini">Kehitys-sivulla pelaaja on "testattu 28.10.2023" ja D2 näkyy punaisena 1/5. Testit-sivulla viimeisin mittaus on 25.5.2026. Kausi-sivu näyttää "Kehittynyt 100 %" ja RAE-jakauman neljän syntymäajan perusteella.</span></div>
+  <div class="card"><span class="eb" style="color:var(--amber)">P1 · Navigaatio</span><span class="h">Kaksi navigaatiota samalla sivulla</span><span class="mini">Sivupalkissa 14 kohtaa (Valikko 4, Työkalut 10) ja sisällön yläpuolella välilehtirivi 01–07. Sama näkymä on kahdella nimellä: "Pelaajat" ja "04 Kehitys". Mobiilissa vielä kolmas: alapalkki Koti · Pelaajat · Havainnot · Viestit · Valikko.</span></div>
+  <div class="card"><span class="eb" style="color:var(--amber)">P1 · Päällekkäisyys</span><span class="h">Koti ja Tänään kysyvät saman</span><span class="mini">Koti: "Mitä sinun pitää tehdä" (3 riviä). Tänään: "Nämä kolme tänään" (2 riviä) ja oma pääotsikko. Kumpikaan ei näytä tämän päivän harjoitusta, vaikka kalenterissa on harjoitus to ja pe.</span></div>
+  <div class="card"><span class="eb" style="color:var(--ink3)">P2 · Ulkoasu</span><span class="h">Profiilikortti ja tyhjät tilat</span><span class="mini">Profiilikortti näyttää "SJK P14", vaikka valittu on KPV P13. Pulssin 16 × 7 punaista ruutua näyttää epäonnistumiselta, vaikka kyse on käyttöönotosta. Kuorman päivämäärät muodossa 09-20, muualla 20.9.</span></div>
+ </div>
+ <div class="note">Hyvää, joka kannattaa säilyttää: Kehitys-sivun toimintakortti (konsepti → cue → harjoite) on valmennuksellisesti vahva. Havainnot-sivun "Havainnoi →" -lista on selkeä yksi toimenpide per rivi. Kalenterin viikkonäkymä toimii. Viestit-sivulla pelaajan merkinnän kuittaus ja "Viestitä perheelle" ovat oikeita toimintoja.</div>
+</section>
+
+<section id="a2">
+ <span class="eb">2 · Käyttödata · 2026-W41 · vain lukumääriä</span>
+ <h2>Valmentajat kirjautuvat, pelaajat eivät</h2>
+ <div class="tw"><table>
+  <tr><th></th><th>Sibbo-Vargarna</th><th>SJK</th><th>KPV</th></tr>
+  <tr><td><b>Valmentajatunnuksia</b></td><td>4</td><td>0 (vain 3 VP:tä)</td><td>1</td></tr>
+  <tr><td><b>Valmentaja kirjautunut</b></td><td>3/4 (3–10 pv sitten)</td><td>–</td><td>1/1 (5 pv sitten)</td></tr>
+  <tr><td><b>Valmentajan laskurit</b> (läsnäolo, tavoitteet, palautteet)</td><td>0</td><td>–</td><td>1 harjoitusarvio</td></tr>
+  <tr><td><b>Pelaajia</b></td><td>246</td><td>61</td><td>160</td></tr>
+  <tr><td><b>Suostumus annettu</b></td><td>38 (15 %)</td><td>36 (59 %)</td><td>4 (3 %)</td></tr>
+  <tr><td><b>Pelaaja kirjautunut 30 pv</b></td><td>0</td><td>0</td><td>1</td></tr>
+  <tr><td><b>Aktiivinen 7 pv / 30 pv</b></td><td>1 / 2</td><td>0 / 1</td><td>1 / 1</td></tr>
+  <tr><td><b>Kotiharjoite 30 pv · huoltaja 30 pv</b></td><td>0 · 0</td><td>0 · 0</td><td>1 · 0</td></tr>
+ </table></div>
+ <div class="note w">Johtopäätös: valmentajan näkymien pitää olla hyödyllisiä myös ilman pelaajien dataa. Valmentajan omat toiminnot (läsnäolo, havainto, harjoitusarvio, jakso) eivät riipu pelaajista, ja niiden pitää olla ensimmäisinä. Pelaajien ja perheiden saaminen mukaan (suostumus, PIN-koodit) on tällä hetkellä valmentajan tärkein tehtävä sovelluksessa. KPV:n ainoa aktiivinen pelaaja on testipelaaja.</div>
+</section>
+
+<section id="a3">
+ <span class="eb">3 · P0 · Ristiriitaiset luvut</span>
+ <h2>Luku A vastaan luku B</h2>
+ <div class="tw"><table>
+  <tr><th>Asia</th><th>Näkymä A</th><th>Näkymä B</th><th>Syy</th><th>Korjaus</th></tr>
+  <tr><td><b>Viikkonumero</b></td><td>Sivun yläotsikko kaikissa näkymissä: "VIIKKO 42"</td><td>Kalenteri: "Viikko 40 · 5.–11. lokakuuta" ja "Kausi 2026/27 · Viikko 40"</td><td>Kaksi omaa kaavaa: <code>_getVk</code> (rivi ~4787) ja kalenterin <code>weekNum</code> (rivi ~10118). Oikea ISO-viikko on 41.</td><td>Yksi ISO 8601 -funktio jaettuun libiin, kaikki sovellukset käyttävät sitä.</td></tr>
+  <tr><td><b>Avoimet testit</b></td><td>Tänään: "Avoimet testit 1", välilehti "Testit 1", Kehitys: "HH-testi suppea · avoin"</td><td>Testit: "Ei avoimia testitapahtumia"</td><td>Eri lähde (pelaajan tapahtuma vs. testitapahtumat-kokoelma).</td><td>Yksi määritelmä avoimelle testille.</td></tr>
+  <tr><td><b>Valittu joukkue</b></td><td>Valitsin: KPV P13</td><td>Profiilikortti: "Super Admin · SJK P14"</td><td>Kortti ei päivity joukkueen vaihtuessa.</td><td>Kortti lukee saman tilan kuin valitsin.</td></tr>
+  <tr><td><b>Viimeisin mittaus</b></td><td>Kehitys: "testattu 28.10.2023"</td><td>Testit: "Viimeisin mittaus 25.5.2026"</td><td>Pelaajakohtainen vs. joukkueen tuorein.</td><td>Näytä aina molemmat ja datan ikä. Yli 12 kk vanha ei tasona.</td></tr>
+  <tr><td><b>Kehityskohde</b></td><td>Koti: "Syöttö heikoin (12 pelaajalla)"</td><td>Testit: "Syöttö 12/12 pelaajalla" · joukkueessa 16 pelaajaa</td><td>12 testattua 16:sta, mutta Koti ei kerro otosta.</td><td>"12/16 testattu" näkyviin (D125).</td></tr>
+  <tr><td><b>Kehitys</b></td><td>Kausi: "Kehittynyt 100 % · 5/5 kahdesti mitattu parani"</td><td>Kausi: "Kattavuus: pelialy 6 %, PHV 0 %, valmius 6 %"</td><td>100 % viidestä pelaajasta 16:sta näytetään isona lukuna.</td><td>Kattavuusportti: alle rajan "5/16 mitattu kahdesti".</td></tr>
+  <tr><td><b>RAE</b></td><td>Kausi: Q3 75 %, Q4 25 %</td><td>Syntymäaikoja 4/16</td><td>Sama virhe kuin VP:ssä.</td><td>Kattavuusportti.</td></tr>
+  <tr><td><b>Päivämäärämuoto</b></td><td>Kuorma: "09-20", "09-19"</td><td>Muualla: "29.9.2026"</td><td>ISO-muoto suoraan datasta.</td><td>Yksi suomalainen muoto.</td></tr>
+ </table></div>
+</section>
+
+<section id="a4">
+ <span class="eb">4 · Näkymä kerrallaan</span>
+ <h2>Master_v16 nyt</h2>
+ <div class="tw"><table>
+  <tr><th>Näkymä</th><th>Mitä näyttää</th><th>Havainto</th><th>Vakavuus</th><th>Suositus</th></tr>
+  <tr><td><b>Navigaatio</b></td><td>Sivupalkki 14 + välilehtirivi 7 + mobiilin alapalkki 5</td><td>Kolme navigaatiota, sama näkymä eri nimillä (Pelaajat = Kehitys). Työkalut-ryhmässä ovat myös päivittäiset näkymät (Tänään, Kalenteri).</td><td class="verd" style="color:var(--amber)">P1</td><td>Yksi navigaatio: Tänään · Joukkue · Viestit · Kalenteri · Lisää.</td></tr>
+  <tr><td><b>Koti</b></td><td>Tervehdys, profiilikortti (0 havaintoa, 0 viestiä, CPD), "Mitä sinun pitää tehdä" 3 riviä, tilastorivi</td><td>Profiilikortin luvut ovat valmentajan omia, mutta kortti on väärän joukkueen. Kolmesta rivistä kaksi on kausiasioita (syöttö heikoin) tai pelaajien asioita (omatoimikirjaus).</td><td class="verd" style="color:var(--amber)">P1</td><td>Yhdistetään Tänään-näkymään.</td></tr>
+  <tr><td><b>01 Viestit</b></td><td>Pelaajan merkinnät, emoji-reaktiot, "Viestitä perheelle", Kuittaa, "+ klippi", "Kuittaa kaikki"</td><td>Hyvä pohja. Ei kiinnity jaksoon tai asiaan, ei VP:n viestejä.</td><td class="verd" style="color:var(--teal)">Pidä</td><td>Asia-ketjut mockupin 26 mukaan, pelaajan merkintä on yksi asian lähde.</td></tr>
+  <tr><td><b>02 Tänään</b></td><td>"1/16 pelaajaa aloittanut omatoimikirjaukset — muistuta lopuille", "Nämä kolme tänään" (2), joukkueen tilanne, uusimmat havainnot, kenttätarkkailut, pelaajat huomioitavaa</td><td>Pääotsikko on oikea havainto (käyttöönotto), mutta ilman nappia. Tämän päivän harjoitusta ei näy. Lista "Nämä kolme" sisältää kaksi.</td><td class="verd" style="color:var(--amber)">P1</td><td>Ankkuriksi seuraava harjoitus. Käyttöönotto nauhaksi, jossa on toiminto.</td></tr>
+  <tr><td><b>03 Pulssi</b></td><td>16 pelaajaa × 7 päivää ruudukko, 0/7 jokaisella, 1 kirjaus viikolla</td><td>Ruudukko on punaisena, koska pelaajat eivät ole sovelluksessa. Viesti on "epäonnistuminen", vaikka kyse on käyttöönotosta. Nimeää yksittäiset pelaajat 0/7:llä.</td><td class="verd" style="color:var(--red)">P0</td><td>Näkyy vasta, kun ≥ 50 % pelaajista kirjautunut. Sitä ennen käyttöönottonauha.</td></tr>
+  <tr><td><b>04 Kehitys</b></td><td>Pelaajan elämäkerta, valinta, resepti, toimintakortti, TKI, D1/D2, tekniikka, merkittävät tapahtumat</td><td>Sisältö on vahva, mutta sivu on 2 950 px eikä vielä mockupin 22 kehitystyöpöytä. 2023 mittaus punaisena.</td><td class="verd" style="color:var(--amber)">P1</td><td>Pelaajakortti = kehitystyöpöytä 22. Avautuu Joukkue-näkymän pelaajalistasta.</td></tr>
+  <tr><td><b>05 Kausi</b></td><td>Joukkueen jakso ("Joukkuedokumenttia ei ole — luo joukkue ensin"), kehittyneet %, taso ≥ 3, D1/D2, PHV, kattavuus, RAE, harjoitussuunnitelma, signaaliroster</td><td>"Luo joukkue ensin" vaikka joukkueessa on 16 pelaajaa. Luvut ilman kattavuusporttia.</td><td class="verd" style="color:var(--red)">P0</td><td>Joukkue-näkymän Kausi-välilehti, kattavuusportti, joukkuejakso aikajanana.</td></tr>
+  <tr><td><b>06 Kalenteri</b></td><td>Viikkonäkymä, Lisää harjoitus / ottelu, Luo testitapahtuma, omatoiminen tällä viikolla</td><td>Väärä viikkonumero. Kuukausi ja kausi ovat tynkiä (kalenteriaudit). Omatoiminen-osio listaa pelaajat nimeltä tyhjin arvoin.</td><td class="verd" style="color:var(--amber)">P1</td><td>Mockupin 26 kalenteri (kerrokset, tauot, ryhmät). Omatoiminen pois kalenterista.</td></tr>
+  <tr><td><b>07 Testit</b></td><td>Testitapahtumat (avoimet, päättyneet), tulokset, Excel-pohjat, harjoitusprioriteetti</td><td>Ristiriita avoimista testeistä. Muuten selkeä.</td><td class="verd" style="color:var(--teal)">Pidä</td><td>Lisää-valikkoon, avautuu myös testijaksosta.</td></tr>
+  <tr><td><b>Havainnot</b></td><td>"Avaa peliälytyökalu", havainnoimatta 14, havaintohistoria</td><td>Hyvä toimenpidelista, mutta pitkä nimilista (14 riviä) ilman järjestystä.</td><td class="verd" style="color:var(--teal)">Pidä</td><td>Pikatoiminto "Kirjaa havainto" Tänään-näkymään harjoituksen jälkeen.</td></tr>
+  <tr><td><b>Kuorma & fiilis</b></td><td>Kuormakalibraatio (arvio 6 vs. pelaajat —), 0/16 RPE, joukkuefiilis tyhjä</td><td>Täysin pelaajadatasta riippuvainen, viimeisin 3 viikkoa sitten.</td><td class="verd" style="color:var(--amber)">P1</td><td>Joukkue · Viikko -välilehdelle, kun data riittää.</td></tr>
+  <tr><td><b>Työkalut</b></td><td>Taktiikkataulu, Itsearvio (= harjoitusarviointi), Valmentajana kehittyminen, Aloita tästä</td><td>"Itsearvio" on VP:llä nimellä "Arvioi harjoitus". Aloita tästä toistaa Kodin oppaan.</td><td class="verd" style="color:var(--ink3)">P2</td><td>Lisää-valikko. Arvioi harjoitus pikatoiminnoksi. Yhtenäiset nimet VP:n kanssa.</td></tr>
+ </table></div>
+</section>
+
+<section id="a5">
+ <span class="eb">5 · Siirtokartta · nyt → mockup 28</span>
+ <h2>Mihin kukin näkymä menee</h2>
+ <div class="tw"><table>
+  <tr><th>Nyt</th><th>Uudessa</th></tr>
+  <tr><td>Koti + 02 Tänään</td><td><b>Tänään</b>: seuraava harjoitus, asiat, käyttöönottonauha, pikatoiminnot</td></tr>
+  <tr><td>03 Pulssi + Kuorma & fiilis</td><td><b>Joukkue · Viikko</b>, näkyy kun pelaajia on sovelluksessa (D139)</td></tr>
+  <tr><td>04 Kehitys / Pelaajat</td><td><b>Joukkue</b> → pelaajalista → pelaajakortti (kehitystyöpöytä 22)</td></tr>
+  <tr><td>05 Kausi</td><td><b>Joukkue · Kausi</b>, kattavuusportti</td></tr>
+  <tr><td>01 Viestit</td><td><b>Viestit</b>: asia-ketjut ja pelaajien merkinnät (mockup 26)</td></tr>
+  <tr><td>06 Kalenteri</td><td><b>Kalenteri</b>: oma joukkue ja omat ryhmät, läsnäolo (mockup 26)</td></tr>
+  <tr><td>07 Testit · Havainnot · Taktiikkataulu · Itsearvio · Valmentajana kehittyminen</td><td><b>Lisää</b>. Havainto ja Arvioi harjoitus myös pikatoimintoina.</td></tr>
+  <tr><td>Aloita tästä</td><td><b>Tänään</b>-näkymän opas, kunnes valmis</td></tr>
+ </table></div>
+</section>
+
+<section id="a6">
+ <span class="eb">6 · Codelle · järjestys</span>
+ <h2>Ensin luvut, sitten rakenne</h2>
+ <div class="g3">
+  <div class="card"><span class="eb" style="color:var(--red)">P0</span><span class="mini">1. ISO 8601 -viikkonumero jaettuun libiin, käyttöön Masterissa, VP:ssä ja pelaaja-apeissa.<br>2. Avoin testi: yksi määritelmä.<br>3. Profiilikortti seuraa joukkuevalitsinta.<br>4. Kausi: "Joukkuedokumenttia ei ole" -tila korjataan tai selitetään.<br>5. Kattavuusportti Kausi-lukuihin ja RAE:hen (D125).<br>6. Yli 12 kk vanha mittaus ei näy tasona eikä punaisena.</span></div>
+  <div class="card"><span class="eb" style="color:var(--amber)">P1</span><span class="mini">7. Yksi navigaatio, välilehtirivi pois.<br>8. Koti ja Tänään yhdeksi, ankkurina seuraava harjoitus.<br>9. Pulssi ja Kuorma piiloon, kunnes ≥ 50 % pelaajista on kirjautunut. Tilalle käyttöönottonauha toiminnolla.<br>10. Joukkuevalitsimeen omat ryhmät (D136).<br>11. Pelaajakortti = kehitystyöpöytä 22.</span></div>
+  <div class="card"><span class="eb" style="color:var(--ink3)">P2</span><span class="mini">12. Yhtenäiset nimet VP:n kanssa (Itsearvio → Arvioi harjoitus).<br>13. Päivämäärät suomalaisessa muodossa.<br>14. "Nämä kolme" ja muut otsikot vastaamaan sisältöä.<br>15. Emoji-ikonit semanttisiksi (design system).</span></div>
+ </div>
+ <div class="note w">Rajaus: audit on yhdestä joukkueesta (KPV P13) super admin -tunnuksella, joten oikea valmentaja voi nähdä osin eri sisällön. Syyt kohdassa 3 on varmistettu koodista vain viikkonumeron osalta. Tähän dokumenttiin ei ole otettu pelaajien nimiä.</div>
+</section>
+</div>
+
+<script>
+var r=document.documentElement;document.getElementById('theme').addEventListener('click',function(){var d=r.getAttribute('data-theme')||(matchMedia('(prefers-color-scheme: light)').matches?'light':'dark');r.setAttribute('data-theme',d==='dark'?'light':'dark')});
+</script>
+</body>
+</html>

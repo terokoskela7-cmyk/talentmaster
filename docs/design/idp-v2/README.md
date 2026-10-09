@@ -33,6 +33,8 @@ Visuaalinen ja looginen totuus IDP:lle, kehitystyöpöydälle, VP:n pelaajarapor
 | `24_koti_tilanne_audit.html` | **Audit, Koti ja Tilanne (KPV live, SA, 9.10.):** 8 ristiriitaista lukua, 5 päällekkäistä toimenpidelistaa, siirtokartta, 18 korjausta P0/P1/P2. Vain joukkuetason luvut, ei pelaajanimiä. P0 = ensimmäinen Code-työ | PM · Code |
 | `25_vp_koti_tilanne.html` | **VP Koti ja Tilanne:** Koti = viikko, Tilanne = kausi, yksi toimenpidelista, kattavuusportti, Kenttä joukkuerivillä, Viestit-osio, navigaatio v3, Joukkueet ja ryhmät. D122–D126, D133–D136 ehdotus 9.10.2026 | VP |
 | `26_asiat_viestit_kalenteri.html` | **Asiat, viestit ja kalenteri:** Asian elinkaari, valmentajan Tänään + kuittausdialogi, VP:n Viestit, kalenterin kolme kerrosta ja tauot, Asia-datamalliluonnos. D127–D132 ehdotus 9.10.2026. Datamalli tarkistettava ennen toteutusta (ks. briiffi S2, "Tarkistus") | VP · valmentaja |
+| `27_valmentaja_audit.html` | **Audit, Master_v16 valmentaja (KPV P13, SA, 10.10.):** käyttödata (pelaajat eivät ole sovelluksessa), ristiriitaiset luvut (viikkonumero 42/40/41, avoimet testit, profiilikortti, vanha mittaus), näkymät, siirtokartta, P0/P1/P2. Ei pelaajanimiä | PM · Code |
+| `28_valmentajan_sovellus.html` | **Valmentajan sovellus uusiksi:** harjoitus ankkurina, omat toiminnot ensin, käyttöönottonauha, navigaatio Tänään · Joukkue · Viestit · Kalenteri · Lisää, joukkue- ja ryhmävalitsin, Joukkue Viikko/Kausi. Keksitty demodata. D137–D142 ehdotus 10.10.2026. Briiffi `docs/CODE_BRIEF_S2B_VALMENTAJA_TANAAN.md` | Valmentaja |
 
 Briefit: `docs/CODE_BRIEF_DESIGN_V2_T1_KONTRASTI.md`, `docs/CODE_BRIEF_KENTTA_K0.md` (Kenttä-kirjasto, odottaa D10–D11).
 
