@@ -70,9 +70,9 @@ describe('Tilakone (tm_aloita_jakso.tmJaksoTila) — kuusi tilaa johdetaan, ei t
     const a = tila(P()); expect(a).toMatchObject({ tila: 'ei_jaksoa', ensisijainen: { avain: 'aloita' }, rivitila: { teksti: 'Ei jaksoa' } }); expect(a.valikko.find((m) => m.avain === 'anna_valita').kaytettavissa).toBe(true);
     expect(tila(P({ ydinvahvuus: null })).valikko.find((m) => m.avain === 'anna_valita').kaytettavissa).toBe(false); expect(tila(null).tila).toBe('ei_jaksoa');
   });
-  it('kaynnissa: jaksofokus ILMAN tila-kenttää (nykydata, testi 14) → "Merkitse viikkohavainto", valikko Sulje/Muokkaa/Klippi; rivitila vk n/N', () => {
+  it('kaynnissa: jaksofokus ILMAN tila-kenttää (nykydata, testi 14) → "Merkitse havainto", valikko Sulje/Muokkaa/Klippi; rivitila vk n/N', () => {
     const k = tila(P({ jaksofokus: JF({ alkoi: '2026-11-02T08:00:00.000Z' }), idp_sitoumus_pvm: '2026-11-03T10:00:00.000Z' }));
-    expect(k).toMatchObject({ tila: 'kaynnissa', ensisijainen: { avain: 'havainto', teksti: 'Merkitse viikkohavainto' }, rivitila: { teksti: 'Jakso käynnissä · vk 2/6', vk: { n: 2, yht: 6 } } });
+    expect(k).toMatchObject({ tila: 'kaynnissa', ensisijainen: { avain: 'havainto', teksti: 'Merkitse havainto' }, rivitila: { teksti: 'Jakso käynnissä · vk 2/6', vk: { n: 2, yht: 6 } } });
     expect(k.valikko.map((m) => m.avain)).toEqual(['sulje', 'muokkaa', 'klippi', 'anna_valita']); expect(k.valikko.find((m) => m.avain === 'klippi').kaytettavissa).toBe(true);
   });
   it('vahvistettu: sama kuin käynnissä, mutta 1. viikolla sitoumus (idp_sitoumus_pvm) puuttuu → rivitila kertoo; sitoumuksen jälkeen kaynnissa', () => {

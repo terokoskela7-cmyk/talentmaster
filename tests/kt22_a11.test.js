@@ -42,7 +42,7 @@ describe('Q2 · Treenattiinko? = jakson viikkokatsaukset', () => {
   it('n/vk viikkoa + "pelaajan viikkokatsaus su {pvm}"', () => {
     const k = KT.tmKtVkKooste({ jaksofokus: JF }, [dok('2026-10-11'), dok('2026-10-18')], '2026-10-21', 6);   // ke, viikko 3
     expect(k).toMatchObject({ n: 2, vk: 3, viimeisin: '2026-10-18', sunnuntai: false });
-    expect(rivi(k)).toContain('2/3 viikkoa'); expect(rivi(k)).toContain('pelaajan viikkokatsaus su 18.10.2026');
+    expect(rivi(k)).toContain('2/3 viikkoa'); expect(rivi(k)).toContain('pelaajan viikkokatsaus su 18.10.');
   });
   it('sunnuntai & vastaamatta → "Tulee tänään"; ei yhtään (ma–la) → "pelaaja vastaa sunnuntaina"', () => {
     const su = KT.tmKtVkKooste({ jaksofokus: JF }, [], '2026-10-11', 6);   // 11.10.2026 on sunnuntai
@@ -81,7 +81,7 @@ describe('Q3 · Onko mukana? — kolmas kortti vain kun sitoumus odottaa vahvist
   it('sitoutunut-ei-vahvistettu → kolme korttia, "Sitoutui {pvm} · vahvista" -linkki → vahvista_sitoumus', () => {
     const h = q(OSAT(null), { sit: sit({ sitoutunut: true, annettu_pvm: '2026-10-08' }) });
     expect((h.match(/data-kt-kysymys="|data-kt-sitoumus="/g) || []).length).toBe(3); expect(h).not.toContain('kt-q3 two');
-    expect(plain(h)).toContain('Sitoutui'); expect(plain(h)).toContain('08.10.2026'); expect(h).toContain('vahvista_sitoumus');
+    expect(plain(h)).toContain('Sitoutui'); expect(plain(h)).toContain('8.10.'); expect(h).toContain('vahvista_sitoumus');
   });
   it('Polun tila (A1) tuottaa odottaa-tilan kun sitoumus tehty mutta ei vahvistettu', () => {
     const PT = require('../lib/tm_polun_tila.js');

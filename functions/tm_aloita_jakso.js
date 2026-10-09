@@ -66,7 +66,7 @@
     var vk = isNaN(alku) ? null : { n: Math.min(Math.max(1, Math.floor((nyt - alku) / (7 * DAY_MS)) + 1), yht), yht: yht };
     var SIT = _SIT(), sitoutunut = SIT ? SIT.tmSitoumus(p).sitoutunut : false;   // A1/D97: YKSI sääntö (lib/tm_sitoumus.js) — sitoumus annettu tämän jakson aikana
     var menu = [{ avain: 'sulje', teksti: 'Sulje jakso', kaytettavissa: true }, { avain: 'muokkaa', teksti: 'Muokkaa jaksoa', kaytettavissa: true }, { avain: 'klippi', teksti: 'Lisää klippi', kaytettavissa: true }, valita];
-    var base = { ensisijainen: { avain: 'havainto', teksti: 'Merkitse viikkohavainto' }, valikko: menu };
+    var base = { ensisijainen: { avain: 'havainto', teksti: 'Merkitse havainto' }, valikko: menu };
     if (vk && vk.n === 1 && !sitoutunut) return Object.assign({ tila: 'vahvistettu' }, base, { rivitila: { teksti: 'Jakso käynnissä · vk 1 · sitoumus odottaa', savy: 'ok', vk: vk } });
     return Object.assign({ tila: 'kaynnissa' }, base, { rivitila: Object.assign({ teksti: 'Jakso käynnissä' + (vk ? ' · vk ' + vk.n + '/' + vk.yht : ''), savy: 'ok', vk: vk },
       vk ? { muoto: 'Jakso käynnissä · vk {n}/{yht}', arvot: { n: vk.n, yht: vk.yht } } : {}) });
