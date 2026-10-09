@@ -18,7 +18,7 @@ function luoYmparisto(src, o) {
   const el = (id) => (els[id] = els[id] || { id, innerHTML: '', textContent: '', style: {} });
   const ctx = {
     console, Date, JSON, Math, Promise, Object, Array, String, Number, isNaN, parseInt, setTimeout, clearTimeout,
-    _seuraId: o.seuraId || 'demo-fc', _pelaajat: o.pelaajat || [], _kalenteriTapahtumat: o.kalenteri || [], _currentWs: 'koti',
+    _seuraId: o.seuraId || 'demo-fc', _pelaajat: o.pelaajat || [], _kalenteriTapahtumat: o.kalenteri || [], _currentWs: 'koti', _vpJoukkueDocs: o.joukkueDocs || [], _joukkueNimet: o.joukkueNimet || {},
     vpT: (x) => x, _jsvEsc: (s) => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'),
     toast() {}, setWs() {}, renderVpAloitaKortti() { el('vpAloitaKortti').innerHTML = '<AOPAS/>'; },
     // klassisen Kodin riippuvuudet: kiinteät tynkät → vertailu on rakenteellinen (lippu pois → täsmälleen sama HTML kuin ennen)
@@ -36,7 +36,7 @@ function luoYmparisto(src, o) {
   ctx.TM_ALOITA_JAKSO = require('../../lib/tm_aloita_jakso.js');
   ctx.TM_KAYTTOASTE = { tmKayttoasteLueKoosteet: async () => { if (o.lukuVirhe) throw new Error('permission-denied'); return o.koosteet || []; } };
   vm.createContext(ctx);
-  const nimet = ['_vpPaivitaToimenpideLaskuri', 'renderKotiVP', '_vpKatselmusPv', '_vpPulssiLataa', '_renderKotiPulssi'].filter((n) => src.indexOf('function ' + n + '(') >= 0);
+  const nimet = ['_vpPaivitaToimenpideLaskuri', 'renderKotiVP', '_vpJaksoVk', '_vpSeuraavaKatselmus', '_vpKatselmusPv', '_vpPulssiLataa', '_renderKotiPulssi'].filter((n) => src.indexOf('function ' + n + '(') >= 0);
   vm.runInContext(nimet.map((n) => funktio(src, n)).join('\n'), ctx);
   return {
     ctx, els, get html() { return (els.vpKotiView || {}).innerHTML; },

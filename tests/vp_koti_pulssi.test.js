@@ -68,6 +68,19 @@ describe('Kenttä-lippu valitsee Kodin (D67)', () => {
   });
 });
 
+describe('jaksoviikko ja seuraava katselmusikkuna (mockup 23)', () => {
+  it('"vk 3/6": joukkuedokumentin jaksofokus.alku + kesto_vk; päättynyt/tuleva jakso ei', () => {
+    const nyt = Date.now(), pv = (n) => new Date(nyt + n * 86400000).toISOString().slice(0, 10);
+    const y = luoYmparisto(VP, { liput: { kentta: true }, joukkueDocs: [{ id: 'a', jaksofokus: { alku: pv(-15), kesto_vk: 6 } }, { id: 'b', jaksofokus: { alku: pv(-60), kesto_vk: 6 } }, { id: 'c', jaksofokus: { alku: pv(3), kesto_vk: 6 } }, { id: 'd' }] });
+    expect(y.ctx._vpJaksoVk()).toEqual({ a: { vk: 3, N: 6 } });
+  });
+  it('seuraava katselmusikkuna: lähin tuleva jakson päättyminen, joukkueen nimellä', () => {
+    const nyt = Date.now(), pv = (n) => new Date(nyt + n * 86400000).toISOString();
+    const y = luoYmparisto(VP, { liput: { kentta: true }, joukkueNimet: { a: 'P17 Demo', b: 'P12 Demo' }, pelaajat: [{ joukkueet: ['a'], jaksofokus: { konsepti_avain: 'k', alkoi: pv(-18), kesto_vk: 4 } }, { joukkueet: ['b'], jaksofokus: { konsepti_avain: 'k', alkoi: pv(-5), kesto_vk: 8 } }] });
+    expect(y.ctx._vpSeuraavaKatselmus()).toEqual({ nimi: 'P17 Demo', pv: 10 });
+  });
+});
+
 describe('kytkentä lähteessä', () => {
   it('lib ladataan ennen käyttöä; Kenttä-lippu esiladataan sisäänkirjautuessa; ei kovakoodattuja värejä lisätty', () => {
     expect(VP).toContain('<script src="lib/tm_seuran_pulssi.js?v=1"></script>');

@@ -141,7 +141,8 @@ window.TM_KAAVIO_HOST = {
 <script src="lib/tm_kentta.js?v=3"></script>   <!-- K0/V4a: Kenttä-komponentti (Archivo vain .kt:n sisällä) -->
 <script src="lib/tm_tanaan_kentta.js?v=3"></script>   <!-- V4a: tmTanaanOsat (Tänään-osat sanoin) -->
 <script src="lib/tm_hash_reititin.js?v=1"></script>   <!-- V4a: #pelaaja/{pid}/… -reititin (vain lipulla) -->
-<script src="lib/tm_kehitystyopoyta.js?v=12"></script>   <!-- V4a: Kehitystyöpöytä V4 -kehys -->
+<script src="lib/tm_kt_komponentit.js?v=1"></script>   <!-- mockup 22 jaetut komponentit (.kt-sig, .kt-btn, .kt-eb, .kt-q3, .kt-ev) — YKSI CSS-paikka (Kehitystyöpöytä + Seuran pulssi) -->
+<script src="lib/tm_kehitystyopoyta.js?v=13"></script>   <!-- V4a: Kehitystyöpöytä V4 -kehys -->
 <script src="lib/tm_kehityssilmukka.js?v=2"></script>   <!-- R6.2a: katselmus yhteen paikkaan (tmKirjaaKatselmus) + jaksofokuksen kirjoitusydin -->
 <script src="lib/tm_seuraava_askel.js?v=3"></script>   <!-- R6.2b: seuraava toimenpide yhdessä paikassa (tmSeuraavaAskel / tmSeuraavaJakso / tmTeeTastaOsa) -->
 <script src="lib/tm_fyysteemat.js?v=4"></script>   <!-- Vaihe 7: fyysinen teemaluettelo + D1-fokuslähde + evidenssi (delta §29 + PHV-portti §28) -->
@@ -21373,7 +21374,21 @@ window.vpMuistutaOdottavia = vpMuistutaOdottavia;
 window.renderKotiVP = renderKotiVP;
 
 /* ═══ S2: Koti = Seuran pulssi (docs/CODE_BRIEF_S2_KOTI.md; lib/tm_seuran_pulssi.js) — kuoressa vain kytkentä ═══ */
-if (window.TM_SEURAN_PULSSI) { const _ps = document.createElement('style'); _ps.textContent = window.TM_SEURAN_PULSSI.CSS + '.vpk-wrap{container-type:inline-size;container-name:vpk}.vpk-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:20px;align-items:start}.vpk-side{display:grid;gap:14px}@container vpk (min-width:1180px){.vpk-grid{grid-template-columns:minmax(0,1fr) 300px}}'; document.head.appendChild(_ps); }
+if (window.TM_SEURAN_PULSSI) { if (window.TM_KT_KOMPONENTIT) window.TM_KT_KOMPONENTIT.tmKtKomponentitLisaa(document); const _ps = document.createElement('style'); _ps.textContent = window.TM_SEURAN_PULSSI.CSS + '.vpk-wrap{container-type:inline-size;container-name:vpk}.vpk-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:20px;align-items:start}.vpk-side{display:grid;gap:14px}@container vpk (min-width:1180px){.vpk-grid{grid-template-columns:minmax(0,1fr) 300px}}'; document.head.appendChild(_ps); }
+function _vpJaksoVk() {   // joukkueen jaksoviikko "vk 3/6" (mockup 23): joukkuedokumentin jaksofokus.alku + kesto_vk, jo ladattu (_vpJoukkueDocs)
+  const nyt = Date.now(), ut = {};
+  (_vpJoukkueDocs || []).forEach(function (d) { const jf = d.jaksofokus, a = jf && jf.alku ? Date.parse(String(jf.alku).slice(0, 10)) : NaN, N = jf && Number(jf.kesto_vk) > 0 ? Number(jf.kesto_vk) : null; if (isNaN(a) || !N) return; const vk = Math.floor((nyt - a) / (7 * 86400000)) + 1; if (vk >= 1 && vk <= N) ut[d.id] = { vk: vk, N: N }; });
+  return ut;
+}
+function _vpSeuraavaKatselmus() {   // lähin tuleva pelaajajakson päättyminen (= katselmusikkuna avautuu): "Seuraava katselmusikkuna: P17, 12 pv."
+  const nyt = Date.now(); let paras = null;
+  (_pelaajat || []).forEach(function (p) {
+    const jf = p.jaksofokus; if (!jf || jf.tila === 'valittavana') return;
+    const a = jf.alkoi && jf.alkoi.toDate ? jf.alkoi.toDate().getTime() : Date.parse(jf.alkoi), kesto = Number(jf.kesto_vk) > 0 ? Number(jf.kesto_vk) : 4; if (isNaN(a)) return;
+    const pv = Math.ceil((a + kesto * 7 * 86400000 - nyt) / 86400000), j = (Array.isArray(p.joukkueet) && p.joukkueet[0]) || null; if (pv > 0 && j && (!paras || pv < paras.pv)) paras = { nimi: (_joukkueNimet && _joukkueNimet[j]) || j, pv: pv };
+  });
+  return paras;
+}
 function _vpKatselmusPv() {   // päivää jäljellä joukkueen avoimeen katselmusikkunaan (jakso päättynyt + 14 pv); koostessa ei ole tätä, pelaajat on jo ladattu
   const AJ = window.TM_ALOITA_JAKSO, nyt = Date.now(), ut = {}; if (!AJ) return ut;
   (_pelaajat || []).forEach(function (p) {
@@ -21392,9 +21407,9 @@ async function _vpPulssiLataa() {   // kooste-luku: sama jaettu lukufunktio kuin
 function _renderKotiPulssi(el) {
   const T = window.TM_SEURAN_PULSSI, S = window._vpPulssi = window._vpPulssi || {};
   const piirra = function () {
-    const nyt = Date.now(), ks = S.koosteet, viim = ks[ks.length - 1] || {}, kal = (_kalenteriTapahtumat || []).map(function (e) { return { nimi: e.nimi, alkaa: e.alkaa }; }), sj = T.tmPulssiSeuraavaTapahtuma(kal, nyt);
-    const m = T.tmPulssiRivit(ks, { nytMs: nyt, ensimmainenVk: S.ensin, katselmusPv: _vpKatselmusPv() }), ko = { t: vpT, esc: _jsvEsc };
-    const o = Object.assign({ suostumus: window.TM_KOTI_LUVUT.suostumus(_pelaajat || []), suostumusKooste: viim.yhteensa ? viim.yhteensa.n_suostumus : null, seuraava: sj ? vpT('Seuraava tapahtuma:') + ' ' + sj.nimi : null,
+    const nyt = Date.now(), ks = S.koosteet, viim = ks[ks.length - 1] || {}, kal = (_kalenteriTapahtumat || []).map(function (e) { return { nimi: e.nimi, alkaa: e.alkaa }; });
+    const m = T.tmPulssiRivit(ks, { nytMs: nyt, ensimmainenVk: S.ensin, katselmusPv: _vpKatselmusPv(), jaksoVk: _vpJaksoVk() }), ko = { t: vpT, esc: _jsvEsc };
+    const o = Object.assign({ suostumus: window.TM_KOTI_LUVUT.suostumus(_pelaajat || []), suostumusKooste: viim.yhteensa ? viim.yhteensa.n_suostumus : null, seuraavaKatselmus: _vpSeuraavaKatselmus(),
       fn: { joukkue: 'avaaJoukkueSyvanakyma', aloitaJakso: 'avaaJoukkueSyvanakyma', sulje: 'avaaJoukkueSyvanakyma', perheet: 'avaaJoukkueSyvanakyma', valmentaja: '_vpPulssiValmentajat', paivita: '_vpPulssiPaivita', tilanne: '_vpPulssiTilanne', muistuta: 'vpMuistutaOdottavia' } }, ko);
     S.malli = m;
     el.innerHTML = '<div id="vpAloitaKortti"></div><div class="vpk-wrap"><div class="vpk-grid"><div class="vpk-main">' + T.tmPulssiHTML(m, o) + '</div><aside class="vpk-side">' + T.tmPulssiTulossaHTML(kal, nyt, Object.assign({ tanaan: true }, ko)) + T.tmPulssiTulossaHTML(kal, nyt, ko) + '</aside></div></div>';

@@ -63,7 +63,8 @@ describe('rivimalli', () => {
   });
   it('ei "tulossa"-saraketta (D110); kuusi saraketta; trendi vain kahdessa sarakkeessa + seura-rivillä (D111)', () => {
     const h = P.tmPulssiHTML(m, { t: (x) => x });
-    expect(h.toLowerCase()).not.toContain('tulossa</th>'); expect(h).not.toMatch(/Teema|Kuorma|Kypsyys/);
+    const otsikot = h.slice(h.indexOf('<thead>'), h.indexOf('</thead>'));
+    expect(otsikot.toLowerCase()).not.toContain('tulossa'); expect(otsikot).not.toMatch(/Teema|Kuorma|Kypsyys/);   // sarakkeita ei ole; mockupin selite ("tulevat S4:ssä") on taulukon alla
     expect((h.match(/<th>/g) || []).length).toBe(6);
     const rivi = h.split('<tr>').find((x) => x.indexOf('P15 Demo') >= 0 && x.indexOf('class="nm"') >= 0);
     const solut = rivi.split('</td>'); expect(solut.map((c) => /class="trend/.test(c))).toEqual([false, false, false, true, false, true, false].slice(0, solut.length));
@@ -100,7 +101,8 @@ describe('datan ikä (D113) ja käyttöönotto (D69)', () => {
     expect(on.onb).toMatchObject({ paalla: true, viikko: 3 });
     const r = on.rivit[0]; [r.jaksolla, r.katsaus, r.kaytto].forEach((c) => expect(c.merkki).toBe('n'));
     const h = P.tmPulssiHTML(on, { t: (x) => x, suostumus: { annettu: 91, eiKutsuttu: 20, odottaa: 31 }, suostumusKooste: 91, fn: { muistuta: 'mu' } });
-    expect(h).toContain('Suostumus · käyttöönotto'); expect(h).toContain('91 suostumusta · 20 kutsumatta · 31 odottaa vastausta'); expect(h).toContain('Muistuta perheitä'); expect(h).toContain('Käyttöönotto viikko 3/4');
+    expect(h).toContain('Suostumus · käyttöönotto'); expect(h).toContain('91/20 perhettä on antanut suostumuksen.'); expect(h).toContain('20 kutsumatta · 31 odottaa vastausta.'); expect(h).toContain('Muistuta perheitä'); expect(h).toContain('Käyttöönotto viikko 3/4: ei värejä, vain luvut ja trendi.');
+    expect(h).toMatch(/Värit alkavat vk 44\. Käyttöönoton alku on seuran ensimmäinen pulssiviikko\./);   // ensimmäinen kooste W40 + 4 vk
     const ohi = P.tmPulssiRivit(sarja(() => ({ a: J('P14 Demo', { n_harjoite_7: 4 }) })), { nytMs: NYT, ensimmainenVk: '2026-W30' });
     expect(ohi.onb.paalla).toBe(false); expect(ohi.rivit[0].kaytto.merkki).toBe('err'); expect(P.tmPulssiHTML(ohi, { t: (x) => x })).not.toContain('Suostumus · käyttöönotto');
   });
@@ -120,7 +122,7 @@ describe('Tarvitsee huomiota (D73, D115)', () => {
     expect(m.signaalit.map((s) => s.jarj + ':' + s.nimi)).toEqual(['1:P11 Demo', '2:P12 Demo', '3:P14 Demo']);
     expect(m.signaalejaLisaa).toBe(1); expect(m.signaalejaYht).toBe(4);
     const h = P.tmPulssiHTML(m, { t: (x) => x, fn: { tilanne: 'tl' } }); expect(h).toContain('+1 muuta signaalia'); expect(h).toContain('Kaikki signaalit ja poikkeamat → Tilanne');
-    expect((h.match(/class="ev sig/g) || []).length).toBe(3);
+    expect((h.match(/data-signaali=/g) || []).length).toBe(3);
   });
   it('katselmussignaali vain ammatille ja vasta kun ikkuna ≤ 10 pv; aikapaine = .w (amber)', () => {
     const ilmanPv = P.tmPulssiRivit(ks, OPTS);
@@ -130,7 +132,7 @@ describe('Tarvitsee huomiota (D73, D115)', () => {
     expect(myohaan.signaalit.some((s) => s.tyyppi === 'katselmusikkuna')).toBe(false);                        // 12 pv > 10
     const lahella = P.tmPulssiRivit(ks, Object.assign({ katselmusPv: { b: 9 } }, OPTS));
     expect(lahella.signaalit.find((s) => s.tyyppi === 'katselmusikkuna').pv).toBe(9);
-    expect(P.tmPulssiHTML(lahella, { t: (x) => x })).toMatch(/class="ev sig w" data-signaali="katselmusikkuna\|b"><span class="eb">P12 Demo · katselmusikkuna auki · 9 pv/);
+    expect(P.tmPulssiHTML(lahella, { t: (x) => x })).toMatch(/class="kt-sig w" data-signaali="katselmusikkuna\|b"><span class="kt-eb">P12 Demo · katselmusikkuna 9 pv<\/span><div class="kt-sig-h">Katselmusikkuna sulkeutuu 9 päivän päästä/);
   });
   it('käyttösignaali (< 25 %) vasta käyttöönoton jälkeen; EI "valinta odottaa" (D68)', () => {
     const k2 = sarja(() => ({ e: J('P15 Demo', { n_harjoite_7: 2, n_valinta_odottaa: 9 }) }));
@@ -145,8 +147,8 @@ describe('Tarvitsee huomiota (D73, D115)', () => {
   });
   it('rauhallinen viikko (D114): ei signaaleja → "Ei toimenpiteitä tällä viikolla" + tarkistuslause', () => {
     const m = P.tmPulssiRivit(sarja(() => ({ a: J('P14 Demo'), b: J('P15 Demo') })), OPTS);
-    const h = P.tmPulssiHTML(m, { t: (x) => x, seuraava: 'Seuraava tapahtuma: X' }); expect(m.signaalit).toEqual([]);
-    expect(h).toContain('Ei toimenpiteitä tällä viikolla'); expect(h).toContain('Tarkistettu 2 joukkuetta, 0 poikkeamaa.'); expect(h).toContain('Kooste laskettu'); expect(h).toContain('Seuraava tapahtuma: X'); expect(h).toContain('2/2 joukkuetta jaksolla.');
+    const h = P.tmPulssiHTML(m, { t: (x) => x, seuraavaKatselmus: { nimi: 'P17', pv: 12 }, fn: { tilanne: 'tl' } }); expect(m.signaalit).toEqual([]);
+    expect(h).toContain('Ei toimenpiteitä tällä viikolla'); expect(h).toContain('Tarkistettu 2 joukkuetta, 0 poikkeamaa.'); expect(h).toContain('Kooste laskettu'); expect(h).toContain('Seuraava katselmusikkuna: P17, 12 pv.'); expect(h).toContain('Tilanne · kausi →'); expect(h).toContain('Kaikki 2 joukkuetta jaksolla.'); expect(h).toContain('Jokaisella joukkueella on jakso ja luvut ovat tavoitteessa tai sen lähellä.'); 
   });
   it('tulkintalause (D109): "x/y joukkuetta jaksolla. N asiaa tälle viikolle."', () => {
     const h = P.tmPulssiHTML(P.tmPulssiRivit(ks, OPTS), { t: (x) => x }); expect(h).toContain('5/6 joukkuetta jaksolla.'); expect(h).toContain('4 asiaa tälle viikolle.');
@@ -157,9 +159,9 @@ describe('mobiili (D74) ja rakenne', () => {
   const ks = sarja(() => ({ a: J('P11 Demo', { jakso: false, n_jaksolla: 0, n_vastanneet: 0, n_vastausperusta: 0 }), b: J('P14 Demo'), c: J('P15 Demo') }));
   const h = P.tmPulssiHTML(P.tmPulssiRivit(ks, OPTS), { t: (x) => x });
   it('taulukko + mobiilikortit samassa merkinnässä; tavoitteessa olevat yhden haitarin takana; CSS piilottaa taulukon kapealla (container query + media)', () => {
-    expect(h).toContain('class="pt-wrap"'); expect(h).toContain('class="cards"'); expect(h).toContain('<details class="ev acc">'); expect(h).toContain('2 joukkuetta');
+    expect(h).toContain('class="pt-wrap"'); expect(h).toContain('class="cards"'); expect(h).toContain('<details class="kt-ev acc">'); expect(h).toContain('2 joukkuetta');
     expect(P.CSS).toMatch(/@container tmp \(max-width:720px\)\{\.tmp \.pt-wrap\{display:none\}\.tmp \.cards\{display:grid\}/); expect(P.CSS).toMatch(/@media \(max-width:720px\)/);
-    expect(P.CSS).toMatch(/\.tmp\{container-type:inline-size/);
+    expect(P.CSS).toMatch(/container-type:inline-size;container-name:tmp/);
   });
   it('joukkueen nimi avaa tiiminäkymän (D121, ei uutta näkymää): onclick fn.joukkue', () => {
     const o = P.tmPulssiHTML(P.tmPulssiRivit(ks, OPTS), { t: (x) => x, fn: { joukkue: 'avaaJ' } }); expect(o).toContain('onclick="avaaJ(\'P14 Demo\')"');
@@ -186,4 +188,40 @@ describe('tietosuoja ja kieli', () => {
     expect(P.tmPulssiTulossaHTML([], NYT, {})).toContain('Ei tapahtumia seuraavan 14 päivän aikana.');
   });
   it('seuraava tapahtuma', () => { expect(P.tmPulssiSeuraavaTapahtuma([{ nimi: 'B', alkaa: NYT + 5 * DAY }, { nimi: 'A', alkaa: NYT + DAY }, { nimi: 'X', alkaa: NYT - DAY }], NYT).nimi).toBe('A'); });
+});
+
+describe('jaetut mockup 22 -komponentit (Design: ei kolmatta korttiversiota)', () => {
+  const KT = require('../lib/tm_kt_komponentit.js'), KP = require('../lib/tm_kehitystyopoyta.js');
+  const ks = sarja(() => ({ a: J('P11 Demo', { jakso: false, n_jaksolla: 0, n_vastanneet: 0, n_vastausperusta: 0 }), b: J('P14 Demo') }));
+  const h = P.tmPulssiHTML(P.tmPulssiRivit(ks, OPTS), { t: (x) => x });
+  it('signaali, nappi, yläotsikko ja kortti käyttävät .kt-*-luokkia; Pulssin oma CSS ei määrittele niitä uudelleen', () => {
+    ['kt-sig', 'kt-sig-h', 'kt-sig-why', 'kt-sig-second', 'kt-btn', 'kt-eb', 'kt-ev'].forEach((c) => expect(h + P.tmPulssiTulossaHTML([], NYT, {}), c).toContain(c));
+    expect(h).not.toMatch(/class="(ev sig|eb|btn)[ "]/);
+    ['kt-sig', 'kt-sig-h', 'kt-sig-why', 'kt-btn', 'kt-eb', 'kt-ev', 'kt-q3'].forEach((c) => expect(P.CSS, 'pulssin CSS ei saa määritellä komponenttia .' + c + ' uudelleen (vain .tmp-skoopattuja asettelusäätöjä)').not.toMatch(new RegExp('(^|[}\'+])\\.' + c + '[{ .:,]')));
+  });
+  it('YKSI paikka: Kehitystyöpöytä sisältää täsmälleen saman jaetun CSS:n; kopioita ei ole', () => {
+    const kt = KP.tmKtCss(); expect(kt).toContain(KT.CSS);
+    ['.kt-sig{', '.kt-sig-h{', '.kt-btn{', '.kt-eb{', '.kt-q3{'].forEach((r) => expect(kt.split(r).length - 1, r).toBe(1));
+  });
+  it('Design: vain olemassa olevat tokenit — ei hex-/rgb-värejä jaetussa eikä pulssin CSS:ssä', () => {
+    [KT.CSS, P.CSS].forEach((c) => { expect(c).not.toMatch(/#[0-9a-fA-F]{3,8}\b/); expect(c).not.toMatch(/rgba?\(/); });
+    const luvut = (KT.CSS + P.CSS).match(/var\(--[a-z0-9-]+/g).map((x) => x.slice(6)), sallitut = new Set(['teal', 'amber', 'red', 'ink', 'ink2', 'ink3', 'bg', 'bg3', 'border', 'ov-2', 'ov-4', 'ov-5', 'font-serif', 'font-mono', 'font-sans', 'kt-serif', 'amber-dim', 'on-accent']);
+    expect([...new Set(luvut)].filter((x) => !sallitut.has(x))).toEqual([]);
+  });
+  it('mitat mockupista: yläotsikko DM Mono 11 px, otsikot Cormorant 24 px, taulukon teksti 13,5 px, otsikkosolut 11 px isoilla, kortti radius 6 · padding 12/14 · gap 8', () => {
+    expect(KT.CSS).toMatch(/\.kt-eb\{font-family:var\(--font-mono\);font-size:11px;letter-spacing:\.16em;text-transform:uppercase/);
+    expect(KT.CSS).toMatch(/\.kt-sig-h\{font-family:var\(--kt-serif\);font-size:24px/);
+    expect(KT.CSS).toMatch(/\.kt-sig\{[^}]*border-radius:6px;padding:12px 14px;display:grid;gap:8px/); expect(KT.CSS).toMatch(/\.kt-ev\{[^}]*border-radius:6px[^}]*gap:8px;padding:12px 14px/);
+    expect(P.CSS).toMatch(/table\.pt\{[^}]*font-size:13\.5px/); expect(P.CSS).toMatch(/table\.pt th\{[^}]*font-size:11px;letter-spacing:\.08em;text-transform:uppercase/);
+    expect(P.CSS).toMatch(/\.pv\{[^}]*font-family:var\(--font-serif\);font-size:22px/);
+  });
+  it('muotomerkit: ● teal ▲ amber ■ red ○ harmaa, aina luvun kanssa', () => {
+    expect(P.CSS).toMatch(/\.pv\.ok i\{color:var\(--teal\)\}.*\.pv\.w,\.tmp \.pv\.w i\{color:var\(--amber\)\}.*\.pv\.err,\.tmp \.pv\.err i\{color:var\(--red\)\}.*\.pv\.n i\{color:var\(--ink3\)\}/);
+    const merkit = h.match(/<span class="pv (ok|w|err|n)[^"]*"[^>]*><i>(●|▲|■|○)<\/i>/g) || []; expect(merkit.length).toBeGreaterThan(5);
+    merkit.forEach((m) => { const [, tila, glyph] = /pv (ok|w|err|n).*<i>(.)<\/i>/.exec(m); expect({ ok: '●', w: '▲', err: '■', n: '○' }[tila]).toBe(glyph); });
+    expect(h).not.toMatch(/<i>[●▲■○]<\/i><\/span>/);   // glyph ei koskaan ilman lukua/tekstiä
+  });
+  it('kielletyt sanat eivät esiinny näkyvässä tekstissä: "heikko", "ase", pelaajanimet', () => {
+    const teksti = strip(h).toLowerCase(); expect(teksti).not.toMatch(/heikko|\base\b|\bpelaajanimi/);
+  });
 });
