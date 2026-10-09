@@ -1,10 +1,13 @@
 rules_version = '2';
 // ══════════════════════════════════════════════════════════════════════════
-// TalentMaster™ — firestore.rules v3.55
+// TalentMaster™ — firestore.rules v3.56
 //
 // Lähde:  tm_admin/firestore.rules
 // Deploy: PR → N4-CI deployaa automaattisesti (Console-käsityö poistui).
 //
+// Muutokset v3.55 → v3.56 (S2 Seuran pulssi / kooste v4 — D70 — KOVENNUS (enum), ei migraatiota; puuttuva `tyyppi` = 'kilpa'):
+//   · seurat/{sid}/joukkueet/{jid}.tyyppi: jos kenttä on mukana, arvon on oltava 'kilpa' tai 'harraste' (create ja update; sama paikka ja samat kirjoittajat kuin valmentajaprofiili: SA | johto). Valmentaja ei aseta (update-haara
+//     sallii vain jaksofokus/jaksofokus_historia). Pulssi lukee tyypin koosteesta (kooste v4: joukkueet.<jid>.tyyppi/profiili, n_toiminto_7, n_perhe_kuittaus_7 — vain palvelin kirjoittaa, koosteet ennallaan: luku johto/SA, ei pelaaja/huoltaja).
 // Muutokset v3.54 → v3.55 (B4 pelaajan ja huoltajan kalenteri palvelimelta — KOVENNUS + huoltajan RSVP-korjaus; ei migraatiota):
 //   · seurat/{sid}/kalenteri/{id}.read: `onPelaajanSeura` POISTETTU. Pelaaja ja huoltaja saavat kalenterin vain callablesta `haePelaajanKalenteri` (rajattu: oma joukkue §7.18/ryhmä/pelaajat_id, nakyvyys, sallitut kentät, ikkuna).
 //     Henkilökunta ja SA ennallaan. Deployjärjestys: funktio → selain (Pelaaja_v7 v86 / Vanhempi_v2 v57) → TÄMÄ viimeisenä.
@@ -850,6 +853,10 @@ service cloud.firestore {
     }
     function profiiliKelpaa() {
       return !('valmentajaprofiili' in request.resource.data) || request.resource.data.valmentajaprofiili in ['ammatti', 'oto'];
+    }
+    /* v3.56 (S2, D70): joukkueen tyyppi — 'kilpa' | 'harraste'; puuttuva sallittu (= 'kilpa'). */
+    function tyyppiKelpaa() {
+      return !('tyyppi' in request.resource.data) || request.resource.data.tyyppi in ['kilpa', 'harraste'];
     }
     /* v3.47 (R1) — ryhmät. Rakenne ja koot; listan alkioiden tyyppiä (uid/pelaajaId-merkkijono) ei voi tarkistaa ilman silmukkaa → client + testit. */
     function ryhmaKelpaa() {
@@ -1733,9 +1740,9 @@ service cloud.firestore {
       match /joukkueet/{joukkueId} {
         allow read:  if onKirjautunut() && (onSuperAdmin() || onOmaSeura(seuraId));
         // v3.37: write jaettu. create/delete = SA | johto (valmentaja EI luo joukkuedokumenttia); update = SA | johto | valmentaja VAIN jaksokentät (joukkueen jakso).
-        allow create: if (onSuperAdmin() || (onOmaSeura(seuraId) && onJohtoRooli())) && profiiliKelpaa();   // v3.46: valmentajaprofiili-enum
+        allow create: if (onSuperAdmin() || (onOmaSeura(seuraId) && onJohtoRooli())) && profiiliKelpaa() && tyyppiKelpaa();   // v3.46: valmentajaprofiili-enum · v3.56: tyyppi-enum
         allow delete: if onSuperAdmin() || (onOmaSeura(seuraId) && onJohtoRooli());
-        allow update: if ((onSuperAdmin() || (onOmaSeura(seuraId) && onJohtoRooli())) && profiiliKelpaa())
+        allow update: if ((onSuperAdmin() || (onOmaSeura(seuraId) && onJohtoRooli())) && profiiliKelpaa() && tyyppiKelpaa())
                       || (onOmanSeuranValmentaja(seuraId)
                           && (request.auth.token.rooli == 'talenttivalmentaja'
                               || valmentajanJoukkueet(seuraId).hasAny([joukkueId]))
