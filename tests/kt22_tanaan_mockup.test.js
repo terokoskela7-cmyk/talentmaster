@@ -37,7 +37,7 @@ describe('1 · viikon osa — yksi sääntö', () => {
   });
   it('5 osaa, A itsenäisesti, muut ilman arviota → viikon osa B, Q1 "Ei vielä havaintoa", Osat-kortissa 5 riviä, Polku 1/5', () => {
     const p = pel({ k1: 3 }), h = nayta(p);
-    expect(h.replace(/<[^>]+>/g, '')).toContain('Viikko 2/6, osa B ”Osa 2 nimeltään tässä” on viikon osa. Noin 10 sekuntia: näkyikö osa harjoituksissa?');
+    expect(h.replace(/<[^>]+>/g, '')).toContain('Viikko 2/6, osa b ”Osa 2 nimeltään tässä” on viikon osa. Noin 10 sekuntia: näkyikö osa harjoituksissa?');
     expect(plain(h)).toContain('Ei vielä havaintoa'); expect((h.match(/class="kt-osa-r/g) || []).length).toBe(5);
     expect(h).toMatch(/class="kt-osa-r on" data-kt-osa="k2"/);
     expect(KT.tmKtOsatYhteenveto(KT.tmKtOsat(p.jaksofokus, { kaanon: KAANON }))).toEqual({ n: 1, m: 5 });
@@ -90,11 +90,36 @@ describe('4–5 · asettelu ja signaalikortti', () => {
     expect(CSS).toContain('.kt-btn{font:inherit;font-size:13.5px;font-weight:600;padding:8px 14px;border-radius:4px;'); expect(CSS).toContain('border-top:1px dashed var(--border);padding-top:6px');
     expect(CSS).not.toMatch(/#[0-9a-fA-F]{3,8}\b|rgba?\(/);
   });
-  it('signaali: nappi "Merkitse havainto"; paneeli avautuu kortin SISÄÄN (VP, oikeus); valmentaja ilman oikeutta ja Master: ei paneelia', () => {
+  it('signaali: nappi "Merkitse havainto"; paneeli avautuu kortin SISÄÄN ja nappi piiloutuu kun paneeli on auki (VP, oikeus); valmentaja ilman oikeutta ja Master: ei paneelia', () => {
     const p = pel({ k1: 3 }), auki = { auki: true, osa: null };
-    const vp = nayta(p, { havainto: auki }); expect(plain(vp)).toContain('Merkitse havainto');
-    const sig = vp.slice(vp.indexOf('data-kt-signaali='), vp.indexOf('data-kt-kysymykset')); expect(sig).toContain('data-kt-havainto-paneeli');
-    expect(nayta(p, { havainto: auki, voiKirjoittaa: false })).not.toContain('data-kt-havainto-paneeli'); expect(nayta(p, { havainto: auki, paneeli: false, voiKirjoittaa: false, osaFn: null })).not.toContain('data-kt-havainto-paneeli');
+    const kiinni = nayta(p); expect(plain(kiinni)).toContain('Merkitse havainto'); expect(kiinni).toContain('data-kt-signaali-nappi="havainto"');
+    const vp = nayta(p, { havainto: auki });
+    const sig = vp.slice(vp.indexOf('data-kt-signaali='), vp.indexOf('data-kt-kysymykset')); expect(sig).toContain('data-kt-havainto-paneeli'); expect(sig).not.toContain('data-kt-signaali-nappi');
+    expect(nayta(p, { havainto: auki, voiKirjoittaa: false })).toContain('data-kt-signaali-nappi'); expect(nayta(p, { havainto: auki, voiKirjoittaa: false })).not.toContain('data-kt-havainto-paneeli');
+    expect(nayta(p, { havainto: auki, paneeli: false, voiKirjoittaa: false, osaFn: null })).not.toContain('data-kt-havainto-paneeli');
+  });
+});
+
+describe('HOTFIX · paneelin napit renderöityvät oikein kun shell antaa c:n ILMAN pid:tä (VP:n tapa)', () => {
+  const p = pel({ k1: 3, k2: 2 }), PID = 'm93GBdOaGCUuenMiCL0I';
+  const pp = Object.assign({}, p, { id: PID });
+  const html = () => { const c = { esc: ESC, t: (k) => k, hk: KT.tmKtHk, pvmFn: (i) => i, toimiFn: '_ktToimi', osaFn: '_ktHavaintoAvaa', tallennaFn: '_ktHavaintoTallenna', veoFn: '_ktHavaintoVeo', peruFn: '_ktHavaintoSulje', paneeli: true, voiKirjoittaa: true, kentta: '', kaanon: KAANON, tanaan: '2026-10-14', vk: null, havainto: { auki: true, osa: null },
+    sigCtx: { nyt: NYT, profiili: 'oto', askel: { avain: 'havainto', tila: 'toimenpide' }, vkEiVastattu: false, nimi: 'T' } }; expect('pid' in c).toBe(false); return KT.tmKtTanaanKoko(pp, tila(pp), c); };
+  const onclickit = (h, sel) => [...h.matchAll(new RegExp('<button[^>]*' + sel + '[^>]*onclick="([^"]*)"', 'g'))].map((m) => m[1].replace(/&quot;/g, '"').replace(/&amp;/g, '&'));
+  it('jokaisen arvonapin onclick alkaa _ktHavaintoTallenna("<pid>", ja VEO _ktHavaintoVeo("<pid>"); Peru ja Osat-rivit samoin', () => {
+    const h = html(), arvot = onclickit(h, 'data-kt-havainto-arvo'), veo = onclickit(h, 'data-kt-havainto-veo'), peru = onclickit(h, 'data-kt-havainto-peru');
+    expect(arvot).toHaveLength(3); for (const o of arvot) expect(o.startsWith('_ktHavaintoTallenna("' + PID + '",')).toBe(true);
+    expect(veo).toEqual(['_ktHavaintoVeo("' + PID + '")']); expect(peru).toEqual(['_ktHavaintoSulje()']);
+    for (const o of onclickit(h, 'data-kt-osa')) expect(o.startsWith('_ktHavaintoAvaa("' + PID + '",')).toBe(true);
+  });
+  it('yksikään onclick (paneeli, Osat, kysymyslinkit, signaali) ei heitä new Function(onclick):ssa', () => {
+    const h = html(), kaikki = [...h.matchAll(/onclick="([^"]*)"/g)].map((m) => m[1].replace(/&quot;/g, '"').replace(/&amp;/g, '&'));
+    expect(kaikki.length).toBeGreaterThan(8); for (const o of kaikki) expect(() => new Function(o), o).not.toThrow();
+    expect(kaikki.some((o) => /\(,|,,|\(\s*\)/.test(o) && !/Sulje\(\)/.test(o))).toBe(false);
+  });
+  it('fn-apuri: puuttuva argumentti (pid) → virhe, ei hiljaa rikkinäistä onclickiä; tmKtTanaanKoko ei kaadu vaan kirjaa virheen ja jättää paneelin pois', () => {
+    expect(() => KT.tmKtPaneeliHTML({ osat: [{ k: 'a', koodi: 'k1', nimi: 'A', tila: null }], avain: 'kons' }, { t: (k) => k, tallennaFn: '_ktHavaintoTallenna', veoFn: '_ktHavaintoVeo', peruFn: '_ktHavaintoSulje' })).toThrow(/argumentti puuttuu/);
+    expect(() => KT.tmKtPaneeliHTML({ osat: [{ k: 'a', koodi: 'k1', nimi: 'A', tila: null }], avain: 'kons' }, { t: (k) => k, pid: 'x', tallennaFn: undefined, veoFn: '_v', peruFn: '_p' })).toThrow();
   });
 });
 
