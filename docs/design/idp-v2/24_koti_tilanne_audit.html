@@ -1,0 +1,353 @@
+<!doctype html>
+<html lang="fi">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Koti ja Tilanne audit · 24</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,400&display=swap">
+<style>
+
+/* 22: VP/valmentajan kehitystyöpöytä uusiksi. Sivu Cormorant + DM Sans (VP, D37 C), Kenttä-komponentti Archivo (D11/D51). Tumma = operatiivinen oletus. */
+:root{--bg:#1C1C1A;--sur:#242421;--sur2:#2C2C28;--ink:#F2EFE6;--ink2:#CFCBC0;--ink3:#8F8C83;--line:rgba(242,239,230,.14);--chalk:rgba(242,239,230,.55);--chalk2:rgba(242,239,230,.28);
+ --teal:#28B090;--teal-dim:rgba(40,176,144,.16);--teal-brd:rgba(40,176,144,.45);--amber:#E0A040;--amber-dim:rgba(224,160,64,.16);--red:#D06A5A;--red-dim:rgba(208,106,90,.14);--blue:#7FA6DE;--on-accent:#111110;color-scheme:dark}
+@media (prefers-color-scheme:light){:root:not([data-theme="dark"]){--bg:#F2EFE6;--sur:#FBFAF6;--sur2:#EAE6DA;--ink:#1C1C1A;--ink2:#3E3C37;--ink3:#6B695F;--line:rgba(28,28,26,.16);--chalk:rgba(28,28,26,.45);--chalk2:rgba(28,28,26,.2);--teal:#1A7A5E;--teal-dim:rgba(26,122,94,.12);--teal-brd:rgba(26,122,94,.4);--amber:#9A6512;--amber-dim:rgba(224,160,64,.2);--red:#A8473A;--red-dim:rgba(168,71,58,.12);--blue:#3D6AA8;--on-accent:#F2EFE6;color-scheme:light}}
+:root[data-theme="light"]{--bg:#F2EFE6;--sur:#FBFAF6;--sur2:#EAE6DA;--ink:#1C1C1A;--ink2:#3E3C37;--ink3:#6B695F;--line:rgba(28,28,26,.16);--chalk:rgba(28,28,26,.45);--chalk2:rgba(28,28,26,.2);--teal:#1A7A5E;--teal-dim:rgba(26,122,94,.12);--teal-brd:rgba(26,122,94,.4);--amber:#9A6512;--amber-dim:rgba(224,160,64,.2);--red:#A8473A;--red-dim:rgba(168,71,58,.12);--blue:#3D6AA8;--on-accent:#F2EFE6;color-scheme:light}
+:root[data-theme="dark"]{color-scheme:dark}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--ink);font-family:'DM Sans',system-ui,sans-serif;font-size:15px;line-height:1.55;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1240px;margin:0 auto;padding:28px 16px 90px;display:grid;gap:56px}
+.wrap>*,section>*{min-width:0}
+section{display:grid;gap:16px;scroll-margin-top:12px}
+.serif{font-family:'Cormorant Garamond',Georgia,serif;font-weight:400}
+h1{font-family:'Cormorant Garamond',Georgia,serif;font-weight:300;font-size:clamp(38px,5.5vw,64px);line-height:1.02;letter-spacing:-.005em;max-width:20ch}
+h2{font-family:'Cormorant Garamond',Georgia,serif;font-weight:400;font-size:clamp(28px,3.6vw,38px);line-height:1.05}
+h3{font-family:'Cormorant Garamond',Georgia,serif;font-weight:500;font-size:22px;line-height:1.1}
+p{color:var(--ink2);max-width:76ch}
+b{font-weight:600;color:var(--ink)}
+.meta{font-size:12.5px;color:var(--ink3)}
+.mono{font-family:'DM Mono',monospace;font-size:12px;color:var(--ink3)}
+.eb{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--teal)}
+.top{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between}
+.tbtn{font:inherit;font-size:13px;padding:7px 12px;border:1px solid var(--line);border-radius:4px;background:transparent;color:var(--ink2);cursor:pointer;min-height:36px}
+.tbtn.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.tbtn:focus-visible,.nav a:focus-visible{outline:2px solid var(--teal);outline-offset:2px}
+.nav{display:flex;flex-wrap:wrap;gap:8px}
+.nav a{font-size:13px;color:var(--ink2);text-decoration:none;border:1px solid var(--line);border-radius:4px;padding:6px 12px}
+.nav a b{color:var(--teal);font-family:'DM Mono';margin-right:6px}
+.ctl{display:flex;flex-wrap:wrap;gap:14px;align-items:center;border:1px solid var(--line);border-radius:6px;padding:10px 14px;background:var(--sur)}
+.ctl .g{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.ctl .g span.l{font-size:12px;color:var(--ink3);margin-right:4px}
+table{border-collapse:collapse;width:100%;font-size:13.5px}
+th,td{text-align:left;vertical-align:top;padding:8px 10px;border-top:1px solid var(--line)}
+th{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink3);border-top:0}
+.tw{overflow-x:auto;border:1px solid var(--line);border-radius:6px}
+.note{border-left:2px solid var(--teal);padding:8px 14px;color:var(--ink2);font-size:14px}
+.note.w{border-color:var(--amber)}
+.g3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.g2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+@media(max-width:800px){.g3,.g2{grid-template-columns:minmax(0,1fr)}}
+.card{border:1px solid var(--line);border-radius:6px;background:var(--sur);padding:14px 16px;display:grid;gap:6px}
+.card .h{font-family:'Cormorant Garamond',Georgia,serif;font-size:22px;font-weight:500}
+.kbd{display:inline-block;border:1px solid var(--line);border-radius:3px;padding:0 6px;font-family:'DM Mono';font-size:11px;color:var(--ink2)}
+
+/* ── Työpöytä (desk) ── */
+.desk{border:1px solid var(--line);border-radius:8px;background:var(--sur);overflow:hidden;container-type:inline-size;container-name:desk}
+.desk .dh{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;padding:10px 16px;border-bottom:1px solid var(--line);background:var(--bg)}
+.desk .dh .nm{font-family:'Cormorant Garamond',Georgia,serif;font-size:24px;line-height:1;font-weight:500}
+.desk .dh .sub{font-size:12.5px;color:var(--ink3)}
+.desk .dh .sp{flex:1}
+.chip{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;padding:3px 9px;border-radius:3px;border:1px solid var(--line);color:var(--ink2);white-space:nowrap}
+.chip.ok{color:var(--teal);border-color:var(--teal-brd);background:var(--teal-dim)}
+.chip.w{color:var(--amber);background:var(--amber-dim);border-color:transparent}
+.chip.n{color:var(--ink3)}
+.chip.err{color:var(--red);background:var(--red-dim);border-color:transparent}
+.btn{font:inherit;font-size:13.5px;font-weight:600;padding:8px 14px;border-radius:4px;border:1px solid var(--teal);background:var(--teal);color:var(--on-accent);cursor:pointer;min-height:36px;white-space:nowrap}
+.btn.q{background:transparent;color:var(--teal)}
+.btn.g{background:transparent;color:var(--ink2);border-color:var(--line)}
+.btn.sm{font-size:12.5px;padding:5px 10px;min-height:30px}
+.ico{width:34px;height:34px;display:inline-grid;place-items:center;border:1px solid var(--line);border-radius:4px;color:var(--ink2);font-size:16px}
+.desk .dtabs{display:flex;gap:2px;padding:6px 12px 0;border-bottom:1px solid var(--line);background:var(--bg)}
+.desk .dtabs span{padding:8px 14px;font-size:13.5px;font-weight:600;color:var(--ink3);border-bottom:2px solid transparent;cursor:pointer}
+.desk .dtabs span.on{color:var(--ink);border-bottom-color:var(--teal)}
+.desk .db{padding:16px;display:grid;gap:14px}
+.desk .two{display:grid;grid-template-columns:minmax(0,340px) minmax(0,1fr);gap:18px;align-items:start}
+@container desk (max-width: 720px){.radar .hide-m{display:none}.desk .two{grid-template-columns:minmax(0,1fr)}.desk .two>.kt-col{order:2}.desk .g2{grid-template-columns:minmax(0,1fr)}.hist div{grid-template-columns:minmax(0,1fr)}.hist .q{grid-column:1}.desk .db{padding:12px}.desk .dh .nm{font-size:20px}.hide-m{display:none!important}}
+
+/* Kortti-anatomia: otsikko · tulkintalause · luvut+ikä · yksi linkki */
+.ev{border:1px solid var(--line);border-radius:6px;background:var(--bg);display:grid;gap:8px;padding:12px 14px}
+.ev .t{display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap}
+.ev .t .h{font-family:'Cormorant Garamond',Georgia,serif;font-size:21px;font-weight:500;line-height:1.05}
+.ev .t .age{font-family:'DM Mono';font-size:11.5px;color:var(--ink3);white-space:nowrap}
+.ev .t .age.old{color:var(--amber)}
+.ev .lause{font-size:14.5px;color:var(--ink);line-height:1.45}
+.ev .nums{display:flex;flex-wrap:wrap;gap:6px 18px}
+.ev .nums div{display:grid;gap:0}
+.ev .nums .k{font-size:11.5px;color:var(--ink3)}
+.ev .nums .v{font-family:'Cormorant Garamond',Georgia,serif;font-size:26px;line-height:1;font-weight:500}
+.ev .nums .v small{font-family:'DM Mono';font-size:11px;color:var(--ink3);margin-left:4px}
+.ev .nums .v.na{color:var(--ink3);font-size:18px;font-family:'DM Sans'}
+.ev .act{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;border-top:1px solid var(--line);padding-top:8px;margin-top:2px}
+.ev .act a{color:var(--teal);font-size:13.5px;font-weight:600;text-decoration:none}
+.ev .act .m{font-size:12px;color:var(--ink3)}
+.ev.focus{border-color:var(--teal);box-shadow:inset 0 0 0 1px var(--teal-brd)}
+.q3.two{grid-template-columns:repeat(2,minmax(0,1fr))}
+.opts span.q{border-style:dashed;color:var(--ink3);font-size:12.5px}
+details.ev.acc{padding:0}details.ev.acc summary{list-style:none;cursor:pointer;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 10px;padding:12px 14px;align-items:baseline}details.ev.acc summary::-webkit-details-marker{display:none}details.ev.acc summary .sum{grid-column:1/-1;font-family:'Cormorant Garamond',Georgia,serif;font-size:22px;color:var(--ink2);line-height:1}details.ev.acc[open] summary .sum{display:none}details.ev.acc .lause,details.ev.acc .nums{padding:0 14px}details.ev.acc .act{margin:0 14px 12px}
+.ev.sig{border-color:var(--teal);background:var(--teal-dim)}
+.ev.sig.w{border-color:var(--amber);background:var(--amber-dim)}
+.ev.sig.n{border-style:dashed;background:transparent}
+.ev.sig .h2{font-family:'Cormorant Garamond',Georgia,serif;font-size:24px;font-weight:500;line-height:1.05}
+.ev.sig .why{font-size:13.5px;color:var(--ink2)}
+.ev.sig .second{font-size:12.5px;color:var(--ink3);border-top:1px dashed var(--line);padding-top:6px}
+.spark{display:inline-block;vertical-align:middle;margin-left:8px}
+.q3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+@container desk (max-width: 720px){.q3{grid-template-columns:minmax(0,1fr)}}
+.q3 div{border:1px solid var(--line);border-radius:4px;padding:10px 12px;display:grid;gap:3px;background:var(--bg)}
+.q3 .k{font-size:12.5px;color:var(--ink3)}
+.q3 .v{font-family:'Cormorant Garamond',Georgia,serif;font-size:24px;line-height:1.05;font-weight:500}
+.q3 .v.w{color:var(--amber)}.q3 .v.na{color:var(--ink3);font-size:18px}
+.q3 .s{font-size:12px;color:var(--ink3)}
+.osat{display:grid;gap:4px}
+.osat div{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:10px;align-items:center;padding:7px 10px;border:1px solid var(--line);border-radius:4px;font-size:13.5px;background:var(--bg)}
+.osat .k{font-family:'DM Mono';font-size:12px;color:var(--teal);font-weight:500}
+.osat .st{font-size:12px;color:var(--ink3)}
+.osat div.on{border-color:var(--amber)}.osat div.on .st{color:var(--amber);font-weight:600}
+.osat div.ok .st{color:var(--teal);font-weight:600}
+.jana{display:grid;gap:0}
+.jana .jr{display:grid;grid-template-columns:28px minmax(0,1fr);gap:12px;position:relative}
+.jana .jr::before{content:'';position:absolute;left:13px;top:28px;bottom:-6px;width:1.5px;background:var(--line)}
+.jana .jr:last-child::before{display:none}
+.jana .dot{width:28px;height:28px;border-radius:50%;border:1.5px solid var(--line);display:grid;place-items:center;font-family:'DM Mono';font-size:11px;color:var(--ink3);background:var(--sur)}
+.jana .jr.now .dot{border-color:var(--amber);color:var(--amber);background:var(--amber-dim)}
+.jana .jr.done .dot{border-color:var(--teal);color:var(--teal)}
+.jana .jb{display:grid;gap:8px;padding-bottom:18px}
+.jana .jb .eb{margin-bottom:-4px}
+.jana .rl{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}.jana .rl a{color:var(--teal);font-size:13.5px;font-weight:600;text-decoration:none}.jana .rl .m{font-size:12px;color:var(--ink3)}
+.vk{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px}
+.vk div{border:1px solid var(--line);border-radius:4px;padding:6px 6px;font-size:12px;display:grid;gap:2px;min-height:58px;background:var(--bg)}
+.vk .d{font-family:'DM Mono';font-size:11px;color:var(--ink3)}
+.vk div.j{border-color:var(--teal-brd)}.vk div.o{border-color:var(--chalk2);border-style:dashed}.vk div.m{border-color:var(--amber)}
+.vk div.today{outline:2px solid var(--teal);outline-offset:-2px}
+@container desk (max-width: 720px){.vk{grid-template-columns:repeat(4,minmax(0,1fr))}}
+.hist{display:grid;gap:6px}
+.hist div{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:12px;align-items:baseline;padding:8px 10px;border:1px solid var(--line);border-radius:4px;font-size:13.5px;background:var(--bg)}
+.hist .m{font-family:'DM Mono';font-size:11.5px;color:var(--ink3)}
+.hist .q{font-style:italic;color:var(--ink2)}
+.clip{display:grid;grid-template-columns:40px minmax(0,1fr) auto;gap:10px;align-items:center;border:1px solid var(--line);border-radius:4px;padding:8px 10px;background:var(--bg);font-size:13.5px}
+.clip .v{width:40px;height:40px;border-radius:4px;background:var(--sur2);display:grid;place-items:center;color:var(--teal)}
+.clip small{display:block;color:var(--ink3);font-size:12px}
+.sheet{border:1px solid var(--teal-brd);border-radius:8px;background:var(--sur);display:grid;gap:12px;padding:16px;max-width:520px;box-shadow:0 18px 40px -24px rgba(0,0,0,.6)}
+.sheet .sh{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+.sheet .sh .h{font-family:'Cormorant Garamond',Georgia,serif;font-size:24px;font-weight:500}
+.opts{display:flex;gap:6px;flex-wrap:wrap}
+.opts span{border:1px solid var(--line);border-radius:3px;padding:7px 12px;font-size:13.5px;min-height:36px;display:inline-flex;align-items:center}
+.opts span.on{border-color:var(--teal);background:var(--teal-dim);color:var(--teal);font-weight:600}
+.ta{border:1px solid var(--line);border-radius:4px;padding:10px 12px;font-size:14px;color:var(--ink2);min-height:64px;background:var(--bg)}
+.phones{display:flex;gap:18px;flex-wrap:wrap;align-items:flex-start}
+.phone{width:390px;max-width:100%;border:1px solid var(--line);border-radius:28px;padding:12px;background:var(--sur2)}
+.phone .desk{border-radius:20px}
+.phone .mono.cap{margin:8px 4px 0;display:block}
+.radar{display:grid;grid-template-columns:auto minmax(0,1fr);gap:14px;align-items:center}.radar .hide-m{display:contents}
+@container desk (max-width: 520px){.radar{grid-template-columns:minmax(0,1fr)}}
+details.all{border:1px dashed var(--line);border-radius:6px;padding:10px 14px}
+details.all summary{cursor:pointer;color:var(--teal);font-weight:600;font-size:14px}
+details.all .in{padding-top:10px;display:grid;gap:8px}
+.dec{display:grid;gap:8px}
+.dec div{display:grid;grid-template-columns:56px minmax(0,1fr);gap:12px;padding:8px 0;border-top:1px solid var(--line);font-size:14px}
+.dec .n{font-family:'DM Mono';color:var(--teal);font-size:12.5px;padding-top:3px}
+.dec b{display:block}
+.hl{background:var(--amber-dim);padding:0 4px;border-radius:2px}
+.pelaaja-silmin .st-num,.pelaaja-silmin .age,.pelaaja-silmin .nums{display:none!important}
+@media print{@page{size:A4 landscape;margin:10mm}.top,.nav,.tbtn,.ctl{display:none!important}.wrap{gap:28px;padding:0}section{break-inside:avoid}}
+
+/* ── 23: Seuran pulssi v2 · lisäosat 22:n päälle. Ei uusia tokeneita. ── */
+.lead{display:grid;gap:4px}
+.lead .eb{margin-bottom:2px}
+.lead .big{font-family:'Cormorant Garamond',Georgia,serif;font-size:34px;line-height:1.05;font-weight:400;color:var(--ink)}
+.lead .big small{font-family:'DM Sans';font-size:14px;color:var(--ink3);margin-left:8px}
+.sigs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.sigs.one{grid-template-columns:minmax(0,1fr)}
+@container desk (max-width: 900px){.sigs{grid-template-columns:minmax(0,1fr)}}
+.ev.sig .btn{justify-self:start}
+.ev.sig .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.sigmore{font-size:13px;color:var(--ink3)}
+.sigmore a{color:var(--teal);font-weight:600;text-decoration:none}
+.eb.row2{display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap}
+.legend{display:flex;gap:6px;flex-wrap:wrap}
+.pt-wrap{border:1px solid var(--line);border-radius:6px;overflow:hidden}
+table.pt{font-size:13.5px}
+table.pt th{padding:9px 12px;background:var(--bg);white-space:nowrap}
+table.pt th small{display:block;text-transform:none;letter-spacing:0;font-size:11.5px;color:var(--ink3);font-weight:400}
+table.pt td{padding:9px 12px;vertical-align:middle}
+table.pt tr.seura td{background:var(--sur2);border-top:1px solid var(--line)}
+table.pt td.nm .h{font-family:'Cormorant Garamond',Georgia,serif;font-size:21px;line-height:1.05;font-weight:500;color:var(--ink);text-decoration:none}
+table.pt td.nm a.h:hover{color:var(--teal)}
+table.pt td.nm .m{display:block;font-size:12px;color:var(--ink3);margin-top:1px}
+.pv{display:inline-flex;align-items:baseline;gap:6px;font-family:'Cormorant Garamond',Georgia,serif;font-size:22px;line-height:1;font-weight:500;color:var(--ink)}
+.pv i{font-style:normal;font-family:'DM Mono';font-size:12px;width:14px;text-align:center}
+.pv.ok i{color:var(--teal)}.pv.w{color:var(--amber)}.pv.w i{color:var(--amber)}.pv.err{color:var(--red)}.pv.err i{color:var(--red)}
+.pv.n{color:var(--ink)}.pv.n i{color:var(--ink3)}
+.pv small{font-family:'DM Mono';font-size:11px;color:var(--ink3);font-weight:400}
+.cs{display:block;font-size:12px;color:var(--ink3);margin-top:3px}
+.cs.w{color:var(--amber);font-weight:600}
+.cs.err{color:var(--red);font-weight:600}
+.dash{color:var(--ink3);font-size:14px}
+.trend{display:inline-block;vertical-align:middle;margin-left:8px}
+.trend rect{fill:var(--chalk2)}.trend rect:last-child{fill:var(--chalk)}
+.trend.dn rect:last-child{fill:var(--amber)}
+.cards{display:none;gap:10px}
+@container desk (max-width: 720px){.pt-wrap{display:none}.cards{display:grid}.lead .big{font-size:30px}}
+.cardhead{display:grid;gap:2px;padding:4px 2px 2px}
+.cardhead .big{font-family:'Cormorant Garamond',Georgia,serif;font-size:34px;line-height:1.05}
+.cardhead .sub{font-size:13px;color:var(--ink2)}
+.ev .nums .v.w{color:var(--amber)}.ev .nums .v.err{color:var(--red)}
+.ev .nums .v small.t{font-family:'DM Mono'}
+.mini{font-size:12.5px;color:var(--ink3)}
+.verd{font-size:12px;font-weight:600;white-space:nowrap}
+.sect-note{font-size:13px;color:var(--ink3)}
+.fig2{display:grid;grid-template-columns:minmax(0,1fr) 420px;gap:18px;align-items:start}
+@media(max-width:1100px){.fig2{grid-template-columns:minmax(0,1fr)}}
+.phone .cap{font-family:'DM Mono';font-size:11px;color:var(--ink3);display:block;margin:8px 4px 0}
+.koti{display:grid;gap:8px}
+
+.desk .db>*{min-width:0}
+.legend{text-transform:none;letter-spacing:0}
+.legend .chip{white-space:normal;text-transform:none;letter-spacing:0;font-family:'DM Sans'}
+@container desk (max-width: 720px){.lead .big small{display:block;margin:4px 0 0}.legend{display:none}.eb.row2{display:block}}
+
+/* Kolme näkymää (D121) */
+.tk{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.tk .ev{gap:2px}.tk .k{font-size:11.5px;color:var(--ink3)}.tk .v{font-family:'Cormorant Garamond',Georgia,serif;font-size:30px;line-height:1;font-weight:500}.tk .s{font-size:12px;color:var(--ink3)}
+@container desk (max-width: 720px){.tk{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.vl{display:grid;border:1px solid var(--line);border-radius:6px;margin-top:6px;overflow:hidden}
+.vr{display:grid;grid-template-columns:18px minmax(0,1fr) auto;gap:10px;align-items:center;padding:9px 12px;border-top:1px solid var(--line);font-size:13.5px}
+.vr:first-child{border-top:0}
+.vr .vt b{font-weight:600;margin-right:4px}.vr .vm{display:block;font-size:12px;color:var(--ink3);margin-top:1px}
+.vr .dot{font-family:'DM Mono';font-size:12px;text-align:center}.dot.ok{color:var(--teal)}.dot.w{color:var(--amber)}.dot.err{color:var(--red)}.dot.n{color:var(--ink3)}
+.pl .vr{grid-template-columns:18px minmax(0,1fr) 90px 120px}
+.pl .vr.hd{font-size:11px;text-transform:uppercase;letter-spacing:.12em;color:var(--ink3);background:var(--sur2);padding:7px 12px}
+.pl a.h,.pt a.h{color:var(--ink);text-decoration:none}.pl a.h:hover{color:var(--teal)}
+.mono{font-family:'DM Mono';font-size:12px;color:var(--ink2)}.mono.old{color:var(--amber)}
+table.mt td{font-size:13px}
+@container desk (max-width: 720px){.vr{grid-template-columns:18px minmax(0,1fr)}.vr .btn{grid-column:2;justify-self:start}.pl .vr{grid-template-columns:18px minmax(0,1fr) 70px 80px}table.mt{font-size:12px}table.mt th,table.mt td{padding:7px 6px}}
+
+.mini{line-height:1.5}
+
+</style>
+</head>
+<body>
+<div class="wrap">
+<header class="top" style="align-items:flex-start">
+ <div style="display:grid;gap:10px">
+  <span class="eb">TalentMaster™ · 24 · Audit · VP_v25 Koti ja Tilanne</span>
+  <h1>Viisi toimenpidelistaa, kahdeksan ristiriitaista lukua.</h1>
+  <p>Audit tehty live-sivulta talentmasterid.com/TalentMaster_VP_v25.html 9.10.2026 klo 21, seura KPV, rooli VP (super admin). Arvioitu neljällä mittarilla: <b>onko luku oikein</b>, <b>vastaako lohko yhteen kysymykseen</b>, <b>onko asia oikeassa paikassa ja rytmissä</b> (D118, D121) ja <b>noudattaako ulkoasu 22:n kieltä</b>. Tavoitetila on mockupissa 23.</p>
+ </div>
+ <button class="tbtn" id="theme" type="button">Vaihda teema</button>
+</header>
+
+<nav class="nav"><a href="#a1"><b>1</b>Yhteenveto</a><a href="#a2"><b>2</b>Ristiriitaiset luvut</a><a href="#a3"><b>3</b>Koti</a><a href="#a4"><b>4</b>Tilanne</a><a href="#a5"><b>5</b>Siirtokartta</a><a href="#a6"><b>6</b>Codelle</a></nav>
+
+<section id="a1">
+ <span class="eb">1 · Yhteenveto</span>
+ <h2>Tärkeimmät löydökset</h2>
+ <div class="g3">
+  <div class="card"><span class="eb" style="color:var(--red)">P0 · Luvut</span><span class="h">Sama asia, eri luku</span><span class="mini">Kahdeksan kohtaa, joissa kaksi lohkoa kertoo saman asian eri luvulla: toimenpiteiden määrä (3 / 1 / 1), kartoitus (14 / 3 joukkuetta), suostumus (34 / 30 / 156), aloitusopas (4/5 valmis / 1/3). VP ei voi luottaa yhteenkään lukuun, jos kaksi niistä on ristiriidassa.</span></div>
+  <div class="card"><span class="eb" style="color:var(--red)">P0 · Johtopäätökset</span><span class="h">Päätelmiä liian pienestä datasta</span><span class="mini">RAE-johtopäätös 4/160 syntymäajasta. "Fyysinen taso vaatii pikahuomiota" ja Fyysinen 1,7/5, vaikka 13/15 joukkueelta puuttuu D1. T18 näyttää oikean mallin ("vain 3/33 testattu, ei voi arvioida"), mutta sitä ei käytetä muualla.</span></div>
+  <div class="card"><span class="eb" style="color:var(--amber)">P1 · Rakenne</span><span class="h">Viisi toimenpidelistaa</span><span class="mini">Aloita näistä kolmesta, Mihin tartut nyt, 02 Kriittiset signaalit, 03 Poikkeamat ja 05 Toimenpiteet. Samat kolme signaalia ovat sekä Kodissa että Tilanteessa. Tilanne-sivu on 4 900 px, ja yhteenvetokortit ovat sen pohjalla.</span></div>
+  <div class="card"><span class="eb" style="color:var(--amber)">P1 · Rytmi</span><span class="h">Kodissa ei ole viikkoa</span><span class="mini">Kodin kolmesta signaalista vain mentorointi on viikkoasia. Syöttö (88 pelaajaa) on kausiasia, ja konversio kuuluu käyttöönottoon. Jaksoa, viikkokatsausta tai käyttöä ei näy missään.</span></div>
+  <div class="card"><span class="eb" style="color:var(--amber)">P1 · Nimet</span><span class="h">Kaksi "Kriittiset signaalit" -lohkoa</span><span class="mini">Kodin ja Tilanteen 02 ovat samannimiset mutta sisällöltään eri. "Kaikki signaalit yksityiskohtaisesti →" vie Tilanteeseen, jossa ensimmäisenä näkyvät samat kolme uudelleen.</span></div>
+  <div class="card"><span class="eb" style="color:var(--ink3)">P2 · Ulkoasu</span><span class="h">Kolme merkkijärjestelmää</span><span class="mini">Emoji-pallot (🔴🟡🟢), värireunat ja "!/i/✦"-merkit tarkoittavat vakavuutta eri lohkoissa eri tavalla. T18 on 🟢 "Huomio". Napit ovat Kodissa täytettyjä, Tilanteessa ääriviivaisia.</span></div>
+ </div>
+ <div class="note">Hyvää, joka kannattaa säilyttää: "TalentMaster ehdottaa, sinä päätät" (05), T18:n datan riittävyyden varoitus, "Hidden Gem §28" -ehdokaslista, lukumäärämuoto "3/6 parantunut", mittauksen ikä jokaisessa joukkueessa ja yksi toimenpidenappi per signaali Kodissa.</div>
+</section>
+
+<section id="a2">
+ <span class="eb">2 · P0 · Ristiriitaiset luvut</span>
+ <h2>Luku A vastaan luku B</h2>
+ <div class="tw"><table>
+  <tr><th>Asia</th><th>Lohko A</th><th>Lohko B</th><th>Todennäköinen syy</th><th>Korjaus</th></tr>
+  <tr><td><b>Toimenpiteiden määrä</b></td><td>Tilanne, yläotsikko: "3 vaatii toimenpidettä"</td><td>Tilanne, pisterivi: "1 vaatii toimenpiteitä" · 02: "1 vaatii toimenpidettä"</td><td>Yläotsikko laskee Mihin tartut nyt -listan, muut 02:n kriittiset.</td><td>Yksi laskuri, yksi määritelmä. Kodissa = signaalien määrä (max 3).</td></tr>
+  <tr><td><b>Harjoitettavuuskartoitus</b></td><td>02: "tekemättä — 14 joukkuetta", 159/160 pelaajaa</td><td>05: "tekemättä 3:lta joukkueelta"</td><td>Eri lähde tai eri raja (joukkue vs. pelaaja).</td><td>Sama laskenta molempiin. Tarkista, kumpi on oikein.</td></tr>
+  <tr><td><b>Suostumus</b></td><td>Koti: 160 tuotu → 34 kutsuttu → 4 suostumus → "34 odottaa vastausta"</td><td>02 Seuranta: "34 pelaajaa ilman suostumusta"</td><td>34 − 4 = 30 odottaa. Ilman suostumusta on 156 (160 − 4).</td><td>Kolme eri lukua: kutsuttu 34, odottaa 30, ilman suostumusta 156. Nimeä ne erikseen.</td></tr>
+  <tr><td><b>Aloitusopas</b></td><td>Koti: "✓ Aloitusopas 4/5 — valmis"</td><td>Tilanne: "Aloita näistä kolmesta", kohdat 2 ja 3 tekemättä</td><td>Kaksi eri opasta, eri vaiheet.</td><td>Yksi opas, yksi tila. "4/5" ei ole "valmis".</td></tr>
+  <tr><td><b>Testipäivä</b></td><td>Tilanne: "② Suunnittele ensimmäinen testipäivä"</td><td>Tilannekortit: "Avoimet testit 1 · vanhin 10 pv"; P13 ja P15 mitattu 10/2026</td><td>Oppaan tila ei päivity testin luonnista.</td><td>Oppaan vaihe kuittautuu, kun ensimmäinen testi on olemassa.</td></tr>
+  <tr><td><b>Tekniikka alle normin</b></td><td>03: T14, T13, T15 (D2-normi)</td><td>05: P12, T13, T12, P13, P14 (TKI &lt; 40, pronssi)</td><td>Kaksi määritelmää samalle asialle.</td><td>Valitse yksi (D2-normi tai TKI-raja) tai nimeä eri asioiksi.</td></tr>
+  <tr><td><b>T14 tekniikka</b></td><td>04: 🔴 "Tekniikka alle normin"</td><td>04: "↑ +7 TKI (5/5 parantunut)"</td><td>Taso ja suunta eri viestit, kumpikin oikein.</td><td>Näytä molemmat: "alle normin, mutta 5/5 parantunut". Ei pelkkää punaista.</td></tr>
+  <tr><td><b>T18</b></td><td>04: 🟢 "Huomio"</td><td>03: "Vain 3/33 testattu, ei voi arvioida luotettavasti"</td><td>Vihreä väri ja sana "Huomio" ristiriidassa.</td><td>○ "Ei riittävästi dataa (3/33)". Ei väriä.</td></tr>
+ </table></div>
+</section>
+
+<section id="a3">
+ <span class="eb">3 · Koti · lohko kerrallaan</span>
+ <h2>Koti nyt</h2>
+ <p class="sect-note">Kysymys, johon Kodin pitäisi vastata (D121): mitä teen tällä viikolla?</p>
+ <div class="tw"><table>
+  <tr><th>Lohko</th><th>Mitä näyttää</th><th>Havainto</th><th>Vakavuus</th><th>Suositus</th></tr>
+  <tr><td><b>Murupolku</b></td><td>KPV / Valmennuspäällikkö / TILANNE</td><td>Näyttää "Tilanne" myös Kodissa.</td><td class="verd" style="color:var(--ink3)">P2</td><td>Bugikorjaus.</td></tr>
+  <tr><td><b>Aloitusopas</b></td><td>"✓ 4/5 — valmis", Näytä opas</td><td>4/5 ei ole valmis, ja Tilanteen opas on eri.</td><td class="verd" style="color:var(--red)">P0</td><td>Yksi opas. Näkyy Kodissa, kunnes valmis.</td></tr>
+  <tr><td><b>Kriittiset signaalit</b></td><td>1 valmentaja ilman mentorointia 14 pv · Syöttö heikoin (88 pel.) · Konversio 11 %</td><td>Kolme eri aikajännettä yhdessä listassa. Vain mentorointi on viikkoasia. Syöttö-signaalin datan ikää ja otosta ei näy.</td><td class="verd" style="color:var(--amber)">P1</td><td>Pidä mentorointi. Syöttö → Tilanne 03. Konversio → käyttöönottonauha. Nimeksi "Tarvitsee huomiota" (D109).</td></tr>
+  <tr><td><b>"Kaikki signaalit yksityiskohtaisesti →"</b></td><td>Linkki Tilanteeseen</td><td>Vie sivulle, jonka ensimmäinen lista on sama kuin Kodissa.</td><td class="verd" style="color:var(--amber)">P1</td><td>Linkki suoraan Tilanteen kauden signaaleihin (ankkuri).</td></tr>
+  <tr><td><b>Suppilo</b></td><td>160 → 34 → 4 → 11 %</td><td>Hyvä käyttöönoton mittari, mutta ei viikkoasia. "34 odottaa" on väärin (ks. 2).</td><td class="verd" style="color:var(--amber)">P1</td><td>Näkyy vain käyttöönoton ajan (D65), nauhana.</td></tr>
+  <tr><td><b>RAE</b></td><td>Q3 75 %, Q4 25 %, "Kärjestä 0 % Q1 → jakautunut → valitaan taitoa"</td><td>Johtopäätös 4/160 syntymäajasta. Prosentit ja päätelmä näyttävät tiedolta, mutta ovat satunnaisia.</td><td class="verd" style="color:var(--red)">P0</td><td>Alle ~70 % kattavuudella: "Syntymäajat puuttuvat 156/160 · Täydennä". Ei prosentteja, ei päätelmää. Siirto Tilanteeseen.</td></tr>
+  <tr><td><b>Puuttuu</b></td><td>—</td><td>Ei jaksoja, viikkokatsausta, katselmuksia eikä käyttöä. Koti ei kerro, kulkeeko silmukka.</td><td class="verd" style="color:var(--amber)">P1</td><td>Seuran pulssi -taulukko (mockup 23).</td></tr>
+ </table></div>
+</section>
+
+<section id="a4">
+ <span class="eb">4 · Tilanne · lohko kerrallaan</span>
+ <h2>Tilanne nyt</h2>
+ <p class="sect-note">Kysymys, johon Tilanteen pitäisi vastata (D121): missä seura on kaudella? Rytmi kuukausi ja jaksopalaveri. Sivu on nyt 4 900 px eli noin kuusi näytöllistä.</p>
+ <div class="tw"><table>
+  <tr><th>Lohko</th><th>Mitä näyttää</th><th>Havainto</th><th>Vakavuus</th><th>Suositus</th></tr>
+  <tr><td><b>Tervehdys ja lause</b></td><td>"Hyvää iltaa, Super Admin." "Fyysinen taso vaatii pikahuomiota. 1 joukkuetta alle kansallisen tason."</td><td>Pääotsikko perustuu D1-dataan, joka on vain 2/15 joukkueelta. Kielioppi: "1 joukkue". Kolme eri laskuria (ks. 2).</td><td class="verd" style="color:var(--red)">P0</td><td>Tulkintalause kertoo ensin datan kattavuuden: "D1 mitattu 2/15 joukkueelta." Yksi laskuri.</td></tr>
+  <tr><td><b>Aloita näistä kolmesta</b></td><td>Joukkuelista ✓, testipäivä, valmentajat</td><td>Kodin oppaan kaksoiskappale, eri tila.</td><td class="verd" style="color:var(--amber)">P1</td><td>Poista Tilanteesta.</td></tr>
+  <tr><td><b>Mihin tartut nyt</b></td><td>Samat 3 kuin Kodissa</td><td>Täsmälleen sama lista kahdessa paikassa (D121 rikkoutuu).</td><td class="verd" style="color:var(--amber)">P1</td><td>Poista Tilanteesta.</td></tr>
+  <tr><td><b>02 Kriittiset signaalit</b></td><td>Kriittiset 1 (kartoitus), Seuranta 2 (pronssi, suostumus), Onnistumiset 2</td><td>Sama nimi kuin Kodin lohkolla. "Onnistumiset" ei ole signaali. Kartoitus ja suostumus ristiriidassa muiden lukujen kanssa.</td><td class="verd" style="color:var(--amber)">P1</td><td>Nimeksi "Kauden signaalit". Onnistumiset omaksi pieneksi lohkoksi tai jaksopalaverin esityslistaan. Suostumus → käyttöönottonauha.</td></tr>
+  <tr><td><b>03 Joukkueiden poikkeamat</b></td><td>Tekniikka 3/15 · P15 neljä riviä (maksiminopeus, ketteryys, aerobinen, kiihdytys, kaikki ≈ 1) · T14 talenttiydin · P12 taso laskenut · T18 vain 3/33</td><td>P15:n neljä riviä ovat yksi asia. Neljä blokkia yhtä aikaa ei mahdu yhteen fyysiseen jaksofokukseen. Arvo 1,0 kaikilla osa-alueilla viittaa asteikon lattiaan tai puuttuvaan dataan. §28: onko P15-ikäluokan PHV-tila huomioitu? Datan ikää ei näy riveillä.</td><td class="verd" style="color:var(--red)">P0</td><td>Ryhmittele joukkueittain: "P15 · H-H alle normin 4 osa-alueella → yksi fyysinen jakso". Tarkista arvo 1,0 (lattia vai mitattu). Näytä "odottaa testiä" ja datan ikä (D118). §28-portti ennen kuin fyysinen heikkous nousee poikkeamaksi.</td></tr>
+  <tr><td><b>04 Joukkueiden pulssi</b></td><td>15 korttia: D1-palkki, D2, TKI, "Päivitä mittaus", muutos</td><td>Mittaustilanne eikä pulssi (D120). Sama amber-merkki 13/15 kortissa. Tyhjä D1-palkki merkillä näyttää datalta. Yläindeksi ¹ selittämättä. 🟢 "Huomio" ristiriitainen.</td><td class="verd" style="color:var(--amber)">P1</td><td>Nimeksi "Mittaustilanne". Yksi seurarivi "13/15 mittaus yli 6 kk" + yksi nappi. Tyhjä D1 = "ei mitattu", ei palkkia. Selitä ¹.</td></tr>
+  <tr><td><b>Koko seura</b></td><td>Fyysinen 1,7/5 (punainen), Tekninen 50/100, Valmius 62/100, Peli 1,6/3</td><td>Keskiarvo 2/15 joukkueen D1-datasta näytetään koko seuran lukuna punaisella. Kolme eri asteikkoa vierekkäin (/5, /100, /3).</td><td class="verd" style="color:var(--red)">P0</td><td>Kattavuus näkyviin: "1,7 · 2/15 joukkuetta". Alle kattavuusrajan ei väriä (sama periaate kuin D116).</td></tr>
+  <tr><td><b>Talentit</b></td><td>1 talentti (testipelaaja), monta tyhjää saraketta · "Harkitse talenttiohjelmaan": 3 × P15, D1 1 · D2 4,8–5</td><td>Hidden Gem -logiikka on hyvä, mutta kaikki kolme ehdokasta nojaavat arvoon D1 = 1. Jos se on lattia-arvo, ehdokkaat ovat vääriä positiivisia.</td><td class="verd" style="color:var(--amber)">P1</td><td>Tarkista D1-arvo. Piilota tyhjät sarakkeet, kun data puuttuu.</td></tr>
+  <tr><td><b>05 Toimenpiteet</b></td><td>Kiireinen 2, Suunnittele 1, "Näytä kaikki 4"</td><td>Paras lohko: ehdotus, kuittaus, muokkaus. Mutta "tekniikka"-ehdotus käyttää eri joukkueita kuin 03 (ks. 2).</td><td class="verd" style="color:var(--teal)">Pidä</td><td>Yhteinen määritelmä 03:n kanssa. Ehdotukset jaksopalaverin esityslistaan.</td></tr>
+  <tr><td><b>Tilannekortit</b></td><td>Pelaajia 160, Valmius 62,0, IDP odottaa 0, Avoimet testit 1</td><td>Yhteenveto sivun pohjalla (yhteenveto ennen tiheyttä rikkoutuu). "IDP-hyväksyntäjono: ei odottavia" toistaa kortin.</td><td class="verd" style="color:var(--amber)">P1</td><td>Sivun ylös. Poista erillinen jono, kun se on tyhjä.</td></tr>
+ </table></div>
+</section>
+
+<section id="a5">
+ <span class="eb">5 · Siirtokartta · nyt → tavoite (D118, D120, D121)</span>
+ <h2>Mihin kukin lohko menee</h2>
+ <div class="tw"><table>
+  <tr><th>Nyt</th><th>Kohde</th><th>Miksi</th></tr>
+  <tr><td>Koti · Aloitusopas</td><td><b>Koti</b>, kunnes valmis</td><td>Yksi opas.</td></tr>
+  <tr><td>Koti · Mentorointisignaali</td><td><b>Koti</b> · Tarvitsee huomiota</td><td>Viikkoasia, valmentajan tuki.</td></tr>
+  <tr><td>—</td><td><b>Koti</b> · Seuran pulssi -taulukko (uusi)</td><td>Viikkosilmukka (mockup 23).</td></tr>
+  <tr><td>Koti · Syöttö heikoin</td><td><b>Tilanne</b> · Poikkeamat</td><td>Kausiasia, muuttuu testisyklissä.</td></tr>
+  <tr><td>Koti · Suppilo, konversio · 02 Suostumus</td><td><b>Käyttöönottonauha</b> (Koti, vain käyttöönotossa)</td><td>D65, poistuu kun ≥ 90 %.</td></tr>
+  <tr><td>Koti · RAE</td><td><b>Tilanne</b>, kattavuusportilla</td><td>Rakennetieto, ei viikkoasia.</td></tr>
+  <tr><td>Tilanne · Aloita näistä kolmesta · Mihin tartut nyt</td><td><b>Poistetaan</b></td><td>Kaksoiskappaleet.</td></tr>
+  <tr><td>Tilanne · Tilannekortit</td><td><b>Tilanne</b>, sivun yläreunaan</td><td>Yhteenveto ensin.</td></tr>
+  <tr><td>—</td><td><b>Tilanne</b> · Jaksopalaveri (uusi)</td><td>Seuran tärkein rytmi.</td></tr>
+  <tr><td>Tilanne · 02 Kriittiset signaalit</td><td><b>Tilanne</b> · Kauden signaalit</td><td>Nimiristiriita pois.</td></tr>
+  <tr><td>Tilanne · 03 Poikkeamat</td><td><b>Tilanne</b>, ryhmiteltynä joukkueittain</td><td>Yksi rivi per joukkue ja domeeni.</td></tr>
+  <tr><td>Tilanne · 04 Joukkueiden pulssi</td><td><b>Tilanne</b> · Mittaustilanne</td><td>D120.</td></tr>
+  <tr><td>Tilanne · Koko seura · Talentit · 05 Toimenpiteet</td><td><b>Tilanne</b></td><td>Pysyvät, korjaukset kohdan 4 mukaan.</td></tr>
+ </table></div>
+</section>
+
+<section id="a6">
+ <span class="eb">6 · Codelle · järjestys</span>
+ <h2>Korjaa ensin luvut, sitten rakenne</h2>
+ <div class="g3">
+  <div class="card"><span class="eb" style="color:var(--red)">P0 · ennen pilottia</span><span class="mini">1. Yksi toimenpidelaskuri.<br>2. Kartoitus 14 vs 3: yksi laskenta.<br>3. Suostumus: kutsuttu / odottaa / ilman eriteltynä.<br>4. Yksi aloitusopas, tila päivittyy testin luonnista.<br>5. Kattavuusportti RAE:lle, Koko seura -luvuille ja tulkintalauseelle.<br>6. Tarkista D1 = 1,0 (lattia vai mitattu) ja §28-portti 03:ssa.</span></div>
+  <div class="card"><span class="eb" style="color:var(--amber)">P1 · rakenne</span><span class="mini">7. Poista Tilanteesta Aloita- ja Mihin tartut -lohkot.<br>8. Nimeä 02 → Kauden signaalit, 04 → Mittaustilanne.<br>9. Siirrä Syöttö, suppilo ja RAE pois Kodista.<br>10. Tilannekortit ylös.<br>11. 03 ryhmittely joukkueittain.<br>12. Seuran pulssi Kotiin (S2, mockup 23).</span></div>
+  <div class="card"><span class="eb" style="color:var(--ink3)">P2 · ulkoasu</span><span class="mini">13. Yksi merkkijärjestelmä: ● ▲ ■ ○ + luku (D112), ei emoji-palloja.<br>14. Tyhjä data = "ei mitattu", ei palkkia.<br>15. Yläindeksi ¹ selitetään tai poistetaan.<br>16. Murupolku näyttää oikean työtilan.<br>17. Yhtenäinen nappityyli.<br>18. "1 joukkuetta" → "1 joukkue".</span></div>
+ </div>
+ <div class="note w">Rajaus: audit perustuu yhteen seuraan (KPV) ja yhteen hetkeen. Syyt kohdassa 2 ovat päätelmiä sivun teksteistä, eivät koodista. Code tarkistaa ne lähteestä ennen korjausta. Pelaajanimet näkyivät super admin -näkymässä; tähän dokumenttiin on otettu vain joukkuetason tietoja ja testipelaaja.</div>
+</section>
+</div>
+
+<script>
+var r=document.documentElement;document.getElementById('theme').addEventListener('click',function(){var d=r.getAttribute('data-theme')||(matchMedia('(prefers-color-scheme: light)').matches?'light':'dark');r.setAttribute('data-theme',d==='dark'?'light':'dark')});
+</script>
+</body>
+</html>
