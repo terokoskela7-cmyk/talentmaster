@@ -28,11 +28,8 @@ const med = (a) => { const s = a.slice().sort((x, y) => x - y); return s.length 
   admin.initializeApp({ projectId: 'talentmaster-pilot' });
   const db = admin.firestore();
   const snap = await db.collection('seurat').doc(SEURA).collection('pelaajat').get();
-  const nytVuosi = new Date().getFullYear();
-  const P = snap.docs.map((d) => d.data()).filter((p) => {
-    const nimet = [p.joukkue].concat(Array.isArray(p.joukkueetNimet) ? p.joukkueetNimet : []).concat(Array.isArray(p.joukkueet) ? p.joukkueet : []);
-    return nimet.some((n) => String(n || '').toUpperCase().indexOf(JOUKKUE.toUpperCase()) >= 0);
-  });
+  const nimetOf = (p) => [p.joukkue].concat(Array.isArray(p.joukkueetNimet) ? p.joukkueetNimet : []).concat(Array.isArray(p.joukkueet) ? p.joukkueet : []);
+  const P = snap.docs.map((d) => d.data()).filter((p) => nimetOf(p).some((n) => String(n || '').toUpperCase().indexOf(JOUKKUE.toUpperCase()) >= 0));
   console.log('=== D1-alarajatarkistus · seurat/' + SEURA + ' · joukkue ~ "' + JOUKKUE + '" · pelaajia ' + P.length + ' ===');
   if (!P.length) return;
 
@@ -50,7 +47,9 @@ const med = (a) => { const s = a.slice().sort((x, y) => x - y); return s.length 
       const x = Number(a);
       if (!isFinite(x) || x <= 0) { eiPositiivinen++; return; }
       mitattu++; arvot.push(x);
-      const ika = p.syntymaVuosi ? nytVuosi - p.syntymaVuosi : null, sp = (p.sukupuoli === 'N' || p.sukupuoli === 'T') ? 'N' : 'M';
+      /* Taso TESTIHETKEN iästä (METODOLOGIA-INVARIANTTI §14): normiIka(syntymaVuosi, hh_pvm, joukkue) — ei nykyvuosi − syntymävuosi. */
+      const jk = nimetOf(p).find((n) => String(n || '').toUpperCase().indexOf(JOUKKUE.toUpperCase()) >= 0) || p.joukkue;
+      const ika = N.normiIka(p.syntymaVuosi != null ? p.syntymaVuosi : null, p.hh_pvm || null, jk), sp = (p.sukupuoli === 'N' || p.sukupuoli === 'T') ? 'N' : 'M';
       if (ika == null) return;
       const taso = N.eerikkilaTaso(m.kmh ? x / 3.6 : x, m.eerikkila, ika, sp);
       if (taso === 1) taso1++;
@@ -59,6 +58,9 @@ const med = (a) => { const s = a.slice().sort((x, y) => x - y); return s.length 
       (mitattu ? Math.round(taso1 / mitattu * 100) + ' %' : '—').padStart(15), '|', arvot.length ? [Math.min.apply(null, arvot), med(arvot), Math.max.apply(null, arvot)].join(' · ') : '—');
   });
 
+  /* Datan ikä (§14: tulos on tilannekuva testihetkestä, ei nykytila) */
+  const pvmt = P.map((p) => p.hh_pvm).filter(Boolean).map((t) => (t && t.toDate ? t.toDate().toISOString() : String(t)).slice(0, 10)).sort();
+  console.log('\nhh_pvm (testipäivät): ' + pvmt.length + '/' + P.length + ' pelaajalla · vanhin ' + (pvmt[0] || '—') + ' · mediaani ' + (pvmt[Math.floor(pvmt.length / 2)] || '—') + ' · uusin ' + (pvmt[pvmt.length - 1] || '—'));
   const phvMitattu = P.filter((p) => p.biologinenIka_viimeisin && typeof p.biologinenIka_viimeisin === 'object').length;
   console.log('\nPHV mitattu (biologinenIka_viimeisin):', phvMitattu + '/' + P.length);
   console.log('\nTULKINTA: taso1 > 0 ja raaka-arvot järkeviä (mediaani lähellä muiden ikäluokan arvoja) → 1,0 on aito mitattu ALARAJA (arvo heikointa normirajaa huonompi).');

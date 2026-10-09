@@ -147,23 +147,39 @@ describe('6 · D1 = 1,0 ja §28-portti', () => {
     expect(oi.maksinopeus).toBe(1); expect(oi.aerobinen).toBeNull(); expect(oi.ketteryys).toBeNull();
   });
   const eiPhv = (id, extra) => pel(id, Object.assign({ syntymaVuosi: 2011, sukupuoli: 'M' }, extra || {}));   // P15, PHV mittaamatta, ikkunassa
-  const phvPre = (id) => eiPhv(id, { biologinenIka_viimeisin: { phv_tila_koodi: 'PRE', maturity_offset: -1.5 } });
+  const mitattu = (id, koodi) => eiPhv(id, { biologinenIka_viimeisin: { phv_tila_koodi: koodi, maturity_offset: 0 } });
+  const phvPre = (id) => mitattu(id, 'PRE');
   const x = (osa, arvo, extra) => Object.assign({ tyyppi: 'alle_normin', osaAlue: osa, vakavuus: 'punainen', arvo, teema: osa + ' alle normin', ikavaiheOdotettu: false }, extra || {});
 
-  it('PHV-herkkä fyysinen heikkous + PHV mittaamatta enemmistöltä → info + phvPuuttuu (ei punaista)', () => {
-    const r = L.poikkeamaPortti([x('maksinopeus', 2.0), x('aerobinen', 1.8)], [eiPhv(1), eiPhv(2), phvPre(3)]);
-    r.forEach((p) => { expect(p.vakavuus).toBe('info'); expect(p.phvPuuttuu).toEqual({ n: 2, yht: 3 }); });
+  it('kypsyysvahti = tm_idp.js idpKypsyysEstetty: mitattu PRE/LAH + heikko 30 m → estetty; POST → ei; tuntematon → estetty', () => {
+    expect(L.kypsyysEstetty('maksinopeus', mitattu(1, 'PRE'))).toBe(true);
+    expect(L.kypsyysEstetty('maksinopeus', mitattu(2, 'LAH'))).toBe(true);
+    expect(L.kypsyysEstetty('maksinopeus', mitattu(3, 'POST'))).toBe(false);
+    expect(L.kypsyysEstetty('maksinopeus', mitattu(4, 'PH'))).toBe(false);
+    expect(L.kypsyysEstetty('maksinopeus', eiPhv(5))).toBe(true);          // tuntematon
+    expect(L.kypsyysEstetty('ketteryys', eiPhv(6))).toBe(false);           // ei kypsyysrajattu (IDP_KYPSYYS_GATED)
   });
-  it('kiihdytys ja ketteryys eivät ole PHV-herkkiä (spec §3): pysyvät punaisina', () => {
-    const r = L.poikkeamaPortti([x('kiihdytys', 2.0), x('ketteryys', 2.1)], [eiPhv(1), eiPhv(2)]);
-    r.forEach((p) => { expect(p.vakavuus).toBe('punainen'); expect(p.phvPuuttuu).toBeNull(); });
+  it('osa-alue→avain-kartta ja gated-lista tulevat tm_idp.js:stä (ei omia kopioita)', () => {
+    const I = require('../lib/tm_idp.js');
+    const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'lib/tm_koti_luvut.js'), 'utf8');
+    expect(I.IDP_OSA_AVAIN.maksinopeus).toBe('speed');
+    expect(src).not.toMatch(/PHV_HERKAT|tmPhvEiMitattu/);
+    expect(src).toContain('idpKypsyysEstetty');
   });
-  it('PHV mitattu enemmistöltä → ei porttia', () => {
-    const r = L.poikkeamaPortti([x('maksinopeus', 2.0)], [phvPre(1), phvPre(2), eiPhv(3)]);
-    expect(r[0].vakavuus).toBe('punainen'); expect(r[0].phvPuuttuu).toBeNull();
+  it('estettyjä enemmistö → info + kypsyysEstetty {n,yht}', () => {
+    const r = L.poikkeamaPortti([x('maksinopeus', 2.0), x('aerobinen', 1.8)], [eiPhv(1), eiPhv(2), mitattu(3, 'POST')]);
+    r.forEach((p) => { expect(p.vakavuus).toBe('info'); expect(p.kypsyysEstetty).toEqual({ n: 2, yht: 3 }); });
+  });
+  it('estettyjä vähemmistö (POST enemmistö) → ei porttia', () => {
+    const r = L.poikkeamaPortti([x('maksinopeus', 2.0)], [mitattu(1, 'POST'), mitattu(2, 'POST'), eiPhv(3)]);
+    expect(r[0].vakavuus).toBe('punainen'); expect(r[0].kypsyysEstetty).toBeNull();
+  });
+  it('ketteryys (ei kypsyysrajattu) pysyy punaisena vaikka PHV mittaamatta', () => {
+    const r = L.poikkeamaPortti([x('ketteryys', 2.1)], [eiPhv(1), eiPhv(2)]);
+    expect(r[0].vakavuus).toBe('punainen'); expect(r[0].kypsyysEstetty).toBeNull();
   });
   it('arvo 1,0 → alaraja-lippu, punainen alennetaan amberiksi (tarkista mittaus)', () => {
-    const r = L.poikkeamaPortti([x('kiihdytys', 1.0), x('ketteryys', 1.4)], [phvPre(1), phvPre(2)]);
+    const r = L.poikkeamaPortti([x('ketteryys', 1.0), x('ketteryys', 1.4)], [mitattu(1, 'POST'), mitattu(2, 'POST')]);
     expect(r[0]).toMatchObject({ alaraja: true, vakavuus: 'amber' });
     expect(r[1]).toMatchObject({ alaraja: false, vakavuus: 'punainen' });
   });
@@ -186,6 +202,7 @@ describe('6 · D1 = 1,0 ja §28-portti', () => {
     expect(VP).toContain('TM_KOTI_LUVUT.poikkeamaPortti(laskeJoukkuePoikkeamat(');
     expect(VP).toContain('TM_KOTI_LUVUT.hiddenGemPortti(p, hg.d1)');
     expect(VP).toContain("'poikkeamatPhv'");
+    expect(VP).toContain("vpT('kypsyysvaihe ei salli tulkintaa')");
   });
 });
 

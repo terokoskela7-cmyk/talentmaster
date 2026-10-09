@@ -22441,10 +22441,10 @@ function renderPoikkeamat() {
   let flat = [];
   nimet.forEach(function(nimi){
     const isp = _jsvJoukkueIkaSp(nimi);
-    /* §28-PORTTI (lib poikkeamaPortti): PHV-herkän fyysisen heikkouden ei anneta nousta poikkeamaksi ilman PHV-mittausta (enemmistöltä
-       mittaamatta → "odottaa PHV-mittausta", ei punaista); arvo 1,0 = eerikkilaTaso():n asteikon ALARAJA → "tarkista mittaus". */
+    /* §28-PORTTI (lib poikkeamaPortti → tm_idp.js idpKypsyysEstetty + tmPhvTila): fyysisen heikkouden ei anneta nousta poikkeamaksi, kun kypsyysvaihe
+       ei salli tulkintaa enemmistöllä jäsenistä (info, "N/Y kypsyysvaihe ei salli tulkintaa"); arvo 1,0 = eerikkilaTaso():n asteikon ALARAJA → "tarkista mittaus". */
     window.TM_KOTI_LUVUT.poikkeamaPortti(laskeJoukkuePoikkeamat(joukkueet[nimi], isp.ika, (isp.sp === 'T') ? 'N' : 'M'), joukkueet[nimi]).forEach(function(x){
-      flat.push({ joukkue:nimi, tyyppi:x.tyyppi, osaAlue:x.osaAlue, vakavuus:x.vakavuus, arvo:x.arvo, teema:x.teema, ikavaiheOdotettu:x.ikavaiheOdotettu, alaraja:x.alaraja, phvPuuttuu:x.phvPuuttuu });
+      flat.push({ joukkue:nimi, tyyppi:x.tyyppi, osaAlue:x.osaAlue, vakavuus:x.vakavuus, arvo:x.arvo, teema:x.teema, ikavaiheOdotettu:x.ikavaiheOdotettu, alaraja:x.alaraja, kypsyysEstetty:x.kypsyysEstetty });
     });
   });
   if (!flat.length) {
@@ -22485,7 +22485,7 @@ function renderPoikkeamat() {
       const x = R.jasenet[0], safe = x.joukkue.replace(/['"]/g, '');
       return '<div onclick="avaaJoukkueSyvanakyma(\'' + safe + '\')" style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:.5px solid var(--border);cursor:pointer">'
         + dot + '<span style="flex:0 0 60px;font-size:12px;color:var(--ink2);font-weight:600">' + lyhennaNimi(x.joukkue) + '</span>'
-        + '<span style="flex:1;min-width:0;font-size:12px;color:var(--ink);line-height:1.4">' + x.teema + (x.alaraja ? _alarajaHuom : '') + (x.phvPuuttuu ? ' <span style="color:var(--ink3)">· ' + vpT('PHV mitattu') + ' ' + (x.phvPuuttuu.yht - x.phvPuuttuu.n) + '/' + x.phvPuuttuu.yht + '</span>' : '') + '</span>'
+        + '<span style="flex:1;min-width:0;font-size:12px;color:var(--ink);line-height:1.4">' + x.teema + (x.alaraja ? _alarajaHuom : '') + (x.kypsyysEstetty ? ' <span style="color:var(--ink3)">· ' + x.kypsyysEstetty.n + '/' + x.kypsyysEstetty.yht + ' ' + vpT('kypsyysvaihe ei salli tulkintaa') + '</span>' : '') + '</span>'
         + '<span style="color:' + col + ';font-size:14px;flex:0 0 auto">→</span></div>';
     }
     const o = _otsikko(R.tyyppi, R.osaAlue);   // konsolidoitu: ≥2 joukkuetta samassa teemassa
@@ -22498,8 +22498,8 @@ function renderPoikkeamat() {
       + '<div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:6px;padding-left:18px">' + chips + '</div></div>';
   };
 
-  const phv = flat.filter(function(x){ return x.phvPuuttuu; });
-  const paa = flat.filter(function(x){ return !x.ikavaiheOdotettu && !x.phvPuuttuu; });
+  const phv = flat.filter(function(x){ return x.kypsyysEstetty; });
+  const paa = flat.filter(function(x){ return !x.ikavaiheOdotettu && !x.kypsyysEstetty; });
   const ika = flat.filter(function(x){ return x.ikavaiheOdotettu; });
   let html = _ryhmita(paa).map(_ryhmaHtml).join('');
   if (ika.length) {   // ikävaihe-odotetut omaan oletuksena suljettuun alaosioon (reuse _sigToggle)
@@ -22508,8 +22508,8 @@ function renderPoikkeamat() {
       : '<div onclick="_sigToggle(\'poikkeamatIka\')" style="cursor:pointer;font-size:12px;font-weight:600;color:var(--amber);padding:9px 4px;border-top:.5px solid var(--border)">▸ ' + vpT('Ikävaihe-odotetut (ei kiireellisiä)') + ' · ' + ika.length + '</div>';
     html += '<div id="sig-osio-poikkeamatIka" style="display:none">' + _ryhmita(ika).map(_ryhmaHtml).join('') + '</div>';
   }
-  if (phv.length) {   // §28: PHV mittaamatta → fyysistä heikkoutta ei tulkita poikkeamaksi (oletuksena suljettu, ei kiireellinen)
-    html += _sigOsioHeader('poikkeamatPhv', vpT('Odottaa PHV-mittausta (ei johtopäätöstä)'), 'var(--amber)', phv.length);
+  if (phv.length) {   // §28: kypsyysvaihe (idpKypsyysEstetty) ei salli tulkintaa → ei poikkeamaa (oletuksena suljettu, ei kiireellinen)
+    html += _sigOsioHeader('poikkeamatPhv', vpT('Kypsyysvaihe ei salli tulkintaa (ei johtopäätöstä)'), 'var(--amber)', phv.length);
     html += '<div id="sig-osio-poikkeamatPhv" style="display:none">' + _ryhmita(phv).map(_ryhmaHtml).join('') + '</div>';
   }
   el.innerHTML = html;
