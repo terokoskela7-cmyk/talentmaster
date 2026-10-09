@@ -230,3 +230,25 @@ describe('adapteri vm-sandboxissa (oikeat VP-funktiot, ympäristö tynkinä)', (
     y.ctx._vpTilanneAvaa('raportointi'); expect(y.els['tilanneRaportitDet'].open).toBe(true); expect(y.o.scrolled).toBe(1); y.ctx._vpTilanneAvaa('reviewit'); expect(y.els['tilanneSeurantaDet'].open).toBe(true);
   });
 });
+
+describe('murupolku (tbSivu) uudessa Tilanteessa', () => {
+  const vm = require('vm'), { funktio } = require('./helpers/vp_koti_sandbox.cjs');
+  const NIMI = { koti: 'Koti', tilanne: 'Tilanne', reviewit: 'Seuranta', jaksofokus: 'Jaksofokus', raportointi: 'Raportointi' };
+  const luo = (lippu) => {
+    const bc = { textContent: 'Koti', attrs: {}, setAttribute(k, v) { this.attrs[k] = v; } }, aktiivinen = { ws: null }, visited = {}, kutsut = [];
+    const ctx = { console, setTimeout: (f) => { f(); }, _currentWs: 'koti', vpT: (x) => x, localStorage: { setItem: (k, v) => { visited[k] = v; } },
+      _vpTilanneUusi: () => lippu, renderReviewit() { kutsut.push('renderReviewit'); }, renderJaksofokus() { kutsut.push('renderJaksofokus'); }, renderKotiVP() {}, _vpaPaivitaTapahtumat() {}, renderVpTestit() {}, _vpTilanneAvaa(x) { kutsut.push('avaa:' + x); },
+      document: { getElementById: (id) => (id === 'tbSivu' ? bc : id === 'ws-tilanne' ? { classList: { add() { aktiivinen.ws = 'tilanne'; } } } : null), querySelectorAll: () => [],
+        querySelector: (sel) => { const m = /data-ws="(\w+)"/.exec(sel), n = m && NIMI[m[1]]; return n ? { querySelectorAll: () => [{ dataset: { i18n: n } }] } : null; } } };
+    ctx.window = ctx; vm.createContext(ctx); vm.runInContext(funktio(VP, 'setWs'), ctx);
+    return { ctx, bc, visited, kutsut };
+  };
+  it('lippu päällä: setWs("tilanne") → murupolku "Tilanne" (ei "Koti")', () => { const y = luo(true); y.ctx.setWs('tilanne'); expect(y.bc.textContent).toBe('Tilanne'); expect(y.bc.attrs['data-i18n']).toBe('Tilanne'); expect(y.ctx._currentWs).toBe('tilanne'); });
+  it.each(['reviewit', 'jaksofokus', 'raportointi'])('lippu päällä: vanha avain "%s" ohjautuu Tilanteeseen JA murupolku on "Tilanne" (ei "Seuranta"/"Raportointi")', (ws) => {
+    const y = luo(true); y.ctx.setWs(ws); expect(y.bc.textContent).toBe('Tilanne'); expect(y.ctx._currentWs).toBe('tilanne'); expect(y.kutsut).toContain('avaa:' + ws);
+  });
+  it('lippu päällä: "raportointi" merkitään silti käydyksi (Aloita tästä -checklist käyttää vanhaa avainta)', () => { const y = luo(true); y.ctx.setWs('raportointi'); expect(y.visited['tm_vp_visited_raportointi']).toBe('1'); expect(y.visited['tm_vp_visited_tilanne']).toBeUndefined(); });
+  it('lippu pois: ennallaan — "reviewit" → "Seuranta", "koti" → "Koti", ei ohjausta', () => {
+    const y = luo(false); y.ctx.setWs('reviewit'); expect(y.bc.textContent).toBe('Seuranta'); expect(y.ctx._currentWs).toBe('reviewit'); expect(y.kutsut).not.toContain('avaa:reviewit'); y.ctx.setWs('koti'); expect(y.bc.textContent).toBe('Koti');
+  });
+});

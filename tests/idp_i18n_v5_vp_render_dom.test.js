@@ -737,9 +737,11 @@ describe('VP_v25 resolvi-portti — jokaisella reititetyllä avaimella on sv-riv
   const ERA4_VP = JSON.parse(readFileSync(join(__dir, '..', 'docs/i18n/sv_kaannoserae_4.json'), 'utf8')).osiot.vp_kartta.rivit;
   // erä 5 (S2 PR 1, VP:n Koti = Seuran pulssi): uudet avaimet, sv tyhjä kunnes Gemini palauttaa
   const ERA5_VP = JSON.parse(readFileSync(join(__dir, '..', 'docs/i18n/sv_kaannoserae_5.json'), 'utf8')).osiot.vp_kartta.rivit;
+  // erä 6 (S2 PR 2, Kuittaa / Ensi viikolla): uudet avaimet, sv tyhjä kunnes Gemini palauttaa
+  const ERA6_VP = JSON.parse(readFileSync(join(__dir, '..', 'docs/i18n/sv_kaannoserae_6.json'), 'utf8')).osiot.vp_kartta.rivit;
   // erä 7 (S2c PR 1, Tilanne = kausi): uudet avaimet, sv tyhjä kunnes Gemini palauttaa
   const ERA7_VP = JSON.parse(readFileSync(join(__dir, '..', 'docs/i18n/sv_kaannoserae_7.json'), 'utf8')).osiot.vp_kartta.rivit;
-  const SV_ODOTTAA_SANKTIOINTIA = Object.keys(ERA2_VP).filter((k) => !ERA2_VP[k].sv && !(ERA3_VP[k] && ERA3_VP[k].sv)).concat(Object.keys(ERA4_VP).filter((k) => !ERA4_VP[k].sv)).concat(Object.keys(ERA5_VP).filter((k) => !ERA5_VP[k].sv)).concat(Object.keys(ERA7_VP).filter((k) => !ERA7_VP[k].sv)).concat([
+  const SV_ODOTTAA_SANKTIOINTIA = Object.keys(ERA2_VP).filter((k) => !ERA2_VP[k].sv && !(ERA3_VP[k] && ERA3_VP[k].sv)).concat(Object.keys(ERA4_VP).filter((k) => !ERA4_VP[k].sv)).concat(Object.keys(ERA5_VP).filter((k) => !ERA5_VP[k].sv)).concat(Object.keys(ERA6_VP).filter((k) => !ERA6_VP[k].sv)).concat(Object.keys(ERA7_VP).filter((k) => !ERA7_VP[k].sv)).concat([
     // Tyhjä 8.10.2026: Gemini-erä sv_kaannoserae_2026-10-08.json vietiin (scripts/i18n_vie_sv_era.cjs). Uusi sanktiointia odottava avain → lisää tähän.
     // PR 5: D2-bugin ja S1.1:n rivit (TKI-pohjainen, TKI ka, Sovelluksen käyttö …) saapuivat Gemini-erässä 2 ja vietiin; lista on nyt tyhjä.
   ]);
