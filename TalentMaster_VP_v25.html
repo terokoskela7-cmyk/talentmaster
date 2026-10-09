@@ -134,12 +134,12 @@ window.TM_KAAVIO_HOST = {
 <script src="lib/tm_taman_tueksi.js?v=2"></script>   <!-- K4: tmTukiPerustelu = K1:n mittaus-/lukutarkistus lauseelle (lazy-riippuvuudet vain K1-näkymille) -->
 <script src="lib/tm_viikkokatsaus.js?v=2"></script>   <!-- K4: pelaajan viikkokatsaukset (henkilökunnan osio) + lause -->
 <script src="lib/tm_reitin_valinta.js?v=3"></script>   <!-- K3: pelaaja valitsee seuraavan reitin — tarjousosio sulkulomakkeessa (Kenttä-lipun takana) -->
-<script src="lib/tm_tanaan_signaali.js?v=5"></script>   <!-- V4b-2: Tänään-signaali (D48) -->
+<script src="lib/tm_tanaan_signaali.js?v=6"></script>   <!-- V4b-2: Tänään-signaali (D48) -->
 <script src="lib/tm_kevyt_katselmus.js?v=2"></script>   <!-- V4b-2: kevyt katselmus + Hylkää valinta + valmentajaprofiili -->
 <script src="lib/tm_kentta.js?v=3"></script>   <!-- K0/V4a: Kenttä-komponentti (Archivo vain .kt:n sisällä) -->
 <script src="lib/tm_tanaan_kentta.js?v=3"></script>   <!-- V4a: tmTanaanOsat (Tänään-osat sanoin) -->
 <script src="lib/tm_hash_reititin.js?v=1"></script>   <!-- V4a: #pelaaja/{pid}/… -reititin (vain lipulla) -->
-<script src="lib/tm_kehitystyopoyta.js?v=9"></script>   <!-- V4a: Kehitystyöpöytä V4 -kehys -->
+<script src="lib/tm_kehitystyopoyta.js?v=10"></script>   <!-- V4a: Kehitystyöpöytä V4 -kehys -->
 <script src="lib/tm_kehityssilmukka.js?v=2"></script>   <!-- R6.2a: katselmus yhteen paikkaan (tmKirjaaKatselmus) + jaksofokuksen kirjoitusydin -->
 <script src="lib/tm_seuraava_askel.js?v=2"></script>   <!-- R6.2b: seuraava toimenpide yhdessä paikassa (tmSeuraavaAskel / tmSeuraavaJakso / tmTeeTastaOsa) -->
 <script src="lib/tm_fyysteemat.js?v=4"></script>   <!-- Vaihe 7: fyysinen teemaluettelo + D1-fokuslähde + evidenssi (delta §29 + PHV-portti §28) -->
@@ -10790,10 +10790,8 @@ window._vpJfOsaArvioSet = function (pid, konseptiAvain, koodi, n) {
     p.jaksofokus.osa_arviot = p.jaksofokus.osa_arviot || {};
     p.jaksofokus.osa_arviot[konseptiAvain] = Object.assign({}, p.jaksofokus.osa_arviot[konseptiAvain], c);
     /* R6.1c: dot-polku jaksofokus.osa_arviot.<konsepti> (tmPaivitaJaksofokus; koko konseptin osa-arviot, ei syvämergeä). Avain jossa on piste → koko osa_arviot-kartta. */
-    if (typeof _vpJfKirjoita === 'function' && window.TM_KEHITYSSILMUKKA) {
-      const _osa = (String(konseptiAvain).indexOf('.') >= 0) ? { osa_arviot: p.jaksofokus.osa_arviot } : { ['osa_arviot.' + konseptiAvain]: p.jaksofokus.osa_arviot[konseptiAvain] };
-      _vpJfKirjoita(pid, _vpJfPolut(window.TM_KEHITYSSILMUKKA.tmPaivitaJaksofokus(p, _osa).polut), vpT('Osa-arvio tallennettu'));
-    }
+    window.TM_KEHITYSTYOPOYTA.tmKtTallennaOsaArvio({ db: db, sid: _seuraId, auth: function () { return firebase.auth().currentUser; }, KS: window.TM_KEHITYSSILMUKKA, demo: _isDemoMode, toast: function (m, t) { toast(m, t); }, t: vpT, viesti: vpT('Osa-arvio tallennettu'), demoLisa: vpT(' (demo — ei kirjoitettu)'),
+      virheTeksti: function (t, e) { return ((typeof TM_VIRHEKOODI !== 'undefined' && TM_VIRHEKOODI.tmVirheTeksti) || String)(t, e); }, paivita: function () { if (typeof _vpKehAskelReRender === 'function') _vpKehAskelReRender(); } }, p, konseptiAvain, koodi, n);   // YKSI kirjoitusydin (libissä, jaettu Masterin kanssa)
   }
   const slot = document.getElementById('_jfOhjausSlot');
   if (slot && typeof _vpJfBodyHTML === 'function') slot.innerHTML = _vpJfBodyHTML(p);
@@ -10977,7 +10975,7 @@ function _ktTanaanHTML(p, tila) {   // mockup 22 osio 1: koko Tänään kootaan 
   const K = window.TM_KEHITYSTYOPOYTA;
   const kentta = (typeof window.tmKentta === 'function') ? window.tmKentta({ koko: 'puoli', ilmanAluetta: true, ase: null, reitti: null, viikot: null, osat: [], historia: [], lempipaikka: null, vaihtoehdot: null }, { wrap: true, rooli: 'henkilokunta', t: vpT }) : '';
   return K.tmKtTanaanKoko(p, tila, { esc: _jsvEsc, t: vpT, hk: K.tmKtHk, pvmFn: function (iso) { return (typeof tmPvmFi === 'function') ? tmPvmFi(iso) : iso; }, toimiFn: '_ktToimi', osaFn: '_ktHavaintoAvaa', tallennaFn: '_ktHavaintoTallenna', veoFn: '_ktHavaintoVeo', peruFn: '_ktHavaintoSulje',
-    paneeli: true, voiKirjoittaa: typeof _vpVoiMuokata !== 'function' || _vpVoiMuokata(p), kentta: kentta, kaanon: (typeof tmKonseptiKaanon === 'function') ? tmKonseptiKaanon : null, tanaan: tmPaivaIso(new Date()),
+    paneeli: true, rooli: window._vpSA ? 'super_admin' : window._vpRooli, voiKirjoittaa: typeof _vpVoiMuokata !== 'function' || _vpVoiMuokata(p), kentta: kentta, kaanon: (typeof tmKonseptiKaanon === 'function') ? tmKonseptiKaanon : null, tanaan: tmPaivaIso(new Date()),
     sigCtx: _ktSigCtx(p, tila), vk: _ktVkKooste(p, tila), havainto: { auki: _ktS.havaintoAuki === p.id, osa: _ktS.havaintoOsa } });
 }
 function _ktPolkuHTML(p) {   // Polku = olemassa oleva kausi → jakso → viikko -koodi, samat slot-id:t (_jspKehAskel, _jspKehSuunnitelma …) joten re-render-koukut toimivat
@@ -10992,22 +10990,9 @@ function _ktPolkuHTML(p) {   // Polku = olemassa oleva kausi → jakso → viikk
   return '<div id="_jspTab3"><div id="mvKlipit"></div>' + h + '</div>';
 }
 function _vpOnV4() { return !!(_ktS && (_ktS.v4Render || document.getElementById('ktNakyma'))); }   // A9: viikon uudelleenrenderöinti V4:n sisällä (ktNakyma auki) tai V4:n Polku-rakennuksen aikana
-/* A13 (D100, kevyt muoto): Merkitse viikkohavainto inline signaalikortin alla. SAMA kirjoitus kuin Polun osa-arvio (_vpJfOsaArvioSet → _vpJfKirjoita: getIdToken(true) + jaksofokus.osa_arviot.<konsepti>), ei uutta polkua.
-   Kolme vaihtoehtoa (Ei vielä = 1 · Ohjatusti = 2 · Itsenäisesti = 3); tallennus = napautus. Vain henkilökunta joka saa muokata pelaajaa (_vpVoiMuokata(p), kuten A4); pelaaja ei näe tätä näkymää. */
-/* A13 (D100): viikkohavaintopaneeli renderöityy libissä (tmKtPaneeliHTML) signaalikortin sisään. SAMA kirjoitus kuin Polun osa-arvio (_vpJfOsaArvioSet → _vpJfKirjoita: getIdToken(true)), ei uutta polkua; vain muokkausoikeudella (_vpVoiMuokata). */
-window._ktHavaintoAvaa = function (pid, koodi) {   // koodi: Osat-rivin osa valittuna (tai tyhjä = viikon osa)
-  const p = _ktPelaaja(pid); if (!p) return false;
-  if (typeof _vpVoiMuokata === 'function' && !_vpVoiMuokata(p)) { if (typeof toast === 'function') toast(vpT('Ei oikeutta merkitä tämän pelaajan havaintoa.'), 'err'); return false; }
-  _ktS.havaintoAuki = pid; _ktS.havaintoOsa = koodi || null; _ktNayta(); return true;
-};
-window._ktHavaintoSulje = function () { _ktS.havaintoAuki = null; _ktS.havaintoOsa = null; _ktNayta(); };
-window._ktHavaintoVeo = function (pid) { return window._mvAvaa(pid); };   // VEO-linkki = olemassa oleva Lisää klippi (R6.4), ei uutta kirjoituspolkua
-window._ktHavaintoTallenna = function (pid, avain, koodi, n) {
-  const p = _ktPelaaja(pid); if (!p || (typeof _vpVoiMuokata === 'function' && !_vpVoiMuokata(p))) return false;
-  _ktS.havaintoAuki = null; _ktS.havaintoOsa = null;
-  window._vpJfOsaArvioSet(pid, avain, koodi, n);   // sama funktio kuin Polun osa-arvio; kutsuu lopuksi _ktPaivita (Tänään + Polku päivittyvät)
-  return true;
-};
+/* A13 (D100): viikkohavaintopaneeli + sen käsittelijät + kirjoitus ovat libissä (tmKtPaneeliHTML / tmKtHavaintoKasittelijat / tmKtTallennaOsaArvio) — VP ja Master käyttävät samaa; täällä vain kytkentä. Vain muokkausoikeudella (_vpVoiMuokata). */
+const _ktHk = window.TM_KEHITYSTYOPOYTA.tmKtHavaintoKasittelijat({ S: _ktS, pelaaja: _ktPelaaja, voi: function (p) { return typeof _vpVoiMuokata !== 'function' || _vpVoiMuokata(p); }, toast: function (m, t) { toast(m, t); }, eiOikeutta: function () { return vpT('Ei oikeutta merkitä tämän pelaajan havaintoa.'); }, nayta: function () { _ktNayta(); }, kirjoita: function (p, a, k, n) { return window._vpJfOsaArvioSet(p.id, a, k, n); }, veo: function (pid) { return window._mvAvaa(pid); } });
+window._ktHavaintoAvaa = _ktHk.avaa; window._ktHavaintoSulje = _ktHk.sulje; window._ktHavaintoVeo = _ktHk.veo; window._ktHavaintoTallenna = _ktHk.tallenna;
 function _ktOsio(otsikko) { return '<div class="kt-otsikko-pieni" style="margin:18px 0 6px">' + _jsvEsc(vpT(otsikko)) + '</div>'; }
 /* V4b-1 (mockup 18 §7, 13 §6): vanhan kortin sisältö Näyttöön — SAMA koodi kuin vanhassa modaalissa (_vpKorttiRakenna vainOsat-tilassa), ei kopioita.
    Perustiedot + 5D-profiili (hL) · Kasvu ja kypsyys (PHV, bioikä, kasvutahti, testipäivät) · Mittaukset (Fyysinen/Tekninen mitattu, kehon valmius, mittauslista) · Pelihavainnot ja arviointi (_jspTab5). Luvut vain henkilökunnalle. Ladataan vasta avattaessa. */

@@ -33,45 +33,20 @@ describe('A13 · paneeli (lib)', () => {
   });
 });
 
-function ymp(over = {}) {
-  const log = { osaSet: [], toast: [], nayta: 0 };
-  const S = { havaintoAuki: null, havaintoOsa: null }, p = { id: 'p1' }, win = {};
-  const loppu = VP.indexOf('\n};', VP.indexOf('window._ktHavaintoTallenna')) + 3;
-  const code = VP.slice(VP.indexOf('window._ktHavaintoAvaa'), loppu);
-  new Function('window', '_ktS', '_ktPelaaja', '_vpVoiMuokata', 'toast', 'vpT', '_ktNayta', code)(win, S, () => p, over.voi || (() => true), (t) => log.toast.push(t), (x) => x, () => { log.nayta++; });
-  win._vpJfOsaArvioSet = (...a) => log.osaSet.push(a); win._mvAvaa = (pid) => { log.veo = pid; return true; };
-  return { win, S, log };
-}
-describe('A13 · käsittelijät (VP)', () => {
-  it('avaus asettaa tilan (osa valittuna Osat-riviltä) ja renderöi uudelleen; välilehteä ei vaihdeta', () => {
-    const e = ymp(); expect(e.win._ktHavaintoAvaa('p1')).toBe(true); expect(e.S).toMatchObject({ havaintoAuki: 'p1', havaintoOsa: null }); expect(e.log.nayta).toBe(1);
-    e.win._ktHavaintoAvaa('p1', 'kc'); expect(e.S.havaintoOsa).toBe('kc');
-  });
-  it('tallennus kutsuu Polun osa-arvion kirjoitusta (sama funktio) ja sulkee paneelin', () => {
-    const e = ymp(); e.S.havaintoAuki = 'p1';
-    expect(e.win._ktHavaintoTallenna('p1', 'kons', 'kb', 3)).toBe(true); expect(e.log.osaSet).toEqual([['p1', 'kons', 'kb', 3]]); expect(e.S.havaintoAuki).toBeNull();
-  });
-  it('ilman muokkausoikeutta (valmentaja toisen joukkueen pelaajalla): ei avaudu, ei kirjoita, toast', () => {
-    const e = ymp({ voi: () => false });
-    expect(e.win._ktHavaintoAvaa('p1')).toBe(false); expect(e.S.havaintoAuki).toBeNull(); expect(e.log.toast.length).toBe(1);
-    expect(e.win._ktHavaintoTallenna('p1', 'kons', 'kb', 3)).toBe(false); expect(e.log.osaSet).toEqual([]);
-  });
-  it('VEO-linkki = olemassa oleva Lisää klippi (_mvAvaa)', () => { const e = ymp(); e.win._ktHavaintoVeo('p1'); expect(e.log.veo).toBe('p1'); });
-});
-
 describe('A13 · kytkennät', () => {
   it('_ktToimi("havainto") avaa paneelin paikallaan; jatka/avaa_polku/kuorma vievät yhä Polkuun', () => {
     expect(VP).toContain("if (avain === 'havainto') return window._ktHavaintoAvaa(pid);");
     expect(VP).toMatch(/avain === 'jatka' \|\| avain === 'avaa_polku' \|\| avain === 'kuorma'\) return window\._ktValilehti\(pid, 'polku'\)/);
   });
-  it('Osat-rivit ja paneeli: VP antaa osaFn = _ktHavaintoAvaa; osa-arvion tallennus päivittää V4:n (_ktPaivita); kirjoitus: getIdToken(true) + osa_arviot-polku ennallaan', () => {
-    expect(VP).toContain("osaFn: '_ktHavaintoAvaa'"); expect(VP).toContain("tallennaFn: '_ktHavaintoTallenna'");
+  it('VP antaa osaFn/tallennaFn; käsittelijät ja kirjoitus ovat libissä (yksi toteutus VP:n ja Masterin kesken); osa-arvion tallennus päivittää V4:n; kirjoitus: getIdToken(true) + osa_arviot-polku', () => {
+    expect(VP).toContain("osaFn: '_ktHavaintoAvaa'"); expect(VP).toContain("tallennaFn: '_ktHavaintoTallenna'"); expect(VP).toContain('tmKtHavaintoKasittelijat({');
     const set = fn('window._vpJfOsaArvioSet = function (pid, konseptiAvain, koodi, n) {');
-    expect(set).toContain('_ktPaivita()'); expect(set).toContain("'osa_arviot.' + konseptiAvain");
-    expect(fn('async function _vpJfKirjoita(pid, upd, viesti, paivita) {')).toContain('getIdToken(true)');
+    expect(set).toContain('_ktPaivita()'); expect(set).toContain('tmKtTallennaOsaArvio({');
+    const lib = readFileSync(join(__dir, '..', 'lib', 'tm_kehitystyopoyta.js'), 'utf8'); expect(lib).toContain("'osa_arviot.' + konsepti"); expect(lib).toContain('getIdToken(true)');
   });
-  it('ei uutta kirjoituspolkua: käsittelijät eivät kosketa Firestorea', () => {
-    const koodi = VP.slice(VP.indexOf('window._ktHavaintoAvaa'), VP.indexOf('window._ktHavaintoTallenna') + 400);
+  it('ei uutta kirjoituspolkua: VP:n kytkentä ei kosketa Firestorea paneelin kautta', () => {
+    const koodi = VP.slice(VP.indexOf('const _ktHk ='), VP.indexOf('function _ktOsio(otsikko)'));
     expect(koodi).not.toMatch(/\.update\(|\.set\(|firestore\(|collection\(/);
   });
+
 });

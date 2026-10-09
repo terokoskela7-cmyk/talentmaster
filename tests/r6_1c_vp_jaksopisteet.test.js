@@ -37,7 +37,7 @@ function ymp({ kaada = false, demo = false, pelaaja = {}, mergeLisa = null } = {
   const sb = {
     db, _seuraId: 'kpv', _isDemoMode: demo, _uid: 'vp-uid', vpT: (x) => x, toast: (t, k) => log.toastit.push([t, k]), console: { warn: (...a) => log.warn.push(a) }, TM_VIRHEKOODI: require('../lib/tm_virhekoodi.js'), Date, Object, Array, Promise, Math, JSON, String, Number,
     firebase: { auth: () => ({ currentUser: { uid: 'vp-uid', getIdToken: async () => 't' } }), firestore: { FieldValue: { arrayUnion: (...a) => ({ __arrayUnion: a }), delete: () => DELETE } } },
-    window: { TM_JAKSOKOOSTE: J, TM_KEHITYSSILMUKKA: KS, TM_VIIKKOKATSAUS: require('../lib/tm_viikkokatsaus.js'), _vpTtLahde: 'vp', _vpOhjKirjasto: [{ id: 'o1', tyyppi: 'plyo', nimi: 'Plyo', versio: 1, laatija_uid: 'u', laatija_rooli: 'vp' }],
+    window: { TM_KEHITYSTYOPOYTA: require('../lib/tm_kehitystyopoyta.js'), TM_JAKSOKOOSTE: J, TM_KEHITYSSILMUKKA: KS, TM_VIIKKOKATSAUS: require('../lib/tm_viikkokatsaus.js'), _vpTtLahde: 'vp', _vpOhjKirjasto: [{ id: 'o1', tyyppi: 'plyo', nimi: 'Plyo', versio: 1, laatija_uid: 'u', laatija_rooli: 'vp' }],
       TM_FYYSTEEMAT_LIB: { tmFyysTeema: (a) => (a ? { avain: a, nimi: 'Teema ' + a, testit: ['lin30m'] } : null), tmOhjelmaTemplaatti: (t) => ({ nimi: 'Pohja ' + t, kuvaus: 'k' }) },
       TM_JAKSOFOKUS: { tmJfKonsepti: (d, a) => ({ avain: a, nimi: 'Konsepti ' + a, koodi: 'K1' }) } },
     _vpTtPelaaja: () => p, _pelaajat: [p], _vpIdpPelaaja: () => p, _vpKausitavoiteReRender() {}, _vpTallennaIdpDok: async () => true, _vpAloitusReRender() { log.renderit++; }, _vpArvReRender() {}, renderJaksofokus() {},

@@ -115,7 +115,8 @@ describe('autosave-langoitus + status osa-etenemä', () => {
     const s = HTML.slice(HTML.indexOf('window._vpJfOsaArvioSet'), HTML.indexOf('window._vpJfOsaArvioSet') + 2400);
     expect(s).toContain('p.jaksofokus.osa_arviot[konseptiAvain] = Object.assign({}, p.jaksofokus.osa_arviot[konseptiAvain], c);');
     // R6.1c: dot-polku (tmPaivitaJaksofokus → jaksofokus.osa_arviot.<konsepti>), ei syvämergeä
-    expect(s).toContain("tmPaivitaJaksofokus(p, _osa).polut), vpT('Osa-arvio tallennettu'));"); expect(s).toContain("'osa_arviot.' + konseptiAvain");
+    expect(s).toContain("tmKtTallennaOsaArvio({"); expect(s).toContain("vpT('Osa-arvio tallennettu')"); expect(s).toContain('p, konseptiAvain, koodi, n);');   // kirjoitus libin yhteisessä ytimessä (dot-polku osa_arviot.<konsepti> + getIdToken(true) siellä)
+    const lib = readFileSync(join(__dir, '..', 'lib', 'tm_kehitystyopoyta.js'), 'utf8'); expect(lib).toContain("'osa_arviot.' + konsepti"); expect(lib).toContain('getIdToken(true)'); expect(lib).toContain('tmPaivitaJaksofokus(p, osa).polut');
     expect(s).toContain('_vpAloitusReRender');   // Aloitus-näyttö päivittyy
   });
   it('rivin alarivi näyttää osa-etenemän ("X/Y osaa hallussa pelissä") olemassa olevasta datasta', () => {
