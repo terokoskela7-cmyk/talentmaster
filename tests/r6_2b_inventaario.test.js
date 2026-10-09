@@ -35,7 +35,8 @@ const SIGNAALIT = [
   [SRC.VP, /\.tmSiltaEhdota\(/g, 1], [SRC.MA, /\.tmSiltaEhdota\(/g, 1],   // sulku-kääreet käyttävät libiä; jäljellä vain Masterin UI-vihje (B) / VP:n ehdotus-render
   [SRC.VP, /\.tmFyysEhdota\(|_vpFyysEhdotus\(/g, 6], [SRC.MA, /\.tmFyysEhdota\(|_msFyysEhdotus\(/g, 4],
   [SRC.VP, /\.tmJfUmpeutunut\(/g, 5], [SRC.MA, /\.tmJfUmpeutunut\(/g, 1],
-  [SRC.VP, /laskeReviewKadenssi\(/g, 2], [SRC.VP, /\bidpJumissa\(/g, 1], [SRC.VP, /_rvcSitoumusOdottaa\(/g, 3],   // _pdcPaatos ei enää laske itse (cockpit-rivit + UI jäävät)
+  [SRC.VP, /laskeReviewKadenssi\(/g, 2], [SRC.VP, /\bidpJumissa\(/g, 1], [SRC.VP, /_rvcSitoumusOdottaa\(/g, 2],   // A1: määrittely + cockpit-rivit (Kysymysten/Polun tilan sitoumus päätellään lib/tm_sitoumus.js:stä)
+      // _pdcPaatos ei enää laske itse (cockpit-rivit + UI jäävät)
 ];
 
 describe('R6.2b inventaario — luokitellut ankkurit olemassa', () => {
