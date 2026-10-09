@@ -156,8 +156,10 @@ describe('tmKayttoasteLueKoosteet — jaettu lukufunktio, ei indeksiä (S1.1-bug
   it('tmIsoViikko: vuodenvaihde W52/W53 → W01 ja sama tunniste kuin palvelimen kooste-dokumentilla (viikonRajat.tunniste)', () => {
     const H = require('../functions/helsinki_paiva.js');
     expect([Date.UTC(2025, 11, 28, 12), Date.UTC(2025, 11, 29, 12), Date.UTC(2026, 0, 4, 12), Date.UTC(2026, 11, 28, 12), Date.UTC(2027, 0, 3, 12), Date.UTC(2027, 0, 4, 12)].map(KA.tmIsoViikko)).toEqual(['2025-W52', '2026-W01', '2026-W01', '2026-W53', '2026-W53', '2027-W01']);
-    for (let ms = Date.UTC(2024, 11, 1); ms < Date.UTC(2029, 0, 10); ms += 7 * 3600000) expect(KA.tmIsoViikko(ms), new Date(ms).toISOString()).toBe(H.viikonRajat(ms).tunniste);
-  });
+    /* Askel 25 h (ei 7 h): kellonaika kiertää vuorokauden läpi ~24 päivässä, joten viikon- ja vuodenvaihteen rajat osuvat eri tunneille, mutta
+       iteraatioita on ~1 900 eikä ~6 000. 7 h:n askel kesti yksin 1,4 s ja täyden sarjan rinnakkaiskuormassa jopa 7,8 s > vitestin oletus 5 s → satunnainen aikakatkaisu. */
+    for (let ms = Date.UTC(2024, 11, 1); ms < Date.UTC(2029, 0, 10); ms += 25 * 3600000) expect(KA.tmIsoViikko(ms), new Date(ms).toISOString()).toBe(H.viikonRajat(ms).tunniste);
+  }, 30000);   // eksplisiittinen aikaraja: tämä on laskentatesti, ei suorituskykytesti
   it('rajaus 5 viikkoa taaksepäin; 4 viimeistä nousevassa (vanhin→uusin) järjestyksessä, vuodenvaihteen yli', async () => {
     const nyt = Date.UTC(2027, 0, 12, 10);   // 2027-W02; raja 5 vk sitten = 2026-W50 (W02→W01→W53→W52→W51→W50)
     const kaikki = ['2026-W45', '2026-W48', '2026-W49', '2026-W50', '2026-W51', '2026-W52', '2026-W53', '2027-W01', '2027-W02'];
