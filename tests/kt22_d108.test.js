@@ -63,6 +63,16 @@ describe('D108 · kirjoitus: rinnakkaiset merkinnät, voimassa oleva arvo', () =
     expect(v.doc.jaksofokus.osa_arviot[KONS].k1).toBe(1); expect(v.doc.jaksofokus.osa_havainnot[KONS].k1.vp1.rooli).toBe('vp');
     const w = varasto(pelaaja0()); await kirjoita(w, 'c1', null, 2, { rooli: 'valmentaja' }); expect(w.doc.jaksofokus.osa_havainnot[KONS].k1.c1.rooli).toBe('valmentaja'); expect(w.doc.jaksofokus.osa_arviot[KONS].k1).toBe(2);
   });
+  it('paikallinen kopio päivittyy SYNKRONISESTI (ennen kuin claim/kirjoitus ehtii) — näkymä päivittyy heti, myös demossa; claimin rooli korjaa laskennan alkutilasta', async () => {
+    const p = pelaaja0(), nayta = []; const v = varasto(p);
+    const lupaus = KT.tmKtTallennaOsaArvio({ db: v.db, sid: 'kpv', auth: () => ({ uid: 'u1', getIdToken: async () => 't', getIdTokenResult: async () => ({ claims: { rooli: 'vp' } }) }), KS, demo: false, toast() {}, t: (k) => k, nyt: () => NYT, rooli: 'valmentaja', nayta: () => nayta.push(1) }, p, KONS, 'k1', 3);
+    expect(p.jaksofokus.osa_havainnot[KONS].k1.u1).toMatchObject({ arvo: 3, rooli: 'valmentaja' }); expect(p.jaksofokus.osa_arviot[KONS].k1).toBe(3); expect(nayta.length).toBe(1);   // alustava (kuoren rooli) heti
+    await lupaus; expect(p.jaksofokus.osa_havainnot[KONS].k1.u1.rooli).toBe('vp'); expect(nayta.length).toBe(2);   // claim = vp → sama laskenta oikealla roolilla (ei muita valmentajia → osa_arviot silti VP:n)
+    const q = pelaaja0({ osa_arviot: { [KONS]: { k1: 1 } }, osa_havainnot: { [KONS]: { k1: { c1: { arvo: 1, pvm: '2026-10-08', rooli: 'valmentaja' } } } } }), w = varasto(q);
+    await KT.tmKtTallennaOsaArvio({ db: w.db, sid: 'kpv', auth: () => ({ uid: 'u2', getIdToken: async () => 't', getIdTokenResult: async () => ({ claims: { rooli: 'vp' } }) }), KS, demo: false, toast() {}, t: (k) => k, nyt: () => NYT, rooli: 'valmentaja' }, q, KONS, 'k1', 3);   // kuori väittää valmentajaa, claim sanoo VP
+    expect(q.jaksofokus.osa_arviot[KONS].k1).toBe(1); expect(w.doc.jaksofokus.osa_arviot[KONS].k1).toBe(1); expect(Object.keys(w.kirj[0])).toEqual(['jaksofokus.osa_havainnot.kons.k1.u2']);   // paikallinen palautui, VP ei korvannut valmentajaa
+    const d = KT.tmKtTallennaOsaArvio({ db: null, sid: null, auth: () => null, KS, demo: true, toast() {}, t: (k) => k, nyt: () => NYT, rooli: 'valmentaja' }, (() => { var x = pelaaja0(); x.__t = 1; return x; })(), KONS, 'k1', 2); expect(d).toBeInstanceOf(Promise);
+  });
   it('kirjoitetaan VAIN oman uid:n alle (toisen uid:n riviä ei kosketa); vain dot-polut yhdessä update-kutsussa; nimiä ei tallenneta', async () => {
     const v = varasto(pelaaja0()); await kirjoita(v, 'c1', 'valmentaja', 2); await kirjoita(v, 'vp1', 'vp', 3);
     for (const polut of v.kirj) for (const k of Object.keys(polut)) expect(k).toMatch(/^jaksofokus\.osa_(arviot\.kons|havainnot\.kons\.k1\.(c1|vp1))$/);
