@@ -254,3 +254,26 @@ test('kooste v4: lähteet — viikkokatsaus, ydinvahvuus_valinta, klippivastaus/
   assert.ok(!/Aleksi|Mäkinen|"v"|"k"|"l"/.test(s) || true);   // tietosuoja: varsinainen vartija on tmKoosteRikkomukset (laskeSeura heittäisi)
   assert.deepStrictEqual(S.TOIMINTO_LAHTEET, ['viikkokatsaukset', 'ydinvahvuus_valinta', 'klippi_vastaus', 'klippi_kuittaus', 'kirjaukset.jakso_kuittaus']);
 });
+
+// ── S1.1-korjaus: huoltajan RSVP (rooli 'huoltaja', Rules v3.55) lasketaan käyttöasteeseen; vanha 'vanhempi' ennallaan; tuntematon rooli ei; RSVP ei ole toiminto eikä perhekuittaus (D71) ──
+test('S1.1: kalenterin RSVP — rooli huoltaja → pelaaja aktiivinen; vanha vanhempi → aktiivinen; tuntematon rooli → ei; RSVP ei kasvata n_toiminto_7 eikä n_perhe_kuittaus_7', async () => {
+  const P = 'seurat/kpv/pelaajat/', d = seuraData('kpv');
+  for (const id of ['h', 'v', 't', 'p', 'e']) d[P + id] = { joukkue: 'KPV U13', joukkueet: ['u13'], syntymaVuosi: 2013 };
+  d['seurat/kpv/kalenteri/e1'] = { pvm: '2026-10-09' };
+  const rsvp = (rooli) => ({ saatavuus: 'tulossa', rooli, paivitetty: '2026-10-09T10:00:00Z' });
+  d['seurat/kpv/kalenteri/e1/lasnaolijat/h'] = rsvp('huoltaja');       // huoltaja (v3.55)
+  d['seurat/kpv/kalenteri/e1/lasnaolijat/v'] = rsvp('vanhempi');       // ennen v3.55:tä kirjoitettu
+  d['seurat/kpv/kalenteri/e1/lasnaolijat/p'] = rsvp('pelaaja');        // pelaaja itse
+  d['seurat/kpv/kalenteri/e1/lasnaolijat/t'] = rsvp('valmentaja');     // tuntematon rooli (valmentajan rivi ei ole pelaajan/huoltajan kirjoitus)
+  d['seurat/kpv/kalenteri/e1/lasnaolijat/e'] = { rooli: 'huoltaja', paivitetty: '2026-10-09T10:00:00Z' };   // ei saatavuutta → ei laske
+  const db = luoDb(d);
+  await S.laskeSeura(deps(db), 'kpv', { rajat: H.viikonRajat(NYT), nytMs: NYT });
+  const doc = db.STORE.get('seurat/kpv/kooste/2026-W41'), u = doc.joukkueet.u13;
+  const verrokki = luoDb(seuraData('kpv')); await S.laskeSeura(deps(verrokki), 'kpv', { rajat: H.viikonRajat(NYT), nytMs: NYT });
+  const v0 = verrokki.STORE.get('seurat/kpv/kooste/2026-W41').joukkueet.u13;   // ilman RSVP-rivejä ja lisäpelaajia
+  assert.strictEqual(u.n_aktiivinen_7 - v0.n_aktiivinen_7, 3, 'aktiivisia lisää: h (huoltaja) + v (vanhempi) + p (pelaaja); t (tuntematon rooli) ja e (ei saatavuutta) eivät');
+  assert.strictEqual(u.n_aktiivinen_30 - v0.n_aktiivinen_30, 3);
+  assert.strictEqual(u.n_toiminto_7, v0.n_toiminto_7, 'RSVP ei ole silmukan toiminto'); assert.strictEqual(u.n_perhe_kuittaus_7, v0.n_perhe_kuittaus_7, 'RSVP ei ole perheen kuittaus (D71)');
+  assert.strictEqual(doc.yhteensa.n_toiminto_7, verrokki.STORE.get('seurat/kpv/kooste/2026-W41').yhteensa.n_toiminto_7); assert.strictEqual(doc.yhteensa.n_perhe_kuittaus_7, 0);
+  assert.deepStrictEqual(S.RSVP_ROOLIT, ['pelaaja', 'huoltaja', 'vanhempi']);
+});
