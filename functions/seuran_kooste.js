@@ -23,6 +23,7 @@ function _norm(v) {   // Firestore Timestamp → ISO; rakenne säilyy (tmJaksoTi
 }
 function _erat(lista, n) { const e = []; for (let i = 0; i < lista.length; i += n) e.push(lista.slice(i, i + n)); return e; }
 const DAY = 86400000, IKKUNA_PV = 30;
+const HARJOITE_TYYPIT = ['T', 'D', 'S', 'P'];   // kooste v5 (D119): ohjelman harjoite; EI jalkapallo / muu_urheilu / lepo
 const RSVP_ROOLIT = ['pelaaja', 'huoltaja', 'vanhempi'];   // kalenterin lasnaolijat-saatavuus: kirjoittaja (Rules RSVP-erotus: pelaaja/huoltaja kirjoittaa VAIN saatavuus + paivitetty + rooli). Rules v3.55 pakottaa huoltajan rooliksi 'huoltaja'; 'vanhempi' = ennen v3.55:tä kirjoitetut dokumentit. Tuntematon rooli ei laske. RSVP on käyttöastetta (oma), EI n_toiminto_7 / n_perhe_kuittaus_7 (D71).
 const _pvmIso = (v) => { if (v == null || v === '') return null; if (/^\d{4}-\d{2}-\d{2}$/.test(String(v))) return String(v); const t = new Date(_norm(v)).getTime(); return isNaN(t) ? null : K.pvmHelsinki(t); };
 function _poissa(d) { return d.poistettu === true || d.arkistoitu === true || d.aktiivinen === false; }   // varovainen: kaikki yleiset "ei mukana" -liput
@@ -47,6 +48,14 @@ async function keraaOma(deps, seuraRef, pelaajat, arvioMs) {
       if (nimi === 'kirjaukset') {   // v4: vain huoltajan jakso_kuittaus (ei itse kirjaus)
         const kuitt = (snap && snap.docs ? snap.docs : []).filter((d) => { const k = (d.data() || {}).jakso_kuittaus; return k && typeof k === 'object' && ikk(d.id); }).map((d) => d.id).sort();
         if (kuitt.length) { p.toiminto.push(kuitt[kuitt.length - 1]); p.perhe.push(kuitt[kuitt.length - 1]); }
+        // v5 (D119): harjoitekirjaus = pelaajan itse merkitsemä tehty harjoite (ei valmentajan/laitteen, ei auto, ei jalkapallo/lepo) TAI takautuva T/D/S/P; vain jakso_kuittaus-dokumentti ei kelpaa. Päivä = dokumentti-id.
+        const har = (snap && snap.docs ? snap.docs : []).filter((d) => {
+          if (!ikk(d.id)) return false; const x = d.data() || {};
+          const tavallinen = x.tehty === true && x.lahde === 'pelaaja' && x.kirjaustapa !== 'auto' && HARJOITE_TYYPIT.indexOf(x.tyyppi) >= 0;
+          const takautuva = !!x.takautuva && typeof x.takautuva === 'object' && HARJOITE_TYYPIT.indexOf(x.takautuva.tyyppi) >= 0;
+          return tavallinen || takautuva;
+        }).map((d) => d.id).sort();
+        if (har.length) p.harjoite.push(har[har.length - 1]);   // uusin riittää: sekä 7 että 30 pv ratkeavat uusimmasta ≤ arvio
       }
     }
   });
@@ -92,7 +101,7 @@ async function laskeSeura(deps, sid, opts) {
       suostumus: suostumusAnnettu(x), viimeisinKirjautuminen: _pvmIso(x.viimeisinKirjautuminen), huoltajaViimeisinKaynti: _pvmIso(x.huoltajaViimeisinKaynti),
       oma: [x.idp_sitoumus_pvm, x.d3_pvm, x.streak_paivitetty, x.ydinvahvuus_valinta && x.ydinvahvuus_valinta.valittu_pvm].map(_pvmIso).filter(Boolean),
       // v4 (S2): silmukan toiminnot ja perheen kuittaukset — täydentyvät keraaOma:ssa
-      toiminto: [x.ydinvahvuus_valinta && x.ydinvahvuus_valinta.valittu_pvm].map(_pvmIso).filter(Boolean), perhe: [] });
+      toiminto: [x.ydinvahvuus_valinta && x.ydinvahvuus_valinta.valittu_pvm].map(_pvmIso).filter(Boolean), perhe: [], harjoite: [] });   // v5: harjoite täydentyy keraaOma:ssa
   });
   await keraaOma(deps, seuraRef, pelaajat, arvioMs);
   const analyysi = K.tmKoosteAnalysoi({ joukkueet, pelaajat, aika: { alkuMs: rajat.alkuMs, loppuMs: rajat.loppuMs, arvioMs, nytMs, vuosi: H.helsinginVuosi(arvioMs) } });
@@ -160,8 +169,8 @@ function ajastettuKasittelija(deps, tila) {
 
 /** Yhteenveto lukumääristä (ei nimiä/ID:itä) — takaisinlaskennan kuiva-ajon näyttöön. */
 function yhteenveto(doc) {
-  const y = { joukkueita: 0, joukkuejaksoja: 0, pelaajat: 0, jaksolla: 0, valinta_odottaa: 0, katselmus: 0, vastanneet: 0, vastausperusta: 0, katselmus_ajallaan: 0, katselmus_perusta: 0, suostumus: 0, kirjautunut_30: 0, huoltaja_30: 0, aktiivinen_7: 0, aktiivinen_30: 0, toiminto_7: 0, perhe_kuittaus_7: 0 };
-  Object.keys((doc && doc.joukkueet) || {}).forEach((jid) => { const j = doc.joukkueet[jid]; y.joukkueita++; if (j.jakso) y.joukkuejaksoja++; y.pelaajat += j.n_pelaajat; y.jaksolla += j.n_jaksolla; y.valinta_odottaa += j.n_valinta_odottaa; y.katselmus += j.n_katselmus; y.vastanneet += j.n_vastanneet; y.vastausperusta += j.n_vastausperusta; y.katselmus_ajallaan += j.n_katselmus_ajallaan; y.katselmus_perusta += j.n_katselmus_perusta; y.suostumus += j.n_suostumus || 0; y.kirjautunut_30 += j.n_kirjautunut_30 || 0; y.huoltaja_30 += j.n_huoltaja_30 || 0; y.aktiivinen_7 += j.n_aktiivinen_7 || 0; y.aktiivinen_30 += j.n_aktiivinen_30 || 0; y.toiminto_7 += j.n_toiminto_7 || 0; y.perhe_kuittaus_7 += j.n_perhe_kuittaus_7 || 0; });
+  const y = { joukkueita: 0, joukkuejaksoja: 0, pelaajat: 0, jaksolla: 0, valinta_odottaa: 0, katselmus: 0, vastanneet: 0, vastausperusta: 0, katselmus_ajallaan: 0, katselmus_perusta: 0, suostumus: 0, kirjautunut_30: 0, huoltaja_30: 0, aktiivinen_7: 0, aktiivinen_30: 0, toiminto_7: 0, perhe_kuittaus_7: 0, harjoite_7: 0, harjoite_30: 0 };
+  Object.keys((doc && doc.joukkueet) || {}).forEach((jid) => { const j = doc.joukkueet[jid]; y.joukkueita++; if (j.jakso) y.joukkuejaksoja++; y.pelaajat += j.n_pelaajat; y.jaksolla += j.n_jaksolla; y.valinta_odottaa += j.n_valinta_odottaa; y.katselmus += j.n_katselmus; y.vastanneet += j.n_vastanneet; y.vastausperusta += j.n_vastausperusta; y.katselmus_ajallaan += j.n_katselmus_ajallaan; y.katselmus_perusta += j.n_katselmus_perusta; y.suostumus += j.n_suostumus || 0; y.kirjautunut_30 += j.n_kirjautunut_30 || 0; y.huoltaja_30 += j.n_huoltaja_30 || 0; y.aktiivinen_7 += j.n_aktiivinen_7 || 0; y.aktiivinen_30 += j.n_aktiivinen_30 || 0; y.toiminto_7 += j.n_toiminto_7 || 0; y.perhe_kuittaus_7 += j.n_perhe_kuittaus_7 || 0; y.harjoite_7 += j.n_harjoite_7 || 0; y.harjoite_30 += j.n_harjoite_30 || 0; });
   return y;
 }
 
@@ -203,4 +212,4 @@ function paivitaKasittelija(deps) {
   };
 }
 
-module.exports = { RSVP_ROOLIT, TOIMINTO_LAHTEET, laskeSeura, laskeKaikki, ajastettuKasittelija, paivitaKasittelija, arvioHetki, JOHTO_ROOLIT };
+module.exports = { RSVP_ROOLIT, TOIMINTO_LAHTEET, HARJOITE_TYYPIT, laskeSeura, laskeKaikki, ajastettuKasittelija, paivitaKasittelija, arvioHetki, JOHTO_ROOLIT };

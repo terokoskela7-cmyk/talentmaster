@@ -21,6 +21,9 @@
      n_toiminto_7       pelaaja tai huoltaja teki 7 pv:ssä SILMUKAN TOIMINNON (D65). Syöte p.toiminto = päivämäärälista; palvelin kerää VAIN: viikkokatsaus vastattu · ydinvahvuus_valinta (valittu_pvm) · klippivastaus/-kuittaus (R6.4) ·
                         huoltajan jakso_kuittaus. EI kirjaukset, EI kalenterin läsnäolo/RSVP, EI kirjautuminen, EI sitoumus/itsearvio (nämä jäävät n_aktiivinen_*:een, joka säilyy Adminin Käyttöasteessa ennallaan).
      n_perhe_kuittaus_7 Leikkijä (D71): leikkijä-ikävaiheen pelaajia, joiden perhe kuittasi 7 pv:ssä. Syöte p.perhe = päivämäärälista (klippi_kuittaus [huoltaja] + jakso_kuittaus). Muilla ikävaiheilla aina 0.
+   VERSIO 5 (Kooste v5, D119; docs/CODE_BRIEF_KOOSTE_V5_D119.md) — joukkueittain + `yhteensa` (uniikit pelaajat) kaksi uutta lukumäärää, vanhat ennallaan (n_toiminto_7 säilyy vertailua varten):
+     n_harjoite_7 / n_harjoite_30   pelaaja MERKITSI HARJOITTEEN TEHDYKSI 7 / 30 pv:n ikkunassa (pulssin Käyttö, D119). Syöte p.harjoite = päivämäärälista; palvelin kerää kirjaukset/{pvm}-dokumenteista:
+                        tehty === true · lahde === 'pelaaja' · kirjaustapa !== 'auto' · tyyppi T|D|S|P (ei jalkapallo/muu_urheilu/lepo) TAI takautuva.tyyppi T|D|S|P. Vain jakso_kuittaus-dokumentti ei ole harjoite.
    Pelaaja kahdessa joukkueessa (joukkue + joukkueet[], §7.18) lasketaan KUMPAAN joukkueeseen. Jakson tila = tmJaksoTila (tm_aloita_jakso.js) — SAMA funktio kuin kehitystyöpöydällä.
    Ajoteknisesti kaksivaiheinen (palvelin hakee puuttuvat dokumentit välissä):
      a = tmKoosteAnalysoi(syote)                → { ehdokkaat:[pid] (viikkokatsaus haettavaksi), katselmukset:[{i, pid, alkuPvm, loppuPvm}] (reviewit-haku), … }
@@ -31,7 +34,7 @@
 ════════════════════════════════════════════════════════════════════════ */
 (function (root) {
   'use strict';
-  var DAY = 86400000, KATSELMUS_PV = 14, VERSIO = 4;
+  var DAY = 86400000, KATSELMUS_PV = 14, VERSIO = 5;
   function _req(g, f) { try { return (typeof module !== 'undefined' && module.exports && typeof require === 'function') ? require(f) : (root && root[g]); } catch (e) { return root && root[g]; } }
   function _AJ() { return _req('TM_ALOITA_JAKSO', './tm_aloita_jakso.js'); }
   function _JJ() { return _req('TM_JOUKKUEJAKSO', './tm_joukkuejakso.js'); }
@@ -54,7 +57,7 @@
   function _ikkunassa(pvm, alku, loppu) { return pvm != null && pvm >= alku && pvm <= loppu; }   // merkkijonovertailu: ISO-päivä on leksikaalisesti järjestetty
   function _kesto(jf) { return Number(jf && jf.kesto_vk) > 0 ? Number(jf.kesto_vk) : 4; }   // sama oletus kuin tmJaksoTila
   function _tyhja(j, ikavaihe, voimassa) {
-    var o = { nimi: j.nimi != null ? String(j.nimi) : '', ikavaihe: ikavaihe, tyyppi: j.tyyppi === 'harraste' ? 'harraste' : 'kilpa', profiili: j.valmentajaprofiili === 'ammatti' ? 'ammatti' : 'oto', jakso: !!voimassa.voimassa, n_pelaajat: 0, n_jaksolla: 0, n_valinta_odottaa: 0, n_katselmus: 0, n_vastanneet: 0, n_vastausperusta: 0, n_katselmus_ajallaan: 0, n_katselmus_perusta: 0, n_suostumus: 0, n_kirjautunut_30: 0, n_huoltaja_30: 0, n_aktiivinen_7: 0, n_aktiivinen_30: 0, n_toiminto_7: 0, n_perhe_kuittaus_7: 0 };
+    var o = { nimi: j.nimi != null ? String(j.nimi) : '', ikavaihe: ikavaihe, tyyppi: j.tyyppi === 'harraste' ? 'harraste' : 'kilpa', profiili: j.valmentajaprofiili === 'ammatti' ? 'ammatti' : 'oto', jakso: !!voimassa.voimassa, n_pelaajat: 0, n_jaksolla: 0, n_valinta_odottaa: 0, n_katselmus: 0, n_vastanneet: 0, n_vastausperusta: 0, n_katselmus_ajallaan: 0, n_katselmus_perusta: 0, n_suostumus: 0, n_kirjautunut_30: 0, n_huoltaja_30: 0, n_aktiivinen_7: 0, n_aktiivinen_30: 0, n_toiminto_7: 0, n_perhe_kuittaus_7: 0, n_harjoite_7: 0, n_harjoite_30: 0 };
     if (voimassa.voimassa && voimassa.nimi) o.jakso_nimi = voimassa.nimi;
     return o;
   }
@@ -70,7 +73,7 @@
       tulos[j.id] = _tyhja(j, IV.tmIkavaihe(JJ.tmJoukkueenIka(j)), JJ.tmJoukkuejaksoVoimassa(j, tanaan)); jidt.push(j.id);
     });
     var d7 = pvmHelsinki(arvioMs - 6 * DAY), d30 = pvmHelsinki(arvioMs - 29 * DAY);   // ikkunat päättyvät arviointihetken päivään (tulevaisuuden päivät eivät lasketa)
-    var yht = { n_pelaajat: 0, n_ilman_joukkuetta: 0, n_suostumus: 0, n_kirjautunut_30: 0, n_huoltaja_30: 0, n_aktiivinen_7: 0, n_aktiivinen_30: 0, n_toiminto_7: 0, n_perhe_kuittaus_7: 0 };
+    var yht = { n_pelaajat: 0, n_ilman_joukkuetta: 0, n_suostumus: 0, n_kirjautunut_30: 0, n_huoltaja_30: 0, n_aktiivinen_7: 0, n_aktiivinen_30: 0, n_toiminto_7: 0, n_perhe_kuittaus_7: 0, n_harjoite_7: 0, n_harjoite_30: 0 };
     var ehdokkaat = [], katselmukset = [], kats = [], vastausMukana = [];   // kats[i] = { jids:[…], ajallaan:true|false|null(=haku ratkaisee), i }
     pelaajat.forEach(function (p) {
       if (!p || !p.id) return;
@@ -84,8 +87,9 @@
       var ikaV = IV.tmPelaajaIka(p.syntymaVuosi, a.vuosi, p.joukkue || (mukana[0] && mukana[0].nimi)), leikkijaV = IV.tmIkavaihe(ikaV) === 'leikkija';
       var toim7 = (Array.isArray(p.toiminto) ? p.toiminto : []).map(_pvm).some(function (x) { return _ikkunassa(x, d7, tanaan); });
       var perhe7 = leikkijaV && (Array.isArray(p.perhe) ? p.perhe : []).map(_pvm).some(function (x) { return _ikkunassa(x, d7, tanaan); });
+      var har = (Array.isArray(p.harjoite) ? p.harjoite : []).map(_pvm), har7 = har.some(function (x) { return _ikkunassa(x, d7, tanaan); }), har30 = har.some(function (x) { return _ikkunassa(x, d30, tanaan); });   // v5 (D119)
       yht.n_pelaajat++; if (!mukana.length) yht.n_ilman_joukkuetta++;
-      if (toim7) yht.n_toiminto_7++; if (perhe7) yht.n_perhe_kuittaus_7++;
+      if (toim7) yht.n_toiminto_7++; if (perhe7) yht.n_perhe_kuittaus_7++; if (har7) yht.n_harjoite_7++; if (har30) yht.n_harjoite_30++;
       if (p.suostumus === true) yht.n_suostumus++; if (kirj30) yht.n_kirjautunut_30++; if (huolt30) yht.n_huoltaja_30++; if (akt7) yht.n_aktiivinen_7++; if (akt30) yht.n_aktiivinen_30++;
       if (!mukana.length) return;
       var jf = p.jaksofokus, tila = AJ.tmJaksoTila(p, { nyt: arvioMs }).tila;
@@ -120,6 +124,8 @@
         if (akt30) o.n_aktiivinen_30++;
         if (toim7) o.n_toiminto_7++;
         if (perhe7) o.n_perhe_kuittaus_7++;
+        if (har7) o.n_harjoite_7++;
+        if (har30) o.n_harjoite_30++;
         if (tila !== 'ei_jaksoa') o.n_jaksolla++;
         if (tila === 'valittavana' || tila === 'valinta_tehty') o.n_valinta_odottaa++;
         if (tila === 'paattynyt') o.n_katselmus++;

@@ -62,7 +62,7 @@ test('laskeSeura: kirjoittaa vain kooste + kooste_joukkue; lasketut luvut; ei ni
   assert.deepStrictEqual(db.kirjoitukset.sort(), ['seurat/kpv/kooste/2026-W41', 'seurat/kpv/kooste_joukkue/u13_2026-W41']);
   const k = db.STORE.get('seurat/kpv/kooste/2026-W41'), j = k.joukkueet.u13;
   assert.strictEqual(j.n_pelaajat, 2); assert.strictEqual(j.n_jaksolla, 2); assert.strictEqual(j.n_vastausperusta, 2); assert.strictEqual(j.n_vastanneet, 1); assert.strictEqual(j.jakso, true);
-  assert.strictEqual(k.laskettu, SERVER_TS); assert.strictEqual(k.versio, 4); assert.strictEqual(k.vk, '2026-W41'); assert.ok(!('arvio' in k));
+  assert.strictEqual(k.laskettu, SERVER_TS); assert.strictEqual(k.versio, 5); assert.strictEqual(k.vk, '2026-W41'); assert.ok(!('arvio' in k));
   const s = JSON.stringify([...db.STORE.entries()].filter(([p]) => /kooste/.test(p)));
   for (const kielletty of ['Aleksi', 'Mäkinen', 'Eeli', 'Virtanen', 'Korhonen', '"a"', '"b"', 'pelaajaId']) assert.ok(!s.includes(kielletty), 'koosteessa ei saa olla: ' + kielletty);
   assert.strictEqual(r.joukkueita, 1);
@@ -242,7 +242,7 @@ test('kooste v4: lähteet — viikkokatsaus, ydinvahvuus_valinta, klippivastaus/
   const db = luoDb(d);
   await S.laskeSeura(deps(db), 'kpv', { rajat: H.viikonRajat(NYT), nytMs: NYT });
   const doc = db.STORE.get('seurat/kpv/kooste/2026-W41');
-  assert.strictEqual(doc.versio, 4);
+  assert.strictEqual(doc.versio, 5);
   assert.strictEqual(doc.joukkueet.u13.n_toiminto_7, 2, 'u13: v (ydinvahvuus_valinta) + k (jakso_kuittaus); a:n vanha viikkokatsaus ja b:n kirjaus/kirjautuminen eivät');
   assert.strictEqual(doc.joukkueet.u13.n_perhe_kuittaus_7, 0, 'Rakentaja ei kuulu Leikkijä-perheeseen');
   assert.strictEqual(doc.joukkueet.p11.n_toiminto_7, 2, 'p11: klippikuittaus (l) + klippivastaus (n); RSVP (o) ei');
@@ -276,4 +276,33 @@ test('S1.1: kalenterin RSVP — rooli huoltaja → pelaaja aktiivinen; vanha van
   assert.strictEqual(u.n_toiminto_7, v0.n_toiminto_7, 'RSVP ei ole silmukan toiminto'); assert.strictEqual(u.n_perhe_kuittaus_7, v0.n_perhe_kuittaus_7, 'RSVP ei ole perheen kuittaus (D71)');
   assert.strictEqual(doc.yhteensa.n_toiminto_7, verrokki.STORE.get('seurat/kpv/kooste/2026-W41').yhteensa.n_toiminto_7); assert.strictEqual(doc.yhteensa.n_perhe_kuittaus_7, 0);
   assert.deepStrictEqual(S.RSVP_ROOLIT, ['pelaaja', 'huoltaja', 'vanhempi']);
+});
+
+// ── Kooste v5 (D119): n_harjoite_7 / n_harjoite_30 — harjoite merkitty; n_toiminto_7 ennallaan (docs/CODE_BRIEF_KOOSTE_V5_D119.md) ──
+test('kooste v5: harjoitekirjaus-säännöt — tehty T, ei viikkokatsaus/catapult/auto/lepo/jalkapallo/pelkkä jakso_kuittaus, takautuva T, 8 pv vanha, kaksi joukkuetta', async () => {
+  const d = seuraData('kpv'); const P = 'seurat/kpv/pelaajat/';
+  d['seurat/kpv/joukkueet/p11'] = { nimi: 'KPV P11' };
+  const pl = (id, o) => { d[P + id] = Object.assign({ joukkue: 'KPV U13', joukkueet: ['u13'], syntymaVuosi: 2013 }, o || {}); };
+  pl('t'); d[P + 't/kirjaukset/2026-10-09'] = { tehty: true, lahde: 'pelaaja', kirjaustapa: 'heti', tyyppi: 'T' };                  // 1: laskee
+  pl('vk'); d[P + 'vk/viikkokatsaukset/2026-10-11'] = { vk: 1 };                                                                 // 2: vain toiminto
+  pl('cat'); d[P + 'cat/kirjaukset/2026-10-09'] = { tehty: true, lahde: 'catapult', kirjaustapa: 'heti', tyyppi: 'T' };           // 3: ei
+  pl('auto'); d[P + 'auto/kirjaukset/2026-10-09'] = { tehty: true, lahde: 'pelaaja', kirjaustapa: 'auto', tyyppi: 'T' };
+  pl('lepo'); d[P + 'lepo/kirjaukset/2026-10-09'] = { tehty: true, lahde: 'pelaaja', kirjaustapa: 'heti', tyyppi: 'lepo' };
+  pl('jp'); d[P + 'jp/kirjaukset/2026-10-09'] = { tehty: true, lahde: 'pelaaja', kirjaustapa: 'heti', tyyppi: 'jalkapallo' };
+  pl('ei'); d[P + 'ei/kirjaukset/2026-10-09'] = { tehty: false, lahde: 'pelaaja', kirjaustapa: 'heti', tyyppi: 'T' };
+  pl('jk'); d[P + 'jk/kirjaukset/2026-10-09'] = { jakso_kuittaus: { lahde: 'vanhempi', kuitattu: true } };                          // 4: ei harjoite, toiminto kyllä
+  pl('tak'); d[P + 'tak/kirjaukset/2026-10-08'] = { takautuva: { tyyppi: 'S', kesto_min: 30, lisatty: '2026-10-10' } };             // 5: laskee
+  pl('vanha'); d[P + 'vanha/kirjaukset/2026-10-03'] = { tehty: true, lahde: 'pelaaja', kirjaustapa: 'jalkikateen', tyyppi: 'D' };    // 6: 8 pv vanha → vain 30
+  pl('kaksi', { joukkueet: ['u13', 'p11'] }); d[P + 'kaksi/kirjaukset/2026-10-10'] = { tehty: true, lahde: 'pelaaja', kirjaustapa: 'heti', tyyppi: 'P' };   // 7: molempiin, yhteensä kerran
+  const db = luoDb(d);
+  await S.laskeSeura(deps(db), 'kpv', { rajat: H.viikonRajat(NYT), nytMs: NYT });
+  const doc = db.STORE.get('seurat/kpv/kooste/2026-W41');
+  assert.strictEqual(doc.versio, 5);
+  assert.strictEqual(doc.joukkueet.u13.n_harjoite_7, 3, 't + tak + kaksi');
+  assert.strictEqual(doc.joukkueet.u13.n_harjoite_30, 4, '+ vanha (8 pv)');
+  assert.strictEqual(doc.joukkueet.p11.n_harjoite_7, 1, 'kaksi myös p11:ssä'); assert.strictEqual(doc.joukkueet.p11.n_harjoite_30, 1);
+  assert.strictEqual(doc.yhteensa.n_harjoite_7, 3, 'uniikit pelaajat (§7.18)'); assert.strictEqual(doc.yhteensa.n_harjoite_30, 4);
+  assert.strictEqual(doc.joukkueet.u13.n_toiminto_7, 2, 'toiminto ennallaan: vk (viikkokatsaus) + jk (jakso_kuittaus); kirjaukset eivät');
+  assert.strictEqual(doc.yhteensa.n_toiminto_7, 2);
+  assert.deepStrictEqual(S.HARJOITE_TYYPIT, ['T', 'D', 'S', 'P']);
 });

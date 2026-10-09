@@ -137,9 +137,9 @@ describe('tietosuojavartija: koosteessa ei nimiä, ID:itä eikä vapaatekstiä',
     expect(K.tmKoosteRikkomukset({ joukkueet: { a: { x: ['pid'] } } }).length).toBe(1);
   });
   it('rakenne: vk, versio 4, arvio vain kun pyydetty; kooste_joukkue: id {jid}_{vk}, mittarit ilman nimiä', () => {
-    expect(doc.vk).toBe('2026-W41'); expect(doc.versio).toBe(4); expect('arvio' in doc).toBe(false);
+    expect(doc.vk).toBe('2026-W41'); expect(doc.versio).toBe(5); expect('arvio' in doc).toBe(false);
     expect(laske([J13], P, {}, { arvio: true }).doc.arvio).toBe(true);
-    const jd = K.tmKoosteJoukkueDokumentit(doc)[0]; expect(jd.id).toBe('u13_2026-W41'); expect(jd.data).toMatchObject({ vk: '2026-W41', jid: 'u13', versio: 4 }); expect(jd.data.mittarit.n_pelaajat).toBe(1);
+    const jd = K.tmKoosteJoukkueDokumentit(doc)[0]; expect(jd.id).toBe('u13_2026-W41'); expect(jd.data).toMatchObject({ vk: '2026-W41', jid: 'u13', versio: 5 }); expect(jd.data.mittarit.n_pelaajat).toBe(1);
   });
   it('kenttiä ei tule teemakattavuudelle / kuormalle / kypsyydelle (S4) eikä nollia niille', () => { const k = Object.keys(doc.joukkueet.u13).join(','); for (const ei of ['teema', 'kuorma', 'kypsyys']) expect(k).not.toContain(ei); });
 });
