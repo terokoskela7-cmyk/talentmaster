@@ -15,7 +15,7 @@ function lataa() {
   const ctx = { console: { warn() {}, log() {}, error() {} }, Date, Math, JSON };
   ctx.window = ctx;
   vm.createContext(ctx);
-  for (const f of ['lib/tm_phv_tila.js', 'lib/tm-methodology.js', 'lib/tm-profile.js', 'lib/tm-microcycles.js', 'lib/tm-prescription.js']) {
+  for (const f of ['lib/tm_viikko.js', 'lib/tm_phv_tila.js', 'lib/tm-methodology.js', 'lib/tm-profile.js', 'lib/tm-microcycles.js', 'lib/tm-prescription.js']) {
     vm.runInContext(readFileSync(join(juuri, f), 'utf8'), ctx, { filename: f });
   }
   return ctx.TM;

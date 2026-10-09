@@ -88,8 +88,8 @@ describe('UI-2/UI-4 · joukkuevalitsin VP:lle; joukkuesuodatus ei rajaa kun "Kai
     expect(MA).toMatch(/if \(_mSeuranLaajuusRooli\(\)\) \{ _joukkue = ''; await _rakennaSAJoukkueValitsin\(_seuraId, \{ oletusKaikki: true, avain: 'tm-vp-joukkue' \}\); \}/);   // ilman kayttajat-dokkia
   });
   it('testitapahtumien ja kalenterin suodatus: _joukkue null → kaikki joukkueet näkyvät (ennallaan olevat lausekkeet !_joukkue || …)', () => {
-    expect(pura('async function _lataaTestitapahtumat(')).toMatch(/\(!_joukkue \|\| /);
-    const e = ymp({ rooli: 'vp' }); const suodata = (jk, _joukkue) => (!_joukkue || (!jk && true) || jk === _joukkue);
+    expect(pura('async function _lataaTestitapahtumat(')).toContain('TM_KOTI_LUVUT.avoimetTestit(_testitapahtumat, _joukkue)');   // YKSI avoimen testin määritelmä (audit 27): sama suodatus kuin ennen, nyt lib/tm_koti_luvut.js:ssä
+    const e = ymp({ rooli: 'vp' }); const suodata = (jk, _joukkue) => require('../lib/tm_koti_luvut.js').testiKuuluuJoukkueelle(jk ? { joukkue: jk } : {}, _joukkue);
     expect(['KPV U13', 'KPV U15', 'KPV U17'].every((j) => suodata(j, null))).toBe(true); expect(suodata('KPV U15', 'KPV U13')).toBe(false); expect(e.c._joukkue).toBe('KPV U13');
   });
 });

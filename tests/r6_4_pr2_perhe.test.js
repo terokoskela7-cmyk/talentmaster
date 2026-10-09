@@ -168,7 +168,7 @@ describe('Pelaaja_v7 · Valmentajalta klippi (vm: sivun oikea koodi)', () => {
   it('"valmentaja lukenut" näkyy kun vastaus on luettu (seuraava luku)', async () => { const e = pelaajaYmp({ docs: [klippi(), vastaus({ luettu: true })] }); await e.f.ladataan(true); expect(e.els.p7KpKortti.innerHTML).toContain('Vastasit'); expect(e.els.p7KpKortti.innerHTML).toContain('valmentaja lukenut'); });
   it('Tänään-sijoitus: kortti renderöidään rA1Kentta():ssa; libit ladataan ennen sivun koodia; SW allowlist + cache-versio', () => {
     expect(PE).toContain('${_p7KpHTML()}'); expect(PE.indexOf('lib/tm_mediaviesti.js?v=3')).toBeGreaterThan(0); expect(PE.indexOf('lib/tm_klippi_perhe.js?v=1')).toBeGreaterThan(0);
-    const sw = lue('sw_pelaaja.js'); expect(sw).toContain("/lib/tm_klippi_perhe.js"); expect(sw).toContain("/lib/tm_mediaviesti.js"); expect(sw).toMatch(/CACHE = 'tm-pelaaja-v8[1-9]/);
+    const sw = lue('sw_pelaaja.js'); expect(sw).toContain("/lib/tm_klippi_perhe.js"); expect(sw).toContain("/lib/tm_mediaviesti.js"); expect(sw).toMatch(/CACHE = 'tm-pelaaja-v(8[1-9]|9\d)/);
   });
 });
 

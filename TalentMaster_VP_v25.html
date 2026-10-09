@@ -50,7 +50,8 @@
 
 <script src="lib/tm_harjoitusarviointi.js?v=5"></script>
 <script src="lib/tm_kalenteri.js?v=1"></script>
-<script src="lib/tm_pvm.js?v=3"></script>   <!-- pvm-helperit: tmOnVanhaMittaus / tmKuukausiaMittauksesta / tmPvmFi (datan tuoreus) -->
+<script src="lib/tm_viikko.js?v=1"></script>   <!-- YKSI ISO 8601 -viikkolasku (audit 27, D140) -->
+<script src="lib/tm_pvm.js?v=4"></script>   <!-- pvm-helperit: tmOnVanhaMittaus / tmKuukausiaMittauksesta / tmPvmFi (datan tuoreus) -->
 <script src="lib/tm_arviointi_taksonomia.js?v=11"></script>   <!-- Vaihe 2: arviointitaksonomia + pääteemat + kehysrekisteri (mitattu + havaittu 1–5) -->
 <script src="lib/tm_pelialy_yksilo.js?v=5"></script>   <!-- P1: pelihavainto peliäly → yksilöteema · v3: Vaihe B ristiinarvio-konsensus -->
 <script src="lib/tm_havaintohistoria.js?v=1"></script>   <!-- jaettu havainto-/viestihistoria (VP + Master) -->
@@ -118,7 +119,7 @@ window.TM_KAAVIO_HOST = {
 <script src="lib/tm_liput.js?v=1"></script>   <!-- K1 osa 2: liput (liput/julkiset + vanha fallback K7:ään) -->
 <script src="lib/tm_joukkuejakso.js?v=4"></script>   <!-- K1/A: joukkuejakson snapshot (tmAloitaJaksoTuki) -->
 <script src="lib/tm_seuran_kooste.js?v=2"></script>   <!-- S1.1: tmKoosteTrendi (viikkokooste v2) -->
-<script src="lib/tm_koti_luvut.js?v=1"></script>   <!-- P0-luvut (audit 24 §6): YKSI laskuri/kartoitus/suostumus/kattavuusportti/§28-portti — Koti + Tilanne kutsuvat tätä -->
+<script src="lib/tm_koti_luvut.js?v=2"></script>   <!-- P0-luvut (audit 24 §6): YKSI laskuri/kartoitus/suostumus/kattavuusportti/§28-portti — Koti + Tilanne kutsuvat tätä -->
 <script src="lib/tm_seuran_pulssi.js?v=1"></script>   <!-- S2: Koti = Seuran pulssi (docs/CODE_BRIEF_S2_KOTI.md) — rivimalli + HTML libissä, kuoreen vain kytkentä -->
 <script src="lib/tm_kayttoaste.js?v=1"></script>   <!-- S1.1: "Sovelluksen käyttö" -kortti (Koti) — renderöinti libissä, ei kuoressa -->
 <script src="lib/tm_sitoumus.js?v=1"></script>   <!-- Kehitystyöpöytä 22 · A1: sitoumus, yksi sääntö -->
@@ -3526,8 +3527,7 @@ function naytaDash(user, isSuperAdmin) {
 }
 
 function getViikko() {
-  const d = new Date(), onejan = new Date(d.getFullYear(),0,1);
-  return Math.ceil((((d - onejan) / 86400000) + onejan.getDay() + 1) / 7);
+  return window.TM_VIIKKO.tmIsoViikkoNro(new Date());   // ISO 8601 (lib/tm_viikko.js)
 }
 
 // ─── DATA LOADING ────────────────────────────────────────
@@ -17296,8 +17296,7 @@ function renderVpViikko(testit) {
   const paivat = ['Ma','Ti','Ke','To','Pe','La','Su'];
   const todayStr = tmPaivaIso(new Date());
 
-  const onejan = new Date(monday.getFullYear(),0,1);
-  const vkNum = Math.ceil((((monday - onejan)/86400000) + onejan.getDay()+1)/7);
+  const vkNum = window.TM_VIIKKO.tmIsoViikkoNro(monday);
   const labelEl = document.getElementById('vpCalLabel');
   if (labelEl) labelEl.textContent = vpT('Viikko') + ' ' + vkNum + ' · ' + iso(days[0]).slice(5) + ' – ' + iso(days[6]).slice(5);
 
