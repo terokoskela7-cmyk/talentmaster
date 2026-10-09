@@ -15,7 +15,7 @@ const LIB = require('../lib/tm_lib_i18n.js');
 const SV = LIB.TM_LIB_I18N.sv;
 const LIBIT = ['tm_kehitystyopoyta', 'tm_kevyt_katselmus', 'tm_klippi_perhe', 'tm_mediaviesti', 'tm_reitin_valinta', 'tm_ryhmat', 'tm_taman_tueksi', 'tm_tanaan_kentta', 'tm_tanaan_signaali', 'tm_viikkokatsaus'];
 // Libin FI-avaimet, joille sv puuttuu (palautetaan Geminille; fi-fallback). Portti on elävä: sv saapui → poista rivi.
-const LIB_SV_ODOTTAA = ['ts_askel_sitoumus_nappi', 'kt_nayto_vain_henk'];   // A1 (ts_askel_sitoumus_nappi) + A8 (kt_nayto_vain_henk) — sv Gemini-erässä (lib)
+const LIB_SV_ODOTTAA = ['ts_askel_sitoumus_nappi', 'kt_nayto_vain_henk', 'kt_v_viikkoa', 'kt_l_vk_su', 'kt_v_tulee_tanaan', 'kt_l_vk_sunnuntaina', 'kt_l_viikkohavainto', 'kt_l_ei_havaintoa', 'kt_l_merkitse', 'kt_v_sitoutui', 'kt_l_vahvista', 'kt_l_vahvista_nappi'];   // A1 (ts_askel_sitoumus_nappi) + A8 (kt_nayto_vain_henk) — sv Gemini-erässä (lib)
 const _VANHA_LIB_ODOTTAA = [];   // ts_otsikko saapui Gemini-erässä 2 (lib.tm_tanaan_signaali) ja vietiin scripts/i18n_vie_sv_era2.cjs:llä
 // PR 5: erän 2 lib-osiot (ADAR-nimet, rubriikit, Kenttä, ADAR-tekstit, pelihavainto-valinta, havaintohistoria, ts_otsikko) — avain = lib-avain tai fi-teksti
 const ERA2 = JSON.parse(lue('docs/i18n/sv_kaannoserae_2.json'));

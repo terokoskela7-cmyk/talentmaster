@@ -45,7 +45,8 @@ describe('A8 · luvut .kt-hk-luokalla Tänään-välilehdellä', () => {
     { avain: 'treenataanko', tieto: true, vastaus: 'blokit_tehty', n: 3, yht: 4 },
     { avain: 'onko_mukana', tieto: true, vastaus: 'sitoumus_vahvistettu', pvm: '2026-11-04' },
   ] };
-  const h = KT.tmKtKysymyksetHTML(T, { esc: (s) => String(s), t: (k) => k, pvmFn: () => '4.11.' });
+  const o2 = { esc: (s) => String(s), t: (k) => k, pvmFn: () => '4.11.' };
+  const h = KT.tmKtKysymyksetHTML(T, o2) + KT.tmKtSitoumusHTML(T, o2);   // A11: Onko mukana? on rivi signaalin alla
   it('silmin-tilassa kysymyskorteissa ei yhtään numeroa (kt-hk piilotettu)', () => {
     expect(nakyva(h)).not.toMatch(/\d/);
     expect(h).toContain('<span class="kt-hk">2/5</span>');
