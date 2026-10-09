@@ -10806,6 +10806,7 @@ window._vpJfOsaArvioSet = function (pid, konseptiAvain, koodi, n) {
   const slot = document.getElementById('_jfOhjausSlot');
   if (slot && typeof _vpJfBodyHTML === 'function') slot.innerHTML = _vpJfBodyHTML(p);
   if (typeof _vpAloitusReRender === 'function') _vpAloitusReRender();
+  if (typeof _ktPaivita === 'function') _ktPaivita();   // A13: V4 (Tänään + Polku) päivittyy, välilehti ei vaihdu
 };
 // P4b — mittaus-moodin vaihto (🔗 arviointi ⇄ 📐 numeerinen) → re-renderöi tavoitepinta.
 window._vpJfMittausTyyppi = function (pid, key, tyyppi) {
@@ -10984,7 +10985,7 @@ function _ktTanaanHTML(p, tila) {
   const K = window.TM_KEHITYSTYOPOYTA, TK = window.TM_TANAAN_KENTTA;
   const kentta = (typeof window.tmKentta === 'function') ? window.tmKentta({ koko: 'puoli', ilmanAluetta: true, ase: null, reitti: null, viikot: null, osat: [], historia: [], lempipaikka: null, vaihtoehdot: null }, { wrap: true, rooli: 'henkilokunta', t: vpT }) : '';
   let osat = []; try { if (TK && p.jaksofokus && p.jaksofokus.tila !== 'valittavana') osat = TK.tmTanaanOsat(p.jaksofokus, { kaanon: (typeof tmKonseptiKaanon === 'function') ? tmKonseptiKaanon : null }); } catch (e) { osat = []; }
-  return K.tmKtTanaanHTML({ pid: p.id, kenttaHTML: kentta, signaaliHTML: _ktSignaaliHTML(p, tila), kysymyksetHTML: _ktKysymyksetHTML(p, tila, _ktAskel(p)), osat: osat }, _ktOpts());   // V4b-2: signaali (D48) — yksi signaali + pieni toinen rivi
+  return K.tmKtTanaanHTML({ pid: p.id, kenttaHTML: kentta, signaaliHTML: _ktSignaaliHTML(p, tila) + _ktHavaintoHTML(p), kysymyksetHTML: _ktKysymyksetHTML(p, tila, _ktAskel(p)), osat: osat }, _ktOpts());   // V4b-2: signaali (D48) — yksi signaali + pieni toinen rivi
 }
 function _ktPolkuHTML(p) {   // Polku = olemassa oleva kausi → jakso → viikko -koodi, samat slot-id:t (_jspKehAskel, _jspKehSuunnitelma …) joten re-render-koukut toimivat
   window._vpArvPelaaja = p; if (typeof _vpLataaTavoite === 'function') _vpLataaTavoite(p);
@@ -10998,6 +10999,45 @@ function _ktPolkuHTML(p) {   // Polku = olemassa oleva kausi → jakso → viikk
   return '<div id="_jspTab3"><div id="mvKlipit"></div>' + h + '</div>';
 }
 function _vpOnV4() { return !!(_ktS && (_ktS.v4Render || document.getElementById('ktNakyma'))); }   // A9: viikon uudelleenrenderöinti V4:n sisällä (ktNakyma auki) tai V4:n Polku-rakennuksen aikana
+/* A13 (D100, kevyt muoto): Merkitse viikkohavainto inline signaalikortin alla. SAMA kirjoitus kuin Polun osa-arvio (_vpJfOsaArvioSet → _vpJfKirjoita: getIdToken(true) + jaksofokus.osa_arviot.<konsepti>), ei uutta polkua.
+   Kolme vaihtoehtoa (Ei vielä = 1 · Ohjatusti = 2 · Itsenäisesti = 3); tallennus = napautus. Vain henkilökunta joka saa muokata pelaajaa (_vpVoiMuokata(p), kuten A4); pelaaja ei näe tätä näkymää. */
+function _ktHavaintoHTML(p) {
+  if (_ktS.havaintoAuki !== p.id || !p.jaksofokus) return '';
+  const esc = _jsvEsc, item = (typeof _vpJfAktItem === 'function') ? _vpJfAktItem(p) : null, kpi = item && Array.isArray(item.kpi) ? item.kpi : [];
+  const pid = esc(p.id), oa = (p.jaksofokus.osa_arviot && item && p.jaksofokus.osa_arviot[item.avain]) || {};
+  const arvo = function (k) { const v = oa[k.koodi || '·']; return (v === 1 || v === 2 || v === 3) ? v : null; };
+  let h = '<div class="kt-kortti" data-kt-havainto-paneeli><div class="kt-otsikko-pieni">' + esc(vpT('Merkitse viikkohavainto')) + '</div>';
+  if (!kpi.length) {
+    h += '<div class="kt-meta">' + esc(vpT('Osat tulevat näkyviin, kun jaksolle on valittu taito.')) + '</div>';
+  } else {
+    let osa = kpi.filter(function (k) { return k.koodi === _ktS.havaintoOsa; })[0];
+    if (!osa) osa = kpi.filter(function (k) { return arvo(k) === 1; })[0] || kpi.filter(function (k) { return arvo(k) == null; })[0] || kpi[0];   // oletus: seuraavaksi (ei vielä) → arvioimaton → ensimmäinen
+    const koodi = osa.koodi || '·', a = arvo(osa), SANA = { 1: vpT('ei vielä'), 2: vpT('ohjatusti'), 3: vpT('itsenäisesti') };
+    h += '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">' + kpi.map(function (k, i) {
+      const kk = k.koodi || '·', on = kk === koodi;
+      return '<button type="button" onclick="_ktHavaintoOsa(\'' + esc(kk) + '\')" ' + (on ? 'class="kt-nappi kt-nappi-ens" ' : 'class="kt-nappi" ') + 'data-kt-havainto-osa="' + esc(kk) + '" aria-pressed="' + (on ? 'true' : 'false') + '">' + esc(String.fromCharCode(65 + i)) + '</button>';
+    }).join('') + '</div>';
+    h += '<div style="font-size:14px;margin-bottom:8px">' + esc(_vpJfOsaJako(osa.teksti).nimi) + '</div><div style="display:flex;gap:8px;flex-wrap:wrap">'
+      + [1, 2, 3].map(function (n) { return '<button type="button" onclick="_ktHavaintoTallenna(\'' + pid + '\',\'' + esc(item.avain) + '\',\'' + esc(koodi) + '\',' + n + ')" ' + (a === n ? 'class="kt-nappi kt-nappi-ens" ' : 'class="kt-nappi" ') + 'data-kt-havainto-arvo="' + n + '">' + esc(SANA[n]) + '</button>'; }).join('') + '</div>';
+  }
+  h += '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px"><button type="button" class="kt-nappi" data-kt-havainto-veo onclick="_ktHavaintoVeo(\'' + pid + '\')">' + esc(vpT('+ Liitä VEO-linkki')) + '</button>'
+    + '<span style="flex:1"></span><button type="button" class="kt-nappi" data-kt-havainto-peru onclick="_ktHavaintoSulje()">' + esc(vpT('Peru')) + '</button></div></div>';
+  return h;
+}
+window._ktHavaintoAvaa = function (pid) {
+  const p = _ktPelaaja(pid); if (!p) return false;
+  if (typeof _vpVoiMuokata === 'function' && !_vpVoiMuokata(p)) { if (typeof toast === 'function') toast(vpT('Ei oikeutta merkitä tämän pelaajan havaintoa.'), 'err'); return false; }
+  _ktS.havaintoAuki = pid; _ktS.havaintoOsa = null; _ktNayta(); return true;
+};
+window._ktHavaintoOsa = function (koodi) { _ktS.havaintoOsa = koodi; _ktNayta(); };
+window._ktHavaintoSulje = function () { _ktS.havaintoAuki = null; _ktS.havaintoOsa = null; _ktNayta(); };
+window._ktHavaintoVeo = function (pid) { return window._mvAvaa(pid); };   // VEO-linkki = olemassa oleva Lisää klippi (R6.4), ei uutta kirjoituspolkua
+window._ktHavaintoTallenna = function (pid, avain, koodi, n) {
+  const p = _ktPelaaja(pid); if (!p || (typeof _vpVoiMuokata === 'function' && !_vpVoiMuokata(p))) return false;
+  _ktS.havaintoAuki = null; _ktS.havaintoOsa = null;
+  window._vpJfOsaArvioSet(pid, avain, koodi, n);   // sama funktio kuin Polun osa-arvio; kutsuu lopuksi _ktPaivita (Tänään + Polku päivittyvät)
+  return true;
+};
 function _ktOsio(otsikko) { return '<div class="kt-otsikko-pieni" style="margin:18px 0 6px">' + _jsvEsc(vpT(otsikko)) + '</div>'; }
 /* V4b-1 (mockup 18 §7, 13 §6): vanhan kortin sisältö Näyttöön — SAMA koodi kuin vanhassa modaalissa (_vpKorttiRakenna vainOsat-tilassa), ei kopioita.
    Perustiedot + 5D-profiili (hL) · Kasvu ja kypsyys (PHV, bioikä, kasvutahti, testipäivät) · Mittaukset (Fyysinen/Tekninen mitattu, kehon valmius, mittauslista) · Pelihavainnot ja arviointi (_jspTab5). Luvut vain henkilökunnalle. Ladataan vasta avattaessa. */
@@ -11049,7 +11089,7 @@ function _ktReitti(r) {
 function _ktTyhja() {
   const el = document.getElementById('ktNakyma'); if (el) el.remove();
   if (_ktS.overflow !== null) { document.body.style.overflow = _ktS.overflow; _ktS.overflow = null; }
-  _ktS.pid = null; _ktS.ladattu = { polku: false, naytto: false };
+  _ktS.pid = null; _ktS.ladattu = { polku: false, naytto: false }; _ktS.havaintoAuki = null; _ktS.havaintoOsa = null;
 }
 async function _ktKaynnista() {   // kutsutaan pelaajien latauksen jälkeen; lippu luetaan kerran (_vpLataaLiput välimuistissa)
   if (_isDemoMode || !_seuraId || !window.TM_HASH_REITITIN || !window.TM_KEHITYSTYOPOYTA || !window.TM_ALOITA_JAKSO) return;
@@ -11086,7 +11126,8 @@ window._ktToimi = function (pid, avain) {
   if (avain === 'hylkaa') return window._kvkHylkaaAvaa(pid);
   if (avain === 'syvenna') return window._vpSuljeJakso(pid);   // täysi sulkulomake
   if (avain === 'vahvista_sitoumus') return window._vpVahvistaSitoumus(pid);   // A1: sitoumuksen vahvistus signaalista
-  if (avain === 'havainto' || avain === 'jatka' || avain === 'avaa_polku' || avain === 'kuorma') return window._ktValilehti(pid, 'polku');   // viikkohavainto / jatkaminen / kuorman tarkistus Polussa
+  if (avain === 'havainto') return window._ktHavaintoAvaa(pid);   // A13 (D100): viikkohavainto paikallaan — välilehti ei vaihdu
+  if (avain === 'jatka' || avain === 'avaa_polku' || avain === 'kuorma') return window._ktValilehti(pid, 'polku');   // viikkohavainto / jatkaminen / kuorman tarkistus Polussa
   console.warn('[V4a] tuntematon toiminto:', avain);
 };
 window._vpSulkuTila = null;   // { pid, p, jf, alkoi, loppu, harjoituksia, lasnaolo, arvioItse, arvioAikuis, tulos, lataa }
