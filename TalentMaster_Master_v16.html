@@ -133,12 +133,12 @@ window.TM_KAAVIO_HOST = {
 <script src="lib/tm_viikkokatsaus.js?v=2"></script>   <!-- K4: pelaajan viikkokatsaukset (henkilökunnan osio) + lause -->
 <script src="lib/tm_reitin_valinta.js?v=3"></script>   <!-- K3: pelaaja valitsee seuraavan reitin — tarjousosio sulkulomakkeessa + rivitila (Kenttä-lipun takana) -->
 <script src="lib/tm_polun_tila.js?v=1"></script>   <!-- Polun tila + kolme kysymystä (13 §1) -->
-<script src="lib/tm_tanaan_signaali.js?v=3"></script>   <!-- V4b-2: Tänään-signaali (D48) -->
+<script src="lib/tm_tanaan_signaali.js?v=4"></script>   <!-- V4b-2: Tänään-signaali (D48) -->
 <script src="lib/tm_kevyt_katselmus.js?v=2"></script>   <!-- V4b-2: kevyt katselmus + Hylkää valinta + valmentajaprofiili -->
 <script src="lib/tm_kentta.js?v=3"></script>   <!-- K0/V4a: Kenttä-komponentti (Archivo vain .kt:n sisällä) -->
-<script src="lib/tm_tanaan_kentta.js?v=2"></script>   <!-- V4a: tmTanaanOsat (Tänään-osat sanoin) -->
+<script src="lib/tm_tanaan_kentta.js?v=3"></script>   <!-- V4a: tmTanaanOsat (Tänään-osat sanoin) -->
 <script src="lib/tm_hash_reititin.js?v=1"></script>   <!-- V4a: #pelaaja/{pid}/… -reititin (vain lipulla) -->
-<script src="lib/tm_kehitystyopoyta.js?v=7"></script>   <!-- V4a: Kehitystyöpöytä V4 -kehys (otsikkorivi, välilehdet, Tänään) -->
+<script src="lib/tm_kehitystyopoyta.js?v=8"></script>   <!-- V4a: Kehitystyöpöytä V4 -kehys (otsikkorivi, välilehdet, Tänään) -->
 <script src="lib/tm_jakso_malli.js?v=4"></script>   <!-- B 2/3: ohjelma → jakson tukiosa (tmOhjelmaTukiosaan / tmLiitaTukiosaan) -->   <!-- R6.1b: jaksofokuksen yhteinen kirjoitusydin (tmAsetaJaksofokus / tmSuljeJakso) -->
 <script src="lib/tm_seuraava_askel.js?v=2"></script>   <!-- R6.2b: seuraava toimenpide yhdessä paikassa (tmSeuraavaAskel / tmSeuraavaJakso / tmTeeTastaOsa) -->
 <script src="lib/tm_fyysteemat.js?v=4"></script>   <!-- Vaihe 7: fyysinen teemaluettelo + D1-fokuslähde + evidenssi (fysiikkavalmentaja) -->
@@ -6592,11 +6592,11 @@ var _ktS = { pid: null, valilehti: 'tanaan', silmin: false, ladattu: { polku: fa
 function _ktPelaajat() { return Array.isArray(_pelaajatData) ? _pelaajatData : []; }
 function _ktOpts() { return { esc: _mEsc, t: masterT, edellinenFn: '_ktEdellinen', seuraavaFn: '_ktSeuraava', valilehtiFn: '_ktValilehti', toimiFn: '_ktToimi', silminFn: '_ktSilmin', suljeFn: '_ktSulje' }; }
 function _ktOikeusCtx() { return { rooli: _rooli, sa: !!_superAdmin, seuraId: _seuraId, omaJoukkueet: _joukkue ? [_joukkue] : null }; }   // sama sääntö kuin _prVoiNahda (!_joukkue → ei rajausta)
-function _ktTanaanHTML(p, tila) {
-  const K = window.TM_KEHITYSTYOPOYTA, TK = window.TM_TANAAN_KENTTA;
+function _ktTanaanHTML(p, tila) {   // mockup 22 osio 1: koko Tänään libissä (tmKtTanaanKoko). Masterissa ei osa-arvion kirjoitusta (R2) → ei paneelia, Osat-rivit pelkkää näyttöä
+  const K = window.TM_KEHITYSTYOPOYTA;
   const kentta = (typeof window.tmKentta === 'function') ? window.tmKentta({ koko: 'puoli', ilmanAluetta: true, ase: null, reitti: null, viikot: null, osat: [], historia: [], lempipaikka: null, vaihtoehdot: null }, { wrap: true, rooli: 'henkilokunta', t: masterT }) : '';
-  let osat = []; try { if (TK && p.jaksofokus && p.jaksofokus.tila !== 'valittavana') osat = TK.tmTanaanOsat(p.jaksofokus, { kaanon: (typeof tmKonseptiKaanon === 'function') ? _mTtKaanonNayta : null }); } catch (e) { osat = []; }
-  return K.tmKtTanaanHTML({ pid: p.id, kenttaHTML: kentta, signaaliHTML: _ktSignaaliHTML(p, tila), kysymyksetHTML: _ktKysymyksetHTML(p, tila, _ktAskel(p)), osat: osat }, _ktOpts());   // V4b-2: signaali (D48) — yksi signaali + pieni toinen rivi
+  return K.tmKtTanaanKoko(p, tila, { esc: _mEsc, t: masterT, hk: K.tmKtHk, pvmFn: function (iso) { return (typeof tmPvmFi === 'function') ? tmPvmFi(iso) : iso; }, toimiFn: '_ktToimi', paneeli: false, kentta: kentta,
+    kaanon: (typeof tmKonseptiKaanon === 'function') ? _mTtKaanonNayta : null, tanaan: tmPaivaIso(new Date()), sigCtx: _ktSigCtx(p, tila), vk: _ktVkKooste(p, tila) });
 }
 function _ktOsio(otsikko) { return '<div class="kt-otsikko-pieni" style="grid-column:1/-1;margin-top:14px">' + _mEsc(masterT(otsikko)) + '</div>'; }
 /* V4b-1 (mockup 18 §7, 13 §6): vanhan kortin sisältö Näyttöön — SAMAT lohkot kuin vanhassa kortissa (_mPinfoOsat), ei kopioita.
@@ -6752,11 +6752,6 @@ window._msSuljeJakso = async function (pid) {
    EI koske reviewit.tyyppi:ä eikä review_viimeisin_*-pikakenttiin (MDT-rytmi päivittyy vain täydestä katselmuksesta). Rules v3.46 validoi kevyt-enumin ja valmentajaprofiilin. ═══ */
 /* Käsitesti 7.10.: 13 §1 kolme kysymystä Tänään-välilehdelle (vain kun jakso on aktiivinen; henkilökunnalle lukuina). Data: tmPolunTila (lib/tm_polun_tila.js) — blokit-lukua ei haeta (§26, ei kyselyjä) → "Ei vielä tietoa". */
 function _ktAskel(p) { try { return window.TM_SEURAAVA_ASKEL ? window.TM_SEURAAVA_ASKEL.tmSeuraavaAskel(p, { nyt: Date.now() }) : null; } catch (e) { return null; } }
-function _ktKysymyksetHTML(p, tila, askel) {
-  const PT = window.TM_POLUN_TILA, K = window.TM_KEHITYSTYOPOYTA; if (!PT || !K || !p || !K.tmKtKysymyksetNakyy(tila)) return '';
-  const T = PT.tmPolunTila(p, { askel: askel ? { avain: askel.avain, tila: askel.tila } : null, blokit: null });   // A1/D97: sitoumus päätellään lib/tm_sitoumus.js:stä (yksi sääntö)
-  return K.tmKtKysymyksetHTML(T, { esc: _mEsc, t: masterT, odottaaSitoumusta: K.tmKtSitoumusOdottaa(tila), vk: _ktVkKooste(p, tila), toimiFn: '_ktToimi', pid: p.id, pvmFn: function (iso) { return (typeof tmPvmFi === 'function') ? tmPvmFi(iso) : iso; } });
-}
 window._kvkProfiilit = {};          // joukkue-tunniste → 'ammatti'|'oto' (välimuisti; oletus oto, myös kun joukkuedokumenttia ei ole §7.21)
 window._kvkProfiiliLadataan = {};
 function _kvkJid(p) { return p && p.joukkue ? String(p.joukkue).trim().toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '') : null; }
@@ -6774,23 +6769,14 @@ async function _kvkProfiiliLataa(p) {   // TAUSTALLA ensipiirron jälkeen: yksi 
 function _kvkLahde() { return (_superAdmin || ['vp', 'urheilutoimenjohtaja'].indexOf(_rooli) >= 0) ? 'vp' : 'valmentaja'; }
 /* Tänään-signaali (D48). Kuluvan viikon viikkokatsaus: YKSI luku (doc-id = sunnuntain pvm), vain sunnuntaisin kun K4 pyytää pelaajaa; välimuistissa. Muuten 0 lukua avauksessa. */
 const _ktVk = {};
-function _ktSignaaliHTML(p, tila) {
-  const TS = window.TM_TANAAN_SIGNAALI; if (!TS) return '';
-  const askel = _ktAskel(p);
-  const K4 = window.TM_VIIKKOKATSAUS, tanaan = tmPaivaIso(new Date()), isp = (typeof _devIkaSp === 'function') ? _devIkaSp(p) : { ika: null };
+function _ktSigCtx(p, tila) {   // signaalin syöte; renderöinti libissä
+  const askel = _ktAskel(p), K4 = window.TM_VIIKKOKATSAUS, tanaan = tmPaivaIso(new Date()), isp = (typeof _devIkaSp === 'function') ? _devIkaSp(p) : { ika: null };
   let vkEi = false;
   if (K4 && K4.tmVkNakyy(p, { tanaan: tanaan, ikavaihe: (isp.ika != null && isp.ika <= 12) ? 'leikkija' : 'muu', vastattu: false })) {
     const c = _ktVk[p.id]; if (c && c.pvm === tanaan) vkEi = c.vastattu === false; else _ktVkLataa(p, tanaan);
   }
   _kvkProfiiliLataa(p);
-  const sig = TS.tmTanaanSignaali(p, { nyt: new Date(), profiili: _kvkProfiili(p), askel: askel, tila: tila, vkEiVastattu: vkEi, nimi: p.etunimi || '' }, { t: masterT });
-  return TS.tmTanaanSignaaliHTML(sig, { esc: _mEsc, t: masterT, toimiFn: '_ktToimi', pid: p.id, hk: window.TM_KEHITYSTYOPOYTA && window.TM_KEHITYSTYOPOYTA.tmKtHk }) + _ktSitoumusHTML(p, tila, askel, sig);
-}
-/* A11 (D103): Onko mukana? = rivi signaalikortin alla; kortiksi vain tilassa sitoutunut-ei-vahvistettu, ellei signaali jo tarjoa Vahvista sitoumus -nappia. */
-function _ktSitoumusHTML(p, tila, askel, sig) {
-  const PT = window.TM_POLUN_TILA, K = window.TM_KEHITYSTYOPOYTA, SX = window.TM_SITOUMUS; if (!PT || !K || !p || !K.tmKtKysymyksetNakyy(tila)) return '';
-  const T = PT.tmPolunTila(p, { askel: askel ? { avain: askel.avain, tila: askel.tila } : null, blokit: null }), e = sig && sig.ensisijainen;
-  return K.tmKtSitoumusHTML(T, { esc: _mEsc, t: masterT, odottaaSitoumusta: K.tmKtSitoumusOdottaa(tila), sit: SX ? SX.tmSitoumus(p) : null, signaaliVahvista: !!(e && e.nappi && e.nappi.avain === 'vahvista_sitoumus'), toimiFn: '_ktToimi', pid: p.id, pvmFn: function (iso) { return (typeof tmPvmFi === 'function') ? tmPvmFi(iso) : iso; } });
+  return { nyt: new Date(), profiili: _kvkProfiili(p), askel: askel, vkEiVastattu: vkEi, nimi: p.etunimi || '' };
 }
 /* A11: jakson viikkokatsaukset (≤ 6 dokumenttia) VAIN kun jakso on käynnissä; luetaan kerran / pelaaja+jakso (välimuisti 5 min), sitten _ktPaivita. Rules: oman seuran henkilökunta lukee (VP + valmentaja). Päivä = tmPaivaIso() (paikallinen), ei UTC. */
 const _ktVkK = {};

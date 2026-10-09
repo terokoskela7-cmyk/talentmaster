@@ -6,6 +6,8 @@
  */
 import { describe, it, expect, beforeAll } from 'vitest';
 import { readFileSync } from 'fs';
+import { createRequire } from 'module';
+const KT = createRequire(import.meta.url)('../lib/tm_kehitystyopoyta.js');
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 
@@ -42,12 +44,12 @@ describe('§37 — osa-arvio on OMA curriculum-kenttä, ei kytköstä arviointi_
 describe('SYÖTTÖ — _vpJfOsatHTML (per-osa 3-portainen + autosave-klik)', () => {
   let fn;
   beforeAll(() => {
-    fn = new Function('var vpT = function(x){return "T:"+x;};\n'
+    fn = new Function('KT', 'var vpT = function(x){return "T:"+x;};\n'
       + 'var _jsvEsc=function(s){return String(s==null?"":s);};\n'
-      + 'var window={_vpJfOsaArviot:{p1:{y_h1:{a:2}}},_vpJfOsaAuki:{p1:"a"},_vpJfKaikki:{}};\n'
+      + 'var window={_vpJfOsaArviot:{p1:{y_h1:{a:2}}},_vpJfOsaAuki:{p1:"a"},_vpJfKaikki:{},TM_KEHITYSTYOPOYTA:KT};\n'
       + extract('function _vpJfOsaJako(teksti) {')
       + extract('function _vpJfOsatHTML(p, item) {')
-      + '\n return _vpJfOsatHTML;')();
+      + '\n return _vpJfOsatHTML;')(KT);
   });
   it('renderöi kolmen vaihtoehdon valitsimen + autosave-onclickin avatulle osalle', () => {
     const h = fn({ id: 'p1' }, { avain: 'y_h1', kpi: [{ koodi: 'a', teksti: 'Käännä pää: katso ennen kosketusta' }, { koodi: 'b', teksti: 'Valitse' }] });
@@ -121,7 +123,7 @@ describe('autosave-langoitus + status osa-etenemä', () => {
        poistetusta status-nauhasta jaksofokus-rivin alariviin. Rakenne (X/Y + label) ja datalahde
        (osa_arviot) ovat ennallaan — vain sanat ja sijainti muuttuivat. */
     expect(HTML).toContain("vpT('osaa hallussa pelissä')");
-    expect(HTML).toContain("jfHallussa + '/' + jfOsaAvaimet.length");
-    expect(HTML).toContain('jf.osa_arviot[jf.konsepti_avain]');
+    expect(HTML).toContain("jfOsaYht.n + '/' + jfOsaYht.m");   // nimittäjä = jakson KAIKKI osat (tmKtOsat), ei vain arvioidut
+    expect(HTML).toContain('tmKtOsatYhteenveto(window.TM_KEHITYSTYOPOYTA.tmKtOsat(jf');   // datalähde osa_arviot luetaan libin tmKtOsat:ssa
   });
 });

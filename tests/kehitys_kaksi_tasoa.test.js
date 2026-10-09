@@ -112,6 +112,7 @@ function rakenna(lisa) {
   const o = lisa || {};
   const kutsut = [];
   const win = {
+    TM_KEHITYSTYOPOYTA: require('../lib/tm_kehitystyopoyta.js'),
     TM_JAKSOFOKUS: JF,
     TM_FYYSTEEMAT_LIB: FYYS,
     _tmIBtn: () => '',
@@ -123,6 +124,7 @@ function rakenna(lisa) {
     _jsvEsc: esc,
     vpT: (s) => (o.kieli === 'sv' ? (SV[s] != null ? SV[s] : s) : s),
     tmNykyinenKieli: () => o.kieli || 'fi',
+    tmKonseptiKaanon: (avain) => (avain === 'y_h2' ? { avain: 'y_h2', kpi: [{ koodi: 'a', teksti: 'Katse ylös: katsotaan ympärille ennen vastaanottoa' }, { koodi: 'b', teksti: 'Vastaanotto: poispäin paineesta, keho suojaa palloa' }, { koodi: 'c', teksti: 'Syöttö: nopea ja tarkka eteenpäin pelattuna' }] } : null),
     TM_TT_SV: (TTSV.TM_TT_SV || TTSV),
     tmTaksonomiaByAvain: TAKS.tmTaksonomiaByAvain,
     tmMittaLahdeNimi: TAKS.tmMittaLahdeNimi || (() => ''),
@@ -664,7 +666,7 @@ describe('(5) Rivien tilat ja alarivit', () => {
     const ots = riviOtsikko(rakenna({ p: p })._vpKehSuunnitelmaHTML(p), '_accJaksofokus');
     expect(ots).toContain('Viikko 1/4');
     expect(ots).toContain('3 vk jäljellä');
-    expect(ots).toContain('1/2 osaa hallussa pelissä');
+    expect(ots).toContain('1/3 osaa hallussa pelissä')   // nimittäjä = jakson kaikki osat (kaanon: 3), ei vain arvioidut 2;
     expect(ots).toContain('Syöttäminen');
   });
 

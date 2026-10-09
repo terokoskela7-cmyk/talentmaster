@@ -36,11 +36,13 @@ for (const sov of ['Master', 'VP']) {
       const ktCss = L.KT.tmKtCss(); expect(ktCss).not.toMatch(/(^|[,}\s])\.kt-osa\{/m); expect(ktCss).toContain('.kt-osarivi{');   // Kenttä: .kt-osa on absolute-tagi → Tänäänin osalista ei saa käyttää samaa luokkaa
       expect(css).toContain('.kt-osa{position:absolute');
     });
-    it('2 · Tänään: signaali + nappi ENNEN kenttää (D52 mobiili: grid-areas sig → kentta → muut), kolme kysymystä lukuina kun jakso on aktiivinen', () => {
+    it('2 · Tänään (mockup 22 osio 1): oikea sarake signaali → kysymykset → Osat; kaksi saraketta, alle 720 px Kenttä toisena; kysymyskortit ilman otsikkoa', () => {
       const e = ymp(sov), p = { id: 'p1', etunimi: 'Topias', joukkue: 'KPV P13', jaksofokus: JF({ osa_arviot: { y_h1: { a: 3, b: 1, c: 2 } } }), idp_sitoumus_pvm: new Date().toISOString() }, h = e.tanaan(p);
-      expect(h).toContain('data-kt-signaali='); expect(h.indexOf('kt-t-sig')).toBeLessThan(h.indexOf('kt-t-kentta')); expect(h.indexOf('data-kt-signaali')).toBeLessThan(h.indexOf('class="kt"'));
-      expect(h).toContain('data-kt-kysymykset'); for (const t of ['Näkyykö ydinvahvuus pelissä?', 'Treenataanko?', 'Onko mukana?']) expect(h).toContain(t); expect(h).toContain('<span class="kt-hk">1/3</span> osaa itsenäisesti'); expect(h).toMatch(/Sitoumus vahvistettu|Sitoumus tehty/);
-      const css = L.KT.tmKtCss(); expect(css).toContain('grid-template-areas:"sig" "kentta" "muut"'); expect(css).toContain('grid-template-areas:"kentta sig" "kentta muut"');
+      expect(h).toContain('data-kt-signaali=');
+      expect(h.indexOf('data-kt-signaali=')).toBeLessThan(h.indexOf('data-kt-kysymykset')); expect(h.indexOf('data-kt-kysymykset')).toBeLessThan(h.indexOf('data-kt-osat'));
+      expect(h.indexOf('kt-t-kentta')).toBeLessThan(h.indexOf('kt-t-oikea')); expect(h).not.toContain('Kolme kysymystä');
+      for (const t of ['Näkyykö ydinvahvuus pelissä?', 'Treenattiinko?']) expect(h).toContain(t);
+      const css = L.KT.tmKtCss(); expect(css).toContain('.kt-tanaan{display:grid;grid-template-columns:minmax(0,340px) minmax(0,1fr);gap:18px;align-items:start}'); expect(css).toContain('@media (max-width:720px){.kt-tanaan{grid-template-columns:minmax(0,1fr)}.kt-t-kentta{order:2}}');
     });
     it('2b · kysymykset EIVÄT näy kun jakso ei ole aktiivinen (ei jaksoa / valittavana); "Ei vielä tietoa" kun dataa ei ole', () => {
       const e = ymp(sov); expect(e.tanaan({ id: 'a', etunimi: 'A' })).not.toContain('data-kt-kysymykset'); expect(e.tanaan({ id: 'b', etunimi: 'B', jaksofokus: { tila: 'valittavana', vaihtoehdot: [] } })).not.toContain('data-kt-kysymykset');

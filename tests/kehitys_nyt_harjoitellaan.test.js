@@ -117,6 +117,7 @@ function rakenna(lisa) {
   const o = lisa || {};
   const kutsut = [];
   const win = {
+    TM_KEHITYSTYOPOYTA: require('../lib/tm_kehitystyopoyta.js'),
     TM_JAKSOFOKUS: JF,
     _vpJfDomeeni: { p1: o.domeeni || 'teknis_taktinen' },
     _vpJfOsaArviot: o.osaArviot || {},
@@ -237,7 +238,8 @@ describe('(2) Taidon osat pelissä', () => {
 
   it('nimi ja selitys jaetaan kaksoispisteestä; ilman kaksoispistettä ei selitystä', () => {
     const api = rakenna({ p: pelaaja() });
-    expect(api._vpJfOsaJako('Pidä pää ylhäällä: tieto ratkaisee')).toEqual({ nimi: 'Pidä pää ylhäällä', selitys: 'tieto ratkaisee' });
+    expect(api._vpJfOsaJako('Pidä pää ylhäällä vastaanotettaessa: tieto ratkaisee')).toEqual({ nimi: 'Pidä pää ylhäällä vastaanotettaessa', selitys: 'tieto ratkaisee' });
+    expect(api._vpJfOsaJako('Pidä pää ylhäällä: tieto ratkaisee')).toEqual({ nimi: 'Pidä pää ylhäällä: tieto ratkaisee', selitys: '' });   // alle 20 merkkiä ennen kaksoispistettä → koko teksti nimeksi (A13 jatko 2)
     expect(api._vpJfOsaJako('Suojaa kuljetus')).toEqual({ nimi: 'Suojaa kuljetus', selitys: '' });
     // selitys näkyy vain avatulla osalla, ja koodi ei koskaan
     const p = pelaaja();
