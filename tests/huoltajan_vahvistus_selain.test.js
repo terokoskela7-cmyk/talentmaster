@@ -60,8 +60,8 @@ describe('Vanhempi_v2 — vahvistamaton sähköposti', () => {
     expect(e.ctx.window._vanhKalenteri).toBeNull(); expect(e.ctx.window._vanhKalLadattu).toBe(false);
   });
   it('tekstit tm_lang-avaimia (fi + en), sv odotuslistalla — ei kovakoodattua suomea napeissa', () => {
-    const fi = LANG.TM_LANG.fi.vanhempi, en = LANG.TM_LANG.en.vanhempi, odotus = require('./tm_lang_sv_odotuslista.cjs');
-    for (const k of ['vahvista_sahkoposti', 'vahvista_sahkoposti_ohje', 'laheta_vahvistus_uudelleen', 'olen_vahvistanut', 'vahvistus_lahetetty', 'vahvistus_odota', 'vahvistus_ei_viela', 'vahvistus_ei_onnistunut', 'kalenteri_ei_latautunut', 'yrita_uudelleen']) { expect(fi[k], k).toBeTruthy(); expect(en[k], k).toBeTruthy(); expect(odotus).toContain('vanhempi.' + k); }
+    const fi = LANG.TM_LANG.fi.vanhempi, en = LANG.TM_LANG.en.vanhempi;
+    for (const k of ['vahvista_sahkoposti', 'vahvista_sahkoposti_ohje', 'laheta_vahvistus_uudelleen', 'olen_vahvistanut', 'vahvistus_lahetetty', 'vahvistus_odota', 'vahvistus_ei_viela', 'vahvistus_ei_onnistunut', 'kalenteri_ei_latautunut', 'yrita_uudelleen']) { expect(fi[k], k).toBeTruthy(); expect(en[k], k).toBeTruthy(); expect(typeof LANG.TM_LANG.sv.vanhempi[k], k).toBe('string'); }   // sv saapui erässä 3 (vienti scripts/i18n_vie_sv_era3.cjs)
     expect(pura(VA, 'function _vanhTapahtumatHTML(')).not.toMatch(/'[^']*Vahvista[^']*'/);
   });
 });

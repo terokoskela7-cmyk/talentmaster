@@ -25,7 +25,9 @@ describe('Gemini-erä 2 — vienti', () => {
     const kaikki = Object.entries(ERA.osiot).flatMap(([o, os]) => Object.entries(os.rivit).map(([a, r]) => [o, a, r]));
     const tyhjat = kaikki.filter(([, , r]) => !r.sv);
     expect(kaikki.length - tyhjat.length).toBe(1331);
-    const ODOTTAA = require('./tm_lang_sv_odotuslista.cjs').map((p) => 'tm_lang::' + p);
+    // erän 2 tyhjät tm_lang-rivit täyttyivät erässä 3 (vietiin scripts/i18n_vie_sv_era3.cjs) → ne + mahdollinen odotuslista
+    const ERA3 = JSON.parse(require('fs').readFileSync(require('path').join(__dirname, '..', 'docs/i18n/sv_kaannoserae_3.json'), 'utf8')).osiot.tm_lang.rivit;
+    const ODOTTAA = require('./tm_lang_sv_odotuslista.cjs').concat(Object.keys(ERA3).filter((p) => ERA3[p].sv)).map((p) => 'tm_lang::' + p);
     const tmLangTyhjat = tyhjat.filter(([o]) => o === 'tm_lang').map(([o, a]) => o + '::' + a).sort();
     expect(tmLangTyhjat).toEqual(ODOTTAA.slice().sort());
   });

@@ -25,7 +25,9 @@ describe('Gemini-erä 2 — master_kartta', () => {
   });
   it('erässä ei vanhentuneita rivejä: rivi jolle sv on jo koodissa on täytetty (vie erä, älä jätä tyhjänä)', () => {
     const { puuttuu } = masterAvaimet(juuri);
-    const vanhentuneet = Object.keys(rivit).filter((fi) => !puuttuu.includes(fi) && !rivit[fi].sv);
+    // erän 2 tyhjät rivit täyttyivät erässä 3 (docs/i18n/sv_kaannoserae_3.json master_kartta; vienti scripts/i18n_vie_sv_era3.cjs) → ei vanhentunut
+    const era3 = JSON.parse(lue('docs/i18n/sv_kaannoserae_3.json')).osiot.master_kartta.rivit;
+    const vanhentuneet = Object.keys(rivit).filter((fi) => !puuttuu.includes(fi) && !rivit[fi].sv && !(era3[fi] && era3[fi].sv));
     expect(vanhentuneet).toEqual([]);
   });
   it('EI VACUOUS: poiminta löytää satoja avaimia ja uudet PR 3 -avaimet', () => {

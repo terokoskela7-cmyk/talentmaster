@@ -47,7 +47,7 @@ describe('Huoltajakutsu-sivu', () => {
   });
   it('sivun rakenne: referrer pois, noindex, SDK 10.7.1 + App Check, ei Firestorea/Authia, tm_lang-avaimet fi+en ja sv odotuslistalla', () => {
     expect(SRC).toContain('name="referrer" content="no-referrer"'); expect(SRC).toContain('noindex'); expect(SRC).toContain('firebasejs/10.7.1/firebase-app-check-compat.js'); expect(SRC).not.toMatch(/firebase-(firestore|auth)-compat/);
-    const odotus = require('./tm_lang_sv_odotuslista.cjs'), fi = LANG.TM_LANG.fi.huoltajakutsu, en = LANG.TM_LANG.en.huoltajakutsu;
-    for (const k of Object.keys(fi)) { expect(en[k], k).toBeTruthy(); expect(odotus, k).toContain('huoltajakutsu.' + k); }
+    const fi = LANG.TM_LANG.fi.huoltajakutsu, en = LANG.TM_LANG.en.huoltajakutsu;
+    for (const k of Object.keys(fi)) { expect(en[k], k).toBeTruthy(); expect(typeof LANG.TM_LANG.sv.huoltajakutsu[k], k).toBe('string'); }   // sv saapui erässä 3
   });
 });
