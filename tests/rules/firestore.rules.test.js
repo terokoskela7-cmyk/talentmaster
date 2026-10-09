@@ -761,6 +761,25 @@ describe('Permissio-joukkulukko (L2 — turvakorjaus)', () => {
 // 4b. VAIHE 4a — jaksofokus + tt_positio_aktiivinen (roolimalli §4, operatiivinen pelitavoite)
 // ═══════════════════════════════════════════════════════════════════════════
 
+describe('A13 jatko 3 — viikkohavainto: dot-polku jaksofokus.osa_arviot.<konsepti> (Masterin valmentaja + VP; Rules ennallaan)', () => {
+  beforeEach(async () => {
+    await seedAdminDoc(); await seedSeuraAndPelaaja();
+    await testEnv.withSecurityRulesDisabled(async (c) => {
+      for (const uid of [PELAAJA_UID, PELAAJA_A2_UID]) await updateDoc(doc(c.firestore(), 'seurat', SEURA_A, 'pelaajat', uid), { jaksofokus: { konsepti_avain: 'y_h2', konsepti_nimi: 'Syöttäminen', alkoi: '2026-10-05', kesto_vk: 6 } });
+    });
+  });
+  const ref = (db, uid) => doc(db, 'seurat', SEURA_A, 'pelaajat', uid);
+  const OSA = { 'jaksofokus.osa_arviot.y_h2': { a: 2, b: 3 } };
+  it('oman joukkueen valmentaja ✓ (sama kuin Aloita jakso); toisen joukkueen pelaaja samassa seurassa: Rules sallii (rajaus UI:ssa); VP ✓; toisen seuran valmentaja ✗', async () => {
+    const valm = valmentajaContext(VALM_A_UID, SEURA_A).firestore();
+    await assertSucceeds(updateDoc(ref(valm, PELAAJA_UID), OSA));
+    await assertSucceeds(updateDoc(ref(valm, PELAAJA_A2_UID), OSA));   // HAVAINTO: Rules (roolimalli §4, jaksofokus-allowlist) sallii valmentajalle jaksofokus-kentän koko oman seuran pelaajille → joukkuerajaus on UI:n (tmPelaajaOikeus) ja pidetään siellä; Rules ei muutu
+    await assertSucceeds(updateDoc(ref(vpContext(SEURA_A).firestore(), PELAAJA_A2_UID), OSA));
+    await assertFails(updateDoc(ref(valmentajaContext(VALM_B_UID, SEURA_B).firestore(), PELAAJA_UID), OSA));
+    await testEnv.withSecurityRulesDisabled(async (c) => { expect((await getDoc(ref(c.firestore(), PELAAJA_UID))).data().jaksofokus.osa_arviot.y_h2).toEqual({ a: 2, b: 3 }); });
+  });
+});
+
 describe('Vaihe 4a — jaksofokus / tt_positio_aktiivinen (§4 roolimalli)', () => {
   beforeEach(async () => {
     await seedAdminDoc();
