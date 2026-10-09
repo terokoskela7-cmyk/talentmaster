@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>TalentMaster™ — Valmentaja v16</title>
 <script>/* Versio-tarkistus (cache): pakottaa reloadin kun uusi versio deployattu. APP_VERSION leimataan scripts/bump_version.js:llä. */
-(function(){var APP_VERSION='1791502558657';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
+(function(){var APP_VERSION='1791524144129';var RK='tm-reload-to';function check(){fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.v||d.v===APP_VERSION)return;if(sessionStorage.getItem(RK)===d.v)return;sessionStorage.setItem(RK,d.v);var u=new URL(location.href);u.searchParams.set('_v',d.v);location.replace(u.toString());}).catch(function(){});}check();document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});setInterval(check,300000);})();</script>
 <!-- TalentMaster_Master_v16.html — V10-typografia + V12-rakenne + Firestore-pohjainen valmentajanäkymä -->
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 
@@ -123,6 +123,7 @@ window.TM_KAAVIO_HOST = {
 <script src="lib/tm_koti_oletus.js?v=1"></script>
 <script src="lib/tm_joukkoaloitus.js?v=4"></script>   <!-- J4 C: joukkoaloitus (Kausi → Pelaajien jaksot) -->   <!-- V1: TM:n oletuskotiharjoitteet (D16: seura ensin, TM varalla); generoitu harjoitelogiikka_v4:stä -->
 <script src="lib/tm_liput.js?v=1"></script>   <!-- K1 osa 2: liput (liput/julkiset + vanha fallback K7:ään) -->
+<script src="lib/tm_sitoumus.js?v=1"></script>   <!-- Kehitystyöpöytä 22 · A1: sitoumus, yksi sääntö -->
 <script src="lib/tm_aloita_jakso.js?v=10"></script>   <!-- jaettu "Aloita jakso" -modaali (Master + VP) -->
 <script src="lib/tm_virhekoodi.js?v=1"></script>   <!-- tallennusvirheen syy (koodi) toastiin -->
 <script src="lib/tm_vastuuhenkilo.js?v=1"></script>   <!-- vastuuhenkilö per pelaaja (vastuuhenkilo {uid, rooli, asetettu_pvm}); henkilökunnan rivi + asetus -->
@@ -6695,8 +6696,26 @@ window._ktToimi = function (pid, avain) {
   if (avain === 'anna_valita') return window._kvkAvaa(pid, true);   // sama ruutu, tarjousosio auki
   if (avain === 'hylkaa') return window._kvkHylkaaAvaa(pid);
   if (avain === 'syvenna') return window._msSuljeJakso(pid);   // täysi sulkulomake
+  if (avain === 'vahvista_sitoumus') return window._ktVahvistaSitoumus(pid);   // A1: sitoumuksen vahvistus signaalista (sama polku kuin VP:llä)
   if (avain === 'havainto' || avain === 'jatka' || avain === 'avaa_polku' || avain === 'kuorma') return window._ktValilehti(pid, 'polku');   // viikkohavainto / jatkaminen / kuorman tarkistus Polussa
   console.warn('[V4a] tuntematon toiminto:', avain, S.pid);
+};
+/* A1 — sitoumuksen vahvistus Masterissa (sama polku kuin VP:n _vpVahvistaSitoumus): kirjoittaa idp_kausi/{vuosi}.pelaaja_sitoumus.vahvistettu_* (nested merge) + pikakentän idp_sitoumus_vahv_jakso. Estää edellisen jakson sitoumuksen vahvistuksen uudelle jaksolle. */
+window._ktVahvistaSitoumus = async function (pid) {
+  const p = (typeof _ttPelaaja === 'function') ? _ttPelaaja(pid) : (_pelaajatData || []).find(function (x) { return x.id === pid; }); if (!p) return;
+  const jakso = (p.jaksofokus && p.jaksofokus.alkoi) || null;
+  if (_demo || !_seuraId || !_db) { toast(masterT('Sitoumus vahvistettu (demo)'), 'ok'); return; }
+  try {
+    const cu = firebase.auth().currentUser; await _mTuoreToken(cu);   // yhteystesti + tuore token (M_VERKKO)
+    const vuosi = (typeof idpKausivuosi === 'function') ? idpKausivuosi(new Date()) : String(new Date().getFullYear());
+    const pRef = _db.collection('seurat').doc(_seuraId).collection('pelaajat').doc(pid), kRef = pRef.collection('idp_kausi').doc(vuosi);
+    const sn = await kRef.get(), s = sn.exists ? ((sn.data() || {}).pelaaja_sitoumus || null) : null;
+    if (!s || !s.sitoumus_pvm) { toast(masterT('Sitoumusta ei löytynyt'), 'error'); return; }
+    if (s.jakso_alkoi != null && jakso != null && s.jakso_alkoi !== jakso) { toast(masterT('Sitoumus on edelliseltä jaksolta'), 'error'); return; }
+    await kRef.set({ pelaaja_sitoumus: { vahvistettu_pvm: new Date().toISOString(), vahvistettu_jakso_alkoi: jakso, vahvistaja_rooli: _kvkLahde() === 'vp' ? 'vp' : (_rooli || 'valmentaja'), vahvistaja_uid: cu ? cu.uid : null }, paivitetty: new Date().toISOString() }, { merge: true });
+    await pRef.set({ idp_sitoumus_vahv_jakso: jakso }, { merge: true });
+    p.idp_sitoumus_vahv_jakso = jakso; toast(masterT('Sitoumus vahvistettu ✓'), 'ok'); _ktPaivita();
+  } catch (e) { console.warn('[A1] vahvistaSitoumus:', e && e.message); toast(masterT('Vahvistus epäonnistui'), 'error'); }
 };
 window._msSuljeJakso = async function (pid) {
   var p = (typeof _ttPelaaja === 'function') ? _ttPelaaja(pid) : (_pelaajatData || []).find(function (x) { return x.id === pid; });
@@ -6725,8 +6744,7 @@ window._msSuljeJakso = async function (pid) {
 function _ktAskel(p) { try { return window.TM_SEURAAVA_ASKEL ? window.TM_SEURAAVA_ASKEL.tmSeuraavaAskel(p, { nyt: Date.now() }) : null; } catch (e) { return null; } }
 function _ktKysymyksetHTML(p, tila, askel) {
   const PT = window.TM_POLUN_TILA, K = window.TM_KEHITYSTYOPOYTA; if (!PT || !K || !p || !K.tmKtKysymyksetNakyy(tila)) return '';
-  const jf = p.jaksofokus || {}, sitO = !!(p.idp_sitoumus_pvm && (p.idp_sitoumus_vahv_jakso || null) !== (jf.alkoi || null));
-  const T = PT.tmPolunTila(p, { askel: askel ? { avain: askel.avain, tila: askel.tila } : null, sitoumusOdottaa: sitO, blokit: null });
+  const T = PT.tmPolunTila(p, { askel: askel ? { avain: askel.avain, tila: askel.tila } : null, blokit: null });   // A1/D97: sitoumus päätellään lib/tm_sitoumus.js:stä (yksi sääntö)
   return K.tmKtKysymyksetHTML(T, { esc: _mEsc, t: masterT, odottaaSitoumusta: K.tmKtSitoumusOdottaa(tila), pvmFn: function (iso) { return (typeof tmPvmFi === 'function') ? tmPvmFi(iso) : iso; } });
 }
 window._kvkProfiilit = {};          // joukkue-tunniste → 'ammatti'|'oto' (välimuisti; oletus oto, myös kun joukkuedokumenttia ei ole §7.21)
