@@ -133,7 +133,7 @@ describe('päivämäärät suhteessa ajohetkeen', () => {
       vk.forEach((x) => expect(x.polku.split('/').pop()).toBe(r0.sunnuntaiIso));
       expect(R.kuluva.r.tunniste).toBe(r0.tunniste);
       const viikot = R.docs.filter((x) => /\/kooste\/\d{4}-W/.test(x.polku)).map((x) => x.polku.split('/').pop()).sort();
-      expect(viikot).toEqual([1, 2, 3, 4].map((w) => H.viikonRajat(r0.alkuMs - w * 7 * DAY + 12 * 3600000).tunniste).sort());
+      expect(viikot).toEqual([1, 2, 3, 4, 14].map((w) => H.viikonRajat(r0.alkuMs - w * 7 * DAY + 12 * 3600000).tunniste).sort());
     });
   });
 });
@@ -221,9 +221,10 @@ describe('mockupin 23 tilat syntyvät datasta', () => {
     expect(viikot[0].yhteensa.n_suostumus / viikot[0].yhteensa.n_pelaajat).toBeLessThan(0.9);
     const R = D.rakenna({ nytMs: NYT });
     const kooste = R.docs.filter((x) => /\/kooste\/\d/.test(x.polku)), kj = R.docs.filter((x) => /\/kooste_joukkue\//.test(x.polku));
-    expect(kooste.length).toBe(4); expect(kj.length).toBe(36);
+    expect(kooste.length).toBe(5); expect(kj.length).toBe(36);   // W-1…W-4 + käyttöönoton alun "ensimmäinen kooste" (W-14)
     kooste.concat(kj).forEach((x) => { expect(x.data.versio).toBe(5); expect(x.data.demo).toBe(true); expect('arvio' in x.data).toBe(false); expect(x.merge).toBe(false); expect(x.data.laskettu.__ts).toMatch(/^\d{4}-/); });
     expect(Object.keys(kooste[0].data.joukkueet).length).toBe(9);
+    const ensin = kooste.map((x) => x.polku.split('/').pop()).sort()[0]; expect(ensin).toBe(H.viikonRajat(H.viikonRajat(NYT).alkuMs - 14 * 7 * DAY + 12 * 3600000).tunniste);
   });
   it('tietosuoja: koosteessa ei pelaajan nimeä eikä ID:tä (tmKoosteRikkomukset)', async () => {
     await lataa();

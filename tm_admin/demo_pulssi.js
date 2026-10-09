@@ -192,6 +192,12 @@ function rakenna(opts) {
     lisaa('kooste/' + wk.r.tunniste, Object.assign({}, doc, { laskettu }), false);
     K.tmKoosteJoukkueDokumentit(doc).forEach((j) => lisaa('kooste_joukkue/' + j.id, Object.assign({}, j.data, { laskettu }), false));
   }
+  /* Käyttöönoton alku (D69): seuran ENSIMMÄINEN kooste. Normaalitilassa kirjoitetaan yksi harva "ensimmäinen kooste" 14 viikkoa taaksepäin (kopio W-4:n
+     luvuista, vain `kooste/`; trendi lukee vain 4 viimeistä viikkoa) → käyttöönotto on ohi ja käytön tavoite on täysi (50 %/30 %, portaat 25 → 40 → 50). */
+  if (!opts.kayttoonotto) {
+    const w14 = viikko(nytMs, 14), vanha = historia.find((h) => h.w === 4).doc;
+    lisaa('kooste/' + w14.r.tunniste, Object.assign({}, vanha, { vk: w14.r.tunniste, laskettu: ts(new Date(w14.r.su21Ms).toISOString()) }), false);
+  }
   const vanhin = historia.filter((h) => h.kirjoitetaan).slice(-1)[0];
   return { nytMs, T, kuluva: wk0, historia, docs, poistaVanhemmatKuin: opts.kayttoonotto ? vanhin.vk : null, kayttoonotto: !!opts.kayttoonotto };
 }
