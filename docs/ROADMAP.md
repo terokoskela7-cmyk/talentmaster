@@ -88,7 +88,7 @@
 | ennen 10.11. | K3-käsitesti KPV:llä (ensimmäiset jaksot päättyvät ~17.11.) | Tero |
 | ~15.11. | S2: PM tarkistaa pulssin oikeilla neljän viikon luvuilla | PM |
 | **1.12.** | Vanha pelaajakortti pois (D49) · Seuran pulssi S2 | Code |
-| joulukuu | R1 VP_v25:n jako (+ kehitystyöpöytä 22 B, oma sivu D106) · S3 tavoitetasot · K5 Leikkijä + huoltaja · `havainto_pvm` viikkohavainnolle (A11 näyttää siihen asti "tällä jaksolla (alkoi pvm)") | Code |
+| joulukuu | R1 VP_v25:n jako (+ kehitystyöpöytä 22 B, oma sivu D106) · S3 tavoitetasot · K5 Leikkijä + huoltaja · Kenttä aktiiviseksi (D98 + D107: alue, reitti, osamerkit, tavoitteet kentältä) · viikkohavainnolle `{arvo, pvm, tekija_uid, tekija_rooli}` (avoin: saako VP korvata valmentajan merkinnän vai lisää rinnalle) | Code |
 | tammikuu | R2 Master + Seura · portti uudelle suomelle päälle | Code |
 | kevät | R3 backend · S4 · ryhmät R2 (sääntöryhmät, IDP-ryhmät) · Pallo-Iirojen tuonti | — |
 
