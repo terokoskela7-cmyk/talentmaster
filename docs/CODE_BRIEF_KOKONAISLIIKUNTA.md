@@ -1,5 +1,7 @@
 # CODE BRIEF · Kokonaisliikuntamäärän seuranta (Palloliiton päätös, Tero 10.10.2026)
 
+> **TILA: ODOTTAA (Tero 10.10.2026).** Ei Codelle ennen kuin kirjauksen tarkkuus on varmistettu Palloliitolta (päätös 5). Tero palaa asiaan viikolla 42.
+
 **Kaista: Tero** (Pelaaja_v7, Vanhempi_v2, VP_v25, Rules). PR-kuvauksen ensimmäinen rivi: "Kaista: Tero".
 **Päätös (Palloliitto, "edetään tällä"):** kokonaisliikuntamäärää seurataan 12 viikkoa (viikko = 7 täyttä päivää), 50 pelaajaa/huoltajaa. Pelaaja ja huoltaja täyttävät yhdessä: kumpi tahansa voi kirjata. Kirjaus päivittäisellä kyselyllä (muistutus + pudotusvalikko) tai harjoituspäiväkirjamerkinnällä. Valmentajat, pelaajat ja vanhemmat koulutetaan kokonaisliikunnan merkityksestä (Kori 3: puolikas tuki, 6 vk, 25 pelaajaa; koulutussisältö ei ole koodia).
 **Teron tarkennukset 10.10.:**
