@@ -29,9 +29,12 @@ describe('A11 · Q1 lähde', () => {
     expect(plain(h)).toContain('ei vielä havaintoa · merkitse viikkohavainto');
     expect(h).toContain("_ktToimi('p1','havainto')");
   });
-  it('havainto olemassa → alarivi "viikkohavaintosi" (osa-arvioilla ei päivää → ei keksitä)', () => {
+  it('havainto olemassa → alarivi "viikkohavainto" on LINKKI joka avaa saman paneelin (merkinnän on voinut tehdä joku muu → ei "-si"; ei päivää)', () => {
     const T = JSON.parse(JSON.stringify(T0)); T.kysymykset[0] = { avain: 'nakyyko_fokus', tieto: true, vastaus: 'osaa_itsenaisesti', n: 1, yht: 3 };
-    expect(plain(KT.tmKtKysymyksetHTML(T, o))).toContain('1/3 osaa itsenäisesti viikkohavaintosi');
+    const h = KT.tmKtKysymyksetHTML(T, Object.assign({ toimiFn: '_ktToimi', pid: 'p1' }, o));
+    expect(plain(h)).toContain('1/3 osaa itsenäisesti viikkohavainto'); expect(plain(h)).not.toContain('viikkohavaintosi');
+    expect(h).toMatch(/data-kt-havainto-muuta onclick="_ktToimi\('p1','havainto'\)">viikkohavainto<\/button>/);
+    expect(plain(KT.tmKtKysymyksetHTML(T, o))).toContain('1/3 osaa itsenäisesti viikkohavainto');   // ilman toimintoa pelkkä teksti
   });
 });
 
