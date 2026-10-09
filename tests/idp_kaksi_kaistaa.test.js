@@ -83,6 +83,7 @@ function rakenna(lisa) {
   const o = lisa || {};
   const kutsut = [];
   const win = {
+    TM_KEHITYSTYOPOYTA: require('../lib/tm_kehitystyopoyta.js'),
     TM_JAKSOFOKUS: JF,
     TM_FYYSTEEMAT_LIB: o.flib !== undefined ? o.flib : {
       TM_FYYSTEEMAT: [{ avain: 'nopeus', nimi: 'Nopeus' }],

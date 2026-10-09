@@ -40,18 +40,19 @@ describe('tmTanaanTila — neljä tilaa', () => {
   });
 });
 
+const P = (a) => a.map((o) => ({ k: o.k, teksti: o.teksti }));   // vertailu ilman koodi-kenttää (henkilökunnan osa-arviot käyttävät sitä)
 describe('tmTanaanOsat — jaksofokus.osat → konsepti_avain → kpi → piiloon (ei arvata)', () => {
   const KAANON = (avain) => (avain === 'y_h2' ? { kpi: [{ koodi: 'a', teksti: 'Laukaus vauhdista' }, { koodi: 'b', teksti: 'Heikompi jalka' }, { koodi: 'c', teksti: 'Katse maaliin' }, { koodi: 'd', teksti: 'Neljäs ei mukaan' }] } : null);
   it('jaksofokus.osat voittaa (merkkijonot ja {teksti|kuvaus|nimi}); enintään 3; kirjaimet a–c', () => {
-    expect(K.tmTanaanOsat({ osat: ['Yksi', { teksti: 'Kaksi' }, { kuvaus: 'Kolme' }, { nimi: 'Neljä' }], konsepti_avain: 'y_h2' }, { kaanon: KAANON })).toEqual([{ k: 'a', teksti: 'Yksi' }, { k: 'b', teksti: 'Kaksi' }, { k: 'c', teksti: 'Kolme' }]);
+    expect(P(K.tmTanaanOsat({ osat: ['Yksi', { teksti: 'Kaksi' }, { kuvaus: 'Kolme' }, { nimi: 'Neljä' }], konsepti_avain: 'y_h2' }, { kaanon: KAANON }))).toEqual([{ k: 'a', teksti: 'Yksi' }, { k: 'b', teksti: 'Kaksi' }, { k: 'c', teksti: 'Kolme' }]);
   });
   it('ilman osia → konsepti_avain → kanonin kpi-tekstit (a–c, max 3); tuntematon avain / ei kaanon-hakua → []', () => {
-    expect(K.tmTanaanOsat({ konsepti_avain: 'y_h2' }, { kaanon: KAANON })).toEqual([{ k: 'a', teksti: 'Laukaus vauhdista' }, { k: 'b', teksti: 'Heikompi jalka' }, { k: 'c', teksti: 'Katse maaliin' }]);
+    expect(P(K.tmTanaanOsat({ konsepti_avain: 'y_h2' }, { kaanon: KAANON }))).toEqual([{ k: 'a', teksti: 'Laukaus vauhdista' }, { k: 'b', teksti: 'Heikompi jalka' }, { k: 'c', teksti: 'Katse maaliin' }]);
     expect(K.tmTanaanOsat({ konsepti_avain: 'x_x' }, { kaanon: KAANON })).toEqual([]); expect(K.tmTanaanOsat({ konsepti_avain: 'y_h2' }, {})).toEqual([]); expect(K.tmTanaanOsat({ konsepti_avain: 'y_h2' }, { kaanon: () => { throw new Error('x'); } })).toEqual([]);
     expect(K.tmTanaanOsat({ osat: [] , konsepti_avain: 'y_h2' }, { kaanon: KAANON })).toHaveLength(3); expect(K.tmTanaanOsat(null, { kaanon: KAANON })).toEqual([]); expect(K.tmTanaanOsat({}, { kaanon: KAANON })).toEqual([]);
   });
   it('kielletyt sanat ja tekniset avaimet jätetään pois yksittäin (KIELLETYT, fy_, ketjunimet)', () => {
-    expect(K.tmTanaanOsat({ osat: ['Heikkous pelissä', 'fy_nopeus', 'SBL-ketju', 'Hyvä osa', 'Rajoite'] }, {})).toEqual([{ k: 'a', teksti: 'Hyvä osa' }]);
+    expect(P(K.tmTanaanOsat({ osat: ['Heikkous pelissä', 'fy_nopeus', 'SBL-ketju', 'Hyvä osa', 'Rajoite'] }, {}))).toEqual([{ k: 'a', teksti: 'Hyvä osa' }]);
   });
 });
 
@@ -126,7 +127,7 @@ describe('Pelaaja_v7 · lippu liput/julkiset', () => {
     expect(SRC).toContain("html=(typeof _p7KenttaKaytossa==='function' && _p7KenttaKaytossa()) ? rA1Kentta() : rA1();");
     // hash päivitetty sv-läpiajo PR 2:ssa: rA1:n suomenkieliset tekstit reititetty T()-kutsuiksi (fi-renderöinti identtinen, todennettu läpiajon fi-dumpilla)
     const ra1 = pura('function rA1()'); expect(createHash('sha256').update(ra1).digest('hex')).toBe('33801d4a4179e7f893eb6d973a277142a5154e95995f287a54fe67482fa4074b'); expect(ra1).not.toMatch(/K1|rA1Kentta|k1-/);
-    for (const s of ['tm_liput.js?v=1', 'tm_kielletyt.js?v=1', 'tm_tukitavoitteet.js?v=3', 'tm_joukkuejakso.js?v=4', 'tm_taman_tueksi.js?v=2', 'tm_tanaan_kentta.js?v=2']) expect(SRC, s).toContain('<script src="lib/' + s + '"></script>');
+    for (const s of ['tm_liput.js?v=1', 'tm_kielletyt.js?v=1', 'tm_tukitavoitteet.js?v=3', 'tm_joukkuejakso.js?v=4', 'tm_taman_tueksi.js?v=2', 'tm_tanaan_kentta.js?v=3']) expect(SRC, s).toContain('<script src="lib/' + s + '"></script>');
     const sw = readFileSync(join(juuri, 'sw_pelaaja.js'), 'utf8'); expect(sw).toMatch(/const CACHE = 'tm-pelaaja-v(7[6-9]|[89]\d)'/); expect(sw).toContain('tm_(liput|kielletyt|tukitavoitteet|joukkuejakso|taman_tueksi|tanaan_kentta');   // K4 lisäsi |viikkokatsaus
     expect(SRC).toContain("if (btnId === 'dKirjausBtn' && typeof _p7K1NaytaKuittaus === 'function') _p7K1NaytaKuittaus();");
   });
@@ -176,5 +177,14 @@ describe('Pelaaja_v7 · rA1Kentta — Topias neljässä tilassa + §7.22-portti'
     expect(kortti(ymp({ libit: false }))).toBe('VANHA-RA1');
     const e = ymp(); e.sb.valitsePaivanHarjoite = () => { throw new Error('x'); }; const h = kortti(e); expect(h).toContain('Viikko 1'); expect(h).not.toContain('id="dKirjausBtn"');
     const k = ymp(); k.sb._p7K1NaytaKuittaus(); expect(k.log.kuittaus).toBe('block');
+  });
+});
+
+describe('tmTanaanOsat · ctx.max (A13 jatko 2): pelaajasovellus enintään 3, henkilökunta kaikki osat + kanonin koodi', () => {
+  const KPI5 = () => ({ kpi: [1, 2, 3, 4, 5].map((i) => ({ koodi: 'k' + i, teksti: 'Osa ' + i + ': kuvaus ' + i })) });
+  it('oletus (pelaajasovellus) = 3 osaa; ctx.max → kaikki viisi; koodi kanonista; kirjaimet a–e', () => {
+    expect(K.tmTanaanOsat({ konsepti_avain: 'x' }, { kaanon: KPI5 })).toHaveLength(3);
+    const kaikki = K.tmTanaanOsat({ konsepti_avain: 'x' }, { kaanon: KPI5, max: 26 });
+    expect(kaikki.map((o) => o.k).join('')).toBe('abcde'); expect(kaikki.map((o) => o.koodi)).toEqual(['k1', 'k2', 'k3', 'k4', 'k5']);
   });
 });

@@ -40,20 +40,16 @@ describe('A8 · Näyttö pois silmin-tilassa', () => {
 });
 
 describe('A8 · luvut .kt-hk-luokalla Tänään-välilehdellä', () => {
-  const T = { kysymykset: [
-    { avain: 'nakyyko_fokus', tieto: true, vastaus: 'osaa_itsenaisesti', n: 2, yht: 5 },
-    { avain: 'treenataanko', tieto: true, vastaus: 'blokit_tehty', n: 3, yht: 4 },
-    { avain: 'onko_mukana', tieto: true, vastaus: 'sitoumus_vahvistettu', pvm: '2026-11-04' },
-  ] };
+  const osat = [{ k: 'a', koodi: 'a', nimi: 'Katse ylös', tila: 'itsenaisesti' }, { k: 'b', koodi: 'b', nimi: 'Vastaanotto', tila: 'ohjatusti' }, { k: 'c', koodi: 'c', nimi: 'Syöttö', tila: null }];
   const o2 = { esc: (s) => String(s), t: (k) => k, pvmFn: () => '4.11.' };
-  const h = KT.tmKtKysymyksetHTML(T, o2) + KT.tmKtSitoumusHTML(T, o2);   // A11: Onko mukana? on rivi signaalin alla
+  const h = KT.tmKtKysymyksetHTML({ nakyy: true, osat, viikonOsa: osat[1], vk: { n: 2, vk: 5, viimeisin: '2026-11-04', sunnuntai: false, vastattuTanaan: false }, sit: { sitoutunut: true, vahvistettu: false, annettu_pvm: '2026-11-04' } }, o2);   // Treenattiinko: 2/5 viikkoa · Onko mukana: kortti + pvm
   it('silmin-tilassa kysymyskorteissa ei yhtään numeroa (kt-hk piilotettu)', () => {
     expect(nakyva(h)).not.toMatch(/\d/);
     expect(h).toContain('<span class="kt-hk">2/5</span>');
     expect(h).toContain('<span class="kt-hk">4.11.</span>');
   });
   it('tila sanoina säilyy', () => {
-    expect(nakyva(h)).toContain('Sitoumus vahvistettu');
+    expect(nakyva(h)).toContain('Ohjatusti'); expect(nakyva(h)).toContain('Sitoutui');
   });
   it('tmKtHk ei koske tagien sisään (attribuutit)', () => {
     expect(KT.tmKtHk('<a href="x12" data-n="3">odottaa 5 pv</a>')).toBe('<a href="x12" data-n="3">odottaa <span class="kt-hk">5 pv</span></a>');
@@ -71,7 +67,7 @@ describe('A8 · luvut .kt-hk-luokalla Tänään-välilehdellä', () => {
 describe('A8 · adapterit (VP + Master)', () => {
   for (const [nimi, src] of [['VP', VP], ['Master', MASTER]]) {
     it(nimi + ': signaali saa hk:n, _ktSilmin vie pois Näytöltä, Polun luvut DOM-merkinnällä, Näyttö-hydratointi ei silmin-tilassa', () => {
-      expect(src).toMatch(/pid: p\.id, hk: window\.TM_KEHITYSTYOPOYTA && window\.TM_KEHITYSTYOPOYTA\.tmKtHk/);
+      expect(src).toContain('hk: K.tmKtHk');   // signaali + kysymykset saavat luvut .kt-hk:ksi libissä (tmKtTanaanKoko)
       expect(src).toMatch(/_ktS\.silmin && _ktS\.valilehti === 'naytto'/);
       expect(src).toContain('tmKtHkLuvut(polku)');
       expect(src).toContain('_ktAsetaHTML(_ktKehys(p)); _ktHkAsenna();');

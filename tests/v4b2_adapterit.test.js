@@ -19,6 +19,7 @@ const TARJOUS = () => ({ tila: 'valittavana', vaihtoehdot: [{ konsepti_avain: 'y
 const KORTIT = () => [{ avain: 'y_h3', nimi: 'Pelinluku', syy: 'heikoin', valittu: false, lause: '' }, { avain: 'y_h5', nimi: 'Syöttö', syy: null, valittu: false, lause: '' }];
 
 /* sov: 'Master' | 'VP'. Palauttaa { sb, p, log, kirj } */
+const SIG_APU = "this._ktSignaaliHTML=function(p,tila){var c=_ktSigCtx(p,tila),TS=window.TM_TANAAN_SIGNAALI;return TS.tmTanaanSignaaliHTML(TS.tmTanaanSignaali(p,Object.assign({},c,{tila:tila}),{t:function(x){return x;}}),{esc:String,t:function(x){return x;},toimiFn:'_ktToimi',pid:p.id});};";
 function ymp(sov, { pelaaja = {}, kaada = false, tanaan = PVM, profiili = null, rooli = 'valmentaja', demo = false } = {}) {
   const master = sov === 'Master', src = master ? MASTER : VP;
   const p = Object.assign({ id: 'p1', etunimi: 'Topias', sukunimi: 'K', joukkue: 'KPV U13', jaksofokus: JF() }, pelaaja);
@@ -42,7 +43,7 @@ function ymp(sov, { pelaaja = {}, kaada = false, tanaan = PVM, profiili = null, 
   vm.createContext(sb);
   const koodi = master ? [pala(src, '/* ═══ V4b-2 — kevyt katselmus', '/* ═══ R6.4 Mediaviesti'), funktio(src, 'async function _mKirjoitaJaksofokus(')].join('\n')
     : [pala(src, '/* ═══ V4b-2 — kevyt katselmus', '/* ═══ R6.4 Mediaviesti')].join('\n');
-  vm.runInContext(koodi + '\nthis._kvkTila=()=>window._kvkTila;this._kvkHk=()=>window._kvkHk;this._ktSignaaliHTML=_ktSignaaliHTML;this._kvkProfiili=_kvkProfiili;', sb);
+  vm.runInContext(koodi + '\nthis._kvkTila=()=>window._kvkTila;this._kvkHk=()=>window._kvkHk;' + SIG_APU + 'this._kvkProfiili=_kvkProfiili;', sb);
   return { sb, p, log, kirj, win, els };
 }
 const lopeta = () => new Promise((r) => setTimeout(r, 0));
@@ -156,7 +157,7 @@ describe('Lähdetarkistukset: reititys, ei päällekkäisiä globaaleja, lib-skr
     for (const [nimi, src] of [['Master', MASTER], ['VP', VP]]) { const lohko = pala(src, '/* ═══ V4b-2 — kevyt katselmus', nimi === 'Master' ? '/* ═══ R6.4 Mediaviesti' : '/* ═══ R6.4 Mediaviesti'); const koodi = lohko.replace(/\/\*[\s\S]*?\*\/|\/\/[^\n]*/g, ''); expect(koodi, nimi).toMatch(/batch\.set\(ref\.collection\('reviewit'\)\.doc\(plan\.reviewitPvm\), plan\.reviewitData, \{ merge: true \}\)/); expect(koodi, nimi).not.toMatch(/review_viimeisin|tyyppi\s*:/); }
   });
   it('skriptit ladataan (v1) ennen käyttöä sekä Masterissa että VP:ssä; eslint ei tarvitse uusia globaaleja', () => {
-    for (const src of [MASTER, VP]) { for (const l of ['tm_tanaan_signaali.js?v=3', 'tm_kevyt_katselmus.js?v=2']) expect(src).toContain('<script src="lib/' + l + '"></script>'); expect(src.indexOf('lib/tm_kevyt_katselmus.js')).toBeGreaterThan(src.indexOf('lib/tm_reitin_valinta.js')); expect(src.indexOf('lib/tm_kevyt_katselmus.js')).toBeGreaterThan(src.indexOf('lib/tm_viikkokatsaus.js')); }
+    for (const src of [MASTER, VP]) { for (const l of ['tm_tanaan_signaali.js?v=4', 'tm_kevyt_katselmus.js?v=2']) expect(src).toContain('<script src="lib/' + l + '"></script>'); expect(src.indexOf('lib/tm_kevyt_katselmus.js')).toBeGreaterThan(src.indexOf('lib/tm_reitin_valinta.js')); expect(src.indexOf('lib/tm_kevyt_katselmus.js')).toBeGreaterThan(src.indexOf('lib/tm_viikkokatsaus.js')); }
     expect(readFileSync(new URL('../TalentMaster_Pelaaja_v7.html', import.meta.url), 'utf8')).not.toContain('tm_kevyt_katselmus');   // pelaajasovellus ei lataa henkilökunnan libiä
   });
 });
