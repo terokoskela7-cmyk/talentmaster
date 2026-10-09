@@ -665,7 +665,7 @@ describe('(5) Rivien tilat ja alarivit', () => {
     const p = pelaaja();
     const h = rakenna({ p: p })._vpKehSuunnitelmaHTML(p);
     const murupolku = h.slice(h.indexOf('idp-breadcrumb'), h.indexOf('idp-breadcrumb') + 200);
-    expect(murupolku).toContain('📈 eteneminen');
+    expect(murupolku).toContain('📈 Eteneminen');
     expect(murupolku, 'kaari-termi jäi murupolkuun').not.toMatch(/kaari/i);
   });
 });

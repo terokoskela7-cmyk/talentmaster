@@ -139,7 +139,7 @@ window.TM_KAAVIO_HOST = {
 <script src="lib/tm_kentta.js?v=3"></script>   <!-- K0/V4a: Kenttä-komponentti (Archivo vain .kt:n sisällä) -->
 <script src="lib/tm_tanaan_kentta.js?v=2"></script>   <!-- V4a: tmTanaanOsat (Tänään-osat sanoin) -->
 <script src="lib/tm_hash_reititin.js?v=1"></script>   <!-- V4a: #pelaaja/{pid}/… -reititin (vain lipulla) -->
-<script src="lib/tm_kehitystyopoyta.js?v=4"></script>   <!-- V4a: Kehitystyöpöytä V4 -kehys -->
+<script src="lib/tm_kehitystyopoyta.js?v=5"></script>   <!-- V4a: Kehitystyöpöytä V4 -kehys -->
 <script src="lib/tm_kehityssilmukka.js?v=2"></script>   <!-- R6.2a: katselmus yhteen paikkaan (tmKirjaaKatselmus) + jaksofokuksen kirjoitusydin -->
 <script src="lib/tm_seuraava_askel.js?v=2"></script>   <!-- R6.2b: seuraava toimenpide yhdessä paikassa (tmSeuraavaAskel / tmSeuraavaJakso / tmTeeTastaOsa) -->
 <script src="lib/tm_fyysteemat.js?v=4"></script>   <!-- Vaihe 7: fyysinen teemaluettelo + D1-fokuslähde + evidenssi (delta §29 + PHV-portti §28) -->
@@ -8012,7 +8012,7 @@ function _vpKehSuunnitelmaHTML(p, opts) {
       + '<div class="acc-body">' + o.body + '</div></div>';
   };
   let h = '<div style="font-family:var(--font-serif),\\\'Cormorant Garamond\\\',serif;font-size:26px;font-weight:300;color:var(--ink);margin:2px 0 2px">' + vpT('Kehityssuunnitelma') + '</div>';
-  h += '<div class="idp-breadcrumb">' + vpT('🎯 kausi › 📍 jakso › 📈 eteneminen') + '</div>';
+  h += '<div class="idp-breadcrumb">' + vpT('🎯 Kausi › 📍 Jakso › 📈 Eteneminen') + '</div>';
   // ── TASO 1 · Kausitavoite ──
   const _ktFokusObj = (t && t.fokus) || p.idp_fokus || null;   // C: nimiresolveri tarvitsee objektin (alue-avain)
   const ktFokus = (t && t.fokus && (t.fokus.nimi || t.fokus.alue)) || (p.idp_fokus && (p.idp_fokus.nimi || p.idp_fokus.alue)) || null;
@@ -10983,16 +10983,20 @@ function _ktTanaanHTML(p, tila) {
   const K = window.TM_KEHITYSTYOPOYTA, TK = window.TM_TANAAN_KENTTA;
   const kentta = (typeof window.tmKentta === 'function') ? window.tmKentta({ koko: 'puoli', ilmanAluetta: true, ase: null, reitti: null, viikot: null, osat: [], historia: [], lempipaikka: null, vaihtoehdot: null }, { wrap: true, rooli: 'henkilokunta', t: vpT }) : '';
   let osat = []; try { if (TK && p.jaksofokus && p.jaksofokus.tila !== 'valittavana') osat = TK.tmTanaanOsat(p.jaksofokus, { kaanon: (typeof tmKonseptiKaanon === 'function') ? tmKonseptiKaanon : null }); } catch (e) { osat = []; }
-  return K.tmKtTanaanHTML({ pid: p.id, kenttaHTML: kentta, signaaliHTML: _ktSignaaliHTML(p, tila), kysymyksetHTML: _ktKysymyksetHTML(p, tila, _ktAskel(p)), rivitila: tila.rivitila, osat: osat, askel: null }, _ktOpts());   // V4b-2: signaali (D48) — yksi signaali + pieni toinen rivi
+  return K.tmKtTanaanHTML({ pid: p.id, kenttaHTML: kentta, signaaliHTML: _ktSignaaliHTML(p, tila), kysymyksetHTML: _ktKysymyksetHTML(p, tila, _ktAskel(p)), osat: osat }, _ktOpts());   // V4b-2: signaali (D48) — yksi signaali + pieni toinen rivi
 }
 function _ktPolkuHTML(p) {   // Polku = olemassa oleva kausi → jakso → viikko -koodi, samat slot-id:t (_jspKehAskel, _jspKehSuunnitelma …) joten re-render-koukut toimivat
   window._vpArvPelaaja = p; if (typeof _vpLataaTavoite === 'function') _vpLataaTavoite(p);
-  let h = (typeof _vpPelaajanAaniHTML === 'function') ? _vpPelaajanAaniHTML(p) : '';
-  if (typeof _vpKehSeuraavaAskelHTML === 'function') h += '<div id="_jspKehAskel">' + _vpKehSeuraavaAskelHTML(p) + '</div>';
-  if (typeof _vpKehSuunnitelmaHTML === 'function') h += '<div id="_jspKehSuunnitelma" style="margin-top:6px">' + _vpKehSuunnitelmaHTML(p) + '</div>';
-  if (typeof _vpViikkoHTML === 'function') h += '<div id="_vpPolkuViikko" style="margin-top:18px;border-top:.5px solid var(--border);padding-top:12px">' + _vpViikkoHTML(p) + '</div>';
+  /* A9: V4:ssä ei Pelaajan ääni -lohkoa (D105, ei kirjoituspolkua) eikä Seuraava askel -laatikkoa (toisto Tänään-signaalin kanssa) eikä viikkorefleksiota; vanha modaali ennallaan (poistuu 1.12., D49) */
+  let h = '';
+  _ktS.v4Render = true;
+  try {
+    if (typeof _vpKehSuunnitelmaHTML === 'function') h += '<div id="_jspKehSuunnitelma" style="margin-top:6px">' + _vpKehSuunnitelmaHTML(p) + '</div>';
+    if (typeof _vpViikkoHTML === 'function') h += '<div id="_vpPolkuViikko" style="margin-top:18px;border-top:.5px solid var(--border);padding-top:12px">' + _vpViikkoHTML(p) + '</div>';
+  } finally { _ktS.v4Render = false; }
   return '<div id="_jspTab3"><div id="mvKlipit"></div>' + h + '</div>';
 }
+function _vpOnV4() { return !!(_ktS && (_ktS.v4Render || document.getElementById('ktNakyma'))); }   // A9: viikon uudelleenrenderöinti V4:n sisällä (ktNakyma auki) tai V4:n Polku-rakennuksen aikana
 function _ktOsio(otsikko) { return '<div class="kt-otsikko-pieni" style="margin:18px 0 6px">' + _jsvEsc(vpT(otsikko)) + '</div>'; }
 /* V4b-1 (mockup 18 §7, 13 §6): vanhan kortin sisältö Näyttöön — SAMA koodi kuin vanhassa modaalissa (_vpKorttiRakenna vainOsat-tilassa), ei kopioita.
    Perustiedot + 5D-profiili (hL) · Kasvu ja kypsyys (PHV, bioikä, kasvutahti, testipäivät) · Mittaukset (Fyysinen/Tekninen mitattu, kehon valmius, mittauslista) · Pelihavainnot ja arviointi (_jspTab5). Luvut vain henkilökunnalle. Ladataan vasta avattaessa. */
@@ -14111,7 +14115,7 @@ function _vpViikkoHTML(p) {
   // Otsikkorivi + "✨ Täytä viikko" (MUUTOS 4: esitäyttö säilyy).
   h += '<div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:2px"><div style="font-family:var(--font-sans),\'DM Sans\',sans-serif;font-weight:600;font-size:9.5px;letter-spacing:.15em;text-transform:uppercase;color:var(--teal)">' + vpT('Viikon rakenne') + '</div>'
     + '<button onclick="event.stopPropagation();_vpViikkoTayta(\'' + pid + '\')" style="margin-left:auto;font-family:var(--font-sans);font-size:10px;font-weight:500;color:var(--teal);border:.5px solid rgba(40,176,144,.4);background:rgba(40,176,144,.1);border-radius:6px;padding:5px 11px;cursor:pointer" title="' + vpT('Esitäytä viikko jaksofokuksesta + joukkueen aikataulusta (ehdotus)') + '">✨ ' + vpT('Täytä viikko') + '</button></div>';
-  h += '<div style="font-family:var(--font-mono),\'DM Mono\',monospace;font-size:10px;color:var(--ink3);margin-bottom:12px">' + vpT('ottelupäivä-suhteinen · fokus jaettuna, ei tunkettu joka treeniin · napauta päivää muokataksesi') + '</div>';
+  h += '<div style="font-family:var(--font-mono),\'DM Mono\',monospace;font-size:10px;color:var(--ink3);margin-bottom:12px">' + vpT('Fokus jaetaan ottelupäivän mukaan, ei joka treeniin · napauta päivää muokataksesi') + '</div>';
   h += '<div id="_vpViikkoGrid">' + _vpViikkoGridHTML(p) + '</div>';
   return h;
 }
@@ -14152,7 +14156,9 @@ function _vpViikkoGridHTML(p) {
   // MUUTOS 5 — .duo #1: A/B/C tavoitejakauma + kuorma/§28/ACWR (reuse; kuorma restrukturoitu P1: §28 ensin).
   h += '<div class="jsp-wk-duo"><div>' + _vpViikkoTavoitejakaumaHTML(p, st) + '</div><div>' + _vpViikkoKuormaHTML(p, st) + '</div></div>';
   // MUUTOS 6 — .duo #2: läsnäolo (K2-kooste) + pelaajan ääni (honest-empty + cue).
-  h += '<div class="jsp-wk-duo"><div>' + _vpViikkoLasnaoloHTML(p, st) + '</div><div>' + _vpViikkoAaniHTML(p, st) + '</div></div>';
+  h += (typeof _vpOnV4 === 'function' && _vpOnV4())
+    ? '<div class="jsp-wk-duo"><div>' + _vpViikkoLasnaoloHTML(p, st) + '</div></div>'   // A9: ei viikkorefleksiota V4:ssä kunnes kirjoituspolku on (D105)
+    : '<div class="jsp-wk-duo"><div>' + _vpViikkoLasnaoloHTML(p, st) + '</div><div>' + _vpViikkoAaniHTML(p, st) + '</div></div>';
   // MUUTOS 7 — katselmus-rivi (EPPP-rytmi).
   h += _vpViikkoKatselmusHTML(p, st);
   // MUUTOS 8 — lähdekortit + mokknote ⓘ-tapin takana.
@@ -14390,9 +14396,9 @@ function _vpViikkoLasnaoloHTML(p, st) {
   const merkityt = st.days.filter(function (d) { const r = st.rows[d.iso]; return r && r.lasna; });
   let h = '<div class="jsp-wk-blk"><div style="display:flex;align-items:baseline;gap:8px;margin-bottom:3px">'
     + '<span style="font-family:var(--font-sans),\'DM Sans\',sans-serif;font-weight:600;font-size:9px;letter-spacing:.13em;text-transform:uppercase;color:var(--ink2)">' + vpT('Läsnäolo · tämä viikko') + '</span>'
-    + '<span style="margin-left:auto;font-family:var(--font-mono),\'DM Mono\',monospace;font-size:8.5px;color:var(--ink3)">K2 · ' + vpT('kalenteri') + '</span></div>';
+    + '<span style="margin-left:auto;font-family:var(--font-mono),\'DM Mono\',monospace;font-size:8.5px;color:var(--ink3)">' + vpT('kalenteri') + '</span></div>';
   if (!merkityt.length) {
-    return h + '<div style="font-size:11px;color:var(--ink3);line-height:1.5;margin-top:6px">' + vpT('Ei merkittyä läsnäoloa vielä. Merkitsee valmentaja/talenttivalmentaja/VP toteutuneista sessioista (§35 K2).') + '</div></div>';
+    return h + '<div style="font-size:11px;color:var(--ink3);line-height:1.5;margin-top:6px">' + vpT('Ei merkittyä läsnäoloa vielä. Merkitsee valmentaja/talenttivalmentaja/VP toteutuneista sessioista.') + '</div></div>';
   }
   const paikalla = merkityt.filter(function (d) { return st.rows[d.iso].lasna === 'paikalla'; }).length;
   h += '<div style="display:flex;gap:6px;margin:8px 0 2px;flex-wrap:wrap">';
@@ -14401,7 +14407,7 @@ function _vpViikkoLasnaoloHTML(p, st) {
     h += '<div style="flex:1;min-width:48px;text-align:center;border:.5px solid ' + (l.tila === 'paikalla' ? 'rgba(40,176,144,.3)' : 'var(--border)') + ';border-radius:6px;padding:7px 4px;background:var(--bg2)"><div style="font-size:14px;color:' + l.col + '">' + l.ikoni + '</div><div style="font-family:var(--font-mono);font-size:8px;color:var(--ink3);margin-top:3px;text-transform:uppercase">' + d.nimi + ' ' + esc(vpT(l.lbl).split(' ')[0]) + '</div></div>';
   });
   h += '</div><div style="font-size:10.5px;color:var(--ink2);margin-top:6px;line-height:1.45"><b style="color:var(--ink)">' + paikalla + ' / ' + merkityt.length + ' ' + vpT('paikalla.') + '</b> ' + vpT('Toteutunut, ei suunniteltu — läsnäolo kytkee kuormaan.') + '</div>';
-  h += '<div style="font-family:var(--font-mono),\'DM Mono\',monospace;font-size:9px;color:var(--ink3);margin-top:7px;line-height:1.4">' + vpT('Merkitsee valmentaja/talenttivalmentaja/VP (§35 K2). Poissaolo + syy, ei rankingia (GDPR: terveyssyy erikseen 🩹).') + '</div>';
+  h += '<div style="font-family:var(--font-mono),\'DM Mono\',monospace;font-size:9px;color:var(--ink3);margin-top:7px;line-height:1.4">' + vpT('Merkitsee valmentaja/talenttivalmentaja/VP. Poissaolo + syy, ei rankingia (terveyssyy erikseen 🩹).') + '</div>';
   return h + '</div>';
 }
 // MUUTOS 6 — PELAAJAN ÄÄNI · viikkorefleksio (P4 honest-empty NYT) + cue (reuse tmTtKysymykset). EI fabrikoida lainausta.
@@ -14425,7 +14431,7 @@ function _vpViikkoKatselmusHTML(p, st) {
   const _kVk = (jf && _kJfLib && typeof _kJfLib.tmJfViikko === 'function') ? _kJfLib.tmJfViikko(jf) : null;
   const jaljella = _kVk ? _kVk.jaljella : kestoVk;
   return '<div style="display:flex;align-items:center;gap:12px;border:.5px dashed var(--border);border-radius:10px;padding:13px 16px;background:var(--bg2);margin-top:14px;flex-wrap:wrap">'
-    + '<div style="font-size:11.5px;color:var(--ink2);line-height:1.5"><b style="color:var(--ink);font-weight:500">' + vpT('Seuraava katselmus ~') + jaljella + ' vk</b> — ' + vpT('jakso') + ' (' + kestoVk + ' vk) ' + vpT('päättyy. Katselmus =') + ' <b style="color:var(--ink);font-weight:500">' + vpT('keskustelu') + '</b>, ' + vpT('ei arvosana (EPPP-rytmi, §37).') + '</div>'
+    + '<div style="font-size:11.5px;color:var(--ink2);line-height:1.5"><b style="color:var(--ink);font-weight:500">' + vpT('Seuraava katselmus ~') + jaljella + ' vk</b> — ' + vpT('jakso') + ' (' + kestoVk + ' vk) ' + vpT('päättyy. Katselmus =') + ' <b style="color:var(--ink);font-weight:500">' + vpT('keskustelu') + '</b>, ' + vpT('ei arvosana.') + '</div>'
     + '<span onclick="event.stopPropagation();_vpKtSiirry(3)" style="margin-left:auto;font-family:var(--font-sans),\'DM Sans\',sans-serif;font-weight:500;font-size:11px;color:var(--teal);border:.5px solid rgba(40,176,144,.4);border-radius:6px;padding:7px 13px;white-space:nowrap;cursor:pointer">' + vpT('Avaa katselmus →') + '</span></div>';
 }
 // MUUTOS 8 — LÄHDEKORTIT + mokknote ⓘ-tapin takana (default piilossa, sama kuvio kuin _jspArvSelit).
@@ -14440,7 +14446,7 @@ function _vpViikkoLahteetHTML() {
     + _vpViikkoSrcKortti(vpT('Joukkuekalenteri'), vpT('Joukkueharjoitukset + ottelut. Valmentaja luo tapahtuman → läsnäolo.'), vpT('✓ olemassa · seuran kalenteri'))
     + _vpViikkoSrcKortti(vpT('Pelaajan app'), vpT('Omatoimiset harjoitteet: generaattori ehdottaa → pelaaja kirjaa (tehty · kesto · rasitus · fiilis).'), vpT('✓ olemassa · pelaajan kirjaukset'))
     + _vpViikkoSrcKortti(vpT('Kuorma ja kypsyys'), vpT('Koettu rasitus summautuu kuormaksi, ja kypsyysvaihe sävyttää kuormitussuhteen tulkinnan.'), vpT('→ Viikko laskee näistä'))
-    + '</div><div style="margin-top:11px;font-size:11px;color:var(--ink2);line-height:1.55;border-left:2px solid rgba(40,176,144,.3);padding-left:12px"><b style="color:var(--ink);font-weight:500">✎ ' + vpT('Muokattava, ei lukittu.') + '</b> ' + vpT('Valmentaja / talenttivalmentaja / VP voi lisätä, siirtää tai poistaa harjoitteita. Pelaajan itse tekemät omatoimiset valuvat tänne automaattisesti') + ' (<span style="font-family:var(--font-mono),\'DM Mono\',monospace">lahde:pelaaja</span>) — ' + vpT('kaksisuuntainen silta.') + '</div></div></div>';
+    + '</div><div style="margin-top:11px;font-size:11px;color:var(--ink2);line-height:1.55;border-left:2px solid rgba(40,176,144,.3);padding-left:12px"><b style="color:var(--ink);font-weight:500">✎ ' + vpT('Muokattava, ei lukittu.') + '</b> ' + vpT('Valmentaja / talenttivalmentaja / VP voi lisätä, siirtää tai poistaa harjoitteita. Pelaajan itse tekemät omatoimiset valuvat tänne automaattisesti') + ' — ' + vpT('kaksisuuntainen silta.') + '</div></div></div>';
 }
 
 // ── Interaktiot (mutatoi state → tallenna best-effort → re-render) ──

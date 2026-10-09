@@ -150,7 +150,7 @@ describe('tmJaksoTila — rivitilan käännös', () => {
   });
   it('kuluttajat käyttävät tmJaksoTekstiä (kehitystyöpöytä: otsikkorivi + Tänään; joukkoaloitus: rivin tila)', () => {
     expect(lue('lib/tm_kehitystyopoyta.js')).toMatch(/esc\(_rt\(opts, tila\.rivitila\)\)/);
-    expect(lue('lib/tm_kehitystyopoyta.js')).toMatch(/esc\(_rt\(opts, y\.rivitila\)\)/);
+    expect(lue('lib/tm_kehitystyopoyta.js')).not.toMatch(/y\.rivitila/);   // A9: Polun tila -kortti Tänäänistä pois (D99) — vain otsikkorivin tilasiru
     expect(lue('lib/tm_joukkoaloitus.js')).toMatch(/tmJaksoTeksti\(r\.tilakone\.rivitila, t\)/);
   });
   it('functions/-kopio identtinen (deploy pakkaa vain functions/)', () => {
