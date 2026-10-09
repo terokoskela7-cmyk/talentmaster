@@ -16,9 +16,9 @@ const laske = (joukkueet, pelaajat) => { const a = K.tmKoosteAnalysoi({ joukkuee
 
 describe('kooste v4 · asetukset', () => {
   it('versio 4; tyyppi puuttuu/tuntematon → "kilpa" (D70), profiili puuttuu/tuntematon → "oto" (D50)', () => {
-    expect(K.VERSIO).toBe(4);
+    expect(K.VERSIO).toBe(5);
     const d = laske([J13, J11, { id: 'x', nimi: 'KPV U14', tyyppi: 'muu', valmentajaprofiili: 'Ammatti' }], []);
-    expect(d.versio).toBe(4);
+    expect(d.versio).toBe(5);
     expect(d.joukkueet.u13).toMatchObject({ tyyppi: 'kilpa', profiili: 'oto' });
     expect(d.joukkueet.p11).toMatchObject({ tyyppi: 'harraste', profiili: 'ammatti' });
     expect(d.joukkueet.x).toMatchObject({ tyyppi: 'kilpa', profiili: 'oto' });
@@ -63,5 +63,18 @@ describe('kooste v4 · tietosuoja ja rakenne', () => {
   });
   it('kooste_joukkue-mittarit sisältävät tyypin, profiilin ja uudet luvut', () => {
     const j = K.tmKoosteJoukkueDokumentit(d).find((x) => x.id.startsWith('p11_')); expect(j.data.mittarit).toMatchObject({ tyyppi: 'harraste', profiili: 'ammatti', n_toiminto_7: 0, n_perhe_kuittaus_7: 0 });
+  });
+});
+
+describe('kooste v5 · n_harjoite_7 / n_harjoite_30 (D119)', () => {
+  it('p.harjoite-lista → 7 / 30 pv:n ikkuna; tulevaisuus ei; puuttuva lista ei kaadu; n_toiminto_7 ei muutu', () => {
+    const d = laske([J13], [pel('a', { harjoite: ['2026-10-09'] }), pel('b', { harjoite: ['2026-10-03'] }), pel('c', { harjoite: ['2026-10-12'] }), pel('d'), pel('e', { toiminto: ['2026-10-09'] })]);
+    expect(d.joukkueet.u13).toMatchObject({ n_harjoite_7: 1, n_harjoite_30: 2, n_toiminto_7: 1 });
+    expect(d.yhteensa).toMatchObject({ n_harjoite_7: 1, n_harjoite_30: 2, n_toiminto_7: 1 });
+  });
+  it('pelaaja kahdessa joukkueessa → molempiin, yhteensä kerran', () => {
+    const J14 = { id: 'u14', nimi: 'KPV U14' };
+    const d = laske([J13, J14], [pel('a', { joukkueet: ['u13', 'u14'], harjoite: ['2026-10-09'] })]);
+    expect(d.joukkueet.u13.n_harjoite_7).toBe(1); expect(d.joukkueet.u14.n_harjoite_7).toBe(1); expect(d.yhteensa.n_harjoite_7).toBe(1);
   });
 });
