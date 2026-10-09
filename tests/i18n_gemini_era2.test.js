@@ -14,6 +14,7 @@ const L = require('../lib/tm_lang.js').TM_LANG;
 const ODOTTAA = require('./tm_lang_sv_odotuslista.cjs');
 const hae = (kieli, polku) => polku.split('.').reduce((o, k) => (o == null ? undefined : o[k]), L[kieli]);
 const rivit = ERA.osiot.tm_lang.rivit;
+const ERA3 = JSON.parse(require('fs').readFileSync(require('path').join(__dirname, '..', 'docs/i18n/sv_kaannoserae_3.json'), 'utf8'));
 
 describe('Gemini-erä 2 — tm_lang-osio', () => {
   it('jokainen sv-odotuslistan avain on erässä, fi/en täsmäävät tm_lang.js:ään', () => {
@@ -23,7 +24,9 @@ describe('Gemini-erä 2 — tm_lang-osio', () => {
     expect(eroaa, 'fi/en muuttui — aja: node scripts/i18n_luo_gemini_era.cjs').toEqual([]);
   });
   it('erässä ei vanhentuneita rivejä: rivi joka ei ole odotuslistalla on täytetty (sv saapui)', () => {
-    const vanhentuneet = Object.keys(rivit).filter((p) => !ODOTTAA.includes(p) && !rivit[p].sv);
+    // erän 2 tyhjät tm_lang-rivit täyttyivät erässä 3 (vienti scripts/i18n_vie_sv_era3.cjs)
+    const era3 = ERA3.osiot.tm_lang.rivit;
+    const vanhentuneet = Object.keys(rivit).filter((p) => !ODOTTAA.includes(p) && !rivit[p].sv && !(era3[p] && era3[p].sv));
     expect(vanhentuneet).toEqual([]);
   });
   it('sv-kentät ovat merkkijonoja; Code ei ole täyttänyt ruotsia (tyhjä tai Geminin tuoma)', () => {

@@ -731,7 +731,9 @@ describe('VP_v25 resolvi-portti — jokaisella reititetyllä avaimella on sv-riv
   /* sv-läpiajo PR 4: odotuslista = Gemini-erän 2 vp_kartta-osion rivit joiden sv on vielä tyhjä (docs/i18n/sv_kaannoserae_2.json; koottu scripts/i18n_luo_gemini_era.cjs).
      Kun Gemini täyttää rivin ja vienti kirjoittaa sen TM_VP_I18N:ään, rivi poistuu listalta itsestään. */
   const ERA2_VP = JSON.parse(readFileSync(join(__dir, '..', 'docs/i18n/sv_kaannoserae_2.json'), 'utf8')).osiot.vp_kartta.rivit;
-  const SV_ODOTTAA_SANKTIOINTIA = Object.keys(ERA2_VP).filter((k) => !ERA2_VP[k].sv).concat([
+  // erän 2 tyhjät rivit täyttyivät erässä 3 (vp_kartta; vienti scripts/i18n_vie_sv_era3.cjs) → pois listalta
+  const ERA3_VP = JSON.parse(readFileSync(join(__dir, '..', 'docs/i18n/sv_kaannoserae_3.json'), 'utf8')).osiot.vp_kartta.rivit;
+  const SV_ODOTTAA_SANKTIOINTIA = Object.keys(ERA2_VP).filter((k) => !ERA2_VP[k].sv && !(ERA3_VP[k] && ERA3_VP[k].sv)).concat([
     // Tyhjä 8.10.2026: Gemini-erä sv_kaannoserae_2026-10-08.json vietiin (scripts/i18n_vie_sv_era.cjs). Uusi sanktiointia odottava avain → lisää tähän.
     // PR 5: D2-bugin ja S1.1:n rivit (TKI-pohjainen, TKI ka, Sovelluksen käyttö …) saapuivat Gemini-erässä 2 ja vietiin; lista on nyt tyhjä.
   ]);

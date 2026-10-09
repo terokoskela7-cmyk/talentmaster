@@ -214,7 +214,7 @@ describe('Vanhempi_v2 · Katsokaa yhdessä (vm: sivun oikea koodi)', () => {
   });
   it('lapsi vaihtuu → tila nollataan; sijoitus rKoti():ssa; libit + SW allowlist + cache', async () => {
     const e = vanhempiYmp({ docs: PERHE() }); await e.f.ladataan(true); e.f.valitse('kp_valinta_leikkija_1'); e.sb.window._lapsi = { id: 'toinen', seuraId: 's', etunimi: 'Ella' }; await e.f.ladataan(false); expect(e.sb.window._vKp.valinta).toBe(''); expect(e.log.kyselyt.length).toBe(4);
-    expect(VA).toContain('${_vKpHTML()}'); expect(VA).toContain('lib/tm_klippi_perhe.js?v=1'); const sw = lue('sw_vanhempi.js'); expect(sw).toContain('/lib/tm_klippi_perhe.js'); expect(sw).toContain('/lib/tm_mediaviesti.js'); expect(sw).toMatch(/CACHE = 'tm-vanhempi-v5[2-9]/);
+    expect(VA).toContain('${_vKpHTML()}'); expect(VA).toContain('lib/tm_klippi_perhe.js?v=1'); const sw = lue('sw_vanhempi.js'); expect(sw).toContain('/lib/tm_klippi_perhe.js'); expect(sw).toContain('/lib/tm_mediaviesti.js'); expect(sw).toMatch(/CACHE = 'tm-vanhempi-v(5[2-9]|[6-9]\d)/);
   });
 });
 
