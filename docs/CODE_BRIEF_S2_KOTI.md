@@ -4,6 +4,7 @@
 **Tämä briiffi korvaa** `docs/CODE_BRIEF_S2_SEURAN_PULSSI.md`:n kohdat "Mitä S2 tekee" ja "Etusivun inventaario" (ne kuvaavat mockupin 20 versiota). Kooste v4/v5, lukitut päätökset D65–D75 (D65:n Käyttö muutettu D119:llä) ja testiosio pätevät edelleen.
 **Design:** `docs/design/idp-v2/23_seuran_pulssi_v2.html` (pulssitaulukko, tilat, mobiili) + `25_vp_koti_tilanne.html` (Kodin rakenne). Visuaalinen kieli = mockup 22 (CLAUDE.md §5). Raportoi PR:ssä, mitä mockupin kohtaa kukin osa noudattaa. Jos mockup ja tämä briiffi ovat ristiriidassa tai mockup ei kata tilannetta → kysy, älä keksi.
 **Valmiina:** P0-luvut (#949, `lib/tm_koti_luvut.js`: yksi laskuri, kattavuusportti D125, D134-rajaus) · kooste v5 (#950, `n_harjoite_7`) · datatarkistus 9.10. (#952).
+**Demodata:** `docs/CODE_BRIEF_S2_DEMODATA.md` — Demo FC:n synteettinen silmukkadata, jolla Koti näkyy kaikissa tiloissa (pilottiseuroissa luvut ovat vielä nollaa).
 **Aikataulu:** aloitus nyt. Kaksi PR:ää (alla), molemmat valmiit viimeistään 20.11. PM tarkistaa oikealla datalla ~15.11.
 
 ## PR 1 — pulssitaulukko ja Kodin rakenne
