@@ -85,9 +85,9 @@ describe('4–5 · asettelu ja signaalikortti', () => {
   it('signaalikortin tyylit mockupista (reuna, tausta, säde, padding, otsikko, perustelu, nappi, alarivi)', () => {
     expect(CSS).toContain('.kt-sig{border:1px solid var(--teal);background:color-mix(in srgb,var(--teal) 14%,transparent);border-radius:6px;padding:12px 14px;display:grid;gap:8px}');
     expect(CSS).toContain('.kt-sig.w{border-color:var(--amber);background:var(--amber-dim)}');
-    expect(CSS).toContain('.kt-eb{font-family:var(--font-mono);font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--teal)}');
-    expect(CSS).toContain('.kt-sig-h{font-family:var(--kt-serif);font-size:24px;font-weight:500;line-height:1.05}'); expect(CSS).toContain('.kt-sig-why{font-size:13.5px;color:var(--ink2)}');
-    expect(CSS).toContain('.kt-btn{font:inherit;font-size:13.5px;font-weight:600;padding:8px 14px;border-radius:4px;'); expect(CSS).toContain('border-top:1px dashed var(--border);padding-top:6px');
+    expect(CSS).toContain('.kt-eb{font-family:var(--font-mono);font-size:var(--fs-eb,11px);letter-spacing:.12em;text-transform:uppercase;color:var(--teal)}');
+    expect(CSS).toContain('.kt-sig-h{font-family:var(--kt-serif);font-size:var(--fs-h2,26px);font-weight:500;line-height:1.05}'); expect(CSS).toContain('.kt-sig-why{font-size:var(--fs-body,14px);color:var(--ink2)}');
+    expect(CSS).toContain('.kt-btn{font:inherit;font-size:var(--fs-body,14px);font-weight:600;padding:8px 14px;border-radius:4px;'); expect(CSS).toContain('border-top:1px dashed var(--border);padding-top:6px');
     expect(CSS).not.toMatch(/#[0-9a-fA-F]{3,8}\b|rgba?\(/);
   });
   it('signaali: nappi "Merkitse havainto"; paneeli avautuu kortin SISÄÄN ja nappi piiloutuu kun paneeli on auki (VP, oikeus); valmentaja ilman oikeutta ja Master: ei paneelia', () => {
@@ -136,8 +136,8 @@ describe('6 · kysymyskortit', () => {
   });
   it('kortin tyylit mockupista (reuna, säde, padding, gap, tausta; kysymys, vastaus, ei tietoa, lähde); alle 720 px yksi sarake', () => {
     expect(CSS).toContain('.kt-q{border:1px solid var(--border);border-radius:4px;padding:10px 12px;display:grid;gap:3px;background:var(--bg)}');
-    expect(CSS).toContain('.kt-q-k{font-size:12.5px;color:var(--ink3)}'); expect(CSS).toContain('.kt-q-v{font-family:var(--kt-serif);font-size:24px;line-height:1.05;font-weight:500}');
-    expect(CSS).toContain('.kt-q-v.na{color:var(--ink3);font-size:18px}'); expect(CSS).toContain('.kt-q-s{font-size:12px;color:var(--ink3)}');
+    expect(CSS).toContain('.kt-q-k{font-size:var(--fs-meta,12.5px);color:var(--ink3)}'); expect(CSS).toContain('.kt-q-v{font-family:var(--kt-serif);font-size:var(--fs-h2,26px);line-height:1.05;font-weight:500}');
+    expect(CSS).toContain('.kt-q-v.na{color:var(--ink3);font-family:var(--font-sans);font-size:var(--fs-meta,12.5px);font-weight:400}'); expect(CSS).toContain('.kt-q-s{font-size:var(--fs-meta,12.5px);color:var(--ink2)}');
     expect(CSS).toContain('@media (max-width:720px){.kt-q3,.kt-q3.two{grid-template-columns:minmax(0,1fr)}}');
   });
 });
@@ -151,7 +151,7 @@ describe('7 · Osat-kortti', () => {
   });
   it('rivin tyylit: ruudukko auto/1fr/auto, gap 10px, padding 7px 10px, reuna, säde 4px, 13,5 px; kirjain DM Mono teal; viikon osa amber; itsenäisesti teal', () => {
     expect(CSS).toContain('.kt-osa-r{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:10px;align-items:center;padding:7px 10px;border:1px solid var(--border);border-radius:4px;');
-    expect(CSS).toContain('.kt-osat{display:grid;gap:4px;margin-top:6px}'); expect(CSS).toContain('.kt-osa-k{font-family:var(--font-mono);font-size:12px;color:var(--teal);font-weight:500}');
+    expect(CSS).toContain('.kt-osat{display:grid;gap:4px;margin-top:6px}'); expect(CSS).toContain('.kt-osa-k{font-family:var(--font-sans);font-size:var(--fs-meta,12.5px);color:var(--teal);font-weight:500}');
     expect(CSS).toContain('.kt-osa-r.on{border-color:var(--amber)}.kt-osa-r.on .kt-osa-st{color:var(--amber);font-weight:600}'); expect(CSS).toContain('.kt-osa-r.ok .kt-osa-st{color:var(--teal);font-weight:600}');
   });
 });

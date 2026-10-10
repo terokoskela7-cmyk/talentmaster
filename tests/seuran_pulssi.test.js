@@ -205,15 +205,15 @@ describe('jaetut mockup 22 -komponentit (Design: ei kolmatta korttiversiota)', (
   });
   it('Design: vain olemassa olevat tokenit — ei hex-/rgb-värejä jaetussa eikä pulssin CSS:ssä', () => {
     [KT.CSS, P.CSS].forEach((c) => { expect(c).not.toMatch(/#[0-9a-fA-F]{3,8}\b/); expect(c).not.toMatch(/rgba?\(/); });
-    const luvut = (KT.CSS + P.CSS).match(/var\(--[a-z0-9-]+/g).map((x) => x.slice(6)), sallitut = new Set(['teal', 'amber', 'red', 'ink', 'ink2', 'ink3', 'bg', 'bg3', 'border', 'ov-2', 'ov-4', 'ov-5', 'teal-brd', 'n', 'font-serif', 'font-mono', 'font-sans', 'kt-serif', 'amber-dim', 'on-accent']);
+    const luvut = (KT.CSS + P.CSS).match(/var\(--[a-z0-9-]+/g).map((x) => x.slice(6)), sallitut = new Set(['teal', 'amber', 'red', 'ink', 'ink2', 'ink3', 'bg', 'bg3', 'border', 'ov-2', 'ov-4', 'ov-5', 'teal-brd', 'n', 'font-serif', 'font-mono', 'font-sans', 'kt-serif', 'amber-dim', 'on-accent', 'fs-h1', 'fs-h2', 'fs-lead', 'fs-body', 'fs-meta', 'fs-eb']);
     expect([...new Set(luvut)].filter((x) => !sallitut.has(x))).toEqual([]);
   });
-  it('mitat mockupista: yläotsikko DM Mono 11 px, otsikot Cormorant 24 px, taulukon teksti 13,5 px, otsikkosolut 11 px isoilla, kortti radius 6 · padding 12/14 · gap 8', () => {
-    expect(KT.CSS).toMatch(/\.kt-eb\{font-family:var\(--font-mono\);font-size:11px;letter-spacing:\.16em;text-transform:uppercase/);
-    expect(KT.CSS).toMatch(/\.kt-sig-h\{font-family:var\(--kt-serif\);font-size:24px/);
+  it('mitat mockupista: yläotsikko DM Mono --fs-eb, otsikot Cormorant --fs-h2, taulukon teksti --fs-body, otsikkosolut --fs-meta nimikkeinä (D169), kortti radius 6 · padding 12/14 · gap 8', () => {
+    expect(KT.CSS).toMatch(/\.kt-eb\{font-family:var\(--font-mono\);font-size:var\(--fs-eb,11px\);letter-spacing:\.12em;text-transform:uppercase/);
+    expect(KT.CSS).toMatch(/\.kt-sig-h\{font-family:var\(--kt-serif\);font-size:var\(--fs-h2,26px\)/);
     expect(KT.CSS).toMatch(/\.kt-sig\{[^}]*border-radius:6px;padding:12px 14px;display:grid;gap:8px/); expect(KT.CSS).toMatch(/\.kt-ev\{[^}]*border-radius:6px[^}]*gap:8px;padding:12px 14px/);
-    expect(P.CSS).toMatch(/table\.pt\{[^}]*font-size:13\.5px/); expect(P.CSS).toMatch(/table\.pt th\{[^}]*font-size:11px;letter-spacing:\.08em;text-transform:uppercase/);
-    expect(P.CSS).toMatch(/\.pv\{[^}]*font-family:var\(--font-serif\);font-size:22px/);
+    expect(P.CSS).toMatch(/table\.pt\{[^}]*font-size:var\(--fs-body,14px\)/); expect(P.CSS).toMatch(/table\.pt th\{[^}]*font-size:var\(--fs-meta,12\.5px\);letter-spacing:0;text-transform:none/);
+    expect(P.CSS).toMatch(/\.pv\{[^}]*font-family:var\(--font-sans\);font-size:var\(--fs-lead,16px\);line-height:1\.3;font-weight:600;font-variant-numeric:tabular-nums/);
   });
   it('muotomerkit: ● teal ▲ amber ■ red ○ harmaa, aina luvun kanssa', () => {
     expect(P.CSS).toMatch(/\.pv\.ok i\{color:var\(--teal\)\}.*\.pv\.w,\.tmp \.pv\.w i\{color:var\(--amber\)\}.*\.pv\.err,\.tmp \.pv\.err i\{color:var\(--red\)\}.*\.pv\.n i\{color:var\(--ink3\)\}/);

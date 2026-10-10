@@ -56,3 +56,22 @@ Briefit: `docs/CODE_BRIEF_DESIGN_V2_T1_KONTRASTI.md`, `docs/CODE_BRIEF_KENTTA_K0
 - §7.22 (pelaajalle ei tasolukuja eikä vertailua), §11 (Firestore vain additiivisesti), §31 (mitali vain kokonaisajasta), terveystieto vain `terveys/`.
 - Kaikki uudet tekstit `tm_lang`-avaimiksi, sv-käännökset odotuslistalle (Gemini).
 - Avoimet päätökset (07) ratkaisevat osan näkymistä: tarkista tila projektikartasta ennen toteutusta.
+
+
+## D169 · Typografia ja sävyt (kuuden portaan asteikko) — kaikki uudet näkymät
+SSOT: `33_koti_vaiheet_laatuportti.html` §6 ja CSS-lohko "D169". Koskee myös mockupin 22 komponentteja (`.kt-*`): koot `--fs-*`-tokenien kautta (40/32 · 26 · 16 · 14 · 12,5 · 11), DM Mono vain osioiden yläotsikoissa (`.kt-eb`), luvut DM Sans 600 tasalevyisinä, merkityksellinen meta `--ink2`, nimikkeet `--ink3`.
+
+| Elementti | Fontti | Koko | Sävy |
+|---|---|---|---|
+| Sivun otsikko (havainto) | Cormorant 400 | `--fs-h1` (mobiili 32) | `--ink` |
+| Kortin otsikko, iso luku, joukkuekortin tunniste, käynnistysaskeleen luku | Cormorant 500 | `--fs-h2` | `--ink` (amber vain poikkeamassa) |
+| Tulkintalause | DM Sans 400 | `--fs-lead` | `--ink2` |
+| **Luvut riveillä ja korteissa** (Katsaus, Käyttö, rivin tunniste) | **DM Sans 600, `font-variant-numeric: tabular-nums`** | `--fs-lead` | `--ink`, amber poikkeamassa |
+| Rivit, leipäteksti, napit, linkit, sivupalkki | DM Sans 400/600 | `--fs-body` | `--ink` / linkit `--teal` |
+| **Merkityksellinen meta** (päivä, tavoite, otos, "vk 3/6", oikean palstan päivä) | DM Sans 400 | `--fs-meta` | **`--ink2`** |
+| **Nimikkeet** (Katsaus, Käyttö 7 pv, rivin aihe "Viesti · P13") | DM Sans 400, ei isoja kirjaimia | `--fs-meta` | `--ink3` |
+| **Osioiden yläotsikot** ("Tällä viikolla") | **DM Mono, ainoa DM Mono -käyttö**, isot kirjaimet, väli .12em | `--fs-eb` | `--teal` |
+| Signaalikortin alarivi (Kuittaa · Ensi viikolla) | DM Sans | `--fs-body` | **`--ink2`** (ei ink3: kontrasti 3,8 → 7,9) |
+| Tagit (joukkuetunnisteet) | DM Sans (ei Mono) | `--fs-meta` | `--ink2` |
+
+Säännöt: ei luettavaa tekstiä alle 12,5 px; DM Mono ei rivien luvuissa, päivissä, tageissa eikä nimikkeissä; teal-teksti vain ≥ 12,5 px; ei uusia värejä eikä hex-arvoja (vain tokenit); yksi täytetty nappi per näkymä (D147). Portti: `tests/ui_laatuportti.test.js` (koot, DM Mono vain `.kt-eb`, kielletyt tekstit, fixture-tilat `tests/fixtures/vp/`); kuvat: `node scripts/ui_kuvat.mjs` → `docs/ui-kuvat/<haara>/`.
