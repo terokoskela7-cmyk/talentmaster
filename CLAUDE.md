@@ -127,7 +127,8 @@ rgba(42,93,176,X)=--blue · rgba(40,176,144,X)=--teal
   | Kortin otsikko, iso luku, joukkuekortin tunniste, käynnistysaskeleen luku | Cormorant 500 | `--fs-h2` | `--ink` (amber vain poikkeamassa) |
   | Tulkintalause | DM Sans 400 | `--fs-lead` | `--ink2` |
   | **Luvut riveillä ja korteissa** (Katsaus, Käyttö, rivin tunniste) | **DM Sans 600, `font-variant-numeric: tabular-nums`** | `--fs-lead` | `--ink`, amber poikkeamassa |
-  | Rivit, leipäteksti, napit, linkit, sivupalkki | DM Sans 400/600 | `--fs-body` | `--ink` / linkit `--teal` |
+  | **Listan alkion otsikko** (ehdotus, huomio) | **DM Sans 600** | `--fs-lead` | `--ink` |
+| Rivit, leipäteksti, napit, linkit, sivupalkki | DM Sans 400/600 | `--fs-body` | `--ink` / linkit `--teal` |
   | **Merkityksellinen meta** (päivä, tavoite, otos, "vk 3/6", oikean palstan päivä) | DM Sans 400 | `--fs-meta` | **`--ink2`** |
   | **Nimikkeet** (Katsaus, Käyttö 7 pv, rivin aihe "Viesti · P13") | DM Sans 400, ei isoja kirjaimia | `--fs-meta` | `--ink3` |
   | **Osioiden yläotsikot** ("Tällä viikolla") | **DM Mono, ainoa DM Mono -käyttö**, isot kirjaimet, väli .12em | `--fs-eb` | `--teal` |
