@@ -272,6 +272,16 @@ describe('harva data: tyhjät joukkueet pois, nauha, ryhmittely, kooste-kaista, 
     expect(m.kortit.jaksolla.b).toBe(2); expect(m.nauha).toHaveLength(2); expect(m.palaveri.yht).toBe(2); expect(m.mittaus.yht).toBe(2); expect(m.aikajana.rivit.map((r) => r.nimi)).not.toContain('KPV T8');
     expect(TT.tmTilanneHTML(m, { t: (x) => x })).not.toContain('T8');
   });
+  it('PELAAJIA EI VIELÄ LADATTU (env.pelaajat tyhjä): joukkueita ei rajata pelaajamäärällä — koosteen r.n ratkaisee, ei 0/0; kun pelaajat latautuvat, jäsenyys ratkaisee', () => {
+    const rivi = (jid, n) => ({ jid, nimi: 'KPV ' + jid.toUpperCase(), ikaNum: 12, ikavaihe: 'rakentaja', n, pieni: false, leikkija: false, jakso: { voimassa: true, nimi: 'X' }, jaksoVk: null, nKatselmusAuki: 0, katselmusPv: null });
+    const base = (pelaajat) => ({ nytMs: NYT, pelaajat, joukkueDocs: [], pulssi: { malli: { rivit: [rivi('p13', 14), rivi('t14', 9), rivi('t8', 0)], seura: {} }, koosteet: [] }, fn: { pelaajanJoukkueet: (p) => p.joukkueet || [] } });
+    const tyhja = TT.tmTilanneSyote(base([])), m = TT.tmTilanneMalli(tyhja);
+    expect(tyhja.joukkueet.map((j) => [j.jid, j.n])).toEqual([['p13', 14], ['t14', 9]]);   // koosteen määrät; kooste-T8 (0) pois edelleen
+    expect(m.kortit.jaksolla).toMatchObject({ a: 2, b: 2 }); expect(m.nauha).toHaveLength(2); expect(teksti(TT.tmTilanneHTML(m, { t: (x) => x }))).not.toContain('0/0');
+    expect(TT.tmTilanneSyote({ ...base(undefined), pelaajat: undefined }).joukkueet).toHaveLength(2);   // puuttuva lista = sama kuin tyhjä
+    const ladattu = TT.tmTilanneSyote(base([{ id: 'a', joukkueet: ['p13'] }]));   // pelaajat latautuneet → jäsenyys: t14:ssä ei jäseniä → pois
+    expect(ladattu.joukkueet.map((j) => [j.jid, j.n])).toEqual([['p13', 1]]);
+  });
   it('ilman jäsenyysfunktiota (vanha kutsuja) → koosteen n_pelaajat ratkaisee: 0 pelaajaa = pois', () => {
     const rivi = (jid, n) => ({ jid, nimi: jid, ikaNum: 12, ikavaihe: 'rakentaja', n, pieni: false, leikkija: false, jakso: { voimassa: false }, jaksoVk: null, nKatselmusAuki: 0, katselmusPv: null });
     expect(TT.tmTilanneSyote({ nytMs: NYT, pulssi: { malli: { rivit: [rivi('a', 0), rivi('b', 5)], seura: {} } } }).joukkueet.map((j) => j.jid)).toEqual(['b']);
