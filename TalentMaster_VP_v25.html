@@ -141,6 +141,7 @@ window.TM_KAAVIO_HOST = {
 <script src="lib/tm_kentta.js?v=3"></script>   <!-- K0/V4a: Kenttä-komponentti (Archivo vain .kt:n sisällä) -->
 <script src="lib/tm_tanaan_kentta.js?v=3"></script>   <!-- V4a: tmTanaanOsat (Tänään-osat sanoin) -->
 <script src="lib/tm_hash_reititin.js?v=1"></script>   <!-- V4a: #pelaaja/{pid}/… -reititin (vain lipulla) -->
+<script src="lib/tm_vp_tilanne.js?v=1"></script>   <!-- S2c PR 1: Tilanne = kausi (D123) — malli + HTML libissä -->
 <script src="lib/tm_kt_komponentit.js?v=1"></script>   <!-- mockup 22 jaetut komponentit (.kt-sig, .kt-btn, .kt-eb, .kt-q3, .kt-ev) — YKSI CSS-paikka (Kehitystyöpöytä + Seuran pulssi) -->
 <script src="lib/tm_kehitystyopoyta.js?v=13"></script>   <!-- V4a: Kehitystyöpöytä V4 -kehys -->
 <script src="lib/tm_kehityssilmukka.js?v=2"></script>   <!-- R6.2a: katselmus yhteen paikkaan (tmKirjaaKatselmus) + jaksofokuksen kirjoitusydin -->
@@ -2599,6 +2600,7 @@ textarea.jsp-rv-inp { resize: vertical; min-height: 44px; }
 }
 /* Placeholder-teksti luettavaksi (WCAG) — globaali, ei selaimen oletushimmennystä */
 input::placeholder, textarea::placeholder { color: var(--ink3); opacity: 1; }
+#tilanneKausi,#tilanneLiite{display:none}#ws-tilanne.tt-uusi>*{display:none}#ws-tilanne.tt-uusi>#tilanneKausi,#ws-tilanne.tt-uusi>#tilanneLiite{display:block}   /* S2c: Tilanne = kausi (vain Kenttä-lippu) */
 </style>
 </head>
 <body>
@@ -2838,6 +2840,12 @@ input::placeholder, textarea::placeholder { color: var(--ink3); opacity: 1; }
     </div>
 
     <div class="ws-view" id="ws-tilanne">
+      <div id="tilanneKausi"></div>   <!-- S2c: Tilanne = kausi (Kenttä-lippu); vanha sisältö piiloon .tt-uusi:lla -->
+      <div id="tilanneLiite">
+        <details class="tt-det" id="tilanneRaportitDet" style="margin-top:10px"><summary data-i18n="Esityslistan liitteet · Raportointi">Esityslistan liitteet · Raportointi</summary><div id="tilanneRaportit"></div></details>
+        <details class="tt-det" id="tilanneSeurantaDet" style="margin-top:10px"><summary data-i18n="Seuranta · katselmusrytmi ja jakson sulku">Seuranta · katselmusrytmi ja jakson sulku</summary><div id="tilanneSeuranta"></div></details>
+        <details class="tt-det" id="tilanneJaksofokusDet" style="margin-top:10px"><summary data-i18n="Jaksofokukset">Jaksofokukset</summary><div id="tilanneJaksofokus"></div></details>
+      </div>
       <div class="tm-greeting">
         <div class="greeting-label"><span class="live-dot"></span><span id="greeting-status" data-i18n="TILANNE · LIVE">TILANNE · LIVE</span></div>
         <h1 class="greeting-text"><span id="greeting-tervehdys">Hyvää päivää</span>, <em id="greeting-name"></em>.</h1>
@@ -4176,6 +4184,7 @@ function _kpiTestitKonteksti() {
 function _tilanneRenderKerrokset() {
   var pino = document.getElementById('tilannePaatospino');
   if (!pino || typeof _vpSignaaliKortit !== 'function') return;
+  if (_vpTilanneUusi()) { _vpPaivitaToimenpideLaskuri(); _vpTilanneKausi(); return; }   // S2c: Tilanne = kausi (D123) — vanha pino/tervehdys/Kriittiset signaalit ei piirry
   var sig = _vpSignaaliKortit();
   var kortit = sig.kortit || [];
 
@@ -21422,6 +21431,43 @@ function _renderKotiPulssi(el) {
   _vpPulssiLataa().then(function (r) { S.sid = _seuraId; S.koosteet = r.koosteet; S.ensin = r.ensin; S.kuittaukset = r.kuittaukset; S.ladattu = Date.now(); piirra(); })
     .catch(function (e) { console.warn('[pulssi]', e && e.message); (window._vpPulssiVirhe = window._vpPulssiVirhe || {})[_seuraId] = true; renderKotiVP(); });   // ei lukuoikeutta (esim. valmentaja) → Koti ennallaan
 }
+/* ═══ S2c PR 1: Tilanne = kausi (docs/CODE_BRIEF_S2C_TILANNE_NAVI.md, D123; lib/tm_vp_tilanne.js) — vain Kenttä-lipun seurat; kuoressa vain kytkentä ═══ */
+function _vpTilanneUusi() { const lp = window._vpLiput && window._vpLiput[_seuraId]; return !!(lp && lp.kentta === true && window.TM_VP_TILANNE && window.TM_SEURAN_PULSSI && !window._vpPulssiVirhe_t); }
+function _vpTilanneKausi() {
+  const el = document.getElementById('tilanneKausi'), ws = document.getElementById('ws-tilanne'); if (!el || !ws) return;
+  ws.classList.add('tt-uusi'); window.TM_KT_KOMPONENTIT.tmKtKomponentitLisaa(document);
+  if (!document.getElementById('tmVpTilanneCss')) { const st = document.createElement('style'); st.id = 'tmVpTilanneCss'; st.textContent = window.TM_VP_TILANNE.CSS; document.head.appendChild(st); }
+  const S = window._vpPulssi = window._vpPulssi || {}, TT = window.TM_VP_TILANNE;
+  const piirra = function () {
+    const nyt = Date.now(), g = _talentitGemEhdokkaat();
+    S.malli = window.TM_SEURAN_PULSSI.tmPulssiRivit(S.koosteet, { nytMs: nyt, ensimmainenVk: S.ensin, katselmusPv: _vpKatselmusPv(), jaksoVk: _vpJaksoVk() });
+    const ehd = _vpEhdotusLista((_toimenpiteet || []).filter(function (t) { return !window.TM_KOTI_LUVUT.ehdotusVanhentunut(t.luotu, nyt); })).map(function (e) { return { ids: e.ids, teksti: e.teksti, luotu: e.luotu, signaali: e.signaali }; });
+    const sy = TT.tmTilanneSyote({ nytMs: nyt, pelaajat: _pelaajat || [], joukkueDocs: _vpJoukkueDocs, kalenteri: _kalenteriTapahtumat, tapahtumat: _tapahtumat, ehdotukset: ehd, idpN: (_idpJono || []).length, pulssi: S, kausiAlkuMs: _laskeKausi(new Date()).alku.getTime(),
+      fn: { ryhmittely: _pRyhmiteltyJoukkueittain, poikkeamat: laskeJoukkuePoikkeamat, ikaSp: _jsvJoukkueIkaSp, hiddenGem: function () { return { ehdokkaat: g.ehdokkaat.length, odottaa: g.odottaa.phv_puuttuu + g.odottaa.alaraja }; }, raeJakauma: raeJoukkueJakauma, raeQ: function (p) { return (raeChip(p) || {}).q; } } });
+    const m = window._vpTilanneMalli = TT.tmTilanneMalli(sy), ko = { t: vpT, esc: _jsvEsc, teksti: vpTToimenpide, fn: { joukkue: 'avaaJoukkueSyvanakyma', testijakso: 'avaaUusiTestiModaali', esityslista: '_vpTilanneEsityslista', hyvaksy: '_kuittaaToimenpide', muokkaa: '_muokkaaToimenpide', hylkaa: '_hylkaaToimenpide', ryhmat: '_vpTilanneRyhmat', rae: '_vpTilanneRae' } };
+    window._vpTilanneKo = ko; el.innerHTML = TT.tmTilanneHTML(m, ko); _vpTilanneSiirraTyotilat();
+  };
+  if (S.sid === _seuraId && S.koosteet && Date.now() - S.ladattu < 60000) { piirra(); return; }
+  el.innerHTML = '<div class="tt"><div class="kt-sig n"><div class="kt-sig-why">' + _jsvEsc(vpT('Ladataan pulssia…')) + '</div></div></div>';
+  _vpPulssiLataa().then(function (r) { S.sid = _seuraId; S.koosteet = r.koosteet; S.ensin = r.ensin; S.kuittaukset = r.kuittaukset; S.ladattu = Date.now(); piirra(); })
+    .catch(function (e) { console.warn('[tilanne]', e && e.message); window._vpPulssiVirhe_t = true; ws.classList.remove('tt-uusi'); _tilanneRenderKerrokset(); });   // ei lukuoikeutta → vanha Tilanne
+}
+function _vpTilanneSiirraTyotilat() {   // Raportointi, Seuranta ja Jaksofokus siirretään (appendChild, ei uudelleenrenderöintiä) esityslistan liitteiksi — mikään toiminto ei katoa
+  [['ws-raportointi', 'tilanneRaportit'], ['ws-reviewit', 'tilanneSeuranta'], ['ws-jaksofokus', 'tilanneJaksofokus']].forEach(function (p) { const a = document.getElementById(p[0]), b = document.getElementById(p[1]); if (a && b) while (a.firstChild) b.appendChild(a.firstChild); });
+}
+function _vpTilanneAvaa(vanhaWs) {   // vanha työtila → oikea ankkuri Tilanteessa
+  const id = { reviewit: 'tilanneSeurantaDet', jaksofokus: 'tilanneJaksofokusDet', raportointi: 'tilanneRaportitDet' }[vanhaWs], d = id && document.getElementById(id);
+  if (d) { d.open = true; d.scrollIntoView({ block: 'start' }); }
+}
+window._vpTilanneEsityslista = function () {
+  const m = window._vpTilanneMalli, el = document.getElementById('tilanneEsityslista'); if (!m || !el) return;
+  if (el.innerHTML) { el.innerHTML = ''; return; }
+  const kortit = (typeof _vpSignaaliKortit === 'function' ? _vpSignaaliKortit().kortit : []).filter(function (k) { return k.sev === 'var(--teal)'; }).map(function (k) { return String(k.txt).replace(/<[^>]+>/g, ''); });
+  el.innerHTML = '<div class="kt-ev" style="gap:10px">' + window.TM_VP_TILANNE.tmTilanneEsityslistaHTML(m, kortit, window._vpTilanneKo) + '</div>';
+  const d = document.getElementById('tilanneRaportitDet'); if (d) d.open = true;
+};
+window._vpTilanneRyhmat = function () { setWs('ryhmat'); };
+window._vpTilanneRae = function () { setWs('pelaajat'); };
 window._vpPulssiKuittaa = async function (avain, tila) {   // PR 2 (D124): Kuittaa / Ensi viikolla → seurat/{s}/toimenpiteet/pulssi_{signaali}_{joukkue}; laskuri päivittyy heti
   const T = window.TM_SEURAN_PULSSI, S = window._vpPulssi, s = S && S.malli && S.malli.signaalitKaikki ? S.malli.signaalitKaikki.filter(function (x) { return x.avain === avain; })[0] : null;
   if (!s) return;
@@ -21653,6 +21699,12 @@ window._ryArkistoi = async function (id) { if (!confirm(vpT(window.TM_RYHMAT.FI.
 window._ryPalauta = async function (id) { await _ryKirjoita(id, { aktiivinen: true }, vpT(window.TM_RYHMAT.FI.ry_palautettu_toast)); };
 
 function setWs(ws) {
+  const _alkuWs = ws;   // vanha avain (Aloita tästä -checklist merkitsee käydyksi alkuperäisen)
+  if (_vpTilanneUusi() && (ws === 'reviewit' || ws === 'jaksofokus' || ws === 'raportointi')) {   // S2c: Seuranta, Jaksofokus ja Raportointi sulautuvat Tilanteeseen (D135); vanhat avaimet ohjautuvat — ENNEN murupolkua, jotta se näyttää "Tilanne"
+    if (ws === 'reviewit' && typeof renderReviewit === 'function') renderReviewit();
+    if (ws === 'jaksofokus' && typeof renderJaksofokus === 'function') renderJaksofokus();
+    ws = 'tilanne'; setTimeout(function () { _vpTilanneAvaa(_alkuWs); }, 0);
+  }
   _currentWs = ws;
   /* Murupolku seuraa aktiivista työtilaa (oli kiinteä "Tilanne" myös Kodissa). Nimi luetaan sivupalkin kohdasta → yksi lähde, kieli seuraa. */
   try {
@@ -21660,7 +21712,7 @@ function setWs(ws) {
     if (_sbRivi) Array.prototype.forEach.call(_sbRivi.querySelectorAll('span'), function (sp) { if (_bcAvain == null && sp.dataset.i18n) _bcAvain = sp.dataset.i18n; });
     if (_bcEl && _bcAvain) { _bcEl.setAttribute('data-i18n', _bcAvain); _bcEl.textContent = vpT(_bcAvain); }
   } catch (e) {}
-  try { if (ws === 'koti' || ws === 'raportointi' || ws === 'valmentajat' || ws === 'pelaajat') localStorage.setItem('tm_vp_visited_' + ws, '1'); } catch (e) {}   // Aloita tästä -checklist (visited)
+  try { if (_alkuWs === 'koti' || _alkuWs === 'raportointi' || _alkuWs === 'valmentajat' || _alkuWs === 'pelaajat') localStorage.setItem('tm_vp_visited_' + _alkuWs, '1'); } catch (e) {}   // Aloita tästä -checklist (visited)
   if (ws === 'koti') renderKotiVP();
   if (ws === 'koti' || ws === 'tilanne') _vpaPaivitaTapahtumat();   // opas päivittyy testin luonnista
   if (ws === 'reviewit' && typeof renderReviewit === 'function') renderReviewit();
@@ -22391,8 +22443,7 @@ function renderTalentitLohko() {
 }
 
 // OSA C — Hidden Gem -ehdokkaat (aliarvioidut, ei vielä talenttiohjelmassa). Piilotettu jos 0. Ei muokkaa statusta.
-function _talentitGemLohko() {
-  if (typeof laskeHiddenGem !== 'function') return '';
+function _talentitGemEhdokkaat() {   // jaettu: vanha Talentit-lohko + Tilanne = kausi (§28-portti yhdessä paikassa)
   const odottaa = { phv_puuttuu: 0, alaraja: 0 };
   const ehdokkaat = (_pelaajat || []).filter(function(p){
     if (p.talenttiOhjelma === true) return false;
@@ -22405,6 +22456,11 @@ function _talentitGemLohko() {
     if (!portti.sallittu) { odottaa[portti.syy]++; return false; }
     return true;
   });
+  return { ehdokkaat: ehdokkaat, odottaa: odottaa };
+}
+function _talentitGemLohko() {
+  if (typeof laskeHiddenGem !== 'function') return '';
+  const _g = _talentitGemEhdokkaat(), ehdokkaat = _g.ehdokkaat, odottaa = _g.odottaa;
   if (!ehdokkaat.length && !odottaa.phv_puuttuu && !odottaa.alaraja) return '';
   const _huomRivit = (odottaa.phv_puuttuu ? '<div class="tal-selite">' + odottaa.phv_puuttuu + ' ' + vpT('mahdollista ehdokasta odottaa PHV-mittausta') + '</div>' : '')
     + (odottaa.alaraja ? '<div class="tal-selite">' + odottaa.alaraja + ' ' + vpT('ehdokasta: D1 asteikon alarajalla (1,0) — tarkista mittaus') + '</div>' : '');
@@ -22947,19 +23003,23 @@ function _tpKorttiHtml(g) {
   return h;
 }
 
+function _vpEhdotusLista(tuoreet) {   // dedupattu + prioriteettijärjestys (vanha lista ja Tilanne = kausi)
+  return dedupToimenpiteet(tuoreet).sort(function(a,b){
+    const pa = (TP_PRIO_META[SIGNAALI_PRIORITEETTI[a.signaali] || 'suunnittele'] || {}).jarj;
+    const pb = (TP_PRIO_META[SIGNAALI_PRIORITEETTI[b.signaali] || 'suunnittele'] || {}).jarj;
+    return (pa == null ? 9 : pa) - (pb == null ? 9 : pb);
+  });
+}
 function renderToimenpiteet() {
   const cont = document.getElementById('toimenpiteet-lista');
   if (!cont) return;
   /* D134: Tilanteeseen enintään 5 ehdotusta; kuittaamaton vanhenee 14 pv:ssä (piiloon, ei poistoa — ks. lataaAvoimetToimenpiteet). */
   const LU = window.TM_KOTI_LUVUT, nytMs = Date.now();
   const tuoreet = _toimenpiteet.filter(function(t){ return !LU.ehdotusVanhentunut(t.luotu, nytMs); });
+  if (_vpTilanneUusi()) { _vpTilanneKausi(); }   // S2c: Tilanne = kausi piirtää ehdotukset itse
   if (!tuoreet.length) { cont.innerHTML = '<div class="tp-tyhja">' + vpT('Ei avoimia toimenpiteitä — hyvä työ.') + '</div>'; return; }
 
-  const dedupKaikki = dedupToimenpiteet(tuoreet).sort(function(a,b){
-    const pa = (TP_PRIO_META[SIGNAALI_PRIORITEETTI[a.signaali] || 'suunnittele'] || {}).jarj;
-    const pb = (TP_PRIO_META[SIGNAALI_PRIORITEETTI[b.signaali] || 'suunnittele'] || {}).jarj;
-    return (pa == null ? 9 : pa) - (pb == null ? 9 : pb);
-  });
+  const dedupKaikki = _vpEhdotusLista(tuoreet);
   const raja = LU.rajaaEhdotukset(dedupKaikki, LU.TILANNE_MAX_EHDOTUKSET), dedup = raja.nakyvat;
 
   let lyhyt = '', edPrio = null;
