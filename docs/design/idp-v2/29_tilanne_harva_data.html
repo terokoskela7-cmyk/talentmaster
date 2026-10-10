@@ -117,7 +117,7 @@ b{font-weight:600;color:var(--ink)}
  <div style="display:grid;gap:10px;flex:1 1 320px;min-width:0">
   <span class="eb">TalentMaster™ · 29 · Tilanne harvalla datalla</span>
   <h1>Tyhjä näyttää suunnan, ei listaa.</h1>
-  <p>Jatko mockupille 25. KPV:n oikealla datalla (10.10.) Tilanne listasi 16 joukkuetta tekstinä ja näytti aikajanalla 16 tyhjää riviä, koska jakso on vain P13:lla. Tämä on pilotin tavallinen tila, ei poikkeus. Ratkaisu: <b>joukkuenauha</b> (yksi segmentti per joukkue), <b>ryhmittely tilan mukaan</b> ja <b>kooste-kaista</b> aikajanalla. Tyhjä tila päättyy toimintoon, joka on jo olemassa: joukkoaloitus (J4). Demodata, ei nimiä.</p>
+  <p>Jatko mockupille 25. KPV:n oikealla datalla (10.10.) Tilanne listasi 16 joukkuetta tekstinä ja näytti aikajanalla 16 tyhjää riviä, koska jakso on vain P13:lla. Tämä on pilotin tavallinen tila, ei poikkeus. Ratkaisu: <b>joukkuenauha</b> (yksi segmentti per joukkue), <b>ryhmittely tilan mukaan</b> ja <b>kooste-kaista</b> aikajanalla. Tyhjä tila päättyy toimintoon, joka on jo olemassa: joukkueen jakson aloitus joukkueen näkymässä (J2). Demodata, ei nimiä.</p>
  </div>
  <button class="tbtn" id="theme" type="button">Vaihda teema</button>
 </header>
@@ -154,7 +154,7 @@ b{font-weight:600;color:var(--ink)}
   <div class="ev"><span class="eb">Joukkuenauha</span><div class="why">Yksi segmentti per joukkue ikäjärjestyksessä: <b>täytetty</b> = jakso käynnissä ja katselmukset ajallaan, <b>ääriviiva amber</b> = jakso kesken / katselmus odottaa, <b>katkoviiva</b> = ei jaksoa. Määrä näkyy ilman yhtään nimeä, ja sama nauha toistuu kortissa ja jaksopalaverissa. Ei uutta väriä eikä tokenia.</div></div>
   <div class="ev"><span class="eb">Ryhmittely tilan mukaan</span><div class="why">Nimet näytetään lyhyinä tunnisteina (P13, T14) ryhmissä Valmiina · Kesken · Ei jaksoa. Yli kuuden tunnisteen ryhmä tiivistyy: kuusi ensimmäistä + "+10". Klikkaus avaa ryhmän.</div></div>
   <div class="ev"><span class="eb">Kooste-kaista</span><div class="why">Aikajanalla vain joukkueet, joilla on jakso, omina riveinään. Muut yhdellä vinoviivoitetulla kaistalla, jonka tunnisteet ovat klikattavia. Kun jaksoja ei ole yhtään, kaista on ainoa rivi ja sen toiminto on "Aloita jaksot".</div></div>
-  <div class="ev"><span class="eb">Tyhjä päättyy toimintoon</span><div class="why">Pilotissa tärkein asia on aloittaa jaksot. Jaksopalaverin ja kaistan toiminto avaa olemassa olevan joukkoaloituksen (J4) valmiiksi rajattuna jaksottomiin joukkueisiin. Kun valtaosalla on jakso, toiminto vaihtuu "Avaa esityslista".</div></div>
+  <div class="ev"><span class="eb">Tyhjä päättyy toimintoon</span><div class="why">Pilotissa tärkein asia on aloittaa jaksot. Jaksopalaverin ja kaistan toiminto avaa jaksottomien joukkueiden ryhmän; tunnisteesta pääsee joukkueen näkymään, jossa jakso aloitetaan (J2). Yksi jaksoton joukkue avautuu suoraan. Kun valtaosalla on jakso, toiminto vaihtuu "Avaa esityslista".</div></div>
  </div>
  <div class="note">Tyhjät joukkueet (0 pelaajaa, esim. T8 ja U8) eivät ole nauhassa, kaistalla eivätkä luvuissa. Ne näkyvät vain Joukkueet ja ryhmät -sivulla merkinnällä "ei pelaajia".</div>
 </section>
@@ -165,7 +165,7 @@ b{font-weight:600;color:var(--ink)}
   <div><span class="n">D143</span><span><b>Joukkuenauha.</b> Joukkueiden tila esitetään nauhana (segmentti per joukkue, ikäjärjestys, kolme tilaa muodolla eikä vain värillä). Käytetään Jaksolla-kortissa ja jaksopalaverissa. Nimiä ei listata tekstinä.</span></div>
   <div><span class="n">D144</span><span><b>Ryhmittely ja tiivistys.</b> Joukkueet ryhmitellään tilan mukaan lyhyinä tunnisteina; yli 6 → "+N", klikkaus avaa. Koskee jaksopalaveria ja kaikkia vastaavia "kesken"-listoja.</span></div>
   <div><span class="n">D145</span><span><b>Aikajanan kooste-kaista.</b> Jaksottomat joukkueet yhdellä kaistalla tunnisteina; omat rivit vain joukkueille, joilla on jakso. Tyhjät joukkueet (0 pelaajaa) pois kaikista Tilanteen luvuista.</span></div>
-  <div><span class="n">D146</span><span><b>Tyhjä tila = toiminto.</b> Kun alle puolella joukkueista on jakso, jaksopalaverin ja kaistan päätoiminto on "Aloita jaksot" (joukkoaloitus J4, rajattu jaksottomiin). Muuten "Avaa esityslista".</span></div>
+  <div><span class="n">D146</span><span><b>Tyhjä tila = toiminto.</b> Kun alle puolella joukkueista on jakso, jaksopalaverin ja kaistan päätoiminto on "Aloita jaksot": avaa jaksottomien ryhmän, ja tunnisteesta joukkueen näkymään (J2). Ei joukkoaloitusta: J4 aloittaa pelaajien jaksot, ei joukkueiden. Muuten "Avaa esityslista".</span></div>
  </div>
 </section>
 </div>
@@ -204,7 +204,7 @@ function jp(){
  if(n)h+='<div class="jp-r"><span class="chip n">Ei jaksoa '+n+'</span><span class="nimet">'+tagit('n',AUKI.n?99:6)+'</span></div>';
  h+='</div>';
  h+='<div class="row">'+(vahan?'<button class="btn" type="button">Aloita jaksot '+n+' joukkueelle</button><button class="btn g sm" type="button">Avaa esityslista</button>':'<button class="btn" type="button">Avaa esityslista</button>')+'</div>';
- h+='<div class="second">'+(vahan?'Joukkoaloitus avautuu valmiiksi rajattuna jaksottomiin joukkueisiin. Valmentaja vahvistaa teeman omalle joukkueelleen.':'Esityslista kokoaa jaksojen tulokset, poikkeamat, ehdotukset ja onnistumiset.')+'</div></div>';
+ h+='<div class="second">'+(vahan?'Valitse joukkue tunnisteesta ja aloita jakso joukkueen näkymässä. Valmentaja vahvistaa teeman omalle joukkueelleen.':'Esityslista kokoaa jaksojen tulokset, poikkeamat, ehdotukset ja onnistumiset.')+'</div></div>';
  return h;
 }
 var VK=[37,38,39,40,41,42,43,44,45,46,47,48,49,50],NYT=41;
