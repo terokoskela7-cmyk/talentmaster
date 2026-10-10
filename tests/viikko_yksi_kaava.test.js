@@ -61,3 +61,56 @@ describe('vartija: ei omia viikkokaavoja sovelluksissa eikä libeissä', () => {
     const m = readFileSync(join(juuri, 'TalentMaster_Master_v16.html'), 'utf8'); expect((m.match(/TM_VIIKKO\.tmIsoViikkoNro/g) || []).length).toBeGreaterThanOrEqual(2);
   });
 });
+
+/* ── D140 jatko: jokainen sivu, joka lataa viikkoa käyttävän kirjaston, lataa lib/tm_viikko.js:n ENNEN sitä; puuttuva TM_VIIKKO = KOVA virhe (ei paluuta vanhaan kaavaan) ── */
+describe('vartija: sivut lataavat tm_viikko.js:n ennen viikkoa käyttäviä kirjastoja', () => {
+  // Riippuvat kirjastot JOHDETAAN lähteistä: jokainen lib, jonka lähde viittaa tm_viikko.js:ään (ei kovakoodattua listaa → uusi riippuvuus punaistaa sivut automaattisesti)
+  const riippuvat = [].concat(readdirSync(join(juuri, 'lib')).filter((f) => /\.js$/.test(f) && f !== 'tm_viikko.js').map((f) => 'lib/' + f), ['harjoitelogiikka_v4.js'])
+    .filter((f) => readFileSync(join(juuri, f), 'utf8').indexOf('tm_viikko.js') >= 0);
+  const sivut = readdirSync(juuri).filter((f) => /\.html$/.test(f));   // juuren sivut; archive/ ei ole juuressa → pois
+  const skriptit = (html) => [...html.matchAll(/<script\b[^>]*\bsrc="([^"]+)"/g)].map((m) => m[1].split('?')[0]);
+  const rikkomukset = (html) => {
+    const s = skriptit(html), ensin = s.findIndex((x) => riippuvat.indexOf(x) >= 0 || riippuvat.some((r) => x.replace(/^\.\//, '') === r));
+    if (ensin < 0) return null;   // ei lataa riippuvia
+    const v = s.indexOf('lib/tm_viikko.js');
+    return v < 0 ? 'ei lataa lib/tm_viikko.js:ää' : v > ensin ? 'lataa tm_viikko.js:n vasta riippuvan kirjaston (' + s[ensin] + ') jälkeen' : null;
+  };
+  it('riippuvien kirjastojen lista on elävä ja kattaa vähintään nämä seitsemän', () => {
+    ['harjoitelogiikka_v4.js', 'lib/tm-methodology.js', 'lib/tm-microcycles.js', 'lib/tm_eerikkila_normit.js', 'lib/tm_kayttoaste.js', 'lib/tm_seuran_pulssi.js', 'lib/tm_vp_tilanne.js'].forEach((f) => expect(riippuvat, f).toContain(f));
+  });
+  it('jokainen juuren HTML-sivu joka lataa riippuvan kirjaston, lataa myös tm_viikko.js:n ja tekee sen ENSIN', () => {
+    const viat = []; let kayttajia = 0;
+    sivut.forEach((f) => { const r = rikkomukset(readFileSync(join(juuri, f), 'utf8')); if (r !== null || /<script\b[^>]*\bsrc="lib\/tm_viikko\.js/.test(readFileSync(join(juuri, f), 'utf8'))) kayttajia++; if (r) viat.push(f + ': ' + r); });
+    expect(viat).toEqual([]); expect(kayttajia).toBeGreaterThanOrEqual(9);   // Admin, Excel_Tuonti, Master, Pelaaja, Seura, Solo_Koti, Testaus_v9, Testituonti_Master, VP
+  });
+  it('mutaatiotodistus: sivu ilman tm_viikko.js:ää tai sen jälkeen jää kiinni', () => {
+    expect(rikkomukset('<script src="lib/tm_eerikkila_normit.js?v=1"></script>')).toContain('ei lataa');
+    expect(rikkomukset('<script src="lib/tm_eerikkila_normit.js?v=1"></script><script src="lib/tm_viikko.js?v=1"></script>')).toContain('vasta riippuvan');
+    expect(rikkomukset('<script src="lib/tm_viikko.js?v=1"></script><script src="lib/tm_eerikkila_normit.js?v=1"></script>')).toBeNull();
+    expect(rikkomukset('<script src="lib/tm_pvm.js"></script>')).toBeNull();
+  });
+  it('SW:n piirissä oleva sivu (Pelaaja_v7): tm_viikko.js allowlistissa ja välimuistiversio nostettu', () => {
+    const sw = readFileSync(join(juuri, 'sw_pelaaja.js'), 'utf8'); expect(sw).toContain("/lib/tm_viikko.js"); expect(sw).toMatch(/const CACHE = 'tm-pelaaja-v(9\d|\d{3})'/);
+  });
+});
+
+describe('puuttuva TM_VIIKKO = kova virhe, ei hiljaista väärää viikkoa', () => {
+  const vm = require('vm'), lue = (f) => readFileSync(join(juuri, f), 'utf8');
+  const ymp = (...tiedostot) => { const ctx = { console, Math, Date, JSON, Intl, Object, Array, String, Number, Promise, isNaN, parseInt }; ctx.window = ctx; vm.createContext(ctx); tiedostot.forEach((f) => vm.runInContext(lue(f), ctx, { filename: f })); return ctx; };
+  const VIESTI = /TM_VIIKKO puuttuu: lataa lib\/tm_viikko\.js/;
+  it('tm-methodology / harjoitelogiikka_v4 / tm_eerikkila_normit / tm_kayttoaste / tm_seuran_pulssi / tm_vp_tilanne heittävät selkeän virheen', () => {
+    expect(() => ymp('lib/tm-methodology.js').TM.metodologia._viikonNumero(new Date(2026, 9, 9))).toThrow(VIESTI);
+    expect(() => ymp('harjoitelogiikka_v4.js')._laskeViikonNro()).toThrow(VIESTI);
+    expect(() => ymp('lib/tm_phv_tila.js', 'lib/tm_eerikkila_normit.js')._haIsoViikko('2026-10-09')).toThrow(VIESTI);
+    expect(() => ymp('lib/tm_kayttoaste.js').TM_KAYTTOASTE.tmIsoViikko(Date.UTC(2026, 9, 9))).toThrow(VIESTI);
+    expect(() => ymp('lib/tm_seuran_pulssi.js').TM_SEURAN_PULSSI.viikkoLisaa('2026-W41', 1)).toThrow(VIESTI);
+    expect(() => ymp('lib/tm_vp_tilanne.js').TM_VP_TILANNE.viikkoNro(100)).toThrow(VIESTI);
+  });
+  it('tm-microcycles: kutsuu samaa tarkistavaa apuria (lähdetarkistus) eikä sisällä omaa kaavaa', () => {
+    const s = lue('lib/tm-microcycles.js'); expect(s).toContain('_tmViikko().tmIsoViikkoNro'); expect(s).toMatch(VIESTI);
+  });
+  it('kun TM_VIIKKO on ladattu, samat kutsut toimivat (kontrolli: virhe johtuu puuttuvasta libistä, ei rikkinäisestä kutsusta)', () => {
+    const c = ymp('lib/tm_viikko.js', 'lib/tm-methodology.js'); expect(c.TM.metodologia._viikonNumero(new Date(2026, 9, 9))).toBe(41);
+    expect(ymp('lib/tm_viikko.js', 'lib/tm_seuran_pulssi.js').TM_SEURAN_PULSSI.viikkoLisaa('2026-W53', 1)).toBe('2027-W01');
+  });
+});

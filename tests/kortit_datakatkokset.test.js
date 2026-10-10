@@ -287,7 +287,7 @@ describe('b) Pikakirjaus / Testaus_v9 / Testituonti tuottavat johdetut pikakent√
     }
     expect(lue('TalentMaster_Master_v16.html')).toContain('<script src="lib/tm_pikakentat.js?v=6"></script>');
     const tt = lue('TalentMaster_Testituonti_Master.html');
-    for (const l of ['lib/tm_pvm.js?v=4', 'lib/tm_eerikkila_normit.js?v=49']) expect(tt).toContain('<script src="' + l + '"></script>');
+    for (const l of ['lib/tm_pvm.js?v=4', 'lib/tm_eerikkila_normit.js?v=50']) expect(tt).toContain('<script src="' + l + '"></script>');
     for (const f of ['TalentMaster_Master_v16.html', 'TalentMaster_VP_v25.html', 'TalentMaster_Testaus_v9.html', 'TalentMaster_Testituonti_Master.html', 'TalentMaster_Pelaaja_v7.html', 'TalentMaster_Vanhempi_v2.html']) {
       expect(lue(f), f + ': ei vanhaa ?v:t√§').not.toMatch(/tm_pikakentat\.js\?v=[34]"|tm_tki_core\.js\?v=1"/);
     }

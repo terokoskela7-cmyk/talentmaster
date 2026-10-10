@@ -961,8 +961,9 @@ const PANKKI = {
    ═══════════════════════════════════════════════════════════════════ */
 
 function _laskeViikonNro() {
-  // ISO 8601 (lib/tm_viikko.js) — ei omaa kaavaa
-  const V = (typeof module !== 'undefined' && module.exports && typeof require === 'function') ? require('./lib/tm_viikko.js') : window.TM_VIIKKO;
+  // ISO 8601 (lib/tm_viikko.js) — ei omaa kaavaa. D140: KOVA virhe jos lib puuttuu (ei hiljaista väärää viikkoa).
+  const V = (typeof module !== 'undefined' && module.exports && typeof require === 'function') ? require('./lib/tm_viikko.js') : (typeof window !== 'undefined' ? window.TM_VIIKKO : null);
+  if (!V || typeof V.tmIsoViikkoNro !== 'function') throw new Error('TM_VIIKKO puuttuu: lataa lib/tm_viikko.js ENNEN harjoitelogiikka_v4.js:ää (D140: ei omaa viikkokaavaa)');
   return V.tmIsoViikkoNro(new Date());
 }
 
