@@ -35,6 +35,8 @@ function luoYmparisto(src, o) {
   if (o.liput !== undefined) ctx._vpLiput = { [ctx._seuraId]: o.liput };
   ctx.TM_KOTI_LUVUT = require('../../lib/tm_koti_luvut.js');
   if (!o.eiPulssia) ctx.TM_SEURAN_PULSSI = require('../../lib/tm_seuran_pulssi.js');
+  if (!o.eiPulssia) ctx.TM_VP_KOTI = require('../../lib/tm_vp_koti.js');
+  ctx._tapahtumat = o.tapahtumat || []; ctx._vpViestit = { rivit: o.viestit || [] }; ctx.TM_VP_NAVI = { tmNaviPikatoiminnot: () => [{ teksti: 'Uusi tapahtuma', fn: 'x' }] };   // PR D: Koti kulkee lib/tm_vp_koti.js:n kautta
   ctx.TM_ALOITA_JAKSO = require('../../lib/tm_aloita_jakso.js');
   ctx.TM_KAYTTOASTE = { tmKayttoasteLueKoosteet: async () => { if (o.lukuVirhe) throw new Error('permission-denied'); return o.koosteet || []; } };
   vm.createContext(ctx);

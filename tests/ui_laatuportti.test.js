@@ -9,14 +9,14 @@ import { readFileSync } from 'fs';
 import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
 const F = require('./helpers/vp_fixture.cjs');
-const PU = require('../lib/tm_seuran_pulssi.js'), TT = require('../lib/tm_vp_tilanne.js'), NV = require('../lib/tm_vp_navi.js'), KT = require('../lib/tm_kt_komponentit.js');
+const PU = require('../lib/tm_seuran_pulssi.js'), KK = require('../lib/tm_vp_koti.js'), TT = require('../lib/tm_vp_tilanne.js'), NV = require('../lib/tm_vp_navi.js'), KT = require('../lib/tm_kt_komponentit.js');
 const VP = readFileSync(new URL('../TalentMaster_VP_v25.html', import.meta.url), 'utf8');
 const NYT = Date.UTC(2026, 9, 12, 7, 0);
 const teksti = (h) => h.replace(/<[^>]+>/g, ' ').replace(/&amp;/g, '&').replace(/\s+/g, ' ');
 const RENDER = {}; F.TILAT.forEach((t) => { const d = F.lataa(t, NYT); RENDER[t] = { koti: F.kotiHTML(d), tilanne: F.tilanneHTML(d) }; });
 const KAIKKI = [];   // [tila, näkymä, html]
 F.TILAT.forEach((t) => ['koti', 'tilanne'].forEach((n) => KAIKKI.push([t + ' · ' + n, t, n, RENDER[t][n]])));
-const CSSIT = { 'tm_seuran_pulssi': PU.CSS, 'tm_vp_tilanne': TT.CSS, 'tm_vp_navi': NV.CSS, 'tm_kt_komponentit': KT.CSS };
+const CSSIT = { 'tm_vp_koti': KK.CSS, 'tm_vp_tilanne': TT.CSS, 'tm_vp_navi': NV.CSS, 'tm_kt_komponentit': KT.CSS };
 const sennut = (css) => { const o = []; css.split('\n').forEach((rivi) => { const re = /([^{}]+)\{([^{}]*)\}/g; let m; while ((m = re.exec(rivi))) o.push({ valitsin: m[1].trim(), maar: m[2] }); }); return o; };
 
 describe('D169 · fonttiasteikko ja tokenit', () => {
@@ -39,11 +39,11 @@ describe('D169 · fonttiasteikko ja tokenit', () => {
     const r = sennut(KT.CSS).find((x) => x.valitsin === '.kt-eb'); expect(r.maar).toContain('font-family:var(--font-mono)'); expect(r.maar).toContain('font-size:var(--fs-eb'); expect(r.maar).toContain('letter-spacing:.12em'); expect(r.maar).toContain('text-transform:uppercase'); expect(r.maar).toContain('color:var(--teal)');
   });
   it('luvut riveillä ja korteissa: DM Sans 600 + tabular-nums + --fs-lead (.pv, .kt-ev-v)', () => {
-    [['.kt-ev-v', KT.CSS], ['.tmp .pv', PU.CSS]].forEach(([v, css]) => { const r = sennut(css).find((x) => x.valitsin === v); expect(r, v).toBeTruthy(); expect(r.maar).toContain('font-family:var(--font-sans)'); expect(r.maar).toContain('font-weight:600'); expect(r.maar).toContain('tabular-nums'); expect(r.maar).toContain('font-size:var(--fs-lead'); });
+    [['.kt-ev-v', KT.CSS], ['.kk-v', KK.CSS]].forEach(([v, css]) => { const r = sennut(css).find((x) => x.valitsin === v); expect(r, v).toBeTruthy(); expect(r.maar).toContain('font-family:var(--font-sans)'); expect(r.maar).toContain('font-weight:600'); expect(r.maar).toContain('tabular-nums'); expect(r.maar).toContain('font-size:var(--fs-lead'); });
   });
   it('kortin otsikko ja iso luku: Cormorant (--kt-serif/--font-serif) --fs-h2; sivun otsikko --fs-h1', () => {
     ['.kt-sig-h', '.kt-q-v', '.kt-ev-h'].forEach((v) => { const r = sennut(KT.CSS).find((x) => x.valitsin === v); expect(r.maar).toMatch(/font-family:var\(--(kt|font)-serif\)/); expect(r.maar).toContain('font-size:var(--fs-h2'); });
-    expect(sennut(PU.CSS).find((x) => x.valitsin === '.tmp .lead .big').maar).toContain('font-size:var(--fs-h1');
+    expect(sennut(KK.CSS).find((x) => x.valitsin === '.kk-h1').maar).toContain('font-size:var(--fs-h1');
   });
   it('signaalikortin alarivi ink2 (ei ink3: kontrasti 3,8 → 7,9)', () => { expect(sennut(KT.CSS).find((x) => x.valitsin === '.kt-sig-second').maar).toContain('color:var(--ink2)'); });
   it('renderöidyissä HTML:issä inline font-size vain var(--fs-*) -tokenilla', () => { KAIKKI.forEach(([nimi, , , h]) => [...h.matchAll(/font-size:([^;"]+)/g)].forEach((m) => expect(m[1], nimi).toMatch(/^var\(--fs-/))); });
@@ -55,11 +55,12 @@ describe('D169 · fonttiasteikko ja tokenit', () => {
 
 describe('D147 · yksi täytetty nappi per näkymä (ratchet → 1)', () => {
   const taytetyt = (h) => (h.match(/class="kt-btn(?:\s[^"]*)?"/g) || []).filter((c) => !/\s(q|g)(\s|")/.test(c) && !/\bsm\b/.test(c) || /kt-btn"/.test(c)).length;
-  /* Koti: Käynnistys-vaihe (PR B) on jo tavoitteessa (1); Rytmi-vaihe (PR D) vanhalla rakenteella → raja 2. Tilanne (PR C): tavoite 1 saavutettu — Rytmi-vaiheessa signaalikortin päätoiminto, Käynnistyksessä 0 (D170). */
-  const KAYNNISTYS = ['tyhja', 'pilotti', 'kuormitus'], RAJA = { koti: 2, tilanne: 1 };
+  /* Koti: Käynnistys (PR B) ja Rytmi (PR D) tavoitteessa: täsmälleen yksi täytetty nappi (Rytmi: signaalikortin päätoiminto). Tilanne (PR C): tavoite 1 saavutettu — Rytmi-vaiheessa signaalikortin päätoiminto, Käynnistyksessä 0 (D170). */
+  const KAYNNISTYS = ['tyhja', 'pilotti', 'kuormitus'], RAJA = { koti: 1, tilanne: 1 };
   it.each(KAIKKI)('%s: täytettyjä .kt-btn ≤ raja', (nimi, t, n, h) => { expect(taytetyt(h), nimi).toBeLessThanOrEqual(n === 'koti' && KAYNNISTYS.includes(t) ? 1 : RAJA[n]); });
   it('Kodin Käynnistys-vaihe: täsmälleen yksi täytetty nappi jokaisessa tilassa', () => { KAYNNISTYS.forEach((t) => expect(taytetyt(RENDER[t].koti), t).toBe(1)); });
-  it('raja on tiukka: jossain tilassa saavutetaan (muuten laske rajaa)', () => { expect(Math.max(...F.TILAT.filter((t) => !KAYNNISTYS.includes(t)).map((t) => taytetyt(RENDER[t].koti))), 'koti (Rytmi)').toBe(RAJA.koti); expect(Math.max(...F.TILAT.map((t) => taytetyt(RENDER[t].tilanne))), 'tilanne').toBe(RAJA.tilanne); });
+  it('Kodin Rytmi-vaihe (PR D): täsmälleen yksi täytetty nappi = signaalikortin päätoiminto', () => { expect(taytetyt(RENDER.kypsa.koti)).toBe(1); expect(RENDER.kypsa.koti).toMatch(/class="kt-sig w kk-sigk"/); });
+  it('raja on tiukka: jossain tilassa saavutetaan (muuten laske rajaa)', () => { expect(Math.max(...F.TILAT.map((t) => taytetyt(RENDER[t].koti))), 'koti').toBe(RAJA.koti); expect(Math.max(...F.TILAT.map((t) => taytetyt(RENDER[t].tilanne))), 'tilanne').toBe(RAJA.tilanne); });
   it('tyhjässä tilassa korkeintaan yksi täytetty nappi (tavoite jo nyt)', () => { expect(taytetyt(RENDER.tyhja.tilanne)).toBeLessThanOrEqual(1); expect(taytetyt(RENDER.tyhja.koti)).toBeLessThanOrEqual(1); });
 });
 
@@ -84,8 +85,8 @@ describe('D125 · prosentti vain otoksen kanssa', () => {
     const ti = teksti(RENDER.tyhja.tilanne); expect(ti).not.toMatch(/\d\s?%/); expect((ti.match(/\b0\/0\b/g) || []).length).toBe(0);
     expect((teksti(RENDER.tyhja.koti).match(/\b0\/0\b/g) || []).length).toBe(0);
   });
-  it('"0 %" -esiintymät Kodissa: Käynnistys-tilat 0 (PR B), Rytmi (kypsä) ≤ 1 → PR D vie nollaan kattavuusportilla', () => {
-    const nolla = (t) => (teksti(RENDER[t].koti).match(/(^|[^\d])0 %/g) || []).length; ['tyhja', 'pilotti', 'kuormitus'].forEach((t) => expect(nolla(t), t).toBe(0)); expect(nolla('kypsa')).toBeLessThanOrEqual(1);
+  it('"0 %" -esiintymät Kodissa: kaikki tilat 0 (PR B + D, kattavuusportti)', () => {
+    const nolla = (t) => (teksti(RENDER[t].koti).match(/(^|[^\d])0 %/g) || []).length; F.TILAT.forEach((t) => expect(nolla(t), t).toBe(0));
   });
   it('Käynnistys-vaiheen Kodissa ei 0 pelaajan joukkueita (§7.18)', () => { const p = F.lataa('pilotti', NYT), tyhjat = p.joukkueDocs.filter((j) => !p.pelaajat.some((x) => x.joukkueet[0] === j.id)).map((j) => j.nimi); expect(tyhjat).toHaveLength(2); tyhjat.forEach((n) => expect(RENDER.pilotti.koti, n).not.toContain(n)); expect(RENDER.pilotti.koti).not.toMatch(/>\s*(P18|T18)\s*</); });
 });

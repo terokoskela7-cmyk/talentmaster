@@ -43,7 +43,7 @@ function lataa(tila, nytMs) {
   const joukkueDocs = J.map((j) => { const d = { id: j.id, nimi: j.nimi, ikaryhma: j.sp + j.ika, tyyppi: j.tyyppi, valmentajaprofiili: j.profiili, jaksofokus: null };
     if (j.jakso) d.jaksofokus = { osa_alueet: { tekninen_taktinen: { nimi: j.jakso.nimi } }, alku: iso(nyt - j.jakso.alkuVkSitten * 7 * DAY), kesto_vk: j.jakso.N }; return d; });
   const nimet = {}; J.forEach((j) => { nimet[j.id] = j.nimi; });
-  const kalenteri = s.kalenteri.map((e) => ({ nimi: e.nimi, alkaa: nyt + e.h * HR }));
+  const kalenteri = s.kalenteri.map((e) => { const o = { nimi: e.nimi || '', alkaa: nyt + e.h * HR }; if (e.tyyppi) o.tyyppi = e.tyyppi; if (e.j != null && J[e.j]) { o.joukkue = J[e.j].id; o.joukkueet = [J[e.j].id]; o.joukkue_nimi = J[e.j].nimi; } return o; });
   if (s.palaveriPv != null) kalenteri.push({ nimi: 'Jaksopalaveri', tyyppi: 'jaksopalaveri', alkaa: nyt + s.palaveriPv * DAY, poistettu: false, id: 'jp1' });
   const tapahtumat = J.length ? [{ id: 't1', tila: 'suunniteltu', nimi: 'Testijakso', pvm_alku: iso(nyt + 24 * DAY), pvm_loppu: iso(nyt + 31 * DAY) }].concat((s.testiJoukkueet || []).map((ji, i) => ({ id: 't2_' + i, tila: 'suunniteltu', nimi: 'Testipäivä', joukkue: J[ji].id, pvm_alku: iso(nyt + (25 + i) * DAY), pvm_loppu: iso(nyt + (25 + i) * DAY) }))) : [];
   const toimenpiteet = []; s.ehdotukset.forEach((e, k) => e.joukkueet.forEach((ji) => toimenpiteet.push({ id: 'e' + k + '_' + ji, signaali: e.signaali, teksti: J[ji].nimi + ' — ' + TEKSTIT[e.signaali], joukkue: J[ji].nimi, luotu: { seconds: (nyt - e.ikaPv * DAY) / 1000 } })));
@@ -63,20 +63,17 @@ function lataa(tila, nytMs) {
   return { nyt, spec: s, jaksoVk, viestit, koosteet, ensin: vkSitten(s.ensinVkSitten), pelaajat, joukkueDocs, nimet, kalenteri, tapahtumat, toimenpiteet, syote };
 }
 
-/* Kodin render lib-tasolla (VP:n _renderKotiPulssi, ilman DOM:ia): vaihe lasketaan (D164) → Käynnistys: tm_vp_koti.js; Rytmi: tm_seuran_pulssi.js (PR D:hen asti). Palauttaa main + rail -HTML:n yhtenä merkkijonona. */
+/* Kodin render lib-tasolla (VP:n _renderKotiPulssi, ilman DOM:ia): vaihe lasketaan (D164) → Käynnistys tai Rytmi (lib/tm_vp_koti.js). Palauttaa main + rail -HTML:n yhtenä merkkijonona. o.kieli = valittu kieli (viikonpäivälyhenteet), o.t = käännösfunktio, o.viestit/o.auki. */
 function kotiHTML(d, o) {
   o = o || {}; const t = o.t || ((x) => x), esc = (x) => String(x == null ? '' : x).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   const KO = require('../../lib/tm_vp_koti.js'), viim = d.koosteet[d.koosteet.length - 1] || {};
   const m = PU.tmPulssiRivit(d.koosteet, { nytMs: d.nyt, ensimmainenVk: d.ensin, katselmusPv: {}, jaksoVk: d.jaksoVk, kuittaukset: [] });
-  const ko = { t, esc }, kal = d.kalenteri.map((e) => ({ nimi: e.nimi, alkaa: e.alkaa }));
-  if (KO.tmKotiVaihe(m) === 'kaynnistys') {
-    const km = KO.tmKotiKaynnistysMalli(m, { yhteensa: viim.yhteensa, koosteJ: viim.joukkueet, testit: d.tapahtumat, nimet: d.nimet, kalenteri: kal, viestit: o.viestit || d.viestit, nytMs: d.nyt, seuraNimi: o.seuraNimi || 'Demo FC' });
-    const r = KO.tmKotiKaynnistysHTML(km, Object.assign({ pika: [{ teksti: 'Arvioi harjoitus', fn: 'a' }, { teksti: 'Kirjaa mentorointi', fn: 'b' }, { teksti: 'Uusi tapahtuma', fn: 'c' }], fn: { aloitaJaksot: 'aj', kutsu: 'ku', testit: 'te', joukkue: 'j', viesti: 'vi', tilanne: 'ti', kalenteri: 'ka', paivita: 'pa', demo: 'de', tuo: 'tu', auki: 'au' } }, ko));
-    return r.main + r.rail;
-  }
-  const ov = Object.assign({ suostumus: { n: d.pelaajat.length, annettu: d.pelaajat.filter((p) => p.suostumusTila === 'annettu').length }, suostumusKooste: viim.yhteensa ? viim.yhteensa.n_suostumus : null, seuraavaKatselmus: null, pika: null, fn: { kuittaa: 'k', joukkue: 'j', aloitaJakso: 'a', sulje: 's', perheet: 'p', valmentaja: 'v', paivita: 'u', tilanne: 'ti', muistuta: 'mu' } }, ko);
-  return PU.tmPulssiHTML(m, ov) + PU.tmPulssiTulossaHTML(kal, d.nyt, Object.assign({ tanaan: true }, ko)) + PU.tmPulssiTulossaHTML(kal, d.nyt, ko);
+  const kal = d.kalenteri.map((e) => ({ nimi: e.nimi, alkaa: e.alkaa, tyyppi: e.tyyppi, joukkue: e.joukkue, joukkueet: e.joukkueet, joukkue_nimi: e.joukkue_nimi })), vaihe = KO.tmKotiVaihe(m);
+  const env = { yhteensa: viim.yhteensa, koosteJ: viim.joukkueet, testit: d.tapahtumat, nimet: d.nimet, kalenteri: kal, viestit: o.viestit || d.viestit, nytMs: d.nyt, seuraNimi: o.seuraNimi || 'Demo FC' };
+  const op = Object.assign({ t, esc, kieli: o.kieli, auki: o.auki, pika: [{ teksti: 'Arvioi harjoitus', fn: 'a' }, { teksti: 'Kirjaa mentorointi', fn: 'b' }, { teksti: 'Uusi tapahtuma', fn: 'c' }], fn: { aloitaJaksot: 'aj', kutsu: 'ku', testit: 'te', joukkue: 'j', viesti: 'vi', tilanne: 'ti', kalenteri: 'ka', paivita: 'pa', demo: 'de', tuo: 'tu', auki: 'au', opas: 'op', kuittaa: 'kt', valmentaja: 'va' } });
+  const r = vaihe === 'kaynnistys' ? KO.tmKotiKaynnistysHTML(KO.tmKotiKaynnistysMalli(m, env), op) : KO.tmKotiRytmiHTML(KO.tmKotiRytmiMalli(m, env), op);
+  return r.main + r.rail;
 }
-function tilanneHTML(d, o) { o = o || {}; return TT.tmTilanneHTML(TT.tmTilanneMalli(d.syote), { t: o.t || ((x) => x), fn: {} }); }
+function tilanneHTML(d, o) { o = o || {}; return TT.tmTilanneHTML(TT.tmTilanneMalli(d.syote), { t: o.t || ((x) => x), kieli: o.kieli, fn: {} }); }
 
 module.exports = { TILAT, lataa, kotiHTML, tilanneHTML, tunnisteLista, lyhyt };

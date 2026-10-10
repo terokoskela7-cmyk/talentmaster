@@ -31,18 +31,18 @@ describe('Kenttä-lippu valitsee Kodin (D67)', () => {
   it('lippu päällä mutta lib puuttuu → Koti ennallaan (ei kaadu)', async () => {
     const y = luoYmparisto(VP, { liput: { kentta: true }, koosteet: KS, eiPulssia: true }); await y.renderoi(); expect(y.html).toBe(SNAP);
   });
-  it('lippu päällä: Koti = Seuran pulssi (D122): aloitusopas · tulkintalause · Tarvitsee huomiota · Joukkueiden viikko · Tulossa 14 pv', async () => {
+  it('lippu päällä: Koti = Rytmi (PR D): opas · otsikko ja tulkintalause · Tällä viikolla · Joukkueet ikäjärjestyksessä · Tulossa 14 pv', async () => {
     const y = luoYmparisto(VP, { liput: { kentta: true }, koosteet: KS, ensimmainenVk: '2026-W20', kalenteri: [{ nimi: 'Ottelu X', alkaa: Date.now() + 2 * 86400000 }] });
     y.ctx.renderKotiVP(); expect(y.html).toContain('Ladataan pulssia…');   // ensin latausrivi, vanha Koti ei välähdä
     await new Promise((r) => setImmediate(r)); await new Promise((r) => setImmediate(r));
     const h = y.html;
-    expect(h).toContain('id="vpAloitaKortti"'); expect(h).toContain('class="tmp"'); expect(h).toContain('joukkuetta jaksolla.'); expect(h).toContain('Tarvitsee huomiota'); expect(h).toContain('Joukkueet ikäjärjestyksessä');
+    expect(h).toContain('id="vpAloitaKortti"'); expect(h).toContain('class="kk"'); expect(h).toContain('Jakso on käynnissä 1/2 joukkueella.'); expect(h).toContain('Tällä viikolla'); expect(h).toContain('Joukkueet · ikäjärjestys');
     expect(h).toContain('Tulossa 14 päivää'); expect(h).toContain('Ottelu X'); expect(h).toContain('Tänään');
-    const jarj = ['id="vpAloitaKortti"', 'class="lead"', 'Tarvitsee huomiota', 'class="pt-wrap"', 'Tulossa 14 päivää'].map((x) => h.indexOf(x)); expect(jarj.every((x, i) => x >= 0 && (i === 0 || x > jarj[i - 1]))).toBe(true);
+    const jarj = ['id="vpAloitaKortti"', 'class="kk-hd"', 'Tällä viikolla', 'Joukkueet · ikäjärjestys', 'Tulossa 14 päivää'].map((x) => h.indexOf(x)); expect(jarj.every((x, i) => x >= 0 && (i === 0 || x > jarj[i - 1]))).toBe(true);
   });
   it('poistuneet Kodin kortit eivät ole pulssi-Kodissa: Kriittiset signaalit, suppilo, RAE, Sovelluksen käyttö', async () => {
     const y = luoYmparisto(VP, { liput: { kentta: true }, koosteet: KS, ensimmainenVk: '2026-W20' }); await y.renderoi();
-    ['Kriittiset signaalit', 'vpkoti-strippi', '<RAE', 'vpKayttoasteKortti', 'Kaikki signaalit yksityiskohtaisesti'].forEach((x) => expect(y.html, x).not.toContain(x));
+    ['Kriittiset signaalit', 'vpkoti-strippi', '<RAE', 'vpKayttoasteKortti', 'Kaikki signaalit yksityiskohtaisesti', 'class="pt-wrap"', 'class="tmp"'].forEach((x) => expect(y.html, x).not.toContain(x));
   });
   it('kooste-luku epäonnistuu (esim. valmentajalla ei lukuoikeutta) → Koti ennallaan ja virhe muistetaan (ei silmukkaa)', async () => {
     const y = luoYmparisto(VP, { liput: { kentta: true }, lukuVirhe: true }); await y.renderoi();
@@ -57,7 +57,7 @@ describe('Kenttä-lippu valitsee Kodin (D67)', () => {
     expect(y.els['sb-tilanne-badge'].textContent).toBe(3); expect(y.els['greeting-status'].textContent).toBe('3 vaatii toimenpidettä'); expect(y.els['signaalit-meta'].textContent).toBe('3 vaatii toimenpidettä');   // 4 ehdotusta → näkyvät 3
   });
   it('lippu päällä, ei koosteita → odotustila (ei virhettä)', async () => {
-    const y = luoYmparisto(VP, { liput: { kentta: true }, koosteet: [] }); await y.renderoi(); expect(y.html).toContain('Pulssi alkaa kertyä');
+    const y = luoYmparisto(VP, { liput: { kentta: true }, koosteet: [] }); await y.renderoi(); expect(y.html).toContain('Pulssi alkaa kertyä seuraavasta viikkokoosteesta'); expect(y.html).toContain('Kooste lasketaan maanantaisin klo 6.00.');
   });
   it('katselmusikkunan päivät pelaajadatasta: jakso päättynyt + 14 pv, joukkueen pienin', async () => {
     const nyt = Date.now(), pv = (n) => new Date(nyt + n * 86400000).toISOString();
@@ -102,10 +102,10 @@ describe('kytkentä lähteessä', () => {
 describe('PR 2 · Kuittaa / Ensi viikolla (D124)', () => {
   const KS2 = KS;   // P15 ei jaksoa 4 vk (ei_jaksoa|a) + P14 katsaus laskenut (katsaus_laskee|b)
   const alusta = async (extra) => { const y = luoYmparisto(VP, Object.assign({ liput: { kentta: true }, koosteet: KS2, ensimmainenVk: '2026-W20' }, extra || {})); y.els['sb-tilanne-badge'] = { textContent: '', style: {} }; await y.renderoi(); return y; };
-  it('jokaisella signaalikortilla yksi täytetty nappi + katkoviivarivillä Kuittaa ja Ensi viikolla', async () => {
-    const y = await alusta(); const kortit = y.html.split(/<div class="kt-sig(?: w| n)?" data-signaali=/).slice(1).map((k) => k.split('<div class="sigmore"')[0]);   // yksi pala per signaalikortti (kt-sig-h/-why eivät aloita korttia)
-    expect(kortit.length).toBe(2);
-    kortit.forEach((k) => { expect((k.match(/class="kt-btn"/g) || []).length).toBe(1); expect(k).toContain('data-kuittaus="kuitattu"'); expect(k).toContain('data-kuittaus="siirretty"'); expect(k).toMatch(/class="kt-sig-second">.*>Kuittaa<\/button><button[^>]*>Ensi viikolla<\/button><\/div>/); });
+  it('Rytmi: tärkein signaali on signaalikortti (sivun ainoa täytetty nappi); jokaisella yksittäisellä signaalilla Kuittaa ja Ensi viikolla (kortin alarivi / ⋯-valikko)', async () => {
+    const y = await alusta(), h = y.html; expect((h.match(/class="kt-btn"/g) || []).length).toBe(1);
+    const kortti = h.slice(h.indexOf('class="kt-sig w kk-sigk"'), h.indexOf('</div></div>', h.indexOf('class="kt-sig-second"')) + 12); expect(kortti).toContain('data-signaali="ei_jaksoa|a"'); expect(kortti).toContain('Aloita jakso'); expect(kortti).toMatch(/class="kt-sig-second">.*data-kuittaus="kuitattu".*>Kuittaa<\/button>.*data-kuittaus="siirretty".*>Ensi viikolla<\/button>/);
+    const rivi = h.slice(h.indexOf('<div class="kk-it" data-signaali="katsaus_laskee|b"')); expect(rivi).toContain('class="kk-kebab"'); expect(rivi).toContain('data-kuittaus="kuitattu"'); expect(rivi).toContain('data-kuittaus="siirretty"');
   });
   it('Kuittaa kirjoittaa oikeat kentät oikeaan polkuun (getIdToken(true) ensin), signaali piiloon, laskuri päivittyy heti', async () => {
     const y = await alusta(); expect(y.ctx._vpPulssi.malli.signaalejaYht).toBe(2);
@@ -131,7 +131,7 @@ describe('PR 2 · Kuittaa / Ensi viikolla (D124)', () => {
   });
   it('olemassa olevat kuittaukset luetaan latauksessa: siirretty piilossa kunnes palaa_vk, kuitattu piilossa', async () => {
     const y = await alusta({ kuittaukset: [{ tyyppi: 'pulssi', signaali: 'ei_jaksoa', joukkue: 'a', tila: 'siirretty', palaa_vk: '2026-W43' }, { tyyppi: 'pulssi', signaali: 'katsaus_laskee', joukkue: 'b', tila: 'kuitattu', ehto: 'katsaus_laskee', kuitattu_pvm: Date.now() - 20 * 86400000 }] });
-    expect(y.html).not.toContain('data-signaali='); expect(y.ctx._vpPulssi.malli.signaalejaYht).toBe(0); expect(y.html).toContain('Ei toimenpiteitä tällä viikolla');
+    expect(y.html).not.toContain('data-signaali='); expect(y.ctx._vpPulssi.malli.signaalejaYht).toBe(0); expect(y.html).toContain('Rauhallinen viikko.'); expect(y.html).toContain('Ei uusia asioita · tarkistettu 2 joukkuetta');
   });
   it('lähteessä: kirjoitus vain olemassa olevaan toimenpiteet-kokoelmaan, ei functions/Rules-muutosta', () => {
     expect(VP).toContain("collection('toimenpiteet').doc(T.tmPulssiKuittausId(s)).set("); expect(VP).not.toMatch(/collection\('asiat'\)/);

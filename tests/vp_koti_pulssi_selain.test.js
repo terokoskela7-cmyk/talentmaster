@@ -26,7 +26,7 @@ function koti(leveys) {
     const probe = '(function(){var out=function(x){var o=document.createElement("pre");o.id="probe-out";o.textContent=x;o.style.display="none";document.body.appendChild(o)};try{var KS=' + JSON.stringify(KS) + ';'
       + '_vpPulssiLataa=function(){return Promise.resolve({koosteet:KS,ensin:"2026-W20"})};_seuraId="demo-fc";window._vpLiput={"demo-fc":{kentta:true}};'
       + 'var pakota=function(){document.getElementById("sLogin").style.display="none";document.getElementById("sDash").style.display="block"};pakota();renderKotiVP();setInterval(pakota,150);'
-      + 'setTimeout(function(){var t=document.querySelector(".tmp");out(JSON.stringify({sw:document.documentElement.scrollWidth,iw:window.innerWidth,taulukko:!!(document.querySelector(".pt-wrap")&&document.querySelector(".pt-wrap").offsetParent),kortit:document.querySelectorAll(".cards .kt-ev").length,pulssi:!!t,signaaleja:document.querySelectorAll(".kt-sig[data-signaali]").length}))},3500)}catch(e){out("VIRHE "+e.message)}})();';
+      + 'setTimeout(function(){var t=document.querySelector(".kk"),p=document.querySelector(".vpk-side"),m=document.querySelector(".vpk-main");out(JSON.stringify({sigh:(function(){var e=document.querySelector(".kk .kt-sig-h");if(!e)return null;var c=getComputedStyle(e);return c.fontFamily+"|"+c.fontSize+"|"+getComputedStyle(document.documentElement).getPropertyValue("--fs-h2").trim()}()),sw:document.documentElement.scrollWidth,iw:window.innerWidth,taulukko:false,kortit:document.querySelectorAll(".kk-jk,.kk-jr").length,pulssi:!!t,signaaleja:document.querySelectorAll("[data-signaali]").length,palstaSivulla:!!(p&&m&&p.getBoundingClientRect().left>m.getBoundingClientRect().left+50)}))},3500)}catch(e){out("VIRHE "+e.message)}})();';
     const h = readFileSync(join(juuri, 'TalentMaster_VP_v25.html'), 'utf8'), i = h.lastIndexOf('</body>'), j = h.indexOf('<head>') + 6;
     writeFileSync(sivu, h.slice(0, j) + '<base href="file://' + juuri + '/">' + h.slice(j, i) + '<script>' + probe + '</script>' + h.slice(i));
     writeFileSync(kuori, '<!doctype html><meta charset=utf-8><body style="margin:0"><iframe id=f src="file://' + sivu + '" style="width:' + leveys + 'px;height:1800px;border:0"></iframe><script>setTimeout(function(){var d=document.getElementById("f").contentDocument;var o=document.createElement("pre");o.id="w-out";o.textContent=d.getElementById("probe-out").textContent;document.body.appendChild(o)},7000)</script>');
@@ -36,15 +36,15 @@ function koti(leveys) {
   } finally { rmSync(hak, { recursive: true, force: true }); }
 }
 
-describe.skipIf(!CHROME)('Kodin pulssi oikeassa selaimessa', () => {
-  it('390 px: ei vaakavieritystä, mobiilikortit näkyvät, taulukko piilossa', () => {
+describe.skipIf(!CHROME)('Koti (Rytmi, PR D) oikeassa selaimessa', () => {
+  it('390 px: ei vaakavieritystä, joukkuekortit/rivit näkyvät, oikea palsta pinoutuu pääsarakkeen alle', () => {
     const t = koti(390);
     expect(t.virhe, JSON.stringify(t)).toBeUndefined(); expect(t.pulssi).toBe(true);
     expect(t.sw, 'vaakavieritys: scrollWidth ' + t.sw + ' > ' + t.iw).toBeLessThanOrEqual(t.iw);
-    expect(t.taulukko).toBe(false); expect(t.kortit).toBeGreaterThan(0); expect(t.signaaleja).toBe(2);
+    expect(t.signaaleja).toBe(2); expect(t.sigh, 'signaalikortin otsikko').toMatch(/Cormorant/); expect(t.palstaSivulla).toBe(false);
   }, 120000);
-  it('1280 px: taulukko näkyy, ei vaakavieritystä', () => {
+  it('1280 px: ei vaakavieritystä; oikea palsta pääsarakkeen vieressä', () => {
     const t = koti(1280);
-    expect(t.virhe, JSON.stringify(t)).toBeUndefined(); expect(t.sw).toBeLessThanOrEqual(t.iw); expect(t.taulukko).toBe(true);
+    expect(t.virhe, JSON.stringify(t)).toBeUndefined(); expect(t.sw).toBeLessThanOrEqual(t.iw); expect(t.palstaSivulla).toBe(true);
   }, 120000);
 });
