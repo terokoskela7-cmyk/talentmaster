@@ -147,6 +147,35 @@ describe('D169 · signaalikortin otsikko: Cormorant --fs-h2 sekä Kodissa että 
   });
 });
 
+describe('Korjaus-PR: mobiilirivit, nuoli, viikkotunniste, D144-tagit', () => {
+  const nakyvat = (h) => teksti(h) + ' ' + (h.match(/(?:title|aria-label)="[^"]*"/g) || []).join(' ');
+  it('viikkotunniste (\\d{4}-W\\d{2}) ei näy käyttäjälle missään: Koti (Käynnistys, Rytmi, esimerkkiseura) ja Tilanne, kaikki fixturet, sv/en/fi', () => {
+    F.TILAT.forEach((tila) => ['fi', 'sv', 'en'].forEach((kieli) => { const d = F.lataa(tila, NYT);
+      [F.kotiHTML(d, { kieli }), F.tilanneHTML(d, { kieli })].forEach((h) => expect(nakyvat(h), tila + ' ' + kieli).not.toMatch(/\d{4}-W\d{2}/)); }));
+    const dm = KK.tmKotiDemo(NYT), v = dm.koosteet[dm.koosteet.length - 1], m = PU.tmPulssiRivit(dm.koosteet, { nytMs: NYT, ensimmainenVk: dm.ensin, jaksoVk: {}, katselmusPv: {} });
+    expect(nakyvat(KK.tmKotiRytmiHTML(KK.tmKotiRytmiMalli(m, { yhteensa: v.yhteensa, koosteJ: v.joukkueet, kalenteri: dm.kalenteri, nytMs: NYT }), { t: (x) => x, fn: {} }).main)).not.toMatch(/\d{4}-W\d{2}/);
+    expect(teksti(F.kotiHTML(F.lataa('pilotti', NYT), {}))).toContain('Tilanne viikolta 42.');
+  });
+  it('Perheet mukana -askeleen avain on "Tilanne viikolta {vk}" (viikkonumero, ei tunnistetta)', () => {
+    const km = KK.tmKotiKaynnistysMalli(PU.tmPulssiRivit(F.lataa('pilotti', NYT).koosteet, { nytMs: NYT, ensimmainenVk: '2026-W20', jaksoVk: {}, katselmusPv: {} }), { yhteensa: { n_pelaajat: 1, n_suostumus: 0 }, koosteJ: {}, nytMs: NYT }); const x = JSON.stringify(km.askeleet);
+    expect(x).toContain('Tilanne viikolta {vk}'); expect(x).not.toContain('Luku koosteesta');
+  });
+  it('D144: "Odottaa jaksoa" ja "Ilman jaksoa" -laatikot näyttävät enintään 6 tagia + "+N"', () => {
+    const k = F.kotiHTML(F.lataa('pilotti', NYT), {}), o = k.slice(k.indexOf('kk-odottaa')); expect((o.slice(0, o.indexOf('Ehdota jaksot')).match(/class="kk-tag"/g) || []).length).toBe(7); expect(teksti(o)).toContain('+8');
+    const { rm } = rakenna('kypsa'); expect(rm.ilman.length).toBeLessThanOrEqual(6);
+    const d = F.lataa('kypsa', NYT); Object.values(d.koosteet).forEach((kk) => Object.values(kk.joukkueet).forEach((j, i) => { if (i < 8) { j.jakso = false; j.n_jaksolla = 0; } }));
+    const r = rakenna('kypsa', (dd) => { dd.koosteet.forEach((kk) => Object.values(kk.joukkueet).forEach((j, i) => { if (i < 8) { j.jakso = false; j.n_jaksolla = 0; } })); }), il = r.h.slice(r.h.indexOf('kk-odottaa'));
+    expect(r.rm.ilman.length).toBeGreaterThan(6); expect((il.match(/class="kk-tag"/g) || []).length).toBe(7); expect(teksti(il)).toMatch(/\+\d+/);
+  });
+  it('mobiili < 600 px: listarivin toimintolinkki ja ⋯ omalle rivilleen tekstin alle; yläotsikko ei rivity (nowrap + ellipsis)', () => {
+    const m = KK.CSS.match(/@media \(max-width:600px\)\{[^@]*?\}\}/)[0]; expect(m).toContain('.kk-it>.kk-ac{grid-column:2'); expect(m).toContain('.kk-it .kk-k{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis');
+  });
+  it('nuoli samalle riville luvun oikealle puolelle: Jaksolla nyt (Käynnistys) ja Rytmin joukkuerivi; ei .kk-perh span 2', () => {
+    expect(KK.CSS).not.toMatch(/\.kk-perh\{grid-column:span 2\}/); expect(KK.CSS).toContain('.kk-jr{display:grid;grid-template-columns:90px minmax(0,1fr) auto 16px');
+    const rivi = F.kotiHTML(F.lataa('pilotti', NYT), {}).match(/<div class="kk-jr"[\s\S]*?<\/div>/)[0]; expect(rivi.indexOf('kk-perh')).toBeLessThan(rivi.indexOf('kk-ar')); expect(rivi.match(/<span class="kk-(?:tn|te|nu|ar)/g)).toHaveLength(4);
+  });
+});
+
 describe('VP-kytkentä: vanha Kodin pulssi-HTML poistettu', () => {
   it('tm_seuran_pulssi.js on pelkkä malli (ei HTML:ää, ei CSS:ää); VP ei kutsu tmPulssiHTML:ää; vanha CSS ei injektoida', () => {
     const VP = readFileSync(new URL('../TalentMaster_VP_v25.html', import.meta.url), 'utf8'); expect(PU.tmPulssiHTML).toBeUndefined(); expect(PU.CSS).toBeUndefined(); expect(VP).not.toContain('tmPulssiHTML'); expect(VP).not.toContain('tmPulssiTulossaHTML'); expect(VP).not.toContain('TM_SEURAN_PULSSI.CSS');

@@ -27,7 +27,7 @@ describe('D165 · kolme askelta', () => {
   const { km, h } = HTML(F.lataa('pilotti', NYT)), t = teksti(h);
   it('otsikko "Kauden käynnistys: kolme askelta." + lause; askeleet Jaksot 1/15 · Perheet mukana 4/160 · Testipäivät 2/15 (mockup 33)', () => {
     expect(t).toContain('Kauden käynnistys: kolme askelta.'); expect(km.askeleet.map((a) => [a.nimi, a.a, a.b])).toEqual([['Jaksot', 1, 15], ['Perheet mukana', 4, 160], ['Testipäivät', 2, 15]]);
-    ['1/15', 'joukkuetta jaksolla', '4/160', 'perhettä antanut suostumuksen', 'Luku koosteesta 2026-W42.', '2/15', 'joukkuetta varannut päivän', 'Testijakso vk 45–46. Mittaukset ennen talven jaksoja.', 'Aloita jakso joukkueen näkymässä. Jakso antaa joukkueelle teeman ja viikkotavoitteet.'].forEach((x) => expect(t, x).toContain(x));
+    ['1/15', 'joukkuetta jaksolla', '4/160', 'perhettä antanut suostumuksen', 'Tilanne viikolta 42.', '2/15', 'joukkuetta varannut päivän', 'Testijakso vk 45–46. Mittaukset ennen talven jaksoja.', 'Aloita jakso joukkueen näkymässä. Jakso antaa joukkueelle teeman ja viikkotavoitteet.'].forEach((x) => expect(t, x).toContain(x));
   });
   it('sivun ainoa täytetty nappi on ensimmäisellä keskeneräisellä askeleella ("Aloita jaksot"); muut ovat tekstilinkkejä "Kutsu loput 156 →" ja "Sovi päivät →"', () => {
     expect((h.match(/class="kt-btn"/g) || []).length).toBe(1); expect(h).toMatch(/<button class="kt-btn" type="button" onclick="aj\(\)">Aloita jaksot<\/button>/);
@@ -57,7 +57,7 @@ describe('Tällä viikolla · Jaksolla nyt · Odottaa jaksoa · oikea palsta', (
     k.joukkueet.pil2.n_suostumus = 6; expect(HTML(d).km.jaksollaRivit[0].luvut).toBeNull();   // 6/10 < 70 %
   });
   it('Odottaa jaksoa: 14 tunnistetta ikäjärjestyksessä (ei tyhjiä joukkueita P18/T18); yli 14 → "+N"; klikkaus avaa joukkueen', () => {
-    const { km, h } = HTML(F.lataa('pilotti', NYT)); expect(km.odottaa).toHaveLength(14); expect(km.odottaa[0].tunniste).toBe('P8'); expect(teksti(h)).toContain('Odottaa jaksoa · 14'); expect(h).not.toMatch(/>(P18|T18)</); expect(h).toContain("onclick=\"jk('P8 Pilotti')\"");
+    const { km, h } = HTML(F.lataa('pilotti', NYT)); expect(km.odottaa).toHaveLength(14); expect(km.odottaa[0].tunniste).toBe('P8'); expect(teksti(h)).toContain('Odottaa jaksoa · 14'); { const o = h.slice(h.indexOf('kk-odottaa')); expect((o.slice(0, o.indexOf('Ehdota jaksot')).match(/class="kk-tag"/g) || []).length).toBe(7); }   // D144: 6 tagia + "+8" expect(h).not.toMatch(/>(P18|T18)</); expect(h).toContain("onclick=\"jk('P8 Pilotti')\"");
     const k = HTML(F.lataa('kuormitus', NYT)); expect(teksti(k.h)).toContain('Odottaa jaksoa · 30'); expect(k.h).toMatch(/data-auki|onclick="au\('odottaa'\)">\+\d+</);
   });
   it('Odottaa jaksoa -rivillä aina "Ehdota jaksot →" (mockup 33): sama kohde kuin Aloita jaksot -napilla (aj)', () => {
