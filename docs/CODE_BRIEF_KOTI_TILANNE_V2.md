@@ -13,10 +13,25 @@
 ## PR A — Laatuportti ja tokenit (D168, D169) + pikakorjaukset · ensin
 Tämä estää saman virheen toistumisen. Ei näkymämuutoksia paitsi tokenit ja korjaukset alla.
 1. **Versiohash (D168):** jokaisen VP_v25:n, Master_v16:n, Pelaaja_v7:n ja Vanhempi_v2:n lataaman `lib/*.js`- ja CSS-tiedoston `?v=` on tiedoston sisällön hash (8 merkkiä). `npm run versiot` päivittää viitteet. Vartijatesti laskee hashin ja kaatuu, jos tiedosto muuttui mutta viite ei. Korjaa samalla nykyiset vanhentuneet viitteet (`tm_kt_komponentit.js`, `tm_vp_tilanne.js`, `tm_vp_navi.js`, `tm_seuran_pulssi.js` ym.).
-2. **Fontti- ja kontrastitokenit (D169):** `--fs-h1` 40 (mobiili 32) · `--fs-h2` 26 · `--fs-lead` 16 · `--fs-body` 14 · `--fs-meta` 12.5 · `--fs-eb` 11 VP_v25:n `:root`iin. Vaalean teeman `--amber` `#9A6512 → #845510`. Kirjaa asteikko myös CLAUDE.md §5:een ja mockupin 22 design-dokumenttiin (docs-osuus samassa PR:ssä, kaista Tero koska HTML muuttuu).
+2. **Fontti- ja sävytokenit (D169):** `--fs-h1` 40 (mobiili 32) · `--fs-h2` 26 · `--fs-lead` 16 · `--fs-body` 14 · `--fs-meta` 12.5 · `--fs-eb` 11 VP_v25:n `:root`iin. Vaalean teeman `--amber` `#9A6512 → #845510`. Kirjaa asteikko ja alla oleva käyttötaulukko myös CLAUDE.md §5:een ja mockupin 22 design-dokumenttiin (docs-osuus samassa PR:ssä, kaista Tero koska HTML muuttuu). **Mockup 33 ei vain pienennä kokojen määrää, vaan yhdistää fonttien ja sävyjen käytön.** SSOT on 33:n CSS-lohko "D169 · kuuden portaan asteikko" (`.app`-säännöt) ja §6. Toteuta se tällä taulukolla kaikissa uusissa näkymissä (Koti, Tilanne, navi, kt-komponentit):
+
+   | Elementti | Fontti | Koko | Sävy |
+   |---|---|---|---|
+   | Sivun otsikko (havainto) | Cormorant 400 | `--fs-h1` (mobiili 32) | `--ink` |
+   | Kortin otsikko, iso luku, joukkuekortin tunniste, käynnistysaskeleen luku | Cormorant 500 | `--fs-h2` | `--ink` (amber vain poikkeamassa) |
+   | Tulkintalause | DM Sans 400 | `--fs-lead` | `--ink2` |
+   | **Luvut riveillä ja korteissa** (Katsaus, Käyttö, rivin tunniste) | **DM Sans 600, `font-variant-numeric: tabular-nums`** | `--fs-lead` | `--ink`, amber poikkeamassa |
+   | Rivit, leipäteksti, napit, linkit, sivupalkki | DM Sans 400/600 | `--fs-body` | `--ink` / linkit `--teal` |
+   | **Merkityksellinen meta** (päivä, tavoite, otos, "vk 3/6", oikean palstan päivä) | DM Sans 400 | `--fs-meta` | **`--ink2`** |
+   | **Nimikkeet** (Katsaus, Käyttö 7 pv, rivin aihe "Viesti · P13") | DM Sans 400, ei isoja kirjaimia | `--fs-meta` | `--ink3` |
+   | **Osioiden yläotsikot** ("Tällä viikolla") | **DM Mono, ainoa DM Mono -käyttö**, isot kirjaimet, väli .12em | `--fs-eb` | `--teal` |
+   | Signaalikortin alarivi (Kuittaa · Ensi viikolla) | DM Sans | `--fs-body` | **`--ink2`** (ei ink3: kontrasti 3,8 → 7,9) |
+   | Tagit (joukkuetunnisteet) | DM Sans (ei Mono) | `--fs-meta` | `--ink2` |
+
+   Säännöt: ei luettavaa tekstiä alle 12,5 px; DM Mono ei rivien luvuissa, päivissä, tageissa eikä nimikkeissä; teal-teksti vain ≥ 12,5 px; ei uusia värejä eikä hex-arvoja (vain tokenit). Testi (kohta 3) tarkistaa koot ja DM Monon rajauksen.
 3. **Design-testit (D168), koskevat vain lipun takana olevia uusia näkymiä (`tm_seuran_pulssi`, `tm_vp_tilanne`, `tm_vp_navi`, `tm_kt_komponentit`):**
    - enintään yksi täytetty `.kt-btn` per renderöity näkymä (Koti, Tilanne);
-   - vain sallitut `font-size`-arvot (`var(--fs-*)`) näiden libien CSS:ssä;
+   - vain sallitut `font-size`-arvot (`var(--fs-*)`) näiden libien CSS:ssä, ja `DM Mono` vain yläotsikkoluokassa (`.kt-eb`);
    - kielletyt UI-tekstit: `TKI <`, `→ ` + `teema`, `0 % · 0 %`, seuran nimi rivin alussa ("KPV P13"), osa-alueen toisto samassa rivissä;
    - prosenttia ei näytetä ilman otosta (D125): apufunktio + yksikkötesti.
 4. **Fixture-tilat (D168)** `tests/fixtures/vp/`: `tyhja` (0 joukkuetta), `pilotti` (KPV:n kaltainen, anonymisoitu: 15 joukkuetta + 2 tyhjää, 1 jakso, 4/160 suostumusta, 6 huomiota, 4 ehdotusta joista yksi 14 joukkueelle), `kypsa` (FC Demo), `kuormitus` (40 joukkuetta, pitkät nimet, ruotsi). Ei oikeita nimiä.
@@ -41,7 +56,7 @@ Tämä estää saman virheen toistumisen. Ei näkymämuutoksia paitsi tokenit ja
 - **D170:** Käynnistys-vaiheessa Tilanteessa ei signaalikorttia ("Aloita jaksot" on Kodissa). Rytmi-vaiheessa signaali = jaksopalaverin valmius ("Kaksi katselmusta auki ennen palaveria" → Avaa esityslista).
 - **Huomiot (D148):** yksi rivi per joukkue, selkokielinen lause, ikä/tila oikealla, koko rivi avaa joukkueen. Yli 12 kk vanha mittaus = "mittaus vanha · päivitä", ei tasona (D141).
 - **Ehdotukset (D149):** teonsanaotsikko, perustelu yhdellä rivillä, uniikit tunnisteet + "+N", "Ota käyttöön" (reunanappi) + ⋯ (Muokkaa, Hylkää). Toiminnot toimintokartan (31 §5) mukaan.
-- Typografia D169, yksi täytetty nappi (D147), tieto kerran (D150).
+- Typografia ja sävyt D169 (PR A:n taulukko), yksi täytetty nappi (D147), tieto kerran (D150). Mockupin 30 omat koot ja DM Mono -käytöt korvautuvat taulukolla.
 - Poista vanha koodi, jonka tämä korvaa (kasvukatto: VP_v25:ssä 77 riviä varaa; kaikki uusi `lib/tm_vp_tilanne.js`:ään).
 
 ## PR D — Koti: Rytmi-vaihe (D161, D162, D163, D166)
