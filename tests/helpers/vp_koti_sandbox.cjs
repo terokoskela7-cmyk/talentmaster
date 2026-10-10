@@ -41,7 +41,7 @@ function luoYmparisto(src, o) {
   ctx.TM_ALOITA_JAKSO = require('../../lib/tm_aloita_jakso.js');
   ctx.TM_KAYTTOASTE = { tmKayttoasteLueKoosteet: async () => { if (o.lukuVirhe) throw new Error('permission-denied'); return o.koosteet || []; } };
   vm.createContext(ctx);
-  const nimet = ['_vpPaivitaToimenpideLaskuri', 'renderKotiVP', '_vpJaksoVk', '_vpSeuraavaKatselmus', '_vpKatselmusPv', '_vpPulssiLataa', '_vpTekniikkaYhteenveto', '_vpFyysinenYhteenveto', '_renderKotiPulssi'].filter((n) => src.indexOf('function ' + n + '(') >= 0);
+  const nimet = ['_vpPaivitaToimenpideLaskuri', 'renderKotiVP', '_vpJaksoVk', '_vpSeuraavaKatselmus', '_vpKatselmusPv', '_vpPulssiLataa', '_renderKotiPulssi'].filter((n) => src.indexOf('function ' + n + '(') >= 0);
   vm.runInContext(nimet.map((n) => funktio(src, n)).join('\n'), ctx);
   const ikkunaFn = (nimi) => { const a = src.indexOf('window.' + nimi + ' = '); if (a < 0) return ''; let syv = 0, k = src.indexOf('{', src.indexOf(')', a)), l = -1; for (; k < src.length; k++) { if (src[k] === '{') syv++; else if (src[k] === '}') { syv--; if (syv === 0) { l = k + 1; break; } } } return src.slice(a, l) + ';'; };
   vm.runInContext(['_vpPulssiKuittaa'].map(ikkunaFn).join('\n'), ctx);

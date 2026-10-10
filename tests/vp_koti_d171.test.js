@@ -14,14 +14,31 @@ const rytmi = (tila, muokkaa, o) => { const x = mallit(tila, muokkaa); return Ob
 describe('A · johtolause: "Yhdellä joukkueella 15:sta on jakso." / "N joukkueella M:stä on jakso." (taivutus yksi/monta)', () => {
   const lause = (a, b) => KK.johtolause((s) => s, a, b);
   it('lause: yksi → "Yhdellä joukkueella", monta → "N joukkueella"; nolla → "Yhdelläkään joukkueella … ei ole vielä jaksoa"', () => {
-    expect(teksti(kaynn('pilotti').r.main)).toContain('Yhdellä joukkueella 15:sta on jakso.');
-    expect(lause(1, 15)).toBe('Yhdellä joukkueella 15:sta on jakso.'); expect(lause(2, 15)).toBe('2 joukkueella 15:sta on jakso.'); expect(lause(8, 9)).toBe('8 joukkueella 9:stä on jakso.'); expect(lause(0, 15)).toBe('Yhdelläkään joukkueella 15:sta ei ole vielä jaksoa.');
+    expect(teksti(kaynn('pilotti').r.main)).toContain('Yhdellä joukkueella 15:stä on jakso.');
+    expect(lause(1, 15)).toBe('Yhdellä joukkueella 15:stä on jakso.'); expect(lause(2, 15)).toBe('2 joukkueella 15:stä on jakso.'); expect(lause(8, 9)).toBe('8 joukkueella 9:stä on jakso.'); expect(lause(0, 20)).toBe('Yhdelläkään joukkueella 20:stä ei ole vielä jaksoa.');
   });
-  it('elatiivin pääte numerolle (-stä / -sta lausutun luvun mukaan): 1 stä · 2 sta · 3 sta · 4 stä · 5 stä · 6 sta · 7 stä · 8 sta · 9 stä · 10 stä · 11–19 sta · 20 stä · 21 stä · 100 sta', () => {
-    const odotus = { 1: 'stä', 2: 'sta', 3: 'sta', 4: 'stä', 5: 'stä', 6: 'sta', 7: 'stä', 8: 'sta', 9: 'stä', 10: 'stä', 11: 'sta', 12: 'sta', 13: 'sta', 14: 'sta', 15: 'sta', 16: 'sta', 17: 'sta', 18: 'sta', 19: 'sta', 20: 'stä', 21: 'stä', 22: 'sta', 30: 'stä', 40: 'stä', 100: 'sta' };
-    Object.keys(odotus).forEach((n) => expect(lause(1, +n), String(n)).toContain(n + ':' + odotus[n] + ' on jakso'));
+  it('elatiivin pääte viimeisen sanan mukaan: -stä (yhdestä, kymmenestä, viidestätoista, kahdestakymmenestä, sataviidestätoista), -sta vain sadasta ja tuhannesta + takavokaalinen viimeinen sana (kahdesta, kolmesta, kuudesta, kahdeksasta); taulukko 1–30, 100, 115, 1000', () => {
+    const odotus = { 1: 'stä', 2: 'sta', 3: 'sta', 4: 'stä', 5: 'stä', 6: 'sta', 7: 'stä', 8: 'sta', 9: 'stä', 10: 'stä', 11: 'stä', 12: 'stä', 13: 'stä', 14: 'stä', 15: 'stä', 16: 'stä', 17: 'stä', 18: 'stä', 19: 'stä', 20: 'stä', 21: 'stä', 22: 'sta', 23: 'sta', 24: 'stä', 25: 'stä', 26: 'sta', 27: 'stä', 28: 'sta', 29: 'stä', 30: 'stä', 100: 'sta', 115: 'stä', 1000: 'sta' };
+    Object.keys(odotus).forEach((n) => { expect(KK.elatiivi(+n), String(n)).toBe(odotus[n]); expect(lause(1, +n), String(n)).toContain(n + ':' + odotus[n] + ' on jakso'); });
+    expect([200, 300, 2000].map(KK.elatiivi)).toEqual(['sta', 'sta', 'sta']); expect([40, 90, 120, 215].map(KK.elatiivi)).toEqual(['stä', 'stä', 'stä', 'stä']);
   });
-  it('sama lause Rytmissä; ei vanhaa "Jakso on käynnissä a/b joukkueella" Kodissa', () => { expect(teksti(rytmi('kypsa').r.main)).toContain('8 joukkueella 9:stä on jakso.'); expect(teksti(kaynn('pilotti').r.main)).not.toContain('Jakso on käynnissä'); });
+  it('sama lause Rytmissä; ei vanhaa "Jakso on käynnissä a/b joukkueella" Kodissa', () => { expect(teksti(rytmi('kypsa').r.main)).toContain('8 joukkueella 9:stä on jakso.');; expect(teksti(kaynn('pilotti').r.main)).not.toContain('Jakso on käynnissä'); });
+});
+
+describe('Kodin otsikko: luku 1–10 sanana, yli 10 numerona (sv-avaimet kokonaisina lauseina)', () => {
+  it('asiaaOtsikko: 0 → Rauhallinen viikko.; 1–10 sanalla; 11+ numerolla', () => {
+    const t = (x) => x, odotus = ['Rauhallinen viikko.', 'Yksi asia tällä viikolla.', 'Kaksi asiaa tällä viikolla.', 'Kolme asiaa tällä viikolla.', 'Neljä asiaa tällä viikolla.', 'Viisi asiaa tällä viikolla.', 'Kuusi asiaa tällä viikolla.', 'Seitsemän asiaa tällä viikolla.', 'Kahdeksan asiaa tällä viikolla.', 'Yhdeksän asiaa tällä viikolla.', 'Kymmenen asiaa tällä viikolla.'];
+    odotus.forEach((x, n) => expect(KK.asiaaOtsikko(t, n)).toBe(x)); expect(KK.asiaaOtsikko(t, 11)).toBe('11 asiaa tällä viikolla.'); expect(KK.asiaaOtsikko(t, 23)).toBe('23 asiaa tällä viikolla.');
+  });
+  it('renderöity otsikko (h1) käyttää sanaa; "Viisi asiaa tällä viikolla." kypsässä kun 5 asiaa', () => { const { rm, r } = rytmi('kypsa'); expect(rm.asioita).toBeGreaterThan(0); expect(teksti(r.main)).toContain(KK.asiaaOtsikko((x) => x, rm.asioita)); expect(teksti(r.main)).not.toMatch(/\b[2-9] asiaa tällä viikolla/); });
+});
+
+describe('Tekniikka / fyysinen kehityskohteena EIVÄT ole Kodissa (D118 · D163; näkyvät Tilanteessa)', () => {
+  it('Tällä viikolla -lista ja otsikon asiamäärä ilman tekniikka-/fyysinen-rivejä, vaikka syöte antaa ne; Tilanne näyttää ne', () => {
+    ['kypsa', 'kuormitus', 'pilotti'].forEach((tila) => { const d = F.lataa(tila, NYT), x = teksti(F.kotiHTML(d, {})); expect(x, tila).not.toMatch(/Tekniikka kehityskohteena|Fyysiset testit kehityskohteena|Ei tekniikkadataa/); });
+    const a = mallit('kypsa'), env = Object.assign({}, a.env, { tekniikka: { kehityskohde: 5, eiTekniikkadataa: 2 }, fyysinen: { kehityskohde: 4 } }); const rm = KK.tmKotiRytmiMalli(a.m, env), rm0 = a.rm; expect(rm.asioita).toBe(rm0.asioita); expect(rm.entries.some((e) => e.tyyppi === 'tekniikka' || e.tyyppi === 'fyysinen')).toBe(false);
+    const TT = require('../lib/tm_vp_tilanne.js'), d = F.lataa('kypsa', NYT); expect(teksti(TT.tmTilanneHTML(TT.tmTilanneMalli(d.syote), { t: (s) => s, fn: {} }))).toMatch(/Tekniikka kehityskohteena · \d+ joukkuetta/);
+  });
 });
 
 describe('A · askeleet yhteen paneeliin, erottimilla; ensimmäinen keskeneräinen teal-sävytetty; numerot ympyröissä', () => {
@@ -85,12 +102,12 @@ describe('C · oikea palsta (kummassakin vaiheessa)', () => {
     const p = palsta('pilotti'); expect(p).toContain('Syysloma'); expect(p).not.toContain('Testijakso 2/15');   // pilotti: testijakso +24 pv → ei 14 päivän sisällä
   });
   it('ei näy kun ei osu 14 päivän sisään: jaksopalaveri +20 pv, testijakso +24 pv, tauko +40 pv', () => {
-    const x = palsta('kypsa', (d) => { d.kalenteri = d.kalenteri.filter((e) => e.tyyppi !== 'jaksopalaveri').concat([{ nimi: 'Jaksopalaveri', tyyppi: 'jaksopalaveri', alkaa: NYT + 20 * DAY }]); d.tapahtumat = d.tapahtumat.map((e) => Object.assign({}, e, { pvm_alku: new Date(NYT + 24 * DAY).toISOString().slice(0, 10), pvm_loppu: new Date(NYT + 31 * DAY).toISOString().slice(0, 10) })); d.kalenteri = d.kalenteri.filter((e) => e.tyyppi !== 'loma').concat([{ nimi: 'Joululoma', tyyppi: 'loma', alkaa: NYT + 40 * DAY, paattyy: NYT + 47 * DAY }]); });
+    const x = palsta('kypsa', (d) => { d.kalenteri = d.kalenteri.filter((e) => e.tyyppi !== 'jaksopalaveri').concat([{ nimi: 'Jaksopalaveri', tyyppi: 'jaksopalaveri', alkaa: NYT + 20 * DAY }]); d.tapahtumat = d.tapahtumat.map((e) => Object.assign({}, e, { pvm_alku: new Date(NYT + 24 * DAY).toISOString().slice(0, 10), pvm_loppu: new Date(NYT + 31 * DAY).toISOString().slice(0, 10) })); d.kalenteri = d.kalenteri.filter((e) => e.tyyppi !== 'seuran_tauko').concat([{ nimi: 'Joululoma', tyyppi: 'seuran_tauko', alkaa: NYT + 40 * DAY, paattyy: NYT + 47 * DAY }]); });
     expect(x).not.toMatch(/Jaksopalaveri/); expect(x).not.toContain('Testijakso'); expect(x).not.toContain('Joululoma');
   });
-  it('taukoviikot: env.tauot ja kalenteritapahtuma tyyppiä tauko/loma; ei lupausta signaalien/tavoitteiden tauosta (ei toteutettu)', () => {
-    const x = palsta('pilotti', (d) => { d.kalenteri = d.kalenteri.filter((e) => e.tyyppi !== 'loma').concat([{ nimi: 'Talviloma', tyyppi: 'loma', alkaa: NYT + 3 * DAY, paattyy: NYT + 9 * DAY }]); }); expect(x).toContain('Talviloma · vk 42–43'); expect(x).not.toMatch(/Talviloma[^.]*Tavoitteet ja signaalit tauolla/); expect(x).not.toMatch(/Tavoitteet ja signaalit tauolla/);
-    const lista = rytmi('pilotti', (d) => { d.kalenteri = d.kalenteri.filter((e) => e.tyyppi !== 'loma').concat([{ nimi: 'Talviloma', tyyppi: 'loma', alkaa: NYT + 3 * DAY }]); }).r.rail; expect((teksti(lista).match(/Talviloma/g) || []).length).toBe(1);   // loma ei tule myös tapahtumariviksi
+  it('taukoviikot: env.tauot ja kalenteritapahtuma tyyppiä seuran_tauko (+ vanhat tauko/loma); ei lupausta signaalien/tavoitteiden tauosta (ei toteutettu)', () => {
+    const x = palsta('pilotti', (d) => { d.kalenteri = d.kalenteri.filter((e) => e.tyyppi !== 'seuran_tauko').concat([{ nimi: 'Talviloma', tyyppi: 'seuran_tauko', alkaa: NYT + 3 * DAY, paattyy: NYT + 9 * DAY }]); }); expect(x).toContain('Talviloma · vk 42–43'); expect(x).not.toMatch(/Talviloma[^.]*Tavoitteet ja signaalit tauolla/); expect(x).not.toMatch(/Tavoitteet ja signaalit tauolla/);
+    const lista = rytmi('pilotti', (d) => { d.kalenteri = d.kalenteri.filter((e) => e.tyyppi !== 'seuran_tauko').concat([{ nimi: 'Talviloma', tyyppi: 'seuran_tauko', alkaa: NYT + 3 * DAY }]); }).r.rail; expect((teksti(lista).match(/Talviloma/g) || []).length).toBe(1);   // loma ei tule myös tapahtumariviksi
   });
   it('palsta on sama Käynnistyksessä ja Rytmissä (sama moduuli); kolme rivityyppiä ilman nappeja paitsi "Avaa kalenteri →"', () => { const a = kaynn('kypsa').r.rail, b = rytmi('kypsa').r.rail; expect(a).toBe(b); expect((b.match(/<button/g) || []).length).toBe(1); expect(teksti(b)).toContain('Avaa kalenteri →'); });
 });
@@ -118,6 +135,16 @@ describe('D168 · kuormitus-fixture (40 joukkuetta, pitkät nimet): Rytmi, ruudu
   });
 });
 
+describe('B · kortin korjaukset (#984): ruudukko auto-fill/minmax(220px), huomiokortin pelaajamäärä metariville, jakson nimi enintään 2 riville', () => {
+  it('ruudukko repeat(auto-fill, minmax(220px, 1fr)); ei container-query-sarakkeita', () => { expect(KJ.CSS).toContain('.kk-jg{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px}'); expect(KJ.CSS).not.toMatch(/@container[^}]*\.kk-jg\{grid-template-columns/); });
+  it('huomiokortti: oikeassa yläkulmassa vain "▲ huomio"; pelaajamäärä metariville ("12 pel. · vk 6/6"), ei tunnisteen alle (.kk-sub pois); tavallisessa kortissa pelaajamäärä oikealla', () => {
+    const h = rytmi('kypsa').r.main, kortti = (nimi) => { const i = h.indexOf('aria-label="' + nimi + '"'), re = /<div class="kk-jk[ "]|<div class="kk-ilman|<div class="kk-ika"|<div class="kk-sh"|<div class="kt-ev kk-kn"|<div class="kk-loppu"/g; let a = 0, e = h.length, m; while ((m = re.exec(h))) { if (m.index <= i) { if (m[0].startsWith('<div class="kk-jk')) a = m.index; } else { e = m.index; break; } } return h.slice(a, e); };
+    const p13 = kortti('P13 Demo'), p10 = kortti('P10 Demo'); expect(h).not.toContain('kk-sub'); expect(p13).toContain('class="kk-mk w">▲ huomio'); expect(p13).not.toMatch(/class="kk-mk w">[^<]*pel\./); expect(teksti(p13)).toMatch(/12 pel\. · vk 6\/6/);
+    expect(p10).toMatch(/class="kk-mk">8 pel\./); expect(teksti(p10)).not.toMatch(/8 pel\. · vk/);
+  });
+  it('jakson nimi: CSS rajaa enintään kahteen riviin (-webkit-line-clamp:2)', () => { expect(KJ.CSS).toMatch(/\.kk-jak b\{[^}]*-webkit-line-clamp:2/); });
+});
+
 describe('D169 · typografia uusille elementeille (koot --fs-*, DM Mono vain .kt-eb, luvut DM Sans 16/600, tunniste Cormorant 26, meta ink2)', () => {
   const sennut = (css) => { const o = []; css.split('\n').forEach((rivi) => { const re = /([^{}]+)\{([^{}]*)\}/g; let m; while ((m = re.exec(rivi))) o.push({ valitsin: m[1].trim(), maar: m[2] }); }); return o; };
   const UUSI = KJ.CSS + '\n' + KP.CSS, S = sennut(UUSI), hae = (v) => S.find((x) => x.valitsin.split(',').some((y) => y.trim() === v));
@@ -125,7 +152,7 @@ describe('D169 · typografia uusille elementeille (koot --fs-*, DM Mono vain .kt
   it('kortin tunniste Cormorant --fs-h2; jakson nimi DM Sans 600 --fs-lead; luvut .kk-v DM Sans 600 tasalevyisinä; meta ink2, nimikkeet ink3', () => {
     expect(hae('.kk-jtn').maar).toMatch(/font-family:var\(--font-serif\)/); expect(hae('.kk-jtn').maar).toContain('font-size:var(--fs-h2'); expect(hae('.kk-jak b').maar).toContain('font-size:var(--fs-lead'); expect(hae('.kk-jak b').maar).toContain('font-weight:600');
     const v = S.concat(sennut(KK.CSS)).find((x) => x.valitsin === '.kk-v'); expect(v.maar).toContain('font-family:var(--font-sans)'); expect(v.maar).toContain('font-weight:600'); expect(v.maar).toContain('font-variant-numeric:tabular-nums'); expect(v.maar).toContain('font-size:var(--fs-lead');
-    expect(hae('.kk-vkl').maar).toContain('color:var(--ink2)'); expect(hae('.kk-sub').maar).toContain('color:var(--ink2)'); expect(S.concat(sennut(KK.CSS)).find((x) => x.valitsin === '.kk-nk').maar).toContain('color:var(--ink3)'); expect(hae('.kk-p').maar).toContain('color:var(--ink2)');
+    expect(hae('.kk-vkl').maar).toContain('color:var(--ink2)'); expect(S.concat(sennut(KK.CSS)).find((x) => x.valitsin === '.kk-nk').maar).toContain('color:var(--ink3)'); expect(hae('.kk-p').maar).toContain('color:var(--ink2)');
   });
   it('kuusi kokoa riittää: uudet elementit eivät käytä muita kokoja; mitään luettavaa ei alle 12,5 px (--fs-meta ≥ 12,5)', () => { expect(new Set([...UUSI.matchAll(/font-size:var\((--fs-[a-z0-9]+)/g)].map((m) => m[1]))).toEqual(new Set(['--fs-h2', '--fs-lead', '--fs-body', '--fs-meta'])); });
   it('DM Mono vain yläotsikoissa: ikävaiheotsikko ei käytä .kt-eb-luokkaa eikä DM Monoa (DM Sans 600/400)', () => { const h = rytmi('kypsa').r.main, ikah = h.match(/<div class="kk-ikah">[\s\S]*?<\/div>/)[0]; expect(ikah).not.toContain('kt-eb'); expect(hae('.kk-ikah').maar).not.toMatch(/font-family/); });

@@ -15,7 +15,7 @@ const kortti = (h, nimi) => { const i = h.indexOf('aria-label="' + nimi + '"'), 
 
 describe('D161 · Tällä viikolla: signaalit ja VP:tä odottavat viestit yhdessä listassa; tärkein = signaalikortti', () => {
   it('kypsä (8/9 jaksolla): vaihe Rytmi; otsikko D163 "{n} asiaa tällä viikolla." (viikko, ei kausi) + tulkintalause "Tärkein: …"', () => {
-    const { rm, m, h } = rakenna('kypsa'), x = teksti(h); expect(KK.tmKotiVaihe(m)).toBe('rytmi'); expect(x).toContain(rm.asioita + ' asiaa tällä viikolla.'); expect(x).toContain('8 joukkueella 9:stä on jakso. Tärkein: P15 on ollut ilman jaksoa 4 viikkoa.'); expect(x).not.toMatch(/Kausi 20|jaksolla \d+ %/);
+    const { rm, m, h } = rakenna('kypsa'), x = teksti(h); expect(KK.tmKotiVaihe(m)).toBe('rytmi'); expect(x).toContain(KK.asiaaOtsikko((s) => s, rm.asioita)); expect(x).toContain('8 joukkueella 9:stä on jakso. Tärkein: P15 on ollut ilman jaksoa 4 viikkoa.'); expect(x).not.toMatch(/Kausi 20|jaksolla \d+ %/);
   });
   it('signaalikortti on sivun AINOA täytetty nappi (D147); alarivi Kuittaa · Ensi viikolla harmaana; muut toiminnot linkkejä', () => {
     const { h } = rakenna('kypsa'); expect((h.match(/class="kt-btn"/g) || []).length).toBe(1); expect(h).toMatch(/<button class="kt-btn" type="button" onclick="jk\('P15 Demo'\)">Aloita jakso<\/button>/); expect(h).toContain('data-kuittaus="kuitattu"'); expect(h).toContain("onclick=\"kt('ei_jaksoa|"); expect(h).not.toContain('class="kt-btn q');
