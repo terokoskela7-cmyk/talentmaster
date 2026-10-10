@@ -409,13 +409,14 @@ describe('vartijat', () => {
     const ikkuna = { console, Date, Math, JSON };
     ikkuna.window = ikkuna;
     vm.createContext(ikkuna);
-    for (const f of ['lib/tm_eerikkila_normit.js', 'lib/tm_joukkue.js']) {
+    for (const f of ['lib/tm_eerikkila_normit.js', 'lib/tm_joukkue.js', 'lib/tm_joukkuesaanto.js']) {
       const s = readFileSync(join(juuri, f), 'utf8');
-      vm.runInContext(s + '\n;' + (f.includes('eerikkila') ? 'this.eerikkilaTaso=eerikkilaTaso;this.normiIka=normiIka;this.normSukupuoliMN=normSukupuoliMN;' : 'this.tmPelaajanJoukkueet=tmPelaajanJoukkueet;'), ikkuna);
+      vm.runInContext(s + '\n;' + (f.includes('eerikkila') ? 'this.eerikkilaTaso=eerikkilaTaso;this.normiIka=normiIka;this.normSukupuoliMN=normSukupuoliMN;' : f.includes('joukkuesaanto') ? '' : 'this.tmPelaajanJoukkueet=tmPelaajanJoukkueet;'), ikkuna);
     }
     vm.runInContext(src, ikkuna);
     expect(typeof ikkuna.TM_TEKNIIKKA).toBe('object');
     const p = smPelaaja(14, 'M', 1, 3);
     expect(ikkuna.tmTekniikkaMittari(p, NYT)).toMatchObject({ tila: 'sm', kehityskohde: true, syy: 'alle_ikatason' });
+    expect(ikkuna.TM_TEKNIIKKA.tmTekniikkaJoukkueLuokka([p], NYT)).toMatchObject({ luokka: 'kehityskohde' });   // joukkuesääntö window-globaalin kautta
   });
 });

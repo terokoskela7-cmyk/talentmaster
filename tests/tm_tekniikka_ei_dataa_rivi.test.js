@@ -24,7 +24,7 @@ describe('Tilanne: "Ei tekniikkadataa · N joukkuetta" (pilotti-fixture)', () =>
     const { h } = html('pilotti'), i = h.indexOf('id="tilanneEiTekniikkaa"'), alku = h.lastIndexOf('<div', i + 1);
     expect(h.slice(alku, i + 30)).toContain('tt-tekei'); expect(h.slice(alku, i + 30)).not.toContain('tt-ilmankortti');
     const hide = TT.CSS.split('\n').filter((r) => /tt-tekei/.test(r)).join('\n');
-    expect(hide).toContain('.tt-tekei{display:grid'); expect(hide).not.toMatch(/tt-tekei[^{}]*\{[^}]*display:none/);
+    expect(hide).toContain('.tt-tekei,.tt-fyyei{display:grid'); expect(hide).not.toMatch(/tt-tekei[^{}]*\{[^}]*display:none/);
     for (const r of TT.CSS.split('\n')) { const m = /([^{}]*tt-tekei[^{}]*)\{([^}]*)\}/.exec(r); if (m) expect(m[2]).not.toMatch(/display:none/); }
   });
   it('muut tilat: kypsä (0 ilman dataa) → ei riviä; kuormitus (27) → rivi; tyhjä seura → ei riviä', () => {

@@ -72,9 +72,9 @@ describe('tmJoukkueD2: raja ja lähde', () => {
 });
 
 describe('comp() (talenttiydin, hajonta) käyttää laskeD2Tasoa, ei TKI/20:tä', () => {
-  it('pelaajilla d2_taso 2.0 mutta TKI 90 (TKI/20 = 4.5): talenttiydin ka 2.0 → "Talenttiydin alle normin" (aiemmin 4.5 → ei huolta)', () => {
+  it('PR 3: talenttiydin-huomio poistettu — d2_taso 2.0 + TKI 90 ei tuota Kärkipelaajat-poikkeamaa (comp-lähdevartija alla säilyy)', () => {
     const jk = Array.from({ length: 6 }, (_, i) => ({ id: 'c' + i, d2_taso: 2.0, tki_viimeisin: 90 }));
-    const x = sb.laskeJoukkuePoikkeamat(jk, 12, 'M').filter((w) => w.tyyppi === 'talenttiydin'); expect(x.length).toBe(1); expect(x[0].arvo).toBe(2);
+    expect(sb.laskeJoukkuePoikkeamat(jk, 12, 'M').filter((w) => w.tyyppi === 'talenttiydin').length).toBe(0);
   });
   it('kalibraatio-chipit (toinen comp): lähdekoodissa ei tki_viimeisin / 20 -laskentaa', () => {
     const src = lue('lib/tm_eerikkila_normit.js'); const rivit = src.split('\n').filter((r) => /var comp = function/.test(r) || /var teknArvo/.test(r));

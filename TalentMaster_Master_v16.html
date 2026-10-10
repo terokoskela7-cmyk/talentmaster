@@ -35,7 +35,10 @@
 <script src="lib/tm_i18n_common.js?v=12"></script>   <!-- i18n Vaihe 0 — JAETTU henkilöstö-i18n + lukittu glossaari (ENNEN sivukarttaa) -->
 <script src="lib/tm_master_i18n.js?v=30"></script>   <!-- i18n Vaihe 5 Raita B — Master sv (sivukartta); masterT/masterLokalisoi delegoivat commoniin -->
 <script src="lib/tm_phv_tila.js?v=2"></script>   <!-- PR C: PHV-tilan YKSI lukusääntö (Mirwald, vain mittauslähteestä) -->
-<script src="lib/tm_eerikkila_normit.js?v=50"></script>   <!-- v43: D2-kortti d2_taso-ensin (renderKehityskorttiHTML, PR #264 · §30/#262) -->
+<script src="lib/tm_eerikkila_normit.js?v=51"></script>   <!-- v43: D2-kortti d2_taso-ensin (renderKehityskorttiHTML, PR #264 · §30/#262) -->
+<script src="lib/tm_joukkuesaanto.js?v=1"></script>   <!-- PR 3: YKSI joukkuesääntö (tekniikka + fyysinen) -->
+<script src="lib/tm_tekniikka.js?v=2"></script>   <!-- PR 3: D2 = YKSI tekniikka-määritelmä (TKI → SM-tasot) -->
+<script src="lib/tm_fyysinen.js?v=1"></script>   <!-- PR 3: D1 = YKSI fyysisen heikkouden määritelmä (H-H-fyysiset tasot, §28) -->
 <script src="lib/tm_harjoitusarviointi.js?v=6"></script>
 <script src="lib/tm_kalenteri.js?v=1"></script>
 <script src="lib/tm_teknistaktiset_sv.js?v=1"></script>   <!-- sv-läpiajo PR 3: curriculumin sv-sidecar (TM_TT_SV) — kielivalinta VAIN näyttöön (lib/tm_tt_sv_valinta.js) -->
@@ -9616,7 +9619,7 @@ document.addEventListener('click', function (e) {
 window._avaaKausiPelaajat = function(dim) {
   const P = _pelaajatData || [];
   const _nimi = p => _tmHenkiloNimi(p);
-  const _lvl = p => { const _is=_devIkaSp(p); const d2j=(typeof laskeD2Joustava==='function')?laskeD2Joustava(p,_is.ika,_is.sp):null; const a=[p.d1_taso,p.hh_taso,p.d2_taso,d2j?d2j.taso:null].filter(v=>v!=null); return a.length?Math.max(...a):null; };
+  const _lvl = p => { const _is=_devIkaSp(p); const a=[p.d1_taso,p.hh_taso,(typeof d2KomposiittiTaso==='function')?d2KomposiittiTaso(p,_is.ika,_is.sp):null].filter(v=>v!=null); return a.length?Math.max(...a):null; };   // PR 3: Eerikkilän tekniikkatestien (d2_lahde 'hh') johdettu D2 ei komposiittiin
   const _vari = t => t==null?'var(--ink3)':t>=4?'var(--teal)':t>=3?'var(--amber)':'var(--red)';   // 1–5 sama skaala kuin muualla
   const rivit = [];
   P.forEach(p => {
@@ -9691,8 +9694,7 @@ function renderSeason() {
     const nimi = p => _tmHenkiloNimi(p);
     const lvl = p => {
       const _is = _devIkaSp(p);
-      const d2j = (typeof laskeD2Joustava === 'function') ? laskeD2Joustava(p, _is.ika, _is.sp) : null;   // §26 D2: lajikohtainen ensin; TKI-johto vain varana (Sibbo TKI-only)
-      const a = [p.d1_taso, p.hh_taso, p.d2_taso, d2j ? d2j.taso : null].filter(v => v != null);
+      const a = [p.d1_taso, p.hh_taso, (typeof d2KomposiittiTaso === 'function') ? d2KomposiittiTaso(p, _is.ika, _is.sp) : null].filter(v => v != null);   // PR 3: ei Eerikkilän tekniikkatestien D2:ta komposiittiin
       return a.length ? Math.max(...a) : null;
     };
 
@@ -9756,7 +9758,8 @@ function renderSeason() {
         Pt.forEach(p => { const _is=_devIkaSp(p); const oi = laskeD1Osaindeksit(p.hh_viimeisin, _is.ika, _is.sp); if (!oi) return; _D1_OSAT.forEach(k => { if (oi[k[0]] != null) { summa[k[0]] += oi[k[0]]; lkm[k[0]]++; } }); });
         const rivit = _D1_OSAT.filter(k => lkm[k[0]] > 0).map(k => {
           const ka = Math.round(summa[k[0]] / lkm[k[0]] * 10) / 10;
-          const col = ka >= 4 ? 'var(--teal)' : ka >= 3 ? 'var(--amber)' : 'var(--red)';
+          const gatedN = Pt.filter(p => window.TM_KOTI_LUVUT && window.TM_KOTI_LUVUT.kypsyysEstetty(k[0], p)).length, neutr = gatedN * 2 > Pt.length;   // §28: enemmistölle kypsyys ei salli tulkintaa → ei väriä
+          const col = neutr ? 'var(--ink3)' : ka >= 3 ? 'var(--teal)' : 'var(--amber)';
           return '<div style="display:flex;align-items:center;gap:8px;margin:4px 0">'
             + '<span style="flex:0 0 84px;font-size:10px;color:var(--ink2)">' + masterT(k[1]) + '</span>'
             + '<span style="flex:1;height:7px;border-radius:4px;background:rgba(255,255,255,.06);overflow:hidden"><span style="display:block;height:7px;width:' + (ka/5*100).toFixed(0) + '%;background:' + col + '"></span></span>'
@@ -9764,6 +9767,12 @@ function renderSeason() {
         });
         return rivit.length ? rivit.join('') : tyhjaMs(masterT('Ei fyysistä osaindeksiä vielä (H-H raakatulokset puuttuvat).'));
       };
+      /* PR 3: D1 = lib/tm_fyysinen.js, D2 = lib/tm_tekniikka.js — sama luokitus kuin VP:n Tilanteessa. Chip: luokka + mitattu m/y (+ §28-neutraalit). */
+      const _luokkaChip = (r, kdTeksti) => { if (!r) return ''; const kd = r.luokka === 'kehityskohde', ok = r.luokka === 'ok', col = kd ? 'var(--amber)' : ok ? 'var(--teal)' : 'var(--ink3)';
+        const teksti = kd ? kdTeksti : ok ? masterT('Ei kehityskohdetta') : masterT('Ei luokkaa — liian vähän mitattuja');
+        return '<div style="font-size:11px;margin-bottom:8px;color:' + col + '">' + (kd ? '▲ ' : '') + teksti + ' <span style="color:var(--ink3)">· ' + masterT('mitattu') + ' ' + r.mitattu + '/' + r.yht + (r.otosPieni ? ' · ' + masterT('otos pieni') : '') + (r.neutraaleja ? ' · ' + masterT('§28-neutraali') + ' ' + r.neutraaleja : '') + '</span></div>'; };
+      const _fyJ = window.TM_FYSINEN ? window.TM_FYSINEN.tmFyysinenJoukkueLuokka(P, Date.now()) : null;
+      const _tkJ = window.TM_TEKNIIKKA ? window.TM_TEKNIIKKA.tmTekniikkaJoukkueLuokka(P, Date.now()) : null;
       const phvVaiheet = ['PRE','LAH','PH','POST','AN'];
       const phvLkm = {}; phvVaiheet.forEach(v => phvLkm[v] = 0); let phvTuntematon = 0;
       P.forEach(p => { if (tmPhvKoodi(p) && phvLkm[tmPhvKoodi(p)] != null) phvLkm[tmPhvKoodi(p)]++; else phvTuntematon++; });
@@ -9800,8 +9809,8 @@ function renderSeason() {
         }
       }
       histEl.innerHTML = '<div style="display:flex;gap:12px;flex-wrap:wrap">'
-        + card(masterT('D1 Fyysinen — osaindeksit') + _mSelBtn('d1'), onD1 ? d1OsaProfiili() : tyhjaMs(masterT('Ei fyysistä mittausta (H-H) — tämä seura on TKI-pohjainen.')), onD1 ? 'd1' : null)
-        + card(masterT('D2 Tekninen — tasojakauma') + _mSelBtn('d2'), onD2 ? histBars(histF(d2Val),'var(--blue)') + d2Alaviite : tyhjaMs(masterT('Ei teknistä mittausta vielä.')), onD2 ? 'd2' : null)
+        + card(masterT('D1 Fyysinen — osaindeksit') + _mSelBtn('d1'), onD1 ? _luokkaChip(_fyJ, masterT('Fyysiset testit kehityskohteena')) + d1OsaProfiili() : tyhjaMs(masterT('Ei fyysistä mittausta (H-H) — tämä seura on TKI-pohjainen.')), onD1 ? 'd1' : null)
+        + card(masterT('D2 Tekninen — tasojakauma') + _mSelBtn('d2'), onD2 ? _luokkaChip(_tkJ, masterT('Tekniikka kehityskohteena')) + histBars(histF(d2Val), (_tkJ && _tkJ.luokka === 'kehityskohde') ? 'var(--amber)' : (_tkJ && _tkJ.luokka === 'ok') ? 'var(--teal)' : 'var(--blue)') + d2Alaviite : tyhjaMs(masterT('Ei teknistä mittausta vielä.')), onD2 ? 'd2' : null)
         + card(masterT('PHV-vaiheet'), '<div style="display:flex;flex-wrap:wrap;gap:5px;align-items:center">' + phvVaiheet.map(v => phvChip(v, phvLkm[v])).join('') + (phvTuntematon ? '<span style="font-size:10px;color:var(--ink3)">' + phvTuntematon + masterT(' ei mittausta') + '</span>' : '') + '</div>' + (phvLkm.PH ? '<div style="font-size:10px;color:var(--amber);margin-top:6px">⚠ ' + phvLkm.PH + masterT(' kuormarajoitettua (PH)') + '</div>' : ''))
         + card(masterT('Kattavuus (§26)'), '<div style="display:flex;flex-direction:column;gap:4px">' + cov(masterT('Testattu'), nTestattu) + cov(masterT('Peliäly ≥3'), nAdar) + cov('PHV', nPhv) + cov(masterT('Valmius'), nFlei) + '</div>')
         + _raeCardHtml
