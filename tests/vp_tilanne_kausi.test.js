@@ -157,11 +157,11 @@ describe('Design: komponentit, tokenit', () => {
     const h = HTML(); ['kt-eb', 'kt-sig', 'kt-btn', 'kt-ev', 'kt-sig-h'].forEach((c) => expect(h).toContain(c));
     ['kt-sig', 'kt-sig-h', 'kt-sig-why', 'kt-btn', 'kt-eb', 'kt-ev', 'kt-q3'].forEach((c) => expect(TT.CSS).not.toMatch(new RegExp('(^|[}\\n,])\\.' + c + '[{ .:,]')));
     expect(TT.CSS).not.toMatch(/#[0-9a-fA-F]{3,8}\b/); expect(TT.CSS).not.toMatch(/rgba?\(/);
-    const sallitut = new Set(['teal', 'amber', 'red', 'ink', 'ink2', 'ink3', 'bg', 'border', 'teal-brd', 'font-serif', 'font-mono', 'font-sans', 'kt-serif', 'amber-dim', 'tt-teal-dim', 'ov-1', 'n', 'c', 's', 'w']);
+    const sallitut = new Set(['teal', 'amber', 'red', 'ink', 'ink2', 'ink3', 'bg', 'border', 'teal-brd', 'font-serif', 'font-mono', 'font-sans', 'kt-serif', 'amber-dim', 'tt-teal-dim', 'ov-1', 'n', 'c', 's', 'w', 'fs-h1', 'fs-h2', 'fs-lead', 'fs-body', 'fs-meta', 'fs-eb']);
     expect([...new Set((TT.CSS.match(/var\(--[a-z0-9-]+/g) || []).map((x) => x.slice(6)))].filter((x) => !sallitut.has(x))).toEqual([]);
   });
-  it('mitat mockupista: KPI-luku Cormorant 30 px; aikajanan otsikot DM Mono 11 px; rivi 13,5 px; kortin radius 6', () => {
-    expect(TT.CSS).toMatch(/\.tt-v\{font-family:var\(--kt-serif\);font-size:30px/); expect(TT.CSS).toMatch(/\.tt-ajh\{font-family:var\(--font-mono\);font-size:11px/); const KTC = require('../lib/tm_kt_komponentit.js').CSS; expect(KTC).toMatch(/\.kt-vr\{[^}]*font-size:13\.5px/); expect(KTC).toMatch(/\.kt-vl\{[^}]*border-radius:6px/);   // rivilista on jaetussa komponenttitiedostossa
+  it('mitat mockupista: KPI-luku Cormorant --fs-h2; aikajanan otsikot DM Sans --fs-meta (D169: DM Mono vain .kt-eb); rivi --fs-body; kortin radius 6', () => {
+    expect(TT.CSS).toMatch(/\.tt-v\{font-family:var\(--kt-serif\);font-size:var\(--fs-h2,26px\)/); expect(TT.CSS).toMatch(/\.tt-ajh\{font-family:var\(--font-sans\);font-size:var\(--fs-meta,12\.5px\)/); const KTC = require('../lib/tm_kt_komponentit.js').CSS; expect(KTC).toMatch(/\.kt-vr\{[^}]*font-size:var\(--fs-body,14px\)/); expect(KTC).toMatch(/\.kt-vl\{[^}]*border-radius:6px/);   // rivilista on jaetussa komponenttitiedostossa
   });
 });
 

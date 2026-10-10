@@ -119,6 +119,22 @@ rgba(42,93,176,X)=--blue · rgba(40,176,144,X)=--teal
 - **Kenttä-tokenit (D10 = A, lukittu 5.10.2026):** kolme uutta tokenia MOLEMPIIN teemoihin: `--chalk` ja `--chalk2` (kentän viivat ja historia) sekä `--amber-dim` ("nyt"-tila; erotettava mitalikullasta, §31). Muita uusia tokeneita ei ilman päätöstä.
 - **Kenttä-komponentin sisäiset tokenit, eivät globaaleja:** `--amber`, `--blue`, `--teal-dim` (ja `--ink` = `var(--text)`) määritellään VAIN `.kt`-elementin sisällä (Pelaaja_v7, Vanhempi_v2), ei appien `:root`issa — ne muuttaisivat vanhojen elementtien värejä (esim. `.synttari-bonus-label` käyttää määrittelemätöntä `--amber`ia). Vaalea teema Pelaajaan/Vanhempaan EI toteuteta Kentän mukana (arvot lepotilassa; Tero päättää ajoituksen).
 - **Fontit (D11 = A, lukittu 5.10.2026):** **pelaaja-app: Archivo display, muualla Cormorant.** Archivo on pelaaja-appin näyttöfontti (viikon numero, ydinvahvuuden nimi, napit; wdth 70–80, paino 800); leipäteksti DM Sans; huoltajan näkymä noudattaa mockupia 09; Cormorant Garamond säilyy VP:llä ja raporteissa. **Ehdot:** fontit ladataan OMALTA palvelimelta `@fontsource`-paketeista, EI Google Fontsista (alaikäisten IP-osoitteet eivät saa mennä Googlelle); Archivosta yksi muuttuva fonttitiedosto, jossa ä, ö ja å; tiedosto SW:n allowlistiin ja SW-cache ylös. (Yllä oleva "EI KOSKAAN Playfair Display" -lista ennallaan.)
+- **Fonttiasteikko ja sävyt (D169, Tero 10.10.2026, lähde mockup 33 §6):** kuusi kokoa `:root`issa (VP_v25): `--fs-h1` 40 (mobiili 32) · `--fs-h2` 26 · `--fs-lead` 16 · `--fs-body` 14 · `--fs-meta` 12.5 · `--fs-eb` 11. Käyttötaulukko kaikissa uusissa (Kenttä-lipun takaisissa) näkymissä — Koti, Tilanne, navi, `lib/tm_kt_komponentit.js`:
+
+  | Elementti | Fontti | Koko | Sävy |
+  |---|---|---|---|
+  | Sivun otsikko (havainto) | Cormorant 400 | `--fs-h1` (mobiili 32) | `--ink` |
+  | Kortin otsikko, iso luku, joukkuekortin tunniste, käynnistysaskeleen luku | Cormorant 500 | `--fs-h2` | `--ink` (amber vain poikkeamassa) |
+  | Tulkintalause | DM Sans 400 | `--fs-lead` | `--ink2` |
+  | **Luvut riveillä ja korteissa** (Katsaus, Käyttö, rivin tunniste) | **DM Sans 600, `font-variant-numeric: tabular-nums`** | `--fs-lead` | `--ink`, amber poikkeamassa |
+  | Rivit, leipäteksti, napit, linkit, sivupalkki | DM Sans 400/600 | `--fs-body` | `--ink` / linkit `--teal` |
+  | **Merkityksellinen meta** (päivä, tavoite, otos, "vk 3/6", oikean palstan päivä) | DM Sans 400 | `--fs-meta` | **`--ink2`** |
+  | **Nimikkeet** (Katsaus, Käyttö 7 pv, rivin aihe "Viesti · P13") | DM Sans 400, ei isoja kirjaimia | `--fs-meta` | `--ink3` |
+  | **Osioiden yläotsikot** ("Tällä viikolla") | **DM Mono, ainoa DM Mono -käyttö**, isot kirjaimet, väli .12em | `--fs-eb` | `--teal` |
+  | Signaalikortin alarivi (Kuittaa · Ensi viikolla) | DM Sans | `--fs-body` | **`--ink2`** (ei ink3: kontrasti 3,8 → 7,9) |
+  | Tagit (joukkuetunnisteet) | DM Sans (ei Mono) | `--fs-meta` | `--ink2` |
+
+  Säännöt: ei luettavaa tekstiä alle 12,5 px; DM Mono ei rivien luvuissa, päivissä, tageissa eikä nimikkeissä; teal-teksti vain ≥ 12,5 px; ei uusia värejä eikä hex-arvoja (vain tokenit); yksi täytetty nappi per näkymä (D147). Portti: `tests/ui_laatuportti.test.js` (koot, DM Mono vain `.kt-eb`, kielletyt tekstit, fixture-tilat `tests/fixtures/vp/`); kuvat: `node scripts/ui_kuvat.mjs` → `docs/ui-kuvat/<haara>/`. Vaalean teeman Kenttä-komponentin `--amber` `#9A6512 → #845510` (kontrasti 4,3 → 5,6).
 - **Avoimet (D12–D15):** ei toteuteta ennen päätöstä; ne pitää ratkaista ennen K1–K3:a.
 - **Rakenne ja kieli:** näkymät noudattavat D1–D9-päätöksiä (esim. pelaajalle välilehdet Tänään · Polku · Näyttö; alle 16-vuotiaalle edistyminen sanoin) ja §7.22:ta.
 - **Visuaalinen kieli = mockup 22 (Tero 9.10.2026, pysyvä):** kaikissa näkymäuudistuksissa käytetään `22_kehitystyopoyta_kayttettavyys.html`:n komponentteja ja mittoja: signaalikortti (`.ev.sig`: yläotsikko DM Mono + Cormorant-otsikko + yksi täytetty nappi + katkoviiva-alarivi), kysymyskortit (`.q3`: kysymys · arvo Cormorant 24 · lähde), rivilistat tiloineen (`.osat`: kirjain · nimi · tila oikealla, `.ok` teal / `.on` amber), `.ev`-kortti (otsikko + ikä DM Monolla + toimintolinkki), yläotsikot `.eb`. Mockupin tokenit kartoitetaan sovelluksen olemassa oleviin, ei uusia tokeneita. Pelaajan ja huoltajan näkymissä sama kortti-anatomia, mutta fontit ja kieli 09:n ja §7.22:n mukaan (Archivo, ei lukuja).
