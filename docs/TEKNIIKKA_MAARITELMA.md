@@ -294,7 +294,7 @@ Ei tyhjiä päiviä eikä yhtään `2026-01-20`-varapäivää. Suora näyttö "t
 ### 6.4 Yhä avoimet (eivät estä PR 1:tä)
 
 - **K11. `sm_*_taso`:n tallennusikä** — **tila: vahvistettu datasta, ei korjattu.** Tuonti tallentaa tason joukkuenimen iällä (`Excel_Tuonti:3272–3276`), ei `normiIka(testipvm)`:llä. SJK:lla tallennettu `sm_*_taso` eroaa raakatuloksista nyt lasketusta **9 pelaajalla 56:sta (16 %)**. Uusi luokitus ei lue tallennettua tasoa (P1), joten ei vaikutusta tähän sarjaan. Kartoitus ja korjausehdotus omana tehtävänään; uudelleenlaskenta on Teron ajo.
-- **K14.** Harjoitelogiikan kohdevalinta (`harjoitelogiikka_v4.js:2731`, TSI > 1,5 s) ja taidon §30:n rivi yhtenäistetään samaan SM-tasoluokitukseen — **PR 4** (§7).
+- **K14.** Harjoitelogiikan kohdevalinta (`harjoitelogiikka_v4.js:2731`, TSI > 1,5 s) ja taidon §30:n rivi yhtenäistetään samaan SM-tasoluokitukseen — **PR 4** (§7). **Toteutettu PR 4:ssä:** ketju P1 TKI-laji → P2 SM-tasot (`tm_tekniikka.js`) → P3 H-H (`tm_fyysinen.js`, §28) → P4 oletus; TSI-sekuntirajat ja tallennettu `hh_taso` pois. **Välitapaus (Tero hyväksyi 11.10.2026):** kun SM-tasoista ei synny kehityskohdetta, kohde on *koordinaatio*, jos tasot ovat tasapainossa tai pallo on yhden tason jäljessä (ero 0…1), ja *nopeus*, jos pallo on juoksua edellä (ero < 0); kehityskohde (pallo alle ikätason / hidastaa) → *pallonhallinta*. Perustelu: säilyttää vanhan kolmen kauhan rakenteen (tasapaino = keskimmäinen kauha); ensimmäinen versio (tasapaino → nopeus) olisi siirtänyt 21/56 SJK-pelaajaa nopeuteen.
 
 ## 7. Toteutusjako (vasta #975:n mergen jälkeen)
 
@@ -320,3 +320,5 @@ Rajaukset: ei kirjoituksia tuotantodataan (laskelmat vain lukien), ei Rules- eik
 Tässä dokumentissa mainitut rajat (TKI < 40, 1/3, 5 mitattua tai puolet, 15 kk, kahden tason ero, otos pieni < 8) ovat `lib/tm_normisto.js`:n arvoja, eivät koodiin hajautettuja vakioita: TKI-raja ja kahden tason ero ovat normiston oletuksia (seura voi säätää: TKI 25–55, tasoero 1–3), mutta 5 mitattua, otos pieni < 8, kolmasosa ja 15 kk ovat **lukittuja luotettavuusehtoja** (menetelmä, kuten §28 ja §7.22). Tarkemmin ja kolmen kerroksen malli: `docs/NORMISTO_JA_SEURAN_LINJA.md`.
 
 **Palvelinkooste otetaan käyttöön, kun seurassa on yli noin 1 000 pelaajaa tai kun Network-taso tulee. Ei toteuteta nyt.** Libit ajautuvat Nodessa sellaisenaan (testattu: 2 000 pelaajaa × 80 joukkuetta ≈ 35 ms).
+
+**Kirjattu myöhemmäksi (korjataan erikseen):** Masterin D1/D2-kortti (`renderSeason`) näyttää luokkarivin vain, kun pelaajilla on *tallennetut* `d1_taso`/`hh_taso`/`d2_taso`, eikä luokittele raakatuloksista kuten VP (`tm_fyysinen`/`tm_tekniikka`). Korjaus: kortin näkyvyys ja luokitus raakatuloksista, jotta Master ja VP eivät voi erota (havaittu #981:n Chrome-tarkistuksessa, fixture ilman tallennettuja tasoja).

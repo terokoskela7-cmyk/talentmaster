@@ -2717,24 +2717,43 @@ function _ohjeIkavaiheelle(h, iv) {
 
 // ── 1A: Kehityskohteen prioriteettiketju ──────────────────────────────
 // Palauttaa { kohde, lahde, varmuus, rawKohde }
-function laskeTekninenKehityskohde(pelaaja) {
+// PR 4 (K14): kohdevalinta noudattaa SAMAA määritelmää kuin VP:n näkymät — lib/tm_tekniikka.js (TKI → SM-tasot) ja lib/tm_fyysinen.js (H-H-tasot, §28).
+// Ei omia TSI-sekuntirajoja eikä tallennetun hh_taso:n lukua. Pelaajalle ei näytetä lukuja (§7.22): kohde on vain harjoitevalinta.
+function _tmLibH(g, f) {   // Node: require (juuri → ./lib/…); selain: window-globaali. Puuttuva lib → null (ketju putoaa seuraavaan askeleeseen, ei virhettä)
+  try { return (typeof module !== 'undefined' && module.exports && typeof require === 'function') ? require(f) : (typeof window !== 'undefined' ? window[g] : null) || null; } catch (e) { return null; }
+}
+var _FYS_OSA_KOHDE = { ketteryys: 'koordinaatio', suunnanmuutos: 'koordinaatio', maksinopeus: 'nopeus', kiihdytys: 'nopeus', voima: 'nopeus', aerobinen: 'nopeus' };
+function laskeTekninenKehityskohde(pelaaja, nytMs) {
   pelaaja = pelaaja || {};
-  // P1 — TKI-kehityskohde (Sibbo, varmuus korkea)
+  var nyt = (typeof nytMs === 'number' && isFinite(nytMs)) ? nytMs : Date.now();
+  // P1 — TKI-kehityskohde (Sibbo, varmuus korkea): tekniikkakilpailun heikoin laji
   if (pelaaja.tki_kehityskohde) {
     var raw = String(pelaaja.tki_kehityskohde);
     var kohde = TKI_LAJI_KOHDE[raw] || (KOHDE_NIMET[raw] ? raw : 'pallonhallinta');
     return { kohde: kohde, lahde: 'tki', varmuus: 'korkea', rawKohde: raw };
   }
-  // P2 — TSI-johdettu (SJK, varmuus kohtalainen)
-  if (pelaaja.tsi_viimeisin != null) {
-    var tsi = Number(pelaaja.tsi_viimeisin);
-    var k2 = tsi > 1.5 ? 'pallonhallinta' : tsi >= 0.8 ? 'koordinaatio' : 'nopeus';
-    return { kohde: k2, lahde: 'tsi', varmuus: 'kohtalainen', rawKohde: null };
+  // P2 — SM-tasot (lib/tm_tekniikka.js; SJK-tyyppinen data, varmuus kohtalainen). Tasot raakatuloksista testihetken iällä; vanhuusraja 15 kk; "mittaus vajaa",
+  //      "nopeus ja tekniikka samalla tasolla" (molemmat 1) ja vanhentunut/päivätön mittaus EIVÄT ole väite → putoaa P3:een.
+  var TK = _tmLibH('TM_TEKNIIKKA', './lib/tm_tekniikka.js');
+  if (TK && typeof TK.tmTekniikkaMittari === 'function') {
+    try {
+      var m = TK.tmTekniikkaMittari(pelaaja, nyt);
+      if (m && m.tila === 'sm' && m.tasot) {
+        var ero = m.tasot.juoksu - m.tasot.pallo;                 // > 0: pallo jää juoksusta
+        // pallo heikko (alle ikätason / hidastaa) → pallonhallinta; tasapainossa tai pallo hieman jäljessä (ero 0…1) → koordinaatio; pallo juoksua edellä (ero < 0) → nopeus
+        var k2 = (m.syy === 'alle_ikatason' || m.syy === 'pallo_hidastaa') ? 'pallonhallinta' : ero >= 0 ? 'koordinaatio' : 'nopeus';
+        return { kohde: k2, lahde: 'sm', varmuus: 'kohtalainen', rawKohde: null };
+      }
+    } catch (e) { /* putoaa P3:een */ }
   }
-  // P3 — H-H-taso (varmuus matala)
-  if (pelaaja.hh_taso != null) {
-    var k3 = Number(pelaaja.hh_taso) < 2.0 ? 'koordinaatio' : 'nopeus';
-    return { kohde: k3, lahde: 'hh', varmuus: 'matala', rawKohde: null };
+  // P3 — H-H-fyysiset tasot (lib/tm_fyysinen.js, §28; varmuus matala). Kehityskohde → osa-alueen mukaan; "ok" → nopeus; §28-neutraali / ei dataa → ei väitettä → P4.
+  var FYS = _tmLibH('TM_FYSINEN', './lib/tm_fyysinen.js');
+  if (FYS && typeof FYS.tmFyysinenPelaaja === 'function') {
+    try {
+      var f = FYS.tmFyysinenPelaaja(pelaaja, nyt);
+      if (f && f.tila === 'kehityskohde' && f.osat && f.osat.length) return { kohde: _FYS_OSA_KOHDE[f.osat[0]] || 'nopeus', lahde: 'hh', varmuus: 'matala', rawKohde: null };
+      if (f && f.tila === 'ok') return { kohde: 'nopeus', lahde: 'hh', varmuus: 'matala', rawKohde: null };
+    } catch (e) { /* putoaa P4:ään */ }
   }
   // P4 — oletus (universaali pohja)
   return { kohde: 'pallonhallinta', lahde: 'ikavaihe', varmuus: 'oletus', rawKohde: null };
@@ -3259,7 +3278,8 @@ function generoiMiksiteksti(pelaaja, kehityskohde, ikavaihe) {
   var L1 = i18 && i18.miksi_l1;
   var l1;
   if (lahde === 'tki')      l1 = L1 ? L1.tki.replace('{kohde}', kohdeNimi) : ('Tekniikkakilpailusi näytti että ' + kohdeNimi + ' on kasvun paikka.');
-  else if (lahde === 'tsi') { var s = (pelaaja.tsi_viimeisin != null) ? Number(pelaaja.tsi_viimeisin).toFixed(1) : '?'; l1 = L1 ? L1.tsi.replace('{s}', s) : ('Mittaus kertoo että pallo hidastaa sinua ' + s + ' sekuntia.'); }
+  else if (lahde === 'sm')  l1 = (L1 && L1.sm) ? L1.sm : (L1 ? (L1[ikavaihe] || L1.rakentaja) : 'Mittaus kertoo että pallon kanssa on sinulla eniten kasvun varaa.');   // PR 4: ei lukuja pelaajalle (§7.22); sv-avain L1.sm tyhjä kunnes Gemini → sv:n yleinen rivi
+  else if (lahde === 'tsi') { var s = (pelaaja.tsi_viimeisin != null) ? Number(pelaaja.tsi_viimeisin).toFixed(1) : '?'; l1 = L1 ? L1.tsi.replace('{s}', s) : ('Mittaus kertoo että pallo hidastaa sinua ' + s + ' sekuntia.'); }   // vanha lähde: ei enää tuoteta (säilytetty vanhan datan/testien varalle)
   else if (lahde === 'hh')  l1 = L1 ? L1.hh : 'Fyysinen profiilisi kertoo missä kehittyminen tuottaa eniten.';
   else if (L1)              l1 = L1[ikavaihe] || L1.rakentaja;
   else l1 = ikavaihe === 'leikkija' ? 'Olet juuri oikeassa iässä oppimaan tämän.'

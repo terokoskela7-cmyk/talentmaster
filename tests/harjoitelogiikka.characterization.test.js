@@ -88,8 +88,8 @@ describe('laskeTekninenKehityskohde', () => {
     expect(k.kohde).toBe('syotto');
   });
 
-  it('tsi_viimeisin → lahde === "tsi"', () => {
-    expect(lib.laskeTekninenKehityskohde(FIKSTURIT.rakentaja_tsi).lahde).toBe('tsi');
+  it('PR 4 (K14): pelkkä tsi_viimeisin ei enää ohjaa (lähde "tsi" poistui) → oletus; SM-raakatulokset → lahde "sm" (tests/harjoitelogiikka.kohdevalinta.test.js)', () => {
+    expect(lib.laskeTekninenKehityskohde(FIKSTURIT.rakentaja_tsi).lahde).toBe('ikavaihe');
   });
 
   it('ei dataa → lahde === "ikavaihe", varmuus === "oletus" (TODELLISUUS, ei lahde:"oletus")', () => {
