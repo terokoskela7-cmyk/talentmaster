@@ -524,9 +524,9 @@ kytkentäportti (yllä) on pakollinen.
 ## 41. KOLMEN KERROKSEN MALLI — menetelmä, normisto, seuran linja
 
 **Invariantti: menetelmä lukittu, normisto maakohtainen, seuran linja joustava; logiikka libeihin, ei HTML:ään.**
-- **Menetelmä (lukittu):** §28 kypsyysvahti, §7.22, datan ikä (15 kk), tilat — ei seura- eikä normistokohtaista säätöä.
+- **Menetelmä (lukittu):** §28 kypsyysvahti, §7.22, datan ikä (15 kk), luotettavuusehdot (5 mitattua, otos pieni < 8, 1/3), tilat — ei seura- eikä normistokohtaista säätöä.
 - **Normisto (maa/liitto):** testit, normit `NORMIREKISTERI`stä, mittariketju (Suomi: TKI → SM, H-H), oletusrajat. `lib/tm_normisto.js` (`tmNormistoRatkaise` → yksi asetusobjekti, lähde `'seura'|'normisto'|'tm'` jokaisen arvon vieressä).
-- **Seuran linja** (`seurat/{sid}/konfiguraatio/normit`): oma normisto, omat rajat (vain `SEURA_SALLITUT`), testit, tavoitetasot. Näkyy VP:ssä "seuran raja". Kirjoitus on Rules-muutos (Teron kaista).
+- **Seuran linja** (`seurat/{sid}/konfiguraatio/normit`): oma normisto, omat rajat (vain `SEURA_SALLITUT`: TKI 25–55, tasoraja 1–3, tasoero 1–3; MIN_MITATTU/OTOS_PIENI/kolmasosa/15 kk lukittu), testit, tavoitetasot. Näkyy VP:ssä "seuran raja". Kirjoitus on Rules-muutos (Teron kaista).
 - Laskentafunktiot (`tm_tekniikka`, `tm_fyysinen`, `tm_joukkuesaanto`) saavat asetukset parametrina (`opts.asetukset`), eivät lue normitaulua eivätkä omia rajavakioita; ilman parametria oletus (Suomi). Tuntematon normisto → "ei dataa", ei virhettä.
 - Vartijat (`tests/lib_vartijat.test.js`): lib ≤ ~500 riviä; uutta taso-/raja-/normilogiikkaa ei HTML:ään.
 - Palvelinkooste otetaan käyttöön, kun seurassa on yli noin 1 000 pelaajaa tai kun Network-taso tulee; libit ovat jo Node-kelpoisia. Yksityiskohdat: `docs/NORMISTO_JA_SEURAN_LINJA.md`.

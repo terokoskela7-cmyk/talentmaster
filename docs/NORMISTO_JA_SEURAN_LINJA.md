@@ -11,13 +11,13 @@ Tila: toteutettu `lib/tm_normisto.js` (+ `tm_joukkuesaanto.js`, `tm_tekniikka.js
 | **2 · Normisto** (maa/liitto) | testit, normitaulukot (NORMIREKISTERI), tasojen merkitys, mittariketju, oletusrajat | `NORMISTOT` + `NORMIREKISTERI` (`tm_eerikkila_normit.js`) | lisäämällä normisto (DFB, KNVB…) |
 | **3 · Seuran linja** | oma normisto-valinta, omat rajat (vain sallitut), mukaan otettavat testit, tavoitetasot ikäluokittain | `seurat/{sid}/konfiguraatio/normit` | **kyllä** (sallituissa rajoissa) |
 
-Suomi: tekniikka = **TKI → SM-tasot**, fyysinen = **H-H** (normisto `eerikkila` = Palloliitto FINAL2024 / Eerikkilä). Oletusrajat: TKI < 40, 1/3 mitatuista, 5 mitattua tai puolet joukkueesta, 15 kk, kahden tason ero, otos pieni < 8.
+Suomi: tekniikka = **TKI → SM-tasot**, fyysinen = **H-H** (normisto `eerikkila` = Palloliitto FINAL2024 / Eerikkilä). Oletusrajat: TKI < 40, kahden tason ero (normisto) · lukitut luotettavuusehdot: 1/3 mitatuista, 5 mitattua tai puolet joukkueesta, otos pieni < 8, 15 kk (menetelmä).
 
 ## 2. `tmNormistoRatkaise(seuraKonfig)` → yksi asetusobjekti, lähde arvon vieressä
 
 ```js
 { normisto:{arvo:'eerikkila', lahde:'tm'|'seura'}, tuntematon:false,
-  rajat:{ TKI:{arvo:40, lahde:'normisto'|'seura'|'tm'}, VANHA_KK:…, ERO_TASOA:…, MIN_MITATTU:…, OSUUS_MITATUSTA:3, OSUUS_KAIKISTA:2, OTOS_PIENI:…, SM_MIN_IKA:…, SM_AIKUINEN_IKA:…, FYS_TASO_RAJA:1, SM_TASO_RAJA:1 },
+  rajat:{ TKI:{arvo:40, lahde:'normisto'|'seura'}, ERO_TASOA:…, SM_MIN_IKA:…, SM_AIKUINEN_IKA:…, FYS_TASO_RAJA:1, SM_TASO_RAJA:1, MIN_MITATTU:{5,'tm'}, OTOS_PIENI:{8,'tm'}, OSUUS_MITATUSTA:{3,'tm'}, OSUUS_KAIKISTA:{2,'tm'}, VANHA_KK:{15,'tm'} },
   ketju:{arvo:{tekniikka:['tki','sm'], fyysinen:['hh']}, lahde:'normisto'}, testit:{arvo:null|[…], lahde}, tavoitetasot:{arvo:{'14':3}, lahde}, seuranRajat:['TKI'] }
 ```
 Lähteet: `'seura'` = seuran asetus · `'normisto'` = normiston oma arvo · `'tm'` = TalentMasterin oma oletus (kun normisto ei määritä arvoa).
@@ -30,11 +30,24 @@ Lähteet: `'seura'` = seuran asetus · `'normisto'` = normiston oma arvo · `'tm
 
 ```js
 { normisto: 'eerikkila',                       // valinta; tuntematon → "ei dataa"
-  rajat: { TKI: 45, FYS_TASO_RAJA: 2, MIN_MITATTU: 4, … },   // vain SEURA_SALLITUT, kokonaisluvut väleillä; muu ohitetaan
+  rajat: { TKI: 45, FYS_TASO_RAJA: 2, ERO_TASOA: 1 },   // vain SEURA_SALLITUT, kokonaisluvut väleillä; muu ohitetaan
   testit: ['lin30m','cmj','kasirata'],         // mukaan otettavat testit (puuttuu = kaikki normiston testit)
   tavoitetasot: { '12': 2, '14': 3 } }         // ikäluokittain 1–5; ratkaistu ja saatavilla (tmNormistoTavoitetaso), laskenta ei vielä käytä
 ```
-Sallitut rajat (`SEURA_SALLITUT`): `TKI` 1–100, `FYS_TASO_RAJA` 1–4 (fyysinen: taso ≤ raja = kehityskohde, oletus 1), `SM_TASO_RAJA` 1–4, `ERO_TASOA` 1–4, `MIN_MITATTU` 1–30, `OTOS_PIENI` 1–60. **Ei seuran säädettävissä:** `VANHA_KK` (datan ikä = menetelmä), ikärajat, suhdeluvut 1/3 ja 1/2, §28. Virheellinen arvo ohitetaan hiljaa → normiston arvo (lähde pysyy `normisto`).
+**Lukitut menetelmäkerrokseen (lähde `'tm'`, ei normiston eikä seuran säädettävissä):** `MIN_MITATTU` (5), `OTOS_PIENI` (8), kolmasosan osuus (`OSUUS_MITATUSTA` 3) ja puolen ehto (`OSUUS_KAIKISTA` 2) — ne ovat luotettavuusehtoja, eivät seuran linjaa — sekä `VANHA_KK` (datan ikä 15 kk) ja §28.
+
+**Seuran säädettävät — sallitut rajat (`SEURA_SALLITUT`, kokonaisluku; väli ulkopuolinen tai epäkelpo arvo ohitetaan ja lähteeksi jää `'normisto'`):**
+
+| Asetus | Sallittu väli | Normiston oletus | Merkitys |
+|---|---|---|---|
+| `TKI` | **25–55** | 40 | tekniikka alle ikätason, kun TKI < raja |
+| `FYS_TASO_RAJA` | **1–3** | 1 | fyysinen kehityskohde, kun taso < raja + 1 (taso ≤ raja) |
+| `SM_TASO_RAJA` | **1–3** | 1 | sama SM-tasoille (tekniikka) |
+| `ERO_TASOA` | **1–3** | 2 | pallo hidastaa, kun SM-pallo ≥ näin monta tasoa SM-juoksua alempana |
+| `tavoitetasot` | ikäluokittain **1–5** (avain = ikä) | – | seuran tavoitetaso; ratkaistu ja saatavilla (`tmNormistoTavoitetaso`), laskenta ei vielä käytä |
+| `testit` | normiston testien **osajoukko** | kaikki | mukaan otettavat testit; tuntemattomat ja kaksoiskappaleet pois, tyhjä tulos = kaikki (lähde `'normisto'`) |
+
+Raja-arvot testataan (`tests/tm_normisto.test.js`: väli sisällä ja ulkopuolella, epäkelvot arvot, lukitut). Ei seuran säädettävissä: ikärajat (`SM_MIN_IKA`, `SM_AIKUINEN_IKA`; normistoa), edellä listatut lukitut.
 
 Luku: `tmNormistoLataa(lukija)` (lukija palauttaa Promisen dokumentin datasta) → ratkaistu asetusobjekti; virhe tai puuttuva dokumentti → oletus. **VP/Master-kytkentä (dokumentin luku ja `env.asetukset`) on HTML-muutos → erillinen Teron kaistan PR**; `tm_vp_tilanne.js` välittää jo `env.asetukset`:n laskentafunktioille.
 

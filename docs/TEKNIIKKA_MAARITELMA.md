@@ -317,6 +317,6 @@ Rajaukset: ei kirjoituksia tuotantodataan (laskelmat vain lukien), ei Rules- eik
 
 ## 8. Rajat, normisto ja skaalautuvuus (PR 3b)
 
-Tässä dokumentissa mainitut rajat (TKI < 40, 1/3, 5 mitattua tai puolet, 15 kk, kahden tason ero, otos pieni < 8) ovat **normiston oletusrajat** (`lib/tm_normisto.js`, normisto `eerikkila`), eivät koodiin hajautettuja vakioita. Seura voi säätää niistä vain sallitut (TKI-raja, tason raja, kahden tason ero, minimi mitattuja, otos pieni); menetelmä (§28, datan ikä 15 kk, §7.22) on lukittu. Tarkemmin ja kolmen kerroksen malli: `docs/NORMISTO_JA_SEURAN_LINJA.md`.
+Tässä dokumentissa mainitut rajat (TKI < 40, 1/3, 5 mitattua tai puolet, 15 kk, kahden tason ero, otos pieni < 8) ovat `lib/tm_normisto.js`:n arvoja, eivät koodiin hajautettuja vakioita: TKI-raja ja kahden tason ero ovat normiston oletuksia (seura voi säätää: TKI 25–55, tasoero 1–3), mutta 5 mitattua, otos pieni < 8, kolmasosa ja 15 kk ovat **lukittuja luotettavuusehtoja** (menetelmä, kuten §28 ja §7.22). Tarkemmin ja kolmen kerroksen malli: `docs/NORMISTO_JA_SEURAN_LINJA.md`.
 
 **Palvelinkooste otetaan käyttöön, kun seurassa on yli noin 1 000 pelaajaa tai kun Network-taso tulee. Ei toteuteta nyt.** Libit ajautuvat Nodessa sellaisenaan (testattu: 2 000 pelaajaa × 80 joukkuetta ≈ 35 ms).
