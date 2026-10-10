@@ -92,6 +92,7 @@ Tarkistamatta (ei tässä kartoituksessa): Pelaaja_v7 ja Vanhempi_v2 eivät luok
 
 ## 2. Määritelmä (Teron lopullinen versio 10.10.2026)
 
+> **Rajaus (Tero 10.10.2026, koko dokumentti):** "Eerikkilä-tasoa ei käytetä heikkoutena" koskee **vain Eerikkilän tekniikkatestejä** (syöttö ja pujottelu) ja niistä johdettua `d2_taso`:a. H-H-fyysiset tasot (1–5) ja SM-tasot ovat päteviä; fyysinen luokitus on oma määritelmänsä (`docs/KARKI_JA_YKSILOLLINEN_KARTOITUS.md`).
 > Tämä korvaa aiemmat versiot. **Hylätty:** TSI-viite "taso 3 − taso 3 + 0,3 s", marginaalin kalibrointi, kiinteä raja 1,6 s, SJK-jakaumasta johdettu raja sekä linjaus, jonka mukaan SM-testien tasot eivät kelpaa heikkouden mittariksi.
 
 **Tiedosto:** `lib/tm_tekniikka.js`, dual-export (`window.TM_TEKNIIKKA` + `module.exports`), ei DOM- eikä Firestore-riippuvuutta. Käyttäjät: VP_v25:n huomio ja ehdotus, Tilanne, seuran pulssi, myöhemmin Master. Vain henkilökunnan näkymä: pelaajalle ja huoltajalle ei luokitusta, tasoja eikä lukuja (§7.22).
@@ -103,7 +104,7 @@ Tarkistamatta (ei tässä kartoituksessa): Pelaaja_v7 ja Vanhempi_v2 eivät luok
 | **TKI 0–100** | Alueellinen tekniikkakilpailu (syöttö, pujottelu, ponnauttelu, kuljetus-laukaus, pituuspotku), 8–13-vuotiaat | **Kyllä** — TKI < 40 → "alle ikätason" |
 | **SM-juoksu, SM-pallo** | H-H-manuaalin testit; normit järjestelmässä (`EERIKKILA_NORMIT.sm_juoksu` / `.sm_pallo`, Palloliitto FINAL2024). Tasot 1–5 kronologisen iän ja sukupuolen mukaan (§3) | **Kyllä**, kun tasot lasketaan raakatuloksista oikealla iällä |
 | **TSI** = SM-pallo − SM-juoksu | Taito pallon kanssa suunnanmuutoksissa omaan juoksuun verrattuna | Ajatus toteutetaan **tasovertailuna** (SM-pallon taso vs. SM-juoksun taso), ei sekuntirajana |
-| Eerikkilän tekniikkataso (syöttö, pujottelu 1–3) | valtakunnallinen, otanta valtakunnan huippu | **Ei koskaan**; taso 3 voi myöhemmin olla myönteinen signaali (oma tehtävä) |
+| Eerikkilän **tekniikka**taso (syöttö, pujottelu 1–3) | valtakunnallinen, otanta valtakunnan huippu | **Ei koskaan** (rajaus: vain nämä tekniikkatestit ja niistä johdettu `d2_taso`; H-H-fyysiset tasot ja SM-tasot ovat päteviä); taso 3 voi myöhemmin olla myönteinen signaali (oma tehtävä) |
 | `d2_taso` | sekalähde (KPV `tk`, SJK `sm_pallo` + `hh`) | **Ei**; §1.1:n kahdeksan heikkouskäyttöä korvataan jaetulla funktiolla |
 | Tallennetut `sm_juoksu_taso`, `sm_pallo_taso` | laskettu joukkueen nimen iällä | **Ei lueta**; tasot lasketaan uudelleen raakatuloksista |
 
@@ -237,7 +238,7 @@ Nykyinen ehdotus ei voi laueta SJK:lla (ei TKI:tä). K15 pudottaa SJK:n kehitysk
 
 ### 6.1 Kirjatut päätökset (Tero, 10.10.2026, lopullinen versio)
 
-- **P1.** Ketju TKI → SM-tasot. Eerikkilän tekniikkataso ja `d2_taso` eivät ole heikkouden mittareita; §1.1:n kahdeksan `d2_taso`-käyttöä korvataan jaetulla funktiolla. Tallennettuja `sm_*_taso`-kenttiä ei lueta.
+- **P1.** Ketju TKI → SM-tasot. **Rajaus (Tero 10.10.2026):** "Eerikkilä-tasoa ei käytetä heikkoutena" koskee VAIN Eerikkilän **tekniikkatestejä** (syöttö ja pujottelu, 3-portainen, otanta valtakunnan huippu) ja `d2_taso`:a, kun se on johdettu niistä. **H-H-fyysiset tasot (1–5) ja SM-tasot ovat päteviä heikkouden mittareita** (taso 1 = alle kansallisen keskitason, Palloliitto FINAL2024); fyysinen luokitus: `docs/KARKI_JA_YKSILOLLINEN_KARTOITUS.md` (`lib/tm_fyysinen.js`). Eerikkilän tekniikkataso ja `d2_taso` eivät ole heikkouden mittareita; §1.1:n kahdeksan `d2_taso`-käyttöä korvataan jaetulla funktiolla. Tallennettuja `sm_*_taso`-kenttiä ei lueta.
 - **P2.** TKI < 40 → "alle ikätason"; TKI:n tasomuunnoksista jää vain `laskeD2Joustava`:n `TKI/20`, ja vain näyttöön (§1.2).
 - **P3.** SM-pallon taso 1 ja SM-juoksun taso ≥ 2 → "alle ikätason"; SM-pallon taso ≥ 2 tasoa SM-juoksun alla → "pallo hidastaa suunnanmuutoksissa"; molemmat tasolla 1 → "nopeus ja tekniikka samalla tasolla", ei kehityskohde eikä lasketa joukkueluokitukseen (§28). Tasot raakatuloksista, `normiIka` testihetkestä, sukupuoli `"M"`/`"N"`.
 - **P4.** Ikärajat: < 10 ei SM-tasoa; ≥ 20 `"M"`/`"N"`; testit 9/10/19/20 (K12).
