@@ -15,6 +15,30 @@ const lyhyt = (nimi) => { const m = /[A-Za-zÅÄÖ]?\d{1,2}/.exec(String(nimi));
 const tunnisteLista = (nimet) => { const u = nimet.map(lyhyt).filter((x, i, a) => a.indexOf(x) === i); return u.slice(0, 6).join(', ') + (u.length > 6 ? ' +' + (u.length - 6) : ''); };
 const TEKSTIT = { tki_alhainen: 'pelaajia alle pronssitason. Fokusoi tekniikkaharjoittelu.', hh_taso_alhainen: 'pelaajia alle Eerikkilä-tason. Aloita yksilöllinen ohjelma.', flei_kartoitus_puuttuu: 'harjoitettavuuskartoitus (kehon valmius) tekemättä. Varaa kartoituspäivä.', suunta_lasku: 'H-H taso laskussa. Tarkista kuormitus.', tki_lahella_merkkia: 'pelaajia lähellä pronssia. Kohdenna omatoimiharjoittelu.' };
 
+/* ── realistiset tekniikkamittaukset pelaajille (PR 1 / tekniikan määritelmä): EI vakioita (ei d2_taso = 2, ei saman TKI:n koko joukkueelle).
+   · TKI (8–13-vuotiaat, joukkueella tki-speksi): pelaajakohtainen hajonta joukkueen keskiarvon ka ympärillä, tki_pvm = tki.pvmSitten.
+   · SM-raakatulokset (H-H-testit; 14+ joukkueet joilla tki-speksi tai oma sm-speksi): sm_pallo/sm_juoksu sekunteina, johdettu normirekisteristä
+     (EERIKKILA_NORMIT) testihetken iälle ja sukupuolelle; tsi_pvm + hh_pvm = testipäivä; tsi_viimeisin = pallo − juoksu.
+   Kaikki deterministisiä (pelaajan indeksi), ei satunnaisuutta. */
+const NORMIT = require('../../lib/tm_eerikkila_normit.js').EERIKKILA_NORMIT;
+const TKI_POIKKEAMA = [-24, -14, -8, -3, 0, 4, 9, 15, 22, -18, 6, 12];
+const SM_TASOPARIT = [[3, 3], [2, 3], [1, 2], [3, 4], [2, 2], [1, 1], [4, 4], [2, 4], [3, 3], [1, 3], [3, 5], [2, 3]];   // [SM-pallo, SM-juoksu]
+function smAika(testi, ika, sp, taso) {
+  const r = NORMIT[testi][sp === 'M' ? 'pojat' : 'tytot'][Math.min(19, Math.max(10, ika))];
+  return { 5: r[0], 4: r[1], 3: r[2], 2: r[3], 1: Math.round((r[3] + 0.5) * 100) / 100 }[taso];
+}
+function mittaukset(p, j, i, nyt) {
+  const tkiPv = j.tki && j.ika >= 8 && j.ika <= 13 ? j.tki.pvmSitten : null, smPv = j.sm ? j.sm.pvmSitten : (j.tki && j.ika > 13 ? j.tki.pvmSitten : null);
+  if (tkiPv != null) { p.tki_viimeisin = Math.max(0, Math.min(99, Math.round(j.tki.ka + TKI_POIKKEAMA[i % TKI_POIKKEAMA.length]))); p.tki_pvm = iso(nyt - tkiPv * DAY); }
+  if (smPv != null && j.ika >= 10) {
+    const pvm = iso(nyt - smPv * DAY), ikaT = Number(pvm.slice(0, 4)) - p.syntymaVuosi, sp = p.sukupuoli, t = SM_TASOPARIT[i % SM_TASOPARIT.length];
+    if (ikaT >= 10) {
+      p.sm_pallo_viimeisin = smAika('sm_pallo', ikaT, sp, t[0]); p.sm_juoksu_viimeisin = smAika('sm_juoksu', ikaT, sp, t[1]);
+      p.tsi_viimeisin = Math.round((p.sm_pallo_viimeisin - p.sm_juoksu_viimeisin) * 100) / 100; p.tsi_pvm = pvm; p.hh_pvm = pvm;
+    }
+  }
+}
+
 function lataa(tila, nytMs) {
   const s = spec(tila), nyt = nytMs, vuosi = new Date(nyt).getUTCFullYear(), J = s.joukkueet, idx = TT.viikkoIdx(nyt);
   const ids = {}; J.forEach((j) => { ids[j.id] = j; });
@@ -38,7 +62,7 @@ function lataa(tila, nytMs) {
     const p = { id: j.id + '_' + (i + 1), joukkueet: [j.id], joukkue: j.nimi, syntymaVuosi: vuosi - j.ika, sukupuoli: j.sp === 'T' ? 'N' : 'M', suostumusTila: i < j.suost ? 'annettu' : 'odottaa', jaksofokus: null };
     if (j.jakso) p.jaksofokus = { konsepti_avain: 'k', konsepti_nimi: j.jakso.nimi, domeeni: 'tekninen', alkoi: new Date(nyt - j.jakso.alkuVkSitten * 7 * DAY).toISOString(), kesto_vk: j.jakso.N, lahde: 'valmentaja' };
     if (raeJaljella > 0) { p.rae_kvartaali = ['Q1', 'Q1', 'Q2', 'Q3', 'Q4'][raeJaljella % 5]; raeJaljella--; }
-    if (j.tki) { p.tki_viimeisin = j.tki.ka; p.tki_pvm = iso(nyt - j.tki.pvmSitten * DAY); p.d2_taso = 2; }
+    mittaukset(p, j, i, nyt);
     pelaajat.push(p); } });
   const joukkueDocs = J.map((j) => { const d = { id: j.id, nimi: j.nimi, ikaryhma: j.sp + j.ika, tyyppi: j.tyyppi, valmentajaprofiili: j.profiili, jaksofokus: null };
     if (j.jakso) d.jaksofokus = { osa_alueet: { tekninen_taktinen: { nimi: j.jakso.nimi } }, alku: iso(nyt - j.jakso.alkuVkSitten * 7 * DAY), kesto_vk: j.jakso.N }; return d; });

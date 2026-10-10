@@ -13,6 +13,7 @@ const NP = [8, 9, 10, 12, 14, 8, 15, 9, 13, 8, 11, 7, 12, 9, 15];   // = 160
 const pilJoukkueet = IKAT.map((x, i) => J('pil' + i, x[1] + x[0] + ' Pilotti' + (i === 5 ? ' Harraste' : ''), x[0], x[1], NP[i], { tyyppi: i === 5 ? 'harraste' : 'kilpa', profiili: i % 3 === 0 ? 'ammatti' : 'oto', suost: 0 }));
 pilJoukkueet[2].suost = 3; pilJoukkueet[8].suost = 1; pilJoukkueet[2].jakso = JAKSO('Pelaaminen', 2, 6);
 pilJoukkueet[4].tki = { ka: 38, pvmSitten: 340 }; pilJoukkueet[6].tki = { ka: 44, pvmSitten: 20 }; pilJoukkueet[8].tki = { ka: 36, pvmSitten: 30 };
+pilJoukkueet[9].sm = { pvmSitten: 45 }; pilJoukkueet[10].sm = { pvmSitten: 45 };   // T14, P15: SM-testit (H-H); TKI vain 8–13-vuotiaille
 pilJoukkueet.push(J('pilx1', 'P18 Pilotti', 18, 'P', 0, { suost: 0 }), J('pilx2', 'T18 Pilotti', 18, 'T', 0, { suost: 0 }));
 const huomio = (joukkue, osaAlue, tyyppi, vakavuus, arvo, teema) => ({ joukkue, osaAlue, tyyppi, vakavuus, arvo, teema });
 const pilotti = { nimi: 'pilotti', kuvaus: 'KPV:n kaltainen pilotti: 15 joukkuetta + 2 tyhjää, 1 jakso, 4/160 suostumusta, 6 huomiota, 4 ehdotusta (yksi 14 joukkueelle)', joukkueet: pilJoukkueet, ensinVkSitten: 6,
@@ -30,6 +31,7 @@ const kypsa = { nimi: 'kypsa', kuvaus: 'FC Demon kaltainen kypsä seura: 9 joukk
 
 /* ── kuormitus: 40 joukkuetta, pitkät (ruotsinkieliset) nimet ── */
 const kuorm = Array.from({ length: 40 }, (_, i) => { const ika = 8 + (i % 10), sp = i % 2 ? 'T' : 'P', n = 6 + (i * 7) % 14; return J('kuo' + i, (sp === 'T' ? 'Flickor ' : 'Pojkar ') + ika + ' Östra Nylands Idrottsförening ' + ['Blå', 'Vit', 'Röd', 'Grön'][i % 4], ika, sp, n, { suost: i % 3 ? Math.round(n * .5) : 0, jakso: i % 4 === 0 ? JAKSO('Spelande', 2, 6) : null, tki: i % 5 === 0 ? { ka: 41, pvmSitten: 30 + i * 9 } : null, katsAuki: i % 11 === 0, katsPv: i % 11 === 0 ? 6 : null, tyyppi: i % 7 ? 'kilpa' : 'harraste' }); });
+kuorm.forEach((j, i) => { if (j.ika >= 14 && !j.tki && i % 3 === 1) j.sm = { pvmSitten: 20 + i * 5 }; });   // osalle 14+ joukkueista SM-testit
 const kuormitus = { nimi: 'kuormitus', kuvaus: '40 joukkuetta, pitkät nimet (ruotsinkieliset)', joukkueet: kuorm, ensinVkSitten: 3,
   huomiot: Array.from({ length: 14 }, (_, i) => huomio(i * 2, i % 2 ? 'tekniikka' : 'kiihdytys', 'matala', 'amber', 2, i % 2 ? 'Tekniikka alle normin (2) → tekniikkateema' : 'H-H alle normin')),
   ehdotukset: [{ signaali: 'tki_alhainen', joukkueet: Array.from({ length: 22 }, (_, i) => i), ikaPv: 3 }, { signaali: 'hh_taso_alhainen', joukkueet: [1, 4, 9, 11, 17, 25, 30], ikaPv: 4 }, { signaali: 'flei_kartoitus_puuttuu', joukkueet: Array.from({ length: 40 }, (_, i) => i), ikaPv: 5 }, { signaali: 'suunta_lasku', joukkueet: [6, 7], ikaPv: 2 }, { signaali: 'tki_lahella_merkkia', joukkueet: [3, 12], ikaPv: 1 }],
