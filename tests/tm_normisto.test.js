@@ -13,7 +13,7 @@ describe('tmNormistoRatkaise — lähde jokaisen arvon vieressä', () => {
     expect(A.normisto).toEqual({ arvo: 'eerikkila', lahde: 'tm' }); expect(A.tuntematon).toBe(false);
     expect(A.rajat.TKI).toEqual({ arvo: 40, lahde: 'normisto' }); expect(A.rajat.VANHA_KK).toEqual({ arvo: 15, lahde: 'tm' }); expect(A.rajat.OTOS_PIENI.arvo).toBe(8);
     expect(A.ketju).toEqual({ arvo: { tekniikka: ['tki', 'sm'], fyysinen: ['hh'] }, lahde: 'normisto' }); expect(A.testit).toEqual({ arvo: null, lahde: 'normisto' }); expect(A.seuranRajat).toEqual([]);
-    for (const k of ['MIN_MITATTU', 'OTOS_PIENI', 'OSUUS_MITATUSTA', 'OSUUS_KAIKISTA', 'VANHA_KK']) expect(A.rajat[k].lahde, k).toBe('tm');   // lukitut = menetelmä
+    for (const k of ['MIN_MITATTU', 'OTOS_PIENI', 'OSUUS_MITATUSTA', 'OSUUS_KAIKISTA', 'VANHA_KK', 'MUISTUTUS_KK']) expect(A.rajat[k].lahde, k).toBe('tm');   // lukitut = menetelmä
   });
   it('seuran raja → lahde "seura"; ei-sallittu (VANHA_KK = menetelmä) ja virheelliset arvot ohitetaan', () => {
     const A = NO.tmNormistoRatkaise({ normisto: 'eerikkila', rajat: { TKI: 35, VANHA_KK: 3, MIN_MITATTU: 2, OTOS_PIENI: 12, ERO_TASOA: 99, FYS_TASO_RAJA: '2' }, testit: ['lin30m', 'cmj'], tavoitetasot: { 14: 3, '15': 9, x: 2 } });
@@ -42,8 +42,8 @@ describe('sallitut rajat: raja-arvot (väli sisällä → seura, ulkopuolella �
     });
   }
   it('lukitut eivät muutu seuran asetuksella: MIN_MITATTU, OTOS_PIENI, OSUUS_*, VANHA_KK → lähde "tm"', () => {
-    for (const k of ['MIN_MITATTU', 'OTOS_PIENI', 'OSUUS_MITATUSTA', 'OSUUS_KAIKISTA', 'VANHA_KK']) expect(r(k, 1), k).toEqual({ arvo: NO.LUKITUT[k], lahde: 'tm' });
-    expect(NO.LUKITUT).toEqual({ MIN_MITATTU: 5, OTOS_PIENI: 8, OSUUS_MITATUSTA: 3, OSUUS_KAIKISTA: 2, VANHA_KK: 15 }); expect(Object.keys(NO.SEURA_SALLITUT).sort()).toEqual(['ERO_TASOA', 'FYS_TASO_RAJA', 'SM_TASO_RAJA', 'TKI']);
+    for (const k of ['MIN_MITATTU', 'OTOS_PIENI', 'OSUUS_MITATUSTA', 'OSUUS_KAIKISTA', 'VANHA_KK', 'MUISTUTUS_KK']) expect(r(k, 1), k).toEqual({ arvo: NO.LUKITUT[k], lahde: 'tm' });
+    expect(NO.LUKITUT).toEqual({ MIN_MITATTU: 5, OTOS_PIENI: 8, OSUUS_MITATUSTA: 3, OSUUS_KAIKISTA: 2, VANHA_KK: 15, MUISTUTUS_KK: 12 }); expect(Object.keys(NO.SEURA_SALLITUT).sort()).toEqual(['ERO_TASOA', 'FYS_TASO_RAJA', 'SM_TASO_RAJA', 'TKI']);
   });
   it('tavoitetasot ikäluokittain 1–5: rajat sisällä, ulkopuoliset ja epäkelvot ohitetaan', () => {
     const t = (o) => NO.tmNormistoRatkaise({ tavoitetasot: o }).tavoitetasot;

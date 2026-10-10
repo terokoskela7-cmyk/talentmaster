@@ -108,8 +108,9 @@ describe('6 · D141 mittauksen ikä: yli 12 kk vanha ei tasona eikä värinä', 
     const tuore = kehitys({ hh_taso: 4, d1_taso: 4, hh_pvm: new Date().toISOString().slice(0, 10), tki_viimeisin: 70, d2_taso: 4, d2_lahde: 'tk', tki_pvm: new Date().toISOString().slice(0, 10) });
     expect(tuore).not.toContain('päivitä'); expect(tuore).toContain('var(--teal)');
   });
-  it('Kausi: vanhentuneen mittauksen pelaaja pois tasolaskennoista (Pt) ja huomautus; päivämäärä puuttuu → pysyy mukana', () => {
-    const src = funktio(MA, 'renderSeason'); expect(src).toContain('tmTasoVanhentunut(_mMittPvm(p))'); expect(src).toContain('yli 12 kk vanha — ei tasona eikä värinä');
+  it('Kausi (YKSI TOTUUS): vanha tulos pois tasolaskennoista (Pt) ja huomautus tulevat libistä (VANHA_KK normistosta, ei kovakoodattua 12 kk:ta); päivämäärä puuttuu → ryhmä "päivä tuntematon", ei tuore', () => {
+    const src = funktio(MA, 'renderSeason'); expect(src).toContain('_mSeasonLuvut()'); expect(src).toContain('tmBanneriTeksti('); expect(src).not.toContain('tmTasoVanhentunut'); expect(src).not.toMatch(/\b12 kk\b/);
+    expect(funktio(MA, '_mSeasonLuvut')).toContain('vainVanhaPelaajat');
   });
   it('pelaajakortin otsikko: yli 12 kk → "mitattu 2023 · päivitä" (ei "testattu 28.10.2023" nykytasona)', () => { expect(funktio(MA, '_mPinfoOsat')).toContain('tmMittausIkaTeksti(_testPvmIso, null, masterT)'); });
 });

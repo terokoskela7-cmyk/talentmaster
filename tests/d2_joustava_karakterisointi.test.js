@@ -55,9 +55,9 @@ describe('normit-konsumentit (_tasoLvl): valitseKohortti, laskeTaso3Osuus, isUnd
 
 describe('kutsukohdat lähdekoodissa (muutoksen vartija): 10 kutsua + normit', () => {
   const lasku = (src) => (src.match(/laskeD2Joustava\(/g) || []).length;
-  it('Master 4 suoraa kutsua (PR 3: komposiitit _lvl/lvl käyttävät d2KomposiittiTaso:a, 6 → 4) + 1 tasoFns-viittaus; VP 2 suoraa + 1 tasoFns-viittaus; normit _tasoLvl 1', () => {
+  it('Master 0 suoraa kutsua (yksi totuus: D2-kortti/ponnahdus lasketaan libeistä tm_nakyma_ryhmat → tm_tekniikka; komposiitit _lvl/lvl käyttävät d2KomposiittiTaso:a, 4 → 0) + 1 tasoFns-viittaus; VP 2 suoraa + 1 tasoFns-viittaus; normit _tasoLvl 1', () => {
     const MA = lue('TalentMaster_Master_v16.html'), VP = lue('TalentMaster_VP_v25.html'), NO = lue('lib/tm_eerikkila_normit.js');
-    expect(lasku(MA)).toBe(4); expect((MA.match(/_ksTasoFn\(laskeD2Joustava\)/g) || []).length).toBe(1);
+    expect(lasku(MA)).toBe(0); expect((MA.match(/_ksTasoFn\(laskeD2Joustava\)/g) || []).length).toBe(1);
     expect(lasku(VP)).toBe(2); expect((VP.match(/_ksTasoFn\(laskeD2Joustava\)/g) || []).length).toBe(1);
     expect(NO).toContain('d2KomposiittiTaso(p, isp.ika, isp.sp)'); expect(NO).toMatch(/function d2KomposiittiTaso[\s\S]{0,400}laskeD2Joustava\(/);   // PR 3: _tasoLvl → d2KomposiittiTaso (joka kutsuu laskeD2Joustavaa)
   });

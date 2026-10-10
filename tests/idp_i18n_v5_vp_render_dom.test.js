@@ -745,7 +745,9 @@ describe('VP_v25 resolvi-portti — jokaisella reititetyllä avaimella on sv-riv
   const ERA15_VP = JSON.parse(readFileSync(join(__dir, '..', 'docs/i18n/sv_kaannoserae_15.json'), 'utf8')).osiot.vp_kartta.rivit;
   // erä 16 (fyysinen PR 3): uudet avaimet, sv tyhjä kunnes Gemini palauttaa
   const ERA16_VP = JSON.parse(readFileSync(join(__dir, '..', 'docs/i18n/sv_kaannoserae_16.json'), 'utf8')).osiot.vp_kartta.rivit;
-  const SV_ODOTTAA_SANKTIOINTIA = Object.keys(ERA2_VP).filter((k) => !ERA2_VP[k].sv && !(ERA3_VP[k] && ERA3_VP[k].sv)).concat(Object.keys(ERA4_VP).filter((k) => !ERA4_VP[k].sv)).concat(Object.keys(ERA5_VP).filter((k) => !ERA5_VP[k].sv)).concat(Object.keys(ERA6_VP).filter((k) => !ERA6_VP[k].sv)).concat(Object.keys(ERA7_VP).filter((k) => !ERA7_VP[k].sv)).concat(Object.keys(ERA9_VP).filter((k) => !ERA9_VP[k].sv)).concat(Object.keys(ERA15_VP).filter((k) => !ERA15_VP[k].sv)).concat(Object.keys(ERA16_VP).filter((k) => !ERA16_VP[k].sv)).concat([
+  // erä 18 (yksi totuus näkymissä): sv tyhjä kunnes Gemini palauttaa
+  const ERA18_VP = JSON.parse(readFileSync(join(__dir, '..', 'docs/i18n/sv_kaannoserae_18.json'), 'utf8')).osiot.vp_kartta.rivit;
+  const SV_ODOTTAA_SANKTIOINTIA = Object.keys(ERA2_VP).filter((k) => !ERA2_VP[k].sv && !(ERA3_VP[k] && ERA3_VP[k].sv)).concat(Object.keys(ERA4_VP).filter((k) => !ERA4_VP[k].sv)).concat(Object.keys(ERA5_VP).filter((k) => !ERA5_VP[k].sv)).concat(Object.keys(ERA6_VP).filter((k) => !ERA6_VP[k].sv)).concat(Object.keys(ERA7_VP).filter((k) => !ERA7_VP[k].sv)).concat(Object.keys(ERA9_VP).filter((k) => !ERA9_VP[k].sv)).concat(Object.keys(ERA15_VP).filter((k) => !ERA15_VP[k].sv)).concat(Object.keys(ERA18_VP).filter((k) => !ERA18_VP[k].sv)).concat(Object.keys(ERA16_VP).filter((k) => !ERA16_VP[k].sv)).concat([
     // Tyhjä 8.10.2026: Gemini-erä sv_kaannoserae_2026-10-08.json vietiin (scripts/i18n_vie_sv_era.cjs). Uusi sanktiointia odottava avain → lisää tähän.
     // PR 5: D2-bugin ja S1.1:n rivit (TKI-pohjainen, TKI ka, Sovelluksen käyttö …) saapuivat Gemini-erässä 2 ja vietiin; lista on nyt tyhjä.
   ]);

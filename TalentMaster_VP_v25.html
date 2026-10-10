@@ -39,15 +39,16 @@
 <script src="lib/tm_viikko.js?v=1"></script>   <!-- YKSI ISO 8601 -viikkolasku (D140) — ENNEN viikkoa käyttäviä kirjastoja -->
 <script src="lib/tm_eerikkila_normit.js?v=52"></script>   <!-- v43: D2-kortti d2_taso-ensin (renderKehityskorttiHTML, PR #264 · §30/#262) -->
 <script src="lib/tm_historia.js?v=2"></script>
-<script src="lib/tm_normisto.js?v=1"></script>   <!-- PR 3b: kolme kerrosta — normisto + seuran linja (docs/NORMISTO_JA_SEURAN_LINJA.md) -->
+<script src="lib/tm_normisto.js?v=2"></script>   <!-- PR 3b: kolme kerrosta — normisto + seuran linja (docs/NORMISTO_JA_SEURAN_LINJA.md) -->
 <script src="lib/tm_joukkuesaanto.js?v=3"></script>   <!-- PR 3: YKSI joukkuesääntö (tekniikka + fyysinen) -->
-<script src="lib/tm_tekniikka.js?v=4"></script>   <!-- PR 2: YKSI tekniikka-määritelmä (TKI → SM-tasot; docs/TEKNIIKKA_MAARITELMA.md) — huomio, ehdotus, Tilanne, Koti -->
-<script src="lib/tm_fyysinen.js?v=3"></script>   <!-- PR 3: YKSI fyysisen heikkouden määritelmä (H-H-fyysiset tasot, §28; docs/KARKI_JA_YKSILOLLINEN_KARTOITUS.md) -->
+<script src="lib/tm_tekniikka.js?v=5"></script>   <!-- PR 2: YKSI tekniikka-määritelmä (TKI → SM-tasot; docs/TEKNIIKKA_MAARITELMA.md) — huomio, ehdotus, Tilanne, Koti -->
+<script src="lib/tm_fyysinen.js?v=4"></script>   <!-- PR 3: YKSI fyysisen heikkouden määritelmä (H-H-fyysiset tasot, §28; docs/KARKI_JA_YKSILOLLINEN_KARTOITUS.md) -->
+<script src="lib/tm_nakyma_ryhmat.js?v=1"></script>   <!-- YKSI TOTUUS: D1/D2-ryhmittely, kortti, banneri, kattavuus samasta luokittelusta (ei omia rajoja näkymissä) -->
 <script src="lib/tm_mittarit.js?v=7"></script>   <!-- Kehitystilanne v0: mittarikirjasto; myös HIDDEN_GEM_FLEI + laskeD2Taso + laskeHiddenGem (siirretty VP:stä) -->
 <script src="lib/tm_pelihavainto_valinta.js?v=1"></script>   <!-- §7: YKSI sisäänkäynti pelihavaintoon (jaettu, ei kopioita) -->
 <script src="lib/tm_arviointi_historia.js?v=2"></script>   <!-- H1: arviointikerrat (append-only) + tmKausi + kooste; PURE, ks. lib-header -->          <!-- P2.1: hh_historia/tki_historia Pikakirjauksessa (tmHhSnapshot/tmTkiSnapshot/tmHistoriaLisaa) -->
 <script src="lib/tm_tki_core.js?v=2"></script>         <!-- P2.1: TKI-ytimen extrakti (IIFE → TM_TESTIT); antaa VP:lle TKI-pariteetin (VP ei voi ladata testit_indeksit.js:ää — const-törmäys). ENNEN tm_pikakentat.js:ää. -->
-<script src="lib/tm_testipaiva.js?v=1"></script>   <!-- testipäivän lähde (oikea / arvio / tuntematon) -->
+<script src="lib/tm_testipaiva.js?v=2"></script>   <!-- testipäivän lähde (oikea / arvio / tuntematon) -->
 <script src="lib/tm_pikakentat.js?v=8"></script>       <!-- P2.0: §26-pikakenttien kanoninen laskenta (tmLaskePikakentat) — VP: H-H + TKI (tm_tki_core.js → TM_TESTIT) -->
 <script src="lib/tm_testikatalogi.js?v=2"></script>    <!-- P2.1: jaettu testikatalogi (Pikakirjaus-valitsin) -->
 <script src="lib/tm_alusta.js?v=2"></script>   <!-- PR F: yksi §22-alustasanasto (TM_ALUSTA) -->
@@ -13955,8 +13956,11 @@ function avaaJoukkueSyvanakyma(joukkueNimi) {
     var kTKI = pelaajat.filter(function(p){ return p.tki_viimeisin != null; }).length;
     var kFLEI = pelaajat.filter(function(p){ return (p.flei_viimeisin || 0) > 0; }).length;
     var osat = [];
-    if (kHH > 0)   osat.push('H-H ' + kHH + '/' + n);
-    if (kTKI > 0)  osat.push('TKI ' + kTKI + '/' + n);
+    /* YKSI TOTUUS: D1/D2-kattavuus ja vanhat tulokset samasta luokittelusta kuin joukkuekortti ja Masterin kortti (lib/tm_nakyma_ryhmat.js) */
+    var _nr = window.TM_NAKYMA_RYHMAT, _nytS = Date.now(), luokRivit = '';
+    [['D1', _nr.tmRyhmat('d1', pelaajat, _nytS, { joukkueNimi: joukkueNimi })], ['D2', _nr.tmRyhmat('d2', pelaajat, _nytS, { joukkueNimi: joukkueNimi })]].forEach(function(x) {
+      if (x[1].kortti.eiDataa < x[1].yht) luokRivit += '<div><strong style="color:var(--ink2)">' + x[0] + ':</strong> ' + _nr.tmKorttiSyy(x[1], vpT) + '</div>';
+    });
     if (kFLEI > 0) osat.push(vpT('Valmius') + ' ' + kFLEI + '/' + n);
     var viim = '';
     pelaajat.forEach(function(p){ [p.hh_pvm, p.tki_pvm, p.tsi_pvm, p.flei_pvm].forEach(function(d){ if (d && String(d) > viim) viim = String(d); }); });
@@ -13973,6 +13977,7 @@ function avaaJoukkueSyvanakyma(joukkueNimi) {
       ? ' <button onclick="_avaaKorjaaTestipvm()" title="' + vpT('Korjaa väärin tuotu testipäivä koko joukkueelle') + '" style="background:none;border:.5px solid var(--border);color:var(--ink2);border-radius:5px;padding:1px 6px;font-size:10px;cursor:pointer;margin-left:6px">✎ ' + vpT('Korjaa') + '</button>'
       : '';
     return '<div style="margin-top:8px;font-size:11px;color:var(--ink3);line-height:1.7">'
+      + luokRivit
       + (osat.length ? '<div><strong style="color:var(--ink2)">' + vpT('Kattavuus') + ':</strong> ' + osat.join(' · ') + '</div>' : '')
       + '<div><strong style="color:var(--ink2)">' + vpT('Viimeisin testi') + ':</strong> ' + viimFi + korjBtn + '</div>'
       + '</div>';
@@ -22826,20 +22831,10 @@ function renderTeamPulse() {
     const pct = (hhKa != null) ? Math.min(100, Math.round((hhKa / 5) * 100)) : 0;
     const suunta = laskeJoukkueSuunta(pelaajat);
 
-    // §28: onko joukkue kehitysvaiheeltaan pre-PHV → matala D1 = biologisesti odotettua (ei kehityskohde).
-    const _tilalliset = pelaajat.filter(function(p){ return tmPhvKoodi(p); });
-    const _prePHV = _tilalliset.length
-      ? (pelaajat.filter(function(p){ return (typeof onNeutraaliPrePHV === 'function') ? onNeutraaliPrePHV(p) : (tmPhvKoodi(p) === 'PRE' || tmPhvKoodi(p) === 'LAH'); }).length / _tilalliset.length) >= 0.5
-      : false;
-
     let h = '<div class="jk" onclick="avaaJoukkueSyvanakyma(\'' + safeNimi + '\')">';
     h += '<div class="jk-top"><div class="jk-nimi">' + ikaluokka + '</div><div class="jk-pel">' + koko + ' ' + vpT('pel.') + '</div></div>';
     // D1 Fyysinen (H-H) — teal-palkki + tavoite-tikki, luku ei väritetä (§28)
     h += _tpDimRivi('D1', (hhKa != null ? hhKa : ''), pct, 'Eerikkilä');
-    // §28-mikrokopio: pre-PHV + matala D1 → ei kehityskohde (ei punaista)
-    if (_prePHV && hhKa != null && hhKa < 3.0) {
-      h += '<div class="jk-mikro">' + vpT('pre-PHV — biologisesti odotettua, ei kehityskohde') + '</div>';
-    }
     // D2 Tekninen (TKI > SM) — rivi vain jos dataa ≥3 pelaajalla
     const d2 = tmJoukkueD2(pelaajat);
     if (d2 != null) {
@@ -22852,6 +22847,14 @@ function renderTeamPulse() {
     } else {
       h += '<div class="jk-dim-rivi jk-dim-puuttuu"><span class="jk-dim-label">D2</span><span class="jk-dim-ctx" style="min-width:auto">— ' + vpT('Tekninen mittaus puuttuu') + '</span></div>';
     }
+
+    /* YKSI TOTUUS (lib/tm_nakyma_ryhmat.js): luokitus + syy samasta luokittelusta kuin Masterin kortti — mitattu N/M tuoreesti, vanhat, ilman päivää, §28. Ei omaa rajaa; rivien tasoluvut ovat näyttöä, eivät luokittelua. */
+    const _NR = window.TM_NAKYMA_RYHMAT, _nytJk = Date.now();
+    [['D1', _NR.tmRyhmat('d1', pelaajat, _nytJk, { joukkueNimi: nimi })], ['D2', _NR.tmRyhmat('d2', pelaajat, _nytJk, { joukkueNimi: nimi })]].forEach(function(x) {
+      const R = x[1]; if (R.kortti.eiDataa === R.yht) return;
+      const o = _NR.tmKorttiOtsikko(R, vpT);
+      h += '<div class="jk-mikro"' + (o.savy === 'amber' ? ' style="color:var(--amber)"' : '') + '>' + x[0] + ' · ' + (o.merkki ? o.merkki + ' ' : '') + o.teksti + ' · ' + _NR.tmKorttiSyy(R, vpT) + '</div>';
+    });
 
     // DATAN TUOREUS (esityskerros, ei arviointimuutosta §26) — viimeisin mittauspvm + "Päivitä mittaus" jos vanha.
     const _tpVpvm = _joukkuePvm(pelaajat);
@@ -22933,60 +22936,22 @@ function renderTeamPulse() {
 
 // OSA 1 — sääntöpohjainen hero-insight (prioriteettijärjestys 1→5)
 function laskeHeroInsight(pelaajat) {
-  const jt = _pRyhmiteltyJoukkueittain(pelaajat, 'Tuntematon');
-  const joukkueKa = Object.keys(jt).map(function(j){
-    const hh = jt[j].filter(function(p){ return p.hh_taso != null; }).map(function(p){ return p.hh_taso; });
-    return { joukkue: j, ka: hh.length ? (hh.reduce(function(a,b){ return a+b; }, 0) / hh.length) : null };
-  }).filter(function(x){ return x.ka != null; });
-
-  const hhP = pelaajat.filter(function(p){ return p.hh_taso != null; });
-  const tkiP = pelaajat.filter(function(p){ return p.tki_viimeisin != null; });
+  /* YKSI TOTUUS: seuratason lause samasta luokittelusta kuin kortit (lib/tm_nakyma_ryhmat.js + tm_fyysinen/tm_tekniikka) — ei omia tasorajoja eikä tallennettuja hh_taso-kenttiä. */
+  const jt = _pRyhmiteltyJoukkueittain(pelaajat, 'Tuntematon'), NR = window.TM_NAKYMA_RYHMAT, nyt = Date.now();
   const DEFAULT = vpT('Ensimmäiset mittaukset kirjattu. Jatka mittauksia — suunta selviää seuraavalla kerralla.');
-  if (hhP.length === 0) return DEFAULT;
-
-  /* D125 KATTAVUUSPORTTI tulkintalauseelle: kerro ensin datan kattavuus, älä tee seuratason johtopäätöstä liian pienestä otoksesta
-     (audit: "Fyysinen taso vaatii pikahuomiota" kun D1 oli mitattu 2/15 joukkueelta). */
-  const _kat = window.TM_KOTI_LUVUT.kattavuus(pelaajat, jt, function(p){ return p.hh_taso != null; });
+  const R1 = NR.tmRyhmat('d1', pelaajat, nyt, {}), R2 = NR.tmRyhmat('d2', pelaajat, nyt, {});
+  if (R1.kortti.eiDataa === R1.yht) return DEFAULT;
+  /* D125 KATTAVUUSPORTTI: kerro ensin datan kattavuus (tuoreesti luokitellut), älä tee seuratason johtopäätöstä liian pienestä otoksesta */
+  const tuoreet = new Set(R1.ryhmat.kehityskohde.concat(R1.ryhmat.ok, R1.ryhmat.neutraali).map(function(r){ return r.p; }));
+  const _kat = window.TM_KOTI_LUVUT.kattavuus(pelaajat, jt, function(p){ return tuoreet.has(p); });
   if (!_kat.riittava) {
     return vpT('D1 mitattu') + ' ' + _kat.joukkueN + '/' + _kat.joukkueYht + ' ' + vpT('joukkueelta') + ' (' + _kat.n + '/' + _kat.yht + ' ' + vpT('pelaajaa') + '). '
-      + vpT('Seuratason johtopäätöstä ei vielä tehdä — täydennä mittauksia.');
+      + (R1.kortti.vanha ? NR.tmBanneriTeksti({ n: R1.kortti.vanha, kk: R1.kk }, vpT) + '. ' : '') + vpT('Seuratason johtopäätöstä ei vielä tehdä — täydennä mittauksia.');
   }
-
-  // Datan tuoreus (esityskerros §26): viimeisin H-H-mittauspvm hero-arviolle. Jos vanha → kehystä toiminnaksi,
-  // ei kiireelliseksi tilannekuvaksi (taso on totta testihetkellä, mutta ei välttämättä nyt).
-  let _heroHhPvm = null;
-  hhP.forEach(function(p){ if (p.hh_pvm) { const s = String(p.hh_pvm); if (!_heroHhPvm || s > _heroHhPvm) _heroHhPvm = s; } });
-  const _heroVanha = _heroHhPvm && typeof tmOnVanhaMittaus === 'function' && tmOnVanhaMittaus(_heroHhPvm);
-  const _heroFi = (_heroHhPvm && typeof tmPvmFi === 'function') ? tmPvmFi(_heroHhPvm) : '';
-  const _heroKk = (_heroHhPvm && typeof tmKuukausiaMittauksesta === 'function') ? tmKuukausiaMittauksesta(_heroHhPvm) : null;
-
-  // 1: ≥50 % pelaajista hh_taso < 2.5
-  const alle = hhP.filter(function(p){ return p.hh_taso < 2.5; }).length;
-  if (alle / hhP.length >= 0.5) {
-    const alleJ = joukkueKa.filter(function(j){ return j.ka < 2.5; }).length;
-    if (_heroVanha) {
-      // Vanha data → EI "pikahuomiota"-hälytystä. Toimenpide: päivitä mittaus ennen johtopäätöksiä.
-      return vpT('Fyysinen perustaso jäi alle kansallisen') + ' ' + alleJ + ' ' + vpT('joukkueella — mutta viimeisin mittaus on') + ' ' + _heroFi
-        + (_heroKk != null ? ' (' + _heroKk + ' ' + vpT('kk sitten') + ')' : '') + '. ' + vpT('📍 Päivitä mittaus ennen johtopäätöksiä.');
-    }
-    return vpT('Fyysinen taso vaatii pikahuomiota.') + ' ' + alleJ + ' ' + vpT('joukkuetta alle kansallisen tason.');
-  }
-  // 2: H-H saatavilla mutta TKI puuttuu kaikilta
-  if (tkiP.length === 0) {
-    return vpT('Fyysinen perusta rakentumassa. Tekniikkamittaukset puuttuvat kaikilta joukkueilta.');
-  }
-  // 3: yksi joukkue selkeästi heikompi (ylin − alin > 1.0)
-  if (joukkueKa.length >= 2) {
-    const s = joukkueKa.slice().sort(function(a,b){ return a.ka - b.ka; });
-    const alin = s[0], ylin = s[s.length - 1];
-    if (ylin.ka - alin.ka > 1.0) {
-      return lyhennaNimi(alin.joukkue) + ' ' + vpT('tarvitsee erityishuomiota') + ' — ' + (ylin.ka - alin.ka).toFixed(1) + ' ' + vpT('pistettä muita heikompi.');
-    }
-  }
-  // 4: kaikki ≥ 3.0
-  if (joukkueKa.length && joukkueKa.every(function(j){ return j.ka >= 3.0; })) {
-    return vpT('Fyysinen kehitys hyvällä tasolla. Seuraava askel: tekniikkamittaukset.');
-  }
+  const FY = window.TM_FYSINEN.tmFyysinenYhteenveto(pelaajat, (typeof _vpJoukkueDocs !== 'undefined' ? _vpJoukkueDocs : []), nyt, {});
+  if (FY.joukkueita && FY.kehityskohde * 2 >= FY.joukkueita) return vpT('Fyysinen taso vaatii pikahuomiota.') + ' ' + FY.kehityskohde + ' ' + vpT('joukkuetta fyysisenä kehityskohteena.');
+  if (R2.kortti.mitattu + R2.kortti.neutraali === 0) return vpT('Fyysinen perusta rakentumassa. Tekniikkamittaukset puuttuvat kaikilta joukkueilta.');
+  if (FY.joukkueita && FY.kehityskohde === 0 && FY.ok > 0) return vpT('Fyysinen kehitys hyvällä tasolla. Seuraava askel: tekniikkamittaukset.');
   return DEFAULT;
 }
 

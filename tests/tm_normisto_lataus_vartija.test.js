@@ -20,7 +20,7 @@ describe('lataus: riippuvuudet ja järjestys jokaisessa sovelluksessa', () => {
     it(f + ': tm_normisto → tm_joukkuesaanto → tm_tekniikka (→ tm_fyysinen) latautuvat tässä järjestyksessä; tm_eerikkila_normit ja tm_phv_tila mukana', () => {
       const s = skriptit(lue(f)), idx = (x) => s.indexOf(x);
       const kaytetyt = ORDER.filter((x) => x === 'lib/tm_normisto.js' || x === 'lib/tm_joukkuesaanto.js' || s.includes(x) || x === 'lib/tm_tekniikka.js');
-      for (const x of ['lib/tm_normisto.js', 'lib/tm_joukkuesaanto.js', 'lib/tm_eerikkila_normit.js', 'lib/tm_phv_tila.js']) expect(idx(x), f + ' puuttuu ' + x).toBeGreaterThanOrEqual(0);
+      for (const x of ['lib/tm_normisto.js', 'lib/tm_joukkuesaanto.js', 'lib/tm_eerikkila_normit.js', 'lib/tm_phv_tila.js', 'lib/tm_testipaiva.js']) expect(idx(x), f + ' puuttuu ' + x).toBeGreaterThanOrEqual(0);
       const ennen = [...kaytetyt.filter((x) => idx(x) >= 0)]; for (let i = 1; i < ennen.length; i++) expect(idx(ennen[i - 1]), f + ': ' + ennen[i - 1] + ' ennen ' + ennen[i]).toBeLessThan(idx(ennen[i]));
       if (s.includes('lib/tm_fyysinen.js')) expect(s.includes('lib/tm_tekniikka.js'), f + ': tm_fyysinen vaatii tm_tekniikka:n').toBe(true);
     });
@@ -58,7 +58,7 @@ describe('ei hiljaista oletusta: TM_NORMISTO puuttuu selaimesta', () => {
     expect(varoitukset.some((v) => /tm_fyysinen: TM_NORMISTO puuttuu/.test(v))).toBe(true); expect(varoitukset.some((v) => /tm_joukkuesaanto: TM_NORMISTO puuttuu/.test(v))).toBe(true);
   });
   it('kun tm_normisto.js on ladattu: ei varoitusta ja luokitus toimii', () => {
-    const { ikkuna, varoitukset } = lataaSelaimessa(PERUS.concat(['lib/tm_normisto.js', 'lib/tm_joukkuesaanto.js', 'lib/tm_tekniikka.js', 'lib/tm_fyysinen.js']), true);
+    const { ikkuna, varoitukset } = lataaSelaimessa(PERUS.concat(['lib/tm_normisto.js', 'lib/tm_testipaiva.js', 'lib/tm_joukkuesaanto.js', 'lib/tm_tekniikka.js', 'lib/tm_fyysinen.js']), true);
     expect(ikkuna.TM_TEKNIIKKA.tmTekniikkaMittari(pel, NYT).kehityskohde).toBe(true); expect(ikkuna.TM_FYSINEN.tmFyysinenPelaaja(pel, NYT).tila).toBe('kehityskohde'); expect(varoitukset).toEqual([]);
   });
   it('harjoitelogiikka: ilman normistoa kohdevalinta putoaa oletukseen JA varoitus tulee (ei hiljaa)', () => {
