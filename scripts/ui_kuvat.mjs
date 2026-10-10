@@ -7,6 +7,7 @@ import { chromium } from 'playwright-core';
 import fs from 'fs'; import os from 'os'; import path from 'path'; import { execSync } from 'child_process'; import { createRequire } from 'module'; import { fileURLToPath } from 'url';
 const require = createRequire(import.meta.url), JUURI = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 const F = require(path.join(JUURI, 'tests/helpers/vp_fixture.cjs'));
+/* Kuvat WebP-muotoon (laatu ~80; Chromiumin canvas.toBlob) — PNG:t olivat ~14 MB/PR. Vertailukuvat tehdään vain valitusta (muuttuneesta) näkymästä: --nakyma. */
 /* Lisävalitsimet: --juuri <hakemisto> (VP ja libit tästä repokopiosta, esim. worktree origin/mainista = "ennen"-kuvat) · --vertaa <kuvahakemisto> (tekee vertailukuvat ennen|nyt) · tila 'esimerkki' = Kodin esimerkkiseura (D167) */
 const arg = (k, d) => { const i = process.argv.indexOf('--' + k); return i > 0 ? process.argv[i + 1] : d; };
 const haara = (arg('haara') || (() => { try { return execSync('git rev-parse --abbrev-ref HEAD', { cwd: JUURI, encoding: 'utf8' }).trim(); } catch (e) { return 'paikallinen'; } })()).replace(/[^\w.-]+/g, '-');
@@ -33,8 +34,11 @@ function sivu(d, nakyma, teema, demo) {
   const j = vp.indexOf('<head>') + 6, i = vp.lastIndexOf('</body>');
   return vp.slice(0, j) + '<base href="file://' + VP_JUURI + '/">' + vp.slice(j, i) + '<script>' + probe + '</script>' + vp.slice(i);
 }
+const WEBP_Q = 0.8;
+async function webp(pg, buf) { return Buffer.from((await pg.evaluate(async ([b64, q]) => { const img = new Image(); img.src = 'data:image/png;base64,' + b64; await img.decode(); const c = document.createElement('canvas'); c.width = img.naturalWidth; c.height = img.naturalHeight; c.getContext('2d').drawImage(img, 0, 0);
+  const blob = await new Promise((r) => c.toBlob(r, 'image/webp', q)); return await new Promise((r) => { const fr = new FileReader(); fr.onload = () => r(fr.result.split(',')[1]); fr.readAsDataURL(blob); }); }, [buf.toString('base64'), WEBP_Q])), 'base64'); }
 const selain = await chromium.launch({ executablePath: chromiumPolku(), args: ['--no-sandbox', '--allow-file-access-from-files', '--hide-scrollbars'] });
-const rivit = []; let n = 0;
+const rivit = []; let n = 0; const muunnin = await (await selain.newContext()).newPage();
 for (const tila of TILAT) { const demo = tila === 'esimerkki', d = F.lataa(demo ? 'pilotti' : tila, Date.now()); for (const nakyma of NAKYMAT) for (const leveys of LEVEYDET) for (const teema of TEEMAT) {
   if (demo && nakyma !== 'koti') continue;
   const src = path.join(TMP, `${nakyma}_${tila}_${leveys}_${teema}.html`); fs.writeFileSync(src, sivu(d, nakyma, teema, demo));
@@ -42,15 +46,15 @@ for (const tila of TILAT) { const demo = tila === 'esimerkki', d = F.lataa(demo 
   await sivuP.goto('file://' + src, { waitUntil: 'load' }); await sivuP.waitForSelector('#probe-out', { state: 'attached', timeout: 20000 });
   const m = JSON.parse(await sivuP.evaluate(() => document.getElementById('probe-out').textContent)); if (m.sw > m.iw) console.warn('VAROITUS vaakavieritys', nakyma, tila, leveys, m);
   await sivuP.setViewportSize({ width: leveys, height: Math.min(m.h, 8000) }); await sivuP.waitForTimeout(300);
-  const nimi = `${nakyma}_${tila}_${leveys}_${teema}.png`; await sivuP.screenshot({ path: path.join(UT, nimi), clip: { x: 0, y: 0, width: leveys, height: Math.min(m.h, 8000) } });
+  const nimi = `${nakyma}_${tila}_${leveys}_${teema}.webp`; fs.writeFileSync(path.join(UT, nimi), await webp(muunnin, await sivuP.screenshot({ clip: { x: 0, y: 0, width: leveys, height: Math.min(m.h, 8000) } })));
   rivit.push({ nakyma, tila, leveys, teema, nimi, h: m.h, vaaka: m.sw > m.iw }); n++; await ctx.close(); } }
 /* vertailukuvat: ennen (--vertaa hakemisto) | nyt */
 const vertaa = arg('vertaa');
 if (vertaa) { const vp2 = path.join(UT, 'vertailu'); fs.mkdirSync(vp2, { recursive: true });
-  for (const r of rivit) { const ennen = path.join(path.resolve(vertaa), r.nimi); if (!fs.existsSync(ennen)) continue;
-    const html = '<!doctype html><meta charset=utf-8><style>body{margin:0;background:#777;font:600 14px/1 system-ui;color:#fff}.r{display:flex;gap:16px;align-items:flex-start;padding:12px}.c{display:grid;gap:6px}img{display:block;max-width:none}</style><div class=r><div class=c>ennen (#969)<img src="file://' + ennen + '"></div><div class=c>nyt<img src="file://' + path.join(UT, r.nimi) + '"></div></div>';
+  for (const r of rivit) { const ennen = [r.nimi, r.nimi.replace(/\.webp$/, '.png')].map((x) => path.join(path.resolve(vertaa), x)).find((x) => fs.existsSync(x)); if (!ennen) continue;
+    const html = '<!doctype html><meta charset=utf-8><style>body{margin:0;background:#777;font:600 14px/1 system-ui;color:#fff}.r{display:flex;gap:16px;align-items:flex-start;padding:12px}.c{display:grid;gap:6px}img{display:block;max-width:none}</style><div class=r><div class=c>ennen<img src="file://' + ennen + '"></div><div class=c>nyt<img src="file://' + path.join(UT, r.nimi) + '"></div></div>';
     const tmp = path.join(TMP, 'v_' + r.nimi + '.html'); fs.writeFileSync(tmp, html);
-    const c = await selain.newContext({ viewport: { width: r.leveys * 2 + 60, height: 900 } }), pg = await c.newPage(); await pg.goto('file://' + tmp); await pg.waitForLoadState('load'); await pg.screenshot({ path: path.join(vp2, r.nimi), fullPage: true }); await c.close(); } }
+    const c = await selain.newContext({ viewport: { width: r.leveys * 2 + 60, height: 900 } }), pg = await c.newPage(); await pg.goto('file://' + tmp); await pg.waitForLoadState('load'); fs.writeFileSync(path.join(vp2, r.nimi), await webp(muunnin, await pg.screenshot({ fullPage: true }))); await c.close(); } }
 await selain.close();
 const md = ['# UI-kuvat · ' + haara, '', 'Luotu: `node scripts/ui_kuvat.mjs` (' + n + ' kuvaa). Fixture-tilat: tests/fixtures/vp. Oikea VP_v25, Kenttä-lippu päällä, keksitty data.', ''];
 for (const nakyma of NAKYMAT) { md.push('## ' + nakyma, '', '| tila | 390 tumma | 390 vaalea | 1280 tumma | 1280 vaalea |', '|---|---|---|---|---|'); for (const tila of TILAT) md.push('| ' + tila + ' | ' + [[390, 'dark'], [390, 'light'], [1280, 'dark'], [1280, 'light']].map(([l, t]) => { const r = rivit.find((x) => x.nakyma === nakyma && x.tila === tila && x.leveys === l && x.teema === t); return r ? `[${r.nimi}](${r.nimi})${r.vaaka ? ' ⚠ vaakavieritys' : ''}` : '—'; }).join(' | ') + ' |'); md.push(''); }

@@ -37,7 +37,7 @@ describe('rakenne (mockup 25)', () => {
   });
   it('laskurit: Viestit ja Tilanne -merkit vain kun > 0; aktiivinen kohta korostuu', () => {
     const a = N.tmNaviSivupalkkiHTML({ t: (x) => x, laskurit: { viestit: 2, tilanne: 0 }, aktiivinen: 'viestit' });
-    expect(a).toMatch(/class="sb-badge amber" id="nv-badge-viestit">2</); expect(a).toMatch(/class="sb-badge red" id="nv-badge-tilanne" style="display:none"/); expect(a).toMatch(/class="nv-i on" data-nv="viestit"/);
+    expect(a).toMatch(/class="sb-badge amber" id="nv-badge-viestit">2</); expect(a).toMatch(/class="sb-badge n" id="nv-badge-tilanne" style="display:none"/); expect(a).toMatch(/class="nv-i on" data-nv="viestit"/);
   });
   it('Kodin pikatoiminnot: tekstit mockupista, kolme; pulssi piirtää ne tulkintalauseen jälkeen, ennen signaaleja', () => {
     expect(N.tmNaviPikatoiminnot().map((x) => x.teksti)).toEqual(['+ Arvioi harjoitus', '+ Kirjaa mentorointi', '+ Uusi tapahtuma']);

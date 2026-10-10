@@ -48,12 +48,13 @@ describe('Kenttä-lippu valitsee Kodin (D67)', () => {
     const y = luoYmparisto(VP, { liput: { kentta: true }, lukuVirhe: true }); await y.renderoi();
     expect(y.html).toBe(SNAP); expect(y.ctx._vpPulssiVirhe).toEqual({ 'demo-fc': true });
   });
-  it('yksi toimenpidelaskuri: pulssi-Kodin signaalimäärä päivittää sivupalkin merkin ja Tilanteen otsikon (sama luku)', async () => {
-    const y = luoYmparisto(VP, { liput: { kentta: true }, koosteet: KS, ensimmainenVk: '2026-W20' });
+  it('yksi toimenpidelaskuri (PR C): Kenttä-seurassa merkki = Tilanteessa näkyvät ehdotukset (≤ 3), ei Kodin signaalimäärä', async () => {
+    const tp = ['tki_alhainen', 'suunta_lasku', 'hh_taso_alhainen', 'flei_kartoitus_puuttuu'].map((sg, i) => ({ id: 'e' + i, signaali: sg, joukkue: 'J' + i, luotu: { seconds: Date.now() / 1000 - 3600 } }));
+    const y = luoYmparisto(VP, { liput: { kentta: true }, koosteet: KS, ensimmainenVk: '2026-W20', toimenpiteet: tp });
     y.els['sb-tilanne-badge'] = { textContent: '', style: {} }; y.els['greeting-status'] = { textContent: '1 vaatii toimenpidettä' }; y.els['signaalit-meta'] = { textContent: 'Ei kriittisiä' };
     await y.renderoi();
-    const n = y.ctx._vpPulssi.malli.signaalejaYht; expect(n).toBe(2);   // P15 ei jaksoa 4 vk + P14 katsaus laskenut
-    expect(y.els['sb-tilanne-badge'].textContent).toBe(2); expect(y.els['greeting-status'].textContent).toBe('2 vaatii toimenpidettä'); expect(y.els['signaalit-meta'].textContent).toBe('2 vaatii toimenpidettä');
+    expect(y.ctx._vpPulssi.malli.signaalejaYht).toBe(2);   // Kodin signaalit (P15 ei jaksoa 4 vk + P14 katsaus laskenut) eivät ole merkin luku
+    expect(y.els['sb-tilanne-badge'].textContent).toBe(3); expect(y.els['greeting-status'].textContent).toBe('3 vaatii toimenpidettä'); expect(y.els['signaalit-meta'].textContent).toBe('3 vaatii toimenpidettä');   // 4 ehdotusta → näkyvät 3
   });
   it('lippu päällä, ei koosteita → odotustila (ei virhettä)', async () => {
     const y = luoYmparisto(VP, { liput: { kentta: true }, koosteet: [] }); await y.renderoi(); expect(y.html).toContain('Pulssi alkaa kertyä');
@@ -114,7 +115,7 @@ describe('PR 2 · Kuittaa / Ensi viikolla (D124)', () => {
     const k = y.o.kirjoitukset[0]; expect(k.polku).toBe('seurat/demo-fc/toimenpiteet/pulssi_ei_jaksoa_a');
     expect(k.data).toMatchObject({ tyyppi: 'pulssi', signaali: 'ei_jaksoa', joukkue: 'a', tila: 'kuitattu', palaa_vk: null, ehto: 'ei_jaksoa', kuitattu_vk: '2026-W42', kuitattu_pvm: '__palvelinaika', kuitattu_uid: 'vp-uid', luotu: '__palvelinaika' });
     expect(y.html).not.toContain('data-signaali="ei_jaksoa|a"'); expect(y.html).toContain('data-signaali="katsaus_laskee|b"');
-    expect(y.ctx._vpPulssi.malli.signaalejaYht).toBe(1); expect(y.els['sb-tilanne-badge'].textContent).toBe(1);   // sama laskuri kolmessa paikassa
+    expect(y.ctx._vpPulssi.malli.signaalejaYht).toBe(1);   // merkki = ehdotukset (ei signaalit) → kuittaus ei muuta sitä
     expect(y.o.toastit.pop()).toEqual(['Kuitattu', 'ok']);
   });
   it('Ensi viikolla: tila siirretty + palaa_vk = seuraava viikko (vuodenvaihde: W53 → W01)', async () => {

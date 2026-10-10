@@ -55,8 +55,8 @@ describe('D169 · fonttiasteikko ja tokenit', () => {
 
 describe('D147 · yksi täytetty nappi per näkymä (ratchet → 1)', () => {
   const taytetyt = (h) => (h.match(/class="kt-btn(?:\s[^"]*)?"/g) || []).filter((c) => !/\s(q|g)(\s|")/.test(c) && !/\bsm\b/.test(c) || /kt-btn"/.test(c)).length;
-  /* Koti: Käynnistys-vaihe (PR B) on jo tavoitteessa (1); Rytmi-vaihe (PR D) vanhalla rakenteella → raja 2. Tilanne: PR C → 1. */
-  const KAYNNISTYS = ['tyhja', 'pilotti', 'kuormitus'], RAJA = { koti: 2, tilanne: 3 };
+  /* Koti: Käynnistys-vaihe (PR B) on jo tavoitteessa (1); Rytmi-vaihe (PR D) vanhalla rakenteella → raja 2. Tilanne (PR C): tavoite 1 saavutettu — Rytmi-vaiheessa signaalikortin päätoiminto, Käynnistyksessä 0 (D170). */
+  const KAYNNISTYS = ['tyhja', 'pilotti', 'kuormitus'], RAJA = { koti: 2, tilanne: 1 };
   it.each(KAIKKI)('%s: täytettyjä .kt-btn ≤ raja', (nimi, t, n, h) => { expect(taytetyt(h), nimi).toBeLessThanOrEqual(n === 'koti' && KAYNNISTYS.includes(t) ? 1 : RAJA[n]); });
   it('Kodin Käynnistys-vaihe: täsmälleen yksi täytetty nappi jokaisessa tilassa', () => { KAYNNISTYS.forEach((t) => expect(taytetyt(RENDER[t].koti), t).toBe(1)); });
   it('raja on tiukka: jossain tilassa saavutetaan (muuten laske rajaa)', () => { expect(Math.max(...F.TILAT.filter((t) => !KAYNNISTYS.includes(t)).map((t) => taytetyt(RENDER[t].koti))), 'koti (Rytmi)').toBe(RAJA.koti); expect(Math.max(...F.TILAT.map((t) => taytetyt(RENDER[t].tilanne))), 'tilanne').toBe(RAJA.tilanne); });
@@ -65,14 +65,14 @@ describe('D147 · yksi täytetty nappi per näkymä (ratchet → 1)', () => {
 
 describe('D168 · kielletyt UI-tekstit', () => {
   const KIELLOT = [['TKI <', /TKI\s*&lt;|TKI\s*</], ['"→ …teema"', /→\s*\S*teema/i], ['0 % · 0 %', /0 % · 0 %/], ['seuran nimi rivin alussa', /(^|[>·]\s*)(KPV|HJK|SJK|FCL|GrIFK|VIFK|EPS)\s+[PT]\d/], ['NaN/undefined/null', /\b(NaN|undefined|null)\b/]];
-  const TILAPAISET = { '"→ …teema"': ['pilotti · tilanne', 'kypsa · tilanne', 'kuormitus · tilanne'] };   // poistuu PR C:ssä (D148/D149); sama lista = ratchet
+  const TILAPAISET = {};   // PR C poisti "→ teema" -tekstit (D148/D149) — ei tilapäisiä poikkeuksia
   it.each(KIELLOT)('kielletty teksti %s ei esiinny (paitsi nimetyt tilapäiset)', (nimi, re) => {
     const esiintyy = KAIKKI.filter(([, , , h]) => re.test(teksti(h)) || re.test(h)).map((x) => x[0]);
     expect(esiintyy.sort()).toEqual((TILAPAISET[nimi] || []).slice().sort());
   });
   it('osa-alueen toisto samassa rivissä (ratchet: nykytilassa Tilanteen poikkeamarivit toistavat osa-alueen)', () => {
     const OSAT = ['Tekniikka', 'Fyysinen', 'Talenttiydin', 'Kehitys'], toistoja = (h) => (h.match(/<div class="kt-vr">[\s\S]*?<\/div>(?=<div class="kt-vr">|<\/div><\/div>|$)/g) || []).filter((r) => { const t = teksti(r); return OSAT.some((o) => (t.match(new RegExp(o, 'g')) || []).length > 1); }).length;
-    const nyt = F.TILAT.map((t) => toistoja(RENDER[t].tilanne)); expect(Math.max(...nyt)).toBeLessThanOrEqual(8);
+    const nyt = F.TILAT.map((t) => toistoja(RENDER[t].tilanne)); expect(Math.max(...nyt)).toBe(0);
   });
 });
 
@@ -80,8 +80,8 @@ describe('D125 · prosentti vain otoksen kanssa', () => {
   it('tmProsenttiTeksti: nimittäjä 0 → "—"; alle PIENI (5) → "a/b"; muuten kokonaisluku-%', () => {
     expect(PU.tmProsenttiTeksti(0, 0)).toBe('—'); expect(PU.tmProsenttiTeksti(0, 16)).toBe('0 %'); expect(PU.tmProsenttiTeksti(1, 4)).toBe('1/4'); expect(PU.tmProsenttiTeksti(0, 4)).toBe('0/4'); expect(PU.tmProsenttiTeksti(3, 5)).toBe('60 %'); expect(PU.tmProsenttiTeksti(7, 9, { min: 10 })).toBe('7/9'); expect(PU.tmProsenttiTeksti(null, undefined)).toBe('—');
   });
-  it('tyhjä seura: Tilanteessa ei prosentteja; "0/0" -tekstit ovat nimetty tilapäinen (ratchet: Tilanne ≤ 3 → PR C, Koti 0 (PR B))', () => {
-    const ti = teksti(RENDER.tyhja.tilanne); expect(ti).not.toMatch(/\d\s?%/); expect((ti.match(/\b0\/0\b/g) || []).length).toBeLessThanOrEqual(3);
+  it('tyhjä seura: Tilanteessa ei prosentteja; "0/0" -tekstit ovat nimetty tilapäinen (Tilanne 0 (PR C), Koti 0 (PR B))', () => {
+    const ti = teksti(RENDER.tyhja.tilanne); expect(ti).not.toMatch(/\d\s?%/); expect((ti.match(/\b0\/0\b/g) || []).length).toBe(0);
     expect((teksti(RENDER.tyhja.koti).match(/\b0\/0\b/g) || []).length).toBe(0);
   });
   it('"0 %" -esiintymät Kodissa: Käynnistys-tilat 0 (PR B), Rytmi (kypsä) ≤ 1 → PR D vie nollaan kattavuusportilla', () => {

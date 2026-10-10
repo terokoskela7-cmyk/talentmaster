@@ -33,9 +33,11 @@ function lataa(tila, nytMs) {
     return { vk: vkSitten(w), versio: 5, laskettu: { seconds: (nyt - (w === 0 ? 2 * HR : w * 7 * DAY)) / 1000 }, yhteensa: y, joukkueet: jm };
   });
   const pelaajat = [];
+  let raeJaljella = s.raeN != null ? s.raeN : Math.round(J.reduce((a, j) => a + j.n, 0) * .9);   // syntymäkvartaalit: raeN pelaajalle (RAE-kooste kattavuusportilla)
   J.forEach((j) => { for (let i = 0; i < j.n; i++) {
     const p = { id: j.id + '_' + (i + 1), joukkueet: [j.id], joukkue: j.nimi, syntymaVuosi: vuosi - j.ika, sukupuoli: j.sp === 'T' ? 'N' : 'M', suostumusTila: i < j.suost ? 'annettu' : 'odottaa', jaksofokus: null };
     if (j.jakso) p.jaksofokus = { konsepti_avain: 'k', konsepti_nimi: j.jakso.nimi, domeeni: 'tekninen', alkoi: new Date(nyt - j.jakso.alkuVkSitten * 7 * DAY).toISOString(), kesto_vk: j.jakso.N, lahde: 'valmentaja' };
+    if (raeJaljella > 0) { p.rae_kvartaali = ['Q1', 'Q1', 'Q2', 'Q3', 'Q4'][raeJaljella % 5]; raeJaljella--; }
     if (j.tki) { p.tki_viimeisin = j.tki.ka; p.tki_pvm = iso(nyt - j.tki.pvmSitten * DAY); p.d2_taso = 2; }
     pelaajat.push(p); } });
   const joukkueDocs = J.map((j) => { const d = { id: j.id, nimi: j.nimi, ikaryhma: j.sp + j.ika, tyyppi: j.tyyppi, valmentajaprofiili: j.profiili, jaksofokus: null };
@@ -50,11 +52,11 @@ function lataa(tila, nytMs) {
   const joukkueet = aktJ.map((j) => ({ jid: j.id, nimi: j.nimi, ika: j.ika, n: j.n, voimassa: !!j.jakso, jakso: j.jakso ? { nimi: j.jakso.nimi, a0: idx - j.jakso.alkuVkSitten, a1: idx - j.jakso.alkuVkSitten + j.jakso.N - 1, N: j.jakso.N } : null, katselmusAuki: !!j.katsAuki, katselmusPv: j.katsPv }));
   const mitattu = aktJ.map((j) => ({ nimi: j.nimi, pvm: j.tki ? iso(nyt - j.tki.pvmSitten * DAY) : null, ms: j.tki ? nyt - j.tki.pvmSitten * DAY : null }));
   const poikkeamat = s.huomiot.filter((h) => J[h.joukkue] && J[h.joukkue].n > 0).map((h) => Object.assign({}, h, { joukkue: J[h.joukkue].nimi }));
-  const ehdotukset = s.ehdotukset.map((e) => ({ ids: e.joukkueet.map((ji) => 'e' + s.ehdotukset.indexOf(e) + '_' + ji), teksti: tunnisteLista(e.joukkueet.map((ji) => J[ji].nimi)) + ' — ' + TEKSTIT[e.signaali], luotu: { seconds: (nyt - e.ikaPv * DAY) / 1000 }, signaali: e.signaali }));
+  const ehdotukset = s.ehdotukset.map((e) => ({ joukkueet: e.joukkueet.map((ji) => J[ji].nimi), ids: e.joukkueet.map((ji) => 'e' + s.ehdotukset.indexOf(e) + '_' + ji), teksti: tunnisteLista(e.joukkueet.map((ji) => J[ji].nimi)) + ' — ' + TEKSTIT[e.signaali], luotu: { seconds: (nyt - e.ikaPv * DAY) / 1000 }, signaali: e.signaali }));
   const njakso = joukkueet.filter((j) => j.voimassa).length;
   const syote = { nytMs: nyt, joukkueet, seura: { njakso, joukkueita: joukkueet.length }, katselmusKausi: s.katsKausi, mitattu, kausiAlkuMs: Date.UTC(vuosi, 7, 1), testijakso: joukkueet.length ? { a0: idx + 4, a1: idx + 5, nimi: 'Testijakso' } : null,
     palaveri: s.palaveriPv != null && joukkueet.length ? { ms: nyt + s.palaveriPv * DAY, id: 'jp1' } : null, poikkeamat, ehdotukset, idpN: s.idpN, talentit: s.talentit,
-    rae: pelaajat.length ? { n: Math.round(pelaajat.length * .9), yht: pelaajat.length, riittava: pelaajat.length >= 30, pct: { Q1: 38, Q2: 28, Q3: 20, Q4: 14 }, signaali: null } : null,
+    rae: pelaajat.length ? { n: s.raeN != null ? s.raeN : Math.round(pelaajat.length * .9), yht: pelaajat.length, riittava: (s.raeN != null ? s.raeN : pelaajat.length * .9) >= 30, pct: { Q1: 38, Q2: 28, Q3: 20, Q4: 14 }, signaali: null } : null,
     d1: joukkueet.length ? { riittava: s.d1Joukkueita * 3 >= joukkueet.length * 2, joukkueN: s.d1Joukkueita, joukkueYht: joukkueet.length } : null };
   const jaksoVk = {}; J.forEach((j) => { if (j.jakso && j.jakso.alkuVkSitten + 1 <= j.jakso.N) jaksoVk[j.id] = { vk: j.jakso.alkuVkSitten + 1, N: j.jakso.N }; });
   const viestit = (s.viestit || []).map((v, i) => ({ id: 'v' + i, osapuoli: 'valm' + i, nimi: lyhyt(J[v.joukkue].nimi), teksti: v.teksti, ms: nyt - v.hSitten * HR, lukematon: true, saapunut: true }));
