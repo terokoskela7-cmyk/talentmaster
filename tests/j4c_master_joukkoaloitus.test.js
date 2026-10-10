@@ -153,7 +153,7 @@ describe.each([['valmentaja'], ['vp']])('KPV U13 · %s', (rooli) => {
 
 describe('lähdetaso', () => {
   it('skripti ladataan ?v=1; kontti Kausi-näkymässä; kirjoitus vain _mAjKirjoitaJakso:n kautta (ei suoria update-kutsuja joukkoaloitus-lohkossa); ei hex-värejä', () => {
-    expect(MA).toContain('<script src="lib/tm_joukkoaloitus.js?v=4"></script>'); expect(MA).toContain('id="seasonPelaajienJaksot"');
+    expect(MA).toMatch(/<script src="lib\/tm_joukkoaloitus\.js\?v=\d+"/); expect(MA).toContain('id="seasonPelaajienJaksot"');
     const lohko = MA.slice(MA.indexOf('/* ═══ J4 C — JOUKKOALOITUS'), MA.indexOf('/* ═══ J2 — JOUKKUEJAKSO'));
     expect(lohko).not.toMatch(/\.update\(|\.set\(|\.add\(|\.delete\(|writeBatch|batch\(/); expect(lohko).toContain('_mAjKirjoitaJakso('); expect(lohko).toContain('PERÄKKÄIN'); expect(lohko).not.toMatch(/#[0-9a-fA-F]{3,6}\b/);
     expect(pura('async function _mAjKirjoitaJakso(')).toContain("collection('pelaajat').doc(p.id).update(");

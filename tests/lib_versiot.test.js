@@ -1,5 +1,5 @@
 /**
- * ?v-bumppiportti: jos Pelaaja_v7:n / Vanhempi_v2:n lataaman skriptin SISÄLTÖ muuttuu mutta ?v ei, SW tarjoaa vanhaa (#855). Vertaa sisältöhajautusta tallennettuun listaan (tests/fixtures/lib_versiot.json).
+ * ?v-bumppiportti: jos juuren HTML-sivun lataaman skriptin SISÄLTÖ muuttuu mutta ?v ei, SW tarjoaa vanhaa (#855). Vertaa sisältöhajautusta tallennettuun listaan (tests/fixtures/lib_versiot.json).
  * Päivitys: bumppaa ?v → node scripts/lib_versiot.js --kirjoita → commitoi lista.
  */
 import { describe, it, expect } from 'vitest';
@@ -18,7 +18,7 @@ describe('PORTTI: todellinen repo vs tests/fixtures/lib_versiot.json', () => {
     expect(muut.map((e) => e.viesti), 'lista vanhentunut').toEqual([]);
   });
   it('lista kattaa kaikki sivut ja sisältää lib/*.js-lataukset ?v:llä; ei tyhjiä hasheja; jokaisella lib-lataukselle on ?v', () => {
-    const lista = LV.lueLista(); expect(new Set(lista.map((x) => x.sivu))).toEqual(new Set(LV.SIVUT));
+    const lista = LV.lueLista(); expect(new Set(lista.map((x) => x.sivu))).toEqual(new Set(LV.SIVUT.filter((sv) => LV.skriptit(require('fs').readFileSync(require('path').join(__dirname, '..', sv), 'utf8')).length)));
     for (const x of lista) { expect(x.hash, x.tiedosto).toMatch(/^[0-9a-f]{64}$/); if (/^lib\//.test(x.tiedosto)) expect(x.v, x.tiedosto + ' (' + x.sivu + ') ilman ?v:tä').not.toBeNull(); }
     expect(lista.some((x) => x.tiedosto === 'lib/tm_tanaan_kentta.js' && x.sivu === 'TalentMaster_Pelaaja_v7.html')).toBe(true); expect(lista.some((x) => x.tiedosto === 'lib/tm_kentta.js' && x.sivu === 'TalentMaster_Vanhempi_v2.html')).toBe(true);
   });

@@ -172,7 +172,7 @@ describe('kirjoittajat kirjoittavat VAIN kanonisia koodeja (tuontimuunnos ajetaa
     expect(s).toContain("var PHV_OPTS = ['PRE', 'PH', 'POST'];");
     expect(s).not.toMatch(/opts:\s*\['AN'/);
     expect(s).toContain("const _phvK = tmPhvTuontiKoodi(p.tulokset.phv_tila).koodi; if (_phvK) profiiliPaivitys['phv_tila'] = _phvK;");
-    expect(s).toContain('<script src="lib/tm_phv_tila.js?v=1"></script>');
+    expect(s).toMatch(/<script src="lib\/tm_phv_tila\.js\?v=\d+"/);
   });
 
   it('Testaus_v9 EI kopioi pelaajadokin phv_tila:a tulosdokkiin eikä tapahtuman pelaajadataan (kierto katkaistu)', () => {
@@ -248,7 +248,7 @@ describe('lataajat: jokainen PHV-lukijalibin lataaja lataa myös lib/tm_phv_tila
       const s = lue(f);
       if (!LUKIJALIBIT.some((l) => s.includes('src="' + l))) continue;
       n++;
-      expect(s, f).toContain('<script src="lib/tm_phv_tila.js?v=1"></script>');
+      expect(s, f).toMatch(/<script src="lib\/tm_phv_tila\.js\?v=\d+"/);
     }
     expect(n).toBeGreaterThanOrEqual(8);
   });
