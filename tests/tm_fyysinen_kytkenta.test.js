@@ -86,11 +86,11 @@ describe('Tilanne: huomio, "Ei fyysistä dataa" ja "Kypsyys mittaamatta" (aina n
     const x = teksti(html(F.lataa('kypsa', NYT)));
     expect(x).toMatch(/Fyysiset testit kehityskohteena · \d+ joukkuetta/); expect(x).not.toMatch(/Kärkipelaaj|Talenttiydin|kärkipelaajien taso/);
   });
-  it('"Kypsyys mittaamatta · N pelaajaa" + lause + linkki testijaksoon; ei .tt-ilmankortti (display:none ≥ 760 px) eikä piilota-CSS:ää', () => {
+  it('"Kypsyys mittaamatta · N pelaajaa" + lause + kortin linkki testijaksoon; ei .tt-ilmankortti (display:none ≥ 760 px) eikä piilota-CSS:ää', () => {
     const d = F.lataa('pilotti', NYT), h = html(d), x = teksti(h);
     expect(x).toContain('Kypsyys mittaamatta · ' + d.fyysinen.kypsyysMittaamatta + ' pelaajaa'); expect(x).toContain('Fyysisiä tuloksia ei tulkita ennen kypsyyden mittaamista.');
-    const i = h.indexOf('id="tilanneKypsyysMittaamatta"'); expect(i).toBeGreaterThan(0); const rivi = h.slice(i, h.indexOf('</div>', i)); expect(rivi).toContain('onclick="te()"'); expect(h.slice(i - 40, i + 200)).not.toContain('tt-ilmankortti');
-    expect(h).not.toMatch(/\.tt-kypsyys\{[^}]*display:none|\.tt-fyyei\{[^}]*display:none/);
+    const i = h.indexOf('id="tilanneKypsyysMittaamatta"'), kortti = h.slice(h.indexOf('id="tilanneMittausaukot"'), h.indexOf('id="tilanneEhdotukset"')); expect(i).toBeGreaterThan(0); expect(kortti).toContain('onclick="te()"'); expect(h.slice(i - 60, i + 200)).not.toContain('tt-ilmankortti');
+    expect(h).not.toMatch(/\.tt-aukot\{[^}]*display:none/);
   });
   it('"Ei fyysistä dataa · N joukkuetta" näkyy (pilotti), ohjaa testijaksoon', () => {
     const d = F.lataa('pilotti', NYT), h = html(d); expect(teksti(h)).toContain('Ei fyysistä dataa · ' + d.fyysinen.eiFyysistaDataa + ' joukkuetta'); expect(h).toContain('id="tilanneEiFyysista"');

@@ -7,7 +7,7 @@
 const path = require('path'), fs = require('fs');
 if (require.main !== module) throw new Error('käsittelee tuotantodataa — aja suoraan');
 const VANHA = fs.existsSync(path.join(__dirname, '..', 'lib', '_vanha_normit_tmp.js')) ? require('../lib/_vanha_normit_tmp.js') : null;
-const E = require('../lib/tm_eerikkila_normit.js'), JK = require('../lib/tm_joukkue.js'), LU = require('../lib/tm_koti_luvut.js'), FY = require('../lib/tm_fyysinen.js');
+const E = require('../lib/tm_eerikkila_normit.js'), JK = require('../lib/tm_joukkue.js'), LU = require('../lib/tm_koti_luvut.js'), FY = require('../lib/tm_fyysinen.js'), TKL = require('../lib/tm_tekniikka.js');
 const ikaSp = (nimi) => { const s = String(nimi || ''), a = s.match(/(\d{1,2})/), b = s.match(/\b([PT])\s?\d/i); return { ika: a ? parseInt(a[1], 10) : null, sp: b && b[1].toUpperCase() === 'T' ? 'T' : 'P' }; };
 async function lue(id) {
   const admin = require(path.join(__dirname, '..', 'functions', 'node_modules', 'firebase-admin')); admin.initializeApp({ projectId: 'talentmaster-pilot' });
@@ -31,6 +31,7 @@ lue(process.argv[2] || 'sjk').then(({ pel, docs }) => {
     const uk = LU.poikkeamaPortti(E.laskeJoukkuePoikkeamat(pp, is.ika, sp), pp); if (uk.some((x) => x.tyyppi === 'hajonta')) o.uusi.hajonta++;
     const r = FY.tmFyysinenJoukkueLuokka(pp, nyt, { joukkueNimi: d.nimi }); if (r.luokka === 'kehityskohde') o.uusi.kehityskohde++; else if (r.luokka === 'ok') o.uusi.ok++; else o.uusi.ilmanLuokkaa++; if (r.otosPieni) o.uusi.otosPieni++;
   });
-  const y = FY.tmFyysinenYhteenveto(pel, docs, nyt);
+  const y = FY.tmFyysinenYhteenveto(pel, docs, nyt), ty = TKL.tmTekniikkaYhteenveto(pel, docs, nyt);
+  console.log('TEKNIIKKA ' + process.argv[2] + ': kehityskohde ' + ty.kehityskohde + ' · ok ' + ty.ok + ' · ilman luokkaa ' + ty.eiLuokkaa + ' · otos pieni ' + ty.otosPieni);
   console.log('seura ' + process.argv[2] + ' · pelaajia ' + pel.length + ' · ' + JSON.stringify(o) + ' · kypsyysMittaamatta(pelaajia) ' + y.kypsyysMittaamatta + ' · neutraaleja ' + y.neutraaleja + ' · eiFyysistaDataa(joukkueita) ' + y.eiFyysistaDataa);
 }).catch((e) => { console.error(e.message); process.exit(1); });

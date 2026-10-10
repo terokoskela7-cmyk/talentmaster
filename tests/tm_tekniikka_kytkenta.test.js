@@ -97,7 +97,7 @@ describe('Tilanne: tekniikka kehityskohteena -rivit ja "ei tekniikkadataa"', () 
   });
   it('"Ei tekniikkadataa · N joukkuetta" näkyy (pilotti: 10 joukkuetta ilman dataa), ohjaa testijaksoon; ei piiloteta', () => {
     const d = F.lataa('pilotti', NYT), h = html(d), x = teksti(h);
-    expect(x).toContain('Ei tekniikkadataa · ' + d.tekniikka.eiTekniikkadataa + ' joukkuetta'); expect(h).toContain('id="tilanneEiTekniikkaa"'); expect(h.slice(h.indexOf('id="tilanneEiTekniikkaa"'), h.indexOf('id="tilanneEiTekniikkaa"') + 1500)).toContain('onclick="te()"');
+    expect(x).toContain('Ei tekniikkadataa · ' + d.tekniikka.eiTekniikkadataa + ' joukkuetta'); expect(h).toContain('id="tilanneEiTekniikkaa"'); expect(h.slice(h.indexOf('id="tilanneMittausaukot"'), h.indexOf('id="tilanneMittausaukot"') + 3000)).toContain('onclick="te()"');
   });
   it('syy näkyy per joukkue (ryhmän avattu lista) ja otos pieni -merkintä; datan ikä (mitattu m/y · kk sitten)', () => {
     const x = teksti(html(F.lataa('kypsa', NYT)));

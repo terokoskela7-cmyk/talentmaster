@@ -13,6 +13,13 @@ describe('tmJoukkueSaanto', () => {
   it('puolen ehto: ≥ 1/2 KAIKISTA pelaajista, vaikka mitattuja < 5', () => {
     expect(s(4, 2, 2).luokka).toBe('kehityskohde'); expect(s(5, 2, 2).luokka).toBe('ei_luokkaa'); expect(s(8, 4, 4).luokka).toBe('kehityskohde'); expect(s(9, 4, 4).luokka).toBe('ei_luokkaa');
   });
+  it('päätöksen esimerkit: kattava = m ≥ 5 TAI 2·m ≥ yht; kehityskohde = kattava ja k > 0 ja 3·k ≥ m', () => {
+    expect(s(6, 3, 1)).toMatchObject({ luokka: 'kehityskohde', kehityskohde: true });   // 6 pelaajaa, 3 mitattu, 1 heikko
+    expect(s(4, 4, 0).luokka).toBe('ok');                                               // 4 pelaajaa, 4 mitattu, 0 heikkoa
+    expect(s(9, 4, 2).luokka).toBe('ei_luokkaa');                                        // 9 pelaajaa, 4 mitattu → ei kattava (8 < 9)
+    expect(s(15, 15, 5).luokka).toBe('kehityskohde');                                    // 15 / 15 / 5
+    expect(s(6, 3, 0).luokka).toBe('ok'); expect(s(5, 2, 1).luokka).toBe('ei_luokkaa'); expect(s(10, 5, 2).luokka).toBe('kehityskohde'); expect(s(10, 5, 1).luokka).toBe('ok');
+  });
   it('otos pieni (7 / 8), ilman luokkaa ei merkintää; eiMitattua', () => {
     expect(s(10, 7, 3)).toMatchObject({ luokka: 'kehityskohde', otosPieni: true }); expect(s(10, 8, 3)).toMatchObject({ otosPieni: false });
     expect(s(10, 7, 0)).toMatchObject({ luokka: 'ok', otosPieni: true }); expect(s(10, 3, 0)).toMatchObject({ luokka: 'ei_luokkaa', otosPieni: false, eiMitattua: false });

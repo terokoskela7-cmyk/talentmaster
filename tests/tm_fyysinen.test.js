@@ -147,7 +147,7 @@ describe('tmJoukkueFyysinen — yhteinen joukkuesääntö, neutraalit, otos pien
     expect(JT(lkm(ok, 6).concat(lkm(() => neutr('LAH'), 6)))).toMatchObject({ mitattu: 6, kehityskohteita: 0, luokka: 'ok' });
   });
   it('ei fyysistä dataa: 0 mitattua → eiMitattua; 1–4 mitattua → ilman luokkaa', () => {
-    expect(JT(lkm(eiDataa, 6))).toMatchObject({ luokka: 'ei_luokkaa', eiMitattua: true, eiDataa: 6 }); expect(JT(lkm(ok, 3).concat(lkm(eiDataa, 3)))).toMatchObject({ luokka: 'ei_luokkaa', eiMitattua: false }); expect(JT([])).toMatchObject({ yht: 0, eiMitattua: true });
+    expect(JT(lkm(eiDataa, 6))).toMatchObject({ luokka: 'ei_luokkaa', eiMitattua: true, eiDataa: 6 }); expect(JT(lkm(ok, 3).concat(lkm(eiDataa, 4)))).toMatchObject({ luokka: 'ei_luokkaa', eiMitattua: false }); expect(JT([])).toMatchObject({ yht: 0, eiMitattua: true });
   });
   it('syy = osa-alueet yleisin ensin; "Kypsyys mittaamatta" lasketaan vain tuntemattoman PHV:n neutraaleista', () => {
     const a = lkm(() => jas(pel({ kasirata: 1 }, { phv: 'POST' }), 'j1'), 3), b = lkm(() => jas(pel({ lin30m: 1 }, { phv: 'AN' }), 'j1'), 2), c = lkm(ok, 3);
