@@ -62,8 +62,10 @@ testitapahtumat/{tapahtumaId} {
 | `kuljetus_laukaus` | Kuljetus-laukaus (tarkkuusvähennyksin) | s | DIAG | pienempi |
 | `pituuspotku` | Pituuspotku (aikabonus metrit/5, max 20s) | m | SBL | suurempi |
 
-**TSI (Tekninen suunnanmuutos-indeksi)** = `sm_pallo − sm_juoksu`. Positiivinen → fysiikka > tekniikka;
-lähellä nollaa → tekniikka vahva. Hyvä pelaaja häviää ~0.3–0.6 s pallon kanssa; selvästi enemmän → lajitekniikkavaje.
+**SM-tasot (SM-juoksu, SM-pallo) ja TSI.** Normit: `EERIKKILA_NORMIT.sm_juoksu` / `.sm_pallo` (Palloliitto FINAL2024), `eerikkilaTaso(arvo, testi, ika, sukup)` → 1–5 kronologisen iän (`normiIka`, testihetken ikä) ja sukupuolen mukaan.
+**Tasojen merkitys:** 1 = alle kansallisen keskitason · 2 = hieman alle ("selkeä kehityskohde", `VP_v25:15681`) · 3 = kansallinen keskitaso · 4 = hyvä · 5 = kansainvälinen kärkitaso. **Lähde:** Palloliiton fyysis-teknisten ominaisuustestien tavoitetasot FINAL2024 (pojat ja miehet, tytöt ja naiset) sekä H-H-testimanuaali 2024. Tallennettuja `sm_juoksu_taso`/`sm_pallo_taso`-kenttiä EI lueta (tuonti laski ne joukkueen nimen iällä): tasot lasketaan raakatuloksista (`sm_juoksu_viimeisin`, `sm_pallo_viimeisin`).
+**TSI** (`sm_pallo − sm_juoksu`, s) on diagnostinen luku; "pallo hidastaa" -ajatus toteutetaan **tasovertailuna**, ei sekuntirajana. **Tekniikkaluokitus** (`lib/tm_tekniikka.js`, ketju TKI → SM-tasot): TKI < 40 → "alle ikätason"; muuten SM-pallon taso = 1 **ja SM-juoksun taso ≥ 2** → "alle ikätason"; SM-pallon taso ≥ 2 tasoa SM-juoksun tasoa alempana → "pallo hidastaa suunnanmuutoksissa"; **molemmat tasolla 1 → "nopeus ja tekniikka samalla tasolla"**, ei kehityskohde eikä lasketa joukkueluokitukseen (§28: hitautta ei tehdä kehityskohteeksi tekniikan nimellä). Vanhuusraja 15 kk mittarikohtaisesti; puuttuva testipäivä = "päivä tuntematon", ei tuore. Ks. `docs/TEKNIIKKA_MAARITELMA.md`.
+**Ansat:** `eerikkilaTaso` leikkaa iän hiljaa 10–19:ään (alle 10 → ei SM-tasoa, 20+ → avain `'M'`/`'N'`), käyttää tyttöjen normia kaikelle muulle kuin sukupuolelle `'M'` (normalisoi `normSukupuoliMN`:llä; tuntematon → ei tasoa) ja palauttaa **0**, kun arvo puuttuu (0 = ei tasoa, ei tasoa 1). Pelaajan `sukupuoli`-kenttä puuttuu usein → sukupuoli joukkuenimen `P`/`T`-tunnuksesta; ilman sitä ei SM-tasoa ja pelaaja on "ei tekniikkadataa" (syy "sukupuoli puuttuu").
 
 **MAS-käännöskorjaus `−20.3 s`** (MyE.Way-pariteetti, 2026-07-01): `MAS m/s = 1200 / (kokonaissek − 20.3)`,
 `km/h = ms × 3.6`. Verifioitu 2 MyE.Way-referenssipisteellä. **Kolme kopiota** eri arvoilla ennen korjausta →
