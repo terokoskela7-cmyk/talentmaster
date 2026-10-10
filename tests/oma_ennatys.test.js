@@ -111,7 +111,7 @@ describe('kirjoittajat päivittävät ennatykset samassa batchissa (§26)', () =
     const T = lue('TalentMaster_Testituonti_Master.html');
     expect(T).toMatch(/<script src="lib\/tm_ennatykset\.js\?v=\d+"><\/script>/);
     const m = mockDb({ [PEL]: Object.assign({}, TOPIAS, { ennatykset: { lin30m: { paras: 5.9, pvm: '2026-09-01', alusta: 'keinonurmi_3g' } } }) });
-    const ctx = { TM_ENNATYKSET: E, firebase: { firestore: { FieldValue: { arrayUnion: (...x) => ({ __au: x }) } } }, Date };
+    const ctx = { TM_ENNATYKSET: E, TM_TESTIPAIVA: require('../lib/tm_testipaiva.js'), firebase: { firestore: { FieldValue: { arrayUnion: (...x) => ({ __au: x }) } } }, Date };
     vm.createContext(ctx); vm.runInContext(pura(T, 'async function ttTallennaPelaaja(') + '\nthis.f = ttTallennaPelaaja;', ctx);
     expect(await ctx.f(m.db, 'kpv', { id: 'tt1', pvm: '2026-10-03', alusta: 'keinonurmi_3g' }, { tunniste: '12345678' }, { testit: { lin30m: 4.0, hyppy_cj: 31 } }, null)).toBe('ok');
     expect(m.db.batches).toEqual([['set seurat/kpv/testitapahtumat/tt1/tulokset/12345678', 'update ' + PEL]]);
