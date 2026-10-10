@@ -24,7 +24,7 @@ function luoYmparisto(src, o) {
     // klassisen Kodin riippuvuudet: kiinteät tynkät → vertailu on rakenteellinen (lippu pois → täsmälleen sama HTML kuin ennen)
     _vpSignaaliKortit: () => ({ kortit: [{ ik: 'I', sev: 'var(--teal)', txt: 'T1', cta: 'C1', fn: 'F1()' }, { ik: 'J', sev: 'var(--amber)', txt: 'T2', cta: 'C2', fn: 'F2()' }], tuotu: 10, kutsuttu: 6, odottaa: 4, annettu: 2, ilman: 8, konv: 33 }),
     _vpRaeRakenneHTML: (p, s) => '<RAE s=' + !!s + '/>', vpKayttoasteLataa() {},
-    avaaJoukkueSyvanakyma() {},
+    avaaJoukkueSyvanakyma() {}, _vpNaviUusi: () => false, _vpaFlag: () => false, _vpaPiilotaAvain: () => 'x',
     document: { getElementById: (id) => (o.eiElementteja && o.eiElementteja.indexOf(id) >= 0 ? null : el(id)), createElement: () => ({ style: {} }), head: { appendChild() {} } },
     firebase: { firestore: { FieldPath: { documentId: () => '__id' }, FieldValue: { serverTimestamp: () => '__palvelinaika' } }, app: () => ({ functions: () => ({ httpsCallable: () => async () => ({}) }) }), auth: () => ({ currentUser: { uid: 'vp-uid', getIdToken: async (pakota) => { (o.tokenit = o.tokenit || []).push(pakota); return 't'; } } }) },
     db: { collection: (c) => ({ doc: (id) => ({ collection: (n) => ({

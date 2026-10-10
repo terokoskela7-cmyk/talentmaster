@@ -142,6 +142,7 @@ window.TM_KAAVIO_HOST = {
 <script src="lib/tm_kentta.js?v=3"></script>   <!-- K0/V4a: Kenttä-komponentti (Archivo vain .kt:n sisällä) -->
 <script src="lib/tm_tanaan_kentta.js?v=3"></script>   <!-- V4a: tmTanaanOsat (Tänään-osat sanoin) -->
 <script src="lib/tm_hash_reititin.js?v=1"></script>   <!-- V4a: #pelaaja/{pid}/… -reititin (vain lipulla) -->
+<script src="lib/tm_vp_navi.js?v=1"></script>   <!-- S2c PR 2: navigaatio v3 (D135) + Viestit v0 — rakenne ja reitit libissä -->
 <script src="lib/tm_vp_tilanne.js?v=1"></script>   <!-- S2c PR 1: Tilanne = kausi (D123) — malli + HTML libissä -->
 <script src="lib/tm_kt_komponentit.js?v=1"></script>   <!-- mockup 22 jaetut komponentit (.kt-sig, .kt-btn, .kt-eb, .kt-q3, .kt-ev) — YKSI CSS-paikka (Kehitystyöpöytä + Seuran pulssi) -->
 <script src="lib/tm_kehitystyopoyta.js?v=13"></script>   <!-- V4a: Kehitystyöpöytä V4 -kehys -->
@@ -2713,6 +2714,7 @@ input::placeholder, textarea::placeholder { color: var(--ink3); opacity: 1; }
       <span class="lang-opt lang-active" data-lang="fi" onclick="vpVaihdaKieli('fi')">FI</span><span class="lang-sep">·</span><span class="lang-opt" data-lang="en" onclick="vpVaihdaKieli('en')">EN</span><span class="lang-sep">·</span><span class="lang-opt" data-lang="sv" onclick="vpVaihdaKieli('sv')">SV</span>
     </div>
 
+    <div id="sbNavUusi"></div>   <!-- S2c PR 2: navigaatio v3 (vain Kenttä-lippu; vanhat kohdat piiloon #sidebar.navi3:lla) -->
     <div class="sb-section-label" data-i18n="Työtilat">Työtilat</div>
     <div class="sb-item active" data-ws="koti" onclick="setWs('koti')">
       <svg class="sb-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5">
@@ -2839,6 +2841,8 @@ input::placeholder, textarea::placeholder { color: var(--ink3); opacity: 1; }
       <div id="vpAloitaKortti"></div>
       <div id="vpKotiView"></div>
     </div>
+
+    <div class="ws-view" id="ws-viestit"><div id="viestitView"></div></div>   <!-- S2c PR 2: Viestit v0 -->
 
     <div class="ws-view" id="ws-tilanne">
       <div id="tilanneKausi"></div>   <!-- S2c: Tilanne = kausi (Kenttä-lippu); vanha sisältö piiloon .tt-uusi:lla -->
@@ -2977,6 +2981,7 @@ input::placeholder, textarea::placeholder { color: var(--ink3); opacity: 1; }
 
     <!-- ── PELAAJAT ── -->
     <div class="ws-view" id="ws-pelaajat">
+      <div id="nvSegPelaajat"></div>
       <div class="page-title" data-i18n="Pelaajat">Pelaajat</div>
       <div class="page-sub" data-i18n="Hidden Gem · X-Factor · IDP-jono · Kehon valmius -jakauma">Hidden Gem · X-Factor · IDP-jono · Kehon valmius -jakauma</div>
 
@@ -3038,6 +3043,7 @@ input::placeholder, textarea::placeholder { color: var(--ink3); opacity: 1; }
          980px:ssä päivät puristuisivat luettavuuden alle. -->
     <!-- ── RYHMÄT (R1, D33) ── -->
     <div class="ws-view" id="ws-ryhmat">
+      <div id="nvSegRyhmat"></div>
       <div class="page-title" data-i18n="Ryhmät">Ryhmät</div>
       <div class="page-sub" data-i18n="Maalivahdit, talenttiryhmä ja muut ryhmät joukkueiden yli">Maalivahdit, talenttiryhmä ja muut ryhmät joukkueiden yli</div>
       <div id="ryhmatSisalto"></div>
@@ -3553,6 +3559,8 @@ async function lataaKaikki() {
   renderKotiVP();   // §IA — sis. renderVpAloitaKortti (inline 5-kohdan checklist = ainoa onboarding-pinta, #89)
   // #89: 3-vaiheinen modaali POISTETTU navin/ensikäynnin oletuksesta → inline-checklist (Master-pattern) on yksi totuuslähde.
   _alustaToimenpiteet();   // OSA 3 — generoi + lataa toimenpiteet (async, try/catch sisällä; demossa placeholder)
+  _vpNaviAsenna();   // S2c PR 2: navigaatio v3 (Kenttä-lippu tiedossa; ilman lippua vanha navigaatio ennallaan)
+  _vpAvaaUrlWs();    // ?ws=<avain> (vanhat avaimet ohjautuvat uuteen paikkaan)
   _vpAvaaUrlSyvalinkki();  // ?seura=&pelaaja=&nakyma=kehitys (Seurahallinnan IDP-nappi) → pelaajan työpöytä
 }
 
@@ -17167,10 +17175,11 @@ function lahetaMentorointiViesti(coachId, coachNimi) {
   if (!onSisainen) {
     db.collection('seurat').doc(_seuraId).collection('viestit').add({
       ...data,
+      nakyvyys: 'henkilokunta',   // Rules v3.39 sallii vain henkilokunta|pelaaja|huoltaja — 'valmentajalle' hylättiin hiljaa → viesti ei koskaan päätynyt valmentajan Inboxiin / VP:n Viestit-listaan (mentoroinnit-historia säilyttää 'valmentajalle')
       from: _uid, to: coachId,
       lahettajaUid: _uid,
       vastaanottajaUid: coachId
-    }).catch(()=>{});
+    }).catch(function (e) { console.warn('[mentorointiviesti → viestit]', e && e.message); toast(vpT('Viesti tallentui historiaan mutta ei valmentajan Inboxiin — yritä uudelleen.'), 'virhe'); });
   }
 
   toast(onSisainen
@@ -21291,6 +21300,7 @@ function _vpPaivitaToimenpideLaskuri(kortit) {
   /* Kenttä-lipun seurassa laskuri = Kodin "Tarvitsee huomiota" -signaalien määrä (pulssi, S2); muuten vanha signaalikorttien määrä. Päivittää kaikki näyttöpaikat. */
   const pm = window._vpPulssi && window._vpPulssi.sid === _seuraId && window._vpPulssi.malli, lp = window._vpLiput && window._vpLiput[_seuraId];
   const n = (pm && lp && lp.kentta === true) ? pm.signaalejaYht : window.TM_KOTI_LUVUT.toimenpideMaara(kortit || _vpSignaaliKortit().kortit);
+  const nvb = document.getElementById('nv-badge-tilanne'); if (nvb) { nvb.textContent = n; nvb.style.display = n > 0 ? '' : 'none'; }   // S2c PR 2: uusi sivupalkki
   const b = document.getElementById('sb-tilanne-badge');
   if (b) { b.textContent = n; b.style.display = n > 0 ? '' : 'none'; }
   const teksti = n > 0 ? (n + ' ' + vpT('vaatii toimenpidettä')) : vpT('Ei kriittisiä');
@@ -21419,10 +21429,12 @@ function _renderKotiPulssi(el) {
     const nyt = Date.now(), ks = S.koosteet, viim = ks[ks.length - 1] || {}, kal = (_kalenteriTapahtumat || []).map(function (e) { return { nimi: e.nimi, alkaa: e.alkaa }; });
     const m = T.tmPulssiRivit(ks, { nytMs: nyt, ensimmainenVk: S.ensin, katselmusPv: _vpKatselmusPv(), jaksoVk: _vpJaksoVk(), kuittaukset: S.kuittaukset || [] }), ko = { t: vpT, esc: _jsvEsc };
     const o = Object.assign({ suostumus: window.TM_KOTI_LUVUT.suostumus(_pelaajat || []), suostumusKooste: viim.yhteensa ? viim.yhteensa.n_suostumus : null, seuraavaKatselmus: _vpSeuraavaKatselmus(),
+      pika: _vpNaviUusi() ? window.TM_VP_NAVI.tmNaviPikatoiminnot() : null,   // S2c PR 2: Kodin pikatoiminnot (mockup 25 .quick)
       fn: { kuittaa: '_vpPulssiKuittaa', joukkue: 'avaaJoukkueSyvanakyma', aloitaJakso: 'avaaJoukkueSyvanakyma', sulje: 'avaaJoukkueSyvanakyma', perheet: 'avaaJoukkueSyvanakyma', valmentaja: '_vpPulssiValmentajat', paivita: '_vpPulssiPaivita', tilanne: '_vpPulssiTilanne', muistuta: 'vpMuistutaOdottavia' } }, ko);
     S.malli = m;
     el.innerHTML = '<div id="vpAloitaKortti"></div><div class="vpk-wrap"><div class="vpk-grid"><div class="vpk-main">' + T.tmPulssiHTML(m, o) + '</div><aside class="vpk-side">' + T.tmPulssiTulossaHTML(kal, nyt, Object.assign({ tanaan: true }, ko)) + T.tmPulssiTulossaHTML(kal, nyt, ko) + '</aside></div></div>';
     if (typeof renderVpAloitaKortti === 'function') renderVpAloitaKortti();
+    if (_vpNaviUusi() && _vpaFlag(_vpaPiilotaAvain())) { const mn = el.querySelector('.vpk-main'); if (mn) mn.insertAdjacentHTML('beforeend', '<div class="kt-vm" style="margin-top:8px"><button class="kt-gb" type="button" onclick="_vpaNaytaUudelleen()">' + _jsvEsc(vpT('Näytä opas')) + '</button></div>'); }   // "Aloita tästä" poistui sivupalkista (D135) → opas palautettavissa Kodista
     _vpPaivitaToimenpideLaskuri();
   };
   if (S.sid === _seuraId && S.koosteet && Date.now() - S.ladattu < 60000) { piirra(); return; }
@@ -21465,6 +21477,54 @@ window._vpTilanneEsityslista = function () {
   el.innerHTML = '<div class="kt-ev" style="gap:10px">' + window.TM_VP_TILANNE.tmTilanneEsityslistaHTML(m, kortit, window._vpTilanneKo) + '</div>';
   const d = document.getElementById('tilanneRaportitDet'); if (d) d.open = true;
 };
+/* ═══ S2c PR 2: Navigaatio v3 (docs/CODE_BRIEF_S2C_TILANNE_NAVI.md, D135; lib/tm_vp_navi.js) + Viestit v0 — vain Kenttä-lipun seurat; kuoressa vain kytkentä ═══ */
+function _vpNaviUusi() { const lp = window._vpLiput && window._vpLiput[_seuraId]; return !!(lp && lp.kentta === true && window.TM_VP_NAVI && window.TM_KT_KOMPONENTIT); }
+function _vpNaviAsenna() {
+  const sb = document.getElementById('sidebar'), nv = document.getElementById('sbNavUusi'), tb = document.querySelector('nav.tabbar'); if (!sb || !nv) return;
+  if (window._vpTabbarAlku == null && tb) window._vpTabbarAlku = tb.innerHTML;   // vanha alapalkki talteen (SA vaihtaa seuraa → lippu voi poistua)
+  if (!_vpNaviUusi()) { sb.classList.remove('navi3'); nv.innerHTML = ''; if (tb && window._vpTabbarAlku != null) tb.innerHTML = window._vpTabbarAlku; return; }
+  window.TM_KT_KOMPONENTIT.tmKtKomponentitLisaa(document);
+  if (!document.getElementById('tmVpNaviCss')) { const st = document.createElement('style'); st.id = 'tmVpNaviCss'; st.textContent = window.TM_VP_NAVI.CSS; document.head.appendChild(st); }
+  const N = window.TM_VP_NAVI, ko = { t: vpT, esc: _jsvEsc, aktiivinen: window._vpNaviAkt || 'koti' };
+  sb.classList.add('navi3'); nv.innerHTML = N.tmNaviSivupalkkiHTML(ko); if (tb) tb.innerHTML = N.tmNaviTabbarHTML(ko);
+  _vpNaviAktiivinen(_currentWs, window._vpNaviNakyma); _vpPaivitaToimenpideLaskuri(); _vpViestitLataa();
+}
+function _vpNaviAktiivinen(ws, nakyma) {
+  window._vpNaviAkt = ws;
+  document.querySelectorAll('#sbNavUusi .nv-i[data-nv]').forEach(function (i) { i.classList.toggle('on', i.dataset.nv === ws); });
+  if (ws === 'joukkueet') ['nvSegPelaajat', 'nvSegRyhmat'].forEach(function (id) { const e = document.getElementById(id); if (e) e.innerHTML = window.TM_VP_NAVI.tmNaviValilehdetHTML(nakyma, { t: vpT, esc: _jsvEsc }); });
+}
+function _vpAvaaUrlWs() {   // ?ws=<avain>: sallitut = olemassa olevat näkymät + vanhat avaimet (ohjautuvat); tuntematon → ei tee mitään
+  try { const w = new URLSearchParams(location.search).get('ws'); if (w && !new URLSearchParams(location.search).get('pelaaja') && (document.getElementById('ws-' + w) || w === 'joukkueet')) setWs(w); } catch (e) {}
+}
+let _vpViestit = { rivit: [], ladattu: 0, virhe: false };
+function _vpViestitNimi(uid) { const v = (_valmentajat || []).concat(_valmentajatKaikki || []).filter(function (x) { return x && x.id === uid; })[0]; return v ? (((v.etunimi || '') + ' ' + (v.sukunimi || '')).trim() || v.nimi || null) : null; }
+async function _vpViestitLataa() {   // VP:n henkilökuntaviestit: lähettäjänä JA vastaanottajana (Rules v3.39; yhtäsuuruussuodattimet, ei indeksiä)
+  if (!_seuraId || !_uid || _isDemoMode) return;
+  try {
+    const col = db.collection('seurat').doc(_seuraId).collection('viestit');
+    const r = await Promise.all([col.where('vastaanottajaUid', '==', _uid).limit(100).get(), col.where('lahettajaUid', '==', _uid).limit(100).get()]);
+    _vpViestit = { rivit: window.TM_VP_NAVI.tmViestitRivit(r[0].docs.concat(r[1].docs).map(function (d) { return Object.assign({ id: d.id }, d.data()); }), _uid, _vpViestitNimi), ladattu: Date.now(), virhe: false };
+  } catch (e) { console.warn('[viestit]', e && e.message); _vpViestit.virhe = true; }
+  const n = window.TM_VP_NAVI.tmViestitLukemattomat(_vpViestit.rivit), b = document.getElementById('nv-badge-viestit'); if (b) { b.textContent = n; b.style.display = n > 0 ? '' : 'none'; }
+  if (_currentWs === 'viestit') _vpViestitPiirra();
+}
+function _vpViestitPiirra() {
+  const el = document.getElementById('viestitView'); if (!el) return;
+  el.innerHTML = _vpViestit.virhe && !_vpViestit.rivit.length ? '<div class="nv-wrap"><div class="kt-note w">' + _jsvEsc(vpT('Viestejä ei voitu ladata — tarkista yhteys ja yritä uudelleen.')) + '</div></div>'
+    : window.TM_VP_NAVI.tmViestitHTML(_vpViestit.rivit, { t: vpT, esc: _jsvEsc, fn: { avaa: '_vpViestiAvaa' } });
+}
+function _vpViestitNayta() { _vpViestitPiirra(); if (Date.now() - _vpViestit.ladattu > 60000) _vpViestitLataa(); }
+window._vpViestiAvaa = async function (uid, id) {   // avaa nykyisen viestiketjun (Valmentajat → valmentajapaneeli + vastaus) ja merkitsee saapuneen luetuksi
+  const r = (_vpViestit.rivit || []).filter(function (x) { return x.id === id; })[0];
+  if (r && r.lukematon && id) {
+    try { const u = firebase.auth().currentUser; if (u) await u.getIdToken(true); await db.collection('seurat').doc(_seuraId).collection('viestit').doc(id).update({ luettu: true }); r.lukematon = false; _vpViestitLataa(); }
+    catch (e) { console.warn('[viesti luettu]', e && e.message); toast(vpT('Lukukuittaus ei tallentunut — viesti pysyy lukemattomana.'), 'virhe'); }
+  }
+  setWs('valmentajat'); if (typeof avaaCoachPanel === 'function' && uid) avaaCoachPanel(uid);
+};
+window._vpPikaMentorointi = function () { setWs('valmentajat'); };
+window._vpPikaTapahtuma = function () { setWs('kalenteri'); if (typeof avaaUusiTapahtuma === 'function') avaaUusiTapahtuma(); };
 window._vpTilanneRyhmat = function () { setWs('ryhmat'); };
 window._vpTilanneRae = function () { setWs('pelaajat'); };
 window._vpPulssiKuittaa = async function (avain, tila) {   // PR 2 (D124): Kuittaa / Ensi viikolla → seurat/{s}/toimenpiteet/pulssi_{signaali}_{joukkue}; laskuri päivittyy heti
@@ -21697,18 +21757,27 @@ window._ryTallenna = async function () {
 window._ryArkistoi = async function (id) { if (!confirm(vpT(window.TM_RYHMAT.FI.ry_vahvista_arkisto))) return; await _ryKirjoita(id, { aktiivinen: false }, vpT(window.TM_RYHMAT.FI.ry_arkistoitu_toast)); };
 window._ryPalauta = async function (id) { await _ryKirjoita(id, { aktiivinen: true }, vpT(window.TM_RYHMAT.FI.ry_palautettu_toast)); };
 
-function setWs(ws) {
+function setWs(ws, nakyma) {
   const _alkuWs = ws;   // vanha avain (Aloita tästä -checklist merkitsee käydyksi alkuperäisen)
-  if (_vpTilanneUusi() && (ws === 'reviewit' || ws === 'jaksofokus' || ws === 'raportointi')) {   // S2c: Seuranta, Jaksofokus ja Raportointi sulautuvat Tilanteeseen (D135); vanhat avaimet ohjautuvat — ENNEN murupolkua, jotta se näyttää "Tilanne"
+  let _avaa = null, _nakyma = nakyma || null;
+  if (_vpNaviUusi()) {   // S2c PR 2: navigaatio v3 — KAIKKI vanhat avaimet ohjataan uuteen paikkaan (lib TM_VP_NAVI.REITIT) ENNEN murupolkua
+    const r = window.TM_VP_NAVI.tmNaviReitti(ws, nakyma); ws = r.ws; _avaa = r.avaa; _nakyma = r.nakyma;
+    if (_alkuWs === 'reviewit' && typeof renderReviewit === 'function') renderReviewit();
+    if (_alkuWs === 'jaksofokus' && typeof renderJaksofokus === 'function') renderJaksofokus();
+    if (_avaa) setTimeout(function () { _vpTilanneAvaa(_avaa); }, 0);
+  } else if (_vpTilanneUusi() && (ws === 'reviewit' || ws === 'jaksofokus' || ws === 'raportointi')) {   // S2c PR 1: Seuranta, Jaksofokus ja Raportointi sulautuvat Tilanteeseen (D135)
     if (ws === 'reviewit' && typeof renderReviewit === 'function') renderReviewit();
     if (ws === 'jaksofokus' && typeof renderJaksofokus === 'function') renderJaksofokus();
     ws = 'tilanne'; setTimeout(function () { _vpTilanneAvaa(_alkuWs); }, 0);
   }
+  if (ws === 'joukkueet' && !_nakyma) _nakyma = window._vpNaviNakyma || 'pelaajat';
+  if (ws === 'joukkueet') window._vpNaviNakyma = _nakyma;   // Joukkueet ja ryhmät: välilehti muistetaan (kielen vaihto kutsuu setWs(_currentWs))
   _currentWs = ws;
   /* Murupolku seuraa aktiivista työtilaa (oli kiinteä "Tilanne" myös Kodissa). Nimi luetaan sivupalkin kohdasta → yksi lähde, kieli seuraa. */
   try {
     var _bcEl = document.getElementById('tbSivu'), _sbRivi = document.querySelector('.sb-item[data-ws="' + ws + '"]'), _bcAvain = null;
-    if (_sbRivi) Array.prototype.forEach.call(_sbRivi.querySelectorAll('span'), function (sp) { if (_bcAvain == null && sp.dataset.i18n) _bcAvain = sp.dataset.i18n; });
+    if (_vpNaviUusi()) _bcAvain = window.TM_VP_NAVI.tmNaviNimiAvain(ws);   // murupolku seuraa uutta rakennetta (S2c PR 2)
+    else if (_sbRivi) Array.prototype.forEach.call(_sbRivi.querySelectorAll('span'), function (sp) { if (_bcAvain == null && sp.dataset.i18n) _bcAvain = sp.dataset.i18n; });
     if (_bcEl && _bcAvain) { _bcEl.setAttribute('data-i18n', _bcAvain); _bcEl.textContent = vpT(_bcAvain); }
   } catch (e) {}
   try { if (_alkuWs === 'koti' || _alkuWs === 'raportointi' || _alkuWs === 'valmentajat' || _alkuWs === 'pelaajat') localStorage.setItem('tm_vp_visited_' + _alkuWs, '1'); } catch (e) {}   // Aloita tästä -checklist (visited)
@@ -21717,16 +21786,19 @@ function setWs(ws) {
   if (ws === 'reviewit' && typeof renderReviewit === 'function') renderReviewit();
   if (ws === 'jaksofokus' && typeof renderJaksofokus === 'function') renderJaksofokus();
   if (ws === 'ryhmat') { window._ryTila = null; _ryRender(); _ryLataa(); }   // R1: ryhmälista (luku vain avattaessa)
+  if (ws === 'joukkueet' && _nakyma === 'ryhmat') { window._ryTila = null; _ryRender(); _ryLataa(); }   // S2c PR 2: sama ryhmälista Joukkueet ja ryhmät -sivun välilehtenä
+  if (ws === 'viestit') _vpViestitNayta();   // S2c PR 2: Viestit v0
   if (ws === 'testit' && typeof renderVpTestit === 'function') renderVpTestit();
   document.querySelectorAll('.tabbar-item[data-ws]').forEach(t => t.classList.toggle('active', t.dataset.ws === ws));
   document.getElementById('sidebar')?.classList.remove('auki');
   document.getElementById('sivupalkkiOverlay')?.classList.remove('auki');
   document.querySelectorAll('.ws-view').forEach(v => v.classList.remove('active'));
-  const el = document.getElementById(`ws-${ws}`);
+  const el = document.getElementById(ws === 'joukkueet' ? (_nakyma === 'ryhmat' ? 'ws-ryhmat' : 'ws-pelaajat') : `ws-${ws}`);   // Joukkueet ja ryhmät = Pelaajat/Ryhmät-näkymät yhden otsikon alla (PR 3 rakentaa oman sivun)
   if (el) el.classList.add('active');
   document.querySelectorAll('.sb-item').forEach(i => {
     i.classList.toggle('active', i.dataset.ws === ws);
   });
+  if (_vpNaviUusi()) _vpNaviAktiivinen(ws, _nakyma);
 }
 
 // ─── LOGIN / LOGOUT ──────────────────────────────────────

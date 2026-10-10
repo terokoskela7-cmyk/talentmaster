@@ -89,7 +89,7 @@ describe('4 · poikkeamat joukkueittain (audit 24 §4 03)', () => {
   });
   it('kypsyysvahti (§28): estetty → "N/Y kypsyysvaihe ei salli tulkintaa", ei toimintonappia, himmeä (○)', () => {
     const h = HTML({ poikkeamat: [P({ kypsyysEstetty: { n: 8, yht: 12 } })] });
-    expect(teksti(h)).toContain('8/12 kypsyysvaihe ei salli tulkintaa'); expect(h).not.toContain('Ehdota jaksoa'); expect(h).toContain('tt-dot n');
+    expect(teksti(h)).toContain('8/12 kypsyysvaihe ei salli tulkintaa'); expect(h).not.toContain('Ehdota jaksoa'); expect(h).toContain('kt-dot n');
   });
   it('datan ikä jokaisella rivillä: "mitattu 8.10." tai "mitattu N kk sitten" + "odottaa testiä vk 45" (D118) + alaraja-huomautus', () => {
     const t = teksti(HTML({ poikkeamat: [P({ joukkue: 'P11 Demo' }), P({ joukkue: 'P13 Demo', alaraja: true })] }));
@@ -161,7 +161,7 @@ describe('Design: komponentit, tokenit', () => {
     expect([...new Set((TT.CSS.match(/var\(--[a-z0-9-]+/g) || []).map((x) => x.slice(6)))].filter((x) => !sallitut.has(x))).toEqual([]);
   });
   it('mitat mockupista: KPI-luku Cormorant 30 px; aikajanan otsikot DM Mono 11 px; rivi 13,5 px; kortin radius 6', () => {
-    expect(TT.CSS).toMatch(/\.tt-v\{font-family:var\(--kt-serif\);font-size:30px/); expect(TT.CSS).toMatch(/\.tt-ajh\{font-family:var\(--font-mono\);font-size:11px/); expect(TT.CSS).toMatch(/\.tt-vr\{[^}]*font-size:13\.5px/); expect(TT.CSS).toMatch(/\.tt-vl\{[^}]*border-radius:6px/);
+    expect(TT.CSS).toMatch(/\.tt-v\{font-family:var\(--kt-serif\);font-size:30px/); expect(TT.CSS).toMatch(/\.tt-ajh\{font-family:var\(--font-mono\);font-size:11px/); const KTC = require('../lib/tm_kt_komponentit.js').CSS; expect(KTC).toMatch(/\.kt-vr\{[^}]*font-size:13\.5px/); expect(KTC).toMatch(/\.kt-vl\{[^}]*border-radius:6px/);   // rivilista on jaetussa komponenttitiedostossa
   });
 });
 
@@ -237,7 +237,7 @@ describe('murupolku (tbSivu) uudessa Tilanteessa', () => {
   const luo = (lippu) => {
     const bc = { textContent: 'Koti', attrs: {}, setAttribute(k, v) { this.attrs[k] = v; } }, aktiivinen = { ws: null }, visited = {}, kutsut = [];
     const ctx = { console, setTimeout: (f) => { f(); }, _currentWs: 'koti', vpT: (x) => x, localStorage: { setItem: (k, v) => { visited[k] = v; } },
-      _vpTilanneUusi: () => lippu, renderReviewit() { kutsut.push('renderReviewit'); }, renderJaksofokus() { kutsut.push('renderJaksofokus'); }, renderKotiVP() {}, _vpaPaivitaTapahtumat() {}, renderVpTestit() {}, _vpTilanneAvaa(x) { kutsut.push('avaa:' + x); },
+      _vpNaviUusi: () => false, _vpTilanneUusi: () => lippu, renderReviewit() { kutsut.push('renderReviewit'); }, renderJaksofokus() { kutsut.push('renderJaksofokus'); }, renderKotiVP() {}, _vpaPaivitaTapahtumat() {}, renderVpTestit() {}, _vpTilanneAvaa(x) { kutsut.push('avaa:' + x); },
       document: { getElementById: (id) => (id === 'tbSivu' ? bc : id === 'ws-tilanne' ? { classList: { add() { aktiivinen.ws = 'tilanne'; } } } : null), querySelectorAll: () => [],
         querySelector: (sel) => { const m = /data-ws="(\w+)"/.exec(sel), n = m && NIMI[m[1]]; return n ? { querySelectorAll: () => [{ dataset: { i18n: n } }] } : null; } } };
     ctx.window = ctx; vm.createContext(ctx); vm.runInContext(funktio(VP, 'setWs'), ctx);
