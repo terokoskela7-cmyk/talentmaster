@@ -282,10 +282,10 @@ describe('b) Pikakirjaus / Testaus_v9 / Testituonti tuottavat johdetut pikakent√
     for (const f of ['TalentMaster_Testaus_v9.html', 'TalentMaster_Testituonti_Master.html', 'TalentMaster_VP_v25.html']) {
       const s = lue(f);
       expect(s, f).toContain('<script src="lib/tm_tki_core.js?v=2"></script>');
-      expect(s, f).toContain('<script src="lib/tm_pikakentat.js?v=6"></script>');   // v6: KL virallinen laskutapa (tmKlTulos)
+      expect(s, f).toContain('<script src="lib/tm_pikakentat.js?v=8"></script>');   // v6: KL virallinen laskutapa (tmKlTulos)
       expect(s.indexOf('lib/tm_tki_core.js'), f + ': TKI-ydin ennen pikakentti√§').toBeLessThan(s.indexOf('lib/tm_pikakentat.js'));
     }
-    expect(lue('TalentMaster_Master_v16.html')).toContain('<script src="lib/tm_pikakentat.js?v=6"></script>');
+    expect(lue('TalentMaster_Master_v16.html')).toContain('<script src="lib/tm_pikakentat.js?v=8"></script>');
     const tt = lue('TalentMaster_Testituonti_Master.html');
     for (const l of ['lib/tm_pvm.js?v=4', 'lib/tm_eerikkila_normit.js?v=52']) expect(tt).toContain('<script src="' + l + '"></script>');
     for (const f of ['TalentMaster_Master_v16.html', 'TalentMaster_VP_v25.html', 'TalentMaster_Testaus_v9.html', 'TalentMaster_Testituonti_Master.html', 'TalentMaster_Pelaaja_v7.html', 'TalentMaster_Vanhempi_v2.html']) {

@@ -49,12 +49,12 @@ describe('tmPaivaIso Helsingin aikaa — 23:59 / 00:30 / 02:59 ja kellonsiirrot'
 
 describe('oikeat libit kiinnitetyllä kellolla 00:30 Helsinki (16.7.2026) → paikallinen päivä', () => {
   const KESA = '2026-07-15T21:30:00Z';   // 00:30 EEST 16.7. (UTC-päivä olisi 15.7.)
-  it('tm_pikakentat: oletus-"tänään" (ei pvm-argumenttia) → hh_pvm/d1_pvm = 2026-07-16; annettu pvm ennallaan', () => {
+  it('tm_pikakentat: EI hiljaista "tänään"-varapäivää — ilman pvm-argumenttia pikakenttiä ei kirjoiteta (hh_pvm/d1_pvm tyhjät); annettu pvm ennallaan', () => {
     const koodi = KELLO(KESA) + `const {tmLaskePikakentat}=require(${JSON.stringify(join(juuri, 'lib/tm_pikakentat.js'))});
       const d={syntymaVuosi:2013,sukupuoli:'M',joukkue:'KPV U13'};
       const a=tmLaskePikakentat(d,{lin_30m:{paras:5.0}},undefined);const b=tmLaskePikakentat(d,{lin_30m:{paras:5.0}},'2026-05-02');
       console.log([a.hh_pvm,a.d1_pvm,b.hh_pvm].join(','))`;
-    expect(ajaTz(koodi)).toBe('2026-07-16,2026-07-16,2026-05-02');
+    expect(ajaTz(koodi)).toBe(',,2026-05-02');
   });
   it('tm_idp: arvion oletus-pvm ja aikaraami.arvio_pvm paikallisia', () => {
     const koodi = KELLO(KESA) + `const I=require(${JSON.stringify(join(juuri, 'lib/tm_idp.js'))});
@@ -103,7 +103,6 @@ describe('lähdekontrakti — tallentavat kohdat eivät käytä UTC-päivää', 
     ['TalentMaster_Master_v16.html', "pvm: tmPaivaIso(new Date()), lahteet: lahteet };", 1, 'd3_viimeisin.pvm (+ d3_pvm samassa set():ssä)'],
     ['TalentMaster_Pelaaja_v7.html', "pvm: _paivaIso(), lahteet: lahteet, jakso_alkoi", 1, 'd3_viimeisin.pvm (sivun oma paikallinen _paivaIso)'],
     ['TalentMaster_ADAR_Pikakortti.html', "pvm: tmPaivaIso(new Date()),   // havainnon päivä", 1, 'havainnon pvm'],
-    ['TalentMaster_Excel_Tuonti.html', "tsi_pvm: m.pvm || tmPaivaIso(new Date())", 1, 'tsi_pvm-fallback'],
     ['TalentMaster_Excel_Tuonti.html', "pvm: p.tsi_pvm || tmPaivaIso(new Date()) });", 1, 'TSI-recalc pvm-fallback'],
     ['TalentMaster_Seura.html', "{ pvm: tmPaivaIso(new Date()), arvo: null, pelaajaId: null, huomio: 'Kumottu kirjaus'", 1, 'omat_tavoitteet/kirjaukset kumoamis-pvm'],
     ['TalentMaster_TalentID_v1.html', "var tanaan=tmPaivaIso(new Date());", 1, 'snapshotin päiväavain (localStorage)'],

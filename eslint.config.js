@@ -21,6 +21,7 @@ const APP_GLOBALS = {
   TM_VIRHEKOODI: 'readonly',
   TM_KAL_MUISTIINPANO: 'readonly',   // lib/tm_kal_muistiinpano.js (tietosuoja P0)
   TM_SUKUPUOLI: 'readonly',   // lib/tm_sukupuoli.js (§7.12)
+  TM_TESTIPAIVA: 'readonly',   // lib/tm_testipaiva.js (testipäivän lähde: oikea / arvio / tuntematon)
   TM_ISTUNTO: 'readonly',   // lib/tm_istunto.js (istuntoturva)   // lib/tm_virhekoodi.js (tallennusvirheen koodi toastiin)
   // lib/tm_eerikkila_normit.js
   EERIKKILA_NORMIT: 'readonly', eerikkilaTaso: 'readonly', eerikkilaNormiarvo: 'readonly', eerikkilaProfiilit: 'readonly',
