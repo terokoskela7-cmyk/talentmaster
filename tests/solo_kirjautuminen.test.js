@@ -74,12 +74,16 @@ describe('soloLapsiKirjaudu · koodi', () => {
 describe('soloLapsiKirjaudu · käsittelijä (tynkä)', () => {
   it('oikea koodi + PIN → token, claimit { rooli:solo_lapsi, soloPlayerId }; child_pin siirretään hajautukseksi _soloPin-kokoelmaan', async () => {
     const t = tynka(SOLO);
-    const r = await t.f({ playerCode: 'tmp-ab12cd', pin: '4821' }, ctx);
+    /* Kiinteä suola: hajautus ei saa riippua sattumasta (aiempi `not.toContain('4821')` kaatui satunnaisesti, kun satunnainen heksa sisälsi merkit 4821) */
+    const alkup = crypto.randomBytes, spy = (n, ...r) => (n === 16 ? Buffer.alloc(16, 7) : alkup.call(crypto, n, ...r));
+    crypto.randomBytes = spy;
+    let r; try { r = await t.f({ playerCode: 'tmp-ab12cd', pin: '4821' }, ctx); } finally { crypto.randomBytes = alkup; }
     expect(r).toEqual({ token: 'TOKEN', playerId: 'solo1', playerCode: 'TMP-AB12CD' });
     expect(t.tokenit[0]).toEqual({ uid: 'solo_solo1', claims: { rooli: 'solo_lapsi', soloPlayerId: 'solo1' } });
     const h = t.kokoelmat._soloPin.get('solo1');
     expect(h && h.hash).toMatch(/^scrypt\$/);
-    expect(h.hash).not.toContain('4821');
+    expect(h.hash).toMatch(/^scrypt\$\d+\$\d+\$\d+\$(?:07){16}\$[0-9a-f]+$/);   // scrypt$N$r$p$suola(kiinteä)$hash
+    expect(h.hash).not.toBe('4821'); expect(K.tarkistaPin('4821', h.hash)).toBe(true); expect(K.tarkistaPin('4822', h.hash)).toBe(false);   // ei tallenneta selväkielisenä; täsmää vain oikealla PIN:llä
     expect(t.kokoelmat._pelaajaPin.size).toBe(0);
     // Hajautuksen jälkeen vanha child_pin ei enää ratkaise: vaihdetaan se → kirjautuminen hajautuksella toimii silti.
     t.kokoelmat.players.get('solo1').child_pin = '0000';

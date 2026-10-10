@@ -314,3 +314,9 @@ Ei tyhjiä päiviä eikä yhtään `2026-01-20`-varapäivää. Suora näyttö "t
 5. Kehitysvaiheen mukainen tasovertailu (alle 16-vuotiaat, vaatii mitatun PHV:n) — myöhemmin.
 
 Rajaukset: ei kirjoituksia tuotantodataan (laskelmat vain lukien), ei Rules- eikä `functions/`-muutoksia, ei ruotsinkielisiä tekstejä.
+
+## 8. Rajat, normisto ja skaalautuvuus (PR 3b)
+
+Tässä dokumentissa mainitut rajat (TKI < 40, 1/3, 5 mitattua tai puolet, 15 kk, kahden tason ero, otos pieni < 8) ovat `lib/tm_normisto.js`:n arvoja, eivät koodiin hajautettuja vakioita: TKI-raja ja kahden tason ero ovat normiston oletuksia (seura voi säätää: TKI 25–55, tasoero 1–3), mutta 5 mitattua, otos pieni < 8, kolmasosa ja 15 kk ovat **lukittuja luotettavuusehtoja** (menetelmä, kuten §28 ja §7.22). Tarkemmin ja kolmen kerroksen malli: `docs/NORMISTO_JA_SEURAN_LINJA.md`.
+
+**Palvelinkooste otetaan käyttöön, kun seurassa on yli noin 1 000 pelaajaa tai kun Network-taso tulee. Ei toteuteta nyt.** Libit ajautuvat Nodessa sellaisenaan (testattu: 2 000 pelaajaa × 80 joukkuetta ≈ 35 ms).
