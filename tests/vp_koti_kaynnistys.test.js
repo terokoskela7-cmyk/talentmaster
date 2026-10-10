@@ -27,7 +27,7 @@ describe('D165 · kolme askelta', () => {
   const { km, h } = HTML(F.lataa('pilotti', NYT)), t = teksti(h);
   it('otsikko "Kauden käynnistys: kolme askelta." + lause; askeleet Jaksot 1/15 · Perheet mukana 4/160 · Testipäivät 2/15 (mockup 33)', () => {
     expect(t).toContain('Kauden käynnistys: kolme askelta.'); expect(km.askeleet.map((a) => [a.nimi, a.a, a.b])).toEqual([['Jaksot', 1, 15], ['Perheet mukana', 4, 160], ['Testipäivät', 2, 15]]);
-    ['1/15', 'joukkuetta jaksolla', '4/160', 'perhettä antanut suostumuksen', 'Luku koosteesta 2026-W42.', '2/15', 'joukkuetta varannut päivän', 'Testijakso vk 45–46. Mittaukset ennen talven jaksoja.', 'Ehdota jaksot ikävaiheittain, valmentaja vahvistaa omassa Tänään-näkymässään.'].forEach((x) => expect(t, x).toContain(x));
+    ['1/15', 'joukkuetta jaksolla', '4/160', 'perhettä antanut suostumuksen', 'Luku koosteesta 2026-W42.', '2/15', 'joukkuetta varannut päivän', 'Testijakso vk 45–46. Mittaukset ennen talven jaksoja.', 'Aloita jakso joukkueen näkymässä. Jakso antaa joukkueelle teeman ja viikkotavoitteet.'].forEach((x) => expect(t, x).toContain(x));
   });
   it('sivun ainoa täytetty nappi on ensimmäisellä keskeneräisellä askeleella ("Aloita jaksot"); muut ovat tekstilinkkejä "Kutsu loput 156 →" ja "Sovi päivät →"', () => {
     expect((h.match(/class="kt-btn"/g) || []).length).toBe(1); expect(h).toMatch(/<button class="kt-btn" type="button" onclick="aj\(\)">Aloita jaksot<\/button>/);
@@ -65,10 +65,10 @@ describe('Tällä viikolla · Jaksolla nyt · Odottaa jaksoa · oikea palsta', (
   });
   it('D150: "Aloita tästä" -opas piilossa Käynnistys-vaiheessa; otsikkorivin "Näytä opas" -linkki palauttaa sen (VP: luokka vpk-hide-guide ws-koti:ssa)', () => {
     expect(teksti(HTML(F.lataa('pilotti', NYT)).h)).toContain('Näytä opas'); expect(HTML(F.lataa('pilotti', NYT)).h).toContain('onclick="op()"');
-    expect(KK.CSS).toContain("#ws-koti.vpk-hide-guide #vpAloitaKortti{display:none}"); expect(VP).toContain("classList.toggle('vpk-hide-guide', p)"); expect(VP).toContain('opasLuokka(!window._vpKotiOpasNayta)'); expect(VP).toContain('opasLuokka(false)'); expect(VP).toContain("opas: '_vpKotiOpas'");
+    expect(KK.CSS).toContain("#ws-koti.vpk-hide-guide #vpAloitaKortti{display:none}"); expect(VP).toContain("classList.toggle('vpk-hide-guide', p)"); expect(VP).toContain('opasLuokka(kaynn && !window._vpKotiOpasNayta)');  expect(VP).toContain("opas: '_vpKotiOpas'");
   });
   it('oikea palsta: Tänään · Tulossa 14 päivää (+ testijakso vk 45–46), Avaa kalenteri →; ei lomatietoa (ei datalähdettä)', () => {
-    const t = teksti(HTML(F.lataa('pilotti', NYT)).h); ['Tänään · ma 12.10.', 'P12 Pilotti harjoitus', 'Tulossa 14 päivää', 'P13 Pilotti ottelu', 'Valmentajapalaveri', 'vk 45–46 Testijakso', 'Avaa kalenteri →'].forEach((x) => expect(t, x).toContain(x));
+    const t = teksti(HTML(F.lataa('pilotti', NYT)).h); ['Tänään · ma 12.10.', '17.00 Harjoitus P9', 'Tulossa 14 päivää', 'to 15.10. Ottelu P10', 'Valmentajapalaveri', 'vk 45–46 Testijakso', 'Avaa kalenteri →'].forEach((x) => expect(t, x).toContain(x));
   });
   it('tyhjä seura: ei askelia; "Tuo pelaajat" on ainoa täytetty nappi; ei nollia', () => {
     const { h } = HTML(F.lataa('tyhja', NYT)), t = teksti(h); expect(t).toContain('Kauden käynnistys: aloita tuomalla pelaajat.'); expect((h.match(/class="kt-btn"/g) || []).length).toBe(1); expect(t).toContain('Tuo pelaajat'); expect(t).not.toMatch(/\b0\/0\b|\d\s?%/); expect(h).not.toContain('kk-st');
@@ -86,13 +86,13 @@ describe('D167 · esimerkkiseura (FC Demo) erillisenä tilana', () => {
   });
   it('VP: demo-tila vain istunnossa ja vain nykyiselle seuralle (_vpKotiDemo === _seuraId); demon aikana ei kuittauksia/kirjoituksia (fn {}) eikä oikeaa pelaajadataa', () => {
     expect(VP).toContain('window._vpKotiDemo === _seuraId'); expect(VP).toContain("window._vpKotiDemo = p === '1' ? _seuraId : null");
-    const lohko = VP.slice(VP.indexOf('function _renderKotiPulssi'), VP.indexOf('/* ═══ S2c PR 1: Tilanne = kausi')); expect(lohko).toContain('fn: demo ? {} :'); expect(lohko).toContain('suostumus: demo ? null :'); expect(lohko).toContain('seuraavaKatselmus: demo ? null :');
+    const lohko = VP.slice(VP.indexOf('function _renderKotiPulssi'), VP.indexOf('/* ═══ S2c PR 1: Tilanne = kausi')); expect(lohko).toContain('fn: demo ? {} :'); expect(lohko).toContain('testit: demo ? [] : _tapahtumat'); expect(lohko).toContain('viestit: demo ? [] :'); expect(lohko).toContain('seuraNimi: demo ? D.seuranNimi');
   });
 });
 
 describe('VP-kytkentä (lippu pois = vanha Koti ennallaan)', () => {
-  it('Käynnistys vain Kenttä-lipun seuroilla (_vpNaviUusi) ja ei demossa; muuten vanha tmPulssiHTML-polku', () => {
-    const l = VP.slice(VP.indexOf('function _renderKotiPulssi'), VP.indexOf('/* ═══ S2c PR 1: Tilanne = kausi')); expect(l).toMatch(/if \(KK && !demo && _vpNaviUusi\(\) && KK\.tmKotiVaihe\(m\) === 'kaynnistys'\)/); expect(l).toContain('T.tmPulssiHTML(m, o)');
+  it('Käynnistys vain omalle seuralle (ei demossa); Rytmi muulloin ja demossa; kaikki lib/tm_vp_koti.js:n kautta', () => {
+    const l = VP.slice(VP.indexOf('function _renderKotiPulssi'), VP.indexOf('/* ═══ S2c PR 1: Tilanne = kausi')); expect(l).toContain("const kaynn = vaihe === 'kaynnistys' && !demo"); expect(l).toContain('KK.tmKotiKaynnistysHTML(KK.tmKotiKaynnistysMalli(m, env), op) : KK.tmKotiRytmiHTML(KK.tmKotiRytmiMalli(m, env), op)'); expect(l).not.toContain('tmPulssiHTML');
     expect(VP).toContain('<script src="lib/tm_vp_koti.js?v='); expect(VP.indexOf('lib/tm_vp_koti.js')).toBeGreaterThan(VP.indexOf('lib/tm_seuran_pulssi.js')); expect(VP).toContain('window.TM_SEURAN_PULSSI');
   });
   it('toiminnot käyttävät olemassa olevia polkuja: testit → avaaUusiTestiModaali, viesti → _vpViestiAvaa, joukkue → avaaJoukkueSyvanakyma, päivitys → _vpPulssiPaivita; ei uusia Firestore-kirjoituksia', () => {

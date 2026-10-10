@@ -42,10 +42,10 @@ describe('rakenne (mockup 25)', () => {
   it('Kodin pikatoiminnot: tekstit mockupista, kolme; pulssi piirtää ne tulkintalauseen jälkeen, ennen signaaleja', () => {
     expect(N.tmNaviPikatoiminnot().map((x) => x.teksti)).toEqual(['+ Arvioi harjoitus', '+ Kirjaa mentorointi', '+ Uusi tapahtuma']);
     const KS = ['2026-W40', '2026-W41'].map((vk, i) => ({ vk, versio: 5, laskettu: { seconds: Date.now() / 1000 - 3600 }, yhteensa: { n_pelaajat: 10 }, joukkueet: { a: { nimi: 'P11 Demo', ikavaihe: 'rakentaja', jakso: false, n_pelaajat: 10, n_jaksolla: 0, n_katselmus: 0, n_vastanneet: 0, n_vastausperusta: 0, n_katselmus_ajallaan: 0, n_katselmus_perusta: 0, n_suostumus: 8, n_perhe_kuittaus_7: 0, n_harjoite_7: 2 } } }));
-    const m = P.tmPulssiRivit(KS, { nytMs: Date.now(), ensimmainenVk: '2026-W10' }), h = P.tmPulssiHTML(m, { t: (x) => x, pika: N.tmNaviPikatoiminnot(), fn: { joukkue: 'x' } });
-    expect(h).toContain('<div class="quick">'); expect(h.indexOf('class="lead"')).toBeLessThan(h.indexOf('class="quick"')); expect(h.indexOf('class="quick"')).toBeLessThan(h.indexOf('Tarvitsee huomiota'));
+    const KK = require('../lib/tm_vp_koti.js'), m = P.tmPulssiRivit(KS, { nytMs: Date.now(), ensimmainenVk: '2026-W10' }), env = { yhteensa: KS[1].yhteensa, koosteJ: KS[1].joukkueet, kalenteri: [], nytMs: Date.now(), seuraNimi: 'X' }, ht = (pika) => { const r = KK.tmKotiKaynnistysHTML(KK.tmKotiKaynnistysMalli(m, env), { t: (x) => x, pika, fn: { joukkue: 'x' } }); return r.main; }, h = ht(N.tmNaviPikatoiminnot());
+    expect(h).toContain('<div class="kk-quick">'); expect(h.indexOf('class="kk-lause"')).toBeLessThan(h.indexOf('class="kk-quick"')); expect(h.indexOf('class="kk-quick"')).toBeLessThan(h.indexOf('class="kk-steps"'));
     ['vpAvaaHarjoitusarviointi()', '_vpPikaMentorointi()', '_vpPikaTapahtuma()'].forEach((f) => expect(h).toContain('onclick="' + f + '"'));
-    expect(P.tmPulssiHTML(m, { t: (x) => x })).not.toContain('class="quick"');   // ilman pikatoimintoja (lippu pois) ennallaan
+    expect(ht(null)).not.toContain('class="kk-quick"');   // ilman pikatoimintoja (lippu pois) ennallaan
   });
 });
 

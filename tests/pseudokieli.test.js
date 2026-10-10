@@ -14,7 +14,7 @@ const jaljella = (html) => {
 };
 const data = (d) => { const s = new Set(); const lisaa = (v) => sanat(v).forEach((w) => s.add(w.toLowerCase()));
   Object.values(d.nimet).forEach(lisaa); d.kalenteri.forEach((e) => lisaa(e.nimi)); (d.viestit || []).forEach((v) => { lisaa(v.teksti); lisaa(v.nimi); }); d.spec.joukkueet.forEach((j) => { lisaa(j.nimi); if (j.jakso) lisaa(j.jakso.nimi); });
-  ['Demo', 'FC', 'Pilotti', 'W'].forEach(lisaa); ['ma', 'ti', 'ke', 'to', 'pe', 'la', 'su'].forEach((p) => s.add(p)); return s; };   // viikonpäiväkoodit ovat päiväystä (data; kielen mukaan Intl-lokaali, ks. kieli-valitsin)
+  ['Demo', 'FC', 'Pilotti', 'W'].forEach(lisaa); ['ma', 'ti', 'ke', 'to', 'pe', 'la', 'su', 'mån', 'tis', 'ons', 'tors', 'fre', 'lör', 'sön', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'].forEach((p) => s.add(p)); return s; };   // viikonpäiväkoodit ovat päiväystä (data); että ne tulevat VALITUSTA kielestä, todistaa tests/vp_koti_rytmi.test.js (Kieli)
 const loydot = (html, d) => { const sallitut = data(d); return sanat(jaljella(html)).filter((w) => !sallitut.has(w.toLowerCase())); };
 
 describe('pseudokieli: Tilanne ja Koti (Käynnistys) — ei merkitsemätöntä tekstiä', () => {
@@ -25,9 +25,9 @@ describe('pseudokieli: Tilanne ja Koti (Käynnistys) — ei merkitsemätöntä t
       expect(h).toContain('⟦'); expect(loydot(h, d), 'merkitsemätöntä tekstiä').toEqual([]);
     });
   });
-  ['tyhja', 'pilotti', 'kuormitus'].forEach((tila) => {
+  F.TILAT.forEach((tila) => {
     const d = F.lataa(tila, NYT);
-    it(tila + ' · Koti (Käynnistys): kaikki näkyvä teksti kulkee käännösfunktion kautta (askeleet, lista, palsta)', () => {
+    it(tila + ' · Koti (' + (tila === 'kypsa' ? 'Rytmi' : 'Käynnistys') + '): kaikki näkyvä teksti kulkee käännösfunktion kautta (askeleet/lista/kortit/palsta)', () => {
       const h = F.kotiHTML(d, { t: ps });
       expect(h).toContain('⟦'); expect(loydot(h, d), 'merkitsemätöntä tekstiä').toEqual([]);
     });
@@ -54,6 +54,17 @@ describe('pseudokieli: Tilanne ja Koti (Käynnistys) — ei merkitsemätöntä t
     d.viestit = viestit; expect(r.main + r.rail).toContain('⟦Katselmusikkuna sulkeutuu 3 päivän päästä⟧'); expect(loydot(r.main + r.rail, d), 'merkitsemätöntä tekstiä').toEqual([]);
     expect(loydot(KK.tmKotiDemoNauhaHTML({ t: ps, fn: { demo: 'de' } }), d)).toEqual([]);
   });
-  it('kypsä · Koti (Rytmi, lib/tm_seuran_pulssi.js): PR D uudistaa — ei vielä pseudokielitestissä (löydökset korjataan Rytmi-uudistuksessa)', () => { expect(KK.tmKotiVaihe(require('../lib/tm_seuran_pulssi.js').tmPulssiRivit(F.lataa('kypsa', NYT).koosteet, { nytMs: NYT, ensimmainenVk: F.lataa('kypsa', NYT).ensin, jaksoVk: {}, katselmusPv: {} }))).toBe('rytmi'); });
+  it('Koti Rytmi, kaikki haarat: signaalikortti kaikista tyypeistä (yksittäinen ja ryhmä), viestit, huomiokortit, käynnistysrivi, esimerkkiseura; kielet fi/sv/en', () => {
+    const PU = require('../lib/tm_seuran_pulssi.js'), d = F.lataa('kypsa', NYT), v = d.koosteet[d.koosteet.length - 1]; Object.keys(v.joukkueet).forEach((k) => { v.joukkueet[k].n_suostumus = v.joukkueet[k].n_pelaajat; });
+    const m = PU.tmPulssiRivit(d.koosteet, { nytMs: NYT, ensimmainenVk: d.ensin, jaksoVk: d.jaksoVk, katselmusPv: {} }), rv = m.rivit.filter((r) => r.jakso.voimassa && r.n >= 5), S = (ty, r, o) => Object.assign({ tyyppi: ty, jid: r.jid, nimi: r.nimi, avain: ty + '|' + r.jid, jaksoVk: { vk: 3, N: 6 }, n: 10, vk: 4, pv: 5, auki: 3, alku: 70, loppu: 40, pros: 12, tavoite: 25, leikkija: false }, o || {});
+    const viestit = [{ id: 'a', osapuoli: 'u', nimi: 'P12', teksti: 'Moi', ms: NYT - 3600000 }, { id: 'b', osapuoli: 'u', nimi: 'P12', teksti: 'Hei', ms: NYT - 3 * 86400000 }]; d.viestit = viestit;
+    const fn = { opas: 'o', aloitaJaksot: 'a', kutsu: 'k', testit: 't', joukkue: 'j', viesti: 'vi', tilanne: 'ti', kalenteri: 'ka', paivita: 'pa', demo: 'de', auki: 'au', tuo: 'tu', kuittaa: 'kt', valmentaja: 'va' };
+    const rakenna = (lista, kieli, muok) => { const m2 = Object.assign({}, m, { signaalitLista: lista }), rm = KK.tmKotiRytmiMalli(m2, { yhteensa: v.yhteensa, koosteJ: v.joukkueet, testit: [], nimet: d.nimet, kalenteri: d.kalenteri, viestit, nytMs: NYT, seuraNimi: 'Demo FC' }); if (muok) muok(rm); const r = KK.tmKotiRytmiHTML(rm, { t: ps, fn, kieli, auki: { kortti: true, ilman: true } }); return r.main + r.rail; };
+    const yks = [S('ei_jaksoa', rv[0]), S('katselmusikkuna', rv[1]), S('katselmusikkuna', rv[2], { pv: null, jaksoVk: null }), S('katsaus_laskee', rv[3]), S('kaytto_matala', rv[4]), S('kaytto_matala', rv[5], { leikkija: true })];
+    ['fi', 'sv', 'en'].forEach((k) => { const h = rakenna(yks, k); expect(h).toContain('⟦'); expect(loydot(h, d), 'yksittäiset · ' + k).toEqual([]); });
+    ['ei_jaksoa', 'katselmusikkuna', 'katsaus_laskee', 'kaytto_matala'].forEach((ty) => { const h = rakenna(rv.slice(0, 4).map((r) => S(ty, r)), 'fi'); expect(loydot(h, d), 'ryhmä · ' + ty).toEqual([]); const h2 = rakenna(rv.slice(0, 4).map((r) => S(ty, r)).concat(rv.slice(0, 1).map((r) => S('katselmusikkuna', r))), 'fi'); expect(loydot(h2, d), 'ryhmä+yksi · ' + ty).toEqual([]); });
+    const dm = KK.tmKotiDemo(NYT), vm = dm.koosteet[dm.koosteet.length - 1], md = PU.tmPulssiRivit(dm.koosteet, { nytMs: NYT, ensimmainenVk: dm.ensin, jaksoVk: {}, katselmusPv: {} }), rmd = KK.tmKotiRytmiMalli(md, { yhteensa: vm.yhteensa, koosteJ: vm.joukkueet, kalenteri: dm.kalenteri, nytMs: NYT, seuraNimi: dm.seuranNimi });
+    const dd = { nimet: {}, kalenteri: dm.kalenteri, viestit: [], spec: { joukkueet: Object.values(vm.joukkueet).map((j) => ({ nimi: j.nimi, jakso: j.jakso_nimi ? { nimi: j.jakso_nimi } : null })) } }; expect(loydot(KK.tmKotiRytmiHTML(rmd, { t: ps, fn: {} }).main + KK.tmKotiDemoNauhaHTML({ t: ps, fn: { demo: 'de' } }), dd), 'esimerkkiseura').toEqual([]);
+  });
   it('negatiivitesti: kovakoodattu suomi löytyy; sama teksti ⟦⟧:n sisällä ei', () => { expect(sanat(jaljella('<b>Kovakoodattu teksti</b> ⟦merkitty⟧'))).toEqual(['Kovakoodattu', 'teksti']); expect(jaljella('⟦Jakso {n}⟧')).not.toMatch(/Jakso/); });
 });
