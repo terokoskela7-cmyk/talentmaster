@@ -70,8 +70,8 @@ const _vpLohko = (alkuEhto, sulku) => {
 };
 const SISALTO_POIKKEUKSET = [
   _vpLohko((l) => l.includes('window.TM_TESTI_OHJEET = {'), '};'),
-  _vpLohko((l) => l.startsWith('const TP_SIGNAALIT = ['), '];'),
-  _vpLohko((l) => l.startsWith('function dedupToimenpiteet('), '}')
+  _vpLohko((l) => l.startsWith('const TP_SIGNAALIT = ['), '];')
+  // dedupToimenpiteet-poikkeus poistui (tekniikan määritelmä PR 2): sen ainoa vuoto oli tki_alhainen-häntä "pelaajia alle pronssitason (TKI < 40)"; uusi häntä ei ole vuoto → kuollut poikkeus
 ].filter(Boolean);
 const ROUTED_FNS = new Set(['vpT', 'vpTToimenpide']);
 
@@ -468,14 +468,12 @@ describe('VP_v25 render-kielineutraali-gate (step G · AST)', () => {
 
   it('LUKKO: sisältöpoikkeukset ovat ANKKUROITUJA (eivät ajautuneet)', () => {
     const lines = HTML.split('\n');
-    expect(SISALTO_POIKKEUKSET.length).toBe(3);   // ei-vacuous: jokainen lohko LÖYTYI lähteestä
-    const [[a1, b1], [a2, b2], [a3, b3]] = SISALTO_POIKKEUKSET;
+    expect(SISALTO_POIKKEUKSET.length).toBe(2);   // ei-vacuous: jokainen lohko LÖYTYI lähteestä
+    const [[a1, b1], [a2, b2]] = SISALTO_POIKKEUKSET;
     expect(lines[a1 - 1]).toContain('window.TM_TESTI_OHJEET = {');
     expect(lines[b1 - 1].trim()).toBe('};');
     expect(lines[a2 - 1]).toContain('const TP_SIGNAALIT = [');
     expect(lines[b2 - 1].trim()).toBe('];');
-    expect(lines[a3 - 1]).toContain('function dedupToimenpiteet(');
-    expect(lines[b3 - 1].trim()).toBe('}');
   });
 
   it('LUKKO: jokainen sisältöpoikkeus on EI-TYHJÄ (kuollut poikkeus = poistettava)', () => {
@@ -743,7 +741,9 @@ describe('VP_v25 resolvi-portti — jokaisella reititetyllä avaimella on sv-riv
   const ERA7_VP = JSON.parse(readFileSync(join(__dir, '..', 'docs/i18n/sv_kaannoserae_7.json'), 'utf8')).osiot.vp_kartta.rivit;
   // erä 9 (S2c PR 2, navigaatio v3 + Viestit v0): uudet avaimet, sv tyhjä kunnes Gemini palauttaa
   const ERA9_VP = JSON.parse(readFileSync(join(__dir, '..', 'docs/i18n/sv_kaannoserae_9.json'), 'utf8')).osiot.vp_kartta.rivit;
-  const SV_ODOTTAA_SANKTIOINTIA = Object.keys(ERA2_VP).filter((k) => !ERA2_VP[k].sv && !(ERA3_VP[k] && ERA3_VP[k].sv)).concat(Object.keys(ERA4_VP).filter((k) => !ERA4_VP[k].sv)).concat(Object.keys(ERA5_VP).filter((k) => !ERA5_VP[k].sv)).concat(Object.keys(ERA6_VP).filter((k) => !ERA6_VP[k].sv)).concat(Object.keys(ERA7_VP).filter((k) => !ERA7_VP[k].sv)).concat(Object.keys(ERA9_VP).filter((k) => !ERA9_VP[k].sv)).concat([
+  // erä 15 (tekniikan määritelmä PR 2, Tekniikka kehityskohteena): uudet avaimet, sv tyhjä kunnes Gemini palauttaa
+  const ERA15_VP = JSON.parse(readFileSync(join(__dir, '..', 'docs/i18n/sv_kaannoserae_15.json'), 'utf8')).osiot.vp_kartta.rivit;
+  const SV_ODOTTAA_SANKTIOINTIA = Object.keys(ERA2_VP).filter((k) => !ERA2_VP[k].sv && !(ERA3_VP[k] && ERA3_VP[k].sv)).concat(Object.keys(ERA4_VP).filter((k) => !ERA4_VP[k].sv)).concat(Object.keys(ERA5_VP).filter((k) => !ERA5_VP[k].sv)).concat(Object.keys(ERA6_VP).filter((k) => !ERA6_VP[k].sv)).concat(Object.keys(ERA7_VP).filter((k) => !ERA7_VP[k].sv)).concat(Object.keys(ERA9_VP).filter((k) => !ERA9_VP[k].sv)).concat(Object.keys(ERA15_VP).filter((k) => !ERA15_VP[k].sv)).concat([
     // Tyhjä 8.10.2026: Gemini-erä sv_kaannoserae_2026-10-08.json vietiin (scripts/i18n_vie_sv_era.cjs). Uusi sanktiointia odottava avain → lisää tähän.
     // PR 5: D2-bugin ja S1.1:n rivit (TKI-pohjainen, TKI ka, Sovelluksen käyttö …) saapuivat Gemini-erässä 2 ja vietiin; lista on nyt tyhjä.
   ]);
