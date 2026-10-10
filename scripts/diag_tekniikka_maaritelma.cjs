@@ -45,13 +45,16 @@ function tekniikkaMittari(p, nyt) {
     else return { mittari: 'TKI', arvo: p.tki_viimeisin, heikko: p.tki_viimeisin < RAJA.tki, syy: 'alle ikätason', vanhat };
   }
   if (p.sm_pallo_viimeisin != null) {
-    const a = kk(p.tsi_pvm, nyt);
+    const a = kk(p.tsi_pvm, nyt), sp = spMN(p);
     if (a == null) vanhat.push('SM päivä tuntematon');
     else if (a >= RAJA.vanhaKk) vanhat.push('SM-testi');
+    else if (!sp) vanhat.push('sukupuoli puuttuu');                    // K17: ei SM-tasoa → "ei tekniikkadataa", syy diagnostiikassa
     else {
-      const sp = spMN(p), ika = E.normiIka(p.syntymaVuosi, p.tsi_pvm || null, p.joukkue), tp = smTaso(p.sm_pallo_viimeisin, 'sm_pallo', ika, sp), tj = smTaso(p.sm_juoksu_viimeisin, 'sm_juoksu', ika, sp);
+      const ika = E.normiIka(p.syntymaVuosi, p.tsi_pvm || null, p.joukkue), tp = smTaso(p.sm_pallo_viimeisin, 'sm_pallo', ika, sp), tj = smTaso(p.sm_juoksu_viimeisin, 'sm_juoksu', ika, sp);
       if (tp >= 1) {
-        const a1 = tp === RAJA.pallo1, a2 = !a1 && tj >= 1 && tp <= tj - RAJA.ero;
+        /* K15: SM-pallo = 1 on tekniikan kehityskohde vain, jos SM-juoksun taso ≥ 2. Molemmat 1 → "nopeus ja tekniikka samalla tasolla": ei kehityskohde, EI lasketa joukkueluokitukseen (§28: hitautta ei tehdä tekniikaksi). */
+        if (tp === 1 && tj <= 1) return { mittari: 'SM', neutraali: true, huom: tj === 1 ? 'nopeus ja tekniikka samalla tasolla' : 'SM-juoksu puuttuu', arvo: tp, tj, heikko: false, vanhat };
+        const a1 = tp === 1 && tj >= 2, a2 = !a1 && tj >= 1 && tp <= tj - RAJA.ero;
         return { mittari: 'SM', arvo: tp, tj, heikko: a1 || a2, syy: a1 ? 'alle ikätason' : 'pallo hidastaa suunnanmuutoksissa', vanhat };
       }
       vanhat.push('SM ilman tasoa (ikä ' + ika + ')');
@@ -60,12 +63,12 @@ function tekniikkaMittari(p, nyt) {
   return { mittari: null, vanhat };
 }
 function ehdotettuLuokka(pelaajat, nyt) {
-  const M = pelaajat.map((p) => tekniikkaMittari(p, nyt)), mit = M.filter((m) => m.mittari), heikot = mit.filter((m) => m.heikko), lahteet = {};
+  const M = pelaajat.map((p) => tekniikkaMittari(p, nyt)), neutraaleja = M.filter((m) => m.neutraali).length, mit = M.filter((m) => m.mittari && !m.neutraali), heikot = mit.filter((m) => m.heikko), lahteet = {};
   mit.forEach((m) => { lahteet[m.mittari] = (lahteet[m.mittari] || 0) + 1; });
-  const vanhoja = M.filter((m) => !m.mittari && m.vanhat.length).length;
+  const vanhoja = M.filter((m) => !m.mittari && m.vanhat.length).length, sukupuoliPuuttuu = M.filter((m) => !m.mittari && m.vanhat.includes('sukupuoli puuttuu')).length;
   const syyAlle = heikot.filter((m) => m.syy === 'alle ikätason').length, syyPallo = heikot.length - syyAlle;
   const kehityskohde = (mit.length >= RAJA.minMitattu && heikot.length / mit.length >= RAJA.osuus) || (pelaajat.length > 0 && heikot.length / pelaajat.length >= RAJA.puolet);
-  return { yht: pelaajat.length, mitattu: mit.length, heikkoja: heikot.length, vanhoja, lahteet,
+  return { yht: pelaajat.length, mitattu: mit.length, heikkoja: heikot.length, vanhoja, neutraaleja, sukupuoliPuuttuu, lahteet,
     luokka: kehityskohde ? 'KEHITYSKOHDE' : (mit.length >= RAJA.minMitattu ? 'ok' : (mit.length === 0 ? 'ei tekniikkadataa' : 'ei luokkaa (' + mit.length + ' mitattua)')),
     otosPieni: (kehityskohde || mit.length >= RAJA.minMitattu) && mit.length < RAJA.otosPieniAlle,
     syy: kehityskohde ? (syyAlle >= syyPallo ? 'alle ikätason' : 'pallo hidastaa suunnanmuutoksissa') : null, syyJako: { alle: syyAlle, pallo: syyPallo } };
@@ -89,7 +92,7 @@ function raportti(nimi, pelaajat, joukkueDocs, nyt) {
     eiLuokkaa: rivit.filter((r) => /^ei /.test(r.u.luokka)).length, joistaEiMitattuaLainkaan: rivit.filter((r) => r.u.luokka === 'ei tekniikkadataa').length, otosPieni: rivit.filter((r) => r.u.otosPieni).length };
   console.log('\n══ ' + nimi + ' ══');
   console.log('joukkue'.padEnd(34) + 'pel.'.padEnd(5) + 'HUOMIO nyt'.padEnd(26) + 'EHDOTUS nyt'.padEnd(26) + 'UUSI: mitattu/heikkoja/vanhoja → luokka [lähteet] syy');
-  rivit.forEach((r) => console.log(String(r.joukkue).slice(0, 33).padEnd(34) + String(r.pelaajia).padEnd(5) + r.n.huomio.padEnd(26) + r.n.ehdotus.padEnd(26) + r.u.mitattu + '/' + r.u.heikkoja + '/' + r.u.vanhoja + ' → ' + r.u.luokka + (r.u.otosPieni ? ' [otos pieni]' : '') + ' ' + JSON.stringify(r.u.lahteet) + (r.u.syy ? ' · ' + r.u.syy + ' ' + JSON.stringify(r.u.syyJako) : '')));
+  rivit.forEach((r) => console.log(String(r.joukkue).slice(0, 33).padEnd(34) + String(r.pelaajia).padEnd(5) + r.n.huomio.padEnd(26) + r.n.ehdotus.padEnd(26) + r.u.mitattu + '/' + r.u.heikkoja + '/' + r.u.vanhoja + ' → ' + r.u.luokka + (r.u.otosPieni ? ' [otos pieni]' : '') + (r.u.neutraaleja ? ' [' + r.u.neutraaleja + ' nopeus=tekniikka]' : '') + (r.u.sukupuoliPuuttuu ? ' [' + r.u.sukupuoliPuuttuu + ' sukupuoli puuttuu]' : '') + ' ' + JSON.stringify(r.u.lahteet) + (r.u.syy ? ' · ' + r.u.syy + ' ' + JSON.stringify(r.u.syyJako) : '')));
   console.log('YHTEENSÄ ' + JSON.stringify(yht));
   return yht;
 }
@@ -108,8 +111,8 @@ async function kpv() {
   console.log('pelaajia mittarin mukaan: ' + JSON.stringify(tilasto));
   const d2l = {}; pelaajat.forEach((p) => { if (p.d2_taso != null) { const k = p.d2_lahde || '(ei lähdettä)'; d2l[k] = (d2l[k] || 0) + 1; } });
   console.log('d2_taso lähteen mukaan: ' + JSON.stringify(d2l) + ' · sm_juoksu/sm_pallo_taso: ' + pelaajat.filter((p) => p.sm_pallo_taso != null).length + ' pelaajalla');
-  const syyt = {}; let mitattu = 0; pelaajat.forEach((p) => { const m = tekniikkaMittari(p, Date.now()); if (!m.mittari) return; mitattu++; const k = m.heikko ? m.syy : 'ok'; syyt[k] = (syyt[k] || 0) + 1; });
-  console.log('PELAAJAOSUUDET (mitattu ' + mitattu + '/' + pelaajat.length + '): ' + JSON.stringify(syyt));
+  const syyt = {}; let mitattu = 0; pelaajat.forEach((p) => { const m = tekniikkaMittari(p, Date.now()); if (m.neutraali) { syyt[m.huom] = (syyt[m.huom] || 0) + 1; return; } if (!m.mittari) { const k = m.vanhat.length ? 'ei dataa: ' + m.vanhat[0] : 'ei dataa: ei mittausta'; syyt[k] = (syyt[k] || 0) + 1; return; } mitattu++; const k = m.heikko ? m.syy : 'ok'; syyt[k] = (syyt[k] || 0) + 1; });
+  console.log('PELAAJAT (luokituksessa mitattu ' + mitattu + '/' + pelaajat.length + '; neutraali ja ei-dataa erikseen): ' + JSON.stringify(syyt));
   raportti(seura.toUpperCase() + ' (oikea data)', pelaajat, docs, Date.now());
 }
 

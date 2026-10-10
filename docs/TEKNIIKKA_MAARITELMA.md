@@ -17,7 +17,7 @@ VP näkee samasta asiasta kaksi lukua, koska **kaksi eri sääntöä** vastaa ky
 
 Ne eivät ole saman asian kaksi pyöristystä: skaalat eivät vastaa toisiaan. D2 < 3 vastaa TKI/20-varalaskennassa TKI:tä < 60, ei < 40. Lisäksi TKI-pohjaista D2:ta ei edes käytetä, jos pelaajalla on `d2_taso` (TK-lajitasot tai H-H), jolloin D2 ja TKI voivat osoittaa eri suuntiin samalla pelaajalla.
 
-**Ratkaisu (Teron lopullinen versio):** yksi lib-funktio (`lib/tm_tekniikka.js`), pelaajakohtainen ketju TKI → SM-tasot (TKI < 40 → "alle ikätason"; SM-pallon taso 1 → "alle ikätason"; SM-pallo ≥ 2 tasoa SM-juoksun alla → "pallo hidastaa suunnanmuutoksissa"), tasot raakatuloksista `normiIka`:lla, mittarikohtainen vanhuusraja 15 kk, "päivä tuntematon" ei ole tuore, joukkueluokka "tekniikka kehityskohteena" syineen sekä "ei tekniikkadataa · N joukkuetta". Huomio ja ehdotus lukevat saman tuloksen. Päätökset ja ratkaistut kysymykset §6:ssa; avoimet K11, K14–K17.
+**Ratkaisu (Teron lopullinen versio):** yksi lib-funktio (`lib/tm_tekniikka.js`), pelaajakohtainen ketju TKI → SM-tasot (TKI < 40 → "alle ikätason"; SM-pallon taso 1 ja SM-juoksun taso ≥ 2 → "alle ikätason" (molemmat 1 → "nopeus ja tekniikka samalla tasolla", ei lasketa); SM-pallo ≥ 2 tasoa SM-juoksun alla → "pallo hidastaa suunnanmuutoksissa"), tasot raakatuloksista `normiIka`:lla, mittarikohtainen vanhuusraja 15 kk, "päivä tuntematon" ei ole tuore, joukkueluokka "tekniikka kehityskohteena" syineen sekä "ei tekniikkadataa · N joukkuetta". Huomio ja ehdotus lukevat saman tuloksen. Päätökset ja ratkaistut kysymykset §6:ssa; avoimet: erilliset tehtävät K8, K11, K17 (§7) ja PR 4 (K14).
 
 ## 1. Kartoitus — kaikki kohdat, joissa tekniikka luokitellaan heikoksi
 
@@ -113,10 +113,11 @@ Ketju **TKI → SM-tasot**; ensimmäinen käytettävissä oleva (tuore) mittari 
 
 1. **TKI** (`tki_pvm` alle 15 kk): kehityskohde, kun `TKI < 40`. Syy `alle ikätason`. Luokitus käyttää TKI:tä suoraan.
 2. muuten **SM-tasot** (kun TKI:tä ei ole tai se ei ole tuore), tasot raakatuloksista (`sm_pallo_viimeisin`, `sm_juoksu_viimeisin`), `normiIka` testihetkestä, sukupuoli `"M"`/`"N"`:
-   - SM-pallon taso = **1** → kehityskohde, syy `alle ikätason`;
+   - SM-pallon taso = **1** ja SM-juoksun taso **≥ 2** → kehityskohde, syy `alle ikätason`;
+   - SM-pallon taso = 1 ja SM-juoksun taso = **1** → **ei kehityskohde**; pelaajan kohdalla näkyy "nopeus ja tekniikka samalla tasolla", eikä häntä lasketa tekniikan joukkueluokitukseen (ei mitattuihin, ei kehityskohteisiin). Peruste: pre-PHV-neutraalius (§28), hitautta ei tehdä kehityskohteeksi tekniikan nimellä;
    - SM-pallon taso **vähintään 2 tasoa SM-juoksun tasoa alempana** → kehityskohde, syy `pallo hidastaa suunnanmuutoksissa`;
-   - muuten ei kehityskohde (pelkkä SM-pallo ilman SM-juoksua: vain ensimmäinen sääntö).
-3. muuten **ei tekniikkadataa**: ei TKI:tä eikä SM-testejä (myös pelkkä Eerikkilän tekniikkatulos).
+   - muuten ei kehityskohde. Jos SM-juoksu puuttuu, tason 1 sääntöä ei voi vahvistaa (juoksun taso ≥ 2 vaaditaan): sama neutraali tila, huomautus "SM-juoksu puuttuu".
+3. muuten **ei tekniikkadataa**: ei TKI:tä eikä SM-testejä (myös pelkkä Eerikkilän tekniikkatulos), tai SM-testi mutta **sukupuoli puuttuu** (K17: ei SM-tasoa; syy "sukupuoli puuttuu" näkyy diagnostiikassa), tai tulos vanha / päivä tuntematon.
 
 **Ikärajat (K12).** Alle 10-vuotiaalla ei ole SM-tasoa (heillä luokitus tulee TKI:stä); 20 vuotta täyttäneet käyttävät `"M"`/`"N"`-normia. `lib/tm_tekniikka.js` ei luota `eerikkilaTaso`/`eerikkilaNormiarvo`:n hiljaiseen leikkaukseen 10–19 vuoteen, ja funktioon tulee varoittava kommentti. Yksikkötestit: iät 9, 10, 19, 20. `eerikkilaTaso` palauttaa **0**, kun arvo puuttuu: 0 = ei tasoa, ei koskaan "taso 1".
 
@@ -129,9 +130,10 @@ Ketju **TKI → SM-tasot**; ensimmäinen käytettävissä oleva (tuore) mittari 
 - Jäsenyys `tmPelaajanJoukkueet` (`lib/tm_joukkue.js:144`). Ryhmät eivät ole joukkueita.
 - **Tekniikka kehityskohteena**, kun `kehityskohteita / mitattu ≥ 1/3` ja `mitattu ≥ 5`, **tai** `kehityskohteita / kaikki joukkueen pelaajat ≥ 1/2` (K10).
 - **Syy** = se (`alle ikätason` / `pallo hidastaa suunnanmuutoksissa`), joka koskee useampaa pelaajaa; tasatilanteessa `alle ikätason`.
+- **Neutraalit** (SM-pallo 1 ja SM-juoksu 1) eivät kuulu mitattuihin eivätkä kehityskohteisiin, mutta ne lasketaan "kaikkiin joukkueen pelaajiin" puolen ehdossa. Raja-ehdot lasketaan kokonaisluvuilla (`3 · kehityskohteita ≥ mitattu`), ei liukuluvuilla: SJK:n P15 on täsmälleen 5 / 15.
 - **"Otos pieni"** -merkintä, kun mitattuja on alle 8.
 - **Ilman luokkaa** (`mitattu = 0`, tai `1–4` eikä puolen ehto täyty): "ei tekniikkadataa · N joukkuetta" näkyy VP:lle, ei piiloteta. Koskee myös 14+-joukkueita, joilla ei ole SM-testejä (K2). Rivi ohjaa VP:tä Testipäivät-askeleeseen.
-- Palautus: `{ yht, mitattu, kehityskohteita, vanhoja, paivaTuntematon, luokka, syy, syyJako, otosPieni, lahteet, uusinPvm, mediaaniKk }`.
+- Palautus: `{ yht, mitattu, kehityskohteita, vanhoja, paivaTuntematon, neutraaleja, sukupuoliPuuttuu, luokka, syy, syyJako, otosPieni, lahteet, uusinPvm, mediaaniKk }`.
 
 ### 2.4 Näkymät ja tekstit
 
@@ -144,7 +146,7 @@ Ketju **TKI → SM-tasot**; ensimmäinen käytettävissä oleva (tuore) mittari 
 
 **Normit** `EERIKKILA_NORMIT.sm_juoksu` ja `.sm_pallo` (`lib/tm_eerikkila_normit.js`): neljä rajaa per ikä (10–19, `"M"`/`"N"`) ja sukupuoli; pienempi aika on parempi; `arvo ≤ raja[0]` → taso 5, `≤ raja[1]` → 4, `≤ raja[2]` → 3, `≤ raja[3]` → 2, muuten 1. Rekisteri on täydellinen: kaikki ikäluokat 10–19 ja `M`/`N` molemmille testeille ja sukupuolille, rajat aidosti nousevia (tarkistettu).
 
-**Tasojen merkitys** (Tero 10.10.2026): 1 = alle kansallisen keskitason (selvästi), 2 = hieman alle, 3 = kansallinen keskitaso, 4 = hyvä, 5 = kansainvälinen kärkitaso. Repo tukee osaa: `lib/tm_eerikkila_normit.js` "taso-3-kynnys = ikäluokan keskitaso", `VP_v25:15681` "taso 2 = hieman alle kansallisen keskitason — selkeä kehityskohde". "Kansainvälinen kärkitaso" tasolle 5 on vain Teron määritelmä (K16).
+**Tasojen merkitys:** 1 = alle kansallisen keskitason, 2 = hieman alle, 3 = kansallinen keskitaso (`lib/tm_eerikkila_normit.js`: "taso-3-kynnys = ikäluokan keskitaso"), 4 = hyvä, 5 = kansainvälinen kärkitaso. Lähde: Palloliiton tavoitetasot FINAL2024 ja H-H-testimanuaali 2024 (K16).
 
 **Reunaehdot, jotka `lib/tm_tekniikka.js` hoitaa itse (K12 ratkaistu):**
 
@@ -153,9 +155,11 @@ Ketju **TKI → SM-tasot**; ensimmäinen käytettävissä oleva (tuore) mittari 
 | Ikä leikataan 10–19:ään | `eerikkilaTaso` `Math.min(19, Math.max(10, round))` | ikä < 10 → ei SM-tasoa; ikä ≥ 20 → avain `"M"`/`"N"` |
 | Sukupuoli: kaikki paitsi `'M'` on tyttö | `eerikkilaTaso`: `sukup === 'M' ? pojat : tytot` (`eerikkilaNormiarvo` hyväksyy `M`/`P`) | normalisointi `normSukupuoliMN` → `"M"`/`"N"`; tuntematon → ei SM-tasoa, ei arvausta |
 | Puuttuva arvo | `eerikkilaTaso` → `0` | 0 = ei tasoa |
-| `sukupuoli`-kenttä puuttuu | SJK 20 / 61 (15 puuttuu + 5 tyhjää), Sibbo 208 / 246, Pallo-Iirot 71 / 71, KPV 31 / 160 | varalla joukkuenimen tunnus (`P14` → `M`, `T14` → `N`); jos sitäkään ei ole, ei SM-tasoa |
+| `sukupuoli`-kenttä puuttuu | SJK 20 / 61 (15 puuttuu + 5 tyhjää), Sibbo 208 / 246, Pallo-Iirot 71 / 71, KPV 31 / 160 | **K17 hyväksytty:** sukupuoli joukkuenimen P- tai T-tunnuksesta (`P14` → `M`, `T14` → `N`); ilman sitä ei SM-tasoa ja pelaaja on "ei tekniikkadataa", syy "sukupuoli puuttuu" diagnostiikassa |
 
-**SM-pallon taso 1 ei ole puhdas tekniikkamittari.** SJK:lla 19 pelaajalla SM-pallon taso on 1; heistä **6:lla myös SM-juoksun taso on 1 ja 13:lla enintään 2**, eli osa "alle ikätason" -syystä on yleistä hitautta, ei palloon liittyvää hidastumista. Sääntö toimii Teron määrittelemällä tavalla, mutta syyn teksti "alle ikätason" kattaa molemmat (K15).
+**SM-pallon taso 1 ja SM-juoksun taso (K15 ratkaistu).** SM-pallo sisältää juoksuvauhdin. SJK:lla 19 pelaajalla SM-pallon taso on 1; heistä **6:lla myös SM-juoksun taso on 1** ja 13:lla enintään 2. Päätös: tason 1 sääntö koskee vain pelaajaa, jonka SM-juoksun taso on ≥ 2; jos molemmat ovat 1, kyse on hitaudesta eikä tekniikasta (§28), ja pelaaja jää luokituksen ulkopuolelle ("nopeus ja tekniikka samalla tasolla"). Kyseiset 6 SJK-pelaajaa eivät siis ole tekniikan kehityskohteita eivätkä nosta joukkueen osuutta.
+
+**Lähde (K16).** Tasojen ja rajojen lähde on Palloliiton fyysis-teknisten ominaisuustestien tavoitetasot **FINAL2024** (pojat ja miehet; tytöt ja naiset) sekä **H-H-testimanuaali 2024**. Asteikko: 1 = alle kansallisen keskitason … 5 = kansainvälinen kärkitaso. Repon kuvaus tasosta 2 ("hieman alle kansallisen keskitason — selkeä kehityskohde", `VP_v25:15681`) säilyy.
 
 ## 4. Mitä tämä ei tee
 
@@ -165,14 +169,14 @@ Ketju **TKI → SM-tasot**; ensimmäinen käytettävissä oleva (tuore) mittari 
 
 ## 5. Luvut: nykyinen huomio · nykyinen ehdotus · uusi määritelmä
 
-Uusi määritelmä = §2. Joukkue = `tmPelaajanJoukkueet`; ajo 10.10.2026, vain luku (`node scripts/diag_tekniikka_maaritelma.cjs [kpv --seura=…]`). SM-tasot raakatuloksista `normiIka(testipvm)`:lla; sukupuoli kentästä, puuttuessa joukkuenimestä. "Ilman luokkaa" = 0 mitattua ("ei tekniikkadataa") tai 1–4 mitattua eikä puolen ehto täyty. "Otos pieni" = luokiteltu, mutta mitattuja < 8.
+Uusi määritelmä = §2. Joukkue = `tmPelaajanJoukkueet`; ajo 10.10.2026, vain luku (`node scripts/diag_tekniikka_maaritelma.cjs [kpv --seura=…]`). SM-tasot raakatuloksista `normiIka(testipvm)`:lla; sukupuoli kentästä, puuttuessa joukkuenimen P/T-tunnuksesta; K15: SM-pallo 1 + SM-juoksu 1 = neutraali (ei lasketa). "Ilman luokkaa" = 0 mitattua ("ei tekniikkadataa") tai 1–4 mitattua eikä puolen ehto täyty. "Otos pieni" = luokiteltu, mutta mitattuja < 8.
 
 ### 5.1 Yhteenveto
 
 | Aineisto | Joukkueita (pelaajia > 0) | Huomio nyt | Ehdotus nyt | **Uusi: kehityskohteena** | josta syy *alle ikätason* / *pallo hidastaa* | ok | **ilman luokkaa** (josta ei tekniikkadataa) | **otos pieni** |
 |---|---:|---:|---:|---:|---|---:|---:|---:|
 | **KPV** | 15 | 3 | 10 | **1** | 1 / 0 | 7 | **7** (5) | 4 |
-| **SJK** | 6 | 5 | 0 | **4** | 4 / 0 | 2 | **0** (0) | 4 |
+| **SJK** | 6 | 5 | 0 | **2** | 2 / 0 | 3 | **1** (0) | 3 |
 | fixture pilotti | 15 | 3 | 2 | 2 | 2 / 0 | 1 | 12 (12) | 0 |
 | fixture kypsa | 9 | 9 | 1 | 1 | 1 / 0 | 7 | 1 (0) | 0 |
 | fixture kuormitus | 40 | 8 | 0 | 0 | 0 / 0 | 8 | 32 (32) | 4 |
@@ -199,28 +203,35 @@ Pelaajaosuudet (mitattu 66 / 160): **alle ikätason 17 (26 % mitatuista)**, ok 4
 
 Ehdotus laukeaa 10 joukkueelle, koska se laskee yli 3 vuotta vanhan TKI:n. Huomion kolme joukkuetta (T13–T15) tulevat `tk`-lähteisestä `d2_taso`:sta, jonka ikää ei tarkisteta.
 
-### 5.3 SJK (TKI 0; SM-pallo 56 pelaajalla; `d2_taso` 57 kpl: `sm_pallo` 43, `hh` 14)
+### 5.3 SJK (TKI 0; SM-pallo 56 pelaajalla; `d2_taso` 57 kpl: `sm_pallo` 43, `hh` 14; "sukupuoli puuttuu" -pelaajia 0, koska joukkuenimi antaa sukupuolen)
 
-**Pelaajaosuudet syyn mukaan (mitattu 56 / 61):**
+**Pelaajat (61), K15-sääntö:**
 
-| | alle ikätason (SM-pallo = 1) | pallo hidastaa (≥ 2 tasoa) | ok |
-|---|---:|---:|---:|
-| **Päätös: ero 2 tasoa** | 19 (34 %) | 3 (5 %) | 34 (61 %) |
-| Vertailu: ero 1 taso | 19 (34 %) | 13 (23 %) | 24 (43 %) |
+| | Pelaajia | Osuus luokitelluista (50) |
+|---|---:|---:|
+| **Alle ikätason** (SM-pallo 1 ja SM-juoksu ≥ 2) | 13 | 26 % |
+| **Pallo hidastaa** (ero ≥ 2 tasoa) | 3 | 6 % |
+| Ok | 34 | 68 % |
+| *Nopeus ja tekniikka samalla tasolla* (SM-pallo 1 ja SM-juoksu 1; ei lasketa) | 6 | — |
+| *Ei dataa* (ei mittausta) | 5 | — |
 
-SM-tasojen jakauma (raakatuloksista, normiIka): SM-pallo `{1: 19, 2: 12, 3: 19, 4: 6}`, SM-juoksu `{1: 6, 2: 17, 3: 23, 4: 6, 5: 4}`; ero pallo − juoksu `{−2: 9, −1: 17, 0: 25, +1: 4, +2: 1}`.
+Ennen K15:tä 19 pelaajaa oli "alle ikätason" (34 % 56:sta); kuusi heistä oli hitaita, ei teknisesti heikkoja. Vertailu, "pallo hidastaa" yhden tason erolla: alle ikätason 13, pallo hidastaa 13, ok 24, neutraali 6.
 
-| Joukkue | Pel. | Huomio nyt | Uusi, ero 2 tasoa (mitattu/kehityskohteita) | Vertailu, ero 1 taso |
+SM-tasojen jakauma (raakatuloksista, `normiIka`): SM-pallo `{1: 19, 2: 12, 3: 19, 4: 6}`, SM-juoksu `{1: 6, 2: 17, 3: 23, 4: 6, 5: 4}`.
+
+**Joukkueet:**
+
+| Joukkue | Pel. | Huomio nyt | Uusi, ero 2 tasoa (mitattu / kehityskohteita) | Vertailu, ero 1 taso |
 |---|---:|---|---|---|
-| P14 | 7 | kyllä | ok, otos pieni (6/0) | kehityskohde (6/2), pallo hidastaa |
-| P15 | 20 | kyllä | **kehityskohde** (19/9), alle ikätason | kehityskohde (19/10) |
-| P16 | 7 | ei | ok, otos pieni (5/1) | kehityskohde (5/2), pallo hidastaa |
-| T14 | 14 | kyllä | **kehityskohde** (14/5), alle ikätason | kehityskohde (14/9) |
-| T15 | 6 | kyllä | **kehityskohde**, otos pieni (5/3), alle ikätason | kehityskohde (5/4) |
-| T16 | 7 | kyllä | **kehityskohde**, otos pieni (7/4), alle ikätason (2) = pallo hidastaa (2) → tasatilanne: alle ikätason | kehityskohde (7/5), pallo hidastaa |
-| **Yhteensä** | 6 | 5 | **4 kehityskohdetta, 2 ok** | 6 kehityskohdetta, 0 ok |
+| P14 | 7 | kyllä | ok, otos pieni (6/0) | kehityskohde, otos pieni (6/2), pallo hidastaa |
+| P15 | 20 | kyllä | **kehityskohde** (15/5 = täsmälleen 1/3; 4 neutraalia), alle ikätason | kehityskohde (15/6) |
+| P16 | 7 | ei | ok, otos pieni (5/1) | kehityskohde, otos pieni (5/2), pallo hidastaa |
+| T14 | 14 | kyllä | ok (13/4 = 31 %; 1 neutraali) | kehityskohde (13/8) |
+| T15 | 6 | kyllä | **ilman luokkaa** (4 mitattua, 2 kehityskohdetta = 33 % kaikista pelaajista; 1 neutraali) | kehityskohde, otos pieni (4/3) |
+| T16 | 7 | kyllä | **kehityskohde**, otos pieni (7/4), alle ikätason (2) = pallo hidastaa (2) → tasatilanne: alle ikätason | kehityskohde, otos pieni (7/5), pallo hidastaa |
+| **Yhteensä** | 6 | 5 | **2 kehityskohdetta, 3 ok, 1 ilman luokkaa** | 6 kehityskohdetta |
 
-Nykyinen ehdotus ei voi laueta SJK:lla (ei TKI:tä). Neljästä kehityskohteesta kolme on otos pieni (mitattuja < 8). Yhden tason ero tekisi kaikista kuudesta joukkueesta kehityskohteen, joten kahden tason ero erottelee paremmin.
+Nykyinen ehdotus ei voi laueta SJK:lla (ei TKI:tä). K15 pudottaa SJK:n kehityskohdejoukkueet 4:stä 2:een, ja T15 jää ilman luokkaa. P15 on täsmälleen kolmasosan rajalla (5 / 15): tulos on herkkä yhdelle pelaajalle. Kahdesta kehityskohteesta toinen (T16) on otos pieni; "ok"-joukkueista P14 ja P16 ovat otos pieni.
 
 ## 6. Päätökset ja avoimet kysymykset
 
@@ -228,11 +239,11 @@ Nykyinen ehdotus ei voi laueta SJK:lla (ei TKI:tä). Neljästä kehityskohteesta
 
 - **P1.** Ketju TKI → SM-tasot. Eerikkilän tekniikkataso ja `d2_taso` eivät ole heikkouden mittareita; §1.1:n kahdeksan `d2_taso`-käyttöä korvataan jaetulla funktiolla. Tallennettuja `sm_*_taso`-kenttiä ei lueta.
 - **P2.** TKI < 40 → "alle ikätason"; TKI:n tasomuunnoksista jää vain `laskeD2Joustava`:n `TKI/20`, ja vain näyttöön (§1.2).
-- **P3.** SM-pallon taso 1 → "alle ikätason"; SM-pallon taso ≥ 2 tasoa SM-juoksun alla → "pallo hidastaa suunnanmuutoksissa". Tasot raakatuloksista, `normiIka` testihetkestä, sukupuoli `"M"`/`"N"`.
+- **P3.** SM-pallon taso 1 ja SM-juoksun taso ≥ 2 → "alle ikätason"; SM-pallon taso ≥ 2 tasoa SM-juoksun alla → "pallo hidastaa suunnanmuutoksissa"; molemmat tasolla 1 → "nopeus ja tekniikka samalla tasolla", ei kehityskohde eikä lasketa joukkueluokitukseen (§28). Tasot raakatuloksista, `normiIka` testihetkestä, sukupuoli `"M"`/`"N"`.
 - **P4.** Ikärajat: < 10 ei SM-tasoa; ≥ 20 `"M"`/`"N"`; testit 9/10/19/20 (K12).
 - **P5.** Vanhuus 15 kk mittarikohtaisesti; vanha tulos ei luokita ja näytetään pelaajalla ("TKI/SM-testi yli vuoden vanha"); tuore FLEI/muu mittaus ei peitä.
 - **P6.** Testipäivä on aina testipäivä, ei koskaan tämä päivä; puuttuva päivä = "päivä tuntematon", ei tuore (K8).
-- **P7.** Ei TKI:tä eikä SM-testejä (myös pelkkä Eerikkilän tekniikkatulos) = ei tekniikkadataa.
+- **P7.** Ei TKI:tä eikä SM-testejä (myös pelkkä Eerikkilän tekniikkatulos) = ei tekniikkadataa. Pelaaja, jonka sukupuolta ei voi päätellä (kenttä tai joukkuenimen P/T), kuuluu samaan joukkoon; syy "sukupuoli puuttuu" näkyy diagnostiikassa (K17).
 - **P8.** Joukkue: `tmPelaajanJoukkueet`; kehityskohde kun ≥ 1/3 mitatuista (≥ 5 mitattua) tai ≥ 1/2 kaikista joukkueen pelaajista; syy = useampaa koskeva; "otos pieni" kun mitattuja < 8; "ei tekniikkadataa · N joukkuetta" näkyy (myös 14+ ilman SM-testejä).
 - **P9.** Huomio "Tekniikka kehityskohteena · N joukkuetta" + syy; `tki_alhainen` säilyy, teksti muuttuu + kommentti; pulssi vain lukumäärä + linkki (D150); sv-avaimet tyhjinä uuteen erään; ei lukuja pelaajalle/huoltajalle.
 
@@ -249,6 +260,9 @@ Nykyinen ehdotus ei voi laueta SJK:lla (ei TKI:tä). Neljästä kehityskohteesta
 | K7 | `tki_alhainen` ei lauennut SJK:lla | **Ratkaistu**: sama ketju (SM-tasot kattavat SJK:n) |
 | K9 | Seuran pulssi | **Ratkaistu**: lukumäärä + linkki |
 | K10 | "puolet pelaajista" | **Vahvistettu**: puolet kaikista joukkueen pelaajista |
+| K15 | SM-pallo 1 sekoittaa tekniikan ja hitauden | **Ratkaistu**: kehityskohde vain jos SM-juoksu ≥ 2; molemmat 1 → neutraali (P3) |
+| K16 | Tasojen lähde ja merkitys | **Ratkaistu**: Palloliiton tavoitetasot FINAL2024 + H-H-testimanuaali 2024; 1 = alle kansallisen keskitason … 5 = kansainvälinen kärkitaso; repon "taso 2 = hieman alle" säilyy |
+| K17 | `sukupuoli`-kenttä puuttuu | **Ratkaistu**: vara joukkuenimen P/T; ilman sitä "ei tekniikkadataa" (syy diagnostiikassa); datan täydennys erillinen tehtävä (§7) |
 | K12 | `eerikkilaNormiarvo`/`eerikkilaTaso` ei rajaa ikää | **Ratkaistu**: lib rajaa itse (§3); lisäksi löytyi sukupuolianta ja 0-paluuarvo, samassa taulukossa |
 | K13 | Viitteen merkitys | **Raukesi**: viite hylätty |
 
@@ -274,15 +288,12 @@ Kaikki varapäivät ovat tallennettuna **samassa muodossa kuin oikea testipäiv�
 | Pallo-Iirot | — | 28; 3 päivää | 13; 2026-02-08, recalc 0 | |
 | demo-fc | — | 38; kaikki 2026-04-14 | — | |
 
-Ei tyhjiä päiviä eikä yhtään `2026-01-20`-varapäivää. Suora näyttö "tänään"-varapäivistä puuttuu, mutta KPV:n neljä `hh_pvm`-arvoa 9.10. on vahvistamaton epäilys. **Vaikutus uuteen luokitukseen:** `tki_pvm` ja `tsi_pvm` ratkaisevat vanhuuden, joten varapäivä voisi näyttää vanhan testin tuoreena. Luokitus käsittelee tyhjän päivän tilana "päivä tuntematon" (P6), mutta ei voi tunnistaa kirjoitettua varapäivää; juurikorjaus (kirjoita tyhjä tai erillinen `*_pvm_lahde` varapolulla) on oma tehtävänsä (§7). `hh_pvm` ei vaikuta tähän luokitukseen.
+Ei tyhjiä päiviä eikä yhtään `2026-01-20`-varapäivää. Suora näyttö "tänään"-varapäivistä puuttuu, mutta KPV:n neljä `hh_pvm`-arvoa 9.10. on vahvistamaton epäilys. **Vaikutus uuteen luokitukseen:** `tki_pvm` ja `tsi_pvm` ratkaisevat vanhuuden, joten varapäivä voisi näyttää vanhan testin tuoreena. Luokitus käsittelee tyhjän päivän tilana "päivä tuntematon" (P6), mutta ei voi tunnistaa kirjoitettua varapäivää; juurikorjaus (kirjoita tyhjä tai erillinen `*_pvm_lahde` varapolulla) on §7:n erillinen tehtävä; **tähän sarjaan ei muutoksia** (Tero 10.10.2026). `hh_pvm` ei vaikuta tähän luokitukseen.
 
-### 6.4 Yhä avoimet
+### 6.4 Yhä avoimet (eivät estä PR 1:tä)
 
 - **K11. `sm_*_taso`:n tallennusikä** — **tila: vahvistettu datasta, ei korjattu.** Tuonti tallentaa tason joukkuenimen iällä (`Excel_Tuonti:3272–3276`), ei `normiIka(testipvm)`:llä. SJK:lla tallennettu `sm_*_taso` eroaa raakatuloksista nyt lasketusta **9 pelaajalla 56:sta (16 %)**. Uusi luokitus ei lue tallennettua tasoa (P1), joten ei vaikutusta tähän sarjaan. Kartoitus ja korjausehdotus omana tehtävänään; uudelleenlaskenta on Teron ajo.
 - **K14.** Harjoitelogiikan kohdevalinta (`harjoitelogiikka_v4.js:2731`, TSI > 1,5 s) ja taidon §30:n rivi yhtenäistetään samaan SM-tasoluokitukseen — **PR 4** (§7).
-- **K15 (uusi). SM-pallon taso 1 sekoittaa tekniikan ja yleisen hitauden.** SJK:lla 19 pelaajaa, joilla SM-pallo on 1: SM-juoksu on 1 kuudella ja enintään 2 kolmellatoista. "Alle ikätason" ei siis tarkoita pelkkää pallotaitoa. Sääntö on Teron määrittelemä; kysymys on vain syyn tekstistä ja siitä, halutaanko `alle ikätason` -syyhyn lisätä tieto, että SM-juoksukin on heikko.
-- **K16 (uusi). Tasojen sanallinen merkitys.** Repo: taso 3 = ikäluokan keskitaso, taso 2 = "hieman alle kansallisen keskitason" (`VP_v25:15681`). Tero: 1 = alle kansallisen keskitason … 5 = kansainvälinen kärkitaso. "Kansainvälinen kärkitaso" tasolle 5 ei löydy repo-lähteestä. Taidossa käytetään Teron muotoilua, taso 1 = selvästi alle ja 2 = hieman alle.
-- **K17 (uusi). `sukupuoli`-kenttä puuttuu usein** (§3-taulukko). Luokitus käyttää varalla joukkuenimen P/T-tunnusta; ilman sitäkin SM-tasoa ei lasketa. Pallo-Iirot: 13 SM-pelaajaa, kaikilta kenttä puuttuu, mutta joukkuenimi (P-joukkue) antaa sukupuolen; Sibbolla ei vielä SM-testejä. Ehdotus: oma datakartoitus (sukupuolen täydennys) ennen laajempaa käyttöä.
 
 ## 7. Toteutusjako (vasta #975:n mergen jälkeen)
 
@@ -297,7 +308,8 @@ Ei tyhjiä päiviä eikä yhtään `2026-01-20`-varapäivää. Suora näyttö "t
 
 1. **`*_pvm`-varapäivät (K8):** juurikorjausehdotus §6.3:n kirjoitussivuille; datan uudelleenlaskenta on Teron ajo.
 2. **`sm_*_taso`:n tallennusikä (K11):** kartoitus ja korjausehdotus; uudelleenlaskenta Teron ajo.
-3. Eerikkilän tekniikkataso 3 myönteiseksi signaaliksi — myöhemmin.
-4. Kehitysvaiheen mukainen tasovertailu (alle 16-vuotiaat, vaatii mitatun PHV:n) — myöhemmin.
+3. **Puuttuva sukupuoli (K17):** kuiva-ajo (vain luku), joka johtaa puuttuvan `sukupuoli`-kentän pelaajan joukkueen nimen P/T-tunnuksesta **seuroittain** (lukumäärät, ei nimiä) ja listaa joukkueet, joista sukupuolta ei voi johtaa (esim. Sibbon "2014 Blå"). Tulostus: per seura pelaajia yhteensä / kenttä puuttuu / johdettavissa / ei johdettavissa, sekä ei-johdettavien joukkueiden nimet. Kirjoitusajo (kentän täydennys) on Teron. Nykytilan karkeat luvut: sukupuoli puuttuu tai on tyhjä SJK:lla 20 / 61, Sibbolla 208 / 246, Pallo-Iirolla 71 / 71, KPV:llä 31 / 160. Siihen asti pelaaja ilman sukupuolta (kenttä ja joukkuenimi) on tekniikkaluokituksessa "ei tekniikkadataa" (syy "sukupuoli puuttuu").
+4. Eerikkilän tekniikkataso 3 myönteiseksi signaaliksi — myöhemmin.
+5. Kehitysvaiheen mukainen tasovertailu (alle 16-vuotiaat, vaatii mitatun PHV:n) — myöhemmin.
 
 Rajaukset: ei kirjoituksia tuotantodataan (laskelmat vain lukien), ei Rules- eikä `functions/`-muutoksia, ei ruotsinkielisiä tekstejä.
