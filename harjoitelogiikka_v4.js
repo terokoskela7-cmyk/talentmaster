@@ -961,12 +961,10 @@ const PANKKI = {
    ═══════════════════════════════════════════════════════════════════ */
 
 function _laskeViikonNro() {
-  // ISO 8601: viikko alkaa maanantaista, vk 1 = se viikko jossa vuoden ensimmäinen torstai
-  const d = new Date();
-  d.setHours(0, 0, 0, 0);
-  d.setDate(d.getDate() + 4 - (d.getDay() || 7));
-  const yearStart = new Date(d.getFullYear(), 0, 1);
-  return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+  // ISO 8601 (lib/tm_viikko.js) — ei omaa kaavaa. D140: KOVA virhe jos lib puuttuu (ei hiljaista väärää viikkoa).
+  const V = (typeof module !== 'undefined' && module.exports && typeof require === 'function') ? require('./lib/tm_viikko.js') : (typeof window !== 'undefined' ? window.TM_VIIKKO : null);
+  if (!V || typeof V.tmIsoViikkoNro !== 'function') throw new Error('TM_VIIKKO puuttuu: lataa lib/tm_viikko.js ENNEN harjoitelogiikka_v4.js:ää (D140: ei omaa viikkokaavaa)');
+  return V.tmIsoViikkoNro(new Date());
 }
 
 // Laskee kuukauden sisäisen viikonumeron (1–4) ja mesosyklin

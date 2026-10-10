@@ -19,7 +19,9 @@
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-storage-compat.js"></script>
-<script src="lib/tm_pvm.js?v=3"></script>   <!-- tmPaivaIso: paikallinen päivä ("tänään" ≠ UTC-päivä klo 0–3) -->
+<script src="lib/tm_viikko.js?v=1"></script>   <!-- YKSI ISO 8601 -viikkolasku (audit 27, D140) -->
+<script src="lib/tm_koti_luvut.js?v=2"></script>   <!-- P0-luvut: avoimetTestit (yksi määritelmä), kattavuus (D125) — audit 27 -->
+<script src="lib/tm_pvm.js?v=4"></script>   <!-- tmPaivaIso: paikallinen päivä ("tänään" ≠ UTC-päivä klo 0–3) -->
 <script src="lib/tm_appcheck.js?v=1"></script>
 <script src="lib/tm_istunto.js?v=1"></script>   <!-- istuntoturva: väärä rooli → viesti + "Kirjaudu ulos", ei automaattista signOut():ia -->
 <script src="lib/tm_kal_muistiinpano.js?v=1"></script>   <!-- tietosuoja: muistiinpano staff-only-alikokoelmaan -->
@@ -33,7 +35,7 @@
 <script src="lib/tm_i18n_common.js?v=12"></script>   <!-- i18n Vaihe 0 — JAETTU henkilöstö-i18n + lukittu glossaari (ENNEN sivukarttaa) -->
 <script src="lib/tm_master_i18n.js?v=30"></script>   <!-- i18n Vaihe 5 Raita B — Master sv (sivukartta); masterT/masterLokalisoi delegoivat commoniin -->
 <script src="lib/tm_phv_tila.js?v=1"></script>   <!-- PR C: PHV-tilan YKSI lukusääntö (Mirwald, vain mittauslähteestä) -->
-<script src="lib/tm_eerikkila_normit.js?v=49"></script>   <!-- v43: D2-kortti d2_taso-ensin (renderKehityskorttiHTML, PR #264 · §30/#262) -->
+<script src="lib/tm_eerikkila_normit.js?v=50"></script>   <!-- v43: D2-kortti d2_taso-ensin (renderKehityskorttiHTML, PR #264 · §30/#262) -->
 <script src="lib/tm_harjoitusarviointi.js?v=5"></script>
 <script src="lib/tm_kalenteri.js?v=1"></script>
 <script src="lib/tm_teknistaktiset_sv.js?v=1"></script>   <!-- sv-läpiajo PR 3: curriculumin sv-sidecar (TM_TT_SV) — kielivalinta VAIN näyttöön (lib/tm_tt_sv_valinta.js) -->
@@ -2743,9 +2745,9 @@ async function _lataaTestitapahtumat() {
     // Etsi tämän päivän testit
     const tanaan = tmPaivaIso(new Date());
     // Suodata joukkueen mukaan myös tänään-tapahtumat
-    _todayTestit = _testitapahtumat.filter(t => t.pvm === tanaan && t.tila !== 'suljettu' && (!_joukkue || (!t.joukkue && !t.joukkue_nimi) || t.joukkue === _joukkue || t.joukkue_nimi === _joukkue));
+    _todayTestit = window.TM_KOTI_LUVUT.avoimetTestit(_testitapahtumat, _joukkue).filter(t => t.pvm === tanaan);   // YKSI avoimen testin määritelmä (audit 27)
     // Päivitä badget
-    const avoimet = _testitapahtumat.filter(t => t.tila !== 'suljettu').length;
+    const avoimet = window.TM_KOTI_LUVUT.avoimetTestit(_testitapahtumat, _joukkue).length;
     const badge = document.getElementById('wsTestitBadge');
     if (badge) { badge.textContent = avoimet || ''; badge.style.display = avoimet ? 'inline-flex' : 'none'; }
     // Re-render affected views
@@ -3270,8 +3272,8 @@ function renderTestit() {
 
   // Suodata joukkueen mukaan jos joukkue on valittu
   // Jos tapahtumalla ei ole joukkuetta, se näkyy kaikille (seuratason tapahtuma)
-  const _suodataJoukkue = (t) => !_joukkue || (!t.joukkue && !t.joukkue_nimi) || t.joukkue === _joukkue || t.joukkue_nimi === _joukkue;
-  const avoimet = (_testitapahtumat || []).filter(t => t.tila !== 'suljettu' && _suodataJoukkue(t));
+  const _suodataJoukkue = (t) => window.TM_KOTI_LUVUT.testiKuuluuJoukkueelle(t, _joukkue);
+  const avoimet = window.TM_KOTI_LUVUT.avoimetTestit(_testitapahtumat, _joukkue);   // YKSI avoimen testin määritelmä (audit 27)
   const suljetut = (_testitapahtumat || []).filter(t => t.tila === 'suljettu' && _suodataJoukkue(t));
 
   avoimetEl.innerHTML = avoimet.length
@@ -4784,10 +4786,7 @@ function _setDate() {
     (function(w){return w.charAt(0).toUpperCase()+w.slice(1);})(masterT(pv)) + ', ' + d.getDate() + '. ' + masterT(kk) + ' · ' + masterT('VIIKKO') + ' ' + vk;
 }
 
-function _getVk(d) {
-  const startOfYear = new Date(d.getFullYear(),0,1);
-  return Math.ceil(((d - startOfYear) / 86400000 + startOfYear.getDay() + 1) / 7);
-}
+function _getVk(d) { return window.TM_VIIKKO.tmIsoViikkoNro(d); }   // ISO 8601 (lib/tm_viikko.js) — ei omaa kaavaa
 
 /* ════════════════════════════════════════════════════════════
    VALMENTAJAN OMA KPI-KORTTI
@@ -5046,7 +5045,7 @@ function _iaNimi(p) { return _tmHenkiloNimi(p); }
 function _paivitaKaikkiNakymat() {
   const renderit = [
     ['koti', renderKoti], ['havainnot', renderHavainnot], ['inbox', renderInbox],
-    ['pulse', renderPulse], ['dev', renderDev], ['today', renderToday],
+    ['pulse', renderPulse], ['dev', renderDev], ['today', renderToday], ['coachSelf', renderCoachSelfCard],   // profiilikortti seuraa joukkuevalitsinta (audit 27)
     ['testit', renderTestit], ['cal', renderCal], ['season', renderSeason]
   ];
   renderit.forEach(function (r) {
@@ -5500,7 +5499,7 @@ function _renderMetrics() {
   if (!_demo && _seuraId) {
     el.innerHTML = [
       { lbl:masterT('Pelaajia'), val:_pelaajatData.length||'—', ctx:_joukkue||_seuraId },
-      { lbl:masterT('Avoimet testit'), val:(_testitapahtumat||[]).filter(t=>t.tila!=='suljettu').length||'0', ctx:'' },
+      { lbl:masterT('Avoimet testit'), val:window.TM_KOTI_LUVUT.avoimetTestit(_testitapahtumat, _joukkue).length||'0', ctx:'' },
     ].map(m => `<div class="metric-card"><div class="metric-lbl caps">${m.lbl}</div>` +
       `<div class="metric-val serif">${m.val}</div>` +
       `<div style="font-size:11px;color:var(--ink3)">${m.ctx}</div></div>`).join('');
@@ -6621,7 +6620,7 @@ function _ktKasvuHTML(p) {
 }
 function _ktNayttoHTML(p) {
   const e = _mEsc, o = _mPinfoOsat(p), pid = e(p.id), nakyy = (typeof _prVoiNahda === 'function' && _prVoiNahda(p));
-  const perus = '<div style="grid-column:1/-1"><div class="pinfo-sub">' + e(o.ika + ' · ' + (p.pelipaikka || '—') + ' · ' + (p.joukkue || _joukkue || '—')) + (o.testPvm ? ' · <span style="color:var(--ink3)">' + e(masterT('testattu ')) + e(o.testPvm) + '</span>' : '') + '</div></div>' + o.lisaHtml;
+  const perus = '<div style="grid-column:1/-1"><div class="pinfo-sub">' + e(o.ika + ' · ' + (p.pelipaikka || '—') + ' · ' + (p.joukkue || _joukkue || '—')) + (o.testPvm ? ' · <span style="color:var(--ink3)">' + (o.testIka ? e(o.testIka) : e(masterT('testattu ')) + e(o.testPvm)) + '</span>' : '') + '</div></div>' + o.lisaHtml;
   const raportti = nakyy ? '<div style="grid-column:1/-1;margin:0 0 10px"><button type="button" onclick="_avaaPelaajaraportti(\'' + pid + '\')" style="background:var(--surface);border:.5px solid var(--teal);color:var(--teal);border-radius:7px;padding:8px 14px;font-size:12px;font-weight:600;cursor:pointer">' + e(masterT('📋 Pelaajaraportti + tavoitteet')) + '</button></div>' : '';
   return '<div class="pinfo-card" data-kt-nayttö>' + _ktOsio('Perustiedot') + perus + raportti
     + ((o._identHtml || _ktKasvuHTML(p)) ? _ktOsio('Kasvu ja kypsyys') + o._identHtml + _ktKasvuHTML(p) + '<div style="grid-column:1/-1;margin:6px 0"><button type="button" class="kt-nappi" data-kt-mittaa onclick="_msFyysSuunnitteleMittaus(\'' + pid + '\')">' + e(masterT('📏 Suunnittele mittaus → Testaus')) + '</button></div>' : '')
@@ -7997,11 +7996,20 @@ async function _mJjRender() {
   if (!J || _demo || !_seuraId) { el.innerHTML = ''; return; }
   const liput = await _mJjLataaLiput();
   if (liput.kentta !== true) { el.innerHTML = ''; return; }
-  const jid = _joukkueTunniste();
-  if (!jid) { el.innerHTML = '<div style="font-size:12px;color:var(--ink3);margin-bottom:24px">' + masterT('Valitse joukkue nähdäksesi joukkueen jakson.') + '</div>'; return; }
+  const jid0 = _joukkueTunniste();
+  if (!jid0) { el.innerHTML = '<div style="font-size:12px;color:var(--ink3);margin-bottom:24px">' + masterT('Valitse joukkue nähdäksesi joukkueen jakson.') + '</div>'; return; }
   if (window._mTeemat === undefined && typeof _mLataaTeemat === 'function') _mLataaTeemat();
-  let data = null;
-  try { const sn = await _db.collection('seurat').doc(_seuraId).collection('joukkueet').doc(jid).get(); data = sn.exists ? Object.assign({ id: jid }, sn.data()) : null; }
+  let data = null, jid = jid0;
+  /* Audit 27 §3 P0 (Kausi: "Joukkuedokumenttia ei ole" vaikka joukkueessa on pelaajia): doc-id EI ole aina nimestä johdettu tunniste ('KPV P13' → kpv_p13, mutta doc voi olla kpv_u13).
+     Joukkue ratkaistaan §7.18:n yhdellä säännöllä (tmPelaajanJoukkueet: nimi → kanoninen doc); vasta sitten nimestä johdettu tunniste. */
+  try {
+    const kok = _db.collection('seurat').doc(_seuraId).collection('joukkueet');
+    const sn = await kok.doc(jid0).get(); data = sn.exists ? Object.assign({ id: jid0 }, sn.data()) : null;   // yleinen polku: nimestä johdettu tunniste on doc-id (ei lisälukua)
+    if (!data) {   // doc-id ≠ nimestä johdettu tunniste → ratkaise §7.18:n säännöllä (lista on luettavissa vain tässä poikkeustapauksessa)
+      try { const all = await kok.get(), docs = all.docs.map(d => ({ id: d.id, nimi: d.data().nimi })), ids = typeof window.tmPelaajanJoukkueet === 'function' ? window.tmPelaajanJoukkueet({ joukkue: _joukkue }, docs) : []; const d0 = ids[0] && all.docs.filter(d => d.id === ids[0])[0]; if (d0) { jid = ids[0]; data = Object.assign({ id: jid }, d0.data()); } }
+      catch (e0) { /* lista ei luettavissa → tila selitetään alla */ }
+    }
+  }
   catch (e) { console.warn('[J2] joukkue:', e && e.message); el.innerHTML = ''; return; }
   window._mJjDoc = { jid: jid, data: data };
   if (data && window.TM_KEVYT_KATSELMUS) window._kvkProfiilit[jid] = window.TM_KEVYT_KATSELMUS.tmProfiili(data);   // V4b-2: profiili samasta luvusta (ei lisälukua)
@@ -8505,6 +8513,7 @@ function _mPinfoOsat(p) {
   const ika  = synt ? (new Date().getFullYear() - synt) + 'v' : '—';
   // Testipäivä korttiotsikkoon (H-H ensisijaisesti, muuten TKI)
   const testPvm = p.hh_pvm ? _pvmFiM(p.hh_pvm) : (p.tki_pvm ? _pvmFiM(p.tki_pvm) : null);
+  const _testPvmIso = p.hh_pvm || p.tki_pvm || null, testIka = (_testPvmIso && tmTasoVanhentunut(_testPvmIso)) ? tmMittausIkaTeksti(_testPvmIso, null, masterT) : null;   // D141: yli 12 kk → "mitattu 2023 · päivitä" (ei nykytasoksi)
 
   // Vahvuus / kehityskohde — pikakentistä (laji-id → luettava nimi)
   const vahvuus = p.tki_vahvuus ? _tkLajiNimi(p.tki_vahvuus) : null;
@@ -8736,17 +8745,17 @@ function _mPinfoOsat(p) {
   // Vaihe 4a — teknis-taktinen toimintakortti (konsepti→cue→harjoite, lib tm_teknistaktiset.js). Best-effort.
   let _ttHtml = '';
   try { if (typeof _ttKorttiHTML === 'function') _ttHtml = _ttKorttiHTML(p); } catch (e) { console.warn('[tt4a]', e && e.message); }
-  return { nimi, ika, testPvm, stats, lisaHtml, _kehHtml, _sekHtml, _identHtml, _adarHtml, _ristiinHtml, _kehityskaariHtml, _reseptiHtml, _d3Html, _ttHtml };
+  return { nimi, ika, testPvm, testIka, stats, lisaHtml, _kehHtml, _sekHtml, _identHtml, _adarHtml, _ristiinHtml, _kehityskaariHtml, _reseptiHtml, _d3Html, _ttHtml };
 }
 function _renderPinfoFirestore(p) {
   if (window._ktLippu && typeof _ktPaivita === 'function') _ktPaivita();   // V4a: auki oleva työpöytä päivittyy tallennuksen jälkeen
   const el = document.getElementById('pinfoCard');
   if (!el) return;
-  const { nimi, ika, testPvm, stats, lisaHtml, _kehHtml, _sekHtml, _identHtml, _adarHtml, _ristiinHtml, _kehityskaariHtml, _reseptiHtml, _d3Html, _ttHtml } = _mPinfoOsat(p);
+  const { nimi, ika, testPvm, testIka, stats, lisaHtml, _kehHtml, _sekHtml, _identHtml, _adarHtml, _ristiinHtml, _kehityskaariHtml, _reseptiHtml, _d3Html, _ttHtml } = _mPinfoOsat(p);
   el.innerHTML = `
     <div style="grid-column:1/-1">
       <div class="pinfo-name serif">${nimi}</div>
-      <div class="pinfo-sub">${ika} · ${p.pelipaikka||'—'} · ${p.joukkue||_joukkue||'—'}${testPvm ? ' · <span style="color:var(--ink3)">' + masterT('testattu ') + testPvm+'</span>' : ''}</div>
+      <div class="pinfo-sub">${ika} · ${p.pelipaikka||'—'} · ${p.joukkue||_joukkue||'—'}${testPvm ? ' · <span style="color:var(--ink3)">' + (testIka ? testIka : masterT('testattu ') + testPvm) + '</span>' : ''}</div>
       ${_mJaksoNapitHTML(p)}
     </div>
     ${_identHtml}
@@ -9675,6 +9684,10 @@ function renderSeason() {
   if (!_demo && _seuraId) {
     const P = _pelaajatData || [];
     const now = new Date();
+    /* D141 (audit 27): yli 12 kk vanha mittaus EI ole taso eikä väri → tasolaskennat (Pt) ohittavat pelaajan, jonka tuorein mittaus on vanhentunut; pvm puuttuu → ei voi päätellä, pysyy mukana. */
+    const _mMittPvm = p => [p.hh_pvm, p.d1_pvm, p.tki_pvm, p.flei_pvm].filter(Boolean).map(String).sort().pop() || null;
+    const Pt = P.filter(p => !(_mMittPvm(p) && tmTasoVanhentunut(_mMittPvm(p)))), nVanhentunut = P.length - Pt.length;
+    const _kat = (lista, onMitattu) => window.TM_KOTI_LUVUT.kattavuus(lista, { _: lista }, onMitattu);   // D125: sama portti kuin VP:llä (yksi joukkue → 70 % pelaajista)
     const nimi = p => _tmHenkiloNimi(p);
     const lvl = p => {
       const _is = _devIkaSp(p);
@@ -9688,48 +9701,51 @@ function renderSeason() {
     if (subEl) subEl.textContent = masterT('Kausi ') + now.getFullYear() + '/' + (now.getFullYear()+1).toString().slice(-2) + ' · ' + P.length + masterT(' pelaajaa');
 
     // ── 1. KEHITYSPULSSI: % kehittynyt (abs §30/§3.2) + % taso ≥3 ──
-    let parani = 0, mitattuKahdesti = 0;
-    P.forEach(p => {
+    let parani = 0, mitattuKahdesti = 0; const _parit = [];
+    Pt.forEach(p => {
       let onPari = false, paraniTama = false;
       if (p.hh_taso_edellinen != null && (p.hh_taso != null || p.d1_taso != null)) { onPari = true; if ((p.d1_taso != null ? p.d1_taso : p.hh_taso) > p.hh_taso_edellinen) paraniTama = true; }
       if (p.tk_kokonaistulos_edellinen != null && p.tk_kokonaistulos_viimeisin != null) { onPari = true; if (p.tk_kokonaistulos_viimeisin < p.tk_kokonaistulos_edellinen) paraniTama = true; } // abs: nopeampi = parani
-      if (onPari) { mitattuKahdesti++; if (paraniTama) parani++; }
+      if (onPari) { mitattuKahdesti++; _parit.push(p); if (paraniTama) parani++; }
     });
     // Taso ≥3 KANONISESTA laskeTaso3Osuus:sta (sama luku kuin VP-tuloskortti samalla scopella, §6b)
-    const _t3 = (typeof laskeTaso3Osuus === 'function') ? laskeTaso3Osuus(P) : null;
-    const onTasoN = _t3 ? _t3.n_arvioidut : P.filter(p => lvl(p) != null).length;
-    const taso3 = _t3 ? _t3.n_taso3 : P.filter(p => lvl(p) != null && lvl(p) >= 3).length;
+    const _t3 = (typeof laskeTaso3Osuus === 'function') ? laskeTaso3Osuus(Pt) : null;
+    const onTasoN = _t3 ? _t3.n_arvioidut : Pt.filter(p => lvl(p) != null).length;
+    const taso3 = _t3 ? _t3.n_taso3 : Pt.filter(p => lvl(p) != null && lvl(p) >= 3).length;
+    const katPari = _kat(P, p => _parit.indexOf(p) >= 0), katTaso = _kat(P, p => Pt.indexOf(p) >= 0 && lvl(p) != null);   // D125 kattavuusportti: "Kehittynyt 100 %" viidestä pelaajasta 16:sta → "5/16 mitattu kahdesti"
     const pulseEl = document.getElementById('seasonPulse');
     if (pulseEl) {
-      const metr = (lbl, n, d, vihje, selite, klikDim) => {
-        const pct = d ? Math.round(n / d * 100) : null;
+      const metr = (lbl, n, d, vihje, selite, klikDim, kat) => {
+        const portti = kat && !kat.riittava && d;   // alle kattavuusrajan: ei prosenttia eikä väriä, vaan "x/y"
+        const pct = d && !portti ? Math.round(n / d * 100) : null;
+        if (portti) vihje = masterT('mitattu {n}/{yht} · alle kattavuusrajan (70 %) — osuutta ei näytetä').replace('{n}', kat.n).replace('{yht}', kat.yht);
         const col = pct == null ? 'var(--ink3)' : pct >= 60 ? 'var(--teal)' : pct >= 40 ? 'var(--amber)' : 'var(--red)';
         const _t = selite ? ' title="' + String(selite).replace(/"/g, '&quot;') + '"' : '';
         const klik = klikDim ? ' class="kausi-klik" onclick="_avaaKausiPelaajat(\'' + klikDim + '\')"' : '';
         const curs = klikDim ? ';cursor:pointer' : (selite ? ';cursor:help' : '');
         return '<div' + _t + klik + ' style="flex:1;min-width:200px;background:var(--card);border:.5px solid var(--line);border-radius:10px;padding:16px 18px' + curs + '">'
           + '<div style="font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink3)">' + lbl + (selite ? ' <span style="opacity:.6">ⓘ</span>' : '') + '</div>'
-          + '<div style="font-family:\'Cormorant Garamond\',serif;font-size:38px;line-height:1.1;color:' + col + '">' + (pct == null ? '—' : pct + '%') + '</div>'
+          + '<div style="font-family:\'Cormorant Garamond\',serif;font-size:38px;line-height:1.1;color:' + col + '">' + (portti ? kat.n + '/' + kat.yht : pct == null ? '—' : pct + '%') + '</div>'
           + '<div style="font-size:11px;color:var(--ink3)">' + vihje + '</div>'
           + (klikDim ? '<div style="font-size:10px;color:var(--teal);margin-top:6px">' + masterT('👥 Näytä pelaajat →') + '</div>' : '') + '</div>';
       };
       pulseEl.innerHTML = '<div style="display:flex;gap:12px;flex-wrap:wrap">'
-        + metr(masterT('Kehittynyt (abs)'), parani, mitattuKahdesti, mitattuKahdesti ? parani + '/' + mitattuKahdesti + masterT(' kahdesti mitattua parani') : masterT('tarvitsee 2 mittausta/pelaaja'), masterT('Osuus kahdesti mitatuista pelaajista, joiden taso nousi (absoluuttinen kehitys §30). Vaatii ≥2 mittausta/pelaaja — ei vertaa muihin, vaan pelaajan omaan lähtötasoon.'))
-        + metr(masterT('Taso ≥3'), taso3, onTasoN, onTasoN ? taso3 + '/' + onTasoN + masterT(' ikäluokan keskitaso+') : masterT('ei tasodataa'), masterT('Osuus pelaajista, joiden paras dimensiotaso (D1/D2/H-H) on ≥3 = ikäluokan keskitaso tai parempi (1–5-asteikko).'), onTasoN ? 'taso' : null)
-        + '</div>';
+        + metr(masterT('Kehittynyt (abs)'), parani, mitattuKahdesti, mitattuKahdesti ? parani + '/' + mitattuKahdesti + masterT(' kahdesti mitattua parani') : masterT('tarvitsee 2 mittausta/pelaaja'), masterT('Osuus kahdesti mitatuista pelaajista, joiden taso nousi (absoluuttinen kehitys §30). Vaatii ≥2 mittausta/pelaaja — ei vertaa muihin, vaan pelaajan omaan lähtötasoon.'), null, katPari)
+        + metr(masterT('Taso ≥3'), taso3, onTasoN, onTasoN ? taso3 + '/' + onTasoN + masterT(' ikäluokan keskitaso+') : masterT('ei tasodataa'), masterT('Osuus pelaajista, joiden paras dimensiotaso (D1/D2/H-H) on ≥3 = ikäluokan keskitaso tai parempi (1–5-asteikko).'), onTasoN ? 'taso' : null, katTaso)
+        + '</div>' + (nVanhentunut ? '<div style="font-size:11px;color:var(--ink3);margin-top:8px">' + masterT('{n} pelaajan mittaus on yli 12 kk vanha — ei tasona eikä värinä · päivitä mittaus').replace('{n}', nVanhentunut) + '</div>' : '');
     }
 
     // ── 2. D1/D2-tasohistogrammit + PHV-vaihejakauma + kattavuussignaalit (§26) ──
     const histEl = document.getElementById('seasonHist');
     if (histEl) {
-      const hist = key => { const h = [0,0,0,0,0]; P.forEach(p => { const v = p[key]; if (v != null) { const b = Math.max(1, Math.min(5, Math.floor(v))); h[b-1]++; } }); return h; };   // floor-binnaus: 2,5 → pylväs 2 (johdonmukainen Taso≥3/modaalin raakatason kanssa)
+      const hist = key => { const h = [0,0,0,0,0]; Pt.forEach(p => { const v = p[key]; if (v != null) { const b = Math.max(1, Math.min(5, Math.floor(v))); h[b-1]++; } }); return h; };   // floor-binnaus: 2,5 → pylväs 2 (johdonmukainen Taso≥3/modaalin raakatason kanssa)
       const histBars = (h, vari) => { const mx = Math.max(1, ...h); return '<div style="display:flex;align-items:flex-end;gap:4px;height:48px">' + h.map((c,i) => '<div style="flex:1;text-align:center"><div style="height:' + (c/mx*34).toFixed(0) + 'px;background:' + vari + ';opacity:' + (0.4 + 0.5*(i/4)).toFixed(2) + ';border-radius:2px 2px 0 0;min-height:' + (c?2:0) + 'px"></div><div style="font-size:9px;color:var(--ink3);margin-top:2px">' + (i+1) + '</div><div style="font-size:9px;color:var(--ink2)">' + (c||'') + '</div></div>').join('') + '</div>'; };
       // §26 TKI-tietoinen D2: funktiopohjainen histogrammi + D2-arvonpoimija (laskeD2Joustava: lajikohtainen ensin, TKI→D2 viimeisenä varana; sama kanoninen johto kuin VP-syvänäkymä).
-      const histF = getVal => { const h=[0,0,0,0,0]; P.forEach(p=>{ const v=getVal(p); if(v!=null){ const b=Math.max(1,Math.min(5,Math.floor(v))); h[b-1]++; } }); return h; };   // floor-binnaus (sama kuin hist)
+      const histF = getVal => { const h=[0,0,0,0,0]; Pt.forEach(p=>{ const v=getVal(p); if(v!=null){ const b=Math.max(1,Math.min(5,Math.floor(v))); h[b-1]++; } }); return h; };   // floor-binnaus (sama kuin hist)
       const d2Val = p => { const _is=_devIkaSp(p); const r=(typeof laskeD2Joustava==='function')?laskeD2Joustava(p,_is.ika,_is.sp):null; return r?r.taso:(p.d2_taso!=null?p.d2_taso:null); };
       // §29: D1 EI johdeta raakadatasta (jää tyhjäksi ilman H-H) → selkeä tyhjätila. D2-johto TKI:stä on sallittu.
-      const onD1 = P.some(p => p.d1_taso != null || p.hh_taso != null);
-      const onD2 = P.some(p => d2Val(p) != null);
+      const onD1 = Pt.some(p => p.d1_taso != null || p.hh_taso != null);
+      const onD2 = Pt.some(p => d2Val(p) != null);
       const tyhjaMs = txt => '<div style="font-size:11px;color:var(--ink3);padding:6px 0">' + txt + '</div>';
       const d2Alaviite = P.some(p => { const _is=_devIkaSp(p); const r=(typeof laskeD2Joustava==='function')&&laskeD2Joustava(p,_is.ika,_is.sp); return r && r.lahde==='tki'; }) ? '<div style="font-size:9px;color:var(--ink3);margin-top:4px">' + masterT('¹ TKI-pohjainen') + '</div>' : '';
       // D1 osaindeksiprofiili: joukkueen ka per osa-alue (Kiihdytys/Maksiminopeus/Voima/Ketteryys/Aerobinen) mini-palkkeina, vain ei-null (§29).
@@ -9737,7 +9753,7 @@ function renderSeason() {
       const d1OsaProfiili = () => {
         if (typeof laskeD1Osaindeksit !== 'function') return histBars(hist('d1_taso'),'var(--teal)');   // fallback jos lib vanha
         const summa = {}, lkm = {}; _D1_OSAT.forEach(k => { summa[k[0]] = 0; lkm[k[0]] = 0; });
-        P.forEach(p => { const _is=_devIkaSp(p); const oi = laskeD1Osaindeksit(p.hh_viimeisin, _is.ika, _is.sp); if (!oi) return; _D1_OSAT.forEach(k => { if (oi[k[0]] != null) { summa[k[0]] += oi[k[0]]; lkm[k[0]]++; } }); });
+        Pt.forEach(p => { const _is=_devIkaSp(p); const oi = laskeD1Osaindeksit(p.hh_viimeisin, _is.ika, _is.sp); if (!oi) return; _D1_OSAT.forEach(k => { if (oi[k[0]] != null) { summa[k[0]] += oi[k[0]]; lkm[k[0]]++; } }); });
         const rivit = _D1_OSAT.filter(k => lkm[k[0]] > 0).map(k => {
           const ka = Math.round(summa[k[0]] / lkm[k[0]] * 10) / 10;
           const col = ka >= 4 ? 'var(--teal)' : ka >= 3 ? 'var(--amber)' : 'var(--red)';
@@ -9767,7 +9783,9 @@ function renderSeason() {
       if (typeof raeChip === 'function') {
         const Q = { Q1:0, Q2:0, Q3:0, Q4:0 }; let rn = 0; const underdogit = [];
         P.forEach(p => { const rc = raeChip(p); if (rc.q) { Q[rc.q]++; rn++; } if (rc.underdog) underdogit.push(nimi(p)); });
-        if (rn) {
+        const _katRae = _kat(P, p => !!raeChip(p).q);   // D125: alle rajan ei prosentteja ("Q3 75 %" neljästä syntymäajasta 16:sta)
+        if (rn && !_katRae.riittava) _raeCardHtml = card(masterT('Syntymäkvartaali (RAE)') + _mSelBtn('rae'), '<div style="font-size:12px;color:var(--ink2)">' + masterT('mitattu {n}/{yht} · syntymäaikoja puuttuu — jakaumaa ei näytetä').replace('{n}', rn).replace('{yht}', P.length) + '</div>');
+        else if (rn) {
           const pctQ = q => Math.round(Q[q] / rn * 100);
           const COL = { Q1:'var(--amber)', Q2:'var(--ink3)', Q3:'var(--ink3)', Q4:'var(--teal)' };
           const palkit = ['Q1','Q2','Q3','Q4'].map(q =>
@@ -9832,7 +9850,7 @@ function renderSeason() {
     const grid = document.getElementById('seasonGrid');
     if (grid) {
       const suljetut = (_testitapahtumat||[]).filter(t => t.tila === 'suljettu').length;
-      const avoimet  = (_testitapahtumat||[]).filter(t => t.tila !== 'suljettu').length;
+      const avoimet  = window.TM_KOTI_LUVUT.avoimetTestit(_testitapahtumat, _joukkue).length;
       const xfN = P.filter(p => p.signaali === 'xfactor' || p.signaali === 'hidden').length;
       const sek = [P.length + masterT(' pelaajaa'), xfN + masterT(' signaalia'), suljetut + masterT(' testiä (') + avoimet + masterT(' avoinna)'), (_kirjaukset||[]).length + masterT(' kirjausta')];
       grid.style.display = 'block';
@@ -10027,7 +10045,7 @@ function renderKuorma() {
     rivit.forEach(function(r, i) {
       var on = (r.kuilu != null);
       var vari = on ? _kuormaVari(Math.abs(r.kuilu)) : 'var(--ink3)';
-      var pvmTxt = (r.pvm || '').slice(5);
+      var pvmTxt = tmPvmFiLyhyt(r.pvm) || (r.pvm || '');   // suomalainen muoto 20.9. (ei ISO "09-20")
       if (i === 0) {
         h += '<div style="background:var(--card);border:.5px solid var(--line2);border-left:3px solid ' + vari + ';border-radius:10px;padding:16px;margin-bottom:10px">'
           + '<div style="display:flex;justify-content:space-between;align-items:baseline"><div class="serif" style="font-size:16px;font-weight:400">' + _mEsc(r.nimi) + '</div><div class="muted" style="font-size:12px">' + pvmTxt + '</div></div>'
@@ -10102,9 +10120,8 @@ function renderCal() {
   monday.setDate(today.getDate() - dayOfWeek + (_calWkOffset * 7));
   const sunday = new Date(monday); sunday.setDate(monday.getDate() + 6);
 
-  // Viikkonumero
-  const jan4 = new Date(monday.getFullYear(), 0, 4);
-  const weekNum = Math.ceil(((monday - jan4) / 86400000 + jan4.getDay() + 1) / 7);
+  // Viikkonumero (ISO 8601, sama funktio kuin otsikossa)
+  const weekNum = window.TM_VIIKKO.tmIsoViikkoNro(monday);
 
   // Päivämäärät Ma-Su Date-olioina
   const dates = Array.from({length:7}, (_,i) => {
@@ -10117,7 +10134,6 @@ function renderCal() {
   const wkEl = document.getElementById('calWkLabel');
   if (wkEl) wkEl.textContent = masterT('Viikko ') + weekNum + ' · ' + monday.getDate() + '.–' + sunday.getDate() + '. ' + masterT(kk[sunday.getMonth()]);
   const subEl = document.getElementById('calWkSub');
-  const kausiVk = Math.ceil((monday - new Date(monday.getFullYear(), 7, 1)) / 604800000);
   if (subEl) subEl.textContent = masterT('Kausi ') + monday.getFullYear() + '/' + (monday.getFullYear()+1).toString().slice(-2) + masterT(' · Viikko ') + weekNum;
 
   const days = ['Ma','Ti','Ke','To','Pe','La','Su'];
