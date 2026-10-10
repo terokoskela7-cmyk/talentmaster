@@ -63,9 +63,9 @@ describe('Tällä viikolla · Jaksolla nyt · Odottaa jaksoa · oikea palsta', (
   it('Odottaa jaksoa -rivillä aina "Ehdota jaksot →" (mockup 33): sama kohde kuin Aloita jaksot -napilla (aj)', () => {
     ['pilotti', 'kuormitus'].forEach((t) => { const h = HTML(F.lataa(t, NYT)).h; expect(h).toMatch(/<button class="kk-lnk" type="button" onclick="aj\(\)">Ehdota jaksot →<\/button>/); expect(h).toMatch(/<button class="kt-btn" type="button" onclick="aj\(\)">Aloita jaksot<\/button>/); });
   });
-  it('D150: "Aloita tästä" -opas piilossa Käynnistys-vaiheessa; otsikkorivin "Näytä opas" -linkki palauttaa sen (VP: luokka vpk-hide-guide ws-koti:ssa)', () => {
+  it('D150: "Aloita tästä" -opas piilossa oletuksena kaikissa vaiheissa; vain sivun lopun "Näytä opas" -linkki palauttaa sen (VP: luokka vpk-hide-guide ws-koti:ssa)', () => {
     expect(teksti(HTML(F.lataa('pilotti', NYT)).h)).toContain('Näytä opas'); expect(HTML(F.lataa('pilotti', NYT)).h).toContain('onclick="op()"');
-    expect(KK.CSS).toContain("#ws-koti.vpk-hide-guide #vpAloitaKortti{display:none}"); expect(VP).toContain("classList.toggle('vpk-hide-guide', p)"); expect(VP).toContain('opasLuokka(kaynn && !window._vpKotiOpasNayta)');  expect(VP).toContain("opas: '_vpKotiOpas'");
+    expect(KK.CSS).toContain("#ws-koti.vpk-hide-guide #vpAloitaKortti{display:none}"); expect(VP).toContain("classList.toggle('vpk-hide-guide', p)"); expect(VP).toContain('opasLuokka(!window._vpKotiOpasNayta)');  expect(VP).toContain("opas: '_vpKotiOpas'");
   });
   it('oikea palsta: Tänään · Tulossa 14 päivää (+ testijakso vk 45–46), Avaa kalenteri →; ei lomatietoa (ei datalähdettä)', () => {
     const t = teksti(HTML(F.lataa('pilotti', NYT)).h); ['Tänään · ma 12.10.', '17.00 Harjoitus P9', 'Tulossa 14 päivää', 'to 15.10. Ottelu P10', 'Valmentajapalaveri', 'vk 45–46 Testijakso', 'Avaa kalenteri →'].forEach((x) => expect(t, x).toContain(x));
