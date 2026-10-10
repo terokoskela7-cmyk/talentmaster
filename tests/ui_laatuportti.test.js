@@ -55,9 +55,11 @@ describe('D169 · fonttiasteikko ja tokenit', () => {
 
 describe('D147 · yksi täytetty nappi per näkymä (ratchet → 1)', () => {
   const taytetyt = (h) => (h.match(/class="kt-btn(?:\s[^"]*)?"/g) || []).filter((c) => !/\s(q|g)(\s|")/.test(c) && !/\bsm\b/.test(c) || /kt-btn"/.test(c)).length;
-  const RAJA = { koti: 4, tilanne: 3 };   // nykytila (vanha rakenne); PR B/D → koti 1, PR C → tilanne 1
-  it.each(KAIKKI)('%s: täytettyjä .kt-btn ≤ raja', (nimi, t, n, h) => { expect(taytetyt(h), nimi).toBeLessThanOrEqual(RAJA[n]); });
-  it('raja on tiukka: jossain tilassa saavutetaan (muuten laske rajaa)', () => { ['koti', 'tilanne'].forEach((n) => expect(Math.max(...F.TILAT.map((t) => taytetyt(RENDER[t][n]))), n).toBe(RAJA[n])); });
+  /* Koti: Käynnistys-vaihe (PR B) on jo tavoitteessa (1); Rytmi-vaihe (PR D) vanhalla rakenteella → raja 2. Tilanne: PR C → 1. */
+  const KAYNNISTYS = ['tyhja', 'pilotti', 'kuormitus'], RAJA = { koti: 2, tilanne: 3 };
+  it.each(KAIKKI)('%s: täytettyjä .kt-btn ≤ raja', (nimi, t, n, h) => { expect(taytetyt(h), nimi).toBeLessThanOrEqual(n === 'koti' && KAYNNISTYS.includes(t) ? 1 : RAJA[n]); });
+  it('Kodin Käynnistys-vaihe: täsmälleen yksi täytetty nappi jokaisessa tilassa', () => { KAYNNISTYS.forEach((t) => expect(taytetyt(RENDER[t].koti), t).toBe(1)); });
+  it('raja on tiukka: jossain tilassa saavutetaan (muuten laske rajaa)', () => { expect(Math.max(...F.TILAT.filter((t) => !KAYNNISTYS.includes(t)).map((t) => taytetyt(RENDER[t].koti))), 'koti (Rytmi)').toBe(RAJA.koti); expect(Math.max(...F.TILAT.map((t) => taytetyt(RENDER[t].tilanne))), 'tilanne').toBe(RAJA.tilanne); });
   it('tyhjässä tilassa korkeintaan yksi täytetty nappi (tavoite jo nyt)', () => { expect(taytetyt(RENDER.tyhja.tilanne)).toBeLessThanOrEqual(1); expect(taytetyt(RENDER.tyhja.koti)).toBeLessThanOrEqual(1); });
 });
 
@@ -78,13 +80,14 @@ describe('D125 · prosentti vain otoksen kanssa', () => {
   it('tmProsenttiTeksti: nimittäjä 0 → "—"; alle PIENI (5) → "a/b"; muuten kokonaisluku-%', () => {
     expect(PU.tmProsenttiTeksti(0, 0)).toBe('—'); expect(PU.tmProsenttiTeksti(0, 16)).toBe('0 %'); expect(PU.tmProsenttiTeksti(1, 4)).toBe('1/4'); expect(PU.tmProsenttiTeksti(0, 4)).toBe('0/4'); expect(PU.tmProsenttiTeksti(3, 5)).toBe('60 %'); expect(PU.tmProsenttiTeksti(7, 9, { min: 10 })).toBe('7/9'); expect(PU.tmProsenttiTeksti(null, undefined)).toBe('—');
   });
-  it('tyhjä seura: Tilanteessa ei prosentteja; "0/0" -tekstit ovat nimetty tilapäinen (ratchet: Tilanne ≤ 3 → PR C, Koti ≤ 3 → PR B)', () => {
+  it('tyhjä seura: Tilanteessa ei prosentteja; "0/0" -tekstit ovat nimetty tilapäinen (ratchet: Tilanne ≤ 3 → PR C, Koti 0 (PR B))', () => {
     const ti = teksti(RENDER.tyhja.tilanne); expect(ti).not.toMatch(/\d\s?%/); expect((ti.match(/\b0\/0\b/g) || []).length).toBeLessThanOrEqual(3);
-    expect((teksti(RENDER.tyhja.koti).match(/\b0\/0\b/g) || []).length).toBeLessThanOrEqual(3);
+    expect((teksti(RENDER.tyhja.koti).match(/\b0\/0\b/g) || []).length).toBe(0);
   });
-  it('"0 %" -esiintymät (ratchet, nykytila): pilotti ≤ 21, kypsä ≤ 1, kuormitus ≤ 37 → PR B/D vie nollaan kattavuusportilla', () => {
-    const nolla = (t) => (teksti(RENDER[t].koti).match(/(^|[^\d])0 %/g) || []).length; expect(nolla('pilotti')).toBeLessThanOrEqual(21); expect(nolla('kypsa')).toBeLessThanOrEqual(1); expect(nolla('kuormitus')).toBeLessThanOrEqual(37);
+  it('"0 %" -esiintymät Kodissa: Käynnistys-tilat 0 (PR B), Rytmi (kypsä) ≤ 1 → PR D vie nollaan kattavuusportilla', () => {
+    const nolla = (t) => (teksti(RENDER[t].koti).match(/(^|[^\d])0 %/g) || []).length; ['tyhja', 'pilotti', 'kuormitus'].forEach((t) => expect(nolla(t), t).toBe(0)); expect(nolla('kypsa')).toBeLessThanOrEqual(1);
   });
+  it('Käynnistys-vaiheen Kodissa ei 0 pelaajan joukkueita (§7.18)', () => { const p = F.lataa('pilotti', NYT), tyhjat = p.joukkueDocs.filter((j) => !p.pelaajat.some((x) => x.joukkueet[0] === j.id)).map((j) => j.nimi); expect(tyhjat).toHaveLength(2); tyhjat.forEach((n) => expect(RENDER.pilotti.koti, n).not.toContain(n)); expect(RENDER.pilotti.koti).not.toMatch(/>\s*(P18|T18)\s*</); });
 });
 
 describe('D168 · fixture-tilat', () => {
