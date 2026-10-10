@@ -205,7 +205,7 @@ describe('jaetut mockup 22 -komponentit (Design: ei kolmatta korttiversiota)', (
   });
   it('Design: vain olemassa olevat tokenit — ei hex-/rgb-värejä jaetussa eikä pulssin CSS:ssä', () => {
     [KT.CSS, P.CSS].forEach((c) => { expect(c).not.toMatch(/#[0-9a-fA-F]{3,8}\b/); expect(c).not.toMatch(/rgba?\(/); });
-    const luvut = (KT.CSS + P.CSS).match(/var\(--[a-z0-9-]+/g).map((x) => x.slice(6)), sallitut = new Set(['teal', 'amber', 'red', 'ink', 'ink2', 'ink3', 'bg', 'bg3', 'border', 'ov-2', 'ov-4', 'ov-5', 'font-serif', 'font-mono', 'font-sans', 'kt-serif', 'amber-dim', 'on-accent']);
+    const luvut = (KT.CSS + P.CSS).match(/var\(--[a-z0-9-]+/g).map((x) => x.slice(6)), sallitut = new Set(['teal', 'amber', 'red', 'ink', 'ink2', 'ink3', 'bg', 'bg3', 'border', 'ov-2', 'ov-4', 'ov-5', 'teal-brd', 'font-serif', 'font-mono', 'font-sans', 'kt-serif', 'amber-dim', 'on-accent']);
     expect([...new Set(luvut)].filter((x) => !sallitut.has(x))).toEqual([]);
   });
   it('mitat mockupista: yläotsikko DM Mono 11 px, otsikot Cormorant 24 px, taulukon teksti 13,5 px, otsikkosolut 11 px isoilla, kortti radius 6 · padding 12/14 · gap 8', () => {

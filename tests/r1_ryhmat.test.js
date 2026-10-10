@@ -120,7 +120,7 @@ function ymp({ rooli = 'vp', uid = 'vp-uid', kaada = false, ryhmat = [], demo = 
     _uid: uid, _seuraId: 'sibbo', _isDemoMode: demo, db, firebase: { auth: () => ({ currentUser: { getIdToken: async () => 't' } }), firestore: { FieldValue: { serverTimestamp: () => 'TS' } } }, TM_VIRHEKOODI: require('../lib/tm_virhekoodi.js'), toast: (t, k) => log.toast.push([t, k]), vpT: (x) => x, _jsvEsc: (s) => String(s == null ? '' : s), confirm: () => true,
     _pelaajat: PEL, _valmentajat: [{ id: 'vp-uid', nimi: 'Vera VP', rooli: 'vp' }, { id: 'mv-uid', nimi: 'Mikko MV', rooli: 'valmentaja' }], _valmentajatKaikki: [{ id: 'mv-uid', nimi: 'Mikko MV' }], _tmHenkiloNimi: (p) => 'Pelaaja ' + p.id };
   vm.createContext(sb);
-  const i = VP.indexOf('/* ═══ R1 — Seuran ryhmät'), j = VP.indexOf('function setWs(ws) {', i); vm.runInContext(VP.slice(i, j) + '\nthis.__ry=window;', sb);
+  const i = VP.indexOf('/* ═══ R1 — Seuran ryhmät'), j = VP.indexOf('function setWs(ws', i); vm.runInContext(VP.slice(i, j) + '\nthis.__ry=window;', sb);
   return { sb, log, els, w: sb.window };
 }
 describe('VP_v25 · Ryhmät-osio (vm)', () => {
@@ -158,7 +158,7 @@ describe('VP_v25 · Ryhmät-osio (vm)', () => {
 
 describe('Lähdetarkistukset', () => {
   it('Ryhmät ei ole Kenttä-lipun takana; nav + näkymä + lataus vain avattaessa; lib ladataan', () => {
-    const blokki = VP.slice(VP.indexOf('/* ═══ R1 — Seuran ryhmät'), VP.indexOf('function setWs(ws) {')); expect(blokki).not.toMatch(/_ktLippu|liput\.kentta|_vpLataaLiput/);
+    const blokki = VP.slice(VP.indexOf('/* ═══ R1 — Seuran ryhmät'), VP.indexOf('function setWs(ws')); expect(blokki).not.toMatch(/_ktLippu|liput\.kentta|_vpLataaLiput/);
     expect(VP).toContain('data-ws="ryhmat" onclick="setWs(\'ryhmat\')"'); expect(VP).toContain('id="ws-ryhmat"'); expect(VP).toContain("if (ws === 'ryhmat') { window._ryTila = null; _ryRender(); _ryLataa(); }"); expect(VP).toContain('<script src="lib/tm_ryhmat.js?v=2"></script>');
   });
   it('Rules v3.49: ryhmat-säännöt + kalenterin ryhmätapahtumapoikkeus + versio', () => {
