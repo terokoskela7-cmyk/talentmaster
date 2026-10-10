@@ -27,6 +27,27 @@ function smAika(testi, ika, sp, taso) {
   const r = NORMIT[testi][sp === 'M' ? 'pojat' : 'tytot'][Math.min(19, Math.max(10, ika))];
   return { 5: r[0], 4: r[1], 3: r[2], 2: r[3], 1: Math.round((r[3] + 0.5) * 100) / 100 }[taso];
 }
+/* H-H-fyysiset raakatulokset (PR 3): pelaajakohtaiset tasokuviot (1–5), arvot johdettu normirekisteristä testihetken iälle ja sukupuolelle (tm_fyysinen:n omalla funktiolla tarkistettuna).
+   PHV-tilat (mitattu `biologinenIka_viimeisin.phv_tila_koodi`) ikäryhmittäin: nuoret PRE/LAH/tuntematon, 13–15 LAH/PH/POST/tuntematon, 16+ POST/AN/tuntematon → §28-neutralointi ja "Kypsyys mittaamatta" näkyvät. */
+const FY = require('../../lib/tm_fyysinen.js'), HH_MAP = require('../../lib/tm_eerikkila_normit.js').HH_TESTI_MAP;
+const HH_KUVIOT = [{ lin10m: 3, lin30m: 3, cmj: 3, mas: 3, kasirata: 3 }, { lin10m: 2, lin30m: 1, cmj: 2, mas: 3, kasirata: 3 }, { lin30m: 2, cmj: 1, mas: 2, kasirata: 3 }, { lin10m: 3, lin30m: 3, cmj: 3, mas: 1, kasirata: 2 }, { lin30m: 3, cmj: 3, mas: 3, kasirata: 1 },
+  { lin10m: 2, lin30m: 2, cmj: 2, mas: 2, kasirata: 2 }, { lin30m: 4, cmj: 3, mas: 4, kasirata: 3 }, { lin10m: 1, lin30m: 2, cmj: 3, mas: 3, kasirata: 3 }, { lin30m: 3, cmj: 2, mas: 3, kasirata: 1, sm_juoksu: 2 }, { lin30m: 1, cmj: 1, mas: 2, kasirata: 3 }, { lin5m: 2, lin10m: 2, lin30m: 3, cmj: 4, mas: 3 }, { lin30m: 5, cmj: 4, mas: 4, kasirata: 4 }];
+const PHV_NUORI = [null, 'PRE', 'LAH', null, 'PRE', 'LAH'], PHV_KESKI = ['LAH', 'PH', null, 'POST', 'LAH', null, 'POST'], PHV_VANHA = ['POST', 'AN', null, 'AN', 'POST', null];
+function hhArvo(testi, ikaT, sp, taso) {
+  const m = HH_MAP[testi], norm = NORMIT[m.eerikkila], r = norm[sp === 'M' ? 'pojat' : 'tytot'][Math.min(19, Math.max(10, ikaT))], kmh = m.kmh ? 3.6 : 1;
+  const kand = [r[0], r[1], r[2], r[3]].concat(norm.pienempi_parempi ? [r[3] + 0.4, r[0] - 0.3] : [r[3] - 0.4, r[0] + 0.3]);
+  for (const k of kand) for (const d of [0, 0.001, -0.001, 0.003, -0.003]) { const v = Math.round((k + d) * kmh * 1000) / 1000; if (FY.tmFyysinenTaso(testi, v, ikaT, sp) === taso) return v; }
+  return null;
+}
+function fyysinenMittaus(p, j, i, nyt) {
+  const pvm = iso(nyt - j.hh.pvmSitten * DAY), ikaT = Number(pvm.slice(0, 4)) - p.syntymaVuosi; if (ikaT < 10) return;
+  const kuvio = HH_KUVIOT[(i + j.ika) % HH_KUVIOT.length], hh = {};
+  Object.keys(kuvio).forEach((t) => { const v = hhArvo(t, ikaT, p.sukupuoli, kuvio[t]); if (v != null) hh[t] = v; });
+  if (p.sm_juoksu_viimeisin != null) hh.sm_juoksu = p.sm_juoksu_viimeisin;   // SM-juoksu samasta H-H-patteristosta kuin tsi (jos SM-testit tehty)
+  p.hh_viimeisin = hh; p.hh_pvm = pvm; p.testipaivat = { fyysinen_hh: pvm };
+  const mix = j.ika <= 12 ? PHV_NUORI : j.ika <= 15 ? PHV_KESKI : PHV_VANHA, koodi = mix[(i * 2 + j.ika) % mix.length];
+  if (koodi) p.biologinenIka_viimeisin = { phv_tila_koodi: koodi, pvm: iso(nyt - 40 * DAY) };
+}
 function mittaukset(p, j, i, nyt) {
   const tkiPv = j.tki && j.ika >= 8 && j.ika <= 13 ? j.tki.pvmSitten : null, smPv = j.sm ? j.sm.pvmSitten : (j.tki && j.ika > 13 ? j.tki.pvmSitten : null);
   if (tkiPv != null) { p.tki_viimeisin = Math.max(0, Math.min(99, Math.round(j.tki.ka + TKI_POIKKEAMA[i % TKI_POIKKEAMA.length]))); p.tki_pvm = iso(nyt - tkiPv * DAY); }
@@ -34,9 +55,10 @@ function mittaukset(p, j, i, nyt) {
     const pvm = iso(nyt - smPv * DAY), ikaT = Number(pvm.slice(0, 4)) - p.syntymaVuosi, sp = p.sukupuoli, t = SM_TASOPARIT[i % SM_TASOPARIT.length];
     if (ikaT >= 10) {
       p.sm_pallo_viimeisin = smAika('sm_pallo', ikaT, sp, t[0]); p.sm_juoksu_viimeisin = smAika('sm_juoksu', ikaT, sp, t[1]);
-      p.tsi_viimeisin = Math.round((p.sm_pallo_viimeisin - p.sm_juoksu_viimeisin) * 100) / 100; p.tsi_pvm = pvm; p.hh_pvm = pvm;
+      p.tsi_viimeisin = Math.round((p.sm_pallo_viimeisin - p.sm_juoksu_viimeisin) * 100) / 100; p.tsi_pvm = pvm; if (!j.hh) p.hh_pvm = pvm;
     }
   }
+  if (j.hh) fyysinenMittaus(p, j, i, nyt);   // viimeisenä: hh_viimeisin sisältää myös SM-juoksun, hh_pvm/testipaivat.fyysinen_hh = patteriston päivä
 }
 
 function lataa(tila, nytMs) {
@@ -73,8 +95,10 @@ function lataa(tila, nytMs) {
   /* Tekniikka kehityskohteena (PR 2): YKSI määritelmä lib/tm_tekniikka.js — sama tulos Tilanteelle, Kodille ja (testeissä) ehdotukselle */
   const TK = require('../../lib/tm_tekniikka.js'), tekniikkaRivit = joukkueDocs.map((jd) => Object.assign({ nimi: jd.nimi }, TK.tmJoukkueTekniikka(pelaajat, joukkueDocs, jd.id, nyt))).filter((r) => r.yht > 0), tekniikka = TK.tmTekniikkaYhteenveto(pelaajat, joukkueDocs, nyt);
   /* Ehdotus tki_alhainen = SAMA funktio kuin huomio (PR 2): joukkueet = ne, joiden tekniikka on kehityskohteena. Muut ehdotukset speksistä sellaisenaan. */
+  const fyysinenRivit = joukkueDocs.map((jd) => Object.assign({ nimi: jd.nimi }, FY.tmJoukkueFyysinen(pelaajat, joukkueDocs, jd.id, nyt))).filter((r) => r.yht > 0), fyysinen = FY.tmFyysinenYhteenveto(pelaajat, joukkueDocs, nyt);
+  const fyKehit = new Set(fyysinenRivit.filter((r) => r.luokka === 'kehityskohde').map((r) => r.joukkueId));
   const tekKehit = new Set(tekniikkaRivit.filter((r) => r.luokka === 'kehityskohde').map((r) => r.joukkueId));
-  const ehdSpec = s.ehdotukset.map((e) => (e.signaali === 'tki_alhainen' ? Object.assign({}, e, { joukkueet: J.map((j, i) => (tekKehit.has(j.id) ? i : -1)).filter((i) => i >= 0) }) : e)).filter((e) => e.joukkueet.length > 0);
+  const ehdSpec = s.ehdotukset.map((e) => (e.signaali === 'tki_alhainen' ? Object.assign({}, e, { joukkueet: J.map((j, i) => (tekKehit.has(j.id) ? i : -1)).filter((i) => i >= 0) }) : e.signaali === 'hh_taso_alhainen' ? Object.assign({}, e, { joukkueet: J.map((j, i) => (fyKehit.has(j.id) ? i : -1)).filter((i) => i >= 0) }) : e)).filter((e) => e.joukkueet.length > 0);   // tki_alhainen ja hh_taso_alhainen johdetaan samoista funktioista kuin huomiot
   const toimenpiteet = []; ehdSpec.forEach((e, k) => e.joukkueet.forEach((ji) => toimenpiteet.push({ id: 'e' + k + '_' + ji, signaali: e.signaali, teksti: J[ji].nimi + ' — ' + TEKSTIT[e.signaali], joukkue: J[ji].nimi, luotu: { seconds: (nyt - e.ikaPv * DAY) / 1000 } })));
   /* Tilanne-syöte (tmTilanneMalli) */
   const aktJ = J.filter((j) => j.n > 0).sort((a, b) => a.ika - b.ika || a.nimi.localeCompare(b.nimi));
@@ -84,12 +108,12 @@ function lataa(tila, nytMs) {
   const ehdotukset = ehdSpec.map((e) => ({ joukkueet: e.joukkueet.map((ji) => J[ji].nimi), ids: e.joukkueet.map((ji) => 'e' + ehdSpec.indexOf(e) + '_' + ji), teksti: tunnisteLista(e.joukkueet.map((ji) => J[ji].nimi)) + ' — ' + TEKSTIT[e.signaali], luotu: { seconds: (nyt - e.ikaPv * DAY) / 1000 }, signaali: e.signaali }));
   const njakso = joukkueet.filter((j) => j.voimassa).length;
   const syote = { nytMs: nyt, joukkueet, seura: { njakso, joukkueita: joukkueet.length }, katselmusKausi: s.katsKausi, mitattu, kausiAlkuMs: Date.UTC(vuosi, 7, 1), testijakso: joukkueet.length ? { a0: idx + 4, a1: idx + 5, nimi: 'Testijakso' } : null,
-    palaveri: s.palaveriPv != null && joukkueet.length ? { ms: nyt + s.palaveriPv * DAY, id: 'jp1' } : null, poikkeamat, tekniikka: tekniikkaRivit, ehdotukset, idpN: s.idpN, talentit: s.talentit,
+    palaveri: s.palaveriPv != null && joukkueet.length ? { ms: nyt + s.palaveriPv * DAY, id: 'jp1' } : null, poikkeamat, tekniikka: tekniikkaRivit, fyysinen: fyysinenRivit, fyysinenYht: { kypsyysMittaamatta: fyysinen.kypsyysMittaamatta, neutraaleja: fyysinen.neutraaleja }, ehdotukset, idpN: s.idpN, talentit: s.talentit,
     rae: pelaajat.length ? { n: s.raeN != null ? s.raeN : Math.round(pelaajat.length * .9), yht: pelaajat.length, riittava: (s.raeN != null ? s.raeN : pelaajat.length * .9) >= 30, pct: { Q1: 38, Q2: 28, Q3: 20, Q4: 14 }, signaali: null } : null,
     d1: joukkueet.length ? { riittava: s.d1Joukkueita * 3 >= joukkueet.length * 2, joukkueN: s.d1Joukkueita, joukkueYht: joukkueet.length } : null };
   const jaksoVk = {}; J.forEach((j) => { if (j.jakso && j.jakso.alkuVkSitten + 1 <= j.jakso.N) jaksoVk[j.id] = { vk: j.jakso.alkuVkSitten + 1, N: j.jakso.N }; });
   const viestit = (s.viestit || []).map((v, i) => ({ id: 'v' + i, osapuoli: 'valm' + i, nimi: lyhyt(J[v.joukkue].nimi), teksti: v.teksti, ms: nyt - v.hSitten * HR, lukematon: true, saapunut: true }));
-  return { nyt, spec: s, jaksoVk, viestit, koosteet, ensin: vkSitten(s.ensinVkSitten), pelaajat, joukkueDocs, nimet, kalenteri, tapahtumat, toimenpiteet, syote, tekniikka };
+  return { nyt, spec: s, jaksoVk, viestit, koosteet, ensin: vkSitten(s.ensinVkSitten), pelaajat, joukkueDocs, nimet, kalenteri, tapahtumat, toimenpiteet, syote, tekniikka, fyysinen };
 }
 
 /* Kodin render lib-tasolla (VP:n _renderKotiPulssi, ilman DOM:ia): vaihe lasketaan (D164) → Käynnistys tai Rytmi (lib/tm_vp_koti.js). Palauttaa main + rail -HTML:n yhtenä merkkijonona. o.kieli = valittu kieli (viikonpäivälyhenteet), o.t = käännösfunktio, o.viestit/o.auki. */
@@ -98,7 +122,7 @@ function kotiHTML(d, o) {
   const KO = require('../../lib/tm_vp_koti.js'), viim = d.koosteet[d.koosteet.length - 1] || {};
   const m = PU.tmPulssiRivit(d.koosteet, { nytMs: d.nyt, ensimmainenVk: d.ensin, katselmusPv: {}, jaksoVk: d.jaksoVk, kuittaukset: [] });
   const kal = d.kalenteri.map((e) => ({ nimi: e.nimi, alkaa: e.alkaa, tyyppi: e.tyyppi, joukkue: e.joukkue, joukkueet: e.joukkueet, joukkue_nimi: e.joukkue_nimi })), vaihe = KO.tmKotiVaihe(m);
-  const env = { yhteensa: viim.yhteensa, koosteJ: viim.joukkueet, testit: d.tapahtumat, nimet: d.nimet, kalenteri: kal, viestit: o.viestit || d.viestit, nytMs: d.nyt, seuraNimi: o.seuraNimi || 'Demo FC', tekniikka: d.tekniikka };
+  const env = { yhteensa: viim.yhteensa, koosteJ: viim.joukkueet, testit: d.tapahtumat, nimet: d.nimet, kalenteri: kal, viestit: o.viestit || d.viestit, nytMs: d.nyt, seuraNimi: o.seuraNimi || 'Demo FC', tekniikka: d.tekniikka, fyysinen: d.fyysinen };
   const op = Object.assign({ t, esc, kieli: o.kieli, auki: o.auki, pika: [{ teksti: 'Arvioi harjoitus', fn: 'a' }, { teksti: 'Kirjaa mentorointi', fn: 'b' }, { teksti: 'Uusi tapahtuma', fn: 'c' }], fn: { aloitaJaksot: 'aj', kutsu: 'ku', testit: 'te', joukkue: 'j', viesti: 'vi', tilanne: 'ti', kalenteri: 'ka', paivita: 'pa', demo: 'de', tuo: 'tu', auki: 'au', opas: 'op', kuittaa: 'kt', valmentaja: 'va' } });
   const r = vaihe === 'kaynnistys' ? KO.tmKotiKaynnistysHTML(KO.tmKotiKaynnistysMalli(m, env), op) : KO.tmKotiRytmiHTML(KO.tmKotiRytmiMalli(m, env), op);
   return r.main + r.rail;

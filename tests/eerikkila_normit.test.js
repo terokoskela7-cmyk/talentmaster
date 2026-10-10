@@ -404,12 +404,9 @@ describe('laskeJoukkuePoikkeamat (POIKKEUSKEHYS_SPEC)', () => {
     const r = laskeJoukkuePoikkeamat(team, 14, 'M');
     expect(r.some(x => x.tyyppi === 'hajonta')).toBe(true);
   });
-  it('talenttiydin ka <3.0 → punainen', () => {
+  it('PR 3: Kärkipelaajat (talenttiydin) -huomio on poistettu — matala kärkikeskiarvo ei tuota poikkeamaa', () => {
     const team = [{ hh_taso: 2.8 }, { hh_taso: 2.5 }, { hh_taso: 2.2 }, { hh_taso: 2.0 }, { hh_taso: 1.8 }];
-    const ydin = laskeJoukkuePoikkeamat(team, 14, 'M').find(x => x.tyyppi === 'talenttiydin');
-    expect(ydin).toBeTruthy();
-    expect(ydin.vakavuus).toBe('punainen');
-    expect(ydin.arvo).toBeLessThan(3.0);
+    expect(laskeJoukkuePoikkeamat(team, 14, 'M').find(x => x.tyyppi === 'talenttiydin')).toBeUndefined();
   });
   it('PHV-caveat: post-PHV-ominaisuus + ika≤13 → ikavaiheOdotettu & ei punainen', () => {
     const team = [{ hh_viimeisin: { mas: 8 } }, { hh_viimeisin: { mas: 8.5 } }];

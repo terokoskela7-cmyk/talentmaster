@@ -37,9 +37,11 @@
 
 <script src="lib/tm_phv_tila.js?v=2"></script>   <!-- PR C: PHV-tilan YKSI lukusääntö (Mirwald, vain mittauslähteestä) -->
 <script src="lib/tm_viikko.js?v=1"></script>   <!-- YKSI ISO 8601 -viikkolasku (D140) — ENNEN viikkoa käyttäviä kirjastoja -->
-<script src="lib/tm_eerikkila_normit.js?v=50"></script>   <!-- v43: D2-kortti d2_taso-ensin (renderKehityskorttiHTML, PR #264 · §30/#262) -->
+<script src="lib/tm_eerikkila_normit.js?v=51"></script>   <!-- v43: D2-kortti d2_taso-ensin (renderKehityskorttiHTML, PR #264 · §30/#262) -->
 <script src="lib/tm_historia.js?v=2"></script>
-<script src="lib/tm_tekniikka.js?v=1"></script>   <!-- PR 2: YKSI tekniikka-määritelmä (TKI → SM-tasot; docs/TEKNIIKKA_MAARITELMA.md) — huomio, ehdotus, Tilanne, Koti -->
+<script src="lib/tm_joukkuesaanto.js?v=1"></script>   <!-- PR 3: YKSI joukkuesääntö (tekniikka + fyysinen) -->
+<script src="lib/tm_tekniikka.js?v=2"></script>   <!-- PR 2: YKSI tekniikka-määritelmä (TKI → SM-tasot; docs/TEKNIIKKA_MAARITELMA.md) — huomio, ehdotus, Tilanne, Koti -->
+<script src="lib/tm_fyysinen.js?v=1"></script>   <!-- PR 3: YKSI fyysisen heikkouden määritelmä (H-H-fyysiset tasot, §28; docs/KARKI_JA_YKSILOLLINEN_KARTOITUS.md) -->
 <script src="lib/tm_mittarit.js?v=7"></script>   <!-- Kehitystilanne v0: mittarikirjasto; myös HIDDEN_GEM_FLEI + laskeD2Taso + laskeHiddenGem (siirretty VP:stä) -->
 <script src="lib/tm_pelihavainto_valinta.js?v=1"></script>   <!-- §7: YKSI sisäänkäynti pelihavaintoon (jaettu, ei kopioita) -->
 <script src="lib/tm_arviointi_historia.js?v=2"></script>   <!-- H1: arviointikerrat (append-only) + tmKausi + kooste; PURE, ks. lib-header -->          <!-- P2.1: hh_historia/tki_historia Pikakirjauksessa (tmHhSnapshot/tmTkiSnapshot/tmHistoriaLisaa) -->
@@ -122,7 +124,7 @@ window.TM_KAAVIO_HOST = {
 <script src="lib/tm_seuran_kooste.js?v=3"></script>   <!-- S1.1: tmKoosteTrendi (viikkokooste v2) -->
 <script src="lib/tm_koti_luvut.js?v=2"></script>   <!-- P0-luvut (audit 24 §6): YKSI laskuri/kartoitus/suostumus/kattavuusportti/§28-portti — Koti + Tilanne kutsuvat tätä -->
 <script src="lib/tm_seuran_pulssi.js?v=4"></script>
-<script src="lib/tm_vp_koti.js?v=8"></script>   <!-- PR B (D164–D167): Koti vaiheittain — Käynnistys; malli + HTML libissä -->   <!-- S2: Koti = Seuran pulssi (docs/CODE_BRIEF_S2_KOTI.md) — rivimalli + HTML libissä, kuoreen vain kytkentä -->
+<script src="lib/tm_vp_koti.js?v=9"></script>   <!-- PR B (D164–D167): Koti vaiheittain — Käynnistys; malli + HTML libissä -->   <!-- S2: Koti = Seuran pulssi (docs/CODE_BRIEF_S2_KOTI.md) — rivimalli + HTML libissä, kuoreen vain kytkentä -->
 <script src="lib/tm_kayttoaste.js?v=2"></script>   <!-- S1.1: "Sovelluksen käyttö" -kortti (Koti) — renderöinti libissä, ei kuoressa -->
 <script src="lib/tm_sitoumus.js?v=1"></script>   <!-- Kehitystyöpöytä 22 · A1: sitoumus, yksi sääntö -->
 <script src="lib/tm_aloita_jakso.js?v=12"></script>
@@ -145,7 +147,7 @@ window.TM_KAAVIO_HOST = {
 <script src="lib/tm_tanaan_kentta.js?v=3"></script>   <!-- V4a: tmTanaanOsat (Tänään-osat sanoin) -->
 <script src="lib/tm_hash_reititin.js?v=1"></script>   <!-- V4a: #pelaaja/{pid}/… -reititin (vain lipulla) -->
 <script src="lib/tm_vp_navi.js?v=3"></script>   <!-- S2c PR 2: navigaatio v3 (D135) + Viestit v0 — rakenne ja reitit libissä -->
-<script src="lib/tm_vp_tilanne.js?v=8"></script>   <!-- S2c PR 1: Tilanne = kausi (D123) — malli + HTML libissä -->
+<script src="lib/tm_vp_tilanne.js?v=9"></script>   <!-- S2c PR 1: Tilanne = kausi (D123) — malli + HTML libissä -->
 <script src="lib/tm_kt_komponentit.js?v=3"></script>   <!-- mockup 22 jaetut komponentit (.kt-sig, .kt-btn, .kt-eb, .kt-q3, .kt-ev) — YKSI CSS-paikka (Kehitystyöpöytä + Seuran pulssi) -->
 <script src="lib/tm_kehitystyopoyta.js?v=13"></script>   <!-- V4a: Kehitystyöpöytä V4 -kehys -->
 <script src="lib/tm_kehityssilmukka.js?v=2"></script>   <!-- R6.2a: katselmus yhteen paikkaan (tmKirjaaKatselmus) + jaksofokuksen kirjoitusydin -->
@@ -21435,13 +21437,20 @@ function _vpTekniikkaYhteenveto() {
     return window.TM_TEKNIIKKA.tmTekniikkaYhteenveto(_pelaajat, typeof _vpJoukkueDocs === 'undefined' ? [] : (_vpJoukkueDocs || []), Date.now());
   } catch (e) { return null; }
 }
+/* Fyysiset testit kehityskohteena (PR 3): YKSI määritelmä lib/tm_fyysinen.js; Kodin pulssi näyttää vain lukumäärän ja linkin Tilanteeseen. Ei pelaajia → null. */
+function _vpFyysinenYhteenveto() {
+  try {
+    if (!window.TM_FYSINEN || typeof _pelaajat === 'undefined' || !(_pelaajat && _pelaajat.length)) return null;
+    return window.TM_FYSINEN.tmFyysinenYhteenveto(_pelaajat, typeof _vpJoukkueDocs === 'undefined' ? [] : (_vpJoukkueDocs || []), Date.now());
+  } catch (e) { return null; }
+}
 function _renderKotiPulssi(el) {
   const T = window.TM_SEURAN_PULSSI, S = window._vpPulssi = window._vpPulssi || {};
   const piirra = function () {   // PR B + D: Koti vaiheittain (D164) — Käynnistys tai Rytmi lib/tm_vp_koti.js:stä; kuoressa vain kytkentä
     const nyt = Date.now(), KK = window.TM_VP_KOTI, demo = !!(KK && window._vpKotiDemo === _seuraId), D = demo ? KK.tmKotiDemo(nyt) : null, ks = demo ? D.koosteet : S.koosteet, viim = ks[ks.length - 1] || {}, kal = ((demo ? D.kalenteri : _kalenteriTapahtumat) || []).map(function (e) { return { nimi: e.nimi, alkaa: e.alkaa, tyyppi: e.tyyppi, joukkue: e.joukkue, joukkueet: e.joukkueet, joukkue_nimi: e.joukkue_nimi }; });   // D167: esimerkkiseura vain muistissa
     const opasLuokka = function (p) { const w = document.getElementById('ws-koti'); if (w && w.classList) { w.classList.add('kk-uusi'); w.classList.toggle('vpk-hide-guide', p); } };   // D150
     const m = T.tmPulssiRivit(ks, { nytMs: nyt, ensimmainenVk: demo ? D.ensin : S.ensin, katselmusPv: demo ? {} : _vpKatselmusPv(), jaksoVk: demo ? {} : _vpJaksoVk(), kuittaukset: demo ? [] : S.kuittaukset || [] }), vaihe = KK.tmKotiVaihe(m);
-    const env = { tekniikka: demo ? null : _vpTekniikkaYhteenveto(), yhteensa: viim.yhteensa, koosteJ: viim.joukkueet, testit: demo ? [] : _tapahtumat, nimet: demo ? {} : _joukkueNimet, kalenteri: kal, viestit: demo ? [] : (_vpViestit.rivit || []).filter(function (r) { return r.lukematon && r.saapunut; }), nytMs: nyt, seuraNimi: demo ? D.seuranNimi : (document.getElementById('tbSeura') || {}).textContent };
+    const env = { tekniikka: demo ? null : _vpTekniikkaYhteenveto(), fyysinen: demo ? null : _vpFyysinenYhteenveto(), yhteensa: viim.yhteensa, koosteJ: viim.joukkueet, testit: demo ? [] : _tapahtumat, nimet: demo ? {} : _joukkueNimet, kalenteri: kal, viestit: demo ? [] : (_vpViestit.rivit || []).filter(function (r) { return r.lukematon && r.saapunut; }), nytMs: nyt, seuraNimi: demo ? D.seuranNimi : (document.getElementById('tbSeura') || {}).textContent };
     const op = { t: vpT, esc: _jsvEsc, kieli: typeof tmNykyinenKieli === 'function' ? tmNykyinenKieli() : 'fi', pika: demo || !window.TM_VP_NAVI ? null : window.TM_VP_NAVI.tmNaviPikatoiminnot(), auki: window._vpKotiAuki,
       fn: demo ? {} : { aloitaJaksot: '_vpKotiAloitaJaksot', kutsu: '_vpKotiKutsu', testit: 'avaaUusiTestiModaali', joukkue: 'avaaJoukkueSyvanakyma', viesti: '_vpViestiAvaa', tilanne: '_vpPulssiTilanne', kalenteri: '_vpKotiKalenteri', paivita: '_vpPulssiPaivita', demo: '_vpKotiDemoVaihda', tuo: '_vpKotiTuo', auki: '_vpKotiAukiVaihda', opas: '_vpKotiOpas', kuittaa: '_vpPulssiKuittaa', valmentaja: '_vpPulssiValmentajat' } };
     const kaynn = vaihe === 'kaynnistys' && !demo, r = kaynn ? KK.tmKotiKaynnistysHTML(KK.tmKotiKaynnistysMalli(m, env), op) : KK.tmKotiRytmiHTML(KK.tmKotiRytmiMalli(m, env), op);
@@ -22697,10 +22706,12 @@ function renderPoikkeamat() {
     /* §28-PORTTI (lib poikkeamaPortti → tm_idp.js idpKypsyysEstetty + tmPhvTila): fyysisen heikkouden ei anneta nousta poikkeamaksi, kun kypsyysvaihe
        ei salli tulkintaa enemmistöllä jäsenistä (info, "N/Y kypsyysvaihe ei salli tulkintaa"); arvo 1,0 = eerikkilaTaso():n asteikon ALARAJA → "tarkista mittaus". */
     window.TM_KOTI_LUVUT.poikkeamaPortti(laskeJoukkuePoikkeamat(joukkueet[nimi], isp.ika, (isp.sp === 'T') ? 'N' : 'M'), joukkueet[nimi]).forEach(function(x){
-      if (x.osaAlue === 'tekniikka') return;   // PR 2: tekniikka tulee lib/tm_tekniikka.js:stä (alla), ei D2-keskiarvosta
+      if (x.osaAlue === 'tekniikka' || x.tyyppi === 'talenttiydin' || (x.tyyppi === 'alle_normin' && !x.alaraja)) return;   // PR 2–3: tekniikka (tm_tekniikka) ja fyysinen kehityskohde (tm_fyysinen) tulevat libeistä (alla); Kärkipelaajat poistettu; alaraja/profiili/laskeva/hajonta ennallaan
       flat.push({ joukkue:nimi, tyyppi:x.tyyppi, osaAlue:x.osaAlue, vakavuus:x.vakavuus, arvo:x.arvo, teema:x.teema, ikavaiheOdotettu:x.ikavaiheOdotettu, alaraja:x.alaraja, kypsyysEstetty:x.kypsyysEstetty });
     });
     const _tk = window.TM_TEKNIIKKA ? window.TM_TEKNIIKKA.tmTekniikkaJoukkueLuokka(joukkueet[nimi], Date.now(), { joukkueNimi: nimi }) : null;
+    const _fk = window.TM_FYSINEN ? window.TM_FYSINEN.tmFyysinenJoukkueLuokka(joukkueet[nimi], Date.now(), { joukkueNimi: nimi }) : null;
+    if (_fk && _fk.luokka === 'kehityskohde') flat.push({ joukkue:nimi, tyyppi:'fyysinen_kehityskohde', osaAlue:'fyysinen', vakavuus:'amber', arvo:null, teema: vpT('Fyysiset testit kehityskohteena'), ikavaiheOdotettu:false, alaraja:false, kypsyysEstetty:null });
     if (_tk && _tk.luokka === 'kehityskohde') flat.push({ joukkue:nimi, tyyppi:'tekniikka_kehityskohde', osaAlue:'tekniikka', vakavuus:'amber', arvo:null, teema: vpT('Tekniikka kehityskohteena') + ' — ' + vpT(_tk.syy === 'pallo_hidastaa' ? 'pallo hidastaa suunnanmuutoksissa' : 'alle ikätason'), ikavaiheOdotettu:false, alaraja:false, kypsyysEstetty:null });
   });
   if (!flat.length) {
@@ -22712,10 +22723,10 @@ function renderPoikkeamat() {
     const on = OSANIMI[osaAlue] || '', hj = HARJ[osaAlue] ? ('→ ' + HARJ[osaAlue]) : '';
     if (tyyppi === 'alle_normin')       return { nimi: on + ' ' + vpT('alle normin'), harj: hj };
     if (tyyppi === 'tekniikka_kehityskohde') return { nimi: vpT('Tekniikka kehityskohteena'), harj: '→ ' + vpT('tekniikkateema') };
+    if (tyyppi === 'fyysinen_kehityskohde') return { nimi: vpT('Fyysiset testit kehityskohteena'), harj: '→ ' + vpT('yksilöllinen ohjelma') };
     if (tyyppi === 'profiilipoikkeama') return { nimi: on + ' ' + vpT('jää jälkeen'), harj: hj };
     if (tyyppi === 'laskeva')           return { nimi: vpT('Taso laskussa'), harj: '→ ' + vpT('tarkista kuormitus/motivaatio') };
     if (tyyppi === 'hajonta')           return { nimi: vpT('Sisäinen hajonta'), harj: '→ ' + vpT('jakautunut joukkue') };
-    if (tyyppi === 'talenttiydin')      return { nimi: vpT('Talenttiydin alle normin'), harj: '→ ' + vpT('talent-ID-huoli') };
     if (tyyppi === 'kattavuus')         return { nimi: vpT('Datapuute'), harj: '→ ' + vpT('ei voi arvioida') };
     return { nimi: tyyppi, harj: '' };
   };
@@ -22860,8 +22871,10 @@ function renderTeamPulse() {
     let _statusHtml = '';
     if (typeof laskeJoukkuePoikkeamat === 'function') {
       const _isp = _jsvJoukkueIkaSp(nimi);
-      const _pk = laskeJoukkuePoikkeamat(pelaajat, _isp.ika, (_isp.sp === 'T') ? 'N' : 'M').filter(function(w){ return w.osaAlue !== 'tekniikka'; });   // PR 2: tekniikka lib/tm_tekniikka.js:stä
+      const _pk = laskeJoukkuePoikkeamat(pelaajat, _isp.ika, (_isp.sp === 'T') ? 'N' : 'M').filter(function(w){ return w.osaAlue !== 'tekniikka' && w.tyyppi !== 'talenttiydin' && !(w.tyyppi === 'alle_normin' && !w.alaraja); });   // PR 2–3: tekniikka (tm_tekniikka) ja fyysinen kehityskohde (tm_fyysinen) libeistä; Kärkipelaajat poistettu
       const _tkj = window.TM_TEKNIIKKA ? window.TM_TEKNIIKKA.tmTekniikkaJoukkueLuokka(pelaajat, Date.now(), { joukkueNimi: nimi }) : null;
+      const _fkj = window.TM_FYSINEN ? window.TM_FYSINEN.tmFyysinenJoukkueLuokka(pelaajat, Date.now(), { joukkueNimi: nimi }) : null;
+      if (_fkj && _fkj.luokka === 'kehityskohde') { const _ij = _pk.findIndex(function(w){ return w.vakavuus === 'info'; }); _pk.splice(_ij < 0 ? _pk.length : _ij, 0, { tyyppi: 'fyysinen_kehityskohde', osaAlue: 'fyysinen', vakavuus: 'amber', ikavaiheOdotettu: false }); }
       if (_tkj && _tkj.luokka === 'kehityskohde') { const _ii = _pk.findIndex(function(w){ return w.vakavuus === 'info'; }); _pk.splice(_ii < 0 ? _pk.length : _ii, 0, { tyyppi: 'tekniikka_kehityskohde', osaAlue: 'tekniikka', vakavuus: 'amber', ikavaiheOdotettu: false }); }
       const _aito = _pk.filter(function(w){ return !w.ikavaiheOdotettu; });   // §28: odotettu ≠ hälytys
       if (_aito.length) {
@@ -22875,7 +22888,8 @@ function renderTeamPulse() {
                     : _w.tyyppi === 'hajonta' ? vpT('Sisäinen hajonta')
                     : _w.tyyppi === 'profiilipoikkeama' ? vpT('{osa} jää jälkeen').replace('{osa}', _lbl)
                     : _w.tyyppi === 'tekniikka_kehityskohde' ? vpT('Tekniikka kehityskohteena')
-                    : _w.tyyppi === 'talenttiydin' ? vpT('Talenttiydin alle normin') : vpT('Huomio');
+                    : _w.tyyppi === 'fyysinen_kehityskohde' ? vpT('Fyysiset testit kehityskohteena')
+                    : vpT('Huomio');
         _statusHtml = '<div class="jk-status" style="color:' + _vari + '">' + _piste + ' <span>' + _sana + '</span></div>';
       }
     }
@@ -22994,10 +23008,12 @@ async function tallennaToimenpide(seuraId, d) {
 
 // Automaattiset signaalit (joukkue, kaikki pelaajat) → {joukkue, signaali, teksti} tai null
 const TP_SIGNAALIT = [
+  /* TUNNISTE `hh_taso_alhainen` SÄILYY (historia, dedup D134, sv-käännökset), mutta se kattaa nyt KOKO fyysisen ketjun = "fyysiset testit kehityskohteena"
+     (lib/tm_fyysinen.js: raakatulokset, normiIka, §28; docs/KARKI_JA_YKSILOLLINEN_KARTOITUS.md). YKSI määritelmä: sama funktio kuin Tilanteen huomio — älä lisää tähän omaa mittaria tai rajaa. */
   { id: 'hh_taso_alhainen', tarkista: function(j, pp){
-      const a = pp.filter(function(p){ return _pOnJoukkueessa(p, j) && p.hh_taso != null && p.hh_taso < 2.5; });
-      return a.length >= 2 ? { joukkue: j, signaali: 'hh_taso_alhainen',
-        teksti: j + ' — ' + a.length + ' pelaajaa alle Eerikkilä-tason (H-H < 2.5). Aloita yksilöllinen harjoitusohjelma.' } : null;
+      const r = window.TM_FYSINEN ? window.TM_FYSINEN.tmFyysinenJoukkueLuokka(pp.filter(function(p){ return _pOnJoukkueessa(p, j); }), Date.now(), { joukkueNimi: j }) : null;
+      return (r && r.luokka === 'kehityskohde') ? { joukkue: j, signaali: 'hh_taso_alhainen',
+        teksti: j + ' — fyysiset testit kehityskohteena: ' + r.kehityskohteita + ' pelaajaa. Aloita yksilöllinen harjoitusohjelma.' } : null;   // kiinteä häntä + {n} (kääntyy näyttöhetkellä, ks. TP_TOIMENPIDE_HANNAT)
     } },
   { id: 'suunta_lasku', tarkista: function(j, pp){
       const l = pp.filter(function(p){ return _pOnJoukkueessa(p, j) && p.hh_taso != null && p.hh_taso_edellinen != null && (p.hh_taso - p.hh_taso_edellinen) < -0.3; });
@@ -23091,7 +23107,7 @@ function dedupToimenpiteet(lista) {
         x.teksti = 'Kaikki joukkueet — tekniikkamittaukset puuttuvat ' + x.joukkueet.length + ':lta joukkueelta. Suunnittele tekniikkakilpailu.';
         x.joukkue = 'Kaikki joukkueet';
       } else if (x.signaali === 'hh_taso_alhainen') {
-        x.teksti = lyh + ' — pelaajia alle Eerikkilä-tason. Aloita yksilöllinen ohjelma.'; x.joukkue = lyh;
+        x.teksti = lyh + ' — fyysiset testit kehityskohteena. Aloita yksilöllinen ohjelma.'; x.joukkue = lyh;
       } else if (x.signaali === 'suunta_lasku') {
         x.teksti = lyh + ' — H-H taso laskussa. Tarkista kuormitus.'; x.joukkue = lyh;
       } else if (x.signaali === 'tki_alhainen') {

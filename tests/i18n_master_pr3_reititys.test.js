@@ -18,7 +18,8 @@ const { masterAvaimet } = require('../tools/i18n/master_avaimet.cjs');
 
 describe('Gemini-erä 2 — master_kartta', () => {
   const ERA8 = JSON.parse(lue('docs/i18n/sv_kaannoserae_8.json')).osiot.master_kartta.rivit;   // erä 2 suljettu → uudet Masterin avaimet erässä 8 (S2b PR 0)
-  const rivit = Object.assign({}, ERA.osiot.master_kartta.rivit, ERA8);
+  const ERA16 = JSON.parse(lue('docs/i18n/sv_kaannoserae_16.json')).osiot.master_kartta.rivit;   // erä 16 (fyysinen PR 3)
+  const rivit = Object.assign({}, ERA.osiot.master_kartta.rivit, ERA8, ERA16);
   it('jokainen sv-riviä vailla oleva Masterin avain on erässä (avain = fi-teksti)', () => {
     const { puuttuu } = masterAvaimet(juuri);
     expect(puuttuu.filter((fi) => !rivit[fi]), 'aja: node scripts/i18n_luo_gemini_era.cjs').toEqual([]);

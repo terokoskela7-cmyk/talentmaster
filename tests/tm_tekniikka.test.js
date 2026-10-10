@@ -259,7 +259,8 @@ describe('tmJoukkueTekniikka — kolmasosa, puolet, minimi, otos pieni', () => {
   it('kolmasosa vaatii vähintään 5 mitattua; 5 mitattua ja 2 kehityskohdetta riittää', () => {
     expect(JT(tkiJoukkue('j1', 2, 3))).toMatchObject({ mitattu: 5, luokka: 'kehityskohde', otosPieni: true });
     expect(JT(tkiJoukkue('j1', 1, 4)).luokka).toBe('ok');          // 1/5 < 1/3
-    expect(JT(tkiJoukkue('j1', 1, 3))).toMatchObject({ mitattu: 4, luokka: 'ei_luokkaa', eiMitattua: false });   // 1/4 yli kolmasosa mutta mitattuja 4
+    expect(JT(tkiJoukkue('j1', 1, 3))).toMatchObject({ mitattu: 4, luokka: 'ok', eiMitattua: false });   // 4/4 mitattu = kattava (puolet), 1/4 < 1/3 → ok
+    expect(JT(tkiJoukkue('j1', 1, 3, 5)).luokka).toBe('ei_luokkaa');   // 9 pelaajaa, 4 mitattu: ei kattava (8 < 9)
   });
   it('puolen ehto: vähintään puolet KAIKISTA joukkueen pelaajista, vaikka mitattuja < 5', () => {
     expect(JT(tkiJoukkue('j1', 2, 0, 2))).toMatchObject({ yht: 4, mitattu: 2, luokka: 'kehityskohde', otosPieni: true });   // 2/4
@@ -284,11 +285,11 @@ describe('tmJoukkueTekniikka — kolmasosa, puolet, minimi, otos pieni', () => {
     expect(JT(tkiJoukkue('j1', 3, 5))).toMatchObject({ mitattu: 8, otosPieni: false, luokka: 'kehityskohde' });
     expect(JT(tkiJoukkue('j1', 0, 7))).toMatchObject({ otosPieni: true, luokka: 'ok' });
     expect(JT(tkiJoukkue('j1', 0, 8)).otosPieni).toBe(false);
-    expect(JT(tkiJoukkue('j1', 0, 3)).otosPieni).toBe(false);       // ilman luokkaa ei otos pieni -merkintää
+    expect(JT(tkiJoukkue('j1', 0, 3, 6)).otosPieni).toBe(false);       // ilman luokkaa (9 pelaajaa, 3 mitattu) ei otos pieni -merkintää
   });
   it('ei tekniikkadataa: 0 mitattua → eiMitattua; 1–4 mitattua → ilman luokkaa mutta ei "ei mitattua"', () => {
     expect(JT(tkiJoukkue('j1', 0, 0, 6))).toMatchObject({ yht: 6, mitattu: 0, luokka: 'ei_luokkaa', eiMitattua: true, eiDataa: 6 });
-    expect(JT(tkiJoukkue('j1', 0, 3, 3))).toMatchObject({ mitattu: 3, luokka: 'ei_luokkaa', eiMitattua: false });
+    expect(JT(tkiJoukkue('j1', 0, 3, 4))).toMatchObject({ mitattu: 3, luokka: 'ei_luokkaa', eiMitattua: false });   // 7 pelaajaa, 3 mitattu: ei kattava
     expect(JT([])).toMatchObject({ yht: 0, luokka: 'ei_luokkaa', eiMitattua: true });
   });
   it('syy: useampaa koskeva; tasatilanne alle_ikatason', () => {
@@ -409,13 +410,14 @@ describe('vartijat', () => {
     const ikkuna = { console, Date, Math, JSON };
     ikkuna.window = ikkuna;
     vm.createContext(ikkuna);
-    for (const f of ['lib/tm_eerikkila_normit.js', 'lib/tm_joukkue.js']) {
+    for (const f of ['lib/tm_eerikkila_normit.js', 'lib/tm_joukkue.js', 'lib/tm_joukkuesaanto.js']) {
       const s = readFileSync(join(juuri, f), 'utf8');
-      vm.runInContext(s + '\n;' + (f.includes('eerikkila') ? 'this.eerikkilaTaso=eerikkilaTaso;this.normiIka=normiIka;this.normSukupuoliMN=normSukupuoliMN;' : 'this.tmPelaajanJoukkueet=tmPelaajanJoukkueet;'), ikkuna);
+      vm.runInContext(s + '\n;' + (f.includes('eerikkila') ? 'this.eerikkilaTaso=eerikkilaTaso;this.normiIka=normiIka;this.normSukupuoliMN=normSukupuoliMN;' : f.includes('joukkuesaanto') ? '' : 'this.tmPelaajanJoukkueet=tmPelaajanJoukkueet;'), ikkuna);
     }
     vm.runInContext(src, ikkuna);
     expect(typeof ikkuna.TM_TEKNIIKKA).toBe('object');
     const p = smPelaaja(14, 'M', 1, 3);
     expect(ikkuna.tmTekniikkaMittari(p, NYT)).toMatchObject({ tila: 'sm', kehityskohde: true, syy: 'alle_ikatason' });
+    expect(ikkuna.TM_TEKNIIKKA.tmTekniikkaJoukkueLuokka([p], NYT)).toMatchObject({ luokka: 'kehityskohde' });   // joukkuesääntö window-globaalin kautta
   });
 });

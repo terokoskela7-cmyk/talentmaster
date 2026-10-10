@@ -25,7 +25,7 @@ const APP_GLOBALS = {
   // lib/tm_eerikkila_normit.js
   EERIKKILA_NORMIT: 'readonly', eerikkilaTaso: 'readonly', eerikkilaNormiarvo: 'readonly', eerikkilaProfiilit: 'readonly',
   HH_TESTI_MAP: 'readonly', normSukupuoliMN: 'readonly', onNeutraaliPrePHV: 'readonly', teknHeikoimmat20: 'readonly',
-  laskeD1Joustava: 'readonly', laskeD1Osaindeksit: 'readonly', laskeD2HH: 'readonly', laskeD2Joustava: 'readonly',
+  laskeD1Joustava: 'readonly', laskeD1Osaindeksit: 'readonly', laskeD2HH: 'readonly', laskeD2Joustava: 'readonly', d2KomposiittiTaso: 'readonly',
   d2SmPalloFallback: 'readonly', taydennaHvSm: 'readonly', laskeTaso3Osuus: 'readonly', valitseKohortti: 'readonly',
   tasoJakauma: 'readonly', tkiTavoiteJakauma: 'readonly', tavoiteRadarAkselit: 'readonly',
   painopisteOminaisuus: 'readonly', kattavuusVajeet: 'readonly', laskeEI: 'readonly', laskeFVP: 'readonly',

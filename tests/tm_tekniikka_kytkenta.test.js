@@ -97,7 +97,7 @@ describe('Tilanne: tekniikka kehityskohteena -rivit ja "ei tekniikkadataa"', () 
   });
   it('"Ei tekniikkadataa · N joukkuetta" näkyy (pilotti: 10 joukkuetta ilman dataa), ohjaa testijaksoon; ei piiloteta', () => {
     const d = F.lataa('pilotti', NYT), h = html(d), x = teksti(h);
-    expect(x).toContain('Ei tekniikkadataa · ' + d.tekniikka.eiTekniikkadataa + ' joukkuetta'); expect(h).toContain('id="tilanneEiTekniikkaa"'); expect(h.slice(h.indexOf('id="tilanneEiTekniikkaa"'), h.indexOf('id="tilanneEiTekniikkaa"') + 1500)).toContain('onclick="te()"');
+    expect(x).toContain('Ei tekniikkadataa · ' + d.tekniikka.eiTekniikkadataa + ' joukkuetta'); expect(h).toContain('id="tilanneEiTekniikkaa"'); expect(h.slice(h.indexOf('id="tilanneMittausaukot"'), h.indexOf('id="tilanneMittausaukot"') + 3000)).toContain('onclick="te()"');
   });
   it('syy näkyy per joukkue (ryhmän avattu lista) ja otos pieni -merkintä; datan ikä (mitattu m/y · kk sitten)', () => {
     const x = teksti(html(F.lataa('kypsa', NYT)));
@@ -145,7 +145,7 @@ describe('VP_v25 on kytketty libiin (lähdevartijat)', () => {
   it('huomion, poikkeamalistan ja joukkuekortin status käyttävät samaa libiä; vanha D2-tekniikka suodatetaan pois', () => {
     expect(VP).toContain('<script src="lib/tm_tekniikka.js?v='); expect(VP.indexOf('lib/tm_tekniikka.js')).toBeLessThan(VP.indexOf('lib/tm_vp_tilanne.js'));
     expect((VP.match(/tmTekniikkaJoukkueLuokka\(/g) || []).length).toBeGreaterThanOrEqual(3);                      // TP-ehdotus + poikkeamalista + joukkuekortin status
-    expect((VP.match(/w\.osaAlue !== 'tekniikka'|x\.osaAlue === 'tekniikka'\) return/g) || []).length).toBeGreaterThanOrEqual(2);
+    expect((VP.match(/w\.osaAlue !== 'tekniikka'|x\.osaAlue === 'tekniikka'/g) || []).length).toBeGreaterThanOrEqual(2);
     expect(VP).toContain('tmTekniikkaYhteenveto(');                                                                  // Kodin pulssi
     const tilanne = readFileSync(join(juuri, 'lib/tm_vp_tilanne.js'), 'utf8'); expect(tilanne).toContain('tmJoukkueTekniikka('); expect(tilanne).not.toMatch(/Tekniikka alle ikätason/);
   });
