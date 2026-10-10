@@ -21431,12 +21431,15 @@ function _renderKotiPulssi(el) {
   const T = window.TM_SEURAN_PULSSI, S = window._vpPulssi = window._vpPulssi || {};
   const piirra = function () {
     const nyt = Date.now(), KK = window.TM_VP_KOTI, demo = !!(KK && window._vpKotiDemo === _seuraId), D = demo ? KK.tmKotiDemo(nyt) : null, ks = demo ? D.koosteet : S.koosteet, viim = ks[ks.length - 1] || {}, kal = ((demo ? D.kalenteri : _kalenteriTapahtumat) || []).map(function (e) { return { nimi: e.nimi, alkaa: e.alkaa }; });   // D167: esimerkkiseura vain muistissa
+    const opasLuokka = function (p) { const w = document.getElementById('ws-koti'); if (w && w.classList) w.classList.toggle('vpk-hide-guide', p); };   // D150
     const m = T.tmPulssiRivit(ks, { nytMs: nyt, ensimmainenVk: demo ? D.ensin : S.ensin, katselmusPv: demo ? {} : _vpKatselmusPv(), jaksoVk: demo ? {} : _vpJaksoVk(), kuittaukset: demo ? [] : S.kuittaukset || [] }), ko = { t: vpT, esc: _jsvEsc };
     if (KK && !demo && _vpNaviUusi() && KK.tmKotiVaihe(m) === 'kaynnistys') {   // PR B (D164): Käynnistys-vaihe lasketaan koosteesta; Rytmi (PR D) piirtyy vielä alla
       const km = KK.tmKotiKaynnistysMalli(m, { yhteensa: viim.yhteensa, koosteJ: viim.joukkueet, testit: _tapahtumat, nimet: _joukkueNimet, kalenteri: kal, viestit: (_vpViestit.rivit || []).filter(function (r) { return r.lukematon && r.saapunut; }), nytMs: nyt, seuraNimi: (document.getElementById('tbSeura') || {}).textContent });
-      const r = KK.tmKotiKaynnistysHTML(km, { t: vpT, esc: _jsvEsc, pika: window.TM_VP_NAVI.tmNaviPikatoiminnot(), auki: window._vpKotiAuki, fn: { aloitaJaksot: '_vpKotiAloitaJaksot', kutsu: '_vpKotiKutsu', testit: 'avaaUusiTestiModaali', joukkue: 'avaaJoukkueSyvanakyma', viesti: '_vpViestiAvaa', tilanne: '_vpPulssiTilanne', kalenteri: '_vpKotiKalenteri', paivita: '_vpPulssiPaivita', demo: '_vpKotiDemoVaihda', tuo: '_vpKotiTuo', auki: '_vpKotiAukiVaihda' } });
+      const r = KK.tmKotiKaynnistysHTML(km, { t: vpT, esc: _jsvEsc, pika: window.TM_VP_NAVI.tmNaviPikatoiminnot(), auki: window._vpKotiAuki, fn: { aloitaJaksot: '_vpKotiAloitaJaksot', kutsu: '_vpKotiKutsu', testit: 'avaaUusiTestiModaali', joukkue: 'avaaJoukkueSyvanakyma', viesti: '_vpViestiAvaa', tilanne: '_vpPulssiTilanne', kalenteri: '_vpKotiKalenteri', paivita: '_vpPulssiPaivita', demo: '_vpKotiDemoVaihda', tuo: '_vpKotiTuo', auki: '_vpKotiAukiVaihda', opas: '_vpKotiOpas' } });
+      opasLuokka(!window._vpKotiOpasNayta);   // D150: kolme askelta korvaa oppaan (palautus otsikkorivin linkistä)
       S.malli = m; el.innerHTML = '<div class="vpk-wrap vpk-k"><div class="vpk-grid"><div class="vpk-main">' + r.main + '</div><aside class="vpk-side">' + r.rail + '</aside></div></div>'; _vpPaivitaToimenpideLaskuri(); return;
     }
+    opasLuokka(false);
     if (demo) { const ak = document.getElementById('vpAloitaKortti'); if (ak) ak.innerHTML = ''; }   // D167: esimerkkiseurassa ei seuran omaa opasta
     const o = Object.assign({ suostumus: demo ? null : window.TM_KOTI_LUVUT.suostumus(_pelaajat || []), suostumusKooste: viim.yhteensa ? viim.yhteensa.n_suostumus : null, seuraavaKatselmus: demo ? null : _vpSeuraavaKatselmus(),
       pika: _vpNaviUusi() && !demo ? window.TM_VP_NAVI.tmNaviPikatoiminnot() : null,   // S2c PR 2: Kodin pikatoiminnot (mockup 25 .quick)
@@ -21461,6 +21464,7 @@ window._vpKotiAloitaJaksot = function () {   // kuten #966 (D146): yksi jaksoton
 window._vpKotiKutsu = function () { if (window.TM_KOTI_LUVUT.suostumus(_pelaajat || []).eiKutsuttu > 0) window.open(_talSeuraLinkki(), '_blank', 'noopener'); else vpMuistutaOdottavia(); };   // kutsut lähtevät Seurahallinnasta; kaikki jo kutsuttu → muistutus (lahetaMuistutukset)
 window._vpKotiDemoVaihda = function (p) { window._vpKotiDemo = p === '1' ? _seuraId : null; renderKotiVP(); };   // D167: esimerkkiseura vain muistissa, ei kosketa seuran dataa
 window._vpKotiAukiVaihda = function (k) { (window._vpKotiAuki = window._vpKotiAuki || {})[k] = true; renderKotiVP(); };
+window._vpKotiOpas = function () { window._vpKotiOpasNayta = !window._vpKotiOpasNayta; renderKotiVP(); if (typeof renderVpAloitaKortti === 'function') renderVpAloitaKortti(); };
 window._vpKotiKalenteri = function () { setWs('kalenteri'); };
 window._vpKotiTuo = function () { setWs('joukkueet', 'pelaajat'); };
 /* ═══ S2c PR 1: Tilanne = kausi (docs/CODE_BRIEF_S2C_TILANNE_NAVI.md, D123; lib/tm_vp_tilanne.js) — vain Kenttä-lipun seurat; kuoressa vain kytkentä ═══ */
