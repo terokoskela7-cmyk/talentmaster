@@ -52,7 +52,7 @@ Havainnot:
 | f | Huomio "Taso laskenut" (`laskeva`) + ehdotus "Kuormituksen tarkistus" (`suunta_lasku`) | `hh_taso`-delta < −0,3 (tai TKI-delta/20), ≥ 2 pelaajaa | `tm_eerikkila_normit.js:667–674`, `VP_v25:23002–23006` |
 | g | Poikkeama `hajonta` | ≥ 33 % pelaajista comp ≤ 2 ja ka ≥ 2,5 | `tm_eerikkila_normit.js:675–682` |
 | h | Masterin Kehitys: D1/D2-histogrammit, väri < 3 punainen, `_lvl`/komposiitti | tasot < 3 | `Master_v16:9619, 9695, 9745` (PR 3) |
-| i | VP joukkuekortti/syvänäkymä: D1-/komposiittivärit, "Lähimpänä tavoitetta" | ka < 3 | `VP_v25:13677–13690` (PR 3) |
+| i | VP joukkuekortti/syvänäkymä: D1-/komposiittivärit, "Lähimpänä tavoitetta" | ka < 3 | `VP_v25:13674–13690` (PR 3) |
 
 (Ei heikkoutta: `tki_lahella_merkkia` TKI 35–54 on TKI-pohjainen ja kuuluu tekniikan ketjuun; `flei_kartoitus_puuttuu` ja `tkk_puuttuu` ovat datapuutteita.)
 
