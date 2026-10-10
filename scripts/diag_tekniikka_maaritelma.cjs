@@ -1,52 +1,60 @@
 #!/usr/bin/env node
-/* diag_tekniikka_maaritelma.cjs — KUIVA, VAIN LUKU. docs/TEKNIIKKA_MAARITELMA.md:n luvut: miltä "tekniikka heikko" näyttää NYKYISILLÄ säännöillä
- * ja EHDOTETULLA jaetulla säännöllä (prototyyppi vain tässä tiedostossa — EI lib/-toteutusta, päätös Terolla).
+/* diag_tekniikka_maaritelma.cjs — KUIVA, VAIN LUKU. docs/TEKNIIKKA_MAARITELMA.md:n luvut: nykyiset säännöt vs. jaettu määritelmä
+ * (prototyyppi vain tässä tiedostossa — EI lib/-toteutusta). Ei kirjoituksia, tulosteessa ei nimiä.
  *
  * Ajo:
- *   node scripts/diag_tekniikka_maaritelma.cjs                 demo-fixturet (pilotti · kypsa · kuormitus), offline
- *   node scripts/diag_tekniikka_maaritelma.cjs kpv              KPV:n oikea data, VAIN .get() (gcloud ADC, EI SA-avainta); tulosteessa EI nimiä,
- *                                                               vain joukkueen nimi ja lukumäärät
+ *   node scripts/diag_tekniikka_maaritelma.cjs                      demo-fixturet (pilotti · kypsa · kuormitus), offline
+ *   node scripts/diag_tekniikka_maaritelma.cjs kpv [--seura=sjk]    oikea data, VAIN .get() (gcloud ADC, EI SA-avainta)
+ *   node scripts/diag_tekniikka_maaritelma.cjs sm [seura]           SM-tasojen jakauma (raakatuloksista normiIka:lla)
+ *   node scripts/diag_tekniikka_maaritelma.cjs pvm [seura]          *_pvm-kenttien jakauma (K8; ilman seuraa kaikki seurat)
+ *   ERO_TASOA=1 …                                                   vertailu: "pallo hidastaa" yhden tason erolla (oletus 2)
  *
- * Nykyiset säännöt (kartoitus docs/TEKNIIKKA_MAARITELMA.md §1):
- *   HUOMIO  "Tekniikka alle ikätason"  = laskeJoukkuePoikkeamat → alle_normin/tekniikka: joukkueen D2-keskiarvo (tmJoukkueD2, minN 1) < 3
- *   EHDOTUS "Tekniikkaharjoittelua"    = VP_v25 TP_SIGNAALIT tki_alhainen: ≥ 2 pelaajaa, joilla tki_viimeisin < 40
- * Ehdotettu sääntö (§2): ketju TKI → TSI → Eerikkilä-tekniikkataso per pelaaja; raja TKI < 40 · TSI > 1,5 s · taso < 3,0;
- *   joukkue = tmPelaajanJoukkueet; "alle ikätason" kun ≥ 1/3 mitatuista heikkoja ja mitattuja ≥ 5; yli 12 kk vanha mittaus ei ole mittaus. */
+ * Nykyiset säännöt: HUOMIO = joukkueen D2-ka < 3 (laskeJoukkuePoikkeamat); EHDOTUS = ≥ 2 pelaajaa TKI < 40 (VP_v25 TP_SIGNAALIT tki_alhainen).
+ * Uusi (§2): ketju TKI → SM-tasot (ei sekuntirajaa), vanhuus 15 kk, joukkue ≥ 1/3 mitatuista (≥ 5) tai ≥ 1/2 pelaajista. */
 'use strict';
 const path = require('path');
 const E = require('../lib/tm_eerikkila_normit.js');
 const JK = require('../lib/tm_joukkue.js');
 const DAY = 86400000;
 
-/* ── lopulliset päätökset (Tero 10.10.2026) ── */
-const RAJA = { tki: 40, tsiMarginaali: 0.3, vanhaKk: 15, osuus: 1 / 3, minMitattu: 5, puolet: 1 / 2, otosPieniAlle: 8 };
+/* ── lopullinen versio (Tero 10.10.2026): ketju TKI → SM-tasot, ei sekuntirajaa ── */
+const ERO = process.env.ERO_TASOA ? +process.env.ERO_TASOA : 2;   // ERO_TASOA=1 → vertailu: "pallo hidastaa" yhden tason erolla
+const RAJA = { tki: 40, vanhaKk: 15, osuus: 1 / 3, minMitattu: 5, puolet: 1 / 2, otosPieniAlle: 8, pallo1: 1, ero: ERO };
 
 const ms = (t) => (t && t.toDate ? t.toDate().getTime() : (t ? Date.parse(t) : NaN));
+/* kk-ikä: null = "päivä tuntematon" (puuttuva/tyhjä/virheellinen) — EI koskaan tuore */
 const kk = (t, nyt) => { const m = ms(t); return isNaN(m) ? null : (nyt - m) / (30.44 * DAY); };
-const spMN = (p) => (p.sukupuoli === 'N' || p.sukupuoli === 'T' ? 'N' : 'M');
+/* sukupuoli → 'M'/'N': 1) kenttä `sukupuoli` (M/P/N/T), 2) joukkuenimen tunnus (P14 / T14), muuten null (EI arvausta: eerikkilaTaso käyttäisi tyttöjen normia kaikelle muulle kuin 'M':lle).
+   Datassa kenttä puuttuu usein (SJK 20 / 61, Sibbo 208 / 246, Pallo-Iirot 71 / 71). */
+const spMN = (p) => { const k = E.normSukupuoliMN(p.sukupuoli); if (k) return k; const m = String(p.joukkue || '').match(/\b([PT])\s?\d/i); return m ? (m[1].toUpperCase() === 'T' ? 'N' : 'M') : null; };
 
-/* TSI-viite = SM-pallo taso 3 − SM-juoksu taso 3 (EERIKKILA_NORMIT, eerikkilaNormiarvo = taso-3-kynnys). Ikä 10–19 numerona, 20+ → 'M'/'N' (aikuiset); alle 10 → ei viitettä. */
-function tsiViite(ika, sp) {
-  if (ika == null || ika < 10) return null;
-  const k = ika >= 20 ? sp : ika, a = E.eerikkilaNormiarvo('sm_pallo', k, sp), b = E.eerikkilaNormiarvo('sm_juoksu', k, sp);
-  return a == null || b == null ? null : Math.round((a - b) * 100) / 100;
+/* SM-taso raakatuloksesta rekisteristä: ikä < 10 → ei tasoa; ikä ≥ 20 → avain 'M'/'N' (eerikkilaTaso leikkaisi hiljaa 10–19:ään). 0 = ei tasoa. */
+function smTaso(arvo, testi, ika, sp) {
+  const v = parseFloat(arvo);
+  if (!isFinite(v) || ika == null || ika < 10 || !sp) return 0;
+  return E.eerikkilaTaso(v, testi, ika >= 20 ? sp : ika, sp);
 }
 
-/* Prototyyppi: ketju TKI → TSI, mittarikohtainen vanhuus (15 kk). Vanha mittari ei luokittele (`vanhat`). */
+/* Prototyyppi: ketju TKI → SM-tasot, mittarikohtainen vanhuus (15 kk). Vanha / päivä tuntematon ei luokittele (`vanhat`). */
 function tekniikkaMittari(p, nyt) {
   const vanhat = [];
   if (p.tki_viimeisin != null) {
     const a = kk(p.tki_pvm, nyt);
-    if (a != null && a >= RAJA.vanhaKk) vanhat.push('TKI');
+    if (a == null) vanhat.push('TKI päivä tuntematon');
+    else if (a >= RAJA.vanhaKk) vanhat.push('TKI');
     else return { mittari: 'TKI', arvo: p.tki_viimeisin, heikko: p.tki_viimeisin < RAJA.tki, syy: 'alle ikätason', vanhat };
   }
-  if (p.tsi_viimeisin != null) {
+  if (p.sm_pallo_viimeisin != null) {
     const a = kk(p.tsi_pvm, nyt);
-    if (a != null && a >= RAJA.vanhaKk) vanhat.push('TSI');
+    if (a == null) vanhat.push('SM päivä tuntematon');
+    else if (a >= RAJA.vanhaKk) vanhat.push('SM-testi');
     else {
-      const sp = spMN(p), ika = E.normiIka(p.syntymaVuosi, p.tsi_pvm || null, p.joukkue), viite = tsiViite(ika, sp);
-      if (viite != null) return { mittari: 'TSI', arvo: p.tsi_viimeisin, heikko: p.tsi_viimeisin >= viite + RAJA.tsiMarginaali, syy: 'pallo hidastaa suunnanmuutoksissa', vanhat };
-      vanhat.push('TSI ilman viitettä (ikä ' + ika + ')');
+      const sp = spMN(p), ika = E.normiIka(p.syntymaVuosi, p.tsi_pvm || null, p.joukkue), tp = smTaso(p.sm_pallo_viimeisin, 'sm_pallo', ika, sp), tj = smTaso(p.sm_juoksu_viimeisin, 'sm_juoksu', ika, sp);
+      if (tp >= 1) {
+        const a1 = tp === RAJA.pallo1, a2 = !a1 && tj >= 1 && tp <= tj - RAJA.ero;
+        return { mittari: 'SM', arvo: tp, tj, heikko: a1 || a2, syy: a1 ? 'alle ikätason' : 'pallo hidastaa suunnanmuutoksissa', vanhat };
+      }
+      vanhat.push('SM ilman tasoa (ikä ' + ika + ')');
     }
   }
   return { mittari: null, vanhat };
@@ -55,12 +63,12 @@ function ehdotettuLuokka(pelaajat, nyt) {
   const M = pelaajat.map((p) => tekniikkaMittari(p, nyt)), mit = M.filter((m) => m.mittari), heikot = mit.filter((m) => m.heikko), lahteet = {};
   mit.forEach((m) => { lahteet[m.mittari] = (lahteet[m.mittari] || 0) + 1; });
   const vanhoja = M.filter((m) => !m.mittari && m.vanhat.length).length;
-  const syyTKI = heikot.filter((m) => m.mittari === 'TKI').length, syyTSI = heikot.length - syyTKI;
+  const syyAlle = heikot.filter((m) => m.syy === 'alle ikätason').length, syyPallo = heikot.length - syyAlle;
   const kehityskohde = (mit.length >= RAJA.minMitattu && heikot.length / mit.length >= RAJA.osuus) || (pelaajat.length > 0 && heikot.length / pelaajat.length >= RAJA.puolet);
   return { yht: pelaajat.length, mitattu: mit.length, heikkoja: heikot.length, vanhoja, lahteet,
     luokka: kehityskohde ? 'KEHITYSKOHDE' : (mit.length >= RAJA.minMitattu ? 'ok' : (mit.length === 0 ? 'ei tekniikkadataa' : 'ei luokkaa (' + mit.length + ' mitattua)')),
     otosPieni: (kehityskohde || mit.length >= RAJA.minMitattu) && mit.length < RAJA.otosPieniAlle,
-    syy: kehityskohde ? (syyTKI >= syyTSI ? 'alle ikätason' : 'pallo hidastaa suunnanmuutoksissa') : null };
+    syy: kehityskohde ? (syyAlle >= syyPallo ? 'alle ikätason' : 'pallo hidastaa suunnanmuutoksissa') : null, syyJako: { alle: syyAlle, pallo: syyPallo } };
 }
 
 /* Nykyiset säännöt samoilla pelaajilla */
@@ -81,7 +89,7 @@ function raportti(nimi, pelaajat, joukkueDocs, nyt) {
     eiLuokkaa: rivit.filter((r) => /^ei /.test(r.u.luokka)).length, joistaEiMitattuaLainkaan: rivit.filter((r) => r.u.luokka === 'ei tekniikkadataa').length, otosPieni: rivit.filter((r) => r.u.otosPieni).length };
   console.log('\n══ ' + nimi + ' ══');
   console.log('joukkue'.padEnd(34) + 'pel.'.padEnd(5) + 'HUOMIO nyt'.padEnd(26) + 'EHDOTUS nyt'.padEnd(26) + 'UUSI: mitattu/heikkoja/vanhoja → luokka [lähteet] syy');
-  rivit.forEach((r) => console.log(String(r.joukkue).slice(0, 33).padEnd(34) + String(r.pelaajia).padEnd(5) + r.n.huomio.padEnd(26) + r.n.ehdotus.padEnd(26) + r.u.mitattu + '/' + r.u.heikkoja + '/' + r.u.vanhoja + ' → ' + r.u.luokka + (r.u.otosPieni ? ' [otos pieni]' : '') + ' ' + JSON.stringify(r.u.lahteet) + (r.u.syy ? ' · ' + r.u.syy : '')));
+  rivit.forEach((r) => console.log(String(r.joukkue).slice(0, 33).padEnd(34) + String(r.pelaajia).padEnd(5) + r.n.huomio.padEnd(26) + r.n.ehdotus.padEnd(26) + r.u.mitattu + '/' + r.u.heikkoja + '/' + r.u.vanhoja + ' → ' + r.u.luokka + (r.u.otosPieni ? ' [otos pieni]' : '') + ' ' + JSON.stringify(r.u.lahteet) + (r.u.syy ? ' · ' + r.u.syy + ' ' + JSON.stringify(r.u.syyJako) : '')));
   console.log('YHTEENSÄ ' + JSON.stringify(yht));
   return yht;
 }
@@ -92,7 +100,7 @@ async function kpv() {
   admin.initializeApp({ projectId: 'talentmaster-pilot' });
   const db = admin.firestore(), seura = (process.argv.find((a) => a.indexOf('--seura=') === 0) || '--seura=kpv').split('=')[1];
   const [ps, js] = await Promise.all([db.collection('seurat').doc(seura).collection('pelaajat').get(), db.collection('seurat').doc(seura).collection('joukkueet').get()]);
-  const KENTAT = ['joukkueet', 'joukkue', 'syntymaVuosi', 'sukupuoli', 'tki_viimeisin', 'tki_pvm', 'tsi_viimeisin', 'tsi_pvm', 'hh_viimeisin', 'hh_pvm', 'hh_taso', 'd1_taso', 'd2_taso', 'd2_lahde', 'd2_pvm', 'sm_pallo_viimeisin', 'sm_pallo_taso', 'tki_merkki'];
+  const KENTAT = ['joukkueet', 'joukkue', 'syntymaVuosi', 'sukupuoli', 'tki_viimeisin', 'tki_pvm', 'tsi_viimeisin', 'tsi_pvm', 'sm_juoksu_viimeisin', 'sm_juoksu_taso', 'hh_viimeisin', 'hh_pvm', 'hh_taso', 'd1_taso', 'd2_taso', 'd2_lahde', 'd2_pvm', 'sm_pallo_viimeisin', 'sm_pallo_taso', 'tki_merkki'];
   const pelaajat = ps.docs.map((d) => { const x = d.data(), o = { id: d.id }; KENTAT.forEach((k) => { if (x[k] !== undefined) o[k] = x[k]; }); return o; });   // vain mittarikentät — ei nimiä
   const docs = js.docs.map((d) => ({ id: d.id, nimi: d.data().nimi || d.id }));
   console.log('seura ' + seura + ': ' + pelaajat.length + ' pelaajaa, ' + docs.length + ' joukkuetta (vain luku)');
@@ -100,40 +108,61 @@ async function kpv() {
   console.log('pelaajia mittarin mukaan: ' + JSON.stringify(tilasto));
   const d2l = {}; pelaajat.forEach((p) => { if (p.d2_taso != null) { const k = p.d2_lahde || '(ei lähdettä)'; d2l[k] = (d2l[k] || 0) + 1; } });
   console.log('d2_taso lähteen mukaan: ' + JSON.stringify(d2l) + ' · sm_juoksu/sm_pallo_taso: ' + pelaajat.filter((p) => p.sm_pallo_taso != null).length + ' pelaajalla');
+  const syyt = {}; let mitattu = 0; pelaajat.forEach((p) => { const m = tekniikkaMittari(p, Date.now()); if (!m.mittari) return; mitattu++; const k = m.heikko ? m.syy : 'ok'; syyt[k] = (syyt[k] || 0) + 1; });
+  console.log('PELAAJAOSUUDET (mitattu ' + mitattu + '/' + pelaajat.length + '): ' + JSON.stringify(syyt));
   raportti(seura.toUpperCase() + ' (oikea data)', pelaajat, docs, Date.now());
 }
 
 
-/* ── TSI-jakauma (vain luku): node scripts/diag_tekniikka_maaritelma.cjs tsi sjk ── */
-async function tsiJakauma(seura) {
+/* ── K8: miten *_pvm-kentät ovat jakautuneet (vain luku, ei nimiä): node scripts/diag_tekniikka_maaritelma.cjs pvm [seura] ── */
+async function pvmTarkistus() {
   if (require.main !== module) throw new Error('käsittelee tuotantodataa — aja suoraan');
   const admin = require(path.join(__dirname, '..', 'functions', 'node_modules', 'firebase-admin'));
   admin.initializeApp({ projectId: 'talentmaster-pilot' });
-  const db = admin.firestore();
-  const ps = await db.collection('seurat').doc(seura).collection('pelaajat').get();
-  const rivit = ps.docs.map((d) => d.data()).filter((x) => x.tsi_viimeisin != null).map((x) => {
-    const pvm = x.tsi_pvm || x.hh_pvm || null, ika = E.normiIka(x.syntymaVuosi, pvm, x.joukkue);
-    return { tsi: Number(x.tsi_viimeisin), ika, sp: spMN(x), pvm: pvm ? String(pvm).slice(0, 10) : null, recalc: !!x.tsi_recalc, tki: x.tki_viimeisin != null };
-  }).filter((r) => isFinite(r.tsi));
-  const q = (a, f) => { const b = a.slice().sort((x, y) => x - y), i = (b.length - 1) * f, lo = Math.floor(i), hi = Math.ceil(i); return Math.round((b[lo] + (b[hi] - b[lo]) * (i - lo)) * 100) / 100; };
-  console.log('seura ' + seura + ': pelaajia ' + ps.size + ', TSI-arvoja ' + rivit.length + ' (' + rivit.filter((r) => r.recalc).length + ' recalc-kirjoittamaa)');
-  const pvmLkm = {}; rivit.forEach((r) => { pvmLkm[r.pvm] = (pvmLkm[r.pvm] || 0) + 1; });
-  console.log('tsi_pvm-jakauma (päivä: kpl): ' + JSON.stringify(Object.keys(pvmLkm).sort().reduce((o, k) => (o[k] = pvmLkm[k], o), {})));
-  const kokoTaulu = (nimi, R) => { console.log('\n' + nimi); console.log('ikä'.padEnd(6) + 'n'.padEnd(5) + 'min'.padEnd(7) + 'p25'.padEnd(7) + 'p50'.padEnd(7) + 'p67'.padEnd(7) + 'p75'.padEnd(7) + 'p90'.padEnd(7) + 'max'.padEnd(7) + '>1,5 s  <0   TKI:ssa'); const ikat = [...new Set(R.map((r) => r.ika))].sort((a, b) => (a == null) - (b == null) || a - b);
-    ikat.forEach((i) => { const A = R.filter((r) => r.ika === i), v = A.map((r) => r.tsi); console.log(String(i == null ? '?' : i).padEnd(6) + String(A.length).padEnd(5) + q(v, 0).toString().padEnd(7) + q(v, .25).toString().padEnd(7) + q(v, .5).toString().padEnd(7) + q(v, .667).toString().padEnd(7) + q(v, .75).toString().padEnd(7) + q(v, .9).toString().padEnd(7) + q(v, 1).toString().padEnd(7) + (Math.round(100 * v.filter((x) => x > 1.5).length / v.length) + ' %').padEnd(8) + String(v.filter((x) => x < 0).length).padEnd(5) + A.filter((r) => r.tki).length); });
-    const v = R.map((r) => r.tsi); console.log('yht'.padEnd(6) + String(R.length).padEnd(5) + [0, .25, .5, .667, .75, .9, 1].map((f) => q(v, f).toString().padEnd(7)).join('') + (Math.round(100 * v.filter((x) => x > 1.5).length / v.length) + ' %').padEnd(8)); };
-  console.log('\nVERTAILU VIITTEESEEN (ikä × sukupuoli): n · viite (taso 3 − taso 3) · raja (+0,3) · p50 · rajan ylittäviä');
-  [...new Set(rivit.map((r) => r.ika + '|' + r.sp))].sort().forEach((k) => { const [i, sp] = k.split('|'), A = rivit.filter((r) => r.ika == i && r.sp === sp), v = tsiViite(+i, sp), raja = v == null ? null : Math.round((v + RAJA.tsiMarginaali) * 100) / 100;
-    console.log((sp === 'M' ? 'P' : 'T') + i + '  n=' + A.length + '  viite ' + v + '  raja ' + raja + '  p50 ' + q(A.map((r) => r.tsi), .5) + '  ylittää ' + A.filter((r) => v != null && r.tsi >= v + RAJA.tsiMarginaali).length); });
-  kokoTaulu('KAIKKI (ikäluokittain)', rivit);
-  kokoTaulu('POJAT (M)', rivit.filter((r) => r.sp === 'M'));
-  kokoTaulu('TYTÖT (N)', rivit.filter((r) => r.sp === 'N'));
+  const db = admin.firestore(), valittu = process.argv[3];
+  const seurat = valittu ? [valittu] : (await db.collection('seurat').get()).docs.map((d) => d.id);
+  const KENTAT = [['tki_viimeisin', 'tki_pvm'], ['hh_viimeisin', 'hh_pvm'], ['tsi_viimeisin', 'tsi_pvm']];
+  for (const sid of seurat) {
+    const ps = await db.collection('seurat').doc(sid).collection('pelaajat').get();
+    if (!ps.size) continue;
+    console.log('\n── ' + sid + ' (' + ps.size + ' pelaajaa)');
+    KENTAT.forEach(([arvoK, pvmK]) => {
+      const arvolla = ps.docs.map((d) => d.data()).filter((x) => x[arvoK] != null), hist = {};
+      let tyhja = 0; arvolla.forEach((x) => { const d = x[pvmK]; if (d == null || String(d).trim() === '') { tyhja++; return; } const k = String(ms(d) ? new Date(ms(d)).toISOString().slice(0, 10) : d); hist[k] = (hist[k] || 0) + 1; });
+      if (!arvolla.length) return;
+      const top = Object.entries(hist).sort((a, b) => b[1] - a[1]).slice(0, 4).map(([k, n]) => k + ':' + n).join(' ');
+      const recalc = pvmK === 'tsi_pvm' ? arvolla.filter((x) => x.tsi_recalc).length : null;
+      console.log('  ' + pvmK.padEnd(8) + 'arvoja ' + String(arvolla.length).padEnd(4) + 'ilman päivää ' + String(tyhja).padEnd(3) + 'eri päiviä ' + String(Object.keys(hist).length).padEnd(3) + 'yleisimmät ' + top + (recalc != null ? ' · recalc-kirjoittamia ' + recalc : '') + (hist['2026-01-20'] ? ' · WALLSPORT-VARAPÄIVÄ 2026-01-20: ' + hist['2026-01-20'] : ''));
+    });
+  }
 }
 
-if (process.argv[2] === 'viite') {
-  console.log('ikä   POJAT: pallo  juoksu  viite  raja(+0,3) | TYTÖT: pallo  juoksu  viite  raja(+0,3)');
-  [10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20].forEach((i) => { const c = ['M', 'N'].map((sp) => { const k = i >= 20 ? sp : i, a = E.eerikkilaNormiarvo('sm_pallo', k, sp), b = E.eerikkilaNormiarvo('sm_juoksu', k, sp); return [a, b, tsiViite(i, sp).toFixed(2), (tsiViite(i, sp) + RAJA.tsiMarginaali).toFixed(2)].join('  '); }); console.log((i >= 20 ? 'M/N' : String(i)).padEnd(6) + c.join('   |   ')); });
-} else if (process.argv[2] === 'tsi') tsiJakauma(process.argv[3] || 'sjk').then(() => process.exit(0), (e) => { console.error(e); process.exit(1); });
+/* ── SM-tasojen jakauma (vain luku): node scripts/diag_tekniikka_maaritelma.cjs sm sjk ── */
+async function smJakauma(seura) {
+  if (require.main !== module) throw new Error('käsittelee tuotantodataa — aja suoraan');
+  const admin = require(path.join(__dirname, '..', 'functions', 'node_modules', 'firebase-admin'));
+  admin.initializeApp({ projectId: 'talentmaster-pilot' });
+  const ps = await admin.firestore().collection('seurat').doc(seura).collection('pelaajat').get();
+  const R = ps.docs.map((d) => d.data()).filter((x) => x.sm_pallo_viimeisin != null).map((x) => {
+    const sp = spMN(x), ika = E.normiIka(x.syntymaVuosi, x.tsi_pvm || null, x.joukkue);
+    return { ika, sp, tp: smTaso(x.sm_pallo_viimeisin, 'sm_pallo', ika, sp), tj: smTaso(x.sm_juoksu_viimeisin, 'sm_juoksu', ika, sp), tallPallo: x.sm_pallo_taso, tallJuoksu: x.sm_juoksu_taso };
+  });
+  console.log('seura ' + seura + ': SM-pallo-tulos ' + R.length + ' pelaajalla');
+  const hist = (f) => { const h = {}; R.forEach((r) => { const k = f(r); h[k] = (h[k] || 0) + 1; }); return Object.keys(h).sort().reduce((o, k) => (o[k] = h[k], o), {}); };
+  console.log('SM-pallon taso (laskettu nyt):  ' + JSON.stringify(hist((r) => r.tp)));
+  console.log('SM-juoksun taso (laskettu nyt): ' + JSON.stringify(hist((r) => r.tj)));
+  console.log('ero pallo − juoksu (tasoa):     ' + JSON.stringify(hist((r) => (r.tp && r.tj ? r.tp - r.tj : 'ei paria'))));
+  const ris = {}; R.forEach((r) => { const k = 'pallo ' + r.tp + ' / juoksu ' + r.tj; ris[k] = (ris[k] || 0) + 1; });
+  console.log('pallo × juoksu (taso/taso):     ' + JSON.stringify(Object.keys(ris).sort().reduce((o, k) => (o[k] = ris[k], o), {})));
+  const p1 = R.filter((r) => r.tp === 1);
+  console.log('pallo = 1: ' + p1.length + ' pelaajaa, joista juoksu = 1: ' + p1.filter((r) => r.tj === 1).length + ', juoksu ≤ 2: ' + p1.filter((r) => r.tj <= 2).length + ', juoksu ≥ 3: ' + p1.filter((r) => r.tj >= 3).length);
+  const eri = R.filter((r) => (r.tallPallo != null && r.tallPallo !== r.tp) || (r.tallJuoksu != null && r.tallJuoksu !== r.tj)).length;
+  console.log('tallennettu sm_*_taso eroaa nyt lasketusta: ' + eri + ' / ' + R.filter((r) => r.tallPallo != null || r.tallJuoksu != null).length + ' (K11: joukkuenimen ikä vs normiIka)');
+  console.log('ikäjakauma: ' + JSON.stringify(hist((r) => r.ika + (r.sp === 'M' ? 'P' : 'T'))));
+}
+
+if (process.argv[2] === 'pvm') pvmTarkistus().then(() => process.exit(0), (e) => { console.error(e); process.exit(1); });
+else if (process.argv[2] === 'sm') smJakauma(process.argv[3] || 'sjk').then(() => process.exit(0), (e) => { console.error(e); process.exit(1); });
 else if (process.argv[2] === 'kpv') kpv().then(() => process.exit(0), (e) => { console.error(e); process.exit(1); });
 else {
   const F = require('../tests/helpers/vp_fixture.cjs'), nyt = Date.UTC(2026, 9, 10, 12);
