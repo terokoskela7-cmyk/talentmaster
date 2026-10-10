@@ -83,7 +83,7 @@ describe('jaksoviikko ja seuraava katselmusikkuna (mockup 23)', () => {
 
 describe('kytkentä lähteessä', () => {
   it('lib ladataan ennen käyttöä; Kenttä-lippu esiladataan sisäänkirjautuessa; ei kovakoodattuja värejä lisätty', () => {
-    expect(VP).toContain('<script src="lib/tm_seuran_pulssi.js?v=1"></script>');
+    expect(VP).toMatch(/<script src="lib\/tm_seuran_pulssi\.js\?v=\d+"/);
     expect(VP.indexOf('tm_seuran_pulssi.js')).toBeLessThan(VP.indexOf('function renderKotiVP('));
     expect(VP).toMatch(/lataaSeurantaKuittaukset\(\), _vpLataaLiput\(\)\.catch\(function \(\) \{ return \{\}; \}\)\]\)/);
   });

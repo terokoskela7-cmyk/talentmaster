@@ -190,7 +190,7 @@ describe('VP_v25-kytkentä (kuoressa vain kytkentä; ilman lippua ennallaan)', (
     expect(VP).toMatch(/\['ws-raportointi', 'tilanneRaportit'\], \['ws-reviewit', 'tilanneSeuranta'\], \['ws-jaksofokus', 'tilanneJaksofokus'\]/); expect(VP).toMatch(/while \(a\.firstChild\) b\.appendChild\(a\.firstChild\)/);
   });
   it('vanha Tilanne piiloon vain .tt-uusi-luokalla (CSS), uusi kontti oletuksena piilossa', () => {
-    expect(VP).toContain('#tilanneKausi,#tilanneLiite{display:none}#ws-tilanne.tt-uusi>*{display:none}'); expect(VP).toContain('<script src="lib/tm_vp_tilanne.js?v=1">');
+    expect(VP).toContain('#tilanneKausi,#tilanneLiite{display:none}#ws-tilanne.tt-uusi>*{display:none}'); expect(VP).toMatch(/<script src="lib\/tm_vp_tilanne\.js\?v=\d+">/);
   });
   it('ei kasva yli kasvukaton', () => { expect(VP.split('\n').length).toBeLessThanOrEqual(23800); });
 });

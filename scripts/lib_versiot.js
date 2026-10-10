@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 'use strict';
 /**
- * lib_versiot.js — ?v-bumppiportti (SW-välimuisti): jokaisen Pelaaja_v7:n / Vanhempi_v2:n lataaman PAIKALLISEN skriptin (lib/*.js + juuren skriptit) sisältöhajautus vs ?v-parametri.
+ * lib_versiot.js — ?v-bumppiportti (SW-välimuisti): jokaisen juuren HTML-sivun lataaman PAIKALLISEN skriptin (lib/*.js + juuren skriptit) sisältöhajautus vs ?v-parametri.
  * Ongelma: SW tarjoaa versioidun URL:n cache-first → jos skriptin sisältö muuttuu mutta ?v ei, käyttäjä saa vanhaa koodia (#855).
  *
  *   node scripts/lib_versiot.js            → tulostaa tilan (poikkeamat) ja poistuu 1:llä jos lista ei vastaa
@@ -15,7 +15,8 @@ const path = require('path');
 const crypto = require('crypto');
 
 const JUURI = path.join(__dirname, '..');
-const SIVUT = ['TalentMaster_Pelaaja_v7.html', 'TalentMaster_Vanhempi_v2.html'];
+/* KAIKKI juuren HTML-sivut (ei vain Pelaaja/Vanhempi): selaimen HTTP-välimuisti tarjoaa versioidun URL:n samoin → VP:llä KPV:n live-bugi (vanha tm_kt_komponentit.js?v=1 → oletustyylit). */
+const SIVUT = fs.readdirSync(JUURI).filter((f) => /\.html$/i.test(f)).sort();
 const LISTA = path.join(JUURI, 'tests', 'fixtures', 'lib_versiot.json');
 
 function hajautus(sisalto) { return crypto.createHash('sha256').update(String(sisalto).replace(/\r\n/g, '\n')).digest('hex'); }
