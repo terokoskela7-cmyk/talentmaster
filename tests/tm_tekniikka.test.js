@@ -410,7 +410,7 @@ describe('vartijat', () => {
     const ikkuna = { console, Date, Math, JSON };
     ikkuna.window = ikkuna;
     vm.createContext(ikkuna);
-    for (const f of ['lib/tm_eerikkila_normit.js', 'lib/tm_joukkue.js', 'lib/tm_joukkuesaanto.js']) {
+    for (const f of ['lib/tm_eerikkila_normit.js', 'lib/tm_joukkue.js', 'lib/tm_normisto.js', 'lib/tm_joukkuesaanto.js']) {
       const s = readFileSync(join(juuri, f), 'utf8');
       vm.runInContext(s + '\n;' + (f.includes('eerikkila') ? 'this.eerikkilaTaso=eerikkilaTaso;this.normiIka=normiIka;this.normSukupuoliMN=normSukupuoliMN;' : f.includes('joukkuesaanto') ? '' : 'this.tmPelaajanJoukkueet=tmPelaajanJoukkueet;'), ikkuna);
     }

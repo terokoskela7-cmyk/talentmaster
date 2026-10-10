@@ -177,7 +177,7 @@ describe('selainpolku (window-globaalit, ei require)', () => {
     const lataa = (f, vie) => vm.runInContext(readFileSync(join(juuri, f), 'utf8') + '\n;' + (vie || ''), ikkuna);
     lataa('lib/tm_eerikkila_normit.js');   // EI manuaalisia this.X=-vientejä: oikeassa selaimessa const-vakiot (HH_TESTI_MAP) ovat lexikaalisia, eivät window-ominaisuuksia
     lataa('lib/tm_joukkue.js'); lataa('lib/tm_phv_tila.js'); lataa('lib/tm_idp.js');
-    lataa('lib/tm_koti_luvut.js'); lataa('lib/tm_joukkuesaanto.js'); lataa('lib/tm_tekniikka.js'); lataa('lib/tm_fyysinen.js');
+    lataa('lib/tm_koti_luvut.js'); lataa('lib/tm_normisto.js'); lataa('lib/tm_joukkuesaanto.js'); lataa('lib/tm_tekniikka.js'); lataa('lib/tm_fyysinen.js');
     const p = pel({ kasirata: 1 }, { phv: 'POST' }), q = pel({ lin30m: 1 });
     expect(ikkuna.tmFyysinenPelaaja(p, NYT)).toMatchObject({ tila: 'kehityskohde', osat: ['ketteryys'] }); expect(ikkuna.tmFyysinenPelaaja(q, NYT)).toMatchObject({ tila: 'neutraali', kypsyysMittaamatta: true });
     expect(ikkuna.TM_FYSINEN.tmFyysinenJoukkueLuokka([p], NYT)).toMatchObject({ luokka: 'kehityskohde' });
