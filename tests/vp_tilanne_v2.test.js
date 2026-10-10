@@ -8,7 +8,7 @@ const VP = readFileSync(new URL('../TalentMaster_VP_v25.html', import.meta.url),
 const teksti = (h) => h.replace(/<[^>]+>/g, ' ').replace(/&quot;/g, '"').replace(/\s+/g, ' '), t = (x) => x;
 const tila = (nimi, muokkaa) => { const d = F.lataa(nimi, NYT); if (muokkaa) muokkaa(d); const m = TT.tmTilanneMalli(d.syote); return { d, m, h: TT.tmTilanneHTML(m, { t, fn: { joukkue: 'jk', esityslista: 'es', hyvaksy: 'ok', muokkaa: 'mu', hylkaa: 'hy', aloitaJaksot: 'aj', valmentaja: 'va', auki: 'au', testijakso: 'te', ryhmat: 'ry', rae: 'ra' } }) }; };
 const P = (o) => Object.assign({ joukkue: 'P12 Demo', tyyppi: 'alle_normin', osaAlue: 'tekniikka', vakavuus: 'amber', arvo: 2, teema: 'x', alaraja: false, kypsyysEstetty: null }, o || {});
-const huom = (poikkeamat, mitattu) => { const d = F.lataa('kypsa', NYT); d.syote.poikkeamat = poikkeamat; if (mitattu) d.syote.mitattu = mitattu; return TT.tmTilanneMalli(d.syote).huomiot; };
+const huom = (poikkeamat, mitattu) => { const d = F.lataa('kypsa', NYT); d.syote.poikkeamat = poikkeamat; d.syote.tekniikka = undefined; /* rakennetestit syöttävät poikkeamat suoraan; tm_tekniikka-polku: tm_tekniikka_kytkenta.test.js */ if (mitattu) d.syote.mitattu = mitattu; return TT.tmTilanneMalli(d.syote).huomiot; };
 
 describe('D151 · otsikko ja tulkintalause; D170 · Käynnistys-vaiheessa ei signaalikorttia', () => {
   it('Käynnistys (pilotti 1/15): "Kausi on alussa." + lause; EI signaalikorttia, EI täytettyä nappia ("Aloita jaksot" on Kodissa)', () => {
@@ -31,10 +31,10 @@ describe('D151 · otsikko ja tulkintalause; D170 · Käynnistys-vaiheessa ei sig
 describe('D148 · huomiot: asian mukaan ryhmitelty (≥ 3 joukkuetta = yksi rivi), selkokielellä', () => {
   const T = (n) => ({ nimi: n, pvm: '2026-10-07', ms: Date.UTC(2026, 9, 7) }), tuoreet = ['P10', 'P11', 'P12', 'P13', 'P14', 'P15', 'P16', 'T12'].map((x) => T(x + ' Demo'));
   const html = (hu, auki) => teksti(TT.tmTilanneHTML(Object.assign(TT.tmTilanneMalli(F.lataa('kypsa', NYT).syote), { huomiot: hu }), { t, fn: {}, auki: auki || {} }));
-  it('sama asia kolmella joukkueella → YKSI rivi "Tekniikka alle ikätason · 3 joukkuetta" tunnisteineen; kahden joukkueen asia jää joukkuekohtaisiksi riveiksi', () => {
+  it('sama asia kolmella joukkueella → YKSI rivi "Tekniikka kehityskohteena · 3 joukkuetta" tunnisteineen; kahden joukkueen asia jää joukkuekohtaisiksi riveiksi', () => {
     const kolme = huom(['P10 Demo', 'P11 Demo', 'P12 Demo'].map((j) => P({ joukkue: j })), tuoreet); expect(kolme).toHaveLength(1); expect(kolme[0]).toMatchObject({ tyyppi: 'ryhma', kind: 'tekniikka', n: 3 }); expect(kolme[0].joukkueet.map((x) => x.tunniste)).toEqual(['P10', 'P11', 'P12']);
     const kaksi = huom(['P10 Demo', 'P11 Demo'].map((j) => P({ joukkue: j })), tuoreet); expect(kaksi.map((x) => x.tyyppi)).toEqual(['joukkue', 'joukkue']);
-    expect(html(kolme)).toContain('Tekniikka alle ikätason · 3 joukkuetta');
+    expect(html(kolme)).toContain('Tekniikka kehityskohteena · 3 joukkuetta');
   });
   it('ryhmän tunnisteet D144:llä: enintään kuusi + "+N"; rivi on <details> ja avaa listan joukkueista (jokainen avaa joukkueen); yksittäinen asia ryhmästä pois joukkuerivistä', () => {
     const kymmenen = ['P10', 'P11', 'P12', 'P13', 'P14', 'P15', 'P16', 'T12'].concat(['P9', 'T9']).map((x) => x + ' Demo'), hu = huom(kymmenen.map((j) => P({ joukkue: j })), kymmenen.map(T));
@@ -45,7 +45,7 @@ describe('D148 · huomiot: asian mukaan ryhmitelty (≥ 3 joukkuetta = yksi rivi
   it('joukkueen jäljelle jäävät asiat: Tekniikka ryhmässä, kärkipelaajat jää joukkuerivinä; tila = asioiden nimet ("tekniikka · kärkipelaajat"), ei "2 asiaa"', () => {
     const rivit = ['P10 Demo', 'P11 Demo', 'P12 Demo'].map((j) => P({ joukkue: j })).concat([P({ joukkue: 'P10 Demo', tyyppi: 'talenttiydin', osaAlue: null })]), hu = huom(rivit, tuoreet);
     expect(hu.map((x) => x.tyyppi + ':' + (x.kind || x.kinds.join()))).toEqual(['ryhma:tekniikka', 'joukkue:karki']);
-    const yksi = huom([P(), P({ tyyppi: 'talenttiydin', osaAlue: null })], tuoreet), x = html(yksi); expect(x).toContain('Tekniikka ja kärkipelaajien taso alle ikätason'); expect(x).toContain('tekniikka · kärkipelaajat'); expect(x).not.toMatch(/\d asiaa/);
+    const yksi = huom([P(), P({ tyyppi: 'talenttiydin', osaAlue: null })], tuoreet), x = html(yksi); expect(x).toContain('Tekniikka kehityskohteena. kärkipelaajien taso alle ikätason'); expect(x).toContain('tekniikka · kärkipelaajat'); expect(x).not.toMatch(/\d asiaa/);
   });
   it('rivi avaa joukkueen (koko rivi on nappi, aria-label); tunniste lyhyt; yläotsikko ja määrä "N / M"', () => {
     const { m, h } = tila('pilotti'), x = teksti(h); expect(h).toMatch(/<button type="button" class="tt-it" aria-label="[^"]+: [^"]+" onclick="jk\('[^']+'\)">/); expect(x).toContain('Joukkueet, jotka tarvitsevat huomiota'); expect(x).toContain(m.huomiot.length + ' / ' + m.huomiot.length);
@@ -66,7 +66,7 @@ describe('D148 · huomiot: asian mukaan ryhmitelty (≥ 3 joukkuetta = yksi rivi
     expect(huom([P({ kypsyysEstetty: { n: 8, yht: 12 } })])).toHaveLength(0);
     expect(huom([P({ osaAlue: 'kiihdytys', alaraja: true })])[0]).toMatchObject({ kinds: ['alaraja'] }); expect(html(huom([P({ osaAlue: 'kiihdytys', alaraja: true })]))).toContain('tarkista mittaus'); expect(html(huom([P({ tyyppi: 'laskeva', osaAlue: null })]))).toContain('kuormitus?');
   });
-  it('ei huomioita → rauhallinen lause', () => { const x = teksti(tila('kypsa', (d) => { d.syote.poikkeamat = []; }).h); expect(x).toContain('Ei huomioita — kaikki joukkueet odotetulla tasolla.'); });
+  it('ei huomioita → rauhallinen lause', () => { const x = teksti(tila('kypsa', (d) => { d.syote.poikkeamat = []; d.syote.tekniikka = []; }).h); expect(x).toContain('Ei huomioita — kaikki joukkueet odotetulla tasolla.'); });
   it('järjestys: ryhmä/amber ensin, vanha mittaus viimeiseksi', () => {
     const vanha = { nimi: 'P10 Demo', pvm: '2025-08-01', ms: Date.UTC(2025, 7, 1) }, tuore = (n) => ({ nimi: n, pvm: '2026-10-07', ms: Date.UTC(2026, 9, 7) }), hu = huom([P({ joukkue: 'P10 Demo' }), P({ joukkue: 'P13 Demo', osaAlue: 'voima', alaraja: false }), P({ joukkue: 'P14 Demo', tyyppi: 'talenttiydin', osaAlue: null })], [vanha, tuore('P13 Demo'), tuore('P14 Demo')]);
     expect(hu[hu.length - 1].joukkue).toBe('P10 Demo');
@@ -75,8 +75,10 @@ describe('D148 · huomiot: asian mukaan ryhmitelty (≥ 3 joukkuetta = yksi rivi
 
 describe('D149 · ehdotus = lause + tunnisteet; listan alkio; enintään 3; Ota käyttöön + ⋯', () => {
   const eh = (n) => ({ ids: ['i' + n], signaali: 'tki_alhainen', luotu: NYT - DAY, teksti: 'raaka', joukkueet: ['P9 Demo', 'P10 Demo'] });
+  /* tki_alhainen tulee nyt YHDESTÄ määritelmästä (lib/tm_tekniikka.js) → fixturessa vain kehityskohdejoukkueet; tässä pakotetaan 14 joukkueen ehdotus tunnistelistan ja +N:n testaamiseksi */
+  const neljatoista = (d) => { const L = d.joukkueDocs.slice(0, 14).map((j) => j.nimi); d.syote.ehdotukset[0] = Object.assign({}, d.syote.ehdotukset[0], { joukkueet: L, ids: L.map((_, i) => 'e0_' + i), signaali: 'tki_alhainen' }); };
   it('otsikko teonsanalla ("Tekniikkaharjoittelua 14 joukkueelle"), perustelu yhdellä rivillä, uniikit tunnisteet D144:llä', () => {
-    const { m, h } = tila('pilotti'), x = teksti(h); expect(m.ehdotuksetV2).toHaveLength(3); expect(x).toContain('Tekniikkaharjoittelua 14 joukkueelle'); expect(x).toContain('Useilla pelaajilla tekniikka alle pronssitason.'); expect(x).toContain('Harjoitettavuuskartoitus 15 joukkueelle'); expect(x).toContain('Kehon valmius on kartoittamatta. Varaa kartoituspäivä.');
+    const { m, h } = tila('pilotti', neljatoista), x = teksti(h); expect(m.ehdotuksetV2).toHaveLength(3); expect(x).toContain('Tekniikkaharjoittelua 14 joukkueelle'); expect(x).toContain('Tekniikka on kehityskohteena.'); expect(x).toContain('Harjoitettavuuskartoitus 15 joukkueelle'); expect(x).toContain('Kehon valmius on kartoittamatta. Varaa kartoituspäivä.');
     expect(x).not.toMatch(/TKI <|Fokusoi|\(TKI/); const e0 = m.ehdotuksetV2[0]; expect(new Set(e0.tunnisteet.map((y) => y.tunniste)).size).toBe(e0.tunnisteet.length);
   });
   it('ehdotus on LISTAN ALKIO (ei omaa korttia): .tt-eit; otsikko DM Sans --fs-lead 600 (D169: listan alkion otsikko), ei Cormorant 26', () => {
@@ -85,10 +87,10 @@ describe('D149 · ehdotus = lause + tunnisteet; listan alkio; enintään 3; Ota 
     const CL = readFileSync(new URL('../CLAUDE.md', import.meta.url), 'utf8'); expect(CL).toContain('| **Listan alkion otsikko** (ehdotus, huomio) | **DM Sans 600** | `--fs-lead` | `--ink` |');
   });
   it('tuplat pois (P12 kilpa + harraste = yksi), yli kuusi → kuusi + "+N" (livenä oli yli 20 nimeä)', () => {
-    const { h } = tila('pilotti', (d) => { d.syote.ehdotukset[0].joukkueet = d.syote.ehdotukset[0].joukkueet.concat(d.syote.ehdotukset[0].joukkueet); }); const e = h.slice(h.indexOf('id="tilanneEhdotukset"')); const ensin = e.slice(e.indexOf('tt-eit'), e.indexOf('tt-erow')); expect([...ensin.matchAll(/class="tt-tg ok"[^>]*>([^<]+)</g)].map((m) => m[1])).toEqual(['P8', 'P9', 'P10', 'P11', 'P12', 'T12', '+8']);
+    const { h } = tila('pilotti', (d) => { neljatoista(d); d.syote.ehdotukset[0].joukkueet = d.syote.ehdotukset[0].joukkueet.concat(d.syote.ehdotukset[0].joukkueet); }); const e = h.slice(h.indexOf('id="tilanneEhdotukset"')); const ensin = e.slice(e.indexOf('tt-eit'), e.indexOf('tt-erow')); expect([...ensin.matchAll(/class="tt-tg ok"[^>]*>([^<]+)</g)].map((m) => m[1])).toEqual(['P8', 'P9', 'P10', 'P11', 'P12', 'T12', '+8']);
   });
   it('yksi "Ota käyttöön" (reunanappi .kt-btn.q) + ⋯-valikko (Muokkaa, Hylkää); toiminnot olemassa oleviin käsittelijöihin id-listalla', () => {
-    const h = tila('pilotti').h, e = h.slice(h.indexOf('id="tilanneEhdotukset"')); expect((e.match(/class="kt-btn q sm"/g) || []).length).toBe(3); expect(e).toContain('onclick="ok(\'e0_0,e0_1'); expect(e).toMatch(/<details class="tt-kebab"><summary aria-label="Muokkaa · Hylkää"/); expect(e).toContain('onclick="mu(') && expect(e).toContain('onclick="hy(');
+    const h = tila('pilotti', neljatoista).h, e = h.slice(h.indexOf('id="tilanneEhdotukset"')); expect((e.match(/class="kt-btn q sm"/g) || []).length).toBe(3); expect(e).toContain('onclick="ok(\'e0_0,e0_1'); expect(e).toMatch(/<details class="tt-kebab"><summary aria-label="Muokkaa · Hylkää"/); expect(e).toContain('onclick="mu(') && expect(e).toContain('onclick="hy(');
     expect(e).not.toContain('>Hyväksy<'); expect((h.match(/class="kt-btn"/g) || []).length).toBe(0);
   });
   it('enintään 3 ("3 / 5"); "+2 muuta ehdotusta" on LINKKI joka avaa kaikki paikallaan ("5 / 5", ei linkkiä); kuittaamaton vanhenee 14 pv:ssä', () => {

@@ -13,7 +13,7 @@ const spec = (nimi) => JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'fi
 const lyhyt = (nimi) => { const m = /[A-Za-zÅÄÖ]?\d{1,2}/.exec(String(nimi)); return m ? m[0].toUpperCase() : String(nimi); };
 /* D144: uniikit lyhyet tunnisteet, enintään kuusi + "+N" */
 const tunnisteLista = (nimet) => { const u = nimet.map(lyhyt).filter((x, i, a) => a.indexOf(x) === i); return u.slice(0, 6).join(', ') + (u.length > 6 ? ' +' + (u.length - 6) : ''); };
-const TEKSTIT = { tki_alhainen: 'pelaajia alle pronssitason. Fokusoi tekniikkaharjoittelu.', hh_taso_alhainen: 'pelaajia alle Eerikkilä-tason. Aloita yksilöllinen ohjelma.', flei_kartoitus_puuttuu: 'harjoitettavuuskartoitus (kehon valmius) tekemättä. Varaa kartoituspäivä.', suunta_lasku: 'H-H taso laskussa. Tarkista kuormitus.', tki_lahella_merkkia: 'pelaajia lähellä pronssia. Kohdenna omatoimiharjoittelu.' };
+const TEKSTIT = { tki_alhainen: 'tekniikka kehityskohteena. Fokusoi tekniikkaharjoittelu.', hh_taso_alhainen: 'pelaajia alle Eerikkilä-tason. Aloita yksilöllinen ohjelma.', flei_kartoitus_puuttuu: 'harjoitettavuuskartoitus (kehon valmius) tekemättä. Varaa kartoituspäivä.', suunta_lasku: 'H-H taso laskussa. Tarkista kuormitus.', tki_lahella_merkkia: 'pelaajia lähellä pronssia. Kohdenna omatoimiharjoittelu.' };
 
 /* ── realistiset tekniikkamittaukset pelaajille (PR 1 / tekniikan määritelmä): EI vakioita (ei d2_taso = 2, ei saman TKI:n koko joukkueelle).
    · TKI (8–13-vuotiaat, joukkueella tki-speksi): pelaajakohtainen hajonta joukkueen keskiarvon ka ympärillä, tki_pvm = tki.pvmSitten.
@@ -70,21 +70,26 @@ function lataa(tila, nytMs) {
   const kalenteri = s.kalenteri.map((e) => { const o = { nimi: e.nimi || '', alkaa: nyt + e.h * HR }; if (e.tyyppi) o.tyyppi = e.tyyppi; if (e.j != null && J[e.j]) { o.joukkue = J[e.j].id; o.joukkueet = [J[e.j].id]; o.joukkue_nimi = J[e.j].nimi; } return o; });
   if (s.palaveriPv != null) kalenteri.push({ nimi: 'Jaksopalaveri', tyyppi: 'jaksopalaveri', alkaa: nyt + s.palaveriPv * DAY, poistettu: false, id: 'jp1' });
   const tapahtumat = J.length ? [{ id: 't1', tila: 'suunniteltu', nimi: 'Testijakso', pvm_alku: iso(nyt + 24 * DAY), pvm_loppu: iso(nyt + 31 * DAY) }].concat((s.testiJoukkueet || []).map((ji, i) => ({ id: 't2_' + i, tila: 'suunniteltu', nimi: 'Testipäivä', joukkue: J[ji].id, pvm_alku: iso(nyt + (25 + i) * DAY), pvm_loppu: iso(nyt + (25 + i) * DAY) }))) : [];
-  const toimenpiteet = []; s.ehdotukset.forEach((e, k) => e.joukkueet.forEach((ji) => toimenpiteet.push({ id: 'e' + k + '_' + ji, signaali: e.signaali, teksti: J[ji].nimi + ' — ' + TEKSTIT[e.signaali], joukkue: J[ji].nimi, luotu: { seconds: (nyt - e.ikaPv * DAY) / 1000 } })));
+  /* Tekniikka kehityskohteena (PR 2): YKSI määritelmä lib/tm_tekniikka.js — sama tulos Tilanteelle, Kodille ja (testeissä) ehdotukselle */
+  const TK = require('../../lib/tm_tekniikka.js'), tekniikkaRivit = joukkueDocs.map((jd) => Object.assign({ nimi: jd.nimi }, TK.tmJoukkueTekniikka(pelaajat, joukkueDocs, jd.id, nyt))).filter((r) => r.yht > 0), tekniikka = TK.tmTekniikkaYhteenveto(pelaajat, joukkueDocs, nyt);
+  /* Ehdotus tki_alhainen = SAMA funktio kuin huomio (PR 2): joukkueet = ne, joiden tekniikka on kehityskohteena. Muut ehdotukset speksistä sellaisenaan. */
+  const tekKehit = new Set(tekniikkaRivit.filter((r) => r.luokka === 'kehityskohde').map((r) => r.joukkueId));
+  const ehdSpec = s.ehdotukset.map((e) => (e.signaali === 'tki_alhainen' ? Object.assign({}, e, { joukkueet: J.map((j, i) => (tekKehit.has(j.id) ? i : -1)).filter((i) => i >= 0) }) : e)).filter((e) => e.joukkueet.length > 0);
+  const toimenpiteet = []; ehdSpec.forEach((e, k) => e.joukkueet.forEach((ji) => toimenpiteet.push({ id: 'e' + k + '_' + ji, signaali: e.signaali, teksti: J[ji].nimi + ' — ' + TEKSTIT[e.signaali], joukkue: J[ji].nimi, luotu: { seconds: (nyt - e.ikaPv * DAY) / 1000 } })));
   /* Tilanne-syöte (tmTilanneMalli) */
   const aktJ = J.filter((j) => j.n > 0).sort((a, b) => a.ika - b.ika || a.nimi.localeCompare(b.nimi));
   const joukkueet = aktJ.map((j) => ({ jid: j.id, nimi: j.nimi, ika: j.ika, n: j.n, voimassa: !!j.jakso, jakso: j.jakso ? { nimi: j.jakso.nimi, a0: idx - j.jakso.alkuVkSitten, a1: idx - j.jakso.alkuVkSitten + j.jakso.N - 1, N: j.jakso.N } : null, katselmusAuki: !!j.katsAuki, katselmusPv: j.katsPv }));
   const mitattu = aktJ.map((j) => ({ nimi: j.nimi, pvm: j.tki ? iso(nyt - j.tki.pvmSitten * DAY) : null, ms: j.tki ? nyt - j.tki.pvmSitten * DAY : null }));
   const poikkeamat = s.huomiot.filter((h) => J[h.joukkue] && J[h.joukkue].n > 0).map((h) => Object.assign({}, h, { joukkue: J[h.joukkue].nimi }));
-  const ehdotukset = s.ehdotukset.map((e) => ({ joukkueet: e.joukkueet.map((ji) => J[ji].nimi), ids: e.joukkueet.map((ji) => 'e' + s.ehdotukset.indexOf(e) + '_' + ji), teksti: tunnisteLista(e.joukkueet.map((ji) => J[ji].nimi)) + ' — ' + TEKSTIT[e.signaali], luotu: { seconds: (nyt - e.ikaPv * DAY) / 1000 }, signaali: e.signaali }));
+  const ehdotukset = ehdSpec.map((e) => ({ joukkueet: e.joukkueet.map((ji) => J[ji].nimi), ids: e.joukkueet.map((ji) => 'e' + ehdSpec.indexOf(e) + '_' + ji), teksti: tunnisteLista(e.joukkueet.map((ji) => J[ji].nimi)) + ' — ' + TEKSTIT[e.signaali], luotu: { seconds: (nyt - e.ikaPv * DAY) / 1000 }, signaali: e.signaali }));
   const njakso = joukkueet.filter((j) => j.voimassa).length;
   const syote = { nytMs: nyt, joukkueet, seura: { njakso, joukkueita: joukkueet.length }, katselmusKausi: s.katsKausi, mitattu, kausiAlkuMs: Date.UTC(vuosi, 7, 1), testijakso: joukkueet.length ? { a0: idx + 4, a1: idx + 5, nimi: 'Testijakso' } : null,
-    palaveri: s.palaveriPv != null && joukkueet.length ? { ms: nyt + s.palaveriPv * DAY, id: 'jp1' } : null, poikkeamat, ehdotukset, idpN: s.idpN, talentit: s.talentit,
+    palaveri: s.palaveriPv != null && joukkueet.length ? { ms: nyt + s.palaveriPv * DAY, id: 'jp1' } : null, poikkeamat, tekniikka: tekniikkaRivit, ehdotukset, idpN: s.idpN, talentit: s.talentit,
     rae: pelaajat.length ? { n: s.raeN != null ? s.raeN : Math.round(pelaajat.length * .9), yht: pelaajat.length, riittava: (s.raeN != null ? s.raeN : pelaajat.length * .9) >= 30, pct: { Q1: 38, Q2: 28, Q3: 20, Q4: 14 }, signaali: null } : null,
     d1: joukkueet.length ? { riittava: s.d1Joukkueita * 3 >= joukkueet.length * 2, joukkueN: s.d1Joukkueita, joukkueYht: joukkueet.length } : null };
   const jaksoVk = {}; J.forEach((j) => { if (j.jakso && j.jakso.alkuVkSitten + 1 <= j.jakso.N) jaksoVk[j.id] = { vk: j.jakso.alkuVkSitten + 1, N: j.jakso.N }; });
   const viestit = (s.viestit || []).map((v, i) => ({ id: 'v' + i, osapuoli: 'valm' + i, nimi: lyhyt(J[v.joukkue].nimi), teksti: v.teksti, ms: nyt - v.hSitten * HR, lukematon: true, saapunut: true }));
-  return { nyt, spec: s, jaksoVk, viestit, koosteet, ensin: vkSitten(s.ensinVkSitten), pelaajat, joukkueDocs, nimet, kalenteri, tapahtumat, toimenpiteet, syote };
+  return { nyt, spec: s, jaksoVk, viestit, koosteet, ensin: vkSitten(s.ensinVkSitten), pelaajat, joukkueDocs, nimet, kalenteri, tapahtumat, toimenpiteet, syote, tekniikka };
 }
 
 /* Kodin render lib-tasolla (VP:n _renderKotiPulssi, ilman DOM:ia): vaihe lasketaan (D164) → Käynnistys tai Rytmi (lib/tm_vp_koti.js). Palauttaa main + rail -HTML:n yhtenä merkkijonona. o.kieli = valittu kieli (viikonpäivälyhenteet), o.t = käännösfunktio, o.viestit/o.auki. */
@@ -93,7 +98,7 @@ function kotiHTML(d, o) {
   const KO = require('../../lib/tm_vp_koti.js'), viim = d.koosteet[d.koosteet.length - 1] || {};
   const m = PU.tmPulssiRivit(d.koosteet, { nytMs: d.nyt, ensimmainenVk: d.ensin, katselmusPv: {}, jaksoVk: d.jaksoVk, kuittaukset: [] });
   const kal = d.kalenteri.map((e) => ({ nimi: e.nimi, alkaa: e.alkaa, tyyppi: e.tyyppi, joukkue: e.joukkue, joukkueet: e.joukkueet, joukkue_nimi: e.joukkue_nimi })), vaihe = KO.tmKotiVaihe(m);
-  const env = { yhteensa: viim.yhteensa, koosteJ: viim.joukkueet, testit: d.tapahtumat, nimet: d.nimet, kalenteri: kal, viestit: o.viestit || d.viestit, nytMs: d.nyt, seuraNimi: o.seuraNimi || 'Demo FC' };
+  const env = { yhteensa: viim.yhteensa, koosteJ: viim.joukkueet, testit: d.tapahtumat, nimet: d.nimet, kalenteri: kal, viestit: o.viestit || d.viestit, nytMs: d.nyt, seuraNimi: o.seuraNimi || 'Demo FC', tekniikka: d.tekniikka };
   const op = Object.assign({ t, esc, kieli: o.kieli, auki: o.auki, pika: [{ teksti: 'Arvioi harjoitus', fn: 'a' }, { teksti: 'Kirjaa mentorointi', fn: 'b' }, { teksti: 'Uusi tapahtuma', fn: 'c' }], fn: { aloitaJaksot: 'aj', kutsu: 'ku', testit: 'te', joukkue: 'j', viesti: 'vi', tilanne: 'ti', kalenteri: 'ka', paivita: 'pa', demo: 'de', tuo: 'tu', auki: 'au', opas: 'op', kuittaa: 'kt', valmentaja: 'va' } });
   const r = vaihe === 'kaynnistys' ? KO.tmKotiKaynnistysHTML(KO.tmKotiKaynnistysMalli(m, env), op) : KO.tmKotiRytmiHTML(KO.tmKotiRytmiMalli(m, env), op);
   return r.main + r.rail;

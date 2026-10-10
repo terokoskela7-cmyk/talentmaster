@@ -96,7 +96,8 @@ describe('D168 · fixture-tilat', () => {
     expect(F.TILAT).toEqual(['tyhja', 'pilotti', 'kypsa', 'kuormitus']);
     const p = F.lataa('pilotti', NYT); expect(p.joukkueDocs).toHaveLength(17); expect(p.joukkueDocs.filter((j) => !p.pelaajat.some((x) => x.joukkueet[0] === j.id))).toHaveLength(2);
     expect(p.pelaajat).toHaveLength(160); expect(p.pelaajat.filter((x) => x.suostumusTila === 'annettu')).toHaveLength(4); expect(p.syote.poikkeamat.length).toBeGreaterThanOrEqual(6); expect(p.spec.ehdotukset).toHaveLength(4); expect(Math.max(...p.spec.ehdotukset.map((e) => e.joukkueet.length))).toBeGreaterThanOrEqual(14);
-    expect(p.syote.ehdotukset[0].teksti).toMatch(/^[^—]*\+8 — /);   // D144: kuusi + "+N", ei tuplia
+    /* PR 2: ehdotus tki_alhainen = SAMA määritelmä kuin huomio (lib/tm_tekniikka.js) → joukkuemäärä = kehityskohdejoukkueet, ei speksin käsin annettu 14 */
+    const tkE = p.syote.ehdotukset.find((e) => e.signaali === 'tki_alhainen'); expect(tkE.joukkueet).toHaveLength(p.tekniikka.kehityskohde); expect(p.tekniikka.kehityskohde).toBeGreaterThan(0);
   });
   it('tyhjä: 0 joukkuetta; kuormitus: 40 joukkuetta, pitkät nimet; kypsä: 9 joukkuetta', () => {
     expect(F.lataa('tyhja', NYT).joukkueDocs).toHaveLength(0); expect(F.lataa('kuormitus', NYT).joukkueDocs).toHaveLength(40); expect(F.lataa('kuormitus', NYT).joukkueDocs.some((j) => j.nimi.length > 30)).toBe(true); expect(F.lataa('kypsa', NYT).joukkueDocs).toHaveLength(9);
