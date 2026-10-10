@@ -74,3 +74,8 @@ Mitattu funktioiden pituuksilla ja tasosanojen (taso, TKI, d1/d2, kehityskohde, 
 2. **VP · joukkueen syvänäkymä** — `avaaJoukkueSyvanakyma` + `_jsvFyysinenHTML` / `_jsvTavoiteHTML` / `_jsvTukiHTML` (~700 riviä yhteensä; ~220 tasosanaa): joukkuetason tavoite- ja fyysisten lukujen laskenta. Siirto: `lib/tm_joukkue_syvanakyma.js` (malli) → sama funktio palvelinkoosteelle (§7).
 3. **Master · Kausi ja H-H/TKI-detail** — `renderSeason` (~250 riviä), `_buildHHDetail` (~120) ja `_buildTKIDetail` (~150), `_mPinfoOsat` (~290; tasoväitteet): D1/D2-histogrammit, komposiitit, tasoväritys ja TKI/H-H-erittelyt. Siirto: `lib/tm_kausi_malli.js` (komposiitti + histogrammit; jatkaa PR 3:n `d2KomposiittiTaso`-linjaa) ja detail-mallit.
 Lisämaininta (4.): VP:n signaalilogiikka (`TP_SIGNAALIT`, `renderSignaalit`, `laskeHeroInsight`) — osin jo libissä (tm_tekniikka/tm_fyysinen), loput `tarkista`-funktiot kannattaa siirtää samaan jaettuun muotoon.
+
+## 10. Avoimet (päätös 10.10.2026)
+- **Rules (`konfiguraatio/normit`, kirjoitus SA/VP/UTJ + testi, ettei toisen seuran VP voi kirjoittaa) ja `env.asetukset`-luku VP:hen ja Masteriin siirtyvät 1.11. jälkeen** ja tehdään **yhdessä seuran asetusnäkymän kanssa**; näkymä suunnitellaan ensin **mockupina**. Perustelu: ilman näkymää kukaan ei kirjoita asetuksia, joten Rules-muutos ja lukukytkentä eivät tuo nyt mitään; kaikki seurat käyttävät oletuksia, mikä on käyttöönotossa oikein.
+- Tavoitetasojen käyttö laskennassa suunnitellaan erikseen (ei tähän sarjaan).
+- Seuraava toteutus: PR 4 (K14, harjoitelogiikka) — kohdevalinta samaan määritelmään `tm_tekniikka.js`:n ja `tm_fyysinen.js`:n kautta.
