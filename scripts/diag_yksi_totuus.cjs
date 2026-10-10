@@ -49,15 +49,16 @@ async function main() {
     for (let i = 0; i < pelaajat.length; i += 25) {
       await Promise.all(pelaajat.slice(i, i + 25).map(async (p) => {
         const s = await db.collection('seurat').doc(sid).collection('pelaajat').doc(p.id).collection('testitulokset').get();
-        tul[p.id] = s.docs.map((d) => { const x = d.data(); return { id: d.id, testauspvm: x.testauspvm, testauspvm_teksti: x.testauspvm_teksti, kausi: x.kausi, lahde: x.lahde, tuotu: x.tuotu, tki: x.tki, protokolla: x.protokolla }; });
+        tul[p.id] = s.docs.map((d) => { const x = d.data(); return { id: d.id, testauspvm: x.testauspvm, testauspvm_teksti: x.testauspvm_teksti, kausi: x.kausi, lahde: x.lahde, tuotu: x.tuotu, tki: x.tki, protokolla: x.protokolla, smP: x.testit && x.testit.sm_pallo != null ? parseFloat(x.testit.sm_pallo) : null, smJ: x.testit && x.testit.sm_juoksu != null ? parseFloat(x.testit.sm_juoksu) : null }; });
       }));
     }
     /* tapahtumapohjaiset tulokset (testitapahtumat/{id}/tulokset/{pelaajaId}) — EI pelaajan testitulokset-alikokoelmassa (Excel_Tuonti tapahtuma-moodi, Testaus_v9) */
     const evs = await db.collection('seurat').doc(sid).collection('testitapahtumat').get();
-    let evTulosDocs = 0;
+    let evTulosDocs = 0; const evPaivat = new Set();
     for (const ev of evs.docs) {
       const e = ev.data(), rs = await ev.ref.collection('tulokset').get();
-      rs.docs.forEach((r) => { const x = r.data(), pid = x.pelaajaId || r.id; (tul[pid] = tul[pid] || []).push({ id: 'tapahtuma:' + ev.id, testauspvm: x.testauspvm || e.pvm, kausi: x.kausi || e.kausi, lahde: 'tapahtumapohja', tki: x.tki, protokolla: x.protokolla || e.protokolla }); evTulosDocs++; });
+      [e.pvm, e.pvm_alku, e.pvm_loppu].forEach((v) => { const i = iso(v); if (i) evPaivat.add(i); });
+      rs.docs.forEach((r) => { const x = r.data(), pid = x.pelaajaId || r.id; (tul[pid] = tul[pid] || []).push({ id: 'tapahtuma:' + ev.id, testauspvm: x.testauspvm || e.pvm, kausi: x.kausi || e.kausi, lahde: 'tapahtumapohja', tki: x.tki, protokolla: x.protokolla || e.protokolla, smP: x.testit && x.testit.sm_pallo != null ? parseFloat(x.testit.sm_pallo) : null, smJ: x.testit && x.testit.sm_juoksu != null ? parseFloat(x.testit.sm_juoksu) : null }); evTulosDocs++; });
     }
     console.log('\n════ ' + sid + ': ' + pelaajat.length + ' pelaajaa, ' + joukkueDocs.length + ' joukkuetta · testitapahtumia ' + evs.size + ' (tulosdokumentteja ' + evTulosDocs + ') · pelaajan omia testitulokset-dokumentteja ' + pelaajat.reduce((a, p) => a + tul[p.id].filter((t) => t.lahde !== 'tapahtumapohja').length, 0));
     /* A1 · TK-tulosdokumentit kausittain × päivän lähde */
@@ -76,6 +77,16 @@ async function main() {
       const m = {}; let n = 0; pelaajat.forEach((p) => { if (p[a] == null) return; n++; inc(m, muoto(p[b])); });
       if (n) console.log('  muoto ' + b.padEnd(8) + '(' + a + ' ' + n + ' arvoa): ' + JSON.stringify(m));
     });
+    /* recalc-päiväklusterit: 10 yleisintä *_pvm-päivää, onko päivälle testitapahtuma / testitulokset-dokumentti */
+    const kaikkiTul = [].concat(...pelaajat.map((p) => tul[p.id])), tulPaivat = new Set(kaikkiTul.map((t) => iso(t.testauspvm)).filter(Boolean));
+    [['tsi_pvm', 'sm_pallo_viimeisin'], ['d2_pvm', 'd2_taso'], ['d1_pvm', 'd1_taso']].forEach(([b, a]) => {
+      const h = {}; pelaajat.forEach((p) => { if (p[a] == null) return; const i = iso(p[b]); inc(h, i || '(ei jäsenny)'); });
+      const top = Object.entries(h).sort((x, y) => y[1] - x[1]).slice(0, 10);
+      if (top.length) console.log('  ' + b + ' yleisimmät päivät: ' + top.map(([d, n]) => d + ':' + n + ' [tapahtuma ' + (evPaivat.has(d) ? 'kyllä' : 'ei') + ', tulosdok ' + (tulPaivat.has(d) ? 'kyllä' : 'ei') + ']').join(' · '));
+      const ilman = Object.entries(h).filter(([d]) => !evPaivat.has(d) && !tulPaivat.has(d)); console.log('    ' + b + ': pelaajia päivällä jolle ei tapahtumaa eikä tulosdokumenttia: ' + ilman.reduce((q, [, n]) => q + n, 0) + '/' + Object.values(h).reduce((q, n) => q + n, 0) + ' (' + ilman.length + ' eri päivää)');
+    });
+    { let n = 0, loyt = 0, tasmaa = 0, polut = {}; pelaajat.forEach((p) => { if (p.sm_pallo_viimeisin == null) return; n++; const v = parseFloat(p.sm_pallo_viimeisin), d = tul[p.id].filter((t) => t.smP != null); if (d.length) { loyt++; if (d.some((t) => Math.abs(t.smP - v) < 1e-9)) tasmaa++; d.forEach((t) => inc(polut, t.lahde === 'tapahtumapohja' ? 'testitapahtumat/*/tulokset' : 'pelaajan testitulokset')); } });
+      console.log('  sm_pallo_viimeisin ' + n + ' arvoa: löytyy dokumentista (testit.sm_pallo) ' + loyt + ', arvo täsmää ' + tasmaa + ' · polut ' + JSON.stringify(polut)); }
     const lahteet = {}; pelaajat.forEach((p) => { if (p.d2_taso != null) inc(lahteet, 'd2_lahde=' + (p.d2_lahde || '—')); if (p.d1_taso != null) inc(lahteet, 'd1_lahde=' + (p.d1_lahde || '—')); if (p.tsi_recalc) inc(lahteet, 'tsi_recalc'); if (p.d2_taso_recalc) inc(lahteet, 'd2_taso_recalc'); });
     if (Object.keys(lahteet).length) console.log('  kenttien lähdemerkit: ' + JSON.stringify(lahteet));
     /* B · joukkueet */
